@@ -372,7 +372,6 @@ static int adrv9002_gain_to_gainidx(int gain)
 /* lock is assumed to be held... */
 static int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy,
 				     struct adrv9002_chan *chann,
-				     const int port,
 				     const adi_adrv9001_ChannelState_e state,
 				     const bool cache_state)
 {
@@ -383,14 +382,14 @@ static int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy,
 	if (!chann->enabled)
 		return 0;
 
-	ret = adi_adrv9001_Radio_ChannelEnableMode_Get(phy->adrv9001, port,
+	ret = adi_adrv9001_Radio_ChannelEnableMode_Get(phy->adrv9001, chann->port,
 						       chann->number, &mode);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
 	/* we need to set it to spi */
 	if (mode == ADI_ADRV9001_PIN_MODE) {
-		ret = adi_adrv9001_Radio_ChannelEnableMode_Set(phy->adrv9001, port,
+		ret = adi_adrv9001_Radio_ChannelEnableMode_Set(phy->adrv9001, chann->port,
 							       chann->number,
 							       ADI_ADRV9001_SPI_MODE);
 		if (ret)
@@ -406,14 +405,14 @@ static int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy,
 	}
 
 	if (cache_state) {
-		ret = adi_adrv9001_Radio_Channel_State_Get(phy->adrv9001, port,
+		ret = adi_adrv9001_Radio_Channel_State_Get(phy->adrv9001, chann->port,
 							   chann->number,
 							   &chann->cached_state);
 		if (ret)
 			return adrv9002_dev_err(phy);
 	}
 
-	ret = adi_adrv9001_Radio_Channel_ToState(phy->adrv9001, port,
+	ret = adi_adrv9001_Radio_Channel_ToState(phy->adrv9001, chann->port,
 						 chann->number, state);
 	if (ret)
 		return adrv9002_dev_err(phy);
@@ -427,7 +426,7 @@ static int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy,
 		return 0;
 
 	/* restore enable mode */
-	ret = adi_adrv9001_Radio_ChannelEnableMode_Set(phy->adrv9001, port,
+	ret = adi_adrv9001_Radio_ChannelEnableMode_Set(phy->adrv9001, chann->port,
 						       chann->number, mode);
 	if (ret)
 		return adrv9002_dev_err(phy);
@@ -476,9 +475,7 @@ static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 		}
 
 		lo_freq.carrierFrequency_Hz = freq;
-		ret = adrv9002_channel_to_state(phy, chann, port,
-						ADI_ADRV9001_CHANNEL_CALIBRATED,
-						true);
+		ret = adrv9002_channel_to_state(phy, chann, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
 		if (ret)
 			goto unlock;
 
@@ -489,8 +486,7 @@ static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 			goto unlock;
 		}
 
-		ret = adrv9002_channel_to_state(phy, chann, port,
-						chann->cached_state, false);
+		ret = adrv9002_channel_to_state(phy, chann, chann->cached_state, false);
 unlock:
 		mutex_unlock(&phy->lock);
 
@@ -736,8 +732,7 @@ static int adrv9002_set_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 
 	mutex_lock(&phy->lock);
 
-	ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_RX,
-					ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+	ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
 	if (ret)
 		goto unlock;
 
@@ -749,8 +744,7 @@ static int adrv9002_set_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 		goto unlock;
 	}
 
-	ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_RX,
-					rx->channel.cached_state, false);
+	ret = adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state, false);
 unlock:
 	mutex_unlock(&phy->lock);
 
@@ -903,14 +897,12 @@ static int adrv9002_update_tracking_calls(struct adrv9002_rf_phy *phy,
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[i];
 
-		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_RX,
-						ADI_ADRV9001_CHANNEL_CALIBRATED,
+		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
 						true);
 		if (ret)
 			return ret;
 
-		ret = adrv9002_channel_to_state(phy, &tx->channel, ADI_TX,
-						ADI_ADRV9001_CHANNEL_CALIBRATED,
+		ret = adrv9002_channel_to_state(phy, &tx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
 						true);
 		if (ret)
 			return ret;
@@ -933,8 +925,7 @@ static int adrv9002_update_tracking_calls(struct adrv9002_rf_phy *phy,
 		if (!rx->channel.enabled)
 			goto tx_restore;
 
-		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_RX,
-						rx->channel.cached_state, false);
+		ret = adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state, false);
 		if (ret)
 			return ret;
 
@@ -942,8 +933,7 @@ tx_restore:
 		if (!tx->channel.enabled)
 			continue;
 
-		ret = adrv9002_channel_to_state(phy, &tx->channel, ADI_TX,
-						tx->channel.cached_state, false);
+		ret = adrv9002_channel_to_state(phy, &tx->channel, tx->channel.cached_state, false);
 		if (ret)
 			return ret;
 	}
@@ -1022,8 +1012,7 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 
 		mutex_lock(&phy->lock);
 		/* we must be in calibrated state */
-		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_RX,
-						ADI_ADRV9001_CHANNEL_CALIBRATED,
+		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
 						true);
 		if (ret)
 			goto unlock;
@@ -1036,9 +1025,7 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 			goto unlock;
 		}
 
-		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_RX,
-						rx->channel.cached_state,
-						false);
+		ret = adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state, false);
 unlock:
 		mutex_unlock(&phy->lock);
 
@@ -1200,8 +1187,7 @@ static int adrv9002_set_atten_control_mode(struct iio_dev *indio_dev,
 
 	mutex_lock(&phy->lock);
 	/* we must be in calibrated state */
-	ret = adrv9002_channel_to_state(phy, &tx->channel, ADI_TX,
-					ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+	ret = adrv9002_channel_to_state(phy, &tx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
 	if (ret)
 		goto unlock;
 
@@ -1212,8 +1198,7 @@ static int adrv9002_set_atten_control_mode(struct iio_dev *indio_dev,
 		goto unlock;
 	}
 
-	ret = adrv9002_channel_to_state(phy, &tx->channel, ADI_TX,
-					tx->channel.cached_state, false);
+	ret = adrv9002_channel_to_state(phy, &tx->channel, tx->channel.cached_state, false);
 unlock:
 	mutex_unlock(&phy->lock);
 
@@ -1474,37 +1459,33 @@ static struct iio_chan_spec_ext_info adrv9002_phy_tx_ext_info[] = {
 	{ },
 };
 
-static int adrv9002_channel_power_set(struct adrv9002_rf_phy *phy,
-				      struct adrv9002_chan *channel,
-				      const adi_common_Port_e port,
+static int adrv9002_channel_power_set(struct adrv9002_rf_phy *phy, struct adrv9002_chan *channel,
 				      const int val)
 {
 	int ret;
 
 	dev_dbg(&phy->spi->dev, "Set power: %d, chan: %d, port: %d\n",
-		val, channel->number, port);
+		val, channel->number, channel->port);
 
 	if (!val && channel->power) {
-		ret = adrv9002_channel_to_state(phy, channel, port,
-						ADI_ADRV9001_CHANNEL_CALIBRATED,
+		ret = adrv9002_channel_to_state(phy, channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
 						true);
 		if (ret)
 			return ret;
 
-		ret = adi_adrv9001_Radio_Channel_PowerDown(phy->adrv9001, port,
+		ret = adi_adrv9001_Radio_Channel_PowerDown(phy->adrv9001, channel->port,
 							   channel->number);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
 		channel->power = false;
 	} else if (val && !channel->power) {
-		ret = adi_adrv9001_Radio_Channel_PowerUp(phy->adrv9001, port,
+		ret = adi_adrv9001_Radio_Channel_PowerUp(phy->adrv9001, channel->port,
 							 channel->number);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
-		ret = adrv9002_channel_to_state(phy, channel, port,
-						channel->cached_state, false);
+		ret = adrv9002_channel_to_state(phy, channel, channel->cached_state, false);
 		if (ret)
 			return ret;
 
@@ -1630,7 +1611,7 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 		return 0;
 	case IIO_CHAN_INFO_ENABLE:
 		mutex_lock(&phy->lock);
-		ret = adrv9002_channel_power_set(phy, chann, port, val);
+		ret = adrv9002_channel_power_set(phy, chann, val);
 		mutex_unlock(&phy->lock);
 		return ret;
 	default:
@@ -3388,10 +3369,12 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->hal.spi = spi;
 	phy->adrv9001->common.devHalInfo = &phy->hal;
 
-	/* initialize channel numbers here since these will never change */
+	/* initialize channel numbers and ports here since these will never change */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
 		phy->rx_channels[c].channel.number = c + ADI_CHANNEL_1;
+		phy->rx_channels[c].channel.port = ADI_RX;
 		phy->tx_channels[c].channel.number = c + ADI_CHANNEL_1;
+		phy->tx_channels[c].channel.port = ADI_TX;
 	}
 
 	phy->hal.reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
