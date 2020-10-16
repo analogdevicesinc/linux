@@ -7443,7 +7443,7 @@ static int tcpm_psy_set_prop(struct power_supply *psy,
 			     const union power_supply_propval *val)
 {
 	struct tcpm_port *port = power_supply_get_drvdata(psy);
-	int ret;
+	int ret = 0;
 
 	/*
 	 * All the properties below are related to USB PD. The check needs to be
