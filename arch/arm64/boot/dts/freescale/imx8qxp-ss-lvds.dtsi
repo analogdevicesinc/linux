@@ -225,19 +225,14 @@
 				 <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_BYPASS>,
 				 <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_PHY>,
 				 <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_MST_BUS>,
-				 <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_SLV_BUS>;
+				 <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_SLV_BUS>,
+				 <&mipi_pll_div2_clk>;
 			clock-names = "pixel",
 				      "bypass",
 				      "phy_ref",
 				      "tx_esc",
-				      "rx_esc";
-			assigned-clocks = <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_PHY>,
-					  <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_MST_BUS>,
-					  <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_SLV_BUS>;
-			assigned-clock-parents = <&mipi_pll_div2_clk>,
-						 <&mipi_pll_div2_clk>,
-						 <&mipi_pll_div2_clk>;
-			assigned-clock-rates = <0>, <18000000>, <72000000>;
+				      "rx_esc",
+				      "phy_parent";
 			interrupts = <16>;
 			interrupt-parent = <&irqsteer_mipi_lvds0>;
 			power-domains = <&pd IMX_SC_R_MIPI_0>;
@@ -392,19 +387,14 @@
 				 <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_BYPASS>,
 				 <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_PHY>,
 				 <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_MST_BUS>,
-				 <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_SLV_BUS>;
+				 <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_SLV_BUS>,
+				 <&mipi_pll_div2_clk>;
 			clock-names = "pixel",
 				      "bypass",
 				      "phy_ref",
 				      "tx_esc",
-				      "rx_esc";
-			assigned-clocks = <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_PHY>,
-					  <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_MST_BUS>,
-					  <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_SLV_BUS>;
-			assigned-clock-parents = <&mipi_pll_div2_clk>,
-						 <&mipi_pll_div2_clk>,
-						 <&mipi_pll_div2_clk>;
-			assigned-clock-rates = <0>, <18000000>, <72000000>;
+				      "rx_esc",
+				      "phy_parent";
 			interrupts = <16>;
 			interrupt-parent = <&irqsteer_mipi_lvds1>;
 			power-domains = <&pd IMX_SC_R_MIPI_1>;
