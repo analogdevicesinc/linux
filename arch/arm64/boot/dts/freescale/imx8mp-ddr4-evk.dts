@@ -16,3 +16,8 @@
 &usdhc3 {
 	status = "disabled";
 };
+&lcdif3 {
+	thres-low  = <2 3>;             /* (FIFO * 2 / 3) */
+	thres-high = <3 3>;             /* (FIFO * 3 / 3) */
+	status = "okay";
+};
