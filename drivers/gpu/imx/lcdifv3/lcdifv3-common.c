@@ -35,6 +35,11 @@ struct lcdifv3_soc {
 	struct clk *clk_pix;
 	struct clk *clk_disp_axi;
 	struct clk *clk_disp_apb;
+
+	u32 thres_low_mul;
+	u32 thres_low_div;
+	u32 thres_high_mul;
+	u32 thres_high_div;
 };
 
 struct lcdifv3_soc_pdata {
@@ -138,8 +143,10 @@ static void lcdifv3_enable_plane_panic(struct lcdifv3_soc *lcdifv3)
 	 * is 8KB = 512 * 128bit).
 	 * threshold = n * 128bit (n: 0 ~ 511)
 	 */
-	thres_low  = DIV_ROUND_UP(512, 3);
-	thres_high = DIV_ROUND_UP(512 * 2, 3);
+	thres_low  = DIV_ROUND_UP(511 * lcdifv3->thres_low_mul,
+			lcdifv3->thres_low_div);
+	thres_high = DIV_ROUND_UP(511 * lcdifv3->thres_high_mul,
+			lcdifv3->thres_high_div);
 
 	panic_thres = PANIC0_THRES_PANIC_THRES_LOW(thres_low)	|
 		      PANIC0_THRES_PANIC_THRES_HIGH(thres_high);
@@ -615,6 +622,52 @@ err_register:
 	return ret;
 }
 
+static int imx_lcdifv3_check_thres_value(u32 mul, u32 div)
+{
+	if (!div)
+		return -EINVAL;
+
+	if (mul > div)
+		return -EINVAL;
+
+	return 0;
+}
+
+static void imx_lcdifv3_of_parse_thres(struct lcdifv3_soc *lcdifv3)
+{
+	int ret;
+	u32 thres_low[2], thres_high[2];
+	struct device_node *np = lcdifv3->dev->of_node;
+
+	/* default 'thres-low' value:  FIFO * 1/3;
+	 * default 'thres-high' value: FIFO * 2/3.
+	 */
+	lcdifv3->thres_low_mul	= 1;
+	lcdifv3->thres_low_div	= 3;
+	lcdifv3->thres_high_mul	= 2;
+	lcdifv3->thres_high_div	= 3;
+
+	ret = of_property_read_u32_array(np, "thres-low", thres_low, 2);
+	if (!ret) {
+		/* check the value effectiveness */
+		ret = imx_lcdifv3_check_thres_value(thres_low[0], thres_low[1]);
+		if (!ret) {
+			lcdifv3->thres_low_mul	= thres_low[0];
+			lcdifv3->thres_low_div	= thres_low[1];
+		}
+	}
+
+	ret = of_property_read_u32_array(np, "thres-high", thres_high, 2);
+	if (!ret) {
+		/* check the value effectiveness */
+		ret = imx_lcdifv3_check_thres_value(thres_high[0], thres_high[1]);
+		if (!ret) {
+			lcdifv3->thres_high_mul	= thres_high[0];
+			lcdifv3->thres_high_div	= thres_high[1];
+		}
+	}
+}
+
 static int imx_lcdifv3_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -689,6 +742,8 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 
 		clk_disable_unprepare(lcdifv3->clk_disp_apb);
 	}
+
+	imx_lcdifv3_of_parse_thres(lcdifv3);
 
 	platform_set_drvdata(pdev, lcdifv3);
 
