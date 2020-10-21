@@ -152,11 +152,17 @@
 &usdhc1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_wlan>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>, <&pinctrl_wlan>;
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_wlan>;
+	bus-width = <4>;
 	cap-power-off-card;
+	pm-ignore-notify;
+	keep-power-in-suspend;
+	non-removable;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
+	status = "okay";
 
 	brcmf: bcrmf@1 {
 		reg = <1>;
