@@ -17,6 +17,8 @@
 	aliases {
 		ethernet0 = &pfe_mac0;
 		ethernet1 = &pfe_mac1;
+		mmc0 = &esdhc0;
+		mmc1 = &esdhc1;
 	};
 };
 
