@@ -51,6 +51,7 @@ enum {
 	AD916x_NCO_FREQ,
 	AD916x_SAMPLING_FREQUENCY,
 	AD916x_TEMP_CALIB,
+	AD916x_FIR85_ENABLE,
 };
 
 struct ad916x_chip_info {
@@ -594,6 +595,7 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 	u64 samp_freq_hz;
 	/* en just because we have to pass it to ad916x_dc_test_get_mod */
 	int ret, en;
+	bool fir85_en;
 
 	mutex_lock(&st->lock);
 	switch ((u32)private) {
@@ -633,6 +635,12 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 		conv->temp_slope = ad9162_temp_slope(conv->temp_calib, code);
 		conv->temp_calib_code = code;
 		break;
+	case AD916x_FIR85_ENABLE:
+		ret = kstrtobool(buf, &fir85_en);
+		if (ret)
+			break;
+		ret = ad916x_fir85_set_enable(&st->dac_h, (int)fir85_en);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -651,6 +659,7 @@ static ssize_t ad916x_read_ext(struct iio_dev *indio_dev,
 	struct ad9162_state *st = to_ad916x_state(conv);
 	s64 freq;
 	u16 test_word;
+	int fir85_en;
 	int ret, dc_test_en;
 
 	mutex_lock(&st->lock);
@@ -663,6 +672,10 @@ static ssize_t ad916x_read_ext(struct iio_dev *indio_dev,
 		break;
 	case AD916x_SAMPLING_FREQUENCY:
 		ret = sprintf(buf, "%llu\n", ad9162_get_data_clk(conv));
+		break;
+	case AD916x_FIR85_ENABLE:
+		ad916x_fir85_get_enable(&st->dac_h, &fir85_en);
+		ret = sprintf(buf, "%d\n", !!fir85_en);
 		break;
 	default:
 		ret = -EINVAL;
@@ -697,6 +710,8 @@ static int ad9162_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 static const struct iio_chan_spec_ext_info ad916x_ext_info[] = {
 	_AD916x_CHAN_EXT_INFO("nco_frequency", AD916x_NCO_FREQ, IIO_SEPARATE),
 	_AD916x_CHAN_EXT_INFO("sampling_frequency", AD916x_SAMPLING_FREQUENCY,
+			      IIO_SHARED_BY_ALL),
+	_AD916x_CHAN_EXT_INFO("fir85_enable", AD916x_FIR85_ENABLE,
 			      IIO_SHARED_BY_ALL),
 	{},
 };
