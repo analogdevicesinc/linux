@@ -1349,7 +1349,7 @@ _ConvertPhysical(
         physical -= Kernel->hardware->baseAddress;
 
         /* 2G upper is virtual space, better to move to gckHARDWARE section. */
-        if (physical + Node->Virtual.bytes > 0x80000000)
+        if (physical + Node->Virtual.bytes > 0x80000000U)
         {
             /* End is above 2G, ie virtual space. */
             status = gcvSTATUS_NOT_SUPPORTED;
@@ -2614,7 +2614,7 @@ gckVIDMEM_UnlockVirtual(
             address = Node->Virtual.addresses[hwType] & ~(4096 - 1);
 
 #if gcdSECURITY
-            if (Node->Virtual.addresses[hwType] > 0x80000000)
+            if (Node->Virtual.addresses[hwType] > 0x80000000U)
             {
                 gcmkONERROR(gckKERNEL_SecurityUnmapMemory(
                     Kernel,
