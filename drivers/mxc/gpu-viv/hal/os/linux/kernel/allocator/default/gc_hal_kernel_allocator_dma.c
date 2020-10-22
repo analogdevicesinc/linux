@@ -395,7 +395,7 @@ _DmaUnmapUser(
                 );
     }
 #else
-    down_write(&current->mm->mmap_sem);
+    down_write(&current_mm_mmap_sem);
     if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
@@ -404,7 +404,7 @@ _DmaUnmapUser(
                 __FUNCTION__, __LINE__
                 );
     }
-    up_write(&current->mm->mmap_sem);
+    up_write(&current_mm_mmap_sem);
 #endif
 }
 
@@ -429,14 +429,14 @@ _DmaMapUser(
                     MAP_SHARED | MAP_NORESERVE,
                     0);
 #else
-    down_write(&current->mm->mmap_sem);
+    down_write(&current_mm_mmap_sem);
     userLogical = (gctPOINTER)do_mmap_pgoff(gcvNULL,
                     0L,
                     Mdl->numPages * PAGE_SIZE,
                     PROT_READ | PROT_WRITE,
                     MAP_SHARED,
                     0);
-    up_write(&current->mm->mmap_sem);
+    up_write(&current_mm_mmap_sem);
 #endif
 
     gcmkTRACE_ZONE(
@@ -456,11 +456,7 @@ _DmaMapUser(
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-    down_write(&current->mm->mmap_lock);
-#else
-    down_write(&current->mm->mmap_sem);
-#endif
+    down_write(&current_mm_mmap_sem);
 
     do
     {
@@ -484,11 +480,7 @@ _DmaMapUser(
     }
     while (gcvFALSE);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-    up_write(&current->mm->mmap_lock);
-#else
-    up_write(&current->mm->mmap_sem);
-#endif
+    up_write(&current_mm_mmap_sem);
 
 OnError:
     if (gcmIS_ERROR(status) && userLogical)

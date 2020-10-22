@@ -165,6 +165,12 @@
 
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,8,0)
+#define current_mm_mmap_sem current->mm->mmap_lock
+#else
+#define current_mm_mmap_sem current->mm->mmap_sem
+#endif
+
 extern struct device *galcore_device;
 
 /******************************************************************************\

@@ -61,7 +61,6 @@
 #include <stdlib.h>
 #include <sys/slogcodes.h>
 #include <time.h>
-#include "gc_hal_kernel_os.h"
 
 extern unsigned int slogUsageInterval;
 extern const uint64_t slogLowWaterFPC;
@@ -809,9 +808,8 @@ gckVIDMEM_AllocateLinear(
 
         if (do_slog_now) {
             last_slog_time = this_slog_time;
-            slogf(_SLOGC_GRAPHICS_GL, _SLOG_INFO, "%s: Memory->freeBytes = %u, lowest Memory->freeBytes = %u. "
-                    "Handling message from pid: %u. Requested bytes: %zu",
-                    __FUNCTION__, (unsigned) Memory->freeBytes, (unsigned) lowwaterFPC, drv_get_user_pid(), Bytes);
+            slogf(_SLOGC_GRAPHICS_GL, _SLOG_INFO, "%s: Memory->freeBytes = %u, lowest Memory->freeBytes = %u",
+                    __FUNCTION__, (unsigned) Memory->freeBytes, (unsigned) lowwaterFPC);
         }
     }
 #endif

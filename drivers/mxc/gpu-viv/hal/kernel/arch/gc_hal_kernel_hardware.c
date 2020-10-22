@@ -8252,6 +8252,8 @@ _PmSetPowerOnDirection(
 
         requireInit = gcvTRUE;
 
+        /* FALLTHRU */
+
     case gcvPOWER_SUSPEND:
         /* Clock on. */
         gcmkONERROR(_PmClockOn(Hardware, &requireInit));
@@ -8336,6 +8338,8 @@ _PmSetPowerOffDirection(
             break;
         }
 
+        /* FALLTHRU */
+
     case gcvPOWER_IDLE:
         /* Stop. */
         gcmkONERROR(gckCOMMAND_Stop(command));
@@ -8349,6 +8353,8 @@ _PmSetPowerOffDirection(
             gcmkONERROR(_PmClockOff(Hardware, gcvTRUE));
             break;
         }
+
+        /* FALLTHRU */
 
     case gcvPOWER_SUSPEND:
         if(Hardware->kernel->threadInitialized == gcvTRUE)
@@ -8446,6 +8452,7 @@ gckHARDWARE_SetPowerState(
     case gcvPOWER_IDLE_TIMEOUT:
     case gcvPOWER_SUSPEND_TIMEOUT:
         timeout   = gcvTRUE;
+        /* FALLTHRU */
     case gcvPOWER_OFF_BROADCAST:
     case gcvPOWER_IDLE_BROADCAST:
     case gcvPOWER_SUSPEND_BROADCAST:

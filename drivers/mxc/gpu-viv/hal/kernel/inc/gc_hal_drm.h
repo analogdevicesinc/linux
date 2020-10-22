@@ -135,11 +135,17 @@ struct drm_viv_gem_timestamp {
 #define DRM_VIV_GEM_TS_NORMAL       0x02
 #define DRM_VIV_GEM_TS_COMPRESSED   0x03
 
+/* ts cache mode. */
+#define DRM_VIV_GEM_TS_CACHE_MODE_64B     0x00
+#define DRM_VIV_GEM_TS_CACHE_MODE_128B    0x01
+#define DRM_VIV_GEM_TS_CACHE_MODE_256B    0x02
+
 struct drm_viv_gem_set_tiling {
     __u32 handle;
     __u32 tiling_mode;
 
     __u32 ts_mode;
+    __u32 ts_cache_mode;
     __u64 clear_value;
 };
 
@@ -148,6 +154,7 @@ struct drm_viv_gem_get_tiling {
     __u32 tiling_mode;
 
     __u32 ts_mode;
+    __u32 ts_cache_mode;
     __u64 clear_value;
 };
 

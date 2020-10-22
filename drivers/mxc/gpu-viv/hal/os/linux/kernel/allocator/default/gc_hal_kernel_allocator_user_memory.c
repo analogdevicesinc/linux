@@ -141,11 +141,7 @@ static int import_page_map(struct um_desc *um,
     if (!pages)
         return -ENOMEM;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-    down_read(&current->mm->mmap_lock);
-#else
-    down_read(&current->mm->mmap_sem);
-#endif
+    down_read(&current_mm_mmap_sem);
 
     result = get_user_pages(
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
@@ -163,11 +159,7 @@ static int import_page_map(struct um_desc *um,
             pages,
             NULL);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-    up_read(&current->mm->mmap_lock);
-#else
-    up_read(&current->mm->mmap_sem);
-#endif
+    up_read(&current_mm_mmap_sem);
 
     if (result < page_count)
     {
@@ -248,15 +240,9 @@ static int import_pfn_map(struct um_desc *um,
     if (!current->mm)
         return -ENOTTY;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION (5,9,0)
-    down_read(&current->mm->mmap_lock);
+    down_read(&current_mm_mmap_sem);
     vma = find_vma(current->mm, addr);
-    up_read(&current->mm->mmap_lock);
-#else
-    down_read(&current->mm->mmap_sem);
-    vma = find_vma(current->mm, addr);
-    up_read(&current->mm->mmap_sem);
-#endif
+    up_read(&current_mm_mmap_sem);
 
     if (!vma)
         return -ENOTTY;
@@ -438,7 +424,9 @@ _Import(
             }
         }
 
+        down_read(&current_mm_mmap_sem);
         vma = find_vma(current->mm, memory);
+        up_read(&current_mm_mmap_sem);
 
         if (!vma)
         {
@@ -454,6 +442,7 @@ _Import(
         vm_flags = vma->vm_flags;
         vaddr = vma->vm_end;
 
+        down_read(&current_mm_mmap_sem);
         while (vaddr < memory + Size)
         {
             vma = find_vma(current->mm, vaddr);
@@ -461,17 +450,20 @@ _Import(
             if (!vma)
             {
                 /* No such memory. */
+                up_read(&current_mm_mmap_sem);
                 gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
             }
 
             if ((vma->vm_flags & VM_PFNMAP) != (vm_flags & VM_PFNMAP))
             {
                 /* Can not support different map type: both PFN and PAGE detected. */
+                up_read(&current_mm_mmap_sem);
                 gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
             }
 
             vaddr = vma->vm_end;
         }
+        up_read(&current_mm_mmap_sem);
     }
 
     if (Physical != gcvINVALID_PHYSICAL_ADDRESS)

@@ -693,6 +693,8 @@ typedef enum _gceFEATURE
     gcvFEATURE_NN_FLOAT32_IO,
     gcvFEATURE_TP_FLOAT32_IO,
 
+    gcvFEATURE_BIT_USC_INDIVIDUAL_PORT_WRT_EARLY_EVICT_DATA_CORRUPT_FIX,
+    gcvFEATURE_BIT_NN_TP_INSTR_COMPLETE_IN_SAME_CYCLE_WITH_WAIT_EVENT_FIX,
 
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */

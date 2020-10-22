@@ -451,15 +451,9 @@ _QueryProcessPageTable(
         if (!current->mm)
             return gcvSTATUS_NOT_FOUND;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION (5,9,0)
-        down_read(&current->mm->mmap_lock);
+        down_read(&current_mm_mmap_sem);
         vma = find_vma(current->mm, logical);
-        up_read(&current->mm->mmap_lock);
-#else
-        down_read(&current->mm->mmap_sem);
-        vma = find_vma(current->mm, logical);
-        up_read(&current->mm->mmap_sem);
-#endif
+        up_read(&current_mm_mmap_sem);
 
         /* To check if mapped to user. */
         if (!vma)

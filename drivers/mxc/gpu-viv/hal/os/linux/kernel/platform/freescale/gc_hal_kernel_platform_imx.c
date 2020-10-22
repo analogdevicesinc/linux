@@ -1478,7 +1478,7 @@ static inline int set_power(int gpu, int enable)
 #ifdef CONFIG_PM
         pm_runtime_get_sync(priv->pmdev[gpu]);
         if(priv->pm_qos_core == gpu) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
             cpu_latency_qos_add_request(&priv->pm_qos, 0);
 #else
             pm_qos_add_request(&(priv->pm_qos), PM_QOS_CPU_DMA_LATENCY, 0);
@@ -1550,7 +1550,7 @@ static inline int set_power(int gpu, int enable)
 #ifdef CONFIG_PM
         pm_runtime_put_sync(priv->pmdev[gpu]);
         if(priv->pm_qos_core == gpu) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
             cpu_latency_qos_remove_request(&priv->pm_qos);
 #else
             pm_qos_remove_request(&(priv->pm_qos));

@@ -52,6 +52,7 @@
 *
 *****************************************************************************/
 
+
 #include "gc_hal_version.h"
 #include "gc_hal_options.h"
 #include "shared/gc_hal_types_shared.h"

@@ -636,35 +636,31 @@ gckASYNC_FE_Execute(
     IN gctUINT32 Bytes
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    status = gckOS_WriteRegisterEx(
+    gcmkHEADER_ARG("Hardware=%p Address=%x Bytes=%lu", Hardware, Address, Bytes);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(
         Hardware->os,
         Hardware->core,
         0x007DC,
         Address
-        );
-    if (gcmIS_ERROR(status))
-    {
-        return status;
-    }
+        ));
 
-    gckOS_MemoryBarrier(
+    gcmkONERROR(gckOS_MemoryBarrier(
         Hardware->os,
         gcvNULL
-        );
+        ));
 
-    status = gckOS_WriteRegisterEx(
+    gcmkONERROR(gckOS_WriteRegisterEx(
         Hardware->os,
         Hardware->core,
         0x007E0,
         Address + Bytes
-        );
-    if (gcmIS_ERROR(status))
-    {
-        return status;
-    }
+        ));
 
-    return gcvSTATUS_OK;
+OnError:
+    gcmkFOOTER();
+    return status;
 }
 
