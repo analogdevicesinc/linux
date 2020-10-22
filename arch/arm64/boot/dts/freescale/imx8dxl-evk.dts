@@ -206,7 +206,6 @@
 		audio-cpu = <&sai1>;
 		audio-codec = <&wm8960_1>;
 		audio-asrc = <&asrc0>;
-		hp-det-gpio = <&pca6416_3 2 GPIO_ACTIVE_HIGH>;
 		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
@@ -225,7 +224,6 @@
 		audio-cpu = <&sai2>;
 		audio-codec = <&wm8960_2>;
 		capture-only;
-		hp-det-gpio = <&pca6416_3 3 GPIO_ACTIVE_HIGH>;
 		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
@@ -244,7 +242,6 @@
 		audio-cpu = <&sai3>;
 		audio-codec = <&wm8960_3>;
 		capture-only;
-		hp-det-gpio = <&pca6416_3 4 GPIO_ACTIVE_HIGH>;
 		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
