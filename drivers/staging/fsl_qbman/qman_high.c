@@ -30,6 +30,7 @@
  */
 
 #include "qman_low.h"
+#include <linux/dma-map-ops.h>
 
 /* Compilation constants */
 #define DQRR_MAXFILL	15
