@@ -6350,11 +6350,13 @@ static int adrv9009_probe(struct spi_device *spi)
 			TAL_PATH_DELAY | TAL_TX_LO_LEAKAGE_INTERNAL |
 			TAL_TX_QEC_INIT | TAL_LOOPBACK_RX_LO_DELAY |
 			TAL_LOOPBACK_RX_RX_QEC_INIT | TAL_RX_QEC_INIT |
-			TAL_ORX_QEC_INIT | TAL_TX_DAC  | TAL_ADC_STITCHING;
+			TAL_ORX_QEC_INIT | TAL_TX_DAC  | TAL_ADC_STITCHING |
+			TAL_RX_PHASE_CORRECTION;
 		break;
 	case ID_ADRV90081:
 		phy->initCalMask = TAL_ADC_TUNER | TAL_TIA_3DB_CORNER | TAL_DC_OFFSET |
-			TAL_RX_GAIN_DELAY | TAL_FLASH_CAL | TAL_RX_QEC_INIT;
+			TAL_RX_GAIN_DELAY | TAL_FLASH_CAL | TAL_RX_QEC_INIT |
+			TAL_RX_PHASE_CORRECTION;
 		phy->talInit.jesd204Settings.deframerA.M = 0;
 		phy->talInit.jesd204Settings.deframerB.M = 0;
 		phy->talInit.tx.txChannels = TAL_TXOFF;
