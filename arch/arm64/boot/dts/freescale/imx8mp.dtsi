@@ -15,7 +15,7 @@
 #include "imx8mp-pinfunc.h"
 
 / {
-	interrupt-parent = <&gpc>;
+	interrupt-parent = <&gic>;
 	#address-cells = <2>;
 	#size-cells = <2>;
 
