@@ -525,8 +525,16 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 	long rate;
 	int ret;
 
-	if (reason != JESD204_STATE_OP_REASON_INIT)
+	switch (reason) {
+	case JESD204_STATE_OP_REASON_INIT:
+		break;
+	case JESD204_STATE_OP_REASON_UNINIT:
+		clk_disable_unprepare(jesd->lane_clk);
+		clk_disable_unprepare(jesd->device_clk);
 		return JESD204_STATE_CHANGE_DONE;
+	default:
+		return JESD204_STATE_CHANGE_DONE;
+	}
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
@@ -605,14 +613,15 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 	}
 
 	ret = clk_prepare_enable(jesd->device_clk);
-		if (ret) {
+	if (ret) {
 		dev_err(dev, "%s: Link%u enable device clock failed (%d)\n",
 			__func__, lnk->link_id, ret);
 		return ret;
 	}
 
 	ret = clk_prepare_enable(jesd->lane_clk);
-		if (ret) {
+	if (ret) {
+		clk_disable_unprepare(jesd->device_clk);
 		dev_err(dev, "%s: Link%u enable lane clock failed (%d)\n",
 			__func__, lnk->link_id, ret);
 		return ret;
@@ -630,16 +639,8 @@ static int axi_jesd204_tx_jesd204_clks_enable(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
-	switch (reason) {
-	case JESD204_STATE_OP_REASON_INIT:
-		break;
-	case JESD204_STATE_OP_REASON_UNINIT:
-		clk_disable_unprepare(jesd->lane_clk);
-		clk_disable_unprepare(jesd->device_clk);
+	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
-	default:
-		return JESD204_STATE_CHANGE_DONE;
-	}
 
 	writel_relaxed(0x1, jesd->base + JESD204_TX_REG_LINK_DISABLE);
 	udelay(1);
