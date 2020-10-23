@@ -643,7 +643,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 
 	switch (mask) {
-	case 0:
+	case IIO_CHAN_INFO_RAW:
 		if (!chan->output) {
 			ret = -EINVAL;
 			break;
