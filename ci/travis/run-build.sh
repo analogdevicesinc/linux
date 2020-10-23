@@ -165,6 +165,48 @@ check_all_adi_files_have_been_built() {
 	return $ret
 }
 
+get_ref_branch() {
+	if [ -n "$TRAVIS_BRANCH" ] ; then
+		echo -n "$TRAVIS_BRANCH"
+	elif [ -n "$GITHUB_BASE_REF" ] ; then
+		echo -n "$GITHUB_BASE_REF"
+	else
+		echo -n "HEAD~5"
+	fi
+}
+
+build_check_is_new_adi_driver_dual_licensed() {
+	local ret
+
+	local ref_branch="$(get_ref_branch)"
+
+	if [ -z "$ref_branch" ] ; then
+		echo_red "Could not get a base_ref for checkpatch"
+		exit 1
+	fi
+
+	COMMIT_RANGE="${ref_branch}.."
+
+	ret=0
+	# Get list of files in the commit range
+	for file in $(git diff --name-only "$COMMIT_RANGE") ; do
+		if git diff "$COMMIT_RANGE" "$file" | grep -q "+MODULE_LICENSE" ; then
+			# Check that it has an 'Analog Devices' string
+			if ! grep -q "Analog Devices" "$file" ; then
+				continue
+			fi
+			if git diff "$COMMIT_RANGE" "$file" | grep "+MODULE_LICENSE" | grep -v "Dual" ; then
+				echo_red "File '$file' contains new Analog Devices' driver"
+				echo_red "New 'Analog Devices' drivers must be dual-licensed, with a license being BSD"
+				echo_red " Example: MODULE_LICENSE(Dual BSD/GPL)"
+				ret=1
+			fi
+		fi
+	done
+
+	return $ret
+}
+
 build_default() {
 	[ -n "$DEFCONFIG" ] || {
 		echo_red "No DEFCONFIG provided"
@@ -214,13 +256,9 @@ build_checkpatch() {
 
 	[ "$TRAVIS_PULL_REQUEST" = "true" ] || return 0
 
-	local ref_branch
+	local ref_branch="$(get_ref_branch)"
 
-	if [ -n "$TRAVIS_BRANCH" ] ; then
-		ref_branch="$TRAVIS_BRANCH"
-	elif [ -n "$GITHUB_BASE_REF" ] ; then
-		ref_branch="$GITHUB_BASE_REF"
-	else
+	if [ -z "$ref_branch" ] ; then
 		echo_red "Could not get a base_ref for checkpatch"
 		exit 1
 	fi

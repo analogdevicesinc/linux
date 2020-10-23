@@ -23,6 +23,17 @@ jobs:
     - name: Run Linux's checkpatch script
       run: ./ci/travis/run-build.sh
 
+  check_is_new_adi_driver_dual_licensed:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TYPE: check_is_new_adi_driver_dual_licensed
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+    - name: Check that this is a new ADI driver and is dual-licensed
+      run: ./ci/travis/run-build.sh
+
   dtb_build_test:
     runs-on: ubuntu-latest
     env:
