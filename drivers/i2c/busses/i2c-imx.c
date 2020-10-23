@@ -1516,6 +1516,9 @@ static int i2c_imx_xfer(struct i2c_adapter *adapter,
 	pm_runtime_mark_last_busy(i2c_imx->adapter.dev.parent);
 	pm_runtime_put_autosuspend(i2c_imx->adapter.dev.parent);
 
+	if (enable_runtime_pm)
+		pm_runtime_disable(i2c_imx->adapter.dev.parent);
+
 	return result;
 }
 
