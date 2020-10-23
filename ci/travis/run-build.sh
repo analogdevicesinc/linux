@@ -94,7 +94,7 @@ adjust_kcflags_against_gcc() {
 
 APT_LIST="make bc u-boot-tools flex bison libssl-dev"
 
-if [ "$ARCH" == "arm64" ] ; then
+if [ "$ARCH" = "arm64" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
 		CROSS_COMPILE=aarch64-linux-gnu-
 		export CROSS_COMPILE
@@ -103,7 +103,7 @@ if [ "$ARCH" == "arm64" ] ; then
 	APT_LIST="$APT_LIST gcc-aarch64-linux-gnu"
 fi
 
-if [ "$ARCH" == "arm" ] ; then
+if [ "$ARCH" = "arm" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
 		CROSS_COMPILE=arm-linux-gnueabihf-
 		export CROSS_COMPILE
@@ -182,7 +182,7 @@ build_default() {
 	make ${DEFCONFIG}
 	make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
 
-	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" == "1" ] ; then
+	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" = "1" ] ; then
 		check_all_adi_files_have_been_built
 	fi
 
@@ -307,7 +307,7 @@ __update_git_ref() {
 	local ref="$1"
 	local local_ref="$2"
 	local depth
-	[ "$GIT_FETCH_DEPTH" == "disabled" ] || {
+	[ "$GIT_FETCH_DEPTH" = "disabled" ] || {
 		depth="--depth=${GIT_FETCH_DEPTH:-50}"
 	}
 	if [ -n "$local_ref" ] ; then
@@ -335,7 +335,7 @@ __handle_sync_with_main() {
 		return 1
 	}
 
-	if [ "$method" == "fast-forward" ] ; then
+	if [ "$method" = "fast-forward" ] ; then
 		git checkout FETCH_HEAD
 		git merge --ff-only ${ORIGIN}/${MAIN_BRANCH} || {
 			echo_red "Failed while syncing ${ORIGIN}/${MAIN_BRANCH} over '$dst_branch'"
@@ -345,9 +345,9 @@ __handle_sync_with_main() {
 		return 0
 	fi
 
-	if [ "$method" == "cherry-pick" ] ; then
+	if [ "$method" = "cherry-pick" ] ; then
 		local depth
-		if [ "$GIT_FETCH_DEPTH" == "disabled" ] ; then
+		if [ "$GIT_FETCH_DEPTH" = "disabled" ] ; then
 			depth=50
 		else
 			GIT_FETCH_DEPTH=${GIT_FETCH_DEPTH:-50}
@@ -418,9 +418,9 @@ build_sync_branches_with_main() {
 build_sync_branches_with_main_travis() {
 	# make sure this is on the main branch, and not a PR
 	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
-	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
-	[ "$TRAVIS_BRANCH" == "${MAIN_BRANCH}" ] || return 0
-	[ "$TRAVIS_REPO_SLUG" == "analogdevicesinc/linux" ] || return 0
+	[ "$TRAVIS_PULL_REQUEST" = "false" ] || return 0
+	[ "$TRAVIS_BRANCH" = "${MAIN_BRANCH}" ] || return 0
+	[ "$TRAVIS_REPO_SLUG" = "analogdevicesinc/linux" ] || return 0
 
 	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
 	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
