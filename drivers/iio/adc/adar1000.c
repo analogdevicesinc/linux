@@ -607,11 +607,16 @@ static int adar1000_read_raw(struct iio_dev *indio_dev,
 			     int *val, int *val2, long m)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
-	int ret;
+	int ret, ch;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		ret = adar1000_read_adc(st, chan->channel, val);
+		if (chan->type != IIO_TEMP)
+			ch = chan->channel + 1;
+		else
+			ch = chan->channel;
+
+		ret = adar1000_read_adc(st, ch, val);
 		if (ret < 0)
 			return ret;
 
@@ -1507,7 +1512,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		val = !!(val >> (3 - chan->channel + 1));
+		val = !!((val & 0xf) >> (3 - chan->channel));
 
 		break;
 	case ADAR1000_PA_BIAS_ON:
@@ -1573,9 +1578,9 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		mask = ADAR1000_CH_DET_EN(chan->channel - 1);
+		mask = ADAR1000_CH_DET_EN(chan->channel);
 		if (readin)
-			val = ADAR1000_CH_DET_EN(chan->channel - 1);
+			val = ADAR1000_CH_DET_EN(chan->channel);
 
 		ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MISC_ENABLES,
 					 mask, val);
@@ -1739,6 +1744,7 @@ static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
 	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
 	_ADAR1000_RAM_BIAS_INFO("bias_set_load", BIAS_SET_LOAD),
 	_ADAR1000_RAM_BIAS_INFO("bias_set_save", BIAS_SET_SAVE),
+	_ADAR1000_ENABLES_INFO("detector_en", ADAR1000_DETECTOR),
 	_ADAR1000_SEQ_INFO("sequence_start", ADAR1000_SEQ_START),
 	_ADAR1000_SEQ_INFO("sequence_end", ADAR1000_SEQ_STOP),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
@@ -1748,7 +1754,6 @@ static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
 };
 
 static const struct iio_chan_spec_ext_info adar1000_det_ext_info[] = {
-	_ADAR1000_ENABLES_INFO("detector", ADAR1000_DETECTOR),
 	{ }
 };
 
@@ -1770,7 +1775,8 @@ static const struct iio_chan_spec_ext_info adar1000_det_ext_info[] = {
 	.output = 1,						\
 	.channel = (_num),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | \
-		BIT(IIO_CHAN_INFO_PHASE),			\
+		BIT(IIO_CHAN_INFO_PHASE) |			\
+		BIT(IIO_CHAN_INFO_RAW),				\
 	.extend_name = "TX",					\
 	.ext_info = adar1000_tx_ext_info,			\
 }
@@ -1782,21 +1788,8 @@ static const struct iio_chan_spec_ext_info adar1000_det_ext_info[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
 }
 
-#define ADAR1000_DET_CHANNEL(_num)				\
-{	.type = IIO_VOLTAGE,					\
-	.indexed = 1,						\
-	.channel = (_num),					\
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
-	.extend_name = "DET",					\
-	.ext_info = adar1000_det_ext_info,			\
-}
-
 static const struct iio_chan_spec adar1000_chan[] = {
 	ADAR1000_TEMP_CHANNEL(0),
-	ADAR1000_DET_CHANNEL(1),
-	ADAR1000_DET_CHANNEL(2),
-	ADAR1000_DET_CHANNEL(3),
-	ADAR1000_DET_CHANNEL(4),
 	ADAR1000_RX_CHANNEL(0),
 	ADAR1000_RX_CHANNEL(1),
 	ADAR1000_RX_CHANNEL(2),
