@@ -2123,7 +2123,7 @@ static int adar1000_probe(struct spi_device *spi)
 
 		indio_dev[cnt]->dev.parent = &spi->dev;
 		indio_dev[cnt]->dev.of_node = child;
-		indio_dev[cnt]->name = spi->dev.of_node->name;
+		indio_dev[cnt]->name = child->name;
 		indio_dev[cnt]->info = &adar1000_info;
 		indio_dev[cnt]->modes = INDIO_DIRECT_MODE;
 		indio_dev[cnt]->channels = adar1000_chan;
