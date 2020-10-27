@@ -102,6 +102,21 @@
 #define CTRL2_SET_OUTSTANDING_REQS_16	(0x4 << 21)
 #define CTRL2_SET_OUTSTANDING_REQS_MASK	(0x7 << 21)
 
+#define SWIZZLE_LE		0 /* Little-Endian or No swap */
+#define SWIZZLE_BE		1 /* Big-Endian or swap all */
+#define SWIZZLE_HWD		2 /* Swap half-words */
+#define SWIZZLE_HWD_BYTE	3 /* Swap bytes within each half-word */
+
+#define CTRL2_ODD_LINE_PATTERN(x)	REG_PUT((x), 18, 16)
+#define CTRL2_EVEN_LINE_PATTERN(x)	REG_PUT((x), 14, 12)
+#define CTRL2_LINE_PATTERN_RGB	0
+#define CTRL2_LINE_PATTERN_RBG	1
+#define CTRL2_LINE_PATTERN_GBR	2
+#define CTRL2_LINE_PATTERN_GRB	3
+#define CTRL2_LINE_PATTERN_BRG	4
+#define CTRL2_LINE_PATTERN_BGR	5
+#define CTRL2_LINE_PATTERN_CLR	7
+
 #define TRANSFER_COUNT_SET_VCOUNT(x)	REG_PUT((x), 31, 16)
 #define TRANSFER_COUNT_GET_VCOUNT(x)	REG_GET((x), 31, 16)
 #define TRANSFER_COUNT_SET_HCOUNT(x)	REG_PUT((x), 15, 0)

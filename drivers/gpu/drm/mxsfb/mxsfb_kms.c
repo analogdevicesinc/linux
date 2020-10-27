@@ -54,9 +54,7 @@ static void mxsfb_set_formats(struct mxsfb_drm_private *mxsfb,
 	struct drm_device *drm = mxsfb->drm;
 	const u32 format = mxsfb->crtc.primary->state->fb->format->format;
 	u32 ctrl, ctrl1;
-
-	DRM_DEV_DEBUG_DRIVER(drm->dev, "Using bus_format: 0x%08X\n",
-			     bus_format);
+	bool bgr_format = true;
 
 	ctrl = CTRL_BYPASS_COUNT | CTRL_MASTER;
 
@@ -64,19 +62,69 @@ static void mxsfb_set_formats(struct mxsfb_drm_private *mxsfb,
 	ctrl1 = readl(mxsfb->base + LCDC_CTRL1);
 	ctrl1 &= CTRL1_CUR_FRAME_DONE_IRQ_EN | CTRL1_CUR_FRAME_DONE_IRQ;
 
+	DRM_DEV_DEBUG_DRIVER(drm->dev, "Setting up %p4cc mode\n", &format);
+
 	switch (format) {
-	case DRM_FORMAT_RGB565:
-		dev_dbg(drm->dev, "Setting up RGB565 mode\n");
-		ctrl |= CTRL_WORD_LENGTH_16;
+	case DRM_FORMAT_BGR565: /* BG16 */
+		if (!mxsfb->devdata->has_ctrl2)
+			goto err;
+		writel(CTRL2_ODD_LINE_PATTERN(CTRL2_LINE_PATTERN_BGR) |
+			CTRL2_EVEN_LINE_PATTERN(CTRL2_LINE_PATTERN_BGR),
+			mxsfb->base + LCDC_V4_CTRL2 + REG_SET);
+		fallthrough;
+	case DRM_FORMAT_RGB565: /* RG16 */
+		ctrl |= CTRL_SET_WORD_LENGTH(0);
+		ctrl &= ~CTRL_DF16;
 		ctrl1 |= CTRL1_SET_BYTE_PACKAGING(0xf);
 		break;
-	case DRM_FORMAT_XRGB8888:
-		dev_dbg(drm->dev, "Setting up XRGB8888 mode\n");
-		ctrl |= CTRL_WORD_LENGTH_24;
+	case DRM_FORMAT_XBGR1555: /* XB15 */
+		fallthrough;
+	case DRM_FORMAT_ABGR1555: /* AB15 */
+		if (!mxsfb->devdata->has_ctrl2)
+			goto err;
+		writel(CTRL2_ODD_LINE_PATTERN(CTRL2_LINE_PATTERN_BGR) |
+		       CTRL2_EVEN_LINE_PATTERN(CTRL2_LINE_PATTERN_BGR),
+		       mxsfb->base + LCDC_V4_CTRL2 + REG_SET);
+		fallthrough;
+	case DRM_FORMAT_XRGB1555: /* XR15 */
+		fallthrough;
+	case DRM_FORMAT_ARGB1555: /* AR15 */
+		ctrl |= CTRL_SET_WORD_LENGTH(0);
+		ctrl |= CTRL_DF16;
+		ctrl1 |= CTRL1_SET_BYTE_PACKAGING(0xf);
+		break;
+	case DRM_FORMAT_RGBX8888: /* RX24 */
+		fallthrough;
+	case DRM_FORMAT_RGBA8888: /* RA24 */
+		/* RGBX - > 0RGB */
+		ctrl |= CTRL_SHIFT_DIR(1);
+		ctrl |= CTRL_SHIFT_NUM(8);
+		bgr_format = false;
+		fallthrough;
+	case DRM_FORMAT_XBGR8888: /* XB24 */
+		fallthrough;
+	case DRM_FORMAT_ABGR8888: /* AB24 */
+		if (bgr_format) {
+			if (!mxsfb->devdata->has_ctrl2)
+				goto err;
+			writel(CTRL2_ODD_LINE_PATTERN(CTRL2_LINE_PATTERN_BGR) |
+			       CTRL2_EVEN_LINE_PATTERN(CTRL2_LINE_PATTERN_BGR),
+			       mxsfb->base + LCDC_V4_CTRL2 + REG_SET);
+		}
+		fallthrough;
+	case DRM_FORMAT_XRGB8888: /* XR24 */
+		fallthrough;
+	case DRM_FORMAT_ARGB8888: /* AR24 */
+		ctrl |= CTRL_SET_WORD_LENGTH(3);
 		/* Do not use packed pixels = one pixel per word instead. */
 		ctrl1 |= CTRL1_SET_BYTE_PACKAGING(0x7);
 		break;
+	default:
+		goto err;
 	}
+
+	DRM_DEV_DEBUG_DRIVER(drm->dev, "Using bus_format: 0x%08X\n",
+			     bus_format);
 
 	switch (bus_format) {
 	case MEDIA_BUS_FMT_RGB565_1X16:
@@ -95,6 +143,10 @@ static void mxsfb_set_formats(struct mxsfb_drm_private *mxsfb,
 
 	writel(ctrl1, mxsfb->base + LCDC_CTRL1);
 	writel(ctrl, mxsfb->base + LCDC_CTRL);
+
+	return;
+err:
+	dev_err(drm->dev, "Unhandled pixel format: %p4cc\n", &format);
 }
 
 static void mxsfb_set_mode(struct mxsfb_drm_private *mxsfb, u32 bus_flags)
@@ -647,9 +699,24 @@ static const struct drm_plane_funcs mxsfb_plane_funcs = {
 	.atomic_destroy_state	= drm_atomic_helper_plane_destroy_state,
 };
 
-static const uint32_t mxsfb_primary_plane_formats[] = {
+static const uint32_t mxsfb_primary_plane_formats_v3[] = {
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_XRGB8888,
+};
+
+static const uint32_t mxsfb_primary_plane_formats_v4[] = {
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_BGR565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_RGBX8888,
+	DRM_FORMAT_RGBA8888,
+	DRM_FORMAT_ARGB1555,
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_ABGR1555,
+	DRM_FORMAT_XBGR1555,
 };
 
 static const uint32_t mxsfb_overlay_plane_formats[] = {
@@ -675,14 +742,23 @@ int mxsfb_kms_init(struct mxsfb_drm_private *mxsfb)
 {
 	struct drm_encoder *encoder = &mxsfb->encoder;
 	struct drm_crtc *crtc = &mxsfb->crtc;
+	uint32_t const *plane_formats;
+	unsigned int format_count;
 	int ret;
+
+	if (!mxsfb->devdata->has_ctrl2) {
+		plane_formats = &mxsfb_primary_plane_formats_v3[0];
+		format_count = ARRAY_SIZE(mxsfb_primary_plane_formats_v3);
+	} else {
+		plane_formats = &mxsfb_primary_plane_formats_v4[0];
+		format_count = ARRAY_SIZE(mxsfb_primary_plane_formats_v4);
+	}
 
 	drm_plane_helper_add(&mxsfb->planes.primary,
 			     &mxsfb_plane_primary_helper_funcs);
 	ret = drm_universal_plane_init(mxsfb->drm, &mxsfb->planes.primary, 1,
 				       &mxsfb_plane_funcs,
-				       mxsfb_primary_plane_formats,
-				       ARRAY_SIZE(mxsfb_primary_plane_formats),
+				       plane_formats, format_count,
 				       mxsfb_modifiers, DRM_PLANE_TYPE_PRIMARY,
 				       NULL);
 	if (ret)
