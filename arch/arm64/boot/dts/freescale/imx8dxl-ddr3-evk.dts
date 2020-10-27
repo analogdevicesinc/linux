@@ -27,13 +27,37 @@
 
 		rpmsg_reserved: rpmsg@0x90000000 {
 			no-map;
-			reg = <0 0x90000000 0 0x400000>;
+			reg = <0 0x90200000 0 0x200000>;
 		};
 
-		rpmsg_dma_reserved:rpmsg_dma@0x90400000 {
+		vdev0vring0: vdev0vring0@90000000 {
 			compatible = "shared-dma-pool";
+			reg = <0 0x90000000 0 0x8000>;
 			no-map;
+		};
+
+		vdev0vring1: vdev0vring1@90008000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x90008000 0 0x8000>;
+			no-map;
+		};
+
+		vdev1vring0: vdev1vring0@90010000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x90010000 0 0x8000>;
+			no-map;
+		};
+		
+		vdev1vring1: vdev1vring1@90018000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x90018000 0 0x8000>;
+			no-map;
+		};
+
+		vdevbuffer: vdevbuffer {
+			compatible = "shared-dma-pool";
 			reg = <0 0x90400000 0 0x100000>;
+			no-map;
 		};
 
 /*
@@ -881,4 +905,10 @@
 				IMX8DXL_USB_SS3_TC1_CONN_USB_OTG2_PWR		0x00000021
 			>;
 		};
+};
+
+&imx8dxl_cm4 {
+	memory-region = <&vdev0vring0>, <&vdev0vring1>, <&vdevbuffer>,
+			<&vdev1vring0>, <&vdev1vring1>;
+	status = "disabled";
 };
