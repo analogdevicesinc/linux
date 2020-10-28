@@ -4019,17 +4019,8 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
-	if (off == 0) {
-		if (!phy->bin_attr_buf) {
-			phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev,
-							 bin_attr->size,
-							 GFP_KERNEL);
-			if (!phy->bin_attr_buf)
-				return -ENOMEM;
-		} else {
-			memset(phy->bin_attr_buf, 0, bin_attr->size);
-		}
-	}
+	if (off == 0)
+		memset(phy->bin_attr_buf, 0, bin_attr->size);
 
 	memcpy(phy->bin_attr_buf + off, buf, count);
 
@@ -4164,6 +4155,11 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	phy->bin.attr.mode = 0200;
 	phy->bin.write = adrv9002_profile_bin_write;
 	phy->bin.size = 73728;
+
+	phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev, phy->bin.size, GFP_KERNEL);
+	if (!phy->bin_attr_buf)
+		return -ENOMEM;
+
 	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
 	if (ret < 0)
 		return ret;
