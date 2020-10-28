@@ -276,7 +276,7 @@ gckVIDMEM_Construct(
     if (BankSize == 0)
     {
         /* set two banks in 16:1 */
-        BankSize = heapBytes >> 4;
+        BankSize = Bytes >> 4;
     }
 
     gcmkSAFECASTSIZET(heapBytes, Bytes);
@@ -370,15 +370,15 @@ gckVIDMEM_Construct(
         /* Mark sentinel. */
         memory->sentinel[i].VidMem.bytes = 0;
 
-        /* Adjust address for next bank. */
-        base += bytes;
-        heapBytes   -= bytes;
-        banks ++;
-
         if (bankSize == (heapBytes >> 4))
         {
             bankSize = heapBytes;
         }
+
+        /* Adjust address for next bank. */
+        base += bytes;
+        heapBytes   -= bytes;
+        banks ++;
     }
 
     /* Assign all the bank mappings. */
