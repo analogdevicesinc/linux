@@ -334,21 +334,34 @@ static struct iio_chan_spec ad916x_amp_chan_spec[] = {
 	AD916X_AMP_CHAN(0),
 };
 
-static void ad916x_amp_setup(const struct ad916x_amp_state *st)
+static int ad916x_amp_setup(struct ad916x_amp_state *st)
 {
-	if (!(st->spi->mode & SPI_3WIRE))
+	int		err;
+
+	err = regmap_write(st->map, AD916x_AMP_REG_SPI_INTFCONFA,
+			   AD916x_AMP_FLD_SOFTRESET);
+	if (err < 0)
+		return err;
+
+	if (st->spi->mode & SPI_3WIRE)
+		err = regmap_write(st->map, AD916x_AMP_REG_SPI_INTFCONFA, 0);
+	else
 		/* set SPI to 4-wire mode */
-		regmap_write(st->map, AD916X_AMP_REG(0x00), 0x18);
-	/*
-	 * TODO: these values are being hardcoded because there is no (still)
-	 * information about the register map on the amplifier. This values
-	 * were taken from the ACE plugin logs for a DAC FSC of 40mA. As soon
-	 * as we know how to derivate this values from the fsc we have to make
-	 * this configurable. Maybe, by having a dts phandle which links to
-	 * the DAC were the fsc paremeter is defined...
-	 */
-	regmap_write(st->map, AD916X_AMP_REG(0x18), 0x0B);
-	regmap_write(st->map, AD916X_AMP_REG(0x19), 0xa0);
+		err = regmap_write(st->map, AD916x_AMP_REG_SPI_INTFCONFA,
+				   AD916x_AMP_FLD_SPI_4WIRE);
+
+	if (err < 0)
+		return err;
+
+	err = ad916x_amp_cm_set(st);
+	if (err < 0)
+		return err;
+
+	err = ad916x_amp_en_set(st, 1);
+	if (err < 0)
+		return err;
+
+	return 0;
 }
 
 static int ad916x_amp_probe(struct spi_device *spi)
@@ -358,6 +371,7 @@ static int ad916x_amp_probe(struct spi_device *spi)
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct device_node *np = spi->dev.of_node;
 	const char *dev_name;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev) {
@@ -375,7 +389,9 @@ static int ad916x_amp_probe(struct spi_device *spi)
 
 	dev_name = np ? np->name : dev_id->name;
 
-	ad916x_amp_setup(st);
+	ret = ad916x_amp_setup(st);
+	if (ret < 0)
+		return ret;
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = dev_name;
