@@ -5,8 +5,6 @@
 
 /delete-node/ &enet1_lpcg;
 /delete-node/ &fec2;
-/delete-node/ &mlb;
-/delete-node/ &mlb_lpcg;
 /delete-node/ &usbotg3;
 /delete-node/ &usb3_lpcg;
 /delete-node/ &usb3_phy;
