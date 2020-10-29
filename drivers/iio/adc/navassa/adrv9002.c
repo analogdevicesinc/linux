@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/string.h>
+#include <linux/sysfs.h>
 
 #include "adrv9002.h"
 #include "adi_adrv9001.h"
@@ -68,6 +69,8 @@
 #define ADRV9002_RX_GAIN_STEP_mDB	500
 #define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
+
+#define ADRV9002_STREAM_BINARY_SZ 	ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES
 
 /* IRQ Masks */
 #define ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR		0x08000000
@@ -2024,8 +2027,18 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	/* program stream */
-	ret = adi_adrv9001_Utilities_StreamImage_Load(phy->adrv9001, "Navassa_Stream.bin");
+	/*
+	 * If we find a custom stream, we will load that. Otherwise we will load the default one.
+	 * Note that if we are in the middle of filling @phy->stream_buf with a new stream and we
+	 * get somehow here, the default one will be used. Either way, after filling the stream, we
+	 * __must__ write a new profile which will get us here again and we can then load then new
+	 * stream.
+	 */
+	if (phy->stream_size == ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES)
+		ret = adi_adrv9001_Stream_Image_Write(phy->adrv9001, 0, phy->stream_buf,
+						      phy->stream_size);
+	else
+		ret = adi_adrv9001_Utilities_StreamImage_Load(phy->adrv9001, "Navassa_Stream.bin");
 	if (ret)
 		return adrv9002_dev_err(phy);
 
@@ -3975,6 +3988,29 @@ static int adrv9002_profile_update(struct adrv9002_rf_phy *phy)
 	return adrv9002_intf_tuning_unlocked(phy);
 }
 
+
+static ssize_t adrv9002_stream_bin_write(struct file *filp, struct kobject *kobj,
+					 struct bin_attribute *bin_attr, char *buf, loff_t off,
+					 size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+
+	if (off + count <= bin_attr->size) {
+		mutex_lock(&phy->lock);
+		if (!off)
+			phy->stream_size = 0;
+		memcpy(phy->stream_buf + off, buf, count);
+		phy->stream_size += count;
+		mutex_unlock(&phy->lock);
+	} else {
+		dev_err(&phy->spi->dev, "Invalid stream image size:%lld!\n", count + off);
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kobj,
 					  struct bin_attribute *bin_attr, char *buf, loff_t off,
 					  size_t count)
@@ -4033,6 +4069,8 @@ static void adrv9002_of_clk_del_provider(void *data)
 
 	of_clk_del_provider(dev->of_node);
 }
+
+static BIN_ATTR(stream_config, 0222, NULL, adrv9002_stream_bin_write, ADRV9002_STREAM_BINARY_SZ);
 
 int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 {
@@ -4130,6 +4168,14 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
+	phy->stream_buf = devm_kzalloc(&phy->spi->dev, ADRV9002_STREAM_BINARY_SZ, GFP_KERNEL);
+	if (!phy->stream_buf)
+		return -ENOMEM;
+
+	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &bin_attr_stream_config);
+	if (ret < 0)
+		return ret;
+
 	adi_adrv9001_ApiVersion_Get(phy->adrv9001, &api_version);
 	adi_adrv9001_arm_Version(phy->adrv9001, &arm_version);
 	adi_adrv9001_SiliconVersion_Get(phy->adrv9001, &silicon_version);
@@ -4218,6 +4264,7 @@ static const struct of_device_id adrv9002_of_match[] = {
 	{.compatible = "adi,adrv9002-rx2tx2", .data = &adrv9002_rx2tx2_id},
 	{}
 };
+
 MODULE_DEVICE_TABLE(of, adrv9002_of_match);
 
 static struct spi_driver adrv9002_driver = {
