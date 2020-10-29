@@ -527,23 +527,31 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data
 	return adar1000_mode_4wire(st, 0);
 }
 
-static void adar1000_phase_search(struct adar1000_state *st, u32 val, u32 val2,
+static void adar1000_phase_search(struct adar1000_state *st, int val, int val2,
 				  u32 *vm_gain_i, u32 *vm_gain_q, int *value_degree)
 {
 	int i, prev, next;
+
+	val %= 360;
+	if (val < 0)
+		val += 360;
 
 	for (i = 0; i < st->pt_size - 1; i++) {
 		if (st->pt_info[i].val > val)
 			break;
 	}
 
-	prev = st->pt_info[i - 1].val * 10000 +
-		st->pt_info[i - 1].val2;
-	next = st->pt_info[i].val * 10000 +
-		st->pt_info[i].val2;
-	*value_degree = val * 10000 + val2;
+	prev = st->pt_info[i - 1].val * 10000 +	st->pt_info[i - 1].val2;
+	next = st->pt_info[i].val * 10000 + st->pt_info[i].val2;
+	*value_degree = val * 10000 + val2 / 100;
 
-	if (prev > next) {
+	/* If value is over the last entry in the pt_info */
+	if (next < *value_degree) {
+		prev = next;
+		next = st->pt_info[0].val * 10000 + st->pt_info[0].val2;
+	}
+
+	if ((*value_degree - prev) < (next - *value_degree)) {
 		*vm_gain_i = st->pt_info[i - 1].vm_gain_i;
 		*vm_gain_q = st->pt_info[i - 1].vm_gain_q;
 		*value_degree = prev;
@@ -555,7 +563,7 @@ static void adar1000_phase_search(struct adar1000_state *st, u32 val, u32 val2,
 }
 
 static int adar1000_set_phase(struct adar1000_state *st, u8 ch_num, u8 output,
-			      u32 val, u32 val2)
+			      int val, int val2)
 {
 	int ret, value;
 	u32 vm_gain_i, vm_gain_q;
