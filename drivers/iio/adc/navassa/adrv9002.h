@@ -147,6 +147,8 @@ struct adrv9002_rf_phy {
 	struct clk_onecell_data		clk_data;
 	struct bin_attribute		bin;
 	char				*bin_attr_buf;
+	u8				*stream_buf;
+	u16				stream_size;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_gpio 		*adrv9002_gpios;
