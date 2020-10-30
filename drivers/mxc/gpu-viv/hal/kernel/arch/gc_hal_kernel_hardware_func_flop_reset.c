@@ -6341,7 +6341,7 @@ gckHARDWARE_ResetFlopWithNN(
     return gcvSTATUS_OK;
 
 OnError:
-    if (Command->funcVidMem)
+    if (Command && Command->funcVidMem)
     {
         gcmkVERIFY_OK(_FreeVideoMemory(
             Hardware->kernel,
@@ -6898,7 +6898,6 @@ gckHARDWARE_ResetFlopWithTP(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-
     dataType = 0x0;
 
     gcmkONERROR(_GetNNDataSize(dataType, &itemBytes));
@@ -6991,7 +6990,7 @@ gckHARDWARE_ResetFlopWithTP(
     return gcvSTATUS_OK;
 
 OnError:
-    if (Command->funcVidMem)
+    if (Command && Command->funcVidMem)
     {
         gcmkVERIFY_OK(_FreeVideoMemory(
             Hardware->kernel,
