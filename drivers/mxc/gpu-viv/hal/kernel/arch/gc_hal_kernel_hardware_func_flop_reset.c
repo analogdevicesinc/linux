@@ -1148,6 +1148,10 @@ gckPPU_AddOpCode(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
+    if (!Inst)
+    {
+        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
 
     Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  5:0) - (0 ?
@@ -1169,11 +1173,6 @@ gckPPU_AddOpCode(
  16:16) - (0 ?
  16:16) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16)));
-
-    if (!Inst)
-    {
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
 
     switch (OpCode)
     {
