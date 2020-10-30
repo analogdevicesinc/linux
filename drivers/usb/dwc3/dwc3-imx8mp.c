@@ -5,6 +5,7 @@
  * Copyright (c) 2020 NXP.
  */
 
+#include <linux/busfreq-imx.h>
 #include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
@@ -247,6 +248,8 @@ static int dwc3_imx8mp_probe(struct platform_device *pdev)
 
 	imx8mp_configure_glue(dwc3_imx);
 
+	request_bus_freq(BUS_FREQ_HIGH);
+
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	err = pm_runtime_get_sync(dev);
@@ -292,6 +295,7 @@ remove_swnode:
 disable_rpm:
 	pm_runtime_disable(dev);
 	pm_runtime_put_noidle(dev);
+	release_bus_freq(BUS_FREQ_HIGH);
 
 	return err;
 }
@@ -306,6 +310,7 @@ static void dwc3_imx8mp_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(dev);
 	pm_runtime_put_noidle(dev);
+	release_bus_freq(BUS_FREQ_HIGH);
 }
 
 static int dwc3_imx8mp_suspend(struct dwc3_imx8mp *dwc3_imx, pm_message_t msg)
@@ -317,6 +322,7 @@ static int dwc3_imx8mp_suspend(struct dwc3_imx8mp *dwc3_imx, pm_message_t msg)
 	if (PMSG_IS_AUTO(msg) || device_may_wakeup(dwc3_imx->dev))
 		dwc3_imx8mp_wakeup_enable(dwc3_imx, msg);
 
+	release_bus_freq(BUS_FREQ_HIGH);
 	dwc3_imx->pm_suspended = true;
 
 	return 0;
@@ -330,6 +336,7 @@ static int dwc3_imx8mp_resume(struct dwc3_imx8mp *dwc3_imx, pm_message_t msg)
 	if (!dwc3_imx->pm_suspended)
 		return 0;
 
+	request_bus_freq(BUS_FREQ_HIGH);
 	/* Wakeup disable */
 	dwc3_imx8mp_wakeup_disable(dwc3_imx);
 	dwc3_imx->pm_suspended = false;
