@@ -59,7 +59,7 @@ void __init imx6_enet_mac_init(const char *enet_compat, const char *ocotp_compat
 
 		from = enet_np;
 
-		if (of_get_mac_address(enet_np))
+		if (!IS_ERR(of_get_mac_address(enet_np)))
 			goto put_enet_node;
 
 		id = of_alias_get_id(enet_np, "ethernet");
