@@ -403,9 +403,6 @@ _GetVIPCoreInfo(
 
     gcmkASSERT(database);
 
-    /* Make compiler happy. */
-    gcQueryFeatureDB(0, 0, 0, 0, 0);
-
     /* Choose one supported format. */
     if (database->NNCoreCount_INT8 > 0)
     {

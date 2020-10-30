@@ -132,7 +132,6 @@ _InitializeUSC_NNCommands(
     }
 
     gcmkASSERT(command != NULL);
-    gcQueryFeatureDB(0, 0, 0, 0, 0);
 
     for (index = 0; index < gcmCOUNTOF(configuration); index ++)
     {
