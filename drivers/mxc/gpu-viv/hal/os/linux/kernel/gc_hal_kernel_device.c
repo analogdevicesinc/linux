@@ -1425,9 +1425,13 @@ static int _set_clk(const char* buf)
         }
     }
 
-    sscanf(data, "%d %d %d", &dumpCore, &clkScale[0], &clkScale[1]);
-
-    printk("Change core:%d MC scale:%d SH scale:%d\n", dumpCore, clkScale[0], clkScale[1]);
+    if (3 == sscanf(data, "%d %d %d", &dumpCore, &clkScale[0], &clkScale[1])) {
+        printk("Change core:%d MC scale:%d SH scale:%d\n",
+                dumpCore, clkScale[0], clkScale[1]);
+    } else {
+        printk("usage: echo \"0 32 32\" > clk\n");
+        return 0;
+    }
 
     if (device->kernels[dumpCore])
     {
