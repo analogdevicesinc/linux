@@ -3162,15 +3162,6 @@ gckMMU_SetupSRAM(
                 /* Map the internal SRAM. */
                 if (needMapInternalSRAM)
                 {
-                    if (Device->showSRAMMapInfo)
-                    {
-                            gcmkPRINT("Galcore Info: MMU mapped external shared SRAM[%d] GPU view base=0x%llx GPU virtual address=0x%x size=0x%x",
-                            i,
-                            reservedBase,
-                            reservedSize
-                            );
-                    }
-
                     /*
                      * Default gpu virtual base = 0.
                      * It can be specified if not conflict with existing mapping.
