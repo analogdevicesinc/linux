@@ -3211,6 +3211,42 @@ static int adrv9002_init_set(void *arg, const u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_init_fops,
 			 NULL, adrv9002_init_set, "%llu");
 
+
+static int adrv9002_tx_ssi_test_mode_loopback_get(void *arg, u64 *val)
+{
+	struct adrv9002_tx_chan	*tx = arg;
+
+	*val = tx->loopback;
+
+	return 0;
+};
+
+static int adrv9002_tx_ssi_test_mode_loopback_set(void *arg, const u64 val)
+{
+	struct adrv9002_tx_chan	*tx = arg;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.number - 1);
+	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
+	bool enable = !!val;
+	int ret;
+
+	if (enable == tx->loopback)
+		return 0;
+
+	tx->loopback = enable;
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9001_Ssi_Loopback_Set(phy->adrv9001, tx->channel.number, ssi_type, enable);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	return 0;
+};
+
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_ssi_test_mode_loopback_fops,
+			 adrv9002_tx_ssi_test_mode_loopback_get,
+			 adrv9002_tx_ssi_test_mode_loopback_set,
+			 "%llu\n");
+
 static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 {
 	struct adrv9002_tx_chan	*tx = arg;
@@ -3388,6 +3424,9 @@ static void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy)
 		debugfs_create_file(attr, 0400, d,
 				    &phy->tx_channels[chan],
 				    &adrv9002_ssi_tx_test_mode_status_fops);
+		sprintf(attr, "tx%d_ssi_test_mode_loopback_en", chan);
+		debugfs_create_file_unsafe(attr, 0600, d, &phy->tx_channels[chan],
+					   &adrv9002_tx_ssi_test_mode_loopback_fops);
 
 		sprintf(attr, "tx%d_ssi_clk_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txClkDelay[chan]);
