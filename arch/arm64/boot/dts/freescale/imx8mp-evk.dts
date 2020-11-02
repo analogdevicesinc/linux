@@ -1217,7 +1217,7 @@
 
 	pinctrl_usb1_vbus: usb1grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_GPIO1_IO14__USB2_OTG_PWR	0x10
+			MX8MP_IOMUXC_GPIO1_IO14__USB2_PWR		0x19
 		>;
 	};
 
