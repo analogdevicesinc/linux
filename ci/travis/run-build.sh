@@ -83,6 +83,10 @@ adjust_kcflags_against_gcc() {
 		KCFLAGS="$KCFLAGS -Wno-error=address-of-packed-member -Wno-error=attribute-alias="
 		KCFLAGS="$KCFLAGS -Wno-error=stringop-truncation"
 	fi
+	if [ "$($GCC -dumpversion | cut -d. -f1)" -ge "10" ]; then
+		KCFLAGS="$KCFLAGS -Wno-error=maybe-uninitialized -Wno-error=restrict"
+		KCFLAGS="$KCFLAGS -Wno-error=zero-length-bounds"
+	fi
 	export KCFLAGS
 }
 
