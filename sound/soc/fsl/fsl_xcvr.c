@@ -1389,6 +1389,8 @@ static const struct of_device_id fsl_xcvr_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, fsl_xcvr_dt_ids);
 
+#include "fsl_xcvr_sysfs.c"
+
 static int fsl_xcvr_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1521,6 +1523,7 @@ static int fsl_xcvr_probe(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 		dev_err(dev, "failed to register component %s\n",
 			fsl_xcvr_comp.name);
+		return ret;
 	}
 
 	INIT_WORK(&xcvr->work_rst, reset_rx_work);
@@ -1531,6 +1534,12 @@ static int fsl_xcvr_probe(struct platform_device *pdev)
 	if (hdmi_np)
 		xcvr->bridge = of_drm_find_bridge(hdmi_np);
 
+	ret = sysfs_create_group(&pdev->dev.kobj, fsl_xcvr_get_attr_grp());
+	if (ret) {
+		pm_runtime_disable(dev);
+		dev_err(&pdev->dev, "fail to create sys group\n");
+	}
+
 	return ret;
 }
 
@@ -1540,6 +1549,7 @@ static void fsl_xcvr_remove(struct platform_device *pdev)
 
 	cancel_work_sync(&xcvr->work_rst);
 	cancel_work_sync(&xcvr->work);
+	sysfs_remove_group(&pdev->dev.kobj, fsl_xcvr_get_attr_grp());
 	pm_runtime_disable(&pdev->dev);
 }
 
