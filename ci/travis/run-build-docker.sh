@@ -17,12 +17,6 @@ else
 			echo "export ${env}=${val}" >> "${FULL_BUILD_DIR}/env"
 		fi
 	done
-
-	# Temporarily use Ubuntu 20.04; 'ubuntu:rolling' is now
-	# at 20.10 with GCC 10 and plenty of things to fix
-	prepare_docker_image "ubuntu:focal"
-	run_docker_script run-build.sh "ubuntu:focal"
-
-	#prepare_docker_image "ubuntu:rolling"
-	#run_docker_script run-build.sh "ubuntu:rolling"
+	prepare_docker_image "ubuntu:rolling"
+	run_docker_script run-build.sh "ubuntu:rolling"
 fi
