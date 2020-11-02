@@ -3508,7 +3508,7 @@ _ProgramMMUStatesMCFE(
             gcmkDUMP(Mmu->os, "@[physical.fill 0x%010llX 0x%08X 0x%08X]",
                      (unsigned long long)Hardware->pagetableArray.address + 4, entry->high, 4);
 
-            gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+            gcmkONERROR(gckVIDMEM_NODE_CleanCache(
                 Hardware->kernel,
                 Hardware->pagetableArray.videoMem,
                 0,
