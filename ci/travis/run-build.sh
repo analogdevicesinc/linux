@@ -90,7 +90,7 @@ adjust_kcflags_against_gcc() {
 	export KCFLAGS
 }
 
-APT_LIST="build-essential bc u-boot-tools flex bison libssl-dev"
+APT_LIST="make bc u-boot-tools flex bison libssl-dev"
 
 if [ "$ARCH" == "arm64" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
