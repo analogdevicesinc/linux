@@ -437,6 +437,14 @@ static int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy,
 							       ADI_ADRV9001_SPI_MODE);
 		if (ret)
 			return adrv9002_dev_err(phy);
+
+		/*
+		 * When moving from pin to spi mode, the device might change the ensm automatically.
+		 * Hence, we need to wait to cache the right value and to make sure that the device
+		 * is in a stable state so that @adi_adrv9001_Radio_Channel_ToState() actually
+		 * works.
+		 */
+		usleep_range(2000, 3000);
 	}
 
 	if (cache_state) {
@@ -452,6 +460,11 @@ static int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy,
 	if (ret)
 		return adrv9002_dev_err(phy);
 
+	/*
+	 * We also need to wait here so that the device goes into the right state. This is important
+	 * when an operation requiring these state transitions is called multiple times in a row...
+	 */
+	usleep_range(2000, 3000);
 	if (mode == ADI_ADRV9001_SPI_MODE)
 		return 0;
 
