@@ -34,7 +34,7 @@
 
 &fmc_spi {
 	spi@0 {
-		compatible = "spidev";
+		compatible = "adi,swspi";
 		spi-cpha;
 		reg = <0x0>;
 		spi-max-frequency = <1000000>;
