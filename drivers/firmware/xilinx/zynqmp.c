@@ -26,6 +26,8 @@
 #include <linux/firmware/xlnx-event-manager.h>
 #include "zynqmp-debug.h"
 
+#pragma GCC diagnostic warning "-Warray-bounds"
+
 /* Max HashMap Order for PM API feature check (1<<7 = 128) */
 #define PM_API_FEATURE_CHECK_MAX_ORDER  7
 
