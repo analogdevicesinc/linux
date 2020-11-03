@@ -24,6 +24,8 @@
 #include <linux/firmware/xlnx-zynqmp.h>
 #include "zynqmp-debug.h"
 
+#pragma GCC diagnostic warning "-Warray-bounds"
+
 static unsigned long register_address;
 
 static const struct zynqmp_eemi_ops *eemi_ops_tbl;
