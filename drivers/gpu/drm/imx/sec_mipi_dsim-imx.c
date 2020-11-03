@@ -37,8 +37,15 @@
 
 #define DRIVER_NAME "imx_sec_dsim_drv"
 
+/* fixed phy ref clk rate */
+#define PHY_REF_CLK		27000
+
 struct imx_sec_dsim_device {
 	struct device *dev;
+	void __iomem *base;
+	int irq;
+	struct clk *clk_cfg;
+	struct clk *clk_pllref;
 	struct drm_encoder encoder;
 
 	struct reset_control *soft_resetn;
@@ -140,6 +147,49 @@ static const struct drm_encoder_helper_funcs imx_sec_dsim_encoder_helper_funcs =
 	.atomic_check = imx_sec_dsim_encoder_helper_atomic_check,
 };
 
+static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)
+{
+	int ret;
+	struct device *dev = dsim_dev->dev;
+	u32 req_rate = PHY_REF_CLK;
+	unsigned long get_rate;
+
+	ret = of_property_read_u32(dev->of_node, "pref-rate", &req_rate);
+	if (!ret) {
+		if (req_rate != clamp(req_rate, min, max)) {
+			dev_warn(dev, "invalid requested PLL ref clock rate : %u\n", req_rate);
+			req_rate = PHY_REF_CLK;
+			dev_warn(dev, "use default clock rate : %u\n", req_rate);
+		}
+	}
+
+set_rate:
+	ret = clk_set_rate(dsim_dev->clk_pllref, ((unsigned long)req_rate) * 1000);
+	if (ret)
+		return ret;
+
+	get_rate = clk_get_rate(dsim_dev->clk_pllref);
+	if (!get_rate)
+		return -EINVAL;
+
+	/* PLL ref clock rate should be set precisely */
+	if (get_rate != req_rate * 1000) {
+		/* default clock rate should can be set precisely */
+		if (WARN_ON(unlikely(req_rate == PHY_REF_CLK)))
+			return -EINVAL;
+
+		dev_warn(dev, "request rate %u cannot be satisfied\n", req_rate);
+		req_rate = PHY_REF_CLK;
+		dev_warn(dev, "use default clock rate : %u\n", req_rate);
+
+		goto set_rate;
+	}
+
+	*rate = req_rate;
+
+	return 0;
+}
+
 static const struct sec_mipi_dsim_plat_data imx8mm_mipi_dsim_plat_data = {
 	.version	= 0x1060200,
 	.max_data_lanes = 4,
@@ -149,6 +199,7 @@ static const struct sec_mipi_dsim_plat_data imx8mm_mipi_dsim_plat_data = {
 	.num_dphy_timing = ARRAY_SIZE(dphy_timing_ln14lpp_v1p2),
 	.dphy_timing_cmp = dphy_timing_default_cmp,
 	.mode_valid	= NULL,
+	.determine_pll_ref_rate = sec_dsim_determine_pll_ref_rate,
 };
 
 static const struct of_device_id imx_sec_dsim_dt_ids[] = {
@@ -240,10 +291,8 @@ static void sec_dsim_of_put_resets(struct imx_sec_dsim_device *dsim)
 static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 			     void *data)
 {
-	int ret, irq;
-	struct resource *res;
+	int ret;
 	struct drm_device *drm_dev = data;
-	struct platform_device *pdev = to_platform_device(dev);
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *of_id = of_match_device(imx_sec_dsim_dt_ids,
 							   dev);
@@ -256,18 +305,6 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 		return -ENODEV;
 	pdata = of_id->data;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -ENODEV;
-
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return -ENODEV;
-
-	ret = sec_dsim_of_parse_resets(dsim_dev);
-	if (ret)
-		return ret;
-
 	encoder = &dsim_dev->encoder;
 	ret = imx_drm_encoder_parse_of(drm_dev, encoder, np);
 	if (ret)
@@ -279,15 +316,12 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 	if (ret)
 		return ret;
 
-	pm_runtime_enable(dev);
-
 	/* bind sec dsim bridge */
-	ret = sec_mipi_dsim_bind(dev, master, data, encoder, res, irq, pdata);
+	ret = sec_mipi_dsim_bind(dev, master, data, encoder,
+				 dsim_dev->base, dsim_dev->irq, pdata);
 	if (ret) {
 		dev_err(dev, "failed to bind sec dsim bridge: %d\n", ret);
-		pm_runtime_disable(dev);
 		drm_encoder_cleanup(encoder);
-		sec_dsim_of_put_resets(dsim_dev);
 
 		/* If no panel or bridge connected, just return 0
 		 * to make component core to believe it is bound
@@ -313,13 +347,9 @@ static void imx_sec_dsim_unbind(struct device *dev, struct device *master,
 	if (!dsim_dev->encoder.dev)
 		return;
 
-	pm_runtime_disable(dev);
-
 	drm_encoder_cleanup(&dsim_dev->encoder);
 
 	sec_mipi_dsim_unbind(dev, master, data);
-
-	sec_dsim_of_put_resets(dsim_dev);
 }
 
 static const struct component_ops imx_sec_dsim_ops = {
@@ -329,6 +359,7 @@ static const struct component_ops imx_sec_dsim_ops = {
 
 static int imx_sec_dsim_probe(struct platform_device *pdev)
 {
+	int ret;
 	struct device *dev = &pdev->dev;
 
 	dev_dbg(dev, "%s: dsim probe begin\n", __func__);
@@ -338,10 +369,31 @@ static int imx_sec_dsim_probe(struct platform_device *pdev)
 		dev_err(dev, "Unable to allocate 'dsim_dev'\n");
 		return -ENOMEM;
 	}
+	dsim_dev->dev = dev;
+
+	dsim_dev->base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(dsim_dev->base))
+		return PTR_ERR(dsim_dev->base);
+
+	dsim_dev->irq = platform_get_irq(pdev, 0);
+	if (dsim_dev->irq < 0)
+		return -ENODEV;
+
+	dsim_dev->clk_cfg = devm_clk_get(dev, "cfg");
+	if (IS_ERR(dsim_dev->clk_cfg))
+		return PTR_ERR(dsim_dev->clk_cfg);
+
+	dsim_dev->clk_pllref = devm_clk_get(dev, "pll-ref");
+	if (IS_ERR(dsim_dev->clk_pllref))
+		return PTR_ERR(dsim_dev->clk_pllref);
+
+	ret = sec_dsim_of_parse_resets(dsim_dev);
+	if (ret)
+		return ret;
 
 	atomic_set(&dsim_dev->rpm_suspended, 1);
 
-	dsim_dev->dev = dev;
+	pm_runtime_enable(dev);
 
 	return component_add(dev, &imx_sec_dsim_ops);
 }
@@ -349,6 +401,9 @@ static int imx_sec_dsim_probe(struct platform_device *pdev)
 static int imx_sec_dsim_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &imx_sec_dsim_ops);
+	pm_runtime_disable(&pdev->dev);
+	sec_dsim_of_put_resets(dsim_dev);
+
 	return 0;
 }
 
@@ -376,6 +431,9 @@ static int imx_sec_dsim_runtime_suspend(struct device *dev)
 
 	sec_mipi_dsim_suspend(dev);
 
+	clk_disable_unprepare(dsim_dev->clk_cfg);
+	clk_disable_unprepare(dsim_dev->clk_pllref);
+
 	release_bus_freq(BUS_FREQ_HIGH);
 
 	return 0;
@@ -399,6 +457,14 @@ static int imx_sec_dsim_runtime_resume(struct device *dev)
 		return 0;
 
 	request_bus_freq(BUS_FREQ_HIGH);
+
+	ret = clk_prepare_enable(dsim_dev->clk_pllref);
+	if (WARN_ON(unlikely(ret)))
+		return ret;
+
+	ret = clk_prepare_enable(dsim_dev->clk_cfg);
+	if (WARN_ON(unlikely(ret)))
+		return ret;
 
 	ret = sec_dsim_rstc_reset(dsim_dev->soft_resetn, false);
 	if (ret) {
