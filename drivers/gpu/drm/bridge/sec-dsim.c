@@ -229,9 +229,6 @@
 #define dsim_read(dsim, reg)		readl(dsim->base + reg)
 #define dsim_write(dsim, val, reg)	writel(val, dsim->base + reg)
 
-/* fixed phy ref clk rate */
-#define PHY_REF_CLK		27000
-
 #define MAX_MAIN_HRESOL		2047
 #define MAX_MAIN_VRESOL		2047
 #define MAX_SUB_HRESOL		1024
@@ -306,11 +303,6 @@ struct sec_mipi_dsim {
 	struct device *dev;
 
 	void __iomem *base;
-	int irq;
-
-	struct clk *clk_cfg;
-	struct clk *clk_pllref;
-	struct clk *pclk;			/* pixel clock */
 
 	/* kHz clocks */
 	uint32_t pix_clk;
@@ -429,53 +421,15 @@ static int sec_mipi_dsim_set_pref_rate(struct sec_mipi_dsim *dsim)
 {
 	int ret;
 	uint32_t rate;
-	struct device *dev = dsim->dev;
 	const struct sec_mipi_dsim_plat_data *pdata = dsim->pdata;
 	const struct sec_mipi_dsim_pll *dpll = pdata->dphy_pll;
 	const struct sec_mipi_dsim_range *fin_range = &dpll->fin;
 
-	ret = of_property_read_u32(dev->of_node, "pref-rate", &rate);
-	if (ret < 0) {
-		dev_dbg(dev, "no valid rate assigned for pref clock\n");
-		dsim->pref_clk = PHY_REF_CLK;
-	} else {
-		if (unlikely(rate < fin_range->min || rate > fin_range->max)) {
-			dev_warn(dev, "pref-rate get is invalid: %uKHz\n",
-				 rate);
-			dsim->pref_clk = PHY_REF_CLK;
-		} else
-			dsim->pref_clk = rate;
-	}
-
-set_rate:
-	ret = clk_set_rate(dsim->clk_pllref,
-			   ((unsigned long)dsim->pref_clk) * 1000);
-	if (ret) {
-		dev_err(dev, "failed to set pll ref clock rate\n");
+	ret = pdata->determine_pll_ref_rate(&rate, fin_range->min, fin_range->max);
+	if (ret)
 		return ret;
-	}
 
-	rate = clk_get_rate(dsim->clk_pllref) / 1000;
-	if (unlikely(!rate)) {
-		dev_err(dev, "failed to get pll ref clock rate\n");
-		return -EINVAL;
-	}
-
-	if (rate != dsim->pref_clk) {
-		if (unlikely(dsim->pref_clk == PHY_REF_CLK)) {
-			/* set default rate failed */
-			dev_err(dev, "no valid pll ref clock rate\n");
-			return -EINVAL;
-		}
-
-		dev_warn(dev, "invalid assigned rate for pref: %uKHz\n",
-			 dsim->pref_clk);
-		dev_warn(dev, "use default pref rate instead: %uKHz\n",
-			 PHY_REF_CLK);
-
-		dsim->pref_clk = PHY_REF_CLK;
-		goto set_rate;
-	}
+	dsim->pref_clk = rate;
 
 	return 0;
 }
@@ -1621,23 +1575,13 @@ static const struct drm_bridge_funcs sec_mipi_dsim_bridge_funcs = {
 
 void sec_mipi_dsim_suspend(struct device *dev)
 {
-	struct sec_mipi_dsim *dsim = dev_get_drvdata(dev);
-
 	/* TODO: add dsim reset */
-
-	clk_disable_unprepare(dsim->clk_cfg);
-
-	clk_disable_unprepare(dsim->clk_pllref);
 }
 EXPORT_SYMBOL(sec_mipi_dsim_suspend);
 
 void sec_mipi_dsim_resume(struct device *dev)
 {
 	struct sec_mipi_dsim *dsim = dev_get_drvdata(dev);
-
-	clk_prepare_enable(dsim->clk_pllref);
-
-	clk_prepare_enable(dsim->clk_cfg);
 
 	sec_mipi_dsim_irq_init(dsim);
 
@@ -1899,7 +1843,7 @@ static const struct drm_connector_funcs sec_mipi_dsim_connector_funcs = {
 };
 
 int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
-		       struct drm_encoder *encoder, struct resource *res,
+		       struct drm_encoder *encoder, void __iomem *base,
 		       int irq, const struct sec_mipi_dsim_plat_data *pdata)
 {
 	int ret, version;
@@ -1918,30 +1862,12 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 	}
 
 	dsim->dev = dev;
-	dsim->irq = irq;
+	dsim->base = base;
 	dsim->pdata = pdata;
 	dsim->encoder = encoder;
 
 	dsim->dsi_host.ops = &sec_mipi_dsim_host_ops;
 	dsim->dsi_host.dev = dev;
-
-	dsim->base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(dsim->base))
-		return PTR_ERR(dsim->base);
-
-	dsim->clk_pllref = devm_clk_get(dev, "pll-ref");
-	if (IS_ERR(dsim->clk_pllref)) {
-		ret = PTR_ERR(dsim->clk_pllref);
-		dev_err(dev, "Unable to get phy pll reference clock: %d\n", ret);
-		return ret;
-	}
-
-	dsim->clk_cfg = devm_clk_get(dev, "cfg");
-	if (IS_ERR(dsim->clk_cfg)) {
-		ret = PTR_ERR(dsim->clk_cfg);
-		dev_err(dev, "Unable to get configuration clock: %d\n", ret);
-		return ret;
-	}
 
 	dev_set_drvdata(dev, dsim);
 
@@ -1959,8 +1885,7 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 		return ret;
 	}
 
-	ret = devm_request_irq(dev, dsim->irq,
-			       sec_mipi_dsim_irq_handler,
+	ret = devm_request_irq(dev, irq, sec_mipi_dsim_irq_handler,
 			       0, dev_name(dev), dsim);
 	if (ret) {
 		dev_err(dev, "failed to request dsim irq: %d\n", ret);

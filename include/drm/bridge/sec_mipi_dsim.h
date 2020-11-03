@@ -31,6 +31,7 @@ struct sec_mipi_dsim_plat_data {
 	int (*dphy_timing_cmp)(const void *key, const void *elt);
 	enum drm_mode_status (*mode_valid)(struct drm_connector *connector,
 					   struct drm_display_mode *mode);
+	int (*determine_pll_ref_rate)(u32 *rate, u32 min, u32 max);
 };
 
 /* DPHY PLL structure */
@@ -102,7 +103,7 @@ static inline int dphy_timing_default_cmp(const void *key, const void *elt)
 int sec_mipi_dsim_check_pll_out(void *driver_private,
 				const struct drm_display_mode *mode);
 int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
-		       struct drm_encoder *encoder, struct resource *res,
+		       struct drm_encoder *encoder, void __iomem *base,
 		       int irq, const struct sec_mipi_dsim_plat_data *pdata);
 void sec_mipi_dsim_unbind(struct device *dev, struct device *master, void *data);
 
