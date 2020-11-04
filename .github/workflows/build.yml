@@ -1,0 +1,62 @@
+name: Build the ADI kernel matrix
+
+on: [pull_request]
+
+jobs:
+  zynq_adi_default:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the Zynq ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: zynq_xcomm_adv7511_defconfig
+        ARCH: arm
+        IMAGE: uImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      run: ./ci/travis/run-build-docker.sh
+
+  socfpga_adi_default:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the SoCFPGA ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: socfpga_adi_defconfig
+        ARCH: arm
+        IMAGE: zImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      run: ./ci/travis/run-build-docker.sh
+
+  zynqmp_adi_default:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the ZynqMP ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: adi_zynqmp_defconfig
+        ARCH: arm64
+        IMAGE: Image
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      run: ./ci/travis/run-build-docker.sh
+
+  zynq_pluto:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the ADALM-PLUTO kernel
+      env:
+        DEFCONFIG: zynq_pluto_defconfig
+        ARCH: arm
+        IMAGE: uImage
+      run: ./ci/travis/run-build-docker.sh
+
+  zynq_m2k:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the Zynq ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: zynq_m2k_defconfig
+        ARCH: arm
+        IMAGE: uImage
+      run: ./ci/travis/run-build-docker.sh
