@@ -42,6 +42,7 @@
 #include "adi_adrv9001_rx.h"
 #include "adi_adrv9001_rx_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
+#include "adi_adrv9001_spi.h"
 #include "adi_adrv9001_ssi.h"
 #include "adi_adrv9001_ssi_types.h"
 #include "adi_adrv9001_stream.h"
@@ -123,48 +124,36 @@
 	 ADRV9002_GP_MASK_TX_DP_TRANSMIT_ERROR |		\
 	 ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR)
 
-int adrv9002_spi_read(struct spi_device *spi, u32 reg)
+static int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy,
+			      const char *function, const int line)
 {
-	unsigned char buf[3];
 	int ret;
 
-	buf[0] = 0x80 | (reg >> 8);
-	buf[1] = reg & 0xFF;
-	ret = spi_write_then_read(spi, &buf[0], 2, &buf[2], 1);
+	dev_err(&phy->spi->dev, "%s, %d: failed with \"%s\" (%d)\n", function, line,
+		phy->adrv9001->common.error.errormessage ?
+		phy->adrv9001->common.error.errormessage : "",
+		phy->adrv9001->common.error.errCode);
 
-	dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
-		__func__, reg, buf[2], ret);
-
-	if (ret < 0) {
-		dev_err(&spi->dev, "%s: failed (%d)\n",
-			__func__, ret);
-		return ret;
+	switch (phy->adrv9001->common.error.errCode) {
+	case ADI_COMMON_ERR_INV_PARAM:
+	case ADI_COMMON_ERR_NULL_PARAM:
+		ret = -EINVAL;
+	case ADI_COMMON_ERR_API_FAIL:
+		ret = -EFAULT;
+	case ADI_COMMON_ERR_SPI_FAIL:
+		ret = -EIO;
+	case ADI_COMMON_ERR_MEM_ALLOC_FAIL:
+		ret = -ENOMEM;
+	default:
+		ret = -EFAULT;
 	}
 
-	return buf[2];
+	adi_common_ErrorClear(&phy->adrv9001->common);
+
+	return ret;
 }
 
-int adrv9002_spi_write(struct spi_device *spi, u32 reg, u32 val)
-{
-	unsigned char buf[3];
-	int ret;
-
-	buf[0] = reg >> 8;
-	buf[1] = reg & 0xFF;
-	buf[2] = val;
-
-	ret = spi_write_then_read(spi, buf, 3, NULL, 0);
-	if (ret < 0) {
-		dev_err(&spi->dev, "%s: failed (%d)\n",
-			__func__, ret);
-		return ret;
-	}
-
-	dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
-		__func__, reg, val, ret);
-
-	return 0;
-}
+#define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
 
 void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
 				u8 *ssi_intf, u8 *n_lanes, bool *cmos_ddr_en)
@@ -237,14 +226,18 @@ static int adrv9002_phy_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&phy->lock);
 	if (!readval) {
-		ret = adrv9002_spi_write(phy->spi, reg, writeval);
+		ret = adi_adrv9001_spi_Byte_Write(phy->adrv9001, reg, writeval);
 	} else {
-		*readval = adrv9002_spi_read(phy->spi, reg);
-		ret = 0;
+		u8 val;
+
+		ret = adi_adrv9001_spi_Byte_Read(phy->adrv9001, reg, &val);
+		*readval = val;
 	}
 	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9002_dev_err(phy);
 
-	return ret;
+	return 0;
 }
 
 #define ADRV9002_MAX_CLK_NAME 79
@@ -359,37 +352,6 @@ tx_clk:
 			break;
 	}
 }
-
-static int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy,
-			      const char *function, const int line)
-{
-	int ret;
-
-	dev_err(&phy->spi->dev, "%s, %d: failed with \"%s\" (%d)\n", function, line,
-		phy->adrv9001->common.error.errormessage ?
-		phy->adrv9001->common.error.errormessage : "",
-		phy->adrv9001->common.error.errCode);
-
-	switch (phy->adrv9001->common.error.errCode) {
-	case ADI_COMMON_ERR_INV_PARAM:
-	case ADI_COMMON_ERR_NULL_PARAM:
-		ret = -EINVAL;
-	case ADI_COMMON_ERR_API_FAIL:
-		ret = -EFAULT;
-	case ADI_COMMON_ERR_SPI_FAIL:
-		ret = -EIO;
-	case ADI_COMMON_ERR_MEM_ALLOC_FAIL:
-		ret = -ENOMEM;
-	default:
-		ret = -EFAULT;
-	}
-
-	adi_common_ErrorClear(&phy->adrv9001->common);
-
-	return ret;
-}
-
-#define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
 
 enum lo_ext_info {
 	LOEXT_FREQ,
