@@ -498,23 +498,27 @@ static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 	const int chan_nr = ADRV_ADDRESS_CHAN(chan->address);
 	int ret = 0;
 	struct adrv9002_chan *chann = adrv9002_get_channel(phy, port, chan_nr);
-	struct adi_adrv9001_Carrier lo_freq = {
-		.pllCalibration = ADI_ADRV9001_PLL_CALIBRATION_NORMAL,
-		.loGenOptimization = ADI_ADRV9001_LO_GEN_OPTIMIZATION_PHASE_NOISE,
-		.pllPower = ADI_ADRV9001_PLL_POWER_MEDIUM
-	};
+	struct adi_adrv9001_Carrier lo_freq;
+	u64 freq;
 
 	if (!chann->enabled)
 		return -ENODEV;
 
 	switch (private) {
 	case LOEXT_FREQ:
-		ret = kstrtoull(buf, 10, &lo_freq.carrierFrequency_Hz);
+		ret = kstrtoull(buf, 10, &freq);
 		if (ret)
 			return ret;
 
 		mutex_lock(&phy->lock);
+		ret = adi_adrv9001_Radio_Carrier_Inspect(phy->adrv9001, port,
+							 chann->number, &lo_freq);
+		if (ret) {
+			ret = adrv9002_dev_err(phy);
+			goto unlock;
+		}
 
+		lo_freq.carrierFrequency_Hz = freq;
 		ret = adrv9002_channel_to_state(phy, chann, port,
 						ADI_ADRV9001_CHANNEL_CALIBRATED,
 						true);
