@@ -73,6 +73,10 @@
 #define ADAR1000_LSB_FIRST		BIT(6)
 #define ADAR1000_ADDR_ASCN		BIT(5)
 #define ADAR1000_SDOACTIVE		BIT(4)
+#define ADAR1000_SDOACTIVE_		BIT(3)
+#define ADAR1000_ADDR_ASCN_		BIT(2)
+#define ADAR1000_LSB_FIRST_		BIT(1)
+#define ADAR1000_SOFTRESET_		BIT(0)
 
 /* ADAR1000_ADC_CTRL */
 #define ADAR1000_ADC_CLKFREQ_SEL	BIT(7)
@@ -360,7 +364,7 @@ static int adar1000_mode_4wire(struct adar1000_state *st, bool enable)
 	uint8_t tmp;
 
 	if (enable)
-		tmp = ADAR1000_SDOACTIVE;
+		tmp = ADAR1000_SDOACTIVE | ADAR1000_SDOACTIVE_;
 	else
 		tmp = 0;
 
@@ -933,7 +937,7 @@ static ssize_t adar1000_reset(struct device *dev,
 
 	/* Reset device */
 	ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_INTERFACE_CFG_A,
-			   ADAR1000_SOFTRESET);
+			   ADAR1000_SOFTRESET | ADAR1000_SOFTRESET_);
 	if (ret < 0)
 		return ret;
 
@@ -1977,7 +1981,7 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 	/* Reset device */
 	ret = regmap_write(st->regmap, st->dev_addr |
 			   ADAR1000_INTERFACE_CFG_A,
-			   ADAR1000_SOFTRESET);
+			   ADAR1000_SOFTRESET | ADAR1000_SOFTRESET_);
 	if (ret < 0)
 		return ret;
 
