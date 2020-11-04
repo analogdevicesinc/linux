@@ -581,19 +581,11 @@ static int adar1000_set_phase(struct adar1000_state *st, u8 ch_num, u8 output,
 		st->rx_phase[ch_num] = value;
 	}
 
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
 	ret = regmap_write(st->regmap, reg_i, vm_gain_i);
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_write(st->regmap, reg_q, vm_gain_q);
-	if (ret < 0)
-		return ret;
-
-	return adar1000_mode_4wire(st, 0);
+	return regmap_write(st->regmap, reg_q, vm_gain_q);
 }
 
 static int adar1000_get_phase(struct adar1000_state *st, u8 ch_num, u8 output,
@@ -943,10 +935,6 @@ static ssize_t adar1000_reset(struct device *dev,
 	struct adar1000_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
 	/* Reset device */
 	ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_INTERFACE_CFG_A,
 			   ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
@@ -956,8 +944,6 @@ static ssize_t adar1000_reset(struct device *dev,
 	/* Clear phase values */
 	memset(st->tx_phase, 0, sizeof(st->tx_phase));
 	memset(st->rx_phase, 0, sizeof(st->rx_phase));
-
-	ret = adar1000_mode_4wire(st, 0);
 
 	return ret ? ret : len;
 }
@@ -1134,7 +1120,7 @@ static int adar1000_beam_load(struct adar1000_state *st, u32 channel, bool tx,
 static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 			      u32 profile, struct adar1000_beam_position beam)
 {
-	int ret, phase_value;
+	int phase_value;
 	u16 ram_access_tx_rx;
 	u32 gain_reg, atten_mdb;
 	u32 vm_gain_i, vm_gain_q;
@@ -1142,10 +1128,6 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 
 	if (profile < ADAR1000_RAM_BEAM_POS_MIN || profile > ADAR1000_RAM_BEAM_POS_MAX)
 		return -EINVAL;
-
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
 
 	st->save_beam_idx = profile;
 
@@ -1158,10 +1140,8 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 		st->rx_beam_pos[profile] = beam;
 	}
 
-	if (beam.gain_val > 0 || (beam.gain_val == 0 && beam.gain_val2 > 0)) {
-		ret = -EINVAL;
-		return ret;
-	}
+	if (beam.gain_val > 0 || (beam.gain_val == 0 && beam.gain_val2 > 0))
+		return -EINVAL;
 
 	atten_mdb = (abs(beam.gain_val) * 1000) + (abs(beam.gain_val2) / 1000);
 	adar1000_atten_translate(atten_mdb, &gain_reg);
@@ -1177,55 +1157,36 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 	regs[2].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_2(channel, profile) | ram_access_tx_rx;
 	regs[2].def = vm_gain_q;
 
-	ret = regmap_multi_reg_write(st->regmap, regs, ARRAY_SIZE(regs));
-	if (ret < 0)
-		return ret;
-
-	return adar1000_mode_4wire(st, 1);
+	return regmap_multi_reg_write(st->regmap, regs, ARRAY_SIZE(regs));
 }
 
 static int adar1000_bias_load(struct adar1000_state *st, u32 channel, bool tx,
 			      u32 setting)
 {
-	int ret;
-
 	if (setting < ADAR1000_RAM_BIAS_SET_MIN || setting > ADAR1000_RAM_BIAS_SET_MAX)
 		return -EINVAL;
-
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
 
 	/* Bias settings are from 1 to 7 so subtract 1 to get the index */
 	st->load_bias_idx = setting - 1;
 
 	if (tx)
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_TX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_TX,
-				   ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
+		return regmap_write(st->regmap, st->dev_addr |
+				    ADAR1000_TX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_TX,
+				    ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
 	else
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_RX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_RX,
-				   ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
-	if (ret < 0)
-		return ret;
-
-
-	return adar1000_mode_4wire(st, 0);
+		return regmap_write(st->regmap, st->dev_addr |
+				    ADAR1000_RX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_RX,
+				    ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
 }
 
 static int adar1000_bias_save(struct adar1000_state *st, u32 channel, bool tx,
 			      u32 setting, void * const bias)
 {
-	int ret, cnt;
+	int cnt;
 	struct reg_sequence regs[10] = {0};
 
 	if (setting < ADAR1000_RAM_BIAS_SET_MIN || setting > ADAR1000_RAM_BIAS_SET_MAX)
 		return -EINVAL;
-
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
 
 	/* Bias settings are from 1 to 7 so subtract 1 to get the index */
 	st->save_bias_idx = setting - 1;
@@ -1270,11 +1231,7 @@ static int adar1000_bias_save(struct adar1000_state *st, u32 channel, bool tx,
 		st->rx_bias[setting - 1] = *(struct adar1000_rx_bias_setting*)bias;
 	}
 
-	ret = regmap_multi_reg_write(st->regmap, regs, cnt);
-	if (ret < 0)
-		return ret;
-
-	return adar1000_mode_4wire(st, 0);
+	return regmap_multi_reg_write(st->regmap, regs, cnt);
 }
 
 enum beam_pos_info {
@@ -1673,10 +1630,6 @@ static ssize_t adar1000_seq_store(struct iio_dev *indio_dev, uintptr_t private,
 	u8 readval;
 	int ret;
 
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
 	ret = kstrtou8(buf, 10, &readval);
 	if (ret)
 		return ret;
@@ -1697,10 +1650,6 @@ static ssize_t adar1000_seq_store(struct iio_dev *indio_dev, uintptr_t private,
 	}
 
 	ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
-	if (ret < 0)
-		return ret;
-
-	ret = adar1000_mode_4wire(st, 0);
 
 	return ret ? ret : len;
 }
