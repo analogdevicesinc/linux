@@ -299,11 +299,7 @@ EXTRA_CFLAGS += -DgcdSECURITY=1
 endif
 
 ifneq ($(CONFIG_DRM), )
-    ifneq ($(CONFIG_ANDROID),)
-    EXTRA_CFLAGS += -DgcdENABLE_DRM=$(VIVANTE_ENABLE_DRM)
-    else
-    EXTRA_CFLAGS += -DgcdENABLE_DRM=0
-    endif
+EXTRA_CFLAGS += -DgcdENABLE_DRM=$(VIVANTE_ENABLE_DRM)
 else
 EXTRA_CFLAGS += -DgcdENABLE_DRM=0
 endif
