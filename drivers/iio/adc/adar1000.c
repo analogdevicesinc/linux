@@ -701,6 +701,10 @@ enum adar1000_iio_dev_attr {
 	ADAR1000_CUR_RX,
 	ADAR1000_CUR_TX,
 	ADAR1000_CUR_TX_DRV,
+	ADAR1000_SW_DRV_TR_MODE_SEL_,
+	ADAR1000_BIAS_CTRL_,
+	ADAR1000_BIAS_EN_,
+	ADAR1000_LNA_BIAS_OUT_EN_,
 };
 
 static ssize_t adar1000_store(struct device *dev,
@@ -830,6 +834,46 @@ static ssize_t adar1000_store(struct device *dev,
 
 		readval &= 0x7;
 		break;
+	case ADAR1000_SW_DRV_TR_MODE_SEL_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_SW_DRV_TR_MODE_SEL;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_SW_DRV_TR_MODE_SEL;
+		break;
+	case ADAR1000_BIAS_CTRL_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_BIAS_CTRL;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_BIAS_CTRL;
+		break;
+	case ADAR1000_BIAS_EN_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_BIAS_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_BIAS_EN;
+		break;
+	case ADAR1000_LNA_BIAS_OUT_EN_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_LNA_BIAS_OUT_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_LNA_BIAS_OUT_EN;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -909,6 +953,22 @@ static ssize_t adar1000_show(struct device *dev,
 		break;
 	case ADAR1000_CUR_TX_DRV:
 		reg = ADAR1000_BIAS_CURRENT_TX_DRV;
+		break;
+	case ADAR1000_SW_DRV_TR_MODE_SEL_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_SW_DRV_TR_MODE_SEL;
+		break;
+	case ADAR1000_BIAS_CTRL_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_BIAS_CTRL;
+		break;
+	case ADAR1000_BIAS_EN_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_BIAS_EN;
+		break;
+	case ADAR1000_LNA_BIAS_OUT_EN_:
+		reg = ADAR1000_MISC_ENABLES;
+		mask = ADAR1000_LNA_BIAS_OUT_EN;
 		break;
 	default:
 		return -EINVAL;
@@ -1023,6 +1083,16 @@ static IIO_DEVICE_ATTR(tx_vm_enable, 0644,
 static IIO_DEVICE_ATTR(tx_drv_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_TX_DRV);
 
+/* MISC_ENABLES */
+static IIO_DEVICE_ATTR(sw_drw_tr_mode_sel, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_SW_DRV_TR_MODE_SEL);
+static IIO_DEVICE_ATTR(bias_ctrl, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_BIAS_CTRL);
+static IIO_DEVICE_ATTR(bias_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_BIAS_EN);
+static IIO_DEVICE_ATTR(lna_bias_out_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_LNA_BIAS_OUT_EN);
+
 /* LNA BIAS setting */
 static IIO_DEVICE_ATTR(lna_bias_off, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_LNABIAS_OFF);
@@ -1067,6 +1137,10 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_reset.dev_attr.attr,
 	&iio_dev_attr_sequencer_enable.dev_attr.attr,
 	&iio_dev_attr_gen_clk_cycles.dev_attr.attr,
+	&iio_dev_attr_sw_drw_tr_mode_sel.dev_attr.attr,
+	&iio_dev_attr_bias_ctrl.dev_attr.attr,
+	&iio_dev_attr_bias_enable.dev_attr.attr,
+	&iio_dev_attr_lna_bias_out_enable.dev_attr.attr,
 	NULL,
 };
 
