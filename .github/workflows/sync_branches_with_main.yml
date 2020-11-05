@@ -15,6 +15,5 @@ jobs:
         fetch-depth: 50
     - name: Synchronize legacy branches with main branch
       env:
-        MAIN_BRANCH: master
         BUILD_TYPE: sync_branches_with_main
-      run: ./ci/travis/run-build.sh
+      run: MAIN_BRANCH="${GITHUB_REF#refs/heads/}" ./ci/travis/run-build.sh
