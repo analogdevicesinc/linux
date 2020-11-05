@@ -368,6 +368,12 @@ __handle_sync_with_main() {
 
 		tmpfile=$(mktemp)
 
+		if [ "$CI" = "true" ] ; then
+			# setup an email account so that we can cherry-pick stuff
+			git config user.name "CSE CI"
+			git config user.email "cse-ci-notifications@analog.com"
+		fi
+
 		git checkout FETCH_HEAD
 		# cherry-pick until all commits; if we get a merge-commit, handle it
 		git cherry-pick -x "${cm}..${ORIGIN}/${MAIN_BRANCH}" 1>/dev/null 2>$tmpfile || {
