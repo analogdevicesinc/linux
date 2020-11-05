@@ -85,7 +85,7 @@ static uint32_t bcm2835_cpufreq_set_clock(int cur_rate, int arm_rate)
 
 static uint32_t bcm2835_cpufreq_get_clock(int tag)
 {
-	u32 rate;
+	u32 rate = 0;
 	int ret;
 
 	ret = bcm2835_cpufreq_clock_property(tag, VCMSG_ID_ARM_CLOCK, &rate);
