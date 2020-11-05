@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Build the Zynq ADI kernel flavour (all ADI drivers)
+    - name: Build the Zynq ADALM-2000 kernel
       env:
         DEFCONFIG: zynq_m2k_defconfig
         ARCH: arm
