@@ -119,7 +119,8 @@ static struct iio_chan_spec name[] = {	\
 
 DECLARE_AD7768_CHANNELS(ad7768_channels);
 
-static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr)
+static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
+			       unsigned int *val)
 {
 	struct spi_transfer t[] = {
 		{
@@ -139,7 +140,9 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr)
 	if (ret < 0)
 		return ret;
 
-	return be16_to_cpu(st->d16);
+	*val = be16_to_cpu(st->d16);
+
+	return ret;
 }
 
 static int ad7768_spi_reg_write(struct ad7768_state *st,
@@ -156,11 +159,12 @@ static int ad7768_spi_write_mask(struct ad7768_state *st,
 				 unsigned long int mask,
 				 unsigned int val)
 {
-	int regval;
+	unsigned int regval;
+	int ret;
 
-	regval = ad7768_spi_reg_read(st, addr);
-	if (regval < 0)
-		return regval;
+	ret = ad7768_spi_reg_read(st, addr, &regval);
+	if (ret < 0)
+		return ret;
 
 	regval &= ~mask;
 	regval |= val;
@@ -178,11 +182,9 @@ static int ad7768_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&st->lock);
 	if (readval) {
-		ret = ad7768_spi_reg_read(st, reg);
+		ret = ad7768_spi_reg_read(st, reg, readval);
 		if (ret < 0)
 			goto exit;
-
-		*readval = ret;
 		ret = 0;
 	} else {
 		ret = ad7768_spi_reg_write(st, reg, writeval);
