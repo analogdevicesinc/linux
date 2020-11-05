@@ -1,6 +1,11 @@
 name: Build the ADI kernel matrix
 
-on: [pull_request]
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - '20[1-9][0-9]_R[1-9]'
 
 jobs:
   checkpatch:
