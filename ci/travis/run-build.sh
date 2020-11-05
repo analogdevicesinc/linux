@@ -8,6 +8,8 @@ fi
 
 . ./ci/travis/lib.sh
 
+MAIN_BRANCH=${MAIN_BRANCH:-master}
+
 if [ -f "${FULL_BUILD_DIR}/env" ] ; then
 	echo_blue "Loading environment variables"
 	cat "${FULL_BUILD_DIR}/env"
@@ -322,7 +324,7 @@ __push_back_to_github() {
 	}
 }
 
-__handle_sync_with_master() {
+__handle_sync_with_main() {
 	local dst_branch="$1"
 	local method="$2"
 
@@ -333,8 +335,8 @@ __handle_sync_with_master() {
 
 	if [ "$method" == "fast-forward" ] ; then
 		git checkout FETCH_HEAD
-		git merge --ff-only ${ORIGIN}/master || {
-			echo_red "Failed while syncing ${ORIGIN}/master over '$dst_branch'"
+		git merge --ff-only ${ORIGIN}/${MAIN_BRANCH} || {
+			echo_red "Failed while syncing ${ORIGIN}/${MAIN_BRANCH} over '$dst_branch'"
 			return 1
 		}
 		__push_back_to_github "$dst_branch" || return 1
@@ -355,12 +357,12 @@ __handle_sync_with_master() {
 			echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
 			return 1
 		}
-		branch_contains_commit "$cm" "${ORIGIN}/master" || {
-			echo_red "Commit '$cm' is not in branch master"
+		branch_contains_commit "$cm" "${ORIGIN}/${MAIN_BRANCH}" || {
+			echo_red "Commit '$cm' is not in branch '${MAIN_BRANCH}'"
 			return 1
 		}
 		# Make sure that we are adding something new, or cherry-pick complains
-		if git diff --quiet "$cm" "${ORIGIN}/master" ; then
+		if git diff --quiet "$cm" "${ORIGIN}/${MAIN_BRANCH}" ; then
 			return 0
 		fi
 
@@ -368,7 +370,7 @@ __handle_sync_with_master() {
 
 		git checkout FETCH_HEAD
 		# cherry-pick until all commits; if we get a merge-commit, handle it
-		git cherry-pick -x "${cm}..${ORIGIN}/master" 1>/dev/null 2>$tmpfile || {
+		git cherry-pick -x "${cm}..${ORIGIN}/${MAIN_BRANCH}" 1>/dev/null 2>$tmpfile || {
 			was_a_merge=0
 			while grep -q "is a merge" $tmpfile ; do
 				was_a_merge=1
@@ -381,7 +383,7 @@ __handle_sync_with_master() {
 				}
 			done
 			if [ "$was_a_merge" != "1" ]; then
-				echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/master'"
+				echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/${MAIN_BRANCH}'"
 				echo_red "$(cat $tmpfile)"
 				return 1
 			fi
@@ -391,7 +393,7 @@ __handle_sync_with_master() {
 	fi
 }
 
-build_sync_branches_with_master() {
+build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
 	BRANCHES="xcomm_zynq:fast-forward adi-4.19.0:cherry-pick"
 	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick"
@@ -401,15 +403,15 @@ build_sync_branches_with_master() {
 		[ -n "$dst_branch" ] || break
 		local method="$(echo $branch | cut -d: -f2)"
 		[ -n "$method" ] || break
-		__handle_sync_with_master "$dst_branch" "$method"
+		__handle_sync_with_main "$dst_branch" "$method"
 	done
 }
 
-build_sync_branches_with_master_travis() {
-	# make sure this is on master, and not a PR
+build_sync_branches_with_main_travis() {
+	# make sure this is on the main branch, and not a PR
 	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
 	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
-	[ "$TRAVIS_BRANCH" == "master" ] || return 0
+	[ "$TRAVIS_BRANCH" == "${MAIN_BRANCH}" ] || return 0
 	[ "$TRAVIS_REPO_SLUG" == "analogdevicesinc/linux" ] || return 0
 
 	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
@@ -418,7 +420,7 @@ build_sync_branches_with_master_travis() {
 	chmod 600 /tmp/deploy_key
 	ssh-add /tmp/deploy_key
 
-	build_sync_branches_with_master
+	build_sync_branches_with_main
 }
 
 ORIGIN=${ORIGIN:-origin}
