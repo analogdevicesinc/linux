@@ -128,7 +128,8 @@
 #define ADAR1000_CH2_EN			BIT(5)
 #define ADAR1000_CH3_EN			BIT(4)
 #define ADAR1000_CH4_EN			BIT(3)
-#define ADAR1000_LNA_EN			BIT(2)
+#define ADAR1000_RX_LNA_EN		BIT(2)
+#define ADAR1000_TX_DRV_EN		BIT(3)
 #define ADAR1000_VM_EN			BIT(1)
 #define ADAR1000_VGA_EN			BIT(0)
 
@@ -693,7 +694,7 @@ enum adar1000_iio_dev_attr {
 	ADAR1000_RX_LNA,
 	ADAR1000_TX_VGA,
 	ADAR1000_TX_VM,
-	ADAR1000_TX_LNA,
+	ADAR1000_TX_DRV,
 	ADAR1000_LNABIAS_ON,
 	ADAR1000_LNABIAS_OFF,
 	ADAR1000_CUR_RX_LNA,
@@ -747,13 +748,13 @@ static ssize_t adar1000_store(struct device *dev,
 		break;
 	case ADAR1000_RX_LNA:
 		reg = ADAR1000_RX_ENABLES;
-		mask = ADAR1000_LNA_EN;
+		mask = ADAR1000_RX_LNA_EN;
 		ret = kstrtobool(buf, &readin);
 		if (ret)
 			return ret;
 
 		if (readin)
-			val = ADAR1000_LNA_EN;
+			val = ADAR1000_RX_LNA_EN;
 		break;
 	case ADAR1000_TX_VGA:
 		reg = ADAR1000_TX_ENABLES;
@@ -775,15 +776,15 @@ static ssize_t adar1000_store(struct device *dev,
 		if (readin)
 			val = ADAR1000_VM_EN;
 		break;
-	case ADAR1000_TX_LNA:
+	case ADAR1000_TX_DRV:
 		reg = ADAR1000_TX_ENABLES;
-		mask = ADAR1000_LNA_EN;
+		mask = ADAR1000_TX_DRV_EN;
 		ret = kstrtobool(buf, &readin);
 		if (ret)
 			return ret;
 
 		if (readin)
-			val = ADAR1000_LNA_EN;
+			val = ADAR1000_TX_DRV_EN;
 		break;
 	case ADAR1000_LNABIAS_ON:
 		reg = ADAR1000_LNA_BIAS_ON;
@@ -877,7 +878,7 @@ static ssize_t adar1000_show(struct device *dev,
 		break;
 	case ADAR1000_RX_LNA:
 		reg = ADAR1000_RX_ENABLES;
-		mask = ADAR1000_LNA_EN;
+		mask = ADAR1000_RX_LNA_EN;
 		break;
 	case ADAR1000_TX_VGA:
 		reg = ADAR1000_TX_ENABLES;
@@ -887,9 +888,9 @@ static ssize_t adar1000_show(struct device *dev,
 		reg = ADAR1000_TX_ENABLES;
 		mask = ADAR1000_VM_EN;
 		break;
-	case ADAR1000_TX_LNA:
+	case ADAR1000_TX_DRV:
 		reg = ADAR1000_TX_ENABLES;
-		mask = ADAR1000_LNA_EN;
+		mask = ADAR1000_TX_DRV_EN;
 		break;
 	case ADAR1000_LNABIAS_ON:
 		reg = ADAR1000_LNA_BIAS_ON;
@@ -1019,8 +1020,8 @@ static IIO_DEVICE_ATTR(tx_vga_enable, 0644,
 static IIO_DEVICE_ATTR(tx_vm_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_TX_VM);
 
-static IIO_DEVICE_ATTR(tx_lna_enable, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_TX_LNA);
+static IIO_DEVICE_ATTR(tx_drv_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_TX_DRV);
 
 /* LNA BIAS setting */
 static IIO_DEVICE_ATTR(lna_bias_off, 0644,
@@ -1056,7 +1057,7 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_lna_enable.dev_attr.attr,
 	&iio_dev_attr_tx_vga_enable.dev_attr.attr,
 	&iio_dev_attr_tx_vm_enable.dev_attr.attr,
-	&iio_dev_attr_tx_lna_enable.dev_attr.attr,
+	&iio_dev_attr_tx_drv_enable.dev_attr.attr,
 	&iio_dev_attr_lna_bias_off.dev_attr.attr,
 	&iio_dev_attr_lna_bias_on.dev_attr.attr,
 	&iio_dev_attr_bias_current_rx_lna.dev_attr.attr,
