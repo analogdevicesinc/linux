@@ -3,6 +3,17 @@ name: Build the ADI kernel matrix
 on: [pull_request]
 
 jobs:
+  checkpatch:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TYPE: checkpatch
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+    - name: Run Linux's checkpatch script
+      run: ./ci/travis/run-build.sh
+
   zynq_adi_default:
     runs-on: ubuntu-latest
     steps:
