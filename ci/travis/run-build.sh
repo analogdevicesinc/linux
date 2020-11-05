@@ -209,11 +209,21 @@ build_checkpatch() {
 	apt_install python-ply python-git libyaml-dev python3-pip python3-setuptools
 	pip3 install wheel
 	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
-	if [ -n "$TRAVIS_BRANCH" ]; then
-		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
+
+	local ref_branch
+
+	if [ -n "$TRAVIS_BRANCH" ] ; then
+		ref_branch="$TRAVIS_BRANCH"
+	elif [ -n "$GITHUB_BASE_REF" ] ; then
+		ref_branch="$GITHUB_BASE_REF"
+	else
+		echo_red "Could not get a base_ref for checkpatch"
+		exit 1
 	fi
-	COMMIT_RANGE=$([ "$TRAVIS_PULL_REQUEST" == "false" ] &&  echo HEAD || echo ${TRAVIS_BRANCH}..)
-	scripts/checkpatch.pl --git ${COMMIT_RANGE} \
+
+	__update_git_ref "${ref_branch}" "${ref_branch}"
+
+	scripts/checkpatch.pl --git "${ref_branch}.." \
 		--ignore FILE_PATH_CHANGES \
 		--ignore LONG_LINE \
 		--ignore LONG_LINE_STRING \
