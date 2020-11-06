@@ -865,7 +865,7 @@ static ssize_t adar1000_store(struct device *dev,
 		if (ret)
 			return ret;
 
-		if (readin)
+		if (!readin)
 			val = ADAR1000_BIAS_EN;
 		break;
 	case ADAR1000_LNA_BIAS_OUT_EN_:
