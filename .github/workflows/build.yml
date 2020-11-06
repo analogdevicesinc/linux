@@ -1,6 +1,9 @@
 name: Build the ADI kernel matrix
 
 on:
+  push:
+    branches:
+      - 'staging/**'
   pull_request:
     branches:
       - main
