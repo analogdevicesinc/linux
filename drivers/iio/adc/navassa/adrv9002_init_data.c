@@ -2810,13 +2810,11 @@ struct adi_adrv9001_SpiSettings *adrv9002_spi_settings_get(void)
 {
 	return &spiSettings;
 }
-EXPORT_SYMBOL(adrv9002_spi_settings_get);
 
 struct adi_adrv9001_Init *adrv9002_init_get(void)
 {
 	return adrv9002_init;
 }
-EXPORT_SYMBOL(adrv9002_init_get);
 
 void adrv9002_cmos_default_set(void)
 {
@@ -2826,5 +2824,4 @@ void adrv9002_cmos_default_set(void)
 	 */
 	adrv9002_init = &adrv9002_init_cmos;
 }
-EXPORT_SYMBOL(adrv9002_cmos_default_set);
 

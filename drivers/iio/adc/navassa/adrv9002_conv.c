@@ -265,7 +265,6 @@ int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_hdl_loopback);
 
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const u8 ssi_intf, const bool cmos_ddr,
@@ -282,7 +281,6 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 	return adrv9002_interface_config(st, n_lanes, ssi_intf, cmos_ddr,
 					 channel);
 }
-EXPORT_SYMBOL(adrv9002_axi_interface_set);
 
 static int adrv9002_post_setup(struct iio_dev *indio_dev)
 {
@@ -583,7 +581,6 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 
 	return max_cnt ? 0 : -EIO;
 }
-EXPORT_SYMBOL(adrv9002_axi_intf_tune);
 
 void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en)
 {
@@ -604,7 +601,6 @@ void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, 
 		axiadc_write(st, AIM_AXI_REG(tx_off, ADI_REG_RSTN), 0);
 	}
 }
-EXPORT_SYMBOL(adrv9002_axi_interface_enable);
 
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 {
@@ -627,7 +623,6 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_register_axi_converter);
 
 struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi)
 {
@@ -635,7 +630,6 @@ struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi)
 
 	return conv->phy;
 }
-EXPORT_SYMBOL(adrv9002_spi_to_phy);
 
 adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy)
 {
@@ -649,7 +643,6 @@ adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy)
 	else
 		return ADI_ADRV9001_SSI_TYPE_LVDS;
 }
-EXPORT_SYMBOL(adrv9002_axi_ssi_type_get);
 
 int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 						    const adi_adrv9001_SsiTestModeData_e data)
@@ -705,7 +698,6 @@ int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy,
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_axi_tx_test_pattern_cfg);
 
 u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
 {
@@ -716,7 +708,6 @@ u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
 	/* the rate is decremented by one when configured on the core */
 	return axiadc_read(st, AIM_AXI_REG(off, ADI_TX_REG_RATE)) + 1;
 }
-EXPORT_SYMBOL(adrv9002_axi_dds_rate_get);
 
 #else  /* CONFIG_CF_AXI_ADC */
 
@@ -724,7 +715,6 @@ u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
 {
 	return -ENODEV;
 }
-EXPORT_SYMBOL(adrv9002_axi_dds_rate_get);
 
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const u8 ssi_intf, const bool cmos_ddr,
@@ -732,39 +722,33 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 {
 	return -ENODEV;
 }
-EXPORT_SYMBOL(adrv9002_axi_interface_set);
 
 int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   const adi_adrv9001_SsiType_e ssi_type, u8 *clk_delay, u8 *data_delay)
 {
 	return -ENODEV;
 }
-EXPORT_SYMBOL(adrv9002_axi_intf_tune);
 
 void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en)
 {
 	return -ENODEV;
 }
-EXPORT_SYMBOL(adrv9002_axi_interface_enable);
 
 adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy)
 {
 	return -ENODEV;
 }
-EXPORT_SYMBOL(adrv9002_axi_ssi_type_get);
 
 int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 				     const adi_adrv9001_SsiTestModeData_e data)
 {
 	return -ENODEV;
 }
-EXPORT_SYMBOL(adrv9002_axi_tx_test_pattern_cfg);
 
 int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
 {
 	return -ENODEV;
 }
-EXPORT_SYMBOL(adrv9002_hdl_loopback);
 
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 {
@@ -774,12 +758,10 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_register_axi_converter);
 
 struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi)
 {
 	return spi_get_drvdata(spi);
 }
-EXPORT_SYMBOL(adrv9002_spi_to_phy);
 
 #endif /* CONFIG_CF_AXI_ADC */
