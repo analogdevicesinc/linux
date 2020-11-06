@@ -150,6 +150,10 @@
 #define ADAR1000_SPI_ADDR_MSK		GENMASK(14, 13)
 #define ADAR1000_SPI_ADDR(x)		FIELD_PREP(ADAR1000_SPI_ADDR_MSK, x)
 
+/* ADAR1000_TX_TO_RX_DELAY_CTRL/ADAR1000_RX_TO_TX_DELAY_CTRL */
+#define ADAR1000_DELAY1_MSK		GENMASK(7, 4)
+#define ADAR1000_DELAY2_MSK		GENMASK(3, 0)
+
 /* SPI write all */
 #define ADAR1000_SPI_WR_ALL		0x800
 
@@ -1065,6 +1069,94 @@ static ssize_t adar1000_gen_clk_cycles(struct device *dev,
 	return ret ? ret : len;
 }
 
+enum adar1000_iio_delay_attr {
+	ADAR1000_TX_RX_DELAY1,
+	ADAR1000_TX_RX_DELAY2,
+	ADAR1000_RX_TX_DELAY1,
+	ADAR1000_RX_TX_DELAY2,
+};
+
+static ssize_t adar1000_delay_show(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u32 val;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_TX_RX_DELAY1:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		break;
+	case ADAR1000_TX_RX_DELAY2:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		break;
+	case ADAR1000_RX_TX_DELAY1:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		break;
+	case ADAR1000_RX_TX_DELAY2:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	if ((u32)this_attr->address % 2)
+		val = FIELD_GET(ADAR1000_DELAY2_MSK, val);
+	else
+		val = FIELD_GET(ADAR1000_DELAY1_MSK, val);
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t adar1000_delay_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u8 readval;
+
+	ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_TX_RX_DELAY1:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY1_MSK, readval);
+		break;
+	case ADAR1000_TX_RX_DELAY2:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY2_MSK, readval);
+		break;
+	case ADAR1000_RX_TX_DELAY1:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY1_MSK, readval);
+		break;
+	case ADAR1000_RX_TX_DELAY2:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY2_MSK, readval);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
+
+	return ret ? ret : len;
+}
+
 static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
 
@@ -1122,6 +1214,16 @@ static IIO_DEVICE_ATTR(sequencer_enable, 0200, NULL, adar1000_seq_enable, 0);
 /* Generate CLK cycles for SPI */
 static IIO_DEVICE_ATTR(gen_clk_cycles, 0200, NULL, adar1000_gen_clk_cycles, 0);
 
+/* Delay attributes */
+static IIO_DEVICE_ATTR(tx_to_rx_delay_1, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_TX_RX_DELAY1);
+static IIO_DEVICE_ATTR(tx_to_rx_delay_2, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_TX_RX_DELAY2);
+static IIO_DEVICE_ATTR(rx_to_tx_delay_1, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_RX_TX_DELAY1);
+static IIO_DEVICE_ATTR(rx_to_tx_delay_2, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_RX_TX_DELAY2);
+
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
 	&iio_dev_attr_rx_vm_enable.dev_attr.attr,
@@ -1142,6 +1244,10 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_bias_ctrl.dev_attr.attr,
 	&iio_dev_attr_bias_enable.dev_attr.attr,
 	&iio_dev_attr_lna_bias_out_enable.dev_attr.attr,
+	&iio_dev_attr_tx_to_rx_delay_1.dev_attr.attr,
+	&iio_dev_attr_tx_to_rx_delay_2.dev_attr.attr,
+	&iio_dev_attr_rx_to_tx_delay_1.dev_attr.attr,
+	&iio_dev_attr_rx_to_tx_delay_2.dev_attr.attr,
 	NULL,
 };
 
