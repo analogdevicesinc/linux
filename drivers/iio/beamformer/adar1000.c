@@ -1121,6 +1121,7 @@ static IIO_DEVICE_ATTR(sequencer_enable, 0200, NULL, adar1000_seq_enable, 0);
 
 /* Generate CLK cycles for SPI */
 static IIO_DEVICE_ATTR(gen_clk_cycles, 0200, NULL, adar1000_gen_clk_cycles, 0);
+
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
 	&iio_dev_attr_rx_vm_enable.dev_attr.attr,
