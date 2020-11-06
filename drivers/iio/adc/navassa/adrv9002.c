@@ -171,7 +171,6 @@ void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
 	*n_lanes = rx_cfg->rxSsiConfig.numLaneSel;
 	*cmos_ddr_en = rx_cfg->rxSsiConfig.cmosDdrEn;
 }
-EXPORT_SYMBOL(adrv9002_get_ssi_interface);
 
 int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 {
@@ -212,7 +211,6 @@ int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_ssi_configure);
 
 static int adrv9002_phy_reg_access(struct iio_dev *indio_dev,
 				   u32 reg, u32 writeval,
@@ -2377,7 +2375,6 @@ int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_intf_change_delay);
 
 int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann,
 				   const adi_adrv9001_SsiType_e ssi_type)
@@ -2427,7 +2424,6 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann,
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_check_tx_test_pattern);
 
 int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
 			   const bool stop, const adi_adrv9001_SsiType_e ssi_type)
@@ -2493,7 +2489,6 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_intf_test_cfg);
 
 static int adrv9002_intf_tuning_unlocked(struct adrv9002_rf_phy *phy)
 {
@@ -2582,7 +2577,6 @@ int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
 
 	return ret;
 }
-EXPORT_SYMBOL(adrv9002_intf_tuning);
 
 static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 {
@@ -3361,7 +3355,6 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 
 	return 0;
 }
-EXPORT_SYMBOL(adrv9002_post_init);
 
 static int adrv9002_probe(struct spi_device *spi)
 {
