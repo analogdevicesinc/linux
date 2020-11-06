@@ -45,6 +45,7 @@
 #include "adi_adrv9001_ssi.h"
 #include "adi_adrv9001_ssi_types.h"
 #include "adi_adrv9001_stream.h"
+#include "adi_adrv9001_stream_types.h"
 #include "adi_adrv9001_types.h"
 #include "adi_adrv9001_tx.h"
 #include "adi_adrv9001_tx_types.h"
@@ -4122,6 +4123,7 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	struct adi_common_ApiVersion api_version;
 	struct adi_adrv9001_ArmVersion arm_version;
 	struct adi_adrv9001_SiliconVersion silicon_version;
+	struct adi_adrv9001_StreamVersion stream_version;
 	int ret, c;
 	struct spi_device *spi = phy->spi;
 	struct iio_dev *indio_dev = phy->indio_dev;
@@ -4229,12 +4231,14 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	adi_adrv9001_ApiVersion_Get(phy->adrv9001, &api_version);
 	adi_adrv9001_arm_Version(phy->adrv9001, &arm_version);
 	adi_adrv9001_SiliconVersion_Get(phy->adrv9001, &silicon_version);
+	adi_adrv9001_Stream_Version(phy->adrv9001, &stream_version);
 
 	dev_info(&spi->dev,
-		 "%s Rev %d.%d, Firmware %u.%u.%u.%u API version: %u.%u.%u successfully initialized",
+		 "%s Rev %d.%d, Firmware %u.%u.%u.%u,  Stream %u.%u.%u.%u,  API version: %u.%u.%u successfully initialized",
 		 indio_dev->name, silicon_version.major, silicon_version.minor,
-		 arm_version.majorVer, arm_version.minorVer,
-		 arm_version.maintVer, arm_version.rcVer, api_version.major,
+		 arm_version.majorVer, arm_version.minorVer, arm_version.maintVer,
+		 arm_version.rcVer, stream_version.majorVer, stream_version.minorVer,
+		 stream_version.maintVer, stream_version.buildVer, api_version.major,
 		 api_version.minor, api_version.patch);
 
 	adrv9002_debugfs_create(phy);
