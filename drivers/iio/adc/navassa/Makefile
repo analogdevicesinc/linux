@@ -56,3 +56,4 @@ ccflags-y += -I$(src)/devices/adrv9001/private/include \
 
 
 obj-y = $(SRCS:.c=.o)
+obj-$(CONFIG_DEBUG_FS) += adrv9002_debugfs.o

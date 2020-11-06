@@ -168,6 +168,10 @@ struct adrv9002_rf_phy {
 #endif
 };
 
+int adrv9002_clean_setup(struct adrv9002_rf_phy *phy);
+int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line);
+#define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
+
 int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable);
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy);
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
@@ -209,4 +213,10 @@ static inline void adrv9002_sync_gpio_toogle(const struct adrv9002_rf_phy *phy)
 		gpiod_set_value_cansleep(phy->ssi_sync, 0);
 	}
 }
+
+#ifdef CONFIG_DEBUG_FS
+void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d);
+#else
+void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d) {}
+#endif
 #endif
