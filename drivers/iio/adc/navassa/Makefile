@@ -1,40 +1,44 @@
-SRCS = \
-	adrv9002_init_data.c \
-	platforms/linux_platform.c \
-	adrv9002_conv.c \
-	third_party/jsmn/jsmn.c \
-	common/adi_logging/adi_common_log.c \
-	common/adi_error/adi_common_error.c \
-	common/adi_common.c \
-	common/adi_hal/adi_common_hal.c \
-	adrv9002.c \
-	devices/adrv9001/private/src/adrv9001_validators.c \
-	devices/adrv9001/private/src/adrv9001_rx.c \
-	devices/adrv9001/private/src/adrv9001_crc32.c \
-	devices/adrv9001/private/src/adrv9001_arm.c \
-	devices/adrv9001/private/src/adrv9001_bf_hal.c \
-	devices/adrv9001/private/src/adrv9001_init.c \
-	devices/adrv9001/private/src/adrv9001_gpio.c \
-	devices/adrv9001/public/src/adi_adrv9001_tx.c \
-	devices/adrv9001/public/src/adi_adrv9001_arm.c \
-	devices/adrv9001/public/src/adi_adrv9001_bbdc.c \
-	devices/adrv9001/public/src/adi_adrv9001_gpio.c \
-	devices/adrv9001/public/src/adi_adrv9001_auxdac.c \
-	devices/adrv9001/public/src/adi_adrv9001_utilities.c \
-	devices/adrv9001/public/src/adi_adrv9001_cals.c \
-	devices/adrv9001/public/src/adi_adrv9001_auxadc.c \
-	devices/adrv9001/public/src/adi_adrv9001_radio.c \
-	devices/adrv9001/public/src/adi_adrv9001_mcs.c \
-	devices/adrv9001/public/src/adi_adrv9001_ssi.c \
-	devices/adrv9001/public/src/adi_adrv9001_rx_gaincontrol.c \
-	devices/adrv9001/public/src/adi_adrv9001_stream.c \
-	devices/adrv9001/public/src/adi_adrv9001_spi.c \
-	devices/adrv9001/public/src/adi_adrv9001_rx.c \
-	devices/adrv9001/public/src/adi_adrv9001.c \
-	devices/adrv9001/public/src/adi_adrv9001_orx.c \
-	devices/adrv9001/public/src/adi_adrv9001_dpd.c \
-	devices/adrv9001/public/src/adi_adrv9001_fh.c \
-	devices/adrv9001/public/src/adi_adrv9001_powermanagement.c
+# SPDX-License-Identifier: GPL-2.0
+
+adrv9002_drv-y = adrv9002.o
+adrv9002_drv-y += adrv9002_conv.o
+adrv9002_drv-y += adrv9002_init_data.o
+adrv9002_drv-$(CONFIG_DEBUG_FS) += adrv9002_debugfs.o
+adrv9002_drv-y += platforms/linux_platform.o
+adrv9002_drv-y += third_party/jsmn/jsmn.o
+adrv9002_drv-y += common/adi_logging/adi_common_log.o
+adrv9002_drv-y += common/adi_error/adi_common_error.o
+adrv9002_drv-y += common/adi_common.o
+adrv9002_drv-y += common/adi_hal/adi_common_hal.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_validators.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_rx.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_crc32.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_arm.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_bf_hal.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_init.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_gpio.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_tx.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_arm.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_bbdc.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_gpio.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_auxdac.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_utilities.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_cals.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_auxadc.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_radio.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_mcs.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_ssi.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_rx_gaincontrol.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_stream.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_spi.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_rx.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_orx.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_dpd.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_fh.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_powermanagement.o
+
+obj-$(CONFIG_ADRV9001) += adrv9002_drv.o
 
 ccflags-y += -I$(src)/devices/adrv9001/private/include \
 	-I$(src)/devices/adrv9001/private/include/bitfields \
@@ -53,7 +57,3 @@ ccflags-y += -I$(src)/devices/adrv9001/private/include \
 	-DADI_COMMON_VERBOSE=1 \
 	-DADI_ADRV9001_ARM_VERBOSE \
 	-DADI_VALIDATE_PARAMS
-
-
-obj-y = $(SRCS:.c=.o)
-obj-$(CONFIG_DEBUG_FS) += adrv9002_debugfs.o
