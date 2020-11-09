@@ -1143,7 +1143,7 @@ void __init imx7d_pm_init(void)
 
 		/* map the m4 bootrom from dtb */
 		np = of_find_node_by_path(
-			"/soc/sram@00180000");
+			"/soc/sram@180000");
 		if (np)
 			m4_bootrom_base = of_iomap(np, 0);
 		WARN_ON(!m4_bootrom_base);
@@ -1171,13 +1171,13 @@ void __init imx7d_pm_init(void)
 		WARN_ON(!lpm_ocram_saved_in_ddr);
 
 		np = of_find_node_by_path(
-			"/soc/bus@30000000/iomuxc@30330000");
+			"/soc/bus@30000000/pinctrl@30330000");
 		if (np)
 			iomuxc_base = of_iomap(np, 0);
 		WARN_ON(!iomuxc_base);
 
 		np = of_find_node_by_path(
-			"/soc/bus@30000000/gpt@302d0000");
+			"/soc/bus@30000000/timer@302d0000");
 		if (np)
 			gpt1_base = of_iomap(np, 0);
 		WARN_ON(!gpt1_base);
