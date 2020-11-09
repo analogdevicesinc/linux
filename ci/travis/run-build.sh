@@ -212,6 +212,8 @@ build_checkpatch() {
 	pip3 install wheel
 	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
 
+	[ "$TRAVIS_PULL_REQUEST" = "true" ] || return 0
+
 	local ref_branch
 
 	if [ -n "$TRAVIS_BRANCH" ] ; then
