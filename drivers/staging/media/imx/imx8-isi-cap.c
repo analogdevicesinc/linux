@@ -470,7 +470,7 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
 {
 	struct mxc_isi_cap_dev *isi_cap = vb2_get_drv_priv(q);
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
-	struct mxc_isi_buffer *buf, *tmp;
+	struct mxc_isi_buffer *buf;
 	unsigned long flags;
 	int i;
 
@@ -501,16 +501,6 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
 		buf = list_entry(isi_cap->out_discard.next,
 				 struct mxc_isi_buffer, list);
 		list_del(&buf->list);
-	}
-
-	list_for_each_entry_safe(buf, tmp, &isi_cap->out_active, list) {
-		list_del(&buf->list);
-		vb2_buffer_done(&buf->v4l2_buf.vb2_buf, VB2_BUF_STATE_ERROR);
-	}
-
-	list_for_each_entry_safe(buf, tmp, &isi_cap->out_pending, list) {
-		list_del(&buf->list);
-		vb2_buffer_done(&buf->v4l2_buf.vb2_buf, VB2_BUF_STATE_ERROR);
 	}
 
 	INIT_LIST_HEAD(&isi_cap->out_active);
