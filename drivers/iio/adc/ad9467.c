@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * AD9467 SPI ADC driver for DDS PCORE/COREFPGA Module
+ * Analog Devices AD9467 SPI ADC driver
  *
- * Copyright 2012-2014 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
+ * Copyright 2012-2020 Analog Devices Inc.
  */
 
 #include <linux/module.h>
@@ -14,7 +13,8 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
-#include <linux/of.h>
+#include <linux/of_device.h>
+
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -27,55 +27,56 @@
 
 /*
  * ADI High-Speed ADC common spi interface registers
- * See Application-Note AN-877
+ * See Application-Note AN-877:
+ *   https://www.analog.com/media/en/technical-documentation/application-notes/AN-877.pdf
  */
 
-#define ADC_REG_CHIP_PORT_CONF		0x00
-#define ADC_REG_CHIP_ID			0x01
-#define ADC_REG_CHIP_GRADE		0x02
-#define ADC_REG_CHAN_INDEX		0x05
-#define ADC_REG_TRANSFER		0xFF
-#define ADC_REG_MODES			0x08
-#define ADC_REG_TEST_IO			0x0D
-#define ADC_REG_ADC_INPUT		0x0F
-#define ADC_REG_OFFSET			0x10
-#define ADC_REG_OUTPUT_MODE		0x14
-#define ADC_REG_OUTPUT_ADJUST		0x15
-#define ADC_REG_OUTPUT_PHASE		0x16
-#define ADC_REG_OUTPUT_DELAY		0x17
-#define ADC_REG_VREF			0x18
-#define ADC_REG_ANALOG_INPUT		0x2C
+#define AN877_ADC_REG_CHIP_PORT_CONF		0x00
+#define AN877_ADC_REG_CHIP_ID			0x01
+#define AN877_ADC_REG_CHIP_GRADE		0x02
+#define AN877_ADC_REG_CHAN_INDEX		0x05
+#define AN877_ADC_REG_TRANSFER			0xFF
+#define AN877_ADC_REG_MODES			0x08
+#define AN877_ADC_REG_TEST_IO			0x0D
+#define AN877_ADC_REG_ADC_INPUT			0x0F
+#define AN877_ADC_REG_OFFSET			0x10
+#define AN877_ADC_REG_OUTPUT_MODE		0x14
+#define AN877_ADC_REG_OUTPUT_ADJUST		0x15
+#define AN877_ADC_REG_OUTPUT_PHASE		0x16
+#define AN877_ADC_REG_OUTPUT_DELAY		0x17
+#define AN877_ADC_REG_VREF			0x18
+#define AN877_ADC_REG_ANALOG_INPUT		0x2C
 
-/* ADC_REG_TEST_IO */
-#define TESTMODE_OFF			0x0
-#define TESTMODE_MIDSCALE_SHORT		0x1
-#define TESTMODE_POS_FULLSCALE		0x2
-#define TESTMODE_NEG_FULLSCALE		0x3
-#define TESTMODE_ALT_CHECKERBOARD	0x4
-#define TESTMODE_PN23_SEQ		0x5
-#define TESTMODE_PN9_SEQ		0x6
-#define TESTMODE_ONE_ZERO_TOGGLE	0x7
-#define TESTMODE_USER			0x8
-#define TESTMODE_BIT_TOGGLE		0x9
-#define TESTMODE_SYNC			0xA
-#define TESTMODE_ONE_BIT_HIGH		0xB
-#define TESTMODE_MIXED_BIT_FREQUENCY	0xC
-#define TESTMODE_RAMP			0xF
+/* AN877_ADC_REG_TEST_IO */
+#define AN877_ADC_TESTMODE_OFF			0x0
+#define AN877_ADC_TESTMODE_MIDSCALE_SHORT	0x1
+#define AN877_ADC_TESTMODE_POS_FULLSCALE	0x2
+#define AN877_ADC_TESTMODE_NEG_FULLSCALE	0x3
+#define AN877_ADC_TESTMODE_ALT_CHECKERBOARD	0x4
+#define AN877_ADC_TESTMODE_PN23_SEQ		0x5
+#define AN877_ADC_TESTMODE_PN9_SEQ		0x6
+#define AN877_ADC_TESTMODE_ONE_ZERO_TOGGLE	0x7
+#define AN877_ADC_TESTMODE_USER			0x8
+#define AN877_ADC_TESTMODE_BIT_TOGGLE		0x9
+#define AN877_ADC_TESTMODE_SYNC			0xA
+#define AN877_ADC_TESTMODE_ONE_BIT_HIGH		0xB
+#define AN877_ADC_TESTMODE_MIXED_BIT_FREQUENCY	0xC
+#define AN877_ADC_TESTMODE_RAMP			0xF
 
-/* ADC_REG_TRANSFER */
-#define TRANSFER_SYNC			0x1
+/* AN877_ADC_REG_TRANSFER */
+#define AN877_ADC_TRANSFER_SYNC			0x1
 
-/* ADC_REG_OUTPUT_MODE */
-#define OUTPUT_MODE_OFFSET_BINARY	0x0
-#define OUTPUT_MODE_TWOS_COMPLEMENT	0x1
-#define OUTPUT_MODE_GRAY_CODE		0x2
+/* AN877_ADC_REG_OUTPUT_MODE */
+#define AN877_ADC_OUTPUT_MODE_OFFSET_BINARY	0x0
+#define AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT	0x1
+#define AN877_ADC_OUTPUT_MODE_GRAY_CODE		0x2
 
-/* ADC_REG_OUTPUT_PHASE */
-#define OUTPUT_EVEN_ODD_MODE_EN		0x20
-#define INVERT_DCO_CLK			0x80
+/* AN877_ADC_REG_OUTPUT_PHASE */
+#define AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN	0x20
+#define AN877_ADC_INVERT_DCO_CLK		0x80
 
-/* ADC_REG_OUTPUT_DELAY */
-#define DCO_DELAY_ENABLE 		0x80
+/* AN877_ADC_REG_OUTPUT_DELAY */
+#define AN877_ADC_DCO_DELAY_ENABLE		0x80
 
 /*
  * Analog Devices AD9467 16-Bit, 200/250 MSPS ADC
@@ -180,34 +181,32 @@ static int ad9467_spi_read(struct spi_device *spi, unsigned reg)
 	return -ENODEV;
 }
 
-static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
+static int ad9467_spi_write(struct spi_device *spi, unsigned int reg,
+			    unsigned int val)
 {
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	unsigned char buf[3];
 	int ret;
 
-	if (spi) {
-		buf[0] = reg >> 8;
-		buf[1] = reg & 0xFF;
-		buf[2] = val;
-		ret = spi_write_then_read(spi, buf, 3, NULL, 0);
-		if (ret < 0)
-			return ret;
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xFF;
+	buf[2] = val;
+	ret = spi_write_then_read(spi, buf, 3, NULL, 0);
+	if (ret < 0)
+		return ret;
 
-		dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
-			__func__, reg, val, ret);
+	dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
+		__func__, reg, val, ret);
 
-		if ((reg == ADC_REG_TRANSFER) && (val == TRANSFER_SYNC) &&
-		    (spi_get_device_id(spi)->driver_data == CHIPID_AD9265))
-			ad9467_spi_write(spi, ADC_REG_TRANSFER, 0);
+	if ((reg == AN877_ADC_REG_TRANSFER) && (val == AN877_ADC_TRANSFER_SYNC) &&
+	    (conv->chip_info->id == CHIPID_AD9265))
+		return ad9467_spi_write(spi, AN877_ADC_REG_TRANSFER, 0);
 
-		return 0;
-	}
-
-	return -ENODEV;
+	return 0;
 }
 
 static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
-	unsigned int writeval, unsigned int *readval)
+			     unsigned int writeval, unsigned int *readval)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct spi_device *spi = conv->spi;
@@ -215,7 +214,7 @@ static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 
 	if (readval == NULL) {
 		ret = ad9467_spi_write(spi, reg, writeval);
-		ad9467_spi_write(spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		ad9467_spi_write(spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
 		return ret;
 	} else {
 		ret = ad9467_spi_read(spi, reg);
@@ -231,14 +230,14 @@ static int ad9467_outputmode_set(struct spi_device *spi, unsigned mode)
 {
 	int ret;
 
-	ret = ad9467_spi_write(spi, ADC_REG_OUTPUT_MODE, mode);
+	ret = ad9467_spi_write(spi, AN877_ADC_REG_OUTPUT_MODE, mode);
 	if (ret < 0)
 		return ret;
-	ret = ad9467_spi_write(spi, ADC_REG_TEST_IO, TESTMODE_OFF);
+	ret = ad9467_spi_write(spi, AN877_ADC_REG_TEST_IO, AN877_ADC_TESTMODE_OFF);
 	if (ret < 0)
 		return ret;
 
-	return ad9467_spi_write(spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+	return ad9467_spi_write(spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
 }
 
 static int ad9467_testmode_set(struct iio_dev *indio_dev,
@@ -246,10 +245,10 @@ static int ad9467_testmode_set(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 
-	ad9467_spi_write(conv->spi, ADC_REG_CHAN_INDEX, 1 << chan);
-	ad9467_spi_write(conv->spi, ADC_REG_TEST_IO, mode);
-	ad9467_spi_write(conv->spi, ADC_REG_CHAN_INDEX, 0x3);
-	ad9467_spi_write(conv->spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+	ad9467_spi_write(conv->spi, AN877_ADC_REG_CHAN_INDEX, 1 << chan);
+	ad9467_spi_write(conv->spi, AN877_ADC_REG_TEST_IO, mode);
+	ad9467_spi_write(conv->spi, AN877_ADC_REG_CHAN_INDEX, 0x3);
+	ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
 	conv->testmode[chan] = mode;
 	return 0;
 }
@@ -258,11 +257,11 @@ static unsigned int ad9467_pnsel_to_testmode(enum adc_pn_sel sel)
 {
 	switch (sel) {
 	case ADC_PN9:
-		return TESTMODE_PN9_SEQ;
+		return AN877_ADC_TESTMODE_PN9_SEQ;
 	case ADC_PN23A:
-		return TESTMODE_PN23_SEQ;
+		return AN877_ADC_TESTMODE_PN23_SEQ;
 	default:
-		return TESTMODE_OFF;
+		return AN877_ADC_TESTMODE_OFF;
 	}
 }
 
@@ -273,14 +272,14 @@ static int ad9467_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
 	unsigned int mode = ad9467_pnsel_to_testmode(sel);
 	int ret;
 
-	if (mode == TESTMODE_OFF)
-		ret = ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_MODE,
+	if (mode == AN877_ADC_TESTMODE_OFF)
+		ret = ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_MODE,
 				       conv->adc_output_mode);
 	else
-		ret = ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_MODE,
+		ret = ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_MODE,
 				       conv->
 				       adc_output_mode &
-				       ~OUTPUT_MODE_TWOS_COMPLEMENT);
+				       ~AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
 
 	if (ret < 0)
 		return ret;
@@ -299,7 +298,7 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	unsigned char err_field[66];
 
 	ret = ad9467_outputmode_set(conv->spi,
-			conv->adc_output_mode & ~OUTPUT_MODE_TWOS_COMPLEMENT);
+			conv->adc_output_mode & ~AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
 	if (ret < 0)
 		return ret;
 
@@ -307,10 +306,10 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	chan_ctrl1 = axiadc_read(st, ADI_REG_CHAN_CNTRL(1));
 
 	do {
-		if (dco && conv->id != CHIPID_AD9652) {
-			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
-					OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
-						INVERT_DCO_CLK : 0));
+		if (dco && conv->chip_info->id != CHIPID_AD9652) {
+			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
+					AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
+						AN877_ADC_INVERT_DCO_CLK : 0));
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 
@@ -322,24 +321,24 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		}
 
 		if (chan == 2) {
-			ad9467_testmode_set(indio_dev, 1, TESTMODE_PN23_SEQ);
+			ad9467_testmode_set(indio_dev, 1, AN877_ADC_TESTMODE_PN23_SEQ);
 			axiadc_write(st, ADI_REG_CHAN_CNTRL(1), ADI_ENABLE);
 			axiadc_set_pnsel(st, 1, ADC_PN23A);
 			axiadc_write(st, ADI_REG_CHAN_STATUS(1), ~0);
 		}
 
-		ad9467_testmode_set(indio_dev, 0, TESTMODE_PN9_SEQ);
+		ad9467_testmode_set(indio_dev, 0, AN877_ADC_TESTMODE_PN9_SEQ);
 		axiadc_write(st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
 		axiadc_set_pnsel(st, 0, ADC_PN9);
 		axiadc_write(st, ADI_REG_CHAN_STATUS(0), ~0);
 
 		for (val = 0; val <= max_val; val++) {
 			if (dco) {
-				ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_DELAY,
+				ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_DELAY,
 						val > 0 ? ((val - 1) | dco_en) : 0);
-				ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
-						TRANSFER_SYNC);
-				ad9467_spi_read(conv->spi, ADC_REG_OUTPUT_DELAY);
+				ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER,
+						AN877_ADC_TRANSFER_SYNC);
+				ad9467_spi_read(conv->spi, AN877_ADC_REG_OUTPUT_DELAY);
 			} else {
 				for (lane = 0; lane < nb_lanes; lane++) {
 					axiadc_idelay_set(st, lane, val);
@@ -404,9 +403,9 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 #endif
 	if (val > max_val) {
 		val -= max_val + 1;
-		if (dco && conv->id != CHIPID_AD9652) {
-			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
-				 OUTPUT_EVEN_ODD_MODE_EN | INVERT_DCO_CLK);
+		if (dco && conv->chip_info->id != CHIPID_AD9652) {
+			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
+				 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | AN877_ADC_INVERT_DCO_CLK);
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 			reg_cntrl |= ADI_DDR_EDGESEL;
@@ -414,9 +413,9 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		}
 		cnt = 1;
 	} else {
-		if (dco && conv->id != CHIPID_AD9652) {
-			ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_PHASE,
-				 OUTPUT_EVEN_ODD_MODE_EN);
+		if (dco && conv->chip_info->id != CHIPID_AD9652) {
+			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
+				 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN);
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 			reg_cntrl &= ~ADI_DDR_EDGESEL;
@@ -434,12 +433,12 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		printk(" %s IDELAY 0x%x\n", cnt ? "INVERT" : "", val);
 #endif
 
-	ad9467_testmode_set(indio_dev, 0, TESTMODE_OFF);
-	ad9467_testmode_set(indio_dev, 1, TESTMODE_OFF);
+	ad9467_testmode_set(indio_dev, 0, AN877_ADC_TESTMODE_OFF);
+	ad9467_testmode_set(indio_dev, 1, AN877_ADC_TESTMODE_OFF);
 	if (dco) {
-		ad9467_spi_write(conv->spi, ADC_REG_OUTPUT_DELAY,
+		ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_DELAY,
 				val > 0 ? ((val - 1) | dco_en) : 0);
-		ad9467_spi_write(conv->spi, ADC_REG_TRANSFER, TRANSFER_SYNC);
+		ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
 	} else {
 		for (lane = 0; lane < nb_lanes; lane++) {
 			axiadc_idelay_set(st, lane, val);
@@ -461,7 +460,7 @@ static int ad9467_idelay_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned nb_lanes;
 
-	switch (conv->id) {
+	switch (conv->chip_info->id) {
 	case CHIPID_AD9467:
 		nb_lanes = 8;
 		break;
@@ -480,7 +479,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned dco_en;
 
-	switch (conv->id) {
+	switch (conv->chip_info->id) {
 	case CHIPID_AD9467:
 	case CHIPID_AD9250:
 	case CHIPID_AD9683:
@@ -493,7 +492,7 @@ static int ad9467_dco_calibrate(struct iio_dev *indio_dev, unsigned chan)
 		dco_en = 0;
 		break;
 	default:
-		dco_en = DCO_DELAY_ENABLE;
+		dco_en = AN877_ADC_DCO_DELAY_ENABLE;
 	}
 
 	return ad9467_calibrate(indio_dev, chan, true, dco_en, 0);
@@ -551,20 +550,20 @@ static void ad9467_scale(struct axiadc_converter *conv, int index,
 }
 
 static const char *const testmodes[] = {
-	[TESTMODE_OFF] = "off",
-	[TESTMODE_MIDSCALE_SHORT] = "midscale_short",
-	[TESTMODE_POS_FULLSCALE] = "pos_fullscale",
-	[TESTMODE_NEG_FULLSCALE] = "neg_fullscale",
-	[TESTMODE_ALT_CHECKERBOARD] = "checkerboard",
-	[TESTMODE_PN23_SEQ] = "pn_long",
-	[TESTMODE_PN9_SEQ] = "pn_short",
-	[TESTMODE_ONE_ZERO_TOGGLE] = "one_zero_toggle",
-	[TESTMODE_USER] = "user",
-	[TESTMODE_BIT_TOGGLE] = "bit_toggle",
-	[TESTMODE_SYNC] = "sync",
-	[TESTMODE_ONE_BIT_HIGH] = "one_bit_high",
-	[TESTMODE_MIXED_BIT_FREQUENCY] = "mixed_bit_frequency",
-	[TESTMODE_RAMP] = "ramp",
+	[AN877_ADC_TESTMODE_OFF] = "off",
+	[AN877_ADC_TESTMODE_MIDSCALE_SHORT] = "midscale_short",
+	[AN877_ADC_TESTMODE_POS_FULLSCALE] = "pos_fullscale",
+	[AN877_ADC_TESTMODE_NEG_FULLSCALE] = "neg_fullscale",
+	[AN877_ADC_TESTMODE_ALT_CHECKERBOARD] = "checkerboard",
+	[AN877_ADC_TESTMODE_PN23_SEQ] = "pn_long",
+	[AN877_ADC_TESTMODE_PN9_SEQ] = "pn_short",
+	[AN877_ADC_TESTMODE_ONE_ZERO_TOGGLE] = "one_zero_toggle",
+	[AN877_ADC_TESTMODE_USER] = "user",
+	[AN877_ADC_TESTMODE_BIT_TOGGLE] = "bit_toggle",
+	[AN877_ADC_TESTMODE_SYNC] = "sync",
+	[AN877_ADC_TESTMODE_ONE_BIT_HIGH] = "one_bit_high",
+	[AN877_ADC_TESTMODE_MIXED_BIT_FREQUENCY] = "mixed_bit_frequency",
+	[AN877_ADC_TESTMODE_RAMP] = "ramp",
 };
 
 static bool ad9467_valid_test_mode(struct axiadc_converter *conv,
@@ -577,8 +576,8 @@ static bool ad9467_valid_test_mode(struct axiadc_converter *conv,
 	 * All converters that support the ramp testmode have a gap between USER and
 	 * RAMP.
 	 */
-	if (conv->chip_info->max_testmode == TESTMODE_RAMP &&
-	    mode > TESTMODE_USER && mode < TESTMODE_RAMP)
+	if (conv->chip_info->max_testmode == AN877_ADC_TESTMODE_RAMP &&
+	    mode > AN877_ADC_TESTMODE_USER && mode < AN877_ADC_TESTMODE_RAMP)
 		return false;
 
 	return true;
@@ -714,91 +713,100 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	  },								\
 	}
 
-static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
+static const struct axiadc_chip_info ad9467_chip_tbl[] = {
 	[ID_AD9467] = {
-		       .name = "AD9467",
-		       .max_rate = 250000000UL,
-		       .scale_table = ad9467_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9467_scale_table),
-		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
-		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN(0, 0, 16, 'S'),
-		       },
+		.name = "AD9467",
+		.id = CHIPID_AD9467,
+		.max_rate = 250000000UL,
+		.scale_table = ad9467_scale_table,
+		.num_scales = ARRAY_SIZE(ad9467_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_ONE_ZERO_TOGGLE,
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN(0, 0, 16, 'S'),
+	},
 	[ID_AD9643] = {
-		       .name = "AD9643",
-		       .max_rate = 250000000UL,
-		       .scale_table = ad9643_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
-		       .max_testmode = TESTMODE_RAMP,
-		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN(0, 0, 14, 'S'),
-		       .channel[1] = AIM_CHAN(1, 1, 14, 'S'),
-		       },
+		.name = "AD9643",
+		.id = CHIPID_AD9643,
+		.max_rate = 250000000UL,
+		.scale_table = ad9643_scale_table,
+		.num_scales = ARRAY_SIZE(ad9643_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_RAMP,
+		.num_channels = 2,
+		.channel[0] = AIM_CHAN(0, 0, 14, 'S'),
+		.channel[1] = AIM_CHAN(1, 1, 14, 'S'),
+	},
 	[ID_AD9250] = {
-		       .name = "AD9250",
-		       .max_rate = 250000000UL,
-		       .scale_table = ad9643_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
-		       .max_testmode = TESTMODE_RAMP,
-		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
-		       .channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S', 0),
-		       },
+		.name = "AD9250",
+		.id = CHIPID_AD9250,
+		.max_rate = 250000000UL,
+		.scale_table = ad9643_scale_table,
+		.num_scales = ARRAY_SIZE(ad9643_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_RAMP,
+		.num_channels = 2,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
+		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S', 0),
+	},
 	[ID_AD9683] = {
-		       .name = "AD9683",
-		       .max_rate = 250000000UL,
-		       .scale_table = ad9643_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
-		       .max_testmode = TESTMODE_RAMP,
-		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
-		       },
+		.name = "AD9683",
+		.id = CHIPID_AD9683,
+		.max_rate = 250000000UL,
+		.scale_table = ad9643_scale_table,
+		.num_scales = ARRAY_SIZE(ad9643_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_RAMP,
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
+	},
 	[ID_AD9625] = {
-		       .name = "AD9625",
-		       .max_rate = 2500000000UL,
-		       .scale_table = ad9643_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9643_scale_table),
-		       .max_testmode = TESTMODE_RAMP,
-		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0),
-		       },
+		.name = "AD9625",
+		.id = CHIPID_AD9625,
+		.max_rate = 2500000000UL,
+		.scale_table = ad9643_scale_table,
+		.num_scales = ARRAY_SIZE(ad9643_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_RAMP,
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0),
+	},
 	[ID_AD9265] = {
-		       .name = "AD9265",
-		       .max_rate = 125000000UL,
-		       .scale_table = ad9265_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9265_scale_table),
-		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
-		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 'S', 0),
-		       },
+		.name = "AD9265",
+		.id = CHIPID_AD9265,
+		.max_rate = 125000000UL,
+		.scale_table = ad9265_scale_table,
+		.num_scales = ARRAY_SIZE(ad9265_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_ONE_ZERO_TOGGLE,
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 16, 'S', 0),
+	},
 	[ID_AD9434] = {
-		       .name = "AD9434",
-		       .max_rate = 500000000UL,
-		       .scale_table = ad9434_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9434_scale_table),
-		       .max_testmode = TESTMODE_USER,
-		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0),
-		       },
+		.name = "AD9434",
+		.id = CHIPID_AD9434,
+		.max_rate = 500000000UL,
+		.scale_table = ad9434_scale_table,
+		.num_scales = ARRAY_SIZE(ad9434_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_USER,
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0),
+	},
 	[ID_AD9652] = {
-		       .name = "AD9652",
-		       .max_rate = 310000000UL,
-		       .scale_table = ad9652_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9652_scale_table),
-		       .max_testmode = TESTMODE_ONE_ZERO_TOGGLE,
-		       .num_channels = 2,
-		       .channel[0] = AIM_CHAN(0, 0, 16, 'S'),
-		       .channel[1] = AIM_CHAN(1, 1, 16, 'S'),
-		       },
+		.name = "AD9652",
+		.id = CHIPID_AD9652,
+		.max_rate = 310000000UL,
+		.scale_table = ad9652_scale_table,
+		.num_scales = ARRAY_SIZE(ad9652_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_ONE_ZERO_TOGGLE,
+		.num_channels = 2,
+		.channel[0] = AIM_CHAN(0, 0, 16, 'S'),
+		.channel[1] = AIM_CHAN(1, 1, 16, 'S'),
+	},
 	[ID_AD9649] = {
-		       .name = "AD9649",
-		       .max_rate = 80000000UL,
-		       .scale_table = ad9649_scale_table,
-		       .num_scales = ARRAY_SIZE(ad9649_scale_table),
-		       .max_testmode = TESTMODE_MIXED_BIT_FREQUENCY,
-		       .num_channels = 1,
-		       .channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
-		       },
+		.name = "AD9649",
+		.id = CHIPID_AD9649,
+		.max_rate = 80000000UL,
+		.scale_table = ad9649_scale_table,
+		.num_scales = ARRAY_SIZE(ad9649_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_MIXED_BIT_FREQUENCY,
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
+	},
 };
 
 static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
@@ -933,9 +941,9 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 	unsigned vref_val, vref_mask;
 	unsigned int i;
 
-	vref_val = ad9467_spi_read(conv->spi, ADC_REG_VREF);
+	vref_val = ad9467_spi_read(conv->spi, AN877_ADC_REG_VREF);
 
-	switch (conv->id) {
+	switch (conv->chip_info->id) {
 	case CHIPID_AD9467:
 		vref_mask = AD9467_REG_VREF_MASK;
 		break;
@@ -983,10 +991,10 @@ static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
 		if (scale_val[0] != val || scale_val[1] != val2)
 			continue;
 
-		ad9467_spi_write(conv->spi, ADC_REG_VREF,
+		ad9467_spi_write(conv->spi, AN877_ADC_REG_VREF,
 				 conv->chip_info->scale_table[i][1]);
-		ad9467_spi_write(conv->spi, ADC_REG_TRANSFER,
-				 TRANSFER_SYNC);
+		ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER,
+				 AN877_ADC_TRANSFER_SYNC);
 		return 0;
 	}
 
@@ -1009,9 +1017,9 @@ static int ad9467_read_raw(struct iio_dev *indio_dev,
 		*val = conv->adc_clk = clk_get_rate_scaled(conv->clk, &conv->adc_clkscale);
 
 		return IIO_VAL_INT;
-
+	default:
+		return -EINVAL;
 	}
-	return -EINVAL;
 }
 
 static int ad9467_write_raw(struct iio_dev *indio_dev,
@@ -1085,141 +1093,135 @@ static int ad9467_post_setup(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
+{
+	struct spi_device *spi = st->spi;
+	int ret;
+
+	st->adc_output_mode = AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
+
+	switch (chip_id) {
+	case CHIPID_AD9467:
+		st->adc_output_mode |= AD9467_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9643:
+		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
+		return ad9467_spi_write(spi, AN877_ADC_REG_OUTPUT_PHASE,
+					AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN);
+	case CHIPID_AD9250:
+		ret = ad9250_setup(spi, 2, 2);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
+			return ret;
+		}
+
+		st->adc_output_mode |= AD9250_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9683:
+		ret = ad9250_setup(spi, 1, 1);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
+			return ret;
+		}
+		st->adc_output_mode |= AD9683_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9625:
+		ret = ad9625_setup(spi);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
+			return ret;
+		}
+
+		st->adc_output_mode |= AD9625_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9265:
+		st->adc_output_mode |= AD9265_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9434:
+		st->adc_output_mode |= AD9434_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9652:
+		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9649:
+		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
+		return 0;
+	default:
+		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", chip_id);
+		return -ENODEV;;
+	}
+}
+
+static void ad9467_clk_disable(void *data)
+{
+	struct axiadc_converter *st = data;
+
+	clk_disable_unprepare(st->clk);
+}
+
 static int ad9467_probe(struct spi_device *spi)
 {
-	struct axiadc_converter *conv;
-	int ret, clk_enabled = 0;
-	struct clk *clk;
+	const struct axiadc_chip_info *info;
+	struct axiadc_converter *conv, *st;
+	unsigned int id;
+	int ret;
 
-	clk = devm_clk_get(&spi->dev, NULL);
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
+	info = of_device_get_match_data(&spi->dev);
+	if (!info)
+		return -ENODEV;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
+	/* FIXME: remove this asap; it's to make things easier to diff with upstream version */
+	st = conv;
 
-	if (spi_get_device_id(spi)->driver_data != CHIPID_AD9625) {
-		ret = clk_prepare_enable(clk);
+	st->spi = spi;
+
+	st->clk = devm_clk_get(&spi->dev, NULL);
+	if (IS_ERR(st->clk))
+		return PTR_ERR(st->clk);
+
+	if (info->id != CHIPID_AD9625) {
+		ret = clk_prepare_enable(st->clk);
 		if (ret < 0)
 			return ret;
-		clk_enabled = 1;
-		conv->adc_clk = clk_get_rate(clk);
+
+		ret = devm_add_action_or_reset(&spi->dev, ad9467_clk_disable, st);
+		if (ret)
+			return ret;
 	}
 
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
 
-	spi_set_drvdata(spi, conv);
-	conv->spi = spi;
-	conv->clk = clk;
+	st->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
+						   GPIOD_OUT_LOW);
+	if (IS_ERR(st->pwrdown_gpio))
+		return PTR_ERR(st->pwrdown_gpio);
 
-	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
-		GPIOD_OUT_LOW);
-	if (IS_ERR(conv->pwrdown_gpio))
-		return PTR_ERR(conv->pwrdown_gpio);
+	st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
+						 GPIOD_OUT_LOW);
+	if (IS_ERR(st->reset_gpio))
+		return PTR_ERR(st->reset_gpio);
 
-	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(conv->reset_gpio))
-		return PTR_ERR(conv->reset_gpio);
-
-	if (conv->reset_gpio) {
+	if (st->reset_gpio) {
 		udelay(1);
-		ret = gpiod_direction_output(conv->reset_gpio, 1);
+		ret = gpiod_direction_output(st->reset_gpio, 1);
+		if (ret)
+			return ret;
+		mdelay(10);
 	}
 
-	mdelay(10);
+	spi_set_drvdata(spi, st);
 
-	conv->id = ad9467_spi_read(spi, ADC_REG_CHIP_ID);
-	if (conv->id != spi_get_device_id(spi)->driver_data) {
-		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n",
-			conv->id);
-		ret = -ENODEV;
-		goto out;
+	conv->chip_info = info;
+
+	id = ad9467_spi_read(spi, AN877_ADC_REG_CHIP_ID);
+	if (id != conv->chip_info->id) {
+		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
+		return -ENODEV;
 	}
-
-	switch (conv->id) {
-	case CHIPID_AD9467:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9467];
-		conv->adc_output_mode =
-		    AD9467_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9643:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
-		conv->adc_output_mode =
-		    AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ad9467_spi_write(spi, ADC_REG_OUTPUT_PHASE,
-				 OUTPUT_EVEN_ODD_MODE_EN);
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9250:
-		ret = ad9250_setup(spi, 2, 2);
-		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			goto out;
-		}
-
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9250];
-		conv->adc_output_mode =
-		    AD9250_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9683:
-		ret = ad9250_setup(spi, 1, 1);
-		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			goto out;
-		}
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
-		conv->adc_output_mode =
-		    AD9683_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9625:
-		ret = ad9625_setup(spi);
-		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			goto out;
-		}
-
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9625];
-		conv->adc_output_mode =
-		    AD9625_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9265:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9265];
-		conv->adc_output_mode =
-		    AD9265_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9434:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9434];
-		conv->adc_output_mode =
-		    AD9434_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9652:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9652];
-		conv->adc_output_mode =
-		    AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9649:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9649];
-		conv->adc_output_mode =
-		    AD9643_DEF_OUTPUT_MODE | OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	default:
-		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
-		ret = -ENODEV;
-		goto out;
-	}
-
-	if (ret < 0)
-		goto out;
 
 	conv->reg_access = ad9467_reg_access;
 	conv->write_raw = ad9467_write_raw;
@@ -1227,48 +1229,36 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->post_setup = ad9467_post_setup;
 	conv->set_pnsel = ad9467_set_pnsel;
 
-	return 0;
-out:
-	if (clk_enabled)
-		clk_disable_unprepare(clk);
+	ret = ad9467_setup(conv, id);
+	if (ret)
+		return ret;
 
-	return ret;
+	return ad9467_outputmode_set(spi, conv->adc_output_mode);
 }
 
-static int ad9467_remove(struct spi_device *spi)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(spi);
-
-	clk_disable_unprepare(conv->clk);
-
-	return 0;
-}
-
-static const struct spi_device_id ad9467_id[] = {
-	{"ad9467", CHIPID_AD9467},
-	{"ad9643", CHIPID_AD9643},
-	{"ad9250", CHIPID_AD9250},
-	{"ad9265", CHIPID_AD9265},
-	{"ad9683", CHIPID_AD9683},
-	{"ad9434", CHIPID_AD9434},
-	{"ad9625", CHIPID_AD9625},
-	{"ad9652", CHIPID_AD9652},
-	{"ad9649", CHIPID_AD9649},
+static const struct of_device_id ad9467_of_match[] = {
+	{ .compatible = "adi,ad9467", .data = &ad9467_chip_tbl[ID_AD9467], },
+	{ .compatible = "adi,ad9643", .data = &ad9467_chip_tbl[ID_AD9643], },
+	{ .compatible = "adi,ad9250", .data = &ad9467_chip_tbl[ID_AD9250], },
+	{ .compatible = "adi,ad9265", .data = &ad9467_chip_tbl[ID_AD9265], },
+	{ .compatible = "adi,ad9683", .data = &ad9467_chip_tbl[ID_AD9683], },
+	{ .compatible = "adi,ad9434", .data = &ad9467_chip_tbl[ID_AD9434], },
+	{ .compatible = "adi,ad9625", .data = &ad9467_chip_tbl[ID_AD9625], },
+	{ .compatible = "adi,ad9652", .data = &ad9467_chip_tbl[ID_AD9652], },
+	{ .compatible = "adi,ad9649", .data = &ad9467_chip_tbl[ID_AD9649], },
 	{}
 };
-MODULE_DEVICE_TABLE(spi, ad9467_id);
+MODULE_DEVICE_TABLE(of, ad9467_of_match);
 
 static struct spi_driver ad9467_driver = {
 	.driver = {
-		   .name = "ad9467",
-		   .owner = THIS_MODULE,
-		   },
+		.name = "ad9467",
+		.of_match_table = ad9467_of_match,
+	},
 	.probe = ad9467_probe,
-	.remove = ad9467_remove,
-	.id_table = ad9467_id,
 };
 module_spi_driver(ad9467_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
-MODULE_DESCRIPTION("Analog Devices AD9467 ADC");
+MODULE_DESCRIPTION("Analog Devices AD9467 ADC driver");
 MODULE_LICENSE("GPL v2");

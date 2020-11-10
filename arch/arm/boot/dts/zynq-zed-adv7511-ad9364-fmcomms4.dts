@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices EVAL-AD-FMCOMMS4-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9361
+ * https://wiki.analog.com/eval/user-guides/ad-fmcomms4-ebz
+ *
+ * hdl_project: <fmcomms2/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2014-2020 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zed.dtsi"

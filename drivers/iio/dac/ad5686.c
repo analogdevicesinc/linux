@@ -16,6 +16,11 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/trigger.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
+#include <linux/iio/trigger_consumer.h>
 
 #include "ad5686.h"
 
@@ -123,13 +128,14 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct ad5686_state *st = iio_priv(indio_dev);
+	struct pwm_state state;
 	int ret;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&st->lock);
 		ret = st->read(st, chan->address);
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		if (ret < 0)
 			return ret;
 		*val = (ret >> chan->scan_type.shift) &
@@ -139,6 +145,10 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 		*val = st->vref_mv;
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		pwm_get_state(st->pwm, &state);
+		*val = DIV_ROUND_CLOSEST_ULL(1000000000ULL, state.period);
+		return IIO_VAL_INT;
 	}
 	return -EINVAL;
 }
@@ -150,6 +160,7 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad5686_state *st = iio_priv(indio_dev);
+	struct pwm_state state;
 	int ret;
 
 	switch (mask) {
@@ -157,12 +168,20 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 		if (val > (1 << chan->scan_type.realbits) || val < 0)
 			return -EINVAL;
 
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&st->lock);
 		ret = st->write(st,
 				AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
 				chan->address,
 				val << chan->scan_type.shift);
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
+		break;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		pwm_get_state(st->pwm, &state);
+
+		state.period = DIV_ROUND_CLOSEST_ULL(1000000000ULL, val);
+		pwm_set_relative_duty_cycle(&state, 50, 100);
+
+		ret = pwm_apply_state(st->pwm, &state);
 		break;
 	default:
 		ret = -EINVAL;
@@ -171,7 +190,37 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 	return ret;
 }
 
+static int ad5686_trig_set_state(struct iio_trigger *trig,
+				 bool state)
+{
+	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
+	struct ad5686_state *st = iio_priv(indio_dev);
+	struct pwm_state pwm_st;
+
+	pwm_get_state(st->pwm, &pwm_st);
+	pwm_st.enabled = state;
+
+	return pwm_apply_state(st->pwm, &pwm_st);
+}
+
+static int ad5686_validate_trigger(struct iio_dev *indio_dev,
+				    struct iio_trigger *trig)
+{
+	struct ad5686_state *st = iio_priv(indio_dev);
+
+	if (st->trig != trig)
+		return -EINVAL;
+
+	return 0;
+}
+
+static const struct iio_trigger_ops ad5686_trigger_ops = {
+	.validate_device = &iio_trigger_validate_own_device,
+	.set_trigger_state = &ad5686_trig_set_state,
+};
+
 static const struct iio_info ad5686_info = {
+	.validate_trigger = &ad5686_validate_trigger,
 	.read_raw = ad5686_read_raw,
 	.write_raw = ad5686_write_raw,
 };
@@ -194,8 +243,10 @@ static const struct iio_chan_spec_ext_info ad5686_ext_info[] = {
 		.output = 1,					\
 		.channel = chan,				\
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | \
+					    BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.address = addr,				\
+		.scan_index = chan,				\
 		.scan_type = {					\
 			.sign = 'u',				\
 			.realbits = (bits),			\
@@ -427,13 +478,57 @@ static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
 	},
 };
 
+static irqreturn_t ad5686_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	const struct iio_chan_spec *chan;
+	struct iio_buffer *buffer = indio_dev->buffer;
+	struct ad5686_state *st = iio_priv(indio_dev);
+	u8 sample[2];
+	unsigned int i;
+	u16 val;
+	int ret;
+
+	ret = iio_buffer_remove_sample(buffer, sample);
+	if (ret < 0)
+		goto out;
+
+	mutex_lock(&st->lock);
+	for_each_set_bit(i, indio_dev->active_scan_mask, indio_dev->masklength) {
+		val = (sample[1] << 8) + sample[0];
+
+		chan = iio_find_channel_from_si(indio_dev, i);
+		ret = st->write(st, AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
+				chan->address, val << chan->scan_type.shift);
+	}
+	mutex_unlock(&st->lock);
+
+out:
+	iio_trigger_notify_done(indio_dev->trig);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t ad5686_irq_handler(int irq, void *data)
+{
+	struct iio_dev *indio_dev = data;
+	struct ad5686_state *st = iio_priv(indio_dev);
+
+	if (iio_buffer_enabled(indio_dev))
+		iio_trigger_poll(st->trig);
+
+	return IRQ_HANDLED;
+}
+
 int ad5686_probe(struct device *dev,
 		 enum ad5686_supported_device_ids chip_type,
 		 const char *name, ad5686_write_func write,
-		 ad5686_read_func read)
+		 ad5686_read_func read, int irq)
 {
 	struct ad5686_state *st;
 	struct iio_dev *indio_dev;
+	struct pwm_state state;
 	unsigned int val, ref_bit_msk;
 	u8 cmd;
 	int ret, i, voltage_uv = 0;
@@ -449,6 +544,23 @@ int ad5686_probe(struct device *dev,
 	st->write = write;
 	st->read = read;
 
+	mutex_init(&st->lock);
+
+	st->trig = devm_iio_trigger_alloc(dev, "%s-dev%d", name, indio_dev->id);
+	if (st->trig == NULL)
+		ret = -ENOMEM;
+
+	st->trig->ops = &ad5686_trigger_ops;
+	st->trig->dev.parent = dev;
+	iio_trigger_set_drvdata(st->trig, indio_dev);
+
+	ret = devm_iio_trigger_register(dev, st->trig);
+	if (ret)
+		return ret;
+
+	/* select default trigger */
+	indio_dev->trig = iio_trigger_get(st->trig);
+
 	st->reg = devm_regulator_get_optional(dev, "vcc");
 	if (!IS_ERR(st->reg)) {
 		ret = regulator_enable(st->reg);
@@ -460,6 +572,30 @@ int ad5686_probe(struct device *dev,
 			goto error_disable_reg;
 
 		voltage_uv = ret;
+	}
+
+	/* PWM configuration */
+	st->pwm = devm_pwm_get(dev, "pwm-trigger");
+	if (!IS_ERR(st->pwm)) {
+		/* Set a default pwm frequency of 1kHz and 50% duty cycle */
+		pwm_init_state(st->pwm, &state);
+		state.enabled = false;
+		state.period = 1000000;
+		pwm_set_relative_duty_cycle(&state, 50, 100);
+		ret = pwm_apply_state(st->pwm, &state);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* Configure IRQ */
+	if (irq) {
+		ret = devm_request_threaded_irq(dev, irq, NULL, ad5686_irq_handler,
+						IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+						"ad5686 irq", indio_dev);
+		if (ret)
+			return ret;
+
+		st->irq = irq;
 	}
 
 	st->chip_info = &ad5686_chip_info_tbl[chip_type];
@@ -479,6 +615,9 @@ int ad5686_probe(struct device *dev,
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels;
+	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
+
+	mutex_init(&st->lock);
 
 	switch (st->chip_info->regmap_type) {
 	case AD5310_REGMAP:
@@ -508,6 +647,11 @@ int ad5686_probe(struct device *dev,
 	val = (voltage_uv | ref_bit_msk);
 
 	ret = st->write(st, cmd, 0, !!val);
+	if (ret)
+		goto error_disable_reg;
+
+	ret = devm_iio_triggered_buffer_setup(dev, indio_dev, NULL,
+					      &ad5686_trigger_handler, NULL);
 	if (ret)
 		goto error_disable_reg;
 

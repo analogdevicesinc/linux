@@ -1531,9 +1531,9 @@ static int ad9361_get_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
 
 	rx_gain->tia_index = ad9361_spi_readf(spi, REG_GAIN_TABLE_READ_DATA2, TIA_GAIN);
 
-	rx_gain->lmt_gain = lna_table[ad9361_gt(phy)][rx_gain->lna_index] +
-				mixer_table[ad9361_gt(phy)][rx_gain->mixer_index] +
-				tia_table[rx_gain->tia_index];
+	rx_gain->lmt_gain = lna_table[ad9361_gt(phy) - RXGAIN_TBLS_END][rx_gain->lna_index] +
+			mixer_table[ad9361_gt(phy) - RXGAIN_TBLS_END][rx_gain->mixer_index] +
+			tia_table[rx_gain->tia_index];
 
 	ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, tbl_addr);
 
@@ -2731,11 +2731,15 @@ static int __ad9361_tx_quad_calib(struct ad9361_rf_phy *phy, u32 phase,
 		if (ret < 0)
 			return ret;
 
-		if (res)
+		if (res) {
 			*res = ad9361_spi_read(phy->spi,
 					(phy->pdata->rx1tx1_mode_use_tx_num == 2) ?
 					REG_QUAD_CAL_STATUS_TX2 : REG_QUAD_CAL_STATUS_TX1) &
 					(TX1_LO_CONV | TX1_SSB_CONV);
+			if (phy->pdata->rx2tx2)
+				*res &= ad9361_spi_read(phy->spi, REG_QUAD_CAL_STATUS_TX2) &
+					(TX2_LO_CONV | TX2_SSB_CONV);
+		}
 
 		return 0;
 }
@@ -2893,8 +2897,8 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(spi, REG_QUAD_CAL_COUNT, 0xFF);
 	ad9361_spi_write(spi, REG_KEXP_1, KEXP_TX(1) | KEXP_TX_COMP(3) |
 			 KEXP_DC_I(3) | KEXP_DC_Q(3));
-	ad9361_spi_write(spi, REG_MAG_FTEST_THRESH, 0x01);
-	ad9361_spi_write(spi, REG_MAG_FTEST_THRESH_2, 0x01);
+	ad9361_spi_write(spi, REG_MAG_FTEST_THRESH, 0x03);
+	ad9361_spi_write(spi, REG_MAG_FTEST_THRESH_2, 0x03);
 
 	if (st->tx_quad_lpf_tia_match < 0) /* set in ad9361_load_gt() */
 		dev_err(dev, "failed to find suitable LPF TIA value in gain table\n");

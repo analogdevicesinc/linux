@@ -32,6 +32,9 @@
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 
+#include <linux/jesd204/jesd204.h>
+#include <linux/jesd204/adi-common.h>
+
 #include "cf_axi_adc.h"
 
 const unsigned int decimation_factors_available[] = {1, 8};
@@ -45,6 +48,7 @@ struct axiadc_state {
 	struct iio_info			iio_info;
 	struct clk 			*clk;
 	struct gpio_desc		*gpio_decimation;
+	struct jesd204_dev 		*jdev;
 	size_t				regs_size;
 	void __iomem			*regs;
 	void __iomem			*slave_regs;
@@ -772,8 +776,107 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 	return ret;
 }
 
+static int axiadc_jesd204_link_supported(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	u32 i, d1, d2, num, multi_device_link;
+	bool failed, last;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	num = ADI_JESD204_TPL_TO_PROFILE_NUM(axiadc_read(st, ADI_JESD204_REG_TPL_STATUS));
+
+	for (i = 0; i < num; i++) {
+		last = (i == (num - 1));
+		failed = false;
+
+		axiadc_write(st, ADI_JESD204_REG_TPL_CNTRL, ADI_JESD204_PROFILE_SEL(i));
+		d1 = axiadc_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_1);
+		d2 = axiadc_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_2);
+
+		if ((ADI_JESD204_TPL_TO_L(d1) / lnk->num_lanes) ==
+			(ADI_JESD204_TPL_TO_M(d1) / lnk->num_converters))
+			multi_device_link = ADI_JESD204_TPL_TO_L(d1) / lnk->num_lanes;
+		else
+			multi_device_link = 1;
+
+		if (ADI_JESD204_TPL_TO_L(d1) != lnk->num_lanes * multi_device_link) {
+			if (last)
+				dev_warn(dev,
+					"profile%u:link_num%u param L mismatch %u!=%u*%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_L(d1), lnk->num_lanes,
+					multi_device_link);
+			failed = true;
+		}
+
+		if (ADI_JESD204_TPL_TO_M(d1) != lnk->num_converters * multi_device_link) {
+			if (last)
+				dev_warn(dev,
+					"profile%u:link_num%u param M mismatch %u!=%u*%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_M(d1),
+					lnk->num_converters, multi_device_link);
+			failed = true;
+		}
+
+		if (lnk->samples_per_conv_frame && ADI_JESD204_TPL_TO_S(d1) !=
+			lnk->samples_per_conv_frame) {
+			if (last)
+				dev_warn(dev,
+					"profile%u:link_num%u param S mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_S(d1),
+					lnk->samples_per_conv_frame);
+			failed = true;
+		}
+
+		if (ADI_JESD204_TPL_TO_F(d1) != lnk->octets_per_frame) {
+			if (last)
+				dev_warn(dev,
+					"profile%u:link_num%u param F mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_F(d1),
+					lnk->octets_per_frame);
+			failed = true;
+		}
+
+		if (ADI_JESD204_TPL_TO_NP(d2) != lnk->bits_per_sample) {
+			if (last)
+				dev_warn(dev,
+					"profile%u:link_num%u param NP mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_NP(d2),
+					lnk->bits_per_sample);
+			failed = true;
+		}
+
+		if (!failed)
+			return JESD204_STATE_CHANGE_DONE;
+	}
+
+	dev_err(dev, "JESD param mismatch between TPL and Link configuration !\n");
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data jesd204_axiadc_init = {
+	.state_ops = {
+		[JESD204_OP_LINK_SUPPORTED] = {
+			.per_link = axiadc_jesd204_link_supported,
+		},
+	},
+};
+
 static const struct axiadc_core_info axi_adc_10_0_a_info = {
 	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
+};
+
+static const struct axiadc_core_info axi_adc_10_1_b_info = {
+	.version = ADI_AXI_PCORE_VER(10, 1, 'b'),
 };
 
 /* Match table for of_platform binding */
@@ -793,6 +896,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad9208-1.0", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-ad9081-rx-1.0", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-adc-10.0.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-adrv9002-rx-1.0", .data = &axi_adc_10_1_b_info},
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
@@ -854,6 +958,12 @@ static int axiadc_probe(struct platform_device *pdev)
 	}
 
 	st = iio_priv(indio_dev);
+
+	st->jdev = devm_jesd204_dev_register(&pdev->dev, &jesd204_axiadc_init);
+	if (IS_ERR(st->jdev)) {
+		ret = PTR_ERR(st->jdev);
+		goto err_put_converter;
+	}
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs_size = resource_size(mem);
@@ -975,6 +1085,10 @@ static int axiadc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"post_iio_register callback failed (%d)", ret);
 	}
+
+	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	if (ret)
+		goto err_unconfigure_ring;
 
 	return 0;
 

@@ -95,21 +95,6 @@
 #define ADI_REG_CLOCKS_PER_PPS_STATUS	0x00C4
 #define ADI_CLOCKS_PER_PPS_STAT_INVAL	(1 << 0)
 
-/* JESD TPL */
-
-#define ADI_REG_TPL_CNTRL		0x0200
-#define ADI_REG_TPL_STATUS		0x0204
-#define ADI_REG_TPL_DESCRIPTOR_1	0x0240
-#define ADI_REG_TPL_DESCRIPTOR_2	0x0244
-
-#define ADI_TO_JESD_M(x)		(((x) >> 0) & 0xFF)
-#define ADI_TO_JESD_L(x)		(((x) >> 8) & 0xFF)
-#define ADI_TO_JESD_S(x)		(((x) >> 16) & 0xFF)
-#define ADI_TO_JESD_F(x)		(((x) >> 24) & 0xFF)
-
-#define ADI_TO_JESD_N(x)		(((x) >> 0) & 0xFF)
-#define ADI_TO_JESD_NP(x)		(((x) >> 8) & 0xFF)
-
 /* ADC CHANNEL */
 
 #define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
@@ -153,7 +138,9 @@ enum adc_pn_sel {
 	ADC_PN23 = 6,
 	ADC_PN31 = 7,
 	ADC_PN_CUSTOM = 9,
-	ADC_PN_OFF = 10,
+	ADC_PN_RAMP_NIBBLE = 10,
+	ADC_PN_RAMP_16 = 11,
+	ADC_PN_OFF = 12,
 };
 
 enum adc_data_sel {
@@ -192,6 +179,7 @@ enum adc_data_sel {
 struct axiadc_state;
 
 struct axiadc_chip_info {
+	unsigned int			id;
 	char				*name;
 	unsigned			num_channels;
 	unsigned 		num_shadow_slave_channels;

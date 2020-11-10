@@ -213,7 +213,8 @@
 	logic_analyzer_clkgen: clock@7000000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x70000000 0x10000>;
-		clocks = <&clkc 16>;
+		clocks = <&clkc 15>, <&clkc 16>;
+		clock-names = "s_axi_aclk", "clkin1";
 
 		#clock-cells = <0>;
 	};

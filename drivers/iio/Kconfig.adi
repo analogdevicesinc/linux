@@ -56,6 +56,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AD9371
 	select ADAR1000
 	select ADRV9009
+	select ADRV9001
 	select AD9467
 	select AD9680
 	select ADMC
@@ -64,6 +65,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AXI_FMCADC5_SYNC
 	select XILINX_XADC if (ARCH_ZYNQ || ARCH_ZYNQMP || MICROBLAZE)
 	select LTC2497
+	select LTC2308
 	select AD8366
 	select HMC425
 	select AD5270
@@ -146,7 +148,9 @@ config IIO_ALL_ADI_DRIVERS
 	select LTC2471
 	select LTC2632
 	select LTC2485
+	select ADXRS290
 	select ADXRS450
 	select AXI_JESD204_TX
 	select AXI_JESD204_RX
 	select AXI_ADXCVR
+	select ONE_BIT_ADC_DAC

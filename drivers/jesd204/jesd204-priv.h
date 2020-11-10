@@ -18,20 +18,33 @@ struct jesd204_link_opaque;
 struct jesd204_dev_con_out;
 struct jesd204_fsm_data;
 
+#define JESD204_STATE_FSM_OFFSET	100
+
+#define JESD204_STATE_ENUM(x)	\
+	JESD204_STATE_##x = (JESD204_FSM_STATE_##x + JESD204_STATE_FSM_OFFSET)
+
 enum jesd204_dev_state {
-	JESD204_STATE_ERROR = -1,
 	JESD204_STATE_UNINIT = 0,
 	JESD204_STATE_INITIALIZED,
 	JESD204_STATE_PROBED,
-	JESD204_STATE_LINK_INIT,
-	JESD204_STATE_LINK_DOWN,
-	JESD204_STATE_LINK_SUPPORTED,
-	JESD204_STATE_LINK_SETUP,
-	JESD204_STATE_CLOCKS_ENABLE,
-	JESD204_STATE_LINK_ENABLE,
-	JESD204_STATE_LINK_RUNNING,
-	JESD204_STATE_LINK_DISABLE,
-	JESD204_STATE_CLOCKS_DISABLE,
+	JESD204_STATE_IDLE,
+	JESD204_STATE_ENUM(DEVICE_INIT),
+	JESD204_STATE_ENUM(LINK_INIT),
+	JESD204_STATE_ENUM(LINK_SUPPORTED),
+	JESD204_STATE_ENUM(LINK_PRE_SETUP),
+	JESD204_STATE_ENUM(CLK_SYNC_STAGE1),
+	JESD204_STATE_ENUM(CLK_SYNC_STAGE2),
+	JESD204_STATE_ENUM(CLK_SYNC_STAGE3),
+	JESD204_STATE_ENUM(LINK_SETUP),
+	JESD204_STATE_ENUM(OPT_SETUP_STAGE1),
+	JESD204_STATE_ENUM(OPT_SETUP_STAGE2),
+	JESD204_STATE_ENUM(OPT_SETUP_STAGE3),
+	JESD204_STATE_ENUM(OPT_SETUP_STAGE4),
+	JESD204_STATE_ENUM(OPT_SETUP_STAGE5),
+	JESD204_STATE_ENUM(CLOCKS_ENABLE),
+	JESD204_STATE_ENUM(LINK_ENABLE),
+	JESD204_STATE_ENUM(LINK_RUNNING),
+	JESD204_STATE_ENUM(OPT_POST_RUNNING_STAGE),
 	JESD204_STATE_DONT_CARE = 999,
 };
 
@@ -84,6 +97,7 @@ struct jesd204_dev_con_out {
 /**
  * struct jesd204_dev - JESD204 device
  * @dev			underlying device object
+ * @dev_data		ref to data provided by the driver registering with the framework
  * @id			unique device id
  * @entry		list entry for the framework to keep a list of devices
  * @priv		private data to be returned to the driver
@@ -91,8 +105,10 @@ struct jesd204_dev_con_out {
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
- * @error		error code for this device if something happened
- * @state_ops		ops for each state transition of type @struct jesd204_state_ops
+ * @is_sysref_provider	true if this device wants to be a SYSREF provider
+ * @is_sec_sysref_provider true if this device wants to be the secondary SYSREF provider
+ * @stop_states		array of states on which to stop, after finishing transition
+ * @sysfs_attr_group	attribute group for the sysfs files of this JESD204 device
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
  * @inputs		array of pointers to output connections from other
@@ -104,6 +120,7 @@ struct jesd204_dev_con_out {
  */
 struct jesd204_dev {
 	struct device			dev;
+	const struct jesd204_dev_data	*dev_data;
 	int				id;
 	struct list_head		entry;
 	void				*priv;
@@ -111,15 +128,22 @@ struct jesd204_dev {
 	bool				fsm_inited;
 	bool				is_top;
 
-	int				error;
-	const struct jesd204_state_op	*state_ops;
+	bool				is_sysref_provider;
+	bool				is_sec_sysref_provider;
+	bool				stop_states[JESD204_FSM_STATES_NUM + 1];
+
 	struct device_node		*np;
+
+	struct attribute_group		sysfs_attr_group;
 
 	struct jesd204_dev_con_out	**inputs;
 	unsigned int			inputs_count;
 	struct list_head		outputs;
 	unsigned int			outputs_count;
 };
+
+#define dev_to_jesd204_dev(dev)		\
+	container_of(dev, struct jesd204_dev, dev)
 
 /**
  * struct jesd204_link_opaque - JESD204 link information (opaque part)
@@ -131,10 +155,10 @@ struct jesd204_dev {
  *			notification must be called by the device to decrement
  *			this and finally call the @fsm_complete_cbs
  *			callback (if provided)
- * @cur_state		current state of the JESD204 link
+ * @state		current state of the JESD204 link
+ * @fsm_paused		true if the FSM has paused during a transition (set)
  * @fsm_data		reference to state-transition information
  * @flags		internal flags set by the framework
- * @error		error codes for the JESD204 link
  */
 struct jesd204_link_opaque {
 	struct jesd204_link		link;
@@ -143,9 +167,9 @@ struct jesd204_link_opaque {
 
 	struct kref			cb_ref;
 	enum jesd204_dev_state		state;
+	bool				fsm_paused;
 	struct jesd204_fsm_data		*fsm_data;
 	unsigned long			flags;
-	int				error;
 };
 
 /**
@@ -154,6 +178,10 @@ struct jesd204_link_opaque {
  * @entry		list entry for the framework to keep a list of top
  *			devices (and implicitly topologies)
  * @initialized		true the topoology connections have been initialized
+ * @num_retries		number of retries if an error occurs
+ * @jdev_sysref		reference to the object that is the SYSREF provider for this topology
+ * @jdev_sysref_sec	reference to the object that is the secondary SYSREF provider
+ * 			for this topology, in case the primary jdev_sysref doesn't exist
  * @fsm_data		ref to JESD204 FSM data for JESD204_LNK_FSM_PARALLEL
  * @cb_ref		kref which for each JESD204 link will increment when it
  *			needs to defer a state transition; this is similar to the
@@ -164,15 +192,19 @@ struct jesd204_link_opaque {
  *			(connections should match against this)
  * @link_ids		JESD204 link IDs for this top-level device
  *			(connections should match against this)
+ * @num_links		number of links
  * @init_links		initial settings passed from the driver
  * @active_links	active JESD204 link settings
  * @staged_links	JESD204 link settings staged to be committed as active
- * @num_links		number of links
  */
 struct jesd204_dev_top {
 	struct jesd204_dev		jdev;
 	struct list_head		entry;
 	bool				initialized;
+	unsigned int			num_retries;
+
+	struct jesd204_dev		*jdev_sysref;
+	struct jesd204_dev		*jdev_sysref_sec;
 
 	struct jesd204_fsm_data		*fsm_data;
 	struct kref			cb_ref;
@@ -188,7 +220,7 @@ struct jesd204_dev_top {
 
 int jesd204_device_count_get(void);
 
-struct list_head *jesd204_topologies_get(void);
+struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jdev);
 
 static inline struct jesd204_dev_top *jesd204_dev_top_dev(
 		struct jesd204_dev *jdev)
@@ -206,5 +238,8 @@ int jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 int jesd204_init_topology(struct jesd204_dev_top *jdev_top);
 
 int jesd204_fsm_probe(struct jesd204_dev *jdev);
+
+int jesd204_dev_create_sysfs(struct jesd204_dev *jdev);
+void jesd204_dev_destroy_sysfs(struct jesd204_dev *jdev);
 
 #endif /* _JESD204_PRIV_H_ */

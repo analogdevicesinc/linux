@@ -12,6 +12,7 @@
 #include <linux/cache.h>
 #include <linux/mutex.h>
 #include <linux/kernel.h>
+#include <linux/pwm.h>
 
 #define AD5310_CMD(x)				((x) << 12)
 
@@ -113,17 +114,21 @@ struct ad5686_chip_info {
 /**
  * struct ad5446_state - driver instance specific data
  * @spi:		spi_device
+ * @pwm:		pwm used for buffer trigger
  * @chip_info:		chip model specific constants, available modes etc
  * @reg:		supply regulator
  * @vref_mv:		actual reference voltage used
  * @pwr_down_mask:	power down mask
  * @pwr_down_mode:	current power down mode
  * @use_internal_vref:	set to true if the internal reference voltage is used
+ * @lock		lock to protect the data buffer during regmap ops
  * @data:		spi transfer buffers
  */
 
 struct ad5686_state {
 	struct device			*dev;
+	struct pwm_device		*pwm;
+	struct iio_trigger		*trig;
 	const struct ad5686_chip_info	*chip_info;
 	struct regulator		*reg;
 	unsigned short			vref_mv;
@@ -132,6 +137,8 @@ struct ad5686_state {
 	ad5686_write_func		write;
 	ad5686_read_func		read;
 	bool				use_internal_vref;
+	struct mutex			lock;
+	int				irq;
 
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
@@ -149,7 +156,7 @@ struct ad5686_state {
 int ad5686_probe(struct device *dev,
 		 enum ad5686_supported_device_ids chip_type,
 		 const char *name, ad5686_write_func write,
-		 ad5686_read_func read);
+		 ad5686_read_func read, int irq);
 
 int ad5686_remove(struct device *dev);
 

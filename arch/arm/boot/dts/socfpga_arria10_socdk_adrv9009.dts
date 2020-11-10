@@ -91,11 +91,11 @@
 			axi_adrv9009_adxcvr_tx: axi-adrv9009-tx-xcvr@24000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
 				reg = <0x00024000 0x00001000>,
-					<0x00026000 0x00001000>,
 					<0x00028000 0x00001000>,
-					<0x00029000 0x00001000>,
 					<0x0002a000 0x00001000>,
-					<0x0002b000 0x00001000>;
+					<0x0002c000 0x00001000>,
+					<0x0002e000 0x00001000>,
+					<0x00030000 0x00001000>;
 				reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
 
 				clocks = <&clk0_ad9528 1>, <&tx_device_clk_pll>;
@@ -107,7 +107,7 @@
 
 			tx_device_clk_pll: altera-a10-fpll@25000 {
 				compatible = "altr,a10-fpll";
-				reg = <0x00025000 0x1000>;
+				reg = <0x00026000 0x1000>;
 				clocks = <&clk0_ad9528 1>;
 
 				#clock-cells = <0>;
@@ -116,7 +116,7 @@
 
 			tx_dma: tx-dmac@2c000 {
 				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x0002c000 0x00004000>;
+				reg = <0x00032000 0x00004000>;
 				interrupt-parent = <&intc>;
 				interrupts = <0 30 4>;
 				#dma-cells = <1>;
@@ -138,7 +138,7 @@
 
 			axi_adrv9009_rx_jesd: axi-jesd204-rx@30000 {
 				compatible = "adi,axi-jesd204-rx-1.0";
-				reg = <0x00030000 0x4000>;
+				reg = <0x00040000 0x4000>;
 
 				interrupt-parent = <&intc>;
 				interrupts = <0 27 4>;
@@ -155,9 +155,9 @@
 
 			axi_adrv9009_adxcvr_rx: axi-adrv9009-rx-xcvr@34000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
-				reg = <0x00034000 0x00001000>,
-					<0x00038000 0x00001000>,
-					<0x00039000 0x00001000>;
+				reg = <0x00044000 0x00001000>,
+					<0x00048000 0x00001000>,
+					<0x0004a000 0x00001000>;
 				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
 
 				clocks = <&clk0_ad9528 1>, <&rx_device_clk_pll>;
@@ -169,7 +169,7 @@
 
 			rx_device_clk_pll: altera-a10-fpll@35000 {
 				compatible = "altr,a10-fpll";
-				reg = <0x00035000 0x1000>;
+				reg = <0x00046000 0x1000>;
 				clocks = <&clk0_ad9528 1>;
 
 				#clock-cells = <0>;
@@ -178,7 +178,7 @@
 
 			rx_dma: rx-dmac@3c000 {
 				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x0003c000 0x00004000>;
+				reg = <0x0004c000 0x00004000>;
 				interrupt-parent = <&intc>;
 				interrupts = <0 31 4>;
 				#dma-cells = <1>;
@@ -200,7 +200,7 @@
 
 			axi_adrv9009_rx_os_jesd: axi-jesd204-rx@40000 {
 				compatible = "adi,axi-jesd204-rx-1.0";
-				reg = <0x00040000 0x4000>;
+				reg = <0x00050000 0x4000>;
 
 				interrupt-parent = <&intc>;
 				interrupts = <0 29 4>;
@@ -217,9 +217,9 @@
 
 			axi_adrv9009_adxcvr_rx_os: axi-adrv9009-rx-os-xcvr@44000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
-				reg = <0x00044000 0x00001000>,
-					<0x00048000 0x00001000>,
-					<0x00049000 0x00001000>;
+				reg = <0x00054000 0x00001000>,
+					<0x00058000 0x00001000>,
+					<0x0005a000 0x00001000>;
 				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
 
 				clocks = <&clk0_ad9528 1>, <&rx_os_device_clk_pll>;
@@ -231,7 +231,7 @@
 
 			rx_os_device_clk_pll: altera-a10-fpll@45000 {
 				compatible = "altr,a10-fpll";
-				reg = <0x00045000 0x1000>;
+				reg = <0x00056000 0x1000>;
 				clocks = <&clk0_ad9528 1>;
 
 				#clock-cells = <0>;
@@ -240,7 +240,7 @@
 
 			rx_obs_dma: rx-obs-dmac@4c000  {
 				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x0004c000 0x00004000>;
+				reg = <0x0005c000 0x00004000>;
 				interrupt-parent = <&intc>;
 				interrupts = <0 32 4>;
 				#dma-cells = <1>;
@@ -262,7 +262,7 @@
 
 			axi_adrv9009_core_rx: axi-adrv9009-rx-hpc@50000 {
 				compatible = "adi,axi-ad9371-rx-1.0";
-				reg = <0x00050000 0x00008000>;
+				reg = <0x00060000 0x00008000>;
 				dmas = <&rx_dma 0>;
 				dma-names = "rx";
 				spibus-connected = <&trx0_adrv9009>;
@@ -270,7 +270,7 @@
 
 			axi_adrv9009_core_tx: axi-adrv9009-tx-hpc@54000 {
 				compatible = "adi,axi-ad9371-tx-1.0";
-				reg = <0x00054000 0x00004000>;
+				reg = <0x00064000 0x00004000>;
 				dmas = <&tx_dma 0>;
 				dma-names = "tx";
 				clocks = <&trx0_adrv9009 2>;
@@ -281,7 +281,7 @@
 
 			axi_adrv9009_core_rx_obs: axi-adrv9009-rx-obs-hpc@58000 {
 				compatible = "adi,axi-ad9371-obs-1.0";
-				reg = <0x00058000 0x00001000>;
+				reg = <0x00068000 0x00001000>;
 				dmas = <&rx_obs_dma 0>;
 				dma-names = "rx";
 				clocks = <&trx0_adrv9009 1>;

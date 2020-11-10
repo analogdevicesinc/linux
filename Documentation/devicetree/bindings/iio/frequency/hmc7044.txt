@@ -44,6 +44,8 @@ Optional properties hmc7044:
 	- adi,pll1-charge-pump-current-ua - PLL1 charge pump current. The
 		accepted range is 120 - 1920 uA. If this is not specified,
 		the current will be set to 1080 uA.
+	- adi,pll1-ref-autorevert-enable - When this is enabled, the PLL1
+		reverts to best clock option if it becomes available again.
 	- adi,sysref-timer-divider: This sets the internal beat frequency
 		of the master timer, which controls synchronization and
 		pulse generator events. It should be set to a submultiple

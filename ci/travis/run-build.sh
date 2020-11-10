@@ -8,6 +8,8 @@ fi
 
 . ./ci/travis/lib.sh
 
+MAIN_BRANCH=${MAIN_BRANCH:-master}
+
 if [ -f "${FULL_BUILD_DIR}/env" ] ; then
 	echo_blue "Loading environment variables"
 	cat "${FULL_BUILD_DIR}/env"
@@ -83,10 +85,14 @@ adjust_kcflags_against_gcc() {
 		KCFLAGS="$KCFLAGS -Wno-error=address-of-packed-member -Wno-error=attribute-alias="
 		KCFLAGS="$KCFLAGS -Wno-error=stringop-truncation"
 	fi
+	if [ "$($GCC -dumpversion | cut -d. -f1)" -ge "10" ]; then
+		KCFLAGS="$KCFLAGS -Wno-error=maybe-uninitialized -Wno-error=restrict"
+		KCFLAGS="$KCFLAGS -Wno-error=zero-length-bounds"
+	fi
 	export KCFLAGS
 }
 
-APT_LIST="build-essential bc u-boot-tools flex bison libssl-dev"
+APT_LIST="make bc u-boot-tools flex bison libssl-dev"
 
 if [ "$ARCH" == "arm64" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
@@ -205,11 +211,23 @@ build_checkpatch() {
 	apt_install python-ply python-git libyaml-dev python3-pip python3-setuptools
 	pip3 install wheel
 	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
-	if [ -n "$TRAVIS_BRANCH" ]; then
-		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
+
+	[ "$TRAVIS_PULL_REQUEST" = "true" ] || return 0
+
+	local ref_branch
+
+	if [ -n "$TRAVIS_BRANCH" ] ; then
+		ref_branch="$TRAVIS_BRANCH"
+	elif [ -n "$GITHUB_BASE_REF" ] ; then
+		ref_branch="$GITHUB_BASE_REF"
+	else
+		echo_red "Could not get a base_ref for checkpatch"
+		exit 1
 	fi
-	COMMIT_RANGE=$([ "$TRAVIS_PULL_REQUEST" == "false" ] &&  echo HEAD || echo ${TRAVIS_BRANCH}..)
-	scripts/checkpatch.pl --git ${COMMIT_RANGE} \
+
+	__update_git_ref "${ref_branch}" "${ref_branch}"
+
+	scripts/checkpatch.pl --git "${ref_branch}.." \
 		--ignore FILE_PATH_CHANGES \
 		--ignore LONG_LINE \
 		--ignore LONG_LINE_STRING \
@@ -221,7 +239,7 @@ build_dtb_build_test() {
 	local err=0
 	local last_arch
 
-	if [ "$TRAVIS" = "true" ] ; then
+	if [ "$TRAVIS" = "true" ] || [ "$CI" = "true" ] ; then
 		for patch in $(ls ci/travis/*.patch | sort) ; do
 			patch -p1 < $patch
 		done
@@ -308,7 +326,7 @@ __push_back_to_github() {
 	}
 }
 
-__handle_sync_with_master() {
+__handle_sync_with_main() {
 	local dst_branch="$1"
 	local method="$2"
 
@@ -319,8 +337,8 @@ __handle_sync_with_master() {
 
 	if [ "$method" == "fast-forward" ] ; then
 		git checkout FETCH_HEAD
-		git merge --ff-only ${ORIGIN}/master || {
-			echo_red "Failed while syncing ${ORIGIN}/master over '$dst_branch'"
+		git merge --ff-only ${ORIGIN}/${MAIN_BRANCH} || {
+			echo_red "Failed while syncing ${ORIGIN}/${MAIN_BRANCH} over '$dst_branch'"
 			return 1
 		}
 		__push_back_to_github "$dst_branch" || return 1
@@ -341,20 +359,26 @@ __handle_sync_with_master() {
 			echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
 			return 1
 		}
-		branch_contains_commit "$cm" "${ORIGIN}/master" || {
-			echo_red "Commit '$cm' is not in branch master"
+		branch_contains_commit "$cm" "${ORIGIN}/${MAIN_BRANCH}" || {
+			echo_red "Commit '$cm' is not in branch '${MAIN_BRANCH}'"
 			return 1
 		}
 		# Make sure that we are adding something new, or cherry-pick complains
-		if git diff --quiet "$cm" "${ORIGIN}/master" ; then
+		if git diff --quiet "$cm" "${ORIGIN}/${MAIN_BRANCH}" ; then
 			return 0
 		fi
 
 		tmpfile=$(mktemp)
 
+		if [ "$CI" = "true" ] ; then
+			# setup an email account so that we can cherry-pick stuff
+			git config user.name "CSE CI"
+			git config user.email "cse-ci-notifications@analog.com"
+		fi
+
 		git checkout FETCH_HEAD
 		# cherry-pick until all commits; if we get a merge-commit, handle it
-		git cherry-pick -x "${cm}..${ORIGIN}/master" 1>/dev/null 2>$tmpfile || {
+		git cherry-pick -x "${cm}..${ORIGIN}/${MAIN_BRANCH}" 1>/dev/null 2>$tmpfile || {
 			was_a_merge=0
 			while grep -q "is a merge" $tmpfile ; do
 				was_a_merge=1
@@ -367,7 +391,7 @@ __handle_sync_with_master() {
 				}
 			done
 			if [ "$was_a_merge" != "1" ]; then
-				echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/master'"
+				echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/${MAIN_BRANCH}'"
 				echo_red "$(cat $tmpfile)"
 				return 1
 			fi
@@ -377,7 +401,7 @@ __handle_sync_with_master() {
 	fi
 }
 
-build_sync_branches_with_master() {
+build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
 	BRANCHES="xcomm_zynq:fast-forward adi-4.19.0:cherry-pick"
 	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick"
@@ -387,15 +411,15 @@ build_sync_branches_with_master() {
 		[ -n "$dst_branch" ] || break
 		local method="$(echo $branch | cut -d: -f2)"
 		[ -n "$method" ] || break
-		__handle_sync_with_master "$dst_branch" "$method"
+		__handle_sync_with_main "$dst_branch" "$method"
 	done
 }
 
-build_sync_branches_with_master_travis() {
-	# make sure this is on master, and not a PR
+build_sync_branches_with_main_travis() {
+	# make sure this is on the main branch, and not a PR
 	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
 	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
-	[ "$TRAVIS_BRANCH" == "master" ] || return 0
+	[ "$TRAVIS_BRANCH" == "${MAIN_BRANCH}" ] || return 0
 	[ "$TRAVIS_REPO_SLUG" == "analogdevicesinc/linux" ] || return 0
 
 	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
@@ -404,7 +428,7 @@ build_sync_branches_with_master_travis() {
 	chmod 600 /tmp/deploy_key
 	ssh-add /tmp/deploy_key
 
-	build_sync_branches_with_master
+	build_sync_branches_with_main
 }
 
 ORIGIN=${ORIGIN:-origin}

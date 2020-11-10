@@ -104,6 +104,7 @@ static int axi_sysid_validate(struct platform_device *pdev,
 {
 	struct sysid_header_v1 *header;
 	struct build_info_header_v1 *build;
+	char custom_info[48];
 	struct tm tm;
 	time64_t t;
 	int ret;
@@ -142,9 +143,15 @@ static int axi_sysid_validate(struct platform_device *pdev,
 
 	time64_to_tm(t, 0, &tm);
 
+	if (axi_sysid_get_str(st, header->custom_info_offs))
+		sprintf(custom_info, "%s%s%s", " [", axi_sysid_get_str(st, header->custom_info_offs), "]");
+	else
+		custom_info[0] = 0;
+
 	dev_info(&pdev->dev,
-		"[%s] on [%s] git <%.40s> %s [%ld-%02d-%02d %02d:%02d:%02d] UTC\n",
+		"[%s]%s on [%s] git <%.40s> %s [%ld-%02d-%02d %02d:%02d:%02d] UTC\n",
 		axi_sysid_get_str(st, header->board_info_offs),
+		custom_info,
 		axi_sysid_get_str(st, header->product_info_offs),
 		build->git_hash,
 		(build->git_clean_chk[0] == 't') ? "clean" : "dirty",

@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCOMMS11-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9361
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms11-ebz/hardware/functional_overview
+ *
+ * hdl_project: <fmcomms11/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2014-2020 Analog Devices Inc.
+*/
 /dts-v1/;
 
 #include "zynq-zc706.dtsi"

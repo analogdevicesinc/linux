@@ -33,34 +33,141 @@ static unsigned int jesd204_con_id_counter;
 
 static void jesd204_dev_unregister(struct jesd204_dev *jdev);
 
+int jesd204_get_active_links_num(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top;
+
+	if (!jdev)
+		return -EINVAL;
+
+	jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	if (!jdev_top) {
+		jesd204_err(jdev, "Could not find top-level device\n");
+		return -EFAULT;
+	}
+
+	return jdev_top->num_links;
+}
+
+int jesd204_get_links_data(struct jesd204_dev *jdev,
+			   struct jesd204_link ** const links,
+			   const unsigned int num_links)
+{
+	struct jesd204_dev_top *jdev_top;
+	unsigned int i;
+
+	if (!jdev || !links || !num_links)
+		return -EINVAL;
+
+	jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	if (!jdev_top) {
+		jesd204_err(jdev, "Could not find top-level device\n");
+		return -EFAULT;
+	}
+
+	if (jdev_top->num_links != num_links) {
+		jesd204_err(jdev,
+			    "Link number mismatch: top-level has %u, call has %u\n",
+			    jdev_top->num_links, num_links);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < jdev_top->num_links; i++)
+		links[i] = &jdev_top->active_links[i].link;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(jesd204_get_links_data);
+
+const char *jesd204_link_get_state_str(const struct jesd204_link *lnk)
+{
+	struct jesd204_link_opaque *ol =
+		container_of(lnk, struct jesd204_link_opaque, link);
+
+	return jesd204_state_str(ol->state);
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_state_str);
+
+bool jesd204_link_get_paused(const struct jesd204_link *lnk)
+{
+	struct jesd204_link_opaque *ol =
+		container_of(lnk, struct jesd204_link_opaque, link);
+
+	return ol->fsm_paused;
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_paused);
+
 int jesd204_device_count_get()
 {
 	return jesd204_device_count;
 }
 
+static bool jesd204_dev_has_con_in_topology(struct jesd204_dev *jdev,
+					    struct jesd204_dev_top *jdev_top)
+{
+	struct jesd204_dev_con_out *c;
+	int i;
+
+	list_for_each_entry(c, &jdev->outputs, entry) {
+		if (c->jdev_top == jdev_top)
+			return true;
+	}
+
+	for (i = 0; i < jdev->inputs_count; i++) {
+		c = jdev->inputs[i];
+		if (c->jdev_top == jdev_top)
+			return true;
+	}
+
+	return false;
+}
+
+static int jesd204_link_validate_params(const struct jesd204_link *lnk)
+{
+	if (!lnk->num_lanes) {
+		pr_err("link[%u], number of lanes is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	if (!lnk->num_converters) {
+		pr_err("link[%u], number of converters is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	if (!lnk->bits_per_sample) {
+		pr_err("link[%u], bits-per-sample is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	if (!lnk->sample_rate) {
+		pr_err("link[%u], sample rate is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 {
 	u64 rate, encoding_n, encoding_d;
+	int ret;
 
-	if (!lnk->num_lanes || !lnk->num_converters ||
-	    !lnk->bits_per_sample || !lnk->sample_rate) {
-		/* FIXME: make this a bit more verbose */
-		pr_err("%s: Invalid pramater", __func__);
-		return -EINVAL;
-	}
+	ret = jesd204_link_validate_params(lnk);
+	if (ret)
+		return ret;
 
 	switch (lnk->jesd_version) {
 	case JESD204_VERSION_C:
 		switch (lnk->jesd_encoder) {
-		case JESD204_ENC_64B66B:
+		case JESD204_ENCODER_64B66B:
 			encoding_n = 66; /* JESD 204C */
 			encoding_d = 64;
 			break;
-		case JESD204_ENC_8B10B:
+		case JESD204_ENCODER_8B10B:
 			encoding_n = 10; /* JESD 204C */
 			encoding_d = 8;
 			break;
-		case JESD204_ENC_64B80B:
+		case JESD204_ENCODER_64B80B:
 			encoding_n = 80; /* JESD 204C */
 			encoding_d = 64;
 			break;
@@ -113,18 +220,25 @@ int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 	if (ret)
 		return ret;
 
-	switch (lnk->jesd_encoder) {
-	case JESD204_ENC_64B66B:
-		encoding_n = 66; /* JESD 204C */
-		break;
-	case JESD204_ENC_8B10B:
-		encoding_n = 40; /* JESD 204ABC */
-		break;
-	case JESD204_ENC_64B80B:
-		encoding_n = 80; /* JESD 204C */
+	switch (lnk->jesd_version) {
+	case JESD204_VERSION_C:
+		switch (lnk->jesd_encoder) {
+		case JESD204_ENCODER_64B66B:
+			encoding_n = 66; /* JESD 204C */
+			break;
+		case JESD204_ENCODER_8B10B:
+			encoding_n = 40; /* JESD 204ABC */
+			break;
+		case JESD204_ENCODER_64B80B:
+			encoding_n = 80; /* JESD 204C */
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	default:
-		return -EINVAL;
+		encoding_n = 40; /* JESD 204AB */
+		break;
 	}
 
 	do_div(lane_rate_hz, encoding_n);
@@ -146,22 +260,32 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 	if (ret)
 		return ret;
 
-	switch (lnk->jesd_encoder) {
-	case JESD204_ENC_64B66B:
-		bkw = 66; /* JESD 204C */
-		/* fall-through */
-	case JESD204_ENC_64B80B:
-		if (lnk->jesd_encoder == JESD204_ENC_64B80B)
-			bkw = 80; /* JESD 204C */
+	switch (lnk->jesd_version) {
+	case JESD204_VERSION_C:
+		switch (lnk->jesd_encoder) {
+		case JESD204_ENCODER_64B66B:
+			bkw = 66; /* JESD 204C */
+			/* fall-through */
+		case JESD204_ENCODER_64B80B:
+			if (lnk->jesd_encoder == JESD204_ENCODER_64B80B)
+				bkw = 80; /* JESD 204C */
 
-		if (lnk->num_of_multiblocks_in_emb) {
-			do_div(lane_rate_hz, bkw * 32 *
-				lnk->num_of_multiblocks_in_emb);
-		} else {
-			lane_rate_hz *= 8;
-			do_div(lane_rate_hz, bkw *
-				lnk->octets_per_frame *
+			if (lnk->num_of_multiblocks_in_emb) {
+				do_div(lane_rate_hz, bkw * 32 *
+					lnk->num_of_multiblocks_in_emb);
+			} else {
+				lane_rate_hz *= 8;
+				do_div(lane_rate_hz, bkw *
+					lnk->octets_per_frame *
+					lnk->frames_per_multiframe);
+			}
+			break;
+		case JESD204_ENCODER_8B10B:
+			do_div(lane_rate_hz, 10 * lnk->octets_per_frame *
 				lnk->frames_per_multiframe);
+			break;
+		default:
+			return -EINVAL;
 		}
 		break;
 	default:
@@ -176,10 +300,78 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 
-struct list_head *jesd204_topologies_get(void)
+struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jdev)
 {
-	return &jesd204_topologies;
+	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+
+	if (jdev_top)
+		return jdev_top;
+
+	/* FIXME: enforce that one jdev object can only be in one topology */
+	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
+		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
+			continue;
+		return jdev_top;
+	}
+
+	jesd204_warn(jdev, "Device isn't a top-device, nor does it belong to topology with top-device\n");
+
+	return NULL;
 }
+
+int jesd204_sysref_async(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	const struct jesd204_dev_data *dev_data;
+
+	if (!jdev_top)
+		return -EFAULT;
+
+	/* No SYSREF registered for this topology */
+	if (!jdev_top->jdev_sysref)
+		return 0;
+
+	if (!jdev_top->jdev_sysref->dev_data)
+		return -EFAULT;
+
+	dev_data = jdev_top->jdev_sysref->dev_data;
+
+	/* By now, this should have been validated to have sysref_cb() */
+	return dev_data->sysref_cb(jdev_top->jdev_sysref);
+}
+EXPORT_SYMBOL(jesd204_sysref_async);
+
+int jesd204_sysref_async_force(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	const struct jesd204_dev_data *dev_data;
+
+	if (!jdev_top)
+		return -EFAULT;
+
+	/* Primary SYSREF registered for this topology? */
+	if (jdev_top->jdev_sysref)
+		return jesd204_sysref_async(jdev);
+
+	/* No SYSREF registered for this topology */
+	if (!jdev_top->jdev_sysref_sec)
+		return 0;
+
+	if (!jdev_top->jdev_sysref_sec->dev_data)
+		return -EFAULT;
+
+	dev_data = jdev_top->jdev_sysref_sec->dev_data;
+
+	/* By now, this should have been validated to have sysref_cb() */
+	return dev_data->sysref_cb(jdev_top->jdev_sysref_sec);
+}
+EXPORT_SYMBOL(jesd204_sysref_async_force);
+
+bool jesd204_dev_is_top(struct jesd204_dev *jdev)
+{
+	return jdev && jdev->is_top;
+}
+EXPORT_SYMBOL(jesd204_dev_is_top);
 
 static inline bool dev_is_jesd204_dev(struct device *dev)
 {
@@ -214,6 +406,45 @@ struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 }
 EXPORT_SYMBOL_GPL(jesd204_dev_to_device);
 
+static void __jesd204_printk(const char *level, const struct jesd204_dev *jdev,
+			     struct va_format *vaf)
+{
+	const struct device *dev;
+
+	if (!jdev) {
+		printk("%sjesd204: (NULL jesd204 device *): %pV", level, vaf);
+		return;
+	}
+
+	if (!jdev->dev.parent) {
+		printk("%sjesd204: %pOF: %pV", level, jdev->np, vaf);
+		return;
+	}
+
+	dev = &jdev->dev;
+	dev_printk_emit(level[1] - '0', dev, "jesd204: %pOF,%s,parent=%s: %pV",
+			jdev->np,
+			dev_name(dev),
+			dev_name(dev->parent),
+			vaf);
+}
+
+void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
+		    const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	__jesd204_printk(level, jdev, &vaf);
+
+	va_end(args);
+}
+
 static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 {
 	struct jesd204_link_opaque *links;
@@ -239,6 +470,34 @@ static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 		return -ENOMEM;
 	}
 	jdev_top->staged_links = links;
+
+	return 0;
+}
+
+static int jesd204_dev_init_stop_states(struct jesd204_dev *jdev,
+					struct device_node *np)
+{
+	unsigned int stop_states[JESD204_FSM_STATES_NUM];
+	int fsm_state;
+	int i, ret;
+
+	ret = of_property_read_variable_u32_array(np, "jesd204-stop-states",
+						  stop_states,
+						  1, JESD204_FSM_STATES_NUM);
+	if (ret <= 0)
+		return 0;
+
+	for (i = 0; i < ret; i++) {
+		if (stop_states[i] >= JESD204_FSM_STATES_NUM) {
+			pr_err("%pOF: Invalid state ID %u\n", np,
+			       stop_states[i]);
+			return -EINVAL;
+		}
+		jdev->stop_states[stop_states[i]] = true;
+		fsm_state = stop_states[i] + JESD204_STATE_FSM_OFFSET;
+		pr_info("%pOF: stop state: '%s'\n", np,
+			jesd204_state_str(fsm_state));
+	}
 
 	return 0;
 }
@@ -299,6 +558,15 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 			goto err_free_id;
 		}
 	}
+
+	jdev->is_sysref_provider = of_property_read_bool(np,
+		"jesd204-sysref-provider");
+	jdev->is_sec_sysref_provider = of_property_read_bool(np,
+		"jesd204-secondary-sysref-provider");
+
+	ret = jesd204_dev_init_stop_states(jdev, np);
+	if (ret)
+		goto err_free_id;
 
 	jdev->id = id;
 	jdev->np = of_node_get(np);
@@ -489,8 +757,8 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 	u8 id;
 
 	if (!jlink->num_lanes) {
-		dev_err(dev, "JESD204 link [%d] number of lanes is 0\n",
-			link_idx);
+		jesd204_err(jdev, "JESD204 link [%u] number of lanes is 0\n",
+			    jlink->link_id);
 		jlink->lane_ids = NULL;
 		return -EINVAL;
 	}
@@ -526,6 +794,7 @@ static int __jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 	ol->link.link_id = jdev_top->link_ids[link_idx];
 	ol->jdev_top = jdev_top;
 	ol->link_idx = link_idx;
+	ol->link.sysref.lmfc_offset = JESD204_LMFC_OFFSET_UNINITIALIZED;
 	ret = jesd204_dev_init_link_lane_ids(jdev_top, link_idx, &ol->link);
 	if (ret)
 		return ret;
@@ -564,16 +833,15 @@ static int jesd204_dev_init_links_data(struct device *parent,
 	if (!jdev_top)
 		return 0;
 
-	if (!init->num_links) {
-		dev_err(parent, "num_links shouldn't be zero\n");
+	if (!init->max_num_links) {
+		jesd204_err(jdev, "max_num_links shouldn't be zero\n");
 		return -EINVAL;
 	}
 
-	/* FIXME: should we just do a minimum? for now we error out if these mismatch */
-	if (init->num_links != jdev_top->num_links) {
-		dev_err(parent,
-			"Driver and DT mismatch for number of links %u vs %u\n",
-			init->num_links, jdev_top->num_links);
+	if (init->max_num_links < jdev_top->num_links) {
+		jesd204_err(jdev,
+			"Driver supports %u number of links, DT specified %u\n",
+			init->max_num_links, jdev_top->num_links);
 		return -EINVAL;
 	}
 
@@ -584,8 +852,8 @@ static int jesd204_dev_init_links_data(struct device *parent,
 	if (!init->links &&
 	    !init->state_ops &&
 	    !init->state_ops[JESD204_OP_LINK_INIT].per_link) {
-		dev_err(parent,
-			"num_links is non-zero, but no links data provided\n");
+		jesd204_err(jdev,
+			    "num_links is non-zero, but no links data provided\n");
 		return -EINVAL;
 	}
 
@@ -602,6 +870,18 @@ static int jesd204_dev_init_links_data(struct device *parent,
 	jdev_top->init_links = init->links;
 
 	return 0;
+}
+
+static void jesd204_dev_init_top_data(struct jesd204_dev *jdev,
+				      const struct jesd204_dev_data *init)
+{
+	struct jesd204_dev_top *jdev_top;
+
+	jdev_top = jesd204_dev_top_dev(jdev);
+	if (!jdev_top)
+		return;
+
+	jdev_top->num_retries = init->num_retries;
 }
 
 static struct jesd204_dev *jesd204_dev_register(struct device *dev,
@@ -631,7 +911,10 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	if (ret)
 		return ERR_PTR(ret);
 
+	jesd204_dev_init_top_data(jdev, init);
+
 	jdev->dev.parent = dev;
+	jdev->dev_data = init;
 	jdev->dev.bus = &jesd204_bus_type;
 	device_initialize(&jdev->dev);
 	dev_set_name(&jdev->dev, "jesd204:%d", jdev->id);
@@ -650,6 +933,10 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 			goto err_device_del;
 		}
 	}
+
+	ret = jesd204_dev_create_sysfs(jdev);
+	if (ret)
+		goto err_device_del;
 
 	return jdev;
 
@@ -687,6 +974,7 @@ static void jesd204_of_unregister_devices(void)
 		jesd204_dev_unregister(jdev);
 		jesd204_dev_destroy_cons(jdev);
 		of_node_put(jdev->np);
+		list_del(&jdev->entry);
 		jesd204_device_count--;
 		if (!jdev->is_top) {
 			kfree(jdev);
@@ -707,6 +995,8 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 {
 	if (IS_ERR_OR_NULL(jdev))
 		return;
+
+	jesd204_dev_destroy_sysfs(jdev);
 
 	if (jdev->dev.parent)
 		device_del(&jdev->dev);
@@ -749,6 +1039,8 @@ EXPORT_SYMBOL_GPL(devm_jesd204_dev_register);
 static int __init jesd204_init(void)
 {
 	int ret;
+
+	BUILD_BUG_ON(__JESD204_MAX_OPS != JESD204_FSM_STATES_NUM);
 
 	ret  = bus_register(&jesd204_bus_type);
 	if (ret < 0) {

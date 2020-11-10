@@ -255,7 +255,7 @@
 };
 
 &hmc7044 {
-	clocks = <&hmc7044_fmc_car 2>;
+	clocks = <&hmc7044_car 2>;
 	clock-names = "clkin1";
 };
 
@@ -353,7 +353,7 @@
  */
 
 &spi0 {
-	hmc7044_fmc_car: hmc7044-car@3 {
+	hmc7044_car: hmc7044-car@3 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
@@ -361,9 +361,13 @@
 		reg = <3>;
 		spi-max-frequency = <10000000>;
 
-		adi,pll1-clkin-frequencies = <0 122880000 0 19200000>;
+		adi,pll1-clkin-frequencies = <0 30720000 0 19200000>;
+		adi,pll1-ref-prio-ctrl = <0x8D>; /* CLKIN1 -> CLKIN3 -> CLKIN0 -> CLKIN2 */
+		adi,pll1-ref-autorevert-enable;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pfd1-maximum-limit-frequency-hz = <30720000>;
+		adi,pll1-charge-pump-current-ua = <1920>;
 
 		adi,vcxo-frequency = <122880000>;
 
@@ -373,8 +377,8 @@
 		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
 
 		adi,oscin-buffer-mode = <0x15>;
-		adi,clkin1-buffer-mode  = <0x07>;
-		adi,clkin3-buffer-mode  = <0x11>;
+		adi,clkin1-buffer-mode = <0x07>; // 100term, ac coupling
+		adi,clkin3-buffer-mode = <0x11>;
 		adi,sync-pin-mode = <1>;
 
 		adi,gpi-controls = <0x00 0x00 0x00 0x11>;
@@ -389,15 +393,21 @@
 			"hmc7044_c_out10_REFCLK_QSFP", "hmc7044_c_out11_REFCLK_SFP",
 			"hmc7044_c_out12", "hmc7044_c_out13";
 
+		hmc7044_car_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "REFCLK_OUT0";
+			adi,divider = <96>;     // 3072000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+               };
 
-		hmc7044_fmc_car_c2: channel@2 {
+		hmc7044_car_c2: channel@2 {
 			reg = <2>;
 			adi,extended-name = "REFCLK_OUT2";
-			adi,divider = <24>;	// 12288000
+			adi,divider = <96>;	// 3072000
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
 		};
 
-		hmc7044_fmc_car_c5: channel@5 {
+		hmc7044_car_c5: channel@5 {
 			reg = <5>;
 			adi,extended-name = "SYNC_OUT1";
 			adi,divider = <3840>;	// 768000
@@ -405,6 +415,45 @@
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 			adi,driver-impedance-mode = <3>;
+		};
+
+		hmc7044_car_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "SYNC_OUT2";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <3>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,driver-impedance-mode = <3>;
+
+		};
+
+		hmc7044_car_c8: channel@8 {
+			reg = <8>;
+			adi,extended-name = "REFCLK_OUT3";
+			adi,divider = <96>;	// 3072000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		hmc7044_car_c9: channel@9 {
+			reg = <9>;
+			adi,extended-name = "REFCLK_OUT4";
+			adi,divider = <96>;	// 3072000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
+
+		hmc7044_car_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "REFCLK_QSFP";
+			adi,divider = <96>;	// 3072000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
+
+		hmc7044_car_c11: channel@11 {
+			reg = <11>;
+			adi,extended-name = "REFCLK_SFP";
+			adi,divider = <24>;	// 12288000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
 		};
 	};
 };
@@ -463,5 +512,85 @@
 		clock-names = "axi", "ref";
 
 		#sound-dai-cells = <0>;
+	};
+};
+
+&spi0 {
+	hmc7044_ext: hmc7044-ext@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <4>;
+		spi-max-frequency = <1000000>;
+
+		adi,pll1-clkin-frequencies = <0 30720000 0 0>;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pfd1-maximum-limit-frequency-hz = <3840000>;
+
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <3840>;
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+
+		adi,oscin-buffer-mode = <0x15>;
+		adi,clkin1-buffer-mode = <0x07>;
+		adi,sync-pin-mode = <1>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+		clock-output-names =
+			"hmc7044_e_out0_REFCLK_OUT0", "hmc7044_e_out1",
+			"hmc7044_e_out2_REFCLK_OUT2", "hmc7044_e_out3",
+			"hmc7044_e_out4", "hmc7044_e_out5_SYNC_OUT1",
+			"hmc7044_e_out6_SYNC_OUT2", "hmc7044_e_out7",
+			"hmc7044_e_out8","hmc7044_e_out9",
+			"hmc7044_e_out10", "hmc7044_e_out11_REFCLK_SFP",
+			"hmc7044_e_out12", "hmc7044_e_out13";
+
+		hmc7044_ext_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "REFCLK_OUT0";
+			adi,divider = <96>;	// 3072000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
+
+		hmc7044_ext_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "REFCLK_OUT2";
+			adi,divider = <96>;	// 3072000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
+
+		hmc7044_ext_c5: channel@5 {
+			reg = <5>;
+			adi,extended-name = "SYNC_OUT1";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,driver-impedance-mode = <3>; /* Don't touch */
+		};
+
+		hmc7044_ext_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "SYNC_OUT2";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,driver-impedance-mode = <3>; /* Don't touch */
+		};
+
+		hmc7044_ext_c11: channel@11 {
+			reg = <11>;
+			adi,extended-name = "REFCLK_SFP";
+			adi,divider = <24>;	// 12288000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
 	};
 };

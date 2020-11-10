@@ -40,7 +40,7 @@
 
 &fmc_spi {
 	spi@0 {
-		compatible = "spidev";
+		compatible = "adi,swspi";
 		spi-cpha;
 		reg = <0x0>;
 		spi-max-frequency = <1000000>;
@@ -48,9 +48,14 @@
 };
 
 &fpga_axi {
-	ad9361@79020000 {
+	ad9361_rx@79020000 {
 		compatible = "dmem-uio";
 		reg = <0x79020000 0x6000>;
+	};
+
+	ad9361_tx@79024000 {
+		compatible = "dmem-uio";
+		reg = <0x79024000 0x2000>;
 	};
 
 	rx_dma@7c400000 {

@@ -83,7 +83,8 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&clkc 16>;
+			clocks = <&clkc 15>, <&clkc 16>;
+			clock-names = "s_axi_aclk", "clkin1";
 		};
 
 		axi_hdmi@70e00000 {
@@ -146,8 +147,6 @@
 			format = "spdif";
 			cpu {
 				sound-dai = <&axi_spdif_tx_0>;
-				frame-master;
-				bitclock-master;
 			};
 			codec {
 				sound-dai = <&adv7511>;
@@ -178,8 +177,6 @@
 			format = "i2s";
 			cpu {
 				sound-dai = <&axi_i2s_0>;
-				frame-master;
-				bitclock-master;
 			};
 			codec {
 				sound-dai = <&adau1761>;

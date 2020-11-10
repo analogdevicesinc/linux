@@ -64,20 +64,12 @@
 	  },								\
 	}
 
-
-
-static const unsigned long adrv9009_available_scan_masks[] = {
-	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
-	0x00,
-};
-
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_ADRV9009] = {
 		.name = "ADRV9009",
 		.max_rate = 245760000,
 		.max_testmode = 0,
 		.num_channels = 4,
-		.scan_masks = adrv9009_available_scan_masks,
 		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
 		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
 		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
@@ -88,7 +80,6 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_rate = 245760000,
 		.max_testmode = 0,
 		.num_channels = 8,
-		.scan_masks = NULL, /* FIXME: later */
 		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
 		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
 		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
@@ -98,12 +89,33 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[6] = AIM_CHAN(3, IIO_MOD_I, 6, 16, 'S'),
 		.channel[7] = AIM_CHAN(3, IIO_MOD_Q, 7, 16, 'S'),
 	},
+	[ID_ADRV9009_X4] = {
+		.name = "ADRV9009-X4",
+		.max_rate = 245760000,
+		.max_testmode = 0,
+		.num_channels = 16,
+		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
+		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
+		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
+		.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),
+		.channel[4] = AIM_CHAN(2, IIO_MOD_I, 4, 16, 'S'),
+		.channel[5] = AIM_CHAN(2, IIO_MOD_Q, 5, 16, 'S'),
+		.channel[6] = AIM_CHAN(3, IIO_MOD_I, 6, 16, 'S'),
+		.channel[7] = AIM_CHAN(3, IIO_MOD_Q, 7, 16, 'S'),
+		.channel[8] = AIM_CHAN(4, IIO_MOD_I, 8, 16, 'S'),
+		.channel[9] = AIM_CHAN(4, IIO_MOD_Q, 9, 16, 'S'),
+		.channel[10] = AIM_CHAN(5, IIO_MOD_I, 10, 16, 'S'),
+		.channel[11] = AIM_CHAN(5, IIO_MOD_Q, 11, 16, 'S'),
+		.channel[12] = AIM_CHAN(6, IIO_MOD_I, 12, 16, 'S'),
+		.channel[13] = AIM_CHAN(6, IIO_MOD_Q, 13, 16, 'S'),
+		.channel[14] = AIM_CHAN(7, IIO_MOD_I, 14, 16, 'S'),
+		.channel[15] = AIM_CHAN(7, IIO_MOD_Q, 15, 16, 'S'),
+	},
 	[ID_ADRV90081] = {
 		.name = "ADRV9008-1",
 		.max_rate = 245760000,
 		.max_testmode = 0,
 		.num_channels = 4,
-		.scan_masks = adrv9009_available_scan_masks,
 		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
 		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
 		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
@@ -222,24 +234,25 @@ int adrv9009_register_axi_converter(struct adrv9009_rf_phy *phy)
 	struct axiadc_converter *conv;
 	struct spi_device *spi = phy->spi;
 
-	if (phy->spi_device_id == ID_ADRV90082)
-		return 0;
-
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
+
+	conv->spi = spi;
+	conv->phy = phy;
+
+	spi_set_drvdata(spi, conv); /* Take care here */
 
 	conv->chip_info = &axiadc_chip_info_tbl[phy->spi_device_id];
 	conv->write_raw = adrv9009_write_raw;
 	conv->read_raw = adrv9009_read_raw;
 	conv->post_setup = adrv9009_post_setup;
-	conv->spi = spi;
-	conv->phy = phy;
+
+	if (phy->spi_device_id == ID_ADRV90082)
+		return 0;
 
 	conv->clk = phy->clks[RX_SAMPL_CLK];
 	conv->adc_clk = clk_get_rate(conv->clk);
-
-	spi_set_drvdata(spi, conv); /* Take care here */
 
 	return 0;
 }

@@ -35,6 +35,9 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
 
+#include <linux/jesd204/jesd204.h>
+#include <linux/jesd204/adi-common.h>
+
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
@@ -81,6 +84,7 @@ struct cf_axi_dds_state {
 	struct cf_axi_dds_chip_info	*chip_info;
 	struct gpio_desc		*plddrbypass_gpio;
 	struct gpio_desc		*interpolation_gpio;
+	struct jesd204_dev 		*jdev;
 
 	bool				standalone;
 	bool				dp_disable;
@@ -639,7 +643,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 
 	switch (mask) {
-	case 0:
+	case IIO_CHAN_INFO_RAW:
 		if (!chan->output) {
 			ret = -EINVAL;
 			break;
@@ -985,9 +989,33 @@ static const unsigned long ad9361_2x2_available_scan_masks[] = {
 	0x00,
 };
 
+static const unsigned long ad9009_4x2_available_scan_masks[] = {
+	0x0001, 0x0002, 0x0004, 0x0008, 0x0003, 0x000C, /* 1 & 2 chan */
+	0x0010, 0x0020, 0x0040, 0x0080, 0x0030, 0x00C0, /* 1 & 2 chan */
+	0x0100, 0x0200, 0x0400, 0x0800, 0x0300, 0x0C00, /* 1 & 2 chan */
+	0x1000, 0x2000, 0x4000, 0x8000, 0x3000, 0xC000, /* 1 & 2 chan */
+	0x0033, 0x00CC, 0x00C3, 0x003C, 0x000F, 0x00F0, /* 4 chan */
+	0x3300, 0xCC00, 0xC300, 0x3C00, 0x0F00, 0xF000, /* 4 chan */
+	0x0330, 0x0CC0, 0x0C30, 0x03C0, 0x00F0, 0x0F00, /* 4 chan */
+	0x3300, 0xCC00, 0xC300, 0x3C00, 0x0F00, 0xF000, /* 4 chan */
+	0x00FF, 0xFF00, 0x0FF0,	0x3333, 0xCCCC, 0xF0F0, /* 8 chan */
+	0x0F0F,						/* 8 chan */
+	0xFFFF,						/* 16 chan */
+	0x00,
+};
+
 static const unsigned long ad9361_available_scan_masks[] = {
 	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
 	0x00,
+};
+
+static const unsigned long adrv9002_rx2tx2_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
+	0x00,
+};
+
+static const unsigned long adrv9002_available_scan_masks[] = {
+	0x01, 0x02, 0x03, 0x00
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
@@ -1302,6 +1330,64 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9009_x2 = {
 	.scan_masks = ad9361_2x2_available_scan_masks,
 };
 
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9009_x4 = {
+	.name = "ADRV9009-X4",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN_BUF(2),
+		CF_AXI_DDS_CHAN_BUF(3),
+		CF_AXI_DDS_CHAN_BUF(4),
+		CF_AXI_DDS_CHAN_BUF(5),
+		CF_AXI_DDS_CHAN_BUF(6),
+		CF_AXI_DDS_CHAN_BUF(7),
+		CF_AXI_DDS_CHAN_BUF(8),
+		CF_AXI_DDS_CHAN_BUF(9),
+		CF_AXI_DDS_CHAN_BUF(10),
+		CF_AXI_DDS_CHAN_BUF(11),
+		CF_AXI_DDS_CHAN_BUF(12),
+		CF_AXI_DDS_CHAN_BUF(13),
+		CF_AXI_DDS_CHAN_BUF(14),
+		CF_AXI_DDS_CHAN_BUF(15),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+		CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+		CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+		CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
+		CF_AXI_DDS_CHAN(8, 0, "TX3_I_F1"),
+		CF_AXI_DDS_CHAN(9, 0, "TX3_I_F2"),
+		CF_AXI_DDS_CHAN(10, 0, "TX3_Q_F1"),
+		CF_AXI_DDS_CHAN(11, 0, "TX3_Q_F2"),
+		CF_AXI_DDS_CHAN(12, 0, "TX4_I_F1"),
+		CF_AXI_DDS_CHAN(13, 0, "TX4_I_F2"),
+		CF_AXI_DDS_CHAN(14, 0, "TX4_Q_F1"),
+		CF_AXI_DDS_CHAN(15, 0, "TX4_Q_F2"),
+		CF_AXI_DDS_CHAN(16, 0, "TX5_I_F1"),
+		CF_AXI_DDS_CHAN(17, 0, "TX5_I_F2"),
+		CF_AXI_DDS_CHAN(18, 0, "TX5_Q_F1"),
+		CF_AXI_DDS_CHAN(19, 0, "TX5_Q_F2"),
+		CF_AXI_DDS_CHAN(20, 0, "TX6_I_F1"),
+		CF_AXI_DDS_CHAN(21, 0, "TX6_I_F2"),
+		CF_AXI_DDS_CHAN(22, 0, "TX6_Q_F1"),
+		CF_AXI_DDS_CHAN(23, 0, "TX6_Q_F2"),
+		CF_AXI_DDS_CHAN(24, 0, "TX7_I_F1"),
+		CF_AXI_DDS_CHAN(25, 0, "TX7_I_F2"),
+		CF_AXI_DDS_CHAN(26, 0, "TX7_Q_F1"),
+		CF_AXI_DDS_CHAN(27, 0, "TX7_Q_F2"),
+		CF_AXI_DDS_CHAN(28, 0, "TX8_I_F1"),
+		CF_AXI_DDS_CHAN(29, 0, "TX8_I_F2"),
+		CF_AXI_DDS_CHAN(30, 0, "TX8_Q_F1"),
+		CF_AXI_DDS_CHAN(31, 0, "TX8_Q_F2"),
+	},
+	.num_channels = 48,
+	.num_dds_channels = 32,
+	.num_buf_channels = 16,
+	.scan_masks = ad9009_4x2_available_scan_masks,
+};
+
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9364 = {
 	.name = "AD9364",
 	.channel = {
@@ -1356,6 +1442,44 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9936 = {
 	.num_channels = 4,
 	.num_dds_channels = 4,
 	.num_buf_channels = 0,
+};
+
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9002_rx2tx2 = {
+	.name = "ADRV9002",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN_BUF(2),
+		CF_AXI_DDS_CHAN_BUF(3),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+		CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+		CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+		CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
+	},
+	.num_channels = 12,
+	.num_dds_channels = 8,
+	.num_buf_channels = 4,
+	.scan_masks = adrv9002_rx2tx2_available_scan_masks,
+};
+
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9002 = {
+	.name = "ADRV9002",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+	},
+	.num_channels = 6,
+	.num_dds_channels = 4,
+	.num_buf_channels = 2,
+	.scan_masks = adrv9002_available_scan_masks,
 };
 
 static const struct iio_info cf_axi_dds_info = {
@@ -1526,20 +1650,105 @@ static struct iio_chan_spec_ext_info axidds_ext_info[] = {
 	{},
 };
 
+static int cf_axi_dds_jesd204_link_supported(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	u32 i, d1, d2, num, multi_device_link;
+	bool failed, last;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	num = ADI_JESD204_TPL_TO_PROFILE_NUM(dds_read(st, ADI_JESD204_REG_TPL_STATUS));
+
+	for (i = 0; i < num; i++) {
+		last = (i == (num - 1));
+		failed = false;
+
+		dds_write(st, ADI_JESD204_REG_TPL_CNTRL, ADI_JESD204_PROFILE_SEL(i));
+		d1 = dds_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_1);
+		d2 = dds_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_2);
+
+		if ((ADI_JESD204_TPL_TO_L(d1) / lnk->num_lanes) ==
+			(ADI_JESD204_TPL_TO_M(d1) / lnk->num_converters))
+			multi_device_link = ADI_JESD204_TPL_TO_L(d1) / lnk->num_lanes;
+		else
+			multi_device_link = 1;
+
+		if (ADI_JESD204_TPL_TO_L(d1) != lnk->num_lanes * multi_device_link) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param L mismatch %u!=%u*%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_L(d1), lnk->num_lanes,
+					multi_device_link);
+			failed = true;
+		}
+
+		if (ADI_JESD204_TPL_TO_M(d1) != lnk->num_converters * multi_device_link) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param M mismatch %u!=%u*%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_M(d1), lnk->num_converters,
+					multi_device_link);
+			failed = true;
+		}
+
+		if (lnk->samples_per_conv_frame && ADI_JESD204_TPL_TO_S(d1) != lnk->samples_per_conv_frame) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param S mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_S(d1), lnk->samples_per_conv_frame);
+			failed = true;
+		}
+
+		if (ADI_JESD204_TPL_TO_F(d1) != lnk->octets_per_frame) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param F mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_F(d1), lnk->octets_per_frame);
+			failed = true;
+		}
+
+		if (ADI_JESD204_TPL_TO_NP(d2) != lnk->bits_per_sample) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param NP mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_JESD204_TPL_TO_NP(d2), lnk->bits_per_sample);
+			failed = true;
+		}
+
+		if (!failed)
+			return JESD204_STATE_CHANGE_DONE;
+	}
+
+	dev_err(dev, "JESD param mismatch between TPL and Link configuration !\n");
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data jesd204_cf_axi_dds_init = {
+	.state_ops = {
+		[JESD204_OP_LINK_SUPPORTED] = {
+			.per_link = cf_axi_dds_jesd204_link_supported,
+		},
+	},
+};
+
 static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 					  const char *name, bool complex)
 {
 	u32 i, c, reg, m, n, np;
 
-	reg = dds_read(st, ADI_REG_TPL_DESCRIPTOR_1);
-	m = ADI_TO_JESD_M(reg);
+	reg = dds_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_1);
+	m = ADI_JESD204_TPL_TO_M(reg);
 
 	if (m == 0 || m > ARRAY_SIZE(st->chip_info_generated.channel))
 		return -EINVAL;
 
-	reg = dds_read(st, ADI_REG_TPL_DESCRIPTOR_2);
-	n = ADI_TO_JESD_N(reg);
-	np = ADI_TO_JESD_NP(reg);
+	reg = dds_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_2);
+	n = ADI_JESD204_TPL_TO_N(reg);
+	np = ADI_JESD204_TPL_TO_NP(reg);
 
 	reg = dds_read(st, ADI_REG_CONFIG);
 
@@ -1672,6 +1881,13 @@ static const struct axidds_core_info adrv9009_x2_9_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_adrv9009_x2,
 };
 
+static const struct axidds_core_info adrv9009_x4_9_00_a_info = {
+	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
+	.standalone = true,
+	.rate = 3,
+	.chip_info = &cf_axi_dds_chip_info_adrv9009_x4,
+};
+
 static const struct axidds_core_info ad9162_1_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
 	.rate = 1,
@@ -1689,6 +1905,20 @@ static const struct axidds_core_info ad9081_1_00_a_info = {
 	.name = "AD9081",
 	.standalone = true,
 	.complex_modified = true,
+};
+
+static const struct axidds_core_info adrv9002_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9002,
+};
+
+static const struct axidds_core_info adrv9002_rx2tx2_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9002_rx2tx2,
 };
 
 /* Match table for of_platform binding */
@@ -1717,6 +1947,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	    .compatible = "adi,axi-adrv9009-x2-tx-1.0",
 	    .data = &adrv9009_x2_9_00_a_info,
 	}, {
+            .compatible = "adi,axi-adrv9009-x4-tx-1.0",
+            .data = &adrv9009_x4_9_00_a_info,
+        }, {
 	    .compatible = "adi,axi-ad9162-1.0",
 	    .data = &ad9162_1_00_a_info,
 	}, {
@@ -1728,6 +1961,12 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9081-tx-1.0",
 	    .data = &ad9081_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-adrv9002-tx-1.0",
+	    .data = &adrv9002_9_01_b_info
+	},{
+	    .compatible = "adi,axi-adrv9002-rx2tx2-1.0",
+	    .data = &adrv9002_rx2tx2_9_01_b_info
 	},
 	{ },
 };
@@ -1769,6 +2008,10 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	st->regs = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!st->regs)
 		return -ENOMEM;
+
+	st->jdev = devm_jesd204_dev_register(&pdev->dev, &jesd204_cf_axi_dds_init);
+	if (IS_ERR(st->jdev))
+		return PTR_ERR(st->jdev);
 
 	if (info->standalone) {
 		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
@@ -2008,6 +2251,10 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 				    indio_dev, &cf_axi_dds_debugfs_fops);
 
 	platform_set_drvdata(pdev, indio_dev);
+
+	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	if (ret)
+		goto err_unconfigure_buffer;
 
 	return 0;
 

@@ -30,7 +30,6 @@ obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD7949) += ad7949.o
 obj-$(CONFIG_AD799X) += ad799x.o
 obj-$(CONFIG_AD9963) += ad9963.o
-obj-$(CONFIG_ADAR1000) += adar1000.o
 obj-$(CONFIG_ADM1177) += adm1177.o
 
 cf_axi_adc-y := cf_axi_adc_core.o
@@ -78,6 +77,8 @@ adrv9009_drv-y := adrv9009.o adrv9009_conv.o \
 
 obj-$(CONFIG_ADRV9009) += adrv9009_drv.o
 
+obj-$(CONFIG_ADRV9001) += navassa/
+
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_AD9680) += ad9680.o
 obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
@@ -109,6 +110,7 @@ obj-$(CONFIG_INGENIC_ADC) += ingenic-adc.o
 obj-$(CONFIG_LP8788_ADC) += lp8788_adc.o
 obj-$(CONFIG_LPC18XX_ADC) += lpc18xx_adc.o
 obj-$(CONFIG_LPC32XX_ADC) += lpc32xx_adc.o
+obj-$(CONFIG_LTC2308) += ltc2308.o
 obj-$(CONFIG_LTC2471) += ltc2471.o
 obj-$(CONFIG_LTC2485) += ltc2485.o
 obj-$(CONFIG_LTC2497) += ltc2497.o

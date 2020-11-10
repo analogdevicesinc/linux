@@ -281,16 +281,6 @@ config AD9963
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad9963.
 
-config ADAR1000
-	tristate "Analog Devices ADAR1000 Beamformer driver"
-	depends on SPI
-	help
-	  Say yes here to build support for Analog Devices ADAR1000 beamformer
-	  driver.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called adar1000.
-
 config ADM1177
 	tristate "Analog Devices ADM1177 Digital Power Monitor driver"
 	depends on I2C
@@ -388,6 +378,14 @@ config AD9371
 	  Say yes here to build support for Analog Devices:
 	  AD9371 RF Transceivers. Provides direct access
 	  via sysfs.
+
+config ADRV9001
+        tristate "Analog Devices ADRV9001/ADRV9002 RF Transceiver driver"
+        depends on SPI
+        help
+          Say yes here to build support for Analog Devices:
+          ADRV9001/ADRV9002 RF Transceivers. Provides direct access
+          via sysfs
 
 config ADRV9009
 	tristate "Analog Devices ADRV9009/ADRV9008 RF Transceiver driver"
@@ -693,6 +691,16 @@ config LPC32XX_ADC
 	  drivers (lpc32xx_adc or lpc32xx_ts) or, in the OpenFirmware case,
 	  activate only one via device tree selection.  Provides direct access
 	  via sysfs.
+
+config LTC2308
+	tristate "Linear Technology LTC2308 ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Linear Technology LTC2308 Low
+	  Noise, 500ksps, 8-Channel, 12-Bit SPI ADC.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called ltc2308.
 
 config LTC2471
 	tristate "Linear Technology LTC2471 and LTC2473 ADC driver"

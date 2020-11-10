@@ -25,11 +25,14 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+#include <linux/jesd204/jesd204.h>
+
 #include "ad9081/adi_ad9081.h"
 #include "ad9081/adi_ad9081_hal.h"
 #include "cf_axi_adc.h"
 
-//#include <dt-bindings/iio/adc/adi,ad9081.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+
 
 #define CHIPID_AD9081 0x9081
 #define CHIPID_AD9082 0x9082
@@ -56,7 +59,6 @@ enum {	CDDC_NCO_FREQ,
 	CDDC_FFH_HOPF_SET,
 };
 
-
 enum {
 	AD9081_LOOPBACK_MODE,
 	AD9081_ADC_CLK_PWDN,
@@ -66,6 +68,9 @@ enum {
 	AD9081_DAC_FFH_MODE_SET,
 };
 
+struct ad9081_jesd204_priv {
+	struct ad9081_phy *phy;
+};
 struct ad9081_jesd_link {
 	bool is_jrx;
 	adi_cms_jesd_param_t jesd_param;
@@ -109,14 +114,11 @@ struct device_settings_cache {
 
 struct ad9081_phy {
 	struct spi_device *spi;
+	struct jesd204_dev *jdev;
 	adi_ad9081_device_t ad9081;
 	struct axiadc_chip_info chip_info;
 	struct clk *dev_clk;
-	struct clk *fmc_clk;
-	struct clk *sysref_dev_clk;
-	struct clk *sysref_fmc_clk;
-	struct clk *jesd_rx_clk;
-	struct clk *jesd_tx_clk;
+	struct bin_attribute 	bin;
 
 	struct gpio_desc *rx1_en_gpio;
 	struct gpio_desc *rx2_en_gpio;
@@ -136,12 +138,14 @@ struct ad9081_phy {
 	u32 nco_sync_ms_extra_lmfc_num;
 
 	bool config_sync_01_swapped;
+	bool config_sync_0a_cmos_en;
 
 	struct device_settings_cache device_cache;
 
 	u64 dac_frequency_hz;
 	s64 tx_main_shift[MAX_NUM_MAIN_DATAPATHS];
 	s64 tx_chan_shift[MAX_NUM_CHANNELIZER];
+	u32 tx_dac_fsc[MAX_NUM_MAIN_DATAPATHS];
 	u32 tx_main_interp;
 	u32 tx_chan_interp;
 	u8 tx_dac_chan_xbar[MAX_NUM_MAIN_DATAPATHS];
@@ -161,8 +165,8 @@ struct ad9081_phy {
 	u64 adc_frequency_hz;
 	s64 rx_fddc_shift[MAX_NUM_CHANNELIZER];
 	s64 rx_cddc_shift[MAX_NUM_MAIN_DATAPATHS];
-	s32 rx_fddc_phase[MAX_NUM_MAIN_DATAPATHS];
-	s32 rx_cddc_phase[MAX_NUM_CHANNELIZER];
+	s32 rx_fddc_phase[MAX_NUM_CHANNELIZER];
+	s32 rx_cddc_phase[MAX_NUM_MAIN_DATAPATHS];
 
 	u32 rx_nyquist_zone;
 	u8 rx_cddc_c2r[MAX_NUM_MAIN_DATAPATHS];
@@ -172,7 +176,11 @@ struct ad9081_phy {
 	u8 rx_fddc_select;
 	u8 rx_cddc_select;
 
+	adi_cms_chip_id_t chip_id;
+
 	struct ad9081_jesd_link jesd_rx_link[2];
+	short coeffs_i[196];
+	short coeffs_q[196];
 };
 
 
@@ -180,77 +188,25 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 {
 	int ret;
 
-	/* avoid the glitch before nco reset */
-	ret = adi_ad9081_hal_bf_set(&phy->ad9081,
-		REG_MAIN_AUTO_CLK_GATING_ADDR, 0x00000400, 7);
-	if (ret != 0)
-		return ret;
-
-	ret = adi_ad9081_hal_bf_set(&phy->ad9081,
-		REG_NCOSYNC_MS_MODE_ADDR,
-		BF_NCO_SYNC_MS_EXTRA_LMFC_NUM_INFO,
-		phy->nco_sync_ms_extra_lmfc_num);
-	if (ret != 0)
-		return ret;
-
-	ret = adi_ad9081_dac_nco_master_slave_gpio_set(&phy->ad9081, 0, master);
-	if (ret < 0)
-		return ret;
-	/* source  0: sysref, 1: lmfc rising edge, 2: lmfc falling edge */
-	ret = adi_ad9081_dac_nco_master_slave_trigger_source_set(
-		&phy->ad9081, 1); /* REG 0xCC */
-	if (ret < 0)
-		return ret;
-
-	ret = adi_ad9081_dac_nco_master_slave_mode_set(&phy->ad9081,
-		master ? 1 : 2); /* REG 0xCC */
-
-	adi_ad9081_dac_nco_sync_reset_via_sysref_set(&phy->ad9081, 0);
-	adi_ad9081_dac_nco_sync_reset_via_sysref_set(&phy->ad9081, 1);
-
-	adi_ad9081_adc_ddc_coarse_sync_enable_set(&phy->ad9081,
-		AD9081_ADC_CDDC_ALL, 0);
-	adi_ad9081_adc_ddc_coarse_sync_enable_set(&phy->ad9081,
-		AD9081_ADC_CDDC_ALL, 1);
-
-	adi_ad9081_adc_ddc_fine_sync_enable_set(&phy->ad9081,
-		AD9081_ADC_FDDC_ALL, 0);
-	adi_ad9081_adc_ddc_fine_sync_enable_set(&phy->ad9081,
-		AD9081_ADC_FDDC_ALL, 1);
-
-	if (master)
-		return adi_ad9081_dac_nco_master_slave_trigger_set(
-			&phy->ad9081); /* REG 0xBC */
-
-	return ret;
-}
-
-unsigned long ad9081_calc_lanerate(struct ad9081_jesd_link *link,
-				   u64 converter_rate, u32 intp_decim)
-{
-	u64 rate, encoding_n, encoding_d;
-
-	if (!intp_decim || !link->jesd_param.jesd_l) {
-		pr_err("%s: Invalid pramater", __func__);
-		return 0;
+	if (phy->ad9081.dev_info.dev_rev == 3) { /* r2 */
+		//adi_ad9081_hal_reg_set(&phy->ad9081, 0xd0, 0x1F);
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_ACLK_CTRL_ADDR,
+					    BF_PD_TXDIGCLK_INFO,
+					    1); /* not paged */
+		AD9081_ERROR_RETURN(ret);
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_ADC_DIVIDER_CTRL_ADDR,
+					    0x00000107, 0); /* not paged */
+		AD9081_ERROR_RETURN(ret);
 	}
 
-	switch (link->jesd_param.jesd_jesdv) {
-	case 2:
-		encoding_n = 66; /* JESD 204C */
-		encoding_d = 64;
-		break;
-	default:
-		encoding_n = 10; /* JESD 204AB */
-		encoding_d = 8;
-		break;
-	}
+	/* trigger_src  0: sysref, 1: lmfc rising edge, 2: lmfc falling edge */
 
-	rate = link->jesd_param.jesd_m * link->jesd_param.jesd_np * encoding_n *
-	converter_rate;
-	do_div(rate, link->jesd_param.jesd_l * encoding_d * intp_decim * 1000);
+	return adi_ad9081_adc_nco_master_slave_sync(&phy->ad9081,
+					     master,
+					     1, /* trigger_src */
+					     0, /* gpio_index */
+					     phy->nco_sync_ms_extra_lmfc_num);
 
-	return rate;
 }
 
 int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
@@ -660,7 +616,7 @@ static const char *const ad9081_adc_testmodes[] = {
 	[AD9081_TMODE_NEG_FULL] = "neg_fullscale",
 	[AD9081_TMODE_ALT_CHECKER] = "checkerboard",
 	[AD9081_TMODE_PN9] = "pn9",
-	[AD9081_TMODE_PN23] = "pn32",
+	[AD9081_TMODE_PN23] = "pn23",
 	[AD9081_TMODE_1_0_TOGG] = "one_zero_toggle",
 	[AD9081_TMODE_USER_PAT] = "user",
 	[AD9081_TMODE_PN7] = "pn7",
@@ -1287,23 +1243,9 @@ static int ad9081_request_clks(struct axiadc_converter *conv)
 	struct ad9081_phy *phy = conv->phy;
 	int ret;
 
-	phy->jesd_rx_clk = devm_clk_get(&conv->spi->dev, "jesd_rx_clk");
-	phy->jesd_tx_clk = devm_clk_get(&conv->spi->dev, "jesd_tx_clk");
-
 	phy->dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
 	if (IS_ERR(phy->dev_clk))
 		return PTR_ERR(phy->dev_clk);
-
-	phy->fmc_clk = devm_clk_get(&conv->spi->dev, "fmc_clk");
-	if (IS_ERR(phy->fmc_clk))
-		return PTR_ERR(phy->fmc_clk);
-
-	phy->sysref_dev_clk = devm_clk_get(&conv->spi->dev, "sysref_dev_clk");
-	phy->sysref_fmc_clk = devm_clk_get(&conv->spi->dev, "sysref_fmc_clk");
-
-	ret = clk_prepare_enable(phy->fmc_clk);
-	if (ret)
-		return ret;
 
 	ret = clk_prepare_enable(phy->dev_clk);
 	if (ret)
@@ -1376,41 +1318,64 @@ static const char *const ad9081_jtx_qbf_states[] = {
 	"ILA_BP", "DATA"
 };
 
-int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy)
+int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy,
+				     struct jesd204_link *lnk, int retry)
 {
 	int ret, l;
 	u16 stat;
 
-	for (l = AD9081_LINK_0; l < AD9081_LINK_ALL; l++) {
+	switch (lnk->link_id) {
+	case FRAMER_LINK0_RX:
+		l = AD9081_LINK_0;
+		break;
+	case FRAMER_LINK1_RX:
+		l = AD9081_LINK_1;
+		break;
+	default:
+		return -EINVAL;
+	}
 
+	do {
 		ret = adi_ad9081_jesd_tx_link_status_get(
 			&phy->ad9081, l, &stat);
-
 		if (ret)
 			return -EFAULT;
 
-		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2)
-			dev_info(&phy->spi->dev,
-				"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
-				l,
-				stat & BIT(5) ? "locked" : "unlocked",
-				stat & BIT(6) ? "established" : "lost",
-				stat & BIT(7) ? "invalid" : "valid");
-		else
-			dev_info(&phy->spi->dev,
-				"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
-				l, ad9081_jtx_qbf_states[stat & 0xF],
-				stat & BIT(4) ? "deasserted" : "asserted",
-				stat & BIT(5) ? "locked" : "unlocked",
-				stat & BIT(6) ? "established" : "lost",
-				stat & BIT(7) ? "invalid" : "valid");
+		if (lnk->jesd_version == JESD204_VERSION_C) {
+			if ((stat & 0x60) == 0x60)
+				ret = 0;
+			else
+				ret = -EIO;
 
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
+					lnk->link_id,
+					stat & BIT(5) ? "locked" : "unlocked",
+					stat & BIT(6) ? "established" : "lost",
+					stat & BIT(7) ? "invalid" : "valid");
+			else
+				msleep(20);
+		} else {
+			if ((stat & 0xFF) == 0x7D)
+				ret = 0;
+			else
+				ret = -EIO;
 
-		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
-			return 0;
-	}
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
+					lnk->link_id, ad9081_jtx_qbf_states[stat & 0xF],
+					stat & BIT(4) ? "deasserted" : "asserted",
+					stat & BIT(5) ? "locked" : "unlocked",
+					stat & BIT(6) ? "established" : "lost",
+					stat & BIT(7) ? "invalid" : "valid");
+			else
+				msleep(20);
+		}
+	} while (ret && retry--);
 
-	return 0;
+	return ret;
 }
 
 static const char *const ad9081_jrx_204c_states[] = {
@@ -1420,39 +1385,62 @@ static const char *const ad9081_jrx_204c_states[] = {
 	"Undef", "Link is good", "Undef",
 };
 
-int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy)
+static int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy,
+				     struct jesd204_link *lnk, int retry)
 {
 	int ret, l;
-	u16 stat;
+	u16 stat, mask;
 
-	for (l = AD9081_LINK_0; l < AD9081_LINK_ALL; l++) {
+	switch (lnk->link_id) {
+	case DEFRAMER_LINK0_TX:
+		l = AD9081_LINK_0;
+		break;
+	case DEFRAMER_LINK1_TX:
+		l = AD9081_LINK_1;
+		break;
+	default:
+		return -EINVAL;
+	}
 
-		ret = adi_ad9081_jesd_rx_link_status_get(
-			&phy->ad9081, l, &stat);
+	do {
+		ret = adi_ad9081_jesd_rx_link_status_get(&phy->ad9081, l, &stat);
 		if (ret)
 			return -EFAULT;
 
-		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
+		if (lnk->jesd_version == JESD204_VERSION_C) {
 			stat >>= 8;
-			dev_info(&phy->spi->dev,
-				"JESD TX (JRX) Link%d 204C status: %s (%d)\n",
-				l, ad9081_jrx_204c_states[stat & 0x7], stat);
-
-			if (stat == 6) /* FIXME DUAL Link */
-				return 0xF;
+			if (stat == 6)
+				ret = 0;
 			else
-				return 0;
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD TX (JRX) Link%d 204C status: %s (%d)\n",
+					lnk->link_id, ad9081_jrx_204c_states[stat & 0x7],
+					stat);
+			else
+				msleep(20);
 		} else {
-			dev_info(&phy->spi->dev,
-				"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
-				l, stat & 0xF);
+			mask = (1 << lnk->num_lanes) - 1;
+
+			stat = mask & stat;
+
+			if (stat == mask)
+				ret = 0;
+			else
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
+					lnk->link_id, stat);
+			else
+				msleep(20);
 		}
+	} while (ret && retry--);
 
-		if (!phy->jesd_tx_link.jesd_param.jesd_duallink)
-			return stat & 0xF;
-	}
-
-	return stat & 0xF;
+	return ret;
 }
 
 static void ad9081_convert_link_converter_select(
@@ -1476,41 +1464,19 @@ static void ad9081_convert_link_converter_select(
 	jesd_conv_sel->virtual_converterf_index = *vals++;
 }
 
-static int ad9081_setup(struct spi_device *spi, bool ad9234)
+static int ad9081_setup(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9081_phy *phy = conv->phy;
 	struct clock_scale devclk_clkscale;
 	u64 dev_frequency_hz, sample_rate, status64;
-	unsigned long rx_lane_rate_kbps, tx_lane_rate_kbps;
-	int ret, i, stat, retry = 5;
 	adi_cms_jesd_param_t jesd_param[2];
 	adi_ad9081_jtx_conv_sel_t jesd_conv_sel[2];
 	u8 txfe_pll_stat, dcm;
+	int ret, i;
 
 	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
 	dev_frequency_hz = clk_get_rate_scaled(phy->dev_clk, &devclk_clkscale);
-
-	tx_lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_tx_link,
-				phy->dac_frequency_hz,
-				phy->tx_main_interp * phy->tx_chan_interp);
-
-	/* The 204c calibration routine requires the link to be up */
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-		ret = clk_set_rate(phy->jesd_tx_clk, tx_lane_rate_kbps);
-		if (ret < 0) {
-			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
-				tx_lane_rate_kbps, ret);
-		}
-		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
-			ret = clk_prepare_enable(phy->jesd_tx_clk);
-			if (ret < 0) {
-				dev_err(&spi->dev,
-					"Failed to enable JESD204 link: %d\n", ret);
-				return ret;
-			}
-		}
-	}
 
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_LMFC_DELAY_ADDR,
 		BF_SYNC_LMFC_DELAY_SET_INFO,
@@ -1597,6 +1563,19 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
+	if (conv->id == CHIPID_AD9081) {
+		/* Fix: 4x4 Crossbar Mux0 Mappings for AD9081 */
+		ret  = adi_ad9081_adc_pfir_din_select_set(&phy->ad9081,
+			AD9081_ADC_PFIR_ADC_PAIR0, 0, 1);
+		if (ret != 0)
+			return ret;
+
+		ret  = adi_ad9081_adc_pfir_din_select_set(&phy->ad9081,
+			AD9081_ADC_PFIR_ADC_PAIR1, 3, 0);
+		if (ret != 0)
+			return ret;
+	}
+
 	/* setup txfe dac channel gain */
 	ret = adi_ad9081_dac_duc_nco_gains_set(&phy->ad9081,
 					       phy->dac_cache.chan_gain);
@@ -1605,28 +1584,6 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 	adi_ad9081_jesd_rx_lmfc_delay_set(&phy->ad9081, AD9081_LINK_0,
 		phy->jesd_tx_link.jrx_tpl_phase_adjust);
-
-	ret = adi_ad9081_jesd_rx_lanes_xbar_set(&phy->ad9081, AD9081_LINK_0,
-			phy->jesd_tx_link.logiclane_mapping);
-	if (ret != 0)
-		return ret;
-
-	if (phy->jesd_tx_link.jesd_param.jesd_duallink > 0) {
-		ret = adi_ad9081_jesd_rx_lanes_xbar_set(
-				&phy->ad9081, AD9081_LINK_1,
-				phy->jesd_tx_link.logiclane_mapping);
-		if (ret != 0)
-			return ret;
-	}
-
-	ret = adi_ad9081_jesd_tx_lanes_xbar_set(&phy->ad9081, AD9081_LINK_0,
-			phy->jesd_rx_link[0].logiclane_mapping);
-	if (ret != 0)
-		return ret;
-	ret = adi_ad9081_jesd_tx_lids_cfg_set(&phy->ad9081, AD9081_LINK_0,
-			phy->jesd_rx_link[0].logiclane_mapping);
-	if (ret != 0)
-		return ret;
 
 	/* setup txfe jtx converter mapping */
 	for (i = 0; i < ARRAY_SIZE(phy->jesd_rx_link[0].link_converter_select);
@@ -1656,8 +1613,6 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 	if (phy->config_sync_01_swapped &&
 		phy->jesd_tx_link.jesd_param.jesd_jesdv != 2) {
-		adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
-			BF_SYNCB_RX_MODE_RC_INFO, 1); /* not paged */
 		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
 		adi_ad9081_hal_reg_set(&phy->ad9081,
 			REG_GENERAL_JRX_CTRL_ADDR, 0x80);
@@ -1665,27 +1620,19 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 		adi_ad9081_dac_gpio_as_sync1_out_set(&phy->ad9081, 1);
 		adi_ad9081_jesd_tx_sync_mode_set(&phy->ad9081,
 			AD9081_LINK_0, 1);
-		adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
-			BF_PD_SYNCB_RX_RC_INFO, 0);
+
+		adi_ad9081_hal_2bf_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR,
+					BF_PD_SYNCB_RX_RC_INFO, 1,
+					BF_SYNCB_RX_MODE_RC_INFO, 1);
+
+		adi_ad9081_hal_2bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
+					BF_PD_SYNCB_RX_RC_INFO, 0,
+					BF_SYNCB_RX_MODE_RC_INFO, 1);
 	}
 
-	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
-		rx_lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_rx_link[0],
-						phy->adc_frequency_hz,
-						dcm);
-
-		ret = clk_set_rate(phy->jesd_rx_clk, rx_lane_rate_kbps);
-		if (ret < 0) {
-			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
-			rx_lane_rate_kbps, ret);
-		}
-	}
-
-	if ((phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) &&
-		(tx_lane_rate_kbps > 16230000UL)) {
-		ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 0);
-		if (ret < 0)
-			return ret;
+	if (phy->config_sync_0a_cmos_en) {
+		adi_ad9081_jesd_rx_synca_mode_set(&phy->ad9081, 0);
+		adi_ad9081_hal_reg_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR, 0x0);
 	}
 
 	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
@@ -1697,88 +1644,6 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 			return ret;
 	}
 
-	ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-		(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-		AD9081_LINK_ALL : AD9081_LINK_0, 1);
-	if (ret != 0)
-		return ret;
-
-	ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
-		(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
-		AD9081_LINK_ALL : AD9081_LINK_0, 1);
-	if (ret != 0)
-		return ret;
-
-	msleep(10);
-
-	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
-		msleep(10);
-		ret = clk_prepare_enable(phy->jesd_rx_clk);
-		if (ret < 0) {
-			dev_err(&spi->dev,
-				"Failed to enable JESD204 link: %d\n", ret);
-			return ret;
-		}
-	}
-
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) &&
-		(phy->jesd_tx_link.jesd_param.jesd_jesdv == 1)) {
-		ret = clk_prepare_enable(phy->jesd_tx_clk);
-		if (ret < 0) {
-			dev_err(&spi->dev,
-				"Failed to enable JESD204 link: %d\n", ret);
-			return ret;
-		}
-	}
-
-	/*
-	 * 204c doesn't have a SYNC, so the link should come up.
-	 * This needs to be revisited once we move this driver to the
-	 * new JESD framework ...
-	 */
-
-	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2 ||
-		!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-		do {	/* temp workaround until API is fixed */
-			mdelay(10);
-			stat = ad9081_jesd_rx_link_status_print(phy);
-			if (stat <= 0) {
-				ret = adi_ad9081_jesd_rx_link_enable_set(
-					&phy->ad9081,
-					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-					AD9081_LINK_ALL : AD9081_LINK_0, 0);
-				if (ret != 0)
-					return ret;
-
-				if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-					clk_disable_unprepare(phy->jesd_tx_clk);
-
-					mdelay(100);
-
-					ret = clk_prepare_enable(phy->jesd_tx_clk);
-					if (ret < 0) {
-						dev_err(&spi->dev,
-							"Failed to enable JESD204 link: %d\n",
-							ret);
-						return ret;
-					}
-				} else {
-					mdelay(100);
-				}
-
-				ret = adi_ad9081_jesd_rx_link_enable_set(
-					&phy->ad9081,
-					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-					AD9081_LINK_ALL : AD9081_LINK_0, 1);
-				if (ret != 0)
-					return ret;
-
-				mdelay(100);
-			}
-		} while (stat <= 0 && retry--);
-	}
-
-	ad9081_jesd_tx_link_status_print(phy);
 
 	adi_ad9081_dac_irqs_status_get(&phy->ad9081, &status64);
 	dev_dbg(&spi->dev, "DAC IRQ status 0x%llX\n", status64);
@@ -1798,155 +1663,33 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
-	ret = ad9081_nco_sync_master_slave(phy,
-		!IS_ERR_OR_NULL(phy->jesd_rx_clk));
-	if (ret != 0)
-		return ret;
 
-	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
-		BF_AVRG_FLOW_EN_INFO, 0);
-	if (ret != 0)
-		return ret;
-
-	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
-		BF_SYSREF_AVERAGE_INFO,
-		BF_SYSREF_AVERAGE(0));
-	if (ret != 0)
-		return ret;
-
-	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
+	for (i = 0; i < ARRAY_SIZE(phy->tx_dac_fsc); i++) {
+		if (phy->tx_dac_fsc[i]) {
+			ret = adi_ad9081_dac_fsc_set(&phy->ad9081, BIT(i), phy->tx_dac_fsc[i]);
+			if (ret != 0)
+				return ret;
+		}
+	}
 
 	return 0;
 }
 
 static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 {
-	int ret;
-
 	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, step);
 
 	switch (step & 0xFF) {
-	case 0:
-		/* disable txfe RX (JTX) link */
-		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
-			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 0);
-		if (ret != 0)
-			return ret;
-
-		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk))
-			clk_disable_unprepare(phy->jesd_rx_clk);
-
+	case 8:
+		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 		break;
-	case 1:
-		/* enable txfe RX (JTX) link */
-		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
-			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 1);
-		if (ret != 0)
-			return ret;
-
-		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
-			ret = clk_prepare_enable(phy->jesd_rx_clk);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev,
-					"Failed to enable JESD204 link: %d\n",
-					ret);
-				return ret;
-			}
-		}
-		ad9081_jesd_tx_link_status_print(phy);
-		break;
-	case 2:
-		/* disable txfe TX (JRX) link */
-		cancel_delayed_work_sync(&phy->dwork);
-
-		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 0);
-		if (ret != 0)
-			return ret;
-
-		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk))
-			clk_disable_unprepare(phy->jesd_tx_clk);
-
-		break;
-	case 3:
-		/* enable txfe TX (JRX) link */
-		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-			ret = clk_prepare_enable(phy->jesd_tx_clk);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev,
-					"Failed to enable JESD204 link: %d\n",
-					ret);
-				return ret;
-			}
-		}
-
-		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 1);
-		if (ret != 0)
-			return ret;
-
-		ad9081_jesd_rx_link_status_print(phy);
-		schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
-		break;
-	case 4:
-		/* JESD OneShot Sync */
-		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
-			BF_AVRG_FLOW_EN_INFO, 1);
-		if (ret != 0)
-			return ret;
-
-		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
-			BF_SYSREF_AVERAGE_INFO,
-			BF_SYSREF_AVERAGE(7));
-		if (ret != 0)
-			return ret;
-
-		ret = adi_ad9081_jesd_oneshot_sync(&phy->ad9081);
-		if (ret != 0)
-			return ret;
-
-		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
-			BF_AVRG_FLOW_EN_INFO, 0);
-		if (ret != 0)
-			return ret;
-
-		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
-			BF_SYSREF_AVERAGE_INFO,
-			BF_SYSREF_AVERAGE(0));
-		if (ret != 0)
-			return ret;
-
-		break;
-	case 5:
-		/* Master Slave NCO Sync */
-		ret = ad9081_nco_sync_master_slave(phy,
-			!IS_ERR_OR_NULL(phy->jesd_rx_clk));
-		if (ret != 0)
-			return ret;
-		break;
-	case 6:
-		/* Debug Only */
-		ret = adi_ad9081_dac_nco_sync_set(&phy->ad9081, step >> 8);
-		break;
-	case 7:
-		/* Toggle TX (JRX) link */
-		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 0);
-		if (ret != 0)
-			return ret;
-		mdelay(1);
-		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 1);
-		ad9081_jesd_rx_link_status_print(phy);
-		if (ret != 0)
-			return ret;
-		break;
+	case 9:
+		return jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+	case 10:
+		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+		return jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
 	default:
 		return -EINVAL;
 	}
@@ -1960,6 +1703,7 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
+	u8 msb, lsb;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -1974,6 +1718,13 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 			*val = phy->dac_cache.enable[chan->channel];
 			return IIO_VAL_INT;
 		}
+		break;
+	case IIO_CHAN_INFO_PROCESSED:
+		adi_ad9081_hal_reg_get(&phy->ad9081, 0x2108, &msb);
+		adi_ad9081_hal_reg_get(&phy->ad9081, 0x2107, &lsb);
+
+		*val = ((s16)(msb << 8 | lsb) * 1000) / 128;
+		return IIO_VAL_INT;
 	}
 	return -EINVAL;
 }
@@ -2338,38 +2089,388 @@ static void ad9081_work_func(struct work_struct *work)
 
 	if (!(status & BIT(6))) {
 		dev_err(&phy->spi->dev, "IRQ_STATUS0: 0x%X\n", status);
-		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
-			ad9081_multichip_sync(phy, 7);
-		} else {
-			/* disable txfe TX (JRX) link */
-			adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 0);
 
-			if (!IS_ERR_OR_NULL(phy->jesd_tx_clk))
-				clk_disable_unprepare(phy->jesd_tx_clk);
-
-			mdelay(20);
-
-			/* enable txfe TX (JRX) link */
-			if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-				clk_prepare_enable(phy->jesd_tx_clk);
-
-			}
-
-			adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 1);
-
-			ad9081_jesd_rx_link_status_print(phy);
-		}
+		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
 	}
 	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
+}
+
+static int ad9081_fsc_set(void *arg, const u64 val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+	int ret;
+
+	if (!val)
+		return -EINVAL;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = adi_ad9081_dac_fsc_set(&phy->ad9081, AD9081_DAC_ALL, val);
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(ad9081_fsc_fops, NULL, ad9081_fsc_set, "%llu");
+
+static const char* const pfir_filter_modes[] = {
+	"disabled", "real_n4", "real_n2", "undef",
+	"matrix", "complex_full", "complex_half", "real_n"
+};
+
+static unsigned char pfir_mode_tap_lut[] = {0, 48, 96, 0, 48, 128, 96, 192};
+
+static const char* const pfir_filter_pairs[] = {
+	"adc_pair_0", "adc_pair_1", "adc_pair_all"
+};
+
+static const char* const pfir_filter_pages[] = {
+	"page_0", "page_1", "page_2", "page_3", "page_all"
+};
+
+enum coeff_load_sel_types {
+	REAL_I_LOAD = 0,
+	REAL_Q_LOAD = 1,
+	REAL_CROSS_I_LOAD = 2,
+	REAL_CROSS_Q_LOAD = 3,
+	COMPLEX_LOAD = 4,
+};
+
+static const char* const pfir_filter_load_type[] = {
+	"real_i", "real_q", "real_cross_i", "real_cross_q", "complex"
+};
+
+static u32 ad9081_pfir_gain_enc(int val)
+{
+	switch (val) {
+	case -12:
+		return AD9081_ADC_PFIR_GAIN_N12DB;
+	case -6:
+		return AD9081_ADC_PFIR_GAIN_N6DB;
+	case 6:
+		return AD9081_ADC_PFIR_GAIN_P6DB;
+	case 12:
+		return AD9081_ADC_PFIR_GAIN_P12DB;
+	default:
+		return AD9081_ADC_PFIR_GAIN_0DB;
+	}
+};
+
+static int ad9081_adc_pfir_prog(struct ad9081_phy *phy,
+	adi_ad9081_adc_pfir_ctl_page_e ctl_pages,
+	adi_ad9081_adc_pfir_coeff_page_e coeff_pages,
+	adi_ad9081_adc_pfir_i_mode_e mode,
+	uint8_t coeff_load_sel,
+	int16_t *coeffs, uint8_t coeffs_num)
+{
+	int ret, i;
+
+	if (coeffs_num != pfir_mode_tap_lut[mode])
+		dev_err(&phy->spi->dev, "Expected %d coefficients got %d",
+			pfir_mode_tap_lut[mode], coeffs_num);
+
+	ret = adi_ad9081_adc_pfir_coeff_validate(&phy->ad9081, coeffs_num, coeffs);
+	if (ret)
+		dev_err(&phy->spi->dev, "Validate %s:%s coefficients failed (%d)",
+			pfir_filter_modes[mode],
+			pfir_filter_load_type[coeff_load_sel], ret);
+
+	ret = adi_ad9081_adc_pfir_coeff_load_sel_set(&phy->ad9081, ctl_pages,
+			1 << coeff_load_sel);
+	if (ret)
+		goto out;
+
+	for (i = 0; i < coeffs_num; i++) {
+		ret = adi_ad9081_adc_pfir_coeff_set(&phy->ad9081, coeff_pages, i,
+						    coeffs[i]);
+		if (ret)
+			goto out;
+	}
+
+	ret = adi_ad9081_adc_pfir_coeff_load_sel_set(&phy->ad9081, ctl_pages, 0);
+	if (ret)
+		goto out;
+
+	ret = adi_ad9081_adc_pfir_coeff_xfer_set(&phy->ad9081, ctl_pages, 1);
+	if (ret)
+		goto out;
+
+	ret =  adi_ad9081_adc_pfir_coeff_xfer_set(&phy->ad9081, ctl_pages, 0);
+out:
+	dev_printk(ret ? KERN_ERR : KERN_INFO, &phy->spi->dev,
+		"Filter loading ADC<0x%X> on pages <0x%X> using <%s> with <%d> tabs {%d, %d, %d, ..., %d, %d, %d} load type %s\n",
+		ctl_pages, coeff_pages, pfir_filter_modes[mode], coeffs_num,
+		coeffs[0], coeffs[1], coeffs[2],
+		coeffs[coeffs_num - 3], coeffs[coeffs_num - 2], coeffs[coeffs_num - 1],
+		pfir_filter_load_type[coeff_load_sel]);
+
+	return ret;
+}
+
+#if 0
+int adi_ad9081_adc_pfir_coeffs_get(adi_ad9081_device_t *device,
+			       adi_ad9081_adc_pfir_coeff_page_e coeff_pages)
+{
+	int32_t err, j;
+	u8 val1, val2;
+
+
+	err = adi_ad9081_adc_pfir_coeff_page_set(device, coeff_pages);
+	AD9081_ERROR_RETURN(err);
+	for (j = 0; j < 192; j++) {
+		err = adi_ad9081_hal_reg_get(device, 0x1900 + j * 2,
+					     &val2);
+
+		err = adi_ad9081_hal_reg_get(device, 0x1901 + j * 2,
+					     &val1);
+
+		pr_err("%d:0x%X: \t%d\t(0x%X)", j, 0x1900 + j*2 ,
+			(short)(val1 << 8 | val2), (val1 << 8 | val2));
+	}
+
+	return API_CMS_ERROR_OK;
+}
+#endif
+
+static int ad9081_parse_fir(struct ad9081_phy *phy,
+				 char *data, u32 size)
+{
+	char *line;
+	int i = 0, q = 0, ret;
+	char *ptr = data;
+
+	adi_ad9081_adc_pfir_ctl_page_e ctl_pages = AD9081_ADC_PFIR_ADC_PAIR_ALL;
+	adi_ad9081_adc_pfir_coeff_page_e coeff_pages = AD9081_ADC_PFIR_COEFF_PAGE_ALL;
+	adi_ad9081_adc_pfir_i_mode_e i_mode = AD9081_ADC_PFIR_I_MODE_DISABLE;
+	adi_ad9081_adc_pfir_q_mode_e q_mode = AD9081_ADC_PFIR_Q_MODE_DISABLE;
+	adi_ad9081_adc_pfir_gain_e ix_gain = 0, iy_gain = 0, qx_gain = 0, qy_gain = 0;
+	u8 half_complex_delay = 0, image_cancel_delay = 0;
+	u8 read_mask = 0;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size) {
+			break;
+		}
+
+		if (line[0] == '#')
+			continue;
+
+		if (~read_mask & BIT(0)) {
+			char imode[16], qmode[16];
+
+			ret = sscanf(line, "mode: %15s %15s",
+				     imode, qmode);
+
+			if (ret == 2)
+				q_mode = sysfs_match_string(pfir_filter_modes, qmode);
+
+			if (ret == 1 || ret == 2) {
+				i_mode = sysfs_match_string(pfir_filter_modes, imode);
+				read_mask |= BIT(0);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(1)) {
+			int ix = 0, iy = 0, qx = 0, qy = 0;
+
+			ret = sscanf(line, "gain: %d %d %d %d",
+				     &ix, &iy, &qx, &qy);
+
+			if (ret == 4) {
+				ix_gain = ad9081_pfir_gain_enc(ix);
+				iy_gain = ad9081_pfir_gain_enc(iy);
+				qx_gain = ad9081_pfir_gain_enc(qx);
+				qy_gain = ad9081_pfir_gain_enc(qy);
+
+				read_mask |= BIT(1);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(2)) {
+			char a[16], b[16];
+
+			ret = sscanf(line, "dest: %15s %15s", a, b);
+
+			if (ret == 2) {
+				ret = sysfs_match_string(pfir_filter_pages, b);
+				if (ret < 0)
+					goto out;
+				coeff_pages = 1 << ret;
+				if (ret == 4)
+					coeff_pages = AD9081_ADC_PFIR_COEFF_PAGE_ALL;
+
+				ret = sysfs_match_string(pfir_filter_pairs, a);
+				if (ret < 0)
+					goto out;
+				ctl_pages = 1 << ret;
+				if (ret == 2)
+					ctl_pages = AD9081_ADC_PFIR_ADC_PAIR_ALL;
+
+
+				read_mask |= BIT(2);
+				continue;
+			}
+		}
+
+		if (~read_mask & BIT(3)) {
+			ret = sscanf(line, "delay: %hhu %hhu",
+				     &half_complex_delay, &image_cancel_delay);
+			if (ret == 2) {
+				read_mask |= BIT(3);
+				continue;
+			}
+		}
+
+		if (i_mode == AD9081_ADC_PFIR_I_MODE_MATRIX) {
+			int val1, val2, val3, val4;
+
+			ret = sscanf(line, "%d %d %d %d", &val1, &val2, &val3, &val4);
+			if (ret == 4) {
+				if (i >= ARRAY_SIZE(phy->coeffs_i) / 2)
+					return -EINVAL;
+
+				phy->coeffs_i[i] = (short)val1;
+				phy->coeffs_i[i + 96] = (short)val2;
+				i++;
+
+
+				if (q >= ARRAY_SIZE(phy->coeffs_q) / 2)
+					return -EINVAL;
+
+				phy->coeffs_q[q] = (short)val3;
+				phy->coeffs_q[q + 96] = (short)val4;
+				q++;
+
+				continue;
+			}
+		} else {
+			int val1, val2;
+
+			ret = sscanf(line, "%d %d", &val1, &val2);
+			if (ret == 1 || ret == 2) {
+				if (i >= ARRAY_SIZE(phy->coeffs_i))
+					return -EINVAL;
+
+				if (i_mode == AD9081_ADC_PFIR_I_MODE_COMPLEX_FULL) {
+					phy->coeffs_i[i++] = (short)val1;
+					phy->coeffs_i[i++] = (short)val2;
+
+				} else {
+					phy->coeffs_i[i++] = (short)val1;
+
+					if (ret == 1) /* single real_n */
+						val2 = val1;
+
+					phy->coeffs_q[q++] = (short)val2;
+				}
+
+				continue;
+			}
+		}
+	}
+
+	ret = adi_ad9081_adc_pfir_hc_prog_delay_set(&phy->ad9081,
+		coeff_pages, image_cancel_delay);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_half_complex_delay_set(&phy->ad9081,
+		ctl_pages, half_complex_delay);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_quad_mode_set(&phy->ad9081, ctl_pages,
+		phy->chip_id.prod_id == CHIPID_AD9081 ? 1 : 0);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_coeff_page_set(&phy->ad9081, coeff_pages);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_coeff_clear_set(&phy->ad9081, ctl_pages, 1);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_coeff_clear_set(&phy->ad9081, ctl_pages, 0);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_i_mode_set(&phy->ad9081, ctl_pages, i_mode);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_q_mode_set(&phy->ad9081, ctl_pages, q_mode);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_i_gain_set(&phy->ad9081, ctl_pages, ix_gain,
+					     iy_gain);
+	if (ret)
+		return -EIO;
+	ret = adi_ad9081_adc_pfir_q_gain_set(&phy->ad9081, ctl_pages, qx_gain,
+					     qy_gain);
+	if (ret)
+		return -EIO;
+
+	if (i_mode == AD9081_ADC_PFIR_I_MODE_COMPLEX_FULL) {
+		ret = ad9081_adc_pfir_prog(phy, ctl_pages, coeff_pages,
+			i_mode, COMPLEX_LOAD, phy->coeffs_i, i);
+	} else {
+		if (i_mode && i) {
+			ret = ad9081_adc_pfir_prog(phy, ctl_pages, coeff_pages,
+				i_mode, REAL_I_LOAD, phy->coeffs_i, i);
+
+			if (ret)
+				goto out;
+		}
+		if (q_mode && q) {
+			ret = ad9081_adc_pfir_prog(phy, ctl_pages, coeff_pages,
+				q_mode, REAL_Q_LOAD, phy->coeffs_q, q);
+
+			if (ret)
+				goto out;
+		}
+
+		if (i_mode == AD9081_ADC_PFIR_I_MODE_MATRIX) {
+			ret = ad9081_adc_pfir_prog(phy, ctl_pages, coeff_pages,
+				i_mode, REAL_CROSS_I_LOAD, &phy->coeffs_i[96], i);
+			if (ret)
+				goto out;
+			ret = ad9081_adc_pfir_prog(phy, ctl_pages, coeff_pages,
+				i_mode, REAL_CROSS_Q_LOAD, &phy->coeffs_q[96], q);
+			if (ret)
+				goto out;
+		}
+	}
+
+	//adi_ad9081_adc_pfir_coeffs_get(&phy->ad9081, coeff_pages);
+
+	if (ret != API_CMS_ERROR_OK)
+		dev_err(&phy->spi->dev, "Prgramming filter failed (%d)", ret);
+
+	return size;
+
+out:
+	dev_err(&phy->spi->dev, "malformed pFir filter file detected\n");
+
+	return -EINVAL;
+}
+
+static ssize_t
+ad9081_fir_bin_write(struct file *filp, struct kobject *kobj,
+		       struct bin_attribute *bin_attr,
+		       char *buf, loff_t off, size_t count)
+{
+
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+
+	return ad9081_parse_fir(phy, buf, count);
 }
 
 static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
 
 	if (iio_get_debugfs_dentry(indio_dev)) {
 		struct dentry *stats;
@@ -2380,9 +2481,19 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 		if (PTR_ERR_OR_ZERO(stats))
 			dev_err(&conv->spi->dev,
 				"Failed to create debugfs entry");
+
+		debugfs_create_file_unsafe("dac-full-scale-current-ua", 0600,
+			iio_get_debugfs_dentry(indio_dev), indio_dev,
+			&ad9081_fsc_fops);
 	}
 
-	return 0;
+	sysfs_bin_attr_init(&phy->bin);
+	phy->bin.attr.name = "filter_fir_config";
+	phy->bin.attr.mode = S_IWUSR;
+	phy->bin.write = ad9081_fir_bin_write;
+	phy->bin.size = 4096;
+
+	return sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
 }
 
 static int ad9081_get_jesd_converter_selection(struct ad9081_phy *phy,
@@ -2426,6 +2537,7 @@ static int ad9081_parse_jesd_link_dt(struct ad9081_phy *phy,
 	u32 tmp;
 	int ret;
 
+	link->is_jrx = !jtx;
 	link->jesd_param.jesd_scr = 1; /* Force scambling on */
 
 	tmp = 0;
@@ -2615,6 +2727,9 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 			of_property_read_u64(of_chan,
 					     "adi,nco-frequency-shift-hz",
 					     &phy->tx_main_shift[reg]);
+			of_property_read_u32(of_chan,
+					     "adi,full-scale-current-ua",
+					     &phy->tx_dac_fsc[reg]);
 
 			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
 				i++) {
@@ -2781,6 +2896,9 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	phy->config_sync_01_swapped =
 		of_property_read_bool(np, "adi,jesd-sync-pins-01-swap-enable");
 
+	phy->config_sync_0a_cmos_en =
+		of_property_read_bool(np, "adi,jesd-sync-pin-0a-cmos-enable");
+
 	phy->lmfc_delay = 0;
 	of_property_read_u32(np, "adi,lmfc-delay-dac-clk-cycles",
 			&phy->lmfc_delay);
@@ -2871,6 +2989,12 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].ext_info = txdac_ext_info;
 	}
 
+	phy->chip_info.channel[c].type = IIO_TEMP;
+	phy->chip_info.channel[c].indexed = 1;
+	phy->chip_info.channel[c].info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED);
+	phy->chip_info.channel[c].scan_index = -1;
+	c++;
+
 	phy->chip_info.num_channels = c;
 	phy->chip_info.name = "AD9081";
 	phy->chip_info.max_rate = 3000000000UL;
@@ -2907,7 +3031,6 @@ static int ad9081_register_iiodev(struct axiadc_converter *conv)
 
 	indio_dev->info = &ad9081_iio_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = phy->chip_info.channel;
 	indio_dev->num_channels = phy->chip_info.num_channels;
 
@@ -2919,14 +3042,324 @@ static int ad9081_register_iiodev(struct axiadc_converter *conv)
 	return ret;
 }
 
+static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9081_phy *phy = priv->phy;
+	struct ad9081_jesd_link *link;
+	adi_cms_jesd_param_t *p;
+
+	switch (reason) {
+	case JESD204_STATE_OP_REASON_INIT:
+		break;
+	default:
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	switch (lnk->link_id) {
+	case DEFRAMER_LINK0_TX:
+		link = &phy->jesd_tx_link;
+		lnk->sample_rate = clk_get_rate(phy->clks[TX_SAMPL_CLK]);
+		break;
+	case FRAMER_LINK0_RX:
+		link = &phy->jesd_rx_link[0];
+		lnk->sample_rate = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	p = &link->jesd_param;
+
+	lnk->num_converters = p->jesd_m;
+	lnk->num_lanes = p->jesd_l;
+	lnk->octets_per_frame = p->jesd_f;
+	lnk->frames_per_multiframe = p->jesd_k;
+	lnk->device_id = p->jesd_did;
+	lnk->bank_id = p->jesd_lid0;
+	lnk->scrambling = p->jesd_scr;
+	lnk->bits_per_sample = p->jesd_np;
+	lnk->converter_resolution = p->jesd_n;
+	lnk->ctrl_bits_per_sample = p->jesd_cs;
+	lnk->jesd_version = p->jesd_jesdv;
+	lnk->subclass = p->jesd_subclass;
+	lnk->is_transmit = link->is_jrx;
+
+	if (lnk->jesd_version == JESD204_VERSION_C)
+		lnk->jesd_encoder = JESD204_ENCODER_64B66B;
+	else
+		lnk->jesd_encoder = JESD204_ENCODER_8B10B;
+
+	lnk->sysref.mode = JESD204_SYSREF_CONTINUOUS;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9081_phy *phy = priv->phy;
+	int ret;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (lnk->is_transmit && (reason == JESD204_STATE_OP_REASON_INIT) &&
+		(lnk->jesd_version == JESD204_VERSION_C)) {
+		unsigned long tx_lane_rate_kbps;
+
+		jesd204_link_get_rate_khz(lnk, &tx_lane_rate_kbps);
+
+		if ((tx_lane_rate_kbps > 16230000UL) &&
+			phy->jesd_tx_link.lane_rate != tx_lane_rate_kbps) {
+			dev_info(dev, "running jesd_rx_calibrate_204c");
+			ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 0);
+			if (ret < 0)
+				return ret;
+		}
+
+		phy->jesd_tx_link.lane_rate = tx_lane_rate_kbps;
+	}
+
+	if (!lnk->is_transmit) {
+		/* txfe RX (JTX) link */
+		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
+			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0,
+			reason == JESD204_STATE_OP_REASON_INIT);
+		if (ret != 0)
+			return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9081_jesd204_link_enable(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9081_phy *phy = priv->phy;
+	int ret;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (lnk->is_transmit) {
+		/* txfe TX (JRX) link */
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0,
+			reason == JESD204_STATE_OP_REASON_INIT);
+		if (ret != 0)
+			return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9081_phy *phy = priv->phy;
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (lnk->is_transmit) {
+		ret = ad9081_jesd_rx_link_status_print(phy, lnk, 3);
+		if (ret < 0)
+			return JESD204_STATE_CHANGE_ERROR;
+	} else {
+		ret = ad9081_jesd_tx_link_status_print(phy, lnk, 3);
+		if (ret < 0)
+			return JESD204_STATE_CHANGE_ERROR;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+int ad9081_jesd204_uninit(struct jesd204_dev *jdev,
+			    enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+
+	if (reason != JESD204_STATE_OP_REASON_UNINIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
+					 enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9081_phy *phy = priv->phy;
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+	/* For some reason JTX link must be enabled during OneShot Sync */
+	adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081, AD9081_LINK_ALL, 0);
+	adi_ad9081_jesd_tx_link_reset(&phy->ad9081, 1);
+	adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
+			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0, 1);
+	adi_ad9081_jesd_tx_link_reset(&phy->ad9081, 0);
+
+	mdelay(4);
+
+	/* JESD OneShot Sync */
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
+		BF_AVRG_FLOW_EN_INFO, 1);
+	if (ret != 0)
+		return ret;
+
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
+		BF_SYSREF_AVERAGE_INFO,
+		BF_SYSREF_AVERAGE(7));
+	if (ret != 0)
+		return ret;
+
+	ret = adi_ad9081_jesd_oneshot_sync(&phy->ad9081);
+	if (ret != 0)
+		return ret;
+
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
+		BF_AVRG_FLOW_EN_INFO, 0);
+	if (ret != 0)
+		return ret;
+
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
+		BF_SYSREF_AVERAGE_INFO,
+		BF_SYSREF_AVERAGE(0));
+	if (ret != 0)
+		return ret;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9081_jesd204_setup_stage2(struct jesd204_dev *jdev,
+					 enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9081_phy *phy = priv->phy;
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+	/* Master Slave NCO Sync */
+
+	ret = ad9081_nco_sync_master_slave(phy, jesd204_dev_is_top(jdev));
+	if (ret != 0)
+		return ret;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9081_jesd204_setup_stage3(struct jesd204_dev *jdev,
+					 enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9081_phy *phy = priv->phy;
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+	if (phy->ad9081.dev_info.dev_rev == 3) { /* r2 */
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_ADC_DIVIDER_CTRL_ADDR,
+					    0x00000107, 1); /* not paged */
+		AD9081_ERROR_RETURN(ret);
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_ACLK_CTRL_ADDR,
+					    BF_PD_TXDIGCLK_INFO,
+					    0); /* not paged */
+		AD9081_ERROR_RETURN(ret);
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data jesd204_ad9081_init = {
+	.state_ops = {
+		[JESD204_OP_DEVICE_INIT] = {
+			.per_device = ad9081_jesd204_uninit,
+		},
+		[JESD204_OP_LINK_INIT] = {
+			.per_link = ad9081_jesd204_link_init,
+		},
+		[JESD204_OP_CLOCKS_ENABLE] = {
+			.per_link = ad9081_jesd204_clks_enable,
+		},
+		[JESD204_OP_LINK_ENABLE] = {
+			.per_link = ad9081_jesd204_link_enable,
+		},
+		[JESD204_OP_LINK_RUNNING] = {
+			.per_link = ad9081_jesd204_link_running,
+		},
+		[JESD204_OP_OPT_SETUP_STAGE1] = {
+			.per_device = ad9081_jesd204_setup_stage1,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_OPT_SETUP_STAGE2] = {
+			.per_device = ad9081_jesd204_setup_stage2,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_OPT_SETUP_STAGE3] = {
+			.per_device = ad9081_jesd204_setup_stage3,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+	},
+
+	.max_num_links = 2,
+	.num_retries = 3,
+	.sizeof_priv = sizeof(struct ad9081_jesd204_priv),
+};
+
 static int ad9081_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
 	struct ad9081_phy *phy;
-	adi_cms_chip_id_t chip_id;
+	struct jesd204_dev *jdev;
+	struct ad9081_jesd204_priv *priv;
 	u8 api_rev[3];
 	u32 spi_id;
 	int ret;
+
+	jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_ad9081_init);
+	if (IS_ERR(jdev))
+		return PTR_ERR(jdev);
+
+	if (!jdev) {
+		dev_err(&spi->dev, "Failed to register jesd204-fsm device");
+		return -ENODEV;
+	}
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
@@ -2943,6 +3376,9 @@ static int ad9081_probe(struct spi_device *spi)
 	conv->spi = spi;
 	conv->phy = phy;
 	phy->spi = spi;
+	phy->jdev = jdev;
+	priv = jesd204_dev_priv(jdev);
+	priv->phy = phy;
 
 	ret = ad9081_request_clks(conv);
 	if (ret)
@@ -2956,6 +3392,29 @@ static int ad9081_probe(struct spi_device *spi)
 	phy->ad9081.hal_info.reset_pin_ctrl = ad9081_reset_pin_ctrl;
 	phy->ad9081.hal_info.user_data = conv;
 	phy->ad9081.hal_info.log_write = ad9081_log_write;
+
+        phy->ad9081.serdes_info = (adi_ad9081_serdes_settings_t) {
+            .ser_settings = { /* txfe jtx */
+                .lane_settings = {
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                    {.swing_setting = AD9081_SER_SWING_850, .pre_emp_setting = AD9081_SER_PRE_EMP_0DB, .post_emp_setting = AD9081_SER_POST_EMP_0DB},
+                },
+                .invert_mask = 0x00,
+                .lane_mapping = { { 0, 1, 2, 3, 4, 5, 6, 7}, { 0, 1, 2, 3, 4, 5, 6, 7 } }, /* link0, link1 */
+            },
+            .des_settings = { /* txfe jrx */
+                .boost_mask = 0xff,
+                .invert_mask = 0x00,
+                .ctle_filter = { 2, 2, 2, 2, 2, 2, 2, 2 },
+                .lane_mapping =  { { 0, 1, 2, 3, 4, 5, 6, 7 }, { 0, 1, 2, 3, 4, 5, 6, 7} }, /* link0, link1 */
+            }
+        };
 
 	conv->reset_gpio =
 		devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
@@ -2988,20 +3447,36 @@ static int ad9081_probe(struct spi_device *spi)
 		return -ENODEV;
 	}
 
+	memcpy(phy->ad9081.serdes_info.ser_settings.lane_mapping[0],
+		phy->jesd_rx_link[0].logiclane_mapping,
+		sizeof(phy->jesd_rx_link[0].logiclane_mapping));
+
+	memcpy(phy->ad9081.serdes_info.ser_settings.lane_mapping[1],
+		phy->jesd_rx_link[1].logiclane_mapping,
+		sizeof(phy->jesd_rx_link[1].logiclane_mapping));
+
+	memcpy(phy->ad9081.serdes_info.des_settings.lane_mapping[0],
+		phy->jesd_tx_link.logiclane_mapping,
+		sizeof(phy->jesd_tx_link.logiclane_mapping));
+
+	memcpy(phy->ad9081.serdes_info.des_settings.lane_mapping[1],
+		phy->jesd_tx_link.logiclane_mapping,
+		sizeof(phy->jesd_tx_link.logiclane_mapping));
+
 	ret = adi_ad9081_device_reset(&phy->ad9081, AD9081_HARD_RESET_AND_INIT);
 	if (ret < 0) {
 		dev_err(&spi->dev, "reset/init failed (%d)\n", ret);
 		return -ENODEV;
 	}
 
-	ret = adi_ad9081_device_chip_id_get(&phy->ad9081, &chip_id);
+	ret = adi_ad9081_device_chip_id_get(&phy->ad9081, &phy->chip_id);
 	if (ret < 0) {
 		dev_err(&spi->dev, "chip_id failed (%d)\n", ret);
 		return -ENODEV;
 	}
 
 	spi_id = spi_get_device_id(spi)->driver_data;
-	conv->id = chip_id.prod_id;
+	conv->id = phy->chip_id.prod_id;
 	if (conv->id != (spi_id & CHIPID_MASK)) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
 		return -ENODEV;
@@ -3025,16 +3500,15 @@ static int ad9081_probe(struct spi_device *spi)
 
 	INIT_DELAYED_WORK(&phy->dwork, ad9081_work_func);
 
-
 	switch (conv->id) {
 	case CHIPID_AD9081:
 	case CHIPID_AD9082:
 		ret = ad9081_setup_chip_info_tbl(phy, true,
-			!IS_ERR_OR_NULL(phy->jesd_rx_clk));
+			jesd204_dev_is_top(jdev));
 		if (ret)
 			break;
 		conv->chip_info = &phy->chip_info;
-		ret = ad9081_setup(spi, false);
+		ret = ad9081_setup(spi);
 		break;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
@@ -3063,7 +3537,7 @@ static int ad9081_probe(struct spi_device *spi)
 
 	conv->attrs = &ad9081_phy_attribute_group;
 
-	if (IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+	if (!jesd204_dev_is_top(jdev)) {
 		ret = ad9081_register_iiodev(conv);
 		if (ret)
 			goto out_clk_del_provider;
@@ -3080,8 +3554,12 @@ static int ad9081_probe(struct spi_device *spi)
 					   &api_rev[1], &api_rev[2]);
 
 	dev_info(&spi->dev, "%s Rev. %u Grade %u (API %u.%u.%u) probed\n",
-		 conv->chip_info->name, chip_id.dev_revision,
-		 chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
+		 conv->chip_info->name, phy->chip_id.dev_revision,
+		 phy->chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
+
+	ret = jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
+	if (ret)
+		goto out_clk_del_provider;
 
 	return 0;
 
@@ -3098,15 +3576,7 @@ static int ad9081_remove(struct spi_device *spi)
 
 	cancel_delayed_work_sync(&phy->dwork);
 
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk))
-		clk_disable_unprepare(phy->jesd_tx_clk);
-
-	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk))
-		clk_disable_unprepare(phy->jesd_rx_clk);
-	else
-		iio_device_unregister(conv->indio_dev);
-
-	clk_disable_unprepare(phy->fmc_clk);
+	iio_device_unregister(conv->indio_dev);
 	clk_disable_unprepare(phy->dev_clk);
 	of_clk_del_provider(spi->dev.of_node);
 	adi_ad9081_device_deinit(&phy->ad9081);

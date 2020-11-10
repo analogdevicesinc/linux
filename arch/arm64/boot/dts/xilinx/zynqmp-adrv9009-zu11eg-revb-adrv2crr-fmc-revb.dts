@@ -21,9 +21,14 @@
 	dr_mode = "otg";
 };
 
-&hmc7044_fmc_car {
-	adi,pll1-clkin-frequencies = <122880000 122880000 0 38400000>;
+&hmc7044_car {
+	adi,pll1-clkin-frequencies = <122880000 30720000 0 38400000>;
 	adi,pll1-ref-prio-ctrl = <0xb1>;  // priorities: clkin 1,0,3,2
 	adi,pll1-ref-autorevert-enable;
 	adi,clkin0-buffer-mode  = <0x07>; // buffer en, AC coupling, 100ohm termination
+};
+
+&hmc7044 {
+	clocks = <&hmc7044_car 2>;
+	clock-names = "clkin1";
 };

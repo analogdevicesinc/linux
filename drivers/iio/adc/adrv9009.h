@@ -25,6 +25,8 @@
 #include "talise/talise_user.h"
 #include "talise/talise_gpio.h"
 
+#include <linux/jesd204/jesd204.h>
+
 #define MIN_GAIN_mdB		0
 #define MAX_RX_GAIN_mdB		30000
 #define MAX_OBS_RX_GAIN_mdB	30000
@@ -109,6 +111,7 @@ enum ad937x_device_id {
 	ID_ADRV90081,
 	ID_ADRV90082,
 	ID_ADRV9009_X2,
+	ID_ADRV9009_X4,
 };
 
 enum adrv9009_sysref_req_mode {
@@ -181,6 +184,7 @@ struct adrv9009_rf_phy {
 	taliseTxAttenCtrlPin_t	tx2_atten_ctrl_pin;
 	taliseTxPaProtectCfg_t	tx_pa_protection;
 	taliseRxHd2Config_t	rx_hd2_config;
+	u32 			initCalMask;
 	uint16_t		gpio3v3SrcCtrl;
 	uint16_t 		gpio3v3PinLevel;
 	uint16_t 		gpio3v3OutEn;
@@ -212,6 +216,7 @@ struct adrv9009_rf_phy {
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
+	struct jesd204_dev	*jdev;
 
 	struct gpio_desc	*sysref_req_gpio;
 	struct gain_table_info  gt_info[NUM_GT];
@@ -227,6 +232,10 @@ struct adrv9009_rf_phy {
 	u32			cal_mask;
 	bool			is_initialized;
 	int			spi_device_id;
+
+	u32 			framer_b_m;
+	u32 			framer_b_f;
+	u32 			orx_channel_enabled;
 };
 
 int adrv9009_hdl_loopback(struct adrv9009_rf_phy *phy, bool enable);
@@ -243,7 +252,7 @@ static inline bool has_tx(struct adrv9009_rf_phy *phy)
 static inline bool has_tx_and_en(struct adrv9009_rf_phy *phy)
 {
 	return has_tx(phy) && (phy->talInit.tx.txChannels != TAL_TXOFF) &&
-		!IS_ERR_OR_NULL(phy->jesd_tx_clk);
+		(!IS_ERR_OR_NULL(phy->jesd_tx_clk) || phy->jdev);
 }
 
 static inline bool has_obs_and_en(struct adrv9009_rf_phy *phy)
@@ -261,7 +270,7 @@ static inline bool has_rx(struct adrv9009_rf_phy *phy)
 static inline bool has_rx_and_en(struct adrv9009_rf_phy *phy)
 {
 	return has_rx(phy) && (phy->talInit.rx.rxChannels != TAL_RXOFF) &&
-		!IS_ERR_OR_NULL(phy->jesd_rx_clk);
+		(!IS_ERR_OR_NULL(phy->jesd_rx_clk) || phy->jdev);
 }
 
 #endif

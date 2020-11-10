@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for AD9081-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ * Analog Devices AD9081-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
  *
- * Copyright (C) 2019 Analog Devices Inc.
+ * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
 #include <dt-bindings/iio/frequency/hmc7044.h>
@@ -18,6 +20,12 @@
 		compatible = "adi,hmc7044";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
 
 		adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
 
@@ -62,6 +70,7 @@
 			adi,extended-name = "DEV_SYSREF";
 			adi,divider = <256>;	// 12.109375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,jesd204-sysref-chan;
 		};
 
 		hmc7044_c6: channel@6 {
@@ -94,6 +103,7 @@
 			adi,extended-name = "FPGA_SYSREF";
 			adi,divider = <256>;	// 12.109375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,jesd204-sysref-chan;
 		};
 	};
 };
@@ -108,15 +118,20 @@
 		spi-max-frequency = <5000000>;
 
 		/* Clocks */
-		clocks = <&axi_ad9081_rx_jesd>, <&axi_ad9081_tx_jesd>,
-			 <&hmc7044 2>, <&hmc7044 6>, <&hmc7044 3>, <&hmc7044 13>;
-
-		clock-names = "jesd_rx_clk", "jesd_tx_clk",
-			      "dev_clk", "fmc_clk", "sysref_dev_clk",
-			      "sysref_fmc_clk";
+		clocks = <&hmc7044 2>;
+		clock-names = "dev_clk";
 
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 		#clock-cells = <1>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-link-ids = <FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+		jesd204-inputs =
+			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
+			<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;

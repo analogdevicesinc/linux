@@ -57,12 +57,11 @@ CONFIG_IP_PNP_DHCP=y
 CONFIG_IP_PNP_BOOTP=y
 CONFIG_IP_PNP_RARP=y
 CONFIG_NET_IPIP=m
-# CONFIG_IPV6 is not set
 CONFIG_VLAN_8021Q=m
 CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
 CONFIG_DEVTMPFS=y
 CONFIG_DEVTMPFS_MOUNT=y
-CONFIG_EXTRA_FIRMWARE="ad9467_intbypass_ad9517.stp ad9517.stp ad9517_fmcomms6.stp adau1761.bin imageon_edid.bin pzsdr-fmc-ad9517.stp Mykonos_M3.bin TaliseStream.bin TaliseTDDArmFirmware.bin TaliseTxArmFirmware.bin TaliseRxArmFirmware.bin"
+CONFIG_EXTRA_FIRMWARE="ad9467_intbypass_ad9517.stp ad9517.stp ad9517_fmcomms6.stp adau1761.bin imageon_edid.bin pzsdr-fmc-ad9517.stp Mykonos_M3.bin TaliseStream.bin TaliseTDDArmFirmware.bin TaliseTxArmFirmware.bin TaliseRxArmFirmware.bin Navassa_EvaluationFw.bin RxGainTable.csv ORxGainTable.csv TxAttenTable.csv Navassa_Stream.bin"
 CONFIG_EXTRA_FIRMWARE_DIR="./firmware"
 CONFIG_DMA_CMA=y
 CONFIG_CMA_SIZE_MBYTES=128

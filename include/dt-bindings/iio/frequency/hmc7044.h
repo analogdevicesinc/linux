@@ -43,4 +43,13 @@
 #define HMC7044_OUTPUT_MUX_GROUP_PAIR		3
 #define HMC7044_OUTPUT_MUX_VCO_CLOCK		4
 
+/*
+ * adi,sync-pin-mode
+ */
+
+#define HMC7044_SYNC_PIN_DISABLED		        0
+#define HMC7044_SYNC_PIN_SYNC   		        1
+#define HMC7044_SYNC_PIN_PULSE_GEN_REQ	        2
+#define HMC7044_SYNC_PIN_SYNC_THEN_PULSE_GEN	3
+
 #endif /* _DT_BINDINGS_IIO_FREQUENCY_HMC7044_H_ */

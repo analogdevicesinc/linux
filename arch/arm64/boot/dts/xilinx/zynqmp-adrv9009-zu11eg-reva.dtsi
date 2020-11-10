@@ -131,6 +131,37 @@
 	status = "okay";
 };
 
+&qspi {
+	status = "okay";
+	is-dual = <1>;
+	num-cs = <1>;
+	primary_flash: qspi@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		compatible = "n25q512a", "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		partition@qspi-fsbl-uboot {
+			label = "qspi-fsbl-uboot";
+			reg = <0x0 0x2000000>; /* 32M */
+		};
+		partition@qspi-uboot-env {
+			label = "qspi-uboot-env";
+			reg = <0x2000000 0x20000>; /* 128k */
+		};
+		partition@qspi-nvmfs {
+			label = "qspi-nvmfs";
+			reg = <0x2020000 0xE0000>; /* 1M */
+		};
+		partition@qspi-linux {
+			label = "qspi-linux";
+			reg = <0x2100000 0x5E00000>; /* 94M */
+		};
+	};
+};
+
 &spi0 {
 	status = "okay";
 	num-cs = <8>;
@@ -873,14 +904,16 @@
 		reg = <2>;
 		spi-max-frequency = <10000000>;
 
-		adi,pll1-clkin-frequencies = <122880000 122880000 0 0>;
+		adi,pll1-clkin-frequencies = <30720000 30720000 0 0>;
 		adi,pll1-ref-prio-ctrl = <0xE5>; /* prefer CLKIN1 */
 
 		adi,clkin0-buffer-mode  = <0x09>;
-		adi,clkin1-buffer-mode  = <0x09>;
+		adi,clkin1-buffer-mode  = <0x0b>; // 100term, lvpecl term
 		adi,sync-pin-mode = <1>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pfd1-maximum-limit-frequency-hz = <30720000>;
+		adi,pll1-charge-pump-current-ua = <1920>;
 
 		adi,vcxo-frequency = <122880000>;
 
@@ -942,13 +975,13 @@
 			reg = <4>;
 			adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c5: channel@5 {
 			reg = <5>;
 			adi,extended-name = "JESD_REFCLK_RX_AB";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c6: channel@6 {
 			reg = <6>;
@@ -1298,7 +1331,7 @@
 				#size-cells = <0>;
 				#address-cells = <1>;
 
-				dma-channel@0 {
+				rx_dma_channel: dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <128>;
 					adi,source-bus-type = <2>;
@@ -1320,7 +1353,7 @@
 				#size-cells = <0>;
 				#address-cells = <1>;
 
-				dma-channel@0 {
+				rx_obs_dma_channel: dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <128>;
 					adi,source-bus-type = <2>;
@@ -1342,7 +1375,7 @@
 				#size-cells = <0>;
 				#address-cells = <1>;
 
-				dma-channel@0 {
+				tx_dma_channel: dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <128>;
 					adi,source-bus-type = <0>;

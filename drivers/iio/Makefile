@@ -15,8 +15,10 @@ obj-$(CONFIG_IIO_TRIGGERED_EVENT) += industrialio-triggered-event.o
 
 obj-y += accel/
 obj-y += adc/
+obj-y += addac/
 obj-y += afe/
 obj-y += amplifiers/
+obj-y += beamformer/
 obj-y += buffer/
 obj-y += chemical/
 obj-y += common/

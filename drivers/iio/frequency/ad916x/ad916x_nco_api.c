@@ -15,6 +15,10 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 	int err;
 	/* check if the desired frequency power of 2 */
 	uint8_t is_pow2 = 0;
+
+	if (carrier_freq_hz == 0)
+		return API_ERROR_INVALID_PARAM;
+
 	tmp_freq = carrier_freq_hz;
 	while (tmp_freq <= h->dac_freq_hz) {
 		if ((tmp_freq) == h->dac_freq_hz) {
@@ -29,8 +33,8 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 		/* Integer NCO mode */
 		/* As we are in Integer NCO mode it guranteed the
 		   value is integer power of 2 */
-		tmp_freq = DIV_U64(h->dac_freq_hz, carrier_freq_hz);
-		tmp_freq = DIV_U64(ADI_POW2_48, tmp_freq);
+		tmp_freq = DIV64_U64(h->dac_freq_hz, carrier_freq_hz);
+		tmp_freq = DIV64_U64(ADI_POW2_48, tmp_freq);
 		/* Disable modulus */
 		err = ad916x_nco_set_enable(h, 0, 1);
 		if (err != API_ERROR_OK) {
@@ -70,8 +74,8 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 		/* Modulus NCO mode */
 
 		gcd = adi_api_utils_gcd(carrier_freq_hz, h->dac_freq_hz);
-		M = DIV_U64(carrier_freq_hz, gcd);
-		N = DIV_U64(h->dac_freq_hz, gcd);
+		M = DIV64_U64(carrier_freq_hz, gcd);
+		N = DIV64_U64(h->dac_freq_hz, gcd);
 
 		if (M > INT16_MAX) {
 			uint64_t mask = U64MSB;
@@ -80,10 +84,10 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 				mask >>= 1;
 				i++;
 			}
-			int_part = DIV_U64(M*((uint64_t)1u << i), N);
+			int_part = DIV64_U64(M*((uint64_t)1u << i), N);
 			int_part *= ((uint64_t)1u << (48 - i));
 		} else {
-			int_part = DIV_U64(M*(ADI_POW2_48), N);
+			int_part = DIV64_U64(M*(ADI_POW2_48), N);
 		}
 
 		adi_api_utils_mult_128(M, ADI_POW2_48, &tmp_ah, &tmp_al);
@@ -93,8 +97,8 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 		frac_part_b = N;
 
 		gcd = adi_api_utils_gcd(frac_part_a, frac_part_b);
-		frac_part_a = DIV_U64(frac_part_a, gcd);
-		frac_part_b = DIV_U64(frac_part_b, gcd);
+		frac_part_a = DIV64_U64(frac_part_a, gcd);
+		frac_part_b = DIV64_U64(frac_part_b, gcd);
 
 		if ((frac_part_a > ADI_MAXUINT48) || (frac_part_b > ADI_MAXUINT48)) {
 			/* TODO: a better error */

@@ -55,6 +55,8 @@ enum dds_data_select {
 	DATA_SEL_PN15,
 	DATA_SEL_LB,	/* loopback data (ADC) */
 	DATA_SEL_PNXX,	/* (Device specific) */
+	DATA_SEL_RAMP_NIBBLE,
+	DATA_SEL_RAMP_16,
 };
 
 
@@ -103,21 +105,6 @@ enum dds_data_select {
 #define ADI_TO_USR_CHANMAX(x)	(((x) >> 0) & 0xFF)
 
 #define ADI_REG_DAC_GP_CONTROL	0x00BC
-
-/* JESD TPL */
-
-#define ADI_REG_TPL_CNTRL		0x0200
-#define ADI_REG_TPL_STATUS		0x0204
-#define ADI_REG_TPL_DESCRIPTOR_1	0x0240
-#define ADI_REG_TPL_DESCRIPTOR_2	0x0244
-
-#define ADI_TO_JESD_M(x)		(((x) >> 0) & 0xFF)
-#define ADI_TO_JESD_L(x)		(((x) >> 8) & 0xFF)
-#define ADI_TO_JESD_S(x)		(((x) >> 16) & 0xFF)
-#define ADI_TO_JESD_F(x)		(((x) >> 24) & 0xFF)
-
-#define ADI_TO_JESD_N(x)		(((x) >> 0) & 0xFF)
-#define ADI_TO_JESD_NP(x)		(((x) >> 8) & 0xFF)
 
 /* DAC CHANNEL */
 
