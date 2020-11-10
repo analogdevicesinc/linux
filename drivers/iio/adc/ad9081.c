@@ -1648,14 +1648,11 @@ static int ad9081_setup(struct spi_device *spi)
 	adi_ad9081_dac_irqs_status_get(&phy->ad9081, &status64);
 	dev_dbg(&spi->dev, "DAC IRQ status 0x%llX\n", status64);
 
-	sample_rate = phy->adc_frequency_hz;
-	do_div(sample_rate, dcm);
-
+	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, dcm);
 	clk_set_rate(phy->clks[RX_SAMPL_CLK], sample_rate);
 
-	sample_rate = phy->dac_frequency_hz;
-	do_div(sample_rate, phy->tx_main_interp * phy->tx_chan_interp);
-
+	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz,
+			phy->tx_main_interp * phy->tx_chan_interp);
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], sample_rate);
 
 	ret = adi_ad9081_adc_nyquist_zone_set(&phy->ad9081,
