@@ -28,7 +28,7 @@
 	        #size-cells = <0>;
 
 	        out-gpios = <&gpio 139 0>, <&gpio 140 0>, <&gpio 141 0>,
-			<&gpio 142 0>, <&gpio 143 0>;
+			<&gpio 142 0>, <&gpio 143 0>, <&gpio 144 0>;
 		label = "stingray_control";
 
 	        channel@0 {
@@ -54,6 +54,11 @@
 	        channel@4 {
 			reg = <4>;
 			label = "5V_CTRL";
+	        };
+
+	        channel@5 {
+			reg = <5>;
+			label = "PWR_UP_DOWN";
 	        };
 	};
 
