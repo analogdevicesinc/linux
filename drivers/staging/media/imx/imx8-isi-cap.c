@@ -483,7 +483,7 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
 	while (!list_empty(&isi_cap->out_active)) {
 		buf = list_entry(isi_cap->out_active.next,
 				 struct mxc_isi_buffer, list);
-		list_del(&buf->list);
+		list_del_init(&buf->list);
 		if (buf->discard)
 			continue;
 
@@ -493,14 +493,14 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
 	while (!list_empty(&isi_cap->out_pending)) {
 		buf = list_entry(isi_cap->out_pending.next,
 				 struct mxc_isi_buffer, list);
-		list_del(&buf->list);
+		list_del_init(&buf->list);
 		vb2_buffer_done(&buf->v4l2_buf.vb2_buf, VB2_BUF_STATE_ERROR);
 	}
 
 	while (!list_empty(&isi_cap->out_discard)) {
 		buf = list_entry(isi_cap->out_discard.next,
 				 struct mxc_isi_buffer, list);
-		list_del(&buf->list);
+		list_del_init(&buf->list);
 	}
 
 	INIT_LIST_HEAD(&isi_cap->out_active);
