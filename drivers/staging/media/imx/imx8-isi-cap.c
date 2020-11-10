@@ -419,7 +419,7 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 		if (!isi_cap->discard_buffer[i]) {
 			for (j = 0; j < i; j++) {
 				dma_free_coherent(&isi_cap->pdev->dev,
-						  isi_cap->discard_size[j],
+						  PAGE_ALIGN(isi_cap->discard_size[j]),
 						  isi_cap->discard_buffer[j],
 						  isi_cap->discard_buffer_dma[j]);
 				dev_err(&isi_cap->pdev->dev,
@@ -430,7 +430,7 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 		dev_dbg(&isi_cap->pdev->dev,
 			"%s: num_plane=%d discard_size=%d discard_buffer=%p\n"
 			, __func__, i,
-			(int)isi_cap->discard_size[i],
+			PAGE_ALIGN((int)isi_cap->discard_size[i]),
 			isi_cap->discard_buffer[i]);
 	}
 
@@ -511,7 +511,7 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
 
 	for (i = 0; i < isi_cap->pix.num_planes; i++)
 		dma_free_coherent(&isi_cap->pdev->dev,
-				  isi_cap->discard_size[i],
+				  PAGE_ALIGN(isi_cap->discard_size[i]),
 				  isi_cap->discard_buffer[i],
 				  isi_cap->discard_buffer_dma[i]);
 }
