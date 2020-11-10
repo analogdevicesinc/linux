@@ -37,9 +37,10 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 	struct mxc_isi_dev *mxc_isi = priv;
 	struct device *dev = &mxc_isi->pdev->dev;
 	struct mxc_isi_ier_reg *ier_reg = mxc_isi->pdata->ier_reg;
+	unsigned long flags;
 	u32 status;
 
-	spin_lock(&mxc_isi->slock);
+	spin_lock_irqsave(&mxc_isi->slock, flags);
 
 	status = mxc_isi_get_irq_status(mxc_isi);
 	mxc_isi->status = status;
@@ -72,7 +73,7 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 		      ier_reg->excs_oflw_v_buf_en.mask))
 		dev_dbg(dev, "%s, IRQ EXCS OFLW Error stat=0x%X\n", __func__, status);
 
-	spin_unlock(&mxc_isi->slock);
+	spin_unlock_irqrestore(&mxc_isi->slock, flags);
 	return IRQ_HANDLED;
 }
 
