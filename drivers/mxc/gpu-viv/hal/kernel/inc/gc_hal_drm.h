@@ -198,7 +198,10 @@ struct drm_viv_gem_ref_node {
 #define DRM_IOCTL_VIV_GEM_REF_NODE      DRM_IOWR(DRM_COMMAND_BASE + DRM_VIV_GEM_REF_NODE, struct drm_viv_gem_ref_node)
 
 #ifdef __KERNEL__
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#define drm_gem_object_unreference_unlocked drm_gem_object_put_locked
+#define drm_dev_unref drm_dev_put
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
 #define drm_gem_object_unreference_unlocked drm_gem_object_put_unlocked
 #define drm_dev_unref drm_dev_put
 #endif

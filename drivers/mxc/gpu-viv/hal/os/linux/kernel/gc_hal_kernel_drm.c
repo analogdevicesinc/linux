@@ -55,7 +55,14 @@
 
 #if gcdENABLE_DRM
 
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#include <drm/drm_drv.h>
+#include <drm/drm_file.h>
+#include <drm/drm_ioctl.h>
+#else
 #include <drm/drmP.h>
+#endif
 #include <drm/drm_gem.h>
 #include <linux/dma-buf.h>
 #include "gc_hal_kernel_linux.h"
