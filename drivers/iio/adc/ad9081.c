@@ -711,6 +711,12 @@ int ad9081_iio_str_to_val(const char *str, int min, int max, int *val)
 	return ret;
 }
 
+static u32 ad9081_adc_chan_to_fddc(struct ad9081_phy *phy,
+	const struct iio_chan_spec *chan)
+{
+	return phy->jesd_rx_link[0].link_converter_select[chan->address] / 2;
+}
+
 static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				    uintptr_t private,
 				    const struct iio_chan_spec *chan, char *buf)
@@ -736,9 +742,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				}
 			}
 		} else {
-			fddc_num =
-				phy->jesd_rx_link[0].link_converter_select[
-					chan->address] / 2;
+			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
 			adi_ad9081_adc_xbar_find_cddc(&phy->ad9081,
 						      BIT(fddc_num), &cddc);
 			val = phy->rx_cddc_shift[ilog2(cddc)];
@@ -750,9 +754,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 			val = phy->tx_chan_shift[chan->channel];
 			ret = 0;
 		} else {
-			fddc_num =
-				phy->jesd_rx_link[0].link_converter_select[
-					chan->address] / 2;
+			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
 			val = phy->rx_fddc_shift[fddc_num];
 			ret = 0;
 		}
@@ -769,9 +771,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				}
 			}
 		} else {
-			fddc_num =
-				phy->jesd_rx_link[0].link_converter_select[
-					chan->address] / 2;
+			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
 			adi_ad9081_adc_xbar_find_cddc(&phy->ad9081,
 						BIT(fddc_num), &cddc);
 			val = phy->rx_cddc_phase[ilog2(cddc)];
@@ -783,9 +783,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 			val = phy->dac_cache.chan_phase[chan->channel];
 			ret = 0;
 		} else {
-			fddc_num =
-				phy->jesd_rx_link[0].link_converter_select[
-					chan->address] / 2;
+			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
 			val = phy->rx_fddc_phase[fddc_num];
 			ret = 0;
 		}
