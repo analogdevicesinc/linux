@@ -101,6 +101,11 @@ struct adrv9002_clock {
 
 struct adrv9002_chan {
 	struct clk *clk;
+	/*
+	 * These values are in nanoseconds. They need to be converted with
+	 * @adrv9002_chan_ns_to_en_delay() before passing them to the API.
+	 */
+	struct adi_adrv9001_ChannelEnablementDelays en_delays_ns;
 	adi_adrv9001_ChannelState_e cached_state;
 	adi_common_ChannelNumber_e number;
 	adi_common_Port_e port;
@@ -169,6 +174,15 @@ struct adrv9002_rf_phy {
 #endif
 };
 
+void adrv9002_en_delays_ns_to_arm(const struct adrv9002_rf_phy *phy,
+				  const struct adi_adrv9001_ChannelEnablementDelays *d_ns,
+				  struct adi_adrv9001_ChannelEnablementDelays *d);
+void adrv9002_en_delays_arm_to_ns(const struct adrv9002_rf_phy *phy,
+				  const struct adi_adrv9001_ChannelEnablementDelays *d,
+				  struct adi_adrv9001_ChannelEnablementDelays *d_ns);
+/* phy lock must be held before entering the API */
+int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
+			      const adi_adrv9001_ChannelState_e state, const bool cache_state);
 int adrv9002_clean_setup(struct adrv9002_rf_phy *phy);
 int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line);
 #define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
