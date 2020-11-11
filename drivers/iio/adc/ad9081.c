@@ -162,6 +162,7 @@ struct ad9081_phy {
 
 	u32 adc_main_decimation[MAX_NUM_MAIN_DATAPATHS];
 	u32 adc_chan_decimation[MAX_NUM_CHANNELIZER];
+	u32 adc_dcm;
 	u64 adc_frequency_hz;
 	s64 rx_fddc_shift[MAX_NUM_CHANNELIZER];
 	s64 rx_cddc_shift[MAX_NUM_MAIN_DATAPATHS];
@@ -1600,6 +1601,8 @@ static int ad9081_setup(struct spi_device *spi)
 						AD9081_LINK_0, &dcm);
 	if (ret != 0 || !dcm)
 		return ret;
+
+	phy->adc_dcm = dcm;
 
 	if (phy->config_sync_01_swapped &&
 		phy->jesd_tx_link.jesd_param.jesd_jesdv != 2) {
@@ -3059,11 +3062,13 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 	switch (lnk->link_id) {
 	case DEFRAMER_LINK0_TX:
 		link = &phy->jesd_tx_link;
-		lnk->sample_rate = clk_get_rate(phy->clks[TX_SAMPL_CLK]);
+		lnk->sample_rate = phy->dac_frequency_hz;
+		lnk->sample_rate_div = phy->tx_main_interp * phy->tx_chan_interp;
 		break;
 	case FRAMER_LINK0_RX:
 		link = &phy->jesd_rx_link[0];
-		lnk->sample_rate = clk_get_rate(phy->clks[RX_SAMPL_CLK]);
+		lnk->sample_rate = phy->adc_frequency_hz;
+		lnk->sample_rate_div = phy->adc_dcm;
 		break;
 	default:
 		return -EINVAL;
