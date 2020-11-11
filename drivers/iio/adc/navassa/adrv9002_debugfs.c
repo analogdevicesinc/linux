@@ -28,6 +28,24 @@
 #define tx_to_phy(tx, nr)	\
 	container_of(tx, struct adrv9002_rf_phy, tx_channels[nr])
 
+#define chan_to_tx(c)		\
+	container_of(c, struct adrv9002_tx_chan, channel)
+
+#define chan_to_rx(c)		\
+	container_of(c, struct adrv9002_rx_chan, channel)
+
+#define chan_to_phy(c) ({						\
+	struct adrv9002_chan *__c = (c);				\
+	struct adrv9002_rf_phy *__phy;					\
+									\
+	if (__c->port == ADI_RX)					\
+		__phy = rx_to_phy(chan_to_rx(__c), __c->number - 1);	\
+	else								\
+		__phy = tx_to_phy(chan_to_tx(__c), __c->number - 1);	\
+									\
+	__phy;								\
+})
+
 static ssize_t adrv9002_rx_adc_type_get(struct file *file, char __user *userbuf,
 					size_t count, loff_t *ppos)
 {
@@ -759,6 +777,75 @@ static const struct file_operations adrv9002_ssi_delays_fops = {
 	.release	= single_release,
 };
 
+static int adrv9002_enablement_delays_show(struct seq_file *s, void *ignored)
+{
+	struct adrv9002_chan *chan = s->private;
+	struct adrv9002_rf_phy *phy = chan_to_phy(chan);
+	struct adi_adrv9001_ChannelEnablementDelays en_delays = {0}, en_delays_ns;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9001_Radio_ChannelEnablementDelays_Inspect(phy->adrv9001, chan->port,
+								 chan->number, &en_delays);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	adrv9002_en_delays_arm_to_ns(phy, &en_delays, &en_delays_ns);
+
+	seq_printf(s, "fall_to_off_delay: %u\n", en_delays_ns.fallToOffDelay);
+	seq_printf(s, "guard_delay: %u\n", en_delays_ns.guardDelay);
+	seq_printf(s, "hold_delay: %u\n", en_delays_ns.holdDelay);
+	seq_printf(s, "rise_to_analog_on_delay: %u\n", en_delays_ns.riseToAnalogOnDelay);
+	seq_printf(s, "rise_to_on_delay: %u\n", en_delays_ns.riseToOnDelay);
+
+	return 0;
+}
+
+static ssize_t adrv9002_enablement_delays_write(struct file *file, const char __user *userbuf,
+						size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct adrv9002_chan *chan = s->private;
+	struct adrv9002_rf_phy *phy = chan_to_phy(chan);
+	struct adi_adrv9001_ChannelEnablementDelays en_delays;
+	int ret;
+
+	adrv9002_en_delays_ns_to_arm(phy, &chan->en_delays_ns, &en_delays);
+
+	mutex_lock(&phy->lock);
+	ret = adrv9002_channel_to_state(phy, chan, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+	if (ret)
+		goto unlock;
+
+	ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, chan->port,
+								   chan->number, &en_delays);
+	if (ret) {
+		ret = adrv9002_dev_err(phy);
+		goto unlock;
+	}
+
+	ret = adrv9002_channel_to_state(phy, chan, chan->cached_state, false);
+unlock:
+	mutex_unlock(&phy->lock);
+
+	return ret ? ret : count;
+}
+
+static int adrv9002_enablement_delays_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, adrv9002_enablement_delays_show, inode->i_private);
+}
+
+static const struct file_operations adrv9002_enablement_delays_fops = {
+	.owner		= THIS_MODULE,
+	.open		= adrv9002_enablement_delays_open,
+	.read		= seq_read,
+	.write		= adrv9002_enablement_delays_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 {
 	int chan;
@@ -791,32 +878,26 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 	debugfs_create_file("ssi_delays", 0600, d, phy, &adrv9002_ssi_delays_fops);
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->tx_channels); chan++) {
+		struct adrv9002_tx_chan *tx = &phy->tx_channels[chan];
+
 		sprintf(attr, "tx%d_attenuation_pin_control", chan);
-		debugfs_create_file(attr, 0400, d, &phy->tx_channels[chan],
-				    &adrv9002_tx_pin_atten_control_fops);
+		debugfs_create_file(attr, 0400, d, tx, &adrv9002_tx_pin_atten_control_fops);
 		sprintf(attr, "tx%d_dac_boost_en", chan);
-		debugfs_create_file_unsafe(attr, 0400, d,
-					   &phy->tx_channels[chan],
-					   &adrv9002_tx_dac_full_scale_fops);
+		debugfs_create_file_unsafe(attr, 0400, d, tx, &adrv9002_tx_dac_full_scale_fops);
 		sprintf(attr, "tx%d_ssi_test_mode_data", chan);
 		debugfs_create_file(attr, 0600, d, &phy->tx_channels[chan],
 				    &adrv9002_tx_ssi_test_mode_data_fops);
 		sprintf(attr, "tx%d_ssi_test_mode_fixed_pattern", chan);
-		debugfs_create_file_unsafe(attr, 0600, d,
-					   &phy->tx_channels[chan],
+		debugfs_create_file_unsafe(attr, 0600, d, tx,
 					   &adrv9002_tx_ssi_test_mode_fixed_pattern_fops);
 		sprintf(attr, "tx%d_ssi_test_mode_configure", chan);
-		debugfs_create_file(attr, 0200, d,
-				    &phy->tx_channels[chan],
-				    &adrv9002_ssi_tx_test_mode_config_fops);
+		debugfs_create_file(attr, 0200, d, tx, &adrv9002_ssi_tx_test_mode_config_fops);
 		sprintf(attr, "tx%d_ssi_test_mode_status", chan);
-		debugfs_create_file(attr, 0400, d,
-				    &phy->tx_channels[chan],
-				    &adrv9002_ssi_tx_test_mode_status_fops);
+		debugfs_create_file(attr, 0400, d, tx, &adrv9002_ssi_tx_test_mode_status_fops);
 		sprintf(attr, "tx%d_ssi_test_mode_loopback_en", chan);
-		debugfs_create_file_unsafe(attr, 0600, d, &phy->tx_channels[chan],
+		debugfs_create_file_unsafe(attr, 0600, d, tx,
 					   &adrv9002_tx_ssi_test_mode_loopback_fops);
-
+		/* ssi delays */
 		sprintf(attr, "tx%d_ssi_clk_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txClkDelay[chan]);
 		sprintf(attr, "tx%d_ssi_refclk_delay", chan);
@@ -827,30 +908,39 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txIDataDelay[chan]);
 		sprintf(attr, "tx%d_ssi_q_data_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txQDataDelay[chan]);
+		/* enablement delays */
+		sprintf(attr, "tx%d_fall_to_off_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &tx->channel.en_delays_ns.fallToOffDelay);
+		sprintf(attr, "tx%d_guard_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &tx->channel.en_delays_ns.guardDelay);
+		sprintf(attr, "tx%d_hold_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &tx->channel.en_delays_ns.holdDelay);
+		sprintf(attr, "tx%d_rise_to_analog_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &tx->channel.en_delays_ns.riseToAnalogOnDelay);
+		sprintf(attr, "tx%d_rise_to_on_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &tx->channel.en_delays_ns.riseToOnDelay);
+		sprintf(attr, "tx%d_enablement_delays", chan);
+		debugfs_create_file(attr, 0600, d, &tx->channel, &adrv9002_enablement_delays_fops);
 	}
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->rx_channels); chan++) {
+		struct adrv9002_rx_chan *rx = &phy->rx_channels[chan];
+
 		sprintf(attr, "rx%d_adc_type", chan);
-		debugfs_create_file(attr, 0400, d, &phy->rx_channels[chan],
-				    &adrv9002_channel_adc_type_fops);
+		debugfs_create_file(attr, 0400, d, rx, &adrv9002_channel_adc_type_fops);
 		sprintf(attr, "rx%d_gain_control_pin_mode", chan);
-		debugfs_create_file(attr, 0400, d, &phy->rx_channels[chan],
-				    &adrv9002_rx_gain_control_pin_mode_fops);
+		debugfs_create_file(attr, 0400, d, rx, &adrv9002_rx_gain_control_pin_mode_fops);
 		sprintf(attr, "rx%d_agc_config", chan);
-		debugfs_create_file(attr, 0600, d, &phy->rx_channels[chan],
-				    &adrv9002_rx_agc_config_fops);
+		debugfs_create_file(attr, 0600, d, rx, &adrv9002_rx_agc_config_fops);
 		sprintf(attr, "rx%d_ssi_test_mode_data", chan);
-		debugfs_create_file(attr, 0600, d, &phy->rx_channels[chan],
-				    &adrv9002_rx_ssi_test_mode_data_fops);
+		debugfs_create_file(attr, 0600, d, rx, &adrv9002_rx_ssi_test_mode_data_fops);
 		sprintf(attr, "rx%d_ssi_test_mode_fixed_pattern", chan);
-		debugfs_create_file_unsafe(attr, 0600, d,
-					   &phy->rx_channels[chan],
+		debugfs_create_file_unsafe(attr, 0600, d, rx,
 					   &adrv9002_rx_ssi_test_mode_fixed_pattern_fops);
 		sprintf(attr, "rx%d_ssi_test_mode_configure", chan);
-		debugfs_create_file(attr, 0200, d,
-				    &phy->rx_channels[chan],
-				    &adrv9002_ssi_rx_test_mode_config_fops);
-
+		debugfs_create_file(attr, 0200, d, rx, &adrv9002_ssi_rx_test_mode_config_fops);
+		adrv9002_debugfs_agc_config_create(rx, d);
+		/* ssi delays */
 		sprintf(attr, "rx%d_ssi_clk_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.rxClkDelay[chan]);
 		sprintf(attr, "rx%d_ssi_strobe_delay", chan);
@@ -859,6 +949,18 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.rxIDataDelay[chan]);
 		sprintf(attr, "rx%d_ssi_q_data_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.rxQDataDelay[chan]);
-		adrv9002_debugfs_agc_config_create(&phy->rx_channels[chan], d);
+		/* enablement delays */
+		sprintf(attr, "rx%d_fall_to_off_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &rx->channel.en_delays_ns.fallToOffDelay);
+		sprintf(attr, "rx%d_guard_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &rx->channel.en_delays_ns.guardDelay);
+		sprintf(attr, "rx%d_hold_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &rx->channel.en_delays_ns.holdDelay);
+		sprintf(attr, "rx%d_rise_to_analog_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &rx->channel.en_delays_ns.riseToAnalogOnDelay);
+		sprintf(attr, "rx%d_rise_to_on_delay_ns", chan);
+		debugfs_create_u32(attr, 0600, d, &rx->channel.en_delays_ns.riseToOnDelay);
+		sprintf(attr, "rx%d_enablement_delays", chan);
+		debugfs_create_file(attr, 0600, d, &rx->channel, &adrv9002_enablement_delays_fops);
 	}
 }
