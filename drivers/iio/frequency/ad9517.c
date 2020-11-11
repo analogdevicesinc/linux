@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * AD9517 SPI Clock Generator with integrated VCO
+ * Analog Devices AD9517 and similar clock generators with integrated VCO
  *
- * Copyright 2013-2015 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
+ * Copyright 2013-2020 Analog Devices Inc.
  */
 
 #include <linux/module.h>
