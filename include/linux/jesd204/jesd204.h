@@ -69,6 +69,8 @@ struct jesd204_sysref {
  * @error			error code for this JESD204 link
  * @is_transmit			true if this link is transmit (digital to analog)
  * @sample_rate			sample rate for the link
+ * @sample_rate_div		optional sample rate divider for the link
+ * 					final rate = sample_rate / sample_rate_div
  * @num_lanes			number of JESD204 lanes (L)
  * @num_converters		number of converters per link (M)
  * @octets_per_frame		number of octets per frame (F)
@@ -103,6 +105,7 @@ struct jesd204_link {
 	int error;
 
 	u64 sample_rate;
+	u32 sample_rate_div;
 
 	bool is_transmit;
 
