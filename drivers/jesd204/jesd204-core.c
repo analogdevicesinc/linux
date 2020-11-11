@@ -201,9 +201,7 @@ int jesd204_link_get_rate_khz(struct jesd204_link *lnk,
 	if (ret)
 		return ret;
 
-	do_div(lane_rate_hz, 1000);
-
-	*lane_rate_khz = lane_rate_hz;
+	*lane_rate_khz = DIV_ROUND_CLOSEST_ULL(lane_rate_hz, 1000);
 
 	return ret;
 }
