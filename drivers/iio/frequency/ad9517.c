@@ -225,7 +225,6 @@ static int ad9517_write(struct spi_device *spi,
 			 unsigned reg, unsigned val)
 {
 	unsigned char buf[3];
-	int ret;
 	u16 cmd;
 
 	cmd = AD9517_WRITE | AD9517_CNT(1) | AD9517_ADDR(reg);
@@ -233,11 +232,7 @@ static int ad9517_write(struct spi_device *spi,
 	buf[1] = cmd & 0xFF;
 	buf[2] = val;
 
-	ret = spi_write(spi, buf, 3);
-	if (ret < 0)
-		return ret;
-
-	return 0;
+	return spi_write(spi, buf, ARRAY_SIZE(buf));
 }
 
 static int ad9517_parse_firmware(struct ad9517_state *st,
