@@ -668,6 +668,7 @@ static ssize_t sec_mipi_dsim_host_transfer(struct mipi_dsi_host *host,
 					   const struct mipi_dsi_msg *msg)
 {
 	int ret;
+	ssize_t bytes = 0;
 	bool use_lpm;
 	struct mipi_dsi_packet packet;
 	struct sec_mipi_dsim *dsim = to_sec_mipi_dsim(host);
@@ -738,9 +739,13 @@ static ssize_t sec_mipi_dsim_host_transfer(struct mipi_dsi_host *host,
 							  msg->rx_len);
 		if (ret < 0)
 			return ret;
+
+		bytes = msg->rx_len;
+	} else {
+		bytes = packet.size;
 	}
 
-	return 0;
+	return bytes;
 }
 
 static const struct mipi_dsi_host_ops sec_mipi_dsim_host_ops = {
