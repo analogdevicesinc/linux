@@ -113,11 +113,6 @@
 /* Two channels share one divider */
 #define AD9517_ADDRESS_DIVIDER_INDEX(x)	(AD9517_ADDRESS_INDEX(x) / 2)
 
-struct ad9517_platform_data {
-	unsigned long *regs;
-	unsigned num_regs;
-};
-
 struct ad9517_clk_div {
 	struct ad9517_state *st;
 	unsigned int address;
@@ -262,24 +257,6 @@ static int ad9517_parse_firmware(struct ad9517_state *st,
 	}
 	kfree(line);
 
-	return 0;
-}
-
-static int ad9517_parse_pdata(struct ad9517_state *st,
-				 struct ad9517_platform_data *pdata)
-{
-	int i;
-	unsigned addr;
-
-	if (!pdata->num_regs || (pdata->num_regs > AD9517_TRANSFER))
-		return -EINVAL;
-
-	for (i = 0; i < pdata->num_regs; i++) {
-		addr = pdata->regs[i] >> 16;
-		if (addr > AD9517_TRANSFER)
-			return -EINVAL;
-		st->regs[addr] = pdata->regs[i] & 0xFF;
-	}
 	return 0;
 }
 
@@ -1026,8 +1003,8 @@ static const struct ad9517_device_info ad9517_device_info[] = {
 
 static int ad9517_probe(struct spi_device *spi)
 {
-	struct ad9517_platform_data *pdata = spi->dev.platform_data;
 	const struct spi_device_id *id;
+	const char *name;
 	struct iio_dev *indio_dev;
 	int out, ret, conf;
 	const struct firmware *fw;
@@ -1077,34 +1054,24 @@ static int ad9517_probe(struct spi_device *spi)
  		return -ENODEV;
 	}
 
-	if (!pdata) {
-		const char *name;
-		if (spi->dev.of_node) {
-			if (of_property_read_string(spi->dev.of_node, "firmware", &name))
-				name = NULL;
-		} else {
-			name = FIRMWARE;
-		}
-
-		if (name) {
-			ret = request_firmware(&fw, name, &spi->dev);
-			if (ret) {
-				dev_err(&spi->dev,
-					"request_firmware() failed with %i\n", ret);
-				return ret;
-			}
-			ad9517_parse_firmware(st, fw->data, fw->size);
-			release_firmware(fw);
-		} else {
-			memcpy(st->regs, ad9517_default_regs, sizeof(st->regs));
-		}
+	if (spi->dev.of_node) {
+		if (of_property_read_string(spi->dev.of_node, "firmware", &name))
+			name = NULL;
 	} else {
-		ret = ad9517_parse_pdata(st, pdata);
-		if (ret < 0) {
+		name = FIRMWARE;
+	}
+
+	if (name) {
+		ret = request_firmware(&fw, name, &spi->dev);
+		if (ret) {
 			dev_err(&spi->dev,
-				"parse pdata failed with %i\n", ret);
+				"request_firmware() failed with %i\n", ret);
 			return ret;
 		}
+		ad9517_parse_firmware(st, fw->data, fw->size);
+		release_firmware(fw);
+	} else {
+		memcpy(st->regs, ad9517_default_regs, sizeof(st->regs));
 	}
 
 	st->spi = spi;
