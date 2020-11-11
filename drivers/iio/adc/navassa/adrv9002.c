@@ -71,6 +71,7 @@
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
 
 #define ADRV9002_STREAM_BINARY_SZ 	ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES
+#define ADRV9002_HP_CLK_PLL_DAHZ	884736000
 
 /* IRQ Masks */
 #define ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR		0x08000000
@@ -369,11 +370,8 @@ static int adrv9002_gain_to_gainidx(int gain)
 	return temp + ADRV9002_RX_MIN_GAIN_IDX;
 }
 
-/* lock is assumed to be held... */
-static int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy,
-				     struct adrv9002_chan *chann,
-				     const adi_adrv9001_ChannelState_e state,
-				     const bool cache_state)
+int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
+			      const adi_adrv9001_ChannelState_e state, const bool cache_state)
 {
 	int ret;
 	adi_adrv9001_ChannelEnableMode_e mode;
@@ -2215,6 +2213,7 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 	for (chan = 0; chan < ADRV9002_CHANN_MAX; chan++) {
 		struct adrv9002_chan *tx = &phy->tx_channels[chan].channel;
 		struct adrv9002_chan *rx = &phy->rx_channels[chan].channel;
+		struct adi_adrv9001_ChannelEnablementDelays en_delays;
 
 		if (!rx->enabled)
 			goto tx;
@@ -2225,6 +2224,11 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 		if (ret)
 			return adrv9002_dev_err(phy);
 
+		adrv9002_en_delays_ns_to_arm(phy, &rx->en_delays_ns, &en_delays);
+		ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, ADI_RX,
+									   rx->number, &en_delays);
+		if (ret)
+			return adrv9002_dev_err(phy);
 tx:
 		if (!tx->enabled)
 			continue;
@@ -2232,6 +2236,12 @@ tx:
 		carrier.carrierFrequency_Hz = 2450000000ULL;
 		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, ADI_TX, tx->number,
 							   &carrier);
+		if (ret)
+			return adrv9002_dev_err(phy);
+
+		adrv9002_en_delays_ns_to_arm(phy, &tx->en_delays_ns, &en_delays);
+		ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, ADI_TX,
+									   tx->number, &en_delays);
 		if (ret)
 			return adrv9002_dev_err(phy);
 	}
@@ -2584,6 +2594,48 @@ int adrv9002_clean_setup(struct adrv9002_rf_phy *phy)
 	return ret;
 }
 
+static u32 adrv9002_get_arm_clk(const struct adrv9002_rf_phy *phy)
+{
+	struct adi_adrv9001_ClockSettings *clks = &phy->curr_profile->clocks;
+	u32 sys_clk;
+
+	/* HP clk PLL is 8.8GHz and LP is 4.4GHz */
+	if (clks->clkPllVcoFreq_daHz == ADRV9002_HP_CLK_PLL_DAHZ)
+		sys_clk = clks->clkPllVcoFreq_daHz / 48 * 10;
+	else
+		sys_clk = clks->clkPllVcoFreq_daHz / 24 * 10;
+
+	return DIV_ROUND_CLOSEST(sys_clk, clks->armPowerSavingClkDiv);
+}
+
+void adrv9002_en_delays_ns_to_arm(const struct adrv9002_rf_phy *phy,
+				  const struct adi_adrv9001_ChannelEnablementDelays *d_ns,
+				  struct adi_adrv9001_ChannelEnablementDelays *d)
+{
+	u32 arm_clk = adrv9002_get_arm_clk(phy);
+
+	d->fallToOffDelay = DIV_ROUND_CLOSEST_ULL((u64)arm_clk * d_ns->fallToOffDelay, 1000000000);
+	d->guardDelay = DIV_ROUND_CLOSEST_ULL((u64)arm_clk * d_ns->guardDelay, 1000000000);
+	d->holdDelay = DIV_ROUND_CLOSEST_ULL((u64)arm_clk * d_ns->holdDelay, 1000000000);
+	d->riseToAnalogOnDelay = DIV_ROUND_CLOSEST_ULL((u64)arm_clk * d_ns->riseToAnalogOnDelay,
+						       1000000000);
+	d->riseToOnDelay = DIV_ROUND_CLOSEST_ULL((u64)arm_clk * d_ns->riseToOnDelay, 1000000000);
+}
+
+void adrv9002_en_delays_arm_to_ns(const struct adrv9002_rf_phy *phy,
+				  const struct adi_adrv9001_ChannelEnablementDelays *d,
+				  struct adi_adrv9001_ChannelEnablementDelays *d_ns)
+{
+	u32 arm_clk = adrv9002_get_arm_clk(phy);
+
+	d_ns->fallToOffDelay = DIV_ROUND_CLOSEST_ULL(d->fallToOffDelay * 1000000000ULL, arm_clk);
+	d_ns->guardDelay = DIV_ROUND_CLOSEST_ULL(d->guardDelay * 1000000000ULL, arm_clk);
+	d_ns->holdDelay = DIV_ROUND_CLOSEST_ULL(d->holdDelay * 1000000000ULL, arm_clk);
+	d_ns->riseToAnalogOnDelay = DIV_ROUND_CLOSEST_ULL(d->riseToAnalogOnDelay * 1000000000ULL,
+							  arm_clk);
+	d_ns->riseToOnDelay = DIV_ROUND_CLOSEST_ULL(d->riseToOnDelay * 1000000000ULL, arm_clk);
+}
+
 #define ADRV9002_OF_U32_GET_VALIDATE(dev, node, key, def, min, max,	\
 				     val, mandatory) ({			\
 	u32 tmp;							\
@@ -2612,6 +2664,68 @@ int adrv9002_clean_setup(struct adrv9002_rf_phy *phy)
 #define OF_ADRV9002_PINCTL(key, def, min, max, val, mandatory) \
 	ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, pinctlr, key, def, min, \
 				     max, val, mandatory)
+
+/* as stated in adi_adrv9001_radio_types.h */
+#define EN_DELAY_MAX		(BIT(24) - 1ULL)
+
+static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
+				    const struct device_node *node,
+				    struct adrv9002_chan *chan)
+{
+	int ret;
+	struct device_node *en_delay;
+	struct adi_adrv9001_ChannelEnablementDelays *delays = &chan->en_delays_ns;
+	u32 arm_clk = adrv9002_get_arm_clk(phy);
+	u32 max_delay_ns = DIV_ROUND_CLOSEST_ULL(EN_DELAY_MAX * 1000000000, arm_clk);
+
+	en_delay = of_parse_phandle(node, "adi,en-delays", 0);
+	if (!en_delay)
+		return 0;
+
+#define OF_ADRV9002_EN_DELAY(key, min, max, val) \
+	ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, en_delay, key, 0, min, \
+				     max, val, false)
+
+	ret = OF_ADRV9002_EN_DELAY("adi,rise-to-on-delay-ns", 0, max_delay_ns,
+				   delays->riseToOnDelay);
+	if (ret)
+		goto of_en_delay_put;
+
+	ret = OF_ADRV9002_EN_DELAY("adi,rise-to-analog-on-delay-ns", 0, delays->riseToOnDelay,
+				   delays->riseToAnalogOnDelay);
+	if (ret)
+		goto of_en_delay_put;
+
+	if (chan->port == ADI_RX) {
+		ret = OF_ADRV9002_EN_DELAY("adi,fall-to-off-delay-ns", 0, max_delay_ns,
+					   delays->fallToOffDelay);
+		if (ret)
+			goto of_en_delay_put;
+
+		ret = OF_ADRV9002_EN_DELAY("adi,hold-delay-ns", 0, delays->fallToOffDelay,
+					   delays->holdDelay);
+		if (ret)
+			goto of_en_delay_put;
+	} else {
+		ret = OF_ADRV9002_EN_DELAY("adi,hold-delay-ns", 0, max_delay_ns, delays->holdDelay);
+		if (ret)
+			goto of_en_delay_put;
+
+		ret = OF_ADRV9002_EN_DELAY("adi,fall-to-off-delay-ns", 0, delays->holdDelay,
+					   delays->fallToOffDelay);
+		if (ret)
+			goto of_en_delay_put;
+	}
+
+	ret = OF_ADRV9002_EN_DELAY("adi,guard-delay-ns", 0, max_delay_ns, delays->guardDelay);
+	if (ret)
+		goto of_en_delay_put;
+
+of_en_delay_put:
+	of_node_put(en_delay);
+
+	return ret;
+}
 
 static int adrv9002_parse_tx_pin_dt(struct adrv9002_rf_phy *phy,
 				    struct device_node *node,
@@ -2664,9 +2778,14 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 				struct device_node *node, const int channel)
 {
 	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
+	int ret;
 
 	if (of_property_read_bool(node, "adi,dac-full-scale-boost"))
 		tx->dac_boost_en = true;
+
+	ret = adrv9002_parse_en_delays(phy, node, &tx->channel);
+	if (ret)
+		return ret;
 
 	return adrv9002_parse_tx_pin_dt(phy, node, tx);
 }
@@ -2940,6 +3059,10 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 		return ret;
 
 	ret = adrv9002_parse_rx_pinctl_dt(phy, node, rx);
+	if (ret)
+		return ret;
+
+	ret = adrv9002_parse_en_delays(phy, node, &rx->channel);
 	if (ret)
 		return ret;
 
@@ -3227,7 +3350,7 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		[TDD2_INTF_CLK] = "-tdd2_intf_clk"
 	};
 
-	ret = adrv9002_setup(phy, adrv9002_init_get());
+	ret = adrv9002_setup(phy, phy->curr_profile);
 	if (ret < 0)
 		return ret;
 
@@ -3368,6 +3491,8 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->adrv9001 = &phy->adrv9001_device;
 	phy->hal.spi = spi;
 	phy->adrv9001->common.devHalInfo = &phy->hal;
+	/* get the default profile now as it might be needed in @adrv9002_parse_dt() */
+	phy->curr_profile = adrv9002_init_get();
 
 	/* initialize channel numbers and ports here since these will never change */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
