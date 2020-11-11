@@ -2967,7 +2967,7 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].scan_type.realbits =
 			phy->jesd_rx_link[0].jesd_param.jesd_n;
 		phy->chip_info.channel[c].scan_type.storagebits =
-			phy->jesd_rx_link[0].jesd_param.jesd_np;
+			(phy->jesd_rx_link[0].jesd_param.jesd_np > 8) ? 16 : 8;
 		phy->chip_info.channel[c].scan_type.sign = 's';
 	}
 
