@@ -150,6 +150,7 @@ static int jesd204_link_validate_params(const struct jesd204_link *lnk)
 int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 {
 	u64 rate, encoding_n, encoding_d;
+	u32 sample_rate_div;
 	int ret;
 
 	ret = jesd204_link_validate_params(lnk);
@@ -181,9 +182,11 @@ int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 		break;
 	}
 
+	sample_rate_div = lnk->sample_rate_div ? lnk->sample_rate_div : 1;
+
 	rate = lnk->num_converters * lnk->bits_per_sample *
 		encoding_n * lnk->sample_rate;
-	do_div(rate, lnk->num_lanes * encoding_d);
+	do_div(rate, lnk->num_lanes * encoding_d * sample_rate_div);
 
 	*lane_rate_hz = rate;
 
