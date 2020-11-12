@@ -33,7 +33,6 @@
 
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 
-
 #define CHIPID_AD9081 0x9081
 #define CHIPID_AD9082 0x9082
 #define CHIPID_MASK 0xFFFF
@@ -42,8 +41,9 @@
 #define MAX_NUM_MAIN_DATAPATHS 4
 #define MAX_NUM_CHANNELIZER 8
 
-enum { ID_AD9081,
-};
+#define for_each_cddc(bit, mask) \
+	for ((bit) = 0; (bit) < MAX_NUM_MAIN_DATAPATHS; (bit)++) \
+		if ((mask) & BIT(bit))
 
 enum {	CDDC_NCO_FREQ,
 	FDDC_NCO_FREQ,
@@ -155,9 +155,7 @@ struct ad9081_phy {
 	u8 ffh_hopf_mode;
 	u32 ffh_hopf_vals[32];
 
-
 	struct dac_settings_cache dac_cache;
-
 	struct ad9081_jesd_link jesd_tx_link;
 
 	u32 adc_main_decimation[MAX_NUM_MAIN_DATAPATHS];
@@ -199,7 +197,6 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 					     1, /* trigger_src */
 					     0, /* gpio_index */
 					     phy->nco_sync_ms_extra_lmfc_num);
-
 }
 
 int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
@@ -679,7 +676,6 @@ static const struct iio_enum ad9081_nyquist_zone_enum = {
 	.get = ad9081_nyquist_zone_read,
 };
 
-
 int ad9081_iio_val_to_str(char *buf, u32 max, int val)
 {
 	int vals[2];
@@ -704,10 +700,32 @@ int ad9081_iio_str_to_val(const char *str, int min, int max, int *val)
 	return ret;
 }
 
-static u32 ad9081_adc_chan_to_fddc(struct ad9081_phy *phy,
-	const struct iio_chan_spec *chan)
+static void ad9081_iiochan_to_fddc_cddc(struct ad9081_phy *phy,
+	const struct iio_chan_spec *chan, u8 *fddc_num, u8 *fddc_mask,
+	u8 *cddc_num, u8 *cddc_mask)
 {
-	return phy->jesd_rx_link[0].link_converter_select[chan->address] / 2;
+	if (chan->output) {
+		u8 mask = 0;
+		int i;
+
+		*fddc_num = chan->channel;
+		*fddc_mask = BIT(chan->channel) & AD9081_DAC_CH_ALL;
+
+		for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar); i++)
+			if (phy->tx_dac_chan_xbar[i] & BIT(chan->channel)) {
+				mask |= BIT(i);
+				*cddc_num = i;
+
+			}
+
+		*cddc_mask = mask;
+	} else {
+		*fddc_num = phy->jesd_rx_link[0].link_converter_select[chan->address] / 2;
+		*fddc_mask = BIT(*fddc_num) & AD9081_ADC_FDDC_ALL;
+
+		adi_ad9081_adc_xbar_find_cddc(&phy->ad9081, *fddc_mask , cddc_mask);
+		*cddc_num = ilog2(*cddc_mask & AD9081_ADC_CDDC_ALL);
+	}
 }
 
 static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
@@ -717,28 +735,24 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	long long val;
-	u8 cddc, fddc_num;
+	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
 	int i, ret = -EINVAL;
 
 	mutex_lock(&indio_dev->mlock);
 
+	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+		&fddc_mask, &cddc_num, &cddc_mask);
+
 	switch (private) {
 	case CDDC_NCO_FREQ:
 		if (chan->output) {
-			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
-			     i++) {
-				if (phy->tx_dac_chan_xbar[i] &
-				    BIT(chan->channel)) {
-					val = phy->tx_main_shift[i];
-					ret = 0;
-					break;
-				}
+			for_each_cddc(i, cddc_mask) {
+				val = phy->tx_main_shift[i];
+				ret = 0;
+				break;
 			}
 		} else {
-			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
-			adi_ad9081_adc_xbar_find_cddc(&phy->ad9081,
-						      BIT(fddc_num), &cddc);
-			val = phy->rx_cddc_shift[ilog2(cddc)];
+			val = phy->rx_cddc_shift[cddc_num];
 			ret = 0;
 		}
 		break;
@@ -747,27 +761,19 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 			val = phy->tx_chan_shift[chan->channel];
 			ret = 0;
 		} else {
-			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
 			val = phy->rx_fddc_shift[fddc_num];
 			ret = 0;
 		}
 		break;
 	case CDDC_NCO_PHASE:
 		if (chan->output) {
-			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
-			i++) {
-				if (phy->tx_dac_chan_xbar[i] &
-				BIT(chan->channel)) {
-					val = phy->dac_cache.main_phase[i];
-					ret = 0;
-					break;
-				}
+			for_each_cddc(i, cddc_mask) {
+				val = phy->dac_cache.main_phase[i];
+				ret = 0;
+				break;
 			}
 		} else {
-			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
-			adi_ad9081_adc_xbar_find_cddc(&phy->ad9081,
-						BIT(fddc_num), &cddc);
-			val = phy->rx_cddc_phase[ilog2(cddc)];
+			val = phy->rx_cddc_phase[cddc_num];
 			ret = 0;
 		}
 		break;
@@ -776,7 +782,6 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 			val = phy->dac_cache.chan_phase[chan->channel];
 			ret = 0;
 		} else {
-			fddc_num = ad9081_adc_chan_to_fddc(phy, chan);
 			val = phy->rx_fddc_phase[fddc_num];
 			ret = 0;
 		}
@@ -812,14 +817,10 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		break;
 	case CDDC_FFH_HOPF_SET:
 		if (chan->output) {
-			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
-			     i++) {
-				if (phy->tx_dac_chan_xbar[i] &
-				    BIT(chan->channel)) {
-					val = phy->tx_main_ffh_select[i];
-					ret = 0;
-					goto out_unlock;
-				}
+			for_each_cddc(i, cddc_mask) {
+				val = phy->tx_main_ffh_select[i];
+				ret = 0;
+				goto out_unlock;
 			}
 		}
 		/* fall-through */
@@ -836,32 +837,6 @@ out_unlock:
 	return ret;
 }
 
-u8 ad9081_get_main_dac_mask(struct ad9081_phy *phy, u32 channel)
-{
-	u8 mask = 0;
-	u32 i;
-
-	for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar); i++)
-		if (phy->tx_dac_chan_xbar[i] & BIT(channel))
-			mask |= BIT(i);
-
-	return mask;
-}
-
-u8 ad9081_get_main_adc_mask(struct ad9081_phy *phy, int scan_index)
-{
-	u8 mask = 0;
-	u32 fddc_num;
-
-	if (scan_index < 0)
-		return 0;
-
-	fddc_num = phy->jesd_rx_link[0].link_converter_select[scan_index] / 2;
-	adi_ad9081_adc_xbar_find_cddc(&phy->ad9081, BIT(fddc_num), &mask);
-
-	return mask;
-}
-
 static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 				     uintptr_t private,
 				     const struct iio_chan_spec *chan,
@@ -872,11 +847,14 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 	long long readin;
 	bool enable;
 	int i, ret, readin_32;
-	u8 cddc, fddc_num, mask;
+	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
 	s16 val16;
 	s64 val64;
 
 	mutex_lock(&indio_dev->mlock);
+
+	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+		&fddc_mask, &cddc_num, &cddc_mask);
 
 	switch (private) {
 	case CDDC_NCO_FREQ:
@@ -886,27 +864,20 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 
 		if (chan->output) {
 			/* set main nco */
-			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
-			     i++) {
-				if (phy->tx_dac_chan_xbar[i] &
-				    BIT(chan->channel)) {
-					ret = adi_ad9081_dac_duc_nco_set(
-						&phy->ad9081, BIT(i),
-						AD9081_DAC_CH_NONE, readin);
-					if (!ret)
-						phy->tx_main_shift[i] = readin;
-					else
-						ret = -EFAULT;
-				}
+			for_each_cddc(i, cddc_mask) {
+				ret = adi_ad9081_dac_duc_nco_set(
+					&phy->ad9081, BIT(i),
+					AD9081_DAC_CH_NONE, readin);
+				if (!ret)
+					phy->tx_main_shift[i] = readin;
+				else
+					ret = -EFAULT;
 			}
-
 		} else {
-			cddc = ad9081_get_main_adc_mask(phy, chan->address);
-
 			ret = adi_ad9081_adc_ddc_coarse_nco_set(&phy->ad9081,
-								cddc, readin);
+								cddc_mask, readin);
 			if (!ret)
-				phy->rx_cddc_shift[ilog2(cddc)] = readin;
+				phy->rx_cddc_shift[cddc_num] = readin;
 			else
 				ret = -EFAULT;
 		}
@@ -919,19 +890,16 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		if (chan->output) {
 			ret = adi_ad9081_dac_duc_nco_set(&phy->ad9081,
 							 AD9081_DAC_NONE,
-							 BIT(chan->channel),
+							 fddc_mask,
 							 readin);
 			if (!ret)
-				phy->tx_chan_shift[chan->channel] = readin;
+				phy->tx_chan_shift[fddc_num] = readin;
 			else
 				ret = -EFAULT;
 
 		} else {
-			fddc_num =
-				phy->jesd_rx_link[0].link_converter_select[
-					chan->address] / 2;
 			ret = adi_ad9081_adc_ddc_fine_nco_set(
-				&phy->ad9081, BIT(fddc_num), readin);
+				&phy->ad9081, fddc_mask, readin);
 			if (!ret)
 				phy->rx_fddc_shift[fddc_num] = readin;
 			else
@@ -949,29 +917,23 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			val16 = div_s64(readin * 32768, 180000LL);
 
 			/* set main nco */
-			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
-			i++) {
-				if (phy->tx_dac_chan_xbar[i] &
-				BIT(chan->channel)) {
-					ret = adi_ad9081_dac_duc_nco_phase_offset_set(
-						&phy->ad9081, BIT(i), val16,
-						AD9081_DAC_CH_NONE, 0);
-					if (!ret)
-						phy->dac_cache.main_phase[i] =
-							readin;
-					else
-						ret = -EFAULT;
-				}
+			for_each_cddc(i, cddc_mask) {
+				ret = adi_ad9081_dac_duc_nco_phase_offset_set(
+					&phy->ad9081, BIT(i), val16,
+					AD9081_DAC_CH_NONE, 0);
+				if (!ret)
+					phy->dac_cache.main_phase[i] =
+						readin;
+				else
+					ret = -EFAULT;
 			}
-
 		} else {
 			val64 = div_s64(readin * 14073748835533, 18000LL);
-			cddc = ad9081_get_main_adc_mask(phy, chan->address);
 
 			ret =  adi_ad9081_adc_ddc_coarse_nco_phase_offset_set(
-				&phy->ad9081, cddc, val64);
+				&phy->ad9081, cddc_mask, val64);
 			if (!ret)
-				phy->rx_cddc_phase[ilog2(cddc)] = readin;
+				phy->rx_cddc_phase[cddc_num] = readin;
 			else
 				ret = -EFAULT;
 		}
@@ -984,27 +946,22 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		readin = clamp_t(long long, readin, -180000, 180000);
 
 		if (chan->output) {
-
 			val16 = div_s64(readin * 32768, 180000LL);
 			ret = adi_ad9081_dac_duc_nco_phase_offset_set(
 					&phy->ad9081,
 					AD9081_DAC_NONE, 0,
-					BIT(chan->channel),
+					fddc_mask,
 					val16);
 			if (!ret)
-				phy->dac_cache.chan_phase[chan->channel] =
+				phy->dac_cache.chan_phase[fddc_num] =
 					readin;
 			else
 				ret = -EFAULT;
-
 		} else {
 			val64 = div_s64(readin * 14073748835533, 18000LL);
-			fddc_num =
-				phy->jesd_rx_link[0].link_converter_select[
-					chan->address] / 2;
 
 			ret = adi_ad9081_adc_ddc_fine_nco_phase_offset_set(
-				&phy->ad9081, BIT(fddc_num), val64);
+				&phy->ad9081, fddc_mask, val64);
 			if (!ret)
 				phy->rx_fddc_phase[fddc_num] = readin;
 			else
@@ -1016,21 +973,19 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		if (ret)
 			goto out;
 		ret = adi_ad9081_dac_duc_nco_gain_set(
-			&phy->ad9081, BIT(chan->channel), readin_32);
+			&phy->ad9081, fddc_mask, readin_32);
 		if (!ret)
-			phy->dac_cache.chan_gain[chan->channel] = readin_32;
+			phy->dac_cache.chan_gain[fddc_num] = readin_32;
 		break;
 	case DAC_MAIN_TEST_TONE_EN:
 		ret = strtobool(buf, &enable);
 		if (ret)
 			goto out;
 
-		mask = ad9081_get_main_dac_mask(phy, chan->channel);
 		ret = adi_ad9081_dac_duc_main_dc_test_tone_en_set(&phy->ad9081,
-								  mask, enable);
+								  cddc_mask, enable);
 		if (!ret)
-			phy->dac_cache.main_test_tone_en[chan->channel] =
-				enable;
+			phy->dac_cache.main_test_tone_en[fddc_num] = enable;
 		break;
 	case DAC_CHAN_TEST_TONE_EN:
 		ret = strtobool(buf, &enable);
@@ -1038,22 +993,19 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			goto out;
 
 		ret = adi_ad9081_dac_dc_test_tone_en_set(
-			&phy->ad9081, BIT(chan->channel), enable);
+			&phy->ad9081, fddc_mask, enable);
 		if (!ret)
-			phy->dac_cache.chan_test_tone_en[chan->channel] =
-				enable;
+			phy->dac_cache.chan_test_tone_en[fddc_num] = enable;
 		break;
 	case DAC_MAIN_TEST_TONE_OFFSET:
 		ret = ad9081_iio_str_to_val(buf, 0, 0x7FFF, &readin_32);
 		if (ret)
 			goto out;
 
-		mask = ad9081_get_main_dac_mask(phy, chan->channel);
 		ret = adi_ad9081_dac_duc_main_dc_test_tone_offset_set(
-			&phy->ad9081, mask, readin_32);
+			&phy->ad9081, cddc_mask, readin_32);
 		if (!ret)
-			phy->dac_cache.main_test_tone_offset[chan->channel] =
-				readin_32;
+			phy->dac_cache.main_test_tone_offset[fddc_num] = readin_32;
 
 		break;
 	case DAC_CHAN_TEST_TONE_OFFSET:
@@ -1062,10 +1014,9 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			goto out;
 
 		ret = adi_ad9081_dac_dc_test_tone_offset_set(
-			&phy->ad9081, BIT(chan->channel), readin_32);
+			&phy->ad9081, fddc_mask, readin_32);
 		if (!ret)
-			phy->dac_cache.chan_test_tone_offset[chan->channel] =
-				readin_32;
+			phy->dac_cache.chan_test_tone_offset[fddc_num] = readin_32;
 		break;
 
 	case CDDC_FFH_HOPF_SET:
@@ -1075,20 +1026,14 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 
 		if (chan->output) {
 			/* set main nco */
-			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
-			     i++) {
-				if (phy->tx_dac_chan_xbar[i] &
-				    BIT(chan->channel)) {
-					ret = adi_ad9081_dac_duc_main_nco_hopf_select_set(
-							&phy->ad9081, BIT(i), readin);
-					if (!ret)
-						phy->tx_main_ffh_select[i] = readin;
-					else
-						ret = -EFAULT;
-
-				}
+			for_each_cddc(i, cddc_mask) {
+				ret = adi_ad9081_dac_duc_main_nco_hopf_select_set(
+						&phy->ad9081, BIT(i), readin);
+				if (!ret)
+					phy->tx_main_ffh_select[i] = readin;
+				else
+					ret = -EFAULT;
 			}
-
 		}
 		break;
 	default:
@@ -1755,17 +1700,16 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_ENABLE:
 		if (chan->output) {
-			u8 mask;
+			u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
 
-			mask = ad9081_get_main_dac_mask(phy, chan->channel);
+			ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+				&fddc_mask, &cddc_num, &cddc_mask);
 
-			if (mask) {
+			if (cddc_mask) {
 				ret = adi_ad9081_dac_tx_enable_set(&phy->ad9081,
-								   mask, !!val);
-
+								   cddc_mask, !!val);
 				if (!ret)
-					phy->dac_cache.enable[chan->channel] =
-					!!val;
+					phy->dac_cache.enable[fddc_num] = !!val;
 			}
 		} else {
 			/* FIXME: NO API? */
@@ -3497,12 +3441,14 @@ static int ad9081_probe(struct spi_device *spi)
 	switch (conv->id) {
 	case CHIPID_AD9081:
 	case CHIPID_AD9082:
+		ret = ad9081_setup(spi);
+		if (ret)
+			break;
+		conv->chip_info = &phy->chip_info;
 		ret = ad9081_setup_chip_info_tbl(phy, true,
 			jesd204_dev_is_top(jdev));
 		if (ret)
 			break;
-		conv->chip_info = &phy->chip_info;
-		ret = ad9081_setup(spi);
 		break;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
