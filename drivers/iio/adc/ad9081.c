@@ -180,6 +180,9 @@ struct ad9081_phy {
 	struct ad9081_jesd_link jesd_rx_link[2];
 	short coeffs_i[196];
 	short coeffs_q[196];
+
+	char rx_chan_labels[MAX_NUM_CHANNELIZER][32];
+	char tx_chan_labels[MAX_NUM_CHANNELIZER][32];
 };
 
 static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
@@ -2866,6 +2869,26 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	return 0;
 }
 
+static char* ad9081_lable_writer(struct ad9081_phy *phy, const struct iio_chan_spec *chan)
+{
+	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
+
+	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num, &fddc_mask, &cddc_num, &cddc_mask);
+
+	if (chan->output) {
+		snprintf(phy->tx_chan_labels[fddc_num], sizeof(phy->tx_chan_labels[0]),
+			"FDDC%u->CDDC%u->DAC%u", fddc_num, cddc_num, cddc_num);
+
+		return phy->tx_chan_labels[fddc_num];
+
+	}
+
+	snprintf(phy->rx_chan_labels[fddc_num], sizeof(phy->rx_chan_labels[0]),
+		"FDDC%u->CDDC%u->ADC%u", fddc_num, cddc_num, cddc_num);
+
+	return phy->rx_chan_labels[fddc_num];
+}
+
 static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 				      bool complex, bool buffer_capable)
 {
@@ -2900,14 +2923,20 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].info_mask_shared_by_type =
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 
-		if (i < m)
-			phy->chip_info.channel[c].ext_info = rxadc_ext_info;
-
 		phy->chip_info.channel[c].scan_type.realbits =
 			phy->jesd_rx_link[0].jesd_param.jesd_n;
 		phy->chip_info.channel[c].scan_type.storagebits =
 			(phy->jesd_rx_link[0].jesd_param.jesd_np > 8) ? 16 : 8;
 		phy->chip_info.channel[c].scan_type.sign = 's';
+		phy->chip_info.channel[c].info_mask_separate |= BIT(IIO_CHAN_INFO_LABEL);
+
+		if (i < m) {
+			phy->chip_info.channel[c].ext_info = rxadc_ext_info;
+			phy->chip_info.channel[c].label_name =
+				ad9081_lable_writer(phy, &phy->chip_info.channel[c]);
+		} else {
+			phy->chip_info.channel[c].label_name = "buffer_only";
+		}
 	}
 
 	m = phy->jesd_tx_link.jesd_param.jesd_m *
@@ -2926,9 +2955,11 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 
 		phy->chip_info.channel[c].info_mask_separate =
-			BIT(IIO_CHAN_INFO_ENABLE);
+			BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_LABEL);
 
 		phy->chip_info.channel[c].ext_info = txdac_ext_info;
+		phy->chip_info.channel[c].label_name = ad9081_lable_writer(phy,
+			&phy->chip_info.channel[c]);
 	}
 
 	phy->chip_info.channel[c].type = IIO_TEMP;
