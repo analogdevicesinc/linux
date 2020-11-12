@@ -316,7 +316,8 @@ static void ad9517_calc_d12_dividers(unsigned int vco, unsigned int out,
 }
 
 static int ad9517_lvdscmos_set_frequency(struct ad9517_state *st,
-	unsigned int addr, unsigned int val)
+					 unsigned int addr,
+					 unsigned int val)
 {
 	unsigned reg_bypass, reg_div1, reg_div2;
 	unsigned d1, d2, hi, lo;
@@ -365,7 +366,8 @@ static int ad9517_lvdscmos_set_frequency(struct ad9517_state *st,
 }
 
 static int ad9517_lvpecl_set_frequency(struct ad9517_state *st,
-	unsigned int addr, unsigned int val)
+				       unsigned int addr,
+				       unsigned int val)
 {
 	unsigned reg_bypass, reg_div1, reg_bypass2;
 	unsigned d1, hi, lo;
@@ -391,7 +393,7 @@ static int ad9517_lvpecl_set_frequency(struct ad9517_state *st,
 	d1 = DIV_ROUND_CLOSEST(st->div0123_freq, val);
 	d1 = clamp_t(unsigned, d1, 1, 32);
 
-	if (d1 ==  1) {
+	if (d1 == 1) {
 		st->regs[reg_bypass2] |= AD9517_PECLDIV_3_BP;
 	} else {
 		st->regs[reg_bypass2] &= ~AD9517_PECLDIV_3_BP;
@@ -413,7 +415,7 @@ static int ad9517_lvpecl_set_frequency(struct ad9517_state *st,
 }
 
 static int ad9517_set_frequency(struct ad9517_state *st, unsigned int address,
-	unsigned int rate)
+				unsigned int rate)
 {
 	int ret;
 
@@ -435,7 +437,7 @@ out_unlock:
 }
 
 static unsigned long ad9517_get_frequency(struct ad9517_state *st,
-	unsigned int address)
+					  unsigned int address)
 {
 	unsigned int reg_index;
 	unsigned long rate;
@@ -486,7 +488,7 @@ static unsigned long ad9517_get_frequency(struct ad9517_state *st,
 }
 
 static int ad9517_out_enable(struct ad9517_state *st, unsigned int address,
-	unsigned int val)
+			     unsigned int val)
 {
 	unsigned int mask, reg;
 	int ret;
@@ -1086,7 +1088,6 @@ static int ad9517_probe(struct spi_device *spi)
 	} else {
 		st->refin_freq = clk_get_rate(ref_clk);
 		clk_prepare_enable(ref_clk);
-
 	}
 
 	clkin = devm_clk_get(&spi->dev, "clkin");
