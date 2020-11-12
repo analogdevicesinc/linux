@@ -1008,39 +1008,38 @@ static int ad9517_probe(struct spi_device *spi)
 	const struct spi_device_id *id;
 	const char *name;
 	struct iio_dev *indio_dev;
+	struct device *dev = &spi->dev;
 	int out, ret, conf;
 	const struct firmware *fw;
 	struct ad9517_state *st;
 	struct clk *clk, *ref_clk, *clkin;
-	bool spi3wire = of_property_read_bool(
-			spi->dev.of_node, "adi,spi-3wire-enable");
 	unsigned int device_type, part_id;
+	bool spi3wire;
 
 	id = spi_get_device_id(spi);
 	device_type = id->driver_data >> 8;
 	part_id = id->driver_data & 0xff;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
 	mutex_init(&st->lock);
 
-	st->gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
-	    GPIOD_OUT_HIGH);
+	st->gpio_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
 	if (st->gpio_reset) {
 		udelay(10);
 		gpiod_set_value(st->gpio_reset, 0);
 	}
 
-	st->gpio_sync = devm_gpiod_get_optional(&spi->dev, "sync",
-	    GPIOD_OUT_HIGH);
+	st->gpio_sync = devm_gpiod_get_optional(dev, "sync", GPIOD_OUT_HIGH);
 
+	spi3wire = device_property_present(dev, "adi,spi-3wire-enable");
 	conf = AD9517_LONG_INSTR |
 		((spi->mode & SPI_3WIRE || spi3wire) ? 0 : AD9517_SDO_ACTIVE);
 
-	ret = ad9517_write(spi, AD9517_SERCONF,  conf | AD9517_SOFT_RESET);
+	ret = ad9517_write(spi, AD9517_SERCONF, conf | AD9517_SOFT_RESET);
 	if (ret < 0)
 		return ret;
 
@@ -1052,21 +1051,21 @@ static int ad9517_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 	if (ret != part_id) {
-		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", ret);
+		dev_err(dev, "Unrecognized CHIP_ID 0x%X\n", ret);
  		return -ENODEV;
 	}
 
-	if (spi->dev.of_node) {
-		if (of_property_read_string(spi->dev.of_node, "firmware", &name))
+	if (dev->of_node) {
+		if (of_property_read_string(dev->of_node, "firmware", &name))
 			name = NULL;
 	} else {
 		name = FIRMWARE;
 	}
 
 	if (name) {
-		ret = request_firmware(&fw, name, &spi->dev);
+		ret = request_firmware(&fw, name, dev);
 		if (ret) {
-			dev_err(&spi->dev,
+			dev_err(dev,
 				"request_firmware() failed with %i\n", ret);
 			return ret;
 		}
@@ -1078,11 +1077,11 @@ static int ad9517_probe(struct spi_device *spi)
 
 	st->spi = spi;
 
-	ref_clk = devm_clk_get(&spi->dev, "refclk");
+	ref_clk = devm_clk_get(dev, "refclk");
 	if (IS_ERR(ref_clk)) {
 		ret = PTR_ERR(ref_clk);
 		if (ret != -ENOENT) {
-			dev_err(&spi->dev, "Failed getting REFIN clock (%d)\n", ret);
+			dev_err(dev, "Failed getting REFIN clock (%d)\n", ret);
 			return ret;
 		}
 	} else {
@@ -1090,11 +1089,11 @@ static int ad9517_probe(struct spi_device *spi)
 		clk_prepare_enable(ref_clk);
 	}
 
-	clkin = devm_clk_get(&spi->dev, "clkin");
+	clkin = devm_clk_get(dev, "clkin");
 	if (IS_ERR(clkin)) {
 		ret = PTR_ERR(clkin);
 		if (ret != -ENOENT) {
-			dev_err(&spi->dev, "Failed getting CLK clock (%d)\n", ret);
+			dev_err(dev, "Failed getting CLK clock (%d)\n", ret);
 			return ret;
 		}
 	} else {
@@ -1102,7 +1101,7 @@ static int ad9517_probe(struct spi_device *spi)
 		clk_prepare_enable(clkin);
 	}
 
-	indio_dev->dev.parent = &spi->dev;
+	indio_dev->dev.parent = dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->info = &ad9517_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -1126,7 +1125,7 @@ static int ad9517_probe(struct spi_device *spi)
 			return PTR_ERR(clk);
 	}
 
-	of_clk_add_provider(st->spi->dev.of_node,
+	of_clk_add_provider(dev->of_node,
 			    of_clk_src_onecell_get, &st->clk_data);
 
 	ret = iio_device_register(indio_dev);
@@ -1135,12 +1134,12 @@ static int ad9517_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, indio_dev);
 
-	dev_info(&spi->dev, "AD9517 successfully initialized");
+	dev_info(dev, "AD9517 successfully initialized");
 
 	return 0;
 
 err_of_clk_del_provider:
-	of_clk_del_provider(spi->dev.of_node);
+	of_clk_del_provider(dev->of_node);
 	return ret;
 }
 
