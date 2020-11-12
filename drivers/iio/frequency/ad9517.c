@@ -272,7 +272,9 @@ static int ad9517_calc_divider_hi_lo(unsigned ratio, unsigned *hi, unsigned *lo)
 	return 0;
 }
 
-static int ad9517_calc_d12_dividers(unsigned vco, unsigned out,  unsigned *d1_val, unsigned *d2_val)
+static void ad9517_calc_d12_dividers(unsigned int vco, unsigned int out,
+				     unsigned int *d1_val,
+				     unsigned int *d2_val)
 {
 	unsigned d1, d2, _d2 = 0, _d1 = 0, ratio;
 	unsigned err, min = UINT_MAX;
@@ -283,13 +285,13 @@ static int ad9517_calc_d12_dividers(unsigned vco, unsigned out,  unsigned *d1_va
 	if (ratio == 1) {
 		*d1_val = 1;
 		*d2_val = 1; /* Bypass */
-		return 0;
+		return;
 	}
 
 	if (ratio <= 32) {
 		*d1_val = ratio;
 		*d2_val = 1; /* Bypass */
-		return 0;
+		return;
 	}
 
 	for (d1 = 1; d1 <= 32; d1++) {
@@ -311,8 +313,6 @@ static int ad9517_calc_d12_dividers(unsigned vco, unsigned out,  unsigned *d1_va
 
 	*d2_val = min(_d2, _d1);
 	*d1_val = max(_d2, _d1);
-
-   return 0;
 }
 
 static int ad9517_lvdscmos_set_frequency(struct ad9517_state *st,
