@@ -1,5 +1,5 @@
 
-# This file exists solely to be include in drivers/hwmon/Kconfig
+# This file exists solely to be include in Kconfig.adi
 
 config HWMON_ALL_ADI_DRIVERS
 	tristate "Build all Analog Devices HWMON Drivers"
