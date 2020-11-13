@@ -19,9 +19,6 @@ config KERNEL_ALL_ADI_DRIVERS
 	select I2C_MUX
 	select LEDS_CLASS_FLASH
 	select PHYLIB
-	select USB
-	select USB_SUPPORT
-	select USB_SERIAL
 	select MULTIPLEXER
 	select MEDIA_SUPPORT
 	select MEDIA_CONTROLLER
@@ -36,6 +33,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select INPUT_ALL_ADI_DRIVERS
 	select MEDIA_ALL_ADI_DRIVERS
 	select SND_SOC_ALL_ADI_CODECS
+	select USB_ALL_ADI_DRIVERS
 	select POWER_RESET_LTC2952
 	select CHARGER_ADP5061
 	select I2C_MUX_LTC4306
@@ -50,6 +48,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select ADIN_T1L_PHY
 	select IPV6
 	select BRIDGE
+	select MEDIA_USB_SUPPORT
 	select NET_DSA
 	select MICROCHIP_KSZ
 	select MICROCHIP_KSZ_SPI_DRIVER
@@ -77,7 +76,6 @@ config KERNEL_ALL_ADI_DRIVERS
 	select DRM_I2C_ADV7511
 	select DRM_I2C_ADV7511_AUDIO
 	select DRM_I2C_ADV7533
-	select USB_SERIAL_UPD78F0730
 	select NVMEM_AXI_SYSID if (ARCH_ZYNQMP || ARCH_ZYNQ || MICROBLAZE || ARCH_SOCFPGA || NIOS2)
 	select INPUT_PCF8574
 	select AXI_INTR_MONITOR
@@ -88,4 +86,5 @@ source "drivers/hwmon/Kconfig.adi"
 source "drivers/iio/Kconfig.adi"
 source "drivers/input/Kconfig.adi"
 source "drivers/media/Kconfig.adi"
+source "drivers/usb/Kconfig.adi"
 source "sound/soc/codecs/Kconfig.adi"
