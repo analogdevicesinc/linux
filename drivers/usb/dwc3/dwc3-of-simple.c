@@ -22,12 +22,17 @@
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
 #include <linux/soc/xilinx/zynqmp/fw.h>
+#include <linux/firmware/xlnx-zynqmp.h>
 #include <linux/slab.h>
 
 #include <linux/phy/phy-zynqmp.h>
 #include <linux/of_address.h>
 
 #include "core.h"
+
+/* USB phy reset mask register */
+#define XLNX_USB_PHY_RST		0x001C
+#define XLNX_PHY_RST_MASK		0x1
 
 /* Xilinx USB 3.0 IP Register */
 #define XLNX_USB_COHERENCY		0x005C
@@ -54,7 +59,15 @@
 #define DWC3_PWR_STATE_RETRIES          1000
 #define DWC3_PWR_TIMEOUT		100
 
+/* Versal USB Node ID */
+#define VERSAL_USB_NODE_ID		0x18224018
+
+/* Versal USB Reset ID */
+#define VERSAL_USB_RESET_ID		0xC104036
+
 #define DWC3_OF_ADDRESS(ADDR)		((ADDR) - DWC3_GLOBALS_REGS_START)
+
+static const struct zynqmp_eemi_ops *eemi_ops;
 
 struct dwc3_of_simple {
 	struct device		*dev;
@@ -95,11 +108,47 @@ int dwc3_enable_hw_coherency(struct device *dev)
 }
 EXPORT_SYMBOL(dwc3_enable_hw_coherency);
 
+void dwc3_mask_phy_reset(struct device *dev, bool mask)
+{
+	struct device_node *node = of_get_parent(dev->of_node);
+
+	/* This is only valid for versal platforms */
+	if (of_device_is_compatible(node, "xlnx,versal-dwc3")) {
+		struct platform_device *pdev_parent;
+		struct dwc3_of_simple *simple;
+		u32 reg;
+
+		pdev_parent = of_find_device_by_node(node);
+		simple = platform_get_drvdata(pdev_parent);
+
+		reg = readl(simple->regs + XLNX_USB_PHY_RST);
+
+		if (mask)
+			/*
+			 * Mask the phy reset signal from comtroller
+			 * reaching ULPI phy. This can be done by
+			 * writing 0 into usb2_phy_reset register
+			 */
+			reg &= ~XLNX_PHY_RST_MASK;
+		else
+			/*
+			 * Allow phy reset signal from controller to
+			 * reset ULPI phy. This can be done by writing
+			 * 0x1 into usb2_phy_reset register
+			 */
+			reg |= XLNX_PHY_RST_MASK;
+
+		writel(reg, simple->regs + XLNX_USB_PHY_RST);
+	}
+}
+EXPORT_SYMBOL(dwc3_mask_phy_reset);
+
 void dwc3_set_simple_data(struct dwc3 *dwc)
 {
 	struct device_node *node = of_get_parent(dwc->dev->of_node);
 
-	if (node && of_device_is_compatible(node, "xlnx,zynqmp-dwc3")) {
+	if (node && (of_device_is_compatible(node, "xlnx,zynqmp-dwc3") ||
+		     of_device_is_compatible(node, "xlnx,versal-dwc3")))  {
 		struct platform_device *pdev_parent;
 		struct dwc3_of_simple   *simple;
 
@@ -135,7 +184,8 @@ void dwc3_simple_wakeup_capable(struct device *dev, bool wakeup)
 
 	/* check for valid parent node */
 	while (node) {
-		if (!of_device_is_compatible(node, "xlnx,zynqmp-dwc3"))
+		if (!of_device_is_compatible(node, "xlnx,zynqmp-dwc3") ||
+		    !of_device_is_compatible(node, "xlnx,versal-dwc3"))
 			node = of_get_next_parent(node);
 		else
 			break;
@@ -233,6 +283,44 @@ static int dwc3_of_simple_clk_init(struct dwc3_of_simple *simple, int count)
 	return 0;
 }
 
+static int dwc3_dis_u3phy_suspend(struct platform_device *pdev,
+				  struct dwc3_of_simple *simple)
+{
+	char *soc_rev;
+
+	/* The below is only valid for ZynqMP SOC */
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "xlnx,zynqmp-dwc3")) {
+		/* read Silicon version using nvmem driver */
+		soc_rev = zynqmp_nvmem_get_silicon_version(&pdev->dev,
+							   "soc_revision");
+
+		if (PTR_ERR(soc_rev) == -EPROBE_DEFER)
+			/* Do a deferred probe */
+			return -EPROBE_DEFER;
+		else if (!IS_ERR(soc_rev) && *soc_rev < ZYNQMP_SILICON_V4)
+			/* Add snps,dis_u3_susphy_quirk
+			 * for SOC revison less than v4
+			 */
+			simple->dis_u3_susphy_quirk = true;
+
+		if (!IS_ERR(soc_rev)) {
+			/* Update soc_rev to simple for future use */
+			simple->soc_rev = *soc_rev;
+
+			/* Clean soc_rev if got a valid pointer from nvmem
+			 * driver else we may end up in kernel panic
+			 */
+			kfree(soc_rev);
+		} else {
+			/* Return error */
+			return PTR_ERR(soc_rev);
+		}
+	}
+
+	return 0;
+}
+
 static int dwc3_of_simple_probe(struct platform_device *pdev)
 {
 	struct dwc3_of_simple	*simple;
@@ -247,13 +335,18 @@ static int dwc3_of_simple_probe(struct platform_device *pdev)
 	if (!simple)
 		return -ENOMEM;
 
+	eemi_ops = zynqmp_pm_get_eemi_ops();
+	if (IS_ERR(eemi_ops)) {
+		dev_err(dev, "Failed to get eemi_ops\n");
+		return PTR_ERR(eemi_ops);
+	}
+
 	platform_set_drvdata(pdev, simple);
 	simple->dev = dev;
 
-	if (of_device_is_compatible(pdev->dev.of_node,
-				    "xlnx,zynqmp-dwc3")) {
+	if (of_device_is_compatible(pdev->dev.of_node, "xlnx,zynqmp-dwc3") ||
+	    of_device_is_compatible(pdev->dev.of_node, "xlnx,versal-dwc3")) {
 
-		char			*soc_rev;
 		struct resource		*res;
 		void __iomem		*regs;
 
@@ -267,30 +360,13 @@ static int dwc3_of_simple_probe(struct platform_device *pdev)
 		/* Store the usb control regs into simple for further usage */
 		simple->regs = regs;
 
-		/* read Silicon version using nvmem driver */
-		soc_rev = zynqmp_nvmem_get_silicon_version(&pdev->dev,
-						   "soc_revision");
-
-		if (PTR_ERR(soc_rev) == -EPROBE_DEFER) {
-			/* Do a deferred probe */
-			return -EPROBE_DEFER;
-
-		} else if (!IS_ERR(soc_rev) &&
-					(*soc_rev < ZYNQMP_SILICON_V4)) {
-			/* Add snps,dis_u3_susphy_quirk
-			 * for SOC revison less than v4
-			 */
-			simple->dis_u3_susphy_quirk = true;
-		}
-
-		/* Update soc_rev to simple for future use */
-		simple->soc_rev = *soc_rev;
-
-		/* Clean soc_rev if got a valid pointer from nvmem driver
-		 * else we may end up in kernel panic
+		/*
+		 * ZynqMP silicon revision lesser than 4.0 needs to disable
+		 * suspend of usb 3.0 phy.
 		 */
-		if (!IS_ERR(soc_rev))
-			kfree(soc_rev);
+		ret = dwc3_dis_u3phy_suspend(pdev, simple);
+		if (ret)
+			return ret;
 	}
 
 	/* Set phy data for future use */
@@ -403,7 +479,7 @@ static void dwc3_simple_vbus(struct dwc3 *dwc, bool vbus_off)
 	writel(reg, dwc->regs + addr);
 }
 
-void dwc3_usb2phycfg(struct dwc3 *dwc, bool suspend)
+static void dwc3_usb2phycfg(struct dwc3 *dwc, bool suspend)
 {
 	u32 addr, reg;
 
@@ -424,17 +500,13 @@ void dwc3_usb2phycfg(struct dwc3 *dwc, bool suspend)
 	}
 }
 
-int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
+static int dwc3_zynqmp_power_req(struct dwc3 *dwc, bool on)
 {
 	u32 reg, retries;
 	void __iomem *reg_base;
 	struct platform_device *pdev_parent;
 	struct dwc3_of_simple *simple;
 	struct device_node *node = of_get_parent(dwc->dev->of_node);
-
-	/* this is for Xilinx devices only */
-	if (!of_device_is_compatible(node, "xlnx,zynqmp-dwc3"))
-		return 0;
 
 	pdev_parent = of_find_device_by_node(node);
 	simple = platform_get_drvdata(pdev_parent);
@@ -518,6 +590,84 @@ int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
 	}
 
 	return 0;
+}
+
+static int dwc3_versal_power_req(struct dwc3 *dwc, bool on)
+{
+	int ret;
+	struct platform_device *pdev_parent;
+	struct dwc3_of_simple *simple;
+	struct device_node *node = of_get_parent(dwc->dev->of_node);
+
+	pdev_parent = of_find_device_by_node(node);
+	simple = platform_get_drvdata(pdev_parent);
+
+	if (!eemi_ops->ioctl || !eemi_ops->reset_assert)
+		return -ENOMEM;
+
+	if (on) {
+		dev_dbg(dwc->dev, "Trying to set power state to D0....\n");
+		ret = eemi_ops->reset_assert(VERSAL_USB_RESET_ID,
+					     PM_RESET_ACTION_RELEASE);
+		if (ret < 0)
+			dev_err(simple->dev, "failed to De-assert Reset\n");
+
+		ret = eemi_ops->ioctl(VERSAL_USB_NODE_ID, IOCTL_USB_SET_STATE,
+				      XLNX_REQ_PWR_STATE_D0,
+				      DWC3_PWR_STATE_RETRIES * DWC3_PWR_TIMEOUT,
+				      NULL);
+		if (ret < 0)
+			dev_err(simple->dev, "failed to enter D0 state\n");
+
+		dwc->is_d3 = false;
+
+		/* Clear Suspend PHY bit if dis_u2_susphy_quirk is set */
+		if (dwc->dis_u2_susphy_quirk)
+			dwc3_usb2phycfg(dwc, false);
+	} else {
+		dev_dbg(dwc->dev, "Trying to set power state to D3...\n");
+
+		/*
+		 * Set Suspend PHY bit before entering D3 if
+		 * dis_u2_susphy_quirk is set
+		 */
+		if (dwc->dis_u2_susphy_quirk)
+			dwc3_usb2phycfg(dwc, true);
+
+		ret = eemi_ops->ioctl(VERSAL_USB_NODE_ID, IOCTL_USB_SET_STATE,
+				      XLNX_REQ_PWR_STATE_D3,
+				      DWC3_PWR_STATE_RETRIES * DWC3_PWR_TIMEOUT,
+				      NULL);
+		if (ret < 0)
+			dev_err(simple->dev, "failed to enter D3 state\n");
+
+		ret = eemi_ops->reset_assert(VERSAL_USB_RESET_ID,
+					     PM_RESET_ACTION_ASSERT);
+		if (ret < 0)
+			dev_err(simple->dev, "failed to assert Reset\n");
+
+		dwc->is_d3 = true;
+	}
+
+	return ret;
+}
+
+int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
+{
+	int ret;
+	struct device_node *node = of_get_parent(dwc->dev->of_node);
+
+	if (of_device_is_compatible(node, "xlnx,zynqmp-dwc3"))
+		/* Set D3/D0 state for ZynqMP */
+		ret = dwc3_zynqmp_power_req(dwc, on);
+	else if (of_device_is_compatible(node, "xlnx,versal-dwc3"))
+		/* Set D3/D0 state for Versal */
+		ret = dwc3_versal_power_req(dwc, on);
+	else
+		/* This is only for Xilinx devices */
+		return 0;
+
+	return ret;
 }
 EXPORT_SYMBOL(dwc3_set_usb_core_power);
 

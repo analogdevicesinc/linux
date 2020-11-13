@@ -654,7 +654,6 @@ struct dwc3_event_buffer {
 /**
  * struct dwc3_ep - device side endpoint representation
  * @endpoint: usb endpoint
- * @cancelled_list: list of cancelled requests for this endpoint
  * @pending_list: list of pending requests for this endpoint
  * @started_list: list of started requests on this endpoint
  * @wait_end_transfer: wait_queue_head_t for waiting on End Transfer complete
@@ -681,7 +680,6 @@ struct dwc3_event_buffer {
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
-	struct list_head	cancelled_list;
 	struct list_head	pending_list;
 	struct list_head	started_list;
 
@@ -873,9 +871,6 @@ struct dwc3_hwparams {
  * @epnum: endpoint number to which this request refers
  * @trb: pointer to struct dwc3_trb
  * @trb_dma: DMA address of @trb
- * @num_trbs: number of TRBs used by this request
- * @needs_extra_trb: true when request needs one extra TRB (either due to ZLP
- *	or unaligned OUT)
  * @stream_timeout_timer: Some endpoints may go out of sync with host and
  *	enter into deadlock. For example, stream capable endpoints may enter
  *	into deadlock where the host waits on gadget to issue ERDY and gadget
@@ -885,6 +880,7 @@ struct dwc3_hwparams {
  * @direction: IN or OUT direction flag
  * @mapped: true when request has been dma-mapped
  * @started: request is started
+ * @zero: wants a ZLP
  */
 struct dwc3_request {
 	struct usb_request	request;
@@ -902,12 +898,11 @@ struct dwc3_request {
 	dma_addr_t		trb_dma;
 	struct timer_list	stream_timeout_timer;
 
-	unsigned		num_trbs;
-
-	unsigned		needs_extra_trb:1;
+	unsigned		unaligned:1;
 	unsigned		direction:1;
 	unsigned		mapped:1;
 	unsigned		started:1;
+	unsigned		zero:1;
 };
 
 /*
@@ -1022,6 +1017,8 @@ struct dwc3_scratchpad_array {
  * @dis_u2_susphy_quirk: set if we disable usb2 suspend phy
  * @dis_enblslpm_quirk: set if we clear enblslpm in GUSB2PHYCFG,
  *                      disabling the suspend signal to the PHY.
+ * @dis_u1_entry_quirk: set if link entering into U1 state needs to be disabled.
+ * @dis_u2_entry_quirk: set if link entering into U2 state needs to be disabled.
  * @dis_rxdet_inp3_quirk: set if we disable Rx.Detect in P3
  * @dis_u2_freeclk_exists_quirk : set if we clear u2_freeclk_exists
  *			in GUSB2PHYCFG, specify that USB2 PHY doesn't
@@ -1212,6 +1209,8 @@ struct dwc3 {
 	unsigned		dis_u3_susphy_quirk:1;
 	unsigned		dis_u2_susphy_quirk:1;
 	unsigned		dis_enblslpm_quirk:1;
+	unsigned		dis_u1_entry_quirk:1;
+	unsigned		dis_u2_entry_quirk:1;
 	unsigned		dis_rxdet_inp3_quirk:1;
 	unsigned		dis_u2_freeclk_exists_quirk:1;
 	unsigned		dis_del_phy_power_chg_quirk:1;
@@ -1224,6 +1223,7 @@ struct dwc3 {
 	unsigned		is_hibernated:1;
 
 	unsigned		dis_metastability_quirk:1;
+	unsigned		mask_phy_rst:1;
 
 	u16			imod_interval;
 	bool			is_d3;
@@ -1412,6 +1412,7 @@ void dwc3_simple_wakeup_capable(struct device *dev, bool wakeup);
 void dwc3_set_simple_data(struct dwc3 *dwc);
 void dwc3_simple_check_quirks(struct dwc3 *dwc);
 int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on);
+void dwc3_mask_phy_reset(struct device *dev, bool mask);
 #else
 static inline int dwc3_enable_hw_coherency(struct device *dev)
 { return 1; }
@@ -1422,6 +1423,8 @@ void dwc3_set_simple_data(struct dwc3 *dwc)
 void dwc3_simple_check_quirks(struct dwc3 *dwc)
 { ; }
 int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
+{ ; }
+void dwc3_mask_phy_reset(struct device *dev, bool mask)
 { ; }
 #endif
 
