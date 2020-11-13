@@ -1,5 +1,5 @@
 
-# This file exists solely to be include in drivers/media/Kconfig
+# This file exists solely to be include in Kconfig.adi
 
 config MEDIA_ALL_ADI_DRIVERS
 	tristate "Build all Analog Devices Media Drivers"
