@@ -83,3 +83,9 @@ config KERNEL_ALL_ADI_DRIVERS
 	select AXI_INTR_MONITOR
 	select FB_TFT_SEPS525
 	select LEDS_AS3645A
+
+source "drivers/hwmon/Kconfig.adi"
+source "drivers/iio/Kconfig.adi"
+source "drivers/input/Kconfig.adi"
+source "drivers/media/Kconfig.adi"
+source "sound/soc/codecs/Kconfig.adi"
