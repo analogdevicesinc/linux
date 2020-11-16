@@ -38,7 +38,7 @@
 #define DRIVER_NAME "imx_sec_dsim_drv"
 
 /* fixed phy ref clk rate */
-#define PHY_REF_CLK		27000
+#define PHY_REF_CLK		12000
 
 struct imx_sec_dsim_device {
 	struct device *dev;
