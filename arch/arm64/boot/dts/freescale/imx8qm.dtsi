@@ -601,4 +601,5 @@
 #include "imx8qm-ss-lvds.dtsi"
 #include "imx8qm-ss-mipi.dtsi"
 #include "imx8qm-ss-hdmi.dtsi"
+#include "imx8qm-ss-hdmi-rx.dtsi"
 #include "imx8qm-ss-gpu.dtsi"

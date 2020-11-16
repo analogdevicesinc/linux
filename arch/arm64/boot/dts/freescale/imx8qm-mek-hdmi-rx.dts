@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ * Sandor Yu <Sandor.yu@nxp.com>
+ */
+/*
+ * HDMI RX only dts.
+ */
+
+#include "imx8qm-mek-hdmi.dts"
+
+/ {
+	sound-hdmi-rx {
+		compatible = "fsl,imx-audio-cdnhdmi";
+		model = "imx-audio-hdmi-rx";
+		audio-cpu = <&sai4>;
+		protocol = <1>;
+		hdmi-in;
+	};
+};
+
+&sai4 {
+	fsl,sai-asynchronous;
+	status = "okay";
+};
+
+&sai4_lpcg {
+	status = "okay";
+};
+
+/* HDMI RX */
+&isi_2 {
+	interface = <4 0 2>;  /* <Input MIPI_VCx Output>
+						Input:  0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
+						VCx:    0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
+						Output: 0-DC0, 1-DC1, 2-MEM */
+	status = "okay";
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_3 {
+	/* For HDMI RX 4K chain buf */
+	interface = <4 0 2>;
+	status = "okay";
+	cap_device {
+		status = "okay";
+	};
+};
+
+&mipi_csi_0 {
+	status = "disabled";
+};
+
+&i2c_mipi_csi0 {
+	status = "disabled";
+};
+
+&hdmi_rx_lpcg_gpio_ipg_s {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_pwm_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_pwm_ipg_s {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_pwm {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0 {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0_div {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0_ipg {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0_ipg_s {
+	status = "okay";
+};
+&hdmi_rx_lpcg_sink_p {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_sink_s {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_hd_core {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_pxl {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_enc {
+	status = "okay";
+};
+
+&irqsteer_hdmi_rx {
+	status = "okay";
+};
+
+&hdmi_rx {
+	fsl,cec;
+	firmware-name = "hdmirxfw.bin";
+	assigned-clocks = <&clk IMX_SC_R_HDMI_RX IMX_SC_PM_CLK_MISC1>,
+						<&clk IMX_SC_R_HDMI_RX IMX_SC_PM_CLK_MISC3>;
+	assigned-clock-parents = <&hdmi_rx_dig_pll>,
+							<&clk IMX_SC_R_HDMI_RX_BYPASS IMX_SC_PM_CLK_MISC2>;
+	assigned-clock-rates = <400000000>, <0>;
+	status = "okay";
+};

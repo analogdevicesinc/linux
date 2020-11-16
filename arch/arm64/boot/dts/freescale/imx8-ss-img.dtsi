@@ -200,6 +200,16 @@ img_subsys: bus@58000000 {
 		power-domains = <&pd IMX_SC_R_CSI_1>;
 	};
 
+	hdmi_rx_pxl_link_lpcg: clock-controller@585a0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x585a0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&img_pxl_clk>;
+		bit-offset = <0>;
+		clock-output-names = "hdmi_rx_lpcg_pxl_link_clk";
+		power-domains = <&pd IMX_SC_R_HDMI_RX>;
+	};
+
 	img_jpeg_dec_clk: clock-controller@585d0000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x585d0000 0x10000>;
