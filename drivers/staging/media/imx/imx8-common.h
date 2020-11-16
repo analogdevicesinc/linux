@@ -15,6 +15,7 @@
 #define ISI_OF_NODE_NAME	"isi"
 #define MIPI_CSI2_OF_NODE_NAME  "csi"
 #define PARALLEL_OF_NODE_NAME   "pcsi"
+#define HDMI_RX_OF_NODE_NAME	"hdmi_rx"
 
 #define MXC_ISI_MAX_DEVS	8
 #define MXC_MIPI_CSI2_MAX_DEVS	2
@@ -56,6 +57,11 @@
 #define MXC_PARALLEL_CSI_PAD_SOURCE		0
 #define MXC_PARALLEL_CSI_PAD_SINK		1
 #define MXC_PARALLEL_CSI_PADS_NUM		2
+
+/* HDMI PADS */
+#define MXC_HDMI_RX_PAD_SINK		1
+#define MXC_HDMI_RX_PAD_SOURCE		2
+#define MXC_HDMI_RX_PADS_NUM		3
 
 #define ISI_2K		2048
 
