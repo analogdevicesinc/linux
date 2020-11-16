@@ -1323,7 +1323,7 @@ static int csis_s_hdr(struct v4l2_subdev *sd, bool enable)
 static int csis_ioc_qcap(struct v4l2_subdev *dev, void *args)
 {
 	struct v4l2_capability *cap = (struct v4l2_capability *)args;
-	strcpy((char *)cap->driver, "csi_samsung_subdev");
+	strscpy((char *)cap->driver, "csi_sam_subdev", sizeof(cap->driver));
 	return 0;
 }
 
