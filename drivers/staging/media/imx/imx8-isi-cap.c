@@ -688,6 +688,10 @@ static bool is_entity_link_setup(struct mxc_isi_cap_dev *isi_cap)
 	if (!csi_sd || !csi_sd->entity.num_links)
 		return false;
 
+	/* No sensor subdev for hdmi rx */
+	if (strstr(csi_sd->name, "hdmi"))
+		return true;
+
 	sen_sd = mxc_get_remote_subdev(csi_sd, __func__);
 	if (!sen_sd || !sen_sd->entity.num_links)
 		return false;
