@@ -313,9 +313,9 @@
 			};
 		};
 
-		axi_ad9371_tx_jesd: axi-jesd204-tx@10020000 {
+		axi_ad9371_tx_jesd: axi-jesd204-tx@10060000 {
 			compatible = "adi,axi-jesd204-tx-1.0";
-			reg = <0x10020000 0x4000>;
+			reg = <0x10060000 0x4000>;
 
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <8>;
@@ -334,9 +334,9 @@
 			clock-output-names = "jesd_tx_lane_clk";
 		};
 
-		axi_ad9371_rx_jesd: axi-jesd204-rx@10030000 {
+		axi_ad9371_rx_jesd: axi-jesd204-rx@10064000 {
 			compatible = "adi,axi-jesd204-rx-1.0";
-			reg = <0x10030000 0x4000>;
+			reg = <0x10064000 0x4000>;
 
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <9>;
@@ -354,9 +354,9 @@
 			clock-output-names = "jesd_rx_lane_clk";
 		};
 
-		axi_ad9371_rx_os_jesd: axi-jesd204-rx@10040000 {
+		axi_ad9371_rx_os_jesd: axi-jesd204-rx@10068000 {
 			compatible = "adi,axi-jesd204-rx-1.0";
-			reg = <0x10040000 0x4000>;
+			reg = <0x10068000 0x4000>;
 
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <10>;
@@ -374,14 +374,14 @@
 			clock-output-names = "jesd_rx_os_lane_clk";
 		};
 
-		axi_ad9371_tx_xcvr: axi-ad9371-tx-xcvr@10024000 {
+		axi_ad9371_tx_xcvr: axi-ad9371-tx-xcvr@1006c000 {
 			compatible = "adi,altera-adxcvr-1.00.a";
-			reg = <0x10024000 0x00001000>,
-				<0x10026000 0x00001000>,
-				<0x10028000 0x00001000>,
-				<0x10029000 0x00001000>,
-				<0x1002a000 0x00001000>,
-				<0x1002b000 0x00001000>;
+			reg = <0x1006c000 0x00001000>,
+				<0x10081000 0x00001000>,
+				<0x10082000 0x00001000>,
+				<0x10083000 0x00001000>,
+				<0x10084000 0x00001000>,
+				<0x10085000 0x00001000>;
 			reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
 
 			clocks = <&clk0_ad9528 1>, <&tx_device_clk_pll>;
@@ -391,11 +391,11 @@
 			clock-output-names = "jesd204_tx_lane_clock";
 		};
 
-		axi_ad9371_rx_xcvr: axi-ad9371-rx-xcvr@10034000 {
+		axi_ad9371_rx_xcvr: axi-ad9371-rx-xcvr@1006d000 {
 			compatible = "adi,altera-adxcvr-1.00.a";
-			reg = <0x10034000 0x00001000>,
-				<0x10038000 0x00001000>,
-				<0x10039000 0x00001000>;
+			reg = <0x1006d000 0x00001000>,
+				<0x10092000 0x00001000>,
+				<0x10093000 0x00001000>;
 			reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
 
 			clocks = <&clk0_ad9528 1>, <&rx_device_clk_pll>;
@@ -405,11 +405,11 @@
 			clock-output-names = "jesd204_rx_lane_clock";
 		};
 
-		axi_ad9371_rx_os_xcvr: axi-ad9371-rx-os-xcvr@10044000 {
+		axi_ad9371_rx_os_xcvr: axi-ad9371-rx-os-xcvr@1006e000 {
 			compatible = "adi,altera-adxcvr-1.00.a";
-			reg = <0x10044000 0x00001000>,
-				<0x10048000 0x00001000>,
-				<0x10049000 0x00001000>;
+			reg = <0x1006e000 0x00001000>,
+				<0x10094000 0x00001000>,
+				<0x10095000 0x00001000>;
 			reg-names = "adxcvr", "adxcfg-0", "adxcfg-1";
 
 			clocks = <&clk0_ad9528 1>, <&rx_os_device_clk_pll>;
@@ -419,9 +419,9 @@
 			clock-output-names = "jesd204_rx_os_lane_clock";
 		};
 
-		axi_ad9371_tx_dma: axi-ad9371-tx-dma@1002c000 {
+		axi_ad9371_tx_dma: axi-ad9371-tx-dma@1007b000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x1002c000 0x00004000>;
+			reg = <0x1007b000 0x00000800>;
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <11>;
 			#dma-cells = <1>;
@@ -436,9 +436,9 @@
 			};
 		};
 
-		axi_ad9371_rx_dma: axi-ad9371-rx-dma@1003c000 {
+		axi_ad9371_rx_dma: axi-ad9371-rx-dma@1007b800 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x1003c000 0x00004000>;
+			reg = <0x1007b800 0x00000800>;
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <12>;
 			#dma-cells = <1>;
@@ -452,9 +452,9 @@
 			};
 		};
 
-		axi_ad9371_rx_os_dma: axi-ad9371-rx-os-dma@1004c000 {
+		axi_ad9371_rx_os_dma: axi-ad9371-rx-os-dma@1007c000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x1004c000 0x00004000>;
+			reg = <0x1007c000 0x00000800>;
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <13>;
 			#dma-cells = <1>;
@@ -468,17 +468,17 @@
 			};
 		};
 
-		axi_ad9371_rx: axi-ad9371-rx-hpc@10050000 {
+		axi_ad9371_rx: axi-ad9371-rx-hpc@1006f000 {
 			compatible = "adi,axi-ad9371-rx-1.0";
-			reg = <0x10050000 0x00008000>;
+			reg = <0x1006f000 0x00008000>;
 			dmas = <&axi_ad9371_rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&trx0_ad9371>;
 		};
 
-		axi_ad9371_tx: axi-ad9371-tx-hpc@10054000 {
+		axi_ad9371_tx: axi-ad9371-tx-hpc@10073000 {
 			compatible = "adi,axi-ad9371-tx-1.0";
-			reg = <0x10054000 0x00004000>;
+			reg = <0x10073000 0x00004000>;
 			dmas = <&axi_ad9371_tx_dma 0>;
 			dma-names = "tx";
 			clocks = <&trx0_ad9371 2>;
@@ -488,36 +488,36 @@
 			plddrbypass-gpios = <&sys_gpio_out 28 0>;
 		};
 
-		xcvr_rx_os_core: axi-ad9371-rx-obs-hpc@10058000 {
+		xcvr_rx_os_core: axi-ad9371-rx-obs-hpc@10077000 {
 			compatible = "adi,axi-ad9371-obs-1.0";
-			reg = <0x10058000 0x00001000>;
+			reg = <0x10077000 0x00001000>;
 			dmas = <&axi_ad9371_rx_os_dma 0>;
 			dma-names = "rx";
 			clocks = <&trx0_ad9371 1>;
 			clock-names = "sampl_clk";
 		};
 
-		tx_device_clk_pll: altera-a10-fpll@10025000 {
+		tx_device_clk_pll: altera-a10-fpll@10080000 {
 			compatible = "altr,a10-fpll";
-			reg = <0x10025000 0x1000>;
+			reg = <0x10080000 0x1000>;
 			clocks = <&clk0_ad9528 1>;
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd204_tx_link_clock";
 		};
 
-		rx_device_clk_pll: altera-a10-fpll@10035000 {
+		rx_device_clk_pll: altera-a10-fpll@10090000 {
 			compatible = "altr,a10-fpll";
-			reg = <0x10035000 0x1000>;
+			reg = <0x10090000 0x1000>;
 			clocks = <&clk0_ad9528 1>;
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd204_rx_link_clock";
 		};
 
-		rx_os_device_clk_pll: altera-a10-fpll@10045000 {
+		rx_os_device_clk_pll: altera-a10-fpll@10091000 {
 			compatible = "altr,a10-fpll";
-			reg = <0x10045000 0x1000>;
+			reg = <0x10091000 0x1000>;
 			clocks = <&clk0_ad9528 1>;
 
 			#clock-cells = <0>;
