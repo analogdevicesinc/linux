@@ -569,6 +569,19 @@ static void cdns_hdmi_parse_dt(struct cdns_mhdp_device *mhdp)
 	dev_info(mhdp->dev, "lane-mapping 0x%02x\n", mhdp->lane_mapping);
 }
 
+#ifdef CONFIG_DRM_CDNS_HDMI_CEC
+static void cdns_mhdp_cec_init(struct cdns_mhdp_device *mhdp)
+{
+	struct cdns_mhdp_cec *cec = &mhdp->hdmi.cec;
+
+	cec->dev = mhdp->dev;
+	cec->iolock = &mhdp->iolock;
+	cec->regs_base = mhdp->regs_base;
+	cec->regs_sec = mhdp->regs_sec;
+	cec->bus_type = mhdp->bus_type;
+}
+#endif
+
 static int __cdns_hdmi_probe(struct platform_device *pdev,
 		  struct cdns_mhdp_device *mhdp)
 {
@@ -669,7 +682,8 @@ static int __cdns_hdmi_probe(struct platform_device *pdev,
 
 	/* register cec driver */
 #ifdef CONFIG_DRM_CDNS_HDMI_CEC
-	cdns_mhdp_register_cec_driver(dev);
+	cdns_mhdp_cec_init(mhdp);
+	cdns_mhdp_register_cec_driver(&mhdp->hdmi.cec);
 #endif
 
 	return 0;
@@ -679,7 +693,7 @@ static void __cdns_hdmi_remove(struct cdns_mhdp_device *mhdp)
 {
 	/* unregister cec driver */
 #ifdef CONFIG_DRM_CDNS_HDMI_CEC
-	cdns_mhdp_unregister_cec_driver(mhdp->dev);
+	cdns_mhdp_unregister_cec_driver(&mhdp->hdmi.cec);
 #endif
 	cdns_mhdp_unregister_audio_driver(mhdp->dev);
 }

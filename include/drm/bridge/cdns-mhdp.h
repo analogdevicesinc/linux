@@ -509,6 +509,7 @@ enum {
 	BUS_TYPE_NORMAL_SAPB = 1,
 	BUS_TYPE_LOW4K_APB = 2,
 	BUS_TYPE_LOW4K_SAPB = 3,
+	BUS_TYPE_LOW4K_HDMI_RX = 4,
 };
 
 enum voltage_swing_level {
@@ -623,12 +624,15 @@ struct cdns_mhdp_connector {
 };
 
 struct cdns_mhdp_cec {
-       struct cec_adapter *adap;
-       struct device *dev;
-       struct mutex lock;
+	struct cec_adapter *adap;
+	struct device *dev;
+	struct mutex *iolock;
+	void __iomem		*regs_base;
+	void __iomem		*regs_sec;
+	int bus_type;
 
-       struct cec_msg msg;
-       struct task_struct *cec_worker;
+	struct cec_msg msg;
+	struct task_struct *cec_worker;
 };
 
 struct cdns_plat_data {
@@ -724,7 +728,6 @@ u32 cdns_mhdp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset);
 void cdns_mhdp_bus_write(u32 val, struct cdns_mhdp_device *mhdp, u32 offset);
 void cdns_mhdp_clock_reset(struct cdns_mhdp_device *mhdp);
 void cdns_mhdp_set_fw_clk(struct cdns_mhdp_device *mhdp, unsigned long clk);
-u32 cdns_mhdp_get_fw_clk(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_load_firmware(struct cdns_mhdp_device *mhdp, const u32 *i_mem,
 			    u32 i_size, const u32 *d_mem, u32 d_size);
 int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable);
@@ -805,8 +808,8 @@ int cdns_hdmi_set_plugged_cb(struct cdns_mhdp_device *mhdp, hdmi_codec_plugged_c
 
 /* CEC */
 #ifdef CONFIG_DRM_CDNS_HDMI_CEC
-int cdns_mhdp_register_cec_driver(struct device *dev);
-int cdns_mhdp_unregister_cec_driver(struct device *dev);
+int cdns_mhdp_register_cec_driver(struct cdns_mhdp_cec *cec);
+int cdns_mhdp_unregister_cec_driver(struct cdns_mhdp_cec *cec);
 #endif
 
 #endif /* CDNS_MHDP_H_ */

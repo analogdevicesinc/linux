@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -74,16 +74,49 @@ enum {
 
 static u32 mhdp_cec_read(struct cdns_mhdp_cec *cec, u32 offset)
 {
-	struct cdns_mhdp_device *mhdp =
-			container_of(cec, struct cdns_mhdp_device, hdmi.cec);
-	return cdns_mhdp_bus_read(mhdp, offset);
+	u32 val;
+
+	mutex_lock(cec->iolock);
+
+	if (cec->bus_type == BUS_TYPE_LOW4K_HDMI_RX) {
+		/* Remap address to low 4K HDMI RX */
+		writel(offset >> 12, cec->regs_sec + 4);
+		val = readl((offset & 0xfff) + cec->regs_base);
+	} else if (cec->bus_type == BUS_TYPE_LOW4K_APB) {
+		/* Remap address to low 4K memory */
+		writel(offset >> 12, cec->regs_sec + 8);
+		val = readl((offset & 0xfff) + cec->regs_base);
+	} else
+		val = readl(cec->regs_base + offset);
+
+	mutex_unlock(cec->iolock);
+
+	return val;
 }
 
 static void mhdp_cec_write(struct cdns_mhdp_cec *cec, u32 offset, u32 val)
 {
-	struct cdns_mhdp_device *mhdp =
-			container_of(cec, struct cdns_mhdp_device, hdmi.cec);
-	cdns_mhdp_bus_write(val, mhdp, offset);
+	mutex_lock(cec->iolock);
+
+	if (cec->bus_type == BUS_TYPE_LOW4K_HDMI_RX) {
+		/* Remap address to low 4K SAPB bus */
+		writel(offset >> 12, cec->regs_sec + 4);
+		writel(val, (offset & 0xfff) + cec->regs_base);
+	} else if (cec->bus_type == BUS_TYPE_LOW4K_APB) {
+		/* Remap address to low 4K memory */
+		writel(offset >> 12, cec->regs_sec + 8);
+		writel(val, (offset & 0xfff) + cec->regs_base);
+	} else if (cec->bus_type == BUS_TYPE_NORMAL_SAPB)
+		writel(val, cec->regs_sec + offset);
+	else
+		writel(val, cec->regs_base + offset);
+
+	mutex_unlock(cec->iolock);
+}
+
+static u32 mhdp_get_fw_clk(struct cdns_mhdp_cec *cec)
+{
+	return mhdp_cec_read(cec, SW_CLK_H);
 }
 
 static void mhdp_cec_clear_rx_buffer(struct cdns_mhdp_cec *cec)
@@ -94,12 +127,10 @@ static void mhdp_cec_clear_rx_buffer(struct cdns_mhdp_cec *cec)
 
 static void mhdp_cec_set_divider(struct cdns_mhdp_cec *cec)
 {
-	struct cdns_mhdp_device *mhdp =
-			container_of(cec, struct cdns_mhdp_device, hdmi.cec);
 	u32 clk_div;
 
 	/* Set clock divider */
-	clk_div = cdns_mhdp_get_fw_clk(mhdp) * 10;
+	clk_div = mhdp_get_fw_clk(cec) * 10;
 
 	mhdp_cec_write(cec, CLK_DIV_MSB,
 			  (clk_div >> 8) & 0xFF);
@@ -291,10 +322,8 @@ static const struct cec_adap_ops cdns_mhdp_cec_adap_ops = {
 	.adap_transmit = mhdp_cec_adap_transmit,
 };
 
-int cdns_mhdp_register_cec_driver(struct device *dev)
+int cdns_mhdp_register_cec_driver(struct cdns_mhdp_cec *cec)
 {
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	struct cdns_mhdp_cec *cec = &mhdp->hdmi.cec;
 	int ret;
 
 	cec->adap = cec_allocate_adapter(&cdns_mhdp_cec_adap_ops, cec,
@@ -305,13 +334,11 @@ int cdns_mhdp_register_cec_driver(struct device *dev)
 	ret = PTR_ERR_OR_ZERO(cec->adap);
 	if (ret)
 		return ret;
-	ret = cec_register_adapter(cec->adap, dev);
+	ret = cec_register_adapter(cec->adap, cec->dev);
 	if (ret) {
 		cec_delete_adapter(cec->adap);
 		return ret;
 	}
-
-	cec->dev = dev;
 
 	cec->cec_worker = kthread_create(mhdp_cec_poll_worker, cec, "cdns-mhdp-cec");
 	if (IS_ERR(cec->cec_worker))
@@ -319,15 +346,12 @@ int cdns_mhdp_register_cec_driver(struct device *dev)
 
 	wake_up_process(cec->cec_worker);
 
-	dev_dbg(dev, "CEC successfuly probed\n");
+	dev_dbg(cec->dev, "CEC successfuly probed\n");
 	return 0;
 }
 
-int cdns_mhdp_unregister_cec_driver(struct device *dev)
+int cdns_mhdp_unregister_cec_driver(struct cdns_mhdp_cec *cec)
 {
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	struct cdns_mhdp_cec *cec = &mhdp->hdmi.cec;
-
 	if (cec->cec_worker) {
 		kthread_stop(cec->cec_worker);
 		cec->cec_worker = NULL;

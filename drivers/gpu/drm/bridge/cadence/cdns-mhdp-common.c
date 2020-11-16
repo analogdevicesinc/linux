@@ -99,12 +99,6 @@ void cdns_mhdp_bus_write(u32 val, struct cdns_mhdp_device *mhdp, u32 offset)
 }
 EXPORT_SYMBOL(cdns_mhdp_bus_write);
 
-u32 cdns_mhdp_get_fw_clk(struct cdns_mhdp_device *mhdp)
-{
-	return cdns_mhdp_bus_read(mhdp, SW_CLK_H);
-}
-EXPORT_SYMBOL(cdns_mhdp_get_fw_clk);
-
 void cdns_mhdp_set_fw_clk(struct cdns_mhdp_device *mhdp, unsigned long clk)
 {
 	cdns_mhdp_bus_write(clk / 1000000, mhdp, SW_CLK_H);
