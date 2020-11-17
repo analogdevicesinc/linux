@@ -1057,8 +1057,10 @@ static ssize_t adar1000_gen_clk_cycles(struct device *dev,
 	struct spi_message m;
 	struct spi_transfer t = {0};
 	int ret;
+	u8 buff = 0xff;
 
 	/* Generate clock cycles to load new data from RAM */
+	t.tx_buf = &buff;
 	t.bits_per_word = 8;
 	t.len = 1;
 
