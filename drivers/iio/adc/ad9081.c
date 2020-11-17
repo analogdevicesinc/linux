@@ -47,6 +47,8 @@
 
 enum {	CDDC_NCO_FREQ,
 	FDDC_NCO_FREQ,
+	CDDC_NCO_FREQ_AVAIL,
+	FDDC_NCO_FREQ_AVAIL,
 	CDDC_NCO_PHASE,
 	FDDC_NCO_PHASE,
 	FDDC_NCO_GAIN,
@@ -738,6 +740,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	long long val;
+	u64 range;
 	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
 	int i, ret = -EINVAL;
 
@@ -768,6 +771,42 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 			ret = 0;
 		}
 		break;
+	case CDDC_NCO_FREQ_AVAIL:
+		if (chan->output) {
+			if (phy->tx_main_interp == 1 || phy->tx_chan_interp == 1)
+				range = 0; /* full bw mode */
+			else
+				range = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz, 2);
+
+		} else {
+			if (phy->adc_dcm == 1)
+				range = 0; /* full bw mode */
+			else
+				range = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, 2);
+
+		}
+
+		mutex_unlock(&indio_dev->mlock);
+		return sprintf(buf, "[%lld 1 %lld]\n", -1 * range, range);
+	case FDDC_NCO_FREQ_AVAIL:
+		if (chan->output) {
+			if (phy->tx_chan_interp == 1)
+				range = 0; /* full bw mode */
+			else
+				range = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz,
+					phy->tx_main_interp * 2);
+
+		} else {
+			if (phy->adc_dcm == 1)
+				range = 0; /* full bw mode */
+			else
+				range = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz,
+					phy->adc_main_decimation[cddc_num] * 2);
+
+		}
+
+		mutex_unlock(&indio_dev->mlock);
+		return sprintf(buf, "[%lld 1 %lld]\n", -1 * range, range);
 	case CDDC_NCO_PHASE:
 		if (chan->output) {
 			for_each_cddc(i, cddc_mask) {
@@ -1062,11 +1101,25 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.private = CDDC_NCO_FREQ,
 	},
 	{
+		.name = "main_nco_frequency_available",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = true,
+		.private = CDDC_NCO_FREQ_AVAIL,
+	},
+	{
 		.name = "channel_nco_frequency",
 		.read = ad9081_ext_info_read,
 		.write = ad9081_ext_info_write,
 		.shared = false,
 		.private = FDDC_NCO_FREQ,
+	},
+	{
+		.name = "channel_nco_frequency_available",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = FDDC_NCO_FREQ_AVAIL,
 	},
 	{
 		.name = "main_nco_phase",
@@ -1100,11 +1153,25 @@ static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 		.private = CDDC_NCO_FREQ,
 	},
 	{
+		.name = "main_nco_frequency_available",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = true,
+		.private = CDDC_NCO_FREQ_AVAIL,
+	},
+	{
 		.name = "channel_nco_frequency",
 		.read = ad9081_ext_info_read,
 		.write = ad9081_ext_info_write,
 		.shared = false,
 		.private = FDDC_NCO_FREQ,
+	},
+	{
+		.name = "channel_nco_frequency_available",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = true,
+		.private = FDDC_NCO_FREQ_AVAIL,
 	},
 	{
 		.name = "main_nco_phase",
