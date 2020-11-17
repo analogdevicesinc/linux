@@ -17,6 +17,10 @@
 #define fmc_i2c fmcp_hspc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices AD-QUADMXFE1-EBZ Rev.B";
+};
+
 &axi_intc {
 	xlnx,kind-of-intr = <0x4f0>;
 };
