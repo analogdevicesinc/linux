@@ -484,6 +484,7 @@
 			clocks = <&trx0_ad9371 2>;
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx0_ad9371>;
+			adi,axi-pl-fifo-enable;
 			plddrbypass-gpios = <&sys_gpio_out 28 0>;
 		};
 
