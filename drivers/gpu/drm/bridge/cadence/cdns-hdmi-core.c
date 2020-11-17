@@ -1,7 +1,7 @@
 /*
  * Cadence High-Definition Multimedia Interface (HDMI) driver
  *
- * Copyright (C) 2019 NXP Semiconductor, Inc.
+ * Copyright (C) 2019-2020 NXP Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -445,8 +445,6 @@ static void cdns_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	mutex_lock(&mhdp->lock);
 	cdns_hdmi_mode_set(mhdp);
 	mutex_unlock(&mhdp->lock);
-	/* reset force mode set flag */
-	mhdp->force_mode_set = false;
 }
 
 bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
