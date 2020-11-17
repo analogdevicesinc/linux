@@ -2877,7 +2877,7 @@ static char* ad9081_lable_writer(struct ad9081_phy *phy, const struct iio_chan_s
 
 	if (chan->output) {
 		snprintf(phy->tx_chan_labels[fddc_num], sizeof(phy->tx_chan_labels[0]),
-			"FDDC%u->CDDC%u->DAC%u", fddc_num, cddc_num, cddc_num);
+			"FDUC%u->CDUC%u->DAC%u", fddc_num, cddc_num, cddc_num);
 
 		return phy->tx_chan_labels[fddc_num];
 
