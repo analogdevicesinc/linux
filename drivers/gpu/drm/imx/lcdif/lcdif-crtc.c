@@ -309,16 +309,10 @@ static int lcdif_crtc_bind(struct device *dev, struct device *master,
 {
 	int ret;
 	struct drm_device *drm = data;
-	struct lcdif_crtc *lcdif_crtc;
+	struct lcdif_crtc *lcdif_crtc = dev_get_drvdata(dev);
 	struct lcdif_client_platformdata *pdata = dev->platform_data;
 
 	dev_dbg(dev, "%s: lcdif crtc bind begin\n", __func__);
-
-	lcdif_crtc = devm_kzalloc(dev, sizeof(*lcdif_crtc), GFP_KERNEL);
-	if (!lcdif_crtc)
-		return -ENOMEM;
-
-	lcdif_crtc->dev = dev;
 
 	ret = lcdif_crtc_init(lcdif_crtc, pdata, drm);
 	if (ret)
@@ -333,8 +327,6 @@ static int lcdif_crtc_bind(struct device *dev, struct device *master,
 	/* limit the max width and height */
 	drm->mode_config.max_width  = 1920;
 	drm->mode_config.max_height = 1920;
-
-	dev_set_drvdata(dev, lcdif_crtc);
 
 	dev_dbg(dev, "%s: lcdif crtc bind end\n", __func__);
 
@@ -358,13 +350,22 @@ static const struct component_ops lcdif_crtc_ops = {
 static int lcdif_crtc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct lcdif_crtc *lcdif_crtc;
 
 	dev_dbg(&pdev->dev, "%s: lcdif crtc probe begin\n", __func__);
+
+	lcdif_crtc = devm_kzalloc(dev, sizeof(*lcdif_crtc), GFP_KERNEL);
+	if (!lcdif_crtc)
+		return -ENOMEM;
+
+	lcdif_crtc->dev = dev;
 
 	if (!dev->platform_data) {
 		dev_err(dev, "no platform data\n");
 		return -EINVAL;
 	}
+
+	dev_set_drvdata(dev, lcdif_crtc);
 
 	return component_add(dev, &lcdif_crtc_ops);
 }
