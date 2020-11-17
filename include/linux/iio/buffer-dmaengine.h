@@ -23,4 +23,9 @@ struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 					      const struct iio_dma_buffer_ops *ops,
 					      void *data);
 
+struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
+						   const char *channel,
+						   const struct iio_dma_buffer_ops *ops,
+						   void *data);
+
 #endif
