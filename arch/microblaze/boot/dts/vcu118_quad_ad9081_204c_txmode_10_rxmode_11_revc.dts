@@ -13,6 +13,10 @@
 
 #include "vcu118_quad_ad9081_204c_txmode_10_rxmode_11.dts"
 
+/ {
+	model = "Analog Devices AD-QUADMXFE1-EBZ Rev.C";
+};
+
 &gpio_hmc425a {
 	compatible = "adi,hmc540s";
 	ctrl-gpios = <&axi_gpio 38 GPIO_ACTIVE_HIGH>,
