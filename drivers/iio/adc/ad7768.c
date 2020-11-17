@@ -337,6 +337,20 @@ static const struct iio_dma_buffer_ops dma_buffer_ops = {
 	.abort = iio_dmaengine_buffer_abort,
 };
 
+static void ad7768_reg_disable(void *data)
+{
+	struct regulator *reg = data;
+
+	regulator_disable(reg);
+}
+
+static void ad7768_clk_disable(void *data)
+{
+	struct clk *clk = data;
+
+	clk_disable_unprepare(clk);
+}
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
@@ -382,37 +396,23 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	ret = devm_add_action_or_reset(&spi->dev, ad7768_reg_disable, st->vref);
+	if (ret)
+		return ret;
+
 	ret = clk_prepare_enable(st->mclk);
 	if (ret < 0)
-		goto error_disable_reg;
+		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, ad7768_clk_disable, st->mclk);
+	if (ret)
+		return ret;
 
 	ret = ad7768_samp_freq_config(st, AD7768_MAX_SAMP_FREQ);
 	if (ret < 0)
-		goto error_disable_clk;
+		return ret;
 
-	ret = devm_iio_device_register(&spi->dev, indio_dev);
-	if (ret < 0)
-		goto error_disable_clk;
-
-	return 0;
-
-error_disable_clk:
-	clk_disable_unprepare(st->mclk);
-error_disable_reg:
-	regulator_disable(st->vref);
-
-	return ret;
-}
-
-static int ad7768_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct ad7768_state *st = iio_priv(indio_dev);
-
-	clk_disable_unprepare(st->mclk);
-	regulator_disable(st->vref);
-
-	return 0;
+	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id ad7768_id[] = {
@@ -426,7 +426,6 @@ static struct spi_driver ad7768_driver = {
 		.name	= "ad7768",
 	},
 	.probe		= ad7768_probe,
-	.remove		= ad7768_remove,
 	.id_table	= ad7768_id,
 };
 module_spi_driver(ad7768_driver);
