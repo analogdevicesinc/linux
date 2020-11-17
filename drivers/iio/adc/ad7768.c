@@ -371,8 +371,8 @@ static int ad7768_probe(struct spi_device *spi)
 	indio_dev->num_channels = ARRAY_SIZE(ad7768_channels);
 	indio_dev->info = &ad7768_info;
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
-					    &dma_buffer_ops, indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
+						 &dma_buffer_ops, indio_dev);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
@@ -401,8 +401,6 @@ error_disable_clk:
 error_disable_reg:
 	regulator_disable(st->vref);
 
-	iio_dmaengine_buffer_free(indio_dev->buffer);
-
 	return ret;
 }
 
@@ -411,7 +409,6 @@ static int ad7768_remove(struct spi_device *spi)
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	iio_dmaengine_buffer_free(indio_dev->buffer);
 	clk_disable_unprepare(st->mclk);
 	regulator_disable(st->vref);
 
