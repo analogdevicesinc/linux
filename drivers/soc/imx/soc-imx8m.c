@@ -203,8 +203,8 @@ static void __init imx8mq_noc_init(void)
 	if (res.a0)
 		pr_err("Config NOC for CPU fail!\n");
 
-	arm_smccc_smc(IMX_SIP_NOC, IMX_SIP_NOC_LCDIF, 0,
-			0, 0, 0, 0, 0, &res);
+	arm_smccc_smc(IMX_SIP_NOC, IMX_SIP_NOC_PRIORITY, NOC_VPU_PRIORITY,
+			0x80000300, 0, 0, 0, 0, &res);
 	if (res.a0)
 		pr_err("Config NOC for VPU fail!\n");
 }
