@@ -712,6 +712,21 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	return DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
 }
 
+static int hmc7044_clk_determine_rate(struct clk_hw *hw,
+				      struct clk_rate_request *req)
+{
+	struct hmc7044_output *out = to_output(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	unsigned int div;
+
+	div = hmc7044_calc_out_div(hmc->pll2_freq, req->rate);
+
+	req->rate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+
+	return 0;
+}
+
 static int hmc7044_clk_set_rate(struct clk_hw *hw,
 				unsigned long rate,
 				unsigned long parent_rate)
@@ -722,6 +737,7 @@ static int hmc7044_clk_set_rate(struct clk_hw *hw,
 static const struct clk_ops hmc7044_clk_ops = {
 	.recalc_rate = hmc7044_clk_recalc_rate,
 	.round_rate = hmc7044_clk_round_rate,
+	.determine_rate = hmc7044_clk_determine_rate,
 	.set_rate = hmc7044_clk_set_rate,
 };
 
