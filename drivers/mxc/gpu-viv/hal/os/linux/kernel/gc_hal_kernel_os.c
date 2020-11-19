@@ -74,6 +74,10 @@
 #include <linux/anon_inodes.h>
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0)
+#include <linux/io.h>
+#endif
+
 #if gcdLINUX_SYNC_FILE
 #  include <linux/file.h>
 #  include "gc_hal_kernel_sync.h"
@@ -2318,10 +2322,8 @@ gckOS_MapPhysical(
         {
             /* Map memory as cached memory. */
             request_mem_region(physical, Bytes, "MapRegion");
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
-            logical = ioremap(physical, Bytes);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0)
-            logical = (gctPOINTER) memremap(physical, Bytes, MEMREMAP_WT);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+            logical = (gctPOINTER) ioremap(physical, Bytes);
 #else
             logical = (gctPOINTER) ioremap_nocache(physical, Bytes);
 #endif

@@ -400,16 +400,14 @@ reserved_mem_map_kernel(
         return gcvSTATUS_INVALID_ARGUMENT;
     }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
 #if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
-    vaddr = memremap(res->start + Offset, Bytes, MEMREMAP_WC);
+    vaddr = ioremap_wc(res->start + Offset, Bytes);
 #else
-    vaddr = memremap(res->start + Offset, Bytes, MEMREMAP_WT);
-#endif
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)
-    vaddr = memremap(res->start + Offset, Bytes, MEMREMAP_WT);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+    vaddr = ioremap(res->start + Offset, Bytes);
 #else
     vaddr = ioremap_nocache(res->start + Offset, Bytes);
+#endif
 #endif
 
     if (!vaddr)
@@ -428,11 +426,8 @@ reserved_mem_unmap_kernel(
     IN gctPOINTER Logical
     )
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)
-    memunmap((void *)Logical);
-#else
     iounmap((void *)Logical);
-#endif
+
     return gcvSTATUS_OK;
 }
 

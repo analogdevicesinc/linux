@@ -2107,10 +2107,8 @@ gckGALDEVICE_Construct(
                     gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
                 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
                 device->registerBases[i] = (gctPOINTER)ioremap(physical, device->requestedRegisterMemSizes[i]);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0)
-                device->registerBases[i] = (gctPOINTER)memremap(physical, device->requestedRegisterMemSizes[i], MEMREMAP_WT);
 #else
                 device->registerBases[i] = (gctPOINTER)ioremap_nocache(physical, device->requestedRegisterMemSizes[i]);
 #endif
@@ -2588,11 +2586,8 @@ gckGALDEVICE_Destroy(
                 /* Unmap register memory. */
                 if (Device->requestedRegisterMemBases[i] != 0)
                 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0) && LINUX_VERSION_CODE < KERNEL_VERSION(5,9,0)
-                    memunmap(Device->registerBases[i]);
-#else
                     iounmap(Device->registerBases[i]);
-#endif
+
                     release_mem_region(Device->requestedRegisterMemBases[i],
                             Device->requestedRegisterMemSizes[i]);
                 }

@@ -364,7 +364,7 @@ _Import(
     gceSTATUS status = gcvSTATUS_OK;
     unsigned long vm_flags = 0;
     struct vm_area_struct *vma = NULL;
-    unsigned long start, end, memory;
+    gctSIZE_T start, end, memory;
     int result = 0;
 
     gctSIZE_T extraPage;
@@ -377,7 +377,11 @@ _Import(
     gcmkVERIFY_ARGUMENT(Memory != gcvNULL || Physical != ~0ULL);
     gcmkVERIFY_ARGUMENT(Size > 0);
 
-    memory = (unsigned long)Memory;
+    memory = (Physical != gcvINVALID_PHYSICAL_ADDRESS) ? Physical : (gctSIZE_T)Memory;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION (5,4,0)
+    memory = untagged_addr(memory);
+#endif
 
     /* Get the number of required pages. */
     end = (memory + Size + PAGE_SIZE - 1) >> PAGE_SHIFT;
@@ -405,9 +409,11 @@ _Import(
         return gcvSTATUS_INVALID_ARGUMENT;
     }
 
+    memory = (gctSIZE_T)Memory;
+
     if (memory)
     {
-        unsigned long vaddr = memory;
+        gctSIZE_T vaddr = memory;
 
         for (i = 0; i < pageCount; i++)
         {

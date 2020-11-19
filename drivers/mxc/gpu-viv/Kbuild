@@ -94,6 +94,7 @@ OBJS := $(OS_KERNEL_DIR)/gc_hal_kernel_device.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_linux.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_math.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_os.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_debug.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_debugfs.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_allocator.o \
         $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_user_memory.o \
@@ -120,7 +121,6 @@ endif
 OBJS += $(HAL_KERNEL_DIR)/gc_hal_kernel.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_command.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_db.o \
-        $(HAL_KERNEL_DIR)/gc_hal_kernel_debug.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_event.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_heap.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_mmu.o \

@@ -1730,20 +1730,29 @@ typedef enum _gceBUFOBJ_TYPE
 
 typedef enum _gceBUFOBJ_USAGE
 {
-    gcvBUFOBJ_USAGE_STREAM_DRAW = 1,
-    gcvBUFOBJ_USAGE_STREAM_READ,
-    gcvBUFOBJ_USAGE_STREAM_COPY,
-    gcvBUFOBJ_USAGE_STATIC_DRAW,
-    gcvBUFOBJ_USAGE_STATIC_READ,
-    gcvBUFOBJ_USAGE_STATIC_COPY,
-    gcvBUFOBJ_USAGE_DYNAMIC_DRAW,
-    gcvBUFOBJ_USAGE_DYNAMIC_READ,
-    gcvBUFOBJ_USAGE_DYNAMIC_COPY,
+    gcvBUFOBJ_USAGE_NONE                                = 0x0,
+    gcvBUFOBJ_USAGE_STREAM_DRAW                         = 0x1,
+    gcvBUFOBJ_USAGE_STREAM_READ                         = 0x2,
+    gcvBUFOBJ_USAGE_STREAM_COPY                         = 0x3,
+    gcvBUFOBJ_USAGE_STATIC_DRAW                         = 0x4,
+    gcvBUFOBJ_USAGE_STATIC_READ                         = 0x5,
+    gcvBUFOBJ_USAGE_STATIC_COPY                         = 0x6,
+    gcvBUFOBJ_USAGE_DYNAMIC_DRAW                        = 0x7,
+    gcvBUFOBJ_USAGE_DYNAMIC_READ                        = 0x8,
+    gcvBUFOBJ_USAGE_DYNAMIC_COPY                        = 0x9,
 
+    /* Use 8bits to save the usage. */
+    gcvBUFOBJ_USAGE_MASK                                = 0xFF,
+
+    /* Some special flags. */
     /* special patch for optimaize performance,
     ** no fence and duplicate stream to ensure data correct
     */
-    gcvBUFOBJ_USAGE_DISABLE_FENCE_DYNAMIC_STREAM = 256
+    gcvBUFOBJ_USAGE_FLAG_DISABLE_FENCE_DYNAMIC_STREAM   = 0x100,
+
+    /* This buffer object is used by driver, so we need to copy the data to the logical memory. */
+    gcvBUFOBJ_USAGE_FLAG_DATA_USED_BY_DRIVER            = 0x200,
+
 } gceBUFOBJ_USAGE;
 
 /**
