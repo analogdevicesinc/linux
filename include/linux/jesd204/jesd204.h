@@ -112,7 +112,7 @@ struct jesd204_link {
 	u8 num_lanes;
 	u8 num_converters;
 	u8 octets_per_frame;
-	u8 frames_per_multiframe;
+	u16 frames_per_multiframe;
 	u8 num_of_multiblocks_in_emb; /* E */
 
 	u8 bits_per_sample;
