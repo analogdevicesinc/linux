@@ -261,7 +261,7 @@ static int ad9172_setup(struct ad9172_state *st)
 				 (void(*)(void *))clk_disable_unprepare,
 				 st->conv.clk[CLK_DATA]);
 
-	ad917x_jesd_set_sysref_enable(ad917x_h, 0); /* subclass 0 */
+	ad917x_jesd_set_sysref_enable(ad917x_h, !!st->jesd_subclass);
 
 	/*Enable Link*/
 	ret = ad917x_jesd_enable_link(ad917x_h, JESD_LINK_ALL, 0x1);
