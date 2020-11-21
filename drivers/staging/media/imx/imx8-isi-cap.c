@@ -1195,6 +1195,7 @@ static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
 				       struct v4l2_frmsizeenum *fsize)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct device_node *parent;
 	struct v4l2_subdev *sd;
 	struct mxc_isi_fmt *fmt;
 	struct v4l2_subdev_frame_size_enum fse = {
@@ -1217,6 +1218,12 @@ static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
 	ret = v4l2_subdev_call(sd, pad, enum_frame_size, NULL, &fse);
 	if (ret)
 		return ret;
+
+	parent = of_get_parent(isi_cap->pdev->dev.of_node);
+	if ((of_device_is_compatible(parent, "fsl,imx8mp-isi")) &&
+	    (fse.max_width > ISI_2K || fse.min_width > ISI_2K) &&
+	    (isi_cap->id == 1))
+		return -EINVAL;
 
 	if (fse.min_width == fse.max_width &&
 	    fse.min_height == fse.max_height) {
@@ -1241,6 +1248,7 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 					   struct v4l2_frmivalenum *interval)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct device_node *parent;
 	struct v4l2_subdev *sd;
 	struct mxc_isi_fmt *fmt;
 	struct v4l2_subdev_frame_interval_enum fie = {
@@ -1263,6 +1271,11 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 	ret = v4l2_subdev_call(sd, pad, enum_frame_interval, NULL, &fie);
 	if (ret)
 		return ret;
+
+	parent = of_get_parent(isi_cap->pdev->dev.of_node);
+	if (of_device_is_compatible(parent, "fsl,imx8mp-isi") &&
+	    fie.width > ISI_2K && isi_cap->id == 1)
+		return -EINVAL;
 
 	interval->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 	interval->discrete = fie.interval;
