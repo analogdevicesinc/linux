@@ -589,7 +589,6 @@ static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 	int ret = 0;
 
 	mxc_isi->id = of_alias_get_id(node, "isi");
-	mxc_isi->chain_buf = of_property_read_bool(node, "fsl,chain_buf");
 
 	ret = of_property_read_u32_array(node, "interface", mxc_isi->interface, 3);
 	if (ret < 0)
