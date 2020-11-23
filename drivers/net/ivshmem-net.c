@@ -549,6 +549,9 @@ static void ivshm_net_run(struct net_device *ndev)
 	if (!netif_running(ndev))
 		return;
 
+	if (in->last_peer_state == IVSHM_NET_STATE_RUN)
+		netif_carrier_on(ndev);
+
 	if (test_and_set_bit(IVSHM_NET_FLAG_RUN, &in->flags))
 		return;
 
@@ -567,6 +570,7 @@ static void ivshm_net_do_stop(struct net_device *ndev)
 	if (!test_and_clear_bit(IVSHM_NET_FLAG_RUN, &in->flags))
 		return;
 
+	netif_carrier_off(ndev);
 	netif_stop_queue(ndev);
 	napi_disable(&in->napi);
 }
@@ -616,22 +620,18 @@ static void ivshm_net_state_change(struct work_struct *work)
 		break;
 
 	case IVSHM_NET_STATE_READY:
-		/*
-		 * Link is up and we are running once the remote is in READY or
-		 * RUN.
-		 */
-		if (peer_state >= IVSHM_NET_STATE_READY) {
-			netif_carrier_on(ndev);
-			ivshm_net_run(ndev);
-			break;
-		}
-		/* fall through */
 	case IVSHM_NET_STATE_RUN:
-		/*
-		 * If the remote goes to RESET, we need to follow immediately.
-		 */
-		if (peer_state == IVSHM_NET_STATE_RESET) {
-			netif_carrier_off(ndev);
+		if (peer_state >= IVSHM_NET_STATE_READY) {
+			/*
+			 * Link is up and we are running once the remote is in
+			 * READY or RUN.
+			 */
+			ivshm_net_run(ndev);
+		} else if (peer_state == IVSHM_NET_STATE_RESET) {
+			/*
+			 * If the remote goes to RESET, we need to follow
+			 * immediately.
+			 */
 			ivshm_net_do_stop(ndev);
 		}
 		break;
