@@ -20,7 +20,6 @@
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 
-#define SNVS_HPVIDR1_REG	0xBF8
 #define SNVS_LPSR_REG		0x4C	/* LP Status Register */
 #define SNVS_LPCR_REG		0x38	/* LP Control Register */
 #define SNVS_HPSR_REG		0x14
@@ -41,7 +40,7 @@ struct pwrkey_drv_data {
 	struct clk *clk;
 	struct timer_list check_timer;
 	struct input_dev *input;
-	u8 minor_rev;
+	bool  emulate_press;
 };
 
 static void imx_imx_snvs_check_for_events(struct timer_list *t)
@@ -107,7 +106,7 @@ static irqreturn_t imx_snvs_pwrkey_interrupt(int irq, void *dev_id)
 
 	regmap_read(pdata->snvs, SNVS_LPSR_REG, &lp_status);
 	if (lp_status & SNVS_LPSR_SPO) {
-		if (pdata->minor_rev == 0) {
+		if (pdata->emulate_press) {
 			/*
 			 * The first generation i.MX6 SoCs only sends an
 			 * interrupt on button release. To mimic power-key
@@ -147,7 +146,6 @@ static int imx_snvs_pwrkey_probe(struct platform_device *pdev)
 	struct device_node *np;
 	struct clk *clk;
 	int error;
-	u32 vid;
 
 	/* Get SNVS register Page */
 	np = pdev->dev.of_node;
@@ -181,8 +179,7 @@ static int imx_snvs_pwrkey_probe(struct platform_device *pdev)
 	if (pdata->irq < 0)
 		return -EINVAL;
 
-	regmap_read(pdata->snvs, SNVS_HPVIDR1_REG, &vid);
-	pdata->minor_rev = vid & 0xff;
+	pdata->emulate_press = of_property_read_bool(np, "emulate-press");
 
 	pdata->clk = devm_clk_get(&pdev->dev, "snvs");
 	if (IS_ERR(pdata->clk)) {
