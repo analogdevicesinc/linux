@@ -74,7 +74,7 @@ struct mxc_isi_fmt mxc_isi_input_formats[] = {
 		.colplanes	= 1,
 	}, {
 		.name		= "RGBA (R-G-B-A)",
-		.fourcc		= V4L2_PIX_FMT_RGBA,
+		.fourcc		= V4L2_PIX_FMT_RGBA32,
 		.depth		= { 32 },
 		.color = MXC_ISI_M2M_IN_FMT_XBGR8,
 		.memplanes	= 1,
