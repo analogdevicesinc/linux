@@ -724,10 +724,6 @@ static ssize_t adar1000_store(struct device *dev,
 	int ret = 0;
 	u32 val = 0, mask = 0;
 
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
 	/* Disable RAM access */
 	ret = adar1000_ram_enable(st, 0);
 	if (ret < 0)
@@ -882,15 +878,19 @@ static ssize_t adar1000_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (mask)
+	if (mask) {
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
 		ret = regmap_update_bits(st->regmap, st->dev_addr | reg, mask, val);
-	else
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+	} else {
 		ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
-
-	if (ret < 0)
-		return ret;
-
-	ret = adar1000_mode_4wire(st, 0);
+	}
 
 	return ret ? ret : len;
 }
@@ -1692,15 +1692,11 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 				     const char *buf, size_t len)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
-	u16 reg;
-	unsigned int val = 0, mask;
+	u16 reg = 0;
+	unsigned int val = 0, mask = 0;
 	bool readin;
 	u8 readval;
 	int ret;
-
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
 
 	switch (private) {
 	case ADAR1000_POWERDOWN:
@@ -1717,10 +1713,6 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 		if (!readin)
 			val = ADAR1000_CH1_EN >> chan->channel;
 
-		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
-					 mask, val);
-		if (ret < 0)
-			return ret;
 		break;
 	case ADAR1000_DETECTOR:
 		ret = kstrtobool(buf, &readin);
@@ -1731,34 +1723,37 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 		if (readin)
 			val = ADAR1000_CH_DET_EN(chan->channel);
 
-		ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MISC_ENABLES,
-					 mask, val);
-		if (ret < 0)
-			return ret;
+		reg = ADAR1000_MISC_ENABLES;
 		break;
 	case ADAR1000_PA_BIAS_ON:
 		ret = kstrtou8(buf, 10, &readval);
 		if (ret)
 			return ret;
 
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_CH_PA_BIAS_ON(chan->channel), readval);
-		if (ret < 0)
-			return ret;
+		reg = ADAR1000_CH_PA_BIAS_ON(chan->channel);
 		break;
 	case ADAR1000_PA_BIAS_OFF:
 		ret = kstrtou8(buf, 10, &readval);
 		if (ret)
 			return ret;
 
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_CH_PA_BIAS_OFF(chan->channel), readval);
-		if (ret < 0)
-			return ret;
+		reg = ADAR1000_CH_PA_BIAS_OFF(chan->channel);
 		break;
 	}
 
-	ret = adar1000_mode_4wire(st, 0);
+	if (mask) {
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg, mask, val);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+	} else {
+		ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
+	}
 
 	return ret ? ret : len;
 }
