@@ -30,6 +30,7 @@
 
 #define DRV_NAME "ivshmem-net"
 
+#define IVSHM_NET_STATE_UNKNOWN		(~0)
 #define IVSHM_NET_STATE_RESET		0
 #define IVSHM_NET_STATE_INIT		1
 #define IVSHM_NET_STATE_READY		2
@@ -88,6 +89,7 @@ struct ivshm_net {
 
 	struct napi_struct napi;
 
+	struct mutex state_lock;
 	u32 state;
 	u32 last_peer_state;
 	u32 *state_table;
@@ -575,6 +577,15 @@ static void ivshm_net_state_change(struct work_struct *work)
 	struct net_device *ndev = in->napi.dev;
 	u32 peer_state = READ_ONCE(in->state_table[in->peer_id]);
 
+	mutex_lock(&in->state_lock);
+
+	if (peer_state == in->last_peer_state) {
+		mutex_unlock(&in->state_lock);
+		return;
+	}
+
+	in->last_peer_state = peer_state;
+
 	switch (in->state) {
 	case IVSHM_NET_STATE_RESET:
 		/*
@@ -594,9 +605,13 @@ static void ivshm_net_state_change(struct work_struct *work)
 			ivshm_net_init_queues(ndev);
 			ivshm_net_set_state(in, IVSHM_NET_STATE_READY);
 
+			mutex_unlock(&in->state_lock);
+
 			rtnl_lock();
 			call_netdevice_notifiers(NETDEV_CHANGEADDR, ndev);
 			rtnl_unlock();
+
+			return;
 		}
 		break;
 
@@ -622,15 +637,12 @@ static void ivshm_net_state_change(struct work_struct *work)
 		break;
 	}
 
-	virt_wmb();
-	WRITE_ONCE(in->last_peer_state, peer_state);
+	mutex_unlock(&in->state_lock);
 }
 
 static void ivshm_net_check_state(struct ivshm_net *in)
 {
-	if (in->state_table[in->peer_id] != in->last_peer_state ||
-	    !test_bit(IVSHM_NET_FLAG_RUN, &in->flags))
-		queue_work(in->state_wq, &in->state_work);
+	queue_work(in->state_wq, &in->state_work);
 }
 
 static irqreturn_t ivshm_net_int_state(int irq, void *data)
@@ -663,17 +675,27 @@ static irqreturn_t ivshm_net_intx(int irq, void *data)
 
 static int ivshm_net_open(struct net_device *ndev)
 {
+	struct ivshm_net *in = netdev_priv(ndev);
+
 	netdev_reset_queue(ndev);
 	ndev->operstate = IF_OPER_UP;
+
+	mutex_lock(&in->state_lock);
 	ivshm_net_run(ndev);
+	mutex_unlock(&in->state_lock);
 
 	return 0;
 }
 
 static int ivshm_net_stop(struct net_device *ndev)
 {
+	struct ivshm_net *in = netdev_priv(ndev);
+
 	ndev->operstate = IF_OPER_DOWN;
+
+	mutex_lock(&in->state_lock);
 	ivshm_net_do_stop(ndev);
+	mutex_unlock(&in->state_lock);
 
 	return 0;
 }
@@ -939,6 +961,9 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 
 	in->peer_id = !id;
 	in->pdev = pdev;
+	in->last_peer_state = IVSHM_NET_STATE_UNKNOWN;
+
+	mutex_init(&in->state_lock);
 
 	ret = ivshm_net_calc_qsize(ndev);
 	if (ret)
