@@ -497,7 +497,7 @@ static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data)
 {
 	u32 adc_ctrl;
-	int ret;
+	int ret, timeout = 100;
 
 	/* Select ADC channel */
 	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL,
@@ -521,6 +521,12 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data
 				  &adc_ctrl);
 		if (ret < 0)
 			return ret;
+
+		timeout = timeout -1;
+		if (timeout == 0)
+			return -ENOENT;
+
+		mdelay(1);
 	} while (!(adc_ctrl & ADAR1000_ADC_EOC));
 
 	/* Read ADC sample */
