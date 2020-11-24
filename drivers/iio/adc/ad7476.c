@@ -64,6 +64,7 @@ enum ad7476_supported_device_ids {
 	ID_ADC081S,
 	ID_ADC101S,
 	ID_ADC121S,
+	ID_LTC2314_14,
 };
 
 static void ad7091_convst(struct ad7476_state *st)
@@ -233,6 +234,10 @@ static const struct ad7476_chip_info ad7476_chip_info_tbl[] = {
 		.channel[0] = ADC081S_CHAN(12),
 		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
 	},
+	[ID_LTC2314_14] = {
+		.channel[0] = AD7940_CHAN(14),
+		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
+	},
 };
 
 static const struct iio_info ad7476_info = {
@@ -348,6 +353,7 @@ static const struct spi_device_id ad7476_id[] = {
 	{"adc081s", ID_ADC081S},
 	{"adc101s", ID_ADC101S},
 	{"adc121s", ID_ADC121S},
+	{"ltc2314-14", ID_LTC2314_14},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7476_id);
