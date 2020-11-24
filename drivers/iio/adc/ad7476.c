@@ -62,16 +62,15 @@ enum ad7476_supported_device_ids {
 	ID_ADC081S,
 	ID_ADC101S,
 	ID_ADC121S,
+	ID_LTC2314_14,
 };
 
 static void ad7091_convst(struct ad7476_state *st)
 {
-	if (st->convst_gpio) {
-		gpiod_set_value(st->convst_gpio, 0);
-		udelay(1); /* CONVST pulse width: 10 ns min */
-		gpiod_set_value(st->convst_gpio, 1);
-		udelay(1); /* Conversion time: 650 ns max */
-	}
+	gpiod_set_value(st->convst_gpio, 0);
+	udelay(1); /* CONVST pulse width: 10 ns min */
+	gpiod_set_value(st->convst_gpio, 1);
+	udelay(1); /* Conversion time: 650 ns max */
 }
 
 static irqreturn_t ad7476_trigger_handler(int irq, void  *p)
@@ -105,7 +104,13 @@ static int ad7476_scan_direct(struct ad7476_state *st)
 {
 	int ret;
 
-	ad7091_convst(st);
+	if (st->convst_gpio) {
+		ad7091_convst(st);
+	} else {
+		ret = spi_sync(st->spi, &st->msg);
+		if (ret)
+			return ret;
+	}
 
 	ret = spi_sync(st->spi, &st->msg);
 	if (ret)
@@ -226,6 +231,10 @@ static const struct ad7476_chip_info ad7476_chip_info_tbl[] = {
 		.channel[0] = ADC081S_CHAN(12),
 		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
 	},
+	[ID_LTC2314_14] = {
+		.channel[0] = AD7940_CHAN(14),
+		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
+	},
 };
 
 static const struct iio_info ad7476_info = {
@@ -278,7 +287,7 @@ static int ad7476_probe(struct spi_device *spi)
 		return -ENOMEM;
 	for (i = 0; i < indio_dev->num_channels; i++) {
 		chan_spec[i] = st->chip_info->channel[i];
-		if ((chan_spec[i].type != IIO_TIMESTAMP) && st->convst_gpio)
+		if ((chan_spec[i].type != IIO_TIMESTAMP))
 			chan_spec[i].info_mask_separate |= BIT(IIO_CHAN_INFO_RAW);
 	}
 	indio_dev->channels = chan_spec;
@@ -349,6 +358,7 @@ static const struct spi_device_id ad7476_id[] = {
 	{"adc081s", ID_ADC081S},
 	{"adc101s", ID_ADC101S},
 	{"adc121s", ID_ADC121S},
+	{"ltc2314-14", ID_LTC2314_14},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7476_id);
