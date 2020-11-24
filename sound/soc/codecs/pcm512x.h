@@ -255,6 +255,12 @@
 #define PCM512x_AGBR_SHIFT 0
 #define PCM512x_AGBL_SHIFT 4
 
+enum pcm512x_sclk_src {
+	PCM512x_SYSCLK_MCLK1,
+	PCM512x_SYSCLK_MCLK2,
+	PCM512x_SYSCLK_NOCLK,
+};
+
 extern const struct dev_pm_ops pcm512x_pm_ops;
 extern const struct regmap_config pcm512x_regmap;
 
