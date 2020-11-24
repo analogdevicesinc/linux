@@ -501,8 +501,13 @@ static struct axi_dmac_sg *axi_dmac_fill_linear_sg(struct axi_dmac_chan *chan,
 	unsigned int segment_size;
 	unsigned int len;
 
-	/* Split into multiple equally sized segments if necessary */
-	num_segments = DIV_ROUND_UP(period_len, chan->max_length);
+	/*
+	 * Split into multiple equally sized segments if necessary.
+	 * chan->max_length can be UINT_MAX, so ensure there are no overflows
+	 * resuting in divide-by-zero errors by casting to u64.
+	 */
+	num_segments = DIV_ROUND_UP_ULL((u64)period_len,
+					(u64)chan->max_length);
 	segment_size = DIV_ROUND_UP(period_len, num_segments);
 	/* Take care of alignment */
 	segment_size = ((segment_size - 1) | chan->length_align_mask) + 1;
