@@ -51,10 +51,10 @@ enum jesd204_state_change_result {
 #define JESD204_LMFC_OFFSET_UNINITIALIZED	((u16)-1)
 
 /** struct jesd204_sysref - JESD204 parameters for SYSREF
- * @mode			SYSREF mode (see @jesd204_sysref_mode)
- * @capture_falling_edge	true if it should capture falling edge
- * @valid_falling_edge		true if falling edge should be valid
- * @lmfc_offset			offset for LMFC
+ * @mode:			SYSREF mode (see @jesd204_sysref_mode)
+ * @capture_falling_edge:	true if it should capture falling edge
+ * @valid_falling_edge:		true if falling edge should be valid
+ * @lmfc_offset:		offset for LMFC
  */
 struct jesd204_sysref {
 	enum jesd204_sysref_mode	mode;
@@ -65,39 +65,39 @@ struct jesd204_sysref {
 
 /**
  * struct jesd204_link - JESD204 link configuration settings
- * @link_id			JESD204 link ID provided via DT configuration
- * @error			error code for this JESD204 link
- * @is_transmit			true if this link is transmit (digital to analog)
- * @sample_rate			sample rate for the link
- * @sample_rate_div		optional sample rate divider for the link
+ * @link_id:			JESD204 link ID provided via DT configuration
+ * @error:			error code for this JESD204 link
+ * @is_transmit:		true if this link is transmit (digital to analog)
+ * @sample_rate:		sample rate for the link
+ * @sample_rate_div:		optional sample rate divider for the link
  * 					final rate = sample_rate / sample_rate_div
- * @num_lanes			number of JESD204 lanes (L)
- * @num_converters		number of converters per link (M)
- * @octets_per_frame		number of octets per frame (F)
- * @frames_per_multiframe	number of frames per frame (K)
- * @num_of_multiblocks_in_emb	number of multiblocks in extended multiblock (E) (JESD204C)
- * @bits_per_sample		number of bits per sample (N')
- * @converter_resolution	converter resolution (N)
- * @jesd_version		JESD204 version (A, B or C) (JESDV)
- * @jesd_encoder		JESD204C encoder (8B10B, 64B66B, 64B80B)
- * @subclass			JESD204 subclass (0,1 or 2) (SUBCLASSV)
- * @device_id			device ID (DID)
- * @bank_id			bank ID (BID)
- * @scrambling			true if scrambling enabled (SCR)
- * @high_density		true if high-density format is used (HD)
- * @ctrl_words_per_frame_clk	number of control words per frame clock
+ * @num_lanes:			number of JESD204 lanes (L)
+ * @num_converters:		number of converters per link (M)
+ * @octets_per_frame:		number of octets per frame (F)
+ * @frames_per_multiframe:	number of frames per frame (K)
+ * @num_of_multiblocks_in_emb:	number of multiblocks in extended multiblock (E) (JESD204C)
+ * @bits_per_sample:		number of bits per sample (N')
+ * @converter_resolution:	converter resolution (N)
+ * @jesd_version:		JESD204 version (A, B or C) (JESDV)
+ * @jesd_encoder:		JESD204C encoder (8B10B, 64B66B, 64B80B)
+ * @subclass:			JESD204 subclass (0,1 or 2) (SUBCLASSV)
+ * @device_id:			device ID (DID)
+ * @bank_id:			bank ID (BID)
+ * @scrambling:			true if scrambling enabled (SCR)
+ * @high_density:		true if high-density format is used (HD)
+ * @ctrl_words_per_frame_clk:	number of control words per frame clock
  *				period (CF)
- * @ctrl_bits_per_sample	number of control bits per sample (CS)
- * @samples_per_conv_frame	number of samples per converter per frame
+ * @ctrl_bits_per_sample:	number of control bits per sample (CS)
+ * @samples_per_conv_frame:	number of samples per converter per frame
  *				cycle (S)
- * @lane_ids			array of lane IDs (LID); note that this is an
+ * @lane_ids:			array of lane IDs (LID); note that this is an
  *				array the size of @num_lanes
- * @sysref			JESD204 sysref config, see @jesd204_sysref
- * @dac_adj_resolution_steps	number of adjustment resolution steps to adjust
+ * @sysref:			JESD204 sysref config, see @jesd204_sysref
+ * @dac_adj_resolution_steps:	number of adjustment resolution steps to adjust
  *				DAC LMFC (ADJCNT) - Subclass 2 only
- * @dac_adj_direction		direction to adjust DAC LMFC (ADJDIR)
+ * @dac_adj_direction:		direction to adjust DAC LMFC (ADJDIR)
  *				Subclass 2 only
- * @dac_phase_adj		true to do phase adjustment request to DAC
+ * @dac_phase_adj:		true to do phase adjustment request to DAC
  *				Subclass 2 only
  */
 struct jesd204_link {
@@ -193,12 +193,12 @@ enum jesd204_state_op_mode {
 
 /**
  * struct jesd204_state_op - JESD204 device per-state op
- * @mode		mode for this state op, depending on this @per_device or @per_link is called
- * @per_device		op called for each JESD204 **device** during a transition
+ * @mode:		mode for this state op, depending on this @per_device or @per_link is called
+ * @per_device:		op called for each JESD204 **device** during a transition
  * @per_link		op called for each JESD204 **link** individually during a transition
  * // FIXME: maybe pass 'struct jesd204_sysref' for post_state_sysref, to make this configurable? we'll see later
  * // FIXME: for now, the device should also be a top-level device, in case of multi-chip setups
- * @post_state_sysref	true if a SYSREF should be issued after the state change
+ * @post_state_sysref:	true if a SYSREF should be issued after the state change
  */
 struct jesd204_state_op {
 	enum jesd204_state_op_mode	mode;
@@ -231,13 +231,13 @@ enum jesd204_dev_op {
 
 /**
  * struct jesd204_dev_data - JESD204 device initialization data
- * @sysref_cb		SYSREF callback, if this device/driver supports it
- * @fsm_finished_cb	callback for when the FSM finishes a series of transitions
- * @sizeof_priv		amount of data to allocate for private information
- * @links		JESD204 initial link configuration
- * @max_num_links	maximum number of JESD204 links this device can support
- * @num_retries		number of retries in case of error (only for top-level device)
- * @state_ops		ops for each state transition of type @struct jesd204_state_op
+ * @sysref_cb:		SYSREF callback, if this device/driver supports it
+ * @fsm_finished_cb:	callback for when the FSM finishes a series of transitions
+ * @sizeof_priv:	amount of data to allocate for private information
+ * @links:		JESD204 initial link configuration
+ * @max_num_links:	maximum number of JESD204 links this device can support
+ * @num_retries:	number of retries in case of error (only for top-level device)
+ * @state_ops:		ops for each state transition of type @struct jesd204_state_op
  */
 struct jesd204_dev_data {
 	jesd204_sysref_cb			sysref_cb;
