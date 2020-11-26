@@ -290,6 +290,9 @@ bool jesd204_link_get_paused(const struct jesd204_link *lnk);
 
 const char *jesd204_link_get_state_str(const struct jesd204_link *lnk);
 
+void jesd204_copy_link_params(struct jesd204_link *dst,
+			      const struct jesd204_link *src);
+
 #else /* !IS_ENABLED(CONFIG_JESD204) */
 
 static inline struct jesd204_dev *devm_jesd204_dev_register(
@@ -391,6 +394,9 @@ static inline const char *jesd204_link_get_state_str(const struct jesd204_link *
 {
 	return NULL;
 }
+
+static inline void jesd204_copy_link_params(struct jesd204_link *dst,
+					    const struct jesd204_link *src) {}
 
 #endif /* #ifdef CONFIG_JESD204 */
 
