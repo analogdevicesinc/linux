@@ -250,6 +250,33 @@ int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_device_clock);
 
+void jesd204_copy_link_params(struct jesd204_link *dst,
+			      const struct jesd204_link *src)
+{
+	dst->is_transmit = src->is_transmit;
+	dst->num_lanes = src->num_lanes;
+	dst->num_converters = src->num_converters;
+	dst->octets_per_frame = src->octets_per_frame;
+	dst->frames_per_multiframe = src->frames_per_multiframe;
+	dst->num_of_multiblocks_in_emb = src->num_of_multiblocks_in_emb;
+	dst->bits_per_sample = src->bits_per_sample;
+	dst->converter_resolution = src->converter_resolution;
+	dst->jesd_version = src->jesd_version;
+	dst->jesd_encoder = src->jesd_encoder;
+	dst->subclass = src->subclass;
+	dst->device_id = src->device_id;
+	dst->bank_id = src->bank_id;
+	dst->scrambling = src->scrambling;
+	dst->high_density = src->high_density;
+	dst->ctrl_words_per_frame_clk = src->ctrl_words_per_frame_clk;
+	dst->ctrl_bits_per_sample = src->ctrl_bits_per_sample;
+	dst->samples_per_conv_frame = src->samples_per_conv_frame;
+	dst->dac_adj_resolution_steps = src->dac_adj_resolution_steps;
+	dst->dac_adj_direction = src->dac_adj_direction;
+	dst->dac_phase_adj = src->dac_phase_adj;
+}
+EXPORT_SYMBOL_GPL(jesd204_copy_link_params);
+
 int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 				    unsigned long *rate_hz)
 {
