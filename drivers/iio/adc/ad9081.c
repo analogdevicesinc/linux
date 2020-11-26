@@ -25,7 +25,9 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+#define JESD204_OF_PREFIX	"adi,"
 #include <linux/jesd204/jesd204.h>
+#include <linux/jesd204/jesd204-of.h>
 
 #include "ad9081/adi_ad9081.h"
 #include "ad9081/adi_ad9081_hal.h"
@@ -78,8 +80,8 @@ struct ad9081_jesd204_priv {
 	struct ad9081_phy *phy;
 };
 struct ad9081_jesd_link {
-	bool is_jrx;
 	adi_cms_jesd_param_t jesd_param;
+	struct jesd204_link jesd204_link;
 	u32 jrx_tpl_phase_adjust;
 	u8 logiclane_mapping[8];
 	u8 link_converter_select[16];
@@ -2562,96 +2564,52 @@ static int ad9081_parse_jesd_link_dt(struct ad9081_phy *phy,
 				     struct device_node *np,
 				     struct ad9081_jesd_link *link, bool jtx)
 {
+	struct device *dev = &phy->spi->dev;
 	u32 tmp;
 	int ret;
 
-	link->is_jrx = !jtx;
+	link->jesd204_link.is_transmit = !jtx;
+	link->jesd204_link.scrambling = 1; /* Force scambling on */
 	link->jesd_param.jesd_scr = 1; /* Force scambling on */
 
 	tmp = 0;
-	of_property_read_u32(np, "adi,device-id", &tmp);
-	link->jesd_param.jesd_did = tmp;
 
-	ret = of_property_read_u32(np, "adi,octets-per-frame", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_f = tmp;
+	JESD204_LNK_READ_DEVICE_ID(dev, np, &link->jesd204_link,
+				   &link->jesd_param.jesd_did, 0);
 
-	ret = of_property_read_u32(np, "adi,frames-per-multiframe", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_k = tmp;
+	JESD204_LNK_READ_OCTETS_PER_FRAME(dev, np, &link->jesd204_link,
+					  &link->jesd_param.jesd_f, -1);
 
-	ret = of_property_read_u32(np, "adi,samples-per-converter-per-frame",
-				   &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_s = tmp;
+	JESD204_LNK_READ_FRAMES_PER_MULTIFRAME(dev, np, &link->jesd204_link,
+					       &link->jesd_param.jesd_k, -1);
 
-	ret = of_property_read_u32(np, "adi,high-density", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_hd = tmp;
+	JESD204_LNK_READ_SAMPLES_PER_CONVERTER_PER_FRAME(dev, np,
+							 &link->jesd204_link,
+							 &link->jesd_param.jesd_s, -1);
 
-	ret = of_property_read_u32(np, "adi,converter-resolution", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_n = tmp;
+	JESD204_LNK_READ_HIGH_DENSITY(dev, np, &link->jesd204_link,
+				      &link->jesd_param.jesd_hd, -1);
 
-	ret = of_property_read_u32(np, "adi,bits-per-sample", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_np = tmp;
+	JESD204_LNK_READ_CONVERTER_RESOLUTION(dev, np, &link->jesd204_link,
+					      &link->jesd_param.jesd_n, -1);
 
-	ret = of_property_read_u32(np, "adi,converters-per-device", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_m = tmp;
+	JESD204_LNK_READ_BITS_PER_SAMPLE(dev, np, &link->jesd204_link,
+					 &link->jesd_param.jesd_np, -1);
 
-	ret = of_property_read_u32(np, "adi,control-bits-per-sample", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_cs = tmp;
+	JESD204_LNK_READ_NUM_CONVERTERS(dev, np, &link->jesd204_link,
+					&link->jesd_param.jesd_m, -1);
 
-	ret = of_property_read_u32(np, "adi,lanes-per-device", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_l = tmp;
+	JESD204_LNK_READ_CTRL_BITS_PER_SAMPLE(dev, np, &link->jesd204_link,
+					      &link->jesd_param.jesd_cs, -1);
 
-	ret = of_property_read_u32(np, "adi,subclass", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_subclass = tmp;
+	JESD204_LNK_READ_NUM_LANES(dev, np, &link->jesd204_link,
+				   &link->jesd_param.jesd_l, -1);
+
+	JESD204_LNK_READ_VERSION(dev, np, &link->jesd204_link,
+				 &link->jesd_param.jesd_jesdv, -1);
+
+	JESD204_LNK_READ_SUBCLASS(dev, np, &link->jesd204_link,
+				  &link->jesd_param.jesd_subclass, -1);
 
 	ret = of_property_read_u32(np, "adi,link-mode", &tmp);
 	if (ret) {
@@ -2668,14 +2626,6 @@ static int ad9081_parse_jesd_link_dt(struct ad9081_phy *phy,
 		return -EINVAL;
 	}
 	link->jesd_param.jesd_duallink = tmp;
-
-	ret = of_property_read_u32(np, "adi,version", &tmp);
-	if (ret) {
-		dev_err(&phy->spi->dev,
-			"Missing device tree property @ line %d ", __LINE__);
-		return -EINVAL;
-	}
-	link->jesd_param.jesd_jesdv = tmp;
 
 	ret = of_property_read_variable_u8_array(
 		np, "adi,logical-lane-mapping", link->logiclane_mapping, 1,
@@ -3112,7 +3062,6 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9081_phy *phy = priv->phy;
 	struct ad9081_jesd_link *link;
-	adi_cms_jesd_param_t *p;
 
 	switch (reason) {
 	case JESD204_STATE_OP_REASON_INIT:
@@ -3138,21 +3087,7 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 		return -EINVAL;
 	}
 
-	p = &link->jesd_param;
-
-	lnk->num_converters = p->jesd_m;
-	lnk->num_lanes = p->jesd_l;
-	lnk->octets_per_frame = p->jesd_f;
-	lnk->frames_per_multiframe = p->jesd_k;
-	lnk->device_id = p->jesd_did;
-	lnk->bank_id = p->jesd_lid0;
-	lnk->scrambling = p->jesd_scr;
-	lnk->bits_per_sample = p->jesd_np;
-	lnk->converter_resolution = p->jesd_n;
-	lnk->ctrl_bits_per_sample = p->jesd_cs;
-	lnk->jesd_version = p->jesd_jesdv;
-	lnk->subclass = p->jesd_subclass;
-	lnk->is_transmit = link->is_jrx;
+	jesd204_copy_link_params(lnk, &link->jesd204_link);
 
 	if (lnk->jesd_version == JESD204_VERSION_C)
 		lnk->jesd_encoder = JESD204_ENCODER_64B66B;
