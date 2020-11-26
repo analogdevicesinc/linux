@@ -611,6 +611,9 @@ unlock:
 		return ret;
 	}
 
+	if (mxc_md->media_dev.devnode)
+		return ret;
+
 	return media_device_register(&mxc_md->media_dev);
 }
 
