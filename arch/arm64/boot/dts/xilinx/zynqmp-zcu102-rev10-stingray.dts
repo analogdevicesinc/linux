@@ -144,8 +144,25 @@
 		compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
 		interrupt-names = "iic2intc_irpt";
 		interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x65100000 0x1000>;
+		reg = <0x85100000 0x1000>;
 	};
+};
+
+&axi_i2c_pmod {
+	ltc2992@6A {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                compatible = "adi,ltc2992";
+                reg = <0x6A>;
+                channel@0 {
+                        reg = <0x0>;
+                        shunt-resistor-micro-ohms = <8000>;
+                };
+                channel@1 {
+                        reg = <0x1>;
+                        shunt-resistor-micro-ohms = <3500>;
+                };
+        };
 };
 
 &axi_spi_pmod {
