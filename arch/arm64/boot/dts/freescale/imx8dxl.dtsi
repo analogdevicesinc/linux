@@ -288,6 +288,7 @@
 	};
 
 	/* sorted in register address */
+	#include "imx8-ss-security.dtsi"
 	#include "imx8-ss-cm40.dtsi"
 	#include "imx8-ss-adma.dtsi"
 	#include "imx8-ss-conn.dtsi"
@@ -302,6 +303,7 @@
 #include "imx8dxl-ss-lsio.dtsi"
 #include "imx8dxl-ss-hsio.dtsi"
 #include "imx8dxl-ss-ddr.dtsi"
+#include "imx8dxl-ss-security.dtsi"
 
 &cm40_intmux {
 	interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
