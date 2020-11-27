@@ -1808,7 +1808,7 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 }
 
 static const char* const ffh_modes[] = {
-	"phase_continuous", "phase_incontinuous", "phase coherent"
+	"phase_continuous", "phase_incontinuous", "phase_coherent"
 };
 
 static ssize_t ad9081_phy_store(struct device *dev,
