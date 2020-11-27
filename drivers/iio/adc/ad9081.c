@@ -47,6 +47,10 @@
 	for ((bit) = 0; (bit) < MAX_NUM_MAIN_DATAPATHS; (bit)++) \
 		if ((mask) & BIT(bit))
 
+#define for_each_fddc(bit, mask) \
+	for ((bit) = 0; (bit) < MAX_NUM_CHANNELIZER; (bit)++) \
+		if ((mask) & BIT(bit))
+
 enum {	CDDC_NCO_FREQ,
 	FDDC_NCO_FREQ,
 	CDDC_NCO_FREQ_AVAIL,
@@ -176,6 +180,7 @@ struct ad9081_phy {
 	u8 rx_fddc_c2r[MAX_NUM_CHANNELIZER];
 	u8 rx_fddc_dcm[MAX_NUM_CHANNELIZER];
 	u8 rx_cddc_dcm[MAX_NUM_MAIN_DATAPATHS];
+	u8 rx_fddc_mxr_if[MAX_NUM_CHANNELIZER];
 	u8 rx_fddc_select;
 	u8 rx_cddc_select;
 
@@ -1584,6 +1589,13 @@ static int ad9081_setup(struct spi_device *spi)
 			return ret;
 	}
 
+	for_each_fddc(i, phy->rx_fddc_select) {
+		ret = adi_ad9081_adc_ddc_fine_nco_mode_set(
+				&phy->ad9081, BIT(i), phy->rx_fddc_mxr_if[i]);
+		if (ret != 0)
+			return ret;
+	}
+
 	/* setup txfe dac channel gain */
 	ret = adi_ad9081_dac_duc_nco_gains_set(&phy->ad9081,
 					       phy->dac_cache.chan_gain);
@@ -2816,6 +2828,8 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 	for_each_child_of_node(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
 		if (!ret && (reg < ARRAY_SIZE(phy->rx_fddc_shift))) {
+			u32 mode;
+
 			of_property_read_u32(of_chan, "adi,decimation",
 					     &phy->adc_chan_decimation[reg]);
 			of_property_read_u64(of_chan,
@@ -2823,6 +2837,10 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 					     &phy->rx_fddc_shift[reg]);
 			phy->rx_fddc_c2r[reg] = of_property_read_bool(
 				of_chan, "adi,complex-to-real-enable");
+			mode = AD9081_ADC_NCO_VIF;
+			of_property_read_u32(of_chan, "adi,nco-mixer-mode",
+					     &mode);
+			phy->rx_fddc_mxr_if[reg] = mode;
 			phy->rx_fddc_select |= BIT(reg);
 		}
 	}
