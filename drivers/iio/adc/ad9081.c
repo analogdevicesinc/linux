@@ -161,7 +161,7 @@ struct ad9081_phy {
 
 	u8 ffh_hopf_index;
 	u8 ffh_hopf_mode;
-	u32 ffh_hopf_vals[32];
+	s64 ffh_hopf_vals[32];
 
 	struct dac_settings_cache dac_cache;
 	struct ad9081_jesd_link jesd_tx_link;
@@ -1820,9 +1820,11 @@ static ssize_t ad9081_phy_store(struct device *dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	unsigned long res;
+	long long lval;
 	uint64_t ftw;
 	bool bres;
 	int ret = 0;
+	u8 val;
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -1868,13 +1870,13 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		phy->ffh_hopf_index = res;
 		break;
 	case AD9081_DAC_FFH_FREQ_SET:
-		ret = kstrtoul(buf, 0, &res);
+		ret = kstrtoll(buf, 10, &lval);
 		if (ret) {
 			ret = -EINVAL;
 			break;
 		}
 		ret = adi_ad9081_hal_calc_tx_nco_ftw32(&phy->ad9081,
-				phy->ad9081.dev_info.dac_freq_hz, res,
+				phy->ad9081.dev_info.dac_freq_hz, lval,
 				&ftw);
 		if (ret) {
 			ret = -EINVAL;
@@ -1939,7 +1941,7 @@ static ssize_t ad9081_phy_show(struct device *dev,
 		ret = sprintf(buf, "%u\n", phy->ffh_hopf_index);
 		break;
 	case AD9081_DAC_FFH_FREQ_SET:
-		ret = sprintf(buf, "%u\n", phy->ffh_hopf_vals[phy->ffh_hopf_index]);
+		ret = sprintf(buf, "%lld\n", phy->ffh_hopf_vals[phy->ffh_hopf_index]);
 		break;
 	case AD9081_DAC_FFH_MODE_SET:
 		ret = sprintf(buf, "%s\n", ffh_modes[phy->ffh_hopf_mode]);
