@@ -1892,7 +1892,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			break;
 		}
 
-		phy->ffh_hopf_vals[phy->ffh_hopf_index] = res;
+		phy->ffh_hopf_vals[phy->ffh_hopf_index] = lval;
 		break;
 	case AD9081_DAC_FFH_MODE_SET:
 		ret = sysfs_match_string(ffh_modes, buf);
@@ -1901,14 +1901,16 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			break;
 		}
 
+		val = ret;
+
 		ret = adi_ad9081_dac_duc_main_nco_hopf_mode_set(&phy->ad9081,
-						  AD9081_DAC_ALL, ret);
+						  AD9081_DAC_ALL, val);
 		if (ret) {
 			ret = -EINVAL;
 			break;
 		}
 
-		phy->ffh_hopf_mode = ret;
+		phy->ffh_hopf_mode = val;
 		break;
 	default:
 		ret = -EINVAL;
