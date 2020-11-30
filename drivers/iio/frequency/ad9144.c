@@ -809,22 +809,31 @@ static int ad9144_setup(struct ad9144_state *st,
 
 static int ad9144_get_clks(struct cf_axi_converter *conv)
 {
-	struct clk *clk;
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < 3; i++) {
-		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
-		if (IS_ERR(clk))
-			return PTR_ERR(clk);
+	conv->clk[CLK_DATA] = devm_clk_get(&conv->spi->dev, clk_names[CLK_DATA]);
+	if (IS_ERR(conv->clk[CLK_DATA]))
+		return PTR_ERR(conv->clk[CLK_DATA]);
 
-		if (i > 0) {
-			ret = clk_prepare_enable(clk);
-			if (ret < 0)
-				return ret;
+	conv->clk[CLK_DAC] = devm_clk_get(&conv->spi->dev, clk_names[CLK_DAC]);
+	if (IS_ERR(conv->clk[CLK_DAC]))
+		return PTR_ERR(conv->clk[CLK_DAC]);
+
+	ret = clk_prepare_enable(conv->clk[CLK_DAC]);
+	if (ret < 0)
+		return ret;
+
+	conv->clk[CLK_REF] = devm_clk_get(&conv->spi->dev, clk_names[CLK_REF]);
+	if (IS_ERR(conv->clk[CLK_REF])) {
+		if (PTR_ERR(conv->clk[CLK_REF]) == -ENOENT) {
+			conv->clk[CLK_REF] = NULL;
+			return 0;
+		} else {
+			return PTR_ERR(conv->clk[CLK_REF]);
 		}
-		conv->clk[i] = clk;
 	}
-	return 0;
+
+	return  clk_prepare_enable(conv->clk[CLK_REF]);
 }
 
 static unsigned long long ad9144_get_data_clk(struct cf_axi_converter *conv)
