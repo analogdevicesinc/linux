@@ -41,8 +41,14 @@
 /* Private data for Proxy Interface */
 struct dpa_proxy_priv_s {
 	struct mac_device	*mac_dev;
-	struct eventfd_ctx	*efd_ctx;
 };
+
+struct eventfd_list {
+	struct list_head d_list;
+	struct net_device *ndev;
+	struct eventfd_ctx *efd_ctx;
+};
+
 /* Interface Helpers */
 static inline struct device *get_dev_ptr(char *if_name);
 static void phy_link_updates(struct net_device *net_dev);
@@ -72,6 +78,7 @@ static unsigned int current_tlb; /* loops around for fault handling */
 /* Memory reservation is represented as a list of 'mem_fragment's, some of which
  * may be mapped. Unmapped fragments are always merged where possible. */
 static LIST_HEAD(mem_list);
+static LIST_HEAD(eventfd_head);
 
 struct mem_mapping;
 
@@ -1776,34 +1783,65 @@ static inline int ioctl_usdpaa_get_link_status(char *if_name)
  */
 static void phy_link_updates(struct net_device *net_dev)
 {
-	struct dpa_priv_s *npriv = NULL;
-	struct mac_device *mac_dev;
-	struct phy_device *phy_dev;
+	struct list_head *position = NULL;
+	struct eventfd_list  *ev_mem = NULL;
 
-	if (!net_dev->phydev) {
-		npriv = netdev_priv(net_dev);
-		mac_dev =  npriv->mac_dev;
-		phy_dev = of_phy_find_device(mac_dev->phy_node);
-	} else {
-		phy_dev = net_dev->phydev;
+	list_for_each(position, &eventfd_head) {
+		ev_mem = list_entry(position, struct eventfd_list, d_list);
+		if (ev_mem->ndev == net_dev) {
+			eventfd_signal(ev_mem->efd_ctx, 1);
+			pr_debug("%s: Link '%s'\n",
+				net_dev->name,
+				ioctl_usdpaa_get_link_status(net_dev->name)?"UP":"DOWN");
+			return;
+		}
 	}
 
-	if (phy_dev->priv == NULL) {
-		struct dpa_proxy_priv_s *priv = NULL;
-		priv = netdev_priv(net_dev);
-		eventfd_signal(priv->efd_ctx, 1);
-	} else {
-		eventfd_signal((struct eventfd_ctx *)phy_dev->priv, 1);
-	}
-
-	pr_debug("%s: Link '%s': Speed '%d-Mbps': Autoneg '%d': Duplex '%d'\n",
-		net_dev->name,
-		ioctl_usdpaa_get_link_status(net_dev->name)?"UP":"DOWN",
-		phy_dev->speed,
-		phy_dev->autoneg,
-		phy_dev->duplex);
+	pr_err(KBUILD_MODNAME "Device not registered for link events\n");
 }
 
+static int setup_eventfd(struct task_struct *userspace_task,
+			struct usdpaa_ioctl_link_status *args,
+			struct net_device *net_dev)
+{
+	struct file *efd_file = NULL;
+	struct list_head *position = NULL;
+	struct eventfd_list *ev_mem;
+
+	rcu_read_lock();
+	efd_file = fcheck_files(userspace_task->files, args->efd);
+	rcu_read_unlock();
+
+	/* check if device is already registered */
+	list_for_each(position, &eventfd_head) {
+		ev_mem = list_entry(position, struct eventfd_list, d_list);
+		if (ev_mem->ndev == net_dev) {
+			ev_mem->efd_ctx = eventfd_ctx_fileget(efd_file);
+			if (ev_mem->efd_ctx == NULL) {
+				pr_err(KBUILD_MODNAME "get eventfd context failed\n");
+				return -EINVAL;
+			}
+			return 0;
+		}
+	}
+
+	ev_mem = kmalloc(sizeof(*ev_mem), GFP_KERNEL);
+	if (!ev_mem) {
+		return -ENOMEM;
+	}
+	INIT_LIST_HEAD(&ev_mem->d_list);
+
+	ev_mem->ndev = net_dev;
+	ev_mem->efd_ctx = eventfd_ctx_fileget(efd_file);
+	if (ev_mem->efd_ctx == NULL) {
+	pr_err(KBUILD_MODNAME "get eventfd context failed\n");
+		kfree(ev_mem);
+		return -EINVAL;
+	}
+	list_add(&ev_mem->d_list, &eventfd_head);
+
+	return 0;
+}
 
 /* IOCTL handler for enabling Link status request for a given interface
  * Input parameters:
@@ -1820,7 +1858,7 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 	struct device *dev;
 	struct mac_device *mac_dev;
 	struct task_struct *userspace_task = NULL;
-	struct file *efd_file = NULL;
+	int ret = 0;
 
 	dev = get_dev_ptr(args->if_name);
 	if (dev == NULL)
@@ -1838,15 +1876,9 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 		/* Get current task context from which IOCTL was called */
 		userspace_task = current;
 
-		rcu_read_lock();
-		efd_file = fcheck_files(userspace_task->files, args->efd);
-		rcu_read_unlock();
-		/* Utilising the PHYs priv for efd */
-		phy->priv = (void *)eventfd_ctx_fileget(efd_file);
-		if (phy->priv == NULL) {
-			pr_err(KBUILD_MODNAME "get eventfd context failed\n");
-			return -EINVAL;
-		}
+		ret = setup_eventfd(userspace_task, args, net_dev);
+		if (ret)
+			return ret;
 
 		/* Since there will be NO PHY update as link is already setup,
 		 * wake user context once so that current PHY status can
@@ -1873,17 +1905,11 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 			/* Get current task context from which IOCTL was called */
 			userspace_task = current;
 
-			rcu_read_lock();
-			efd_file = fcheck_files(userspace_task->files, args->efd);
-			rcu_read_unlock();
-
-			priv->efd_ctx = eventfd_ctx_fileget(efd_file);
-			if (!priv->efd_ctx) {
-				pr_err(KBUILD_MODNAME "get eventfd context failed\n");
-				/* Free the allocated memory for net device */
+			ret = setup_eventfd(userspace_task, args, net_dev);
+			if (ret) {
 				dev->platform_data = NULL;
 				free_netdev(net_dev);
-				return -EINVAL;
+				return ret;
 			}
 			/* Since there will be NO PHY update as link is already setup,
 			 * wake user context once so that current PHY status can
@@ -1908,17 +1934,10 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 		/* Get current task context from which IOCTL was called */
 		userspace_task = current;
 
-		rcu_read_lock();
-		efd_file = fcheck_files(userspace_task->files, args->efd);
-		rcu_read_unlock();
-
-		priv->efd_ctx = eventfd_ctx_fileget(efd_file);
-
-		if (!priv->efd_ctx) {
-			pr_err(KBUILD_MODNAME "get eventfd context failed\n");
-			/* Free the allocated memory for net device */
+		ret = setup_eventfd(userspace_task, args, net_dev);
+		if (ret) {
 			free_netdev(net_dev);
-			return -EINVAL;
+			return ret;
 		}
 		strncpy(net_dev->name, args->if_name, IF_NAME_MAX_LEN);
 		dev->platform_data = net_dev;
@@ -1957,14 +1976,27 @@ static int ioctl_disable_if_link_status(char *if_name)
 	struct device *dev;
 	struct mac_device *mac_dev;
 	struct proxy_device *proxy_dev;
-	struct dpa_proxy_priv_s *priv = NULL;
+	struct list_head *position = NULL;
+	struct eventfd_list  *ev_mem = NULL;
 
 	dev = get_dev_ptr(if_name);
 	if (dev == NULL)
 		return -ENODEV;
 
-	if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet"))
+	if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet")) {
+		net_dev = dev_get_drvdata(dev);
+		list_for_each(position, &eventfd_head) {
+			ev_mem = list_entry(position, struct eventfd_list, d_list);
+			if (ev_mem->ndev == net_dev) {
+				eventfd_ctx_put(ev_mem->efd_ctx);
+				list_del(position);
+				kfree(ev_mem);
+				break;
+			}
+		}
+
 		return 0;
+	}
 
 	/* Utilize dev->platform_data to save netdevice
 	   pointer as it will not be registered */
@@ -1979,9 +2011,16 @@ static int ioctl_disable_if_link_status(char *if_name)
 	mac_dev =  proxy_dev->mac_dev;
 	mac_dev->stop(mac_dev);
 
-	priv = netdev_priv(net_dev);
-	eventfd_ctx_put(priv->efd_ctx);
-
+	/* free the memory for eventfd */
+	list_for_each(position, &eventfd_head) {
+		ev_mem = list_entry(position, struct eventfd_list, d_list);
+		if (ev_mem->ndev == net_dev) {
+			eventfd_ctx_put(ev_mem->efd_ctx);
+			list_del(&ev_mem->d_list);
+			kfree(ev_mem);
+			break;
+		}
+	}
 	/* This will also deregister the call back */
 	phy_disconnect(mac_dev->phy_dev);
 	phy_resume(mac_dev->phy_dev);
