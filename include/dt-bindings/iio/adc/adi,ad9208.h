@@ -14,8 +14,8 @@
 #define AD9208_4_DDC_MODE 4
 
 #define AD9208_SYSREF_NONE 0	/* No SYSREF Support */
-#define AD9208_SYSREF_ONESHOT 1	/* ONE-SHOT SYSREF */
-#define AD9208_SYSREF_CONT 2	/* Continuous Sysref Synchronisation */
+#define AD9208_SYSREF_ONESHOT 2	/* ONE-SHOT SYSREF */
+#define AD9208_SYSREF_CONT 1	/* Continuous Sysref Synchronisation */
 #define AD9208_SYSREF_MON 3	/* SYSREF monitor Mode */
 
 #define AD9208_NCO_MODE_VIF 0	/* Variable IF Mode*/
