@@ -16,6 +16,11 @@
 #define fmc_i2c fmc_lpc_iic
 #define fmc_spi axi_spi
 
+/* ad9467_fmc_kc705: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffe5de>;
+};
+
 &amba_pl {
 	axi_ad9467: cf-ad9467-core-lpc@44a00000 {
 		compatible = "adi,axi-adc-10.0.a";

@@ -5,6 +5,12 @@
 #define fmc_i2c fmc_lpc_iic
 #define fmc_spi axi_spi
 
+/* fmcomms2_kcu105: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffc5f0>;
+};
+
+
 &amba_pl {
 	rx_dma: dma@7c400000 {
 		#dma-cells = <1>;
