@@ -14,6 +14,11 @@
 #define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
 
+/* daq2_kcu105: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffff05f0>;
+};
+
 &amba_pl {
 	rx_dma: rx-dmac@7c400000 {
 		#dma-cells = <1>;
