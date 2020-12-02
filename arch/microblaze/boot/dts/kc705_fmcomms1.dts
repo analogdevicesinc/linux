@@ -4,6 +4,11 @@
 
 #define fmc_i2c fmc_lpc_iic
 
+/* fmcomms2_vc707: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffc5d0>;
+};
+
 &amba_pl {
 	axi_ad9122: cf-ad9122-core-lpc@74204000 {
 		compatible = "adi,axi-ad9122-6.00.a";

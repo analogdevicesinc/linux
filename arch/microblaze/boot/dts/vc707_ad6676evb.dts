@@ -15,6 +15,11 @@
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi
 
+/* ad6676evb_vc707: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffc5d0>;
+};
+
 / {
 	clocks {
 		ad6676_clkin: clock@1 {
