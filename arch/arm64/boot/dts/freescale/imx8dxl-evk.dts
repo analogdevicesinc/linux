@@ -80,6 +80,11 @@
 			no-map;
 		};
 
+		rsc-table {
+			reg = <0 0x900ff000 0 0x1000>;
+			no-map;
+		};
+
 		vdevbuffer: vdevbuffer {
 			compatible = "shared-dma-pool";
 			reg = <0 0x90400000 0 0x100000>;
