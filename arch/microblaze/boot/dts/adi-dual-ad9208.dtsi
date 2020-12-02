@@ -13,7 +13,14 @@
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 
-		adi,pll1-clkin-frequencies = <125000000 0 0 0>;
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+		adi,jesd204-max-sysref-frequency-hz = <2000000>;
+		adi,hmc-two-level-tree-sync-en;
+
+		adi,pll1-clkin-frequencies = <13000000 0 0 10000000>;
+		adi,pll1-ref-prio-ctrl = <0x3>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
 
@@ -22,12 +29,15 @@
 		adi,pll2-output-frequency = <3000000000>;
 
 		adi,sysref-timer-divider = <1024>;
-		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_CONT_PULSE>;
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_4_PULSE>;
 
-		adi,clkin0-buffer-mode = <0x07>;
+		adi,clkin0-buffer-mode = <0x15>;
+		adi,clkin3-buffer-mode = <0x15>;
 		adi,oscin-buffer-mode = <0x03>;
+
 		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
-		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+		/* PLL1 Lock, PLL2 Lock, Clk phase stat, SYSREF sysnc stat */
+		adi,gpo-controls = <0x1f 0x2b 0x33 0x37>;
 
 		clock-output-names =
 			"hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
@@ -46,10 +56,11 @@
 			reg = <1>;
 			adi,extended-name = "ADC_B_SYSREF";
 			adi,divider = <512>;	// 3000000000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 			adi,dynamic-driver-enable;
+			adi,jesd204-sysref-chan;
 		};
 		hmc7044_c2: channel@2 {
 			reg = <2>;
@@ -61,10 +72,11 @@
 			reg = <3>;
 			adi,extended-name = "ADC_A_SYSREF";
 			adi,divider = <512>;	// 3000000000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 			adi,dynamic-driver-enable;
+			adi,jesd204-sysref-chan;
 		};
 		hmc7044_c8: channel@8 {
 			reg = <8>;
@@ -83,29 +95,30 @@
 			adi,extended-name = "FMC_0_SYSREF";
 			adi,divider = <512>;	// 3000000000
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
-			adi,dynamic-driver-enable;
+			adi,jesd204-sysref-chan;
 		};
 		hmc7044_c11: channel@11 {
 			reg = <11>;
 			adi,extended-name = "FMC_1_SYSREF";
 			adi,divider = <512>;	// 3000000000
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
-			adi,dynamic-driver-enable;
+			adi,jesd204-sysref-chan;
 		};
 
 	};
 
 	adc0_ad9208: ad9208@1 {
 		compatible = "adi,ad9208x2";
-
-		spi-cpol;
-		spi-cpha;
 		spi-max-frequency = <10000000>;
 		reg = <1>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>;
+		jesd204-link-ids = <0>;
+
+		jesd204-inputs = <&adc1_ad9208 0 0>;
+
 
 		clocks = <&axi_ad9208_0_jesd_rx>,  <&hmc7044 2>;
 		clock-names = "jesd_adc_clk", "adc_clk";
@@ -123,7 +136,7 @@
 		adi,sysref-pos-window-skew = <0>;
 		adi,sysref-neg-window-skew = <0>;
 		adi,sysref-mode = <AD9208_SYSREF_ONESHOT>;
-		adi,sysref-nshot-ignore-count = <15>;
+		adi,sysref-nshot-ignore-count = <2>;
 
 		/* JESD204 parameters */
 
@@ -155,11 +168,12 @@
 
 	adc1_ad9208: ad9208@2 {
 		compatible = "adi,ad9208";
-
-		spi-cpol;
-		spi-cpha;
 		spi-max-frequency = <10000000>;
 		reg = <2>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&rx_ad9208_0_tpl_core_tpl 0 0>;
 
 		clocks = <&axi_ad9208_1_jesd_rx>,  <&hmc7044 0>;
 		clock-names = "jesd_adc_clk", "adc_clk";
@@ -177,7 +191,7 @@
 		adi,sysref-pos-window-skew = <0>;
 		adi,sysref-neg-window-skew = <0>;
 		adi,sysref-mode = <AD9208_SYSREF_ONESHOT>;
-		adi,sysref-nshot-ignore-count = <15>;
+		adi,sysref-nshot-ignore-count = <2>;
 
 		/* JESD204 parameters */
 
