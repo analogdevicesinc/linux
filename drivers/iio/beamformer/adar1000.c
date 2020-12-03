@@ -1039,7 +1039,8 @@ static ssize_t adar1000_seq_enable(struct device *dev,
 
 	/* Setup sequencer */
 	if (readin)
-		val = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN;
+		val = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN |
+			ADAR1000_RX_BEAM_STEP_EN;
 	else
 		val = 0;
 
