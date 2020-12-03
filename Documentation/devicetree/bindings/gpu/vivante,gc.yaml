@@ -13,7 +13,19 @@ maintainers:
 
 properties:
   compatible:
-    const: vivante,gc
+    items:
+      - enum:
+          - fsl,imx6q-gpu
+          - fsl,imx8-gpu
+          - fsl,imx8-gpu-ss
+          - fsl,imx8mm-gpu
+          - fsl,imx8mn-gpu
+          - fsl,imx8mp-gpu
+          - fsl,imx8mq-gpu
+          - fsl,imx8qm-gpu
+          - fsl,imx8qxp-gpu
+          - fsl,ls1028a-gpu
+      - const: vivante,gc
 
   reg:
     maxItems: 1
