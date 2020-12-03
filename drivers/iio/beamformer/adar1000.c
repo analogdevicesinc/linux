@@ -1593,7 +1593,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 				    char *buf)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
-	u16 reg;
+	u16 reg = 0;
 	unsigned int val;
 	int ret;
 
@@ -1612,7 +1612,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		val = !(val >> (6 - chan->channel));
+		val = !(val & (0x40 >> chan->channel));
 
 		break;
 	case ADAR1000_DETECTOR:
@@ -1620,7 +1620,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		val = !!((val & 0xf) >> (3 - chan->channel));
+		val = (val & 0xf) & (0x8 >> chan->channel);
 
 		break;
 	case ADAR1000_PA_BIAS_ON:
