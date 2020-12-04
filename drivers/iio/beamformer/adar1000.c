@@ -1138,6 +1138,118 @@ static ssize_t adar1000_delay_store(struct device *dev,
 	return ret ? ret : len;
 }
 
+enum adar1000_iio_memctl_attr {
+	ADAR1000_MEM_EN,
+	ADAR1000_STATIC_RX_BEAM_POS,
+	ADAR1000_STATIC_TX_BEAM_POS,
+};
+
+static ssize_t adar1000_memctl_show(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u8 mask;
+	u32 val;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_MEM_EN:
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
+		break;
+	case ADAR1000_STATIC_RX_BEAM_POS:
+		reg = ADAR1000_RX_CHX_MEM;
+		mask = 0x7F;
+		break;
+	case ADAR1000_STATIC_TX_BEAM_POS:
+		reg = ADAR1000_TX_CHX_MEM;
+		mask = 0x7F;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	if ((u32)this_attr->address == ADAR1000_MEM_EN)
+		return sprintf(buf, "%d\n", !(val & mask));
+	else
+		return sprintf(buf, "%d\n", val & mask);
+}
+
+static ssize_t adar1000_memctl_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u8 readval = 0, mask;
+	bool readin;
+
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_MEM_EN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
+
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		if (!readin)
+			readval = mask;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+					 mask, readval);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+		break;
+	case ADAR1000_STATIC_RX_BEAM_POS:
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_CHX_MEM,
+				   readval | CHX_RAM_FETCH);
+		break;
+	case ADAR1000_STATIC_TX_BEAM_POS:
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_CHX_MEM,
+				   readval | CHX_RAM_FETCH);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
 static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
 
@@ -1165,6 +1277,14 @@ static IIO_DEVICE_ATTR(bias_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_BIAS_EN_);
 static IIO_DEVICE_ATTR(lna_bias_out_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_LNA_BIAS_OUT_EN_);
+
+/* MEM_CTL attirbutes */
+static IIO_DEVICE_ATTR(mem_enable, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_MEM_EN);
+static IIO_DEVICE_ATTR(static_rx_beam_pos_load, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_STATIC_RX_BEAM_POS);
+static IIO_DEVICE_ATTR(static_tx_beam_pos_load, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_STATIC_TX_BEAM_POS);
 
 
 /* LNA BIAS setting */
@@ -1230,6 +1350,9 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_tx_to_rx_delay_2.dev_attr.attr,
 	&iio_dev_attr_rx_to_tx_delay_1.dev_attr.attr,
 	&iio_dev_attr_rx_to_tx_delay_2.dev_attr.attr,
+	&iio_dev_attr_mem_enable.dev_attr.attr,
+	&iio_dev_attr_static_rx_beam_pos_load.dev_attr.attr,
+	&iio_dev_attr_static_tx_beam_pos_load.dev_attr.attr,
 	NULL,
 };
 
@@ -2139,16 +2262,6 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 
 	ret = regmap_write(st->regmap, st->dev_addr |
 			   ADAR1000_LDO_TRIM_CTL_0, 0x55);
-	if (ret < 0)
-		return ret;
-
-	/* Select SPI for channel settings */
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_MEM_CTRL,
-			   ADAR1000_BEAM_RAM_BYPASS |
-			   ADAR1000_BIAS_RAM_BYPASS |
-			   ADAR1000_TX_CHX_RAM_BYPASS |
-			   ADAR1000_RX_CHX_RAM_BYPASS);
 	if (ret < 0)
 		return ret;
 
