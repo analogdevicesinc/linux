@@ -1,5 +1,6 @@
 /dts-v1/;
 
+#include <dt-bindings/jesd204/adxcvr.h>
 #include "zynq-zc706.dtsi"
 #include "zynq-zc706-adv7511.dtsi"
 
@@ -150,9 +151,7 @@
 		clock-names = "adc_clk";
 		clock-output-names = "adc_gt_clk";
 
-		adi,rx-sys-clk-select = <0>;
-		adi,rx-out-clk-select = <2>;
-		adi,use-cpll-enable;
-		adi,lanes = <8>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_OUTCLK_PMA>;
 	} ;
 };

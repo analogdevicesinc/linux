@@ -14,6 +14,7 @@
  */
 
 #include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm.dts"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &hmc7044 {
 	adi,pll2-output-frequency = <2400000000>; /* VCO @ 2.400GHz */
@@ -27,7 +28,7 @@
 };
 
 &axi_adrv9009_adxcvr_tx {
-	adi,sys-clk-select = <2>; /* Switch to QPLL1 */
+	adi,sys-clk-select = <XCVR_QPLL1>; /* Switch to QPLL1 */
 };
 
 &trx0_adrv9009 {

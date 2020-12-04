@@ -13,6 +13,7 @@
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &spi0 {
 	status = "okay";
@@ -110,10 +111,9 @@
 			#clock-cells = <1>;
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
 
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_CPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 			adi,use-lpm-enable;
-			adi,use-cpll-enable;
 		};
 
 		axi_adrv9009_adxcvr_rx_os: axi-adxcvr-rx-os@85a60000 {
@@ -128,10 +128,9 @@
 			#clock-cells = <1>;
 			clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
 
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_CPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 			adi,use-lpm-enable;
-			adi,use-cpll-enable;
 		};
 
 		axi_adrv9009_adxcvr_tx: axi-adxcvr-tx@85a20000 {
@@ -146,8 +145,8 @@
 			#clock-cells = <1>;
 			clock-output-names = "tx_gt_clk", "tx_out_clk";
 
-			adi,sys-clk-select = <3>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 		};
 
 		axi_adrv9009_rx_jesd: axi-jesd204-rx@85a50000 {

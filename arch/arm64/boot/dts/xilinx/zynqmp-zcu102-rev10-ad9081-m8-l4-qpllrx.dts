@@ -11,6 +11,7 @@
  */
 
 #include "zynqmp-zcu102-rev10-ad9081.dts"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 /*
  * This is an alternative example device tree which uses QPLL for both adxcvr instances.
@@ -73,10 +74,9 @@
 
 &axi_ad9081_adxcvr_rx {
         /* Switch to QPLL */
-	adi,sys-clk-select = <3>;
-	adi,out-clk-select = <4>;
+	adi,sys-clk-select = <XCVR_QPLL>;
+	adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 
-        /delete-property/ adi,use-cpll-enable;
 };
 
 &spi1 {
