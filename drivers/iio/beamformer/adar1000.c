@@ -350,19 +350,6 @@ static const struct adar1000_phase adar1000_phase_values[] = {
 	{354, 3750, 0x3F, 0x03}, {357, 1875, 0x3F, 0x01}
 };
 
-static int adar1000_ram_enable(struct adar1000_state *st, bool enable)
-{
-	u8 temp;
-
-	if (enable)
-		temp = 0;
-	else
-		temp = ADAR1000_BEAM_RAM_BYPASS | ADAR1000_BIAS_RAM_BYPASS |
-			ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
-
-	return regmap_write(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL, temp);
-}
-
 static int adar1000_mode_4wire(struct adar1000_state *st, bool enable)
 {
 	int ret;
@@ -660,11 +647,6 @@ static int adar1000_write_raw(struct iio_dev *indio_dev,
 	u32 code;
 	int ret;
 
-	/* Disable RAM access */
-	ret = adar1000_ram_enable(st, 0);
-	if (ret < 0)
-		return ret;
-
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (val > 0 || (val == 0 && val2 > 0)) {
@@ -729,11 +711,6 @@ static ssize_t adar1000_store(struct device *dev,
 	u16 reg = 0;
 	int ret = 0;
 	u32 val = 0, mask = 0;
-
-	/* Disable RAM access */
-	ret = adar1000_ram_enable(st, 0);
-	if (ret < 0)
-		return ret;
 
 	switch ((u32)this_attr->address) {
 	case ADAR1000_RX_VGA:
@@ -913,11 +890,6 @@ static ssize_t adar1000_show(struct device *dev,
 	unsigned int val, mask = 0;
 
 	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
-	/* Disable RAM access */
-	ret = adar1000_ram_enable(st, 0);
 	if (ret < 0)
 		return ret;
 
@@ -1287,12 +1259,6 @@ static int adar1000_beam_load(struct adar1000_state *st, u32 channel, bool tx,
 
 	st->load_beam_idx = profile;
 
-	/* Load beam position for a channel and bypass all channel config */
-	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL,
-				 ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS,
-				 ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS);
-	if (ret < 0)
-		return ret;
 
 	if (tx)
 		ret = regmap_write(st->regmap, st->dev_addr |
@@ -1484,10 +1450,6 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 
 	switch (private) {
 	case BEAM_POS_LOAD: {
-		/* Enable RAM access & using configurations from RAM */
-		ret = adar1000_ram_enable(st, 1);
-		if (ret < 0)
-			return ret;
 
 		ret = kstrtoull(buf, 10, &readin);
 		if (ret)
@@ -1535,10 +1497,6 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 		break;
 	}
 	case BIAS_SET_LOAD:
-		/* Enable RAM access & using configurations from RAM */
-		ret = adar1000_ram_enable(st, 1);
-		if (ret < 0)
-			return ret;
 
 		ret = kstrtoull(buf, 10, &readin);
 		if (ret)
