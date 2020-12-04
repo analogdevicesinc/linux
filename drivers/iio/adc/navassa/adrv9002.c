@@ -1797,16 +1797,11 @@ static int adrv9001_rx_path_config(struct adrv9002_rf_phy *phy,
 			return adrv9002_dev_err(phy);
 
 agc_cfg:
-		if (!rx->agc)
-			goto rf_enable;
-
 		ret = adi_adrv9001_Rx_GainControl_Configure(phy->adrv9001,
-							    rx->channel.number,
-							    rx->agc);
+							    rx->channel.number, &rx->agc);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
-rf_enable:
 		ret = adi_adrv9001_Radio_Channel_ToState(adrv9001_dev, ADI_RX,
 							 rx->channel.number, state);
 		if (ret)
@@ -2943,6 +2938,42 @@ static const struct {
 	 AGC_OFFSETOF(peak.hbUnderRangeLowThreshExceededCount), 3, 0, 255, 1},
 };
 
+#define agc_assign_value(agc, prop, val) {			\
+	typeof(prop) __prop = (prop);				\
+	u32 __off = of_agc_props[__prop].__off;			\
+								\
+	switch (of_agc_props[__prop].size) {			\
+	case 1:							\
+		*(u8 *)((void *)(agc) + __off) = (val);		\
+		break;						\
+	case 2:							\
+		*(u16 *)((void *)(agc) + __off) = (val);	\
+		break;						\
+	case 4:							\
+		*(u32 *)((void *)(agc) + __off) = (val);	\
+		break;						\
+	};							\
+}
+
+static void adrv9002_set_agc_defaults(struct adi_adrv9001_GainControlCfg *agc)
+{
+	int prop;
+
+	for (prop = 0; prop < ARRAY_SIZE(of_agc_props); prop++) {
+		u32 temp = of_agc_props[prop].def;
+
+		agc_assign_value(agc, prop, temp);
+	}
+	/*
+	 * Since the enum is 0 (for now), we could just skipp this but I'm being paranoid and not
+	 * trusting that this can't ever change...
+	 */
+	agc->power.feedback_apd_high_apd_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+	agc->power.feedback_inner_high_inner_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+	agc->peak.feedback_apd_low_hb_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+	agc->peak.feedback_apd_high_hb_high = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+}
+
 static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 				    const struct device_node *node,
 				    struct adrv9002_rx_chan *rx)
@@ -2955,19 +2986,14 @@ static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 				     ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED, \
 				     min, max, val, false)
 
-	/* get AGC properties if any */
 	agc = of_parse_phandle(node, "adi,agc", 0);
-	if (!agc)
+	if (!agc) {
+		adrv9002_set_agc_defaults(&rx->agc);
 		return 0;
-
-	rx->agc = devm_kzalloc(&phy->spi->dev, sizeof(*rx->agc), GFP_KERNEL);
-	if (!rx->agc) {
-		of_node_put(agc);
-		return -ENOMEM;
 	}
 
 	for (prop = 0; prop < ARRAY_SIZE(of_agc_props); prop++) {
-		u32 temp, __off = of_agc_props[prop].__off;
+		u32 temp;
 
 		ret = of_property_read_u32(agc, of_agc_props[prop].key, &temp);
 		if (ret) {
@@ -2981,44 +3007,33 @@ static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 			return -EINVAL;
 		}
 
-		/* assign value */
-		switch (of_agc_props[prop].size) {
-		case 1:
-			*(u8 *)((void *)rx->agc + __off) = temp;
-			break;
-		case 2:
-			*(u16 *)((void *)rx->agc + __off) = temp;
-			break;
-		case 4:
-			*(u32 *)((void *)rx->agc + __off) = temp;
-			break;
-		};
+		agc_assign_value(&rx->agc, prop, temp);
 	}
 
 	/* boolean properties */
 	if (of_property_read_bool(agc, "adi,low-threshold-prevent-gain-inc"))
-		rx->agc->lowThreshPreventGainInc = true;
+		rx->agc.lowThreshPreventGainInc = true;
 
 	if (of_property_read_bool(agc, "adi,sync-pulse-gain-counter-en"))
-		rx->agc->enableSyncPulseForGainCounter = true;
+		rx->agc.enableSyncPulseForGainCounter = true;
 
 	if (of_property_read_bool(agc, "adi,fast-recovery-loop-en"))
-		rx->agc->enableFastRecoveryLoop = true;
+		rx->agc.enableFastRecoveryLoop = true;
 
 	if (of_property_read_bool(agc, "adi,reset-on-rx-on"))
-		rx->agc->resetOnRxon = true;
+		rx->agc.resetOnRxon = true;
 
 	if (of_property_read_bool(agc, "adi,power-measurement-en"))
-		rx->agc->power.powerEnableMeasurement = true;
+		rx->agc.power.powerEnableMeasurement = true;
 
 	if (of_property_read_bool(agc, "adi,peak-hb-overload-en"))
-		rx->agc->peak.enableHbOverload = true;
+		rx->agc.peak.enableHbOverload = true;
 
 	/* check if there are any gpios */
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-power-feedback-high-thres-exceeded",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->power.feedback_inner_high_inner_low);
+				  rx->agc.power.feedback_inner_high_inner_low);
 	if (ret)
 		goto out;
 
@@ -3026,21 +3041,21 @@ static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-power-feedback-low-thres-gain-change",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->power.feedback_apd_high_apd_low);
+				  rx->agc.power.feedback_apd_high_apd_low);
 	if (ret)
 		goto out;
 
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-peak-feedback-high-thres-counter-exceeded",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->peak.feedback_apd_low_hb_low);
+				  rx->agc.peak.feedback_apd_low_hb_low);
 	if (ret)
 		goto out;
 
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-peak-feedback-low-thres-counter-exceeded",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->peak.feedback_apd_high_hb_high);
+				  rx->agc.peak.feedback_apd_high_hb_high);
 out:
 	of_node_put(agc);
 	return ret;
@@ -3082,10 +3097,8 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	if (ret)
 		return ret;
 
-	if (rx->agc) {
-		rx->agc->maxGainIndex = max_gain;
-		rx->agc->minGainIndex = min_gain;
-	}
+	rx->agc.maxGainIndex = max_gain;
+	rx->agc.minGainIndex = min_gain;
 
 	if (rx->pin_cfg) {
 		rx->pin_cfg->maxGainIndex = max_gain;
