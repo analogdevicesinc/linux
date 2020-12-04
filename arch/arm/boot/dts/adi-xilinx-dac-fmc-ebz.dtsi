@@ -1,3 +1,5 @@
+#include <dt-bindings/jesd204/adxcvr.h>
+
 &fpga_axi {
 	dac_dma: dma@7c420000 {
 		reg = <0x7c420000 0x10000>;
@@ -29,8 +31,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "dac_gt_clk", "tx_out_clk";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <4>;
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
 	};
 };

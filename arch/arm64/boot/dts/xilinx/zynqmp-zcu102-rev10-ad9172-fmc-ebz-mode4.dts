@@ -13,6 +13,7 @@
  */
 
 #include "zynqmp-zcu102-rev10-ad9172-fmc-ebz.dts"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &axi_ad9172_jesd {
 	adi,octets-per-frame = <2>;
@@ -39,5 +40,5 @@
 
 &axi_ad9172_adxcvr {
 
-	adi,out-clk-select = <4>;
+	adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 };

@@ -14,6 +14,7 @@
 #include "zynq-zc706.dtsi"
 #include "zynq-zc706-adv7511.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &i2c_mux {
 	i2c@5 { /* HPC IIC */
@@ -227,10 +228,9 @@
 		#clock-cells = <1>;
 		clock-output-names = "rx_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <3>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
-		adi,use-cpll-enable;
 	};
 
 	axi_ad9371_adxcvr_rx_os: axi-adxcvr-rx-os@44a50000 {
@@ -245,10 +245,9 @@
 		#clock-cells = <1>;
 		clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <3>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
-		adi,use-cpll-enable;
 	};
 
 	axi_ad9371_adxcvr_tx: axi-adxcvr-tx@44a80000 {
@@ -263,8 +262,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "tx_gt_clk", "tx_out_clk";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <3>;
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 	};
 };
 
