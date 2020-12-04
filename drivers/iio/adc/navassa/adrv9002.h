@@ -116,7 +116,7 @@ struct adrv9002_chan {
 
 struct adrv9002_rx_chan {
 	struct adrv9002_chan channel;
-	struct adi_adrv9001_GainControlCfg *agc;
+	struct adi_adrv9001_GainControlCfg agc;
 	struct adi_adrv9001_RxGainControlPinCfg *pin_cfg;
 	struct clk *tdd_clk;
 #ifdef CONFIG_DEBUG_FS
