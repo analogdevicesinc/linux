@@ -9,7 +9,9 @@
  * Copyright 2016-2020 Analog Devices Inc.
  */
 /dts-v1/;
+
 #include "kcu105.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
@@ -145,10 +147,9 @@
 		clock-names = "conv", "div40";
 		#clock-cells = <1>;
 		clock-output-names = "rx_gt_clk", "rx_out_clk";
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <3>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
-		adi,use-cpll-enable;
 	};
 	axi_ad9371_adxcvr_rx_os: axi-adxcvr-rx-os@44a50000 {
 		#address-cells = <1>;
@@ -159,10 +160,9 @@
 		clock-names = "conv", "div40";
 		#clock-cells = <1>;
 		clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <3>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
-		adi,use-cpll-enable;
 	};
 	axi_ad9371_adxcvr_tx: axi-adxcvr-tx@44a80000 {
 		#address-cells = <1>;
@@ -173,8 +173,8 @@
 		clock-names = "conv", "div40";
 		#clock-cells = <1>;
 		clock-output-names = "tx_gt_clk", "tx_out_clk";
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <3>;
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 	};
 	axi_ad9371_rx_jesd: axi-jesd204-rx@44aa0000 {
 		compatible = "adi,axi-jesd204-rx-1.0";

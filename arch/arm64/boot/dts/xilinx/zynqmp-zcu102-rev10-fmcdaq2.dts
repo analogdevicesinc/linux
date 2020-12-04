@@ -11,6 +11,7 @@
 
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &i2c1 {
 	i2c-mux@75 {
@@ -147,10 +148,9 @@
 			#clock-cells = <1>;
 			clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <4>;
+			adi,sys-clk-select = <XCVR_CPLL>;
+			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 			adi,use-lpm-enable;
-			adi,use-cpll-enable;
 		};
 
 		axi_ad9144_adxcvr: axi-adxcvr-tx@84a60000{
@@ -163,8 +163,8 @@
 			#clock-cells = <1>;
 			clock-output-names = "dac_gt_clk", "tx_out_clk";
 
-			adi,sys-clk-select = <3>;
-			adi,out-clk-select = <4>;
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 			adi,use-lpm-enable;
 		};
 
