@@ -2986,6 +2986,10 @@ static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 				     ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED, \
 				     min, max, val, false)
 
+	/* set boolean settings that are enabled by default */
+	rx->agc.power.powerEnableMeasurement = true;
+	rx->agc.peak.enableHbOverload = true;
+
 	agc = of_parse_phandle(node, "adi,agc", 0);
 	if (!agc) {
 		adrv9002_set_agc_defaults(&rx->agc);
@@ -3023,11 +3027,11 @@ static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 	if (of_property_read_bool(agc, "adi,reset-on-rx-on"))
 		rx->agc.resetOnRxon = true;
 
-	if (of_property_read_bool(agc, "adi,power-measurement-en"))
-		rx->agc.power.powerEnableMeasurement = true;
+	if (of_property_read_bool(agc, "adi,no-power-measurement-en"))
+		rx->agc.power.powerEnableMeasurement = false;
 
-	if (of_property_read_bool(agc, "adi,peak-hb-overload-en"))
-		rx->agc.peak.enableHbOverload = true;
+	if (of_property_read_bool(agc, "adi,no-peak-hb-overload-en"))
+		rx->agc.peak.enableHbOverload = false;
 
 	/* check if there are any gpios */
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-power-feedback-high-thres-exceeded",
