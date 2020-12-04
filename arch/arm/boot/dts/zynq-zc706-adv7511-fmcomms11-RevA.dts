@@ -2,6 +2,7 @@
 
 #include "zynq-zc706.dtsi"
 #include "zynq-zc706-adv7511.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &i2c_mux {
 	i2c@5 { /* HPC IIC */
@@ -131,9 +132,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <2>;
-		adi,use-cpll-enable;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_OUTCLK_PMA>;
 		//adi,use-lpm-enable;
 	};
 
@@ -146,8 +146,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "dac_gt_clk", "tx_out_clk";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <2>;
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_OUTCLK_PMA>;
 	};
 };
 
