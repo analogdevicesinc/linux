@@ -1250,6 +1250,132 @@ static ssize_t adar1000_memctl_store(struct device *dev,
 	return ret ? ret : len;
 }
 
+enum adar1000_iio_swctl_attr {
+	ADAR1000_SW_DRV_TR_STATE_,
+	ADAR1000_TX_EN_,
+	ADAR1000_RX_EN_,
+	ADAR1000_SW_DRV_EN_TR_,
+	ADAR1000_SW_DRV_EN_POL_,
+	ADAR1000_TR_SOURCE_,
+	ADAR1000_TR_SPI_,
+	ADAR1000_POL_,
+};
+
+static ssize_t adar1000_swctl_show(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u32 val;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_SW_CTRL, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_SW_DRV_TR_STATE_:
+		val = FIELD_GET(ADAR1000_SW_DRV_TR_STATE, val);
+		break;
+	case ADAR1000_TX_EN_:
+		val = FIELD_GET(ADAR1000_TX_EN, val);
+		break;
+	case ADAR1000_RX_EN_:
+		val = FIELD_GET(ADAR1000_RX_EN, val);
+		break;
+	case ADAR1000_SW_DRV_EN_TR_:
+		val = FIELD_GET(ADAR1000_SW_DRV_EN_TR, val);
+		break;
+	case ADAR1000_SW_DRV_EN_POL_:
+		val = FIELD_GET(ADAR1000_SW_DRV_EN_POL, val);
+		break;
+	case ADAR1000_TR_SOURCE_:
+		val = FIELD_GET(ADAR1000_TR_SOURCE, val);
+		break;
+	case ADAR1000_TR_SPI_:
+		val = FIELD_GET(ADAR1000_TR_SPI, val);
+		break;
+	case ADAR1000_POL_:
+		val = FIELD_GET(ADAR1000_POL, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t adar1000_swctl_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u8 val = 0, mask;
+	bool readin;
+
+	ret = kstrtobool(buf, &readin);
+	if (ret)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_SW_DRV_TR_STATE_:
+		mask = ADAR1000_SW_DRV_TR_STATE;
+		break;
+	case ADAR1000_TX_EN_:
+		mask = ADAR1000_TX_EN;
+		break;
+	case ADAR1000_RX_EN_:
+		mask = ADAR1000_RX_EN;
+		break;
+	case ADAR1000_SW_DRV_EN_TR_:
+		mask = ADAR1000_SW_DRV_EN_TR;
+		break;
+	case ADAR1000_SW_DRV_EN_POL_:
+		mask = ADAR1000_SW_DRV_EN_POL;
+		break;
+	case ADAR1000_TR_SOURCE_:
+		mask = ADAR1000_TR_SOURCE;
+		break;
+	case ADAR1000_TR_SPI_:
+		mask = ADAR1000_TR_SPI;
+		break;
+	case ADAR1000_POL_:
+		mask = ADAR1000_POL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	if (readin)
+		val = mask;
+
+	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_SW_CTRL,
+				 mask, val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+
+	return ret ? ret : len;
+}
+
 static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
 
@@ -1286,6 +1412,23 @@ static IIO_DEVICE_ATTR(static_rx_beam_pos_load, 0644,
 static IIO_DEVICE_ATTR(static_tx_beam_pos_load, 0644,
 		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_STATIC_TX_BEAM_POS);
 
+/* SW_CTL attributes */
+static IIO_DEVICE_ATTR(sw_drv_tr_state, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_SW_DRV_TR_STATE_);
+static IIO_DEVICE_ATTR(tx_en, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_TX_EN_);
+static IIO_DEVICE_ATTR(rx_en, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_RX_EN_);
+static IIO_DEVICE_ATTR(sw_drv_en_tr, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_SW_DRV_EN_TR_);
+static IIO_DEVICE_ATTR(sw_drv_en_pol, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_SW_DRV_EN_POL_);
+static IIO_DEVICE_ATTR(tr_source, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_TR_SOURCE_);
+static IIO_DEVICE_ATTR(tr_spi, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_TR_SPI_);
+static IIO_DEVICE_ATTR(pol, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_POL_);
 
 /* LNA BIAS setting */
 static IIO_DEVICE_ATTR(lna_bias_off, 0644,
@@ -1353,6 +1496,14 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_mem_enable.dev_attr.attr,
 	&iio_dev_attr_static_rx_beam_pos_load.dev_attr.attr,
 	&iio_dev_attr_static_tx_beam_pos_load.dev_attr.attr,
+	&iio_dev_attr_sw_drv_tr_state.dev_attr.attr,
+	&iio_dev_attr_tx_en.dev_attr.attr,
+	&iio_dev_attr_rx_en.dev_attr.attr,
+	&iio_dev_attr_sw_drv_en_tr.dev_attr.attr,
+	&iio_dev_attr_sw_drv_en_pol.dev_attr.attr,
+	&iio_dev_attr_tr_source.dev_attr.attr,
+	&iio_dev_attr_tr_spi.dev_attr.attr,
+	&iio_dev_attr_pol.dev_attr.attr,
 	NULL,
 };
 
@@ -1382,7 +1533,6 @@ static int adar1000_beam_load(struct adar1000_state *st, u32 channel, bool tx,
 		return ret;
 
 	st->load_beam_idx = profile;
-
 
 	if (tx)
 		ret = regmap_write(st->regmap, st->dev_addr |
@@ -1574,7 +1724,6 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 
 	switch (private) {
 	case BEAM_POS_LOAD: {
-
 		ret = kstrtoull(buf, 10, &readin);
 		if (ret)
 			return ret;
@@ -1621,7 +1770,6 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 		break;
 	}
 	case BIAS_SET_LOAD:
-
 		ret = kstrtoull(buf, 10, &readin);
 		if (ret)
 			return ret;
@@ -2262,15 +2410,6 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 
 	ret = regmap_write(st->regmap, st->dev_addr |
 			   ADAR1000_LDO_TRIM_CTL_0, 0x55);
-	if (ret < 0)
-		return ret;
-
-	/* Select TR input */
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_SW_CTRL,
-			   ADAR1000_SW_DRV_EN_TR |
-			   ADAR1000_SW_DRV_EN_POL |
-			   ADAR1000_TR_SOURCE);
 	if (ret < 0)
 		return ret;
 
