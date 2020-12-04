@@ -1184,14 +1184,15 @@ static IIO_DEVICE_ATTR(tx_drv_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_TX_DRV);
 
 /* MISC_ENABLES */
-static IIO_DEVICE_ATTR(sw_drw_tr_mode_sel, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_SW_DRV_TR_MODE_SEL);
+static IIO_DEVICE_ATTR(sw_drv_tr_mode_sel, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_SW_DRV_TR_MODE_SEL_);
 static IIO_DEVICE_ATTR(bias_ctrl, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_BIAS_CTRL);
+		       adar1000_show, adar1000_store, ADAR1000_BIAS_CTRL_);
 static IIO_DEVICE_ATTR(bias_enable, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_BIAS_EN);
+		       adar1000_show, adar1000_store, ADAR1000_BIAS_EN_);
 static IIO_DEVICE_ATTR(lna_bias_out_enable, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_LNA_BIAS_OUT_EN);
+		       adar1000_show, adar1000_store, ADAR1000_LNA_BIAS_OUT_EN_);
+
 
 /* LNA BIAS setting */
 static IIO_DEVICE_ATTR(lna_bias_off, 0644,
@@ -1248,7 +1249,7 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_reset.dev_attr.attr,
 	&iio_dev_attr_sequencer_enable.dev_attr.attr,
 	&iio_dev_attr_gen_clk_cycles.dev_attr.attr,
-	&iio_dev_attr_sw_drw_tr_mode_sel.dev_attr.attr,
+	&iio_dev_attr_sw_drv_tr_mode_sel.dev_attr.attr,
 	&iio_dev_attr_bias_ctrl.dev_attr.attr,
 	&iio_dev_attr_bias_enable.dev_attr.attr,
 	&iio_dev_attr_lna_bias_out_enable.dev_attr.attr,
