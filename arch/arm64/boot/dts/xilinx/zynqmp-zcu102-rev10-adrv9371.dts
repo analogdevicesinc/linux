@@ -10,6 +10,7 @@
  */
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &i2c1 {
 	i2c-mux@75 {
@@ -229,10 +230,9 @@
 			#clock-cells = <1>;
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
 
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_CPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 			adi,use-lpm-enable;
-			adi,use-cpll-enable;
 		};
 
 		axi_ad9371_adxcvr_rx_os: axi-adxcvr-rx-os@84a50000 {
@@ -247,10 +247,9 @@
 			#clock-cells = <1>;
 			clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
 
-			adi,sys-clk-select = <0>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_CPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 			adi,use-lpm-enable;
-			adi,use-cpll-enable;
 		};
 
 		axi_ad9371_adxcvr_tx: axi-adxcvr-tx@84a80000 {
@@ -265,8 +264,8 @@
 			#clock-cells = <1>;
 			clock-output-names = "tx_gt_clk", "tx_out_clk";
 
-			adi,sys-clk-select = <3>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {

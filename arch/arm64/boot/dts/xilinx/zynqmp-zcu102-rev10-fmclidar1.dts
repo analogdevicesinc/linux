@@ -12,6 +12,7 @@
 
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/jesd204/adxcvr.h>´
 
 &i2c1 {
 	i2c-mux@75 {
@@ -98,8 +99,8 @@
 			#clock-cells = <1>;
 			clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-			adi,sys-clk-select = <3>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 			adi,use-lpm-enable;
 		};
 
