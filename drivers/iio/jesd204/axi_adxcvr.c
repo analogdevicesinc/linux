@@ -14,6 +14,7 @@
 #include <linux/of_device.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #include "axi_adxcvr.h"
 #include "xilinx_transceiver.h"
@@ -489,18 +490,18 @@ static int adxcvr_clk_register(struct device *dev,
 	}
 
 	switch (st->out_clk_sel) {
-	case 1:
-	case 2:
+	case XCVR_OUTCLK_PCS:
+	case XCVR_OUTCLK_PMA:
 		/* lane rate / 40 */
 		out_clk_divider = 2; /* 40 */
 		out_clk_multiplier = 50; /* 1000 */
 		parent_name = clk_names[0];
 		break;
-	case 3:
+	case XCVR_REFCLK:
 		out_clk_divider = 1;
 		out_clk_multiplier = 1;
 		break;
-	case 4:
+	case XCVR_REFCLK_DIV2:
 		out_clk_divider = 2;
 		out_clk_multiplier = 1;
 		break;
@@ -568,9 +569,9 @@ static void adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 {
 	of_property_read_u32(np, "adi,sys-clk-select", &st->sys_clk_sel);
 	of_property_read_u32(np, "adi,out-clk-select", &st->out_clk_sel);
-
 	st->cpll_enable = of_property_read_bool(np, "adi,use-cpll-enable");
-	st->lpm_enable = of_property_read_bool(np, "adi,use-lpm-enable");
+
+	st->cpll_enable = st->sys_clk_sel == XCVR_CPLL;
 
 	adxcvr_parse_dt_vco_ranges(st, np);
 }
