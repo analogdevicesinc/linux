@@ -1824,12 +1824,25 @@ _BottomHalfUnlockVideoMemory(
     /* Deref handle. */
     gckVIDMEM_HANDLE_Dereference(Kernel, ProcessID, Node);
 
-    /* Perform asynchronous unlock */
-    gcmkONERROR(gckEVENT_Unlock(Kernel->eventObj, gcvKERNEL_PIXEL, nodeObject));
+#if gcdENABLE_VG
+    if (Kernel->vg != gcvNULL)
+    {
+        /* Unlock video memory, synced. */
+        gcmkONERROR(gckVIDMEM_NODE_Unlock(Kernel, nodeObject, ProcessID, gcvNULL));
 
-    /* Submit the event queue. */
-    gcmkONERROR(gckEVENT_Submit(Kernel->eventObj, gcvTRUE, gcvFALSE));
+        /* Deref node. */
+        gcmkONERROR(gckVIDMEM_NODE_Dereference(Kernel, nodeObject));
+    }
+    else
+#else
+    {
+        /* Perform asynchronous unlock */
+        gcmkONERROR(gckEVENT_Unlock(Kernel->eventObj, gcvKERNEL_PIXEL, nodeObject));
 
+        /* Submit the event queue. */
+        gcmkONERROR(gckEVENT_Submit(Kernel->eventObj, gcvTRUE, gcvFALSE));
+    }
+#endif
     return gcvSTATUS_OK;
 
 OnError:
