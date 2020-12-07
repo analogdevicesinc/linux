@@ -1011,12 +1011,12 @@ static ssize_t adar1000_seq_enable(struct device *dev,
 
 	/* Setup sequencer */
 	if (readin)
-		val = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN;
+		val = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_RX_BEAM_STEP_EN;
 	else
 		val = 0;
 
 	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL,
-				 ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN,
+				 ADAR1000_TX_BEAM_STEP_EN | ADAR1000_RX_BEAM_STEP_EN,
 				 val);
 	if (ret < 0)
 		return ret;
