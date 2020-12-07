@@ -178,7 +178,6 @@ int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 	bool cmos_ddr;
 	u8 n_lanes, ssi_intf;
 	int c, ret;
-	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
 	unsigned long rate;
 
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
@@ -202,7 +201,7 @@ int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		if (ret)
 			return ret;
 
-		rate = adrv9002_axi_dds_rate_get(phy, c) * rx_cfg[c].profile.rxOutputRate_Hz;
+		rate = adrv9002_axi_dds_rate_get(phy, c) * rx->channel.rate;
 		clk_set_rate(rx->tdd_clk, rate);
 		adrv9002_axi_interface_enable(phy, c, true);
 
@@ -322,30 +321,15 @@ static struct clk *adrv9002_clk_register(struct adrv9002_rf_phy *phy, const char
 
 static void adrv9002_set_clk_rates(const struct adrv9002_rf_phy *phy)
 {
-	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
-	const struct adi_adrv9001_TxProfile *tx_cfg = phy->curr_profile->tx.txProfile;
 	int c;
 
-	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
-		const struct adrv9002_chan *rx = &phy->rx_channels[c].channel;
-		const struct adrv9002_chan *tx = &phy->tx_channels[c].channel;
+	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
+		const struct adrv9002_chan *chan = phy->channels[c];
 
-		if (!rx->enabled)
-			/* TX cannot be enabled without the corresponding RX */
-			continue;
-		else if (phy->rx2tx2 && c)
-			/* if in rx2tx2 we only care about RX1 clk */
-			goto tx_clk;
-
-		clk_set_rate(rx->clk, rx_cfg[c].profile.rxOutputRate_Hz);
-tx_clk:
-		if (!tx->enabled)
+		if (!chan->enabled)
 			continue;
 
-		clk_set_rate(tx->clk, tx_cfg[c].txInputRate_Hz);
-		/* if TX0 is enabled then there's nothing else todo.. */
-		if (!c && phy->rx2tx2)
-			break;
+		clk_set_rate(chan->clk, chan->rate);
 	}
 }
 
@@ -891,17 +875,10 @@ static int adrv9002_update_tracking_calls(struct adrv9002_rf_phy *phy,
 		return adrv9002_dev_err(phy);
 
 	/* all channels need to be in calibrated state...*/
-	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
-		struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
-		struct adrv9002_rx_chan *rx = &phy->rx_channels[i];
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		struct adrv9002_chan *c = phy->channels[i];
 
-		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
-						true);
-		if (ret)
-			return ret;
-
-		ret = adrv9002_channel_to_state(phy, &tx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
-						true);
+		ret = adrv9002_channel_to_state(phy, c, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
 		if (ret)
 			return ret;
 	}
@@ -916,22 +893,10 @@ static int adrv9002_update_tracking_calls(struct adrv9002_rf_phy *phy,
 		return adrv9002_dev_err(phy);
 
 	/* restore state */
-	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
-		struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
-		struct adrv9002_rx_chan *rx = &phy->rx_channels[i];
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		struct adrv9002_chan *c = phy->channels[i];
 
-		if (!rx->channel.enabled)
-			goto tx_restore;
-
-		ret = adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state, false);
-		if (ret)
-			return ret;
-
-tx_restore:
-		if (!tx->channel.enabled)
-			continue;
-
-		ret = adrv9002_channel_to_state(phy, &tx->channel, tx->channel.cached_state, false);
+		ret = adrv9002_channel_to_state(phy, c, c->cached_state, false);
 		if (ret)
 			return ret;
 	}
@@ -1907,6 +1872,8 @@ static const u32 adrv9002_init_cals_mask[16][2] = {
 
 static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 {
+	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
+	const struct adi_adrv9001_TxProfile *tx_cfg = phy->curr_profile->tx.txProfile;
 	const u32 tx_channels[ADRV9002_CHANN_MAX] = {
 		ADI_ADRV9001_TX1, ADI_ADRV9001_TX2
 	};
@@ -1929,6 +1896,7 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 			rx->channel.power = true;
 			rx->channel.enabled = true;
 			rx->channel.nco_freq = 0;
+			rx->channel.rate = rx_cfg[i].profile.rxOutputRate_Hz;
 		} else if (phy->rx2tx2 && i == ADRV9002_CHANN_1 ) {
 			/*
 			 * In rx2tx2 mode RX1 must be always enabled because RX2 cannot be
@@ -1951,6 +1919,7 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 			tx->channel.power = true;
 			tx->channel.enabled = true;
 			tx->channel.nco_freq = 0;
+			tx->channel.rate = tx_cfg[i].txInputRate_Hz;
 		}
 
 	}
@@ -2205,38 +2174,26 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	for (chan = 0; chan < ADRV9002_CHANN_MAX; chan++) {
-		struct adrv9002_chan *tx = &phy->tx_channels[chan].channel;
-		struct adrv9002_chan *rx = &phy->rx_channels[chan].channel;
+	for (chan = 0; chan < ARRAY_SIZE(phy->channels); chan++) {
+		const struct adrv9002_chan *c = phy->channels[chan];
 		struct adi_adrv9001_ChannelEnablementDelays en_delays;
 
-		if (!rx->enabled)
-			goto tx;
-
-		carrier.carrierFrequency_Hz = 2400000000ULL;
-		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, ADI_RX, rx->number,
-							   &carrier);
-		if (ret)
-			return adrv9002_dev_err(phy);
-
-		adrv9002_en_delays_ns_to_arm(phy, &rx->en_delays_ns, &en_delays);
-		ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, ADI_RX,
-									   rx->number, &en_delays);
-		if (ret)
-			return adrv9002_dev_err(phy);
-tx:
-		if (!tx->enabled)
+		if (!c->enabled)
 			continue;
 
-		carrier.carrierFrequency_Hz = 2450000000ULL;
-		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, ADI_TX, tx->number,
+		if (c->port == ADI_RX)
+			carrier.carrierFrequency_Hz = 2400000000ULL;
+		else
+			carrier.carrierFrequency_Hz = 2450000000ULL;
+
+		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, c->port, c->number,
 							   &carrier);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
-		adrv9002_en_delays_ns_to_arm(phy, &tx->en_delays_ns, &en_delays);
-		ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, ADI_TX,
-									   tx->number, &en_delays);
+		adrv9002_en_delays_ns_to_arm(phy, &c->en_delays_ns, &en_delays);
+		ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, c->port,
+									   c->number, &en_delays);
 		if (ret)
 			return adrv9002_dev_err(phy);
 	}
@@ -2481,68 +2438,57 @@ static int adrv9002_intf_tuning_unlocked(struct adrv9002_rf_phy *phy)
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
 	int ret;
 	u8 clk_delay, data_delay;
-	struct adrv9002_chan *chan;
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(phy->rx_channels); i++) {
-		chan = &phy->rx_channels[i].channel;
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		struct adrv9002_chan *c = phy->channels[i];
 
-		if (!chan->enabled)
+		if (!c->enabled) {
 			continue;
-
-		ret = adrv9002_axi_intf_tune(phy, false, i, ssi_type, &clk_delay, &data_delay);
-		if (ret)
-			return ret;
-
-		dev_dbg(&phy->spi->dev, "RX: Got clk: %u, data: %u\n", clk_delay, data_delay);
-		delays.rxClkDelay[i] = clk_delay;
-		delays.rxIDataDelay[i] = data_delay;
-		delays.rxQDataDelay[i] = data_delay;
-		delays.rxStrobeDelay[i] = data_delay;
-		/*
-		 * In rx2tx2 we should treat RX1/RX2 as the same. Hence, we will run
-		 * the test simultaneosly for both ports and configure the same delays.
-		 * Moreover rx2 cannot be enabled while rx1 is disabled...
-		 */
-		if (phy->rx2tx2) {
-			/* set RX2 delays */
-			delays.rxClkDelay[i + 1] = clk_delay;
-			delays.rxIDataDelay[i + 1] = data_delay;
-			delays.rxQDataDelay[i + 1] = data_delay;
-			delays.rxStrobeDelay[i + 1] = data_delay;
-			break;
-		}
-	}
-
-	for (i = 0; i < ARRAY_SIZE(phy->tx_channels); i++) {
-		chan = &phy->tx_channels[i].channel;
-
-		if (!chan->enabled)
-			continue;
-
-		ret = adrv9002_axi_intf_tune(phy, true, i, ssi_type, &clk_delay, &data_delay);
-		if (ret)
-			return ret;
-
-		dev_dbg(&phy->spi->dev, "TX: Got clk: %u, data: %u\n", clk_delay, data_delay);
-		delays.txClkDelay[i] = clk_delay;
-		delays.txIDataDelay[i] = data_delay;
-		delays.txQDataDelay[i] = data_delay;
-		delays.txStrobeDelay[i] = data_delay;
-		/*
-		 * In rx2tx2 we should treat TX1/TX2 as the same. Hence, we will run
-		 * the test simultaneosly for both ports and configure the same delays.
-		 */
-		if (phy->rx2tx2) {
-			if (!i) {
-				/* set TX2 delays */
-				delays.txClkDelay[i + 1] = clk_delay;
-				delays.txIDataDelay[i + 1] = data_delay;
-				delays.txQDataDelay[i + 1] = data_delay;
-				delays.txStrobeDelay[i + 1] = data_delay;
+		} else if (phy->rx2tx2 && c->idx) {
+			/*
+			 * In rx2tx2 we should treat both channels as the same. Hence, we will run
+			 * the test simultaneosly for both and configure the same delays.
+			 */
+			if (c->port == ADI_RX) {
+				/* RX0 must be enabled, hence we can safely skip further tuning */
+				delays.rxClkDelay[c->idx] = delays.rxClkDelay[0];
+				delays.rxIDataDelay[c->idx] = delays.rxIDataDelay[0];
+				delays.rxQDataDelay[c->idx] = delays.rxQDataDelay[0];
+				delays.rxStrobeDelay[c->idx] = delays.rxStrobeDelay[0];
+				continue;
+			} else {
+				/* If TX0 is enabled we can skip further tuning */
+				if (phy->tx_channels[0].channel.enabled) {
+					delays.txClkDelay[c->idx] = delays.txClkDelay[0];
+					delays.txIDataDelay[c->idx] = delays.txIDataDelay[0];
+					delays.txQDataDelay[c->idx] = delays.txQDataDelay[0];
+					delays.txStrobeDelay[c->idx] = delays.txStrobeDelay[0];
+					continue;
+				}
 			}
-			break;
+		}
+
+		ret = adrv9002_axi_intf_tune(phy, c->port == ADI_TX, c->idx, ssi_type, &clk_delay,
+					     &data_delay);
+		if (ret)
+			return ret;
+
+		if (c->port == ADI_RX) {
+			dev_dbg(&phy->spi->dev, "RX: Got clk: %u, data: %u\n", clk_delay,
+				data_delay);
+			delays.rxClkDelay[c->idx] = clk_delay;
+			delays.rxIDataDelay[c->idx] = data_delay;
+			delays.rxQDataDelay[c->idx] = data_delay;
+			delays.rxStrobeDelay[c->idx] = data_delay;
+		} else {
+			dev_dbg(&phy->spi->dev, "TX: Got clk: %u, data: %u\n", clk_delay,
+				data_delay);
+			delays.txClkDelay[c->idx] = clk_delay;
+			delays.txIDataDelay[c->idx] = data_delay;
+			delays.txQDataDelay[c->idx] = data_delay;
+			delays.txStrobeDelay[c->idx] = data_delay;
 		}
 	}
 
@@ -3513,10 +3459,14 @@ static int adrv9002_probe(struct spi_device *spi)
 
 	/* initialize channel numbers and ports here since these will never change */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
+		phy->rx_channels[c].channel.idx = c;
 		phy->rx_channels[c].channel.number = c + ADI_CHANNEL_1;
 		phy->rx_channels[c].channel.port = ADI_RX;
+		phy->channels[c * 2] = &phy->rx_channels[c].channel;
+		phy->tx_channels[c].channel.idx = c;
 		phy->tx_channels[c].channel.number = c + ADI_CHANNEL_1;
 		phy->tx_channels[c].channel.port = ADI_TX;
+		phy->channels[c * 2 + 1] = &phy->tx_channels[c].channel;
 	}
 
 	phy->hal.reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);

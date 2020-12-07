@@ -39,9 +39,9 @@
 	struct adrv9002_rf_phy *__phy;					\
 									\
 	if (__c->port == ADI_RX)					\
-		__phy = rx_to_phy(chan_to_rx(__c), __c->number - 1);	\
+		__phy = rx_to_phy(chan_to_rx(__c), __c->idx);	\
 	else								\
-		__phy = tx_to_phy(chan_to_tx(__c), __c->number - 1);	\
+		__phy = tx_to_phy(chan_to_tx(__c), __c->idx);	\
 									\
 	__phy;								\
 })
@@ -50,7 +50,7 @@ static ssize_t adrv9002_rx_adc_type_get(struct file *file, char __user *userbuf,
 					size_t count, loff_t *ppos)
 {
 	struct adrv9002_rx_chan	*rx = file->private_data;
-	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
 	char buf[8];
 	adi_adrv9001_AdcType_e adc_type;
 	int ret, len;
@@ -84,7 +84,7 @@ static int adrv9002_rx_gain_control_pin_mode_show(struct seq_file *s,
 						  void *ignored)
 {
 	struct adrv9002_rx_chan	*rx = s->private;
-	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
 	int ret;
 	struct adi_adrv9001_RxGainControlPinCfg cfg = {0};
 
@@ -113,7 +113,7 @@ DEFINE_SHOW_ATTRIBUTE(adrv9002_rx_gain_control_pin_mode);
 static int adrv9002_rx_agc_config_show(struct seq_file *s, void *ignored)
 {
 	struct adrv9002_rx_chan	*rx = s->private;
-	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
 	struct adi_adrv9001_GainControlCfg agc = {0};
 	int ret;
 
@@ -196,7 +196,7 @@ static ssize_t adrv9002_rx_agc_config_write(struct file *file, const char __user
 {
 	struct seq_file *s = file->private_data;
 	struct adrv9002_rx_chan	*rx = s->private;
-	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
 	int ret;
 
 	mutex_lock(&phy->lock);
@@ -309,7 +309,7 @@ void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dent
 static int adrv9002_tx_dac_full_scale_get(void *arg, u64 *val)
 {
 	struct adrv9002_tx_chan	*tx = arg;
-	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
 	int ret;
 	bool enable;
 
@@ -334,7 +334,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_dac_full_scale_fops,
 static int adrv9002_tx_pin_atten_control_show(struct seq_file *s, void *ignored)
 {
 	struct adrv9002_tx_chan	*tx = s->private;
-	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
 	struct adi_adrv9001_TxAttenuationPinControlCfg cfg = {0};
 	int ret;
 
@@ -514,7 +514,7 @@ static int adrv9002_rx_ssi_test_mode_fixed_pattern_get(void *arg, u64 *val)
 static int adrv9002_rx_ssi_test_mode_fixed_pattern_set(void *arg, const u64 val)
 {
 	struct adrv9002_rx_chan	*rx = arg;
-	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int val_max = ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ? 0xf : U16_MAX;
 	int __val;
@@ -533,7 +533,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_rx_ssi_test_mode_fixed_pattern_fops,
 static int adrv9002_ssi_rx_test_mode_set(void *arg, const u64 val)
 {
 	struct adrv9002_rx_chan	*rx = arg;
-	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int ret;
 
@@ -633,7 +633,7 @@ static int adrv9002_tx_ssi_test_mode_loopback_get(void *arg, u64 *val)
 static int adrv9002_tx_ssi_test_mode_loopback_set(void *arg, const u64 val)
 {
 	struct adrv9002_tx_chan	*tx = arg;
-	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	bool enable = !!val;
 	int ret;
@@ -659,8 +659,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_ssi_test_mode_loopback_fops,
 static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 {
 	struct adrv9002_tx_chan	*tx = arg;
-	const int channel_idx = tx->channel.number - 1;
-	struct adrv9002_rf_phy *phy = tx_to_phy(tx, channel_idx);
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int ret;
 
@@ -668,7 +667,7 @@ static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 		return -ENODEV;
 
 	mutex_lock(&phy->lock);
-	ret = adrv9002_axi_tx_test_pattern_cfg(phy, channel_idx, tx->ssi_test.testData);
+	ret = adrv9002_axi_tx_test_pattern_cfg(phy, tx->channel.idx, tx->ssi_test.testData);
 	if (ret)
 		goto unlock;
 
@@ -690,7 +689,7 @@ static int adrv9002_ssi_tx_test_mode_status_show(struct seq_file *s,
 						 void *ignored)
 {
 	struct adrv9002_tx_chan	*tx = s->private;
-	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.number - 1);
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	adi_adrv9001_TxSsiTestModeStatus_t ssi_status = {0};
 	int ret;
