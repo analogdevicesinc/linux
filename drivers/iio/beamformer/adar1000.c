@@ -486,16 +486,10 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data
 	u32 adc_ctrl;
 	int ret, timeout = 100;
 
-	/* Select ADC channel */
-	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL,
-				 ADAR1000_MUX_SEL_MSK,
-				 ADAR1000_MUX_SEL(adc_ch));
-	if (ret < 0)
-		return ret;
-
-	/* Start ADC conversion */
-	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL,
-				 ADAR1000_ST_CONV, ADAR1000_ST_CONV);
+	/* Setup ADC operation */
+	ret = regmap_write(st->regmap, st->dev_addr |
+			   ADAR1000_ADC_CTRL, ADAR1000_AC_EN | ADAR1000_CLK_EN |
+			   ADAR1000_MUX_SEL(adc_ch) | ADAR1000_ST_CONV);
 	if (ret < 0)
 		return ret;
 
@@ -519,6 +513,11 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data
 	/* Read ADC sample */
 	ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_ADC_OUTPUT,
 			  adc_data);
+	if (ret < 0)
+		return ret;
+
+	/* Disable ADC */
+	ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL, 0);
 	if (ret < 0)
 		return ret;
 
@@ -2401,15 +2400,7 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_LDO_TRIM_CTL_0, 0x55);
-	if (ret < 0)
-		return ret;
-
-	/* Setup ADC operation */
-	return regmap_write(st->regmap, st->dev_addr |
-			    ADAR1000_ADC_CTRL, ADAR1000_AC_EN |
-			    ADAR1000_CLK_EN | ADAR1000_MUX_SEL(0x05));
+	return regmap_write(st->regmap, st->dev_addr | ADAR1000_LDO_TRIM_CTL_0, 0x55);
 }
 
 static int adar1000_probe(struct spi_device *spi)
