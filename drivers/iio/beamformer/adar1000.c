@@ -1523,29 +1523,17 @@ static const struct iio_info adar1000_info = {
 static int adar1000_beam_load(struct adar1000_state *st, u32 channel, bool tx,
 			      u32 profile)
 {
-	int ret;
-
 	if (profile < ADAR1000_RAM_BEAM_POS_MIN || profile > ADAR1000_RAM_BEAM_POS_MAX)
 		return -EINVAL;
-
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
 
 	st->load_beam_idx = profile;
 
 	if (tx)
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_TX_CH_MEM(channel) | ADAR1000_RAM_ACCESS_TX,
-				   CHX_RAM_FETCH | profile);
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_CH_MEM(channel),
+				    CHX_RAM_FETCH | profile);
 	else
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_RX_CH_MEM(channel) | ADAR1000_RAM_ACCESS_RX,
-				   CHX_RAM_FETCH | profile);
-	if (ret < 0)
-		return ret;
-
-	return adar1000_mode_4wire(st, 0);
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_CH_MEM(channel),
+				    CHX_RAM_FETCH | profile);
 }
 
 static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
@@ -1601,12 +1589,10 @@ static int adar1000_bias_load(struct adar1000_state *st, u32 channel, bool tx,
 	st->load_bias_idx = setting - 1;
 
 	if (tx)
-		return regmap_write(st->regmap, st->dev_addr |
-				    ADAR1000_TX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_TX,
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_BIAS_RAM_CTL,
 				    ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
 	else
-		return regmap_write(st->regmap, st->dev_addr |
-				    ADAR1000_RX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_RX,
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_BIAS_RAM_CTL,
 				    ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
 }
 
