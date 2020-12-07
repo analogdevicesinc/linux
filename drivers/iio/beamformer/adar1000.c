@@ -129,7 +129,7 @@
 #define ADAR1000_CH3_EN			BIT(4)
 #define ADAR1000_CH4_EN			BIT(3)
 #define ADAR1000_RX_LNA_EN		BIT(2)
-#define ADAR1000_TX_DRV_EN		BIT(3)
+#define ADAR1000_TX_DRV_EN		BIT(2)
 #define ADAR1000_VM_EN			BIT(1)
 #define ADAR1000_VGA_EN			BIT(0)
 
