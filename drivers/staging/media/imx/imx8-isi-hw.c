@@ -467,45 +467,34 @@ void mxc_isi_channel_set_deinterlace(struct mxc_isi_dev *mxc_isi)
 	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
 }
 
-void mxc_isi_channel_set_crop(struct mxc_isi_dev *mxc_isi)
+void mxc_isi_channel_set_crop(struct mxc_isi_dev *mxc_isi,
+			      struct mxc_isi_frame *dst_f)
 {
-	struct mxc_isi_frame *src_f = &mxc_isi->isi_cap->src_f;
 	struct v4l2_rect crop;
-	u32 val, val0, val1, temp;
+	u32 val, val0, val1;
 
 	val = readl(mxc_isi->regs + CHNL_IMG_CTRL);
 	val &= ~CHNL_IMG_CTRL_CROP_EN_MASK;
 
-	if ((src_f->o_height == src_f->height) &&
-	    (src_f->o_width == src_f->width)) {
+	if ((dst_f->o_height == dst_f->c_height) &&
+	    (dst_f->o_width == dst_f->c_width)) {
 		mxc_isi->crop = 0;
 		writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
 		return;
 	}
 
-	if (mxc_isi->scale) {
-		temp = (src_f->h_off << 12) / mxc_isi->xfactor;
-		crop.left = temp >> mxc_isi->pre_dec_x;
-		temp = (src_f->v_off << 12) / mxc_isi->yfactor;
-		crop.top = temp >> mxc_isi->pre_dec_y;
-		temp = (src_f->width << 12) / mxc_isi->xfactor;
-		crop.width = temp >> mxc_isi->pre_dec_x;
-		temp = (src_f->height << 12) / mxc_isi->yfactor;
-		crop.height = temp >> mxc_isi->pre_dec_y;
-	} else {
-		crop.left = src_f->h_off;
-		crop.top = src_f->v_off;
-		crop.width = src_f->width;
-		crop.height = src_f->height;
-	}
+	crop.left = dst_f->h_off;
+	crop.top  = dst_f->v_off;
+	crop.width  = dst_f->c_width - 1;
+	crop.height = dst_f->c_height - 1;
 
 	mxc_isi->crop = 1;
 	val |= (CHNL_IMG_CTRL_CROP_EN_ENABLE << CHNL_IMG_CTRL_CROP_EN_OFFSET);
 	val0 = crop.top | (crop.left << CHNL_CROP_ULC_X_OFFSET);
-	val1 = crop.height | (crop.width << CHNL_CROP_LRC_X_OFFSET);
+	val1 = (crop.top + crop.height) | ((crop.left + crop.width) << CHNL_CROP_LRC_X_OFFSET);
 
 	writel(val0, mxc_isi->regs + CHNL_CROP_ULC);
-	writel((val1 + val0), mxc_isi->regs + CHNL_CROP_LRC);
+	writel(val1, mxc_isi->regs + CHNL_CROP_LRC);
 	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
 }
 
@@ -651,6 +640,9 @@ void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi,
 	mxc_isi_channel_set_csc(mxc_isi, src_f, dst_f);
 
 	mxc_isi_channel_set_scaling(mxc_isi, src_f, dst_f);
+
+	/* set cropping */
+	mxc_isi_channel_set_crop(mxc_isi, dst_f);
 
 	/* select the source input / src type / virtual channel for mipi*/
 	mxc_isi_channel_source_config(mxc_isi);

@@ -1107,20 +1107,17 @@ static int mxc_isi_cap_g_selection(struct file *file, void *fh,
 				   struct v4l2_selection *s)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct mxc_isi_frame *f = &isi_cap->src_f;
+	struct mxc_isi_frame *f = &isi_cap->dst_f;
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
 
-	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+	if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+	    s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return -EINVAL;
 
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
-		f = &isi_cap->dst_f;
-		/* fall through */
-	case V4L2_SEL_TGT_CROP_BOUNDS:
-	case V4L2_SEL_TGT_CROP_DEFAULT:
 		s->r.left = 0;
 		s->r.top = 0;
 		s->r.width = f->o_width;
@@ -1128,13 +1125,10 @@ static int mxc_isi_cap_g_selection(struct file *file, void *fh,
 		return 0;
 
 	case V4L2_SEL_TGT_COMPOSE:
-		f = &isi_cap->dst_f;
-		/* fall through */
-	case V4L2_SEL_TGT_CROP:
 		s->r.left = f->h_off;
 		s->r.top = f->v_off;
-		s->r.width = f->width;
-		s->r.height = f->height;
+		s->r.width = f->c_width;
+		s->r.height = f->c_height;
 		return 0;
 	}
 
@@ -1164,15 +1158,16 @@ static int mxc_isi_cap_s_selection(struct file *file, void *fh,
 	unsigned long flags;
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
-	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+	if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+	    s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return -EINVAL;
 
 	if (s->target == V4L2_SEL_TGT_COMPOSE)
 		f = &isi_cap->dst_f;
-	else if (s->target == V4L2_SEL_TGT_CROP)
-		f = &isi_cap->src_f;
 	else
 		return -EINVAL;
+
+	bounds_adjust(f, &rect);
 
 	if (s->flags & V4L2_SEL_FLAG_LE &&
 	    !enclosed_rectangle(&rect, &s->r))

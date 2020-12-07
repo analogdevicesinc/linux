@@ -427,4 +427,21 @@ static inline void set_frame_crop(struct mxc_isi_frame *f,
 	f->c_width  = width;
 	f->c_height = height;
 }
+
+static inline void bounds_adjust(struct mxc_isi_frame *f, struct v4l2_rect *r)
+{
+	if (r->left < 0)
+		r->left = 0;
+	if (r->left >= f->o_width)
+		r->left = f->o_width - 1;
+	if (r->top < 0)
+		r->top = 0;
+	if (r->top >= f->o_height)
+		r->top = f->o_height - 1;
+
+	if (r->left + r->width >= f->o_width)
+		r->width = f->o_width - r->left;
+	if (r->top + r->height >= f->o_height)
+		r->height = f->o_height - r->top;
+}
 #endif /* __MXC_ISI_CORE_H__ */

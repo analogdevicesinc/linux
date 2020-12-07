@@ -439,7 +439,8 @@ void mxc_isi_channel_set_flip(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_alpha(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_chain_buf(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_deinterlace(struct mxc_isi_dev *mxc_isi);
-void mxc_isi_channel_set_crop(struct mxc_isi_dev *mxc_isi);
+void mxc_isi_channel_set_crop(struct mxc_isi_dev *mxc_isi,
+			      struct mxc_isi_frame *dst_f);
 void mxc_isi_channel_set_memory_image(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_panic_threshold(struct mxc_isi_dev *mxc_isi);
 
