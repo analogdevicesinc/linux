@@ -1382,6 +1382,44 @@ static ssize_t adar1000_swctl_store(struct device *dev,
 	return ret ? ret : len;
 }
 
+enum adar1000_iio_ldwrk_attr {
+	ADAR1000_LDTX,
+	ADAR1000_LDRX,
+};
+
+static ssize_t adar1000_ldwrk_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u8 val = 0;
+	bool readin;
+
+	ret = kstrtobool(buf, &readin);
+	if (ret)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_LDTX:
+		val = ADAR1000_LDTX_OVERRIDE;
+		break;
+	case ADAR1000_LDRX:
+		val = ADAR1000_LDRX_OVERRIDE;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (readin)
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_LD_WRK_REGS, val);
+
+	return ret ? ret : len;
+}
+
+
 static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
 
@@ -1459,6 +1497,10 @@ static IIO_DEVICE_ATTR(bias_current_tx_drv, 0644,
 /* Reset attribute */
 static IIO_DEVICE_ATTR(reset, 0200, NULL, adar1000_reset, 0);
 
+/* Load working registers attributes */
+static IIO_DEVICE_ATTR(tx_load_spi, 0200, NULL, adar1000_ldwrk_store, ADAR1000_LDTX);
+static IIO_DEVICE_ATTR(rx_load_spi, 0200, NULL, adar1000_ldwrk_store, ADAR1000_LDRX);
+
 /* Sequencer enable attribute - should be called before TR_LOAD */
 static IIO_DEVICE_ATTR(sequencer_enable, 0200, NULL, adar1000_seq_enable, 0);
 
@@ -1510,6 +1552,8 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_tr_source.dev_attr.attr,
 	&iio_dev_attr_tr_spi.dev_attr.attr,
 	&iio_dev_attr_pol.dev_attr.attr,
+	&iio_dev_attr_tx_load_spi.dev_attr.attr,
+	&iio_dev_attr_rx_load_spi.dev_attr.attr,
 	NULL,
 };
 
