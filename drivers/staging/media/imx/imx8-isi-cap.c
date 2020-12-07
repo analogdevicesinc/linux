@@ -1177,6 +1177,11 @@ static int mxc_isi_cap_s_selection(struct file *file, void *fh,
 	    !enclosed_rectangle(&s->r, &rect))
 		return -ERANGE;
 
+	if ((s->flags & V4L2_SEL_FLAG_LE) &&
+	    (s->flags & V4L2_SEL_FLAG_GE) &&
+	    (rect.width != s->r.width || rect.height != s->r.height))
+		return -ERANGE;
+
 	s->r = rect;
 	spin_lock_irqsave(&isi_cap->slock, flags);
 	set_frame_crop(f, s->r.left, s->r.top, s->r.width,
