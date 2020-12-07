@@ -1084,7 +1084,15 @@ static ssize_t adar1000_delay_show(struct device *dev,
 		return -EINVAL;
 	}
 
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
 	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
 	if (ret < 0)
 		return ret;
 
