@@ -262,10 +262,10 @@ struct adar1000_tx_bias_setting {
 	u8 ch1_pa_bias_off;
 	u8 ch2_pa_bias_off;
 	u8 ch3_pa_bias_off;
+	u8 ch4_pa_bias_off;
 	u8 ch1_pa_bias_on;
 	u8 ch2_pa_bias_on;
 	u8 ch3_pa_bias_on;
-	u8 ch4_pa_bias_off;
 	u8 ch4_pa_bias_on;
 	u8 bias_current_tx;
 	u8 bias_current_tx_drv;
@@ -1557,10 +1557,10 @@ static ssize_t adar1000_ram_read(struct iio_dev *indio_dev,
 				       st->tx_bias[st->save_bias_idx].ch1_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch2_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch3_pa_bias_off,
+				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch1_pa_bias_on,
 				       st->tx_bias[st->save_bias_idx].ch2_pa_bias_on,
 				       st->tx_bias[st->save_bias_idx].ch3_pa_bias_on,
-				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_on,
 				       st->tx_bias[st->save_bias_idx].bias_current_tx,
 				       st->tx_bias[st->save_bias_idx].bias_current_tx_drv);
