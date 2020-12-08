@@ -60,6 +60,9 @@
 /* JESD204_TX_REG_SYSREF_CONF */
 #define JESD204_TX_REG_SYSREF_CONF_SYSREF_DISABLE	BIT(0)
 
+/* JESD204_TX_REG_LINK_STATUS */
+#define JESD204_LINK_STATUS_DATA			3
+
 struct axi_jesd204_tx {
 	void __iomem *base;
 	struct device *dev;
@@ -672,6 +675,31 @@ static int axi_jesd204_tx_jesd204_link_enable(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
+static int axi_jesd204_tx_jesd204_link_running(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct axi_jesd204_tx *jesd = dev_get_drvdata(dev);
+	unsigned int link_status;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (reason == JESD204_STATE_OP_REASON_INIT) {
+		link_status = readl_relaxed(jesd->base + JESD204_TX_REG_LINK_STATUS) & 0x3;
+
+		if (link_status != JESD204_LINK_STATUS_DATA) {
+			dev_err(dev, "%s: Link%u status failed (%s)\n",
+				__func__, lnk->link_id,
+				axi_jesd204_tx_link_status_label[link_status]);
+
+			return JESD204_STATE_CHANGE_ERROR;
+		}
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
 static const struct jesd204_dev_data jesd204_axi_jesd204_tx_init = {
 	.state_ops = {
 		[JESD204_OP_CLOCKS_ENABLE] = {
@@ -682,6 +710,9 @@ static const struct jesd204_dev_data jesd204_axi_jesd204_tx_init = {
 		},
 		[JESD204_OP_LINK_ENABLE] = {
 			.per_link = axi_jesd204_tx_jesd204_link_enable,
+		},
+		[JESD204_OP_LINK_RUNNING] = {
+			.per_link = axi_jesd204_tx_jesd204_link_running,
 		},
 	},
 };
