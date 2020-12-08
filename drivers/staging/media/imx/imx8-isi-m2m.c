@@ -906,6 +906,94 @@ static int mxc_isi_m2m_streamoff(struct file *file, void *priv,
 	return ret;
 }
 
+static int mxc_isi_m2m_g_selection(struct file *file, void *fh,
+				   struct v4l2_selection *s)
+{
+	struct mxc_isi_m2m_dev *isi_m2m = video_drvdata(file);
+	struct mxc_isi_frame *f = &isi_m2m->dst_f;
+
+	dev_dbg(&isi_m2m->pdev->dev, "%s\n", __func__);
+
+	if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+	    s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		return -EINVAL;
+
+	switch (s->target) {
+	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
+	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
+		s->r.left = 0;
+		s->r.top = 0;
+		s->r.width = f->o_width;
+		s->r.height = f->o_height;
+		return 0;
+
+	case V4L2_SEL_TGT_COMPOSE:
+		s->r.left = f->h_off;
+		s->r.top = f->v_off;
+		s->r.width = f->c_width;
+		s->r.height = f->c_height;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static int enclosed_rectangle(struct v4l2_rect *a, struct v4l2_rect *b)
+{
+	if (a->left < b->left || a->top < b->top)
+		return 0;
+
+	if (a->left + a->width > b->left + b->width)
+		return 0;
+
+	if (a->top + a->height > b->top + b->height)
+		return 0;
+
+	return 1;
+}
+
+static int mxc_isi_m2m_s_selection(struct file *file, void *fh,
+				   struct v4l2_selection *s)
+{
+	struct mxc_isi_m2m_dev *isi_m2m = video_drvdata(file);
+	struct mxc_isi_frame *f;
+	struct v4l2_rect rect = s->r;
+	unsigned long flags;
+
+	dev_dbg(&isi_m2m->pdev->dev, "%s\n", __func__);
+	if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+	    s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		return -EINVAL;
+
+	if (s->target == V4L2_SEL_TGT_COMPOSE)
+		f = &isi_m2m->dst_f;
+	else
+		return -EINVAL;
+
+	bounds_adjust(f, &rect);
+
+	if (s->flags & V4L2_SEL_FLAG_LE &&
+	    !enclosed_rectangle(&rect, &s->r))
+		return -ERANGE;
+
+	if (s->flags & V4L2_SEL_FLAG_GE &&
+	    !enclosed_rectangle(&s->r, &rect))
+		return -ERANGE;
+
+	if ((s->flags & V4L2_SEL_FLAG_LE) &&
+	    (s->flags & V4L2_SEL_FLAG_GE) &&
+	    (rect.width != s->r.width || rect.height != s->r.height))
+		return -ERANGE;
+
+	s->r = rect;
+	spin_lock_irqsave(&isi_m2m->slock, flags);
+	set_frame_crop(f, s->r.left, s->r.top, s->r.width,
+		       s->r.height);
+	spin_unlock_irqrestore(&isi_m2m->slock, flags);
+
+	return 0;
+}
+
 static const struct v4l2_ioctl_ops mxc_isi_m2m_ioctl_ops = {
 	.vidioc_querycap		= mxc_isi_m2m_querycap,
 
@@ -931,6 +1019,9 @@ static const struct v4l2_ioctl_ops mxc_isi_m2m_ioctl_ops = {
 
 	.vidioc_streamon	= mxc_isi_m2m_streamon,
 	.vidioc_streamoff	= mxc_isi_m2m_streamoff,
+
+	.vidioc_g_selection	= mxc_isi_m2m_g_selection,
+	.vidioc_s_selection	= mxc_isi_m2m_s_selection,
 };
 
 /*
