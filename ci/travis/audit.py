@@ -111,9 +111,18 @@ def check_url(url):
 
     return errored
 
+def do_audit_cached(part, part_id):
+    if (part["product-url"] == "<invalid>"):
+        print_fail("No product URL for %s" % part_id)
+        return True
+
 def do_audit(part_id, config):
 
     parts_table_config = config["parts"]
+
+    # This part has been audited already and save
+    if (part_id in parts_table_config):
+        return do_audit_cached(parts_table_config[part_id], part_id)
 
     non_adi_parts = config["ignored_parts"]
 
@@ -186,14 +195,11 @@ for cfg in config["search_parts_config"]:
 cnt = len(parts_list)
 print_bold("Collected %d part IDs from Linux drivers" % cnt)
 for part in parts_list:
-    cnt = cnt - 1
-    if ((cnt % 30) == 0 or cnt == 10):
-        print("Remaining %d to process" % cnt)
     if (not do_audit(part, config)):
         have_errors = True
 
-with open("output.json", "w") as write_file:
-    json.dump(config, write_file, indent=4, sort_keys=True)
+with open(sys.argv[1], "w") as write_file:
+    json.dump(config, write_file, indent=4)
 
 if (have_errors):
     sys.exit(1)

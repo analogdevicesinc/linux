@@ -1,169 +1,2500 @@
 {
-	"search_parts_config" : [
-		{
-			"name" : "Analog Devices"
-		},
-		{
-			"name" : "Linear Technology"
-		}
-	],
-	"ignored_files" : [
-		"drivers/hwmon/jc42.c",
-		"drivers/clk/clk-adjustable-rate.c",
-		"drivers/iio/adc/ina2xx-adc.c",
-		"drivers/iio/adc/max1027.c",
-		"drivers/iio/adc/ti-ads7950.c",
-		"drivers/iio/addac/one-bit-adc-dac.c",
-		"drivers/media/i2c/vs6624.c",
-		"drivers/misc/jesd204b/xilinx_jesd204b.c",
-		"drivers/iio/regmap/iio-regmap-i2c.c",
-		"drivers/iio/regmap/iio-regmap-spi.c",
-		"drivers/input/touchscreen/ads7846.c"
-	],
-	"ignored_parts" : [
-		"ne1619",
-		"ds1780",
-		"lm81",
-		"g781",
-		"lm90",
-		"lm86",
-		"lm87",
-		"lm89",
-		"lm99",
-		"max6646",
-		"max6647",
-		"max6649",
-		"max6657",
-		"max6658",
-		"max6659",
-		"max6680",
-		"max6681",
-		"max6695",
-		"max6696",
-		"nct1008",
-		"w83l771",
-		"sa56004",
-		"tmp451",
-		"adc081s",
-		"adc101s",
-		"adc121s",
-		"dac081s101",
-		"dac101s101",
-		"dac121s101",
-		"as3645a"
-	],
-	"_comment" : "Drivers that are written/supported by ADI, but aren't parts",
-	"with-no-analog.com-page" : [
-		"a10-fpll",
-		"axi-clkgen-2.00.a",
-		"axi-dmac-1.00.a",
-		"gpio-adi-daq1",
-		"axi-hdmi-tx-1.00.a",
-		"axi-fan-control-1.00.a",
-
-		"cn0363-adc-1.00.a",
-		"axi-ad9371-obs-1.0",
-		"m2k-adc-1.00.a",
-		"axi-adrv9009-obs-1.0",
-		"axi-adrv9009-obs-single-1.0",
-		"axi-adrv9002-rx2-1.0",
-		"adm1177-iio",
-		"axi-ad-mc-adc-1.00.a",
-		"axi-ad-mc-ctrl-1.00.a",
-		"axi-ad-mc-speed-1.00.a",
-		"adrv9009-x2",
-		"adrv9009-x4",
-		"axi-fmcadc5-sync-1.0",
-		"axi-pulse-capture-1.00.a",
-		"axi-ad9234-1.00.a",
-		"axi-ad9250-1.00.a",
-		"axi-ad9434-1.00.a",
-		"axi-ad9643-6.00.a",
-		"axi-ad9361-6.00.a",
-		"axi-ad9680-1.0",
-		"axi-ad9694-1.0",
-		"axi-ad9625-1.0",
-		"axi-ad6676-1.0",
-		"axi-ad9371-rx-1.0",
-		"axi-ad9684-1.0",
-		"axi-adrv9009-rx-1.0",
-		"axi-ad9208-1.0",
-		"axi-ad9081-rx-1.0",
-		"axi-adc-10.0.a",
-		"axi-adrv9002-rx-1.0",
-		"axi-tdd-1.00",
-		"ad9208x2",
-		"ad9361-2x",
-		"adrv9002-rx2tx2",
-		"zynq-xadc-1.00.a",
-		"axi-xadc-1.00.a",
-		"axi-ad9122-6.00.a",
-		"axi-ad9136-1.0",
-		"axi-ad9144-1.0",
-		"axi-ad9154-1.0",
-		"axi-ad9739a-8.00.b",
-		"axi-ad9361x2-dds-6.00.a",
-		"axi-ad9361-dds-6.00.a",
-		"axi-ad9364-dds-6.00.a",
-		"axi-ad9371-tx-1.0",
-		"axi-adrv9009-tx-1.0",
-		"axi-adrv9009-x2-tx-1.0",
-		"axi-adrv9009-x4-tx-1.0",
-		"axi-ad9162-1.0",
-		"axi-ad9963-dds-1.00.a",
-		"axi-ad9172-1.0",
-		"axi-ad9081-tx-1.0",
-		"axi-adrv9002-tx-1.0",
-		"axi-adrv9002-rx2tx2-1.0",
-		"axi-framebuffer-1.00.a",
-		"axi-hdmi-rx-1.00.a",
-		"imageon-v4l2-bridge-1.00.a",
-		"axi-spi-engine-1.00.a",
-		"axi-pwmgen",
-		"spi-xcomm",
-		"axi-xlnx-lcd-1.00.a",
-		"axi-sysid-1.00.a",
-		"m2k-dac-1.00.a",
-		"spi-adi-daq1",
-		"axi-i2s-1.00.a",
-		"axi-spdif-tx-1.00.a",
-		"altera-adxcvr-1.00.a",
-		"axi-adxcvr-1.0",
-		"axi-jesd204-rx-1.0",
-		"axi-jesd204-rx-1.3",
-		"axi-jesd204-tx-1.0",
-		"axi-jesd204-tx-1.3",
-		"axi-jesd-gt-1.0",
-		"jesd204-5.1",
-		"jesd204-5.2",
-		"jesd204-6.0",
-		"axi-adc-trigger"
-	],
-	"_comment" : "Add here part IDs that differ from kernel to ADI page",
-	"linux_to_analog.com_map" : {
-		"ad7091r5" : "ad7091r-5",
-		"ad7606-8" : "ad7606",
-		"ad9363a" : "ad9363",
-		"adxl34x" : "adxl345",
-		"ad9166-amp" : "ad9166",
-		"hmc271" : "hmc271a",
-		"spi-ad9250" : "ad9250",
-		"ad5270_iio" : "ad5270",
-		"ad5271_iio" : "ad5271",
-		"ad5272_iio" : "ad5272",
-		"ad5274_iio" : "ad5274",
-		"adv7180cp" : "adv7180",
-		"adv7180st" : "adv7180",
-		"pmic-adp5520" : "adp5520",
-		"pmic-adp5501" : "adp5501",
-		"ad5624r3" : "ad5624r",
-		"ad5644r3" : "ad5644r",
-		"ad5664r3" : "ad5664r",
-		"ad5624r5" : "ad5624r",
-		"ad5644r5" : "ad5644r",
-		"ad5664r5" : "ad5664r",
-		"ad193x" : "<ignore>"
-	},
-	"parts" : {
-	}
+    "ignored_files": [
+        "drivers/hwmon/jc42.c",
+        "drivers/clk/clk-adjustable-rate.c",
+        "drivers/iio/adc/ina2xx-adc.c",
+        "drivers/iio/adc/max1027.c",
+        "drivers/iio/adc/ti-ads7950.c",
+        "drivers/iio/addac/one-bit-adc-dac.c",
+        "drivers/media/i2c/vs6624.c",
+        "drivers/misc/jesd204b/xilinx_jesd204b.c",
+        "drivers/iio/regmap/iio-regmap-i2c.c",
+        "drivers/iio/regmap/iio-regmap-spi.c",
+        "drivers/input/touchscreen/ads7846.c"
+    ],
+    "ignored_parts": [
+        "ne1619",
+        "ds1780",
+        "lm81",
+        "g781",
+        "lm90",
+        "lm86",
+        "lm87",
+        "lm89",
+        "lm99",
+        "max6646",
+        "max6647",
+        "max6649",
+        "max6657",
+        "max6658",
+        "max6659",
+        "max6680",
+        "max6681",
+        "max6695",
+        "max6696",
+        "nct1008",
+        "w83l771",
+        "sa56004",
+        "tmp451",
+        "adc081s",
+        "adc101s",
+        "adc121s",
+        "dac081s101",
+        "dac101s101",
+        "dac121s101",
+        "as3645a",
+        "ad193x"
+    ],
+    "search_parts_config": [
+        {
+            "name": "Analog Devices"
+        },
+        {
+            "name": "Linear Technology"
+        }
+    ],
+    "parts": {
+        "a10-fpll": {
+            "product-url": "<not_applicable>"
+        },
+        "ad1835": {
+            "product-url": "https://www.analog.com/en/products/ad1835.html"
+        },
+        "ad1836": {
+            "product-url": "https://www.analog.com/en/products/ad1836.html"
+        },
+        "ad1837": {
+            "product-url": "https://www.analog.com/en/products/ad1837.html"
+        },
+        "ad1838": {
+            "product-url": "https://www.analog.com/en/products/ad1838.html"
+        },
+        "ad1839": {
+            "product-url": "https://www.analog.com/en/products/ad1839.html"
+        },
+        "ad1933": {
+            "product-url": "https://www.analog.com/en/products/ad1933.html"
+        },
+        "ad1934": {
+            "product-url": "https://www.analog.com/en/products/ad1934.html"
+        },
+        "ad1936": {
+            "product-url": "https://www.analog.com/en/products/ad1936.html"
+        },
+        "ad1937": {
+            "product-url": "https://www.analog.com/en/products/ad1937.html"
+        },
+        "ad1938": {
+            "product-url": "https://www.analog.com/en/products/ad1938.html"
+        },
+        "ad1939": {
+            "product-url": "https://www.analog.com/en/products/ad1939.html"
+        },
+        "ad2s1200": {
+            "product-url": "https://www.analog.com/en/products/ad2s1200.html"
+        },
+        "ad2s1205": {
+            "product-url": "https://www.analog.com/en/products/ad2s1205.html"
+        },
+        "ad2s1210": {
+            "product-url": "https://www.analog.com/en/products/ad2s1210.html"
+        },
+        "ad2s90": {
+            "product-url": "https://www.analog.com/en/products/ad2s90.html"
+        },
+        "ad4003": {
+            "product-url": "https://www.analog.com/en/products/ad4003.html"
+        },
+        "ad4007": {
+            "product-url": "https://www.analog.com/en/products/ad4007.html"
+        },
+        "ad4011": {
+            "product-url": "https://www.analog.com/en/products/ad4011.html"
+        },
+        "ad4020": {
+            "product-url": "https://www.analog.com/en/products/ad4020.html"
+        },
+        "ad5024": {
+            "product-url": "https://www.analog.com/en/products/ad5024.html"
+        },
+        "ad5025": {
+            "product-url": "https://www.analog.com/en/products/ad5025.html"
+        },
+        "ad5044": {
+            "product-url": "https://www.analog.com/en/products/ad5044.html"
+        },
+        "ad5045": {
+            "product-url": "https://www.analog.com/en/products/ad5045.html"
+        },
+        "ad5064": {
+            "product-url": "https://www.analog.com/en/products/ad5064.html"
+        },
+        "ad5064-1": {
+            "product-url": "https://www.analog.com/en/products/ad5064.html"
+        },
+        "ad5065": {
+            "product-url": "https://www.analog.com/en/products/ad5065.html"
+        },
+        "ad5160": {
+            "product-url": "https://www.analog.com/en/products/ad5160.html"
+        },
+        "ad5161": {
+            "product-url": "https://www.analog.com/en/products/ad5161.html"
+        },
+        "ad5162": {
+            "product-url": "https://www.analog.com/en/products/ad5162.html"
+        },
+        "ad5165": {
+            "product-url": "https://www.analog.com/en/products/ad5165.html"
+        },
+        "ad5170": {
+            "product-url": "https://www.analog.com/en/products/ad5170.html"
+        },
+        "ad5171": {
+            "product-url": "https://www.analog.com/en/products/ad5171.html"
+        },
+        "ad5172": {
+            "product-url": "https://www.analog.com/en/products/ad5172.html"
+        },
+        "ad5173": {
+            "product-url": "https://www.analog.com/en/products/ad5173.html"
+        },
+        "ad5200": {
+            "product-url": "https://www.analog.com/en/products/ad5200.html"
+        },
+        "ad5201": {
+            "product-url": "https://www.analog.com/en/products/ad5201.html"
+        },
+        "ad5203": {
+            "product-url": "https://www.analog.com/en/products/ad5203.html"
+        },
+        "ad5204": {
+            "product-url": "https://www.analog.com/en/products/ad5204.html"
+        },
+        "ad5206": {
+            "product-url": "https://www.analog.com/en/products/ad5206.html"
+        },
+        "ad5207": {
+            "product-url": "https://www.analog.com/en/products/ad5207.html"
+        },
+        "ad5231": {
+            "product-url": "https://www.analog.com/en/products/ad5231.html"
+        },
+        "ad5232": {
+            "product-url": "https://www.analog.com/en/products/ad5232.html"
+        },
+        "ad5233": {
+            "product-url": "https://www.analog.com/en/products/ad5233.html"
+        },
+        "ad5235": {
+            "product-url": "https://www.analog.com/en/products/ad5235.html"
+        },
+        "ad5241": {
+            "product-url": "https://www.analog.com/en/products/ad5241.html"
+        },
+        "ad5242": {
+            "product-url": "https://www.analog.com/en/products/ad5242.html"
+        },
+        "ad5243": {
+            "product-url": "https://www.analog.com/en/products/ad5243.html"
+        },
+        "ad5245": {
+            "product-url": "https://www.analog.com/en/products/ad5245.html"
+        },
+        "ad5246": {
+            "product-url": "https://www.analog.com/en/products/ad5246.html"
+        },
+        "ad5247": {
+            "product-url": "https://www.analog.com/en/products/ad5247.html"
+        },
+        "ad5248": {
+            "product-url": "https://www.analog.com/en/products/ad5248.html"
+        },
+        "ad5251": {
+            "product-url": "https://www.analog.com/en/products/ad5251.html"
+        },
+        "ad5252": {
+            "product-url": "https://www.analog.com/en/products/ad5252.html"
+        },
+        "ad5253": {
+            "product-url": "https://www.analog.com/en/products/ad5253.html"
+        },
+        "ad5254": {
+            "product-url": "https://www.analog.com/en/products/ad5254.html"
+        },
+        "ad5255": {
+            "product-url": "https://www.analog.com/en/products/ad5255.html"
+        },
+        "ad5258": {
+            "product-url": "https://www.analog.com/en/products/ad5258.html"
+        },
+        "ad5259": {
+            "product-url": "https://www.analog.com/en/products/ad5259.html"
+        },
+        "ad5260": {
+            "product-url": "https://www.analog.com/en/products/ad5260.html"
+        },
+        "ad5262": {
+            "product-url": "https://www.analog.com/en/products/ad5262.html"
+        },
+        "ad5263": {
+            "product-url": "https://www.analog.com/en/products/ad5263.html"
+        },
+        "ad5270": {
+            "product-url": "https://www.analog.com/en/products/ad5270.html"
+        },
+        "ad5270_iio": {
+            "product-url": "https://www.analog.com/en/products/ad5270.html"
+        },
+        "ad5271": {
+            "product-url": "https://www.analog.com/en/products/ad5271.html"
+        },
+        "ad5271_iio": {
+            "product-url": "https://www.analog.com/en/products/ad5271.html"
+        },
+        "ad5272": {
+            "product-url": "https://www.analog.com/en/products/ad5272.html"
+        },
+        "ad5272-020": {
+            "product-url": "https://www.analog.com/en/products/ad5272.html"
+        },
+        "ad5272-050": {
+            "product-url": "https://www.analog.com/en/products/ad5272.html"
+        },
+        "ad5272-100": {
+            "product-url": "https://www.analog.com/en/products/ad5272.html"
+        },
+        "ad5272_iio": {
+            "product-url": "https://www.analog.com/en/products/ad5272.html"
+        },
+        "ad5273": {
+            "product-url": "https://www.analog.com/en/products/ad5273.html"
+        },
+        "ad5274": {
+            "product-url": "https://www.analog.com/en/products/ad5274.html"
+        },
+        "ad5274-020": {
+            "product-url": "https://www.analog.com/en/products/ad5274.html"
+        },
+        "ad5274-100": {
+            "product-url": "https://www.analog.com/en/products/ad5274.html"
+        },
+        "ad5274_iio": {
+            "product-url": "https://www.analog.com/en/products/ad5274.html"
+        },
+        "ad5280": {
+            "product-url": "https://www.analog.com/en/products/ad5280.html"
+        },
+        "ad5282": {
+            "product-url": "https://www.analog.com/en/products/ad5282.html"
+        },
+        "ad5290": {
+            "product-url": "https://www.analog.com/en/products/ad5290.html"
+        },
+        "ad5291": {
+            "product-url": "https://www.analog.com/en/products/ad5291.html"
+        },
+        "ad5292": {
+            "product-url": "https://www.analog.com/en/products/ad5292.html"
+        },
+        "ad5293": {
+            "product-url": "https://www.analog.com/en/products/ad5293.html"
+        },
+        "ad5300": {
+            "product-url": "https://www.analog.com/en/products/ad5300.html"
+        },
+        "ad5301": {
+            "product-url": "https://www.analog.com/en/products/ad5301.html"
+        },
+        "ad5310": {
+            "product-url": "https://www.analog.com/en/products/ad5310.html"
+        },
+        "ad5310r": {
+            "product-url": "https://www.analog.com/en/products/ad5310r.html"
+        },
+        "ad5311": {
+            "product-url": "https://www.analog.com/en/products/ad5311.html"
+        },
+        "ad5311r": {
+            "product-url": "https://www.analog.com/en/products/ad5311r.html"
+        },
+        "ad5320": {
+            "product-url": "https://www.analog.com/en/products/ad5320.html"
+        },
+        "ad5321": {
+            "product-url": "https://www.analog.com/en/products/ad5321.html"
+        },
+        "ad5360": {
+            "product-url": "https://www.analog.com/en/products/ad5360.html"
+        },
+        "ad5361": {
+            "product-url": "https://www.analog.com/en/products/ad5361.html"
+        },
+        "ad5362": {
+            "product-url": "https://www.analog.com/en/products/ad5362.html"
+        },
+        "ad5363": {
+            "product-url": "https://www.analog.com/en/products/ad5363.html"
+        },
+        "ad5370": {
+            "product-url": "https://www.analog.com/en/products/ad5370.html"
+        },
+        "ad5371": {
+            "product-url": "https://www.analog.com/en/products/ad5371.html"
+        },
+        "ad5372": {
+            "product-url": "https://www.analog.com/en/products/ad5372.html"
+        },
+        "ad5373": {
+            "product-url": "https://www.analog.com/en/products/ad5373.html"
+        },
+        "ad5380-3": {
+            "product-url": "https://www.analog.com/en/products/ad5380.html"
+        },
+        "ad5380-5": {
+            "product-url": "https://www.analog.com/en/products/ad5380.html"
+        },
+        "ad5381-3": {
+            "product-url": "https://www.analog.com/en/products/ad5381.html"
+        },
+        "ad5381-5": {
+            "product-url": "https://www.analog.com/en/products/ad5381.html"
+        },
+        "ad5382-3": {
+            "product-url": "https://www.analog.com/en/products/ad5382.html"
+        },
+        "ad5382-5": {
+            "product-url": "https://www.analog.com/en/products/ad5382.html"
+        },
+        "ad5383-3": {
+            "product-url": "https://www.analog.com/en/products/ad5383.html"
+        },
+        "ad5383-5": {
+            "product-url": "https://www.analog.com/en/products/ad5383.html"
+        },
+        "ad5384-3": {
+            "product-url": "https://www.analog.com/en/products/ad5384.html"
+        },
+        "ad5384-5": {
+            "product-url": "https://www.analog.com/en/products/ad5384.html"
+        },
+        "ad5390-3": {
+            "product-url": "https://www.analog.com/en/products/ad5390.html"
+        },
+        "ad5390-5": {
+            "product-url": "https://www.analog.com/en/products/ad5390.html"
+        },
+        "ad5391-3": {
+            "product-url": "https://www.analog.com/en/products/ad5391.html"
+        },
+        "ad5391-5": {
+            "product-url": "https://www.analog.com/en/products/ad5391.html"
+        },
+        "ad5392-3": {
+            "product-url": "https://www.analog.com/en/products/ad5392.html"
+        },
+        "ad5392-5": {
+            "product-url": "https://www.analog.com/en/products/ad5392.html"
+        },
+        "ad5398": {
+            "product-url": "https://www.analog.com/en/products/ad5398.html"
+        },
+        "ad5415": {
+            "product-url": "https://www.analog.com/en/products/ad5415.html"
+        },
+        "ad5426": {
+            "product-url": "https://www.analog.com/en/products/ad5426.html"
+        },
+        "ad5429": {
+            "product-url": "https://www.analog.com/en/products/ad5429.html"
+        },
+        "ad5432": {
+            "product-url": "https://www.analog.com/en/products/ad5432.html"
+        },
+        "ad5439": {
+            "product-url": "https://www.analog.com/en/products/ad5439.html"
+        },
+        "ad5443": {
+            "product-url": "https://www.analog.com/en/products/ad5443.html"
+        },
+        "ad5444": {
+            "product-url": "https://www.analog.com/en/products/ad5444.html"
+        },
+        "ad5446": {
+            "product-url": "https://www.analog.com/en/products/ad5446.html"
+        },
+        "ad5449": {
+            "product-url": "https://www.analog.com/en/products/ad5449.html"
+        },
+        "ad5450": {
+            "product-url": "https://www.analog.com/en/products/ad5450.html"
+        },
+        "ad5451": {
+            "product-url": "https://www.analog.com/en/products/ad5451.html"
+        },
+        "ad5452": {
+            "product-url": "https://www.analog.com/en/products/ad5452.html"
+        },
+        "ad5453": {
+            "product-url": "https://www.analog.com/en/products/ad5453.html"
+        },
+        "ad5501": {
+            "product-url": "https://www.analog.com/en/products/ad5501.html"
+        },
+        "ad5504": {
+            "product-url": "https://www.analog.com/en/products/ad5504.html"
+        },
+        "ad5512a": {
+            "product-url": "https://www.analog.com/en/products/ad5512a.html"
+        },
+        "ad5541a": {
+            "product-url": "https://www.analog.com/en/products/ad5541a.html"
+        },
+        "ad5542a": {
+            "product-url": "https://www.analog.com/en/products/ad5542a.html"
+        },
+        "ad5543": {
+            "product-url": "https://www.analog.com/en/products/ad5543.html"
+        },
+        "ad5553": {
+            "product-url": "https://www.analog.com/en/products/ad5553.html"
+        },
+        "ad5592r": {
+            "product-url": "https://www.analog.com/en/products/ad5592r.html"
+        },
+        "ad5593r": {
+            "product-url": "https://www.analog.com/en/products/ad5593r.html"
+        },
+        "ad5600": {
+            "product-url": "https://www.analog.com/en/products/ad5600.html"
+        },
+        "ad5601": {
+            "product-url": "https://www.analog.com/en/products/ad5601.html"
+        },
+        "ad5602": {
+            "product-url": "https://www.analog.com/en/products/ad5602.html"
+        },
+        "ad5611": {
+            "product-url": "https://www.analog.com/en/products/ad5611.html"
+        },
+        "ad5612": {
+            "product-url": "https://www.analog.com/en/products/ad5612.html"
+        },
+        "ad5620-1250": {
+            "product-url": "https://www.analog.com/en/products/ad5620.html"
+        },
+        "ad5620-2500": {
+            "product-url": "https://www.analog.com/en/products/ad5620.html"
+        },
+        "ad5621": {
+            "product-url": "https://www.analog.com/en/products/ad5621.html"
+        },
+        "ad5622": {
+            "product-url": "https://www.analog.com/en/products/ad5622.html"
+        },
+        "ad5624r3": {
+            "product-url": "https://www.analog.com/en/products/ad5624r.html"
+        },
+        "ad5624r5": {
+            "product-url": "https://www.analog.com/en/products/ad5624r.html"
+        },
+        "ad5625": {
+            "product-url": "https://www.analog.com/en/products/ad5625.html"
+        },
+        "ad5625r-1v25": {
+            "product-url": "https://www.analog.com/en/products/ad5625r.html"
+        },
+        "ad5625r-2v5": {
+            "product-url": "https://www.analog.com/en/products/ad5625r.html"
+        },
+        "ad5627": {
+            "product-url": "https://www.analog.com/en/products/ad5627.html"
+        },
+        "ad5627r-1v25": {
+            "product-url": "https://www.analog.com/en/products/ad5627r.html"
+        },
+        "ad5627r-2v5": {
+            "product-url": "https://www.analog.com/en/products/ad5627r.html"
+        },
+        "ad5628-1": {
+            "product-url": "https://www.analog.com/en/products/ad5628.html"
+        },
+        "ad5628-2": {
+            "product-url": "https://www.analog.com/en/products/ad5628.html"
+        },
+        "ad5629-1": {
+            "product-url": "<invalid>"
+        },
+        "ad5629-2": {
+            "product-url": "<invalid>"
+        },
+        "ad5629-3": {
+            "product-url": "<invalid>"
+        },
+        "ad5640-1250": {
+            "product-url": "https://www.analog.com/en/products/ad5640.html"
+        },
+        "ad5640-2500": {
+            "product-url": "https://www.analog.com/en/products/ad5640.html"
+        },
+        "ad5641": {
+            "product-url": "https://www.analog.com/en/products/ad5641.html"
+        },
+        "ad5644r3": {
+            "product-url": "https://www.analog.com/en/products/ad5644r.html"
+        },
+        "ad5644r5": {
+            "product-url": "https://www.analog.com/en/products/ad5644r.html"
+        },
+        "ad5645r-1v25": {
+            "product-url": "https://www.analog.com/en/products/ad5645r.html"
+        },
+        "ad5645r-2v5": {
+            "product-url": "https://www.analog.com/en/products/ad5645r.html"
+        },
+        "ad5648-1": {
+            "product-url": "https://www.analog.com/en/products/ad5648.html"
+        },
+        "ad5648-2": {
+            "product-url": "https://www.analog.com/en/products/ad5648.html"
+        },
+        "ad5660-1250": {
+            "product-url": "https://www.analog.com/en/products/ad5660.html"
+        },
+        "ad5660-2500": {
+            "product-url": "https://www.analog.com/en/products/ad5660.html"
+        },
+        "ad5662": {
+            "product-url": "https://www.analog.com/en/products/ad5662.html"
+        },
+        "ad5664r3": {
+            "product-url": "https://www.analog.com/en/products/ad5664r.html"
+        },
+        "ad5664r5": {
+            "product-url": "https://www.analog.com/en/products/ad5664r.html"
+        },
+        "ad5665": {
+            "product-url": "https://www.analog.com/en/products/ad5665.html"
+        },
+        "ad5665r-1v25": {
+            "product-url": "https://www.analog.com/en/products/ad5665r.html"
+        },
+        "ad5665r-2v5": {
+            "product-url": "https://www.analog.com/en/products/ad5665r.html"
+        },
+        "ad5666-1": {
+            "product-url": "https://www.analog.com/en/products/ad5666.html"
+        },
+        "ad5666-2": {
+            "product-url": "https://www.analog.com/en/products/ad5666.html"
+        },
+        "ad5667": {
+            "product-url": "https://www.analog.com/en/products/ad5667.html"
+        },
+        "ad5667r-1v25": {
+            "product-url": "https://www.analog.com/en/products/ad5667r.html"
+        },
+        "ad5667r-2v5": {
+            "product-url": "https://www.analog.com/en/products/ad5667r.html"
+        },
+        "ad5668-1": {
+            "product-url": "https://www.analog.com/en/products/ad5668.html"
+        },
+        "ad5668-2": {
+            "product-url": "https://www.analog.com/en/products/ad5668.html"
+        },
+        "ad5668-3": {
+            "product-url": "https://www.analog.com/en/products/ad5668.html"
+        },
+        "ad5669-1": {
+            "product-url": "<invalid>"
+        },
+        "ad5669-2": {
+            "product-url": "<invalid>"
+        },
+        "ad5669-3": {
+            "product-url": "<invalid>"
+        },
+        "ad5671r": {
+            "product-url": "https://www.analog.com/en/products/ad5671r.html"
+        },
+        "ad5672r": {
+            "product-url": "https://www.analog.com/en/products/ad5672r.html"
+        },
+        "ad5673r": {
+            "product-url": "https://www.analog.com/en/products/ad5673r.html"
+        },
+        "ad5674r": {
+            "product-url": "https://www.analog.com/en/products/ad5674r.html"
+        },
+        "ad5675r": {
+            "product-url": "https://www.analog.com/en/products/ad5675r.html"
+        },
+        "ad5676": {
+            "product-url": "https://www.analog.com/en/products/ad5676.html"
+        },
+        "ad5676r": {
+            "product-url": "https://www.analog.com/en/products/ad5676r.html"
+        },
+        "ad5677r": {
+            "product-url": "https://www.analog.com/en/products/ad5677r.html"
+        },
+        "ad5679r": {
+            "product-url": "https://www.analog.com/en/products/ad5679r.html"
+        },
+        "ad5681r": {
+            "product-url": "https://www.analog.com/en/products/ad5681r.html"
+        },
+        "ad5682r": {
+            "product-url": "https://www.analog.com/en/products/ad5682r.html"
+        },
+        "ad5683": {
+            "product-url": "https://www.analog.com/en/products/ad5683.html"
+        },
+        "ad5683r": {
+            "product-url": "https://www.analog.com/en/products/ad5683r.html"
+        },
+        "ad5684": {
+            "product-url": "https://www.analog.com/en/products/ad5684.html"
+        },
+        "ad5684r": {
+            "product-url": "https://www.analog.com/en/products/ad5684r.html"
+        },
+        "ad5685": {
+            "product-url": "<invalid>"
+        },
+        "ad5685r": {
+            "product-url": "https://www.analog.com/en/products/ad5685r.html"
+        },
+        "ad5686": {
+            "product-url": "https://www.analog.com/en/products/ad5686.html"
+        },
+        "ad5686r": {
+            "product-url": "https://www.analog.com/en/products/ad5686r.html"
+        },
+        "ad5691r": {
+            "product-url": "https://www.analog.com/en/products/ad5691r.html"
+        },
+        "ad5692r": {
+            "product-url": "https://www.analog.com/en/products/ad5692r.html"
+        },
+        "ad5693": {
+            "product-url": "https://www.analog.com/en/products/ad5693.html"
+        },
+        "ad5693r": {
+            "product-url": "https://www.analog.com/en/products/ad5693r.html"
+        },
+        "ad5694": {
+            "product-url": "https://www.analog.com/en/products/ad5694.html"
+        },
+        "ad5694r": {
+            "product-url": "https://www.analog.com/en/products/ad5694r.html"
+        },
+        "ad5695r": {
+            "product-url": "https://www.analog.com/en/products/ad5695r.html"
+        },
+        "ad5696": {
+            "product-url": "https://www.analog.com/en/products/ad5696.html"
+        },
+        "ad5696r": {
+            "product-url": "https://www.analog.com/en/products/ad5696r.html"
+        },
+        "ad5721": {
+            "product-url": "https://www.analog.com/en/products/ad5721.html"
+        },
+        "ad5721r": {
+            "product-url": "https://www.analog.com/en/products/ad5721r.html"
+        },
+        "ad5735": {
+            "product-url": "https://www.analog.com/en/products/ad5735.html"
+        },
+        "ad5737": {
+            "product-url": "https://www.analog.com/en/products/ad5737.html"
+        },
+        "ad5744": {
+            "product-url": "https://www.analog.com/en/products/ad5744.html"
+        },
+        "ad5744r": {
+            "product-url": "https://www.analog.com/en/products/ad5744r.html"
+        },
+        "ad5755": {
+            "product-url": "https://www.analog.com/en/products/ad5755.html"
+        },
+        "ad5755-1": {
+            "product-url": "https://www.analog.com/en/products/ad5755-1.html"
+        },
+        "ad5757": {
+            "product-url": "https://www.analog.com/en/products/ad5757.html"
+        },
+        "ad5758": {
+            "product-url": "https://www.analog.com/en/products/ad5758.html"
+        },
+        "ad5760": {
+            "product-url": "https://www.analog.com/en/products/ad5760.html"
+        },
+        "ad5761": {
+            "product-url": "https://www.analog.com/en/products/ad5761.html"
+        },
+        "ad5761r": {
+            "product-url": "https://www.analog.com/en/products/ad5761r.html"
+        },
+        "ad5764": {
+            "product-url": "https://www.analog.com/en/products/ad5764.html"
+        },
+        "ad5764r": {
+            "product-url": "https://www.analog.com/en/products/ad5764r.html"
+        },
+        "ad5766": {
+            "product-url": "https://www.analog.com/en/products/ad5766.html"
+        },
+        "ad5767": {
+            "product-url": "https://www.analog.com/en/products/ad5767.html"
+        },
+        "ad5770r": {
+            "product-url": "https://www.analog.com/en/products/ad5770r.html"
+        },
+        "ad5780": {
+            "product-url": "https://www.analog.com/en/products/ad5780.html"
+        },
+        "ad5781": {
+            "product-url": "https://www.analog.com/en/products/ad5781.html"
+        },
+        "ad5790": {
+            "product-url": "https://www.analog.com/en/products/ad5790.html"
+        },
+        "ad5791": {
+            "product-url": "https://www.analog.com/en/products/ad5791.html"
+        },
+        "ad5821": {
+            "product-url": "https://www.analog.com/en/products/ad5821.html"
+        },
+        "ad5933": {
+            "product-url": "https://www.analog.com/en/products/ad5933.html"
+        },
+        "ad5934": {
+            "product-url": "https://www.analog.com/en/products/ad5934.html"
+        },
+        "ad6676": {
+            "product-url": "https://www.analog.com/en/products/ad6676.html"
+        },
+        "ad6684": {
+            "product-url": "https://www.analog.com/en/products/ad6684.html"
+        },
+        "ad6688": {
+            "product-url": "https://www.analog.com/en/products/ad6688.html"
+        },
+        "ad7091": {
+            "product-url": "https://www.analog.com/en/products/ad7091.html"
+        },
+        "ad7091r": {
+            "product-url": "https://www.analog.com/en/products/ad7091r.html"
+        },
+        "ad7091r5": {
+            "product-url": "https://www.analog.com/en/products/ad7091r-5.html"
+        },
+        "ad7124-4": {
+            "product-url": "https://www.analog.com/en/products/ad7124-4.html"
+        },
+        "ad7124-8": {
+            "product-url": "https://www.analog.com/en/products/ad7124-8.html"
+        },
+        "ad7142_captouch": {
+            "product-url": "https://www.analog.com/en/products/ad7142.html"
+        },
+        "ad7143_captouch": {
+            "product-url": "https://www.analog.com/en/products/ad7143.html"
+        },
+        "ad7147_captouch": {
+            "product-url": "https://www.analog.com/en/products/ad7147.html"
+        },
+        "ad7147a_captouch": {
+            "product-url": "https://www.analog.com/en/products/ad7147a.html"
+        },
+        "ad7148_captouch": {
+            "product-url": "https://www.analog.com/en/products/ad7148.html"
+        },
+        "ad7150": {
+            "product-url": "https://www.analog.com/en/products/ad7150.html"
+        },
+        "ad7151": {
+            "product-url": "https://www.analog.com/en/products/ad7151.html"
+        },
+        "ad7152": {
+            "product-url": "https://www.analog.com/en/products/ad7152.html"
+        },
+        "ad7153": {
+            "product-url": "https://www.analog.com/en/products/ad7153.html"
+        },
+        "ad7156": {
+            "product-url": "https://www.analog.com/en/products/ad7156.html"
+        },
+        "ad7170": {
+            "product-url": "https://www.analog.com/en/products/ad7170.html"
+        },
+        "ad7171": {
+            "product-url": "https://www.analog.com/en/products/ad7171.html"
+        },
+        "ad7172-2": {
+            "product-url": "https://www.analog.com/en/products/ad7172-2.html"
+        },
+        "ad7173-8": {
+            "product-url": "https://www.analog.com/en/products/ad7173-8.html"
+        },
+        "ad7175-2": {
+            "product-url": "https://www.analog.com/en/products/ad7175-2.html"
+        },
+        "ad7176-2": {
+            "product-url": "https://www.analog.com/en/products/ad7176-2.html"
+        },
+        "ad7190": {
+            "product-url": "https://www.analog.com/en/products/ad7190.html"
+        },
+        "ad7192": {
+            "product-url": "https://www.analog.com/en/products/ad7192.html"
+        },
+        "ad7193": {
+            "product-url": "https://www.analog.com/en/products/ad7193.html"
+        },
+        "ad7195": {
+            "product-url": "https://www.analog.com/en/products/ad7195.html"
+        },
+        "ad7265": {
+            "product-url": "https://www.analog.com/en/products/ad7265.html"
+        },
+        "ad7266": {
+            "product-url": "https://www.analog.com/en/products/ad7266.html"
+        },
+        "ad7273": {
+            "product-url": "https://www.analog.com/en/products/ad7273.html"
+        },
+        "ad7274": {
+            "product-url": "https://www.analog.com/en/products/ad7274.html"
+        },
+        "ad7276": {
+            "product-url": "https://www.analog.com/en/products/ad7276.html"
+        },
+        "ad7277": {
+            "product-url": "https://www.analog.com/en/products/ad7277.html"
+        },
+        "ad7278": {
+            "product-url": "https://www.analog.com/en/products/ad7278.html"
+        },
+        "ad7280a": {
+            "product-url": "https://www.analog.com/en/products/ad7280a.html"
+        },
+        "ad7291": {
+            "product-url": "https://www.analog.com/en/products/ad7291.html"
+        },
+        "ad7298": {
+            "product-url": "https://www.analog.com/en/products/ad7298.html"
+        },
+        "ad7303": {
+            "product-url": "https://www.analog.com/en/products/ad7303.html"
+        },
+        "ad7314": {
+            "product-url": "https://www.analog.com/en/products/ad7314.html"
+        },
+        "ad7376": {
+            "product-url": "https://www.analog.com/en/products/ad7376.html"
+        },
+        "ad7380": {
+            "product-url": "https://www.analog.com/en/products/ad7380.html"
+        },
+        "ad7380-4": {
+            "product-url": "https://www.analog.com/en/products/ad7380.html"
+        },
+        "ad7381": {
+            "product-url": "https://www.analog.com/en/products/ad7381.html"
+        },
+        "ad7381-4": {
+            "product-url": "https://www.analog.com/en/products/ad7381.html"
+        },
+        "ad7382": {
+            "product-url": "<invalid>"
+        },
+        "ad7382-4": {
+            "product-url": "<invalid>"
+        },
+        "ad7383": {
+            "product-url": "https://www.analog.com/en/products/ad7383.html"
+        },
+        "ad7383-4": {
+            "product-url": "https://www.analog.com/en/products/ad7383.html"
+        },
+        "ad7384": {
+            "product-url": "https://www.analog.com/en/products/ad7384.html"
+        },
+        "ad7384-4": {
+            "product-url": "https://www.analog.com/en/products/ad7384.html"
+        },
+        "ad7385": {
+            "product-url": "<invalid>"
+        },
+        "ad7385-4": {
+            "product-url": "<invalid>"
+        },
+        "ad7386": {
+            "product-url": "https://www.analog.com/en/products/ad7386.html"
+        },
+        "ad7386-4": {
+            "product-url": "https://www.analog.com/en/products/ad7386.html"
+        },
+        "ad7387": {
+            "product-url": "https://www.analog.com/en/products/ad7387.html"
+        },
+        "ad7387-4": {
+            "product-url": "https://www.analog.com/en/products/ad7387.html"
+        },
+        "ad7388": {
+            "product-url": "https://www.analog.com/en/products/ad7388.html"
+        },
+        "ad7388-4": {
+            "product-url": "https://www.analog.com/en/products/ad7388.html"
+        },
+        "ad7414": {
+            "product-url": "https://www.analog.com/en/products/ad7414.html"
+        },
+        "ad7416": {
+            "product-url": "https://www.analog.com/en/products/ad7416.html"
+        },
+        "ad7417": {
+            "product-url": "https://www.analog.com/en/products/ad7417.html"
+        },
+        "ad7418": {
+            "product-url": "https://www.analog.com/en/products/ad7418.html"
+        },
+        "ad7466": {
+            "product-url": "https://www.analog.com/en/products/ad7466.html"
+        },
+        "ad7467": {
+            "product-url": "https://www.analog.com/en/products/ad7467.html"
+        },
+        "ad7468": {
+            "product-url": "https://www.analog.com/en/products/ad7468.html"
+        },
+        "ad7475": {
+            "product-url": "https://www.analog.com/en/products/ad7475.html"
+        },
+        "ad7476": {
+            "product-url": "https://www.analog.com/en/products/ad7476.html"
+        },
+        "ad7476a": {
+            "product-url": "https://www.analog.com/en/products/ad7476a.html"
+        },
+        "ad7477": {
+            "product-url": "https://www.analog.com/en/products/ad7477.html"
+        },
+        "ad7477a": {
+            "product-url": "https://www.analog.com/en/products/ad7477a.html"
+        },
+        "ad7478": {
+            "product-url": "https://www.analog.com/en/products/ad7478.html"
+        },
+        "ad7478a": {
+            "product-url": "https://www.analog.com/en/products/ad7478a.html"
+        },
+        "ad7495": {
+            "product-url": "https://www.analog.com/en/products/ad7495.html"
+        },
+        "ad7605-4": {
+            "product-url": "https://www.analog.com/en/products/ad7605-4.html"
+        },
+        "ad7606-4": {
+            "product-url": "https://www.analog.com/en/products/ad7606-4.html"
+        },
+        "ad7606-6": {
+            "product-url": "https://www.analog.com/en/products/ad7606-6.html"
+        },
+        "ad7606-8": {
+            "product-url": "https://www.analog.com/en/products/ad7606.html"
+        },
+        "ad7606b": {
+            "product-url": "https://www.analog.com/en/products/ad7606b.html"
+        },
+        "ad7616": {
+            "product-url": "https://www.analog.com/en/products/ad7616.html"
+        },
+        "ad7745": {
+            "product-url": "https://www.analog.com/en/products/ad7745.html"
+        },
+        "ad7746": {
+            "product-url": "https://www.analog.com/en/products/ad7746.html"
+        },
+        "ad7747": {
+            "product-url": "https://www.analog.com/en/products/ad7747.html"
+        },
+        "ad7766": {
+            "product-url": "https://www.analog.com/en/products/ad7766.html"
+        },
+        "ad7766-1": {
+            "product-url": "https://www.analog.com/en/products/ad7766.html"
+        },
+        "ad7766-2": {
+            "product-url": "https://www.analog.com/en/products/ad7766.html"
+        },
+        "ad7767": {
+            "product-url": "https://www.analog.com/en/products/ad7767.html"
+        },
+        "ad7767-1": {
+            "product-url": "https://www.analog.com/en/products/ad7767.html"
+        },
+        "ad7767-2": {
+            "product-url": "https://www.analog.com/en/products/ad7767.html"
+        },
+        "ad7768": {
+            "product-url": "https://www.analog.com/en/products/ad7768.html"
+        },
+        "ad7768-1": {
+            "product-url": "https://www.analog.com/en/products/ad7768-1.html"
+        },
+        "ad7780": {
+            "product-url": "https://www.analog.com/en/products/ad7780.html"
+        },
+        "ad7781": {
+            "product-url": "https://www.analog.com/en/products/ad7781.html"
+        },
+        "ad7785": {
+            "product-url": "https://www.analog.com/en/products/ad7785.html"
+        },
+        "ad7787": {
+            "product-url": "https://www.analog.com/en/products/ad7787.html"
+        },
+        "ad7788": {
+            "product-url": "https://www.analog.com/en/products/ad7788.html"
+        },
+        "ad7789": {
+            "product-url": "https://www.analog.com/en/products/ad7789.html"
+        },
+        "ad7790": {
+            "product-url": "https://www.analog.com/en/products/ad7790.html"
+        },
+        "ad7791": {
+            "product-url": "https://www.analog.com/en/products/ad7791.html"
+        },
+        "ad7792": {
+            "product-url": "https://www.analog.com/en/products/ad7792.html"
+        },
+        "ad7793": {
+            "product-url": "https://www.analog.com/en/products/ad7793.html"
+        },
+        "ad7794": {
+            "product-url": "https://www.analog.com/en/products/ad7794.html"
+        },
+        "ad7795": {
+            "product-url": "https://www.analog.com/en/products/ad7795.html"
+        },
+        "ad7796": {
+            "product-url": "https://www.analog.com/en/products/ad7796.html"
+        },
+        "ad7797": {
+            "product-url": "https://www.analog.com/en/products/ad7797.html"
+        },
+        "ad7798": {
+            "product-url": "https://www.analog.com/en/products/ad7798.html"
+        },
+        "ad7799": {
+            "product-url": "https://www.analog.com/en/products/ad7799.html"
+        },
+        "ad7816": {
+            "product-url": "https://www.analog.com/en/products/ad7816.html"
+        },
+        "ad7817": {
+            "product-url": "https://www.analog.com/en/products/ad7817.html"
+        },
+        "ad7818": {
+            "product-url": "https://www.analog.com/en/products/ad7818.html"
+        },
+        "ad7879": {
+            "product-url": "https://www.analog.com/en/products/ad7879.html"
+        },
+        "ad7879-1": {
+            "product-url": "https://www.analog.com/en/products/ad7879.html"
+        },
+        "ad7887": {
+            "product-url": "https://www.analog.com/en/products/ad7887.html"
+        },
+        "ad7889": {
+            "product-url": "https://www.analog.com/en/products/ad7889.html"
+        },
+        "ad7904": {
+            "product-url": "https://www.analog.com/en/products/ad7904.html"
+        },
+        "ad7910": {
+            "product-url": "https://www.analog.com/en/products/ad7910.html"
+        },
+        "ad7914": {
+            "product-url": "https://www.analog.com/en/products/ad7914.html"
+        },
+        "ad7920": {
+            "product-url": "https://www.analog.com/en/products/ad7920.html"
+        },
+        "ad7923": {
+            "product-url": "https://www.analog.com/en/products/ad7923.html"
+        },
+        "ad7924": {
+            "product-url": "https://www.analog.com/en/products/ad7924.html"
+        },
+        "ad7940": {
+            "product-url": "https://www.analog.com/en/products/ad7940.html"
+        },
+        "ad7991": {
+            "product-url": "https://www.analog.com/en/products/ad7991.html"
+        },
+        "ad7992": {
+            "product-url": "https://www.analog.com/en/products/ad7992.html"
+        },
+        "ad7993": {
+            "product-url": "https://www.analog.com/en/products/ad7993.html"
+        },
+        "ad7994": {
+            "product-url": "https://www.analog.com/en/products/ad7994.html"
+        },
+        "ad7995": {
+            "product-url": "https://www.analog.com/en/products/ad7995.html"
+        },
+        "ad7997": {
+            "product-url": "https://www.analog.com/en/products/ad7997.html"
+        },
+        "ad7998": {
+            "product-url": "https://www.analog.com/en/products/ad7998.html"
+        },
+        "ad7999": {
+            "product-url": "https://www.analog.com/en/products/ad7999.html"
+        },
+        "ad8366": {
+            "product-url": "https://www.analog.com/en/products/ad8366.html"
+        },
+        "ad8400": {
+            "product-url": "https://www.analog.com/en/products/ad8400.html"
+        },
+        "ad8402": {
+            "product-url": "https://www.analog.com/en/products/ad8402.html"
+        },
+        "ad8403": {
+            "product-url": "https://www.analog.com/en/products/ad8403.html"
+        },
+        "ad8801": {
+            "product-url": "https://www.analog.com/en/products/ad8801.html"
+        },
+        "ad8803": {
+            "product-url": "https://www.analog.com/en/products/ad8803.html"
+        },
+        "ad9081": {
+            "product-url": "https://www.analog.com/en/products/ad9081.html"
+        },
+        "ad9082": {
+            "product-url": "https://www.analog.com/en/products/ad9082.html"
+        },
+        "ad9094": {
+            "product-url": "https://www.analog.com/en/products/ad9094.html"
+        },
+        "ad9122": {
+            "product-url": "https://www.analog.com/en/products/ad9122.html"
+        },
+        "ad9135": {
+            "product-url": "https://www.analog.com/en/products/ad9135.html"
+        },
+        "ad9136": {
+            "product-url": "https://www.analog.com/en/products/ad9136.html"
+        },
+        "ad9144": {
+            "product-url": "https://www.analog.com/en/products/ad9144.html"
+        },
+        "ad9152": {
+            "product-url": "https://www.analog.com/en/products/ad9152.html"
+        },
+        "ad9154": {
+            "product-url": "https://www.analog.com/en/products/ad9154.html"
+        },
+        "ad9162": {
+            "product-url": "https://www.analog.com/en/products/ad9162.html"
+        },
+        "ad9166": {
+            "product-url": "https://www.analog.com/en/products/ad9166.html"
+        },
+        "ad9166-amp": {
+            "product-url": "https://www.analog.com/en/products/ad9166.html"
+        },
+        "ad9171": {
+            "product-url": "https://www.analog.com/en/products/ad9171.html"
+        },
+        "ad9172": {
+            "product-url": "https://www.analog.com/en/products/ad9172.html"
+        },
+        "ad9173": {
+            "product-url": "https://www.analog.com/en/products/ad9173.html"
+        },
+        "ad9174": {
+            "product-url": "https://www.analog.com/en/products/ad9174.html"
+        },
+        "ad9175": {
+            "product-url": "https://www.analog.com/en/products/ad9175.html"
+        },
+        "ad9176": {
+            "product-url": "https://www.analog.com/en/products/ad9176.html"
+        },
+        "ad9208": {
+            "product-url": "https://www.analog.com/en/products/ad9208.html"
+        },
+        "ad9208x2": {
+            "product-url": "<not_applicable>"
+        },
+        "ad9234": {
+            "product-url": "https://www.analog.com/en/products/ad9234.html"
+        },
+        "ad9250": {
+            "product-url": "https://www.analog.com/en/products/ad9250.html"
+        },
+        "ad9265": {
+            "product-url": "https://www.analog.com/en/products/ad9265.html"
+        },
+        "ad9361": {
+            "product-url": "https://www.analog.com/en/products/ad9361.html"
+        },
+        "ad9361-2x": {
+            "product-url": "<not_applicable>"
+        },
+        "ad9363a": {
+            "product-url": "https://www.analog.com/en/products/ad9363.html"
+        },
+        "ad9364": {
+            "product-url": "https://www.analog.com/en/products/ad9364.html"
+        },
+        "ad9371": {
+            "product-url": "https://www.analog.com/en/products/ad9371.html"
+        },
+        "ad9375": {
+            "product-url": "https://www.analog.com/en/products/ad9375.html"
+        },
+        "ad9389b": {
+            "product-url": "https://www.analog.com/en/products/ad9389b.html"
+        },
+        "ad9434": {
+            "product-url": "https://www.analog.com/en/products/ad9434.html"
+        },
+        "ad9467": {
+            "product-url": "https://www.analog.com/en/products/ad9467.html"
+        },
+        "ad9508": {
+            "product-url": "https://www.analog.com/en/products/ad9508.html"
+        },
+        "ad9516-0": {
+            "product-url": "https://www.analog.com/en/products/ad9516-0.html"
+        },
+        "ad9516-1": {
+            "product-url": "https://www.analog.com/en/products/ad9516-1.html"
+        },
+        "ad9516-2": {
+            "product-url": "https://www.analog.com/en/products/ad9516-2.html"
+        },
+        "ad9516-3": {
+            "product-url": "https://www.analog.com/en/products/ad9516-3.html"
+        },
+        "ad9516-4": {
+            "product-url": "https://www.analog.com/en/products/ad9516-4.html"
+        },
+        "ad9516-5": {
+            "product-url": "https://www.analog.com/en/products/ad9516-5.html"
+        },
+        "ad9517-0": {
+            "product-url": "https://www.analog.com/en/products/ad9517-0.html"
+        },
+        "ad9517-1": {
+            "product-url": "https://www.analog.com/en/products/ad9517-1.html"
+        },
+        "ad9517-2": {
+            "product-url": "https://www.analog.com/en/products/ad9517-2.html"
+        },
+        "ad9517-3": {
+            "product-url": "https://www.analog.com/en/products/ad9517-3.html"
+        },
+        "ad9517-4": {
+            "product-url": "https://www.analog.com/en/products/ad9517-4.html"
+        },
+        "ad9518-0": {
+            "product-url": "https://www.analog.com/en/products/ad9518-0.html"
+        },
+        "ad9518-1": {
+            "product-url": "https://www.analog.com/en/products/ad9518-1.html"
+        },
+        "ad9518-2": {
+            "product-url": "https://www.analog.com/en/products/ad9518-2.html"
+        },
+        "ad9518-3": {
+            "product-url": "https://www.analog.com/en/products/ad9518-3.html"
+        },
+        "ad9518-4": {
+            "product-url": "https://www.analog.com/en/products/ad9518-4.html"
+        },
+        "ad9523-1": {
+            "product-url": "https://www.analog.com/en/products/ad9523-1.html"
+        },
+        "ad9528": {
+            "product-url": "https://www.analog.com/en/products/ad9528.html"
+        },
+        "ad9548": {
+            "product-url": "https://www.analog.com/en/products/ad9548.html"
+        },
+        "ad9625": {
+            "product-url": "https://www.analog.com/en/products/ad9625.html"
+        },
+        "ad9643": {
+            "product-url": "https://www.analog.com/en/products/ad9643.html"
+        },
+        "ad9649": {
+            "product-url": "https://www.analog.com/en/products/ad9649.html"
+        },
+        "ad9652": {
+            "product-url": "https://www.analog.com/en/products/ad9652.html"
+        },
+        "ad9680": {
+            "product-url": "https://www.analog.com/en/products/ad9680.html"
+        },
+        "ad9683": {
+            "product-url": "https://www.analog.com/en/products/ad9683.html"
+        },
+        "ad9684": {
+            "product-url": "https://www.analog.com/en/products/ad9684.html"
+        },
+        "ad9689": {
+            "product-url": "https://www.analog.com/en/products/ad9689.html"
+        },
+        "ad9694": {
+            "product-url": "https://www.analog.com/en/products/ad9694.html"
+        },
+        "ad9695": {
+            "product-url": "https://www.analog.com/en/products/ad9695.html"
+        },
+        "ad9697": {
+            "product-url": "https://www.analog.com/en/products/ad9697.html"
+        },
+        "ad9739a": {
+            "product-url": "https://www.analog.com/en/products/ad9739a.html"
+        },
+        "ad9832": {
+            "product-url": "https://www.analog.com/en/products/ad9832.html"
+        },
+        "ad9833": {
+            "product-url": "https://www.analog.com/en/products/ad9833.html"
+        },
+        "ad9834": {
+            "product-url": "https://www.analog.com/en/products/ad9834.html"
+        },
+        "ad9835": {
+            "product-url": "https://www.analog.com/en/products/ad9835.html"
+        },
+        "ad9837": {
+            "product-url": "https://www.analog.com/en/products/ad9837.html"
+        },
+        "ad9838": {
+            "product-url": "https://www.analog.com/en/products/ad9838.html"
+        },
+        "ad9889b": {
+            "product-url": "https://www.analog.com/en/products/ad9889b.html"
+        },
+        "ad9963": {
+            "product-url": "https://www.analog.com/en/products/ad9963.html"
+        },
+        "ada4961": {
+            "product-url": "https://www.analog.com/en/products/ada4961.html"
+        },
+        "adar1000": {
+            "product-url": "https://www.analog.com/en/products/adar1000.html"
+        },
+        "adau1328": {
+            "product-url": "https://www.analog.com/en/products/adau1328.html"
+        },
+        "adau1361": {
+            "product-url": "https://www.analog.com/en/products/adau1361.html"
+        },
+        "adau1373": {
+            "product-url": "https://www.analog.com/en/products/adau1373.html"
+        },
+        "adau1381": {
+            "product-url": "https://www.analog.com/en/products/adau1381.html"
+        },
+        "adau1401": {
+            "product-url": "https://www.analog.com/en/products/adau1401.html"
+        },
+        "adau1401a": {
+            "product-url": "https://www.analog.com/en/products/adau1401a.html"
+        },
+        "adau1461": {
+            "product-url": "https://www.analog.com/en/products/adau1461.html"
+        },
+        "adau1701": {
+            "product-url": "https://www.analog.com/en/products/adau1701.html"
+        },
+        "adau1702": {
+            "product-url": "https://www.analog.com/en/products/adau1702.html"
+        },
+        "adau1761": {
+            "product-url": "https://www.analog.com/en/products/adau1761.html"
+        },
+        "adau1781": {
+            "product-url": "https://www.analog.com/en/products/adau1781.html"
+        },
+        "adau1961": {
+            "product-url": "https://www.analog.com/en/products/adau1961.html"
+        },
+        "adau1977": {
+            "product-url": "https://www.analog.com/en/products/adau1977.html"
+        },
+        "adau1978": {
+            "product-url": "https://www.analog.com/en/products/adau1978.html"
+        },
+        "adau1979": {
+            "product-url": "https://www.analog.com/en/products/adau1979.html"
+        },
+        "adau7002": {
+            "product-url": "https://www.analog.com/en/products/adau7002.html"
+        },
+        "adau7118": {
+            "product-url": "https://www.analog.com/en/products/adau7118.html"
+        },
+        "adav801": {
+            "product-url": "https://www.analog.com/en/products/adav801.html"
+        },
+        "adav803": {
+            "product-url": "https://www.analog.com/en/products/adav803.html"
+        },
+        "addi9036": {
+            "product-url": "https://www.analog.com/en/products/addi9036.html"
+        },
+        "ade7854": {
+            "product-url": "https://www.analog.com/en/products/ade7854.html"
+        },
+        "ade7858": {
+            "product-url": "https://www.analog.com/en/products/ade7858.html"
+        },
+        "ade7868": {
+            "product-url": "https://www.analog.com/en/products/ade7868.html"
+        },
+        "ade7878": {
+            "product-url": "https://www.analog.com/en/products/ade7878.html"
+        },
+        "adf4350": {
+            "product-url": "https://www.analog.com/en/products/adf4350.html"
+        },
+        "adf4351": {
+            "product-url": "https://www.analog.com/en/products/adf4351.html"
+        },
+        "adf4355": {
+            "product-url": "https://www.analog.com/en/products/adf4355.html"
+        },
+        "adf4355-2": {
+            "product-url": "https://www.analog.com/en/products/adf4355-2.html"
+        },
+        "adf4355-3": {
+            "product-url": "https://www.analog.com/en/products/adf4355-3.html"
+        },
+        "adf4360-0": {
+            "product-url": "https://www.analog.com/en/products/adf4360-0.html"
+        },
+        "adf4360-1": {
+            "product-url": "https://www.analog.com/en/products/adf4360-1.html"
+        },
+        "adf4360-2": {
+            "product-url": "https://www.analog.com/en/products/adf4360-2.html"
+        },
+        "adf4360-3": {
+            "product-url": "https://www.analog.com/en/products/adf4360-3.html"
+        },
+        "adf4360-4": {
+            "product-url": "https://www.analog.com/en/products/adf4360-4.html"
+        },
+        "adf4360-5": {
+            "product-url": "https://www.analog.com/en/products/adf4360-5.html"
+        },
+        "adf4360-6": {
+            "product-url": "https://www.analog.com/en/products/adf4360-6.html"
+        },
+        "adf4360-7": {
+            "product-url": "https://www.analog.com/en/products/adf4360-7.html"
+        },
+        "adf4360-8": {
+            "product-url": "https://www.analog.com/en/products/adf4360-8.html"
+        },
+        "adf4360-9": {
+            "product-url": "https://www.analog.com/en/products/adf4360-9.html"
+        },
+        "adf4371": {
+            "product-url": "https://www.analog.com/en/products/adf4371.html"
+        },
+        "adf4372": {
+            "product-url": "https://www.analog.com/en/products/adf4372.html"
+        },
+        "adf5355": {
+            "product-url": "https://www.analog.com/en/products/adf5355.html"
+        },
+        "adf7241": {
+            "product-url": "https://www.analog.com/en/products/adf7241.html"
+        },
+        "adf7242": {
+            "product-url": "https://www.analog.com/en/products/adf7242.html"
+        },
+        "adg792a": {
+            "product-url": "https://www.analog.com/en/products/adg792a.html"
+        },
+        "adg792g": {
+            "product-url": "https://www.analog.com/en/products/adg792g.html"
+        },
+        "adgs1408": {
+            "product-url": "https://www.analog.com/en/products/adgs1408.html"
+        },
+        "adgs1409": {
+            "product-url": "https://www.analog.com/en/products/adgs1409.html"
+        },
+        "adis16080": {
+            "product-url": "https://www.analog.com/en/products/adis16080.html"
+        },
+        "adis16100": {
+            "product-url": "https://www.analog.com/en/products/adis16100.html"
+        },
+        "adis16133": {
+            "product-url": "https://www.analog.com/en/products/adis16133.html"
+        },
+        "adis16135": {
+            "product-url": "https://www.analog.com/en/products/adis16135.html"
+        },
+        "adis16136": {
+            "product-url": "https://www.analog.com/en/products/adis16136.html"
+        },
+        "adis16137": {
+            "product-url": "https://www.analog.com/en/products/adis16137.html"
+        },
+        "adis16203": {
+            "product-url": "https://www.analog.com/en/products/adis16203.html"
+        },
+        "adis16240": {
+            "product-url": "https://www.analog.com/en/products/adis16240.html"
+        },
+        "adis16250": {
+            "product-url": "https://www.analog.com/en/products/adis16250.html"
+        },
+        "adis16251": {
+            "product-url": "https://www.analog.com/en/products/adis16251.html"
+        },
+        "adis16255": {
+            "product-url": "https://www.analog.com/en/products/adis16255.html"
+        },
+        "adis16260": {
+            "product-url": "https://www.analog.com/en/products/adis16260.html"
+        },
+        "adis16265": {
+            "product-url": "https://www.analog.com/en/products/adis16265.html"
+        },
+        "adis16266": {
+            "product-url": "https://www.analog.com/en/products/adis16266.html"
+        },
+        "adis16300": {
+            "product-url": "https://www.analog.com/en/products/adis16300.html"
+        },
+        "adis16305": {
+            "product-url": "https://www.analog.com/en/products/adis16305.html"
+        },
+        "adis16334": {
+            "product-url": "https://www.analog.com/en/products/adis16334.html"
+        },
+        "adis16350": {
+            "product-url": "https://www.analog.com/en/products/adis16350.html"
+        },
+        "adis16354": {
+            "product-url": "https://www.analog.com/en/products/adis16354.html"
+        },
+        "adis16355": {
+            "product-url": "https://www.analog.com/en/products/adis16355.html"
+        },
+        "adis16360": {
+            "product-url": "https://www.analog.com/en/products/adis16360.html"
+        },
+        "adis16362": {
+            "product-url": "https://www.analog.com/en/products/adis16362.html"
+        },
+        "adis16364": {
+            "product-url": "https://www.analog.com/en/products/adis16364.html"
+        },
+        "adis16365": {
+            "product-url": "https://www.analog.com/en/products/adis16365.html"
+        },
+        "adis16367": {
+            "product-url": "https://www.analog.com/en/products/adis16367.html"
+        },
+        "adis16375": {
+            "product-url": "https://www.analog.com/en/products/adis16375.html"
+        },
+        "adis16400": {
+            "product-url": "https://www.analog.com/en/products/adis16400.html"
+        },
+        "adis16405": {
+            "product-url": "https://www.analog.com/en/products/adis16405.html"
+        },
+        "adis16445": {
+            "product-url": "https://www.analog.com/en/products/adis16445.html"
+        },
+        "adis16448": {
+            "product-url": "https://www.analog.com/en/products/adis16448.html"
+        },
+        "adis16460": {
+            "product-url": "https://www.analog.com/en/products/adis16460.html"
+        },
+        "adis16465-1": {
+            "product-url": "https://www.analog.com/en/products/adis16465.html"
+        },
+        "adis16465-2": {
+            "product-url": "https://www.analog.com/en/products/adis16465.html"
+        },
+        "adis16465-3": {
+            "product-url": "https://www.analog.com/en/products/adis16465.html"
+        },
+        "adis16467-1": {
+            "product-url": "https://www.analog.com/en/products/adis16467.html"
+        },
+        "adis16467-2": {
+            "product-url": "https://www.analog.com/en/products/adis16467.html"
+        },
+        "adis16467-3": {
+            "product-url": "https://www.analog.com/en/products/adis16467.html"
+        },
+        "adis16470": {
+            "product-url": "https://www.analog.com/en/products/adis16470.html"
+        },
+        "adis16475-1": {
+            "product-url": "https://www.analog.com/en/products/adis16475.html"
+        },
+        "adis16475-2": {
+            "product-url": "https://www.analog.com/en/products/adis16475.html"
+        },
+        "adis16475-3": {
+            "product-url": "https://www.analog.com/en/products/adis16475.html"
+        },
+        "adis16477-1": {
+            "product-url": "https://www.analog.com/en/products/adis16477.html"
+        },
+        "adis16477-2": {
+            "product-url": "https://www.analog.com/en/products/adis16477.html"
+        },
+        "adis16477-3": {
+            "product-url": "https://www.analog.com/en/products/adis16477.html"
+        },
+        "adis16480": {
+            "product-url": "https://www.analog.com/en/products/adis16480.html"
+        },
+        "adis16485": {
+            "product-url": "https://www.analog.com/en/products/adis16485.html"
+        },
+        "adis16488": {
+            "product-url": "https://www.analog.com/en/products/adis16488.html"
+        },
+        "adis16490": {
+            "product-url": "https://www.analog.com/en/products/adis16490.html"
+        },
+        "adis16495-1": {
+            "product-url": "https://www.analog.com/en/products/adis16495.html"
+        },
+        "adis16495-2": {
+            "product-url": "https://www.analog.com/en/products/adis16495.html"
+        },
+        "adis16495-3": {
+            "product-url": "https://www.analog.com/en/products/adis16495.html"
+        },
+        "adis16497-1": {
+            "product-url": "https://www.analog.com/en/products/adis16497.html"
+        },
+        "adis16497-2": {
+            "product-url": "https://www.analog.com/en/products/adis16497.html"
+        },
+        "adis16497-3": {
+            "product-url": "https://www.analog.com/en/products/adis16497.html"
+        },
+        "adis16500": {
+            "product-url": "https://www.analog.com/en/products/adis16500.html"
+        },
+        "adis16505-1": {
+            "product-url": "https://www.analog.com/en/products/adis16505.html"
+        },
+        "adis16505-2": {
+            "product-url": "https://www.analog.com/en/products/adis16505.html"
+        },
+        "adis16505-3": {
+            "product-url": "https://www.analog.com/en/products/adis16505.html"
+        },
+        "adis16507-1": {
+            "product-url": "https://www.analog.com/en/products/adis16507.html"
+        },
+        "adis16507-2": {
+            "product-url": "https://www.analog.com/en/products/adis16507.html"
+        },
+        "adis16507-3": {
+            "product-url": "https://www.analog.com/en/products/adis16507.html"
+        },
+        "adl5240": {
+            "product-url": "https://www.analog.com/en/products/adl5240.html"
+        },
+        "adm1024": {
+            "product-url": "https://www.analog.com/en/products/adm1024.html"
+        },
+        "adm1025": {
+            "product-url": "https://www.analog.com/en/products/adm1025.html"
+        },
+        "adm1026": {
+            "product-url": "https://www.analog.com/en/products/adm1026.html"
+        },
+        "adm1029": {
+            "product-url": "https://www.analog.com/en/products/adm1029.html"
+        },
+        "adm1032": {
+            "product-url": "https://www.analog.com/en/products/adm1032.html"
+        },
+        "adm1075": {
+            "product-url": "https://www.analog.com/en/products/adm1075.html"
+        },
+        "adm1177": {
+            "product-url": "https://www.analog.com/en/products/adm1177.html"
+        },
+        "adm1177-iio": {
+            "product-url": "<not_applicable>"
+        },
+        "adm1266": {
+            "product-url": "https://www.analog.com/en/products/adm1266.html"
+        },
+        "adm1272": {
+            "product-url": "https://www.analog.com/en/products/adm1272.html"
+        },
+        "adm1275": {
+            "product-url": "https://www.analog.com/en/products/adm1275.html"
+        },
+        "adm1276": {
+            "product-url": "https://www.analog.com/en/products/adm1276.html"
+        },
+        "adm1278": {
+            "product-url": "https://www.analog.com/en/products/adm1278.html"
+        },
+        "adm1293": {
+            "product-url": "https://www.analog.com/en/products/adm1293.html"
+        },
+        "adm1294": {
+            "product-url": "https://www.analog.com/en/products/adm1294.html"
+        },
+        "adm9240": {
+            "product-url": "https://www.analog.com/en/products/adm9240.html"
+        },
+        "adn2850": {
+            "product-url": "https://www.analog.com/en/products/adn2850.html"
+        },
+        "adn2860": {
+            "product-url": "https://www.analog.com/en/products/adn2860.html"
+        },
+        "adp5061": {
+            "product-url": "https://www.analog.com/en/products/adp5061.html"
+        },
+        "adp5585": {
+            "product-url": "https://www.analog.com/en/products/adp5585.html"
+        },
+        "adp5585-02": {
+            "product-url": "https://www.analog.com/en/products/adp5585.html"
+        },
+        "adp5585-02-keys": {
+            "product-url": "https://www.analog.com/en/products/adp5585.html"
+        },
+        "adp5585-keys": {
+            "product-url": "https://www.analog.com/en/products/adp5585.html"
+        },
+        "adp5587-keys": {
+            "product-url": "https://www.analog.com/en/products/adp5587.html"
+        },
+        "adp5588-keys": {
+            "product-url": "https://www.analog.com/en/products/adp5588.html"
+        },
+        "adp5589": {
+            "product-url": "https://www.analog.com/en/products/adp5589.html"
+        },
+        "adp5589-keys": {
+            "product-url": "https://www.analog.com/en/products/adp5589.html"
+        },
+        "adp8860": {
+            "product-url": "https://www.analog.com/en/products/adp8860.html"
+        },
+        "adp8861": {
+            "product-url": "https://www.analog.com/en/products/adp8861.html"
+        },
+        "adp8863": {
+            "product-url": "https://www.analog.com/en/products/adp8863.html"
+        },
+        "adp8870": {
+            "product-url": "https://www.analog.com/en/products/adp8870.html"
+        },
+        "adrv9002": {
+            "product-url": "https://www.analog.com/en/products/adrv9002.html"
+        },
+        "adrv9002-rx2tx2": {
+            "product-url": "<not_applicable>"
+        },
+        "adrv9008-1": {
+            "product-url": "https://www.analog.com/en/products/adrv9008-1.html"
+        },
+        "adrv9008-2": {
+            "product-url": "https://www.analog.com/en/products/adrv9008-2.html"
+        },
+        "adrv9009": {
+            "product-url": "https://www.analog.com/en/products/adrv9009.html"
+        },
+        "adrv9009-x2": {
+            "product-url": "<not_applicable>"
+        },
+        "adrv9009-x4": {
+            "product-url": "<not_applicable>"
+        },
+        "adt7301": {
+            "product-url": "https://www.analog.com/en/products/adt7301.html"
+        },
+        "adt7302": {
+            "product-url": "https://www.analog.com/en/products/adt7302.html"
+        },
+        "adt7310": {
+            "product-url": "https://www.analog.com/en/products/adt7310.html"
+        },
+        "adt7316": {
+            "product-url": "https://www.analog.com/en/products/adt7316.html"
+        },
+        "adt7317": {
+            "product-url": "https://www.analog.com/en/products/adt7317.html"
+        },
+        "adt7318": {
+            "product-url": "https://www.analog.com/en/products/adt7318.html"
+        },
+        "adt7320": {
+            "product-url": "https://www.analog.com/en/products/adt7320.html"
+        },
+        "adt7410": {
+            "product-url": "https://www.analog.com/en/products/adt7410.html"
+        },
+        "adt7420": {
+            "product-url": "https://www.analog.com/en/products/adt7420.html"
+        },
+        "adt7461": {
+            "product-url": "<invalid>"
+        },
+        "adt7461a": {
+            "product-url": "https://www.analog.com/en/products/adt7461a.html"
+        },
+        "adt7462": {
+            "product-url": "https://www.analog.com/en/products/adt7462.html"
+        },
+        "adt7470": {
+            "product-url": "https://www.analog.com/en/products/adt7470.html"
+        },
+        "adt7473": {
+            "product-url": "https://www.analog.com/en/products/adt7473.html"
+        },
+        "adt7475": {
+            "product-url": "https://www.analog.com/en/products/adt7475.html"
+        },
+        "adt7476": {
+            "product-url": "https://www.analog.com/en/products/adt7476.html"
+        },
+        "adt7490": {
+            "product-url": "<invalid>"
+        },
+        "adt7516": {
+            "product-url": "https://www.analog.com/en/products/adt7516.html"
+        },
+        "adt7517": {
+            "product-url": "https://www.analog.com/en/products/adt7517.html"
+        },
+        "adt7519": {
+            "product-url": "https://www.analog.com/en/products/adt7519.html"
+        },
+        "adv7170": {
+            "product-url": "https://www.analog.com/en/products/adv7170.html"
+        },
+        "adv7171": {
+            "product-url": "https://www.analog.com/en/products/adv7171.html"
+        },
+        "adv7175": {
+            "product-url": "https://www.analog.com/en/products/adv7175.html"
+        },
+        "adv7176": {
+            "product-url": "https://www.analog.com/en/products/adv7176.html"
+        },
+        "adv7180": {
+            "product-url": "https://www.analog.com/en/products/adv7180.html"
+        },
+        "adv7180cp": {
+            "product-url": "https://www.analog.com/en/products/adv7180.html"
+        },
+        "adv7180st": {
+            "product-url": "https://www.analog.com/en/products/adv7180.html"
+        },
+        "adv7182": {
+            "product-url": "https://www.analog.com/en/products/adv7182.html"
+        },
+        "adv7183": {
+            "product-url": "https://www.analog.com/en/products/adv7183.html"
+        },
+        "adv7280": {
+            "product-url": "https://www.analog.com/en/products/adv7280.html"
+        },
+        "adv7280-m": {
+            "product-url": "https://www.analog.com/en/products/adv7280.html"
+        },
+        "adv7281": {
+            "product-url": "https://www.analog.com/en/products/adv7281.html"
+        },
+        "adv7281-m": {
+            "product-url": "https://www.analog.com/en/products/adv7281.html"
+        },
+        "adv7281-ma": {
+            "product-url": "https://www.analog.com/en/products/adv7281.html"
+        },
+        "adv7282": {
+            "product-url": "https://www.analog.com/en/products/adv7282.html"
+        },
+        "adv7282-m": {
+            "product-url": "https://www.analog.com/en/products/adv7282.html"
+        },
+        "adv7481": {
+            "product-url": "https://www.analog.com/en/products/adv7481.html"
+        },
+        "adv7482": {
+            "product-url": "https://www.analog.com/en/products/adv7482.html"
+        },
+        "adv7511": {
+            "product-url": "https://www.analog.com/en/products/adv7511.html"
+        },
+        "adv7511-media": {
+            "product-url": "https://www.analog.com/en/products/adv7511.html"
+        },
+        "adv7511w": {
+            "product-url": "https://www.analog.com/en/products/adv7511w.html"
+        },
+        "adv7513": {
+            "product-url": "https://www.analog.com/en/products/adv7513.html"
+        },
+        "adv7533": {
+            "product-url": "https://www.analog.com/en/products/adv7533.html"
+        },
+        "adv7535": {
+            "product-url": "https://www.analog.com/en/products/adv7535.html"
+        },
+        "adv7604": {
+            "product-url": "https://www.analog.com/en/products/adv7604.html"
+        },
+        "adv7611": {
+            "product-url": "https://www.analog.com/en/products/adv7611.html"
+        },
+        "adv7612": {
+            "product-url": "https://www.analog.com/en/products/adv7612.html"
+        },
+        "adv7842": {
+            "product-url": "https://www.analog.com/en/products/adv7842.html"
+        },
+        "adxl345": {
+            "product-url": "https://www.analog.com/en/products/adxl345.html"
+        },
+        "adxl346": {
+            "product-url": "https://www.analog.com/en/products/adxl346.html"
+        },
+        "adxl34x": {
+            "product-url": "https://www.analog.com/en/products/adxl345.html"
+        },
+        "adxl372": {
+            "product-url": "https://www.analog.com/en/products/adxl372.html"
+        },
+        "adxrs290": {
+            "product-url": "https://www.analog.com/en/products/adxrs290.html"
+        },
+        "adxrs450": {
+            "product-url": "https://www.analog.com/en/products/adxrs450.html"
+        },
+        "adxrs453": {
+            "product-url": "https://www.analog.com/en/products/adxrs453.html"
+        },
+        "altera-adxcvr-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad-mc-adc-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad-mc-ctrl-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad-mc-speed-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad6676-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9081-rx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9081-tx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9122-6.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9136-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9144-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9154-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9162-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9172-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9208-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9234-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9250-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9361-6.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9361-dds-6.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9361x2-dds-6.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9364-dds-6.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9371-obs-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9371-rx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9371-tx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9434-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9625-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9643-6.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9680-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9684-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9694-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9739a-8.00.b": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-ad9963-dds-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adc-10.0.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adc-trigger": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9002-rx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9002-rx2-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9002-rx2tx2-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9002-tx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9009-obs-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9009-obs-single-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9009-rx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9009-tx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9009-x2-tx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adrv9009-x4-tx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-adxcvr-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-clkgen-2.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-dmac-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-fan-control-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-fmcadc5-sync-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-framebuffer-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-hdmi-rx-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-hdmi-tx-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-i2s-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-jesd-gt-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-jesd204-rx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-jesd204-rx-1.3": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-jesd204-tx-1.0": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-jesd204-tx-1.3": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-pulse-capture-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-pwmgen": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-spdif-tx-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-spi-engine-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-sysid-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-tdd-1.00": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-xadc-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "axi-xlnx-lcd-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "cn0363-adc-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "dac7512": {
+            "product-url": "<invalid>"
+        },
+        "gpio-adi-daq1": {
+            "product-url": "<not_applicable>"
+        },
+        "hmc1119": {
+            "product-url": "https://www.analog.com/en/products/hmc1119.html"
+        },
+        "hmc271": {
+            "product-url": "https://www.analog.com/en/products/hmc271a.html"
+        },
+        "hmc425a": {
+            "product-url": "https://www.analog.com/en/products/hmc425a.html"
+        },
+        "hmc540s": {
+            "product-url": "https://www.analog.com/en/products/hmc540s.html"
+        },
+        "hmc7043": {
+            "product-url": "https://www.analog.com/en/products/hmc7043.html"
+        },
+        "hmc7044": {
+            "product-url": "https://www.analog.com/en/products/hmc7044.html"
+        },
+        "imageon-v4l2-bridge-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "jesd204-5.1": {
+            "product-url": "<not_applicable>"
+        },
+        "jesd204-5.2": {
+            "product-url": "<not_applicable>"
+        },
+        "jesd204-6.0": {
+            "product-url": "<not_applicable>"
+        },
+        "ltc2308": {
+            "product-url": "https://www.analog.com/en/products/ltc2308.html"
+        },
+        "ltc2461": {
+            "product-url": "https://www.analog.com/en/products/ltc2461.html"
+        },
+        "ltc2463": {
+            "product-url": "https://www.analog.com/en/products/ltc2463.html"
+        },
+        "ltc2471": {
+            "product-url": "https://www.analog.com/en/products/ltc2471.html"
+        },
+        "ltc2473": {
+            "product-url": "https://www.analog.com/en/products/ltc2473.html"
+        },
+        "ltc2485": {
+            "product-url": "https://www.analog.com/en/products/ltc2485.html"
+        },
+        "ltc2497": {
+            "product-url": "https://www.analog.com/en/products/ltc2497.html"
+        },
+        "ltc2606": {
+            "product-url": "https://www.analog.com/en/products/ltc2606.html"
+        },
+        "ltc2607": {
+            "product-url": "https://www.analog.com/en/products/ltc2607.html"
+        },
+        "ltc2609": {
+            "product-url": "https://www.analog.com/en/products/ltc2609.html"
+        },
+        "ltc2616": {
+            "product-url": "https://www.analog.com/en/products/ltc2616.html"
+        },
+        "ltc2617": {
+            "product-url": "https://www.analog.com/en/products/ltc2617.html"
+        },
+        "ltc2619": {
+            "product-url": "https://www.analog.com/en/products/ltc2619.html"
+        },
+        "ltc2626": {
+            "product-url": "https://www.analog.com/en/products/ltc2626.html"
+        },
+        "ltc2627": {
+            "product-url": "https://www.analog.com/en/products/ltc2627.html"
+        },
+        "ltc2629": {
+            "product-url": "https://www.analog.com/en/products/ltc2629.html"
+        },
+        "ltc2631-h10": {
+            "product-url": "https://www.analog.com/en/products/ltc2631.html"
+        },
+        "ltc2631-h12": {
+            "product-url": "https://www.analog.com/en/products/ltc2631.html"
+        },
+        "ltc2631-h8": {
+            "product-url": "https://www.analog.com/en/products/ltc2631.html"
+        },
+        "ltc2631-l10": {
+            "product-url": "https://www.analog.com/en/products/ltc2631.html"
+        },
+        "ltc2631-l12": {
+            "product-url": "https://www.analog.com/en/products/ltc2631.html"
+        },
+        "ltc2631-l8": {
+            "product-url": "https://www.analog.com/en/products/ltc2631.html"
+        },
+        "ltc2633-h10": {
+            "product-url": "https://www.analog.com/en/products/ltc2633.html"
+        },
+        "ltc2633-h12": {
+            "product-url": "https://www.analog.com/en/products/ltc2633.html"
+        },
+        "ltc2633-h8": {
+            "product-url": "https://www.analog.com/en/products/ltc2633.html"
+        },
+        "ltc2633-l10": {
+            "product-url": "https://www.analog.com/en/products/ltc2633.html"
+        },
+        "ltc2633-l12": {
+            "product-url": "https://www.analog.com/en/products/ltc2633.html"
+        },
+        "ltc2633-l8": {
+            "product-url": "https://www.analog.com/en/products/ltc2633.html"
+        },
+        "ltc2635-h10": {
+            "product-url": "https://www.analog.com/en/products/ltc2635.html"
+        },
+        "ltc2635-h12": {
+            "product-url": "https://www.analog.com/en/products/ltc2635.html"
+        },
+        "ltc2635-h8": {
+            "product-url": "https://www.analog.com/en/products/ltc2635.html"
+        },
+        "ltc2635-l10": {
+            "product-url": "https://www.analog.com/en/products/ltc2635.html"
+        },
+        "ltc2635-l12": {
+            "product-url": "https://www.analog.com/en/products/ltc2635.html"
+        },
+        "ltc2635-l8": {
+            "product-url": "https://www.analog.com/en/products/ltc2635.html"
+        },
+        "ltc2941": {
+            "product-url": "https://www.analog.com/en/products/ltc2941.html"
+        },
+        "ltc2942": {
+            "product-url": "https://www.analog.com/en/products/ltc2942.html"
+        },
+        "ltc2943": {
+            "product-url": "https://www.analog.com/en/products/ltc2943.html"
+        },
+        "ltc2944": {
+            "product-url": "https://www.analog.com/en/products/ltc2944.html"
+        },
+        "ltc2945": {
+            "product-url": "https://www.analog.com/en/products/ltc2945.html"
+        },
+        "ltc2947": {
+            "product-url": "https://www.analog.com/en/products/ltc2947.html"
+        },
+        "ltc2974": {
+            "product-url": "https://www.analog.com/en/products/ltc2974.html"
+        },
+        "ltc2975": {
+            "product-url": "https://www.analog.com/en/products/ltc2975.html"
+        },
+        "ltc2977": {
+            "product-url": "https://www.analog.com/en/products/ltc2977.html"
+        },
+        "ltc2978": {
+            "product-url": "https://www.analog.com/en/products/ltc2978.html"
+        },
+        "ltc2980": {
+            "product-url": "https://www.analog.com/en/products/ltc2980.html"
+        },
+        "ltc2983": {
+            "product-url": "https://www.analog.com/en/products/ltc2983.html"
+        },
+        "ltc2990": {
+            "product-url": "https://www.analog.com/en/products/ltc2990.html"
+        },
+        "ltc2992": {
+            "product-url": "https://www.analog.com/en/products/ltc2992.html"
+        },
+        "ltc3589": {
+            "product-url": "https://www.analog.com/en/products/ltc3589.html"
+        },
+        "ltc3589-1": {
+            "product-url": "https://www.analog.com/en/products/ltc3589.html"
+        },
+        "ltc3589-2": {
+            "product-url": "https://www.analog.com/en/products/ltc3589.html"
+        },
+        "ltc3676": {
+            "product-url": "https://www.analog.com/en/products/ltc3676.html"
+        },
+        "ltc3815": {
+            "product-url": "https://www.analog.com/en/products/ltc3815.html"
+        },
+        "ltc3880": {
+            "product-url": "https://www.analog.com/en/products/ltc3880.html"
+        },
+        "ltc3882": {
+            "product-url": "https://www.analog.com/en/products/ltc3882.html"
+        },
+        "ltc3883": {
+            "product-url": "https://www.analog.com/en/products/ltc3883.html"
+        },
+        "ltc3886": {
+            "product-url": "https://www.analog.com/en/products/ltc3886.html"
+        },
+        "ltc3887": {
+            "product-url": "https://www.analog.com/en/products/ltc3887.html"
+        },
+        "ltc4151": {
+            "product-url": "https://www.analog.com/en/products/ltc4151.html"
+        },
+        "ltc4215": {
+            "product-url": "https://www.analog.com/en/products/ltc4215.html"
+        },
+        "ltc4222": {
+            "product-url": "https://www.analog.com/en/products/ltc4222.html"
+        },
+        "ltc4245": {
+            "product-url": "https://www.analog.com/en/products/ltc4245.html"
+        },
+        "ltc4260": {
+            "product-url": "https://www.analog.com/en/products/ltc4260.html"
+        },
+        "ltc4261": {
+            "product-url": "https://www.analog.com/en/products/ltc4261.html"
+        },
+        "ltc4305": {
+            "product-url": "https://www.analog.com/en/products/ltc4305.html"
+        },
+        "ltc4306": {
+            "product-url": "https://www.analog.com/en/products/ltc4306.html"
+        },
+        "ltc6952": {
+            "product-url": "https://www.analog.com/en/products/ltc6952.html"
+        },
+        "ltm2987": {
+            "product-url": "https://www.analog.com/en/products/ltm2987.html"
+        },
+        "ltm4675": {
+            "product-url": "https://www.analog.com/en/products/ltm4675.html"
+        },
+        "ltm4676": {
+            "product-url": "https://www.analog.com/en/products/ltm4676.html"
+        },
+        "m2k-adc-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "m2k-dac-1.00.a": {
+            "product-url": "<not_applicable>"
+        },
+        "pmic-adp5501": {
+            "product-url": "https://www.analog.com/en/products/adp5501.html"
+        },
+        "pmic-adp5520": {
+            "product-url": "https://www.analog.com/en/products/adp5520.html"
+        },
+        "spi-ad9250": {
+            "product-url": "https://www.analog.com/en/products/ad9250.html"
+        },
+        "spi-adi-daq1": {
+            "product-url": "<not_applicable>"
+        },
+        "spi-xcomm": {
+            "product-url": "<not_applicable>"
+        },
+        "ssm2305": {
+            "product-url": "https://www.analog.com/en/products/ssm2305.html"
+        },
+        "ssm2518": {
+            "product-url": "https://www.analog.com/en/products/ssm2518.html"
+        },
+        "ssm2602": {
+            "product-url": "https://www.analog.com/en/products/ssm2602.html"
+        },
+        "ssm2603": {
+            "product-url": "https://www.analog.com/en/products/ssm2603.html"
+        },
+        "ssm2604": {
+            "product-url": "https://www.analog.com/en/products/ssm2604.html"
+        },
+        "ssm4567": {
+            "product-url": "https://www.analog.com/en/products/ssm4567.html"
+        },
+        "zynq-xadc-1.00.a": {
+            "product-url": "<not_applicable>"
+        }
+    }
 }
