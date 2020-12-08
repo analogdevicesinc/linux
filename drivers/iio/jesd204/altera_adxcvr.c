@@ -431,6 +431,8 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 
 	link_rate = READ_ONCE(st->lane_rate) * (1000 / 40);
 
+	clk_disable_unprepare(st->link_clk);
+
 	/*
 	 * Due to rounding errors link_rate might not contain the exact rate.
 	 * Using clk_round_rate() to compute the exact rate first before calling
@@ -441,8 +443,6 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 
 	dev_info(st->dev, "Setting link rate to %u (lane rate: %u)\n",
 		link_rate, st->lane_rate);
-
-	clk_disable_unprepare(st->link_clk);
 
 	ret = clk_set_rate(st->link_clk, link_rate);
 	if (ret < 0)
