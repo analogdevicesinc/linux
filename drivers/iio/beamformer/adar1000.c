@@ -990,9 +990,34 @@ static ssize_t adar1000_reset(struct device *dev,
 	return ret ? ret : len;
 }
 
-static ssize_t adar1000_seq_enable(struct device *dev,
-			      struct device_attribute *attr,
-			      const char *buf, size_t len)
+static ssize_t adar1000_seq_en_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	unsigned int val, mask;
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	mask = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_RX_BEAM_STEP_EN;
+
+	return sprintf(buf, "%d\n", (val & mask) == mask);
+}
+
+static ssize_t adar1000_seq_en_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct adar1000_state *st = iio_priv(indio_dev);
@@ -1502,7 +1527,7 @@ static IIO_DEVICE_ATTR(tx_load_spi, 0200, NULL, adar1000_ldwrk_store, ADAR1000_L
 static IIO_DEVICE_ATTR(rx_load_spi, 0200, NULL, adar1000_ldwrk_store, ADAR1000_LDRX);
 
 /* Sequencer enable attribute - should be called before TR_LOAD */
-static IIO_DEVICE_ATTR(sequencer_enable, 0200, NULL, adar1000_seq_enable, 0);
+static IIO_DEVICE_ATTR(sequencer_enable, 0644, adar1000_seq_en_show, adar1000_seq_en_store, 0);
 
 /* Generate CLK cycles for SPI */
 static IIO_DEVICE_ATTR(gen_clk_cycles, 0200, NULL, adar1000_gen_clk_cycles, 0);
