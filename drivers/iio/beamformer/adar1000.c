@@ -246,7 +246,6 @@ struct adar1000_phase {
 
 struct adar1000_beam_position {
 	int gain_val;
-	int gain_val2;
 	int phase_val;
 	int phase_val2;
 };
@@ -410,7 +409,6 @@ static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
 {
 	u32 val, reg;
 	int ret;
-	u32 code;
 
 	if (output)
 		reg = ADAR1000_CH_TX_GAIN(ch_num);
@@ -429,41 +427,16 @@ static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
 	if (ret < 0)
 		return ret;
 
-	if (val & ADAR1000_CH_ATTN) {
-		val &= ~ADAR1000_CH_ATTN;
-		code = val * 125 + 16000;
-	} else {
-		val &= ~ADAR1000_CH_ATTN;
-		code = val * 125;
-	}
+	val &= ~ADAR1000_CH_ATTN;
 
-	return code;
-}
-
-static void adar1000_atten_translate(u32 atten_mdb, u32 *reg_val)
-{
-	u32 code;
-
-	/* The values for this are explained at page 33 of the datasheet */
-	if (atten_mdb > 31000)
-		*reg_val = 0;
-
-	if (atten_mdb >= 16000) {
-		atten_mdb -= 16000; /* will enable step attenuator */
-		*reg_val |= ADAR1000_CH_ATTN;
-	}
-
-	code = atten_mdb / 125; /* translate from mdB to codes  */
-	*reg_val |= ADAR1000_VGA_GAIN(code);
+	return val;
 }
 
 static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 			      u32 ch_num, u8 output)
 {
-	u32 temp = 0, reg;
+	u32 reg;
 	int ret;
-
-	adar1000_atten_translate(atten_mdb, &temp);
 
 	if (output)
 		reg = ADAR1000_CH_TX_GAIN(ch_num);
@@ -474,7 +447,8 @@ static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_write(st->regmap, st->dev_addr | reg, temp);
+	ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+				 (u32)~ADAR1000_CH_ATTN, atten_mdb);
 	if (ret < 0)
 		return ret;
 
@@ -629,7 +603,7 @@ static int adar1000_read_raw(struct iio_dev *indio_dev,
 		if (!*val)
 			*val2 *= -1;
 
-		return IIO_VAL_INT_PLUS_MICRO_DB;
+		return IIO_VAL_INT_PLUS_MICRO;
 	case IIO_CHAN_INFO_PHASE:
 		return adar1000_get_phase(st, chan->channel, chan->output,
 					  val, val2);
@@ -643,19 +617,10 @@ static int adar1000_write_raw(struct iio_dev *indio_dev,
 			      int val, int val2, long mask)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
-	u32 code;
-	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		if (val > 0 || (val == 0 && val2 > 0)) {
-			ret = -EINVAL;
-			return ret;
-		}
-
-		code = (abs(val) * 1000) + (abs(val2) / 1000);
-
-		return adar1000_set_atten(st, code, chan->channel,
+		return adar1000_set_atten(st, val, chan->channel,
 					   chan->output);
 	case IIO_CHAN_INFO_PHASE:
 		return adar1000_set_phase(st, chan->channel, chan->output,
@@ -1616,7 +1581,6 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 {
 	int phase_value;
 	u16 ram_access_tx_rx;
-	u32 gain_reg, atten_mdb;
 	u32 vm_gain_i, vm_gain_q;
 	struct reg_sequence regs[3] = {0};
 
@@ -1634,18 +1598,12 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 		st->rx_beam_pos[profile] = beam;
 	}
 
-	if (beam.gain_val > 0 || (beam.gain_val == 0 && beam.gain_val2 > 0))
-		return -EINVAL;
-
-	atten_mdb = (abs(beam.gain_val) * 1000) + (abs(beam.gain_val2) / 1000);
-	adar1000_atten_translate(atten_mdb, &gain_reg);
-
 	/* Set phase value */
 	adar1000_phase_search(st, beam.phase_val, beam.phase_val2,
 			      &vm_gain_i, &vm_gain_q, &phase_value);
 
 	regs[0].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_0(channel, profile) | ram_access_tx_rx;
-	regs[0].def = gain_reg;
+	regs[0].def = beam.gain_val;
 	regs[1].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_1(channel, profile) | ram_access_tx_rx;
 	regs[1].def = vm_gain_i;
 	regs[2].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_2(channel, profile) | ram_access_tx_rx;
@@ -1795,7 +1753,7 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 	}
 	case BEAM_POS_SAVE: {
 		char *line, *ptr = (char*) buf;
-		int val, val2, tmp[4], i = 0, j = 0;
+		int val, val2, tmp[3], i = 0, j = 0;
 		struct adar1000_beam_position value;
 
 		while ((line = strsep(&ptr, ","))) {
@@ -1817,13 +1775,12 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 				tmp[i] = val;
 				tmp[i + 1] = val2;
 			}
-			i += 2;
+			i += ret;
 		}
 
 		value.gain_val = tmp[0];
-		value.gain_val2 = tmp[1];
-		value.phase_val = tmp[2];
-		value.phase_val2 = tmp[3];
+		value.phase_val = tmp[1];
+		value.phase_val2 = tmp[2];
 
 		ret = adar1000_beam_save(st, chan->channel,
 					 chan->output == 1, readin, value);
@@ -1866,17 +1823,15 @@ static ssize_t adar1000_ram_read(struct iio_dev *indio_dev,
 	switch (private) {
 	case BEAM_POS_SAVE:
 		if (chan->output == 1)
-			len += sprintf(buf, "%d, %d.%d, %d.%d\n",
+			len += sprintf(buf, "%d, %d, %d.%d\n",
 				       st->save_beam_idx,
 				       st->tx_beam_pos[st->save_beam_idx].gain_val,
-				       st->tx_beam_pos[st->save_beam_idx].gain_val2,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val2);
 		else
-			len += sprintf(buf, "%d, %d.%d, %d.%d\n",
+			len += sprintf(buf, "%d, %d, %d.%d\n",
 				       st->save_beam_idx,
 				       st->rx_beam_pos[st->save_beam_idx].gain_val,
-				       st->rx_beam_pos[st->save_beam_idx].gain_val2,
 				       st->rx_beam_pos[st->save_beam_idx].phase_val,
 				       st->rx_beam_pos[st->save_beam_idx].phase_val2);
 		val = st->save_beam_idx;
