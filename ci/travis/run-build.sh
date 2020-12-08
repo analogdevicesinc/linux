@@ -277,7 +277,7 @@ build_dtb_build_test() {
 	local err=0
 	local last_arch
 
-	if [ "$TRAVIS" = "true" ] || [ "$CI" = "true" ] ; then
+	if [ "$APPLY_DTB_BUILD_PATCHES" = "true" ] ; then
 		for patch in $(ls ci/travis/*.patch | sort) ; do
 			patch -p1 < $patch
 		done
