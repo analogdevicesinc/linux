@@ -73,6 +73,9 @@
 #define JESD204_RX_IRQ_FRAME_ALIGNMENT_ERROR		BIT(0) /* 204B only */
 #define JESD204_RX_IRQ_UNEXP_LANE_STATE_ERROR		BIT(1)
 
+/* JESD204_RX_REG_LINK_STATUS */
+#define JESD204_LINK_STATUS_DATA			3
+
 struct axi_jesd204_rx {
 	void __iomem *base;
 	struct device *dev;
@@ -634,7 +637,7 @@ static void axi_jesd204_rx_watchdog(struct work_struct *work)
 		return;
 
 	link_status = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATUS);
-	if (link_status == 3) {
+	if (link_status == JESD204_LINK_STATUS_DATA) {
 		for (i = 0; i < jesd->num_lanes; i++)
 			restart |= axi_jesd204_rx_check_lane_status(jesd, i);
 
@@ -898,6 +901,35 @@ static int axi_jesd204_rx_jesd204_link_enable(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
+static int axi_jesd204_rx_jesd204_link_running(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct axi_jesd204_rx *jesd = dev_get_drvdata(dev);
+	unsigned int link_status;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (reason == JESD204_STATE_OP_REASON_INIT) {
+		link_status = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATUS) & 0x3;
+
+		if (link_status != JESD204_LINK_STATUS_DATA) {
+			const char *_status = (jesd->encoder == JESD204_ENCODER_8B10B) ?
+				axi_jesd204_rx_link_status_label[link_status] :
+				axi_jesd204_rx_link_status_64b66b_l[link_status];
+
+			dev_err(dev, "%s: Link%u status failed (%s)\n",
+				__func__, lnk->link_id, _status);
+
+			return JESD204_STATE_CHANGE_ERROR;
+		}
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
 static const struct jesd204_dev_data jesd204_axi_jesd204_rx_init = {
 	.state_ops = {
 		[JESD204_OP_CLOCKS_ENABLE] = {
@@ -908,6 +940,9 @@ static const struct jesd204_dev_data jesd204_axi_jesd204_rx_init = {
 		},
 		[JESD204_OP_LINK_ENABLE] = {
 			.per_link = axi_jesd204_rx_jesd204_link_enable,
+		},
+		[JESD204_OP_LINK_RUNNING] = {
+			.per_link = axi_jesd204_rx_jesd204_link_running,
 		},
 	},
 };
