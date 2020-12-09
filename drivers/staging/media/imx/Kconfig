@@ -13,3 +13,10 @@ config VIDEO_IMX_MEDIA
 	help
 	  Say yes here to enable support for video4linux media controller
 	  drivers for the i.MX5/6 SOC.
+
+if VIDEO_IMX_CAPTURE
+menu "i.MX8QXP/QM Camera ISI/MIPI Features support"
+
+source "drivers/staging/media/imx/hdmirx/Kconfig"
+endmenu
+endif  #VIDEO_IMX_CAPTURE

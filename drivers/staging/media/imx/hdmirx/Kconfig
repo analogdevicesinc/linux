@@ -1,0 +1,6 @@
+config MHDP_HDMIRX
+	tristate "Cadence MHDP HDMIRX Controller"
+
+config MHDP_HDMIRX_CEC
+	tristate "Cadence MHDP HDMIRX CEC"
+	select DRM_CDNS_HDMI_CEC
