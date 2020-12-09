@@ -4,12 +4,13 @@ variables:
 trigger:
 - main
 - master
-- 'staging/**'
+- staging/*
+- 20*
 
 pr:
 - main
 - master
-- '20[1-9][0-9]_R[1-9]'
+- 20*
 
 pool:
   vmImage: 'ubuntu-latest'
