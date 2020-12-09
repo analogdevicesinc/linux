@@ -906,10 +906,12 @@
 						       <0>;
 				assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_800M>,
 							 <&clk IMX8MQ_ARM_PLL_OUT>,
-							 <0>,
+							 <&clk IMX8MQ_SYS1_PLL_800M>,
 							 <&clk IMX8MQ_SYS2_PLL_500M>,
 							 <&clk IMX8MQ_AUDIO_PLL1>,
 							 <&clk IMX8MQ_AUDIO_PLL2>,
+							 <0>,
+						         <0>,
 							 <&clk IMX8MQ_SYS1_PLL_266M>;
 			};
 
