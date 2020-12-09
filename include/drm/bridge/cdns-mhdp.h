@@ -355,6 +355,10 @@
 #define GENERAL_WRITE_FIELD             0x06
 #define GENERAL_READ_REGISTER           0x07
 #define GENERAL_GET_HPD_STATE           0x11
+#define GENERAL_ASSERT_PHY_BUS_RESET    0x12
+#define GENERAL_DEASSERT_PHY_BUS_RESET  0x13
+#define GENERAL_LOAD_HDCP_RX            0x20
+#define GENERAL_UNLOAD_HDCP_RX          0x21
 
 /* DPTX opcode */
 #define DPTX_SET_POWER_MNG			0x00
