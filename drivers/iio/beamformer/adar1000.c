@@ -564,10 +564,10 @@ static int adar1000_get_phase(struct adar1000_state *st, u8 ch_num, u8 output,
 {
 	if (output) {
 		*val = st->tx_phase[ch_num] / 10000;
-		*val2 = (st->tx_phase[ch_num] % 10000) * 10000;
+		*val2 = (st->tx_phase[ch_num] % 10000) * 100;
 	} else {
 		*val = st->rx_phase[ch_num] / 10000;
-		*val2 = (st->rx_phase[ch_num] % 10000) * 10000;
+		*val2 = (st->rx_phase[ch_num] % 10000) * 100;
 	}
 
 	return IIO_VAL_INT_PLUS_MICRO;
@@ -1589,6 +1589,12 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 
 	st->save_beam_idx = profile;
 
+	/* Set phase value */
+	adar1000_phase_search(st, beam.phase_val, beam.phase_val2,
+			      &vm_gain_i, &vm_gain_q, &phase_value);
+	beam.phase_val = phase_value / 10000;
+	beam.phase_val2 = phase_value % 10000 * 100;
+
 	/* Set gain value & save beam information */
 	if (tx) {
 		ram_access_tx_rx = ADAR1000_RAM_ACCESS_TX;
@@ -1597,10 +1603,6 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 		ram_access_tx_rx = ADAR1000_RAM_ACCESS_RX;
 		st->rx_beam_pos[profile] = beam;
 	}
-
-	/* Set phase value */
-	adar1000_phase_search(st, beam.phase_val, beam.phase_val2,
-			      &vm_gain_i, &vm_gain_q, &phase_value);
 
 	regs[0].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_0(channel, profile) | ram_access_tx_rx;
 	regs[0].def = beam.gain_val;
@@ -1823,13 +1825,13 @@ static ssize_t adar1000_ram_read(struct iio_dev *indio_dev,
 	switch (private) {
 	case BEAM_POS_SAVE:
 		if (chan->output == 1)
-			len += sprintf(buf, "%d, %d, %d.%d\n",
+			len += sprintf(buf, "%d, %d, %d.%06u\n",
 				       st->save_beam_idx,
 				       st->tx_beam_pos[st->save_beam_idx].gain_val,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val2);
 		else
-			len += sprintf(buf, "%d, %d, %d.%d\n",
+			len += sprintf(buf, "%d, %d, %d.%06u\n",
 				       st->save_beam_idx,
 				       st->rx_beam_pos[st->save_beam_idx].gain_val,
 				       st->rx_beam_pos[st->save_beam_idx].phase_val,
@@ -2383,7 +2385,7 @@ static ssize_t adar1000_pt_bin_read(struct file *filp, struct kobject *kobj,
 
 	for (i = 0; i < st->pt_size; i++)
 		len += snprintf(tab + len, count - len,
-			"%d.%03d, 0x%.2X, 0x%.2X\n",
+			"%d.%04u, 0x%.2X, 0x%.2X\n",
 			st->pt_info[i].val,
 			st->pt_info[i].val2,
 			st->pt_info[i].vm_gain_i,
