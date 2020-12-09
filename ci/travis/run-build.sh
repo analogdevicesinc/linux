@@ -408,6 +408,11 @@ build_sync_branches_with_main() {
 	BRANCHES="xcomm_zynq:fast-forward adi-4.19.0:cherry-pick"
 	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick"
 
+	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
+		echo_red "Could not fetch branch '$MAIN_BRANCH'"
+		return 1
+	}
+
 	for branch in $BRANCHES ; do
 		local dst_branch="$(echo $branch | cut -d: -f1)"
 		[ -n "$dst_branch" ] || break
