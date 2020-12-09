@@ -118,8 +118,7 @@ static int axi_sysid_validate_v1_1(struct platform_device *pdev,
 	struct sysid_header_v1 *header;
 	char custom_info[48];
 	struct tm tm;
-	time64_t t;
-	int ret;
+	time64_t t = 0;
 
 	if (axi_sysid_checksum((u8 *)build, sizeof(struct build_info_header_v1_1))) {
 		dev_err(&pdev->dev, "verfify build header checksum failed\n");
@@ -128,10 +127,7 @@ static int axi_sysid_validate_v1_1(struct platform_device *pdev,
 
 	header = (struct sysid_header_v1 *) st->mem;
 
-	ret = sscanf(build->epoch, "%12lld", &t);
-	if (ret != 1)
-		return -EINVAL;
-
+	sscanf(build->epoch, "%12lld", &t);
 	time64_to_tm(t, 0, &tm);
 
 	if (axi_sysid_get_str(st, header->custom_info_offs))
@@ -160,8 +156,7 @@ static int axi_sysid_validate_v1(struct platform_device *pdev,
 	struct sysid_header_v1 *header;
 	char custom_info[48];
 	struct tm tm;
-	time64_t t;
-	int ret;
+	time64_t t = 0;
 
 	header = (struct sysid_header_v1 *) st->mem;
 	if (axi_sysid_checksum((u8 *)build,
@@ -170,10 +165,7 @@ static int axi_sysid_validate_v1(struct platform_device *pdev,
 		return -EFAULT;
 	}
 
-	ret = sscanf(build->epoch, "%12lld", &t);
-	if (ret != 1)
-		return -EINVAL;
-
+	sscanf(build->epoch, "%12lld", &t);
 	time64_to_tm(t, 0, &tm);
 
 	if (axi_sysid_get_str(st, header->custom_info_offs))
