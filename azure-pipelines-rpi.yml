@@ -21,30 +21,18 @@ jobs:
     clean: true
   - script: ./ci/travis/run-build.sh
 
-- job: bcm2709_arm_adi
-  variables:
-    DEFCONFIG: adi_bcm2709_defconfig
-    ARCH: arm
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-
-- job: bcm2711_arm_adi
-  variables:
-    DEFCONFIG: adi_bcm2711_defconfig
-    ARCH: arm
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-
-- job: bcmrpi_arm_adi
-  variables:
-    DEFCONFIG: adi_bcmrpi_defconfig
-    ARCH: arm
+- job: BuildDockerized
+  strategy:
+    matrix:
+      bcm2709_arm_adi:
+        DEFCONFIG: adi_bcm2709_defconfig
+        ARCH: arm
+      bcm2711_arm_adi:
+        DEFCONFIG: adi_bcm2711_defconfig
+        ARCH: arm
+      bcmrpi_arm_adi:
+        DEFCONFIG: adi_bcmrpi_defconfig
+        ARCH: arm
   steps:
   - checkout: self
     fetchDepth: 1
