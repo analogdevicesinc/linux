@@ -245,6 +245,7 @@ struct adar1000_phase {
 };
 
 struct adar1000_beam_position {
+	int atten;
 	int gain_val;
 	int phase_val;
 	int phase_val2;
@@ -1665,7 +1666,12 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 	}
 
 	regs[0].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_0(channel, profile) | ram_access_tx_rx;
-	regs[0].def = beam.gain_val;
+
+	if (beam.atten)
+		regs[0].def = beam.gain_val | ADAR1000_CH_ATTN;
+	else
+		regs[0].def = beam.gain_val;
+
 	regs[1].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_1(channel, profile) | ram_access_tx_rx;
 	regs[1].def = vm_gain_i;
 	regs[2].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_2(channel, profile) | ram_access_tx_rx;
@@ -1815,7 +1821,7 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 	}
 	case BEAM_POS_SAVE: {
 		char *line, *ptr = (char*) buf;
-		int val, val2, tmp[3], i = 0, j = 0;
+		int val, val2, tmp[4], i = 0, j = 0;
 		struct adar1000_beam_position value;
 
 		while ((line = strsep(&ptr, ","))) {
@@ -1840,9 +1846,10 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 			i += ret;
 		}
 
-		value.gain_val = tmp[0];
-		value.phase_val = tmp[1];
-		value.phase_val2 = tmp[2];
+		value.atten = tmp[0];
+		value.gain_val = tmp[1];
+		value.phase_val = tmp[2];
+		value.phase_val2 = tmp[3];
 
 		ret = adar1000_beam_save(st, chan->channel,
 					 chan->output == 1, readin, value);
@@ -1885,14 +1892,16 @@ static ssize_t adar1000_ram_read(struct iio_dev *indio_dev,
 	switch (private) {
 	case BEAM_POS_SAVE:
 		if (chan->output == 1)
-			len += sprintf(buf, "%d, %d, %d.%06u\n",
+			len += sprintf(buf, "%d, %d, %d, %d.%06u\n",
 				       st->save_beam_idx,
+				       st->tx_beam_pos[st->save_beam_idx].atten,
 				       st->tx_beam_pos[st->save_beam_idx].gain_val,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val2);
 		else
-			len += sprintf(buf, "%d, %d, %d.%06u\n",
+			len += sprintf(buf, "%d, %d, %d, %d.%06u\n",
 				       st->save_beam_idx,
+				       st->rx_beam_pos[st->save_beam_idx].atten,
 				       st->rx_beam_pos[st->save_beam_idx].gain_val,
 				       st->rx_beam_pos[st->save_beam_idx].phase_val,
 				       st->rx_beam_pos[st->save_beam_idx].phase_val2);
@@ -1941,6 +1950,7 @@ enum adar1000_enables {
 	ADAR1000_DETECTOR,
 	ADAR1000_PA_BIAS_ON,
 	ADAR1000_PA_BIAS_OFF,
+	ADAR1000_ATTEN,
 };
 
 static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
@@ -1991,6 +2001,18 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
+		break;
+	case ADAR1000_ATTEN:
+		if (chan->output)
+			reg = ADAR1000_CH_TX_GAIN(chan->channel);
+		else
+			reg = ADAR1000_CH_RX_GAIN(chan->channel);
+
+		ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+		if (ret < 0)
+			return ret;
+
+		val = FIELD_GET(ADAR1000_CH_ATTN, val);
 		break;
 	}
 
@@ -2053,6 +2075,21 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 			return ret;
 
 		reg = ADAR1000_CH_PA_BIAS_OFF(chan->channel);
+		break;
+	case ADAR1000_ATTEN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (chan->output)
+			reg = ADAR1000_CH_TX_GAIN(chan->channel);
+		else
+			reg = ADAR1000_CH_RX_GAIN(chan->channel);
+
+		mask = ADAR1000_CH_ATTN;
+		if (readin)
+			val = mask;
+
 		break;
 	}
 
@@ -2187,6 +2224,7 @@ static const struct iio_chan_spec_ext_info adar1000_rx_ext_info[] = {
 	_ADAR1000_SEQ_INFO("sequence_start", ADAR1000_SEQ_START),
 	_ADAR1000_SEQ_INFO("sequence_end", ADAR1000_SEQ_STOP),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
+	_ADAR1000_ENABLES_INFO("attenuation", ADAR1000_ATTEN),
 	{ },
 };
 
@@ -2201,6 +2239,7 @@ static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
 	_ADAR1000_ENABLES_INFO("pa_bias_on", ADAR1000_PA_BIAS_ON),
 	_ADAR1000_ENABLES_INFO("pa_bias_off", ADAR1000_PA_BIAS_OFF),
+	_ADAR1000_ENABLES_INFO("attenuation", ADAR1000_ATTEN),
 	{ },
 };
 
