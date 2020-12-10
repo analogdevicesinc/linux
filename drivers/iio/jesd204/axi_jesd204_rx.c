@@ -908,12 +908,16 @@ static int axi_jesd204_rx_jesd204_link_running(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct axi_jesd204_rx *jesd = dev_get_drvdata(dev);
 	unsigned int link_status;
+	int retry = 10;
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
 		lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (reason == JESD204_STATE_OP_REASON_INIT) {
-		link_status = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATUS) & 0x3;
+		do {
+			msleep(4);
+			link_status = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATUS) & 0x3;
+		} while (link_status != JESD204_LINK_STATUS_DATA && retry--);
 
 		if (link_status != JESD204_LINK_STATUS_DATA) {
 			const char *_status = (jesd->encoder == JESD204_ENCODER_8B10B) ?
