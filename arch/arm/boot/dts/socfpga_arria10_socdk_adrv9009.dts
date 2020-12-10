@@ -84,7 +84,7 @@
 				adi,frames-per-multiframe = <32>;
 				adi,converter-resolution = <16>;
 				adi,bits-per-sample = <16>;
-				adi,converters-per-device = <4>;
+				adi,converters-per-device = <2>;
 				adi,control-bits-per-sample = <0>;
 			};
 
@@ -93,10 +93,8 @@
 				reg = <0x00024000 0x00001000>,
 					<0x00028000 0x00001000>,
 					<0x0002a000 0x00001000>,
-					<0x0002c000 0x00001000>,
-					<0x0002e000 0x00001000>,
-					<0x00030000 0x00001000>;
-				reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+					<0x0002c000 0x00001000>;
+				reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1";
 
 				clocks = <&clk0_ad9528 1>, <&tx_device_clk_pll>;
 				clock-names = "ref", "link";
