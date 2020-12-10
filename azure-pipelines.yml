@@ -63,58 +63,32 @@ jobs:
     clean: true
   - script: ./ci/travis/run-build.sh
 
-- job: zynq_adi_default
-  variables:
-    DEFCONFIG: zynq_xcomm_adv7511_defconfig
-    ARCH: arm
-    IMAGE: uImage
-    CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-
-- job: socfpga_adi_default
-  variables:
-    DEFCONFIG: socfpga_adi_defconfig
-    ARCH: arm
-    IMAGE: zImage
-    CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-
-- job: zynqmp_adi_default
-  variables:
-    DEFCONFIG: adi_zynqmp_defconfig
-    ARCH: arm64
-    IMAGE: Image
-    CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-
-- job: zynq_pluto
-  variables:
-    DEFCONFIG: zynq_pluto_defconfig
-    ARCH: arm
-    IMAGE: uImage
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-
-- job: zynq_m2k
-  variables:
-    DEFCONFIG: zynq_m2k_defconfig
-    ARCH: arm
-    IMAGE: uImage
+- job: 'Build (dockerized)'
+  strategy:
+    matrix:
+      zynq_adi_default:
+        DEFCONFIG: zynq_xcomm_adv7511_defconfig
+        ARCH: arm
+        IMAGE: uImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      socfpga_adi_default:
+        DEFCONFIG: socfpga_adi_defconfig
+        ARCH: arm
+        IMAGE: zImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      zynqmp_adi_default:
+        DEFCONFIG: adi_zynqmp_defconfig
+        ARCH: arm64
+        IMAGE: Image
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      zynq_pluto:
+        DEFCONFIG: zynq_pluto_defconfig
+        ARCH: arm
+        IMAGE: uImage
+      zynq_m2k:
+        DEFCONFIG: zynq_m2k_defconfig
+        ARCH: arm
+        IMAGE: uImage
   steps:
   - checkout: self
     fetchDepth: 1
