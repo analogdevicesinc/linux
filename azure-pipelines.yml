@@ -63,7 +63,7 @@ jobs:
     clean: true
   - script: ./ci/travis/run-build.sh
 
-- job: 'Build (dockerized)'
+- job: BuildDockerized
   strategy:
     matrix:
       zynq_adi_default:
