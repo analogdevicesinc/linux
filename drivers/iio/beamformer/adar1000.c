@@ -1135,7 +1135,9 @@ static ssize_t adar1000_delay_store(struct device *dev,
 }
 
 enum adar1000_iio_memctl_attr {
-	ADAR1000_MEM_EN,
+	ADAR1000_COMMON_MEM_EN,
+	ADAR1000_BEAM_MEM_EN,
+	ADAR1000_BIAS_MEM_EN,
 	ADAR1000_STATIC_RX_BEAM_POS,
 	ADAR1000_STATIC_TX_BEAM_POS,
 };
@@ -1153,9 +1155,17 @@ static ssize_t adar1000_memctl_show(struct device *dev,
 	u32 val;
 
 	switch ((u32)this_attr->address) {
-	case ADAR1000_MEM_EN:
+	case ADAR1000_COMMON_MEM_EN:
 		reg = ADAR1000_MEM_CTRL;
 		mask = ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
+		break;
+	case ADAR1000_BEAM_MEM_EN:
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BEAM_RAM_BYPASS;
+		break;
+	case ADAR1000_BIAS_MEM_EN:
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BIAS_RAM_BYPASS;
 		break;
 	case ADAR1000_STATIC_RX_BEAM_POS:
 		reg = ADAR1000_RX_CHX_MEM;
@@ -1181,7 +1191,7 @@ static ssize_t adar1000_memctl_show(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	if ((u32)this_attr->address == ADAR1000_MEM_EN)
+	if ((u32)this_attr->address <= ADAR1000_BIAS_MEM_EN)
 		return sprintf(buf, "%d\n", !(val & mask));
 	else
 		return sprintf(buf, "%d\n", val & mask);
@@ -1201,13 +1211,57 @@ static ssize_t adar1000_memctl_store(struct device *dev,
 
 
 	switch ((u32)this_attr->address) {
-	case ADAR1000_MEM_EN:
+	case ADAR1000_COMMON_MEM_EN:
 		ret = kstrtobool(buf, &readin);
 		if (ret)
 			return ret;
 
 		reg = ADAR1000_MEM_CTRL;
 		mask = ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
+
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		if (!readin)
+			readval = mask;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+					 mask, readval);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+		break;
+	case ADAR1000_BEAM_MEM_EN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BEAM_RAM_BYPASS;
+
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		if (!readin)
+			readval = mask;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+					 mask, readval);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+		break;
+	case ADAR1000_BIAS_MEM_EN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BIAS_RAM_BYPASS;
 
 		ret = adar1000_mode_4wire(st, 1);
 		if (ret < 0)
@@ -1439,8 +1493,12 @@ static IIO_DEVICE_ATTR(lna_bias_out_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_LNA_BIAS_OUT_EN_);
 
 /* MEM_CTL attirbutes */
-static IIO_DEVICE_ATTR(mem_enable, 0644,
-		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_MEM_EN);
+static IIO_DEVICE_ATTR(common_mem_enable, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_COMMON_MEM_EN);
+static IIO_DEVICE_ATTR(beam_mem_enable, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_BEAM_MEM_EN);
+static IIO_DEVICE_ATTR(bias_mem_enable, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_BIAS_MEM_EN);
 static IIO_DEVICE_ATTR(static_rx_beam_pos_load, 0644,
 		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_STATIC_RX_BEAM_POS);
 static IIO_DEVICE_ATTR(static_tx_beam_pos_load, 0644,
@@ -1531,7 +1589,9 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_tx_to_rx_delay_2.dev_attr.attr,
 	&iio_dev_attr_rx_to_tx_delay_1.dev_attr.attr,
 	&iio_dev_attr_rx_to_tx_delay_2.dev_attr.attr,
-	&iio_dev_attr_mem_enable.dev_attr.attr,
+	&iio_dev_attr_common_mem_enable.dev_attr.attr,
+	&iio_dev_attr_beam_mem_enable.dev_attr.attr,
+	&iio_dev_attr_bias_mem_enable.dev_attr.attr,
 	&iio_dev_attr_static_rx_beam_pos_load.dev_attr.attr,
 	&iio_dev_attr_static_tx_beam_pos_load.dev_attr.attr,
 	&iio_dev_attr_sw_drv_tr_state.dev_attr.attr,
