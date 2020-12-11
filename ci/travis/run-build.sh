@@ -422,22 +422,6 @@ build_sync_branches_with_main() {
 	done
 }
 
-build_sync_branches_with_main_travis() {
-	# make sure this is on the main branch, and not a PR
-	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
-	[ "$TRAVIS_PULL_REQUEST" = "false" ] || return 0
-	[ "$TRAVIS_BRANCH" = "${MAIN_BRANCH}" ] || return 0
-	[ "$TRAVIS_REPO_SLUG" = "analogdevicesinc/linux" ] || return 0
-
-	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
-	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
-	eval "$(ssh-agent -s)"
-	chmod 600 /tmp/deploy_key
-	ssh-add /tmp/deploy_key
-
-	build_sync_branches_with_main
-}
-
 ORIGIN=${ORIGIN:-origin}
 
 BUILD_TYPE=${BUILD_TYPE:-${1}}
