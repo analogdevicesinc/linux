@@ -237,7 +237,6 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	struct dcss_plane *dcss_plane = to_dcss_plane(plane);
 	struct dcss_dev *dcss = plane->dev->dev_private;
 	struct drm_framebuffer *fb = new_plane_state->fb;
-	bool is_primary_plane = plane->type == DRM_PLANE_TYPE_PRIMARY;
 	struct drm_gem_dma_object *dma_obj;
 	struct drm_crtc_state *crtc_state;
 	int hdisplay, vdisplay;
@@ -267,8 +266,7 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 				       &min, &max);
 
 	ret = drm_atomic_helper_check_plane_state(new_plane_state, crtc_state,
-						  min, max, !is_primary_plane,
-						  false);
+						  min, max, true, false);
 	if (ret)
 		return ret;
 
