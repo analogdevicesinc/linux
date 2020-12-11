@@ -22,6 +22,7 @@ jobs:
   variables:
     BUILD_TYPE: sync_branches_with_main
     MAIN_BRANCH:  $[ variables['Build.SourceBranchName'] ]
+    CI: true
   steps:
   - checkout: self
     fetchDepth: 50
