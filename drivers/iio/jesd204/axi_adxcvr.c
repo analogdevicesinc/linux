@@ -204,6 +204,12 @@ static int adxcvr_status_error(struct device *dev)
 	} while ((timeout--) && (status == 0));
 
 	if (!status) {
+		if (!st->qpll_enable && !st->cpll_enable) {
+			dev_err(dev, "%s %s: Not ready defer probe",
+				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+				st->tx_enable ? "TX" : "RX");
+			return -EPROBE_DEFER;
+		}
 		dev_err(dev, "%s %s Error: %x",
 			adxcvr_sys_clock_sel_names[st->sys_clk_sel],
 			st->tx_enable ? "TX" : "RX", status);
