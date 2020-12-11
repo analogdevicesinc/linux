@@ -569,7 +569,7 @@ static void adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 {
 	of_property_read_u32(np, "adi,sys-clk-select", &st->sys_clk_sel);
 	of_property_read_u32(np, "adi,out-clk-select", &st->out_clk_sel);
-	st->cpll_enable = of_property_read_bool(np, "adi,use-cpll-enable");
+	st->lpm_enable = of_property_read_bool(np, "adi,use-lpm-enable");
 
 	st->cpll_enable = st->sys_clk_sel == XCVR_CPLL;
 
