@@ -20,6 +20,9 @@
 #include "xilinx_transceiver.h"
 #include "axi_adxcvr_eyescan.h"
 
+static const char *const adxcvr_sys_clock_sel_names[] = {
+	"CPLL", "UNDEF", "QPLL1", "QPLL"
+};
 
 static struct adxcvr_state *xcvr_to_adxcvr(struct xilinx_xcvr *xcvr)
 {
@@ -201,7 +204,9 @@ static int adxcvr_status_error(struct device *dev)
 	} while ((timeout--) && (status == 0));
 
 	if (!status) {
-		dev_err(dev, "%s Error: %x", st->tx_enable ? "TX" : "RX", status);
+		dev_err(dev, "%s %s Error: %x",
+			adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+			st->tx_enable ? "TX" : "RX", status);
 		return -EIO;
 	}
 
@@ -703,6 +708,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	adxcvr_parse_dt(st, np);
 
+	if (st->sys_clk_sel > XCVR_QPLL)
+		return -EINVAL;
+
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(st->regs)) {
@@ -792,13 +800,14 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_debugfs;
 
-	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
+	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s on %s at 0x%08llX. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
 		ADI_AXI_PCORE_VER_MAJOR(st->xcvr.version),
 		ADI_AXI_PCORE_VER_MINOR(st->xcvr.version),
 		ADI_AXI_PCORE_VER_PATCH(st->xcvr.version),
+		adxcvr_sys_clock_sel_names[st->sys_clk_sel],
 		adxcvr_gt_names[st->xcvr.type],
-		(unsigned long long)mem->start, st->regs,
+		(unsigned long long)mem->start,
 		st->num_lanes);
 
 	return 0;
