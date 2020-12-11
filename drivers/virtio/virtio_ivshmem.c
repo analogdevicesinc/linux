@@ -6,6 +6,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/dma-map-ops.h>
 #include <linux/ivshmem.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
