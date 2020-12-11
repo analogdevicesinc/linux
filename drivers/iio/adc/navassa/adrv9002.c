@@ -354,6 +354,32 @@ static int adrv9002_gain_to_gainidx(int gain)
 	return temp + ADRV9002_RX_MIN_GAIN_IDX;
 }
 
+static int adrv9002_chan_to_state_poll(struct adrv9002_rf_phy *phy,
+				       struct adrv9002_chan *c,
+				       const adi_adrv9001_ChannelState_e state,
+				       const int n_tries)
+{
+	int ret;
+	adi_adrv9001_ChannelState_e __state;
+	int try = 0;
+
+	do {
+		ret = adi_adrv9001_Radio_Channel_State_Get(phy->adrv9001, c->port, c->number,
+							   &__state);
+		if (ret)
+			return adrv9002_dev_err(phy);
+
+		if (__state == state)
+			break;
+		usleep_range(1000, 1005);
+	} while (++try < n_tries);
+
+	if (try == n_tries)
+		return -EBUSY;
+
+	return 0;
+}
+
 int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
 			      const adi_adrv9001_ChannelState_e state, const bool cache_state)
 {
@@ -376,14 +402,6 @@ int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan 
 							       ADI_ADRV9001_SPI_MODE);
 		if (ret)
 			return adrv9002_dev_err(phy);
-
-		/*
-		 * When moving from pin to spi mode, the device might change the ensm automatically.
-		 * Hence, we need to wait to cache the right value and to make sure that the device
-		 * is in a stable state so that @adi_adrv9001_Radio_Channel_ToState() actually
-		 * works.
-		 */
-		usleep_range(2000, 3000);
 	}
 
 	if (cache_state) {
@@ -398,12 +416,30 @@ int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan 
 						 chann->number, state);
 	if (ret)
 		return adrv9002_dev_err(phy);
-
 	/*
-	 * We also need to wait here so that the device goes into the right state. This is important
-	 * when an operation requiring these state transitions is called multiple times in a row...
+	 * Make sure that the channel is really in the state we want as it might take time
+	 * for the device to actually do the change (mainly when moving to rf_enabled).
 	 */
-	usleep_range(2000, 3000);
+	ret = adrv9002_chan_to_state_poll(phy, chann, state, 7);
+	if (ret) {
+		/*
+		 * This is important when the device is in PIN mode as changing it to SPI
+		 * might trigger a state change to rf_enabled. In that case it looks like the
+		 * first call to @adi_adrv9001_Radio_Channel_ToState() is just ignored as the
+		 * device is still busy. Hence we try one last time to move the channel to the
+		 * desired state and double up the number of tries...
+		 */
+		dev_dbg(&phy->spi->dev, "Try to change to state(%d) again...\n", state);
+		ret = adi_adrv9001_Radio_Channel_ToState(phy->adrv9001, chann->port,
+							 chann->number, state);
+		if (ret)
+			return adrv9002_dev_err(phy);
+
+		ret = adrv9002_chan_to_state_poll(phy, chann, state, 14);
+		if (ret)
+			return ret;
+	}
+
 	if (mode == ADI_ADRV9001_SPI_MODE)
 		return 0;
 
