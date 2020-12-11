@@ -26,6 +26,7 @@ jobs:
   - checkout: self
     fetchDepth: 50
     clean: true
+    persistCredentials: true
   - script: ./ci/travis/run-build.sh
 
 - job: checkpatch
