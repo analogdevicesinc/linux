@@ -547,7 +547,8 @@ static int jesd204_fsm_handle_con(struct jesd204_dev *jdev_it,
 		return 0;
 
 	/* if this transitioned already, we're done */
-	if (con->state == fsm_data->nxt_state)
+	/* FIXME: see if this check is still needed; it may not be required in the current state */
+	if (con->state == fsm_data->nxt_state && !fsm_data->rollback)
 		return 0;
 
 	ret = jesd204_con_validate_cur_state(jdev_it, con, fsm_data);
