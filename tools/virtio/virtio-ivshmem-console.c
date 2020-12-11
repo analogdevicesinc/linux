@@ -361,9 +361,9 @@ int main(int argc, char *argv[])
 
 		memset(queue_config, 0, sizeof(queue_config));
 		queue_config[0].size = 8;
-		queue_config[0].device_vector = 1;
+		queue_config[0].device_vector = 0;
 		queue_config[1].size = 8;
-		queue_config[1].device_vector = 2;
+		queue_config[1].device_vector = 0;
 		current_queue = -1;
 
 		vc->config.cols = winsize.ws_col;
