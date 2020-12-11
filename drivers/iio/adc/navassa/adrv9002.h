@@ -121,7 +121,6 @@ struct adrv9002_rx_chan {
 	struct clk *tdd_clk;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_RxSsiTestModeCfg ssi_test;
-	struct adi_adrv9001_GainControlCfg debug_agc;
 #endif
 };
 
