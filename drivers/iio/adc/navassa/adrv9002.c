@@ -1870,7 +1870,34 @@ static const u32 adrv9002_init_cals_mask[16][2] = {
 	[15] = {0x1BE5F7, 0x1BE5F7},
 };
 
-static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
+static void adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
+{
+	int i, pos = 0;
+
+	phy->init_cals.sysInitCalMask = 0;
+	phy->init_cals.calMode = ADI_ADRV9001_INIT_CAL_MODE_ALL;
+
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		struct adrv9002_chan *c = phy->channels[i];
+
+		if (!c->enabled)
+			continue;
+
+		if (c->port == ADI_RX)
+			pos |= ADRV9002_RX_EN(c->idx);
+		else
+			pos |= ADRV9002_TX_EN(c->idx);
+	}
+
+	phy->init_cals.chanInitCalMask[0] = adrv9002_init_cals_mask[pos][0];
+	phy->init_cals.chanInitCalMask[1] = adrv9002_init_cals_mask[pos][1];
+
+	dev_dbg(&phy->spi->dev, "pos: %u, Chan1:%X, Chan2:%X", pos,
+		phy->init_cals.chanInitCalMask[0],
+		phy->init_cals.chanInitCalMask[1]);
+}
+
+static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 {
 	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
 	const struct adi_adrv9001_TxProfile *tx_cfg = phy->curr_profile->tx.txProfile;
@@ -1880,56 +1907,54 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 	const u32 rx_channels[ADRV9002_CHANN_MAX] = {
 		ADI_ADRV9001_RX1, ADI_ADRV9001_RX2
 	};
-	int i, pos = 0;
-
-	phy->init_cals.sysInitCalMask = 0;
-	phy->init_cals.calMode = ADI_ADRV9001_INIT_CAL_MODE_ALL;
+	int i;
+	u32 rx0_rate = rx_cfg[0].profile.rxOutputRate_Hz;
 
 	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
-		struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
-		struct adrv9002_rx_chan *rx = &phy->rx_channels[i];
+		struct adrv9002_chan *tx = &phy->tx_channels[i].channel;
+		struct adrv9002_chan *rx = &phy->rx_channels[i].channel;
 
-		if (ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask,
-				      rx_channels[i])) {
-			dev_dbg(&phy->spi->dev, "RX%d enabled\n", i);
-			pos |= ADRV9002_RX_EN(i);
-			rx->channel.power = true;
-			rx->channel.enabled = true;
-			rx->channel.nco_freq = 0;
-			rx->channel.rate = rx_cfg[i].profile.rxOutputRate_Hz;
-		} else if (phy->rx2tx2 && i == ADRV9002_CHANN_1 ) {
-			/*
-			 * In rx2tx2 mode RX1 must be always enabled because RX2 cannot be
-			 * on without RX1. On top of this, TX cannot be enabled without the
-			 * corresponding RX. Hence, RX1 cannot really be disabled...
-			 */
-			dev_err(&phy->spi->dev, "In rx2tx2 mode RX1 must be always enabled...\n");
+		/* rx validations */
+		if (!ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask, rx_channels[i])) {
+			if (phy->rx2tx2 && i == ADRV9002_CHANN_1) {
+				dev_err(&phy->spi->dev, "In rx2tx2 mode RX1 must be always enabled...\n");
+				return -EINVAL;
+			}
+
+			goto tx;
+		}
+
+		if (phy->rx2tx2 && i && rx_cfg[i].profile.rxOutputRate_Hz != rx0_rate) {
+			dev_err(&phy->spi->dev, "In rx2tx2 mode, all ports must have the same rate\n");
 			return -EINVAL;
 		}
 
-		if (ADRV9001_BF_EQUAL(phy->curr_profile->tx.txInitChannelMask,
-				      tx_channels[i])) {
-			if (!rx->channel.enabled) {
-				dev_err(&phy->spi->dev, "TX%d cannot be enabled while RX%d is disabled",
-					i + 1, i + 1);
-				return -EINVAL;
-			}
-			dev_dbg(&phy->spi->dev, "TX%d enabled\n", i);
-			pos |= ADRV9002_TX_EN(i);
-			tx->channel.power = true;
-			tx->channel.enabled = true;
-			tx->channel.nco_freq = 0;
-			tx->channel.rate = tx_cfg[i].txInputRate_Hz;
+		dev_dbg(&phy->spi->dev, "RX%d enabled\n", i + 1);
+		rx->power = true;
+		rx->enabled = true;
+		rx->nco_freq = 0;
+		rx->rate = rx_cfg[i].profile.rxOutputRate_Hz;
+tx:
+		/* tx validations*/
+		if (!ADRV9001_BF_EQUAL(phy->curr_profile->tx.txInitChannelMask, tx_channels[i]))
+			continue;
+
+		if (!rx->enabled) {
+			dev_err(&phy->spi->dev, "TX%d cannot be enabled while RX%d is disabled",
+				i + 1, i + 1);
+			return -EINVAL;
+		} else if (tx_cfg[i].txInputRate_Hz != rx->rate) {
+			dev_err(&phy->spi->dev, "TX%d rate=%u must be equal to RX%d, rate=%ld\n",
+				i + 1, tx_cfg[i].txInputRate_Hz, i + 1, rx->rate);
+			return -EINVAL;
 		}
 
+		dev_dbg(&phy->spi->dev, "TX%d enabled\n", i + 1);
+		tx->power = true;
+		tx->enabled = true;
+		tx->nco_freq = 0;
+		tx->rate = tx_cfg[i].txInputRate_Hz;
 	}
-
-	phy->init_cals.chanInitCalMask[0] = adrv9002_init_cals_mask[pos][0];
-	phy->init_cals.chanInitCalMask[1] = adrv9002_init_cals_mask[pos][1];
-
-	dev_dbg(&phy->spi->dev, "pos: %u, Chan1:%X, Chan2:%X", pos,
-		phy->init_cals.chanInitCalMask[0],
-		phy->init_cals.chanInitCalMask[1]);
 
 	return 0;
 }
@@ -2226,10 +2251,11 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy,
 	else
 		init_state = ADI_ADRV9001_CHANNEL_RF_ENABLED;
 
-	/* compute init call and does some profile validations... */
-	ret = adrv9002_compute_init_cals(phy);
+	ret = adrv9002_validate_profile(phy);
 	if (ret)
 		return ret;
+
+	adrv9002_compute_init_cals(phy);
 
 	adi_common_ErrorClear(&phy->adrv9001->common);
 	ret = adi_adrv9001_HwOpen(adrv9001_device, adrv9002_spi_settings_get());
