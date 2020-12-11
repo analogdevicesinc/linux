@@ -201,7 +201,7 @@ static ssize_t adrv9002_rx_agc_config_write(struct file *file, const char __user
 
 	mutex_lock(&phy->lock);
 	ret = adi_adrv9001_Rx_GainControl_Configure(phy->adrv9001, rx->channel.number,
-						    &rx->debug_agc);
+						    &rx->agc);
 	mutex_unlock(&phy->lock);
 	if (ret)
 		return adrv9002_dev_err(phy);
@@ -230,22 +230,22 @@ void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dent
 
 #define adrv9002_agc_add_file_u8(member) { \
 	const char *attr = adrv9002_agc_get_attr(rx->channel.number, member); \
-	debugfs_create_u8(attr, 0600, d, (u8 *)&rx->debug_agc.member); \
+	debugfs_create_u8(attr, 0600, d, (u8 *)&rx->agc.member); \
 }
 
 #define adrv9002_agc_add_file_u16(member) { \
 	const char *attr = adrv9002_agc_get_attr(rx->channel.number, member); \
-	debugfs_create_u16(attr, 0600, d, &rx->debug_agc.member); \
+	debugfs_create_u16(attr, 0600, d, &rx->agc.member); \
 }
 
 #define adrv9002_agc_add_file_u32(member) { \
 	const char *attr = adrv9002_agc_get_attr(rx->channel.number, member); \
-	debugfs_create_u32(attr, 0600, d, &rx->debug_agc.member); \
+	debugfs_create_u32(attr, 0600, d, &rx->agc.member); \
 }
 
 #define adrv9002_agc_add_file_bool(member) { \
 	const char *attr = adrv9002_agc_get_attr(rx->channel.number, member); \
-	debugfs_create_bool(attr, 0600, d, &rx->debug_agc.member); \
+	debugfs_create_bool(attr, 0600, d, &rx->agc.member); \
 }
 	adrv9002_agc_add_file_u8(peakWaitTime);
 	adrv9002_agc_add_file_u8(maxGainIndex);
