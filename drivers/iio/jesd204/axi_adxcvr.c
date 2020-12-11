@@ -598,6 +598,14 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 	if (st->conv2_clk)
 		clk_set_rate(st->conv2_clk, parent_rate);
 
+	if (!st->qpll_enable && !st->cpll_enable) {
+		dev_warn(st->dev,
+			"%s: Using QPLL without access, assuming desired "
+			"Lane rate will be configured by a different instance",
+			__func__);
+		return;
+	}
+
 	lane_rate = adxcvr_clk_recalc_rate(&st->lane_clk_hw, parent_rate);
 
 	ret = adxcvr_clk_set_rate(&st->lane_clk_hw, lane_rate, parent_rate);
