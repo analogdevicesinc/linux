@@ -77,7 +77,6 @@ static int32_t __maybe_unused adi_adrv9001_AuxDac_Inspect_Validate(adi_adrv9001_
 int32_t adi_adrv9001_AuxDac_Inspect(adi_adrv9001_Device_t *device, adi_adrv9001_AuxDac_e auxDac, bool *enabled)
 {
     uint8_t bfEnable = 0;
-    adi_adrv9001_GpioCfg_t gpio = { 0 };
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_AuxDac_Inspect_Validate, device, auxDac, enabled);
 
@@ -100,18 +99,6 @@ int32_t adi_adrv9001_AuxDac_Inspect(adi_adrv9001_Device_t *device, adi_adrv9001_
         break;
     }
     *enabled = !(bool)bfEnable;
-
-    /* TODO: Remove */
-    ADI_EXPECT(adi_adrv9001_gpio_Inspect, device, (ADI_ADRV9001_GPIO_SIGNAL_AUX_DAC_0 + auxDac), &gpio);
-    if (gpio.pin != ADI_ADRV9001_GPIO_ANALOG_00 + auxDac)
-    {
-        ADI_ERROR_REPORT(&device->common,
-                         ADI_COMMON_ERRSRC_API,
-                         ADI_COMMON_ERR_API_FAIL,
-                         ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         pin,
-                         "AuxDac read back unexpected pin assignment");
-    }
 
     ADI_API_RETURN(device);
 }
