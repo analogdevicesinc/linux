@@ -1,0 +1,29 @@
+#
+# Analog Devices Clock Drivers
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "Analog Devices Clock Drivers"
+
+config COMMON_CLK_AD9545
+	tristate
+
+config COMMON_CLK_AD9545_I2C
+	tristate "Analog Devices AD9545 via I2C"
+	depends on REGMAP_I2C
+	select COMMON_CLK_AD9545
+	help
+	  Say yes here to build support for Analog Devices AD9545
+	  Quad Input, 10-Output, Dual DPLL/IEEE 1588,
+	  1 pps Synchronizer and Jitter Cleaner via I2C
+
+config COMMON_CLK_AD9545_SPI
+	tristate "Analog Devices AD9545 via SPI"
+	depends on REGMAP_SPI
+	select COMMON_CLK_AD9545
+	help
+	  Say yes here to build support for Analog Devices AD9545
+	  Quad Input, 10-Output, Dual DPLL/IEEE 1588,
+	  1 pps Synchronizer and Jitter Cleaner via SPI
+
+endmenu
