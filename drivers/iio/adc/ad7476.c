@@ -29,6 +29,8 @@ struct ad7476_state;
 struct ad7476_chip_info {
 	unsigned int			int_vref_uv;
 	struct iio_chan_spec		channel[2];
+	/* channels used when convst gpio is defined */
+	struct iio_chan_spec		convst_channel[2];
 	void (*reset)(struct ad7476_state *);
 };
 
@@ -66,12 +68,13 @@ enum ad7476_supported_device_ids {
 
 static void ad7091_convst(struct ad7476_state *st)
 {
-	if (st->convst_gpio) {
-		gpiod_set_value(st->convst_gpio, 0);
-		udelay(1); /* CONVST pulse width: 10 ns min */
-		gpiod_set_value(st->convst_gpio, 1);
-		udelay(1); /* Conversion time: 650 ns max */
-	}
+	if (!st->convst_gpio)
+		return;
+
+	gpiod_set_value(st->convst_gpio, 0);
+	udelay(1); /* CONVST pulse width: 10 ns min */
+	gpiod_set_value(st->convst_gpio, 1);
+	udelay(1); /* Conversion time: 650 ns max */
 }
 
 static irqreturn_t ad7476_trigger_handler(int irq, void  *p)
@@ -174,11 +177,15 @@ static int ad7476_read_raw(struct iio_dev *indio_dev,
 #define AD7940_CHAN(bits) _AD7476_CHAN((bits), 15 - (bits), \
 		BIT(IIO_CHAN_INFO_RAW))
 #define AD7091R_CHAN(bits) _AD7476_CHAN((bits), 16 - (bits), 0)
+#define AD7091R_CONVST_CHAN(bits) _AD7476_CHAN((bits), 16 - (bits), \
+		BIT(IIO_CHAN_INFO_RAW))
 
 static const struct ad7476_chip_info ad7476_chip_info_tbl[] = {
 	[ID_AD7091R] = {
 		.channel[0] = AD7091R_CHAN(12),
 		.channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
+		.convst_channel[0] = AD7091R_CONVST_CHAN(12),
+		.convst_channel[1] = IIO_CHAN_SOFT_TIMESTAMP(1),
 		.reset = ad7091_reset,
 	},
 	[ID_AD7276] = {
@@ -236,8 +243,7 @@ static int ad7476_probe(struct spi_device *spi)
 {
 	struct ad7476_state *st;
 	struct iio_dev *indio_dev;
-	struct iio_chan_spec *chan_spec;
-	int ret, i;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -255,12 +261,11 @@ static int ad7476_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	if (spi_get_device_id(spi)->driver_data == ID_AD7091R) {
-		st->convst_gpio = devm_gpiod_get_optional(&spi->dev,
-			"convst", GPIOD_OUT_HIGH);
-		if (IS_ERR(st->convst_gpio))
-			return PTR_ERR(st->convst_gpio);
-	}
+	st->convst_gpio = devm_gpiod_get_optional(&spi->dev,
+						  "adi,conversion-start",
+						  GPIOD_OUT_LOW);
+	if (IS_ERR(st->convst_gpio))
+		return PTR_ERR(st->convst_gpio);
 
 	spi_set_drvdata(spi, indio_dev);
 
@@ -271,18 +276,12 @@ static int ad7476_probe(struct spi_device *spi)
 	indio_dev->dev.of_node = spi->dev.of_node;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = st->chip_info->channel;
 	indio_dev->num_channels = 2;
-	chan_spec = devm_kcalloc(indio_dev->dev.parent, indio_dev->num_channels,
-		sizeof(*chan_spec), GFP_KERNEL);
-	if (!chan_spec)
-		return -ENOMEM;
-	for (i = 0; i < indio_dev->num_channels; i++) {
-		chan_spec[i] = st->chip_info->channel[i];
-		if ((chan_spec[i].type != IIO_TIMESTAMP) && st->convst_gpio)
-			chan_spec[i].info_mask_separate |= BIT(IIO_CHAN_INFO_RAW);
-	}
-	indio_dev->channels = chan_spec;
 	indio_dev->info = &ad7476_info;
+
+	if (st->convst_gpio && st->chip_info->convst_channel)
+		indio_dev->channels = st->chip_info->convst_channel;
 	/* Setup default message */
 
 	st->xfer.rx_buf = &st->data;
