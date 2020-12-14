@@ -283,6 +283,11 @@ config CLK_QORIQ
 	  This adds the clock driver support for Freescale QorIQ platforms
 	  using common clock framework.
 
+config COMMON_CLK_ADI
+	def_bool COMMON_CLK
+	help
+	  Support for Analog Devices clock providers.
+
 config CLK_LS1028A_PLLDIG
         tristate "Clock driver for LS1028A Display output"
         depends on ARCH_LAYERSCAPE || COMPILE_TEST
@@ -414,6 +419,7 @@ config COMMON_CLK_XLNX_CLKWZRD_V
 	  synthesizer. The number of output is configurable in the design.
 
 source "drivers/clk/actions/Kconfig"
+source "drivers/clk/adi/Kconfig"
 source "drivers/clk/analogbits/Kconfig"
 source "drivers/clk/baikal-t1/Kconfig"
 source "drivers/clk/bcm/Kconfig"
