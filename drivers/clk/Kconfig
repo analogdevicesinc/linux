@@ -245,6 +245,11 @@ config CLK_QORIQ
 	  This adds the clock driver support for Freescale QorIQ platforms
 	  using common clock framework.
 
+config COMMON_CLK_ADI
+	def_bool COMMON_CLK
+	---help---
+	  Support for Analog Devices clock providers.
+
 config COMMON_CLK_XGENE
 	bool "Clock driver for APM XGene SoC"
 	default y
@@ -324,6 +329,7 @@ config COMMON_CLK_STM32H7
 	  Support for stm32h7 SoC family clocks
 
 source "drivers/clk/actions/Kconfig"
+source "drivers/clk/adi/Kconfig"
 source "drivers/clk/bcm/Kconfig"
 source "drivers/clk/hisilicon/Kconfig"
 source "drivers/clk/imgtec/Kconfig"
