@@ -24,10 +24,14 @@
 #include "adi_adrv9001.h"
 #include "adi_adrv9001_arm.h"
 #include "adi_adrv9001_arm_types.h"
+#include "adi_adrv9001_auxadc.h"
+#include "adi_adrv9001_auxadc_types.h"
 #include "adi_adrv9001_bbdc.h"
 #include "adi_adrv9001_cals.h"
 #include "adi_adrv9001_cals_types.h"
 #include "adi_common_types.h"
+#include "adi_adrv9001_auxdac.h"
+#include "adi_adrv9001_auxdac_types.h"
 #include "adi_adrv9001_gpio.h"
 #include "adi_adrv9001_gpio_types.h"
 #include "adi_adrv9001_powermanagement.h"
@@ -1494,22 +1498,86 @@ static int adrv9002_channel_power_set(struct adrv9002_rf_phy *phy, struct adrv90
 	return 0;
 }
 
+static int adrv9002_phy_read_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
+					    struct iio_chan_spec const *chan,
+					    int *val, int *val2, long m)
+{
+	int ret;
+	bool en;
+	u16 temp;
+
+	switch (m) {
+	case IIO_CHAN_INFO_ENABLE:
+		mutex_lock(&phy->lock);
+		if (chan->output)
+			ret = adi_adrv9001_AuxDac_Inspect(phy->adrv9001, chan->address, &en);
+		else
+			ret = adi_adrv9001_AuxAdc_Inspect(phy->adrv9001, chan->address, &en);
+		if (ret)
+			goto error;
+		mutex_unlock(&phy->lock);
+		*val = en;
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_PROCESSED:
+		switch (chan->type) {
+		case IIO_TEMP:
+			mutex_lock(&phy->lock);
+			ret = adi_adrv9001_Temperature_Get(phy->adrv9001, &temp);
+			if (ret)
+				goto error;
+			mutex_unlock(&phy->lock);
+			*val = temp * 1000;
+			return IIO_VAL_INT;
+		case IIO_VOLTAGE:
+			mutex_lock(&phy->lock);
+			if (!chan->output) {
+				ret = adi_adrv9001_AuxAdc_Voltage_Get(phy->adrv9001, chan->address,
+								      &temp);
+				if (ret)
+					goto error;
+				mutex_unlock(&phy->lock);
+
+				*val = temp;
+				return IIO_VAL_INT;
+			}
+
+			ret = adi_adrv9001_AuxDac_Code_Get(phy->adrv9001, chan->address, &temp);
+			if (ret)
+				goto error;
+			mutex_unlock(&phy->lock);
+
+			*val = 900 + DIV_ROUND_CLOSEST((temp - 2048) * 1700, 4096);
+			return IIO_VAL_INT;
+		default:
+			return -EINVAL;
+		}
+	default:
+		return -EINVAL;
+	};
+
+error:
+	mutex_unlock(&phy->lock);
+	return adrv9002_dev_err(phy);
+}
+
 static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 				 struct iio_chan_spec const *chan, int *val,
 				 int *val2, long m)
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	struct adrv9002_chan *chann;
 	const int chan_nr = ADRV_ADDRESS_CHAN(chan->address);
 	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
-	struct adrv9002_chan *chann = adrv9002_get_channel(phy, port, chan_nr);
 	u16 temp;
 	int ret;
 	u8 index;
 
-	/* we can still read the device temperature... */
-	if (m != IIO_CHAN_INFO_PROCESSED)
-		if (!chann->enabled)
-			return -ENODEV;
+	if (chan->type != IIO_VOLTAGE || chan->channel > ADRV9002_CHANN_2)
+		return adrv9002_phy_read_raw_no_rf_chan(phy, chan, val, val2, m);
+
+	chann = adrv9002_get_channel(phy, port, chan_nr);
+	if (chann->enabled)
+		return -ENODEV;
 
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
@@ -1550,19 +1618,49 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_ENABLE:
 		*val = chann->power;
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_PROCESSED:
-		mutex_lock(&phy->lock);
-		ret = adi_adrv9001_Temperature_Get(phy->adrv9001, &temp);
-		mutex_unlock(&phy->lock);
-		if (ret)
-			return adrv9002_dev_err(phy);
-
-		*val = temp * 1000;
-		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
 };
+
+static int adrv9002_phy_write_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
+					     struct iio_chan_spec const *chan, int val,
+					     int val2, long mask)
+{
+	int ret;
+	u16 code;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_ENABLE:
+		mutex_lock(&phy->lock);
+		if (chan->output)
+			ret = adi_adrv9001_AuxDac_Configure(phy->adrv9001, chan->address, val);
+		else
+			ret = adi_adrv9001_AuxAdc_Configure(phy->adrv9001, chan->address, val);
+		if (ret)
+			goto error;
+		mutex_unlock(&phy->lock);
+		return 0;
+	case IIO_CHAN_INFO_PROCESSED:
+		code = clamp_val(val, 50, 1750);
+		code = 2048 + DIV_ROUND_CLOSEST((code - 900) * 4096, 1700);
+		if (code == 4096)
+			code = 4095;
+
+		mutex_lock(&phy->lock);
+		ret = adi_adrv9001_AuxDac_Code_Set(phy->adrv9001, chan->address, code);
+		if (ret)
+			goto error;
+		mutex_unlock(&phy->lock);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+
+error:
+	mutex_unlock(&phy->lock);
+	return adrv9002_dev_err(phy);
+}
 
 static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 				  struct iio_chan_spec const *chan, int val,
@@ -1571,10 +1669,14 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const int chan_nr = ADRV_ADDRESS_CHAN(chan->address);
 	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
-	struct adrv9002_chan *chann = adrv9002_get_channel(phy, port, chan_nr);
+	struct adrv9002_chan *chann;
 	u32 code;
 	int ret = 0;
 
+	if (chan->type != IIO_VOLTAGE || chan->channel > ADRV9002_CHANN_2)
+		return adrv9002_phy_write_raw_no_rf_chan(phy, chan, val, val2, mask);
+
+	chann = adrv9002_get_channel(phy, port, chan_nr);
 	if (!chann->enabled)
 		return -ENODEV;
 
@@ -1651,6 +1753,16 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 	.address = ADRV_ADDRESS(port, chan),			\
 }
 
+#define ADRV9002_IIO_AUX_CONV_CHAN(idx, out, chan) {		\
+	.type = IIO_VOLTAGE,					\
+	.indexed = 1,						\
+	.channel = idx,						\
+	.output = out,						\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |	\
+			BIT(IIO_CHAN_INFO_ENABLE),		\
+	.address = chan,					\
+}
+
 static const struct iio_chan_spec adrv9002_phy_chan[] = {
 	ADRV9002_IIO_LO_CHAN(0, "RX1_LO", ADI_RX, ADRV9002_CHANN_1),
 	ADRV9002_IIO_LO_CHAN(1, "RX2_LO", ADI_RX, ADRV9002_CHANN_2),
@@ -1658,8 +1770,16 @@ static const struct iio_chan_spec adrv9002_phy_chan[] = {
 	ADRV9002_IIO_LO_CHAN(3, "TX2_LO", ADI_TX, ADRV9002_CHANN_2),
 	ADRV9002_IIO_TX_CHAN(0, ADI_TX, ADRV9002_CHANN_1),
 	ADRV9002_IIO_TX_CHAN(1, ADI_TX, ADRV9002_CHANN_2),
+	ADRV9002_IIO_AUX_CONV_CHAN(2, true, ADI_ADRV9001_AUXDAC0),
+	ADRV9002_IIO_AUX_CONV_CHAN(3, true, ADI_ADRV9001_AUXDAC1),
+	ADRV9002_IIO_AUX_CONV_CHAN(4, true, ADI_ADRV9001_AUXDAC2),
+	ADRV9002_IIO_AUX_CONV_CHAN(5, true, ADI_ADRV9001_AUXDAC3),
 	ADRV9002_IIO_RX_CHAN(0, ADI_RX, ADRV9002_CHANN_1),
 	ADRV9002_IIO_RX_CHAN(1, ADI_RX, ADRV9002_CHANN_2),
+	ADRV9002_IIO_AUX_CONV_CHAN(2, false, ADI_ADRV9001_AUXADC0),
+	ADRV9002_IIO_AUX_CONV_CHAN(3, false, ADI_ADRV9001_AUXADC1),
+	ADRV9002_IIO_AUX_CONV_CHAN(4, false, ADI_ADRV9001_AUXADC2),
+	ADRV9002_IIO_AUX_CONV_CHAN(5, false, ADI_ADRV9001_AUXADC3),
 	{
 		.type = IIO_TEMP,
 		.indexed = 1,
