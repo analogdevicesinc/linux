@@ -407,7 +407,12 @@ static void spi_imx_buf_tx_swap(struct spi_imx_data *spi_imx)
 
 static void mx53_ecspi_rx_target(struct spi_imx_data *spi_imx)
 {
-	u32 val = be32_to_cpu(readl(spi_imx->base + MXC_CSPIRXDATA));
+	u32 val = readl(spi_imx->base + MXC_CSPIRXDATA);
+
+	if (spi_imx->bits_per_word <= 8)
+		val = be32_to_cpu(val);
+	else if (spi_imx->bits_per_word <= 16)
+		val = (val << 16) | (val >> 16);
 
 	if (spi_imx->rx_buf) {
 		int n_bytes = spi_imx->target_burst % sizeof(val);
@@ -436,7 +441,11 @@ static void mx53_ecspi_tx_target(struct spi_imx_data *spi_imx)
 	if (spi_imx->tx_buf) {
 		memcpy(((u8 *)&val) + sizeof(val) - n_bytes,
 		       spi_imx->tx_buf, n_bytes);
-		val = cpu_to_be32(val);
+		if (spi_imx->bits_per_word <= 8)
+			val = cpu_to_be32(val);
+		else if (spi_imx->bits_per_word <= 16)
+			val = (val << 16) | (val >> 16);
+
 		spi_imx->tx_buf += n_bytes;
 	}
 
