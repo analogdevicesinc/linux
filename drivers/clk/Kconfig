@@ -344,6 +344,11 @@ config CLK_LS1028A_PLLDIG
           features of the PLL are currently supported by the driver. By default,
           configured bypass mode with this PLL.
 
+config COMMON_CLK_ADI
+	def_bool COMMON_CLK
+	---help---
+	  Support for Analog Devices clock providers.
+
 config COMMON_CLK_XGENE
 	bool "Clock driver for APM XGene SoC"
 	default ARCH_XGENE
@@ -486,6 +491,7 @@ config COMMON_CLK_PROXO
 	  Support for the Renesas ProXO oscillator clock.
 
 source "drivers/clk/actions/Kconfig"
+source "drivers/clk/adi/Kconfig"
 source "drivers/clk/analogbits/Kconfig"
 source "drivers/clk/baikal-t1/Kconfig"
 source "drivers/clk/bcm/Kconfig"
