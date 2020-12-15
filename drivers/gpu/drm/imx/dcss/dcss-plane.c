@@ -289,6 +289,12 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
+	if (fb->modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED &&
+	    dcss_plane->dtrc_table_ofs_val == 0) {
+		DRM_ERROR_RATELIMITED("No DTRC decompression table offset set, reject plane.\n");
+		return -EINVAL;
+	}
+
 	dcss_plane->use_dtrc = dcss_plane_use_dtrc(fb, plane->type);
 
 	return 0;
