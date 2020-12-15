@@ -516,7 +516,6 @@ static void dcss_dpr_tile_set(struct dcss_dpr_ch *ch, uint64_t modifier)
 			ch->tile = TILE_GPU_SUPER;
 			break;
 		default:
-			WARN_ON(1);
 			break;
 		}
 		break;
