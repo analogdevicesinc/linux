@@ -2782,7 +2782,7 @@ static int adrv9009_phy_read_raw(struct iio_dev *indio_dev,
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
 	taliseTxChannels_t txchan;
 	taliseRxORxChannels_t rxchan;
-	u16 temp;
+	s16 temp;
 	int ret;
 
 	if (!phy->is_initialized)
