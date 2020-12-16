@@ -1507,9 +1507,19 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 		enable_irq(phy->spi->irq);
 		break;
 	case ADRV9009_JESD204_FSM_RESUME:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		ret = jesd204_fsm_resume(phy->jdev, JESD204_LINKS_ALL);
 		break;
 	case ADRV9009_JESD204_FSM_CTRL:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		ret = strtobool(buf, &enable);
 		if (ret)
 			break;
@@ -1565,6 +1575,11 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 			ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
 		break;
 	case ADRV9009_JESD204_FSM_ERROR:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		num_links = jesd204_get_active_links_num(jdev);
 		if (num_links < 0)
 			return num_links;
@@ -1582,6 +1597,11 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", err);
 		break;
 	case ADRV9009_JESD204_FSM_PAUSED:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		num_links = jesd204_get_active_links_num(jdev);
 		if (num_links < 0)
 			return num_links;
@@ -1603,6 +1623,11 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", paused);
 		break;
 	case ADRV9009_JESD204_FSM_STATE:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		num_links = jesd204_get_active_links_num(jdev);
 		if (num_links < 0)
 			return num_links;
@@ -1617,6 +1642,11 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		ret = sprintf(buf, "%s\n", jesd204_link_get_state_str(links[0]));
 		break;
 	case ADRV9009_JESD204_FSM_CTRL:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		ret = sprintf(buf, "%d\n", phy->is_initialized);
 		break;
 	default:
