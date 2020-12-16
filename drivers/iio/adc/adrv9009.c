@@ -1028,8 +1028,8 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 
 	ret = TALISE_setRxTxEnable(phy->talDevice,
-				   has_rx_and_en(phy) ? TAL_RX1RX2_EN : 0,
-				   has_tx_and_en(phy) ? TAL_TX1TX2 : 0);
+				   has_rx_and_en(phy) ? phy->talInit.rx.rxChannels : 0,
+				   has_tx_and_en(phy) ? phy->talInit.tx.txChannels : 0);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 		ret = -EFAULT;
