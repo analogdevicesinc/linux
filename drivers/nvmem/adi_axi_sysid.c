@@ -289,6 +289,11 @@ static int axi_sysid_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	dev_info(&pdev->dev, "AXI System ID core version (%d.%.2d.%c) found\n",
+		ADI_AXI_PCORE_VER_MAJOR(version),
+		ADI_AXI_PCORE_VER_MINOR(version),
+		ADI_AXI_PCORE_VER_PATCH(version));
+
 	st->size = (1 << axi_sysid_ioread(st, AXI_SYSID_REG_ROM_ADDR_WIDTH)) *
 		   AXI_SYSID_WORD_SIZE;
 
