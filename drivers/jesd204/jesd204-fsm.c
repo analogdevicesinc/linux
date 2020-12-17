@@ -745,6 +745,10 @@ static int jesd204_validate_lnk_state(struct jesd204_dev *jdev,
 	if (cur_state == ol->state)
 		return 0;
 
+	/* When rolling back we need to validate this, to not skip the first state (in a rollback) */
+	if (fsm_data->rollback && nxt_state == ol->state)
+		return 0;
+
 	if (fsm_data->rollback || fsm_data->resuming)
 		return -EINVALID_STATE;
 
