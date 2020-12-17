@@ -5573,10 +5573,10 @@ static int adrv9009_jesd204_link_running(struct jesd204_dev *jdev,
 	uint16_t deframerStatus = 0;
 	uint8_t framerStatus = 0;
 
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
-
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (!lnk->num_converters)
 		return JESD204_STATE_CHANGE_DONE;
@@ -5614,10 +5614,10 @@ int adrv9009_jesd204_uninit(struct jesd204_dev *jdev,
 	struct adrv9009_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct adrv9009_rf_phy *phy = priv->phy;
 
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
 	if (reason != JESD204_STATE_OP_REASON_UNINIT)
 		return JESD204_STATE_CHANGE_DONE;
-
-	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
 	adrv9009_shutdown(phy);
 
