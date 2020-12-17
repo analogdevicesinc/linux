@@ -257,7 +257,7 @@ static int axi_sysid_probe(struct platform_device *pdev)
 	struct axi_sysid *st;
 	struct resource *res;
 	u32 version;
-	int i;
+	int i, ret;
 
 	info = device_get_match_data(&pdev->dev);
 	if (!info)
@@ -301,7 +301,9 @@ static int axi_sysid_probe(struct platform_device *pdev)
 	st->size = (1 << axi_sysid_ioread(st, AXI_SYSID_REG_ROM_ADDR_WIDTH)) *
 		   AXI_SYSID_WORD_SIZE;
 
-	axi_sysid_validate(pdev, st);
+	ret = axi_sysid_validate(pdev, st);
+	if (ret)
+		return ret;
 
 	memcpy(config, &axi_sysid_nvmem_config, sizeof(*config));
 
