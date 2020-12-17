@@ -303,22 +303,9 @@ static int axi_sysid_probe(struct platform_device *pdev)
 	axi_sysid_nvmem_config.dev = &pdev->dev;
 	axi_sysid_nvmem_config.priv = st;
 
-	nvmem = nvmem_register(&axi_sysid_nvmem_config);
-	if (IS_ERR(nvmem))
-		return PTR_ERR(nvmem);
+	nvmem = devm_nvmem_register(&pdev->dev, &axi_sysid_nvmem_config);
 
-	platform_set_drvdata(pdev, nvmem);
-
-	return 0;
-}
-
-static int axi_sysid_remove(struct platform_device *pdev)
-{
-	struct nvmem_device *nvmem = platform_get_drvdata(pdev);
-
-	nvmem_unregister(nvmem);
-
-	return 0;
+	return PTR_ERR_OR_ZERO(nvmem);
 }
 
 static const struct of_device_id axi_sysid_of_match[] = {
@@ -329,7 +316,6 @@ MODULE_DEVICE_TABLE(of, axi_sysid_of_match);
 
 static struct platform_driver axi_sysid_driver = {
 	.probe	= axi_sysid_probe,
-	.remove	= axi_sysid_remove,
 	.driver = {
 		.name	= "axi_sysid",
 		.of_match_table = axi_sysid_of_match,
