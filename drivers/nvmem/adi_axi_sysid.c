@@ -19,7 +19,7 @@
 #define AXI_SYSID_ROM_OFFSET		0x800
 
 enum {
-	AXI_SYSID_HEADER_V1,
+	AXI_SYSID_HEADER_V1 = 1,
 	AXI_SYSID_HEADER_V2,
 };
 
@@ -241,11 +241,11 @@ static const struct nvmem_config axi_sysid_nvmem_config = {
 static const struct axi_sysid_core_info version_1_0_0_info[] = {
 	{
 		.version = ADI_AXI_PCORE_VER(1, 0, 'a'),
-		.header_version = 1,
+		.header_version = AXI_SYSID_HEADER_V1,
 	},
 	{
 		.version = ADI_AXI_PCORE_VER(1, 1, 'a'),
-		.header_version = 2,
+		.header_version = AXI_SYSID_HEADER_V2,
 	},
 	{}
 };
