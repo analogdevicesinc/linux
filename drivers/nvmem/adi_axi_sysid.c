@@ -229,7 +229,7 @@ static int axi_sysid_validate(struct platform_device *pdev,
 	}
 }
 
-static struct nvmem_config axi_sysid_nvmem_config = {
+static const struct nvmem_config axi_sysid_nvmem_config = {
 	.name = "system-id",
 	.read_only = true,
 	.word_size = AXI_SYSID_WORD_SIZE,
@@ -253,7 +253,7 @@ static const struct axi_sysid_core_info version_1_0_0_info[] = {
 static int axi_sysid_probe(struct platform_device *pdev)
 {
 	const struct axi_sysid_core_info *info;
-	struct nvmem_device *nvmem;
+	struct nvmem_config *config;
 	struct axi_sysid *st;
 	struct resource *res;
 	u32 version;
@@ -265,6 +265,10 @@ static int axi_sysid_probe(struct platform_device *pdev)
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st)
+		return -ENOMEM;
+
+	config = devm_kzalloc(&pdev->dev, sizeof(*config), GFP_KERNEL);
+	if (!config)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -299,13 +303,13 @@ static int axi_sysid_probe(struct platform_device *pdev)
 
 	axi_sysid_validate(pdev, st);
 
-	axi_sysid_nvmem_config.size = st->size;
-	axi_sysid_nvmem_config.dev = &pdev->dev;
-	axi_sysid_nvmem_config.priv = st;
+	memcpy(config, &axi_sysid_nvmem_config, sizeof(*config));
 
-	nvmem = devm_nvmem_register(&pdev->dev, &axi_sysid_nvmem_config);
+	config->size = st->size;
+	config->dev = &pdev->dev;
+	config->priv = st;
 
-	return PTR_ERR_OR_ZERO(nvmem);
+	return PTR_ERR_OR_ZERO(devm_nvmem_register(&pdev->dev, config));
 }
 
 static const struct of_device_id axi_sysid_of_match[] = {
