@@ -110,7 +110,7 @@ int cdns_hdcprx_wait_auth_complete(struct cdns_hdmirx_device *hdmirx, u16 timeou
 {
 	struct hdcprx_status status;
 	u8 key_arrived;
-	time_t timeout = ktime_timeout_ms(timeout_ms);
+	ktime_t timeout = ktime_timeout_ms(timeout_ms);
 
 	dev_dbg(&hdmirx->pdev->dev, "Wait for HDCP authentication to complete\n");
 	do {

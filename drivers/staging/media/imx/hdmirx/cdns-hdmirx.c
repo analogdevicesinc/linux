@@ -529,7 +529,7 @@ static int hdmirx_enum_frame_interval(struct v4l2_subdev *sd,
 
 	if (fie->width == 0 || fie->height == 0 ||
 	    fie->code == 0) {
-		pr_warning("Please assign pixel format, width and height.\n");
+		pr_warn("Please assign pixel format, width and height.\n");
 		return -EINVAL;
 	}
 
@@ -1047,7 +1047,7 @@ int cdns_hdmirx_wait_edid_read(struct cdns_hdmirx_device *hdmirx)
 {
 	uint32_t events;
 
-	time_t timeout = ktime_timeout_ms(2000);
+	ktime_t timeout = ktime_timeout_ms(2000);
 	dev_info(&hdmirx->pdev->dev, "hdmirx_wait_edid_read wait for EDID to be read\n");
 	do {
 		events = cdns_hdmirx_bus_read(hdmirx, SW_EVENTS1);

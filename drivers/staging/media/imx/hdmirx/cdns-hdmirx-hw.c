@@ -74,7 +74,7 @@ struct S_HDMI_SCDC_SET_MSG scdcexampledata = {
 
 int infoframe_poll(struct cdns_hdmirx_device *hdmirx, u8 type, u8 *buf, u16 timeout_ms)
 {
-	time_t timeout;
+	ktime_t timeout;
 
 	u32 reg;
 	int ret = -1;
@@ -694,7 +694,7 @@ int hdmirx_config(struct cdns_hdmirx_device *hdmirx)
 	u8 scrambling_en;
 	u32 tmds_bit_clock_ratio;
 	int ret;
-	time_t timeout;
+	ktime_t timeout;
 	u32 val;
 	u8 null_info[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 						0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};

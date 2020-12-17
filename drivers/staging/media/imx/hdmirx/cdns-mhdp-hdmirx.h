@@ -26,7 +26,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 #include <drm/drm_of.h>
-#include <drm/drmP.h>
+#include <drm/drm_print.h>
 
 #include <uapi/linux/v4l2-dv-timings.h>
 #include <drm/bridge/cdns-mhdp.h>

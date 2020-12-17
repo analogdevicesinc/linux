@@ -196,7 +196,7 @@ void pre_data_rate_change(struct cdns_hdmirx_device *hdmirx)
 	u16 reg_val;
 	int i;
 	int ret_val;
-	const time_t timeout = ktime_timeout_ms(1500);
+	const ktime_t timeout = ktime_timeout_ms(1500);
 
 	/* Turn off frequency measurement: */
 	write16(hdmirx, CMN_CMSMT_CLK_FREQ_MSMT_CTRL_ADDR, 0x0000);
@@ -238,7 +238,7 @@ void pre_data_rate_change(struct cdns_hdmirx_device *hdmirx)
 
 int pma_cmn_ready(struct cdns_hdmirx_device *hdmirx)
 {
-	const time_t timeout = ktime_timeout_ms(PMA_CMN_READY_TIMEOUT_MS);
+	const ktime_t timeout = ktime_timeout_ms(PMA_CMN_READY_TIMEOUT_MS);
 
 	do {
 		udelay(10);
@@ -261,7 +261,7 @@ int phy_in_reset(struct cdns_hdmirx_device *hdmirx)
 
 int pma_rx_clk_signal_detect(struct cdns_hdmirx_device *hdmirx)
 {
-	const time_t timeout =
+	const ktime_t timeout =
 		ktime_timeout_ms(PMA_RX_CLK_SIGNAL_DETECT_TIMEOUT_MS);
 
 	do {
@@ -287,7 +287,7 @@ static int pma_rx_clk_freq_detect(struct cdns_hdmirx_device *hdmirx)
 {
 	u16 reg_val;
 	u32 rx_clk_freq;
-	time_t timeout;
+	ktime_t timeout;
 
 	/* Turn off measurement in case not already off... */
 	write16(hdmirx, CMN_CMSMT_CLK_FREQ_MSMT_CTRL_ADDR, 0x0000);
@@ -363,7 +363,7 @@ meas_error:
 
 int cdns_hdmirx_get_stable_tmds(struct cdns_hdmirx_device *hdmirx)
 {
-	const time_t timeout = ktime_timeout_ms(TMDS_STABLE_DETECT_TIMEOUT_MS);
+	const ktime_t timeout = ktime_timeout_ms(TMDS_STABLE_DETECT_TIMEOUT_MS);
 	char i = 0;
 	int tmds = -1;
 
@@ -450,7 +450,7 @@ int pma_power_state_chng(struct cdns_hdmirx_device *hdmirx, u8 power_state)
 	u16 reg_val;
 	reg_field_t xcvr_power_state_req;
 	reg_field_t xcvr_power_state_ack;
-	time_t timeout;
+	ktime_t timeout;
 
 	xcvr_power_state_req.label = "xcvr_power_state_req";
 	xcvr_power_state_ack.label = "xcvr_power_state_ack";
@@ -499,7 +499,7 @@ int pma_pll_config(struct cdns_hdmirx_device *hdmirx,
 	int i, loop;
 	u16 reg_val;
 	u64 vco_freq_khz;
-	const time_t timeout = ktime_timeout_ms(1000);
+	const ktime_t timeout = ktime_timeout_ms(1000);
 
 	reg_field_t cmnda_pll0_ip_div;
 	reg_field_t cmnda_pll0_hs_sym_div_sel;
