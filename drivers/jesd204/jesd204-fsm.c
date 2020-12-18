@@ -1255,11 +1255,12 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 			goto next_state;
 
 		if (ret && !rollback) {
+			const struct jesd204_fsm_table_entry *t = table;
 			ret1 = ret;
-			if (!table[0].first)
-				table--;
+			if (!t[0].first)
+				t--;
 			jesd204_err(jdev, "Rolling back from '%s', got error %d\n",
-				    jesd204_state_str(table[0].state), ret);
+				    jesd204_state_str(t[0].state), ret);
 			rollback = true;
 			continue;
 		}
