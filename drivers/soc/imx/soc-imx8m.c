@@ -6,6 +6,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
@@ -299,6 +300,7 @@ bool imx_src_is_m4_enabled(void)
 {
 	return m4_is_enabled;
 }
+EXPORT_SYMBOL_GPL(imx_src_is_m4_enabled);
 
 int check_m4_enabled(void)
 {
@@ -313,3 +315,7 @@ int check_m4_enabled(void)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(check_m4_enabled);
+
+MODULE_DESCRIPTION("i.MX8M SoC driver");
+MODULE_LICENSE("GPL v2");
