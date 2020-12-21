@@ -1,0 +1,247 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+/*
+ * Copyright 2020,2021 NXP
+ */
+
+#include <linux/dma-mapping.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+
+#include <drm/drm_atomic_helper.h>
+#include <drm/drm_drv.h>
+#include <drm/drm_fb_helper.h>
+#include <drm/drm_fbdev_dma.h>
+#include <drm/drm_gem_dma_helper.h>
+#include <drm/drm_irq.h>
+#include <drm/drm_modeset_helper.h>
+#include <drm/drm_print.h>
+#include <drm/drm_probe_helper.h>
+
+#include "dcnano-drv.h"
+#include "dcnano-reg.h"
+
+#define DRIVER_NAME     "imx-dcnano-drm"
+
+static int legacyfb_depth = 32;
+module_param(legacyfb_depth, uint, 0444);
+
+DEFINE_DRM_GEM_DMA_FOPS(dcnano_driver_fops);
+
+static struct drm_driver dcnano_driver = {
+	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
+	.irq_handler		= dcnano_irq_handler,
+	DRM_GEM_DMA_DRIVER_OPS,
+	.fops			= &dcnano_driver_fops,
+	.name			= "imx-dcnano",
+	.desc			= "i.MX DCNANO DRM graphics",
+	.date			= "20201221",
+	.major			= 1,
+	.minor			= 0,
+	.patchlevel		= 0,
+};
+
+static int dcnano_check_chip_info(struct dcnano_dev *dcnano)
+{
+	struct drm_device *drm = &dcnano->base;
+	u32 val;
+	int ret = 0;
+
+	clk_prepare_enable(dcnano->ahb_clk);
+	clk_prepare_enable(dcnano->pixel_clk);
+
+	val = dcnano_read(dcnano, DCNANO_DCCHIPREV);
+	if (val != DCCHIPREV) {
+		DRM_DEV_ERROR(drm->dev, "invalid chip revision(0x%08x)\n", val);
+		ret = -ENODEV;
+		goto err;
+	}
+	DRM_DEV_DEBUG(drm->dev, "chip revision is 0x%08x\n", val);
+
+	val = dcnano_read(dcnano, DCNANO_DCCHIPDATE);
+	if (val != DCCHIPDATE) {
+		DRM_DEV_ERROR(drm->dev, "invalid chip date(0x%08x)\n", val);
+		ret = -ENODEV;
+		goto err;
+	}
+	DRM_DEV_DEBUG(drm->dev, "chip date is 0x%08x\n", val);
+
+	val = dcnano_read(dcnano, DCNANO_DCCHIPPATCHREV);
+	if (val != DCCHIPPATCHREV) {
+		DRM_DEV_ERROR(drm->dev,
+			      "invalid chip patch revision(0x%08x)\n", val);
+		ret = -ENODEV;
+		goto err;
+	}
+	DRM_DEV_DEBUG(drm->dev, "chip patch revision is 0x%08x\n", val);
+err:
+	clk_disable_unprepare(dcnano->pixel_clk);
+	clk_disable_unprepare(dcnano->ahb_clk);
+	return ret;
+}
+
+static int dcnano_probe(struct platform_device *pdev)
+{
+	struct dcnano_dev *dcnano;
+	struct drm_device *drm;
+	int irq, ret;
+
+	if (!pdev->dev.of_node)
+		return -ENODEV;
+
+	dcnano = devm_drm_dev_alloc(&pdev->dev, &dcnano_driver,
+				    struct dcnano_dev, base);
+	if (IS_ERR(dcnano))
+		return PTR_ERR(dcnano);
+
+	drm = &dcnano->base;
+	dev_set_drvdata(&pdev->dev, dcnano);
+
+	dcnano->mmio_base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(dcnano->mmio_base))
+		return PTR_ERR(dcnano->mmio_base);
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0)
+		return irq;
+
+	dcnano->axi_clk = devm_clk_get(drm->dev, "axi");
+	if (IS_ERR(dcnano->axi_clk)) {
+		ret = PTR_ERR(dcnano->axi_clk);
+		if (ret != -EPROBE_DEFER)
+			DRM_DEV_ERROR(drm->dev,
+				      "failed to get axi clk: %d\n", ret);
+		return ret;
+	}
+
+	dcnano->ahb_clk = devm_clk_get(drm->dev, "ahb");
+	if (IS_ERR(dcnano->ahb_clk)) {
+		ret = PTR_ERR(dcnano->ahb_clk);
+		if (ret != -EPROBE_DEFER)
+			DRM_DEV_ERROR(drm->dev,
+				      "failed to get ahb clk: %d\n", ret);
+		return ret;
+	}
+
+	dcnano->pixel_clk = devm_clk_get(drm->dev, "pixel");
+	if (IS_ERR(dcnano->pixel_clk)) {
+		ret = PTR_ERR(dcnano->pixel_clk);
+		if (ret != -EPROBE_DEFER)
+			DRM_DEV_ERROR(drm->dev,
+				      "failed to get pixel clk: %d\n", ret);
+		return ret;
+	}
+
+	ret = dma_set_mask_and_coherent(drm->dev, DMA_BIT_MASK(32));
+	if (ret) {
+		DRM_DEV_ERROR(drm->dev,
+			      "failed to set dma mask and coherent: %d\n", ret);
+		return ret;
+	}
+
+	clk_prepare_enable(dcnano->ahb_clk);
+	clk_prepare_enable(dcnano->pixel_clk);
+	ret = drm_irq_install(drm, irq);
+	clk_disable_unprepare(dcnano->pixel_clk);
+	clk_disable_unprepare(dcnano->ahb_clk);
+
+	if (ret < 0) {
+		DRM_DEV_ERROR(drm->dev,
+			      "failed to install IRQ handler: %d\n", ret);
+		return ret;
+	}
+
+	ret = dcnano_check_chip_info(dcnano);
+	if (ret)
+		goto err_check_chip_info;
+
+	ret = dcnano_kms_prepare(dcnano);
+	if (ret)
+		goto err_kms_prepare;
+
+	ret = drm_dev_register(drm, 0);
+	if (ret) {
+		DRM_DEV_ERROR(drm->dev,
+			      "failed to register drm device: %d\n", ret);
+		goto err_register;
+	}
+
+	if (legacyfb_depth != 16 && legacyfb_depth != 32) {
+		DRM_DEV_INFO(drm->dev,
+			     "Invalid legacyfb_depth.  Defaulting to 32bpp\n");
+		legacyfb_depth = 32;
+	}
+
+	drm_fbdev_dma_setup(drm, legacyfb_depth);
+
+	return 0;
+
+err_register:
+	drm_kms_helper_poll_fini(drm);
+err_kms_prepare:
+err_check_chip_info:
+	clk_prepare_enable(dcnano->ahb_clk);
+	clk_prepare_enable(dcnano->pixel_clk);
+	drm_irq_uninstall(drm);
+	clk_disable_unprepare(dcnano->pixel_clk);
+	clk_disable_unprepare(dcnano->ahb_clk);
+	return ret;
+}
+
+static void dcnano_remove(struct platform_device *pdev)
+{
+	struct dcnano_dev *dcnano = dev_get_drvdata(&pdev->dev);
+	struct drm_device *drm = &dcnano->base;
+
+	drm_dev_unregister(drm);
+
+	drm_kms_helper_poll_fini(drm);
+
+	drm_atomic_helper_shutdown(drm);
+
+	clk_prepare_enable(dcnano->ahb_clk);
+	clk_prepare_enable(dcnano->pixel_clk);
+	drm_irq_uninstall(drm);
+	clk_disable_unprepare(dcnano->pixel_clk);
+	clk_disable_unprepare(dcnano->ahb_clk);
+}
+
+static int __maybe_unused dcnano_suspend(struct device *dev)
+{
+	struct dcnano_dev *dcnano = dev_get_drvdata(dev);
+
+	return drm_mode_config_helper_suspend(&dcnano->base);
+}
+
+static int __maybe_unused dcnano_resume(struct device *dev)
+{
+	struct dcnano_dev *dcnano = dev_get_drvdata(dev);
+
+	return drm_mode_config_helper_resume(&dcnano->base);
+}
+
+static const struct dev_pm_ops dcnano_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(dcnano_suspend, dcnano_resume)
+};
+
+static const struct of_device_id dcnano_dt_ids[] = {
+	{ .compatible = "nxp,imx8ulp-dcnano", },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, dcnano_dt_ids);
+
+static struct platform_driver dcnano_platform_driver = {
+	.probe	= dcnano_probe,
+	.remove	= dcnano_remove,
+	.driver	= {
+		.name		= DRIVER_NAME,
+		.of_match_table	= dcnano_dt_ids,
+		.pm		= &dcnano_pm_ops,
+	},
+};
+module_platform_driver(dcnano_platform_driver);
+
+MODULE_AUTHOR("NXP Semiconductor");
+MODULE_DESCRIPTION("i.MX DCNANO DRM driver");
+MODULE_ALIAS("platform:" DRIVER_NAME);
+MODULE_LICENSE("GPL v2");
