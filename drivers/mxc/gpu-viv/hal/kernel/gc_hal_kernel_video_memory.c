@@ -644,11 +644,7 @@ _FindNode(
 {
     gcuVIDMEM_NODE_PTR node;
     gctUINT32 alignment;
-
-#if gcdENABLE_BANK_ALIGNMENT
     gctUINT32 bankAlignment;
-    gceSTATUS status;
-#endif
 
     if (Memory->sentinel[Bank].VidMem.nextFree == gcvNULL)
     {
@@ -656,30 +652,40 @@ _FindNode(
         return gcvNULL;
     }
 
-#if gcdENABLE_BANK_ALIGNMENT
     /* Walk all free nodes until we have one that is big enough or we have
     ** reached the sentinel. */
     for (node = Memory->sentinel[Bank].VidMem.nextFree;
          node->VidMem.bytes != 0;
          node = node->VidMem.nextFree)
     {
+        gctUINT offset;
+
+        gcmkSAFECASTSIZET(offset, node->VidMem.offset);
+
         if (node->VidMem.bytes < Bytes)
         {
             continue;
         }
 
-        gcmkONERROR(_GetSurfaceBankAlignment(
+#if gcdENABLE_BANK_ALIGNMENT
+        if (gcmIS_ERROR(_GetSurfaceBankAlignment(
             Kernel,
             Type,
             (gctUINT32)(node->VidMem.parent->physicalBase + node->VidMem.offset),
-            &bankAlignment));
+            &bankAlignment)))
+        {
+            return gcvNULL;
+        }
 
         bankAlignment = gcmALIGN(bankAlignment, *Alignment);
+#else
+        bankAlignment = 0;
+#endif
 
         /* Compute number of bytes to skip for alignment. */
         alignment = (*Alignment == 0)
                   ? 0
-                  : (*Alignment - (node->VidMem.offset % *Alignment));
+                  : (*Alignment - (offset & (*Alignment - 1)));
 
         if (alignment == *Alignment)
         {
@@ -694,42 +700,7 @@ _FindNode(
             return node;
         }
     }
-#endif
 
-    /* Walk all free nodes until we have one that is big enough or we have
-       reached the sentinel. */
-    for (node = Memory->sentinel[Bank].VidMem.nextFree;
-         node->VidMem.bytes != 0;
-         node = node->VidMem.nextFree)
-    {
-        gctUINT offset;
-
-        gctINT modulo;
-
-        gcmkSAFECASTSIZET(offset, node->VidMem.offset);
-
-        modulo = gckMATH_ModuloInt(offset, *Alignment);
-
-        /* Compute number of bytes to skip for alignment. */
-        alignment = (*Alignment == 0) ? 0 : (*Alignment - modulo);
-
-        if (alignment == *Alignment)
-        {
-            /* Node is already aligned. */
-            alignment = 0;
-        }
-
-        if (node->VidMem.bytes >= Bytes + alignment)
-        {
-            /* This node is big enough. */
-            *Alignment = alignment;
-            return node;
-        }
-    }
-
-#if gcdENABLE_BANK_ALIGNMENT
-OnError:
-#endif
     /* Not enough memory. */
     return gcvNULL;
 }
@@ -794,6 +765,11 @@ gckVIDMEM_AllocateLinear(
     gcmkVERIFY_ARGUMENT(Bytes > 0);
     gcmkVERIFY_ARGUMENT(Node != gcvNULL);
     gcmkVERIFY_ARGUMENT(Type < gcvVIDMEM_TYPE_COUNT);
+
+    if (Alignment && (Alignment & (Alignment - 1)))
+    {
+        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
 
     /* Acquire the mutex. */
     gcmkONERROR(gckOS_AcquireMutex(Memory->os, Memory->mutex, gcvINFINITE));

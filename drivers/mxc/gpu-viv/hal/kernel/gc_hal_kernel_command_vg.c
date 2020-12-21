@@ -3447,7 +3447,7 @@ gckVGCOMMAND_Execute(
         kernelEntry->commandBuffer = CommandBuffer;
         kernelEntry->handler = _FreeKernelCommandBuffer;
 
-        /* Lock the current queue. */
+        /* Unlock the current queue. */
         gcmkERR_BREAK(_UnlockCurrentQueue(
             Command, 1
             ));
@@ -3605,7 +3605,7 @@ gckVGCOMMAND_Commit(
                     Command->os, Command->powerSemaphore
                     ));
 
-        /* Acquire the mutex. */
+        /* Acquire the commit mutex. */
         status = gckOS_AcquireMutex(
                 Command->os,
                 Command->commitMutex,
@@ -3718,9 +3718,6 @@ gckVGCOMMAND_Commit(
                     ? queueLength
                     : EntryCount;
 
-                /* Update the number of the entries left to process. */
-                EntryCount -= currentLength;
-
                 /* Reset previous flags. */
                 previousDynamic  = gcvFALSE;
                 previousExecuted = gcvFALSE;
@@ -3733,7 +3730,7 @@ gckVGCOMMAND_Commit(
                 {
                     /* Get the kernel pointer to the command buffer header. */
                     gcsCMDBUFFER_PTR commandBuffer = gcvNULL;
-                    gcmkERR_BREAK(_ConvertUserCommandBufferPointer(
+                    gcmkONERROR(_ConvertUserCommandBufferPointer(
                                 Command,
                                 userEntry->commandBuffer,
                                 &commandBuffer
@@ -3760,7 +3757,7 @@ gckVGCOMMAND_Commit(
                        link it to the current. */
                     if (previousDynamic)
                     {
-                        gcmkERR_BREAK(gckVGCOMMAND_FetchCommand(
+                        gcmkONERROR(gckVGCOMMAND_FetchCommand(
                                     Command,
                                     previousEnd,
                                     commandBuffer->address,
@@ -3806,7 +3803,7 @@ gckVGCOMMAND_Commit(
                    terminate it with an END. */
                 if (previousDynamic)
                 {
-                    gcmkERR_BREAK(gckVGCOMMAND_EndCommand(
+                    gcmkONERROR(gckVGCOMMAND_EndCommand(
                                 Command,
                                 previousEnd,
                                 Command->info.feBufferInt,
@@ -3815,11 +3812,13 @@ gckVGCOMMAND_Commit(
                 }
 
                 /* Last buffer? */
-                if (EntryCount == 0)
+                if (EntryCount - entriesQueued == 0)
                 {
                     /* Modify the last command buffer's routines to handle
-                       tasks if any.*/
-                    if (haveFETasks)
+                       tasks if any.
+                       Be sure the kernel entry have been advanced and control
+                       functions initialized. */
+                    if (haveFETasks && controlIndex == 1)
                     {
                         if (previousExecuted)
                         {
@@ -3831,7 +3830,7 @@ gckVGCOMMAND_Commit(
                         }
                     }
 
-                    /* Release the mutex. */
+                    /* Release the queue mutex. */
                     gcmkERR_BREAK(gckOS_ReleaseMutex(
                                 Command->os,
                                 Command->queueMutex
@@ -3848,7 +3847,7 @@ gckVGCOMMAND_Commit(
                     /* Schedule tasks. */
                     gcmkERR_BREAK(_ScheduleTasks(Command, TaskTable, previousEnd - 0x10));
 
-                    /* Acquire the mutex. */
+                    /* Acquire back the queue mutex. */
                     gcmkERR_BREAK(gckOS_AcquireMutex(
                                 Command->os,
                                 Command->queueMutex,
@@ -3856,10 +3855,16 @@ gckVGCOMMAND_Commit(
                                 ));
                 }
 
-                /* Unkock and schedule the current queue for execution. */
-                gcmkERR_BREAK(_UnlockCurrentQueue(
-                            Command, currentLength
+OnError:
+                /* Update the number of the entries left to process. */
+                EntryCount -= entriesQueued;
+
+                /* Unlock and schedule the current queue for execution. */
+                gcmkCHECK_STATUS(_UnlockCurrentQueue(
+                            Command, entriesQueued
                             ));
+                /* Report the status error if any. */
+                gcmkERR_BREAK(status);
             }
         }
         while (gcvFALSE);
@@ -3869,7 +3874,7 @@ gckVGCOMMAND_Commit(
             if(!needCopy)
             {
                 /* Unmap the user command buffer. */
-                gcmkERR_BREAK(gckOS_UnmapUserPointer(
+                gcmkCHECK_STATUS(gckOS_UnmapUserPointer(
                             Command->os,
                             Queue,
                             queueSize,
@@ -3878,16 +3883,17 @@ gckVGCOMMAND_Commit(
             }
             else
             {
-                gcmkERR_BREAK(gckOS_Free(Command->os, mappedQueue));
+                gcmkCHECK_STATUS(gckOS_Free(Command->os, mappedQueue));
             }
         }
 
-        /* Release the mutex. */
+        /* Release the commit mutex. */
         gcmkCHECK_STATUS(gckOS_ReleaseMutex(
                     Command->os,
                     Command->commitMutex
                     ));
 
+        /* Release the power semaphore. */
         gcmkVERIFY_OK(gckOS_ReleaseSemaphore(
                     Command->os, Command->powerSemaphore));
     }

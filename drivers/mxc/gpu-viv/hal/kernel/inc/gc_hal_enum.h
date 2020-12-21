@@ -2125,57 +2125,6 @@ enum
     gcvPLATFORM_FLAG_IMX_MM           = 1 << 1,
 };
 
-/* No special needs. */
-#define gcvALLOC_FLAG_NONE                  0x00000000
-
-/* Physical contiguous. */
-#define gcvALLOC_FLAG_CONTIGUOUS            0x00000001
-/* Physical non contiguous. */
-#define gcvALLOC_FLAG_NON_CONTIGUOUS        0x00000002
-
-/* Should not swap out. */
-#define gcvALLOC_FLAG_NON_PAGED             0x00000004
-
-/* CPU access explicitly needed. */
-#define gcvALLOC_FLAG_CPU_ACCESS            0x00000008
-/* Can be remapped as cacheable. */
-#define gcvALLOC_FLAG_CACHEABLE             0x00000010
-
-/* Need 32bit address. */
-#define gcvALLOC_FLAG_4GB_ADDR              0x00000020
-
-/* Secure buffer. */
-#define gcvALLOC_FLAG_SECURITY              0x00000040
-/* Can be exported as dmabuf-fd */
-#define gcvALLOC_FLAG_DMABUF_EXPORTABLE     0x00000080
-/* Do not try slow pools (gcvPOOL_VIRTUAL) */
-#define gcvALLOC_FLAG_FAST_POOLS            0x00000100
-
-/* Import DMABUF. */
-#define gcvALLOC_FLAG_DMABUF                0x00001000
-/* Import USERMEMORY. */
-#define gcvALLOC_FLAG_USERMEMORY            0x00002000
-/* Import an External Buffer. */
-#define gcvALLOC_FLAG_EXTERNAL_MEMORY       0x00004000
-/* Import linux reserved memory. */
-#define gcvALLOC_FLAG_LINUX_RESERVED_MEM    0x00008000
-
-/* 1M pages unit allocation. */
-#define gcvALLOC_FLAG_1M_PAGES              0x00010000
-
-/* Non 1M pages unit allocation. */
-#define gcvALLOC_FLAG_4K_PAGES              0x00020000
-
-/* Real allocation happens when GPU page fault. */
-#define gcvALLOC_FLAG_ALLOC_ON_FAULT        0x01000000
-/* Alloc with memory limit. */
-#define gcvALLOC_FLAG_MEMLIMIT              0x02000000
-
-/* CMA allocator only */
-#define gcvALLOC_FLAG_CMA_LIMIT             0x04000000
-
-#define gcvALLOC_FLAG_CMA_PREEMPT           0x08000000
-
 /* GL_VIV internal usage */
 #ifndef GL_MAP_BUFFER_OBJ_VIV
 #define GL_MAP_BUFFER_OBJ_VIV       0x10000

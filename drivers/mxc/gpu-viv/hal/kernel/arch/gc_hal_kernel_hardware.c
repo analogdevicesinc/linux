@@ -8501,7 +8501,7 @@ gckHARDWARE_SetPowerState(
     if (Hardware->chipPowerState == state)
     {
         /* No state change. */
-        gckOS_ReleaseMutex(os, Hardware->powerMutex)
+        gckOS_ReleaseMutex(os, Hardware->powerMutex);
         gcmkFOOTER_NO();
         return gcvSTATUS_OK;
     }
@@ -8510,7 +8510,7 @@ gckHARDWARE_SetPowerState(
         state == gcvPOWER_SUSPEND && Hardware->chipPowerState == gcvPOWER_OFF)
     {
         /* Do nothing, donot change chipPowerState. */
-        gckOS_ReleaseMutex(os, Hardware->powerMutex)
+        gckOS_ReleaseMutex(os, Hardware->powerMutex);
         gcmkFOOTER_NO();
         return gcvSTATUS_OK;
     }
@@ -8520,7 +8520,7 @@ gckHARDWARE_SetPowerState(
         if (Hardware->nextPowerState == gcvPOWER_INVALID)
         {
             /* delayed power state change is canceled. */
-            gckOS_ReleaseMutex(os, Hardware->powerMutex)
+            gckOS_ReleaseMutex(os, Hardware->powerMutex);
             gcmkFOOTER_NO();
             return gcvSTATUS_OK;
         }
