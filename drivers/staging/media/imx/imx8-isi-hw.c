@@ -151,10 +151,14 @@ static void chain_buf(struct mxc_isi_dev *mxc_isi, struct mxc_isi_frame *frm)
 		val &= ~CHNL_CTRL_CHAIN_BUF_MASK;
 		val |= (CHNL_CTRL_CHAIN_BUF_2_CHAIN << CHNL_CTRL_CHAIN_BUF_OFFSET);
 		writel(val, mxc_isi->regs + CHNL_CTRL);
-	} else if (!mxc_isi->chain_buf) {
+		if (mxc_isi->chain)
+			regmap_write(mxc_isi->chain, CHNL_CTRL, CHNL_CTRL_CLK_EN_MASK);
+		mxc_isi->chain_buf = 1;
+	} else {
 		val = readl(mxc_isi->regs + CHNL_CTRL);
 		val &= ~CHNL_CTRL_CHAIN_BUF_MASK;
 		writel(val, mxc_isi->regs + CHNL_CTRL);
+		mxc_isi->chain_buf = 0;
 	}
 }
 
@@ -617,6 +621,9 @@ void mxc_isi_channel_deinit(struct mxc_isi_dev *mxc_isi)
 	/* deinit channel clk first */
 	val = (CHNL_CTRL_CLK_EN_ENABLE << CHNL_CTRL_CLK_EN_OFFSET);
 	writel(val, mxc_isi->regs + CHNL_CTRL);
+
+	if (mxc_isi->chain_buf && mxc_isi->chain)
+		regmap_write(mxc_isi->chain, CHNL_CTRL, 0x0);
 }
 EXPORT_SYMBOL_GPL(mxc_isi_channel_deinit);
 

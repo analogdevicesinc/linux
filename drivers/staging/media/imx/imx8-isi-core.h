@@ -364,6 +364,8 @@ struct mxc_isi_dev {
 	struct reset_control *isi_rst_apb;
 	struct reset_control *isi_rst_bus;
 
+	struct regmap *chain;
+
 	struct mutex lock;
 	spinlock_t   slock;
 

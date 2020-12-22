@@ -702,6 +702,10 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	mxc_isi->chain = syscon_regmap_lookup_by_phandle(dev->of_node, "isi_chain");
+	if (IS_ERR(mxc_isi->chain))
+		mxc_isi->chain = NULL;
+
 	spin_lock_init(&mxc_isi->slock);
 	mutex_init(&mxc_isi->lock);
 	atomic_set(&mxc_isi->usage_count, 0);
