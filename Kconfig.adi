@@ -28,6 +28,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select V4L_PLATFORM_DRIVERS
 	select BACKLIGHT_LCD_SUPPORT
 	select BACKLIGHT_CLASS_DEVICE
+	select CLK_ALL_ADI_DRIVERS
 	select HWMON_ALL_ADI_DRIVERS
 	select IIO_ALL_ADI_DRIVERS
 	select INPUT_ALL_ADI_DRIVERS
@@ -82,6 +83,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select FB_TFT_SEPS525
 	select LEDS_AS3645A
 
+source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
 source "drivers/iio/Kconfig.adi"
 source "drivers/input/Kconfig.adi"

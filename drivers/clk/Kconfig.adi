@@ -1,0 +1,8 @@
+
+# This file exists solely to be include in Kconfig.adi
+
+config CLK_ALL_ADI_DRIVERS
+	tristate "Build all Analog Devices CLOCK Drivers"
+	select COMMON_CLK_AD9545
+	select COMMON_CLK_AD9545_I2C
+	select COMMON_CLK_AD9545_SPI
