@@ -153,6 +153,8 @@ build_check_is_new_adi_driver_dual_licensed() {
 
 	COMMIT_RANGE="${ref_branch}.."
 
+	echo_green "Running checkpatch for commit range '$COMMIT_RANGE'"
+
 	ret=0
 	# Get list of files in the commit range
 	for file in $(git diff --name-only "$COMMIT_RANGE") ; do
@@ -221,6 +223,8 @@ build_checkpatch() {
 	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
 
 	local ref_branch="$(get_ref_branch)"
+
+	echo_green "Running checkpatch for commit range '$ref_branch..'"
 
 	if [ -z "$ref_branch" ] ; then
 		echo_red "Could not get a base_ref for checkpatch"
