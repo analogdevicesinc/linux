@@ -130,7 +130,9 @@ check_all_adi_files_have_been_built() {
 }
 
 get_ref_branch() {
-	if [ -n "$TRAVIS_BRANCH" ] ; then
+	if [ -n "$TARGET_BRANCH" ] ; then
+		echo -n "$TARGET_BRANCH"
+	elif [ -n "$TRAVIS_BRANCH" ] ; then
 		echo -n "$TRAVIS_BRANCH"
 	elif [ -n "$GITHUB_BASE_REF" ] ; then
 		echo -n "$GITHUB_BASE_REF"
@@ -217,8 +219,6 @@ build_checkpatch() {
 	apt_install python-ply python-git libyaml-dev python3-pip python3-setuptools
 	pip3 install wheel
 	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
-
-	[ "$TRAVIS_PULL_REQUEST" = "true" ] || return 0
 
 	local ref_branch="$(get_ref_branch)"
 

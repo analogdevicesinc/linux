@@ -15,6 +15,7 @@ jobs:
   condition: eq(variables['Build.Reason'], 'PullRequest')
   variables:
     BUILD_TYPE: checkpatch
+    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
   steps:
   - checkout: self
     fetchDepth: 50
