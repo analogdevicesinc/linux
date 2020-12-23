@@ -21,7 +21,7 @@ jobs:
   condition: and(ne(variables['Build.Reason'], 'PullRequest'), eq(variables.isMain, true))
   variables:
     BUILD_TYPE: sync_branches_with_main
-    MAIN_BRANCH:  $[ variables['Build.SourceBranchName'] ]
+    MAIN_BRANCH: $[ variables['Build.SourceBranchName'] ]
     CI: true
   steps:
   - checkout: self
@@ -35,6 +35,7 @@ jobs:
   condition: eq(variables['Build.Reason'], 'PullRequest')
   variables:
     BUILD_TYPE: checkpatch
+    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
   steps:
   - checkout: self
     fetchDepth: 50
@@ -46,6 +47,7 @@ jobs:
   condition: eq(variables['Build.Reason'], 'PullRequest')
   variables:
     BUILD_TYPE: check_is_new_adi_driver_dual_licensed
+    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
   steps:
   - checkout: self
     fetchDepth: 50
