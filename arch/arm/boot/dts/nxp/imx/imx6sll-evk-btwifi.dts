@@ -47,6 +47,10 @@
 	};
 };
 
+&epdc {
+	status = "disabled";
+};
+
 &iomuxc {
 	pinctrl_wifi: wifigrp {
 		fsl,pins = <
