@@ -57,7 +57,9 @@
 #define AD9545_POWER_DOWN_REF		0x2001
 #define AD9545_PWR_CALIB_CH0		0x2100
 #define AD9545_CTRL_CH0			0x2101
+#define AD9545_DIV_OPS_Q0A		0x2102
 #define AD9545_DPLL0_MODE		0x2105
+#define AD9545_DIV_OPS_Q1A		0x2202
 #define AD9545_NCO0_FREQ		0x2805
 #define AD9545_PLL_STATUS		0x3001
 #define AD9545_PLL0_STATUS		0x3100
@@ -114,6 +116,14 @@
 #define AD9545_DPLLX_FRAC_DIV(x)		(AD9545_DPLL0_FRAC + ((x) * 0x400))
 #define AD9545_DPLLX_MOD_DIV(x)			(AD9545_DPLL0_MOD + ((x) * 0x400))
 
+#define AD9545_DIV_OPS_Q0(x)			(AD9545_DIV_OPS_Q0A + (x))
+#define AD9545_DIV_OPS_Q1(x)			(AD9545_DIV_OPS_Q1A + (x))
+#define AD9545_DIV_OPS_QX(x) ({						\
+	typeof(x) x_ = (x) / 2;						\
+									\
+	(x_ > 2) ? AD9545_DIV_OPS_Q1(x_ - 3) : AD9545_DIV_OPS_Q0(x_);	\
+})
+
 #define AD9545_PWR_CALIB_CHX(x)			(AD9545_PWR_CALIB_CH0 + ((x) * 0x100))
 #define AD9545_PLLX_STATUS(x)			(AD9545_PLL0_STATUS + ((x) * 0x100))
 
@@ -133,6 +143,10 @@
 /* AD9545_QX_PHASE_CONF bitfields */
 #define AD9545_QX_HALF_DIV_MSK			BIT(5)
 #define AD9545_QX_PHASE_32_MSK			BIT(6)
+
+/* AD9545_DIV_OPS_QX bitfields */
+#define AD9545_DIV_OPS_MUTE_A_MSK		BIT(2)
+#define AD9545_DIV_OPS_MUTE_AA_MSK		BIT(3)
 
 /* AD9545_PLL_STATUS bitfields */
 #define AD9545_PLLX_LOCK(x, y)			((1 << (4 + (x))) & (y))
@@ -804,7 +818,64 @@ static int ad9545_out_clk_get_phase(struct clk_hw *hw)
 	return div64_u64(phase_code * 360, input_edges_nr);
 }
 
+static int ad9545_output_muting(struct ad9545_out_clk *clk, bool mute)
+{
+	u8 regval = 0;
+	int ret;
+	u8 mask;
+
+	if (clk->address % 2)
+		mask = AD9545_DIV_OPS_MUTE_AA_MSK;
+	else
+		mask = AD9545_DIV_OPS_MUTE_A_MSK;
+
+	if (mute)
+		regval = mask;
+
+	ret = regmap_update_bits(clk->st->regmap, AD9545_DIV_OPS_QX(clk->address), mask, regval);
+	if (ret < 0)
+		return ret;
+
+	return ad9545_io_update(clk->st);
+}
+
+static int ad9545_out_clk_enable(struct clk_hw *hw)
+{
+	struct ad9545_out_clk *clk = to_out_clk(hw);
+
+	return ad9545_output_muting(clk, false);
+}
+
+static void ad9545_out_clk_disable(struct clk_hw *hw)
+{
+	struct ad9545_out_clk *clk = to_out_clk(hw);
+
+	ad9545_output_muting(clk, true);
+}
+
+static int ad9545_out_clk_is_enabled(struct clk_hw *hw)
+{
+	struct ad9545_out_clk *clk = to_out_clk(hw);
+	u32 regval;
+	int ret;
+	u8 mask;
+
+	if (clk->address % 2)
+		mask = AD9545_DIV_OPS_MUTE_AA_MSK;
+	else
+		mask = AD9545_DIV_OPS_MUTE_A_MSK;
+
+	ret = regmap_read(clk->st->regmap, AD9545_DIV_OPS_QX(clk->address), &regval);
+	if (ret < 0)
+		return ret;
+
+	return !!(mask & regval);
+}
+
 static const struct clk_ops ad9545_out_clk_ops = {
+	.enable = ad9545_out_clk_enable,
+	.disable = ad9545_out_clk_disable,
+	.is_enabled = ad9545_out_clk_is_enabled,
 	.recalc_rate = ad95452_out_clk_recalc_rate,
 	.round_rate = ad9545_out_clk_round_rate,
 	.set_rate = ad9545_out_clk_set_rate,
