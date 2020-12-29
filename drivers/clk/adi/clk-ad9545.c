@@ -37,6 +37,9 @@
 #define AD9545_PHASE_LOCK_THRESH	0x0800
 #define AD9545_FREQ_LOCK_THRESH		0x0805
 #define AD9545_DPLL0_FTW		0x1000
+#define	AD9545_NSHOT_REQ_CH0		0x10D3
+#define AD9545_NSHOT_EN_AB0		0x10D4
+#define AD9545_NSHOT_EN_C0		0x10D5
 #define AD9545_DRIVER_0A_CONF		0x10D7
 #define AD9545_SYNC_CTRL0		0x10DB
 #define AD9545_APLL0_M_DIV		0x1081
@@ -49,6 +52,7 @@
 #define AD9545_DPLL0_N_DIV		0x120C
 #define AD9545_DPLL0_FRAC		0x1210
 #define AD9545_DPLL0_MOD		0x1213
+#define AD9545_NSHOT_EN_AB1		0x14D4
 #define AD9545_DRIVER_1A_CONF		0x14D7
 #define AD9545_Q1A_DIV			0x1500
 #define AD9545_Q1A_PHASE		0x1504
@@ -108,6 +112,7 @@
 	(x_ > 5) ? AD9545_Q1_PHASE_CONF(x_ - 6) : AD9545_Q0_PHASE_CONF(x_);	\
 })
 
+#define AD9545_NSHOT_REQ_CH(x)			(AD9545_NSHOT_REQ_CH0 + ((x) * 0x400))
 #define AD9545_DPLLX_FTW(x)			(AD9545_DPLL0_FTW + ((x) * 0x400))
 #define AD9545_DPLLX_EN(x)			(AD9545_DPLL0_EN + ((x) * 0x400))
 #define AD9545_DPLLX_SOURCE(x)			(AD9545_DPLL0_SOURCE + ((x) * 0x400))
@@ -126,6 +131,7 @@
 
 #define AD9545_PWR_CALIB_CHX(x)			(AD9545_PWR_CALIB_CH0 + ((x) * 0x100))
 #define AD9545_PLLX_STATUS(x)			(AD9545_PLL0_STATUS + ((x) * 0x100))
+#define AD9545_CTRL_CH(x)			(AD9545_CTRL_CH0 + ((x) * 0x100))
 
 #define AD9545_PROFILE_SEL_MODE_MSK		GENMASK(3, 2)
 #define AD9545_PROFILE_SEL_MODE(x)		FIELD_PREP(AD9545_PROFILE_SEL_MODE_MSK, x)
@@ -148,6 +154,12 @@
 #define AD9545_DIV_OPS_MUTE_A_MSK		BIT(2)
 #define AD9545_DIV_OPS_MUTE_AA_MSK		BIT(3)
 
+/* AD9545_NSHOT_REQ_CH bitfields */
+#define AD9545_NSHOT_NR_MSK			GENMASK(5, 0)
+
+/* AD9545_CTRL_CH bitfields */
+#define AD9545_CTRL_CH_NSHOT_MSK		BIT(0)
+
 /* AD9545_PLL_STATUS bitfields */
 #define AD9545_PLLX_LOCK(x, y)			((1 << (4 + (x))) & (y))
 
@@ -167,6 +179,8 @@
 #define AD9545_DPLL_MAX_N		1073741823
 #define AD9545_DPLL_MAX_FRAC		116777215
 #define AD9545_DPLL_MAX_MOD		116777215
+
+#define AD9545_MAX_NSHOT_PULSES		63
 
 #define AD9545_NCO_MAX_FREQ		65535
 
@@ -240,6 +254,54 @@ enum ad9545_output_mode {
 	AD9545_SINGLE_DIV_DIF = 0,
 	AD9545_SINGLE_DIV,
 	AD9545_DUAL_DIV,
+};
+
+struct ad9545_outputs_regs {
+	u16	nshot_en_reg;
+	u8	nshot_en_msk;
+};
+
+static const struct ad9545_outputs_regs ad9545_out_regs[] = {
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
+		.nshot_en_msk = BIT(0),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
+		.nshot_en_msk = BIT(2),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
+		.nshot_en_msk = BIT(4),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
+		.nshot_en_msk = BIT(6),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_C0,
+		.nshot_en_msk = BIT(0),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_C0,
+		.nshot_en_msk = BIT(2),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
+		.nshot_en_msk = BIT(0),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
+		.nshot_en_msk = BIT(2),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
+		.nshot_en_msk = BIT(4),
+	},
+	{
+		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
+		.nshot_en_msk = BIT(6),
+	},
 };
 
 struct ad9545_out_clk {
@@ -840,18 +902,52 @@ static int ad9545_output_muting(struct ad9545_out_clk *clk, bool mute)
 	return ad9545_io_update(clk->st);
 }
 
+static int ad9545_trigger_n_shot(struct ad9545_out_clk *clk)
+{
+	u8 channel = 0;
+	int ret;
+
+	if (clk->address > AD9545_Q0CC)
+		channel = 1;
+
+	ret = regmap_update_bits(clk->st->regmap, AD9545_CTRL_CH(channel), AD9545_CTRL_CH_NSHOT_MSK,
+				 AD9545_CTRL_CH_NSHOT_MSK);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_io_update(clk->st);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_update_bits(clk->st->regmap, AD9545_CTRL_CH(channel), AD9545_CTRL_CH_NSHOT_MSK,
+				 0);
+	if (ret < 0)
+		return ret;
+
+	return ad9545_io_update(clk->st);
+}
+
 static int ad9545_out_clk_enable(struct clk_hw *hw)
 {
 	struct ad9545_out_clk *clk = to_out_clk(hw);
 
-	return ad9545_output_muting(clk, false);
+	if (clk_get_nshot(hw->clk))
+		return ad9545_trigger_n_shot(clk);
+	else
+		return ad9545_output_muting(clk, false);
 }
 
 static void ad9545_out_clk_disable(struct clk_hw *hw)
 {
 	struct ad9545_out_clk *clk = to_out_clk(hw);
 
-	ad9545_output_muting(clk, true);
+	/*
+	 * When the n-shot feature is enabled,
+	 * the clocks are automatically muted at
+	 * the end of the burst.
+	 */
+	if (!clk_get_nshot(hw->clk))
+		ad9545_output_muting(clk, true);
 }
 
 static int ad9545_out_clk_is_enabled(struct clk_hw *hw)
@@ -873,6 +969,68 @@ static int ad9545_out_clk_is_enabled(struct clk_hw *hw)
 	return !!(mask & regval);
 }
 
+static int ad9545_setup_n_shot_mode(struct ad9545_out_clk *clk, int nshot)
+{
+	u8 channel = 0;
+	u32 reg;
+	int ret;
+	u32 mask;
+
+	if (nshot > AD9545_MAX_NSHOT_PULSES || nshot < 0)
+		return -EINVAL;
+
+	reg = ad9545_out_regs[clk->address].nshot_en_reg;
+	mask = ad9545_out_regs[clk->address].nshot_en_msk;
+
+	ret = regmap_update_bits(clk->st->regmap, reg, mask, nshot ? mask : 0);
+	if (ret < 0)
+		return ret;
+
+	if (nshot) {
+		if (clk->address > AD9545_Q0CC)
+			channel = 1;
+
+		ret = regmap_update_bits(clk->st->regmap, AD9545_NSHOT_REQ_CH(channel),
+					 AD9545_NSHOT_NR_MSK,
+					 FIELD_PREP(AD9545_NSHOT_NR_MSK, nshot));
+		if (ret < 0)
+			return ret;
+	}
+
+	return ad9545_io_update(clk->st);
+}
+
+static int ad9545_out_clk_set_nshot(struct clk_hw *hw, int nshot)
+{
+	struct ad9545_out_clk *clk = to_out_clk(hw);
+
+	return ad9545_setup_n_shot_mode(clk, nshot);
+}
+
+static int ad9545_out_clk_get_nshot(struct clk_hw *hw)
+{
+	struct ad9545_out_clk *clk = to_out_clk(hw);
+	int channel = 0;
+	int ret;
+	u32 val;
+
+	ret = regmap_read(clk->st->regmap, ad9545_out_regs[clk->address].nshot_en_reg, &val);
+	if (ret < 0)
+		return ret;
+
+	if (!(ad9545_out_regs[clk->address].nshot_en_msk & val))
+		return 0;
+
+	if (clk->address > AD9545_Q0CC)
+		channel = 1;
+
+	ret = regmap_read(clk->st->regmap, AD9545_NSHOT_REQ_CH(channel), &val);
+	if (ret < 0)
+		return ret;
+
+	return FIELD_GET(AD9545_NSHOT_NR_MSK, val);
+}
+
 static const struct clk_ops ad9545_out_clk_ops = {
 	.enable = ad9545_out_clk_enable,
 	.disable = ad9545_out_clk_disable,
@@ -882,6 +1040,8 @@ static const struct clk_ops ad9545_out_clk_ops = {
 	.set_rate = ad9545_out_clk_set_rate,
 	.set_phase = ad9545_out_clk_set_phase,
 	.get_phase = ad9545_out_clk_get_phase,
+	.set_nshot = ad9545_out_clk_set_nshot,
+	.get_nshot = ad9545_out_clk_get_nshot,
 };
 
 static int ad9545_outputs_setup(struct ad9545_state *st)
