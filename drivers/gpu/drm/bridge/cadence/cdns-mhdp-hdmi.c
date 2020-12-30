@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 NXP Semiconductor, Inc.
+ * Copyright (C) 2019-2021 NXP Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -205,7 +205,7 @@ int cdns_hdmi_ctrl_init(struct cdns_mhdp_device *mhdp,
 
 	/* set hdmi mode and preemble mode data enable */
 	val = F_HDMI_MODE(protocol) | F_HDMI2_PREAMBLE_EN(1) |  F_DATA_EN(1) |
-			F_HDMI2_CTRL_IL_MODE(1) | F_BCH_EN(1) | F_PIC_3D(0XF);
+			F_HDMI2_CTRL_IL_MODE(1) | F_BCH_EN(1) | F_PIC_3D(0XF) | F_CLEAR_AVMUTE(1);
 	ret = cdns_mhdp_reg_write(mhdp, HDTX_CONTROLLER, val);
 
 	return ret;
