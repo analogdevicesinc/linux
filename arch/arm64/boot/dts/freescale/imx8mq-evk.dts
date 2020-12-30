@@ -1160,6 +1160,7 @@
 &hdmi {
 	compatible = "cdn,imx8mq-hdmi";
 	lane-mapping = <0xe4>;
+	hdcp-config = <0x3>;
 	status = "okay";
 	port@1 {
 		hdmi_in: endpoint {
