@@ -118,6 +118,7 @@
 &hdmi {
 	compatible = "cdn,imx8qm-hdmi";
 	lane-mapping = <0x93>;
+	hdcp-config = <0x3>;
 	status = "okay";
 };
 
