@@ -206,7 +206,7 @@ static int imx8m_pm_domain_probe(struct platform_device *pdev)
 			of_genpd_del_provider(np);
 			pm_genpd_remove(&domain->pd);
 			imx8m_pd_put_clocks(domain);
-			return driver_deferred_probe_check_state(dev);
+			return -EPROBE_DEFER;
 		}
 	}
 
