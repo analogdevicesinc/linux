@@ -1,7 +1,7 @@
 /*
  * Cadence High-Definition Multimedia Interface (HDMI) driver
  *
- * Copyright (C) 2019-2020 NXP Semiconductor, Inc.
+ * Copyright (C) 2019-2021 NXP Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,6 +13,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_encoder_slave.h>
+#include <drm/drm_hdcp.h>
 #include <drm/drm_of.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_print.h>
@@ -26,6 +27,131 @@
 #include <linux/mfd/syscon.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
+
+#include "cdns-mhdp-hdcp.h"
+
+static ssize_t HDCPTX_do_reauth_store(struct device *dev,
+			struct device_attribute *attr, const char *buf, size_t count);
+static struct device_attribute HDCPTX_do_reauth = __ATTR_WO(HDCPTX_do_reauth);
+
+static ssize_t HDCPTX_do_reauth_store(struct device *dev,
+			struct device_attribute *attr, const char *buf, size_t count)
+{
+    int value, ret;
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+
+	ret = cdns_mhdp_hdcp_tx_reauth(mhdp, 1);
+
+	sscanf(buf, "%d", &value);
+
+    if (ret < 0) {
+		dev_err(dev, "%s cdns_mhdp_hdcp_tx_reauth failed\n", __func__);
+		return -1;
+	}
+	return count;
+}
+
+static ssize_t HDCPTX_Version_show(struct device *dev,
+			struct device_attribute *attr, char *buf);
+static ssize_t HDCPTX_Version_store(struct device *dev,
+			struct device_attribute *attr, const char *buf, size_t count);
+static struct device_attribute HDCPTX_Version = __ATTR_RW(HDCPTX_Version);
+
+static ssize_t HDCPTX_Version_store(struct device *dev,
+			struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+	int value;
+
+	sscanf(buf, "%d", &value);
+	if (value == 2)
+		mhdp->hdcp.config = 2;
+	else if (value == 1)
+		mhdp->hdcp.config = 1;
+	else if (value == 3)
+		mhdp->hdcp.config = 3;
+	else
+		mhdp->hdcp.config = 0;
+
+	return count;
+}
+
+ssize_t HDCPTX_Version_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n", mhdp->hdcp.config);
+}
+
+static ssize_t HDCPTX_Status_show(struct device *dev,
+			struct device_attribute *attr, char *buf);
+static ssize_t HDCPTX_Status_store(struct device *dev,
+			struct device_attribute *attr, const char *buf, size_t count);
+static struct device_attribute HDCPTX_Status = __ATTR_RW(HDCPTX_Status);
+
+ssize_t HDCPTX_Status_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+
+	switch (mhdp->hdcp.state) {
+	case HDCP_STATE_NO_AKSV:
+		return sprintf(buf, "%d :HDCP_STATE_NO_AKSV \n", mhdp->hdcp.state);
+	case HDCP_STATE_INACTIVE:
+		return sprintf(buf, "%d :HDCP_STATE_INACTIVE \n", mhdp->hdcp.state);
+	case HDCP_STATE_ENABLING:
+		return sprintf(buf, "%d :HDCP_STATE_ENABLING \n", mhdp->hdcp.state);
+	case HDCP_STATE_AUTHENTICATING:
+		return sprintf(buf, "%d :HDCP_STATE_AUTHENTICATING \n", mhdp->hdcp.state);
+	case HDCP_STATE_AUTHENTICATED:
+		return sprintf(buf, "%d :HDCP_STATE_AUTHENTICATED \n", mhdp->hdcp.state);
+	case HDCP_STATE_DISABLING:
+		return sprintf(buf, "%d :HDCP_STATE_DISABLING \n", mhdp->hdcp.state);
+	case HDCP_STATE_AUTH_FAILED:
+		return sprintf(buf, "%d :HDCP_STATE_AUTH_FAILED \n", mhdp->hdcp.state);
+	default:
+		return sprintf(buf, "%d :HDCP_STATE don't exist \n", mhdp->hdcp.state);
+    }
+}
+
+ssize_t HDCPTX_Status_store(struct device *dev,
+			struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+	int value;
+
+	if (count == 2) {
+		sscanf(buf, "%d", &value);
+		if ((value >= HDCP_STATE_NO_AKSV) && (value <= HDCP_STATE_AUTH_FAILED)) {
+			mhdp->hdcp.state = value;
+			return count;
+		} else {
+			dev_err(dev, "%s &hdp->state invalid\n", __func__);
+			return -1;
+		}
+	}
+
+	dev_info(dev, "%s &hdp->state desired %s count=%d\n ", __func__, buf, (int)count);
+
+    if (strncmp(buf, "HDCP_STATE_NO_AKSV", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_NO_AKSV;
+    else if (strncmp(buf, "HDCP_STATE_INACTIVE", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_INACTIVE;
+    else if (strncmp(buf, "HDCP_STATE_ENABLING", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_ENABLING;
+    else if (strncmp(buf, "HDCP_STATE_AUTHENTICATING", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_AUTHENTICATING;
+    else if (strncmp(buf, "HDCP_STATE_AUTHENTICATED", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_AUTHENTICATED;
+    else if (strncmp(buf, "HDCP_STATE_DISABLING", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_DISABLING;
+    else if (strncmp(buf, "HDCP_STATE_AUTH_FAILED", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_AUTH_FAILED;
+    else
+		dev_err(dev, "%s &hdp->state invalid\n", __func__);
+		return -1;
+    return count;
+}
 
 static void hdmi_sink_config(struct cdns_mhdp_device *mhdp)
 {
@@ -319,6 +445,22 @@ static bool blob_equal(const struct drm_property_blob *a,
 	return !a == !b;
 }
 
+static void cdns_hdmi_bridge_disable(struct drm_bridge *bridge)
+{
+	struct cdns_mhdp_device *mhdp = bridge->driver_private;
+
+	cdns_hdmi_hdcp_disable(mhdp);
+}
+
+static void cdns_hdmi_bridge_enable(struct drm_bridge *bridge)
+{
+	struct cdns_mhdp_device *mhdp = bridge->driver_private;
+	struct drm_connector_state *conn_state = mhdp->connector.base.state;
+
+	if (conn_state->content_protection == DRM_MODE_CONTENT_PROTECTION_DESIRED)
+		cdns_hdmi_hdcp_enable(mhdp);
+}
+
 static int cdns_hdmi_connector_atomic_check(struct drm_connector *connector,
 					    struct drm_atomic_state *state)
 {
@@ -329,12 +471,17 @@ static int cdns_hdmi_connector_atomic_check(struct drm_connector *connector,
 	struct drm_crtc *crtc = new_con_state->crtc;
 	struct drm_crtc_state *new_crtc_state;
 
+	cdns_hdmi_hdcp_atomic_check(connector, old_con_state, new_con_state);
+	if (!new_con_state->crtc)
+		return 0;
+
+	new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
+	if (IS_ERR(new_crtc_state))
+		return PTR_ERR(new_crtc_state);
+
 	if (!blob_equal(new_con_state->hdr_output_metadata,
 			old_con_state->hdr_output_metadata) ||
 	    new_con_state->colorspace != old_con_state->colorspace) {
-		new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
-		if (IS_ERR(new_crtc_state))
-			return PTR_ERR(new_crtc_state);
 
 		new_crtc_state->mode_changed =
 			!new_con_state->hdr_output_metadata ||
@@ -342,6 +489,15 @@ static int cdns_hdmi_connector_atomic_check(struct drm_connector *connector,
 			new_con_state->colorspace != old_con_state->colorspace;
 	}
 
+	/*
+	 * These properties are handled by fastset, and might not end up in a
+	 * modeset.
+	 */
+	if (new_con_state->picture_aspect_ratio !=
+	    old_con_state->picture_aspect_ratio ||
+	    new_con_state->content_type != old_con_state->content_type ||
+	    new_con_state->scaling_mode != old_con_state->scaling_mode)
+		new_crtc_state->mode_changed = true;
 	return 0;
 }
 
@@ -388,6 +544,7 @@ static int cdns_hdmi_bridge_attach(struct drm_bridge *bridge,
 
 	drm_connector_attach_encoder(connector, encoder);
 
+	drm_connector_attach_content_protection_property(connector, true);
 	return 0;
 }
 
@@ -439,7 +596,7 @@ static void cdns_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	video->v_sync_polarity = !!(mode->flags & DRM_MODE_FLAG_NVSYNC);
 	video->h_sync_polarity = !!(mode->flags & DRM_MODE_FLAG_NHSYNC);
 
-	DRM_INFO("Mode: %dx%dp%d\n", mode->hdisplay, mode->vdisplay, mode->clock); 
+	DRM_INFO("Mode: %dx%dp%d\n", mode->hdisplay, mode->vdisplay, mode->clock);
 	memcpy(&mhdp->mode, mode, sizeof(struct drm_display_mode));
 
 	mutex_lock(&mhdp->lock);
@@ -518,6 +675,8 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 static const struct drm_bridge_funcs cdns_hdmi_bridge_funcs = {
 	.attach = cdns_hdmi_bridge_attach,
+	.enable = cdns_hdmi_bridge_enable,
+	.disable = cdns_hdmi_bridge_disable,
 	.mode_set = cdns_hdmi_bridge_mode_set,
 	.mode_valid = cdns_hdmi_bridge_mode_valid,
 	.mode_fixup = cdns_hdmi_bridge_mode_fixup,
@@ -645,7 +804,7 @@ static int __cdns_hdmi_probe(struct platform_device *pdev,
 						mhdp->irq[IRQ_IN]);
 		return -EINVAL;
 	}
-	
+
 	irq_set_status_flags(mhdp->irq[IRQ_OUT], IRQ_NOAUTOEN);
 	ret = devm_request_threaded_irq(dev, mhdp->irq[IRQ_OUT],
 					NULL, cdns_hdmi_irq_thread,
@@ -658,6 +817,25 @@ static int __cdns_hdmi_probe(struct platform_device *pdev,
 	}
 
 	cdns_hdmi_parse_dt(mhdp);
+
+	ret = cdns_hdmi_hdcp_init(mhdp, pdev->dev.of_node);
+	if (ret < 0)
+		DRM_WARN("Failed to initialize HDCP\n");
+
+	if (device_create_file(mhdp->dev, &HDCPTX_do_reauth)) {
+		printk(KERN_ERR "Unable to create HDCPTX_do_reauth sysfs\n");
+		device_remove_file(mhdp->dev, &HDCPTX_do_reauth);
+	}
+
+	if (device_create_file(mhdp->dev, &HDCPTX_Version)) {
+		printk(KERN_ERR "Unable to create HDCPTX_Version sysfs\n");
+		device_remove_file(mhdp->dev, &HDCPTX_Version);
+	}
+
+	if (device_create_file(mhdp->dev, &HDCPTX_Status)) {
+		printk(KERN_ERR "Unable to create HDCPTX_Status sysfs\n");
+		device_remove_file(mhdp->dev, &HDCPTX_Status);
+	}
 
 	if (cdns_mhdp_read_hpd(mhdp))
 		enable_irq(mhdp->irq[IRQ_OUT]);

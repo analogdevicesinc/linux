@@ -392,6 +392,27 @@
 #define HDMI_TX_TEST				0xBB
 #define HDMI_TX_EDID_INTERNAL		0xF0
 
+/* HDCP General opcode */
+#define HDCP_GENERAL_SET_LC_128		0x00
+#define HDCP_GENERAL_SET_SEED		0x01
+
+/* HDCP TX opcode */
+#define HDCP_TX_CONFIGURATION				0x00
+#define HDCP2_TX_SET_PUBLIC_KEY_PARAMS		0x01
+#define HDCP2_TX_SET_DEBUG_RANDOM_NUMBERS	0x02
+#define HDCP2_TX_RESPOND_KM					0x03
+#define HDCP1_TX_SEND_KEYS					0x04
+#define HDCP1_TX_SEND_RANDOM_AN				0x05
+#define HDCP_TX_STATUS_CHANGE				0x06
+#define HDCP2_TX_IS_KM_STORED				0x07
+#define HDCP2_TX_STORE_KM					0x08
+#define HDCP_TX_IS_RECEIVER_ID_VALID		0x09
+#define HDCP_TX_RESPOND_RECEIVER_ID_VALID	0x0A
+#define HDCP_TX_TEST_KEYS					0x0B
+#define HDCP2_TX_SET_KM_KEY_PARAMS			0x0C
+#define HDCP_TX_SET_CP_IRQ					0x0D
+#define HDCP_TX_DO_AUTH_REQ					0x0E
+
 #define FW_STANDBY				0
 #define FW_ACTIVE				1
 
@@ -432,12 +453,16 @@
 #define EQ_PHASE_FAILED				BIT(6)
 #define FASE_LT_FAILED				BIT(7)
 
-#define DPTX_HPD_EVENT				BIT(0)
-#define DPTX_TRAINING_EVENT			BIT(1)
-#define HDCP_TX_STATUS_EVENT			BIT(4)
-#define HDCP2_TX_IS_KM_STORED_EVENT		BIT(5)
-#define HDCP2_TX_STORE_KM_EVENT			BIT(6)
-#define HDCP_TX_IS_RECEIVER_ID_VALID_EVENT	BIT(7)
+#define DPTX_HPD_EVENT						   BIT(0)
+#define HDMI_TX_HPD_EVENT					   BIT(0)
+#define HDMI_RX_5V_EVENT					   BIT(0)
+#define DPTX_TRAINING_EVENT					   BIT(1)
+#define HDMI_RX_SCDC_CHANGE_EVENT			   BIT(1)
+#define HDCPTX_STATUS_EVENT					   BIT(4)
+#define HDCPRX_STATUS_EVENT					   BIT(4)
+#define HDCPTX_IS_KM_STORED_EVENT			   BIT(5)
+#define HDCPTX_STORE_KM_EVENT				   BIT(6)
+#define HDCPTX_IS_RECEIVER_ID_VALID_EVENT	   BIT(7)
 
 #define TU_SIZE					30
 #define CDNS_DP_MAX_LINK_RATE	540000
@@ -446,6 +471,7 @@
 #define F_VIF_DATA_WIDTH(x) (((x) & ((1 << 2) - 1)) << 2)
 #define F_HDMI_MODE(x) (((x) & ((1 << 2) - 1)) << 0)
 #define F_GCP_EN(x) (((x) & ((1 << 1) - 1)) << 12)
+#define F_CLEAR_AVMUTE(x) (((x) & ((1 << 1) - 1)) << 14)
 #define F_DATA_EN(x) (((x) & ((1 << 1) - 1)) << 15)
 #define F_HDMI2_PREAMBLE_EN(x) (((x) & ((1 << 1) - 1)) << 18)
 #define F_PIC_3D(x) (((x) & ((1 << 4) - 1)) << 7)
@@ -666,6 +692,55 @@ struct cdns_plat_data {
 	char *plat_name;
 };
 
+/* HDCP */
+#define MAX_STORED_KM 64
+#define HDCP_PAIRING_M_LEN 16
+#define HDCP_PAIRING_M_EKH 16
+#define HDCP_PAIRING_R_ID 5
+
+/* HDCP2_TX_SET_DEBUG_RANDOM_NUMBERS */
+#define DEBUG_RANDOM_NUMBERS_KM_LEN 16
+#define DEBUG_RANDOM_NUMBERS_RN_LEN 8
+#define DEBUG_RANDOM_NUMBERS_KS_LEN 16
+#define DEBUG_RANDOM_NUMBERS_RIV_LEN 8
+#define DEBUG_RANDOM_NUMBERS_RTX_LEN 8
+
+struct hdcp_trans_pairing_data {
+	u8 receiver_id[HDCP_PAIRING_R_ID];
+	u8 m[HDCP_PAIRING_M_LEN];
+	u8 km[DEBUG_RANDOM_NUMBERS_KM_LEN];
+	u8 ekh[HDCP_PAIRING_M_EKH];
+};
+
+enum hdmi_hdcp_state {
+	HDCP_STATE_NO_AKSV,
+	HDCP_STATE_INACTIVE,
+	HDCP_STATE_ENABLING,
+	HDCP_STATE_AUTHENTICATING,
+	HDCP_STATE_REAUTHENTICATING,
+	HDCP_STATE_AUTHENTICATED,
+	HDCP_STATE_DISABLING,
+	HDCP_STATE_AUTH_FAILED
+};
+
+struct cdns_mhdp_hdcp {
+	struct mutex mutex;
+	u64 value; /* protected by hdcp_mutex */
+	struct delayed_work check_work;
+	struct work_struct prop_work;
+	u8 state;
+	u8 cancel;
+	u8 bus_type;
+	u8 config;
+	struct hdcp_trans_pairing_data pairing[MAX_STORED_KM];
+	u8 num_paired;
+
+	u8 events;
+	u8 sink_is_repeater;
+	u8 reauth_in_progress;
+	u8 hdcp_version;
+};
+
 struct cdns_mhdp_device {
 	void __iomem		*regs_base;
 	void __iomem		*regs_sec;
@@ -673,6 +748,7 @@ struct cdns_mhdp_device {
 	int bus_type;
 
 	struct device		*dev;
+	struct drm_device *drm_dev;
 
 	struct cdns_mhdp_connector  connector;
 	struct clk		*spdif_clk;
@@ -726,6 +802,7 @@ struct cdns_mhdp_device {
 	hdmi_codec_plugged_cb plugged_cb;
 	struct device *codec_dev;
 	enum drm_connector_status last_connector_result;
+	struct cdns_mhdp_hdcp hdcp;
 };
 
 u32 cdns_mhdp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset);
@@ -746,6 +823,7 @@ int cdns_mhdp_get_edid_block(void *mhdp, u8 *edid,
 int cdns_mhdp_train_link(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_set_video_status(struct cdns_mhdp_device *mhdp, int active);
 int cdns_mhdp_config_video(struct cdns_mhdp_device *mhdp);
+int cdns_mhdp_apb_conf(struct cdns_mhdp_device *mhdp, u8 sel);
 
 /* Audio */
 int cdns_mhdp_audio_stop(struct cdns_mhdp_device *mhdp,
@@ -774,8 +852,6 @@ int cdns_mhdp_mailbox_read_receive(struct cdns_mhdp_device *mhdp,
 int cdns_mhdp_mailbox_validate_receive(struct cdns_mhdp_device *mhdp,
 					      u8 module_id, u8 opcode,
 					      u16 req_size);
-int cdns_mhdp_mailbox_read(struct cdns_mhdp_device *mhdp);
-
 void cdns_mhdp_infoframe_set(struct cdns_mhdp_device *mhdp,
 					u8 entry_id, u8 packet_len, u8 *packet, u8 packet_type);
 int cdns_hdmi_get_edid_block(void *data, u8 *edid, u32 block, size_t length);
