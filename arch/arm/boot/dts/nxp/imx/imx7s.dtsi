@@ -825,6 +825,8 @@
 				clocks = <&clks IMX7D_LCDIF_PIXEL_ROOT_CLK>,
 					 <&clks IMX7D_CLK_DUMMY>,
 					 <&clks IMX7D_CLK_DUMMY>;
+				assigned-clocks = <&clks IMX7D_LCDIF_PIXEL_ROOT_SRC>;
+				assigned-clock-parents = <&clks IMX7D_PLL_VIDEO_POST_DIV>;
 				clock-names = "pix", "axi", "disp_axi";
 				status = "disabled";
 			};
