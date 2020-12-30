@@ -1,7 +1,7 @@
 /*
  * Cadence High-Definition Multimedia Interface (HDMI) driver
  *
- * Copyright (C) 2019 NXP Semiconductor, Inc.
+ * Copyright (C) 2019-2021 NXP Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 
 #include <drm/bridge/cdns-mhdp.h>
 #include "cdns-mhdp-phy.h"
+#include "cdns-mhdp-imx.h"
 
 /* HDMI TX clock control settings */
 struct hdmi_ctrl {
@@ -746,6 +747,7 @@ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
 		DRM_ERROR("NO HDMI FW running\n");
 		return -ENXIO;
 	}
+	imx8qm_phy_reset(0);
 
 	/* Configure PHY */
 	mhdp->hdmi.char_rate = hdmi_phy_cfg_ss28fdsoi(mhdp, mode);
@@ -753,6 +755,7 @@ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
 		DRM_ERROR("failed to set phy pclock\n");
 		return -EINVAL;
 	}
+	imx8qm_phy_reset(1);
 
 	ret = hdmi_phy_power_up(mhdp);
 	if (ret < 0)
@@ -761,4 +764,27 @@ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
 	hdmi_phy_set_vswing(mhdp);
 
 	return true;
+}
+
+int cdns_hdmi_phy_shutdown(struct cdns_mhdp_device *mhdp)
+{
+	int timeout;
+	u32 reg_val;
+
+	reg_val = cdns_phy_reg_read(mhdp, PHY_HDP_MODE_CTRL);
+	reg_val &= 0xfff0;
+	/* PHY_DP_MODE_CTL set to A3 power state*/
+	cdns_phy_reg_write(mhdp, PHY_HDP_MODE_CTRL, reg_val | 0x8);
+
+	/* PHY_DP_MODE_CTL */
+	timeout = 0;
+	do {
+		reg_val = cdns_phy_reg_read(mhdp, PHY_HDP_MODE_CTRL);
+		DRM_INFO("Reg val is 0x%04x\n", reg_val);
+		timeout++;
+		msleep(100);
+	} while (!(reg_val & (0x8 << 4)) && (timeout < 10));	/* Wait for A3 acknowledge */
+
+	DRM_INFO("hdmi phy shutdown complete\n");
+	return 0;
 }

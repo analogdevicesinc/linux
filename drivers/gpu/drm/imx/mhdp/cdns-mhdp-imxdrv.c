@@ -22,6 +22,7 @@ static void cdns_mhdp_imx_encoder_disable(struct drm_encoder *encoder)
 	struct drm_bridge *bridge = drm_bridge_chain_get_first_bridge(encoder);
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
 
+	cdns_hdmi_phy_shutdown(mhdp);
 	cdns_mhdp_plat_call(mhdp, plat_init);
 }
 
@@ -184,6 +185,7 @@ static int cdns_mhdp_imx_bind(struct device *dev, struct device *master,
 
 	imx_mhdp->mhdp.plat_data = plat_data;
 	imx_mhdp->mhdp.dev = dev;
+	imx_mhdp->mhdp.drm_dev = drm;
 	imx_mhdp->mhdp.bus_type = plat_data->bus_type;
 	ret = plat_data->bind(pdev, encoder, &imx_mhdp->mhdp);
 	/*

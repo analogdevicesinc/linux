@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 NXP semiconductor, inc.
+ * Copyright (c) 2019-2021 NXP semiconductor, inc.
  *
  * this program is free software; you can redistribute it and/or modify
  * it under the terms of the gnu general public license version 2 as
@@ -102,7 +102,7 @@ static void imx8qm_pixel_link_sync_disable(u32 dual_mode)
 		imx_sc_misc_set_control(handle, IMX_SC_R_DC_0, IMX_SC_C_SYNC_CTRL0, 0);
 }
 
-static void imx8qm_phy_reset(u8 reset)
+void imx8qm_phy_reset(u8 reset)
 {
 	struct imx_sc_ipc *handle;
 
