@@ -174,7 +174,6 @@
 #define CDNS_DP_MTPH_STATUS			0x226C
 #define CDNS_DP_MTPH_ACT_STATUS			BIT(0)
 
-
 #define CDNS_DPTX_GLOBAL			0x02300
 #define CDNS_DP_LANE_EN				(CDNS_DPTX_GLOBAL + 0x00)
 #define CDNS_DP_LANE_EN_LANES(x)		GENMASK(x - 1, 0)
@@ -186,6 +185,30 @@
 #define mgr_to_mhdp(x) container_of(x, struct cdns_mhdp_device, mst_mgr)
 
 #define CDNS_MHDP_MAX_STREAMS   4
+
+#define MAILBOX_RETRY_US		1000
+#define MAILBOX_TIMEOUT_US		5000000
+
+#define mhdp_readx_poll_timeout(op, addr, offset, val, cond, sleep_us, timeout_us)	\
+({ \
+	u64 __timeout_us = (timeout_us); \
+	unsigned long __sleep_us = (sleep_us); \
+	ktime_t __timeout = ktime_add_us(ktime_get(), __timeout_us); \
+	might_sleep_if((__sleep_us) != 0); \
+	for (;;) { \
+		(val) = op(addr, offset); \
+		if (cond) \
+			break; \
+		if (__timeout_us && \
+		    ktime_compare(ktime_get(), __timeout) > 0) { \
+			(val) = op(addr, offset); \
+			break; \
+		} \
+		if (__sleep_us) \
+			usleep_range((__sleep_us >> 2) + 1, __sleep_us); \
+	} \
+	(cond) ? 0 : -ETIMEDOUT; \
+})
 
 enum pixel_format {
 	PIXEL_FORMAT_RGB = 1,
