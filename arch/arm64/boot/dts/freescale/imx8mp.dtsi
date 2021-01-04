@@ -491,6 +491,8 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x0 0x3e000000>;
+		nvmem-cells = <&imx8mp_uid>;
+		nvmem-cell-names = "soc_unique_id";
 
 		etm0: etm@28440000 {
 			compatible = "arm,coresight-etm4x", "arm,primecell";
