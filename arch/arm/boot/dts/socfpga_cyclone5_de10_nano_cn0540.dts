@@ -5,7 +5,7 @@
  * https://www.analog.com/en/products/ad7768-1.html
  * https://wiki.analog.com/resources/tools-software/linux-build/generic/socfpga
  *
- * hdl_project: <cn0540/de10>
+ * hdl_project: <cn0540/de10nano>
  * board_revision: <A>
  *
  * Copyright (C) 2020 Analog Devices Inc.
