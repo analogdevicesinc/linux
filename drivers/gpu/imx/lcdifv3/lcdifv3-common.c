@@ -742,6 +742,7 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 		/* TODO: Maybe the clock enable should
 		 *	 be done in reset driver.
 		 */
+		clk_prepare_enable(lcdifv3->clk_disp_axi);
 		clk_prepare_enable(lcdifv3->clk_disp_apb);
 
 		writel(CTRL_SW_RESET, lcdifv3->base + LCDIFV3_CTRL_CLR);
@@ -750,6 +751,7 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 		if (ret)
 			dev_warn(dev, "lcdif1 reset failed: %d\n", ret);
 
+		clk_disable_unprepare(lcdifv3->clk_disp_axi);
 		clk_disable_unprepare(lcdifv3->clk_disp_apb);
 	}
 
