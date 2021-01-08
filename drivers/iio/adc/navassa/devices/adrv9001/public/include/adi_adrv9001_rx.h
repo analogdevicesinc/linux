@@ -229,7 +229,7 @@ int32_t adi_adrv9001_Rx_InterfaceGain_Configure(adi_adrv9001_Device_t *adrv9001,
  *
  * \note Message type: \ref timing_mailbox "Mailbox command"
  *
- * \pre Channel state is RF_ENABLED
+ * \pre Channel state is any of PRIMED, RF_ENABLED
  *
  * \pre This function may be called only when the specified channel is in RF_ENABLED state.
  * 'gainControlMode' in adi_adrv9001_RxInterfaceGainCtrl_t struct must be ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_MANUAL

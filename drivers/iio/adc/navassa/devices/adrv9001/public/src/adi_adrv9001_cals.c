@@ -67,7 +67,8 @@ int32_t adi_adrv9001_cals_InitCals_Run(adi_adrv9001_Device_t *adrv9001,
                    adrv9001,
                    ADRV9001_ADDR_ARM_MAILBOX_RUN_INIT,
                    &payloadMailbox[0],
-                   ADI_ARRAY_LEN(payloadMailbox));
+                   ADI_ARRAY_LEN(payloadMailbox),
+                   ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     /* channelMask is ignored for RUN_INIT */
     payload[0] = 0;
@@ -230,7 +231,8 @@ int32_t adi_adrv9001_cals_Tracking_Set(adi_adrv9001_Device_t *adrv9001,
                    adrv9001,
                    ADRV9001_ADDR_ARM_MAILBOX_SET,
                    &payloadMailbox[0],
-                   ADI_ARRAY_LEN(payloadMailbox));
+                   ADI_ARRAY_LEN(payloadMailbox),
+                   ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     payload[0] = 0; /* channel mask is ignored */
     payload[1] = ADRV9001_ARM_OBJECTID_TRACKING_CALIBRATIONS_ENABLE;
@@ -513,7 +515,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Set(adi_adrv9001_Device_t *adrv9001,
 
     adrv9001_LoadTwoBytes(&offset, armData, externalPathDelay);
 
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_SET, &armData[0], sizeof(armData));
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_SET, &armData[0], sizeof(armData), ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
     extData[1] = ADRV9001_ARM_OBJECTID_EXTERNAL_PATH_DELAY;

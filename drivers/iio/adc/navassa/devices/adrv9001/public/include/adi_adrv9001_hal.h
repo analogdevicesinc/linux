@@ -91,7 +91,7 @@ extern int32_t(*adi_hal_SpiRead)(void *devHalCfg, const uint8_t txData[], uint8_
  * implementation and are simply returned by ADRV9001 API functions.
  */
 extern int32_t(*adi_adrv9001_hal_resetbPin_set)(void *devHalCfg, uint8_t pinLevel);
-    
+
 /**
  * \addtogroup adrv9001_hal_files "File I/O"
  * Historically, the ADRV9001 evaluation software stack transferred certain "resource" files over SFTP to the Linux
@@ -190,25 +190,6 @@ extern int32_t(*adi_hal_TxAttenTableEntryGet)(void *devHalCfg,
                                               uint16_t *txAttenMult);
 
 /** @} */
-
-/**
- * \brief Send the specified number of MCS pulses
- * 
- * \param[in] devHalCfg         User HAL configuration
- * \param[in] numberOfPulses    The number of times to pulse the MCS pin
- * 
- * \returns 0 indicating success, otherwise negative to indicate error
- */
-extern int32_t(*adi_hal_Mcs_Pulse)(void *devHalCfg, uint8_t numberOfPulses);
-    
-/**
- * \brief Reset the SSI interface
- * 
- * \param[in] devHalCfg         User HAL configuration
- * 
- * \returns 0 indicating success, otherwise negative to indicate error
- */
-extern int32_t(*adi_hal_ssi_Reset)(void *devHalCfg);
 
 /** @} */
  

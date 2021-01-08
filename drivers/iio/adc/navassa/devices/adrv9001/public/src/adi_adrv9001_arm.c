@@ -222,13 +222,14 @@ int32_t adi_adrv9001_arm_PfirProfiles_Write(adi_adrv9001_Device_t *device, const
     ADI_API_RETURN(device);
 }
 
-int32_t adi_adrv9001_arm_Image_Write(adi_adrv9001_Device_t *device, uint32_t byteOffset, const uint8_t binary[], uint32_t byteCount)
+int32_t adi_adrv9001_arm_Image_Write(adi_adrv9001_Device_t *device, uint32_t byteOffset, const uint8_t binary[], uint32_t byteCount, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
 {
     uint8_t stackPtr[4] = { 0 };
     uint8_t bootAddr[4] = { 0 };
     uint32_t i = 0;
 
     ADI_ENTRY_PTR_EXPECT(device, binary);
+    ADI_RANGE_CHECK(device, spiWriteMode, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4);
 
     if ((byteCount % 4) > 0)
     {
@@ -325,7 +326,7 @@ int32_t adi_adrv9001_arm_Image_Write(adi_adrv9001_Device_t *device, uint32_t byt
             (((uint32_t)binary[i + 2]) << 16) | (((uint32_t)binary[i + 1]) << 8) | ((uint32_t)binary[i]));
     }
 
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_START_PROG + byteOffset, &binary[0], byteCount);
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_START_PROG + byteOffset, &binary[0], byteCount, spiWriteMode);
 
     ADI_API_RETURN(device);
 }
@@ -334,6 +335,7 @@ static int32_t __maybe_unused adi_adrv9001_arm_Memory_ReadWrite_Validate(adi_adr
                                                                          uint32_t address,
                                                                          uint8_t returnData[],
                                                                          uint32_t byteCount,
+                                                                         adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode,
                                                                          uint8_t autoIncrement)
 {
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
@@ -372,6 +374,8 @@ static int32_t __maybe_unused adi_adrv9001_arm_Memory_ReadWrite_Validate(adi_adr
                          "Invalid parameter value. byteCount must be a multiple of 4 when using autoIncrement");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
+    
+    ADI_RANGE_CHECK(device, spiWriteMode, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4);
     ADI_API_RETURN(device);
 }
 
@@ -381,18 +385,18 @@ int32_t adi_adrv9001_arm_Memory_Read(adi_adrv9001_Device_t *device,
                                      uint32_t byteCount,
                                      uint8_t autoIncrement)
 {
-    ADI_PERFORM_VALIDATION(adi_adrv9001_arm_Memory_ReadWrite_Validate, device, address, returnData, byteCount, autoIncrement);
+    ADI_PERFORM_VALIDATION(adi_adrv9001_arm_Memory_ReadWrite_Validate, device, address, returnData, byteCount, 0, autoIncrement);
 
     ADI_EXPECT(adrv9001_DmaMemRead, device, address, returnData, byteCount, autoIncrement);
 
     ADI_API_RETURN(device);
 }
 
-int32_t adi_adrv9001_arm_Memory_Write(adi_adrv9001_Device_t *device, uint32_t address, const uint8_t data[], uint32_t byteCount)
+int32_t adi_adrv9001_arm_Memory_Write(adi_adrv9001_Device_t *device, uint32_t address, const uint8_t data[], uint32_t byteCount, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
 {
-    ADI_PERFORM_VALIDATION(adi_adrv9001_arm_Memory_ReadWrite_Validate, device, address, (uint8_t *)data, byteCount, false);
+    ADI_PERFORM_VALIDATION(adi_adrv9001_arm_Memory_ReadWrite_Validate, device, address, (uint8_t *)data, byteCount, spiWriteMode, false);
 
-    ADI_EXPECT(adrv9001_DmaMemWrite, device, address, data, byteCount);
+    ADI_EXPECT(adrv9001_DmaMemWrite, device, address, data, byteCount, spiWriteMode);
 
     ADI_API_RETURN(device);
 }
@@ -402,7 +406,7 @@ int32_t adi_adrv9001_arm_Config_Write(adi_adrv9001_Device_t *device, const uint8
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, armData, armDataSize);
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, mailboxCmd, mailboxCmdSize);
 
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_SET, &armData[0], armDataSize);
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_SET, &armData[0], armDataSize, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, device, ADRV9001_ARM_SET_OPCODE, &mailboxCmd[0], mailboxCmdSize);
 
@@ -429,7 +433,7 @@ int32_t adi_adrv9001_arm_Config_Read(adi_adrv9001_Device_t *device, uint8_t obje
     extendedData[2] = (uint8_t)((byteCount >> 16) & 0xFF);
     extendedData[3] = (uint8_t)((byteCount >> 24) & 0xFF);
 
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_MAILBOX_GET, &extendedData[0], 4);
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_MAILBOX_GET, &extendedData[0], 4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     /* ARM Object id, byte offset LSB, offset MSB = 0, byteCount will read that number of bytes */
     extendedData[0] = channelMask;
@@ -785,7 +789,6 @@ int32_t adi_adrv9001_arm_Version(adi_adrv9001_Device_t *device, adi_adrv9001_Arm
             "ARM binary must be loaded before calling ArmVersionGet()");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-
 
     recoveryAction = adi_adrv9001_arm_Memory_Read(device, ADRV9001_ADDR_ARM_VERSION, &ver[0], sizeof(ver), ADRV9001_ARM_MEM_READ_AUTOINCR);
     ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, ADI_COMMON_ERR_API_FAIL, recoveryAction, NULL, "Failed to read ARM memory");
@@ -1628,7 +1631,7 @@ int32_t adi_adrv9001_arm_SystemPowerSavingAndMonitorMode_Configure(adi_adrv9001_
     armData[offset++] = (uint8_t)monitorModeCfg->externalPllEnable;
 
     /* Write monitor mode configuration parameters to ARM data memory */
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_HIGHPRIORITY_MAILBOX_SET, &armData[0], sizeof(armData));
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_HIGHPRIORITY_MAILBOX_SET, &armData[0], sizeof(armData), ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     extData[0] = 0;
     extData[1] = ADRV9001_ARM_HIGHPRIORITY_SET_MONITOR_MODE_CONFIG;
@@ -2031,7 +2034,7 @@ int32_t adi_adrv9001_arm_Start(adi_adrv9001_Device_t *device)
     ADI_ENTRY_EXPECT(device);
 
     /* Set MailBox 0xFF */
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_MAILBOX_GET, &mailBox[0], 4);
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_MAILBOX_GET, &mailBox[0], 4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
     
     armCtl1 = ADRV9001_AC1_ARM_DEBUG_ENABLE | ADRV9001_AC1_ARM_MEM_HRESP_MASK | ADRV9001_AC1_ARM_M3_RUN;
     ADRV9001_SPIWRITEBYTE(device, "ARM_CTL_1", ADRV9001_ADDR_ARM_CTL_1, armCtl1);

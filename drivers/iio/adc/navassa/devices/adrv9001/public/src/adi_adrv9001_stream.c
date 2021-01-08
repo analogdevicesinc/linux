@@ -58,7 +58,8 @@ static void adrv9001_BinaryParamsGetNumberStreamImageSize(adi_adrv9001_Device_t 
 int32_t adi_adrv9001_Stream_Image_Write(adi_adrv9001_Device_t *device,
                                       uint32_t byteOffset,
                                       uint8_t binary[],
-                                      uint32_t byteCount)
+                                      uint32_t byteCount,
+                                      adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
 {
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint16_t binaryImageSize = 0;
@@ -93,11 +94,15 @@ int32_t adi_adrv9001_Stream_Image_Write(adi_adrv9001_Device_t *device,
         0xFFFFFFFF,
         ADI_ADRV9001_TX1,
         ADI_ADRV9001_TX2,
-        ADI_ADRV9001_RX1,
-        ADI_ADRV9001_RX2
+        ADI_ADRV9001_RX1 | ADI_ADRV9001_ORX1,
+        ADI_ADRV9001_RX2 | ADI_ADRV9001_ORX2
     };
 
     ADI_ENTRY_PTR_EXPECT(device, binary);
+    ADI_RANGE_CHECK(device,
+                    spiWriteMode,
+                    ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4,
+                    ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4);
 
     if ((byteCount % 4) > 0)
     {
@@ -210,7 +215,7 @@ int32_t adi_adrv9001_Stream_Image_Write(adi_adrv9001_Device_t *device,
                     /* Load main SP binary image */
                     /* Main Stream Processor is connected on the AHB system bus. It shares its memory with the ARM subsystem.
                        So the main SP memory can be read/loaded through SPI-to-AHB interface*/
-                    recoveryAction = adrv9001_DmaMemWrite(device, device->devStateInfo.currentStreamBinBaseAddr, &binary[0], imageSize);
+                    recoveryAction = adrv9001_DmaMemWrite(device, device->devStateInfo.currentStreamBinBaseAddr, &binary[0], imageSize, spiWriteMode);
                     ADI_ERROR_RETURN(device->common.error.newAction);
                 }
                 else
@@ -218,7 +223,7 @@ int32_t adi_adrv9001_Stream_Image_Write(adi_adrv9001_Device_t *device,
                     /* Load flex SP 0-3 binary image */
                     /* The 4 flex Stream Processors are connected on the AHB system bus have dedicated program code memory.
                        So the flex SP memory can be read/loaded only through a specific Flex_SP_SPI-to-AHB interface*/
-                    recoveryAction = adrv9001_FlexStreamProcessorMemWrite(device, device->devStateInfo.currentStreamBinBaseAddr, &binary[0], imageSize, i);
+                    recoveryAction = adrv9001_FlexStreamProcessorMemWrite(device, device->devStateInfo.currentStreamBinBaseAddr, &binary[0], imageSize, i, spiWriteMode);
                     ADI_ERROR_RETURN(device->common.error.newAction);
                 }
             }
