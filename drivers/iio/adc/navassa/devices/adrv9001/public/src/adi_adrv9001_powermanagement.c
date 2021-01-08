@@ -83,7 +83,7 @@ int32_t adi_adrv9001_powermanagement_Configure(adi_adrv9001_Device_t *adrv9001,
     {
         modesData[i] = powerManagementSettings->ldoPowerSavingModes[i];
     }
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ldoPowerSavingModesAddr, modesData, sizeof(modesData));
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ldoPowerSavingModesAddr, modesData, sizeof(modesData), ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
     
     for (i = 0; i < ADI_ADRV9001_NUM_LDOS_CONFIGURABLE; i++)
     {
@@ -94,7 +94,7 @@ int32_t adi_adrv9001_powermanagement_Configure(adi_adrv9001_Device_t *adrv9001,
         configData[i * 6 + 4] = powerManagementSettings->ldoConfigs[i].shuntResistanceNormal;
         configData[i * 6 + 5] = powerManagementSettings->ldoConfigs[i].diffPairBiasNormal;
     }
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ldoConfigsAddr, configData, sizeof(configData));
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ldoConfigsAddr, configData, sizeof(configData), ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
     
     ADI_API_RETURN(adrv9001);
 }

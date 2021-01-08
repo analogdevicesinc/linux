@@ -642,13 +642,11 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Write(adi_adrv9001_Device_t *device,
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Tx_AttenuationTable_Write_Validate, device, channelMask, indexOffset, attenTableRows, arraySize);
 
-#ifdef SI_REV_B0
     /* Enable ARM clock to access attenuation table memory */
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB1_CORE, true);
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, true);
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB2_CORE, true);
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx2GainTableClkEn_Set, device, true);
-#endif // SI_REV_B0
 
     for (idx = 0; idx < ADI_ADRV9001_MAX_TXCHANNELS; idx++)
     {
@@ -672,7 +670,7 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Write(adi_adrv9001_Device_t *device,
                 start += TX_ENTRY_SIZE;
                 if (start >= ADI_ADRV9001_TX_ATTEN_TABLE_CACHE_MAX)
                 {
-                    ADI_EXPECT(adrv9001_DmaMemWrite, device, offset + stop, &cfgData[0], start);
+                    ADI_EXPECT(adrv9001_DmaMemWrite, device, offset + stop, &cfgData[0], start, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
                     stop += start;
                     start = 0;
@@ -681,20 +679,15 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Write(adi_adrv9001_Device_t *device,
 
             if (start > 0)
             {
-                ADI_EXPECT(adrv9001_DmaMemWrite, device, offset + stop, &cfgData[0], start);
+                ADI_EXPECT(adrv9001_DmaMemWrite, device, offset + stop, &cfgData[0], start, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
             }
         }
         start = 0;
         stop = 0;
     }
 
-#ifdef SI_REV_B0
-    /* Disable ARM clock to Tx1/2 atten table memory access */
-    ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, false);
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB1_CORE, false);
-    ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx2GainTableClkEn_Set, device, false);
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB2_CORE, false);
-#endif // SI_REV_B0
 
     ADI_API_RETURN(device);
 }
@@ -770,23 +763,19 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Read(adi_adrv9001_Device_t *device,
         numTxAttenEntriesRead = ADI_ADRV9001_TX_ATTEN_TABLE_CACHE_MAX;
     }
 
-#ifdef SI_REV_B0
     /* Enable ARM clock to access attenuation table memory */
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB1_CORE, true);
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, true);
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB2_CORE, true);
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx2GainTableClkEn_Set, device, true);
-#endif // SI_REV_B0
 
     ADI_EXPECT(adrv9001_DmaMemRead, device, offset + stop, &cfgData[0], numTxAttenEntriesRead, ADRV9001_ARM_MEM_READ_AUTOINCR);
 
-#ifdef SI_REV_B0
     /* Disable ARM clock to Tx1/2 atten table memory access */
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, false);
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB1_CORE, false);
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx2GainTableClkEn_Set, device, false);
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB2_CORE, false);
-#endif // SI_REV_B0
 
     for (idx = 0; idx < arraySize; idx++)
     {
@@ -1060,7 +1049,8 @@ int32_t adi_adrv9001_Tx_SlewRateLimiter_Configure(adi_adrv9001_Device_t *device,
                    device,
                    (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_SET,
                    &armData[0],
-                   sizeof(armData));
+                   sizeof(armData),
+                   ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     /* Command ARM to set rest of the configuration for slew rate limiter of selected Tx channel */
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
@@ -1129,8 +1119,8 @@ int32_t adi_adrv9001_Tx_SlewRateLimiter_Inspect(adi_adrv9001_Device_t *device,
 }
 
 static int32_t __maybe_unused adi_adrv9001_Tx_PaRamp_Configure_Validate(adi_adrv9001_Device_t *device,
-									adi_common_ChannelNumber_e channel,
-									adi_adrv9001_PaRampCfg_t *paRampCfg)
+                                    adi_common_ChannelNumber_e channel,
+                                    adi_adrv9001_PaRampCfg_t *paRampCfg)
 {
     /* Check device pointer and gain pointer are not null */
     ADI_NULL_DEVICE_PTR_RETURN(device);
@@ -1733,7 +1723,7 @@ int32_t adi_adrv9001_Tx_FrequencyCorrection_Set(adi_adrv9001_Device_t *device,
     adrv9001_LoadFourBytes(&offset, armData, frequencyOffset_Hz);
     armData[offset] = (uint8_t)immediate;
 
-    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, (uint32_t)ADRV9001_ADDR_ARM_HIGHPRIORITY_MAILBOX_SET, &armData[0], sizeof(armData))
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, (uint32_t)ADRV9001_ADDR_ARM_HIGHPRIORITY_MAILBOX_SET, &armData[0], sizeof(armData), ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4)
 
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
     extData[1] = ADRV9001_ARM_HIGHPRIORITY_SET_TX_FREQCORRECTION;
