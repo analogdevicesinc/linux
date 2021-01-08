@@ -61,6 +61,7 @@ static int typec_switch_gpio_probe(struct platform_device *pdev)
 	sw_desc.drvdata = gpio_sw;
 	sw_desc.fwnode = dev->fwnode;
 	sw_desc.set = switch_gpio_set;
+	sw_desc.name = NULL;
 	mutex_init(&gpio_sw->lock);
 
 	/* Get the super speed mux reset GPIO, it's optional */
