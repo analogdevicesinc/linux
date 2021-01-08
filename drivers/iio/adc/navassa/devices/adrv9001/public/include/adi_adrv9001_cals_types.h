@@ -76,7 +76,13 @@ typedef enum adi_adrv9001_TrackingCalibrations
 }adi_adrv9001_TrackingCalibrations_e;
 
 /**
- *  \brief Enum to run desired InitCals algorithms.
+ * \brief Enum to run desired InitCals algorithms.
+ * 
+ * When using the internal LO, initial calibrations can be run all at once using ADI_ADRV9001_INIT_CAL_MODE_ALL. When
+ * using external LO, it may be necessary to run initial calibrations in two stages:
+ *   - Run ADI_ADRV9001_INIT_CAL_MODE_SYSTEM_AND_RX calibrations
+ *   - Change external LO frequency as necessary
+ *   - Run ADI_ADRV9001_INIT_CAL_MODE_LOOPBACK_AND_TX calibrations
  */
 typedef enum adi_adrv9001_InitCalMode
 {

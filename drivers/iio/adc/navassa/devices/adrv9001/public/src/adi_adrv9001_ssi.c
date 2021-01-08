@@ -55,18 +55,6 @@ static int32_t __maybe_unused adi_adrv9001_Ssi_Rx_TestMode_Configure_Validate(ad
         }
     }
 
-    if ((ADI_ADRV9001_SSI_TESTMODE_DATA_FIXED_PATTERN != ssiTestModeConfig->testData) &&
-        (dataFormat != ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA))
-    {
-        ADI_ERROR_REPORT(&device->common,
-            ADI_COMMON_ERRSRC_API,
-            ADI_COMMON_ERR_INV_PARAM,
-            ADI_COMMON_ACT_ERR_CHECK_PARAM,
-            dataFormat,
-            "Invalid SSI data format for the selected SSI calibration test type");
-        ADI_ERROR_RETURN(device->common.error.newAction);
-    }
-
     ADI_API_RETURN(device);
 }
 
@@ -84,18 +72,6 @@ int32_t adi_adrv9001_Ssi_Rx_TestMode_Configure(adi_adrv9001_Device_t *device,
 
     adi_common_channel_to_index(channel, &channelIdx);
     instance = nvsRegmapRxInstances[channelIdx];
-
-    if ((ADI_ADRV9001_SSI_TESTMODE_DATA_FIXED_PATTERN != ssiTestModeConfig->testData) &&
-        (dataFormat != ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA))
-    {
-        ADI_ERROR_REPORT(&device->common,
-                         ADI_COMMON_ERRSRC_API,
-                         ADI_COMMON_ERR_INV_PARAM,
-                         ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         dataFormat,
-                         "Invalid SSI data format for the selected SSI calibration test type");
-        ADI_ERROR_RETURN(device->common.error.newAction);
-    }
 
     if (ADI_ADRV9001_SSI_TYPE_CMOS == ssiType)
     {
@@ -197,18 +173,6 @@ static int32_t __maybe_unused adi_adrv9001_Ssi_Tx_TestMode_Configure_Validate(ad
                 "Nibble ramp pattern is not supported in LVDS");
             ADI_ERROR_RETURN(device->common.error.newAction);
         }
-    }
-
-    if ((ADI_ADRV9001_SSI_TESTMODE_DATA_FIXED_PATTERN != ssiTestModeConfig->testData) &&
-        (dataFormat != ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA))
-    {
-        ADI_ERROR_REPORT(&device->common,
-            ADI_COMMON_ERRSRC_API,
-            ADI_COMMON_ERR_INV_PARAM,
-            ADI_COMMON_ACT_ERR_CHECK_PARAM,
-            dataFormat,
-            "Invalid SSI data format for the selected SSI calibration test type");
-        ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
     ADI_API_RETURN(device);

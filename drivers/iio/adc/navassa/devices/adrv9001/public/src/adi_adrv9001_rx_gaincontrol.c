@@ -272,14 +272,10 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     uint8_t gpioSource3_2 = 0;
     uint16_t gpioOutEn = 0;
     static const uint16_t GPIO_SOURCE_SEL_ADDR = 0x56;
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_1_0 = 0x10; /* peak power */
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_3_2 = 0x11;
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_5_4 = 0x12; /* peak */
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_7_6 = 0x13;
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX2_1_0 = 0x14; /* peak power */
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX2_3_2 = 0x15;
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX2_5_4 = 0x16; /* peak */
-    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX2_7_6 = 0x17;
+    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_5_4 = 0x12; /* peak or peak&power */
+    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_7_6 = 0x13; /* peak or peak&power */
+    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX2_5_4 = 0x16; /* peak or peak&power */
+    static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX2_7_6 = 0x17; /* peak or peak&power */
 #ifdef __KERNEL__
     /* APD Low Frequency MITIGATION Mode Setup */
     static const uint8_t APD_LOW_FREQ_ADCOVRG_2ND_HIGH_COUNTER = 3;
@@ -413,7 +409,11 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     {
         ADI_EXPECT(adrv9001_NvsRegmapRxb_AgcUseCountersForMgc_Set, device, rxbAddr, true);
     }
-    else /* AGC mode */
+    else if (gainCtrlMode == ADI_ADRV9001_RX_GAIN_CONTROL_MODE_PIN)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapRxb_AgcUseCountersForMgc_Set, device, rxbAddr, true);
+    }
+    else if (gainCtrlMode == ADI_ADRV9001_RX_GAIN_CONTROL_MODE_AUTO)
     {
         ADI_EXPECT(adrv9001_NvsRegmapRxb_AgcUseCountersForMgc_Set, device, rxbAddr, false);
     }
@@ -440,13 +440,13 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
         gpioCrumb3_2 = (uint8_t)agcCfg->power.feedback_apd_high_apd_low;
         if (ADI_CHANNEL_1 == channel)
         {
-            gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX1_1_0;
-            gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX1_3_2;
+	        gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX1_5_4;
+	        gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX1_7_6;
         }
         else
         {
-            gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX2_1_0;
-            gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX2_3_2;
+	        gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX2_5_4;
+	        gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX2_7_6;
         }
     }
 
@@ -460,7 +460,8 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb1_0 - 1), gpioSource1_0);
     ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb3_2 - 1), gpioSource3_2);
 
-    ADI_EXPECT(adrv9001_NvsRegmapRx_AdcCaptSampleSel_Set, device, rxAddr, controlMuxAddress);
+	ADI_EXPECT(adrv9001_NvsRegmapRx_ControlOutMuxSel_Set, device, rxAddr, controlMuxAddress);
+	
 
     ADI_API_RETURN(device);
 }
@@ -488,12 +489,8 @@ int32_t adi_adrv9001_Rx_GainControl_Inspect(adi_adrv9001_Device_t *device,
     static const uint16_t GPIO_SOURCE_SEL_ADDR = 0x56;
     enum
     {
-        ADI_ADRV9001_GPIO_SOURCE_RX1_1_0 = 0x10, /* peak power */
-        ADI_ADRV9001_GPIO_SOURCE_RX1_3_2 = 0x11,
-        ADI_ADRV9001_GPIO_SOURCE_RX1_5_4 = 0x12, /* peak */
-        ADI_ADRV9001_GPIO_SOURCE_RX1_7_6 = 0x13,
-        ADI_ADRV9001_GPIO_SOURCE_RX2_1_0 = 0x14, /* peak power */
-        ADI_ADRV9001_GPIO_SOURCE_RX2_3_2 = 0x15,
+        ADI_ADRV9001_GPIO_SOURCE_RX1_5_4 = 0x12, /* peak or peak&power */
+        ADI_ADRV9001_GPIO_SOURCE_RX1_7_6 = 0x13, /* peak or peak&power */
         ADI_ADRV9001_GPIO_SOURCE_RX2_5_4 = 0x16, /* peak */
         ADI_ADRV9001_GPIO_SOURCE_RX2_7_6 = 0x17
     };
@@ -595,29 +592,47 @@ int32_t adi_adrv9001_Rx_GainControl_Inspect(adi_adrv9001_Device_t *device,
     agcCfg->power.feedback_inner_high_inner_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
     for (i = 0; i < ADI_ADRV9001_GPIO_PIN_CRUMB_15_14; i++)
     {
-        ADRV9001_SPIREADBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + i), &bfValue);
-
-        switch (bfValue)
-        {
-        case ADI_ADRV9001_GPIO_SOURCE_RX1_1_0:  /* Falls through */
-        case ADI_ADRV9001_GPIO_SOURCE_RX2_1_0:
-            agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-            break;
-        case ADI_ADRV9001_GPIO_SOURCE_RX1_3_2:  /* Falls through */
-        case ADI_ADRV9001_GPIO_SOURCE_RX2_3_2:
-            agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-            break;
-        case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  /* Falls through */
-        case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
-            agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-            break;
-        case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:  /* Falls through */
-        case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
-            agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-            break;
-        default:
-            break;
-        }
+	    ADRV9001_SPIREADBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + i), &bfValue); 
+	    if (agcCfg->agcMode == (adi_adrv9001_RxGainControlDetectionMode_e)(0))
+	    {
+		    switch (bfValue)
+		    {
+		    case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  
+			    agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);      
+			    break;
+		    case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
+			    agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);      
+			    break;
+		    case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:
+			    agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+			    break;
+		    case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
+			    agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+			    break;
+		    default:
+			    break;
+		    }
+	    }
+		else
+		{
+			switch (bfValue)
+			{
+			case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  
+				agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);    
+				break;
+			case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
+				agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+				break;
+			case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:
+				agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+				break;
+			case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
+				agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+				break;
+			default:
+				break;
+			}
+		}
     }
 
     ADI_API_RETURN(device);
