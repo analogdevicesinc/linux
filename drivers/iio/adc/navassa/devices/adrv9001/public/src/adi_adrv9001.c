@@ -148,9 +148,9 @@ static void cacheInitInfo(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *
         adrv9001->devStateInfo.txInputRate_kHz[0] = init->tx.txProfile[0].txInputRate_Hz / 1000;
         adrv9001->devStateInfo.txInputRate_kHz[1] = init->tx.txProfile[1].txInputRate_Hz / 1000;
     }
-	
-	/* Save whether we are in FH mode to state */
-	adrv9001->devStateInfo.frequencyHoppingEnabled = init->sysConfig.fhModeOn;
+    
+    /* Save whether we are in FH mode to state */
+    adrv9001->devStateInfo.frequencyHoppingEnabled = init->sysConfig.fhModeOn;
 }
 
 int32_t adi_adrv9001_InitAnalog(adi_adrv9001_Device_t *device,
@@ -579,6 +579,32 @@ int32_t adi_adrv9001_Temperature_Get(adi_adrv9001_Device_t *device, int16_t *tem
     /* Reconstruct temperature */
     *temperature_C = (int16_t)(((int16_t)armReadBack[0] << 0) |
                                ((int16_t)armReadBack[1] << 8));
+
+    ADI_API_RETURN(device);
+}
+
+int32_t adi_adrv9001_PartNumber_Get(adi_adrv9001_Device_t *device, adi_adrv9001_PartNumber_e *partNumber)
+{
+    uint8_t     swConfig[2];
+
+    ADI_ENTRY_PTR_EXPECT(device, partNumber);
+
+    ADRV9001_SPIREADBYTE(device, "EFUSE_SW_CONFIG_0", ADRV9001_ADDR_EFUSE_SW_CONFIG_0, &swConfig[0]);
+    ADRV9001_SPIREADBYTE(device, "EFUSE_SW_CONFIG_1", ADRV9001_ADDR_EFUSE_SW_CONFIG_1, &swConfig[1]);
+
+    *partNumber = (adi_adrv9001_PartNumber_e)(((uint16_t)swConfig[1] << 8) | (uint16_t)swConfig[0]);
+    if ((ADI_ADRV9001_PART_NUMBER_ADRV9002 != *partNumber) &&
+        (ADI_ADRV9001_PART_NUMBER_ADRV9003 != *partNumber) &&
+        (ADI_ADRV9001_PART_NUMBER_ADRV9004 != *partNumber))
+    {
+        *partNumber = ADI_ADRV9001_PART_NUMBER_UNKNOWN;
+        ADI_ERROR_REPORT(device, 
+                         ADI_COMMON_ERRSRC_API, 
+                         ADI_COMMON_ERR_API_FAIL, 
+                         ADI_COMMON_ACT_ERR_RESET_FULL, 
+                         NULL, 
+                         "Unknown part number detected");
+    }
 
     ADI_API_RETURN(device);
 }

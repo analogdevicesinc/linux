@@ -1,6 +1,6 @@
 /* Auto-generated file - DO NOT MANUALLY EDIT */
 /* Filename: C:\Jenkins\workspace\vice-driver_profile-types_master\include\adrv9001_Init_t_parser.h */
-/* Created on: 8/13/2020 7:28:52 PM */
+/* Created on: 12/3/2020 9:58:11 AM */
 
 /**
  * Contains auto-generated C macros for loading fields from a JSON file
@@ -126,7 +126,7 @@ ADI_PROCESS_ARRAY_STRUCT_X(ADRV9001_PLLMODULUS_T(tokenArray, tokenIndex, jsonBuf
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.duplexMode,                   "duplexMode"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.fhModeOn,                     "fhModeOn"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.numDynamicProfile,            "numDynamicProfile"); \
-ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.extMcsOn,                     "extMcsOn"); \
+ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.mcsMode,                      "mcsMode"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.adcTypeMonitor,               "adcTypeMonitor"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.pllLockTime_us,               "pllLockTime_us"); \
 ADI_PROCESS_STRUCT_ADRV9001_PLLMODULUS_T                           (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.pllModulus,                   "pllModulus"); \
@@ -323,16 +323,16 @@ ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv900
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.strobeType,                         "strobeType"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lsbFirst,                           "lsbFirst"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.qFirst,                             "qFirst"); \
-ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.refClockGpioEn,                     "refClockGpioEn"); \
+ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.txRefClockPin,                      "txRefClockPin"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsBitInversion,                   "lvdsBitInversion"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsUseLsbIn12bitMode,              "lvdsUseLsbIn12bitMode"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsTxFullRefClkEn,                 "lvdsTxFullRefClkEn"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsRxClkInversionEn,               "lvdsRxClkInversionEn"); \
-ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.rfLvdsDiv,                          "rfLvdsDiv"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.cmosTxDdrNegStrobeEn,               "cmosTxDdrNegStrobeEn"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.cmosDdrPosClkEn,                    "cmosDdrPosClkEn"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.cmosDdrClkInversionEn,              "cmosDdrClkInversionEn"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.cmosDdrEn,                          "cmosDdrEn"); \
+ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.rxMaskStrobeEn,                     "rxMaskStrobeEn"); \
 
 #define ADI_PROCESS_STRUCT_ADRV9001_SSICONFIG_T(tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance, adrv9001_SsiConfig_tName) \
 ADI_PROCESS_STRUCT_X(ADRV9001_SSICONFIG_T(tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance), tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tName);
