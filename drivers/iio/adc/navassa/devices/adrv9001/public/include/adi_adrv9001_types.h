@@ -36,6 +36,18 @@
 /* TODO: Determine a reasonable value */
 #define ADI_ADRV9001_READY_FOR_MCS_DELAY_US 100U
 
+
+/**
+* \brief ADRV9001 part number
+*/
+typedef enum adi_adrv9001_PartNumber
+{
+	ADI_ADRV9001_PART_NUMBER_UNKNOWN    = -1,
+	ADI_ADRV9001_PART_NUMBER_ADRV9002   = 0x0,
+	ADI_ADRV9001_PART_NUMBER_ADRV9003   = 0xC,
+	ADI_ADRV9001_PART_NUMBER_ADRV9004   = 0x8,
+} adi_adrv9001_PartNumber_e;
+
 /**
  * \brief Enum of all ADRV9001 channels
  * \note Maskable
@@ -136,7 +148,7 @@ typedef enum adi_adrv9001_FirGain
 typedef struct adi_adrv9001_SpiSettings
 {
     uint8_t msbFirst;                           		/*!< 1 = MSB First, 0 = LSB First Bit order for SPI transaction */
-    uint8_t enSpiStreaming;                     		/*!< Not Recommended - most registers in ADRV9001 API are not consecutive */
+    uint8_t enSpiStreaming;                     		/*!< 1 = ADRV9001 SPI streaming mode; 0 = Standard mode */
     uint8_t autoIncAddrUp;                      		/*!< For SPI Streaming, set address increment direction. 1= next addr = addr+1, 0:addr = addr-1 */
     uint8_t fourWireMode;                       		/*!< 1: Use 4-wire SPI, 0: 3-wire SPI (SDIO pin is bidirectional). NOTE: ADI's FPGA platform always uses 4-wire mode */
     adi_adrv9001_CmosPadDrvStr_e cmosPadDrvStrength;   	/*!< Drive strength of CMOS pads when used as outputs (SDIO, SDO, GP_INTERRUPT, GPIO 1, GPIO 0) */
