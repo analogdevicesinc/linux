@@ -515,7 +515,8 @@ static int ad9545_parse_dt_ncos(struct ad9545_state *st)
 
 	prop_found = false;
 	fwnode_for_each_available_child_node(fwnode, child) {
-		if (!fwnode_property_present(child, "adi,nco-freq-hz"))
+		if (!fwnode_property_present(child, "adi,freq-lock-threshold-ps") ||
+		    fwnode_property_present(child, "adi,ref-dtol-pbb"))
 			continue;
 
 		ret = fwnode_property_read_u32(child, "reg", &addr);
