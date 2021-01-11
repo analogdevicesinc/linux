@@ -886,7 +886,7 @@ static const struct clk_ops ad9545_out_clk_ops = {
 
 static int ad9545_outputs_setup(struct ad9545_state *st)
 {
-	struct clk_init_data init[ARRAY_SIZE(ad9545_out_clk_names)];
+	struct clk_init_data init[ARRAY_SIZE(ad9545_out_clk_names)] = {0};
 	int out_i;
 	u16 addr;
 	int ret;
@@ -1029,7 +1029,7 @@ static const struct clk_ops ad9545_in_clk_ops = {
 
 static int ad9545_input_refs_setup(struct ad9545_state *st)
 {
-	struct clk_init_data init[4];
+	struct clk_init_data init[4] = {0};
 	__le32 regval;
 	__le64 regval64;
 	u64 period_es;
@@ -1308,7 +1308,7 @@ static const struct clk_ops ad9545_pll_clk_ops = {
 
 static int ad9545_plls_setup(struct ad9545_state *st)
 {
-	struct clk_init_data init[2];
+	struct clk_init_data init[2] = {0};
 	struct ad9545_ppl_clk *pll;
 	__le32 regval;
 	int ret;
@@ -1427,7 +1427,7 @@ static const struct clk_ops ad9545_nco_clk_ops = {
 
 static int ad9545_aux_ncos_setup(struct ad9545_state *st)
 {
-	struct clk_init_data init[2];
+	struct clk_init_data init[2] = {0};
 	struct ad9545_aux_nco_clk *nco;
 	__le32 regval;
 	int ret;
