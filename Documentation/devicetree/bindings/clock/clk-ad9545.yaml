@@ -278,87 +278,46 @@ examples:
             #address-cells = <1>;
             #size-cells = <0>;
             ad9545_clock: ad9545@4A {
-                    compatible = "adi,ad9545";
-                    reg = <0x4A>;
+                compatible = "adi,ad9545";
+                reg = <0x4A>;
 
-                    #address-cells = <1>;
-                    #size-cells = <0>;
+                #address-cells = <1>;
+                #size-cells = <0>;
 
-                    adi,ref-crystal;
-                    adi,ref-frequency-hz = <52000000>;
+                adi,ref-crystal;
+                adi,ref-frequency-hz = <52000000>;
 
-                    clock-names = "Ref-A", "Ref-AA", "Ref-B", "Ref-BB";
-                    clocks = <&ref_clk0 0>, <&ref_clk1 1>, <&ref_clk2 2>, <&ref_clk3 3>;
+                #clock-cells = <2>;
+                assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
+                                  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL1>,
+                                  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1A>,
+                                  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1B>;
+                assigned-clock-rates = <10000>, <1875000000>, <156250000>, <156250000>;
+                assigned-clock-phases = <0>, <0>, <0>, <180>;
 
-                    #clock-cells = <2>;
-                    clock-output-names = "Q0A-div", "Q0B-div";
-
-                    assigned-clocks = <&ad9545_clock 1 0>, <&ad9545_clock 1 1>, <&ad9545_clock 0 0>, <&ad9545_clock 0 2>;
-                    assigned-clock-rates = <1400000000>, <1800000000>, <1000>, <1000>;
-
-                    /* ref a*/
-                    ref-input-clk@0 {
-                        reg = <0>;
-                        adi,single-ended-mode = <DRIVER_MODE_DC_COUPLED_1V2>;
-                        adi,r-divider-ratio = <1>;
-                        adi,ref-dtol-pbb = <10000000>;
-                        adi,ref-monitor-hysteresis-pbb = <87500>;
-                        adi,ref-validation-timer-ms = <1>;
+                aux-nco-clk@AD9545_NCO0 {
+                        reg = <AD9545_NCO0>;
                         adi,freq-lock-threshold-ps = <16000000>;
                         adi,phase-lock-threshold-ps = <16000000>;
-                    };
+                };
 
-                    /* ref aa*/
-                    ref-input-clk@1 {
-                        reg = <1>;
-                        adi,single-ended-mode = <DRIVER_MODE_AC_COUPLED>;
-                        adi,r-divider-ratio = <50>;
-                        adi,ref-dtol-pbb = <100000>;
-                        adi,ref-monitor-hysteresis-pbb = <12500>;
-                        adi,ref-validation-timer-ms = <10>;
-                        adi,freq-lock-threshold-ps = <16000000>;
-                        adi,phase-lock-threshold-ps = <16000000>;
-                    };
-
-                    /* ref b*/
-                    ref-input-clk@2 {
-                        reg = <2>;
-                        adi,single-ended-mode = <DRIVER_MODE_DC_COUPLED_1V2>;
-                        adi,r-divider-ratio = <1>;
-                        adi,ref-dtol-pbb = <16777210>;
-                        adi,ref-monitor-hysteresis-pbb = <87500>;
-                        adi,ref-validation-timer-ms = <10>;
-                        adi,freq-lock-threshold-ps = <16000000>;
-                        adi,phase-lock-threshold-ps = <16000000>;
-                    };
-
-                    ad9545_apll0: pll-clk@0 {
-                        reg = <0>;
-                        adi,pll-source = <2>;
+                ad9545_apll1: pll-clk@AD9545_PLL1 {
+                        reg = <AD9545_PLL1>;
+                        adi,pll-source = <4>;
                         adi,pll-loop-bandwidth-hz = <200>;
-                    };
+                };
 
-                    ad9545_apll1: pll-clk@1 {
-                        reg = <1>;
-                        adi,pll-source = <2>;
-                        adi,pll-loop-bandwidth-hz = <200>;
-                    };
-
-                    output-clk@0 {
-                        reg = <0>;
-                        adi,init-freq-hz = <1000>;
-                        adi,init-phase = <90>;
+                output-clk@AD9545_Q1A {
+                        reg = <AD9545_Q1A>;
                         adi,output-mode = <DRIVER_MODE_DUAL_DIV>;
                         adi,current-source-microamp = <15000>;
-                    };
+                };
 
-                    output-clk@2 {
-                        reg = <2>;
-                        adi,init-freq-hz = <1000>;
-                        adi,init-phase = <0>;
+                output-clk@AD9545_Q1B {
+                        reg = <AD9545_Q1B>;
                         adi,output-mode = <DRIVER_MODE_DUAL_DIV>;
                         adi,current-source-microamp = <15000>;
-                    };
+                };
             };
     };
 ...
