@@ -139,6 +139,26 @@ int clk_set_phase(struct clk *clk, int degrees);
 int clk_get_phase(struct clk *clk);
 
 /**
+ * clk_set_nshot - setup a nshot
+ * @clk: clock signal source
+ * @nshot: number of clock pulses
+ *
+ * Configure a clock source to output n clock pulses on next enable.
+ * Disable this feature when nshot is 0.
+ * Returns 0 on success, negative errno otherwise..
+ */
+int clk_set_nshot(struct clk *clk, int nshot);
+
+/**
+ * clk_get_nshot - return the number of pulses shift of a the nshot signal
+ * @clk: clock signal source
+ *
+ * Returns the configured number of pulses of the nshot, 0 if nshot is disabled,
+ * otherwise returns negative errno.
+ */
+int clk_get_nshot(struct clk *clk);
+
+/**
  * clk_set_duty_cycle - adjust the duty cycle ratio of a clock signal
  * @clk: clock signal source
  * @num: numerator of the duty cycle ratio to be applied

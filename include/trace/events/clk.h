@@ -184,6 +184,39 @@ DEFINE_EVENT(clk_phase, clk_set_phase_complete,
 	TP_ARGS(core, phase)
 );
 
+DECLARE_EVENT_CLASS(clk_nshot,
+
+	TP_PROTO(struct clk_core *core, int nshot),
+
+	TP_ARGS(core, nshot),
+
+	TP_STRUCT__entry(
+		__string(        name,           core->name                )
+		__field(	  int,           nshot                     )
+	),
+
+	TP_fast_assign(
+		__assign_str(name, core->name);
+		__entry->nshot = nshot;
+	),
+
+	TP_printk("%s %d", __get_str(name), (int)__entry->nshot)
+);
+
+DEFINE_EVENT(clk_nshot, clk_set_nshot,
+
+	TP_PROTO(struct clk_core *core, int nshot),
+
+	TP_ARGS(core, nshot)
+);
+
+DEFINE_EVENT(clk_nshot, clk_set_nshot_complete,
+
+	TP_PROTO(struct clk_core *core, int nshot),
+
+	TP_ARGS(core, nshot)
+);
+
 DECLARE_EVENT_CLASS(clk_duty_cycle,
 
 	TP_PROTO(struct clk_core *core, struct clk_duty *duty),

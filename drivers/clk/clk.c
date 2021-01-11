@@ -79,6 +79,7 @@ struct clk_core {
 	unsigned long		max_rate;
 	unsigned long		accuracy;
 	int			phase;
+	int			nshot;
 	struct clk_duty		duty;
 	struct hlist_head	children;
 	struct hlist_node	child_node;
@@ -2706,6 +2707,101 @@ int clk_get_phase(struct clk *clk)
 }
 EXPORT_SYMBOL_GPL(clk_get_phase);
 
+static int clk_core_set_nshot_nolock(struct clk_core *core, int nshot)
+{
+	int ret = -EINVAL;
+
+	if (nshot < 0)
+		return ret;
+
+	if (!core)
+		return 0;
+
+	lockdep_assert_held(&prepare_lock);
+
+	if (clk_core_rate_is_protected(core))
+		return -EBUSY;
+
+	trace_clk_set_nshot(core, nshot);
+
+	if (core->ops->set_nshot) {
+		ret = core->ops->set_nshot(core->hw, nshot);
+		if (!ret)
+			core->nshot = nshot;
+	}
+
+	trace_clk_set_nshot_complete(core, nshot);
+
+	return ret;
+}
+
+/**
+ * clk_set_nshot - configure clock to send nshot pulses on next enable
+ * @clk: clock signal source
+ * @nshot: number of pulses
+ *
+ * Setup clock for an nshot. Generate pulses on enable. Clock
+ * must support gating/rate operations.
+ *
+ * When setting 0 number of pulses, disable this feature.
+ *
+ * Returns 0 on success, negative errno otherwise.
+ */
+int clk_set_nshot(struct clk *clk, int nshot)
+{
+	int ret;
+
+	if (!clk)
+		return 0;
+
+	clk_prepare_lock();
+
+	if (clk->exclusive_count)
+		clk_core_rate_unprotect(clk->core);
+
+	ret = clk_core_set_nshot_nolock(clk->core, nshot);
+
+	if (clk->exclusive_count)
+		clk_core_rate_protect(clk->core);
+
+	clk_prepare_unlock();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(clk_set_nshot);
+
+static int clk_core_get_nshot(struct clk_core *core)
+{
+	int ret = 0;
+
+	clk_prepare_lock();
+	/* Always try to update cached nshot if possible */
+	if (core->ops->get_nshot)
+		core->nshot = core->ops->get_nshot(core->hw);
+
+	ret = core->nshot;
+
+	clk_prepare_unlock();
+
+	return ret;
+}
+
+/**
+ * clk_get_nshot - return the nshot of a clock
+ * @clk: clock signal source
+ *
+ * Returns nshot number of pulses on success, 0 if feature is disabled,
+ * negative errno otherwise.
+ */
+int clk_get_nshot(struct clk *clk)
+{
+	if (!clk)
+		return 0;
+
+	return clk_core_get_nshot(clk->core);
+}
+EXPORT_SYMBOL_GPL(clk_get_nshot);
+
 static void clk_core_reset_duty_cycle_nolock(struct clk_core *core)
 {
 	/* Assume a default value of 50% */
@@ -2931,7 +3027,8 @@ static void clk_summary_show_one(struct seq_file *s, struct clk_core *c,
 	else
 		seq_puts(s, "-----");
 
-	seq_printf(s, " %6d\n", clk_core_get_scaled_duty_cycle(c, 100000));
+	seq_printf(s, " %6d %8d\n", clk_core_get_scaled_duty_cycle(c, 100000),
+		   clk_core_get_nshot(c));
 }
 
 static void clk_summary_show_subtree(struct seq_file *s, struct clk_core *c,
@@ -2951,8 +3048,8 @@ static int clk_summary_show(struct seq_file *s, void *data)
 	struct hlist_head **lists = (struct hlist_head **)s->private;
 
 	seq_puts(s, "                                 enable  prepare  protect                                duty\n");
-	seq_puts(s, "   clock                          count    count    count        rate   accuracy phase  cycle\n");
-	seq_puts(s, "---------------------------------------------------------------------------------------------\n");
+	seq_puts(s, "   clock                          count    count    count        rate   accuracy phase  cycle  nshot\n");
+	seq_puts(s, "----------------------------------------------------------------------------------------------------\n");
 
 	clk_prepare_lock();
 
@@ -2987,6 +3084,7 @@ static void clk_dump_one(struct seq_file *s, struct clk_core *c, int level)
 		seq_printf(s, "\"phase\": %d,", phase);
 	seq_printf(s, "\"duty_cycle\": %u",
 		   clk_core_get_scaled_duty_cycle(c, 100000));
+	seq_printf(s, "\"nshot\": %d", clk_core_get_nshot(c));
 }
 
 static void clk_dump_subtree(struct seq_file *s, struct clk_core *c, int level)

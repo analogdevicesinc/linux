@@ -179,6 +179,12 @@ struct clk_duty {
  *		by the second argument. Valid values for degrees are
  *		0-359. Return 0 on success, otherwise -EERROR.
  *
+ * @get_nshot:	Queries the hardware to get the current number of clock
+ *		pulses configured, negative error codes on failure.
+ *
+ * @set_nshot:	Configure clock to output nshot pulses on next enable.
+ *		Return 0 on success, otherwise -EERROR.
+ *
  * @get_duty_cycle: Queries the hardware to get the current duty cycle ratio
  *              of a clock. Returned values denominator cannot be 0 and must be
  *              superior or equal to the numerator.
@@ -245,6 +251,8 @@ struct clk_ops {
 					   unsigned long parent_accuracy);
 	int		(*get_phase)(struct clk_hw *hw);
 	int		(*set_phase)(struct clk_hw *hw, int degrees);
+	int		(*set_nshot)(struct clk_hw *hw, int nshot);
+	int		(*get_nshot)(struct clk_hw *hw);
 	int		(*get_duty_cycle)(struct clk_hw *hw,
 					  struct clk_duty *duty);
 	int		(*set_duty_cycle)(struct clk_hw *hw,
