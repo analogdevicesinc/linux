@@ -23,7 +23,7 @@
 			"Headphone", "Headphone Jack",
 			"Speaker", "Ext Spk",
 			"Microphone", "Mic Jack";
-		simple-audio-card,audio-routing =
+		simple-audio-card,routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
 			"Ext Spk", "SPK_LP",
