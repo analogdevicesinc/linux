@@ -351,6 +351,7 @@ M: Valentin Ciocoi Radulescu <valentin.ciocoi@nxp.com>
 M: Horia Geanta <horia.geanta@nxp.com>
 F: arch/*/crypto/
 F: crypto/
+F: drivers/md/dm-crypt.c
 
 crypto/caam
 M: Bogdan Folea <bogdan.folea@nxp.com>
