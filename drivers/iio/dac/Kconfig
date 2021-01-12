@@ -151,6 +151,16 @@ config LTC2632
 	  To compile this driver as a module, choose M here: the
 	  module will be called ltc2632.
 
+config LTC2688
+	tristate "Analog Devices LTC2688 DAC spi driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices
+	  LTC2688 converters (DAC).
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ltc2688.
+
 config AD5686
 	tristate
 
