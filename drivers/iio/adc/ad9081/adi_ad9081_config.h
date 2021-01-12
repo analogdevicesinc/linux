@@ -40,7 +40,7 @@
 #define __FUNCTION_NAME__ __FUNCTION__
 #endif
 
-#define AD9081_API_REV 0x00010006
+#define AD9081_API_REV 0x00010007
 
 /* var error report */
 #define AD9081_MSG_REPORT(var, comment)                                        \

@@ -194,28 +194,6 @@ int32_t adi_ad9081_device_boot_post_clock(adi_ad9081_device_t *device)
 	err = adi_ad9081_hal_reg_set(device, 0x2112, 0x00);
 	AD9081_ERROR_RETURN(err);
 
-#ifdef AD9177
-	/* additional write, AD9081API-681 */
-	err = adi_ad9081_adc_core_analog_regs_enable_set(device, 0x1, 1);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_reg_get(device, 0x1729, &i);
-	AD9081_ERROR_RETURN(err);
-	i &= 0xfe; /* clear spi_en_nvg_1p0 */
-	err = adi_ad9081_hal_reg_set(device, 0x1729, i);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_adc_core_analog_regs_enable_set(device, 0x1, 0);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_adc_core_analog_regs_enable_set(device, 0x2, 1);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_reg_get(device, 0x1729, &i);
-	AD9081_ERROR_RETURN(err);
-	i &= 0xfe; /* clear spi_en_nvg_1p0 */
-	err = adi_ad9081_hal_reg_set(device, 0x1729, i);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_adc_core_analog_regs_enable_set(device, 0x2, 0);
-	AD9081_ERROR_RETURN(err);
-#endif
-
 	return API_CMS_ERROR_OK;
 }
 
@@ -834,7 +812,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 				       "api v%d.%d.%d commit %s for ad%x ",
 				       (AD9081_API_REV & 0xff0000) >> 16,
 				       (AD9081_API_REV & 0xff00) >> 8,
-				       (AD9081_API_REV & 0xff), "6eb6c66",
+				       (AD9081_API_REV & 0xff), "6d0a285",
 				       AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
@@ -1225,6 +1203,36 @@ int32_t adi_ad9081_device_nco_sync_post(adi_ad9081_device_t *device)
 		err = adi_ad9081_hal_bf_set(device, REG_ACLK_CTRL_ADDR,
 					    BF_PD_TXDIGCLK_INFO,
 					    0); /* not paged */
+		AD9081_ERROR_RETURN(err);
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_device_get_temperature(adi_ad9081_device_t *device,
+					  int16_t *max, int16_t *min)
+{
+	int32_t err;
+	uint8_t temp[2];
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	if (device->dev_info.dev_rev == 3) { /* only work from r2 */
+		err = adi_ad9081_hal_reg_get(device, 0x2107, &temp[0]);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_reg_get(device, 0x2108, &temp[1]);
+		AD9081_ERROR_RETURN(err);
+		*max = (int16_t)((temp[1] << 8) + temp[0]);
+
+		err = adi_ad9081_hal_reg_get(device, 0x210b, &temp[0]);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_reg_get(device, 0x210c, &temp[1]);
+		AD9081_ERROR_RETURN(err);
+		*min = (int16_t)((temp[1] << 8) + temp[0]);
+	} else {
+		err = adi_ad9081_hal_log_write(
+			device, ADI_CMS_LOG_WARN,
+			"temperature measurement is not availabe on this silicon revision.");
 		AD9081_ERROR_RETURN(err);
 	}
 
