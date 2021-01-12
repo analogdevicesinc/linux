@@ -1577,7 +1577,7 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 		return adrv9002_phy_read_raw_no_rf_chan(phy, chan, val, val2, m);
 
 	chann = adrv9002_get_channel(phy, port, chan_nr);
-	if (chann->enabled)
+	if (!chann->enabled)
 		return -ENODEV;
 
 	switch (m) {
