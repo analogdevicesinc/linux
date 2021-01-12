@@ -136,9 +136,12 @@ static void __iomem *mu_base;
 static void __iomem *scg1_base;
 static void __iomem *wdog1_base;
 static void __iomem *gpio_base[4];
+static void __iomem *port_pcr_base[4];
 static void __iomem *suspend_ocram_base;
 static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_base);
 
+static u32 port_pcr[4][20];
+static u32 port_num[4] = {20, 12, 16, 20};
 static u32 tpm5_regs[4];
 static u32 lpuart4_regs[4];
 static u32 pcc2_regs[24][2] = {
@@ -292,6 +295,24 @@ static void imx7ulp_gpio_save(void)
 		pm_info->gpio[i][0] = readl_relaxed(gpio_base[i] + GPIO_PDOR);
 		pm_info->gpio[i][1] = readl_relaxed(gpio_base[i] + GPIO_PDDR);
 	}
+}
+
+static void imx7ulp_port_pcr_save(void)
+{
+	int i;
+	int j;
+	for (i = 0; i < 4; i++)
+		for (j=0; j < port_num[i]; j++)
+			port_pcr[i][j] = readl_relaxed(port_pcr_base[i] + j * 4);
+}
+
+static void imx7ulp_port_pcr_restore(void)
+{
+	int i;
+	int j;
+	for (i = 0; i < 4; i++)
+		for (j=0; j < port_num[i]; j++)
+			writel_relaxed(port_pcr[i][j], port_pcr_base[i] + j * 4);
 }
 
 static void imx7ulp_scg1_save(void)
@@ -507,6 +528,7 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 			cpu_suspend(0, imx7ulp_suspend_finish);
 		} else {
 			imx7ulp_gpio_save();
+			imx7ulp_port_pcr_save();
 			imx7ulp_scg1_save();
 			imx7ulp_pcc2_save();
 			imx7ulp_pcc3_save();
@@ -521,6 +543,7 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 
 			imx7ulp_pcc2_restore();
 			imx7ulp_pcc3_restore();
+			imx7ulp_port_pcr_restore();
 			if (!console_suspend_enabled)
 				imx7ulp_lpuart_restore();
 			imx7ulp_set_dgo(0);
@@ -731,7 +754,9 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	np = NULL;
 	for (i = 0; i < 4; i++) {
 		np = of_find_compatible_node(np, NULL, "fsl,vf610-gpio");
+		port_pcr_base[i] = of_iomap(np, 0);
 		gpio_base[i] = of_iomap(np, 1);
+		WARN_ON(!port_pcr_base[i]);
 		WARN_ON(!gpio_base[i]);
 	}
 
