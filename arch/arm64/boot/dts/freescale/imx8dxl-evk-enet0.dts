@@ -15,6 +15,10 @@
 	status = "okay";
 };
 
+&mii_select {
+	/delete-property/ enable-active-high;
+};
+
 &eqos {
 	status = "disabled";
 };
