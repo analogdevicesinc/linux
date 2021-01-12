@@ -770,6 +770,15 @@ config REGULATOR_MAX77826
 	  It includes support for control of output voltage. This
 	  regulator is found on the Samsung Galaxy S5 (klte) smartphone.
 
+config REGULATOR_FP9931
+	tristate "Fitipower FP9931 Regulator Support"
+	depends on MFD_FP9931
+	help
+	  This driver controls a Fitipower 9931 regulator via I2C bus.
+	  The regulator includes LDOs, BUCK, BUCK-BOOST, Charge-Pump
+	  and VCOM Buffer regulators. It can support for control of
+	  output voltage.
+
 config REGULATOR_MC13XXX_CORE
 	tristate
 
