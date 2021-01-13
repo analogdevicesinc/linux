@@ -849,6 +849,10 @@ static int virtio_ivshmem_probe(struct pci_dev *pci_dev,
 		return -ENOMEM;
 
 	vi_dev->peer_state = &state_table[vi_dev->peer_id];
+	if (*vi_dev->peer_state != VIRTIO_STATE_READY) {
+		dev_err(&pci_dev->dev, "backend not ready\n");
+		return -ENODEV;
+	}
 
 	section_addr += section_sz;
 
@@ -900,11 +904,6 @@ static int virtio_ivshmem_probe(struct pci_dev *pci_dev,
 		return -ENOMEM;
 
 	set_dma_ops(&pci_dev->dev, &virtio_ivshmem_dma_ops);
-
-	if (*vi_dev->peer_state != VIRTIO_STATE_READY) {
-		dev_err(&pci_dev->dev, "backend not ready\n");
-		return -ENODEV;
-	}
 
 	pci_set_master(pci_dev);
 	pci_write_config_byte(pci_dev, vendor_cap + IVSHM_CFG_PRIV_CNTL, 0);
