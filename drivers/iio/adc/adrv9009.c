@@ -5438,7 +5438,7 @@ static int adrv9009_jesd204_link_init(struct jesd204_dev *jdev,
 	} else if (deframer) {
 		lnk->num_converters = deframer->M;
 		lnk->num_lanes = hweight8(deframer->deserializerLanesEnabled);
-		lnk->octets_per_frame = (2 * lnk->num_converters) / lnk->num_lanes;
+		lnk->octets_per_frame = (deframer->Np * lnk->num_converters) / (8 * lnk->num_lanes);
 		lnk->frames_per_multiframe = deframer->K;
 		lnk->device_id = deframer->deviceId;
 		lnk->bank_id = deframer->bankId;
