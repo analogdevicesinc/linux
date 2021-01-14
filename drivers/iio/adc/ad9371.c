@@ -2294,6 +2294,7 @@ static int ad9371_read_temperature(struct ad9371_rf_phy *phy, int *val)
 		return -EIO;
 
 	for (i = 0; i < 3; i++) {
+		msleep(2);
 		ret = MYKONOS_readTempSensor(phy->mykDevice, &tstat);
 		if (ret != MYKONOS_ERR_GPIO_OK)
 			return -EIO;
@@ -2301,7 +2302,6 @@ static int ad9371_read_temperature(struct ad9371_rf_phy *phy, int *val)
 			*val = tstat.tempCode;
 			return 0;
 		}
-		usleep_range(900, 1000);
 	}
 
 	return -EIO;
@@ -2404,7 +2404,7 @@ static int ad9371_phy_read_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_SCALE:
 		if (chan->type == IIO_TEMP) {
-			*val = 1 ; /* Temperature scale */
+			*val = 1000 ; /* Temperature scale */
 			*val2 = 0;
 		} else if (chan->output) {
 			*val = ad9371_auxdac_scale_val1_lut
@@ -2661,7 +2661,6 @@ static const struct iio_chan_spec ad9371_phy_chan[] = {
 	}, {	/* TEMP */
 		.type = IIO_TEMP,
 		.indexed = 1,
-		.output = 1,
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_RAW) |
 		BIT(IIO_CHAN_INFO_SCALE),
 	}
