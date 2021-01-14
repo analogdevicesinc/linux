@@ -6,6 +6,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	adau7002-simple.dtbo \
 	adau7118-simple.dtbo \
 	adis16475.dtbo \
+	adis16480.dtbo \
 	ads1015.dtbo \
 	ads1115.dtbo \
 	ads7846.dtbo \
