@@ -13,6 +13,7 @@
 
 #include "zynq-zc706.dtsi"
 #include "zynq-zc706-adv7511.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 / {
 	clocks {
@@ -162,9 +163,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <4>;
-		adi,use-cpll-enable;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 	};
 };
 

@@ -92,6 +92,47 @@ int32_t adi_adrv9001_spi_DataPack(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
+int32_t adi_adrv9001_spi_Stream_DataPack(adi_adrv9001_Device_t *device,
+                                         uint8_t *wrData,
+                                         uint32_t *numWrBytes,
+                                         uint16_t addr,
+                                         const uint8_t data[],
+                                         uint32_t count,
+                                         uint8_t writeFlag)
+{
+    int32_t i = 0;
+
+    ADI_ENTRY_EXPECT(device);
+
+    ADI_NULL_PTR_RETURN(&device->common, wrData);
+    
+    ADI_NULL_PTR_RETURN(&device->common, numWrBytes);
+
+    /* if the mask is 0xFF then the entire 8 bits is being written to the 
+   register and so no masking is required and the operation can be
+   achieved using 3 bytes*/
+    if ((*numWrBytes + ADRV9001_SPI_BYTES) > 0xC0000)
+    {
+        ADI_ERROR_REPORT(&device->common,
+            ADI_COMMON_ERRSRC_DEVICEHAL, 
+            ADRV9001HAL_BUFFER_OVERFLOW,
+            ADI_COMMON_ACT_ERR_RESET_INTERFACE,
+            NULL, 
+            "Buffer size Exceeded error");
+        ADI_ERROR_RETURN(device->common.error.newAction);
+    }
+
+    wrData[(*numWrBytes)++] = (uint8_t)(((writeFlag & 0x01) << 7) | ((addr >> 8) & 0x7F));
+    wrData[(*numWrBytes)++] = (uint8_t)(addr);
+
+    for (i = count - 1 ; i >= 0 ; i--)
+    {
+        wrData[(*numWrBytes)++] = (uint8_t)data[i];
+    }
+
+    ADI_API_RETURN(device);
+}
+
 int32_t adi_adrv9001_spi_Byte_Write(adi_adrv9001_Device_t *device, uint16_t addr, uint8_t data)
 {
     int32_t halError = 0;
@@ -104,6 +145,39 @@ int32_t adi_adrv9001_spi_Byte_Write(adi_adrv9001_Device_t *device, uint16_t addr
     ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr, data);
 
     ADI_EXPECT(adi_adrv9001_spi_DataPack, device, &txData[0], &numTxBytes, addr, 0xFF, data, ADRV9001_SPI_WRITE_POLARITY);
+
+    for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
+    {
+        halError = adi_hal_SpiWrite(device->common.devHalInfo, &txData[0], numTxBytes);
+        if (halError == 0)
+        {
+            break;
+        }
+    }
+    ADI_ERROR_REPORT(&device->common,
+                     ADI_COMMON_ERRSRC_DEVICEHAL,
+                     (adi_common_ErrSources_e)halError,
+                     ADI_COMMON_ACT_ERR_RESET_INTERFACE,
+                     NULL,
+                     "SPI write error");
+    ADI_API_RETURN(device);
+}
+
+int32_t adi_adrv9001_spi_Bytes_Stream_Write(adi_adrv9001_Device_t *device, uint16_t addr, const uint8_t data[], uint32_t count)
+{
+    int32_t halError = 0;
+    int32_t i = 0;
+    uint32_t numTxBytes = 0;
+    uint8_t txData[6] = { 0 };
+
+    ADI_NULL_DEVICE_PTR_RETURN(device);
+
+    for (i = 0; i < count; i++)
+    {
+        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr[i], data[i]);
+    }
+
+    ADI_EXPECT(adi_adrv9001_spi_Stream_DataPack,device, &txData[0], &numTxBytes, addr, data, count, ADRV9001_SPI_WRITE_POLARITY);
 
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {

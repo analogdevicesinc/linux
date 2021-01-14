@@ -231,9 +231,8 @@ static int jesd204_dev_set_error(struct jesd204_dev *jdev,
 static int jesd204_fsm_propagate_cb_inputs(struct jesd204_dev *jdev_it,
 					   struct jesd204_fsm_data *data)
 {
-	struct jesd204_dev_con_out *con = NULL;
-	unsigned int i;
-	int ret = 0;
+	struct jesd204_dev_con_out *con;
+	int i, ret = 0;
 
 	for (i = 0; i < jdev_it->inputs_count; i++) {
 		con = jdev_it->inputs[i];
@@ -249,10 +248,29 @@ static int jesd204_fsm_propagate_cb_inputs(struct jesd204_dev *jdev_it,
 	return ret;
 }
 
+static int jesd204_fsm_propagate_rollback_cb_inputs(struct jesd204_dev *jdev_it,
+						    struct jesd204_fsm_data *data)
+{
+	struct jesd204_dev_con_out *con;
+	int i;
+
+	if (jdev_it->inputs_count == 0)
+		return 0;
+
+	for (i = jdev_it->inputs_count - 1; i >= 0; i--) {
+		con = jdev_it->inputs[i];
+
+		jesd204_fsm_handle_con(con->owner, con, data);
+		jesd204_fsm_propagate_rollback_cb_inputs(con->owner, data);
+	}
+
+	return 0;
+}
+
 static int jesd204_fsm_propagate_cb_outputs(struct jesd204_dev *jdev_it,
 					    struct jesd204_fsm_data *data)
 {
-	struct jesd204_dev_con_out *con = NULL;
+	struct jesd204_dev_con_out *con;
 	struct jesd204_dev_list_entry *e;
 	int ret = 0;
 
@@ -271,11 +289,26 @@ done:
 	return ret;
 }
 
+static int jesd204_fsm_propagate_rollback_cb_outputs(struct jesd204_dev *jdev_it,
+						     struct jesd204_fsm_data *data)
+{
+	struct jesd204_dev_con_out *con;
+	struct jesd204_dev_list_entry *e;
+
+	list_for_each_entry_reverse(con, &jdev_it->outputs, entry) {
+		list_for_each_entry_reverse(e, &con->dests, entry) {
+			jesd204_fsm_propagate_rollback_cb_outputs(e->jdev, data);
+			jesd204_fsm_handle_con(e->jdev, con, data);
+		}
+	}
+
+	return 0;
+}
+
 static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 					      struct jesd204_fsm_data *fsm_data)
 {
-	unsigned int i;
-	int ret;
+	int i, ret;
 
 	if (fsm_data->link_idx != JESD204_LINKS_ALL)
 		return jesd204_fsm_handle_con_cb(jdev_it, NULL,
@@ -292,6 +325,49 @@ static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 	return ret;
 }
 
+static int jesd204_fsm_propagate_rollback_cb_top_level(struct jesd204_dev *jdev_it,
+						       struct jesd204_fsm_data *fsm_data)
+{
+	int i;
+
+	if (fsm_data->link_idx != JESD204_LINKS_ALL) {
+		jesd204_fsm_handle_con_cb(jdev_it, NULL, fsm_data->link_idx,
+					   fsm_data);
+		return 0;
+	}
+
+	for (i = fsm_data->jdev_top->num_links - 1; i >= 0; i--)
+		jesd204_fsm_handle_con_cb(jdev_it, NULL, i, fsm_data);
+
+	return 0;
+}
+
+static int __jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
+				      struct jesd204_fsm_data *data)
+{
+	int ret;
+
+	ret = jesd204_fsm_propagate_cb_inputs(jdev, data);
+	if (ret)
+		return ret;
+
+	ret = jesd204_fsm_propagate_cb_outputs(jdev, data);
+	if (ret)
+		return ret;
+
+	return jesd204_fsm_propagate_cb_top_level(jdev, data);
+}
+
+static int __jesd204_fsm_propagate_rollback_cb(struct jesd204_dev *jdev,
+					       struct jesd204_fsm_data *data)
+{
+	jesd204_fsm_propagate_rollback_cb_top_level(jdev, data);
+	jesd204_fsm_propagate_rollback_cb_outputs(jdev, data);
+	jesd204_fsm_propagate_rollback_cb_inputs(jdev, data);
+
+	return 0;
+}
+
 static int jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 				    struct jesd204_fsm_data *data)
 {
@@ -306,16 +382,11 @@ static int jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 	if (!data->per_device_ran)
 		return -ENOMEM;
 
-	ret = jesd204_fsm_propagate_cb_inputs(jdev, data);
-	if (ret)
-		goto out;
+	if (data->rollback)
+		ret = __jesd204_fsm_propagate_rollback_cb(jdev, data);
+	else
+		ret = __jesd204_fsm_propagate_cb(jdev, data);
 
-	ret = jesd204_fsm_propagate_cb_outputs(jdev, data);
-	if (ret)
-		goto out;
-
-	ret = jesd204_fsm_propagate_cb_top_level(jdev, data);
-out:
 	kfree(data->per_device_ran);
 	data->per_device_ran = NULL;
 	return ret;
@@ -391,14 +462,21 @@ static void __jesd204_all_links_fsm_done_cb(struct kref *ref)
 	struct jesd204_dev *jdev = &jdev_top->jdev;
 	struct jesd204_fsm_data *fsm_data = jdev_top->fsm_data;
 	struct jesd204_link_opaque *ol;
-	unsigned int link_idx;
+	int link_idx;
 	int ret;
 
-	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
-		ol = &jdev_top->active_links[link_idx];
-		ret = __jesd204_link_fsm_update_state(jdev, ol, fsm_data);
-		if (ret)
-			goto out;
+	if (fsm_data->rollback) {
+		for (link_idx = jdev_top->num_links - 1; link_idx >= 0; link_idx--) {
+			ol = &jdev_top->active_links[link_idx];
+			__jesd204_link_fsm_update_state(jdev, ol, fsm_data);
+		}
+	} else {
+		for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
+			ol = &jdev_top->active_links[link_idx];
+			ret = __jesd204_link_fsm_update_state(jdev, ol, fsm_data);
+			if (ret)
+				goto out;
+		}
 	}
 
 	if (!fsm_data->fsm_complete_cb)
@@ -664,6 +742,10 @@ static int jesd204_validate_lnk_state(struct jesd204_dev *jdev,
 		return 0;
 
 	if (cur_state == ol->state)
+		return 0;
+
+	/* When rolling back we need to validate this, to not skip the first state (in a rollback) */
+	if (fsm_data->rollback && nxt_state == ol->state)
 		return 0;
 
 	if (fsm_data->rollback || fsm_data->resuming)
@@ -1173,11 +1255,12 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 			goto next_state;
 
 		if (ret && !rollback) {
+			const struct jesd204_fsm_table_entry *t = table;
 			ret1 = ret;
-			if (!table[0].first)
-				table--;
+			if (!t[0].first)
+				t--;
 			jesd204_err(jdev, "Rolling back from '%s', got error %d\n",
-				    jesd204_state_str(table[0].state), ret);
+				    jesd204_state_str(t[0].state), ret);
 			rollback = true;
 			continue;
 		}

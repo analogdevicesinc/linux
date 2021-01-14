@@ -1,9 +1,16 @@
 
 /dts-v1/;
+
 #include "vcu118.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #define fmc_i2c fmcp_hspc_iic
 #define fmc_spi axi_spi
+
+/* daq3_vcu118: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffff05f0>;
+};
 
 &amba_pl {
 	rx_dma: rx-dmac@7c400000 {
@@ -85,10 +92,9 @@
 		clocks = <&clk0_ad9528 9>;
 		clock-names = "conv";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <4>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
-		adi,use-cpll-enable;
 
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
@@ -118,8 +124,8 @@
 		clocks = <&clk0_ad9528 4>;
 		clock-names = "conv";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <4>;
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
 
 		#clock-cells = <1>;

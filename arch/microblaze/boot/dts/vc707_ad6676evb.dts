@@ -10,10 +10,17 @@
  * Copyright (C) 2016-2019 Analog Devices Inc.
  */
 /dts-v1/;
+
 #include "vc707.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi
+
+/* ad6676evb_vc707: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffc5d0>;
+};
 
 / {
 	clocks {
@@ -82,9 +89,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <4>;
-		adi,use-cpll-enable;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 	};
 };
 

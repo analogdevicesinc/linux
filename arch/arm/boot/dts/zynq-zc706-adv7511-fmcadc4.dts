@@ -2,6 +2,7 @@
 
 #include "zynq-zc706.dtsi"
 #include "zynq-zc706-adv7511.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &fpga_axi {
 	rx_dma0: rx-dmac@7c400000 {
@@ -68,8 +69,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <4>;
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
 	};
 };

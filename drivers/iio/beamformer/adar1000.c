@@ -129,7 +129,7 @@
 #define ADAR1000_CH3_EN			BIT(4)
 #define ADAR1000_CH4_EN			BIT(3)
 #define ADAR1000_RX_LNA_EN		BIT(2)
-#define ADAR1000_TX_DRV_EN		BIT(3)
+#define ADAR1000_TX_DRV_EN		BIT(2)
 #define ADAR1000_VM_EN			BIT(1)
 #define ADAR1000_VGA_EN			BIT(0)
 
@@ -149,6 +149,10 @@
 
 #define ADAR1000_SPI_ADDR_MSK		GENMASK(14, 13)
 #define ADAR1000_SPI_ADDR(x)		FIELD_PREP(ADAR1000_SPI_ADDR_MSK, x)
+
+/* ADAR1000_TX_TO_RX_DELAY_CTRL/ADAR1000_RX_TO_TX_DELAY_CTRL */
+#define ADAR1000_DELAY1_MSK		GENMASK(7, 4)
+#define ADAR1000_DELAY2_MSK		GENMASK(3, 0)
 
 /* SPI write all */
 #define ADAR1000_SPI_WR_ALL		0x800
@@ -241,8 +245,8 @@ struct adar1000_phase {
 };
 
 struct adar1000_beam_position {
+	int atten;
 	int gain_val;
-	int gain_val2;
 	int phase_val;
 	int phase_val2;
 };
@@ -258,10 +262,10 @@ struct adar1000_tx_bias_setting {
 	u8 ch1_pa_bias_off;
 	u8 ch2_pa_bias_off;
 	u8 ch3_pa_bias_off;
+	u8 ch4_pa_bias_off;
 	u8 ch1_pa_bias_on;
 	u8 ch2_pa_bias_on;
 	u8 ch3_pa_bias_on;
-	u8 ch4_pa_bias_off;
 	u8 ch4_pa_bias_on;
 	u8 bias_current_tx;
 	u8 bias_current_tx_drv;
@@ -308,7 +312,7 @@ static const struct adar1000_phase adar1000_phase_values[] = {
 	{33, 7500, 0x3A, 0x30}, {36, 5625, 0x39, 0x31}, {39, 3750, 0x38, 0x33},
 	{42, 1875, 0x37, 0x34}, {45, 0, 0x36, 0x35}, {47, 8125, 0x35, 0x36},
 	{50, 6250, 0x34, 0x37}, {53, 4375, 0x33, 0x38}, {56, 2500, 0x32, 0x38},
-	{59, 625, 0x30, 0x39}, {61, 8750, 0x2F, 0x3}, {64, 6875, 0x2E, 0x3A},
+	{59, 625, 0x30, 0x39}, {61, 8750, 0x2F, 0x3A}, {64, 6875, 0x2E, 0x3A},
 	{67, 5000, 0x2C, 0x3B}, {70, 3125, 0x2B, 0x3C}, {73, 1250, 0x2A, 0x3C},
 	{75, 9375, 0x28, 0x3C}, {78, 7500, 0x27, 0x3D}, {81, 5625, 0x25, 0x3D},
 	{84, 3750, 0x24, 0x3D}, {87, 1875, 0x22, 0x3D}, {90, 0, 0x21, 0x3D},
@@ -345,19 +349,6 @@ static const struct adar1000_phase adar1000_phase_values[] = {
 	{345, 9375, 0x3E, 0x07}, {348, 7500, 0x3E, 0x06}, {351, 5625, 0x3F, 0x04},
 	{354, 3750, 0x3F, 0x03}, {357, 1875, 0x3F, 0x01}
 };
-
-static int adar1000_ram_enable(struct adar1000_state *st, bool enable)
-{
-	u8 temp;
-
-	if (enable)
-		temp = 0;
-	else
-		temp = ADAR1000_BEAM_RAM_BYPASS | ADAR1000_BIAS_RAM_BYPASS |
-			ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
-
-	return regmap_write(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL, temp);
-}
 
 static int adar1000_mode_4wire(struct adar1000_state *st, bool enable)
 {
@@ -419,7 +410,6 @@ static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
 {
 	u32 val, reg;
 	int ret;
-	u32 code;
 
 	if (output)
 		reg = ADAR1000_CH_TX_GAIN(ch_num);
@@ -438,41 +428,16 @@ static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
 	if (ret < 0)
 		return ret;
 
-	if (val & ADAR1000_CH_ATTN) {
-		val &= ~ADAR1000_CH_ATTN;
-		code = val * 125 + 16000;
-	} else {
-		val &= ~ADAR1000_CH_ATTN;
-		code = val * 125;
-	}
+	val &= ~ADAR1000_CH_ATTN;
 
-	return code;
-}
-
-static void adar1000_atten_translate(u32 atten_mdb, u32 *reg_val)
-{
-	u32 code;
-
-	/* The values for this are explained at page 33 of the datasheet */
-	if (atten_mdb > 31000)
-		*reg_val = 0;
-
-	if (atten_mdb >= 16000) {
-		atten_mdb -= 16000; /* will enable step attenuator */
-		*reg_val |= ADAR1000_CH_ATTN;
-	}
-
-	code = atten_mdb / 125; /* translate from mdB to codes  */
-	*reg_val |= ADAR1000_VGA_GAIN(code);
+	return val;
 }
 
 static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 			      u32 ch_num, u8 output)
 {
-	u32 temp = 0, reg;
+	u32 reg;
 	int ret;
-
-	adar1000_atten_translate(atten_mdb, &temp);
 
 	if (output)
 		reg = ADAR1000_CH_TX_GAIN(ch_num);
@@ -483,7 +448,8 @@ static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_write(st->regmap, st->dev_addr | reg, temp);
+	ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+				 (u32)~ADAR1000_CH_ATTN, atten_mdb);
 	if (ret < 0)
 		return ret;
 
@@ -493,18 +459,12 @@ static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data)
 {
 	u32 adc_ctrl;
-	int ret;
+	int ret, timeout = 100;
 
-	/* Select ADC channel */
-	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL,
-				 ADAR1000_MUX_SEL_MSK,
-				 ADAR1000_MUX_SEL(adc_ch));
-	if (ret < 0)
-		return ret;
-
-	/* Start ADC conversion */
-	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL,
-				 ADAR1000_ST_CONV, ADAR1000_ST_CONV);
+	/* Setup ADC operation */
+	ret = regmap_write(st->regmap, st->dev_addr |
+			   ADAR1000_ADC_CTRL, ADAR1000_AC_EN | ADAR1000_CLK_EN |
+			   ADAR1000_MUX_SEL(adc_ch) | ADAR1000_ST_CONV);
 	if (ret < 0)
 		return ret;
 
@@ -517,11 +477,22 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data
 				  &adc_ctrl);
 		if (ret < 0)
 			return ret;
+
+		timeout = timeout -1;
+		if (timeout == 0)
+			return -ENOENT;
+
+		mdelay(1);
 	} while (!(adc_ctrl & ADAR1000_ADC_EOC));
 
 	/* Read ADC sample */
 	ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_ADC_OUTPUT,
 			  adc_data);
+	if (ret < 0)
+		return ret;
+
+	/* Disable ADC */
+	ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL, 0);
 	if (ret < 0)
 		return ret;
 
@@ -594,10 +565,10 @@ static int adar1000_get_phase(struct adar1000_state *st, u8 ch_num, u8 output,
 {
 	if (output) {
 		*val = st->tx_phase[ch_num] / 10000;
-		*val2 = (st->tx_phase[ch_num] % 10000) * 10000;
+		*val2 = (st->tx_phase[ch_num] % 10000) * 100;
 	} else {
 		*val = st->rx_phase[ch_num] / 10000;
-		*val2 = (st->rx_phase[ch_num] % 10000) * 10000;
+		*val2 = (st->rx_phase[ch_num] % 10000) * 100;
 	}
 
 	return IIO_VAL_INT_PLUS_MICRO;
@@ -633,7 +604,7 @@ static int adar1000_read_raw(struct iio_dev *indio_dev,
 		if (!*val)
 			*val2 *= -1;
 
-		return IIO_VAL_INT_PLUS_MICRO_DB;
+		return IIO_VAL_INT_PLUS_MICRO;
 	case IIO_CHAN_INFO_PHASE:
 		return adar1000_get_phase(st, chan->channel, chan->output,
 					  val, val2);
@@ -647,24 +618,10 @@ static int adar1000_write_raw(struct iio_dev *indio_dev,
 			      int val, int val2, long mask)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
-	u32 code;
-	int ret;
-
-	/* Disable RAM access */
-	ret = adar1000_ram_enable(st, 0);
-	if (ret < 0)
-		return ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		if (val > 0 || (val == 0 && val2 > 0)) {
-			ret = -EINVAL;
-			return ret;
-		}
-
-		code = (abs(val) * 1000) + (abs(val2) / 1000);
-
-		return adar1000_set_atten(st, code, chan->channel,
+		return adar1000_set_atten(st, val, chan->channel,
 					   chan->output);
 	case IIO_CHAN_INFO_PHASE:
 		return adar1000_set_phase(st, chan->channel, chan->output,
@@ -719,15 +676,6 @@ static ssize_t adar1000_store(struct device *dev,
 	u16 reg = 0;
 	int ret = 0;
 	u32 val = 0, mask = 0;
-
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
-	/* Disable RAM access */
-	ret = adar1000_ram_enable(st, 0);
-	if (ret < 0)
-		return ret;
 
 	switch ((u32)this_attr->address) {
 	case ADAR1000_RX_VGA:
@@ -861,7 +809,7 @@ static ssize_t adar1000_store(struct device *dev,
 		if (ret)
 			return ret;
 
-		if (readin)
+		if (!readin)
 			val = ADAR1000_BIAS_EN;
 		break;
 	case ADAR1000_LNA_BIAS_OUT_EN_:
@@ -878,15 +826,19 @@ static ssize_t adar1000_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (mask)
+	if (mask) {
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
 		ret = regmap_update_bits(st->regmap, st->dev_addr | reg, mask, val);
-	else
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+	} else {
 		ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
-
-	if (ret < 0)
-		return ret;
-
-	ret = adar1000_mode_4wire(st, 0);
+	}
 
 	return ret ? ret : len;
 }
@@ -903,11 +855,6 @@ static ssize_t adar1000_show(struct device *dev,
 	unsigned int val, mask = 0;
 
 	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
-	/* Disable RAM access */
-	ret = adar1000_ram_enable(st, 0);
 	if (ret < 0)
 		return ret;
 
@@ -1009,9 +956,34 @@ static ssize_t adar1000_reset(struct device *dev,
 	return ret ? ret : len;
 }
 
-static ssize_t adar1000_seq_enable(struct device *dev,
-			      struct device_attribute *attr,
-			      const char *buf, size_t len)
+static ssize_t adar1000_seq_en_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	unsigned int val, mask;
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	mask = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_RX_BEAM_STEP_EN;
+
+	return sprintf(buf, "%d\n", (val & mask) == mask);
+}
+
+static ssize_t adar1000_seq_en_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct adar1000_state *st = iio_priv(indio_dev);
@@ -1029,12 +1001,12 @@ static ssize_t adar1000_seq_enable(struct device *dev,
 
 	/* Setup sequencer */
 	if (readin)
-		val = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN;
+		val = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_RX_BEAM_STEP_EN;
 	else
 		val = 0;
 
 	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL,
-				 ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN,
+				 ADAR1000_TX_BEAM_STEP_EN | ADAR1000_RX_BEAM_STEP_EN,
 				 val);
 	if (ret < 0)
 		return ret;
@@ -1053,8 +1025,10 @@ static ssize_t adar1000_gen_clk_cycles(struct device *dev,
 	struct spi_message m;
 	struct spi_transfer t = {0};
 	int ret;
+	u8 buff = 0xff;
 
 	/* Generate clock cycles to load new data from RAM */
+	t.tx_buf = &buff;
 	t.bits_per_word = 8;
 	t.len = 1;
 
@@ -1064,6 +1038,432 @@ static ssize_t adar1000_gen_clk_cycles(struct device *dev,
 
 	return ret ? ret : len;
 }
+
+enum adar1000_iio_delay_attr {
+	ADAR1000_TX_RX_DELAY1,
+	ADAR1000_TX_RX_DELAY2,
+	ADAR1000_RX_TX_DELAY1,
+	ADAR1000_RX_TX_DELAY2,
+};
+
+static ssize_t adar1000_delay_show(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u32 val;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_TX_RX_DELAY1:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		break;
+	case ADAR1000_TX_RX_DELAY2:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		break;
+	case ADAR1000_RX_TX_DELAY1:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		break;
+	case ADAR1000_RX_TX_DELAY2:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	if ((u32)this_attr->address % 2)
+		val = FIELD_GET(ADAR1000_DELAY2_MSK, val);
+	else
+		val = FIELD_GET(ADAR1000_DELAY1_MSK, val);
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t adar1000_delay_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u8 readval;
+
+	ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_TX_RX_DELAY1:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY1_MSK, readval);
+		break;
+	case ADAR1000_TX_RX_DELAY2:
+		reg = ADAR1000_TX_TO_RX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY2_MSK, readval);
+		break;
+	case ADAR1000_RX_TX_DELAY1:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY1_MSK, readval);
+		break;
+	case ADAR1000_RX_TX_DELAY2:
+		reg = ADAR1000_RX_TO_TX_DELAY_CTRL;
+		readval = FIELD_PREP(ADAR1000_DELAY2_MSK, readval);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
+
+	return ret ? ret : len;
+}
+
+enum adar1000_iio_memctl_attr {
+	ADAR1000_COMMON_MEM_EN,
+	ADAR1000_BEAM_MEM_EN,
+	ADAR1000_BIAS_MEM_EN,
+	ADAR1000_STATIC_RX_BEAM_POS,
+	ADAR1000_STATIC_TX_BEAM_POS,
+};
+
+static ssize_t adar1000_memctl_show(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u8 mask;
+	u32 val;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_COMMON_MEM_EN:
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
+		break;
+	case ADAR1000_BEAM_MEM_EN:
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BEAM_RAM_BYPASS;
+		break;
+	case ADAR1000_BIAS_MEM_EN:
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BIAS_RAM_BYPASS;
+		break;
+	case ADAR1000_STATIC_RX_BEAM_POS:
+		reg = ADAR1000_RX_CHX_MEM;
+		mask = 0x7F;
+		break;
+	case ADAR1000_STATIC_TX_BEAM_POS:
+		reg = ADAR1000_TX_CHX_MEM;
+		mask = 0x7F;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	if ((u32)this_attr->address <= ADAR1000_BIAS_MEM_EN)
+		return sprintf(buf, "%d\n", !(val & mask));
+	else
+		return sprintf(buf, "%d\n", val & mask);
+}
+
+static ssize_t adar1000_memctl_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u16 reg;
+	u8 readval = 0, mask;
+	bool readin;
+
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_COMMON_MEM_EN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS;
+
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		if (!readin)
+			readval = mask;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+					 mask, readval);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+		break;
+	case ADAR1000_BEAM_MEM_EN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BEAM_RAM_BYPASS;
+
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		if (!readin)
+			readval = mask;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+					 mask, readval);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+		break;
+	case ADAR1000_BIAS_MEM_EN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		reg = ADAR1000_MEM_CTRL;
+		mask = ADAR1000_BIAS_RAM_BYPASS;
+
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		if (!readin)
+			readval = mask;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+					 mask, readval);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+		break;
+	case ADAR1000_STATIC_RX_BEAM_POS:
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_CHX_MEM,
+				   readval | CHX_RAM_FETCH);
+		break;
+	case ADAR1000_STATIC_TX_BEAM_POS:
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_CHX_MEM,
+				   readval | CHX_RAM_FETCH);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+enum adar1000_iio_swctl_attr {
+	ADAR1000_SW_DRV_TR_STATE_,
+	ADAR1000_TX_EN_,
+	ADAR1000_RX_EN_,
+	ADAR1000_SW_DRV_EN_TR_,
+	ADAR1000_SW_DRV_EN_POL_,
+	ADAR1000_TR_SOURCE_,
+	ADAR1000_TR_SPI_,
+	ADAR1000_POL_,
+};
+
+static ssize_t adar1000_swctl_show(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u32 val;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_SW_CTRL, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_SW_DRV_TR_STATE_:
+		val = FIELD_GET(ADAR1000_SW_DRV_TR_STATE, val);
+		break;
+	case ADAR1000_TX_EN_:
+		val = FIELD_GET(ADAR1000_TX_EN, val);
+		break;
+	case ADAR1000_RX_EN_:
+		val = FIELD_GET(ADAR1000_RX_EN, val);
+		break;
+	case ADAR1000_SW_DRV_EN_TR_:
+		val = FIELD_GET(ADAR1000_SW_DRV_EN_TR, val);
+		break;
+	case ADAR1000_SW_DRV_EN_POL_:
+		val = FIELD_GET(ADAR1000_SW_DRV_EN_POL, val);
+		break;
+	case ADAR1000_TR_SOURCE_:
+		val = FIELD_GET(ADAR1000_TR_SOURCE, val);
+		break;
+	case ADAR1000_TR_SPI_:
+		val = FIELD_GET(ADAR1000_TR_SPI, val);
+		break;
+	case ADAR1000_POL_:
+		val = FIELD_GET(ADAR1000_POL, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t adar1000_swctl_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u8 val = 0, mask;
+	bool readin;
+
+	ret = kstrtobool(buf, &readin);
+	if (ret)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_SW_DRV_TR_STATE_:
+		mask = ADAR1000_SW_DRV_TR_STATE;
+		break;
+	case ADAR1000_TX_EN_:
+		mask = ADAR1000_TX_EN;
+		break;
+	case ADAR1000_RX_EN_:
+		mask = ADAR1000_RX_EN;
+		break;
+	case ADAR1000_SW_DRV_EN_TR_:
+		mask = ADAR1000_SW_DRV_EN_TR;
+		break;
+	case ADAR1000_SW_DRV_EN_POL_:
+		mask = ADAR1000_SW_DRV_EN_POL;
+		break;
+	case ADAR1000_TR_SOURCE_:
+		mask = ADAR1000_TR_SOURCE;
+		break;
+	case ADAR1000_TR_SPI_:
+		mask = ADAR1000_TR_SPI;
+		break;
+	case ADAR1000_POL_:
+		mask = ADAR1000_POL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	if (readin)
+		val = mask;
+
+	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_SW_CTRL,
+				 mask, val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+
+	return ret ? ret : len;
+}
+
+enum adar1000_iio_ldwrk_attr {
+	ADAR1000_LDTX,
+	ADAR1000_LDRX,
+};
+
+static ssize_t adar1000_ldwrk_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+	u8 val = 0;
+	bool readin;
+
+	ret = kstrtobool(buf, &readin);
+	if (ret)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_LDTX:
+		val = ADAR1000_LDTX_OVERRIDE;
+		break;
+	case ADAR1000_LDRX:
+		val = ADAR1000_LDRX_OVERRIDE;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (readin)
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_LD_WRK_REGS, val);
+
+	return ret ? ret : len;
+}
+
 
 static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
@@ -1084,14 +1484,44 @@ static IIO_DEVICE_ATTR(tx_drv_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_TX_DRV);
 
 /* MISC_ENABLES */
-static IIO_DEVICE_ATTR(sw_drw_tr_mode_sel, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_SW_DRV_TR_MODE_SEL);
+static IIO_DEVICE_ATTR(sw_drv_tr_mode_sel, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_SW_DRV_TR_MODE_SEL_);
 static IIO_DEVICE_ATTR(bias_ctrl, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_BIAS_CTRL);
+		       adar1000_show, adar1000_store, ADAR1000_BIAS_CTRL_);
 static IIO_DEVICE_ATTR(bias_enable, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_BIAS_EN);
+		       adar1000_show, adar1000_store, ADAR1000_BIAS_EN_);
 static IIO_DEVICE_ATTR(lna_bias_out_enable, 0644,
-		       adar1000_show, adar1000_store, ADAR1000_LNA_BIAS_OUT_EN);
+		       adar1000_show, adar1000_store, ADAR1000_LNA_BIAS_OUT_EN_);
+
+/* MEM_CTL attirbutes */
+static IIO_DEVICE_ATTR(common_mem_enable, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_COMMON_MEM_EN);
+static IIO_DEVICE_ATTR(beam_mem_enable, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_BEAM_MEM_EN);
+static IIO_DEVICE_ATTR(bias_mem_enable, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_BIAS_MEM_EN);
+static IIO_DEVICE_ATTR(static_rx_beam_pos_load, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_STATIC_RX_BEAM_POS);
+static IIO_DEVICE_ATTR(static_tx_beam_pos_load, 0644,
+		       adar1000_memctl_show, adar1000_memctl_store, ADAR1000_STATIC_TX_BEAM_POS);
+
+/* SW_CTL attributes */
+static IIO_DEVICE_ATTR(sw_drv_tr_state, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_SW_DRV_TR_STATE_);
+static IIO_DEVICE_ATTR(tx_en, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_TX_EN_);
+static IIO_DEVICE_ATTR(rx_en, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_RX_EN_);
+static IIO_DEVICE_ATTR(sw_drv_en_tr, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_SW_DRV_EN_TR_);
+static IIO_DEVICE_ATTR(sw_drv_en_pol, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_SW_DRV_EN_POL_);
+static IIO_DEVICE_ATTR(tr_source, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_TR_SOURCE_);
+static IIO_DEVICE_ATTR(tr_spi, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_TR_SPI_);
+static IIO_DEVICE_ATTR(pol, 0644,
+		       adar1000_swctl_show, adar1000_swctl_store, ADAR1000_POL_);
 
 /* LNA BIAS setting */
 static IIO_DEVICE_ATTR(lna_bias_off, 0644,
@@ -1116,11 +1546,25 @@ static IIO_DEVICE_ATTR(bias_current_tx_drv, 0644,
 /* Reset attribute */
 static IIO_DEVICE_ATTR(reset, 0200, NULL, adar1000_reset, 0);
 
+/* Load working registers attributes */
+static IIO_DEVICE_ATTR(tx_load_spi, 0200, NULL, adar1000_ldwrk_store, ADAR1000_LDTX);
+static IIO_DEVICE_ATTR(rx_load_spi, 0200, NULL, adar1000_ldwrk_store, ADAR1000_LDRX);
+
 /* Sequencer enable attribute - should be called before TR_LOAD */
-static IIO_DEVICE_ATTR(sequencer_enable, 0200, NULL, adar1000_seq_enable, 0);
+static IIO_DEVICE_ATTR(sequencer_enable, 0644, adar1000_seq_en_show, adar1000_seq_en_store, 0);
 
 /* Generate CLK cycles for SPI */
 static IIO_DEVICE_ATTR(gen_clk_cycles, 0200, NULL, adar1000_gen_clk_cycles, 0);
+
+/* Delay attributes */
+static IIO_DEVICE_ATTR(tx_to_rx_delay_1, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_TX_RX_DELAY1);
+static IIO_DEVICE_ATTR(tx_to_rx_delay_2, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_TX_RX_DELAY2);
+static IIO_DEVICE_ATTR(rx_to_tx_delay_1, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_RX_TX_DELAY1);
+static IIO_DEVICE_ATTR(rx_to_tx_delay_2, 0644,
+		       adar1000_delay_show, adar1000_delay_store, ADAR1000_RX_TX_DELAY2);
 
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
@@ -1138,10 +1582,29 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_reset.dev_attr.attr,
 	&iio_dev_attr_sequencer_enable.dev_attr.attr,
 	&iio_dev_attr_gen_clk_cycles.dev_attr.attr,
-	&iio_dev_attr_sw_drw_tr_mode_sel.dev_attr.attr,
+	&iio_dev_attr_sw_drv_tr_mode_sel.dev_attr.attr,
 	&iio_dev_attr_bias_ctrl.dev_attr.attr,
 	&iio_dev_attr_bias_enable.dev_attr.attr,
 	&iio_dev_attr_lna_bias_out_enable.dev_attr.attr,
+	&iio_dev_attr_tx_to_rx_delay_1.dev_attr.attr,
+	&iio_dev_attr_tx_to_rx_delay_2.dev_attr.attr,
+	&iio_dev_attr_rx_to_tx_delay_1.dev_attr.attr,
+	&iio_dev_attr_rx_to_tx_delay_2.dev_attr.attr,
+	&iio_dev_attr_common_mem_enable.dev_attr.attr,
+	&iio_dev_attr_beam_mem_enable.dev_attr.attr,
+	&iio_dev_attr_bias_mem_enable.dev_attr.attr,
+	&iio_dev_attr_static_rx_beam_pos_load.dev_attr.attr,
+	&iio_dev_attr_static_tx_beam_pos_load.dev_attr.attr,
+	&iio_dev_attr_sw_drv_tr_state.dev_attr.attr,
+	&iio_dev_attr_tx_en.dev_attr.attr,
+	&iio_dev_attr_rx_en.dev_attr.attr,
+	&iio_dev_attr_sw_drv_en_tr.dev_attr.attr,
+	&iio_dev_attr_sw_drv_en_pol.dev_attr.attr,
+	&iio_dev_attr_tr_source.dev_attr.attr,
+	&iio_dev_attr_tr_spi.dev_attr.attr,
+	&iio_dev_attr_pol.dev_attr.attr,
+	&iio_dev_attr_tx_load_spi.dev_attr.attr,
+	&iio_dev_attr_rx_load_spi.dev_attr.attr,
 	NULL,
 };
 
@@ -1161,36 +1624,17 @@ static const struct iio_info adar1000_info = {
 static int adar1000_beam_load(struct adar1000_state *st, u32 channel, bool tx,
 			      u32 profile)
 {
-	int ret;
-
 	if (profile < ADAR1000_RAM_BEAM_POS_MIN || profile > ADAR1000_RAM_BEAM_POS_MAX)
 		return -EINVAL;
 
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
-
 	st->load_beam_idx = profile;
 
-	/* Load beam position for a channel and bypass all channel config */
-	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL,
-				 ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS,
-				 ADAR1000_TX_CHX_RAM_BYPASS | ADAR1000_RX_CHX_RAM_BYPASS);
-	if (ret < 0)
-		return ret;
-
 	if (tx)
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_TX_CH_MEM(channel) | ADAR1000_RAM_ACCESS_TX,
-				   CHX_RAM_FETCH | profile);
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_CH_MEM(channel),
+				    CHX_RAM_FETCH | profile);
 	else
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_RX_CH_MEM(channel) | ADAR1000_RAM_ACCESS_RX,
-				   CHX_RAM_FETCH | profile);
-	if (ret < 0)
-		return ret;
-
-	return adar1000_mode_4wire(st, 0);
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_CH_MEM(channel),
+				    CHX_RAM_FETCH | profile);
 }
 
 static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
@@ -1198,7 +1642,6 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 {
 	int phase_value;
 	u16 ram_access_tx_rx;
-	u32 gain_reg, atten_mdb;
 	u32 vm_gain_i, vm_gain_q;
 	struct reg_sequence regs[3] = {0};
 
@@ -1206,6 +1649,12 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 		return -EINVAL;
 
 	st->save_beam_idx = profile;
+
+	/* Set phase value */
+	adar1000_phase_search(st, beam.phase_val, beam.phase_val2,
+			      &vm_gain_i, &vm_gain_q, &phase_value);
+	beam.phase_val = phase_value / 10000;
+	beam.phase_val2 = phase_value % 10000 * 100;
 
 	/* Set gain value & save beam information */
 	if (tx) {
@@ -1216,18 +1665,13 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 		st->rx_beam_pos[profile] = beam;
 	}
 
-	if (beam.gain_val > 0 || (beam.gain_val == 0 && beam.gain_val2 > 0))
-		return -EINVAL;
-
-	atten_mdb = (abs(beam.gain_val) * 1000) + (abs(beam.gain_val2) / 1000);
-	adar1000_atten_translate(atten_mdb, &gain_reg);
-
-	/* Set phase value */
-	adar1000_phase_search(st, beam.phase_val, beam.phase_val2,
-			      &vm_gain_i, &vm_gain_q, &phase_value);
-
 	regs[0].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_0(channel, profile) | ram_access_tx_rx;
-	regs[0].def = gain_reg;
+
+	if (beam.atten)
+		regs[0].def = beam.gain_val | ADAR1000_CH_ATTN;
+	else
+		regs[0].def = beam.gain_val;
+
 	regs[1].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_1(channel, profile) | ram_access_tx_rx;
 	regs[1].def = vm_gain_i;
 	regs[2].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_2(channel, profile) | ram_access_tx_rx;
@@ -1246,12 +1690,10 @@ static int adar1000_bias_load(struct adar1000_state *st, u32 channel, bool tx,
 	st->load_bias_idx = setting - 1;
 
 	if (tx)
-		return regmap_write(st->regmap, st->dev_addr |
-				    ADAR1000_TX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_TX,
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_BIAS_RAM_CTL,
 				    ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
 	else
-		return regmap_write(st->regmap, st->dev_addr |
-				    ADAR1000_RX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_RX,
+		return regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_BIAS_RAM_CTL,
 				    ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
 }
 
@@ -1369,11 +1811,6 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 
 	switch (private) {
 	case BEAM_POS_LOAD: {
-		/* Enable RAM access & using configurations from RAM */
-		ret = adar1000_ram_enable(st, 1);
-		if (ret < 0)
-			return ret;
-
 		ret = kstrtoull(buf, 10, &readin);
 		if (ret)
 			return ret;
@@ -1406,11 +1843,11 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 				tmp[i] = val;
 				tmp[i + 1] = val2;
 			}
-			i += 2;
+			i += ret;
 		}
 
-		value.gain_val = tmp[0];
-		value.gain_val2 = tmp[1];
+		value.atten = tmp[0];
+		value.gain_val = tmp[1];
 		value.phase_val = tmp[2];
 		value.phase_val2 = tmp[3];
 
@@ -1420,11 +1857,6 @@ static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 		break;
 	}
 	case BIAS_SET_LOAD:
-		/* Enable RAM access & using configurations from RAM */
-		ret = adar1000_ram_enable(st, 1);
-		if (ret < 0)
-			return ret;
-
 		ret = kstrtoull(buf, 10, &readin);
 		if (ret)
 			return ret;
@@ -1460,17 +1892,17 @@ static ssize_t adar1000_ram_read(struct iio_dev *indio_dev,
 	switch (private) {
 	case BEAM_POS_SAVE:
 		if (chan->output == 1)
-			len += sprintf(buf, "%d, %d.%d, %d.%d\n",
+			len += sprintf(buf, "%d, %d, %d, %d.%06u\n",
 				       st->save_beam_idx,
+				       st->tx_beam_pos[st->save_beam_idx].atten,
 				       st->tx_beam_pos[st->save_beam_idx].gain_val,
-				       st->tx_beam_pos[st->save_beam_idx].gain_val2,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val2);
 		else
-			len += sprintf(buf, "%d, %d.%d, %d.%d\n",
+			len += sprintf(buf, "%d, %d, %d, %d.%06u\n",
 				       st->save_beam_idx,
+				       st->rx_beam_pos[st->save_beam_idx].atten,
 				       st->rx_beam_pos[st->save_beam_idx].gain_val,
-				       st->rx_beam_pos[st->save_beam_idx].gain_val2,
 				       st->rx_beam_pos[st->save_beam_idx].phase_val,
 				       st->rx_beam_pos[st->save_beam_idx].phase_val2);
 		val = st->save_beam_idx;
@@ -1490,10 +1922,10 @@ static ssize_t adar1000_ram_read(struct iio_dev *indio_dev,
 				       st->tx_bias[st->save_bias_idx].ch1_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch2_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch3_pa_bias_off,
+				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch1_pa_bias_on,
 				       st->tx_bias[st->save_bias_idx].ch2_pa_bias_on,
 				       st->tx_bias[st->save_bias_idx].ch3_pa_bias_on,
-				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_off,
 				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_on,
 				       st->tx_bias[st->save_bias_idx].bias_current_tx,
 				       st->tx_bias[st->save_bias_idx].bias_current_tx_drv);
@@ -1518,6 +1950,7 @@ enum adar1000_enables {
 	ADAR1000_DETECTOR,
 	ADAR1000_PA_BIAS_ON,
 	ADAR1000_PA_BIAS_OFF,
+	ADAR1000_ATTEN,
 };
 
 static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
@@ -1526,7 +1959,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 				    char *buf)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
-	u16 reg;
+	u16 reg = 0;
 	unsigned int val;
 	int ret;
 
@@ -1545,7 +1978,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		val = !(val >> (6 - chan->channel));
+		val = !(val & (0x40 >> chan->channel));
 
 		break;
 	case ADAR1000_DETECTOR:
@@ -1553,7 +1986,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		val = !!((val & 0xf) >> (3 - chan->channel));
+		val = (val & 0xf) & (0x8 >> chan->channel);
 
 		break;
 	case ADAR1000_PA_BIAS_ON:
@@ -1568,6 +2001,18 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
+		break;
+	case ADAR1000_ATTEN:
+		if (chan->output)
+			reg = ADAR1000_CH_TX_GAIN(chan->channel);
+		else
+			reg = ADAR1000_CH_RX_GAIN(chan->channel);
+
+		ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+		if (ret < 0)
+			return ret;
+
+		val = FIELD_GET(ADAR1000_CH_ATTN, val);
 		break;
 	}
 
@@ -1584,15 +2029,11 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 				     const char *buf, size_t len)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
-	u16 reg;
-	unsigned int val = 0, mask;
+	u16 reg = 0;
+	unsigned int val = 0, mask = 0;
 	bool readin;
 	u8 readval;
 	int ret;
-
-	ret = adar1000_mode_4wire(st, 1);
-	if (ret < 0)
-		return ret;
 
 	switch (private) {
 	case ADAR1000_POWERDOWN:
@@ -1609,10 +2050,6 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 		if (!readin)
 			val = ADAR1000_CH1_EN >> chan->channel;
 
-		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
-					 mask, val);
-		if (ret < 0)
-			return ret;
 		break;
 	case ADAR1000_DETECTOR:
 		ret = kstrtobool(buf, &readin);
@@ -1623,34 +2060,52 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 		if (readin)
 			val = ADAR1000_CH_DET_EN(chan->channel);
 
-		ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MISC_ENABLES,
-					 mask, val);
-		if (ret < 0)
-			return ret;
+		reg = ADAR1000_MISC_ENABLES;
 		break;
 	case ADAR1000_PA_BIAS_ON:
 		ret = kstrtou8(buf, 10, &readval);
 		if (ret)
 			return ret;
 
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_CH_PA_BIAS_ON(chan->channel), readval);
-		if (ret < 0)
-			return ret;
+		reg = ADAR1000_CH_PA_BIAS_ON(chan->channel);
 		break;
 	case ADAR1000_PA_BIAS_OFF:
 		ret = kstrtou8(buf, 10, &readval);
 		if (ret)
 			return ret;
 
-		ret = regmap_write(st->regmap, st->dev_addr |
-				   ADAR1000_CH_PA_BIAS_OFF(chan->channel), readval);
-		if (ret < 0)
+		reg = ADAR1000_CH_PA_BIAS_OFF(chan->channel);
+		break;
+	case ADAR1000_ATTEN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
 			return ret;
+
+		if (chan->output)
+			reg = ADAR1000_CH_TX_GAIN(chan->channel);
+		else
+			reg = ADAR1000_CH_RX_GAIN(chan->channel);
+
+		mask = ADAR1000_CH_ATTN;
+		if (readin)
+			val = mask;
+
 		break;
 	}
 
-	ret = adar1000_mode_4wire(st, 0);
+	if (mask) {
+		ret = adar1000_mode_4wire(st, 1);
+		if (ret < 0)
+			return ret;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg, mask, val);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_mode_4wire(st, 0);
+	} else {
+		ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
+	}
 
 	return ret ? ret : len;
 }
@@ -1769,6 +2224,7 @@ static const struct iio_chan_spec_ext_info adar1000_rx_ext_info[] = {
 	_ADAR1000_SEQ_INFO("sequence_start", ADAR1000_SEQ_START),
 	_ADAR1000_SEQ_INFO("sequence_end", ADAR1000_SEQ_STOP),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
+	_ADAR1000_ENABLES_INFO("attenuation", ADAR1000_ATTEN),
 	{ },
 };
 
@@ -1783,6 +2239,7 @@ static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
 	_ADAR1000_ENABLES_INFO("pa_bias_on", ADAR1000_PA_BIAS_ON),
 	_ADAR1000_ENABLES_INFO("pa_bias_off", ADAR1000_PA_BIAS_OFF),
+	_ADAR1000_ENABLES_INFO("attenuation", ADAR1000_ATTEN),
 	{ },
 };
 
@@ -2027,7 +2484,7 @@ static ssize_t adar1000_pt_bin_read(struct file *filp, struct kobject *kobj,
 
 	for (i = 0; i < st->pt_size; i++)
 		len += snprintf(tab + len, count - len,
-			"%d.%03d, 0x%.2X, 0x%.2X\n",
+			"%d.%04u, 0x%.2X, 0x%.2X\n",
 			st->pt_info[i].val,
 			st->pt_info[i].val2,
 			st->pt_info[i].vm_gain_i,
@@ -2068,34 +2525,7 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_LDO_TRIM_CTL_0, 0x55);
-	if (ret < 0)
-		return ret;
-
-	/* Select SPI for channel settings */
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_MEM_CTRL,
-			   ADAR1000_BEAM_RAM_BYPASS |
-			   ADAR1000_BIAS_RAM_BYPASS |
-			   ADAR1000_TX_CHX_RAM_BYPASS |
-			   ADAR1000_RX_CHX_RAM_BYPASS);
-	if (ret < 0)
-		return ret;
-
-	/* Select TR input */
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_SW_CTRL,
-			   ADAR1000_SW_DRV_EN_TR |
-			   ADAR1000_SW_DRV_EN_POL |
-			   ADAR1000_TR_SOURCE);
-	if (ret < 0)
-		return ret;
-
-	/* Setup ADC operation */
-	return regmap_write(st->regmap, st->dev_addr |
-			    ADAR1000_ADC_CTRL, ADAR1000_AC_EN |
-			    ADAR1000_CLK_EN | ADAR1000_MUX_SEL(0x05));
+	return regmap_write(st->regmap, st->dev_addr | ADAR1000_LDO_TRIM_CTL_0, 0x55);
 }
 
 static int adar1000_probe(struct spi_device *spi)

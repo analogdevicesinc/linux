@@ -1,6 +1,8 @@
 
 /dts-v1/;
+
 #include "kcu105.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
@@ -85,10 +87,9 @@
 		clocks = <&clk0_ad9528 9>;
 		clock-names = "conv";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <4>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
-		adi,use-cpll-enable;
 
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
@@ -118,8 +119,8 @@
 		clocks = <&clk0_ad9528 4>;
 		clock-names = "conv";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <4>;
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
 
 		#clock-cells = <1>;

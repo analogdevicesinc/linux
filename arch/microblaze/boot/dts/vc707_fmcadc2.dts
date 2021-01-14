@@ -1,9 +1,16 @@
 
 /dts-v1/;
+
 #include "vc707.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi
+
+/* fmcadc2_vc707: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffffc5d0>;
+};
 
 / {
 	clocks {
@@ -66,9 +73,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <2>;
-		adi,use-cpll-enable;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_OUTCLK_PMA>;
 	};
 	axi_ad9625_jesd: axi-jesd204-rx@44aa0000 {
 		compatible = "adi,axi-jesd204-rx-1.0";

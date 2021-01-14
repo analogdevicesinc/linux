@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
 /dts-v1/;
+
 #include "vcu118.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #define fmc_i2c fmcp_hspc_iic
 #define fmc_spi axi_spi
+
+/* ad9208_dual_ebz_vcu118: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffff85f0>;
+};
 
 &amba_pl {
 	rx_dma: rx-dmac@7c420000 {
@@ -38,12 +45,12 @@
 		clocks = <&clk_bus_0>, <&hmc7044 9>, <&axi_ad9208_0_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-		adi,octets-per-frame = <1>;
-		adi,frames-per-multiframe = <32>;
-		adi,subclass = <1>;
-
 		#clock-cells = <0>;
 		clock-output-names = "jesd_adc0_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9208_1_jesd_rx 0 0>;
 	};
 
 	axi_ad9208_0_adxcvr: axi-adxcvr-rx@44a60000 {
@@ -53,12 +60,16 @@
 		clocks = <&hmc7044 8>;
 		clock-names = "conv";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <3>; /* not used */
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>; /* not used */
 		adi,use-lpm-enable;
 
 		#clock-cells = <1>;
 		clock-output-names = "adc0_gt_clk", "rx0_out_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9208_1_adxcvr 0 0>;
 	};
 
 	axi_ad9208_1_jesd_rx: axi-jesd204-rx@44b90000 {
@@ -71,12 +82,12 @@
 		clocks = <&clk_bus_0>, <&hmc7044 9>, <&axi_ad9208_1_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-		adi,octets-per-frame = <1>;
-		adi,frames-per-multiframe = <32>;
-		adi,subclass = <1>;
-
 		#clock-cells = <0>;
 		clock-output-names = "jesd_adc1_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9208_0_adxcvr 0 0>;
 	};
 
 	axi_ad9208_1_adxcvr: axi-adxcvr-rx@44b60000 {
@@ -86,12 +97,16 @@
 		clocks = <&hmc7044 8>;
 		clock-names = "conv";
 
-		adi,sys-clk-select = <3>;
-		adi,out-clk-select = <3>; /* not used */
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>; /* not used */
 		adi,use-lpm-enable;
 
 		#clock-cells = <1>;
 		clock-output-names = "adc1_gt_clk", "rx1_out_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&hmc7044 0 0>;
 	};
 
 	rx_ad9208_0_tpl_core_tpl: axi-ad9208-0-hpc@44a10000 {
@@ -100,6 +115,11 @@
 		reg = <0x44a10000 0x1000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&rx_ad9208_1_tpl_core_tpl 0 0>;
+
 		spibus-connected = <&adc0_ad9208>;
 		slavecore-reg = <0x44b10000 0x1000>;
 	};
@@ -108,6 +128,11 @@
 		//compatible = "adi,ad-ip-jesd204-tpl-adc-1.0";
 		compatible = "adi,axi-ad9208-1.0";
 		reg = <0x44b10000 0x1000>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9208_0_jesd_rx 0 0>;
+
 		spibus-connected = <&adc1_ad9208>;
 	};
 };

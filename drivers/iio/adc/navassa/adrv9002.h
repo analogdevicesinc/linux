@@ -101,21 +101,28 @@ struct adrv9002_clock {
 
 struct adrv9002_chan {
 	struct clk *clk;
+	/*
+	 * These values are in nanoseconds. They need to be converted with
+	 * @adrv9002_chan_ns_to_en_delay() before passing them to the API.
+	 */
+	struct adi_adrv9001_ChannelEnablementDelays en_delays_ns;
+	unsigned long rate;
 	adi_adrv9001_ChannelState_e cached_state;
 	adi_common_ChannelNumber_e number;
+	adi_common_Port_e port;
 	u32 power;
 	int nco_freq;
-	u8 enabled;
+	u8 idx;
+	u8 enabled;;
 };
 
 struct adrv9002_rx_chan {
 	struct adrv9002_chan channel;
-	struct adi_adrv9001_GainControlCfg *agc;
+	struct adi_adrv9001_GainControlCfg agc;
 	struct adi_adrv9001_RxGainControlPinCfg *pin_cfg;
 	struct clk *tdd_clk;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_RxSsiTestModeCfg ssi_test;
-	struct adi_adrv9001_GainControlCfg debug_agc;
 #endif
 };
 
@@ -152,6 +159,7 @@ struct adrv9002_rf_phy {
 	u16				stream_size;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];
+	struct adrv9002_chan		*channels[ADRV9002_CHANN_MAX * 2];
 	struct adrv9002_gpio 		*adrv9002_gpios;
 	struct adi_adrv9001_Device	adrv9001_device;
 	struct adi_adrv9001_Device	*adrv9001;
@@ -168,6 +176,15 @@ struct adrv9002_rf_phy {
 #endif
 };
 
+void adrv9002_en_delays_ns_to_arm(const struct adrv9002_rf_phy *phy,
+				  const struct adi_adrv9001_ChannelEnablementDelays *d_ns,
+				  struct adi_adrv9001_ChannelEnablementDelays *d);
+void adrv9002_en_delays_arm_to_ns(const struct adrv9002_rf_phy *phy,
+				  const struct adi_adrv9001_ChannelEnablementDelays *d,
+				  struct adi_adrv9001_ChannelEnablementDelays *d_ns);
+/* phy lock must be held before entering the API */
+int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
+			      const adi_adrv9001_ChannelState_e state, const bool cache_state);
 int adrv9002_clean_setup(struct adrv9002_rf_phy *phy);
 int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line);
 #define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)

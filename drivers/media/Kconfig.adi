@@ -1,5 +1,5 @@
 
-# This file exists solely to be include in drivers/media/Kconfig
+# This file exists solely to be include in Kconfig.adi
 
 config MEDIA_ALL_ADI_DRIVERS
 	tristate "Build all Analog Devices Media Drivers"
@@ -22,3 +22,4 @@ config MEDIA_ALL_ADI_DRIVERS
 	select VIDEO_AXI_HDMI_RX
 	select ADI_AXI_VIDEO_FRAME_BUFFER
 	select VIDEO_ADP1653
+	select USB_VIDEO_CLASS

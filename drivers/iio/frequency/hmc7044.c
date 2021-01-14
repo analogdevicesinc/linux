@@ -712,6 +712,21 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	return DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
 }
 
+static int hmc7044_clk_determine_rate(struct clk_hw *hw,
+				      struct clk_rate_request *req)
+{
+	struct hmc7044_output *out = to_output(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	unsigned int div;
+
+	div = hmc7044_calc_out_div(hmc->pll2_freq, req->rate);
+
+	req->rate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+
+	return 0;
+}
+
 static int hmc7044_clk_set_rate(struct clk_hw *hw,
 				unsigned long rate,
 				unsigned long parent_rate)
@@ -722,6 +737,7 @@ static int hmc7044_clk_set_rate(struct clk_hw *hw,
 static const struct clk_ops hmc7044_clk_ops = {
 	.recalc_rate = hmc7044_clk_recalc_rate,
 	.round_rate = hmc7044_clk_round_rate,
+	.determine_rate = hmc7044_clk_determine_rate,
 	.set_rate = hmc7044_clk_set_rate,
 };
 
@@ -1552,6 +1568,32 @@ static int hmc7044_continuous_chan_sync_enable(struct iio_dev *indio_dev, bool e
 	return 0;
 }
 
+static int hmc7044_lmfc_lemc_validate(struct hmc7044 *hmc, u64 dividend, u32 divisor)
+{
+	u32 rem, rem_l, rem_u;
+
+	div_u64_rem(hmc->pll2_freq, divisor, &rem);
+
+	if (rem == 0) {
+		hmc->jdev_lmfc_lemc_gcd = gcd(dividend, divisor);
+		return 0;
+	}
+
+	div_u64_rem(dividend, divisor, &rem);
+	div_u64_rem(dividend, divisor - 1, &rem_l);
+	div_u64_rem(dividend, divisor + 1, &rem_u);
+
+	if ((rem_l > rem) && (rem_u > rem)) {
+		if (hmc->jdev_lmfc_lemc_gcd)
+			hmc->jdev_lmfc_lemc_gcd = min(hmc->jdev_lmfc_lemc_gcd, divisor);
+		else
+			hmc->jdev_lmfc_lemc_gcd = divisor;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
 static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 		enum jesd204_state_op_reason reason,
 		struct jesd204_link *lnk)
@@ -1573,15 +1615,17 @@ static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 
 	if (hmc->jdev_lmfc_lemc_rate) {
 		hmc->jdev_lmfc_lemc_rate = min(hmc->jdev_lmfc_lemc_rate, (u32)rate);
-		hmc->jdev_lmfc_lemc_gcd = gcd(hmc->jdev_lmfc_lemc_gcd, rate);
+		ret = hmc7044_lmfc_lemc_validate(hmc, hmc->jdev_lmfc_lemc_gcd, (u32)rate);
 	} else {
 		hmc->jdev_lmfc_lemc_rate = rate;
-		hmc->jdev_lmfc_lemc_gcd = gcd(hmc->pll2_freq, rate);
+		ret = hmc7044_lmfc_lemc_validate(hmc, hmc->pll2_freq, (u32)rate);
 	}
 
 	dev_dbg(dev, "%s:%d link_num %u LMFC/LEMC %u/%lu gcd %u\n",
 		__func__, __LINE__, lnk->link_id, hmc->jdev_lmfc_lemc_rate,
 		rate, hmc->jdev_lmfc_lemc_gcd);
+	if (ret)
+		return ret;
 
 	return JESD204_STATE_CHANGE_DONE;
 }

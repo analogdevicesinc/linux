@@ -146,7 +146,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				adi,interpolation = <6>;
+				adi,interpolation = <8>;
 
 				ad9081_dac0: dac@0 {
 					reg = <0>;
@@ -173,7 +173,7 @@
 			adi,channelizer-paths {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				adi,interpolation = <8>;
+				adi,interpolation = <6>;
 
 				ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;

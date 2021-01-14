@@ -16,48 +16,12 @@ if [ -f "${FULL_BUILD_DIR}/env" ] ; then
 	. "${FULL_BUILD_DIR}/env"
 fi
 
-# allow this to be configurable; we may want to run it elsewhere
-REPO_SLUG=${REPO_SLUG:-analogdevicesinc/linux}
-
 # Run once for the entire script
 sudo apt-get -qq update
 
 apt_install() {
 	sudo apt-get install -y $@
 }
-
-get_pull_requests_urls() {
-	wget -q -O- https://api.github.com/repos/${REPO_SLUG}/pulls | jq -r '.[].commits_url'
-}
-
-get_pull_request_commits_sha() {
-	wget -q -O- $1 | jq -r '.[].sha'
-}
-
-branch_has_pull_request() {
-	if [ "$TRAVIS_PULL_REQUEST" = "true" ] ; then
-		return 1
-	fi
-	apt_install jq
-
-	for pr_url in $(get_pull_requests_urls) ; do
-		for sha in $(get_pull_request_commits_sha $pr_url) ; do
-			if [ "$sha" = "$TRAVIS_COMMIT" ] ; then
-				TRAVIS_OPEN_PR=$pr_url
-				export TRAVIS_OPEN_PR
-				return 0
-			fi
-		done
-	done
-
-	return 1
-}
-
-# Exit early to save some build time
-if branch_has_pull_request ; then
-	echo_green "Not running build for branch; there is an open PR @ $TRAVIS_OPEN_PR"
-	exit 0
-fi
 
 if [ -z "$NUM_JOBS" ] ; then
 	NUM_JOBS=$(getconf _NPROCESSORS_ONLN)
@@ -94,7 +58,7 @@ adjust_kcflags_against_gcc() {
 
 APT_LIST="make bc u-boot-tools flex bison libssl-dev"
 
-if [ "$ARCH" == "arm64" ] ; then
+if [ "$ARCH" = "arm64" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
 		CROSS_COMPILE=aarch64-linux-gnu-
 		export CROSS_COMPILE
@@ -103,7 +67,7 @@ if [ "$ARCH" == "arm64" ] ; then
 	APT_LIST="$APT_LIST gcc-aarch64-linux-gnu"
 fi
 
-if [ "$ARCH" == "arm" ] ; then
+if [ "$ARCH" = "arm" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
 		CROSS_COMPILE=arm-linux-gnueabihf-
 		export CROSS_COMPILE
@@ -165,6 +129,52 @@ check_all_adi_files_have_been_built() {
 	return $ret
 }
 
+get_ref_branch() {
+	if [ -n "$TARGET_BRANCH" ] ; then
+		echo -n "$TARGET_BRANCH"
+	elif [ -n "$TRAVIS_BRANCH" ] ; then
+		echo -n "$TRAVIS_BRANCH"
+	elif [ -n "$GITHUB_BASE_REF" ] ; then
+		echo -n "$GITHUB_BASE_REF"
+	else
+		echo -n "HEAD~5"
+	fi
+}
+
+build_check_is_new_adi_driver_dual_licensed() {
+	local ret
+
+	local ref_branch="$(get_ref_branch)"
+
+	if [ -z "$ref_branch" ] ; then
+		echo_red "Could not get a base_ref for checkpatch"
+		exit 1
+	fi
+
+	COMMIT_RANGE="${ref_branch}.."
+
+	echo_green "Running checkpatch for commit range '$COMMIT_RANGE'"
+
+	ret=0
+	# Get list of files in the commit range
+	for file in $(git diff --name-only "$COMMIT_RANGE") ; do
+		if git diff "$COMMIT_RANGE" "$file" | grep -q "+MODULE_LICENSE" ; then
+			# Check that it has an 'Analog Devices' string
+			if ! grep -q "Analog Devices" "$file" ; then
+				continue
+			fi
+			if git diff "$COMMIT_RANGE" "$file" | grep "+MODULE_LICENSE" | grep -v "Dual" ; then
+				echo_red "File '$file' contains new Analog Devices' driver"
+				echo_red "New 'Analog Devices' drivers must be dual-licensed, with a license being BSD"
+				echo_red " Example: MODULE_LICENSE(Dual BSD/GPL)"
+				ret=1
+			fi
+		fi
+	done
+
+	return $ret
+}
+
 build_default() {
 	[ -n "$DEFCONFIG" ] || {
 		echo_red "No DEFCONFIG provided"
@@ -182,7 +192,7 @@ build_default() {
 	make ${DEFCONFIG}
 	make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
 
-	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" == "1" ] ; then
+	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" = "1" ] ; then
 		check_all_adi_files_have_been_built
 	fi
 
@@ -212,15 +222,11 @@ build_checkpatch() {
 	pip3 install wheel
 	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
 
-	[ "$TRAVIS_PULL_REQUEST" = "true" ] || return 0
+	local ref_branch="$(get_ref_branch)"
 
-	local ref_branch
+	echo_green "Running checkpatch for commit range '$ref_branch..'"
 
-	if [ -n "$TRAVIS_BRANCH" ] ; then
-		ref_branch="$TRAVIS_BRANCH"
-	elif [ -n "$GITHUB_BASE_REF" ] ; then
-		ref_branch="$GITHUB_BASE_REF"
-	else
+	if [ -z "$ref_branch" ] ; then
 		echo_red "Could not get a base_ref for checkpatch"
 		exit 1
 	fi
@@ -239,7 +245,7 @@ build_dtb_build_test() {
 	local err=0
 	local last_arch
 
-	if [ "$TRAVIS" = "true" ] || [ "$CI" = "true" ] ; then
+	if [ "$APPLY_DTB_BUILD_PATCHES" = "true" ] ; then
 		for patch in $(ls ci/travis/*.patch | sort) ; do
 			patch -p1 < $patch
 		done
@@ -307,7 +313,7 @@ __update_git_ref() {
 	local ref="$1"
 	local local_ref="$2"
 	local depth
-	[ "$GIT_FETCH_DEPTH" == "disabled" ] || {
+	[ "$GIT_FETCH_DEPTH" = "disabled" ] || {
 		depth="--depth=${GIT_FETCH_DEPTH:-50}"
 	}
 	if [ -n "$local_ref" ] ; then
@@ -335,7 +341,7 @@ __handle_sync_with_main() {
 		return 1
 	}
 
-	if [ "$method" == "fast-forward" ] ; then
+	if [ "$method" = "fast-forward" ] ; then
 		git checkout FETCH_HEAD
 		git merge --ff-only ${ORIGIN}/${MAIN_BRANCH} || {
 			echo_red "Failed while syncing ${ORIGIN}/${MAIN_BRANCH} over '$dst_branch'"
@@ -345,9 +351,9 @@ __handle_sync_with_main() {
 		return 0
 	fi
 
-	if [ "$method" == "cherry-pick" ] ; then
+	if [ "$method" = "cherry-pick" ] ; then
 		local depth
-		if [ "$GIT_FETCH_DEPTH" == "disabled" ] ; then
+		if [ "$GIT_FETCH_DEPTH" = "disabled" ] ; then
 			depth=50
 		else
 			GIT_FETCH_DEPTH=${GIT_FETCH_DEPTH:-50}
@@ -406,6 +412,11 @@ build_sync_branches_with_main() {
 	BRANCHES="xcomm_zynq:fast-forward adi-4.19.0:cherry-pick"
 	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick"
 
+	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
+		echo_red "Could not fetch branch '$MAIN_BRANCH'"
+		return 1
+	}
+
 	for branch in $BRANCHES ; do
 		local dst_branch="$(echo $branch | cut -d: -f1)"
 		[ -n "$dst_branch" ] || break
@@ -413,22 +424,6 @@ build_sync_branches_with_main() {
 		[ -n "$method" ] || break
 		__handle_sync_with_main "$dst_branch" "$method"
 	done
-}
-
-build_sync_branches_with_main_travis() {
-	# make sure this is on the main branch, and not a PR
-	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
-	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
-	[ "$TRAVIS_BRANCH" == "${MAIN_BRANCH}" ] || return 0
-	[ "$TRAVIS_REPO_SLUG" == "analogdevicesinc/linux" ] || return 0
-
-	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
-	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
-	eval "$(ssh-agent -s)"
-	chmod 600 /tmp/deploy_key
-	ssh-add /tmp/deploy_key
-
-	build_sync_branches_with_main
 }
 
 ORIGIN=${ORIGIN:-origin}

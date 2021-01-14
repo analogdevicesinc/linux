@@ -150,6 +150,7 @@ static int jesd204_link_validate_params(const struct jesd204_link *lnk)
 int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 {
 	u64 rate, encoding_n, encoding_d;
+	u32 sample_rate_div;
 	int ret;
 
 	ret = jesd204_link_validate_params(lnk);
@@ -181,9 +182,11 @@ int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 		break;
 	}
 
+	sample_rate_div = lnk->sample_rate_div ? lnk->sample_rate_div : 1;
+
 	rate = lnk->num_converters * lnk->bits_per_sample *
 		encoding_n * lnk->sample_rate;
-	do_div(rate, lnk->num_lanes * encoding_d);
+	do_div(rate, lnk->num_lanes * encoding_d * sample_rate_div);
 
 	*lane_rate_hz = rate;
 
@@ -201,9 +204,7 @@ int jesd204_link_get_rate_khz(struct jesd204_link *lnk,
 	if (ret)
 		return ret;
 
-	do_div(lane_rate_hz, 1000);
-
-	*lane_rate_khz = lane_rate_hz;
+	*lane_rate_khz = DIV_ROUND_CLOSEST_ULL(lane_rate_hz, 1000);
 
 	return ret;
 }
@@ -248,6 +249,33 @@ int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_device_clock);
+
+void jesd204_copy_link_params(struct jesd204_link *dst,
+			      const struct jesd204_link *src)
+{
+	dst->is_transmit = src->is_transmit;
+	dst->num_lanes = src->num_lanes;
+	dst->num_converters = src->num_converters;
+	dst->octets_per_frame = src->octets_per_frame;
+	dst->frames_per_multiframe = src->frames_per_multiframe;
+	dst->num_of_multiblocks_in_emb = src->num_of_multiblocks_in_emb;
+	dst->bits_per_sample = src->bits_per_sample;
+	dst->converter_resolution = src->converter_resolution;
+	dst->jesd_version = src->jesd_version;
+	dst->jesd_encoder = src->jesd_encoder;
+	dst->subclass = src->subclass;
+	dst->device_id = src->device_id;
+	dst->bank_id = src->bank_id;
+	dst->scrambling = src->scrambling;
+	dst->high_density = src->high_density;
+	dst->ctrl_words_per_frame_clk = src->ctrl_words_per_frame_clk;
+	dst->ctrl_bits_per_sample = src->ctrl_bits_per_sample;
+	dst->samples_per_conv_frame = src->samples_per_conv_frame;
+	dst->dac_adj_resolution_steps = src->dac_adj_resolution_steps;
+	dst->dac_adj_direction = src->dac_adj_direction;
+	dst->dac_phase_adj = src->dac_phase_adj;
+}
+EXPORT_SYMBOL_GPL(jesd204_copy_link_params);
 
 int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 				    unsigned long *rate_hz)

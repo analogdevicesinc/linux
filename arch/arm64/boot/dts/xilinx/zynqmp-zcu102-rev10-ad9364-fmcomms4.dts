@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for FMCOMMS4 AD9364 on Xilinx ZynqMP ZCU102 Rev 1.0
+ * Analog Devices AD-FMCOMMS4-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms4-ebz
  *
- * Copyright (C) 2016-2017 Analog Devices Inc.
+ * hdl_project: <fmcomms2/zcu102>
+ * board_revision: <>
  *
- * Licensed under the GPL-2.
+ * Copyright (C) 2014-2020 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
@@ -91,7 +94,7 @@
 		};
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@99024000 {
-			compatible = "adi,axi-ad9361-dds-6.00.a";
+			compatible = "adi,axi-ad9364-dds-6.00.a";
 			reg = <0x99024000 0x1000>;
 			clocks = <&adc0_ad9364 13>;
 			clock-names = "sampl_clk";

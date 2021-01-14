@@ -1,5 +1,5 @@
 
-# This file exists solely to be include in drivers/iio/Kconfig
+# This file exists solely to be include in Kconfig.adi
 # It's a bit of hurry-ed-up job; many symbols need to be depended
 # on I2C or SPI, but that can be done later; the ADI image has
 # these symbols enabled anyway

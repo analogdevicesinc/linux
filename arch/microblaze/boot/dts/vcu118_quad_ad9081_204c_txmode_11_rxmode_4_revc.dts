@@ -13,6 +13,10 @@
 
 #include "vcu118_quad_ad9081_204c_txmode_11_rxmode_4.dts"
 
+/ {
+	model = "Analog Devices AD-QUADMXFE1-EBZ Rev.C";
+};
+
 &gpio_hmc425a {
 	compatible = "adi,hmc540s";
 	ctrl-gpios = <&axi_gpio 38 GPIO_ACTIVE_HIGH>,
@@ -23,7 +27,7 @@
 
 &fmc_i2c {
 	current_limiter@58 {
-		compatible = "adi,adm1177";
+		compatible = "adi,adm1177-iio";
 		reg = <0x58>;
 		adi,r-sense-mohm = <10>; /* 10 mOhm */
 		adi,shutdown-threshold-ma = <10000>; /* 10 A */

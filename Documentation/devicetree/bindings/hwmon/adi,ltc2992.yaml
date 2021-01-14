@@ -21,6 +21,12 @@ properties:
   reg:
     maxItems: 1
 
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
   avcc-supply: true
 
 patternProperties:
@@ -34,17 +40,12 @@ patternProperties:
         description: |
           The channel number. LTC2992 can monitor two supplies.
         items:
-         minimum: 0
-         maximum: 1
+          minimum: 0
+          maximum: 1
 
       shunt-resistor-micro-ohms:
         description:
           The value of curent sense resistor in microohms.
-  required:
-    - reg
-    - shunt-resistor-micro-ohms
-
-  additionalProperties: false
 
 required:
   - compatible

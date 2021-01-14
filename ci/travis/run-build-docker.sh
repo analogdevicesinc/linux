@@ -17,6 +17,8 @@ else
 			echo "export ${env}=${val}" >> "${FULL_BUILD_DIR}/env"
 		fi
 	done
-	prepare_docker_image "ubuntu:rolling"
-	run_docker_script run-build.sh "ubuntu:rolling"
+	export OS_TYPE=ubuntu
+	export OS_VERSION=rolling
+	prepare_docker_image
+	run_docker_script run-build.sh
 fi

@@ -16,6 +16,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/iio/adc/adi,ad9081.h>
+#include <dt-bindings/jesd204/adxcvr.h>
 
 /*
  * This is a device tree which uses QPLL for both adxcvr instances.
@@ -149,8 +150,8 @@
 			#clock-cells = <1>;
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
 
-			adi,sys-clk-select = <3>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
  			adi,use-lpm-enable;
 
 			jesd204-device;
@@ -170,8 +171,8 @@
 			#clock-cells = <1>;
 			clock-output-names = "tx_gt_clk", "tx_out_clk";
 
-			adi,sys-clk-select = <3>;
-			adi,out-clk-select = <3>;
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;

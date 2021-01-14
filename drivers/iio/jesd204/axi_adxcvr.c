@@ -14,11 +14,15 @@
 #include <linux/of_device.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #include "axi_adxcvr.h"
 #include "xilinx_transceiver.h"
 #include "axi_adxcvr_eyescan.h"
 
+static const char *const adxcvr_sys_clock_sel_names[] = {
+	"CPLL", "UNDEF", "QPLL1", "QPLL"
+};
 
 static struct adxcvr_state *xcvr_to_adxcvr(struct xilinx_xcvr *xcvr)
 {
@@ -200,7 +204,15 @@ static int adxcvr_status_error(struct device *dev)
 	} while ((timeout--) && (status == 0));
 
 	if (!status) {
-		dev_err(dev, "%s Error: %x", st->tx_enable ? "TX" : "RX", status);
+		if (!st->qpll_enable && !st->cpll_enable) {
+			dev_err(dev, "%s %s: Not ready defer probe",
+				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+				st->tx_enable ? "TX" : "RX");
+			return -EPROBE_DEFER;
+		}
+		dev_err(dev, "%s %s Error: %x",
+			adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+			st->tx_enable ? "TX" : "RX", status);
 		return -EIO;
 	}
 
@@ -489,18 +501,18 @@ static int adxcvr_clk_register(struct device *dev,
 	}
 
 	switch (st->out_clk_sel) {
-	case 1:
-	case 2:
+	case XCVR_OUTCLK_PCS:
+	case XCVR_OUTCLK_PMA:
 		/* lane rate / 40 */
 		out_clk_divider = 2; /* 40 */
 		out_clk_multiplier = 50; /* 1000 */
 		parent_name = clk_names[0];
 		break;
-	case 3:
+	case XCVR_REFCLK:
 		out_clk_divider = 1;
 		out_clk_multiplier = 1;
 		break;
-	case 4:
+	case XCVR_REFCLK_DIV2:
 		out_clk_divider = 2;
 		out_clk_multiplier = 1;
 		break;
@@ -568,9 +580,9 @@ static void adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 {
 	of_property_read_u32(np, "adi,sys-clk-select", &st->sys_clk_sel);
 	of_property_read_u32(np, "adi,out-clk-select", &st->out_clk_sel);
-
-	st->cpll_enable = of_property_read_bool(np, "adi,use-cpll-enable");
 	st->lpm_enable = of_property_read_bool(np, "adi,use-lpm-enable");
+
+	st->cpll_enable = st->sys_clk_sel == XCVR_CPLL;
 
 	adxcvr_parse_dt_vco_ranges(st, np);
 }
@@ -596,6 +608,14 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 	parent_rate = clk_get_rate(st->conv_clk);
 	if (st->conv2_clk)
 		clk_set_rate(st->conv2_clk, parent_rate);
+
+	if (!st->qpll_enable && !st->cpll_enable) {
+		dev_warn(st->dev,
+			"%s: Using QPLL without access, assuming desired "
+			"Lane rate will be configured by a different instance",
+			__func__);
+		return;
+	}
 
 	lane_rate = adxcvr_clk_recalc_rate(&st->lane_clk_hw, parent_rate);
 
@@ -694,6 +714,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	adxcvr_parse_dt(st, np);
 
+	if (st->sys_clk_sel > XCVR_QPLL)
+		return -EINVAL;
+
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(st->regs)) {
@@ -783,13 +806,14 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_debugfs;
 
-	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
+	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s on %s at 0x%08llX. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
 		ADI_AXI_PCORE_VER_MAJOR(st->xcvr.version),
 		ADI_AXI_PCORE_VER_MINOR(st->xcvr.version),
 		ADI_AXI_PCORE_VER_PATCH(st->xcvr.version),
+		adxcvr_sys_clock_sel_names[st->sys_clk_sel],
 		adxcvr_gt_names[st->xcvr.type],
-		(unsigned long long)mem->start, st->regs,
+		(unsigned long long)mem->start,
 		st->num_lanes);
 
 	return 0;

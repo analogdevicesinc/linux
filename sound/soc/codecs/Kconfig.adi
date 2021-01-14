@@ -1,5 +1,5 @@
 
-# This file exists solely to be include in sound/soc/codecs/Kconfig
+# This file exists solely to be include in Kconfig.adi
 # Unfortunately, this is the best approach to build all ADI codecs
 # in a single change, since all that's needed is to select the
 # 'SND_SOC_ALL_ADI_CODECS' symbol and all should work
@@ -35,4 +35,6 @@ config SND_SOC_ALL_ADI_CODECS
 	select SND_SOC_ADI_AXI_I2S
 	select SND_SOC_ADI_AXI_SPDIF
 	select SND_SOC_ADRV936X_BOX
+	select SND_USB
+	select SND_USB_AUDIO
 	select SND_SIMPLE_CARD

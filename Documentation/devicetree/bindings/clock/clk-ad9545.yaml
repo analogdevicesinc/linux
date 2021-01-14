@@ -1,0 +1,323 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/clk-ad9545.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD9545 Quad Input, 10-Output, Dual DPLL/IEEE 1588
+
+maintainers:
+  - Alexandru Tachici <alexandru.tachici@analog.com>
+
+description: |
+  Analog Devices AD9545 Quad Input, 10-Output, Dual DPLL/IEEE 1588,
+  1 pps Synchronizer and Jitter Cleaner
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ADM1266.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ad9545
+
+  "#clock-cells":
+    const: 1
+
+  reg:
+    description: |
+      I2C address of the secondary device.
+    minimum: 0
+    maximum: 0xFF
+
+  avcc-supply:
+    description: |
+      Phandle to the Avcc power supply.
+
+  adi,freq-doubler:
+    description: |
+      The system clock PLL provides the user with the option of doubling the reference frequency.
+    type: boolean
+
+  adi,ref-crystal:
+    description: |
+      At XOA,XOB there is a crystal connected that needs maintaining.
+      Otherwise it is assumed that there is a TCXO or OCXO connected.
+    type: boolean
+
+  adi,ref-frequency-mhz:
+    description: |
+      Reference input frequency at XOA,XOB. This is used for the system clock.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+    minItems: 2
+    maxItems: 2
+
+  clocks:
+    items:
+      - description: Ref A clock input
+      - description: Ref AA clock input
+      - description: Ref B clock input
+      - description: Ref BB clock input
+    maxItems: 4
+
+  clock-output-names:
+    maxItems: 10
+
+patternProperties:
+  "^ref-input-clk@[0-3]$":
+    description: |
+      Represents a reference clock input.
+    type: object
+
+    properties:
+      reg:
+        description: |
+          The reference input number. It can have up to 4 input clocks numbered from 0 to 3.
+          (mapped: [refa, refaa, refb, refbb] -> [0, 1, 2, 3])
+        maxItems: 1
+
+      adi,single-ended-mode:
+        description: |
+          Single-ended configuration mode.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [0, 1, 2, 3]
+        maxItems: 1
+
+      adi,differential-mode:
+        description: |
+          Differential configuration mode.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [0, 1, 2]
+        maxItems: 1
+
+      adi,r-divider-ratio:
+        description: |
+          Each reference input has a dedicated divider.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 1073741824
+        maxItems: 1
+
+      adi,ref-dtol-pbb:
+        description: |
+          REFx offset limit. Constitutes a fractional portion of the corresponding nominal period.
+          The 24-bit number represents fractional units of parts per billion (ppb) up to a
+          maximum of approximately 17 million ppb (1.7%).
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 0
+          - maximum: 16777215
+          - default: 100000
+
+      adi,ref-monitor-hysteresis-pbb:
+        description: |
+          Basis points of the offset limit representing per ten thousand of REFx offset limit.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [0, 3125, 6250, 12500, 25000, 50000, 75000, 87500]
+          - default: 12500
+
+      adi,ref-validation-timer-ms:
+        description: |
+          Time required for a reference to remain in tolerance condition before being
+          available to be used.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 1048574
+          - default: 10
+
+      adi,freq-lock-threshold-ps:
+        description: |
+          Phase lock detector threshold (in picoseconds).
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 16777215
+        maxItems: 1
+
+      adi,phase-lock-threshold-ps:
+        description: |
+          Profile 0 frequency lock threshold. Frequency lock detector threshold (in picoseconds).
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 16777215
+        maxItems: 1
+
+    required:
+      - reg
+      - adi,r-divider-ratio
+      - adi,ref-dtol-pbb
+      - adi,ref-monitor-hysteresis-pbb
+      - adi,ref-validation-timer-ms
+      - adi,freq-lock-threshold-ps
+      - adi,phase-lock-threshold-ps
+
+  "^pll-clk@[0-1]$":
+    description: |
+      Represents a PLL.
+    type: object
+
+    properties:
+      reg:
+        description: |
+          PLL number. AD9545 has two PLLs.
+        maxItems: 1
+
+      adi,pll-source:
+        description: |
+          Each PLL can have 1 signal source. Choose from Ref-A to Ref-BB [0-3] or aux NCOs [4-5].
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [0, 1, 2, 3, 4, 5]
+        maxItems: 1
+
+      adi,pll-loop-bandwidth-hz:
+        description: |
+          PLL loop bandwidth.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 1850
+        maxItems: 1
+
+    required:
+      - reg
+      - adi,pll-source
+      - adi,pll-loop-bandwidth-hz
+
+  "^aux-nco-clk@[0-1]$":
+    description: |
+      Represents an auxiliary Numerical Controlled Oscilator. Generates timestamps that
+      can be sent to the DPLL0 or DPLL1.
+    type: object
+
+    properties:
+      reg:
+        description: |
+          Auxiliary NCO address mapped: [NCO0, NCO1] -> [0, 1].
+        maxItems: 1
+
+      adi,freq-lock-threshold-ps:
+        description: |
+          Phase lock detector threshold (in picoseconds).
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 16777215
+        maxItems: 1
+
+      adi,phase-lock-threshold-ps:
+        description: |
+          Profile 0 frequency lock threshold. Frequency lock detector threshold (in picoseconds).
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 16777215
+        maxItems: 1
+
+    required:
+      - reg
+      - adi,freq-lock-threshold-ps
+      - adi,phase-lock-threshold-ps
+
+  "^output-clk@([0-5]|1[0-3])$":
+    description: |
+      Represents a clock output.
+    type: object
+
+    properties:
+      reg:
+        description: |
+          The reference input number. It can have up to 10 output clocks mapped:
+          (OUT0AP OUT0AN OUT0BP OUT0BN OUT0CP OUT0CN OUT1AP OUT1AN OUT1BP OUT1BN) ->
+          (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+        maxItems: 1
+
+      adi,current-source:
+        description: |
+          If specified output is set as current source.
+        type: boolean
+
+      adi,current-source-microamp:
+        description: |
+          The magnitude of the driver current.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [7500, 12500, 15000]
+        minItems: 1
+
+      adi,output-mode:
+        description: |
+          Output driver mode.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [0, 1, 2]
+        maxItems: 1
+
+    required:
+      - reg
+      - adi,current-source-microamp
+      - adi,output-mode
+
+required:
+  - compatible
+  - reg
+  - adi,ref-frequency-mhz
+
+"additionalProperties": false
+
+examples:
+  - |
+    #include <dt-bindings/clock/ad9545.h>
+
+    i2c1 {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            ad9545_clock: ad9545@4A {
+                compatible = "adi,ad9545";
+                reg = <0x4A>;
+
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                adi,ref-crystal;
+                adi,ref-frequency-hz = <52000000>;
+
+                #clock-cells = <2>;
+                assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
+                                  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL1>,
+                                  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1A>,
+                                  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1B>;
+                assigned-clock-rates = <10000>, <1875000000>, <156250000>, <156250000>;
+                assigned-clock-phases = <0>, <0>, <0>, <180>;
+
+                aux-nco-clk@AD9545_NCO0 {
+                        reg = <AD9545_NCO0>;
+                        adi,freq-lock-threshold-ps = <16000000>;
+                        adi,phase-lock-threshold-ps = <16000000>;
+                };
+
+                ad9545_apll1: pll-clk@AD9545_PLL1 {
+                        reg = <AD9545_PLL1>;
+                        adi,pll-source = <4>;
+                        adi,pll-loop-bandwidth-hz = <200>;
+                };
+
+                output-clk@AD9545_Q1A {
+                        reg = <AD9545_Q1A>;
+                        adi,output-mode = <DRIVER_MODE_DUAL_DIV>;
+                        adi,current-source-microamp = <15000>;
+                };
+
+                output-clk@AD9545_Q1B {
+                        reg = <AD9545_Q1B>;
+                        adi,output-mode = <DRIVER_MODE_DUAL_DIV>;
+                        adi,current-source-microamp = <15000>;
+                };
+            };
+    };
+...

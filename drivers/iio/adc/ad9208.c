@@ -2,7 +2,7 @@
 /*
  * Driver for AD9208 and similar high-speed Analog-to-Digital converters
  *
- * Copyright 2019 Analog Devices Inc.
+ * Copyright 2019-2020 Analog Devices Inc.
  */
 
 #include <linux/clk.h>
@@ -28,7 +28,18 @@
 
 #include <dt-bindings/iio/adc/adi,ad9208.h>
 
+#define JESD204_OF_PREFIX	"adi,"
+#include <linux/jesd204/jesd204.h>
+#include <linux/jesd204/jesd204-of.h>
+
 #define CHIPID_AD9208			0xDF
+#define CHIPID_AD6684			0xDC
+#define CHIPID_AD6688			0xE2
+#define CHIPID_AD9689			0xE2
+#define CHIPID_AD9694			0xDB
+#define CHIPID_AD9695			0xDE
+#define CHIPID_AD9697			0xDE
+
 #define CHIPID_MASK			0xFF
 #define ID_DUAL				BIT(31)
 
@@ -49,13 +60,20 @@ struct ad9208_ddc {
 	bool gain_db;
 };
 
+struct ad9208_jesd204_priv {
+	struct ad9208_phy *phy;
+};
+
 struct ad9208_phy {
 	ad9208_handle_t ad9208;
 	struct axiadc_chip_info chip_info;
+	struct jesd204_dev *jdev;
+	struct jesd204_link jesd204_link;
 	jesd_param_t jesd_param;
 	u8 current_scale;
 	bool dc_filter_enable;
 	u32 ddc_cnt;
+	u32 dcm;
 
 	bool powerdown_pin_en;
 	u32 powerdown_mode;
@@ -84,50 +102,6 @@ struct ad9208_phy {
 	struct ad9208_ddc ddc[4];
 };
 
-static int ad9208_spi_read(struct spi_device *spi, unsigned int reg)
-{
-	unsigned char buf[3];
-	int ret;
-
-	if (spi) {
-		buf[0] = 0x80 | (reg >> 8);
-		buf[1] = reg & 0xFF;
-		ret = spi_write_then_read(spi, &buf[0], 2, &buf[2], 1);
-
-		dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
-			__func__, reg, buf[2], ret);
-
-		if (ret < 0)
-			return ret;
-
-		return buf[2];
-	}
-	return -ENODEV;
-}
-
-static int ad9208_spi_write(struct spi_device *spi, unsigned int reg,
-	unsigned int val)
-{
-	unsigned char buf[3];
-	int ret;
-
-	if (spi) {
-		buf[0] = reg >> 8;
-		buf[1] = reg & 0xFF;
-		buf[2] = val;
-		ret = spi_write_then_read(spi, buf, 3, NULL, 0);
-		if (ret < 0)
-			return ret;
-
-		dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
-			__func__, reg, val, ret);
-
-		return 0;
-	}
-
-	return -ENODEV;
-}
-
 static int ad9208_udelay(void *user_data, unsigned int us)
 {
 	usleep_range(us, (us * 110) / 100);
@@ -138,6 +112,7 @@ static int ad9208_spi_xfer(void *user_data, uint8_t *wbuf,
 			   uint8_t *rbuf, int len)
 {
 	struct axiadc_converter *conv = user_data;
+	int ret;
 
 	struct spi_transfer t = {
 		.tx_buf = wbuf,
@@ -145,23 +120,31 @@ static int ad9208_spi_xfer(void *user_data, uint8_t *wbuf,
 		.len = len,
 	};
 
-	return spi_sync_transfer(conv->spi, &t, 1);
+	ret = spi_sync_transfer(conv->spi, &t, 1);
+
+	dev_dbg(&conv->spi->dev,"%s: reg=0x%X, val=0x%X",
+		(wbuf[0] & 0x80) ? "rd" : "wr",
+		(wbuf[0] & 0x7F) << 8 | wbuf[1],
+		(wbuf[0] & 0x80) ? rbuf[2] : wbuf[2]);
+
+	return ret;
 }
 
 static int ad9208_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	unsigned int writeval, unsigned int *readval)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct ad9208_phy *phy = conv->phy;
 	int ret;
+	u8 val;
 
 	if (readval == NULL)
-		return ad9208_spi_write(spi, reg, writeval);
+		return ad9208_register_write(&phy->ad9208, reg, writeval);
 
-	ret = ad9208_spi_read(spi, reg);
+	ret = ad9208_register_read(&phy->ad9208, reg, &val);
 	if (ret < 0)
 		return ret;
-	*readval = ret;
+	*readval = val;
 
 	return 0;
 }
@@ -187,7 +170,7 @@ static int ad9208_testmode_set(struct iio_dev *indio_dev, unsigned int chan,
 
 	ad9208_adc_set_channel_select(&phy->ad9208, BIT(chan & 1));
 	/* FIXME: Add support for DDC testmodes */
-	ret = ad9208_spi_write(conv->spi, AD9208_REG_TEST_MODE, mode);
+	ret = ad9208_register_write(&phy->ad9208, AD9208_REG_TEST_MODE, mode);
 	conv->testmode[chan] = mode;
 	ad9208_adc_set_channel_select(&phy->ad9208, AD9208_ADC_CH_ALL);
 
@@ -199,6 +182,7 @@ static int ad9208_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	unsigned int mode = ad9208_pnsel_to_testmode(sel);
+	struct ad9208_phy *phy = conv->phy;
 	unsigned int output_mode;
 	int ret;
 
@@ -206,7 +190,7 @@ static int ad9208_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
 	if (mode != AD9208_TESTMODE_OFF)
 		output_mode &= ~AD9208_OUTPUT_MODE_TWOS_COMPLEMENT;
 
-	ret = ad9208_spi_write(conv->spi, AD9208_REG_OUTPUT_MODE, output_mode);
+	ret = ad9208_register_write(&phy->ad9208, AD9208_REG_OUTPUT_MODE, output_mode);
 	if (ret < 0)
 		return ret;
 
@@ -242,14 +226,17 @@ static int ad9208_read_thresh(struct iio_dev *indio_dev,
 	int *val2)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct ad9208_phy *phy = conv->phy;
 	u16 low, high;
+	u8 val_h, val_l;
 
 	mutex_lock(&indio_dev->mlock);
-	low = (ad9208_spi_read(spi, AD9208_FD_LT_MSB_REG) << 8) |
-		ad9208_spi_read(spi, AD9208_FD_LT_LSB_REG);
-	high = (ad9208_spi_read(spi, AD9208_FD_UT_MSB_REG) << 8) |
-		ad9208_spi_read(spi, AD9208_FD_UT_LSB_REG);
+	ad9208_register_read(&phy->ad9208, AD9208_FD_LT_MSB_REG, &val_h);
+	ad9208_register_read(&phy->ad9208, AD9208_FD_LT_LSB_REG, &val_l);
+	low = (val_h << 8) | val_l;
+	ad9208_register_read(&phy->ad9208, AD9208_FD_UT_MSB_REG, &val_h);
+	ad9208_register_read(&phy->ad9208, AD9208_FD_UT_LSB_REG, &val_l);
+	high = (val_h << 8) | val_l;
 	mutex_unlock(&indio_dev->mlock);
 
 	switch (info) {
@@ -271,14 +258,15 @@ static int ad9208_read_thresh_en(struct iio_dev *indio_dev,
 	enum iio_event_direction dir)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct ad9208_phy *phy = conv->phy;
 	int ret;
+	u8 val;
 
-	ret = ad9208_spi_read(spi, AD9208_CHIP_PIN_CTRL1_REG);
+	ret = ad9208_register_read(&phy->ad9208, AD9208_CHIP_PIN_CTRL1_REG, &val);
 	if (ret < 0)
 		return ret;
-	else
-		return !(ret & AD9208_CHIP_PIN_CTRL_MASK(chan->channel));
+
+	return !(val & AD9208_CHIP_PIN_CTRL_MASK(chan->channel));
 }
 
 static int ad9208_write_thresh(struct iio_dev *indio_dev,
@@ -287,13 +275,15 @@ static int ad9208_write_thresh(struct iio_dev *indio_dev,
 	int val2)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct ad9208_phy *phy = conv->phy;
 	int ret = 0;
 	int low, high;
+	u8 val_h, val_l;
 
 	mutex_lock(&indio_dev->mlock);
-	high = (ad9208_spi_read(spi, AD9208_FD_UT_MSB_REG) << 8) |
-		ad9208_spi_read(spi, AD9208_FD_UT_LSB_REG);
+	ad9208_register_read(&phy->ad9208, AD9208_FD_UT_MSB_REG, &val_h);
+	ad9208_register_read(&phy->ad9208, AD9208_FD_UT_LSB_REG, &val_l);
+	high = (val_h << 8) | val_l;
 
 	switch (info) {
 	case IIO_EV_INFO_HYSTERESIS:
@@ -311,12 +301,14 @@ static int ad9208_write_thresh(struct iio_dev *indio_dev,
 			goto unlock;
 		}
 
-		ad9208_spi_write(spi, AD9208_FD_UT_MSB_REG, val >> 8);
-		ad9208_spi_write(spi, AD9208_FD_UT_LSB_REG, val & 0xFF);
+		ad9208_register_write(&phy->ad9208, AD9208_FD_UT_MSB_REG, val >> 8);
+		ad9208_register_write(&phy->ad9208, AD9208_FD_UT_LSB_REG, val & 0xFF);
 
 		/* Calculate the new lower threshold limit */
-		low = (ad9208_spi_read(spi, AD9208_FD_LT_MSB_REG) << 8) |
-			ad9208_spi_read(spi, AD9208_FD_LT_LSB_REG);
+		ad9208_register_read(&phy->ad9208, AD9208_FD_LT_MSB_REG, &val_h);
+		ad9208_register_read(&phy->ad9208, AD9208_FD_LT_LSB_REG, &val_l);
+
+		low = (val_h << 8) | val_l;
 		low = val - high + low;
 		break;
 
@@ -327,8 +319,8 @@ static int ad9208_write_thresh(struct iio_dev *indio_dev,
 
 	if (low < 0)
 		low = 0;
-	ad9208_spi_write(spi, AD9208_FD_LT_MSB_REG, low >> 8);
-	ad9208_spi_write(spi, AD9208_FD_LT_LSB_REG, low & 0xFF);
+	ad9208_register_write(&phy->ad9208, AD9208_FD_LT_MSB_REG, low >> 8);
+	ad9208_register_write(&phy->ad9208, AD9208_FD_LT_LSB_REG, low & 0xFF);
 
 unlock:
 	mutex_unlock(&indio_dev->mlock);
@@ -340,21 +332,22 @@ static int ad9208_write_thresh_en(struct iio_dev *indio_dev,
 	enum iio_event_direction dir, int state)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct ad9208_phy *phy = conv->phy;
 	int ret;
+	u8 val;
 
 	mutex_lock(&indio_dev->mlock);
 
-	ret = ad9208_spi_read(spi, AD9208_CHIP_PIN_CTRL1_REG);
+	ret = ad9208_register_read(&phy->ad9208, AD9208_CHIP_PIN_CTRL1_REG, &val);
 	if (ret < 0)
 		goto err_unlock;
 
 	if (state)
-		ret &= ~AD9208_CHIP_PIN_CTRL_MASK(chan->channel);
+		val &= ~AD9208_CHIP_PIN_CTRL_MASK(chan->channel);
 	else
-		ret |= AD9208_CHIP_PIN_CTRL_MASK(chan->channel);
+		val |= AD9208_CHIP_PIN_CTRL_MASK(chan->channel);
 
-	ret = ad9208_spi_write(spi, AD9208_CHIP_PIN_CTRL1_REG, ret);
+	ret = ad9208_register_write(&phy->ad9208, AD9208_CHIP_PIN_CTRL1_REG, val);
 err_unlock:
 	mutex_unlock(&indio_dev->mlock);
 	return ret;
@@ -664,7 +657,19 @@ static int ad9208_set_sample_rate(struct axiadc_converter *conv,
 
 static int ad9208_request_clks(struct axiadc_converter *conv)
 {
+	struct ad9208_phy *phy = conv->phy;
 	int ret;
+
+	conv->clk = devm_clk_get(&conv->spi->dev, "adc_clk");
+	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
+		return PTR_ERR(conv->clk);
+
+	if (phy->jdev)
+		return 0;
+
+	conv->lane_clk = devm_clk_get(&conv->spi->dev, "jesd_adc_clk");
+	if (IS_ERR(conv->lane_clk) && PTR_ERR(conv->lane_clk) != -ENOENT)
+		return PTR_ERR(conv->lane_clk);
 
 	conv->sysref_clk = devm_clk_get(&conv->spi->dev, "adc_sysref");
 	if (IS_ERR(conv->sysref_clk)) {
@@ -676,22 +681,6 @@ static int ad9208_request_clks(struct axiadc_converter *conv)
 		if (ret < 0)
 			return ret;
 	}
-
-	conv->clk = devm_clk_get(&conv->spi->dev, "adc_clk");
-	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
-		return PTR_ERR(conv->clk);
-
-	if (!IS_ERR(conv->clk)) {
-		ret = clk_prepare_enable(conv->clk);
-		if (ret < 0)
-			return ret;
-
-		conv->adc_clk = clk_get_rate(conv->clk);
-	}
-
-	conv->lane_clk = devm_clk_get(&conv->spi->dev, "jesd_adc_clk");
-	if (IS_ERR(conv->lane_clk) && PTR_ERR(conv->lane_clk) != -ENOENT)
-		return PTR_ERR(conv->lane_clk);
 
 	return 0;
 }
@@ -794,6 +783,8 @@ static int ad9208_setup(struct spi_device *spi, bool ad9234)
 		return ret;
 	}
 
+	phy->dcm = dcm;
+
 	/* DDC Setup */
 
 	if (phy->ddc_input_format_real_en)
@@ -865,12 +856,6 @@ static int ad9208_setup(struct spi_device *spi, bool ad9234)
 		return ret;
 	}
 
-	ret = clk_set_rate(conv->lane_clk, lane_rate_kbps);
-	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to set lane rate to %llu kHz: %d\n",
-			lane_rate_kbps, ret);
-	}
-
 	ret = ad9208_jesd_subclass_set(&phy->ad9208, phy->jesd_subclass);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to set subclass (%d)\n", ret);
@@ -880,13 +865,6 @@ static int ad9208_setup(struct spi_device *spi, bool ad9234)
 	ret = ad9208_jesd_enable_scrambler(&phy->ad9208, 1);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to enable scrambler (%d)\n", ret);
-		return ret;
-	}
-
-	ret = ad9208_jesd_enable_link(&phy->ad9208, 1);
-	if (ret < 0) {
-		dev_err(&spi->dev,
-			"Failed to enabled JESD204 link (%d)\n", ret);
 		return ret;
 	}
 
@@ -906,12 +884,26 @@ static int ad9208_setup(struct spi_device *spi, bool ad9234)
 	dev_info(&conv->spi->dev, "AD9208 PLL %s\n",
 		 pll_stat & AD9208_JESD_PLL_LOCK_STAT ? "LOCKED" : "UNLOCKED");
 
-	ret = clk_prepare_enable(conv->lane_clk);
-	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
-		return ret;
-	}
+	if (!phy->jdev) {
+		ret = clk_set_rate(conv->lane_clk, lane_rate_kbps);
+		if (ret < 0) {
+			dev_err(&spi->dev, "Failed to set lane rate to %llu kHz: %d\n",
+				lane_rate_kbps, ret);
+		}
 
+		ret = ad9208_jesd_enable_link(&phy->ad9208, 1);
+		if (ret < 0) {
+			dev_err(&spi->dev,
+				"Failed to enabled JESD204 link (%d)\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(conv->lane_clk);
+		if (ret < 0) {
+			dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
+			return ret;
+		}
+	}
 	return 0;
 }
 
@@ -921,18 +913,17 @@ static int ad9208_status_show(struct seq_file *file, void *offset)
 	struct ad9208_phy *phy = conv->phy;
 	const char *hold_setup_desc;
 	u8 hold, setup, phase, stat;
-	int val;
 
-	val = ad9208_spi_read(conv->spi, AD9208_IP_CLK_STAT_REG);
+	ad9208_register_read(&phy->ad9208, AD9208_IP_CLK_STAT_REG, &stat);
 	seq_printf(file, "Input clock %sdetected\n",
-		   (val & 0x01) ? "" : "not ");
+		   (stat & 0x01) ? "" : "not ");
 
 	ad9208_jesd_get_pll_status(&phy->ad9208, &stat);
 	seq_printf(file, "JESD204 PLL is %slocked\n",
 		   (stat & AD9208_JESD_PLL_LOCK_STAT) ? "" : "not ");
 
-	val = ad9208_spi_read(conv->spi, AD9208_SYSREF_STAT_2_REG);
-	seq_printf(file, "SYSREF counter: %d\n", val);
+	ad9208_register_read(&phy->ad9208, AD9208_SYSREF_STAT_2_REG, &stat);
+	seq_printf(file, "SYSREF counter: %d\n", stat);
 
 	ad9208_jesd_syref_status_get(&phy->ad9208, &hold, &setup, &phase);
 	if (hold == 0x0 && setup <= 0x7)
@@ -1199,39 +1190,32 @@ static int ad9208_parse_dt(struct ad9208_phy *phy, struct device *dev)
 
 	/* JESD Link Config */
 
-	tmp = 1;
-	of_property_read_u32(np, "adi,octets-per-frame", &tmp);
-	phy->jesd_param.jesd_F = tmp;
+	JESD204_LNK_READ_OCTETS_PER_FRAME(dev, np, &phy->jesd204_link,
+					  &phy->jesd_param.jesd_F, 1);
 
-	tmp = 32;
-	of_property_read_u32(np, "adi,frames-per-multiframe", &tmp);
-	phy->jesd_param.jesd_K = tmp;
+	JESD204_LNK_READ_FRAMES_PER_MULTIFRAME(dev, np, &phy->jesd204_link,
+					       &phy->jesd_param.jesd_K , 32);
 
-	phy->jesd_param.jesd_HD = of_property_read_bool(np, "adi,high-density");
+	JESD204_LNK_READ_HIGH_DENSITY(dev, np, &phy->jesd204_link,
+				      &phy->jesd_param.jesd_HD, 0);
 
-	tmp = 16;
-	of_property_read_u32(np, "adi,converter-resolution", &tmp);
-	phy->jesd_param.jesd_N = tmp;
+	JESD204_LNK_READ_CONVERTER_RESOLUTION(dev, np, &phy->jesd204_link,
+					      &phy->jesd_param.jesd_N, 16);
 
-	tmp = 16;
-	of_property_read_u32(np, "adi,bits-per-sample", &tmp);
-	phy->jesd_param.jesd_NP = tmp;
+	JESD204_LNK_READ_BITS_PER_SAMPLE(dev, np, &phy->jesd204_link,
+					 &phy->jesd_param.jesd_NP, 16);
 
-	tmp = 2;
-	of_property_read_u32(np, "adi,converters-per-device", &tmp);
-	phy->jesd_param.jesd_M = tmp;
+	JESD204_LNK_READ_NUM_CONVERTERS(dev, np, &phy->jesd204_link,
+					&phy->jesd_param.jesd_M, 2);
 
-	tmp = 0;
-	of_property_read_u32(np, "adi,control-bits-per-sample", &tmp);
-	phy->jesd_param.jesd_CS = tmp;
+	JESD204_LNK_READ_CTRL_BITS_PER_SAMPLE(dev, np, &phy->jesd204_link,
+					      &phy->jesd_param.jesd_CS, 0);
 
-	tmp = 8;
-	of_property_read_u32(np, "adi,lanes-per-device", &tmp);
-	phy->jesd_param.jesd_L = tmp;
+	JESD204_LNK_READ_NUM_LANES(dev, np, &phy->jesd204_link,
+				   &phy->jesd_param.jesd_L , 8);
 
-	tmp = JESD_SUBCLASS_0;
-	of_property_read_u32(np, "adi,subclass", &tmp);
-	phy->jesd_subclass = tmp;
+	JESD204_LNK_READ_SUBCLASS(dev, np, &phy->jesd204_link,
+				  &phy->jesd_subclass, JESD_SUBCLASS_0);
 
 	return 0;
 }
@@ -1275,14 +1259,108 @@ static int ad9208_setup_chip_info_tbl(struct ad9208_phy *phy, u32 id)
 	return 0;
 }
 
+static int ad9208_jesd204_link_init(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9208_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9208_phy *phy = priv->phy;
+	struct jesd204_link *link;
+
+	switch (reason) {
+	case JESD204_STATE_OP_REASON_INIT:
+		break;
+	default:
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	link = &phy->jesd204_link;
+
+	jesd204_copy_link_params(lnk, link);
+
+	lnk->sample_rate = phy->sampling_frequency_hz;
+	lnk->sample_rate_div = phy->dcm;
+	lnk->jesd_encoder = JESD204_ENCODER_8B10B;
+
+	if (phy->sysref_mode == AD9208_SYSREF_CONT)
+		lnk->sysref.mode = JESD204_SYSREF_CONTINUOUS;
+	else if (phy->sysref_mode == AD9208_SYSREF_ONESHOT)
+		lnk->sysref.mode = JESD204_SYSREF_ONESHOT;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9208_jesd204_clks_enable(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9208_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9208_phy *phy = priv->phy;
+	int ret;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	ret = ad9208_jesd_enable_link(&phy->ad9208,
+		reason == JESD204_STATE_OP_REASON_INIT);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enabled JESD204 link (%d)\n", ret);
+		return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9208_jesd204_link_enable(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data jesd204_ad9208_init = {
+	.state_ops = {
+		[JESD204_OP_LINK_INIT] = {
+			.per_link = ad9208_jesd204_link_init,
+		},
+		[JESD204_OP_CLOCKS_ENABLE] = {
+			.per_link = ad9208_jesd204_clks_enable,
+		},
+		[JESD204_OP_LINK_ENABLE] = {
+			.per_link = ad9208_jesd204_link_enable,
+			.post_state_sysref = true,
+		},
+	},
+
+	.max_num_links = 1,
+	.num_retries = 3,
+	.sizeof_priv = sizeof(struct ad9208_jesd204_priv),
+};
+
 static int ad9208_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
 	struct ad9208_phy *phy;
+	struct jesd204_dev *jdev;
+	struct ad9208_jesd204_priv *priv;
 	adi_chip_id_t chip_id;
 	u8 api_rev[3];
 	u32 spi_id;
 	int ret;
+
+	jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_ad9208_init);
+	if (IS_ERR(jdev))
+		return PTR_ERR(jdev);
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
@@ -1298,6 +1376,12 @@ static int ad9208_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, conv);
 	conv->spi = spi;
 	conv->phy = phy;
+
+	if (jdev) {
+		phy->jdev = jdev;
+		priv = jesd204_dev_priv(jdev);
+		priv->phy = phy;
+	}
 
 	phy->ad9208.user_data = conv;
 	phy->ad9208.dev_xfer = ad9208_spi_xfer;
@@ -1342,6 +1426,10 @@ static int ad9208_probe(struct spi_device *spi)
 
 	switch (conv->id) {
 	case CHIPID_AD9208:
+	case CHIPID_AD6684:
+	case CHIPID_AD9689:
+	case CHIPID_AD9694:
+	case CHIPID_AD9695:
 		ret = ad9208_setup_chip_info_tbl(phy, (spi_id & ID_DUAL) ?
 						 ID_AD9208_X2 : ID_AD9208);
 		if (ret)
@@ -1385,7 +1473,7 @@ static int ad9208_probe(struct spi_device *spi)
 		 conv->chip_info->name, chip_id.dev_revision,
 		 chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
 
-	return 0;
+	return jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
 }
 
 static int ad9208_remove(struct spi_device *spi)
@@ -1409,6 +1497,12 @@ static int ad9208_remove(struct spi_device *spi)
 static const struct spi_device_id ad9208_id[] = {
 	{ "ad9208", CHIPID_AD9208 },
 	{ "ad9208x2", CHIPID_AD9208 | ID_DUAL},
+	{ "ad6684", CHIPID_AD6684 },
+	{ "ad6688", CHIPID_AD6688 },
+	{ "ad9689", CHIPID_AD9689 },
+	{ "ad9694", CHIPID_AD9694 },
+	{ "ad9695", CHIPID_AD9695 },
+	{ "ad9697", CHIPID_AD9697 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9208_id);
@@ -1416,6 +1510,12 @@ MODULE_DEVICE_TABLE(spi, ad9208_id);
 static const struct of_device_id ad9208_of_match[] = {
 	{ .compatible = "adi,ad9208" },
 	{ .compatible = "adi,ad9208x2" },
+	{ .compatible = "adi,ad6684" },
+	{ .compatible = "adi,ad6688" },
+	{ .compatible = "adi,ad9689" },
+	{ .compatible = "adi,ad9694" },
+	{ .compatible = "adi,ad9695" },
+	{ .compatible = "adi,ad9697" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad9208_of_match);

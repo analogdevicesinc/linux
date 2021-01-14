@@ -1,9 +1,16 @@
 
 /dts-v1/;
+
 #include "vc707.dtsi"
+#include <dt-bindings/jesd204/adxcvr.h>
 
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi
+
+/* fmcadc5_vc707: updated 2019_R2 */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffff85d0>;
+};
 
 / {
 	clocks {
@@ -74,9 +81,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "ad50_gt_clk", "rx_out0_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <2>;
-		adi,use-cpll-enable;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_OUTCLK_PMA>;
 		adi,use-lpm-enable;
 	};
 	axi_ad9625_1_core: axi-ad9625-1@44b10000 {
@@ -108,9 +114,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "adc1_gt_clk", "rx_out1_clk";
 
-		adi,sys-clk-select = <0>;
-		adi,out-clk-select = <2>;
-		adi,use-cpll-enable;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_OUTCLK_PMA>;
 		adi,use-lpm-enable;
 	};
 	axi_ad9625_dma: axi_dmac@7c420000 {
