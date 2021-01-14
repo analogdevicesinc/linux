@@ -781,6 +781,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	unsigned int in_prescaler[5];
 	unsigned long pll1_lock_detect;
 	unsigned long n1, r1;
+	unsigned long n, r;
 	unsigned long pfd1_freq;
 	unsigned long vco_limit;
 	unsigned long n2[2], r2[2];
@@ -822,12 +823,22 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				    &n1, &r1);
 
 	pfd1_freq = vcxo_freq / n1;
-	while ((pfd1_freq > hmc->pfd1_limit) &&
-	       (n1 <= HMC7044_N1_MAX / 2) &&
-	       (r1 <= HMC7044_R1_MAX / 2)) {
-		pfd1_freq /= 2;
-		n1 *= 2;
-		r1 *= 2;
+
+	n = n1;
+	r = r1;
+	while (pfd1_freq > hmc->pfd1_limit) {
+		do {
+			n++;
+		} while (((vcxo_freq % n) || (lcm_freq * n % vcxo_freq)) &&
+					(n <= HMC7044_N1_MAX));
+		r = lcm_freq * n / vcxo_freq;
+
+		if ((n > HMC7044_N1_MAX) || (r > HMC7044_R1_MAX))
+			break;
+
+		n1 = n;
+		r1 = r;
+		pfd1_freq = vcxo_freq / n1;
 	}
 
 	hmc->pll1_pfd = pfd1_freq;
