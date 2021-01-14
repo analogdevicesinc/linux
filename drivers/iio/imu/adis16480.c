@@ -109,6 +109,8 @@
 #define ADIS16495_REG_BURST_CMD			ADIS16480_REG(0x00, 0x7C)
 #define ADIS16495_BURST_ID			0xA5A5
 #define ADIS16495_BURST_MAX_DATA		20
+/* spi max speed in burst mode */
+#define ADIS16495_BURST_MAX_SPEED              6500000
 
 #define ADIS16480_REG_SERIAL_NUM		ADIS16480_REG(0x04, 0x20)
 
@@ -1117,6 +1119,7 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 	int ret, bit, offset, i = 0;
 	__be16 data[ADIS16495_BURST_MAX_DATA], *buffer, *d;
 	u32 crc;
+	const u32 cached_spi_speed_hz = adis->spi->max_speed_hz;
 
 	if (!adis->buffer)
 		return -ENOMEM;
@@ -1128,10 +1131,13 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 		spi_write(adis->spi, adis->tx, 2);
 	}
 
+	adis->spi->max_speed_hz = ADIS16495_BURST_MAX_SPEED;
+
 	ret = spi_sync(adis->spi, &adis->msg);
 	if (ret)
 		dev_err(&adis->spi->dev, "Failed to read data: %d\n", ret);
 
+	adis->spi->max_speed_hz = cached_spi_speed_hz;
 	adis->current_page = 0;
 	mutex_unlock(&adis->state_lock);
 
