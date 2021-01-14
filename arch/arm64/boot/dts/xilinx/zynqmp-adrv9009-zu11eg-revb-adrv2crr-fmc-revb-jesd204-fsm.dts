@@ -110,6 +110,8 @@
 
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
 	adi,hmc-two-level-tree-sync-en;
+
+	adi,pfd1-maximum-limit-frequency-hz = <3072000>;
 };
 
 &hmc7044_car {
@@ -122,4 +124,6 @@
 
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
 	adi,hmc-two-level-tree-sync-en;
+
+	adi,pfd1-maximum-limit-frequency-hz = <3072000>;
 };
