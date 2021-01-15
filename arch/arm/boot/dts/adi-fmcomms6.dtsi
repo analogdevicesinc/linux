@@ -58,7 +58,7 @@
 		adi,mute-till-lock-enable;
 	};
 
-	adc0_ad9652: ad9652@0 {
+	adc0_ad9652: ad9652@1 {
 		compatible = "adi,ad9652";
 		reg = <1>;
 
