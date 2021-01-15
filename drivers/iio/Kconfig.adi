@@ -37,6 +37,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AD7298
 	select AD738X
 	select AD7923
+	select AD7949
 	select AD7476
 	select AD7606_IFACE_PARALLEL
 	select AD7606_IFACE_SPI
@@ -123,6 +124,7 @@ config IIO_ALL_ADI_DRIVERS
 	select IIO_REGMAP_I2C
 	select IIO_REGMAP_SPI
 	select AD2S1200
+	select LTC1660
 	select LTC2983
 	select ADIS16203
 	select ADIS16240
