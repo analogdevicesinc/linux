@@ -42,7 +42,7 @@
 				    #size-cells = <0>;
 				    reg = <1>;
 
-				    adv7511: adv7511 {
+				    adv7511: adv7511@39 {
 						compatible = "adi,adv7511";
 						reg = <0x39>, <0x3f>;
 						reg-names = "primary", "edid";
