@@ -5,7 +5,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-/dts-v1/;
+
 #include "zynq-7000.dtsi"
 
 / {
@@ -44,7 +44,9 @@
 	};
 };
 
-/delete-node/ &cpu1;
+&cpu1 {
+	status = "disabled";
+};
 
 &clkc {
 	ps-clk-frequency = <50000000>;
