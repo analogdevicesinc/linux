@@ -131,7 +131,7 @@
 &spi0 {
 	status = "okay";
 
-	converter_clock: pll@0 {
+	converter_clock: pll@1 {
 		compatible = "adi,adf4360-9";
 		reg = <1>;
 		spi-max-frequency = <2000000>;
@@ -148,7 +148,7 @@
 		adi,power-out-level-microamp = <5000>;
 	};
 
-	converter@1 {
+	converter@0 {
 		compatible = "adi,ad9963";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
@@ -193,7 +193,7 @@
 				vref-supply = <&ref_1V2>;
 			};
 
-			dac@0f {
+			dac@f {
 				compatible = "adi,ad5627";
 				reg = <0x0f>;
 
