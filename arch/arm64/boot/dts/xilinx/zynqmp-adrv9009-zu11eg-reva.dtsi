@@ -533,7 +533,7 @@
 		adi,tx-pa-protection-tx2-peak-threshold = <140>;
 	};
 
-	trx1_adrv9009: adrv9009-phy-b@0 {
+	trx1_adrv9009: adrv9009-phy-b@1 {
 		compatible = "adrv9009";
 		reg = <1>;
 
@@ -897,7 +897,7 @@
 		adi,tx-pa-protection-tx2-peak-threshold = <140>;
 	};
 
-	hmc7044: hmc7044@0 {
+	hmc7044: hmc7044@2 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
