@@ -18,7 +18,8 @@ static const struct regmap_config ad9545_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.max_register = 0x3A3B,
-	.use_single_rw = true,
+	.use_single_read = true,
+	.use_single_write = true,
 };
 
 static int ad9545_i2c_probe(struct i2c_client *client)
