@@ -57,7 +57,6 @@ jobs:
 
 - job: dtb_build_test
   variables:
-    APPLY_DTB_BUILD_PATCHES: true
     BUILD_TYPE: dtb_build_test
     DTS_FILES: "arch/arm/boot/dts/zynq-*.dts
                 arch/arm/boot/dts/socfpga_*.dts
