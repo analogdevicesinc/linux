@@ -136,7 +136,7 @@
 		interrupts = <3 2>;
 	};
 
-	adv7513: adv7513@0x39 {
+	adv7513: adv7513@39 {
 		compatible = "adi,adv7513";
 		reg = <0x39>, <0x3f>;
 		reg-names = "primary", "edid";

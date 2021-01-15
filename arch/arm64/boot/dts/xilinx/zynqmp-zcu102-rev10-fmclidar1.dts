@@ -12,7 +12,7 @@
 
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
-#include <dt-bindings/jesd204/adxcvr.h>´
+#include <dt-bindings/jesd204/adxcvr.h>
 
 &i2c1 {
 	i2c-mux@75 {
