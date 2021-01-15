@@ -144,7 +144,7 @@
 };
 
 &i2c_afe_dac {
-	ad5627@0c {
+	ad5627@c {
 		compatible = "ad5627";
 		reg = <0x0c>;
 

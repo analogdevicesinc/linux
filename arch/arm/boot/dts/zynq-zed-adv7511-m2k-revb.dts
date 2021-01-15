@@ -127,7 +127,7 @@
 			vref-supply = <&ref_1V2>;
 		};
 
-		dac@0f {
+		dac@f {
 			compatible = "adi,ad5627";
 			reg = <0x0f>;
 
