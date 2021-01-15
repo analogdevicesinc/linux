@@ -1,3 +1,4 @@
+drivers/mtd/maps/physmap-core.o
 sound/hda/hdac_device.o
 sound/isa/ad1816a/ad1816a.o
 sound/isa/ad1816a/ad1816a_lib.o
