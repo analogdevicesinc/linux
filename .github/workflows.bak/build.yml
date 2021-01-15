@@ -38,7 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUILD_TYPE: dtb_build_test
-      APPLY_DTB_BUILD_PATCHES: true
       DTS_FILES: "arch/arm/boot/dts/zynq-*.dts
                   arch/arm/boot/dts/socfpga_*.dts
                   arch/arm64/boot/dts/xilinx/zynqmp-*.dts

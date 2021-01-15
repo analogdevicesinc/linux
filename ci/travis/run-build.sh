@@ -245,12 +245,6 @@ build_dtb_build_test() {
 	local err=0
 	local last_arch
 
-	if [ "$APPLY_DTB_BUILD_PATCHES" = "true" ] ; then
-		for patch in $(ls ci/travis/*.patch | sort) ; do
-			patch -p1 < $patch
-		done
-	fi
-
 	for file in $DTS_FILES; do
 		arch=$(echo $file |  cut -d'/' -f2)
 		# a bit hard-coding for now; only check arm & arm64 DTs;
