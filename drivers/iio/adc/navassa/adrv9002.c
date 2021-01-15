@@ -141,14 +141,19 @@ int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, 
 	case ADI_COMMON_ERR_INV_PARAM:
 	case ADI_COMMON_ERR_NULL_PARAM:
 		ret = -EINVAL;
+		break;
 	case ADI_COMMON_ERR_API_FAIL:
 		ret = -EFAULT;
+		break;
 	case ADI_COMMON_ERR_SPI_FAIL:
 		ret = -EIO;
+		break;
 	case ADI_COMMON_ERR_MEM_ALLOC_FAIL:
 		ret = -ENOMEM;
+		break;
 	default:
 		ret = -EFAULT;
+		break;
 	}
 
 	adi_common_ErrorClear(&phy->adrv9001->common);
