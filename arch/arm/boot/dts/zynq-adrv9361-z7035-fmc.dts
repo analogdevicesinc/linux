@@ -33,7 +33,7 @@
 
 &axi_i2c0 {
 
-	i2cswitch@74 {
+	i2cswitch@70 {
 		compatible = "nxp,pca9548";
 		#address-cells = <1>;
 		#size-cells = <0>;
