@@ -14,8 +14,6 @@
 #include <linux/phy.h>
 #include <linux/property.h>
 
-#include "adin-compat.h"
-
 #define PHY_ID_ADIN1100				0x0283bc80
 
 #define ADIN_T1L_FEATURES			(SUPPORTED_10baseT_Full)
