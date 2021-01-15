@@ -53,7 +53,7 @@ static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 }
 
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
-			     struct pwm_state *state)
+			     const struct pwm_state *state)
 {
 	unsigned long tmp, clk_rate, period_cnt, duty_cnt;
 	struct axi_pwmgen *pwm;
