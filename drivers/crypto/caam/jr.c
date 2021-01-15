@@ -28,22 +28,51 @@ static struct jr_driver_data driver_data;
 static DEFINE_MUTEX(algs_lock);
 static unsigned int active_devs;
 
-static void register_algs(struct caam_drv_private_jr *jrpriv,
-			  struct device *dev)
+static void init_misc_func(struct caam_drv_private_jr *jrpriv,
+			   struct device *dev)
+{
+	mutex_lock(&algs_lock);
+
+	if (active_devs != 1)
+		goto algs_unlock;
+
+	jrpriv->hwrng = !caam_rng_init(dev);
+	caam_sm_startup(dev);
+	caam_keygen_init();
+
+algs_unlock:
+	mutex_unlock(&algs_lock);
+}
+
+static void exit_misc_func(struct caam_drv_private_jr *jrpriv,
+			   struct device *dev)
+{
+	mutex_lock(&algs_lock);
+
+	if (active_devs != 1)
+		goto algs_unlock;
+
+	caam_keygen_exit();
+	caam_sm_shutdown(dev);
+	if (jrpriv->hwrng)
+		caam_rng_exit(dev);
+
+algs_unlock:
+	mutex_unlock(&algs_lock);
+}
+
+static void register_algs(struct device *dev)
 {
 	mutex_lock(&algs_lock);
 
 	if (++active_devs != 1)
 		goto algs_unlock;
 
-	caam_sm_startup(dev);
 	caam_algapi_init(dev);
 	caam_algapi_hash_init(dev);
 	caam_pkc_init(dev);
-	jrpriv->hwrng = !caam_rng_init(dev);
 	caam_prng_register(dev);
 	caam_qi_algapi_init(dev);
-	caam_keygen_init();
 
 algs_unlock:
 	mutex_unlock(&algs_lock);
@@ -56,13 +85,11 @@ static void unregister_algs(struct device *dev)
 	if (--active_devs != 0)
 		goto algs_unlock;
 
-	caam_keygen_exit();
 	caam_qi_algapi_exit();
 	caam_prng_unregister(NULL);
 	caam_pkc_exit();
 	caam_algapi_hash_exit();
 	caam_algapi_exit();
-	caam_sm_shutdown(dev);
 
 algs_unlock:
 	mutex_unlock(&algs_lock);
@@ -201,8 +228,7 @@ static void caam_jr_remove(struct platform_device *pdev)
 	jrdev = &pdev->dev;
 	jrpriv = dev_get_drvdata(jrdev);
 
-	if (jrpriv->hwrng)
-		caam_rng_exit(jrdev->parent);
+	exit_misc_func(jrpriv, jrdev->parent);
 
 	/*
 	 * If a job ring is still allocated there is trouble ahead. Once
@@ -771,7 +797,8 @@ static int caam_jr_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 	device_set_wakeup_enable(&pdev->dev, false);
 
-	register_algs(jrpriv, jrdev->parent);
+	register_algs(jrdev->parent);
+	init_misc_func(jrpriv, jrdev->parent);
 	jr_driver_probed++;
 
 	return 0;
