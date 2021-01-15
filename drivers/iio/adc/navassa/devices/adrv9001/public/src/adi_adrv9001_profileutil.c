@@ -38,7 +38,7 @@
 
 int32_t adi_adrv9001_profileutil_Parse(adi_adrv9001_Device_t *device, adi_adrv9001_Init_t *init, char * jsonBuffer, uint32_t length) 
 { 
-    static const int16_t ADI_ADRV9001_TOKEN_MAX_LENGTH = 32; 
+#define ADI_ADRV9001_TOKEN_MAX_LENGTH	 32
  
     uint16_t ii = 0; 
     int16_t numTokens = 0; 
