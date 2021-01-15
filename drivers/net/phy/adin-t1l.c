@@ -16,7 +16,12 @@
 
 #define PHY_ID_ADIN1100				0x0283bc80
 
-#define ADIN_T1L_FEATURES			(SUPPORTED_10baseT_Full)
+static const int phy_10_features_array[] = {
+	ETHTOOL_LINK_MODE_10baseT_Full_BIT,
+};
+
+static __ETHTOOL_DECLARE_LINK_MODE_MASK(phy_adin_t1l_features)	__ro_after_init;
+#define ADIN_T1L_FEATURES	((unsigned long *)&phy_adin_t1l_features)
 
 #define ADIN_B10L_PCS_CNTRL			0x08e6
 #define   ADIN_PCS_CNTRL_B10L_LB_PCS_EN		BIT(14)
@@ -67,15 +72,13 @@ struct adin_priv {
 	unsigned int		tx_level_24v:1;
 };
 
-/**
- * The ADIN T1L PHY supports Clause 45-only access, but is not a C45 device
+/* The ADIN T1L PHY supports Clause 45-only access, but is not a C45 device
  * in the strictest sense of how Linux considers C45 capable devices.
  *
  * For once, it doesn't support C45 package IDs, so it won't probe
  * via the normal get_phy_c45_devs_in_pkg() path.
  * Secondly, the chip implements mostly 10BASE-T1L regs, so autonegotiation
  * requires some other regs which are IEEE spec-ed, but not standard in Linux.
- *
  */
 
 static u32 adin_mdio_addr_xlate(int devad, u16 regnum)
@@ -83,8 +86,7 @@ static u32 adin_mdio_addr_xlate(int devad, u16 regnum)
 	u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
 
 	switch (devad) {
-	/**
-	 * BASE-T1L auto-negotiation regs start at 0x0200.
+	/* BASE-T1L auto-negotiation regs start at 0x0200.
 	 * The Control & Status bitfields are similar to standard regs.
 	 */
 	case MDIO_MMD_AN:
@@ -116,20 +118,26 @@ static int adin_write_mmd(struct phy_device *phydev, int devad, u16 regnum,
 
 static int adin_match_phy_device(struct phy_device *phydev)
 {
+	struct mii_bus *bus = phydev->mdio.bus;
 	u32 id;
 	int rc;
 
-	/**
-	 * Need to call adin_read_mmd() directly here, because at this point
+	mutex_lock(&bus->mdio_lock);
+
+	/* Need to call adin_read_mmd() directly here, because at this point
 	 * in time, the driver isn't attached to the PHY device.
 	 */
 	rc = adin_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_DEVID1);
-	if (rc < 0)
+	if (rc < 0) {
+		mutex_unlock(&bus->mdio_lock);
 		return rc;
+	}
 
 	id = rc << 16;
 
 	rc = adin_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_DEVID2);
+	mutex_unlock(&bus->mdio_lock);
+
 	if (rc < 0)
 		return rc;
 
@@ -143,39 +151,31 @@ static int adin_match_phy_device(struct phy_device *phydev)
 	}
 }
 
-static u32 adin_mii_adv_m_to_ethtool_adv_t(u32 adv)
+static void adin_mii_adv_m_to_ethtool_adv_t(unsigned long *advertising, u32 adv)
 {
-	u32 result = 0;
-
 	if (adv & ADIN_AN_LP_ADV_B10L)
-		result |= ADVERTISED_10baseT_Full;
+		linkmode_set_bit( ETHTOOL_LINK_MODE_10baseT_Full_BIT, advertising);
 	if (adv & ADIN_AN_LP_ADV_B1000) {
-		result |= ADVERTISED_1000baseT_Half;
-		result |= ADVERTISED_1000baseT_Full;
+		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT, advertising);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, advertising);
 	}
 	if (adv & ADIN_AN_LP_ADV_B10S_FD)
-		result |= ADVERTISED_10baseT_Full;
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10baseT_Full_BIT, advertising);
 	if (adv & ADIN_AN_LP_ADV_B100)
-		result |= ADVERTISED_100baseT_Full;
-
-	return result;
+		linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, advertising);
 }
 
-static inline u32 adin_mii_adv_h_to_ethtool_adv_t(u32 adv)
+static void adin_mii_adv_h_to_ethtool_adv_t(unsigned long *advertising, u32 adv)
 {
-	u32 result = 0;
-
 	if (adv & ADIN_AN_LP_ADV_B10S_HD)
-		result |= ADVERTISED_10baseT_Half;
-
-	return result;
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10baseT_Half_BIT, advertising);
 }
 
 static int adin_read_lpa(struct phy_device *phydev)
 {
 	int val;
 
-	phydev->lp_advertising = 0;
+	linkmode_zero(phydev->lp_advertising);
 
 	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
 	if (val < 0)
@@ -188,7 +188,8 @@ static int adin_read_lpa(struct phy_device *phydev)
                 return 0;
         }
 
-	phydev->lp_advertising |= ADVERTISED_Autoneg;
+	linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
+			 phydev->lp_advertising);
 
 	/* Read the link partner's base page advertisement */
 	val = phy_read_mmd(phydev, MDIO_MMD_AN, ADIN_AN_LP_ADV_ABILITY_L);
@@ -202,13 +203,13 @@ static int adin_read_lpa(struct phy_device *phydev)
 	if (val < 0)
 		return val;
 
-	phydev->lp_advertising |= adin_mii_adv_m_to_ethtool_adv_t(val);
+	adin_mii_adv_m_to_ethtool_adv_t(phydev->lp_advertising, val);
 
 	val = phy_read_mmd(phydev, MDIO_MMD_AN, ADIN_AN_LP_ADV_ABILITY_H);
 	if (val < 0)
 		return val;
 
-	phydev->lp_advertising |= adin_mii_adv_h_to_ethtool_adv_t(val);
+	adin_mii_adv_h_to_ethtool_adv_t(phydev->lp_advertising, val);
 
 	return 0;
 }
@@ -234,7 +235,7 @@ static int adin_read_status(struct phy_device *phydev)
 		phy_resolve_aneg_linkmode(phydev);
 	} else {
 		/* Only one mode & duplex supported */
-		phydev->lp_advertising = 0;
+		linkmode_zero(phydev->lp_advertising);
 		phydev->speed = SPEED_10;
 		phydev->duplex = DUPLEX_FULL;
 	}
@@ -247,11 +248,8 @@ static int adin_config_aneg(struct phy_device *phydev)
 	struct adin_priv *priv = phydev->priv;
 	int ret;
 
-	/**
-	 * FIXME: don't allow autonegotiation disable for now; link will stop
-	 * working. Only 10 Mbps full duplex is supported. And the bits
-	 * for forcing a link-speed on C45 are not quite ready for this
-	 * version of Linux (4.19.0).
+	/* No sense to continue if auto-neg is disabled,
+	 * only one link-mode supported.
 	 */
 	if (phydev->autoneg == AUTONEG_DISABLE)
 		return 0;
@@ -273,27 +271,25 @@ static int adin_config_aneg(struct phy_device *phydev)
 	return genphy_c45_check_and_restart_aneg(phydev, true);
 }
 
-static int adin_aneg_done(struct phy_device *phydev)
+static void adin_link_change_notify(struct phy_device *phydev)
 {
 	bool tx_level_24v;
 	bool lp_tx_level_24v;
 	int val, mask;
-	int status;
 
-	status = genphy_c45_aneg_done(phydev);
-	if (status < 0)
-		return status;
+	if (phydev->state != PHY_RUNNING || phydev->autoneg == AUTONEG_DISABLE)
+		return;
 
 	val = phy_read_mmd(phydev, MDIO_MMD_AN, ADIN_AN_LP_ADV_ABILITY_H);
 	if (val < 0)
-		return val;
+		return;
 
 	mask = ADIN_AN_LP_ADV_B10L_TX_LVL_HI_ABL | ADIN_AN_LP_ADV_B10L_TX_LVL_HI_REQ;
 	lp_tx_level_24v = (val & mask) == mask;
 
 	val = phy_read_mmd(phydev, MDIO_MMD_AN, ADIN_AN_ADV_ABILITY_H);
 	if (val < 0)
-		return val;
+		return;
 
 	mask = ADIN_AN_ADV_B10L_TX_LVL_HI_ABL | ADIN_AN_ADV_B10L_TX_LVL_HI_REQ;
 	tx_level_24v = (val & mask) == mask;
@@ -302,8 +298,6 @@ static int adin_aneg_done(struct phy_device *phydev)
 		phydev_info(phydev, "Negotiated 2.4V TX level\n");
 	else
 		phydev_info(phydev, "Negotiated 1.0V TX level\n");
-
-	return status;
 }
 
 static int adin_set_powerdown_mode(struct phy_device *phydev, bool en)
@@ -380,9 +374,6 @@ static int adin_config_init(struct phy_device *phydev)
 	struct device *dev = &phydev->mdio.dev;
 	int ret;
 
-	phydev->supported = SUPPORTED_10baseT_Full;
-	phydev->advertising = SUPPORTED_10baseT_Full;
-
 	ret = phy_read_mmd(phydev, MDIO_MMD_PMAPMD, ADIN_B10L_PMA_STAT);
 	if (ret < 0)
 		return ret;
@@ -414,6 +405,15 @@ static int adin_probe(struct phy_device *phydev)
 
 	phydev->priv = priv;
 
+	/* FIXME: Will be called on each probe, but should work for now */
+	linkmode_set_bit_array(phy_basic_ports_array,
+			       ARRAY_SIZE(phy_basic_ports_array),
+			       phy_adin_t1l_features);
+
+	linkmode_set_bit_array(phy_10_features_array,
+			       ARRAY_SIZE(phy_10_features_array),
+			       phy_adin_t1l_features);
+
 	return 0;
 }
 
@@ -421,12 +421,12 @@ static struct phy_driver adin_driver[] = {
 	{
 		PHY_ID_MATCH_MODEL(PHY_ID_ADIN1100),
 		.name			= "ADIN1100",
-		.features		= ADIN_T1L_FEATURES, /* FIXME: remove this when the `get_features` hook becomes available */
+		.features		= ADIN_T1L_FEATURES,
 		.match_phy_device	= adin_match_phy_device,
 		.probe			= adin_probe,
 		.config_init		= adin_config_init,
 		.config_aneg		= adin_config_aneg,
-		.aneg_done		= adin_aneg_done,
+		.link_change_notify	= adin_link_change_notify,
 		.read_status		= adin_read_status,
 		.read_mmd		= adin_read_mmd,
 		.write_mmd		= adin_write_mmd,
