@@ -107,6 +107,16 @@ static const struct fsl_ddr_devtype_data imx8mp_devtype_data = {
 	.type = DDR_PERF_TYPE,
 };
 
+static const struct fsl_ddr_devtype_data imx8qxp_devtype_data = {
+	.identifier = "i.MX8QXP",
+	.type = DDR_PERF_TYPE,
+};
+
+static const struct fsl_ddr_devtype_data imx8qm_devtype_data = {
+	.identifier = "i.MX8QM",
+	.type = DDR_PERF_TYPE,
+};
+
 static const struct fsl_ddr_devtype_data imx8dxl_devtype_data = {
 	.quirks = DDR_CAP_AXI_ID_PORT_CHANNEL_FILTER,
 	.identifier = "i.MX8DXL",
@@ -126,6 +136,8 @@ static const struct of_device_id imx_ddr_pmu_dt_ids[] = {
 	{ .compatible = "fsl,imx8mm-ddr-pmu", .data = &imx8mm_devtype_data},
 	{ .compatible = "fsl,imx8mn-ddr-pmu", .data = &imx8mn_devtype_data},
 	{ .compatible = "fsl,imx8mp-ddr-pmu", .data = &imx8mp_devtype_data},
+	{ .compatible = "fsl,imx8qxp-ddr-pmu", .data = &imx8qxp_devtype_data},
+	{ .compatible = "fsl,imx8qm-ddr-pmu", .data = &imx8qm_devtype_data},
 	{ .compatible = "fsl,imx8dxl-ddr-pmu", .data = &imx8dxl_devtype_data},
 	{ .compatible = "fsl,imx8dxl-db-pmu", .data = &imx8dxl_db_devtype_data},
 	{ /* sentinel */ }
