@@ -560,6 +560,10 @@ static int __init caam_sm_test_init(void)
 		dev_info(&pdev->dev, "No SM support, skipping tests\n");
 		return -ENODEV;
 	}
+	if (!priv->smdev) {
+		dev_info(&pdev->dev, "SM not initialized (no job rings?) skipping tests\n");
+		return -ENODEV;
+	}
 
 	ret = caam_sm_example_init(pdev);
 	if (ret)
