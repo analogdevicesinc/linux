@@ -7,6 +7,9 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	adafruit18.dtbo \
 	adau1977-adc.dtbo \
 	adau7002-simple.dtbo \
+	adau7118-simple.dtbo \
+	adis16475.dtbo \
+	adis16480.dtbo \
 	ads1015.dtbo \
 	ads1115.dtbo \
 	ads7846.dtbo \
@@ -142,8 +145,32 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	pwm-ir-tx.dtbo \
 	qca7000.dtbo \
 	rotary-encoder.dtbo \
+	rpi-adau1761.dtbo \
+	rpi-addi9036.dtbo \
+	rpi-adf4371.dtbo \
+	rpi-ad5677r.dtbo \
+	rpi-ad5686.dtbo \
+	rpi-ad5679r.dtbo \
+	rpi-ad5766.dtbo \
+	rpi-ad7124.dtbo \
+	rpi-ad7124-8-all-diff-cs0-int25.dtbo \
+	rpi-ad7173.dtbo \
+	rpi-ad7190.dtbo \
+	rpi-ad738x.dtbo \
+	rpi-ad7768-1.dtbo \
+	rpi-ad9834.dtbo \
+	rpi-adar1000.dtbo \
+	rpi-adgs1408.dtbo \
+	rpi-adxl345.dtbo \
+	rpi-adxl372.dtbo \
+	rpi-adxl375.dtbo \
+	rpi-ad5770r.dtbo \
+	rpi-ad5791.dtbo \
 	rpi-backlight.dtbo \
 	rpi-cirrus-wm5102.dtbo \
+	rpi-cn0504.dtbo \
+	rpi-cn0508.dtbo \
+	rpi-cn0511.dtbo \
 	rpi-dac.dtbo \
 	rpi-display.dtbo \
 	rpi-ft5406.dtbo \

@@ -1,0 +1,69 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	 fragment@3 {
+		target = <&gpio>;
+		__overlay__ {
+			adis16480_pins: adis16480_pins {
+				brcm,pins = <6 12>; // interrupt and reset
+				brcm,function = <0 1>; // in out
+			};
+		};
+	};
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			/* needed to avoid dtc warning */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adis16480: adis16480@0 {
+				compatible = "adi,adis16495-3";
+				reg = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&adis16480_pins>;
+				spi-cpha;
+				spi-cpol;
+				reset-gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
+				spi-max-frequency = <15000000>;
+				/* use DIO1 as data ready by default */
+				interrupts = <6 IRQ_TYPE_EDGE_RISING>;
+				interrupt-parent = <&gpio>;
+			};
+		};
+	};
+
+	__overrides__ {
+		interrupt = <&adis16480_pins>,"brcm,pins:0",
+				<&adis16480>,"interrupts:0";
+		reset = <&adis16480_pins>,"brcm,pins:4",
+				<&adis16480>,"reset-gpios:4";
+	};
+};
