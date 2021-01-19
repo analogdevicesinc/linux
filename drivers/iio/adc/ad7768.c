@@ -24,6 +24,7 @@
 /* AD7768 registers definition */
 #define AD7768_CH_MODE				0x01
 #define AD7768_POWER_MODE			0x04
+#define AD7768_DATA_CONTROL			0x06
 #define AD7768_INTERFACE_CFG			0x07
 
 /* AD7768_CH_MODE */
@@ -37,6 +38,14 @@
 #define AD7768_POWER_MODE_POWER_MODE(x)		(((x) & 0x3) << 4)
 #define AD7768_POWER_MODE_MCLK_DIV_MSK		GENMASK(1, 0)
 #define AD7768_POWER_MODE_MCLK_DIV_MODE(x)	(((x) & 0x3) << 0)
+
+/* AD7768_DATA_CONTROL */
+#define AD7768_DATA_CONTROL_SPI_RESET_MSK	GENMASK(1, 0)
+#define AD7768_DATA_CONTROL_SPI_RESET_1		0x03
+#define AD7768_DATA_CONTROL_SPI_RESET_2		0x02
+#define AD7768_DATA_CONTROL_SPI_SYNC_MSK	BIT(7)
+#define AD7768_DATA_CONTROL_SPI_SYNC		BIT(7)
+#define AD7768_DATA_CONTROL_SPI_SYNC_CLEAR	0
 
 /* AD7768_INTERFACE_CFG */
 #define AD7768_INTERFACE_CFG_DCLK_DIV_MSK	GENMASK(1, 0)
@@ -231,6 +240,21 @@ exit:
 	return ret;
 }
 
+static int ad7768_sync(struct ad7768_state *st)
+{
+	int ret;
+
+	ret = ad7768_spi_write_mask(st, AD7768_DATA_CONTROL,
+				    AD7768_DATA_CONTROL_SPI_SYNC_MSK,
+				    AD7768_DATA_CONTROL_SPI_SYNC_CLEAR);
+	if (ret < 0)
+		return ret;
+
+	return ad7768_spi_write_mask(st,  AD7768_DATA_CONTROL,
+				    AD7768_DATA_CONTROL_SPI_SYNC_MSK,
+				    AD7768_DATA_CONTROL_SPI_SYNC);
+}
+
 static int ad7768_set_samp_freq(struct ad7768_state *st,
 				enum ad7768_mclk_div mclk_div,
 				enum ad7768_dclk_div dclk_div,
@@ -313,7 +337,7 @@ static int ad7768_samp_freq_config(struct ad7768_state *st,
 
 	st->sampling_freq = calc_freq;
 
-	return ret;
+	return ad7768_sync(st);
 }
 
 static int ad7768_read_raw(struct iio_dev *indio_dev,
