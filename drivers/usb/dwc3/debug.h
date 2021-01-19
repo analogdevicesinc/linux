@@ -256,38 +256,47 @@ static inline const char *dwc3_ep_event_string(char *str, size_t size,
 	u8 epnum = event->endpoint_number;
 	size_t len;
 	int status;
+	int ret;
 
-	len = scnprintf(str, size, "ep%d%s: ", epnum >> 1,
+	ret = snprintf(str, size, "ep%d%s: ", epnum >> 1,
 			(epnum & 1) ? "in" : "out");
+	if (ret < 0)
+		return "UNKNOWN";
 
 	status = event->status;
 
 	switch (event->endpoint_event) {
 	case DWC3_DEPEVT_XFERCOMPLETE:
-		len += scnprintf(str + len, size - len,
-				"Transfer Complete (%c%c%c)",
+		len = strlen(str);
+		snprintf(str + len, size - len, "Transfer Complete (%c%c%c)",
 				status & DEPEVT_STATUS_SHORT ? 'S' : 's',
 				status & DEPEVT_STATUS_IOC ? 'I' : 'i',
 				status & DEPEVT_STATUS_LST ? 'L' : 'l');
 
+		len = strlen(str);
+
 		if (epnum <= 1)
-			scnprintf(str + len, size - len, " [%s]",
+			snprintf(str + len, size - len, " [%s]",
 					dwc3_ep0_state_string(ep0state));
 		break;
 	case DWC3_DEPEVT_XFERINPROGRESS:
-		scnprintf(str + len, size - len,
-				"Transfer In Progress [%d] (%c%c%c)",
+		len = strlen(str);
+
+		snprintf(str + len, size - len, "Transfer In Progress [%d] (%c%c%c)",
 				event->parameters,
 				status & DEPEVT_STATUS_SHORT ? 'S' : 's',
 				status & DEPEVT_STATUS_IOC ? 'I' : 'i',
 				status & DEPEVT_STATUS_LST ? 'M' : 'm');
 		break;
 	case DWC3_DEPEVT_XFERNOTREADY:
-		len += scnprintf(str + len, size - len,
-				"Transfer Not Ready [%d]%s",
+		len = strlen(str);
+
+		snprintf(str + len, size - len, "Transfer Not Ready [%d]%s",
 				event->parameters,
 				status & DEPEVT_STATUS_TRANSFER_ACTIVE ?
 				" (Active)" : " (Not Active)");
+
+		len = strlen(str);
 
 		/* Control Endpoints */
 		if (epnum <= 1) {
@@ -295,38 +304,38 @@ static inline const char *dwc3_ep_event_string(char *str, size_t size,
 
 			switch (phase) {
 			case DEPEVT_STATUS_CONTROL_DATA:
-				scnprintf(str + len, size - len,
+				snprintf(str + ret, size - ret,
 						" [Data Phase]");
 				break;
 			case DEPEVT_STATUS_CONTROL_STATUS:
-				scnprintf(str + len, size - len,
+				snprintf(str + ret, size - ret,
 						" [Status Phase]");
 			}
 		}
 		break;
 	case DWC3_DEPEVT_RXTXFIFOEVT:
-		scnprintf(str + len, size - len, "FIFO");
+		snprintf(str + ret, size - ret, "FIFO");
 		break;
 	case DWC3_DEPEVT_STREAMEVT:
 		status = event->status;
 
 		switch (status) {
 		case DEPEVT_STREAMEVT_FOUND:
-			scnprintf(str + len, size - len, " Stream %d Found",
+			snprintf(str + ret, size - ret, " Stream %d Found",
 					event->parameters);
 			break;
 		case DEPEVT_STREAMEVT_NOTFOUND:
 		default:
-			scnprintf(str + len, size - len, " Stream Not Found");
+			snprintf(str + ret, size - ret, " Stream Not Found");
 			break;
 		}
 
 		break;
 	case DWC3_DEPEVT_EPCMDCMPLT:
-		scnprintf(str + len, size - len, "Endpoint Command Complete");
+		snprintf(str + ret, size - ret, "Endpoint Command Complete");
 		break;
 	default:
-		scnprintf(str + len, size - len, "UNKNOWN");
+		snprintf(str, size, "UNKNOWN");
 	}
 
 	return str;

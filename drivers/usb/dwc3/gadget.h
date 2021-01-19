@@ -121,7 +121,6 @@ int dwc3_gadget_ep0_set_halt(struct usb_ep *ep, int value);
 int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 		gfp_t gfp_flags);
 int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
-void dwc3_ep0_send_delayed_status(struct dwc3 *dwc);
 int __dwc3_gadget_ep_enable(struct dwc3_ep *dep, unsigned int action);
 int __dwc3_gadget_ep_disable(struct dwc3_ep *dep);
 int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep);
