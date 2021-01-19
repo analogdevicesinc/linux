@@ -562,11 +562,6 @@ static int dwc3_ep0_handle_endpoint(struct dwc3 *dwc,
 		ret = __dwc3_gadget_ep_set_halt(dep, set, true);
 		if (ret)
 			return -EINVAL;
-
-		/* ClearFeature(Halt) may need delayed status */
-		if (!set && (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
-			return USB_GADGET_DELAYED_STATUS;
-
 		break;
 	default:
 		return -EINVAL;
@@ -988,16 +983,12 @@ static void dwc3_ep0_xfer_complete(struct dwc3 *dwc,
 static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		struct dwc3_ep *dep, struct dwc3_request *req)
 {
-	unsigned int		trb_length = 0;
 	int			ret;
 
 	req->direction = !!dep->number;
 
 	if (req->request.length == 0) {
-		if (!req->direction)
-			trb_length = dep->endpoint.maxpacket;
-
-		dwc3_ep0_prepare_one_trb(dep, dwc->bounce_addr, trb_length,
+		dwc3_ep0_prepare_one_trb(dep, dwc->ep0_trb_addr, 0,
 				DWC3_TRBCTL_CONTROL_DATA, false);
 		ret = dwc3_ep0_start_trans(dep);
 	} else if (!IS_ALIGNED(req->request.length, dep->endpoint.maxpacket)
@@ -1044,12 +1035,9 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 
 		req->trb = &dwc->ep0_trb[dep->trb_enqueue - 1];
 
-		if (!req->direction)
-			trb_length = dep->endpoint.maxpacket;
-
 		/* Now prepare one extra TRB to align transfer size */
 		dwc3_ep0_prepare_one_trb(dep, dwc->bounce_addr,
-					 trb_length, DWC3_TRBCTL_CONTROL_DATA,
+					 0, DWC3_TRBCTL_CONTROL_DATA,
 					 false);
 		ret = dwc3_ep0_start_trans(dep);
 	} else {
@@ -1093,18 +1081,6 @@ static void dwc3_ep0_do_control_status(struct dwc3 *dwc,
 	struct dwc3_ep		*dep = dwc->eps[event->endpoint_number];
 
 	__dwc3_ep0_do_control_status(dwc, dep);
-}
-
-void dwc3_ep0_send_delayed_status(struct dwc3 *dwc)
-{
-	unsigned int direction = !dwc->ep0_expect_in;
-
-	dwc->delayed_status = false;
-
-	if (dwc->ep0state != EP0_STATUS_PHASE)
-		return;
-
-	__dwc3_ep0_do_control_status(dwc, dwc->eps[direction]);
 }
 
 static void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
@@ -1182,9 +1158,6 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 void dwc3_ep0_interrupt(struct dwc3 *dwc,
 		const struct dwc3_event_depevt *event)
 {
-	struct dwc3_ep	*dep = dwc->eps[event->endpoint_number];
-	u8		cmd;
-
 	switch (event->endpoint_event) {
 	case DWC3_DEPEVT_XFERCOMPLETE:
 		dwc3_ep0_xfer_complete(dwc, event);
@@ -1197,14 +1170,7 @@ void dwc3_ep0_interrupt(struct dwc3 *dwc,
 	case DWC3_DEPEVT_XFERINPROGRESS:
 	case DWC3_DEPEVT_RXTXFIFOEVT:
 	case DWC3_DEPEVT_STREAMEVT:
-		break;
 	case DWC3_DEPEVT_EPCMDCMPLT:
-		cmd = DEPEVT_PARAMETER_CMD(event->parameters);
-
-		if (cmd == DWC3_DEPCMD_ENDTRANSFER) {
-			dep->flags &= ~DWC3_EP_END_TRANSFER_PENDING;
-			dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
-		}
 		break;
 	}
 }
