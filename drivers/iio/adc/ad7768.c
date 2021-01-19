@@ -30,6 +30,7 @@
 /* AD7768_CH_MODE */
 #define AD7768_CH_MODE_FILTER_TYPE_MSK		BIT(3)
 #define AD7768_CH_MODE_FILTER_TYPE_MODE(x)	(((x) & 0x1) << 3)
+#define AD7768_CH_MODE_GET_FILTER_TYPE(x)	(((x) >> 3) & 0x1)
 #define AD7768_CH_MODE_DEC_RATE_MSK		GENMASK(2, 0)
 #define AD7768_CH_MODE_DEC_RATE_MODE(x)		(((x) & 0x7) << 0)
 
@@ -314,6 +315,47 @@ static const struct iio_enum ad7768_power_mode_enum = {
 	.set = ad7768_set_power_mode,
 	.get = ad7768_get_power_mode,
 };
+static const char * const ad7768_filter_type_enum[] = {
+	"WIDEBAND",
+	"SINC5"
+};
+
+static int ad7768_set_filter_type(struct iio_dev *dev,
+				  const struct iio_chan_spec *chan,
+				  unsigned int filter)
+{
+	struct ad7768_state *st = ad7768_get_data(dev);
+	int ret;
+
+	ret = ad7768_spi_write_mask(st, AD7768_CH_MODE,
+				    AD7768_CH_MODE_FILTER_TYPE_MSK,
+				    AD7768_CH_MODE_FILTER_TYPE_MODE(filter));
+	if (ret < 0)
+		return ret;
+
+	return ad7768_sync(st);
+}
+
+static int ad7768_get_filter_type(struct iio_dev *dev,
+				  const struct iio_chan_spec *chan)
+{
+	struct ad7768_state *st = ad7768_get_data(dev);
+	unsigned int filter;
+	int ret;
+
+	ret = ad7768_spi_reg_read(st, AD7768_CH_MODE, &filter);
+	if (ret < 0)
+		return ret;
+
+	return AD7768_CH_MODE_GET_FILTER_TYPE(filter);
+}
+
+static const struct iio_enum ad7768_filter_type_iio_enum = {
+	.items = ad7768_filter_type_enum,
+	.num_items = ARRAY_SIZE(ad7768_filter_type_enum),
+	.set = ad7768_set_filter_type,
+	.get = ad7768_get_filter_type
+};
 
 static int ad7768_set_sampling_freq(struct iio_dev *dev,
 				    unsigned int freq)
@@ -420,6 +462,12 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	IIO_ENUM_AVAILABLE_SHARED("power_mode",
 				  IIO_SHARED_BY_ALL,
 				  &ad7768_power_mode_enum),
+	IIO_ENUM("filter_type",
+		 IIO_SHARED_BY_ALL,
+		 &ad7768_filter_type_iio_enum),
+	IIO_ENUM_AVAILABLE_SHARED("filter_type",
+				  IIO_SHARED_BY_ALL,
+				  &ad7768_filter_type_iio_enum),
 	{ },
 
 };
