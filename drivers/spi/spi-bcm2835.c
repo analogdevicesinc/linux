@@ -1097,7 +1097,7 @@ static int bcm2835_spi_transfer_one(struct spi_controller *ctlr,
 
 	/* handle all the 3-wire mode */
 	if (spi->mode & SPI_3WIRE && tfr->rx_buf &&
-	    tfr->rx_buf != master->dummy_rx)
+	    tfr->rx_buf != ctlr->dummy_rx)
 		cs |= BCM2835_SPI_CS_REN;
 
 	/* set transmit buffers and length */
