@@ -171,4 +171,7 @@
 #define MEDIA_BUS_FMT_VUY16_1X48		0x2107
 #define MEDIA_BUS_FMT_UYVY16_2X32		0x2108
 
+/* Sensor ancillary metadata formats - next is 0x7002 */
+#define MEDIA_BUS_FMT_SENSOR_DATA		0x7001
+
 #endif /* __LINUX_MEDIA_BUS_FORMAT_H */
