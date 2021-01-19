@@ -36,6 +36,7 @@
 /* AD7768_POWER_MODE */
 #define AD7768_POWER_MODE_POWER_MODE_MSK	GENMASK(5, 4)
 #define AD7768_POWER_MODE_POWER_MODE(x)		(((x) & 0x3) << 4)
+#define AD7768_POWER_MODE_GET_POWER_MODE(x)	(((x) >> 4) & 0x3)
 #define AD7768_POWER_MODE_MCLK_DIV_MSK		GENMASK(1, 0)
 #define AD7768_POWER_MODE_MCLK_DIV_MODE(x)	(((x) & 0x3) << 0)
 
@@ -55,6 +56,16 @@
 #define AD7768_WR_FLAG_MSK(x)	(0x80 | ((x) & 0x7F))
 
 #define AD7768_OUTPUT_MODE_TWOS_COMPLEMENT	0x01
+#define AD7768_CONFIGS_PER_MODE			0x06
+#define AD7768_NUM_CONFIGS			0x04
+#define AD7768_MAX_RATE				(AD7768_CONFIGS_PER_MODE - 1)
+#define AD7768_MIN_RATE				0
+
+enum ad7768_power_modes {
+	AD7768_LOW_POWER_MODE,
+	AD7768_MEDIAN_MODE = 2,
+	AD7768_FAST_MODE
+};
 
 struct ad7768_state {
 	struct spi_device *spi;
@@ -62,7 +73,20 @@ struct ad7768_state {
 	struct regulator *vref;
 	struct clk *mclk;
 	unsigned int sampling_freq;
+	enum ad7768_power_modes power_mode;
 	__be16 d16;
+};
+
+unsigned int ad7768_mclk_divs[] = {
+	[AD7768_LOW_POWER_MODE] = 32,
+	[AD7768_MEDIAN_MODE] = 8,
+	[AD7768_FAST_MODE] = 4
+};
+
+int ad7768_sampling_rates[AD7768_NUM_CONFIGS][AD7768_CONFIGS_PER_MODE] = {
+	[AD7768_LOW_POWER_MODE] = { 1000, 2000, 4000, 8000, 16000, 32000 },
+	[AD7768_MEDIAN_MODE] = { 4000, 8000, 16000, 32000, 64000, 128000 },
+	[AD7768_FAST_MODE] = { 8000, 16000, 32000, 64000, 128000, 256000 }
 };
 
 enum ad7768_device_ids {
@@ -102,49 +126,6 @@ static const int ad7768_dec_rate[6] = {
 	32, 64, 128, 256, 512, 1024
 };
 
-#define AD7768_CHAN(index)						\
-	{								\
-		.type = IIO_VOLTAGE,					\
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
-		.address = index,					\
-		.indexed = 1,						\
-		.channel = index,					\
-		.scan_index = index,					\
-		.scan_type = {						\
-			.sign = 's',					\
-			.realbits = 24,					\
-			.storagebits = 32,				\
-		},							\
-	}
-
-#define DECLARE_AD7768_CHANNELS(name)	\
-static struct iio_chan_spec name[] = {	\
-		AD7768_CHAN(0), \
-		AD7768_CHAN(1), \
-		AD7768_CHAN(2), \
-		AD7768_CHAN(3), \
-		AD7768_CHAN(4), \
-		AD7768_CHAN(5), \
-		AD7768_CHAN(6), \
-		AD7768_CHAN(7), \
-}
-
-DECLARE_AD7768_CHANNELS(ad7768_channels);
-
-static const struct axiadc_chip_info conv_chip_info = {
-	.name = "ad7768_axi_adc",
-	.max_rate = 256000000UL,
-	.num_channels = 8,
-	.channel[0] = AD7768_CHAN(0),
-	.channel[1] = AD7768_CHAN(1),
-	.channel[2] = AD7768_CHAN(2),
-	.channel[3] = AD7768_CHAN(3),
-	.channel[4] = AD7768_CHAN(4),
-	.channel[5] = AD7768_CHAN(5),
-	.channel[6] = AD7768_CHAN(6),
-	.channel[7] = AD7768_CHAN(7),
-};
 
 static bool ad7768_has_axi_adc(struct device *dev)
 {
@@ -290,6 +271,75 @@ static int ad7768_set_clk_divs(struct ad7768_state *st,
 				     AD7768_CH_MODE_DEC_RATE_MODE(dec));
 }
 
+static int ad7768_set_power_mode(struct iio_dev *dev,
+				 const struct iio_chan_spec *chan,
+				 unsigned int mode)
+{
+	struct ad7768_state *st = ad7768_get_data(dev);
+	unsigned int regval;
+	int ret;
+
+	/* Check if this mode supports the current sampling rate */
+	if (st->sampling_freq > ad7768_sampling_rates[mode][AD7768_MAX_RATE] ||
+	    st->sampling_freq < ad7768_sampling_rates[mode][AD7768_MIN_RATE])
+		return -EINVAL;
+
+	regval = AD7768_POWER_MODE_POWER_MODE(mode);
+	ret = ad7768_spi_write_mask(st, AD7768_POWER_MODE,
+				    AD7768_POWER_MODE_POWER_MODE_MSK,
+				    regval);
+	if (ret < 0)
+		return ret;
+	/* The values for the powermode correspond for mclk div */
+	ret = ad7768_spi_write_mask(st, AD7768_POWER_MODE,
+				    AD7768_POWER_MODE_MCLK_DIV_MSK,
+				    AD7768_POWER_MODE_MCLK_DIV_MODE(mode));
+	if (ret < 0)
+		return ret;
+
+	ret = ad7768_set_clk_divs(st, ad7768_mclk_divs[mode],
+				st->sampling_freq);
+	if (ret < 0)
+		return ret;
+
+	ret = ad7768_sync(st);
+	if (ret < 0)
+		return ret;
+
+	st->power_mode = mode;
+
+	return ret;
+}
+
+static int ad7768_get_power_mode(struct iio_dev *dev,
+				 const struct iio_chan_spec *chan)
+{
+	struct ad7768_state *st = ad7768_get_data(dev);
+	unsigned int regval;
+	int ret;
+
+	ret = ad7768_spi_reg_read(st, AD7768_POWER_MODE, &regval);
+	if (ret < 0)
+		return ret;
+
+	st->power_mode = AD7768_POWER_MODE_GET_POWER_MODE(regval);
+
+	return st->power_mode;
+}
+
+static const char * const ad7768_power_mode_iio_enum[] = {
+	[AD7768_LOW_POWER_MODE] = "LOW_POWER_MODE",
+	[AD7768_MEDIAN_MODE] = "MEDIAN_MODE",
+	[AD7768_FAST_MODE] = "FAST_MODE"
+};
+
+static const struct iio_enum ad7768_power_mode_enum = {
+	.items = ad7768_power_mode_iio_enum,
+	.num_items = ARRAY_SIZE(ad7768_power_mode_iio_enum),
+	.set = ad7768_set_power_mode,
+	.get = ad7768_get_power_mode,
+};
+
 static int ad7768_set_samp_freq(struct ad7768_state *st,
 				enum ad7768_mclk_div mclk_div,
 				enum ad7768_dclk_div dclk_div,
@@ -406,10 +456,66 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
+	IIO_ENUM("power_mode",
+		 IIO_SHARED_BY_ALL,
+		 &ad7768_power_mode_enum),
+	IIO_ENUM_AVAILABLE_SHARED("power_mode",
+				  IIO_SHARED_BY_ALL,
+				  &ad7768_power_mode_enum),
+	{ },
+
+};
+
 static const struct iio_info ad7768_info = {
 	.read_raw = &ad7768_read_raw,
 	.write_raw = &ad7768_write_raw,
 	.debugfs_reg_access = &ad7768_reg_access,
+};
+
+#define AD7768_CHAN(index)						\
+	{								\
+		.type = IIO_VOLTAGE,					\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.address = index,					\
+		.indexed = 1,						\
+		.channel = index,					\
+		.scan_index = index,					\
+		.ext_info = ad7768_ext_info,				\
+		.scan_type = {						\
+			.sign = 's',					\
+			.realbits = 24,					\
+			.storagebits = 32,				\
+		},							\
+	}
+
+#define DECLARE_AD7768_CHANNELS(name)	\
+static struct iio_chan_spec name[] = {	\
+		AD7768_CHAN(0), \
+		AD7768_CHAN(1), \
+		AD7768_CHAN(2), \
+		AD7768_CHAN(3), \
+		AD7768_CHAN(4), \
+		AD7768_CHAN(5), \
+		AD7768_CHAN(6), \
+		AD7768_CHAN(7), \
+}
+
+DECLARE_AD7768_CHANNELS(ad7768_channels);
+
+static const struct axiadc_chip_info conv_chip_info = {
+	.name = "ad7768_axi_adc",
+	.max_rate = 256000000UL,
+	.num_channels = 8,
+	.channel[0] = AD7768_CHAN(0),
+	.channel[1] = AD7768_CHAN(1),
+	.channel[2] = AD7768_CHAN(2),
+	.channel[3] = AD7768_CHAN(3),
+	.channel[4] = AD7768_CHAN(4),
+	.channel[5] = AD7768_CHAN(5),
+	.channel[6] = AD7768_CHAN(6),
+	.channel[7] = AD7768_CHAN(7),
 };
 
 static int hw_submit_block(struct iio_dma_buffer_queue *queue,
