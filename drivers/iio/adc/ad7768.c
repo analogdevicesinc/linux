@@ -255,6 +255,41 @@ static int ad7768_sync(struct ad7768_state *st)
 				    AD7768_DATA_CONTROL_SPI_SYNC);
 }
 
+static int ad7768_set_clk_divs(struct ad7768_state *st,
+			       unsigned int mclk_div,
+			       unsigned int freq)
+{
+	unsigned int mclk, dclk_div, dec, div;
+	unsigned int result = 0;
+	int ret = 0;
+
+	mclk = clk_get_rate(st->mclk);
+
+	for (dclk_div = 0; dclk_div < 4 ; dclk_div++) {
+		for (dec = 0; dec < ARRAY_SIZE(ad7768_dec_rate); dec++) {
+			div = mclk_div *
+			      (1 <<  (3 - dclk_div)) *
+			      ad7768_dec_rate[dec];
+
+			result = DIV_ROUND_CLOSEST_ULL(mclk, div);
+			if (freq == result)
+				break;
+		}
+	}
+	if (freq != result)
+		return -EINVAL;
+
+	ret = ad7768_spi_write_mask(st, AD7768_INTERFACE_CFG,
+			AD7768_INTERFACE_CFG_DCLK_DIV_MSK,
+			AD7768_INTERFACE_CFG_DCLK_DIV_MODE(3 - dclk_div));
+	if (ret < 0)
+		return ret;
+
+	return ad7768_spi_write_mask(st, AD7768_CH_MODE,
+				     AD7768_CH_MODE_DEC_RATE_MSK,
+				     AD7768_CH_MODE_DEC_RATE_MODE(dec));
+}
+
 static int ad7768_set_samp_freq(struct ad7768_state *st,
 				enum ad7768_mclk_div mclk_div,
 				enum ad7768_dclk_div dclk_div,
@@ -275,15 +310,10 @@ static int ad7768_set_samp_freq(struct ad7768_state *st,
 	if (ret < 0)
 		goto err_unlock;
 
-	ret = ad7768_spi_write_mask(st, AD7768_INTERFACE_CFG,
-			AD7768_INTERFACE_CFG_DCLK_DIV_MSK,
-			AD7768_INTERFACE_CFG_DCLK_DIV_MODE(dclk_div));
+	ret = ad7768_set_clk_divs(st, mclk_div, st->sampling_freq);
 	if (ret < 0)
 		goto err_unlock;
 
-	ret = ad7768_spi_write_mask(st, AD7768_CH_MODE,
-			AD7768_CH_MODE_DEC_RATE_MSK,
-			AD7768_CH_MODE_DEC_RATE_MODE(dec_rate_index));
 err_unlock:
 	mutex_unlock(&st->lock);
 
