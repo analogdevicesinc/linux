@@ -119,10 +119,13 @@ ssize_t HDCPTX_Status_store(struct device *dev,
 			struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	int value;
+	int value, ret;
 
 	if (count == 2) {
-		sscanf(buf, "%d", &value);
+		ret = sscanf(buf, "%d", &value);
+		if (ret != 1)
+			return -EINVAL;
+
 		if ((value >= HDCP_STATE_NO_AKSV) && (value <= HDCP_STATE_AUTH_FAILED)) {
 			mhdp->hdcp.state = value;
 			return count;
