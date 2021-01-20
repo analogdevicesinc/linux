@@ -2619,7 +2619,7 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 	return 0;
 }
 
-static int adrv9002_intf_tuning_unlocked(struct adrv9002_rf_phy *phy)
+static int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
 	int ret;
@@ -2683,17 +2683,6 @@ static int adrv9002_intf_tuning_unlocked(struct adrv9002_rf_phy *phy)
 		return adrv9002_dev_err(phy);
 
 	return 0;
-}
-
-int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
-{
-	int ret;
-
-	mutex_lock(&phy->lock);
-	ret = adrv9002_intf_tuning_unlocked(phy);
-	mutex_unlock(&phy->lock);
-
-	return ret;
 }
 
 static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
@@ -3405,7 +3394,7 @@ static int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *
 	if (ret)
 		return ret;
 
-	return adrv9002_intf_tuning_unlocked(phy);
+	return adrv9002_intf_tuning(phy);
 }
 
 static ssize_t adrv9002_stream_bin_write(struct file *filp, struct kobject *kobj,
