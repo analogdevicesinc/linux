@@ -148,25 +148,49 @@ static int adrv9002_reg_access(struct iio_dev *indio_dev, u32 reg, u32 writeval,
 	return 0;
 }
 
-static int adrv9002_interface_validate(const struct adrv9002_rf_phy *phy, const u8 ssi_intf)
+int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
 {
-	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS &&
-	    ssi_intf == ADI_ADRV9001_SSI_TYPE_LVDS) {
-		dev_err(&phy->spi->dev,
-			 "AXI interface is CMOS and device profile is LVDS...\n");
-		return -EINVAL;
-	} else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS &&
-		   ssi_intf == ADI_ADRV9001_SSI_TYPE_CMOS) {
-		dev_err(&phy->spi->dev,
-			 "AXI interface is LVDS and device profile is CMOS...\n");
-		return -EINVAL;
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_state *st;
+	unsigned int reg, addr, chan, version;
+
+	if (!conv)
+		return -ENODEV;
+
+	st = iio_priv(conv->indio_dev);
+	version = axiadc_read(st, 0x4000);
+
+	/* Still there but implemented a bit different */
+	if (ADI_AXI_PCORE_VER_MAJOR(version) > 7)
+		addr = 0x4418;
+	else
+		addr = 0x4414;
+
+	for (chan = 0; chan < conv->chip_info->num_channels; chan++) {
+		reg = axiadc_read(st, addr + (chan) * 0x40);
+
+		if (ADI_AXI_PCORE_VER_MAJOR(version) > 7) {
+			if (enable && reg != 0x8) {
+				conv->scratch_reg[chan] = reg;
+				reg = 0x8;
+			} else if (reg == 0x8) {
+				reg = conv->scratch_reg[chan];
+			}
+		} else {
+			/* DAC_LB_ENB If set enables loopback of receive data */
+			if (enable)
+				reg |= BIT(1);
+			else
+				reg &= ~BIT(1);
+		}
+		axiadc_write(st, addr + (chan) * 0x40, reg);
 	}
 
 	return 0;
 }
 
-static int adrv9002_interface_config(struct adrv9002_rf_phy *phy, const u8 n_lanes,
-				     const bool cmos_ddr, const int channel)
+int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
+			       const bool cmos_ddr, const int channel)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
@@ -220,60 +244,6 @@ static int adrv9002_interface_config(struct adrv9002_rf_phy *phy, const u8 n_lan
 	axiadc_write(st, AIM_AXI_REG(tx_off, ADI_TX_REG_CTRL_2), tx_reg_ctrl);
 
 	return 0;
-}
-
-int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st;
-	unsigned int reg, addr, chan, version;
-
-	if (!conv)
-		return -ENODEV;
-
-	st = iio_priv(conv->indio_dev);
-	version = axiadc_read(st, 0x4000);
-
-	/* Still there but implemented a bit different */
-	if (ADI_AXI_PCORE_VER_MAJOR(version) > 7)
-		addr = 0x4418;
-	else
-		addr = 0x4414;
-
-	for (chan = 0; chan < conv->chip_info->num_channels; chan++) {
-		reg = axiadc_read(st, addr + (chan) * 0x40);
-
-		if (ADI_AXI_PCORE_VER_MAJOR(version) > 7) {
-			if (enable && reg != 0x8) {
-				conv->scratch_reg[chan] = reg;
-				reg = 0x8;
-			} else if (reg == 0x8) {
-				reg = conv->scratch_reg[chan];
-			}
-		} else {
-			/* DAC_LB_ENB If set enables loopback of receive data */
-			if (enable)
-				reg |= BIT(1);
-			else
-				reg &= ~BIT(1);
-		}
-		axiadc_write(st, addr + (chan) * 0x40, reg);
-	}
-
-	return 0;
-}
-
-int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
-			       const u8 ssi_intf, const bool cmos_ddr,
-			       const int channel)
-{
-	int ret;
-
-	ret = adrv9002_interface_validate(phy, ssi_intf);
-	if (ret)
-		return ret;
-
-	return adrv9002_interface_config(phy, n_lanes, cmos_ddr, channel);
 }
 
 static int adrv9002_post_setup(struct iio_dev *indio_dev)
@@ -706,8 +676,7 @@ u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
 }
 
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
-			       const u8 ssi_intf, const bool cmos_ddr,
-			       const int channel)
+			       const bool cmos_ddr, const int channel)
 {
 	return -ENODEV;
 }
