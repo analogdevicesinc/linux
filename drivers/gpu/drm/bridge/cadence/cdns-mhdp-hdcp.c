@@ -27,6 +27,8 @@ static u32 mhdp_hdcp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset)
 		val = readl((offset & 0xfff) + mhdp->regs_base);
 	} else if (mhdp->bus_type == BUS_TYPE_NORMAL_APB)
 		val = readl(mhdp->regs_sec + offset);
+	else
+		val = readl(mhdp->regs_base + offset);
 
 	mutex_unlock(&mhdp->iolock);
 
