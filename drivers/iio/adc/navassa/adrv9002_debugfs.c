@@ -612,11 +612,16 @@ DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_ssi_test_mode_fixed_pattern_fops,
 static int adrv9002_init_set(void *arg, const u64 val)
 {
 	struct adrv9002_rf_phy *phy = arg;
+	int ret;
 
 	if (!val)
 		return -EINVAL;
 
-	return adrv9002_clean_setup(phy);
+	mutex_lock(&phy->lock);
+	ret = adrv9002_init(phy, phy->curr_profile);
+	mutex_unlock(&phy->lock);
+
+	return ret;
 }
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_init_fops,
 			 NULL, adrv9002_init_set, "%llu");

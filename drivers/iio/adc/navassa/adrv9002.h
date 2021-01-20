@@ -185,7 +185,7 @@ void adrv9002_en_delays_arm_to_ns(const struct adrv9002_rf_phy *phy,
 /* phy lock must be held before entering the API */
 int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
 			      const adi_adrv9001_ChannelState_e state, const bool cache_state);
-int adrv9002_clean_setup(struct adrv9002_rf_phy *phy);
+int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile);
 int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line);
 #define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
 
