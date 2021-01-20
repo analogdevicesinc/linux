@@ -2803,7 +2803,7 @@ static struct adi_adrv9001_Init adrv9002_init_cmos = {
 	}
 };
 
-static struct adi_adrv9001_Init *adrv9002_init = &adrv9002_init_lvds;
+static struct adi_adrv9001_Init *adrv9002_profile = &adrv9002_init_lvds;
 
 struct adi_adrv9001_SpiSettings *adrv9002_spi_settings_get(void)
 {
@@ -2812,7 +2812,7 @@ struct adi_adrv9001_SpiSettings *adrv9002_spi_settings_get(void)
 
 struct adi_adrv9001_Init *adrv9002_init_get(void)
 {
-	return adrv9002_init;
+	return adrv9002_profile;
 }
 
 void adrv9002_cmos_default_set(void)
@@ -2821,6 +2821,6 @@ void adrv9002_cmos_default_set(void)
 	 * If we are here, it means that we are on a cmos bitfile and we should
 	 * use the cmos default profile
 	 */
-	adrv9002_init = &adrv9002_init_cmos;
+	adrv9002_profile = &adrv9002_init_cmos;
 }
 
