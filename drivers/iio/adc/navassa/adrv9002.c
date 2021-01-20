@@ -2592,18 +2592,6 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 	       sizeof(phy->adrv9001->devStateInfo));
 }
 
-int adrv9002_clean_setup(struct adrv9002_rf_phy *phy)
-{
-	int ret;
-
-	mutex_lock(&phy->lock);
-	adrv9002_cleanup(phy);
-	ret = adrv9002_setup(phy);
-	mutex_unlock(&phy->lock);
-
-	return ret;
-}
-
 #define ADRV9002_OF_U32_GET_VALIDATE(dev, node, key, def, min, max,	\
 				     val, mandatory) ({			\
 	u32 tmp;							\
@@ -3132,7 +3120,7 @@ of_channels_put:
 	return ret;
 }
 
-static int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
+int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
 	int ret;
 
