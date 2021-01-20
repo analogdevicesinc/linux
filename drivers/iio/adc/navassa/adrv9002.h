@@ -174,7 +174,7 @@ struct adrv9002_rf_phy {
 #endif
 };
 
-int adrv9002_clean_setup(struct adrv9002_rf_phy *phy);
+int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile);
 int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line);
 #define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
 
