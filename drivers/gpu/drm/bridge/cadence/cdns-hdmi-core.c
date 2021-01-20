@@ -37,17 +37,15 @@ static struct device_attribute HDCPTX_do_reauth = __ATTR_WO(HDCPTX_do_reauth);
 static ssize_t HDCPTX_do_reauth_store(struct device *dev,
 			struct device_attribute *attr, const char *buf, size_t count)
 {
-    int value, ret;
+    int ret;
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
 
 	ret = cdns_mhdp_hdcp_tx_reauth(mhdp, 1);
-
-	sscanf(buf, "%d", &value);
-
     if (ret < 0) {
 		dev_err(dev, "%s cdns_mhdp_hdcp_tx_reauth failed\n", __func__);
 		return -1;
 	}
+
 	return count;
 }
 
