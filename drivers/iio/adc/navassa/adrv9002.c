@@ -163,8 +163,8 @@ int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, 
 
 #define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
 
-void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
-				u8 *ssi_intf, u8 *n_lanes, bool *cmos_ddr_en)
+static void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
+				       u8 *n_lanes, bool *cmos_ddr_en)
 {
 	/*
 	 * Using the RX profile since with TX, we can have, for example, TX1 disabled
@@ -178,7 +178,6 @@ void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
 	 * and, obviously, the same interface type
 	 */
 	rx_cfg = &phy->curr_profile->rx.rxChannelCfg[chann].profile;
-	*ssi_intf = rx_cfg->rxSsiConfig.ssiType;
 	*n_lanes = rx_cfg->rxSsiConfig.numLaneSel;
 	*cmos_ddr_en = rx_cfg->rxSsiConfig.cmosDdrEn;
 }
@@ -186,7 +185,7 @@ void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
 static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 {
 	bool cmos_ddr;
-	u8 n_lanes, ssi_intf;
+	u8 n_lanes;
 	int c, ret;
 	unsigned long rate;
 
@@ -206,8 +205,8 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		adrv9002_axi_interface_enable(phy, c, false);
 		adrv9002_sync_gpio_toogle(phy);
 
-		adrv9002_get_ssi_interface(phy, c, &ssi_intf, &n_lanes, &cmos_ddr);
-		ret = adrv9002_axi_interface_set(phy, n_lanes, ssi_intf, cmos_ddr, c);
+		adrv9002_get_ssi_interface(phy, c, &n_lanes, &cmos_ddr);
+		ret = adrv9002_axi_interface_set(phy, n_lanes, cmos_ddr, c);
 		if (ret)
 			return ret;
 
@@ -2089,6 +2088,10 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		if (phy->rx2tx2 && i && rx_cfg[i].profile.rxOutputRate_Hz != rx0_rate) {
 			dev_err(&phy->spi->dev, "In rx2tx2 mode, all ports must have the same rate\n");
 			return -EINVAL;
+		} else if (phy->ssi_type != rx_cfg[i].profile.rxSsiConfig.ssiType) {
+			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, RX%d=%d\n",
+				phy->ssi_type, i + 1, rx_cfg[i].profile.rxSsiConfig.ssiType);
+			return -EINVAL;
 		}
 
 		dev_dbg(&phy->spi->dev, "RX%d enabled\n", i + 1);
@@ -2108,6 +2111,10 @@ tx:
 		} else if (tx_cfg[i].txInputRate_Hz != rx->rate) {
 			dev_err(&phy->spi->dev, "TX%d rate=%u must be equal to RX%d, rate=%ld\n",
 				i + 1, tx_cfg[i].txInputRate_Hz, i + 1, rx->rate);
+			return -EINVAL;
+		} else if (phy->ssi_type != tx_cfg[i].txSsiConfig.ssiType) {
+			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, TX%d=%d\n",
+				phy->ssi_type, i + 1,  tx_cfg[i].txSsiConfig.ssiType);
 			return -EINVAL;
 		}
 
