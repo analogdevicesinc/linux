@@ -150,7 +150,6 @@ ssize_t HDCPTX_Status_store(struct device *dev,
     else
 		dev_err(dev, "%s &hdp->state invalid\n", __func__);
 		return -1;
-    return count;
 }
 
 static void hdmi_sink_config(struct cdns_mhdp_device *mhdp)
