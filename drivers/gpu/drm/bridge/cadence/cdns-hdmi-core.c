@@ -59,9 +59,12 @@ static ssize_t HDCPTX_Version_store(struct device *dev,
 			struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	int value;
+	int value, ret;
 
-	sscanf(buf, "%d", &value);
+	ret = sscanf(buf, "%d", &value);
+	if (ret != 1)
+		return -EINVAL;
+
 	if (value == 2)
 		mhdp->hdcp.config = 2;
 	else if (value == 1)
