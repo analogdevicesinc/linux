@@ -65,7 +65,7 @@ M: Li Yang <leoyang.li@nxp.com>
 
 adc
 M: Haibo Chen <haibo.chen@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: drivers/iio/adc/
 
 arch/core
@@ -225,7 +225,7 @@ F: include/linux/pwm_backlight.h
 can
 M: Joakim Zhang <qiangqing.zhang@nxp.com>
 M: Pankaj Bansal <pankaj.bansal@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
 F: Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
 F: drivers/net/can/
 
@@ -305,7 +305,7 @@ F: drivers/staging/media/imx/imx8-parallel-csi.c
 clock/imx
 M: Abel Vesa <abel.vesa@nxp.com>
 M: Andy Tang <andy.tang@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/clock/fsl,imx-blk-ctrl.yaml
 F: Documentation/devicetree/bindings/clock/imx*
 F: drivers/clk/imx/
@@ -314,14 +314,14 @@ F: include/dt-bindings/clock/imx*
 clock/qoriq
 M: Abel Vesa <abel.vesa@nxp.com>
 M: Andy Tang <andy.tang@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/clock/qoriq-clock.txt
 F: drivers/clk/clk-qoriq.c
 
 clock/s32
 M: Abel Vesa <abel.vesa@nxp.com>
 M: Andy Tang <andy.tang@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/clock/s32v234-mc_cgm.txt
 F: Documentation/devicetree/bindings/clock/s32v234-mc_me.txt
 F: drivers/clk/s32/
@@ -655,7 +655,7 @@ F: include/linux/firmware/imx/
 
 flextimer
 M: Biwen Li <biwen.li@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
 F: Documentation/devicetree/bindings/counter/ftm-quaddec.txt
 F: Documentation/devicetree/bindings/pwm/pwm-fsl-ftm.txt
 F: Documentation/devicetree/bindings/rtc/rtc-fsl-ftm-alarm.txt
@@ -947,7 +947,7 @@ F: include/linux/phy/
 
 pinctrl
 M: Aisheng Dong <aisheng.dong@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/pinctrl/
 F: drivers/pinctrl/
 F: include/dt-bindings/pinctrl/
@@ -1011,7 +1011,7 @@ F: include/linux/pmic_status.h
 
 reset
 M: Anson Huang <Anson.Huang@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/reset/
 F: drivers/reset/
 F: include/dt-bindings/reset/
@@ -1023,7 +1023,7 @@ F: drivers/rpmsg/
 F: include/linux/imx_rpmsg.h
 
 rtc
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 M: Biwen Li <biwen.li@nxp.com>
 M: Anson Huang <anson.huang@nxp.com>
 F: drivers/rtc/
@@ -1068,35 +1068,35 @@ F: drivers/iommu/
 spi/cspi
 M: Ashish Kumar <ashish.kumar@nxp.com>
 M: Han Xu <han.xu@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: drivers/spi/spi-imx.c
 
 spi/dspi
 M: Ashish Kumar <ashish.kumar@nxp.com>
 M: Han Xu <han.xu@nxp.com>
 M: Xiaowei Bao <xiaowei.bao@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/spi/spi-fsl-dspi.txt
 F: drivers/spi/spi-fsl-dspi.c
 
 spi/fspi
 M: Ashish Kumar <ashish.kumar@nxp.com>
 M: Han Xu <han.xu@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/spi/spi-nxp-fspi.txt
 F: drivers/spi/spi-nxp-fspi.c
 
 spi/lpspi
 M: Ashish Kumar <ashish.kumar@nxp.com>
 M: Han Xu <han.xu@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/spi/spi-fsl-lpspi.yaml
 F: drivers/spi/spi-fsl-lpspi.c
 
 spi/qspi
 M: Ashish Kumar <ashish.kumar@nxp.com>
 M: Han Xu <han.xu@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/spi/spi-fsl-qspi.txt
 F: drivers/spi/spi-fsl-qspi.c
 F: drivers/mtd/spi-nor/spansion.c
@@ -1110,13 +1110,13 @@ F: include/linux/device_cooling.h
 
 timer
 M: Anson Huang <Anson.Huang@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: drivers/clocksource/
 
 uart
 M: Sherry Sun <sherry.sun@nxp.com>
 M: Vabhav Sharma <vabhav.sharma@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/serial/fsl,s32-linflexuart.txt
 F: drivers/tty/serial/
 
@@ -1181,7 +1181,7 @@ F: include/uapi/linux/vfio.h
 wdog
 M: Anson Huang <Anson.Huang@nxp.com>
 M: Qiang Zhao <qiang.zhao@nxp.com>
-M: Stefan-gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: drivers/watchdog/
 
 wifi
