@@ -39,7 +39,11 @@
 		isi7 = &isi_7;
 		csi0 = &mipi_csi_0;
 		csi1 = &mipi_csi_1;
+		mu0 = &lsio_mu0;
 		mu1 = &lsio_mu1;
+		mu2 = &lsio_mu2;
+		mu3 = &lsio_mu3;
+		mu4 = &lsio_mu4;
 		can0 = &flexcan1;
 		can1 = &flexcan2;
 		can2 = &flexcan3;
