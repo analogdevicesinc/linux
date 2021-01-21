@@ -7,6 +7,10 @@
 #define fmc_i2c fmcp_hspc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices AD-FMCDAQ3-EBZ @Xilinx/vcu118";
+};
+
 /* daq3_vcu118: updated 2019_R2 */
 &axi_intc {
 	xlnx,kind-of-intr = <0xffff05f0>;
