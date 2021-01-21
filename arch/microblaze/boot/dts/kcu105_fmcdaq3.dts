@@ -7,6 +7,14 @@
 #define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices AD-FMCDAQ3-EBZ @Xilinx/kcu105";
+};
+
+&axi_intc {
+	xlnx,kind-of-intr = <0xffff05f0>;
+};
+
 &amba_pl {
 	rx_dma: rx-dmac@7c400000 {
 		#dma-cells = <1>;

@@ -4,6 +4,10 @@
 
 #define fmc_i2c fmc_lpc_iic
 
+/ {
+	model = "Analog Devices AD-FMCOMMS1-EBZ @Xilinx/kc705";
+};
+
 /* fmcomms2_vc707: updated 2019_R2 */
 &axi_intc {
 	xlnx,kind-of-intr = <0xffffc5d0>;
