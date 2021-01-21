@@ -17,6 +17,10 @@
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices AD6676EVB @Xilinx/vc707";
+};
+
 /* ad6676evb_vc707: updated 2019_R2 */
 &axi_intc {
 	xlnx,kind-of-intr = <0xffffc5d0>;
