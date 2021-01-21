@@ -4,6 +4,10 @@
 
 #define fmc_i2c fmc1_hpc_iic
 
+/ {
+	model = "Analog Devices AD-FMCOMMS1-EBZ @Xilinx/vc707";
+};
+
 &amba_pl {
 	axi_ad9122: cf-ad9122-core-lpc@74204000 {
 		compatible = "adi,axi-ad9122-6.00.a";
