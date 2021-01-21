@@ -7,6 +7,10 @@
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices AD-FMCJESDADC1-EBZ @Xilinx/vc707";
+};
+
 /* fmcjesdadc1_vc707: updated 2019_R2 */
 &axi_intc {
 	xlnx,kind-of-intr = <0xffff85d0>;

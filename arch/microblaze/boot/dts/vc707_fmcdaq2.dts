@@ -7,6 +7,10 @@
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices AD-FMCDAQ2-EBZ @Xilinx/vc707";
+};
+
 &amba_pl {
 	rx_dma: rx-dmac@7c400000 {
 		#dma-cells = <1>;
