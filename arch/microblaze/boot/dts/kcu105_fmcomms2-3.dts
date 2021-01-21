@@ -5,6 +5,10 @@
 #define fmc_i2c fmc_lpc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices AD-FMCOMMS3-EBZ @Xilinx/kcu105";
+};
+
 /* fmcomms2_kcu105: updated 2019_R2 */
 &axi_intc {
 	xlnx,kind-of-intr = <0xffffc5f0>;
