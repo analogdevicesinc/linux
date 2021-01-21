@@ -16,6 +16,10 @@
 #define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
 
+/ {
+	model = "Analog Devices ADRV9371-W/PCBZ @Xilinx/kcu105";
+};
+
 /* adrv9371x_kcu105: updated 2019_R2 */
 &axi_intc {
 	xlnx,kind-of-intr = <0xffff0470>;
