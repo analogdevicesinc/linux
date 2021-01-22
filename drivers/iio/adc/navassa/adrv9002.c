@@ -199,8 +199,6 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		if (!rx->channel.enabled)
 			continue;
 
-		/* the SSI settings should be done with the core in reset */
-		adrv9002_axi_interface_enable(phy, c, false);
 		adrv9002_sync_gpio_toogle(phy);
 
 		adrv9002_get_ssi_interface(phy, c, &ssi_intf, &n_lanes, &cmos_ddr);
@@ -210,7 +208,6 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 
 		rate = adrv9002_axi_dds_rate_get(phy, c) * rx_cfg[c].profile.rxOutputRate_Hz;
 		clk_set_rate(rx->tdd_clk, rate);
-		adrv9002_axi_interface_enable(phy, c, true);
 
 		if (phy->rx2tx2)
 			break;
@@ -3135,9 +3132,17 @@ of_channels_put:
 
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
-	int ret;
+	int ret, c;
 
 	adrv9002_cleanup(phy);
+	/*
+	 * Disable all the cores as it might interfere with init calibrations.
+	 */
+	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
+		adrv9002_axi_interface_enable(phy, c, false);
+		if (phy->rx2tx2)
+			break;
+	}
 
 	phy->curr_profile = profile;
 	ret = adrv9002_setup(phy);
@@ -3155,6 +3160,16 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 	ret = adrv9002_ssi_configure(phy);
 	if (ret)
 		return ret;
+
+	/* re-enable the cores */
+	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
+		if (!phy->rx_channels[c].channel.enabled)
+			continue;
+
+		adrv9002_axi_interface_enable(phy, c, true);
+		if (phy->rx2tx2)
+			break;
+	}
 
 	return adrv9002_intf_tuning(phy);
 }
