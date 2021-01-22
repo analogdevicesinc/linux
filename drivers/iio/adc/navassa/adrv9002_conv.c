@@ -335,12 +335,7 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 	conv->clk = phy->clks[RX1_SAMPL_CLK];
 	conv->adc_clk = clk_get_rate(conv->clk);
 
-	ret = adrv9002_ssi_configure(phy);
-	if (ret)
-		return ret;
-
-	/* start interface tuning */
-	return adrv9002_intf_tuning(phy);
+	return 0;
 }
 
 #ifdef DEBUG
