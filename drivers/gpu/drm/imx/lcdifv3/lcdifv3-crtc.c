@@ -202,7 +202,7 @@ static enum drm_mode_status lcdifv3_crtc_mode_valid(struct drm_crtc * crtc,
 {
 	u8 vic;
 	long rate;
-	const struct drm_display_mode *dmt;
+	struct drm_display_mode *dmt, copy;
 	struct lcdifv3_crtc *lcdifv3_crtc = to_lcdifv3_crtc(crtc);
 	struct lcdifv3_soc *lcdifv3 = dev_get_drvdata(lcdifv3_crtc->dev->parent);
 
@@ -214,8 +214,13 @@ static enum drm_mode_status lcdifv3_crtc_mode_valid(struct drm_crtc * crtc,
 	/* check DMT mode */
 	dmt = drm_mode_find_dmt(crtc->dev, mode->hdisplay, mode->vdisplay,
 				drm_mode_vrefresh(mode), false);
-	if (dmt && drm_mode_equal(mode, dmt))
-		goto check_pix_clk;
+	if (dmt) {
+		drm_mode_copy(&copy, dmt);
+		drm_mode_destroy(crtc->dev, dmt);
+
+		if (drm_mode_equal(mode, &copy))
+			goto check_pix_clk;
+	}
 
 	return MODE_OK;
 
