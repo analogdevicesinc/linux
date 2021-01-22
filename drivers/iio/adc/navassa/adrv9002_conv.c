@@ -633,19 +633,6 @@ struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi)
 	return conv->phy;
 }
 
-adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	u32 axi_config = 0;
-
-	axi_config = axiadc_read(st, ADI_REG_CONFIG);
-	if (IS_CMOS(axi_config))
-		return ADI_ADRV9001_SSI_TYPE_CMOS;
-	else
-		return ADI_ADRV9001_SSI_TYPE_LVDS;
-}
-
 int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 						    const adi_adrv9001_SsiTestModeData_e data)
 {
@@ -732,11 +719,6 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 }
 
 void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en)
-{
-	return -ENODEV;
-}
-
-adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy)
 {
 	return -ENODEV;
 }
