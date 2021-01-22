@@ -2415,16 +2415,16 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 	else
 		init_state = ADI_ADRV9001_CHANNEL_RF_ENABLED;
 
+	adi_common_ErrorClear(&phy->adrv9001->common);
+	ret = adi_adrv9001_HwOpen(adrv9001_device, adrv9002_spi_settings_get());
+	if (ret)
+		return adrv9002_dev_err(phy);
+
 	ret = adrv9002_validate_profile(phy);
 	if (ret)
 		return ret;
 
 	adrv9002_compute_init_cals(phy);
-
-	adi_common_ErrorClear(&phy->adrv9001->common);
-	ret = adi_adrv9001_HwOpen(adrv9001_device, adrv9002_spi_settings_get());
-	if (ret)
-		return adrv9002_dev_err(phy);
 
 	adrv9002_log_enable(&adrv9001_device->common);
 
@@ -3380,8 +3380,10 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 	if (ret) {
 		/* try one more time */
 		ret = adrv9002_setup(phy);
-		if (ret)
+		if (ret) {
+			adrv9002_cleanup(phy);
 			return ret;
+		}
 	}
 
 	adrv9002_set_clk_rates(phy);
