@@ -181,7 +181,7 @@ static int adrv9002_rx_agc_config_show(struct seq_file *s, void *ignored)
 	adrv9002_agc_seq_printf(peak.hbGainStepHighRecovery);
 	adrv9002_agc_seq_printf(peak.hbGainStepLowRecovery);
 	adrv9002_agc_seq_printf(peak.hbGainStepMidRecovery);
-	adrv9002_agc_seq_printf(peak.hbGainStepMidRecovery);
+	adrv9002_agc_seq_printf(peak.hbGainStepAttack);
 	adrv9002_agc_seq_printf(peak.hbOverloadPowerMode);
 	adrv9002_agc_seq_printf(peak.hbUnderRangeMidThreshExceededCount);
 	adrv9002_agc_seq_printf(peak.hbUnderRangeLowThreshExceededCount);
@@ -298,7 +298,7 @@ void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dent
 	adrv9002_agc_add_file_u8(peak.hbGainStepHighRecovery);
 	adrv9002_agc_add_file_u8(peak.hbGainStepLowRecovery);
 	adrv9002_agc_add_file_u8(peak.hbGainStepMidRecovery);
-	adrv9002_agc_add_file_u8(peak.hbGainStepMidRecovery);
+	adrv9002_agc_add_file_u8(peak.hbGainStepAttack);
 	adrv9002_agc_add_file_u8(peak.hbOverloadPowerMode);
 	adrv9002_agc_add_file_u8(peak.hbUnderRangeMidThreshExceededCount);
 	adrv9002_agc_add_file_u8(peak.hbUnderRangeLowThreshExceededCount);
