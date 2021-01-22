@@ -2466,7 +2466,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 }
 
 int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
-			       u8 data_delay, const bool tx, const adi_adrv9001_SsiType_e ssi_type)
+			       u8 data_delay, const bool tx)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
 	int ret;
@@ -2498,19 +2498,18 @@ int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u
 		}
 	}
 
-	ret = adi_adrv9001_Ssi_Delay_Configure(phy->adrv9001, ssi_type, &delays);
+	ret = adi_adrv9001_Ssi_Delay_Configure(phy->adrv9001, phy->ssi_type, &delays);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
 	return 0;
 }
 
-int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann,
-				   const adi_adrv9001_SsiType_e ssi_type)
+int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
 {
 	int ret;
 	struct adrv9002_chan *chan = &phy->tx_channels[chann].channel;
-	adi_adrv9001_SsiTestModeData_e test_data = ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
+	adi_adrv9001_SsiTestModeData_e test_data = phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
 						ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE :
 						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
 	struct adi_adrv9001_TxSsiTestModeCfg cfg = {0};
@@ -2518,7 +2517,7 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann,
 
 	cfg.testData = test_data;
 
-	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number, ssi_type,
+	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number, phy->ssi_type,
 							  ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							  &cfg, &status);
 	if (ret)
@@ -2539,7 +2538,7 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann,
 		return 0;
 
 	memset(&status, 0, sizeof(status));
-	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number, ssi_type,
+	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number, phy->ssi_type,
 							  ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							  &cfg, &status);
 	if (ret)
@@ -2555,23 +2554,23 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann,
 }
 
 int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
-			   const bool stop, const adi_adrv9001_SsiType_e ssi_type)
+			   const bool stop)
 {
 	int ret;
 	struct adrv9002_chan *chan;
-	adi_adrv9001_SsiTestModeData_e test_data = ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
+	adi_adrv9001_SsiTestModeData_e test_data = phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
 						ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE :
 						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
 
-	dev_dbg(&phy->spi->dev, "cfg test stop:%u, ssi:%d, c:%d, tx:%d\n", stop, ssi_type, chann,
-		tx);
+	dev_dbg(&phy->spi->dev, "cfg test stop:%u, ssi:%d, c:%d, tx:%d\n", stop,
+		phy->ssi_type, chann, tx);
 
 	if (tx) {
 		struct adi_adrv9001_TxSsiTestModeCfg cfg = {0};
 		chan = &phy->tx_channels[chann].channel;
 
 		cfg.testData = stop ? ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL : test_data;
-		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number, ssi_type,
+		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
 							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							     &cfg);
 		if (ret)
@@ -2584,7 +2583,7 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		if (!chan->enabled)
 			return 0;
 
-		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number, ssi_type,
+		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
 							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							     &cfg);
 		if (ret)
@@ -2595,7 +2594,7 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		chan = &phy->rx_channels[chann].channel;
 
 		cfg.testData = stop ? ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL : test_data;
-		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number, ssi_type,
+		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
 							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							     &cfg);
 		if (ret)
@@ -2609,7 +2608,7 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		if (!chan->enabled)
 			return 0;
 
-		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number, ssi_type,
+		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
 							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							     &cfg);
 		if (ret)
@@ -2624,7 +2623,6 @@ static int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
 	int ret;
 	u8 clk_delay, data_delay;
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
@@ -2656,7 +2654,7 @@ static int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
 			}
 		}
 
-		ret = adrv9002_axi_intf_tune(phy, c->port == ADI_TX, c->idx, ssi_type, &clk_delay,
+		ret = adrv9002_axi_intf_tune(phy, c->port == ADI_TX, c->idx, &clk_delay,
 					     &data_delay);
 		if (ret)
 			return ret;
@@ -2678,7 +2676,7 @@ static int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
 		}
 	}
 
-	ret = adi_adrv9001_Ssi_Delay_Configure(phy->adrv9001, ssi_type, &delays);
+	ret = adi_adrv9001_Ssi_Delay_Configure(phy->adrv9001, phy->ssi_type, &delays);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
@@ -3614,7 +3612,11 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->adrv9001->common.devHalInfo = &phy->hal;
 	/* get the default profile now as it might be needed in @adrv9002_parse_dt() */
 	phy->curr_profile = adrv9002_init_get();
-
+	/*
+	 * Default to lvds. Will change if the axi core is CMOS based. We know
+	 * that at the post_setup() hook.
+	 */
+	phy->ssi_type = ADI_ADRV9001_SSI_TYPE_LVDS;
 	/* initialize channel numbers and ports here since these will never change */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
 		phy->rx_channels[c].channel.idx = c;

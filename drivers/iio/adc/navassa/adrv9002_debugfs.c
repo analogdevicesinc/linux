@@ -515,8 +515,7 @@ static int adrv9002_rx_ssi_test_mode_fixed_pattern_set(void *arg, const u64 val)
 {
 	struct adrv9002_rx_chan	*rx = arg;
 	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
-	int val_max = ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ? 0xf : U16_MAX;
+	int val_max = phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ? 0xf : U16_MAX;
 	int __val;
 
 	__val = clamp_val(val, 0, val_max);
@@ -534,14 +533,14 @@ static int adrv9002_ssi_rx_test_mode_set(void *arg, const u64 val)
 {
 	struct adrv9002_rx_chan	*rx = arg;
 	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int ret;
 
 	if (!rx->channel.enabled)
 		return -ENODEV;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, rx->channel.number, ssi_type,
+	ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, rx->channel.number,
+						     phy->ssi_type,
 						     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 						     &rx->ssi_test);
 	mutex_unlock(&phy->lock);
@@ -639,7 +638,6 @@ static int adrv9002_tx_ssi_test_mode_loopback_set(void *arg, const u64 val)
 {
 	struct adrv9002_tx_chan	*tx = arg;
 	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	bool enable = !!val;
 	int ret;
 
@@ -648,7 +646,8 @@ static int adrv9002_tx_ssi_test_mode_loopback_set(void *arg, const u64 val)
 
 	tx->loopback = enable;
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_Ssi_Loopback_Set(phy->adrv9001, tx->channel.number, ssi_type, enable);
+	ret = adi_adrv9001_Ssi_Loopback_Set(phy->adrv9001, tx->channel.number, phy->ssi_type,
+					    enable);
 	mutex_unlock(&phy->lock);
 	if (ret)
 		return adrv9002_dev_err(phy);
@@ -665,7 +664,6 @@ static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 {
 	struct adrv9002_tx_chan	*tx = arg;
 	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int ret;
 
 	if (!tx->channel.enabled)
@@ -677,7 +675,7 @@ static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 		goto unlock;
 
 	ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, tx->channel.number,
-						     ssi_type,
+						     phy->ssi_type,
 						     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 						     &tx->ssi_test);
 	if (ret)
@@ -695,7 +693,6 @@ static int adrv9002_ssi_tx_test_mode_status_show(struct seq_file *s,
 {
 	struct adrv9002_tx_chan	*tx = s->private;
 	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	adi_adrv9001_TxSsiTestModeStatus_t ssi_status = {0};
 	int ret;
 
@@ -705,7 +702,7 @@ static int adrv9002_ssi_tx_test_mode_status_show(struct seq_file *s,
 	mutex_lock(&phy->lock);
 	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001,
 							  tx->channel.number,
-							  ssi_type,
+							  phy->ssi_type,
 							  ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							  &tx->ssi_test,
 							  &ssi_status);
@@ -727,10 +724,9 @@ static int adrv9002_ssi_delays_show(struct seq_file *s, void *ignored)
 	struct adrv9002_rf_phy *phy = s->private;
 	int ret, i;
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_Ssi_Delay_Inspect(phy->adrv9001, ssi_type, &delays);
+	ret = adi_adrv9001_Ssi_Delay_Inspect(phy->adrv9001, phy->ssi_type, &delays);
 	mutex_unlock(&phy->lock);
 	if (ret)
 		return adrv9002_dev_err(phy);
@@ -756,10 +752,9 @@ static ssize_t adrv9002_ssi_delays_write(struct file *file, const char __user *u
 	struct seq_file *s = file->private_data;
 	struct adrv9002_rf_phy *phy = s->private;
 	int ret;
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_Ssi_Delay_Configure(phy->adrv9001, ssi_type, &phy->ssi_delays);
+	ret = adi_adrv9001_Ssi_Delay_Configure(phy->adrv9001, phy->ssi_type, &phy->ssi_delays);
 	mutex_unlock(&phy->lock);
 	if (ret)
 		return adrv9002_dev_err(phy);
@@ -854,12 +849,11 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 {
 	int chan;
 	char attr[64];
-	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 
 	if (!d)
 		return;
 
-	if (ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS) {
+	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS) {
 		rx_ssi_avail_mask = ADRV9002_RX_SSI_TEST_DATA_CMOS_MASK;
 		tx_ssi_avail_mask = ADRV9002_TX_SSI_TEST_DATA_CMOS_MASK;
 	} else {
