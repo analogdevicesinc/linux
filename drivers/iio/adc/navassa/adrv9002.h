@@ -171,6 +171,8 @@ struct adrv9002_rf_phy {
 	int				spi_device_id;
 	int				ngpios;
 	u8				rx2tx2;
+	/* ssi type of the axi cores - cannot really change at runtime */
+	enum adi_adrv9001_SsiType	ssi_type;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_SsiCalibrationCfg ssi_delays;
 #endif
@@ -196,7 +198,7 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const int channel);
 struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi);
 int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
-			   const adi_adrv9001_SsiType_e ssi_type, u8 *clk_delay, u8 *data_delay);
+			   u8 *clk_delay, u8 *data_delay);
 void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en);
 int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 						    const adi_adrv9001_SsiTestModeData_e data);
@@ -207,12 +209,10 @@ void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int channel,
 int adrv9002_post_init(struct adrv9002_rf_phy *phy);
 void adrv9002_cmos_default_set(void);
 int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
-			   const bool stop, const adi_adrv9001_SsiType_e ssi_type);
-int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann,
-				   const adi_adrv9001_SsiType_e ssi_type);
+			   const bool stop);
+int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann);
 int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
-			       u8 data_delay, const bool tx,
-			       const adi_adrv9001_SsiType_e ssi_type);
+			       u8 data_delay, const bool tx);
 adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy);
 u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan);
 /* get init structs */
