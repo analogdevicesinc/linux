@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <drm/drm_atomic.h>
+#include <drm/drm_edid.h>
 #include <drm/drm_vblank.h>
 #include <drm/drm_atomic_helper.h>
 #include <video/imx-lcdif.h>
@@ -204,12 +205,49 @@ static void lcdif_crtc_atomic_disable(struct drm_crtc *crtc,
 	pm_runtime_put(lcdif_crtc->dev->parent);
 }
 
+static enum drm_mode_status lcdif_crtc_mode_valid(struct drm_crtc *crtc,
+						  const struct drm_display_mode *mode)
+{
+	u8 vic;
+	long rate;
+	struct drm_display_mode *dmt, copy;
+	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
+	struct lcdif_soc *lcdif = dev_get_drvdata(lcdif_crtc->dev->parent);
+
+	/* check CEA-861 mode */
+	vic = drm_match_cea_mode(mode);
+	if (vic)
+		goto check_pix_clk;
+
+       /* check DMT mode */
+	dmt = drm_mode_find_dmt(crtc->dev, mode->hdisplay, mode->vdisplay,
+				drm_mode_vrefresh(mode), false);
+	if (dmt) {
+		drm_mode_copy(&copy, dmt);
+		drm_mode_destroy(crtc->dev, dmt);
+
+		if (drm_mode_equal(mode, &copy))
+			goto check_pix_clk;
+	}
+
+	return MODE_OK;
+
+check_pix_clk:
+	rate = lcdif_pix_clk_round_rate(lcdif, mode->clock * 1000);
+
+	if (rate <= 0 || rate != mode->clock * 1000)
+		return MODE_BAD;
+
+	return MODE_OK;
+}
+
 static const struct drm_crtc_helper_funcs lcdif_helper_funcs = {
 	.atomic_check	= lcdif_crtc_atomic_check,
 	.atomic_begin	= lcdif_crtc_atomic_begin,
 	.atomic_flush	= lcdif_crtc_atomic_flush,
 	.atomic_enable	= lcdif_crtc_atomic_enable,
 	.atomic_disable	= lcdif_crtc_atomic_disable,
+	.mode_valid     = lcdif_crtc_mode_valid,
 };
 
 static int lcdif_enable_vblank(struct drm_crtc *crtc)

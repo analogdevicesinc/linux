@@ -38,5 +38,7 @@ void lcdif_set_fb_hcrop(struct lcdif_soc *lcdif, u32 src_w,
 void lcdif_enable_controller(struct lcdif_soc *lcdif);
 void lcdif_disable_controller(struct lcdif_soc *lcdif);
 void lcdif_dump_registers(struct lcdif_soc *lcdif);
+long lcdif_pix_clk_round_rate(struct lcdif_soc *lcdif,
+			      unsigned long rate);
 
 #endif
