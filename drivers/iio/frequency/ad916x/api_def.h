@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #ifndef __API_DEF_H__
 #define __API_DEF_H__
 #include <linux/kernel.h>
