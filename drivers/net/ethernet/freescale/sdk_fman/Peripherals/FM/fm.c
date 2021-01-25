@@ -156,7 +156,7 @@ static t_Error CheckFmParameters(t_Fm *p_Fm)
     if (!p_Fm->p_FmStateStruct->totalFifoSize ||
         (p_Fm->p_FmStateStruct->totalFifoSize > BMI_MAX_FIFO_SIZE))
         RETURN_ERROR(MAJOR, E_INVALID_VALUE,
-                     ("totalFifoSize (currently defined as %d) has to be in the range of 256 to %d",
+                     ("totalFifoSize (currently defined as %d) has to be in the range of 256 to %lu",
                       p_Fm->p_FmStateStruct->totalFifoSize,
                       BMI_MAX_FIFO_SIZE));
     if (!p_Fm->p_FmStateStruct->totalNumOfTasks ||
