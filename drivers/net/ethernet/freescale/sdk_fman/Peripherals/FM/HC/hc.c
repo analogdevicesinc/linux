@@ -216,7 +216,7 @@ static __inline__ t_Error EnQFrm(t_FmHc *p_FmHc, t_DpaaFD *p_FmFd, uint32_t seqN
     ASSERT_COND(!p_FmHc->enqueued[seqNum]);
     p_FmHc->enqueued[seqNum] = TRUE;
     FmPcdUnlock(p_FmHc->h_FmPcd, intFlags);
-    DBG(TRACE, ("Send Hc, SeqNum %d, buff@0x%x, fd offset 0x%x",
+    DBG(TRACE, ("Send Hc, SeqNum %d, buff@0x%p, fd offset 0x%x",
                 seqNum,
                 DPAA_FD_GET_ADDR(p_FmFd),
                 DPAA_FD_GET_OFFSET(p_FmFd)));
@@ -362,7 +362,7 @@ void FmHcTxConf(t_Handle h_FmHc, t_DpaaFD *p_Fd)
     intFlags = FmPcdLock(p_FmHc->h_FmPcd);
     p_HcFrame  = (t_HcFrame *)PTR_MOVE(DPAA_FD_GET_ADDR(p_Fd), DPAA_FD_GET_OFFSET(p_Fd));
 
-    DBG(TRACE, ("Hc Conf, SeqNum %d, FD@0x%x, fd offset 0x%x",
+    DBG(TRACE, ("Hc Conf, SeqNum %d, FD@0x%p, fd offset 0x%x",
                 p_HcFrame->commandSequence, DPAA_FD_GET_ADDR(p_Fd), DPAA_FD_GET_OFFSET(p_Fd)));
 
     if (!(p_FmHc->enqueued[p_HcFrame->commandSequence]))
