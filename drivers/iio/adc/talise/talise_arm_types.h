@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_arm_types.h
  * \brief Contains Talise ARM data types

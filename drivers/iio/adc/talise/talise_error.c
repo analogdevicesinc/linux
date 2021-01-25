@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_error.c
  * \brief Contains Talise API error information functions

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_arm_macros.h
  * \brief Contains Talise API miscellaneous macro definitions for ARM
