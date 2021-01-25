@@ -198,7 +198,7 @@ static const struct reg_sequence adf4371_reg_defaults[] = {
 	{ ADF4371_REG(0x22), 0x00 },
 	{ ADF4371_REG(0x23), 0x00 },
 	{ ADF4371_REG(0x24), 0x80 },
-	{ ADF4371_REG(0x25), 0x07 },
+	{ ADF4371_REG(0x25), 0x03 },
 	{ ADF4371_REG(0x27), 0xC5 },
 	{ ADF4371_REG(0x28), 0x83 },
 	{ ADF4371_REG(0x2C), 0x44 },
