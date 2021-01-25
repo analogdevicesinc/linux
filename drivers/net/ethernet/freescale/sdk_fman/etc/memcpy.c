@@ -564,7 +564,7 @@ void MemDisp(uint8_t *p, int size)
     {
         p_Limit = (p - space + 4);
 
-        XX_Print("0x%08X: ", (p - space));
+        XX_Print("0x%p: ", (p - space));
 
         while (space--)
         {
@@ -591,7 +591,7 @@ void MemDisp(uint8_t *p, int size)
 
     while (size > 15)
     {
-        XX_Print("0x%08X: %08x %08x %08x %08x\r\n",
+        XX_Print("0x%p: %08x %08x %08x %08x\r\n",
                  p, *(uint32_t *)p, *(uint32_t *)(p + 4),
                  *(uint32_t *)(p + 8), *(uint32_t *)(p + 12));
         size -= 16;
@@ -600,7 +600,7 @@ void MemDisp(uint8_t *p, int size)
 
     if (size)
     {
-        XX_Print("0x%08X: ", p);
+        XX_Print("0x%p: ", p);
 
         while (size > 3)
         {
