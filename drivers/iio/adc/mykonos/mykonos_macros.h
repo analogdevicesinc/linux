@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file mykonos_macros.h
  * \brief Contains address and miscellaneous macro definitions for Mykonos API

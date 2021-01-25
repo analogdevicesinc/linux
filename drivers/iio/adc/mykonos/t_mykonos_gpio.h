@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*!
  * \file t_mykonos_gpio.h
  * \brief Mykonos GPIO error handling and type defines
