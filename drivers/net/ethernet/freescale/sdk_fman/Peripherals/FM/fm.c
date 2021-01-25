@@ -4508,7 +4508,7 @@ t_Error FM_SetPortsBandwidth(t_Handle h_Fm, t_FmPortsBandwidthParams *p_PortsBan
     for (i=0; i < p_PortsBandwidth->numOfPorts; i++)
         sum +=p_PortsBandwidth->portsBandwidths[i].bandwidth;
     if (sum != 100)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Sum of ports bandwidth differ from 100%"));
+        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Sum of ports bandwidth differ from 100%%"));
 
     /* find highest percent */
     for (i=0; i < p_PortsBandwidth->numOfPorts; i++)
