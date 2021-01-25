@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #include "api_config.h"
 #include "api_errors.h"
 
