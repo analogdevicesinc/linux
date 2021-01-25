@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #ifndef __AD916x_REGISTERS_H__
 #define __AD916x_REGISTERS_H__
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /** \file */
 #ifndef __AD916XAPI_H__
 #define __AD916XAPI_H__
