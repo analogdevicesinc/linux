@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*!
  * \file t_mykonos.h
  * \brief Contains type definitions for Mykonos API

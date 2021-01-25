@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file mykonosMmap.c
  * \brief Contains the Mykonos memory mapping

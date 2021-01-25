@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file mykonos_version.h
  * \brief Contains the version number for the Mykonos API
