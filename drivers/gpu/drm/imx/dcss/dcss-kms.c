@@ -6,6 +6,7 @@
 #include <drm/bridge/cdns-mhdp.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_blend.h>
 #include <drm/drm_bridge_connector.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_fbdev_dma.h>
@@ -21,106 +22,29 @@
 
 DEFINE_DRM_GEM_DMA_FOPS(dcss_cma_fops);
 
-static void dcss_kms_setup_opipe_gamut(u32 colorspace,
-				       const struct drm_display_mode *mode,
-				       enum dcss_hdr10_gamut *g,
-				       enum dcss_hdr10_nonlinearity *nl)
+static int dcss_kms_atomic_check(struct drm_device *dev,
+				 struct drm_atomic_state *state)
 {
-	u8 vic;
+	int ret;
 
-	switch (colorspace) {
-	case DRM_MODE_COLORIMETRY_BT709_YCC:
-	case DRM_MODE_COLORIMETRY_XVYCC_709:
-		*g = G_REC709;
-		*nl = NL_REC709;
-		return;
-	case DRM_MODE_COLORIMETRY_SMPTE_170M_YCC:
-	case DRM_MODE_COLORIMETRY_XVYCC_601:
-	case DRM_MODE_COLORIMETRY_SYCC_601:
-	case DRM_MODE_COLORIMETRY_OPYCC_601:
-		*g = G_REC601_NTSC;
-		*nl = NL_REC709;
-		return;
-	case DRM_MODE_COLORIMETRY_BT2020_CYCC:
-	case DRM_MODE_COLORIMETRY_BT2020_RGB:
-	case DRM_MODE_COLORIMETRY_BT2020_YCC:
-		*g = G_REC2020;
-		*nl = NL_REC2084;
-		return;
-	case DRM_MODE_COLORIMETRY_OPRGB:
-		*g = G_REC709;
-		*nl = NL_SRGB;
-		return;
-	default:
-		break;
-	}
+	ret = drm_atomic_helper_check_modeset(dev, state);
+	if (ret)
+		return ret;
 
-	/*
-	 * If we reached this point, it means the default colorimetry is used.
-	 */
+	ret = drm_atomic_normalize_zpos(dev, state);
+	if (ret)
+		return ret;
 
-	/* non-CEA mode, sRGB is used */
-	vic = drm_match_cea_mode(mode);
-	if (vic == 0) {
-		*g = G_REC709;
-		*nl = NL_SRGB;
-		return;
-	}
+	ret = dcss_crtc_setup_opipe(dev, state);
+	if (ret)
+		return ret;
 
-	if (mode->vdisplay == 480 || mode->vdisplay == 576 ||
-	    mode->vdisplay == 240 || mode->vdisplay == 288) {
-		*g = G_REC601_NTSC;
-		*nl = NL_REC709;
-		return;
-	}
-
-	/* 2160p, 1080p, 720p */
-	*g = G_REC709;
-	*nl = NL_REC709;
-}
-
-void dcss_kms_setup_opipe(struct drm_connector_state *conn_state)
-{
-	struct drm_crtc *crtc = conn_state->crtc;
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
-	struct dcss_dev *dcss = dcss_crtc->base.dev->dev_private;
-	enum hdmi_quantization_range qr;
-
-	qr = drm_default_rgb_quant_range(&crtc->state->adjusted_mode);
-
-	dcss_kms_setup_opipe_gamut(conn_state->colorspace,
-				   &crtc->state->adjusted_mode,
-				   &dcss_crtc->opipe_g,
-				   &dcss_crtc->opipe_nl);
-
-	dcss_crtc->opipe_pr = qr == HDMI_QUANTIZATION_RANGE_FULL ? PR_FULL :
-								   PR_LIMITED;
-
-	dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_RGB;
-
-	if (dcss->hdmi_output) {
-		struct cdns_mhdp_device *mhdp_dev;
-		int mhdp_color_format;
-
-		mhdp_dev = container_of(conn_state->connector,
-					struct cdns_mhdp_device,
-					connector.base);
-
-		mhdp_color_format = mhdp_dev->video_info.color_fmt;
-
-		if (mhdp_color_format == YCBCR_4_2_2)
-			dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_YUV422;
-		else if (mhdp_color_format == YCBCR_4_2_0)
-			dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_YUV420;
-		else if (mhdp_color_format == YCBCR_4_4_4)
-			dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_YUV444;
-	}
+	return drm_atomic_helper_check_planes(dev, state);
 }
 
 static const struct drm_mode_config_funcs dcss_drm_mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
-	.atomic_check = drm_atomic_helper_check,
+	.atomic_check = dcss_kms_atomic_check,
 	.atomic_commit = drm_atomic_helper_commit,
 };
 

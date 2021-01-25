@@ -203,6 +203,66 @@ static bool dcss_plane_can_rotate(const struct drm_format_info *format,
 	return !!(rotation & supported_rotation);
 }
 
+static void dcss_plane_get_hdr10_pipe_cfg(struct drm_plane_state *plane_state,
+					  struct drm_crtc_state *crtc_state,
+					  struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+					  struct dcss_hdr10_pipe_cfg *opipe_cfg)
+{
+	struct dcss_crtc_state *dcss_crtc_state = to_dcss_crtc_state(crtc_state);
+	struct drm_framebuffer *fb = plane_state->fb;
+
+	opipe_cfg->is_yuv =
+			dcss_crtc_state->output_encoding != DCSS_PIPE_OUTPUT_RGB;
+	opipe_cfg->g = dcss_crtc_state->opipe_g;
+	opipe_cfg->nl = dcss_crtc_state->opipe_nl;
+	opipe_cfg->pr = dcss_crtc_state->opipe_pr;
+
+	ipipe_cfg->is_yuv = fb->format->is_yuv;
+
+	if (!fb->format->is_yuv) {
+		ipipe_cfg->pr = PR_FULL;
+		if (fb->format->depth == 30) {
+			ipipe_cfg->nl = NL_REC2084;
+			ipipe_cfg->g = G_REC2020;
+		} else {
+			ipipe_cfg->nl = NL_REC709;
+			ipipe_cfg->g = G_REC709;
+		}
+		return;
+	}
+
+	switch (plane_state->color_encoding) {
+	case DRM_COLOR_YCBCR_BT709:
+		ipipe_cfg->nl = NL_REC709;
+		ipipe_cfg->g = G_REC709;
+		break;
+	case DRM_COLOR_YCBCR_BT2020:
+		ipipe_cfg->nl = NL_REC2084;
+		ipipe_cfg->g = G_REC2020;
+		break;
+	default:
+		ipipe_cfg->nl = NL_REC709;
+		ipipe_cfg->g = G_REC709;
+		break;
+	}
+
+	ipipe_cfg->pr = plane_state->color_range;
+}
+
+static bool
+dcss_plane_hdr10_pipe_cfg_is_supported(struct drm_plane_state *plane_state,
+				       struct drm_crtc_state *crtc_state)
+{
+	struct dcss_dev *dcss = plane_state->plane->dev->dev_private;
+	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
+
+	dcss_plane_get_hdr10_pipe_cfg(plane_state, crtc_state,
+				      &ipipe_cfg, &opipe_cfg);
+
+	return dcss_hdr10_pipe_cfg_is_supported(dcss->hdr10,
+						&ipipe_cfg, &opipe_cfg);
+}
+
 static bool dcss_plane_is_source_size_allowed(u16 src_w, u16 src_h, u32 pix_fmt)
 {
 	if (src_w < 64 &&
@@ -278,6 +338,12 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 				   fb->modifier,
 				   new_plane_state->rotation)) {
 		DRM_DEBUG_KMS("requested rotation is not allowed!\n");
+		return -EINVAL;
+	}
+
+	if (!dcss_plane_hdr10_pipe_cfg_is_supported(new_plane_state,
+						    crtc_state)) {
+		DRM_DEBUG_KMS("requested hdr10 pipe cfg is not supported!\n");
 		return -EINVAL;
 	}
 
@@ -460,51 +526,12 @@ static void dcss_plane_setup_hdr10_pipes(struct drm_plane *plane)
 {
 	struct dcss_dev *dcss = plane->dev->dev_private;
 	struct dcss_plane *dcss_plane = to_dcss_plane(plane);
-	struct drm_plane_state *state = plane->state;
-	struct drm_crtc *crtc = state->crtc;
-	struct dcss_crtc *dcss_crtc = to_dcss_crtc(crtc);
-	struct drm_framebuffer *fb = state->fb;
 	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
 
-	opipe_cfg.is_yuv = dcss_crtc->output_encoding != DCSS_PIPE_OUTPUT_RGB;
-	opipe_cfg.g = dcss_crtc->opipe_g;
-	opipe_cfg.nl = dcss_crtc->opipe_nl;
-	opipe_cfg.pr = dcss_crtc->opipe_pr;
+	dcss_plane_get_hdr10_pipe_cfg(plane->state,
+				      plane->state->crtc->state,
+				      &ipipe_cfg, &opipe_cfg);
 
-	ipipe_cfg.is_yuv = fb->format->is_yuv;
-
-	if (!fb->format->is_yuv) {
-		ipipe_cfg.pr = PR_FULL;
-		if (fb->format->depth == 30) {
-			ipipe_cfg.nl = NL_REC2084;
-			ipipe_cfg.g = G_REC2020;
-		} else {
-			ipipe_cfg.nl = NL_REC709;
-			ipipe_cfg.g = G_REC709;
-		}
-		goto setup;
-	}
-
-	switch (state->color_encoding) {
-	case DRM_COLOR_YCBCR_BT709:
-		ipipe_cfg.nl = NL_REC709;
-		ipipe_cfg.g = G_REC709;
-		break;
-
-	case DRM_COLOR_YCBCR_BT2020:
-		ipipe_cfg.nl = NL_REC2084;
-		ipipe_cfg.g = G_REC2020;
-		break;
-
-	default:
-		ipipe_cfg.nl = NL_REC709;
-		ipipe_cfg.g = G_REC709;
-		break;
-	}
-
-	ipipe_cfg.pr = state->color_range;
-
-setup:
 	dcss_hdr10_setup(dcss->hdr10, dcss_plane->ch_num,
 			 &ipipe_cfg, &opipe_cfg);
 }

@@ -240,20 +240,31 @@ static int dcss_hdr10_id_compare(const void *a, const void *b)
 	return -1;
 }
 
+static struct dcss_pipe_cfg *dcss_hdr10_get_pipe_cfg(struct dcss_hdr10 *hdr10,
+						     u32 desc)
+{
+	struct dcss_pipe_cfg *res;
+
+	res = bsearch(&desc, dcss_cfg_table, ARRAY_SIZE(dcss_cfg_table),
+		      sizeof(dcss_cfg_table[0]), dcss_hdr10_id_compare);
+	if (!res)
+		dev_dbg(hdr10->dev,
+			"hdr10 cfg table doesn't support desc(0x08%x)\n", desc);
+
+	return res;
+}
+
 static int dcss_hdr10_get_tbls(struct dcss_hdr10 *hdr10, u32 desc,
 			       const u16 **ilut, const u32 **csca,
 			       const u32 **cscb, const u16 **olut,
 			       const u32 **csco)
 {
-	struct dcss_pipe_cfg *pipe_cfg = NULL;
+	struct dcss_pipe_cfg *pipe_cfg;
 
-	pipe_cfg = bsearch(&desc, dcss_cfg_table,
-			   ARRAY_SIZE(dcss_cfg_table),
-			   sizeof(dcss_cfg_table[0]), dcss_hdr10_id_compare);
-
+	pipe_cfg = dcss_hdr10_get_pipe_cfg(hdr10, desc);
 	if (!pipe_cfg) {
-		WARN_ON(1);
-		return -1;
+		dev_err(hdr10->dev, "failed to get hdr10 pipe configurations\n");
+		return -EINVAL;
 	}
 
 	dev_dbg(hdr10->dev, "found tbl_id = 0x%08x: (%d, %d, %d, %d, %d)",
@@ -351,6 +362,15 @@ static u64 dcss_hdr10_get_desc(struct dcss_hdr10_pipe_cfg *ipipe_cfg,
 	opipe_desc = dcss_hdr10_pipe_desc(opipe_cfg);
 
 	return (ipipe_desc & 0xFFFF) | ((opipe_desc & 0xFFFF) << 16);
+}
+
+bool dcss_hdr10_pipe_cfg_is_supported(struct dcss_hdr10 *hdr10,
+				      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+				      struct dcss_hdr10_pipe_cfg *opipe_cfg)
+{
+	u32 desc = dcss_hdr10_get_desc(ipipe_cfg, opipe_cfg);
+
+	return !!dcss_hdr10_get_pipe_cfg(hdr10, desc);
 }
 
 void dcss_hdr10_setup(struct dcss_hdr10 *hdr10, int ch_num,

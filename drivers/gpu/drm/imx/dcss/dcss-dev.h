@@ -281,6 +281,9 @@ struct dcss_hdr10_pipe_cfg {
 
 int dcss_hdr10_init(struct dcss_dev *dcss, unsigned long hdr10_base);
 void dcss_hdr10_exit(struct dcss_hdr10 *hdr10);
+bool dcss_hdr10_pipe_cfg_is_supported(struct dcss_hdr10 *hdr10,
+				      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+				      struct dcss_hdr10_pipe_cfg *opipe_cfg);
 void dcss_hdr10_setup(struct dcss_hdr10 *hdr10, int ch_num,
 		      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
 		      struct dcss_hdr10_pipe_cfg *opipe_cfg);

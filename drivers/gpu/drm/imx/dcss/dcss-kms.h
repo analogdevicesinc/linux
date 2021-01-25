@@ -8,8 +8,12 @@
 
 #include <linux/kernel.h>
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_device.h>
 #include <drm/drm_encoder.h>
+
+#include "dcss-dev.h"
 
 struct dcss_plane {
 	struct drm_plane base;
@@ -25,18 +29,17 @@ struct dcss_plane {
 
 struct dcss_crtc {
 	struct drm_crtc		base;
-	struct drm_crtc_state	*state;
-
 	struct dcss_plane	*plane[3];
-
 	int			irq;
+	bool			disable_ctxld_kick_irq;
+};
 
-	bool disable_ctxld_kick_irq;
-
-	enum dcss_pixel_pipe_output output_encoding;
-	enum dcss_hdr10_nonlinearity opipe_nl;
-	enum dcss_hdr10_gamut opipe_g;
-	enum dcss_hdr10_pixel_range opipe_pr;
+struct dcss_crtc_state {
+	struct drm_crtc_state		base;
+	enum dcss_pixel_pipe_output	output_encoding;
+	enum dcss_hdr10_nonlinearity	opipe_nl;
+	enum dcss_hdr10_gamut		opipe_g;
+	enum dcss_hdr10_pixel_range	opipe_pr;
 };
 
 struct dcss_kms_dev {
@@ -51,10 +54,17 @@ static inline struct dcss_crtc *to_dcss_crtc(struct drm_crtc *crtc)
 	return container_of(crtc, struct dcss_crtc, base);
 }
 
+static inline struct dcss_crtc_state *
+to_dcss_crtc_state(struct drm_crtc_state *state)
+{
+	return container_of(state, struct dcss_crtc_state, base);
+}
+
 struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss, bool componetized);
-void dcss_kms_setup_opipe(struct drm_connector_state *conn_state);
 void dcss_kms_detach(struct dcss_kms_dev *kms, bool componetized);
 void dcss_kms_shutdown(struct dcss_kms_dev *kms);
+int dcss_crtc_setup_opipe(struct drm_device *dev,
+			  struct drm_atomic_state *state);
 int dcss_crtc_init(struct dcss_crtc *crtc, struct drm_device *drm);
 void dcss_crtc_deinit(struct dcss_crtc *crtc, struct drm_device *drm);
 struct dcss_plane *dcss_plane_init(struct drm_device *drm,
