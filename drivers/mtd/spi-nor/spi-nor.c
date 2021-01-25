@@ -2910,12 +2910,12 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 			SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDID, 1),
 				   SPI_MEM_OP_NO_ADDR,
 				   SPI_MEM_OP_NO_DUMMY,
-				   SPI_MEM_OP_DATA_IN(SPI_NOR_MAX_ID_LEN, id, 1));
+				   SPI_MEM_OP_DATA_IN(SPI_NOR_MAX_EDID_LEN, id, 1));
 
 		tmp = spi_mem_exec_op(nor->spimem, &op);
 	} else {
 		tmp = nor->read_reg(nor, SPINOR_OP_RDID, id,
-				    SPI_NOR_MAX_ID_LEN);
+				    SPI_NOR_MAX_EDID_LEN);
 	}
 	if (tmp < 0) {
 		dev_err(nor->dev, "error %d reading JEDEC ID\n", tmp);
