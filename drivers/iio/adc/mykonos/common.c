@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file common.c
  * \brief Contains Mykonos API common wrapper functions for user hardware platform drivers

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*!
  * \file mykonos_gpio.h
  * \brief Contains macro definitions and function prototypes for mykonos_gpio.c
