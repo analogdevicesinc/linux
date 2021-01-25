@@ -485,6 +485,8 @@ static void dcss_dpr_setup_components(struct dcss_dpr_ch *ch,
 
 static void dcss_dpr_tile_set(struct dcss_dpr_ch *ch, uint64_t modifier)
 {
+	struct device *dev = ch->dpr->dev;
+
 	switch (ch->ch_num) {
 	case 0:
 		switch (modifier) {
@@ -499,7 +501,8 @@ static void dcss_dpr_tile_set(struct dcss_dpr_ch *ch, uint64_t modifier)
 			ch->tile = TILE_GPU_SUPER;
 			break;
 		default:
-			WARN_ON(1);
+			dev_err(dev, "dpr: unsupported modifier(0x%016llx) for graphics path.\n",
+				modifier);
 			break;
 		}
 		break;
@@ -507,6 +510,9 @@ static void dcss_dpr_tile_set(struct dcss_dpr_ch *ch, uint64_t modifier)
 	case 2:
 		switch (modifier) {
 		case DRM_FORMAT_MOD_LINEAR:
+		case DRM_FORMAT_MOD_VSI_G1_TILED:
+		case DRM_FORMAT_MOD_VSI_G2_TILED:
+		case DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED:
 			ch->tile = TILE_LINEAR;
 			break;
 		case DRM_FORMAT_MOD_VIVANTE_TILED:
@@ -516,6 +522,8 @@ static void dcss_dpr_tile_set(struct dcss_dpr_ch *ch, uint64_t modifier)
 			ch->tile = TILE_GPU_SUPER;
 			break;
 		default:
+			dev_err(dev, "dpr: unsupported modifier(0x%016llx) for video path.\n",
+				modifier);
 			break;
 		}
 		break;
