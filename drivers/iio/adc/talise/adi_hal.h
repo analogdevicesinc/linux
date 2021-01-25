@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file adi_hal.h
  * \brief Contains Talise ADI HAL function prototypes type definitions for adi_hal.c

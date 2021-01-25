@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_rx.h
  * \brief Contains Talise receive related function prototypes for

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_cals.h
  * \brief Contains Talise calibration related function prototypes for

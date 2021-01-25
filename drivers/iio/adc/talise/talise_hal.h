@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_hal.h
  * \brief Contains prototypes and macro definitions for Private ADI HAL wrapper

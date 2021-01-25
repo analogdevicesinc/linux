@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_cals_types.h
  * \brief Contains Talise API Calibration data types
