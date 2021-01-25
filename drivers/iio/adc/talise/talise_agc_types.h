@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_agc_types.h
  * \brief Contains Talise API AGC data types

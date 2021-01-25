@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise_jesd204.c
  * \brief Contains functions to support Talise JESD204b data interface

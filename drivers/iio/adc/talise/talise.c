@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file talise.c
  * \brief Contains top level functions to support initialization and ctrol of
