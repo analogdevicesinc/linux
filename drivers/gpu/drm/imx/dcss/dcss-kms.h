@@ -6,6 +6,9 @@
 #ifndef _DCSS_KMS_H_
 #define _DCSS_KMS_H_
 
+#include <linux/kernel.h>
+
+#include <drm/drm_crtc.h>
 #include <drm/drm_encoder.h>
 
 struct dcss_plane {
@@ -42,6 +45,11 @@ struct dcss_kms_dev {
 	struct drm_encoder encoder;
 	struct drm_connector *connector;
 };
+
+static inline struct dcss_crtc *to_dcss_crtc(struct drm_crtc *crtc)
+{
+	return container_of(crtc, struct dcss_crtc, base);
+}
 
 struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss, bool componetized);
 void dcss_kms_setup_opipe(struct drm_connector_state *conn_state);

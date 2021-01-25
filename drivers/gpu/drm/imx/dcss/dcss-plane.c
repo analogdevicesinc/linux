@@ -462,8 +462,7 @@ static void dcss_plane_setup_hdr10_pipes(struct drm_plane *plane)
 	struct dcss_plane *dcss_plane = to_dcss_plane(plane);
 	struct drm_plane_state *state = plane->state;
 	struct drm_crtc *crtc = state->crtc;
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
+	struct dcss_crtc *dcss_crtc = to_dcss_crtc(crtc);
 	struct drm_framebuffer *fb = state->fb;
 	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
 

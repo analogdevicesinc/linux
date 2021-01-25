@@ -15,8 +15,7 @@
 
 static int dcss_enable_vblank(struct drm_crtc *crtc)
 {
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
+	struct dcss_crtc *dcss_crtc = to_dcss_crtc(crtc);
 	struct dcss_dev *dcss = crtc->dev->dev_private;
 
 	dcss_dtg_vblank_irq_enable(dcss->dtg, true);
@@ -30,8 +29,7 @@ static int dcss_enable_vblank(struct drm_crtc *crtc)
 
 static void dcss_disable_vblank(struct drm_crtc *crtc)
 {
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
+	struct dcss_crtc *dcss_crtc = to_dcss_crtc(crtc);
 	struct dcss_dev *dcss = dcss_crtc->base.dev->dev_private;
 
 	disable_irq_nosync(dcss_crtc->irq);
@@ -63,8 +61,7 @@ static void dcss_crtc_atomic_begin(struct drm_crtc *crtc,
 static void dcss_crtc_atomic_flush(struct drm_crtc *crtc,
 				   struct drm_atomic_state *state)
 {
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
+	struct dcss_crtc *dcss_crtc = to_dcss_crtc(crtc);
 	struct dcss_dev *dcss = dcss_crtc->base.dev->dev_private;
 
 	spin_lock_irq(&crtc->dev->event_lock);
@@ -84,8 +81,7 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 {
 	struct drm_crtc_state *old_crtc_state = drm_atomic_get_old_crtc_state(state,
 									      crtc);
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
+	struct dcss_crtc *dcss_crtc = to_dcss_crtc(crtc);
 	struct dcss_kms_dev *dcss_kms = container_of(dcss_crtc,
 						     struct dcss_kms_dev,
 						     crtc);
@@ -141,8 +137,7 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 {
 	struct drm_crtc_state *old_crtc_state = drm_atomic_get_old_crtc_state(state,
 									      crtc);
-	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
-						   base);
+	struct dcss_crtc *dcss_crtc = to_dcss_crtc(crtc);
 	struct dcss_dev *dcss = dcss_crtc->base.dev->dev_private;
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct drm_display_mode *old_mode = &old_crtc_state->adjusted_mode;
