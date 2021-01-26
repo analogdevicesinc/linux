@@ -1809,7 +1809,7 @@ static int setup_eventfd(struct task_struct *userspace_task,
 	struct eventfd_list *ev_mem;
 
 	rcu_read_lock();
-	efd_file = fcheck_files(userspace_task->files, args->efd);
+	efd_file = files_lookup_fd_rcu(userspace_task->files, args->efd);
 	rcu_read_unlock();
 
 	/* check if device is already registered */
