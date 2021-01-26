@@ -523,7 +523,7 @@
 /* Reference cycles when using lane clock as reference */
 #define LANE_REF_CYC				0x8000
 
-#define HOTPLUG_DEBOUNCE_MS		200
+#define HOTPLUG_DEBOUNCE_MS		50
 
 #define IRQ_IN    0
 #define IRQ_OUT   1
