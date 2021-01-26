@@ -483,12 +483,11 @@ static long hx280enc_ioctl32(struct file *filp, unsigned int cmd, unsigned long 
 {
     long err = 0;
 #define HX280ENC_IOCTL32(err, filp, cmd, arg) { \
-	mm_segment_t old_fs = get_fs(); \
-	set_fs(KERNEL_DS); \
+	mm_segment_t old_fs = force_uaccess_begin(); \
 	err = hx280enc_ioctl(filp, cmd, arg); \
 	if (err) \
 	return err; \
-	set_fs(old_fs); \
+	force_uaccess_end(old_fs); \
 }
 
 union {
