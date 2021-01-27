@@ -195,7 +195,6 @@ void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int channel,
 				u8 *ssi_intf, u8 *n_lanes, bool *cmos_ddr_en);
 int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy);
 int adrv9002_post_init(struct adrv9002_rf_phy *phy);
-void adrv9002_cmos_default_set(void);
 int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy);
 int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
 			   const bool stop, const adi_adrv9001_SsiType_e ssi_type);
@@ -206,9 +205,6 @@ int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u
 			       const adi_adrv9001_SsiType_e ssi_type);
 adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy);
 u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan);
-/* get init structs */
-struct adi_adrv9001_SpiSettings *adrv9002_spi_settings_get(void);
-struct adi_adrv9001_Init *adrv9002_init_get(void);
 
 static inline void adrv9002_sync_gpio_toogle(const struct adrv9002_rf_phy *phy)
 {
