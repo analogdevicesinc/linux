@@ -691,7 +691,7 @@ F: Documentation/devicetree/bindings/input/touchscreen/
 F: drivers/input/touchscreen/
 
 irq
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
 M: Z.q. Hou <zhiqiang.hou@nxp.com>
 F: drivers/irqchip/
@@ -953,7 +953,7 @@ F: drivers/pinctrl/
 F: include/dt-bindings/pinctrl/
 
 pm/core
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
 M: Ran Wang <ran.wang_1@nxp.com>
 F: drivers/base/power/
@@ -962,7 +962,7 @@ F: include/linux/pm.h
 F: include/linux/pm_*
 
 pm/imx
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
 M: Ran Wang <ran.wang_1@nxp.com>
 F: Documentation/devicetree/bindings/power/fsl,imx8m-genpd.txt
@@ -976,7 +976,7 @@ F: include/linux/power/sabresd_battery.h
 F: include/soc/imx/imx_sip.h
 
 pm/qoriq
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
 M: Ran Wang <ran.wang_1@nxp.com>
 F: Documentation/devicetree/bindings/soc/fsl/rcpm.txt
@@ -1010,7 +1010,7 @@ F: include/linux/mfd/max17135.h
 F: include/linux/pmic_status.h
 
 reset
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: Documentation/devicetree/bindings/reset/
 F: drivers/reset/
@@ -1103,13 +1103,13 @@ F: drivers/mtd/spi-nor/spansion.c
 
 thermal
 M: Andy Tang <andy.tang@nxp.com>
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Ionut Vicovan <ionut.vicovan@nxp.com>
 F: drivers/thermal/
 F: include/linux/device_cooling.h
 
 timer
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: drivers/clocksource/
 
@@ -1179,7 +1179,7 @@ F: drivers/vfio/
 F: include/uapi/linux/vfio.h
 
 wdog
-M: Anson Huang <Anson.Huang@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
 M: Qiang Zhao <qiang.zhao@nxp.com>
 M: Larisa Ileana Grigore <larisa.grigore@nxp.com>
 F: drivers/watchdog/
