@@ -2282,6 +2282,13 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy,
 	int ret;
 	adi_adrv9001_gpMaskArray_t gp_mask;
 	adi_adrv9001_ChannelState_e init_state;
+	struct adi_adrv9001_SpiSettings spi = {
+		.msbFirst = 1,
+		.enSpiStreaming = 0,
+		.autoIncAddrUp = 1,
+		.fourWireMode = 1,
+		.cmosPadDrvStrength = ADI_ADRV9001_CMOSPAD_DRV_STRONG,
+	};
 
 	phy->curr_profile = adrv9002_init;
 
@@ -2297,7 +2304,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy,
 		return ret;
 
 	adi_common_ErrorClear(&phy->adrv9001->common);
-	ret = adi_adrv9001_HwOpen(adrv9001_device, adrv9002_spi_settings_get());
+	ret = adi_adrv9001_HwOpen(adrv9001_device, &spi);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
