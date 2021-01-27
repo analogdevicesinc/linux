@@ -9,6 +9,7 @@
 #include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/firmware.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iio/iio.h>
 #include <linux/interrupt.h>
@@ -3461,6 +3462,32 @@ out:
 	return (ret < 0) ? ret : count;
 }
 
+static int adrv9002_profile_load(struct adrv9002_rf_phy *phy, const char *profile)
+{
+	int ret;
+	const struct firmware *fw;
+	void *buf;
+
+	ret = request_firmware(&fw, profile, &phy->spi->dev);
+	if (ret)
+		return ret;
+
+	buf = kzalloc(fw->size, GFP_KERNEL);
+	if (!buf) {
+		release_firmware(fw);
+		return -ENOMEM;
+	}
+
+	memcpy(buf, fw->data, fw->size);
+	ret = adi_adrv9001_profileutil_Parse(phy->adrv9001, &phy->profile, buf, fw->size);
+	if (ret)
+		ret = adrv9002_dev_err(phy);
+	release_firmware(fw);
+	kfree(buf);
+
+	return ret;
+}
+
 static void adrv9002_clk_disable(void *data)
 {
 	struct clk *clk = data;
@@ -3538,7 +3565,13 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
-	ret = adrv9002_init(phy, phy->curr_profile);
+	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS) {
+		ret = adrv9002_profile_load(phy, "Navassa_LVDS_profile.json");
+		if (ret)
+			return ret;
+	}
+
+	ret = adrv9002_init(phy, &phy->profile);
 	if (ret)
 		return ret;
 
@@ -3634,13 +3667,15 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->adrv9001 = &phy->adrv9001_device;
 	phy->hal.spi = spi;
 	phy->adrv9001->common.devHalInfo = &phy->hal;
-	/* get the default profile now as it might be needed in @adrv9002_parse_dt() */
-	phy->curr_profile = adrv9002_init_get();
-	/*
-	 * Default to lvds. Will change if the axi core is CMOS based. We know
-	 * that at the post_setup() hook.
-	 */
-	phy->ssi_type = ADI_ADRV9001_SSI_TYPE_LVDS;
+
+	ret = adrv9002_profile_load(phy, "Navassa_CMOS_profile.json");
+	if (ret)
+		return ret;
+
+	/* set current profile now as it's needed in @adrv9002_parse_dt() */
+	phy->curr_profile = &phy->profile;
+	phy->ssi_type = ADI_ADRV9001_SSI_TYPE_CMOS;
+
 	/* initialize channel numbers and ports here since these will never change */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
 		phy->rx_channels[c].channel.idx = c;
