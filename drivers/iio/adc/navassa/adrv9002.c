@@ -9,6 +9,7 @@
 #include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/firmware.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iio/iio.h>
 #include <linux/interrupt.h>
@@ -3217,6 +3218,32 @@ out:
 	return (ret < 0) ? ret : count;
 }
 
+static int adrv9002_profile_load(struct adrv9002_rf_phy *phy, const char *profile)
+{
+	int ret;
+	const struct firmware *fw;
+	void *buf;
+
+	ret = request_firmware(&fw, profile, &phy->spi->dev);
+	if (ret)
+		return ret;
+
+	buf = kzalloc(fw->size, GFP_KERNEL);
+	if (!buf) {
+		release_firmware(fw);
+		return -ENOMEM;
+	}
+
+	memcpy(buf, fw->data, fw->size);
+	ret = adi_adrv9001_profileutil_Parse(phy->adrv9001, &phy->profile, buf, fw->size);
+	if (ret)
+		ret = adrv9002_dev_err(phy);
+	release_firmware(fw);
+	kfree(buf);
+
+	return ret;
+}
+
 static void adrv9002_clk_disable(void *data)
 {
 	struct clk *clk = data;
@@ -3242,6 +3269,7 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	int ret, c;
 	struct spi_device *spi = phy->spi;
 	struct iio_dev *indio_dev = phy->indio_dev;
+	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	const char * const clk_names[NUM_ADRV9002_CLKS] = {
 		[RX1_SAMPL_CLK] = "-rx1_sampl_clk",
 		[RX2_SAMPL_CLK] = "-rx2_sampl_clk",
@@ -3251,7 +3279,13 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		[TDD2_INTF_CLK] = "-tdd2_intf_clk"
 	};
 
-	ret = adrv9002_setup(phy, adrv9002_init_get());
+	if (ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS) {
+		ret = adrv9002_profile_load(phy, "Navassa_LVDS_profile.json");
+		if (ret)
+			return ret;
+	}
+
+	ret = adrv9002_setup(phy, &phy->profile);
 	if (ret < 0)
 		return ret;
 
@@ -3392,6 +3426,10 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->adrv9001 = &phy->adrv9001_device;
 	phy->hal.spi = spi;
 	phy->adrv9001->common.devHalInfo = &phy->hal;
+
+	ret = adrv9002_profile_load(phy, "Navassa_CMOS_profile.json");
+	if (ret)
+		return ret;
 
 	/* initialize channel numbers here since these will never change */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {

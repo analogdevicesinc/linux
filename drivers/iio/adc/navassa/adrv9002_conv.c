@@ -287,7 +287,7 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct adrv9002_rf_phy *phy = conv->phy;
-	u32 num_chan, axi_config = 0;
+	u32 num_chan;
 	int i, ret;
 
 	num_chan = conv->chip_info->num_channels;
@@ -311,10 +311,6 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
-
-	axi_config = axiadc_read(st, ADI_REG_CONFIG);
-	if (IS_CMOS(axi_config))
-		adrv9002_cmos_default_set();
 
 	ret = adrv9002_post_init(phy);
 	if (ret)
