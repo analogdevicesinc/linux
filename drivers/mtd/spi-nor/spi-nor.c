@@ -5282,12 +5282,14 @@ static void spi_nor_late_init_params(struct spi_nor *nor)
 static void spi_nor_init_params(struct spi_nor *nor)
 {
 	bool is_zynq_qspi = false;
+	bool disable_broken_locking = false;
 
 #ifdef CONFIG_OF
 	struct device_node *np = spi_nor_get_flash_node(nor);
 	struct device_node *np_spi;
 	np_spi = of_get_next_parent(np);
 	is_zynq_qspi = of_property_match_string(np_spi, "compatible", "xlnx,zynq-qspi-1.0") >= 0;
+	disable_broken_locking = of_property_read_bool(np, "broken-nor-flash-lock-disable");
 #endif
 
 	spi_nor_info_init_params(nor);
@@ -5297,6 +5299,9 @@ static void spi_nor_init_params(struct spi_nor *nor)
 	if ((nor->info->flags & (SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ)) &&
 	    !(nor->info->flags & SPI_NOR_SKIP_SFDP) && !is_zynq_qspi)
 		spi_nor_sfdp_init_params(nor);
+
+	if (disable_broken_locking)
+		nor->flags &= ~SNOR_F_HAS_LOCK;
 
 	spi_nor_post_sfdp_fixups(nor);
 
