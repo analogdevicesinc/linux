@@ -148,47 +148,6 @@ static int adrv9002_reg_access(struct iio_dev *indio_dev, u32 reg, u32 writeval,
 	return 0;
 }
 
-int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st;
-	unsigned int reg, addr, chan, version;
-
-	if (!conv)
-		return -ENODEV;
-
-	st = iio_priv(conv->indio_dev);
-	version = axiadc_read(st, 0x4000);
-
-	/* Still there but implemented a bit different */
-	if (ADI_AXI_PCORE_VER_MAJOR(version) > 7)
-		addr = 0x4418;
-	else
-		addr = 0x4414;
-
-	for (chan = 0; chan < conv->chip_info->num_channels; chan++) {
-		reg = axiadc_read(st, addr + (chan) * 0x40);
-
-		if (ADI_AXI_PCORE_VER_MAJOR(version) > 7) {
-			if (enable && reg != 0x8) {
-				conv->scratch_reg[chan] = reg;
-				reg = 0x8;
-			} else if (reg == 0x8) {
-				reg = conv->scratch_reg[chan];
-			}
-		} else {
-			/* DAC_LB_ENB If set enables loopback of receive data */
-			if (enable)
-				reg |= BIT(1);
-			else
-				reg &= ~BIT(1);
-		}
-		axiadc_write(st, addr + (chan) * 0x40, reg);
-	}
-
-	return 0;
-}
-
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const bool cmos_ddr, const int channel)
 {
@@ -593,13 +552,6 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
-struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(spi);
-
-	return conv->phy;
-}
-
 int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 						    const adi_adrv9001_SsiTestModeData_e data)
 {
@@ -695,11 +647,6 @@ int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int chan
 	return -ENODEV;
 }
 
-int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
-{
-	return -ENODEV;
-}
-
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 {
 	struct spi_device *spi = phy->spi;
@@ -707,11 +654,6 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 	spi_set_drvdata(spi, phy); /* Take care here */
 
 	return 0;
-}
-
-struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi)
-{
-	return spi_get_drvdata(spi);
 }
 
 #endif /* CONFIG_CF_AXI_ADC */
