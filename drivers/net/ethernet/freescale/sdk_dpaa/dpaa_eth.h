@@ -503,13 +503,13 @@ static inline int dpaa_eth_napi_schedule(struct dpa_percpu_priv_s *percpu_priv,
 	return 0;
 }
 
-static inline ssize_t __const __must_check __attribute__((nonnull))
+static inline ssize_t __must_check __attribute__((nonnull))
 dpa_fd_length(const struct qm_fd *fd)
 {
 	return fd->length20;
 }
 
-static inline ssize_t __const __must_check __attribute__((nonnull))
+static inline ssize_t __must_check __attribute__((nonnull))
 dpa_fd_offset(const struct qm_fd *fd)
 {
 	return fd->offset;
