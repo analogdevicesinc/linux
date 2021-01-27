@@ -204,16 +204,12 @@ int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy,
 int adrv9002_spi_read(struct spi_device *spi, u32 reg);
 int adrv9002_spi_write(struct spi_device *spi, u32 reg, u32 val);
 int adrv9002_post_init(struct adrv9002_rf_phy *phy);
-void adrv9002_cmos_default_set(void);
 int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
 			   const bool stop);
 int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann);
 int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
 			       u8 data_delay, const bool tx);
 u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan);
-/* get init structs */
-struct adi_adrv9001_SpiSettings *adrv9002_spi_settings_get(void);
-struct adi_adrv9001_Init *adrv9002_init_get(void);
 
 static inline void adrv9002_sync_gpio_toogle(const struct adrv9002_rf_phy *phy)
 {
