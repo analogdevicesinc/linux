@@ -1050,6 +1050,7 @@ int dpaa_eth_cgr_init(struct dpa_priv_s *priv)
 	priv->cgr_data.cgr.cb = dpaa_eth_cgscn;
 
 	/* Enable Congestion State Change Notifications and CS taildrop */
+	memset(&initcgr, 0, sizeof(initcgr));
 	initcgr.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CS_THRES;
 	initcgr.cgr.cscn_en = QM_CGR_EN;
 

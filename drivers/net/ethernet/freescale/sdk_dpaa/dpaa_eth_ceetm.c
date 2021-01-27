@@ -258,6 +258,7 @@ static int ceetm_config_ccg(struct qm_ceetm_ccg **ccg,
 		   QM_CCGR_WE_TD_EN | QM_CCGR_WE_TD_MODE |
 		   QM_CCGR_WE_OAL;
 
+	memset(&ccg_params, 0, sizeof(ccg_params));
 	ccg_params.mode = 0; /* count bytes */
 	ccg_params.cscn_en = 1; /* generate notifications */
 	ccg_params.td_en = 1; /* enable tail-drop */

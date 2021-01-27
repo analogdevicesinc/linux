@@ -129,6 +129,7 @@ static uint32_t oh_fq_create(struct qman_fq *fq,
 	init_flags = QMAN_INITFQ_FLAG_SCHED;
 
 	/* Set FQ init options. Specify destination WQ ID and channel */
+	memset(&fq_opts, 0, sizeof(fq_opts));
 	fq_opts.we_mask = QM_INITFQ_WE_DESTWQ;
 	fq_opts.fqd.dest.wq = wq_id;
 	fq_opts.fqd.dest.channel = channel;
