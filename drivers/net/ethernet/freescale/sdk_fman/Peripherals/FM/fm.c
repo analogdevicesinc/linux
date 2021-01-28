@@ -144,7 +144,7 @@ static t_Error CheckFmParameters(t_Fm *p_Fm)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("fmClkFreq must be set."));
     if (USEC_TO_CLK(p_Fm->p_FmDriverParam->dma_watchdog, p_Fm->p_FmStateStruct->fmClkFreq) > DMA_MAX_WATCHDOG)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE,
-                     ("dma_watchdog depends on FM clock. dma_watchdog(in microseconds) * clk (in Mhz), may not exceed 0x08x", DMA_MAX_WATCHDOG));
+                     ("dma_watchdog depends on FM clock. dma_watchdog(in microseconds) * clk (in Mhz), may not exceed %lu", DMA_MAX_WATCHDOG));
 
 #if (DPAA_VERSION >= 11)
     if ((p_Fm->partVSPBase + p_Fm->partNumOfVSPs) > FM_VSP_MAX_NUM_OF_ENTRIES)
