@@ -143,7 +143,7 @@ struct rad_platform_data {
 };
 
 static const struct drm_display_mode default_mode = {
-	.clock = 132000,
+	.clock = 121000,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 20,
 	.hsync_end = 1080 + 20 + 2,
