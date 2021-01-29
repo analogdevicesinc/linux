@@ -25,11 +25,22 @@
 
 		adi,jesd204-max-sysref-frequency-hz = <2000000>;
 
-		adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
+		/*
+		* There are different versions of the AD9081-FMCA-EBZ & AD9082-FMCA-EBZ
+		* VCXO = 122.880 MHz, XO = 122.880MHz (AD9081-FMC-EBZ & AD9082-FMC-EBZ)
+		* VCXO = 100.000 MHz, XO = 100.000MHz (AD9081-FMC-EBZ-A2 & AD9082-FMC-EBZ-A2)
+		* To determine which board is which, read the freqency printed on the VCXO
+		* or use the fru-dump utility:
+		* #fru-dump -b /sys/bus/i2c/devices/15-0050/eeprom
+		*/
+
+		//adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
+		//adi,vcxo-frequency = <122880000>;
+
+		adi,pll1-clkin-frequencies = <100000000 10000000 0 0>;
+		adi,vcxo-frequency = <100000000>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
-
-		adi,vcxo-frequency = <122880000>;
 
 		adi,pll2-output-frequency = <3100000000>;
 
