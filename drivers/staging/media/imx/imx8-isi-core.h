@@ -324,6 +324,7 @@ struct mxc_isi_cap_dev {
 
 	u32 frame_count;
 	u32 id;
+	u32 is_streaming[MXC_ISI_MAX_DEVS];
 	bool is_link_setup;
 
 	struct mutex lock;

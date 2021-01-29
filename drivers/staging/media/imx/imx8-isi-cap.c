@@ -31,6 +31,8 @@
 #include "imx8-common.h"
 
 #define sd_to_cap_dev(ptr)	container_of(ptr, struct mxc_isi_cap_dev, sd)
+static int mxc_isi_cap_streamoff(struct file *file, void *priv,
+				 enum v4l2_buf_type type);
 
 struct mxc_isi_fmt mxc_isi_out_formats[] = {
 	{
@@ -743,13 +745,18 @@ static int mxc_isi_capture_open(struct file *file)
 static int mxc_isi_capture_release(struct file *file)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct video_device *vdev = video_devdata(file);
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
 	struct device *dev = &isi_cap->pdev->dev;
+	struct vb2_queue *q = vdev->queue;
 	struct v4l2_subdev *sd;
 	int ret = -1;
 
 	if (!isi_cap->is_link_setup)
 		return 0;
+
+	if (isi_cap->is_streaming[isi_cap->id])
+		mxc_isi_cap_streamoff(file, NULL, q->type);
 
 	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
@@ -1080,6 +1087,7 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 	if (ret < 0 && ret != -ENOIOCTLCMD)
 		return ret;
 
+	isi_cap->is_streaming[isi_cap->id] = 1;
 	mxc_isi->is_streaming = 1;
 
 	return 0;
@@ -1098,6 +1106,7 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 	mxc_isi_channel_disable(mxc_isi);
 	ret = vb2_ioctl_streamoff(file, priv, type);
 
+	isi_cap->is_streaming[isi_cap->id] = 0;
 	mxc_isi->is_streaming = 0;
 
 	return ret;
