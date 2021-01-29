@@ -105,7 +105,7 @@
 			<&pd IMX_SC_R_AUDIO_PLL_0>,
 			<&pd IMX_SC_R_AUDIO_PLL_1>;
 
-		clocks = <&dsp_lpcg 1>, <&dsp_ram_lpcg 0>, <&dsp_lpcg 2>, <&esai0_lpcg 1>, <&esai0_lpcg 0>,  <&esai0_lpcg 1>,
+		clocks = <&clk_dummy>, <&clk_dummy>, <&clk_dummy>, <&esai0_lpcg 1>, <&esai0_lpcg 0>,  <&esai0_lpcg 1>,
 			<&clk_dummy>;
 		clock-names = "ipg", "ocram", "core", "esai0_core", "esai0_extal", "esai0_fsys", "esai0_spba";
 		assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,

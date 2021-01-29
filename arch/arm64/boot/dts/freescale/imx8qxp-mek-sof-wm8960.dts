@@ -106,7 +106,7 @@
 
 	clock-names = "ipg", "ocram", "core",
 		"sai1_bus", "sai1_mclk0", "sai1_mclk1", "sai1_mclk2", "sai1_mclk3";
-	clocks = <&dsp_lpcg 1>, <&dsp_ram_lpcg 0>, <&dsp_lpcg 2>,
+	clocks = <&clk_dummy>, <&clk_dummy>, <&clk_dummy>,
 		<&sai1_lpcg 1>, <&clk_dummy>, <&sai1_lpcg 0>,
 		<&clk_dummy>, <&clk_dummy>;
 	assigned-clocks = <&acm IMX_ADMA_ACM_SAI1_MCLK_SEL>,
