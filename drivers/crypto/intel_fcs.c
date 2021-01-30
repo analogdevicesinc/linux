@@ -28,8 +28,11 @@
 #define PS_BUF_SIZE		64
 #define INVALID_STATUS		0xff
 
-#define MIN_SDOS_BUF_SZ		16
-#define MAX_SDOS_BUF_SZ		32768
+#define DEC_MIN_SZ		72
+#define DEC_MAX_SZ		32712
+#define ENC_MIN_SZ		128
+#define ENC_MAX_SZ		32768
+
 
 #define FCS_REQUEST_TIMEOUT (msecs_to_jiffies(SVC_FCS_REQUEST_TIMEOUT_MS))
 #define FCS_COMPLETED_TIMEOUT (msecs_to_jiffies(SVC_COMPLETED_TIMEOUT_MS))
@@ -411,15 +414,15 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		if ((data->com_paras.d_encryption.src_size < MIN_SDOS_BUF_SZ) ||
-		    (data->com_paras.d_encryption.src_size > MAX_SDOS_BUF_SZ)) {
+		if (data->com_paras.d_encryption.src_size < DEC_MIN_SZ ||
+		    data->com_paras.d_encryption.src_size > DEC_MAX_SZ) {
 			dev_err(dev, "Invalid SDOS Buffer src size:%d\n",
 				data->com_paras.d_encryption.src_size);
 			return -EFAULT;
 		}
 
-		if ((data->com_paras.d_encryption.dst_size < MIN_SDOS_BUF_SZ) ||
-		    (data->com_paras.d_encryption.dst_size > MAX_SDOS_BUF_SZ)) {
+		if (data->com_paras.d_encryption.dst_size < ENC_MIN_SZ ||
+		    data->com_paras.d_encryption.dst_size > ENC_MAX_SZ) {
 			dev_err(dev, "Invalid SDOS Buffer dst size:%d\n",
 				data->com_paras.d_encryption.dst_size);
 			return -EFAULT;
@@ -427,13 +430,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		/* allocate buffer for both source and destination */
 		s_buf = stratix10_svc_allocate_memory(priv->chan,
-						      MAX_SDOS_BUF_SZ);
+						      DEC_MAX_SZ);
 		if (!s_buf) {
 			dev_err(dev, "failed allocate encrypt src buf\n");
 			return -ENOMEM;
 		}
 		d_buf = stratix10_svc_allocate_memory(priv->chan,
-						      MAX_SDOS_BUF_SZ);
+						      ENC_MAX_SZ);
 		if (!d_buf) {
 			dev_err(dev, "failed allocate encrypt dst buf\n");
 			stratix10_svc_free_memory(priv->chan, s_buf);
@@ -521,15 +524,15 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		if ((data->com_paras.d_encryption.src_size < MIN_SDOS_BUF_SZ) ||
-		    (data->com_paras.d_encryption.src_size > MAX_SDOS_BUF_SZ)) {
+		if (data->com_paras.d_encryption.src_size < ENC_MIN_SZ ||
+		    data->com_paras.d_encryption.src_size > ENC_MAX_SZ) {
 			dev_err(dev, "Invalid SDOS Buffer src size:%d\n",
 				data->com_paras.d_encryption.src_size);
 			return -EFAULT;
 		}
 
-		if ((data->com_paras.d_encryption.dst_size < MIN_SDOS_BUF_SZ) ||
-		    (data->com_paras.d_encryption.dst_size > MAX_SDOS_BUF_SZ)) {
+		if (data->com_paras.d_encryption.dst_size < DEC_MIN_SZ ||
+		    data->com_paras.d_encryption.dst_size > DEC_MAX_SZ) {
 			dev_err(dev, "Invalid SDOS Buffer dst size:%d\n",
 				data->com_paras.d_encryption.dst_size);
 			return -EFAULT;
@@ -537,13 +540,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		/* allocate buffer for both source and destination */
 		s_buf = stratix10_svc_allocate_memory(priv->chan,
-						      MAX_SDOS_BUF_SZ);
+						      ENC_MAX_SZ);
 		if (!s_buf) {
 			dev_err(dev, "failed allocate decrypt src buf\n");
 			return -ENOMEM;
 		}
 		d_buf = stratix10_svc_allocate_memory(priv->chan,
-						      MAX_SDOS_BUF_SZ);
+						      DEC_MAX_SZ);
 		if (!d_buf) {
 			dev_err(dev, "failed allocate decrypt dst buf\n");
 			stratix10_svc_free_memory(priv->chan, s_buf);
