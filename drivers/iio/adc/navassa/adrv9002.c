@@ -1797,83 +1797,87 @@ static const struct iio_info adrv9002_phy_info = {
 	.debugfs_reg_access = &adrv9002_phy_reg_access,
 };
 
-static const char * const adrv9002_irqs[] = {
-	"ARM error",
-	"Force GP interrupt(Set by firmware to send an interrupt to BBIC)",
-	"ARM System error",
-	"ARM Calibration error",
-	"ARM monitor interrupt",
-	"TX1 PA protection error",
-	"TX2 PA protection error",
-	"low-power PLL lock indicator",
-	"RF PLL1 lock indicator",
-	"RF PLL2 lock indicator",
-	"auxiliary Clock PLL lock indicator",
-	"Clock PLL lock indicator",
-	"main clock 1105 MCS",
-	"main clock 1105 second MCS",
-	"RX1 LSSI MCS",
-	"RX2 LSSI MCS",
-	"core stream processor error",
-	"stream0 error",
-	"stream1 error",
-	"stream2 error",
-	"stream3 error",
-	"Unknown Interrupt",
-	"Unknown Interrupt",
-	"Unknown Interrupt",
-	"TX DP write request error",
-	"RX DP read request error",
-	"SPI interface transmit error",
-	"SPI interface receive error",
+static const struct {
+	char *irq_source;
+	int action;
+} adrv9002_irqs[] = {
+	{"ARM error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Force GP interrupt(Set by firmware to send an interrupt to BBIC)",
+	 ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR},
+	{"ARM System error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"ARM Calibration error", ADI_ADRV9001_ACT_WARN_RERUN_TRCK_CAL},
+	{"ARM monitor interrupt", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"TX1 PA protection error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"TX2 PA protection error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Low-power PLL lock indicator", ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR},
+	{"RF PLL1 lock indicator", ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR},
+	{"RF PLL2 lock indicator", ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR},
+	{"Auxiliary Clock PLL lock indicator", ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR},
+	{"Clock PLL lock indicator", ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR},
+	{"Main clock 1105 MCS", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Main clock 1105 second MCS", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"RX1 LSSI MCS", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"RX2 LSSI MCS", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Core stream processor error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Stream0 error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Stream1 error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Stream2 error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Stream3 error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"Unknown GP Interrupt source"},
+	{"Unknown GP Interrupt source"},
+	{"Unknown GP Interrupt source"},
+	{"TX DP write request error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"RX DP write request error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"SPI interface transmit error", ADI_COMMON_ACT_ERR_RESET_FULL},
+	{"SPI interface receive error", ADI_COMMON_ACT_ERR_RESET_FULL},
 };
 
 static irqreturn_t adrv9002_irq_handler(int irq, void *p)
 {
 	struct iio_dev *indio_dev = p;
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
-	adi_adrv9001_gpIntStatus_t gp_stat;
 	int ret, bit;
+	u32 status;
 	unsigned long active_irq;
 	u8 error;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_gpio_GpIntHandler(phy->adrv9001, &gp_stat);
-	mutex_unlock(&phy->lock);
+	ret = adi_adrv9001_gpio_GpIntStatus_Get(phy->adrv9001, &status);
+	if (ret)
+		goto irq_done;
 
-	/* clear the logger */
-	adi_common_ErrorClear(&phy->adrv9001->common);
+	dev_dbg(&phy->spi->dev, "GP Interrupt Status 0x%08X Mask 0x%08X\n",
+		status, ADRV9002_IRQ_MASK);
 
-	dev_warn(&phy->spi->dev, "GP Interrupt Status 0x%08X Mask 0x%08X\n",
-		 gp_stat.gpIntStatus, ~gp_stat.gpIntSaveIrqMask & 0x0FFFFFFF);
-
-	active_irq = gp_stat.gpIntActiveSources;
+	active_irq = status & ADRV9002_IRQ_MASK;
 	for_each_set_bit(bit, &active_irq, ARRAY_SIZE(adrv9002_irqs)) {
-		dev_warn(&phy->spi->dev, "%d: %s\n",bit, adrv9002_irqs[bit]);
+		/* check if there's something to be done */
+		switch (adrv9002_irqs[bit].action) {
+		case ADI_ADRV9001_ACT_WARN_RERUN_TRCK_CAL:
+			dev_warn(&phy->spi->dev, "Re-running tracking calibrations\n");
+			ret = adi_adrv9001_cals_InitCals_Run(phy->adrv9001, &phy->init_cals,
+							     60000, &error);
+			if (ret)
+				/* just log the error */
+				adrv9002_dev_err(phy);
+			break;
+		case ADI_COMMON_ACT_ERR_RESET_FULL:
+			dev_warn(&phy->spi->dev, "[%s]: Reset might be needed...\n",
+				 adrv9002_irqs[bit].irq_source);
+			break;
+		case ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR:
+			/* just log the irq */
+			dev_dbg(&phy->spi->dev, "%s\n", adrv9002_irqs[bit].irq_source);
+			break;
+		default:
+			/* no defined action. print out interrupt source */
+			dev_warn(&phy->spi->dev, "%s\n", adrv9002_irqs[bit].irq_source);
+			break;
+		}
 	}
 
-	/* check if there's something to be done */
-	switch (ret) {
-	case ADI_ADRV9001_ACT_WARN_RERUN_TRCK_CAL:
-		dev_warn(&phy->spi->dev, "Re-running tracking calibrations\n");
-		ret = adi_adrv9001_cals_InitCals_Run(phy->adrv9001,
-						     &phy->init_cals, 60000,
-						     &error);
-		if (ret)
-			/* just log the error */
-			adrv9002_dev_err(phy);
-		break;
-	case ADI_COMMON_ACT_ERR_RESET_FULL:
-		dev_warn(&phy->spi->dev, "Reset might be needed...\n");
-		break;
-	case ADI_ADRV9001_ACT_ERR_BBIC_LOG_ERROR:
-		/* nothing to do. IRQ already logged... */
-		break;
-	default:
-		dev_err(&phy->spi->dev, "Unkonwn action: %d", ret);
-		break;
-	}
-
+irq_done:
+	mutex_unlock(&phy->lock);
 	return IRQ_HANDLED;
 }
 
