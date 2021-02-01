@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_vblank.h>
 #include <drm/drm_atomic_helper.h>
 #include <video/imx-lcdif.h>
@@ -90,22 +91,24 @@ static void lcdif_crtc_destroy_state(struct drm_crtc *crtc,
 }
 
 static int lcdif_crtc_atomic_check(struct drm_crtc *crtc,
-				   struct drm_crtc_state *state)
+				   struct drm_atomic_state *state)
 {
 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
-	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(state);
+	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state,
+									  crtc);
+	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 
 	/* Don't check 'bus_format' when CRTC is
 	 * going to be disabled.
 	 */
-	if (!state->enable)
+	if (!crtc_state->enable)
 		return 0;
 
 	/* For the commit that the CRTC is active
 	 * without planes attached to it should be
 	 * invalid.
 	 */
-	if (state->active && !state->plane_mask)
+	if (crtc_state->active && !crtc_state->plane_mask)
 		return -EINVAL;
 
 	/* check the requested bus format can be
@@ -127,7 +130,7 @@ static int lcdif_crtc_atomic_check(struct drm_crtc *crtc,
 }
 
 static void lcdif_crtc_atomic_begin(struct drm_crtc *crtc,
-				    struct drm_crtc_state *old_crtc_state)
+				    struct drm_atomic_state *state)
 {
 	drm_crtc_vblank_on(crtc);
 
@@ -141,14 +144,14 @@ static void lcdif_crtc_atomic_begin(struct drm_crtc *crtc,
 }
 
 static void lcdif_crtc_atomic_flush(struct drm_crtc *crtc,
-				    struct drm_crtc_state *old_crtc_state)
+				    struct drm_atomic_state *state)
 {
 	/* LCDIF doesn't have command buffer */
 	return;
 }
 
 static void lcdif_crtc_atomic_enable(struct drm_crtc *crtc,
-				     struct drm_crtc_state *old_crtc_state)
+				     struct drm_atomic_state *state)
 {
 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
 	struct lcdif_soc *lcdif = dev_get_drvdata(lcdif_crtc->dev->parent);
@@ -182,7 +185,7 @@ static void lcdif_crtc_atomic_enable(struct drm_crtc *crtc,
 }
 
 static void lcdif_crtc_atomic_disable(struct drm_crtc *crtc,
-				      struct drm_crtc_state *old_crtc_state)
+				      struct drm_atomic_state *state)
 {
 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
 	struct lcdif_soc *lcdif = dev_get_drvdata(lcdif_crtc->dev->parent);
