@@ -13,7 +13,8 @@ config SOC_IMX8M
 	  ID and revision etc.
 
 config IMX8M_PM_DOMAINS
-	bool "i.MX8M PM domains"
+	tristate "i.MX8M PM domains"
+	default ARCH_MXC
 	depends on ARCH_MXC || (COMPILE_TEST && OF)
 	depends on PM
 	select PM_GENERIC_DOMAINS
