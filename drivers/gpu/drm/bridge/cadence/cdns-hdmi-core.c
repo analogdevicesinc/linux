@@ -529,6 +529,8 @@ static int cdns_hdmi_bridge_attach(struct drm_bridge *bridge,
 
 	connector->interlace_allowed = 1;
 	connector->polled = DRM_CONNECTOR_POLL_HPD;
+	if (!strncmp("imx8mq-hdmi", mhdp->plat_data->plat_name, 11))
+		connector->ycbcr_420_allowed = true;
 
 	drm_connector_helper_add(connector, &cdns_hdmi_connector_helper_funcs);
 
