@@ -475,7 +475,7 @@ static int ltc2945_probe(struct i2c_client *client)
 	regmap_write(regmap, LTC2945_FAULT, 0x00);
 
 	hwmon_dev = devm_hwmon_device_register_with_groups(dev, client->name,
-							   regmap,
+							   st,
 							   ltc2945_groups);
 	return PTR_ERR_OR_ZERO(hwmon_dev);
 }
