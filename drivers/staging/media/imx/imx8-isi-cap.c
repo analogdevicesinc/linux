@@ -905,6 +905,7 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct mxc_isi_fmt *fmt;
+	int bpl;
 	int i;
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
@@ -925,6 +926,36 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 		v4l2_err(&isi_cap->sd, "%s, W/H=(%d, %d) is not valid\n"
 			, __func__, pix->width, pix->height);
 		return -EINVAL;
+	}
+
+	if (pix->width > ISI_4K)
+		pix->width = ISI_4K;
+	if (pix->height > ISI_8K)
+		pix->height = ISI_8K;
+
+	pix->num_planes = fmt->memplanes;
+	pix->pixelformat = fmt->fourcc;
+	pix->field = V4L2_FIELD_NONE;
+	pix->colorspace = V4L2_COLORSPACE_SRGB;
+	pix->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(pix->colorspace);
+	pix->quantization = V4L2_QUANTIZATION_FULL_RANGE;
+	memset(pix->reserved, 0x00, sizeof(pix->reserved));
+
+	for (i = 0; i < pix->num_planes; i++) {
+		bpl = pix->plane_fmt[i].bytesperline;
+
+		if ((bpl == 0) || (bpl / (fmt->depth[i] >> 3)) < pix->width)
+			pix->plane_fmt[i].bytesperline =
+					(pix->width * fmt->depth[i]) >> 3;
+
+		if (pix->plane_fmt[i].sizeimage == 0) {
+			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12))
+				pix->plane_fmt[i].sizeimage =
+				  (pix->width * (pix->height >> 1) * fmt->depth[i] >> 3);
+			else
+				pix->plane_fmt[i].sizeimage =
+					(pix->width * pix->height * fmt->depth[i] >> 3);
+		}
 	}
 
 	return 0;
@@ -996,7 +1027,7 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	struct mxc_isi_frame *dst_f = &isi_cap->dst_f;
 	struct mxc_isi_fmt *fmt;
 	int bpl;
-	int i;
+	int i, ret;
 
 	/* Step1: Check format with output support format list.
 	 * Step2: Update output frame information.
@@ -1027,6 +1058,10 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	/* update out put frame size and formate */
 	if (pix->height <= 0 || pix->width <= 0)
 		return -EINVAL;
+
+	ret = mxc_isi_cap_try_fmt_mplane(file, priv, f);
+	if (ret)
+		return ret;
 
 	dst_f->fmt = fmt;
 	dst_f->height = pix->height;
