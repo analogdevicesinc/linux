@@ -331,6 +331,15 @@ static int cap_vb2_queue_setup(struct vb2_queue *q,
 	if (!fmt)
 		return -EINVAL;
 
+	if (*num_planes) {
+		if (*num_planes != fmt->memplanes)
+			return -EINVAL;
+
+		for (i = 0; i < *num_planes; i++)
+			if (sizes[i] < dst_f->sizeimage[i])
+				return -EINVAL;
+	}
+
 	for (i = 0; i < fmt->memplanes; i++)
 		alloc_devs[i] = &isi_cap->pdev->dev;
 
