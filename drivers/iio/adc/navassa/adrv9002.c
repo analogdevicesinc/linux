@@ -162,8 +162,6 @@ int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, 
 	return ret;
 }
 
-#define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
-
 static void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
 				       u8 *n_lanes, bool *cmos_ddr_en)
 {
