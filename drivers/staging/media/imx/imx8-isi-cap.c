@@ -691,6 +691,41 @@ static bool is_entity_link_setup(struct mxc_isi_cap_dev *isi_cap)
 	return true;
 }
 
+static int isi_cap_fmt_init(struct mxc_isi_cap_dev *isi_cap)
+{
+	struct mxc_isi_frame *dst_f = &isi_cap->dst_f;
+	struct mxc_isi_frame *src_f = &isi_cap->src_f;
+	struct v4l2_subdev_format src_fmt;
+	struct v4l2_subdev *src_sd;
+	int i, ret;
+
+	src_sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+	if (!src_sd) {
+		v4l2_err(&isi_cap->sd, "get remote subdev fail!\n");
+		return -EINVAL;
+	}
+
+	memset(&src_fmt, 0, sizeof(src_fmt));
+	src_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	ret = v4l2_subdev_call(src_sd, pad, get_fmt, NULL, &src_fmt);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		v4l2_err(&isi_cap->sd, "get remote fmt fail!\n");
+		return ret;
+	}
+
+	set_frame_bounds(dst_f, src_fmt.format.width, src_fmt.format.height);
+	dst_f->fmt = &mxc_isi_out_formats[0];
+
+	for (i = 0; i < dst_f->fmt->memplanes; i++) {
+		dst_f->bytesperline[i] = dst_f->width * dst_f->fmt->depth[i] >> 3;
+		dst_f->sizeimage[i] = dst_f->bytesperline[i] * dst_f->height;
+	}
+
+	memcpy(src_f, dst_f, sizeof(*dst_f));
+	return 0;
+}
+
+
 static int mxc_isi_capture_open(struct file *file)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
@@ -733,13 +768,17 @@ static int mxc_isi_capture_open(struct file *file)
 		return ret;
 	}
 
+	mutex_lock(&isi_cap->lock);
+	ret = isi_cap_fmt_init(isi_cap);
+	mutex_unlock(&isi_cap->lock);
+
 	/* increase usage count for ISI channel */
 	mutex_lock(&mxc_isi->lock);
 	atomic_inc(&mxc_isi->usage_count);
 	mxc_isi->m2m_enabled = false;
 	mutex_unlock(&mxc_isi->lock);
 
-	return 0;
+	return ret;
 }
 
 static int mxc_isi_capture_release(struct file *file)
@@ -847,7 +886,9 @@ static int mxc_isi_cap_g_fmt_mplane(struct file *file, void *fh,
 	pix->height = dst_f->o_height;
 	pix->field = V4L2_FIELD_NONE;
 	pix->pixelformat = dst_f->fmt->fourcc;
-	pix->colorspace = V4L2_COLORSPACE_JPEG;
+	pix->colorspace = V4L2_COLORSPACE_SRGB;
+	pix->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(pix->colorspace);
+	pix->quantization = V4L2_QUANTIZATION_FULL_RANGE;
 	pix->num_planes = dst_f->fmt->memplanes;
 
 	for (i = 0; i < pix->num_planes; ++i) {
@@ -1427,7 +1468,7 @@ static int mxc_isi_subdev_get_fmt(struct v4l2_subdev *sd,
 	/* Source/Sink pads crop rectangle size */
 	mf->width = f->width;
 	mf->height = f->height;
-	mf->colorspace = V4L2_COLORSPACE_JPEG;
+	mf->colorspace = V4L2_COLORSPACE_SRGB;
 
 	mutex_unlock(&isi_cap->lock);
 
@@ -1623,11 +1664,6 @@ static int mxc_isi_register_cap_device(struct mxc_isi_cap_dev *isi_cap,
 	if (ret)
 		goto err_free_ctx;
 
-	/* Default configuration  */
-	isi_cap->dst_f.width = 1280;
-	isi_cap->dst_f.height = 800;
-	isi_cap->dst_f.fmt = &mxc_isi_out_formats[0];
-	isi_cap->src_f.fmt = isi_cap->dst_f.fmt;
 
 	isi_cap->cap_pad.flags = MEDIA_PAD_FL_SINK;
 	vdev->entity.function = MEDIA_ENT_F_PROC_VIDEO_SCALER;
