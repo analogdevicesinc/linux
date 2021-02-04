@@ -53,7 +53,6 @@ ccflags-y += -I$(srctree)/$(src)/devices/adrv9001/private/include \
 	-I$(srctree)/$(src)/platforms/ \
 	-I$(srctree)/$(src)/third_party/jsmn/ \
 	-I$(srctree)/$(src)/third_party/adi_pmag_macros/ \
-	-DSI_REV_B0 \
 	-DADI_COMMON_VERBOSE=1 \
 	-DADI_ADRV9001_ARM_VERBOSE \
 	-DADI_VALIDATE_PARAMS \
