@@ -39,3 +39,15 @@
 &hmc7044_ext {
 	status = "disabled";
 };
+
+&hmc7044_car {
+	adi,pfd1-maximum-limit-frequency-hz = <7680000>;
+
+	adi,pll1-clkin-frequencies = <0 30720000 0 0>;
+};
+&hmc7044_fmc {
+	adi,pfd1-maximum-limit-frequency-hz = <7680000>;
+};
+&hmc7044 {
+	adi,pfd1-maximum-limit-frequency-hz = <7680000>;
+};
