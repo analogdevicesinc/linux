@@ -67,9 +67,15 @@
 				<&pd IMX_SC_R_DSP>,
 				<&pd IMX_SC_R_DSP_RAM>,
 				<&pd IMX_SC_R_IRQSTR_DSP>;
-		mbox-names = "txdb0", "txdb1",
-			"rxdb0", "rxdb1";
-		mboxes = <&lsio_mu13 2 0>,
+		mbox-names = "tx0", "tx1", "tx2", "rx0",
+					 "txdb0", "txdb1", "rxdb0", "rxdb1";
+		mboxes =
+			<&lsio_mu13 0 0>,
+			<&lsio_mu13 0 1>,
+			<&lsio_mu13 0 2>,
+			<&lsio_mu13 1 0>,
+
+			<&lsio_mu13 2 0>,
 			<&lsio_mu13 2 1>,
 			<&lsio_mu13 3 0>,
 			<&lsio_mu13 3 1>;
