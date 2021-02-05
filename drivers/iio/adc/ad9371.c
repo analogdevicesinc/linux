@@ -2707,7 +2707,7 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 		}
 
 	} else if (entry->cmd) {
-		u8 index, mask;
+		u8 index, mask, status;
 
 		switch (entry->cmd) {
 		case DBGFS_MONITOR_OUT:
@@ -2720,6 +2720,16 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 
 			len = snprintf(buf, sizeof(buf), "%u %u\n",
 				       index, mask);
+			break;
+		case DBGFS_PLLS_STATUS:
+			mutex_lock(&phy->indio_dev->mlock);
+			ret = MYKONOS_checkPllsLockStatus(phy->mykDevice, &status);
+			mutex_unlock(&phy->indio_dev->mlock);
+			if (ret < 0)
+				return ret;
+
+			len = snprintf(buf, sizeof(buf), "0x%02x\n",
+				       status);
 			break;
 		default:
 			val = entry->val;
@@ -2900,6 +2910,7 @@ static int ad9371_register_debugfs(struct iio_dev *indio_dev)
 	ad9371_add_debugfs_entry(phy, "bist_prbs_obs", DBGFS_BIST_PRBS_OBS);
 	ad9371_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
 	ad9371_add_debugfs_entry(phy, "monitor_out", DBGFS_MONITOR_OUT);
+	ad9371_add_debugfs_entry(phy, "plls_lock_status", DBGFS_PLLS_STATUS);
 
 	for (i = 0; i < phy->ad9371_debugfs_entry_index; i++)
 		d = debugfs_create_file(
