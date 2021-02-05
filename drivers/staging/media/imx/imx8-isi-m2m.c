@@ -439,6 +439,19 @@ static int mxc_m2m_queue_init(void *priv, struct vb2_queue *src_vq,
 	return ret;
 }
 
+static void isi_m2m_fmt_init(struct mxc_isi_frame *frm, struct mxc_isi_fmt *fmt)
+{
+	int i;
+
+	frm->fmt = fmt;
+	set_frame_bounds(frm, ISI_4K, ISI_8K);
+
+	for (i = 0; i < frm->fmt->memplanes; i++) {
+		frm->bytesperline[i] = frm->width * frm->fmt->depth[i] >> 3;
+		frm->sizeimage[i] = frm->bytesperline[i] * frm->height;
+	}
+}
+
 static int mxc_isi_m2m_open(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
@@ -478,6 +491,9 @@ static int mxc_isi_m2m_open(struct file *file)
 		goto unlock;
 	}
 	v4l2_fh_add(&mxc_ctx->fh);
+
+	isi_m2m_fmt_init(&isi_m2m->src_f, &mxc_isi_input_formats[0]);
+	isi_m2m_fmt_init(&isi_m2m->dst_f, &mxc_isi_out_formats[0]);
 
 	pm_runtime_get_sync(dev);
 	if (atomic_inc_return(&mxc_isi->usage_count) == 1)
@@ -825,7 +841,9 @@ static int mxc_isi_m2m_g_fmt_vid_cap(struct file *file, void *fh,
 	pix->height = frame->o_height;
 	pix->field = V4L2_FIELD_NONE;
 	pix->pixelformat = frame->fmt->fourcc;
-	pix->colorspace = V4L2_COLORSPACE_JPEG;
+	pix->colorspace = V4L2_COLORSPACE_SRGB;
+	pix->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(pix->colorspace);
+	pix->quantization = V4L2_QUANTIZATION_FULL_RANGE;
 	pix->num_planes = frame->fmt->memplanes;
 
 	for (i = 0; i < pix->num_planes; ++i) {
@@ -849,12 +867,14 @@ static int mxc_isi_m2m_g_fmt_vid_out(struct file *file, void *fh,
 	if (f->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return -EINVAL;
 
-	pix->width = frame->o_width;
+	pix->width  = frame->o_width;
 	pix->height = frame->o_height;
-	pix->field = V4L2_FIELD_NONE;
-	pix->pixelformat = frame->fmt->fourcc;
-	pix->colorspace = V4L2_COLORSPACE_JPEG;
-	pix->num_planes = frame->fmt->memplanes;
+	pix->field  = V4L2_FIELD_NONE;
+	pix->pixelformat  = frame->fmt->fourcc;
+	pix->colorspace   = V4L2_COLORSPACE_SRGB;
+	pix->ycbcr_enc    = V4L2_MAP_YCBCR_ENC_DEFAULT(pix->colorspace);
+	pix->num_planes   = frame->fmt->memplanes;
+	pix->quantization = V4L2_QUANTIZATION_FULL_RANGE;
 
 	for (i = 0; i < pix->num_planes; ++i) {
 		pix->plane_fmt[i].bytesperline = frame->bytesperline[i];
