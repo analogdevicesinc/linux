@@ -62,7 +62,7 @@
 			 <&dsp_lpcg 2>;
 		clock-names = "ipg", "ocram", "core";
 		fsl,dsp-firmware = "imx/dsp/hifi4.bin";
-		power-domains = <&pd IMX_SC_R_MU_13A>,
+		power-domains =
 				<&pd IMX_SC_R_MU_13B>,
 				<&pd IMX_SC_R_DSP>,
 				<&pd IMX_SC_R_DSP_RAM>,
