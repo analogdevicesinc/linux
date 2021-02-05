@@ -1128,7 +1128,7 @@ mykonosDbgErr_t MYKONOS_framerGetPatternGen(mykonosDevice_t *device, mykonos_jes
     const uint8_t ENABLE_MASK = 0x01;
     const uint8_t TOGGLE_MASK = 0x02;
 
-#ifdef MYKONOS_VERBOSE
+#if (MYKONOS_VERBOSE == 1)
     CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DBG_OK, "MYKONOS_framerGetPatternGen()\n");
 #endif
 
@@ -1260,7 +1260,7 @@ mykonosDbgErr_t MYKONOS_framerGetZeroData(mykonosDevice_t *device, mykonos_jesdc
 
     const uint8_t LANE_MASK = 0x0F;
 
-#ifdef MYKONOS_VERBOSE
+#if (MYKONOS_VERBOSE == 1)
     CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_DBG_OK, "MYKONOS_framerGetZeroData()\n");
 #endif
 
