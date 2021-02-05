@@ -53,12 +53,10 @@
 
 //#define CONFIG_DEVICE_THERMAL_HANTRO
 #ifdef CONFIG_DEVICE_THERMAL_HANTRO
-#include <linux/device_cooling.h>
-#define HANTRO_REG_THERMAL_NOTIFIER(a) register_devfreq_cooling_notifier(a)
-#define HANTRO_UNREG_THERMAL_NOTIFIER(a) unregister_devfreq_cooling_notifier(a)
+#include <linux/thermal.h>
 static DEFINE_SPINLOCK(thermal_lock);
 /*1:hot, 0: not hot*/
-static int thermal_event;
+#define HANTRO_COOLING_MAX_STATE 1
 static int hantro_clock_ratio = 2;
 static int hantro_dynamic_clock;
 module_param(hantro_clock_ratio, int, 0644);
@@ -187,6 +185,8 @@ typedef struct {
 	struct device *dev;
 	struct mutex dev_mutex;
 	int thermal_cur;
+	int thermal_event;
+	struct thermal_cooling_device *cooling;
 } hantrodec_t;
 
 static hantrodec_t hantrodec_data[HXDEC_MAX_CORES]; /* dynamic allocation? */
@@ -354,12 +354,12 @@ static int hantro_thermal_check(struct device *dev)
 	unsigned long flags;
 
 	spin_lock_irqsave(&thermal_lock, flags);
-	if (thermal_event == hantrodev->thermal_cur) {
+	if (hantrodev->thermal_event == hantrodev->thermal_cur) {
 		/*nothing to do and return directly*/
 		spin_unlock_irqrestore(&thermal_lock, flags);
 		return 0;
 	}
-	hantrodev->thermal_cur = thermal_event;
+	hantrodev->thermal_cur = hantrodev->thermal_event;
 	spin_unlock_irqrestore(&thermal_lock, flags);
 
 	if (hantrodev->thermal_cur) {
@@ -379,20 +379,36 @@ static int hantro_thermal_check(struct device *dev)
 	return 0;
 }
 
-static int hantro_thermal_hot_notify(struct notifier_block *nb, unsigned long event, void *dummy)
+static int hantro_cooling_get_max_state(struct thermal_cooling_device *cdev, unsigned long *state)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&thermal_lock, flags);
-	thermal_event = event;		/*event: 1: hot, 0: cool*/
-	spin_unlock_irqrestore(&thermal_lock, flags);
-	pr_info("hantro receive hot notification event: %ld\n", event);
-
-	return NOTIFY_OK;
+	*state = HANTRO_COOLING_MAX_STATE;
+	return 0;
 }
 
-static struct notifier_block hantro_thermal_hot_notifier = {
-	.notifier_call = hantro_thermal_hot_notify,
+static int hantro_cooling_get_cur_state(struct thermal_cooling_device *cdev, unsigned long *state)
+{
+	hantrodec_t *hantrodev = cdev->devdata;
+
+	*state = hantrodev->thermal_event;
+	return 0;
+}
+
+static int hantro_cooling_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
+{
+	unsigned long flags;
+	hantrodec_t *hantrodev = cdev->devdata;
+
+	spin_lock_irqsave(&thermal_lock, flags);
+	hantrodev->thermal_event = state;		/*event: 1: hot, 0: cool*/
+	spin_unlock_irqrestore(&thermal_lock, flags);
+	pr_info("hantro receive cooling set state: %ld\n", state);
+	return 0;
+}
+
+static struct thermal_cooling_device_ops hantro_cooling_ops = {
+	.get_max_state = hantro_cooling_get_max_state,
+	.get_cur_state = hantro_cooling_get_cur_state,
+	.set_cur_state = hantro_cooling_set_cur_state,
 };
 #endif  //CONFIG_DEVICE_THERMAL_HANTRO
 
@@ -1966,8 +1982,11 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_DEVICE_THERMAL_HANTRO
-	HANTRO_REG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
-	thermal_event = 0;
+	hantrodec_data[id].cooling = thermal_of_cooling_device_register(pdev->dev.of_node,
+		(char *)dev_name(&pdev->dev), &hantrodec_data[id], &hantro_cooling_ops);
+	if (IS_ERR(hantrodec_data[id].cooling))
+		pr_err("hantro[%d] register cooling device failed\n", id);
+	hantrodec_data[id].thermal_event = 0;
 	hantro_dynamic_clock = 0;
 	hantrodec_data[id].thermal_cur = 0;
 #endif
@@ -1991,6 +2010,9 @@ static int hantro_dev_remove(struct platform_device *pdev)
 
 	hantro_clk_enable(&dev->clk);
 	pm_runtime_get_sync(&pdev->dev);
+#ifdef CONFIG_DEVICE_THERMAL_HANTRO
+	thermal_cooling_device_unregister(hantrodec_data[dev->core_id].cooling);
+#endif
 	hantrodec_cleanup(dev->core_id);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
@@ -1999,10 +2021,6 @@ static int hantro_dev_remove(struct platform_device *pdev)
 		clk_put(dev->clk.dec);
 	if (!IS_ERR(dev->clk.bus))
 		clk_put(dev->clk.bus);
-
-#ifdef CONFIG_DEVICE_THERMAL_HANTRO
-	HANTRO_UNREG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
-#endif
 
 	return 0;
 }

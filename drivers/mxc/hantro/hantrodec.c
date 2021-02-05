@@ -52,11 +52,10 @@
 //#include <linux/busfreq-imx.h>
 
 #ifdef CONFIG_DEVICE_THERMAL
-#include <linux/device_cooling.h>
-#define HANTRO_REG_THERMAL_NOTIFIER(a) register_devfreq_cooling_notifier(a)
-#define HANTRO_UNREG_THERMAL_NOTIFIER(a) unregister_devfreq_cooling_notifier(a)
+#include <linux/thermal.h>
 DEFINE_SPINLOCK(thermal_lock);
 /*1:hot, 0: not hot*/
+#define HANTRO_COOLING_MAX_STATE 1
 static int thermal_event;
 static int thermal_cur;
 static int hantro_clock_ratio = 2;
@@ -173,6 +172,7 @@ typedef struct {
 	int cores;
 	struct fasync_struct *async_queue_dec;
 	struct fasync_struct *async_queue_pp;
+	struct thermal_cooling_device *cooling;
 } hantrodec_t;
 
 static hantrodec_t hantrodec_data; /* dynamic allocation? */
@@ -335,20 +335,33 @@ static int hantro_thermal_check(struct device *dev)
 	return 0;
 }
 
-static int hantro_thermal_hot_notify(struct notifier_block *nb, unsigned long event, void *dummy)
+static int hantro_cooling_get_max_state(struct thermal_cooling_device *cdev, unsigned long *state)
+{
+	*state = HANTRO_COOLING_MAX_STATE;
+	return 0;
+}
+
+static int hantro_cooling_get_cur_state(struct thermal_cooling_device *cdev, unsigned long *state)
+{
+	*state = thermal_event;
+	return 0;
+}
+
+static int hantro_cooling_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&thermal_lock, flags);
-	thermal_event = event;		/*event: 1: hot, 0: cool*/
+	thermal_event = state;		/*event: 1: hot, 0: cool*/
 	spin_unlock_irqrestore(&thermal_lock, flags);
-	pr_info("hantro receive hot notification event: %ld\n", event);
-
-	return NOTIFY_OK;
+	pr_info("hantro receive cooling set state: %ld\n", state);
+	return 0;
 }
 
-static struct notifier_block hantro_thermal_hot_notifier = {
-	.notifier_call = hantro_thermal_hot_notify,
+static struct thermal_cooling_device_ops hantro_cooling_ops = {
+	.get_max_state = hantro_cooling_get_max_state,
+	.get_cur_state = hantro_cooling_get_cur_state,
+	.set_cur_state = hantro_cooling_set_cur_state,
 };
 #endif  //CONFIG_DEVICE_THERMAL
 
@@ -1825,7 +1838,10 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_DEVICE_THERMAL
-	HANTRO_REG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
+	hantrodec_data.cooling = thermal_of_cooling_device_register(pdev->dev.of_node,
+		(char *)dev_name(&pdev->dev), &hantrodec_data, &hantro_cooling_ops);
+	if (IS_ERR(hantrodec_data.cooling))
+		goto err_out_class;
 	thermal_event = 0;
 	thermal_cur = 0;
 	hantro_dynamic_clock = 0;
@@ -1849,6 +1865,9 @@ static int hantro_dev_remove(struct platform_device *pdev)
 	hantro_clk_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 	if (hantrodec_major > 0) {
+#ifdef CONFIG_DEVICE_THERMAL
+		thermal_cooling_device_unregister(hantrodec_data.cooling);
+#endif
 		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
 		class_destroy(hantro_class);
 		hantrodec_cleanup();
@@ -1864,10 +1883,6 @@ static int hantro_dev_remove(struct platform_device *pdev)
 		clk_put(hantro_clk_g2);
 	if (!IS_ERR(hantro_clk_bus))
 		clk_put(hantro_clk_bus);
-
-#ifdef CONFIG_DEVICE_THERMAL
-	HANTRO_UNREG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
-#endif
 
 	return 0;
 }
