@@ -2810,6 +2810,18 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_BIST_PRBS_ERR_RX:
+		if (ret != 1)
+			return -EINVAL;
+
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = MYKONOS_rxInjectPrbsError(phy->mykDevice);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
 	case DBGFS_BIST_PRBS_OBS:
 		if (ret != 1)
 			return -EINVAL;
@@ -2817,6 +2829,18 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		mutex_lock(&phy->indio_dev->mlock);
 		ret = MYKONOS_enableObsRxFramerPrbs(phy->mykDevice,
 						    (val > 0) ? val - 1 : 0, !!val);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_PRBS_ERR_OBS:
+		if (ret != 1)
+			return -EINVAL;
+
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = MYKONOS_obsRxInjectPrbsError(phy->mykDevice);
 		mutex_unlock(&phy->indio_dev->mlock);
 		if (ret < 0)
 			return ret;
@@ -2907,7 +2931,9 @@ static int ad9371_register_debugfs(struct iio_dev *indio_dev)
 	ad9371_add_debugfs_entry(phy, "loopback_tx_rx", DBGFS_LOOPBACK_TX_RX);
 	ad9371_add_debugfs_entry(phy, "loopback_tx_obs", DBGFS_LOOPBACK_TX_OBS);
 	ad9371_add_debugfs_entry(phy, "bist_prbs_rx", DBGFS_BIST_PRBS_RX);
+	ad9371_add_debugfs_entry(phy, "bist_prbs_err_rx", DBGFS_BIST_PRBS_ERR_RX);
 	ad9371_add_debugfs_entry(phy, "bist_prbs_obs", DBGFS_BIST_PRBS_OBS);
+	ad9371_add_debugfs_entry(phy, "bist_prbs_err_obs", DBGFS_BIST_PRBS_ERR_OBS);
 	ad9371_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
 	ad9371_add_debugfs_entry(phy, "monitor_out", DBGFS_MONITOR_OUT);
 	ad9371_add_debugfs_entry(phy, "plls_lock_status", DBGFS_PLLS_STATUS);
