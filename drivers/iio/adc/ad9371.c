@@ -2708,8 +2708,23 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 
 	} else if (entry->cmd) {
 		u8 index, mask, status;
+		u32 errcnt;
 
 		switch (entry->cmd) {
+		case DBGFS_BIST_PRBS_ERR_TX:
+			for (index = 0; index < 4; index++) {
+				mutex_lock(&phy->indio_dev->mlock);
+				ret = MYKONOS_readDeframerPrbsCounters(phy->mykDevice,
+								       index, &errcnt);
+				mutex_unlock(&phy->indio_dev->mlock);
+				if (ret < 0)
+					return ret;
+
+				len += snprintf(buf + len, sizeof(buf) - len,
+						"0x%08x%c", errcnt,
+						index == 3 ? '\n' : ' ');
+			}
+			break;
 		case DBGFS_MONITOR_OUT:
 			mutex_lock(&phy->indio_dev->mlock);
 			ret = MYKONOS_getGpioMonitorOut(phy->mykDevice,
@@ -2847,6 +2862,32 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_BIST_PRBS_TX:
+		if (ret != 2)
+			return -EINVAL;
+
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = MYKONOS_enableDeframerPrbsChecker(phy->mykDevice, val,
+							(val2 > 0) ? val2 - 1 : 0,
+							!!val2);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
+	case DBGFS_BIST_PRBS_ERR_TX:
+		if (ret != 1)
+			return -EINVAL;
+
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = MYKONOS_clearDeframerPrbsCounters(phy->mykDevice);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
 	case DBGFS_BIST_TONE:
 		if (ret != 3)
 			return -EINVAL;
@@ -2934,6 +2975,8 @@ static int ad9371_register_debugfs(struct iio_dev *indio_dev)
 	ad9371_add_debugfs_entry(phy, "bist_prbs_err_rx", DBGFS_BIST_PRBS_ERR_RX);
 	ad9371_add_debugfs_entry(phy, "bist_prbs_obs", DBGFS_BIST_PRBS_OBS);
 	ad9371_add_debugfs_entry(phy, "bist_prbs_err_obs", DBGFS_BIST_PRBS_ERR_OBS);
+	ad9371_add_debugfs_entry(phy, "bist_prbs_tx", DBGFS_BIST_PRBS_TX);
+	ad9371_add_debugfs_entry(phy, "bist_prbs_err_tx", DBGFS_BIST_PRBS_ERR_TX);
 	ad9371_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
 	ad9371_add_debugfs_entry(phy, "monitor_out", DBGFS_MONITOR_OUT);
 	ad9371_add_debugfs_entry(phy, "plls_lock_status", DBGFS_PLLS_STATUS);
