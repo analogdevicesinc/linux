@@ -117,9 +117,24 @@
 		};
 	};
 
+/* Fragment valid only for Foxconn */
+	fragment@9 {
+		target = <&i2c_vc>;
+		__dormant__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			tmp103_i2c_vc: temp@73 {
+				compatible = "ti,tmp103";
+				reg = <0x73>;
+			};
+		};
+	};
+
 	__overrides__ {
-		revb = <0>,"+4+5-6+7-8";
-		revc = <0>,"-4-5+6-7-8";
-		chicony = <0>,"-4-5+6-7+8";
+		revb = <0>,"+4+5-6+7-8-9";
+		revc = <0>,"-4-5+6-7-8-9";
+		chicony = <0>,"-4-5+6-7+8-9";
+		foxconn = <0>,"-4-5+6-7-8+9";
 	};
 };
