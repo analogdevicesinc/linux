@@ -597,7 +597,6 @@ MODULE_DEVICE_TABLE(of, adxcvr_of_match);
 static void adxcvr_enforce_settings(struct adxcvr_state *st)
 {
 	unsigned long lane_rate, parent_rate;
-	int ret;
 
 	/*
 	 * Make sure filter settings, etc. are correct for the supplied reference
@@ -619,11 +618,7 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 
 	lane_rate = adxcvr_clk_recalc_rate(&st->lane_clk_hw, parent_rate);
 
-	ret = adxcvr_clk_set_rate(&st->lane_clk_hw, lane_rate, parent_rate);
-	if (ret)
-		dev_err(st->dev,
-			"%s: Rate %lu Hz Parent Rate %lu Hz, error: %d",
-			__func__, lane_rate, parent_rate, ret);
+	adxcvr_clk_set_rate(&st->lane_clk_hw, lane_rate, parent_rate);
 }
 
 static void adxcvr_get_info(struct adxcvr_state *st)
