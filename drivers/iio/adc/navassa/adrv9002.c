@@ -33,6 +33,7 @@
 #include "adi_adrv9001_powermanagement.h"
 #include "adi_adrv9001_powermanagement_types.h"
 #include "adi_adrv9001_profile_types.h"
+#include "adi_adrv9001_profileutil.h"
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_radio_types.h"
 #include "adi_adrv9001_rx_gaincontrol.h"
@@ -50,7 +51,6 @@
 #include "adi_adrv9001_tx_types.h"
 #include "adi_adrv9001_txSettings_types.h"
 #include "adi_adrv9001_utilities.h"
-#include "adi_adrv9001_utilities_types.h"
 #include "adi_adrv9001_version.h"
 #include "adi_common_error_types.h"
 #include "adi_platform_types.h"
@@ -65,7 +65,8 @@
 #define ADRV9002_RX_EN(nr)	BIT(((nr) * 2) & 0x3)
 #define ADRV9002_TX_EN(nr)	BIT(((nr) * 2 + 1) & 0x3)
 
-#define ADRV9002_RX_MAX_GAIN_mdB	30000
+#define ADRV9002_RX_MAX_GAIN_mdB	\
+	((ADI_ADRV9001_RX_GAIN_INDEX_MAX - ADI_ADRV9001_RX_GAIN_INDEX_MIN) * ADRV9002_RX_GAIN_STEP_mDB)
 #define ADRV9002_RX_GAIN_STEP_mDB	500
 #define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
@@ -2016,14 +2017,17 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 	 */
 	if (phy->stream_size == ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES)
 		ret = adi_adrv9001_Stream_Image_Write(phy->adrv9001, 0, phy->stream_buf,
-						      phy->stream_size);
+						      phy->stream_size,
+						      ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252);
 	else
-		ret = adi_adrv9001_Utilities_StreamImage_Load(phy->adrv9001, "Navassa_Stream.bin");
+		ret = adi_adrv9001_Utilities_StreamImage_Load(phy->adrv9001, "Navassa_Stream.bin",
+					ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
 	/* program arm firmware */
-	ret = adi_adrv9001_Utilities_ArmImage_Load(phy->adrv9001, "Navassa_EvaluationFw.bin");
+	ret = adi_adrv9001_Utilities_ArmImage_Load(phy->adrv9001, ADRV9002_FW_PATH,
+					ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
@@ -2214,9 +2218,7 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 		.measurementDuration_samples = 10
 	};
 	struct adi_adrv9001_Carrier carrier = {
-		.pllCalibration = ADI_ADRV9001_PLL_CALIBRATION_NORMAL,
 		.loGenOptimization = ADI_ADRV9001_LO_GEN_OPTIMIZATION_PHASE_NOISE,
-		.pllPower = ADI_ADRV9001_PLL_POWER_LOW,
 		.intermediateFrequency_Hz = 0
 	};
 
@@ -3203,10 +3205,8 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 	mutex_lock(&phy->lock);
 
 	memset(&phy->profile, 0, sizeof(phy->profile));
-	ret = adi_adrv9001_Utilities_DeviceProfile_Parse(phy->adrv9001,
-							 &phy->profile,
-							 phy->bin_attr_buf,
-							 off + count);
+	ret = adi_adrv9001_profileutil_Parse(phy->adrv9001, &phy->profile, phy->bin_attr_buf,
+					     off + count);
 	if (ret)
 		goto out;
 
