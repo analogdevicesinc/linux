@@ -255,7 +255,7 @@ static void axi_clkgen_setup_ranges(struct axi_clkgen *axi_clkgen)
 	case ADI_AXI_FPGA_SPEED_2 ... ADI_AXI_FPGA_SPEED_2LV:
 		fvco_max = 1440000;
 		fpfd_max = 500000;
-		if ((family == ADI_AXI_FPGA_FAMILY_KINTEX) |
+		if ((family == ADI_AXI_FPGA_FAMILY_KINTEX) ||
 		    (family == ADI_AXI_FPGA_FAMILY_ARTIX)) {
 			if (voltage < 950) {
 				fvco_max = 1200000;
