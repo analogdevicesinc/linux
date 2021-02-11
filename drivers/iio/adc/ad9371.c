@@ -4861,13 +4861,13 @@ static int ad9371_probe(struct spi_device *spi)
 		} else {
 			phy->jesd_rx_clk = clk;
 
-			phy->jesd_tx_clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
-			if (IS_ERR(phy->jesd_tx_clk) && PTR_ERR(phy->jesd_tx_clk) != -ENOENT)
+			phy->jesd_tx_clk = devm_clk_get_optional(&spi->dev, "jesd_tx_clk");
+			if (IS_ERR(phy->jesd_tx_clk))
 				return PTR_ERR(phy->jesd_tx_clk);
 		}
 
-		phy->jesd_rx_os_clk = devm_clk_get(&spi->dev, "jesd_rx_os_clk");
-		if (IS_ERR(phy->jesd_rx_os_clk) && PTR_ERR(phy->jesd_rx_os_clk) != -ENOENT)
+		phy->jesd_rx_os_clk = devm_clk_get_optional(&spi->dev, "jesd_rx_os_clk");
+		if (IS_ERR(phy->jesd_rx_os_clk))
 			return PTR_ERR(phy->jesd_rx_os_clk);
 
 		phy->fmc_clk = devm_clk_get(&spi->dev, "fmc_clk");
@@ -4878,12 +4878,12 @@ static int ad9371_probe(struct spi_device *spi)
 		if (ret)
 			return ret;
 
-		phy->sysref_dev_clk = devm_clk_get(&spi->dev, "sysref_dev_clk");
-		if (IS_ERR(phy->sysref_dev_clk) && PTR_ERR(phy->sysref_dev_clk) != -ENOENT)
+		phy->sysref_dev_clk = devm_clk_get_optional(&spi->dev, "sysref_dev_clk");
+		if (IS_ERR(phy->sysref_dev_clk))
 			return PTR_ERR(phy->sysref_dev_clk);
 
-		phy->sysref_fmc_clk = devm_clk_get(&spi->dev, "sysref_fmc_clk");
-		if (IS_ERR(phy->sysref_fmc_clk) && PTR_ERR(phy->sysref_fmc_clk) != -ENOENT)
+		phy->sysref_fmc_clk = devm_clk_get_optional(&spi->dev, "sysref_fmc_clk");
+		if (IS_ERR(phy->sysref_fmc_clk))
 			return PTR_ERR(phy->sysref_fmc_clk);
 
 		ret = clk_prepare_enable(phy->sysref_dev_clk);
