@@ -23,9 +23,13 @@
 
 	jesd204-device;
 	#jesd204-cells = <2>;
-	jesd204-inputs = <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
-		<&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>,
-		<&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
+	jesd204-top-device = <0>;
+	jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
+
+	jesd204-inputs =
+		<&trx3_adrv9009 0 FRAMER_LINK_RX>,
+		<&trx3_adrv9009 0 FRAMER_LINK_ORX>,
+		<&trx3_adrv9009 0 DEFRAMER_LINK_TX>;
 };
 
 &trx3_adrv9009 {
@@ -37,13 +41,9 @@
 
 	jesd204-device;
 	#jesd204-cells = <2>;
-	jesd204-top-device = <0>;
-	jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
-
-	jesd204-inputs =
-		<&trx2_adrv9009 0 FRAMER_LINK_RX>,
-		<&trx2_adrv9009 0 FRAMER_LINK_ORX>,
-		<&trx2_adrv9009 0 DEFRAMER_LINK_TX>;
+	jesd204-inputs = <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
+		<&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>,
+		<&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
 };
 
 &axi_adrv9009_adxcvr_rx {
