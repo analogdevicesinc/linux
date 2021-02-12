@@ -153,8 +153,8 @@ struct adrv9002_rf_phy {
 	struct clk			*clks[NUM_ADRV9002_CLKS];
 	struct adrv9002_clock		clk_priv[NUM_ADRV9002_CLKS];
 	struct clk_onecell_data		clk_data;
-	struct bin_attribute		bin;
 	char				*bin_attr_buf;
+	size_t				bin_attr_sz;
 	u8				*stream_buf;
 	u16				stream_size;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
