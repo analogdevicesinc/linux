@@ -10,6 +10,7 @@
 /dts-v1/;
 
 #include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -175,11 +176,6 @@
 			#clock-cells = <0>;
 			clock-frequency = <100000000>;
 			compatible = "fixed-clock";
-		};
-
-		axi_sysid_0: axi-sysid-0@85000000 {
-			compatible = "adi,axi-sysid-1.00.a";
-			reg = <0x45000000 0x10000>;
 		};
 	};
 };
