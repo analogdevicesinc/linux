@@ -6,7 +6,6 @@
  *
  * Licensed under the GPL-2.
  */
-
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
@@ -789,42 +788,40 @@ static int axi_jesd204_rx_jesd204_link_setup(struct jesd204_dev *jdev,
 		return ret;
 	}
 
-	rate = clk_get_rate(jesd->lane_clk);
+	rate = clk_round_rate(jesd->lane_clk, lane_rate);
+	if (rate != (long)lane_rate) {
+		struct clk *parent;
 
-	if (rate != lane_rate) {
-		rate = clk_round_rate(jesd->lane_clk, lane_rate);
-		if (rate != (long)lane_rate) {
-			struct clk *parent;
+		/*
+		 * Check GT QPLL/CPLL reference clock and make
+		 * it equal to the link/device rate
+		 */
+		parent = clk_get_parent(jesd->lane_clk);
+		rate = clk_get_rate(parent);
 
-			/*
-			 * Check GT QPLL/CPLL reference clock and make
-			 * it equal to the link/device rate
-			 */
-			parent = clk_get_parent(jesd->lane_clk);
-			rate = clk_get_rate(parent);
-
-			if (rate != (long)link_rate) {
-				rate = clk_round_rate(parent, link_rate);
-				if (rate == (long)link_rate) {
-					ret = clk_set_rate(parent, link_rate);
-					if (!ret && !IS_ERR(jesd->conv2_clk))
-						ret = clk_set_rate(jesd->conv2_clk, link_rate);
-				} else {
-					ret = -EINVAL;
-				}
-				if (ret < 0) {
-					dev_err(dev, "%s: Link%u set REFCLK to device/link rate %lu Hz failed (%d)\n",
-						__func__, lnk->link_id, link_rate, ret);
-				}
+		if (rate != (long)link_rate) {
+			rate = clk_round_rate(parent, link_rate);
+			if (rate == (long)link_rate) {
+				ret = clk_set_rate(parent, link_rate);
+				if (!ret && !IS_ERR(jesd->conv2_clk))
+					ret = clk_set_rate(jesd->conv2_clk, link_rate);
+			} else {
+				ret = -EINVAL;
+			}
+			if (ret < 0) {
+				dev_err(dev, "%s: Link%u set REFCLK to device/link rate %lu Hz failed (%d)\n",
+					__func__, lnk->link_id, link_rate, ret);
 			}
 		}
-		ret = clk_set_rate(jesd->lane_clk, lane_rate);
-		if (ret) {
-			dev_err(dev, "%s: Link%u set lane rate %lu kHz failed (%d)\n",
-				__func__, lnk->link_id, lane_rate, ret);
-			return ret;
-		}
 	}
+
+	ret = clk_set_rate(jesd->lane_clk, lane_rate);
+	if (ret) {
+		dev_err(dev, "%s: Link%u set lane rate %lu kHz failed (%d)\n",
+			__func__, lnk->link_id, lane_rate, ret);
+		return ret;
+	}
+
 
 	return JESD204_STATE_CHANGE_DONE;
 }
