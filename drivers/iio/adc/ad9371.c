@@ -4838,6 +4838,9 @@ static int ad9371_probe(struct spi_device *spi)
 	phy->sysref_req_gpio = devm_gpiod_get(&spi->dev, "sysref_req",
 					      GPIOD_OUT_HIGH);
 
+	phy->test_gpio = devm_gpiod_get_optional(&spi->dev, "test",
+						 GPIOD_OUT_LOW);
+
 	phy->mykDevice->spiSettings->spi 		 = spi;
 	phy->mykDevice->spiSettings->writeBitPolarity    = 0;
 	phy->mykDevice->spiSettings->longInstructionWord = 1;
