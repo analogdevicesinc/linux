@@ -3445,8 +3445,11 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
+	if (off + count > phy->bin_attr_sz)
+		return -EFBIG;
+
 	if (off == 0)
-		memset(phy->bin_attr_buf, 0, bin_attr->size);
+		memset(phy->bin_attr_buf, 0, phy->bin_attr_sz);
 
 	memcpy(phy->bin_attr_buf + off, buf, count);
 
@@ -3469,6 +3472,65 @@ out:
 	mutex_unlock(&phy->lock);
 
 	return (ret < 0) ? ret : count;
+}
+
+const char *const lo_maps[] = {
+	"Unknown",
+	"L01",
+	"L02",
+	"AUX LO"
+};
+
+const char *const duplex[] = {
+	"TDM",
+	"FDD"
+};
+
+const char *const ssi[] = {
+	"Disabled",
+	"CMOS",
+	"LVDS"
+};
+
+const char *const mcs[] = {
+	"Disabled",
+	"Enabled",
+	"Enabled RFPLL Phase"
+};
+
+static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj,
+					 struct bin_attribute *bin_attr, char *buf, loff_t pos,
+					 size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	struct adi_adrv9001_ClockSettings *clks = &phy->curr_profile->clocks;
+	struct adi_adrv9001_RxSettings *rx = &phy->curr_profile->rx;
+	struct adi_adrv9001_TxSettings *tx = &phy->curr_profile->tx;
+	struct adi_adrv9001_DeviceSysConfig *sys = &phy->curr_profile->sysConfig;
+	char info[350];
+	size_t len;
+
+	len = scnprintf(info, sizeof(info), "Device clk(Hz): %d\n"
+		       "Clk PLL VCO(Hz): %lld\n"
+		       "ARM Power Saving Clk Divider: %d\n"
+		       "RX1 LO: %s\n"
+		       "RX2 LO: %s\n"
+		       "TX1 LO: %s\n"
+		       "TX2 LO: %s\n"
+		       "RX Channel Mask: 0x%x\n"
+		       "TX Channel Mask: 0x%x\n"
+		       "Duplex Mode: %s\n"
+		       "FH enable: %d\n"
+		       "MCS mode: %s\n"
+		       "SSI interface: %s\n", clks->deviceClock_kHz * 1000,
+		       clks->clkPllVcoFreq_daHz * 10ULL, clks->armPowerSavingClkDiv,
+		       lo_maps[clks->rx1LoSelect], lo_maps[clks->rx2LoSelect],
+		       lo_maps[clks->tx1LoSelect], lo_maps[clks->tx2LoSelect],
+		       rx->rxInitChannelMask, tx->txInitChannelMask, duplex[sys->duplexMode],
+		       sys->fhModeOn, mcs[sys->mcsMode], ssi[phy->ssi_type]);
+
+	return memory_read_from_buffer(buf, count, &pos, info, len);
 }
 
 static int adrv9002_profile_load(struct adrv9002_rf_phy *phy, const char *profile)
@@ -3512,6 +3574,7 @@ static void adrv9002_of_clk_del_provider(void *data)
 }
 
 static BIN_ATTR(stream_config, 0222, NULL, adrv9002_stream_bin_write, ADRV9002_STREAM_BINARY_SZ);
+static BIN_ATTR(profile_config, 0644, adrv9002_profile_bin_read, adrv9002_profile_bin_write, 0);
 
 int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 {
@@ -3605,17 +3668,12 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	sysfs_bin_attr_init(&phy->bin);
-	phy->bin.attr.name = "profile_config";
-	phy->bin.attr.mode = 0200;
-	phy->bin.write = adrv9002_profile_bin_write;
-	phy->bin.size = 73728;
-
-	phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev, phy->bin.size, GFP_KERNEL);
+	phy->bin_attr_sz = 73728;
+	phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev, phy->bin_attr_sz, GFP_KERNEL);
 	if (!phy->bin_attr_buf)
 		return -ENOMEM;
 
-	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
+	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &bin_attr_profile_config);
 	if (ret < 0)
 		return ret;
 
