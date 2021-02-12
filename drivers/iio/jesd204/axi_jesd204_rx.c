@@ -6,6 +6,7 @@
  *
  * Licensed under the GPL-2.
  */
+
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
@@ -840,8 +841,10 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 	case JESD204_STATE_OP_REASON_INIT:
 		break;
 	case JESD204_STATE_OP_REASON_UNINIT:
-		clk_disable_unprepare(jesd->lane_clk);
-		clk_disable_unprepare(jesd->device_clk);
+		if (__clk_is_enabled(jesd->lane_clk)) /* REVIST */
+			clk_disable_unprepare(jesd->lane_clk);
+		if (__clk_is_enabled(jesd->device_clk))
+			clk_disable_unprepare(jesd->device_clk);
 		return JESD204_STATE_CHANGE_DONE;
 	default:
 		return JESD204_STATE_CHANGE_DONE;
