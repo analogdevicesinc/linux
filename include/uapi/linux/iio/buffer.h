@@ -33,6 +33,7 @@ struct iio_buffer_block_alloc_req {
 
 /* A function will be assigned later for BIT(0) */
 #define IIO_BUFFER_BLOCK_FLAG_RESERVED		(1 << 0)
+#define IIO_BUFFER_BLOCK_FLAG_CYCLIC		(1 << 1)
 
 /**
  * struct iio_buffer_block - Descriptor for a single IIO block
