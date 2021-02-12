@@ -152,7 +152,7 @@
 		adi,jesd204-framer-b-bank-id = <0>;
 		adi,jesd204-framer-b-device-id = <0>;
 		adi,jesd204-framer-b-lane0-id = <0>;
-		adi,jesd204-framer-b-m = <4>;
+		adi,jesd204-framer-b-m = <2>;
 		adi,jesd204-framer-b-k = <32>;
 		adi,jesd204-framer-b-f = <4>;
 		adi,jesd204-framer-b-np = <16>;
