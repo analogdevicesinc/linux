@@ -179,7 +179,7 @@ void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
 	*cmos_ddr_en = rx_cfg->rxSsiConfig.cmosDdrEn;
 }
 
-int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
+static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 {
 	bool cmos_ddr;
 	u8 n_lanes, ssi_intf;
@@ -2274,8 +2274,7 @@ tx:
 	return 0;
 }
 
-static int adrv9002_setup(struct adrv9002_rf_phy *phy,
-			  adi_adrv9001_Init_t *adrv9002_init)
+static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_Device *adrv9001_device = phy->adrv9001;
 	u8 init_cals_error = 0;
@@ -2290,27 +2289,25 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy,
 		.cmosPadDrvStrength = ADI_ADRV9001_CMOSPAD_DRV_STRONG,
 	};
 
-	phy->curr_profile = adrv9002_init;
-
 	/* in TDD we cannot start with all ports enabled as RX/TX cannot be on at the same time */
 	if (phy->curr_profile->sysConfig.duplexMode == ADI_ADRV9001_TDD_MODE)
 		init_state = ADI_ADRV9001_CHANNEL_PRIMED;
 	else
 		init_state = ADI_ADRV9001_CHANNEL_RF_ENABLED;
 
-	/* compute init call and does some profile validations... */
-	ret = adrv9002_compute_init_cals(phy);
-	if (ret)
-		return ret;
-
 	adi_common_ErrorClear(&phy->adrv9001->common);
 	ret = adi_adrv9001_HwOpen(adrv9001_device, &spi);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
+	/* compute init call and does some profile validations... */
+	ret = adrv9002_compute_init_cals(phy);
+	if (ret)
+		return ret;
+
 	adrv9002_log_enable(&adrv9001_device->common);
 
-	ret = adi_adrv9001_InitAnalog(adrv9001_device, adrv9002_init,
+	ret = adi_adrv9001_InitAnalog(adrv9001_device, phy->curr_profile,
 				      ADI_ADRV9001_DEVICECLOCKDIVISOR_2);
 	if (ret)
 		return adrv9002_dev_err(phy);
@@ -2612,7 +2609,7 @@ int adrv9002_clean_setup(struct adrv9002_rf_phy *phy)
 
 	mutex_lock(&phy->lock);
 	adrv9002_cleanup(phy);
-	ret = adrv9002_setup(phy, phy->curr_profile);
+	ret = adrv9002_setup(phy);
 	mutex_unlock(&phy->lock);
 
 	return ret;
@@ -3146,17 +3143,21 @@ of_channels_put:
 	return ret;
 }
 
-static int adrv9002_profile_update(struct adrv9002_rf_phy *phy)
+static int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
 	int ret;
 
 	adrv9002_cleanup(phy);
-	ret = adrv9002_setup(phy, &phy->profile);
+
+	phy->curr_profile = profile;
+	ret = adrv9002_setup(phy);
 	if (ret) {
 		/* try one more time */
-		ret = adrv9002_setup(phy, &phy->profile);
-		if (ret)
+		ret = adrv9002_setup(phy);
+		if (ret) {
+			adrv9002_cleanup(phy);
 			return ret;
+		}
 	}
 
 	adrv9002_set_clk_rates(phy);
@@ -3167,7 +3168,6 @@ static int adrv9002_profile_update(struct adrv9002_rf_phy *phy)
 
 	return adrv9002_intf_tuning_unlocked(phy);
 }
-
 
 static ssize_t adrv9002_stream_bin_write(struct file *filp, struct kobject *kobj,
 					 struct bin_attribute *bin_attr, char *buf, loff_t off,
@@ -3218,7 +3218,7 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 	if (ret)
 		goto out;
 
-	ret = adrv9002_profile_update(phy);
+	ret = adrv9002_init(phy, &phy->profile);
 out:
 	mutex_unlock(&phy->lock);
 
@@ -3292,10 +3292,6 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 			return ret;
 	}
 
-	ret = adrv9002_setup(phy, &phy->profile);
-	if (ret < 0)
-		return ret;
-
 	/* register channels clocks */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
@@ -3339,7 +3335,9 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
-	adrv9002_set_clk_rates(phy);
+	ret = adrv9002_init(phy, &phy->profile);
+	if (ret)
+		return ret;
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi->dev.of_node->name;

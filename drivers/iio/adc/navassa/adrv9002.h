@@ -193,7 +193,6 @@ int adrv9002_spi_read(struct spi_device *spi, u32 reg);
 int adrv9002_spi_write(struct spi_device *spi, u32 reg, u32 val);
 void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int channel,
 				u8 *ssi_intf, u8 *n_lanes, bool *cmos_ddr_en);
-int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy);
 int adrv9002_post_init(struct adrv9002_rf_phy *phy);
 int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy);
 int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
