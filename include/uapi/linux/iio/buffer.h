@@ -13,6 +13,11 @@
  */
 
 /**
+ * See for more details:
+ *   Documentation/iio/iio_high_speed_buffers.rst
+ */
+
+/**
  * struct iio_buffer_block_alloc_req - Descriptor for allocating IIO buffer blocks
  * @type:	type of block(s) to allocate (currently unused, reserved)
  * @size:	the size of a single block
