@@ -159,8 +159,8 @@ int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, 
 
 #define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
 
-void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
-				u8 *ssi_intf, u8 *n_lanes, bool *cmos_ddr_en)
+static void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
+				       u8 *ssi_intf, u8 *n_lanes, bool *cmos_ddr_en)
 {
 	/*
 	 * Using the RX profile since with TX, we can have, for example, TX1 disabled
@@ -1940,6 +1940,9 @@ static const u32 adrv9002_init_cals_mask[16][2] = {
 
 static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 {
+	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
+	const struct adi_adrv9001_TxProfile *tx_cfg = phy->curr_profile->tx.txProfile;
+	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	const u32 tx_channels[ADRV9002_CHANN_MAX] = {
 		ADI_ADRV9001_TX1, ADI_ADRV9001_TX2
 	};
@@ -1957,6 +1960,11 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 
 		if (ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask,
 				      rx_channels[i])) {
+			if (ssi_type != rx_cfg[i].profile.rxSsiConfig.ssiType) {
+				dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, RX%d=%d\n",
+					ssi_type, i + 1, rx_cfg[i].profile.rxSsiConfig.ssiType);
+				return -EINVAL;
+			}
 			dev_dbg(&phy->spi->dev, "RX%d enabled\n", i);
 			pos |= ADRV9002_RX_EN(i);
 			rx->channel.power = true;
@@ -1978,7 +1986,12 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 				dev_err(&phy->spi->dev, "TX%d cannot be enabled while RX%d is disabled",
 					i + 1, i + 1);
 				return -EINVAL;
+			} else if (ssi_type != tx_cfg[i].txSsiConfig.ssiType) {
+				dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, TX%d=%d\n",
+					ssi_type, i + 1,  tx_cfg[i].txSsiConfig.ssiType);
+				return -EINVAL;
 			}
+
 			dev_dbg(&phy->spi->dev, "TX%d enabled\n", i);
 			pos |= ADRV9002_TX_EN(i);
 			tx->channel.power = true;
