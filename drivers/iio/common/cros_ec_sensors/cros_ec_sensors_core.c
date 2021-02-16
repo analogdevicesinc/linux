@@ -369,6 +369,7 @@ int cros_ec_sensors_core_init(struct platform_device *pdev,
 			 */
 			ret = devm_iio_triggered_buffer_setup_ext(
 					dev, indio_dev, NULL, trigger_capture,
+					IIO_BUFFER_DIRECTION_IN,
 					NULL, fifo_attrs);
 			if (ret)
 				return ret;
