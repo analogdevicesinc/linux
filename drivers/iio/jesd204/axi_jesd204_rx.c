@@ -1209,6 +1209,17 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_remove_debugfs;
 
+	dev_info(&pdev->dev, "AXI-JESD204-RX (%d.%.2d.%c) at 0x%08llX. Encoder %s, width %u/%u, lanes %d%s.",
+		ADI_AXI_PCORE_VER_MAJOR(jesd->version),
+		ADI_AXI_PCORE_VER_MINOR(jesd->version),
+		ADI_AXI_PCORE_VER_PATCH(jesd->version),
+		(unsigned long long)res->start,
+		jesd204_encoder_str(jesd->encoder),
+		jesd->data_path_width,
+		jesd->tpl_data_path_width,
+		jesd->num_lanes,
+		jdev ? ", jesd204-fsm" : "");
+
 	return 0;
 
 err_remove_debugfs:
