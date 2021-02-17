@@ -36,7 +36,7 @@ enum iio_block_state {
 /**
  * struct iio_dma_buffer_block - IIO buffer block
  * @head: List head
- * @size: Total size of the block in bytes
+ * @block: Underlying block object for this DMA buffer block
  * @bytes_used: Number of bytes that contain valid data
  * @vaddr: Virutal address of the blocks memory
  * @phys_addr: Physical address of the blocks memory
@@ -47,7 +47,7 @@ enum iio_block_state {
 struct iio_dma_buffer_block {
 	/* May only be accessed by the owner of the block */
 	struct list_head head;
-	size_t bytes_used;
+	struct iio_buffer_block block;
 
 	/*
 	 * Set during allocation, constant thereafter. May be accessed read-only
@@ -55,7 +55,6 @@ struct iio_dma_buffer_block {
 	 */
 	void *vaddr;
 	dma_addr_t phys_addr;
-	u32 size;
 	struct iio_dma_buffer_queue *queue;
 
 	/* Must not be accessed outside the core. */
@@ -73,12 +72,14 @@ struct iio_dma_buffer_block {
  * @active_block: Block being used in read()
  * @pos: Read offset in the active block
  * @block_size: Size of each block
+ * @enabled: Whether the buffer is operating in fileio mode
  */
 struct iio_dma_buffer_queue_fileio {
 	struct iio_dma_buffer_block *blocks[2];
 	struct iio_dma_buffer_block *active_block;
 	size_t pos;
 	size_t block_size;
+	bool enabled;
 };
 
 /**
@@ -108,6 +109,10 @@ struct iio_dma_buffer_queue {
 	struct list_head outgoing;
 
 	bool active;
+
+	unsigned int num_blocks;
+	struct iio_dma_buffer_block **blocks;
+	unsigned int max_offset;
 
 	struct iio_dma_buffer_queue_fileio fileio;
 };
@@ -142,5 +147,16 @@ int iio_dma_buffer_init(struct iio_dma_buffer_queue *queue,
 	struct device *dma_dev, const struct iio_dma_buffer_ops *ops);
 void iio_dma_buffer_exit(struct iio_dma_buffer_queue *queue);
 void iio_dma_buffer_release(struct iio_dma_buffer_queue *queue);
+
+int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
+				struct iio_buffer_block_alloc_req *req);
+int iio_dma_buffer_free_blocks(struct iio_buffer *buffer);
+int iio_dma_buffer_query_block(struct iio_buffer *buffer,
+			       struct iio_buffer_block *block);
+int iio_dma_buffer_enqueue_block(struct iio_buffer *buffer,
+				 struct iio_buffer_block *block);
+int iio_dma_buffer_dequeue_block(struct iio_buffer *buffer,
+				 struct iio_buffer_block *block);
+int iio_dma_buffer_mmap(struct iio_buffer *buffer, struct vm_area_struct *vma);
 
 #endif
