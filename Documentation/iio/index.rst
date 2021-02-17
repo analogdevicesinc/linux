@@ -9,4 +9,6 @@ Industrial I/O
 
    iio_configfs
 
+   iio_high_speed_buffers
+
    ep93xx_adc
