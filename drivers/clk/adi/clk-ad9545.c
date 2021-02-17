@@ -1136,7 +1136,7 @@ static int ad9545_set_r_div(struct ad9545_state *st, u32 div, int addr)
 	/* r-div ratios are mapped from 0 onward */
 	div -= 1;
 	for (i = 0; i < 4; i++) {
-		reg = (div >> (i * 8)) && 0xFF;
+		reg = (div >> (i * 8)) & 0xFF;
 
 		ret = regmap_write(st->regmap, AD9545_REF_X_RDIV(addr) + i, reg);
 		if (ret < 0)
