@@ -22,30 +22,6 @@
 #include "adi_adrv9001_tx.h"
 #include "adi_adrv9001_tx_types.h"
 
-#define rx_to_phy(rx, nr)	\
-	container_of(rx, struct adrv9002_rf_phy, rx_channels[nr])
-
-#define tx_to_phy(tx, nr)	\
-	container_of(tx, struct adrv9002_rf_phy, tx_channels[nr])
-
-#define chan_to_tx(c)		\
-	container_of(c, struct adrv9002_tx_chan, channel)
-
-#define chan_to_rx(c)		\
-	container_of(c, struct adrv9002_rx_chan, channel)
-
-#define chan_to_phy(c) ({						\
-	struct adrv9002_chan *__c = (c);				\
-	struct adrv9002_rf_phy *__phy;					\
-									\
-	if (__c->port == ADI_RX)					\
-		__phy = rx_to_phy(chan_to_rx(__c), __c->idx);	\
-	else								\
-		__phy = tx_to_phy(chan_to_tx(__c), __c->idx);	\
-									\
-	__phy;								\
-})
-
 static ssize_t adrv9002_rx_adc_type_get(struct file *file, char __user *userbuf,
 					size_t count, loff_t *ppos)
 {
