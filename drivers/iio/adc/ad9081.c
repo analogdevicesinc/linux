@@ -211,6 +211,22 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 					     phy->nco_sync_ms_extra_lmfc_num);
 }
 
+int32_t ad9081_jesd_tx_link_dig_reset(adi_ad9081_device_t *device,
+				      uint8_t reset)
+{
+	int32_t err;
+
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_INVALID_PARAM_RETURN(reset > 1);
+
+	err = adi_ad9081_hal_bf_set(device, REG_FORCE_LINK_RESET_REG_ADDR,
+				    BF_FORCE_LINK_DIGITAL_RESET_INFO,
+				    reset); /* not paged */
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
 int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
 			 va_list argp)
 {
@@ -3128,13 +3144,13 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 	}
 
 	if (!lnk->is_transmit) {
-		/* txfe RX (JTX) link */
-		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
-			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0,
-			reason == JESD204_STATE_OP_REASON_INIT);
+		/* txfe RX (JTX) link digital reset */
+		ret = ad9081_jesd_tx_link_dig_reset(&phy->ad9081,
+			reason != JESD204_STATE_OP_REASON_INIT);
 		if (ret != 0)
 			return ret;
+
+		mdelay(4);
 	}
 
 	return JESD204_STATE_CHANGE_DONE;
@@ -3217,13 +3233,9 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
-	/* For some reason JTX link must be enabled during OneShot Sync */
-	adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081, AD9081_LINK_ALL, 0);
-	adi_ad9081_jesd_tx_link_reset(&phy->ad9081, 1);
-	adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
-			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 1);
-	adi_ad9081_jesd_tx_link_reset(&phy->ad9081, 0);
+	ret = ad9081_jesd_tx_link_dig_reset(&phy->ad9081, 0);
+	if (ret != 0)
+		return ret;
 
 	mdelay(4);
 
