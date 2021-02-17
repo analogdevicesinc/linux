@@ -34,6 +34,18 @@ struct iio_buffer;
  *                      device stops sampling. Calles are balanced with @enable.
  * @release:		called when the last reference to the buffer is dropped,
  *			should free all resources allocated by the buffer.
+ * @alloc_blocks:	called from userspace via ioctl to allocate blocks
+ *			that will be used via the mmap interface.
+ * @free_blocks:	called from userspace via ioctl to free all blocks
+ *			allocated for this buffer.
+ * @enqueue_block:	called from userspace via ioctl to queue this block
+ *			to this buffer. Requires a valid block id.
+ * @dequeue_block:	called from userspace via ioctl to dequeue this block
+ *			from this buffer. Requires a valid block id.
+ * @query_block:	called from userspace via ioctl to query the attributes
+ *			of this block. Requires a valid block id.
+ * @mmap:		mmap hook for this buffer. Userspace mmap() calls will
+ *			get routed to this.
  * @modes:		Supported operating modes by this buffer type
  * @flags:		A bitmask combination of INDIO_BUFFER_FLAG_*
  *
@@ -59,6 +71,17 @@ struct iio_buffer_access_funcs {
 	int (*disable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
 
 	void (*release)(struct iio_buffer *buffer);
+
+	int (*alloc_blocks)(struct iio_buffer *buffer,
+			    struct iio_buffer_block_alloc_req *req);
+	int (*free_blocks)(struct iio_buffer *buffer);
+	int (*enqueue_block)(struct iio_buffer *buffer,
+			     struct iio_buffer_block *block);
+	int (*dequeue_block)(struct iio_buffer *buffer,
+			     struct iio_buffer_block *block);
+	int (*query_block)(struct iio_buffer *buffer,
+			   struct iio_buffer_block *block);
+	int (*mmap)(struct iio_buffer *buffer,	struct vm_area_struct *vma);
 
 	unsigned int modes;
 	unsigned int flags;
