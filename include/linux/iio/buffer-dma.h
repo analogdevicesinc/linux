@@ -55,7 +55,7 @@ struct iio_dma_buffer_block {
 	 */
 	void *vaddr;
 	dma_addr_t phys_addr;
-	size_t size;
+	u32 size;
 	struct iio_dma_buffer_queue *queue;
 
 	/* Must not be accessed outside the core. */

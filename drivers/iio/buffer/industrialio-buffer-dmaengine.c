@@ -35,8 +35,8 @@ struct dmaengine_buffer {
 	struct dma_chan *chan;
 	struct list_head active;
 
-	size_t align;
-	size_t max_size;
+	u32 align;
+	u32 max_size;
 };
 
 static struct dmaengine_buffer *iio_buffer_to_dmaengine_buffer(
@@ -136,7 +136,7 @@ static ssize_t iio_dmaengine_buffer_get_length_align(struct device *dev,
 	struct dmaengine_buffer *dmaengine_buffer =
 		iio_buffer_to_dmaengine_buffer(buffer);
 
-	return sprintf(buf, "%zu\n", dmaengine_buffer->align);
+	return sprintf(buf, "%u\n", dmaengine_buffer->align);
 }
 
 static IIO_DEVICE_ATTR(length_align_bytes, 0444,
