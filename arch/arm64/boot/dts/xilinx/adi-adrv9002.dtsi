@@ -62,12 +62,14 @@
 				reg = <0>;
 				adi,port = <0>;
 				adi,pinctrl = <&rx_pinctrl0>;
+				orx-gpios = <&gpio 110 GPIO_ACTIVE_HIGH>; /* dgpio0 */
 			};
 
 			rx@1 {
 				reg = <1>;
 				adi,port = <0>;
 				adi,pinctrl = <&rx_pinctrl1>;
+				orx-gpios = <&gpio 111 GPIO_ACTIVE_HIGH>; /* dgpio1 */
 			};
 
 			tx@0 {
@@ -82,6 +84,21 @@
 				adi,pinctrl = <&tx_pinctrl1>;
 			};
 
+		};
+
+		adi,gpios {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpio@0 {
+				reg = <0>;
+				adi,signal = <0>; /* ADI_ADRV9001_GPIO_SIGNAL_ORX_ENABLE_1 */
+			};
+
+			gpio@1 {
+				reg = <1>;
+				adi,signal = <1>; /* ADI_ADRV9001_GPIO_SIGNAL_ORX_ENABLE_2 */
+			};
 		};
 	};
 };
