@@ -1126,14 +1126,15 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 				 __func__, __LINE__);
 		} else {
 			if (framer_b_m != 2 || framer_b_f != 2 ||
-				orx_channel_enabled != 1)
+				orx_channel_enabled == TAL_ORX1ORX2)
 				dev_warn(&phy->spi->dev,
 					 "%s:%d: ORx samples might be incorrect",
 					 __func__, __LINE__);
 
 			phy->talInit.jesd204Settings.framerB.M = 2;
 			phy->talInit.jesd204Settings.framerB.F = 2;
-			phy->talInit.obsRx.obsRxChannelsEnable = 1;
+			if (orx_channel_enabled == TAL_ORX1ORX2)
+				phy->talInit.obsRx.obsRxChannelsEnable = TAL_ORX1;
 		}
 	}
 
@@ -5404,7 +5405,8 @@ static int adrv9009_jesd204_link_init(struct jesd204_dev *jdev,
 			} else {
 				phy->talInit.jesd204Settings.framerB.M = 2;
 				phy->talInit.jesd204Settings.framerB.F = 2;
-				phy->talInit.obsRx.obsRxChannelsEnable = 1;
+				if (phy->talInit.obsRx.obsRxChannelsEnable == TAL_ORX1ORX2)
+					phy->talInit.obsRx.obsRxChannelsEnable = TAL_ORX1;
 			}
 		} else {
 			phy->talInit.jesd204Settings.framerB.M = phy->framer_b_m;
