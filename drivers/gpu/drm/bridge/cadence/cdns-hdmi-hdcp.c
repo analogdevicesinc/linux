@@ -988,6 +988,8 @@ int cdns_hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
 {
 	int ret = 0;
 
+	cancel_delayed_work_sync(&mhdp->hdcp.check_work);
+
 	mutex_lock(&mhdp->hdcp.mutex);
 	if (mhdp->hdcp.value != DRM_MODE_CONTENT_PROTECTION_UNDESIRED) {
 		mhdp->hdcp.value = DRM_MODE_CONTENT_PROTECTION_UNDESIRED;
@@ -998,7 +1000,8 @@ int cdns_hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
 
 	mutex_unlock(&mhdp->hdcp.mutex);
 
-	cancel_delayed_work_sync(&mhdp->hdcp.check_work);
+	/* Make sure HDCP_STATE_DISABLING state is handled */
+	hdmi_hdcp_check_link(mhdp);
 
 	return ret;
 }
