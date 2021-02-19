@@ -146,6 +146,8 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!st->pwm)
+			return -EINVAL;
 		pwm_get_state(st->pwm, &state);
 		*val = DIV_ROUND_CLOSEST_ULL(1000000000ULL, state.period);
 		return IIO_VAL_INT;
@@ -176,6 +178,8 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&st->lock);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!st->pwm)
+			return -EINVAL;
 		pwm_get_state(st->pwm, &state);
 
 		state.period = DIV_ROUND_CLOSEST_ULL(1000000000ULL, val);
@@ -196,6 +200,9 @@ static int ad5686_trig_set_state(struct iio_trigger *trig,
 	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
 	struct ad5686_state *st = iio_priv(indio_dev);
 	struct pwm_state pwm_st;
+
+	if (!st->pwm)
+		return -EINVAL;
 
 	pwm_get_state(st->pwm, &pwm_st);
 	pwm_st.enabled = state;
@@ -585,6 +592,8 @@ int ad5686_probe(struct device *dev,
 		ret = pwm_apply_state(st->pwm, &state);
 		if (ret < 0)
 			return ret;
+	} else {
+		st->pwm = NULL;
 	}
 
 	/* Configure IRQ */
