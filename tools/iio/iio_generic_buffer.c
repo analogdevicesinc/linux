@@ -322,8 +322,8 @@ error:
 	return NULL;
 }
 
-static int read_high_speed(int buf_fd, char *data, unsigned int block_size,
-			   struct mmap_block *mmaps, unsigned int mmaps_cnt)
+static int do_mmap(int buf_fd, bool write, char *data, unsigned int block_size,
+	           struct mmap_block *mmaps, unsigned int mmaps_cnt)
 {
 	struct iio_buffer_block block;
 	int ret;
@@ -357,7 +357,10 @@ static int read_high_speed(int buf_fd, char *data, unsigned int block_size,
 	}
 
 	/* memcpy() the data, we lose some more performance here :p */
-	memcpy(data, mmaps[block.id].addr, block.bytes_used);
+	if (write)
+		memcpy(mmaps[block.id].addr, data, block_size);
+	else
+		memcpy(data, mmaps[block.id].addr, block.bytes_used);
 
 	/* and re-queue this back */
 	ret = ioctl(buf_fd, IIO_BUFFER_BLOCK_ENQUEUE_IOCTL, &mmaps[block.id].block);
@@ -376,6 +379,8 @@ static void print_usage(void)
 		"  -b <n>     The buffer which to open (by index), default 0\n"
 		"  -c <n>     Do n conversions, or loop forever if n < 0\n"
 		"  -e         Disable wait for event (new data)\n"
+		"  -i <name>  Write to the buffer from input, can be 'stdin'\n"
+		"             or the name of a file\n"
 		"  -g         Use trigger-less mode\n"
 		"  -h         Use high-speed buffer access\n"
 		"  -l <n>     Set buffer length to n samples\n"
@@ -469,6 +474,8 @@ int main(int argc, char **argv)
 	struct stat st;
 	int fd = -1;
 	int buf_fd = -1;
+	int input_fd = -1;
+	char *write_from = NULL;
 
 	int num_channels = 0;
 	char *trigger_name = NULL, *device_name = NULL;
@@ -493,7 +500,7 @@ int main(int argc, char **argv)
 
 	register_cleanup();
 
-	while ((c = getopt_long(argc, argv, "aAb:c:eghl:n:N:t:T:w:?", longopts,
+	while ((c = getopt_long(argc, argv, "aAb:c:ei:ghl:n:N:t:T:w:?", longopts,
 				NULL)) != -1) {
 		switch (c) {
 		case 'a':
@@ -527,6 +534,9 @@ int main(int argc, char **argv)
 			break;
 		case 'e':
 			noevents = 1;
+			break;
+		case 'i':
+			write_from = optarg;
 			break;
 		case 'g':
 			notrigger = 1;
@@ -860,12 +870,28 @@ int main(int argc, char **argv)
 		perror("Failed to close character device file");
 	fd = -1;
 
+	if (write_from) {
+		if (strcmp(write_from, "stdin") == 0)
+			input_fd = STDIN_FILENO;
+		else
+			input_fd = open(write_from, O_RDONLY);
+
+		if (input_fd < 0) {
+			fprintf(stderr, "Failed to open '%s'\n", write_from);
+			goto error;
+		}
+	}
+
 	for (j = 0; j < num_loops || num_loops < 0; j++) {
 		if (!noevents) {
 			struct pollfd pfd = {
 				.fd = buf_fd,
-				.events = POLLIN,
 			};
+
+			if (input_fd > -1)
+				pfd.events = POLLOUT;
+			else
+				pfd.events = POLLIN;
 
 			ret = poll(&pfd, 1, -1);
 			if (ret < 0) {
@@ -881,9 +907,35 @@ int main(int argc, char **argv)
 			toread = 64;
 		}
 
+		/* Writing to buffer */
+		if (input_fd > -1) {
+			ssize_t written;
+
+			read_size = read(input_fd, data, toread * scan_size);
+			if (read_size) {
+				fprintf(stderr, "Error reading from '%s': %d\n",
+					write_from, errno);
+				ret = -errno;
+				break;
+			}
+
+			if (use_high_speed) {
+				written = do_mmap(buf_fd, true, data, block_size,
+						  mmaps, mmaps_cnt);
+			} else {
+				written = write(buf_fd, data, toread * scan_size);
+			}
+
+			if (written < 0)
+				break;
+
+			continue;
+		}
+
+		/* Reading from buffer */
 		if (use_high_speed) {
-			read_size = read_high_speed(buf_fd, data, block_size,
-						    mmaps, mmaps_cnt);
+			read_size = do_mmap(buf_fd, false, data, block_size,
+					    mmaps, mmaps_cnt);
 		} else {
 			read_size = read(buf_fd, data, toread * scan_size);
 		}
