@@ -607,8 +607,7 @@ int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
 	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buffer);
 	struct iio_dma_buffer_block **blocks;
 	unsigned int num_blocks;
-	unsigned int i;
-	int ret = 0;
+	int i, ret = 0;
 
 	mutex_lock(&queue->lock);
 
