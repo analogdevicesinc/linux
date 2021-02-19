@@ -231,19 +231,31 @@ static int m2m_vb2_queue_setup(struct vb2_queue *q,
 
 	dev_dbg(&isi_m2m->pdev->dev, "%s\n", __func__);
 
+	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		frame = &isi_m2m->dst_f;
+	else
+		frame = &isi_m2m->src_f;
+
+	if (*num_planes) {
+		if (*num_planes != frame->fmt->memplanes)
+			return -EINVAL;
+
+		for (i = 0; i < *num_planes; i++)
+			if (sizes[i] < frame->sizeimage[i])
+				return -EINVAL;
+	}
+
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		if (*num_buffers < 3) {
-			dev_err(dev, "%s at least need 3 buffer\n", __func__);
-			return -EINVAL;
+			dev_dbg(dev, "%s at least need 3 buffer\n", __func__);
+			*num_buffers = 3;
 		}
-		frame = &isi_m2m->dst_f;
 		isi_m2m->req_cap_buf_num = *num_buffers;
 	} else {
 		if (*num_buffers < 1) {
-			dev_err(dev, "%s at least need one buffer\n", __func__);
-			return -EINVAL;
+			dev_dbg(dev, "%s at least need one buffer\n", __func__);
+			*num_buffers = 1;
 		}
-		frame = &isi_m2m->src_f;
 		isi_m2m->req_out_buf_num = *num_buffers;
 	}
 
