@@ -525,7 +525,7 @@ static int mxc_isi_m2m_open(struct file *file)
 	struct mxc_isi_ctx *mxc_ctx = NULL;
 	int ret = 0;
 
-	if (atomic_read(&mxc_isi->usage_count) > 0) {
+	if (mxc_isi->cap_enabled) {
 		dev_err(dev, "ISI channel[%d] is busy\n", isi_m2m->id);
 		return -EBUSY;
 	}

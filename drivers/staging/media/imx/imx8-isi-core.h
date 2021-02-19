@@ -380,6 +380,7 @@ struct mxc_isi_dev {
 	u8 chain_buf;
 	u8 alpha;
 	bool m2m_enabled;
+	bool cap_enabled;
 	bool buf_active_reverse;
 	bool no_dispmix;
 
