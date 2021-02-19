@@ -142,7 +142,7 @@ bool cdns_mhdp_check_alive(struct cdns_mhdp_device *mhdp)
 	alive = cdns_mhdp_bus_read(mhdp, KEEP_ALIVE);
 
 	while (retries_left--) {
-		udelay(2);
+		msleep(1);
 
 		newalive = cdns_mhdp_bus_read(mhdp, KEEP_ALIVE);
 		if (alive == newalive)
