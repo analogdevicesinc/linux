@@ -1112,6 +1112,7 @@ static int mxc_md_probe(struct platform_device *pdev)
 			} else {
 				/* no sensors connected */
 				mxc_md_unregister_all(mxc_md);
+				v4l2_async_nf_unregister(&mxc_md->subdev_notifier);
 			}
 		}
 	}
