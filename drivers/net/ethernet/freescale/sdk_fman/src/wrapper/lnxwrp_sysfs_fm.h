@@ -114,7 +114,7 @@ int fm_profile_dump_regs(void *h_pcd, int ppnum, char *buf, int nn);
 		do { \
 			m += k = snprintf(&buf[m], \
 				PAGE_SIZE - m, "0x%010llX: 0x%08x\n", \
-				pa, val); \
+				(unsigned long long)pa, val); \
 			if (k < 0 || m > PAGE_SIZE - 90) \
 				FM_DMP_PGSZ_ERR \
 			n += k; \
