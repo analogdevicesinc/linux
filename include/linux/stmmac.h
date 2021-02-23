@@ -126,6 +126,8 @@ struct stmmac_est {
 	u32 ter;
 	u32 gcl_unaligned[EST_GCL];
 	u32 gcl[EST_GCL];
+	u32 ti_ns[EST_GCL];
+	u32 gates[EST_GCL];
 	u32 gcl_size;
 };
 
