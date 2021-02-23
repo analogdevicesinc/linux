@@ -156,6 +156,7 @@ struct xdp_desc {
 	__u64 addr;
 	__u32 len;
 	__u32 options;
+	__u64 txtime;
 };
 
 /* UMEM descriptor is __u64 */
