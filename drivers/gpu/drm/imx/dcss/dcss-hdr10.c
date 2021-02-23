@@ -249,7 +249,7 @@ static struct dcss_pipe_cfg *dcss_hdr10_get_pipe_cfg(struct dcss_hdr10 *hdr10,
 		      sizeof(dcss_cfg_table[0]), dcss_hdr10_id_compare);
 	if (!res)
 		dev_dbg(hdr10->dev,
-			"hdr10 cfg table doesn't support desc(0x08%x)\n", desc);
+			"hdr10 cfg table doesn't support desc(0x%08x)\n", desc);
 
 	return res;
 }
