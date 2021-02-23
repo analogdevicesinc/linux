@@ -451,6 +451,7 @@ static const struct spi_device_id ad5446_spi_ids[] = {
 	{"ad5512a", ID_AD5512A},
 	{"ad5541a", ID_AD5541A},
 	{"ad5542a", ID_AD5541A}, /* ad5541a and ad5542a are compatible */
+	{"ad5542", ID_AD5541A}, /* ad5541a and ad5542a are compatible */
 	{"ad5543", ID_AD5541A}, /* ad5541a and ad5543 are compatible */
 	{"ad5553", ID_AD5553},
 	{"ad5600", ID_AD5600},
