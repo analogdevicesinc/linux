@@ -11,6 +11,8 @@
 #include "dwmac5.h"
 #include "stmmac.h"
 
+#define MAX_IDLE_SLOPE_CREDIT 0x1FFFFF
+
 static void tc_fill_all_pass_entry(struct stmmac_tc_entry *entry)
 {
 	memset(entry, 0, sizeof(*entry));
@@ -282,6 +284,16 @@ static int tc_init(struct stmmac_priv *priv)
 	if (ret)
 		return -ENOMEM;
 
+	if (!priv->plat->fpe_cfg) {
+		priv->plat->fpe_cfg = devm_kzalloc(priv->device,
+						   sizeof(*priv->plat->fpe_cfg),
+						   GFP_KERNEL);
+		if (!priv->plat->fpe_cfg)
+			return -ENOMEM;
+	} else {
+		memset(priv->plat->fpe_cfg, 0, sizeof(*priv->plat->fpe_cfg));
+	}
+
 	/* Fail silently as we can still use remaining features, e.g. CBS */
 	if (!dma_cap->frpsel)
 		return 0;
@@ -332,13 +344,14 @@ static int tc_init(struct stmmac_priv *priv)
 static int tc_setup_cbs(struct stmmac_priv *priv,
 			struct tc_cbs_qopt_offload *qopt)
 {
+	u64 value, scaling = 0, cycle_time_ns = 0, open_time = 0, tti_ns = 0;
 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
+	u32 gate = 0x1 << qopt->queue;
 	s64 port_transmit_rate_kbps;
 	u32 queue = qopt->queue;
+	u32 ptr, idle_slope;
 	u32 mode_to_use;
-	u64 value;
-	u32 ptr;
-	int ret;
+	int ret, row;
 
 	/* Queue 0 is not AVB capable */
 	if (queue <= 0 || queue >= tx_queues_count)
@@ -386,7 +399,6 @@ static int tc_setup_cbs(struct stmmac_priv *priv,
 			return ret;
 
 		priv->plat->tx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
-		return 0;
 	}
 
 	/* Final adjustments for HW */
@@ -402,6 +414,52 @@ static int tc_setup_cbs(struct stmmac_priv *priv,
 	value = qopt->locredit * 1024ll * 8;
 	priv->plat->tx_queues_cfg[queue].low_credit = value & GENMASK(31, 0);
 
+	/* If EST is not enable, no need to recalibrate idle slope */
+	if (!priv->plat->est)
+		goto config_cbs;
+	if (!priv->plat->est->enable)
+		goto config_cbs;
+
+	/* Check the GCL cycle time. If 0, no need to recalibrate idle slope */
+	cycle_time_ns = (priv->plat->est->ctr[1] * NSEC_PER_SEC) +
+			 priv->plat->est->ctr[0];
+	if (!cycle_time_ns)
+		goto config_cbs;
+
+	/* Calculate the total open time for the queue. GCL which exceeds the
+	 * cycle time will be truncated. So, time interval that exceeds the
+	 * cycle time will not be included. The gates wihtout any setting of
+	 * open/close within the cycle time are considered as open. The queue
+	 * that having open time of 0, no need idle slope recalibration.
+	 */
+	for (row = 0; row < priv->plat->est->gcl_size; row++) {
+		tti_ns += priv->plat->est->ti_ns[row];
+		if (priv->plat->est->gates[row] & gate)
+			open_time += priv->plat->est->ti_ns[row];
+		if (tti_ns > cycle_time_ns) {
+			if (priv->plat->est->gates[row] & gate)
+				open_time -= tti_ns - cycle_time_ns;
+			break;
+		}
+	}
+	if (tti_ns < cycle_time_ns)
+		open_time += cycle_time_ns - tti_ns;
+	if (!open_time)
+		goto config_cbs;
+
+	/* Calculate the scaling factor to be used to recalculate new idle
+	 * slope.
+	 */
+	scaling = cycle_time_ns;
+	do_div(scaling, open_time);
+	idle_slope = priv->plat->tx_queues_cfg[queue].idle_slope;
+	idle_slope *= scaling;
+	if (idle_slope > MAX_IDLE_SLOPE_CREDIT)
+		idle_slope = MAX_IDLE_SLOPE_CREDIT;
+
+	priv->plat->tx_queues_cfg[queue].idle_slope = idle_slope;
+
+config_cbs:
 	ret = stmmac_config_cbs(priv, priv->hw,
 				priv->plat->tx_queues_cfg[queue].send_slope,
 				priv->plat->tx_queues_cfg[queue].idle_slope,
@@ -907,34 +965,14 @@ struct timespec64 stmmac_calc_tas_basetime(ktime_t old_base_time,
 	return time;
 }
 
-static void tc_taprio_map_maxsdu_txq(struct stmmac_priv *priv,
-				     struct tc_taprio_qopt_offload *qopt)
-{
-	u32 num_tc = qopt->mqprio.qopt.num_tc;
-	u32 offset, count, i, j;
-
-	/* QueueMaxSDU received from the driver corresponds to the Linux traffic
-	 * class. Map queueMaxSDU per Linux traffic class to DWMAC Tx queues.
-	 */
-	for (i = 0; i < num_tc; i++) {
-		if (!qopt->max_sdu[i])
-			continue;
-
-		offset = qopt->mqprio.qopt.offset[i];
-		count = qopt->mqprio.qopt.count[i];
-
-		for (j = offset; j < offset + count; j++)
-			priv->est->max_sdu[j] = qopt->max_sdu[i] + ETH_HLEN - ETH_TLEN;
-	}
-}
-
-static int tc_taprio_configure(struct stmmac_priv *priv,
-			       struct tc_taprio_qopt_offload *qopt)
+static int tc_setup_taprio(struct stmmac_priv *priv,
+			   struct tc_taprio_qopt_offload *qopt)
 {
 	u32 size, wid = priv->dma_cap.estwid, dep = priv->dma_cap.estdep;
-	struct netlink_ext_ack *extack = qopt->mqprio.extack;
+	struct plat_stmmacenet_data *plat = priv->plat;
 	struct timespec64 time, current_time, qopt_time;
 	ktime_t current_time_ns;
+	bool fpe = false;
 	int i, ret = 0;
 	u64 ctr;
 
@@ -980,33 +1018,31 @@ static int tc_taprio_configure(struct stmmac_priv *priv,
 
 	if (qopt->cmd == TAPRIO_CMD_DESTROY)
 		goto disable;
+	else if (qopt->cmd != TAPRIO_CMD_REPLACE)
+		return -EOPNOTSUPP;
 
 	if (qopt->num_entries >= dep)
 		return -EINVAL;
 	if (!qopt->cycle_time)
 		return -ERANGE;
-	if (qopt->cycle_time_extension >= BIT(wid + 7))
-		return -ERANGE;
 
-	if (!priv->est) {
-		priv->est = devm_kzalloc(priv->device, sizeof(*priv->est),
+	if (!plat->est) {
+		plat->est = devm_kzalloc(priv->device, sizeof(*plat->est),
 					 GFP_KERNEL);
-		if (!priv->est)
+		if (!plat->est)
 			return -ENOMEM;
 
-		mutex_init(&priv->est_lock);
+		mutex_init(&priv->plat->est->lock);
 	} else {
-		mutex_lock(&priv->est_lock);
-		memset(priv->est, 0, sizeof(*priv->est));
-		mutex_unlock(&priv->est_lock);
+		memset(plat->est, 0, sizeof(*plat->est));
 	}
 
 	size = qopt->num_entries;
 
-	mutex_lock(&priv->est_lock);
-	priv->est->gcl_size = size;
-	priv->est->enable = qopt->cmd == TAPRIO_CMD_REPLACE;
-	mutex_unlock(&priv->est_lock);
+	mutex_lock(&priv->plat->est->lock);
+	priv->plat->est->gcl_size = size;
+	priv->plat->est->enable = qopt->cmd == TAPRIO_CMD_REPLACE;
+	mutex_unlock(&priv->plat->est->lock);
 
 	for (i = 0; i < size; i++) {
 		s64 delta_ns = qopt->entries[i].interval;
@@ -1019,137 +1055,92 @@ static int tc_taprio_configure(struct stmmac_priv *priv,
 
 		switch (qopt->entries[i].command) {
 		case TC_TAPRIO_CMD_SET_GATES:
+			if (fpe)
+				return -EINVAL;
 			break;
 		case TC_TAPRIO_CMD_SET_AND_HOLD:
 			gates |= BIT(0);
+			fpe = true;
 			break;
 		case TC_TAPRIO_CMD_SET_AND_RELEASE:
 			gates &= ~BIT(0);
+			fpe = true;
 			break;
 		default:
 			return -EOPNOTSUPP;
 		}
 
-		priv->est->gcl[i] = delta_ns | (gates << wid);
+		priv->plat->est->gcl[i] = delta_ns | (gates << wid);
+		priv->plat->est->ti_ns[i] = delta_ns;
+		priv->plat->est->gates[i] = gates;
 	}
 
-	mutex_lock(&priv->est_lock);
+	mutex_lock(&priv->plat->est->lock);
 	/* Adjust for real system time */
 	priv->ptp_clock_ops.gettime64(&priv->ptp_clock_ops, &current_time);
 	current_time_ns = timespec64_to_ktime(current_time);
 	time = stmmac_calc_tas_basetime(qopt->base_time, current_time_ns,
 					qopt->cycle_time);
 
-	priv->est->btr[0] = (u32)time.tv_nsec;
-	priv->est->btr[1] = (u32)time.tv_sec;
+	priv->plat->est->btr[0] = (u32)time.tv_nsec;
+	priv->plat->est->btr[1] = (u32)time.tv_sec;
 
 	qopt_time = ktime_to_timespec64(qopt->base_time);
-	priv->est->btr_reserve[0] = (u32)qopt_time.tv_nsec;
-	priv->est->btr_reserve[1] = (u32)qopt_time.tv_sec;
+	priv->plat->est->btr_reserve[0] = (u32)qopt_time.tv_nsec;
+	priv->plat->est->btr_reserve[1] = (u32)qopt_time.tv_sec;
 
 	ctr = qopt->cycle_time;
-	priv->est->ctr[0] = do_div(ctr, NSEC_PER_SEC);
-	priv->est->ctr[1] = (u32)ctr;
+	priv->plat->est->ctr[0] = do_div(ctr, NSEC_PER_SEC);
+	priv->plat->est->ctr[1] = (u32)ctr;
 
-	priv->est->ter = qopt->cycle_time_extension;
+	if (fpe && !priv->dma_cap.fpesel) {
+		mutex_unlock(&priv->plat->est->lock);
+		return -EOPNOTSUPP;
+	}
 
-	tc_taprio_map_maxsdu_txq(priv, qopt);
+	/* Actual FPE register configuration will be done after FPE handshake
+	 * is success.
+	 */
+	priv->plat->fpe_cfg->enable = fpe;
 
-	ret = stmmac_est_configure(priv, priv, priv->est,
+	ret = stmmac_est_configure(priv, priv->ioaddr, priv->plat->est,
 				   priv->plat->clk_ptp_rate);
-	mutex_unlock(&priv->est_lock);
+	mutex_unlock(&priv->plat->est->lock);
 	if (ret) {
 		netdev_err(priv->dev, "failed to configure EST\n");
 		goto disable;
 	}
 
-	ret = stmmac_fpe_map_preemption_class(priv, priv->dev, extack,
-					      qopt->mqprio.preemptible_tcs);
-	if (ret)
-		goto disable;
+	netdev_info(priv->dev, "configured EST\n");
+
+	if (fpe) {
+		stmmac_fpe_handshake(priv, true);
+		netdev_info(priv->dev, "start FPE handshake\n");
+	}
 
 	return 0;
 
 disable:
-	if (priv->est) {
-		mutex_lock(&priv->est_lock);
-		priv->est->enable = false;
-		stmmac_est_configure(priv, priv, priv->est,
+	if (priv->plat->est) {
+		mutex_lock(&priv->plat->est->lock);
+		priv->plat->est->enable = false;
+		stmmac_est_configure(priv, priv->ioaddr, priv->plat->est,
 				     priv->plat->clk_ptp_rate);
-		/* Reset taprio status */
-		for (i = 0; i < priv->plat->tx_queues_to_use; i++) {
-			priv->xstats.max_sdu_txq_drop[i] = 0;
-			priv->xstats.mtl_est_txq_hlbf[i] = 0;
-		}
-		mutex_unlock(&priv->est_lock);
+		mutex_unlock(&priv->plat->est->lock);
 	}
 
-	stmmac_fpe_map_preemption_class(priv, priv->dev, extack, 0);
+	priv->plat->fpe_cfg->enable = false;
+	stmmac_fpe_configure(priv, priv->ioaddr,
+			     priv->plat->fpe_cfg,
+			     priv->plat->tx_queues_to_use,
+			     priv->plat->rx_queues_to_use,
+			     false);
+	netdev_info(priv->dev, "disabled FPE\n");
+
+	stmmac_fpe_handshake(priv, false);
+	netdev_info(priv->dev, "stop FPE handshake\n");
 
 	return ret;
-}
-
-static void tc_taprio_stats(struct stmmac_priv *priv,
-			    struct tc_taprio_qopt_offload *qopt)
-{
-	u64 window_drops = 0;
-	int i = 0;
-
-	for (i = 0; i < priv->plat->tx_queues_to_use; i++)
-		window_drops += priv->xstats.max_sdu_txq_drop[i] +
-				priv->xstats.mtl_est_txq_hlbf[i];
-	qopt->stats.window_drops = window_drops;
-
-	/* Transmission overrun doesn't happen for stmmac, hence always 0 */
-	qopt->stats.tx_overruns = 0;
-}
-
-static void tc_taprio_queue_stats(struct stmmac_priv *priv,
-				  struct tc_taprio_qopt_offload *qopt)
-{
-	struct tc_taprio_qopt_queue_stats *q_stats = &qopt->queue_stats;
-	int queue = qopt->queue_stats.queue;
-
-	q_stats->stats.window_drops = priv->xstats.max_sdu_txq_drop[queue] +
-				      priv->xstats.mtl_est_txq_hlbf[queue];
-
-	/* Transmission overrun doesn't happen for stmmac, hence always 0 */
-	q_stats->stats.tx_overruns = 0;
-}
-
-static int tc_setup_taprio(struct stmmac_priv *priv,
-			   struct tc_taprio_qopt_offload *qopt)
-{
-	int err = 0;
-
-	switch (qopt->cmd) {
-	case TAPRIO_CMD_REPLACE:
-	case TAPRIO_CMD_DESTROY:
-		err = tc_taprio_configure(priv, qopt);
-		break;
-	case TAPRIO_CMD_STATS:
-		tc_taprio_stats(priv, qopt);
-		break;
-	case TAPRIO_CMD_QUEUE_STATS:
-		tc_taprio_queue_stats(priv, qopt);
-		break;
-	default:
-		err = -EOPNOTSUPP;
-	}
-
-	return err;
-}
-
-static int tc_setup_taprio_without_fpe(struct stmmac_priv *priv,
-				       struct tc_taprio_qopt_offload *qopt)
-{
-	if (!qopt->mqprio.preemptible_tcs)
-		return tc_setup_taprio(priv, qopt);
-
-	NL_SET_ERR_MSG_MOD(qopt->mqprio.extack,
-			   "taprio with FPE is not implemented for this MAC");
-
-	return -EOPNOTSUPP;
 }
 
 static int tc_setup_etf(struct stmmac_priv *priv,
@@ -1176,13 +1167,6 @@ static int tc_query_caps(struct stmmac_priv *priv,
 			 struct tc_query_caps_base *base)
 {
 	switch (base->type) {
-	case TC_SETUP_QDISC_MQPRIO: {
-		struct tc_mqprio_caps *caps = base->caps;
-
-		caps->validate_queue_counts = true;
-
-		return 0;
-	}
 	case TC_SETUP_QDISC_TAPRIO: {
 		struct tc_taprio_caps *caps = base->caps;
 
@@ -1190,7 +1174,6 @@ static int tc_query_caps(struct stmmac_priv *priv,
 			return -EOPNOTSUPP;
 
 		caps->gate_mask_per_txq = true;
-		caps->supports_queue_max_sdu = true;
 
 		return 0;
 	}
@@ -1198,81 +1181,6 @@ static int tc_query_caps(struct stmmac_priv *priv,
 		return -EOPNOTSUPP;
 	}
 }
-
-static void stmmac_reset_tc_mqprio(struct net_device *ndev,
-				   struct netlink_ext_ack *extack)
-{
-	struct stmmac_priv *priv = netdev_priv(ndev);
-
-	netdev_reset_tc(ndev);
-	netif_set_real_num_tx_queues(ndev, priv->plat->tx_queues_to_use);
-	stmmac_fpe_map_preemption_class(priv, ndev, extack, 0);
-}
-
-static int tc_setup_dwmac510_mqprio(struct stmmac_priv *priv,
-				    struct tc_mqprio_qopt_offload *mqprio)
-{
-	struct netlink_ext_ack *extack = mqprio->extack;
-	struct tc_mqprio_qopt *qopt = &mqprio->qopt;
-	u32 offset, count, num_stack_tx_queues = 0;
-	struct net_device *ndev = priv->dev;
-	u32 num_tc = qopt->num_tc;
-	int err;
-
-	if (!num_tc) {
-		stmmac_reset_tc_mqprio(ndev, extack);
-		return 0;
-	}
-
-	err = netdev_set_num_tc(ndev, num_tc);
-	if (err)
-		return err;
-
-	for (u32 tc = 0; tc < num_tc; tc++) {
-		offset = qopt->offset[tc];
-		count = qopt->count[tc];
-		num_stack_tx_queues += count;
-
-		err = netdev_set_tc_queue(ndev, tc, count, offset);
-		if (err)
-			goto err_reset_tc;
-	}
-
-	err = netif_set_real_num_tx_queues(ndev, num_stack_tx_queues);
-	if (err)
-		goto err_reset_tc;
-
-	err = stmmac_fpe_map_preemption_class(priv, ndev, extack,
-					      mqprio->preemptible_tcs);
-	if (err)
-		goto err_reset_tc;
-
-	return 0;
-
-err_reset_tc:
-	stmmac_reset_tc_mqprio(ndev, extack);
-
-	return err;
-}
-
-static int tc_setup_mqprio_unimplemented(struct stmmac_priv *priv,
-					 struct tc_mqprio_qopt_offload *mqprio)
-{
-	NL_SET_ERR_MSG_MOD(mqprio->extack,
-			   "mqprio HW offload is not implemented for this MAC");
-	return -EOPNOTSUPP;
-}
-
-const struct stmmac_tc_ops dwmac4_tc_ops = {
-	.init = tc_init,
-	.setup_cls_u32 = tc_setup_cls_u32,
-	.setup_cbs = tc_setup_cbs,
-	.setup_cls = tc_setup_cls,
-	.setup_taprio = tc_setup_taprio_without_fpe,
-	.setup_etf = tc_setup_etf,
-	.query_caps = tc_query_caps,
-	.setup_mqprio = tc_setup_mqprio_unimplemented,
-};
 
 const struct stmmac_tc_ops dwmac510_tc_ops = {
 	.init = tc_init,
@@ -1282,16 +1190,4 @@ const struct stmmac_tc_ops dwmac510_tc_ops = {
 	.setup_taprio = tc_setup_taprio,
 	.setup_etf = tc_setup_etf,
 	.query_caps = tc_query_caps,
-	.setup_mqprio = tc_setup_dwmac510_mqprio,
-};
-
-const struct stmmac_tc_ops dwxgmac_tc_ops = {
-	.init = tc_init,
-	.setup_cls_u32 = tc_setup_cls_u32,
-	.setup_cbs = tc_setup_cbs,
-	.setup_cls = tc_setup_cls,
-	.setup_taprio = tc_setup_taprio_without_fpe,
-	.setup_etf = tc_setup_etf,
-	.query_caps = tc_query_caps,
-	.setup_mqprio = tc_setup_mqprio_unimplemented,
 };
