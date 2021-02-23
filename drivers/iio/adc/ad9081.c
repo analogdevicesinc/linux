@@ -820,7 +820,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 					phy->tx_main_interp * 2);
 
 		} else {
-			if (phy->adc_dcm == 1)
+			if (phy->adc_dcm == 1 || phy->adc_chan_decimation[fddc_num] == 1)
 				range = 0; /* full bw mode */
 			else
 				range = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz,
