@@ -571,6 +571,12 @@
 					<&pd IMX_SC_R_MU_13B>,
 					<&pd IMX_SC_R_DSP>,
 					<&pd IMX_SC_R_DSP_RAM>;
+			mbox-names = "tx0", "tx1", "tx2", "rx0";
+			mboxes =
+				<&lsio_mu13 0 0>,
+				<&lsio_mu13 0 1>,
+				<&lsio_mu13 0 2>,
+				<&lsio_mu13 1 0>;
 			memory-region = <&dsp_reserved>;
 			fixup-offset = <0x4000000>;
 			status = "disabled";
