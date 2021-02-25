@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-MxFE (using internal PLL)
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad_quadmxfe1_ebz/ad_quadmxfe1_ebz_hdl
+ *
+ * hdl_project: <ad_quadmxfe1_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+// For MxFE0
+//	* Cap rotate: DNI C886, Populate C1118
+//	* Cap rotate: DNI C887, Populate C1119
+// For MxFE1
+//	* Cap rotate: DNI C936, Populate C1120
+//	* Cap rotate: DNI C937, Populate C1267
+// For MxFE2
+//	* Cap rotate: DNI C986, Populate C1293
+//	* Cap rotate: DNI C987, Populate C1312
+// For MxFE3
+//	* Cap rotate: DNI C1036, Populate C1325
+//	* Cap rotate: DNI C1037, Populate C1326
+
+
+#define HMC7043_MXFE_CLKIN_CLKDIV 1
+
+#include "vcu118_quad_ad9081_204b_txmode_9_rxmode_10_revc.dts"
+
+&adf4371_clk0 {
+	adi,chip-powerdown-and-exit-enable;
+};
+
+&adf4371_clk1 {
+	adi,chip-powerdown-and-exit-enable;
+};
+
+&adf4371_clk2 {
+	adi,chip-powerdown-and-exit-enable;
+};
+
+&adf4371_clk3 {
+	adi,chip-powerdown-and-exit-enable;
+};
+
+&hmc7043 {
+	adi,high-performance-mode-clock-dist-enable;
+
+	hmc7043_c6: channel@6 {
+		reg = <6>;
+		adi,extended-name = "CLKIN_MXFE0";
+		adi,divider = <HMC7043_MXFE_CLKIN_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+	hmc7043_c8: channel@8 {
+		reg = <8>;
+		adi,extended-name = "CLKIN_MXFE1";
+		adi,divider = <HMC7043_MXFE_CLKIN_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+	hmc7043_c10: channel@10 {
+		reg = <10>;
+		adi,extended-name = "CLKIN_MXFE0";
+		adi,divider = <HMC7043_MXFE_CLKIN_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+	hmc7043_c12: channel@12 {
+		reg = <12>;
+		adi,extended-name = "CLKIN_MXFE0";
+		adi,divider = <HMC7043_MXFE_CLKIN_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+};
+
+&trx0_ad9081 {
+	clocks = <&hmc7043 6>;
+	/delete-property/ dev_clk-clock-scales;
+};
+
+&trx1_ad9081 {
+	clocks = <&hmc7043 8>;
+	/delete-property/ dev_clk-clock-scales;
+};
+
+&trx2_ad9081 {
+	clocks = <&hmc7043 10>;
+	/delete-property/ dev_clk-clock-scales;
+};
+
+&trx3_ad9081 {
+	clocks = <&hmc7043 12>;
+	/delete-property/ dev_clk-clock-scales;
+};
