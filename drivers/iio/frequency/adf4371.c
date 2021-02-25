@@ -1181,16 +1181,30 @@ static int adf4371_probe(struct spi_device *spi)
 	struct regmap *regmap;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
-	if (!indio_dev)
-		return -ENOMEM;
-
 	regmap = devm_regmap_init_spi(spi, &adf4371_regmap_config);
 	if (IS_ERR(regmap)) {
 		dev_err(&spi->dev, "Error initializing spi regmap: %ld\n",
 			PTR_ERR(regmap));
 		return PTR_ERR(regmap);
 	}
+
+	/*
+	 * The device comes out of reset with a few power consuming blocks turned on
+	 * this option allows the user to power down the chip in case it's not used in
+	 * a certain configuration
+	 */
+
+	if(device_property_read_bool(&spi->dev, "adi,chip-powerdown-and-exit-enable")) {
+		regmap_write(regmap, ADF4371_REG(0x25), 0); /* Power-Down all Outputs */
+		regmap_write(regmap, ADF4371_REG(0x73), 6); /* Disable ADC Clock, Power-Down N Divider */
+		regmap_write(regmap, ADF4371_REG(0x1E), 4); /* Power-Down */
+
+		return 0;
+	}
+
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	if (!indio_dev)
+		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
 	spi_set_drvdata(spi, indio_dev);
