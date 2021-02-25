@@ -487,7 +487,7 @@ int cdns_mhdp_power_on_imx8qm(struct cdns_mhdp_device *mhdp)
 	return 0;
 }
 
-void cdns_mhdp_plat_init_imx8qm(struct cdns_mhdp_device *mhdp)
+void cdns_mhdp_plat_deinit_imx8qm(struct cdns_mhdp_device *mhdp)
 {
 	struct imx_mhdp_device *imx_mhdp =
 				container_of(mhdp, struct imx_mhdp_device, mhdp);
@@ -497,7 +497,7 @@ void cdns_mhdp_plat_init_imx8qm(struct cdns_mhdp_device *mhdp)
 	imx8qm_pixel_link_invalid(dual_mode);
 }
 
-void cdns_mhdp_plat_deinit_imx8qm(struct cdns_mhdp_device *mhdp)
+void cdns_mhdp_plat_init_imx8qm(struct cdns_mhdp_device *mhdp)
 {
 	struct imx_mhdp_device *imx_mhdp =
 				container_of(mhdp, struct imx_mhdp_device, mhdp);
