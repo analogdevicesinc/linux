@@ -162,14 +162,14 @@ int alloc_init_skbufs(struct intel_fpga_qse_private *priv)
 
 	/* Create Rx ring buffer */
 	priv->dma_priv.rx_ring = kcalloc(rx_descs,
-					 sizeof(struct altera_dma_private),
+					 sizeof(struct altera_dma_buffer),
 					 GFP_KERNEL);
 	if (!priv->dma_priv.rx_ring)
 		goto err_rx_ring;
 
 	/* Create Tx ring buffer */
 	priv->dma_priv.tx_ring = kcalloc(tx_descs,
-					 sizeof(struct altera_dma_private),
+					 sizeof(struct altera_dma_buffer),
 					 GFP_KERNEL);
 	if (!priv->dma_priv.tx_ring)
 		goto err_tx_ring;
