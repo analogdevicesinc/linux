@@ -89,6 +89,9 @@
 		clocks = <&axi_ad9625_jesd>, <&adc_clk_div>;
 		clock-names = "jesd_adc_clk", "adc_clk";
 		adc_clk-clock-scales = <1 2>;
+
+		#clock-cells = <0>;
+		clock-output-names = "div_clk";
 	};
 
 	dga0_adl5240: adl5240@4 {
