@@ -27,7 +27,7 @@ static inline int of_clk_get_scale(struct device_node *np, const char *name, str
 	ret = of_property_read_u32_array(np, property, vals, 2);
 	if (!ret)  {
 		scale->mult = vals[0];
-		scale->div = vals[1];
+		scale->div = vals[1] ? vals[1] : 1;
 	}
 
 	return ret;
