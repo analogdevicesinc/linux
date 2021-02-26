@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/of_device.h>
+#include <linux/clk-provider.h>
 
 
 #include <linux/iio/iio.h>
@@ -857,6 +858,14 @@ static int ad9250_setup(struct spi_device *spi, unsigned m, unsigned l)
 	return ret;
 }
 
+static void ad9625_clk_del_provider(void *data)
+{
+	struct axiadc_converter *conv = data;
+
+	of_clk_del_provider(conv->spi->dev.of_node);
+	clk_unregister_fixed_factor(conv->out_clk);
+}
+
 static int ad9625_setup(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
@@ -904,6 +913,18 @@ static int ad9625_setup(struct spi_device *spi)
 	ret |= ad9467_spi_write(spi, 0x0ff, 0x01);
 
 	mdelay(10);
+
+	conv->out_clk = clk_register_fixed_factor(&spi->dev, "div_clk",
+		__clk_get_name(conv->clk), 0, 1, 4 / conv->adc_clkscale.div);
+	if (IS_ERR(conv->out_clk)) {
+		dev_warn(&spi->dev, "Failed to register dic_clk\n");
+	} else {
+		ret = of_clk_add_provider(spi->dev.of_node, of_clk_src_simple_get, conv->out_clk);
+		if (ret)
+			clk_unregister_fixed_factor(conv->out_clk);
+
+		devm_add_action_or_reset(&spi->dev, ad9625_clk_del_provider, conv);
+	}
 
 	/* 16bits * 10bits / 8bits / 8lanes / 1000Hz = 1 / 400 */
 	lane_rate_kHz = DIV_ROUND_CLOSEST(conv->adc_clk, 400);
