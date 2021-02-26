@@ -153,7 +153,7 @@
 	tx_adxcvr: axi-adxcvr-tx@44a60000 {
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a60000 0x1000>;
-		clocks = <&adc_divclk>;
+		clocks = <&adc0_ad9625>;
 		clock-names = "conv";
 
 		#clock-cells = <1>;
