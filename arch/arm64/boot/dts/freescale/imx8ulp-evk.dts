@@ -486,6 +486,12 @@
 };
 
 &iomuxc1 {
+	pinctrl_dsi: dsigrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTF8__PTF8		0x3
+		>;
+	};
+
 	pinctrl_enet: enetgrp {
 		fsl,pins = <
 			MX8ULP_PAD_PTE15__ENET0_MDC     0x43
