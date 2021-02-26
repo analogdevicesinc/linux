@@ -299,14 +299,7 @@ static void __dcss_crtc_setup_opipe_gamut(u32 colorspace,
 		return;
 	}
 
-	if (mode->vdisplay == 480 || mode->vdisplay == 576 ||
-	    mode->vdisplay == 240 || mode->vdisplay == 288) {
-		*g = G_REC601_NTSC;
-		*nl = NL_REC709;
-		return;
-	}
-
-	/* 2160p, 1080p, 720p */
+	/* use REC709 otherwise, by default */
 	*g = G_REC709;
 	*nl = NL_REC709;
 }
