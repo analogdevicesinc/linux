@@ -1019,6 +1019,22 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			goto out_disable_tx_clk;
 		}
 	}
+
+	if (has_tx_and_en(phy)) {
+		ret = TALISE_setTxAttenCtrlPin(phy->talDevice, TAL_TX1, &phy->tx1_atten_ctrl_pin);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
+		ret = TALISE_setTxAttenCtrlPin(phy->talDevice, TAL_TX2, &phy->tx2_atten_ctrl_pin);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
+	}
+
 	/* Function to turn radio on, Enables transmitters and receivers */
 	/* that were setup during TALISE_initialize() */
 	ret = TALISE_radioOn(phy->talDevice);
@@ -5997,6 +6013,18 @@ static int adrv9009_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	}
 	if (has_rx_and_en(phy)) {
 		ret = TALISE_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			return -EFAULT;
+		}
+	}
+	if (has_tx_and_en(phy)) {
+		ret = TALISE_setTxAttenCtrlPin(phy->talDevice, TAL_TX1, &phy->tx1_atten_ctrl_pin);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			return -EFAULT;
+		}
+		ret = TALISE_setTxAttenCtrlPin(phy->talDevice, TAL_TX2, &phy->tx2_atten_ctrl_pin);
 		if (ret != TALACT_NO_ACTION) {
 			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 			return -EFAULT;
