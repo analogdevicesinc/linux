@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017,2018 NXP
+ * Copyright 2017,2018,2021 NXP
  * Copyright 2019 Purism SPC
  */
 
@@ -24,13 +24,6 @@
 #define DPHY_MC_PRG_HS_ZERO		0x10
 #define DPHY_M_PRG_HS_TRAIL		0x14
 #define DPHY_MC_PRG_HS_TRAIL		0x18
-#define DPHY_PD_PLL			0x1c
-#define DPHY_TST			0x20
-#define DPHY_CN				0x24
-#define DPHY_CM				0x28
-#define DPHY_CO				0x2c
-#define DPHY_LOCK			0x30
-#define DPHY_LOCK_BYP			0x34
 #define DPHY_REG_BYPASS_PLL		0x4C
 
 #define MBPS(x) ((x) * 1000000)
@@ -55,13 +48,26 @@
 #define PWR_ON	0
 #define PWR_OFF	1
 
+/* not available register */
+#define REG_NA	0xff
+
 enum mixel_dphy_devtype {
 	MIXEL_IMX8MQ,
 	MIXEL_IMX8QM,
 	MIXEL_IMX8QX,
+	MIXEL_IMX8ULP,
 };
 
 struct mixel_dphy_devdata {
+	u8 reg_mc_prg_rxhs_settle;
+	u8 reg_m_prg_rxhs_settle;
+	u8 reg_pd_pll;
+	u8 reg_tst;
+	u8 reg_cn;
+	u8 reg_cm;
+	u8 reg_co;
+	u8 reg_lock;
+	u8 reg_lock_byp;
 	u8 reg_tx_rcal;
 	u8 reg_auto_pd_en;
 	u8 reg_rxlprp;
@@ -71,6 +77,15 @@ struct mixel_dphy_devdata {
 
 static const struct mixel_dphy_devdata mixel_dphy_devdata[] = {
 	[MIXEL_IMX8MQ] = {
+		.reg_mc_prg_rxhs_settle = REG_NA,
+		.reg_m_prg_rxhs_settle = REG_NA,
+		.reg_pd_pll = 0x1c,
+		.reg_tst = 0x20,
+		.reg_cn = 0x24,
+		.reg_cm = 0x28,
+		.reg_co = 0x2c,
+		.reg_lock = 0x30,
+		.reg_lock_byp = 0x34,
 		.reg_tx_rcal = 0x38,
 		.reg_auto_pd_en = 0x3c,
 		.reg_rxlprp = 0x40,
@@ -78,6 +93,15 @@ static const struct mixel_dphy_devdata mixel_dphy_devdata[] = {
 		.reg_rxhs_settle = 0x48,
 	},
 	[MIXEL_IMX8QM] = {
+		.reg_mc_prg_rxhs_settle = REG_NA,
+		.reg_m_prg_rxhs_settle = REG_NA,
+		.reg_pd_pll = 0x1c,
+		.reg_tst = 0x20,
+		.reg_cn = 0x24,
+		.reg_cm = 0x28,
+		.reg_co = 0x2c,
+		.reg_lock = 0x30,
+		.reg_lock_byp = 0x34,
 		.reg_tx_rcal = 0x00,
 		.reg_auto_pd_en = 0x38,
 		.reg_rxlprp = 0x3c,
@@ -85,11 +109,36 @@ static const struct mixel_dphy_devdata mixel_dphy_devdata[] = {
 		.reg_rxhs_settle = 0x44,
 	},
 	[MIXEL_IMX8QX] = {
+		.reg_mc_prg_rxhs_settle = REG_NA,
+		.reg_m_prg_rxhs_settle = REG_NA,
+		.reg_pd_pll = 0x1c,
+		.reg_tst = 0x20,
+		.reg_cn = 0x24,
+		.reg_cm = 0x28,
+		.reg_co = 0x2c,
+		.reg_lock = 0x30,
+		.reg_lock_byp = 0x34,
 		.reg_tx_rcal = 0x00,
 		.reg_auto_pd_en = 0x38,
 		.reg_rxlprp = 0x3c,
 		.reg_rxcdrp = 0x40,
 		.reg_rxhs_settle = 0x44,
+	},
+	[MIXEL_IMX8ULP] = {
+		.reg_mc_prg_rxhs_settle = 0x1c,
+		.reg_m_prg_rxhs_settle = 0x20,
+		.reg_pd_pll = 0x24,
+		.reg_tst = 0x28,
+		.reg_cn = 0x2c,
+		.reg_cm = 0x30,
+		.reg_co = 0x34,
+		.reg_lock = 0x38,
+		.reg_lock_byp = 0x3c,
+		.reg_tx_rcal = 0x00,
+		.reg_auto_pd_en = 0x40,
+		.reg_rxlprp = 0x44,
+		.reg_rxcdrp = 0x48,
+		.reg_rxhs_settle = REG_NA,
 	},
 };
 
@@ -277,20 +326,31 @@ static int mixel_dphy_config_from_opts(struct phy *phy,
 	cfg->mc_prg_hs_trail = n;
 
 	/* rxhs_settle: formula from NXP BSP */
-	if (dphy_opts->hs_clk_rate < MBPS(80))
-		cfg->rxhs_settle = 0x0d;
-	else if (dphy_opts->hs_clk_rate < MBPS(90))
-		cfg->rxhs_settle = 0x0c;
-	else if (dphy_opts->hs_clk_rate < MBPS(125))
-		cfg->rxhs_settle = 0x0b;
-	else if (dphy_opts->hs_clk_rate < MBPS(150))
-		cfg->rxhs_settle = 0x0a;
-	else if (dphy_opts->hs_clk_rate < MBPS(225))
-		cfg->rxhs_settle = 0x09;
-	else if (dphy_opts->hs_clk_rate < MBPS(500))
-		cfg->rxhs_settle = 0x08;
-	else
-		cfg->rxhs_settle = 0x07;
+	if (priv->devdata->reg_rxhs_settle != REG_NA) {
+		if (dphy_opts->hs_clk_rate < MBPS(80))
+			cfg->rxhs_settle = 0x0d;
+		else if (dphy_opts->hs_clk_rate < MBPS(90))
+			cfg->rxhs_settle = 0x0c;
+		else if (dphy_opts->hs_clk_rate < MBPS(125))
+			cfg->rxhs_settle = 0x0b;
+		else if (dphy_opts->hs_clk_rate < MBPS(150))
+			cfg->rxhs_settle = 0x0a;
+		else if (dphy_opts->hs_clk_rate < MBPS(225))
+			cfg->rxhs_settle = 0x09;
+		else if (dphy_opts->hs_clk_rate < MBPS(500))
+			cfg->rxhs_settle = 0x08;
+		else
+			cfg->rxhs_settle = 0x07;
+	} else if (priv->devdata->reg_m_prg_rxhs_settle != REG_NA) {
+		if (dphy_opts->hs_clk_rate < MBPS(80))
+			cfg->rxhs_settle = 0x01;
+		else if (dphy_opts->hs_clk_rate < MBPS(250))
+			cfg->rxhs_settle = 0x06;
+		else if (dphy_opts->hs_clk_rate < MBPS(500))
+			cfg->rxhs_settle = 0x08;
+		else
+			cfg->rxhs_settle = 0x0a;
+	}
 
 	dev_dbg(&phy->dev, "phy_config: %u %u %u %u %u %u %u\n",
 		cfg->m_prg_hs_prepare, cfg->mc_prg_hs_prepare,
@@ -311,7 +371,15 @@ static void mixel_phy_set_hs_timings(struct phy *phy)
 	phy_write(phy, priv->cfg.mc_prg_hs_zero, DPHY_MC_PRG_HS_ZERO);
 	phy_write(phy, priv->cfg.m_prg_hs_trail, DPHY_M_PRG_HS_TRAIL);
 	phy_write(phy, priv->cfg.mc_prg_hs_trail, DPHY_MC_PRG_HS_TRAIL);
-	phy_write(phy, priv->cfg.rxhs_settle, priv->devdata->reg_rxhs_settle);
+	if (priv->devdata->reg_rxhs_settle != REG_NA)
+		phy_write(phy, priv->cfg.rxhs_settle,
+			  priv->devdata->reg_rxhs_settle);
+	else if (priv->devdata->reg_m_prg_rxhs_settle != REG_NA)
+		phy_write(phy, priv->cfg.rxhs_settle,
+			  priv->devdata->reg_m_prg_rxhs_settle);
+
+	if (priv->devdata->reg_mc_prg_rxhs_settle != REG_NA)
+		phy_write(phy, 0x10, priv->devdata->reg_mc_prg_rxhs_settle);
 }
 
 static int mixel_dphy_set_pll_params(struct phy *phy)
@@ -327,9 +395,9 @@ static int mixel_dphy_set_pll_params(struct phy *phy)
 	}
 	dev_dbg(&phy->dev, "Using CM:%u CN:%u CO:%u\n",
 		priv->cfg.cm, priv->cfg.cn, priv->cfg.co);
-	phy_write(phy, CM(priv->cfg.cm), DPHY_CM);
-	phy_write(phy, CN(priv->cfg.cn), DPHY_CN);
-	phy_write(phy, CO(priv->cfg.co), DPHY_CO);
+	phy_write(phy, CM(priv->cfg.cm), priv->devdata->reg_cm);
+	phy_write(phy, CN(priv->cfg.cn), priv->devdata->reg_cn);
+	phy_write(phy, CO(priv->cfg.co), priv->devdata->reg_co);
 	return 0;
 }
 
@@ -346,12 +414,12 @@ static int mixel_dphy_configure(struct phy *phy, union phy_configure_opts *opts)
 	/* Update the configuration */
 	memcpy(&priv->cfg, &cfg, sizeof(struct mixel_dphy_cfg));
 
-	phy_write(phy, 0x00, DPHY_LOCK_BYP);
+	phy_write(phy, 0x00, priv->devdata->reg_lock_byp);
 	phy_write(phy, 0x01, priv->devdata->reg_tx_rcal);
 	phy_write(phy, 0x00, priv->devdata->reg_auto_pd_en);
 	phy_write(phy, 0x02, priv->devdata->reg_rxlprp);
 	phy_write(phy, 0x02, priv->devdata->reg_rxcdrp);
-	phy_write(phy, 0x25, DPHY_TST);
+	phy_write(phy, 0x25, priv->devdata->reg_tst);
 
 	mixel_phy_set_hs_timings(phy);
 	ret = mixel_dphy_set_pll_params(phy);
@@ -374,7 +442,9 @@ static int mixel_dphy_validate(struct phy *phy, enum phy_mode mode, int submode,
 
 static int mixel_dphy_init(struct phy *phy)
 {
-	phy_write(phy, PWR_OFF, DPHY_PD_PLL);
+	struct mixel_dphy_priv *priv = phy_get_drvdata(phy);
+
+	phy_write(phy, PWR_OFF, priv->devdata->reg_pd_pll);
 	phy_write(phy, PWR_OFF, DPHY_PD_DPHY);
 
 	return 0;
@@ -382,9 +452,11 @@ static int mixel_dphy_init(struct phy *phy)
 
 static int mixel_dphy_exit(struct phy *phy)
 {
-	phy_write(phy, 0, DPHY_CM);
-	phy_write(phy, 0, DPHY_CN);
-	phy_write(phy, 0, DPHY_CO);
+	struct mixel_dphy_priv *priv = phy_get_drvdata(phy);
+
+	phy_write(phy, 0, priv->devdata->reg_cm);
+	phy_write(phy, 0, priv->devdata->reg_cn);
+	phy_write(phy, 0, priv->devdata->reg_co);
 
 	return 0;
 }
@@ -399,9 +471,9 @@ static int mixel_dphy_power_on(struct phy *phy)
 	if (ret < 0)
 		return ret;
 
-	phy_write(phy, PWR_ON, DPHY_PD_PLL);
-	ret = regmap_read_poll_timeout(priv->regmap, DPHY_LOCK, locked,
-				       locked, PLL_LOCK_SLEEP,
+	phy_write(phy, PWR_ON, priv->devdata->reg_pd_pll);
+	ret = regmap_read_poll_timeout(priv->regmap, priv->devdata->reg_lock,
+				       locked, locked, PLL_LOCK_SLEEP,
 				       PLL_LOCK_TIMEOUT);
 	if (ret < 0) {
 		dev_err(&phy->dev, "Could not get DPHY lock (%d)!\n", ret);
@@ -419,7 +491,7 @@ static int mixel_dphy_power_off(struct phy *phy)
 {
 	struct mixel_dphy_priv *priv = phy_get_drvdata(phy);
 
-	phy_write(phy, PWR_OFF, DPHY_PD_PLL);
+	phy_write(phy, PWR_OFF, priv->devdata->reg_pd_pll);
 	phy_write(phy, PWR_OFF, DPHY_PD_DPHY);
 
 	clk_disable_unprepare(priv->phy_ref_clk);
@@ -444,6 +516,8 @@ static const struct of_device_id mixel_dphy_of_match[] = {
 	  .data = &mixel_dphy_devdata[MIXEL_IMX8QM] },
 	{ .compatible = "fsl,imx8qx-mipi-dphy",
 	  .data = &mixel_dphy_devdata[MIXEL_IMX8QX] },
+	{ .compatible = "fsl,imx8ulp-mipi-dphy",
+	  .data = &mixel_dphy_devdata[MIXEL_IMX8ULP] },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mixel_dphy_of_match);
