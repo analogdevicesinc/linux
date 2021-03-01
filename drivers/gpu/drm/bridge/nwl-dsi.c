@@ -52,6 +52,9 @@
 #define PXL_VLD(x)	IMX_SC_C_PXL_LINK_MST ## x ## _VLD
 #define PXL_ADDR(x)	IMX_SC_C_PXL_LINK_MST ## x ## _ADDR
 
+#define IMX8ULP_DSI_CM_MASK	BIT(1)
+#define IMX8ULP_DSI_CM_NORMAL	BIT(1)
+
 /*
  * TODO: find a better way to access imx_crtc_state
  */
@@ -73,8 +76,10 @@ enum transfer_direction {
 	DSI_PACKET_RECEIVE,
 };
 
-#define NWL_DSI_ENDPOINT_LCDIF 0
-#define NWL_DSI_ENDPOINT_DCSS 1
+#define NWL_DSI_ENDPOINT_LCDIF	0
+#define NWL_DSI_ENDPOINT_DCSS	1
+#define NWL_DSI_ENDPOINT_DCNANO	0
+#define NWL_DSI_ENDPOINT_EPDC	1
 
 struct nwl_dsi_transfer {
 	const struct mipi_dsi_msg *msg;
@@ -172,11 +177,17 @@ struct nwl_dsi_platform_data {
 	nwl_dsi_clks clks;
 	u32 reg_tx_ulps;
 	u32 reg_pxl2dpi;
+	u32 reg_cm;
 	u32 max_instances;
 	u32 tx_clk_rate;
 	u32 rx_clk_rate;
 	bool mux_present;
 	bool shared_phy;
+	u32 bit_bta_timeout;
+	u32 bit_hs_tx_timeout;
+	bool use_lcdif_or_dcss;
+	bool use_dcnano_or_epdc;
+	bool rx_clk_quirk;	/* enable rx_esc clock to access registers */
 };
 
 
@@ -397,7 +408,7 @@ static int nwl_dsi_init_interrupts(struct nwl_dsi *dsi)
 	u32 irq_enable = ~(u32)(NWL_DSI_TX_PKT_DONE_MASK |
 				NWL_DSI_RX_PKT_HDR_RCVD_MASK |
 				NWL_DSI_TX_FIFO_OVFLW_MASK |
-				NWL_DSI_HS_TX_TIMEOUT_MASK);
+				dsi->pdata->bit_hs_tx_timeout);
 
 	nwl_dsi_write(dsi, NWL_DSI_IRQ_MASK, irq_enable);
 	nwl_dsi_write(dsi, NWL_DSI_IRQ_MASK2, 0x7);
@@ -713,7 +724,7 @@ static irqreturn_t nwl_dsi_irq_handler(int irq, void *data)
 	if (irq_status & NWL_DSI_TX_FIFO_OVFLW)
 		DRM_DEV_ERROR_RATELIMITED(dsi->dev, "tx fifo overflow\n");
 
-	if (irq_status & NWL_DSI_HS_TX_TIMEOUT)
+	if (irq_status & dsi->pdata->bit_hs_tx_timeout)
 		DRM_DEV_ERROR_RATELIMITED(dsi->dev, "HS tx timeout\n");
 
 	if (irq_status & NWL_DSI_TX_PKT_DONE ||
@@ -807,6 +818,10 @@ static int nwl_dsi_disable(struct nwl_dsi *dsi)
 
 	/* Disabling the clock before the phy breaks enabling dsi again */
 	clk_disable_unprepare(dsi->tx_esc_clk);
+
+	/* Disable rx_esc clock as registers are not accessed any more. */
+	if (dsi->pdata->rx_clk_quirk)
+		clk_disable_unprepare(dsi->rx_esc_clk);
 
 	return 0;
 }
@@ -908,7 +923,7 @@ static int nwl_dsi_bridge_atomic_check(struct drm_bridge *bridge,
 	struct nwl_dsi *dsi = bridge_to_dsi(bridge);
 	struct drm_display_mode *adjusted = &crtc_state->adjusted_mode;
 
-	if (!dsi->use_dcss) {
+	if (!dsi->use_dcss && !dsi->pdata->use_dcnano_or_epdc) {
 		/* At least LCDIF + NWL needs active high sync */
 		adjusted->flags |= (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
 		adjusted->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
@@ -983,6 +998,17 @@ nwl_dsi_bridge_mode_set(struct drm_bridge *bridge,
 		goto runtime_put;
 	if (dsi->pixel_clk && clk_prepare_enable(dsi->pixel_clk) < 0)
 		goto runtime_put;
+	/*
+	 * Enable rx_esc clock for some platforms to access DSI host controller
+	 * and PHY registers.
+	 */
+	if (dsi->pdata->rx_clk_quirk && clk_prepare_enable(dsi->rx_esc_clk) < 0)
+		goto runtime_put;
+
+	/* Always use normal mode(full mode) for Type-4 display */
+	if (dsi->pdata->reg_cm)
+		regmap_update_bits(dsi->csr, dsi->pdata->reg_cm,
+				   IMX8ULP_DSI_CM_MASK, IMX8ULP_DSI_CM_NORMAL);
 
 	/* Step 1 from DSI reset-out instructions */
 	ret = dsi->pdata->pclk_reset(dsi, false);
@@ -1245,8 +1271,9 @@ static int nwl_dsi_parse_dt(struct nwl_dsi *dsi)
 		return ret;
 	}
 
-	/* For these two regs we need a mapping to MIPI-DSI CSR */
-	if (dsi->pdata->reg_tx_ulps || dsi->pdata->reg_pxl2dpi) {
+	/* For these three regs, we need a mapping to MIPI-DSI CSR */
+	if (dsi->pdata->reg_tx_ulps || dsi->pdata->reg_pxl2dpi ||
+	    dsi->pdata->reg_cm) {
 		dsi->csr = syscon_regmap_lookup_by_phandle(np, "csr");
 		if (IS_ERR(dsi->csr)) {
 			ret = PTR_ERR(dsi->csr);
@@ -1297,36 +1324,60 @@ static int nwl_dsi_parse_dt(struct nwl_dsi *dsi)
 static int nwl_dsi_select_input(struct nwl_dsi *dsi)
 {
 	struct device_node *remote;
-	u32 use_dcss = 1;
+	u32 use_dcss_or_epdc = 1;
 	int ret;
 
 	/* If there is no mux, nothing to do here */
 	if (!dsi->pdata->mux_present)
 		return 0;
 
-	remote = of_graph_get_remote_node(dsi->dev->of_node, 0,
-					  NWL_DSI_ENDPOINT_LCDIF);
-	if (remote) {
-		use_dcss = 0;
-	} else {
+	if (dsi->pdata->use_lcdif_or_dcss) {
 		remote = of_graph_get_remote_node(dsi->dev->of_node, 0,
-						  NWL_DSI_ENDPOINT_DCSS);
-		if (!remote) {
-			DRM_DEV_ERROR(dsi->dev,
-				      "No valid input endpoint found\n");
-			return -EINVAL;
+						  NWL_DSI_ENDPOINT_LCDIF);
+		if (remote) {
+			use_dcss_or_epdc = 0;
+		} else {
+			remote = of_graph_get_remote_node(dsi->dev->of_node, 0,
+							  NWL_DSI_ENDPOINT_DCSS);
+			if (!remote) {
+				DRM_DEV_ERROR(dsi->dev,
+					      "No valid input endpoint found\n");
+				return -EINVAL;
+			}
 		}
+
+		DRM_DEV_INFO(dsi->dev, "Using %s as input source\n",
+			     (use_dcss_or_epdc) ? "DCSS" : "LCDIF");
+	} else if (dsi->pdata->use_dcnano_or_epdc) {
+		remote = of_graph_get_remote_node(dsi->dev->of_node, 0,
+						  NWL_DSI_ENDPOINT_DCNANO);
+		if (remote) {
+			use_dcss_or_epdc = 0;
+		} else {
+			remote = of_graph_get_remote_node(dsi->dev->of_node, 0,
+							  NWL_DSI_ENDPOINT_EPDC);
+			if (!remote) {
+				DRM_DEV_ERROR(dsi->dev,
+					      "No valid input endpoint found\n");
+				return -EINVAL;
+			}
+		}
+
+		DRM_DEV_INFO(dsi->dev, "Using %s as input source\n",
+			     (use_dcss_or_epdc) ? "EPDC" : "DCNANO");
+	} else {
+		DRM_DEV_ERROR(dsi->dev, "No valid input endpoint found\n");
+		return -EINVAL;
 	}
 
-	DRM_DEV_INFO(dsi->dev, "Using %s as input source\n",
-		     (use_dcss) ? "DCSS" : "LCDIF");
-	ret = mux_control_try_select(dsi->mux, use_dcss);
+	ret = mux_control_try_select(dsi->mux, use_dcss_or_epdc);
 	if (ret < 0)
 		DRM_DEV_ERROR(dsi->dev, "Failed to select input: %d\n", ret);
 
 	of_node_put(remote);
 
-	dsi->use_dcss = use_dcss;
+	if (of_device_is_compatible(dsi->dev->of_node, "fsl,imx8mq-nwl-dsi"))
+		dsi->use_dcss = use_dcss_or_epdc;
 
 	return ret;
 }
@@ -1346,7 +1397,7 @@ static int nwl_dsi_deselect_input(struct nwl_dsi *dsi)
 	return ret;
 }
 
-static int imx8mq_dsi_pclk_reset(struct nwl_dsi *dsi, bool reset)
+static int imx8_common_dsi_pclk_reset(struct nwl_dsi *dsi, bool reset)
 {
 	int ret = 0;
 
@@ -1361,7 +1412,7 @@ static int imx8mq_dsi_pclk_reset(struct nwl_dsi *dsi, bool reset)
 
 }
 
-static int imx8mq_dsi_mipi_reset(struct nwl_dsi *dsi, bool reset)
+static int imx8_common_dsi_mipi_reset(struct nwl_dsi *dsi, bool reset)
 {
 	int ret = 0;
 
@@ -1383,7 +1434,7 @@ static int imx8mq_dsi_mipi_reset(struct nwl_dsi *dsi, bool reset)
 
 }
 
-static int imx8mq_dsi_dpi_reset(struct nwl_dsi *dsi, bool reset)
+static int imx8_common_dsi_dpi_reset(struct nwl_dsi *dsi, bool reset)
 {
 	int ret = 0;
 
@@ -1495,11 +1546,14 @@ static const struct drm_bridge_timings nwl_dsi_timings = {
 };
 
 static const struct nwl_dsi_platform_data imx8mq_dev = {
-	.pclk_reset = &imx8mq_dsi_pclk_reset,
-	.mipi_reset = &imx8mq_dsi_mipi_reset,
-	.dpi_reset = &imx8mq_dsi_dpi_reset,
+	.pclk_reset = &imx8_common_dsi_pclk_reset,
+	.mipi_reset = &imx8_common_dsi_mipi_reset,
+	.dpi_reset = &imx8_common_dsi_dpi_reset,
 	.clks = NWL_DSI_CORE_CLK | NWL_DSI_LCDIF_CLK,
 	.mux_present = true,
+	.bit_hs_tx_timeout = BIT(29),
+	.bit_bta_timeout = BIT(31),
+	.use_lcdif_or_dcss = true,
 };
 
 static const struct nwl_dsi_platform_data imx8qm_dev = {
@@ -1513,6 +1567,8 @@ static const struct nwl_dsi_platform_data imx8qm_dev = {
 	.tx_clk_rate = 18000000,
 	.rx_clk_rate = 72000000,
 	.shared_phy = false,
+	.bit_hs_tx_timeout = BIT(29),
+	.bit_bta_timeout = BIT(31),
 };
 
 static const struct nwl_dsi_platform_data imx8qx_dev = {
@@ -1526,12 +1582,28 @@ static const struct nwl_dsi_platform_data imx8qx_dev = {
 	.tx_clk_rate = 18000000,
 	.rx_clk_rate = 72000000,
 	.shared_phy = true,
+	.bit_hs_tx_timeout = BIT(29),
+	.bit_bta_timeout = BIT(31),
+};
+
+static const struct nwl_dsi_platform_data imx8ulp_dev = {
+	.pclk_reset = &imx8_common_dsi_pclk_reset,
+	.mipi_reset = &imx8_common_dsi_mipi_reset,
+	.dpi_reset = &imx8_common_dsi_dpi_reset,
+	.clks = NWL_DSI_CORE_CLK,
+	.reg_cm = 0x8,
+	.mux_present = true,
+	.bit_hs_tx_timeout = BIT(31),
+	.bit_bta_timeout = BIT(29),
+	.use_dcnano_or_epdc = true,
+	.rx_clk_quirk = true,
 };
 
 static const struct of_device_id nwl_dsi_dt_ids[] = {
 	{ .compatible = "fsl,imx8mq-nwl-dsi", .data = &imx8mq_dev, },
 	{ .compatible = "fsl,imx8qm-nwl-dsi", .data = &imx8qm_dev, },
 	{ .compatible = "fsl,imx8qx-nwl-dsi", .data = &imx8qx_dev, },
+	{ .compatible = "fsl,imx8ulp-nwl-dsi", .data = &imx8ulp_dev, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, nwl_dsi_dt_ids);
