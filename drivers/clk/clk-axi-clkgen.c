@@ -575,7 +575,8 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 
 	axi_clkgen->axi_clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(axi_clkgen->axi_clk)) {
-		dev_err(&pdev->dev, "failed to get s_axi_aclk\n");
+		if (PTR_ERR(axi_clkgen->axi_clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "failed to get s_axi_aclk\n");
 		return PTR_ERR(axi_clkgen->axi_clk);
 	}
 
