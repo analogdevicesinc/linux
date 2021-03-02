@@ -218,7 +218,7 @@ build_checkpatch() {
 	# TODO: Re-visit periodically:
 	# https://github.com/torvalds/linux/blob/master/Documentation/devicetree/writing-schema.rst
 	# This seems to change every now-n-then
-	apt_install python3-ply python3-git libyaml-dev python3-pip python3-setuptools
+	apt_install python3-ply python-git-doc libyaml-dev python3-pip python3-setuptools
 	pip3 install wheel
 	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
 
