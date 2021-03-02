@@ -3823,7 +3823,7 @@ EXPORT_SYMBOL(qman_ceetm_lni_release);
 
 int qman_ceetm_sp_set_lni(struct qm_ceetm_sp *sp, struct qm_ceetm_lni *lni)
 {
-	struct qm_mcc_ceetm_mapping_shaper_tcfc_config config_opts;
+	struct qm_mcc_ceetm_mapping_shaper_tcfc_config config_opts = {0};
 
 	config_opts.cid = cpu_to_be16(CEETM_COMMAND_SP_MAPPING | sp->idx);
 	config_opts.dcpid = sp->dcp_idx;
