@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * hdl_project: <adv7511/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&fpga_axi {
+	axi_trigger@44000000 {
+		compatible = "dmem-uio";
+		reg = <0x44000000 0x1000>;
+	};
+};
