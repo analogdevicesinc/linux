@@ -157,32 +157,32 @@
 		/* Fast AGC */
 
 		adi,fagc-dec-pow-measurement-duration = <64>; /* 64 Samples */
-                //adi,fagc-allow-agc-gain-increase-enable;
-                adi,fagc-lp-thresh-increment-steps = <1>;
-                adi,fagc-lp-thresh-increment-time = <5>;
+		//adi,fagc-allow-agc-gain-increase-enable;
+		adi,fagc-lp-thresh-increment-steps = <1>;
+		adi,fagc-lp-thresh-increment-time = <5>;
 
-                adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt = <8>;
-                adi,fagc-final-overrange-count = <3>;
-                //adi,fagc-gain-increase-after-gain-lock-enable;
-                adi,fagc-gain-index-type-after-exit-rx-mode = <0>;
-                adi,fagc-lmt-final-settling-steps = <1>;
-                adi,fagc-lock-level = <10>;
-                adi,fagc-lock-level-gain-increase-upper-limit = <5>;
-                adi,fagc-lock-level-lmt-gain-increase-enable;
+		adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt = <8>;
+		adi,fagc-final-overrange-count = <3>;
+		//adi,fagc-gain-increase-after-gain-lock-enable;
+		adi,fagc-gain-index-type-after-exit-rx-mode = <0>;
+		adi,fagc-lmt-final-settling-steps = <1>;
+		adi,fagc-lock-level = <10>;
+		adi,fagc-lock-level-gain-increase-upper-limit = <5>;
+		adi,fagc-lock-level-lmt-gain-increase-enable;
 
-                adi,fagc-lpf-final-settling-steps = <1>;
-                adi,fagc-optimized-gain-offset = <5>;
-                adi,fagc-power-measurement-duration-in-state5 = <64>;
-                adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable;
-                adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll = <10>;
-                adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable;
-                adi,fagc-rst-gla-if-en-agc-pulled-high-mode = <0>;
-                adi,fagc-rst-gla-large-adc-overload-enable;
-                adi,fagc-rst-gla-large-lmt-overload-enable;
-                adi,fagc-rst-gla-stronger-sig-thresh-above-ll = <10>;
-                adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable;
-                adi,fagc-state-wait-time-ns = <260>;
-                adi,fagc-use-last-lock-level-for-set-gain-enable;
+		adi,fagc-lpf-final-settling-steps = <1>;
+		adi,fagc-optimized-gain-offset = <5>;
+		adi,fagc-power-measurement-duration-in-state5 = <64>;
+		adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable;
+		adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll = <10>;
+		adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable;
+		adi,fagc-rst-gla-if-en-agc-pulled-high-mode = <0>;
+		adi,fagc-rst-gla-large-adc-overload-enable;
+		adi,fagc-rst-gla-large-lmt-overload-enable;
+		adi,fagc-rst-gla-stronger-sig-thresh-above-ll = <10>;
+		adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable;
+		adi,fagc-state-wait-time-ns = <260>;
+		adi,fagc-use-last-lock-level-for-set-gain-enable;
 
 		/* RSSI */
 

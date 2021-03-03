@@ -53,7 +53,7 @@
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 	};
 
-        hmc7043_c1: channel@1 {
+	hmc7043_c1: channel@1 {
 		reg = <1>;
 		adi,extended-name = "SYSREF_FPGA";
 		adi,divider = <HMC7043_SYSREF_CLKDIV>;
@@ -71,17 +71,17 @@
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 	};
 
-        /delete-node/ hmc7043_c3;
+	/delete-node/ hmc7043_c3;
 
-        hmc7043_c4: channel@4 {
+	hmc7043_c4: channel@4 {
 		reg = <4>;
 		adi,extended-name = "TX_CORE_LINK_CLK";
 		adi,divider = <HMC7043_FPGA_LINK_CLKDIV_TX>;
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 	};
 
-        /delete-node/ hmc7043_c5;
-        /delete-node/ hmc7043_c6;
+	/delete-node/ hmc7043_c5;
+	/delete-node/ hmc7043_c6;
 
 	hmc7043_c7: channel@7 {
 		reg = <7>;
@@ -94,7 +94,7 @@
 		adi,jesd204-sysref-chan;
 	};
 
-        /delete-node/ hmc7043_c8;
+	/delete-node/ hmc7043_c8;
 
 	hmc7043_c9: channel@9 {
 		reg = <9>;
@@ -107,7 +107,7 @@
 		adi,jesd204-sysref-chan;
 	};
 
-        /delete-node/ hmc7043_c10;
+	/delete-node/ hmc7043_c10;
 
 	hmc7043_c11: channel@11 {
 		reg = <11>;
@@ -120,7 +120,7 @@
 		adi,jesd204-sysref-chan;
 	};
 
-        /delete-node/ hmc7043_c12;
+	/delete-node/ hmc7043_c12;
 
 	hmc7043_c13: channel@13 {
 		reg = <13>;
@@ -135,21 +135,21 @@
 };
 
 &trx0_ad9081 {
-        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
-        adi,jesd-sync-pin-0a-cmos-enable;
+	/delete-property/ adi,jesd-sync-pins-01-swap-enable;
+	adi,jesd-sync-pin-0a-cmos-enable;
 };
 
 &trx1_ad9081 {
-        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
-        adi,jesd-sync-pin-0a-cmos-enable;
+	/delete-property/ adi,jesd-sync-pins-01-swap-enable;
+	adi,jesd-sync-pin-0a-cmos-enable;
 };
 
 &trx2_ad9081 {
-        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
-        adi,jesd-sync-pin-0a-cmos-enable;
+	/delete-property/ adi,jesd-sync-pins-01-swap-enable;
+	adi,jesd-sync-pin-0a-cmos-enable;
 };
 
 &trx3_ad9081 {
-        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
-        adi,jesd-sync-pin-0a-cmos-enable;
+	/delete-property/ adi,jesd-sync-pins-01-swap-enable;
+	adi,jesd-sync-pin-0a-cmos-enable;
 };
