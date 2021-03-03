@@ -276,7 +276,7 @@
 					reg = <0>;
 					adi,converter-select = <&ad9081_rx_fddc_chan0 0>, <&ad9081_rx_fddc_chan0 1>,
 								<&ad9081_rx_fddc_chan1 0>, <&ad9081_rx_fddc_chan1 1>;
- 					adi,logical-lane-mapping = /bits/ 8 <0 1 2 3 4 5 6 7>;
+					adi,logical-lane-mapping = /bits/ 8 <0 1 2 3 4 5 6 7>;
 
 
 					adi,link-mode = <18>;			/* JESD Quick Configuration Mode */

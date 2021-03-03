@@ -24,29 +24,29 @@
 
 #if 1
 // 6GHz (0 dBm) direct clock into J37, J38, J39, J40
-#define AD9081_DAC_FREQUENCY 			6000000000
+#define AD9081_DAC_FREQUENCY			6000000000
 #define AD9081_ADC_FREQUENCY			2000000000
 #define HMC7043_FPGA_XCVR_CLKDIV		4
 #define HMC7043_FPGA_LINK_CLKDIV_TX		8
 #define HMC7043_FPGA_LINK_CLKDIV_RX		8
-#define LANE_RATE_KHZ                   	8250000
+#define LANE_RATE_KHZ			8250000
 #else
 // 12GHz (0 dBm) direct clock into J37, J38, J39, J40
-#define AD9081_DAC_FREQUENCY 			12000000000
+#define AD9081_DAC_FREQUENCY			12000000000
 #define AD9081_ADC_FREQUENCY			4000000000
 #define HMC7043_FPGA_XCVR_CLKDIV		4
 #define HMC7043_FPGA_LINK_CLKDIV_TX		4
 #define HMC7043_FPGA_LINK_CLKDIV_RX		4
-#define LANE_RATE_KHZ                   	16500000
+#define LANE_RATE_KHZ			16500000
 #endif
 
 #define HMC7043_SYSREF_CLKDIV			512
 #define HMC7043_SYSREF_TIMER			(HMC7043_SYSREF_CLKDIV * 4)
 
-#define DEV_CLK_CCF                     	(AD9081_DAC_FREQUENCY / 10)
+#define DEV_CLK_CCF			(AD9081_DAC_FREQUENCY / 10)
 
  /* TX path */
-#define AD9081_TX_LANERATE_KHZ	        	LANE_RATE_KHZ
+#define AD9081_TX_LANERATE_KHZ			LANE_RATE_KHZ
 #define AD9081_TX_MAIN_INTERPOLATION		6
 #define AD9081_TX_CHAN_INTERPOLATION		8
 #define AD9081_TX_MAIN_NCO_SHIFT		2800000000
@@ -120,7 +120,7 @@
 		compatible = "fixed-clock";
 		clock-frequency = <DEV_CLK_CCF>;
 		clock-output-names = "dev_clk";
-        };
+	};
 
 };
 
