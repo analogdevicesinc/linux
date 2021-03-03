@@ -175,9 +175,9 @@ patternProperties:
           - enum: [0, 1, 2, 3, 4, 5]
         maxItems: 1
 
-      adi,pll-loop-bandwidth-hz:
+      adi,pll-loop-bandwidth-uhz:
         description: |
-          PLL loop bandwidth.
+          PLL loop bandwidth in microhertz.
         allOf:
           - $ref: /schemas/types.yaml#/definitions/uint32
           - minimum: 1
@@ -304,7 +304,7 @@ examples:
                 ad9545_apll1: pll-clk@AD9545_PLL1 {
                         reg = <AD9545_PLL1>;
                         adi,pll-source = <4>;
-                        adi,pll-loop-bandwidth-hz = <200>;
+                        adi,pll-loop-bandwidth-uhz = <200000000>;
                 };
 
                 output-clk@AD9545_Q1A {
