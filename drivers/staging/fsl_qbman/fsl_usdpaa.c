@@ -1040,7 +1040,8 @@ static long ioctl_dma_map(struct file *fp, struct ctx *ctx,
 				if (i->len != frag->map_len && i->len) {
 					pr_err("ioctl_dma_map() Size requested does not match %s and is none zero\n",
 					frag->name);
-					return -EINVAL;
+					ret = -EINVAL;
+					goto out;
 				}
 
 				/* Check if this has already been mapped
