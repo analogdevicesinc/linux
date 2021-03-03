@@ -276,6 +276,35 @@ static int ad9081_spi_xfer(void *user_data, uint8_t *wbuf, uint8_t *rbuf,
 		.len = len & 0xFFFF,
 	};
 
+	if (conv->spi->mode & SPI_LSB_FIRST) {
+		int ret, i;
+		u8 tx[64], rx[64];
+
+		struct spi_transfer t = {
+			.tx_buf = tx,
+			.rx_buf = rx,
+			.len = len & 0xFFFF,
+		};
+
+		len &= 0xFFFF;
+
+		if (len > sizeof(tx))
+			return -EIO;
+
+		tx[0] = wbuf[1];
+		tx[1] = wbuf[0];
+
+		for (i = 2; i < len; i++)
+			tx[i] =  wbuf[len - i + 1];
+
+		ret = spi_sync_transfer(conv->spi, &t, 1);
+
+		for (i = 2; i < len; i++)
+			rbuf[i] =  rx[len - i + 1];
+
+		return ret;
+	}
+
 	return spi_sync_transfer(conv->spi, &t, 1);
 }
 
@@ -3389,8 +3418,9 @@ static int ad9081_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	phy->ad9081.hal_info.sdo = SPI_SDO;
-	phy->ad9081.hal_info.msb = SPI_MSB_FIRST;
+	phy->ad9081.hal_info.sdo = (spi->mode & SPI_3WIRE) ? SPI_SDIO : SPI_SDO;
+	phy->ad9081.hal_info.msb =
+		(spi->mode & SPI_LSB_FIRST) ? SPI_MSB_LAST : SPI_MSB_FIRST;
 	phy->ad9081.hal_info.addr_inc = SPI_ADDR_INC_AUTO;
 	phy->ad9081.hal_info.delay_us = ad9081_udelay;
 	phy->ad9081.hal_info.spi_xfer = ad9081_spi_xfer;
