@@ -37,8 +37,8 @@
 
 #define DEC_MIN_SZ		72
 #define DEC_MAX_SZ		32712
-#define ENC_MIN_SZ		128
-#define ENC_MAX_SZ		32768
+#define ENC_MIN_SZ		120
+#define ENC_MAX_SZ		32760
 
 #define SUBKEY_CMD_MAX_SZ	4092
 #define SUBKEY_RSP_MAX_SZ	820
