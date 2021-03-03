@@ -1714,7 +1714,7 @@ static IIO_DEVICE_ATTR(calibrate_rx_phase_correction_en, S_IRUGO | S_IWUSR,
 		       adrv9009_phy_store,
 		       ADRV9009_INIT_CAL | (TAL_RX_PHASE_CORRECTION << 8));
 
-static IIO_DEVICE_ATTR(calibrate_frm_en, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(calibrate_fhm_en, S_IRUGO | S_IWUSR,
 		       adrv9009_phy_show,
 		       adrv9009_phy_store,
 		       ADRV9009_INIT_CAL | (TAL_FHM_CALS << 8));
@@ -1769,7 +1769,7 @@ static struct attribute *adrv9009_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_phase_correction_en.dev_attr.attr,
-	&iio_dev_attr_calibrate_frm_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_fhm_en.dev_attr.attr,
 	NULL,
 };
 
@@ -1784,7 +1784,7 @@ static struct attribute *adrv90081_phy_attributes[] = {
 	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_phase_correction_en.dev_attr.attr,
-	&iio_dev_attr_calibrate_frm_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_fhm_en.dev_attr.attr,
 	NULL,
 };
 
@@ -1800,7 +1800,7 @@ static struct attribute *adrv90082_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
-	&iio_dev_attr_calibrate_frm_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_fhm_en.dev_attr.attr,
 	NULL,
 };
 
