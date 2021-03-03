@@ -318,7 +318,7 @@ struct ad9545_ppl_clk {
 	struct ad9545_state		*st;
 	bool				pll_used;
 	unsigned int			address;
-	unsigned int			loop_bw;
+	unsigned int			loop_bw_uhz;
 	struct clk_hw			hw;
 	u8				tdc_source;
 };
@@ -509,11 +509,11 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 
 		st->pll_clks[addr].tdc_source = val;
 
-		ret = fwnode_property_read_u32(child, "adi,pll-loop-bandwidth-hz", &val);
+		ret = fwnode_property_read_u32(child, "adi,pll-loop-bandwidth-uhz", &val);
 		if (ret < 0)
 			return ret;
 
-		st->pll_clks[addr].loop_bw = val;
+		st->pll_clks[addr].loop_bw_uhz = val;
 	}
 
 	return 0;
@@ -1496,8 +1496,7 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		/* write loop bandwidth in microhertz */
-		regval = cpu_to_le32(pll->loop_bw * 1000000);
+		regval = cpu_to_le32(pll->loop_bw_uhz);
 		ret = regmap_bulk_write(st->regmap, AD9545_DPLLX_LOOP_BW(i), &regval, 4);
 		if (ret < 0)
 			return ret;
