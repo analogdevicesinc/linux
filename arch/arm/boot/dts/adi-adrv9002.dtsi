@@ -58,14 +58,14 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			rx@0 {
+			rx0: rx@0 {
 				reg = <0>;
 				adi,port = <0>;
 				adi,pinctrl = <&rx_pinctrl0>;
 				orx-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>; /* dgpio0 */
 			};
 
-			rx@1 {
+			rx1: rx@1 {
 				reg = <1>;
 				adi,port = <0>;
 				adi,pinctrl = <&rx_pinctrl1>;
