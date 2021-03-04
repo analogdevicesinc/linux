@@ -7170,7 +7170,7 @@ static IIO_DEVICE_ATTR(calib_mode_available, S_IRUGO,
 			NULL,
 			AD9361_CALIB_MODE_AVAIL);
 
-static IIO_DEVICE_ATTR(rssi_gain_step_error, S_IRUGO,
+static IIO_DEVICE_ATTR(rssi_gain_step_error, S_IRUGO | S_IWUSR,
 			ad9361_phy_show,
 			ad9361_phy_store,
 			AD9361_RSSI_GAIN_STEP_ERROR);
