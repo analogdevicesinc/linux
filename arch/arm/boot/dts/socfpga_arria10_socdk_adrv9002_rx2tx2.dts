@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9002
+ *
+ * hdl_project: <adrv9001/a10soc>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_arria10_socdk.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	cap-sd-highspeed;
+	broken-cd;
+	bus-width = <4>;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+};
+
+/ {
+	clocks {
+		dma_clk: dma_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>;
+			clock-output-names = "dma_clk";
+		};
+	};
+
+	soc {
+		sys_hps_bridges: bridge@ff200000 {
+			compatible = "simple-bus";
+			reg = <0xff200000 0x00200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0xff200000 0x00200000>;
+
+			sys_spi: spi@40 {
+				compatible = "altr,spi-1.0";
+				reg = <0x00000040 0x00000020>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 26 4>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			adrv9001_gpio: gpio@60000 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00060000 0x00000010>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 33 4>;
+				altr,gpio-bank-width = <19>;
+				altr,interrupt-type = <4>;
+				altr,interrupt_type = <4>;
+				level_trigger = <1>;
+				resetvalue = <0>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			rx_dma: dma@40000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00040000 0x1000>;
+				#dma-cells = <1>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 21 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&dma_clk>;
+
+				adi,channels {
+					#size-cells = <0>;
+					#address-cells = <1>;
+
+					dma-channel@0 {
+						reg = <0>;
+						adi,source-bus-width = <64>;
+						adi,source-bus-type = <2>;
+						adi,destination-bus-width = <64>;
+						adi,destination-bus-type = <0>;
+					};
+				};
+			};
+
+			tx_dma: dma@44000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00044000 0x00000800>;
+				#dma-cells = <1>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 22 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&dma_clk>;
+
+				adi,channels {
+					#size-cells = <0>;
+					#address-cells = <1>;
+
+					dma-channel@0 {
+						reg = <0>;
+						adi,source-bus-width = <64>;
+						adi,source-bus-type = <0>;
+						adi,destination-bus-width = <64>;
+						adi,destination-bus-type = <2>;
+					};
+				};
+			};
+
+			axi_adrv9002_core_rx: axi-adrv9002-rx-lpc@20000 {
+				compatible = "adi,axi-adrv9002-rx-1.0";
+				reg = <0x00020000 0x6000>;
+				clocks = <&adc0_adrv9002 0>;
+				dmas = <&rx_dma 0>;
+				dma-names = "rx";
+				spibus-connected = <&adc0_adrv9002>;
+			};
+
+			axi_adrv9002_core_tx: axi-adrv9002-tx-lpc@2A000 {
+				compatible = "adi,axi-adrv9002-rx2tx2-1.0";
+				reg = <0x0002A000 0x2000>;
+				clocks = <&adc0_adrv9002 1>;
+				clock-names = "sampl_clk";
+				dmas = <&tx_dma 0>;
+				dma-names = "tx";
+				adi,axi-dds-default-scale = <0x800>;
+				adi,axi-dds-default-frequency = <2000000>;
+			};
+		};
+	};
+};
+
+#define fmc_spi sys_spi
+
+#include "adi-adrv9002.dtsi"
+
+&adc0_adrv9002 {
+	compatible = "adi,adrv9002-rx2tx2";
+	reset-gpios = <&adrv9001_gpio 14 GPIO_ACTIVE_LOW>;
+	ssi-sync-gpios = <&adrv9001_gpio 22 GPIO_ACTIVE_HIGH>;
+};
+
+&rx0 {
+	orx-gpios = <&adrv9001_gpio 0 GPIO_ACTIVE_HIGH>; /* dgpio0 */
+};
+
+&rx1 {
+	orx-gpios = <&adrv9001_gpio 1 GPIO_ACTIVE_HIGH>; /* dgpio1 */
+};
