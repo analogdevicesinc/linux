@@ -170,27 +170,53 @@ patternProperties:
           PLL number. AD9545 has two PLLs.
         maxItems: 1
 
-      adi,pll-source:
-        description: |
-          Each PLL can have 1 signal source. Choose from Ref-A to Ref-BB [0-3] or aux NCOs [4-5].
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - enum: [0, 1, 2, 3, 4, 5]
-        maxItems: 1
+      '#address-cells':
+         const: 1
 
-      adi,pll-loop-bandwidth-uhz:
+      '#size-cells':
+         const: 0
+
+    patternProperties:
+      "^profile@[0-5]$":
         description: |
-          PLL loop bandwidth in microhertz.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 1
-          - maximum: 1850
-        maxItems: 1
+          Represents a DPLL profile. Each DPLL can have up to 6 specified sources
+          wih priorities assigned.
+        type: object
+
+        properties:
+          reg:
+            description: |
+              Profile number. A DPLL can have up to 6 translation profiles.
+            maxItems: 1
+          adi,profile-priority:
+            description: |
+              Profile selection priority. 0 is the highest, 31 is the lowest. For revertive
+              reference switching, ensure that priority difference is > 7.
+            $ref: /schemas/types.yaml#/definitions/uint32
+            minimum: 0
+            maximum: 31
+
+          adi,pll-source:
+            description: |
+              Each PLL can have 1 signal source. Choose from Ref-A to Ref-BB [0-3] or aux NCOs [4-5].
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [0, 1, 2, 3, 4, 5]
+
+          adi,pll-loop-bandwidth-uhz:
+            description: |
+              PLL loop bandwidth in microhertz.
+            $ref: /schemas/types.yaml#/definitions/uint32
+            minimum: 1
+            maximum: 1850000000
+            default: 200000000
+
+        required:
+          - reg
+          - adi,pll-source
+          - adi,pll-loop-bandwidth-uhz
 
     required:
       - reg
-      - adi,pll-source
-      - adi,pll-loop-bandwidth-hz
 
   "^aux-nco-clk@[0-1]$":
     description: |
@@ -298,8 +324,16 @@ examples:
 
                 ad9545_apll1: pll-clk@AD9545_PLL1 {
                         reg = <AD9545_PLL1>;
-                        adi,pll-source = <4>;
-                        adi,pll-loop-bandwidth-uhz = <200000000>;
+
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        profile@0 {
+                               reg = <0>;
+                               adi,pll-source = <4>;
+                               adi,profile-priority = <0>;
+                               adi,pll-loop-bandwidth-uhz = <200000000>;
+                        };
                 };
 
                 output-clk@AD9545_Q1A {
