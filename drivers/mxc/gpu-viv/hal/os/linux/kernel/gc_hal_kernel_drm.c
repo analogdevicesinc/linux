@@ -82,6 +82,17 @@ struct viv_gem_object {
     gctBOOL               cacheable;
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
+void viv_gem_free_object(struct drm_gem_object *gem_obj);
+struct dma_buf *viv_gem_prime_export(struct drm_gem_object *gem_obj,
+                int flags);
+
+static const struct drm_gem_object_funcs viv_gem_object_funcs = {
+    .free = viv_gem_free_object,
+    .export = viv_gem_prime_export,
+};
+#endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
 struct dma_buf *viv_gem_prime_export(struct drm_gem_object *gem_obj,
                 int flags)
@@ -141,6 +152,9 @@ struct drm_gem_object *viv_gem_prime_import(struct drm_device *drm,
     /* ioctl output */
     gem_obj = kzalloc(sizeof(struct viv_gem_object), GFP_KERNEL);
     drm_gem_private_object_init(drm, gem_obj, dmabuf->size);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
+    gem_obj->funcs = &viv_gem_object_funcs;
+#endif
     viv_obj = container_of(gem_obj, struct viv_gem_object, base);
     viv_obj->node_handle = iface.u.WrapUserMemory.node;
     viv_obj->node_object = nodeObject;
@@ -224,6 +238,9 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
     /* ioctl output */
     gem_obj = kzalloc(sizeof(struct viv_gem_object), GFP_KERNEL);
     drm_gem_private_object_init(drm, gem_obj, (size_t)alignSize);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
+    gem_obj->funcs = &viv_gem_object_funcs;
+#endif
     ret = drm_gem_handle_create(file, gem_obj, &args->handle);
 
     viv_obj = container_of(gem_obj, struct viv_gem_object, base);
@@ -799,14 +816,18 @@ static struct drm_driver viv_drm_driver = {
 #endif
     .open = viv_drm_open,
     .postclose = viv_drm_postclose,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0)
     .gem_free_object_unlocked = viv_gem_free_object,
 #else
     .gem_free_object    = viv_gem_free_object,
 #endif
+#endif
     .prime_handle_to_fd = drm_gem_prime_handle_to_fd,
     .prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
     .gem_prime_export   = viv_gem_prime_export,
+#endif
     .gem_prime_import   = viv_gem_prime_import,
     .ioctls             = viv_ioctls,
     .num_ioctls         = DRM_VIV_NUM_IOCTLS,
