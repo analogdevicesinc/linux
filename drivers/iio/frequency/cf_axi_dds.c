@@ -1748,7 +1748,7 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 
 	reg = dds_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_2);
 	n = ADI_JESD204_TPL_TO_N(reg);
-	np = ADI_JESD204_TPL_TO_NP(reg);
+	np = roundup_pow_of_two(ADI_JESD204_TPL_TO_NP(reg));
 
 	reg = dds_read(st, ADI_REG_CONFIG);
 
@@ -1776,6 +1776,7 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 
 		st->chip_info_generated.channel[c].scan_type.realbits = n;
 		st->chip_info_generated.channel[c].scan_type.storagebits = np;
+		st->chip_info_generated.channel[c].scan_type.shift = np - n;
 		st->chip_info_generated.channel[c].scan_type.sign = 's';
 	}
 
