@@ -104,7 +104,7 @@
 		sw0 {
 			label = "SW0";
 			linux,input-type = <EV_SW>;
-			linux,code = <SW_LID>;
+			linux,code = <SW_LINEIN_INSERT>;
 			gpios = <&gpio 82 0>;
 		};
 
