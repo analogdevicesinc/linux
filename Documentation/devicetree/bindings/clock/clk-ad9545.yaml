@@ -19,8 +19,14 @@ properties:
     enum:
       - adi,ad9545
 
-  "#clock-cells":
+  '#address-cells':
     const: 1
+
+  '#size-cells':
+    const: 0
+
+  "#clock-cells":
+    const: 2
 
   reg:
     description: |
@@ -43,13 +49,9 @@ properties:
       Otherwise it is assumed that there is a TCXO or OCXO connected.
     type: boolean
 
-  adi,ref-frequency-mhz:
+  adi,ref-frequency-hz:
     description: |
       Reference input frequency at XOA,XOB. This is used for the system clock.
-    allOf:
-      - $ref: /schemas/types.yaml#/definitions/uint32
-    minItems: 2
-    maxItems: 2
 
   clocks:
     items:
@@ -58,6 +60,20 @@ properties:
       - description: Ref B clock input
       - description: Ref BB clock input
     maxItems: 4
+
+  assigned-clocks:
+    description:
+      Clocks are identified using two cells <&ad9545 clock_type clock_address>.
+    minItems: 1
+    maxItems: 14
+
+  assigned-clock-rates:
+    minItems: 1
+    maxItems: 14
+
+  assigned-clock-phases:
+    minItems: 1
+    maxItems: 14
 
   clock-output-names:
     maxItems: 10
@@ -78,74 +94,61 @@ patternProperties:
       adi,single-ended-mode:
         description: |
           Single-ended configuration mode.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - enum: [0, 1, 2, 3]
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1, 2, 3]
 
       adi,differential-mode:
         description: |
           Differential configuration mode.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - enum: [0, 1, 2]
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1, 2]
 
       adi,r-divider-ratio:
         description: |
           Each reference input has a dedicated divider.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 1
-          - maximum: 1073741824
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 1073741824
 
       adi,ref-dtol-pbb:
         description: |
           REFx offset limit. Constitutes a fractional portion of the corresponding nominal period.
           The 24-bit number represents fractional units of parts per billion (ppb) up to a
           maximum of approximately 17 million ppb (1.7%).
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 0
-          - maximum: 16777215
-          - default: 100000
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 0
+        maximum: 16777215
+        default: 100000
 
       adi,ref-monitor-hysteresis-pbb:
         description: |
           Basis points of the offset limit representing per ten thousand of REFx offset limit.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - enum: [0, 3125, 6250, 12500, 25000, 50000, 75000, 87500]
-          - default: 12500
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 3125, 6250, 12500, 25000, 50000, 75000, 87500]
+        default: 12500
 
       adi,ref-validation-timer-ms:
         description: |
           Time required for a reference to remain in tolerance condition before being
           available to be used.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 1
-          - maximum: 1048574
-          - default: 10
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 1048574
+        default: 10
 
       adi,freq-lock-threshold-ps:
         description: |
           Phase lock detector threshold (in picoseconds).
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 1
-          - maximum: 16777215
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 16777215
 
       adi,phase-lock-threshold-ps:
         description: |
           Profile 0 frequency lock threshold. Frequency lock detector threshold (in picoseconds).
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 1
-          - maximum: 16777215
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 16777215
 
     required:
       - reg
@@ -204,27 +207,23 @@ patternProperties:
       adi,freq-lock-threshold-ps:
         description: |
           Phase lock detector threshold (in picoseconds).
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 1
-          - maximum: 16777215
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 16777215
 
       adi,phase-lock-threshold-ps:
         description: |
           Profile 0 frequency lock threshold. Frequency lock detector threshold (in picoseconds).
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - minimum: 1
-          - maximum: 16777215
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 16777215
 
     required:
       - reg
       - adi,freq-lock-threshold-ps
       - adi,phase-lock-threshold-ps
 
-  "^output-clk@([0-5]|1[0-3])$":
+  "^output-clk@([0-9]|1[0-3])$":
     description: |
       Represents a clock output.
     type: object
@@ -245,18 +244,14 @@ patternProperties:
       adi,current-source-microamp:
         description: |
           The magnitude of the driver current.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - enum: [7500, 12500, 15000]
-        minItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [7500, 12500, 15000]
 
       adi,output-mode:
         description: |
           Output driver mode.
-        allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
-          - enum: [0, 1, 2]
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1, 2]
 
     required:
       - reg
@@ -266,7 +261,7 @@ patternProperties:
 required:
   - compatible
   - reg
-  - adi,ref-frequency-mhz
+  - adi,ref-frequency-hz
 
 "additionalProperties": false
 
