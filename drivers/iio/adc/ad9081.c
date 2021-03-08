@@ -58,6 +58,8 @@ enum {	CDDC_NCO_FREQ,
 	CDDC_NCO_PHASE,
 	FDDC_NCO_PHASE,
 	FDDC_NCO_GAIN,
+	CDDC_6DB_GAIN,
+	FDDC_6DB_GAIN,
 	DAC_MAIN_TEST_TONE_EN,
 	DAC_CHAN_TEST_TONE_EN,
 	DAC_MAIN_TEST_TONE_OFFSET,
@@ -177,6 +179,8 @@ struct ad9081_phy {
 
 	u32 rx_nyquist_zone;
 	u8 rx_cddc_c2r[MAX_NUM_MAIN_DATAPATHS];
+	u8 rx_cddc_gain_6db_en[MAX_NUM_MAIN_DATAPATHS];
+	u8 rx_fddc_gain_6db_en[MAX_NUM_CHANNELIZER];
 	u8 rx_fddc_c2r[MAX_NUM_CHANNELIZER];
 	u8 rx_fddc_dcm[MAX_NUM_CHANNELIZER];
 	u8 rx_cddc_dcm[MAX_NUM_MAIN_DATAPATHS];
@@ -884,7 +888,14 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		val = phy->dac_cache.chan_gain[chan->channel];
 		mutex_unlock(&indio_dev->mlock);
 		return ad9081_iio_val_to_str(buf, 0xFFF, val);
-
+	case CDDC_6DB_GAIN:
+		val = phy->rx_cddc_gain_6db_en[cddc_num];
+		ret = 0;
+		break;
+	case FDDC_6DB_GAIN:
+		val = phy->rx_fddc_gain_6db_en[fddc_num];
+		ret = 0;
+		break;
 	case DAC_MAIN_TEST_TONE_EN:
 		val = phy->dac_cache.main_test_tone_en[chan->channel];
 		ret = 0;
@@ -1071,6 +1082,29 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		if (!ret)
 			phy->dac_cache.chan_gain[fddc_num] = readin_32;
 		break;
+	case CDDC_6DB_GAIN:
+		ret = strtobool(buf, &enable);
+		if (ret)
+			goto out;
+
+		ret = adi_ad9081_adc_ddc_coarse_gain_set(
+			&phy->ad9081, cddc_mask, enable);
+		if (ret)
+			goto out;
+		phy->rx_cddc_gain_6db_en[cddc_num] = enable;
+		ret = 0;
+		break;
+	case FDDC_6DB_GAIN:
+		ret = strtobool(buf, &enable);
+		if (ret)
+			goto out;
+		ret = adi_ad9081_adc_ddc_fine_gain_set(
+			&phy->ad9081, fddc_mask, enable);
+		if (ret)
+			goto out;
+		phy->rx_fddc_gain_6db_en[fddc_num] = enable;
+		ret = 0;
+		break;
 	case DAC_MAIN_TEST_TONE_EN:
 		ret = strtobool(buf, &enable);
 		if (ret)
@@ -1186,6 +1220,20 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.write = ad9081_ext_info_write,
 		.shared = false,
 		.private = FDDC_NCO_PHASE,
+	},
+	{
+		.name = "main_6db_digital_gain_en",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = CDDC_6DB_GAIN,
+	},
+	{
+		.name = "channel_6db_digital_gain_en",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = FDDC_6DB_GAIN,
 	},
 	{
 		.name = "adc_frequency",
@@ -1634,9 +1682,21 @@ static int ad9081_setup(struct spi_device *spi)
 			return ret;
 	}
 
+	for_each_cddc(i, phy->rx_cddc_select) {
+		ret = adi_ad9081_adc_ddc_coarse_gain_set(
+			&phy->ad9081, BIT(i), phy->rx_cddc_gain_6db_en[i]);
+		if (ret != 0)
+			return ret;
+	}
+
 	for_each_fddc(i, phy->rx_fddc_select) {
 		ret = adi_ad9081_adc_ddc_fine_nco_mode_set(
 				&phy->ad9081, BIT(i), phy->rx_fddc_mxr_if[i]);
+		if (ret != 0)
+			return ret;
+
+		ret = adi_ad9081_adc_ddc_fine_gain_set(
+			&phy->ad9081, BIT(i), phy->rx_fddc_gain_6db_en[i]);
 		if (ret != 0)
 			return ret;
 	}
@@ -2859,6 +2919,8 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 					     &phy->adc_main_decimation[reg]);
 			phy->rx_cddc_c2r[reg] = of_property_read_bool(
 				of_chan, "adi,complex-to-real-enable");
+			phy->rx_cddc_gain_6db_en[reg] = of_property_read_bool(
+				of_chan, "adi,digital-gain-6db-enable");
 			phy->rx_cddc_select |= BIT(reg);
 		}
 	}
@@ -2890,6 +2952,8 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 			of_property_read_u32(of_chan, "adi,nco-mixer-mode",
 					     &mode);
 			phy->rx_fddc_mxr_if[reg] = mode;
+			phy->rx_fddc_gain_6db_en[reg] = of_property_read_bool(
+				of_chan, "adi,digital-gain-6db-enable");
 			phy->rx_fddc_select |= BIT(reg);
 		}
 	}
