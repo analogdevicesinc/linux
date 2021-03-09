@@ -56,15 +56,16 @@
 /delete-node/ &axi_ad9081_adxcvr_tx;
 
 &axi_ad9081_rx_jesd {
-	clocks = <&clk_bus_0>, <&rx_fixed_link_clk>, <&rx_fixed_linerate>;
+	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+	clocks = <&clk_bus_0>, <&hmc7044 8>, <&rx_fixed_link_clk>, <&rx_fixed_linerate>;
 	jesd204-inputs = <&hmc7044 0 FRAMER_LINK0_RX>; /* omit axi_ad9081_adxcvr_rx */
 };
 
 &axi_ad9081_tx_jesd {
-	clocks = <&clk_bus_0>, <&tx_fixed_link_clk>, <&tx_fixed_linerate>;
+	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+	clocks = <&clk_bus_0>, <&hmc7044 6>, <&tx_fixed_link_clk>, <&tx_fixed_linerate>;
 	jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK0_TX>; /* omit axi_ad9081_adxcvr_tx */
 };
-
 
 &rx_dma {
 	adi,channels {
