@@ -36,6 +36,10 @@
 	};
 };
 
+&axi_ad9081_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_CPLL>;
+};
+
 &hmc7044 {
 
 	adi,pll2-output-frequency = <3000000000>;
