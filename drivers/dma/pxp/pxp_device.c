@@ -770,17 +770,17 @@ static long pxp_device_ioctl(struct file *filp,
 
 			switch (flush.type) {
 			case CACHE_CLEAN:
-				dma_sync_single_for_device(NULL, obj->offset,
+				dma_sync_single_for_device(pxp_dev, obj->offset,
 						obj->size, DMA_TO_DEVICE);
 				break;
 			case CACHE_INVALIDATE:
-				dma_sync_single_for_device(NULL, obj->offset,
+				dma_sync_single_for_device(pxp_dev, obj->offset,
 						obj->size, DMA_FROM_DEVICE);
 				break;
 			case CACHE_FLUSH:
-				dma_sync_single_for_device(NULL, obj->offset,
+				dma_sync_single_for_device(pxp_dev, obj->offset,
 						obj->size, DMA_TO_DEVICE);
-				dma_sync_single_for_device(NULL, obj->offset,
+				dma_sync_single_for_device(pxp_dev, obj->offset,
 						obj->size, DMA_FROM_DEVICE);
 				break;
 			default:
