@@ -1375,13 +1375,11 @@ static int ad9545_input_refs_setup(struct ad9545_state *st)
 	return regmap_write(st->regmap, AD9545_POWER_DOWN_REF, reg);
 }
 
-static int ad9545_set_freerun_freq(struct ad9545_ppl_clk *clk, u32 freq)
+static int ad9545_calc_ftw(struct ad9545_ppl_clk *clk, u32 freq, u64 *tuning_word)
 {
-	__le64 regval;
 	u64 ftw = 1;
 	u32 ftw_frac;
 	u32 ftw_int;
-	int ret;
 
 	/*
 	 * In case of unlock event the DPLL will go in open-loop mode and output
@@ -1403,6 +1401,21 @@ static int ad9545_set_freerun_freq(struct ad9545_ppl_clk *clk, u32 freq)
 	if (ftw_frac < 5 || ftw_frac > 95)
 		return -EINVAL;
 
+	*tuning_word = ftw;
+
+	return 0;
+}
+
+static int ad9545_set_freerun_freq(struct ad9545_ppl_clk *clk, u32 freq)
+{
+	__le64 regval;
+	u64 ftw;
+	int ret;
+
+	ret = ad9545_calc_ftw(clk, freq, &ftw);
+	if (ret < 0)
+		return ret;
+
 	regval = cpu_to_le64(ftw);
 	ret = regmap_bulk_write(clk->st->regmap, AD9545_DPLLX_FTW(clk->address), &regval, 6);
 	if (ret < 0)
@@ -1410,6 +1423,21 @@ static int ad9545_set_freerun_freq(struct ad9545_ppl_clk *clk, u32 freq)
 
 	clk->free_run_freq = freq;
 	return ad9545_io_update(clk->st);
+}
+
+static u32 ad9545_calc_m_div(unsigned long rate)
+{
+	u32 m_div;
+
+	/*
+	 * PFD of APLL has input frequency limits in 162 - 350 Mghz range.
+	 * Use APLL to upconvert this freq to Ghz range.
+	 */
+	m_div = div_u64(rate, ad9545_apll_pfd_rate_ranges_hz[0] / 2 +
+			ad9545_apll_pfd_rate_ranges_hz[1] / 2);
+	m_div = clamp_t(u8, m_div, AD9545_APLL_M_DIV_MIN, AD9545_APLL_M_DIV_MAX);
+
+	return m_div;
 }
 
 static u64 ad9545_calc_pll_params(struct ad9545_ppl_clk *clk, unsigned long rate,
@@ -1426,13 +1454,7 @@ static u64 ad9545_calc_pll_params(struct ad9545_ppl_clk *clk, unsigned long rate
 	/* half divider at output requires APLL to generate twice the frequency demanded */
 	rate *= 2;
 
-	/*
-	 * PFD of APLL has input frequency limits in 162 - 350 Mghz range.
-	 * Use APLL to upconvert this freq to Ghz range.
-	 */
-	m_div = div_u64(rate, ad9545_apll_pfd_rate_ranges_hz[0] / 2 +
-			ad9545_apll_pfd_rate_ranges_hz[1] / 2);
-	m_div = clamp_t(u8, m_div, AD9545_APLL_M_DIV_MIN, AD9545_APLL_M_DIV_MAX);
+	m_div = ad9545_calc_m_div(rate);
 
 	/*
 	 * If N + FRAC / MOD = rate / (m_div * parent_rate)
@@ -1535,10 +1557,20 @@ static unsigned long ad9545_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long
 	u32 n;
 	int i;
 
-	/* if no ref is valid, pll will run in free run mode */
+	m = 0;
+	ret = regmap_read(clk->st->regmap, AD9545_APLLX_M_DIV(clk->address), &m);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * If no ref is valid, pll will run in free run mode.
+	 * At this point the NCO of the DPLL will output a free run frequency
+	 * thus the output frequency of the PLL block will be:
+	 * f NCO * M-div / 2
+	 */
 	i = ad9545_pll_get_parent(hw);
 	if (i == clk->num_parents)
-		return clk->free_run_freq;
+		return div_u64(clk->free_run_freq * m, 2);
 
 	parent_rate = clk_hw_get_rate(clk->parents[i]);
 
@@ -1547,11 +1579,6 @@ static unsigned long ad9545_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long
 		return ret;
 
 	n = le32_to_cpu(regval) + 1;
-
-	m = 0;
-	ret = regmap_read(clk->st->regmap, AD9545_APLLX_M_DIV(clk->address), &m);
-	if (ret < 0)
-		return ret;
 
 	regval = 0;
 	ret = regmap_bulk_read(clk->st->regmap, AD9545_DPLLX_FRAC_DIV(clk->address, i), &regval, 3);
@@ -1580,8 +1607,23 @@ static long ad9545_pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	struct ad9545_ppl_clk *clk = to_pll_clk(hw);
 	unsigned long frac;
 	unsigned long mod;
+	int ret;
+	u64 ftw;
+	int i;
 	u32 m;
 	u32 n;
+
+	/* if no ref is valid, check if requested rate can be set in free run mode */
+	i = ad9545_pll_get_parent(hw);
+	if (i == clk->num_parents) {
+		/* in free run mode output freq is given by f NCO * m / 2 */
+		m = ad9545_calc_m_div(rate * 2);
+		ret = ad9545_calc_ftw(clk,  div_u64(rate * 2, m), &ftw);
+		if (ret < 0)
+			return 0;
+
+		return rate;
+	}
 
 	return ad9545_calc_pll_params(clk, rate, *parent_rate, &m, &n, &frac, &mod);
 }
