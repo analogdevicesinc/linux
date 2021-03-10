@@ -155,7 +155,7 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	u32 reg_ctrl, reg_value = 0, off;
+	u32 reg_ctrl, reg_value = 0, off, divider;
 	u8 rate;
 
 	if (tx) {
@@ -172,26 +172,20 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 	switch (n_lanes) {
 	case ADI_ADRV9001_SSI_1_LANE:
 		reg_value |= NUM_LANES(1);
-		if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS) {
-			rate = cmos_ddr ? 3 : 7;
+		if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
 			reg_value |= SDR_DDR(!cmos_ddr);
-		} else {
-			rate = 3;
-		}
 		break;
 	case ADI_ADRV9001_SSI_2_LANE:
 		if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
 			return -EINVAL;
 
 		reg_value |= NUM_LANES(2);
-		rate = 1;
 		break;
 	case ADI_ADRV9001_SSI_4_LANE:
 		if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS)
 			return -EINVAL;
 
 		reg_value |= NUM_LANES(4);
-		rate = cmos_ddr ? 0 : 1;
 		reg_value |= SDR_DDR(!cmos_ddr);
 		break;
 	default:
@@ -199,8 +193,11 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 	}
 
 	axiadc_write(st, AIM_AXI_REG(off, reg_ctrl), reg_value);
-	if (tx)
+	if (tx) {
+		divider = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CLK_RATIO));
+		rate = 32 / ((1 << n_lanes) * (1 + cmos_ddr) * divider) - 1;
 		axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_RATE), rate);
+	}
 
 	return 0;
 }
