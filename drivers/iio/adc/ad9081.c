@@ -1814,6 +1814,8 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 		return jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+	case 20:
+		return adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 0);
 	default:
 		return -EINVAL;
 	}
