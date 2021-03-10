@@ -2873,6 +2873,12 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 		return -ENODEV;
 	}
 
+	of_property_read_variable_u8_array(
+		of_channels, "adi,ctle-filter-settings",
+		phy->ad9081.serdes_info.des_settings.ctle_filter, 1,
+		ARRAY_SIZE(phy->ad9081.serdes_info.des_settings.ctle_filter));
+
+
 	for_each_child_of_node(of_channels, of_chan) {
 		ad9081_parse_jesd_link_dt(phy, of_chan, &phy->jesd_tx_link,
 					  false);
@@ -3530,6 +3536,8 @@ static int ad9081_probe(struct spi_device *spi)
                 .lane_mapping =  { { 0, 1, 2, 3, 4, 5, 6, 7 }, { 0, 1, 2, 3, 4, 5, 6, 7} }, /* link0, link1 */
             }
         };
+
+
 
 	conv->reset_gpio =
 		devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
