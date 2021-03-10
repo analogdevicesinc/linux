@@ -72,6 +72,13 @@
 	non-removable;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
 	status = "okay";
+
+	wifi_wake_host {
+		compatible = "nxp,wifi-wake-host";
+		interrupt-parent = <&gpio2>;
+		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "host-wake";
+	};
 };
 
 &usdhc3 {
@@ -150,7 +157,7 @@
 	pinctrl_wlan: wlangrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_GPIO1_IO00_ANAMIX_REF_CLK_32K	0x141
-			MX8MM_IOMUXC_SD1_DATA7_GPIO2_IO9		0x111
+			MX8MM_IOMUXC_SD1_DATA7_GPIO2_IO9		0x159
 		>;
 	};
 };
