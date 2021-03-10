@@ -1245,8 +1245,12 @@ static int ad9528_jesd204_link_supported(struct jesd204_dev *jdev,
 	int ret;
 	unsigned long rate;
 
-	if (reason != JESD204_STATE_OP_REASON_INIT)
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		st->jdev_lmfc_lemc_rate = 0;
+		st->jdev_lmfc_lemc_gcd = 0;
+
 		return JESD204_STATE_CHANGE_DONE;
+	}
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
