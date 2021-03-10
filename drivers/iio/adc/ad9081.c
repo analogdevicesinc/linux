@@ -3229,9 +3229,23 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 
 		if ((tx_lane_rate_kbps > 16230000UL) &&
 			phy->jesd_tx_link.lane_rate != tx_lane_rate_kbps) {
+
+			ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+				AD9081_LINK_ALL : AD9081_LINK_0, 1);
+			if (ret != 0)
+				return ret;
+
 			dev_info(dev, "running jesd_rx_calibrate_204c");
+
 			ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 0);
 			if (ret < 0)
+				return ret;
+
+			ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+				AD9081_LINK_ALL : AD9081_LINK_0, 0);
+			if (ret != 0)
 				return ret;
 		}
 
