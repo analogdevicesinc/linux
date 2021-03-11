@@ -2646,7 +2646,7 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
 	struct adrv9002_chan *chan = &phy->tx_channels[chann].channel;
 	adi_adrv9001_SsiTestModeData_e test_data = phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
 						ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE :
-						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
+						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7;
 	struct adi_adrv9001_TxSsiTestModeCfg cfg = {0};
 	struct adi_adrv9001_TxSsiTestModeStatus status = {0};
 
@@ -2693,9 +2693,6 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 {
 	int ret;
 	struct adrv9002_chan *chan;
-	adi_adrv9001_SsiTestModeData_e test_data = phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
-						ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE :
-						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
 
 	dev_dbg(&phy->spi->dev, "cfg test stop:%u, ssi:%d, c:%d, tx:%d\n", stop,
 		phy->ssi_type, chann, tx);
@@ -2704,7 +2701,21 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		struct adi_adrv9001_TxSsiTestModeCfg cfg = {0};
 		chan = &phy->tx_channels[chann].channel;
 
-		cfg.testData = stop ? ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL : test_data;
+		if (stop)
+			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL;
+		else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS)
+			/*
+			 * Some low rate profiles don't play well with prbs15. The reason is
+			 * still unclear. We suspect that the chip error checker might have
+			 * some time constrains and cannot reliable validate prbs15 full
+			 * sequences in the test time. Using a shorter sequence fixes the
+			 * problem...
+			 */
+			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7;
+		else
+			/* CMOS */
+			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE;
+
 		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
 							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							     &cfg);
@@ -2728,7 +2739,14 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		struct adi_adrv9001_RxSsiTestModeCfg cfg = {0};
 		chan = &phy->rx_channels[chann].channel;
 
-		cfg.testData = stop ? ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL : test_data;
+		if (stop)
+			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL;
+		else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS)
+			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
+		else
+			/* CMOS */
+			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE;
+
 		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
 							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 							     &cfg);
