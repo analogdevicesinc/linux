@@ -949,6 +949,7 @@ static int adrv9002_update_tracking_calls(struct adrv9002_rf_phy *phy,
 static const u32 rx_track_calls[] = {
 	[RX_QEC_FIC] = ADI_ADRV9001_TRACKING_CAL_RX_QEC_FIC,
 	[RX_QEC_W_POLY] = ADI_ADRV9001_TRACKING_CAL_RX_QEC_WBPOLY,
+	[ORX_QEC_W_POLY] = ADI_ADRV9001_TRACKING_CAL_ORX_QEC_WBPOLY,
 	[RX_AGC] = ADI_ADRV9001_TRACKING_CAL_RX_AGC,
 	[RX_TRACK_BBDC] = ADI_ADRV9001_TRACKING_CAL_RX_BBDC,
 	[RX_HD2] = ADI_ADRV9001_TRACKING_CAL_RX_HD2,
@@ -975,11 +976,15 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 	switch (private) {
 	case RX_QEC_FIC:
 	case RX_QEC_W_POLY:
+	case ORX_QEC_W_POLY:
 	case RX_HD2:
 	case RX_TRACK_BBDC:
 	case RX_AGC:
 	case RX_RSSI_CAL:
 	case RX_RFDC:
+		if (private == ORX_QEC_W_POLY && !rx->orx_en)
+			return -ENODEV;
+
 		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
@@ -1085,11 +1090,15 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 	switch (private) {
 	case RX_QEC_FIC:
 	case RX_QEC_W_POLY:
+	case ORX_QEC_W_POLY:
 	case RX_HD2:
 	case RX_TRACK_BBDC:
 	case RX_AGC:
 	case RX_RSSI_CAL:
 	case RX_RFDC:
+		if (private == ORX_QEC_W_POLY && !rx->orx_en)
+			return -ENODEV;
+
 		mutex_lock(&phy->lock);
 		ret = adi_adrv9001_cals_Tracking_Get(phy->adrv9001,
 						     &tracking_cals);
@@ -1452,8 +1461,9 @@ static const struct iio_chan_spec_ext_info adrv9002_phy_rx_ext_info[] = {
 };
 
 static const struct iio_chan_spec_ext_info adrv9002_phy_orx_ext_info[] = {
-       _ADRV9002_EXT_RX_INFO("bbdc_rejection_en", RX_BBDC),
-       { },
+	_ADRV9002_EXT_RX_INFO("bbdc_rejection_en", RX_BBDC),
+	_ADRV9002_EXT_RX_INFO("quadrature_w_poly_tracking_en", ORX_QEC_W_POLY),
+	{ },
 };
 
 static struct iio_chan_spec_ext_info adrv9002_phy_tx_ext_info[] = {
