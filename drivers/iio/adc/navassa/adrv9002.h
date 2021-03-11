@@ -62,6 +62,7 @@ enum adrv9002_clocks {
 enum adrv9002_rx_ext_info {
 	RX_QEC_FIC,
 	RX_QEC_W_POLY,
+	ORX_QEC_W_POLY,
 	RX_AGC,
 	RX_TRACK_BBDC,
 	RX_HD2,
