@@ -379,8 +379,8 @@ static void adrv9002_axi_tx_test_pattern_set(const struct axiadc_converter *conv
 		/* RAMP nibble */
 		sel = 10;
 	else
-		/* pn15 */
-		sel = 7;
+		/* pn7 */
+		sel = 6;
 
 	for (c = 0; c < n_chan; c++) {
 		ctrl_7[c] = axiadc_read(st, AIM_AXI_REG(off, ADI_TX_REG_CHAN_CTRL_7(c)));
