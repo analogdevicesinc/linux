@@ -474,26 +474,19 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 				ret = adrv9002_check_tx_test_pattern(phy, chann);
 
 			field[clk][data] |= ret;
-
-			if (tx) {
-				ret = adrv9002_intf_test_cfg(phy, chann, tx, true);
-				if (ret)
-					return ret;
-			}
 		}
 	}
 
 	adrv9002_axi_digital_tune_verbose(phy, field, tx, chann);
 
-	if (!tx) {
-		/* stop test */
-		ret = adrv9002_intf_test_cfg(phy, chann, tx, true);
-		if (ret)
-			return ret;
-	} else {
-		/* stop tx pattern */
+	/* stop test */
+	ret = adrv9002_intf_test_cfg(phy, chann, tx, true);
+	if (ret)
+		return ret;
+
+	/* stop tx pattern */
+	if (tx)
 		adrv9002_axi_tx_test_pattern_restore(conv, off, saved_ctrl_7);
-	}
 
 	for (clk = 0; clk < ARRAY_SIZE(field); clk++) {
 		cnt = adrv9002_axi_find_point(&field[clk][0], sizeof(*field), &data);
