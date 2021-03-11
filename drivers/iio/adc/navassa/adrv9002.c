@@ -2232,10 +2232,7 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 		.detectionThreshold_mdBFS = -80000,
 		.measurementDuration_samples = 10
 	};
-	struct adi_adrv9001_Carrier carrier = {
-		.loGenOptimization = ADI_ADRV9001_LO_GEN_OPTIMIZATION_PHASE_NOISE,
-		.intermediateFrequency_Hz = 0
-	};
+	struct adi_adrv9001_Carrier carrier = {0};
 
 	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_LO1, &pll_loop_filter);
 	if (ret)
@@ -2260,6 +2257,16 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 		if (!rx->enabled)
 			goto tx;
 
+		/*
+		 * For some low rate profiles, the intermediate frequency is non 0.
+		 * In these cases, forcing it 0, will cause a firmware error. Hence, we need to
+		 * read what we have and make sure we just change the carrier frequency...
+		 */
+		ret = adi_adrv9001_Radio_Carrier_Inspect(phy->adrv9001, ADI_RX, rx->number,
+							 &carrier);
+		if (ret)
+			return adrv9002_dev_err(phy);
+
 		carrier.carrierFrequency_Hz = 2400000000ULL;
 		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, ADI_RX, rx->number,
 							   &carrier);
@@ -2269,6 +2276,11 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 tx:
 		if (!tx->enabled)
 			continue;
+
+		ret = adi_adrv9001_Radio_Carrier_Inspect(phy->adrv9001, ADI_TX, tx->number,
+							 &carrier);
+		if (ret)
+			return adrv9002_dev_err(phy);
 
 		carrier.carrierFrequency_Hz = 2450000000ULL;
 		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, ADI_TX, tx->number,
