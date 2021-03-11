@@ -76,6 +76,21 @@
 #define ADRV9002_RX_GAIN_STEP_mDB	500
 #define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
+/* ORx gain defines */
+#define ADRV9002_ORX_GAIN_STEP_mDB	5000
+#define ADRV9002_ORX_MIN_GAIN_IDX	ADI_ADRV9001_ORX_GAIN_INDEX_MIN
+#define ADRV9002_ORX_MAX_GAIN_IDX	ADI_ADRV9001_ORX_GAIN_INDEX_MAX
+/*
+ * the Orx tables indexes are the same in a x2 step. And only the even index will actually
+ * take effect in the device. That's why we divide by 2...
+ */
+#define ADRV9002_ORX_MAX_GAIN_DROP_mdB	\
+	((ADI_ADRV9001_ORX_GAIN_INDEX_MAX - ADI_ADRV9001_ORX_GAIN_INDEX_MIN) / 2 \
+	 * ADRV9002_ORX_GAIN_STEP_mDB)
+#define ADRV9002_ORX_MIN_GAIN_mdB	({ \
+	BUILD_BUG_ON(ADRV9002_ORX_MAX_GAIN_DROP_mdB > ADRV9002_RX_MAX_GAIN_mdB); \
+	(ADRV9002_RX_MAX_GAIN_mdB - ADRV9002_ORX_MAX_GAIN_DROP_mdB); \
+})
 
 #define ADRV9002_STREAM_BINARY_SZ 	ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES
 #define ADRV9002_HP_CLK_PLL_DAHZ	884736000
@@ -343,21 +358,40 @@ enum lo_ext_info {
 	LOEXT_FREQ,
 };
 
-static int adrv9002_gainidx_to_gain(int idx)
+static int adrv9002_gainidx_to_gain(int idx, int port)
 {
-	idx = clamp(idx, ADRV9002_RX_MIN_GAIN_IDX, ADRV9002_RX_MAX_GAIN_IDX);
+	int gain;
 
-	return (idx - ADRV9002_RX_MIN_GAIN_IDX) * ADRV9002_RX_GAIN_STEP_mDB;
+	if (port  == ADI_RX) {
+		idx = clamp(idx, ADRV9002_RX_MIN_GAIN_IDX, ADRV9002_RX_MAX_GAIN_IDX);
+		gain = (idx - ADRV9002_RX_MIN_GAIN_IDX) * ADRV9002_RX_GAIN_STEP_mDB;
+	} else {
+		/* ADI_ORX - look at the ORX defines for why we have the div/mult by 2 */
+		idx = clamp(idx, ADRV9002_ORX_MIN_GAIN_IDX, ADRV9002_ORX_MAX_GAIN_IDX);
+		gain = (idx - ADRV9002_ORX_MIN_GAIN_IDX) / 2 * ADRV9002_ORX_GAIN_STEP_mDB +
+			ADRV9002_ORX_MIN_GAIN_mdB;
+	}
+
+	return gain;
 }
 
-static int adrv9002_gain_to_gainidx(int gain)
+static int adrv9002_gain_to_gainidx(int gain, int port)
 {
 	int temp;
 
-	gain = clamp(gain, 0, ADRV9002_RX_MAX_GAIN_mdB);
-	temp = DIV_ROUND_CLOSEST(gain, ADRV9002_RX_GAIN_STEP_mDB);
+	if (port  == ADI_RX) {
+		gain = clamp(gain, 0, ADRV9002_RX_MAX_GAIN_mdB);
+		temp = DIV_ROUND_CLOSEST(gain, ADRV9002_RX_GAIN_STEP_mDB);
+		temp += ADRV9002_RX_MIN_GAIN_IDX;
+	} else {
+		/* ADI_ORX */
+		gain = clamp(gain, ADRV9002_ORX_MIN_GAIN_mdB, ADRV9002_RX_MAX_GAIN_mdB);
+		temp = DIV_ROUND_CLOSEST(gain - ADRV9002_ORX_MIN_GAIN_mdB,
+					 ADRV9002_ORX_GAIN_STEP_mDB) * 2;
+		temp += ADRV9002_ORX_MIN_GAIN_IDX;
+	}
 
-	return temp + ADRV9002_RX_MIN_GAIN_IDX;
+	return temp;
 }
 
 static int adrv9002_chan_to_state_poll(struct adrv9002_rf_phy *phy,
@@ -1632,22 +1666,15 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 		}
 
 		mutex_lock(&phy->lock);
-		if (port == ADI_ORX) {
+		if (port == ADI_ORX)
 			ret = adi_adrv9001_ORx_Gain_Get(phy->adrv9001, chann->number, &index);
-			mutex_unlock(&phy->lock);
-			if (ret)
-				return adrv9002_dev_err(phy);
-			/* Fow now, we are just using raw indexes for ORx. */
-			*val = index;
-			return IIO_VAL_INT;
-		}
-
-		ret = adi_adrv9001_Rx_Gain_Get(phy->adrv9001, chann->number, &index);
+		else
+			ret = adi_adrv9001_Rx_Gain_Get(phy->adrv9001, chann->number, &index);
 		mutex_unlock(&phy->lock);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
-		temp = adrv9002_gainidx_to_gain(index);
+		temp = adrv9002_gainidx_to_gain(index, port);
 		*val = temp / 1000;
 		*val2 = temp % 1000 * 1000;
 
@@ -1749,20 +1776,16 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 							      code);
 			mutex_unlock(&phy->lock);
 		} else {
+			u8 idx;
+			int gain;
+
+			gain = val * 1000 + val2 / 1000;
+			idx = adrv9002_gain_to_gainidx(gain, port);
 			mutex_lock(&phy->lock);
-			if (port == ADI_RX) {
-				u8 idx;
-				int gain;
-
-				gain = val * 1000 + val2 / 1000;
-				idx = adrv9002_gain_to_gainidx(gain);
-
+			if (port == ADI_RX)
 				ret = adi_adrv9001_Rx_Gain_Set(phy->adrv9001, chann->number, idx);
-			} else {
-				/* Fow now, we are just using raw indexes for ORx. */
-				ret = adi_adrv9001_ORx_Gain_Set(phy->adrv9001, chann->number,
-								val);
-			}
+			else
+				ret = adi_adrv9001_ORx_Gain_Set(phy->adrv9001, chann->number, idx);
 			mutex_unlock(&phy->lock);
 		}
 
