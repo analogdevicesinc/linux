@@ -233,6 +233,7 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
 int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
 			       u8 data_delay, const bool tx);
 u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan);
+void adrv9002_axi_hdl_loopback(struct adrv9002_rf_phy *phy, int channel, bool enable);
 
 static inline void adrv9002_sync_gpio_toogle(const struct adrv9002_rf_phy *phy)
 {
