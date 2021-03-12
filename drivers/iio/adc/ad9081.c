@@ -3462,12 +3462,25 @@ static const struct jesd204_dev_data jesd204_ad9081_init = {
 	.sizeof_priv = sizeof(struct ad9081_jesd204_priv),
 };
 
+static irqreturn_t ad9081_irq_handler(int irq, void *p)
+{
+	struct axiadc_converter *conv = p;
+	struct ad9081_phy *phy = conv->phy;
+	u64 status64;
+
+	adi_ad9081_dac_irqs_status_get(&phy->ad9081, &status64);
+	dev_err(&phy->spi->dev, "DAC IRQ status 0x%llX\n", status64);
+
+	return IRQ_HANDLED;
+}
+
 static int ad9081_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
 	struct ad9081_phy *phy;
 	struct jesd204_dev *jdev;
 	struct ad9081_jesd204_priv *priv;
+	struct gpio_desc *gpio;
 	u8 api_rev[3];
 	u32 spi_id;
 	int ret;
@@ -3673,6 +3686,25 @@ static int ad9081_probe(struct spi_device *spi)
 		if (ret < 0)
 			dev_warn(&spi->dev,
 				 "Failed to request FastDetect IRQs (%d)", ret);
+	}
+
+	gpio = devm_gpiod_get(&spi->dev, "irqb0", GPIOD_IN);
+	if (0 && !IS_ERR(gpio)) { /* REVIST: Not yet used */
+		int irq = gpiod_to_irq(gpio);
+
+		if (irq >= 0) {
+			ret = devm_request_threaded_irq(&spi->dev, irq, NULL,
+				ad9081_irq_handler,
+				IRQF_TRIGGER_FALLING  | IRQF_ONESHOT,
+				spi->dev.of_node ? spi->dev.of_node->name :
+				spi_get_device_id(spi)->name, conv);
+
+			if (ret) {
+				dev_err(&spi->dev,
+					"request_irq() failed with %d\n", ret);
+				goto out_clk_del_provider;
+			}
+		}
 	}
 
 	adi_ad9081_device_api_revision_get(&phy->ad9081, &api_rev[0],
