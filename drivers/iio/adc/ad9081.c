@@ -149,6 +149,7 @@ struct ad9081_phy {
 
 	bool config_sync_01_swapped;
 	bool config_sync_0a_cmos_en;
+	bool jrx_link_watchdog_en;
 
 	struct device_settings_cache device_cache;
 
@@ -2236,12 +2237,16 @@ static void ad9081_work_func(struct work_struct *work)
 				     &status);
 
 	if (!(status & BIT(6))) {
-		dev_err(&phy->spi->dev, "IRQ_STATUS0: 0x%X\n", status);
+		dev_err(&phy->spi->dev, "Link Reset IRQ_STATUS0: 0x%X\n", status);
 
+		phy->jesd_tx_link.lane_rate = 0;
 		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+
+		return;
 	}
+
 	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
 }
 
@@ -2890,6 +2895,9 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 		ARRAY_SIZE(phy->ad9081.serdes_info.des_settings.ctle_filter));
 
 
+	phy->jrx_link_watchdog_en = of_property_read_bool(of_channels,
+		"adi,jrx-link-watchdog-enable");
+
 	for_each_child_of_node(of_channels, of_chan) {
 		ad9081_parse_jesd_link_dt(phy, of_chan, &phy->jesd_tx_link,
 					  false);
@@ -3315,10 +3323,15 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 	struct ad9081_phy *phy = priv->phy;
 	int ret;
 
-	if (reason != JESD204_STATE_OP_REASON_INIT)
-		return JESD204_STATE_CHANGE_DONE;
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		if (lnk->is_transmit && phy->jrx_link_watchdog_en)
+			cancel_delayed_work(&phy->dwork);
+
+		return JESD204_STATE_CHANGE_DONE;
+	}
 
 	if (lnk->is_transmit) {
 		ret = ad9081_jesd_rx_link_status_print(phy, lnk, 3);
@@ -3329,6 +3342,9 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 		if (ret < 0)
 			return JESD204_STATE_CHANGE_ERROR;
 	}
+
+	if (lnk->is_transmit && phy->jrx_link_watchdog_en)
+		schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
 
 	return JESD204_STATE_CHANGE_DONE;
 }
