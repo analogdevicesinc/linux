@@ -52,6 +52,8 @@
 #define AD9545_DPLL0_N_DIV		0x120C
 #define AD9545_DPLL0_FRAC		0x1210
 #define AD9545_DPLL0_MOD		0x1213
+#define AD9545_DPLL0_FAST_L1		0x1216
+#define AD9545_DPLL0_FAST_L2		0x1217
 #define AD9545_NSHOT_EN_AB1		0x14D4
 #define AD9545_DRIVER_1A_CONF		0x14D7
 #define AD9545_Q1A_DIV			0x1500
@@ -63,6 +65,7 @@
 #define AD9545_CTRL_CH0			0x2101
 #define AD9545_DIV_OPS_Q0A		0x2102
 #define AD9545_DPLL0_MODE		0x2105
+#define AD9545_DPLL0_FAST_MODE		0x2106
 #define AD9545_DIV_OPS_Q1A		0x2202
 #define AD9545_NCO0_FREQ		0x2805
 #define AD9545_PLL_STATUS		0x3001
@@ -122,6 +125,8 @@
 #define AD9545_DPLLX_N_DIV(x, y)		(AD9545_DPLL0_N_DIV + ((x) * 0x400) + ((y) * 0x20))
 #define AD9545_DPLLX_FRAC_DIV(x, y)		(AD9545_DPLL0_FRAC + ((x) * 0x400) + ((y) * 0x20))
 #define AD9545_DPLLX_MOD_DIV(x, y)		(AD9545_DPLL0_MOD + ((x) * 0x400) + ((y) * 0x20))
+#define AD9545_DPLLX_FAST_L1(x, y)		(AD9545_DPLL0_FAST_L1 + ((x) * 0x400) + ((y) * 0x20))
+#define AD9545_DPLLX_FAST_L2(x, y)		(AD9545_DPLL0_FAST_L2 + ((x) * 0x400) + ((y) * 0x20))
 
 #define AD9545_DIV_OPS_Q0(x)			(AD9545_DIV_OPS_Q0A + (x))
 #define AD9545_DIV_OPS_Q1(x)			(AD9545_DIV_OPS_Q1A + (x))
@@ -134,6 +139,7 @@
 #define AD9545_PWR_CALIB_CHX(x)			(AD9545_PWR_CALIB_CH0 + ((x) * 0x100))
 #define AD9545_PLLX_STATUS(x)			(AD9545_PLL0_STATUS + ((x) * 0x100))
 #define AD9545_CTRL_CH(x)			(AD9545_CTRL_CH0 + ((x) * 0x100))
+#define AD9545_DPLLX_FAST_MODE(x)		(AD9545_DPLL0_FAST_MODE + ((x) * 0x100))
 #define AD9545_REFX_STATUS(x)			(AD9545_REFA_STATUS + (x))
 
 #define AD9545_PROFILE_SEL_MODE_MSK		GENMASK(3, 2)
@@ -169,6 +175,10 @@
 
 /* AD9545_PLL_STATUS bitfields */
 #define AD9545_PLLX_LOCK(x, y)			((1 << (4 + (x))) & (y))
+
+/* AD9545_DPLLX_FAST_MODE bitfields */
+#define AD9545_FAST_ACQ_HOLDOVER		BIT(1)
+#define AD9545_FAST_ACQ_FREE_RUN		BIT(0)
 
 /* AD9545_MISC bitfields */
 #define AD9545_MISC_AUX_NC0_ERR_MSK		GENMASK(5, 4)
@@ -218,6 +228,14 @@ static const unsigned short ad9545_vco_calibration_op[][2] = {
 
 static const u8 ad9545_tdc_source_mapping[] = {
 	0, 1, 2, 3, 8, 9,
+};
+
+static const u32 ad9545_fast_acq_excess_bw_map[] = {
+	0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
+};
+
+static const u32 ad9545_fast_acq_timeout_map[] = {
+	1, 10, 50, 100, 500, 1000, 10000, 50000,
 };
 
 static const u32 ad9545_hyst_scales_bp[] = {
@@ -336,6 +354,9 @@ struct ad9545_dpll_profile {
 	unsigned int			parent_index;
 	unsigned int			priority;
 	unsigned int			loop_bw_uhz;
+	unsigned int			fast_acq_excess_bw;
+	unsigned int			fast_acq_timeout_ms;
+	unsigned int			fast_acq_settle_ms;
 	bool				en;
 	u8				tdc_source;
 };
@@ -572,7 +593,21 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 
 			st->pll_clks[addr].profiles[profile_addr].loop_bw_uhz = val;
 
-			val = 0;
+			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-excess-bw",
+						       &val);
+			if (!ret)
+				st->pll_clks[addr].profiles[profile_addr].fast_acq_excess_bw = val;
+
+			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-timeout-ms",
+						       &val);
+			if (!ret)
+				st->pll_clks[addr].profiles[profile_addr].fast_acq_timeout_ms = val;
+
+			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-lock-settle-ms",
+						       &val);
+			if (!ret)
+				st->pll_clks[addr].profiles[profile_addr].fast_acq_settle_ms = val;
+
 			ret = fwnode_property_read_u32(profile_node, "adi,profile-priority", &val);
 			if (!ret)
 				st->pll_clks[addr].profiles[profile_addr].priority = val;
@@ -1684,6 +1719,63 @@ static const struct clk_ops ad9545_pll_clk_ops = {
 	.get_parent = ad9545_pll_get_parent,
 };
 
+static int ad9545_pll_fast_acq_setup(struct ad9545_ppl_clk *pll, int profile)
+{
+	struct ad9545_state *st = pll->st;
+	unsigned int tmp;
+	int ret;
+	u8 reg;
+	int i;
+
+	tmp = pll->profiles[profile].fast_acq_excess_bw;
+	for (i = 0; i < ARRAY_SIZE(ad9545_fast_acq_excess_bw_map); i++)
+		if (tmp == ad9545_fast_acq_excess_bw_map[i])
+			break;
+
+	if (i < ARRAY_SIZE(ad9545_fast_acq_excess_bw_map)) {
+		ret = regmap_write(st->regmap, AD9545_DPLLX_FAST_L1(pll->address, profile), i);
+		if (ret < 0)
+			return ret;
+	} else {
+		dev_err(st->dev, "Wrong fast_acq_excess_bw value for DPLL %u, profile: %d.",
+			pll->address, profile);
+		return -EINVAL;
+	}
+
+	tmp = pll->profiles[profile].fast_acq_settle_ms;
+	for (i = 0; i < ARRAY_SIZE(ad9545_fast_acq_timeout_map); i++)
+		if (tmp == ad9545_fast_acq_timeout_map[i])
+			break;
+
+	if (i == ARRAY_SIZE(ad9545_fast_acq_timeout_map)) {
+		dev_err(st->dev, "Wrong fast_acq_settle_ms value for DPLL %u, profile %d.",
+			pll->address, profile);
+		return -EINVAL;
+	}
+
+	reg = i;
+
+	tmp = pll->profiles[profile].fast_acq_timeout_ms;
+	for (i = 0; i < ARRAY_SIZE(ad9545_fast_acq_timeout_map); i++)
+		if (tmp == ad9545_fast_acq_timeout_map[i])
+			break;
+
+	if (i == ARRAY_SIZE(ad9545_fast_acq_timeout_map)) {
+		dev_err(st->dev, "Wrong fast_acq_timeout_ms value for for DPLL %u, profile %d.",
+			pll->address, profile);
+		return -EINVAL;
+	}
+
+	reg |= i << 4;
+
+	ret = regmap_write(st->regmap, AD9545_DPLLX_FAST_L2(pll->address, profile), reg);
+	if (ret < 0)
+		return ret;
+
+	reg = AD9545_FAST_ACQ_FREE_RUN | AD9545_FAST_ACQ_HOLDOVER;
+	return regmap_write(st->regmap, AD9545_DPLLX_FAST_MODE(pll->address), reg);
+}
+
 static int ad9545_plls_setup(struct ad9545_state *st)
 {
 	struct clk_init_data init[2] = {0};
@@ -1754,6 +1846,12 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 			else
 				hw = &st->ref_in_clks[tdc_source].hw;
 			init[i].parent_hws[j] = hw;
+
+			if (pll->profiles[j].fast_acq_excess_bw > 0) {
+				ret = ad9545_pll_fast_acq_setup(pll, j);
+				if (ret < 0)
+					return ret;
+			}
 		}
 
 		pll->hw.init = &init[i];
