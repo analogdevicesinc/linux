@@ -210,6 +210,30 @@ patternProperties:
             maximum: 1850000000
             default: 200000000
 
+          adi,fast-acq-excess-bw:
+            description: |
+              Controls the DPLL loop bandwidth scaling factor while in fast acquisition mode.
+              0 means this feature is disabled.
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+            default: 0
+
+          adi,fast-acq-timeout-ms:
+            description: |
+              Fast acquisition timeout controls the maximum amount of time that DPLL waits to
+              achieve phase lock before reducing the loop bandwidth by a factor of two.
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [1, 10, 50, 100, 500, 1000, 10000, 50000]
+            default: 1
+
+          adi,fast-acq-lock-settle-ms:
+            description: |
+              Controls how long DPLL must wait after achieving phase lock before reducing
+              the loop bandwidth by a factor of 2.
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [1, 10, 50, 100, 500, 1000, 10000, 50000]
+            default: 1
+
         required:
           - reg
           - adi,pll-source
