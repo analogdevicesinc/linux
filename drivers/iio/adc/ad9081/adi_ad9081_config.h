@@ -40,7 +40,7 @@
 #define __FUNCTION_NAME__ __FUNCTION__
 #endif
 
-#define AD9081_API_REV 0x00010007
+#define AD9081_API_REV 0x00010100
 
 /* var error report */
 #define AD9081_MSG_REPORT(var, comment)                                        \
@@ -124,6 +124,7 @@ int32_t adi_ad9081_device_clk_pll_div_set(adi_ad9081_device_t *device,
 					  uint8_t pll_div, uint8_t fb_div);
 int32_t adi_ad9081_device_clk_pll_startup(adi_ad9081_device_t *device,
 					  uint64_t dac_clk_hz,
+					  uint64_t adc_clk_hz,
 					  uint64_t ref_clk_hz);
 int32_t adi_ad9081_device_clk_up_div_set(adi_ad9081_device_t *device,
 					 uint64_t dac_clk_hz);
@@ -197,11 +198,6 @@ int32_t adi_ad9081_adc_ddc_coarse_dither_en_set(adi_ad9081_device_t *device,
 						uint8_t cddcs,
 						uint8_t amp_dither_en,
 						uint8_t phase_dither_en);
-int32_t adi_ad9081_adc_ddc_coarse_chip_xfer_set(adi_ad9081_device_t *device,
-						uint8_t cddcs);
-int32_t
-adi_ad9081_adc_ddc_coarse_chip_xfer_status_get(adi_ad9081_device_t *device,
-					       uint8_t cddcs, uint8_t *status);
 int32_t adi_ad9081_adc_ddc_coarse_psw_set(adi_ad9081_device_t *device,
 					  uint8_t cddcs, uint64_t psw);
 int32_t adi_ad9081_adc_ddc_fine_trig_nco_reset_enable_set(
@@ -217,8 +213,6 @@ int32_t adi_ad9081_adc_ddc_fine_dither_en_set(adi_ad9081_device_t *device,
 					      uint8_t fddcs,
 					      uint8_t amp_dither_en,
 					      uint8_t phase_dither_en);
-int32_t adi_ad9081_adc_ddc_fine_chip_xfer_set(adi_ad9081_device_t *device,
-					      uint8_t fddcs);
 
 int32_t adi_ad9081_jesd_tx_conv_mask_set(adi_ad9081_device_t *device,
 					 adi_ad9081_jesd_link_select_e links,
