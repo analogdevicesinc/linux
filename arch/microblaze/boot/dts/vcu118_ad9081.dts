@@ -192,6 +192,8 @@
 
 &trx0_ad9081 {
 	reset-gpios = <&axi_gpio 55 0>;
+	irqb0-gpios = <&axi_gpio 52 0>;
+	irqb1-gpios = <&axi_gpio 53 0>;
 	sysref-req-gpios = <&axi_gpio 43 0>;
 	rx2-enable-gpios = <&axi_gpio 57 0>;
 	rx1-enable-gpios = <&axi_gpio 56 0>;
