@@ -406,7 +406,6 @@ static void adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *c
 	struct adrv9002_rf_phy *phy = conv->phy;
 	int n_chan = conv->chip_info->num_channels;
 	int c;
-	u32 reg;
 	enum adc_pn_sel sel;
 
 	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
@@ -414,11 +413,13 @@ static void adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *c
 	else
 		sel = ADC_PN15;
 
-	for (c = 0; c < n_chan; c++) {
-		reg = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_CNTRL_3(c)));
-		reg = (reg & ~ADI_ADC_PN_SEL(~0)) | ADI_ADC_PN_SEL(sel);
-		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_CHAN_CNTRL_3(c)), reg);
-	}
+	for (c = 0; c < n_chan; c++)
+		/*
+		 * We are deliberately overwriting the DATA_SEL bits to DMA. If it's set to loopback
+		 * (if some user was playing with near end loopback before updating the profile or
+		 * reinitialize the device), TX tuning will fail...
+		 */
+		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_CHAN_CNTRL_3(c)), ADI_ADC_PN_SEL(sel));
 }
 
 int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
@@ -598,6 +599,30 @@ int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy,
 	axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_CTRL_1), 1);
 
 	return 0;
+}
+
+void adrv9002_axi_hdl_loopback(struct adrv9002_rf_phy *phy, int channel, bool enable)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	int off, start, n_chan, c, reg;
+
+	if (phy->rx2tx2) {
+		start = channel * 2;
+		/* I and Q channels */
+		n_chan = start + 2;
+		off = 0;
+	} else {
+		start = 0;
+		n_chan = conv->chip_info->num_channels;
+		off = channel ? ADI_RX2_REG_OFF : 0;
+	}
+
+	for (c = start; c < n_chan; c++) {
+		reg = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_CNTRL_3(c)));
+		reg = (reg & ~ADI_ADC_DATA_SEL(~0)) | ADI_ADC_DATA_SEL(enable);
+		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_CHAN_CNTRL_3(c)), reg);
+	}
 }
 
 u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
