@@ -2174,6 +2174,7 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 	struct ad9081_phy *phy = conv->phy;
 	int ret, l;
 	u16 stat;
+	u8 vals[3];
 
 	for (l = AD9081_LINK_0; l < AD9081_LINK_ALL; l++) {
 
@@ -2182,14 +2183,24 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 		if (ret)
 			return -EFAULT;
 
-		seq_printf(file,
-			"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
-			l, stat & 0xF);
-
-		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2)
+		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2) {
+			stat >>= 8;
 			seq_printf(file,
-				"JESD TX Link%d 204C status %d\n",
-				l, stat >> 8);
+				"JESD TX (JRX) Link%d 204C status %s (%d)\n",
+				l, ad9081_jrx_204c_states[stat & 0x7], stat);
+		} else {
+			seq_printf(file,
+				"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
+				l, stat & 0xF);
+		}
+
+		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_3_ADDR, &vals[0]);
+		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_4_ADDR, &vals[1]);
+		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_5_ADDR, &vals[2]);
+
+		seq_printf(file,
+			"JESD TX (JRX) Link%d TPL Phase Difference Read %u, Set %u\n",
+			l, vals[2], vals[1] << 8 | vals[0]);
 
 		ret = adi_ad9081_jesd_tx_link_status_get(
 			&phy->ad9081, l, &stat);
