@@ -821,6 +821,19 @@ static const struct file_operations adrv9002_enablement_delays_fops = {
 	.release	= single_release,
 };
 
+static int adrv9002_rx_near_end_loopback_set(void *arg, const u64 val)
+{
+	struct adrv9002_rx_chan	*rx = arg;
+	struct adrv9002_rf_phy *phy = rx_to_phy(rx, rx->channel.idx);
+
+	adrv9002_axi_hdl_loopback(phy, rx->channel.idx, !!val);
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_rx_near_end_loopback_set_fops, NULL,
+			 adrv9002_rx_near_end_loopback_set, "%llu\n");
+
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 {
 	int chan;
@@ -936,5 +949,9 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_u32(attr, 0600, d, &rx->channel.en_delays_ns.riseToOnDelay);
 		sprintf(attr, "rx%d_enablement_delays", chan);
 		debugfs_create_file(attr, 0600, d, &rx->channel, &adrv9002_enablement_delays_fops);
+		/* near end loopback enable */
+		sprintf(attr, "rx%d_near_end_loopback", chan);
+		debugfs_create_file_unsafe(attr, 0200, d, rx,
+					   &adrv9002_rx_near_end_loopback_set_fops);
 	}
 }
