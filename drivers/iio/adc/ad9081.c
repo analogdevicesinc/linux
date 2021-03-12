@@ -1763,15 +1763,14 @@ static int ad9081_setup(struct spi_device *spi)
 		adi_ad9081_hal_reg_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR, 0x0);
 	}
 
-	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
-		/* FIXME */
+	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2  &&
+		phy->ad9081.dev_info.dev_rev < 3) {
 		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_JRX_TPL_1_ADDR,
 			BF_JRX_TPL_BUF_PROTECT_EN_INFO,
 			0);
 		if (ret != 0)
 			return ret;
 	}
-
 
 	adi_ad9081_dac_irqs_status_get(&phy->ad9081, &status64);
 	dev_dbg(&spi->dev, "DAC IRQ status 0x%llX\n", status64);
