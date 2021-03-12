@@ -30,8 +30,7 @@
 			"AIN1L", "Line In Jack",
 			"AIN1R", "Line In Jack",
 			"AIN2L", "Line In Jack",
-			"AIN2R", "Line In Jack",
-			"Playback",  "ESAI0.OUT";
+			"AIN2R", "Line In Jack";
 		status = "okay";
 		simple-audio-card,dai-link {
 			format = "i2s";
