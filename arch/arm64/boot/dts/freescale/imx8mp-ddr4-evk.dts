@@ -7,6 +7,10 @@
 
 / {
 	model = "NXP i.MX8MPlus DDR4 EVK board";
+
+	gpio-leds {
+		status = "disabled";
+	};
 };
 
 &flexspi {
@@ -28,6 +32,13 @@
 			       <393216000>,
 			       <361267200>,
 			       <2079000000>;
+};
+
+&gpmi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpmi_nand>;
+	status = "okay";
+	nand-on-flash-bbt;
 };
 
 &gpu_2d {
@@ -94,4 +105,29 @@
 	thres-low  = <2 3>;             /* (FIFO * 2 / 3) */
 	thres-high = <3 3>;             /* (FIFO * 3 / 3) */
 	status = "okay";
+};
+
+&iomuxc {
+	pinctrl_gpmi_nand: gpmi-nand {
+		fsl,pins = <
+			MX8MP_IOMUXC_NAND_ALE__NAND_ALE			0x00000096
+			MX8MP_IOMUXC_NAND_CE0_B__NAND_CE0_B		0x00000096
+			MX8MP_IOMUXC_NAND_CE1_B__NAND_CE1_B		0x00000096
+			MX8MP_IOMUXC_NAND_CE2_B__NAND_CE2_B		0x00000096
+			MX8MP_IOMUXC_NAND_CE3_B__NAND_CE3_B		0x00000096
+			MX8MP_IOMUXC_NAND_CLE__NAND_CLE			0x00000096
+			MX8MP_IOMUXC_NAND_DATA00__NAND_DATA00		0x00000096
+			MX8MP_IOMUXC_NAND_DATA01__NAND_DATA01		0x00000096
+			MX8MP_IOMUXC_NAND_DATA02__NAND_DATA02		0x00000096
+			MX8MP_IOMUXC_NAND_DATA03__NAND_DATA03		0x00000096
+			MX8MP_IOMUXC_NAND_DATA04__NAND_DATA04		0x00000096
+			MX8MP_IOMUXC_NAND_DATA05__NAND_DATA05		0x00000096
+			MX8MP_IOMUXC_NAND_DATA06__NAND_DATA06		0x00000096
+			MX8MP_IOMUXC_NAND_DATA07__NAND_DATA07		0x00000096
+			MX8MP_IOMUXC_NAND_RE_B__NAND_RE_B		0x00000096
+			MX8MP_IOMUXC_NAND_READY_B__NAND_READY_B		0x00000056
+			MX8MP_IOMUXC_NAND_WE_B__NAND_WE_B		0x00000096
+			MX8MP_IOMUXC_NAND_WP_B__NAND_WP_B		0x00000096
+		>;
+	};
 };
