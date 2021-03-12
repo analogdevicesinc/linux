@@ -34,9 +34,7 @@
 			"LINPUT3", "Mic Jack",
 			"RINPUT1", "Mic Jack",
 			"RINPUT2", "Mic Jack",
-			"Mic Jack", "MICB",
-			"Playback", "SAI1.OUT",
-			"SAI1.IN", "Capture";
+			"Mic Jack", "MICB";
 		simple-audio-card,dai-link {
 			format = "i2s";
 			cpu {
