@@ -1841,8 +1841,8 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 			if (ret < 0)
 				return ret;
 
-			if (pll->profiles[j].tdc_source >= sizeof(ad9545_ref_clk_names))
-				hw = &st->aux_nco_clks[tdc_source - sizeof(ad9545_ref_clk_names)].hw;
+			if (pll->profiles[j].tdc_source >= ARRAY_SIZE(ad9545_ref_clk_names))
+				hw = &st->aux_nco_clks[tdc_source - ARRAY_SIZE(ad9545_ref_clk_names)].hw;
 			else
 				hw = &st->ref_in_clks[tdc_source].hw;
 			init[i].parent_hws[j] = hw;
