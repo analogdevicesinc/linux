@@ -37,10 +37,12 @@ static ssize_t adrv9002_rx_adc_type_get(struct file *file, char __user *userbuf,
 	adi_adrv9001_AdcType_e adc_type;
 	int ret, len;
 
-	if (!rx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!rx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Rx_AdcType_Get(phy->adrv9001, rx->channel.number,
 					  &adc_type);
 	mutex_unlock(&phy->lock);
@@ -70,10 +72,12 @@ static int adrv9002_rx_gain_control_pin_mode_show(struct seq_file *s,
 	int ret;
 	struct adi_adrv9001_RxGainControlPinCfg cfg = {0};
 
-	if (!rx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!rx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Rx_GainControl_PinMode_Inspect(phy->adrv9001,
 							  rx->channel.number,
 							  &cfg);
@@ -99,10 +103,12 @@ static int adrv9002_rx_agc_config_show(struct seq_file *s, void *ignored)
 	struct adi_adrv9001_GainControlCfg agc = {0};
 	int ret;
 
-	if (!rx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!rx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Rx_GainControl_Inspect(phy->adrv9001,
 						  rx->channel.number, &agc);
 	mutex_unlock(&phy->lock);
@@ -182,6 +188,11 @@ static ssize_t adrv9002_rx_agc_config_write(struct file *file, const char __user
 	int ret;
 
 	mutex_lock(&phy->lock);
+	if (!rx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Rx_GainControl_Configure(phy->adrv9001, rx->channel.number,
 						    &rx->debug_agc);
 	mutex_unlock(&phy->lock);
@@ -295,10 +306,12 @@ static int adrv9002_tx_dac_full_scale_get(void *arg, u64 *val)
 	int ret;
 	bool enable;
 
-	if (!tx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!tx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Tx_OutputPowerBoost_Get(phy->adrv9001,
 						   tx->channel.number, &enable);
 	mutex_unlock(&phy->lock);
@@ -320,10 +333,12 @@ static int adrv9002_tx_pin_atten_control_show(struct seq_file *s, void *ignored)
 	struct adi_adrv9001_TxAttenuationPinControlCfg cfg = {0};
 	int ret;
 
-	if (!tx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!tx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Tx_Attenuation_PinControl_Inspect(phy->adrv9001,
 							     tx->channel.number,
 							     &cfg);
@@ -519,10 +534,12 @@ static int adrv9002_ssi_rx_test_mode_set(void *arg, const u64 val)
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int ret;
 
-	if (!rx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!rx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, rx->channel.number, ssi_type,
 						     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 						     &rx->ssi_test);
@@ -628,8 +645,13 @@ static int adrv9002_tx_ssi_test_mode_loopback_set(void *arg, const u64 val)
 	if (enable == tx->loopback)
 		return 0;
 
-	tx->loopback = enable;
 	mutex_lock(&phy->lock);
+	if (!tx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
+	tx->loopback = enable;
 	ret = adi_adrv9001_Ssi_Loopback_Set(phy->adrv9001, tx->channel.number, ssi_type, enable);
 	mutex_unlock(&phy->lock);
 	if (ret)
@@ -651,10 +673,12 @@ static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int ret;
 
-	if (!tx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!tx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adrv9002_axi_tx_test_pattern_cfg(phy, channel_idx, tx->ssi_test.testData);
 	if (ret)
 		goto unlock;
@@ -682,10 +706,12 @@ static int adrv9002_ssi_tx_test_mode_status_show(struct seq_file *s,
 	adi_adrv9001_TxSsiTestModeStatus_t ssi_status = {0};
 	int ret;
 
-	if (!tx->channel.enabled)
-		return -ENODEV;
-
 	mutex_lock(&phy->lock);
+	if (!tx->channel.enabled) {
+		mutex_unlock(&phy->lock);
+		return -ENODEV;
+	}
+
 	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001,
 							  tx->channel.number,
 							  ssi_type,
