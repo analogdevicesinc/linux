@@ -440,21 +440,12 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 	u32 saved_ctrl_7[4];
 
 	if (tx) {
-		if (phy->rx2tx2 || !chann)
-			off = ADI_TX1_REG_OFF;
-		else
-			off = ADI_TX2_REG_OFF;
-
+		off = chann ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
 		/* generate test pattern for tx test  */
 		adrv9002_axi_tx_test_pattern_set(conv, off, saved_ctrl_7);
 	} else {
-		if (phy->rx2tx2 || !chann)
-			off = 0;
-		else
-			off = ADI_RX2_REG_OFF;
-
+		off = chann ? ADI_RX2_REG_OFF : 0;
 		adrv9002_axi_rx_test_pattern_pn_sel(conv, off);
-
 		/* start test */
 		ret = adrv9002_intf_test_cfg(phy, chann, tx, false);
 		if (ret)
