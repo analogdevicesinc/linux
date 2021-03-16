@@ -2725,7 +2725,7 @@ int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u
 		delays.txIDataDelay[channel] = data_delay;
 		delays.txQDataDelay[channel] = data_delay;
 		delays.txStrobeDelay[channel] = data_delay;
-		if (phy->rx2tx2 && !channel) {
+		if (phy->rx2tx2) {
 			delays.txClkDelay[channel + 1] = clk_delay;
 			delays.txIDataDelay[channel + 1] = data_delay;
 			delays.txQDataDelay[channel + 1] = data_delay;
@@ -2776,9 +2776,10 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
 	if (status.dataError)
 		return 1;
 
-	if (!phy->rx2tx2 || chann)
+	if (!phy->rx2tx2)
 		return 0;
 
+	/* on rx2tx2 we will only get here on index 0 so the following is fine */
 	chan = &phy->tx_channels[chann + 1].channel;
 	if (!chan->enabled)
 		return 0;
@@ -2833,9 +2834,10 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		if (ret)
 			return adrv9002_dev_err(phy);
 
-		if (!phy->rx2tx2 || chann)
+		if (!phy->rx2tx2)
 			return 0;
 
+		/* on rx2tx2 we will only get here on index 0 so the following is fine */
 		chan = &phy->tx_channels[chann + 1].channel;
 		if (!chan->enabled)
 			return 0;
@@ -2867,7 +2869,7 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		if (!phy->rx2tx2)
 			return 0;
 
-		/* on rx2tx2 RX1 must be enabled so we are fine in assuming chan=0 at this point */
+		/* on rx2tx2 we will only get here on index 0 so the following is fine */
 		chan = &phy->rx_channels[chann + 1].channel;
 		if (!chan->enabled)
 			return 0;
@@ -2905,17 +2907,15 @@ static int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
 				delays.rxIDataDelay[c->idx] = delays.rxIDataDelay[0];
 				delays.rxQDataDelay[c->idx] = delays.rxQDataDelay[0];
 				delays.rxStrobeDelay[c->idx] = delays.rxStrobeDelay[0];
-				continue;
 			} else {
-				/* If TX0 is enabled we can skip further tuning */
-				if (phy->tx_channels[0].channel.enabled) {
-					delays.txClkDelay[c->idx] = delays.txClkDelay[0];
-					delays.txIDataDelay[c->idx] = delays.txIDataDelay[0];
-					delays.txQDataDelay[c->idx] = delays.txQDataDelay[0];
-					delays.txStrobeDelay[c->idx] = delays.txStrobeDelay[0];
-					continue;
-				}
+				/* TX0 must be enabled, hence we can safely skip further tuning */
+				delays.txClkDelay[c->idx] = delays.txClkDelay[0];
+				delays.txIDataDelay[c->idx] = delays.txIDataDelay[0];
+				delays.txQDataDelay[c->idx] = delays.txQDataDelay[0];
+				delays.txStrobeDelay[c->idx] = delays.txStrobeDelay[0];
 			}
+
+			continue;
 		}
 
 		ret = adrv9002_axi_intf_tune(phy, c->port == ADI_TX, c->idx, &clk_delay,
