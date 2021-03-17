@@ -44,7 +44,7 @@
 
 		adi,pll1-loop-bandwidth-hz = <200>;
 
-		adi,pll2-output-frequency = <3100000000>;
+		adi,pll2-output-frequency = <3000000000>;
 
 		adi,sysref-timer-divider = <1024>;
 		adi,pulse-generator-mode = <0>;
@@ -66,20 +66,20 @@
 		hmc7044_c0: channel@0 {
 			reg = <0>;
 			adi,extended-name = "CORE_CLK_RX";
-			adi,divider = <8>;	// 387.5
+			adi,divider = <8>;	// 375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 
 		};
 		hmc7044_c2: channel@2 {
 			reg = <2>;
 			adi,extended-name = "DEV_REFCLK";
-			adi,divider = <8>;	// 387.5
+			adi,divider = <6>;	// 500
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c3: channel@3 {
 			reg = <3>;
 			adi,extended-name = "DEV_SYSREF";
-			adi,divider = <256>;	// 12.109375
+			adi,divider = <256>;	// 11.71875
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,jesd204-sysref-chan;
 		};
@@ -87,32 +87,32 @@
 		hmc7044_c6: channel@6 {
 			reg = <6>;
 			adi,extended-name = "CORE_CLK_TX";
-			adi,divider = <8>;	// 122880000
+			adi,divider = <8>;	// 375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c8: channel@8 {
 			reg = <8>;
 			adi,extended-name = "FPGA_REFCLK1";
-			adi,divider = <4>;	// 775
+			adi,divider = <4>;	// 750
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c10: channel@10 {
 			reg = <10>;
 			adi,extended-name = "CORE_CLK_RX_ALT";
-			adi,divider = <8>;	// 387.5
+			adi,divider = <8>;	// 375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c12: channel@12 {
 			reg = <12>;
 			adi,extended-name = "FPGA_REFCLK2";
-			adi,divider = <4>;	// 775
+			adi,divider = <4>;	// 750
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c13: channel@13 {
 			reg = <13>;
 			adi,extended-name = "FPGA_SYSREF";
-			adi,divider = <256>;	// 12.109375
+			adi,divider = <256>;	// 11.71875
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,jesd204-sysref-chan;
 		};
@@ -148,13 +148,13 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,dac-frequency-hz = /bits/ 64 <6200000000>;
+			adi,dac-frequency-hz = /bits/ 64 <12000000000>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				adi,interpolation = <2>;
+				adi,interpolation = <8>;
 
 				ad9081_dac0: dac@0 {
 					reg = <0>;
@@ -181,7 +181,7 @@
 			adi,channelizer-paths {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				adi,interpolation = <2>;
+				adi,interpolation = <1>;
 
 				ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
@@ -207,7 +207,7 @@
 					reg = <0>;
 					adi,converter-select = <&ad9081_tx_fddc_chan0 0>, <&ad9081_tx_fddc_chan0 1>, /* FIXME not supported */
 							       <&ad9081_tx_fddc_chan1 0>, <&ad9081_tx_fddc_chan1 1>;
-					adi,logical-lane-mapping = /bits/ 8 <0 1 2 3 4 5 6 7>;
+					adi,logical-lane-mapping = /bits/ 8 <0 2 7 6 1 5 4 3>;
 
 					adi,link-mode = <17>;			/* JESD Quick Configuration Mode */
 					adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
@@ -224,6 +224,8 @@
 					adi,lanes-per-device = <8>;		/* JESD L */
 					adi,samples-per-converter-per-frame = <1>; /* JESD S */
 					adi,high-density = <0>;			/* JESD HD */
+
+					adi,tpl-phase-adjust = <3>;
 				};
 			};
 		};
@@ -232,11 +234,12 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,adc-frequency-hz = /bits/ 64 <3100000000>;
+			adi,adc-frequency-hz = /bits/ 64 <3000000000>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
 				#size-cells = <0>;
+
 
 				ad9081_adc0: adc@0 {
 					reg = <0>;
@@ -255,6 +258,7 @@
 			adi,channelizer-paths {
 				#address-cells = <1>;
 				#size-cells = <0>;
+
 
 				ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
@@ -280,7 +284,7 @@
 					reg = <0>;
 					adi,converter-select = <&ad9081_rx_fddc_chan0 0>, <&ad9081_rx_fddc_chan0 1>,
 								<&ad9081_rx_fddc_chan1 0>, <&ad9081_rx_fddc_chan1 1>;
- 					adi,logical-lane-mapping = /bits/ 8 <0 1 2 3 4 5 6 7>;
+					adi,logical-lane-mapping = /bits/ 8 <2 0 7 6 5 4 3 1>;
 
 
 					adi,link-mode = <18>;			/* JESD Quick Configuration Mode */

@@ -12,6 +12,9 @@
 
 #include "zynqmp-zcu102-rev10-ad9081.dts"
 
+&axi_ad9081_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_CPLL>;
+};
 &spi1 {
 	status = "okay";
 
