@@ -331,12 +331,23 @@ static int ad9081_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	u8 val;
 	int ret;
 
-	if (readval == NULL)
-		return adi_ad9081_hal_reg_set(&phy->ad9081, reg, writeval);
+	if (reg & 0x40000000) { /* CBUS Access */
+		if (readval == NULL)
+			return adi_ad9081_device_cbusjrx_register_set(&phy->ad9081,
+				reg & 0xFF, writeval, (reg >> 8) & 0x7);
 
-	ret = adi_ad9081_hal_reg_get(&phy->ad9081, reg, &val);
-	if (ret < 0)
-		return ret;
+		ret = adi_ad9081_device_cbusjrx_register_get(&phy->ad9081,
+			reg & 0xFF, &val, (reg >> 8) & 0x7);
+		if (ret < 0)
+			return ret;
+	} else {
+		if (readval == NULL)
+			return adi_ad9081_hal_reg_set(&phy->ad9081, reg & 0x3FFF, writeval);
+
+		ret = adi_ad9081_hal_reg_get(&phy->ad9081, reg & 0x3FFF, &val);
+		if (ret < 0)
+			return ret;
+	}
 	*readval = val;
 
 	return 0;
