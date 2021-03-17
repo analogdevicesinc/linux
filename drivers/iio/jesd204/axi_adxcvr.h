@@ -13,6 +13,7 @@
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/mutex.h>
 #include <linux/fpga/adi-axi-common.h>
 #include <linux/jesd204/jesd204.h>
 
@@ -49,6 +50,15 @@
 #define ADXCVR_DRP_PORT_COMMON(x)	(x)
 #define ADXCVR_DRP_PORT_CHANNEL(x)	(0x100 + (x))
 
+#define ADXCVR_REG_REG_PRBS_CNTRL	0x0180
+#define ADXCVR_PRBSEL(x)		(((x) & 0xF) << 0)
+#define ADXCVR_PRBS_CNT_RESET		BIT(8)
+#define ADXCVR_PRBS_FORCE_ERR		BIT(16)
+
+#define ADXCVR_REG_REG_PRBS_STATUS	0x0184
+#define ADXCVR_PRBS_ERR(x)		((x) & BIT(8))
+#define ADXCVR_PRBS_LOCKED(x)		((x) & BIT(0))
+
 struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*regs;
@@ -59,6 +69,7 @@ struct adxcvr_state {
 	struct clk_hw		lane_clk_hw;
 	struct clk_hw		qpll_clk_hw;
 	struct work_struct	work;
+	struct mutex		mutex;
 	unsigned long		lane_rate;
 	bool			tx_enable;
 	bool			qpll_enable;

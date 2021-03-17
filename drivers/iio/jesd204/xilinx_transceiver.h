@@ -124,4 +124,10 @@ int xilinx_xcvr_drp_update(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int reg, unsigned int mask,
 	unsigned int val);
 
+int xilinx_xcvr_prbsel_enc_get(struct xilinx_xcvr *xcvr,
+	unsigned int prbs, bool reverse_lu);
+
+int xilinx_xcvr_prbs_err_cnt_get(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int *cnt);
+
 #endif

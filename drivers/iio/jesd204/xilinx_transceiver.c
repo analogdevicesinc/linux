@@ -77,6 +77,10 @@
 #define GTH34_QPLL1_FBDIV		0x94
 #define GTH34_QPLL1_REFCLK_DIV		0x98
 
+#define GTX_RX_PRBS_ERR_CNT		0x15c /* 16-bit */
+#define GTH3_RX_PRBS_ERR_CNT		0x15E /* 32-bit */
+#define GTH4_RX_PRBS_ERR_CNT		0x25E /* 32-bit also applied for GTY */
+
 #define GTH34_QPLL_FBDIV(xcvr, x)	\
 	(0x14 + xilinx_xcvr_qpll_sel((xcvr), (x)) * 0x80)
 #define GTH34_QPLL_REFCLK_DIV(xcvr, x)	\
@@ -1330,6 +1334,76 @@ int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
 	return xilinx_xcvr_drp_update(xcvr, drp_port, reg, mask, div);
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_write_tx_clk25_div);
+
+int xilinx_xcvr_prbsel_enc_get(struct xilinx_xcvr *xcvr, unsigned int prbs, bool reverse_lu)
+{
+	const u8 gthy_prbs_lut[] = {0, 7, 9, 15, 23, 31};
+	const u8 gtx_prbs_lut[] = {0, 7, 15, 23, 31};
+	int i;
+
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		if (reverse_lu && prbs < ARRAY_SIZE(gtx_prbs_lut))
+			return gtx_prbs_lut[prbs];
+
+		for (i = 0; i < ARRAY_SIZE(gtx_prbs_lut); i++)
+			if (gtx_prbs_lut[i] == prbs)
+				return i;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
+		if (reverse_lu && prbs < ARRAY_SIZE(gthy_prbs_lut))
+			return gthy_prbs_lut[prbs];
+
+		for (i = 0; i < ARRAY_SIZE(gthy_prbs_lut); i++)
+			if (gthy_prbs_lut[i] == prbs)
+				return i;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL_GPL(xilinx_xcvr_prbsel_enc_get);
+
+int xilinx_xcvr_prbs_err_cnt_get(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int *cnt)
+{
+	unsigned int addr;
+	int val, val2 = 0;
+
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		addr = GTX_RX_PRBS_ERR_CNT;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+		addr = GTH3_RX_PRBS_ERR_CNT;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
+		addr = GTH4_RX_PRBS_ERR_CNT;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	val = xilinx_xcvr_drp_read(xcvr, drp_port, addr);
+	if (val < 0)
+		return val;
+
+	if (xcvr->type != XILINX_XCVR_TYPE_S7_GTX2) {
+		val2 = xilinx_xcvr_drp_read(xcvr, drp_port, addr + 1);
+		if (val < 0)
+			return val;
+	}
+
+	*cnt = ((val2 & 0xFFFF) << 16) | (val & 0xFFFF);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(xilinx_xcvr_prbs_err_cnt_get);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("Xilinx high-speed transceiver dynamic reconfiguration");
