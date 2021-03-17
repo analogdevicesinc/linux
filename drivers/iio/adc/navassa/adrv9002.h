@@ -169,6 +169,11 @@ struct adrv9002_rf_phy {
 	int				spi_device_id;
 	int				ngpios;
 	u8				rx2tx2;
+	/*
+	 * Tells if TX only profiles are valid. If not set, it means that TX1/TX2 SSI clocks are
+	 * derived from RX1/RX2 which means that TX cannot be enabled if RX is not...
+	 */
+	u8				tx_only;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_SsiCalibrationCfg ssi_delays;
 #endif
@@ -182,11 +187,12 @@ int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable);
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy);
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const u8 ssi_intf, const bool cmos_ddr,
-			       const int channel);
+			       const int channel, const bool tx);
 struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi);
 int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   const adi_adrv9001_SsiType_e ssi_type, u8 *clk_delay, u8 *data_delay);
-void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en);
+void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
+				   const bool en);
 int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 						    const adi_adrv9001_SsiTestModeData_e data);
 int adrv9002_spi_read(struct spi_device *spi, u32 reg);

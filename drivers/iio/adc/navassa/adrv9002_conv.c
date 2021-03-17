@@ -48,6 +48,8 @@
 #define NUM_LANES(x)			FIELD_PREP(NUM_LANES_MASK, x)
 #define SDR_DDR_MASK			BIT(16)
 #define SDR_DDR(x)			FIELD_PREP(SDR_DDR_MASK, x)
+#define TX_ONLY_MASK			BIT(10)
+#define TX_ONLY(x)			FIELD_GET(TX_ONLY_MASK, x)
 
 #define IS_CMOS(cfg)			((cfg) & (ADI_CMOS_OR_LVDS_N))
 
@@ -191,29 +193,30 @@ int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
 
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const u8 ssi_intf, const bool cmos_ddr,
-			       const int channel)
+			       const int channel, const bool tx)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	u32 reg_ctrl = 0, tx_reg_ctrl;
+	u32 reg_ctrl, reg_value = 0, off;
 	u8 rate;
-	const int rx_off = channel ? ADI_RX2_REG_OFF : 0;
-	const int tx_off = channel ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
 
-	reg_ctrl = axiadc_read(st, AIM_AXI_REG(rx_off, ADI_REG_CNTRL));
-	tx_reg_ctrl = axiadc_read(st, AIM_AXI_REG(tx_off, ADI_TX_REG_CTRL_2));
+	if (tx) {
+		off = channel ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
+		reg_ctrl = ADI_TX_REG_CTRL_2;
+	} else {
+		off = channel ? ADI_RX2_REG_OFF : 0;
+		reg_ctrl = ADI_REG_CNTRL;
+	}
 
-	reg_ctrl &= ~(NUM_LANES_MASK | SDR_DDR_MASK);
-	tx_reg_ctrl &= ~(NUM_LANES_MASK | SDR_DDR_MASK);
+	reg_value = axiadc_read(st, AIM_AXI_REG(off, reg_ctrl));
+	reg_value &= ~(NUM_LANES_MASK | SDR_DDR_MASK);
 
 	switch (n_lanes) {
 	case ADI_ADRV9001_SSI_1_LANE:
-		reg_ctrl |= NUM_LANES(1);
-		tx_reg_ctrl |= NUM_LANES(1);
+		reg_value |= NUM_LANES(1);
 		if (ssi_intf == ADI_ADRV9001_SSI_TYPE_CMOS) {
 			rate = cmos_ddr ? 3 : 7;
-			reg_ctrl |= SDR_DDR(!cmos_ddr);
-			tx_reg_ctrl |= SDR_DDR(!cmos_ddr);
+			reg_value |= SDR_DDR(!cmos_ddr);
 		} else {
 			rate = 3;
 		}
@@ -222,27 +225,24 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 		if (ssi_intf == ADI_ADRV9001_SSI_TYPE_CMOS)
 			return -EINVAL;
 
-		reg_ctrl |= NUM_LANES(2);
-		tx_reg_ctrl |= NUM_LANES(2);
+		reg_value |= NUM_LANES(2);
 		rate = 1;
 		break;
 	case ADI_ADRV9001_SSI_4_LANE:
 		if (ssi_intf == ADI_ADRV9001_SSI_TYPE_LVDS)
 			return -EINVAL;
 
-		reg_ctrl |= NUM_LANES(4);
-		tx_reg_ctrl |= NUM_LANES(4);
+		reg_value |= NUM_LANES(4);
 		rate = cmos_ddr ? 0 : 1;
-		reg_ctrl |= SDR_DDR(!cmos_ddr);
-		tx_reg_ctrl |= SDR_DDR(!cmos_ddr);
+		reg_value |= SDR_DDR(!cmos_ddr);
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	axiadc_write(st, AIM_AXI_REG(rx_off, ADI_REG_CNTRL), reg_ctrl);
-	axiadc_write(st, AIM_AXI_REG(tx_off, ADI_TX_REG_RATE), rate);
-	axiadc_write(st, AIM_AXI_REG(tx_off, ADI_TX_REG_CTRL_2), tx_reg_ctrl);
+	axiadc_write(st, AIM_AXI_REG(off, reg_ctrl), reg_value);
+	if (tx)
+		axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_RATE), rate);
 
 	return 0;
 }
@@ -252,7 +252,7 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct adrv9002_rf_phy *phy = conv->phy;
-	u32 num_chan;
+	u32 num_chan, axi_config;
 	int i, ret;
 
 	num_chan = conv->chip_info->num_channels;
@@ -276,6 +276,13 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
+
+	/*
+	 * Get tx core config to check if we support tx only profiles. 1 means that it's not
+	 * supported...
+	 */
+	axi_config = axiadc_read(st, AIM_AXI_REG(ADI_TX1_REG_OFF, ADI_REG_CONFIG));
+	phy->tx_only = !TX_ONLY(axi_config);
 
 	ret = adrv9002_post_init(phy);
 	if (ret)
@@ -538,24 +545,24 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 	return max_cnt ? 0 : -EIO;
 }
 
-void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en)
+void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
+				   const bool en)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	const int rx_off = chan ? ADI_RX2_REG_OFF : 0;
-	const int tx_off = chan ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
+	int off = 0;
 
-	if (en) {
+	if (tx)
+		off = chan ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
+	else
+		off = chan ? ADI_RX2_REG_OFF : 0;
+
+	if (en)
 		/* bring axi core out of reset */
-		axiadc_write(st, AIM_AXI_REG(rx_off, ADI_REG_RSTN),
-			     ADI_RSTN | ADI_MMCM_RSTN);
-		axiadc_write(st, AIM_AXI_REG(tx_off, ADI_REG_RSTN),
-			     ADI_RSTN | ADI_MMCM_RSTN);
-	} else {
+		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_RSTN), ADI_RSTN | ADI_MMCM_RSTN);
+	else
 		/* reset axi core*/
-		axiadc_write(st, AIM_AXI_REG(rx_off, ADI_REG_RSTN), 0);
-		axiadc_write(st, AIM_AXI_REG(tx_off, ADI_REG_RSTN), 0);
-	}
+		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_RSTN), 0);
 }
 
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
@@ -674,7 +681,7 @@ u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
 
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const u8 ssi_intf, const bool cmos_ddr,
-			       const int channel)
+			       const int channel, const bool tx)
 {
 	return -ENODEV;
 }
@@ -685,7 +692,8 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 	return -ENODEV;
 }
 
-void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en)
+void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
+				   const bool en)
 {
 	return -ENODEV;
 }
