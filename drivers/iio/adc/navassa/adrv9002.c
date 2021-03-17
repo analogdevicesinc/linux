@@ -1224,8 +1224,10 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 		ret = sprintf(buf, "%d\n", enable);
 		break;
 	case RX_BBDC:
-		if (!rx->orx_en && port == ADI_ORX)
+		if (!rx->orx_en && port == ADI_ORX) {
+			mutex_unlock(&phy->lock);
 			return -ENODEV;
+		}
 
 		ret = adi_adrv9001_bbdc_RejectionEnable_Get(phy->adrv9001, port,
 							    rx->channel.number, &bbdc);
