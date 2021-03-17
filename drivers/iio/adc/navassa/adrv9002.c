@@ -179,22 +179,21 @@ int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, 
 }
 
 static void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
-				       u8 *n_lanes, bool *cmos_ddr_en)
+				       const bool tx, u8 *n_lanes, bool *cmos_ddr_en)
 {
-	/*
-	 * Using the RX profile since with TX, we can have, for example, TX1 disabled
-	 * while RX1 is enabled (the other way around is not permitted). Since this API
-	 * only looks to the channel, we would return invalid values in such a case...
-	 */
-	adi_adrv9001_RxProfile_t *rx_cfg;
-	/*
-	 * We only look for one port. Although theoretical possible, we are
-	 * assuming that ports on the same channel have the same number of lanes
-	 * and, obviously, the same interface type
-	 */
-	rx_cfg = &phy->curr_profile->rx.rxChannelCfg[chann].profile;
-	*n_lanes = rx_cfg->rxSsiConfig.numLaneSel;
-	*cmos_ddr_en = rx_cfg->rxSsiConfig.cmosDdrEn;
+	if (tx) {
+		adi_adrv9001_TxProfile_t *tx_cfg;
+
+		tx_cfg = &phy->curr_profile->tx.txProfile[chann];
+		*n_lanes = tx_cfg->txSsiConfig.numLaneSel;
+		*cmos_ddr_en = tx_cfg->txSsiConfig.cmosDdrEn;
+	} else {
+		adi_adrv9001_RxProfile_t *rx_cfg;
+
+		rx_cfg = &phy->curr_profile->rx.rxChannelCfg[chann].profile;
+		*n_lanes = rx_cfg->rxSsiConfig.numLaneSel;
+		*cmos_ddr_en = rx_cfg->rxSsiConfig.cmosDdrEn;
+	}
 }
 
 static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
@@ -202,32 +201,33 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 	bool cmos_ddr;
 	u8 n_lanes;
 	int c, ret;
-	unsigned long rate;
 
-	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
-		/*
-		 * Care only about RX because TX cannot be enabled while the RX on the
-		 * same channel is disabled. This will also work in rx2tx2 mode since we
-		 * only care at channel 1 and RX1 must be enabled. However, TX1 can be
-		 * disabled which would lead to problems since we would no configure channel 1...
-		 */
-		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
+	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
+		struct adrv9002_chan *chann = phy->channels[c];
 
-		if (!rx->channel.enabled)
+		/* RX2/TX2 can only be enabled if RX1/TX1 are also enabled */
+		if (phy->rx2tx2 && chann->idx > ADRV9002_CHANN_1)
+			break;
+
+		if (!chann->enabled)
 			continue;
 
 		adrv9002_sync_gpio_toogle(phy);
 
-		adrv9002_get_ssi_interface(phy, c, &n_lanes, &cmos_ddr);
-		ret = adrv9002_axi_interface_set(phy, n_lanes, cmos_ddr, c);
+		adrv9002_get_ssi_interface(phy, chann->idx, chann->port == ADI_TX, &n_lanes,
+					   &cmos_ddr);
+		ret = adrv9002_axi_interface_set(phy, n_lanes, cmos_ddr, chann->idx,
+						 chann->port == ADI_TX);
 		if (ret)
 			return ret;
 
-		rate = adrv9002_axi_dds_rate_get(phy, c) * rx->channel.rate;
-		clk_set_rate(rx->tdd_clk, rate);
+		if (chann->port == ADI_RX) {
+			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
+			unsigned long rate;
 
-		if (phy->rx2tx2)
-			break;
+			rate = adrv9002_axi_dds_rate_get(phy, chann->idx) * chann->rate;
+			clk_set_rate(rx->tdd_clk, rate);
+		}
 	}
 
 	return 0;
@@ -2258,24 +2258,24 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		ADI_ADRV9001_ORX1, ADI_ADRV9001_ORX2
 	};
 	int i;
-	u32 rx0_rate = rx_cfg[0].profile.rxOutputRate_Hz;
 
 	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
 		struct adrv9002_chan *tx = &phy->tx_channels[i].channel;
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[i];
 
 		/* rx validations */
-		if (!ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask, rx_channels[i])) {
-			if (phy->rx2tx2 && i == ADRV9002_CHANN_1) {
-				dev_err(&phy->spi->dev, "In rx2tx2 mode RX1 must be always enabled...\n");
-				return -EINVAL;
-			}
-
+		if (!ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask, rx_channels[i]))
 			goto tx;
-		}
 
-		if (phy->rx2tx2 && i && rx_cfg[i].profile.rxOutputRate_Hz != rx0_rate) {
-			dev_err(&phy->spi->dev, "In rx2tx2 mode, all ports must have the same rate\n");
+		if (phy->rx2tx2 && i &&
+		    rx_cfg[i].profile.rxOutputRate_Hz != phy->rx_channels[0].channel.rate) {
+			dev_err(&phy->spi->dev, "In rx2tx2, RX%d rate=%u must be equal to RX1, rate=%ld\n",
+				i + 1, rx_cfg[i].profile.rxOutputRate_Hz,
+				phy->rx_channels[0].channel.rate);
+			return -EINVAL;
+		} else if (phy->rx2tx2 && i && !phy->rx_channels[0].channel.enabled) {
+			dev_err(&phy->spi->dev, "In rx2tx2, RX%d cannot be enabled while RX1 is disabled",
+				i + 1);
 			return -EINVAL;
 		} else if (phy->ssi_type != rx_cfg[i].profile.rxSsiConfig.ssiType) {
 			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, RX%d=%d\n",
@@ -2295,17 +2295,50 @@ tx:
 		if (!ADRV9001_BF_EQUAL(phy->curr_profile->tx.txInitChannelMask, tx_channels[i]))
 			continue;
 
-		if (!rx->channel.enabled) {
+		/* check @tx_only comments in adrv9002.h to better understand the next checks */
+		if (phy->ssi_type != tx_cfg[i].txSsiConfig.ssiType) {
+			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, TX%d=%d\n",
+				phy->ssi_type, i + 1,  tx_cfg[i].txSsiConfig.ssiType);
+			return -EINVAL;
+		} else if (phy->rx2tx2) {
+			if (!phy->tx_only && !phy->rx_channels[0].channel.enabled) {
+				/*
+				 * pretty much means that in this case either all channels are
+				 * disabled, which obviously does not make sense, or RX1 must
+				 * be enabled...
+				 */
+				dev_err(&phy->spi->dev, "In rx2tx2, TX%d cannot be enabled while RX1 is disabled",
+					i + 1);
+				return -EINVAL;
+			} else if (i && !phy->tx_channels[0].channel.enabled) {
+				dev_err(&phy->spi->dev, "In rx2tx2, TX%d cannot be enabled while TX1 is disabled",
+					i + 1);
+				return -EINVAL;
+			} else if (!phy->tx_only &&
+				   tx_cfg[i].txInputRate_Hz != phy->rx_channels[0].channel.rate) {
+				/*
+				 * pretty much means that in this case, all ports must have
+				 * the same rate. We match against RX1 since RX2 can be disabled
+				 * even if it does not make much sense to disable it in rx2tx2 mode
+				 */
+				dev_err(&phy->spi->dev, "In rx2tx2, TX%d rate=%u must be equal to RX1, rate=%ld\n",
+					i + 1, tx_cfg[i].txInputRate_Hz,
+					phy->rx_channels[0].channel.rate);
+				return -EINVAL;
+			} else if (phy->tx_only && i &&
+				   tx_cfg[i].txInputRate_Hz != phy->tx_channels[0].channel.rate) {
+				dev_err(&phy->spi->dev, "In rx2tx2, TX%d rate=%u must be equal to TX1, rate=%ld\n",
+					i + 1, tx_cfg[i].txInputRate_Hz,
+					phy->tx_channels[0].channel.rate);
+				return -EINVAL;
+			}
+		} else if (!phy->tx_only && !rx->channel.enabled) {
 			dev_err(&phy->spi->dev, "TX%d cannot be enabled while RX%d is disabled",
 				i + 1, i + 1);
 			return -EINVAL;
-		} else if (tx_cfg[i].txInputRate_Hz != rx->channel.rate) {
+		} else if (!phy->tx_only && tx_cfg[i].txInputRate_Hz != rx->channel.rate) {
 			dev_err(&phy->spi->dev, "TX%d rate=%u must be equal to RX%d, rate=%ld\n",
 				i + 1, tx_cfg[i].txInputRate_Hz, i + 1, rx->channel.rate);
-			return -EINVAL;
-		} else if (phy->ssi_type != tx_cfg[i].txSsiConfig.ssiType) {
-			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, TX%d=%d\n",
-				phy->ssi_type, i + 1,  tx_cfg[i].txSsiConfig.ssiType);
 			return -EINVAL;
 		}
 
@@ -3605,15 +3638,18 @@ of_channels_put:
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
 	int ret, c;
+	struct adrv9002_chan *chan;
 
 	adrv9002_cleanup(phy);
 	/*
 	 * Disable all the cores as it might interfere with init calibrations.
 	 */
-	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
-		adrv9002_axi_interface_enable(phy, c, false);
-		if (phy->rx2tx2)
+	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
+		chan = phy->channels[c];
+
+		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
 			break;
+		adrv9002_axi_interface_enable(phy, chan->idx, chan->port == ADI_TX, false);
 	}
 
 	phy->curr_profile = profile;
@@ -3632,13 +3668,16 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 		goto error;
 
 	/* re-enable the cores */
-	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
-		if (!phy->rx_channels[c].channel.enabled)
+	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
+		chan = phy->channels[c];
+
+		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
+			break;
+
+		if (!chan->enabled)
 			continue;
 
-		adrv9002_axi_interface_enable(phy, c, true);
-		if (phy->rx2tx2)
-			break;
+		adrv9002_axi_interface_enable(phy, chan->idx, chan->port == ADI_TX, true);
 	}
 
 	ret = adrv9002_intf_tuning(phy);
