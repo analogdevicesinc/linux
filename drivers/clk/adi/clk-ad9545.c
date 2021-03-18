@@ -176,10 +176,6 @@
 /* AD9545_PLL_STATUS bitfields */
 #define AD9545_PLLX_LOCK(x, y)			((1 << (4 + (x))) & (y))
 
-/* AD9545_DPLLX_FAST_MODE bitfields */
-#define AD9545_FAST_ACQ_HOLDOVER		BIT(1)
-#define AD9545_FAST_ACQ_FREE_RUN		BIT(0)
-
 /* AD9545_MISC bitfields */
 #define AD9545_MISC_AUX_NC0_ERR_MSK		GENMASK(5, 4)
 #define AD9545_MISC_AUX_NC1_ERR_MSK		GENMASK(7, 6)
@@ -370,6 +366,7 @@ struct ad9545_ppl_clk {
 	const struct clk_hw		**parents;
 	struct ad9545_dpll_profile	profiles[AD9545_MAX_DPLL_PROFILES];
 	unsigned int			free_run_freq;
+	unsigned int			fast_acq_trigger_mode;
 };
 
 struct ad9545_ref_in_clk {
@@ -569,6 +566,10 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 
 		st->pll_clks[addr].pll_used = true;
 		st->pll_clks[addr].address = addr;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode", &val);
+		if (!ret)
+			st->pll_clks[addr].fast_acq_trigger_mode = val;
 
 		/* parse DPLL profiles */
 		fwnode_for_each_available_child_node(child, profile_node) {
@@ -1772,8 +1773,8 @@ static int ad9545_pll_fast_acq_setup(struct ad9545_ppl_clk *pll, int profile)
 	if (ret < 0)
 		return ret;
 
-	reg = AD9545_FAST_ACQ_FREE_RUN | AD9545_FAST_ACQ_HOLDOVER;
-	return regmap_write(st->regmap, AD9545_DPLLX_FAST_MODE(pll->address), reg);
+	return regmap_write(st->regmap, AD9545_DPLLX_FAST_MODE(pll->address),
+			    pll->fast_acq_trigger_mode);
 }
 
 static int ad9545_plls_setup(struct ad9545_state *st)
