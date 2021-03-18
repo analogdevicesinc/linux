@@ -855,6 +855,11 @@ F: drivers/net/ethernet/freescale/fec.h
 F: drivers/net/ethernet/freescale/fec_main.c
 F: drivers/net/ethernet/freescale/fec_ptp.c
 
+net/fec-uio
+M: Apeksha Gupta <apeksha.gupta@nxp.com>
+M: Sachin Saxena <sachin.saxena@nxp.com>
+F: drivers/net/ethernet/freescale/fec_uio.c
+
 net/ls1028-switch
 M: Joakim Zhang <qiangqing.zhang@nxp.com>
 M: Claudiu Manoil <claudiu.manoil@nxp.com>
