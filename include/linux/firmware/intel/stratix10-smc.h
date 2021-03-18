@@ -620,6 +620,26 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_GET_PROVISION_DATA \
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_PROVISION_DATA)
 
+
+/**
+ * Request INTEL_SIP_SMC_FCS_COUNTER_SET_PREAUTHORIZED
+ * Sync call to update counter value w/o signed certificate
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_COUNTER_SET_PREAUTHORIZED
+ * a1 counter type
+ * a2 counter value
+ * a3 test bit
+ * a3-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK or INTEL_SIP_SMC_STATUS_ERROR
+ * a1-a4 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_COUNTER_SET_PREAUTHORIZED 95
+#define INTEL_SIP_SMC_FCS_COUNTER_SET_PREAUTHORIZED \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_COUNTER_SET_PREAUTHORIZED)
+
 /**
  * Request INTEL_SIP_SMC_FCS_PSGSIGMA_TEARDOWN
  * Sync call to tear down all previous black key provision sessions and to
