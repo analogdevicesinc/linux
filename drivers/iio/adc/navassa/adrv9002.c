@@ -2918,8 +2918,11 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(phy->channels); i++)
-		phy->channels[i]->enabled = 0;
+	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
+		phy->rx_channels[i].orx_en = 0;
+		phy->rx_channels[i].channel.enabled = 0;
+		phy->tx_channels[i].channel.enabled = 0;
+	}
 
 	memset(&phy->adrv9001->devStateInfo, 0,
 	       sizeof(phy->adrv9001->devStateInfo));
