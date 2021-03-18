@@ -2602,6 +2602,14 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
+static struct adi_adrv9001_SpiSettings adrv9002_spi = {
+	.msbFirst = 1,
+	.enSpiStreaming = 0,
+	.autoIncAddrUp = 1,
+	.fourWireMode = 1,
+	.cmosPadDrvStrength = ADI_ADRV9001_CMOSPAD_DRV_STRONG,
+};
+
 static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_Device *adrv9001_device = phy->adrv9001;
@@ -2609,13 +2617,6 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 	int ret;
 	adi_adrv9001_gpMaskArray_t gp_mask;
 	adi_adrv9001_ChannelState_e init_state;
-	struct adi_adrv9001_SpiSettings spi = {
-		.msbFirst = 1,
-		.enSpiStreaming = 0,
-		.autoIncAddrUp = 1,
-		.fourWireMode = 1,
-		.cmosPadDrvStrength = ADI_ADRV9001_CMOSPAD_DRV_STRONG,
-	};
 
 	/* in TDD we cannot start with all ports enabled as RX/TX cannot be on at the same time */
 	if (phy->curr_profile->sysConfig.duplexMode == ADI_ADRV9001_TDD_MODE)
@@ -2624,7 +2625,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 		init_state = ADI_ADRV9001_CHANNEL_RF_ENABLED;
 
 	adi_common_ErrorClear(&phy->adrv9001->common);
-	ret = adi_adrv9001_HwOpen(adrv9001_device, &spi);
+	ret = adi_adrv9001_HwOpen(adrv9001_device, &adrv9002_spi);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
@@ -3617,17 +3618,15 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 	if (ret) {
 		/* try one more time */
 		ret = adrv9002_setup(phy);
-		if (ret) {
-			adrv9002_cleanup(phy);
-			return ret;
-		}
+		if (ret)
+			goto error;
 	}
 
 	adrv9002_set_clk_rates(phy);
 
 	ret = adrv9002_ssi_configure(phy);
 	if (ret)
-		return ret;
+		goto error;
 
 	/* re-enable the cores */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
@@ -3639,7 +3638,23 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 			break;
 	}
 
-	return adrv9002_intf_tuning(phy);
+	ret = adrv9002_intf_tuning(phy);
+	if (ret) {
+		dev_err(&phy->spi->dev, "Interface tuning failed: %d\n", ret);
+		goto error;
+	}
+
+	return 0;
+error:
+	/*
+	 * Leave the device in a reset state in case of error. There's not much we can do if
+	 * the API call fails, so we are just being verbose about it...
+	 */
+	if (adi_adrv9001_HwOpen(phy->adrv9001, &adrv9002_spi))
+		adrv9002_dev_err(phy);
+	adrv9002_cleanup(phy);
+
+	return ret;
 }
 
 static ssize_t adrv9002_stream_bin_write(struct file *filp, struct kobject *kobj,
