@@ -78,7 +78,7 @@ static void fcs_data_callback(struct stratix10_svc_client *client,
 		priv->size = (data->kaddr3) ?
 			*((unsigned int *)data->kaddr3) : 0;
 	} else {
-		dev_warn(client->dev, "rejected, invalid param\n");
+		dev_err(client->dev, "rejected, invalid param\n");
 		priv->status = -EINVAL;
 		priv->kbuf = NULL;
 		priv->size = 0;
@@ -98,6 +98,9 @@ static void fcs_vab_callback(struct stratix10_svc_client *client,
 	} else if (data->status == BIT(SVC_STATUS_BUSY)) {
 		priv->status = -ETIMEDOUT;
 		dev_err(client->dev, "timeout to get completed status\n");
+	} else if (data->status == BIT(SVC_STATUS_INVALID_PARAM)) {
+		priv->status = -EINVAL;
+		dev_err(client->dev, "request rejected\n");
 	} else if (data->status == BIT(SVC_STATUS_OK)) {
 		priv->status = 0;
 	} else {
@@ -352,6 +355,33 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		fcs_close_services(priv, s_buf, ps_buf);
+		break;
+
+	case INTEL_FCS_DEV_COUNTER_SET_PREAUTHORIZED:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		msg->command = COMMAND_FCS_COUNTER_SET_PREAUTHORIZED;
+		msg->arg[0] = data->com_paras.i_request.counter_type;
+		msg->arg[1] = data->com_paras.i_request.counter_value;
+		msg->arg[2] = data->com_paras.i_request.test.test_word;
+		priv->client.receive_cb = fcs_vab_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+		if (ret) {
+			dev_err(dev, "failed to send the request,ret=%d\n",
+				ret);
+			return -EFAULT;
+		}
+
+		data->status = priv->status;
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
 		break;
 
 	case INTEL_FCS_DEV_RANDOM_NUMBER_GEN:
