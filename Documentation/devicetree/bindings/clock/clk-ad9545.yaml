@@ -176,6 +176,15 @@ patternProperties:
       '#size-cells':
          const: 0
 
+      adi,fast-acq-trigger-mode:
+        description: |
+          If this is not specified Fast Acquisition will be used every time. See reg 0x2106
+          for constraints on Fast Acquisition trigger.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 0
+        maximum: 15
+        default: 0
+
     patternProperties:
       "^profile@[0-5]$":
         description: |
