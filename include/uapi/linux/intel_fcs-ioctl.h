@@ -79,6 +79,18 @@ struct fcs_certificate_request {
 };
 
 /**
+ * struct fcs_single_certificate_request - Single certificate to SDM
+ * @test: test bit (1 if want to write to cache instead of fuses)
+ * @counter_type: select the counter type with valid value from 1 to 5
+ * @counter_value: counter value
+ */
+struct fcs_single_certificate_request {
+	struct intel_fcs_cert_test_word test;
+	uint8_t counter_type;
+	uint32_t counter_value;
+};
+
+/**
  * struct fcs_data_encryption - aes data encryption command layout
  * @src: the virtual address of the input data
  * @src_size: the size of the unencrypted source
@@ -198,6 +210,7 @@ struct intel_fcs_dev_ioctl {
 	union {
 		struct fcs_validation_request	s_request;
 		struct fcs_certificate_request	c_request;
+		struct fcs_single_certificate_request	i_request;
 		struct fcs_key_manage_request	gp_data;
 		struct fcs_data_encryption	d_encryption;
 		struct fcs_data_decryption	d_decryption;
@@ -222,7 +235,9 @@ struct intel_fcs_dev_ioctl {
  *
  * @INTEL_FCS_DEV_COUNTER_SET_CMD:
  *
- * @INTEL_FCS_DEV_SVN_COMMIT_CMD:
+ * @INTEL_FCS_DEV_COUNTER_SET_PREAUTHORIZED_CMD:
+ *
+ * @INTEL_FCS_DEV_GET_PROVISION_DATA_CMD:
  *
  * @INTEL_FCS_DEV_DATA_ENCRYPTION_CMD:
  *
@@ -236,7 +251,8 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CERTIFICATE_CMD = 0xB,
 	INTEL_FCS_DEV_VALIDATE_REQUEST_CMD = 0x78,
 	INTEL_FCS_DEV_COUNTER_SET_CMD,
-	INTEL_FCS_DEV_GET_PROVISION_DATA_CMD = 0x7B,
+	INTEL_FCS_DEV_COUNTER_SET_PREAUTHORIZED_CMD,
+	INTEL_FCS_DEV_GET_PROVISION_DATA_CMD,
 	INTEL_FCS_DEV_DATA_ENCRYPTION_CMD = 0x7E,
 	INTEL_FCS_DEV_DATA_DECRYPTION_CMD,
 	INTEL_FCS_DEV_RANDOM_NUMBER_GEN_CMD,
@@ -257,6 +273,10 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_SEND_CERTIFICATE \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_CERTIFICATE_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_COUNTER_SET_PREAUTHORIZED \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_COUNTER_SET_PREAUTHORIZED_CMD, struct intel_fcs_dev_ioctl)
 
 #define INTEL_FCS_DEV_GET_PROVISION_DATA \
 	_IOWR(INTEL_FCS_IOCTL, \
