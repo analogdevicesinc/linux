@@ -1,5 +1,13 @@
 [
    {
+	    "BriefDescription": "bandwidth usage for lpddr4 evk board",
+	    "MetricName": "imx8mp_bandwidth_usage.lpddr4",
+	    "MetricExpr": "(( imx8_ddr0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000@ + imx8_ddr0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000@ ) / duration_time) / (1000 * 1000000 * 4 * 4)",
+	    "ScaleUnit": "1e2%",
+	    "Unit": "imx8_ddr",
+	    "Compat": "i.MX8MP"
+   },
+   {
 	    "BriefDescription": "bytes of all masters read from ddr",
 	    "MetricName": "imx8mp_ddr_read.all",
 	    "MetricExpr": "imx8_ddr0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000@",
