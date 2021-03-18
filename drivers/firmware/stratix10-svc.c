@@ -330,6 +330,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_DATA_ENCRYPTION:
 	case COMMAND_FCS_DATA_DECRYPTION:
 	case COMMAND_FCS_PSGSIGMA_TEARDOWN:
+	case COMMAND_FCS_COUNTER_SET_PREAUTHORIZED:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		break;
 	case COMMAND_RECONFIG_DATA_SUBMIT:
@@ -532,6 +533,12 @@ static int svc_normal_to_secure_thread(void *data)
 			a1 = (unsigned long)pdata->paddr;
 			a2 = (unsigned long)pdata->size;
 			break;
+		case COMMAND_FCS_COUNTER_SET_PREAUTHORIZED:
+			a0 = INTEL_SIP_SMC_FCS_COUNTER_SET_PREAUTHORIZED;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = pdata->arg[2];
+			break;
 		case COMMAND_FCS_GET_PROVISION_DATA:
 			a0 = INTEL_SIP_SMC_FCS_GET_PROVISION_DATA;
 			a1 = (unsigned long)pdata->paddr;
@@ -654,6 +661,7 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_GET_CHIP_ID:
 			case COMMAND_FCS_ATTESTATION_SUBKEY:
 			case COMMAND_FCS_ATTESTATION_MEASUREMENTS:
+			case COMMAND_FCS_COUNTER_SET_PREAUTHORIZED:
 				cbdata->status = BIT(SVC_STATUS_INVALID_PARAM);
 				cbdata->kaddr1 = NULL;
 				cbdata->kaddr2 = NULL;

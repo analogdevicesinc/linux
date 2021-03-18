@@ -145,7 +145,11 @@ struct stratix10_svc_chan;
  * SVC_STATUS_OK, SVC_STATUS_INVALID_PARAM, SVC_STATUS_ERROR
  *
  * @COMMAND_FCS_RANDOM_NUMBER_GEN: generate a random number, return status
- * is SVC_STATUS_OK, SVC_STATUS_ERROR
+ * is SVC_STATUS_OK, or SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_COUNTER_SET_PREAUTHORIZED: update the counter value for
+ * the selected counter without the signed certificate, return status is
+ * SVC_STATUS_OK, or SVC_STATUS_ERROR
  *
  * @COMMAND_FCS_PSGSIGMA_TEARDOWN: tear down all previous black key
  * provision sessions and delete keys assicated with those sessions,
@@ -186,6 +190,7 @@ enum stratix10_svc_command_code {
 	COMMAND_FCS_DATA_ENCRYPTION,
 	COMMAND_FCS_DATA_DECRYPTION,
 	COMMAND_FCS_RANDOM_NUMBER_GEN,
+	COMMAND_FCS_COUNTER_SET_PREAUTHORIZED,
 	/* for Attestation */
 	COMMAND_FCS_PSGSIGMA_TEARDOWN = 30,
 	COMMAND_FCS_GET_CHIP_ID,
