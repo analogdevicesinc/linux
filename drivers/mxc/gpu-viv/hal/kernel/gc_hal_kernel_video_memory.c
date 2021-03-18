@@ -3332,10 +3332,18 @@ gckVIDMEM_NODE_Lock(
     gceSTATUS status;
     gckOS os = Kernel->os;
     gctBOOL acquired = gcvFALSE;
-    gcuVIDMEM_NODE_PTR node = NodeObject->node;
-    gckVIDMEM_BLOCK vidMemBlock = node->VirtualChunk.parent;
+    gcuVIDMEM_NODE_PTR node;
+    gckVIDMEM_BLOCK vidMemBlock;
 
     gcmkHEADER_ARG("NodeObject=%p", NodeObject);
+
+    if (gcvNULL == NodeObject)
+    {
+        gcmkONERROR(gcvSTATUS_INVALID_OBJECT);
+    }
+
+    node = NodeObject->node;
+    vidMemBlock = node->VirtualChunk.parent;
 
     /* Grab the mutex. */
     gcmkONERROR(gckOS_AcquireMutex(os, NodeObject->mutex, gcvINFINITE));
