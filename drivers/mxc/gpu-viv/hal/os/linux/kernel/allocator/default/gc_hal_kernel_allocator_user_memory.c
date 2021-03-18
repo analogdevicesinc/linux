@@ -300,11 +300,6 @@ static int import_pfn_map(struct um_desc *um,
             goto err;
 
         pte = pte_offset_map_lock(current->mm, pmd, addr, &ptl);
-        if (!pte)
-        {
-            spin_unlock(ptl);
-            goto err;
-        }
 
         if (!pte_present(*pte))
         {
