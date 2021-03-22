@@ -24,6 +24,7 @@
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/uaccess.h>
 
 #define JESD204_OF_PREFIX	"adi,"
 #include <linux/jesd204/jesd204.h>
@@ -87,7 +88,8 @@ struct ad9081_jesd_link {
 	u32 jrx_tpl_phase_adjust;
 	u8 logiclane_mapping[8];
 	u8 link_converter_select[16];
-	u64 lane_rate;
+	unsigned long lane_rate_kbps;
+	unsigned long lane_cal_rate_kbps;
 };
 
 enum ad9081_clocks {
@@ -120,6 +122,16 @@ struct dac_settings_cache {
 struct device_settings_cache {
 	u8 loopback_mode;
 	u8 adc_clk_pwdn;
+};
+
+
+struct ad9081_debugfs_entry {
+	struct iio_dev *indio_dev;
+	const char *propname;
+	void *out_value;
+	u32 val;
+	u8 size;
+	u8 cmd;
 };
 
 struct ad9081_phy {
@@ -197,6 +209,9 @@ struct ad9081_phy {
 
 	char rx_chan_labels[MAX_NUM_CHANNELIZER][32];
 	char tx_chan_labels[MAX_NUM_CHANNELIZER][32];
+
+	struct ad9081_debugfs_entry debugfs_entry[10];
+	u32 ad9081_debugfs_entry_index;
 };
 
 static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
@@ -2249,7 +2264,7 @@ static void ad9081_work_func(struct work_struct *work)
 	if (!(status & BIT(6))) {
 		dev_err(&phy->spi->dev, "Link Reset IRQ_STATUS0: 0x%X\n", status);
 
-		phy->jesd_tx_link.lane_rate = 0;
+		phy->jesd_tx_link.lane_cal_rate_kbps = 0;
 		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
@@ -2630,10 +2645,271 @@ ad9081_fir_bin_write(struct file *filp, struct kobject *kobj,
 	return ad9081_parse_fir(phy, buf, count);
 }
 
+enum ad9081_debugfs_cmd {
+	DBGFS_NONE,
+	DBGFS_BIST_PRBS_JRX,
+	DBGFS_BIST_PRBS_JRX_ERR,
+	DBGFS_BIST_JRX_SPO_SET,
+	DBGFS_BIST_JRX_SPO_SWEEP,
+	DBGFS_BIST_PRBS_JTX,
+};
+
+static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
+	size_t count, loff_t *ppos)
+{
+	struct ad9081_debugfs_entry *entry = file->private_data;
+	struct iio_dev *indio_dev = entry->indio_dev;
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+	char buf[700];
+	u64 val = 0;
+	ssize_t len = 0;
+	int ret, i, j;
+
+	if (entry->out_value) {
+		switch (entry->size) {
+		case 1:
+			val = *(u8 *)entry->out_value;
+			break;
+		case 2:
+			val = *(u16 *)entry->out_value;
+			break;
+		case 4:
+			val = *(u32 *)entry->out_value;
+			break;
+		case 5:
+			val = *(bool *)entry->out_value;
+			break;
+		case 8:
+			val = *(u64 *)entry->out_value;
+			break;
+		default:
+			ret = -EINVAL;
+		}
+
+	} else if (entry->cmd) {
+		switch (entry->cmd) {
+		case DBGFS_BIST_PRBS_JRX_ERR:
+			mutex_lock(&indio_dev->mlock);
+			for (i = 0; i < phy->jesd_tx_link.jesd_param.jesd_l; i++) {
+				adi_ad9081_prbs_test_t prbs_rx_result;
+
+				for (j = 0; j < 8; j++)
+					if (phy->jesd_tx_link.logiclane_mapping[j] == i) {
+						ret = adi_ad9081_jesd_rx_phy_prbs_test_result_get(
+							&phy->ad9081, j, &prbs_rx_result);
+
+						len += snprintf(buf + len, sizeof(buf), "%u/%u ",
+							prbs_rx_result.phy_prbs_err_cnt,
+							prbs_rx_result.phy_prbs_pass);
+					}
+			}
+			mutex_unlock(&indio_dev->mlock);
+			len += snprintf(buf + len, sizeof(buf), "\n");
+			break;
+		case DBGFS_BIST_JRX_SPO_SWEEP:
+			len = snprintf(buf, sizeof(buf), "l:%u r:%u\n",
+				entry->val >> 16, entry->val & 0xFFFF);
+			break;
+		case DBGFS_BIST_JRX_SPO_SET:
+			len = snprintf(buf, sizeof(buf), "%d\n", (int) entry->val);
+			break;
+		default:
+			val = entry->val;
+		}
+	} else {
+		return -EFAULT;
+	}
+	if (!len)
+		len = snprintf(buf, sizeof(buf), "%llu\n", val);
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+static adi_ad9081_deser_mode_e
+ad9081_deserializer_mode_get(struct ad9081_jesd_link *txlink)
+{
+	return (txlink->jesd_param.jesd_jesdv == 1) ?
+		((txlink->lane_rate_kbps > 8000000UL) ?
+		AD9081_HALF_RATE : AD9081_FULL_RATE) :
+		((txlink->lane_rate_kbps  < 16230000UL) ?
+		AD9081_HALF_RATE : AD9081_QUART_RATE);
+}
+
+static int ad9081_val_to_prbs(int val)
+{
+	switch (val) {
+	case 0:
+		return PRBS_NONE;
+	case 7:
+		return PRBS7;
+	case 9:
+		return PRBS9;
+	case 15:
+		return PRBS15;
+	case 23:
+		return PRBS23;
+	case 31:
+		return PRBS31;
+	default:
+		return -EINVAL;
+	}
+};
+
+static ssize_t ad9081_debugfs_write(struct file *file,
+	const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	struct ad9081_debugfs_entry *entry = file->private_data;
+	struct iio_dev *indio_dev = entry->indio_dev;
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+	int val2, val3, val4, ret;
+	s64 val;
+	char buf[80];
+	u8 val_u8;
+
+	u8 lv, rv;
+
+	count = min_t(size_t, count, (sizeof(buf) - 1));
+	if (copy_from_user(buf, userbuf, count))
+		return -EFAULT;
+
+	buf[count] = 0;
+
+	ret = sscanf(buf, "%lli %i %i %i", &val, &val2, &val3, &val4);
+	if (ret < 1)
+		return -EINVAL;
+
+	switch (entry->cmd) {
+	case DBGFS_BIST_PRBS_JRX:
+		if (ret < 1)
+			return -EINVAL;
+		if (ret == 1)
+			val2 = 1; /* 1 second */
+
+		mutex_lock(&indio_dev->mlock);
+		if (val == 0)
+			adi_ad9081_jesd_rx_phy_prbs_test_disable_set(&phy->ad9081);
+		else
+			adi_ad9081_jesd_rx_phy_prbs_test(&phy->ad9081,
+				ad9081_val_to_prbs(val), val2);
+		entry->val = val;
+		mutex_unlock(&indio_dev->mlock);
+
+		return count;
+	case DBGFS_BIST_PRBS_JTX:
+		if (ret < 1)
+			return -EINVAL;
+
+		mutex_lock(&indio_dev->mlock);
+		if (val == 0)
+			adi_ad9081_jesd_tx_gen_test(&phy->ad9081,
+				AD9081_LINK_0,
+				AD9081_JESD_TX_TEST_DATA_SAMPLE,
+				AD9081_JESD_TX_TEST_MODE_DISABLED);
+		else
+			adi_ad9081_jesd_tx_phy_prbs_test(&phy->ad9081,
+				AD9081_LINK_0, ad9081_val_to_prbs(val));
+		entry->val = val;
+		mutex_unlock(&indio_dev->mlock);
+
+		return count;
+	case DBGFS_BIST_JRX_SPO_SET:
+		if (ret < 2)
+			return -EINVAL;
+
+		ret = adi_ad9081_jesd_rx_gen_2s_comp(&phy->ad9081, val2, 7,
+						     &val_u8);
+		if (ret)
+			return ret;
+		mutex_lock(&indio_dev->mlock);
+		ret = adi_ad9081_jesd_rx_spo_set(&phy->ad9081, val & 0x7, val_u8);
+		if (ret) {
+			mutex_unlock(&indio_dev->mlock);
+			return ret;
+		}
+
+		entry->val = val2;
+		mutex_unlock(&indio_dev->mlock);
+
+		return count;
+	case DBGFS_BIST_JRX_SPO_SWEEP:
+		if (ret < 2)
+			return -EINVAL;
+		if (ret == 2)
+			val3 = 1; /* 1 second */
+
+		mutex_lock(&indio_dev->mlock);
+		ret = adi_ad9081_jesd_rx_spo_sweep(&phy->ad9081, val & 0x7,
+				ad9081_val_to_prbs(val2),
+				ad9081_deserializer_mode_get(&phy->jesd_tx_link),
+				val3, &lv, &rv);
+		if (ret) {
+			mutex_unlock(&indio_dev->mlock);
+			return ret;
+		}
+
+		entry->val = lv << 16 | rv;
+		mutex_unlock(&indio_dev->mlock);
+
+		return count;
+	default:
+		break;
+	}
+
+	if (entry->out_value) {
+		switch (entry->size) {
+		case 1:
+			*(u8 *)entry->out_value = val;
+			break;
+		case 2:
+			*(u16 *)entry->out_value = val;
+			break;
+		case 4:
+			*(u32 *)entry->out_value = val;
+			break;
+		case 5:
+			*(bool *)entry->out_value = val;
+			break;
+		case 8:
+			*(u64 *)entry->out_value = val;
+			break;
+		default:
+			ret = -EINVAL;
+		}
+	}
+
+	return count;
+}
+
+static const struct file_operations ad9081_debugfs_reg_fops = {
+	.open = simple_open,
+	.read = ad9081_debugfs_read,
+	.write = ad9081_debugfs_write,
+};
+
+static void ad9081_add_debugfs_entry(struct iio_dev *indio_dev,
+				       const char *propname, unsigned int cmd)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+	unsigned int i = phy->ad9081_debugfs_entry_index;
+
+	if (WARN_ON(i >= ARRAY_SIZE(phy->debugfs_entry)))
+		return;
+
+	phy->debugfs_entry[i].indio_dev = indio_dev;
+	phy->debugfs_entry[i].propname = propname;
+	phy->debugfs_entry[i].cmd = cmd;
+
+	phy->ad9081_debugfs_entry_index++;
+}
+
 static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
+	int i;
 
 	if (iio_get_debugfs_dentry(indio_dev)) {
 		struct dentry *stats;
@@ -2644,6 +2920,25 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 		if (PTR_ERR_OR_ZERO(stats))
 			dev_err(&conv->spi->dev,
 				"Failed to create debugfs entry");
+
+		ad9081_add_debugfs_entry(indio_dev,
+			"bist_prbs_select_jrx", DBGFS_BIST_PRBS_JRX);
+		ad9081_add_debugfs_entry(indio_dev,
+			"bist_prbs_select_jtx", DBGFS_BIST_PRBS_JTX);
+		ad9081_add_debugfs_entry(indio_dev,
+			"bist_prbs_error_counters_jrx", DBGFS_BIST_PRBS_JRX_ERR);
+		ad9081_add_debugfs_entry(indio_dev,
+			"bist_spo_set_jrx", DBGFS_BIST_JRX_SPO_SET);
+		ad9081_add_debugfs_entry(indio_dev,
+			"bist_spo_sweep_jrx", DBGFS_BIST_JRX_SPO_SWEEP);
+
+		for (i = 0; i < phy->ad9081_debugfs_entry_index; i++)
+			stats = debugfs_create_file(
+				phy->debugfs_entry[i].propname, 0644,
+				iio_get_debugfs_dentry(indio_dev),
+				&phy->debugfs_entry[i],
+				&ad9081_debugfs_reg_fops);
+
 
 		debugfs_create_file_unsafe("dac-full-scale-current-ua", 0600,
 			iio_get_debugfs_dentry(indio_dev), indio_dev,
@@ -3235,6 +3530,8 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 
 	jesd204_copy_link_params(lnk, &link->jesd204_link);
 
+	jesd204_link_get_rate_khz(lnk, &link->lane_rate_kbps);
+
 	if (lnk->jesd_version == JESD204_VERSION_C)
 		lnk->jesd_encoder = JESD204_ENCODER_64B66B;
 	else
@@ -3254,16 +3551,15 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 	struct ad9081_phy *phy = priv->phy;
 	int ret;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (lnk->is_transmit && (reason == JESD204_STATE_OP_REASON_INIT) &&
 		(lnk->jesd_version == JESD204_VERSION_C)) {
-		unsigned long tx_lane_rate_kbps;
 
-		jesd204_link_get_rate_khz(lnk, &tx_lane_rate_kbps);
-
-		if ((tx_lane_rate_kbps > 16230000UL) &&
-			phy->jesd_tx_link.lane_rate != tx_lane_rate_kbps) {
+		if ((phy->jesd_tx_link.lane_rate_kbps > 16230000UL) &&
+			phy->jesd_tx_link.lane_cal_rate_kbps !=
+			phy->jesd_tx_link.lane_rate_kbps) {
 
 			ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
 				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
@@ -3271,7 +3567,8 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 			if (ret != 0)
 				return ret;
 
-			dev_info(dev, "running jesd_rx_calibrate_204c");
+			dev_info(dev, "running jesd_rx_calibrate_204c, LR %lu kbps",
+				phy->jesd_tx_link.lane_rate_kbps);
 
 			ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 0);
 			if (ret < 0)
@@ -3284,7 +3581,7 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 				return ret;
 		}
 
-		phy->jesd_tx_link.lane_rate = tx_lane_rate_kbps;
+		phy->jesd_tx_link.lane_cal_rate_kbps = phy->jesd_tx_link.lane_rate_kbps;
 	}
 
 	if (!lnk->is_transmit) {
