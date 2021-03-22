@@ -5587,7 +5587,21 @@ int32_t adi_ad9081_device_cbuspll_register_set(adi_ad9081_device_t *device,
 int32_t adi_ad9081_device_cbuspll_register_get(adi_ad9081_device_t *device,
 					       uint8_t addr, uint8_t *data);
 
+
 /*=====   E X T R A  L O W  L E V E L  A P I S   =====*/
+
+/* FIXME */
+int32_t adi_ad9081_jesd_tx_gen_test(adi_ad9081_device_t *device,
+			    adi_ad9081_jesd_link_select_e links,
+			    adi_ad9081_jesd_tx_test_data_src_e data_source,
+			    adi_ad9081_jesd_tx_test_mode_e test_mode);
+
+int32_t adi_ad9081_jesd_rx_gen_2s_comp(adi_ad9081_device_t *device,
+				       int8_t input_value, uint8_t bit_length,
+				       uint8_t *data);
+
+int32_t adi_ad9081_jesd_rx_spo_set(adi_ad9081_device_t *device, uint8_t lane,
+				   uint8_t spo);
 
 #ifdef __cplusplus
 }
