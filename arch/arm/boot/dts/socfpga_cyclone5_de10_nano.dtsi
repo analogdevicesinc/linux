@@ -188,7 +188,7 @@
 		gpio-controller;
 	};
 
-	altera_spi@0x00010A000 {
+	spi@0x00010A000 {
 		compatible = "altr,spi-18.1", "altr,spi-1.0";
 		reg = <0x0010a000 0x00000020>;
 		interrupt-parent = <&intc>;
