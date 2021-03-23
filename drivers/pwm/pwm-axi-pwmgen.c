@@ -135,7 +135,7 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 	pwm->chip.dev = &pdev->dev;
 	pwm->chip.ops = &axi_pwmgen_pwm_ops;
 	pwm->chip.npwm = 2;
-	pwm->chip.base = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_ID);
+	pwm->chip.base = -1;
 
 	ret = axi_pwmgen_setup(&pwm->chip);
 	if (ret < 0)
