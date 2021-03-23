@@ -18,6 +18,11 @@ allOf:
 properties:
   compatible:
     const: fsl,imx8qxp-sc-rtc
+  read-only:
+    description:
+      For some use cases, like cockpit, one cockpit domain owns it
+      while other domain is just a reader. Its needed to provide
+      /dev/rtc funtion for applications.
 
 required:
   - compatible

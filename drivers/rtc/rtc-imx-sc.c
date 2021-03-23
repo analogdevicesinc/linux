@@ -23,6 +23,7 @@
 
 static struct imx_sc_ipc *rtc_ipc_handle;
 static struct rtc_device *imx_sc_rtc;
+static bool readonly; /* true if not authorised to set time */
 
 struct imx_sc_msg_timer_get_rtc_time {
 	struct imx_sc_rpc_msg hdr;
@@ -64,6 +65,9 @@ static int imx_sc_rtc_read_time(struct device *dev, struct rtc_time *tm)
 static int imx_sc_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 	struct arm_smccc_res res;
+
+	if (readonly)
+		return 0;
 
 	/* pack 2 time parameters into 1 register, 16 bits for each */
 	arm_smccc_smc(IMX_SIP_SRTC, IMX_SIP_SRTC_SET_TIME,
@@ -160,6 +164,13 @@ static int imx_sc_rtc_probe(struct platform_device *pdev)
 		return ret;
 
 	imx_scu_irq_register_notifier(&imx_sc_rtc_alarm_sc_notifier);
+
+	if (of_property_read_bool(pdev->dev.of_node, "read-only")) {
+		readonly = true;
+		dev_info(&pdev->dev, "not allowed to change time\n");
+	} else {
+		readonly = false;
+	}
 
 	return 0;
 }
