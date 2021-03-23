@@ -1230,6 +1230,8 @@ static int spi_imx_dma_configure(struct spi_controller *controller)
 	tx.dst_addr = spi_imx->base_phys + MXC_CSPITXDATA;
 	tx.dst_addr_width = buswidth;
 	tx.dst_maxburst = spi_imx->wml;
+	tx.peripheral_config = NULL;
+	tx.peripheral_size = 0;
 	ret = dmaengine_slave_config(controller->dma_tx, &tx);
 	if (ret) {
 		dev_err(spi_imx->dev, "TX dma configuration failed with %d\n", ret);
@@ -1240,6 +1242,8 @@ static int spi_imx_dma_configure(struct spi_controller *controller)
 	rx.src_addr = spi_imx->base_phys + MXC_CSPIRXDATA;
 	rx.src_addr_width = buswidth;
 	rx.src_maxburst = spi_imx->wml;
+	rx.peripheral_config = NULL;
+	rx.peripheral_size = 0;
 	ret = dmaengine_slave_config(controller->dma_rx, &rx);
 	if (ret) {
 		dev_err(spi_imx->dev, "RX dma configuration failed with %d\n", ret);
