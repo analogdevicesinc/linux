@@ -84,7 +84,7 @@
 	clock-frequency = <100000>;
 	ltc2606: ltc2606@0 {
 		compatible = "adi,ltc2606";
-		reg = <0x10>;
+		reg = <16>;
 		vref-supply = <&vref>;
 	};
 };
