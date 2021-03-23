@@ -418,6 +418,16 @@ config STM32_EXTI
 	select IRQ_DOMAIN
 	select GENERIC_IRQ_CHIP
 
+config GIC_GENTLE_CONFIG
+	bool "GIC gentle configuration"
+	default n
+	depends on ARM_GIC_V3 && OF_IRQ
+	help
+	  If this flag is set, GIC driver will not disable SPIs and not
+	  change SPIs' affinity for interrupts that are not explicitly
+	  enabled in the device tree.
+	  Say 'n' if you're unsure.
+
 config QCOM_IRQ_COMBINER
 	bool "QCOM IRQ combiner support"
 	depends on ARCH_QCOM && ACPI
