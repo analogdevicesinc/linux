@@ -46,7 +46,7 @@
 		io-channels = <&ad7175 1>, <&ad7175 2>;
 	};
 
-	axi_spi_engine_0: axi-spi-engine@44a00000 {
+	axi_spi_engine_0: spi@44a00000 {
 		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
