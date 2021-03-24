@@ -2,13 +2,18 @@
 /*
  * AD8366 and similar Gain Amplifiers
  * This driver supports the following gain amplifiers:
- *   AD8366 Dual-Digital Variable Gain Amplifier (VGA)
- *   ADA4961 BiCMOS RF Digital Gain Amplifier (DGA)
- *   ADL5240 Digitally controlled variable gain amplifier (VGA)
- *   HMC271 1 dB LSB GaAs MMIC 5-BIT Control Digital Attenuator
- *   HMC1119 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator
+ *   AD8366: DC to 600 MHz, Dual-Digital Variable Gain Amplifiers
+ *   ADA4961: Low Distortion, 3.2 GHz, RF DGA
+ *   ADL5240: 100 MHz TO 4000 MHz RF/IF Digitally Controlled VGA
+ *   ADRF5720: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 9 kHz to 40 GHz
+ *   ADRF5730: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
+ *   ADRF5731: 2 dB LSB, 4-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
+ *   HMC271A: 1dB LSB 5-Bit Digital Attenuator SMT, 0.7 - 3.7 GHz
+ *   HMC1018A: 1.0 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
+ *   HMC1019A: 0.5 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
+ *   HMC1119: 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator, 0.1 GHz to 6.0 GHz
  *
- * Copyright 2012-2019 Analog Devices Inc.
+ * Copyright 2012-2021 Analog Devices Inc.
  */
 
 #include <linux/device.h>
@@ -29,7 +34,12 @@ enum ad8366_type {
 	ID_AD8366,
 	ID_ADA4961,
 	ID_ADL5240,
+	ID_ADRF5720,
+	ID_ADRF5730,
+	ID_ADRF5731,
 	ID_HMC271,
+	ID_HMC1018,
+	ID_HMC1019,
 	ID_HMC1119,
 };
 
@@ -43,6 +53,7 @@ struct ad8366_state {
 	struct regulator	*reg;
 	struct mutex            lock; /* protect sensor state */
 	struct gpio_desc	*reset_gpio;
+	struct gpio_desc	*enable_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
 	struct ad8366_info	*info;
@@ -66,8 +77,28 @@ static struct ad8366_info ad8366_infos[] = {
 		.gain_min = -11500,
 		.gain_max = 20000,
 	},
+	[ID_ADRF5720] = {
+		.gain_min = -31500,
+		.gain_max = 0,
+	},
+	[ID_ADRF5730] = {
+		.gain_min = -31500,
+		.gain_max = 0,
+	},
+	[ID_ADRF5731] = {
+		.gain_min = -30000,
+		.gain_max = 0,
+	},
 	[ID_HMC271] = {
 		.gain_min = -31000,
+		.gain_max = 0,
+	},
+	[ID_HMC1018] = {
+		.gain_min = -31000,
+		.gain_max = 0,
+	},
+	[ID_HMC1019] = {
+		.gain_min = -15500,
 		.gain_max = 0,
 	},
 	[ID_HMC1119] = {
@@ -94,11 +125,16 @@ static int ad8366_write(struct iio_dev *indio_dev,
 		st->data[0] = ch_a & 0x1F;
 		break;
 	case ID_ADL5240:
+	case ID_ADRF5720:
+	case ID_ADRF5730:
+	case ID_ADRF5731:
 		st->data[0] = (ch_a & 0x3F);
 		break;
 	case ID_HMC271:
 		st->data[0] = bitrev8(ch_a & 0x1F) >> 3;
 		break;
+	case ID_HMC1018:
+	case ID_HMC1019:
 	case ID_HMC1119:
 		st->data[0] = ch_a;
 		break;
@@ -136,8 +172,19 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 		case ID_ADL5240:
 			gain = 20000 - 31500 + code * 500;
 			break;
+		case ID_ADRF5720:
+		case ID_ADRF5730:
+			gain = -31500 + code * 500;
+			break;
+		case ID_ADRF5731:
+			gain = -30000 + code * 500;
+			break;
 		case ID_HMC271:
+		case ID_HMC1018:
 			gain = -31000 + code * 1000;
+			break;
+		case ID_HMC1019:
+			gain = -15500 + code * 500;
 			break;
 		case ID_HMC1119:
 			gain = -1 * code * 250;
@@ -188,8 +235,19 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 	case ID_ADL5240:
 		code = ((gain - 500 - 20000) / 500) & 0x3F;
 		break;
+	case ID_ADRF5720:
+	case ID_ADRF5730:
+		code = (abs(gain) / 500) & 0x3F;
+		break;
+	case ID_ADRF5731:
+		code = (abs(gain) / 500) & 0x3C;
+		break;
 	case ID_HMC271:
+	case ID_HMC1018:
 		code = ((gain - 1000) / 1000) & 0x1F;
+		break;
+	case ID_HMC1019:
+		code = ((gain - 500) / 500) & 0x1F;
 		break;
 	case ID_HMC1119:
 		code = (abs(gain) / 250) & 0x7F;
@@ -286,7 +344,14 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADL5240:
 	case ID_HMC271:
 	case ID_HMC1119:
+	case ID_ADRF5720:
+	case ID_ADRF5730:
+	case ID_ADRF5731:
+	case ID_HMC1018:
+	case ID_HMC1019:
 		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset",
+			GPIOD_OUT_HIGH);
+		st->enable_gpio = devm_gpiod_get(&spi->dev, "enable",
 			GPIOD_OUT_HIGH);
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
@@ -335,10 +400,15 @@ static int ad8366_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad8366_id[] = {
-	{"ad8366",  ID_AD8366},
+	{"ad8366", ID_AD8366},
 	{"ada4961", ID_ADA4961},
+	{"adrf5720", ID_ADRF5720},
+	{"adrf5730", ID_ADRF5730},
+	{"adrf5731", ID_ADRF5731},
 	{"adl5240", ID_ADL5240},
-	{"hmc271",  ID_HMC271},
+	{"hmc271", ID_HMC271},
+	{"hmc1018a", ID_HMC1018},
+	{"hmc1019a", ID_HMC1019},
 	{"hmc1119", ID_HMC1119},
 	{}
 };
