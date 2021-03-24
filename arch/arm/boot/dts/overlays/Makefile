@@ -164,6 +164,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-adxl345.dtbo \
 	rpi-adxl372.dtbo \
 	rpi-adxl375.dtbo \
+	rpi-adxrs290.dtbo \
 	rpi-ad5770r.dtbo \
 	rpi-ad5791.dtbo \
 	rpi-backlight.dtbo \
