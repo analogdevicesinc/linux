@@ -154,8 +154,14 @@
 #define ADF4355_2_MAX_OUT_FREQ		4400000000ULL /* Hz */
 #define ADF4355_2_MIN_OUT_FREQ		(ADF4355_2_MIN_VCO_FREQ / 64) /* Hz */
 
+/*
+ * FIXME: Register update sequence for fPFD > 75MHz not yet implemented
+ *	  Limtit max PFD to 75MHz for now.
+ *
+ * #define ADF5355_MAX_FREQ_PFD		125000000UL
+ */
 
-#define ADF5355_MAX_FREQ_PFD		125000000UL /* Hz */
+#define ADF5355_MAX_FREQ_PFD		75000000UL /* Hz */
 #define ADF5355_MAX_FREQ_REFIN		600000000UL /* Hz */
 #define ADF5355_MAX_MODULUS2		16384
 #define ADF5356_MAX_MODULUS2		268435456
