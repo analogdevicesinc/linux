@@ -743,7 +743,7 @@ static int _hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
 
 static int _hdmi_hdcp_enable(struct cdns_mhdp_device *mhdp)
 {
-	int i, ret = 0, tries = 9;
+	int i, ret = 0, tries = 9, tries14 = 50;
 	u8 hpd_sts;
 
 	hpd_sts = cdns_mhdp_read_hpd(mhdp);
@@ -771,7 +771,7 @@ static int _hdmi_hdcp_enable(struct cdns_mhdp_device *mhdp)
 		}
 	}
 
-	for (i = 0; i < tries; i++) {
+	for (i = 0; i < tries14; i++) {
 		if (mhdp->hdcp.config & HDCP_CONFIG_1_4) {
 			ret = hdmi_hdcp_auth(mhdp, HDCP_TX_1);
 			if (ret == 0)
