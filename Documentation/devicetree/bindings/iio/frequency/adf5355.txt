@@ -3,7 +3,10 @@ Analog Devices ADF5355/ADF4355 device driver
 Required properties:
 	- compatible: Should be one of
 		* "adi,adf5355": When using the ADF5355 device
+		* "adi,adf5356": When using the ADF5356 device
+		* "adi,adf4355": When using the ADF4355 device
 		* "adi,adf4355-2": When using the ADF4355-2 device
+		* "adi,adf4355-3": When using the ADF4355-3 device
 	- reg: SPI chip select numbert for the device
 	- spi-max-frequency: Max SPI frequency to use (< 20000000)
 	- clocks: From common clock binding. Clock is phandle to clock for
@@ -34,6 +37,8 @@ Optional properties:
 	- adi,charge-pump-negative-bleed-enable: Use of constant negative bleed.
 			(recommended for most fractional-N applications)
 	- adi,charge-pump-gated-bleed-enable: Enables gated bleed.
+	- adi,charge-pump-bleed-current-polarity-enable: Sets the polarity of
+			the charge pump bleed current.
 	- adi,muxout-select: On chip multiplexer output selection.
 			Valid values for the multiplexer output are:
 			0: Three-State Output (default)
