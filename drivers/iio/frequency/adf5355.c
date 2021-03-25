@@ -257,7 +257,7 @@ static int adf5355_sync_config(struct adf5355_state *st, bool sync_all)
 
 	if (sync_all || !st->all_synced) {
 		for (i = st->is_5356 ? ADF5356_REG13 : ADF5355_REG12;
-			i >= ADF5355_REG0; i--) {
+			i >= ADF5355_REG1; i--) {
 			ret = adf5355_spi_write(st, st->regs[i] | i);
 			if (ret < 0)
 				return ret;
@@ -289,15 +289,11 @@ static int adf5355_sync_config(struct adf5355_state *st, bool sync_all)
 		ret = adf5355_spi_write(st, st->regs[4] | 4);
 		if (ret < 0)
 			return ret;
-
-		udelay(st->delay_us);
-
-		ret = adf5355_spi_write(st, st->regs[0]);
-		if (ret < 0)
-			return ret;
 	}
 
-	return 0;
+	udelay(st->delay_us);
+
+	return adf5355_spi_write(st, st->regs[0]);
 }
 
 static int adf5355_reg_access(struct iio_dev *indio_dev,
