@@ -26,8 +26,8 @@
  *			If not used - set to -1.
  * @outa_en: 		Enables or disables the primary RF output
  * @outb_en: 		Enables or disables the auxiliary/high RF output
- * @outa_power		Set the value of the primary RF output power level
- * @outb_power		Set the value of the auxiliary/high RF output power level
+ * @outa_power:		Set the value of the primary RF output power level
+ * @outb_power:		Set the value of the auxiliary/high RF output power level
  * @mute_till_lock_detect_en: If enabled, the supply current to the RF
 			output stage is shut down until the device achieves lock,
 			as determined by the digital lock detect circuitry.
@@ -38,6 +38,7 @@
  * @cp_neg_bleed_en:	Use of constant negative bleed. (recommended for most
  *			fractional-N applications)
  * @cp_gated_bleed_en:  Enables gated bleed.
+ * @cp_bleed_current_polarity_en: Sets the polarity of the charge pump bleed current.
  * @cp_curr_uA:		Set the charge pump current in uA. Set this value to
  * 			the charge pump current that the loop
  *			filter is designed with. For the lowest spurs, the
@@ -67,6 +68,7 @@
 	u32			cp_curr_uA;
 	bool			cp_neg_bleed_en;
 	bool			cp_gated_bleed_en;
+	bool			cp_bleed_current_polarity_en;
 	bool			phase_detector_polarity_neg;
 
 	bool			mute_till_lock_detect_en;
