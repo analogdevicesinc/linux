@@ -36,6 +36,10 @@
 	compatible = "fsl,imx6ull-ocotp", "syscon";
 };
 
+&gpc {
+	fsl,mf-mix-wakeup-irq = <0xfc00000 0x7d00 0x0 0x1400640>;
+};
+
 &pxp {
 	compatible = "fsl,imx6ull-pxp-dma", "fsl,imx7d-pxp-dma";
 	interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
