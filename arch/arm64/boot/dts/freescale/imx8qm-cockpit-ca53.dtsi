@@ -1,0 +1,429 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2018 NXP
+ *	Dong Aisheng <aisheng.dong@nxp.com>
+ */
+
+#include <dt-bindings/clock/imx8-clock.h>
+#include <dt-bindings/firmware/imx/rsrc.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/pads-imx8qm.h>
+#include <dt-bindings/soc/imx8_hsio.h>
+#include <dt-bindings/thermal/thermal.h>
+
+/ {
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	aliases {
+		ethernet0 = &fec1;
+		mmc1 = &usdhc2;
+		mmc2 = &usdhc3;
+		serial0 = &lpuart0;
+		serial3 = &lpuart3;
+		mu1 = &lsio_mu1;
+		mu8 = &lsio_mu8;
+		can0 = &flexcan1;
+		can1 = &flexcan2;
+		can2 = &flexcan3;
+		dpu0 = &dpu1;
+		ldb0 = &ldb1;
+		i2c0 = &i2c_rpbus_0;
+		i2c1 = &i2c_rpbus_1;
+		dphy0 = &mipi0_dphy;
+		mipi_dsi0 = &mipi0_dsi_host;
+	};
+
+	cpus: cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&A53_0>;
+				};
+				core1 {
+					cpu = <&A53_1>;
+				};
+				core2 {
+					cpu = <&A53_2>;
+				};
+				core3 {
+					cpu = <&A53_3>;
+				};
+			};
+		};
+
+		A53_0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53", "arm,armv8";
+			reg = <0x0 0x0>;
+			clocks = <&clk IMX_SC_R_A53 IMX_SC_PM_CLK_CPU>;
+			enable-method = "psci";
+			next-level-cache = <&A53_L2>;
+			operating-points-v2 = <&a53_opp_table>;
+			#cooling-cells = <2>;
+		};
+
+		A53_1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53", "arm,armv8";
+			reg = <0x0 0x1>;
+			clocks = <&clk IMX_SC_R_A53 IMX_SC_PM_CLK_CPU>;
+			enable-method = "psci";
+			next-level-cache = <&A53_L2>;
+			operating-points-v2 = <&a53_opp_table>;
+			#cooling-cells = <2>;
+		};
+
+		A53_2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53", "arm,armv8";
+			reg = <0x0 0x2>;
+			clocks = <&clk IMX_SC_R_A53 IMX_SC_PM_CLK_CPU>;
+			enable-method = "psci";
+			next-level-cache = <&A53_L2>;
+			operating-points-v2 = <&a53_opp_table>;
+			#cooling-cells = <2>;
+		};
+
+		A53_3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53", "arm,armv8";
+			reg = <0x0 0x3>;
+			clocks = <&clk IMX_SC_R_A53 IMX_SC_PM_CLK_CPU>;
+			enable-method = "psci";
+			next-level-cache = <&A53_L2>;
+			operating-points-v2 = <&a53_opp_table>;
+			#cooling-cells = <2>;
+		};
+
+		A53_L2: l2-cache0 {
+			compatible = "cache";
+		};
+	};
+
+	a53_opp_table: a53-opp-table {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			opp-microvolt = <900000>;
+			clock-latency-ns = <150000>;
+		};
+
+		opp-900000000 {
+			opp-hz = /bits/ 64 <900000000>;
+			opp-microvolt = <1000000>;
+			clock-latency-ns = <150000>;
+		};
+
+		opp-1104000000 {
+			opp-hz = /bits/ 64 <1104000000>;
+			opp-microvolt = <1100000>;
+			clock-latency-ns = <150000>;
+		};
+
+		opp-1200000000 {
+			opp-hz = /bits/ 64 <1200000000>;
+			opp-microvolt = <1100000>;
+			clock-latency-ns = <150000>;
+			opp-suspend;
+		};
+	};
+
+	gic: interrupt-controller@51a00000 {
+		compatible = "arm,gic-v3";
+		reg = <0x0 0x51a00000 0 0x10000>, /* GIC Dist */
+		      <0x0 0x51b00000 0 0xC0000>, /* GICR */
+		      <0x0 0x52000000 0 0x2000>,  /* GICC */
+		      <0x0 0x52010000 0 0x1000>,  /* GICH */
+		      <0x0 0x52020000 0 0x20000>; /* GICV */
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>, /* Physical Non-Secure */
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>, /* Virtual */
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>; /* Hypervisor */
+	};
+
+	clk_dummy: clock-dummy {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dummy";
+	};
+
+	xtal32k: clock-xtal32k {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		clock-output-names = "xtal_32KHz";
+	};
+
+	xtal24m: clock-xtal24m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "xtal_24MHz";
+	};
+
+	smmu: iommu@51400000 {
+		compatible = "arm,mmu-500";
+		interrupt-parent = <&gic>;
+		reg = <0 0x51400000 0 0x40000>;
+		#global-interrupts = <1>;
+		#iommu-cells = <2>;
+		interrupts = <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>,
+			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>;
+		status = "disabled";
+	};
+
+	scu {
+		compatible = "fsl,imx-scu";
+		mbox-names = "tx0",
+			     "rx0",
+			     "gip3";
+		mboxes = <&lsio_mu1 0 0
+			  &lsio_mu1 1 0
+			  &lsio_mu1 3 3>;
+
+		pd: imx8qx-pd {
+			compatible = "fsl,imx8qm-scu-pd", "fsl,scu-pd";
+			#power-domain-cells = <1>;
+			wakeup-irq = <235 236 237 258 262 267 271
+				      345 346 347 348>;
+		};
+
+		clk: clock-controller {
+			compatible = "fsl,imx8qm-clk", "fsl,scu-clk";
+			#clock-cells = <2>;
+			clocks = <&xtal32k &xtal24m>;
+			clock-names = "xtal_32KHz", "xtal_24Mhz";
+		};
+
+		iomuxc: pinctrl {
+			compatible = "fsl,imx8qm-iomuxc";
+		};
+
+		ocotp: imx8qm-ocotp {
+			compatible = "fsl,imx8qm-scu-ocotp";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			read-only;
+
+			fec_mac0: mac@1c4 {
+				reg = <0x1c4 6>;
+			};
+
+			fec_mac1: mac@1c6 {
+				reg = <0x1c6 6>;
+			};
+		};
+
+		rtc: rtc {
+			compatible = "fsl,imx8qm-sc-rtc";
+		};
+
+		watchdog {
+			compatible = "fsl,imx8qm-sc-wdt", "fsl,imx-sc-wdt";
+			timeout-sec = <60>;
+		};
+
+		tsens: thermal-sensor {
+			compatible = "fsl,imx8qm-sc-thermal";
+			tsens-num = <4>;
+			#thermal-sensor-cells = <1>;
+		};
+	};
+
+	thermal_zones: thermal-zones {
+		cpu-thermal0 {
+			polling-delay-passive = <250>;
+			polling-delay = <2000>;
+			thermal-sensors = <&tsens IMX_SC_R_A53>;
+			trips {
+				cpu_alert0: trip0 {
+					temperature = <107000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				cpu_crit0: trip1 {
+					temperature = <127000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device =
+					<&A53_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&A53_1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&A53_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&A53_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		gpu-thermal0 {
+			polling-delay-passive = <250>;
+			polling-delay = <2000>;
+			thermal-sensors = <&tsens IMX_SC_R_GPU_0_PID0>;
+			trips {
+				gpu_alert0: trip0 {
+					temperature = <107000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				gpu_crit0: trip1 {
+					temperature = <127000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+		};
+
+		drc-thermal0 {
+			polling-delay-passive = <250>;
+			polling-delay = <2000>;
+			thermal-sensors = <&tsens IMX_SC_R_DRC_0>;
+			trips {
+				drc_alert0: trip0 {
+					temperature = <107000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				drc_crit0: trip1 {
+					temperature = <127000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+		};
+	};
+
+	rpmsg0: rpmsg0{
+		compatible = "fsl,imx8qm-rpmsg";
+		/* up to now, the following channels are used in imx rpmsg
+		 * - tx1/rx1: messages channel.
+		 * - general interrupt1: remote proc finish re-init rpmsg stack
+		 *   when A core is partition reset.
+		 */
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&lsio_mu5 0 1
+			  &lsio_mu5 1 1
+			  &lsio_mu5 3 1>;
+		mub-partition = <5>;
+		status = "disabled";
+	};
+
+	rpmsg1: rpmsg1{
+		compatible = "fsl,imx8qm-rpmsg";
+		/* up to now, the following channels are used in imx rpmsg
+		 * - tx1/rx1: messages channel.
+		 * - general interrupt1: remote proc finish re-init rpmsg stack
+		 *   when A core is partition reset.
+		 */
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&lsio_mu6 0 1
+			  &lsio_mu6 1 1
+			  &lsio_mu6 3 1>;
+		mub-partition = <6>;
+		status = "disabled";
+	};
+
+	imx_shmem_net: imx_shmem_net {
+		compatible = "fsl,imx-shmem-net";
+		mub-partition = <3>;
+		mbox-names = "tx", "rx";
+		mboxes = <&lsio_mu8 0 1
+			  &lsio_mu8 1 1>;
+		status = "disabled";
+	};
+
+	sc_pwrkey: sc-powerkey {
+		compatible = "fsl,imx8-pwrkey";
+		linux,keycode = <KEY_POWER>;
+		wakeup-source;
+	};
+
+	vpu_subsys_dsp: bus@55000000 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x55000000 0x0 0x55000000 0x1000000>;
+
+		dsp: dsp@556e8000 {
+			compatible = "fsl,imx8qm-dsp";
+			reg = <0x556e8000 0x88000>;
+			clocks = <&clk_dummy>,
+				 <&clk_dummy>,
+				 <&clk_dummy>;
+			clock-names = "ipg", "ocram", "core";
+			fsl,dsp-firmware = "imx/dsp/hifi4.bin";
+			power-domains = <&pd IMX_SC_R_MU_13A>,
+					<&pd IMX_SC_R_MU_13B>,
+					<&pd IMX_SC_R_DSP>,
+					<&pd IMX_SC_R_DSP_RAM>;
+			memory-region = <&dsp_reserved>;
+			fixup-offset = <0x4000000>;
+			status = "disabled";
+		};
+	};
+
+	/* sorted in register address */
+	#include "imx8-ss-security.dtsi"
+	#include "imx8-ss-cm41.dtsi"
+	#include "imx8-ss-adma.dtsi"
+	#include "imx8-ss-conn.dtsi"
+	#include "imx8-ss-ddr.dtsi"
+	#include "imx8-ss-lsio.dtsi"
+	#include "imx8-ss-hsio.dtsi"
+	#include "imx8-ss-img.dtsi"
+	#include "imx8-ss-dc0.dtsi"
+	#include "imx8-ss-dc1.dtsi"
+	#include "imx8-ss-gpu0.dtsi"
+	#include "imx8-ss-gpu1.dtsi"
+	#include "imx8-ss-vpu.dtsi"
+};
+
+#include "imx8qm-ss-audio.dtsi"
+#include "imx8qm-ss-dma.dtsi"
+#include "imx8qm-ss-conn.dtsi"
+#include "imx8qm-ss-ddr.dtsi"
+#include "imx8qm-ss-lsio.dtsi"
+#include "imx8qm-ss-hsio.dtsi"
+#include "imx8qm-ss-dc.dtsi"
+#include "imx8qm-ss-lvds.dtsi"
+#include "imx8qm-ss-mipi.dtsi"
+#include "imx8qm-ss-hdmi.dtsi"
+#include "imx8qm-ss-img.dtsi"
+#include "imx8qm-ss-gpu.dtsi"
