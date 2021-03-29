@@ -71,7 +71,7 @@ static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 			     const struct pwm_state *state)
 {
-	unsigned long tmp, clk_rate, period_cnt, duty_cnt;
+	unsigned long tmp, clk_rate, period_cnt, duty_cnt, offset_cnt;
 	unsigned int ch = device->hwpwm;
 	struct axi_pwmgen *pwm;
 
@@ -92,6 +92,11 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 	tmp *= state->duty_cycle;
 	duty_cnt = DIV_ROUND_UP(tmp, USEC_PER_SEC);
 	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(ch), duty_cnt);
+
+	tmp = DIV_ROUND_CLOSEST(clk_rate, NSEC_PER_USEC);
+	tmp *= state->offset;
+	offset_cnt = DIV_ROUND_UP(tmp, USEC_PER_SEC);
+	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_OFFSET(ch), state->offset ? offset_cnt : 0);
 
 	/* Apply the new config */
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
