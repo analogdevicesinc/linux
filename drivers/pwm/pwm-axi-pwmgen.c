@@ -19,9 +19,13 @@
 #define AXI_PWMGEN_REG_SCRATCHPAD	0x08
 #define AXI_PWMGEN_REG_CORE_MAGIC	0x0C
 #define AXI_PWMGEN_REG_CONFIG		0x10
-#define AXI_PWMGEN_REG_PULSE_PERIOD	0x14
-#define AXI_PWMGEN_REG_PULSE_WIDTH	0x18
-
+#define AXI_PWMGEN_REG_NPWM		0x14
+#define AXI_PWMGEN_CH_PERIOD_BASE	0x40
+#define AXI_PWMGEN_CH_DUTY_BASE		0x44
+#define AXI_PWMGEN_CH_OFFSET_BASE	0x48
+#define AXI_PWMGEN_CHX_PERIOD(ch)	(AXI_PWMGEN_CH_PERIOD_BASE + (12 * (ch)))
+#define AXI_PWMGEN_CHX_DUTY(ch)		(AXI_PWMGEN_CH_DUTY_BASE + (12 * (ch)))
+#define AXI_PWMGEN_CHX_OFFSET(ch)	(AXI_PWMGEN_CH_OFFSET_BASE + (12 * (ch)))
 #define AXI_PWMGEN_TEST_DATA		0x5A0F0081
 #define AXI_PWMGEN_LOAD_CONIG		BIT(1)
 #define AXI_PWMGEN_RESET		BIT(0)
@@ -30,8 +34,9 @@ struct axi_pwmgen {
 	struct pwm_chip		chip;
 	struct clk		*clk;
 	void __iomem		*base;
-	unsigned int		pwm_period;
-	unsigned int		pwm_width;
+
+	/* Used to store the period when the channel is disabled */
+	unsigned int		ch_period[4];
 };
 
 static inline unsigned int axi_pwmgen_read(struct axi_pwmgen *pwm,
@@ -67,21 +72,26 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 			     const struct pwm_state *state)
 {
 	unsigned long tmp, clk_rate, period_cnt, duty_cnt;
+	unsigned int ch = device->hwpwm;
 	struct axi_pwmgen *pwm;
 
 	pwm = to_axi_pwmgen(chip);
 	clk_rate = clk_get_rate(pwm->clk);
 
 	/* Downscale by 1000 in order to avoid overflow when multiplying */
-	tmp = (clk_rate / NSEC_PER_USEC) * state->period;
+	tmp = DIV_ROUND_CLOSEST(clk_rate, NSEC_PER_USEC);
+	tmp *= state->period;
 	period_cnt = DIV_ROUND_UP(tmp, USEC_PER_SEC);
+	pwm->ch_period[ch] = period_cnt;
 	/* The register is 0 based */
-	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_PULSE_PERIOD, period_cnt - 1);
+	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PERIOD(ch),
+		state->enabled ? (pwm->ch_period[ch] - 1) : 0);
 
 	/* Downscale by 1000 */
-	tmp = (clk_rate / NSEC_PER_USEC) * state->duty_cycle;
+	tmp = DIV_ROUND_CLOSEST(clk_rate, NSEC_PER_USEC);
+	tmp *= state->duty_cycle;
 	duty_cnt = DIV_ROUND_UP(tmp, USEC_PER_SEC);
-	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_PULSE_WIDTH, duty_cnt);
+	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(ch), duty_cnt);
 
 	/* Apply the new config */
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
@@ -89,8 +99,30 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 	return 0;
 }
 
+static void axi_pwmgen_disable(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	unsigned int ch = pwm->hwpwm;
+	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
+
+	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(ch), 0);
+	axi_pwmgen_write(pwmgen, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
+}
+
+static int axi_pwmgen_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	unsigned int ch = pwm->hwpwm;
+	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
+
+	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(ch), pwmgen->ch_period[ch]);
+	axi_pwmgen_write(pwmgen, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
+
+	return 0;
+}
+
 static const struct pwm_ops axi_pwmgen_pwm_ops = {
 	.apply = axi_pwmgen_apply,
+	.disable = axi_pwmgen_disable,
+	.enable = axi_pwmgen_enable,
 	.owner = THIS_MODULE,
 };
 
@@ -106,6 +138,7 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 {
 	struct axi_pwmgen *pwm;
 	unsigned int reg;
+	int idx;
 
 	pwm = to_axi_pwmgen(chip);
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_SCRATCHPAD, AXI_PWMGEN_TEST_DATA);
@@ -115,7 +148,19 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 		return -EIO;
 	}
 
-	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_RESET);
+	pwm->chip.npwm = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_NPWM);
+	if (pwm->chip.npwm > 4)
+		return -EINVAL;
+
+	/* Disable all the outputs */
+	for (idx = 0; idx < pwm->chip.npwm; idx++) {
+		axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PERIOD(idx), 0);
+		axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(idx), 0);
+		axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_OFFSET(idx), 0);
+	}
+
+	/* Enable the core */
+	axi_pwmgen_write_mask(pwm, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_RESET, 0);
 
 	return 0;
 }
@@ -145,7 +190,6 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 
 	pwm->chip.dev = &pdev->dev;
 	pwm->chip.ops = &axi_pwmgen_pwm_ops;
-	pwm->chip.npwm = 2;
 	pwm->chip.base = -1;
 
 	ret = axi_pwmgen_setup(&pwm->chip);
