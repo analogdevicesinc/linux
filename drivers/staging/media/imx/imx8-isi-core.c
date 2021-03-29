@@ -641,7 +641,7 @@ static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 
 	match = soc_device_match(data);
 	if (!match)
-		return -EINVAL;
+		return -EPROBE_DEFER;
 
 	mxc_isi->buf_active_reverse = false;
 
