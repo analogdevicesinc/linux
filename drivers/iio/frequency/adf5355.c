@@ -269,6 +269,9 @@ static int adf5355_sync_config(struct adf5355_state *st, bool sync_all)
 			if (ret < 0)
 				return ret;
 		}
+		ret = adf5355_spi_write(st, st->regs[10] | 10);
+		if (ret < 0)
+			return ret;
 		ret = adf5355_spi_write(st, st->regs[6] | 6);
 		if (ret < 0)
 			return ret;
