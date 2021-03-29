@@ -104,7 +104,7 @@ struct mxc_hdmi_rx_info {
 struct mxc_sensor_info {
 	int				id;
 	struct v4l2_subdev		*sd;
-	struct v4l2_async_subdev asd;
+	struct fwnode_handle *fwnode;
 	bool mipi_mode;
 };
 
@@ -570,7 +570,7 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 
 	/* Find platform data for this sensor subdev */
 	for (i = 0; i < ARRAY_SIZE(mxc_md->sensor); i++) {
-		if (mxc_md->sensor[i].asd.match.fwnode ==
+		if (mxc_md->sensor[i].fwnode ==
 		    of_fwnode_handle(sd->dev->of_node)) {
 			sensor = &mxc_md->sensor[i];
 		}
@@ -954,6 +954,7 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 	struct device_node *node, *ep, *rem;
 	struct v4l2_fwnode_endpoint endpoint;
 	struct i2c_client *client;
+	struct v4l2_async_subdev *asd;
 	int index = 0;
 	int ret;
 
@@ -964,10 +965,11 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 		struct device_node *port;
 
 		if (!of_node_cmp(node->name, HDMI_RX_OF_NODE_NAME)) {
-			mxc_md->sensor[index].asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-			mxc_md->sensor[index].asd.match.fwnode = of_fwnode_handle(node);
-			v4l2_async_notifier_add_subdev(&mxc_md->subdev_notifier,
-						&mxc_md->sensor[index].asd);
+			mxc_md->sensor[index].fwnode = of_fwnode_handle(node);
+				v4l2_async_nf_add_fwnode(
+						&mxc_md->subdev_notifier,
+						mxc_md->sensor[index].fwnode,
+						struct v4l2_async_subdev);
 			mxc_md->num_sensors++;
 			index++;
 			continue;
@@ -1024,10 +1026,16 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 			return -EPROBE_DEFER;
 		}
 
-		mxc_md->sensor[index].asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-		mxc_md->sensor[index].asd.match.fwnode = of_fwnode_handle(rem);
-		v4l2_async_notifier_add_subdev(&mxc_md->subdev_notifier,
-					       &mxc_md->sensor[index].asd);
+		mxc_md->sensor[index].fwnode = of_fwnode_handle(rem);
+		asd = v4l2_async_nf_add_fwnode(
+						&mxc_md->subdev_notifier,
+						mxc_md->sensor[index].fwnode,
+						struct v4l2_async_subdev);
+		if (IS_ERR(asd)) {
+			v4l2_info(&mxc_md->v4l2_dev, "Can't find async subdev\n");
+			return PTR_ERR(asd);
+		}
+
 		mxc_md->num_sensors++;
 
 		index++;
@@ -1073,7 +1081,7 @@ static int mxc_md_probe(struct platform_device *pdev)
 		goto clean_md;
 	}
 
-	v4l2_async_notifier_init(&mxc_md->subdev_notifier);
+	v4l2_async_nf_init(&mxc_md->subdev_notifier);
 	ret = mxc_md_register_platform_entities(mxc_md, dev->of_node);
 	if (ret < 0)
 		goto clean_v4l2;
@@ -1087,7 +1095,7 @@ static int mxc_md_probe(struct platform_device *pdev)
 		mxc_md->valid_num_sensors = 0;
 		mxc_md->link_status = 0;
 
-		ret = v4l2_async_notifier_register(&mxc_md->v4l2_dev,
+		ret = v4l2_async_nf_register(&mxc_md->v4l2_dev,
 						   &mxc_md->subdev_notifier);
 		if (ret < 0) {
 			dev_warn(&mxc_md->pdev->dev, "Sensor register failed\n");
@@ -1126,7 +1134,8 @@ static int mxc_md_remove(struct platform_device *pdev)
 	if (!mxc_md)
 		return 0;
 
-	v4l2_async_notifier_unregister(&mxc_md->subdev_notifier);
+	v4l2_async_nf_cleanup(&mxc_md->subdev_notifier);
+	v4l2_async_nf_unregister(&mxc_md->subdev_notifier);
 
 	v4l2_device_unregister(&mxc_md->v4l2_dev);
 	mxc_md_unregister_entities(mxc_md);
