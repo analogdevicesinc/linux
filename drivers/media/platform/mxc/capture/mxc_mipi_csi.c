@@ -286,9 +286,8 @@ struct csi_state {
 	struct csis_pktbuf pkt_buf;
 	struct mipi_csis_event events[MIPI_CSIS_NUM_EVENTS];
 
-	struct v4l2_async_subdev    asd;
+	struct fwnode_handle *fwnode;
 	struct v4l2_async_notifier  subdev_notifier;
-	struct v4l2_async_subdev    *async_subdevs[2];
 
 	struct csis_hw_reset hw_reset;
 	struct regulator     *mipi_phy_regulator;
@@ -930,7 +929,7 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct csi_state *state = notifier_to_mipi_dev(notifier);
 
 	/* Find platform data for this sensor subdev */
-	if (state->asd.match.fwnode == dev_fwnode(subdev->dev))
+	if (state->fwnode == dev_fwnode(subdev->dev))
 		state->sensor_sd = subdev;
 
 	if (subdev == NULL)
@@ -989,6 +988,7 @@ static int mipi_csis_subdev_host(struct csi_state *state)
 {
 	struct device_node *parent = state->dev->of_node;
 	struct device_node *node, *port, *rem;
+	struct v4l2_async_subdev *asd;
 	int ret;
 
 	v4l2_async_notifier_init(&state->subdev_notifier);
@@ -1011,21 +1011,22 @@ static int mipi_csis_subdev_host(struct csi_state *state)
 			return -1;
 		}
 
-		INIT_LIST_HEAD(&state->asd.list);
-		state->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-		state->asd.match.fwnode = of_fwnode_handle(rem);
-		state->async_subdevs[0] = &state->asd;
+		state->fwnode = of_fwnode_handle(rem);
+		asd = v4l2_async_notifier_add_fwnode_subdev(
+						&state->subdev_notifier,
+						state->fwnode,
+						struct v4l2_async_subdev);
+		if (IS_ERR(asd)) {
+			of_node_put(rem);
+			dev_err(state->dev, "failed to add subdev to a notifier\n");
+			return PTR_ERR(asd);
+		}
 
 		of_node_put(rem);
 		break;
 	}
 
-	ret = v4l2_async_notifier_add_subdev(&state->subdev_notifier,
-					&state->asd);
-	if (ret) {
-		dev_err(state->dev, "failed to add subdev to a notifier\n");
-		return ret;
-	}
+
 	state->subdev_notifier.v4l2_dev = &state->v4l2_dev;
 	state->subdev_notifier.ops = &mxc_mipi_csi_subdev_ops;
 
@@ -1272,6 +1273,7 @@ static int mipi_csis_remove(struct platform_device *pdev)
 	struct csi_state *state = platform_get_drvdata(pdev);
 
 	v4l2_async_unregister_subdev(&state->mipi_sd);
+	v4l2_async_notifier_cleanup(&state->subdev_notifier);
 	v4l2_async_notifier_unregister(&state->subdev_notifier);
 	v4l2_device_unregister(&state->v4l2_dev);
 
