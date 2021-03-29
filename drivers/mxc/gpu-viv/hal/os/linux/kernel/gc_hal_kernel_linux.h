@@ -171,6 +171,10 @@
 #define current_mm_mmap_sem current->mm->mmap_sem
 #endif
 
+#ifndef untagged_addr
+#define untagged_addr(addr) (addr)
+#endif
+
 extern struct device *galcore_device;
 
 /******************************************************************************\

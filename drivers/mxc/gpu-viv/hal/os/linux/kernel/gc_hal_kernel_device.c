@@ -1449,7 +1449,24 @@ static int _set_clk(const char* buf)
 
 static int gc_clk_write(const char __user *buf, size_t count, void* data)
 {
-    _set_clk(buf);
+    size_t ret;
+    char _buf[100];
+
+    memset((void*)_buf, 0, 100);
+
+    if (count > 100)
+    {
+        printk("Error: input buffer too large\n");
+    }
+
+    ret = copy_from_user(_buf, buf, count);
+    if (ret != 0)
+    {
+        printk("Error: lost data: %d\n", (int)ret);
+        return ret;
+    }
+
+    _set_clk(_buf);
 
     return count;
 }
@@ -2234,11 +2251,6 @@ gckGALDEVICE_Construct(
                 Args->gpu3DMinClock
                 ));
 #endif
-
-            gcmkONERROR(gckHARDWARE_SetGpuProfiler(
-                device->kernels[i]->hardware,
-                Args->gpuProfiler
-                ));
         }
         else
         {

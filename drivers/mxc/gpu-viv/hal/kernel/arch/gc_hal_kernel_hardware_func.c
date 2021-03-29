@@ -3760,7 +3760,7 @@ _FuncInit_MMU(IN gcsFUNCTION_EXECUTION_PTR Execution)
     mode = gcvMMU_MODE_4K;
 #endif
 
-    flags |= gcvALLOC_FLAG_4GB_ADDR;
+    flags |= gcvALLOC_FLAG_4GB_ADDR | gcvALLOC_FLAG_4K_PAGES;
 
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
     flags |= gcvALLOC_FLAG_CACHEABLE;

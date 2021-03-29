@@ -127,7 +127,11 @@ extern "C" {
 
 #if defined(ANDROID) && defined(__BIONIC_FORTIFY)
 #if defined(__clang__)
-#       define gcmINLINE            __inline__ __attribute__ ((always_inline)) __attribute__ ((gnu_inline))
+#if (__clang_major__ >= 10)
+#           define gcmINLINE            __inline__ __attribute__ ((always_inline))
+#       else
+#           define gcmINLINE            __inline__ __attribute__ ((always_inline)) __attribute__ ((gnu_inline))
+#       endif
 #   else
 #       define gcmINLINE            __inline__ __attribute__ ((always_inline)) __attribute__ ((gnu_inline)) __attribute__ ((artificial))
 #   endif

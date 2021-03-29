@@ -872,6 +872,16 @@ typedef struct _gcsPROBESTATES
     gctUINT32                   probeAddress;
 }gcsPROBESTATES;
 
+typedef struct _gckPROFILER
+{
+    /* Profile mode */
+    gceProfilerMode             profileMode;
+    /* Enable profiling */
+    gctBOOL                     profileEnable;
+    /* Clear profile register or not*/
+    gctBOOL                     profileCleanRegister;
+}gckPROFILER;
+
 /* Construct a Profiler object per context. */
 gceSTATUS
 gcoPROFILER_Construct(

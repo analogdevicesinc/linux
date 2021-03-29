@@ -1795,16 +1795,6 @@ _SetHardwareOptions(
         options->powerManagement = gcvTRUE;
     }
 
-    /* Disable profiler by default */
-    status = gckOS_QueryOption(Hardware->os, "gpuProfiler", &data);
-    options->gpuProfiler = (data != 0);
-
-    if (status == gcvSTATUS_NOT_SUPPORTED)
-    {
-        /* Disable profiler by default */
-        options->gpuProfiler= gcvFALSE;
-    }
-
     status = gckOS_QueryOption(Hardware->os, "mmu", &data);
     options->enableMMU = (data != 0);
 
@@ -8889,12 +8879,44 @@ gckHARDWARE_SetGpuProfiler(
                                   + 0x00100,
                                   data));
     }
+    else
+    {
+        gctUINT32 data = 0;
 
-    Hardware->options.gpuProfiler= GpuProfiler;
+        /* enable clock gating when disable profile. */
+        gcmkVERIFY_OK(
+            gckOS_ReadRegisterEx(Hardware->os,
+                                 Hardware->core,
+                                 Hardware->powerBaseAddress +
+                                 0x00100,
+                                 &data));
+
+        data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
+
+        gcmkVERIFY_OK(
+            gckOS_WriteRegisterEx(Hardware->os,
+                                  Hardware->core,
+                                  Hardware->powerBaseAddress
+                                  + 0x00100,
+                                  data));
+    }
 
     if (GpuProfiler == gcvTRUE)
     {
         Hardware->waitCount = 200 * 100;
+    }
+    else
+    {
+        Hardware->waitCount = 200;
     }
 
     /* Success. */
@@ -15954,7 +15976,6 @@ gckHARDWARE_ExitQueryClock(
 
         if (!shCycle)
         {
-            /*TODO: [VIV] Query SH cycle not support for old chips */
             *ShClk = *McClk;
             return gcvSTATUS_OK;
         }

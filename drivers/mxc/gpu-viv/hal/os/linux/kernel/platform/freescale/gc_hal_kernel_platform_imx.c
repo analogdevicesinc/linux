@@ -113,7 +113,7 @@ static sc_ipc_t gpu_ipcHandle;
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 
-#ifdef CONFIG_DEVICE_THERMAL
+#if IS_ENABLED(CONFIG_DEVICE_THERMAL)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #    include <linux/device_cooling.h>
 #    define REG_THERMAL_NOTIFIER(a) register_devfreq_cooling_notifier(a);
@@ -906,7 +906,6 @@ static inline int get_power_imx8_subsystem(struct device *pdev)
         }
 
 #if defined(CONFIG_ANDROID) && LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
-        /* TODO: freescale BSP issue in some platform like imx8dv. */
         clk_prepare(clk_core);
         clk_set_rate(clk_core, 800000000);
         clk_unprepare(clk_core);
@@ -1848,6 +1847,9 @@ int gckPLATFORM_Init(struct platform_driver *pdrv,
 #endif
 
     *platform = &imx_platform;
+#ifdef GALCORE_BUILD_BY
+    printk("module built by %s at %s", GALCORE_BUILD_BY, GALCORE_BUILD_TM);
+#endif
     return 0;
 }
 

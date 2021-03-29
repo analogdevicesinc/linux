@@ -561,8 +561,7 @@ OnError:
     return status;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION (3,6,0) \
-    || (!defined (ARCH_HAS_SG_CHAIN) && !defined (CONFIG_ARCH_HAS_SG_CHAIN))
+#if !gcdSYS_HAS_SG_CHAIN
 int
 alloc_sg_list_from_pages(
     struct scatterlist **sgl,

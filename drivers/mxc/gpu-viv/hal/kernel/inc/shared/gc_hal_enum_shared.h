@@ -696,6 +696,9 @@ typedef enum _gceFEATURE
     gcvFEATURE_BIT_USC_INDIVIDUAL_PORT_WRT_EARLY_EVICT_DATA_CORRUPT_FIX,
     gcvFEATURE_BIT_NN_TP_INSTR_COMPLETE_IN_SAME_CYCLE_WITH_WAIT_EVENT_FIX,
 
+    gcvFEATURE_IMGLD_WIDTH_LT16_FIX,
+
+    gcFEATURE_BIT_IMGLD_COMP_COUNT_FIX,
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */
 }
@@ -781,6 +784,7 @@ typedef enum _gceSURF_TYPE
     gcvSURF_3D                      = 0x200000, /* It's 3d surface */
     gcvSURF_DMABUF_EXPORTABLE       = 0x400000, /* master node can be exported as dma-buf fd */
     gcvSURF_CACHE_MODE_128          = 0x800000,
+    gcvSURF_TILED                   = 0x1000000, /* force create tile buffer, as we will convert it to supertile according to related hardware feature by default */
 
     gcvSURF_TEXTURE_LINEAR               = gcvSURF_TEXTURE
                                          | gcvSURF_LINEAR,
@@ -1911,6 +1915,13 @@ typedef enum _gceDUMP_BUFFER_TYPE
     gcvDUMP_BUFFER_TYPE_COUNT,
 }
 gceDUMP_BUFFER_TYPE;
+
+typedef enum _gceProfilerMode
+{
+    gcvPROFILER_PROBE_MODE = 0,
+    gcvPROFILER_AHB_MODE   = 1,
+}
+gceProfilerMode;
 
 #ifdef __cplusplus
 }

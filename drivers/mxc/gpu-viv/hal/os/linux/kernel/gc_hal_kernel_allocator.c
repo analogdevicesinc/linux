@@ -178,8 +178,7 @@ gckOS_FreeAllocators(
     return gcvSTATUS_OK;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION (3,6,0) \
-    || (!defined (ARCH_HAS_SG_CHAIN) && !defined (CONFIG_ARCH_HAS_SG_CHAIN))
+#if !gcdSYS_HAS_SG_CHAIN
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
 static inline void sg_set_page(struct scatterlist *sg, struct page *page,

@@ -761,14 +761,25 @@ gckMCFE_Execute(
     IN gctUINT32 Bytes
     )
 {
+    gceSTATUS status;
     gctUINT32 regBase;
     gcsMCFE_DESCRIPTOR *desc;
-    gcsMCFE_CHANNEL * channel  = &Hardware->mcFE->channels[ChannelId];
-    gcsMCFE_RING_BUF * ringBuf = Priority ? &channel->priRingBuf
-                              : &channel->stdRingBuf;
+    gckMCFE mcFE = Hardware->mcFE;
+    gcsMCFE_CHANNEL * channel  = gcvNULL;
+    gcsMCFE_RING_BUF * ringBuf = gcvNULL;
+
+    gcmkHEADER_ARG("Hardware=0x%x Priority=0x%x ChannelId=%u Address=%x Bytes=%u",
+                     Hardware, Priority, ChannelId, Address, Bytes);
+
+    /* ChannelId should be valid. */
+    gcmkASSERT(mcFE && ChannelId < mcFE->channelCount);
+
+    channel = &mcFE->channels[ChannelId];
 
     /* No priority channel in system channel by design. */
     gcmkASSERT(!(channel->binding == gcvMCFE_CHANNEL_SYSTEM && Priority == 1));
+
+    ringBuf = Priority ? &channel->priRingBuf : &channel->stdRingBuf;
 
     while (_NextPtr(ringBuf->writePtr) == ringBuf->readPtr)
     {
@@ -814,11 +825,11 @@ gckMCFE_Execute(
                     ringBuf->ringBufAddress + ringBuf->writePtr * 8,
                     8);
 
-    gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(Hardware->kernel,
-                                            ringBuf->ringBufVideoMem,
-                                            0,
-                                            desc,
-                                            8));
+    gcmkONERROR(gckVIDMEM_NODE_CleanCache(Hardware->kernel,
+                                          ringBuf->ringBufVideoMem,
+                                          0,
+                                          desc,
+                                          8));
 
     ringBuf->writePtr = _NextPtr(ringBuf->writePtr);
 
@@ -827,12 +838,20 @@ gckMCFE_Execute(
                    desc->start, desc->end, Bytes,
                    Priority ? "Pri" : "Std", ChannelId);
 
-    gcmkVERIFY_OK(gckOS_WriteRegisterEx(Hardware->os,
-                                        Hardware->core,
-                                        regBase + ChannelId * 4,
-                                        ringBuf->writePtr));
+    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os,
+                                      Hardware->core,
+                                      regBase + ChannelId * 4,
+                                      ringBuf->writePtr));
 
+    /* Success. */
+    gcmkFOOTER_NO();
     return gcvSTATUS_OK;
+
+OnError:
+    /* Return the status. */
+    gcmkFOOTER();
+    return status;
+
 }
 
 gceSTATUS
@@ -847,11 +866,17 @@ gckMCFE_HardwareIdle(
     gctUINT32 readPtr;
     gctUINT32 ChannelId = 0;
     gctBOOL Priority = gcvFALSE;
-    gcsMCFE_CHANNEL * channel  = &Hardware->mcFE->channels[ChannelId];
-    gcsMCFE_RING_BUF * ringBuf = Priority ? &channel->priRingBuf
-                              : &channel->stdRingBuf;
+    gckMCFE mcFE = Hardware->mcFE;
+    gcsMCFE_CHANNEL * channel  = gcvNULL;
+    gcsMCFE_RING_BUF * ringBuf = gcvNULL;
 
     gcmkHEADER();
+
+    /* ChannelId should be valid. */
+    gcmkASSERT(mcFE && ChannelId < mcFE->channelCount);
+
+    channel = &mcFE->channels[ChannelId];
+    ringBuf = Priority ? &channel->priRingBuf : &channel->stdRingBuf;
 
     *isIdle = gcvTRUE;
 

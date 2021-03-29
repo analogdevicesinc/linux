@@ -1594,6 +1594,7 @@ gceSTATUS
 gcoOS_SetProfileSetting(
         IN gcoOS Os,
         IN gctBOOL Enable,
+        IN gceProfilerMode ProfileMode,
         IN gctCONST_STRING FileName
         );
 #endif

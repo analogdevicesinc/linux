@@ -168,10 +168,6 @@ static int powerManagement = 1;
 module_param(powerManagement, int, 0644);
 MODULE_PARM_DESC(powerManagement, "Disable auto power saving if set it to 0, enabled by default");
 
-static int gpuProfiler = 0;
-module_param(gpuProfiler, int, 0644);
-MODULE_PARM_DESC(gpuProfiler, "Enable profiling support, disabled by default");
-
 static ulong baseAddress = 0;
 module_param(baseAddress, ulong, 0644);
 MODULE_PARM_DESC(baseAddress, "Only used for old MMU, set it to 0 if memory which can be accessed by GPU falls into 0 - 2G, otherwise set it to 0x80000000");
@@ -419,7 +415,6 @@ _InitModuleParam(
     p->smallBatch      = smallBatch;
 
     p->stuckDump   = stuckDump;
-    p->gpuProfiler = gpuProfiler;
 
     p->deviceType  = type;
     p->showArgs    = showArgs;
@@ -539,7 +534,6 @@ _SyncModuleParam(
     smallBatch      = p->smallBatch;
 
     stuckDump   = p->stuckDump;
-    gpuProfiler = p->gpuProfiler;
 
     type        = p->deviceType;
     showArgs    = p->showArgs;
@@ -608,7 +602,6 @@ gckOS_DumpParam(
     printk("  physSize          = 0x%08lX\n", physSize);
     printk("  recovery          = %d\n",      recovery);
     printk("  stuckDump         = %d\n",      stuckDump);
-    printk("  gpuProfiler       = %d\n",      gpuProfiler);
     printk("  userClusterMask   = 0x%x\n",    userClusterMask);
     printk("  GPU smallBatch    = %d\n",      smallBatch);
     printk("  allMapInOne       = %d\n",      allMapInOne);
@@ -1048,7 +1041,14 @@ static struct file_operations driver_fops =
     .open       = drv_open,
     .release    = drv_release,
     .unlocked_ioctl = drv_ioctl,
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(5,8,18)
+
 #ifdef HAVE_COMPAT_IOCTL
+    .compat_ioctl = drv_ioctl,
+#endif
+
+#else
     .compat_ioctl = drv_ioctl,
 #endif
 };

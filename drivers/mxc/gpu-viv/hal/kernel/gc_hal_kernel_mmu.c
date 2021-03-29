@@ -2970,7 +2970,6 @@ gckMMU_DumpAddressSpace(
 {
     gctUINT i;
     gctUINT next;
-    /* TODO: */
     gcsADDRESS_AREA_PTR area = &Mmu->dynamicArea4K;
     gctUINT32_PTR map = area->mapLogical;
     gctBOOL used = gcvFALSE;

@@ -776,6 +776,8 @@ typedef struct _gcsHAL_GET_PROFILE_SETTING
 {
     /* Enable profiling */
     OUT gctBOOL                 enable;
+    /* Profile mode */
+    OUT gceProfilerMode         profileMode;
 }
 gcsHAL_GET_PROFILE_SETTING;
 
@@ -784,6 +786,8 @@ typedef struct _gcsHAL_SET_PROFILE_SETTING
 {
     /* Enable profiling */
     IN gctBOOL                  enable;
+    /* Profile mode */
+    IN gceProfilerMode          profileMode;
 }
 gcsHAL_SET_PROFILE_SETTING;
 

@@ -567,10 +567,7 @@ struct _gckKERNEL
     gctPOINTER                  atomClients;
 
 #if VIVANTE_PROFILER
-    /* Enable profiling */
-    gctBOOL                     profileEnable;
-    /* Clear profile register or not*/
-    gctBOOL                     profileCleanRegister;
+    gckPROFILER                 profiler;
 #endif
 
 #ifdef QNX_SINGLE_THREADED_DEBUGGING
@@ -1281,12 +1278,12 @@ typedef struct _gcsVIDMEM_BLOCK
 
     /* 1M page count. */
     gctUINT32                   pageCount;
+    gctUINT32                   fixedPageCount;
 
     /* Gpu virtual base of this video memory heap. */
     gctUINT32                   addresses[gcvHARDWARE_NUM_TYPES];
     gctPOINTER                  pageTables[gcvHARDWARE_NUM_TYPES];
 
-    /* TODO: */
     gceVIDMEM_TYPE              type;
 
     /* Virtual chunk. */

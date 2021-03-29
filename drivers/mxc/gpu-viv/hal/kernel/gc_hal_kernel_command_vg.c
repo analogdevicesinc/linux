@@ -3815,9 +3815,7 @@ gckVGCOMMAND_Commit(
                 if (EntryCount - entriesQueued == 0)
                 {
                     /* Modify the last command buffer's routines to handle
-                       tasks if any.
-                       Be sure the kernel entry have been advanced and control
-                       functions initialized. */
+                       tasks if any.*/
                     if (haveFETasks && controlIndex == 1)
                     {
                         if (previousExecuted)

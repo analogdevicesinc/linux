@@ -290,7 +290,6 @@ _GetGPUPhysical(
     gctPHYS_ADDR_T sram_gpu_base = pcie_platform->pcie_info[0].sram_gpu_bases[0];
     uint32_t sram_size = pcie_platform->pcie_info[0].sram_sizes[0];
 
-    /* TODO: We should always set axi sram size by insmod parameters, never from feature database. */
     if (!sram_size && Platform->dev && Platform->dev->extSRAMSizes[0])
     {
         sram_size = Platform->dev->extSRAMSizes[0];

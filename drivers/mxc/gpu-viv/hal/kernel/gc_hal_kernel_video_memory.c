@@ -273,12 +273,6 @@ gckVIDMEM_Construct(
     gcmkVERIFY_ARGUMENT(Bytes > 0);
     gcmkVERIFY_ARGUMENT(Memory != gcvNULL);
 
-    if (BankSize == 0)
-    {
-        /* set two banks in 16:1 */
-        BankSize = Bytes >> 4;
-    }
-
     gcmkSAFECASTSIZET(heapBytes, Bytes);
     gcmkSAFECASTSIZET(bankSize, BankSize);
 
@@ -370,11 +364,6 @@ gckVIDMEM_Construct(
         /* Mark sentinel. */
         memory->sentinel[i].VidMem.bytes = 0;
 
-        if (bankSize == (heapBytes >> 4))
-        {
-            bankSize = heapBytes;
-        }
-
         /* Adjust address for next bank. */
         base += bytes;
         heapBytes   -= bytes;
@@ -385,23 +374,23 @@ gckVIDMEM_Construct(
     memory->mapping[gcvVIDMEM_TYPE_COLOR_BUFFER]    = banks - 1;
     memory->mapping[gcvVIDMEM_TYPE_BITMAP]          = banks - 1;
 
-    if (banks > 7) --banks;
+    if (banks > 1) --banks;
     memory->mapping[gcvVIDMEM_TYPE_DEPTH_BUFFER]    = banks - 1;
     memory->mapping[gcvVIDMEM_TYPE_HZ_BUFFER]       = banks - 1;
 
-    if (banks > 6) --banks;
+    if (banks > 1) --banks;
     memory->mapping[gcvVIDMEM_TYPE_TEXTURE]         = banks - 1;
 
-    if (banks > 5) --banks;
+    if (banks > 1) --banks;
     memory->mapping[gcvVIDMEM_TYPE_VERTEX_BUFFER]   = banks - 1;
 
-    if (banks > 4) --banks;
+    if (banks > 1) --banks;
     memory->mapping[gcvVIDMEM_TYPE_INDEX_BUFFER]    = banks - 1;
 
-    if (banks > 3) --banks;
+    if (banks > 1) --banks;
     memory->mapping[gcvVIDMEM_TYPE_TILE_STATUS]     = banks - 1;
 
-    if (banks > 2) --banks;
+    if (banks > 1) --banks;
     memory->mapping[gcvVIDMEM_TYPE_COMMAND]         = banks - 1;
 
     if (banks > 1) --banks;
@@ -781,6 +770,9 @@ gckVIDMEM_AllocateLinear(
         static time_t last_slog_time;
         int do_slog_now = 0;
         time_t this_slog_time = time(NULL);
+        gctUINT32 pid = 0;
+
+        gcmkVERIFY_OK(gckOS_GetProcessID(&pid));
 
         if (Memory->freeBytes < lowwaterFPC) {
             if (Memory->freeBytes < slogLowWaterFPC) {
@@ -795,8 +787,9 @@ gckVIDMEM_AllocateLinear(
 
         if (do_slog_now) {
             last_slog_time = this_slog_time;
-            slogf(_SLOGC_GRAPHICS_GL, _SLOG_INFO, "%s: Memory->freeBytes = %u, lowest Memory->freeBytes = %u",
-                    __FUNCTION__, (unsigned) Memory->freeBytes, (unsigned) lowwaterFPC);
+            slogf(_SLOGC_GRAPHICS_GL, _SLOG_INFO, "%s: Memory->freeBytes = %u, lowest Memory->freeBytes = %u. "
+                    "Handling message from pid: %u. Requested bytes: %zu",
+                    __FUNCTION__, (unsigned) Memory->freeBytes, (unsigned) lowwaterFPC, pid, Bytes);
         }
     }
 #endif
@@ -1405,10 +1398,27 @@ gckVIDMEM_MapVidMemBlock(
                               &VidMemBlock->addresses[hwType]);
     if (gcmIS_ERROR(status))
     {
+        gctSIZE_T pageCount = VidMemBlock->pageCount;
+
+        /* If physical address is not aligned. */
+        if (physAddr & (gcd1M_PAGE_SIZE - 1))
+        {
+            if (VidMemBlock->contiguous)
+            {
+                pageCount++;
+            }
+            else
+            {
+                gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
+            }
+        }
+
+        VidMemBlock->fixedPageCount = (gctUINT32)pageCount;
+
         /* Allocate pages inside the MMU. */
         gcmkONERROR(
             gckMMU_AllocatePagesEx(Kernel->mmu,
-                                   VidMemBlock->pageCount,
+                                   pageCount,
                                    VidMemBlock->type,
                                    gcvPAGE_TYPE_1M,
                                    VidMemBlock->secure,
@@ -1422,7 +1432,7 @@ gckVIDMEM_MapVidMemBlock(
                 gckOS_Map1MPages(os,
                                  Kernel->core,
                                  VidMemBlock->physical,
-                                 VidMemBlock->pageCount,
+                                 pageCount,
                                  VidMemBlock->addresses[hwType],
                                  VidMemBlock->pageTables[hwType],
                                  gcvTRUE,
@@ -1452,7 +1462,7 @@ OnError:
                              gcvPAGE_TYPE_1M,
                              VidMemBlock->addresses[hwType],
                              VidMemBlock->pageTables[hwType],
-                             VidMemBlock->pageCount));
+                             VidMemBlock->fixedPageCount));
 
         VidMemBlock->pageTables[hwType] = gcvNULL;
     }
@@ -1483,7 +1493,7 @@ _UnmapVidMemBlock(
                              gcvPAGE_TYPE_1M,
                              VidMemBlock->addresses[HwType],
                              VidMemBlock->pageTables[HwType],
-                             VidMemBlock->pageCount));
+                             VidMemBlock->fixedPageCount));
 
         VidMemBlock->pageTables[HwType] = gcvNULL;
     }

@@ -953,9 +953,6 @@ gckOS_DebugStatus2Name(
 ***** Kernel Dump **************************************************************
 *******************************************************************************/
 
-/*
- * TODO: Dump to file is only valid in linux currently.
- */
 #ifndef gcmkDUMP_STRING
 #  define gcmkDUMP_STRING(os, s)    gcmkOUTPUT_STRING((s))
 #endif

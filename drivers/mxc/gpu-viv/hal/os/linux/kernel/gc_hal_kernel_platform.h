@@ -113,7 +113,6 @@ typedef struct _gcsMODULE_PARAMETERS
 
     /* Debug or other information. */
     gctUINT                 stuckDump;
-    gctINT                  gpuProfiler;
 
     /* device type, 0 for char device, 1 for misc device. */
     gctUINT                 deviceType;
@@ -300,7 +299,6 @@ struct _gcsPLATFORM
     const char *name;
     gcsPLATFORM_OPERATIONS* ops;
 
-    /* TODO: Remove AXI-SRAM size from feature database. */
     gckDEVICE dev;
 
     /* PLATFORM specific flags */
