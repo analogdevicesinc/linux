@@ -47,6 +47,17 @@ static inline void axi_pwmgen_write(struct axi_pwmgen *pwm,
 	writel(value, pwm->base + reg);
 }
 
+static void axi_pwmgen_write_mask(struct axi_pwmgen *pwm,
+				  unsigned int reg,
+				  unsigned int mask,
+				  unsigned int value)
+{
+	unsigned int temp;
+
+	temp = axi_pwmgen_read(pwm, reg);
+	axi_pwmgen_write(pwm, reg, (temp & ~mask) | value);
+}
+
 static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 {
 	return container_of(chip, struct axi_pwmgen, chip);
