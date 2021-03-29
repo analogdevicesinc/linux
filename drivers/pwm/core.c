@@ -464,6 +464,7 @@ int pwm_apply_state(struct pwm_device *pwm, const struct pwm_state *state)
 	if (state->period == pwm->state.period &&
 	    state->duty_cycle == pwm->state.duty_cycle &&
 	    state->polarity == pwm->state.polarity &&
+	    state->offset == pwm->state.offset &&
 	    state->enabled == pwm->state.enabled)
 		return 0;
 
