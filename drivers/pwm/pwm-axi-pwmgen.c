@@ -165,6 +165,11 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 	return 0;
 }
 
+static void axi_pwmgen_clk_disable(void *data)
+{
+	clk_disable_unprepare(data);
+}
+
 static int axi_pwmgen_probe(struct platform_device *pdev)
 {
 	struct axi_pwmgen *pwm;
@@ -187,6 +192,10 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(pwm->clk);
 	if (ret)
 		return ret;
+	ret = devm_add_action_or_reset(&pdev->dev, axi_pwmgen_clk_disable,
+				       pwm->clk);
+	if (ret)
+		return ret;
 
 	pwm->chip.dev = &pdev->dev;
 	pwm->chip.ops = &axi_pwmgen_pwm_ops;
@@ -194,34 +203,23 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 
 	ret = axi_pwmgen_setup(&pwm->chip);
 	if (ret < 0)
-		goto err_clk;
+		return ret;
 
 	ret = pwmchip_add(&pwm->chip);
 	if (ret)
-		goto err_clk;
+		return ret;
 
 	platform_set_drvdata(pdev, pwm);
 
 	return 0;
-
-err_clk:
-	clk_disable_unprepare(pwm->clk);
-
-	return ret;
 }
 
 static int axi_pwmgen_remove(struct platform_device *pdev)
 {
 	struct axi_pwmgen *pwm = platform_get_drvdata(pdev);
-	int ret;
 
-	ret = pwmchip_remove(&pwm->chip);
-
-	clk_disable_unprepare(pwm->clk);
-
-	return ret;
+	return pwmchip_remove(&pwm->chip);
 }
-
 static struct platform_driver axi_pwmgen_driver = {
 	.driver = {
 		.name = "adi-axi-pwmgen",
