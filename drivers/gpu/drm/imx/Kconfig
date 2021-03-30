@@ -33,6 +33,30 @@ config DRM_IMX_LDB
 	  Choose this to enable the internal LVDS Display Bridge (LDB)
 	  found on i.MX53 and i.MX6 processors.
 
+config DRM_IMX8QM_LDB
+	tristate "Support for i.MX8qm LVDS displays"
+	depends on DRM_IMX && DRM_FSL_IMX_LVDS_BRIDGE
+	depends on PHY_MIXEL_LVDS
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX8qm processors.
+
+config DRM_IMX8QXP_LDB
+	tristate "Support for i.MX8qxp LVDS displays"
+	depends on DRM_IMX && DRM_FSL_IMX_LVDS_BRIDGE
+	depends on PHY_MIXEL_LVDS_COMBO
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX8qxp processors.
+
+config DRM_IMX8MP_LDB
+	tristate "Support for i.MX8mp LVDS displays"
+	depends on DRM_IMX && DRM_FSL_IMX_LVDS_BRIDGE
+	depends on PHY_FSL_IMX8MP_LVDS
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX8mp processors.
+
 config DRM_IMX_IPUV3
 	tristate
 	depends on DRM_IMX
