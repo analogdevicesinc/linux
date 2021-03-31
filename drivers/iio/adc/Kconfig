@@ -186,6 +186,9 @@ config AD7766
 config AD7768
 	tristate "Analog Devices AD7768 ADC driver"
 	depends on SPI
+	select IIO_BUFFER
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER_DMAENGINE
 	help
 	  Say yes here to build support for Analog Devices AD7768 SPI analog to
 	  digital converter (ADC).
@@ -199,6 +202,8 @@ config AD7768_1
 	select IIO_BUFFER
 	select IIO_TRIGGER
 	select IIO_TRIGGERED_BUFFER
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER_DMAENGINE
 	help
 	  Say yes here to build support for Analog Devices AD7768-1 SPI
 	  simultaneously sampling sigma-delta analog to digital converter (ADC).
