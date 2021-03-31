@@ -126,7 +126,7 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
 			bitmap_set(values, M2K_FABRIC_GPIO_EN_SC2_HG, 1);
 
 		bitmap_set(values, M2K_FABRIC_GPIO_EN_SC_CAL1, 1);
-		bitmap_set(values, M2K_FABRIC_GPIO_EN_SC2_CAL2, 1);
+		bitmap_set(values, M2K_FABRIC_GPIO_EN_SC1_CAL2, 1);
 		bitmap_set(values, M2K_FABRIC_GPIO_EN_SC2_CAL2, 1);
 
 		if (m2k_fabric->sc_powerdown[0])
@@ -158,16 +158,16 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
 	}
 
 	/* Open up all first to avoid shorts */
-	bitmap_shift_left(shifted_values, m2k_fabric_switch_values_open,
-			  gpio_base, M2K_FABRIC_GPIO_OUTPUT_MAX);
+	bitmap_shift_right(shifted_values, m2k_fabric_switch_values_open,
+		M2K_FABRIC_GPIO_OUTPUT_MAX, M2K_FABRIC_GPIO_MAX);
 	gpiod_set_array_value_cansleep(ngpios -
 		(update_output ? M2K_FABRIC_GPIO_OUTPUT_MAX : 0),
 		&m2k_fabric->switch_gpios[M2K_FABRIC_GPIO_OUTPUT_MAX],
 		NULL,
 		shifted_values);
 
-	bitmap_shift_left(shifted_values, values,
-			  gpio_base, M2K_FABRIC_GPIO_OUTPUT_MAX);
+	bitmap_shift_right(shifted_values, values,
+		gpio_base, M2K_FABRIC_GPIO_MAX);
 	gpiod_set_array_value_cansleep(ngpios,
 		&m2k_fabric->switch_gpios[gpio_base],
 		NULL,
