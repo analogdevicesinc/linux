@@ -107,7 +107,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_spi4>;
 		status = "okay";
-		pinctrl-assert-gpios = <&gpio5 8 GPIO_ACTIVE_LOW>;
 		sck-gpios = <&gpio5 11 0>;
 		mosi-gpios = <&gpio5 10 0>;
 		cs-gpios = <&gpio5 7 GPIO_ACTIVE_LOW>;
