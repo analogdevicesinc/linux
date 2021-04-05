@@ -72,62 +72,19 @@ struct adin_priv {
 	unsigned int		tx_level_24v:1;
 };
 
-/* The ADIN T1L PHY supports Clause 45-only access, but is not a C45 device
- * in the strictest sense of how Linux considers C45 capable devices.
- *
- * For once, it doesn't support C45 package IDs, so it won't probe
- * via the normal get_phy_c45_devs_in_pkg() path.
- * Secondly, the chip implements mostly 10BASE-T1L regs, so autonegotiation
- * requires some other regs which are IEEE spec-ed, but not standard in Linux.
- */
-
-static u32 adin_mdio_addr_xlate(int devad, u16 regnum)
-{
-	u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
-
-	switch (devad) {
-	/* BASE-T1L auto-negotiation regs start at 0x0200.
-	 * The Control & Status bitfields are similar to standard regs.
-	 */
-	case MDIO_MMD_AN:
-		switch (regnum) {
-		case MDIO_STAT1:
-		case MDIO_CTRL1:
-			addr |= 0x0200;
-			break;
-		}
-	}
-
-	return addr;
-}
-
-static int adin_read_mmd(struct phy_device *phydev, int devad, u16 regnum)
-{
-	u32 addr = adin_mdio_addr_xlate(devad, regnum);
-
-	return __mdiobus_read(phydev->mdio.bus, phydev->mdio.addr, addr);
-}
-
-static int adin_write_mmd(struct phy_device *phydev, int devad, u16 regnum,
-			  u16 val)
-{
-	u32 addr = adin_mdio_addr_xlate(devad, regnum);
-
-	return __mdiobus_write(phydev->mdio.bus, phydev->mdio.addr, addr, val);
-}
-
 static int adin_match_phy_device(struct phy_device *phydev)
 {
 	struct mii_bus *bus = phydev->mdio.bus;
+	int phy_addr = phydev->mdio.addr;
 	u32 id;
 	int rc;
 
 	mutex_lock(&bus->mdio_lock);
 
-	/* Need to call adin_read_mmd() directly here, because at this point
+	/* Need to call __mdiobus_read() directly here, because at this point
 	 * in time, the driver isn't attached to the PHY device.
 	 */
-	rc = adin_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_DEVID1);
+	rc = __mdiobus_read(bus, phy_addr, MDIO_DEVID1);
 	if (rc < 0) {
 		mutex_unlock(&bus->mdio_lock);
 		return rc;
@@ -135,7 +92,7 @@ static int adin_match_phy_device(struct phy_device *phydev)
 
 	id = rc << 16;
 
-	rc = adin_read_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_DEVID2);
+	rc = __mdiobus_read(bus, phy_addr, MDIO_DEVID2);
 	mutex_unlock(&bus->mdio_lock);
 
 	if (rc < 0)
@@ -428,8 +385,6 @@ static struct phy_driver adin_driver[] = {
 		.config_aneg		= adin_config_aneg,
 		.link_change_notify	= adin_link_change_notify,
 		.read_status		= adin_read_status,
-		.read_mmd		= adin_read_mmd,
-		.write_mmd		= adin_write_mmd,
 		.set_loopback		= adin_set_loopback,
 		.suspend		= adin_suspend,
 		.resume			= adin_resume,
