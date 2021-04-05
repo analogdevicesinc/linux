@@ -554,6 +554,14 @@ static ssize_t gpu_govern_store(struct device_driver *dev, const char *buf, size
     struct imx_priv *priv = &imxPriv;
     int core = gcvCORE_MAJOR;
     int i;
+    gckGALDEVICE device = platform_get_drvdata(pdevice);
+    gctBOOL sem_acquired = gcvFALSE;
+    gceSTATUS status;
+
+    if (!device)
+    {
+        return count;
+    }
 
     for (i = 0; i < GOVERN_COUNT; i++)
     {
@@ -567,6 +575,14 @@ static ssize_t gpu_govern_store(struct device_driver *dev, const char *buf, size
     {
         return count;
     }
+
+    /* Acquire the suspend semaphore. */
+    gcmkONERROR(gckOS_AcquireSemaphore(device->os, device->suspendSemaphore));
+
+    sem_acquired = gcvTRUE;
+
+    /* Suspend the GPU to idle state. */
+    gcmkONERROR(gckGALDEVICE_Suspend(device, gcvPOWER_IDLE));
 
     core_freq   = priv->imx_gpu_govern.core_clk_freq[i];
     shader_freq = priv->imx_gpu_govern.shader_clk_freq[i];
@@ -589,6 +605,17 @@ static ssize_t gpu_govern_store(struct device_driver *dev, const char *buf, size
             pm_runtime_put_sync(priv->pmdev[core]);
 #endif
         }
+    }
+
+    /* Resume GPU to previous state. */
+    gcmVERIFY_OK(gckGALDEVICE_Resume(device));
+
+OnError:
+    /* Release the suspend semaphore. */
+    if (sem_acquired)
+    {
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(device->os,
+                device->suspendSemaphore));
     }
 
     return count;
