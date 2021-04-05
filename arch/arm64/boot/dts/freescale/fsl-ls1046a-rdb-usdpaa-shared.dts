@@ -1,7 +1,7 @@
 /*
  * Device Tree file to support Shared Mac interface for 1046A family SoC.
  *
- * Copyright 2020 NXP
+ * Copyright 2020,2021 NXP
  *
  * This file is licensed under the terms of the GNU General Public
  * License version 2.  This program is licensed "as is" without any
@@ -44,37 +44,37 @@
 
 		ethernet@2 {
 			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
-			fsl,qman-frame-queues-rx = <0x54 1 0x55 1>;
+			fsl,qman-frame-queues-rx = <0x54 1 0x55 1 0x86 1>;
 			fsl,qman-frame-queues-tx = <0x74 1 0x75 1 0x80 1>;
 		};
 
 		ethernet@3 {
 			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
-			fsl,qman-frame-queues-rx = <0x56 1 0x57 1>;
+			fsl,qman-frame-queues-rx = <0x56 1 0x57 1 0x87 1>;
 			fsl,qman-frame-queues-tx = <0x76 1 0x77 1 0x81 1>;
 		};
 
 		ethernet@4 {
 			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
-			fsl,qman-frame-queues-rx = <0x58 1 0x59 1>;
+			fsl,qman-frame-queues-rx = <0x58 1 0x59 1 0x88 1>;
 			fsl,qman-frame-queues-tx = <0x78 1 0x79 1 0x82 1>;
 		};
 
 		ethernet@5 {
 			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
-			fsl,qman-frame-queues-rx = <0x5a 1 0x5b 1>;
+			fsl,qman-frame-queues-rx = <0x5a 1 0x5b 1 0x89 1>;
 			fsl,qman-frame-queues-tx = <0x7a 1 0x7b 1 0x83 1>;
 		};
 
 		ethernet@8 {
 			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
-			fsl,qman-frame-queues-rx = <0x5c 1 0x5d 1>;
+			fsl,qman-frame-queues-rx = <0x5c 1 0x5d 1 0x8a 1>;
 			fsl,qman-frame-queues-tx = <0x7c 1 0x7d 1 0x84 1>;
 		};
 
 		ethernet@9 {
 			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
-			fsl,qman-frame-queues-rx = <0x5e 1 0x5f 1>;
+			fsl,qman-frame-queues-rx = <0x5e 1 0x5f 1 0x8b 1>;
 			fsl,qman-frame-queues-tx = <0x7e 1 0x7f 1 0x85 1>;
 		};
 
