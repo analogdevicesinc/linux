@@ -30,10 +30,10 @@
 #define _stringify_1(x)	#x
 #define _stringify(x)	_stringify_1(x)
 
-#define KSYM_NAME_LEN		128
+#define KSYM_NAME_LEN		512
 
 /* A substantially bigger size than the current maximum. */
-#define KSYM_NAME_LEN_BUFFER	512
+#define KSYM_NAME_LEN_BUFFER	2048
 _Static_assert(
 	KSYM_NAME_LEN_BUFFER == KSYM_NAME_LEN * 4,
 	"Please keep KSYM_NAME_LEN_BUFFER in sync with KSYM_NAME_LEN"
