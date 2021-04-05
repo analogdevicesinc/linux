@@ -14,7 +14,7 @@
 #include <linux/phy.h>
 #include <linux/property.h>
 
-#define PHY_ID_ADIN1100				0x0283bc80
+#define PHY_ID_ADIN1100				0x0283bc81
 
 static const int phy_10_features_array[] = {
 	ETHTOOL_LINK_MODE_10baseT_Full_BIT,
