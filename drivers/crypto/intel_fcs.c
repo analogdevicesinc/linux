@@ -55,7 +55,6 @@ static void fcs_data_callback(struct stratix10_svc_client *client,
 			      struct stratix10_svc_cb_data *data)
 {
 	struct intel_fcs_priv *priv = client->priv;
-	unsigned int *status = (unsigned int *)data->kaddr1;
 
 	if ((data->status == BIT(SVC_STATUS_OK)) ||
 	    (data->status == BIT(SVC_STATUS_COMPLETED))) {
@@ -69,8 +68,8 @@ static void fcs_data_callback(struct stratix10_svc_client *client,
 		priv->size = (data->kaddr3) ?
 			*((unsigned int *)data->kaddr3) : 0;
 	} else {
-		dev_err(client->dev, "failed, mbox_error=0x%x\n", *status);
-		priv->status = *status;
+		dev_warn(client->dev, "rejected, invalid param\n");
+		priv->status = -EINVAL;
 		priv->kbuf = NULL;
 		priv->size = 0;
 	}
