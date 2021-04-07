@@ -259,6 +259,25 @@
 #define DISP_MIX_GASKET_0_HSIZE			0x04
 #define DISP_MIX_GASKET_0_VSIZE			0x08
 
+#define ISP_DEWARP_CTRL				0x138
+#define ISP_DEWARP_CTRL_ISP_0_DISABLE		BIT(0)
+#define ISP_DEWARP_CTRL_ISP_1_DISABLE		BIT(1)
+#define ISP_DEWARP_CTRL_ISP_0_DATA_TYPE(x)	(((x) & (0x3F)) << 3)
+#define ISP_DEWARP_CTRL_ISP_0_LEFT_JUST_MODE	BIT(9)
+#define ISP_DEWARP_CTRL_ISP_1_DATA_TYPE(x)	(((x) & (0x3F)) << 13)
+#define ISP_DEWARP_CTRL_ISP_1_LEFT_JUST_MODE	BIT(19)
+#define ISP_DEWARP_CTRL_ID_MODE(x)		(((x) & (0x3)) << 23)
+#define ISP_DEWARP_CTRL_DATA_TYPE_RAW6		0x28
+#define ISP_DEWARP_CTRL_DATA_TYPE_RAW7		0x29
+#define ISP_DEWARP_CTRL_DATA_TYPE_RAW8		0x2a
+#define ISP_DEWARP_CTRL_DATA_TYPE_RAW10		0x2b
+#define ISP_DEWARP_CTRL_DATA_TYPE_RAW12		0x2c
+#define ISP_DEWARP_CTRL_DATA_TYPE_RAW14		0x2d
+#define ISP_DEWARP_CTRL_ID_MODE_DISABLE		0x0
+#define ISP_DEWARP_CTRL_ID_MODE_012		0x1
+#define ISP_DEWARP_CTRL_ID_MODE_01		0x2
+#define ISP_DEWARP_CTRL_ID_MODE_02		0x3
+
 struct csi_state;
 struct mipi_csis_event {
 	u32 mask;
@@ -1767,11 +1786,20 @@ static struct mipi_csis_gate_clk_ops imx8mp_gclk_ops = {
 
 static void mipi_csis_imx8mp_phy_reset(struct csi_state *state)
 {
+	u32 val;
+
 	mipi_csis_imx8mn_phy_reset(state);
 
 	/* temporary place */
-	if (state->mix_gpr)
-		regmap_write(state->mix_gpr, 0x138, 0x8d8360);
+	if (state->mix_gpr) {
+		val  = ISP_DEWARP_CTRL_ISP_0_DATA_TYPE(ISP_DEWARP_CTRL_DATA_TYPE_RAW12);
+		val |= ISP_DEWARP_CTRL_ISP_1_DATA_TYPE(ISP_DEWARP_CTRL_DATA_TYPE_RAW12);
+		val |= ISP_DEWARP_CTRL_ID_MODE(ISP_DEWARP_CTRL_ID_MODE_012);
+		val |= ISP_DEWARP_CTRL_ISP_0_LEFT_JUST_MODE;
+		val |= ISP_DEWARP_CTRL_ISP_1_LEFT_JUST_MODE;
+
+		regmap_write(state->mix_gpr, ISP_DEWARP_CTRL, val);
+	}
 }
 
 static struct mipi_csis_phy_ops imx8mp_phy_ops = {
