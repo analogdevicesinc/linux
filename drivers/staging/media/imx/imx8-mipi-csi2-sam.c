@@ -328,6 +328,7 @@ struct mipi_csis_pdata {
 	struct mipi_csis_rst_ops *rst_ops;
 	struct mipi_csis_gate_clk_ops *gclk_ops;
 	struct mipi_csis_phy_ops *phy_ops;
+	bool use_mix_gpr;
 };
 
 static const struct mipi_csis_event mipi_csis_events[] = {
@@ -1644,6 +1645,7 @@ static struct mipi_csis_pdata mipi_csis_imx8mn_pdata = {
 	.rst_ops  = &imx8mn_rst_ops,
 	.gclk_ops = &imx8mn_gclk_ops,
 	.phy_ops  = &imx8mn_phy_ops,
+	.use_mix_gpr = false,
 };
 
 /*
@@ -1780,6 +1782,7 @@ static struct mipi_csis_pdata mipi_csis_imx8mp_pdata = {
 	.rst_ops  = &imx8mp_rst_ops,
 	.gclk_ops = &imx8mp_gclk_ops,
 	.phy_ops  = &imx8mp_phy_ops,
+	.use_mix_gpr = true,
 };
 
 static int mipi_csis_probe(struct platform_device *pdev)
@@ -1835,10 +1838,12 @@ static int mipi_csis_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	state->mix_gpr = syscon_regmap_lookup_by_phandle(dev->of_node, "gpr");
-	if (IS_ERR(state->mix_gpr)) {
-		dev_warn(dev, "failed to get mix gpr\n");
-		state->mix_gpr = NULL;
+	if (state->pdata->use_mix_gpr) {
+		state->mix_gpr = syscon_regmap_lookup_by_phandle(dev->of_node, "gpr");
+		if (IS_ERR(state->mix_gpr)) {
+			dev_err(dev, "failed to get mix gpr\n");
+			return PTR_ERR(state->mix_gpr);
+		}
 	}
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
