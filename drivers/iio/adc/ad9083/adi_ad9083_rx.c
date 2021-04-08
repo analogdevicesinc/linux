@@ -21,9 +21,15 @@
 #define AD9083_FIXED_INT2Q(x, fb) ((uint32_t)((x) << (fb)))
 #define AD9083_FIXED_QMUL(x, y, xFb, yFb, resFb)                               \
   ((uint32_t)(((uint64_t)(x) * (uint64_t)(y)) >> ((xFb) + (yFb) - (resFb))))
+#ifdef __KERNEL__
+#define AD9083_FIXED_QDIV(x, y, xFb, yFb, resFb)                               \
+  ((uint32_t)div_u64((((uint64_t)(x)) << ((resFb) + (yFb) - (xFb))), (y)))
+
+#else
 #define AD9083_FIXED_QDIV(x, y, xFb, yFb, resFb)                               \
   ((uint32_t)((((uint64_t)(x)) << ((resFb) + (yFb) - (xFb))) / (y)))
 
+#endif
 int32_t adi_ad9083_rx_cic_dec_rate_set(adi_ad9083_device_t *device,
                                        adi_ad9083_cic_dec_rate_e dec_rate) {
   int32_t err;
