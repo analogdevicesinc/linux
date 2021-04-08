@@ -3,27 +3,15 @@
 * \brief Contains gpio features related function implementation defined in
 * adi_adrv9001_gpio.h
 *
-* ADRV9001 API Version: $ADI_ADRV9001_API_VERSION$
-*/
-
-/**
-* Copyright 2015 - 2018 Analog Devices Inc.
+* Copyright 2015 - 2021 Analog Devices Inc.
 * Released under the ADRV9001 API license, for more information
 * see the "LICENSE.txt" file in this zip file.
 */
 
-/*
-*********************************************************************************************************
-*                                             INCLUDE FILES
-*********************************************************************************************************
-*/
-/* "adi_adrv9001_user.h" contains the #define that other header file use */
 #include "adi_adrv9001_user.h"
 
-/* Header file corresponding to the C file */
 #include "adi_adrv9001_gpio.h"
 
-/* ADI specific header files */
 #include "adi_adrv9001_arm.h"
 #include "adi_adrv9001_error.h"
 #include "adi_adrv9001_spi.h"
@@ -35,143 +23,25 @@
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_bf.h"
 
-/* Header files related to libraries */
-
-/* System header files */
-
-
-/*********************************************************************************************************/
-int32_t adi_adrv9001_gpio_GpIntHandler(adi_adrv9001_Device_t *device, adi_adrv9001_gpIntStatus_t *gpIntStatus)
+int32_t adi_adrv9001_gpio_GpIntMask_Set(adi_adrv9001_Device_t *device, uint32_t gpIntMask)
 {
-    int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-    static const uint32_t GPINT_MASK_ALL_INTERRUPTS = 0xFFFFFFFF;
-
-    ADI_ENTRY_PTR_EXPECT(device, gpIntStatus);
-
-    /* retrieve the general purpose interrupt bitfield value */
-    recoveryAction = adrv9001_GpInterruptsMaskPinBfGet(device, &gpIntStatus->gpIntSaveIrqMask);
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, device->common.error.errCode, recoveryAction, NULL, device->common.error.errormessage);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    /* mask all general purpose interrupt IRQs */
-    recoveryAction = adrv9001_GpInterruptsMaskPinBfSet(device, GPINT_MASK_ALL_INTERRUPTS);
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, device->common.error.errCode, recoveryAction, NULL, device->common.error.errormessage);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    /* retrieve general purpose interrupt status word */
-    recoveryAction = adrv9001_GpInterruptsStatusWordBfGet(device, &gpIntStatus->gpIntStatus);
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, device->common.error.errCode, recoveryAction, NULL, device->common.error.errormessage);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    /* retrieve the general purpose interrupt IRQ mask */
-    recoveryAction = adrv9001_GpInterruptsMaskPinBfGet(device, &gpIntStatus->gpIntMask);
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, device->common.error.errCode, recoveryAction, NULL, device->common.error.errormessage);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    /* Mask for active sources */
-    gpIntStatus->gpIntActiveSources = (gpIntStatus->gpIntStatus & ~gpIntStatus->gpIntMask);
-
-    /* call the gp handler */
-    recoveryAction = adrv9001_GpIntHandler(device, gpIntStatus);
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, device->common.error.errCode, recoveryAction, NULL, device->common.error.errormessage);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    /* Reload the stored gpInt IRQ mask to its original value when this API was entered */
-    /* mask all general purpose interrupt IRQs */
-    recoveryAction = adrv9001_GpInterruptsMaskPinBfSet(device, gpIntStatus->gpIntSaveIrqMask);
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, device->common.error.errCode, recoveryAction, NULL, device->common.error.errormessage);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, ADI_COMMON_ERR_INV_PARAM, recoveryAction, gpIntStatus, "Failure setting gpIntStatus");
-
-    return device->common.error.newAction;
-}
-
-int32_t adi_adrv9001_gpio_GpIntMask_Set(adi_adrv9001_Device_t *device, adi_adrv9001_gpMaskSelect_e maskSelect, adi_adrv9001_gpMaskArray_t *maskArray)
-{
-    int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-
-    ADI_ENTRY_PTR_EXPECT(device, maskArray);
-
-    /* range check channel enum */
-    if (maskSelect != ADI_ADRV9001_GPINT)
-    {
-        ADI_ERROR_REPORT(&device->common,
-                         ADI_COMMON_ERRSRC_API,
-                         ADI_COMMON_ERR_INV_PARAM,
-                         ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         maskSelect,
-                         "Channel provided is out of range");
-
-        ADI_ERROR_RETURN(device->common.error.newAction);
-    }
-
-    /* retrieve the general purpose interrupt Pin IRQ mask */
-    recoveryAction = adrv9001_GpInterruptsMaskPinBfSet(device, maskArray->gpIntMask);
-
-    ADI_ERROR_REPORT(&device->common,
-                     ADI_COMMON_ERRSRC_API,
-                     device->common.error.errCode,
-                     recoveryAction,
-                     maskArray,
-                    "Error while trying to set adrv9001_GpInterruptsMaskPin_Set");
-
-    ADI_ERROR_RETURN(device->common.error.newAction);
+    ADI_EXPECT(adrv9001_GpInterruptsMaskPinBfSet, device, gpIntMask);
 
     ADI_API_RETURN(device);
 }
 
-int32_t adi_adrv9001_gpio_GpIntMask_Get(adi_adrv9001_Device_t *device, adi_adrv9001_gpMaskSelect_e maskSelect, adi_adrv9001_gpMaskArray_t *maskArray)
+int32_t adi_adrv9001_gpio_GpIntMask_Get(adi_adrv9001_Device_t *device, uint32_t *gpIntMask)
 {
-    int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-
-    ADI_ENTRY_PTR_EXPECT(device, maskArray);
-
-    /* range check channel enum */
-    if (maskSelect != ADI_ADRV9001_GPINT)
-    {
-        ADI_ERROR_REPORT(&device->common,
-                         ADI_COMMON_ERRSRC_API,
-                         ADI_COMMON_ERR_INV_PARAM,
-                         ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         maskSelect,
-                         "Channel provided is out of range");
-
-        ADI_ERROR_RETURN(device->common.error.newAction);
-    }
-
-    /* retrieve the general purpose interrupt Pin IRQ mask */
-    recoveryAction = adrv9001_GpInterruptsMaskPinBfGet(device, &maskArray->gpIntMask);
-
-    ADI_ERROR_REPORT(&device->common,
-                     ADI_COMMON_ERRSRC_API,
-                     device->common.error.errCode,
-                     recoveryAction,
-                     maskArray,
-                     "Error while trying to get adrv9001_GpInterruptsMaskPin_Get");
-
-    ADI_ERROR_RETURN(device->common.error.newAction);
+    ADI_EXPECT(adrv9001_GpInterruptsMaskPinBfGet, device, gpIntMask);
 
     ADI_API_RETURN(device);
 }
 
 int32_t adi_adrv9001_gpio_GpIntStatus_Get(adi_adrv9001_Device_t *device, uint32_t *gpIntStatus)
 {
-    int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-
     ADI_ENTRY_PTR_EXPECT(device, gpIntStatus);
 
-    /* retrieve the general purpose interrupt Pin IRQ mask */
-    recoveryAction = adrv9001_GpInterruptsStatusWordBfGet(device, gpIntStatus);
-
-    ADI_ERROR_REPORT(&device->common,
-                     ADI_COMMON_ERRSRC_API,
-                     device->common.error.errCode,
-                     recoveryAction,
-                     gpIntStatus,
-                     "Error while trying to get GP Int Status - Silicon A");
-
-    ADI_ERROR_RETURN(device->common.error.newAction);
+    ADI_EXPECT(adrv9001_GpInterruptsStatusWordBfGet, device, gpIntStatus);
 
     ADI_API_RETURN(device);
 }
@@ -290,7 +160,7 @@ int32_t adi_adrv9001_gpio_InputPinLevel_Get(adi_adrv9001_Device_t *device,
 }
 
 static int32_t __maybe_unused adi_adrv9001_gpio_ManualInput_Configure_Validate(adi_adrv9001_Device_t *device,
-									       adi_adrv9001_GpioPin_e pin)
+                                           adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_DIGITAL_00, ADI_ADRV9001_GPIO_DIGITAL_15);
     ADI_API_RETURN(device);
@@ -310,7 +180,7 @@ int32_t adi_adrv9001_gpio_ManualInput_Configure(adi_adrv9001_Device_t *device, a
 }
 
 static int32_t __maybe_unused adi_adrv9001_gpio_ManualOutput_Configure_Validate(adi_adrv9001_Device_t *device,
-										adi_adrv9001_GpioPinCrumbSel_e crumb)
+                                        adi_adrv9001_GpioPinCrumbSel_e crumb)
 {
     ADI_RANGE_CHECK(device, crumb, ADI_ADRV9001_GPIO_PIN_CRUMB_01_00, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
     ADI_API_RETURN(device);
@@ -336,7 +206,7 @@ int32_t adi_adrv9001_gpio_ManualOutput_Configure(adi_adrv9001_Device_t *device, 
 }
 
 static int32_t __maybe_unused adi_adrv9001_gpio_ManualAnalogInput_Configure_Validate(adi_adrv9001_Device_t *device,
-										     adi_adrv9001_GpioPin_e pin)
+                                             adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_ANALOG_00, ADI_ADRV9001_GPIO_ANALOG_11);
     ADI_API_RETURN(device);
@@ -451,8 +321,8 @@ int32_t adi_adrv9001_gpio_ControlInit_Configure(adi_adrv9001_Device_t *adrv9001,
 }
 
 static int32_t __maybe_unused adi_adrv9001_gpio_Configure_Validate(adi_adrv9001_Device_t *device,
-								   adi_adrv9001_GpioSignal_e signal,
-								   adi_adrv9001_GpioCfg_t *gpioConfig)
+                                   adi_adrv9001_GpioSignal_e signal,
+                                   adi_adrv9001_GpioCfg_t *gpioConfig)
 {
     /* Check device pointer is not null */
     ADI_ENTRY_PTR_EXPECT(device, gpioConfig);
@@ -550,8 +420,8 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
 }
 
 static int32_t __maybe_unused adi_adrv9001_gpio_Inspect_Validate(adi_adrv9001_Device_t *device,
-								 adi_adrv9001_GpioSignal_e gpioSignalSel,
-								 adi_adrv9001_GpioCfg_t *gpioConfig)
+                                 adi_adrv9001_GpioSignal_e gpioSignalSel,
+                                 adi_adrv9001_GpioCfg_t *gpioConfig)
 {
     ADI_RANGE_CHECK(device, gpioSignalSel, 0x00, ADI_ADRV9001_GPIO_NUM_SIGNALS - 1);
     ADI_NULL_PTR_RETURN(&device->common, gpioConfig);

@@ -29,9 +29,7 @@ extern "C" {
 
 #define ADI_ADRV9001_RX_GAIN_INDEX_MIN 187
 #define ADI_ADRV9001_RX_GAIN_INDEX_MAX 255
-#define ADI_ADRV9001_ORX_GAIN_INDEX_MIN	2
-#define ADI_ADRV9001_ORX_GAIN_INDEX_MAX	14
-
+    
 /**
 *  \brief Rx gain table SRAM base addresses
 */

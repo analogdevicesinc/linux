@@ -1,6 +1,6 @@
 /* Auto-generated file - DO NOT MANUALLY EDIT */
 /* Filename: C:\Jenkins\workspace\vice-driver_profile-types_master\include\adrv9001_Init_t_parser.h */
-/* Created on: 12/3/2020 9:58:11 AM */
+/* Created on: 2/23/2021 9:23:20 AM */
 
 /**
  * Contains auto-generated C macros for loading fields from a JSON file
@@ -9,7 +9,7 @@
  */
 
 /** 
- * Copyright 2020 Analog Devices Inc.
+ * Copyright 2021 Analog Devices Inc.
  */
 
 #include "adi_pmag_macros.h"
@@ -127,8 +127,10 @@ ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv900
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.fhModeOn,                     "fhModeOn"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.numDynamicProfile,            "numDynamicProfile"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.mcsMode,                      "mcsMode"); \
+ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.mcsInterfaceType,             "mcsInterfaceType"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.adcTypeMonitor,               "adcTypeMonitor"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.pllLockTime_us,               "pllLockTime_us"); \
+ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.pllPhaseSyncWait_us,          "pllPhaseSyncWait_us"); \
 ADI_PROCESS_STRUCT_ADRV9001_PLLMODULUS_T                           (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance.pllModulus,                   "pllModulus"); \
 
 #define ADI_PROCESS_STRUCT_ADRV9001_DEVICESYSCONFIG_T(tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_DeviceSysConfig_tInstance, adrv9001_DeviceSysConfig_tName) \
@@ -324,7 +326,9 @@ ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv900
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lsbFirst,                           "lsbFirst"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.qFirst,                             "qFirst"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.txRefClockPin,                      "txRefClockPin"); \
-ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsBitInversion,                   "lvdsBitInversion"); \
+ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsIBitInversion,                  "lvdsIBitInversion"); \
+ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsQBitInversion,                  "lvdsQBitInversion"); \
+ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsStrobeBitInversion,             "lvdsStrobeBitInversion"); \
 ADI_PROCESS_INT      (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsUseLsbIn12bitMode,              "lvdsUseLsbIn12bitMode"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsTxFullRefClkEn,                 "lvdsTxFullRefClkEn"); \
 ADI_PROCESS_BOOL     (tokenArray, tokenIndex, jsonBuffer, parsingBuffer, adrv9001_SsiConfig_tInstance.lvdsRxClkInversionEn,               "lvdsRxClkInversionEn"); \
