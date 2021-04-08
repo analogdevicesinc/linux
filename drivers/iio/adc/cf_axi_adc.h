@@ -12,6 +12,7 @@
 #define ADI_AXI_ADC_H_
 
 #include <linux/fpga/adi-axi-common.h>
+#include <linux/iio/iio.h>
 
 /* ADC COMMON */
 
