@@ -67,7 +67,7 @@ typedef struct adi_adrv9001_DpdInitCfg
     uint32_t modelOrdersForEachTap[4];              /*!< Bitmap for each of the taps in a model to indicate which power
                                                      *   terms are included in the model (and thus the auto-correlation
                                                      *   matrix). Used when #changeModelTapOrders is true */
-    uint8_t preLutScale;                            //!< Prescaler for the LUT (U2.1; min = 0; max = 3.5) */
+    uint8_t preLutScale;                            //!< Prescaler for the LUT (U2.2; min = 0; max = 3.75) */
 } adi_adrv9001_DpdInitCfg_t;
 
 /**
@@ -76,8 +76,8 @@ typedef struct adi_adrv9001_DpdInitCfg
 typedef struct adi_adrv9001_DpdCfg
 {
     uint32_t numberOfSamples;           //!< Number of samples to use for DPD (min: 3; max: 4096) */
-    bool outlierRemovalEnable;          //!< Enable removal of outliers */
-    uint32_t outlierRemovalThreshold;   //!< Threshold for outlier removal (U2.30) */
+    bool outlierRemovalEnable;           //!< Enable removal of outliers; B0 only */
+    uint32_t outlierRemovalThreshold;    //!< Threshold for outlier removal (U2.30); B0 only */
 
     /** Additional scaling on the 2nd and higher order power terms.
      * Used to keep the nominal magnitude of each term about the same
@@ -95,6 +95,20 @@ typedef struct adi_adrv9001_DpdCfg
      * \note May read back a slightly different value than written due to floating point conversion error
      */
     uint32_t rxTxNormalizationUpperThreshold;
+    
+    uint32_t detectionPowerThreshold;   //!< Signal power for the power threshold (U1.31) */
+    uint32_t detectionPeakThreshold;    //!< Signal power for the peak threshold (U1.31) */
+    
+    /** If the number of points below the detectionPowerThreshold exceeds this number, the capture is discarded.
+     * To disable, set to 4096
+     */
+    uint16_t countsLessThanPowerThreshold;
+    
+    /** If the number of points above the detectionPeakThreshold is less than this number, the capture is discarded.
+     * To disable, set to 0
+     */
+    uint16_t countsGreaterThanPeakThreshold;
+    
     bool immediateLutSwitching;             //!< Whether the LUT switches immediately or at the end of a Tx frame */
     bool useSpecialFrame;                   //!< Whether to only run DPD on a user indicated special frame */
     bool resetLuts;                         //!< Whether to reset LUTs to unity. Always read as 0 and is self-clearing */
@@ -102,8 +116,14 @@ typedef struct adi_adrv9001_DpdCfg
 
 typedef struct adi_adrv9001_DpdCoefficients
 {
-    uint8_t region;     //!< The region of the LUT initialization data (valid 0 - 7); ignored on get - returns most recent
+    uint8_t region;     //!< The region of the LUT initialization data (valid 0 - 7)
     uint8_t coefficients[ADI_ADRV9001_DPD_NUM_COEFFICIENTS];    //!< DPD coefficients
 }adi_adrv9001_DpdCoefficients_t;
+
+typedef struct adi_adrv9001_DpdFhRegions
+{
+    uint64_t startFrequency_Hz; //!< Carrier frequency greater than or equal to this is included in the region
+    uint64_t endFrequency_Hz;   //!< Carrier frequency less than this is included in the region
+} adi_adrv9001_DpdFhRegions_t;
 
 #endif /* _ADI_ADRV9001_DPD_TYPES_H_ */

@@ -215,7 +215,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
                                                 adi_common_ChannelNumber_e channel,
                                                 uint32_t *externalPathDelay_ps);
 
-    /**
+/**
  * \brief Get the internal path delay calculated for the given port and channel
  * 
  * \note Message type: \ref timing_mailbox "Mailbox command"
@@ -235,6 +235,23 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
                                                 adi_common_ChannelNumber_e channel,
                                                 uint32_t internalPathDelays_ns[],
                                                 uint32_t length);
+
+/**
+ * \brief Get the carrier frequencies of all channels used in the previous successful call to the init cal
+ * 
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ * 
+ * \pre Channel state any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED
+ * 
+ * \param[in]  adrv9001                 Context variable - Pointer to the ADRV9001 device settings data structure
+ * \param[out] carrierFrequencies_Hz    An array of carrier frequencies of all channels used in the previous successful call to the init cal in Hertz.
+ * \param[in]  length                   Length of the array with '4 'is the maximum (In this specific order: Rx1, Rx2, Tx1, Tx2)
+ * 
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t *adrv9001,
+                                                           uint64_t carrierFrequencies_Hz[],
+                                                           uint32_t length);
 
 #ifdef __cplusplus
 }
