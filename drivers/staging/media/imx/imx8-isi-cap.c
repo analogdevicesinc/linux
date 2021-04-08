@@ -741,7 +741,6 @@ static int mxc_isi_capture_open(struct file *file)
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
 	struct device *dev = &isi_cap->pdev->dev;
-	struct v4l2_subdev *sd;
 	int ret = -EBUSY;
 
 	mutex_lock(&isi_cap->lock);
@@ -757,10 +756,6 @@ static int mxc_isi_capture_open(struct file *file)
 		return ret;
 	}
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -ENODEV;
-
 	mutex_lock(&isi_cap->lock);
 	ret = v4l2_fh_open(file);
 	if (ret) {
@@ -770,13 +765,6 @@ static int mxc_isi_capture_open(struct file *file)
 	mutex_unlock(&isi_cap->lock);
 
 	pm_runtime_get_sync(dev);
-
-	ret = v4l2_subdev_call(sd, core, s_power, 1);
-	if (ret) {
-		dev_err(dev, "Call subdev s_power fail!\n");
-		pm_runtime_put(dev);
-		return ret;
-	}
 
 	mutex_lock(&isi_cap->lock);
 	ret = isi_cap_fmt_init(isi_cap);
@@ -798,7 +786,6 @@ static int mxc_isi_capture_release(struct file *file)
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
 	struct device *dev = &isi_cap->pdev->dev;
 	struct vb2_queue *q = vdev->queue;
-	struct v4l2_subdev *sd;
 	int ret = -1;
 
 	if (!isi_cap->is_link_setup)
@@ -806,10 +793,6 @@ static int mxc_isi_capture_release(struct file *file)
 
 	if (isi_cap->is_streaming[isi_cap->id])
 		mxc_isi_cap_streamoff(file, NULL, q->type);
-
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		goto label;
 
 	mutex_lock(&isi_cap->lock);
 	ret = _vb2_fop_release(file, NULL);
@@ -823,12 +806,6 @@ static int mxc_isi_capture_release(struct file *file)
 	if (atomic_read(&mxc_isi->usage_count) > 0 &&
 	    atomic_dec_and_test(&mxc_isi->usage_count))
 		mxc_isi_channel_deinit(mxc_isi);
-
-	ret = v4l2_subdev_call(sd, core, s_power, 0);
-	if (ret < 0 && ret != -ENOIOCTLCMD) {
-		dev_err(dev, "%s s_power fail\n", __func__);
-		goto label;
-	}
 
 label:
 	mutex_lock(&mxc_isi->lock);
@@ -995,6 +972,12 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	src_sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!src_sd)
 		return -EINVAL;
+
+	ret = v4l2_subdev_call(src_sd, core, s_power, 1);
+	if (ret) {
+		v4l2_err(&isi_cap->sd, "Call subdev s_power fail!\n");
+		return ret;
+	}
 
 	src_fmt.pad = source_pad->index;
 	src_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
