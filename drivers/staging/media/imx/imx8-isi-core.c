@@ -445,14 +445,16 @@ static int mxc_isi_imx8mp_parse_resets(struct mxc_isi_dev *mxc_isi)
 
 	reset = devm_reset_control_get(dev, "isi_rst_proc");
 	if (IS_ERR(reset)) {
-		dev_err(dev, "Failed to get isi proc reset control\n");
+		if (PTR_ERR(reset) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get isi proc reset control\n");
 		return PTR_ERR(reset);
 	}
 	mxc_isi->isi_rst_proc = reset;
 
 	reset = devm_reset_control_get(dev, "isi_rst_apb");
 	if (IS_ERR(reset)) {
-		dev_err(dev, "Failed to get isi apb reset control\n");
+		if (PTR_ERR(reset) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get isi apb reset control\n");
 		return PTR_ERR(reset);
 	}
 	mxc_isi->isi_rst_apb = reset;
@@ -687,7 +689,8 @@ static int mxc_isi_probe(struct platform_device *pdev)
 
 	ret = mxc_isi_soc_match(mxc_isi, imx8_soc);
 	if (ret < 0) {
-		dev_err(dev, "Can't match soc version\n");
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Can't match soc version\n");
 		return ret;
 	}
 
@@ -714,7 +717,8 @@ static int mxc_isi_probe(struct platform_device *pdev)
 
 	ret = disp_mix_sft_parse_resets(mxc_isi);
 	if (ret) {
-		dev_err(dev, "Can not parse reset control for isi\n");
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Can not parse reset control for isi\n");
 		return ret;
 	}
 
