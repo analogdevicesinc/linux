@@ -99,7 +99,7 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&ad9528 13>;
 		clock-names = "adc_ref_clk";
-		adi,sampling-frequency-hz = /bits/ 64 <125000000>;
+		adi,adc-frequency-hz= /bits/ 64 <2000000000>; /* 2 GHz */
 
 		/* adi_ad9083 config */
 
