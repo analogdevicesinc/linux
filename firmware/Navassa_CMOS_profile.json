@@ -34,7 +34,7 @@
     "loGen2Select": 1
   },
   "rx": {
-    "rxInitChannelMask": 243,
+    "rxInitChannelMask": 195,
     "rxChannelCfg": [ {
         "profile": {
           "primarySigBandwidth_Hz": 1008000,
@@ -98,10 +98,10 @@
                 "dpInFifoTestDataSel": 0
               },
               "rxNbNco": {
-                "rxNbNcoEn": 0,
+                "rxNbNcoEn": 1,
                 "rxNbNcoConfig": {
                   "freq": 0,
-                  "sampleFreq": 0,
+                  "sampleFreq": 1920000,
                   "phase": 0,
                   "realOut": 0
                 }
@@ -130,7 +130,9 @@
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -204,10 +206,10 @@
                 "dpInFifoTestDataSel": 0
               },
               "rxNbNco": {
-                "rxNbNcoEn": 0,
+                "rxNbNcoEn": 1,
                 "rxNbNcoConfig": {
                   "freq": 0,
-                  "sampleFreq": 0,
+                  "sampleFreq": 1920000,
                   "phase": 0,
                   "realOut": 0
                 }
@@ -236,7 +238,9 @@
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -249,28 +253,28 @@
         }
       }, {
         "profile": {
-          "primarySigBandwidth_Hz": 1008000,
-          "rxOutputRate_Hz": 1920000,
-          "rxInterfaceSampleRate_Hz": 1920000,
+          "primarySigBandwidth_Hz": 12500,
+          "rxOutputRate_Hz": 0,
+          "rxInterfaceSampleRate_Hz": 0,
           "rxOffsetLo_kHz": 0,
           "rxSignalOnLo": 0,
           "outputSignaling": 0,
           "filterOrder": 1,
           "filterOrderLp": 1,
-          "hpAdcCorner": 50000000,
+          "hpAdcCorner": 0,
           "lpAdcCorner": 0,
-          "adcClk_kHz": 2211840,
-          "rxCorner3dB_kHz": 100000,
-          "rxCorner3dBLp_kHz": 100000,
+          "adcClk_kHz": 0,
+          "rxCorner3dB_kHz": 0,
+          "rxCorner3dBLp_kHz": 0,
           "tiaPower": 2,
           "tiaPowerLp": 2,
-          "channelType": 16,
+          "channelType": 0,
           "adcType": 1,
           "lpAdcCalMode": 0,
           "rxDpProfile": {
             "rxNbDecTop": {
               "scicBlk23En": 0,
-              "scicBlk23DivFactor": 1,
+              "scicBlk23DivFactor": 0,
               "scicBlk23LowRippleEn": 0,
               "decBy2Blk35En": 0,
               "decBy2Blk37En": 0,
@@ -281,15 +285,15 @@
               "decBy2Blk47En": 0
             },
             "rxWbDecTop": {
-              "decBy2Blk25En": 1,
-              "decBy2Blk27En": 1,
-              "decBy2Blk29En": 1,
-              "decBy2Blk31En": 1,
-              "decBy2Blk33En": 1,
+              "decBy2Blk25En": 0,
+              "decBy2Blk27En": 0,
+              "decBy2Blk29En": 0,
+              "decBy2Blk31En": 0,
+              "decBy2Blk33En": 0,
               "wbLpfBlk33p1En": 0
             },
             "rxDecTop": {
-              "decBy3Blk15En": 1,
+              "decBy3Blk15En": 0,
               "decBy2Hb3Blk17p1En": 0,
               "decBy2Hb4Blk17p2En": 0,
               "decBy2Hb5Blk19p1En": 0,
@@ -297,8 +301,8 @@
             },
             "rxSincHBTop": {
               "sincGainMux": 1,
-              "sincMux": 4,
-              "hbMux": 2,
+              "sincMux": 0,
+              "hbMux": 4,
               "isGainCompEnabled": 0,
               "gainComp9GainI": [ 16384, 16384, 16384, 16384, 16384, 16384 ],
               "gainComp9GainQ": [ 0, 0, 0, 0, 0, 0 ]
@@ -319,7 +323,7 @@
                 }
               },
               "rxWbNbCompPFir": {
-                "bankSel": 1,
+                "bankSel": 0,
                 "rxWbNbCompPFirInMuxSel": 0,
                 "rxWbNbCompPFirEn": 1
               },
@@ -335,14 +339,16 @@
             }
           },
           "rxSsiConfig": {
-            "ssiType": 1,
-            "ssiDataFormatSel": 4,
+            "ssiType": 0,
+            "ssiDataFormatSel": 0,
             "numLaneSel": 0,
             "strobeType": 0,
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -355,28 +361,28 @@
         }
       }, {
         "profile": {
-          "primarySigBandwidth_Hz": 1008000,
-          "rxOutputRate_Hz": 1920000,
-          "rxInterfaceSampleRate_Hz": 1920000,
+          "primarySigBandwidth_Hz": 12500,
+          "rxOutputRate_Hz": 0,
+          "rxInterfaceSampleRate_Hz": 0,
           "rxOffsetLo_kHz": 0,
           "rxSignalOnLo": 0,
           "outputSignaling": 0,
           "filterOrder": 1,
           "filterOrderLp": 1,
-          "hpAdcCorner": 50000000,
+          "hpAdcCorner": 0,
           "lpAdcCorner": 0,
-          "adcClk_kHz": 2211840,
-          "rxCorner3dB_kHz": 100000,
-          "rxCorner3dBLp_kHz": 100000,
+          "adcClk_kHz": 0,
+          "rxCorner3dB_kHz": 0,
+          "rxCorner3dBLp_kHz": 0,
           "tiaPower": 2,
           "tiaPowerLp": 2,
-          "channelType": 32,
+          "channelType": 0,
           "adcType": 1,
           "lpAdcCalMode": 0,
           "rxDpProfile": {
             "rxNbDecTop": {
               "scicBlk23En": 0,
-              "scicBlk23DivFactor": 1,
+              "scicBlk23DivFactor": 0,
               "scicBlk23LowRippleEn": 0,
               "decBy2Blk35En": 0,
               "decBy2Blk37En": 0,
@@ -387,15 +393,15 @@
               "decBy2Blk47En": 0
             },
             "rxWbDecTop": {
-              "decBy2Blk25En": 1,
-              "decBy2Blk27En": 1,
-              "decBy2Blk29En": 1,
-              "decBy2Blk31En": 1,
-              "decBy2Blk33En": 1,
+              "decBy2Blk25En": 0,
+              "decBy2Blk27En": 0,
+              "decBy2Blk29En": 0,
+              "decBy2Blk31En": 0,
+              "decBy2Blk33En": 0,
               "wbLpfBlk33p1En": 0
             },
             "rxDecTop": {
-              "decBy3Blk15En": 1,
+              "decBy3Blk15En": 0,
               "decBy2Hb3Blk17p1En": 0,
               "decBy2Hb4Blk17p2En": 0,
               "decBy2Hb5Blk19p1En": 0,
@@ -403,8 +409,8 @@
             },
             "rxSincHBTop": {
               "sincGainMux": 1,
-              "sincMux": 4,
-              "hbMux": 2,
+              "sincMux": 0,
+              "hbMux": 4,
               "isGainCompEnabled": 0,
               "gainComp9GainI": [ 16384, 16384, 16384, 16384, 16384, 16384 ],
               "gainComp9GainQ": [ 0, 0, 0, 0, 0, 0 ]
@@ -425,7 +431,7 @@
                 }
               },
               "rxWbNbCompPFir": {
-                "bankSel": 3,
+                "bankSel": 0,
                 "rxWbNbCompPFirInMuxSel": 0,
                 "rxWbNbCompPFirEn": 1
               },
@@ -441,14 +447,16 @@
             }
           },
           "rxSsiConfig": {
-            "ssiType": 1,
-            "ssiDataFormatSel": 4,
+            "ssiType": 0,
+            "ssiDataFormatSel": 0,
             "numLaneSel": 0,
             "strobeType": 0,
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -554,7 +562,9 @@
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -660,7 +670,9 @@
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -766,7 +778,9 @@
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -872,7 +886,9 @@
             "lsbFirst": 0,
             "qFirst": 0,
             "txRefClockPin": 0,
-            "lvdsBitInversion": 0,
+            "lvdsIBitInversion": false,
+            "lvdsQBitInversion": false,
+            "lvdsStrobeBitInversion": false,
             "lvdsUseLsbIn12bitMode": 0,
             "lvdsTxFullRefClkEn": false,
             "lvdsRxClkInversionEn": false,
@@ -951,7 +967,7 @@
             "txRoundEn": 1
           },
           "txIqdmDuc": {
-            "iqdmDucMode": 0,
+            "iqdmDucMode": 2,
             "iqdmDev": 0,
             "iqdmDevOffset": 0,
             "iqdmScalar": 0,
@@ -972,7 +988,9 @@
           "lsbFirst": 0,
           "qFirst": 0,
           "txRefClockPin": 1,
-          "lvdsBitInversion": 0,
+          "lvdsIBitInversion": false,
+          "lvdsQBitInversion": false,
+          "lvdsStrobeBitInversion": false,
           "lvdsUseLsbIn12bitMode": 0,
           "lvdsTxFullRefClkEn": false,
           "lvdsRxClkInversionEn": false,
@@ -1046,7 +1064,7 @@
             "txRoundEn": 1
           },
           "txIqdmDuc": {
-            "iqdmDucMode": 0,
+            "iqdmDucMode": 2,
             "iqdmDev": 0,
             "iqdmDevOffset": 0,
             "iqdmScalar": 0,
@@ -1067,7 +1085,9 @@
           "lsbFirst": 0,
           "qFirst": 0,
           "txRefClockPin": 1,
-          "lvdsBitInversion": 0,
+          "lvdsIBitInversion": false,
+          "lvdsQBitInversion": false,
+          "lvdsStrobeBitInversion": false,
           "lvdsUseLsbIn12bitMode": 0,
           "lvdsTxFullRefClkEn": false,
           "lvdsRxClkInversionEn": false,
@@ -1084,8 +1104,10 @@
     "fhModeOn": 0,
     "numDynamicProfile": 1,
     "mcsMode": 0,
+    "mcsInterfaceType": 0,
     "adcTypeMonitor": 1,
     "pllLockTime_us": 750,
+    "pllPhaseSyncWait_us": 0,
     "pllModulus": {
       "modulus": [ 8388593, 8388593, 8388593, 8388593, 8388593 ],
       "dmModulus": [ 8388593, 8388593 ]
@@ -1163,53 +1185,53 @@
       } ],
     "pfirRxMagLowTiaLowSRHp": [ {
         "numCoeff": 21,
-        "coefficients": [ -21, 111, -363, 870, -1718, 2932, -4416, 5958, -7152, 6556, 27252, 6556, -7152, 5958, -4416, 2932, -1718, 870, -363, 111, -21 ]
+        "coefficients": [ -12, 83, -293, 734, -1489, 2594, -3965, 5403, -6516, 5868, 27957, 5868, -6516, 5403, -3965, 2594, -1489, 734, -293, 83, -12 ]
       }, {
         "numCoeff": 21,
-        "coefficients": [ -21, 111, -363, 870, -1718, 2932, -4416, 5958, -7152, 6556, 27252, 6556, -7152, 5958, -4416, 2932, -1718, 870, -363, 111, -21 ]
+        "coefficients": [ -12, 83, -293, 734, -1489, 2594, -3965, 5403, -6516, 5868, 27957, 5868, -6516, 5403, -3965, 2594, -1489, 734, -293, 83, -12 ]
       } ],
     "pfirRxMagLowTiaHighSRHp": [ {
         "numCoeff": 21,
-        "coefficients": [ -27, 14, 422, -1035, 109, 1789, 267, -4738, -1617, 11376, 19649, 11376, -1617, -4738, 267, 1789, 109, -1035, 422, 14, -27 ]
+        "coefficients": [ -62, 194, 80, -829, 201, 1857, -179, -4602, -1259, 11431, 19102, 11431, -1259, -4602, -179, 1857, 201, -829, 80, 194, -62 ]
       }, {
         "numCoeff": 21,
-        "coefficients": [ -27, 14, 422, -1035, 109, 1789, 267, -4738, -1617, 11376, 19649, 11376, -1617, -4738, 267, 1789, 109, -1035, 422, 14, -27 ]
+        "coefficients": [ -62, 194, 80, -829, 201, 1857, -179, -4602, -1259, 11431, 19102, 11431, -1259, -4602, -179, 1857, 201, -829, 80, 194, -62 ]
       } ],
     "pfirRxMagHighTiaHighSRHp": [ {
         "numCoeff": 21,
-        "coefficients": [ 28, -160, 472, -885, 984, -36, -2594, 6779, -11030, 10718, 24218, 10718, -11030, 6779, -2594, -36, 984, -885, 472, -160, 28 ]
+        "coefficients": [ 39, -229, 714, -1485, 2134, -1844, -219, 4147, -8514, 8496, 26292, 8496, -8514, 4147, -219, -1844, 2134, -1485, 714, -229, 39 ]
       }, {
         "numCoeff": 21,
-        "coefficients": [ 28, -160, 472, -885, 984, -36, -2594, 6779, -11030, 10718, 24218, 10718, -11030, 6779, -2594, -36, 984, -885, 472, -160, 28 ]
+        "coefficients": [ 39, -229, 714, -1485, 2134, -1844, -219, 4147, -8514, 8496, 26292, 8496, -8514, 4147, -219, -1844, 2134, -1485, 714, -229, 39 ]
       } ],
     "pfirRxMagLowTiaLowSRLp": [ {
         "numCoeff": 21,
-        "coefficients": [ -21, 111, -363, 870, -1717, 2931, -4415, 5957, -7153, 6560, 27245, 6560, -7153, 5957, -4415, 2931, -1717, 870, -363, 111, -21 ]
+        "coefficients": [ -12, 83, -293, 733, -1488, 2593, -3963, 5401, -6514, 5870, 27953, 5870, -6514, 5401, -3963, 2593, -1488, 733, -293, 83, -12 ]
       }, {
         "numCoeff": 21,
-        "coefficients": [ -21, 111, -363, 870, -1717, 2931, -4415, 5957, -7153, 6560, 27245, 6560, -7153, 5957, -4415, 2931, -1717, 870, -363, 111, -21 ]
+        "coefficients": [ -12, 83, -293, 733, -1488, 2593, -3963, 5401, -6514, 5870, 27953, 5870, -6514, 5401, -3963, 2593, -1488, 733, -293, 83, -12 ]
       } ],
     "pfirRxMagLowTiaHighSRLp": [ {
         "numCoeff": 21,
-        "coefficients": [ -28, 14, 420, -1033, 109, 1787, 264, -4732, -1611, 11374, 19637, 11374, -1611, -4732, 264, 1787, 109, -1033, 420, 14, -28 ]
+        "coefficients": [ -62, 194, 80, -828, 201, 1855, -180, -4597, -1254, 11428, 19093, 11428, -1254, -4597, -180, 1855, 201, -828, 80, 194, -62 ]
       }, {
         "numCoeff": 21,
-        "coefficients": [ -28, 14, 420, -1033, 109, 1787, 264, -4732, -1611, 11374, 19637, 11374, -1611, -4732, 264, 1787, 109, -1033, 420, 14, -28 ]
+        "coefficients": [ -62, 194, 80, -828, 201, 1855, -180, -4597, -1254, 11428, 19093, 11428, -1254, -4597, -180, 1855, 201, -828, 80, 194, -62 ]
       } ],
     "pfirRxMagHighTiaHighSRLp": [ {
         "numCoeff": 21,
-        "coefficients": [ 28, -160, 472, -887, 988, -48, -2570, 6741, -10987, 10702, 24208, 10702, -10987, 6741, -2570, -48, 988, -887, 472, -160, 28 ]
+        "coefficients": [ 39, -229, 712, -1481, 2128, -1841, -215, 4131, -8490, 8497, 26266, 8497, -8490, 4131, -215, -1841, 2128, -1481, 712, -229, 39 ]
       }, {
         "numCoeff": 21,
-        "coefficients": [ 28, -160, 472, -887, 988, -48, -2570, 6741, -10987, 10702, 24208, 10702, -10987, 6741, -2570, -48, 988, -887, 472, -160, 28 ]
+        "coefficients": [ 39, -229, 712, -1481, 2128, -1841, -215, 4131, -8490, 8497, 26266, 8497, -8490, 4131, -215, -1841, 2128, -1481, 712, -229, 39 ]
       } ],
     "pfirTxMagComp1": {
       "numCoeff": 21,
-      "coefficients": [ 8, -20, -56, 533, -1988, 5017, -9518, 13961, -13377, 6783, 30083, 6783, -13377, 13961, -9518, 5017, -1988, 533, -56, -20, 8 ]
+      "coefficients": [ 69, -384, 1125, -2089, 2300, -165, -5248, 12368, -13473, 4864, 34039, 4864, -13473, 12368, -5248, -165, 2300, -2089, 1125, -384, 69 ]
     },
     "pfirTxMagComp2": {
       "numCoeff": 21,
-      "coefficients": [ 8, -20, -56, 533, -1988, 5017, -9518, 13961, -13377, 6783, 30083, 6783, -13377, 13961, -9518, 5017, -1988, 533, -56, -20, 8 ]
+      "coefficients": [ 69, -384, 1125, -2089, 2300, -165, -5248, 12368, -13473, 4864, 34039, 4864, -13473, 12368, -5248, -165, 2300, -2089, 1125, -384, 69 ]
     },
     "pfirTxMagCompNb": [ {
         "numCoeff": 13,
