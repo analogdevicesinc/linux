@@ -32,7 +32,7 @@ int32_t adi_adrv9001_cals_InitCals_Run(adi_adrv9001_Device_t *adrv9001,
                                        uint8_t *errorFlag)
 {
     uint8_t payloadMailbox[12] = { 0 };
-    uint8_t payload[2] = { 0 };
+    uint8_t payload[3] = { 0 };
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint8_t cmdStatusByte = 0;
     uint8_t errFlag = 0;
@@ -75,6 +75,11 @@ int32_t adi_adrv9001_cals_InitCals_Run(adi_adrv9001_Device_t *adrv9001,
 
     /* Mode to select the Init calibration algorithms to run */
     payload[1] = (uint8_t)(initCals->calMode);
+    
+#ifdef ADI_ADRV9001_SI_REV_C0
+    /* A value of true will force all enabled calibrations to re-run */
+    payload[2] = (uint8_t)(initCals->force);
+#endif // ADI_ADRV9001_SI_REV_C0
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, ADRV9001_ARM_RUNINIT_OPCODE, &payload[0], ADI_ARRAY_LEN(payload));
 
@@ -648,6 +653,56 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
         /* pathDelay[0] contains the value for the main profile
          * pathDelay[1:5] will return as 0x0 until Dynamic Profile Switching is supported */
         internalPathDelays_ns[i] = pathDelay;
+    }
+
+    ADI_API_RETURN(adrv9001);
+}
+
+int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+                                                                    uint64_t carrierFrequencies_Hz[],
+                                                                    uint32_t length)
+{
+    static uint8_t MAX_FREQUENCIES = 4;
+    ADI_NULL_PTR_RETURN(&adrv9001->common, carrierFrequencies_Hz);
+    ADI_RANGE_CHECK(adrv9001, length, 1, MAX_FREQUENCIES);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(adrv9001, carrierFrequencies_Hz, length);
+    ADI_API_RETURN(adrv9001);
+}
+
+int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t *adrv9001,
+                                                           uint64_t carrierFrequencies_Hz[],
+                                                           uint32_t length)
+{
+    uint8_t armReadBack[32] = { 0 };
+    uint8_t extData[2] = { 0 };
+    uint8_t i = 0;
+    uint32_t offset = 0;
+    uint64_t carrierFrequency_Hz = 0;
+
+    ADI_PERFORM_VALIDATION(adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get_Validate, adrv9001, carrierFrequencies_Hz, length);
+
+    extData[0] = 0; /* Channel Mask; unused for this command */
+    extData[1] = ADRV9001_ARM_OBJECTID_GET_CARRIER_FREQUENCY_OF_LAST_INITCAL;
+    ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_GET_OPCODE, &extData[0], sizeof(extData));
+
+    /* Wait for command to finish executing */
+    ADRV9001_ARM_CMD_STATUS_WAIT_EXPECT(adrv9001,
+        (uint8_t)ADRV9001_ARM_GET_OPCODE,
+        extData[1],
+        (uint32_t)ADI_ADRV9001_DEFAULT_TIMEOUT_US,
+        (uint32_t)ADI_ADRV9001_DEFAULT_INTERVAL_US);
+
+    ADI_EXPECT(adi_adrv9001_arm_Memory_Read,
+        adrv9001,
+        (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_GET,
+        &armReadBack[0],
+        sizeof(armReadBack),
+        false);
+
+    for (i = 0; i < length; i++)
+    {
+        adrv9001_ParseEightBytes(&offset, armReadBack, &carrierFrequency_Hz);
+        carrierFrequencies_Hz[i] = carrierFrequency_Hz;
     }
 
     ADI_API_RETURN(adrv9001);

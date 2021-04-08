@@ -2,11 +2,7 @@
  * \file
  * \brief Contains ADRV9001 Digital Pre-Distortion (DPD) related function prototypes
  *
- * ADRV9001 API Version: $ADI_ADRV9001_API_VERSION$
- */
-
- /**
- * Copyright 2019 Analog Devices Inc.
+ * Copyright 2019-2021 Analog Devices Inc.
  * Released under the ADRV9001 API license, for more information
  * see the "LICENSE.txt" file in this zip file.
  */
@@ -87,7 +83,7 @@ int32_t adi_adrv9001_dpd_Configure(adi_adrv9001_Device_t *adrv9001,
 int32_t adi_adrv9001_dpd_Inspect(adi_adrv9001_Device_t *adrv9001,
                                  adi_common_ChannelNumber_e channel,
                                  adi_adrv9001_DpdCfg_t *dpdConfig);
-	
+    
 /**
  * \brief Set DPD coefficients to be used at the next start of DPD
  * 
@@ -117,7 +113,7 @@ int32_t adi_adrv9001_dpd_coefficients_Set(adi_adrv9001_Device_t *adrv9001,
  *
  * \param[in]  adrv9001		Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[in]  channel      The channel of interest
- * \param[out] coefficients	The latest coefficients
+ * \param[in,out] coefficients	The latest coefficients
  * 
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */

@@ -20,10 +20,11 @@
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_bf.h"
 #include "adi_adrv9001_radio.h"
+#include "adrv9001_validators.h"
 
 /* Reads back PLL MCS status register and populates adi_adrv9001_pllSyncStatus_t */
-static int32_t adi_adrv9001_Mcs_PllStatus_Get (adi_adrv9001_Device_t *adrv9001,
-                                               adi_adrv9001_Pll_e pll,
+static int32_t adi_adrv9001_Mcs_PllStatus_Get (adi_adrv9001_Device_t *adrv9001, 
+                                               adi_adrv9001_Pll_e pll, 
                                                adi_adrv9001_PllSyncStatus_t *pllStatus)
 {
     uint8_t mcsStatusRead = 0;
@@ -42,19 +43,19 @@ static int32_t adi_adrv9001_Mcs_PllStatus_Get (adi_adrv9001_Device_t *adrv9001,
 
     instance = instances[pll];
 
-	ADI_EXPECT(adrv9001_NvsPllMemMap_McsSpiStatus_Get, adrv9001, instance, &mcsStatusRead);
+    ADI_EXPECT(adrv9001_NvsPllMemMap_McsSpiStatus_Get, adrv9001, instance, &mcsStatusRead);
 
-    pllStatus->jesdSyncComplete                   = (bool)((mcsStatusRead & 0x01u) >> 0x00);
-    pllStatus->digitalClocksSyncComplete          = (bool)((mcsStatusRead & 0x02u) >> 0x01);
-    pllStatus->clockGenDividerSyncComplete        = (bool)((mcsStatusRead & 0x04u) >> 0x02);
-    pllStatus->sdmClockDividerSyncComplete        = (bool)((mcsStatusRead & 0x08u) >> 0x03);
-    pllStatus->referenceClockDividerSyncComplete  = (bool)((mcsStatusRead & 0x10u) >> 0x04);
-
+    pllStatus->jesdSyncComplete                   = (bool)((mcsStatusRead & 0x01u) >> 0x00); 
+    pllStatus->digitalClocksSyncComplete          = (bool)((mcsStatusRead & 0x02u) >> 0x01);  
+    pllStatus->clockGenDividerSyncComplete        = (bool)((mcsStatusRead & 0x04u) >> 0x02); 
+    pllStatus->sdmClockDividerSyncComplete        = (bool)((mcsStatusRead & 0x08u) >> 0x03); 
+    pllStatus->referenceClockDividerSyncComplete  = (bool)((mcsStatusRead & 0x10u) >> 0x04);  
+    
     ADI_API_RETURN(adrv9001);
 }
 
 /* Reads back digital MCS status register and populates adi_adrv9001_McsStatus_t */
-static int32_t adi_adrv9001_Mcs_DigitalStatus_Get (adi_adrv9001_Device_t *adrv9001,
+static int32_t adi_adrv9001_Mcs_DigitalStatus_Get (adi_adrv9001_Device_t *adrv9001, 
                                                    adi_adrv9001_McsStatus_t *mcsStatus)
 {
     uint8_t mcsStatusRead = 0;
@@ -73,8 +74,8 @@ static int32_t adi_adrv9001_Mcs_DigitalStatus_Get (adi_adrv9001_Device_t *adrv90
 }
 
 /* Reads back digital Rx LVDS MCS status register and populates adi_adrv9001_RxLvdsSyncStatus_t */
-static int32_t adi_adrv9001_Mcs_RxLvdsStatus_Get(adi_adrv9001_Device_t *adrv9001,
-                                                 adi_common_ChannelNumber_e channel,
+static int32_t adi_adrv9001_Mcs_RxLvdsStatus_Get(adi_adrv9001_Device_t *adrv9001, 
+                                                 adi_common_ChannelNumber_e channel, 
                                                  adi_adrv9001_RxLvdsSyncStatus_t *lvdsStatus)
 {
     uint8_t firstLvdsMcsStatusRead, secondLvdsMcsStatusRead = 0;
@@ -82,7 +83,7 @@ static int32_t adi_adrv9001_Mcs_RxLvdsStatus_Get(adi_adrv9001_Device_t *adrv9001
     ADI_NULL_PTR_RETURN(&adrv9001->common, lvdsStatus);
     ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1 , ADI_CHANNEL_2);
 
-    if (channel == ADI_CHANNEL_1)
+    if (channel == ADI_CHANNEL_1) 
     {
         ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1LvdsMcsCaptureReceived_Get, adrv9001, &firstLvdsMcsStatusRead);
         ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1LvdsMcsSecondCaptureReceived_Get, adrv9001, &secondLvdsMcsStatusRead);
@@ -91,19 +92,19 @@ static int32_t adi_adrv9001_Mcs_RxLvdsStatus_Get(adi_adrv9001_Device_t *adrv9001
     {
         ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2LvdsMcsCaptureReceived_Get, adrv9001, &firstLvdsMcsStatusRead);
         ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2LvdsMcsSecondCaptureReceived_Get, adrv9001, &secondLvdsMcsStatusRead);
-    }
+    } 
     lvdsStatus->lvdsFirstSyncComplete   = (bool)firstLvdsMcsStatusRead;
     lvdsStatus->lvdsSecondSyncComplete  = (bool)secondLvdsMcsStatusRead;
 
     ADI_API_RETURN(adrv9001);
-}
+}                                                
 
 int32_t adi_adrv9001_Mcs_Status_Get(adi_adrv9001_Device_t *adrv9001,
-	                                adi_adrv9001_McsStatus_t *mcsStatus)
+                                    adi_adrv9001_McsStatus_t *mcsStatus)
 {
     ADI_ENTRY_EXPECT(adrv9001);
     /* TODO: Consider validating the state. However, since this API is for debug, it might be better to
-             keep it flexible.
+             keep it flexible. 
              This function could be used outside of the MCS_READY state to check the status of the
              registers.
     */
@@ -112,7 +113,7 @@ int32_t adi_adrv9001_Mcs_Status_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_EXPECT(adi_adrv9001_Mcs_PllStatus_Get, adrv9001, ADI_ADRV9001_PLL_LO1,    &mcsStatus->rf1PllSyncStatus);   /* RF1 PLL Sync status */
     ADI_EXPECT(adi_adrv9001_Mcs_PllStatus_Get, adrv9001, ADI_ADRV9001_PLL_LO2,    &mcsStatus->rf2PllSyncStatus);   /* RF2 PLL Sync status */
     ADI_EXPECT(adi_adrv9001_Mcs_PllStatus_Get, adrv9001, ADI_ADRV9001_PLL_CLK,    &mcsStatus->clkPllSyncStatus);   /* CLK PLL Sync status */
-    ADI_EXPECT(adi_adrv9001_Mcs_PllStatus_Get, adrv9001, ADI_ADRV9001_PLL_CLK_LP, &mcsStatus->clkPllLpSyncStatus); /* LP CLK PLL Sync status */
+    ADI_EXPECT(adi_adrv9001_Mcs_PllStatus_Get, adrv9001, ADI_ADRV9001_PLL_CLK_LP, &mcsStatus->clkPllLpSyncStatus); /* LP CLK PLL Sync status */   
     /* Get Rx LVDS Synchronization status */
     ADI_EXPECT(adi_adrv9001_Mcs_RxLvdsStatus_Get, adrv9001, ADI_CHANNEL_1,        &mcsStatus->rx1LvdsSyncStatus);  /* Rx1 LVDS Sync status */
     ADI_EXPECT(adi_adrv9001_Mcs_RxLvdsStatus_Get, adrv9001, ADI_CHANNEL_2,        &mcsStatus->rx2LvdsSyncStatus);  /* Rx2 LVDS Sync status */
@@ -132,9 +133,9 @@ int32_t adi_adrv9001_Mcs_SwStatus_Get(adi_adrv9001_Device_t *adrv9001,
     /* If system state is MCS, then ARM repurposes the bootstate registers
        to reflect the MCS status.
 
-       Validation could be added to check if we are in the MCS system state.
+       Validation could be added to check if we are in the MCS system state. 
        However, validation is left out for now since this is a debug/test function.
-       It may be inconvenient for the user/developer if we check the state.
+       It may be inconvenient for the user/developer if we check the state. 
     */
     if ((currentState.systemState == ADI_ADRV9001_ARM_SYSTEM_MCS)
       &&(currentState.mcsState    == ADI_ADRV9001_ARMMCSSTATES_READY))
@@ -142,9 +143,9 @@ int32_t adi_adrv9001_Mcs_SwStatus_Get(adi_adrv9001_Device_t *adrv9001,
         *mcsSwStatus = ADI_ADRV9001_MCSSWSTATUS_READY;
     }
     else
-    {
+    {   
         /* As long as the condition above is not true, the we can set the mcsStatus
-           to whatever is in the register.
+           to whatever is in the register. 
            If the system state is not MCS, then the mcsStatus field is not valid.
 
            The bootState is offset by 1 to account for the API enum definition
@@ -156,12 +157,12 @@ int32_t adi_adrv9001_Mcs_SwStatus_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-int32_t adi_adrv9001_Mcs_TxMcsToStrobeSampleLatency_Get (adi_adrv9001_Device_t *adrv9001,
-                                                         adi_common_ChannelNumber_e channel,
+int32_t adi_adrv9001_Mcs_TxMcsToStrobeSampleLatency_Get (adi_adrv9001_Device_t *adrv9001, 
+                                                         adi_common_ChannelNumber_e channel, 
                                                          uint16_t *latency)
 {
     ADI_ENTRY_EXPECT(adrv9001);
-	ADI_NULL_PTR_RETURN(&adrv9001->common, latency);
+    ADI_NULL_PTR_RETURN(&adrv9001->common, latency);
     if (ADI_CHANNEL_1 == channel)
     {
         ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1McsVsDataValidCnt_Get, adrv9001, latency);
@@ -174,20 +175,84 @@ int32_t adi_adrv9001_Mcs_TxMcsToStrobeSampleLatency_Get (adi_adrv9001_Device_t *
     ADI_API_RETURN(adrv9001);
 }
 
-int32_t adi_adrv9001_Mcs_TxMcsSampleDelay_Set (adi_adrv9001_Device_t *adrv9001,
-                                               adi_common_ChannelNumber_e channel,
-                                               uint16_t delay)
+int32_t adi_adrv9001_Mcs_ChannelMcsDelay_Set(adi_adrv9001_Device_t *adrv9001, 
+                                             adi_common_Port_e port,
+                                             adi_common_ChannelNumber_e channel, 
+                                             adi_adrv9001_McsDelay_t *mcsDelay)
 {
     ADI_ENTRY_EXPECT(adrv9001);
-    ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1 , ADI_CHANNEL_2);
-
-    if (ADI_CHANNEL_1 == channel)
+    ADI_EXPECT(adi_adrv9001_Port_Validate, adrv9001, port);
+    ADI_EXPECT(adi_adrv9001_Channel_Validate, adrv9001, channel);
+    if (ADI_RX == port)
     {
-        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1McsDelayCnt_Set, adrv9001, delay);
+        ADI_RANGE_CHECK(adrv9001, mcsDelay->readDelay, 1, 15);
     }
     else
     {
-        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2McsDelayCnt_Set, adrv9001, delay);
+        ADI_RANGE_CHECK(adrv9001, mcsDelay->readDelay, 0, 15);
+
+    }
+    
+    if (port == ADI_RX && channel == ADI_CHANNEL_1)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1McsReadFifoDelayCnt_Set, adrv9001, mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1McsDelayCnt_Set, adrv9001, mcsDelay->sampleDelay);
+    }
+    else if (port == ADI_RX && channel == ADI_CHANNEL_2)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2McsReadFifoDelayCnt_Set, adrv9001, mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2McsDelayCnt_Set, adrv9001, mcsDelay->sampleDelay);
+    }
+    else if (port == ADI_TX && channel == ADI_CHANNEL_1)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1McsReadFifoDelayCnt_Set, adrv9001, mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1McsDelayCnt_Set, adrv9001, mcsDelay->sampleDelay);
+    }
+    else if (port == ADI_TX && channel == ADI_CHANNEL_2)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2McsReadFifoDelayCnt_Set, adrv9001, mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2McsDelayCnt_Set, adrv9001, mcsDelay->sampleDelay);
+    }
+    else
+    {
+        ADI_SHOULD_NOT_EXECUTE(adrv9001);
+    }
+
+    ADI_API_RETURN(adrv9001);
+}
+
+int32_t adi_adrv9001_Mcs_ChannelMcsDelay_Get (adi_adrv9001_Device_t *adrv9001,
+                                              adi_common_Port_e port,
+                                              adi_common_ChannelNumber_e channel, 
+                                              adi_adrv9001_McsDelay_t *mcsDelay)
+{
+    ADI_ENTRY_EXPECT(adrv9001);
+    ADI_EXPECT(adi_adrv9001_Port_Validate, adrv9001, port);
+    ADI_EXPECT(adi_adrv9001_Channel_Validate, adrv9001, channel);
+
+    if (port == ADI_RX && channel == ADI_CHANNEL_1)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1McsReadFifoDelayCnt_Get, adrv9001, &mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1McsDelayCnt_Get, adrv9001, &mcsDelay->sampleDelay);
+    }
+    else if (port == ADI_RX && channel == ADI_CHANNEL_2)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2McsReadFifoDelayCnt_Get, adrv9001, &mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2McsDelayCnt_Get, adrv9001, &mcsDelay->sampleDelay);
+    }
+    else if (port == ADI_TX && channel == ADI_CHANNEL_1)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1McsReadFifoDelayCnt_Get, adrv9001, &mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1McsDelayCnt_Get, adrv9001, &mcsDelay->sampleDelay);
+    }
+    else if (port == ADI_TX && channel == ADI_CHANNEL_2)
+    {
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2McsReadFifoDelayCnt_Get, adrv9001, &mcsDelay->readDelay);
+        ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2McsDelayCnt_Get, adrv9001, &mcsDelay->sampleDelay);
+    }
+    else
+    {
+        ADI_SHOULD_NOT_EXECUTE(adrv9001);
     }
 
     ADI_API_RETURN(adrv9001);

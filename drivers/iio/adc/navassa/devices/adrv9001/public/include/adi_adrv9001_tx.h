@@ -146,9 +146,10 @@ int32_t adi_adrv9001_Tx_Attenuation_Set(adi_adrv9001_Device_t *adrv9001,
  * \note Message type: \ref timing_direct "Direct register acccess"
  *
  * \pre This feature requires the initialization to be complete and the attenuation table to be loaded.
- * \pre The Tx data path must be powered up for the current attenuation value to be valid. If the Tx data path
- *  is powered down or the radio is off, the last Tx attenuation setting when the Tx output was previously active will be
- *  read back.
+ *  
+ * \note During the transition from RF_ENABLED to PRIMED, attenuation will be ramped up to 40dB to protect the analog
+ * front-end. During the reverse transition, the attenuation will be ramped to the value last set by the user. As a
+ * result, unexpected values may be returned during TDD operation.
  *
  * \param[in]  adrv9001         Context variable - Pointer to the ADRV9001 device data structure
  * \param[in]  channel          The Tx channel for which to get the attenuation
