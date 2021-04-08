@@ -1,12 +1,8 @@
 /**
  * \file
- * \brief Contains ADRV9001 receive related function prototypes for adi_adrv9001_rx.c
+ * \brief Functions for configuring receiver (Rx) features
  *
- * ADRV9001 API Version: $ADI_ADRV9001_API_VERSION$
- */
-
- /**
- * Copyright 2015 - 2018 Analog Devices Inc.
+ * Copyright 2015 - 2021 Analog Devices Inc.
  * Released under the ADRV9001 API license, for more information
  * see the "LICENSE.txt" file in this zip file.
  */

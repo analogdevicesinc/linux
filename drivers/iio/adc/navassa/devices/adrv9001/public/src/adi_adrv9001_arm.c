@@ -110,7 +110,8 @@ int32_t adi_adrv9001_arm_StartStatus_Check(adi_adrv9001_Device_t *device, uint32
     uint32_t eventCheck = 0;
     adi_adrv9001_RadioState_t state = { 0 };
     uint8_t armDebugLoaded = ((device->devStateInfo.devState & ADI_ADRV9001_STATE_ARM_DEBUG_LOADED) == ADI_ADRV9001_STATE_ARM_DEBUG_LOADED) ? 1 : 0;
-
+    uint8_t objId = 0;
+    uint16_t errorCode = 0;
     ADI_ENTRY_EXPECT(device);
 
     /* Wait for ARM to exit BOOTUP state */
@@ -153,9 +154,11 @@ int32_t adi_adrv9001_arm_StartStatus_Check(adi_adrv9001_Device_t *device, uint32
         }
         else if (state.bootState <= ADI_ADRV9001_ARM_BOOT_CLKGEN_RCAL_ERR)
         {
+            ADI_EXPECT(adi_adrv9001_arm_SystemError_Get, device, &objId, (uint8_t *)(&errorCode));
+            errorCode = ((uint16_t)objId << 8) | errorCode;
             ADI_ERROR_REPORT(&device->common,
                              ADI_ADRV9001_SRC_ARMFWSTATUS,
-                             state.bootState,
+                             errorCode,
                              ADI_ADRV9001_ACT_ERR_RESET_ARM,
                              NULL,
                              adrv9001_error_table_ArmBootStatus[state.bootState]);
