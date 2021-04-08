@@ -1,30 +1,16 @@
 /**
 * \file
-* \brief Contains Rx features related function implementation defined in
-* adi_adrv9001_rx.h
+* \brief Functions for configuring receiver (Rx) features
 *
-* ADRV9001 API Version: $ADI_ADRV9001_API_VERSION$
-*/
-
-/**
-* Copyright 2015 - 2018 Analog Devices Inc.
+* Copyright 2015 - 2021 Analog Devices Inc.
 * Released under the ADRV9001 API license, for more information
 * see the "LICENSE.txt" file in this zip file.
 */
 
-/*
-*********************************************************************************************************
-*                                             INCLUDE FILES
-*********************************************************************************************************
-*/
-
-/* "adi_adrv9001_user.h" contains the #define that other header file use */
 #include "adi_adrv9001_user.h"
 
-/* Header file corresponding to the C file */
 #include "adi_adrv9001_rx.h"
 
-/* ADI specific header files */
 #include "adi_adrv9001_arm.h"
 #include "adi_adrv9001_error.h"
 #include "adi_adrv9001_gpio.h"
@@ -40,17 +26,6 @@
 #include "adrv9001_rx.h"
 #include "adrv9001_validators.h"
 
-/* Header files related to libraries */
-
-
-/* System header files */
-
-
-/*
-*********************************************************************************************************
-*                                             LOCAL DEFINES
-*********************************************************************************************************
-*/
 #define ADI_ADRV9001_NUM_BYTES_PER_RX_GAIN_INDEX  8U
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Write_Validate(adi_adrv9001_Device_t *device,

@@ -385,7 +385,9 @@ int32_t adrv9001_InitAnalog(adi_adrv9001_Device_t *device,
     uint8_t i = 0;
     static const uint8_t refClockDivisor[7] = { 0, 1, 2, 3, 4, 5, 6 };
     static const uint32_t REF_CLOCK_MAX_KHZ = 200000;
+    static const uint32_t DEVICE_CLOCK_OUT_MAX_KHZ = 80000;
     adi_adrv9001_DeviceClockDivisor_e adrv9001ReferenceClockOutDivisor = ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED;
+    adi_adrv9001_DeviceClockDivisor_e adrv9001DevClockOutDivisor = ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED;
 
     ADI_PERFORM_VALIDATION(adrv9001_InitAnalog_Validate, device, init, adrv9001DeviceClockOutDivisor);
 
@@ -421,8 +423,28 @@ int32_t adrv9001_InitAnalog(adi_adrv9001_Device_t *device,
        then use a different bitfield (core1.refclk_config(0x03DC)[D0] - refclk_pad_oe = 0x0) to disable the DEV_CLK_OUT pin */
     if (ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED == adrv9001DeviceClockOutDivisor)
     {
-        adrv9001DeviceClockOutDivisor = ADI_ADRV9001_DEVICECLOCKDIVISOR_BYPASS;
-        ADI_EXPECT(adrv9001_ClocksSet, device, init, adrv9001DeviceClockOutDivisor);
+        /* Make sure that device clock out does not exceed 80MHz */
+        for (i = 0; i < ADI_ARRAY_LEN(refClockDivisor); i++)
+        {
+            if ((init->clocks.deviceClock_kHz >> i) <= DEVICE_CLOCK_OUT_MAX_KHZ)
+            {
+                adrv9001DevClockOutDivisor = (adi_adrv9001_DeviceClockDivisor_e)refClockDivisor[i];
+                break;
+            }
+        }
+
+        /* Error out if none of the divisor satisfy 'devClkOut <=80MHz' condition */
+        if (ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED == adrv9001DevClockOutDivisor)
+        {
+            ADI_ERROR_REPORT(&device->common,
+                ADI_COMMON_ERRSRC_API,
+                ADI_COMMON_ERR_INV_PARAM,
+                ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                adrv9001DevClockOutDivisor,
+                "Invalid ADRV9001 Device clock output divisor; (deviceClock_kHz / 2^DeviceClockOutDivisor) must be less than 80MHz");
+            ADI_ERROR_RETURN(device->common.error.newAction);
+        }
+        ADI_EXPECT(adrv9001_ClocksSet, device, init, adrv9001DevClockOutDivisor);
         ADI_EXPECT(adrv9001_NvsRegmapCore1_RefclkPadOe_Set, device, 0);
     }
     else

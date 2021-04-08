@@ -992,7 +992,7 @@ ssiStrobeType_e strobeType;             //!< SSI strobe type
 uint8_t         lsbFirst;               //!< SSI LSB first
 uint8_t         qFirst;                 //!< SSI Q data first
 uint8_t         txRefClockPin;          //!< TX reference clock pin control
-uint8_t         lvdsBitInversion;       //!< LVDS SSI bit inversion
+uint8_t         lvdsBitInversion;       //!< LVDS SSI bit inversion, I bit = 0-bit, Q bit = 1-bit, Strobe bit = 2-bit
 uint8_t         lvdsUseLsbIn12bitMode;  //!< LVDS use LSB in 12 bit mode
 uint8_t         lvdsTxFullRefClkEn;     //!< LVDS Tx full refclk enable
 uint8_t         lvdsRxClkInversionEn;   //!< LVDS Rx clock inversion enable
@@ -1021,7 +1021,9 @@ static void adrv9001_LoadSsiConfig(adi_adrv9001_Device_t *device, uint32_t *offs
 
     cfgData[tempOffset++] = (uint8_t)(ssiConfig->txRefClockPin & 0xFF);
 
-    cfgData[tempOffset++] = ssiConfig->lvdsBitInversion;
+    cfgData[tempOffset++] = (((uint8_t)ssiConfig->lvdsIBitInversion & 0x1u)      << 0) |
+                            (((uint8_t)ssiConfig->lvdsQBitInversion & 0x1u)      << 1) |
+                            (((uint8_t)ssiConfig->lvdsStrobeBitInversion & 0x1u) << 2);
 
     cfgData[tempOffset++] = ssiConfig->lvdsUseLsbIn12bitMode;
 
@@ -1551,20 +1553,22 @@ static void adrv9001_RxProfileConfigWrite(adi_adrv9001_Device_t *device, const a
 * Refer DeviceSysConfig_t structure below or in device_profile_t.h file in Navassa ARM firmware
 * for the order of transferring sysConfig profile config info from API to ARM
 **********************************************************************************************
-Size : 44 Bytes
+Size : 24 Bytes
 
 typedef struct
 {
     duplexMode_e    duplexMode;
     uint8_t         fhModeOn;
-    uint8_t         reserved1[1u];       //!< Reserved for future feature
-    uint8_t         numDynamicProfile;   //!< Number of dynamic Profile
-    uint8_t         extMcsOn;            //!< External MCS On flag. 0 means off
-    adcType_e       adcTypeMonitor;      //!< ADC type used in Monitor Mode
-    uint16_t        pllLockTime_us;      //!< Required lock time in microseconds for PLLs, based on ref_clk and loop bandwidth
-    uint8_t         padding[2u];
-    pllModulus_t    pllModuli;           //!< PLL moduli
-    uint32_t        reserved[2u];        //<! Reserved for future feature
+    uint8_t         reserved1[1u];      //< Reserved for future feature
+    uint8_t         numDynamicProfile;  // Number of Profile. =1 means only one profile and no switching 
+    mcsMode_e       mcsMode;            // MCS mode selection: 0 - Disable, 1 - MCS Only, 2 - MCS + RFPLL phase sync
+    adcType_e       adcTypeMonitor;     // ADC type used in Monitor Mode 
+    uint16_t        pllLockTime_us;     // Required lock time in microseconds for PLLs, based on ref_clk and loop bandwidth 
+    pllModulus_t    pllModuli;          // PLL moduli 
+    uint16_t        pllPhaseSyncWait_us; // Worst case phase sync wait time in FH 
+    mcsInf_e        mcsInterfaceType;   // NEW  0-Disabled, 1-CMOS, 2-LVDS 
+    uint8_t         padding[1u];        // 32 bit alignment     
+    uint32_t        reserved[1u];       // Reserved for future feature 
 } deviceSysConfig_t;
 */
 static void adrv9001_DeviceSysConfigWrite(adi_adrv9001_Device_t *device, const adi_adrv9001_DeviceSysConfig_t *sysConfig, uint8_t cfgData[], uint32_t *offset)
@@ -1602,9 +1606,15 @@ static void adrv9001_DeviceSysConfigWrite(adi_adrv9001_Device_t *device, const a
     {
         adrv9001_LoadFourBytes(&tempOffset, cfgData, sysConfig->pllModulus.dmModulus[i]);
     }
+    
+    /* PLL phase sync wait time in us */
+    adrv9001_LoadTwoBytes(&tempOffset, cfgData, sysConfig->pllPhaseSyncWait_us);
 
+    cfgData[tempOffset++] = sysConfig->mcsInterfaceType;
+    
     /* 8 bytes padding; Reserved for future use */
-    tempOffset += 8;
+    tempOffset += 1;
+    tempOffset += 4;
 
     *offset = tempOffset;
 }
@@ -2795,7 +2805,7 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
             ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxDpProfile.rxNbDem.rxWbNbCompPFir.bankSel, ADI_ADRV9001_PFIR_BANK_A, ADI_ADRV9001_PFIR_BANK_D);
 
             ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxSsiConfig.ssiType, ADI_ADRV9001_SSI_TYPE_DISABLE, ADI_ADRV9001_SSI_TYPE_LVDS);
-            ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxSsiConfig.ssiDataFormatSel, ADI_ADRV9001_SSI_FORMAT_2_BIT_SYMBOL_DATA, ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA);
+            ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxSsiConfig.ssiDataFormatSel, ADI_ADRV9001_SSI_FORMAT_2_BIT_SYMBOL_DATA, ADI_ADRV9001_SSI_FORMAT_22_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE_8_BIT_GAIN_INDEX);
             ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxSsiConfig.numLaneSel, ADI_ADRV9001_SSI_1_LANE, ADI_ADRV9001_SSI_4_LANE);
             ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxSsiConfig.strobeType, ADI_ADRV9001_SSI_SHORT_STROBE, ADI_ADRV9001_SSI_LONG_STROBE);
 
