@@ -1042,19 +1042,8 @@ int32_t adi_ad9083_device_cbuspll_register_set(adi_ad9083_device_t *device, uint
 int32_t adi_ad9083_device_cbuspll_register_get(adi_ad9083_device_t *device, uint8_t addr, uint8_t* data);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+int32_t adi_ad9083_jesd_tx_link_digital_reset(adi_ad9083_device_t *device,
+	uint8_t reset);
 
 /*===== x . x         =====*/
 
