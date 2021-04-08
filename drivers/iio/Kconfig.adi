@@ -52,6 +52,7 @@ config IIO_ALL_ADI_DRIVERS
 	select CF_AXI_ADC
 	select AD9208
 	select AD9081
+	select AD9083
 	select AD9361
 	select AD9361_EXT_BAND_CONTROL
 	select AD9371
