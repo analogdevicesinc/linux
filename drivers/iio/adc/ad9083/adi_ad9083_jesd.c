@@ -242,6 +242,8 @@ int32_t adi_ad9083_jesd_tx_clk_set(adi_ad9083_device_t *device) {
   uint8_t async_pclk_ratio, divm_lcpll_rc_rx = 0, i;
   uint8_t async_pclk_div_lookup[6] = {5, 10, 20, 40, 80, 160};
   uint16_t total_dcm;
+  uint64_t lane_rate_40;
+  uint64_t adc_clk_2;
   AD9083_NULL_POINTER_RETURN(device);
   AD9083_LOG_FUNC();
 
@@ -318,18 +320,27 @@ int32_t adi_ad9083_jesd_tx_clk_set(adi_ad9083_device_t *device) {
     lcpll_exponent++;
   }
 
+  adc_clk_2 = adc_clk >> 1;
+#ifdef __KERNEL__
+  lane_rate_40 = div_u64(lane_rate, 40);
+#else
+  lane_rate_40 = lane_rate / 40;
+#endif
+
   /* Calculate Controls for JTX Internal Clocks */
   clk_divp = vco_clk >> 3;
-  err = adi_ad9083_hal_div_nume_deno(device, adc_clk / 2, lane_rate / 40,
+  err = adi_ad9083_hal_div_nume_deno(device, adc_clk_2, lane_rate_40,
                                      &pclk_div_integer, &pclk_div_numerator,
                                      &pclk_div_denominator);
   AD9083_ERROR_RETURN(err);
+  lane_rate_40  *= bit_repeat;
   err = adi_ad9083_hal_div_nume_deno(
-      device, adc_clk / 2, (lane_rate * bit_repeat) / 40, &ifx_pclk_div_integer,
+      device, adc_clk_2, lane_rate_40, &ifx_pclk_div_integer,
       &ifx_pclk_div_numerator, &ifx_pclk_div_denominator);
   AD9083_ERROR_RETURN(err);
 #ifdef __KERNEL__
-  async_pclk_ratio = div_u64(clk_divp, lane_rate / 40);
+  async_pclk_ratio = div_u64(lane_rate, 40);
+  async_pclk_ratio = div_u64(clk_divp, async_pclk_ratio);
 #else
   async_pclk_ratio = clk_divp / (lane_rate / 40);
 #endif
