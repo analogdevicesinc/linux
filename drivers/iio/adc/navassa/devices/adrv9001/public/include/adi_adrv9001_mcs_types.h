@@ -24,6 +24,19 @@ extern "C" {
 #endif
 
 /**
+ * \brief Enumerated list for SW MCS status
+ */
+typedef enum adi_adrv9001_McsSwStatus
+{
+    ADI_ADRV9001_MCSSWSTATUS_READY                       = 0,    /*!< Waiting for pulse 1 and 2 if MCS substate is MCS_READY */
+    ADI_ADRV9001_MCSSWSTATUS_PULSE2_RECEIVED             = 1,    /*!< Pulse 2 received if MCS substate is MCS_TRANSITION */
+    ADI_ADRV9001_MCSSWSTATUS_PULSE3_RECEIVED             = 2,    /*!< Pulse 3 received if MCS substate is MCS_TRANSITION */
+    ADI_ADRV9001_MCSSWSTATUS_PULSE4_RECEIVED             = 3,    /*!< Pulse 4 received if MCS substate is MCS_TRANSITION */
+    ADI_ADRV9001_MCSSWSTATUS_PULSE5_RECEIVED             = 4,    /*!< Pulse 5 received if MCS substate is MCS_TRANSITION */
+    ADI_ADRV9001_MCSSWSTATUS_DEVICE_SWITCHED_TO_HSCLK    = 5,    /*!< Trancseiver has switched to high speed clock */
+} adi_adrv9001_McsSwStatus_e;
+
+/**
  * \brief PLL Synchronization status general structure
  */
 typedef struct adi_adrv9001_PllSyncStatus {
@@ -46,30 +59,26 @@ typedef struct adi_adrv9001_RxLvdsSyncStatus {
  * \brief MCS analog and digital status
  */
 typedef struct adi_adrv9001_McsStatus {
-	adi_adrv9001_PllSyncStatus_t rf1PllSyncStatus;     /*!< RF1 PLL synchronization status */
-	adi_adrv9001_PllSyncStatus_t rf2PllSyncStatus;     /*!< RF1 PLL synchronization status */
-	adi_adrv9001_PllSyncStatus_t clkPllSyncStatus;     /*!< CLK PLL synchronization status */
-	adi_adrv9001_PllSyncStatus_t clkPllLpSyncStatus;   /*!< LP CLK PLL synchronization status */
+    adi_adrv9001_PllSyncStatus_t rf1PllSyncStatus;     /*!< RF1 PLL synchronization status */
+    adi_adrv9001_PllSyncStatus_t rf2PllSyncStatus;     /*!< RF1 PLL synchronization status */
+    adi_adrv9001_PllSyncStatus_t clkPllSyncStatus;     /*!< CLK PLL synchronization status */
+    adi_adrv9001_PllSyncStatus_t clkPllLpSyncStatus;   /*!< LP CLK PLL synchronization status */
 
-	adi_adrv9001_RxLvdsSyncStatus_t rx1LvdsSyncStatus; /*!< Rx1 digital LVDS synchronization status */
-	adi_adrv9001_RxLvdsSyncStatus_t rx2LvdsSyncStatus; /*!< Rx2 digital LVDS synchronization status */
+    adi_adrv9001_RxLvdsSyncStatus_t rx1LvdsSyncStatus; /*!< Rx1 digital LVDS synchronization status */
+    adi_adrv9001_RxLvdsSyncStatus_t rx2LvdsSyncStatus; /*!< Rx2 digital LVDS synchronization status */
 
     bool firstDigitalSyncComplete;  /*!< Digital synchronization status */
     bool secondDigitalSyncComplete; /*!< Digital synchronization status */
 } adi_adrv9001_McsStatus_t;
 
 /**
- * \brief Enumerated list for SW MCS status
+ * \brief MCS delay
  */
-typedef enum adi_adrv9001_McsSwStatus
+typedef struct adi_adrv9001_McsDelay
 {
-    ADI_ADRV9001_MCSSWSTATUS_READY                       = 0,    /*!< Waiting for pulse 1 and 2 if MCS substate is MCS_READY */
-    ADI_ADRV9001_MCSSWSTATUS_PULSE2_RECEIVED             = 1,    /*!< Pulse 2 received if MCS substate is MCS_TRANSITION */
-    ADI_ADRV9001_MCSSWSTATUS_PULSE3_RECEIVED             = 2,    /*!< Pulse 3 received if MCS substate is MCS_TRANSITION */
-    ADI_ADRV9001_MCSSWSTATUS_PULSE4_RECEIVED             = 3,    /*!< Pulse 4 received if MCS substate is MCS_TRANSITION */
-    ADI_ADRV9001_MCSSWSTATUS_PULSE5_RECEIVED             = 4,    /*!< Pulse 5 received if MCS substate is MCS_TRANSITION */
-    ADI_ADRV9001_MCSSWSTATUS_DEVICE_SWITCHED_TO_HSCLK    = 5,    /*!< Trancseiver has switched to high speed clock */
-} adi_adrv9001_McsSwStatus_e;
+    uint8_t  readDelay;     /*!< ADRV9001 SSI FIFO read pointer delay */
+    uint16_t sampleDelay;   /*!< Delay specified in samples */
+} adi_adrv9001_McsDelay_t;
 
 #ifdef __cplusplus
 }

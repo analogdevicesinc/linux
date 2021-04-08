@@ -174,7 +174,7 @@ typedef enum adi_adrv9001_GpioSignal
     ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_3,      /*!< Frequency hopping frequency index select bit 3 */
     ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_4,      /*!< Frequency hopping frequency index select bit 4 */
     ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_5,      /*!< Frequency hopping frequency index select bit 5 */
-    ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_TABLE_SWITCH,   /*!< Frequency hopping Hop table select signal */
+    ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_TABLE_SELECT,   /*!< Frequency hopping Hop table select signal */
     ADI_ADRV9001_GPIO_SIGNAL_TX1_PA_RAMP_CTRL,              /*!< Tx1 Aux DAC ramp control request signal*/
     ADI_ADRV9001_GPIO_SIGNAL_TX2_PA_RAMP_CTRL,              /*!< Tx2 Aux DAC ramp control request signal*/
 
@@ -201,10 +201,13 @@ typedef enum adi_adrv9001_GpioSignal
     ADI_ADRV9001_GPIO_SIGNAL_AUX_ADC_2,                     /*!< Aux ADC control 2 signal */
     ADI_ADRV9001_GPIO_SIGNAL_AUX_ADC_3,                     /*!< Aux ADC control 3 signal */
 
-    /* Future GPIO Functions */
     ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_2,                      /*!< Frequency hopping hop request signal   */
     ADI_ADRV9001_GPIO_SIGNAL_TX_CAL_EN,                     /*!< Tx channel 1 and 2  calibration enable signal */
     ADI_ADRV9001_GPIO_SIGNAL_CAL_UPDATE,                    /*!< Calibration update selection signal  */
+
+#ifndef ADI_ADRV9001_SI_REV_B0
+    ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_2_TABLE_SELECT,         /*!< Frequency hopping table select for HOP 2 */
+#endif
 
     ADI_ADRV9001_GPIO_SIGNAL_RX1_LNA_ATTENUATION_1,         /*!< Rx1 LNA attenuation control 1 */
     ADI_ADRV9001_GPIO_SIGNAL_RX1_LNA_ATTENUATION_2,         /*!< Rx1 LNA attenuation control 2 */
@@ -239,15 +242,6 @@ typedef enum adi_adrv9001_GpioSignal
 } adi_adrv9001_GpioSignal_e;
 
 /**
-* \brief Enum for selecting the GP_INT channel
-*/
-typedef enum adi_adrv9001_gpMaskSelect
-{
-    ADI_ADRV9001_GPINT,
-    ADI_ADRV9001_GPINT_NUMBER_OF_CHANNELS /* Keep this ENUM last as a reference to the total number of gp channel enum values */
-}adi_adrv9001_gpMaskSelect_e;	
-
-/**
 * \brief GP_INT status general structure
 */
 typedef struct adi_adrv9001_gpIntStatus
@@ -257,14 +251,6 @@ typedef struct adi_adrv9001_gpIntStatus
     uint32_t gpIntActiveSources;
     uint32_t gpIntSaveIrqMask;
 } adi_adrv9001_gpIntStatus_t;
-
-/**
-* \brief Data structure holding the GP interrupt mask values
-*/
-typedef struct adi_adrv9001_gpMaskArray
-{
-    uint32_t gpIntMask;
-}adi_adrv9001_gpMaskArray_t;
 
 /**
  * \brief Enumeration of GPIO signal polarity 

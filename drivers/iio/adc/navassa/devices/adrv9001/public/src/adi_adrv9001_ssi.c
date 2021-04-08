@@ -387,6 +387,15 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(adi_adrv9001_Device_t *devic
     int8_t nibSel = 0;
     uint16_t dataRead = 0;
     uint16_t iqValue[2] = { 0 };
+	int32_t halError = 0;
+	uint32_t waitInterval_us = 0;
+	uint32_t numEventChecks = 1;
+	uint32_t eventCheck = 0;
+	uint8_t captureComplete = 0;
+	uint32_t timeout_us = ADI_ADRV9001_SSI_DEBUG_TIMEOUT_US;
+	waitInterval_us = (ADI_ADRV9001_SSI_DEBUG_INTERVAL_US > timeout_us) ?
+	timeout_us : ADI_ADRV9001_SSI_DEBUG_INTERVAL_US;
+	numEventChecks = (waitInterval_us == 0) ? 1 : (timeout_us / waitInterval_us);
 
     adrv9001_BfNvsRegmapTx_e baseAddress = ADRV9001_BF_TX1_CORE;
 
@@ -411,6 +420,39 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(adi_adrv9001_Device_t *devic
                 ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
                 ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
                 ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartCapture_Set, device, baseAddress, 0x1);
+				/* Wait for capture to complete */
+	            for (eventCheck = 0; eventCheck <= numEventChecks; eventCheck++)
+	            {
+		            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartCapture_Get, device, baseAddress, &captureComplete);
+		            if ((captureComplete == 1) &&
+			            (eventCheck < numEventChecks))
+		            {
+			            /* Wait for capture to complete */
+			            halError = adi_common_hal_Wait_us(&device->common, waitInterval_us);
+			            ADI_ERROR_REPORT(&device->common,
+				            ADI_COMMON_ERRSRC_ADI_HAL,
+				            halError,
+				            ADI_COMMON_ACT_ERR_CHECK_TIMER,
+				            device,
+				            "Timer not working");
+			            ADI_ERROR_RETURN(device->common.error.newAction);
+		            }
+		            else
+		            {
+			            break;
+		            }
+	            }
+	            /* if capture did not complete within the timeout period */
+	            if (captureComplete == 1)
+	            {
+		            ADI_ERROR_REPORT(&device->common,
+			            ADI_ADRV9001_SRC_ARMCMD,
+			            ADI_COMMON_ERR_API_FAIL,
+			            ADI_ADRV9001_ACT_ERR_RESET_ARM,
+			            device,
+			            "CssiTxDebugCapture failed due to time out ");
+		            ADI_ERROR_RETURN(device->common.error.newAction);
+	            }
                 ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugCapturedData_Get, device, baseAddress, (uint8_t *)(&dataRead));
                 iqValue[0] |= ((dataRead & 0xF) << 4 * nibSel);
                 dataRead = 0;
@@ -427,12 +469,44 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(adi_adrv9001_Device_t *devic
                     ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
                     ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
                     ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartCapture_Set, device, baseAddress, 0x1);
+	                /* Wait for capture to complete */
+	                for (eventCheck = 0; eventCheck <= numEventChecks; eventCheck++)
+	                {
+		                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartCapture_Get, device, baseAddress, &captureComplete);
+		                if ((captureComplete == 1) &&
+							(eventCheck < numEventChecks))
+		                {
+			                /* Wait for capture to complete */
+			                halError = adi_common_hal_Wait_us(&device->common, waitInterval_us);
+			                ADI_ERROR_REPORT(&device->common,
+				                ADI_COMMON_ERRSRC_ADI_HAL,
+				                halError,
+				                ADI_COMMON_ACT_ERR_CHECK_TIMER,
+				                device,
+				                "Timer not working");
+			                ADI_ERROR_RETURN(device->common.error.newAction);
+		                }
+		                else
+		                {
+			                break;
+		                }
+	                }
+	                /* if capture did not complete within the timeout period */
+	                if (captureComplete == 1)
+	                {
+		                ADI_ERROR_REPORT(&device->common,
+			                ADI_ADRV9001_SRC_ARMCMD,
+			                ADI_COMMON_ERR_API_FAIL,
+			                ADI_ADRV9001_ACT_ERR_RESET_ARM,
+			                device,
+			                "CssiTxDebugCapture failed due to time out ");
+		                ADI_ERROR_RETURN(device->common.error.newAction);
+	                }
                     ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugCapturedData_Get, device, baseAddress, (uint8_t *)(&dataRead));
                     iqValue[1] |= ((dataRead & 0xF) << 4 * nibSel);
                     dataRead = 0;
                 }
             }
-
             ssiTestModeStatus->dataError = 0;
             switch (dataFormat)
             {
@@ -501,6 +575,39 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(adi_adrv9001_Device_t *devic
                 ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugQSel_Set, device, baseAddress, i);   // 0: I_data; 1: Q_data
                 ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
                 ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartCapture_Set, device, baseAddress, 0x1);
+                /* Wait for capture to complete */
+                for (eventCheck = 0; eventCheck <= numEventChecks; eventCheck++)
+                {
+                    ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartCapture_Get, device, baseAddress, &captureComplete);
+                    if ((captureComplete == 1) &&
+                        (eventCheck < numEventChecks))
+                    {
+                        /* Wait for capture to complete */
+                        halError = adi_common_hal_Wait_us(&device->common, waitInterval_us);
+                        ADI_ERROR_REPORT(&device->common,
+                                         ADI_COMMON_ERRSRC_ADI_HAL,
+                                         halError,
+                                         ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                                         device,
+                                         "Timer not working");
+                        ADI_ERROR_RETURN(device->common.error.newAction);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                /* if capture did not complete within the timeout period */
+                if (captureComplete == 1)
+                {
+                    ADI_ERROR_REPORT(&device->common,
+                                     ADI_ADRV9001_SRC_ARMCMD,
+                                     ADI_COMMON_ERR_API_FAIL,
+                                     ADI_ADRV9001_ACT_ERR_RESET_ARM,
+                                     device,
+                                     "LssiTxDebugCapture failed due to time out ");
+                    ADI_ERROR_RETURN(device->common.error.newAction);
+                }
                 ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugCapturedData_Get, device, baseAddress, &dataRead);
                 iqValue[i] = dataRead;
             }

@@ -842,12 +842,6 @@ int32_t adi_adrv9001_Tx_PaProtection_Configure(adi_adrv9001_Device_t *device,
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Tx_PaProtection_Configure_Validate, device, channel, config);
 
-    /* FIXME: Vivek - For Day1, the following bits are used (disabled by setting '0' in adi_adrv9001_TxPaProtectCfg_t struct).
-     * For actual PA protection config, many bits are enabled/disabled, but ignoring for now.
-     * 1. Average Power Ratio Calculation Enable bit
-     * 2. Average Power Enable bit
-     * 3. Peak Power Enable bit */
-
     baseAddress = Tx_Addr_Get(channel);
 
     /* Set Average Power Ratio Calculation Enable bit */

@@ -2,11 +2,7 @@
  * \file
  * \brief Contains ADRV9001 related function prototypes for adi_adrv9001_stream.c
  *
- *  ADRV9001 API Version: $ADI_ADRV9001_API_VERSION$
- */
-
- /**
- * Copyright 2015 - 2018 Analog Devices Inc.
+ * Copyright 2015 - 2021 Analog Devices Inc.
  * Released under the ADRV9001 API license, for more information
  * see the "LICENSE.txt" file in this zip file.
  */
@@ -60,7 +56,7 @@ int32_t adi_adrv9001_Stream_Image_Write(adi_adrv9001_Device_t *adrv9001, uint32_
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
- int32_t adi_adrv9001_Stream_Version(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_StreamVersion_t *streamVersion);
+int32_t adi_adrv9001_Stream_Version(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_StreamVersion_t *streamVersion);
 
 #ifdef __cplusplus
 }

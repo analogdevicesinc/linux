@@ -51,11 +51,13 @@ typedef struct adi_adrv9001_DeviceSysConfig
 {
     adi_adrv9001_DuplexMode_e duplexMode;
     uint8_t fhModeOn;
-    uint8_t numDynamicProfile;             /*!< Number of dynamic Profile */
-    adi_adrv9001_McsMode_e mcsMode;        /*!< Multi Chip Synchronization mode */
-    adi_adrv9001_AdcType_e adcTypeMonitor; /*!< ADC type used in Monitor Mode */
-    uint16_t pllLockTime_us;               /*!< Required lock time in microseconds for PLLs, based on ref_clk and loop bandwidth */
-    adi_adrv9001_pllModulus_t pllModulus;  /*!< PLL modulus */
+    uint8_t numDynamicProfile;                  /*!< Number of dynamic Profile */
+    adi_adrv9001_McsMode_e mcsMode;             /*!< Multi Chip Synchronization mode */
+    adi_adrv9001_SsiType_e mcsInterfaceType;    /*!< Multi Chip Synchronization interface type */
+    adi_adrv9001_AdcType_e adcTypeMonitor;      /*!< ADC type used in Monitor Mode */
+    uint16_t pllLockTime_us;                    /*!< Required lock time in microseconds for PLLs, based on ref_clk and loop bandwidth */
+    uint16_t pllPhaseSyncWait_us;               /*!< Worst case phase sync wait time in FH */
+    adi_adrv9001_pllModulus_t pllModulus;       /*!< PLL modulus */
 } adi_adrv9001_DeviceSysConfig_t;
 
 #endif /* _ADI_ADRV9001_DEVICESYSCONFIG_TYPES_H_ */

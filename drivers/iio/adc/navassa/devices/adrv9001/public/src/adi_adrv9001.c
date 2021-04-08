@@ -244,24 +244,6 @@ int32_t adi_adrv9001_spi_Configure(adi_adrv9001_Device_t *device, adi_adrv9001_S
 
     ADRV9001_SPIWRITEBYTE(device, "SPI_INTERFACE_CONFIG_A", ADRV9001_ADDR_SPI_INTERFACE_CONFIG_A, spiConfigA);
 
-/* FIXME - Start: Vivek - In Tokelau, ADRV9001_ADDR_DIGITAL_IO_CONTROL is find in YODA file;
- * In Navassa, this is missing. Need to check whether it is needed.
- * Commenting this code snippet and related variables/constants used in this function for now
-*/
-
-    //if (spi->cmosPadDrvStrength == ADI_ADRV9001_CMOSPAD_DRV_STRONG)
-    //{
-        //ioControl |= ADRV9001_IO_CONTROL_SPI_OUTS_DRV_SEL;
-    //}
-
-    /* Force PAD mode */
-    //ADRV9001_SPIWRITEBYTE(device, "DIGITAL_IO_CONTROL", ADRV9001_ADDR_DIGITAL_IO_CONTROL, ioControl);
-
-/* FIXME - End: Vivek - In Tokelau, ADRV9001_ADDR_DIGITAL_IO_CONTROL is find in YODA file;
- * In Navassa, this is missing. Need to check whether it is needed.
- * Commenting this code snippet and related variables/constants used in this function for now
-*/
-
 #if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
     ADI_MSG_EXPECT("SPI Verify failed", adi_adrv9001_spi_Verify, device) ;
 #endif

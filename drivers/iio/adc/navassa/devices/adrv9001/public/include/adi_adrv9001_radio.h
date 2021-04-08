@@ -25,6 +25,18 @@ extern "C" {
 #endif
 
 /**
+ * \brief Minimum supported carrier frequency 
+ */
+#define ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ 30000000llu    /* 30 MHz */
+/**
+ * \brief Maximum supported carrier frequency
+ */
+#define ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ 6000000000llu  /* 6 GHz */
+/**
+ * \brief Maximum supported intermediate frequency
+ */
+#define ADI_ADRV9001_INTERMEDIATE_FREQUENCY_MAX_HZ 20000000  /* 20MHz */
+/**
  * \brief Sets the Carrier frequency for the given channel.
  *
  * \note Message type: \ref timing_mailbox "Mailbox command"

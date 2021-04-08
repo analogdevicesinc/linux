@@ -14,13 +14,15 @@
 #include "adi_adrv9001_user.h"
 #include "adi_adrv9001_stream.h"
 #include "adi_adrv9001_arm.h"
-//#include "adi_adrv9001_gpio.h"
-#include "adi_adrv9001_spi.h"
-#include "adi_adrv9001_error.h"
 #include "adi_adrv9001.h"
-#include "adrv9001_init.h"
+#include "adi_adrv9001_error.h"
+//#include "adi_adrv9001_gpio.h"
+#include "adi_adrv9001_radio.h"
+#include "adi_adrv9001_spi.h"
+
 #include "adrv9001_arm.h"
 #include "adrv9001_arm_macros.h"
+#include "adrv9001_init.h"
 #include "adrv9001_reg_addr_macros.h"
 
 /****************************************************************************
@@ -328,65 +330,3 @@ int32_t adi_adrv9001_Stream_Version(adi_adrv9001_Device_t *device, adi_adrv9001_
 
     ADI_API_RETURN(device);
 }
-
-#if 0 // FIXME: PTN Wait until GPIO is ported
-int32_t adi_adrv9001_StreamGpioConfigSet(adi_adrv9001_Device_t *device, adi_adrv9001_StreamGpioPinCfg_t *streamGpioPinCfg)
-{
-    static const uint8_t STREAM_GP_INPUT0_SIGNAL_ID = 0;
-    static const uint8_t STREAM_GP_INPUT1_SIGNAL_ID = 1;
-    static const uint8_t STREAM_GP_INPUT2_SIGNAL_ID = 2;
-    static const uint8_t STREAM_GP_INPUT3_SIGNAL_ID = 3;
-
-    int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-
-    /* Check device pointer is not null */
-    ADI_ENTRY_PTR_EXPECT(device, streamGpioPinCfg);
-
-#if ADI_ADRV9001_STREAM_RANGE_CHECK > 0
-    recoveryAction = adrv9001_StreamGpioConfigSetRangeCheck(device, streamGpioPinCfg);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-#endif
-
-    recoveryAction = adrv9001_StreamGpioPinSet(device, STREAM_GP_INPUT0_SIGNAL_ID, streamGpioPinCfg->steamGpInput0);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    recoveryAction = adrv9001_StreamGpioPinSet(device, STREAM_GP_INPUT1_SIGNAL_ID, streamGpioPinCfg->steamGpInput1);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    recoveryAction = adrv9001_StreamGpioPinSet(device, STREAM_GP_INPUT2_SIGNAL_ID, streamGpioPinCfg->steamGpInput2);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    recoveryAction = adrv9001_StreamGpioPinSet(device, STREAM_GP_INPUT3_SIGNAL_ID, streamGpioPinCfg->steamGpInput3);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    return recoveryAction;
-}
-
-int32_t adi_adrv9001_StreamGpioConfigGet(adi_adrv9001_Device_t *device, adi_adrv9001_StreamGpioPinCfg_t *streamGpioPinCfg)
-{
-    static const uint8_t STREAM_GP_INPUT0_SIGNAL_ID = 0;
-    static const uint8_t STREAM_GP_INPUT1_SIGNAL_ID = 1;
-    static const uint8_t STREAM_GP_INPUT2_SIGNAL_ID = 2;
-    static const uint8_t STREAM_GP_INPUT3_SIGNAL_ID = 3;
-
-    int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-
-    /* Check device pointer is not null */
-    ADI_ENTRY_PTR_EXPECT(device, streamGpioPinCfg);
-
-    recoveryAction = adrv9001_StreamGpioPinGet(device, STREAM_GP_INPUT0_SIGNAL_ID, &streamGpioPinCfg->steamGpInput0);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    recoveryAction = adrv9001_StreamGpioPinGet(device, STREAM_GP_INPUT1_SIGNAL_ID, &streamGpioPinCfg->steamGpInput1);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    recoveryAction = adrv9001_StreamGpioPinGet(device, STREAM_GP_INPUT2_SIGNAL_ID, &streamGpioPinCfg->steamGpInput2);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    recoveryAction = adrv9001_StreamGpioPinGet(device, STREAM_GP_INPUT3_SIGNAL_ID, &streamGpioPinCfg->steamGpInput3);
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-    return recoveryAction;
-}
-#endif // FIXME: PTN Wait until GPIO is ported
-

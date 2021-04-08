@@ -35,21 +35,17 @@ static int32_t __maybe_unused adi_adrv9001_Radio_Carrier_Configure_Validate(adi_
                                                                             adi_common_ChannelNumber_e channel,
                                                                             adi_adrv9001_Carrier_t *carrier)
 {
-    static const int32_t INTERMEDIATE_FREQUENCY_MAX_HZ = 20000000; /* 20 MHz */
-    static const uint64_t CARRIER_FREQUENCY_MIN_HZ =   30000000;    /* 30 MHz */
-    static const uint64_t CARRIER_FREQUENCY_MAX_HZ = 6000000000;    /* 6 GHz */
-
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
 
     ADI_EXPECT(adi_adrv9001_Port_Validate, adrv9001, port);
     ADI_EXPECT(adi_adrv9001_Channel_Validate, adrv9001, channel);
 
     ADI_RANGE_CHECK(adrv9001, carrier->loGenOptimization, ADI_ADRV9001_LO_GEN_OPTIMIZATION_PHASE_NOISE, ADI_ADRV9001_LO_GEN_OPTIMIZATION_POWER_CONSUMPTION);
-    ADI_RANGE_CHECK_X(adrv9001, carrier->carrierFrequency_Hz, CARRIER_FREQUENCY_MIN_HZ, CARRIER_FREQUENCY_MAX_HZ, "%llu");
+    ADI_RANGE_CHECK_X(adrv9001, carrier->carrierFrequency_Hz, ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ, ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ, "%llu");
 
     if (0 != carrier->intermediateFrequency_Hz)
     {
-        ADI_RANGE_CHECK(adrv9001, carrier->intermediateFrequency_Hz, -INTERMEDIATE_FREQUENCY_MAX_HZ, INTERMEDIATE_FREQUENCY_MAX_HZ);
+        ADI_RANGE_CHECK(adrv9001, carrier->intermediateFrequency_Hz, -ADI_ADRV9001_INTERMEDIATE_FREQUENCY_MAX_HZ, ADI_ADRV9001_INTERMEDIATE_FREQUENCY_MAX_HZ);
     }
 
     ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, adrv9001, port, channel, &state);
@@ -182,7 +178,7 @@ static int32_t __maybe_unused adi_adrv9001_Radio_Pll_Configure_Validate(adi_adrv
 
     ADI_NULL_PTR_RETURN(&adrv9001->common, pllConfig);
     ADI_RANGE_CHECK(adrv9001, pllConfig->pllCalibration, ADI_ADRV9001_PLL_CALIBRATION_NORMAL, ADI_ADRV9001_PLL_CALIBRATION_RESERVED);
-	ADI_RANGE_CHECK(adrv9001, pllId, ADI_ADRV9001_PLL_LO1, ADI_ADRV9001_PLL_LO2);
+    ADI_RANGE_CHECK(adrv9001, pllId, ADI_ADRV9001_PLL_LO1, ADI_ADRV9001_PLL_LO2);
     ADI_RANGE_CHECK(adrv9001, pllConfig->pllPower, ADI_ADRV9001_PLL_POWER_LOW, ADI_ADRV9001_PLL_POWER_HIGH);
 
     /* Validate current state. All the channels must be in STANDBY state. */
@@ -204,31 +200,31 @@ static int32_t __maybe_unused adi_adrv9001_Radio_Pll_Configure_Validate(adi_adrv
         }
     }   
 
-	ADI_API_RETURN(adrv9001);
+    ADI_API_RETURN(adrv9001);
 }
 
 int32_t adi_adrv9001_Radio_Pll_Configure(adi_adrv9001_Device_t *adrv9001,
                                          adi_adrv9001_Pll_e pllId,
                                          adi_adrv9001_PllConfig_t *pllConfig)
 {
-	uint8_t armData[7] = { 0 };
-	uint8_t extData[5] = { 0 };
-	uint32_t offset = 0;
+    uint8_t armData[7] = { 0 };
+    uint8_t extData[5] = { 0 };
+    uint32_t offset = 0;
     
-	ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_Pll_Configure_Validate, adrv9001, pllId, pllConfig);
+    ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_Pll_Configure_Validate, adrv9001, pllId, pllConfig);
 
-	adrv9001_LoadFourBytes(&offset, armData, sizeof(armData) - sizeof(uint32_t));
-	armData[offset++] = pllId;
+    adrv9001_LoadFourBytes(&offset, armData, sizeof(armData) - sizeof(uint32_t));
+    armData[offset++] = pllId;
     armData[offset++] = pllConfig->pllCalibration;
     armData[offset++] = pllConfig->pllPower;
-	
-	extData[0] = 0;
-	extData[1] = ADRV9001_ARM_OBJECTID_CONFIG;
-	extData[2] = ADRV9001_ARM_OBJECTID_PLL_CONFIG;
+    
+    extData[0] = 0;
+    extData[1] = ADRV9001_ARM_OBJECTID_CONFIG;
+    extData[2] = ADRV9001_ARM_OBJECTID_PLL_CONFIG;
 
-	ADI_EXPECT(adi_adrv9001_arm_Config_Write, adrv9001, armData, sizeof(armData), extData, sizeof(extData))
+    ADI_EXPECT(adi_adrv9001_arm_Config_Write, adrv9001, armData, sizeof(armData), extData, sizeof(extData))
 
-	ADI_API_RETURN(adrv9001);
+    ADI_API_RETURN(adrv9001);
 }
 
 static int32_t __maybe_unused adi_adrv9001_Radio_Pll_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
@@ -237,7 +233,7 @@ static int32_t __maybe_unused adi_adrv9001_Radio_Pll_Inspect_Validate(adi_adrv90
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, pllConfig);
     ADI_RANGE_CHECK(adrv9001, pllId, ADI_ADRV9001_PLL_LO1, ADI_ADRV9001_PLL_LO2);
-	ADI_API_RETURN(adrv9001);
+    ADI_API_RETURN(adrv9001);
 }
 
 int32_t adi_adrv9001_Radio_Pll_Inspect(adi_adrv9001_Device_t *adrv9001,
@@ -245,11 +241,11 @@ int32_t adi_adrv9001_Radio_Pll_Inspect(adi_adrv9001_Device_t *adrv9001,
                                        adi_adrv9001_PllConfig_t *pllConfig)
 {
     uint8_t extendedData[1] = { 0 };
-	uint8_t armReadBack[3] = { 0 };
-	uint8_t channelMask = 0;
-	uint32_t offset = 0;
+    uint8_t armReadBack[3] = { 0 };
+    uint8_t channelMask = 0;
+    uint32_t offset = 0;
 
-	ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_Pll_Inspect_Validate, adrv9001, pllId, pllConfig);
+    ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_Pll_Inspect_Validate, adrv9001, pllId, pllConfig);
 
     /* Write pll id to byte 4 of the mailbox get buffer. */
     extendedData[0] = pllId;
@@ -261,7 +257,7 @@ int32_t adi_adrv9001_Radio_Pll_Inspect(adi_adrv9001_Device_t *adrv9001,
     
     pllConfig->pllCalibration    = (adi_adrv9001_PllCalibration_e) armReadBack[offset++];
     pllConfig->pllPower          = (adi_adrv9001_PllPower_e) armReadBack[offset++];
-	ADI_API_RETURN(adrv9001);
+    ADI_API_RETURN(adrv9001);
 }
 
 static int32_t __maybe_unused adi_adrv9001_Radio_PllStatus_Get_Validate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Pll_e pll,
@@ -631,28 +627,46 @@ int32_t adi_adrv9001_Radio_Channels_EnableRf(adi_adrv9001_Device_t *adrv9001,
 
 static int32_t adi_adrv9001_Channel_DisableRF_Wait(adi_adrv9001_Device_t *adrv9001,
                                                    adi_common_Port_e port,
-                                                   adi_common_ChannelNumber_e channel,
-                                                   uint8_t numTries)
+                                                   adi_common_ChannelNumber_e channel)
 {
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
-    uint8_t i = 0;
-    adi_adrv9001_RadioState_t currentState = { 0 };
+    adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_RF_ENABLED;
+    int32_t halError = 0;
+    uint32_t timeout_us = ADI_ADRV9001_RADIOONOFF_TIMEOUT_US;
+    uint32_t waitInterval_us = ADI_ADRV9001_RADIOONOFF_INTERVAL_US;
+    uint32_t numEventChecks = 1;
+    uint32_t eventCheck = 0;
 
     adi_common_port_to_index(port, &port_index);
     adi_common_channel_to_index(channel, &chan_index);
 
     ADI_EXPECT(adi_adrv9001_Radio_Channel_EnableRf, adrv9001, port, channel, false);
-    for (i = 0; i < numTries; i++)
+    
+    waitInterval_us = (waitInterval_us > timeout_us) ? timeout_us : waitInterval_us;
+    numEventChecks = (waitInterval_us == 0) ? 1 : (timeout_us / waitInterval_us);
+
+    for (eventCheck = 0; eventCheck < numEventChecks; eventCheck++)
     {
-        ADI_EXPECT(adi_adrv9001_Radio_State_Get, adrv9001, &currentState);
-        if (currentState.channelStates[port_index][chan_index] == ADI_ADRV9001_CHANNEL_PRIMED)
+        ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, adrv9001, port, channel, &state);
+        if (state == ADI_ADRV9001_CHANNEL_PRIMED)
         {
-            return ADI_COMMON_ACT_NO_ACTION;
+            break;
+        }
+        else
+        {
+            halError = adi_common_hal_Wait_us(&adrv9001->common, waitInterval_us);
+            ADI_ERROR_REPORT(&adrv9001->common,
+                             ADI_COMMON_ERRSRC_ADI_HAL,
+                             halError,
+                             ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                             device,
+                             "Timer not working");
+            ADI_ERROR_RETURN(adrv9001->common.error.newAction);
         }
     }
 
-    return ADI_COMMON_ACT_ERR_RESET_MODULE;
+    ADI_API_RETURN(adrv9001);
 }
 
 int32_t adi_adrv9001_Radio_Channel_PowerDown(adi_adrv9001_Device_t *adrv9001,
@@ -752,7 +766,6 @@ int32_t adi_adrv9001_Radio_Channel_ToCalibrated(adi_adrv9001_Device_t *adrv9001,
                                                 adi_common_Port_e port,
                                                 adi_common_ChannelNumber_e channel)
 {
-    static const uint8_t NUM_TRIES = 10;
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
     adi_adrv9001_RadioState_t currentState = { 0 };
@@ -779,7 +792,7 @@ int32_t adi_adrv9001_Radio_Channel_ToCalibrated(adi_adrv9001_Device_t *adrv9001,
     {
         if (currentState.channelStates[port_index][chan_index] == ADI_ADRV9001_CHANNEL_RF_ENABLED)
         {
-            ADI_EXPECT(adi_adrv9001_Channel_DisableRF_Wait, adrv9001, port, channel, NUM_TRIES);
+            ADI_EXPECT(adi_adrv9001_Channel_DisableRF_Wait, adrv9001, port, channel);
         }
         ADI_EXPECT(adi_adrv9001_Radio_Channel_Prime, adrv9001, port, channel, false);
     }
@@ -791,7 +804,6 @@ int32_t adi_adrv9001_Radio_Channel_ToPrimed(adi_adrv9001_Device_t *adrv9001,
                                             adi_common_Port_e port,
                                             adi_common_ChannelNumber_e channel)
 {
-    static const uint8_t NUM_TRIES = 5;
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
     adi_adrv9001_RadioState_t currentState = { 0 };
@@ -821,7 +833,7 @@ int32_t adi_adrv9001_Radio_Channel_ToPrimed(adi_adrv9001_Device_t *adrv9001,
     }
     else
     {
-        ADI_EXPECT(adi_adrv9001_Channel_DisableRF_Wait, adrv9001, port, channel, NUM_TRIES);
+        ADI_EXPECT(adi_adrv9001_Channel_DisableRF_Wait, adrv9001, port, channel);
     }
 
     ADI_API_RETURN(adrv9001)

@@ -287,7 +287,13 @@ typedef enum adi_adrv9001_SsiDataFormat
     ADI_ADRV9001_SSI_FORMAT_8_BIT_SYMBOL_DATA = 1,  /*!< 8 bit symbol data (CMOS) */
     ADI_ADRV9001_SSI_FORMAT_16_BIT_SYMBOL_DATA = 2, /*!< 16 bit symbol data (CMOS) */
     ADI_ADRV9001_SSI_FORMAT_12_BIT_I_Q_DATA = 3,    /*!< 12 bit I/Q data (LVDS) */
-    ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA = 4     /*!< 16 bit I/Q data (CMOS/LVDS) */
+    ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA = 4,    /*!< 16 bit I/Q data (CMOS/LVDS) */
+
+    /*!< 15 bit I/Q data, 1 bit Rx Gain Change (CMOS/LVDS) */
+    ADI_ADRV9001_SSI_FORMAT_15_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE = 5,
+
+    /*!< 22 bit I/Q data, 1 bit Rx Gain Change, 8 bit Rx Gain Index (CMOS/LVDS) */
+    ADI_ADRV9001_SSI_FORMAT_22_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE_8_BIT_GAIN_INDEX = 6
 } adi_adrv9001_SsiDataFormat_e;
 
 /**
@@ -334,7 +340,9 @@ typedef struct adi_adrv9001_SsiConfig
     uint8_t						 lsbFirst;					/*!< SSI LSB first */
     uint8_t						 qFirst;					/*!< SSI Q data first */
     adi_adrv9001_SsiTxRefClockPin_e	txRefClockPin;			/*!< SSI Tx reference clock GPIO select */
-    uint8_t						 lvdsBitInversion;			/*!< LVDS SSI bit inversion */
+    bool                         lvdsIBitInversion;         /*!< LVDS SSI I bit inversion */
+    bool                         lvdsQBitInversion;         /*!< LVDS SSI Q bit inversion */
+    bool                         lvdsStrobeBitInversion;    /*!< LVDS SSI Strobe bit inversion */
     uint8_t						 lvdsUseLsbIn12bitMode;		/*!< LVDS use LSB in 12 bit mode */
     bool						 lvdsTxFullRefClkEn;        /*!< LVDS Tx full refclk enable */
     bool						 lvdsRxClkInversionEn;      /*!< LVDS Rx clock inversion enable */

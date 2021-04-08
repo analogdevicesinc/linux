@@ -18,77 +18,9 @@
 extern "C" {
 #endif
 
-/*
- *********************************************************************************************************
- *                                             INCLUDE FILES
- *********************************************************************************************************
- */
-
 #include "adi_common_error.h"
 #include "adi_adrv9001_gpio_types.h"
 #include "adi_adrv9001_types.h"
-
-/*
- *********************************************************************************************************
- *                                         FUNCTION PROTOTYPES
- *********************************************************************************************************
- */
-
-/**
- * \brief Called whenever the BBIC detects a GP_INT assertion to find the source and clear it if possible.
- *
- *  When the BBIC detects a rising edge on the General Purpose Interrupt pin GP_INT, this function
- *  allows the BBIC an easy way to determine the GP_INT source, clear it if possible, and receive a recovery action.
- *
- *  The GP Interrupt pin is the logical OR of all the sources and the GP_Interrupt_Mask. The GP_Interrupt_Mask
- *  bit-field is used to control which of the 25 available interrupt sources can assert the GP_INT pin.  To enable an
- *  available interrupt source for GP_INT, write the corresponding bit in the GP_Interrupt_Mask bit-field to low.
- *  Writing an interrupt source bit in the GP_Interrupt_Mask bit-field to high will disable that interrupt source from
- *  asserting the GP_INT pin. The GP_Interrupt_status read-back will show the current value for all interrupt sources,
- *  even if they are disabled. However, the GP Interrupt pin will only assert for the enabled sources.
- *
- * \note Message type: \ref timing_direct "Direct register access"
- *
- * \pre This function can be called any time after device initialization and after the interrupt mask bits have been set
- *
- * \param[in]  adrv9001	        Context variable - Pointer to the ADRV9001 device settings data structure
- * \param[out] gpIntStatus      Pointer to status read-back word containing the GP_INT source registers.
- * \parblock
- *     bit[n] | GP Interrupt Mask
- *     -------|-----------------------
- *     bit27  | ADI_ADRV9001_GP_MASK_RX_DP_RECEIVE_ERROR
- *     bit26  | ADI_ADRV9001_GP_MASK_TX_DP_TRANSMIT_ERROR
- *     bit25  | ADI_ADRV9001_GP_MASK_RX_DP_READ_REQUEST_FROM_BBIC
- *     bit24  | ADI_ADRV9001_GP_MASK_TX_DP_WRITE_REQUEST_TO_BBIC
- *     bit23  | Not used
- *     bit22  | Not used
- *     bit21  | Not used
- *     bit20  | ADI_ADRV9001_GP_MASK_STREAM_PROCESSOR_3_ERROR
- *     bit19  | ADI_ADRV9001_GP_MASK_STREAM_PROCESSOR_2_ERROR
- *     bit18  | ADI_ADRV9001_GP_MASK_STREAM_PROCESSOR_1_ERROR
- *     bit17  | ADI_ADRV9001_GP_MASK_STREAM_PROCESSOR_0_ERROR
- *     bit16  | ADI_ADRV9001_GP_MASK_MAIN_STREAM_PROCESSOR_ERROR
- *     bit15  | ADI_ADRV9001_GP_MASK_LSSI_RX2_CLK_MCS
- *     bit14  | ADI_ADRV9001_GP_MASK_LSSI_RX1_CLK_MCS
- *     bit13  | ADI_ADRV9001_GP_MASK_CLK_1105_MCS_SECOND
- *     bit12  | ADI_ADRV9001_GP_MASK_CLK_1105_MCS
- *     bit11  | ADI_ADRV9001_GP_MASK_CLK_PLL_LOCK
- *     bit10  | ADI_ADRV9001_GP_MASK_AUX_PLL_LOCK
- *     bit9   | ADI_ADRV9001_GP_MASK_RF_PLL_LOCK2
- *     bit8   | ADI_ADRV9001_GP_MASK_RF_PLL_LOCK1
- *     bit7   | ADI_ADRV9001_GP_MASK_CLK_PLL_LOW_POWER_LOCK
- *     bit6   | ADI_ADRV9001_GP_MASK_TX2_PA_PROTECTION_ERROR
- *     bit5   | ADI_ADRV9001_GP_MASK_TX1_PA_PROTECTION_ERROR
- *     bit4   | ADI_ADRV9001_GP_MASK_CORE_ARM_MONITOR_ERROR
- *     bit3   | ADI_ADRV9001_GP_MASK_CORE_ARM_CALIBRATION_ERROR
- *     bit2   | ADI_ADRV9001_GP_MASK_CORE_ARM_SYSTEM_ERROR
- *     bit1   | ADI_ADRV9001_GP_MASK_CORE_FORCE_GP_INTERRUPT
- *     bit0   | ADI_ADRV9001_GP_MASK_CORE_ARM_ERROR
- * \endparblock
- *
- * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
- */
-int32_t adi_adrv9001_gpio_GpIntHandler(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_gpIntStatus_t *gpIntStatus);
 
 /**
  * \brief Sets the General Purpose (GP) interrupt register bit mask for GP_INT.
@@ -98,14 +30,11 @@ int32_t adi_adrv9001_gpio_GpIntHandler(adi_adrv9001_Device_t *adrv9001, adi_adrv
  * \pre This function can be called any time after device initialization
  *
  * \param[in] adrv9001	        Context variable - Pointer to the ADRV9001 device settings data structure
- * \param[in] maskSelect        Enum indicating the GP interrupt mask register to write
- * \param[in] maskArray         Data structure holding the GP interrupt masks to write
+ * \param[in] gpIntMask         The GP interrupt masks to write
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
-int32_t adi_adrv9001_gpio_GpIntMask_Set(adi_adrv9001_Device_t *adrv9001, 
-                                        adi_adrv9001_gpMaskSelect_e maskSelect, 
-                                        adi_adrv9001_gpMaskArray_t *maskArray);
+int32_t adi_adrv9001_gpio_GpIntMask_Set(adi_adrv9001_Device_t *adrv9001, uint32_t gpIntMask);
 
 /**
  * \brief Gets the General Purpose (GP) interrupt register bit mask for GP_INT.
@@ -115,14 +44,11 @@ int32_t adi_adrv9001_gpio_GpIntMask_Set(adi_adrv9001_Device_t *adrv9001,
  * \pre This function can be called any time after device initialization
  *
  * \param[in]  adrv9001	        Context variable - Pointer to the ADRV9001 device settings data structure
- * \param[in]  maskSelect       Enum indicating the GP interrupt mask register to read
- * \param[out] maskArray        Pointer to data structure holding the GP interrupt masks retrieved
+ * \param[out] gpIntMask        The GP interrupt masks retrieved
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
-int32_t adi_adrv9001_gpio_GpIntMask_Get(adi_adrv9001_Device_t *adrv9001, 
-                                        adi_adrv9001_gpMaskSelect_e maskSelect, 
-                                        adi_adrv9001_gpMaskArray_t *maskArray);
+int32_t adi_adrv9001_gpio_GpIntMask_Get(adi_adrv9001_Device_t *adrv9001, uint32_t *gpIntMask);
 
 /**
  * \brief Reads the General Purpose (GP) interrupt status to determine what caused the GP Interrupt pin to assert.
