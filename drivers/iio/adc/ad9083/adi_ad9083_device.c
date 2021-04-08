@@ -302,10 +302,19 @@ int32_t adi_ad9083_device_clock_config_set(adi_ad9083_device_t *device,
 
   /* calculate m/n div */
   for (ref_div = 1; ref_div < 6; ref_div++) {
+#ifdef __KERNEL__
+    pfd_clk_hz = div_u64(ref_clk_hz, ref_div);
+#else
     pfd_clk_hz = ref_clk_hz / ref_div;
+#endif
     for (m_div = 2; m_div < 52; m_div++) {
       for (n_div = 0; n_div < 4; n_div++) {
+
+#ifdef __KERNEL__
+        vco_freq = div_u64((ref_clk_hz * m_div * n_div_buff[n_div]), ref_div);
+#else
         vco_freq = (ref_clk_hz * m_div * n_div_buff[n_div]) / ref_div;
+#endif
         for (pll_div = 0; pll_div < 3; pll_div++) {
 #ifdef __KERNEL__
           adc_sample_rate = div_u64(vco_freq, pll_div_buff[pll_div]);
