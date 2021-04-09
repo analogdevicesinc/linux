@@ -194,7 +194,7 @@ static int32_t adi_adrv9001_Ssi_Tx_CssiClearErrorFlags(adi_adrv9001_Device_t *de
     ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartRamp_Set, device, baseAddress, 0x1);
     ADI_API_RETURN(device);
 }
-    
+
 int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure(adi_adrv9001_Device_t *device,
                                                adi_common_ChannelNumber_e channel,
                                                adi_adrv9001_SsiType_e ssiType,
@@ -387,17 +387,17 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(adi_adrv9001_Device_t *devic
     int8_t nibSel = 0;
     uint16_t dataRead = 0;
     uint16_t iqValue[2] = { 0 };
-	int32_t halError = 0;
-	uint32_t waitInterval_us = 0;
-	uint32_t numEventChecks = 1;
-	uint32_t eventCheck = 0;
-	uint8_t captureComplete = 0;
-	uint32_t timeout_us = ADI_ADRV9001_SSI_DEBUG_TIMEOUT_US;
-	waitInterval_us = (ADI_ADRV9001_SSI_DEBUG_INTERVAL_US > timeout_us) ?
-	timeout_us : ADI_ADRV9001_SSI_DEBUG_INTERVAL_US;
-	numEventChecks = (waitInterval_us == 0) ? 1 : (timeout_us / waitInterval_us);
-
+    int32_t halError = 0;
+    uint32_t waitInterval_us = 0;
+    uint32_t numEventChecks = 1;
+    uint32_t eventCheck = 0;
+    uint8_t captureComplete = 0;
+    uint32_t timeout_us = ADI_ADRV9001_SSI_DEBUG_TIMEOUT_US;
     adrv9001_BfNvsRegmapTx_e baseAddress = ADRV9001_BF_TX1_CORE;
+
+    waitInterval_us = (ADI_ADRV9001_SSI_DEBUG_INTERVAL_US > timeout_us) ?
+    timeout_us : ADI_ADRV9001_SSI_DEBUG_INTERVAL_US;
+    numEventChecks = (waitInterval_us == 0) ? 1 : (timeout_us / waitInterval_us);
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect_Validate, device, channel, ssiType, dataFormat, ssiTestModeConfig, ssiTestModeStatus);
 
