@@ -58,7 +58,7 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, cons
      * linux stack is not that big which means we need to be carefull. Some archs like arm set
      * Wframe-larger-than=1024
      */
-     static uint8_t armBinaryImageBuffer[ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE];
+     static uint8_t armBinaryImageBuffer[ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES];
 #endif
 
     /* Check device pointer is not null */
