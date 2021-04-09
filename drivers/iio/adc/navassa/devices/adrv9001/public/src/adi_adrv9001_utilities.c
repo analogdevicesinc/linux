@@ -50,7 +50,7 @@
 #define ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS 256
 #define ADI_ADRV9001_TX_ATTEN_TABLE_SIZE_ROWS 1024
 
-int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, const char *armImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode) 
+int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, const char *armImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
 {
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint32_t i = 0;
@@ -61,7 +61,7 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, cons
      * linux stack is not that big which means we need to be carefull. Some archs like arm set
      * Wframe-larger-than=1024
      */
-     static uint8_t armBinaryImageBuffer[ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE];
+     static uint8_t armBinaryImageBuffer[ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES];
 #endif
 
     /* Check device pointer is not null */
@@ -97,7 +97,7 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, cons
     return recoveryAction;
 }
 
-int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, const char *streamImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode) 
+int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, const char *streamImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
 {
 
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
@@ -147,7 +147,7 @@ int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, c
     return recoveryAction;
 }
 
-int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, const char *rxGainTablePath, uint32_t rxChannelMask) 
+int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, const char *rxGainTablePath, uint32_t rxChannelMask)
 {
     uint8_t maxGainIndex = 0;
     uint8_t prevGainIndex = 0;
@@ -168,7 +168,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
     ADI_ENTRY_PTR_EXPECT(device, rxGainTablePath);
 
     /*Loop until the gain table end is reached or no. of lines scanned exceeds maximum*/
-    while (lineCount <  ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS) 
+    while (lineCount <  ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS)
     {
         returnTableEntry = adi_hal_RxGainTableEntryGet(device->common.devHalInfo,
                                                        rxGainTablePath,
@@ -219,7 +219,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
 
     maxGainIndex = prevGainIndex;
     ADI_EXPECT(adi_adrv9001_Rx_GainTable_Write, device, rxChannelMask, maxGainIndex, &rxGainTableRowBuffer[0], lineCount);
-    
+
     ADI_API_RETURN(device);
 }
 
@@ -240,7 +240,7 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     ADI_ENTRY_PTR_EXPECT(device, txAttenTablePath);
 
     /*Loop until the atten table end is reached or no. of lines scanned exceeds maximum*/
-    while (lineCount < ADRV9001_TX_ATTEN_TABLE_MAX) 
+    while (lineCount < ADRV9001_TX_ATTEN_TABLE_MAX)
     {
         returnTableEntry = adi_hal_TxAttenTableEntryGet(device->common.devHalInfo,
                                                         txAttenTablePath,
@@ -289,6 +289,6 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     tableSize = attenIndex - minAttenIndex + 1;
 
     ADI_EXPECT(adi_adrv9001_Tx_AttenuationTable_Write, device, txChannelMask, minAttenIndex, &txAttenTableRowBuffer[0], tableSize);
-    
+
     ADI_API_RETURN(device);
 }
