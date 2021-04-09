@@ -122,8 +122,8 @@ static uint32_t adi_adrv9001_fh_GetHopTableBufferAddress(adi_adrv9001_Device_t *
 }
 #endif // ADI_ADRV9001_SI_REV_C0
 
-static int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                     adi_adrv9001_FhCfg_t  *fhConfig)
+static int32_t __maybe_unused adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+								 adi_adrv9001_FhCfg_t  *fhConfig)
 {
     uint32_t i;
     uint8_t numHopSignals;
@@ -341,20 +341,20 @@ static int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv900
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_fh_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                   adi_adrv9001_FhCfg_t  *fhConfig)
+static int32_t __maybe_unused adi_adrv9001_fh_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+							       adi_adrv9001_FhCfg_t  *fhConfig)
 {
     /* Check for NULL pointer */
     ADI_NULL_PTR_RETURN(&adrv9001->common, fhConfig);
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_fh_HopTable_Static_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                     adi_adrv9001_FhMode_e mode,
-                                                                     adi_adrv9001_FhHopSignal_e hopSignal,
-                                                                     adi_adrv9001_FhHopTable_e tableId,
-                                                                     adi_adrv9001_FhHopFrame_t hopTable[],
-                                                                     uint32_t tableSize)
+static int32_t __maybe_unused adi_adrv9001_fh_HopTable_Static_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+										 adi_adrv9001_FhMode_e mode,
+										 adi_adrv9001_FhHopSignal_e hopSignal,
+										 adi_adrv9001_FhHopTable_e tableId,
+										 adi_adrv9001_FhHopFrame_t hopTable[],
+										 uint32_t tableSize)
 {
     uint32_t frequencyIndex = 0;
     uint32_t tempAddress = (tableId == ADI_ADRV9001_FHHOPTABLE_A) ? adrv9001->devStateInfo.fhHopTable1Addr :
@@ -411,11 +411,11 @@ static int32_t adi_adrv9001_fh_HopTable_Static_Configure_Validate(adi_adrv9001_D
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_fh_HopTable_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                            adi_adrv9001_FhHopSignal_e hopSignal,
-                                                            adi_adrv9001_FhHopTable_e tableId,
-                                                            adi_adrv9001_FhHopFrame_t hopTable[],
-                                                            uint32_t tableSize)
+static int32_t __maybe_unused adi_adrv9001_fh_HopTable_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+									adi_adrv9001_FhHopSignal_e hopSignal,
+									adi_adrv9001_FhHopTable_e tableId,
+									adi_adrv9001_FhHopFrame_t hopTable[],
+									uint32_t tableSize)
 {
     uint32_t tempAddress = (tableId == ADI_ADRV9001_FHHOPTABLE_A) ? adrv9001->devStateInfo.fhHopTable1Addr :
                                                                     adrv9001->devStateInfo.fhHopTable2Addr;
@@ -980,14 +980,14 @@ static int32_t adi_adrv9001_fh_NumberOfHops_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_fh_HopTable_Dynamic_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                      adi_adrv9001_FhMode_e mode,
-                                                                      adi_adrv9001_FhHopSignal_e hopSignal,
-                                                                      adi_adrv9001_FhHopFrame_t hopTable[],
-                                                                      uint32_t tableSize,
-                                                                      adi_adrv9001_FhPerDynamicLoad_e numberHopsPerDynamicLoad,
-                                                                      uint8_t *spiPackedFhTable,
-                                                                      uint32_t length)
+static int32_t __maybe_unused adi_adrv9001_fh_HopTable_Dynamic_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+										  adi_adrv9001_FhMode_e mode,
+										  adi_adrv9001_FhHopSignal_e hopSignal,
+										  adi_adrv9001_FhHopFrame_t hopTable[],
+										  uint32_t tableSize,
+										  adi_adrv9001_FhPerDynamicLoad_e numberHopsPerDynamicLoad,
+										  uint8_t *spiPackedFhTable,
+										  uint32_t length)
 {
     uint32_t frequencyIndex = 0;
 #ifdef ADI_ADRV9001_SI_REV_C0
@@ -1293,9 +1293,9 @@ int32_t adi_adrv9001_fh_HopTable_Dynamic_Configure(adi_adrv9001_Device_t *adrv90
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_fh_HopTable_BytesPerTable_Get_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                      adi_adrv9001_FhPerDynamicLoad_e numberHopsPerDynamicLoad,
-                                                                      uint32_t *bytesPerTable)
+static int32_t __maybe_unused adi_adrv9001_fh_HopTable_BytesPerTable_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+										  adi_adrv9001_FhPerDynamicLoad_e numberHopsPerDynamicLoad,
+										  uint32_t *bytesPerTable)
 {
     ADI_RANGE_CHECK(adrv9001, numberHopsPerDynamicLoad, ADI_ADRV9001_FH_HOP_PER_DYNAMIC_LOAD_ONE, ADI_ADRV9001_FH_HOP_PER_DYNAMIC_LOAD_EIGHT);
     ADI_NULL_PTR_RETURN(&adrv9001->common, bytesPerTable);
