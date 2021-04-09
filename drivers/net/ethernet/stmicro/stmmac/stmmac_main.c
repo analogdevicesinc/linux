@@ -2502,6 +2502,14 @@ static bool stmmac_xdp_xmit_zc(struct stmmac_priv *priv, u32 queue, u32 budget)
 				       csum, priv->mode, true, true,
 				       xdp_desc.len);
 
+		if (tx_q->tbs & STMMAC_TBS_EN && xdp_desc.txtime > 0) {
+			struct dma_edesc *edesc = &tx_q->dma_entx[entry];
+			struct timespec64 ts =
+				ns_to_timespec64(xdp_desc.txtime);
+
+			stmmac_set_desc_tbs(priv, edesc, ts.tv_sec, ts.tv_nsec);
+		}
+
 		stmmac_enable_dma_transmission(priv, priv->ioaddr);
 
 		tx_q->cur_tx = STMMAC_GET_ENTRY(tx_q->cur_tx, priv->dma_conf.dma_tx_size);
