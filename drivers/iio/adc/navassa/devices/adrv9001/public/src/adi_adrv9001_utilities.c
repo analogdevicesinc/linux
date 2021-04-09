@@ -159,9 +159,6 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
     static adi_adrv9001_RxGainTableRow_t rxGainTableRowBuffer[ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS];
     static const uint8_t NUM_COLUMNS = 7;
 
-    static const uint8_t MIN_GAIN_INDEX_ORX = 2;
-    static const uint8_t MAX_GAIN_INDEX_ORX = 14;
-
     int32_t returnTableEntry = NUM_COLUMNS;
 
     /* Check device pointer is not null */
@@ -194,8 +191,8 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
 
         if (gainIndex < ADI_ADRV9001_RX_GAIN_INDEX_MIN)
         {
-            if ((gainIndex < MIN_GAIN_INDEX_ORX) ||
-                (gainIndex > MAX_GAIN_INDEX_ORX))
+            if ((gainIndex < ADI_ADRV9001_ORX_GAIN_INDEX_MIN) ||
+                (gainIndex > ADI_ADRV9001_ORX_GAIN_INDEX_MAX))
             {
                 break;
             }
