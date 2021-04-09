@@ -647,9 +647,9 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(adi_adrv9001_Device_t *devic
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Ssi_Loopback_Set_Validate(adi_adrv9001_Device_t *device,
-                                                      adi_common_ChannelNumber_e channel,
-                                                      adi_adrv9001_SsiType_e ssiType)
+static int32_t __maybe_unused adi_adrv9001_Ssi_Loopback_Set_Validate(adi_adrv9001_Device_t *device,
+								     adi_common_ChannelNumber_e channel,
+								     adi_adrv9001_SsiType_e ssiType)
 {
     ADI_RANGE_CHECK(device, ssiType, ADI_ADRV9001_SSI_TYPE_CMOS, ADI_ADRV9001_SSI_TYPE_LVDS);
     ADI_API_RETURN(device);
