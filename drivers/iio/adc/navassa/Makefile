@@ -41,9 +41,11 @@ adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_profileutil.o
 obj-$(CONFIG_ADRV9001) += adrv9002_drv.o
 
 ifeq ($(CONFIG_ADRV9001_B0_HW_REV),y)
-ccflags-y += -I$(src)/devices/adrv9001/private/include/bitfields/b0
+ccflags-y += -I$(src)/devices/adrv9001/private/include/bitfields/b0 \
+	-DADI_ADRV9001_SI_REV_B0
 else
-ccflags-y += -I$(src)/devices/adrv9001/private/include/bitfields/c0
+ccflags-y += -I$(src)/devices/adrv9001/private/include/bitfields/c0 \
+	-DADI_ADRV9001_SI_REV_C0
 endif
 
 ccflags-y += -I$(src)/devices/adrv9001/private/include \
