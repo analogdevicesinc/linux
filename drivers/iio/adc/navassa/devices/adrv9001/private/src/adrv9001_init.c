@@ -370,9 +370,9 @@ int32_t adrv9001_AnalogClockSet(adi_adrv9001_Device_t *device, adi_adrv9001_Init
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_InitAnalog_Validate(adi_adrv9001_Device_t *device,
-                                            adi_adrv9001_Init_t *init,
-                                            adi_adrv9001_DeviceClockDivisor_e adrv9001DeviceClockOutDivisor)
+static int32_t __maybe_unused adrv9001_InitAnalog_Validate(adi_adrv9001_Device_t *device,
+							   adi_adrv9001_Init_t *init,
+							   adi_adrv9001_DeviceClockDivisor_e adrv9001DeviceClockOutDivisor)
 {
     ADI_RANGE_CHECK(device, adrv9001DeviceClockOutDivisor, ADI_ADRV9001_DEVICECLOCKDIVISOR_BYPASS, ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED);
     ADI_API_RETURN(device);
@@ -731,16 +731,16 @@ int32_t adrv9001_ProfilesVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init
         {
             txProfile = &init->tx.txProfile[i];
             rxProfile = &init->rx.rxChannelCfg[i + 4].profile; /* ILB channel */
-            
+
             ADI_EXPECT(adrv9001_VerifyTxProfile, device, txProfile);
-            
+
             if (txProfile->outputSignaling != ADI_ADRV9001_TX_DIRECT_FM_FSK)
             {
                 /* Only validate ILB if Tx is enabled and not DIRECT_FM_FSK */
                 ADI_EXPECT(adrv9001_VerifyLbProfile, device, rxProfile);
                 device->devStateInfo.initializedChannels |= RX_CHANNELS[i + 4];
             }
-                
+
             device->devStateInfo.profilesValid |= ADI_ADRV9001_TX_PROFILE_VALID;
             device->devStateInfo.initializedChannels |= TX_CHANNELS[i];
         }
