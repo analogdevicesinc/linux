@@ -64,6 +64,8 @@
 #define MXC_HDMI_RX_PADS_NUM		3
 
 #define ISI_2K		2048
+#define ISI_4K		4096
+#define ISI_8K		8192
 
 enum {
 	IN_PORT,
