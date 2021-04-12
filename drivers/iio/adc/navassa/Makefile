@@ -37,6 +37,9 @@ adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_dpd.o
 adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_fh.o
 adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_powermanagement.o
 adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_profileutil.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_dpd_c0.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_rx_c0.o
+adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_stream_c0.o
 
 obj-$(CONFIG_ADRV9001) += adrv9002_drv.o
 
@@ -53,7 +56,8 @@ ccflags-y += -I$(srctree)/$(src)/devices/adrv9001/private/include \
 	-I$(srctree)/$(src)/platforms/ \
 	-I$(srctree)/$(src)/third_party/jsmn/ \
 	-I$(srctree)/$(src)/third_party/adi_pmag_macros/ \
-	-DADI_DYNAMIC_PROFILE_LOAD
+	-DADI_DYNAMIC_PROFILE_LOAD \
+	-DADI_ADRV9001_SI_REV_C0
 
 ccflags-$(CONFIG_ADRV9001_COMMON_VERBOSE) += -DADI_COMMON_VERBOSE
 ccflags-$(CONFIG_ADRV9001_ARM_VERBOSE) += -DADI_ADRV9001_ARM_VERBOSE
