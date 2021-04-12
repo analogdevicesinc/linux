@@ -13,8 +13,9 @@ config SOC_IMX8M
 	  ID and revision etc.
 
 config IMX8M_BUSFREQ
-	bool "i.MX8M busfreq"
+	tristate "i.MX8M busfreq"
 	depends on SOC_IMX8M
+	default ARCH_MXC
 
 config SOC_IMX9
 	tristate "i.MX9 SoC family support"
