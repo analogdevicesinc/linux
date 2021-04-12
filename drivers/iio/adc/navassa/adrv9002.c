@@ -2648,7 +2648,6 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 	struct adi_adrv9001_Device *adrv9001_device = phy->adrv9001;
 	u8 init_cals_error = 0;
 	int ret;
-	adi_adrv9001_gpMaskArray_t gp_mask;
 	adi_adrv9001_ChannelState_e init_state;
 
 	/* in TDD we cannot start with all ports enabled as RX/TX cannot be on at the same time */
@@ -2702,9 +2701,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 		return ret;
 
 	/* unmask IRQs */
-	gp_mask.gpIntMask = ~ADRV9002_IRQ_MASK;
-	ret = adi_adrv9001_gpio_GpIntMask_Set(adrv9001_device,
-					      ADI_ADRV9001_GPINT, &gp_mask);
+	ret = adi_adrv9001_gpio_GpIntMask_Set(adrv9001_device, ~ADRV9002_IRQ_MASK);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
