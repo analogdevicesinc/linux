@@ -2045,6 +2045,9 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, RX%d=%d\n",
 				ssi_type, i + 1, rx_cfg[i].profile.rxSsiConfig.ssiType);
 			return -EINVAL;
+		} else if (rx_cfg[i].profile.rxSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
+			dev_err(&phy->spi->dev, "SSI interface Long Strobe not supported\n");
+			return -EINVAL;
 		}
 
 		dev_dbg(&phy->spi->dev, "RX%d enabled\n", i);
@@ -2061,6 +2064,9 @@ tx:
 		if (ssi_type != tx_cfg[i].txSsiConfig.ssiType) {
 			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, TX%d=%d\n",
 				ssi_type, i + 1,  tx_cfg[i].txSsiConfig.ssiType);
+			return -EINVAL;
+		} else if (tx_cfg[i].txSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
+			dev_err(&phy->spi->dev, "SSI interface Long Strobe not supported\n");
 			return -EINVAL;
 		} else if (phy->rx2tx2) {
 			if (!phy->tx_only && !phy->rx_channels[0].channel.enabled) {
