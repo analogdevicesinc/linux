@@ -1,0 +1,25 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adpd188@064 {
+				compatible = "adi,adpd188";
+				reg = <0x64>;
+				interrupts = <9 IRQ_TYPE_EDGE_RISING>;
+				interrupt-parent = <&gpio>;
+				adi,no-of-devices = <8>;
+			};
+		};
+	};
+};

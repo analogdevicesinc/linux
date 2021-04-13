@@ -1,0 +1,35 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adpd188@0 {
+				compatible = "adi,adpd188";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpha;
+				spi-cpol;
+                                interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+                                interrupt-parent = <&gpio>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};
+
