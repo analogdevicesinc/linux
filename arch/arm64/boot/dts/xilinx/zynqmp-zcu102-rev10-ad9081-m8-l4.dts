@@ -355,3 +355,7 @@
 		};
 	};
 };
+
+&axi_ad9081_core_tx {
+	single-shot-output-gpios = <&gpio 139 0>;
+};
