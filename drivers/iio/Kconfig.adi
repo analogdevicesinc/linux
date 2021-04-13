@@ -159,3 +159,5 @@ config IIO_ALL_ADI_DRIVERS
 	select AXI_JESD204_RX
 	select AXI_ADXCVR
 	select ONE_BIT_ADC_DAC
+	select ADPD188_I2C if I2C
+	select ADPD188_SPI if SPI
