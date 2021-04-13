@@ -526,4 +526,33 @@ config ZOPT2201
 	  To compile this driver as a module, choose M here: the
 	  module will be called zopt2201.
 
+config ADPD188
+	tristate
+
+config ADPD188_SPI
+	tristate "Analog Devices ADPD188 Integrated Optical Module for Smoke Detection SPI Driver"
+	depends on SPI
+	select ADPD188
+	select REGMAP_SPI
+	help
+	  Say yes here if you want to build a driver for the Analog Devices
+	  Integrated Optical Module for Smoke Detection.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adpd188_spi and you will also get adpd188
+	  for the core module.
+
+config ADPD188_I2C
+	tristate "Analog Devices ADPD188 Integrated Optical Module for Smoke Detection I2C Driver"
+	depends on I2C
+	select ADPD188
+	select REGMAP_I2C
+	help
+	  Say yes here if you want to build a driver for the Analog Devices
+	  Integrated Optical Module for Smoke Detection.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adpd188_i2c and you will also get adpd188
+	  for the core module.
+
 endmenu
