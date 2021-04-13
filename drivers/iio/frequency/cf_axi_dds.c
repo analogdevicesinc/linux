@@ -214,7 +214,7 @@ int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable)
 	enum fifo_ctrl mode;
 	int ret;
 
-	if (IS_ERR(st->plddrbypass_gpio))
+	if (!st->plddrbypass_gpio)
 		return -ENODEV;
 
 	mode = (enable ? FIFO_ENABLE : FIFO_DISABLE);
@@ -1489,48 +1489,29 @@ static const struct iio_info cf_axi_dds_info = {
 	.update_scan_mode = &cf_axi_dds_update_scan_mode,
 };
 
-static ssize_t cf_axi_dds_debugfs_read(struct file *file, char __user *userbuf,
-			      size_t count, loff_t *ppos)
+static int cf_axi_dds_debugfs_fifo_en_get(void *data, u64 *val)
 {
-	struct iio_dev *indio_dev = file->private_data;
+	struct iio_dev *indio_dev = data;
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	char buf[80];
 
-	ssize_t len = sprintf(buf, "%d\n", st->pl_dma_fifo_en);
-
-	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+	*val = st->pl_dma_fifo_en;
+	return 0;
 }
 
-static ssize_t cf_axi_dds_debugfs_write(struct file *file,
-		     const char __user *userbuf, size_t count, loff_t *ppos)
+static int cf_axi_dds_debugfs_fifo_en_set(void *data, u64 val)
 {
-	struct iio_dev *indio_dev = file->private_data;
+	struct iio_dev *indio_dev = data;
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	char buf[80], *p = buf;
-	int ret;
 
-	count = min_t(size_t, count, (sizeof(buf)-1));
-	if (copy_from_user(p, userbuf, count))
-		return -EFAULT;
+	st->pl_dma_fifo_en = !!val;
 
-	p[count] = 0;
-
-	ret = strtobool(p, &st->pl_dma_fifo_en);
-	if (ret < 0)
-		return -EINVAL;
-
-	ret = cf_axi_dds_pl_ddr_fifo_ctrl(st, st->pl_dma_fifo_en);
-	if (ret)
-		return ret;
-
-	return count;
+	return cf_axi_dds_pl_ddr_fifo_ctrl(st, st->pl_dma_fifo_en);
 }
 
-static const struct file_operations cf_axi_dds_debugfs_fops = {
-	.open = simple_open,
-	.read = cf_axi_dds_debugfs_read,
-	.write = cf_axi_dds_debugfs_write,
-};
+DEFINE_DEBUGFS_ATTRIBUTE(cf_axi_dds_debugfs_fifo_en_fops,
+			 cf_axi_dds_debugfs_fifo_en_get,
+			 cf_axi_dds_debugfs_fifo_en_set,
+			 "%llu\n");
 
 static int dds_converter_match(struct device *dev, const void *data)
 {
@@ -2245,11 +2226,11 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		ADI_AXI_PCORE_VER_PATCH(st->version),
 		(unsigned long long)res->start, st->regs, st->chip_info->name);
 
-	st->plddrbypass_gpio = devm_gpiod_get(&pdev->dev, "plddrbypass", GPIOD_ASIS);
-	if (!IS_ERR(st->plddrbypass_gpio) && iio_get_debugfs_dentry(indio_dev))
-		debugfs_create_file("pl_ddr_fifo_enable", 0644,
-				    iio_get_debugfs_dentry(indio_dev),
-				    indio_dev, &cf_axi_dds_debugfs_fops);
+	st->plddrbypass_gpio = devm_gpiod_get_optional(&pdev->dev, "plddrbypass", GPIOD_ASIS);
+	if (st->plddrbypass_gpio && iio_get_debugfs_dentry(indio_dev))
+		debugfs_create_file_unsafe("pl_ddr_fifo_enable", 0644,
+					   iio_get_debugfs_dentry(indio_dev),
+					   indio_dev, &cf_axi_dds_debugfs_fifo_en_fops);
 
 	platform_set_drvdata(pdev, indio_dev);
 
