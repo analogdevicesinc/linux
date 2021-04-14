@@ -38,3 +38,6 @@ sound/pci/ac97/ac97_codec.o
 sound/pci/ac97/ac97_proc.o
 sound/soc/codecs/ad1980.o
 drivers/iio/adc/adm1177.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_dpd_c0.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_rx_c0.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_stream_c0.o

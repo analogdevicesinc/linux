@@ -51,4 +51,6 @@ drivers/misc/mathworks/mathworks_ip_common.o
 drivers/misc/mathworks/mathworks_ipcore.o
 drivers/misc/mathworks/mw_stream_channel.o
 drivers/misc/mathworks/mw_stream_iio_channel.o
-
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_dpd_c0.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_rx_c0.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_stream_c0.o

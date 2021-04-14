@@ -43,3 +43,6 @@ drivers/gpio/gpio-adi-daq1.o
 drivers/iio/jesd204/axi_jesd204b_gt.o
 drivers/iio/jesd204/axi_jesd204b_v51.o
 drivers/iio/adc/adm1177.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_dpd_c0.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_rx_c0.o
+drivers/iio/adc/navassa/devices/adrv9001/public/src/adi_adrv9001_stream_c0.o
