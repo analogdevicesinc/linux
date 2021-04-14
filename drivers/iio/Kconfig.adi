@@ -69,6 +69,7 @@ config IIO_ALL_ADI_DRIVERS
 	select LTC2497
 	select LTC2308
 	select AD8366
+	select ADA4250
 	select HMC425
 	select AD5270
 	select AD5360
