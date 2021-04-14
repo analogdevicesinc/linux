@@ -3011,18 +3011,6 @@ gckGALDEVICE_Suspend(
         /* Store state. */
         Device->statesStored[i] = currentState;
 
-        /* Pull up power to flush GPU command buffer before suspending. */
-#if gcdENABLE_VG
-        if (i == gcvCORE_VG)
-        {
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
-        }
-        else
-#endif
-        {
-            gcmkONERROR(gckHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
-        }
-
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
