@@ -3143,23 +3143,7 @@ gckGALDEVICE_Resume(
         else
 #endif
         {
-            gctINT j = 0;
-
-            for (; j < 100; j++)
-            {
-                status = gckHARDWARE_SetPowerState(hardware, state);
-
-                if ((state != gcvPOWER_OFF_BROADCAST &&
-                        state != gcvPOWER_SUSPEND_BROADCAST) ||
-                    status != gcvSTATUS_CHIP_NOT_READY)
-                {
-                    break;
-                }
-
-                gcmkVERIFY_OK(gckOS_Delay(hardware->os, 10));
-            }
-
-            gcmkERR_RETURN(status);
+            gcmkERR_RETURN(gckHARDWARE_SetPowerState(hardware, state));
         }
 
         /* Reset stored state. */
