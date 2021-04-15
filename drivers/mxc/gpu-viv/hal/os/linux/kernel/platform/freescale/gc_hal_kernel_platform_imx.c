@@ -581,8 +581,8 @@ static ssize_t gpu_govern_store(struct device_driver *dev, const char *buf, size
 
     sem_acquired = gcvTRUE;
 
-    /* Suspend the GPU to idle state. */
-    gcmkONERROR(gckGALDEVICE_Suspend(device, gcvPOWER_IDLE));
+    /* Suspend the GPU. */
+    gcmkONERROR(gckGALDEVICE_Suspend(device, gcvPOWER_SUSPEND));
 
     core_freq   = priv->imx_gpu_govern.core_clk_freq[i];
     shader_freq = priv->imx_gpu_govern.shader_clk_freq[i];

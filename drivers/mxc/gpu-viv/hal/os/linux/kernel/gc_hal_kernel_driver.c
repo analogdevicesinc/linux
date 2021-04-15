@@ -1416,7 +1416,7 @@ static int gpu_suspend(struct platform_device *dev, pm_message_t state)
 
     sem_acquired = gcvTRUE;
 
-    /* Suspend the GPU to off state. */
+    /* Power off the GPU. */
     gcmkONERROR(gckGALDEVICE_Suspend(device, gcvPOWER_OFF));
 
     return 0;
