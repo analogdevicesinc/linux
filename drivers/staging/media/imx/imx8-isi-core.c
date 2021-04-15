@@ -515,19 +515,22 @@ static int mxc_isi_imx8mp_gclk_get(struct mxc_isi_dev *mxc_isi)
 
 	mxc_isi->isi_proc = devm_clk_get(dev, "media_blk_isi_proc");
 	if (IS_ERR(mxc_isi->isi_proc)) {
-		dev_err(dev, "Failed to get media isi proc clock\n");
+		if (PTR_ERR(mxc_isi->isi_proc) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get media isi proc clock\n");
 		return -ENODEV;
 	}
 
 	mxc_isi->isi_apb = devm_clk_get(dev, "media_blk_isi_apb");
 	if (IS_ERR(mxc_isi->isi_apb)) {
-		dev_err(dev, "Failed to get media isi apb clock\n");
+		if (PTR_ERR(mxc_isi->isi_apb) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get media isi apb clock\n");
 		return -ENODEV;
 	}
 
 	mxc_isi->isi_bus = devm_clk_get(dev, "media_blk_bus");
 	if (IS_ERR(mxc_isi->isi_bus)) {
-		dev_err(dev, "Failed to get media bus clock\n");
+		if (PTR_ERR(mxc_isi->isi_bus) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get media bus clock\n");
 		return -ENODEV;
 	}
 
