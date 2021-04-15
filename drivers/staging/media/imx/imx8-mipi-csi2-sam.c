@@ -1677,14 +1677,16 @@ static int mipi_csis_imx8mp_parse_resets(struct csi_state *state)
 
 	reset = devm_reset_control_get(dev, "csi_rst_pclk");
 	if (IS_ERR(reset)) {
-		dev_err(dev, "Failed to get csi pclk reset control\n");
+		if (PTR_ERR(reset) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get csi pclk reset control\n");
 		return PTR_ERR(reset);
 	}
 	state->csi_rst_pclk = reset;
 
 	reset = devm_reset_control_get(dev, "csi_rst_aclk");
 	if (IS_ERR(reset)) {
-		dev_err(dev, "Failed to get csi aclk reset control\n");
+		if (PTR_ERR(reset) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get csi aclk reset control\n");
 		return PTR_ERR(reset);
 	}
 	state->csi_rst_aclk = reset;
@@ -1738,14 +1740,16 @@ static int mipi_csis_imx8mp_gclk_get(struct csi_state *state)
 
 	state->csi_pclk = devm_clk_get(dev, "media_blk_csi_pclk");
 	if (IS_ERR(state->csi_pclk)) {
-		dev_err(dev, "Failed to get media csi pclk\n");
-		return -ENODEV;
+		if (PTR_ERR(state->csi_pclk) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get media csi pclk\n");
+		return PTR_ERR(state->csi_pclk);
 	}
 
 	state->csi_aclk = devm_clk_get(dev, "media_blk_csi_aclk");
 	if (IS_ERR(state->csi_aclk)) {
-		dev_err(dev, "Failed to get media csi aclk\n");
-		return -ENODEV;
+		if (PTR_ERR(state->csi_pclk) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get media csi aclk\n");
+		return PTR_ERR(state->csi_pclk);
 	}
 
 	return 0;
@@ -1861,10 +1865,8 @@ static int mipi_csis_probe(struct platform_device *pdev)
 	}
 
 	ret = disp_mix_sft_parse_resets(state);
-	if (ret < 0) {
-		dev_err(dev, "Can not parse reset control\n");
+	if (ret < 0)
 		return ret;
-	}
 
 	if (state->pdata->use_mix_gpr) {
 		state->mix_gpr = syscon_regmap_lookup_by_phandle(dev->of_node, "gpr");
