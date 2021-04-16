@@ -106,3 +106,9 @@
 };
 
 #include "adi-ad9083-fmc-ebz.dtsi"
+
+&adc0_ad9083 {
+	/* software reset, resistor is not mounted */
+	/* reset-gpios = <&gpio 111 0>; */
+	pwdn-gpios = <&gpio 110 0>;
+};
