@@ -20,7 +20,6 @@
 &clk {
 	assigned-clocks = <&clk IMX8MP_CLK_AUDIO_AHB>,
 			  <&clk IMX8MP_CLK_AUDIO_AXI_SRC>,
-			  <&clk IMX8MP_CLK_IPG_AUDIO_ROOT>,
 			  <&clk IMX8MP_AUDIO_PLL1>,
 			  <&clk IMX8MP_AUDIO_PLL2>,
 			  <&clk IMX8MP_VIDEO_PLL1>;
@@ -28,7 +27,6 @@
 				 <&clk IMX8MP_SYS_PLL3_OUT>;
 	assigned-clock-rates = <400000000>,
 			       <600000000>,
-			       <400000000>,
 			       <393216000>,
 			       <361267200>,
 			       <2079000000>;
