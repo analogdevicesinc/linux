@@ -64,9 +64,6 @@
 			#clock-cells = <0>;
 			clock-output-names = "jesd_rx_lane_clk";
 
-			adi,octets-per-frame = <8>;
-			adi,frames-per-multiframe = <32>;
-
 			jesd204-device;
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&axi_ad9083_adxcvr_rx 0 0>;
