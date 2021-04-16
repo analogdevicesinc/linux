@@ -584,6 +584,7 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	struct ad9083_phy *phy = conv->phy;
 	struct device *dev = &conv->spi->dev;
 	adi_cms_chip_id_t chip_id;
+	u8 api_rev[3];
 	u64 temp;
 	int ret;
 
@@ -643,6 +644,13 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	ret = adi_ad9083_jtx_startup(&phy->adi_ad9083, &phy->jesd_param);
 	if (ret < 0)
 		dev_err(dev, "adi_ad9083_jtx_startup failed (%d)\n", ret);
+
+	adi_ad9083_device_api_revision_get(&phy->adi_ad9083, &api_rev[0],
+					   &api_rev[1], &api_rev[2]);
+
+	dev_info(dev, "%s Rev. %u Grade %u (API %u.%u.%u) probed\n",
+		 conv->chip_info->name, chip_id.dev_revision,
+		 chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
 
 	return ret;
 }
