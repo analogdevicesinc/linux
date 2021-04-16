@@ -18,6 +18,7 @@
 #include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
+#include <linux/iio/sysfs.h>
 #include "ad9083/adi_ad9083.h"
 #include "cf_axi_adc.h"
 
@@ -43,6 +44,7 @@ struct ad9083_jesd204_priv {
  * @chip_info:			Chip info and channels descritions
  * @jdev:			JESD204 device
  * @jesd204_link:		JESD204 link configuration settings
+ * @lock:			Mutex protecting against concurrent accesses
  * @jesd_param:			Defines JESD Parameters
  * @vmax_micro:			Full scale voltage
  * @fc_hz:				Cut-off frequency of low-pass filter
@@ -54,12 +56,15 @@ struct ad9083_jesd204_priv {
  * @decimation:			Decimation config
  * @nco0_datapath_mode:		NCO data path
  * @sampling_frequency_hz:	Sampling frequency of the device per channel
+ * @is_initialized:		Flag used to indicate operational jesd204 links
  */
 struct ad9083_phy {
 	adi_ad9083_device_t	adi_ad9083;
 	struct axiadc_chip_info	chip_info;
 	struct jesd204_dev	*jdev;
 	struct jesd204_link	jesd204_link;
+	/* Protect against concurrent accesses to the device */
+	struct mutex		lock;
 	adi_cms_jesd_param_t	jesd_param;
 	u32 vmax_micro;
 	u64 fc_hz;
@@ -71,6 +76,7 @@ struct ad9083_phy {
 	u8 decimation[4];
 	u8 nco0_datapath_mode;
 	u64 sampling_frequency_hz;
+	bool is_initialized;
 };
 
 /**
@@ -82,6 +88,14 @@ static const u8 ad9083_jesd_k[] = {16, 32};
 static const u8 ad9083_jesd_n[] = {12, 16};
 static const u8 ad9083_jesd_np[] = {12, 16};
 static const u8 ad9083_jesd_m[] = {8, 16, 32, 64, 96};
+
+enum ad9083_iio_dev_attr {
+	AD9083_JESD204_FSM_ERROR,
+	AD9083_JESD204_FSM_PAUSED,
+	AD9083_JESD204_FSM_STATE,
+	AD9083_JESD204_FSM_RESUME,
+	AD9083_JESD204_FSM_CTRL,
+};
 
 static int ad9083_udelay(void *user_data, unsigned int us)
 {
@@ -307,9 +321,16 @@ static int ad9083_jesd204_link_running(struct jesd204_dev *jdev,
 	struct ad9083_phy *phy = priv->phy;
 	int ret;
 
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		phy->is_initialized = false;
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
 	ret = ad9083_jesd_rx_link_status_print(phy);
 	if (ret < 0)
 		return JESD204_STATE_CHANGE_ERROR;
+
+	phy->is_initialized = true;
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -355,6 +376,197 @@ static int ad9083_request_clks(struct axiadc_converter *conv)
 
 	return devm_add_action_or_reset(&conv->spi->dev, ad9083_clk_disable, conv->clk);
 }
+
+static ssize_t ad9083_phy_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9083_phy *phy = conv->phy;
+	bool enable;
+	int ret = 0;
+
+	mutex_lock(&phy->lock);
+
+	switch ((u32)this_attr->address & 0xFF) {
+	case AD9083_JESD204_FSM_RESUME:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		ret = jesd204_fsm_resume(phy->jdev, JESD204_LINKS_ALL);
+		break;
+	case AD9083_JESD204_FSM_CTRL:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		ret = strtobool(buf, &enable);
+		if (ret)
+			break;
+
+		if (enable) {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+		} else {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			ret = 0;
+		}
+
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	mutex_unlock(&phy->lock);
+
+	return ret ? ret : len;
+}
+
+static ssize_t ad9083_phy_show(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9083_phy *phy = conv->phy;
+	struct jesd204_dev *jdev = phy->jdev;
+	struct jesd204_link *links[3];
+	int ret = 0;
+	int i, err, num_links;
+	bool paused;
+
+	mutex_lock(&phy->lock);
+
+	switch ((u32)this_attr->address & 0xFF) {
+	case AD9083_JESD204_FSM_ERROR:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			return ret;
+		err = 0;
+		for (i = 0; i < num_links; i++) {
+			if (links[i]->error) {
+				err = links[i]->error;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", err);
+		break;
+	case AD9083_JESD204_FSM_PAUSED:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			return ret;
+		/*
+		 * Take the slowest link; if there are N links and one is paused, all are paused.
+		 * Not sure if this can happen yet, but best design it like this here.
+		 */
+		paused = false;
+		for (i = 0; i < num_links; i++) {
+			if (jesd204_link_get_paused(links[i])) {
+				paused = true;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", paused);
+		break;
+	case AD9083_JESD204_FSM_STATE:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			return ret;
+		/*
+		 * just get the first link state; we're assuming that all 3 are in sync
+		 * and that AD9083_JESD204_FSM_PAUSED was called before
+		 */
+		ret = sprintf(buf, "%s\n", jesd204_link_get_state_str(links[0]));
+		break;
+	case AD9083_JESD204_FSM_CTRL:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		ret = sprintf(buf, "%d\n", phy->is_initialized);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	mutex_unlock(&phy->lock);
+
+	return ret;
+}
+
+static IIO_DEVICE_ATTR(jesd204_fsm_error, S_IRUGO,
+		       ad9083_phy_show,
+		       NULL,
+		       AD9083_JESD204_FSM_ERROR);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_paused, S_IRUGO,
+		       ad9083_phy_show,
+		       NULL,
+		       AD9083_JESD204_FSM_PAUSED);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_state, S_IRUGO,
+		       ad9083_phy_show,
+		       NULL,
+		       AD9083_JESD204_FSM_STATE);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_resume, S_IWUSR,
+		       NULL,
+		       ad9083_phy_store,
+		       AD9083_JESD204_FSM_RESUME);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, S_IWUSR | S_IRUGO,
+		       ad9083_phy_show,
+		       ad9083_phy_store,
+		       AD9083_JESD204_FSM_CTRL);
+
+static struct attribute *ad9083_phy_attributes[] = {
+	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad9083_phy_attribute_group = {
+	.attrs = ad9083_phy_attributes,
+};
 
 static int ad9083_setup(struct axiadc_converter *conv)
 {
@@ -635,6 +847,7 @@ static int ad9083_probe(struct spi_device *spi)
 	conv->phy = phy;
 	conv->chip_info = &axiadc_chip_info_tbl;
 	conv->reg_access = ad9083_reg_access;
+	conv->attrs = &ad9083_phy_attribute_group;
 
 	if (jdev) {
 		phy->jdev = jdev;
