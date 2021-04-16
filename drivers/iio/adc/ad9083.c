@@ -20,6 +20,7 @@
 #include <linux/spi/spi.h>
 #include <linux/iio/sysfs.h>
 #include "ad9083/adi_ad9083.h"
+#include "ad9083/adi_ad9083_hal.h"
 #include "cf_axi_adc.h"
 
 #include <dt-bindings/iio/adc/adi,ad9083.h>
@@ -294,9 +295,19 @@ static int ad9083_jesd204_clks_enable(struct jesd204_dev *jdev,
 				      struct jesd204_link *lnk)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9083_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9083_phy *phy = priv->phy;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	adi_ad9083_jesd_tx_link_digital_reset(&phy->adi_ad9083, 1);
+	mdelay(1);
+	adi_ad9083_jesd_tx_link_digital_reset(&phy->adi_ad9083, 0);
+	mdelay(1);
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -768,6 +779,8 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 
 	JESD204_LNK_READ_SUBCLASS(dev, np, &phy->jesd204_link,
 				  &phy->jesd_param.jesd_subclass, JESD_SUBCLASS_0);
+
+
 	if (phy->jesd_param.jesd_subclass >= JESD_SUBCLASS_INVALID) {
 		dev_err(dev, "Invalid JESD subclass value: %d\n", phy->jesd_param.jesd_subclass);
 		return -EINVAL;
