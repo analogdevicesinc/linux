@@ -123,6 +123,16 @@ static int ad9083_log_write(void *user_data, s32 log_type, const char *message,
 	return 0;
 }
 
+static int ad9083_reset_pin_ctrl(void *user_data, uint8_t enable)
+{
+	struct axiadc_converter *conv = user_data;
+
+	if (conv->reset_gpio)
+		return gpiod_direction_output(conv->reset_gpio, enable);
+
+	return 0;
+}
+
 static int ad9083_spi_xfer(void *user_data, u8 *wbuf,
 			   u8 *rbuf, u32 len)
 {
@@ -360,8 +370,8 @@ static int ad9083_setup(struct axiadc_converter *conv)
 		return ret;
 	}
 
-	/* software reset, resistor is not mounted */
-	ret = adi_ad9083_device_reset(&phy->adi_ad9083, AD9083_SOFT_RESET);
+	ret = adi_ad9083_device_reset(&phy->adi_ad9083,
+		conv->reset_gpio ? AD9083_HARD_RESET : AD9083_SOFT_RESET);
 	if (ret < 0) {
 		dev_err(dev, "adi_ad9083_device_reset failed (%d)\n", ret);
 		return ret;
@@ -614,6 +624,11 @@ static int ad9083_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, conv);
 
+	conv->reset_gpio =
+		devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->reset_gpio))
+		return PTR_ERR(conv->reset_gpio);
+
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
 	conv->spi = spi;
@@ -634,6 +649,7 @@ static int ad9083_probe(struct spi_device *spi)
 	phy->adi_ad9083.hal_info.msb = SPI_MSB_FIRST;
 	phy->adi_ad9083.hal_info.addr_inc = SPI_ADDR_INC_AUTO;
 	phy->adi_ad9083.hal_info.log_write = ad9083_log_write;
+	phy->adi_ad9083.hal_info.reset_pin_ctrl = ad9083_reset_pin_ctrl;
 
 	ret = ad9083_parse_dt(phy, &spi->dev);
 	if (ret < 0)
