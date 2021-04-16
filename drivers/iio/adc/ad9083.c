@@ -4,6 +4,8 @@
  *
  * Copyright 2021 Analog Devices Inc.
  */
+
+
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/err.h>
@@ -199,6 +201,12 @@ static int ad9083_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
+static const char *const ad9083_jtx_qbf_states[] = {
+	"CGS", "ILA_M0R", "ILA_M0", "ILA_M1R", "ILA_M1C1", "ILA_M1C2",
+	"ILA_M1C3", "ILA_M1", "ILA_M2R", "ILA_M2", "ILA_M3R", "ILA_M3",
+	"ILA_BP", "DATA"
+};
+
 static int ad9083_jesd_rx_link_status_print(struct ad9083_phy *phy)
 {
 	u16 stat, retry = 3;
@@ -216,8 +224,8 @@ static int ad9083_jesd_rx_link_status_print(struct ad9083_phy *phy)
 			ret = -EIO;
 
 		if (ret == 0 || retry == 0)
-			dev_info(dev, "JESD RX (JTX) state_204b %x, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
-				 stat & 0x0f,
+			dev_info(dev, "JESD RX (JTX) state_204b %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
+				 ad9083_jtx_qbf_states[stat & 0xF],
 				 stat & BIT(4) ? "deasserted" : "asserted",
 				 stat & BIT(5) ? "locked" : "unlocked",
 				 stat & BIT(6) ? "established" : "lost",
