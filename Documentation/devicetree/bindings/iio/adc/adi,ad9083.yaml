@@ -50,9 +50,10 @@ properties:
     const: "adc_ref_clk"
     description: AD9083 reference clock name
 
-  adi,sampling-frequency-hz:
-    description: Sampling frequency of the device per channel
-    const: 125000000
+  adi,adc-frequency-hz:
+    description: ADC Sampling frequency of the device
+    minimum: 1000000000
+    maximum: 2000000000
 
   adi,vmax-microvolt:
     description: Full scale voltage
