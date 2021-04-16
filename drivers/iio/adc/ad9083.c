@@ -56,8 +56,9 @@ struct ad9083_jesd204_priv {
  * @nco_freq_hz:		NCO frequency
  * @decimation:			Decimation config
  * @nco0_datapath_mode:		NCO data path
- * @sampling_frequency_hz:	Sampling frequency of the device per channel
+ * @adc_frequency_hz:		ADC frequency of the device
  * @is_initialized:		Flag used to indicate operational jesd204 links
+ * @total_dcm			Total decimation set by nco0_datapath_mode and decimation config
  */
 struct ad9083_phy {
 	adi_ad9083_device_t	adi_ad9083;
@@ -76,8 +77,9 @@ struct ad9083_phy {
 	u64 nco_freq_hz[3];
 	u8 decimation[4];
 	u8 nco0_datapath_mode;
-	u64 sampling_frequency_hz;
+	u64 adc_frequency_hz;
 	bool is_initialized;
+	u16 total_dcm;
 };
 
 /**
@@ -283,8 +285,8 @@ static int ad9083_jesd204_link_init(struct jesd204_dev *jdev,
 	jesd204_copy_link_params(lnk, link);
 
 	lnk->jesd_encoder = JESD204_ENCODER_8B10B;
-	lnk->sample_rate = phy->sampling_frequency_hz;
-	lnk->sample_rate_div = 1;
+	lnk->sample_rate = phy->adc_frequency_hz;
+	lnk->sample_rate_div = phy->total_dcm;
 	lnk->link_id = 0;
 
 	return JESD204_STATE_CHANGE_DONE;
@@ -585,7 +587,6 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	struct device *dev = &conv->spi->dev;
 	adi_cms_chip_id_t chip_id;
 	u8 api_rev[3];
-	u64 temp;
 	int ret;
 
 	ret = ad9083_request_clks(conv);
@@ -618,8 +619,8 @@ static int ad9083_setup(struct axiadc_converter *conv)
 		return ret;
 	}
 
-	temp = phy->sampling_frequency_hz * phy->jesd204_link.num_converters;
-	ret = adi_ad9083_device_clock_config_set(&phy->adi_ad9083, temp, clk_get_rate(conv->clk));
+	ret = adi_ad9083_device_clock_config_set(&phy->adi_ad9083,
+		phy->adc_frequency_hz, clk_get_rate(conv->clk));
 	if (ret < 0) {
 		dev_err(dev, "adi_ad9083_device_clock_config_set failed (%d)\n", ret);
 		return ret;
@@ -648,6 +649,10 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	adi_ad9083_device_api_revision_get(&phy->adi_ad9083, &api_rev[0],
 					   &api_rev[1], &api_rev[2]);
 
+	ret = adi_ad9083_rx_datapath_total_dec_get(&phy->adi_ad9083, &phy->total_dcm);
+	if (ret < 0)
+		dev_err(dev, "adi_ad9083_rx_datapath_total_dec_get failed (%d)\n", ret);
+
 	dev_info(dev, "%s Rev. %u Grade %u (API %u.%u.%u) probed\n",
 		 conv->chip_info->name, chip_id.dev_revision,
 		 chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
@@ -672,10 +677,12 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 	int ret;
 
 	/* AD9083 Config */
-	ret = of_property_read_u64(np, "adi,sampling-frequency-hz",
-				   &phy->sampling_frequency_hz);
-	if (ret)
-		phy->sampling_frequency_hz = 125000000;
+	ret = of_property_read_u64(np, "adi,adc-frequency-hz",
+				   &phy->adc_frequency_hz);
+	if (ret) {
+		dev_err(dev, "Missing adi,adc-frequency-hz property\n");
+		return -EINVAL;
+	}
 
 	ret = of_property_read_u32(np, "adi,vmax-microvolt", &phy->vmax_micro);
 	if (ret)
