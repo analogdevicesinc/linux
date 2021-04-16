@@ -18,6 +18,7 @@
 
 		jesd204-device;
 		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
 
 		spi-max-frequency = <10000000>;
 		adi,spi-3wire-enable;
@@ -34,6 +35,14 @@
 		adi,refa-diff-rcv-enable;
 		adi,refa-r-div = <1>;
 		adi,osc-in-cmos-neg-inp-enable;
+
+		/* SYSREF config */
+		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
+		adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
+		adi,sysref-k-div = <256>;
+		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
+		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
+		adi,jesd204-max-sysref-frequency-hz = <400000>;
 
 		/* PLL1 config */
 		adi,pll1-feedback-src-vcxo;
@@ -83,6 +92,24 @@
 			adi,divider-phase = <0>;
 			adi,channel-divider = <4>; /* 250 MHz */
 			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <5>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "FMC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <5>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
 		};
 	};
 
