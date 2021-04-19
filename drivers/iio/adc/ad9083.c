@@ -827,27 +827,35 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 		},							\
 	}
 
-static struct axiadc_chip_info axiadc_chip_info_tbl = {
-	.name = "AD9083",
-	.max_rate = 2000000000,
-	.num_channels = 16,
-	.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
-	.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
-	.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
-	.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),
-	.channel[4] = AIM_CHAN(2, IIO_MOD_I, 4, 16, 'S'),
-	.channel[5] = AIM_CHAN(2, IIO_MOD_Q, 5, 16, 'S'),
-	.channel[6] = AIM_CHAN(3, IIO_MOD_I, 6, 16, 'S'),
-	.channel[7] = AIM_CHAN(3, IIO_MOD_Q, 7, 16, 'S'),
-	.channel[8] = AIM_CHAN(4, IIO_MOD_I, 8, 16, 'S'),
-	.channel[9] = AIM_CHAN(4, IIO_MOD_Q, 9, 16, 'S'),
-	.channel[10] = AIM_CHAN(5, IIO_MOD_I, 10, 16, 'S'),
-	.channel[11] = AIM_CHAN(5, IIO_MOD_Q, 11, 16, 'S'),
-	.channel[12] = AIM_CHAN(6, IIO_MOD_I, 12, 16, 'S'),
-	.channel[13] = AIM_CHAN(6, IIO_MOD_Q, 13, 16, 'S'),
-	.channel[14] = AIM_CHAN(7, IIO_MOD_I, 14, 16, 'S'),
-	.channel[15] = AIM_CHAN(7, IIO_MOD_Q, 15, 16, 'S'),
-};
+static void ad9083_setup_chip_info_tbl(struct ad9083_phy *phy)
+{
+	bool complex;
+	int i;
+
+	if (phy->nco0_datapath_mode == AD9083_DATAPATH_ADC_CIC_NCO_J ||
+	    phy->nco0_datapath_mode == AD9083_DATAPATH_ADC_CIC_NCO_G ||
+	    phy->nco0_datapath_mode == AD9083_DATAPATH_ADC_CIC_NCO_G_H)
+		complex = true;
+	else
+		complex = false;
+
+	for (i = 0; i < phy->jesd_param.jesd_m; i++) {
+		phy->chip_info.channel[i].type = IIO_VOLTAGE;
+		phy->chip_info.channel[i].indexed = 1;
+		phy->chip_info.channel[i].channel = complex ? i / 2 : i;
+		phy->chip_info.channel[i].modified = complex ? 1 : 0;
+		phy->chip_info.channel[i].channel2 = (i & 1) ? IIO_MOD_Q : IIO_MOD_I;
+		phy->chip_info.channel[i].scan_index = i;
+		phy->chip_info.channel[i].scan_type.sign = 'S';
+		phy->chip_info.channel[i].scan_type.realbits = phy->jesd_param.jesd_n;
+		phy->chip_info.channel[i].scan_type.storagebits = 16;
+		phy->chip_info.channel[i].scan_type.shift = 0;
+	}
+
+	phy->chip_info.name = "AD9083";
+	phy->chip_info.max_rate = 2000000000;
+	phy->chip_info.num_channels = phy->jesd_param.jesd_m;
+}
 
 static int ad9083_probe(struct spi_device *spi)
 {
@@ -880,7 +888,7 @@ static int ad9083_probe(struct spi_device *spi)
 	conv->adc_clkscale.div = 1;
 	conv->spi = spi;
 	conv->phy = phy;
-	conv->chip_info = &axiadc_chip_info_tbl;
+	conv->chip_info = &phy->chip_info;
 	conv->reg_access = ad9083_reg_access;
 	conv->attrs = &ad9083_phy_attribute_group;
 
@@ -902,6 +910,8 @@ static int ad9083_probe(struct spi_device *spi)
 	ret = ad9083_parse_dt(phy, &spi->dev);
 	if (ret < 0)
 		return -ENODEV;
+
+	ad9083_setup_chip_info_tbl(phy);
 
 	ret = ad9083_setup(conv);
 	if (ret < 0)
