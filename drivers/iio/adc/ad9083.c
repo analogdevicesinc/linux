@@ -466,12 +466,14 @@ static ssize_t ad9083_phy_show(struct device *dev,
 		}
 
 		num_links = jesd204_get_active_links_num(jdev);
-		if (num_links < 0)
-			return num_links;
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
 
 		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
-			return ret;
+			break;
 		err = 0;
 		for (i = 0; i < num_links; i++) {
 			if (links[i]->error) {
@@ -488,12 +490,13 @@ static ssize_t ad9083_phy_show(struct device *dev,
 		}
 
 		num_links = jesd204_get_active_links_num(jdev);
-		if (num_links < 0)
-			return num_links;
-
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
 		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
-			return ret;
+			break;
 		/*
 		 * Take the slowest link; if there are N links and one is paused, all are paused.
 		 * Not sure if this can happen yet, but best design it like this here.
@@ -514,12 +517,14 @@ static ssize_t ad9083_phy_show(struct device *dev,
 		}
 
 		num_links = jesd204_get_active_links_num(jdev);
-		if (num_links < 0)
-			return num_links;
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
 
 		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
-			return ret;
+			break;
 		/*
 		 * just get the first link state; we're assuming that all 3 are in sync
 		 * and that AD9083_JESD204_FSM_PAUSED was called before
