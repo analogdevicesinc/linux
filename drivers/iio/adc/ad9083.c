@@ -655,8 +655,10 @@ static int ad9083_setup(struct axiadc_converter *conv)
 					   &api_rev[1], &api_rev[2]);
 
 	ret = adi_ad9083_rx_datapath_total_dec_get(&phy->adi_ad9083, &phy->total_dcm);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(dev, "adi_ad9083_rx_datapath_total_dec_get failed (%d)\n", ret);
+		return ret;
+	}
 
 	dev_info(dev, "%s Rev. %u Grade %u (API %u.%u.%u) probed\n",
 		 conv->chip_info->name, chip_id.dev_revision,
