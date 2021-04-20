@@ -75,6 +75,7 @@
 struct rm68200 {
 	struct device *dev;
 	struct drm_panel panel;
+	struct gpio_desc *enable_gpio;
 	struct gpio_desc *reset_gpio;
 	struct regulator *supply;
 };
@@ -245,6 +246,8 @@ static int rm68200_unprepare(struct drm_panel *panel)
 
 	msleep(120);
 
+	gpiod_set_value_cansleep(ctx->enable_gpio, 0);
+
 	if (ctx->reset_gpio) {
 		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 		msleep(20);
@@ -273,6 +276,8 @@ static int rm68200_prepare(struct drm_panel *panel)
 		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 		msleep(100);
 	}
+
+	gpiod_set_value_cansleep(ctx->enable_gpio, 1);
 
 	rm68200_init_sequence(ctx);
 
@@ -330,6 +335,13 @@ static int rm68200_probe(struct mipi_dsi_device *dsi)
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
+
+	ctx->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_LOW);
+	if (IS_ERR(ctx->enable_gpio)) {
+		ret = PTR_ERR(ctx->enable_gpio);
+		dev_err(dev, "cannot get enable GPIO: %d\n", ret);
+		return ret;
+	}
 
 	ctx->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(ctx->reset_gpio)) {
