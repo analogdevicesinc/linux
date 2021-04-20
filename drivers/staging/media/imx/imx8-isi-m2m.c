@@ -495,17 +495,12 @@ static int isi_m2m_try_fmt(struct mxc_isi_frame *frame,
 		return -EINVAL;
 	}
 
-	if (pix->width <= 0 || pix->height <= 0) {
-		pr_err("%s, width %d, height %d is not valid\n"
-				, __func__, pix->width, pix->height);
-		return -EINVAL;
-	}
 
 	pix->num_planes = fmt->memplanes;
 	pix->pixelformat = fmt->fourcc;
 	pix->field = V4L2_FIELD_NONE;
-	pix->width  = frame->width;
-	pix->height = frame->height;
+	pix->width  = clamp(pix->width, ISI_MIN, ISI_4K);
+	pix->height = clamp(pix->height, ISI_MIN, ISI_8K);
 	memset(pix->reserved, 0x00, sizeof(pix->reserved));
 
 	for (i = 0; i < pix->num_planes; i++) {
