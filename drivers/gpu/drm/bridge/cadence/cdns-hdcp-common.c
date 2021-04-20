@@ -1,5 +1,5 @@
 /*
- * Cadence HDMI HDCP driver
+ * Cadence HDMI/DP HDCP driver
  *
  * Copyright 2021 NXP
  *
@@ -115,7 +115,7 @@ static char const *g_last_error[16] = {
 /* Timeout value to use for repeater receiver ID check, spec says 3s */
 #define HDCP_EVENT_TO_RPT 3500
 
-static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp);
+static int cdns_hdcp_check_link(struct cdns_mhdp_device *mhdp);
 
 static void print_port_status(u16 sts)
 {
@@ -191,7 +191,7 @@ timeout_err:
 	return 0;
 }
 
-static u16 hdmi_hdcp_get_status(struct cdns_mhdp_device *mhdp)
+static u16 cdns_hdcp_get_status(struct cdns_mhdp_device *mhdp)
 {
 	u8 hdcp_status[HDCP_STATUS_SIZE];
 	u16 hdcp_port_status;
@@ -210,7 +210,7 @@ static inline u8 check_event(u8 events, u8 tested)
 }
 
 /* Prints status. Returns error code (0 = no error) */
-static u8 hdmi_hdcp_handle_status(u16 status)
+static u8 cdns_hdcp_handle_status(u16 status)
 {
 	print_port_status(status);
 	if (status & HDCP_PORT_STS_LAST_ERR_MASK)
@@ -220,7 +220,7 @@ static u8 hdmi_hdcp_handle_status(u16 status)
 	return GET_HDCP_PORT_STS_LAST_ERR(status);
 }
 
-static int hdmi_hdcp_set_config(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
+static int cdns_hdcp_set_config(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
 {
 	u8 bus_config, retEvents;
 	u16 hdcp_port_status;
@@ -257,14 +257,14 @@ static int hdmi_hdcp_set_config(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
 
 	/* Set TX STATUS REQUEST */
 	DRM_DEBUG_KMS("INFO: Getting port status\n");
-	hdcp_port_status = hdmi_hdcp_get_status(mhdp);
-	if (hdmi_hdcp_handle_status(hdcp_port_status) != 0)
+	hdcp_port_status = cdns_hdcp_get_status(mhdp);
+	if (cdns_hdcp_handle_status(hdcp_port_status) != 0)
 		return -1;
 
 	return 0;
 }
 
-static int hdmi_hdcp_auth_check(struct cdns_mhdp_device *mhdp)
+static int cdns_hdcp_auth_check(struct cdns_mhdp_device *mhdp)
 {
 	u16 hdcp_port_status;
 	int ret;
@@ -275,8 +275,8 @@ static int hdmi_hdcp_auth_check(struct cdns_mhdp_device *mhdp)
 		return -1;
 
 	DRM_DEBUG_KMS("HDCP: HDCPTX_STATUS_EVENT\n");
-	hdcp_port_status = hdmi_hdcp_get_status(mhdp);
-	ret = hdmi_hdcp_handle_status(hdcp_port_status);
+	hdcp_port_status = cdns_hdcp_get_status(mhdp);
+	ret = cdns_hdcp_handle_status(hdcp_port_status);
 	if (ret != 0) {
 		if (ret == HDCP_TRAN_ERR_REAUTH_REQ) {
 			DRM_ERROR("HDCP_TRAN_ERR_REAUTH_REQ-->one more try!\n");
@@ -297,7 +297,7 @@ static int hdmi_hdcp_auth_check(struct cdns_mhdp_device *mhdp)
 	return -1;
 }
 
-inline void hdmi_hdcp_swap_id(u8 *in, u8 *out)
+inline void cdns_hdcp_swap_id(u8 *in, u8 *out)
 {
 	int i;
 
@@ -305,16 +305,16 @@ inline void hdmi_hdcp_swap_id(u8 *in, u8 *out)
 		out[HDCP_RECEIVER_ID_SIZE_BYTES - (i + 1)] = in[i];
 }
 
-inline void hdmi_hdcp_swap_list(u8 *list_in, u8 *list_out, int num_ids)
+inline void cdns_hdcp_swap_list(u8 *list_in, u8 *list_out, int num_ids)
 {
 	int i;
 
 	for (i = 0; i < num_ids; i++)
-		hdmi_hdcp_swap_id(&list_in[i * HDCP_RECEIVER_ID_SIZE_BYTES],
+		cdns_hdcp_swap_id(&list_in[i * HDCP_RECEIVER_ID_SIZE_BYTES],
 				 &list_out[i * HDCP_RECEIVER_ID_SIZE_BYTES]);
 }
 
-static int hdmi_hdcp_check_receviers(struct cdns_mhdp_device *mhdp)
+static int cdns_hdcp_check_receviers(struct cdns_mhdp_device *mhdp)
 {
 	u8 ret_events;
 	u8 hdcp_num_rec, i;
@@ -345,9 +345,9 @@ static int hdmi_hdcp_check_receviers(struct cdns_mhdp_device *mhdp)
 			   going down or some other error, check if an error
 			   was set, if so exit.
 			*/
-			hdcp_port_status = hdmi_hdcp_get_status(mhdp);
+			hdcp_port_status = cdns_hdcp_get_status(mhdp);
 			hdcp_last_error = GET_HDCP_PORT_STS_LAST_ERR(hdcp_port_status);
-			if (hdmi_hdcp_handle_status(hdcp_port_status)) {
+			if (cdns_hdcp_handle_status(hdcp_port_status)) {
 				DRM_ERROR("HDCP error no: %u\n", hdcp_last_error);
 				return -1;
 			} else {
@@ -404,7 +404,7 @@ static int hdmi_hdcp_check_receviers(struct cdns_mhdp_device *mhdp)
 	}
 
 	/* swap ids byte order */
-	hdmi_hdcp_swap_list(&hdcp_rec_id[0][0],
+	cdns_hdcp_swap_list(&hdcp_rec_id[0][0],
 			   &hdcp_rec_id_temp[0][0], hdcp_num_rec);
 
 	/* Check Receiver ID's against revocation list in SRM */
@@ -420,7 +420,7 @@ static int hdmi_hdcp_check_receviers(struct cdns_mhdp_device *mhdp)
 }
 
 #ifdef STORE_PAIRING
-static int hdmi_hdcp_get_stored_pairing(struct cdns_mhdp_device *mhdp)
+static int cdns_hdcp_get_stored_pairing(struct cdns_mhdp_device *mhdp)
 {
 	int ret = 0;
 	unsigned long timeout = jiffies + msecs_to_jiffies(IMX_FW_TIMEOUT_MS);
@@ -430,7 +430,7 @@ static int hdmi_hdcp_get_stored_pairing(struct cdns_mhdp_device *mhdp)
 	DRM_DEBUG_KMS("%s()\n", __func__);
 
 	while (time_before(jiffies, timeout)) {
-		ret = request_firmware(&fw, hdmi_hdcp_PAIRING_FIRMWARE, mhdp->dev);
+		ret = request_firmware(&fw, cdns_hdcp_PAIRING_FIRMWARE, mhdp->dev);
 		if (ret == -ENOENT) {
 			msleep(sleep);
 			sleep *= 2;
@@ -461,7 +461,7 @@ static int hdmi_hdcp_get_stored_pairing(struct cdns_mhdp_device *mhdp)
 }
 #endif
 
-static int hdmi_hdcp_find_km_store(struct cdns_mhdp_device *mhdp,
+static int cdns_hdcp_find_km_store(struct cdns_mhdp_device *mhdp,
 				  u8 receiver[HDCP_PAIRING_R_ID])
 {
 	int i;
@@ -480,7 +480,7 @@ static int hdmi_hdcp_find_km_store(struct cdns_mhdp_device *mhdp,
 	return -1;
 }
 
-static int hdmi_hdcp_store_km(struct cdns_mhdp_device *mhdp,
+static int cdns_hdcp_store_km(struct cdns_mhdp_device *mhdp,
 			     struct hdcp_trans_pairing_data *pairing,
 			     int stored_km_index)
 {
@@ -518,7 +518,7 @@ static int hdmi_hdcp_store_km(struct cdns_mhdp_device *mhdp,
 	return 0;
 }
 
-static inline int hdmi_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
+static inline int cdns_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
 {
 	int km_idx = -1;
 	u8 retEvents;
@@ -545,8 +545,8 @@ static inline int hdmi_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
 			   going down or some other error, check if an error
 			   was set, if so exit.
 			*/
-			hdcp_port_status = hdmi_hdcp_get_status(mhdp);
-			if (hdmi_hdcp_handle_status(hdcp_port_status) != 0)
+			hdcp_port_status = cdns_hdcp_get_status(mhdp);
+			if (cdns_hdcp_handle_status(hdcp_port_status) != 0)
 				return -1;
 		}
 	}
@@ -564,7 +564,7 @@ static inline int hdmi_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
 	DRM_DEBUG_KMS("HDCP: Receiver ID: 0x%x%x%x%x%x\n",
 		      resp[0], resp[1], resp[2], resp[3], resp[4]);
 
-	km_idx = hdmi_hdcp_find_km_store(mhdp, resp);
+	km_idx = cdns_hdcp_find_km_store(mhdp, resp);
 
 	/* Check if KM is stored */
 	if (km_idx >= 0) {
@@ -580,7 +580,7 @@ static inline int hdmi_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
 		DRM_DEBUG_KMS("INFO: KM is not stored ret=%d\n", ret);
 	}
 
-	if (hdmi_hdcp_check_receviers(mhdp))
+	if (cdns_hdcp_check_receviers(mhdp))
 		return -1;
 
 	/* Check if KM is not stored */
@@ -595,8 +595,8 @@ static inline int hdmi_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
 					       HDCPTX_STORE_KM_EVENT, HDCP_EVENT_TO_DEF);
 			if (check_event(retEvents, HDCPTX_STATUS_EVENT)
 			    != 0) {
-				hdcp_port_status = hdmi_hdcp_get_status(mhdp);
-				if (hdmi_hdcp_handle_status(hdcp_port_status)
+				hdcp_port_status = cdns_hdcp_get_status(mhdp);
+				if (cdns_hdcp_handle_status(hdcp_port_status)
 				    != 0)
 					return -1;
 			}
@@ -611,16 +611,16 @@ static inline int hdmi_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
 		/* Set HDCP2_TX_STORE_KM REQUEST */
 		ret = cdns_mhdp_hdcp2_tx_store_km(mhdp, (u8 *)&pairing, sizeof(struct  hdcp_trans_pairing_data));
 		DRM_DEBUG_KMS("HDCP: CDN_API_HDCP2_TX_STORE_KM_REQ_blocking ret=%d\n", ret);
-		hdmi_hdcp_store_km(mhdp, &pairing, km_idx);
+		cdns_hdcp_store_km(mhdp, &pairing, km_idx);
 	} else
-		hdmi_hdcp_store_km(mhdp, NULL, km_idx);
+		cdns_hdcp_store_km(mhdp, NULL, km_idx);
 
 	/* Check if device was a repeater */
-	hdcp_port_status = hdmi_hdcp_get_status(mhdp);
+	hdcp_port_status = cdns_hdcp_get_status(mhdp);
 
 	/* Exit if there was any errors logged at this point... */
 	if (GET_HDCP_PORT_STS_LAST_ERR(hdcp_port_status) > 0) {
-		hdmi_hdcp_handle_status(hdcp_port_status);
+		cdns_hdcp_handle_status(hdcp_port_status);
 		return -1;
 	}
 
@@ -630,17 +630,17 @@ static inline int hdmi_hdcp_auth_22(struct cdns_mhdp_device *mhdp)
 	/* If sink was a repeater, we will be getting additional IDs to validate...
 	 * Note that this one may take some time since spec allows up to 3s... */
 	if (mhdp->hdcp.sink_is_repeater)
-		if (hdmi_hdcp_check_receviers(mhdp))
+		if (cdns_hdcp_check_receviers(mhdp))
 			return -1;
 
 	/* Slight delay to allow firmware to finish setting up authenticated state */
 	msleep(300);
 
-	DRM_INFO("Finished hdmi_hdcp_auth_22\n");
+	DRM_INFO("Finished cdns_hdcp_auth_22\n");
 	return 0;
 }
 
-static inline int hdmi_hdcp_auth_14(struct cdns_mhdp_device *mhdp)
+static inline int cdns_hdcp_auth_14(struct cdns_mhdp_device *mhdp)
 {
 	u16 hdcp_port_status;
 	int ret = 0;
@@ -648,16 +648,16 @@ static inline int hdmi_hdcp_auth_14(struct cdns_mhdp_device *mhdp)
 	DRM_DEBUG_KMS("HDCP: Starting 1.4 Authentication\n");
 	mhdp->hdcp.sink_is_repeater = 0;
 
-	ret = hdmi_hdcp_check_receviers(mhdp);
+	ret = cdns_hdcp_check_receviers(mhdp);
 	if (ret)
 		return -1;
 
 	/* Check if device was a repeater */
-	hdcp_port_status = hdmi_hdcp_get_status(mhdp);
+	hdcp_port_status = cdns_hdcp_get_status(mhdp);
 
 	/* Exit if there was any errors logged at this point... */
 	if (GET_HDCP_PORT_STS_LAST_ERR(hdcp_port_status) > 0) {
-		hdmi_hdcp_handle_status(hdcp_port_status);
+		cdns_hdcp_handle_status(hdcp_port_status);
 		return -1;
 	}
 
@@ -670,7 +670,7 @@ static inline int hdmi_hdcp_auth_14(struct cdns_mhdp_device *mhdp)
 	/* If sink was a repeater, we will be getting additional IDs to validate...
 	 * Note that this one may take some time since spec allows up to 3s... */
 	if (mhdp->hdcp.sink_is_repeater)
-		ret = hdmi_hdcp_check_receviers(mhdp);
+		ret = cdns_hdcp_check_receviers(mhdp);
 
 	/* Slight delay to allow firmware to finish setting up authenticated state */
 	msleep(300);
@@ -678,16 +678,16 @@ static inline int hdmi_hdcp_auth_14(struct cdns_mhdp_device *mhdp)
 	return ret;
 }
 
-static int hdmi_hdcp_auth(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
+static int cdns_hdcp_auth(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
 {
 	int ret = 0;
 
 	DRM_DEBUG_KMS("HDCP: Start Authentication\n");
 
 	if (mhdp->hdcp.reauth_in_progress == 0) {
-		ret = hdmi_hdcp_set_config(mhdp, hdcp_config);
+		ret = cdns_hdcp_set_config(mhdp, hdcp_config);
 		if (ret) {
-			DRM_ERROR("hdmi_hdcp_set_config failed\n");
+			DRM_ERROR("cdns_hdcp_set_config failed\n");
 			return -1;
 		}
 	}
@@ -703,25 +703,25 @@ static int hdmi_hdcp_auth(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
 		}
 
 		if (hdcp_config == HDCP_TX_1)
-			ret = hdmi_hdcp_auth_14(mhdp);
+			ret = cdns_hdcp_auth_14(mhdp);
 		else
-			ret = hdmi_hdcp_auth_22(mhdp);
+			ret = cdns_hdcp_auth_22(mhdp);
 		if (ret) {
 			u16 hdcp_port_status;
-			DRM_ERROR("hdmi_hdcp_auth_%s failed\n",
+			DRM_ERROR("cdns_hdcp_auth_%s failed\n",
 				  (hdcp_config == HDCP_TX_1) ? "14" : "22");
-			hdcp_port_status = hdmi_hdcp_get_status(mhdp);
-			hdmi_hdcp_handle_status(hdcp_port_status);
+			hdcp_port_status = cdns_hdcp_get_status(mhdp);
+			cdns_hdcp_handle_status(hdcp_port_status);
 			return -1;
 		}
 
-		ret = hdmi_hdcp_auth_check(mhdp);
+		ret = cdns_hdcp_auth_check(mhdp);
 	} while (ret == 1);
 
 	return ret;
 }
 
-static int _hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
+static int _cdns_hdcp_disable(struct cdns_mhdp_device *mhdp)
 {
 	int ret = 0;
 	u8 hdcp_cfg = (HDCP_USE_KMKEY << 4);
@@ -741,7 +741,7 @@ static int _hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
 	return ret;
 }
 
-static int _hdmi_hdcp_enable(struct cdns_mhdp_device *mhdp)
+static int _cdns_hdcp_enable(struct cdns_mhdp_device *mhdp)
 {
 	int i, ret = 0, tries = 9, tries14 = 50;
 	u8 hpd_sts;
@@ -762,23 +762,23 @@ static int _hdmi_hdcp_enable(struct cdns_mhdp_device *mhdp)
 	/* TBD should this actually try 2.2 n times then 1.4? */
 	for (i = 0; i < tries; i++) {
 		if (mhdp->hdcp.config & HDCP_CONFIG_2_2) {
-			ret = hdmi_hdcp_auth(mhdp, HDCP_TX_2);
+			ret = cdns_hdcp_auth(mhdp, HDCP_TX_2);
 			if (ret == 0)
 				return 0;
 			else if (ret == -ECANCELED)
 				return ret;
-			_hdmi_hdcp_disable(mhdp);
+			_cdns_hdcp_disable(mhdp);
 		}
 	}
 
 	for (i = 0; i < tries14; i++) {
 		if (mhdp->hdcp.config & HDCP_CONFIG_1_4) {
-			ret = hdmi_hdcp_auth(mhdp, HDCP_TX_1);
+			ret = cdns_hdcp_auth(mhdp, HDCP_TX_1);
 			if (ret == 0)
 				return 0;
 			else if (ret == -ECANCELED)
 				return ret;
-			_hdmi_hdcp_disable(mhdp);
+			_cdns_hdcp_disable(mhdp);
 		}
 		DRM_DEBUG_KMS("HDCP Auth failure (%d)\n", ret);
 	}
@@ -787,7 +787,7 @@ static int _hdmi_hdcp_enable(struct cdns_mhdp_device *mhdp)
 	return ret;
 }
 
-static void hdmi_hdcp_check_work(struct work_struct *work)
+static void cdns_hdcp_check_work(struct work_struct *work)
 {
 	struct cdns_mhdp_hdcp *hdcp = container_of(work,
 					     struct cdns_mhdp_hdcp, check_work.work);
@@ -795,11 +795,11 @@ static void hdmi_hdcp_check_work(struct work_struct *work)
 					   struct cdns_mhdp_device, hdcp);
 
 	/* todo: maybe we don't need to always schedule */
-	hdmi_hdcp_check_link(mhdp);
+	cdns_hdcp_check_link(mhdp);
 	schedule_delayed_work(&hdcp->check_work, 50);
 }
 
-static void hdmi_hdcp_prop_work(struct work_struct *work)
+static void cdns_hdcp_prop_work(struct work_struct *work)
 {
 	struct cdns_mhdp_hdcp *hdcp = container_of(work,
 					     struct cdns_mhdp_hdcp, prop_work);
@@ -839,8 +839,154 @@ static void show_hdcp_supported(struct cdns_mhdp_device *mhdp)
 		DRM_INFO("HDCP is disabled\n");
 }
 
+static ssize_t HDCPTX_do_reauth_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t count);
+static struct device_attribute HDCPTX_do_reauth = __ATTR_WO(HDCPTX_do_reauth);
+
+static ssize_t HDCPTX_do_reauth_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+
+	ret = cdns_mhdp_hdcp_tx_reauth(mhdp, 1);
+	if (ret < 0) {
+		dev_err(dev, "%s cdns_mhdp_hdcp_tx_reauth failed\n", __func__);
+		return -1;
+	}
+
+	return count;
+}
+
+static ssize_t HDCPTX_Version_show(struct device *dev,
+				   struct device_attribute *attr, char *buf);
+static ssize_t HDCPTX_Version_store(struct device *dev,
+				    struct device_attribute *attr, const char *buf, size_t count);
+static struct device_attribute HDCPTX_Version = __ATTR_RW(HDCPTX_Version);
+
+static ssize_t HDCPTX_Version_store(struct device *dev,
+				    struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+	int value, ret;
+
+	ret = kstrtoint(buf, 10, &value);
+	if (ret != 0)
+		return -EINVAL;
+
+	if (value == 2)
+		mhdp->hdcp.config = 2;
+	else if (value == 1)
+		mhdp->hdcp.config = 1;
+	else if (value == 3)
+		mhdp->hdcp.config = 3;
+	else
+		mhdp->hdcp.config = 0;
+
+	return count;
+}
+
+ssize_t HDCPTX_Version_show(struct device *dev,
+			    struct device_attribute *attr, char *buf)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", mhdp->hdcp.config);
+}
+
+static ssize_t HDCPTX_Status_show(struct device *dev,
+				  struct device_attribute *attr, char *buf);
+static ssize_t HDCPTX_Status_store(struct device *dev,
+				   struct device_attribute *attr, const char *buf, size_t count);
+static struct device_attribute HDCPTX_Status = __ATTR_RW(HDCPTX_Status);
+
+ssize_t HDCPTX_Status_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+
+	switch (mhdp->hdcp.state) {
+	case HDCP_STATE_NO_AKSV:
+		return sprintf(buf, "%d :HDCP_STATE_NO_AKSV\n", mhdp->hdcp.state);
+	case HDCP_STATE_INACTIVE:
+		return sprintf(buf, "%d :HDCP_STATE_INACTIVE\n", mhdp->hdcp.state);
+	case HDCP_STATE_ENABLING:
+		return sprintf(buf, "%d :HDCP_STATE_ENABLING\n", mhdp->hdcp.state);
+	case HDCP_STATE_AUTHENTICATING:
+		return sprintf(buf, "%d :HDCP_STATE_AUTHENTICATING\n", mhdp->hdcp.state);
+	case HDCP_STATE_AUTHENTICATED:
+		return sprintf(buf, "%d :HDCP_STATE_AUTHENTICATED\n", mhdp->hdcp.state);
+	case HDCP_STATE_DISABLING:
+		return sprintf(buf, "%d :HDCP_STATE_DISABLING\n", mhdp->hdcp.state);
+	case HDCP_STATE_AUTH_FAILED:
+		return sprintf(buf, "%d :HDCP_STATE_AUTH_FAILED\n", mhdp->hdcp.state);
+	default:
+		return sprintf(buf, "%d :HDCP_STATE don't exist\n", mhdp->hdcp.state);
+	}
+}
+
+ssize_t HDCPTX_Status_store(struct device *dev,
+			    struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+	int value, ret;
+
+	if (count == 2) {
+		ret = kstrtoint(buf, 10, &value);
+		if (ret != 0)
+			return -EINVAL;
+
+		if ((value >= HDCP_STATE_NO_AKSV) && (value <= HDCP_STATE_AUTH_FAILED)) {
+			mhdp->hdcp.state = value;
+			return count;
+		}
+		dev_err(dev, "%s &hdp->state invalid\n", __func__);
+		return -1;
+	}
+
+	dev_info(dev, "%s &hdp->state desired %s count=%d\n ", __func__, buf, (int)count);
+
+	if (strncmp(buf, "HDCP_STATE_NO_AKSV", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_NO_AKSV;
+	else if (strncmp(buf, "HDCP_STATE_INACTIVE", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_INACTIVE;
+	else if (strncmp(buf, "HDCP_STATE_ENABLING", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_ENABLING;
+	else if (strncmp(buf, "HDCP_STATE_AUTHENTICATING", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_AUTHENTICATING;
+	else if (strncmp(buf, "HDCP_STATE_AUTHENTICATED", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_AUTHENTICATED;
+	else if (strncmp(buf, "HDCP_STATE_DISABLING", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_DISABLING;
+	else if (strncmp(buf, "HDCP_STATE_AUTH_FAILED", count - 1) == 0)
+		mhdp->hdcp.state = HDCP_STATE_AUTH_FAILED;
+	else
+		dev_err(dev, "%s &hdp->state invalid\n", __func__);
+	return -1;
+}
+
+void cnds_hdcp_create_device_files(struct cdns_mhdp_device *mhdp)
+{
+
+	if (device_create_file(mhdp->dev, &HDCPTX_do_reauth)) {
+		DRM_ERROR("Unable to create HDCPTX_do_reauth sysfs\n");
+		device_remove_file(mhdp->dev, &HDCPTX_do_reauth);
+	}
+
+	if (device_create_file(mhdp->dev, &HDCPTX_Version)) {
+		DRM_ERROR("Unable to create HDCPTX_Version sysfs\n");
+		device_remove_file(mhdp->dev, &HDCPTX_Version);
+	}
+
+	if (device_create_file(mhdp->dev, &HDCPTX_Status)) {
+		DRM_ERROR(KERN_ERR "Unable to create HDCPTX_Status sysfs\n");
+		device_remove_file(mhdp->dev, &HDCPTX_Status);
+	}
+}
+EXPORT_SYMBOL(cnds_hdcp_create_device_files);
+
 #ifdef DEBUG
-void hdmi_hdcp_show_pairing(struct cdns_mhdp_device *mhdp, struct hdcp_trans_pairing_data *p)
+void cdns_hdcp_show_pairing(struct cdns_mhdp_device *mhdp, struct hdcp_trans_pairing_data *p)
 {
 	char s[80];
 	int i, k;
@@ -868,37 +1014,37 @@ void hdmi_hdcp_show_pairing(struct cdns_mhdp_device *mhdp, struct hdcp_trans_pai
 }
 #endif
 
-void hdmi_hdcp_dump_pairing(struct seq_file *s, void *data)
+void cdns_hdcp_dump_pairing(struct seq_file *s, void *data)
 {
 	struct cdns_mhdp_device *mhdp = data;
 #ifdef DEBUG
 	int i;
 	for (i = 0; i < mhdp->hdcp.num_paired; i++)
-		hdmi_hdcp_show_pairing(mhdp, &mhdp->hdcp.pairing[i]);
+		cdns_hdcp_show_pairing(mhdp, &mhdp->hdcp.pairing[i]);
 #endif
 	seq_write(s, &mhdp->hdcp.pairing[0],
 		  mhdp->hdcp.num_paired * sizeof(struct hdcp_trans_pairing_data));
 }
 
-static int hdmi_hdcp_pairing_show(struct seq_file *s, void *data)
+static int cdns_hdcp_pairing_show(struct seq_file *s, void *data)
 {
-	hdmi_hdcp_dump_pairing(s, s->private);
+	cdns_hdcp_dump_pairing(s, s->private);
 	return 0;
 }
 
-static int hdmi_hdcp_dump_pairing_open(struct inode *inode, struct file *file)
+static int cdns_hdcp_dump_pairing_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, hdmi_hdcp_pairing_show, inode->i_private);
+	return single_open(file, cdns_hdcp_pairing_show, inode->i_private);
 }
 
-static const struct file_operations hdmi_hdcp_dump_fops = {
-	.open		= hdmi_hdcp_dump_pairing_open,
+static const struct file_operations cdns_hdcp_dump_fops = {
+	.open		= cdns_hdcp_dump_pairing_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
 
-static void hdmi_hdcp_debugfs_init(struct cdns_mhdp_device *mhdp)
+static void cdns_hdcp_debugfs_init(struct cdns_mhdp_device *mhdp)
 {
 	struct dentry *d, *root;
 
@@ -907,7 +1053,7 @@ static void hdmi_hdcp_debugfs_init(struct cdns_mhdp_device *mhdp)
 		goto err;
 
 	d = debugfs_create_file("dump_pairing", 0444, root, mhdp,
-				&hdmi_hdcp_dump_fops);
+				&cdns_hdcp_dump_fops);
 	if (!d)
 		goto err;
 	return;
@@ -916,7 +1062,7 @@ err:
 	dev_err(mhdp->dev, "Unable to create debugfs entries\n");
 }
 
-int cdns_hdmi_hdcp_init(struct cdns_mhdp_device *mhdp, struct device_node *of_node)
+int cdns_hdcp_init(struct cdns_mhdp_device *mhdp, struct device_node *of_node)
 {
 	const char *compat;
 	u32 temp;
@@ -940,7 +1086,7 @@ int cdns_hdmi_hdcp_init(struct cdns_mhdp_device *mhdp, struct device_node *of_no
 		show_hdcp_supported(mhdp);
 	}
 
-	hdmi_hdcp_debugfs_init(mhdp);
+	cdns_hdcp_debugfs_init(mhdp);
 
 #ifdef USE_DEBUG_KEYS  /* reserve for hdcp test key */
 	{
@@ -953,20 +1099,21 @@ int cdns_hdmi_hdcp_init(struct cdns_mhdp_device *mhdp, struct device_node *of_no
 	mhdp->hdcp.state = HDCP_STATE_INACTIVE;
 
 	mutex_init(&mhdp->hdcp.mutex);
-	INIT_DELAYED_WORK(&mhdp->hdcp.check_work, hdmi_hdcp_check_work);
-	INIT_WORK(&mhdp->hdcp.prop_work, hdmi_hdcp_prop_work);
+	INIT_DELAYED_WORK(&mhdp->hdcp.check_work, cdns_hdcp_check_work);
+	INIT_WORK(&mhdp->hdcp.prop_work, cdns_hdcp_prop_work);
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cdns_hdcp_init);
 
-int cdns_hdmi_hdcp_enable(struct cdns_mhdp_device *mhdp)
+int cdns_hdcp_enable(struct cdns_mhdp_device *mhdp)
 {
 	int ret = 0;
 
 	mhdp->hdcp.reauth_in_progress = 0;
 
 #ifdef STORE_PAIRING
-	hdmi_hdcp_get_stored_pairing(mhdp);
+	cdns_hdcp_get_stored_pairing(mhdp);
 #endif
 	msleep(500);
 
@@ -983,8 +1130,9 @@ int cdns_hdmi_hdcp_enable(struct cdns_mhdp_device *mhdp)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(cdns_hdcp_enable);
 
-int cdns_hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
+int cdns_hdcp_disable(struct cdns_mhdp_device *mhdp)
 {
 	int ret = 0;
 
@@ -1001,12 +1149,13 @@ int cdns_hdmi_hdcp_disable(struct cdns_mhdp_device *mhdp)
 	mutex_unlock(&mhdp->hdcp.mutex);
 
 	/* Make sure HDCP_STATE_DISABLING state is handled */
-	hdmi_hdcp_check_link(mhdp);
+	cdns_hdcp_check_link(mhdp);
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(cdns_hdcp_disable);
 
-void cdns_hdmi_hdcp_atomic_check(struct drm_connector *connector,
+void cdns_hdcp_atomic_check(struct drm_connector *connector,
 			   struct drm_connector_state *old_state,
 			   struct drm_connector_state *new_state)
 {
@@ -1037,8 +1186,9 @@ void cdns_hdmi_hdcp_atomic_check(struct drm_connector *connector,
 	crtc_state = drm_atomic_get_new_crtc_state(new_state->state, new_state->crtc);
 	crtc_state->mode_changed = true;
 }
+EXPORT_SYMBOL_GPL(cdns_hdcp_atomic_check);
 
-static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
+static int cdns_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 {
 	u16 hdcp_port_status = 0;
 	u8 hdcp_last_error = 0;
@@ -1052,7 +1202,7 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 		goto out;
 
 	if (mhdp->hdcp.state == HDCP_STATE_DISABLING) {
-		_hdmi_hdcp_disable(mhdp);
+		_cdns_hdcp_disable(mhdp);
 		mhdp->hdcp.state = HDCP_STATE_INACTIVE;
 		goto out;
 	}
@@ -1080,7 +1230,7 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 */
 	if (mhdp->hdcp.state == HDCP_STATE_AUTHENTICATED) {
 		/* get port status */
-		hdcp_port_status = hdmi_hdcp_get_status(mhdp);
+		hdcp_port_status = cdns_hdcp_get_status(mhdp);
 		hdcp_last_error = GET_HDCP_PORT_STS_LAST_ERR(hdcp_port_status);
 		if (hdcp_last_error == HDCP_TRAN_ERR_REAUTH_REQ) {
 			DRM_INFO("Sink requesting re-authentication\n");
@@ -1109,7 +1259,7 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 			mhdp->hdcp.events |= new_events;
 			if (check_event(mhdp->hdcp.events, HDCPTX_IS_RECEIVER_ID_VALID_EVENT)) {
 				DRM_INFO("Sink repeater updating receiver ID list...\n");
-				if (hdmi_hdcp_check_receviers(mhdp))
+				if (cdns_hdcp_check_receviers(mhdp))
 					mhdp->hdcp.state = HDCP_STATE_AUTH_FAILED;
 			}
 		}
@@ -1125,7 +1275,7 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 
 	if (mhdp->hdcp.state == HDCP_STATE_ENABLING) {
 		mhdp->hdcp.state = HDCP_STATE_AUTHENTICATING;
-		ret = _hdmi_hdcp_enable(mhdp);
+		ret = _cdns_hdcp_enable(mhdp);
 		if (ret == -ECANCELED)
 			goto out;
 		else if (ret) {
@@ -1143,7 +1293,7 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 		if (mhdp->hdcp.state == HDCP_STATE_AUTH_FAILED) {
 			DRM_DEBUG_KMS("[%s:%d] HDCP link failed, retrying authentication 0x%2x\n",
 				      mhdp->connector.base.name, mhdp->connector.base.base.id, hdcp_port_status);
-			ret = _hdmi_hdcp_disable(mhdp);
+			ret = _cdns_hdcp_disable(mhdp);
 			if (ret) {
 				DRM_ERROR("Failed to disable hdcp (%d)\n", ret);
 				mhdp->hdcp.value = DRM_MODE_CONTENT_PROTECTION_DESIRED;
@@ -1154,7 +1304,7 @@ static int hdmi_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 			DRM_DEBUG_KMS("[%s:%d] HDCP attempt reauthentication 0x%2x\n",
 				      mhdp->connector.base.name, mhdp->connector.base.base.id, hdcp_port_status);
 
-		ret = _hdmi_hdcp_enable(mhdp);
+		ret = _cdns_hdcp_enable(mhdp);
 		if (ret == -ECANCELED)
 			goto out;
 		else if (ret) {
