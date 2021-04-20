@@ -3496,6 +3496,7 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9081_phy *phy = priv->phy;
 	struct ad9081_jesd_link *link;
+	int ret;
 
 	switch (reason) {
 	case JESD204_STATE_OP_REASON_INIT:
@@ -3523,12 +3524,14 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 
 	jesd204_copy_link_params(lnk, &link->jesd204_link);
 
-	jesd204_link_get_rate_khz(lnk, &link->lane_rate_kbps);
-
 	if (lnk->jesd_version == JESD204_VERSION_C)
 		lnk->jesd_encoder = JESD204_ENCODER_64B66B;
 	else
 		lnk->jesd_encoder = JESD204_ENCODER_8B10B;
+
+	ret = jesd204_link_get_rate_khz(lnk, &link->lane_rate_kbps);
+	if (ret)
+		return ret;
 
 	lnk->sysref.mode = JESD204_SYSREF_CONTINUOUS;
 
