@@ -2209,7 +2209,7 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 		if (ret)
 			return -EFAULT;
 
-		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2) {
+		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
 			stat >>= 8;
 			seq_printf(file,
 				"JESD TX (JRX) Link%d 204C status %s (%d)\n",
@@ -2232,15 +2232,22 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 			&phy->ad9081, l, &stat);
 		if (ret)
 			return -EFAULT;
-
-		seq_printf(file,
-			"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
-			l, ad9081_jtx_qbf_states[stat & 0xF],
-			stat & BIT(4) ? "deasserted" : "asserted",
-			stat & BIT(5) ? "locked" : "unlocked",
-			stat & BIT(6) ? "established" : "lost",
-			stat & BIT(7) ? "invalid" : "valid");
-
+		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == JESD204_VERSION_C) {
+			seq_printf(file,
+				"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
+				l,
+				stat & BIT(5) ? "locked" : "unlocked",
+				stat & BIT(6) ? "established" : "lost",
+				stat & BIT(7) ? "invalid" : "valid");
+		} else {
+			seq_printf(file,
+				"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
+				l, ad9081_jtx_qbf_states[stat & 0xF],
+				stat & BIT(4) ? "deasserted" : "asserted",
+				stat & BIT(5) ? "locked" : "unlocked",
+				stat & BIT(6) ? "established" : "lost",
+				stat & BIT(7) ? "invalid" : "valid");
+		}
 		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
 			return 0;
 
