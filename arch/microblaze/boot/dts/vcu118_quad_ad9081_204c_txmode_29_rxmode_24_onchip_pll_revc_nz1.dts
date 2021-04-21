@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-MxFE AD-QUADMXFE2-EBZ first Nyquist Zone operation
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad_quadmxfe1_ebz/ad_quadmxfe1_ebz_hdl
+ *
+ * hdl_project: <ad_quadmxfe1_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+
+#define AD9081_TX_MAIN_NCO_SHIFT		1000000000
+#define AD9081_TX_CHAN_NCO_SHIFT		0
+
+#define AD9081_RX_MAIN_NCO_SHIFT		1000000000
+#define AD9081_RX_CHAN_NCO_SHIFT		0
+
+#define AD9081_ADC_NYQUIST_ZONE		AD9081_ADC_NYQUIST_ZONE_ODD
+
+#include "vcu118_quad_ad9081_204c_txmode_29_rxmode_24_onchip_pll_revc.dts"
+
+/ {
+	model = "Analog Devices AD-QUADMXFE2-EBZ";
+};
