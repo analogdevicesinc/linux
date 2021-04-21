@@ -555,6 +555,7 @@ static ssize_t gpu_govern_store(struct device_driver *dev, const char *buf, size
     int core = gcvCORE_MAJOR;
     int i;
     gckGALDEVICE device = platform_get_drvdata(pdevice);
+    gctBOOL mutex_acquired = gcvFALSE;
     gctBOOL sem_acquired = gcvFALSE;
     gceSTATUS status;
 
@@ -576,9 +577,13 @@ static ssize_t gpu_govern_store(struct device_driver *dev, const char *buf, size
         return count;
     }
 
+    /* Get the device commit mutex. */
+    gcmkONERROR(gckOS_AcquireMutex(device->os, device->device->commitMutex,
+            gcvINFINITE));
+    mutex_acquired = gcvTRUE;
+
     /* Acquire the suspend semaphore. */
     gcmkONERROR(gckOS_AcquireSemaphore(device->os, device->suspendSemaphore));
-
     sem_acquired = gcvTRUE;
 
     /* Suspend the GPU. */
@@ -616,6 +621,13 @@ OnError:
     {
         gcmkVERIFY_OK(gckOS_ReleaseSemaphore(device->os,
                 device->suspendSemaphore));
+    }
+
+    /* Release the commit mutex. */
+    if (mutex_acquired)
+    {
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(device->os,
+                device->device->commitMutex));
     }
 
     return count;
