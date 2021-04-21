@@ -36,8 +36,13 @@
 #define AD9081_TX_LANERATE_KHZ			16500000
 #define AD9081_TX_MAIN_INTERPOLATION		6
 #define AD9081_TX_CHAN_INTERPOLATION		8
+
+#ifndef AD9081_TX_MAIN_NCO_SHIFT
 #define AD9081_TX_MAIN_NCO_SHIFT		2800000000
+#endif
+#ifndef AD9081_TX_CHAN_NCO_SHIFT
 #define AD9081_TX_CHAN_NCO_SHIFT		0
+#endif
 
 #define AD9081_GAIN				1024
 
@@ -60,8 +65,17 @@
 #define AD9081_RX_LANERATE_KHZ			16500000
 #define AD9081_RX_MAIN_DECIMATION		4
 #define AD9081_RX_CHAN_DECIMATION		4
+
+#ifndef AD9081_RX_MAIN_NCO_SHIFT
 #define AD9081_RX_MAIN_NCO_SHIFT		1000000000
+#endif
+#ifndef AD9081_RX_CHAN_NCO_SHIFT
 #define AD9081_RX_CHAN_NCO_SHIFT		0
+#endif
+
+#ifndef AD9081_ADC_NYQUIST_ZONE
+#define AD9081_ADC_NYQUIST_ZONE		AD9081_ADC_NYQUIST_ZONE_EVEN
+#endif
 
 #define AD9081_RX_JESD_MODE			4
 #define AD9081_RX_JESD_SUBCLASS			1
@@ -332,7 +346,7 @@
 		#size-cells = <0>;
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
-		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
+		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -528,7 +542,7 @@
 		#size-cells = <0>;
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
-		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
+		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -724,7 +738,7 @@
 		#size-cells = <0>;
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
-		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
+		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -920,7 +934,7 @@
 		#size-cells = <0>;
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
-		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
+		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
