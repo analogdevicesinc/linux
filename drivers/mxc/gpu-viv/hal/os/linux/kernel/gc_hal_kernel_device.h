@@ -132,6 +132,7 @@ typedef struct _gckGALDEVICE
     /* States before suspend. */
     gceCHIPPOWERSTATE   statesStored[gcdMAX_GPU_COUNT];
     gctPOINTER          suspendSemaphore;
+    gctBOOL             suspendSemaphoreAcquired;
 
     gcsDEBUGFS_DIR      debugfsDir;
 

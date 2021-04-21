@@ -2968,6 +2968,10 @@ gckGALDEVICE_Suspend(
 
     gcmkHEADER_ARG("Device=%p", Device);
 
+    /* Acquire the suspend semaphore. */
+    gcmkONERROR(gckOS_AcquireSemaphore(Device->os, Device->suspendSemaphore));
+    Device->suspendSemaphoreAcquired = gcvTRUE;
+
     for (i = 0; i < gcdMAX_GPU_COUNT; i++)
     {
         if (Device->kernels[i] == gcvNULL)
@@ -3044,6 +3048,14 @@ OnError:
         Device->statesStored[i] = gcvPOWER_INVALID;
     }
 
+    /* Release the suspend semaphore. */
+    if (Device->suspendSemaphoreAcquired)
+    {
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Device->os,
+                Device->suspendSemaphore));
+        Device->suspendSemaphoreAcquired = gcvFALSE;
+    }
+
     gcmkFOOTER();
     return status;
 }
@@ -3106,12 +3118,12 @@ gckGALDEVICE_Resume(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            gcmkERR_RETURN(gckVGHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
+            gcmkONERROR(gckVGHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
         }
         else
 #endif
         {
-            gcmkERR_RETURN(gckHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
+            gcmkONERROR(gckHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
         }
 
         /* Convert global state to corresponding internal state. */
@@ -3138,16 +3150,25 @@ gckGALDEVICE_Resume(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            gcmkERR_RETURN(gckVGHARDWARE_SetPowerState(hardware, state));
+            gcmkONERROR(gckVGHARDWARE_SetPowerState(hardware, state));
         }
         else
 #endif
         {
-            gcmkERR_RETURN(gckHARDWARE_SetPowerState(hardware, state));
+            gcmkONERROR(gckHARDWARE_SetPowerState(hardware, state));
         }
 
         /* Reset stored state. */
         Device->statesStored[i] = gcvPOWER_INVALID;
+    }
+
+OnError:
+    /* Release the suspend semaphore. */
+    if (Device->suspendSemaphoreAcquired)
+    {
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Device->os,
+                Device->suspendSemaphore));
+        Device->suspendSemaphoreAcquired = gcvFALSE;
     }
 
     gcmkFOOTER();

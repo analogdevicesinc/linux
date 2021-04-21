@@ -1402,7 +1402,6 @@ static int gpu_remove(struct platform_device *pdev)
 static int gpu_suspend(struct platform_device *dev, pm_message_t state)
 {
     gceSTATUS status;
-    gctBOOL sem_acquired = gcvFALSE;
     gckGALDEVICE device = platform_get_drvdata(dev);
 
     if (!device)
@@ -1410,26 +1409,13 @@ static int gpu_suspend(struct platform_device *dev, pm_message_t state)
         return -1;
     }
 
-    /* Acquire the suspend management semaphore. */
-    gcmkONERROR(gckOS_AcquireSemaphore(device->os,
-            device->suspendSemaphore));
-
-    sem_acquired = gcvTRUE;
-
     /* Power off the GPU. */
-    gcmkONERROR(gckGALDEVICE_Suspend(device, gcvPOWER_OFF));
+    status = gckGALDEVICE_Suspend(device, gcvPOWER_OFF);
+
+    if (gcmIS_ERROR(status))
+        return -1;
 
     return 0;
-
-OnError:
-    /* Release the suspend semaphore. */
-    if (sem_acquired)
-    {
-        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(device->os,
-                device->suspendSemaphore));
-    }
-
-    return -1;
 }
 
 static int gpu_resume(struct platform_device *dev)
@@ -1444,9 +1430,6 @@ static int gpu_resume(struct platform_device *dev)
 
     /* Resume GPU to previous state. */
     status = gckGALDEVICE_Resume(device);
-
-    /* Release the suspend semaphore. */
-    gcmkVERIFY_OK(gckOS_ReleaseSemaphore(device->os, device->suspendSemaphore));
 
     if (gcmIS_ERROR(status))
         return -1;
