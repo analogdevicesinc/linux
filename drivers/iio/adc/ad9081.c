@@ -415,8 +415,15 @@ static long ad9081_bb_round_rate(struct clk_hw *hw, unsigned long rate,
 	return rate;
 }
 
+static int ad9081_bb_determine_rate(struct clk_hw *hw,
+				      struct clk_rate_request *req)
+{
+	return 0;
+}
+
 static const struct clk_ops bb_clk_ops = {
 	.round_rate = ad9081_bb_round_rate,
+	.determine_rate = ad9081_bb_determine_rate,
 	.set_rate = ad9081_bb_set_rate,
 	.recalc_rate = ad9081_bb_recalc_rate,
 };
