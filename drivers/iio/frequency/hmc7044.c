@@ -1581,14 +1581,25 @@ static int hmc7044_continuous_chan_sync_enable(struct iio_dev *indio_dev, bool e
 
 static int hmc7044_lmfc_lemc_validate(struct hmc7044 *hmc, u64 dividend, u32 divisor)
 {
-	u32 rem, rem_l, rem_u;
+	u32 rem, rem_l, rem_u, gcd_val, min;
+
+	gcd_val = gcd(dividend, divisor);
+	min = DIV_ROUND_CLOSEST(hmc->pll2_freq, HMC7044_OUT_DIV_MAX);
+
+	if (gcd_val >= min) {
+		dev_dbg(&hmc->spi->dev,
+			"%s: dividend=%llu divisor=%u GCD=%u (hmc->pll2_freq=%u, min=%u)",
+			__func__, dividend, divisor, gcd_val, hmc->pll2_freq, min);
+
+		hmc->jdev_lmfc_lemc_gcd = gcd_val;
+		return 0;
+	}
 
 	div_u64_rem(hmc->pll2_freq, divisor, &rem);
 
-	if (rem == 0) {
-		hmc->jdev_lmfc_lemc_gcd = gcd(dividend, divisor);
-		return 0;
-	}
+	dev_dbg(&hmc->spi->dev,
+		"%s: dividend=%llu divisor=%u GCD=%u rem=%u (hmc->pll2_freq=%u)",
+		__func__, dividend, divisor, gcd_val, rem, hmc->pll2_freq);
 
 	div_u64_rem(dividend, divisor, &rem);
 	div_u64_rem(dividend, divisor - 1, &rem_l);
