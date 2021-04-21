@@ -198,8 +198,12 @@ _MonitorTimerFunction(
             &pendingMask
             ));
 
-        gcmkPRINT("[galcore]: Number of pending interrupt is %d mask is %x",
-                  pendingInterrupt, pendingMask);
+        gcmkTRACE_N(
+            gcvLEVEL_ERROR,
+            gcmSIZEOF(pendingInterrupt) + gcmSIZEOF(pendingMask),
+            "[galcore]: Number of pending interrupt is %d mask is %x",
+            pendingInterrupt, pendingMask
+            );
 
         while (i--)
         {
@@ -3984,6 +3988,8 @@ gckKERNEL_Recovery(
     hardware = Kernel->hardware;
     gcmkVERIFY_OBJECT(hardware, gcvOBJ_HARDWARE);
 
+    gckOS_AcquireMutex(Kernel->os, Kernel->device->commitMutex, gcdRECOVERY_FORCE_TIMEOUT);
+
     if (Kernel->stuckDump == gcvSTUCK_DUMP_NONE)
     {
         gcmkPRINT("[galcore]: GPU[%d] hang, automatic recovery.", Kernel->core);
@@ -4033,7 +4039,17 @@ gckKERNEL_Recovery(
     /* Issuing a soft reset for the GPU. */
     gcmkONERROR(gckHARDWARE_Reset(hardware));
 
-    mask = Kernel->restoreMask;
+    gcmkVERIFY_OK(gckOS_AtomGet(
+        Kernel->os,
+        Kernel->hardware->pendingEvent,
+        (gctINT32 *)&mask
+        ));
+
+    if (mask)
+    {
+        /* Handle all outstanding events now. */
+        gcmkONERROR(gckOS_AtomSet(Kernel->os, eventObj->pending, mask));
+    }
 
     for (i = 0; i < 32; i++)
     {
@@ -4043,8 +4059,6 @@ gckKERNEL_Recovery(
         }
     }
 
-    /* Handle all outstanding events now. */
-    gcmkONERROR(gckOS_AtomSet(Kernel->os, eventObj->pending, mask));
 
 #if gcdINTERRUPT_STATISTIC
     while (count--)
@@ -4059,9 +4073,11 @@ gckKERNEL_Recovery(
     gckOS_AtomClearMask(Kernel->hardware->pendingEvent, mask);
 #endif
 
-    gcmkONERROR(gckEVENT_Notify(eventObj, 1));
+    gcmkONERROR(gckEVENT_Notify(eventObj, 1, gcvNULL));
 
     gcmkVERIFY_OK(gckOS_GetTime(&Kernel->resetTimeStamp));
+
+    gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
 
     /* Success. */
     gcmkFOOTER_NO();

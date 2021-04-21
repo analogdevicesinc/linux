@@ -492,6 +492,7 @@ _QueryProcessPageTable(
             return gcvSTATUS_NOT_FOUND;
 
         pte = pte_offset_map_lock(current->mm, pmd, logical, &ptl);
+
         if (!pte_present(*pte))
         {
             pte_unmap_unlock(pte, ptl);

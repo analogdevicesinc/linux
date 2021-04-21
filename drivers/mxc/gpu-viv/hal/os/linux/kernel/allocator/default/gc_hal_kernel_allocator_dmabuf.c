@@ -374,19 +374,6 @@ _DmabufMapUser(
     }
     userLogical += buf_desc->sgt->sgl->offset;
 
-    /* To make sure the mapping is created. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
-    if (access_ok(userLogical, 4))
-#else
-    if (access_ok(VERIFY_READ, userLogical, 4))
-#endif
-    {
-        uint32_t mem;
-        get_user(mem, (uint32_t *)userLogical);
-
-        (void)mem;
-    }
-
     MdlMap->vmaAddr = (gctPOINTER)userLogical;
     MdlMap->cacheable = Cacheable;
 

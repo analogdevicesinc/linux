@@ -178,7 +178,7 @@ gckOS_FreeAllocators(
     return gcvSTATUS_OK;
 }
 
-#if !gcdSYS_HAS_SG_CHAIN
+#if !gcdUSE_Linux_SG_TABLE_API
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
 static inline void sg_set_page(struct scatterlist *sg, struct page *page,

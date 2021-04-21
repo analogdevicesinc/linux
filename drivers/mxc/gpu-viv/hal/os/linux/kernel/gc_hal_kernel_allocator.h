@@ -561,7 +561,7 @@ OnError:
     return status;
 }
 
-#if !gcdSYS_HAS_SG_CHAIN
+#if !gcdUSE_Linux_SG_TABLE_API
 int
 alloc_sg_list_from_pages(
     struct scatterlist **sgl,

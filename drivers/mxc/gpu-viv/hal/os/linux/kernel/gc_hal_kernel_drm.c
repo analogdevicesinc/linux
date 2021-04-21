@@ -84,8 +84,7 @@ struct viv_gem_object {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
 void viv_gem_free_object(struct drm_gem_object *gem_obj);
-struct dma_buf *viv_gem_prime_export(struct drm_gem_object *gem_obj,
-                int flags);
+struct dma_buf *viv_gem_prime_export(struct drm_gem_object *gem_obj, int flags);
 
 static const struct drm_gem_object_funcs viv_gem_object_funcs = {
     .free = viv_gem_free_object,

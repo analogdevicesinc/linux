@@ -185,7 +185,7 @@ static int import_page_map(struct um_desc *um,
         }
     }
 
-#if gcdSYS_HAS_SG_CHAIN
+#if gcdUSE_Linux_SG_TABLE_API
     result = sg_alloc_table_from_pages(&um->sgt, pages, page_count,
                     addr & ~PAGE_MASK, size, GFP_KERNEL | gcdNOWARN);
 
@@ -214,7 +214,7 @@ static int import_page_map(struct um_desc *um,
     return 0;
 
 error:
-#if gcdSYS_HAS_SG_CHAIN
+#if gcdUSE_Linux_SG_TABLE_API
     sg_free_table(&um->sgt);
 #else
     kfree(um->sgt.sgl);
@@ -346,7 +346,7 @@ static int import_pfn_map(struct um_desc *um,
 
     if (pageCount == pfn_count)
     {
-#if gcdSYS_HAS_SG_CHAIN
+#if gcdUSE_Linux_SG_TABLE_API
         result = sg_alloc_table_from_pages(&um->sgt, pages, pfn_count,
                         addr & ~PAGE_MASK, pfn_count * PAGE_SIZE, GFP_KERNEL | gcdNOWARN);
 
@@ -366,7 +366,7 @@ static int import_pfn_map(struct um_desc *um,
 
         if (unlikely(result != um->sgt.nents))
         {
-#if gcdSYS_HAS_SG_CHAIN
+#if gcdUSE_Linux_SG_TABLE_API
             sg_free_table(&um->sgt);
 #else
             kfree(um->sgt.sgl);
@@ -664,7 +664,7 @@ static void release_page_map(struct um_desc *um)
 
     dma_unmap_sg(galcore_device, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);
 
-#if gcdSYS_HAS_SG_CHAIN
+#if gcdUSE_Linux_SG_TABLE_API
     sg_free_table(&um->sgt);
 #else
     kfree(um->sgt.sgl);

@@ -6898,6 +6898,7 @@ gckHARDWARE_ResetFlopWithTP(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
+
     dataType = 0x0;
 
     gcmkONERROR(_GetNNDataSize(dataType, &itemBytes));

@@ -75,6 +75,8 @@
 extern "C" {
 #endif
 
+#define gcdRECOVERY_FORCE_TIMEOUT 100
+
 /*******************************************************************************
 ***** New MMU Defination *******************************************************/
 
@@ -327,6 +329,13 @@ gcsFDPRIVATE;
 
 typedef struct _gcsRECORDER * gckRECORDER;
 
+
+typedef enum _gceEVENT_FAULT
+{
+    gcvEVENT_NO_FAULT,
+    gcvEVENT_BUS_ERROR_FAULT,
+}
+gceEVENT_FAULT;
 
 /* Create a process database that will contain all its allocations. */
 gceSTATUS
@@ -1058,7 +1067,8 @@ gckEVENT_Commit(
 gceSTATUS
 gckEVENT_Notify(
     IN gckEVENT Event,
-    IN gctUINT32 IDs
+    IN gctUINT32 IDs,
+    OUT gceEVENT_FAULT *Fault
     );
 
 /* Event callback routine. */

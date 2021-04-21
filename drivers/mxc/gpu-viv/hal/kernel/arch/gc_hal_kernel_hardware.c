@@ -4695,18 +4695,25 @@ gckHARDWARE_Notify(
     )
 {
     gceSTATUS status;
+    gceEVENT_FAULT fault;
+
     gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Handle events. */
-    status = gckEVENT_Notify(Hardware->kernel->eventObj, 0);
+    status = gckEVENT_Notify(Hardware->kernel->eventObj, 0, &fault);
 
     if (Hardware->asyncFE)
     {
-        status = gckEVENT_Notify(Hardware->kernel->asyncEvent, 0);
+        status = gckEVENT_Notify(Hardware->kernel->asyncEvent, 0, &fault);
     }
 
-     gcmkFOOTER();
-     return status;
+    if (fault & gcvEVENT_BUS_ERROR_FAULT)
+    {
+        status = gckKERNEL_Recovery(Hardware->kernel);
+    }
+
+    gcmkFOOTER();
+    return status;
 }
 
 /*******************************************************************************
@@ -11960,7 +11967,7 @@ gckHARDWARE_Reset(
     /* Jump to address into which GPU should run if it doesn't stuck. */
     if (Hardware->wlFE)
     {
-        gcmkONERROR(gckWLFE_Execute(Hardware, Hardware->kernel->restoreAddress, 16));
+        gcmkONERROR(gckWLFE_Execute(Hardware, Hardware->lastWaitLink, 16));
     }
 
     gcmkPRINT("[galcore]: recovery done");

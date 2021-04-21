@@ -175,6 +175,15 @@
 #define untagged_addr(addr) (addr)
 #endif
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION (4,20,17) && !defined(CONFIG_ARCH_NO_SG_CHAIN)) ||   \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION (3,6,0)       \
+    && (defined(ARCH_HAS_SG_CHAIN) || defined(CONFIG_ARCH_HAS_SG_CHAIN)))
+#define gcdUSE_Linux_SG_TABLE_API 1
+#else
+#define gcdUSE_Linux_SG_TABLE_API 0
+#endif
+
+
 extern struct device *galcore_device;
 
 /******************************************************************************\

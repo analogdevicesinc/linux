@@ -1458,7 +1458,7 @@ gckEVENT_Submit(
             /* Notify immediately on infinite hardware. */
             gcmkONERROR(gckEVENT_Interrupt(Event, 1 << id));
 
-            gcmkONERROR(gckEVENT_Notify(Event, 0));
+            gcmkONERROR(gckEVENT_Notify(Event, 0, gcvNULL));
 #endif
         }
 
@@ -1701,7 +1701,8 @@ gckEVENT_Interrupt(
 gceSTATUS
 gckEVENT_Notify(
     IN gckEVENT Event,
-    IN gctUINT32 IDs
+    IN gctUINT32 IDs,
+    OUT gceEVENT_FAULT *Fault
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -1711,6 +1712,7 @@ gckEVENT_Notify(
     gctBOOL acquired = gcvFALSE;
     gctSIGNAL signal;
     gctUINT pending = 0;
+    gceEVENT_FAULT fault = gcvEVENT_NO_FAULT;
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
     gctINT eventNumber = 0;
@@ -1767,8 +1769,9 @@ gckEVENT_Notify(
         if (pending & 0x80000000)
         {
             gcmkPRINT("AXI BUS ERROR");
-            gckHARDWARE_DumpGPUState(Event->kernel->hardware);
             pending &= 0x7FFFFFFF;
+
+            fault |= gcvEVENT_BUS_ERROR_FAULT;
         }
 
         if ((pending & 0x40000000) && Event->kernel->hardware->mmuVersion)
@@ -1843,6 +1846,12 @@ gckEVENT_Notify(
                 "Interrupts 0x%x are not pending.",
                 pending
                 );
+
+            /* Clear the BUS ERROR event. */
+            if (fault & gcvEVENT_BUS_ERROR_FAULT)
+            {
+                pending |= (1 << 31);
+            }
 
             gckOS_AtomClearMask(Event->pending, pending);
 
@@ -2112,6 +2121,11 @@ gckEVENT_Notify(
 
     /* End of event handling. */
     Event->notifyState = -1;
+
+    if (Fault != gcvNULL)
+    {
+        *Fault = fault;
+    }
 
     /* Success. */
     gcmkFOOTER_NO();
