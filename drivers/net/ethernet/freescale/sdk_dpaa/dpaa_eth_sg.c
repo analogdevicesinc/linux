@@ -648,25 +648,21 @@ void __hot _dpa_rx(struct net_device *net_dev,
 	skb_record_rx_queue(skb, raw_smp_processor_id());
 
 	if (use_gro) {
-		gro_result_t gro_result;
 		const struct qman_portal_config *pc =
 					qman_p_get_portal_config(portal);
 		struct dpa_napi_portal *np = &percpu_priv->np[pc->index];
 
 		np->p = portal;
-		gro_result = napi_gro_receive(&np->napi, skb);
-		/* If frame is dropped by the stack, rx_dropped counter is
-		 * incremented automatically, so no need for us to update it
+		/* The stack doesn't report if the frame was dropped but it
+		 * will increment rx_dropped automatically.
 		 */
-		if (unlikely(gro_result == GRO_DROP))
-			goto packet_dropped;
+		napi_gro_receive(&np->napi, skb);
 	} else if (unlikely(netif_receive_skb(skb) == NET_RX_DROP))
-		goto packet_dropped;
+		return;
 
 	percpu_stats->rx_packets++;
 	percpu_stats->rx_bytes += skb_len;
 
-packet_dropped:
 	return;
 
 _release_frame:
