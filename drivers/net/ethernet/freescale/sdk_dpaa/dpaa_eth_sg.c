@@ -333,7 +333,7 @@ bool dpa_skb_is_recyclable(struct sk_buff *skb)
 		return false;
 
 	/* or if it's an userspace buffer */
-	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY)
+	if (skb_shinfo(skb)->flags & SKBFL_ZEROCOPY_ENABLE)
 		return false;
 
 	/* or if it's cloned or shared */
