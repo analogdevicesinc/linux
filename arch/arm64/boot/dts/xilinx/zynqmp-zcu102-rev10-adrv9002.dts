@@ -144,6 +144,7 @@
 			reg = <0x84A0C800 0x400>;
 			clocks = <&zynqmp_clk 71>, <&adc0_adrv9002 2>;
 			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd-1";
 		};
 
 		axi_adrv9002_core_rx2: axi-adrv9002-rx2-lpc@84A02000 {
@@ -171,6 +172,7 @@
 			reg = <0x84A0CC00 0x400>;
 			clocks = <&zynqmp_clk 71>, <&adc0_adrv9002 5>;
 			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd-2";
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
