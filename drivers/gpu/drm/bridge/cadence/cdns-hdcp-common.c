@@ -1073,7 +1073,8 @@ int cdns_hdcp_init(struct cdns_mhdp_device *mhdp, struct device_node *of_node)
 		DRM_ERROR("Failed to compatible dts string\n");
 		return ret;
 	}
-	if (!strstr(compat, "hdmi"))
+
+	if (!(strstr(compat, "hdmi") || strstr(compat, "dp")))
 		return -EPERM;
 
 	ret = of_property_read_u32(of_node, "hdcp-config", &temp);

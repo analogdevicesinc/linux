@@ -14,6 +14,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_encoder_slave.h>
+#include <drm/drm_hdcp.h>
 #include <drm/drm_of.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
@@ -24,6 +25,14 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
+
+#include "cdns-mhdp-hdcp.h"
+#include "cdns-hdcp-common.h"
+
+#define CDNS_DP_HPD_POLL_DWN_LOOP	5
+#define CDNS_DP_HPD_POLL_DWN_DLY_US	200
+#define CDNS_DP_HPD_POLL_UP_LOOP	5
+#define CDNS_DP_HPD_POLL_UP_DLY_US	1000
 
 /*
  * This function only implements native DPDC reads and writes
@@ -295,6 +304,56 @@ static int cdns_dp_connector_get_modes(struct drm_connector *connector)
 	return num_modes;
 }
 
+static bool blob_equal(const struct drm_property_blob *a,
+		       const struct drm_property_blob *b)
+{
+	if (a && b)
+		return a->length == b->length &&
+			!memcmp(a->data, b->data, a->length);
+
+	return !a == !b;
+}
+
+static int cdns_dp_connector_atomic_check(struct drm_connector *connector,
+					    struct drm_atomic_state *state)
+{
+	struct drm_connector_state *new_con_state =
+		drm_atomic_get_new_connector_state(state, connector);
+	struct drm_connector_state *old_con_state =
+		drm_atomic_get_old_connector_state(state, connector);
+	struct drm_crtc *crtc = new_con_state->crtc;
+	struct drm_crtc_state *new_crtc_state;
+
+	cdns_hdcp_atomic_check(connector, old_con_state, new_con_state);
+	if (!new_con_state->crtc)
+		return 0;
+
+	new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
+	if (IS_ERR(new_crtc_state))
+		return PTR_ERR(new_crtc_state);
+
+	if (!blob_equal(new_con_state->hdr_output_metadata,
+			old_con_state->hdr_output_metadata) ||
+	    new_con_state->colorspace != old_con_state->colorspace) {
+
+		new_crtc_state->mode_changed =
+			!new_con_state->hdr_output_metadata ||
+			!old_con_state->hdr_output_metadata ||
+			new_con_state->colorspace != old_con_state->colorspace;
+	}
+
+	/*
+	 * These properties are handled by fastset, and might not end up in a
+	 * modeset.
+	 */
+	if (new_con_state->picture_aspect_ratio !=
+		    old_con_state->picture_aspect_ratio ||
+	    new_con_state->content_type != old_con_state->content_type ||
+	    new_con_state->scaling_mode != old_con_state->scaling_mode)
+		new_crtc_state->mode_changed = true;
+	return 0;
+}
+
 static const struct drm_connector_funcs cdns_dp_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.detect = cdns_dp_connector_detect,
@@ -306,6 +365,7 @@ static const struct drm_connector_funcs cdns_dp_connector_funcs = {
 
 static const struct drm_connector_helper_funcs cdns_dp_connector_helper_funcs = {
 	.get_modes = cdns_dp_connector_get_modes,
+	.atomic_check = cdns_dp_connector_atomic_check,
 };
 
 static int cdns_dp_bridge_attach(struct drm_bridge *bridge,
@@ -334,6 +394,8 @@ static int cdns_dp_bridge_attach(struct drm_bridge *bridge,
 	}
 
 	drm_connector_attach_encoder(connector, encoder);
+
+	drm_connector_attach_content_protection_property(connector, true);
 
 	return 0;
 }
@@ -402,6 +464,7 @@ static void cdns_dp_bridge_mode_set(struct drm_bridge *bridge,
 static void cdn_dp_bridge_enable(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
+	struct drm_connector_state *conn_state = mhdp->connector.base.state;
 	int ret;
 
 	/* Link trainning */
@@ -416,11 +479,17 @@ static void cdn_dp_bridge_enable(struct drm_bridge *bridge)
 		DRM_DEV_ERROR(mhdp->dev, "Failed to valid video %d\n", ret);
 		return;
 	}
+
+	if (conn_state->content_protection == DRM_MODE_CONTENT_PROTECTION_DESIRED)
+		cdns_hdcp_enable(mhdp);
+
 }
 
 static void cdn_dp_bridge_disable(struct drm_bridge *bridge)
-{	
+{
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
+
+	cdns_hdcp_disable(mhdp);
 
 	cdns_mhdp_set_video_status(mhdp, CONTROL_VIDEO_IDLE);
 }
@@ -526,6 +595,8 @@ static int __cdns_dp_probe(struct platform_device *pdev,
 
 	cdns_dp_parse_dt(mhdp);
 
+	cnds_hdcp_create_device_files(mhdp);
+
 	if (of_device_is_compatible(dev->of_node, "cdn,ls1028a-dp"))
 		mhdp->is_ls1028a = true;
 
@@ -539,6 +610,10 @@ static int __cdns_dp_probe(struct platform_device *pdev,
 		DRM_ERROR("NO dp FW running\n");
 		return -ENXIO;
 	}
+
+	ret = cdns_hdcp_init(mhdp, pdev->dev.of_node);
+	if (ret < 0)
+		DRM_WARN("Failed to initialize HDCP\n");
 
 	/* DP PHY init before AUX init */
 	cdns_mhdp_plat_call(mhdp, phy_set);
