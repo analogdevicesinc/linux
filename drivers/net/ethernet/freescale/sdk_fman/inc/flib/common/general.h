@@ -40,8 +40,12 @@
 
 
 #ifndef CONFIG_FMAN_ARM
+#ifndef iowrite32be
 #define iowrite32be(val, addr)  WRITE_UINT32(*addr, val)
+#endif
+#ifndef ioread32be
 #define ioread32be(addr)        GET_UINT32(*addr)
+#endif
 #endif
 
 #endif /* __GENERAL_H */
