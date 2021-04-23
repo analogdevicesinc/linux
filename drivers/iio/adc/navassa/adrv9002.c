@@ -3769,7 +3769,7 @@ const char *const lo_maps[] = {
 };
 
 const char *const duplex[] = {
-	"TDM",
+	"TDD",
 	"FDD"
 };
 
