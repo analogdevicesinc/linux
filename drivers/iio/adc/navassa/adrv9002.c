@@ -2291,8 +2291,6 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		rx->channel.enabled = true;
 		rx->channel.nco_freq = 0;
 		rx->channel.rate = rx_cfg[i].profile.rxOutputRate_Hz;
-		rx->orx_en = ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask,
-					       orx_channels[i]);
 tx:
 		/* tx validations*/
 		if (!ADRV9001_BF_EQUAL(phy->curr_profile->tx.txInitChannelMask, tx_channels[i]))
@@ -2349,6 +2347,9 @@ tx:
 		}
 
 		dev_dbg(&phy->spi->dev, "TX%d enabled\n", i + 1);
+		/* orx actually depends on whether or not TX is enabled and not RX */
+		rx->orx_en = ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask,
+					       orx_channels[i]);
 		tx->power = true;
 		tx->enabled = true;
 		tx->nco_freq = 0;
