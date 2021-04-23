@@ -2957,6 +2957,9 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 
 	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
 		phy->rx_channels[i].orx_en = 0;
+		/* make sure we have the ORx GPIO low */
+		if (phy->rx_channels[i].orx_gpio)
+			gpiod_set_value_cansleep(phy->rx_channels[i].orx_gpio, 0);
 		phy->rx_channels[i].channel.enabled = 0;
 		phy->tx_channels[i].channel.enabled = 0;
 	}
