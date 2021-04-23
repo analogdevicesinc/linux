@@ -299,6 +299,7 @@ static int ad9083_jesd204_clks_enable(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9083_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9083_phy *phy = priv->phy;
+	int ret;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
@@ -306,9 +307,20 @@ static int ad9083_jesd204_clks_enable(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
-	adi_ad9083_jesd_tx_link_digital_reset(&phy->adi_ad9083, 1);
+	if (lnk->subclass == JESD204_SUBCLASS_1) {
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_INFO, 1);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_INFO, 0);
+	}
+
+	ret = adi_ad9083_jesd_tx_link_digital_reset(&phy->adi_ad9083, 1);
+	if (ret)
+		return JESD204_STATE_CHANGE_ERROR;
 	mdelay(1);
-	adi_ad9083_jesd_tx_link_digital_reset(&phy->adi_ad9083, 0);
+	ret = adi_ad9083_jesd_tx_link_digital_reset(&phy->adi_ad9083, 0);
+	if (ret)
+		return JESD204_STATE_CHANGE_ERROR;
 	mdelay(1);
 
 	return JESD204_STATE_CHANGE_DONE;
@@ -330,6 +342,7 @@ static int ad9083_jesd204_link_running(struct jesd204_dev *jdev,
 				       enum jesd204_state_op_reason reason,
 				       struct jesd204_link *lnk)
 {
+	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9083_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9083_phy *phy = priv->phy;
 	int ret;
@@ -337,6 +350,24 @@ static int ad9083_jesd204_link_running(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT) {
 		phy->is_initialized = false;
 		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	if (lnk->subclass == JESD204_SUBCLASS_1) {
+		u8 stat;
+
+		ret = ad9083_register_read(&phy->adi_ad9083,
+			REG_JTX_TPL_CONFIG1_ADDR, &stat);
+		if (ret)
+			return JESD204_STATE_CHANGE_ERROR;
+
+		if ((stat & 0xF) != (BIT(1) | BIT(3)))
+			dev_err(dev,
+				"JTX TPL ERROR link_num %u: CONFIG: %s, SYSREF: %s %s, LMFC PHASE: %s\n",
+				lnk->link_id,
+				stat & BIT(0) ? "Invalid" : "Valid",
+				stat & BIT(1) ? "Received" : "Waiting",
+				stat & BIT(2) ? "(Unaligned)" : "",
+				stat & BIT(3) ? "Established" : "Lost");
 	}
 
 	ret = ad9083_jesd_rx_link_status_print(phy);
@@ -645,6 +676,24 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	if (ret < 0) {
 		dev_err(dev, "adi_ad9083_rx_datapath_config_set failed (%d)\n", ret);
 		return ret;
+	}
+
+	if (phy->jesd_param.jesd_subclass == JESD204_SUBCLASS_1) {
+		ret = adi_ad9083_hal_bf_set(&phy->adi_ad9083, BF_SYSREF_RESYNC_MODE_INFO, 1);
+		if (ret)
+			return ret;
+		ret = adi_ad9083_hal_bf_set(&phy->adi_ad9083, BF_JTX_SYSREF_FOR_STARTUP_INFO, 1);
+		if (ret)
+			return ret;
+		ret = adi_ad9083_hal_bf_set(&phy->adi_ad9083, BF_JTX_SYSREF_FOR_RELINK_INFO, 1);
+		if (ret)
+			return ret;
+		ret = adi_ad9083_hal_bf_set(&phy->adi_ad9083, BF_SYSREF_RESYNC_MODE_INFO, 1);
+		if (ret)
+			return ret;
+		ret = adi_ad9083_hal_bf_set(&phy->adi_ad9083, 0x00000D40, 0x00000101, 0);
+		if (ret)
+			return ret;
 	}
 
 	ret = adi_ad9083_jtx_startup(&phy->adi_ad9083, &phy->jesd_param);
