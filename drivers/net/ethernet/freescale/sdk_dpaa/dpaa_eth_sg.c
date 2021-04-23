@@ -1094,6 +1094,8 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 	bool nonlinear, skb_changed, skb_need_wa;
 	int *countptr, offset = 0;
 	struct sk_buff *nskb;
+	struct netdev_queue *txq;
+	int txq_id = skb_get_queue_mapping(skb);
 
 	/* Flags to help optimize the A050385 errata restriction checks.
 	 *
@@ -1243,7 +1245,11 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 	if (unlikely(dpa_xmit(priv, percpu_stats, &fd, egress_fq, conf_fq) < 0))
 		goto xmit_failed;
 
-	netif_trans_update(net_dev);
+	/* LLTX forces us to update our own jiffies for each netdev queue.
+	 * Use the queue mapping registered in the skb.
+	 */
+	txq = netdev_get_tx_queue(net_dev, txq_id);
+	txq->trans_start = jiffies;
 	return NETDEV_TX_OK;
 
 xmit_failed:

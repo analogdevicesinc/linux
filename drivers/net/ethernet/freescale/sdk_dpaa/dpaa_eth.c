@@ -778,9 +778,6 @@ static int dpa_private_netdev_init(struct net_device *net_dev)
 	/* Advertise GRO support */
 	net_dev->features |= NETIF_F_GRO;
 
-	/* Advertise NETIF_F_HW_ACCEL_MQ to avoid Tx timeout warnings */
-	net_dev->features |= NETIF_F_HW_ACCEL_MQ;
-
 	return dpa_netdev_init(net_dev, mac_addr, tx_timeout);
 }
 
