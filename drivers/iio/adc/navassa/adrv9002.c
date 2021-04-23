@@ -1756,7 +1756,7 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 
 			if (!rx->orx_gpio) {
 				mutex_unlock(&phy->lock);
-				return -ENODEV;
+				return -ENOTSUPP;
 			}
 
 			*val = gpiod_get_value_cansleep(rx->orx_gpio);
@@ -1874,7 +1874,7 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 
 			if (!rx->orx_gpio) {
 				mutex_unlock(&phy->lock);
-				return -ENODEV;
+				return -ENOTSUPP;
 			}
 			gpiod_set_value_cansleep(rx->orx_gpio, !!val);
 		} else {
