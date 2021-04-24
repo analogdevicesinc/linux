@@ -70,7 +70,7 @@ config DRM_CDNS_AUDIO
 
 config DRM_CDNS_HDCP
 	tristate "Cadence HDMI/DP HDCP driver"
-	depends on DRM_CDNS_HDMI || DRM_CDNS_DP
+	depends on DRM_CDNS_MHDP
 	help
 	  Support HDCP for either HDMI or DisplayPort. This
 	  requires that the SOC has HDCP keys programmed
