@@ -33,12 +33,10 @@ enum fcs_certificate_test {
 
 /**
  * struct intel_fcs_cert_test_word - certificate test word
- * @test_bit: if set, do not write fuses, write to cache only.
- * @rsvd: write as 0
+ * @test_word: if set, do not write fuses, write to cache only.
  */
 struct intel_fcs_cert_test_word {
-	uint32_t test_bit:1;
-	uint32_t rsvd:31;
+	uint32_t test_word;
 };
 
 /**
