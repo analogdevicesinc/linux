@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/notifier.h>
-#include <linux/of.h>
 #include <linux/platform_device.h>
 
 /* Transceiver TDD Control (axi_ad*) */
@@ -468,7 +467,6 @@ MODULE_DEVICE_TABLE(of, cf_axi_tdd_of_match);
 
 static int cf_axi_tdd_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	unsigned int expected_version, version;
 	struct cf_axi_tdd_state *st;
 	struct iio_dev *indio_dev;
@@ -505,7 +503,7 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 
 	mutex_init(&st->lock);
 	indio_dev->dev.parent = &pdev->dev;
-	indio_dev->name = np->name;
+	indio_dev->name = "axi-core-tdd";
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = cf_axi_tdd_channels;
 	indio_dev->num_channels = ARRAY_SIZE(cf_axi_tdd_channels);
