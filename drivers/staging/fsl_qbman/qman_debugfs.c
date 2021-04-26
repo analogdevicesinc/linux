@@ -163,7 +163,7 @@ static const struct mask_to_text stashing_text_list[] = {
 static int user_input_convert(const char __user *user_buf, size_t count,
 				unsigned long *val)
 {
-	char buf[12];
+	char buf[12] = {0};
 
 	if (count > sizeof(buf) - 1)
 		return -EINVAL;
