@@ -539,7 +539,7 @@ static int svc_normal_to_secure_thread(void *data)
 			break;
 		case COMMAND_FCS_PSGSIGMA_TEARDOWN:
 			a0 = INTEL_SIP_SMC_FCS_PSGSIGMA_TEARDOWN;
-			a1 = 0;
+			a1 = pdata->arg[0];
 			a2 = 0;
 			break;
 		case COMMAND_FCS_GET_CHIP_ID:

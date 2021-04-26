@@ -627,7 +627,8 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
  *
  * Call register usage:
  * a0 INTEL_SIP_SMC_FCS_PSGSIGMA_TEARDOWN
- * a1-a7 not used
+ * a1 the session ID
+ * a2-a7 not used
  *
  * Return status:
  * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_ERROR or
