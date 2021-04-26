@@ -1770,7 +1770,8 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
-static int ceetm_cls_delete(struct Qdisc *sch, unsigned long arg)
+static int ceetm_cls_delete(struct Qdisc *sch, unsigned long arg,
+			    struct netlink_ext_ack *extack)
 {
 	struct ceetm_class *cl = (struct ceetm_class *)arg;
 	struct ceetm_qdisc *priv = qdisc_priv(sch);
