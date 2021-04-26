@@ -883,7 +883,7 @@ static unsigned long usdpaa_get_unmapped_area(struct file *file,
 
 static long ioctl_id_alloc(struct ctx *ctx, void __user *arg)
 {
-	struct usdpaa_ioctl_id_alloc i;
+	struct usdpaa_ioctl_id_alloc i = {0};
 	const struct alloc_backend *backend;
 	struct active_resource *res;
 	int ret = copy_from_user(&i, arg, sizeof(i));
@@ -959,7 +959,7 @@ found:
 
 static long ioctl_id_reserve(struct ctx *ctx, void __user *arg)
 {
-	struct usdpaa_ioctl_id_reserve i;
+	struct usdpaa_ioctl_id_reserve i = {0};
 	const struct alloc_backend *backend;
 	struct active_resource *tmp, *pos;
 
@@ -2047,7 +2047,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		return ioctl_id_reserve(ctx, a);
 	case USDPAA_IOCTL_DMA_MAP:
 	{
-		struct usdpaa_ioctl_dma_map input;
+		struct usdpaa_ioctl_dma_map input = {0};
 		int ret;
 		if (copy_from_user(&input, a, sizeof(input)))
 			return -EFAULT;
@@ -2171,7 +2171,7 @@ static long usdpaa_ioctl_compat(struct file *fp, unsigned int cmd,
 	case USDPAA_IOCTL_DMA_MAP_COMPAT:
 	{
 		int ret;
-		struct usdpaa_ioctl_dma_map_compat input;
+		struct usdpaa_ioctl_dma_map_compat input = {0};
 		struct usdpaa_ioctl_dma_map converted = {0};
 
 		if (copy_from_user(&input, a, sizeof(input)))
