@@ -39,6 +39,8 @@
 #define MEASUREMENT_CMD_MAX_SZ	4092
 #define MEASUREMENT_RSP_MAX_SZ	4092
 
+#define SIGMA_SESSION_ID_ONE	0x1
+#define SIGMA_UNKNOWN_SESSION	0xffffffff
 
 #define FCS_REQUEST_TIMEOUT (msecs_to_jiffies(SVC_FCS_REQUEST_TIMEOUT_MS))
 #define FCS_COMPLETED_TIMEOUT (msecs_to_jiffies(SVC_COMPLETED_TIMEOUT_MS))
@@ -191,6 +193,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	const struct firmware *fw;
 	char filename[FILE_NAME_SIZE];
 	size_t tsz, rsz, datasz;
+	uint32_t sid;
 	void *s_buf;
 	void *d_buf;
 	void *ps_buf;
@@ -677,7 +680,20 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		break;
 
 	case INTEL_FCS_DEV_PSGSIGMA_TEARDOWN:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		sid = data->com_paras.tdown.sid;
+		if ((sid != SIGMA_SESSION_ID_ONE) &&
+			(sid != SIGMA_UNKNOWN_SESSION)) {
+			dev_err(dev, "Invalid session ID:%d\n", sid);
+			return -EFAULT;
+		}
+
 		msg->command = COMMAND_FCS_PSGSIGMA_TEARDOWN;
+		msg->arg[0] = sid;
 		priv->client.receive_cb = fcs_vab_callback;
 		ret = fcs_request_service(priv, (void *)msg,
 					  FCS_REQUEST_TIMEOUT);
