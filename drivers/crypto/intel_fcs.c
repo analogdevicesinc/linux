@@ -234,7 +234,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_dbg(dev, "Test=%d, Size=%d; Address=0x%p\n",
-			data->com_paras.c_request.test.test_bit,
+			data->com_paras.c_request.test.test_word,
 			data->com_paras.c_request.size,
 			data->com_paras.c_request.addr);
 
