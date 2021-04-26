@@ -1157,7 +1157,8 @@ do_map:
 	if (i->did_create) {
 		size_t name_len = 0;
 		start_frag->flags = i->flags;
-		strncpy(start_frag->name, i->name, USDPAA_DMA_NAME_MAX);
+		memset(start_frag->name, '\0', USDPAA_DMA_NAME_MAX);
+		strncpy(start_frag->name, i->name, USDPAA_DMA_NAME_MAX - 1);
 		name_len = strnlen(start_frag->name, USDPAA_DMA_NAME_MAX);
 		if (name_len >= USDPAA_DMA_NAME_MAX) {
 			ret = -EFAULT;
