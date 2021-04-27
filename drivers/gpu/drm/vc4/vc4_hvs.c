@@ -375,7 +375,8 @@ exit:
 static void vc4_hvs_update_gamma_lut(struct vc4_hvs *hvs,
 				     struct vc4_crtc *vc4_crtc)
 {
-	struct drm_crtc_state *crtc_state = vc4_crtc->base.state;
+	struct drm_crtc *crtc = &vc4_crtc->base;
+	struct drm_crtc_state *crtc_state = crtc->state;
 	struct drm_color_lut *lut = crtc_state->gamma_lut->data;
 	u32 length = drm_color_lut_size(crtc_state->gamma_lut);
 	u32 i;
@@ -387,6 +388,83 @@ static void vc4_hvs_update_gamma_lut(struct vc4_hvs *hvs,
 	}
 
 	vc4_hvs_lut_load(hvs, vc4_crtc);
+}
+
+static void vc6_hvs_write_gamma_entry(struct vc4_hvs *hvs,
+				      u32 offset,
+				      struct vc6_gamma_entry *gamma)
+{
+	HVS_WRITE(offset, gamma->x_c_terms);
+	HVS_WRITE(offset + 4, gamma->grad_term);
+}
+
+static void vc6_hvs_lut_load(struct vc4_hvs *hvs,
+			     struct vc4_crtc *vc4_crtc)
+{
+	struct drm_crtc *crtc = &vc4_crtc->base;
+	struct drm_crtc_state *crtc_state = crtc->state;
+	struct vc4_crtc_state *vc4_state = to_vc4_crtc_state(crtc_state);
+	u32 i;
+	u32 offset = SCALER5_DSPGAMMA_START +
+		vc4_state->assigned_channel * SCALER5_DSPGAMMA_CHAN_OFFSET;
+
+	for (i = 0; i < SCALER5_DSPGAMMA_NUM_POINTS; i++, offset += 8)
+		vc6_hvs_write_gamma_entry(hvs, offset, &vc4_crtc->pwl_r[i]);
+	for (i = 0; i < SCALER5_DSPGAMMA_NUM_POINTS; i++, offset += 8)
+		vc6_hvs_write_gamma_entry(hvs, offset, &vc4_crtc->pwl_g[i]);
+	for (i = 0; i < SCALER5_DSPGAMMA_NUM_POINTS; i++, offset += 8)
+		vc6_hvs_write_gamma_entry(hvs, offset, &vc4_crtc->pwl_b[i]);
+
+	if (vc4_state->assigned_channel == 2) {
+		/* Alpha only valid on channel 2 */
+		for (i = 0; i < SCALER5_DSPGAMMA_NUM_POINTS; i++, offset += 8)
+			vc6_hvs_write_gamma_entry(hvs, offset, &vc4_crtc->pwl_a[i]);
+	}
+}
+
+static void vc6_hvs_update_gamma_lut(struct vc4_hvs *hvs,
+				     struct vc4_crtc *vc4_crtc)
+{
+	struct drm_crtc *crtc = &vc4_crtc->base;
+	struct drm_color_lut *lut = crtc->state->gamma_lut->data;
+	unsigned int step, i;
+	u32 start, end;
+
+#define VC6_HVS_UPDATE_GAMMA_ENTRY_FROM_LUT(pwl, chan)				\
+	do {									\
+		start = drm_color_lut_extract(lut[i * step].chan, 12);		\
+		end = drm_color_lut_extract(lut[(i + 1) * step - 1].chan, 12);	\
+										\
+		/* Negative gradients not permitted by the hardware, so		\
+		 * flatten such points out.					\
+		 */								\
+		if (end < start)						\
+			end = start;						\
+										\
+		/* Assume 12bit pipeline.					\
+		 * X evenly spread over full range (12 bit).			\
+		 * C as U12.4 format.						\
+		 * Gradient as U4.8 format.					\
+		 */								\
+		vc4_crtc->pwl[i] =						\
+			VC6_HVS_SET_GAMMA_ENTRY(i << 8, start << 4,		\
+					((end - start) << 4) / (step - 1));	\
+	} while(0)
+
+	/* HVS6 has a 16 point piecewise linear function for each colour
+	 * channel (including alpha on channel 2) on each display channel.
+	 *
+	 * Currently take a crude subsample of the gamma LUT, but this could
+	 * be improved to implement curve fitting.
+	 */
+	step = crtc->gamma_size / SCALER5_DSPGAMMA_NUM_POINTS;
+	for (i = 0; i < SCALER5_DSPGAMMA_NUM_POINTS; i++) {
+		VC6_HVS_UPDATE_GAMMA_ENTRY_FROM_LUT(pwl_r, red);
+		VC6_HVS_UPDATE_GAMMA_ENTRY_FROM_LUT(pwl_g, green);
+		VC6_HVS_UPDATE_GAMMA_ENTRY_FROM_LUT(pwl_b, blue);
+	}
+
+	vc6_hvs_lut_load(hvs, vc4_crtc);
 }
 
 u8 vc4_hvs_get_fifo_frame_count(struct vc4_hvs *hvs, unsigned int fifo)
@@ -587,7 +665,16 @@ static int vc4_hvs_init_channel(struct vc4_hvs *hvs, struct drm_crtc *crtc,
 	/* Reload the LUT, since the SRAMs would have been disabled if
 	 * all CRTCs had SCALER_DISPBKGND_GAMMA unset at once.
 	 */
-	vc4_hvs_lut_load(hvs, vc4_crtc);
+	switch (vc4->gen) {
+	case VC4_GEN_4:
+		vc4_hvs_lut_load(hvs, vc4_crtc);
+		break;
+	case VC4_GEN_6:
+		vc6_hvs_lut_load(hvs, vc4_crtc);
+		break;
+	default:
+		break;
+	}
 
 	drm_dev_exit(idx);
 
@@ -700,6 +787,37 @@ void vc4_hvs_stop_channel(struct vc4_hvs *hvs, unsigned int chan)
 		__vc4_hvs_stop_channel(hvs, chan);
 }
 
+static int vc4_hvs_gamma_check(struct drm_crtc *crtc,
+			       struct drm_atomic_state *state)
+{
+	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	struct drm_connector_state *conn_state;
+	struct drm_connector *connector;
+	struct drm_device *dev = crtc->dev;
+	struct vc4_dev *vc4 = to_vc4_dev(dev);
+
+	if (vc4->gen != VC4_GEN_4)
+		return 0;
+
+	if (!crtc_state->color_mgmt_changed)
+		return 0;
+
+	connector = vc4_get_crtc_connector(crtc, crtc_state);
+	if (!connector)
+		return -EINVAL;
+
+	if (!(connector->connector_type == DRM_MODE_CONNECTOR_HDMIA))
+		return 0;
+
+	conn_state = drm_atomic_get_connector_state(state, connector);
+	if (!conn_state)
+		return -EINVAL;
+
+	crtc_state->mode_changed = true;
+
+	return 0;
+}
+
 int vc4_hvs_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 {
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
@@ -742,7 +860,7 @@ int vc4_hvs_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *state)
 		return ret;
 	}
 
-	return 0;
+	return vc4_hvs_gamma_check(crtc, state);
 }
 
 static void vc4_hvs_install_dlist(struct drm_crtc *crtc)
@@ -946,7 +1064,11 @@ void vc4_hvs_atomic_flush(struct drm_crtc *crtc,
 		WARN_ON_ONCE(vc4->gen > VC4_GEN_5);
 
 		if (crtc->state->gamma_lut) {
-			vc4_hvs_update_gamma_lut(hvs, vc4_crtc);
+			if (vc4->gen == VC4_GEN_4)
+				vc4_hvs_update_gamma_lut(hvs, vc4_crtc);
+			else if (vc4->gen == VC4_GEN_6)
+				vc6_hvs_update_gamma_lut(hvs, vc4_crtc);
+
 			dispbkgndx |= SCALER_DISPBKGND_GAMMA;
 		} else {
 			/* Unsetting DISPBKGND_GAMMA skips the gamma lut step

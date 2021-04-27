@@ -326,6 +326,23 @@ struct drm_encoder *vc4_get_crtc_encoder(struct drm_crtc *crtc,
 	return NULL;
 }
 
+#define drm_for_each_connector_mask(connector, dev, connector_mask) \
+	list_for_each_entry((connector), &(dev)->mode_config.connector_list, head) \
+		for_each_if((connector_mask) & drm_connector_mask(connector))
+
+struct drm_connector *vc4_get_crtc_connector(struct drm_crtc *crtc,
+					     struct drm_crtc_state *state)
+{
+	struct drm_connector *connector;
+
+	WARN_ON(hweight32(state->connector_mask) > 1);
+
+	drm_for_each_connector_mask(connector, crtc->dev, state->connector_mask)
+		return connector;
+
+	return NULL;
+}
+
 static void vc4_crtc_pixelvalve_reset(struct drm_crtc *crtc)
 {
 	struct vc4_crtc *vc4_crtc = to_vc4_crtc(crtc);
@@ -1418,20 +1435,57 @@ int __vc4_crtc_init(struct drm_device *drm,
 
 	drm_crtc_helper_add(crtc, crtc_helper_funcs);
 
-	if (vc4->gen == VC4_GEN_4) {
+	switch (vc4->gen) {
+	case VC4_GEN_4:
 		drm_mode_crtc_set_gamma_size(crtc, ARRAY_SIZE(vc4_crtc->lut_r));
-		drm_crtc_enable_color_mgmt(crtc, 0, false, crtc->gamma_size);
+		break;
+	case VC4_GEN_5:
+		/* The gamma block is too fussy over exactly when it can be
+		 * written to, which makes implementing gamma near impossible.
+		 */
+		break;
+	case VC4_GEN_6:
+		/* This is a lie for hvs6 which uses a 16 point PWL, but it
+		 * allows for something smarter than just 16 linearly spaced
+		 * segments. Conversion is done in vc6_hvs_update_gamma_lut.
+		 */
+		drm_mode_crtc_set_gamma_size(crtc, 256);
+		break;
+	}
 
+	drm_crtc_enable_color_mgmt(crtc, 0, false, crtc->gamma_size);
+
+	switch (vc4->gen) {
+	case VC4_GEN_4:
 		/* We support CTM, but only for one CRTC at a time. It's therefore
 		 * implemented as private driver state in vc4_kms, not here.
 		 */
 		drm_crtc_enable_color_mgmt(crtc, 0, true, crtc->gamma_size);
-	}
 
-	for (i = 0; i < crtc->gamma_size; i++) {
-		vc4_crtc->lut_r[i] = i;
-		vc4_crtc->lut_g[i] = i;
-		vc4_crtc->lut_b[i] = i;
+		/* Initialize the VC4 gamma LUTs */
+		for (i = 0; i < crtc->gamma_size; i++) {
+			vc4_crtc->lut_r[i] = i;
+			vc4_crtc->lut_g[i] = i;
+			vc4_crtc->lut_b[i] = i;
+		}
+		break;
+	case VC4_GEN_6:
+		/* Initialize the VC6 gamma PWL entries. Assume 12-bit pipeline,
+		 * evenly spread over full range.
+		 */
+		for (i = 0; i < SCALER5_DSPGAMMA_NUM_POINTS; i++) {
+			vc4_crtc->pwl_r[i] =
+				VC6_HVS_SET_GAMMA_ENTRY(i << 8, i << 12, 1 << 8);
+			vc4_crtc->pwl_g[i] =
+				VC6_HVS_SET_GAMMA_ENTRY(i << 8, i << 12, 1 << 8);
+			vc4_crtc->pwl_b[i] =
+				VC6_HVS_SET_GAMMA_ENTRY(i << 8, i << 12, 1 << 8);
+			vc4_crtc->pwl_a[i] =
+				VC6_HVS_SET_GAMMA_ENTRY(i << 8, i << 12, 1 << 8);
+		}
+		break;
+	default:
+		break;
 	}
 
 	return 0;
