@@ -62,6 +62,7 @@ int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device)
 	err = adi_ad9081_device_chip_id_get(device, &chip_id);
 	AD9081_ERROR_RETURN(err);
 	device->dev_info.dev_rev = chip_id.dev_revision;
+	device->dev_info.prod_id = chip_id.prod_id;
 	err = adi_ad9081_hal_log_write(device, ADI_CMS_LOG_MSG,
 				       "device is ad%x r%d", chip_id.prod_id,
 				       chip_id.dev_revision);
@@ -535,7 +536,9 @@ int32_t adi_ad9081_device_clk_config_set(adi_ad9081_device_t *device,
 		AD9081_INVALID_PARAM_WARN(ref_clk_hz <
 					  AD9081_REF_CLK_FREQ_HZ_MIN);
 	}
-	AD9081_INVALID_PARAM_WARN(adc_clk_hz > AD9081_ADC_CLK_FREQ_HZ_MAX);
+
+	AD9081_INVALID_PARAM_WARN(adc_clk_hz > (device->dev_info.prod_id == AD9081_ID ?
+		AD9081_ADC_CLK_FREQ_HZ_MAX : AD9082_ADC_CLK_FREQ_HZ_MAX));
 	AD9081_INVALID_PARAM_WARN(adc_clk_hz < AD9081_ADC_CLK_FREQ_HZ_MIN);
 	AD9081_INVALID_PARAM_WARN(dac_clk_hz > AD9081_DAC_CLK_FREQ_HZ_MAX);
 	AD9081_INVALID_PARAM_WARN(dac_clk_hz < AD9081_DAC_CLK_FREQ_HZ_MIN);
