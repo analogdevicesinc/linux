@@ -820,20 +820,23 @@ static int ad9208_setup(struct spi_device *spi, bool ad9234)
 				"Failed to set ddc nco mode: %d\n", ret);
 			return ret;
 		}
-		ret = ad9208_adc_set_ddc_nco(&phy->ad9208, i,
-					     phy->ddc[i].carrier_freq_hz);
-		if (ret) {
-			dev_err(&spi->dev,
-				"Failed to set ddc nco frequency: %d\n", ret);
-			return ret;
-		}
-		ret = ad9208_adc_set_ddc_nco_phase(&phy->ad9208, i,
-						   phy->ddc[i].po);
-		if (ret) {
-			dev_err(&spi->dev,
-				"Failed to set ddc nco phase offset: %d\n",
-				ret);
-			return ret;
+
+		if (phy->ddc[i].nco_mode != AD9208_NCO_MODE_ZIF) {
+			ret = ad9208_adc_set_ddc_nco(&phy->ad9208, i,
+						phy->ddc[i].carrier_freq_hz);
+			if (ret) {
+				dev_err(&spi->dev,
+					"Failed to set ddc nco frequency: %d\n", ret);
+				return ret;
+			}
+			ret = ad9208_adc_set_ddc_nco_phase(&phy->ad9208, i,
+							phy->ddc[i].po);
+			if (ret) {
+				dev_err(&spi->dev,
+					"Failed to set ddc nco phase offset: %d\n",
+					ret);
+				return ret;
+			}
 		}
 	}
 
