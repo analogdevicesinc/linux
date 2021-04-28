@@ -116,7 +116,7 @@
 		assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
 
 	reg = <0x596e8000 0x88000>;
-	tplg-name = "sof-imx8qxp-cs42888.tplg";
+	tplg-name = "sof-imx8-cs42888.tplg";
 	machine-drv-name = "asoc-simple-card";
 	status = "okay";
 };

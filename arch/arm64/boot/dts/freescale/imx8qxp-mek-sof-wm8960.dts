@@ -112,7 +112,7 @@
 	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
 	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
 
-	tplg-name = "sof-imx8qxp-wm8960.tplg";
+	tplg-name = "sof-imx8-wm8960.tplg";
 	machine-drv-name = "asoc-simple-card";
 	status = "okay";
 };

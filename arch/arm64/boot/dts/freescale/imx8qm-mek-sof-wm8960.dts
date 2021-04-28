@@ -116,7 +116,7 @@
 		<&lsio_mu13 3 0>,
 		<&lsio_mu13 3 1>;
 
-	tplg-name = "sof-imx8qxp-wm8960.tplg";
+	tplg-name = "sof-imx8-wm8960.tplg";
 	machine-drv-name = "asoc-simple-card";
 
 	status = "okay";

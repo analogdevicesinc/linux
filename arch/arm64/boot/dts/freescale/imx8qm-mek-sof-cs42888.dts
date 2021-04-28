@@ -122,7 +122,7 @@
 		<&lsio_mu13 3 0>,
 		<&lsio_mu13 3 1>;
 
-	tplg-name = "sof-imx8qxp-cs42888.tplg";
+	tplg-name = "sof-imx8-cs42888.tplg";
 	machine-drv-name = "asoc-simple-card";
 
 	status = "okay";
