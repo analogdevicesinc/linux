@@ -24,11 +24,17 @@
 #define AD9545_PRODUCT_ID_LOW		0x0004
 #define AD9545_PRODUCT_ID_HIGH		0x0005
 #define AD9545_IO_UPDATE		0x000F
+#define AD9545_M0_PIN			0x0102
 #define AD9545_CHIP_ID			0x0121
 #define AD9545_SYS_CLK_FB_DIV		0x0200
 #define AD9545_SYS_CLK_INPUT		0x0201
 #define AD9545_SYS_CLK_REF_FREQ		0x0202
 #define AD9545_SYS_STABILITY_T		0x0207
+#define AD9545_COMPENSATE_TDCS		0x0280
+#define AD9545_COMPENSATE_DPLL		0x0282
+#define AD9545_AUX_DPLL_CHANGE_LIMIT	0x0283
+#define AD9545_AUX_DPLL_SOURCE		0x0284
+#define AD9545_AUX_DPLL_LOOP_BW		0x0285
 #define AD9545_REF_A_CTRL		0x0300
 #define AD9545_REF_A_RDIV		0x0400
 #define AD9545_REF_A_PERIOD		0x0404
@@ -68,6 +74,8 @@
 #define AD9545_DPLL0_FAST_MODE		0x2106
 #define AD9545_DIV_OPS_Q1A		0x2202
 #define AD9545_NCO0_FREQ		0x2805
+#define AD9545_TDC0_DIV			0x2A00
+#define AD9545_TDC0_PERIOD		0x2A01
 #define AD9545_PLL_STATUS		0x3001
 #define AD9545_MISC			0x3002
 #define AD9545_REFA_STATUS		0x3005
@@ -79,6 +87,8 @@
 
 #define AD9545_UPDATE_REGS			0x1
 #define AD9545_RESET_REGS			0x81
+
+#define AD9545_MX_PIN(x)			(AD9545_M0_PIN + (x))
 
 #define AD9545_SYNC_CTRLX(x)			(AD9545_SYNC_CTRL0 + ((x) * 0x400))
 #define AD9545_REF_X_RDIV(x)			(AD9545_REF_A_RDIV + ((x) * 0x20))
@@ -147,6 +157,18 @@
 
 #define AD9545_NCOX_FREQ(x)			(AD9545_NCO0_FREQ + ((x) * 0x40))
 
+#define AD9545_TDCX_DIV(x)			(AD9545_TDC0_DIV + ((x) * 0x9))
+#define AD9545_TDCX_PERIOD(x)			(AD9545_TDC0_PERIOD + ((x) * 0x9))
+
+/* AD9545 MX PIN bitfields */
+#define AD9545_MX_TO_TDCX(x)			(0x30 + (x))
+
+/* AD9545 COMPENSATE TDCS bitfields */
+#define AD9545_COMPENSATE_TDCS_VIA_AUX_DPLL	0x4
+
+/* AD9545 COMPENSATE DPLL bitfields */
+#define AD9545_COMPNESATE_VIA_AUX_DPLL		0x44
+
 /* define AD9545_DPLLX_EN bitfields */
 #define AD9545_EN_PROFILE_MSK			BIT(0)
 #define AD9545_SEL_PRIORITY_MSK			GENMASK(5, 1)
@@ -179,6 +201,8 @@
 /* AD9545_MISC bitfields */
 #define AD9545_MISC_AUX_NC0_ERR_MSK		GENMASK(5, 4)
 #define AD9545_MISC_AUX_NC1_ERR_MSK		GENMASK(7, 6)
+#define AD9545_AUX_DPLL_LOCK_MSK		BIT(1)
+#define AD9545_AUX_DPLL_REF_FAULT		BIT(2)
 
 /* AD9545_REFX_STATUS bitfields */
 #define AD9545_REFX_VALID_MSK			BIT(4)
@@ -242,6 +266,14 @@ static const u32 ad9545_out_source_ua[] = {
 	7500, 12500, 15000
 };
 
+static const u32 ad9545_rate_change_limit_map[] = {
+	715, 1430, 2860, 5720, 11440, 22880, 45760,
+};
+
+static const char * const ad9545_ref_m_clk_names[] = {
+	"Ref-M0", "Ref-M1", "Ref-M2",
+};
+
 static const char * const ad9545_ref_clk_names[] = {
 	"Ref-A", "Ref-AA", "Ref-B", "Ref-BB",
 };
@@ -262,6 +294,12 @@ static const char * const ad9545_pll_clk_names[] = {
 static const char * const ad9545_aux_nco_clk_names[] = {
 	"AUX_NCO0", "AUX_NCO1",
 };
+
+static const char * const ad9545_aux_tdc_clk_names[] = {
+	"AUX_TDC0", "AUX_TDC1",
+};
+
+static const char *ad9545_aux_dpll_name = "AUX_DPLL";
 
 enum ad9545_ref_mode {
 	AD9545_SINGLE_ENDED = 0,
@@ -397,6 +435,23 @@ struct ad9545_aux_nco_clk {
 	unsigned int			phase_thresh_ps;
 };
 
+struct ad9545_aux_tdc_clk {
+	struct clk_hw			hw;
+	bool				tdc_used;
+	struct ad9545_state		*st;
+	unsigned int			address;
+	unsigned int			pin_nr;
+};
+
+struct ad9545_aux_dpll_clk {
+	struct clk_hw			hw;
+	bool				dpll_used;
+	struct ad9545_state		*st;
+	unsigned int			source;
+	unsigned int			loop_bw_mhz;
+	unsigned int			rate_change_limit;
+};
+
 struct ad9545_sys_clk {
 	bool				sys_clk_freq_doubler;
 	bool				sys_clk_crystal;
@@ -408,17 +463,20 @@ struct ad9545_state {
 	struct device			*dev;
 	struct regmap			*regmap;
 	struct ad9545_sys_clk		sys_clk;
+	struct ad9545_aux_dpll_clk	aux_dpll_clk;
 	struct ad9545_ppl_clk		pll_clks[ARRAY_SIZE(ad9545_pll_clk_names)];
 	struct ad9545_ref_in_clk	ref_in_clks[ARRAY_SIZE(ad9545_ref_clk_names)];
 	struct ad9545_out_clk		out_clks[ARRAY_SIZE(ad9545_out_clk_names)];
 	struct ad9545_aux_nco_clk	aux_nco_clks[ARRAY_SIZE(ad9545_aux_nco_clk_names)];
-	struct clk			**clks[3];
+	struct ad9545_aux_tdc_clk	aux_tdc_clks[ARRAY_SIZE(ad9545_aux_tdc_clk_names)];
+	struct clk			**clks[4];
 };
 
 #define to_ref_in_clk(_hw)	container_of(_hw, struct ad9545_ref_in_clk, hw)
 #define to_pll_clk(_hw)		container_of(_hw, struct ad9545_ppl_clk, hw)
 #define to_out_clk(_hw)		container_of(_hw, struct ad9545_out_clk, hw)
 #define to_nco_clk(_hw)		container_of(_hw, struct ad9545_aux_nco_clk, hw)
+#define to_tdc_clk(_hw)		container_of(_hw, struct ad9545_aux_tdc_clk, hw)
 
 static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 {
@@ -735,6 +793,89 @@ static int ad9545_parse_dt_ncos(struct ad9545_state *st)
 	return 0;
 }
 
+static int ad9545_parse_dt_tdcs(struct ad9545_state *st)
+{
+	struct fwnode_handle *fwnode;
+	struct fwnode_handle *child;
+	u32 val;
+	u32 addr;
+	int ret;
+
+	fwnode = dev_fwnode(st->dev);
+	fwnode_for_each_available_child_node(fwnode, child) {
+		if (!fwnode_property_present(child, "adi,pin-nr"))
+			continue;
+
+		ret = fwnode_property_read_u32(child, "reg", &addr);
+		if (ret < 0) {
+			dev_err(st->dev, "No reg specified for aux. TDC.");
+			return ret;
+		}
+
+		if (addr > 1) {
+			dev_err(st->dev, "Invalid address: %u for aux. TDC.", addr);
+			return -EINVAL;
+		}
+
+		st->aux_tdc_clks[addr].tdc_used = true;
+		st->aux_tdc_clks[addr].address = addr;
+		st->aux_tdc_clks[addr].st = st;
+
+		ret = fwnode_property_read_u32(child, "adi,pin-nr", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "No source pin specified for aux. TDC: %d", addr);
+			return ret;
+		}
+
+		if (val >= ARRAY_SIZE(ad9545_ref_m_clk_names)) {
+			dev_err(st->dev, "Invalid Mx pin-nr: %d", val);
+			return -EINVAL;
+		}
+
+		st->aux_tdc_clks[addr].pin_nr = val;
+	}
+
+	return 0;
+}
+
+static int ad9545_parse_dt_aux_dpll(struct ad9545_state *st)
+{
+	struct fwnode_handle *fwnode;
+	struct fwnode_handle *child;
+	u32 val;
+	int ret;
+
+	fwnode = dev_fwnode(st->dev);
+	child = fwnode_get_named_child_node(fwnode, "aux-dpll");
+	if (!child)
+		return 0;
+
+	st->aux_dpll_clk.dpll_used = true;
+	st->aux_dpll_clk.st = st;
+
+	ret = fwnode_property_read_u32(child, "adi,compensation-source", &val);
+	if (ret < 0) {
+		dev_err(st->dev, "No TDC source specified for aux. DPLL.");
+		return ret;
+	}
+
+	st->aux_dpll_clk.source = val;
+
+	ret = fwnode_property_read_u32(child, "adi,aux-dpll-bw-mhz", &val);
+	if (ret < 0) {
+		dev_err(st->dev, "No loop bw specified for aux. DPLL.");
+		return ret;
+	}
+
+	st->aux_dpll_clk.loop_bw_mhz = val;
+
+	ret = fwnode_property_read_u32(child, "adi,rate-change-limit", &val);
+	if (!ret)
+		st->aux_dpll_clk.rate_change_limit = val;
+
+	return 0;
+}
+
 static int ad9545_parse_dt(struct ad9545_state *st)
 {
 	struct fwnode_handle *fwnode;
@@ -764,6 +905,14 @@ static int ad9545_parse_dt(struct ad9545_state *st)
 		return ret;
 
 	ret = ad9545_parse_dt_ncos(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_parse_dt_tdcs(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_parse_dt_aux_dpll(st);
 	if (ret < 0)
 		return ret;
 
@@ -1968,6 +2117,192 @@ static int ad9545_aux_ncos_setup(struct ad9545_state *st)
 	return 0;
 }
 
+static int ad9545_set_tdc_div(struct ad9545_aux_tdc_clk *clk, u32 div)
+{
+	int ret;
+
+	if (!div)
+		return -EINVAL;
+
+	ret = regmap_write(clk->st->regmap, AD9545_TDCX_DIV(clk->address), --div);
+	if (ret < 0)
+		return ret;
+
+	return ad9545_io_update(clk->st);
+}
+
+static unsigned long ad9545_tdc_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct ad9545_aux_tdc_clk *clk = to_tdc_clk(hw);
+	int ret;
+	u32 div;
+
+	ret = regmap_read(clk->st->regmap, AD9545_TDCX_DIV(clk->address), &div);
+	if (ret < 0) {
+		dev_err(clk->st->dev, "Could not read TDC freq.");
+		return ret;
+	}
+
+	div++;
+
+	return DIV_ROUND_UP_ULL((u64)parent_rate, div);
+}
+
+static long ad9545_tdc_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+				      unsigned long *parent_rate)
+{
+	u32 div;
+
+	if (!*parent_rate || !rate)
+		return 0;
+
+	div = clamp_t(u8, DIV_ROUND_UP_ULL((u64)*parent_rate, rate), 1, U8_MAX);
+
+	return DIV_ROUND_UP_ULL((u64)*parent_rate, div);
+}
+
+static int ad9545_tdc_clk_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
+{
+	struct ad9545_aux_tdc_clk *clk = to_tdc_clk(hw);
+	__le64 regval64;
+	u64 period_es;
+	u32 div;
+	int ret;
+
+	if (!parent_rate || !rate)
+		return 0;
+
+	/* write parent rate received at the Mx pin in attoseconds */
+	period_es = div_u64(1000000000000000000ULL, parent_rate);
+	regval64 = cpu_to_le64(period_es);
+	ret = regmap_bulk_write(clk->st->regmap, AD9545_TDCX_PERIOD(clk->address), &regval64, 8);
+	if (ret < 0)
+		return ret;
+
+	div = clamp_t(u8, DIV_ROUND_UP_ULL((u64)parent_rate, rate), 1, U8_MAX);
+
+	return ad9545_set_tdc_div(clk, div);
+}
+
+static const struct clk_ops ad9545_aux_tdc_clk_ops = {
+	.recalc_rate = ad9545_tdc_clk_recalc_rate,
+	.round_rate = ad9545_tdc_clk_round_rate,
+	.set_rate = ad9545_tdc_clk_set_rate,
+};
+
+static int ad9545_aux_tdcs_setup(struct ad9545_state *st)
+{
+	struct clk_init_data init[ARRAY_SIZE(ad9545_aux_tdc_clk_names)] = {0};
+	struct ad9545_aux_tdc_clk *tdc;
+	int ret;
+	int i;
+
+	st->clks[AD9545_CLK_AUX_TDC] = devm_kcalloc(st->dev, ARRAY_SIZE(ad9545_aux_tdc_clk_names),
+						    sizeof(*st->clks[AD9545_CLK_AUX_TDC]),
+						    GFP_KERNEL);
+	if (!st->clks[AD9545_CLK_AUX_TDC])
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(st->aux_tdc_clks); i++) {
+		tdc = &st->aux_tdc_clks[i];
+		if (!tdc->tdc_used)
+			continue;
+
+		/* redirect Mx pin to this TDC */
+		ret = regmap_write(st->regmap, AD9545_MX_PIN(tdc->pin_nr),
+				   AD9545_MX_TO_TDCX(tdc->address));
+		if (ret < 0)
+			return ret;
+
+		init[i].name = ad9545_aux_tdc_clk_names[i];
+		init[i].ops = &ad9545_aux_tdc_clk_ops;
+		init[i].parent_names = &ad9545_ref_m_clk_names[tdc->pin_nr];
+		init[i].num_parents = 1;
+		tdc->hw.init = &init[i];
+		ret = devm_clk_hw_register(st->dev, &tdc->hw);
+		if (ret < 0)
+			return ret;
+
+		st->clks[AD9545_CLK_AUX_TDC][i] = tdc->hw.clk;
+	}
+
+	return 0;
+}
+
+static unsigned long ad9545_aux_dpll_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	return parent_rate;
+}
+
+static const struct clk_ops ad9545_aux_dpll_clk_ops = {
+	.recalc_rate = ad9545_aux_dpll_clk_recalc_rate,
+};
+
+static int ad9545_aux_dpll_setup(struct ad9545_state *st)
+{
+	struct ad9545_aux_dpll_clk *clk;
+	struct clk_init_data init;
+	__le16 regval;
+	int ret;
+	u32 val;
+	int i;
+
+	clk = &st->aux_dpll_clk;
+	if (!clk->dpll_used)
+		return 0;
+
+	memset(&init, 0, sizeof(struct clk_init_data));
+
+	if (clk->source < ARRAY_SIZE(ad9545_in_clk_names)) {
+		val = clk->source;
+		init.parent_names = &ad9545_in_clk_names[val];
+	} else {
+		val = clk->source - ARRAY_SIZE(ad9545_in_clk_names);
+		if (val > ARRAY_SIZE(ad9545_aux_tdc_clk_names))
+			return -EINVAL;
+		init.parent_names = &ad9545_aux_tdc_clk_names[val];
+		val = val + 0x6;
+	}
+
+	ret = regmap_write(st->regmap, AD9545_AUX_DPLL_SOURCE, val);
+	if (ret < 0)
+		return ret;
+
+	/* write loop bandwidth in dHz */
+	regval = cpu_to_le16(clk->loop_bw_mhz / 100);
+	ret = regmap_bulk_write(st->regmap, AD9545_AUX_DPLL_LOOP_BW, &regval, 2);
+	if (ret < 0)
+		return ret;
+
+	val = 0;
+	for (i = 0; i < ARRAY_SIZE(ad9545_rate_change_limit_map); i++) {
+		if (ad9545_rate_change_limit_map[i] == clk->rate_change_limit) {
+			val = i;
+			break;
+		}
+	}
+
+	ret = regmap_write(st->regmap, AD9545_AUX_DPLL_CHANGE_LIMIT, val);
+	if (ret < 0)
+		return ret;
+
+	/* add compensation destination */
+	ret = regmap_write(st->regmap, AD9545_COMPENSATE_DPLL, AD9545_COMPNESATE_VIA_AUX_DPLL);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, AD9545_COMPENSATE_TDCS, AD9545_COMPENSATE_TDCS_VIA_AUX_DPLL);
+	if (ret < 0)
+		return ret;
+
+	init.name = ad9545_aux_dpll_name;
+	init.ops = &ad9545_aux_dpll_clk_ops;
+	init.num_parents = 1;
+
+	clk->hw.init = &init;
+	return devm_clk_hw_register(st->dev, &clk->hw);
+}
+
 static int ad9545_calib_system_clock(struct ad9545_state *st)
 {
 	int ret;
@@ -2076,13 +2411,14 @@ static struct clk *ad9545_clk_src_twocell_get(struct of_phandle_args *clkspec, v
 	unsigned int clk_type = clkspec->args[0];
 	struct clk ***clks = data;
 
-	if (clk_type > AD9545_CLK_NCO) {
+	if (clk_type > AD9545_CLK_AUX_TDC) {
 		pr_err("%s: invalid clock type %u\n", __func__, clk_type);
 		return ERR_PTR(-EINVAL);
 	}
 	if ((clk_type == AD9545_CLK_PLL && clk_address > AD9545_PLL1) ||
 	    (clk_type == AD9545_CLK_OUT && clk_address > AD9545_Q1BB) ||
-	    (clk_type == AD9545_CLK_NCO && clk_address > AD9545_NCO1)) {
+	    (clk_type == AD9545_CLK_NCO && clk_address > AD9545_NCO1) ||
+	    (clk_type == AD9545_CLK_AUX_TDC && clk_address > AD9545_CLK_AUX_TDC1)) {
 		pr_err("%s: invalid clock address %u\n", __func__, clk_address);
 		return ERR_PTR(-EINVAL);
 	}
@@ -2116,6 +2452,14 @@ static int ad9545_setup(struct ad9545_state *st)
 	if (ret < 0)
 		return ret;
 
+	ret = ad9545_aux_tdcs_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_aux_dpll_setup(st);
+	if (ret < 0)
+		return ret;
+
 	ret = ad9545_calib_aplls(st);
 	if (ret < 0)
 		return ret;
@@ -2146,6 +2490,18 @@ static int ad9545_setup(struct ad9545_state *st)
 	for (i = 0; i < ARRAY_SIZE(st->pll_clks); i++)
 		if (st->pll_clks[i].pll_used && !AD9545_PLLX_LOCK(i, val))
 			dev_warn(st->dev, "PLL%d unlocked.\n", i);
+
+	if (st->aux_dpll_clk.dpll_used) {
+		ret = regmap_read(st->regmap, AD9545_MISC, &val);
+		if (ret < 0)
+			return ret;
+
+		if (!(val & AD9545_AUX_DPLL_LOCK_MSK))
+			dev_warn(st->dev, "Aux DPLL unlocked.\n");
+
+		if (val & AD9545_AUX_DPLL_REF_FAULT)
+			dev_warn(st->dev, "Aux DPLL reference fault.\n");
+	}
 
 	return 0;
 }
