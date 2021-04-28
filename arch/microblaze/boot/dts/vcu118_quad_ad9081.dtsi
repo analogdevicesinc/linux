@@ -19,6 +19,10 @@
 #define fmc_i2c fmcp_hspc_iic
 #define fmc_spi axi_spi
 
+#ifndef CLKIN_J41_FREQ_HZ
+#define CLKIN_J41_FREQ_HZ	500000000 /* Default: 500MHz via J41 */
+#endif
+
 / {
 	model = "Analog Devices AD-QUADMXFE1-EBZ Rev.B";
 };
@@ -319,7 +323,7 @@
 		clkin_j41: clock@0 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <500000000>;
+			clock-frequency = <CLKIN_J41_FREQ_HZ>;
 			clock-output-names = "refclk_j41";
 		};
 	};
