@@ -15,17 +15,19 @@
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include <dt-bindings/gpio/gpio.h>
 
+#define CLKIN_J41_FREQ_HZ	750000000
+
 #include "vcu118_quad_ad9081.dtsi"
 
-// This setup assumes 500MHz clock into J41 (0 dBm)
+// This setup assumes 750MHz clock into J41 (0 dBm)
 // ad9081_204c_txmode_12_rxmode_13_lr_24_75Gbps: Np 12 use case with high lane rate
 //     * 2Txs / 2Rxs per MxFE
 //     * DAC_CLK = 12GSPS
 //     * ADC_CLK = 6GSPS
 //     * Tx I/Q Rate: 3 GSPS (Interpolation of 4x1)
 //     * Rx I/Q Rate: 3 GSPS (Decimation of 2x1)
-//     * DAC JESD204C: Mode 12, L=4, M=4, N=N'=12
-//     * ADC JESD204C: Mode 13, L=4, M=4, N=N'=12
+//     * DAC JESD204C: Mode 12, L=4, M=2, N=N'=16
+//     * ADC JESD204C: Mode 13, L=4, M=2, N=N'=16
 //     * DAC-Side JESD204C Lane Rate: 24.75Gbps
 //     * ADC-Side JESD204C Lane Rate: 24.75Gbps
 
@@ -49,7 +51,7 @@
 
 #define ADRF4360_RF16_FREQUENCY_HZ		12000000000
 
-#define HMC7043_FPGA_XCVR_CLKDIV		2
+#define HMC7043_FPGA_XCVR_CLKDIV		3
 #define HMC7043_FPGA_LINK_CLKDIV_TX		2
 #define HMC7043_FPGA_LINK_CLKDIV_RX		2
 #define HMC7043_SYSREF_CLKDIV			1024
@@ -81,7 +83,7 @@
 #define AD9081_TX_JESD_S			1
 #define AD9081_TX_JESD_HD			1
 
-#define AD9081_JRX_TPL_PHASE_ADJUST		28
+#define AD9081_JRX_TPL_PHASE_ADJUST		5
 
 /* RX path */
 #define AD9081_RX_LANERATE_KHZ			24750000
