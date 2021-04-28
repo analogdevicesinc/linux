@@ -26,6 +26,7 @@
 #include "cf_axi_dds.h"
 
 #include "ad916x/AD916x.h"
+#include "ad916x/ad916x_reg.h"
 
 #define AD9162_REG_TEMP_SENS_LSB	0x132
 #define AD9162_REG_TEMP_SENS_MSB	0x133
@@ -304,8 +305,14 @@ static int ad9162_setup(struct ad9162_state *st)
 		return ret;
 
 	/* check for dc test mode */
-	if (device_property_read_bool(dev, "adi,dc-test-en"))
+	if (device_property_read_bool(dev, "adi,dc-test-en")) {
+		if ((dac_chip_id.prod_id & 0xFF) != AD9162_PROD_ID_LSB &&
+		    (dac_chip_id.prod_id & 0xFF) != AD9166_PROD_ID_LSB) {
+			dev_err(dev, "adi,dc-test-en only supported on ad9162/6 devices\n");
+			return -EINVAL;
+		}
 		st->dc_test_mode = true;
+	}
 
 	st->interpolation = 1;
 
@@ -902,14 +909,21 @@ out:
 
 
 static const struct of_device_id ad916x_dt_id[] = {
+	{ .compatible = "adi,ad9161" },
 	{ .compatible = "adi,ad9162" },
+	{ .compatible = "adi,ad9163" },
+	{ .compatible = "adi,ad9164" },
 	{ .compatible = "adi,ad9166" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ad916x_dt_id);
 
+/* ad9161/3/4 will use the same chip info as ad9162 */
 static const struct spi_device_id ad9162_id[] = {
+	{ "ad9161", AD9162 },
 	{ "ad9162", AD9162 },
+	{ "ad9163", AD9162 },
+	{ "ad9164", AD9162 },
 	{ "ad9166", AD9166 },
 	{}
 };
