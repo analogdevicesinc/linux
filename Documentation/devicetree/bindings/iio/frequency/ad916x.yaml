@@ -17,7 +17,10 @@ description: |
 properties:
   compatible:
     enum:
+      - adi,ad9161
       - adi,ad9162
+      - adi,ad9163
+      - adi,ad9164
       - adi,ad9166
 
   reg:
@@ -42,7 +45,7 @@ properties:
   adi,dc-test-en:
     description:
       Enables the DC test enable mode which allows the device to act as local
-      oscillator.
+      oscillator. Only supported on ad9162 and ad9166.
     type: boolean
     maxItems: 1
 
