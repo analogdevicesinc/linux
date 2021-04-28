@@ -80,8 +80,8 @@ static int ada4250_set_offset(struct iio_dev *indio_dev,
 {
 	struct ada4250 *dev = iio_priv(indio_dev);
 
-	int i, ret, x[8], vlsb, max_vos, min_vos, voltage_v;
-	u8 offset_raw, range;
+	int i, ret, x[8], max_vos, min_vos, voltage_v, vlsb = 0;
+	u8 offset_raw, range = ADA4250_RANGE1;
 	u32 lsb_coeff[6] = {1333, 2301, 4283, 8289, 16311, 31599};
 
 	if (dev->bias == 0 || dev->bias == 3)
@@ -112,6 +112,9 @@ static int ada4250_set_offset(struct iio_dev *indio_dev,
 			break;
 		}
 	}
+
+	if (vlsb <= 0)
+		return -EINVAL;
 
 	offset_raw = DIV_ROUND_CLOSEST(abs(offset), vlsb);
 
