@@ -278,6 +278,9 @@
 #define AD9081_REF_CLK_FREQ_HZ_MIN 100000000ULL
 #define AD9081_REF_CLK_FREQ_HZ_MAX 2000000000ULL
 
+#define AD9082_ID 0x9082
+#define AD9082_ADC_CLK_FREQ_HZ_MAX 6300000000ULL
+
 #define AD9081_JESD_SER_COUNT 8
 #define AD9081_JESD_DESER_COUNT 8
 
@@ -851,6 +854,7 @@ typedef struct {
 	uint64_t dac_freq_hz; /*!< DAC clock frequency in Hz */
 	uint64_t adc_freq_hz; /*!< ADC clock frequency in Hz */
 	uint8_t dev_rev; /*!< Device revision, 0:r0, 1:r1, 2:r1r, 3:r2 */
+	uint8_t prod_id;
 } adi_ad9081_info_t;
 
 /*!
