@@ -59,6 +59,9 @@ properties:
       - description: Ref AA clock input
       - description: Ref B clock input
       - description: Ref BB clock input
+      - description: Ref M0 clock input
+      - description: Ref M1 clock input
+      - description: Ref M2 clock input
     maxItems: 4
 
   assigned-clocks:
@@ -78,7 +81,63 @@ properties:
   clock-output-names:
     maxItems: 10
 
+  aux-dpll@0:
+    description: |
+      Auxiliary DPLL used for Closed-Loop method of system clock compensation.
+    type: object
+
+    properties:
+      reg:
+        maxItems: 1
+
+      adi,compensation-source:
+        description: |
+          System clock closed loop compensation source.
+          Choose from Ref-A to Ref-BB [0-3] or aux TDCs [4-5].
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1, 2, 3, 4, 5]
+
+      adi,aux-dpll-bw-mhz:
+        description: |
+          Auxiliary DPLL bandwidth.
+        minimum: 100
+        maximum: 2000000
+
+      adi,rate-change-limit:
+        description: |
+          Error compensation rate change limiting expressed in ppb/s. Disabled if property is
+          missing.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [715, 1430, 2860, 5720, 11440, 22880, 45760]
+
+    required:
+      - reg
+      - adi,compensation-source
+      - adi,aux-dpll-bw-mhz
+
 patternProperties:
+  "^aux-tdc-clk@[0-1]$":
+    description: |
+      Represents a Mx pin reference clock input.
+    type: object
+
+    properties:
+      reg:
+        description: |
+          Address of the Auxiliary TDC.
+        maximum: 1
+
+      adi,pin-nr:
+        description: |
+          Pin number to be the source of this TDC.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 0
+        maximum: 6
+
+    required:
+      - reg
+      - adi,pin-nr
+
   "^ref-input-clk@[0-3]$":
     description: |
       Represents a reference clock input.
