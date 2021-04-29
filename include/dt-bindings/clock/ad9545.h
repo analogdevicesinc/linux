@@ -34,6 +34,7 @@
 #define AD9545_CLK_OUT			0
 #define AD9545_CLK_PLL			1
 #define AD9545_CLK_NCO			2
+#define AD9545_CLK_AUX_TDC		3
 
 /* PLL addresses */
 #define AD9545_PLL0			0
@@ -54,6 +55,10 @@
 /* NCO addresses */
 #define AD9545_NCO0			0
 #define AD9545_NCO1			1
+
+/* TDC addresses */
+#define AD9545_CLK_AUX_TDC0		0
+#define AD9545_CLK_AUX_TDC1		1
 
 /* Ex:
  * Output Q0C clock: <&ad9545_clock AD9545_CLK_OUT AD9545_Q0C>;
