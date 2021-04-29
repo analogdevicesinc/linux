@@ -2964,6 +2964,9 @@ gckGALDEVICE_Suspend(
     gctUINT i;
     gceSTATUS status;
     gckHARDWARE hardware;
+#if gcdENABLE_VG
+    gckVGHARDWARE vgHardware;
+#endif
     gceCHIPPOWERSTATE currentState = gcvPOWER_INVALID;
 
     gcmkHEADER_ARG("Device=%p", Device);
@@ -2991,7 +2994,7 @@ gckGALDEVICE_Suspend(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            hardware = Device->kernels[i]->vg->hardware;
+            vgHardware = Device->kernels[i]->vg->hardware;
         }
         else
 #endif
@@ -3003,7 +3006,7 @@ gckGALDEVICE_Suspend(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            gcmkONERROR(gckVGHARDWARE_QueryPowerManagementState(hardware,
+            gcmkONERROR(gckVGHARDWARE_QueryPowerManagementState(vgHardware,
                     &currentState));
         }
         else
@@ -3018,7 +3021,7 @@ gckGALDEVICE_Suspend(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(hardware, State));
+            gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, State));
         }
         else
 #endif
@@ -3088,6 +3091,9 @@ gckGALDEVICE_Resume(
     gctUINT i;
     gceSTATUS status;
     gckHARDWARE hardware;
+#if gcdENABLE_VG
+    gckVGHARDWARE vgHardware;
+#endif
     gceCHIPPOWERSTATE state;
 
     gcmkHEADER_ARG("Device=%p", Device);
@@ -3107,7 +3113,7 @@ gckGALDEVICE_Resume(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            hardware = Device->kernels[i]->vg->hardware;
+            vgHardware = Device->kernels[i]->vg->hardware;
         }
         else
 #endif
@@ -3118,7 +3124,7 @@ gckGALDEVICE_Resume(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
+            gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, gcvPOWER_ON));
         }
         else
 #endif
@@ -3150,7 +3156,7 @@ gckGALDEVICE_Resume(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(hardware, state));
+            gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, state));
         }
         else
 #endif
