@@ -9360,7 +9360,7 @@ gckHARDWARE_QueryIdle(
 
             /* Test if address is inside the last WAIT/LINK sequence. */
             if ((address < Hardware->lastWaitLink) ||
-                (address >= (gctUINT64)Hardware->lastWaitLink + 16))
+                (address > (gctUINT64)Hardware->lastWaitLink + 16))
             {
                 /* FE is not in WAIT/LINK yet. */
                 break;
