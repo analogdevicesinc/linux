@@ -3213,7 +3213,7 @@ seq_printf(s, "%*s%-*s %7d %8d %8d %11lu %10lu %5d %6d %8d\n",
 	   level * 3 + 1, "",
 	   30 - level * 3, c->name,
 	   c->enable_count, c->prepare_count, c->protect_count,
-	   clk_core_get_rate(c), clk_core_get_accuracy(c),
+	   clk_core_get_rate_recalc(c), clk_core_get_accuracy_recalc(c),
 	   clk_core_get_phase(c),
 	   clk_core_get_scaled_duty_cycle(c, 100000),
 	   clk_core_get_nshot(c));
