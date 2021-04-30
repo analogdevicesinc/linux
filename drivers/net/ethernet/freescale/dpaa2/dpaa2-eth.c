@@ -4920,6 +4920,30 @@ static int dpaa2_eth_probe(struct fsl_mc_device *dpni_dev)
 	if (err)
 		goto err_bind;
 
+	/* Setting (creating a CGID and assigning it on a frame queue that does
+	 * not have a congestion group associated  or modifying
+	 * an existing CGID on a frame queue to a different CGID) a CGID on a
+	 * frame queue that is in service(has frames in it),
+	 * will cause the byte/frame counter of that CGR to become corrupted.
+	 *
+	 * Below is the detailed solution and the impact if it is not applied
+	 * precisely.
+	 *
+	 * Enable tail drop at probe time to prevent instantaneous counter
+	 * of a congestion group to be 0 while traffic might be in flight on
+	 * the ingress queues. The instantaneous counter will be
+	 * decremented by the number of frames that are dequeued from the ingress
+	 * queue, once the interface is up. Because its value is 0,
+	 * this subtraction yields  an invalid overflow  value.(7FFFFFFFFF)
+	 * The outcome will be greater than
+	 * any configured value for the tail drop threshold, for any queue in the
+	 * group;
+	 * as a consequence, the group will always discard frames and this will
+	 * trigger a situation in which all the frames received on a queue that
+	 * belongs to the congestion group, are discarded continuously.
+	 */
+	dpaa2_eth_set_rx_taildrop(priv, false, priv->pfc_enabled);
+
 	/* Add a NAPI context for each channel */
 	dpaa2_eth_add_ch_napi(priv);
 
