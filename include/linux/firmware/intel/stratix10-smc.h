@@ -620,4 +620,87 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_GET_PROVISION_DATA \
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_PROVISION_DATA)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_PSGSIGMA_TEARDOWN
+ * Sync call to tear down all previous black key provision sessions and to
+ * delete keys assicated with those sessions
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_PSGSIGMA_TEARDOWN
+ * a1-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_ERROR or
+ *    INTEL_SIP_SMC_STATUS_REJECTED
+ * a1 mailbox error if a0 is INTEL_SIP_SMC_STATUS_ERROR,
+ *    not used if a0 is INTEL_SIP_SMC_STATUS_OK or
+ *    INTEL_SIP_SMC_STATUS_REJECTED
+ * a2-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_PSGSIGMA_TEARDOWN 100
+#define INTEL_SIP_SMC_FCS_PSGSIGMA_TEARDOWN \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_PSGSIGMA_TEARDOWN)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_CHIP_ID
+ * Sync call to get the device ID
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_CHIP_ID
+ * a1-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_ERROR or
+ *    INTEL_SIP_SMC_STATUS_REJECTED
+ * a1 mailbox error if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 retrieved chipID value low 32 bits
+ * a3 retrieved chipID value high 32 bits
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_CHIP_ID 101
+#define INTEL_SIP_SMC_FCS_CHIP_ID \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_CHIP_ID)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ATTESTATION_SUBKEY
+ * Sync call to the device attestation subkey
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ATTESTATION_SUBKEY
+ * a1 physical address of subkey command data
+ * a2 subkey command data size
+ * a3 physical address of to be filled subkey response data
+ * a4 subkey response data size
+ * a5-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, or INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox error if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of the filled subkey response data
+ * a3 size of the filled subkey response dat
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ATTESTATION_SUBKEY 102
+#define INTEL_SIP_SMC_FCS_ATTESTATION_SUBKEY \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ATTESTATION_SUBKEY)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ATTESTATION_MEASUREMENTS
+ * Async call to get device attestation measurements
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ATTESTATION_MEASUREMENTS
+ * a1 physical address of measurement command data
+ * a2 measurement command data size
+ * a3 physical address of to be filled measurement response data
+ * a4 measurement response data size
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, or INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox error if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of the filled subkey measurement data
+ * a3 size of the filled subkey measurement data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ATTESTATION_MEASUREMENTS 103
+#define INTEL_SIP_SMC_FCS_ATTESTATION_MEASUREMENTS \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ATTESTATION_MEASUREMENTS)
+
 #endif

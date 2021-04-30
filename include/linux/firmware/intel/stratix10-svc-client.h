@@ -146,6 +146,22 @@ struct stratix10_svc_chan;
  *
  * @COMMAND_FCS_RANDOM_NUMBER_GEN: generate a random number, return status
  * is SVC_STATUS_OK, SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_PSGSIGMA_TEARDOWN: tear down all previous black key
+ * provision sessions and delete keys assicated with those sessions,
+ * return status is SVC_STATUS_SUBMITTED or SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_GET_CHIP_ID: get the device's chip ID, return status is
+ * SVC_STATUS_SUBMITTED or SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_ATTESTATION_SUBKEY: get device's attestation subkey,
+ * return status is SVC_STATUS_SUBMITTED or SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_ATTESTATION_MEASUREMENTS: to get device's attestation
+ * measurements, return status is SVC_STATUS_SUBMITTED or SVC_STATUS_ERROR
+ *
+ * @COMMAND_POLL_SERVICE_STATUS: poll if the service request is complete,
+ * return statis is SVC_STATUS_OK, SVC_STATUS_ERROR or SVC_STATUS_BUSY
  */
 enum stratix10_svc_command_code {
 	/* for FPGA */
@@ -170,6 +186,11 @@ enum stratix10_svc_command_code {
 	COMMAND_FCS_DATA_ENCRYPTION,
 	COMMAND_FCS_DATA_DECRYPTION,
 	COMMAND_FCS_RANDOM_NUMBER_GEN,
+	/* for Attestation */
+	COMMAND_FCS_PSGSIGMA_TEARDOWN = 30,
+	COMMAND_FCS_GET_CHIP_ID,
+	COMMAND_FCS_ATTESTATION_SUBKEY,
+	COMMAND_FCS_ATTESTATION_MEASUREMENTS,
 	/* for general status poll */
 	COMMAND_POLL_SERVICE_STATUS = 40,
 	/* for generic mailbox send command */
