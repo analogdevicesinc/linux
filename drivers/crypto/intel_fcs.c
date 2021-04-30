@@ -82,17 +82,17 @@ static void fcs_vab_callback(struct stratix10_svc_client *client,
 {
 	struct intel_fcs_priv *priv = client->priv;
 
-	priv->status = 0;
-
-	if (data->status == BIT(SVC_STATUS_INVALID_PARAM)) {
-		priv->status = -EINVAL;
-		dev_warn(client->dev, "rejected, invalid param\n");
-	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+	if (data->status == BIT(SVC_STATUS_ERROR)) {
 		priv->status = *((unsigned int *)data->kaddr1);
 		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
 	} else if (data->status == BIT(SVC_STATUS_BUSY)) {
 		priv->status = -ETIMEDOUT;
 		dev_err(client->dev, "timeout to get completed status\n");
+	} else if (data->status == BIT(SVC_STATUS_OK)) {
+		priv->status = 0;
+	} else {
+		priv->status = -EINVAL;
+		dev_err(client->dev, "rejected, invalid param\n");
 	}
 
 	complete(&priv->completion);
