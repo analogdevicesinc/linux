@@ -1587,19 +1587,14 @@ static int gc_clk_write(const char __user *buf, size_t count, void* data)
     size_t ret;
     char _buf[100];
 
-    memset((void*)_buf, 0, 100);
-
-    if (count > 100)
-    {
-        printk("Error: input buffer too large\n");
-    }
-
+    count = min_t(size_t, count, (sizeof(_buf)-1));
     ret = copy_from_user(_buf, buf, count);
     if (ret != 0)
     {
         printk("Error: lost data: %d\n", (int)ret);
-        return ret;
+        return -EFAULT;
     }
+    _buf[count] = 0;
 
     _set_clk(_buf);
 
