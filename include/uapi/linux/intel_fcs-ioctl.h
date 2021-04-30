@@ -115,6 +115,64 @@ struct fcs_random_number_gen {
 };
 
 /**
+ * struct fcs_psgsigma_teardown
+ * @teardown
+ */
+struct fcs_psgsigma_teardown {
+	bool teardown;
+};
+
+/**
+ * struct fcs_attestation_chipid
+ * @chip_id_low: device chip ID lower 32
+ * @chip_id_high: device chip ID high 32
+ */
+struct fcs_attestation_chipid {
+	uint32_t chip_id_low;
+	uint32_t chip_id_high;
+};
+
+/**
+ * struct intel_fcs_attestation_resv_word - attestation reserve word
+ * @resv_word: a reserve word required by firmware
+ */
+struct intel_fcs_attestation_resv_word {
+	uint32_t resv_word;
+};
+
+/**
+ * struct fcs_attestation_subkey
+ * @resv: reserve word
+ * @cmd_data: command data
+ * @cmd_data_sz: command data size
+ * @rsp_data: response data
+ * @rsp_data_sz: response data size
+ */
+struct fcs_attestation_subkey {
+	struct intel_fcs_attestation_resv_word resv;
+	char *cmd_data;
+	uint32_t cmd_data_sz;
+	char *rsp_data;
+	uint32_t rsp_data_sz;
+};
+
+/**
+ * struct fcs_attestation_measuerments
+ * @resv: reserve word
+ * @cmd_data: command data
+ * @cmd_data_sz: command data size
+ * @rsp_data: response data
+ * @rsp_data_sz: response data size
+ */
+struct fcs_attestation_measuerments {
+	struct intel_fcs_attestation_resv_word resv;
+	char *cmd_data;
+	uint32_t cmd_data_sz;
+	char *rsp_data;
+	uint32_t rsp_data_sz;
+};
+
+/**
  * struct intel_fcs_dev_ioct: common structure passed to Linux
  *	kernel driver for all commands.
  * @status: Used for the return code.
@@ -142,6 +200,10 @@ struct intel_fcs_dev_ioctl {
 		struct fcs_data_encryption	d_encryption;
 		struct fcs_data_decryption	d_decryption;
 		struct fcs_random_number_gen	rn_gen;
+		struct fcs_psgsigma_teardown	tdown;
+		struct fcs_attestation_chipid	c_id;
+		struct fcs_attestation_subkey	subkey;
+		struct fcs_attestation_measuerments	measurement;
 	} com_paras;
 };
 
@@ -175,7 +237,11 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_GET_PROVISION_DATA_CMD = 0x7B,
 	INTEL_FCS_DEV_DATA_ENCRYPTION_CMD = 0x7E,
 	INTEL_FCS_DEV_DATA_DECRYPTION_CMD,
-	INTEL_FCS_DEV_RANDOM_NUMBER_GEN_CMD
+	INTEL_FCS_DEV_RANDOM_NUMBER_GEN_CMD,
+	INTEL_FCS_DEV_PSGSIGMA_TEARDOWN_CMD = 0x88,
+	INTEL_FCS_DEV_CHIP_ID_CMD,
+	INTEL_FCS_DEV_ATTESTATION_SUBKEY_CMD,
+	INTEL_FCS_DEV_ATTESTATION_MEASUREMENT_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -205,5 +271,21 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_RANDOM_NUMBER_GEN \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_RANDOM_NUMBER_GEN_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_PSGSIGMA_TEARDOWN \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_PSGSIGMA_TEARDOWN_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CHIP_ID \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CHIP_ID_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_ATTESTATION_SUBKEY \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_ATTESTATION_SUBKEY_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_ATTESTATION_MEASUREMENT \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_ATTESTATION_MEASUREMENT_CMD, struct intel_fcs_dev_ioctl)
 #endif
 

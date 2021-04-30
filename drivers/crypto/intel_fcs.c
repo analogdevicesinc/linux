@@ -26,12 +26,18 @@
 #define RANDOM_NUMBER_SIZE	32
 #define FILE_NAME_SIZE		32
 #define PS_BUF_SIZE		64
-#define INVALID_STATUS		0xff
+#define INVALID_STATUS		0xffffffff
+#define INVALID_CID		0xffffffff
 
 #define DEC_MIN_SZ		72
 #define DEC_MAX_SZ		32712
 #define ENC_MIN_SZ		128
 #define ENC_MAX_SZ		32768
+
+#define SUBKEY_CMD_MAX_SZ	4092
+#define SUBKEY_RSP_MAX_SZ	820
+#define MEASUREMENT_CMD_MAX_SZ	4092
+#define MEASUREMENT_RSP_MAX_SZ	4092
 
 
 #define FCS_REQUEST_TIMEOUT (msecs_to_jiffies(SVC_FCS_REQUEST_TIMEOUT_MS))
@@ -49,6 +55,8 @@ struct intel_fcs_priv {
 	unsigned int status;
 	void *kbuf;
 	unsigned int size;
+	unsigned int cid_low;
+	unsigned int cid_high;
 };
 
 static void fcs_data_callback(struct stratix10_svc_client *client,
@@ -93,6 +101,42 @@ static void fcs_vab_callback(struct stratix10_svc_client *client,
 	} else {
 		priv->status = -EINVAL;
 		dev_err(client->dev, "rejected, invalid param\n");
+	}
+
+	complete(&priv->completion);
+}
+
+static void fcs_chipid_callback(struct stratix10_svc_client *client,
+				struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	priv->status = data->status;
+	if (data->status == BIT(SVC_STATUS_OK)) {
+		priv->status = 0;
+		priv->cid_low = *((unsigned int *)data->kaddr2);
+		priv->cid_high = *((unsigned int *)data->kaddr3);
+	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
+	}
+
+	complete(&priv->completion);
+}
+
+static void fcs_attestation_callback(struct stratix10_svc_client *client,
+				     struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	priv->status = data->status;
+	if (data->status == BIT(SVC_STATUS_OK)) {
+		priv->status = 0;
+		priv->kbuf = data->kaddr2;
+		priv->size = *((unsigned int *)data->kaddr3);
+	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
 	}
 
 	complete(&priv->completion);
@@ -146,7 +190,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	struct stratix10_svc_client_msg *msg;
 	const struct firmware *fw;
 	char filename[FILE_NAME_SIZE];
-	size_t tsz, datasz;
+	size_t tsz, rsz, datasz;
 	void *s_buf;
 	void *d_buf;
 	void *ps_buf;
@@ -357,6 +401,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		fcs_close_services(priv, s_buf, NULL);
 		break;
+
 	case INTEL_FCS_DEV_GET_PROVISION_DATA:
 		if (copy_from_user(data, (void __user *)arg,
 				   sizeof(*data))) {
@@ -407,6 +452,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		fcs_close_services(priv, s_buf, NULL);
 		break;
+
 	case INTEL_FCS_DEV_DATA_ENCRYPTION:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
 			dev_err(dev, "failure on copy_from_user\n");
@@ -517,6 +563,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		fcs_close_services(priv, ps_buf, NULL);
 		fcs_close_services(priv, s_buf, d_buf);
 		break;
+
 	case INTEL_FCS_DEV_DATA_DECRYPTION:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
 			dev_err(dev, "failure on copy_from_user\n");
@@ -628,6 +675,200 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		fcs_close_services(priv, ps_buf, NULL);
 		fcs_close_services(priv, s_buf, d_buf);
 		break;
+
+	case INTEL_FCS_DEV_PSGSIGMA_TEARDOWN:
+		msg->command = COMMAND_FCS_PSGSIGMA_TEARDOWN;
+		priv->client.receive_cb = fcs_vab_callback;
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+		if (ret) {
+			dev_err(dev, "failed to send the request,ret=%d\n",
+				ret);
+			return -EFAULT;
+		}
+
+		data->status = priv->status;
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+		break;
+
+	case INTEL_FCS_DEV_CHIP_ID:
+		msg->command = COMMAND_FCS_GET_CHIP_ID;
+		priv->client.receive_cb = fcs_chipid_callback;
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+		if (ret) {
+			dev_err(dev, "failed to send the request,ret=%d\n",
+				ret);
+			return -EFAULT;
+		}
+
+		data->status = priv->status;
+		data->com_paras.c_id.chip_id_low = priv->cid_low;
+		data->com_paras.c_id.chip_id_high = priv->cid_high;
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+		break;
+
+	case INTEL_FCS_DEV_ATTESTATION_SUBKEY:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		if (data->com_paras.subkey.cmd_data_sz > SUBKEY_CMD_MAX_SZ) {
+			dev_err(dev, "Invalid subkey CMD size %d\n",
+				data->com_paras.subkey.cmd_data_sz);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.subkey.rsp_data_sz > SUBKEY_RSP_MAX_SZ) {
+			dev_err(dev, "Invalid subkey RSP size %d\n",
+				data->com_paras.subkey.rsp_data_sz);
+			return -EFAULT;
+		}
+
+		/* allocate buffer for both soruce and destination */
+		rsz = sizeof(struct intel_fcs_attestation_resv_word);
+		datasz = data->com_paras.subkey.cmd_data_sz + rsz;
+
+		s_buf = stratix10_svc_allocate_memory(priv->chan,
+						      SUBKEY_CMD_MAX_SZ +
+						      rsz);
+		if (!s_buf) {
+			dev_err(dev, "failed allocate subkey CMD buf\n");
+			return -ENOMEM;
+		}
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan,
+						      SUBKEY_RSP_MAX_SZ);
+		if (!d_buf) {
+			dev_err(dev, "failed allocate subkey RSP buf\n");
+			return -ENOMEM;
+		}
+
+		/* copy the reserve word first then command payload */
+		memcpy(s_buf, &data->com_paras.subkey.resv.resv_word, rsz);
+		memcpy(s_buf + rsz, data->com_paras.subkey.cmd_data,
+		       data->com_paras.subkey.cmd_data_sz);
+
+		msg->command = COMMAND_FCS_ATTESTATION_SUBKEY;
+		msg->payload = s_buf;
+		msg->payload_length = datasz;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = SUBKEY_RSP_MAX_SZ;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  10 * FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			if (priv->size > SUBKEY_RSP_MAX_SZ) {
+				dev_err(dev,
+					"returned size is incorrect\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
+
+			memcpy(data->com_paras.subkey.rsp_data,
+			       priv->kbuf, priv->size);
+			data->com_paras.subkey.rsp_data_sz = priv->size;
+			data->status = priv->status;
+
+		} else {
+			data->com_paras.subkey.rsp_data = NULL;
+			data->com_paras.subkey.rsp_data_sz = 0;
+			data->status = priv->status;
+		}
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			return -EFAULT;
+		}
+
+		fcs_close_services(priv, s_buf, d_buf);
+		break;
+
+	case INTEL_FCS_DEV_ATTESTATION_MEASUREMENT:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		if (data->com_paras.measurement.cmd_data_sz > MEASUREMENT_CMD_MAX_SZ) {
+			dev_err(dev, "Invalid measurement CMD size %d\n",
+				data->com_paras.measurement.cmd_data_sz);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.measurement.rsp_data_sz > MEASUREMENT_RSP_MAX_SZ) {
+			dev_err(dev, "Invalid measurement RSP size %d\n",
+				data->com_paras.measurement.rsp_data_sz);
+			return -EFAULT;
+		}
+
+		/* allocate buffer for both soruce and destination */
+		rsz = sizeof(struct intel_fcs_attestation_resv_word);
+		datasz = data->com_paras.measurement.cmd_data_sz + rsz;
+
+		s_buf = stratix10_svc_allocate_memory(priv->chan,
+						      MEASUREMENT_CMD_MAX_SZ +
+						      rsz);
+		if (!s_buf) {
+			dev_err(dev, "failed allocate measurement CMD buf\n");
+			return -ENOMEM;
+		}
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan,
+						      MEASUREMENT_RSP_MAX_SZ);
+		if (!d_buf) {
+			dev_err(dev, "failed allocate measurement RSP buf\n");
+			return -ENOMEM;
+		}
+
+		/* copy the reserve word first then command payload */
+		memcpy(s_buf, &data->com_paras.measurement.resv.resv_word, rsz);
+		memcpy(s_buf + rsz, data->com_paras.measurement.cmd_data,
+		       data->com_paras.measurement.cmd_data_sz);
+
+		msg->command = COMMAND_FCS_ATTESTATION_MEASUREMENTS;
+		msg->payload = s_buf;
+		msg->payload_length = datasz;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = MEASUREMENT_RSP_MAX_SZ;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  10 * FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			if (priv->size > MEASUREMENT_RSP_MAX_SZ) {
+				dev_err(dev,
+					"returned size is incorrect\n");
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
+
+			memcpy(data->com_paras.measurement.rsp_data,
+			       priv->kbuf, priv->size);
+			data->com_paras.measurement.rsp_data_sz = priv->size;
+			data->status = priv->status;
+		} else {
+			data->com_paras.measurement.rsp_data = NULL;
+			data->com_paras.measurement.rsp_data_sz = 0;
+			data->status = priv->status;
+		}
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, s_buf, d_buf);
+		break;
+
 	default:
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
 		break;
@@ -671,7 +912,11 @@ static int fcs_driver_probe(struct platform_device *pdev)
 	priv->client.dev = dev;
 	priv->client.receive_cb = NULL;
 	priv->client.priv = priv;
+	priv->kbuf = NULL;
+	priv->size = 0;
 	priv->status = INVALID_STATUS;
+	priv->cid_low = INVALID_CID;
+	priv->cid_high = INVALID_CID;
 
 	mutex_init(&priv->lock);
 	priv->chan = stratix10_svc_request_channel_byname(&priv->client,
