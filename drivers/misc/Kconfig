@@ -50,6 +50,17 @@ config AD525X_DPOT_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad525x_dpot-spi.
 
+config ADI_AXI_DATA_OFFLOAD
+	bool "support Analog Devices Data Offload Engine"
+	depends on HAS_IOMEM
+	depends on OF
+	help
+	  The data offload engine is effectively just a stream FIFO with
+	  some extra configurability.
+
+	  This option is usually not enabled manually but rather by other
+	  drivers that use the data offload engine to manage DMA transfers.
+
 config ATMEL_TCLIB
 	bool "Atmel AT32/AT91 Timer/Counter Library"
 	depends on ARCH_AT91
