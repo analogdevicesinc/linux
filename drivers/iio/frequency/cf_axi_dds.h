@@ -292,6 +292,7 @@ int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 		       int channel, enum dds_data_select sel);
 void cf_axi_dds_start_sync(struct cf_axi_dds_state *st);
 int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable);
+int cf_axi_dds_pl_ddr_fifo_ctrl_oneshot(struct cf_axi_dds_state *st, bool enable);
 
 /*
  * IO accessors
