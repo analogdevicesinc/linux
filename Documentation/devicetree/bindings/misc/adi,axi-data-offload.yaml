@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright 2021 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/trivial-devices.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADI AXI Data Offload Engine
+
+description: |
+  Bindings for the Data Offload Engine, which is part of the Analog Devices hdl reference designs.
+  For more information see the wiki: https://wiki.analog.com/resources/fpga/docs/data_offload
+
+maintainers:
+  - David Winter <david.winter@analog.com>
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - adi,axi-data-offload-1.0.a
+
+  reg:
+    maxItems: 1
+
+  adi,transfer-length:
+    description: |
+      In cases where the data source does not indicate packet boundaries, which will usually be
+      the case with RX streams coming from an ADC, transfer-length can be used to override the
+      default behavior of completely filling up the datastore before any output is produced.
+      A value of zero indicates that all available storage should be used. Values MUST be
+      divisble by 64!
+      Unit is bytes
+    $ref: /schemas/types.yaml#/definitions/uint64
+    default: 0
+    minimum: 0
+    maximum: 4294967296
+
+
+  adi,sync-config:
+    description: |
+      The synchronization mode determines which triggering mechanism will be used. For the RX
+      path the trigger determines when the input side will start accepting samples, while for
+      a TX configuration the offload engine will always store (until full), but only forward once
+      triggered. Supported modes are: Automatic (0), Hardware triggering (1), Software
+      triggering (2).
+      Note, for hardware that includes a TDD engine that is controlled by a kernel driver, this
+      value may also be overridden by the driver.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2]
+    default: 0
+
+  adi,bringup:
+    description: |
+      If this property is present, the resetn register will be forced high. In most cases this
+      will be inconsequential, because the default value of the AUTO_BRINGUP synthesis parameter
+      will have the same effect, thus only if you are running a custom hardware configuration
+      that does not automatically come out of reset, should this option be used.
+    type: boolean
+
+  adi,bypass:
+    description: |
+      Sets the data_offload to bypass mode, effectively turning it into a small AXIS CDC fifo.
+      This option will be overridden by the cf_axi_dds driver, and therefore should only be used
+      in hardware configurations where that driver is not used to control the dma and data offload.
+    type: boolean
+
+  adi,oneshot:
+    description: |
+      Sets the data_offload to oneshot mode, while the default behavior would be cyclic operation.
+      Like adi,bypass, in most hardware configurations this value will also be overridden by
+      other drivers at runtime.
+    type: boolean
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    axi_data_offload_tx: axi-data-offload-0@9c440000 {
+            compatible = "adi,axi-data-offload-1.0.a";
+            reg = <0x9c440000 0x10000>;
+            adi,bringup;
+            adi,oneshot;
+            adi,bypass;
+            adi,sync-config = <2>;
+            adi,transfer-length = /bits/ 64 <0x10000>;
+    };
+
+
+...
