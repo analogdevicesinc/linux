@@ -76,6 +76,7 @@
 			clocks = <&trx0_ad9081 1>;
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx0_ad9081>;
+			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 			//adi,axi-pl-fifo-enable;
 
 			jesd204-device;
@@ -161,6 +162,16 @@
 		axi_sysid_0: axi-sysid-0@85000000 {
 			compatible = "adi,axi-sysid-1.00.a";
 			reg = <0x85000000 0x10000>;
+		};
+
+		axi_data_offload_tx: axi-data-offload-0@9c440000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x9c440000 0x10000>;
+			// adi,bringup;
+			// adi,oneshot;
+			// adi,bypass;
+			// adi,sync-config = <2>;
+			// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
 		};
 	};
 };
