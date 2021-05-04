@@ -40,6 +40,7 @@
 
 #include "cf_axi_dds.h"
 #include "ad9122.h"
+#include "../../misc/adi-axi-data-offload.h"
 
 static const unsigned int interpolation_factors_available[] = {1, 8};
 
@@ -80,10 +81,10 @@ static const char * const dds_extend_names[] = {
 
 struct cf_axi_dds_state {
 	struct device			*dev_spi;
+	struct axi_data_offload_state	*data_offload;
 	struct clk			*clk;
 	struct cf_axi_dds_chip_info	*chip_info;
 	struct gpio_desc		*plddrbypass_gpio;
-	struct gpio_desc		*pl_single_shot_output_gpio;
 	struct gpio_desc		*interpolation_gpio;
 	struct jesd204_dev 		*jdev;
 
@@ -91,8 +92,8 @@ struct cf_axi_dds_state {
 	bool				dp_disable;
 	bool				enable;
 	bool				pl_dma_fifo_en;
-	bool				pl_dma_fifo_single_shot;
-	enum fifo_ctrl			gpio_dma_fifo_ctrl;
+	enum fifo_ctrl			dma_fifo_ctrl_bypass;
+	bool				dma_fifo_ctrl_oneshot;
 
 	struct iio_info			iio_info;
 	size_t				regs_size;
@@ -211,12 +212,21 @@ static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned int val, int *r_val,
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
-static int cf_axi_dds_pl_ddr_fifo_ctrl_single_shot(struct cf_axi_dds_state *st, bool enable)
+int cf_axi_dds_pl_ddr_fifo_ctrl_oneshot(struct cf_axi_dds_state *st, bool enable)
 {
-	if (!st->pl_single_shot_output_gpio)
+	int ret;
+
+	if (!st->data_offload)
 		return -ENODEV;
 
-	return gpiod_direction_output(st->pl_single_shot_output_gpio, enable);
+	if (st->dma_fifo_ctrl_oneshot == enable)
+		return 0;
+
+	ret = axi_data_offload_ctrl_oneshot(st->data_offload, enable);
+	if (!ret)
+		st->dma_fifo_ctrl_oneshot = enable;
+
+	return ret;
 }
 
 int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable)
@@ -224,17 +234,29 @@ int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable)
 	enum fifo_ctrl mode;
 	int ret;
 
+	mode = (enable ? FIFO_ENABLE : FIFO_DISABLE);
+
+	if (st->data_offload) {
+		if (st->dma_fifo_ctrl_bypass == mode)
+			return 0;
+
+		ret = axi_data_offload_ctrl_bypass(st->data_offload, !enable);
+
+		if (!ret)
+			st->dma_fifo_ctrl_bypass = mode;
+
+		return ret;
+	}
+
 	if (!st->plddrbypass_gpio)
 		return -ENODEV;
 
-	mode = (enable ? FIFO_ENABLE : FIFO_DISABLE);
-
-	if (st->gpio_dma_fifo_ctrl == mode)
+	if (st->dma_fifo_ctrl_bypass == mode)
 		return 0;
 
 	ret = gpiod_direction_output(st->plddrbypass_gpio, !enable);
 	if (ret == 0)
-		st->gpio_dma_fifo_ctrl = mode;
+		st->dma_fifo_ctrl_bypass = mode;
 
 	return ret;
 }
@@ -1526,31 +1548,6 @@ DEFINE_DEBUGFS_ATTRIBUTE(cf_axi_dds_debugfs_fifo_en_fops,
 			 cf_axi_dds_debugfs_fifo_en_set,
 			 "%llu\n");
 
-static int cf_axi_dds_debugfs_single_shot_set(void *data, u64 val)
-{
-	struct iio_dev *indio_dev = data;
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-
-	st->pl_dma_fifo_single_shot = !!val;
-
-	return cf_axi_dds_pl_ddr_fifo_ctrl_single_shot(st, st->pl_dma_fifo_single_shot);
-}
-
-static int cf_axi_dds_debugfs_single_shot_get(void *data, u64 *val)
-{
-	struct iio_dev *indio_dev = data;
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-
-	*val = st->pl_dma_fifo_single_shot;
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(cf_axi_dds_debugfs_single_shot_fops,
-			 cf_axi_dds_debugfs_single_shot_get,
-			 cf_axi_dds_debugfs_single_shot_set,
-			 "%llu\n");
-
 static int dds_converter_match(struct device *dev, const void *data)
 {
 	return dev->driver && dev->of_node == data;
@@ -2033,6 +2030,10 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	if (IS_ERR(st->jdev))
 		return PTR_ERR(st->jdev);
 
+	st->data_offload = devm_axi_data_offload_get_optional(&pdev->dev);
+	if (IS_ERR(st->data_offload))
+		return PTR_ERR(st->data_offload);
+
 	if (info->standalone) {
 		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
 		if (IS_ERR(st->clk))
@@ -2266,18 +2267,11 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	st->plddrbypass_gpio = devm_gpiod_get_optional(&pdev->dev,
 			"plddrbypass", GPIOD_ASIS);
-	if (st->plddrbypass_gpio && iio_get_debugfs_dentry(indio_dev))
+	if ((st->plddrbypass_gpio || st->data_offload)
+		&& iio_get_debugfs_dentry(indio_dev))
 		debugfs_create_file_unsafe("pl_ddr_fifo_enable", 0644,
 				iio_get_debugfs_dentry(indio_dev),
 				indio_dev, &cf_axi_dds_debugfs_fifo_en_fops);
-
-	st->pl_single_shot_output_gpio = devm_gpiod_get_optional(&pdev->dev,
-			"single-shot-output", GPIOD_ASIS);
-	if (st->pl_single_shot_output_gpio && iio_get_debugfs_dentry(indio_dev)) {
-		debugfs_create_file_unsafe("pl_single_shot_output", 0644,
-				iio_get_debugfs_dentry(indio_dev),
-				indio_dev, &cf_axi_dds_debugfs_single_shot_fops);
-	}
 
 	platform_set_drvdata(pdev, indio_dev);
 
