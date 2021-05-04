@@ -25,14 +25,19 @@ static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
 	struct cf_axi_dds_state *st = iio_priv(queue->driver_data);
+	bool enable_fifo = false;
+	bool oneshot = true;
 
 	if (block->block.bytes_used) {
-		bool enable_fifo = false;
-
-		if (cf_axi_dds_dma_fifo_en(st) &&
-			(block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC)) {
-			block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
+		if (cf_axi_dds_dma_fifo_en(st)) {
 			enable_fifo = true;
+
+			if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
+				block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
+				oneshot = false;
+			}
+
+			cf_axi_dds_pl_ddr_fifo_ctrl_oneshot(st, oneshot);
 		}
 
 		cf_axi_dds_pl_ddr_fifo_ctrl(st, enable_fifo);
