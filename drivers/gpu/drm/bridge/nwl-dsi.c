@@ -818,6 +818,14 @@ nwl_dsi_bridge_atomic_post_disable(struct drm_bridge *bridge,
 	struct nwl_dsi *dsi = bridge_to_dsi(bridge);
 	int ret;
 
+	/*
+	 * Call panel_bridge's post_disable() callback(if any) so that
+	 * it may send any MIPI DSI command before this MIPI DSI controller
+	 * and it's PHY are disabled.
+	 */
+	if (dsi->panel_bridge->funcs->post_disable)
+		dsi->panel_bridge->funcs->post_disable(dsi->panel_bridge);
+
 	nwl_dsi_disable(dsi);
 
 	ret = dsi->pdata->dpi_reset(dsi, true);
