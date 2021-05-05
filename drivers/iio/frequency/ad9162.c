@@ -465,17 +465,6 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static int ad9162_prepare(struct cf_axi_converter *conv)
-{
-	struct cf_axi_dds_state *st = iio_priv(conv->indio_dev);
-	struct ad9162_state *ad9162 = to_ad916x_state(conv);
-
-	/* FIXME This needs documenation */
-	dds_write(st, 0x428, (ad9162->complex_mode ? 0x1 : 0x0) |
-		  (ad9162->iq_swap ? 0x2 : 0x0));
-	return 0;
-}
-
 static const struct regmap_config ad9162_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
@@ -566,7 +555,7 @@ static ssize_t ad9162_attr_show(struct device *dev,
 }
 
 
-static IIO_DEVICE_ATTR(out_altvoltage2_frequency_nco,
+static IIO_DEVICE_ATTR(out_altvoltage4_frequency_nco,
 		       0644,
 		       ad9162_attr_show,
 		       ad9162_attr_store,
@@ -580,7 +569,7 @@ static IIO_DEVICE_ATTR(out_voltage_fir85_enable,
 		       1);
 
 static struct attribute *ad9162_attributes[] = {
-	&iio_dev_attr_out_altvoltage2_frequency_nco.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage4_frequency_nco.dev_attr.attr,
 	&iio_dev_attr_out_voltage_fir85_enable.dev_attr.attr,
 	NULL,
 };
@@ -893,7 +882,6 @@ static int ad9162_probe(struct spi_device *spi)
 
 	conv->write = ad9162_write;
 	conv->read = ad9162_read;
-	conv->setup = ad9162_prepare;
 
 	conv->get_data_clk = ad9162_get_data_clk;
 	conv->write_raw = ad9162_write_raw;
