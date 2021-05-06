@@ -88,6 +88,10 @@
 		dma-names = "tx";
 		spibus-connected = <&dac0_ad9162>;
 		//adi,axi-pl-fifo-enable;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9162_jesd 0 0>;
 	};
 
 	axi_ad9162_jesd: axi-jesd204-tx@44a90000 {
@@ -99,15 +103,12 @@
 		clocks = <&clkc 16>, <&tx_adxcvr 1>, <&tx_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-		adi,octets-per-frame = <1>;
-		adi,frames-per-multiframe = <32>;
-		adi,converter-resolution = <16>;
-		adi,bits-per-sample = <16>;
-		adi,converters-per-device = <2>;
-		adi,subclass = <0>;
-
 		#clock-cells = <0>;
 		clock-output-names = "jesd_dac_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&tx_adxcvr 0 0>;
 	};
 
 	axi_ad9625_core: axi-ad9625-hpc@44a10000 {
@@ -161,6 +162,9 @@
 
 		adi,sys-clk-select = <XCVR_QPLL>;
 		adi,out-clk-select = <XCVR_OUTCLK_PMA>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
 	};
 };
 
