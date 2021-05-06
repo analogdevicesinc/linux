@@ -42,12 +42,93 @@ properties:
     minItems: 1
     maxItems: 3
 
+  jesd204-device:
+    description: Device is added to the jesd204-fsm framework
+    type: boolean
+
+  '#jesd204-cells':
+    const: 2
+
+  jesd204-top-device:
+    const: 0
+
+  jesd204-link-ids:
+    const: 0
+
+  jesd204-inputs:
+    description: JESD204-fsm devices phandles and specifiers (used to build the link topology)
+    $ref: "/schemas/types.yaml#/definitions/phandle"
+
   adi,dc-test-en:
     description:
       Enables the DC test enable mode which allows the device to act as local
       oscillator. Only supported on ad9162 and ad9166.
     type: boolean
     maxItems: 1
+
+  adi,interpolation:
+    description: Digital datapath interpolation config
+      1 - Bypass (AD9162 only)
+      2 - Interpolation by 2
+      3 - Interpolation by 3
+      4 - Interpolation by 4
+      6 - Interpolation by 6
+      8 - Interpolation by 8
+      12 - Interpolation by 12
+      16 - Interpolation by 16
+      24 - Interpolation by 24
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2, 3, 4, 6, 8, 12, 16, 24]
+
+  adi,octets-per-frame:
+    description: Number of octets per frame (F)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2, 4]
+
+  adi,frames-per-multiframe:
+    description: Number of frames per multi-frame (K)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    const: 32
+
+  adi,converter-resolution:
+    description: Converter resolution (N)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    const: 16
+
+  adi,bits-per-sample:
+    description: Number of bits per sample (N')
+    $ref: /schemas/types.yaml#/definitions/uint32
+    const: 16
+
+  adi,converters-per-device:
+    description: Number of converter per device (M)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2]
+
+  adi,control-bits-per-sample:
+    description: Number of control bits per conversion sample (CS)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    const: 0
+
+  adi,lanes-per-device:
+    description: Number of lanes per link (L)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2, 3, 4, 6, 8]
+
+  adi,samples-per-converter-per-frame:
+    description: Number of lsamples per converter per frame (S)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2, 3, 4]
+
+  adi,subclass:
+    description: The JESD204B sublcass
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  adi,version:
+    description: The JESD204 version
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
 
   adi,standalone-probe:
     description:
@@ -111,6 +192,25 @@ examples:
 
                 adi,full-scale-current-mircoamp = <40000>;
                 dac_clk-clock-scales = <1 10>;
+
+                jesd204-device;
+                #jesd204-cells = <2>;
+                jesd204-top-device = <0>; /* This is the TOP device */
+                jesd204-link-ids = <0>;
+                jesd204-inputs = <&axi_ad9162_core 0 0>;
+
+                adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+                adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
+                adi,converters-per-device = <2>;	/* JESD M */
+                adi,octets-per-frame = <1>;		/* JESD F */
+                adi,frames-per-multiframe = <32>;	/* JESD K */
+                adi,converter-resolution = <16>;	/* JESD N */
+                adi,bits-per-sample = <16>;		/* JESD NP' */
+                adi,control-bits-per-sample = <0>;	/* JESD CS */
+                adi,lanes-per-device = <8>;		/* JESD L */
+                adi,samples-per-converter-per-frame = <2>; /* JESD S */
+
+                adi,interpolation = <2>;
         };
     };
 ...
