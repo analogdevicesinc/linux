@@ -1647,7 +1647,7 @@ static int ioctl_enum_frameintervals(struct v4l2_int_device *s,
 {
 	int i, j, count;
 
-	if (fival->index < 0 || fival->index > ov5640_mode_MAX)
+	if (fival->index > ov5640_mode_MAX)
 		return -EINVAL;
 
 	if (fival->width == 0 || fival->height == 0 ||
