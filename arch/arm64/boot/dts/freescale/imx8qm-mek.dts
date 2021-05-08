@@ -1131,8 +1131,8 @@
 		interrupt-open-drain;
 	};
 
-	fxas2100x@20 {
-		compatible = "fsl,fxas2100x";
+	fxas21002c@20 {
+		compatible = "nxp,fxas21002c";
 		reg = <0x20>;
 		interrupt-open-drain;
 	};
