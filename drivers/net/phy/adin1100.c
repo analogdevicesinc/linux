@@ -55,11 +55,15 @@ static __ETHTOOL_DECLARE_LINK_MODE_MASK(phy_adin_t1l_features)	__ro_after_init;
 #define   ADIN_AN_LP_ADV_B10L_TX_LVL_HI_REQ	BIT(12)
 #define   ADIN_AN_LP_ADV_B10S_HD		BIT(11)
 
+#define ADIN_CRSM_SFT_RST			0x8810
+#define   ADIN_CRSM_SFT_RST_EN			BIT(0)
+
 #define ADIN_CRSM_SFT_PD_CNTRL			0x8812
 #define   ADIN_CRSM_SFT_PD_CNTRL_EN		BIT(0)
 
 #define ADIN_CRSM_STAT				0x8818
 #define   ADIN_CRSM_SFT_PD_RDY			BIT(1)
+#define   ADIN_CRSM_SYS_RDY			BIT(0)
 
 #define ADIN_MAC_IF_LOOPBACK			0x803d
 #define   ADIN_MAC_IF_LOOPBACK_EN		BIT(0)
@@ -352,6 +356,31 @@ static int adin_config_init(struct phy_device *phydev)
 	return 0;
 }
 
+static int adin_soft_reset(struct phy_device *phydev)
+{
+	int timeout;
+	int ret;
+
+	ret = phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, ADIN_CRSM_SFT_RST, ADIN_CRSM_SFT_RST_EN);
+	if (ret < 0)
+		return ret;
+
+	timeout = 30;
+	while (timeout >= 0) {
+		ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, ADIN_CRSM_STAT);
+		if (ret < 0)
+			return ret;
+
+		if (ret & ADIN_CRSM_SYS_RDY)
+			return 0;
+
+		usleep_range(10000, 15000);
+		timeout -= 10;
+	}
+
+	return -ETIMEDOUT;
+}
+
 static int adin_probe(struct phy_device *phydev)
 {
 	struct device *dev = &phydev->mdio.dev;
@@ -381,6 +410,7 @@ static struct phy_driver adin_driver[] = {
 		.name			= "ADIN1100",
 		.features		= ADIN_T1L_FEATURES,
 		.match_phy_device	= adin_match_phy_device,
+		.soft_reset		= adin_soft_reset,
 		.probe			= adin_probe,
 		.config_init		= adin_config_init,
 		.config_aneg		= adin_config_aneg,
