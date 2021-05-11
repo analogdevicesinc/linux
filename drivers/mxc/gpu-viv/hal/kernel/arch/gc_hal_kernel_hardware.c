@@ -11932,13 +11932,40 @@ gckHARDWARE_Reset(
     IN gckHARDWARE Hardware
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
+    gctBOOL powerManagement = gcvFALSE;
+    gctBOOL globalAcquired = gcvFALSE;
+    gceCHIPPOWERSTATE statesStored, state;
 
     gcmkHEADER_ARG("Hardware=0x%x", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_OBJECT(Hardware->kernel, gcvOBJ_KERNEL);
+
+    powerManagement = Hardware->options.powerManagement;
+
+    if (powerManagement)
+    {
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(
+        Hardware, gcvFALSE
+        ));
+    }
+
+    gcmkONERROR(gckHARDWARE_QueryPowerState(
+        Hardware, &statesStored
+        ));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(
+        Hardware, gcvPOWER_ON_AUTO
+        ));
+
+    /* Grab the global semaphore. */
+    gcmkONERROR(gckOS_AcquireSemaphore(
+        Hardware->os, Hardware->globalSemaphore
+        ));
+
+    globalAcquired = gcvTRUE;
 
     /* Record context ID in debug register before reset. */
     gcmkONERROR(gckHARDWARE_UpdateContextID(Hardware));
@@ -11970,6 +11997,43 @@ gckHARDWARE_Reset(
         gcmkONERROR(gckWLFE_Execute(Hardware, Hardware->lastWaitLink, 16));
     }
 
+    /* Release the global semaphore. */
+    gcmkONERROR(gckOS_ReleaseSemaphore(
+        Hardware->os, Hardware->globalSemaphore
+        ));
+
+    globalAcquired = gcvFALSE;
+
+    switch(statesStored)
+    {
+    case gcvPOWER_OFF:
+        state = gcvPOWER_OFF_BROADCAST;
+        break;
+    case gcvPOWER_IDLE:
+        state = gcvPOWER_IDLE_BROADCAST;
+        break;
+    case gcvPOWER_SUSPEND:
+        state = gcvPOWER_SUSPEND_BROADCAST;
+        break;
+    case gcvPOWER_ON:
+        state = gcvPOWER_ON_AUTO;
+        break;
+    default:
+        state = statesStored;
+        break;
+    }
+
+    if (powerManagement)
+    {
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(
+            Hardware, gcvTRUE
+            ));
+    }
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(
+        Hardware, state
+        ));
+
     gcmkPRINT("[galcore]: recovery done");
 
     /* Success. */
@@ -11978,6 +12042,14 @@ gckHARDWARE_Reset(
 
 OnError:
     gcmkPRINT("[galcore]: Hardware not reset successfully, give up");
+
+    if (globalAcquired)
+    {
+        /* Release the global semaphore. */
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(
+            Hardware->os, Hardware->globalSemaphore
+            ));
+    }
 
     /* Return the error. */
     gcmkFOOTER();
