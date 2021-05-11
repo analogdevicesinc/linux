@@ -420,6 +420,21 @@ static int adrv9002_chan_to_state_poll(struct adrv9002_rf_phy *phy,
 	return 0;
 }
 
+static bool adrv9002_orx_enabled(const struct adrv9002_rf_phy *phy, const struct adrv9002_chan *c)
+{
+	const struct adrv9002_rx_chan *rx;
+
+	if (c->port == ADI_RX)
+		rx = chan_to_rx(c);
+	else
+		rx = &phy->rx_channels[c->idx];
+
+	if (!rx->orx_gpio)
+		return false;
+
+	return !!gpiod_get_value_cansleep(rx->orx_gpio);
+}
+
 int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
 			      const adi_adrv9001_ChannelState_e state, const bool cache_state)
 {
@@ -429,6 +444,13 @@ int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan 
 	/* nothing to do */
 	if (!chann->enabled)
 		return 0;
+	/*
+	 * if ORx is enabled we are not expected to do any state transition on RX/TX in the
+	 * same channel as that might have the non explicit side effect of breaking the
+	 * capture in the ORx port. Hence, we should protect against that...
+	 */
+	if (adrv9002_orx_enabled(phy, chann))
+		return -EPERM;
 
 	ret = adi_adrv9001_Radio_ChannelEnableMode_Get(phy->adrv9001, chann->port,
 						       chann->number, &mode);
@@ -687,6 +709,9 @@ static int adrv9002_set_ensm_mode(struct iio_dev *indio_dev,
 	if (!chann->enabled) {
 		mutex_unlock(&phy->lock);
 		return -ENODEV;
+	} else if (adrv9002_orx_enabled(phy, chann)) {
+		mutex_unlock(&phy->lock);
+		return -EPERM;
 	}
 	/*
 	 * In TDD, we cannot have TX and RX enabled at the same time on the same
@@ -958,6 +983,13 @@ static int adrv9002_set_port_en_mode(struct iio_dev *indio_dev,
 	if (!chann->enabled) {
 		mutex_unlock(&phy->lock);
 		return -ENODEV;
+	} else if (adrv9002_orx_enabled(phy, chann)) {
+		/*
+		 * Don't allow changing port enable mode if ORx is enabled, because it
+		 * might trigger an ensm state transition which can potentially break ORx
+		 */
+		mutex_unlock(&phy->lock);
+		return -EPERM;
 	}
 
 	ret = adi_adrv9001_Radio_ChannelEnableMode_Set(phy->adrv9001, port,
@@ -1812,6 +1844,44 @@ error:
 	return adrv9002_dev_err(phy);
 }
 
+static bool adrv9002_orx_can_enable(const struct adrv9002_rf_phy *phy,
+				    const struct adrv9002_chan *rx)
+{
+	adi_adrv9001_ChannelState_e state;
+	int ret;
+
+	/* We can't enable ORx if RX is already enabled */
+	ret = adi_adrv9001_Radio_Channel_State_Get(phy->adrv9001, ADI_RX, rx->number, &state);
+	if (ret) {
+		adrv9002_dev_err(phy);
+		return false;
+	}
+
+	if (state == ADI_ADRV9001_CHANNEL_RF_ENABLED) {
+		dev_err(&phy->spi->dev, "RX%d cannot be enabled in order to enable ORx%d\n",
+			rx->number, rx->number);
+		return false;
+	}
+
+	/*
+	 * TX must be enabled in order to enable ORx. We just use the rx object as we are
+	 * interested in the TX on the same channel
+	 */
+	ret = adi_adrv9001_Radio_Channel_State_Get(phy->adrv9001, ADI_TX, rx->number, &state);
+	if (ret) {
+		adrv9002_dev_err(phy);
+		return false;
+	}
+
+	if (state != ADI_ADRV9001_CHANNEL_RF_ENABLED) {
+		dev_err(&phy->spi->dev, "TX%d must be enabled in order to enable ORx%d\n",
+			rx->number, rx->number);
+		return false;
+	}
+
+	return true;
+}
+
 static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 				  struct iio_chan_spec const *chan, int val,
 				  int val2, long mask)
@@ -1875,6 +1945,9 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 			if (!rx->orx_gpio) {
 				mutex_unlock(&phy->lock);
 				return -ENOTSUPP;
+			} else if (val && !adrv9002_orx_can_enable(phy, chann)) {
+				mutex_unlock(&phy->lock);
+				return -EPERM;
 			}
 			gpiod_set_value_cansleep(rx->orx_gpio, !!val);
 		} else {
