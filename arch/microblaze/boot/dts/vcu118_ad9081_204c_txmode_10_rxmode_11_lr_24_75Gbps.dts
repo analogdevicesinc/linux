@@ -10,10 +10,15 @@
  * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
+/*
+ *	Lane Rate = 24.75 Gpbs
+ *	Link Clock = 375 MHz
+ */
+
 #include "vcu118_ad9081.dts"
 
 
-#define HMC7044_FPGA_XCVR_CLKDIV		  12
+#define HMC7044_FPGA_XCVR_CLKDIV		  8
 #define HMC7044_FPGA_LINK_CLKDIV_TX		8
 #define HMC7044_FPGA_LINK_CLKDIV_RX		8
 #define HMC7044_SYSREF_CLKDIV			1024
@@ -21,8 +26,6 @@
 
  /* TX path */
 #define AD9081_DAC_FREQUENCY			12000000000
-#define AD9081_TX_LANERATE_KHZ			24750000
-#define AD9081_TX_LINK_CLK			375000000
 #define AD9081_TX_MAIN_INTERPOLATION		8
 #define AD9081_TX_CHAN_INTERPOLATION		1
 #define AD9081_TX_MAIN_NCO_SHIFT		2800000000
@@ -47,8 +50,6 @@
 
 /* RX path */
 #define AD9081_ADC_FREQUENCY			3000000000
-#define AD9081_RX_LANERATE_KHZ			24750000
-#define AD9081_RX_LINK_CLK		    375000000
 #define AD9081_RX_MAIN_DECIMATION		2
 #define AD9081_RX_CHAN_DECIMATION		1
 #define AD9081_RX_MAIN_NCO_SHIFT		1000000000
@@ -67,37 +68,14 @@
 #define AD9081_RX_JESD_S			1
 #define AD9081_RX_JESD_HD			1
 
-/ {
-	clocks {
-		rx_fixed_linerate: clock@2 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <AD9081_RX_LANERATE_KHZ>;
-			clock-output-names = "rx_lane_clk";
-		};
-
-		tx_fixed_linerate: clock@3 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <AD9081_TX_LANERATE_KHZ>;
-			clock-output-names = "tx_lane_clk";
-		};
-	};
+&axi_ad9081_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_QPLL1>;
+	adi,out-clk-select = <XCVR_REFCLK>;
 };
 
-/delete-node/ &axi_ad9081_adxcvr_rx;
-/delete-node/ &axi_ad9081_adxcvr_tx;
-
-&axi_ad9081_rx_jesd {
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
-	clocks = <&clk_bus_0>, <&hmc7044 8>,  <&rx_fixed_linerate>;
-	jesd204-inputs = <&hmc7044 0 FRAMER_LINK0_RX>; /* omit axi_ad9081_adxcvr_rx */
-};
-
-&axi_ad9081_tx_jesd {
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
-	clocks = <&clk_bus_0>, <&hmc7044 6>, <&tx_fixed_linerate>;
-	jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK0_TX>; /* omit axi_ad9081_adxcvr_tx */
+&axi_ad9081_adxcvr_tx {
+	adi,sys-clk-select = <XCVR_QPLL1>;
+	adi,out-clk-select = <XCVR_REFCLK>;
 };
 
 &rx_dma {
@@ -142,21 +120,21 @@
 		hmc7044_c6: channel@6 {
 			reg = <6>;
 			adi,extended-name = "CORE_CLK_TX";
-			adi,divider = <HMC7044_FPGA_LINK_CLKDIV_TX>;	// 250
+			adi,divider = <HMC7044_FPGA_LINK_CLKDIV_TX>;	// 375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c8: channel@8 {
 			reg = <8>;
 			adi,extended-name = "CORE_CLK_RX";
-			adi,divider = <HMC7044_FPGA_LINK_CLKDIV_RX>;	// 250
+			adi,divider = <HMC7044_FPGA_LINK_CLKDIV_RX>;	// 375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c12: channel@12 {
 			reg = <12>;
 			adi,extended-name = "FPGA_REFCLK";
-			adi,divider = <HMC7044_FPGA_XCVR_CLKDIV>;	// 250
+			adi,divider = <HMC7044_FPGA_XCVR_CLKDIV>;	// 375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 

@@ -10,63 +10,22 @@
  * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
+/*
+ *	Lane Rate = 24.75 Gpbs
+ *	Link Clock = 375 MHz
+ */
+
 #include "vcu118_ad9081.dts"
 
-	/* RX path */
-#define AD9081_RX_LANERATE_KHZ		24750000
-#define AD9081_RX_LINK_CLK		    375000000
-
-	/* TX path */
-#define AD9081_TX_LANERATE_KHZ		24750000
-#define AD9081_TX_LINK_CLK		    375000000
-
-/ {
-	clocks {
-		rx_fixed_linerate: clock@2 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <AD9081_RX_LANERATE_KHZ>;
-			clock-output-names = "rx_lane_clk";
-		};
-
-		tx_fixed_linerate: clock@3 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <AD9081_TX_LANERATE_KHZ>;
-			clock-output-names = "tx_lane_clk";
-		};
-
-		rx_fixed_link_clk: clock@4 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <AD9081_RX_LINK_CLK>;
-			clock-output-names = "rx_link_clk";
-		};
-
-		tx_fixed_link_clk: clock@5 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <AD9081_TX_LINK_CLK>;
-			clock-output-names = "tx_link_clk";
-		};
-	};
+&axi_ad9081_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_QPLL1>;
+	adi,out-clk-select = <XCVR_REFCLK>;
 };
 
-/delete-node/ &axi_ad9081_adxcvr_rx;
-/delete-node/ &axi_ad9081_adxcvr_tx;
-
-&axi_ad9081_rx_jesd {
-	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
-	clocks = <&clk_bus_0>, <&hmc7044 8>, <&rx_fixed_link_clk>, <&rx_fixed_linerate>;
-	jesd204-inputs = <&hmc7044 0 FRAMER_LINK0_RX>; /* omit axi_ad9081_adxcvr_rx */
+&axi_ad9081_adxcvr_tx {
+	adi,sys-clk-select = <XCVR_QPLL1>;
+	adi,out-clk-select = <XCVR_REFCLK>;
 };
-
-&axi_ad9081_tx_jesd {
-	clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
-	clocks = <&clk_bus_0>, <&hmc7044 6>, <&tx_fixed_link_clk>, <&tx_fixed_linerate>;
-	jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK0_TX>; /* omit axi_ad9081_adxcvr_tx */
-};
-
 
 &rx_dma {
 	adi,channels {
