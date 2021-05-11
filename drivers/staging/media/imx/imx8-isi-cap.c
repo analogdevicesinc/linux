@@ -758,7 +758,7 @@ static int mxc_isi_capture_open(struct file *file)
 	}
 	mutex_unlock(&isi_cap->lock);
 
-	if (mxc_isi->m2m_enabled) {
+	if (mxc_isi->m2m_enabled || isi_cap->is_streaming[isi_cap->id]) {
 		dev_err(dev, "ISI channel[%d] is busy\n", isi_cap->id);
 		return ret;
 	}
