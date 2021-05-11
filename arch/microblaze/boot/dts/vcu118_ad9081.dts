@@ -112,8 +112,8 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <14 2>;
 
-		clocks = <&clk_bus_0>, <&hmc7044 8>, <&axi_ad9081_adxcvr_rx 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clocks = <&clk_bus_0>, <&axi_ad9081_adxcvr_rx 1>, <&hmc7044 8>, <&axi_ad9081_adxcvr_rx 0>;
+		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_lane_clk";
@@ -130,8 +130,8 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <15 2>;
 
-		clocks = <&clk_bus_0>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clocks = <&clk_bus_0>, <&axi_ad9081_adxcvr_tx 1>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 0>;
+		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_tx_lane_clk";
