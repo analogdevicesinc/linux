@@ -1552,6 +1552,11 @@
 		status = "disabled";
 	};
 
+	vpu_v4l2: vpu_v4l2 {
+		compatible = "nxp,imx8m-vsiv4l2";
+		status = "disabled";
+	};
+
         gpu: gpu@38000000 {
 		compatible ="fsl,imx8mm-gpu", "fsl,imx6q-gpu";
 		reg = <0x0 0x38000000 0x0 0x8000>, <0x0 0x38008000 0x0 0x8000>,
