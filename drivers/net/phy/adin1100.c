@@ -20,9 +20,6 @@ static const int phy_10_features_array[] = {
 	ETHTOOL_LINK_MODE_10baseT_Full_BIT,
 };
 
-static __ETHTOOL_DECLARE_LINK_MODE_MASK(phy_adin_t1l_features)	__ro_after_init;
-#define ADIN_T1L_FEATURES	((unsigned long *)&phy_adin_t1l_features)
-
 #define ADIN_B10L_PCS_CNTRL			0x08e6
 #define   ADIN_PCS_CNTRL_B10L_LB_PCS_EN		BIT(14)
 
@@ -381,6 +378,17 @@ static int adin_soft_reset(struct phy_device *phydev)
 	return -ETIMEDOUT;
 }
 
+static int adin_get_features(struct phy_device *phydev)
+{
+	linkmode_set_bit_array(phy_basic_ports_array, ARRAY_SIZE(phy_basic_ports_array),
+			       phydev->supported);
+
+	linkmode_set_bit_array(phy_10_features_array, ARRAY_SIZE(phy_10_features_array),
+			       phydev->supported);
+
+	return 0;
+}
+
 static int adin_probe(struct phy_device *phydev)
 {
 	struct device *dev = &phydev->mdio.dev;
@@ -392,15 +400,6 @@ static int adin_probe(struct phy_device *phydev)
 
 	phydev->priv = priv;
 
-	/* FIXME: Will be called on each probe, but should work for now */
-	linkmode_set_bit_array(phy_basic_ports_array,
-			       ARRAY_SIZE(phy_basic_ports_array),
-			       phy_adin_t1l_features);
-
-	linkmode_set_bit_array(phy_10_features_array,
-			       ARRAY_SIZE(phy_10_features_array),
-			       phy_adin_t1l_features);
-
 	return 0;
 }
 
@@ -408,7 +407,7 @@ static struct phy_driver adin_driver[] = {
 	{
 		PHY_ID_MATCH_MODEL(PHY_ID_ADIN1100),
 		.name			= "ADIN1100",
-		.features		= ADIN_T1L_FEATURES,
+		.get_features		= adin_get_features,
 		.match_phy_device	= adin_match_phy_device,
 		.soft_reset		= adin_soft_reset,
 		.probe			= adin_probe,
