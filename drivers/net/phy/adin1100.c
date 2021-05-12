@@ -140,11 +140,11 @@ static int adin_read_lpa(struct phy_device *phydev)
 		return val;
 
 	if (!(val & MDIO_AN_STAT1_COMPLETE)) {
-                phydev->pause = 0;
-                phydev->asym_pause = 0;
+		phydev->pause = 0;
+		phydev->asym_pause = 0;
 
-                return 0;
-        }
+		return 0;
+	}
 
 	linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
 			 phydev->lp_advertising);
