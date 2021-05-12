@@ -368,10 +368,11 @@ static int adrv9002_axi_find_point(const u8 *field, const u8 sz, u8 *data_start)
 	return max_cnt;
 }
 
-static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int off)
+static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int off,
+				 const int n_chan)
 {
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	int n_chan = conv->chip_info->num_channels, chan;
+	int chan;
 	struct adrv9002_rf_phy *phy = conv->phy;
 	u32 reg;
 
@@ -384,15 +385,6 @@ static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int 
 
 	/* check for errors in any channel */
 	for (chan = 0; chan < n_chan; chan++) {
-		/*
-		 * Dont search for errors on disabled ports. We won't have any
-		 * test signal in that case, so the core will treat it as an error
-		 */
-		if (!phy->rx_channels[chan / 2].channel.enabled) {
-			dev_dbg(&phy->spi->dev, "Ignore pn error in c:%d\n", chan);
-			continue;
-		}
-
 		reg = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(chan)));
 		if (reg) {
 			dev_dbg(&phy->spi->dev, "pn error in c:%d, reg: %02X\n", chan, reg);
@@ -404,10 +396,10 @@ static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int 
 }
 
 static void adrv9002_axi_tx_test_pattern_set(const struct axiadc_converter *conv, const int off,
-					     u32 *ctrl_7, const adi_adrv9001_SsiType_e ssi_type)
+					     const int n_chan, u32 *ctrl_7,
+					     const adi_adrv9001_SsiType_e ssi_type)
 {
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	int n_chan = conv->chip_info->num_channels;
 	int c, sel;
 
 	if (ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
@@ -425,10 +417,9 @@ static void adrv9002_axi_tx_test_pattern_set(const struct axiadc_converter *conv
 }
 
 static void adrv9002_axi_tx_test_pattern_restore(const struct axiadc_converter *conv, const int off,
-						 const u32 *saved_ctrl_7)
+						 const int n_chan, const u32 *saved_ctrl_7)
 {
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	int n_chan = conv->chip_info->num_channels;
 	int c;
 
 	for (c = 0; c < n_chan; c++)
@@ -436,10 +427,10 @@ static void adrv9002_axi_tx_test_pattern_restore(const struct axiadc_converter *
 			     saved_ctrl_7[c]);
 }
 static void adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *conv, const int off,
+						const int n_chan,
 						const adi_adrv9001_SsiType_e ssi_type)
 {
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	int n_chan = conv->chip_info->num_channels;
 	int c;
 	u32 reg;
 	enum adc_pn_sel sel;
@@ -456,6 +447,26 @@ static void adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *c
 	}
 }
 
+static void adrv9002_axi_get_channel_range(struct axiadc_converter *conv, bool tx, int *end)
+{
+	struct adrv9002_rf_phy *phy = conv->phy;
+	/*
+	 * The point here is that we only want to generate and check test patterns for enabled
+	 * channels. If in !rx2tx2 we only get here if the channel is enabled so just use
+	 * all the @conv channels for the test. In rx2tx2 mode, we will run the test
+	 * at the same time for both channels if both are enabled. However, if RX2/TX2 is
+	 * disabled we do not want to check for that so that we tweak @end to only go over
+	 * the first channel (1 phy channel == 2 hdl channels).
+	 */
+	*end = conv->chip_info->num_channels;
+	if (phy->rx2tx2) {
+		if (tx && !phy->tx_channels[ADRV9002_CHANN_2].channel.enabled)
+			*end = 2;
+		else if (!tx && !phy->rx_channels[ADRV9002_CHANN_2].channel.enabled)
+			*end = 2;
+	}
+}
+
 int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   const adi_adrv9001_SsiType_e ssi_type, u8 *clk_delay, u8 *data_delay)
 {
@@ -464,7 +475,9 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 	u8 field[8][8] = {0};
 	u8 clk, data;
 	u32 saved_ctrl_7[4];
+	int n_chan;
 
+	adrv9002_axi_get_channel_range(conv, tx, &n_chan);
 	if (tx) {
 		if (phy->rx2tx2 || !chann)
 			off = ADI_TX1_REG_OFF;
@@ -472,14 +485,14 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 			off = ADI_TX2_REG_OFF;
 
 		/* generate test pattern for tx test  */
-		adrv9002_axi_tx_test_pattern_set(conv, off, saved_ctrl_7, ssi_type);
+		adrv9002_axi_tx_test_pattern_set(conv, off, n_chan, saved_ctrl_7, ssi_type);
 	} else {
 		if (phy->rx2tx2 || !chann)
 			off = 0;
 		else
 			off = ADI_RX2_REG_OFF;
 
-		adrv9002_axi_rx_test_pattern_pn_sel(conv, off, ssi_type);
+		adrv9002_axi_rx_test_pattern_pn_sel(conv, off, n_chan, ssi_type);
 
 		/* start test */
 		ret = adrv9002_intf_test_cfg(phy, chann, tx, false, ssi_type);
@@ -504,7 +517,7 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 			}
 			/* check result */
 			if (!tx)
-				ret = adrv9002_axi_pn_check(conv, off);
+				ret = adrv9002_axi_pn_check(conv, off, n_chan);
 			else
 				ret = adrv9002_check_tx_test_pattern(phy, chann, ssi_type);
 
@@ -527,7 +540,7 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 			return ret;
 	} else {
 		/* stop tx pattern */
-		adrv9002_axi_tx_test_pattern_restore(conv, off, saved_ctrl_7);
+		adrv9002_axi_tx_test_pattern_restore(conv, off, n_chan, saved_ctrl_7);
 	}
 
 	for (clk = 0; clk < ARRAY_SIZE(field); clk++) {
