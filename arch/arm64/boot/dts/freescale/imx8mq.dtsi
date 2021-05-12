@@ -1955,6 +1955,11 @@
 			power-domains = <&pgc_vpu>;
 			status = "disabled";
 		};
+
+		vpu_v4l2: vpu_v4l2 {
+			compatible = "nxp,imx8m-vsiv4l2";
+			status = "disabled";
+		};
 	};
 
 	gpu3d: gpu3d@38000000 {

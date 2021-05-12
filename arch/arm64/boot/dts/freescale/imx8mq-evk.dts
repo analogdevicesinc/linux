@@ -1092,6 +1092,11 @@
 };
 
 &vpu {
+	vpu-supply = <&sw1c_reg>;
+	status = "okay";
+};
+
+&vpu_v4l2 {
 	status = "okay";
 };
 
