@@ -33,6 +33,7 @@ static __ETHTOOL_DECLARE_LINK_MODE_MASK(phy_adin_t1l_features)	__ro_after_init;
 #define   ADIN_PMA_STAT_B10L_LB_PMA_LOC_ABLE	BIT(13)
 #define   ADIN_PMA_STAT_B10L_TX_LVL_HI_ABLE	BIT(12)
 
+#define ADIN_AN_STATUS				0x0201
 #define ADIN_AN_ADV_ABILITY_L			0x0202
 #define ADIN_AN_ADV_ABILITY_M			0x0203
 #define ADIN_AN_ADV_ABILITY_H			0x0204U
@@ -134,7 +135,7 @@ static int adin_read_lpa(struct phy_device *phydev)
 
 	linkmode_zero(phydev->lp_advertising);
 
-	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
+	val = phy_read_mmd(phydev, MDIO_MMD_AN, ADIN_AN_STATUS);
 	if (val < 0)
 		return val;
 
