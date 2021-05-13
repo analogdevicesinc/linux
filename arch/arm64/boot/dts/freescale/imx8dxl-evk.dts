@@ -675,6 +675,7 @@
 	/* USB eye diagram tests result */
 	fsl,tx-d-cal = <114>;
 	status = "okay";
+	fsl,tx-d-cal = <114>;
 };
 
 &usbotg1 {
@@ -692,6 +693,7 @@
 	/* USB eye diagram tests result */
 	fsl,tx-d-cal = <111>;
 	status = "okay";
+        fsl,tx-d-cal = <111>;
 };
 
 &usbotg2 {
