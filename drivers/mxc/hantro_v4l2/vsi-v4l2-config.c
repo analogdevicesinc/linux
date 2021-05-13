@@ -1054,6 +1054,24 @@ static int config_planeno(int pixelformat)
 	}
 }
 
+static int is_doublesizefmt(int fmt)
+{
+	if (fmt == VCENC_YUV422_INTERLEAVED_YUYV ||
+		fmt == VCENC_RGB565 ||
+		fmt == VCENC_BGR565 ||
+		fmt == VCENC_RGB555)
+		return 1;
+	return 0;
+}
+
+static int is_quadsizefmt(int fmt)
+{
+	if (fmt == VCENC_RGB888 ||
+		fmt == VCENC_BGR888)
+		return 1;
+	return 0;
+}
+
 static int vsiv4l2_enc_getalign(u32 srcfmt, u32 dstfmt, int width)
 {
 	int bytesperline = width;
@@ -1065,31 +1083,18 @@ static int vsiv4l2_enc_getalign(u32 srcfmt, u32 dstfmt, int width)
 	case V4L2_DAEMON_CODEC_ENC_H264:
 	case V4L2_DAEMON_CODEC_ENC_VP8:
 	default:
-		if (srcfmt == VCENC_YUV422_INTERLEAVED_YUYV && vsi_v4l2_hwconfig.enc_isH1)
-			bytesperline = ALIGN(bytesperline, 32);
-		else
+		if (vsi_v4l2_hwconfig.enc_isH1) {
+			if (is_doublesizefmt(srcfmt))
+				bytesperline = ALIGN(bytesperline, 32);
+			else if (is_quadsizefmt(srcfmt))
+				bytesperline = ALIGN(bytesperline, 64);
+			else
+				bytesperline = ALIGN(bytesperline, 16);
+		} else
 			bytesperline = ALIGN(bytesperline, 16);
 		break;
 	}
 	return bytesperline;
-}
-
-static int is_doublesizefmt(int fmt)
-{
-	if (fmt == V4L2_PIX_FMT_RGB565 || fmt == V4L2_PIX_FMT_RGB555 ||
-		fmt == V4L2_PIX_FMT_BGR565 || fmt == V4L2_PIX_FMT_YUYV)
-		return 1;
-	return 0;
-}
-
-static int is_quadsizefmt(int fmt)
-{
-	if (fmt == V4L2_PIX_FMT_RGBA32
-		|| fmt == V4L2_PIX_FMT_BGR32
-		|| fmt == V4L2_PIX_FMT_ABGR32
-		|| fmt == V4L2_PIX_FMT_RGBX32)
-		return 1;
-	return 0;
 }
 
 static int vsiv4l2_setfmt_enc(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
@@ -1141,9 +1146,9 @@ static int vsiv4l2_setfmt_enc(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 		for (i = 0; i < fmt->fmt.pix_mp.num_planes; i++)
 			fmt->fmt.pix_mp.plane_fmt[i].bytesperline = pcfg->bytesperline;
 	}
-	if (is_doublesizefmt(fmt->fmt.pix_mp.pixelformat))
+	if (is_doublesizefmt(targetfmt->enc_fmt))
 		pcfg->encparams.general.lumWidthSrc = pcfg->bytesperline/2;
-	else if (is_quadsizefmt(fmt->fmt.pix_mp.pixelformat))
+	else if (is_quadsizefmt(targetfmt->enc_fmt))
 		pcfg->encparams.general.lumWidthSrc = pcfg->bytesperline/4;
 	else
 		pcfg->encparams.general.lumWidthSrc = pcfg->bytesperline;
