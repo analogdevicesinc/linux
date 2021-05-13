@@ -689,10 +689,14 @@ static int mxc_isi_m2m_try_fmt_vid_cap(struct file *file, void *fh,
 	if (f->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		return -EINVAL;
 
-	pix->colorspace = isi_m2m->colorspace;
-	pix->ycbcr_enc  = isi_m2m->ycbcr_enc;
-	pix->xfer_func  = isi_m2m->xfer_func;
-	pix->quantization = isi_m2m->quant;
+	if (!pix->colorspace)
+		pix->colorspace = isi_m2m->colorspace;
+	if (!pix->ycbcr_enc)
+		pix->ycbcr_enc  = isi_m2m->ycbcr_enc;
+	if (!pix->xfer_func)
+		pix->xfer_func  = isi_m2m->xfer_func;
+	if (!pix->quantization)
+		pix->quantization = isi_m2m->quant;
 
 	return isi_m2m_try_fmt(&isi_m2m->dst_f, f);
 }
