@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe/quick-start
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ *
+ * hdl_project: <ad9081_fmca_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9081-m8-l4.dts"
+
+&fpga_axi {
+	axi_data_offload_tx: axi-data-offload-0@9c440000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x9c440000 0x10000>;
+		// adi,bringup;
+		// adi,oneshot;
+		// adi,bypass;
+		// adi,sync-config = <2>;
+		// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
+	};
+};
+
+&axi_ad9081_core_tx {
+	adi,axi-data-offload-connected = <&axi_data_offload_tx>;
+};
