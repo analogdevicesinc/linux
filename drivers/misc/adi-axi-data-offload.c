@@ -133,23 +133,15 @@ EXPORT_SYMBOL_GPL(axi_data_offload_ctrl_oneshot);
 
 static int axi_data_offload_ctrl_transfer_length(struct axi_data_offload_state *st, u64 len)
 {
-	/* Only accept values that are divisible by 64 */
-	if (len & ((1ULL << 6) - 1ULL))
+	/* Only accept values which are divisible by 64 */
+	if (len & 0x3fULL)
 		return -EINVAL;
 
 	/* Requested more memory than we have available! */
 	if (len > st->mem_size)
 		return -EINVAL;
 
-	/*
-	 * If a non-zero value is set, it is decremented before being written.
-	 * A zero on the other hand is written as is, and indicates that all available
-	 * memory should be used.
-	 */
-	if (len)
-		len--;
-
-	axi_data_offload_write(st, AXI_DO_REG_TRANSFER_LENGTH, (u32) len);
+	axi_data_offload_write(st, AXI_DO_REG_TRANSFER_LENGTH, len >> 6);
 	return 0;
 }
 
