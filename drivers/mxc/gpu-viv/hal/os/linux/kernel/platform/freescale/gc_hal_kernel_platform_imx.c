@@ -608,7 +608,7 @@ static ssize_t gpu_govern_store(struct device_driver *dev, const char *buf, size
     }
 
     /* Resume GPU to previous state. */
-    gcmVERIFY_OK(gckGALDEVICE_Resume(device));
+    gcmkVERIFY_OK(gckGALDEVICE_Resume(device));
 
 OnError:
     /* Release the commit mutex. */
