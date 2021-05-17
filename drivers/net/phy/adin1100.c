@@ -52,6 +52,8 @@ static const int phy_10_features_array[] = {
 #define   ADIN_AN_LP_ADV_B10L_TX_LVL_HI_REQ	BIT(12)
 #define   ADIN_AN_LP_ADV_B10S_HD		BIT(11)
 
+#define ADIN_FC_EN				0x8001
+
 #define ADIN_CRSM_SFT_RST			0x8810
 #define   ADIN_CRSM_SFT_RST_EN			BIT(0)
 
@@ -66,11 +68,32 @@ static const int phy_10_features_array[] = {
 #define   ADIN_MAC_IF_LOOPBACK_EN		BIT(0)
 #define   ADIN_MAC_IF_REMOTE_LOOPBACK_EN	BIT(2)
 
+struct adin_hw_stat {
+	const char *string;
+	u16 reg1;
+	u16 reg2;
+};
+
+static const struct adin_hw_stat adin_hw_stats[] = {
+	{ "total_frames_error_count",		0x8008 },
+	{ "total_frames_count",			0x8009, 0x800A }, /* hi, lo */
+	{ "length_error_frames_count",		0x800B },
+	{ "alignment_error_frames_count",	0x800C },
+	{ "symbol_error_count",			0x800D },
+	{ "oversized_frames_count",		0x800E },
+	{ "undersized_frames_count",		0x800F },
+	{ "odd_nibble_frames_count",		0x8010 },
+	{ "odd_preamble_packet_count",		0x8011 },
+	{ "false_carrier_events_count",		0x8013 },
+};
+
 /**
  * struct adin_priv - ADIN PHY driver private data
  * tx_level_24v			set if the PHY supports 2.4V TX levels (10BASE-T1L)
+ * stats:			statistic counters for the PHY
  */
 struct adin_priv {
+	u64			stats[ARRAY_SIZE(adin_hw_stats)];
 	unsigned int		tx_level_24v:1;
 };
 
@@ -350,6 +373,10 @@ static int adin_config_init(struct phy_device *phydev)
 		priv->tx_level_24v = 0;
 	}
 
+	ret = phy_write_mmd(phydev, MDIO_MMD_VEND2, ADIN_FC_EN, 1);
+	if (ret < 0)
+		return ret;
+
 	return 0;
 }
 
@@ -389,6 +416,53 @@ static int adin_get_features(struct phy_device *phydev)
 	return 0;
 }
 
+static int adin_get_sset_count(struct phy_device *phydev)
+{
+	return ARRAY_SIZE(adin_hw_stats);
+}
+
+static void adin_get_strings(struct phy_device *phydev, u8 *data)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(adin_hw_stats); i++)
+		strlcpy(&data[i * ETH_GSTRING_LEN], adin_hw_stats[i].string, ETH_GSTRING_LEN);
+}
+
+static u64 adin_get_stat(struct phy_device *phydev, int i)
+{
+	const struct adin_hw_stat *stat = &adin_hw_stats[i];
+	struct adin_priv *priv = phydev->priv;
+	u64 val;
+	int ret;
+
+	ret = phy_read_mmd(phydev, MDIO_MMD_VEND2, stat->reg1);
+	if (ret < 0)
+		return (u64)(~0);
+
+	val = (0xffff & ret);
+
+	if (stat->reg2 != 0) {
+		ret = phy_read_mmd(phydev, MDIO_MMD_VEND2, stat->reg2);
+		if (ret < 0)
+			return (u64)(~0);
+
+		val = (val << 16) + (0xffff & ret);
+	}
+
+	priv->stats[i] += val;
+
+	return priv->stats[i];
+}
+
+static void adin_get_stats(struct phy_device *phydev, struct ethtool_stats *stats, u64 *data)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(adin_hw_stats); i++)
+		data[i] = adin_get_stat(phydev, i);
+}
+
 static int adin_probe(struct phy_device *phydev)
 {
 	struct device *dev = &phydev->mdio.dev;
@@ -418,6 +492,9 @@ static struct phy_driver adin_driver[] = {
 		.set_loopback		= adin_set_loopback,
 		.suspend		= adin_suspend,
 		.resume			= adin_resume,
+		.get_sset_count		= adin_get_sset_count,
+		.get_strings		= adin_get_strings,
+		.get_stats		= adin_get_stats,
 	},
 };
 
