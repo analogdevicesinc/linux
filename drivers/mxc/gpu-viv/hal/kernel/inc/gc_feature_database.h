@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-/*Auto created on 2021-04-14 20:50*/
+/*Auto created on 2021-05-14 13:41*/
 #ifndef _gc_feature_database_h_
 #define _gc_feature_database_h_
 
@@ -537,6 +537,9 @@ typedef struct
     gctUINT32 G2D_DEC400EX:1;
     gctUINT32 G2D_NO_YUV420_SOURCE:1;
     gctUINT32 G2D_YUV420_101010:1;
+    gctUINT32 G2D_MultiSrcBlt_Pipe:1;
+    gctUINT32 G2D_Normalization:1;
+    gctUINT32 G2D_MASK_AND_COLORKEY:1;
     gctUINT32 SH_VX2_FLOATING_MAD_FIX:1;
     gctUINT32 TS_FC_VULKAN_SUPPORT:1;
     gctUINT32 MSAA_FLOAT_64BIT:1;
@@ -780,6 +783,7 @@ typedef struct
     gctUINT32 NN_KERNEL_DIRECT_WRONG_PUSH_FIX:1;
     gctUINT32 HI_DEFAULT_ENABLE_REORDER_FIX:1;
     gctUINT32 V83_INTILESIZE_1X1_10BITS_FIX:1;
+    gctUINT32 DEPTHWISE_FLOAT_FIX:1;
     gctUINT32 NN_INTERLEVE8:1;
     gctUINT32 NN_FP16_ALU:1;
     gctUINT32 NN_INT16_ALU:1;
@@ -1275,6 +1279,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x1, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -1518,6 +1525,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -2011,6 +2019,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x1, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -2254,6 +2265,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -2747,6 +2759,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x1, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -2990,6 +3005,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -3483,6 +3499,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x1, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -3726,6 +3745,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -4219,6 +4239,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -4462,6 +4485,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -4955,6 +4979,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x1, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -5198,6 +5225,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -5691,6 +5719,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x1, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -5934,6 +5965,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -6427,6 +6459,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x1, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -6670,6 +6705,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -7163,6 +7199,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -7406,6 +7445,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -7899,6 +7939,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -8142,6 +8185,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -8635,6 +8679,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -8878,6 +8925,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -9371,6 +9419,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -9614,6 +9665,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -10107,6 +10159,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -10350,6 +10405,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -10843,6 +10899,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -11086,6 +11145,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -11579,6 +11639,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -11822,6 +11885,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -12315,6 +12379,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -12558,6 +12625,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -13051,6 +13119,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -13294,6 +13365,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -13787,6 +13859,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -14030,6 +14105,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -14523,6 +14599,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -14766,6 +14845,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -15259,6 +15339,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -15502,6 +15585,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -15995,6 +16079,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -16238,6 +16325,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -16731,6 +16819,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -16974,6 +17065,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -17467,6 +17559,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -17710,6 +17805,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -18203,6 +18299,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x1, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -18446,6 +18545,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -18939,6 +19039,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x1, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -19182,6 +19285,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -19675,6 +19779,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x1, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x1, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -19918,6 +20025,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -20411,6 +20519,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x1, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x1, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x1, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -20654,6 +20765,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x0, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x0, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x0, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -21147,6 +21259,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -21276,7 +21391,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_PRELU_LEAKLY_RELU_CLAMP */
         0x0, /* gcFEATURE_BIT_TPLITE_BFLOAT16 */
         0x0, /* gcFEATURE_BIT_PREPROCESS_IMG_BUF_640BYTE_LIMIT */
-        0x0, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_FP16 */
+        0x1, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_FP16 */
         0x0, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_BF16 */
         0x0, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_FP32 */
         0x0, /* gcFEATURE_BIT_TP_KERNEL_1BYTE_ALGIN */
@@ -21390,6 +21505,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x1, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x1, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x1, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x1, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x1, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -21883,6 +21999,9 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
         0x0, /* gcFEATURE_BIT_G2D_NO_YUV420_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_YUV420_101010 */
+        0x0, /* gcFEATURE_BIT_G2D_MultiSrcBlt_Pipe */
+        0x0, /* gcFEATURE_BIT_G2D_Normalization */
+        0x0, /* gcFEATURE_BIT_G2D_MASK_AND_COLORKEY */
         0x0, /* gcFEATURE_BIT_SH_VX2_FLOATING_MAD_FIX */
         0x0, /* gcFEATURE_BIT_TS_FC_VULKAN_SUPPORT */
         0x0, /* gcFEATURE_BIT_MSAA_FLOAT_64BIT */
@@ -22012,7 +22131,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_PRELU_LEAKLY_RELU_CLAMP */
         0x0, /* gcFEATURE_BIT_TPLITE_BFLOAT16 */
         0x0, /* gcFEATURE_BIT_PREPROCESS_IMG_BUF_640BYTE_LIMIT */
-        0x0, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_FP16 */
+        0x1, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_FP16 */
         0x0, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_BF16 */
         0x0, /* gcFEATURE_BIT_NN_POST_OUT_SUPPORT_FP32 */
         0x0, /* gcFEATURE_BIT_TP_KERNEL_1BYTE_ALGIN */
@@ -22126,6 +22245,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x1, /* gcFEATURE_BIT_NN_KERNEL_DIRECT_WRONG_PUSH_FIX */
         0x1, /* gcFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX */
         0x1, /* gcFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX */
+        0x1, /* gcFEATURE_BIT_DEPTHWISE_FLOAT_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x1, /* gcFEATURE_BIT_NN_INT16_ALU */
