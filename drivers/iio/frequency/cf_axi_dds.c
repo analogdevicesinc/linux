@@ -2082,6 +2082,17 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
 	}
 
+	/*
+	 * Sanity check that we did not got 0. Otherwise this will lead to a div by 0 exception.
+	 * We will try EPROBE_DEFER as a last resort. Might be that the converter is still
+	 * busy...
+	 */
+	if (!st->dac_clk) {
+		dev_err(&pdev->dev, "Cannot have dac_clk=0. Deferring probe...\n");
+		ret = -EPROBE_DEFER;
+		goto err_converter_put;
+	}
+
 	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_AXI_REG_VERSION);
 	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
