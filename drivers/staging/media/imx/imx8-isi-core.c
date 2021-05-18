@@ -773,6 +773,7 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		dev_warn(dev, "Populate child platform device fail\n");
 
 	mxc_isi_clk_disable(mxc_isi);
+	disp_mix_clks_enable(mxc_isi, false);
 
 	platform_set_drvdata(pdev, mxc_isi);
 	pm_runtime_enable(dev);
