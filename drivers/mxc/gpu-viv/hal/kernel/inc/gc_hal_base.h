@@ -954,7 +954,8 @@ gcoHAL_ReadShBuffer(
 /* Config power management to be enabled or disabled. */
 gceSTATUS
 gcoHAL_ConfigPowerManagement(
-    IN gctBOOL Enable
+    IN gctBOOL Enable,
+    OUT gctBOOL *OldValue
     );
 
 gceSTATUS

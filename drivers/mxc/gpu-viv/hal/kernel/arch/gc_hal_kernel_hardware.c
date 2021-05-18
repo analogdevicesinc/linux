@@ -8786,6 +8786,52 @@ gckHARDWARE_QueryPowerState(
 
 /*******************************************************************************
 **
+**  gckHARDWARE_QueryPowerManagement
+**
+**  Query GPU power management function.
+**
+**  INPUT:
+**
+**      gckHARDWARE Harwdare
+**          Pointer to an gckHARDWARE object.
+**
+**  OUTPUT:
+**
+**      gctBOOL *Enable
+**          Power Mangement Enabling State.
+**
+*/
+gceSTATUS
+gckHARDWARE_QueryPowerManagement(
+    IN gckHARDWARE Hardware,
+    OUT gctBOOL *Enable
+    )
+{
+    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+
+    /* Verify the arguments. */
+    gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
+
+    if (_IsHardwareMatch(Hardware, gcv7000, 0x6008))
+    {
+        *Enable = gcvFALSE;
+    }
+    else
+    {
+        gcmkVERIFY_OK(gckOS_AcquireMutex(Hardware->os, Hardware->powerMutex, gcvINFINITE));
+
+        *Enable = Hardware->options.powerManagement;
+
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(Hardware->os, Hardware->powerMutex));
+    }
+
+    /* Success. */
+    gcmkFOOTER_NO();
+    return gcvSTATUS_OK;
+}
+
+/*******************************************************************************
+**
 **  gckHARDWARE_EnablePowerManagement
 **
 **  Configure GPU power management function.

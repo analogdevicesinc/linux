@@ -1906,6 +1906,12 @@ gckHARDWARE_EnablePowerManagement(
     );
 
 gceSTATUS
+gckHARDWARE_QueryPowerManagement(
+    IN gckHARDWARE Hardware,
+    OUT gctBOOL *Enable
+    );
+
+gceSTATUS
 gckHARDWARE_SetGpuProfiler(
     IN gckHARDWARE Hardware,
     IN gctBOOL GpuProfiler

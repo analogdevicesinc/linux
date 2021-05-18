@@ -851,6 +851,7 @@ gcsHAL_QUERY_POWER_MANAGEMENT;
 typedef struct _gcsHAL_CONFIG_POWER_MANAGEMENT
 {
     IN gctBOOL                  enable;
+    OUT gctBOOL                 oldValue;
 }
 gcsHAL_CONFIG_POWER_MANAGEMENT;
 

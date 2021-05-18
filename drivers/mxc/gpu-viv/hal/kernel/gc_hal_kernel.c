@@ -2216,6 +2216,8 @@ gckKERNEL_ConfigPowerManagement(
 
     gcmkHEADER();
 
+    gcmkONERROR(gckHARDWARE_QueryPowerManagement(Kernel->hardware, &Interface->u.ConfigPowerManagement.oldValue));
+
     gcmkONERROR(gckHARDWARE_EnablePowerManagement(Kernel->hardware, enable));
 
     if (enable == gcvFALSE)
