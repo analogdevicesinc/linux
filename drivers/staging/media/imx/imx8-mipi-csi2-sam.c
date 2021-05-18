@@ -1905,7 +1905,8 @@ static int mipi_csis_probe(struct platform_device *pdev)
 	disp_mix_sft_rstn(state, false);
 	mipi_csis_phy_reset(state);
 
-	/*mipi_csis_clk_disable(state);*/
+	disp_mix_clks_enable(state, false);
+	mipi_csis_clk_disable(state);
 
 	ret = devm_request_irq(dev, state->irq, mipi_csis_irq_handler, 0,
 			       dev_name(dev), state);
