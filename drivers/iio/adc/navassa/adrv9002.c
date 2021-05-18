@@ -3989,6 +3989,16 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		}
 	}
 
+	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS) {
+		ret = adrv9002_profile_load(phy, "Navassa_LVDS_profile.json");
+		if (ret)
+			return ret;
+	}
+
+	ret = adrv9002_init(phy, &phy->profile);
+	if (ret)
+		return ret;
+
 	phy->clk_data.clks = phy->clks;
 	phy->clk_data.clk_num = phy->n_clks;
 	ret = of_clk_add_provider(spi->dev.of_node, of_clk_src_onecell_get,
@@ -3998,16 +4008,6 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 
 	ret = devm_add_action_or_reset(&spi->dev, adrv9002_of_clk_del_provider,
 				       &spi->dev);
-	if (ret)
-		return ret;
-
-	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS) {
-		ret = adrv9002_profile_load(phy, "Navassa_LVDS_profile.json");
-		if (ret)
-			return ret;
-	}
-
-	ret = adrv9002_init(phy, &phy->profile);
 	if (ret)
 		return ret;
 
