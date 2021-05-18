@@ -4418,7 +4418,7 @@ gckCOMMAND_DumpExecutingBuffer(
     }
 
     /* new line. */
-    gcmkPRINT("");
+    gcmkPRINT(" ");
 
     gcmkPRINT("Kernel command buffers:");
 
@@ -4433,7 +4433,7 @@ gckCOMMAND_DumpExecutingBuffer(
     }
 
     /* new line. */
-    gcmkPRINT("");
+    gcmkPRINT(" ");
 
     if (queue->count)
     {
@@ -4498,7 +4498,7 @@ gckCOMMAND_DumpExecutingBuffer(
         }
 
         /* new line. */
-        gcmkPRINT("");
+        gcmkPRINT(" ");
     }
 
     return gcvSTATUS_OK;

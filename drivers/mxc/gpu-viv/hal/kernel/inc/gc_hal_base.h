@@ -62,6 +62,12 @@
 #include "shared/gc_hal_base_shared.h"
 
 
+#ifdef __QNXNTO__
+#define CHECK_PRINTF_FORMAT(string_index, first_to_check) __attribute__((__format__(__printf__, (string_index), (first_to_check))))
+#else
+#define CHECK_PRINTF_FORMAT(string_index, first_to_check)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1546,7 +1552,8 @@ gcoOS_PrintStrSafe(
     IN OUT gctUINT * Offset,
     IN gctCONST_STRING Format,
     ...
-    );
+    )
+CHECK_PRINTF_FORMAT(4, 5);
 
 gceSTATUS
 gcoOS_LoadLibrary(
@@ -3131,14 +3138,16 @@ gckOS_DebugTrace(
     IN gctUINT32 Level,
     IN gctCONST_STRING Message,
     ...
-    );
+    )
+CHECK_PRINTF_FORMAT(2, 3);
 
 void
 gcoOS_DebugTrace(
     IN gctUINT32 Level,
     IN gctCONST_STRING Message,
     ...
-    );
+    )
+CHECK_PRINTF_FORMAT(2, 3);
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
 #   define gcmTRACE             gcoOS_DebugTrace
@@ -3706,13 +3715,15 @@ void
 gckOS_Print(
     IN gctCONST_STRING Message,
     ...
-    );
+    )
+CHECK_PRINTF_FORMAT(1, 2);
 
 void
 gcoOS_Print(
     IN gctCONST_STRING Message,
     ...
-    );
+    )
+CHECK_PRINTF_FORMAT(1, 2);
 
 #define gcmPRINT                gcoOS_Print
 #define gcmkPRINT               gckOS_Print
