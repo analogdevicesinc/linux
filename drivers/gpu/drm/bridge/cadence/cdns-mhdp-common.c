@@ -31,7 +31,6 @@
 
 #define CDNS_DP_SPDIF_CLK		200000000
 #define FW_ALIVE_TIMEOUT_US		1000000
-
 u32 cdns_mhdp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset)
 {
 	u32 val;
@@ -202,6 +201,10 @@ int cdns_mhdp_mailbox_validate_receive(struct cdns_mhdp_device *mhdp,
 
 	if (opcode != header[0] || module_id != header[1] ||
 	    req_size != mbox_size) {
+		DRM_DEV_ERROR(mhdp->dev,
+			      "Hmmm spurious mailbox data maybe, cleaning out...%d:%d:%d vs %d:%d:%d\n",
+			      module_id, opcode, req_size, header[1],
+			      header[0], mbox_size);
 		/*
 		 * If the message in mailbox is not what we want, we need to
 		 * clear the mailbox by reading its contents.
@@ -267,6 +270,8 @@ int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr)
 	u32 val;
 	int ret;
 
+	mutex_lock(&mhdp->api_lock);
+
 	if (addr == 0) {
 		ret = -EINVAL;
 		goto err_reg_read;
@@ -298,38 +303,52 @@ int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr)
 
 	val = get_unaligned_be32(resp + 4);
 
+	mutex_unlock(&mhdp->api_lock);
 	return val;
 err_reg_read:
+	mutex_unlock(&mhdp->api_lock);
 	DRM_DEV_ERROR(mhdp->dev, "Failed to read register.\n");
 
+mutex_unlock(&mhdp->api_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_reg_read);
 
 int cdns_mhdp_reg_write(struct cdns_mhdp_device *mhdp, u32 addr, u32 val)
 {
+	int ret;
 	u8 msg[8];
+
+	mutex_lock(&mhdp->api_lock);
 
 	put_unaligned_be32(addr, msg);
 	put_unaligned_be32(val, msg + 4);
 
-	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL,
-				      GENERAL_WRITE_REGISTER, sizeof(msg), msg);
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL,
+				     GENERAL_WRITE_REGISTER,
+				     sizeof(msg), msg);
+	mutex_unlock(&mhdp->api_lock);
+return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_reg_write);
 
 int cdns_mhdp_reg_write_bit(struct cdns_mhdp_device *mhdp, u16 addr,
 				   u8 start_bit, u8 bits_no, u32 val)
 {
+	int ret;
 	u8 field[8];
+
+	mutex_lock(&mhdp->api_lock);
 
 	put_unaligned_be16(addr, field);
 	field[2] = start_bit;
 	field[3] = bits_no;
 	put_unaligned_be32(val, field + 4);
 
-	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				      DPTX_WRITE_FIELD, sizeof(field), field);
+	mutex_unlock(&mhdp->api_lock);
+	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_reg_write_bit);
 
@@ -381,6 +400,8 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
 	u8 msg[5];
 	int ret, i;
 
+	mutex_lock(&mhdp->api_lock);
+
 	msg[0] = GENERAL_MAIN_CONTROL;
 	msg[1] = MB_MODULE_ID_GENERAL;
 	msg[2] = 0;
@@ -407,6 +428,7 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
 err_set_firmware_active:
 	if (ret < 0)
 		DRM_DEV_ERROR(mhdp->dev, "set firmware active failed\n");
+	mutex_unlock(&mhdp->api_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_set_firmware_active);
@@ -415,6 +437,8 @@ int cdns_mhdp_apb_conf(struct cdns_mhdp_device *mhdp, u8 sel)
 {
 	u8 status;
 	int ret;
+
+	mutex_lock(&mhdp->api_lock);
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL, GENERAL_BUS_SETTINGS,
 				  sizeof(sel), &sel);
@@ -430,10 +454,13 @@ int cdns_mhdp_apb_conf(struct cdns_mhdp_device *mhdp, u8 sel)
 	if (ret)
 		goto err_apb_conf;
 
+	mutex_unlock(&mhdp->api_lock);
+
 	return status;
 
 err_apb_conf:
 	DRM_ERROR("apb conf failed: %d\n", ret);
+mutex_unlock(&mhdp->api_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_apb_conf);
@@ -442,6 +469,8 @@ int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp)
 {
 	u8 msg[8];
 	int ret, lane;
+
+	mutex_lock(&mhdp->api_lock);
 
 	msg[0] = drm_dp_link_rate_to_bw_code(mhdp->dp.rate);
 	msg[1] = mhdp->dp.num_lanes | SCRAMBLER_EN;
@@ -474,6 +503,8 @@ int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp)
 err_set_host_cap:
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "set host cap failed: %d\n", ret);
+	mutex_unlock(&mhdp->api_lock);
+
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_set_host_cap);
@@ -483,6 +514,8 @@ int cdns_mhdp_event_config(struct cdns_mhdp_device *mhdp)
 	u8 msg[5];
 	int ret;
 
+	mutex_lock(&mhdp->api_lock);
+
 	memset(msg, 0, sizeof(msg));
 
 	msg[0] = MHDP_EVENT_ENABLE_HPD | MHDP_EVENT_ENABLE_TRAINING;
@@ -491,6 +524,8 @@ int cdns_mhdp_event_config(struct cdns_mhdp_device *mhdp)
 				     DPTX_ENABLE_EVENT, sizeof(msg), msg);
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "set event config failed: %d\n", ret);
+
+	mutex_unlock(&mhdp->api_lock);
 
 	return ret;
 }
@@ -507,6 +542,8 @@ int cdns_mhdp_read_hpd(struct cdns_mhdp_device *mhdp)
 	u8 status;
 	int ret;
 
+	mutex_lock(&mhdp->api_lock);
+
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL, GENERAL_GET_HPD_STATE,
 				  0, NULL);
 	if (ret)
@@ -521,10 +558,14 @@ int cdns_mhdp_read_hpd(struct cdns_mhdp_device *mhdp)
 	if (ret)
 		goto err_get_hpd;
 
+	mutex_unlock(&mhdp->api_lock);
+
 	return status;
 
 err_get_hpd:
 	DRM_ERROR("read hpd  failed: %d\n", ret);
+	mutex_unlock(&mhdp->api_lock);
+
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_read_hpd);
@@ -535,6 +576,8 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 	struct cdns_mhdp_device *mhdp = data;
 	u8 msg[2], reg[2], i;
 	int ret;
+
+	mutex_lock(&mhdp->api_lock);
 
 	for (i = 0; i < 4; i++) {
 		msg[0] = block / 2;
@@ -568,6 +611,8 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 		DRM_DEV_ERROR(mhdp->dev, "get block[%d] edid failed: %d\n",
 			      block, ret);
 
+	mutex_unlock(&mhdp->api_lock);
+
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_get_edid_block);
@@ -577,12 +622,16 @@ int cdns_mhdp_set_video_status(struct cdns_mhdp_device *mhdp, int active)
 	u8 msg;
 	int ret;
 
+	mutex_lock(&mhdp->api_lock);
+
 	msg = !!active;
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_SET_VIDEO, sizeof(msg), &msg);
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "set video status failed: %d\n", ret);
+
+	mutex_unlock(&mhdp->api_lock);
 
 	return ret;
 }

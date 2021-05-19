@@ -156,16 +156,30 @@ static int mhdp_hdcp_mailbox_send(struct cdns_mhdp_device *mhdp, u8 module_id,
 /* HDCP API */
 int cdns_mhdp_hdcp_tx_config(struct cdns_mhdp_device *mhdp, u8 config)
 {
-	return mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
+	int ret;
+
+	mutex_lock(&mhdp->api_lock);
+	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 				     HDCP_TX_CONFIGURATION, sizeof(config), &config);
+
+	mutex_unlock(&mhdp->api_lock);
+
+	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp_tx_config);
 
 int cdns_mhdp_hdcp2_tx_respond_km(struct cdns_mhdp_device *mhdp,
 					u8 *msg, u16 len)
 {
-	return mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
+	int ret;
+
+	mutex_lock(&mhdp->api_lock);
+
+	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 				      HDCP2_TX_RESPOND_KM, len, msg);
+	mutex_unlock(&mhdp->api_lock);
+
+	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp2_tx_respond_km);
 
@@ -173,6 +187,8 @@ int cdns_mhdp_hdcp_tx_status_req(struct cdns_mhdp_device *mhdp,
 					u8 *status, u16 len)
 {
 	int ret;
+
+	mutex_lock(&mhdp->api_lock);
 
 	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 				     HDCP_TX_STATUS_CHANGE, 0, NULL);
@@ -191,6 +207,7 @@ int cdns_mhdp_hdcp_tx_status_req(struct cdns_mhdp_device *mhdp,
 err_tx_req:
 	if (ret)
 		DRM_ERROR("hdcp tx status req failed: %d\n", ret);
+	mutex_unlock(&mhdp->api_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp_tx_status_req);
@@ -198,6 +215,8 @@ EXPORT_SYMBOL(cdns_mhdp_hdcp_tx_status_req);
 int cdns_mhdp_hdcp2_tx_is_km_stored_req(struct cdns_mhdp_device *mhdp, u8 *data, u16 len)
 {
 	int ret;
+
+	mutex_lock(&mhdp->api_lock);
 
 	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 				      HDCP2_TX_IS_KM_STORED, 0, NULL);
@@ -214,6 +233,7 @@ int cdns_mhdp_hdcp2_tx_is_km_stored_req(struct cdns_mhdp_device *mhdp, u8 *data,
 err_is_km:
 	if (ret)
 		DRM_ERROR("hdcp2 tx is km stored req failed: %d\n", ret);
+	mutex_unlock(&mhdp->api_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp2_tx_is_km_stored_req);
@@ -222,6 +242,8 @@ int cdns_mhdp_hdcp2_tx_store_km(struct cdns_mhdp_device *mhdp,
 					u8 *resp, u16 len)
 {
 	int ret;
+
+	mutex_lock(&mhdp->api_lock);
 
 	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 				      HDCP2_TX_STORE_KM, 0, NULL);
@@ -236,6 +258,8 @@ int cdns_mhdp_hdcp2_tx_store_km(struct cdns_mhdp_device *mhdp,
 	ret = mhdp_hdcp_mailbox_read_receive(mhdp, resp, len);
 
 err_store_km:
+	mutex_unlock(&mhdp->api_lock);
+
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp2_tx_store_km);
@@ -248,6 +272,8 @@ int cdns_mhdp_hdcp_tx_is_receiver_id_valid(struct cdns_mhdp_device *mhdp,
 	u8 temp;
 	int ret;
 
+	mutex_lock(&mhdp->api_lock);
+
 	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 				      HDCP_TX_IS_RECEIVER_ID_VALID, 0, NULL);
 	if (ret)
@@ -256,18 +282,23 @@ int cdns_mhdp_hdcp_tx_is_receiver_id_valid(struct cdns_mhdp_device *mhdp,
 	/* read the header of the message */
 	for (i = 0; i < 4; i++) {
 		ret = mhdp_hdcp_mailbox_read(mhdp);
-		if (ret < 0)
+		if (ret < 0) {
+
+			mutex_unlock(&mhdp->api_lock);
 			return ret;
+		}
 
 		header[i] = ret;
 	}
 
 	mbox_size = get_unaligned_be16(header + 2);
 
-	if (HDCP_TX_IS_RECEIVER_ID_VALID != header[0] ||
-			MB_MODULE_ID_HDCP_TX != header[1])
-		return -EINVAL;
+	if (header[0] != HDCP_TX_IS_RECEIVER_ID_VALID ||
+	    header[1] != MB_MODULE_ID_HDCP_TX){
 
+		mutex_unlock(&mhdp->api_lock);
+		return -EINVAL;
+	}
 	/* First get num of receivers */
 	ret = mhdp_hdcp_mailbox_read_receive(mhdp, num, 1);
 	if (ret)
@@ -282,6 +313,7 @@ int cdns_mhdp_hdcp_tx_is_receiver_id_valid(struct cdns_mhdp_device *mhdp,
 	ret = mhdp_hdcp_mailbox_read_receive(mhdp, rx_id, mbox_size - 2);
 
 err_rx_id:
+	mutex_unlock(&mhdp->api_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp_tx_is_receiver_id_valid);
@@ -289,14 +321,30 @@ EXPORT_SYMBOL(cdns_mhdp_hdcp_tx_is_receiver_id_valid);
 int cdns_mhdp_hdcp_tx_respond_receiver_id_valid(
 				struct cdns_mhdp_device *mhdp, u8 val)
 {
-	return mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
-				      HDCP_TX_RESPOND_RECEIVER_ID_VALID, sizeof(val), &val);
+	int ret;
+
+	mutex_lock(&mhdp->api_lock);
+
+	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
+				     HDCP_TX_RESPOND_RECEIVER_ID_VALID,
+				     sizeof(val), &val);
+	mutex_unlock(&mhdp->api_lock);
+
+	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp_tx_respond_receiver_id_valid);
 
 int cdns_mhdp_hdcp_tx_reauth(struct cdns_mhdp_device *mhdp, u8 msg)
 {
-	return mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
+	int ret;
+
+	mutex_lock(&mhdp->api_lock);
+
+	ret = mhdp_hdcp_mailbox_send(mhdp, MB_MODULE_ID_HDCP_TX,
 				     HDCP_TX_DO_AUTH_REQ, sizeof(msg), &msg);
+
+	mutex_unlock(&mhdp->api_lock);
+
+	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_hdcp_tx_reauth);

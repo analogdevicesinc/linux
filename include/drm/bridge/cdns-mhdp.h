@@ -782,12 +782,15 @@ struct cdns_mhdp_device {
 
 	u32 lane_mapping;
 	bool link_up;
+	bool force_disconnected_sts;
 	bool power_up;
 	bool plugged;
 	bool force_mode_set;
 	bool is_hpd;
+	bool is_dp;
 	bool is_ls1028a;
 	struct mutex lock;
+	struct mutex api_lock;
 	struct mutex iolock;
 
 	int irq[IRQ_NUM];

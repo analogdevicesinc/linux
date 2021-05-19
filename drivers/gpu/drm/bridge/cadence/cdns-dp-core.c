@@ -221,6 +221,7 @@ static void cdns_dp_mode_set(struct cdns_mhdp_device *mhdp)
 
 	mhdp->dp.rate = drm_dp_max_link_rate(mhdp->dp.dpcd);
 	mhdp->dp.num_lanes = drm_dp_max_lane_count(mhdp->dp.dpcd);
+	mhdp->dp.link_training_type = DP_TX_FULL_LINK_TRAINING;
 
 	/* check the max link rate */
 	if (mhdp->dp.rate > CDNS_DP_MAX_LINK_RATE)
@@ -266,17 +267,25 @@ cdns_dp_connector_detect(struct drm_connector *connector, bool force)
 	u8 hpd = 0xf;
 
 	hpd = cdns_mhdp_read_hpd(mhdp);
-	if (hpd == 1)
-		/* Cable Connected */
-		return connector_status_connected;
-	else if (hpd == 0)
+	DRM_DEBUG_DRIVER("%s hpd = %d\n", __func__, hpd);
+	if (mhdp->force_disconnected_sts && (hpd == 1)) {
+		DRM_INFO("Returning disconnect status until ready\n");
+		return connector_status_disconnected;
+	}
+	if (hpd == 0)
 		/* Cable Disconnedted */
 		return connector_status_disconnected;
-	else {
-		/* Cable status unknown */
-		DRM_INFO("Unknow cable status, hdp=%u\n", hpd);
-		return connector_status_unknown;
-	}
+	else if (hpd == 3) {
+		/* Cable Connected and seen IRQ*/
+		DRM_DEBUG_DRIVER("HPD IRQ event seen\n");
+		return connector_status_connected;
+	} else if (hpd == 1)
+		/* Cable Connected */
+		return connector_status_connected;
+
+	/* Cable status unknown */
+	DRM_DEBUG_DRIVER("Unknown cable status, hdp=%u\n", hpd);
+	return connector_status_unknown;
 }
 
 static int cdns_dp_connector_get_modes(struct drm_connector *connector)
@@ -450,7 +459,8 @@ static void cdns_dp_bridge_mode_set(struct drm_bridge *bridge,
 	video->v_sync_polarity = !!(mode->flags & DRM_MODE_FLAG_NVSYNC);
 	video->h_sync_polarity = !!(mode->flags & DRM_MODE_FLAG_NHSYNC);
 
-	DRM_INFO("Mode: %dx%dp%d\n", mode->hdisplay, mode->vdisplay, mode->clock); 
+	DRM_DEBUG_DRIVER("Mode: %dx%dp%d\n", mode->hdisplay, mode->vdisplay,
+			 mode->clock);
 	memcpy(&mhdp->mode, mode, sizeof(struct drm_display_mode));
 
 	mutex_lock(&mhdp->lock);
@@ -507,20 +517,85 @@ static void hotplug_work_func(struct work_struct *work)
 	struct cdns_mhdp_device *mhdp = container_of(work,
 					   struct cdns_mhdp_device, hotplug_work.work);
 	struct drm_connector *connector = &mhdp->connector.base;
+	enum drm_connector_status connector_sts;
+	int loop_cnt, retry;
 
-	drm_helper_hpd_irq_event(connector->dev);
+	DRM_DEBUG_DRIVER("Starting %s\n", __func__);
 
 	if (connector->status == connector_status_connected) {
-		/* Cable connedted  */
-		DRM_INFO("HDMI/DP Cable Plug In\n");
-		enable_irq(mhdp->irq[IRQ_OUT]);
-	} else if (connector->status == connector_status_disconnected) {
-		/* Cable Disconnedted  */
-		DRM_INFO("HDMI/DP Cable Plug Out\n");
-		/* force mode set for cable replugin to recovery DP video modes */
-		mhdp->force_mode_set = true;
-		enable_irq(mhdp->irq[IRQ_IN]);
+		/* if was connected then there may have been unplug event,
+		 * either wait 900us then call cdns_dp_connector_detect and if
+		 * still connected then just ignore and finish or poll a
+		 * certain number of times. Otherwise set status to unconnected
+		 * and call the hotplug_event function.
+		 */
+
+		for (loop_cnt = 0; loop_cnt < CDNS_DP_HPD_POLL_DWN_LOOP; loop_cnt++) {
+			udelay(CDNS_DP_HPD_POLL_DWN_DLY_US);
+			connector_sts = cdns_dp_connector_detect(connector, false);
+			if (connector_sts != connector_status_connected) {
+				DRM_DEBUG_DRIVER("HDMI/DP Cable Plug Out\n");
+				break;
+			}
+		}
+		if (connector_sts == connector_status_connected)
+			return;
+
+		DRM_DEBUG_DRIVER("Calling drm_kms_helper_hotplug_event\n");
+		/* Note that before we call the helper functions we need
+		 * to force the cdns_dp_connector_detect function from
+		 * returning a connected status since the DRM functions
+		 * still end up calling that in a roundabout way when we
+		 * signal a status change. We need to do this to ensure
+		 * that a shutdown proper completes and don't end up in
+		 * a strange state.
+		 */
+		mhdp->force_disconnected_sts = true;
+		connector->status = connector_sts;
+		drm_kms_helper_hotplug_event(connector->dev);
+		/* There was a disconnection so give some time to allow
+		 * things to clean up
+		 */
+		DRM_DEBUG_DRIVER("Start sleep\n");
+		msleep(75);
+		DRM_DEBUG_DRIVER("End sleep\n");
+		mhdp->force_disconnected_sts = false;
+	} else {
+		/* Disconnected or unknown status */
+		/* if was disconnected possibly a connect event, call
+		 * cdns_dp_connector_detect multiple times to validate before
+		 * updating to connected status and calling the hotplug event
+		 * function. This is needed since the HW/FW can take some time
+		 * to validate.
+		 */
+		for (loop_cnt = 0; loop_cnt < CDNS_DP_HPD_POLL_UP_LOOP;
+		      loop_cnt++) {
+			msleep(CDNS_DP_HPD_POLL_UP_DLY_US / 1000);
+			connector_sts = cdns_dp_connector_detect(connector, false);
+			if (connector_sts == connector_status_connected) {
+				DRM_DEBUG_DRIVER("HDMI/DP Cable Plug In\n");
+				break;
+			}
+		}
+		if (connector_sts == connector_status_connected) {
+			DRM_DEBUG_DRIVER("Calling drm_kms_helper_hotplug_event\n");
+			connector->status = connector_sts;
+			drm_kms_helper_hotplug_event(connector->dev);
+		}
 	}
+
+	/* check connection status one more time in case there had been a short
+	 * disconnect that might have caused re-connect to be missed, if so
+	 * schedule again.
+	 */
+	connector_sts = cdns_dp_connector_detect(connector, false);
+	if (connector_sts != connector->status) {
+		DRM_DEBUG_DRIVER("Re-queuing work_func due to possible change\n");
+		queue_delayed_work(system_wq, &mhdp->hotplug_work,
+				   usecs_to_jiffies(50));
+	}
+
+	DRM_DEBUG_DRIVER("Finished %s\n", __func__);
 }
 
 static irqreturn_t cdns_dp_irq_thread(int irq, void *data)
@@ -529,8 +604,18 @@ static irqreturn_t cdns_dp_irq_thread(int irq, void *data)
 
 	disable_irq_nosync(irq);
 
-	mod_delayed_work(system_wq, &mhdp->hotplug_work,
-			msecs_to_jiffies(HOTPLUG_DEBOUNCE_MS));
+	/* Need to handle the enable HERE */
+	if (irq == mhdp->irq[IRQ_IN]) {
+		DRM_DEBUG_DRIVER("HDMI/DP IRQ IN\n");
+		enable_irq(mhdp->irq[IRQ_OUT]);
+	} else if (irq == mhdp->irq[IRQ_OUT]) {
+		DRM_DEBUG_DRIVER("HDMI/DP IRQ OUT\n");
+		enable_irq(mhdp->irq[IRQ_IN]);
+	}
+
+	/* Queue job as long as not already in queue */
+	queue_delayed_work(system_wq, &mhdp->hotplug_work,
+			   usecs_to_jiffies(5));
 
 	return IRQ_HANDLED;
 }
@@ -555,8 +640,10 @@ static int __cdns_dp_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct resource *iores = NULL;
 	int ret;
+	u32 val;
 
 	mutex_init(&mhdp->lock);
+	mutex_init(&mhdp->api_lock);
 	mutex_init(&mhdp->iolock);
 
 	INIT_DELAYED_WORK(&mhdp->hotplug_work, hotplug_work_func);
@@ -625,7 +712,7 @@ static int __cdns_dp_probe(struct platform_device *pdev,
 						NULL, cdns_dp_irq_thread,
 						IRQF_ONESHOT, dev_name(dev),
 						mhdp);
-	
+
 		if (ret) {
 			dev_err(dev, "can't claim irq %d\n",
 					mhdp->irq[IRQ_IN]);
@@ -644,6 +731,8 @@ static int __cdns_dp_probe(struct platform_device *pdev,
 			return -EINVAL;
 		}
 
+		// Call to clear any latched values first...
+		cdns_mhdp_read_hpd(mhdp);
 		if (cdns_mhdp_read_hpd(mhdp))
 			enable_irq(mhdp->irq[IRQ_OUT]);
 		else
