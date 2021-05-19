@@ -100,6 +100,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AD9523
 	select AD9528
 	select AD9548
+	select ADF4159
 	select ADF4350
 	select ADF4360
 	select ADF4371
