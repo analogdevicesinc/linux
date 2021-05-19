@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADF4159 SPI Wideband Synthesizer example devicetree
+ *
+ * Copyright 2021 Analog Devices Inc.
+ *
+ * hdl_project: <fmcomms2/zed>
+ * board_revision: <>
+ *
+ */
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/iio/frequency/adf4159.h>
+
+/*
+ * SPI:
+ * spi1_csn      # "JA1"
+ * spi1_mosi     # "JA2"
+ * spi1_miso     # "JA3"
+ * spi1_clk      # "JA4"
+ * gpio_cftl[0]] # "JA7"        GPIO 54 + 32 + 0
+ * gpio_cftl[1]] # "JA10"       GPIO 54 + 32 + 1
+ */
+
+/ {
+	clocks {
+		clkin: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "adf4159_ext_refclk";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <4>;
+	is-decoded-cs = <0>;
+
+	adf4159@0 {
+		compatible = "adi,adf4159";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&clkin>;
+		clock-names = "clkin";
+		clock-output-names = "rf_out";
+		#clock-cells = <0>;
+		adi,power-up-frequency-hz = /bits/ 64 <6000000000>;
+		adi,charge-pump-current-microamp = <900>;
+		//adi,charge-pump-negative-bleed-enable;
+		adi,clk1-div = <100>;
+		adi,clk2-timer-div = <0>;
+		adi,clk2-timer-div-2 = <0>;
+		adi,clk-div-mode = <0>;
+		//adi,cycle-slip-reduction-enable;
+		//adi,delay-clk-sel-pfd-x-clk1-enable;
+		//adi,delay-start-enable;
+		adi,delay-start-word = <0>;
+		adi,deviation = <1000>;
+		adi,deviation-2 = <0>;
+		adi,deviation-offset = <1>;
+		//adi,dual-ramp-enable;
+		//adi,fast-ramp-enable;
+		//adi,fsk-modulation-enable;
+		//adi,fsk-ramp-enable;
+		adi,interrupt-mode-select = <0>;
+		//adi,le-sync-refin-enable;
+		//adi,lock-detect-precision-6ns-enable;
+		adi,muxout-select = <MUXOUT_READBACK_TO_MUXOUT>;
+		adi,negative-bleed-current-microamp = <0>;
+		//adi,parabolic-ramp-enable;
+		adi,phase = <0>;
+		//adi,phase-detector-polarity-positive-enable;
+		//adi,powerdown-enable;
+		//adi,psk-modulation-enable;
+		//adi,ramp-dealy-fl-enable;
+		//adi,ramp-delay-enable;
+		//adi,ramp-enable;
+		adi,ramp-mode-select = <0>;
+		adi,ramp-status-mode = <RAMP_STATUS_RAMP_COMPLETE_TO_MUXOUT>;
+		//adi,reference-div2-enable;
+		adi,reference-div-factor = <1>;
+		//adi,reference-doubler-enable;
+		//adi,single-full-triangle-enable;
+		adi,step-word = <0>;
+		adi,step-word-2 = <0>;
+		//adi,txdata-invert-enable;
+		//adi,txdata-ramp-clk-txdata-enable;
+		//adi,txdata-trigger-delay-enable;
+		//adi,txdata-trigger-enable;
+	};
+};
