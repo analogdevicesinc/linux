@@ -612,6 +612,12 @@ enum vic_pxl_encoding_format {
 	Y_ONLY = 0x10,
 };
 
+enum link_training_type {
+	DP_TX_FULL_LINK_TRAINING,
+	DP_TX_FAST_LINK_TRAINING,
+	DP_TX_NO_AUX_LINK_TRAINING
+};
+
 struct video_info {
 	bool h_sync_polarity;
 	bool v_sync_polarity;
@@ -791,6 +797,11 @@ struct cdns_mhdp_device {
 			u8 dpcd[DP_RECEIVER_CAP_SIZE];
 			u32 rate;
 			u8 num_lanes;
+			u8 vswing[4];
+			u8 preemphasis[4];
+			u8 force_vswing;
+			u8 force_preemphasis;
+			enum link_training_type link_training_type;
 			struct drm_dp_aux	aux;
 			struct cdns_mhdp_host	host;
 			struct cdns_mhdp_sink	sink;

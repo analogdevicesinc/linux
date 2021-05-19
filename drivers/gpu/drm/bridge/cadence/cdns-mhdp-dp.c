@@ -225,7 +225,7 @@ err_training_start:
 
 static int cdns_mhdp_get_training_status(struct cdns_mhdp_device *mhdp)
 {
-	u8 status[10];
+	u8 status[13];
 	int ret;
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,

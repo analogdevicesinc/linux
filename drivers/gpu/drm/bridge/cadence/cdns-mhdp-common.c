@@ -441,14 +441,23 @@ EXPORT_SYMBOL(cdns_mhdp_apb_conf);
 int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp)
 {
 	u8 msg[8];
-	int ret;
+	int ret, lane;
 
 	msg[0] = drm_dp_link_rate_to_bw_code(mhdp->dp.rate);
 	msg[1] = mhdp->dp.num_lanes | SCRAMBLER_EN;
-	msg[2] = VOLTAGE_LEVEL_3;
-	msg[3] = PRE_EMPHASIS_LEVEL_2;
+	if (mhdp->dp.link_training_type == DP_TX_FULL_LINK_TRAINING) {
+		msg[2] = (VOLTAGE_LEVEL_3 & 0x3) | (mhdp->dp.force_vswing & 0x1) << 4;
+		msg[3] = (PRE_EMPHASIS_LEVEL_2 & 0x3) | (mhdp->dp.force_preemphasis & 0x1) << 4;
+	} else {
+		msg[2] = 0;
+		msg[3] = 0;
+		for (lane = 0; lane < mhdp->dp.num_lanes; lane++) {
+			msg[2] |= (mhdp->dp.vswing[lane] & 0x3) << (2 * lane);
+			msg[3] |= (mhdp->dp.preemphasis[lane] & 0x3) << (2 * lane);
+		}
+	}
 	msg[4] = PTS1 | PTS2 | PTS3 | PTS4;
-	msg[5] = FAST_LT_NOT_SUPPORT;
+	msg[5] = mhdp->dp.link_training_type;
 	msg[6] = mhdp->lane_mapping;
 	msg[7] = ENHANCED;
 
