@@ -564,10 +564,10 @@ void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 {
 	switch (pixel_format) {
 	case V4L2_PIX_FMT_HEVC:
-		f->stepwise.min_width = 144;
+		f->stepwise.min_width = 132;
 		f->stepwise.max_width = 1920;
 		f->stepwise.step_width = 2;
-		f->stepwise.min_height = 144;
+		f->stepwise.min_height = 128;
 		f->stepwise.max_height = 1088;
 		f->stepwise.step_height = 2;
 		break;
@@ -597,12 +597,21 @@ void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 		f->stepwise.step_height = 2;
 		break;
 	default:
-		f->stepwise.min_width = 132;
-		f->stepwise.max_width = 1920;
-		f->stepwise.step_width = 2;
-		f->stepwise.min_height = 96;
-		f->stepwise.max_height = 1088;
-		f->stepwise.step_height = 2;
+		if (vsi_v4l2_hwconfig.enc_isH1) {
+			f->stepwise.min_width = 144;
+			f->stepwise.max_width = 1920;
+			f->stepwise.step_width = 4;
+			f->stepwise.min_height = 96;
+			f->stepwise.max_height = 1088;
+			f->stepwise.step_height = 2;
+		} else {
+			f->stepwise.min_width = 132;
+			f->stepwise.max_width = 1920;
+			f->stepwise.step_width = 2;
+			f->stepwise.min_height = 128;
+			f->stepwise.max_height = 1088;
+			f->stepwise.step_height = 2;
+		}
 		break;
 	}
 	f->type = V4L2_FRMSIZE_TYPE_STEPWISE;
