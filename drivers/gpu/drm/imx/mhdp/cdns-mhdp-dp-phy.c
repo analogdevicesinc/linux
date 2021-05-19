@@ -11,6 +11,7 @@
  */
 #include <linux/clk.h>
 #include <linux/kernel.h>
+#include <drm/drm_print.h>
 #include <drm/drm_dp_helper.h>
 #include <drm/bridge/cdns-mhdp.h>
 #include "cdns-mhdp-phy.h"
@@ -374,12 +375,12 @@ static void dp_phy_power_down(struct cdns_mhdp_device *mhdp)
 		val = cdns_phy_reg_read(mhdp, PHY_HDP_MODE_CTRL);
 		if (val & (1 << 7))
 			break;
-		msleep(20);
 	}
 	if (i == 10) {
 		dev_err(mhdp->dev, "Wait A3 Ack failed\n");
 		return;
 	}
+	DRM_DEBUG_DRIVER("Wait A3 Ack count - %d", i);
 
 	/* Disable HDP PLL’s data rate and full rate clocks out of PMA. */
 	val = cdns_phy_reg_read(mhdp, PHY_HDP_CLK_CTL);
@@ -390,12 +391,12 @@ static void dp_phy_power_down(struct cdns_mhdp_device *mhdp)
 		val = cdns_phy_reg_read(mhdp, PHY_HDP_CLK_CTL);
 		if (!(val & (1 << 3)))
 			break;
-		msleep(20);
 	}
 	if (i == 10) {
 		dev_err(mhdp->dev, "Wait PLL clock gate Ack failed\n");
 		return;
 	}
+	DRM_DEBUG_DRIVER("Wait PLL clock gate - %d", i);
 
 	/* Disable HDP PLL’s for high speed clocks */
 	val = cdns_phy_reg_read(mhdp, PHY_HDP_CLK_CTL);
@@ -406,12 +407,13 @@ static void dp_phy_power_down(struct cdns_mhdp_device *mhdp)
 		val = cdns_phy_reg_read(mhdp, PHY_HDP_CLK_CTL);
 		if (!(val & (1 << 1)))
 			break;
-		msleep(20);
 	}
 	if (i == 10) {
 		dev_err(mhdp->dev, "Wait PLL disable Ack failed\n");
 		return;
 	}
+	DRM_DEBUG_DRIVER("Wait PLL disable - %d", i);
+
 }
 
 static int dp_phy_power_up(struct cdns_mhdp_device *mhdp)
@@ -536,4 +538,11 @@ int cdns_dp_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
 	dp_aux_cfg(mhdp);
 
 	return true;
+}
+
+int cdns_dp_phy_shutdown(struct cdns_mhdp_device *mhdp)
+{
+	dp_phy_power_down(mhdp);
+	DRM_DEBUG_DRIVER("dp phy shutdown complete\n");
+	return 0;
 }

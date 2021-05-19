@@ -148,6 +148,7 @@
 
 int cdns_dp_phy_set_imx8mq(struct cdns_mhdp_device *hdp);
 int cdns_dp_phy_set_imx8qm(struct cdns_mhdp_device *hdp);
+int cdns_dp_phy_shutdown(struct cdns_mhdp_device *mhdp);
 bool cdns_hdmi_phy_video_valid_imx8mq(struct cdns_mhdp_device *hdp);
 bool cdns_hdmi_phy_video_valid_imx8qm(struct cdns_mhdp_device *hdp);
 int cdns_hdmi_phy_set_imx8mq(struct cdns_mhdp_device *hdp);

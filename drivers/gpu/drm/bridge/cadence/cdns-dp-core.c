@@ -509,6 +509,7 @@ static int __cdns_dp_probe(struct platform_device *pdev,
 	}
 
 	mhdp->is_hpd = true;
+	mhdp->is_dp = true;
 	mhdp->is_ls1028a = false;
 
 	mhdp->irq[IRQ_IN] = platform_get_irq_byname(pdev, "plug_in");
