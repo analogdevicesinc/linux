@@ -747,7 +747,7 @@ static int _cdns_hdcp_enable(struct cdns_mhdp_device *mhdp)
 	u8 hpd_sts;
 
 	hpd_sts = cdns_mhdp_read_hpd(mhdp);
-	if (1 != hpd_sts) {
+	if (hpd_sts == 0) {
 		dev_info(mhdp->dev, "%s HDP detected low, set state to DISABLING\n", __func__);
 		mhdp->hdcp.state = HDCP_STATE_DISABLING;
 		return -1;
@@ -1217,7 +1217,7 @@ static int cdns_hdcp_check_link(struct cdns_mhdp_device *mhdp)
 		 * debounce delay, the state might not reflect the disconnection.
 		 * The FW could already have detected the HDP down and reported error */
 		hpd_sts = cdns_mhdp_read_hpd(mhdp);
-		if (1 != hpd_sts) {
+		if (hpd_sts == 0) {
 			mhdp->hdcp.state = HDCP_STATE_DISABLING;
 			goto out;
 		}
