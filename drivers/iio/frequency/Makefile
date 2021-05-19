@@ -9,6 +9,7 @@ obj-$(CONFIG_AD9517) += ad9517.o
 obj-$(CONFIG_AD9523) += ad9523.o
 obj-$(CONFIG_AD9528) += ad9528.o
 obj-$(CONFIG_AD9548) += ad9548.o
+obj-$(CONFIG_ADF4159) += adf4159.o
 obj-$(CONFIG_ADF4350) += adf4350.o
 obj-$(CONFIG_ADF4360) += adf4360.o
 obj-$(CONFIG_ADF4371) += adf4371.o
