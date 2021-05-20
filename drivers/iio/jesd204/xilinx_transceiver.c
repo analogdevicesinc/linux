@@ -498,6 +498,9 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	static const u8 N_gtx2[] = {16, 20, 32, 40, 64, 66, 80, 100, 0};
 	static const u8 N_gth34[] = {16, 20, 32, 40, 64, 66, 75, 80, 100,
 			112, 120, 125, 150, 160, 0};
+	/* N_gty4: entire range is 16-160, can add more if required */
+	static const u8 N_gty4[] = {16, 20, 32, 33, 40, 64, 66, 75, 80, 99,
+			100, 112, 120, 125, 132, 150, 160, 0};
 
 	switch (xcvr->type) {
 	case XILINX_XCVR_TYPE_S7_GTX2:
@@ -505,8 +508,10 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 		break;
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
-	case XILINX_XCVR_TYPE_US_GTY4:
 		N = N_gth34;
+		break;
+	case XILINX_XCVR_TYPE_US_GTY4:
+		N = N_gty4;
 		break;
 	default:
 		return -EINVAL;
