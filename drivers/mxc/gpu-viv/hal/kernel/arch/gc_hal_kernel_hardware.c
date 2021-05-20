@@ -11935,7 +11935,6 @@ gckHARDWARE_Reset(
     gceSTATUS status = gcvSTATUS_OK;
     gctBOOL powerManagement = gcvFALSE;
     gctBOOL globalAcquired = gcvFALSE;
-    gceCHIPPOWERSTATE statesStored, state;
 
     gcmkHEADER_ARG("Hardware=0x%x", Hardware);
 
@@ -11951,10 +11950,6 @@ gckHARDWARE_Reset(
         Hardware, gcvFALSE
         ));
     }
-
-    gcmkONERROR(gckHARDWARE_QueryPowerState(
-        Hardware, &statesStored
-        ));
 
     gcmkONERROR(gckHARDWARE_SetPowerState(
         Hardware, gcvPOWER_ON_AUTO
@@ -11985,17 +11980,13 @@ gckHARDWARE_Reset(
         gcmkONERROR(_ResetGPU(Hardware, Hardware->os, Hardware->core));
     }
 
-    /* Force the command queue to reload the next context. */
-    Hardware->kernel->command->currContext = gcvNULL;
-
     /* Initialize hardware. */
     gcmkONERROR(gckHARDWARE_InitializeHardware(Hardware));
 
-    /* Jump to address into which GPU should run if it doesn't stuck. */
-    if (Hardware->wlFE)
-    {
-        gcmkONERROR(gckWLFE_Execute(Hardware, Hardware->lastWaitLink, 16));
-    }
+    /* Force the command queue to reload the next context. */
+    Hardware->kernel->command->currContext = gcvNULL;
+
+    gcmkONERROR(gckCOMMAND_Start(Hardware->kernel->command));
 
     /* Release the global semaphore. */
     gcmkONERROR(gckOS_ReleaseSemaphore(
@@ -12004,35 +11995,12 @@ gckHARDWARE_Reset(
 
     globalAcquired = gcvFALSE;
 
-    switch(statesStored)
-    {
-    case gcvPOWER_OFF:
-        state = gcvPOWER_OFF_BROADCAST;
-        break;
-    case gcvPOWER_IDLE:
-        state = gcvPOWER_IDLE_BROADCAST;
-        break;
-    case gcvPOWER_SUSPEND:
-        state = gcvPOWER_SUSPEND_BROADCAST;
-        break;
-    case gcvPOWER_ON:
-        state = gcvPOWER_ON_AUTO;
-        break;
-    default:
-        state = statesStored;
-        break;
-    }
-
     if (powerManagement)
     {
         gcmkONERROR(gckHARDWARE_EnablePowerManagement(
             Hardware, gcvTRUE
             ));
     }
-
-    gcmkONERROR(gckHARDWARE_SetPowerState(
-        Hardware, state
-        ));
 
     gcmkPRINT("[galcore]: recovery done");
 
