@@ -64,6 +64,7 @@ struct xilinx_xcvr {
 };
 
 #define ENC_8B10B					810
+#define ENC_66B64B					6664
 
 struct xilinx_xcvr_cpll_config {
 	unsigned int refclk_div;
@@ -129,5 +130,11 @@ int xilinx_xcvr_prbsel_enc_get(struct xilinx_xcvr *xcvr,
 
 int xilinx_xcvr_prbs_err_cnt_get(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int *cnt);
+
+int xilinx_xcvr_write_prog_div_rate(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, int rx_rate, int tx_rate);
+
+int xilinx_xcvr_write_prog_div(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, int rx_prog_div, int tx_prog_div);
 
 #endif
