@@ -32,6 +32,7 @@ static void cdns_mhdp_imx_encoder_enable(struct drm_encoder *encoder)
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
 
 	cdns_mhdp_plat_call(mhdp, plat_init);
+	cdns_hdmi_phy_power_up(mhdp);
 }
 
 static int cdns_mhdp_imx_encoder_atomic_check(struct drm_encoder *encoder,

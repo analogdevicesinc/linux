@@ -638,7 +638,7 @@ static int hdmi_phy_cfg_ss28fdsoi(struct cdns_mhdp_device *mhdp,
 	return char_freq;
 }
 
-static int hdmi_phy_power_up(struct cdns_mhdp_device *mhdp)
+static int hdmi_arc_power_up(struct cdns_mhdp_device *mhdp)
 {
 	u32 val, i;
 
@@ -665,23 +665,6 @@ static int hdmi_phy_power_up(struct cdns_mhdp_device *mhdp)
 	/* Power up ARC */
 	hdmi_arc_config(mhdp);
 
-	/* Configure PHY in A0 mode (PHY must be in the A0 power
-	 * state in order to transmit data)
-	 */
-	//cdns_phy_reg_write(mhdp, PHY_HDP_MODE_CTRL, 0x0101); //imx8mq
-	cdns_phy_reg_write(mhdp, PHY_HDP_MODE_CTRL, 0x0001);
-
-	/* Wait for Power State A0 Ack */
-	for (i = 0; i < 10; i++) {
-		val = cdns_phy_reg_read(mhdp, PHY_HDP_MODE_CTRL);
-		if (val & (1 << 4))
-			break;
-		msleep(20);
-	}
-	if (i == 10) {
-		dev_err(mhdp->dev, "Wait A0 Ack failed\n");
-		return -1;
-	}
 	return 0;
 }
 
@@ -715,7 +698,7 @@ int cdns_hdmi_phy_set_imx8mq(struct cdns_mhdp_device *mhdp)
 		return -EINVAL;
 	}
 
-	ret = hdmi_phy_power_up(mhdp);
+	ret = hdmi_arc_power_up(mhdp);
 	if (ret < 0)
 		return ret;
 
@@ -757,13 +740,36 @@ int cdns_hdmi_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
 	}
 	imx8qm_phy_reset(1);
 
-	ret = hdmi_phy_power_up(mhdp);
+	ret = hdmi_arc_power_up(mhdp);
 	if (ret < 0)
 		return ret;
 
 	hdmi_phy_set_vswing(mhdp);
 
 	return true;
+}
+
+int cdns_hdmi_phy_power_up(struct cdns_mhdp_device *mhdp)
+{
+	u32 val, i;
+
+	/* Configure PHY in A0 mode (PHY must be in the A0 power
+	 * state in order to transmit data)
+	 */
+	cdns_phy_reg_write(mhdp, PHY_HDP_MODE_CTRL, 0x0001);
+
+	/* Wait for Power State A0 Ack */
+	for (i = 0; i < 10; i++) {
+		val = cdns_phy_reg_read(mhdp, PHY_HDP_MODE_CTRL);
+		if (val & (1 << 4))
+			break;
+		msleep(20);
+	}
+	if (i == 10) {
+		dev_err(mhdp->dev, "Wait A0 Ack failed\n");
+		return -1;
+	}
+	return 0;
 }
 
 int cdns_hdmi_phy_shutdown(struct cdns_mhdp_device *mhdp)
