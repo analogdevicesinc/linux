@@ -20,6 +20,7 @@
 #define XCVR_OUTCLK_PMA		2
 #define XCVR_REFCLK		3
 #define XCVR_REFCLK_DIV2	4
+#define XCVR_PROGDIV_CLK	5 /* GTHE3, GTHE4, GTYE4 only */
 
 #endif /* _DT_BINDINGS_JESD204_ADXCVR_H */
 

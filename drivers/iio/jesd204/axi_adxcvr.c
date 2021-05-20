@@ -525,7 +525,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	struct xilinx_xcvr_cpll_config cpll_conf;
 	struct xilinx_xcvr_qpll_config qpll_conf;
-	unsigned int out_div, clk25_div;
+	unsigned int out_div, clk25_div, prog_div;
 	unsigned int i;
 	int ret;
 
@@ -562,6 +562,59 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 			st->tx_enable ? out_div : -1);
 		if (ret < 0)
 			return ret;
+
+		if (st->out_clk_sel == XCVR_PROGDIV_CLK) {
+			unsigned int max_progdiv, div = 1, ratio;
+
+			if (st->xcvr.encoding == ENC_66B64B)
+				ratio = 66;
+			else
+				ratio = 40;
+
+			/* Set RX|TX_PROGDIV_RATE = 2 on GTY4 */
+			ret = xilinx_xcvr_write_prog_div_rate(&st->xcvr,
+				ADXCVR_DRP_PORT_CHANNEL(i),
+				st->tx_enable ? -1 : 2,
+				st->tx_enable ? 2 : -1);
+			if (!ret)
+				div = 2;
+
+			switch (st->xcvr.type) {
+			case XILINX_XCVR_TYPE_US_GTH3:
+				max_progdiv = 100;
+				/* This is done in the FPGA fabric */
+				if (st->xcvr.encoding == ENC_66B64B)
+					div = 2;
+				break;
+			case XILINX_XCVR_TYPE_US_GTH4:
+				max_progdiv = 132;
+				/* This is done in the FPGA fabric */
+				if (st->xcvr.encoding == ENC_66B64B)
+					div = 2;
+				break;
+			case XILINX_XCVR_TYPE_US_GTY4:
+				max_progdiv = 100;
+				break;
+			default:
+				return -EINVAL;
+			}
+
+			prog_div = DIV_ROUND_CLOSEST(ratio * out_div, 2 * div);
+
+			if (prog_div > max_progdiv) {
+				prog_div = 0; /* disabled */
+				dev_warn(st->dev,
+					"%s: No PROGDIV divider found for OUTDIV=%u, disabling output!",
+					__func__, out_div);
+			}
+
+			ret = xilinx_xcvr_write_prog_div(&st->xcvr,
+				ADXCVR_DRP_PORT_CHANNEL(i),
+				st->tx_enable ? -1 : prog_div,
+				st->tx_enable ? prog_div : -1);
+			if (ret < 0)
+				return ret;
+		}
 
 		if (!st->tx_enable) {
 			ret = xilinx_xcvr_configure_cdr(&st->xcvr,
@@ -690,6 +743,24 @@ static int adxcvr_clk_register(struct device *dev,
 	case XCVR_REFCLK_DIV2:
 		out_clk_divider = 2;
 		out_clk_multiplier = 1;
+		break;
+	case XCVR_PROGDIV_CLK:
+		switch (st->xcvr.type) {
+		case XILINX_XCVR_TYPE_US_GTH3:
+		case XILINX_XCVR_TYPE_US_GTH4:
+		case XILINX_XCVR_TYPE_US_GTY4:
+			if (st->xcvr.encoding == ENC_66B64B)
+				out_clk_divider = 66; /* lane rate / 66 */
+			else
+				out_clk_divider = 40;
+			break;
+		default:
+			/* No clock */
+			return 0;
+		}
+
+		out_clk_multiplier = 1000;
+		parent_name = clk_names[0];
 		break;
 	default:
 		/* No clock */
@@ -961,8 +1032,14 @@ static int adxcvr_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto disable_unprepare_conv_clk2;
 	}
+
 	st->xcvr.encoding = ENC_8B10B;
 	st->xcvr.refclk_ppm = PM_200; /* TODO use clock accuracy */
+
+	if (st->xcvr.version >= ADI_AXI_PCORE_VER(17, 3, 'a')) {
+		if (((synth_conf >> 12) & 0x3) == 2)
+			st->xcvr.encoding = ENC_66B64B;
+	}
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 
