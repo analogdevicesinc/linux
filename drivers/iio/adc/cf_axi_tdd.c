@@ -225,7 +225,8 @@ static ssize_t cf_axi_tdd_read(struct iio_dev *indio_dev, uintptr_t private,
 		return -EINVAL;
 	}
 
-	return sprintf(buf, "%llu\n", DIV_ROUND_CLOSEST_ULL((u64)val * 1000, st->clk.rate));
+	return sprintf(buf, "%llu\n", DIV_ROUND_CLOSEST_ULL((u64)val * 1000,
+							    READ_ONCE(st->clk.rate)));
 }
 
 static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
@@ -278,7 +279,7 @@ static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 		return -EINVAL;
 	}
 
-	val =  DIV_ROUND_CLOSEST_ULL((u64)val * st->clk.rate, 1000);
+	val =  DIV_ROUND_CLOSEST_ULL((u64)val * READ_ONCE(st->clk.rate), 1000);
 	tdd_write(st, reg, ADI_TDD_RX_TX(val));
 
 	return len;
@@ -402,7 +403,7 @@ static int cf_axi_tdd_rate_change(struct notifier_block *nb, unsigned long flags
 	struct clk_notifier_data *cnd = data;
 
 	/* cache the new rate */
-	clk->rate = cnd->new_rate;
+	WRITE_ONCE(clk->rate, cnd->new_rate);
 
 	return NOTIFY_OK;
 }
