@@ -1087,6 +1087,54 @@
 				<316800000>;
 		};
 
+		dcnano: display-controller@2e050000 {
+			compatible = "nxp,imx8ulp-dcnano";
+			reg = <0x2e050000 0x10000>;
+			interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cgc2 IMX8ULP_CLK_LPAV_AXI_DIV>,
+				 <&cgc2 IMX8ULP_CLK_LPAV_AHB_DIV>,
+				 <&pcc5 IMX8ULP_CLK_DC_NANO>;
+			clock-names = "axi", "ahb", "pixel";
+			resets = <&pcc5 PCC5_DC_NANO_SWRST>;
+			power-domains = <&scmi_devpd IMX8ULP_PD_DCNANO>;
+			assigned-clocks = <&pcc5 IMX8ULP_CLK_DC_NANO>;
+			assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0_DIV1>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				dcnano_dpi: port@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+
+					dcnano_dpi_to_mipi_dsi: endpoint@0 {
+						reg = <0>;
+					};
+
+					dcnano_dpi_to_disp: endpoint@1 {
+						reg = <1>;
+					};
+				};
+
+				dcnano_dbi: port@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <1>;
+
+					dcnano_dbi_to_mipi_dsi: endpoint@0 {
+						reg = <0>;
+					};
+
+					dcnano_dbi_to_disp: endpoint@1 {
+						reg = <1>;
+					};
+				};
+			};
+		};
+
 		gpiod: gpio@2e200000 {
 			compatible = "fsl,imx8ulp-gpio";
 			reg = <0x2e200000 0x1000>;

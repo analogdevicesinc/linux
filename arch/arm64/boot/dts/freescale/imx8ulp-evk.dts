@@ -202,6 +202,10 @@
 	status = "okay";
 };
 
+&dcnano {
+	status = "okay";
+};
+
 &dsp {
 	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>;
 	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4>;
