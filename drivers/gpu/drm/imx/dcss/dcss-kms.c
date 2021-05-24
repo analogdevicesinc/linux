@@ -51,6 +51,7 @@ static const struct drm_mode_config_funcs dcss_drm_mode_config_funcs = {
 static const struct drm_driver dcss_kms_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 	DRM_GEM_DMA_DRIVER_OPS,
+	.gem_prime_import	= drm_gem_prime_import,
 	.fops			= &dcss_cma_fops,
 	.name			= "imx-dcss",
 	.desc			= "i.MX8MQ Display Subsystem",
