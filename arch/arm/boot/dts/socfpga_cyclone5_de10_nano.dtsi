@@ -97,10 +97,6 @@
 	u-boot,dm-pre-reloc;
 };
 
-&watchdog0 {
-	status = "disabled";
-};
-
 &gpio0 {
 	status = "okay";
 };
