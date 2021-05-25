@@ -184,6 +184,7 @@
 	phy-handle = <&phy1>;
 	phy-mode = "sgmii";
 	phys = <&lane0 PHY_TYPE_SGMII 0 1 125000000>;
+	mdiobus-connected = <&gem3>;
 };
 
 &gem3 {
