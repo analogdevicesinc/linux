@@ -4482,6 +4482,31 @@ static const struct macb_config default_gem_config = {
 	.jumbo_max_len = 10240,
 };
 
+static int macb_device_match(struct device *dev, const void *data)
+{
+	return dev->driver && dev->of_node == data;
+}
+
+static int macb_mdio_bus_device_find(struct device *dev)
+{
+	struct device_node *dn;
+	struct device *mdio_dev;
+
+	dn = of_parse_phandle(dev->of_node, "mdiobus-connected", 0);
+	if (!dn)
+		return 0;
+
+	mdio_dev = bus_find_device(&platform_bus_type, NULL,
+				   dn, macb_device_match);
+	of_node_put(dn);
+	if (!mdio_dev)
+		return -EPROBE_DEFER;
+
+	put_device(mdio_dev);
+
+	return 0;
+}
+
 static int macb_probe(struct platform_device *pdev)
 {
 	const struct macb_config *macb_config = &default_gem_config;
@@ -4501,6 +4526,14 @@ static int macb_probe(struct platform_device *pdev)
 	const u8 *mac;
 	struct macb *bp;
 	int err, val;
+
+	/* Temporary workaround of ZynqMP:
+	 * Defer probe until the device which controls the
+	 * MDIO (gem3) bus is registered.
+	 */
+	err = macb_mdio_bus_device_find(&pdev->dev);
+	if (err < 0)
+		return err;
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	mem = devm_ioremap_resource(&pdev->dev, regs);
