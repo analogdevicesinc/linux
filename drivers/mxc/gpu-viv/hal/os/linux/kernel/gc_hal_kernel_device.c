@@ -2962,7 +2962,7 @@ gckGALDEVICE_Suspend(
     )
 {
     gctUINT i;
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     gckHARDWARE hardware;
 #if gcdENABLE_VG
     gckVGHARDWARE vgHardware;
