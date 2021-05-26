@@ -41,7 +41,11 @@
 #define AD9545_REF_A_OFFSET_LIMIT	0x040C
 #define AD9545_REF_A_MONITOR_HYST	0x040F
 #define AD9545_PHASE_LOCK_THRESH	0x0800
+#define AD9545_PHASE_LOCK_FILL_RATE	0x0803
+#define AD9545_PHASE_LOCK_DRAIN_RATE	0x0804
 #define AD9545_FREQ_LOCK_THRESH		0x0805
+#define AD9545_FREQ_LOCK_FILL_RATE	0x0808
+#define AD9545_FREQ_LOCK_DRAIN_RATE	0x0809
 #define AD9545_DPLL0_FTW		0x1000
 #define	AD9545_NSHOT_REQ_CH0		0x10D3
 #define AD9545_NSHOT_EN_AB0		0x10D4
@@ -95,6 +99,10 @@
 #define AD9545_REF_X_PERIOD(x)			(AD9545_REF_A_PERIOD + ((x) * 0x20))
 #define AD9545_REF_X_OFFSET_LIMIT(x)		(AD9545_REF_A_OFFSET_LIMIT + ((x) * 0x20))
 #define AD9545_REF_X_MONITOR_HYST(x)		(AD9545_REF_A_MONITOR_HYST + ((x) * 0x20))
+#define AD9545_REF_X_PHASE_LOCK_FILL(x)		(AD9545_PHASE_LOCK_FILL_RATE + ((x) * 0x20))
+#define AD9545_REF_X_PHASE_LOCK_DRAIN(x)	(AD9545_PHASE_LOCK_DRAIN_RATE + ((x) * 0x20))
+#define AD9545_REF_X_FREQ_LOCK_FILL(x)		(AD9545_FREQ_LOCK_FILL_RATE + ((x) * 0x20))
+#define AD9545_REF_X_FREQ_LOCK_DRAIN(x)		(AD9545_FREQ_LOCK_DRAIN_RATE + ((x) * 0x20))
 
 #define AD9545_SOURCEX_PHASE_THRESH(x)		(AD9545_PHASE_LOCK_THRESH + ((x) * 0x20))
 #define AD9545_SOURCEX_FREQ_THRESH(x)		(AD9545_FREQ_LOCK_THRESH + ((x) * 0x20))
@@ -420,6 +428,10 @@ struct ad9545_ref_in_clk {
 	enum ad9545_ref_mode		mode;
 	unsigned int			freq_thresh_ps;
 	unsigned int			phase_thresh_ps;
+	unsigned int			phase_lock_fill_rate;
+	unsigned int			phase_lock_drain_rate;
+	unsigned int			freq_lock_fill_rate;
+	unsigned int			freq_lock_drain_rate;
 	union {
 		enum ad9545_single_ended_config		s_conf;
 		enum ad9545_diferential_config		d_conf;
@@ -585,6 +597,22 @@ static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 		}
 
 		st->ref_in_clks[ref_ind].phase_thresh_ps = val;
+
+		ret = fwnode_property_read_u32(child, "adi,phase-lock-fill-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].phase_lock_fill_rate = val;
+
+		ret = fwnode_property_read_u32(child, "adi,phase-lock-drain-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].phase_lock_drain_rate = val;
+
+		ret = fwnode_property_read_u32(child, "adi,freq-lock-fill-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].freq_lock_fill_rate = val;
+
+		ret = fwnode_property_read_u32(child, "adi,freq-lock-drain-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].freq_lock_drain_rate = val;
 
 		clk = devm_clk_get(st->dev, ad9545_ref_clk_names[ref_ind]);
 		if (IS_ERR(clk))
@@ -1538,6 +1566,34 @@ static int ad9545_input_refs_setup(struct ad9545_state *st)
 					&regval, 3);
 		if (ret < 0)
 			return ret;
+
+		regval = st->ref_in_clks[i].freq_lock_fill_rate;
+		if (regval) {
+			ret = regmap_write(st->regmap, AD9545_REF_X_FREQ_LOCK_FILL(i), regval);
+			if (ret < 0)
+				return ret;
+		}
+
+		regval = st->ref_in_clks[i].freq_lock_drain_rate;
+		if (regval) {
+			ret = regmap_write(st->regmap, AD9545_REF_X_FREQ_LOCK_DRAIN(i), regval);
+			if (ret < 0)
+				return ret;
+		}
+
+		regval = st->ref_in_clks[i].phase_lock_fill_rate;
+		if (regval) {
+			ret = regmap_write(st->regmap, AD9545_REF_X_PHASE_LOCK_FILL(i), regval);
+			if (ret < 0)
+				return ret;
+		}
+
+		regval = st->ref_in_clks[i].phase_lock_drain_rate;
+		if (regval) {
+			ret = regmap_write(st->regmap, AD9545_REF_X_PHASE_LOCK_DRAIN(i), regval);
+			if (ret < 0)
+				return ret;
+		}
 
 		init[i].name = ad9545_in_clk_names[i];
 		init[i].ops = &ad9545_in_clk_ops;
