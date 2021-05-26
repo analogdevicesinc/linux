@@ -246,7 +246,7 @@ static int pwm_backlight_parse_dt(struct device *dev,
 	memset(data, 0, sizeof(*data));
 
 	if (!of_property_read_string(node, "fb-names", &names)) {
-		strcpy(data->fb_id, names);
+		strncpy(data->fb_id, names, sizeof(data->fb_id));
 		data->check_fb = &pwm_backlight_check_fb_name;
 	}
 
