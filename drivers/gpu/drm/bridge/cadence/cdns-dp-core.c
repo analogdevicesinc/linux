@@ -235,6 +235,7 @@ static int cdns_dp_bridge_attach(struct drm_bridge *bridge,
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
 	struct drm_encoder *encoder = bridge->encoder;
 	struct drm_connector *connector = &mhdp->connector.base;
+	int ret;
 
 	connector->interlace_allowed = 1;
 
@@ -246,8 +247,12 @@ static int cdns_dp_bridge_attach(struct drm_bridge *bridge,
 
 	drm_connector_helper_add(connector, &cdns_dp_connector_helper_funcs);
 
-	drm_connector_init(bridge->dev, connector, &cdns_dp_connector_funcs,
+	ret = drm_connector_init(bridge->dev, connector, &cdns_dp_connector_funcs,
 			   DRM_MODE_CONNECTOR_DisplayPort);
+	if (ret < 0) {
+		DRM_ERROR("Failed to initialize connector\n");
+		return ret;
+	}
 
 	drm_connector_attach_encoder(connector, encoder);
 
