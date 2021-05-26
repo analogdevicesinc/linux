@@ -525,14 +525,19 @@ static int cdns_hdmi_bridge_attach(struct drm_bridge *bridge,
 	struct drm_mode_config *config = &bridge->dev->mode_config;
 	struct drm_encoder *encoder = bridge->encoder;
 	struct drm_connector *connector = &mhdp->connector.base;
+	int ret;
 
 	connector->interlace_allowed = 1;
 	connector->polled = DRM_CONNECTOR_POLL_HPD;
 
 	drm_connector_helper_add(connector, &cdns_hdmi_connector_helper_funcs);
 
-	drm_connector_init(bridge->dev, connector, &cdns_hdmi_connector_funcs,
+	ret = drm_connector_init(bridge->dev, connector, &cdns_hdmi_connector_funcs,
 			   DRM_MODE_CONNECTOR_HDMIA);
+	if (ret < 0) {
+		DRM_ERROR("Failed to initialize connector\n");
+		return ret;
+	}
 
 	if (!strncmp("imx8mq-hdmi", mhdp->plat_data->plat_name, 11)) {
 		drm_object_attach_property(&connector->base,
