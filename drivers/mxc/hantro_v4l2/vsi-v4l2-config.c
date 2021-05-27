@@ -197,10 +197,14 @@ static int enc_setvui(struct v4l2_format *v4l2fmt, struct v4l2_daemon_enc_params
 	else
 		encparams->specific.enc_h26x_cmd.videoRange = 1;
 	encparams->specific.enc_h26x_cmd.vuiColorPrimaries = 0;
-	for (i = 0; i < ARRAY_SIZE(colorprimaries); i++) {
-		if (colorprimaries[i] == colorspace) {
-			encparams->specific.enc_h26x_cmd.vuiColorPrimaries = i;
-			break;
+	if (colorspace == V4L2_COLORSPACE_SRGB)	//SRGB is duplicated with REC709
+		encparams->specific.enc_h26x_cmd.vuiColorPrimaries = 1;
+	else {
+		for (i = 0; i < ARRAY_SIZE(colorprimaries); i++) {
+			if (colorprimaries[i] == colorspace) {
+				encparams->specific.enc_h26x_cmd.vuiColorPrimaries = i;
+				break;
+			}
 		}
 	}
 	encparams->specific.enc_h26x_cmd.vuiTransferCharacteristics = 0;
