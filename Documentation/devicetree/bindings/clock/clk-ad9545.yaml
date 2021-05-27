@@ -209,6 +209,38 @@ patternProperties:
         minimum: 1
         maximum: 16777215
 
+      adi,phase-lock-fill-rate:
+        description: |
+          Parameter used by the DPLL Phase Lock Detector.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 255
+        default: 10
+
+      adi,phase-lock-drain-rate:
+        description: |
+          Parameter used by the DPLL Phase Lock Detector.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 255
+        default: 10
+
+      adi,freq-lock-fill-rate:
+        description: |
+          Parameter used by the DPLL Frequency Lock Detector.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 255
+        default: 10
+
+      adi,freq-lock-drain-rate:
+        description: |
+          Parameter used by the DPLL Frequency Lock Detector.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 255
+        default: 10
+
     required:
       - reg
       - adi,r-divider-ratio
