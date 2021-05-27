@@ -1405,7 +1405,6 @@ int xilinx_xcvr_write_prog_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 	int rx_prog_div, int tx_prog_div)
 {
 	switch (xcvr->type) {
-
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth3_gty4_write_progdiv_div(xcvr, drp_port,
