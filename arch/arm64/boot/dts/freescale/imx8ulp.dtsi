@@ -83,6 +83,14 @@
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	gpu: gpu {
+		compatible = "fsl,imx8-gpu-ss";
+		cores = <&gpu3d>, <&gpu2d>;
+		reg = <0x0 0x80000000 0x0 0x80000000>,
+			<0x0 0x0 0x0 0x08000000>;
+		reg-names = "phys_baseaddr", "contiguous_mem";
+	};
+
 	pmu {
 		compatible = "arm,cortex-a35-pmu";
 		interrupt-parent = <&gic>;
@@ -651,6 +659,43 @@
 				#clock-cells = <1>;
 				#reset-cells = <1>;
 			};
+		};
+
+		gpu3d: gpu3d@2e000000 {
+			compatible = "fsl,imx8-gpu";
+			reg = <0x2e000000 0x10000>;
+			interrupts =  <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pcc5 IMX8ULP_CLK_GPU3D>,
+				<&cgc1 IMX8ULP_CLK_DUMMY>;
+			power-domains = <&scmi_devpd IMX8ULP_PD_GPU3D>;
+			clock-names = "core", "shader";
+			assigned-clocks = <&cgc2 IMX8ULP_CLK_PLL4_PFD2>,
+				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>,
+				<&pcc5 IMX8ULP_CLK_GPU3D>;
+			assigned-clock-parents = <0>,
+				<0>,
+				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>;
+			assigned-clock-rates = <316800000>,
+				<316800000>,
+				<316800000>;
+		};
+
+		gpu2d: gpu2d@2e010000 {
+			compatible = "fsl,imx8-gpu";
+			reg = <0x2e010000 0x40000>;
+			interrupts =  <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pcc5 IMX8ULP_CLK_GPU2D>;
+			power-domains = <&scmi_devpd IMX8ULP_PD_GPU2D>;
+			clock-names = "core";
+			assigned-clocks = <&cgc2 IMX8ULP_CLK_PLL4_PFD2>,
+				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>,
+				<&pcc5 IMX8ULP_CLK_GPU2D>;
+			assigned-clock-parents = <0>,
+				<0>,
+				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>;
+			assigned-clock-rates = <316800000>,
+				<316800000>,
+				<316800000>;
 		};
 
 		gpiod: gpio@2e200000 {
