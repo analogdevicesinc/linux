@@ -10,8 +10,32 @@
  * Copyright (C) 2021 Analog Devices Inc.
  */
 
-#include "zynqmp-zcu102-rev10-ad9081.dts"
+// ad9081_204b_txmode_0_rxmode_1: 204C use case with low lane rate,
+// using gearbox and PRGOGDIV
+//     * 4Txs / 4Rxs per MxFE
+//     * DAC_CLK = 5.8GSPS
+//     * ADC_CLK = 2.9GSPS
+//     * Tx I/Q Rate: 120.83 MSPS (Interpolation of 12x4)
+//     * Rx I/Q Rate: 60.41 MSPS (Decimation of 6x8)
+//     * DAC JESD204B: Mode 0, L=1, M=8, N=N'=12
+//     * ADC JESD204B: Mode 1, L=1, M=8, N=N'=12
+//     * DAC-Side JESD204B Lane Rate: 5.98Gbps
+//     * ADC-Side JESD204B Lane Rate: 11.96Gbps
 
+// HDL Synthesis Parameters:
+// JESD_MODE=64B66B
+// RX_RATE=5.98
+// RX_JESD_M=8
+// RX_JESD_L=1
+// RX_JESD_S=1
+// RX_JESD_NP=12
+// TX_RATE=11.96
+// TX_JESD_M=8
+// TX_JESD_L=1
+// TX_JESD_S=1
+// TX_JESD_NP=12
+
+#include "zynqmp-zcu102-rev10-ad9081.dts"
 
 &axi_ad9081_rx_jesd {
 	clocks = <&zynqmp_clk 71>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 1>, <&axi_ad9081_adxcvr_rx 0>;
@@ -67,7 +91,7 @@
 
 		adi,pll1-loop-bandwidth-hz = <200>;
 
-		adi,pll2-output-frequency = <2400000000>;
+		adi,pll2-output-frequency = <2900000000>;
 
 		adi,sysref-timer-divider = <1024>;
 		adi,pulse-generator-mode = <0>;
@@ -175,7 +199,7 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,dac-frequency-hz = /bits/ 64 <4800000000>;
+			adi,dac-frequency-hz = /bits/ 64 <5800000000>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -186,22 +210,22 @@
 				ad9081_dac0: dac@0 {
 					reg = <0>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan0>;
-					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 100 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 				};
 				ad9081_dac1: dac@1 {
 					reg = <1>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan1>;
-					adi,nco-frequency-shift-hz = /bits/ 64 <1100000000>; /* 200 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 				};
 				ad9081_dac2: dac@2 {
 					reg = <2>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan2>; /* All 4 channels @ dac2 */
-					adi,nco-frequency-shift-hz = /bits/ 64 <1200000000>;  /* 300 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 				};
 				ad9081_dac3: dac@3 {
 					reg = <3>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan3>; /* All 4 channels @ dac2 */
-					adi,nco-frequency-shift-hz = /bits/ 64 <1300000000>; /* 400 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 				};
 			};
 
@@ -272,7 +296,7 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,adc-frequency-hz = /bits/ 64 <2400000000>;
+			adi,adc-frequency-hz = /bits/ 64 <2900000000>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -282,29 +306,33 @@
 				ad9081_adc0: adc@0 {
 					reg = <0>;
 					adi,decimation = <6>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <400000000>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					adi,digital-gain-6db-enable;
 					//adi,crossbar-select = <&ad9081_rx_fddc_chan0>, <&ad9081_rx_fddc_chan2>; /* Static for now */
 				};
 				ad9081_adc1: adc@1 {
 					reg = <1>;
 					adi,decimation = <6>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <(-400000000)>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					adi,digital-gain-6db-enable;
 					//adi,crossbar-select = <&ad9081_rx_fddc_chan1>, <&ad9081_rx_fddc_chan3>; /* Static for now */
 				};
 				ad9081_adc2: adc@2 {
 					reg = <2>;
 					adi,decimation = <6>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <100000000>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					adi,digital-gain-6db-enable;
 					//adi,crossbar-select = <&ad9081_rx_fddc_chan4>, <&ad9081_rx_fddc_chan6>; /* Static for now */
 				};
 				ad9081_adc3: adc@3 {
 					reg = <3>;
 					adi,decimation = <6>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <100000000>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
 					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					adi,digital-gain-6db-enable;
 					//adi,crossbar-select = <&ad9081_rx_fddc_chan5>, <&ad9081_rx_fddc_chan7>; /* Static for now */
 				};
 			};
@@ -319,6 +347,7 @@
 					adi,decimation = <8>;
 					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+					adi,digital-gain-6db-enable;
 
 				};
 				ad9081_rx_fddc_chan1: channel@1 {
@@ -326,6 +355,7 @@
 					adi,decimation = <8>;
 					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+					adi,digital-gain-6db-enable;
 
 				};
 				ad9081_rx_fddc_chan4: channel@4 {
@@ -333,6 +363,7 @@
 					adi,decimation = <8>;
 					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+					adi,digital-gain-6db-enable;
 
 				};
 				ad9081_rx_fddc_chan5: channel@5 {
@@ -340,7 +371,7 @@
 					adi,decimation = <8>;
 					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
-
+					adi,digital-gain-6db-enable;
 				};
 			};
 
