@@ -387,6 +387,7 @@ static irqreturn_t cdns_i2c_master_isr(void *ptr)
 
 	isr_status = cdns_i2c_readreg(CDNS_I2C_ISR_OFFSET);
 	cdns_i2c_writereg(isr_status, CDNS_I2C_ISR_OFFSET);
+	id->err_status = 0;
 
 	/* Handling nack and arbitration lost interrupt */
 	if (isr_status & (CDNS_I2C_IXR_NACK | CDNS_I2C_IXR_ARB_LOST)) {
@@ -411,19 +412,27 @@ static irqreturn_t cdns_i2c_master_isr(void *ptr)
 		/* Read data if receive data valid is set */
 		while (cdns_i2c_readreg(CDNS_I2C_SR_OFFSET) &
 		       CDNS_I2C_SR_RXDV) {
-			/*
-			 * Clear hold bit that was set for FIFO control if
-			 * RX data left is less than FIFO depth, unless
-			 * repeated start is selected.
-			 */
-			if ((id->recv_count < CDNS_I2C_FIFO_DEPTH) &&
-			    !id->bus_hold_flag)
-				cdns_i2c_clear_bus_hold(id);
+			if (id->recv_count > 0) {
+				*id->p_recv_buf++ =
+					cdns_i2c_readreg(CDNS_I2C_DATA_OFFSET);
+				id->recv_count--;
+				id->curr_recv_count--;
 
-			*(id->p_recv_buf)++ =
-				cdns_i2c_readreg(CDNS_I2C_DATA_OFFSET);
-			id->recv_count--;
-			id->curr_recv_count--;
+				/*
+				 * Clear hold bit that was set for FIFO control
+				 * if RX data left is less than or equal to
+				 * FIFO DEPTH unless repeated start is selected
+				 */
+				if (id->recv_count <= CDNS_I2C_FIFO_DEPTH &&
+				    !id->bus_hold_flag)
+					cdns_i2c_clear_bus_hold(id);
+
+			} else {
+				dev_err(id->adap.dev.parent,
+					"xfer_size reg rollover. xfer aborted!\n");
+				id->err_status |= CDNS_I2C_IXR_TO;
+				break;
+			}
 
 			if (cdns_is_holdquirk(id, hold_quirk))
 				break;
@@ -538,7 +547,7 @@ static irqreturn_t cdns_i2c_master_isr(void *ptr)
 	}
 
 	/* Update the status for errors */
-	id->err_status = isr_status & CDNS_I2C_IXR_ERR_INTR_MASK;
+	id->err_status |= isr_status & CDNS_I2C_IXR_ERR_INTR_MASK;
 	if (id->err_status)
 		status = IRQ_HANDLED;
 
@@ -1194,12 +1203,16 @@ static int __maybe_unused cdns_i2c_runtime_resume(struct device *dev)
 static void cdns_i2c_prepare_recovery(struct i2c_adapter *adapter)
 {
 	struct cdns_i2c *p_cdns_i2c;
+	int ret;
 
 	p_cdns_i2c = container_of(adapter, struct cdns_i2c, adap);
 
 	/* Setting pin state as gpio */
-	pinctrl_select_state(p_cdns_i2c->pinctrl,
+	ret = pinctrl_select_state(p_cdns_i2c->pinctrl,
 			     p_cdns_i2c->pinctrl_pins_gpio);
+	if (ret < 0)
+		dev_err(p_cdns_i2c->adap.dev.parent,
+				"pinctrl_select_state failed\n");
 }
 
 /**
@@ -1212,12 +1225,16 @@ static void cdns_i2c_prepare_recovery(struct i2c_adapter *adapter)
 static void cdns_i2c_unprepare_recovery(struct i2c_adapter *adapter)
 {
 	struct cdns_i2c *p_cdns_i2c;
+	int ret;
 
 	p_cdns_i2c = container_of(adapter, struct cdns_i2c, adap);
 
 	/* Setting pin state to default(i2c) */
-	pinctrl_select_state(p_cdns_i2c->pinctrl,
+	ret = pinctrl_select_state(p_cdns_i2c->pinctrl,
 			     p_cdns_i2c->pinctrl_pins_default);
+	if (ret < 0)
+		dev_err(p_cdns_i2c->adap.dev.parent,
+				"pinctrl_select_state failed\n");
 }
 
 /**
@@ -1241,8 +1258,8 @@ static int cdns_i2c_init_recovery_info(struct cdns_i2c *pid,
 	pid->pinctrl_pins_gpio = pinctrl_lookup_state(pid->pinctrl, "gpio");
 
 	/* Fetches GPIO pins */
-	rinfo->sda_gpiod = devm_gpiod_get(&pdev->dev, "sda-gpios", 0);
-	rinfo->scl_gpiod = devm_gpiod_get(&pdev->dev, "scl-gpios", 0);
+	rinfo->sda_gpiod = devm_gpiod_get(&pdev->dev, "sda-gpios", GPIOD_ASIS);
+	rinfo->scl_gpiod = devm_gpiod_get(&pdev->dev, "scl-gpios", GPIOD_ASIS);
 
 	/* if GPIO driver isn't ready yet, deffer probe */
 	if (PTR_ERR(rinfo->sda_gpiod) == -EPROBE_DEFER ||

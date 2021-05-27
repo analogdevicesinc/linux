@@ -2,7 +2,7 @@
 /*
  * Xilinx Zynq MPSoC Firmware layer
  *
- *  Copyright (C) 2014-2018 Xilinx, Inc.
+ *  Copyright (C) 2014-2020 Xilinx, Inc.
  *
  *  Michal Simek <michal.simek@xilinx.com>
  *  Davorin Mista <davorin.mista@aggios.com>
@@ -532,6 +532,8 @@ static inline int versal_is_valid_ioctl(u32 ioctl_id)
 	case IOCTL_PROBE_COUNTER_WRITE:
 	case IOCTL_USB_SET_STATE:
 	case IOCTL_OSPI_MUX_SELECT:
+	case IOCTL_GET_LAST_RESET_REASON:
+	case IOCTL_AIE_ISR_CLEAR:
 		return 1;
 	default:
 		return 0;
@@ -607,7 +609,7 @@ static int zynqmp_pm_ioctl(u32 node_id, u32 ioctl_id, u32 arg1, u32 arg2,
  *
  * Return: Returns status, either success or error+reason
  */
-static int zynqmp_pm_reset_assert(const enum zynqmp_pm_reset reset,
+static int zynqmp_pm_reset_assert(const u32 reset,
 				  const enum zynqmp_pm_reset_action assert_flag)
 {
 	return zynqmp_pm_invoke_fn(PM_RESET_ASSERT, reset, assert_flag,
@@ -621,8 +623,7 @@ static int zynqmp_pm_reset_assert(const enum zynqmp_pm_reset reset,
  *
  * Return: Returns status, either success or error+reason
  */
-static int zynqmp_pm_reset_get_status(const enum zynqmp_pm_reset reset,
-				      u32 *status)
+static int zynqmp_pm_reset_get_status(const u32 reset, u32 *status)
 {
 	u32 ret_payload[PAYLOAD_ARG_CNT];
 	int ret;
@@ -1221,6 +1222,26 @@ static int zynqmp_pm_secure_load(const u64 src_addr, u64 key_addr, u64 *dst)
 	return ret_value;
 }
 
+/**
+ * zynqmp_pm_get_last_reset_reason() - PM API for getting last reset reason
+ *
+ * @reset_reason:	last reset reason
+ *
+ * This function returns last reset reason
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_get_last_reset_reason(u32 *reset_reason)
+{
+	if (!reset_reason)
+		return -EINVAL;
+
+	return zynqmp_pm_invoke_fn(PM_IOCTL, 0,
+				   IOCTL_GET_LAST_RESET_REASON,
+				   0, 0, reset_reason);
+}
+EXPORT_SYMBOL_GPL(zynqmp_pm_get_last_reset_reason);
+
 static const struct zynqmp_eemi_ops eemi_ops = {
 	.get_api_version = zynqmp_pm_get_api_version,
 	.get_chipid = zynqmp_pm_get_chipid,
@@ -1588,10 +1609,46 @@ static ssize_t config_reg_show(struct kobject *kobj,
 static struct kobj_attribute zynqmp_attr_config_reg =
 					__ATTR_RW(config_reg);
 
+static ssize_t last_reset_reason_show(struct kobject *kobj,
+				      struct kobj_attribute *attr,
+				      char *buf)
+{
+	int ret;
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+
+	ret = zynqmp_pm_get_last_reset_reason(ret_payload);
+	if (ret)
+		return ret;
+	switch (ret_payload[1]) {
+	case PM_RESET_REASON_EXT_POR:
+		return sprintf(buf, "ext_por\n");
+	case PM_RESET_REASON_SW_POR:
+		return sprintf(buf, "sw_por\n");
+	case PM_RESET_REASON_SLR_POR:
+		return sprintf(buf, "sl_por\n");
+	case PM_RESET_REASON_ERR_POR:
+		return sprintf(buf, "err_por\n");
+	case PM_RESET_REASON_DAP_SRST:
+		return sprintf(buf, "dap_srst\n");
+	case PM_RESET_REASON_ERR_SRST:
+		return sprintf(buf, "err_srst\n");
+	case PM_RESET_REASON_SW_SRST:
+		return sprintf(buf, "sw_srst\n");
+	case PM_RESET_REASON_SLR_SRST:
+		return sprintf(buf, "slr_srst\n");
+	default:
+		return sprintf(buf, "unknown reset\n");
+	}
+}
+
+static struct kobj_attribute zynqmp_attr_last_reset_reason =
+					__ATTR_RO(last_reset_reason);
+
 static struct attribute *attrs[] = {
 	&zynqmp_attr_shutdown_scope.attr,
 	&zynqmp_attr_health_status.attr,
 	&zynqmp_attr_config_reg.attr,
+	&zynqmp_attr_last_reset_reason.attr,
 	NULL,
 };
 

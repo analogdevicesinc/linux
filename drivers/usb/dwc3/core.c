@@ -79,15 +79,6 @@ static int dwc3_get_dr_mode(struct dwc3 *dwc)
 			mode = USB_DR_MODE_HOST;
 		else if (IS_ENABLED(CONFIG_USB_DWC3_GADGET))
 			mode = USB_DR_MODE_PERIPHERAL;
-
-		/*
-		 * DWC_usb31 and DWC_usb3 v3.30a and higher do not support OTG
-		 * mode. If the controller supports DRD but the dr_mode is not
-		 * specified or set to OTG, then set the mode to peripheral.
-		 */
-		if (mode == USB_DR_MODE_OTG &&
-		    dwc->revision >= DWC3_REVISION_330A)
-			mode = USB_DR_MODE_PERIPHERAL;
 	}
 
 	if (mode != dwc->dr_mode) {
@@ -524,8 +515,10 @@ static int dwc3_setup_scratch_buffers(struct dwc3 *dwc)
 	return 0;
 
 err1:
-	dma_unmap_single(dwc->sysdev, dwc->scratch_addr, dwc->nr_scratch *
-			DWC3_SCRATCHBUF_SIZE, DMA_BIDIRECTIONAL);
+	dma_unmap_single(dwc->sysdev, dwc->scratch_addr,
+			(size_t)(dwc->nr_scratch *
+			(size_t)DWC3_SCRATCHBUF_SIZE),
+			DMA_BIDIRECTIONAL);
 
 	return ret;
 }
@@ -542,8 +535,10 @@ static void dwc3_free_scratch_buffers(struct dwc3 *dwc)
 	if (WARN_ON(!dwc->scratchbuf))
 		return;
 
-	dma_unmap_single(dwc->sysdev, dwc->scratch_addr, dwc->nr_scratch *
-			DWC3_SCRATCHBUF_SIZE, DMA_BIDIRECTIONAL);
+	dma_unmap_single(dwc->sysdev, dwc->scratch_addr,
+			(size_t)(dwc->nr_scratch *
+			(size_t)DWC3_SCRATCHBUF_SIZE),
+			DMA_BIDIRECTIONAL);
 	kfree(dwc->scratchbuf);
 }
 
@@ -1355,10 +1350,10 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 	u8			lpm_nyet_threshold;
 	u8			tx_de_emphasis;
 	u8			hird_threshold;
-	u8			rx_thr_num_pkt_prd;
-	u8			rx_max_burst_prd;
-	u8			tx_thr_num_pkt_prd;
-	u8			tx_max_burst_prd;
+	u8			rx_thr_num_pkt_prd = 0;
+	u8			rx_max_burst_prd = 0;
+	u8			tx_thr_num_pkt_prd = 0;
+	u8			tx_max_burst_prd = 0;
 
 	/* default to highest possible threshold */
 	lpm_nyet_threshold = 0xf;
@@ -1447,7 +1442,8 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 				&tx_de_emphasis);
 	device_property_read_string(dev, "snps,hsphy_interface",
 				    &dwc->hsphy_interface);
-	device_property_read_u32(dev, "snps,quirk-frame-length-adjustment",
+	(void)device_property_read_u32(dev,
+				"snps,quirk-frame-length-adjustment",
 				 &dwc->fladj);
 
 	dwc->refclk_fladj = device_property_read_bool(dev,
@@ -1694,7 +1690,7 @@ static int dwc3_remove(struct platform_device *pdev)
 {
 	struct dwc3	*dwc = platform_get_drvdata(pdev);
 
-	pm_runtime_get_sync(&pdev->dev);
+	(void)pm_runtime_get_sync(&pdev->dev);
 
 	dwc3_debugfs_exit(dwc);
 	dwc3_core_exit_mode(dwc);
@@ -1703,7 +1699,7 @@ static int dwc3_remove(struct platform_device *pdev)
 	dwc3_core_exit(dwc);
 	dwc3_ulpi_exit(dwc);
 
-	pm_runtime_put_sync(&pdev->dev);
+	(void)pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_allow(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 

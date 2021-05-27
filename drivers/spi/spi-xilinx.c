@@ -178,7 +178,7 @@ static void xspi_fill_tx_fifo_##size(struct xilinx_spi *xqspi)		\
 	u32 data = 0;							\
 	for (i = 0; i < count; i += (size / 8)) {			\
 		if (xqspi->tx_ptr)					\
-			data = (type)((u8 *)xqspi->tx_ptr)[i];		\
+			data = *(type *)&xqspi->tx_ptr[i];		\
 		writel_relaxed(data, (xqspi->regs + XSPI_TXD_OFFSET));	\
 	}								\
 	xqspi->bytes_to_transfer -= count;				\
@@ -615,7 +615,7 @@ static irqreturn_t xilinx_spi_irq(int irq, void *dev_id)
 	struct spi_master *master = dev_id;
 	struct xilinx_spi *xspi = spi_master_get_devdata(dev_id);
 	u32 ipif_isr;
-	int status = IRQ_NONE;
+	irqreturn_t status = IRQ_NONE;
 
 	/* Get the IPIF interrupts, and clear them immediately */
 	ipif_isr = xspi->read_fn(xspi->regs + XIPIF_V123B_IISR_OFFSET);
@@ -642,15 +642,17 @@ static int xilinx_spi_probe(struct platform_device *pdev)
 {
 	struct xilinx_spi *xspi;
 	struct resource *res;
-	int ret, num_cs = 0, bits_per_word = 8;
+	int ret;
+	u32 num_cs = 0, bits_per_word = 8;
 	u32 cs_num;
 	struct spi_master *master;
 	struct device_node *nc;
 	u32 tmp, rx_bus_width, fifo_size;
 	bool startup_block;
 
-	of_property_read_u32(pdev->dev.of_node, "num-cs",
-				&num_cs);
+	if (of_property_read_u32(pdev->dev.of_node, "num-cs", &num_cs))
+		dev_info(&pdev->dev,
+			 "Missing num-cs optional property, assuming default as <1>\n");
 	if (!num_cs)
 		num_cs = 1;
 
@@ -681,8 +683,10 @@ static int xilinx_spi_probe(struct platform_device *pdev)
 			"Missing fifo size\n");
 		return -EINVAL;
 	}
-	of_property_read_u32(pdev->dev.of_node, "bits-per-word",
-			     &bits_per_word);
+	if (of_property_read_u32(pdev->dev.of_node, "bits-per-word",
+				 &bits_per_word))
+		dev_info(&pdev->dev,
+			 "Missing bits-per-word optional property, assuming default as <8>\n");
 
 	xspi->rx_bus_width = XSPI_ONE_BITS_PER_WORD;
 	for_each_available_child_of_node(pdev->dev.of_node, nc) {

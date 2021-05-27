@@ -91,7 +91,7 @@ static const struct xvip_video_format xvip_video_formats[] = {
 	{ XVIP_VF_MONO_SENSOR, 8, "mono", MEDIA_BUS_FMT_Y8_1X8,
 	  1, 8, V4L2_PIX_FMT_GREY, 1, 1, 1, 1 },
 	{ XVIP_VF_Y_GREY, 10, NULL, MEDIA_BUS_FMT_Y10_1X10,
-	  4, 32, V4L2_PIX_FMT_XY10, 1, 1, 1, 1 },
+	  1, 32, V4L2_PIX_FMT_XY10, 1, 1, 1, 1 },
 	{ XVIP_VF_Y_GREY, 12, NULL, MEDIA_BUS_FMT_Y12_1X12,
 	  1, 12, V4L2_PIX_FMT_XY12, 1, 1, 1, 1 },
 	{ XVIP_VF_Y_GREY, 16, NULL, MEDIA_BUS_FMT_Y16_1X16,
@@ -263,9 +263,9 @@ EXPORT_SYMBOL_GPL(xvip_width_padding_factor);
 const struct xvip_video_format *xvip_of_get_format(struct device_node *node)
 {
 	const char *pattern = "mono";
-	unsigned int vf_code;
+	unsigned int vf_code = 0;
 	unsigned int i;
-	u32 width;
+	u32 width = 0;
 	int ret;
 
 	ret = of_property_read_u32(node, "xlnx,video-format", &vf_code);
@@ -276,8 +276,13 @@ const struct xvip_video_format *xvip_of_get_format(struct device_node *node)
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	if (vf_code == XVIP_VF_MONO_SENSOR)
-		of_property_read_string(node, "xlnx,cfa-pattern", &pattern);
+	if (vf_code == XVIP_VF_MONO_SENSOR) {
+		ret = of_property_read_string(node,
+					      "xlnx,cfa-pattern",
+					      &pattern);
+		if (ret < 0)
+			return ERR_PTR(ret);
+	}
 
 	for (i = 0; i < ARRAY_SIZE(xvip_video_formats); ++i) {
 		const struct xvip_video_format *format = &xvip_video_formats[i];
@@ -377,8 +382,7 @@ int xvip_init_resources(struct xvip_device *xvip)
 	if (IS_ERR(xvip->clk))
 		return PTR_ERR(xvip->clk);
 
-	clk_prepare_enable(xvip->clk);
-	return 0;
+	return clk_prepare_enable(xvip->clk);
 }
 EXPORT_SYMBOL_GPL(xvip_init_resources);
 

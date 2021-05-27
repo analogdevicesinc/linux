@@ -342,7 +342,8 @@ static irqreturn_t cdns_spi_irq(int irq, void *dev_id)
 {
 	struct spi_master *master = dev_id;
 	struct cdns_spi *xspi = spi_master_get_devdata(master);
-	u32 intr_status, status;
+	u32 intr_status;
+	irqreturn_t status;
 
 	status = IRQ_NONE;
 	intr_status = cdns_spi_read(xspi, CDNS_SPI_ISR);
@@ -475,7 +476,7 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	int ret = 0, irq;
 	struct spi_master *master;
 	struct cdns_spi *xspi;
-	u32 num_cs;
+	u32 num_cs = 0;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*xspi));
 	if (!master)

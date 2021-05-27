@@ -386,14 +386,35 @@ static int __zynqmp_clock_get_topology(struct clock_topology *topology,
 {
 	int i;
 	u32 type;
+	u32 flag;
 
 	for (i = 0; i < ARRAY_SIZE(response->topology); i++) {
 		type = FIELD_GET(CLK_TOPOLOGY_TYPE, response->topology[i]);
 		if (type == TYPE_INVALID)
 			return END_OF_TOPOLOGY_NODE;
 		topology[*nnodes].type = type;
-		topology[*nnodes].flag = FIELD_GET(CLK_TOPOLOGY_FLAGS,
-						   response->topology[i]);
+		flag = FIELD_GET(CLK_TOPOLOGY_FLAGS, response->topology[i]);
+		topology[*nnodes].flag = 0;
+		topology[*nnodes].flag |= (flag & ZYNQMP_CLK_SET_RATE_GATE) ?
+					  CLK_SET_RATE_GATE : 0;
+		topology[*nnodes].flag |= (flag & ZYNQMP_CLK_SET_RATE_PARENT) ?
+					   CLK_SET_RATE_PARENT : 0;
+		topology[*nnodes].flag |= (flag & ZYNQMP_CLK_IGNORE_UNUSED) ?
+					  CLK_IGNORE_UNUSED : 0;
+		topology[*nnodes].flag |= (flag & ZYNQMP_CLK_GET_RATE_NOCACHE) ?
+					  CLK_GET_RATE_NOCACHE : 0;
+		topology[*nnodes].flag |= (flag &
+					   ZYNQMP_CLK_SET_RATE_NO_REPARENT) ?
+					   CLK_SET_RATE_NO_REPARENT : 0;
+		topology[*nnodes].flag |= (flag &
+					   ZYNQMP_CLK_GET_ACCURACY_NOCACHE) ?
+					   CLK_GET_ACCURACY_NOCACHE : 0;
+		topology[*nnodes].flag |= (flag & ZYNQMP_CLK_RECALC_NEW_RATES) ?
+					  CLK_RECALC_NEW_RATES : 0;
+		topology[*nnodes].flag |= (flag & ZYNQMP_CLK_SET_RATE_UNGATE) ?
+					  CLK_SET_RATE_UNGATE : 0;
+		topology[*nnodes].flag |= (flag & ZYNQMP_CLK_IS_CRITICAL) ?
+					  CLK_IS_CRITICAL : 0;
 		topology[*nnodes].type_flag =
 				FIELD_GET(CLK_TOPOLOGY_TYPE_FLAGS,
 					  response->topology[i]);
@@ -741,9 +762,7 @@ static int zynqmp_clk_setup(struct device_node *np)
 	zynqmp_register_clocks(np);
 
 	zynqmp_data->num = clock_max_idx;
-	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, zynqmp_data);
-
-	return 0;
+	return of_clk_add_hw_provider(np, of_clk_hw_onecell_get, zynqmp_data);
 }
 
 static int zynqmp_clock_probe(struct platform_device *pdev)

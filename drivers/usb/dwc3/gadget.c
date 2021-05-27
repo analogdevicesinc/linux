@@ -526,7 +526,7 @@ static int dwc3_gadget_start_config(struct dwc3_ep *dep)
 		return ret;
 
 	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++) {
-		struct dwc3_ep *dep = dwc->eps[i];
+		dep = dwc->eps[i];
 
 		if (!dep)
 			continue;
@@ -1369,6 +1369,7 @@ static int dwc3_gadget_start_isoc_quirk(struct dwc3_ep *dep)
 
 		params.param0 = upper_32_bits(dep->dwc->bounce_addr);
 		params.param1 = lower_32_bits(dep->dwc->bounce_addr);
+		params.param2 = 0;
 
 		cmd = DWC3_DEPCMD_STARTTRANSFER;
 		cmd |= DWC3_DEPCMD_PARAM(test_frame_number);
@@ -1489,9 +1490,11 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	/* If core is hibernated, need to wakeup (remote wakeup) */
 	if (dwc->is_hibernated) {
+#ifdef CONFIG_PM
 		dwc->force_hiber_wake = true;
 		gadget_wakeup_interrupt(dwc);
 		dwc->force_hiber_wake = false;
+#endif
 	}
 
 	/*
@@ -3148,12 +3151,14 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 
 static irqreturn_t wakeup_interrupt(int irq, void *_dwc)
 {
+#ifdef CONFIG_PM
 	struct dwc3 *dwc = (struct dwc3 *)_dwc;
 
 	spin_lock(&dwc->lock);
 	gadget_wakeup_interrupt(dwc);
 	spin_unlock(&dwc->lock);
 
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -3288,8 +3293,10 @@ static void dwc3_gadget_hibernation_interrupt(struct dwc3 *dwc,
 	    (!(dwc->has_hibernation)))
 		return;
 
+#ifdef CONFIG_PM
 	/* enter hibernation here */
 	gadget_hibernation_interrupt(dwc);
+#endif
 }
 
 static void dwc3_gadget_interrupt(struct dwc3 *dwc,
@@ -3622,12 +3629,10 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 					dev_err(dwc->dev,
 						"otg_set_peripheral failed\n");
 					usb_put_phy(phy);
-					phy = NULL;
 					goto err4;
 				}
 			} else {
 				usb_put_phy(phy);
-				phy = NULL;
 			}
 		}
 	}
@@ -3677,9 +3682,11 @@ int dwc3_gadget_suspend(struct dwc3 *dwc)
 		 * As we are about to suspend, wake the controller from
 		 * D3 & hibernation states
 		 */
+#ifdef CONFIG_PM
 		dwc->force_hiber_wake = true;
 		gadget_wakeup_interrupt(dwc);
 		dwc->force_hiber_wake = false;
+#endif
 	}
 
 	dwc3_gadget_run_stop(dwc, false, false);

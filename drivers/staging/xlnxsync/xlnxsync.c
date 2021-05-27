@@ -41,7 +41,7 @@
 #define XLNXSYNC_PC_END_HI_REG		0x54
 #define XLNXSYNC_L_MARGIN_REG		0x68
 #define XLNXSYNC_C_MARGIN_REG		0x74
-#define XLNXSYNC_IER_REG		0x80
+#define XLNXSYNC_IMR_REG		0x80
 #define XLNXSYNC_DBG_REG		0x84
 /* Consumer Luma/Chroma Start/End Address */
 #define XLNXSYNC_CL_START_LO_REG	0x88
@@ -63,8 +63,8 @@
 #define XLNXSYNC_CTRL_INTR_EN_MASK	BIT(2)
 #define XLNXSYNC_CTRL_SOFTRESET		BIT(3)
 
-#define XLNXSYNC_ISR_SYNC_FAIL_MASK	BIT(0)
-#define XLNXSYNC_ISR_WDG_ERR_MASK	BIT(1)
+#define XLNXSYNC_ISR_PROD_SYNC_FAIL_MASK BIT(0)
+#define XLNXSYNC_ISR_PROD_WDG_ERR_MASK	BIT(1)
 /* Producer related */
 #define XLNXSYNC_ISR_PLDONE_SHIFT	(2)
 #define XLNXSYNC_ISR_PLDONE_MASK	GENMASK(3, 2)
@@ -86,31 +86,37 @@
 
 #define XLNXSYNC_ISR_LDIFF		BIT(18)
 #define XLNXSYNC_ISR_CDIFF		BIT(19)
+#define XLNXSYNC_ISR_CONS_SYNC_FAIL_MASK BIT(20)
+#define XLNXSYNC_ISR_CONS_WDG_ERR_MASK	BIT(21)
 
 /* bit 44 of start address */
 #define XLNXSYNC_FB_VALID_MASK		BIT(12)
 #define XLNXSYNC_FB_HI_ADDR_MASK	GENMASK(11, 0)
 
-#define XLNXSYNC_IER_SYNC_FAIL_MASK	BIT(0)
-#define XLNXSYNC_IER_WDG_ERR_MASK	BIT(1)
+#define XLNXSYNC_IMR_PROD_SYNC_FAIL_MASK BIT(0)
+#define XLNXSYNC_IMR_PROD_WDG_ERR_MASK	BIT(1)
 /* Producer */
-#define XLNXSYNC_IER_PLVALID_MASK	BIT(5)
-#define XLNXSYNC_IER_PCVALID_MASK	BIT(9)
+#define XLNXSYNC_IMR_PLVALID_MASK	BIT(5)
+#define XLNXSYNC_IMR_PCVALID_MASK	BIT(9)
 /* Consumer */
-#define XLNXSYNC_IER_CLVALID_MASK	BIT(13)
-#define XLNXSYNC_IER_CCVALID_MASK	BIT(17)
+#define XLNXSYNC_IMR_CLVALID_MASK	BIT(13)
+#define XLNXSYNC_IMR_CCVALID_MASK	BIT(17)
 /* Diff */
-#define XLNXSYNC_IER_LDIFF		BIT(18)
-#define XLNXSYNC_IER_CDIFF		BIT(19)
+#define XLNXSYNC_IMR_LDIFF		BIT(18)
+#define XLNXSYNC_IMR_CDIFF		BIT(19)
+#define XLNXSYNC_IMR_CONS_SYNC_FAIL_MASK BIT(20)
+#define XLNXSYNC_IMR_CONS_WDG_ERR_MASK	BIT(21)
 
-#define XLNXSYNC_IER_ALL_MASK		(XLNXSYNC_IER_SYNC_FAIL_MASK |\
-					 XLNXSYNC_IER_WDG_ERR_MASK |\
-					 XLNXSYNC_IER_PLVALID_MASK |\
-					 XLNXSYNC_IER_PCVALID_MASK |\
-					 XLNXSYNC_IER_CLVALID_MASK |\
-					 XLNXSYNC_IER_CCVALID_MASK |\
-					 XLNXSYNC_IER_LDIFF |\
-					 XLNXSYNC_IER_CDIFF)
+#define XLNXSYNC_IMR_ALL_MASK		(XLNXSYNC_IMR_PROD_SYNC_FAIL_MASK |\
+					 XLNXSYNC_IMR_PROD_WDG_ERR_MASK |\
+					 XLNXSYNC_IMR_PLVALID_MASK |\
+					 XLNXSYNC_IMR_PCVALID_MASK |\
+					 XLNXSYNC_IMR_CLVALID_MASK |\
+					 XLNXSYNC_IMR_CCVALID_MASK |\
+					 XLNXSYNC_IMR_LDIFF |\
+					 XLNXSYNC_IMR_CDIFF |\
+					 XLNXSYNC_IMR_CONS_SYNC_FAIL_MASK |\
+					 XLNXSYNC_IMR_CONS_WDG_ERR_MASK)
 
 /* Other macros */
 #define XLNXSYNC_CHAN_OFFSET		0x100
@@ -178,8 +184,10 @@ struct xlnxsync_device {
  * @wq_error: Wait queue for error events
  * @l_done: Luma done result array
  * @c_done: Chroma done result array
- * @sync_err: Capture synchronization error per channel
- * @wdg_err: Capture watchdog error per channel
+ * @prod_sync_err: Capture synchronization error per channel
+ * @prod_wdg_err: Capture watchdog error per channel
+ * @cons_sync_err: Consumer synchronization error per channel
+ * @cons_wdg_err: Consumer watchdog error per channel
  * @ldiff_err: Luma buffer diff > 1
  * @cdiff_err: Chroma buffer diff > 1
  * @err_event: Error event per channel
@@ -197,8 +205,10 @@ struct xlnxsync_channel {
 	wait_queue_head_t wq_error;
 	u8 l_done[XLNXSYNC_BUF_PER_CHAN][XLNXSYNC_IO];
 	u8 c_done[XLNXSYNC_BUF_PER_CHAN][XLNXSYNC_IO];
-	u8 sync_err : 1;
-	u8 wdg_err : 1;
+	u8 prod_sync_err : 1;
+	u8 prod_wdg_err : 1;
+	u8 cons_sync_err : 1;
+	u8 cons_wdg_err : 1;
 	u8 ldiff_err : 1;
 	u8 cdiff_err : 1;
 	u8 err_event : 1;
@@ -538,18 +548,29 @@ static int xlnxsync_chan_get_status(struct xlnxsync_channel *channel,
 
 	/* Update channel error status */
 	spin_lock_irqsave(&dev->irq_lock, flags);
-	status.sync_err = channel->sync_err;
-	status.wdg_err = channel->wdg_err;
-	status.ldiff_err = channel->ldiff_err;
-	status.cdiff_err = channel->cdiff_err;
+	status.err.prod_sync = channel->prod_sync_err;
+	status.err.prod_wdg = channel->prod_wdg_err;
+	status.err.cons_sync = channel->cons_sync_err;
+	status.err.cons_wdg = channel->cons_wdg_err;
+	status.err.ldiff = channel->ldiff_err;
+	status.err.cdiff = channel->cdiff_err;
 	spin_unlock_irqrestore(&dev->irq_lock, flags);
 
 	status.hdr_ver = XLNXSYNC_IOCTL_HDR_VER;
 
 	ret = copy_to_user(arg, &status, sizeof(status));
-	if (ret)
+	if (ret) {
 		dev_err(dev->dev, "%s: failed to copy result data to user\n",
 			__func__);
+	} else {
+		channel->prod_sync_err = 0;
+		channel->prod_wdg_err = 0;
+		channel->cons_sync_err = 0;
+		channel->cons_wdg_err = 0;
+		channel->ldiff_err = 0;
+		channel->cdiff_err = 0;
+	}
+
 	return ret;
 }
 
@@ -572,8 +593,6 @@ static int xlnxsync_chan_enable(struct xlnxsync_channel *channel, bool enable)
 
 	if (enable) {
 		dev_dbg(dev->dev, "Enabling %d channel\n", channel->id);
-		xlnxsync_set(dev, channel->id, XLNXSYNC_IER_REG,
-			     XLNXSYNC_IER_ALL_MASK);
 		xlnxsync_set(dev, channel->id, XLNXSYNC_CTRL_REG,
 			     XLNXSYNC_CTRL_ENABLE_MASK |
 			     XLNXSYNC_CTRL_INTR_EN_MASK);
@@ -583,10 +602,10 @@ static int xlnxsync_chan_enable(struct xlnxsync_channel *channel, bool enable)
 		xlnxsync_clr(dev, channel->id, XLNXSYNC_CTRL_REG,
 			     XLNXSYNC_CTRL_ENABLE_MASK |
 			     XLNXSYNC_CTRL_INTR_EN_MASK);
-		xlnxsync_clr(dev, channel->id, XLNXSYNC_IER_REG,
-			     XLNXSYNC_IER_ALL_MASK);
-		channel->sync_err = false;
-		channel->wdg_err = false;
+		channel->prod_sync_err = false;
+		channel->prod_wdg_err = false;
+		channel->cons_sync_err = false;
+		channel->cons_wdg_err = false;
 		channel->ldiff_err = false;
 		channel->cdiff_err = false;
 
@@ -632,6 +651,7 @@ static int xlnxsync_chan_clr_err(struct xlnxsync_channel *channel,
 				 void __user *arg)
 {
 	struct xlnxsync_clr_err errcfg;
+	u32 intr_unmask_val = 0;
 	int ret;
 	unsigned long flags;
 	struct xlnxsync_device *dev = channel->dev;
@@ -654,25 +674,40 @@ static int xlnxsync_chan_clr_err(struct xlnxsync_channel *channel,
 		__func__, channel->id);
 	/* Clear channel error status */
 	spin_lock_irqsave(&dev->irq_lock, flags);
-	if (channel->sync_err) {
-		dev_dbg(dev->dev, "Clearing sync err\n");
-		channel->sync_err = false;
+	if (errcfg.err.prod_sync) {
+		dev_dbg(dev->dev, "Unmasking producer sync err\n");
+		intr_unmask_val |= XLNXSYNC_IMR_PROD_SYNC_FAIL_MASK;
 	}
 
-	if (channel->wdg_err) {
-		dev_dbg(dev->dev, "Clearing wdg err\n");
-		channel->wdg_err = false;
+	if (errcfg.err.prod_wdg) {
+		dev_dbg(dev->dev, "Unmasking producer wdg err\n");
+		intr_unmask_val |= XLNXSYNC_IMR_PROD_WDG_ERR_MASK;
 	}
 
-	if (channel->ldiff_err) {
-		dev_dbg(dev->dev, "Clearing ldiff_err err\n");
-		channel->ldiff_err = false;
+	if (errcfg.err.cons_sync) {
+		dev_dbg(dev->dev, "Unmasking consumer sync err\n");
+		intr_unmask_val |= XLNXSYNC_IMR_CONS_SYNC_FAIL_MASK;
 	}
 
-	if (channel->cdiff_err) {
-		dev_dbg(dev->dev, "Clearing cdiff_err err\n");
-		channel->cdiff_err = false;
+	if (errcfg.err.cons_wdg) {
+		dev_dbg(dev->dev, "Unmasking consumer wdg err\n");
+		intr_unmask_val |= XLNXSYNC_IMR_CONS_WDG_ERR_MASK;
 	}
+
+	if (errcfg.err.ldiff) {
+		dev_dbg(dev->dev, "Unmasking ldiff_err err\n");
+		intr_unmask_val |= XLNXSYNC_IMR_LDIFF;
+	}
+
+	if (errcfg.err.cdiff) {
+		dev_dbg(dev->dev, "Unmasking cdiff_err err\n");
+		intr_unmask_val |= XLNXSYNC_IMR_CDIFF;
+	}
+
+	xlnxsync_clr(dev, channel->id, XLNXSYNC_IMR_REG, intr_unmask_val);
+
+	dev_dbg(dev->dev, "Channel num:%d IMR: %x\n", channel->id,
+		xlnxsync_read(dev, channel->id, XLNXSYNC_IMR_REG));
 
 	spin_unlock_irqrestore(&dev->irq_lock, flags);
 
@@ -738,6 +773,57 @@ static int xlnxsync_chan_clr_fbdone_status(struct xlnxsync_channel *channel,
 	return 0;
 }
 
+static int xlnxsync_chan_set_int_mask(struct xlnxsync_channel *channel,
+				      void __user *arg)
+{
+	struct xlnxsync_device *dev = channel->dev;
+	struct xlnxsync_intr intr_mask;
+	u32 intr_mask_val = 0;
+	int ret;
+
+	ret = copy_from_user(&intr_mask, arg, sizeof(intr_mask));
+	if (ret) {
+		dev_err(dev->dev, "%s : Failed to copy from user\n", __func__);
+		return ret;
+	}
+
+	/* check driver header version */
+	if (intr_mask.hdr_ver != XLNXSYNC_IOCTL_HDR_VER) {
+		dev_err(dev->dev, "%s : ioctl version mismatch\n", __func__);
+		dev_err(dev->dev,
+			"ioctl ver = 0x%llx expected ver = 0x%llx\n",
+			intr_mask.hdr_ver, (u64)XLNXSYNC_IOCTL_HDR_VER);
+		return -EINVAL;
+	}
+
+	if (intr_mask.err.prod_sync)
+		intr_mask_val |= XLNXSYNC_IMR_PROD_SYNC_FAIL_MASK;
+	if (intr_mask.err.prod_wdg)
+		intr_mask_val |= XLNXSYNC_IMR_PROD_WDG_ERR_MASK;
+	if (intr_mask.err.cons_sync)
+		intr_mask_val |= XLNXSYNC_IMR_CONS_SYNC_FAIL_MASK;
+	if (intr_mask.err.cons_wdg)
+		intr_mask_val |= XLNXSYNC_IMR_CONS_WDG_ERR_MASK;
+	if (intr_mask.err.ldiff)
+		intr_mask_val |= XLNXSYNC_IMR_LDIFF;
+	if (intr_mask.err.cdiff)
+		intr_mask_val |= XLNXSYNC_IMR_CDIFF;
+	if (intr_mask.prod_lfbdone)
+		intr_mask_val |= XLNXSYNC_IMR_PLVALID_MASK;
+	if (intr_mask.prod_cfbdone)
+		intr_mask_val |= XLNXSYNC_IMR_PCVALID_MASK;
+	if (intr_mask.cons_lfbdone)
+		intr_mask_val |= XLNXSYNC_IMR_CLVALID_MASK;
+	if (intr_mask.cons_cfbdone)
+		intr_mask_val |= XLNXSYNC_IMR_CCVALID_MASK;
+
+	dev_dbg(dev->dev, "Set interrupt mask: 0x%x for channel: %d\n",
+		intr_mask_val, channel->id);
+
+	xlnxsync_write(dev, channel->id, XLNXSYNC_IMR_REG, intr_mask_val);
+
+	return ret;
+}
 
 static long xlnxsync_ioctl(struct file *fptr, unsigned int cmd,
 			   unsigned long data)
@@ -802,6 +888,12 @@ static long xlnxsync_ioctl(struct file *fptr, unsigned int cmd,
 		if (mutex_lock_interruptible(&channel->mutex))
 			return -ERESTARTSYS;
 		ret = xlnxsync_chan_clr_fbdone_status(channel, arg);
+		mutex_unlock(&channel->mutex);
+		break;
+	case XLNXSYNC_CHAN_SET_INTR_MASK:
+		if (mutex_lock_interruptible(&channel->mutex))
+			return -ERESTARTSYS;
+		ret = xlnxsync_chan_set_int_mask(channel, arg);
 		mutex_unlock(&channel->mutex);
 		break;
 	}
@@ -921,9 +1013,6 @@ static int xlnxsync_release(struct inode *iptr, struct file *fptr)
 		xlnxsync_clr(dev, channel->id, XLNXSYNC_CTRL_REG,
 			     XLNXSYNC_CTRL_ENABLE_MASK |
 			     XLNXSYNC_CTRL_INTR_EN_MASK);
-		xlnxsync_clr(dev, channel->id, XLNXSYNC_IER_REG,
-			     XLNXSYNC_IER_ALL_MASK);
-
 	}
 
 	if (mutex_lock_interruptible(&dev->sync_mutex))
@@ -955,6 +1044,7 @@ static irqreturn_t xlnxsync_irq_handler(int irq, void *data)
 {
 	struct xlnxsync_device *xlnxsync = (struct xlnxsync_device *)data;
 	u32 val;
+	u32 intr_mask_val = 0;
 	struct xlnxsync_channel *chan;
 
 	/*
@@ -966,42 +1056,58 @@ static irqreturn_t xlnxsync_irq_handler(int irq, void *data)
 		u32 i, j;
 
 		val = xlnxsync_read(xlnxsync, chan->id, XLNXSYNC_ISR_REG);
-		xlnxsync_write(xlnxsync, chan->id, XLNXSYNC_ISR_REG, val);
 
-		if (val & XLNXSYNC_ISR_SYNC_FAIL_MASK)
-			chan->sync_err = true;
-		if (val & XLNXSYNC_ISR_WDG_ERR_MASK)
-			chan->wdg_err = true;
-		if (val & XLNXSYNC_ISR_LDIFF)
+		if (val & XLNXSYNC_ISR_PROD_SYNC_FAIL_MASK) {
+			chan->prod_sync_err = true;
+			intr_mask_val |= XLNXSYNC_IMR_PROD_SYNC_FAIL_MASK;
+		}
+		if (val & XLNXSYNC_ISR_PROD_WDG_ERR_MASK) {
+			chan->prod_wdg_err = true;
+			intr_mask_val |= XLNXSYNC_IMR_PROD_WDG_ERR_MASK;
+		}
+		if (val & XLNXSYNC_ISR_LDIFF) {
 			chan->ldiff_err = true;
-		if (val & XLNXSYNC_ISR_CDIFF)
+			intr_mask_val |= XLNXSYNC_IMR_LDIFF;
+		}
+		if (val & XLNXSYNC_ISR_CDIFF) {
 			chan->cdiff_err = true;
-		if (chan->sync_err || chan->wdg_err ||
-		    chan->ldiff_err || chan->cdiff_err)
+			intr_mask_val |= XLNXSYNC_IMR_CDIFF;
+		}
+		if (val & XLNXSYNC_ISR_CONS_SYNC_FAIL_MASK) {
+			chan->cons_sync_err = true;
+			intr_mask_val |= XLNXSYNC_IMR_CONS_SYNC_FAIL_MASK;
+		}
+		if (val & XLNXSYNC_ISR_CONS_WDG_ERR_MASK) {
+			chan->cons_wdg_err = true;
+			intr_mask_val |= XLNXSYNC_IMR_CONS_WDG_ERR_MASK;
+		}
+		if (chan->prod_sync_err || chan->prod_wdg_err ||
+		    chan->ldiff_err || chan->cdiff_err ||
+		    chan->cons_sync_err || chan->cons_wdg_err)
 			chan->err_event = true;
 
-		if (val & XLNXSYNC_ISR_PLDONE_MASK) {
+		if (val & XLNXSYNC_ISR_PLVALID_MASK) {
 			i = (val & XLNXSYNC_ISR_PLDONE_MASK) >>
 				XLNXSYNC_ISR_PLDONE_SHIFT;
 
 			chan->l_done[i][XLNXSYNC_PROD] = true;
 		}
 
-		if (val & XLNXSYNC_ISR_PCDONE_MASK) {
+		if (val & XLNXSYNC_ISR_PCVALID_MASK) {
 			i = (val & XLNXSYNC_ISR_PCDONE_MASK) >>
 				XLNXSYNC_ISR_PCDONE_SHIFT;
 
 			chan->c_done[i][XLNXSYNC_PROD] = true;
 		}
 
-		if (val & XLNXSYNC_ISR_CLDONE_MASK) {
+		if (val & XLNXSYNC_ISR_CLVALID_MASK) {
 			i = (val & XLNXSYNC_ISR_CLDONE_MASK) >>
 				XLNXSYNC_ISR_CLDONE_SHIFT;
 
 			chan->l_done[i][XLNXSYNC_CONS] = true;
 		}
 
-		if (val & XLNXSYNC_ISR_CCDONE_MASK) {
+		if (val & XLNXSYNC_ISR_CCVALID_MASK) {
 			i = (val & XLNXSYNC_ISR_CCDONE_MASK) >>
 				XLNXSYNC_ISR_CCDONE_SHIFT;
 
@@ -1015,6 +1121,11 @@ static irqreturn_t xlnxsync_irq_handler(int irq, void *data)
 					chan->framedone_event = true;
 			}
 		}
+
+		/* Mask corresponding interrupts */
+		if (intr_mask_val)
+			xlnxsync_set(xlnxsync, chan->id, XLNXSYNC_IMR_REG,
+				     intr_mask_val);
 
 		if (chan->err_event) {
 			dev_dbg(xlnxsync->dev, "%s : error occurred at channel->id = %d\n",
@@ -1167,7 +1278,8 @@ static int xlnxsync_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	ret = devm_request_threaded_irq(xlnxsync->dev, xlnxsync->irq, NULL,
-					xlnxsync_irq_handler, IRQF_ONESHOT,
+					xlnxsync_irq_handler,
+					IRQF_ONESHOT | IRQF_TRIGGER_RISING,
 					dev_name(xlnxsync->dev), xlnxsync);
 
 	if (ret) {

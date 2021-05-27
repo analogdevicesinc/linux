@@ -167,7 +167,7 @@ static void xlnx_pl_disp_plane_enable(struct drm_plane *plane)
 {
 	struct xlnx_pl_disp *xlnx_pl_disp = plane_to_dma(plane);
 	struct dma_async_tx_descriptor *desc;
-	enum dma_ctrl_flags flags;
+	unsigned long flags;
 	struct xlnx_dma_chan *xlnx_dma_chan = xlnx_pl_disp->chan;
 	struct dma_chan *dma_chan = xlnx_dma_chan->dma_chan;
 	struct dma_interleaved_template *xt = &xlnx_dma_chan->xt;
@@ -314,13 +314,11 @@ xlnx_pl_disp_plane_atomic_check(struct drm_plane *plane,
 	const struct drm_plane_state *old_plane_state =
 		drm_atomic_get_old_plane_state(state, plane);
 	struct drm_crtc *crtc = new_plane_state->crtc ?: old_plane_state->crtc;
-	const struct drm_crtc_state *old_crtc_state;
 	struct drm_crtc_state *new_crtc_state;
 
 	if (!crtc)
 		return 0;
 
-	old_crtc_state = drm_atomic_get_old_crtc_state(state, crtc);
 	new_crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
 
 	/* plane must be enabled when state is active */
@@ -524,6 +522,7 @@ static void xlnx_pl_disp_unbind(struct device *dev, struct device *master,
 {
 	struct xlnx_pl_disp *xlnx_pl_disp = dev_get_drvdata(dev);
 
+	xlnx_crtc_unregister(xlnx_pl_disp->drm, &xlnx_pl_disp->xlnx_crtc);
 	drm_plane_cleanup(&xlnx_pl_disp->plane);
 	drm_crtc_cleanup(&xlnx_pl_disp->xlnx_crtc.crtc);
 }
@@ -573,7 +572,8 @@ static int xlnx_pl_disp_probe(struct platform_device *pdev)
 		xlnx_pl_disp->vtc_bridge = of_xlnx_bridge_get(vtc_node);
 		if (!xlnx_pl_disp->vtc_bridge) {
 			dev_info(dev, "Didn't get vtc bridge instance\n");
-			return -EPROBE_DEFER;
+			ret = -EPROBE_DEFER;
+			goto err_dma;
 		}
 	} else {
 		dev_info(dev, "vtc bridge property not present\n");

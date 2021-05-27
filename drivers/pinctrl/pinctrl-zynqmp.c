@@ -108,7 +108,6 @@ pin_config_item zynqmp_conf_items[ARRAY_SIZE(zynqmp_dt_params)] = {
 #endif
 
 static const struct zynqmp_eemi_ops *eemi_ops;
-static const struct pinctrl_pin_desc zynqmp_pins;
 static struct pinctrl_desc zynqmp_desc;
 
 /**
@@ -419,11 +418,12 @@ static int zynqmp_pinconf_cfg_get(struct pinctrl_dev *pctldev,
 		}
 		break;
 	default:
-		return -ENOTSUPP;
+		ret = -ENOTSUPP;
+		break;
 	}
 
 	*config = pinconf_to_config_packed(param, arg);
-	return 0;
+	return ret;
 }
 
 /**
@@ -670,7 +670,7 @@ static int zynqmp_pinctrl_prepare_func_groups(struct device *dev, u32 fid,
 {
 	u16 resp[NUM_GROUPS_PER_RESP] = {0};
 	const char **fgroups;
-	int ret, index, i;
+	int ret = 0, index, i;
 
 	fgroups = devm_kzalloc(dev, sizeof(*fgroups) * func->ngroups,
 			       GFP_KERNEL);
@@ -852,7 +852,7 @@ static int zynqmp_pinctrl_prepare_group_pins(struct device *dev,
 					     unsigned int ngroups)
 {
 	unsigned int pin;
-	int ret;
+	int ret = 0;
 
 	for (pin = 0; pin < zynqmp_desc.npins; pin++) {
 		ret = zynqmp_pinctrl_create_pin_groups(dev, groups, pin);

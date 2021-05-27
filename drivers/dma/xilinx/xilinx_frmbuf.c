@@ -406,7 +406,7 @@ static const struct xilinx_frmbuf_format_desc xilinx_frmbuf_formats[] = {
 		.ppw = 3,
 		.num_planes = 1,
 		.drm_fmt = DRM_FORMAT_Y10,
-		.v4l2_fmt = V4L2_PIX_FMT_Y10,
+		.v4l2_fmt = V4L2_PIX_FMT_XY10,
 		.fmt_bitmask = BIT(17),
 	},
 	{
@@ -1169,7 +1169,7 @@ static void xilinx_frmbuf_reset(struct xilinx_frmbuf_chan *chan)
 static void xilinx_frmbuf_chan_reset(struct xilinx_frmbuf_chan *chan)
 {
 	xilinx_frmbuf_reset(chan);
-	frmbuf_write(chan, XILINX_FRMBUF_IE_OFFSET, XILINX_FRMBUF_IE_AP_READY);
+	frmbuf_write(chan, XILINX_FRMBUF_IE_OFFSET, XILINX_FRMBUF_IE_AP_DONE);
 	frmbuf_write(chan, XILINX_FRMBUF_GIE_OFFSET, XILINX_FRMBUF_GIE_EN);
 }
 
@@ -1206,7 +1206,7 @@ static irqreturn_t xilinx_frmbuf_irq_handler(int irq, void *data)
 		}
 	}
 
-	if (status & XILINX_FRMBUF_ISR_AP_READY_IRQ) {
+	if (status & XILINX_FRMBUF_ISR_AP_DONE_IRQ) {
 		spin_lock(&chan->lock);
 		chan->idle = true;
 		if (chan->active_desc) {
@@ -1416,7 +1416,7 @@ static int xilinx_frmbuf_chan_probe(struct xilinx_frmbuf_device *xdev,
 {
 	struct xilinx_frmbuf_chan *chan;
 	int err;
-	u32 dma_addr_size;
+	u32 dma_addr_size = 0;
 
 	chan = &xdev->chan;
 
@@ -1577,7 +1577,7 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 		align = 16;
 	}
 
-	xdev->common.copy_align = fls(align) - 1;
+	xdev->common.copy_align = (enum dmaengine_alignment)(fls(align) - 1);
 	xdev->common.dev = &pdev->dev;
 
 	if (xdev->cfg->flags & XILINX_CLK_PROP) {
@@ -1683,6 +1683,8 @@ disable_clk:
 static int xilinx_frmbuf_remove(struct platform_device *pdev)
 {
 	struct xilinx_frmbuf_device *xdev = platform_get_drvdata(pdev);
+
+	of_dma_controller_free(pdev->dev.of_node);
 
 	dma_async_device_unregister(&xdev->common);
 	xilinx_frmbuf_chan_remove(&xdev->chan);

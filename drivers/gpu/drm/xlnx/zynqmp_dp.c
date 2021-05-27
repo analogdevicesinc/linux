@@ -36,6 +36,7 @@
 #include <linux/uaccess.h>
 
 #include "zynqmp_disp.h"
+#include "zynqmp_dp.h"
 #include "zynqmp_dpsub.h"
 
 static uint zynqmp_dp_aux_timeout_ms = 50;
@@ -47,7 +48,7 @@ MODULE_PARM_DESC(aux_timeout_ms, "DP aux timeout value in msec (default: 50)");
  */
 static uint zynqmp_dp_power_on_delay_ms = 4;
 module_param_named(power_on_delay_ms, zynqmp_dp_power_on_delay_ms, uint, 0444);
-MODULE_PARM_DESC(aux_timeout_ms, "DP power on delay in msec (default: 4)");
+MODULE_PARM_DESC(power_on_delay_ms, "DP power on delay in msec (default: 4)");
 
 /* Link configuration registers */
 #define ZYNQMP_DP_TX_LINK_BW_SET			0x0
@@ -608,34 +609,37 @@ static int zynqmp_dp_mode_configure(struct zynqmp_dp *dp, int pclock,
 				    u8 current_bw)
 {
 	int max_rate = dp->link_config.max_rate;
-	u8 bws[3] = { DP_LINK_BW_1_62, DP_LINK_BW_2_7, DP_LINK_BW_5_4 };
+	u8 bw_code;
 	u8 max_lanes = dp->link_config.max_lanes;
 	u8 max_link_rate_code = drm_dp_link_rate_to_bw_code(max_rate);
 	u8 bpp = dp->config.bpp;
 	u8 lane_cnt;
-	s8 i;
 
-	if (current_bw == DP_LINK_BW_1_62) {
+	/* Downshift from current bandwidth */
+	switch (current_bw) {
+	case DP_LINK_BW_5_4:
+		bw_code = DP_LINK_BW_2_7;
+		break;
+	case DP_LINK_BW_2_7:
+		bw_code = DP_LINK_BW_1_62;
+		break;
+	case DP_LINK_BW_1_62:
 		dev_err(dp->dev, "can't downshift. already lowest link rate\n");
 		return -EINVAL;
-	}
-
-	for (i = ARRAY_SIZE(bws) - 1; i >= 0; i--) {
-		if (current_bw && bws[i] >= current_bw)
-			continue;
-
-		if (bws[i] <= max_link_rate_code)
-			break;
+	default:
+		/* If not given, start with max supported */
+		bw_code = max_link_rate_code;
+		break;
 	}
 
 	for (lane_cnt = 1; lane_cnt <= max_lanes; lane_cnt <<= 1) {
 		int bw;
 		u32 rate;
 
-		bw = drm_dp_bw_code_to_link_rate(bws[i]);
+		bw = drm_dp_bw_code_to_link_rate(bw_code);
 		rate = zynqmp_dp_max_rate(bw, lane_cnt, bpp);
 		if (pclock <= rate) {
-			dp->mode.bw_code = bws[i];
+			dp->mode.bw_code = bw_code;
 			dp->mode.lane_cnt = lane_cnt;
 			dp->mode.pclock = pclock;
 			return dp->mode.bw_code;
@@ -904,7 +908,7 @@ static int zynqmp_dp_train(struct zynqmp_dp *dp)
 		return ret;
 
 	zynqmp_dp_write(dp->iomem, ZYNQMP_DP_TX_SCRAMBLING_DISABLE, 1);
-	memset(dp->train_set, 0, 4);
+	memset(dp->train_set, 0, ARRAY_SIZE(dp->train_set));
 	ret = zynqmp_dp_link_train_cr(dp);
 	if (ret)
 		return ret;
@@ -1461,7 +1465,6 @@ zynqmp_dp_connector_atomic_set_property(struct drm_connector *connector,
 					uint64_t val)
 {
 	struct zynqmp_dp *dp = connector_to_dp(connector);
-	int ret;
 
 	if (property == dp->sync_prop) {
 		zynqmp_dp_set_sync_mode(dp, val);
@@ -1472,7 +1475,7 @@ zynqmp_dp_connector_atomic_set_property(struct drm_connector *connector,
 		if (bpc) {
 			drm_object_property_set_value(&connector->base,
 						      property, bpc);
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 	} else {
 		return -EINVAL;
@@ -1527,7 +1530,12 @@ static void zynqmp_dp_encoder_enable(struct drm_encoder *encoder)
 	unsigned int i;
 	int ret = 0;
 
-	pm_runtime_get_sync(dp->dev);
+	ret = pm_runtime_get_sync(dp->dev);
+	if (ret < 0) {
+		dev_err(dp->dev, "IRQ sync failed to resume: %d\n", ret);
+		return;
+	}
+
 	dp->enabled = true;
 	zynqmp_dp_init_aux(dp);
 	zynqmp_dp_update_misc(dp);
@@ -1558,11 +1566,17 @@ static void zynqmp_dp_encoder_disable(struct drm_encoder *encoder)
 {
 	struct zynqmp_dp *dp = encoder_to_dp(encoder);
 	void __iomem *iomem = dp->iomem;
+	int ret;
 
 	dp->enabled = false;
 	cancel_delayed_work(&dp->hpd_work);
 	zynqmp_dp_write(iomem, ZYNQMP_DP_TX_ENABLE_MAIN_STREAM, 0);
-	drm_dp_dpcd_writeb(&dp->aux, DP_SET_POWER, DP_SET_POWER_D3);
+	ret = drm_dp_dpcd_writeb(&dp->aux, DP_SET_POWER, DP_SET_POWER_D3);
+	if (ret < 0) {
+		dev_err(dp->dev, "failed to write a byte to the DPCD: %d\n",
+			ret);
+		return;
+	}
 	zynqmp_dp_write(iomem, ZYNQMP_DP_TX_PHY_POWER_DOWN,
 			ZYNQMP_DP_TX_PHY_POWER_DOWN_ALL);
 	if (zynqmp_disp_aud_enabled(dp->dpsub->disp))
@@ -1779,16 +1793,18 @@ static irqreturn_t zynqmp_dp_irq_handler(int irq, void *data)
 
 	if (status & ZYNQMP_DP_TX_INTR_HPD_IRQ) {
 		int ret;
-		u8 status[DP_LINK_STATUS_SIZE + 2];
+		u8 buf[DP_LINK_STATUS_SIZE + 2];
 
-		ret = drm_dp_dpcd_read(&dp->aux, DP_SINK_COUNT, status,
+		memset(buf, 0, ARRAY_SIZE(buf));
+
+		ret = drm_dp_dpcd_read(&dp->aux, DP_SINK_COUNT, buf,
 				       DP_LINK_STATUS_SIZE + 2);
 		if (ret < 0)
 			goto handled;
 
-		if (status[4] & DP_LINK_STATUS_UPDATED ||
-		    !drm_dp_clock_recovery_ok(&status[2], dp->mode.lane_cnt) ||
-		    !drm_dp_channel_eq_ok(&status[2], dp->mode.lane_cnt)) {
+		if (buf[4] & DP_LINK_STATUS_UPDATED ||
+		    !drm_dp_clock_recovery_ok(&buf[2], dp->mode.lane_cnt) ||
+		    !drm_dp_channel_eq_ok(&buf[2], dp->mode.lane_cnt)) {
 			zynqmp_dp_train_loop(dp);
 		}
 	}

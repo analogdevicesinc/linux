@@ -104,7 +104,7 @@ static int xsw_s_stream(struct v4l2_subdev *subdev, int enable)
 	xvip_write(&xsw->xvip, XSW_CORE_CH_CTRL, routing);
 
 	xvip_write(&xsw->xvip, XVIP_CTRL_CONTROL,
-		   (((1 << xsw->nsources) - 1) << 4) |
+		   ((((unsigned long)1 << xsw->nsources) - 1) << 4) |
 		   XVIP_CTRL_CONTROL_SW_ENABLE);
 
 	return 0;
@@ -119,14 +119,22 @@ xsw_get_pad_format(struct xswitch_device *xsw,
 		   struct v4l2_subdev_pad_config *cfg,
 		   unsigned int pad, u32 which)
 {
+	struct v4l2_mbus_framefmt *format;
+
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&xsw->xvip.subdev, cfg, pad);
+		format = v4l2_subdev_get_try_format(&xsw->xvip.subdev,
+						    cfg, pad);
+		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &xsw->formats[pad];
+		format = &xsw->formats[pad];
+		break;
 	default:
-		return NULL;
+		format = NULL;
+		break;
 	}
+
+	return format;
 }
 
 static int xsw_get_format(struct v4l2_subdev *subdev,
@@ -135,6 +143,7 @@ static int xsw_get_format(struct v4l2_subdev *subdev,
 {
 	struct xswitch_device *xsw = to_xsw(subdev);
 	int pad = fmt->pad;
+	struct v4l2_mbus_framefmt *format;
 
 	if (pad >= xsw->nsinks) {
 		pad = xsw->routing[pad - xsw->nsinks];
@@ -144,7 +153,11 @@ static int xsw_get_format(struct v4l2_subdev *subdev,
 		}
 	}
 
-	fmt->format = *xsw_get_pad_format(xsw, cfg, pad, fmt->which);
+	format = xsw_get_pad_format(xsw, cfg, pad, fmt->which);
+	if (!format)
+		return -EINVAL;
+
+	fmt->format = *format;
 
 	return 0;
 }
@@ -163,6 +176,8 @@ static int xsw_set_format(struct v4l2_subdev *subdev,
 		return xsw_get_format(subdev, cfg, fmt);
 
 	format = xsw_get_pad_format(xsw, cfg, fmt->pad, fmt->which);
+	if (!format)
+		return -EINVAL;
 
 	format->code = fmt->format.code;
 	format->width = clamp_t(unsigned int, fmt->format.width,
@@ -376,7 +391,7 @@ static int xsw_probe(struct platform_device *pdev)
 	xsw->pads = devm_kzalloc(&pdev->dev, npads * sizeof(*xsw->pads),
 				 GFP_KERNEL);
 	if (!xsw->pads)
-		goto error;
+		goto error_resources;
 
 	for (i = 0; i < xsw->nsinks; ++i)
 		xsw->pads[i].flags = MEDIA_PAD_FL_SINK;
@@ -387,7 +402,7 @@ static int xsw_probe(struct platform_device *pdev)
 				    xsw->nsinks * sizeof(*xsw->formats),
 				    GFP_KERNEL);
 	if (!xsw->formats)
-		goto error;
+		goto error_resources;
 
 	for (i = 0; i < xsw->nsources; ++i)
 		xsw->routing[i] = i < xsw->nsinks ? i : -1;
@@ -421,6 +436,7 @@ static int xsw_probe(struct platform_device *pdev)
 
 error:
 	media_entity_cleanup(&subdev->entity);
+error_resources:
 	xvip_cleanup_resources(&xsw->xvip);
 	return ret;
 }

@@ -3975,6 +3975,15 @@ F:	drivers/char/
 F:	drivers/misc/
 F:	include/linux/miscdevice.h
 
+CHAR and MISC XILINX AI ENGINE DRIVER
+M:	Wendy Liang <wendy.liang@xilinx.com>
+M:	Hyun Kwon <hyun.kwon@xilinx.com>
+S:	Maintained
+F:	Documentation/devicetree/bindings/soc/xilinx/xlnx,ai-engine.yaml
+F:	drivers/misc/xilinx-ai-engine/
+F:	include/linux/xlnx-ai-engine.h
+F:	include/uapi/linux/xlnx-ai-engine.h
+
 CHECKPATCH
 M:	Andy Whitcroft <apw@canonical.com>
 M:	Joe Perches <joe@perches.com>
@@ -18229,6 +18238,14 @@ L:	git@xilinx.com
 F:	Documentation/devicetree/bindings/sound/xlnx,spdif.txt
 F:	sound/soc/xilinx/xlnx_spdif.c
 
+XILINX VERSAL SYSMON DRIVER
+M:	Anand Ashok Dumbre <anand.ashok.dumbre@xilinx.com>
+R:	Dragan Cvetic <dragan.cvetic@xilinx.com>
+L:	git@xilinx.com
+S:	Maintained
+F:	Documentation/devicetree/bindings/iio/adc/xlnx,versal-sysmon.yaml
+F:	drivers/iio/adc/versal-sysmon.c
+
 XILINX UARTLITE SERIAL DRIVER
 M:	Peter Korsgaard <jacmet@sunsite.dk>
 L:	linux-serial@vger.kernel.org
@@ -18287,6 +18304,14 @@ S:	Maintained
 F:	drivers/mailbox/zynqmp-ipi-mailbox.c
 F:	include/linux/mailbox/zynqmp-ipi-message.h
 F:	Documentation/devicetree/bindings/mailbox/xlnx,zynqmp-ipi-mailbox.txt
+
+XILINX VERSAL DDRMC EDAC DRIVER
+M:	Sai Krishna Potthuri <lakshmi.sai.krishna.potthuri@xilinx.com>
+R:	Michal Simek <michal.simek@xilinx.com>
+R:	Srinivas Goud <srinivas.goud@xilinx.com>
+S:	Maintained
+F:	drivers/edac/xilinx_ddrmc_edac.c
+F:	Documentation/devicetree/bindings/edac/xlnx,versal-ddrmc-edac.yaml
 
 XILINX ZYNQMP PHY DRIVER
 M:	Anurag Kumar Vulisha <anurag.kumar.vulisha@xilinx.com>

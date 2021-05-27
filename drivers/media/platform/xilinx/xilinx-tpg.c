@@ -284,6 +284,7 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
 		if (!xtpg->is_hls) {
 			xvip_stop(&xtpg->xvip);
 		} else {
+			int ret;
 			/*
 			 * There is an known issue in TPG v7.0 that on
 			 * resolution change it doesn't generates pattern
@@ -292,7 +293,13 @@ static int xtpg_s_stream(struct v4l2_subdev *subdev, int enable)
 			 */
 			gpiod_set_value_cansleep(xtpg->rst_gpio, 0x1);
 			gpiod_set_value_cansleep(xtpg->rst_gpio, 0x0);
-			v4l2_ctrl_handler_setup(&xtpg->ctrl_handler);
+			ret = v4l2_ctrl_handler_setup(&xtpg->ctrl_handler);
+			if (ret) {
+				struct device *dev = xtpg->xvip.dev;
+
+				dev_err(dev, "failed to set controls\n");
+				return ret;
+			}
 		}
 
 		if (xtpg->vtc)
@@ -392,14 +399,22 @@ __xtpg_get_pad_format(struct xtpg_device *xtpg,
 		      struct v4l2_subdev_pad_config *cfg,
 		      unsigned int pad, u32 which)
 {
+	struct v4l2_mbus_framefmt *format;
+
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&xtpg->xvip.subdev, cfg, pad);
+		format = v4l2_subdev_get_try_format(&xtpg->xvip.subdev, cfg,
+						    pad);
+		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &xtpg->formats[pad];
+		format = &xtpg->formats[pad];
+		break;
 	default:
-		return NULL;
+		format = NULL;
+		break;
 	}
+
+	return format;
 }
 
 static int xtpg_get_format(struct v4l2_subdev *subdev,
@@ -407,8 +422,13 @@ static int xtpg_get_format(struct v4l2_subdev *subdev,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct xtpg_device *xtpg = to_tpg(subdev);
+	struct v4l2_mbus_framefmt *format;
 
-	fmt->format = *__xtpg_get_pad_format(xtpg, cfg, fmt->pad, fmt->which);
+	format = __xtpg_get_pad_format(xtpg, cfg, fmt->pad, fmt->which);
+	if (!format)
+		return -EINVAL;
+
+	fmt->format = *format;
 
 	return 0;
 }
@@ -422,6 +442,8 @@ static int xtpg_set_format(struct v4l2_subdev *subdev,
 	u32 bayer_phase;
 
 	__format = __xtpg_get_pad_format(xtpg, cfg, fmt->pad, fmt->which);
+	if (!__format)
+		return -EINVAL;
 
 	/* In two pads mode the source pad format is always identical to the
 	 * sink pad format.
@@ -465,6 +487,8 @@ static int xtpg_set_format(struct v4l2_subdev *subdev,
 	/* Propagate the format to the source pad. */
 	if (xtpg->npads == 2) {
 		__format = __xtpg_get_pad_format(xtpg, cfg, 1, fmt->which);
+		if (!__format)
+			return -EINVAL;
 		*__format = fmt->format;
 	}
 
@@ -1225,7 +1249,8 @@ static int xtpg_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, xtpg);
 
-	xvip_print_version(&xtpg->xvip);
+	if (!xtpg->is_hls)
+		xvip_print_version(&xtpg->xvip);
 
 	/* Initialize default frame interval */
 	xtpg->fi_n = 1;

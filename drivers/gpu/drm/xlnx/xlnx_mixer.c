@@ -103,8 +103,10 @@
 #define XVMIX_REG_OFFSET                0x100
 #define XVMIX_MASTER_LAYER_IDX		0x0
 #define XVMIX_LOGO_LAYER_IDX		0x1
-#define XVMIX_DISP_MAX_WIDTH		4096
-#define XVMIX_DISP_MAX_HEIGHT		2160
+#define XVMIX_DISP_MAX_WIDTH		8192
+#define XVMIX_DISP_MAX_HEIGHT		4320
+#define XVMIX_DISP_MIN_WIDTH		64
+#define XVMIX_DISP_MIN_HEIGHT		64
 #define XVMIX_MAX_OVERLAY_LAYERS	16
 #define XVMIX_MAX_BPC			16
 #define XVMIX_ALPHA_MIN			0
@@ -788,7 +790,7 @@ static void xlnx_mix_disp_layer_enable(struct xlnx_mix_plane *plane)
 	mixer_hw = to_mixer_hw(plane);
 	l_data = plane->mixer_layer;
 	id = l_data->id;
-	if (id < XVMIX_LAYER_MASTER  || id > mixer_hw->logo_layer_id) {
+	if (id > mixer_hw->logo_layer_id) {
 		DRM_DEBUG_KMS("Attempt to activate invalid layer: %d\n", id);
 		return;
 	}
@@ -847,8 +849,7 @@ static void xlnx_mix_disp_layer_disable(struct xlnx_mix_plane *plane)
 	else
 		return;
 	layer_id = plane->mixer_layer->id;
-	if (layer_id < XVMIX_LAYER_MASTER  ||
-	    layer_id > mixer_hw->logo_layer_id)
+	if (layer_id > mixer_hw->logo_layer_id)
 		return;
 
 	xlnx_mix_layer_disable(mixer_hw, layer_id);
@@ -1292,7 +1293,7 @@ static int xlnx_mix_set_layer_scale(struct xlnx_mix_plane *plane,
 
 	if (!layer || !layer->hw_config.can_scale)
 		return -ENODEV;
-	if (val > XVMIX_SCALE_FACTOR_4X || val < XVMIX_SCALE_FACTOR_1X) {
+	if (val > XVMIX_SCALE_FACTOR_4X) {
 		DRM_ERROR("Mixer layer scale value illegal.\n");
 		return -EINVAL;
 	}
@@ -1369,7 +1370,7 @@ static int xlnx_mix_disp_set_layer_alpha(struct xlnx_mix_plane *plane,
 
 	if (!layer || !layer->hw_config.can_alpha)
 		return -ENODEV;
-	if (val > XVMIX_ALPHA_MAX || val < XVMIX_ALPHA_MIN) {
+	if (val > XVMIX_ALPHA_MAX) {
 		DRM_ERROR("Mixer layer alpha dts value illegal.\n");
 		return -EINVAL;
 	}
@@ -1637,7 +1638,7 @@ static int xlnx_mix_logo_load(struct xlnx_mix_hw *mixer, u32 logo_w, u32 logo_h,
 	u32 rword, gword, bword, aword;
 	u32 pixel_cnt = logo_w * logo_h;
 	u32 unaligned_pix_cnt = pixel_cnt % 4;
-	u32 width, height, curr_x_pos, curr_y_pos;
+	u32 curr_x_pos, curr_y_pos;
 	u32 rbase_addr, gbase_addr, bbase_addr, abase_addr;
 
 	layer_data = xlnx_mix_get_layer_data(mixer, mixer->logo_layer_id);
@@ -1658,8 +1659,6 @@ static int xlnx_mix_logo_load(struct xlnx_mix_hw *mixer, u32 logo_w, u32 logo_h,
 	    logo_h <= layer_data->hw_config.max_height))
 		return -EINVAL;
 
-	width  = logo_w;
-	height = logo_h;
 	rbase_addr = XVMIX_LOGOR_V_BASE;
 	gbase_addr = XVMIX_LOGOG_V_BASE;
 	bbase_addr = XVMIX_LOGOB_V_BASE;
@@ -1696,9 +1695,6 @@ static int xlnx_mix_update_logo_img(struct xlnx_mix_plane *plane,
 	struct xlnx_mix_layer_data *logo_layer = plane->mixer_layer;
 	struct xlnx_mix_hw *mixer = to_mixer_hw(plane);
 	size_t pixel_cnt = src_h * src_w;
-	/* color comp defaults to offset in RG24 buffer */
-	u32 pix_cmp_cnt;
-	u32 logo_cmp_cnt;
 	bool per_pixel_alpha = false;
 	u32 max_width = logo_layer->hw_config.max_width;
 	u32 max_height = logo_layer->hw_config.max_height;
@@ -1739,8 +1735,6 @@ static int xlnx_mix_update_logo_img(struct xlnx_mix_plane *plane,
 		ret = -ENOMEM;
 		goto free;
 	}
-	pix_cmp_cnt = per_pixel_alpha ? 4 : 3;
-	logo_cmp_cnt = pixel_cnt * pix_cmp_cnt;
 	/* ensure buffer attributes have changed to indicate new logo
 	 * has been created
 	 */
@@ -2037,7 +2031,7 @@ xlnx_mix_plane_atomic_async_update(struct drm_plane *plane,
 		drm_atomic_get_old_plane_state(new_state->state, plane);
 
 	/* Update the current state with new configurations */
-	drm_atomic_set_fb_for_plane(plane->state, new_state->fb);
+	swap(plane->state->fb, new_state->fb);
 	plane->state->crtc = new_state->crtc;
 	plane->state->crtc_x = new_state->crtc_x;
 	plane->state->crtc_y = new_state->crtc_y;
@@ -2158,13 +2152,23 @@ static int xlnx_mix_parse_dt_bg_video_fmt(struct device_node *node,
 				 &layer->hw_config.max_width)) {
 		DRM_ERROR("Failed to get screen width prop\n");
 		return -EINVAL;
+	} else if (layer->hw_config.max_width > XVMIX_DISP_MAX_WIDTH ||
+		   layer->hw_config.max_width < XVMIX_DISP_MIN_WIDTH) {
+		DRM_ERROR("Invalid width in dt");
+		return -EINVAL;
 	}
+
 	mixer_hw->max_layer_width = layer->hw_config.max_width;
 	if (of_property_read_u32(layer_node, "xlnx,layer-max-height",
 				 &layer->hw_config.max_height)) {
 		DRM_ERROR("Failed to get screen height prop\n");
 		return -EINVAL;
+	} else if (layer->hw_config.max_height > XVMIX_DISP_MAX_HEIGHT ||
+		   layer->hw_config.max_height < XVMIX_DISP_MIN_HEIGHT) {
+		DRM_ERROR("Invalid height in dt");
+		return -EINVAL;
 	}
+
 	mixer_hw->max_layer_height = layer->hw_config.max_height;
 	layer->id = XVMIX_LAYER_MASTER;
 
@@ -2511,8 +2515,9 @@ static int xlnx_mix_plane_create(struct device *dev, struct xlnx_mix *mixer)
 		return ret;
 	}
 
-	mixer->max_width = XVMIX_DISP_MAX_WIDTH;
-	mixer->max_height = XVMIX_DISP_MAX_HEIGHT;
+	mixer->max_width = mixer_hw->max_layer_width;
+	mixer->max_height = mixer_hw->max_layer_height;
+
 	if (mixer->hw_logo_layer) {
 		layer_data = &mixer_hw->layer_data[XVMIX_LOGO_LAYER_IDX];
 		mixer->max_cursor_width = layer_data->hw_config.max_width;
@@ -2781,6 +2786,7 @@ xlnx_mix_crtc_atomic_disable(struct drm_crtc *crtc,
 {
 	xlnx_mix_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
 	xlnx_mix_clear_event(crtc);
+	drm_crtc_vblank_off(crtc);
 }
 
 static void xlnx_mix_crtc_mode_set_nofb(struct drm_crtc *crtc)
@@ -2797,6 +2803,7 @@ static void
 xlnx_mix_crtc_atomic_begin(struct drm_crtc *crtc,
 			   struct drm_crtc_state *old_crtc_state)
 {
+	drm_crtc_vblank_on(crtc);
 	/* Don't rely on vblank when disabling crtc */
 	if (crtc->state->event) {
 		struct xlnx_crtc *xcrtc = to_xlnx_crtc(crtc);
@@ -2829,13 +2836,9 @@ static struct drm_crtc_helper_funcs xlnx_mix_crtc_helper_funcs = {
 static int xlnx_mix_crtc_create(struct xlnx_mix *mixer)
 {
 	struct xlnx_crtc *crtc;
-	struct drm_plane *primary_plane = NULL;
-	struct drm_plane *cursor_plane = NULL;
 	int ret, i;
 
 	crtc = &mixer->crtc;
-	primary_plane = &mixer->drm_primary_layer->base;
-	cursor_plane = &mixer->hw_logo_layer->base;
 
 	for (i = 0; i < mixer->num_planes; i++)
 		xlnx_mix_attach_plane_prop(&mixer->planes[i]);

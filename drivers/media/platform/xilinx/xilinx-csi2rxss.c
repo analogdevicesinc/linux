@@ -82,6 +82,7 @@
 #define XCSI_ISR_OFFSET			0x00000024
 #define XCSI_ISR_FR_SHIFT		31
 #define XCSI_ISR_VCX_SHIFT		30
+#define XCSI_ISR_YUV420_SHIFT		28
 #define XCSI_ISR_ILC_SHIFT		21
 #define XCSI_ISR_SPFIFOF_SHIFT		20
 #define XCSI_ISR_SPFIFONE_SHIFT		19
@@ -103,6 +104,7 @@
 #define XCSI_ISR_VC0FLVLERR_SHIFT	0
 #define XCSI_ISR_FR_MASK		BIT(XCSI_ISR_FR_SHIFT)
 #define XCSI_ISR_VCX_MASK		BIT(XCSI_ISR_VCX_SHIFT)
+#define XCSI_ISR_YUV420_MASK		BIT(XCSI_ISR_YUV420_SHIFT)
 #define XCSI_ISR_ILC_MASK		BIT(XCSI_ISR_ILC_SHIFT)
 #define XCSI_ISR_SPFIFOF_MASK		BIT(XCSI_ISR_SPFIFOF_SHIFT)
 #define XCSI_ISR_SPFIFONE_MASK		BIT(XCSI_ISR_SPFIFONE_SHIFT)
@@ -122,7 +124,7 @@
 #define XCSI_ISR_VC1FLVLERR_MASK	BIT(XCSI_ISR_VC1FLVLERR_SHIFT)
 #define XCSI_ISR_VC0FSYNCERR_MASK	BIT(XCSI_ISR_VC0FSYNCERR_SHIFT)
 #define XCSI_ISR_VC0FLVLERR_MASK	BIT(XCSI_ISR_VC0FLVLERR_SHIFT)
-#define XCSI_ISR_ALLINTR_MASK		0xC03FFFFF
+#define XCSI_ISR_ALLINTR_MASK		0xD03FFFFF
 
 #define XCSI_INTR_PROT_MASK	(XCSI_ISR_VC3FSYNCERR_MASK |	\
 				 XCSI_ISR_VC3FLVLERR_MASK |	\
@@ -148,12 +150,14 @@
 #define XCSI_INTR_FRAMERCVD_MASK	(XCSI_ISR_FR_MASK)
 
 #define XCSI_INTR_ERR_MASK	(XCSI_ISR_ILC_MASK |	\
+				 XCSI_ISR_YUV420_MASK | \
 				 XCSI_ISR_SLBF_MASK |	\
 				 XCSI_ISR_STOP_MASK)
 
 #define XCSI_IER_OFFSET			0x00000028
 #define XCSI_IER_FR_SHIFT		31
 #define XCSI_IER_VCX_SHIFT		30
+#define XCSI_IER_YUV420_SHIFT		28
 #define XCSI_IER_ILC_SHIFT		21
 #define XCSI_IER_SPFIFOF_SHIFT		20
 #define XCSI_IER_SPFIFONE_SHIFT		19
@@ -175,6 +179,7 @@
 #define XCSI_IER_VC0FLVLERR_SHIFT	0
 #define XCSI_IER_FR_MASK		BIT(XCSI_IER_FR_SHIFT)
 #define XCSI_IER_VCX_MASK		BIT(XCSI_IER_VCX_SHIFT)
+#define XCSI_IER_YUV420_MASK		BIT(XCSI_IER_YUV420_SHIFT)
 #define XCSI_IER_ILC_MASK		BIT(XCSI_IER_ILC_SHIFT)
 #define XCSI_IER_SPFIFOF_MASK		BIT(XCSI_IER_SPFIFOF_SHIFT)
 #define XCSI_IER_SPFIFONE_MASK		BIT(XCSI_IER_SPFIFONE_SHIFT)
@@ -194,7 +199,7 @@
 #define XCSI_IER_VC1FLVLERR_MASK	BIT(XCSI_IER_VC1FLVLERR_SHIFT)
 #define XCSI_IER_VC0FSYNCERR_MASK	BIT(XCSI_IER_VC0FSYNCERR_SHIFT)
 #define XCSI_IER_VC0FLVLERR_MASK	BIT(XCSI_IER_VC0FLVLERR_SHIFT)
-#define XCSI_IER_ALLINTR_MASK		0xC03FFFFF
+#define XCSI_IER_ALLINTR_MASK		0xD03FFFFF
 
 #define XCSI_SPKTR_OFFSET		0x00000030
 #define XCSI_SPKTR_DATA_SHIFT		8
@@ -611,6 +616,7 @@ static const struct pixel_format pixel_formats[] = {
 static struct xcsi2rxss_event xcsi2rxss_events[] = {
 	{ XCSI_ISR_FR_MASK, "Frame Received", 0 },
 	{ XCSI_ISR_VCX_MASK, "VCX Frame Errors", 0 },
+	{ XCSI_ISR_YUV420_MASK, "YUV 420 Word Count Error", 0 },
 	{ XCSI_ISR_ILC_MASK, "Invalid Lane Count Error", 0 },
 	{ XCSI_ISR_SPFIFOF_MASK, "Short Packet FIFO OverFlow Error", 0 },
 	{ XCSI_ISR_SPFIFONE_MASK, "Short Packet FIFO Not Empty", 0 },
@@ -839,8 +845,12 @@ static irqreturn_t xcsi2rxss_irq_handler(int irq, void *dev_id)
 		v4l2_subdev_notify_event(&state->subdev, &state->event);
 	}
 
-	if (status & XCSI_ISR_SLBF_MASK) {
-		dev_alert(core->dev, "Stream Line Buffer Full!\n");
+	if (status & (XCSI_ISR_SLBF_MASK | XCSI_ISR_YUV420_MASK)) {
+		if (status & XCSI_ISR_SLBF_MASK)
+			dev_alert(core->dev, "Stream Line Buffer Full!\n");
+		if (status & XCSI_ISR_YUV420_MASK)
+			dev_alert(core->dev, "YUV 420 Word count error!\n");
+
 		if (core->rst_gpio) {
 			gpiod_set_value(core->rst_gpio, 1);
 			/* minimum 40 dphy_clk_200M cycles */
@@ -1303,14 +1313,22 @@ __xcsi2rxss_get_pad_format(struct xcsi2rxss_state *xcsi2rxss,
 				struct v4l2_subdev_pad_config *cfg,
 				unsigned int pad, u32 which)
 {
+	struct v4l2_mbus_framefmt *get_fmt;
+
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&xcsi2rxss->subdev, cfg, pad);
+		get_fmt = v4l2_subdev_get_try_format(&xcsi2rxss->subdev, cfg,
+						     pad);
+		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &xcsi2rxss->formats;
+		get_fmt = &xcsi2rxss->formats;
+		break;
 	default:
-		return NULL;
+		get_fmt = NULL;
+		break;
 	}
+
+	return get_fmt;
 }
 
 /**
@@ -1329,13 +1347,24 @@ static int xcsi2rxss_get_format(struct v4l2_subdev *sd,
 {
 
 	struct xcsi2rxss_state *xcsi2rxss = to_xcsi2rxssstate(sd);
+	struct v4l2_mbus_framefmt *get_fmt;
+	int ret = 0;
 
 	mutex_lock(&xcsi2rxss->lock);
-	fmt->format = *__xcsi2rxss_get_pad_format(xcsi2rxss, cfg,
-							fmt->pad, fmt->which);
+
+	get_fmt = __xcsi2rxss_get_pad_format(xcsi2rxss, cfg,
+					     fmt->pad, fmt->which);
+	if (!get_fmt) {
+		ret = -EINVAL;
+		goto unlock_get_format;
+	}
+
+	fmt->format = *get_fmt;
+
+unlock_get_format:
 	mutex_unlock(&xcsi2rxss->lock);
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -1361,6 +1390,7 @@ static int xcsi2rxss_set_format(struct v4l2_subdev *sd,
 	struct xcsi2rxss_state *xcsi2rxss = to_xcsi2rxssstate(sd);
 	struct xcsi2rxss_core *core = &xcsi2rxss->core;
 	u32 code;
+	int ret = 0;
 
 	mutex_lock(&xcsi2rxss->lock);
 
@@ -1370,7 +1400,11 @@ static int xcsi2rxss_set_format(struct v4l2_subdev *sd,
 	 * Ensure that format to set is copied to over to CSI pad format
 	 */
 	__format = __xcsi2rxss_get_pad_format(xcsi2rxss, cfg,
-						fmt->pad, fmt->which);
+					      fmt->pad, fmt->which);
+	if (!__format) {
+		ret = -EINVAL;
+		goto unlock_set_fmt;
+	}
 
 	/*
 	 * If trying to set format on source pad, then
@@ -1426,7 +1460,7 @@ static int xcsi2rxss_set_format(struct v4l2_subdev *sd,
 unlock_set_fmt:
 	mutex_unlock(&xcsi2rxss->lock);
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -1753,6 +1787,7 @@ static int xcsi2rxss_parse_of(struct xcsi2rxss_state *xcsi2rxss)
 
 		if (core->vfb &&
 			(format->vf_code != XVIP_VF_YUV_422) &&
+			(format->vf_code != XVIP_VF_YUV_420) &&
 			(format->vf_code != XVIP_VF_RBG) &&
 			(format->vf_code != XVIP_VF_MONO_SENSOR)) {
 			dev_err(core->dev, "Invalid UG934 video format set.\n");

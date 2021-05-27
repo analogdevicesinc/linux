@@ -16,6 +16,7 @@ Required properties:
  - clocks: List of phandles to AXI Lite, Video and SDI Tx Clock
  - clock-names: Must contain "s_axi_aclk", "video_in_clk" and "sdi_tx_clk"
    in same order as clocks listed in clocks property.
+ - phy-reset-gpio: Specifier for a gpio that asserts GT phy
 
 Optional properties:
  - xlnx,vpss: vpss phandle
@@ -23,6 +24,9 @@ Optional properties:
  - xlnx,tx-insert-c-str-st352: Insert ST352 payload in Chroma stream.
  - interrupt-names: Should be "sdi_tx_irq". This is only required when
    multiple interrupts are connected in the hardware design.
+ - xlnx,qpll1enabled: boolean property present when the QPLL1 drives GT clock
+   absent with QPLL0 drives GT clock
+- xlnx,picxo_enabled: boolean property present when PICXO is present in design
 
 Example:
 
@@ -37,6 +41,8 @@ Example:
 		xlnx,vpss = <&v_proc_ss_0>;
 		clock-names = "s_axi_aclk", "video_in_clk", "sdi_tx_clk";
 		clocks = <&misc_clk_0>, <&misc_clk_1>, <&misc_clk_2>;
+		phy-reset-gpio = <&axi_gpio_0 0 0 0>;
+		xlnx,qpll1enabled;
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;

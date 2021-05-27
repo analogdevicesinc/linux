@@ -302,7 +302,6 @@ static bool xvip_graph_entity_start_stop(struct xvip_composite_device *xdev,
 {
 	unsigned long pad_flag = on ? MEDIA_PAD_FL_SOURCE : MEDIA_PAD_FL_SINK;
 	unsigned int i;
-	struct v4l2_subdev *subdev;
 	bool state;
 	int ret;
 
@@ -338,7 +337,6 @@ static bool xvip_graph_entity_start_stop(struct xvip_composite_device *xdev,
 	}
 
 	/* set state and report if state is changed or not */
-	subdev = media_entity_to_v4l2_subdev(entity->entity);
 	state = xvip_graph_entity_set_streaming(xdev, entity, on);
 	/* This shouldn't happen as check is already above */
 	if (state == on) {
@@ -357,17 +355,23 @@ static bool xvip_graph_entity_start_stop(struct xvip_composite_device *xdev,
 }
 
 /**
- * xvip_graph_start_stop - start or stop the entire graph
+ * xvip_graph_pipeline_start_stop - start or stop the pipe in the graph
  * @xdev: composite device
+ * @pipe: pipeline to start / stop
  * @on: boolean flag. true for enable and false for disable
  *
- * Enable or disable the entire graph by iterating the asd list.
+ * Enable or disable the pipe in the graph by iterating the asd list.
+ * The pipe is a sub-graph, and the check ensures the given entity
+ * is part of the pipe before doing start or stop. This function
+ * or any subsequent functions don't and shouldn't change the asd list,
+ * so that there's no race if the caller holds the pipeline lock.
  * xvip_graph_entity_start_stop() takes care of dependencies,
  * or state-checking.
  *
  * Return: 0 for success, otherwise error code
  */
-int xvip_graph_start_stop(struct xvip_composite_device *xdev, bool on)
+int xvip_graph_pipeline_start_stop(struct xvip_composite_device *xdev,
+				   struct xvip_pipeline *pipe, bool on)
 {
 	struct v4l2_async_subdev *asd;
 
@@ -376,6 +380,9 @@ int xvip_graph_start_stop(struct xvip_composite_device *xdev, bool on)
 		bool state;
 
 		entity = to_xvip_entity(asd);
+		/* skip an entity not belongng to the given pipe */
+		if (&pipe->pipe != entity->entity->pipe)
+			continue;
 
 		state = xvip_graph_entity_start_stop(xdev, entity, on);
 		if (!state)

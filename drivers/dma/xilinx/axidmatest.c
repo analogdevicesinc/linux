@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * XILINX AXI DMA Engine test module
+ * XILINX AXI DMA and MCDMA Engine test module
  *
  * Copyright (C) 2010 Xilinx, Inc. All rights reserved.
  *
@@ -48,6 +48,8 @@ MODULE_PARM_DESC(iterations,
 #define PATTERN_COPY		0x40
 #define PATTERN_OVERWRITE	0x20
 #define PATTERN_COUNT_MASK	0x1f
+
+#define XILINX_DMATEST_BD_CNT	11
 
 struct dmatest_slave_thread {
 	struct list_head node;
@@ -136,7 +138,6 @@ static void dmatest_init_srcs(u8 **bufs, unsigned int start, unsigned int len)
 				| (~i & PATTERN_COUNT_MASK);
 		for ( ; i < test_buf_size; i++)
 			buf[i] = PATTERN_SRC | (~i & PATTERN_COUNT_MASK);
-		buf++;
 	}
 }
 
@@ -241,7 +242,7 @@ static int dmatest_slave_func(void *data)
 	int ret;
 	int src_cnt;
 	int dst_cnt;
-	int bd_cnt = 11;
+	int bd_cnt = XILINX_DMATEST_BD_CNT;
 	int i;
 
 	ktime_t	ktime, start, diff;
@@ -291,16 +292,16 @@ static int dmatest_slave_func(void *data)
 		struct dma_device *rx_dev = rx_chan->device;
 		struct dma_async_tx_descriptor *txd = NULL;
 		struct dma_async_tx_descriptor *rxd = NULL;
-		dma_addr_t dma_srcs[src_cnt];
-		dma_addr_t dma_dsts[dst_cnt];
+		dma_addr_t dma_srcs[XILINX_DMATEST_BD_CNT];
+		dma_addr_t dma_dsts[XILINX_DMATEST_BD_CNT];
 		struct completion rx_cmp;
 		struct completion tx_cmp;
 		unsigned long rx_tmo =
 				msecs_to_jiffies(300000); /* RX takes longer */
 		unsigned long tx_tmo = msecs_to_jiffies(30000);
 		u8 align = 0;
-		struct scatterlist tx_sg[bd_cnt];
-		struct scatterlist rx_sg[bd_cnt];
+		struct scatterlist tx_sg[XILINX_DMATEST_BD_CNT];
+		struct scatterlist rx_sg[XILINX_DMATEST_BD_CNT];
 
 		total_tests++;
 

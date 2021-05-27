@@ -180,6 +180,10 @@ enum pm_ioctl_id {
 	IOCTL_OSPI_MUX_SELECT,
 	/* IOCTL for USB power request */
 	IOCTL_USB_SET_STATE,
+	/* IOCTL to get last reset reason */
+	IOCTL_GET_LAST_RESET_REASON,
+	/* AIE ISR Clear */
+	IOCTL_AIE_ISR_CLEAR,
 };
 
 enum pm_query_id {
@@ -197,6 +201,7 @@ enum pm_query_id {
 	PM_QID_PINCTRL_GET_PIN_GROUPS,
 	PM_QID_CLOCK_GET_NUM_CLOCKS,
 	PM_QID_CLOCK_GET_MAX_DIVISOR,
+	PM_QID_PLD_GET_PARENT,
 };
 
 enum zynqmp_pm_reset_action {
@@ -546,6 +551,17 @@ enum pm_node_id {
 	NODE_MAX,
 };
 
+enum pm_reset_reason {
+	PM_RESET_REASON_EXT_POR = 0,
+	PM_RESET_REASON_SW_POR = 1,
+	PM_RESET_REASON_SLR_POR = 2,
+	PM_RESET_REASON_ERR_POR = 3,
+	PM_RESET_REASON_DAP_SRST = 7,
+	PM_RESET_REASON_ERR_SRST = 8,
+	PM_RESET_REASON_SW_SRST = 9,
+	PM_RESET_REASON_SLR_SRST = 10,
+};
+
 /**
  * struct zynqmp_pm_query_data - PM query data
  * @qid:	query ID
@@ -576,9 +592,9 @@ struct zynqmp_eemi_ops {
 	int (*clock_setparent)(u32 clock_id, u32 parent_id);
 	int (*clock_getparent)(u32 clock_id, u32 *parent_id);
 	int (*ioctl)(u32 node_id, u32 ioctl_id, u32 arg1, u32 arg2, u32 *out);
-	int (*reset_assert)(const enum zynqmp_pm_reset reset,
+	int (*reset_assert)(const u32 reset,
 			    const enum zynqmp_pm_reset_action assert_flag);
-	int (*reset_get_status)(const enum zynqmp_pm_reset reset, u32 *status);
+	int (*reset_get_status)(const u32 reset, u32 *status);
 	int (*init_finalize)(void);
 	int (*set_suspend_mode)(u32 mode);
 	int (*request_node)(const u32 node,
@@ -636,10 +652,16 @@ int zynqmp_pm_ggs_init(struct kobject *parent_kobj);
 
 #if IS_REACHABLE(CONFIG_ARCH_ZYNQMP)
 const struct zynqmp_eemi_ops *zynqmp_pm_get_eemi_ops(void);
+int zynqmp_pm_get_last_reset_reason(u32 *reset_reason);
 #else
 static inline struct zynqmp_eemi_ops *zynqmp_pm_get_eemi_ops(void)
 {
 	return ERR_PTR(-ENODEV);
+}
+
+static inline int zynqmp_pm_get_last_reset_reason(u32 *reset_reason)
+{
+	return -ENODEV;
 }
 #endif
 

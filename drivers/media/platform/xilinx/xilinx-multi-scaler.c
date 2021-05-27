@@ -600,7 +600,7 @@ xm2msc_select_hcoeff(struct xm2msc_chan_ctx *chan_ctx, const short **coeff)
 	u16 hscale_ratio;
 	u32 width_in = chan_ctx->q_data[XM2MSC_CHAN_OUT].width;
 	u32 width_out = chan_ctx->q_data[XM2MSC_CHAN_CAP].width;
-	u32 ntaps = chan_ctx->xm2msc_dev->taps;
+	u32 ntaps;
 
 	if (width_out < width_in) {
 		hscale_ratio = (width_in * 10) / width_out;
@@ -664,7 +664,7 @@ xm2msc_select_vcoeff(struct xm2msc_chan_ctx *chan_ctx, const short **coeff)
 	u16 vscale_ratio;
 	u32 height_in = chan_ctx->q_data[XM2MSC_CHAN_OUT].height;
 	u32 height_out = chan_ctx->q_data[XM2MSC_CHAN_CAP].height;
-	u32 ntaps = chan_ctx->xm2msc_dev->taps;
+	u32 ntaps;
 
 	if (height_out < height_in) {
 		vscale_ratio = (height_in * 10) / height_out;
@@ -743,12 +743,17 @@ static void xm2mvsc_initialize_coeff_banks(struct xm2msc_chan_ctx *chan_ctx)
 		ntaps, chan_ctx->num);
 }
 
-static void xm2msc_set_chan_params(struct xm2msc_chan_ctx *chan_ctx,
-				   enum v4l2_buf_type type)
+static int xm2msc_set_chan_params(struct xm2msc_chan_ctx *chan_ctx,
+				  enum v4l2_buf_type type)
 {
 	struct xm2msc_q_data *q_data = get_q_data(chan_ctx, type);
-	const struct xm2msc_fmt *fmt = q_data->fmt;
+	const struct xm2msc_fmt *fmt;
 	void __iomem *base = chan_ctx->regs;
+
+	if (!q_data)
+		return -EINVAL;
+
+	fmt = q_data->fmt;
 
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		xm2msc_writereg(base + XM2MSC_WIDTHIN, q_data->width);
@@ -761,6 +766,8 @@ static void xm2msc_set_chan_params(struct xm2msc_chan_ctx *chan_ctx,
 		xm2msc_writereg(base + XM2MSC_OUTPIXELFMT, fmt->xm2msc_fmt);
 		xm2msc_writereg(base + XM2MSC_OUTSTRIDE, q_data->stride);
 	}
+
+	return 0;
 }
 
 static void xm2msc_set_chan_com_params(struct xm2msc_chan_ctx *chan_ctx)
@@ -782,21 +789,28 @@ static void xm2msc_set_chan_com_params(struct xm2msc_chan_ctx *chan_ctx)
 	xm2msc_writereg(base + XM2MSC_LINERATE, line_rate);
 }
 
-static void xm2msc_program_allchan(struct xm2m_msc_dev *xm2msc)
+static int xm2msc_program_allchan(struct xm2m_msc_dev *xm2msc)
 {
 	u32 chan;
 
 	for (chan = 0; chan < xm2msc->running_chan; chan++) {
 		struct xm2msc_chan_ctx *chan_ctx;
+		enum v4l2_buf_type type;
+		int ret;
 
 		chan_ctx = &xm2msc->xm2msc_chan[chan];
+		type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+		ret = xm2msc_set_chan_params(chan_ctx, type);
+		if (ret)
+			return ret;
 
-		xm2msc_set_chan_params(chan_ctx,
-				       V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
-		xm2msc_set_chan_params(chan_ctx,
-				       V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+		type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+		ret = xm2msc_set_chan_params(chan_ctx, type);
+		if (ret)
+			return ret;
 		xm2msc_set_chan_com_params(chan_ctx);
 	}
+	return 0;
 }
 
 static void
@@ -1072,12 +1086,14 @@ static void xm2msc_chan_abort_bufs(struct xm2msc_chan_ctx *chan_ctx)
 
 	while (v4l2_m2m_num_src_bufs_ready(chan_ctx->m2m_ctx) > 0) {
 		src_vb = v4l2_m2m_src_buf_remove(chan_ctx->m2m_ctx);
-		v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
+		if (src_vb)
+			v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
 	}
 
 	while (v4l2_m2m_num_dst_bufs_ready(chan_ctx->m2m_ctx) > 0) {
 		dst_vb = v4l2_m2m_dst_buf_remove(chan_ctx->m2m_ctx);
-		v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
+		if (dst_vb)
+			v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
 	}
 
 	v4l2_m2m_job_finish(chan_ctx->m2m_dev, chan_ctx->m2m_ctx);
@@ -1247,7 +1263,12 @@ static void xm2msc_device_run(void *priv)
 		/* IP need reset for updating of XM2MSC_NUM_OUT */
 		xm2msc_reset(xm2msc);
 		xm2msc_writereg(base + XM2MSC_NUM_OUTS, xm2msc->running_chan);
-		xm2msc_program_allchan(xm2msc);
+		ret = xm2msc_program_allchan(xm2msc);
+		if (ret) {
+			spin_unlock_irqrestore(&xm2msc->lock, flags);
+			xm2msc->device_busy = false;
+			return;
+		}
 	}
 	spin_unlock_irqrestore(&xm2msc->lock, flags);
 
@@ -1503,11 +1524,11 @@ vidioc_try_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 	else if (pix->width > xm2msc->max_wd)
 		pix->width = xm2msc->max_wd;
 
-	vq = v4l2_m2m_get_vq(chan_ctx->m2m_ctx, f->type);
+	vq = v4l2_m2m_get_vq(chan_ctx->m2m_ctx, (enum v4l2_buf_type)f->type);
 	if (!vq)
 		return -EINVAL;
 
-	q_data = get_q_data(chan_ctx, f->type);
+	q_data = get_q_data(chan_ctx, (enum v4l2_buf_type)f->type);
 	if (!q_data)
 		return -EINVAL;
 
@@ -1570,11 +1591,13 @@ static int
 vidioc_s_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 {
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
-	struct xm2msc_q_data *q_data = get_q_data(chan_ctx, f->type);
+	struct xm2msc_q_data *q_data;
 	unsigned int i;
 	unsigned int align = 1;
 
-	q_data = get_q_data(chan_ctx, f->type);
+	q_data = get_q_data(chan_ctx, (enum v4l2_buf_type)f->type);
+	if (!q_data)
+		return -EINVAL;
 
 	q_data->width = pix->width;
 	q_data->height = pix->height;
@@ -1591,8 +1614,8 @@ vidioc_s_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 
 	q_data->stride = ALIGN(q_data->stride, align);
 
-	q_data->colorspace = pix->colorspace;
-	q_data->field = pix->field;
+	q_data->colorspace = (enum v4l2_colorspace)pix->colorspace;
+	q_data->field = (enum v4l2_field)pix->field;
 	q_data->nbuffs = q_data->fmt->num_buffs;
 
 	xm2msc_cal_imagesize(chan_ctx, q_data, f->type);
@@ -1656,11 +1679,11 @@ static int vidioc_g_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	unsigned int i;
 
-	vq = v4l2_m2m_get_vq(chan_ctx->m2m_ctx, f->type);
+	vq = v4l2_m2m_get_vq(chan_ctx->m2m_ctx, (enum v4l2_buf_type)f->type);
 	if (!vq)
 		return -EINVAL;
 
-	q_data = get_q_data(chan_ctx, f->type);
+	q_data = get_q_data(chan_ctx, (enum v4l2_buf_type)f->type);
 	if (!q_data)
 		return -EINVAL;
 
@@ -1711,7 +1734,7 @@ static int enum_fmt(struct xm2m_msc_dev *xm2msc, struct v4l2_fmtdesc *f)
 
 	/* Format found */
 	fmt = &formats[i];
-	strlcpy(f->description, fmt->name,
+	strlcpy((char *)f->description, (char *)fmt->name,
 		sizeof(f->description));
 	f->pixelformat = fmt->fourcc;
 
@@ -1743,17 +1766,17 @@ static int xm2msc_enum_fmt_vid_out(struct file *file, void *fh,
 static int xm2msc_querycap(struct file *file, void *fh,
 			   struct v4l2_capability *cap)
 {
-	strncpy(cap->driver, XM2MSC_DRIVER_NAME, sizeof(cap->driver) - 1);
-	strncpy(cap->card, XM2MSC_DRIVER_NAME, sizeof(cap->card) - 1);
-	snprintf(cap->bus_info, sizeof(cap->bus_info),
+	struct xm2msc_chan_ctx *chan_ctx = fh_to_chanctx(fh);
+	struct video_device *vfd = &chan_ctx->vfd;
+
+	strncpy((char *)cap->driver, XM2MSC_DRIVER_NAME,
+		sizeof(cap->driver) - 1);
+	strncpy((char *)cap->card, XM2MSC_DRIVER_NAME, sizeof(cap->card) - 1);
+	snprintf((char *)cap->bus_info, sizeof(cap->bus_info),
 		 "platform:%s", XM2MSC_DRIVER_NAME);
-	/*
-	 * This is only a mem-to-mem video device. The STREAMING
-	 * device capability flags are left only for compatibility
-	 * and are scheduled for removal.
-	 */
-	cap->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE;
+	cap->device_caps = vfd->device_caps;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
+
 	return 0;
 }
 
@@ -1765,7 +1788,7 @@ static int xm2msc_queue_setup(struct vb2_queue *vq,
 	struct xm2msc_chan_ctx *chan_ctx = vb2_get_drv_priv(vq);
 	struct xm2msc_q_data *q_data;
 
-	q_data = get_q_data(chan_ctx, vq->type);
+	q_data = get_q_data(chan_ctx, (enum v4l2_buf_type)vq->type);
 	if (!q_data)
 		return -EINVAL;
 
@@ -1789,7 +1812,7 @@ static int xm2msc_buf_prepare(struct vb2_buffer *vb)
 	struct xm2msc_q_data *q_data;
 	unsigned int i, num_buffs;
 
-	q_data = get_q_data(chan_ctx, vb->vb2_queue->type);
+	q_data = get_q_data(chan_ctx, (enum v4l2_buf_type)vb->vb2_queue->type);
 	if (!q_data)
 		return -EINVAL;
 	num_buffs = q_data->nbuffs;
@@ -1843,13 +1866,16 @@ static int xm2msc_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct xm2msc_chan_ctx *chan_ctx = vb2_get_drv_priv(q);
 	static struct xm2msc_q_data *q_data;
 	int type;
+	int ret;
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type))
 		xm2msc_set_chan_stream(chan_ctx, true, XM2MSC_CHAN_OUT);
 	else
 		xm2msc_set_chan_stream(chan_ctx, true, XM2MSC_CHAN_CAP);
 
-	xm2msc_set_chan_params(chan_ctx, q->type);
+	ret = xm2msc_set_chan_params(chan_ctx, (enum v4l2_buf_type)q->type);
+	if (ret)
+		return ret;
 
 	if (xm2msc_chk_chan_stream(chan_ctx, XM2MSC_CHAN_CAP) &&
 	    xm2msc_chk_chan_stream(chan_ctx, XM2MSC_CHAN_OUT))
@@ -1858,7 +1884,7 @@ static int xm2msc_start_streaming(struct vb2_queue *q, unsigned int count)
 	type = V4L2_TYPE_IS_OUTPUT(q->type) ?
 		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE :
 		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	q_data = get_q_data(chan_ctx, type);
+	q_data = get_q_data(chan_ctx, (enum v4l2_buf_type)type);
 	xm2msc_pr_q(chan_ctx->xm2msc_dev->dev, q_data, chan_ctx->num,
 		    type, __func__);
 	xm2msc_pr_status(chan_ctx->xm2msc_dev, __func__);
@@ -1947,14 +1973,17 @@ static const struct v4l2_ioctl_ops xm2msc_ioctl_ops = {
 	.vidioc_streamoff = xm2msc_streamoff,
 };
 
-static void xm2msc_set_q_data(struct xm2msc_chan_ctx *chan_ctx,
-			      const struct xm2msc_fmt *fmt,
-			      enum v4l2_buf_type type)
+static int xm2msc_set_q_data(struct xm2msc_chan_ctx *chan_ctx,
+			     const struct xm2msc_fmt *fmt,
+			     enum v4l2_buf_type type)
 {
 	struct xm2msc_q_data *q_data;
 	struct xm2m_msc_dev *xm2msc = chan_ctx->xm2msc_dev;
 
 	q_data = get_q_data(chan_ctx, type);
+
+	if (!q_data)
+		return -EINVAL;
 
 	q_data->fmt = fmt;
 	q_data->width = xm2msc->max_wd;
@@ -1963,10 +1992,12 @@ static void xm2msc_set_q_data(struct xm2msc_chan_ctx *chan_ctx,
 	q_data->nbuffs = q_data->fmt->num_buffs;
 
 	q_data->stride = xm2msc_cal_stride(q_data->width,
-					   q_data->fmt->xm2msc_fmt,
-					   xm2msc->ppc);
+				q_data->fmt->xm2msc_fmt,
+				xm2msc->ppc);
 
 	xm2msc_cal_imagesize(chan_ctx, q_data, type);
+
+	return 0;
 }
 
 static int xm2msc_set_chan_parm(struct xm2msc_chan_ctx *chan_ctx)
@@ -1991,12 +2022,13 @@ static int xm2msc_set_chan_parm(struct xm2msc_chan_ctx *chan_ctx)
 		return -EINVAL;
 	}
 
-	xm2msc_set_q_data(chan_ctx, &formats[i],
-			  V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
-	xm2msc_set_q_data(chan_ctx, &formats[i],
-			  V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	ret = xm2msc_set_q_data(chan_ctx, &formats[i],
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+	if (ret)
+		return ret;
 
-	return ret;
+	return xm2msc_set_q_data(chan_ctx, &formats[i],
+				 V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 }
 
 static int xm2msc_open(struct file *file)
@@ -2349,7 +2381,8 @@ static int xm2m_msc_probe(struct platform_device *pdev)
 		*vfd = xm2msc_videodev;
 		vfd->lock = &xm2msc->dev_mutex;
 		vfd->v4l2_dev = &xm2msc->v4l2_dev;
-		vfd->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE;
+		vfd->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE |
+				   V4L2_CAP_STREAMING;
 
 		ret = video_register_device(vfd, VFL_TYPE_GRABBER, chan);
 		if (ret) {

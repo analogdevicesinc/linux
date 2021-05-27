@@ -542,14 +542,22 @@ __xcsc_get_pad_format(struct xcsc_dev *xcsc,
 		      struct v4l2_subdev_pad_config *cfg,
 		      unsigned int pad, u32 which)
 {
+	struct v4l2_mbus_framefmt *format;
+
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&xcsc->xvip.subdev, cfg, pad);
+		format = v4l2_subdev_get_try_format(&xcsc->xvip.subdev,
+						    cfg, pad);
+		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &xcsc->formats[pad];
+		format = &xcsc->formats[pad];
+		break;
 	default:
-		return NULL;
+		format = NULL;
+		break;
 	}
+
+	return format;
 }
 
 static void
@@ -760,8 +768,13 @@ static int xcsc_get_format(struct v4l2_subdev *subdev,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct xcsc_dev *xcsc = to_csc(subdev);
+	struct v4l2_mbus_framefmt *format;
 
-	fmt->format = *__xcsc_get_pad_format(xcsc, cfg, fmt->pad, fmt->which);
+	format = __xcsc_get_pad_format(xcsc, cfg, fmt->pad, fmt->which);
+	if (!format)
+		return -EINVAL;
+
+	fmt->format = *format;
 	return 0;
 }
 
@@ -774,9 +787,15 @@ static int xcsc_set_format(struct v4l2_subdev *subdev,
 	struct v4l2_mbus_framefmt *__propagate;
 
 	__format = __xcsc_get_pad_format(xcsc, cfg, fmt->pad, fmt->which);
+	if (!__format)
+		return -EINVAL;
+
 	/* Propagate to Source Pad */
 	__propagate = __xcsc_get_pad_format(xcsc, cfg,
 					    XVIP_PAD_SOURCE, fmt->which);
+	if (!__propagate)
+		return -EINVAL;
+
 	*__format = fmt->format;
 
 	__format->width = clamp_t(unsigned int, fmt->format.width,
@@ -965,7 +984,7 @@ static int xcsc_parse_of(struct xcsc_dev *xcsc)
 	struct device_node *ports, *port;
 	int rval;
 	u32 port_id = 0;
-	u32 video_width[2];
+	u32 video_width[2] = {0};
 
 	rval = of_property_read_u32(node, "xlnx,max-height", &xcsc->max_height);
 	if (rval < 0) {
@@ -1028,8 +1047,10 @@ static int xcsc_parse_of(struct xcsc_dev *xcsc)
 	}
 	switch (video_width[0]) {
 	case XVIDC_BPC_8:
+		xcsc->color_depth = XVIDC_BPC_8;
+		break;
 	case XVIDC_BPC_10:
-		xcsc->color_depth = video_width[0];
+		xcsc->color_depth = XVIDC_BPC_10;
 		break;
 	default:
 		dev_err(dev, "Unsupported color depth %d", video_width[0]);

@@ -27,6 +27,7 @@
 #define SNOR_MFR_SST		CFI_MFR_SST
 #define SNOR_MFR_WINBOND	0xef /* Also used by some Spansion */
 #define SNOR_MFR_ISSI		CFI_MFR_PMC
+#define SNOR_MFR_CYPRESS	CFI_MFR_CYPRESS
 
 /*
  * Note on opcode nomenclature: some opcodes have a format like
@@ -268,6 +269,7 @@ enum spi_nor_option_flags {
 	SNOR_F_HAS_4BAIT	= BIT(7),
 	SNOR_F_HAS_LOCK		= BIT(8),
 	SNOR_F_BROKEN_OCTAL_DDR = BIT(9),
+	SNOR_F_UPPER_CS		= BIT(10),
 };
 
 /**

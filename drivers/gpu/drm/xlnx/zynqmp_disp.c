@@ -1897,7 +1897,7 @@ static int zynqmp_disp_layer_enable(struct zynqmp_disp *disp,
 {
 	struct device *dev = disp->dev;
 	struct dma_async_tx_descriptor *desc;
-	enum dma_ctrl_flags flags;
+	unsigned long flags;
 	unsigned int i;
 
 	if (layer->enabled && layer->mode != mode) {
@@ -2091,13 +2091,13 @@ static int zynqmp_disp_layer_create(struct zynqmp_disp *disp)
 	unsigned int i;
 	int num_chans[ZYNQMP_DISP_NUM_LAYERS] = { 3, 1 };
 	const char * const dma_name[] = { "vid", "gfx" };
-	int ret;
+	int ret = -EINVAL;
 
 	for (i = 0; i < ZYNQMP_DISP_NUM_LAYERS; i++) {
 		char temp[16];
 
 		layer = &disp->layers[i];
-		layer->id = i;
+		layer->id = (enum zynqmp_disp_layer_type)i;
 		layer->offset = i * 4;
 		layer->other = &disp->layers[!i];
 		layer->num_chan = num_chans[i];
@@ -2882,15 +2882,16 @@ static int zynqmp_disp_crtc_mode_set(struct drm_crtc *crtc,
 	int ret;
 
 	zynqmp_disp_clk_disable(disp->pclk, &disp->pclk_en);
-	ret = clk_set_rate(disp->pclk, adjusted_mode->clock * 1000);
+	ret = clk_set_rate(disp->pclk,
+			   (unsigned long)adjusted_mode->clock * 1000);
 	if (ret) {
 		dev_err(disp->dev, "failed to set a pixel clock\n");
 		return ret;
 	}
 
 	rate = clk_get_rate(disp->pclk);
-	diff = rate - adjusted_mode->clock * 1000;
-	if (abs(diff) > (adjusted_mode->clock * 1000) / 20) {
+	diff = rate - (unsigned long)adjusted_mode->clock * 1000;
+	if (abs(diff) > ((long)adjusted_mode->clock * 1000) / 20) {
 		dev_info(disp->dev, "request pixel rate: %d actual rate: %lu\n",
 			 adjusted_mode->clock, rate);
 	} else {
@@ -2915,7 +2916,12 @@ zynqmp_disp_crtc_atomic_enable(struct drm_crtc *crtc,
 	zynqmp_disp_crtc_mode_set(crtc, &crtc->state->mode,
 				  adjusted_mode, crtc->x, crtc->y, NULL);
 
-	pm_runtime_get_sync(disp->dev);
+	ret = pm_runtime_get_sync(disp->dev);
+	if (ret < 0) {
+		dev_err(disp->dev, "IRQ sync failed to resume: %d\n", ret);
+		return;
+	}
+
 	ret = zynqmp_disp_clk_enable(disp->pclk, &disp->pclk_en);
 	if (ret) {
 		dev_err(disp->dev, "failed to enable a pixel clock\n");
@@ -3056,14 +3062,21 @@ static struct drm_crtc_funcs zynqmp_disp_crtc_funcs = {
 	.disable_vblank		= zynqmp_disp_crtc_disable_vblank,
 };
 
-static void zynqmp_disp_create_crtc(struct zynqmp_disp *disp)
+static int zynqmp_disp_create_crtc(struct zynqmp_disp *disp)
 {
 	struct drm_plane *plane = &disp->layers[ZYNQMP_DISP_LAYER_GFX].plane;
 	struct drm_mode_object *obj = &disp->xlnx_crtc.crtc.base;
 	int ret;
 
-	ret = drm_crtc_init_with_planes(disp->drm, &disp->xlnx_crtc.crtc, plane,
-					NULL, &zynqmp_disp_crtc_funcs, NULL);
+	ret = drm_crtc_init_with_planes(disp->drm, &disp->xlnx_crtc.crtc,
+					plane, NULL, &zynqmp_disp_crtc_funcs,
+					NULL);
+	if (ret < 0) {
+		dev_err(disp->dev, "failed to initialize disp CRTC: %d\n",
+			ret);
+		return ret;
+	}
+
 	drm_crtc_helper_add(&disp->xlnx_crtc.crtc,
 			    &zynqmp_disp_crtc_helper_funcs);
 	drm_object_attach_property(obj, disp->color_prop, 0);
@@ -3078,6 +3091,8 @@ static void zynqmp_disp_create_crtc(struct zynqmp_disp *disp)
 	disp->xlnx_crtc.get_align = &zynqmp_disp_get_align;
 	disp->xlnx_crtc.get_dma_mask = &zynqmp_disp_get_dma_mask;
 	xlnx_crtc_register(disp->drm, &disp->xlnx_crtc);
+
+	return 0;
 }
 
 static void zynqmp_disp_destroy_crtc(struct zynqmp_disp *disp)
@@ -3128,7 +3143,9 @@ int zynqmp_disp_bind(struct device *dev, struct device *master, void *data)
 	ret = zynqmp_disp_create_plane(disp);
 	if (ret)
 		return ret;
-	zynqmp_disp_create_crtc(disp);
+	ret = zynqmp_disp_create_crtc(disp);
+	if (ret)
+		return ret;
 	zynqmp_disp_map_crtc_to_plane(disp);
 
 	return 0;

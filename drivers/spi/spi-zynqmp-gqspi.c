@@ -142,7 +142,7 @@
 #define GQSPI_TX_BUS_WIDTH_DUAL		0x2
 #define GQSPI_TX_BUS_WIDTH_SINGLE	0x1
 #define GQSPI_LPBK_DLY_ADJ_LPBK_SHIFT	5
-#define GQSPI_LPBK_DLY_ADJ_DLY_1	0x2
+#define GQSPI_LPBK_DLY_ADJ_DLY_1	0x1
 #define GQSPI_LPBK_DLY_ADJ_DLY_1_SHIFT	3
 #define GQSPI_LPBK_DLY_ADJ_DLY_0	0x3
 #define GQSPI_USE_DATA_DLY		0x1
@@ -382,6 +382,8 @@ static u32 zynqmp_disable_intr(struct zynqmp_qspi *xqspi)
 static void zynqmp_qspi_init_hw(struct zynqmp_qspi *xqspi)
 {
 	u32 config_reg;
+	u32 baud_rate_val = 0;
+	ulong clk_rate = clk_get_rate(xqspi->refclk);
 
 	/* Select the GQSPI mode */
 	zynqmp_gqspi_write(xqspi, GQSPI_SEL_OFST, GQSPI_SEL_MASK);
@@ -425,9 +427,11 @@ static void zynqmp_qspi_init_hw(struct zynqmp_qspi *xqspi)
 			   GQSPI_FIFO_CTRL_RST_TX_FIFO_MASK |
 			   GQSPI_FIFO_CTRL_RST_GEN_FIFO_MASK);
 	/* Set by default to allow for high frequencies */
-	zynqmp_gqspi_write(xqspi, GQSPI_LPBK_DLY_ADJ_OFST,
-			   zynqmp_gqspi_read(xqspi, GQSPI_LPBK_DLY_ADJ_OFST) |
-			   GQSPI_LPBK_DLY_ADJ_USE_LPBK_MASK);
+	while ((baud_rate_val < GQSPI_BAUD_DIV_MAX) &&
+	       (clk_rate /
+		(GQSPI_BAUD_DIV_SHIFT << baud_rate_val)) > xqspi->speed_hz)
+		baud_rate_val++;
+	zynqmp_qspi_set_tapdelay(xqspi, baud_rate_val);
 	/* Reset thresholds */
 	zynqmp_gqspi_write(xqspi, GQSPI_TX_THRESHOLD_OFST,
 			   GQSPI_TX_FIFO_THRESHOLD_RESET_VAL);
@@ -1292,6 +1296,12 @@ static int zynqmp_qspi_probe(struct platform_device *pdev)
 		goto clk_dis_pclk;
 	}
 
+	master->max_speed_hz = clk_get_rate(xqspi->refclk) / 2;
+	xqspi->speed_hz = master->max_speed_hz;
+
+	/* QSPI controller initializations */
+	zynqmp_qspi_init_hw(xqspi);
+
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, SPI_AUTOSUSPEND_TIMEOUT);
 	pm_runtime_set_active(&pdev->dev);
@@ -1299,9 +1309,6 @@ static int zynqmp_qspi_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(pdev->dev.of_node, "has-io-mode"))
 		xqspi->io_mode = true;
-
-	/* QSPI controller initializations */
-	zynqmp_qspi_init_hw(xqspi);
 
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
@@ -1356,11 +1363,9 @@ static int zynqmp_qspi_probe(struct platform_device *pdev)
 	master->prepare_transfer_hardware = zynqmp_prepare_transfer_hardware;
 	master->unprepare_transfer_hardware =
 					zynqmp_unprepare_transfer_hardware;
-	master->max_speed_hz = clk_get_rate(xqspi->refclk) / 2;
 	master->bits_per_word_mask = SPI_BPW_MASK(8);
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_RX_DUAL | SPI_RX_QUAD |
 			    SPI_TX_DUAL | SPI_TX_QUAD;
-	xqspi->speed_hz = master->max_speed_hz;
 	master->auto_runtime_pm = true;
 
 	if (master->dev.parent == NULL)
