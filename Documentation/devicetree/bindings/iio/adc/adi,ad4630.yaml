@@ -1,0 +1,147 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2022 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/adc/adi,ad4630.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD4630 ADC family device driver
+
+maintainers:
+  - Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+
+description: |
+  Analog Devices AD4630 Dual Channel Precision SAR ADC family
+
+properties:
+
+  adi,lane-mode:
+    description:
+    Change the number of SPI data lanes.
+
+    one-lane-shared - In interleaved lane output data clocking mode, the
+      Channel 0 and Channel 1 conversion data is interleaved on SDO0.
+    one-lane-per-ch - 1-lane output data clocking mode is the default output
+      data clocking mode at power-up.
+    two-lanes-per-ch - When 2-lane output data clocking mode is enabled, the
+      sample word bits are split between two SDO lanes.
+    four-lanes-per-ch - When 4-lane output data clocking mode is enabled, the
+      sample word bits are split between four SDO lane.
+    enum: [one-lane-shared, one-lane-per-ch, two-lanes-per-ch, four-lanes-per-ch]
+
+  adi,clock-mode:
+    description:
+      Change the master clock distribution mode. Echo clock mode and ADC
+        master clock mode relax the timing requirements and simplify the
+        use of digital isolators.
+
+      spi-compatible - Normal SPI operation clocking
+      echo-clock - Synchronous clock echoing to ease timing requirements
+        when using isolation on the digital interface.
+      clock-master - The ADC master clock mode uses an internal oscillator
+        to clock out the data bits.
+    enum: [spi-compatible, echo-clock, clock-master]
+
+  adi,data-rate-mode:
+    description:
+      An optional dual data rate (DDR) data clocking can reduce the serial
+        clock to 10 MHz while operating at a sample rate of 2 MSPS.
+
+      single - Single data rate clocking (SDR) in which one bit (per active
+        lane) is clocked out during a single clock cycle, is supported for all
+        output configurations and sample formats.
+      dual - DDR mode (two data bit transitions per clock cycle per active lane)
+        is available only for master clock mode and echo clock mode
+    enum: [single, dual]
+
+  adi,out-data-mode:
+    description:
+    The device supports multiple sample formats.
+
+      24diff - Sample is 24-bit differential voltage
+      16diff-8com - Sample is composed of 16-bit differential voltage and 8-bit
+        common voltage
+      24diff-8com - Sample is composed of 24-bit differential voltage and 8-bit
+        common voltage
+      30diff-avg - Sample is 30-bit differential voltage averaged over previous
+        samples
+      32pat - Sample is a 32-bit test pattern
+    enum: [24diff, 16diff-8com, 24diff-8com, 30diff-avg, 32pat]
+
+  compatible:
+    enum:
+      - adi,ad4030-24
+      - adi,ad4630-16
+      - adi,ad4630-24
+      - adi,ad463x
+
+  clocks:
+    description:
+      Trigger reference clock
+
+  clocks-names:
+    const: trigger_clock
+
+  dmas:
+    maxItems: 1
+
+  dma-names:
+    const: rx
+
+  pwms:
+    maxItems: 2
+
+  pwm-names:
+    items:
+      - const: spi_trigger
+      - const: cnv
+
+  reg:
+    maxItems: 1
+
+  reset-gpios:
+    maxItems: 1
+
+  spi-max-frequency:
+    maximum: 80000000
+
+  vref-supply:
+    maxItems: 1
+
+
+required:
+  - compatible
+  - adi,lane-mode
+  - adi,clock-mode
+  - adi,data-rate-mode
+  - adi,out-data-mode
+  - clocks
+  - clock-names
+  - dmas
+  - dma-names
+  - pwms
+  - pwm-names
+  - reg
+  - reset-gpios
+  - vref-supply
+
+examples:
+  - |
+    adc@0 {
+              compatible = "adi,ad463x";
+              adi,lane-mode = "two-lanes-per-ch";
+              adi,clock-mode = "spi-compatible";
+              adi,data-rate-mode = "single";
+              adi,out-data-mode = "30diff-avg";
+              clocks = <&clk0>;
+              clock-names = "trigger_clock";
+              dmas = <&dma 0>;
+              dma-names = "rx";
+              pwm-names = "spi_trigger", "cnv";
+              pwms = <&axi_pwm_gen 0 0>,
+                     <&axi_pwm_gen 1 0>;
+              reg = <0>;
+              reset-gpios = <&gpio 0 0>;
+              spi-max-frequency = <80000000>;
+              vref-supply = <&vref>;
+    };
