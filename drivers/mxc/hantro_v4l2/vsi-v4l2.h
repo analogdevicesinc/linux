@@ -440,6 +440,8 @@ struct v4l2_daemon_enc_h26x_cmd {
 	u32 vuiColorPrimaries;
 	u32 vuiTransferCharacteristics;
 	u32 vuiMatrixCoefficients;
+
+	u32 idrHdr;
 };
 
 struct v4l2_daemon_enc_jpeg_cmd {

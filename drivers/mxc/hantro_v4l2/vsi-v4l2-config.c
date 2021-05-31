@@ -919,6 +919,7 @@ static void vsi_set_default_parameter_enc(
 	enc_params->specific.enc_h26x_cmd.log2MaxFrameNum = 12;
 	enc_params->specific.enc_h26x_cmd.cuInfoVersion = 2;
 	enc_params->specific.enc_h26x_cmd.parallelCoreNum = 1;
+	enc_params->specific.enc_h26x_cmd.idrHdr = 1;
 }
 
 void vsiv4l2_initcfg(struct vsi_v4l2_ctx *ctxp)
