@@ -1237,6 +1237,12 @@ void dpaa2_eth_free_tx_fd(struct dpaa2_eth_priv *priv,
 		return;
 	}
 
+	/* If there is no skb (in case of a wrong SWA type)
+	 * just exit the function
+	 */
+	if (!skb)
+		return;
+
 	/* Get the timestamp value */
 	if (swa->type != DPAA2_ETH_SWA_SW_TSO) {
 		if (skb->cb[0] == TX_TSTAMP) {
