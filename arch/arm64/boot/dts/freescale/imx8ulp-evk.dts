@@ -83,6 +83,11 @@
 		clock-output-names = "ext_ts_clk";
 		#clock-cells = <0>;
 	};
+
+	usdhc2_pwrseq: usdhc2_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&pcal6408 2 GPIO_ACTIVE_LOW>;
+	};
 };
 
 &cm33 {
@@ -108,6 +113,7 @@
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 	};
+
 };
 
 &lpuart5 {
@@ -217,6 +223,20 @@
 	pinctrl-3 = <&pinctrl_usdhc0>;
 	non-removable;
 	bus-width = <8>;
+	status = "okay";
+};
+
+&usdhc2 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
+	pinctrl-0 = <&pinctrl_usdhc2_pte>;
+	pinctrl-1 = <&pinctrl_usdhc2_pte>;
+	pinctrl-2 = <&pinctrl_usdhc2_pte>;
+	pinctrl-3 = <&pinctrl_usdhc2_pte>;
+	mmc-pwrseq = <&usdhc2_pwrseq>;
+	max-frequency = <100000000>;
+	bus-width = <4>;
+	keep-power-in-suspend;
+	non-removable;
 	status = "okay";
 };
 
@@ -355,4 +375,16 @@
 			MX8ULP_PAD_PTD11__SDHC0_DQS	0x10002
 		>;
 	};
+
+	pinctrl_usdhc2_pte: usdhc2ptegrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE1__SDHC2_D0	0x3
+			MX8ULP_PAD_PTE0__SDHC2_D1	0x3
+			MX8ULP_PAD_PTE5__SDHC2_D2	0x3
+			MX8ULP_PAD_PTE4__SDHC2_D3	0x3
+			MX8ULP_PAD_PTE2__SDHC2_CLK	0x10002
+			MX8ULP_PAD_PTE3__SDHC2_CMD	0x3
+		>;
+	};
+
 };
