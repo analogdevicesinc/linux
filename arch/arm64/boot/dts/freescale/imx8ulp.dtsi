@@ -217,6 +217,14 @@
 			reg = <0x26000000 0x8000>;
 		};
 
+		ocotp: efuse@27010000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "fsl,imx8ulp-ocotp", "syscon";
+			reg = <0x27010000 0x1000>;
+			status = "okay";
+		};
+
 		s4muap: mailbox@27020000 {
 			compatible = "fsl,imx8ulp-mu-s4";
 			reg = <0x27020000 0x10000>;
