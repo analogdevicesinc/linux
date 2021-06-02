@@ -175,6 +175,20 @@
 	status = "okay";
 };
 
+&lpspi5 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpspi5>;
+	pinctrl-1 = <&pinctrl_lpspi5>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
 &lpuart5 {
 	/* console */
 	pinctrl-names = "default", "sleep";
@@ -374,6 +388,15 @@
 	pinctrl_gpio_keys: gpiokeys {
 		fsl,pins = <
 			MX8ULP_PAD_PTF31__PTF31		0x3
+		>;
+	};
+
+	pinctrl_lpspi5: lpspi5grp {
+		fsl,pins = <
+			MX8ULP_PAD_PTF16__LPSPI5_SIN	0x3
+			MX8ULP_PAD_PTF17__LPSPI5_SOUT	0x3
+			MX8ULP_PAD_PTF18__LPSPI5_SCK	0x3
+			MX8ULP_PAD_PTF19__LPSPI5_PCS0	0x3
 		>;
 	};
 
