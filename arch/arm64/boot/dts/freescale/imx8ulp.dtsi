@@ -224,6 +224,13 @@
 			#mbox-cells = <2>;
 		};
 
+		s400_api: s400-api {
+			compatible = "fsl,imx8ulp-s400";
+			mboxes = <&s4muap 0 0 &s4muap 1 0>;
+			mbox-names = "tx", "rx";
+			status = "okay";
+		};
+
 		per_bridge3: bus@29000000 {
 			compatible = "simple-bus";
 			reg = <0x29000000 0x800000>;
