@@ -1,0 +1,31 @@
+
+#define ADCCLK 500000000
+
+/ {
+	clocks {
+		fixed_adc_clk: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <ADCCLK>;
+			clock-output-names = "adc_clk";
+		};
+	};
+};
+
+&fmc_spi {
+
+	ad9694: ad9694@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9694";
+
+		/* SPI Setup */
+		reg = <2>;
+		spi-max-frequency = <25000000>;
+
+		/* Clocks */
+		clocks = <&axi_ad9694_rx_jesd>, <&fixed_adc_clk>;
+		clock-names = "jesd_adc_clk", "adc_clk";
+	};
+};
