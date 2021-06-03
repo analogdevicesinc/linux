@@ -604,8 +604,8 @@ static const struct iio_event_spec ad9680_events[] = {
 	.scan_index = _chan,						\
 	.scan_type = {							\
 		.sign = 'S',						\
-		.realbits = 8,						\
-		.storagebits = 8,					\
+		.realbits = 16,						\
+		.storagebits = 16,					\
 		.shift = 0,						\
 	},								\
 	.event_spec = ad9680_events,					\
@@ -1113,7 +1113,7 @@ static int ad9694_setup_jesd204_link(struct axiadc_converter *conv,
 		sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 128);
 	else
 		sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
-	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
+	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 50);
 
 	if (lane_rate_kHz < 1687500 || lane_rate_kHz > 15000000) {
 		dev_err(&conv->spi->dev, "Lane rate %lu Mbps out of bounds. Must be between 1687.5 and 15000 Mbps",
@@ -1188,10 +1188,10 @@ static int ad9694_setup(struct spi_device *spi)
 		link_config.lane_mux[i] = i;
 	}
 	link_config.num_converters = 2;
-	link_config.octets_per_frame = 1;
+	link_config.octets_per_frame = 2;
 	link_config.frames_per_multiframe = 32;
-	link_config.converter_resolution = 8;
-	link_config.bits_per_sample = 8;
+	link_config.converter_resolution = 16;
+	link_config.bits_per_sample = 16;
 	link_config.scrambling = true;
 
 	if (conv->sysref_clk) {
