@@ -142,6 +142,13 @@
 			sound-dai = <&bt_sco_codec 1>;
 		};
 	};
+
+	sound-spdif {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-spdif";
+		spdif-controller = <&spdif>;
+		spdif-out;
+	};
 };
 
 &cm33 {
@@ -280,6 +287,14 @@
 	assigned-clocks = <&cgc1 IMX8ULP_CLK_SAI5_SEL>;
 	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
 	fsl,dataline = <1 0x08 0x01>;
+	status = "okay";
+};
+
+&spdif {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spdif>;
+	assigned-clocks = <&cgc2 IMX8ULP_CLK_SPDIF_SEL>;
+	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
 	status = "okay";
 };
 
@@ -502,6 +517,12 @@
 			MX8ULP_PAD_PTF27__I2S5_TX_FS    0x43
 			MX8ULP_PAD_PTF28__I2S5_TXD0     0x43
 			MX8ULP_PAD_PTF24__I2S5_RXD3 	0x43
+		>;
+	};
+
+	pinctrl_spdif: spdifgrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTF25__SPDIF_OUT1    0x43
 		>;
 	};
 
