@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2021 NXP
+ */
+
+/ {
+	aliases {
+		i2c0 = &i2c_rpbus_0;
+		i2c1 = &i2c_rpbus_1;
+	};
+
+	cm33: remoteproc-cm33 {
+		compatible = "fsl,imx8ulp-cm33";
+		status = "disabled";
+	};
+
+	i2c_rpbus_0: i2c-rpbus-0 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_1: i2c-rpbus-1 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+};

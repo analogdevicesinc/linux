@@ -23,6 +23,10 @@
 		gpio0 = &gpiod;
 		gpio1 = &gpioe;
 		gpio2 = &gpiof;
+		i2c4 = &lpi2c4;
+		i2c5 = &lpi2c5;
+		i2c6 = &lpi2c6;
+		i2c7 = &lpi2c7;
 		mmc0 = &usdhc0;
 		mmc1 = &usdhc1;
 		mmc2 = &usdhc2;
@@ -194,11 +198,6 @@
 				#thermal-sensor-cells = <1>;
 			};
 		};
-	};
-
-	cm33: remoteproc-cm33 {
-		compatible = "fsl,imx8ulp-cm33";
-		status = "disabled";
 	};
 
 	rtc-rpmsg {

@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "imx8ulp.dtsi"
+#include "imx8ulp-rpmsg.dtsi"
 #include <dt-bindings/input/input.h>
 
 / {
@@ -143,6 +144,35 @@
 		spi-rx-bus-width = <8>;
 	};
 
+};
+
+&i2c_rpbus_0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	pca6416_1: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	mpl3115@60 {
+		compatible = "fsl,mpl3115";
+		reg = <0x60>;
+	};
+
+	lsm6dsm@6a {
+		compatible = "st,lsm6dso";
+		reg = <0x6a>;
+	};
+};
+
+&i2c_rpbus_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
 };
 
 &lpuart5 {
