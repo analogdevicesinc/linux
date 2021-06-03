@@ -9,6 +9,7 @@
 #include <linux/bits.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
+#include <linux/clk/clkscale.h>
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
@@ -119,6 +120,7 @@ static const char * const quad_se_mode_names[] = { "se-pos", "se-neg", "diff" };
 struct admv1014_state {
 	struct spi_device		*spi;
 	struct clk			*clkin;
+	struct clock_scale		clkscale;
 	struct notifier_block		nb;
 	/* Protect against concurrent accesses to the device and to data*/
 	struct mutex			lock;
@@ -220,7 +222,7 @@ static int admv1014_spi_update_bits(struct admv1014_state *st, unsigned int reg,
 static int admv1014_update_quad_filters(struct admv1014_state *st)
 {
 	unsigned int filt_raw;
-	u64 rate = clk_get_rate(st->clkin);
+	u64 rate = clk_get_rate_scaled(st->clkin, &st->clkscale);
 
 	if (rate >= (5400 * HZ_PER_MHZ) && rate <= (7000 * HZ_PER_MHZ))
 		filt_raw = 15;
@@ -756,7 +758,7 @@ static int admv1014_properties_parse(struct admv1014_state *st)
 		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin),
 				     "failed to get the LO input clock\n");
 
-	return 0;
+	return of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
 }
 
 static int admv1014_probe(struct spi_device *spi)
