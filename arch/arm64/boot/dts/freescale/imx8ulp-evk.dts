@@ -118,6 +118,30 @@
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&pcal6408 2 GPIO_ACTIVE_LOW>;
 	};
+
+	bt_sco_codec: bt_sco_codec {
+		#sound-dai-cells = <1>;
+		compatible = "linux,bt-sco";
+	};
+
+	sound-bt-sco {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "bt-sco-audio";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,bitclock-inversion;
+		simple-audio-card,frame-master = <&btcpu>;
+		simple-audio-card,bitclock-master = <&btcpu>;
+
+		btcpu: simple-audio-card,cpu {
+			sound-dai = <&sai5>;
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <16>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco_codec 1>;
+		};
+	};
 };
 
 &cm33 {
@@ -143,7 +167,6 @@
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 	};
-
 };
 
 &i2c_rpbus_0 {
@@ -248,6 +271,16 @@
 		pinctrl-0 = <&pinctrl_typec2>;
 		status = "disabled";
 	};
+};
+
+&sai5 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai5>;
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SAI5_SEL>;
+	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
+	fsl,dataline = <1 0x08 0x01>;
+	status = "okay";
 };
 
 &tpm_rpchip_0 {
@@ -460,6 +493,15 @@
 		fsl,pins = <
 			MX8ULP_PAD_PTD23__USB1_ID	0x10003
 			MX8ULP_PAD_PTF6__USB1_OC	0x10003
+		>;
+	};
+
+	pinctrl_sai5: sai5grp {
+		fsl,pins = <
+			MX8ULP_PAD_PTF26__I2S5_TX_BCLK  0x43
+			MX8ULP_PAD_PTF27__I2S5_TX_FS    0x43
+			MX8ULP_PAD_PTF28__I2S5_TXD0     0x43
+			MX8ULP_PAD_PTF24__I2S5_RXD3 	0x43
 		>;
 	};
 
