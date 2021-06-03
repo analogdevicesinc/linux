@@ -1004,10 +1004,15 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 		clk_set_parent(hws[IMX6QDL_CLK_IPU1_SEL]->clk, hws[IMX6QDL_CLK_PLL3_PFD1_540M]->clk);
 		clk_set_parent(hws[IMX6QDL_CLK_AXI_ALT_SEL]->clk, hws[IMX6QDL_CLK_PLL3_PFD1_540M]->clk);
 		clk_set_parent(hws[IMX6QDL_CLK_AXI_SEL]->clk, hws[IMX6QDL_CLK_AXI_ALT_SEL]->clk);
+		/* set eim_slow to 135Mhz */
+		clk_set_rate(hws[IMX6QDL_CLK_EIM_SLOW]->clk, 135000000);
+
 		/* set epdc/pxp axi clock to 200Mhz */
 		clk_set_parent(hws[IMX6QDL_CLK_IPU2_SEL]->clk, hws[IMX6QDL_CLK_PLL2_PFD2_396M]->clk);
 		clk_set_rate(hws[IMX6QDL_CLK_IPU2]->clk, 200000000);
 	} else {
+		/* set eim_slow to 132Mhz */
+		clk_set_rate(hws[IMX6QDL_CLK_EIM_SLOW]->clk, 132000000);
 		clk_set_parent(hws[IMX6QDL_CLK_IPU1_SEL]->clk, hws[IMX6QDL_CLK_MMDC_CH0_AXI]->clk);
 
 		clk_set_parent(hws[IMX6QDL_CLK_IPU2_SEL]->clk, hws[IMX6QDL_CLK_MMDC_CH0_AXI]->clk);
