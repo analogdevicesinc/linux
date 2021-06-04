@@ -551,6 +551,18 @@ config PWM_RZ_MTU3
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-rz-mtu3.
 
+config PWM_RPCHIP
+	tristate "PWM proxy chip over RPMSG"
+	depends on (ARCH_MXC || COMPILE_TEST) && RPMSG
+	help
+	  This driver can support virtual pwm-rpmsg function. So that
+	  Acore can use some TPM resources of Mcore on some SoC platforms.
+	  This driver provide a protocal to send pwm request through RPMSG to
+	  Mcore and control the TPM modules on Mcore.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called pwm-rpmsg-imx.
+
 config PWM_SAMSUNG
 	tristate "Samsung PWM support"
 	depends on PLAT_SAMSUNG || ARCH_S5PV210 || ARCH_EXYNOS || COMPILE_TEST
