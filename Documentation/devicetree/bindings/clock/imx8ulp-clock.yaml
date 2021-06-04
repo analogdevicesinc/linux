@@ -46,10 +46,30 @@ properties:
       ID in its "clocks" phandle cell. See include/dt-bindings/clock/imx8ulp-clock.h
       for the full list of i.MX8ULP clock IDs.
 
+  '#reset-cells':
+    const: 1
+    description:
+      The reset consumer should specify the desired clock by having the reset
+      ID in its "resets" phandle cell. See include/dt-bindings/reset/imx8ulp-pcc-reset.h
+      for the full list of i.MX8ULP reset IDs. Only PCC3, PCC4 and PCC5 should specify
+      this property.
+
 required:
   - compatible
   - reg
   - '#clock-cells'
+
+if:
+  properties:
+     compatible:
+       contains:
+         enum:
+           - fsl,imx8ulp-pcc3
+           - fsl,imx8ulp-pcc4
+           - fsl,imx8ulp-pcc5
+then:
+  required:
+    - '#reset-cells'
 
 additionalProperties: false
 
@@ -69,4 +89,5 @@ examples:
         compatible = "fsl,imx8ulp-pcc3";
         reg = <0x292d0000 0x10000>;
         #clock-cells = <1>;
+        #reset-cells = <1>;
     };
