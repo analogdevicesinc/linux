@@ -371,13 +371,11 @@
 	};
 
 	soc: soc@0 {
-		compatible = "fsl,imx8mq-soc", "simple-bus";
+		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x0 0x3e000000>;
 		dma-ranges = <0x40000000 0x0 0x40000000 0xc0000000>;
-		nvmem-cells = <&imx8mq_uid>;
-		nvmem-cell-names = "soc_unique_id";
 
 		caam_sm: caam-sm@100000 {
 			compatible = "fsl,imx6q-caam-sm";
@@ -794,7 +792,7 @@
 			};
 
 			ocotp: efuse@30350000 {
-				compatible = "fsl,imx8mq-ocotp", "syscon";
+				compatible = "fsl,imx8mq-ocotp", "syscon", "simple-mfd";
 				reg = <0x30350000 0x10000>;
 				clocks = <&clk IMX8MQ_CLK_OCOTP_ROOT>;
 				#address-cells = <1>;
@@ -823,6 +821,12 @@
 
 				fec_mac_address: mac-address@90 { /* 0x640 */
 					reg = <0x90 6>;
+				};
+
+				imx8mq_soc: imx8mq-soc {
+					compatible = "fsl,imx8mq-soc";
+					nvmem-cells = <&imx8mq_uid>;
+					nvmem-cell-names = "soc_unique_id";
 				};
 			};
 
