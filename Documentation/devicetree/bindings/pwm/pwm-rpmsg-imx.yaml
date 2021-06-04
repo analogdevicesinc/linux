@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pwm/pwm-rpmsg-imx.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP i.MX PWM over RPMSG driver
+
+maintainers:
+  - Clark Wang <xiaoning.wang@nxp.com>
+
+description: |
+  Acore may need to use some TPM resources of Mcore on some SoC platforms.
+  This driver provide a protocol to send pwm request through RPMSG to
+  Mcore and control the TPM modules on Mcore.
+  Mcore will operate its TPM modules according to the Acore request.
+
+properties:
+  "#pwm-cells":
+    const: 3
+
+  compatible:
+    enum:
+      - fsl,pwm-rpchip
+
+  fsl,pwm-channel-number:
+    maxItems: 1
+
+required:
+  - "#pwm-cells"
+  - compatible
+  - fsl,pwm-channel-number
+
+additionalProperties: false
+
+examples:
+  - |
+    tpm_rpchip_0: pwm {
+        compatible = "fsl,pwm-rpchip";
+        fsl,pwm-channel-number = <6>;
+        #pwm-cells = <3>;
+        status = "okay";
+    };
