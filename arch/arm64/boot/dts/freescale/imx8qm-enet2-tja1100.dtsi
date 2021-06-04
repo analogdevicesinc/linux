@@ -29,14 +29,14 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <2>;
 			tja110x,refclk_in;
-			/delete-property/ at803x,eee-disabled;
+			/delete-property/ qca,disable-smarteee;
 			/delete-property/ at803x,vddio-1p8v;
 		};
 
 		ethphy3: ethernet-phy@3 {
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <3>;
-			at803x,eee-disabled;
+			qca,disable-smarteee;
 			at803x,vddio-1p8v;
 		};
 	};

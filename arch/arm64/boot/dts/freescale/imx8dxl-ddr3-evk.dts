@@ -218,7 +218,7 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <0>;
 			eee-broken-1000t;
-			at803x,eee-disabled;
+			qca,disable-smarteee;
 			at803x,vddio-1p8v;
 		};
 
@@ -244,7 +244,7 @@
 		ethphy1: ethernet-phy@1 {
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <1>;
-			at803x,eee-disabled;
+			qca,disable-smarteee;
 			at803x,vddio-1p8v;
 		};
 	};
