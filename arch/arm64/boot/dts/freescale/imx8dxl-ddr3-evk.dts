@@ -219,7 +219,12 @@
 			reg = <0>;
 			eee-broken-1000t;
 			qca,disable-smarteee;
-			at803x,vddio-1p8v;
+			vddio-supply = <&vddio0>;
+
+			vddio0: vddio-regulator {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
 		};
 
 	};
@@ -245,7 +250,12 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <1>;
 			qca,disable-smarteee;
-			at803x,vddio-1p8v;
+			vddio-supply = <&vddio1>;
+
+			vddio1: vddio-regulator {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
 		};
 	};
 };

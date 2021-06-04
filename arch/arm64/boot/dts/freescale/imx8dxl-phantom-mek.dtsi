@@ -524,7 +524,12 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <0>;
 			qca,disable-smarteee;
-			at803x,vddio-1p8v;
+			vddio-supply = <&vddio>;
+
+			vddio: vddio-regulator {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
 		};
 	};
 };
