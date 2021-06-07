@@ -30,10 +30,7 @@
 			"Ext Spk", "SPK_LN",
 			"Ext Spk", "SPK_RP",
 			"Ext Spk", "SPK_RN",
-			"LINPUT2", "Mic Jack",
-			"LINPUT3", "Mic Jack",
-			"RINPUT1", "Mic Jack",
-			"RINPUT2", "Mic Jack",
+			"LINPUT1", "Mic Jack",
 			"Mic Jack", "MICB";
 		simple-audio-card,dai-link {
 			format = "i2s";
