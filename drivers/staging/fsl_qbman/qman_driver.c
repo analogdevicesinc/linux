@@ -399,9 +399,6 @@ static struct qm_portal_config * __init parse_pcfg(struct device_node *node)
 	 */
 	pcfg->dev.bus = &platform_bus_type;
 	pcfg->dev.of_node = node;
-#ifdef CONFIG_FSL_PAMU
-	pcfg->dev.archdata.iommu_domain = NULL;
-#endif
 
 	ret = of_address_to_resource(node, DPA_PORTAL_CE,
 				&pcfg->addr_phys[DPA_PORTAL_CE]);
