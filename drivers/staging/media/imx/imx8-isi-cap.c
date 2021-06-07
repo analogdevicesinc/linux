@@ -987,7 +987,7 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	ret = v4l2_subdev_call(src_sd, pad, set_fmt, NULL, &src_fmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		v4l2_err(&isi_cap->sd, "set remote fmt fail!\n");
-		return ret;
+		goto fail;
 	}
 
 	memset(&src_fmt, 0, sizeof(src_fmt));
@@ -996,7 +996,7 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	ret = v4l2_subdev_call(src_sd, pad, get_fmt, NULL, &src_fmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		v4l2_err(&isi_cap->sd, "get remote fmt fail!\n");
-		return ret;
+		goto fail;
 	}
 
 	/* Pixel link master will transfer format to RGB32 or YUV32 */
@@ -1010,10 +1010,12 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 			__func__,
 			src_f->width, src_f->height,
 			dst_f->width, dst_f->height);
-		return -EINVAL;
+		goto fail;
 	}
 
 	return 0;
+fail:
+	return v4l2_subdev_call(src_sd, core, s_power, 0);
 }
 
 static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
@@ -1171,6 +1173,7 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
+	struct v4l2_subdev *src_sd;
 	int ret;
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
@@ -1182,7 +1185,8 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 	isi_cap->is_streaming[isi_cap->id] = 0;
 	mxc_isi->is_streaming = 0;
 
-	return ret;
+	src_sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+	return v4l2_subdev_call(src_sd, core, s_power, 0);
 }
 
 static int mxc_isi_cap_g_selection(struct file *file, void *fh,
