@@ -9,6 +9,7 @@
 #include <dt-bindings/power/imx8ulp-power.h>
 #include <dt-bindings/reset/imx8ulp-pcc-reset.h>
 #include <dt-bindings/power/imx8ulp-power.h>
+#include <dt-bindings/reset/imx8ulp-sim-reset.h>
 #include <dt-bindings/thermal/thermal.h>
 
 #include "imx8ulp-pinfunc.h"
@@ -1038,6 +1039,53 @@
 				status = "disabled";
 			};
 
+			dsi: dsi@2db00000 {
+				compatible = "fsl,imx8ulp-nwl-dsi";
+				reg = <0x2db00000 0x300>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clocks = <&cgc2 IMX8ULP_CLK_LPAV_BUS_DIV>,
+					 <&pcc5 IMX8ULP_CLK_DSI>,
+					 <&pcc5 IMX8ULP_CLK_DSI_TX_ESC>,
+					 <&cgc2 IMX8ULP_CLK_DSI_PHY_REF>;
+				clock-names = "core", "rx_esc", "tx_esc", "phy_ref";
+				power-domains = <&scmi_devpd IMX8ULP_PD_MIPI_DSI>;
+				assigned-clocks = <&pcc5 IMX8ULP_CLK_DSI>;
+				assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD3_DIV2>;
+				assigned-clock-rates = <79200000>;
+				interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
+				mux-controls = <&mux 0>;
+				csr = <&avd_sim>;
+				phys = <&dphy>;
+				phy-names = "dphy";
+				resets = <&avd_sim_rst IMX8ULP_SIM_RESET_MIPI_DSI_RST_BYTE_N>,
+					 <&avd_sim_rst IMX8ULP_SIM_RESET_MIPI_DSI_RST_DPI_N>,
+					 <&avd_sim_rst IMX8ULP_SIM_RESET_MIPI_DSI_RST_ESC_N>,
+					 <&pcc5 PCC5_DSI_SWRST>;
+				reset-names = "byte", "dpi", "esc", "pclk";
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						reg = <0>;
+
+						mipi_dsi_to_dcnano_dpi: endpoint@0 {
+							reg = <0>;
+							remote-endpoint = <&dcnano_dpi_to_mipi_dsi>;
+						};
+
+						mipi_dsi_to_epdc_dpi: endpoint@1 {
+							reg = <1>;
+						};
+					};
+				};
+			};
+
 			dphy: phy@2db00300 {
 				compatible = "fsl,imx8ulp-mipi-dphy";
 				reg = <0x2db00300 0x100>;
@@ -1121,6 +1169,7 @@
 
 					dcnano_dpi_to_mipi_dsi: endpoint@0 {
 						reg = <0>;
+						remote-endpoint = <&mipi_dsi_to_dcnano_dpi>;
 					};
 
 					dcnano_dpi_to_disp: endpoint@1 {
