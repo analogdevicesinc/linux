@@ -8,6 +8,7 @@
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/clk.h>
+#include <linux/clk/clkscale.h>
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
@@ -93,6 +94,7 @@ enum {
 struct admv1013_state {
 	struct spi_device	*spi;
 	struct clk		*clkin;
+	struct clock_scale	clkscale;
 	/* Protect against concurrent accesses to the device and to data */
 	struct mutex		lock;
 	struct notifier_block	nb;
@@ -325,7 +327,7 @@ static ssize_t admv1013_write(struct iio_dev *indio_dev,
 static int admv1013_update_quad_filters(struct admv1013_state *st)
 {
 	unsigned int filt_raw;
-	u64 rate = clk_get_rate(st->clkin);
+	u64 rate = clk_get_rate_scaled(st->clkin, &st->clkscale);
 
 	if (rate >= (5400 * HZ_PER_MHZ) && rate <= (7000 * HZ_PER_MHZ))
 		filt_raw = 15;
@@ -555,7 +557,7 @@ static int admv1013_properties_parse(struct admv1013_state *st)
 		return ret;
 	}
 
-	return 0;
+	return of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
 }
 
 static int admv1013_probe(struct spi_device *spi)
