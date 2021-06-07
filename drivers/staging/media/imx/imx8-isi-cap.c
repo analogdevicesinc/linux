@@ -973,12 +973,6 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	if (!src_sd)
 		return -EINVAL;
 
-	ret = v4l2_subdev_call(src_sd, core, s_power, 1);
-	if (ret) {
-		v4l2_err(&isi_cap->sd, "Call subdev s_power fail!\n");
-		return ret;
-	}
-
 	src_fmt.pad = source_pad->index;
 	src_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	src_fmt.format.code = MEDIA_BUS_FMT_UYVY8_2X8;
@@ -1148,24 +1142,38 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
+	struct v4l2_subdev *src_sd;
 	int ret;
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
 
+	src_sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+	ret = (!src_sd) ? -EINVAL : v4l2_subdev_call(src_sd, core, s_power, 1);
+	if (ret) {
+		v4l2_err(&isi_cap->sd, "Call subdev s_power fail!\n");
+		return ret;
+	}
+
 	ret = mxc_isi_config_parm(isi_cap);
 	if (ret < 0)
-		return ret;
+		goto power;
 
 	ret = vb2_ioctl_streamon(file, priv, type);
 	mxc_isi_channel_enable(mxc_isi, mxc_isi->m2m_enabled);
 	ret = mxc_isi_pipeline_enable(isi_cap, 1);
 	if (ret < 0 && ret != -ENOIOCTLCMD)
-		return ret;
+		goto disable;
 
 	isi_cap->is_streaming[isi_cap->id] = 1;
 	mxc_isi->is_streaming = 1;
 
 	return 0;
+
+disable:
+	mxc_isi_channel_disable(mxc_isi);
+power:
+	v4l2_subdev_call(src_sd, core, s_power, 0);
+	return ret;
 }
 
 static int mxc_isi_cap_streamoff(struct file *file, void *priv,
