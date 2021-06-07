@@ -306,12 +306,8 @@
 			"Ext Spk", "SPK_LN",
 			"Ext Spk", "SPK_RP",
 			"Ext Spk", "SPK_RN",
-			"LINPUT2", "Mic Jack",
-			"LINPUT3", "Mic Jack",
-			"RINPUT1", "AMIC",
-			"RINPUT2", "AMIC",
-			"Mic Jack", "MICB",
-			"AMIC", "MICB";
+			"LINPUT1", "Mic Jack",
+			"Mic Jack", "MICB";
 	};
 
 	imx8qm_cm40: imx8qm_cm4@0 {
