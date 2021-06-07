@@ -19,7 +19,9 @@ allOf:
 
 properties:
   compatible:
-    const: fsl,imx8mq-nwl-dsi
+    enum:
+      - fsl,imx8mq-nwl-dsi
+      - fsl,imx8ulp-nwl-dsi
 
   reg:
     maxItems: 1
