@@ -153,7 +153,6 @@ static int __cold mac_probe(struct platform_device *_of_dev)
 	struct mac_device	*mac_dev;
 	struct platform_device	*of_dev;
 	struct resource		 res;
-	const uint8_t		*mac_addr;
 	const char		*char_prop;
 	int			nph;
 	u32			cell_index;
@@ -272,14 +271,13 @@ static int __cold mac_probe(struct platform_device *_of_dev)
 		mac_dev->cell_index -= 8;
 
 	/* Get the MAC address */
-	mac_addr = of_get_mac_address(mac_node);
-	if (IS_ERR_OR_NULL(mac_addr)) {
+	_errno = of_get_mac_address(mac_node, mac_dev->addr);
+	if (unlikely(_errno)) {
 		dev_err(dev, "of_get_mac_address(%s) failed\n",
 				mac_node->full_name);
 		_errno = -EINVAL;
 		goto _return_dev_set_drvdata;
 	}
-	memcpy(mac_dev->addr, mac_addr, sizeof(mac_dev->addr));
 
 	/* Verify the number of port handles */
 	nph = of_count_phandle_with_args(mac_node, "fsl,fman-ports", NULL);
