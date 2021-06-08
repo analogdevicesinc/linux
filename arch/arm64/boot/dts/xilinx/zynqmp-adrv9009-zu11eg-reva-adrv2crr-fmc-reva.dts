@@ -372,7 +372,7 @@
 
 		adi,vcxo-frequency = <122880000>;
 
-		adi,pll2-output-frequency = <2949120000>;
+		adi,pll2-output-frequency = <HMC7044_PLL2_OUTPUT_FREQUENCY>;
 
 		adi,sysref-timer-divider = <3840>;
 		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
@@ -399,7 +399,7 @@
 			adi,extended-name = "REFCLK_OUT0";
 			adi,divider = <96>;     // 3072000
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-               };
+		};
 
 		hmc7044_car_c2: channel@2 {
 			reg = <2>;
@@ -426,7 +426,6 @@
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 			adi,driver-impedance-mode = <3>;
-
 		};
 
 		hmc7044_car_c8: channel@8 {
@@ -532,7 +531,7 @@
 
 		adi,vcxo-frequency = <122880000>;
 
-		adi,pll2-output-frequency = <2949120000>;
+		adi,pll2-output-frequency = <HMC7044_PLL2_OUTPUT_FREQUENCY>;
 
 		adi,sysref-timer-divider = <3840>;
 		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
