@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV2CRR-FMC using ADRV9009-ZU11EG System on Module + AD-FMCOMMS8-EBZ
+ * Secondary module in a Multi-SoM / Multi-Topology setup.
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms8-ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmcomms8>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-primary-clockdist.dts"
+
+/ {
+	clocks {
+		hmc7044_clkin1: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <(HMC7044_PLL2_OUTPUT_FREQUENCY / LEVEL1_OUTPUT_DIV)>;
+			clock-output-names = "hmc7044_clkin1";
+		};
+	};
+};
+
+&hmc7044_car {
+	/delete-property/ jesd204-sysref-provider;
+	jesd204-secondary-sysref-provider;
+
+	/delete-property/ jesd204-inputs;
+
+	clocks = <&hmc7044_clkin1 0>;
+	clock-names = "clkin1";
+};
+
+&hmc7044_ext_synchrona {
+	status = "disabled";
+};
