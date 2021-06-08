@@ -890,7 +890,6 @@
 			adi,high-performance-mode-disable;
 			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
 			adi,force-mute-enable;
-			adi,control0-rb4-enable;
 		};
 		hmc7044_fmc_c2: channel@2 {
 			reg = <2>;
@@ -908,47 +907,6 @@
 			adi,high-performance-mode-disable;
 			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
 			adi,force-mute-enable;
-			adi,control0-rb4-enable;
-		};
-		hmc7044_fmc_c4: channel@4 {
-			reg = <4>;
-			adi,extended-name = "JESD_REFCLK_TX_OBS_CD";
-			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-		};
-		hmc7044_fmc_c5: channel@5 {
-			reg = <5>;
-			adi,extended-name = "JESD_REFCLK_RX_CD";
-			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-		};
-		hmc7044_fmc_c6: channel@6 {
-			reg = <6>;
-			adi,extended-name = "CORE_CLK_TX_OBS_CD";
-			adi,divider = <24>;	// 122880000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-		};
-		hmc7044_fmc_c7: channel@7 {
-			reg = <7>;
-			adi,extended-name = "CORE_CLK_RX_CD";
-			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-		};
-		hmc7044_fmc_c8: channel@8 {
-			reg = <8>;
-			adi,extended-name = "FPGA_SYSREF_TX_OBS_CD";
-			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-			adi,force-mute-enable;
-			adi,control0-rb4-enable;
-		};
-		hmc7044_fmc_c9: channel@9 {
-			reg = <9>;
-			adi,extended-name = "FPGA_SYSREF_RX_CD";
-			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-			adi,force-mute-enable;
-			adi,control0-rb4-enable;
 		};
 	};
 };
