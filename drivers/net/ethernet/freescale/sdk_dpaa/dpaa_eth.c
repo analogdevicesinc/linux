@@ -443,7 +443,7 @@ priv_rx_error_dqrr(struct qman_portal		*portal,
 	priv = netdev_priv(net_dev);
 
 	percpu_priv = raw_cpu_ptr(priv->percpu_priv);
-	count_ptr = raw_cpu_ptr(priv->dpa_bp->percpu_count);
+	count_ptr = raw_cpu_ptr(priv->percpu_count);
 
 	if (dpaa_eth_napi_schedule(percpu_priv, portal))
 		return qman_cb_dqrr_stop;
@@ -481,7 +481,7 @@ priv_rx_default_dqrr(struct qman_portal		*portal,
 
 	/* IRQ handler, non-migratable; safe to use raw_cpu_ptr here */
 	percpu_priv = raw_cpu_ptr(priv->percpu_priv);
-	count_ptr = raw_cpu_ptr(dpa_bp->percpu_count);
+	count_ptr = raw_cpu_ptr(priv->percpu_count);
 
 	if (unlikely(dpaa_eth_napi_schedule(percpu_priv, portal)))
 		return qman_cb_dqrr_stop;
@@ -792,10 +792,8 @@ dpa_priv_bp_probe(struct device *dev)
 		return ERR_PTR(-ENOMEM);
 	}
 
-	dpa_bp->percpu_count = devm_alloc_percpu(dev, *dpa_bp->percpu_count);
 	dpa_bp->target_count = CONFIG_FSL_DPAA_ETH_MAX_BUF_COUNT;
 
-	dpa_bp->seed_cb = dpa_bp_priv_seed;
 	dpa_bp->free_buf_cb = _dpa_bp_free_pf;
 
 	return dpa_bp;
@@ -879,6 +877,23 @@ static int dpa_priv_bp_create(struct net_device *net_dev, struct dpa_bp *dpa_bp,
 
 	dpa_priv_common_bpid = priv->dpa_bp->bpid;
 	return 0;
+}
+
+static void dpa_priv_bp_seed(struct net_device *net_dev)
+{
+	struct dpa_priv_s *priv = netdev_priv(net_dev);
+	struct dpa_bp *dpa_bp = priv->dpa_bp;
+	int i;
+
+	/* Give each CPU an allotment of buffers */
+	for_each_possible_cpu(i) {
+		/* Although we access another CPU's counters here
+		 * we do it at boot time so it is safe
+		 */
+		int *count_ptr = per_cpu_ptr(priv->percpu_count, i);
+
+		dpaa_eth_refill_bpools(dpa_bp, count_ptr);
+	}
 }
 
 static const struct of_device_id dpa_match[];
@@ -1059,9 +1074,22 @@ dpaa_eth_priv_probe(struct platform_device *_of_dev)
 		err = -ENOMEM;
 		goto alloc_percpu_failed;
 	}
+
 	for_each_possible_cpu(i) {
 		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
 		memset(percpu_priv, 0, sizeof(*percpu_priv));
+	}
+
+	priv->percpu_count = devm_alloc_percpu(dev, *priv->percpu_count);
+	if (!priv->percpu_count) {
+		dev_err(dev, "devm_alloc_percpu() failed\n");
+		err = -ENOMEM;
+		goto alloc_percpu_failed;
+	}
+
+	for_each_possible_cpu(i) {
+		int *percpu_count = per_cpu_ptr(priv->percpu_count, i);
+		*percpu_count = 0;
 	}
 
 	/* Initialize NAPI */
@@ -1071,6 +1099,8 @@ dpaa_eth_priv_probe(struct platform_device *_of_dev)
 		goto napi_add_failed;
 
 	err = dpa_private_netdev_init(net_dev);
+
+	dpa_priv_bp_seed(net_dev);
 
 	if (err < 0)
 		goto netdev_init_failed;

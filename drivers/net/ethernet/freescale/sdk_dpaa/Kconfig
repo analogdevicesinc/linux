@@ -97,13 +97,14 @@ config FSL_DPAA_1588
          Enable IEEE1588 support code.
 
 config FSL_DPAA_ETH_MAX_BUF_COUNT
-	int "Maximum nuber of buffers in private bpool"
+	int "Maximum number of buffers in the private bpool"
 	depends on FSL_SDK_DPAA_ETH
 	range 64 2048
 	default "128"
 	help
-	  The maximum number of buffers to be by default allocated in the DPAA-Ethernet private port's
-	  buffer pool. One needn't normally modify this, as it has probably been tuned for performance
+	  The maximum number of buffers to be by default allocated in the DPAA-Ethernet
+	  private port's buffer pool per CPU per user (ports that share the same pool).
+	  One needn't normally modify this, as it has probably been tuned for performance
 	  already. This cannot be lower than DPAA_ETH_REFILL_THRESHOLD.
 
 config FSL_DPAA_ETH_REFILL_THRESHOLD
@@ -113,8 +114,8 @@ config FSL_DPAA_ETH_REFILL_THRESHOLD
 	default "80"
 	help
 	  The DPAA-Ethernet driver will start replenishing buffer pools whose count
-	  falls below this threshold. This must be related to DPAA_ETH_MAX_BUF_COUNT. One needn't normally
-	  modify this value unless one has very specific performance reasons.
+	  falls below this threshold per CPU. This must be related to DPAA_ETH_MAX_BUF_COUNT.
+	  One needn't normally modify this value unless one has very specific performance reasons.
 
 config FSL_DPAA_CS_THRESHOLD_1G
 	hex "Egress congestion threshold on 1G ports"

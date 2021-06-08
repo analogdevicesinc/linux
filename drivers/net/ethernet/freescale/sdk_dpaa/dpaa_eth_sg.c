@@ -166,7 +166,7 @@ dma_map_failed:
 
 build_skb_failed:
 netdev_alloc_failed:
-	net_err_ratelimited("dpa_bp_add_8_bufs() failed\n");
+	net_err_ratelimited("%s failed\n", __func__);
 	WARN_ONCE(1, "Memory allocation failure on Rx\n");
 
 	bm_buffer_set64(&bmb[i], 0);
@@ -178,31 +178,6 @@ netdev_alloc_failed:
 
 	return 0;
 }
-
-/* Cold path wrapper over _dpa_bp_add_8_bufs(). */
-static void dpa_bp_add_8_bufs(const struct dpa_bp *dpa_bp, int cpu)
-{
-	int *count_ptr = per_cpu_ptr(dpa_bp->percpu_count, cpu);
-	*count_ptr += _dpa_bp_add_8_bufs(dpa_bp);
-}
-
-int dpa_bp_priv_seed(struct dpa_bp *dpa_bp)
-{
-	int i;
-
-	/* Give each CPU an allotment of "config_count" buffers */
-	for_each_possible_cpu(i) {
-		int j;
-
-		/* Although we access another CPU's counters here
-		 * we do it at boot time so it is safe
-		 */
-		for (j = 0; j < dpa_bp->config_count; j += 8)
-			dpa_bp_add_8_bufs(dpa_bp, i);
-	}
-	return 0;
-}
-EXPORT_SYMBOL(dpa_bp_priv_seed);
 
 /* Add buffers/(pages) for Rx processing whenever bpool count falls below
  * REFILL_THRESHOLD.
@@ -1115,7 +1090,7 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 	/* Non-migratable context, safe to use raw_cpu_ptr */
 	percpu_priv = raw_cpu_ptr(priv->percpu_priv);
 	percpu_stats = &percpu_priv->stats;
-	countptr = raw_cpu_ptr(priv->dpa_bp->percpu_count);
+	countptr = raw_cpu_ptr(priv->percpu_count);
 
 	clear_fd(&fd);
 

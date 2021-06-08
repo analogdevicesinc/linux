@@ -706,12 +706,6 @@ dpa_bp_alloc(struct dpa_bp *dpa_bp, struct device *dev)
 
 	dpa_bp->dev = dev;
 
-	if (dpa_bp->seed_cb) {
-		err = dpa_bp->seed_cb(dpa_bp);
-		if (err)
-			goto bman_free_pool;
-	}
-
 	dpa_bpid2pool_map(dpa_bp->bpid, dpa_bp);
 
 	return 0;

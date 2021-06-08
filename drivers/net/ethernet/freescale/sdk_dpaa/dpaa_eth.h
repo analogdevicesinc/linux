@@ -293,11 +293,7 @@ struct dpa_bp {
 	 * the buffers
 	 */
 	void __iomem			*vaddr;
-	/* current number of buffers in the bpool alloted to this CPU */
-	int __percpu *percpu_count;
 	atomic_t refs;
-	/* some bpools need to be seeded before use by this cb */
-	int (*seed_cb)(struct dpa_bp *);
 	/* some bpools need to be emptied before freeing; this cb is used
 	 * for freeing of individual buffers taken from the pool
 	 */
@@ -348,6 +344,8 @@ struct dpa_percpu_priv_s {
 struct dpa_priv_s {
 	struct dpa_percpu_priv_s	__percpu *percpu_priv;
 	struct dpa_bp *dpa_bp;
+	/* current number of buffers in the bpool allotted to this CPU */
+	int __percpu *percpu_count;
 	/* Store here the needed Tx headroom for convenience and speed
 	 * (even though it can be computed based on the fields of buf_layout)
 	 */
@@ -431,8 +429,6 @@ struct fm_port_fqs {
 extern struct net_device *dpa_loop_netdevs[20];
 #endif
 
-/* functions with different implementation for SG and non-SG: */
-int dpa_bp_priv_seed(struct dpa_bp *dpa_bp);
 int dpaa_eth_refill_bpools(struct dpa_bp *dpa_bp, int *count_ptr);
 void __hot _dpa_rx(struct net_device *net_dev,
 		struct qman_portal *portal,

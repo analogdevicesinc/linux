@@ -411,12 +411,10 @@ static void dpa_get_ethtool_stats(struct net_device *net_dev,
 	struct dpa_ern_cnt ern_cnt;
 	struct dpa_priv_s *priv;
 	unsigned int num_cpus, offset;
-	struct dpa_bp *dpa_bp;
 	int total_stats, i;
 
 	total_stats = dpa_get_sset_count(net_dev, ETH_SS_STATS);
 	priv     = netdev_priv(net_dev);
-	dpa_bp   = priv->dpa_bp;
 	num_cpus = num_online_cpus();
 	bp_count = 0;
 
@@ -427,8 +425,8 @@ static void dpa_get_ethtool_stats(struct net_device *net_dev,
 	for_each_online_cpu(i) {
 		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
 
-		if (dpa_bp->percpu_count)
-			bp_count = *(per_cpu_ptr(dpa_bp->percpu_count, i));
+		if (priv->percpu_count)
+			bp_count = *(per_cpu_ptr(priv->percpu_count, i));
 
 		rx_errors.dme += percpu_priv->rx_errors.dme;
 		rx_errors.fpe += percpu_priv->rx_errors.fpe;
