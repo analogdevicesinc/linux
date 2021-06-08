@@ -1371,7 +1371,9 @@ static int xilinx_xcvr_gth3_gty4_write_progdiv_div(struct xilinx_xcvr *xcvr,
 			return ret;
 	}
 	if (tx_prog_div >= 0) {
-		ret = xilinx_xcvr_drp_update(xcvr, drp_port, 0x3E, 0xFFFF,
+		ret = xilinx_xcvr_drp_update(xcvr, drp_port,
+			(xcvr->type == XILINX_XCVR_TYPE_US_GTY4) ? 0x57 : 0x3E,
+			0xFFFF,
 			xilinx_xcvr_gty4_gth3_prog_div_to_val(tx_prog_div));
 		if (ret)
 			return ret;
