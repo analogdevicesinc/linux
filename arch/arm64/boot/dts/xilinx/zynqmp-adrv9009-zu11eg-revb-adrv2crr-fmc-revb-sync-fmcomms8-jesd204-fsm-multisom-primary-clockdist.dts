@@ -1,0 +1,272 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV2CRR-FMC using ADRV9009-ZU11EG System on Module + AD-FMCOMMS8-EBZ
+ * Primary module in a Multi-SoM / Multi-Topology setup.
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms8-ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmcomms8>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/jesd204/device-states.h>
+
+
+#define LEVEL3_OUTPUT_DIV	2 /* 245.76 MHz */
+#define LEVEL2_OUTPUT_DIV	2 /* 491.52 MHz */
+#define LEVEL1_OUTPUT_DIV	3 /* 983.04 MHz */
+
+#define DEV_DIG_DELAY		0
+
+&trx0_adrv9009 {
+	jesd204-stop-states = <
+		JESD204_FSM_STATE_CLK_SYNC_STAGE1
+		JESD204_FSM_STATE_CLK_SYNC_STAGE2
+		JESD204_FSM_STATE_CLK_SYNC_STAGE3
+		JESD204_FSM_STATE_LINK_SETUP
+		JESD204_FSM_STATE_OPT_SETUP_STAGE1
+		JESD204_FSM_STATE_OPT_SETUP_STAGE2
+		JESD204_FSM_STATE_OPT_SETUP_STAGE3
+		JESD204_FSM_STATE_OPT_SETUP_STAGE4
+		JESD204_FSM_STATE_OPT_SETUP_STAGE5
+		JESD204_FSM_STATE_CLOCKS_ENABLE
+		JESD204_FSM_STATE_LINK_ENABLE>;
+};
+
+&hmc7044 {
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+	adi,sync-pin-mode = <HMC7044_SYNC_PIN_DISABLED>;
+
+	adi,hmc-two-level-tree-sync-en;
+
+	adi,clkin1-vco-in-enable;
+	adi,clkin0-rf-sync-enable;
+
+	adi,clkin0-buffer-mode = <HMC7044_CLKIN_LVPECL_100OHM_TERM>; /* Needs HW modification - remove AC couble Caps */
+	adi,clkin1-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+
+	clocks = <&hmc7044_car 2>;
+	clock-names = "clkin1";
+
+	hmc7044_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "DEV_REFCLK_A";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "DEV_REFCLK_B";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_c4: channel@4 {
+		reg = <4>;
+		adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+	};
+
+	hmc7044_c5: channel@5 {
+		reg = <5>;
+		adi,extended-name = "JESD_REFCLK_RX_AB";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+	};
+};
+
+&hmc7044_fmc {
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+	adi,sync-pin-mode = <HMC7044_SYNC_PIN_DISABLED>;
+
+	adi,hmc-two-level-tree-sync-en;
+
+	adi,clkin1-vco-in-enable;
+	adi,clkin0-rf-sync-enable;
+
+	clocks = <&hmc7044_car 9>;
+	clock-names = "clkin1";
+
+	adi,clkin0-buffer-mode = <HMC7044_CLKIN_LVPECL_100OHM_TERM>; /* Needs HW modification - remove AC couble Caps */
+	adi,clkin1-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+
+	hmc7044_fmc_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "DEV_REFCLK_C";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_fmc_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "DEV_REFCLK_D";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_fmc_c4: channel@4 {
+		reg = <4>;
+		adi,extended-name = "JESD_REFCLK_TX_OBS_CD";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+	};
+
+	hmc7044_fmc_c5: channel@5 {
+		reg = <5>;
+		adi,extended-name = "JESD_REFCLK_RX_CD";
+		adi,divider = <LEVEL3_OUTPUT_DIV>;	// 245760000
+	};
+};
+
+&hmc7044_car {
+	jesd204-inputs = <&hmc7044_ext 0 FRAMER_LINK_RX>,
+		<&hmc7044_ext 0 FRAMER_LINK_ORX>,
+		<&hmc7044_ext 0 DEFRAMER_LINK_TX>;
+
+	/delete-property/ jesd204-sysref-provider;
+
+	clocks = <&hmc7044_ext_synchrona 7>;
+	clock-names = "clkin1";
+
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+	adi,sync-pin-mode = <HMC7044_SYNC_PIN_DISABLED>;
+	adi,clkin1-vco-in-enable;
+	adi,clkin0-rf-sync-enable;
+
+	adi,clkin0-buffer-mode = <HMC7044_CLKIN_LVPECL_100OHM_TERM>; /* Needs HW modification - remove AC couble Caps */
+	adi,clkin1-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+
+	adi,hmc-two-level-tree-sync-en;
+
+	/delete-node/ hmc7044_car_c5;
+	/delete-node/ hmc7044_car_c6;
+
+	hmc7044_car_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "RFSYNC_SOM";
+		adi,divider = <1024>; /* set by the jesd204-fsm */
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,force-mute-enable;
+		adi,control0-rb4-enable;
+	};
+
+	hmc7044_car_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "REFCLK_OUT2";
+		adi,divider = <LEVEL2_OUTPUT_DIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+
+	hmc7044_car_c8: channel@8 {
+		reg = <8>;
+		adi,extended-name = "RFSYNC_FMC";
+		adi,divider = <1024>; /* set by the jesd204-fsm */
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,force-mute-enable;
+		adi,control0-rb4-enable;
+	};
+
+	hmc7044_car_c9: channel@9 {
+		reg = <9>;
+		adi,extended-name = "REFCLK_OUT4";
+		adi,divider = <LEVEL2_OUTPUT_DIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+};
+
+/* Using AD-SYNCHRONA14-EBZ */
+
+&spi0 {
+	/delete-node/ hmc7044_ext;
+
+	hmc7044_ext_synchrona: hmc7044-ext@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <4>;
+		spi-max-frequency = <1000000>;
+
+		adi,vcxo-frequency = <122880000>;
+
+		adi,clkin0-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+		adi,clkin1-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+		adi,clkin2-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+		adi,clkin3-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+
+		adi,pll1-clkin-frequencies = <38400000 30720000 30720000 38400000>;
+		/* CLKIN0 -> CLKIN1 -> CLKIN2 -> CLKIN3 */
+		adi,pll1-ref-prio-ctrl = <0xE4>;
+		adi,pll1-ref-autorevert-enable;
+		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pfd1-maximum-limit-frequency-hz = <3840000>;
+
+		adi,pll2-output-frequency = <HMC7044_PLL2_OUTPUT_FREQUENCY>;
+
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+		adi,sync-pin-mode = <HMC7044_SYNC_PIN_DISABLED>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+		/* JESD204-FSM */
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+		adi,hmc-two-level-tree-sync-en;
+
+		clock-output-names =
+			"hmc7044_e_out0", "hmc7044_e_out1",
+			"hmc7044_e_out2", "hmc7044_e_out3",
+			"hmc7044_e_out4", "hmc7044_e_out5",
+			"hmc7044_e_out6_RFSYNC_A", "hmc7044_e_out7_REFCLK_A",
+			"hmc7044_e_out8","hmc7044_e_out9",
+			"hmc7044_e_out10_REFCLK_B", "hmc7044_e_out11_RFSYNC_B",
+			"hmc7044_e_out12", "hmc7044_e_out13";
+
+		hmc7044_ext_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "RFSYNC_A";
+			adi,divider = <1024>; /* set by the jesd204-fsm */
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,force-mute-enable;
+		};
+
+		hmc7044_ext_c7: channel@7 {
+			reg = <7>;
+			adi,extended-name = "REFCLK_A";
+			adi,divider = <LEVEL1_OUTPUT_DIV>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		hmc7044_ext_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "REFCLK_B";
+			adi,divider = <LEVEL1_OUTPUT_DIV>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		hmc7044_ext_c11: channel@11 {
+			reg = <11>;
+			adi,extended-name = "RFSYNC_B";
+			adi,divider = <1024>; /* set by the jesd204-fsm */
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,force-mute-enable;
+		};
+	};
+};
