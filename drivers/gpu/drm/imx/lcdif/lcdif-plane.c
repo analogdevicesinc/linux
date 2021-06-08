@@ -44,9 +44,11 @@ static uint32_t lcdif_pixel_formats[] = {
 };
 
 static int lcdif_plane_atomic_check(struct drm_plane *plane,
-				    struct drm_plane_state *plane_state)
+				    struct drm_atomic_state *state)
 {
 	int ret;
+	struct drm_plane_state *plane_state = drm_atomic_get_new_plane_state(state,
+									     plane);
 	struct drm_plane_state *old_state = plane->state;
 	struct drm_framebuffer *fb = plane_state->fb;
 	struct drm_framebuffer *old_fb = old_state->fb;
@@ -64,7 +66,7 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 	if (plane_state->crtc_x || plane_state->crtc_y)
 		return -EINVAL;
 
-	crtc_state = drm_atomic_get_existing_crtc_state(plane_state->state,
+	crtc_state = drm_atomic_get_existing_crtc_state(state,
 							plane_state->crtc);
 
 	ret = drm_atomic_helper_check_plane_state(plane_state, crtc_state,
@@ -94,12 +96,13 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 }
 
 static void lcdif_plane_atomic_update(struct drm_plane *plane,
-				      struct drm_plane_state *old_state)
+				      struct drm_atomic_state *state)
 {
 	struct lcdif_plane *lcdif_plane = to_lcdif_plane(plane);
 	struct lcdif_soc *lcdif = lcdif_plane->lcdif;
-	struct drm_plane_state *state = plane->state;
-	struct drm_framebuffer *fb = state->fb;
+	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
+										 plane);
+	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct drm_gem_dma_object *gem_obj = NULL;
 	u32 fb_addr, src_off, src_w, fb_idx, cpp, stride;
 	bool crop;
@@ -116,8 +119,8 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 	case DRM_PLANE_TYPE_PRIMARY:
 		/* TODO: only support RGB */
 		gem_obj = drm_fb_dma_get_gem_obj(fb, 0);
-		src_off = (state->src_y >> 16) * fb->pitches[0] +
-			  (state->src_x >> 16) * fb->format->cpp[0];
+		src_off = (new_plane_state->src_y >> 16) * fb->pitches[0] +
+			  (new_plane_state->src_x >> 16) * fb->format->cpp[0];
 		fb_addr = gem_obj->dma_addr + fb->offsets[0] + src_off;
 		fb_idx  = 0;
 		break;
@@ -132,14 +135,14 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 	 * if CRTC needs a full modeset which needs to
 	 * enable LCDIF to run at the end.
 	 */
-	if (unlikely(drm_atomic_crtc_needs_modeset(state->crtc->state))) {
+	if (unlikely(drm_atomic_crtc_needs_modeset(new_plane_state->crtc->state))) {
 		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 			lcdif_set_pix_fmt(lcdif, fb->format->format);
 
 		cpp = fb->format->cpp[0];
 		stride = DIV_ROUND_UP(fb->pitches[0], cpp);
 
-		src_w = state->src_w >> 16;
+		src_w = new_plane_state->src_w >> 16;
 		WARN_ON(src_w > fb->width);
 
 		crop  = src_w != stride ? true : false;
@@ -150,10 +153,11 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 }
 
 static void lcdif_plane_atomic_disable(struct drm_plane *plane,
-				       struct drm_plane_state *old_state)
+				       struct drm_atomic_state *state)
 {
-	struct drm_plane_state *state = plane->state;
-	struct drm_framebuffer *fb = state->fb;
+	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
+										 plane);
+	struct drm_framebuffer *fb = new_plane_state->fb;
 
 	WARN_ON(fb);
 
