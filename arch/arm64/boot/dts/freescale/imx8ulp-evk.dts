@@ -238,6 +238,13 @@
 	keep-power-in-suspend;
 	non-removable;
 	status = "okay";
+
+	wifi_wake_host {
+		compatible = "nxp,wifi-wake-host";
+		interrupt-parent = <&gpioe>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "host-wake";
+	};
 };
 
 &fec {
@@ -384,6 +391,7 @@
 			MX8ULP_PAD_PTE4__SDHC2_D3	0x3
 			MX8ULP_PAD_PTE2__SDHC2_CLK	0x10002
 			MX8ULP_PAD_PTE3__SDHC2_CMD	0x3
+			MX8ULP_PAD_PTE7__PTE7		0x10003
 		>;
 	};
 
