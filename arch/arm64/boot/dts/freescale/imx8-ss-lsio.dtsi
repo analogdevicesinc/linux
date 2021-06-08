@@ -235,9 +235,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_0 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_0 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm0_lpcg_ipg_clk",
 				     "pwm0_lpcg_ipg_hf_clk",
 				     "pwm0_lpcg_ipg_s_clk",
@@ -255,9 +253,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_1 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_1 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm1_lpcg_ipg_clk",
 				     "pwm1_lpcg_ipg_hf_clk",
 				     "pwm1_lpcg_ipg_s_clk",
@@ -275,9 +271,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_2 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_2 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm2_lpcg_ipg_clk",
 				     "pwm2_lpcg_ipg_hf_clk",
 				     "pwm2_lpcg_ipg_s_clk",
@@ -295,9 +289,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_3 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_3 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm3_lpcg_ipg_clk",
 				     "pwm3_lpcg_ipg_hf_clk",
 				     "pwm3_lpcg_ipg_s_clk",
@@ -315,9 +307,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_4 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_4 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm4_lpcg_ipg_clk",
 				     "pwm4_lpcg_ipg_hf_clk",
 				     "pwm4_lpcg_ipg_s_clk",
@@ -335,9 +325,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_5 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_5 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm5_lpcg_ipg_clk",
 				     "pwm5_lpcg_ipg_hf_clk",
 				     "pwm5_lpcg_ipg_s_clk",
@@ -355,9 +343,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_6 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_6 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm6_lpcg_ipg_clk",
 				     "pwm6_lpcg_ipg_hf_clk",
 				     "pwm6_lpcg_ipg_s_clk",
@@ -375,9 +361,7 @@ lsio_subsys: bus@5d000000 {
 			 <&clk IMX_SC_R_PWM_7 IMX_SC_PM_CLK_PER>,
 			 <&lsio_bus_clk>,
 			 <&clk IMX_SC_R_PWM_7 IMX_SC_PM_CLK_PER>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>;
+		bit-offset = <0 4 16 20 24>;
 		clock-output-names = "pwm7_lpcg_ipg_clk",
 				     "pwm7_lpcg_ipg_hf_clk",
 				     "pwm7_lpcg_ipg_s_clk",

@@ -202,8 +202,7 @@ conn_subsys: bus@5b000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_SDHC_0 IMX_SC_PM_CLK_PER>,
 			 <&conn_ipg_clk>, <&conn_axi_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>,
-				<IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "sdhc0_lpcg_per_clk",
 				     "sdhc0_lpcg_ipg_clk",
 				     "sdhc0_lpcg_ahb_clk";
@@ -216,8 +215,7 @@ conn_subsys: bus@5b000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_SDHC_1 IMX_SC_PM_CLK_PER>,
 			 <&conn_ipg_clk>, <&conn_axi_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>,
-				<IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "sdhc1_lpcg_per_clk",
 				     "sdhc1_lpcg_ipg_clk",
 				     "sdhc1_lpcg_ahb_clk";
@@ -230,8 +228,7 @@ conn_subsys: bus@5b000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_SDHC_2 IMX_SC_PM_CLK_PER>,
 			 <&conn_ipg_clk>, <&conn_axi_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>,
-				<IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "sdhc2_lpcg_per_clk",
 				     "sdhc2_lpcg_ipg_clk",
 				     "sdhc2_lpcg_ahb_clk";
@@ -248,9 +245,7 @@ conn_subsys: bus@5b000000 {
 			 <&clk IMX_SC_R_ENET_0 IMX_SC_C_TXCLK>,
 			 <&conn_ipg_clk>,
 			 <&conn_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_2>, <IMX_LPCG_CLK_3>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>;
+		bit-offset = <0 4 8 12 16 20>;
 		clock-output-names = "enet0_lpcg_timer_clk",
 				     "enet0_lpcg_txc_sampling_clk",
 				     "enet0_lpcg_ahb_clk",
@@ -270,9 +265,7 @@ conn_subsys: bus@5b000000 {
 			 <&clk IMX_SC_R_ENET_1 IMX_SC_C_TXCLK>,
 			 <&conn_ipg_clk>,
 			 <&conn_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_2>, <IMX_LPCG_CLK_3>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>;
+		bit-offset = <0 4 8 12 16 20>;
 		clock-output-names = "enet1_lpcg_timer_clk",
 				     "enet1_lpcg_txc_sampling_clk",
 				     "enet1_lpcg_ahb_clk",
@@ -287,7 +280,7 @@ conn_subsys: bus@5b000000 {
 		reg = <0x5b270000 0x10000>;
 		#clock-cells = <1>;
 		clocks = <&conn_ahb_clk>, <&conn_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_6>, <IMX_LPCG_CLK_7>;
+		bit-offset = <24 28>;
 		clock-output-names = "usboh3_ahb_clk", "usboh3_phy_ipg_clk";
 		power-domains = <&pd IMX_SC_R_USB_0_PHY>;
 	};
