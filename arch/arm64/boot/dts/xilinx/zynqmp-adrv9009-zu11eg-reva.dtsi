@@ -18,6 +18,10 @@
 #include <dt-bindings/iio/frequency/hmc7044.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
+#ifndef HMC7044_PLL2_OUTPUT_FREQUENCY
+#define HMC7044_PLL2_OUTPUT_FREQUENCY	2949120000
+#endif
+
 / {
 	model = "Analog Devices ADRV9009-ZU11EG Rev.A";
 	compatible = "xlnx,zynqmp";
@@ -918,7 +922,7 @@
 
 		adi,vcxo-frequency = <122880000>;
 
-		adi,pll2-output-frequency = <2949120000>;
+		adi,pll2-output-frequency = <HMC7044_PLL2_OUTPUT_FREQUENCY>;
 
 		adi,sysref-timer-divider = <3840>;
 		adi,pulse-generator-mode = <7>;
