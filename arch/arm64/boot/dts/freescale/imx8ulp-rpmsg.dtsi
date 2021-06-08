@@ -5,6 +5,8 @@
 
 / {
 	aliases {
+		gpio0 = &rpmsg_gpioa;
+		gpio1 = &rpmsg_gpiob;
 		i2c0 = &i2c_rpbus_0;
 		i2c1 = &i2c_rpbus_1;
 		pwm0 = &tpm_rpchip_0;
@@ -23,6 +25,28 @@
 	i2c_rpbus_1: i2c-rpbus-1 {
 		compatible = "fsl,i2c-rpbus";
 		status = "disabled";
+	};
+
+	rpmsg_gpioa: gpio@0 {
+		compatible = "fsl,imx-rpmsg-gpio";
+		port_idx = <0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&rpmsg_gpioa>;
+		status = "okay";
+	};
+
+	rpmsg_gpiob: gpio@1 {
+		compatible = "fsl,imx-rpmsg-gpio";
+		port_idx = <1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&rpmsg_gpiob>;
+		status = "okay";
 	};
 
 	tpm_rpchip_0: pwm {
