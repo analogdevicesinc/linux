@@ -573,7 +573,7 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
-			adi,driver-impedance-mode = <3>; /* Don't touch */
+			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_50_OHM>; /* Don't touch */
 		};
 
 		hmc7044_ext_c6: channel@6 {
@@ -583,14 +583,7 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
-			adi,driver-impedance-mode = <3>; /* Don't touch */
-		};
-
-		hmc7044_ext_c11: channel@11 {
-			reg = <11>;
-			adi,extended-name = "REFCLK_SFP";
-			adi,divider = <24>;	// 12288000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_50_OHM>; /* Don't touch */
 		};
 	};
 };
