@@ -56,6 +56,18 @@ static void mxsfb_set_formats(struct mxsfb_drm_private *mxsfb,
 	u32 ctrl, ctrl1;
 	bool bgr_format = true;
 
+	/* Do some clean-up that we might have from a previous mode */
+	ctrl = CTRL_SHIFT_DIR(1);
+	ctrl |= CTRL_SHIFT_NUM(0xff);
+	ctrl |= CTRL_SET_WORD_LENGTH(0xff);
+	ctrl |= CTRL_DF16;
+	ctrl |= CTRL_SET_BUS_WIDTH(0xff);
+	writel(ctrl, mxsfb->base + LCDC_CTRL + REG_CLR);
+	if (mxsfb->devdata->has_ctrl2)
+		writel(CTRL2_ODD_LINE_PATTERN(CTRL2_LINE_PATTERN_CLR) |
+		       CTRL2_EVEN_LINE_PATTERN(CTRL2_LINE_PATTERN_CLR),
+		       mxsfb->base + LCDC_V4_CTRL2 + REG_CLR);
+
 	ctrl = CTRL_BYPASS_COUNT | CTRL_MASTER;
 
 	/* CTRL1 contains IRQ config and status bits, preserve those. */
@@ -142,7 +154,7 @@ static void mxsfb_set_formats(struct mxsfb_drm_private *mxsfb,
 	}
 
 	writel(ctrl1, mxsfb->base + LCDC_CTRL1);
-	writel(ctrl, mxsfb->base + LCDC_CTRL);
+	writel(ctrl, mxsfb->base + LCDC_CTRL + REG_SET);
 
 	return;
 err:
@@ -673,7 +685,10 @@ static void mxsfb_plane_primary_atomic_update(struct drm_plane *plane,
 	struct mxsfb_drm_private *mxsfb = to_mxsfb_drm_private(plane->dev);
 	struct drm_plane_state *new_pstate = drm_atomic_get_new_plane_state(state,
 									    plane);
+	struct drm_plane_state *old_pstate = drm_atomic_get_old_plane_state(state,
+									    plane);
 	struct drm_framebuffer *fb = new_pstate->fb;
+	struct drm_framebuffer *old_fb = old_pstate->fb;
 	dma_addr_t dma_addr;
 	u32 src_off, src_w, stride, cpp = 0;
 
@@ -696,6 +711,30 @@ static void mxsfb_plane_primary_atomic_update(struct drm_plane *plane,
 		stride = DIV_ROUND_UP(fb->pitches[0], cpp);
 		src_w = new_pstate->src_w >> 16;
 		mxsfb_set_fb_hcrop(mxsfb, src_w, stride);
+	}
+
+	/* Update format if changed */
+	if (old_fb && old_fb->format->format != fb->format->format) {
+		u32 bus_format = 0;
+		struct drm_bridge_state *bridge_state;
+
+		/* If there is a bridge attached to the LCDIF, use its bus format */
+		if (mxsfb->bridge) {
+			bridge_state =
+				drm_atomic_get_new_bridge_state(state,
+								mxsfb->bridge);
+			bus_format = bridge_state->input_bus_cfg.format;
+		}
+
+		/* If there is no bridge, use bus format from connector */
+		if (!bus_format && mxsfb->connector->display_info.num_bus_formats)
+			bus_format = mxsfb->connector->display_info.bus_formats[0];
+
+		/* If all else fails, default to RGB888_1X24 */
+		if (!bus_format)
+			bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+
+		mxsfb_set_formats(mxsfb, bus_format);
 	}
 }
 
