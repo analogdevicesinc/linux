@@ -589,6 +589,13 @@ static struct mxc_isi_plat_data mxc_imx8mp_data = {
 	.gclk_ops = &mxc_imx8mp_isi_gclk_ops,
 };
 
+static struct mxc_isi_plat_data mxc_imx8ulp_data = {
+	.ops      = &mxc_imx8_clk_ops,
+	.chan_src = &mxc_imx8mn_chan_src,
+	.ier_reg  = &mxc_imx8_isi_ier_v2,
+	.set_thd  = &mxc_imx8_isi_thd_v1,
+};
+
 static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 {
 	struct device *dev = &mxc_isi->pdev->dev;
@@ -660,7 +667,8 @@ static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 			memcpy(set_thd, &mxc_imx8_isi_thd_v1, sizeof(*set_thd));
 			mxc_isi->buf_active_reverse = true;
 		}
-	} else if (!strcmp(match->soc_id, "i.MX8MP")) {
+	} else if (!strcmp(match->soc_id, "i.MX8MP") ||
+		   !strcmp(match->soc_id, "i.MX8ULP")) {
 		memcpy(ier_reg, &mxc_imx8_isi_ier_v2, sizeof(*ier_reg));
 		mxc_isi->buf_active_reverse = true;
 	}
@@ -852,6 +860,7 @@ static const struct of_device_id mxc_isi_of_match[] = {
 	{.compatible = "fsl,imx8-isi", .data = &mxc_imx8_data },
 	{.compatible = "nxp,imx8mn-isi", .data = &mxc_imx8mn_data },
 	{.compatible = "nxp,imx8mp-isi", .data = &mxc_imx8mp_data },
+	{.compatible = "nxp,imx8ulp-isi", .data = &mxc_imx8ulp_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mxc_isi_of_match);
