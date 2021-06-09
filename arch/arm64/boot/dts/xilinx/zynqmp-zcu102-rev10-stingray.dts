@@ -123,7 +123,7 @@
 };
 
 &fpga_axi {
-	axi_spi_pmod: axi_quad_spi@85200000 {
+	axi_spi_pmod: spi@85200000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		bits-per-word = <8>;
@@ -149,7 +149,7 @@
 };
 
 &axi_i2c_pmod {
-	ltc2992@6A {
+	ltc2992@6a {
                 #address-cells = <1>;
                 #size-cells = <0>;
                 compatible = "adi,ltc2992";
