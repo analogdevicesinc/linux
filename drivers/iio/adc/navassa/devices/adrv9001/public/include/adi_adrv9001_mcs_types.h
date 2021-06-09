@@ -21,6 +21,7 @@ extern "C" {
 #include <linux/kernel.h>
 #else
 #include <stdint.h>
+#include <stdbool.h>
 #endif
 
 /**
@@ -69,6 +70,8 @@ typedef struct adi_adrv9001_McsStatus {
 
     bool firstDigitalSyncComplete;  /*!< Digital synchronization status */
     bool secondDigitalSyncComplete; /*!< Digital synchronization status */
+    float rfPll1Phase_degrees;      /*!< The phase difference between LO1 and MCS reference point in degrees */
+    float rfPll2Phase_degrees;      /*!< The phase difference between LO2 and MCS reference point in degrees */
 } adi_adrv9001_McsStatus_t;
 
 /**

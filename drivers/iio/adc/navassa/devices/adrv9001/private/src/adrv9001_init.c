@@ -24,7 +24,7 @@
 /*
 Set Master Bias
 */
-static int32_t adrv9001_MasterBiasSet(adi_adrv9001_Device_t *device, adi_adrv9001_Init_t *init)
+static __maybe_unused int32_t adrv9001_MasterBiasSet(adi_adrv9001_Device_t *device, adi_adrv9001_Init_t *init)
 {
     uint8_t masterBiasConfig0 = 0;
 
@@ -38,7 +38,7 @@ static int32_t adrv9001_MasterBiasSet(adi_adrv9001_Device_t *device, adi_adrv900
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_RefClockEnable(adi_adrv9001_Device_t *device)
+static __maybe_unused int32_t adrv9001_RefClockEnable(adi_adrv9001_Device_t *device)
 {
     static const uint8_t DEVICE_CLK_BUFFER_ENABLE      = 0x02;
     static const uint8_t DEVCLK_DIVIDER_MCS_RESETB     = 0x10;
@@ -68,7 +68,7 @@ static int32_t adrv9001_RefClockEnable(adi_adrv9001_Device_t *device)
 /*
 Set pad configurations for SYSREF, REFCLK and SYNCB pins
 */
-static int32_t adrv9001_PadConfigsSet(adi_adrv9001_Device_t *device, adi_adrv9001_Init_t *init)
+static __maybe_unused int32_t adrv9001_PadConfigsSet(adi_adrv9001_Device_t *device, adi_adrv9001_Init_t *init)
 {
     static const uint8_t REF_CLK_GEN_PD_CLK_PLL        = 0x04;
     static const uint8_t REF_CLK_GEN_PD_LP_CLK_PLL     = 0x08;
@@ -104,7 +104,7 @@ static int32_t adrv9001_PadConfigsSet(adi_adrv9001_Device_t *device, adi_adrv900
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_ClockVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init_t *init, uint8_t *modeAdc)
+static __maybe_unused int32_t adrv9001_ClockVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init_t *init, uint8_t *modeAdc)
 {
     static const uint32_t LVDS_CLOCK_MAX_KHZ                        = 1000000;
     static const uint32_t CMOS_CLOCK_MAX_KHZ                        = 80000;
@@ -155,7 +155,7 @@ static int32_t adrv9001_ClockVerify(adi_adrv9001_Device_t *device, adi_adrv9001_
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_ClocksSet(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_ClocksSet(adi_adrv9001_Device_t *device,
                                   adi_adrv9001_Init_t *init,
                                   adi_adrv9001_DeviceClockDivisor_e adrv9001DeviceClockOutDivisor)
 {
@@ -370,9 +370,9 @@ int32_t adrv9001_AnalogClockSet(adi_adrv9001_Device_t *device, adi_adrv9001_Init
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adrv9001_InitAnalog_Validate(adi_adrv9001_Device_t *device,
-							   adi_adrv9001_Init_t *init,
-							   adi_adrv9001_DeviceClockDivisor_e adrv9001DeviceClockOutDivisor)
+static __maybe_unused int32_t __maybe_unused adrv9001_InitAnalog_Validate(adi_adrv9001_Device_t *device,
+                                                           adi_adrv9001_Init_t *init,
+                                                           adi_adrv9001_DeviceClockDivisor_e adrv9001DeviceClockOutDivisor)
 {
     ADI_RANGE_CHECK(device, adrv9001DeviceClockOutDivisor, ADI_ADRV9001_DEVICECLOCKDIVISOR_BYPASS, ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED);
     ADI_API_RETURN(device);
@@ -474,7 +474,7 @@ int32_t adrv9001_InitAnalog(adi_adrv9001_Device_t *device,
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM Recovery action for bad parameter check
 * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
 */
-static int32_t adrv9001_VerifyTxProfile(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_VerifyTxProfile(adi_adrv9001_Device_t *device,
                                         adi_adrv9001_TxProfile_t *txProfile)
 {
     static const uint32_t TX_INPUT_RATE_MIN = KILO_TO_BASE_UNIT(1);
@@ -510,7 +510,7 @@ static int32_t adrv9001_VerifyTxProfile(adi_adrv9001_Device_t *device,
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM Recovery action for bad parameter check
 * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
 */
-static int32_t adrv9001_VerifyRxProfile(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_VerifyRxProfile(adi_adrv9001_Device_t *device,
                                         adi_adrv9001_RxProfile_t *rxProfile)
 {
     static const uint32_t RX_OUTPUT_RATE_MIN = KILO_TO_BASE_UNIT(1);
@@ -546,7 +546,7 @@ static int32_t adrv9001_VerifyRxProfile(adi_adrv9001_Device_t *device,
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM Recovery action for bad parameter check
 * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
 */
-static int32_t adrv9001_VerifyOrxProfile(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_VerifyOrxProfile(adi_adrv9001_Device_t *device,
                                          adi_adrv9001_RxProfile_t *orxProfile)
 {
     static const uint32_t ORX_OUTPUT_RATE_MIN = KILO_TO_BASE_UNIT(1);
@@ -582,7 +582,7 @@ static int32_t adrv9001_VerifyOrxProfile(adi_adrv9001_Device_t *device,
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM Recovery action for bad parameter check
 * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
 */
-static int32_t adrv9001_VerifyLbProfile(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_VerifyLbProfile(adi_adrv9001_Device_t *device,
                                         adi_adrv9001_RxProfile_t *lbProfile)
 {
     static const uint32_t LB_OUTPUT_RATE_MIN = KILO_TO_BASE_UNIT(1);
@@ -731,16 +731,16 @@ int32_t adrv9001_ProfilesVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init
         {
             txProfile = &init->tx.txProfile[i];
             rxProfile = &init->rx.rxChannelCfg[i + 4].profile; /* ILB channel */
-
+            
             ADI_EXPECT(adrv9001_VerifyTxProfile, device, txProfile);
-
+            
             if (txProfile->outputSignaling != ADI_ADRV9001_TX_DIRECT_FM_FSK)
             {
                 /* Only validate ILB if Tx is enabled and not DIRECT_FM_FSK */
                 ADI_EXPECT(adrv9001_VerifyLbProfile, device, rxProfile);
                 device->devStateInfo.initializedChannels |= RX_CHANNELS[i + 4];
             }
-
+                
             device->devStateInfo.profilesValid |= ADI_ADRV9001_TX_PROFILE_VALID;
             device->devStateInfo.initializedChannels |= TX_CHANNELS[i];
         }
