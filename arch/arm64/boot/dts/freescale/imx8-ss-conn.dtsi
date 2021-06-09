@@ -73,9 +73,9 @@ conn_subsys: bus@5b000000 {
 	usdhc1: mmc@5b010000 {
 		interrupts = <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x5b010000 0x10000>;
-		clocks = <&sdhc0_lpcg IMX_LPCG_CLK_4>,
-			 <&sdhc0_lpcg IMX_LPCG_CLK_0>,
-			 <&sdhc0_lpcg IMX_LPCG_CLK_5>;
+		clocks = <&sdhc0_lpcg 1>,
+			 <&sdhc0_lpcg 2>,
+			 <&sdhc0_lpcg 0>;
 		clock-names = "ipg", "ahb", "per";
 		power-domains = <&pd IMX_SC_R_SDHC_0>;
 		fsl,tuning-start-tap = <20>;
@@ -86,9 +86,9 @@ conn_subsys: bus@5b000000 {
 	usdhc2: mmc@5b020000 {
 		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x5b020000 0x10000>;
-		clocks = <&sdhc1_lpcg IMX_LPCG_CLK_4>,
-			 <&sdhc1_lpcg IMX_LPCG_CLK_0>,
-			 <&sdhc1_lpcg IMX_LPCG_CLK_5>;
+		clocks = <&sdhc1_lpcg 1>,
+			 <&sdhc1_lpcg 2>,
+			 <&sdhc1_lpcg 0>;
 		clock-names = "ipg", "ahb", "per";
 		power-domains = <&pd IMX_SC_R_SDHC_1>;
 		fsl,tuning-start-tap = <20>;
@@ -99,9 +99,9 @@ conn_subsys: bus@5b000000 {
 	usdhc3: mmc@5b030000 {
 		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x5b030000 0x10000>;
-		clocks = <&sdhc2_lpcg IMX_LPCG_CLK_4>,
-			 <&sdhc2_lpcg IMX_LPCG_CLK_0>,
-			 <&sdhc2_lpcg IMX_LPCG_CLK_5>;
+		clocks = <&sdhc2_lpcg 1>,
+			 <&sdhc2_lpcg 2>,
+			 <&sdhc2_lpcg 0>;
 		clock-names = "ipg", "ahb", "per";
 		power-domains = <&pd IMX_SC_R_SDHC_2>;
 		fsl,tuning-start-tap = <20>;
@@ -115,11 +115,12 @@ conn_subsys: bus@5b000000 {
 			     <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&enet0_lpcg IMX_LPCG_CLK_4>,
-			 <&enet0_lpcg IMX_LPCG_CLK_2>,
-			 <&enet0_lpcg IMX_LPCG_CLK_3>,
-			 <&enet0_lpcg IMX_LPCG_CLK_0>;
-		clock-names = "ipg", "ahb", "enet_clk_ref", "ptp";
+		clocks = <&enet0_lpcg 4>,
+			 <&enet0_lpcg 2>,
+			 <&enet0_lpcg 3>,
+			 <&enet0_lpcg 0>,
+			 <&enet0_lpcg 1>;
+		clock-names = "ipg", "ahb", "enet_clk_ref", "ptp", "enet_2x_txclk";
 		assigned-clocks = <&clk IMX_SC_R_ENET_0 IMX_SC_PM_CLK_PER>,
 				  <&clk IMX_SC_R_ENET_0 IMX_SC_C_CLKDIV>;
 		assigned-clock-rates = <250000000>, <125000000>;
@@ -135,11 +136,12 @@ conn_subsys: bus@5b000000 {
 				<GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&enet1_lpcg IMX_LPCG_CLK_4>,
-			 <&enet1_lpcg IMX_LPCG_CLK_2>,
-			 <&enet1_lpcg IMX_LPCG_CLK_3>,
-			 <&enet1_lpcg IMX_LPCG_CLK_0>;
-		clock-names = "ipg", "ahb", "enet_clk_ref", "ptp";
+		clocks = <&enet1_lpcg 4>,
+			 <&enet1_lpcg 2>,
+			 <&enet1_lpcg 3>,
+			 <&enet1_lpcg 0>,
+			 <&enet1_lpcg 1>;
+		clock-names = "ipg", "ahb", "enet_clk_ref", "ptp", "enet_2x_txclk";
 		assigned-clocks = <&clk IMX_SC_R_ENET_1 IMX_SC_PM_CLK_PER>,
 				  <&clk IMX_SC_R_ENET_1 IMX_SC_C_CLKDIV>;
 		assigned-clock-rates = <250000000>, <125000000>;
