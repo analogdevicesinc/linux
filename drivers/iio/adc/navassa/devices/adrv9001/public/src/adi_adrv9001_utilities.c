@@ -26,6 +26,7 @@
 #include "adi_adrv9001_utilities.h"
 #include "adi_adrv9001_hal.h"
 #include "adi_adrv9001_rx.h"
+#include "adi_adrv9001_orx_types.h"
 #include "adi_adrv9001_arm.h"
 #include "adi_adrv9001_tx.h"
 #include "adi_adrv9001_stream.h"
@@ -37,12 +38,7 @@
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_bf_hal.h"
 
-#ifdef ADI_ADRV9001_SI_REV_B0
-#define ADI_ADRV9001_ARM_BINARY_IMAGE_FILE_SIZE_BYTES (256*1024)
-#endif // ADI_ADRV9001_SI_REV_B0
-#ifdef ADI_ADRV9001_SI_REV_C0
 #define ADI_ADRV9001_ARM_BINARY_IMAGE_FILE_SIZE_BYTES (288*1024)
-#endif // ADI_ADRV9001_SI_REV_C0
 
 #define ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS 256
 #define ADI_ADRV9001_TX_ATTEN_TABLE_SIZE_ROWS 1024

@@ -53,7 +53,7 @@ extern "C" {
 /**
  * \brief Maximum carrier frequency supported in frequency hopping mode
  */
-#define ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ 3200000000llu /* 3.2 GHz */
+#define ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ 6000000000llu  /* 6 GHz */
 
 /**
  * \brief Enumeration of frequency hopping modes
@@ -62,10 +62,8 @@ typedef enum {
     ADI_ADRV9001_FHMODE_LO_MUX_PREPROCESS          = 0u,   /*!< Frequency hopping with LO muxing. Frequency hopping table is processed before the frequency hopping operation. */
     ADI_ADRV9001_FHMODE_LO_MUX_REALTIME_PROCESS    = 1u,   /*!< Frequency hopping with LO muxing. Frequency hopping table is processed during frequency hopping operation. */
     ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS = 2u,   /*!< Frequency hopping with LO retuning during transition time. Frequency hopping table is processed during frequency hopping operation. */
-#ifndef ADI_ADRV9001_SI_REV_B0
     ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP = 3u, /*!< 2 HOP signals are used to control Channel 1 and Channel 2 independently. Frequency hopping with LO retuning during transition time.
                                                                        Frequency hopping table is processed during frequency hopping operation. */
-#endif
 } adi_adrv9001_FhMode_e;
 
 typedef enum {
@@ -109,9 +107,7 @@ typedef enum adi_adrv9001_FhPerDynamicLoad
 typedef enum adi_adrv9001_FhHopSignal
 {
     ADI_ADRV9001_FH_HOP_SIGNAL_1 = 0, /*!< Hop 1 signal */
-#ifndef ADI_ADRV9001_SI_REV_B0
     ADI_ADRV9001_FH_HOP_SIGNAL_2 = 1  /*!< Hop 2 signal */
-#endif
 } adi_adrv9001_FhHopSignal_e;
 
 /**
@@ -127,7 +123,8 @@ typedef enum {
  */
 typedef struct {
     uint64_t hopFrequencyHz;       /*!< Operating frequency in Hz */
-    int32_t  rxOffsetFrequencyHz;  /*!< Rx Offset frequency. This field is ignored by firmware if frame is not Rx, or if profile does not operation with an IF */
+    int32_t  rx1OffsetFrequencyHz; /*!< Rx1 Offset frequency. This field is ignored by firmware if frame is not Rx, or if profile does not operate with an IF */
+    int32_t  rx2OffsetFrequencyHz; /*!< Rx2 Offset frequency. This field is ignored by firmware if frame is not Rx, or if profile does not operate with an IF */
     uint8_t  rxGainIndex;          /*!< Starting gain index for hop frame. This field is ignored if frame is Tx */
     uint8_t  reserved;             /*!< For word alignment */
     uint16_t txAttenuation_mdB;    /*!< Tx attenuation index. This field is ignored if frame is Rx */
@@ -167,15 +164,13 @@ typedef struct {
 /**
  * \brief Frequency hopping configuration data
  */
-typedef struct { 
-	/** Set of channels to be controlled by hop pin. Only applies to B0
-	   D0 -  Rx1           0 = Disabled, 1 = Mapped to hop pin (Enabled for frequency hopping)
-	   D1 -  Rx2           0 = Disabled, 1 = Mapped to hop pin (Enabled for frequency hopping)
-	   D2 -  Tx1           0 = Disabled, 1 = Mapped to hop pin (Enabled for frequency hopping)
-	   D3 -  Tx2           0 = Disabled, 1 = Mapped to hop pin (Enabled for frequency hopping)
-   */
-	uint8_t                            hopSignalChannelMask;
+typedef struct {
     adi_adrv9001_FhMode_e              mode;                        /*!< Frequency hopping mode */
+    adi_adrv9001_FhHopSignal_e         rxPortHopSignals[ADI_ADRV9001_NUM_CHANNELS]; /*!< Hop Signals for each RF port [0] = Rx1, [1] = Rx2 */
+    adi_adrv9001_FhHopSignal_e         txPortHopSignals[ADI_ADRV9001_NUM_CHANNELS]; /*!< Hop Signals for each RF port [0] = Tx1, [1] = Tx2 */
+    bool                               rxZeroIfEnable;              /*!< Configure the Rx ports for zero-IF operation. 
+                                                                         FALSE:  LO = hopFrequencyHz + rx(n)OffsetFrequencyHz.  
+                                                                         TRUE:   LO = hopFrequencyHz */
     adi_adrv9001_GpioCfg_t             hopSignalGpioConfig[2u];     /*!< Pin configuration for HOP1 and HOP2 signals. If GPIO is unassigned, HOP signal source is defaulted to SPI mode*/                      
     adi_adrv9001_FhhopTableSelectCfg_t hopTableSelectConfig;        /*!< Hop table select signal configuration */ 
     adi_adrv9001_TableIndexCtrl_e      tableIndexCtrl;              /*!< Select control type for frequency hopping table */

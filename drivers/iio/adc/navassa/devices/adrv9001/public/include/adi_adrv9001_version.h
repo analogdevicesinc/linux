@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 /* Auto-generated version number - DO NOT MANUALLY EDIT */
-#define ADI_ADRV9001_CURRENT_VERSION "45.0.5"
+#define ADI_ADRV9001_CURRENT_VERSION "48.8.7"
 
 #ifdef __cplusplus
 }

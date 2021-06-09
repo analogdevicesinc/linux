@@ -23,6 +23,24 @@
 
 #define ADI_ADRV9001_DPD_NUM_COEFFICIENTS 208
 
+#define INST_TX1_DPD_TOP (0X55000000U) /* tx1_dpd_top: */
+#define INST_TX2_DPD_TOP (0X75000000U) /* tx2_dpd_top: */
+
+#define INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N              (0X00004U)    /* Array Unit Address Increment Value */
+#define INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N              (0X00004U)    /* Array Unit Address Increment Value */
+#define INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N              (0X00004U)    /* Array Unit Address Increment Value */
+#define INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N              (0X00004U)    /* Array Unit Address Increment Value */
+
+#define IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N(index)            ( (0X00000U)+(index)*(INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N) )    /* No description provided */
+#define IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N(index)            ( (0X04000U)+(index)*(INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N) )    /* No description provided */
+#define IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(index)            ( (0X08000U)+(index)*(INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N) )    /* No description provided */
+#define IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(index)            ( (0X0C000U)+(index)*(INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N) )    /* No description provided */
+
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N(base,index)      ((uint32_t *)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N(index)))
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N(base,index)      ((uint32_t *)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N(index)))
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(base,index)      ((uint32_t *)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(index)))
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(base,index)      ((uint32_t *)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(index)))
+
 /**
  * \brief Supported DPD amplifier types
  */
@@ -76,8 +94,6 @@ typedef struct adi_adrv9001_DpdInitCfg
 typedef struct adi_adrv9001_DpdCfg
 {
     uint32_t numberOfSamples;           //!< Number of samples to use for DPD (min: 3; max: 4096) */
-    bool outlierRemovalEnable;           //!< Enable removal of outliers; B0 only */
-    uint32_t outlierRemovalThreshold;    //!< Threshold for outlier removal (U2.30); B0 only */
 
     /** Additional scaling on the 2nd and higher order power terms.
      * Used to keep the nominal magnitude of each term about the same
@@ -112,6 +128,8 @@ typedef struct adi_adrv9001_DpdCfg
     bool immediateLutSwitching;             //!< Whether the LUT switches immediately or at the end of a Tx frame */
     bool useSpecialFrame;                   //!< Whether to only run DPD on a user indicated special frame */
     bool resetLuts;                         //!< Whether to reset LUTs to unity. Always read as 0 and is self-clearing */
+    uint32_t dpdSamplingRate_Hz;            /*!< sampling rate in Hz for the DPD actuator and capture.
+                                                 'dpdSamplingRate_Hz' is read only and is ignored in adi_adrv9001_dpd_Configure() */
 } adi_adrv9001_DpdCfg_t;
 
 typedef struct adi_adrv9001_DpdCoefficients
