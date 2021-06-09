@@ -10,7 +10,7 @@
 audio_ipg_clk: clock-audio-ipg {
 	compatible = "fixed-clock";
 	#clock-cells = <0>;
-	clock-frequency = <120000000>;
+	clock-frequency = <175000000>;
 	clock-output-names = "audio_ipg_clk";
 };
 
