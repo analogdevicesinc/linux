@@ -220,6 +220,14 @@
 
 &dsi {
 	status = "okay";
+	ports {
+		port@1 {
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&it6161_from_dsim>;
+			};
+		};
+	};
 };
 
 &dsp {
@@ -271,6 +279,21 @@
 		compatible = "wlf,wm8960,lpa";
 		reg = <0x1a>;
 		wlf,shared-lrclk;
+	};
+
+	ite_bridge: it6161@6c {
+		compatible = "ite,it6161";
+		reg = <0x6c>;
+		it6161-addr-hdmi-tx = <0x4c>;
+		interrupt-parent = <&rpmsg_gpioa>;
+		interrupts = <19 IRQ_TYPE_LEVEL_LOW>;
+		status = "okay";
+
+		port {
+			it6161_from_dsim: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
 	};
 };
 

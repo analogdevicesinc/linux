@@ -24,6 +24,8 @@
 	};
 };
 
+/delete-node/ &ite_bridge;
+
 &dsi {
 	panel@0 {
 		compatible = "raydium,rm68200";
