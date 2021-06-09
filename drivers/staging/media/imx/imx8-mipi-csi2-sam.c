@@ -41,14 +41,6 @@
 #include <media/v4l2-device.h>
 #include <linux/reset.h>
 
-#if defined(CONFIG_MODVERSIONS) && !defined(MODVERSIONS)
-#define MODVERSIONS
-#endif
-
-#ifdef MODVERSIONS
-#include <config/modversions.h>
-#endif
-
 #define CSIS_DRIVER_NAME		"mxc-mipi-csi2-sam"
 #define CSIS_SUBDEV_NAME		"mxc-mipi-csi2"
 #define CSIS_MAX_ENTITIES		2
