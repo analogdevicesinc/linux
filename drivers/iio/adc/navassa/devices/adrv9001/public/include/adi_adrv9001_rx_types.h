@@ -29,10 +29,7 @@ extern "C" {
 
 #define ADI_ADRV9001_RX_GAIN_INDEX_MIN 187
 #define ADI_ADRV9001_RX_GAIN_INDEX_MAX 255
-
-#define ADI_ADRV9001_ORX_GAIN_INDEX_MIN 2
-#define ADI_ADRV9001_ORX_GAIN_INDEX_MAX 14
-
+    
 /**
 *  \brief Rx gain table SRAM base addresses
 */
@@ -51,18 +48,6 @@ typedef enum adi_adrv9001_RxGainControlMode
     ADI_ADRV9001_RX_GAIN_CONTROL_MODE_PIN,   /*!< Increment and decrement the gain index by pulsing GPIO pins */
     ADI_ADRV9001_RX_GAIN_CONTROL_MODE_AUTO   /*!< ADRV9001 Gain Control block sets the gain index based on thresholds */
 } adi_adrv9001_RxGainControlMode_e;
-
-/**
-* \brief Data structure to hold ADRV9001 Rx RSSI status
-*/
-typedef struct adi_adrv9001_RxRssiStatus
-{
-    uint16_t power_mdB;              /* Power in milli dB */
-
-    /* Linear power is calculated by this formula: linear power = (mantissa * 2^-15) * 2^-exponent */
-    uint16_t linearPower_mantissa;   /* Mantissa of Linear Power */
-    uint16_t linearPower_exponent;   /* Exponent of Linear Power */
-} adi_adrv9001_RxRssiStatus_t;
 
 /**
  * \brief Data structure to hold ADRV9001 Rx gain table row entry
@@ -184,6 +169,18 @@ typedef struct adi_adrv9001_GainIndexPinCfg
     adi_adrv9001_GpioPinCrumbSel_e gainIndex_05_04;
     adi_adrv9001_GpioPinCrumbSel_e gainIndex_07_06;
 } adi_adrv9001_GainIndexPinCfg_t;
+
+/**
+ * \brief Structure which holds the ADC switch configuration
+ */
+typedef struct adi_adrv9001_RxPortSwitchCfg
+{
+    uint64_t  minFreqPortA_Hz;
+    uint64_t  maxFreqPortA_Hz;
+    uint64_t  minFreqPortB_Hz;
+    uint64_t  maxFreqPortB_Hz;
+    bool      enable;
+} adi_adrv9001_RxPortSwitchCfg_t;
 
 #ifdef __cplusplus
 }

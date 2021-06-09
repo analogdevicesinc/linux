@@ -340,8 +340,8 @@ typedef struct adi_adrv9001_SsiConfig
     uint8_t						 lsbFirst;					/*!< SSI LSB first */
     uint8_t						 qFirst;					/*!< SSI Q data first */
     adi_adrv9001_SsiTxRefClockPin_e	txRefClockPin;			/*!< SSI Tx reference clock GPIO select */
-    bool                         lvdsIBitInversion;         /*!< LVDS SSI I bit inversion */
-    bool                         lvdsQBitInversion;         /*!< LVDS SSI Q bit inversion */
+    bool                         lvdsIBitInversion;         /*!< LVDS SSI I bit inversion. Rx: Inverts I and Q. Tx: inverts I only */
+    bool                         lvdsQBitInversion;         /*!< LVDS SSI Q bit inversion. Rx: Has no effect.   Tx: inverts Q only */
     bool                         lvdsStrobeBitInversion;    /*!< LVDS SSI Strobe bit inversion */
     uint8_t						 lvdsUseLsbIn12bitMode;		/*!< LVDS use LSB in 12 bit mode */
     bool						 lvdsTxFullRefClkEn;        /*!< LVDS Tx full refclk enable */

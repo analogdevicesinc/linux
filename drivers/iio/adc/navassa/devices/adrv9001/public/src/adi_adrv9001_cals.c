@@ -25,6 +25,7 @@
 #include "adrv9001_arm_macros.h"
 #include "adrv9001_init.h"
 #include "adrv9001_reg_addr_macros.h"
+#include "object_ids.h"
 
 int32_t adi_adrv9001_cals_InitCals_Run(adi_adrv9001_Device_t *adrv9001,
                                        adi_adrv9001_InitCals_t *initCals,
@@ -76,10 +77,8 @@ int32_t adi_adrv9001_cals_InitCals_Run(adi_adrv9001_Device_t *adrv9001,
     /* Mode to select the Init calibration algorithms to run */
     payload[1] = (uint8_t)(initCals->calMode);
     
-#ifdef ADI_ADRV9001_SI_REV_C0
     /* A value of true will force all enabled calibrations to re-run */
     payload[2] = (uint8_t)(initCals->force);
-#endif // ADI_ADRV9001_SI_REV_C0
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, ADRV9001_ARM_RUNINIT_OPCODE, &payload[0], ADI_ARRAY_LEN(payload));
 
@@ -145,7 +144,7 @@ int32_t adi_adrv9001_cals_InitCalsBuildDefault(adi_adrv9001_InitCals_t *initCals
     return ADI_COMMON_ACT_NO_ACTION;
 }
 
-static int32_t adi_adrv9001_TrackingCals_Channel_State_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_TrackingCals_Channel_State_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                 adi_adrv9001_TrackingCals_t *trackingCals)
 {
     uint8_t i = 0;
@@ -191,7 +190,7 @@ static int32_t adi_adrv9001_TrackingCals_Channel_State_Validate(adi_adrv9001_Dev
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t __maybe_unused adi_adrv9001_cals_Tracking_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_cals_Tracking_Set_Validate(adi_adrv9001_Device_t *adrv9001,
                                       adi_adrv9001_TrackingCals_t *trackingCals)
 {
     static const uint32_t TRACING_CAL_MASK_MAX = 0xF8133F;
@@ -240,7 +239,7 @@ int32_t adi_adrv9001_cals_Tracking_Set(adi_adrv9001_Device_t *adrv9001,
                    ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     payload[0] = 0; /* channel mask is ignored */
-    payload[1] = ADRV9001_ARM_OBJECTID_TRACKING_CALIBRATIONS_ENABLE;
+    payload[1] = OBJID_GS_TRACKCALS_ENABLE;
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_SET_OPCODE, &payload[0], sizeof(payload));
 
@@ -273,7 +272,7 @@ int32_t adi_adrv9001_cals_Tracking_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_PERFORM_VALIDATION(adi_adrv9001_cals_Tracking_Get_Validate, adrv9001, trackingCals);
 
     payload[0] = 0; /* channel mask is ignored */
-    payload[1] = ADRV9001_ARM_OBJECTID_TRACKING_CALIBRATIONS_ENABLE;
+    payload[1] = OBJID_GS_TRACKCALS_ENABLE;
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_GET_OPCODE, &payload[0], sizeof(payload));
 
@@ -305,7 +304,7 @@ int32_t adi_adrv9001_cals_Tracking_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Run_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Run_Validate(adi_adrv9001_Device_t *adrv9001,
                                            adi_common_ChannelNumber_e channel,
                                            uint8_t *initCalsError)
 {
@@ -363,7 +362,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Run(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t __maybe_unused adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                 adi_common_ChannelNumber_e channel,
                                                 uint32_t *externalPathDelay_ps)
 {
@@ -401,7 +400,7 @@ int32_t adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure(adi_adrv9001_De
     ADI_PERFORM_VALIDATION(adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure_Validate, adrv9001, channel, externalPathDelay_ps);
 
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
-    extData[1] = ADRV9001_ARM_OBJECTID_ILB_ELB_PATH_DELAY_DIFF;
+    extData[1] = OBJID_GO_ILB_ELB_DIFF_MEASUREMENT;
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_GET_OPCODE, &extData[0], sizeof(extData));
 
@@ -426,7 +425,7 @@ int32_t adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure(adi_adrv9001_De
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Calibrate_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Calibrate_Validate(adi_adrv9001_Device_t *adrv9001,
                                              adi_common_ChannelNumber_e channel,
                                              uint8_t *initCalsError,
                                              uint32_t *externalPathDelay_ps)
@@ -475,7 +474,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Calibrate(adi_adrv9001_Device_t *adr
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Set_Validate(adi_adrv9001_Device_t *adrv9001,
                                            adi_common_ChannelNumber_e channel,
                                            uint32_t externalPathDelay_ps)
 {
@@ -523,7 +522,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Set(adi_adrv9001_Device_t *adrv9001,
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, (uint32_t)ADRV9001_ADDR_ARM_MAILBOX_SET, &armData[0], sizeof(armData), ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
 
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
-    extData[1] = ADRV9001_ARM_OBJECTID_EXTERNAL_PATH_DELAY;
+    extData[1] = OBJID_GS_EXT_PATH_DELAY;
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_SET_OPCODE, &extData[0], sizeof(extData));
 
@@ -536,7 +535,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Set(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                            adi_common_ChannelNumber_e channel,
                                            uint32_t *externalPathDelay_ps)
 {
@@ -555,7 +554,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_PERFORM_VALIDATION(adi_adrv9001_cals_ExternalPathDelay_Get_Validate, adrv9001, channel, externalPathDelay_ps);
 
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
-    extData[1] = ADRV9001_ARM_OBJECTID_EXTERNAL_PATH_DELAY;
+    extData[1] = OBJID_GS_EXT_PATH_DELAY;
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_GET_OPCODE, &extData[0], sizeof(extData));
 
@@ -623,11 +622,11 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(port, channel);
     if (ADI_RX == port)
     {
-        extData[1] = ADRV9001_ARM_OBJECTID_RX_PATH_DELAY_READ;
+        extData[1] = OBJID_GO_RX_PATH_DELAY_READ;
     }
     else /* ADI_TX */
     {
-        extData[1] = ADRV9001_ARM_OBJECTID_TX_PATH_DELAY_READ;
+        extData[1] = OBJID_GO_TX_PATH_DELAY_READ;
     }
 
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_GET_OPCODE, &extData[0], sizeof(extData));
@@ -682,7 +681,7 @@ int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t
     ADI_PERFORM_VALIDATION(adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get_Validate, adrv9001, carrierFrequencies_Hz, length);
 
     extData[0] = 0; /* Channel Mask; unused for this command */
-    extData[1] = ADRV9001_ARM_OBJECTID_GET_CARRIER_FREQUENCY_OF_LAST_INITCAL;
+    extData[1] = OBJID_GO_CARRIER_FREQUENCY_OF_PREVIOUS_INITCAL;
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, adrv9001, (uint8_t)ADRV9001_ARM_GET_OPCODE, &extData[0], sizeof(extData));
 
     /* Wait for command to finish executing */
