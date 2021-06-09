@@ -23,6 +23,7 @@
 #include "adrv9001_init.h"
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_arm_macros.h"
+#include "object_ids.h"
 
 int32_t adi_adrv9001_HwOpen(adi_adrv9001_Device_t *device, adi_adrv9001_SpiSettings_t *spiSettings)
 {
@@ -136,6 +137,9 @@ static void cacheInitInfo(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *
 {
     uint8_t i = 0;
 
+    adrv9001->devStateInfo.rxOutputSignaling[0] = init->rx.rxChannelCfg[0].profile.outputSignaling;
+    adrv9001->devStateInfo.rxOutputSignaling[1] = init->rx.rxChannelCfg[1].profile.outputSignaling;
+
     for (i = 0; i < ADI_ADRV9001_MAX_RXCHANNELS; i++)
     {
         adrv9001->devStateInfo.rxOutputRate_kHz[i] = init->rx.rxChannelCfg[i].profile.rxOutputRate_Hz / 1000;
@@ -143,8 +147,8 @@ static void cacheInitInfo(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *
     
     if (adrv9001->devStateInfo.profilesValid & ADI_ADRV9001_TX_PROFILE_VALID)
     {
-        adrv9001->devStateInfo.outputSignaling[0] = init->tx.txProfile[0].outputSignaling;
-        adrv9001->devStateInfo.outputSignaling[1] = init->tx.txProfile[1].outputSignaling;
+        adrv9001->devStateInfo.txOutputSignaling[0] = init->tx.txProfile[0].outputSignaling;
+        adrv9001->devStateInfo.txOutputSignaling[1] = init->tx.txProfile[1].outputSignaling;
         adrv9001->devStateInfo.txInputRate_kHz[0] = init->tx.txProfile[0].txInputRate_Hz / 1000;
         adrv9001->devStateInfo.txInputRate_kHz[1] = init->tx.txProfile[1].txInputRate_Hz / 1000;
     }
@@ -521,7 +525,7 @@ int32_t adi_adrv9001_Profiles_Verify(adi_adrv9001_Device_t *device, adi_adrv9001
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adrv9001_TemperatureGetValidate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adrv9001_TemperatureGetValidate(adi_adrv9001_Device_t *device,
                                                               int16_t *temperature_C)
 {
     ADI_NULL_PTR_RETURN(&device->common, temperature_C);
@@ -541,7 +545,7 @@ int32_t adi_adrv9001_Temperature_Get(adi_adrv9001_Device_t *device, int16_t *tem
 
     /* Channel mask is not used */
     armExtData[0] = channelMask;
-    armExtData[1] = ADRV9001_ARM_OBJECTID_TEMP_SENSOR;
+    armExtData[1] = OBJID_GO_TEMP_SENSOR;
 
     /* send ARM GET opcode */
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, device, (uint8_t)ADRV9001_ARM_GET_OPCODE, armExtData, sizeof(armExtData));

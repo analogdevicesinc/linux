@@ -22,6 +22,7 @@
 #include "adrv9001_gpio.h"
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_bf.h"
+#include "object_ids.h"
 
 int32_t adi_adrv9001_gpio_GpIntMask_Set(adi_adrv9001_Device_t *device, uint32_t gpIntMask)
 {
@@ -159,7 +160,7 @@ int32_t adi_adrv9001_gpio_InputPinLevel_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_gpio_ManualInput_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualInput_Configure_Validate(adi_adrv9001_Device_t *device,
                                            adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_DIGITAL_00, ADI_ADRV9001_GPIO_DIGITAL_15);
@@ -179,7 +180,7 @@ int32_t adi_adrv9001_gpio_ManualInput_Configure(adi_adrv9001_Device_t *device, a
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_gpio_ManualOutput_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualOutput_Configure_Validate(adi_adrv9001_Device_t *device,
                                         adi_adrv9001_GpioPinCrumbSel_e crumb)
 {
     ADI_RANGE_CHECK(device, crumb, ADI_ADRV9001_GPIO_PIN_CRUMB_01_00, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
@@ -205,7 +206,7 @@ int32_t adi_adrv9001_gpio_ManualOutput_Configure(adi_adrv9001_Device_t *device, 
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_gpio_ManualAnalogInput_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualAnalogInput_Configure_Validate(adi_adrv9001_Device_t *device,
                                              adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_ANALOG_00, ADI_ADRV9001_GPIO_ANALOG_11);
@@ -320,7 +321,7 @@ int32_t adi_adrv9001_gpio_ControlInit_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t __maybe_unused adi_adrv9001_gpio_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_Configure_Validate(adi_adrv9001_Device_t *device,
                                    adi_adrv9001_GpioSignal_e signal,
                                    adi_adrv9001_GpioCfg_t *gpioConfig)
 {
@@ -390,7 +391,7 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
 
     /* Command ARM to associate the currently assigned GPIO for the requested signal ID */
     extData[0] = 0;
-    extData[1] = ADRV9001_ARM_OBJECTID_GPIO_CTRL;
+    extData[1] = OBJID_GS_GPIO_CTRL;
     extData[2] = signal;
     extData[3] = adrv9001_gpio_PinToMailbox_Convert(gpioConfig->pin);
     extData[4] = GPIO_ENABLE | gpioConfig->master | gpioConfig->polarity;
@@ -419,7 +420,7 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_gpio_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_Inspect_Validate(adi_adrv9001_Device_t *device,
                                  adi_adrv9001_GpioSignal_e gpioSignalSel,
                                  adi_adrv9001_GpioCfg_t *gpioConfig)
 {
@@ -446,7 +447,7 @@ int32_t adi_adrv9001_gpio_Inspect(adi_adrv9001_Device_t *device,
 
     /* Command ARM to return the currently assigned GPIO for the requested signal ID */
     extData[0] = 0;
-    extData[1] = ADRV9001_ARM_OBJECTID_GPIO_CTRL;
+    extData[1] = OBJID_GS_GPIO_CTRL;
     extData[2] = signal;
     ADI_EXPECT(adi_adrv9001_arm_Cmd_Write, device, ADRV9001_ARM_GET_OPCODE, &extData[0], sizeof(extData));
 
