@@ -36,14 +36,6 @@
  @Description   XX routines implementation for Linux.
 *//***************************************************************************/
 #include <linux/version.h>
-
-#if defined(CONFIG_MODVERSIONS) && !defined(MODVERSIONS)
-#define MODVERSIONS
-#endif
-#ifdef MODVERSIONS
-#include <config/modversions.h>
-#endif /* MODVERSIONS */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>

@@ -31,18 +31,6 @@
  */
 
 #include <linux/version.h>
-
-#if defined(CONFIG_MODVERSIONS) && !defined(MODVERSIONS)
-#define MODVERSIONS
-#endif
-#ifdef MODVERSIONS
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-#include <linux/modversions.h>
-#else
-#include <config/modversions.h>
-#endif    /* LINUX_VERSION_CODE */
-#endif /* MODVERSIONS */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 

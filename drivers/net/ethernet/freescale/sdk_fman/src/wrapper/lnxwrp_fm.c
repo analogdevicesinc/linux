@@ -39,12 +39,6 @@
 
 #include <linux/version.h>
 #include <linux/slab.h>
-#if defined(CONFIG_MODVERSIONS) && !defined(MODVERSIONS)
-#define MODVERSIONS
-#endif
-#ifdef MODVERSIONS
-#include <config/modversions.h>
-#endif /* MODVERSIONS */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>

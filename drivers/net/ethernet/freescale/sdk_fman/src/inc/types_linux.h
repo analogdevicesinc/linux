@@ -34,14 +34,6 @@
 #define __TYPES_LINUX_H__
 
 #include <linux/version.h>
-
-#if defined(CONFIG_MODVERSIONS) && !defined(MODVERSIONS)
-#define MODVERSIONS
-#endif
-#ifdef MODVERSIONS
-#include <config/modversions.h>
-#endif /* MODVERSIONS */
-
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <asm/io.h>
