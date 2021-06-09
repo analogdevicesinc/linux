@@ -88,7 +88,3 @@
 &lsio_mu6 {
 	compatible = "fsl,imx8qxp-mu", "fsl,imx6sx-mu";
 };
-
-&lsio_mu13 {
-	compatible = "fsl,imx8qxp-mu", "fsl,imx6sx-mu";
-};

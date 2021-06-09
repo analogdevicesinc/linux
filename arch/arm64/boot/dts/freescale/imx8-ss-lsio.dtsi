@@ -218,6 +218,7 @@ lsio_subsys: bus@5d000000 {
 	};
 
 	lsio_mu13: mailbox@5d280000 {
+		compatible = "fsl,imx8-mu-dsp", "fsl,imx6sx-mu";
 		reg = <0x5d280000 0x10000>;
 		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 		#mbox-cells = <2>;
