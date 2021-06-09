@@ -141,6 +141,13 @@ static int compare_of(struct device *dev, void *data)
 		return pdata->of_node == np;
 	}
 
+	/* This is a special case for dpu bliteng. */
+	if (strcmp(dev->driver->name, "imx-drm-dpu-bliteng") == 0) {
+		struct dpu_client_platformdata *pdata = dev->platform_data;
+
+		return pdata->of_node == np;
+	}
+
 	/* Special case for LDB, one device for two channels */
 	if (of_node_name_eq(np, "lvds-channel")) {
 		np = of_get_parent(np);
@@ -155,6 +162,11 @@ static const char *const imx_drm_ipu_comp_parents[] = {
 	"fsl,imx53-ipu",
 	"fsl,imx6q-ipu",
 	"fsl,imx6qp-ipu",
+};
+
+static const char *const imx_drm_dpu_comp_parents[] = {
+	"fsl,imx8qm-dpu",
+	"fsl,imx8qxp-dpu",
 };
 
 static bool imx_drm_parent_is_compatible(struct device *dev,
@@ -191,15 +203,77 @@ static inline bool has_ipu(struct device *dev)
 					    ARRAY_SIZE(imx_drm_ipu_comp_parents));
 }
 
+static inline bool has_dpu(struct device *dev)
+{
+	return imx_drm_parent_is_compatible(dev, imx_drm_dpu_comp_parents,
+					ARRAY_SIZE(imx_drm_dpu_comp_parents));
+}
+
+static void add_dpu_bliteng_components(struct device *dev,
+				       struct component_match **matchptr)
+{
+	/*
+	 * As there may be two dpu bliteng device,
+	 * so need add something in compare data to distinguish.
+	 * Use its parent dpu's of_node as the data here.
+	 */
+	struct device_node *port, *parent;
+	/* assume max dpu number is 8 */
+	struct device_node *dpu[8];
+	int num_dpu = 0;
+	int i, j;
+	bool found = false;
+
+	for (i = 0; ; i++) {
+		port = of_parse_phandle(dev->of_node, "ports", i);
+		if (!port)
+			break;
+
+		parent = of_get_parent(port);
+
+		for (j = 0; j < num_dpu; j++) {
+			if (dpu[j] == parent) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found) {
+			found = false;
+		} else {
+			if (num_dpu >= ARRAY_SIZE(dpu)) {
+				dev_err(dev, "The number of found dpu is greater than max [%ld].\n",
+					ARRAY_SIZE(dpu));
+				of_node_put(parent);
+				of_node_put(port);
+				break;
+			}
+
+			dpu[num_dpu] = parent;
+			num_dpu++;
+
+			component_match_add(dev, matchptr, compare_of, parent);
+		}
+
+		of_node_put(parent);
+		of_node_put(port);
+	}
+}
+
 static int imx_drm_bind(struct device *dev)
 {
 	struct drm_device *drm;
 	int ret;
 
-	if (has_ipu(dev))
+	if (has_ipu(dev)) {
 		drm = drm_dev_alloc(&imx_drm_ipu_driver, dev);
-	else
+	} else if (has_dpu(dev)) {
+		imx_drm_driver.driver_features |= DRIVER_RENDER;
+
 		drm = drm_dev_alloc(&imx_drm_driver, dev);
+	} else {
+		drm = drm_dev_alloc(&imx_drm_driver, dev);
+	}
 
 	if (IS_ERR(drm))
 		return PTR_ERR(drm);
@@ -266,6 +340,9 @@ static void imx_drm_unbind(struct device *dev)
 {
 	struct drm_device *drm = dev_get_drvdata(dev);
 
+	if (has_dpu(dev))
+		imx_drm_driver.driver_features &= ~DRIVER_RENDER;
+
 	drm_dev_unregister(drm);
 
 	drm_kms_helper_poll_fini(drm);
@@ -285,7 +362,14 @@ static const struct component_master_ops imx_drm_ops = {
 
 static int imx_drm_platform_probe(struct platform_device *pdev)
 {
-	int ret = drm_of_component_probe(&pdev->dev, compare_of, &imx_drm_ops);
+	struct component_match *match = NULL;
+	int ret;
+
+	if (has_dpu(&pdev->dev))
+		add_dpu_bliteng_components(&pdev->dev, &match);
+
+	ret = drm_of_component_probe_with_match(&pdev->dev, match, compare_of,
+						&imx_drm_ops);
 
 	if (!ret)
 		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
