@@ -205,9 +205,7 @@ typedef enum adi_adrv9001_GpioSignal
     ADI_ADRV9001_GPIO_SIGNAL_TX_CAL_EN,                     /*!< Tx channel 1 and 2  calibration enable signal */
     ADI_ADRV9001_GPIO_SIGNAL_CAL_UPDATE,                    /*!< Calibration update selection signal  */
 
-#ifndef ADI_ADRV9001_SI_REV_B0
     ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_2_TABLE_SELECT,         /*!< Frequency hopping table select for HOP 2 */
-#endif
 
     ADI_ADRV9001_GPIO_SIGNAL_RX1_LNA_ATTENUATION_1,         /*!< Rx1 LNA attenuation control 1 */
     ADI_ADRV9001_GPIO_SIGNAL_RX1_LNA_ATTENUATION_2,         /*!< Rx1 LNA attenuation control 2 */

@@ -89,7 +89,7 @@ int32_t adi_adrv9001_Radio_Carrier_Inspect(adi_adrv9001_Device_t *adrv9001,
  */
     int32_t adi_adrv9001_Radio_Pll_Configure(adi_adrv9001_Device_t *adrv9001,
                                              adi_adrv9001_Pll_e pllId,
-	                                         adi_adrv9001_PllConfig_t *pllConfig);
+                                             adi_adrv9001_PllConfig_t *pllConfig);
 
 /**
  * \brief Gets the parameters for the given pll
@@ -106,7 +106,7 @@ int32_t adi_adrv9001_Radio_Carrier_Inspect(adi_adrv9001_Device_t *adrv9001,
  */
     int32_t adi_adrv9001_Radio_Pll_Inspect(adi_adrv9001_Device_t *adrv9001,
                                            adi_adrv9001_Pll_e pllId,
-		                                   adi_adrv9001_PllConfig_t *pllConfig);
+                                           adi_adrv9001_PllConfig_t *pllConfig);
 /**
  * \brief Check if the specified PLL is locked
  *

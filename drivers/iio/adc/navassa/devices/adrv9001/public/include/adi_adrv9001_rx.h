@@ -165,18 +165,15 @@ int32_t adi_adrv9001_Rx_Gain_Get(adi_adrv9001_Device_t *adrv9001,
  *
  * \pre Channel state is RF_ENABLED
  *
- * \param[in]  adrv9001      Context variable - Pointer to the ADRV9001 device data structure
- * \param[in]  channel       RX Channel for which RSSI status to be read back
- * \param[out] rxRssiStatus  Pointer to structure (of type adi_adrv9001_RxRssiStatus_t) to store the RSSI status
- *                           read back from ADRV9001 device for the given Rx channel.
- *                           The structure contains 'mantissa' and 'exponent' values of linear power.
- *                           Linear power is calculated by this formula: linear power = (mantissa * 2^-15) * 2^-exponent
+ * \param[in]  adrv9001         Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in]  channel          RX Channel for which RSSI status to be read back
+ * \param[out] rxRssiPower_mdB  The measured Rx RSSI power, denoted in mdB
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_Rx_Rssi_Read(adi_adrv9001_Device_t *adrv9001,
                                   adi_common_ChannelNumber_e channel,
-                                  adi_adrv9001_RxRssiStatus_t *rxRssiStatus);
+                                  uint32_t *rxRssiPower_mdB);
 
 /**
  * \brief This function gets the decimated Power (Dec Power) for the specified channel.
@@ -398,6 +395,36 @@ int32_t adi_adrv9001_Rx_AdcType_Get(adi_adrv9001_Device_t *adrv9001,
 int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure(adi_adrv9001_Device_t *adrv9001,
                                                  adi_common_ChannelNumber_e channel,
                                                  adi_adrv9001_GainIndexPinCfg_t *gainIndexPinCfg);
+
+/**
+ * \brief Configure RX port switching
+ * 
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ *
+ * \pre Channel state must be STANDBY
+ *
+ * \param[in] adrv9001         Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] switchConfig     The desired RX port switch configuration
+ * 
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Rx_PortSwitch_Configure(adi_adrv9001_Device_t *adrv9001, 
+                                             adi_adrv9001_RxPortSwitchCfg_t *switchConfig);
+
+/**
+ * \brief Inspect the current RX port switching settings
+ * 
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ *
+ * \pre Channel state any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED
+ *
+ * \param[in]  adrv9001         Context variable - Pointer to the ADRV9001 device data structure
+ * \param[out] switchConfig     The current RX port switch configuration
+ * 
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Rx_PortSwitch_Inspect(adi_adrv9001_Device_t *adrv9001, 
+                                           adi_adrv9001_RxPortSwitchCfg_t *switchConfig);
 
 #ifdef __cplusplus
 }

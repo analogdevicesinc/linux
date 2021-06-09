@@ -132,7 +132,7 @@ static const uint32_t RX_CHANNELS[] = {
 
 /****************************************************** Static Functions *******************************************************/
 
-static int32_t adrv9001_DmaMemWriteByte(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_DmaMemWriteByte(adi_adrv9001_Device_t *device,
     uint32_t address,
     const uint8_t data[],
     uint32_t byteCount)
@@ -216,7 +216,7 @@ static int32_t adrv9001_DmaMemWriteByte(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_DmaMemReadByte(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_DmaMemReadByte(adi_adrv9001_Device_t *device,
     uint32_t address,
     uint8_t returnData[],
     uint32_t byteCount,
@@ -333,7 +333,7 @@ static int32_t adrv9001_DmaMemReadByte(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_FlexStreamProcessorMemWriteByte(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_FlexStreamProcessorMemWriteByte(adi_adrv9001_Device_t *device,
                                                         uint32_t address,
                                                         const uint8_t data[],
                                                         uint32_t byteCount,
@@ -412,7 +412,7 @@ static int32_t adrv9001_FlexStreamProcessorMemWriteByte(adi_adrv9001_Device_t *d
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_FlexStreamProcessorMemReadByte(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_FlexStreamProcessorMemReadByte(adi_adrv9001_Device_t *device,
                                                        uint32_t address,
                                                        uint8_t returnData[],
                                                        uint32_t byteCount,
@@ -1620,7 +1620,7 @@ static void adrv9001_DeviceSysConfigWrite(adi_adrv9001_Device_t *device, const a
 }
 
 /* Write PFIR coefficients */
-static int32_t adrv9001_PfirCoeff_Write(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_PfirCoeff_Write(adi_adrv9001_Device_t *device,
                                         const int32_t *coefficients,
                                         uint32_t pfirSize,
                                         uint8_t cfgData[],
@@ -1682,7 +1682,7 @@ typedef struct {
     int32_t 		coefficients[PFIR_WBNB_SIZE]; //!< coefficients
 } pfirWbNbBuffer_t;
  **/
-static int32_t adrv9001_PfirWbNbFilterBank_Write(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_PfirWbNbFilterBank_Write(adi_adrv9001_Device_t *device,
                                                  const adi_adrv9001_PfirWbNbBuffer_t *pfirBufferAddr,
                                                  uint32_t pfirSize,
                                                  uint8_t cfgData[],
@@ -1737,7 +1737,7 @@ typedef struct {
     int32_t 		coefficients[PFIR_PULSE_SIZE]; //!< coefficients
 } pfirPulseBuffer_t;
  **/
-static int32_t adrv9001_PfirRxNbPulShpFilterBank_Write(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_PfirRxNbPulShpFilterBank_Write(adi_adrv9001_Device_t *device,
                                                        const adi_adrv9001_PfirPulseBuffer_t *pfirBufferAddr,
                                                        uint32_t pfirSize,
                                                        uint8_t cfgData[],
@@ -1776,7 +1776,7 @@ static int32_t adrv9001_PfirRxNbPulShpFilterBank_Write(adi_adrv9001_Device_t *de
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_mag21CompPfir_Write(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_mag21CompPfir_Write(adi_adrv9001_Device_t *device,
                                             const adi_adrv9001_PfirMag21Buffer_t **pfirMag21BufferStructAddr,
                                             uint32_t totalFilters,
                                             uint32_t pfirSize,
@@ -1810,7 +1810,7 @@ static int32_t adrv9001_mag21CompPfir_Write(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_mag13CompPfir_Write(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_mag13CompPfir_Write(adi_adrv9001_Device_t *device,
                                             const adi_adrv9001_PfirMag13Buffer_t **pfirMag13BufferStructAddr,
                                             uint32_t totalFilters,
                                             uint32_t pfirSize,
@@ -1845,7 +1845,7 @@ static int32_t adrv9001_mag13CompPfir_Write(adi_adrv9001_Device_t *device,
 }
 
 /* Refer PFIR buffer Structure: pfirBuffer_t in ARM firmware REPO for details */
-static int32_t adrv9001_PfirFilterCoeffWrite(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_PfirFilterCoeffWrite(adi_adrv9001_Device_t *device,
                                              const adi_adrv9001_PfirBuffer_t *pfirBuffer,
                                              uint32_t *profileAddr,
                                              uint32_t *checksum)
@@ -2775,7 +2775,7 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txDpProfile.txPreProc.txPreProcWbNbPfirQBankSel, ADI_ADRV9001_PFIR_BANK_A, ADI_ADRV9001_PFIR_BANK_D);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txDpProfile.txIqdmDuc.iqdmDucMode, ADI_ADRV9001_TX_DP_IQDMDUC_MODE0, ADI_ADRV9001_TX_DP_IQDMDUC_MODE2);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.ssiType, ADI_ADRV9001_SSI_TYPE_DISABLE, ADI_ADRV9001_SSI_TYPE_LVDS);
-            ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.ssiDataFormatSel, ADI_ADRV9001_SSI_FORMAT_2_BIT_SYMBOL_DATA, ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA);
+            ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.ssiDataFormatSel, ADI_ADRV9001_SSI_FORMAT_2_BIT_SYMBOL_DATA, ADI_ADRV9001_SSI_FORMAT_22_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE_8_BIT_GAIN_INDEX);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.numLaneSel, ADI_ADRV9001_SSI_1_LANE, ADI_ADRV9001_SSI_4_LANE);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.strobeType, ADI_ADRV9001_SSI_SHORT_STROBE, ADI_ADRV9001_SSI_LONG_STROBE);
         }

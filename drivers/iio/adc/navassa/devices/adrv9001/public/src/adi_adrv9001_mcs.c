@@ -23,7 +23,7 @@
 #include "adrv9001_validators.h"
 
 /* Reads back PLL MCS status register and populates adi_adrv9001_pllSyncStatus_t */
-static int32_t adi_adrv9001_Mcs_PllStatus_Get (adi_adrv9001_Device_t *adrv9001, 
+static __maybe_unused int32_t adi_adrv9001_Mcs_PllStatus_Get (adi_adrv9001_Device_t *adrv9001, 
                                                adi_adrv9001_Pll_e pll, 
                                                adi_adrv9001_PllSyncStatus_t *pllStatus)
 {
@@ -55,7 +55,7 @@ static int32_t adi_adrv9001_Mcs_PllStatus_Get (adi_adrv9001_Device_t *adrv9001,
 }
 
 /* Reads back digital MCS status register and populates adi_adrv9001_McsStatus_t */
-static int32_t adi_adrv9001_Mcs_DigitalStatus_Get (adi_adrv9001_Device_t *adrv9001, 
+static __maybe_unused int32_t adi_adrv9001_Mcs_DigitalStatus_Get (adi_adrv9001_Device_t *adrv9001, 
                                                    adi_adrv9001_McsStatus_t *mcsStatus)
 {
     uint8_t mcsStatusRead = 0;
@@ -74,7 +74,7 @@ static int32_t adi_adrv9001_Mcs_DigitalStatus_Get (adi_adrv9001_Device_t *adrv90
 }
 
 /* Reads back digital Rx LVDS MCS status register and populates adi_adrv9001_RxLvdsSyncStatus_t */
-static int32_t adi_adrv9001_Mcs_RxLvdsStatus_Get(adi_adrv9001_Device_t *adrv9001, 
+static __maybe_unused int32_t adi_adrv9001_Mcs_RxLvdsStatus_Get(adi_adrv9001_Device_t *adrv9001, 
                                                  adi_common_ChannelNumber_e channel, 
                                                  adi_adrv9001_RxLvdsSyncStatus_t *lvdsStatus)
 {
@@ -97,7 +97,32 @@ static int32_t adi_adrv9001_Mcs_RxLvdsStatus_Get(adi_adrv9001_Device_t *adrv9001
     lvdsStatus->lvdsSecondSyncComplete  = (bool)secondLvdsMcsStatusRead;
 
     ADI_API_RETURN(adrv9001);
-}                                                
+}
+
+static __maybe_unused int32_t adi_adrv9001_Mcs_RfPllPhaseDifference_Get(adi_adrv9001_Device_t *adrv9001, 
+                                                         adi_adrv9001_Pll_e pll,
+                                                         float *phaseDifference_degrees)
+{
+    uint32_t readData = 0;
+    adrv9001_BfNvsPllMemMap_e instance;
+    static const adrv9001_BfNvsPllMemMap_e instances[] = {
+        ADRV9001_BF_RF1_PLL,
+        ADRV9001_BF_RF2_PLL,
+        ADRV9001_BF_AUX_PLL,
+        ADRV9001_BF_CLK_PLL,
+        ADRV9001_BF_CLK_PLL_LP
+    };
+    static const uint32_t TWOS_COMP_MID = 2 << 22;
+    static const uint32_t TWOS_COMP_MAX = 2 << 23;
+    
+    instance = instances[pll];
+    
+    ADI_EXPECT(adrv9001_NvsPllMemMap_Phdiff_Get, adrv9001, instance, &readData);
+    *phaseDifference_degrees = readData > TWOS_COMP_MID ? readData - TWOS_COMP_MAX : readData;
+    *phaseDifference_degrees = *phaseDifference_degrees / (float)ADRV9001_CLK_PLL_MODULUS * 360.0f;
+    
+    ADI_API_RETURN(adrv9001);
+}
 
 int32_t adi_adrv9001_Mcs_Status_Get(adi_adrv9001_Device_t *adrv9001,
                                     adi_adrv9001_McsStatus_t *mcsStatus)
@@ -119,6 +144,9 @@ int32_t adi_adrv9001_Mcs_Status_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_EXPECT(adi_adrv9001_Mcs_RxLvdsStatus_Get, adrv9001, ADI_CHANNEL_2,        &mcsStatus->rx2LvdsSyncStatus);  /* Rx2 LVDS Sync status */
     /* Get digital synchronization status */
     ADI_EXPECT(adi_adrv9001_Mcs_DigitalStatus_Get, adrv9001, mcsStatus); /* Digital sync status */
+    
+    ADI_EXPECT(adi_adrv9001_Mcs_RfPllPhaseDifference_Get, adrv9001, ADI_ADRV9001_PLL_LO1, &mcsStatus->rfPll1Phase_degrees);
+    ADI_EXPECT(adi_adrv9001_Mcs_RfPllPhaseDifference_Get, adrv9001, ADI_ADRV9001_PLL_LO2, &mcsStatus->rfPll2Phase_degrees);
 
     ADI_API_RETURN(adrv9001);
 }
