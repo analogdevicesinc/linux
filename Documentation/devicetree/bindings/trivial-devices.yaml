@@ -44,6 +44,8 @@ properties:
           - adi,adt7490
             # Three-Axis Digital Accelerometer
           - adi,adxl345
+            # ADXL355:- 3-Axis Low noise MEMS Accelerometer.
+          - adi,adxl355
             # Three-Axis Digital Accelerometer (backward-compatibility value "adi,adxl345" must be listed too)
           - adi,adxl346
             # AMS iAQ-Core VOC Sensor
