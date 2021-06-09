@@ -17,7 +17,7 @@
 #include "adi_adrv9001_gpio.h"
 #include "adrv9001_bf.h"
 
-static int32_t __maybe_unused adi_adrv9001_AuxDac_Configure_Validate(adi_adrv9001_Device_t *device, adi_adrv9001_AuxDac_e auxDac)
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_AuxDac_Configure_Validate(adi_adrv9001_Device_t *device, adi_adrv9001_AuxDac_e auxDac)
 {
     ADI_RANGE_CHECK(device, auxDac, ADI_ADRV9001_AUXDAC0, ADI_ADRV9001_AUXDAC3);
 
@@ -65,7 +65,7 @@ int32_t adi_adrv9001_AuxDac_Configure(adi_adrv9001_Device_t *device, adi_adrv900
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_AuxDac_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_AuxDac_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                    adi_adrv9001_AuxDac_e auxDac,
                                                                    bool *enabled)
 {
@@ -116,7 +116,7 @@ int32_t adi_adrv9001_AuxDac_Inspect(adi_adrv9001_Device_t *device, adi_adrv9001_
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_AuxDac_Code_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_AuxDac_Code_Set_Validate(adi_adrv9001_Device_t *device,
                                                                     adi_adrv9001_AuxDac_e auxDac,
                                                                     uint16_t code)
 {
@@ -155,7 +155,7 @@ int32_t adi_adrv9001_AuxDac_Code_Set(adi_adrv9001_Device_t *device, adi_adrv9001
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_AuxDac_Code_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_AuxDac_Code_Get_Validate(adi_adrv9001_Device_t *device,
                                                                     adi_adrv9001_AuxDac_e auxDac,
                                                                     uint16_t *code)
 {
