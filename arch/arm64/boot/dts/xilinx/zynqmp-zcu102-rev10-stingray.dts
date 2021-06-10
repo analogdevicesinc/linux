@@ -327,19 +327,4 @@
 		clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
 			"pll0-clk-rf16", "pll0-clk-rf32";
 	};
-
-	adf4371_clk1: adf4371-1@7 {
-		compatible = "adi,adf4371";
-		reg = <7>;
-
-		#address-cells = <1>;
-		#clock-cells = <1>;
-		#size-cells = <0>;
-
-		spi-max-frequency = <12500000>;
-		clocks = <&adf4371_clkin>;
-		clock-names = "clkin";
-		clock-output-names = "pll1-clk-rf8", "pll1-clk-rfaux8",
-			"pll1-clk-rf16", "pll1-clk-rf32";
-	};
 };
