@@ -27,6 +27,7 @@
 #include <drm/drm_vblank.h>
 #include <video/dpu.h>
 
+#include "dpu/dpu-blit.h"
 #include "imx-drm.h"
 
 static int legacyfb_depth = 16;
@@ -104,6 +105,21 @@ static const struct drm_driver imx_drm_ipu_driver = {
 	DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE(imx_drm_ipu_dumb_create),
 	.ioctls			= imx_drm_ioctls,
 	.num_ioctls		= ARRAY_SIZE(imx_drm_ioctls),
+	.fops			= &imx_drm_driver_fops,
+	.name			= "imx-drm",
+	.desc			= "i.MX DRM graphics",
+	.date			= "20120507",
+	.major			= 1,
+	.minor			= 0,
+	.patchlevel		= 0,
+};
+
+static const struct drm_driver imx_drm_dpu_driver = {
+	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC |
+				  DRIVER_RENDER,
+	DRM_GEM_DMA_DRIVER_OPS,
+	.ioctls			= imx_drm_dpu_ioctls,
+	.num_ioctls		= ARRAY_SIZE(imx_drm_dpu_ioctls),
 	.fops			= &imx_drm_driver_fops,
 	.name			= "imx-drm",
 	.desc			= "i.MX DRM graphics",
@@ -268,9 +284,7 @@ static int imx_drm_bind(struct device *dev)
 	if (has_ipu(dev)) {
 		drm = drm_dev_alloc(&imx_drm_ipu_driver, dev);
 	} else if (has_dpu(dev)) {
-		imx_drm_driver.driver_features |= DRIVER_RENDER;
-
-		drm = drm_dev_alloc(&imx_drm_driver, dev);
+		drm = drm_dev_alloc(&imx_drm_dpu_driver, dev);
 	} else {
 		drm = drm_dev_alloc(&imx_drm_driver, dev);
 	}
@@ -339,9 +353,6 @@ err_kms:
 static void imx_drm_unbind(struct device *dev)
 {
 	struct drm_device *drm = dev_get_drvdata(dev);
-
-	if (has_dpu(dev))
-		imx_drm_driver.driver_features &= ~DRIVER_RENDER;
 
 	drm_dev_unregister(drm);
 
