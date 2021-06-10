@@ -31,7 +31,7 @@
 	};
 
 	stingray_control@0 {
-	        compatible = "one-bit-adc-dac";
+		compatible = "adi,one-bit-adc-dac";
 	        #address-cells = <1>;
 	        #size-cells = <0>;
 
@@ -71,7 +71,7 @@
 	};
 
 	xud_control@1 {
-		compatible = "one-bit-adc-dac";
+		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -111,7 +111,7 @@
 	};
 
 	imu_control@2 {
-		compatible = "one-bit-adc-dac";
+		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
