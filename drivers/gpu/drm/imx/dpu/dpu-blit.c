@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -192,7 +192,7 @@ static int imx_drm_dpu_get_param_ioctl(struct drm_device *drm_dev, void *data,
 	return ret;
 }
 
-static struct drm_ioctl_desc imx_drm_dpu_ioctls[] = {
+const struct drm_ioctl_desc imx_drm_dpu_ioctls[3] = {
 	DRM_IOCTL_DEF_DRV(IMX_DPU_SET_CMDLIST, imx_drm_dpu_set_cmdlist_ioctl,
 			DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(IMX_DPU_WAIT, imx_drm_dpu_wait_ioctl,
@@ -200,11 +200,11 @@ static struct drm_ioctl_desc imx_drm_dpu_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(IMX_DPU_GET_PARAM, imx_drm_dpu_get_param_ioctl,
 			DRM_RENDER_ALLOW),
 };
+EXPORT_SYMBOL_GPL(imx_drm_dpu_ioctls);
 
 static int dpu_bliteng_bind(struct device *dev, struct device *master,
 			    void *data)
 {
-	struct drm_device *drm = (struct drm_device *)data;
 	struct imx_drm_dpu_bliteng *bliteng;
 	struct dpu_bliteng *dpu_bliteng = NULL;
 	int ret;
@@ -235,18 +235,12 @@ static int dpu_bliteng_bind(struct device *dev, struct device *master,
 
 	imx_dpu_num++;
 
-	if (drm->driver->num_ioctls == 0) {
-		drm->driver->ioctls = imx_drm_dpu_ioctls;
-		drm->driver->num_ioctls = ARRAY_SIZE(imx_drm_dpu_ioctls);
-	}
-
 	return 0;
 }
 
 static void dpu_bliteng_unbind(struct device *dev, struct device *master,
 			       void *data)
 {
-	struct drm_device *drm = (struct drm_device *)data;
 	struct imx_drm_dpu_bliteng *bliteng;
 	struct dpu_bliteng *dpu_bliteng = dev_get_drvdata(dev);
 	s32 id = dpu_bliteng_get_id(dpu_bliteng);
@@ -258,11 +252,6 @@ static void dpu_bliteng_unbind(struct device *dev, struct device *master,
 	dev_set_drvdata(dev, NULL);
 
 	imx_dpu_num--;
-
-	if (drm->driver->num_ioctls != 0) {
-		drm->driver->ioctls = NULL;
-		drm->driver->num_ioctls = 0;
-	}
 }
 
 static const struct component_ops dpu_bliteng_ops = {
