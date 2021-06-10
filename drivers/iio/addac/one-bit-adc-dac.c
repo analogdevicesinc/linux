@@ -179,7 +179,7 @@ static int one_bit_adc_dac_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id one_bit_adc_dac_dt_match[] = {
-	{ .compatible = "one-bit-adc-dac" },
+	{ .compatible = "adi,one-bit-adc-dac" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, one_bit_adc_dac_dt_match);
