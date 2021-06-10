@@ -536,6 +536,12 @@ static struct vsi_video_fmt vsi_coded_fmt[] = {
 		.dec_fmt = V4L2_DAEMON_CODEC_DEC_AVS2,
 		.flag = (V4L2_FMT_FLAG_DYN_RESOLUTION | V4L2_FMT_FLAG_COMPRESSED),
 	},
+	{
+		.fourcc = V4L2_PIX_FMT_XVID,
+		.enc_fmt = V4L2_DAEMON_CODEC_UNKNOW_TYPE,
+		.dec_fmt = V4L2_DAEMON_CODEC_DEC_XVID,
+		.flag = (V4L2_FMT_FLAG_DYN_RESOLUTION | V4L2_FMT_FLAG_COMPRESSED),
+	},
 };
 
 static int istiledfmt(int pixelformat)
