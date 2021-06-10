@@ -443,7 +443,7 @@ static int mxc_isi_imx8mp_parse_resets(struct mxc_isi_dev *mxc_isi)
 	struct device *dev = &mxc_isi->pdev->dev;
 	struct reset_control *reset;
 
-	reset = devm_reset_control_get(dev, "isi_rst_proc");
+	reset = devm_reset_control_get_optional_shared(dev, "isi_rst_proc");
 	if (IS_ERR(reset)) {
 		if (PTR_ERR(reset) != -EPROBE_DEFER)
 			dev_err(dev, "Failed to get isi proc reset control\n");
@@ -451,7 +451,7 @@ static int mxc_isi_imx8mp_parse_resets(struct mxc_isi_dev *mxc_isi)
 	}
 	mxc_isi->isi_rst_proc = reset;
 
-	reset = devm_reset_control_get(dev, "isi_rst_apb");
+	reset = devm_reset_control_get_optional_shared(dev, "isi_rst_apb");
 	if (IS_ERR(reset)) {
 		if (PTR_ERR(reset) != -EPROBE_DEFER)
 			dev_err(dev, "Failed to get isi apb reset control\n");
