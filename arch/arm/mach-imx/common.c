@@ -46,6 +46,7 @@ void __init imx6_enet_mac_init(const char *enet_compat, const char *ocotp_compat
 	struct device_node *ocotp_np, *enet_np, *from = NULL;
 	void __iomem *base;
 	struct property *newmac;
+	unsigned char tmpaddr[ETH_ALEN];
 	u32 macaddr_low;
 	u32 macaddr_high = 0;
 	u32 macaddr1_high = 0;
@@ -59,7 +60,7 @@ void __init imx6_enet_mac_init(const char *enet_compat, const char *ocotp_compat
 
 		from = enet_np;
 
-		if (!IS_ERR(of_get_mac_address(enet_np)))
+		if (!of_get_mac_address(enet_np, tmpaddr))
 			goto put_enet_node;
 
 		id = of_alias_get_id(enet_np, "ethernet");
