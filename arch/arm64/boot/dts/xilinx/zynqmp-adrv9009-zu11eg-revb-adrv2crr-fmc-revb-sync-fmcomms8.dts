@@ -908,5 +908,17 @@
 			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
 			adi,force-mute-enable;
 		};
+		hmc7044_fmc_c4: channel@4 {
+			reg = <4>;
+			adi,extended-name = "JESD_REFCLK_TX_OBS_CD";
+			adi,divider = <12>;	// 245760000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		};
+		hmc7044_fmc_c5: channel@5 {
+			reg = <5>;
+			adi,extended-name = "JESD_REFCLK_RX_CD";
+			adi,divider = <12>;	// 245760000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		};
 	};
 };
