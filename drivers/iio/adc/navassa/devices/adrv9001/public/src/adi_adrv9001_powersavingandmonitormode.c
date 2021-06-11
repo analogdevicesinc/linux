@@ -845,12 +845,11 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_RxDmrPd_Calibrate(adi
 int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_RxDmrPd_Get(adi_adrv9001_Device_t *adrv9001,
                                                                        uint32_t *pathDelay)
 {
-    ADI_ENTRY_PTR_EXPECT(adrv9001, pathDelay);
-
     uint8_t armReadBack[4] = { 0 };
-
     uint8_t channelMask = 0;
     uint32_t offset = 0;
+
+    ADI_ENTRY_PTR_EXPECT(adrv9001, pathDelay);
     ADI_EXPECT(adi_adrv9001_arm_MailBox_Get, adrv9001, OBJID_GO_CAL_STATUS, OBJID_IC_RX_DMR_PD, channelMask, offset, armReadBack, sizeof(armReadBack))
 
     adrv9001_ParseFourBytes(&offset, armReadBack, pathDelay);
@@ -875,6 +874,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_DmrSearch_Configure(a
 {
     uint8_t armData[24] = { 0 };
     uint8_t extData[5] = { 0 };
+    uint32_t offset = 4;     /* Skip size - not used */
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_DmrSearch_Configure_Validate, adrv9001, dmrSearchCfg);
 
@@ -882,7 +882,6 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_DmrSearch_Configure(a
     extData[1] = OBJID_GS_CONFIG;
     extData[2] = OBJID_CFG_MONITOR_DMR_SEARCH;
 
-    uint32_t offset = 4;     /* Skip size - not used */
     adrv9001_LoadFourBytes(&offset, armData, dmrSearchCfg->pathDelay);
     adrv9001_LoadTwoBytes(&offset, armData, dmrSearchCfg->magcorrTh);
     adrv9001_LoadTwoBytes(&offset, armData, dmrSearchCfg->detCnt1);
