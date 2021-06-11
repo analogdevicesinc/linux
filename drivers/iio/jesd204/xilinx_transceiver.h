@@ -137,4 +137,7 @@ int xilinx_xcvr_write_prog_div_rate(struct xilinx_xcvr *xcvr,
 int xilinx_xcvr_write_prog_div(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, int rx_prog_div, int tx_prog_div);
 
+int xilinx_xcvr_write_async_gearbox_en(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, bool en);
+
 #endif
