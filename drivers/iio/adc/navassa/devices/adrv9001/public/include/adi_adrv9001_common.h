@@ -2,7 +2,11 @@
 #define _ADI_ADRV9001_COMMON_H_
 
 #include "adi_adrv9001_common_types.h"
+#ifndef __KERNEL__
 #include <stdint.h>
+#else
+#include <linux/types.h>
+#endif
 
 #ifndef __maybe_unused
 #define __maybe_unused		__attribute__((__unused__))
