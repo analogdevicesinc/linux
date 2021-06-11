@@ -1466,6 +1466,34 @@ int xilinx_xcvr_write_prog_div_rate(struct xilinx_xcvr *xcvr,
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_write_prog_div_rate);
 
+static int xilinx_xcvr_gth34_write_async_gearbox_en(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, bool en)
+{
+	unsigned int mask;
+
+	mask = BIT(13) | BIT(7); /* TXGEARBOX_EN | TXBUF_EN */
+
+	return xilinx_xcvr_drp_update(xcvr, drp_port,
+		0x7c, mask, en ? mask : 0);
+}
+
+int xilinx_xcvr_write_async_gearbox_en(struct xilinx_xcvr *xcvr,
+					unsigned int drp_port, bool en)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		return 0;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
+		return xilinx_xcvr_gth34_write_async_gearbox_en(xcvr,
+			drp_port, en);
+	default:
+		return -EINVAL;
+	}
+}
+EXPORT_SYMBOL_GPL(xilinx_xcvr_write_async_gearbox_en);
+
 int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int div)
 {
