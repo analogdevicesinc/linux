@@ -212,12 +212,12 @@ static DEVICE_ATTR(reg_access, 0644, adxcvr_debug_reg_read,
 		   adxcvr_debug_reg_write);
 
 static ssize_t adxcvr_prbs_select_store(struct device *dev,
-				      struct device_attribute *attr,
-				      const char *buf, size_t count)
+					struct device_attribute *attr,
+					const char *buf, size_t count)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
-	unsigned int val, rval;
-	int ret;
+	unsigned int val, eval, rval, rst = 0;
+	int ret, i;
 
 	ret = kstrtouint(buf, 10, &rval);
 	if (ret)
@@ -227,16 +227,43 @@ static ssize_t adxcvr_prbs_select_store(struct device *dev,
 	if (ret < 0)
 		return ret;
 
+	eval = ret;
+
 	mutex_lock(&st->mutex);
+
+	if (st->xcvr.encoding == ENC_66B64B) {
+		rst = adxcvr_read(st, ADXCVR_REG_RESETN);
+		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+
+		for (i = 0; i < st->num_lanes; i++) {
+			ret = xilinx_xcvr_write_async_gearbox_en(&st->xcvr,
+				ADXCVR_DRP_PORT_CHANNEL(i), rval == 0);
+			if (ret < 0) {
+				mutex_unlock(&st->mutex);
+				return ret;
+			}
+		}
+
+		adxcvr_write(st, ADXCVR_REG_CONTROL,
+			((st->lpm_enable ? ADXCVR_LPM_DFE_N : 0) |
+			ADXCVR_SYSCLK_SEL(st->sys_clk_sel) |
+			ADXCVR_OUTCLK_SEL(rval ? XCVR_OUTCLK_PMA :
+			st->out_clk_sel)));
+	}
+
 	val = adxcvr_read(st, ADXCVR_REG_REG_PRBS_CNTRL);
 
 	val &= ~ADXCVR_PRBSEL(~0);
-	val |=  ADXCVR_PRBSEL(ret);
+	val |=  ADXCVR_PRBSEL(eval);
 
 	adxcvr_write(st, ADXCVR_REG_REG_PRBS_CNTRL, val);
 
 	adxcvr_bit_toggle_high(st, ADXCVR_REG_REG_PRBS_CNTRL,
 		ADXCVR_PRBS_CNT_RESET);
+
+	if (st->xcvr.encoding == ENC_66B64B)
+		adxcvr_write(st, ADXCVR_REG_RESETN, rst);
+
 	mutex_unlock(&st->mutex);
 
 	return count;
