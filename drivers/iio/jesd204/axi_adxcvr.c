@@ -378,16 +378,23 @@ static int adxcvr_status_error(struct device *dev)
 		status = adxcvr_read(st, ADXCVR_REG_STATUS);
 	} while ((timeout--) && (status == 0));
 
-	if (!status) {
+	if (!(status & BIT(0))) {
 		if (!st->qpll_enable && !st->cpll_enable) {
 			dev_info(dev, "%s %s: Not ready defer probe",
 				 adxcvr_sys_clock_sel_names[st->sys_clk_sel],
 				 st->tx_enable ? "TX" : "RX");
 			return -EPROBE_DEFER;
 		}
-		dev_err(dev, "%s %s Error: %x",
-			adxcvr_sys_clock_sel_names[st->sys_clk_sel],
-			st->tx_enable ? "TX" : "RX", status);
+
+		if (st->xcvr.version >= ADI_AXI_PCORE_VER(17, 4, 'a'))
+			dev_err(dev, "%s %s %s Error: %x",
+				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+				st->tx_enable ? "TX" : "RX",
+				status & BIT(4) ? "Unlocked" : "", status);
+		else
+			dev_err(dev, "%s %s Error: %x",
+				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+				st->tx_enable ? "TX" : "RX", status);
 		return -EIO;
 	}
 
