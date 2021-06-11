@@ -11,7 +11,11 @@
 * see the "LICENSE.txt" file in this zip file.
 */
 
-#include <stdio.h>
+#ifndef __KERNEL__
+#include <stdint.h>
+#else
+#include <linux/types.h>
+#endif
 #include "adi_adrv9001_common.h"
 
 int32_t adi_common_port_to_index(adi_common_Port_e port, uint8_t *index)
@@ -20,27 +24,27 @@ int32_t adi_common_port_to_index(adi_common_Port_e port, uint8_t *index)
     {
         return -2;
     }
-    
+
     switch (port)
     {
-    case ADI_RX:  
-        *index = 0; 
+    case ADI_RX:
+        *index = 0;
         break;
-    case ADI_TX:  
+    case ADI_TX:
         *index = 1;
         break;
     case ADI_ORX:
         *index = 2;
         break;
-    case ADI_ILB: 
+    case ADI_ILB:
         *index = 3;
         break;
-    case ADI_ELB: 
+    case ADI_ELB:
         *index = 4;
         break;
     default: return -2;
     }
-    
+
     return 0;
 }
 
@@ -50,18 +54,18 @@ int32_t adi_common_channel_to_index(adi_common_ChannelNumber_e channel, uint8_t 
     {
         return -2;
     }
-    
+
     switch (channel)
     {
-    case ADI_CHANNEL_1: 
+    case ADI_CHANNEL_1:
         *index = 0;
         break;
-    case ADI_CHANNEL_2: 
+    case ADI_CHANNEL_2:
         *index = 1;
         break;
     default: return -2;
     }
-    
+
     return 0;
 }
 
@@ -71,27 +75,27 @@ int32_t adi_common_index_to_port(uint8_t index, adi_common_Port_e *port)
     {
         return -2;
     }
-    
+
     switch (index)
     {
-    case 0: 
+    case 0:
         *port = ADI_RX;
         break;
-    case 1: 
+    case 1:
         *port = ADI_TX;
         break;
-    case 2: 
+    case 2:
         *port = ADI_ORX;
         break;
-    case 3: 
+    case 3:
         *port = ADI_ILB;
         break;
-    case 4: 
-        *port = ADI_ELB; 
+    case 4:
+        *port = ADI_ELB;
         break;
     default: return -2;
     }
-    
+
     return 0;
 }
 
@@ -101,17 +105,17 @@ int32_t adi_common_index_to_channel(uint8_t index, adi_common_ChannelNumber_e *c
     {
         return -2;
     }
-    
+
     switch (index)
     {
-    case 0: 
+    case 0:
         *channel = ADI_CHANNEL_1;
         break;
-    case 1: 
+    case 1:
         *channel = ADI_CHANNEL_2;
         break;
     default: return -2;
     }
-    
+
     return 0;
 }
