@@ -1063,23 +1063,23 @@
 
 	pinctrl_uart1_default: uart1-default {
 		mux {
-			groups = "uart1_5_grp";
+			groups = "uart1_4_grp";
 			function = "uart1";
 		};
 
 		conf {
-			groups = "uart1_5_grp";
+			groups = "uart1_4_grp";
 			slew-rate = <SLEW_RATE_SLOW>;
 			io-standard = <IO_STANDARD_LVCMOS18>;
 		};
 
 		conf-rx {
-			pins = "MIO21";
+			pins = "MIO17";
 			bias-high-impedance;
 		};
 
 		conf-tx {
-			pins = "MIO20";
+			pins = "MIO16";
 			bias-disable;
 		};
 	};
