@@ -470,7 +470,7 @@ static int xilinx_xcvr_get_qpll_vco_ranges(struct xilinx_xcvr *xcvr,
 		*vco0_max = xcvr->vco0_max;
 
 	if (xcvr->vco1_min)
-		*vco0_min = xcvr->vco1_min;
+		*vco1_min = xcvr->vco1_min;
 
 	if (xcvr->vco1_max)
 		*vco1_max = xcvr->vco1_max;
