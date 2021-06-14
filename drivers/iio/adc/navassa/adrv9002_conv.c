@@ -195,7 +195,9 @@ int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 	axiadc_write(st, AIM_AXI_REG(off, reg_ctrl), reg_value);
 	if (tx) {
 		divider = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CLK_RATIO));
-		rate = 32 / ((1 << n_lanes) * (1 + cmos_ddr) * divider) - 1;
+		rate = 32 / ((1 << n_lanes) * (1 +
+			(phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS) ?
+				1 : cmos_ddr) * divider) - 1;
 		axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_RATE), rate);
 	}
 
