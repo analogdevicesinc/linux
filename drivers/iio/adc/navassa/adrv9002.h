@@ -28,12 +28,6 @@
 #define ADRV_ADDRESS_PORT(addr)		((addr) >> 8)
 #define ADRV_ADDRESS_CHAN(addr)		((addr) & 0xFF)
 
-#ifdef CONFIG_ADRV9001_B0_HW_REV
-#define ADRV9002_FW_PATH 	"Navassa_EvaluationFw_b0.bin"
-#else
-#define ADRV9002_FW_PATH	"Navassa_EvaluationFw_c0.bin"
-#endif
-
 enum {
 	ADRV9002_CHANN_1,
 	ADRV9002_CHANN_2,

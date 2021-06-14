@@ -349,13 +349,6 @@ config ADRV9001
           ADRV9001/ADRV9002 RF Transceivers. Provides direct access
           via sysfs
 
-config ADRV9001_B0_HW_REV
-	bool "Select the device B0 HW revision"
-	depends on ADRV9001
-	default n
-	help
-	  Say yes if running a B0 HW revision.
-
 config ADRV9009
 	tristate "Analog Devices ADRV9009/ADRV9008 RF Transceiver driver"
 	depends on SPI
