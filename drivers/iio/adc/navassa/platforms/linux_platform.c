@@ -10,56 +10,10 @@
 #include <linux/gpio/consumer.h>
 #include <linux/spi/spi.h>
 #include "linux_platform.h"
-#include "adi_platform.h"
-#include "adi_platform_types.h"
 #include "adi_common_error.h"
+#include "adi_common_hal.h"
 
 #define SPI_MAX_SIZE	4096
-
-/**
- * \brief Opens a logFile. If the file is already open it will be closed and reopened.
- *
- * This function opens the file for writing and saves the resulting file
- * descriptor to the devHalCfg structure.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- * \param filename The user provided name of the file to open.
- *
- * \retval ADI_HAL_OK Function completed successfully, no action required
- * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
- * \retval ADI_HAL_LOGGING_FAIL If the function failed to open or write to the specified filename
- */
-int32_t linux_log_file_open(void *devHalCfg, const char *filename)
-{
-	return ADI_COMMON_ERR_OK;
-}
-
-/**
- * \brief Flushes the logFile buffer to the currently open log file.
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK Function completed successfully, no action required
- * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
- */
-int32_t linux_log_file_flush(void *devHalCfg)
-{
-	return ADI_COMMON_ERR_OK;
-}
-
-/**
- * \brief Gracefully closes the log file(s).
- *
- * \param devHalCfg Pointer to device instance specific platform settings
- *
- * \retval ADI_HAL_OK Function completed successfully, no action required
- * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
- * \retval ADI_HAL_LOGGING_FAIL Error while flushing or closing the log file.
- */
-int32_t linux_log_file_close(void *devHalCfg)
-{
-	return ADI_COMMON_ERR_OK;
-}
 
 /**
  * \brief Writes a message to the currently open logFile specified in the
@@ -415,24 +369,22 @@ int32_t (*adi_hal_SpiWrite)(void *devHalCfg, const uint8_t txData[], uint32_t nu
 int32_t (*adi_hal_SpiRead)(void *devHalCfg, const uint8_t txData[], uint8_t rxData[], uint32_t numRxBytes) = linux_spi_read;
 
 /* Logging interface */
-int32_t (*adi_hal_LogFileOpen)(void *devHalCfg, const char *filename) = linux_log_file_open;
-int32_t(*adi_hal_LogWrite)(void *devHalCfg, uint32_t logLevel, const char *comment, va_list argp) = linux_log_write;
-int32_t(*adi_hal_LogFileClose)(void *devHalCfg) = linux_log_file_close;
+int32_t (*adi_common_hal_LogWrite)(void *devHalCfg, uint32_t logLevel, const char *comment, va_list argp) = linux_log_write;
 
 /* Timer interface */
-int32_t (*adi_hal_Wait_us)(void *devHalCfg, uint32_t time_us) = linux_wait_us;
+int32_t (*adi_common_hal_Wait_us)(void *devHalCfg, uint32_t time_us) = linux_wait_us;
 
 /* Mcs interface */
-int32_t(*adi_hal_Mcs_Pulse)(void *devHalCfg, uint8_t numberOfPulses) = linux_mcs_pulse;
+int32_t (*adi_hal_Mcs_Pulse)(void *devHalCfg, uint8_t numberOfPulses) = linux_mcs_pulse;
 
 /* ssi */
 int32_t(*adi_hal_ssi_Reset)(void *devHalCfg) = linux_ssi_reset;
 
 /* File IO abstraction */
-int32_t(*adi_hal_ArmImagePageGet)(void *devHalCfg, const char *ImagePath, uint32_t pageIndex, uint32_t pageSize, uint8_t *rdBuff) = linux_image_page_get;
-int32_t(*adi_hal_StreamImagePageGet)(void *devHalCfg, const char *ImagePath, uint32_t pageIndex, uint32_t pageSize, uint8_t *rdBuff) = linux_image_page_get;
-int32_t(*adi_hal_RxGainTableEntryGet)(void *devHalCfg, const char *rxGainTablePath, uint16_t lineCount, uint8_t *gainIndex, uint8_t *rxFeGain,uint8_t *tiaControl, uint8_t *adcControl,
+int32_t (*adi_hal_ArmImagePageGet)(void *devHalCfg, const char *ImagePath, uint32_t pageIndex, uint32_t pageSize, uint8_t *rdBuff) = linux_image_page_get;
+int32_t (*adi_hal_StreamImagePageGet)(void *devHalCfg, const char *ImagePath, uint32_t pageIndex, uint32_t pageSize, uint8_t *rdBuff) = linux_image_page_get;
+int32_t (*adi_hal_RxGainTableEntryGet)(void *devHalCfg, const char *rxGainTablePath, uint16_t lineCount, uint8_t *gainIndex, uint8_t *rxFeGain, uint8_t *tiaControl, uint8_t *adcControl,
 				      uint8_t *extControl, uint16_t *phaseOffset, int16_t *digGain) = linux_rx_gain_table_entry_get;
-int32_t(*adi_hal_TxAttenTableEntryGet)(void *devHalCfg, const char *txAttenTablePath, uint16_t lineCount, uint16_t *attenIndex, uint8_t *txAttenHp,
+int32_t (*adi_hal_TxAttenTableEntryGet)(void *devHalCfg, const char *txAttenTablePath, uint16_t lineCount, uint16_t *attenIndex, uint8_t *txAttenHp,
 				       uint16_t *txAttenMult) = linux_tx_atten_table_entry_get;
 
