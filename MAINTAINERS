@@ -545,6 +545,14 @@ S:	Maintained
 F:	Documentation/scsi/advansys.txt
 F:	drivers/scsi/advansys.c
 
+ADXL313 THREE-AXIS DIGITAL ACCELEROMETER DRIVER
+M:	Lucas Stankus <lucas.p.stankus@gmail.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+F:	drivers/iio/accel/adxl313_core.c
+F:	drivers/iio/accel/adxl313_spi.c
+F:	drivers/iio/accel/adxl313_i2c.c
+
 ADXL34X THREE-AXIS DIGITAL ACCELEROMETER DRIVER (ADXL345/ADXL346)
 M:	Michael Hennerich <michael.hennerich@analog.com>
 W:	http://wiki.analog.com/ADXL345
