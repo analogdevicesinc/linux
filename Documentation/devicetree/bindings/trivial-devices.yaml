@@ -42,6 +42,8 @@ properties:
           - adi,adt7476
             # +/-1C TDM Extended Temp Range I.C
           - adi,adt7490
+            # Tiny Three-Axis Digital Accelerometer
+          - adi,adxl313
             # Three-Axis Digital Accelerometer
           - adi,adxl345
             # ADXL355:- 3-Axis Low noise MEMS Accelerometer.
