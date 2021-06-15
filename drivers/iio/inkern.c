@@ -902,7 +902,8 @@ void iio_buffer_channel_enable(struct iio_buffer *buffer,
 
 	set_bit(chan->channel_index, buffer->channel_mask);
 
-	memset(buffer->scan_mask, 0, BITS_TO_LONGS(chan->indio_dev->masklength));
+	memset(buffer->scan_mask, 0,
+	       BITS_TO_LONGS(chan->indio_dev->masklength) * sizeof(*buffer->scan_mask));
 	for_each_set_bit(ch, buffer->channel_mask, chan->indio_dev->num_channels)
 		set_bit(chan->indio_dev->channels[ch].scan_index, buffer->scan_mask);
 }
@@ -915,7 +916,8 @@ void iio_buffer_channel_disable(struct iio_buffer *buffer,
 
 	clear_bit(chan->channel_index, buffer->channel_mask);
 
-	memset(buffer->scan_mask, 0, BITS_TO_LONGS(chan->indio_dev->masklength));
+	memset(buffer->scan_mask, 0,
+	       BITS_TO_LONGS(chan->indio_dev->masklength) * sizeof(*buffer->scan_mask));
 	for_each_set_bit(ch, buffer->channel_mask, chan->indio_dev->num_channels)
 		set_bit(chan->indio_dev->channels[ch].scan_index, buffer->scan_mask);
 }
