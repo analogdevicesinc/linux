@@ -450,7 +450,8 @@ static int iio_channel_mask_clear(struct iio_dev *indio_dev,
 
 	clear_bit(bit, buffer->channel_mask);
 
-	memset(buffer->scan_mask, 0, BITS_TO_LONGS(indio_dev->masklength));
+	memset(buffer->scan_mask, 0,
+	       BITS_TO_LONGS(indio_dev->masklength) * sizeof(*buffer->scan_mask));
 	for_each_set_bit(ch, buffer->channel_mask, indio_dev->num_channels)
 		set_bit(indio_dev->channels[ch].scan_index, buffer->scan_mask);
 	return 0;
