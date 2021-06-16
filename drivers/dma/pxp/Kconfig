@@ -8,7 +8,6 @@ config MXC_PXP_V2
 
 config MXC_PXP_V3
 	bool "MXC PxP V3 support"
-	depends on ARM
 	select DMA_ENGINE
 	help
 	  Support the PxP V3(Pixel Pipeline) on i.MX7D. The PxP V3 supports
