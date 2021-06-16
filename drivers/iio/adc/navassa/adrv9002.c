@@ -1647,6 +1647,7 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 
 		*val = temp * 1000;
 		ret = IIO_VAL_INT;
+		break;
 	default:
 		ret = -EINVAL;
 	}
