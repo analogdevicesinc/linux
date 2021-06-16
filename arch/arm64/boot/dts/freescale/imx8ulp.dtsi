@@ -917,6 +917,17 @@
 				#clock-cells = <1>;
 				#reset-cells = <1>;
 			};
+
+			epxp: epxp@2db40000 {
+				compatible = "fsl,imx8ulp-pxp-dma", "fsl,imx7d-pxp-dma";
+				reg = <0x2db40000 0x10000>;
+				clocks = <&cgc2 IMX8ULP_CLK_LPAV_AHB_DIV>,
+					 <&pcc5 IMX8ULP_CLK_PXP>;
+				clock-names = "pxp_ipg", "pxp_axi";
+				power-domains = <&scmi_devpd IMX8ULP_PD_PXP>;
+				interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
+				status = "disabled";
+			};
 		};
 
 		gpu3d: gpu3d@2e000000 {
