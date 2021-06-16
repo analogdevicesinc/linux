@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/pxp_device.h>
 #include <linux/atomic.h>
+#include <linux/dma-buf.h>
 #include <linux/dma/imx-dma.h>
 
 #define BUFFER_HASH_ORDER 4
@@ -577,6 +578,182 @@ static bool chan_filter(struct dma_chan *chan, void *arg)
 		return false;
 }
 
+/*********************************************/
+/*         DMABUF ops for exporters          */
+/*********************************************/
+
+static struct sg_table *pxp_get_base_sgt(struct pxp_buf_obj *obj)
+{
+	int ret;
+	struct sg_table *sgt;
+
+	sgt = kmalloc(sizeof(*sgt), GFP_KERNEL);
+	if (!sgt) {
+		dev_err(pxp_dev, "failed to alloc sg table\n");
+		return NULL;
+	}
+
+	ret = dma_get_sgtable_attrs(pxp_dev, sgt, obj->virtual,
+				   (dma_addr_t)obj->offset,
+				   PAGE_ALIGN(obj->size), obj->attrs);
+	if (ret < 0) {
+		dev_err(pxp_dev, "failed to get scatterlist from DMA API\n");
+		kfree(sgt);
+		return NULL;
+	}
+
+	return sgt;
+}
+
+
+static int pxp_dmabuf_ops_attach(struct dma_buf *dbuf,
+	struct dma_buf_attachment *dbuf_attach)
+{
+	struct pxp_attachment *attach;
+	struct sg_table *sgt;
+	struct scatterlist *rd, *wr;
+	struct pxp_buf_obj *obj = dbuf->priv;
+	int ret, i;
+
+	attach = kzalloc(sizeof(*attach), GFP_KERNEL);
+	if (!attach)
+		return -ENOMEM;
+
+	sgt = &attach->sgt;
+	ret = sg_alloc_table(sgt, obj->sgt_base->orig_nents, GFP_KERNEL);
+	if (ret) {
+		kfree(attach);
+		return -ENOMEM;
+	}
+
+	rd = obj->sgt_base->sgl;
+	wr = sgt->sgl;
+	for (i = 0; i < sgt->orig_nents; ++i) {
+		sg_set_page(wr, sg_page(rd), rd->length, rd->offset);
+		rd = sg_next(rd);
+		wr = sg_next(wr);
+	}
+
+	attach->dma_dir = DMA_NONE;
+	dbuf_attach->priv = attach;
+
+	return 0;
+}
+
+static void pxp_dmabuf_ops_detach(struct dma_buf *dbuf,
+	struct dma_buf_attachment *db_attach)
+{
+	struct pxp_attachment *attach = db_attach->priv;
+	struct sg_table *sgt;
+
+	if (!attach)
+		return;
+
+	sgt = &attach->sgt;
+
+	if (attach->dma_dir != DMA_NONE)
+		dma_unmap_sgtable(db_attach->dev, sgt, attach->dma_dir,
+				  DMA_ATTR_SKIP_CPU_SYNC);
+	sg_free_table(sgt);
+	kfree(attach);
+	db_attach->priv = NULL;
+}
+
+static struct sg_table *pxp_dmabuf_ops_map(
+	struct dma_buf_attachment *db_attach, enum dma_data_direction dma_dir)
+{
+	struct pxp_attachment *attach = db_attach->priv;
+	struct mutex *lock = &db_attach->dmabuf->lock;
+	struct sg_table *sgt;
+
+	mutex_lock(lock);
+
+	sgt = &attach->sgt;
+	/* return previously mapped sg table */
+	if (attach->dma_dir == dma_dir) {
+		mutex_unlock(lock);
+		return sgt;
+	}
+
+	/* release any previous cache */
+	if (attach->dma_dir != DMA_NONE) {
+		dma_unmap_sgtable(db_attach->dev, sgt, attach->dma_dir,
+				  DMA_ATTR_SKIP_CPU_SYNC);
+		attach->dma_dir = DMA_NONE;
+	}
+
+	/*
+	 * mapping to the client with new direction, no cache sync
+	 * required see comment in vb2_dc_dmabuf_ops_detach()
+	 */
+	if (dma_map_sgtable(db_attach->dev, sgt, dma_dir,
+			    DMA_ATTR_SKIP_CPU_SYNC)) {
+		pr_err("failed to map scatterlist\n");
+		mutex_unlock(lock);
+		return ERR_PTR(-EIO);
+	}
+
+	attach->dma_dir = dma_dir;
+
+	mutex_unlock(lock);
+
+	return sgt;
+}
+
+static void pxp_dmabuf_ops_unmap(struct dma_buf_attachment *db_attach,
+				 struct sg_table *sgt,
+				 enum dma_data_direction dma_dir)
+{
+	/* nothing to be done here */
+}
+
+static void pxp_dmabuf_ops_release(struct dma_buf *dbuf)
+{
+	/* nothing to be done here */
+}
+
+static int
+pxp_dmabuf_ops_begin_cpu_access(struct dma_buf *dbuf,
+				enum dma_data_direction direction)
+{
+	return 0;
+}
+
+static int
+pxp_dmabuf_ops_end_cpu_access(struct dma_buf *dbuf,
+			      enum dma_data_direction direction)
+{
+	return 0;
+}
+
+static int pxp_dmabuf_ops_vmap(struct dma_buf *dbuf, struct dma_buf_map *map)
+{
+	struct pxp_buf_obj *obj = dbuf->priv;
+
+	dma_buf_map_set_vaddr(map, obj->virtual);
+
+	return 0;
+}
+
+static int pxp_dmabuf_ops_mmap(struct dma_buf *dbuf,
+	struct vm_area_struct *vma)
+{
+	/* Don't support so far */
+	return 0;
+}
+
+static const struct dma_buf_ops pxp_dmabuf_ops = {
+	.attach = pxp_dmabuf_ops_attach,
+	.detach = pxp_dmabuf_ops_detach,
+	.map_dma_buf = pxp_dmabuf_ops_map,
+	.unmap_dma_buf = pxp_dmabuf_ops_unmap,
+	.begin_cpu_access = pxp_dmabuf_ops_begin_cpu_access,
+	.end_cpu_access = pxp_dmabuf_ops_end_cpu_access,
+	.vmap = pxp_dmabuf_ops_vmap,
+	.mmap = pxp_dmabuf_ops_mmap,
+	.release = pxp_dmabuf_ops_release,
+};
+
 static long pxp_device_ioctl(struct file *filp,
 			    unsigned int cmd, unsigned long arg)
 {
@@ -742,6 +919,11 @@ static long pxp_device_ioctl(struct file *filp,
 			if (!obj)
 				return -EINVAL;
 
+			if (obj->sgt_base) {
+				sg_free_table(obj->sgt_base);
+				kfree(obj->sgt_base);
+			}
+
 			ret = pxp_buffer_handle_delete(file_priv, obj->handle);
 			if (ret)
 				return ret;
@@ -818,6 +1000,49 @@ static long pxp_device_ioctl(struct file *filp,
 			ret = copy_to_user((struct pxp_chan_handle *)arg,
 					   &chan_handle,
 					   sizeof(struct pxp_chan_handle));
+			if (ret)
+				return -EFAULT;
+			break;
+		}
+	case PXP_IOC_EXPBUF:
+		{
+			struct pxp_mem_desc buffer;
+			struct dma_buf *dbuf;
+			struct pxp_buf_obj *obj;
+			DEFINE_DMA_BUF_EXPORT_INFO(pxp_exp_info);
+
+			ret = copy_from_user(&buffer, (struct pxp_mem_desc *)arg,
+					     sizeof(struct pxp_mem_desc));
+			if (ret)
+				return -EFAULT;
+
+			obj = pxp_buffer_object_lookup(file_priv, buffer.handle);
+			if (!obj)
+				return -EINVAL;
+
+			if (!obj->sgt_base)
+				obj->sgt_base = pxp_get_base_sgt(obj);
+
+			if (WARN_ON(!obj->sgt_base))
+				return -EINVAL;
+
+			pxp_exp_info.ops   = &pxp_dmabuf_ops;
+			pxp_exp_info.flags = buffer.flags;
+			pxp_exp_info.size  = obj->size;
+			pxp_exp_info.priv  = obj;
+
+			dbuf = dma_buf_export(&pxp_exp_info);
+			if (IS_ERR(dbuf))
+				return PTR_ERR(dbuf);
+
+			/* need to check buffer.flags */
+			ret = dma_buf_fd(dbuf, buffer.flags & ~O_ACCMODE);
+			if (ret < 0)
+				return ret;
+			buffer.fd = ret;
+
+			ret = copy_to_user((void __user *)arg, &buffer,
+				     sizeof(struct pxp_mem_desc));
 			if (ret)
 				return -EFAULT;
 			break;

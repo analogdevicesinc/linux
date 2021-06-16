@@ -31,8 +31,13 @@ struct pxp_buf_obj {
 
 	unsigned long offset;
 	void *virtual;
+	unsigned long attrs;
 
 	struct hlist_node item;
+
+	struct sg_table *sgt_base;
+	/* DMABUF related */
+	struct dma_buf_attachment *db_attach;
 };
 
 struct pxp_chan_obj {
@@ -51,6 +56,11 @@ struct pxp_file {
 	/* record allocated dma channel */
 	struct idr channel_idr;
 	spinlock_t channel_lock;
+};
+
+struct pxp_attachment {
+	struct sg_table sgt;
+	enum dma_data_direction dma_dir;
 };
 
 #endif
