@@ -7627,34 +7627,42 @@ static int pxp_init_interrupt(struct platform_device *pdev)
 {
 	int legacy_irq, std_irq, err;
 	struct pxps *pxp = platform_get_drvdata(pdev);
+	int irq_cnt = 0;
 
-	legacy_irq = platform_get_irq(pdev, 0);
-	if (legacy_irq < 0) {
-		dev_err(&pdev->dev, "failed to get pxp legacy irq: %d\n",
-			legacy_irq);
-		return legacy_irq;
-	}
-
-	std_irq = platform_get_irq(pdev, 1);
-	if (std_irq < 0) {
-		dev_err(&pdev->dev, "failed to get pxp standard irq: %d\n",
-			std_irq);
-		return std_irq;
-	}
-
-	err = devm_request_irq(&pdev->dev, legacy_irq, pxp_irq, 0,
-				"pxp-dmaengine-legacy", pxp);
-	if (err) {
-		dev_err(&pdev->dev, "Request pxp legacy irq failed: %d\n", err);
-		return err;
-	}
-
-	err = devm_request_irq(&pdev->dev, std_irq, pxp_irq, 0,
-				"pxp-dmaengine-std", pxp);
-	if (err) {
-		dev_err(&pdev->dev, "Request pxp standard irq failed: %d\n",
-			err);
-		return err;
+	irq_cnt = platform_irq_count(pdev);
+	switch (irq_cnt) {
+	case 2:
+		std_irq = platform_get_irq(pdev, 1);
+		if (std_irq < 0) {
+			dev_err(&pdev->dev, "failed to get pxp standard irq: %d\n",
+				std_irq);
+			return std_irq;
+		}
+		err = devm_request_irq(&pdev->dev, std_irq, pxp_irq, 0,
+					"pxp-dmaengine-std", pxp);
+		if (err) {
+			dev_err(&pdev->dev, "Request pxp standard irq failed: %d\n",
+				err);
+			return err;
+		}
+		/* fallthrough */
+	case 1:
+		legacy_irq = platform_get_irq(pdev, 0);
+		if (legacy_irq < 0) {
+			dev_err(&pdev->dev, "failed to get pxp legacy irq: %d\n",
+				legacy_irq);
+			return legacy_irq;
+		}
+		err = devm_request_irq(&pdev->dev, legacy_irq, pxp_irq, 0,
+					"pxp-dmaengine-legacy", pxp);
+		if (err) {
+			dev_err(&pdev->dev, "Request pxp legacy irq failed: %d\n", err);
+			return -ENXIO;
+		}
+		break;
+	default:
+		pr_err("failed to get pxp irq count=(%d)\n", irq_cnt);
+		return -EINVAL;
 	}
 
 	pxp->irq = legacy_irq;
@@ -7978,6 +7986,7 @@ static int pxp_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	pxp_clk_enable(pxp);
 	pxp_soft_reset(pxp);
 	pxp_writel(0x0, HW_PXP_CTRL);
 	/* Initialize DMA engine */
@@ -7985,7 +7994,6 @@ static int pxp_probe(struct platform_device *pdev)
 	if (err < 0)
 		goto exit;
 
-	pxp_clk_enable(pxp);
 	pxp_soft_reset(pxp);
 
 	/* Initialize PXP Interrupt */
