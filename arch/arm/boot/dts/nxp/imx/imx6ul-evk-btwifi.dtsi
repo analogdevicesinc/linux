@@ -55,7 +55,6 @@
 	pm-ignore-notify;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
 	cap-power-off-card;
-	/delete-property/ wakeup-source;
 	/delete-property/ enable-sdio-wakeup;
 
 	brcmf: bcrmf@1 {

@@ -35,6 +35,7 @@
 	keep-power-in-suspend;
 	non-removable;
 	cap-power-off-card;
+	wakeup-source;
 
 	brcmf2: bcrmf@1 {
 		reg = <1>;
