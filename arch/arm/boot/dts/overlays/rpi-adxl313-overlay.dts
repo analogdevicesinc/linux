@@ -1,0 +1,41 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@1 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adxl313@053 {
+				compatible = "adi,adxl313";
+				reg = <0x53>;
+				interrupt-parent = <&gpio>;
+				interrupts = <25 2>;
+			};
+		};
+	};
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adxl313@0 {
+				compatible = "adi,adxl313";
+				reg = <0>;
+				spi-max-frequency = <5000000>;
+				spi-cpha;
+				spi-cpol;
+				interrupt-parent = <&gpio>;
+				interrupts = <25 2>;
+			};
+		};
+	};
+};
