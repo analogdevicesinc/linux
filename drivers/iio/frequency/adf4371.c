@@ -1222,6 +1222,8 @@ static int adf4371_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels;
+	if (id->driver_data == ADF4371)
+		indio_dev->num_channels++;	/* Include IIO_TEMP */
 
 	st->clkin = devm_clk_get(&spi->dev, "clkin");
 	if (IS_ERR(st->clkin))
