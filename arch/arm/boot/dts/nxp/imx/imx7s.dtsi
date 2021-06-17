@@ -663,7 +663,7 @@
 				interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 				#interrupt-cells = <3>;
 				interrupt-parent = <&intc>;
-				fsl,mf-mix-wakeup-irq = <0x54010000 0xc00 0x0 0x1040640>;
+				fsl,mf-mix-wakeup-irq = <0x54410000 0xc00 0x0 0x1040640>;
 
 				pgc {
 					#address-cells = <1>;
