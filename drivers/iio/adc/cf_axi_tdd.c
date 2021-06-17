@@ -12,6 +12,7 @@
 #include <linux/fpga/adi-axi-common.h>
 #include <linux/iio/iio.h>
 #include <linux/io.h>
+#include <linux/math64.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -186,6 +187,8 @@ static ssize_t cf_axi_tdd_read(struct iio_dev *indio_dev, uintptr_t private,
 {
 	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
 	u32 val;
+	u64 t_ns;
+	int vals[2];
 
 	switch (private) {
 	case CF_AXI_TDD_BURST_COUNT:
@@ -225,8 +228,9 @@ static ssize_t cf_axi_tdd_read(struct iio_dev *indio_dev, uintptr_t private,
 		return -EINVAL;
 	}
 
-	return sprintf(buf, "%llu\n", DIV_ROUND_CLOSEST_ULL((u64)val * 1000,
-							    READ_ONCE(st->clk.rate)));
+	t_ns = div_u64(val * 1000000000ULL, READ_ONCE(st->clk.rate));
+	vals[0] = div_s64_rem(t_ns, 1000000, &vals[1]);
+	return iio_format_value(buf, IIO_VAL_INT_PLUS_MICRO, 2, vals);
 }
 
 static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
@@ -235,10 +239,17 @@ static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
 	u32 val, reg;
 	int ret;
+	int ival, frac;
+	u64 clk_rate, lval;
 
-	ret = kstrtouint(buf, 10, &val);
+	ret = iio_str_to_fixpoint(buf, 100000, &ival, &frac);
 	if (ret)
 		return ret;
+
+	if (ival < 0)
+		return -EINVAL;
+
+	val = ival;
 
 	switch (private) {
 	case CF_AXI_TDD_BURST_COUNT:
@@ -279,8 +290,16 @@ static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 		return -EINVAL;
 	}
 
-	val =  DIV_ROUND_CLOSEST_ULL((u64)val * READ_ONCE(st->clk.rate), 1000);
-	tdd_write(st, reg, ADI_TDD_RX_TX(val));
+	clk_rate = READ_ONCE(st->clk.rate);
+
+	lval = DIV_ROUND_CLOSEST_ULL((u64)ival * clk_rate, 1000)
+		+ DIV_ROUND_CLOSEST_ULL((u64)frac * clk_rate, 1000000000);
+
+	/* TDD register width is 24 */
+	if (lval & ~((u64)(ADI_TDD_RX_TX_MASK)))
+		return -EINVAL;
+
+	tdd_write(st, reg, ADI_TDD_RX_TX(lval));
 
 	return len;
 }
