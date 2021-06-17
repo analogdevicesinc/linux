@@ -152,7 +152,7 @@ enum {
 };
 
 static const char * const cf_axi_tdd_dma_gateing_mode[] = {
-	"rx_tx", "rx_only", "tx_only", "none"
+	"none", "rx_only", "tx_only", "rx_tx"
 };
 
 static int cf_axi_tdd_get_dma_gateing_mode(struct iio_dev *indio_dev,
