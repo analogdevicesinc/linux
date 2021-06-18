@@ -11,13 +11,33 @@
 
 #include "adxl355.h"
 
-#define ADXL355_MAX_SPI_FREQ_HZ		5000000
+static const struct regmap_range adxl355_read_reg_range[] = {
+	regmap_reg_range(ADXL355_DEVID_AD, ADXL355_FIFO_DATA),
+	regmap_reg_range(ADXL355_OFFSET_X_H, ADXL355_SELF_TEST)
+};
+
+static const struct regmap_access_table adxl355_readable_regs_tbl = {
+	.yes_ranges = adxl355_read_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl355_read_reg_range),
+};
+
+static const struct regmap_range adxl355_write_reg_range[] = {
+	regmap_reg_range(ADXL355_OFFSET_X_H, ADXL355_RESET)
+};
+
+static const struct regmap_access_table adxl355_writeable_regs_tbl = {
+	.yes_ranges = adxl355_write_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl355_write_reg_range),
+};
 
 static const struct regmap_config adxl355_spi_regmap_config = {
-	.reg_bits = 8,
+	.reg_bits = 7,
+	.pad_bits = 1,
 	.val_bits = 8,
-	 /* Setting bits 7 and 6 enables multiple-byte read */
-	.read_flag_mask = BIT(7) | BIT(6),
+	.read_flag_mask = BIT(0),
+	.max_register = 0x2F,
+	.rd_table = &adxl355_readable_regs_tbl,
+	.wr_table = &adxl355_writeable_regs_tbl
 };
 
 static int adxl355_spi_probe(struct spi_device *spi)
