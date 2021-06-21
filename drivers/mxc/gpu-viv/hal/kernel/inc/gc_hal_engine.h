@@ -2720,6 +2720,12 @@ gcoBUFOBJ_IndexGetRange(
 /*  Sets a buffer object as dirty */
 gceSTATUS
 gcoBUFOBJ_SetDirty(
+    IN gcoBUFOBJ BufObj,
+    IN gctBOOL Dirty
+    );
+
+gctBOOL
+gcoBUFOBJ_IsDirty(
     IN gcoBUFOBJ BufObj
     );
 
