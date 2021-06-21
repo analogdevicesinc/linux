@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019,2021 NXP
+ */
+
 #include "imx8mm-evk.dts"
 
 &adv_bridge {
@@ -22,7 +27,7 @@
 };
 
 &i2c2 {
-	synaptics_dsx_ts@20 {
+	synaptics_dsx_ts: synaptics_dsx_ts@20 {
 		compatible = "synaptics_dsx";
 		reg = <0x20>;
 		pinctrl-names = "default";
