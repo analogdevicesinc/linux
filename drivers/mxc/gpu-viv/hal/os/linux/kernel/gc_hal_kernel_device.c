@@ -3156,6 +3156,8 @@ gckGALDEVICE_Resume(
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
+            vgHardware = Device->kernels[i]->vg->hardware;
+
             gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, state));
         }
         else
