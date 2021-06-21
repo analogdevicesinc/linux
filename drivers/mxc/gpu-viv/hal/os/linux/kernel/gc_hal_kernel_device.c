@@ -3163,6 +3163,8 @@ gckGALDEVICE_Resume(
         else
 #endif
         {
+            hardware = Device->kernels[i]->hardware;
+
             gcmkONERROR(gckHARDWARE_SetPowerState(hardware, state));
         }
 
