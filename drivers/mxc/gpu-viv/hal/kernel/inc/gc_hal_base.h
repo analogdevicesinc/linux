@@ -667,7 +667,7 @@ gcoOS_AllocateVideoMemory(
     IN gctBOOL InUserSpace,
     IN gctBOOL InCacheable,
     IN OUT gctSIZE_T * Bytes,
-    OUT gctUINT32 * Physical,
+    OUT gctUINT32 * Address,
     OUT gctPOINTER * Logical,
     OUT gctPOINTER * Handle
     );
