@@ -36,6 +36,9 @@ properties:
       - const: ahb
       - const: pixel
 
+  power-domains:
+    maxItems: 1
+
   assigned-clocks: true
   assigned-clock-parents: true
 
@@ -61,6 +64,7 @@ required:
   - interrupts
   - clocks
   - clock-names
+  - power-domains
   - ports
 
 additionalProperties: false
@@ -69,6 +73,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/clock/imx8ulp-clock.h>
+    #include <dt-bindings/power/imx8ulp-power.h>
     dcnano: display-controller@2e050000 {
         compatible = "nxp,imx8ulp-dcnano";
         reg = <0x2e050000 0x10000>;
@@ -77,6 +82,7 @@ examples:
                  <&cgc2 IMX8ULP_CLK_LPAV_AHB_DIV>,
                  <&pcc5 IMX8ULP_CLK_DC_NANO>;
         clock-names = "axi", "ahb", "pixel";
+        power-domains = <&scmi_devpd IMX8ULP_PD_DCNANO>;
         assigned-clocks = <&pcc5 IMX8ULP_CLK_DC_NANO>;
         assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0_DIV1>;
 
