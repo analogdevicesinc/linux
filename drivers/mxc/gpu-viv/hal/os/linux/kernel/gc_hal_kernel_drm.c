@@ -667,6 +667,7 @@ static int viv_ioctl_gem_ref_node(struct drm_device *drm, void *data,
     gckVIDMEM_NODE nodeObj;
     gctUINT32 nodeHandle = 0, tsNodeHandle = 0;
     gctBOOL refered = gcvFALSE;
+    gctBOOL isContiguous = gcvFALSE;
     int ret = 0;
 
     gal_dev = (gckGALDEVICE)drm->dev_private;
@@ -694,7 +695,19 @@ static int viv_ioctl_gem_ref_node(struct drm_device *drm, void *data,
                                0));
     gcmkONERROR(gckVIDMEM_NODE_Reference(kernel, nodeObj));
     refered = gcvTRUE;
+    gcmkONERROR(gckVIDMEM_NODE_IsContiguous(kernel, nodeObj, &isContiguous));
 
+    if (isContiguous)
+    {
+        /* Record in process db. */
+        gcmkONERROR(
+                gckKERNEL_AddProcessDB(kernel,
+                                       processID,
+                                       gcvDB_CONTIGUOUS,
+                                       gcmINT2PTR(nodeHandle),
+                                       gcvNULL,
+                                       0));
+    }
     if (nodeObj->tsNode)
     {
         gcmkONERROR(gckVIDMEM_HANDLE_Allocate(kernel, nodeObj->tsNode, &tsNodeHandle));
@@ -705,6 +718,19 @@ static int viv_ioctl_gem_ref_node(struct drm_device *drm, void *data,
                                    gcvNULL,
                                    0));
         gcmkONERROR(gckVIDMEM_NODE_Reference(kernel, nodeObj->tsNode));
+        gcmkONERROR(gckVIDMEM_NODE_IsContiguous(kernel, nodeObj->tsNode, &isContiguous));
+
+        if (isContiguous)
+        {
+               /* Record in process db. */
+                gcmkONERROR(
+                       gckKERNEL_AddProcessDB(kernel,
+                                              processID,
+                                              gcvDB_CONTIGUOUS,
+                                              gcmINT2PTR(tsNodeHandle),
+                                              gcvNULL,
+                                              0));
+        }
     }
     args->node = nodeHandle;
     args->ts_node = tsNodeHandle;
