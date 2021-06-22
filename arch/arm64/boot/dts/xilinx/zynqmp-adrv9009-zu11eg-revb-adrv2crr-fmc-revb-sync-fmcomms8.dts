@@ -862,7 +862,6 @@
 		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
 
 		adi,high-performance-mode-clock-dist-enable;
-		adi,high-performance-mode-pll-vco-enable;
 
 		adi,pll2-autocal-bypass-manual-cap-bank-sel = <0xf>;
 
