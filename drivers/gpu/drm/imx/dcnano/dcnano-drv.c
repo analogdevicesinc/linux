@@ -4,6 +4,7 @@
  * Copyright 2020,2021 NXP
  */
 
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -41,6 +42,44 @@ static struct drm_driver dcnano_driver = {
 	.minor			= 0,
 	.patchlevel		= 0,
 };
+
+static int dcnano_reset(struct dcnano_dev *dcnano)
+{
+	struct drm_device *drm = &dcnano->base;
+	int ret;
+
+	pm_runtime_get_sync(drm->dev);
+
+	ret = reset_control_assert(dcnano->tied_resets);
+	if (ret) {
+		DRM_DEV_ERROR(drm->dev,
+			      "failed to assert tied resets: %d\n", ret);
+		goto err;
+	}
+
+	/*
+	 * 10 microseconds are enough for the 32-cycle(slowest clock)
+	 * assertion duration.
+	 */
+	usleep_range(10, 20);
+
+	ret = reset_control_deassert(dcnano->tied_resets);
+	if (ret) {
+		DRM_DEV_ERROR(drm->dev,
+			      "failed to deassert tied resets: %d\n", ret);
+		goto err;
+	}
+
+	/*
+	 * 40 microseconds are enough for the 128-cycle(slowest clock)
+	 * de-assertion duration.
+	 */
+	usleep_range(40, 50);
+
+err:
+	pm_runtime_put_sync(drm->dev);
+	return ret;
+}
 
 static int dcnano_check_chip_info(struct dcnano_dev *dcnano)
 {
@@ -140,6 +179,19 @@ static int dcnano_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(drm->dev);
 
+	dcnano->tied_resets = devm_reset_control_get(drm->dev, NULL);
+	if (IS_ERR(dcnano->tied_resets)) {
+		ret = PTR_ERR(dcnano->tied_resets);
+		if (ret != -EPROBE_DEFER)
+			DRM_DEV_ERROR(drm->dev,
+				      "failed to get tied resets: %d\n", ret);
+		goto err_reset_get;
+	}
+
+	ret = dcnano_reset(dcnano);
+	if (ret)
+		goto err_dcnano_reset;
+
 	pm_runtime_get_sync(drm->dev);
 	ret = drm_irq_install(drm, irq);
 	pm_runtime_put_sync(drm->dev);
@@ -183,6 +235,8 @@ err_check_chip_info:
 	drm_irq_uninstall(drm);
 	pm_runtime_put_sync(drm->dev);
 err_irq_install:
+err_dcnano_reset:
+err_reset_get:
 	pm_runtime_disable(drm->dev);
 	return ret;
 }

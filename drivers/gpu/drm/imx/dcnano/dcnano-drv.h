@@ -10,6 +10,7 @@
 #include <linux/clk.h>
 #include <linux/irqreturn.h>
 #include <linux/kernel.h>
+#include <linux/reset.h>
 
 #include <drm/drm_crtc.h>
 #include <drm/drm_device.h>
@@ -31,6 +32,8 @@ struct dcnano_dev {
 	struct clk *ahb_clk;
 	struct clk *pixel_clk;
 	struct clk *pll_clk;
+
+	struct reset_control *tied_resets;
 
 	struct drm_crtc crtc;
 	struct drm_plane primary;
