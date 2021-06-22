@@ -14,13 +14,6 @@
  */
 
 / {
-	modem_reset: modem-reset {
-		compatible = "gpio-reset";
-		reset-gpios = <&gpio_spi 4 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <1000>;
-		#reset-cells = <0>;
-	};
-
 	usdhc1_pwrseq: usdhc1_pwrseq {
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_wifi>;
@@ -41,10 +34,6 @@
 	regulator-always-on;
 };
 
-&uart2 {
-	resets = <&modem_reset>;
-};
-
 &usdhc1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -52,15 +41,8 @@
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	no-1-8-v;
 	non-removable;
-	pm-ignore-notify;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
-	cap-power-off-card;
 	/delete-property/ enable-sdio-wakeup;
-
-	brcmf: bcrmf@1 {
-		reg = <1>;
-		compatible = "brcm,bcm4329-fmac";
-	};
 };
 
 &gpio_spi {

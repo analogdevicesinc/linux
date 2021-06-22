@@ -30,11 +30,5 @@
 	#size-cells = <0>;
 	/delete-property/ vmmc-supply;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
-	cap-power-off-card;
 	wakeup-source;
-
-	brcmf: bcrmf@1 {
-		reg = <1>;
-		compatible = "brcm,bcm4329-fmac";
-	};
 };

@@ -31,16 +31,9 @@
 	/delete-property/ cd-gpios;
 	/delete-property/ wp-gpios;
 	no-1-8-v;
-	pm-ignore-notify;
 	keep-power-in-suspend;
 	non-removable;
-	cap-power-off-card;
 	wakeup-source;
-
-	brcmf2: bcrmf@1 {
-		reg = <1>;
-		compatible = "brcm,bcm4329-fmac";
-	};
 };
 
 &usdhc2 {

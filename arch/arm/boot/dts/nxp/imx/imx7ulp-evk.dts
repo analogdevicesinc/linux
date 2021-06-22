@@ -469,7 +469,6 @@
 	bus-width = <4>;
 	no-1-8-v;
 	vmmc-supply = <&reg_sd1_vmmc>;
-	pm-ignore-notify;
 	keep-power-in-suspend;
 	non-removable;
 	status = "okay";
