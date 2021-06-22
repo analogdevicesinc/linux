@@ -331,6 +331,7 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CRYPTO_IMPORT_KEY_CMD,
 	INTEL_FCS_DEV_CRYPTO_EXPORT_KEY_CMD,
 	INTEL_FCS_DEV_CRYPTO_REMOVE_KEY_CMD,
+	INTEL_FCS_DEV_CRYPTO_GET_KEY_INFO_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -412,6 +413,10 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_CRYPTO_REMOVE_KEY \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_CRYPTO_REMOVE_KEY_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_GET_KEY_INFO \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_GET_KEY_INFO_CMD, struct intel_fcs_dev_ioctl)
 
 #endif
 
