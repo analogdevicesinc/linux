@@ -102,4 +102,3 @@ gcsOBJECT;
 #endif /* __gc_hal_base_shared_h_ */
 
 
-

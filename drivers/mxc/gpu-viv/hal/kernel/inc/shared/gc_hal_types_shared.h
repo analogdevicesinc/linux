@@ -1034,4 +1034,3 @@ gcsHAL_PATCH_VIDMEM_TIMESTAMP;
 
 #endif /* __gc_hal_types_shared_h_ */
 
-

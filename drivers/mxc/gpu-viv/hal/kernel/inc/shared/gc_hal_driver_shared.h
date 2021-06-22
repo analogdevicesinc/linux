@@ -1304,4 +1304,3 @@ gcsHAL_PROFILER_INTERFACE;
 
 #endif /* __gc_hal_driver_shared_h_ */
 
-

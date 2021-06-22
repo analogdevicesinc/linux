@@ -2170,4 +2170,3 @@ typedef void *                            gctTHREAD;
 
 #endif /* __gc_hal_enum_h_ */
 
-

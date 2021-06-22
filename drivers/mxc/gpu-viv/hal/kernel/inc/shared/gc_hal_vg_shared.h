@@ -221,4 +221,3 @@ gcsTASK_MASTER_TABLE;
 
 #endif /* __gc_hal_shared_h_ */
 
-

@@ -184,7 +184,7 @@ typedef struct _gcsFUNCTION_EXECUTION
 gcsFUNCTION_EXECUTION;
 
 gceSTATUS gckFUNCTION_Construct(IN         gctPOINTER Hardware);
-gceSTATUS gckFUNCTION_Destory(IN    gctPOINTER Hardware);
+gceSTATUS gckFUNCTION_Destory(    IN    gctPOINTER Hardware);
 
 gceSTATUS gckFUNCTION_Validate(IN gcsFUNCTION_EXECUTION_PTR Execution,
                                        IN OUT gctBOOL_PTR Valid);
@@ -196,4 +196,3 @@ void gckFUNCTION_Dump(IN gcsFUNCTION_EXECUTION_PTR Execution);
 }
 #endif
 #endif
-

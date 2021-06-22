@@ -278,4 +278,3 @@ gcsPROFILER_COUNTERS;
 #endif /* __gc_hal_profiler_shared_h_ */
 
 
-

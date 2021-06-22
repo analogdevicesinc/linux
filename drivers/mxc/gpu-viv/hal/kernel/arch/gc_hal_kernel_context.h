@@ -184,4 +184,3 @@ struct _gckCONTEXT
 #endif
 
 #endif /* __gc_hal_kernel_context_h_ */
-

@@ -396,7 +396,7 @@ _GetVIPCoreInfo(
 
     gcsFEATURE_DATABASE *database = (gcsFEATURE_DATABASE *)(Hardware->featureDatabase);
     gceVIP_ARCH_TYPE archType;
-    gctUINT8 dataType = 0x0;
+    gctUINT8 dataType = GCREG_NN_DATA_TYPE_UINT8;
     gctUINT32 coreCount = 0;
     gctUINT32 zdp = 1;
     gctUINT32 kernelBurstSize;
@@ -406,22 +406,22 @@ _GetVIPCoreInfo(
     /* Choose one supported format. */
     if (database->NNCoreCount_INT8 > 0)
     {
-        dataType = 0x0;
+        dataType = GCREG_NN_DATA_TYPE_UINT8;
         coreCount = database->NNCoreCount_INT8;
     }
     else if (database->NNCoreCount_INT16 > 0)
     {
-        dataType = 0x4;
+        dataType = GCREG_NN_DATA_TYPE_INT16;
         coreCount = database->NNCoreCount_INT16;
     }
     else if (database->NNCoreCount_FLOAT16 > 0)
     {
-        dataType = 0x1;
+        dataType = GCREG_NN_DATA_TYPE_FP16;
         coreCount = database->NNCoreCount_FLOAT16;
     }
     else if (database->NNCoreCount_BFLOAT > 0)
     {
-        dataType = 0x7;
+        dataType = GCREG_NN_DATA_TYPE_BFP16;
         coreCount = database->NNCoreCount_BFLOAT;
     }
     else
@@ -492,11 +492,11 @@ _GetMapIndex(
 
     switch (DataType)
     {
-    case 0x1:
+    case GCREG_NN_DATA_TYPE_FP16:
         *Index = 1;
         break;
 
-    case 0x7:
+    case GCREG_NN_DATA_TYPE_BFP16:
         *Index = 2;
         break;
 
@@ -526,14 +526,14 @@ _GetNNDataSize(
 
     switch (DataType)
     {
-    case 0x2:
-    case 0x0:
+    case GCREG_NN_DATA_TYPE_INT8:
+    case GCREG_NN_DATA_TYPE_UINT8:
         *DataSize = 1;
         break;
 
-    case 0x4:
-    case 0x1:
-    case 0x7:
+    case GCREG_NN_DATA_TYPE_INT16:
+    case GCREG_NN_DATA_TYPE_FP16:
+    case GCREG_NN_DATA_TYPE_BFP16:
         *DataSize = 2;
         break;
 
@@ -784,192 +784,30 @@ gckPPU_SetImmediate(
     switch (Where)
     {
     case 0:
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 20:12) - (0 ?
- 20:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 20:12) - (0 ?
- 20:12) + 1))))))) << (0 ?
- 20:12))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Value, 8, 0)) & ((gctUINT32) ((((1 ?
- 20:12) - (0 ?
- 20:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 20:12) - (0 ? 20:12) + 1))))))) << (0 ? 20:12)));
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 29:22) - (0 ?
- 29:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 29:22) - (0 ?
- 29:22) + 1))))))) << (0 ?
- 29:22))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Value, 16, 9)) & ((gctUINT32) ((((1 ?
- 29:22) - (0 ?
- 29:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 29:22) - (0 ? 29:22) + 1))))))) << (0 ? 29:22)));
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:30) - (0 ?
- 30:30) + 1))))))) << (0 ?
- 30:30))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 17)) & ((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)));
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:31) - (0 ?
- 31:31) + 1))))))) << (0 ?
- 31:31))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 18)) & ((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 19) | (Type << 1)) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:3) - (0 ?
- 5:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:3) - (0 ?
- 5:3) + 1))))))) << (0 ?
- 5:3))) | (((gctUINT32) ((gctUINT32) (0x7) & ((gctUINT32) ((((1 ?
- 5:3) - (0 ?
- 5:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:3) - (0 ? 5:3) + 1))))))) << (0 ? 5:3)));
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_ADR, _GETBITS(Value, 8, 0));
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_SWIZZLE, _GETBITS(Value, 16, 9));
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_MODIFIER_NEG, _GETBIT(Value, 17));
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_MODIFIER_ABS, _GETBIT(Value, 18));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC0_REL_ADR, _GETBIT(Value, 19) | (Type << 1));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC0_TYPE, AQ_SHADER_SRC_REG_TYPE_IMMEDIATE);
         break;
 
     case 1:
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:7) - (0 ?
- 15:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:7) - (0 ?
- 15:7) + 1))))))) << (0 ?
- 15:7))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Value, 8, 0)) & ((gctUINT32) ((((1 ?
- 15:7) - (0 ?
- 15:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:7) - (0 ? 15:7) + 1))))))) << (0 ? 15:7)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 24:17) - (0 ?
- 24:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 24:17) - (0 ?
- 24:17) + 1))))))) << (0 ?
- 24:17))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Value, 16, 9)) & ((gctUINT32) ((((1 ?
- 24:17) - (0 ?
- 24:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 24:17) - (0 ? 24:17) + 1))))))) << (0 ? 24:17)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:25) - (0 ?
- 25:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:25) - (0 ?
- 25:25) + 1))))))) << (0 ?
- 25:25))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 17)) & ((gctUINT32) ((((1 ?
- 25:25) - (0 ?
- 25:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:25) - (0 ? 25:25) + 1))))))) << (0 ? 25:25)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 18)) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 29:27) - (0 ?
- 29:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 29:27) - (0 ?
- 29:27) + 1))))))) << (0 ?
- 29:27))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 19) | (Type << 1)) & ((gctUINT32) ((((1 ?
- 29:27) - (0 ?
- 29:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 29:27) - (0 ? 29:27) + 1))))))) << (0 ? 29:27)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (0x7) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_ADR, _GETBITS(Value, 8, 0));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_SWIZZLE, _GETBITS(Value, 16, 9));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_MODIFIER_NEG, _GETBIT(Value, 17));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_MODIFIER_ABS, _GETBIT(Value, 18));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_REL_ADR, _GETBIT(Value, 19) | (Type << 1));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC1_TYPE, AQ_SHADER_SRC_REG_TYPE_IMMEDIATE);
         break;
 
     case 2:
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:4) - (0 ?
- 12:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:4) - (0 ?
- 12:4) + 1))))))) << (0 ?
- 12:4))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Value, 8, 0)) & ((gctUINT32) ((((1 ?
- 12:4) - (0 ?
- 12:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:4) - (0 ? 12:4) + 1))))))) << (0 ? 12:4)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 21:14) - (0 ?
- 21:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 21:14) - (0 ?
- 21:14) + 1))))))) << (0 ?
- 21:14))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Value, 16, 9)) & ((gctUINT32) ((((1 ?
- 21:14) - (0 ?
- 21:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 21:14) - (0 ? 21:14) + 1))))))) << (0 ? 21:14)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 22:22) - (0 ?
- 22:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 22:22) - (0 ?
- 22:22) + 1))))))) << (0 ?
- 22:22))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 17)) & ((gctUINT32) ((((1 ?
- 22:22) - (0 ?
- 22:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:22) - (0 ? 22:22) + 1))))))) << (0 ? 22:22)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:23) - (0 ?
- 23:23) + 1))))))) << (0 ?
- 23:23))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 18)) & ((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 23:23) - (0 ? 23:23) + 1))))))) << (0 ? 23:23)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 27:25) - (0 ?
- 27:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 27:25) - (0 ?
- 27:25) + 1))))))) << (0 ?
- 27:25))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Value, 19) | (Type << 1)) & ((gctUINT32) ((((1 ?
- 27:25) - (0 ?
- 27:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 27:25) - (0 ? 27:25) + 1))))))) << (0 ? 27:25)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:28) - (0 ?
- 30:28) + 1))))))) << (0 ?
- 30:28))) | (((gctUINT32) ((gctUINT32) (0x7) & ((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:28) - (0 ? 30:28) + 1))))))) << (0 ? 30:28)));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_ADR, _GETBITS(Value, 8, 0));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_SWIZZLE, _GETBITS(Value, 16, 9));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_MODIFIER_NEG, _GETBIT(Value, 17));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_MODIFIER_ABS, _GETBIT(Value, 18));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_REL_ADR, _GETBIT(Value, 19) | (Type << 1));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_TYPE, AQ_SHADER_SRC_REG_TYPE_IMMEDIATE);
         break;
     }
 
@@ -992,26 +830,8 @@ gckPPU_SetInstructionType(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-    Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 21:21) - (0 ?
- 21:21) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 21:21) - (0 ?
- 21:21) + 1))))))) << (0 ?
- 21:21))) | (((gctUINT32) ((gctUINT32) (_GETBIT(Type, 0)) & ((gctUINT32) ((((1 ?
- 21:21) - (0 ?
- 21:21) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 21:21) - (0 ? 21:21) + 1))))))) << (0 ? 21:21)));
-    Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:30) - (0 ?
- 31:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:30) - (0 ?
- 31:30) + 1))))))) << (0 ?
- 31:30))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Type, 2, 1)) & ((gctUINT32) ((((1 ?
- 31:30) - (0 ?
- 31:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:30) - (0 ? 31:30) + 1))))))) << (0 ? 31:30)));
+    Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, INST_TYPE_0, _GETBIT(Type, 0));
+    Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, INST_TYPE_1, _GETBITS(Type, 2, 1));
 
     return gcvSTATUS_OK;
 
@@ -1043,87 +863,51 @@ gckPPU_IsEndOfBB(
 
     switch (OpCode)
     {
-    case 0x09:
-    case 0x56:
-    case 0x0A:
-    case 0x0B:
-    case 0x0F:
-    case 0x31:
-    case 0x10:
-        bits = _SETBITS(Inst[1], 3, 3, 1);
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:3) - (0 ?
- 10:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:3) - (0 ?
- 10:3) + 1))))))) << (0 ?
- 10:3))) | (((gctUINT32) ((gctUINT32) (bits) & ((gctUINT32) ((((1 ?
- 10:3) - (0 ?
- 10:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:3) - (0 ? 10:3) + 1))))))) << (0 ? 10:3)));
+    case AQ_INST_OP_CODE_MOV:
+    case AQ_INST_OP_CODE_MOVAI:
+    case AQ_INST_OP_CODE_MOVAR:
+    case AQ_INST_OP_CODE_MOVAF:
+    case AQ_INST_OP_CODE_SELECT:
+    case AQ_INST_OP_CODE_CMP:
+    case AQ_INST_OP_CODE_SET:
+        bits = _SETBITS(Inst[1], GCREG_SH_END_OF_BASIC_BLOCK_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_CC_VER_End, 1);
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SAMPLER_SWIZZLE, bits);
         break;
 
-    case 0x65:
-    case 0x66:
-    case 0x67:
-    case 0x68:
-    case 0x69:
-    case 0x6A:
-    case 0x6B:
-    case 0x6C:
-    case 0x46:
-        bits = _SETBITS(Inst[0], 2, 2, 1);
-        Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:6) - (0 ?
- 10:6) + 1))))))) << (0 ?
- 10:6))) | (((gctUINT32) ((gctUINT32) (bits) & ((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:6) - (0 ? 10:6) + 1))))))) << (0 ? 10:6)));
+    case AQ_INST_OP_CODE_ATOM_ADD:
+    case AQ_INST_OP_CODE_ATOM_XCHG:
+    case AQ_INST_OP_CODE_ATOM_CMP_XCHG:
+    case AQ_INST_OP_CODE_ATOM_MIN:
+    case AQ_INST_OP_CODE_ATOM_MAX:
+    case AQ_INST_OP_CODE_ATOM_OR:
+    case AQ_INST_OP_CODE_ATOM_AND:
+    case AQ_INST_OP_CODE_ATOM_XOR:
+    case AQ_INST_OP_CODE_IMG_ATOM:
+        bits = _SETBITS(Inst[0], GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_End, 1);
+        Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, CONDITION_CODE, bits);
         break;
 
-    case 0x32:
-    case 0x39:
-    case 0x33:
-    case 0x3A:
-    case 0x79:
-    case 0x34:
-    case 0x7A:
-    case 0x35:
-        bits = _SETBITS(Inst[0], 2, 2, 1);
-        Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:6) - (0 ?
- 10:6) + 1))))))) << (0 ?
- 10:6))) | (((gctUINT32) ((gctUINT32) (bits) & ((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:6) - (0 ? 10:6) + 1))))))) << (0 ? 10:6)));
+    case AQ_INST_OP_CODE_LOAD:
+    case AQ_INST_OP_CODE_LOADP:
+    case AQ_INST_OP_CODE_STORE:
+    case AQ_INST_OP_CODE_STOREP:
+    case AQ_INST_OP_CODE_IMG_LOAD:
+    case AQ_INST_OP_CODE_IMG_LOAD_3D:
+    case AQ_INST_OP_CODE_IMG_STORE:
+    case AQ_INST_OP_CODE_IMG_STORE_3D:
+        bits = _SETBITS(Inst[0], GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_End, 1);
+        Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, CONDITION_CODE, bits);
         break;
 
     default:
-        if (OpCode != 0x16 &&
-            OpCode != 0x24 &&
-            OpCode != 0x14 &&
-            OpCode != 0x15 &&
-            OpCode != 0x17)
+        if (OpCode != AQ_INST_OP_CODE_BRANCH &&
+            OpCode != AQ_INST_OP_CODE_BRANCH_ANY &&
+            OpCode != AQ_INST_OP_CODE_CALL &&
+            OpCode != AQ_INST_OP_CODE_RET &&
+            OpCode != AQ_INST_OP_CODE_TEXKILL)
         {
-            bits = _SETBITS(Inst[0], 2, 2, 1);
-            Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:6) - (0 ?
- 10:6) + 1))))))) << (0 ?
- 10:6))) | (((gctUINT32) ((gctUINT32) (bits) & ((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:6) - (0 ? 10:6) + 1))))))) << (0 ? 10:6)));
+            bits = _SETBITS(Inst[0], GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_End, 1);
+            Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, CONDITION_CODE, bits);
         }
         break;
     }
@@ -1150,61 +934,25 @@ gckPPU_AddOpCode(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-    Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:0) - (0 ?
- 5:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:0) - (0 ?
- 5:0) + 1))))))) << (0 ?
- 5:0))) | (((gctUINT32) ((gctUINT32) (_GETBITS(OpCode, 5, 0)) & ((gctUINT32) ((((1 ?
- 5:0) - (0 ?
- 5:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:0) - (0 ? 5:0) + 1))))))) << (0 ? 5:0)));
-    Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 16:16) - (0 ?
- 16:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 16:16) - (0 ?
- 16:16) + 1))))))) << (0 ?
- 16:16))) | (((gctUINT32) ((gctUINT32) (_GETBIT(OpCode, 6)) & ((gctUINT32) ((((1 ?
- 16:16) - (0 ?
- 16:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16)));
+    Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, OP_CODE, _GETBITS(OpCode, 5, 0));
+    Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, OP_CODE_MSB6, _GETBIT(OpCode, 6));
 
     switch (OpCode)
     {
-    case 0x7F:
-        gcmkONERROR(gckPPU_SetImmediate(2, Extended, 0x2, Inst));
+    case AQ_INST_OP_CODE_EXTENDED:
+        gcmkONERROR(gckPPU_SetImmediate(2, Extended, GCREG_SH_IMMEDIATE_TYPE_U20, Inst));
         break;
 
-    case 0x45:
-        Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:13) - (0 ?
- 15:13) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:13) - (0 ?
- 15:13) + 1))))))) << (0 ?
- 15:13))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Extended, 2, 0)) & ((gctUINT32) ((((1 ?
- 15:13) - (0 ?
- 15:13) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:13) - (0 ? 15:13) + 1))))))) << (0 ? 15:13)));
+    case AQ_INST_OP_CODE_EVIS:
+        Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, DEST_REL_ADR, _GETBITS(Extended, 2, 0));
         Inst[0] = _SETBIT(Inst[0], 31, _GETBIT(Extended, 3));
         Inst[1] = _SETBITS(Inst[1], 1, 0, _GETBITS(Extended, 5, 4));
         break;
 
-    case 0x31:
-    case 0x09:
-    case 0x0F:
-        Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:6) - (0 ?
- 10:6) + 1))))))) << (0 ?
- 10:6))) | (((gctUINT32) ((gctUINT32) (_GETBITS(Extended, 4, 0)) & ((gctUINT32) ((((1 ?
- 10:6) - (0 ?
- 10:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:6) - (0 ? 10:6) + 1))))))) << (0 ? 10:6)));
+    case AQ_INST_OP_CODE_CMP:
+    case AQ_INST_OP_CODE_MOV:
+    case AQ_INST_OP_CODE_SELECT:
+        Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, CONDITION_CODE, _GETBITS(Extended, 4, 0));
         break;
 
     default:
@@ -1239,46 +987,10 @@ gckPPU_SetDestination(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-    Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:12) - (0 ?
- 12:12) + 1))))))) << (0 ?
- 12:12))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:12) - (0 ? 12:12) + 1))))))) << (0 ? 12:12)));
-    Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 22:16) - (0 ?
- 22:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 22:16) - (0 ?
- 22:16) + 1))))))) << (0 ?
- 22:16))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
- 22:16) - (0 ?
- 22:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:16) - (0 ? 22:16) + 1))))))) << (0 ? 22:16)));
-    Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:23) - (0 ?
- 26:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:23) - (0 ?
- 26:23) + 1))))))) << (0 ?
- 26:23))) | (((gctUINT32) ((gctUINT32) (WriteEnable) & ((gctUINT32) ((((1 ?
- 26:23) - (0 ?
- 26:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:23) - (0 ? 26:23) + 1))))))) << (0 ? 26:23)));
-    Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:11) - (0 ?
- 11:11) + 1))))))) << (0 ?
- 11:11))) | (((gctUINT32) ((gctUINT32) (Saturate) & ((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
+    Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, DEST_VALID, 1);
+    Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, DEST_ADR, Address);
+    Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, DEST_WRITE_ENABLE, WriteEnable);
+    Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, SATURATE, Saturate);
 
     return gcvSTATUS_OK;
 
@@ -1305,12 +1017,12 @@ gckPPU_GetPixel(
 
     switch(Format)
     {
-    case 0x7:
+    case GCREG_SH_INSTRUCTION_TYPE_UNSIGNED8:
         pixel = 15;
         break;
 
-    case 0x3:
-    case 0x6:
+    case GCREG_SH_INSTRUCTION_TYPE_SIGNED16:
+    case GCREG_SH_INSTRUCTION_TYPE_UNSIGNED16:
         pixel = 7;
         break;
 
@@ -1337,16 +1049,7 @@ gckPPU_SetEVIS(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-    Inst[0] = ((((gctUINT32) (Inst[0])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:23) - (0 ?
- 26:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:23) - (0 ?
- 26:23) + 1))))))) << (0 ?
- 26:23))) | (((gctUINT32) ((gctUINT32) (Start) & ((gctUINT32) ((((1 ?
- 26:23) - (0 ?
- 26:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:23) - (0 ? 26:23) + 1))))))) << (0 ? 26:23)));
+    Inst[0] = gcmSETFIELD(Inst[0], AQ_INST, DEST_WRITE_ENABLE, Start);
     Inst[0] = _SETBITS(Inst[0], 30, 27, End);
     Inst[1] = _SETBITS(Inst[1], 10, 2, Evis);
 
@@ -1378,222 +1081,33 @@ gckPPU_SetSource(
     switch (Where)
     {
     case 0:
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:11) - (0 ?
- 11:11) + 1))))))) << (0 ?
- 11:11))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 20:12) - (0 ?
- 20:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 20:12) - (0 ?
- 20:12) + 1))))))) << (0 ?
- 20:12))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
- 20:12) - (0 ?
- 20:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 20:12) - (0 ? 20:12) + 1))))))) << (0 ? 20:12)));
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 29:22) - (0 ?
- 29:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 29:22) - (0 ?
- 29:22) + 1))))))) << (0 ?
- 29:22))) | (((gctUINT32) ((gctUINT32) (Swizzle) & ((gctUINT32) ((((1 ?
- 29:22) - (0 ?
- 29:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 29:22) - (0 ? 29:22) + 1))))))) << (0 ? 29:22)));
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:30) - (0 ?
- 30:30) + 1))))))) << (0 ?
- 30:30))) | (((gctUINT32) ((gctUINT32) (Negate) & ((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)));
-        Inst[1] = ((((gctUINT32) (Inst[1])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:31) - (0 ?
- 31:31) + 1))))))) << (0 ?
- 31:31))) | (((gctUINT32) ((gctUINT32) (Absolute) & ((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (Relative) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:3) - (0 ?
- 5:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:3) - (0 ?
- 5:3) + 1))))))) << (0 ?
- 5:3))) | (((gctUINT32) ((gctUINT32) (Type) & ((gctUINT32) ((((1 ?
- 5:3) - (0 ?
- 5:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:3) - (0 ? 5:3) + 1))))))) << (0 ? 5:3)));
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_VALID, 1);
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_ADR, Address);
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_SWIZZLE, Swizzle);
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_MODIFIER_NEG, Negate);
+        Inst[1] = gcmSETFIELD(Inst[1], AQ_INST, SRC0_MODIFIER_ABS, Absolute);
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC0_REL_ADR, Relative);
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC0_TYPE, Type);
         break;
 
     case 1:
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:6) - (0 ?
- 6:6) + 1))))))) << (0 ?
- 6:6))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:7) - (0 ?
- 15:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:7) - (0 ?
- 15:7) + 1))))))) << (0 ?
- 15:7))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
- 15:7) - (0 ?
- 15:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:7) - (0 ? 15:7) + 1))))))) << (0 ? 15:7)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 24:17) - (0 ?
- 24:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 24:17) - (0 ?
- 24:17) + 1))))))) << (0 ?
- 24:17))) | (((gctUINT32) ((gctUINT32) (Swizzle) & ((gctUINT32) ((((1 ?
- 24:17) - (0 ?
- 24:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 24:17) - (0 ? 24:17) + 1))))))) << (0 ? 24:17)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:25) - (0 ?
- 25:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:25) - (0 ?
- 25:25) + 1))))))) << (0 ?
- 25:25))) | (((gctUINT32) ((gctUINT32) (Negate) & ((gctUINT32) ((((1 ?
- 25:25) - (0 ?
- 25:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:25) - (0 ? 25:25) + 1))))))) << (0 ? 25:25)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (Absolute) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)));
-        Inst[2] = ((((gctUINT32) (Inst[2])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 29:27) - (0 ?
- 29:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 29:27) - (0 ?
- 29:27) + 1))))))) << (0 ?
- 29:27))) | (((gctUINT32) ((gctUINT32) (Relative) & ((gctUINT32) ((((1 ?
- 29:27) - (0 ?
- 29:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 29:27) - (0 ? 29:27) + 1))))))) << (0 ? 29:27)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (Type) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_VALID, 1);
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_ADR, Address);
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_SWIZZLE, Swizzle);
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_MODIFIER_NEG, Negate);
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_MODIFIER_ABS, Absolute);
+        Inst[2] = gcmSETFIELD(Inst[2], AQ_INST, SRC1_REL_ADR, Relative);
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC1_TYPE, Type);
         break;
 
     case 2:
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:4) - (0 ?
- 12:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:4) - (0 ?
- 12:4) + 1))))))) << (0 ?
- 12:4))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
- 12:4) - (0 ?
- 12:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:4) - (0 ? 12:4) + 1))))))) << (0 ? 12:4)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 21:14) - (0 ?
- 21:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 21:14) - (0 ?
- 21:14) + 1))))))) << (0 ?
- 21:14))) | (((gctUINT32) ((gctUINT32) (Swizzle) & ((gctUINT32) ((((1 ?
- 21:14) - (0 ?
- 21:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 21:14) - (0 ? 21:14) + 1))))))) << (0 ? 21:14)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 22:22) - (0 ?
- 22:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 22:22) - (0 ?
- 22:22) + 1))))))) << (0 ?
- 22:22))) | (((gctUINT32) ((gctUINT32) (Negate) & ((gctUINT32) ((((1 ?
- 22:22) - (0 ?
- 22:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:22) - (0 ? 22:22) + 1))))))) << (0 ? 22:22)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:23) - (0 ?
- 23:23) + 1))))))) << (0 ?
- 23:23))) | (((gctUINT32) ((gctUINT32) (Absolute) & ((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 23:23) - (0 ? 23:23) + 1))))))) << (0 ? 23:23)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 27:25) - (0 ?
- 27:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 27:25) - (0 ?
- 27:25) + 1))))))) << (0 ?
- 27:25))) | (((gctUINT32) ((gctUINT32) (Relative) & ((gctUINT32) ((((1 ?
- 27:25) - (0 ?
- 27:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 27:25) - (0 ? 27:25) + 1))))))) << (0 ? 27:25)));
-        Inst[3] = ((((gctUINT32) (Inst[3])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:28) - (0 ?
- 30:28) + 1))))))) << (0 ?
- 30:28))) | (((gctUINT32) ((gctUINT32) (Type) & ((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:28) - (0 ? 30:28) + 1))))))) << (0 ? 30:28)));
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_VALID, 1);
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_ADR, Address);
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_SWIZZLE, Swizzle);
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_MODIFIER_NEG, Negate);
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_MODIFIER_ABS, Absolute);
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_REL_ADR, Relative);
+        Inst[3] = gcmSETFIELD(Inst[3], AQ_INST, SRC2_TYPE, Type);
         break;
 
     default:
@@ -1633,7 +1147,7 @@ gckPPU_SetUniform(
         Where,
         Address,
         Swizzle,
-        0x2,
+        AQ_SHADER_SRC_REG_TYPE_UNBOUNDED_CONST,
         negate,
         absolute,
         0,
@@ -1669,7 +1183,7 @@ gckPPU_SetTempReg(
         Where,
         Address,
         Swizzle,
-        0x0,
+        AQ_SHADER_SRC_REG_TYPE_TEMP,
         negate,
         absolute,
         0,
@@ -1729,7 +1243,7 @@ _ProgramPPUInstruction(
     inst = (gctUINT32_PTR)bufferLogical;
 
     /* img_load.u8 r1, c0, r0.xy */
-    gcmkONERROR(gckPPU_AddOpCode(Hardware, 0x79, 0, inImage1DataType, &inst[instCount]));
+    gcmkONERROR(gckPPU_AddOpCode(Hardware, AQ_INST_OP_CODE_IMG_LOAD, 0, inImage1DataType, &inst[instCount]));
     gcmkONERROR(gckPPU_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &inst[instCount]));
     gcmkONERROR(gckPPU_SetEVIS(0, gckPPU_GetPixel(inImage1DataType), 1, &inst[instCount]));
     gcmkONERROR(gckPPU_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &inst[instCount]));
@@ -1737,7 +1251,7 @@ _ProgramPPUInstruction(
     instCount += 4;
 
     /*img_load.u8 r2, c0, r0.xy */
-    gcmkONERROR(gckPPU_AddOpCode(Hardware, 0x79, 0, inImage2DataType, &inst[instCount]));
+    gcmkONERROR(gckPPU_AddOpCode(Hardware, AQ_INST_OP_CODE_IMG_LOAD, 0, inImage2DataType, &inst[instCount]));
     gcmkONERROR(gckPPU_SetDestination(2, gcdVX_ENABLE, gcvFALSE, &inst[instCount]));
     gcmkONERROR(gckPPU_SetEVIS(0, gckPPU_GetPixel(inImage2DataType), 1, &inst[instCount]));
     gcmkONERROR(gckPPU_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &inst[instCount]));
@@ -1745,16 +1259,16 @@ _ProgramPPUInstruction(
     instCount += 4;
 
     /* dp2x8 r1, r1, r2, c3_512 */
-    gcmkONERROR(gckPPU_AddOpCode(Hardware, 0x45, 0x0B, outImageDataType, &inst[instCount]));
+    gcmkONERROR(gckPPU_AddOpCode(Hardware, AQ_INST_OP_CODE_EVIS, GCREG_SH_VISION_OPCODE_DP2X8, outImageDataType, &inst[instCount]));
     gcmkONERROR(gckPPU_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &inst[instCount]));
     gcmkONERROR(gckPPU_SetEVIS(0, 7, (inImage1DataType | (inImage2DataType << 3)), &inst[instCount]));
     gcmkONERROR(gckPPU_SetTempReg(0, 1, gcdVX_SWIZZLE, 0, &inst[instCount]));
     gcmkONERROR(gckPPU_SetTempReg(1, 2, gcdVX_SWIZZLE, 0, &inst[instCount]));
-    gcmkONERROR(gckPPU_SetSource (2, 2, gcdVX_SWIZZLE, 0x4, gcvFALSE, gcvFALSE, 0, &inst[instCount]));
+    gcmkONERROR(gckPPU_SetSource (2, 2, gcdVX_SWIZZLE, AQ_SHADER_SRC_REG_TYPE_UNIFORM512, gcvFALSE, gcvFALSE, 0, &inst[instCount]));
     instCount += 4;
 
     /* img_store.u8 r1, c2, r0.xy, r1 */
-    gcmkONERROR(gckPPU_AddOpCode(Hardware, 0x7A, 0, outImageDataType, &inst[instCount]));
+    gcmkONERROR(gckPPU_AddOpCode(Hardware, AQ_INST_OP_CODE_IMG_STORE, 0, outImageDataType, &inst[instCount]));
     gcmkONERROR(gckPPU_SetEVIS(0, gckPPU_GetPixel(outImageDataType), 1, &inst[instCount]));
     gcmkONERROR(gckPPU_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &inst[instCount]));
     gcmkONERROR(gckPPU_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &inst[instCount]));
@@ -1869,451 +1383,64 @@ _ProgramPPUCommand(
 
     commands = (gctUINT32_PTR)bufferLogical;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E13) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:0) - (0 ?
- 1:0) + 1))))))) << (0 ?
- 1:0))) | (((gctUINT32) (0x2 & ((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:0) - (0 ? 1:0) + 1))))))) << (0 ? 1:0)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQModeRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_MODE, API_MODE, OpenCL);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:0) - (0 ?
- 4:0) + 1))))))) << (0 ?
- 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:8) - (0 ?
- 12:8) + 1))))))) << (0 ?
- 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE, FRONT_END)
+                      | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, PIXEL_ENGINE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:0) - (0 ?
- 4:0) + 1))))))) << (0 ?
- 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:8) - (0 ?
- 12:8) + 1))))))) << (0 ?
- 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, STALL);
+    commands[index++] = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE, FRONT_END)
+                      | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, PIXEL_ENGINE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0xD800) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (4) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPixelUniformsRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 4);
     commands[index++] = InImageAddress;
     commands[index++] = Stride;
     commands[index++] = Height << 16 | Width;
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (0x0) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:4) - (0 ?
- 5:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:4) - (0 ?
- 5:4) + 1))))))) << (0 ?
- 5:4))) | (((gctUINT32) ((gctUINT32) (0x3) & ((gctUINT32) ((((1 ?
- 5:4) - (0 ?
- 5:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:4) - (0 ? 5:4) + 1))))))) << (0 ? 5:4)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 9:6) - (0 ?
- 9:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 9:6) - (0 ?
- 9:6) + 1))))))) << (0 ?
- 9:6))) | (((gctUINT32) ((gctUINT32) (0x7) & ((gctUINT32) ((((1 ?
- 9:6) - (0 ?
- 9:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 9:6) - (0 ? 9:6) + 1))))))) << (0 ? 9:6)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:10) - (0 ?
- 11:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:10) - (0 ?
- 11:10) + 1))))))) << (0 ?
- 11:10))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
- 11:10) - (0 ?
- 11:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:10) - (0 ? 11:10) + 1))))))) << (0 ? 11:10)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:12) - (0 ?
- 12:12) + 1))))))) << (0 ?
- 12:12))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:12) - (0 ? 12:12) + 1))))))) << (0 ? 12:12)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:14) - (0 ?
- 15:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:14) - (0 ?
- 15:14) + 1))))))) << (0 ?
- 15:14))) | (((gctUINT32) ((gctUINT32) (0x1) & ((gctUINT32) ((((1 ?
- 15:14) - (0 ?
- 15:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:14) - (0 ? 15:14) + 1))))))) << (0 ? 15:14)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 18:16) - (0 ?
- 18:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 18:16) - (0 ?
- 18:16) + 1))))))) << (0 ?
- 18:16))) | (((gctUINT32) ((gctUINT32) (0x0) & ((gctUINT32) ((((1 ?
- 18:16) - (0 ?
- 18:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 18:16) - (0 ? 18:16) + 1))))))) << (0 ? 18:16)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 22:20) - (0 ?
- 22:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 22:20) - (0 ?
- 22:20) + 1))))))) << (0 ?
- 22:20))) | (((gctUINT32) ((gctUINT32) (0x4) & ((gctUINT32) ((((1 ?
- 22:20) - (0 ?
- 22:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:20) - (0 ? 22:20) + 1))))))) << (0 ? 22:20)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:24) - (0 ?
- 26:24) + 1))))))) << (0 ?
- 26:24))) | (((gctUINT32) ((gctUINT32) (0x4) & ((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:24) - (0 ? 26:24) + 1))))))) << (0 ? 26:24)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:28) - (0 ?
- 30:28) + 1))))))) << (0 ?
- 30:28))) | (((gctUINT32) ((gctUINT32) (0x4) & ((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:28) - (0 ? 30:28) + 1))))))) << (0 ? 30:28)));
+    commands[index++] = gcmSETFIELD(0, GCREG_SH_IMAGE, SHIFT, 0)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, MULTIPLY, GCREG_SH_IMAGE_MULTIPLY_ONE)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, ADDRESSING, GCREG_SH_IMAGE_ADDRESSING_CLAMP)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, CONVERSION, GCREG_SH_IMAGE_CONVERSION_U8)
+                      | gcmSETFIELDVALUE(0, GCREG_SH_IMAGE, TILING, LINEAR)
+                      | gcmSETFIELDVALUE(0, GCREG_SH_IMAGE, TYPE, 2D)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, COMPONENT_COUNT, GCREG_SH_IMAGE_COMPONENT_COUNT_ONE_COMPONENT)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_R, GCREG_SH_IMAGE_SWIZZLE_R_X)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_G, GCREG_SH_IMAGE_SWIZZLE_G_ZERO)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_B, GCREG_SH_IMAGE_SWIZZLE_B_ZERO)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_A, GCREG_SH_IMAGE_SWIZZLE_A_ZERO);
 
     commands[index++] = 0xFFFFFFFF;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0xD800 + 0x04) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (4) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPixelUniformsRegAddrs + 0x04)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 4);
     commands[index++] = OutImageAddress;
     commands[index++] = Stride;
     commands[index++] = Height << 16 | Width;
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (0x0) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:4) - (0 ?
- 5:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:4) - (0 ?
- 5:4) + 1))))))) << (0 ?
- 5:4))) | (((gctUINT32) ((gctUINT32) (0x3) & ((gctUINT32) ((((1 ?
- 5:4) - (0 ?
- 5:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:4) - (0 ? 5:4) + 1))))))) << (0 ? 5:4)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 9:6) - (0 ?
- 9:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 9:6) - (0 ?
- 9:6) + 1))))))) << (0 ?
- 9:6))) | (((gctUINT32) ((gctUINT32) (0x7) & ((gctUINT32) ((((1 ?
- 9:6) - (0 ?
- 9:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 9:6) - (0 ? 9:6) + 1))))))) << (0 ? 9:6)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:10) - (0 ?
- 11:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:10) - (0 ?
- 11:10) + 1))))))) << (0 ?
- 11:10))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
- 11:10) - (0 ?
- 11:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:10) - (0 ? 11:10) + 1))))))) << (0 ? 11:10)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:12) - (0 ?
- 12:12) + 1))))))) << (0 ?
- 12:12))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:12) - (0 ? 12:12) + 1))))))) << (0 ? 12:12)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:14) - (0 ?
- 15:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:14) - (0 ?
- 15:14) + 1))))))) << (0 ?
- 15:14))) | (((gctUINT32) ((gctUINT32) (0x1) & ((gctUINT32) ((((1 ?
- 15:14) - (0 ?
- 15:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:14) - (0 ? 15:14) + 1))))))) << (0 ? 15:14)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 18:16) - (0 ?
- 18:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 18:16) - (0 ?
- 18:16) + 1))))))) << (0 ?
- 18:16))) | (((gctUINT32) ((gctUINT32) (0x0) & ((gctUINT32) ((((1 ?
- 18:16) - (0 ?
- 18:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 18:16) - (0 ? 18:16) + 1))))))) << (0 ? 18:16)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 22:20) - (0 ?
- 22:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 22:20) - (0 ?
- 22:20) + 1))))))) << (0 ?
- 22:20))) | (((gctUINT32) ((gctUINT32) (0x4) & ((gctUINT32) ((((1 ?
- 22:20) - (0 ?
- 22:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:20) - (0 ? 22:20) + 1))))))) << (0 ? 22:20)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:24) - (0 ?
- 26:24) + 1))))))) << (0 ?
- 26:24))) | (((gctUINT32) ((gctUINT32) (0x4) & ((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:24) - (0 ? 26:24) + 1))))))) << (0 ? 26:24)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:28) - (0 ?
- 30:28) + 1))))))) << (0 ?
- 30:28))) | (((gctUINT32) ((gctUINT32) (0x4) & ((gctUINT32) ((((1 ?
- 30:28) - (0 ?
- 30:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:28) - (0 ? 30:28) + 1))))))) << (0 ? 30:28)));
+    commands[index++] = gcmSETFIELD(0, GCREG_SH_IMAGE, SHIFT, 0)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, MULTIPLY, GCREG_SH_IMAGE_MULTIPLY_ONE)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, ADDRESSING, GCREG_SH_IMAGE_ADDRESSING_CLAMP)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, CONVERSION, GCREG_SH_IMAGE_CONVERSION_U8)
+                      | gcmSETFIELDVALUE(0, GCREG_SH_IMAGE, TILING, LINEAR)
+                      | gcmSETFIELDVALUE(0, GCREG_SH_IMAGE, TYPE, 2D)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, COMPONENT_COUNT, GCREG_SH_IMAGE_COMPONENT_COUNT_ONE_COMPONENT)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_R, GCREG_SH_IMAGE_SWIZZLE_R_X)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_G, GCREG_SH_IMAGE_SWIZZLE_G_ZERO)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_B, GCREG_SH_IMAGE_SWIZZLE_B_ZERO)
+                      | gcmSETFIELD(0, GCREG_SH_IMAGE, SWIZZLE_A, GCREG_SH_IMAGE_SWIZZLE_A_ZERO);
 
     commands[index++] = 0xFFFFFFFF;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0xD800 + 0x08) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (16) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPixelUniformsRegAddrs + 0x08)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 16);
     commands[index++] = 0x55555555;
     commands[index++] = 0x00000000; /* TCfg. */
     commands[index++] = 0x01234567;
@@ -2333,1666 +1460,235 @@ _ProgramPPUCommand(
 
     commands[index++] = 0xFFFFFFFF;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0240) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:0) - (0 ?
- 1:0) + 1))))))) << (0 ?
- 1:0))) | (((gctUINT32) ((gctUINT32) (0x2) & ((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:0) - (0 ? 1:0) + 1))))))) << (0 ? 1:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:4) - (0 ?
- 6:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:4) - (0 ?
- 6:4) + 1))))))) << (0 ?
- 6:4))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
- 6:4) - (0 ?
- 6:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:4) - (0 ? 6:4) + 1))))))) << (0 ? 6:4)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:24) - (0 ?
- 26:24) + 1))))))) << (0 ?
- 26:24))) | (((gctUINT32) ((gctUINT32) (0x2) & ((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:24) - (0 ? 26:24) + 1))))))) << (0 ? 26:24)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWConfigRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_TW_CONFIG, WORK_DIM, GCREG_TW_CONFIG_WORK_DIM_TWO)
+                      | gcmSETFIELDVALUE(0, GCREG_TW_CONFIG, TRAVERSE_ORDER, XYZ)
+                      | gcmSETFIELD(0, GCREG_TW_CONFIG, VALUE_ORDER, GCREG_TW_CONFIG_VALUE_ORDER_LGW);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x022C) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:4) - (0 ?
- 4:4) + 1))))))) << (0 ?
- 4:4))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregSHIcacheInvalidateRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_SH_ICACHE_INVALIDATE, VS,  1)
+                      | gcmSETFIELD(0, GCREG_SH_ICACHE_INVALIDATE, TCS, 1)
+                      | gcmSETFIELD(0, GCREG_SH_ICACHE_INVALIDATE, TES, 1)
+                      | gcmSETFIELD(0, GCREG_SH_ICACHE_INVALIDATE, GS,  1)
+                      | gcmSETFIELD(0, GCREG_SH_ICACHE_INVALIDATE, PS,  1);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0420) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSUnpackRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_PS_UNPACK, VARYING0, 0);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0403) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQPixelShaderTemporaryRegisterControlRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = RegCount;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0416) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSSamplerBaseRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0409) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPixelShaderConstRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x021F) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSStartPCRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0424) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSRelativeEndRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = InstCount / 4;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x040A) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSInstructionRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = InstAddress;
 
     if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HALTI5))
     {
-        commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x5580) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-        commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)));
+        commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregShaderMiscConfigRegAddrs)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+        commands[index++] = gcmSETFIELDVALUE(0, GCREG_SHADER_MISC_CONFIG, RTNE_ROUNDING, ENABLE);
     }
     else
     {
-        commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-        commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:12) - (0 ?
- 12:12) + 1))))))) << (0 ?
- 12:12))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:12) - (0 ? 12:12) + 1))))))) << (0 ? 12:12)));
+        commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregShaderConfigRegAddrs)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+        commands[index++] = gcmSETFIELDVALUE(0, GCREG_SHADER_CONFIG, RTNE_ROUNDING, ENABLE);
     }
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x021A) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregSHCacheControlRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, GCREG_SH_CACHE_CONTROL, MODE, MEMORY);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0425) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSInstructionPrefetchRelativeEndRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = InstCount / 4 - 1;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0402) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:0) - (0 ?
- 5:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:0) - (0 ?
- 5:0) + 1))))))) << (0 ?
- 5:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 5:0) - (0 ?
- 5:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:0) - (0 ? 5:0) + 1))))))) << (0 ? 5:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:8) - (0 ?
- 12:8) + 1))))))) << (0 ?
- 12:8))) | (((gctUINT32) ((gctUINT32) (~0) & ((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQPixelShaderInputControlRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, AQ_PIXEL_SHADER_INPUT_CONTROL, COUNT,  1)
+                      | gcmSETFIELD(0, AQ_PIXEL_SHADER_INPUT_CONTROL, TIMEOUT, ~0);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0228) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregVSThrottleRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x02AA) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPAControlRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E07) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregVaryingsRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x040C) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSOutputModeRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0201) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:0) - (0 ?
- 5:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:0) - (0 ?
- 5:0) + 1))))))) << (0 ?
- 5:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 5:0) - (0 ?
- 5:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:0) - (0 ? 5:0) + 1))))))) << (0 ? 5:0)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQVertexShaderOutputControlRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, AQ_VERTEX_SHADER_OUTPUT_CONTROL, COUNT, 1);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E22) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregSemanticLocationRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0412) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSInstructionPrefetchRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0240) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:0) - (0 ?
- 1:0) + 1))))))) << (0 ?
- 1:0))) | (((gctUINT32) ((gctUINT32) (0x2) & ((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:0) - (0 ? 1:0) + 1))))))) << (0 ? 1:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:4) - (0 ?
- 6:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:4) - (0 ?
- 6:4) + 1))))))) << (0 ?
- 6:4))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
- 6:4) - (0 ?
- 6:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:4) - (0 ? 6:4) + 1))))))) << (0 ? 6:4)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:24) - (0 ?
- 26:24) + 1))))))) << (0 ?
- 26:24))) | (((gctUINT32) ((gctUINT32) (0x3) & ((gctUINT32) ((((1 ?
- 26:24) - (0 ?
- 26:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:24) - (0 ? 26:24) + 1))))))) << (0 ? 26:24)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWConfigRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_TW_CONFIG, WORK_DIM, GCREG_TW_CONFIG_WORK_DIM_TWO)
+                      | gcmSETFIELDVALUE(0, GCREG_TW_CONFIG, TRAVERSE_ORDER, XYZ)
+                      | gcmSETFIELD(0, GCREG_TW_CONFIG, VALUE_ORDER, GCREG_TW_CONFIG_VALUE_ORDER_WGL);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0249) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWShaderInfo2RegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0247) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWShaderInfoRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = ThreadAllocation;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x024B) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWInfoGlobalOffsetXRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = GlobalOffsetX;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x024D) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWInfoGlobalOffsetYRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = GlobalOffsetY;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x024F) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWInfoGlobalOffsetZRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = GlobalOffsetZ;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0256) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWInfoGlobalScaleXRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = GlobalScaleX;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0257) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWInfoGlobalScaleYRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = GlobalScaleY;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0258) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWInfoGlobalScaleZRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = GlobalScaleZ;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0250) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (6) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWWorkGroupCountXRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 6);
     commands[index++] = groupCountX - 1;
     commands[index++] = groupCountY - 1;
     commands[index++] = groupCountZ - 1;
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 9:0) - (0 ?
- 9:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 9:0) - (0 ?
- 9:0) + 1))))))) << (0 ?
- 9:0))) | (((gctUINT32) ((gctUINT32) (GroupSizeX - 1) & ((gctUINT32) ((((1 ?
- 9:0) - (0 ?
- 9:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 9:0) - (0 ? 9:0) + 1))))))) << (0 ? 9:0)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 9:0) - (0 ?
- 9:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 9:0) - (0 ?
- 9:0) + 1))))))) << (0 ?
- 9:0))) | (((gctUINT32) ((gctUINT32) (GroupSizeY - 1) & ((gctUINT32) ((((1 ?
- 9:0) - (0 ?
- 9:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 9:0) - (0 ? 9:0) + 1))))))) << (0 ? 9:0)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 9:0) - (0 ?
- 9:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 9:0) - (0 ?
- 9:0) + 1))))))) << (0 ?
- 9:0))) | (((gctUINT32) ((gctUINT32) (GroupSizeZ - 1) & ((gctUINT32) ((((1 ?
- 9:0) - (0 ?
- 9:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 9:0) - (0 ? 9:0) + 1))))))) << (0 ? 9:0)));
+    commands[index++] = gcmSETFIELD(0, GCREG_TW_WORKGROUP_SIZE_X, SIZE, GroupSizeX - 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_TW_WORKGROUP_SIZE_Y, SIZE, GroupSizeY - 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_TW_WORKGROUP_SIZE_Z, SIZE, GroupSizeZ - 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0248) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTWTriggerRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0xBADABEEB;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:5) - (0 ?
- 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:10) - (0 ?
- 10:10) + 1))))))) << (0 ?
- 10:10))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:10) - (0 ? 10:10) + 1))))))) << (0 ? 10:10)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:11) - (0 ?
- 11:11) + 1))))))) << (0 ?
- 11:11))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_FLUSH, SHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, VSSHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, PSSHL1_CACHE, ENABLE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:0) - (0 ?
- 4:0) + 1))))))) << (0 ?
- 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:8) - (0 ?
- 12:8) + 1))))))) << (0 ?
- 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE, FRONT_END)
+                      | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, PIXEL_ENGINE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, STALL);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:0) - (0 ?
- 4:0) + 1))))))) << (0 ?
- 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:8) - (0 ?
- 12:8) + 1))))))) << (0 ?
- 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
- 12:8) - (0 ?
- 12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+    commands[index++] = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE, FRONT_END)
+                      | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, PIXEL_ENGINE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:5) - (0 ?
- 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:10) - (0 ?
- 10:10) + 1))))))) << (0 ?
- 10:10))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:10) - (0 ? 10:10) + 1))))))) << (0 ? 10:10)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:11) - (0 ?
- 11:11) + 1))))))) << (0 ?
- 11:11))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_FLUSH, ZCACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, CCACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, SHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, VSSHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, PSSHL1_CACHE, ENABLE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:5) - (0 ?
- 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:10) - (0 ?
- 10:10) + 1))))))) << (0 ?
- 10:10))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:10) - (0 ? 10:10) + 1))))))) << (0 ? 10:10)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:11) - (0 ?
- 11:11) + 1))))))) << (0 ?
- 11:11))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_FLUSH, ZCACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, CCACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, SHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, VSSHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, PSSHL1_CACHE, ENABLE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0594) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcTileCacheFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, GC_TILE, CACHE_FLUSH_FLUSH, ENABLE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:5) - (0 ?
- 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 10:10) - (0 ?
- 10:10) + 1))))))) << (0 ?
- 10:10))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 10:10) - (0 ?
- 10:10) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 10:10) - (0 ? 10:10) + 1))))))) << (0 ? 10:10)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 11:11) - (0 ?
- 11:11) + 1))))))) << (0 ?
- 11:11))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 11:11) - (0 ?
- 11:11) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_FLUSH, ZCACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, CCACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, SHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, VSSHL1_CACHE, ENABLE)
+                      | gcmSETFIELDVALUE(0, AQ_FLUSH, PSSHL1_CACHE, ENABLE);
 
     bytes = gcmSIZEOF(gctUINT32) * index;
 
@@ -4071,7 +1767,7 @@ gckHARDWARE_ResetFlopWithPPU(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gctUINT32 dataType = 0x7;
+    gctUINT32 dataType = GCREG_SH_INSTRUCTION_TYPE_UNSIGNED8;
     gcsFEATURE_DATABASE *database = gcvNULL;
     gctUINT32 numShaderCores;
     gctUINT32 stride, width, height;
@@ -4136,8 +1832,8 @@ gckHARDWARE_ResetFlopWithPPU(
         &data[gcvFLOP_RESET_PPU_INSTRUCTION]
         ));
 
-    workDim = 0x2;
-    valueOrder = 0x2;
+    workDim = GCREG_TW_CONFIG_WORK_DIM_TWO;
+    valueOrder = GCREG_TW_CONFIG_VALUE_ORDER_LGW;
     groupSizeX = 1;
     groupSizeY = 1;
     groupSizeZ = 0;
@@ -4258,7 +1954,7 @@ _ProgramNNKernel(
     }
     else
     {
-        /* Head (align to 64) + body (align to 64). */
+        /* Head (align to 64) + body ( align to 64). */
         bufferBytes = 64 + gcmALIGN_NP2(((filterBytes + biasBytes +  3) * filterTotalCount + 3), 64);
     }
 
@@ -4280,13 +1976,13 @@ _ProgramNNKernel(
     {
         gctUINT32 i = 0;
         gctUINT8 rlt[][18] = {
-            {0}, /* uint8 */
-            {1, 1, 0, 1}, /* fp16 */
-            {7, 1}, /* int8 */
-            {0}, /* uint16 */
-            {3, 1, 0, 1}, /* int16 */
-            {0}, /* uint4 */
-            {0}, /* int4 */
+            {0},            /* uint8 */
+            {1, 1, 0, 1},   /* fp16 */
+            {7, 1},         /* int8 */
+            {0},            /* uint16 */
+            {3, 1, 0, 1},   /* int16 */
+            {0},            /* uint4 */
+            {0},            /* int4 */
             {1, 1, 0, 1}    /* bf16 */
         };
         gctUINT8 map[][9] = {
@@ -4294,10 +1990,10 @@ _ProgramNNKernel(
             {1, 5, 0, 7, 8, 2, 6, 3, 4},
             {1, 0, 7, 8, 4, 5, 6, 2, 3},
         };
-        gctBOOL bit16 = DataType == 0x4 ||
-                        DataType == 0x1  ||
-                        DataType == 0x7;
-        gctBOOL fp16 = DataType == 0x1;
+        gctBOOL bit16 = DataType == GCREG_NN_DATA_TYPE_INT16 ||
+                        DataType == GCREG_NN_DATA_TYPE_FP16  ||
+                        DataType == GCREG_NN_DATA_TYPE_BFP16;
+        gctBOOL fp16 = DataType == GCREG_NN_DATA_TYPE_FP16;
         gctUINT32 index = 0;
 
         if (Hardware->identity.customerID == 0x9f)
@@ -4346,7 +2042,7 @@ _ProgramNNKernel(
 
         switch (DataType)
         {
-        case 0x4:
+        case GCREG_NN_DATA_TYPE_INT16:
             /* Huffman data: 00000018 00924600 */
             gcmkONERROR(_BitValue(&kernels, 0x04058000, &offset, 32));
             /* Huffman data. */
@@ -4359,8 +2055,8 @@ _ProgramNNKernel(
 
             break;
 
-        case 0x0:
-        case 0x2:
+        case GCREG_NN_DATA_TYPE_UINT8:
+        case GCREG_NN_DATA_TYPE_INT8:
             /* Huffman data. */
             gcmkONERROR(_BitValue(&kernels, 0xec000038, &offset, 32));
 
@@ -4369,7 +2065,7 @@ _ProgramNNKernel(
 
             break;
 
-        case 0x1:
+        case GCREG_NN_DATA_TYPE_FP16:
             /* Huffman data: 0009db68 000006c0 000001f0 00000900 00024000. */
             gcmkONERROR(_BitValue(&kernels, 0x0009db68, &offset, 32));
             /* Huffman data. */
@@ -4386,7 +2082,7 @@ _ProgramNNKernel(
 
             break;
 
-        case 0x7:
+        case GCREG_NN_DATA_TYPE_BFP16:
             /* Huffman data: 0007fff8 7f00fdfc c0397f00 0900001f 40000000 00000002. */
             gcmkONERROR(_BitValue(&kernels, 0x0007fff8, &offset, 32));
             /* Huffman data. */
@@ -4432,7 +2128,7 @@ _ProgramNNKernel(
         }
         else
         {
-            gctINT16 value = (DataType == 0x1) ? 0x3c00 /*1.0f*/ : 1;
+            gctINT16 value = (DataType == GCREG_NN_DATA_TYPE_FP16) ? 0x3c00 /*1.0f*/ : 1;
             gctUINT32 i = 0;
 
             _BitValue(&kernels, zrl, &offset, 8);
@@ -4440,8 +2136,8 @@ _ProgramNNKernel(
             _BitValue(&kernels, value, &offset, 8 * itemBytes);
             _BitValue(&kernels, bias, &offset, 32);
 
-            if (DataType == 0x3 ||
-                DataType == 0x4)
+            if (DataType == GCREG_NN_DATA_TYPE_UINT16 ||
+                DataType == GCREG_NN_DATA_TYPE_INT16)
             {
                 _BitValue(&kernels, 0, &offset, 16);
             }
@@ -4520,13 +2216,13 @@ _ProgramNNInput(
     gctUINT32 i = 0;
     gctUINT32 offset = 0;
     gctUINT32 value[] = {
-        1, /* uint8 */
+        1,      /* uint8 */
         0x3c00, /* fp16 */
-        1, /* int8 */
-        1, /* uint16 */
-        1, /* int16 */
-        1, /* uint4 */
-        1, /* int4 */
+        1,      /* int8 */
+        1,      /* uint16 */
+        1,      /* int16 */
+        1,      /* uint4 */
+        1,      /* int4 */
         0x3f80  /* bf16 */
     };
 
@@ -4547,7 +2243,7 @@ _ProgramNNInput(
 
     if (gcvVIP_ARCH_TYPE_V8 == ArchType)
     {
-        value[0x4] = 0x81;
+        value[GCREG_NN_DATA_TYPE_INT16] = 0x81;
     }
 
     buffer = (gctUINT8_PTR)bufferLogical;
@@ -4739,7 +2435,7 @@ _ProgramNNInstruction(
 
     case gcvVIP_ARCH_TYPE_V7:
     case gcvVIP_ARCH_TYPE_V6:
-        postShift = (DataType == 0x2) ? 15 : 0;
+        postShift = (DataType == GCREG_NN_DATA_TYPE_INT8) ? 15 : 0;
         break;
 
     default:
@@ -4750,401 +2446,68 @@ _ProgramNNInstruction(
     /* gcregNNInstWord0 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) ((gctUINT32) (noZOffset) & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:2) - (0 ?
- 5:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:2) - (0 ?
- 5:2) + 1))))))) << (0 ?
- 5:2))) | (((gctUINT32) ((gctUINT32) (KernelXSize) & ((gctUINT32) ((((1 ?
- 5:2) - (0 ?
- 5:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:2) - (0 ? 5:2) + 1))))))) << (0 ? 5:2)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 19:6) - (0 ?
- 19:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 19:6) - (0 ?
- 19:6) + 1))))))) << (0 ?
- 19:6))) | (((gctUINT32) ((gctUINT32) ((KernelZSize & 0x3FFF)) & ((gctUINT32) ((((1 ?
- 19:6) - (0 ?
- 19:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 19:6) - (0 ? 19:6) + 1))))))) << (0 ? 19:6)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:20) - (0 ?
- 26:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:20) - (0 ?
- 26:20) + 1))))))) << (0 ?
- 26:20))) | (((gctUINT32) ((gctUINT32) (kernelsPerCore) & ((gctUINT32) ((((1 ?
- 26:20) - (0 ?
- 26:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:20) - (0 ? 26:20) + 1))))))) << (0 ? 26:20)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 28:27) - (0 ?
- 28:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 28:27) - (0 ?
- 28:27) + 1))))))) << (0 ?
- 28:27))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 28:27) - (0 ?
- 28:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 28:27) - (0 ? 28:27) + 1))))))) << (0 ? 28:27)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 29:29) - (0 ?
- 29:29) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 29:29) - (0 ?
- 29:29) + 1))))))) << (0 ?
- 29:29))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 29:29) - (0 ?
- 29:29) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 29:29) - (0 ? 29:29) + 1))))))) << (0 ? 29:29)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:30) - (0 ?
- 30:30) + 1))))))) << (0 ?
- 30:30))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:31) - (0 ?
- 31:31) + 1))))))) << (0 ?
- 31:31))) | (((gctUINT32) ((gctUINT32) (nnLayerFlush) & ((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD0, LAYER_TYPE,          0) /* 0: conv, 1: fc */
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, NO_ZLOCATION_OFFSET, noZOffset)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, KERNEL_XYSIZE,       KernelXSize)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, KERNEL_ZSIZE,        (KernelZSize & 0x3FFF))
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, KERNELS_PER_CORE,    kernelsPerCore)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, POOLING,             0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, POOLING_XYSIZE,      0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, PRELU,               0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD0, LAST_LAYER,          nnLayerFlush)
         );
 
     /* gcregNNInstWord1 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 18:6) - (0 ?
- 18:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 18:6) - (0 ?
- 18:6) + 1))))))) << (0 ?
- 18:6))) | (((gctUINT32) ((gctUINT32) (InImageXSize) & ((gctUINT32) ((((1 ?
- 18:6) - (0 ?
- 18:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 18:6) - (0 ? 18:6) + 1))))))) << (0 ? 18:6)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:19) - (0 ?
- 31:19) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:19) - (0 ?
- 31:19) + 1))))))) << (0 ?
- 31:19))) | (((gctUINT32) ((gctUINT32) (InImageYSize) & ((gctUINT32) ((((1 ?
- 31:19) - (0 ?
- 31:19) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:19) - (0 ? 31:19) + 1))))))) << (0 ? 31:19)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) ((gctUINT32) (kernelDataType >> 1) & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (inImageDataType >> 1) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:5) - (0 ?
- 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) ((gctUINT32) (outImageDataType >> 1) & ((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) ((gctUINT32) (kernelDataType & 0x1) & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | (((gctUINT32) ((gctUINT32) (inImageDataType & 0x1) & ((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:4) - (0 ?
- 4:4) + 1))))))) << (0 ?
- 4:4))) | (((gctUINT32) ((gctUINT32) (outImageDataType & 0x1) & ((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD1, INIMAGE_XSIZE,             InImageXSize)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD1, INIMAGE_YSIZE,             InImageYSize)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD1, KERNEL_DATA_TYPE,          kernelDataType >> 1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD1, INIMAGE_DATA_TYPE,         inImageDataType >> 1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD1, OUTIMAGE_DATA_TYPE,        outImageDataType >> 1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD1, KERNEL_DATA_SIZE_MINUS1,   kernelDataType & 0x1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD1, INIMAGE_DATA_SIZE_MINUS1,  inImageDataType & 0x1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD1, OUTIMAGE_DATA_SIZE_MINUS1, outImageDataType & 0x1)
         );
 
     /* gcregNNInstWord2 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 24:24) - (0 ?
- 24:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 24:24) - (0 ?
- 24:24) + 1))))))) << (0 ?
- 24:24))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 24:24) - (0 ?
- 24:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 24:24) - (0 ? 24:24) + 1))))))) << (0 ? 24:24)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:25) - (0 ?
- 25:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:25) - (0 ?
- 25:25) + 1))))))) << (0 ?
- 25:25))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 25:25) - (0 ?
- 25:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:25) - (0 ? 25:25) + 1))))))) << (0 ? 25:25)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:0) - (0 ?
- 2:0) + 1))))))) << (0 ?
- 2:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 2:0) - (0 ?
- 2:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:3) - (0 ?
- 5:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:3) - (0 ?
- 5:3) + 1))))))) << (0 ?
- 5:3))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 5:3) - (0 ?
- 5:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:3) - (0 ? 5:3) + 1))))))) << (0 ? 5:3)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 7:7) - (0 ?
- 7:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 7:7) - (0 ?
- 7:7) + 1))))))) << (0 ?
- 7:7))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 7:7) - (0 ?
- 7:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 7:7) - (0 ? 7:7) + 1))))))) << (0 ? 7:7)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 23:8) - (0 ?
- 23:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:8) - (0 ?
- 23:8) + 1))))))) << (0 ?
- 23:8))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 23:8) - (0 ?
- 23:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 23:8) - (0 ? 23:8) + 1))))))) << (0 ? 23:8)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) ((gctUINT32) (postShift) & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD2, RELU,                0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD2, ACTIVATION_FUNCTION, 0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD2, INIMAGE_XOFFSET,     0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD2, INIMAGE_YOFFSET,     0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD2, POST_MULTIPLIER,     0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD2, BRICK_MODE,          0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD2, BRICK_DISTANCE,      0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD2, POST_SHIFT,          postShift)
         );
 
     /* gcregNNInstWord3 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 18:6) - (0 ?
- 18:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 18:6) - (0 ?
- 18:6) + 1))))))) << (0 ?
- 18:6))) | (((gctUINT32) ((gctUINT32) (OutImageXSize) & ((gctUINT32) ((((1 ?
- 18:6) - (0 ?
- 18:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 18:6) - (0 ? 18:6) + 1))))))) << (0 ? 18:6)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:19) - (0 ?
- 31:19) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:19) - (0 ?
- 31:19) + 1))))))) << (0 ?
- 31:19))) | (((gctUINT32) ((gctUINT32) (OutImageYSize) & ((gctUINT32) ((((1 ?
- 31:19) - (0 ?
- 31:19) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:19) - (0 ? 31:19) + 1))))))) << (0 ? 31:19)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD3, OUTIMAGE_XSIZE, OutImageXSize)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD3, OUTIMAGE_YSIZE, OutImageYSize)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD3, NO_BIAS,        0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD3, NO_FLUSH,       0)
         );
 
     /* gcregNNInstWord4 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 13:0) - (0 ?
- 13:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 13:0) - (0 ?
- 13:0) + 1))))))) << (0 ?
- 13:0))) | (((gctUINT32) ((gctUINT32) (OutImageZSize) & ((gctUINT32) ((((1 ?
- 13:0) - (0 ?
- 13:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 13:0) - (0 ? 13:0) + 1))))))) << (0 ? 13:0)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:14) - (0 ?
- 15:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:14) - (0 ?
- 15:14) + 1))))))) << (0 ?
- 15:14))) | (((gctUINT32) ((gctUINT32) (0x0) & ((gctUINT32) ((((1 ?
- 15:14) - (0 ?
- 15:14) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:14) - (0 ? 15:14) + 1))))))) << (0 ? 15:14)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 24:18) - (0 ?
- 24:18) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 24:18) - (0 ?
- 24:18) + 1))))))) << (0 ?
- 24:18))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 24:18) - (0 ?
- 24:18) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 24:18) - (0 ? 24:18) + 1))))))) << (0 ? 24:18)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:25) - (0 ?
- 31:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:25) - (0 ?
- 31:25) + 1))))))) << (0 ?
- 31:25))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 31:25) - (0 ?
- 31:25) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:25) - (0 ? 31:25) + 1))))))) << (0 ? 31:25)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 16:16) - (0 ?
- 16:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 16:16) - (0 ?
- 16:16) + 1))))))) << (0 ?
- 16:16))) | (((gctUINT32) ((gctUINT32) ((0 >> 3) & 0x1) & ((gctUINT32) ((((1 ?
- 16:16) - (0 ?
- 16:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 17:17) - (0 ?
- 17:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 17:17) - (0 ?
- 17:17) + 1))))))) << (0 ?
- 17:17))) | (((gctUINT32) ((gctUINT32) ((0 >> 3) & 0x1) & ((gctUINT32) ((((1 ?
- 17:17) - (0 ?
- 17:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 17:17) - (0 ? 17:17) + 1))))))) << (0 ? 17:17)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD4, OUTIMAGE_ZSIZE,        OutImageZSize)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD4, ROUNDING_MODE,         GCREG_NN_INST_WORD4_ROUNDING_MODE_SIMPLE_ROUNDING)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD4, OUTIMAGE_TILE_XSIZE,   1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD4, OUTIMAGE_TILE_YSIZE,   1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD4, INIMAGE_XOFFSET_BIT3,  (0 >> 3) & 0x1)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD4, INIMAGE_YOFFSET_BIT3,  (0 >> 3) & 0x1)
         );
 
     /* gcregNNInstWord5 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:26) - (0 ?
- 31:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:26) - (0 ?
- 31:26) + 1))))))) << (0 ?
- 31:26))) | (((gctUINT32) ((gctUINT32) (((KernelZSize >> 14) & 0x3F)) & ((gctUINT32) ((((1 ?
- 31:26) - (0 ?
- 31:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:26) - (0 ? 31:26) + 1))))))) << (0 ? 31:26)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:0) - (0 ?
- 25:0) + 1))))))) << (0 ?
- 25:0))) | (((gctUINT32) ((gctUINT32) ((KernelAddress >> 6)) & ((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD5, KERNEL_ZSIZE1,       ((KernelZSize >> 14) & 0x3F))
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD5, KERNEL_BASE_ADDRESS, (KernelAddress >> 6))
         );
 
     /* gcregNNInstWord6 */
@@ -5156,26 +2519,8 @@ _ProgramNNInstruction(
     /* gcregNNInstWord8 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:12) - (0 ?
- 15:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:12) - (0 ?
- 15:12) + 1))))))) << (0 ?
- 15:12))) | (((gctUINT32) ((gctUINT32) (KernelYSize) & ((gctUINT32) ((((1 ?
- 15:12) - (0 ?
- 15:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:12) - (0 ? 15:12) + 1))))))) << (0 ? 15:12)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:16) - (0 ?
- 31:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:16) - (0 ?
- 31:16) + 1))))))) << (0 ?
- 31:16))) | (((gctUINT32) ((gctUINT32) (OutImageYSize) & ((gctUINT32) ((((1 ?
- 31:16) - (0 ?
- 31:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:16) - (0 ? 31:16) + 1))))))) << (0 ? 31:16)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD8, KERNEL_YSIZE,      KernelYSize)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD8, OUT_IMAGE_YSTRIDE, OutImageYSize)
         );
 
     /* gcregNNInstWord9 */
@@ -5199,76 +2544,13 @@ _ProgramNNInstruction(
     /* gcregNNInstWord15 */
     gcmkWRITE_MEMORY(
         command,
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:0) - (0 ?
- 1:0) + 1))))))) << (0 ?
- 1:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 1:0) - (0 ?
- 1:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:0) - (0 ? 1:0) + 1))))))) << (0 ? 1:0)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 17:2) - (0 ?
- 17:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 17:2) - (0 ?
- 17:2) + 1))))))) << (0 ?
- 17:2))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 17:2) - (0 ?
- 17:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 17:2) - (0 ? 17:2) + 1))))))) << (0 ? 17:2)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 19:19) - (0 ?
- 19:19) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 19:19) - (0 ?
- 19:19) + 1))))))) << (0 ?
- 19:19))) | (((gctUINT32) ((gctUINT32) (kernelDataType >> 2) & ((gctUINT32) ((((1 ?
- 19:19) - (0 ?
- 19:19) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 19:19) - (0 ? 19:19) + 1))))))) << (0 ? 19:19)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 20:20) - (0 ?
- 20:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 20:20) - (0 ?
- 20:20) + 1))))))) << (0 ?
- 20:20))) | (((gctUINT32) ((gctUINT32) (inImageDataType >> 2) & ((gctUINT32) ((((1 ?
- 20:20) - (0 ?
- 20:20) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 20:20) - (0 ? 20:20) + 1))))))) << (0 ? 20:20)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 21:21) - (0 ?
- 21:21) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 21:21) - (0 ?
- 21:21) + 1))))))) << (0 ?
- 21:21))) | (((gctUINT32) ((gctUINT32) (outImageDataType >> 2) & ((gctUINT32) ((((1 ?
- 21:21) - (0 ?
- 21:21) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 21:21) - (0 ? 21:21) + 1))))))) << (0 ? 21:21)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 27:22) - (0 ?
- 27:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 27:22) - (0 ?
- 27:22) + 1))))))) << (0 ?
- 27:22))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 27:22) - (0 ?
- 27:22) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 27:22) - (0 ? 27:22) + 1))))))) << (0 ? 27:22)))
-      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 29:28) - (0 ?
- 29:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 29:28) - (0 ?
- 29:28) + 1))))))) << (0 ?
- 29:28))) | (((gctUINT32) ((gctUINT32) (postShiftBit56) & ((gctUINT32) ((((1 ?
- 29:28) - (0 ?
- 29:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 29:28) - (0 ? 29:28) + 1))))))) << (0 ? 29:28)))
+        gcmSETFIELD (0, GCREG_NN_INST_WORD15, IN_IMAGE_BORDER_MODE,     0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD15, IN_IMAGE_BORDER_CONSTANT, 0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD15, KERNEL_DATA_TYPE_MSB,     kernelDataType >> 2)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD15, INIMAGE_DATA_TYPE_MSB,    inImageDataType >> 2)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD15, OUTIMAGE_DATA_TYPE_MSB,   outImageDataType >> 2)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD15, POST_MULTIPLIER_BIT6TO1,  0)
+      | gcmSETFIELD (0, GCREG_NN_INST_WORD15, POST_SHIFT_BIT6TO5,       postShiftBit56)
         );
 
     /* V7 or V8 */
@@ -5278,246 +2560,57 @@ _ProgramNNInstruction(
         /* gcregNNInstWord16 */
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (InImageXSize * itemBytes) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:16) - (0 ?
- 31:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:16) - (0 ?
- 31:16) + 1))))))) << (0 ?
- 31:16))) | (((gctUINT32) ((gctUINT32) (InImageYSize) & ((gctUINT32) ((((1 ?
- 31:16) - (0 ?
- 31:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:16) - (0 ? 31:16) + 1))))))) << (0 ? 31:16)))
+            gcmSETFIELD (0,GCREG_NN_INST_WORD16, IN_IMAGE_XSTRIDE, InImageXSize * itemBytes)
+          | gcmSETFIELD (0,GCREG_NN_INST_WORD16, IN_IMAGE_YSTRIDE, InImageYSize)
             );
 
         /* gcregNNInstWord17 */
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (OutImageXSize * itemBytes) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:24) - (0 ?
- 31:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:24) - (0 ?
- 31:24) + 1))))))) << (0 ?
- 31:24))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 31:24) - (0 ?
- 31:24) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:24) - (0 ? 31:24) + 1))))))) << (0 ? 31:24)))
+            gcmSETFIELD (0,GCREG_NN_INST_WORD17, OUT_IMAGE_XSTRIDE, OutImageXSize * itemBytes)
+          | gcmSETFIELD (0,GCREG_NN_INST_WORD17, POST_MULTIPLIER_BIT14TO7, 0)
             );
 
         /* gcregNNInstWord18 */
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:0) - (0 ?
- 25:0) + 1))))))) << (0 ?
- 25:0))) | (((gctUINT32) ((gctUINT32) (0 >> 6) & ((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 29:29) - (0 ?
- 29:29) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 29:29) - (0 ?
- 29:29) + 1))))))) << (0 ?
- 29:29))) | (((gctUINT32) ((gctUINT32) ((0 >> 4) & 0x1) & ((gctUINT32) ((((1 ?
- 29:29) - (0 ?
- 29:29) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 29:29) - (0 ? 29:29) + 1))))))) << (0 ? 29:29)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:30) - (0 ?
- 30:30) + 1))))))) << (0 ?
- 30:30))) | (((gctUINT32) ((gctUINT32) ((0 >> 4) & 0x1) & ((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 28:28) - (0 ?
- 28:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 28:28) - (0 ?
- 28:28) + 1))))))) << (0 ?
- 28:28))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 28:28) - (0 ?
- 28:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 28:28) - (0 ? 28:28) + 1))))))) << (0 ? 28:28)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:31) - (0 ?
- 31:31) + 1))))))) << (0 ?
- 31:31))) | (((gctUINT32) ((gctUINT32) (kernelDataType >> 3) & ((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)))
+            gcmSETFIELD (0, GCREG_NN_INST_WORD18, OUT_IMAGE_CIRCULAR_BUF_SIZE, 0 >> 6)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD18, PER_CH_POST_MULT,            0)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD18, IN_IMAGE_XOFFSET_BIT4,       (0 >> 4) & 0x1)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD18, IN_IMAGE_YOFFSET_BIT4,       (0 >> 4) & 0x1)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD18, SLOW_OUTPUT,                 0)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD18, KERNEL_DATA_TYPE_BIT3,       kernelDataType >> 3)
             );
 
-        /* 25:0 */
+        /* GCREG_NN_INST_WORD19_OUT_IMAGE_CIRCULAR_BUF_END_ADDR_PLUS1 */
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:0) - (0 ?
- 25:0) + 1))))))) << (0 ?
- 25:0))) | (((gctUINT32) ((gctUINT32) (0xFFFFFFFF >> 6) & ((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 30:30) - (0 ?
- 30:30) + 1))))))) << (0 ?
- 30:30))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 30:30) - (0 ?
- 30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:31) - (0 ?
- 31:31) + 1))))))) << (0 ?
- 31:31))) | (((gctUINT32) ((gctUINT32) (inImageDataType >> 3) & ((gctUINT32) ((((1 ?
- 31:31) - (0 ?
- 31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)))
+            gcmSETFIELD (0,GCREG_NN_INST_WORD19, OUT_IMAGE_CIRCULAR_BUF_END_ADDR_PLUS1, 0xFFFFFFFF >> 6)
+          | gcmSETFIELD (0,GCREG_NN_INST_WORD19, B_FLOAT16_MODE,                        0)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD19, IN_IMAGE_DATA_TYPE_BIT3,              inImageDataType >> 3)
             );
 
         /* GCREG_NN_INST_WORD20 */
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:0) - (0 ?
- 25:0) + 1))))))) << (0 ?
- 25:0))) | (((gctUINT32) ((gctUINT32) (0 >> 6) & ((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (outImageDataType >> 3) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+            gcmSETFIELD (0,GCREG_NN_INST_WORD20, IN_IMAGE_CIRCULAR_BUF_SIZE, 0 >> 6)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD20, OUT_IMAGE_DATA_TYPE_BIT3,  outImageDataType >> 3)
             );
 
-        /* 25:0 */
+        /* GCREG_NN_INST_WORD21_IN_IMAGE_CIRCULAR_BUF_END_ADDR_PLUS1 */
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:0) - (0 ?
- 25:0) + 1))))))) << (0 ?
- 25:0))) | (((gctUINT32) ((gctUINT32) (0xFFFFFFFF >> 6) & ((gctUINT32) ((((1 ?
- 25:0) - (0 ?
- 25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
+            gcmSETFIELD (0,GCREG_NN_INST_WORD21, IN_IMAGE_CIRCULAR_BUF_END_ADDR_PLUS1, 0xFFFFFFFF >> 6)
             );
 
         /*GCREG_NN_INST_WORD22*/
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 7:0) - (0 ?
- 7:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 7:0) - (0 ?
- 7:0) + 1))))))) << (0 ?
- 7:0))) | (((gctUINT32) ((gctUINT32) (coefZP) & ((gctUINT32) ((((1 ?
- 7:0) - (0 ?
- 7:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:8) - (0 ?
- 15:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:8) - (0 ?
- 15:8) + 1))))))) << (0 ?
- 15:8))) | (((gctUINT32) ((gctUINT32) (outputZP) & ((gctUINT32) ((((1 ?
- 15:8) - (0 ?
- 15:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:8) - (0 ? 15:8) + 1))))))) << (0 ? 15:8)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 16:16) - (0 ?
- 16:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 16:16) - (0 ?
- 16:16) + 1))))))) << (0 ?
- 16:16))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 16:16) - (0 ?
- 16:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 17:17) - (0 ?
- 17:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 17:17) - (0 ?
- 17:17) + 1))))))) << (0 ?
- 17:17))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 17:17) - (0 ?
- 17:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 17:17) - (0 ? 17:17) + 1))))))) << (0 ? 17:17)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:18) - (0 ?
- 25:18) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:18) - (0 ?
- 25:18) + 1))))))) << (0 ?
- 25:18))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 25:18) - (0 ?
- 25:18) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:18) - (0 ? 25:18) + 1))))))) << (0 ? 25:18)))
+            gcmSETFIELD (0, GCREG_NN_INST_WORD22, COEF_ZERO_POINT,                    coefZP)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD22, OUT_IMAGE_ZERO_POINT,               outputZP)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD22, KERNEL_DIRECT_STREAM_FROM_VIP_SRAM, 0)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD22, DEPTH_WISE,                         0)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD22, POST_MULTIPLIER_BIT22TO15,          0)
             );
 
         /*GCREG_NN_INST_WORD23*/
@@ -5526,51 +2619,15 @@ _ProgramNNInstruction(
         /*GCREG_NN_INST_WORD24*/
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:0) - (0 ?
- 3:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:0) - (0 ?
- 3:0) + 1))))))) << (0 ?
- 3:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 3:0) - (0 ?
- 3:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:0) - (0 ? 3:0) + 1))))))) << (0 ? 3:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:4) - (0 ?
- 31:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:4) - (0 ?
- 31:4) + 1))))))) << (0 ?
- 31:4))) | (((gctUINT32) ((gctUINT32) (0 >> 4) & ((gctUINT32) ((((1 ?
- 31:4) - (0 ?
- 31:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:4) - (0 ? 31:4) + 1))))))) << (0 ? 31:4)))
+            gcmSETFIELD (0, GCREG_NN_INST_WORD24, IN_IMAGE_TRANSPOSE_CH_MINUS_ONE,    0)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD24, OUT_IMAGE_TRANSPOSE_BUF_START_ADDR, 0 >> 4)
             );
 
         /*GCREG_NN_INST_WORD25*/
         gcmkWRITE_MEMORY(
             command,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:0) - (0 ?
- 3:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:0) - (0 ?
- 3:0) + 1))))))) << (0 ?
- 3:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 3:0) - (0 ?
- 3:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:0) - (0 ? 3:0) + 1))))))) << (0 ? 3:0)))
-          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:4) - (0 ?
- 31:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:4) - (0 ?
- 31:4) + 1))))))) << (0 ?
- 31:4))) | (((gctUINT32) ((gctUINT32) (0 >> 4) & ((gctUINT32) ((((1 ?
- 31:4) - (0 ?
- 31:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:4) - (0 ? 31:4) + 1))))))) << (0 ? 31:4)))
+            gcmSETFIELD (0, GCREG_NN_INST_WORD25, OUT_IMAGE_TRANSPOSE_CH_MINUS_ONE,          0)
+          | gcmSETFIELD (0, GCREG_NN_INST_WORD25, OUT_IMAGE_TRANSPOSE_BUF_END_ADDR_PLUS_ONE, 0 >> 4)
             );
     }
 
@@ -5667,23 +2724,23 @@ _ProgramNNCommand(
         (Hardware->identity.customerID == 0x80 ||
          Hardware->identity.customerID == 0x92))
     {
-        smallBatch = 0x0;
+        smallBatch = GCREG_CONFIG_NN_SMALL_BATCH_ENABLE;
     }
     else
     {
         smallBatch = (database->NN_SMALLBATCH_PHASE1 && database->NN_COMMAND_KERNEL_REQUEST_CONFICT_FIX)
-                     ? 0x0 : 0x1;
+                     ? GCREG_CONFIG_NN_SMALL_BATCH_ENABLE : GCREG_CONFIG_NN_SMALL_BATCH_DISABLE;
     }
 
     switch(KernelBurstSize)
     {
     case 256:
-        ddrBurstSize = 0x2;
+        ddrBurstSize = GCREG_CONFIG_NN_DDR_BURST_SIZE_SIZE256_B;
         break;
 
     case 64:
     default:
-        ddrBurstSize = 0x0;
+        ddrBurstSize = GCREG_CONFIG_NN_DDR_BURST_SIZE_SIZE64_B;
         break;
     }
 
@@ -5691,471 +2748,66 @@ _ProgramNNCommand(
 
     if (gcvVIP_ARCH_TYPE_V6 == ArchType)
     {
-        commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x006B) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+        commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregMMUConfigRegAddrs)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
         commands[index++] = 0;
 
-        commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-        commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:6) - (0 ?
- 6:6) + 1))))))) << (0 ?
- 6:6))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
+        commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs)
+                          | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+        commands[index++] = gcmSETFIELDVALUE(0, AQ_FLUSH, L2_CACHE, ENABLE);
     }
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregSramRemapStartAddressRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = Hardware->options.sRAMGPUVirtAddrs[0];
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4F) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregOnChipBufferRemapStartAddressRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E50) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregOnChipBufferRemapEndAddressRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0x00000000;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:6) - (0 ?
- 6:6) + 1))))))) << (0 ?
- 6:6))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_FLUSH, L2_CACHE, ENABLE);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4C) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | (((gctUINT32) ((gctUINT32) (disableZDPN) & ((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (disableSWTiling) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:4) - (0 ?
- 4:4) + 1))))))) << (0 ?
- 4:4))) | (((gctUINT32) ((gctUINT32) (smallBatch) & ((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:5) - (0 ?
- 6:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:5) - (0 ?
- 6:5) + 1))))))) << (0 ?
- 6:5))) | (((gctUINT32) ((gctUINT32) (ddrBurstSize) & ((gctUINT32) ((((1 ?
- 6:5) - (0 ?
- 6:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:5) - (0 ? 6:5) + 1))))))) << (0 ? 6:5)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 12:12) - (0 ?
- 12:12) + 1))))))) << (0 ?
- 12:12))) | (((gctUINT32) ((gctUINT32) (0x0) & ((gctUINT32) ((((1 ?
- 12:12) - (0 ?
- 12:12) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:12) - (0 ? 12:12) + 1))))))) << (0 ? 12:12)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregConfigNNRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_CONFIG_NN, ZDPN, disableZDPN)
+                      | gcmSETFIELD(0, GCREG_CONFIG_NN, SW_TILING, disableSWTiling)
+                      | gcmSETFIELD(0, GCREG_CONFIG_NN, SMALL_BATCH, smallBatch)
+                      | gcmSETFIELD(0, GCREG_CONFIG_NN, DDR_BURST_SIZE, ddrBurstSize)
+                      | gcmSETFIELD(0, GCREG_CONFIG_NN, COMMAND_SIZE, GCREG_CONFIG_NN_COMMAND_SIZE_SIZE128_B);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E54) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregVipFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_VIP_FLUSH, NN_FLUSH_CLIENT_ID, 0)
+                      | gcmSETFIELD(0, GCREG_VIP_FLUSH, NN_NO_FLUSH, 0);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0428) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:6) - (0 ?
- 31:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:6) - (0 ?
- 31:6) + 1))))))) << (0 ?
- 31:6))) | (((gctUINT32) ((gctUINT32) ((InstAddress >> 6)) & ((gctUINT32) ((((1 ?
- 31:6) - (0 ?
- 31:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:6) - (0 ? 31:6) + 1))))))) << (0 ? 31:6)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:0) - (0 ?
- 4:0) + 1))))))) << (0 ?
- 4:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSTriggerNNRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELD(0, GCREG_PS_TRIGGER_NN, COMMAND_BUFFER_ADDR, (InstAddress >> 6))
+                      | gcmSETFIELD(0, GCREG_PS_TRIGGER_NN, COMMAND_EVENT_ID, 0);
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0429) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregPSWaitForEventRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
     commands[index++] = 0;
 
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
-    commands[index++] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:5) - (0 ?
- 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)));
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs)
+                      | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+    commands[index++] = gcmSETFIELDVALUE(0, AQ_FLUSH, SHL1_CACHE, ENABLE);
 
     bytes = gcmSIZEOF(gctUINT32) * index;
 
@@ -6488,13 +3140,13 @@ _ProgramTPInput(
     gctUINT32 i = 0;
     gctUINT32 offset = 0;
     gctUINT32 value[] = {
-        0xff, /* uint8, the case set scale = 0.003921569*/
+        0xff,   /* uint8 , the case set scale = 0.003921569*/
         0x3c00, /* fp16 */
-        1, /* int8 */
-        1, /* uint16 */
-        1, /* int16 */
-        1, /* uint4 */
-        1, /* int4 */
+        1,      /* int8 */
+        1,      /* uint16 */
+        1,      /* int16 */
+        1,      /* uint4 */
+        1,      /* int4 */
         0x3f80  /* bf16 */
     };
     gcmkONERROR(_GetNNDataSize(DataType, &itemBytes));
@@ -6514,7 +3166,7 @@ _ProgramTPInput(
 
     if (gcvVIP_ARCH_TYPE_V8 == ArchType)
     {
-        value[0x4] = 0x81;
+        value[GCREG_NN_DATA_TYPE_INT16] = 0x81;
     }
 
     buffer = (gctUINT8_PTR)bufferLogical;
@@ -6679,7 +3331,7 @@ _ProgramTPInstruction(
         command[i] = 0;
     }
 
-    for (i = 0; i < 3; i++)
+    for ( i = 0; i < 3; i++)
     {
         command[0] = command[2] = command[3] = command[20] = 0x00000001;
         command[1] = 0x00020001;
@@ -6899,7 +3551,7 @@ gckHARDWARE_ResetFlopWithTP(
     }
 
 
-    dataType = 0x0;
+    dataType = GCREG_NN_DATA_TYPE_UINT8;
 
     gcmkONERROR(_GetNNDataSize(dataType, &itemBytes));
 
@@ -7018,4 +3670,3 @@ OnError:
 
     return status;
 }
-

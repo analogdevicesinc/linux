@@ -563,4 +563,3 @@ gcfMEM_AFSMemPoolFreeANode(
 #endif /* (gcdENABLE_3D || gcdENABLE_VG) */
 #endif /* __gc_hal_mem_h_ */
 
-

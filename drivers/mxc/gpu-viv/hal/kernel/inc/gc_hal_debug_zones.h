@@ -326,4 +326,3 @@ extern "C" {
 
 #endif /* __gc_hal_debug_zones_h_ */
 
-
