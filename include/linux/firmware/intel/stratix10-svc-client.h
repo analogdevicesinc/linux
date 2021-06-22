@@ -187,6 +187,9 @@ struct stratix10_svc_chan;
  *
  * @COMMAND_FCS_CRYPTO_EXPORT_KEY: export the crypto service key object,
  * return status is SVC_STATUS_OK or SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_CRYPTO_REMOVE_KEY: remove the crypto service key object
+ * from the device, return status is SVC_STATUS_OK or SVC_STATUS_ERROR
  */
 enum stratix10_svc_command_code {
 	/* for FPGA */
@@ -227,6 +230,7 @@ enum stratix10_svc_command_code {
 	COMMAND_FCS_CRYPTO_CLOSE_SESSION,
 	COMMAND_FCS_CRYPTO_IMPORT_KEY,
 	COMMAND_FCS_CRYPTO_EXPORT_KEY,
+	COMMAND_FCS_CRYPTO_REMOVE_KEY,
 	/* for generic mailbox send command */
 	COMMAND_MBOX_SEND_CMD = 100,
 	/* Non-mailbox SMC Call */

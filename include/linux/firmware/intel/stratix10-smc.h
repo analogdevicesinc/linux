@@ -874,4 +874,28 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_EXPORT_CRYPTO_SERVICE_KEY \
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_EXPORT_CRYPTO_SERVICE_KEY)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_REMOVE_CRYPTO_SERVICE_KEY
+ * Sync call to remove the crypto service kers from the device
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_REMOVE_CRYPTO_SERVICE_KEY
+ * a1 session ID
+ * a2 key UID
+ * a3-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox and status errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * 	31:24 -- reserved
+ * 	23:16 -- import/export/removal status error
+ * 	15:11 -- reserved
+ * 	10:0  -- mailbox error
+ * a2-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_REMOVE_CRYPTO_SERVICE_KEY 114
+#define INTEL_SIP_SMC_FCS_REMOVE_CRYPTO_SERVICE_KEY \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_REMOVE_CRYPTO_SERVICE_KEY)
+
 #endif
