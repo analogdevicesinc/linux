@@ -1253,6 +1253,32 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		 fcs_close_services(priv, NULL, d_buf);
 		 break;
 
+	case INTEL_FCS_DEV_CRYPTO_REMOVE_KEY:
+		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_from_user\n");
+			 return -EFAULT;
+		 }
+
+		 msg->command = COMMAND_FCS_CRYPTO_REMOVE_KEY;
+		 msg->arg[0] = data->com_paras.k_object.sid;
+		 msg->arg[1] = data->com_paras.k_object.kid;
+		 priv->client.receive_cb = fcs_vab_callback;
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 if (ret) {
+			 dev_err(dev, "failed to send the request,ret=%d\n",
+				 ret);
+			 return -EFAULT;
+		 }
+
+		 data->status = priv->status;
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_to_user\n");
+			 ret = -EFAULT;
+		 }
+
+		 break;
+
 	default:
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
 		break;
