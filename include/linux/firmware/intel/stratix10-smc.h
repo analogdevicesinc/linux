@@ -898,4 +898,31 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_REMOVE_CRYPTO_SERVICE_KEY \
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_REMOVE_CRYPTO_SERVICE_KEY)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_GET_CRYPTO_SERVICE_KEY_INFO
+ * Sync call to query the crypto service keys on the device
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_GET_CRYPTO_SERVICE_KEY_INFO
+ * a1 session ID
+ * a2 key UID
+ * a3 physical address of the reponse data
+ * a4 max size of the response data (36 words with header)
+ * a3-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox and status errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * 	31:24 -- reserved
+ * 	23:16 -- import/export/removal status error
+ * 	15:11 -- reserved
+ * 	10:0  -- mailbox error
+ * a2 physical address of the reponse data
+ * a3 size of the response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_GET_CRYPTO_SERVICE_KEY_INFO 115
+#define INTEL_SIP_SMC_FCS_GET_CRYPTO_SERVICE_KEY_INFO \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_CRYPTO_SERVICE_KEY_INFO)
+
 #endif

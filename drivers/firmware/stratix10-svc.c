@@ -385,6 +385,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_ATTESTATION_MEASUREMENTS:
 	case COMMAND_FCS_ATTESTATION_CERTIFICATE:
 	case COMMAND_FCS_CRYPTO_EXPORT_KEY:
+	case COMMAND_FCS_CRYPTO_GET_KEY_INFO:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr2 = svc_pa_to_va(res.a2);
 		cb_data->kaddr3 = &res.a3;
@@ -602,12 +603,12 @@ static int svc_normal_to_secure_thread(void *data)
 			a2 = 0;
 			break;
 
+		/* for service key management */
 		case COMMAND_FCS_CRYPTO_IMPORT_KEY:
 			a0 = INTEL_SIP_SMC_FCS_IMPORT_CRYPTO_SERVICE_KEY;
 			a1 = (unsigned long)pdata->paddr;
 			a2 = (unsigned long)pdata->size;
 			break;
-
 		case COMMAND_FCS_CRYPTO_EXPORT_KEY:
 			a0 = INTEL_SIP_SMC_FCS_EXPORT_CRYPTO_SERVICE_KEY;
 			a1 = pdata->arg[0];
@@ -619,6 +620,13 @@ static int svc_normal_to_secure_thread(void *data)
 			a0 = INTEL_SIP_SMC_FCS_REMOVE_CRYPTO_SERVICE_KEY;
 			a1 = pdata->arg[0];
 			a2 = pdata->arg[1];
+			break;
+		case COMMAND_FCS_CRYPTO_GET_KEY_INFO:
+			a0 = INTEL_SIP_SMC_FCS_GET_CRYPTO_SERVICE_KEY_INFO;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = (unsigned long)pdata->paddr_output;
+                        a4 = (unsigned long)pdata->size_output;
 			break;
 
 		/* for polling */
@@ -718,6 +726,7 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_CRYPTO_IMPORT_KEY:
 			case COMMAND_FCS_CRYPTO_EXPORT_KEY:
 			case COMMAND_FCS_CRYPTO_REMOVE_KEY:
+			case COMMAND_FCS_CRYPTO_GET_KEY_INFO:
 				cbdata->status = BIT(SVC_STATUS_INVALID_PARAM);
 				cbdata->kaddr1 = NULL;
 				cbdata->kaddr2 = NULL;
