@@ -56,7 +56,6 @@
 #include "gc_hal.h"
 #include "gc_hal_kernel.h"
 #include "gc_hal_kernel_context.h"
-#include "AQ.h"
 
 /*
  *                          -----------------------
@@ -213,7 +212,7 @@ _HandleLoadState(
     gctUINT32 cmdAddr = Parser->cmdAddr;
 
     if (Parser->commandHandler == gcvNULL
-     || Parser->commandHandler->cmd != AQ_COMMAND_OPCODE_OPCODE_LOAD_STATE
+     || Parser->commandHandler->cmd != 0x01
     )
     {
         /* No handler for this command. */
@@ -243,14 +242,14 @@ _GetCommand(
     Parser->hi = buffer[0];
     Parser->lo = buffer[1];
 
-    Parser->cmdOpcode = gcmGETFIELD(Parser->hi, AQ_COMMAND_OPCODE, OPCODE);
+    Parser->cmdOpcode = (((((gctUINT32) (Parser->hi)) >> (0 ? 31:27)) & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1)))))) );
     Parser->cmdRectCount = 1;
 
     switch (Parser->cmdOpcode)
     {
-    case AQ_COMMAND_OPCODE_OPCODE_LOAD_STATE:
+    case 0x01:
         /* Extract count. */
-        Parser->cmdSize = gcmGETFIELD(Parser->hi, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT);
+        Parser->cmdSize = (((((gctUINT32) (Parser->hi)) >> (0 ? 25:16)) & ((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1)))))) );
         if (Parser->cmdSize == 0)
         {
             /* 0 means 1024. */
@@ -259,39 +258,39 @@ _GetCommand(
         Parser->skip = (Parser->cmdSize & 0x1) ? 0 : 1;
 
         /* Extract address. */
-        Parser->cmdAddr = gcmGETFIELD(Parser->hi, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS);
+        Parser->cmdAddr = (((((gctUINT32) (Parser->hi)) >> (0 ? 15:0)) & ((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1)))))) );
 
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 4;
         Parser->skipCount = Parser->cmdSize + Parser->skip;
         break;
 
-     case AQ_COMMAND_OPCODE_OPCODE_DX8_DRAW_PRIMITIVE:
-        Parser->cmdSize   = AQ_COMMAND_DX8_DRAW_PRIMITIVE_Count;
+     case 0x05:
+        Parser->cmdSize   = 4;
         Parser->skipCount = gcmALIGN(Parser->cmdSize, 2);
         break;
 
-    case AQ_COMMAND_OPCODE_OPCODE_DX8_DRAW_INDEX_PRIMITIVE:
-        Parser->cmdSize   = AQ_COMMAND_DX8_DRAW_INDEX_PRIMITIVE_Count;
+    case 0x06:
+        Parser->cmdSize   = 5;
         Parser->skipCount = gcmALIGN(Parser->cmdSize, 2);
         break;
 
-    case GCCMD_DRAW_INSTANCED_COMMAND_OPCODE_DRAW_INSTANCED:
-        Parser->cmdSize   = GCCMD_DRAW_INSTANCED_Count;
+    case 0x0C:
+        Parser->cmdSize   = 3;
         Parser->skipCount = gcmALIGN(Parser->cmdSize, 2);
         break;
 
-    case AQ_COMMAND_OPCODE_OPCODE_STALL:
-        Parser->cmdSize   = STALL_Count;
-        Parser->cmdAddr   = StallCmdAddrs;
+    case 0x09:
+        Parser->cmdSize   = 2;
+        Parser->cmdAddr   = 0x0F16;
         Parser->skipCount = gcmALIGN(Parser->cmdSize, 2);
         break;
 
-     case AQ_COMMAND_OPCODE_OPCODE_START_DE:
-        Parser->cmdSize = AQ_COMMAND_START_DE_Count;
-        Parser->cmdAddr = AQCommandStartDECmdAddrs;
+     case 0x04:
+        Parser->cmdSize = 1;
+        Parser->cmdAddr = 0x0F06;
 
-        cmdRectCount = gcmGETFIELD(Parser->hi, AQ_COMMAND_START_DE_COMMAND, COUNT);
-        cmdDataCount = gcmGETFIELD(Parser->hi, AQ_COMMAND_START_DE_COMMAND, DATA_COUNT);
+        cmdRectCount = (((((gctUINT32) (Parser->hi)) >> (0 ? 15:8)) & ((gctUINT32) ((((1 ? 15:8) - (0 ? 15:8) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:8) - (0 ? 15:8) + 1)))))) );
+        cmdDataCount = (((((gctUINT32) (Parser->hi)) >> (0 ? 26:16)) & ((gctUINT32) ((((1 ? 26:16) - (0 ? 26:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 26:16) - (0 ? 26:16) + 1)))))) );
 
         Parser->skipCount = gcmALIGN(Parser->cmdSize, 2)
                           + cmdRectCount * 2
@@ -300,22 +299,22 @@ _GetCommand(
         Parser->cmdRectCount = cmdRectCount;
         break;
 
-    case AQ_COMMAND_OPCODE_OPCODE_NOP:
+    case 0x03:
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 8;
         Parser->skipCount = 0;
         break;
 
-    case AQ_COMMAND_OPCODE_OPCODE_END:
+    case 0x02:
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 8;
         Parser->skipCount = 0;
         break;
 
-    case AQ_COMMAND_OPCODE_OPCODE_WAIT:
+    case 0x07:
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 8;
         Parser->skipCount = 0;
         break;
 
-    case AQ_COMMAND_OPCODE_OPCODE_LINK:
+    case 0x08:
         /* Commands after LINK isn't executed, skip them. */
         Parser->stop = gcvTRUE;
         break;
@@ -334,14 +333,14 @@ _ParseCommand(
 {
     switch(Parser->cmdOpcode)
     {
-    case AQ_COMMAND_OPCODE_OPCODE_LOAD_STATE:
+    case 0x01:
         _HandleLoadState(Parser);
         break;
-    case AQ_COMMAND_OPCODE_OPCODE_DX8_DRAW_PRIMITIVE:
-    case AQ_COMMAND_OPCODE_OPCODE_DX8_DRAW_INDEX_PRIMITIVE:
-    case GCCMD_DRAW_INSTANCED_COMMAND_OPCODE_DRAW_INSTANCED:
+    case 0x05:
+    case 0x06:
+    case 0x0C:
         break;
-    case AQ_COMMAND_OPCODE_OPCODE_START_DE:
+    case 0x04:
         break;
     default:
         break;
@@ -522,7 +521,7 @@ gckRECORDER_Construct(
     recorder->num   = 0;
 
     /* Initialize Parser plugin. */
-    recorder->recorderHandler.cmd = AQ_COMMAND_OPCODE_OPCODE_LOAD_STATE;
+    recorder->recorderHandler.cmd = 0x01;
     recorder->recorderHandler.private = recorder;
     recorder->recorderHandler.function = _RecodeState;
 
@@ -718,4 +717,5 @@ gckRECORDER_Dump(
         last = _Next(last);
     }
 }
+
 

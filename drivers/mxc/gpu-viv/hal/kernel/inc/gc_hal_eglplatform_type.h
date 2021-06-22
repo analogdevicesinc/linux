@@ -181,3 +181,4 @@ halDISPLAY_INFO;
 
 #endif /* __gc_hal_eglplatform_type_h_ */
 
+

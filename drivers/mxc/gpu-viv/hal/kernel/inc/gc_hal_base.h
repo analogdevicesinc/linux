@@ -5408,18 +5408,18 @@ gcoHAL_GetUserDebugOption(
         UnifiedConst = gcvTRUE; \
         if (SmallBatch) \
         { \
-            VsConstBase  = gcregGpipeUniformsRegAddrs; \
-            PsConstBase  = gcregGpipeUniformsRegAddrs; \
+            VsConstBase  = 0xD000; \
+            PsConstBase  = 0xD000; \
         } \
         else if (Halti5Avail) \
         { \
-            VsConstBase  = gcregGpipeUniformsRegAddrs; \
-            PsConstBase  = gcregPixelUniformsRegAddrs; \
+            VsConstBase  = 0xD000; \
+            PsConstBase  = 0xD800; \
         } \
         else \
         {\
-            VsConstBase  = gcregSHUniformsRegAddrs; \
-            PsConstBase  = gcregSHUniformsRegAddrs; \
+            VsConstBase  = 0xC000; \
+            PsConstBase  = 0xC000; \
         }\
         if ((ChipModel == gcv880) && ((ChipRevision & 0xfff0) == 0x5120)) \
         { \
@@ -5632,13 +5632,13 @@ gcoHAL_GetUserDebugOption(
     featureTS, featureGS, featureUSCFullCacheFix, featureL1CacheSize, featureUSCMaxPages, \
     attribCacheRatio, L1CacheRatio) \
 { \
-    attribCacheRatio = GCREG_USC_CONTROL_ATTRIB_CACHE_PAGES_QUARTER; \
+    attribCacheRatio = 0x2; \
     \
     if (featureUSC) \
     { \
         if (featureSeparateLS) \
         { \
-            L1CacheRatio = GCREG_USC_CONTROL_CACHE_PAGES_FULL; \
+            L1CacheRatio = 0x0; \
         } \
         else \
         { \
@@ -5676,7 +5676,7 @@ gcoHAL_GetUserDebugOption(
             prefix##ASSERT(L1cacheSize); \
             if (L1cacheSize >= featureL1CacheSize) \
             { \
-                L1CacheRatio = GCREG_USC_CONTROL_CACHE_PAGES_FULL; \
+                L1CacheRatio = 0x0; \
                 prefix##ASSERT(featureUSCFullCacheFix); \
                 featureUSCFullCacheFix = featureUSCFullCacheFix; \
             } \
@@ -5719,13 +5719,13 @@ gcoHAL_GetUserDebugOption(
     featureTS, featureL1CacheSize, featureUSCMaxPages, \
     attribCacheRatio, L1CacheRatio) \
 { \
-    attribCacheRatio = GCREG_USC_CONTROL_ATTRIB_CACHE_PAGES_QUARTER; \
+    attribCacheRatio = 0x2; \
     \
     if (featureUSC) \
     { \
         if (featureSeparateLS) \
         { \
-            L1CacheRatio = GCREG_USC_CONTROL_CACHE_PAGES_FULL; \
+            L1CacheRatio = 0x0; \
         } \
         else \
         { \
@@ -5760,7 +5760,7 @@ gcoHAL_GetUserDebugOption(
             prefix##ASSERT(L1cacheSize); \
             if (L1cacheSize >= featureL1CacheSize) \
             { \
-                L1CacheRatio = GCREG_USC_CONTROL_CACHE_PAGES_FULL; \
+                L1CacheRatio = 0x0; \
             } \
             else \
             { \
@@ -5827,4 +5827,5 @@ gceSTATUS gcoOS_DeInitMemoryProfile(void);
 #endif
 
 #endif /* __gc_hal_base_h_ */
+
 

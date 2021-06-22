@@ -1056,3 +1056,4 @@ gcoVG_Resolve(
 
 #endif  /* __gc_hal_vg_h_ */
 
+

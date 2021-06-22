@@ -1119,3 +1119,4 @@ gco2D_SetTargetEndianMode(
 
 #endif /* __gc_hal_raster_h_ */
 
+

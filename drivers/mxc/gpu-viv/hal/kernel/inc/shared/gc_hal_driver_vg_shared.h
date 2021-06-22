@@ -265,3 +265,4 @@ gcsTASK_FREE_CONTIGUOUS_MEMORY;
 
 #endif /* __gc_hal_driver_vg_shared_h_ */
 
+

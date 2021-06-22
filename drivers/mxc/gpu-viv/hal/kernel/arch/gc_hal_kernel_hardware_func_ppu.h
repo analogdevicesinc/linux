@@ -99,14 +99,14 @@
                                     : (gctUINT32)(~((gctUINT64)(~0) << _GETSIZE(reg_field))))
 
 #define AQSETFIELD(data, reg, field, value) \
-( \
+(\
     ((gctUINT32)(data) & ~_ALIGN(_MASK(reg##_##field), reg##_##field)) \
         | \
     _ALIGN((gctUINT32)(value) & _MASK(reg##_##field), reg##_##field) \
 )
 
 #define AQSETFIELDVALUE(data, reg, field, value) \
-( \
+(\
     ((gctUINT32)(data) & ~_ALIGN(_MASK(reg##_##field), reg##_##field)) \
         | \
     _ALIGN(reg##_##field##_##value & _MASK(reg##_##field), reg##_##field) \
@@ -170,30 +170,210 @@ _InitializePPU_SetImmediate(
     switch (Where)
     {
         case 0:
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_ADR, HwFunc_GETBITS(Value, 8, 0));
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_SWIZZLE, HwFunc_GETBITS(Value, 16, 9));
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_MODIFIER_NEG, GETBIT(Value, 17));
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_MODIFIER_ABS, GETBIT(Value, 18));
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC0_REL_ADR, GETBIT(Value, 19) | (Type << 1));
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC0_TYPE, AQ_SHADER_SRC_REG_TYPE_IMMEDIATE);
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 20:12) - (0 ?
+ 20:12) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 20:12) - (0 ?
+ 20:12) + 1))))) << (0 ?
+ 20:12))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Value, 8, 0)) & ((((1 ?
+ 20:12) - (0 ?
+ 20:12) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 20:12) - (0 ? 20:12) + 1))))) << (0 ? 20:12)));
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 29:22) - (0 ?
+ 29:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:22) - (0 ?
+ 29:22) + 1))))) << (0 ?
+ 29:22))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Value, 16, 9)) & ((((1 ?
+ 29:22) - (0 ?
+ 29:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:22) - (0 ? 29:22) + 1))))) << (0 ? 29:22)));
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1))))) << (0 ?
+ 30:30))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 17)) & ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:30) - (0 ? 30:30) + 1))))) << (0 ? 30:30)));
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1))))) << (0 ?
+ 31:31))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 18)) & ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 31:31) - (0 ? 31:31) + 1))))) << (0 ? 31:31)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))) << (0 ?
+ 2:0))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 19) | (Type << 1)) & ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ? 2:0) + 1))))) << (0 ? 2:0)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 5:3) - (0 ?
+ 5:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 5:3) - (0 ?
+ 5:3) + 1))))) << (0 ?
+ 5:3))) | ((gctUINT32)((gctUINT32)(0x7) & ((((1 ?
+ 5:3) - (0 ?
+ 5:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 5:3) - (0 ? 5:3) + 1))))) << (0 ? 5:3)));
             break;
 
         case 1:
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_ADR, HwFunc_GETBITS(Value, 8, 0));
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_SWIZZLE, HwFunc_GETBITS(Value, 16, 9));
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_MODIFIER_NEG, GETBIT(Value, 17));
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_MODIFIER_ABS, GETBIT(Value, 18));
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_REL_ADR, GETBIT(Value, 19) | (Type << 1));
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC1_TYPE, AQ_SHADER_SRC_REG_TYPE_IMMEDIATE);
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 15:7) - (0 ?
+ 15:7) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 15:7) - (0 ?
+ 15:7) + 1))))) << (0 ?
+ 15:7))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Value, 8, 0)) & ((((1 ?
+ 15:7) - (0 ?
+ 15:7) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 15:7) - (0 ? 15:7) + 1))))) << (0 ? 15:7)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 24:17) - (0 ?
+ 24:17) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 24:17) - (0 ?
+ 24:17) + 1))))) << (0 ?
+ 24:17))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Value, 16, 9)) & ((((1 ?
+ 24:17) - (0 ?
+ 24:17) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 24:17) - (0 ? 24:17) + 1))))) << (0 ? 24:17)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 25:25) - (0 ?
+ 25:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 25:25) - (0 ?
+ 25:25) + 1))))) << (0 ?
+ 25:25))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 17)) & ((((1 ?
+ 25:25) - (0 ?
+ 25:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 25:25) - (0 ? 25:25) + 1))))) << (0 ? 25:25)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))) << (0 ?
+ 26:26))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 18)) & ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:26) - (0 ? 26:26) + 1))))) << (0 ? 26:26)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1))))) << (0 ?
+ 29:27))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 19) | (Type << 1)) & ((((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:27) - (0 ? 29:27) + 1))))) << (0 ? 29:27)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))) << (0 ?
+ 2:0))) | ((gctUINT32)((gctUINT32)(0x7) & ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ? 2:0) + 1))))) << (0 ? 2:0)));
             break;
 
         case 2:
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_ADR, HwFunc_GETBITS(Value, 8, 0));
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_SWIZZLE, HwFunc_GETBITS(Value, 16, 9));
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_MODIFIER_NEG, GETBIT(Value, 17));
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_MODIFIER_ABS, GETBIT(Value, 18));
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_REL_ADR, GETBIT(Value, 19) | (Type << 1));
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_TYPE, AQ_SHADER_SRC_REG_TYPE_IMMEDIATE);
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 12:4) - (0 ?
+ 12:4) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 12:4) - (0 ?
+ 12:4) + 1))))) << (0 ?
+ 12:4))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Value, 8, 0)) & ((((1 ?
+ 12:4) - (0 ?
+ 12:4) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 12:4) - (0 ? 12:4) + 1))))) << (0 ? 12:4)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 21:14) - (0 ?
+ 21:14) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:14) - (0 ?
+ 21:14) + 1))))) << (0 ?
+ 21:14))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Value, 16, 9)) & ((((1 ?
+ 21:14) - (0 ?
+ 21:14) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:14) - (0 ? 21:14) + 1))))) << (0 ? 21:14)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 22:22) - (0 ?
+ 22:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 22:22) - (0 ?
+ 22:22) + 1))))) << (0 ?
+ 22:22))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 17)) & ((((1 ?
+ 22:22) - (0 ?
+ 22:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 22:22) - (0 ? 22:22) + 1))))) << (0 ? 22:22)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 23:23) - (0 ?
+ 23:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 23:23) - (0 ?
+ 23:23) + 1))))) << (0 ?
+ 23:23))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 18)) & ((((1 ?
+ 23:23) - (0 ?
+ 23:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 23:23) - (0 ? 23:23) + 1))))) << (0 ? 23:23)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 27:25) - (0 ?
+ 27:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 27:25) - (0 ?
+ 27:25) + 1))))) << (0 ?
+ 27:25))) | ((gctUINT32)((gctUINT32)(GETBIT(Value, 19) | (Type << 1)) & ((((1 ?
+ 27:25) - (0 ?
+ 27:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 27:25) - (0 ? 27:25) + 1))))) << (0 ? 27:25)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 30:28) - (0 ?
+ 30:28) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:28) - (0 ?
+ 30:28) + 1))))) << (0 ?
+ 30:28))) | ((gctUINT32)((gctUINT32)(0x7) & ((((1 ?
+ 30:28) - (0 ?
+ 30:28) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:28) - (0 ? 30:28) + 1))))) << (0 ? 30:28)));
             break;
     }
 
@@ -211,8 +391,28 @@ _InitializePPU_SetInstructionType(
 
     gcmkHEADER_ARG("Type=0x%x", Type);
 
-    binary[1] = AQSETFIELD(binary[1], AQ_INST, INST_TYPE_0, GETBIT(Type, 0));
-    binary[2] = AQSETFIELD(binary[2], AQ_INST, INST_TYPE_1, HwFunc_GETBITS(Type, 2, 1));
+    binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 21:21) - (0 ?
+ 21:21) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:21) - (0 ?
+ 21:21) + 1))))) << (0 ?
+ 21:21))) | ((gctUINT32)((gctUINT32)(GETBIT(Type, 0)) & ((((1 ?
+ 21:21) - (0 ?
+ 21:21) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:21) - (0 ? 21:21) + 1))))) << (0 ? 21:21)));
+    binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 31:30) - (0 ?
+ 31:30) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 31:30) - (0 ?
+ 31:30) + 1))))) << (0 ?
+ 31:30))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Type, 2, 1)) & ((((1 ?
+ 31:30) - (0 ?
+ 31:30) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 31:30) - (0 ? 31:30) + 1))))) << (0 ? 31:30)));
 
     gcmkFOOTER();
     return status;
@@ -235,47 +435,83 @@ _InitializePPU_IsEndOfBB(
         {
             switch (Opcode)
             {
-            case AQ_INST_OP_CODE_MOV:
-            case AQ_INST_OP_CODE_MOVAI:
-            case AQ_INST_OP_CODE_MOVAR:
-            case AQ_INST_OP_CODE_MOVAF:
-            case AQ_INST_OP_CODE_SELECT:
-            case AQ_INST_OP_CODE_CMP:
-            case AQ_INST_OP_CODE_SET:
-                binary[1] = AQSETFIELD(binary[1], AQ_INST, SAMPLER_SWIZZLE,
-                    HwFunc_SETBITS(binary[1], GCREG_SH_END_OF_BASIC_BLOCK_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_CC_VER_End, 1));
+            case 0x09:
+            case 0x56:
+            case 0x0A:
+            case 0x0B:
+            case 0x0F:
+            case 0x31:
+            case 0x10:
+                binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 10:3) - (0 ?
+ 10:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:3) - (0 ?
+ 10:3) + 1))))) << (0 ?
+ 10:3))) | ((gctUINT32)((gctUINT32)(HwFunc_SETBITS(binary[1], 3, 3, 1)) & ((((1 ?
+ 10:3) - (0 ?
+ 10:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:3) - (0 ? 10:3) + 1))))) << (0 ? 10:3)));
                 break;
-            case AQ_INST_OP_CODE_ATOM_ADD:
-            case AQ_INST_OP_CODE_ATOM_XCHG:
-            case AQ_INST_OP_CODE_ATOM_CMP_XCHG:
-            case AQ_INST_OP_CODE_ATOM_MIN:
-            case AQ_INST_OP_CODE_ATOM_MAX:
-            case AQ_INST_OP_CODE_ATOM_OR:
-            case AQ_INST_OP_CODE_ATOM_AND:
-            case AQ_INST_OP_CODE_ATOM_XOR:
-            case AQ_INST_OP_CODE_IMG_ATOM:
-                binary[0] = AQSETFIELD(binary[0], AQ_INST, CONDITION_CODE,
-                    HwFunc_SETBITS(binary[0], GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_End, 1));
+            case 0x65:
+            case 0x66:
+            case 0x67:
+            case 0x68:
+            case 0x69:
+            case 0x6A:
+            case 0x6B:
+            case 0x6C:
+            case 0x46:
+                binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1))))) << (0 ?
+ 10:6))) | ((gctUINT32)((gctUINT32)(HwFunc_SETBITS(binary[0], 2, 2, 1)) & ((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ? 10:6) + 1))))) << (0 ? 10:6)));
                 break;
-            case AQ_INST_OP_CODE_LOAD:
-            case AQ_INST_OP_CODE_LOADP:
-            case AQ_INST_OP_CODE_STORE:
-            case AQ_INST_OP_CODE_STOREP:
-            case AQ_INST_OP_CODE_IMG_LOAD:
-            case AQ_INST_OP_CODE_IMG_LOAD_3D:
-            case AQ_INST_OP_CODE_IMG_STORE:
-            case AQ_INST_OP_CODE_IMG_STORE_3D:
-                binary[0] = AQSETFIELD(binary[0], AQ_INST, CONDITION_CODE,
-                    HwFunc_SETBITS(binary[0], GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_End, 1));
+            case 0x32:
+            case 0x39:
+            case 0x33:
+            case 0x3A:
+            case 0x79:
+            case 0x34:
+            case 0x7A:
+            case 0x35:
+                binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1))))) << (0 ?
+ 10:6))) | ((gctUINT32)((gctUINT32)(HwFunc_SETBITS(binary[0], 2, 2, 1)) & ((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ? 10:6) + 1))))) << (0 ? 10:6)));
                 break;
             default:
-                if (Opcode != AQ_INST_OP_CODE_BRANCH &&
-                    Opcode != AQ_INST_OP_CODE_BRANCH_ANY &&
-                    Opcode != AQ_INST_OP_CODE_CALL &&
-                    Opcode != AQ_INST_OP_CODE_RET &&
-                    Opcode != AQ_INST_OP_CODE_TEXKILL)
-                    binary[0] = AQSETFIELD(binary[0], AQ_INST, CONDITION_CODE,
-                        HwFunc_SETBITS(binary[0], GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_Start, GCREG_SH_END_OF_BASIC_BLOCK_NO_CC_VER_End, 1));
+                if (Opcode != 0x16 &&
+                    Opcode != 0x24 &&
+                    Opcode != 0x14 &&
+                    Opcode != 0x15 &&
+                    Opcode != 0x17)
+                    binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1))))) << (0 ?
+ 10:6))) | ((gctUINT32)((gctUINT32)(HwFunc_SETBITS(binary[0], 2, 2, 1)) & ((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ? 10:6) + 1))))) << (0 ? 10:6)));
                 break;
             }
         }
@@ -299,21 +535,61 @@ _InitializePPU_AddOpcode(
 
     gcmkHEADER_ARG("Opcode=0x%x", Opcode);
 
-    binary[0] = AQSETFIELD(binary[0], AQ_INST, OP_CODE, HwFunc_GETBITS(Opcode, 5, 0));
-    binary[2] = AQSETFIELD(binary[2], AQ_INST, OP_CODE_MSB6, GETBIT(Opcode, 6));
-    if (Opcode == AQ_INST_OP_CODE_EXTENDED)
+    binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 5:0) - (0 ?
+ 5:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 5:0) - (0 ?
+ 5:0) + 1))))) << (0 ?
+ 5:0))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Opcode, 5, 0)) & ((((1 ?
+ 5:0) - (0 ?
+ 5:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 5:0) - (0 ? 5:0) + 1))))) << (0 ? 5:0)));
+    binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1))))) << (0 ?
+ 16:16))) | ((gctUINT32)((gctUINT32)(GETBIT(Opcode, 6)) & ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 16:16) - (0 ? 16:16) + 1))))) << (0 ? 16:16)));
+    if (Opcode == 0x7F)
     {
-        gcmkONERROR(_InitializePPU_SetImmediate(2, Extended, GCREG_SH_IMMEDIATE_TYPE_U20, binary));
+        gcmkONERROR(_InitializePPU_SetImmediate(2, Extended, 0x2, binary));
     }
-    else if (Opcode == AQ_INST_OP_CODE_EVIS)
+    else if (Opcode == 0x45)
     {
-        binary[0] = AQSETFIELD(binary[0], AQ_INST, DEST_REL_ADR, HwFunc_GETBITS(Extended, 2, 0));
+        binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 15:13) - (0 ?
+ 15:13) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 15:13) - (0 ?
+ 15:13) + 1))))) << (0 ?
+ 15:13))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Extended, 2, 0)) & ((((1 ?
+ 15:13) - (0 ?
+ 15:13) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 15:13) - (0 ? 15:13) + 1))))) << (0 ? 15:13)));
         binary[0] = SETBIT(binary[0], 31, GETBIT(Extended, 3));
         binary[1] = HwFunc_SETBITS(binary[1], 1, 0, HwFunc_GETBITS(Extended, 5, 4));
     }
-    else if (Opcode == AQ_INST_OP_CODE_CMP || Opcode == AQ_INST_OP_CODE_MOV || Opcode == AQ_INST_OP_CODE_SELECT)
+    else if (Opcode == 0x31 || Opcode == 0x09 || Opcode == 0x0F)
     {
-        binary[0] = AQSETFIELD(binary[0], AQ_INST, CONDITION_CODE, HwFunc_GETBITS(Extended, 4, 0));
+        binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1))))) << (0 ?
+ 10:6))) | ((gctUINT32)((gctUINT32)(HwFunc_GETBITS(Extended, 4, 0)) & ((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ? 10:6) + 1))))) << (0 ? 10:6)));
     }
 
     if((gctUINT32)Type != GCREG_SH_INSTRUCTION_TYPE_INVALID)
@@ -339,10 +615,50 @@ _InitializePPU_SetDestination(
 
     gcmkHEADER_ARG("Address=0x%x", Address);
 
-    binary[0] = AQSETFIELD(binary[0], AQ_INST, DEST_VALID, 1);
-    binary[0] = AQSETFIELD(binary[0], AQ_INST, DEST_ADR, Address);
-    binary[0] = AQSETFIELD(binary[0], AQ_INST, DEST_WRITE_ENABLE, Enable);
-    binary[0] = AQSETFIELD(binary[0], AQ_INST, SATURATE, Saturate);
+    binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 12:12) - (0 ?
+ 12:12) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 12:12) - (0 ?
+ 12:12) + 1))))) << (0 ?
+ 12:12))) | ((gctUINT32)((gctUINT32)(1) & ((((1 ?
+ 12:12) - (0 ?
+ 12:12) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 12:12) - (0 ? 12:12) + 1))))) << (0 ? 12:12)));
+    binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 22:16) - (0 ?
+ 22:16) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 22:16) - (0 ?
+ 22:16) + 1))))) << (0 ?
+ 22:16))) | ((gctUINT32)((gctUINT32)(Address) & ((((1 ?
+ 22:16) - (0 ?
+ 22:16) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 22:16) - (0 ? 22:16) + 1))))) << (0 ? 22:16)));
+    binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 26:23) - (0 ?
+ 26:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:23) - (0 ?
+ 26:23) + 1))))) << (0 ?
+ 26:23))) | ((gctUINT32)((gctUINT32)(Enable) & ((((1 ?
+ 26:23) - (0 ?
+ 26:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:23) - (0 ? 26:23) + 1))))) << (0 ? 26:23)));
+    binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1))))) << (0 ?
+ 11:11))) | ((gctUINT32)((gctUINT32)(Saturate) & ((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 11:11) - (0 ? 11:11) + 1))))) << (0 ? 11:11)));
 
     gcmkFOOTER();
     return status;
@@ -355,11 +671,11 @@ static gctUINT32 _InitializePPU_GetPixel(gctUINT32 format)
     gctUINT32 pixel = 0;
     switch(format)
     {
-    case GCREG_SH_INSTRUCTION_TYPE_UNSIGNED8:
+    case 0x7:
         pixel = 15;
         break;
-    case GCREG_SH_INSTRUCTION_TYPE_SIGNED16:
-    case GCREG_SH_INSTRUCTION_TYPE_UNSIGNED16:
+    case 0x3:
+    case 0x6:
         pixel = 7;
         break;
     default:
@@ -382,7 +698,17 @@ _InitializePPU_SetEVIS(
 
     gcmkHEADER_ARG("Evis=0x%x", Evis);
 
-    binary[0] = AQSETFIELD(binary[0], AQ_INST, DEST_WRITE_ENABLE, Start);
+    binary[0] = (((gctUINT32)(binary[0]) & ~((gctUINT32)(((((1 ?
+ 26:23) - (0 ?
+ 26:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:23) - (0 ?
+ 26:23) + 1))))) << (0 ?
+ 26:23))) | ((gctUINT32)((gctUINT32)(Start) & ((((1 ?
+ 26:23) - (0 ?
+ 26:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:23) - (0 ? 26:23) + 1))))) << (0 ? 26:23)));
     binary[0] = HwFunc_SETBITS(binary[0], 30, 27, End);
     binary[1] = HwFunc_SETBITS(binary[1], 10, 2, Evis);
 
@@ -417,33 +743,243 @@ _InitializePPU_SetSource(
     switch (Where)
     {
         case 0:
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_VALID, 1);
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_ADR, Address);
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_SWIZZLE, Swizzle);
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_MODIFIER_NEG, Negate);
-            binary[1] = AQSETFIELD(binary[1], AQ_INST, SRC0_MODIFIER_ABS, Absolute);
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC0_REL_ADR, Relative);
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC0_TYPE, Type);
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1))))) << (0 ?
+ 11:11))) | ((gctUINT32)((gctUINT32)(1) & ((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 11:11) - (0 ? 11:11) + 1))))) << (0 ? 11:11)));
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 20:12) - (0 ?
+ 20:12) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 20:12) - (0 ?
+ 20:12) + 1))))) << (0 ?
+ 20:12))) | ((gctUINT32)((gctUINT32)(Address) & ((((1 ?
+ 20:12) - (0 ?
+ 20:12) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 20:12) - (0 ? 20:12) + 1))))) << (0 ? 20:12)));
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 29:22) - (0 ?
+ 29:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:22) - (0 ?
+ 29:22) + 1))))) << (0 ?
+ 29:22))) | ((gctUINT32)((gctUINT32)(Swizzle) & ((((1 ?
+ 29:22) - (0 ?
+ 29:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:22) - (0 ? 29:22) + 1))))) << (0 ? 29:22)));
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1))))) << (0 ?
+ 30:30))) | ((gctUINT32)((gctUINT32)(Negate) & ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:30) - (0 ? 30:30) + 1))))) << (0 ? 30:30)));
+            binary[1] = (((gctUINT32)(binary[1]) & ~((gctUINT32)(((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1))))) << (0 ?
+ 31:31))) | ((gctUINT32)((gctUINT32)(Absolute) & ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 31:31) - (0 ? 31:31) + 1))))) << (0 ? 31:31)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))) << (0 ?
+ 2:0))) | ((gctUINT32)((gctUINT32)(Relative) & ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ? 2:0) + 1))))) << (0 ? 2:0)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 5:3) - (0 ?
+ 5:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 5:3) - (0 ?
+ 5:3) + 1))))) << (0 ?
+ 5:3))) | ((gctUINT32)((gctUINT32)(Type) & ((((1 ?
+ 5:3) - (0 ?
+ 5:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 5:3) - (0 ? 5:3) + 1))))) << (0 ? 5:3)));
             break;
 
         case 1:
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_VALID, 1);
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_ADR, Address);
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_SWIZZLE, Swizzle);
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_MODIFIER_NEG, Negate);
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_MODIFIER_ABS, Absolute);
-            binary[2] = AQSETFIELD(binary[2], AQ_INST, SRC1_REL_ADR, Relative);
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC1_TYPE, Type);
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1))))) << (0 ?
+ 6:6))) | ((gctUINT32)((gctUINT32)(1) & ((((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 6:6) - (0 ? 6:6) + 1))))) << (0 ? 6:6)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 15:7) - (0 ?
+ 15:7) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 15:7) - (0 ?
+ 15:7) + 1))))) << (0 ?
+ 15:7))) | ((gctUINT32)((gctUINT32)(Address) & ((((1 ?
+ 15:7) - (0 ?
+ 15:7) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 15:7) - (0 ? 15:7) + 1))))) << (0 ? 15:7)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 24:17) - (0 ?
+ 24:17) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 24:17) - (0 ?
+ 24:17) + 1))))) << (0 ?
+ 24:17))) | ((gctUINT32)((gctUINT32)(Swizzle) & ((((1 ?
+ 24:17) - (0 ?
+ 24:17) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 24:17) - (0 ? 24:17) + 1))))) << (0 ? 24:17)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 25:25) - (0 ?
+ 25:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 25:25) - (0 ?
+ 25:25) + 1))))) << (0 ?
+ 25:25))) | ((gctUINT32)((gctUINT32)(Negate) & ((((1 ?
+ 25:25) - (0 ?
+ 25:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 25:25) - (0 ? 25:25) + 1))))) << (0 ? 25:25)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))) << (0 ?
+ 26:26))) | ((gctUINT32)((gctUINT32)(Absolute) & ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 26:26) - (0 ? 26:26) + 1))))) << (0 ? 26:26)));
+            binary[2] = (((gctUINT32)(binary[2]) & ~((gctUINT32)(((((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1))))) << (0 ?
+ 29:27))) | ((gctUINT32)((gctUINT32)(Relative) & ((((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 29:27) - (0 ? 29:27) + 1))))) << (0 ? 29:27)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))) << (0 ?
+ 2:0))) | ((gctUINT32)((gctUINT32)(Type) & ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 2:0) - (0 ? 2:0) + 1))))) << (0 ? 2:0)));
             break;
 
         case 2:
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_VALID, 1);
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_ADR, Address);
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_SWIZZLE, Swizzle);
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_MODIFIER_NEG, Negate);
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_MODIFIER_ABS, Absolute);
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_REL_ADR, Relative);
-            binary[3] = AQSETFIELD(binary[3], AQ_INST, SRC2_TYPE, Type);
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1))))) << (0 ?
+ 3:3))) | ((gctUINT32)((gctUINT32)(1) & ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 3:3) - (0 ? 3:3) + 1))))) << (0 ? 3:3)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 12:4) - (0 ?
+ 12:4) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 12:4) - (0 ?
+ 12:4) + 1))))) << (0 ?
+ 12:4))) | ((gctUINT32)((gctUINT32)(Address) & ((((1 ?
+ 12:4) - (0 ?
+ 12:4) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 12:4) - (0 ? 12:4) + 1))))) << (0 ? 12:4)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 21:14) - (0 ?
+ 21:14) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:14) - (0 ?
+ 21:14) + 1))))) << (0 ?
+ 21:14))) | ((gctUINT32)((gctUINT32)(Swizzle) & ((((1 ?
+ 21:14) - (0 ?
+ 21:14) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:14) - (0 ? 21:14) + 1))))) << (0 ? 21:14)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 22:22) - (0 ?
+ 22:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 22:22) - (0 ?
+ 22:22) + 1))))) << (0 ?
+ 22:22))) | ((gctUINT32)((gctUINT32)(Negate) & ((((1 ?
+ 22:22) - (0 ?
+ 22:22) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 22:22) - (0 ? 22:22) + 1))))) << (0 ? 22:22)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 23:23) - (0 ?
+ 23:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 23:23) - (0 ?
+ 23:23) + 1))))) << (0 ?
+ 23:23))) | ((gctUINT32)((gctUINT32)(Absolute) & ((((1 ?
+ 23:23) - (0 ?
+ 23:23) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 23:23) - (0 ? 23:23) + 1))))) << (0 ? 23:23)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 27:25) - (0 ?
+ 27:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 27:25) - (0 ?
+ 27:25) + 1))))) << (0 ?
+ 27:25))) | ((gctUINT32)((gctUINT32)(Relative) & ((((1 ?
+ 27:25) - (0 ?
+ 27:25) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 27:25) - (0 ? 27:25) + 1))))) << (0 ? 27:25)));
+            binary[3] = (((gctUINT32)(binary[3]) & ~((gctUINT32)(((((1 ?
+ 30:28) - (0 ?
+ 30:28) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:28) - (0 ?
+ 30:28) + 1))))) << (0 ?
+ 30:28))) | ((gctUINT32)((gctUINT32)(Type) & ((((1 ?
+ 30:28) - (0 ?
+ 30:28) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 30:28) - (0 ? 30:28) + 1))))) << (0 ? 30:28)));
             break;
     }
     gcmkFOOTER();
@@ -468,7 +1004,7 @@ _InitializePPU_SetUniform(
     gctBOOL absolute = (Modifiers & ABSOLUTE_FLAG) ? gcvTRUE : gcvFALSE;
     gcmkHEADER_ARG("Where=0x%x", Where);
 
-    gcmkONERROR(_InitializePPU_SetSource(Where, Address, Swizzle, AQ_SHADER_SRC_REG_TYPE_UNBOUNDED_CONST, negate, absolute, 0, binary));
+    gcmkONERROR(_InitializePPU_SetSource(Where, Address, Swizzle, 0x2, negate, absolute, 0, binary));
 
 OnError:
     gcmkFOOTER();
@@ -490,7 +1026,7 @@ _InitializePPU_SetTempReg(
     gctBOOL absolute = (Modifiers & ABSOLUTE_FLAG) ? gcvTRUE : gcvFALSE;
     gcmkHEADER_ARG("Where=0x%x", Where);
 
-    gcmkONERROR(_InitializePPU_SetSource(Where, Address, Swizzle, AQ_SHADER_SRC_REG_TYPE_TEMP, negate, absolute, 0, binary));
+    gcmkONERROR(_InitializePPU_SetSource(Where, Address, Swizzle, 0x0, negate, absolute, 0, binary));
 
 OnError:
     gcmkFOOTER();
@@ -523,11 +1059,33 @@ _InitializePPU_SetImmediateValue(
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
-    gctINT32 raw = AQSETFIELD(0, GCREG_SH_IMMEDIATE, VALUE, Value) | AQSETFIELDVALUE(0, GCREG_SH_IMMEDIATE, TYPE, U20);
+    gctINT32 raw = (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
+ 19:0) - (0 ?
+ 19:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 19:0) - (0 ?
+ 19:0) + 1))))) << (0 ?
+ 19:0))) | ((gctUINT32)((gctUINT32)(Value) & ((((1 ?
+ 19:0) - (0 ?
+ 19:0) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 19:0) - (0 ?
+ 19:0) + 1))))) << (0 ?
+ 19:0))) | (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
+ 21:20) - (0 ?
+ 21:20) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:20) - (0 ?
+ 21:20) + 1))))) << (0 ?
+ 21:20))) | ((gctUINT32)(0x2 & ((((1 ?
+ 21:20) - (0 ?
+ 21:20) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 21:20) - (0 ? 21:20) + 1))))) << (0 ? 21:20)));
 
     gcmkHEADER_ARG("Where=0x%x", Where);
 
-    gcmkONERROR(_InitializePPU_SetSource(Where, HwFunc_GETBITS(raw, 8, 0), HwFunc_GETBITS(raw, 16, 9), AQ_SHADER_SRC_REG_TYPE_IMMEDIATE, GETBIT(raw, 17), GETBIT(raw, 18), HwFunc_GETBITS(raw, 21, 19), binary));
+    gcmkONERROR(_InitializePPU_SetSource(Where, HwFunc_GETBITS(raw, 8, 0), HwFunc_GETBITS(raw, 16, 9), 0x7, GETBIT(raw, 17), GETBIT(raw, 18), HwFunc_GETBITS(raw, 21, 19), binary));
 
 OnError:
     gcmkFOOTER();
@@ -554,7 +1112,7 @@ gceSTATUS gcoHwFunc_SH_CMD(
     /* b. Store to 6 line which size are 64 bytes and flush out */
 
     /*img_load.u8 r1, c0, r0.xy*/
-    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, AQ_INST_OP_CODE_IMG_LOAD, 0, Input1, &binarys[count]));
+    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, 0x79, 0, Input1, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetEVIS(0, _InitializePPU_GetPixel(Input1), 1, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &binarys[count]));
@@ -562,7 +1120,7 @@ gceSTATUS gcoHwFunc_SH_CMD(
     count += 4;
 
     /*img_load.u8 r2, c0, r0.xy */
-    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, AQ_INST_OP_CODE_IMG_LOAD, 0, Input2, &binarys[count]));
+    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, 0x79, 0, Input2, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetDestination(2, gcdVX_ENABLE, gcvFALSE, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetEVIS(0, _InitializePPU_GetPixel(Input2), 1, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &binarys[count]));
@@ -570,17 +1128,17 @@ gceSTATUS gcoHwFunc_SH_CMD(
     count += 4;
 
     /* dp2x8 r1, r1, r2, c3_512 */
-    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, AQ_INST_OP_CODE_EVIS, GCREG_SH_VISION_OPCODE_DP2X8, Output, &binarys[count]));
+    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, 0x45, 0x0B, Output, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetEVIS(0, 7, (Input1 | (Input2 << 3)), &binarys[count]));
     gcmkONERROR(_InitializePPU_SetTempReg(0, 1, gcdVX_SWIZZLE, 0, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetTempReg(1, 2, gcdVX_SWIZZLE, 0, &binarys[count]));
-    gcmkONERROR(_InitializePPU_SetSource (2, 2, gcdVX_SWIZZLE, AQ_SHADER_SRC_REG_TYPE_UNIFORM512, gcvFALSE, gcvFALSE, 0, &binarys[count]));
+    gcmkONERROR(_InitializePPU_SetSource (2, 2, gcdVX_SWIZZLE, 0x4, gcvFALSE, gcvFALSE, 0, &binarys[count]));
     count += 4;
 
 
     /*img_store.u8 r1, c2, r0.xy, r1*/
-    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, AQ_INST_OP_CODE_IMG_STORE, 0, Output, &binarys[count]));
+    gcmkONERROR(_InitializePPU_AddOpcode(Hardware, 0x7A, 0, Output, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetEVIS(0, _InitializePPU_GetPixel(Output), 1, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &binarys[count]));
     gcmkONERROR(_InitializePPU_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &binarys[count]));
@@ -595,4 +1153,5 @@ OnError:
 }
 
 #endif /*gcdINITIALIZE_PPU*/
+
 

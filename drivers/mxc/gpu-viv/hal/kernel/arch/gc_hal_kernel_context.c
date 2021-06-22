@@ -57,7 +57,6 @@
 #include "gc_hal_kernel.h"
 #include "gc_hal_kernel_context.h"
 #include "gc_hal_kernel_buffer.h"
-#include "AQ.h"
 
 /******************************************************************************\
 ******************************** Debugging Macro *******************************
@@ -72,91 +71,91 @@
 \******************************************************************************/
 
 #define _STATE(reg)                                                            \
-    _State(                                                                    \
-        Context, index,                                                        \
-        reg ## _Address >> 2,                                                  \
-        reg ## _ResetValue,                                                    \
-        reg ## _Count,                                                         \
+    _State(\
+        Context, index, \
+        reg ## _Address >> 2, \
+        reg ## _ResetValue, \
+        reg ## _Count, \
         gcvFALSE, gcvFALSE                                                     \
         )
 
 #define _STATE_COUNT(reg, count)                                               \
-    _State(                                                                    \
-        Context, index,                                                        \
-        reg ## _Address >> 2,                                                  \
-        reg ## _ResetValue,                                                    \
-        count,                                                                 \
+    _State(\
+        Context, index, \
+        reg ## _Address >> 2, \
+        reg ## _ResetValue, \
+        count, \
         gcvFALSE, gcvFALSE                                                     \
         )
 
 #define _STATE_COUNT_OFFSET(reg, offset, count)                                \
-    _State(                                                                    \
-        Context, index,                                                        \
-        (reg ## _Address >> 2) + offset,                                       \
-        reg ## _ResetValue,                                                    \
-        count,                                                                 \
+    _State(\
+        Context, index, \
+        (reg ## _Address >> 2) + offset, \
+        reg ## _ResetValue, \
+        count, \
         gcvFALSE, gcvFALSE                                                     \
         )
 
 #define _STATE_MIRROR_COUNT(reg, mirror, count)                                \
-    _StateMirror(                                                              \
-        Context,                                                               \
-        reg ## _Address >> 2,                                                  \
-        count,                                                                 \
+    _StateMirror(\
+        Context, \
+        reg ## _Address >> 2, \
+        count, \
         mirror ## _Address >> 2                                                \
         )
 
 #define _STATE_HINT(reg)                                                       \
-    _State(                                                                    \
-        Context, index,                                                        \
-        reg ## _Address >> 2,                                                  \
-        reg ## _ResetValue,                                                    \
-        reg ## _Count,                                                         \
+    _State(\
+        Context, index, \
+        reg ## _Address >> 2, \
+        reg ## _ResetValue, \
+        reg ## _Count, \
         gcvFALSE, gcvTRUE                                                      \
         )
 
 #define _STATE_HINT_BLOCK(reg, block, count)                                   \
-    _State(                                                                    \
-        Context, index,                                                        \
-        (reg ## _Address >> 2) + (block << reg ## _BLK),                       \
-        reg ## _ResetValue,                                                    \
-        count,                                                                 \
+    _State(\
+        Context, index, \
+        (reg ## _Address >> 2) + (block << reg ## _BLK), \
+        reg ## _ResetValue, \
+        count, \
         gcvFALSE, gcvTRUE                                                      \
         )
 
 #define _STATE_COUNT_OFFSET_HINT(reg, offset, count)                           \
-    _State(                                                                    \
-        Context, index,                                                        \
-        (reg ## _Address >> 2) + offset,                                       \
-        reg ## _ResetValue,                                                    \
-        count,                                                                 \
+    _State(\
+        Context, index, \
+        (reg ## _Address >> 2) + offset, \
+        reg ## _ResetValue, \
+        count, \
         gcvFALSE, gcvTRUE                                                      \
         )
 
 #define _STATE_X(reg)                                                          \
-    _State(                                                                    \
-        Context, index,                                                        \
-        reg ## _Address >> 2,                                                  \
-        reg ## _ResetValue,                                                    \
-        reg ## _Count,                                                         \
+    _State(\
+        Context, index, \
+        reg ## _Address >> 2, \
+        reg ## _ResetValue, \
+        reg ## _Count, \
         gcvTRUE, gcvFALSE                                                      \
         )
 
 #define _STATE_INIT_VALUE(reg, value)                                          \
-    _State(                                                                    \
-        Context, index,                                                        \
-        reg ## _Address >> 2,                                                  \
-        value,                                                                 \
-        reg ## _Count,                                                         \
+    _State(\
+        Context, index, \
+        reg ## _Address >> 2, \
+        value, \
+        reg ## _Count, \
         gcvFALSE, gcvFALSE                                                     \
         )
 
 #define _STATE_INIT_VALUE_BLOCK(reg, value, block, count)                      \
-    _State(                                                                    \
-        Context, index,                                                        \
-        (reg ## _Address >> 2) + (block << reg ## _BLK),                       \
-        value,                                                                 \
-        count,                                                                 \
+    _State(\
+        Context, index, \
+        (reg ## _Address >> 2) + (block << reg ## _BLK), \
+        value, \
+        count, \
         gcvFALSE, gcvFALSE                                                     \
         )
 
@@ -314,96 +313,467 @@ _FlushPipe(
             {
                 /* Semaphore from FE to BLT. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, LOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, BLT_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 /* Stall from FE to BLT. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, BLT_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, UNLOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
             }
             else
             {
                 /* Semaphore from FE to PE. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, PIXEL_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 /* Stall from FE to PE. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, PIXEL_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
             }
         }
 
         /* Flush the current pipe. */
         *buffer++
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-            | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-            | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         *buffer++
             = (Pipe == gcvPIPE_2D)
-                ?   gcmSETFIELDVALUE(0, AQ_FLUSH, PE2D_CACHE, ENABLE)
-                :   gcmSETFIELDVALUE(0, AQ_FLUSH,     ZCACHE, ENABLE)
-                  | gcmSETFIELDVALUE(0, AQ_FLUSH,     CCACHE, ENABLE)
-                  | (multiCluster ? 0 : gcmSETFIELDVALUE(0, AQ_FLUSH, TCACHE, ENABLE))
-                  | gcmSETFIELDVALUE(0, AQ_FLUSH,     SHL1_CACHE, ENABLE)
-                  | gcmSETFIELDVALUE(0, AQ_FLUSH,     VSSHL1_CACHE, ENABLE)
-                  | gcmSETFIELDVALUE(0, AQ_FLUSH,     PSSHL1_CACHE, ENABLE);
+                ?
+   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1))))))) << (0 ?
+ 3:3))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
+                :   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
+                  | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1))))))) << (0 ?
+ 1:1))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
+                  | (multiCluster ?
+ 0 : ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2))))
+                  | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
+                  | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 10:10) - (0 ?
+ 10:10) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 10:10) - (0 ?
+ 10:10) + 1))))))) << (0 ?
+ 10:10))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 10:10) - (0 ?
+ 10:10) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 10:10) - (0 ? 10:10) + 1))))))) << (0 ? 10:10)))
+                  | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1))))))) << (0 ?
+ 11:11))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
 
         if (hwTFB)
         {
              *buffer++
-                 = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
-                 | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregTFBInvalidateRegAddrs)
-                 | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+                 = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                 | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x7003) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
+                 | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
              *buffer++
-                 = GCREG_TFB_INVALIDATE_INVALIDATE_TRUE;
+                 = 0x1;
         }
 
         /* Flush VST in separate cmd. */
         if (Pipe == gcvPIPE_3D)
         {
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQFlushRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
-            *buffer++ = gcmSETFIELDVALUE(0, AQ_FLUSH, VST_CACHE, ENABLE);
+            *buffer++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)));
         }
 
         /* Semaphore from FE to PE. */
@@ -411,56 +781,272 @@ _FlushPipe(
         {
             /* Semaphore from FE to BLT. */
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, LOCK);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, BLT_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
             /* Stall from FE to BLT. */
             *buffer++
-                = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, BLT_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, UNLOCK);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
         }
         else
         {
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, PIXEL_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
             /* Stall from FE to PE. */
             *buffer++
-                = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, PIXEL_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
         }
 
         if (fcFlushStall)
@@ -468,38 +1054,182 @@ _FlushPipe(
             if (!peTSFlush && blt)
             {
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, LOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
-                    | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltCacheFlushRegAddrs)
-                    | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502B) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_CACHE_FLUSH, TILE_CACHE, ENABLE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, UNLOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
             }
             else
             {
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
-                    | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcTileCacheFlushRegAddrs)
-                    | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0594) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GC_TILE_CACHE_FLUSH, FLUSH, ENABLE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
             }
 
             /* Semaphore from FE to PE. */
@@ -507,56 +1237,272 @@ _FlushPipe(
             {
                 /* Semaphore from FE to BLT. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, LOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, BLT_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 /* Stall from FE to BLT. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, BLT_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, UNLOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
             }
             else
             {
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, PIXEL_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 /* Stall from FE to PE. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, PIXEL_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
             }
         }
 
@@ -564,106 +1510,538 @@ _FlushPipe(
         {
             /* Invalidate I$ after pipe is stalled */
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregShaderConfigRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0,  GCREG_SHADER_CONFIG, INST_DECODE_SELECT, VS);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregSHCacheControlRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x021A) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, GCREG_SH_CACHE_CONTROL, MODE, MEMORY)
-                | gcmSETFIELD(0, GCREG_SH_CACHE_CONTROL, INVALIDATE_VS, 1);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregShaderConfigRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0,  GCREG_SHADER_CONFIG, INST_DECODE_SELECT, PS);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregSHCacheControlRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x021A) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, GCREG_SH_CACHE_CONTROL, MODE, MEMORY)
-                | gcmSETFIELD(0, GCREG_SH_CACHE_CONTROL, INVALIDATE_PS, 1);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)));
 
             /* Semaphore from FE to PE. */
             if (blt)
             {
                 /* Semaphore from FE to BLT. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, LOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, BLT_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 /* Stall from FE to BLT. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, BLT_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, UNLOCK);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
             }
             else
             {
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, PIXEL_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
                 /* Stall from FE to PE. */
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
                 *buffer++
-                    = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                    | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, PIXEL_ENGINE);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
             }
         }
 
         if (snapPages)
         {
             *buffer++
-                = gcmSETFIELDVALUE(0, GCCMD_SNAP_TO_PAGE_COMMAND, OPCODE, SNAP_TO_PAGE)
-                | gcmSETFIELDVALUE(0, GCCMD_SNAP_TO_PAGE_COMMAND, CLIENT, VS)
-                | gcmSETFIELDVALUE(0, GCCMD_SNAP_TO_PAGE_COMMAND, CLIENT, TCS)
-                | gcmSETFIELDVALUE(0, GCCMD_SNAP_TO_PAGE_COMMAND, CLIENT, TES)
-                | gcmSETFIELDVALUE(0, GCCMD_SNAP_TO_PAGE_COMMAND, CLIENT, GS)
-                | gcmSETFIELDVALUE(0, GCCMD_SNAP_TO_PAGE_COMMAND, CLIENT, PS);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x13 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x02 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x04 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x08 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)));
 
             *buffer++
                 = 0;
@@ -694,57 +2072,273 @@ _SemaphoreStall(
         {
             /* Semaphore from FE to BLT. */
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, LOCK);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, BLT_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
             /* Stall from FE to BLT. */
             *buffer++
-                = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, BLT_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregBltGeneralControlRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer
-                = gcmSETFIELDVALUE(0, GCREG_BLT_GENERAL_CONTROL, STREAM_CONTROL, UNLOCK);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
         }
         else
         {
             /* Semaphore from FE to PE. */
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQSemaphoreRegAddrs);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
             *buffer++
-                = gcmSETFIELDVALUE(0, AQ_SEMAPHORE, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, AQ_SEMAPHORE, DESTINATION, PIXEL_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
             /* Stall from FE to PE. */
             *buffer++
-                = gcmSETFIELDVALUE(0, STALL_COMMAND, OPCODE, STALL);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
             *buffer
-                = gcmSETFIELDVALUE(0, STALL_STALL, SOURCE,      FRONT_END)
-                | gcmSETFIELDVALUE(0, STALL_STALL, DESTINATION, PIXEL_ENGINE);
+                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
         }
     }
 
@@ -772,14 +2366,41 @@ _SwitchPipe(
 
         /* LoadState(AQPipeSelect, 1), pipe. */
         *buffer++
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-            | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, AQPipeSelectRegAddrs)
-            | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E00) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
         *buffer
             = (Pipe == gcvPIPE_2D)
-                ? AQ_PIPE_SELECT_PIPE_PIPE2D
-                : AQ_PIPE_SELECT_PIPE_PIPE3D;
+                ? 0x1
+                : 0x0;
     }
 
     Context->pipeSelectBytes = slots * gcmSIZEOF(gctUINT32);
@@ -841,18 +2462,90 @@ _State(
             if (FixedPoint)
             {
                 buffer[Index]
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE,  LOAD_STATE)
-                    | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT,   FIXED16_DOT16)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   Size)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, Address);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (Size) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
             }
             else
             {
                 buffer[Index]
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE , LOAD_STATE)
-                    | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT,   NORMAL)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   Size)
-                    | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, Address);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (Size) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
             }
 
             /* Walk all the states. */
@@ -881,9 +2574,16 @@ _State(
     {
         /* Update last load state. */
         buffer[Context->lastIndex] =
-            gcmSETFIELD(buffer[Context->lastIndex],
-                        AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,
-                        Context->lastSize + Size);
+            ((((gctUINT32) (buffer[Context->lastIndex])) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (Context->lastSize + Size) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
         /* Walk all the states. */
         for (i = 0; i < (gctUINT32)Size; i += 1)
@@ -956,16 +2656,88 @@ _UpdateUnifiedReg(
     if (Count > 1024)
     {
         buffer->logical[base - 1]
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
-            | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT, NORMAL)
-            | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, 1024)
-            | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, Address);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1024) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         buffer->logical[base + 1024 + 1]
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
-            | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT, NORMAL)
-            | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, Count - 1024)
-            | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, Address + 1024);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (Count - 1024) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (Address + 1024) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         /* Determine the number of NOP commands. */
         nopCount = (Size / 2) - (Count / 2);
@@ -981,7 +2753,16 @@ _UpdateUnifiedReg(
             }
 
             /* Generate a NOP command. */
-            *nop = gcmSETFIELDVALUE(0, AQ_COMMAND_NOP_COMMAND, OPCODE, NOP);
+            *nop = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
             /* Advance. */
             nop += 2;
@@ -990,10 +2771,46 @@ _UpdateUnifiedReg(
     else
     {
         buffer->logical[base - 1]
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE, LOAD_STATE)
-            | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT, NORMAL)
-            | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT, Count)
-            | gcmSETFIELD(0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, Address);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (Count) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (Address) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         /* Determine the number of NOP commands. */
         nopCount = (Size / 2) - (Count / 2) + Size / 1024;
@@ -1010,7 +2827,16 @@ _UpdateUnifiedReg(
             }
 
             /* Generate a NOP command. */
-            *nop = gcmSETFIELDVALUE(0, AQ_COMMAND_NOP_COMMAND, OPCODE, NOP);
+            *nop = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
             /* Advance. */
             nop += 2;
@@ -1079,18 +2905,33 @@ _InitializeNoShaderAndPixelEngine(
 
     if (multiCluster)
     {
-        index += _STATE_INIT_VALUE_BLOCK(GCREG_CLUSTER_CONTROL,
-                                         gcmSETFIELD(0, GCREG_CLUSTER_CONTROL,
-                                                     CLUSTER_ALIVE_ENABLE, clusterAliveMask),
-                                         0, 4);
-        index += _STATE_INIT_VALUE(GCREG_CLUSTER_CHECKER_BOARD,
-                                   gcmSETFIELDVALUE(0, GCREG_CLUSTER_CHECKER_BOARD,
-                                                    SIZE, BLOCK32X32));
+        index += _State(Context, index, (0x03910 >> 2) + (0 << 2), ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1))))))) << (0 ?
+ 7:0))) | (((gctUINT32) ((gctUINT32) (clusterAliveMask) & ((gctUINT32) ((((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0))), 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03908 >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))))) << (0 ?
+ 2:0))) | (((gctUINT32) (0x2 & ((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0))), 1, gcvFALSE, gcvFALSE);
     }
 
     /* Current context pointer. */
-#if gcdDEBUG && defined(gcregContextRegAddrs)
-    index += _STATE(GCREG_CONTEXT);
+#if gcdDEBUG
+    index += _State(Context, index, 0x03850 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 #endif
 
     index += _FlushPipe(Context, index, gcvPIPE_3D);
@@ -1098,43 +2939,79 @@ _InitializeNoShaderAndPixelEngine(
     /* Global states. */
     if (hasSecurity)
     {
-        index += _STATE(GCREG_APP_CONTEXT_ID_LOW);
+        index += _State(Context, index, 0x03900 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
-        index += _STATE(GCREG_APP_CONTEXT_ID_HIGH);
+        index += _State(Context, index, 0x03904 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (halti5)
     {
-        gctUINT32 uscControl = gcmSETFIELD(0, GCREG_USC_CONTROL, MEMORY_CONTROLLER_SELECT, 2);
-        index += _STATE(GCREG_SEMANTIC_LOCATION);
-        index += _STATE(GCREG_SEMANTICS);
+        gctUINT32 uscControl = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1))))))) << (0 ?
+ 20:16))) | (((gctUINT32) ((gctUINT32) (2) & ((gctUINT32) ((((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 20:16) - (0 ? 20:16) + 1))))))) << (0 ? 20:16)));
+        index += _State(Context, index, 0x03888 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x038C0 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
 
-        uscControl |= gcmSETFIELD(0, GCREG_USC_CONTROL, CACHE_PAGES, hardware->options.uscL1CacheRatio);
+        uscControl |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))))) << (0 ?
+ 2:0))) | (((gctUINT32) ((gctUINT32) (hardware->options.uscL1CacheRatio) & ((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
         if (multiCluster)
         {
-            uscControl |= gcmSETFIELD(0, GCREG_USC_CONTROL, ATTRIB_CACHE_PAGES, hardware->options.uscAttribCacheRatio);
+            uscControl |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1))))))) << (0 ?
+ 11:8))) | (((gctUINT32) ((gctUINT32) (hardware->options.uscAttribCacheRatio) & ((gctUINT32) ((((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 11:8) - (0 ? 11:8) + 1))))))) << (0 ? 11:8)));
         }
-        index += _STATE_INIT_VALUE(GCREG_USC_CONTROL, uscControl);
+        index += _State(Context, index, 0x03884 >> 2, uscControl, 1, gcvFALSE, gcvFALSE);
     }
     else
     {
-        index += _STATE(GCREG_VARYING_PACKING);
-        index += _STATE(GCREG_COMPONENT_TYPE_LOW);
-        index += _STATE(GCREG_COMPONENT_TYPE_HIGH);
-        index += _STATE(GCREG_VARYING_PACKING_EX);
-        index += _STATE(GCREG_COMPONENT_TYPE_EX);
-        index += _STATE(GCREG_COMPONENT_TYPE_EX2);
+        index += _State(Context, index, 0x03820 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03828 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0382C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03834 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03838 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03854 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     index += _CLOSE_RANGE();
 
     /* Memory Controller */
-    index += _STATE(GC_MEMORY_CONFIG);
+    index += _State(Context, index, 0x01654 >> 2, 0x00200000, 1, gcvFALSE, gcvFALSE);
 
     if (hasSecurity || hasRobustness)
     {
-        index += _STATE_INIT_VALUE(GCREG_MMU_CONFIG,
-                    gcmSETFIELDVALUE(0, GCREG_MMU_CONFIG, MASK_PAGE_TABLE_ID, MASKED));
+        index += _State(Context, index, 0x001AC >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ?
+ 16:16))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16))), 1, gcvFALSE, gcvFALSE);
     }
 
     /* Semaphore/stall. */
@@ -1149,8 +3026,26 @@ _InitializeNoShaderAndPixelEngine(
     if (buffer != gcvNULL)
     {
         buffer[index + 0]
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LINK_COMMAND, OPCODE,   LINK)
-            | gcmSETFIELD     (0, AQ_COMMAND_LINK_COMMAND, PREFETCH, 0);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x08 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         buffer[index + 1]
             = 0;
@@ -1177,8 +3072,26 @@ _InitializeNoShaderAndPixelEngine(
     if (buffer != gcvNULL)
     {
         buffer[index + 0]
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LINK_COMMAND, OPCODE,   LINK)
-            | gcmSETFIELD     (0, AQ_COMMAND_LINK_COMMAND, PREFETCH, 0);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x08 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         buffer[index + 1]
             = 0;
@@ -1340,18 +3253,33 @@ _InitializeContextBuffer(
 
     if (multiCluster)
     {
-        index += _STATE_INIT_VALUE_BLOCK(GCREG_CLUSTER_CONTROL,
-                                         gcmSETFIELD(0, GCREG_CLUSTER_CONTROL,
-                                                     CLUSTER_ALIVE_ENABLE, clusterAliveMask),
-                                         0, 4);
-        index += _STATE_INIT_VALUE(GCREG_CLUSTER_CHECKER_BOARD,
-                                   gcmSETFIELDVALUE(0, GCREG_CLUSTER_CHECKER_BOARD,
-                                                    SIZE, BLOCK32X32));
+        index += _State(Context, index, (0x03910 >> 2) + (0 << 2), ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1))))))) << (0 ?
+ 7:0))) | (((gctUINT32) ((gctUINT32) (clusterAliveMask) & ((gctUINT32) ((((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0))), 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03908 >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))))) << (0 ?
+ 2:0))) | (((gctUINT32) (0x2 & ((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0))), 1, gcvFALSE, gcvFALSE);
     }
 
     /* Current context pointer. */
-#if gcdDEBUG && defined(gcregContextRegAddrs)
-    index += _STATE(GCREG_CONTEXT);
+#if gcdDEBUG
+    index += _State(Context, index, 0x03850 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 #endif
 
     index += _FlushPipe(Context, index, gcvPIPE_3D);
@@ -1359,172 +3287,236 @@ _InitializeContextBuffer(
     /* Global states. */
     if (hasSecurity)
     {
-        index += _STATE(GCREG_APP_CONTEXT_ID_LOW);
+        index += _State(Context, index, 0x03900 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
-        index += _STATE(GCREG_APP_CONTEXT_ID_HIGH);
+        index += _State(Context, index, 0x03904 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
-    index += _STATE(AQ_VERTEX_ELEMENT_CONFIG);
+    index += _State(Context, index, 0x03814 >> 2, 0x00000001, 1, gcvFALSE, gcvFALSE);
     index += _CLOSE_RANGE();
-    index += _STATE(GCREG_MULTI_SAMPLE_CONFIG);
-    index += _STATE(GCREG_VARYINGS);
+    index += _State(Context, index, 0x03818 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0381C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (halti5)
     {
-        gctUINT32 uscControl = gcmSETFIELD(0, GCREG_USC_CONTROL, MEMORY_CONTROLLER_SELECT, 2);
-        index += _STATE(GCREG_SEMANTIC_LOCATION);
-        index += _STATE(GCREG_SEMANTICS);
+        gctUINT32 uscControl = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1))))))) << (0 ?
+ 20:16))) | (((gctUINT32) ((gctUINT32) (2) & ((gctUINT32) ((((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 20:16) - (0 ? 20:16) + 1))))))) << (0 ? 20:16)));
+        index += _State(Context, index, 0x03888 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x038C0 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
 
-        uscControl |= gcmSETFIELD(0, GCREG_USC_CONTROL, CACHE_PAGES, hardware->options.uscL1CacheRatio);
+        uscControl |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))))) << (0 ?
+ 2:0))) | (((gctUINT32) ((gctUINT32) (hardware->options.uscL1CacheRatio) & ((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
         if (multiCluster)
         {
-            uscControl |= gcmSETFIELD(0, GCREG_USC_CONTROL, ATTRIB_CACHE_PAGES, hardware->options.uscAttribCacheRatio);
+            uscControl |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1))))))) << (0 ?
+ 11:8))) | (((gctUINT32) ((gctUINT32) (hardware->options.uscAttribCacheRatio) & ((gctUINT32) ((((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 11:8) - (0 ? 11:8) + 1))))))) << (0 ? 11:8)));
         }
-        index += _STATE_INIT_VALUE(GCREG_USC_CONTROL, uscControl);
+        index += _State(Context, index, 0x03884 >> 2, uscControl, 1, gcvFALSE, gcvFALSE);
     }
     else
     {
-        index += _STATE(GCREG_VARYING_PACKING);
-        index += _STATE(GCREG_COMPONENT_TYPE_LOW);
-        index += _STATE(GCREG_COMPONENT_TYPE_HIGH);
-        index += _STATE(GCREG_VARYING_PACKING_EX);
-        index += _STATE(GCREG_COMPONENT_TYPE_EX);
-        index += _STATE(GCREG_COMPONENT_TYPE_EX2);
+        index += _State(Context, index, 0x03820 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03828 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0382C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03834 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03838 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03854 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (hasGS)
     {
-        index += _STATE(GCREG_DEPTH_SLICE);
+        index += _State(Context, index, 0x0388C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
-    index += _STATE(AQ_MODE);
+    index += _State(Context, index, 0x0384C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     /* Front End states. */
     if (halti5)
     {
-        index += _STATE(GCREG_FE_ATTRIBUTE);
+        index += _State(Context, index, 0x17800 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
-        index += _STATE(GCREG_FE_ID);
-        index += _STATE(GCREG_FE_PACKING);
-        index += _STATE(GCREG_FE_CONTROL);
-        index += _STATE(GCREG_FE_FETCH);
+        index += _State(Context, index, 0x007C4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x007D0 >> 2, 0x00000000, 2, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x007D8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x17A80 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
         if (genericAttrib || newGPipe)
         {
-            index += _STATE(GCREG_FE_GENERIC_X);
-            index += _STATE(GCREG_FE_GENERIC_Y);
-            index += _STATE(GCREG_FE_GENERIC_Z);
-            index += _STATE(GCREG_FE_GENERIC_W);
+            index += _State(Context, index, 0x17880 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x17900 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x17980 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x17A00 >> 2, 0x3F800000, 32, gcvFALSE, gcvFALSE);
         }
     }
     else
     {
-        index += _STATE_COUNT(AQ_VERTEX_ELEMENT_CTRL, (halti0 ? 16 : 12));
+        index += _State(Context, index, 0x00600 >> 2, 0x00000000, (halti0 ? 16 : 12), gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
         if (genericAttrib)
         {
-            index += _STATE(GCREG_FE_GENERICS_X);
-            index += _STATE(GCREG_FE_GENERICS_Y);
-            index += _STATE(GCREG_FE_GENERICS_Z);
-            index += _STATE(GCREG_FE_GENERICS_W);
+            index += _State(Context, index, 0x006C0 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x00700 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x00740 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x00780 >> 2, 0x3F800000, 16, gcvFALSE, gcvFALSE);
         }
     }
 
     if (halti2 || (Context->hardware->identity.streamCount > 8))
     {
-        index += _STATE(GCREG_FE_STREAM_ADDRESS);
-        index += _STATE(GCREG_FE_STREAM_STRIDE);
-        index += _STATE(GCREG_FE_STREAM_DIVISOR);
+        index += _State(Context, index, 0x14600 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14640 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14680 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
     }
     else if (Context->hardware->identity.streamCount > 1)
     {
-        index += _STATE_HINT(GCREG_FE_VERTEX_ADDRESS);
-        index += _STATE(GCREG_FE_VERTEX_STRIDE);
+        index += _State(Context, index, 0x00680 >> 2, 0x00000000, 8, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x006A0 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
     }
     else
     {
-        index += _STATE_HINT(AQ_VERTEX_STREAM_BASE_ADDR);
-        index += _STATE(AQ_VERTEX_STREAM_CTRL);
+        index += _State(Context, index, 0x0064C >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x00650 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     }
-    index += _STATE_HINT(AQ_INDEX_STREAM_BASE_ADDR);
-    index += _STATE(AQ_INDEX_STREAM_CTRL);
-    index += _STATE(GCREG_FE_PRIMITIVE_RESTART);
+    index += _State(Context, index, 0x00644 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x00648 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00674 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     if (halti1)
     {
-        index += _STATE(GCREG_FE_INDEX_MIN);
-        index += _STATE(GCREG_FE_INDEX_MAX);
+        index += _State(Context, index, 0x00678 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0067C >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
     }
     index += _CLOSE_RANGE();
 
     if (hasRobustness)
     {
-        index += _STATE_HINT(GCREG_FE_STREAM_END_ADDRESS);
+        index += _State(Context, index, 0x146C0 >> 2, 0x00000000, 16, gcvFALSE, gcvTRUE);
         index += _CLOSE_RANGE();
-        index += _STATE_HINT(GCREG_FE_INDEX_END_ADDRESS);
+        index += _State(Context, index, 0x007F8 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
         index += _CLOSE_RANGE();
     }
 
     /* WD */
     if (multiCluster)
     {
-        index += _STATE_INIT_VALUE(GCREG_WD_STATIC_CONFIG,
-                                   gcmSETFIELDVALUE(0, GCREG_WD_STATIC_CONFIG, ASSIGNMENT_MODE, ROUND_ROBIN));
+        index += _State(Context, index, 0x18404 >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 1:0) - (0 ?
+ 1:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 1:0) - (0 ?
+ 1:0) + 1))))))) << (0 ?
+ 1:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 1:0) - (0 ?
+ 1:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 1:0) - (0 ? 1:0) + 1))))))) << (0 ? 1:0))), 1, gcvFALSE, gcvFALSE);
     }
 
     if (halti5)
     {
-        index += _STATE_INIT_VALUE(GCREG_SHADER_STATIC,
-                                   gcmSETFIELD(0,
-                                               GCREG_SHADER_STATIC,
-                                               GPIPE_SMALL_BATCH,
-                                               smallBatch ?
-                                               GCREG_SHADER_STATIC_GPIPE_SMALL_BATCH_ENABLE
-                                             : GCREG_SHADER_STATIC_GPIPE_SMALL_BATCH_DISABLE)
-                                 | gcmSETFIELD(0,
-                                               GCREG_SHADER_STATIC,
-                                               PIXEL_SMALL_BATCH,
-                                               smallBatch ?
-                                               GCREG_SHADER_STATIC_PIXEL_SMALL_BATCH_ENABLE
-                                             : GCREG_SHADER_STATIC_PIXEL_SMALL_BATCH_DISABLE)
-                                 | gcmSETFIELDVALUE(0,
-                                                    GCREG_SHADER_STATIC,
-                                                    DUAL_ISSUE,
-                                                    ENABLE)
-                                 | gcmSETFIELDVALUE(0,
-                                                    GCREG_SHADER_STATIC,
-                                                    TWO_GROUP_FAST_REISSUE,
-                                                    ENABLE));
+        index += _State(Context, index, 0x008B8 >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) ((gctUINT32) (smallBatch ?
+ 0x0 : 0x1) & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) ((gctUINT32) (smallBatch ?
+ 0x0 : 0x1) & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 8:8) - (0 ?
+ 8:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 8:8) - (0 ?
+ 8:8) + 1))))))) << (0 ?
+ 8:8))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 8:8) - (0 ?
+ 8:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 8:8) - (0 ?
+ 8:8) + 1))))))) << (0 ?
+ 8:8))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 9:9) - (0 ?
+ 9:9) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 9:9) - (0 ?
+ 9:9) + 1))))))) << (0 ?
+ 9:9))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 9:9) - (0 ?
+ 9:9) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 9:9) - (0 ? 9:9) + 1))))))) << (0 ? 9:9))), 1, gcvFALSE, gcvFALSE);
 
-        index += _STATE(GCREG_SHADER_MISC_CONFIG);
+        index += _State(Context, index, 0x15600 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
     else
     {
         /* This register is programed by all chips, which program all DECODE_SELECT as VS
         ** except SAMPLER_DECODE_SELECT.
         */
-        index += _STATE(GCREG_SHADER_CONFIG);
+        index += _State(Context, index, 0x00860 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (hasICache)
     {
         /* I-Cache states. */
-        index += _STATE(GCREG_SH_CACHE_CONTROL);
-        index += _STATE(GCREG_VS_INSTRUCTION);
-        index += _STATE(GCREG_CE_INSTRUCTION);
-        index += _STATE(GCREG_PS_INSTRUCTION);
+        index += _State(Context, index, 0x00868 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0086C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0304C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01028 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
 
         if (hasICachePrefetch)
         {
             if (halti5)
             {
-                index += _STATE_HINT(GCREG_VS_INSTRUCTION_PREFETCH_RELATIVE_END);
-                index += _STATE_HINT(GCREG_PS_INSTRUCTION_PREFETCH_RELATIVE_END);
+                index += _State(Context, index, 0x15604 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+                index += _State(Context, index, 0x01094 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
             }
             else
             {
-                index += _STATE_HINT(GCREG_VS_INSTRUCTION_PREFETCH_END);
-                index += _STATE_HINT(GCREG_PS_INSTRUCTION_PREFETCH_END);
+                index += _State(Context, index, 0x00890 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+                index += _State(Context, index, 0x0104C >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
             }
             index += _CLOSE_RANGE();
         }
@@ -1532,35 +3524,44 @@ _InitializeContextBuffer(
 
     if (multiCluster)
     {
-        index += _STATE(GCREG_GPIPE_LOAD_BALANCING);
+        index += _State(Context, index, 0x010A8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     /* Vertex Shader states. */
-    index += _STATE(AQ_VERTEX_SHADER_OUTPUT_CONTROL);
-    index += _STATE_INIT_VALUE(AQ_VERTEX_SHADER_INPUT_CONTROL,
-                     gcmSETFIELD(0, AQ_VERTEX_SHADER_INPUT_CONTROL, COUNT, 1));
-    index += _STATE(AQ_VERTEX_SHADER_TEMPORARY_REGISTER_CONTROL);
-    index += _STATE(AQ_VERTEX_SHADER_LOAD_BALANCING);
+    index += _State(Context, index, 0x00804 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00808 >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:0) - (0 ?
+ 5:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:0) - (0 ?
+ 5:0) + 1))))))) << (0 ?
+ 5:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 5:0) - (0 ?
+ 5:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:0) - (0 ? 5:0) + 1))))))) << (0 ? 5:0))), 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0080C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00830 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (halti5)
     {
-        index += _STATE(GCREG_VS_UNPACK);
-        index += _STATE(GCREG_VS_THROTTLE);
-        index += _STATE(GCREG_VS_ATTRIBUTE);
-        index += _STATE(GCREG_VS_SAMPLER_BASE);
-        index += _STATE(GCREG_VS_INPUT);
-        index += _STATE(GCREG_VS_OUTPUT);
+        index += _State(Context, index, 0x00898 >> 2, 0x00000000, 2, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x008A0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00870 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x008A8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x008C0 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x008E0 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
     }
     else
     {
-        index += _STATE(AQ_VERTEX_SHADER_OUTPUT);
-        index += _STATE(AQ_VERTEX_SHADER_INPUT);
+        index += _State(Context, index, 0x00810 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00820 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
     }
 
     if (multiCluster)
     {
-        index += _STATE(GCREG_FA_CONTROL);
-        index += _STATE(GCREG_VS_THROTTLE_EX);
+        index += _State(Context, index, 0x007FC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x15608 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     index += _CLOSE_RANGE();
@@ -1568,54 +3569,54 @@ _InitializeContextBuffer(
     /* GS */
     if (hasGS)
     {
-        index += _STATE(GCREG_GS_CONTROL);
-        index += _STATE(GCREG_GS_TYPE);
-        index += _STATE(GCREG_GS_COUNTERS);
-        index += _STATE(GCREG_GS_START);
-        index += _STATE(GCREG_GS_RELATIVE_END);
-        index += _STATE_HINT(GCREG_GS_INSTRUCTION);
-        index += _STATE(GCREG_GS_INSTRUCTION_PREFETCH_RELATIVE_END);
-        index += _STATE(GCREG_GS_THROTTLE);
-        index += _STATE(GCREG_GS_ATTRIBUTE);
-        index += _STATE(GCREG_GS_ATTRIBUTE_EX);
-        index += _STATE(GCREG_GS_UNIFORM_BASE);
-        index += _STATE(GCREG_GS_SAMPLER_BASE);
-        index += _STATE(GCREG_GS_OUTPUT);
+        index += _State(Context, index, 0x01100 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01104 >> 2, 0x00000001, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01108 >> 2, 0x01000001, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0110C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01110 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01114 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x0111C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01140 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01144 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01148 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0114C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01154 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01120 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
     }
 
     /* TCS & TES */
     if (hasTS)
     {
-        index += _STATE(GCREG_FE_PATCH_CONTROL);
+        index += _State(Context, index, 0x007C0 >> 2, 0x00000003, 1, gcvFALSE, gcvFALSE);
 
-        index += _STATE(GCREG_TCS_CONTROL);
-        index += _STATE(GCREG_TCS_THROTTLE);
-        index += _STATE(GCREG_TCS_ATTRIBUTE);
-        index += _STATE(GCREG_TCS_ATTRIBUTE_EX);
-        index += _STATE(GCREG_TCS_START);
-        index += _STATE(GCREG_TCS_RELATIVE_END);
-        index += _STATE_HINT(GCREG_TCS_INSTRUCTION);
-        index += _STATE(GCREG_TCS_INSTRUCTION_PREFETCH_RELATIVE_END);
-        index += _STATE(GCREG_TCS_OUTPUT);
-        index += _STATE(GCREG_TCS_UNIFORM_BASE);
-        index += _STATE(GCREG_TCS_SAMPLER_BASE);
+        index += _State(Context, index, 0x14A14 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A18 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A1C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A40 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A00 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A04 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A08 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x14A10 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A20 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A44 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14A4C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
         index += _CLOSE_RANGE();
 
-        index += _STATE(GCREG_TES_CONTROL);
-        index += _STATE(GCREG_TES_THROTTLE);
-        index += _STATE(GCREG_TES_ATTRIBUTE);
-        index += _STATE(GCREG_TES_START);
-        index += _STATE(GCREG_TES_RELATIVE_END);
-        index += _STATE_HINT(GCREG_TES_INSTRUCTION);
-        index += _STATE(GCREG_TES_INSTRUCTION_PREFETCH_RELATIVE_END);
-        index += _STATE(GCREG_TES_OUTPUT);
-        index += _STATE(GCREG_TES_UNIFORM_BASE);
-        index += _STATE(GCREG_TES_SAMPLER_BASE);
-        index += _STATE(GCREG_TES_THROTTLE_EX);
+        index += _State(Context, index, 0x14B18 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B1C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B20 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B04 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B08 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B0C >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x14B14 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B40 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B24 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B2C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14B34 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
-        index += _STATE(GCREG_TPG_CONTROL);
+        index += _State(Context, index, 0x14B00 >> 2, 0x00040000, 1, gcvFALSE, gcvFALSE);
 
     }
 
@@ -1624,142 +3625,148 @@ _InitializeContextBuffer(
     /* TFB */
     if (gckHARDWARE_IsFeatureAvailable(Context->hardware, gcvFEATURE_HW_TFB))
     {
-        index += _STATE(GCREG_TFB_CONTROL);
-        index += _STATE_HINT(GCREG_TFB_HEADER);
-        index += _STATE_HINT_BLOCK(GCREG_TFB_BUFFER_ADDRESS, 0, 4);
-        index += _STATE_COUNT(GCREG_TFB_BUFFER_SIZE, 4);
-        index += _STATE_COUNT(GCREG_TFB_BUFFER_STRIDE, 4);
-        index += _STATE_COUNT(GCREG_TFB_DESCRIPTOR_COUNT, 4);
-        index += _STATE_COUNT(GCREG_TFB_DESCRIPTOR, 128*4);
+        index += _State(Context, index, 0x1C000 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x1C008 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x1C040 >> 2) + (0 << 4), 0x00000000, 4, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x1C080 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x1C0C0 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x1C100 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x1C800 >> 2, 0x00000000, 128*4, gcvFALSE, gcvFALSE);
 
-        index += _STATE_HINT(GCREG_TFB_QUERY_HEADER);
+        index += _State(Context, index, 0x1C014 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
         index += _CLOSE_RANGE();
 
     }
 
     /* Primitive Assembly states. */
-    index += _STATE_X(AQ_VIEWPORT_XSCALE);
-    index += _STATE_X(AQ_VIEWPORT_YSCALE);
-    index += _STATE(AQ_VIEWPORT_ZSCALE);
-    index += _STATE_X(AQ_VIEWPORT_XOFFSET);
-    index += _STATE_X(AQ_VIEWPORT_YOFFSET);
-    index += _STATE(AQ_VIEWPORT_ZOFFSET);
-    index += _STATE(AQPA_CLIP_AA_LINE_SCALE);
-    index += _STATE_INIT_VALUE(AQPA_CLIP_POINT_SIZE_DIV_BY2, 0x3F000000);
-    index += _STATE(AQ_SYSTEM);
-    index += _STATE(AQPA_CLIP_WPLANE_LIMIT);
-    index += _STATE(AQ_PACLIPVT30);
-    index += _STATE(AQPA_MASKED);
-    index += _STATE(GCREG_PA_LINE_ADJUST_SUB);
-    index += _STATE(GCREG_PA_LINE_ADJUST_ADD);
-    index += _STATE(GCREG_PA_CLIP_W);
-    index += _STATE_X(GCREG_PA_MAX_POINT_SIZE);
-    index += _STATE(GCREG_PA_SMALL_W);
-    index += _STATE(GCREG_PA_CLIP_CONTROL);
+    index += _State(Context, index, 0x00A00 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00A04 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00A08 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A0C >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00A10 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00A14 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A18 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A1C >> 2, 0x3F000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A28 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A2C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A30 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A34 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A38 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A3C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A80 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A84 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00A8C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00A88 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (halti5)
     {
-        index += _STATE(GCREG_PA_CONTROL);
-        index += _STATE(GCREG_PA_PACK);
+        index += _State(Context, index, 0x00AA8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00A90 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
     }
     else
     {
-        index += _STATE_COUNT(AQPA_CLIP_FLAT_COLOR_TEX, Context->hardware->identity.varyingsCount);
+        index += _State(Context, index, 0x00A40 >> 2, 0x00000000, Context->hardware->identity.varyingsCount, gcvFALSE, gcvFALSE);
     }
 
     if (multiCluster)
     {
-        index += _STATE(GCREG_FINAL_PA_CONTROL);
+        index += _State(Context, index, 0x00AAC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
-    index += _STATE(GCREG_MULTI_CHIP_CONTROL);
-    index += _STATE(GCREG_MULTI_CHIP_TOP_LEFT);
-    index += _STATE(GCREG_MULTI_CHIP_BOTTOM_RIGHT);
+    index += _State(Context, index, 0x03A00 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x03A04 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x03A08 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (multiCoreBlockSetCfg2)
     {
-        index += _STATE(GCREG_MULTI_CHIP_SET_MAPPING);
-        index += _STATE(GCREG_MULTI_CHIP_SET_MAPPING_EX);
+        index += _State(Context, index, 0x03A0C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03A10 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     /* Setup states. */
-    index += _STATE_X(AQ_SETUP_CLIP_LEFT);
-    index += _STATE_X(AQ_SETUP_CLIP_TOP);
-    index += _STATE_X(AQ_SETUP_CLIP_RIGHT);
-    index += _STATE_X(AQ_SETUP_CLIP_BOTTOM);
-    index += _STATE(AQ_SETUP_SLOPE_SCALED_DEPTH_BIAS);
-    index += _STATE(AQ_SETUP_DEPTH_BIAS);
-    index += _STATE(AQ_SETUP_CONFIG);
-    index += _STATE(GCREG_SE_AREA_THRESHOLD);
-    index += _STATE_X(GCREG_SE_CLIP_COMPARE_RIGHT);
-    index += _STATE_X(GCREG_SE_CLIP_COMPARE_BOTTOM);
+    index += _State(Context, index, 0x00C00 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00C04 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00C08 >> 2, 0x45000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00C0C >> 2, 0x45000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00C10 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00C14 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00C18 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00C1C >> 2, 0x42000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00C20 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
+    index += _State(Context, index, 0x00C24 >> 2, 0x00000000, 1, gcvTRUE, gcvFALSE);
 
     /* Raster states. */
-    index += _STATE(AQ_RASTER_CONTROL);
-    index += _STATE(GCREG_MULTI_SAMPLE_COORDS);
-    index += _STATE(GCREG_MULTI_SAMPLE_JITTER);
-    index += _STATE(GCREG_CENTROIDS);
-    index += _STATE_INIT_VALUE(GCREG_RA_CONTROL, gcmSETFIELD(GCREG_RA_CONTROL_ResetValue,
-                                                             GCREG_RA_CONTROL,
-                                                             SMALL_BATCH,
-                                                             smallBatch ?
-                                                             GCREG_RA_CONTROL_SMALL_BATCH_ENABLED
-                                                           : GCREG_RA_CONTROL_SMALL_BATCH_DISABLED));
-    index += _STATE(GCREG_HZ_BASE_ADDRESS1);
-    index += _STATE(GCREG_RA_CONTROL_HZ);
+    index += _State(Context, index, 0x00E00 >> 2, 0x000000F1, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00E10 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00E04 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00E40 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00E08 >> 2, ((((gctUINT32) (0x17000031)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | (((gctUINT32) ((gctUINT32) (smallBatch ?
+ 0x0 : 0x1) & ((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2))), 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00E24 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00E20 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (halti2)
     {
-        index += _STATE(GCREG_RA_MEDIUMP_MASK);
+        index += _State(Context, index, 0x00E0C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (halti5)
     {
-        index += _STATE(GCREG_RA_CONTROL_EX);
+        index += _State(Context, index, 0x00E34 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
 
     /* Pixel Shader states. */
-    index += _STATE(AQ_PIXEL_SHADER_COLOR_OUT);
-    index += _STATE(AQ_PIXEL_SHADER_INPUT_CONTROL);
-    index += _STATE(AQ_PIXEL_SHADER_TEMPORARY_REGISTER_CONTROL);
-    index += _STATE(AQ_PIXEL_SHADER_CONTROL);
-    index += _STATE(GCREG_PS_OUTPUT_MODE);
-    index += _STATE(GCREG_PS_OUTPUT_PRECISION);
+    index += _State(Context, index, 0x01004 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01008 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0100C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01010 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01030 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01034 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (halti2)
     {
-        index += _STATE(GCREG_PS_INPUT_TYPE);
+        index += _State(Context, index, 0x01040 >> 2, 0x00000000, 2, gcvFALSE, gcvFALSE);
     }
 
     if (numRT == 16)
     {
-        index += _STATE(GCREG_PS_OUTPUT_CONTROL);
-        index += _STATE(GCREG_PS_OUTPUT_CONTROL1);
-        index += _STATE(GCREG_PS_OUTPUT_CONTROL2);
+        index += _State(Context, index, 0x0102C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x010C8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x010CC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
     else if (numRT == 8)
     {
-        index += _STATE(GCREG_PS_OUTPUT_CONTROL);
-        index += _STATE(GCREG_PS_OUTPUT_PRECISION_EX);
+        index += _State(Context, index, 0x0102C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01038 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (hasMsaaFragOperation)
     {
-        index += _STATE(GCREG_PS_SAMPLE_COVERAGE_CTRL);
-        index += _STATE_COUNT(GCREG_PS_SAMPLE_DITHER_TABLE, 8);
+        index += _State(Context, index, 0x01054 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01060 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
     }
 
     if (halti5)
     {
-        index += _STATE(GCREG_PS_UNPACK);
-        index += _STATE(GCREG_PS_SAMPLER_BASE);
-        index += _STATE(GCREG_PS_MAX);
+        index += _State(Context, index, 0x01080 >> 2, 0x00000000, 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01058 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01098 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (hasPSCSThrottle)
     {
-        index += _STATE(GCREG_PSCS_THROTTLE);
+        index += _State(Context, index, 0x0109C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     index += _CLOSE_RANGE();
@@ -1768,72 +3775,72 @@ _InitializeContextBuffer(
     if (hasTXdesc)
     {
         /* Texture descriptor states */
-        index += _STATE(GCREG_TX_GLOBAL_CONFIG);
+        index += _State(Context, index, 0x14C40 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
         if (smallBatch)
         {
-            index += _STATE_INIT_VALUE(GCREG_SH_ALLOC_SAMPLERS, numSamplers);
-            index += _STATE_INIT_VALUE(GCREG_SH_ALLOC_TEXTURES, numSamplers);
+            index += _State(Context, index, 0x010B0 >> 2, numSamplers, 1, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x010B4 >> 2, numSamplers, 1, gcvFALSE, gcvFALSE);
 
-            index += _STATE_COUNT(GCREG_TX_GPIPE_SAMPLER_CTRL0, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_GPIPE_SAMPLER_CTRL1, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_GPIPE_SAMPLER_LOD_MAX_MIN, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_GPIPE_SAMPLER_LOD_BIAS, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_GPIPE_SAMPLER_ANISO_CTRL, numSamplers);
+            index += _State(Context, index, 0x16000 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x16200 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x16400 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x16600 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x16800 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
 
-            index += _STATE_HINT_BLOCK(GCREG_TX_GPIPE_TEXTURE_DESCRIPTOR_ADDR, 0, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_GPIPE_TEXTURE_CTRL, numSamplers);
+            index += _State(Context, index, (0x15800 >> 2) + (0 << 0), 0x00000000, numSamplers, gcvFALSE, gcvTRUE);
+            index += _State(Context, index, 0x15A00 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
 
             index += _CLOSE_RANGE();
         }
         else
         {
-            index += _STATE_COUNT(GCREG_TX_PIXEL_SAMPLER_CTRL0, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_PIXEL_SAMPLER_CTRL1, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_PIXEL_SAMPLER_LOD_MAX_MIN, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_PIXEL_SAMPLER_LOD_BIAS, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_PIXEL_SAMPLER_ANISO_CTRL, numSamplers);
+            index += _State(Context, index, 0x16C00 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x16E00 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x17000 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x17200 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x17400 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
 
-            index += _STATE_HINT_BLOCK(GCREG_TX_PIXEL_TEXTURE_DESCRIPTOR_ADDR, 0, numSamplers);
-            index += _STATE_COUNT(GCREG_TX_PIXEL_TEXTURE_CTRL, numSamplers);
+            index += _State(Context, index, (0x15C00 >> 2) + (0 << 0), 0x00000000, numSamplers, gcvFALSE, gcvTRUE);
+            index += _State(Context, index, 0x15E00 >> 2, 0x00000000, numSamplers, gcvFALSE, gcvFALSE);
 
             index += _CLOSE_RANGE();
 
-            _STATE_MIRROR_COUNT(GCREG_TX_GPIPE_SAMPLER_CTRL0, GCREG_TX_PIXEL_SAMPLER_CTRL0, numSamplers);
-            _STATE_MIRROR_COUNT(GCREG_TX_GPIPE_SAMPLER_CTRL1, GCREG_TX_PIXEL_SAMPLER_CTRL1, numSamplers);
-            _STATE_MIRROR_COUNT(GCREG_TX_GPIPE_SAMPLER_LOD_MAX_MIN, GCREG_TX_PIXEL_SAMPLER_LOD_MAX_MIN, numSamplers);
-            _STATE_MIRROR_COUNT(GCREG_TX_GPIPE_SAMPLER_LOD_BIAS, GCREG_TX_PIXEL_SAMPLER_LOD_BIAS, numSamplers);
-            _STATE_MIRROR_COUNT(GCREG_TX_GPIPE_SAMPLER_ANISO_CTRL, GCREG_TX_PIXEL_SAMPLER_ANISO_CTRL, numSamplers);
-            _STATE_MIRROR_COUNT(GCREG_TX_GPIPE_TEXTURE_DESCRIPTOR_ADDR, GCREG_TX_PIXEL_TEXTURE_DESCRIPTOR_ADDR, numSamplers);
-            _STATE_MIRROR_COUNT(GCREG_TX_GPIPE_TEXTURE_CTRL, GCREG_TX_PIXEL_TEXTURE_CTRL, numSamplers);
+            _StateMirror(Context, 0x16000 >> 2, numSamplers , 0x16C00 >> 2);
+            _StateMirror(Context, 0x16200 >> 2, numSamplers , 0x16E00 >> 2);
+            _StateMirror(Context, 0x16400 >> 2, numSamplers , 0x17000 >> 2);
+            _StateMirror(Context, 0x16600 >> 2, numSamplers , 0x17200 >> 2);
+            _StateMirror(Context, 0x16800 >> 2, numSamplers , 0x17400 >> 2);
+            _StateMirror(Context, 0x15800 >> 2, numSamplers , 0x15C00 >> 2);
+            _StateMirror(Context, 0x15A00 >> 2, numSamplers , 0x15E00 >> 2);
         }
     }
     else
     {
-        index += _STATE_COUNT(AQ_TEXTURE_SAMPLE_MODE, 12);
-        index += _STATE_COUNT(AQ_TEXTURE_SAMPLE_WH, 12);
-        index += _STATE_COUNT(AQ_TEXTURE_SAMPLE_LOG_WH, 12);
-        index += _STATE_COUNT(AQ_TEXTURE_SAMPLE_LOD, 12);
-        index += _STATE_COUNT(AQ_TEXTURE_SAMPLE_BORDER_COLOR, 12);
-        index += _STATE_COUNT(GCREG_TX_STRIDE, 12);
-        index += _STATE_COUNT(GCREG_TX_VOLUME, 12);
-        index += _STATE_COUNT(GCREG_TX_MODE, 12);
-        index += _STATE_COUNT(GCREG_TX_CONTROL_YUV, 12);
-        index += _STATE_COUNT(GCREG_TX_STRIDE_YUV, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD00_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD01_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD02_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD03_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD04_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD05_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD06_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD07_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD08_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD09_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD10_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD11_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD12_ADDRESS, 0, 12);
-        index += _STATE_HINT_BLOCK(AQ_TEXTURE_SAMPLE_LOD13_ADDRESS, 0, 12);
+        index += _State(Context, index, 0x02000 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x02040 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x02080 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x020C0 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x02100 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x02140 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x02180 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x021C0 >> 2, 0x00321000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x02200 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x02240 >> 2, 0x00000000, 12, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, (0x02400 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02440 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02480 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x024C0 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02500 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02540 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02580 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x025C0 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02600 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02640 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02680 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x026C0 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02700 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x02740 >> 2) + (0 << 4), 0x00000000, 12, gcvFALSE, gcvTRUE);
         index += _CLOSE_RANGE();
 
         if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_TEXTURE_LINEAR))
@@ -1846,7 +3853,7 @@ _InitializeContextBuffer(
 
             for (i = 0; i < 12; i += 1)
             {
-                index += _STATE_COUNT_OFFSET(GCREG_TX_SAMPLER_STRIDE, i * 16, count);
+                index += _State(Context, index, (0x02C00 >> 2) + i * 16, 0x00000000, count, gcvFALSE, gcvFALSE);
             }
         }
 
@@ -1859,105 +3866,110 @@ _InitializeContextBuffer(
                so that the floating point filter clock will shut off until
                we start using the floating point filter.
             */
-            gcregTXLogSizeResetValue = gcmSETFIELDVALUE(
-                GCREG_TX_LOG_SIZE_ResetValue,
-                GCREG_TX_LOG_SIZE,
-                INTEGER_FILTER_CONTROL,
-                INTEGER);
+            gcregTXLogSizeResetValue = ((((gctUINT32) (0x00000000)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 29:29) - (0 ?
+ 29:29) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 29:29) - (0 ?
+ 29:29) + 1))))))) << (0 ?
+ 29:29))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 29:29) - (0 ?
+ 29:29) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 29:29) - (0 ? 29:29) + 1))))))) << (0 ? 29:29)));
 
             /* New texture block. */
-            index += _STATE(GCREG_TX_CONFIG);
-            index += _STATE(GCREG_TX_SIZE);
-            index += _STATE_INIT_VALUE(GCREG_TX_LOG_SIZE, gcregTXLogSizeResetValue);
-            index += _STATE(GCREG_TX_LOD);
-            index += _STATE(GCREG_TX_BORDER_COLOR);
-            index += _STATE(GCREG_TX_LINEAR_STRIDE);
-            index += _STATE(GCREG_TX3_D);
-            index += _STATE(GCREG_TX_EXT_CONFIG);
-            index += _STATE(GCREG_TX_CONTROL_YUV_EX);
-            index += _STATE(GCREG_TX_STRIDE_YUV_EX);
+            index += _State(Context, index, 0x10000 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10080 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10100 >> 2, gcregTXLogSizeResetValue, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10180 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10200 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10280 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10300 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10380 >> 2, 0x00321000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10400 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10480 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
 
             if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_TX_FILTER))
             {
-                index += _STATE(GCREG_TX_HORIZONTAL_KERNEL);
-                index += _STATE(GCREG_TX_VERTICAL_KERNEL);
+                index += _State(Context, index, 0x12000 >> 2, 0x00000000, 256, gcvFALSE, gcvFALSE);
+                index += _State(Context, index, 0x12400 >> 2, 0x00000000, 256, gcvFALSE, gcvFALSE);
             }
 
-            texBlockCount = _BLOCK_COUNT(GCREG_TX_ADDRESS);
+            texBlockCount = ((512) >> (4));
 
             for (i = 0; i < texBlockCount; i += 1)
             {
-                index += _STATE_HINT_BLOCK(GCREG_TX_ADDRESS, i, 14);
+                index += _State(Context, index, (0x10800 >> 2) + (i << 4), 0x00000000, 14, gcvFALSE, gcvTRUE);
             }
         }
 
         if (gckHARDWARE_IsFeatureAvailable(Context->hardware, gcvFEATURE_TEX_BASELOD))
         {
-            index += _STATE(GCREG_TX_BASE_LOD);
+            index += _State(Context, index, 0x10700 >> 2, 0x00000F00, 32, gcvFALSE, gcvFALSE);
         }
 
         if (halti3 ||
             gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_TX_SUPPORT_DEC))
         {
-            index += _STATE(GCREG_TX_CONFIG2);
+            index += _State(Context, index, 0x10780 >> 2, 0x00030000, 32, gcvFALSE, gcvFALSE);
         }
 
         if (halti4)
         {
-            index += _STATE_COUNT(GCREG_TX_SLICE, 32);
-            index += _STATE_COUNT(GCREG_TX_CONFIG3, 32);
+            index += _State(Context, index, 0x11200 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x11280 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
         }
 
         if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_TX_FRAC_PRECISION_6BIT))
         {
-            index += _STATE_COUNT(GCREG_TX_SIZE_EXT, 32);
-            index += _STATE_COUNT(GCREG_TX_VOLUME_EXT, 32);
-            index += _STATE_COUNT(GCREG_TX_LOD_EXT, 32);
-            index += _STATE_COUNT(GCREG_TX_LOD_BIAS_EXT, 32);
-            index += _STATE_COUNT(GCREG_TX_ANISO_CTRL, 32);
+            index += _State(Context, index, 0x11000 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x11080 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x11100 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x11180 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x11300 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
         }
 
         /* ASTC */
         if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_TEXTURE_ASTC))
         {
-            index += _STATE(GCREG_TX_ASTC0_EX);
-            index += _STATE(GCREG_TX_ASTC1_EX);
-            index += _STATE(GCREG_TX_ASTC2_EX);
-            index += _STATE(GCREG_TX_ASTC3_EX);
+            index += _State(Context, index, 0x10500 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10580 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10600 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x10680 >> 2, 0x00000000, 32, gcvFALSE, gcvFALSE);
         }
     }
 
     if (halti3)
     {
-        index += _STATE(GCREG_TX_GUARDBAND);
+        index += _State(Context, index, 0x14C00 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
     }
 
     /* Thread walker states. */
-    index += _STATE(GCREG_TW_CONFIG);
-    index += _STATE(GCREG_TW_INFO_X);
-    index += _STATE(GCREG_TW_INFO_Y);
-    index += _STATE(GCREG_TW_INFO_Z);
-    index += _STATE(GCREG_TW_WORK_GROUP_X);
-    index += _STATE(GCREG_TW_WORK_GROUP_Y);
-    index += _STATE(GCREG_TW_WORK_GROUP_Z);
-    index += _STATE(GCREG_TW_SHADER_INFO2);
-    index += _STATE(GCREG_TW_SHADER_INFO);
+    index += _State(Context, index, 0x00900 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00904 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00908 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0090C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00910 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00914 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00918 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x00924 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0091C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_SHADER_ENHANCEMENTS2))
     {
-        index += _STATE(GCREG_TW_WORK_GROUP_COUNT_X);
-        index += _STATE(GCREG_TW_WORK_GROUP_COUNT_Y);
-        index += _STATE(GCREG_TW_WORK_GROUP_COUNT_Z);
-        index += _STATE(GCREG_TW_WORKGROUP_SIZE_X);
-        index += _STATE(GCREG_TW_WORKGROUP_SIZE_Y);
-        index += _STATE(GCREG_TW_WORKGROUP_SIZE_Z);
+        index += _State(Context, index, 0x00940 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00944 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00948 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0094C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00950 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00954 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (halti5)
     {
-        index += _STATE(GCREG_TW_INFO_GLOBAL_SCALE_X);
-        index += _STATE(GCREG_TW_INFO_GLOBAL_SCALE_Y);
-        index += _STATE(GCREG_TW_INFO_GLOBAL_SCALE_Z);
+        index += _State(Context, index, 0x00958 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0095C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00960 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     index += _CLOSE_RANGE();
@@ -1965,19 +3977,19 @@ _InitializeContextBuffer(
     /* VS/PS Start/End PC register */
     if (halti5)
     {
-        index += _STATE(GCREG_VS_START_PC);
-        index += _STATE(GCREG_VS_RELATIVE_END);
-        index += _STATE(GCREG_PS_START_PC);
-        index += _STATE(GCREG_PS_RELATIVE_END);
+        index += _State(Context, index, 0x00874 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x008BC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0087C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x01090 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
     }
     else if (hasICache)
     {
         /* New Shader instruction PC registers(20bit). */
-        index += _STATE(GCREG_VS_START_PC);
-        index += _STATE(GCREG_VS_END_PC);
-        index += _STATE(GCREG_PS_START_PC);
-        index += _STATE(GCREG_PS_END_PC);
+        index += _State(Context, index, 0x00874 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00878 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0087C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00880 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
     }
     else
@@ -1985,19 +3997,19 @@ _InitializeContextBuffer(
         if (Context->hardware->identity.instructionCount <= 256)
         {
             /* old shader instruction PC registers (12bit)*/
-            index += _STATE(AQ_VERTEX_SHADER_END_PC);
-            index += _STATE(AQ_VERTEX_SHADER_START_PC);
+            index += _State(Context, index, 0x00800 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x00838 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
             index += _CLOSE_RANGE();
 
-            index += _STATE(AQ_PIXEL_SHADER_END_PC);
-            index += _STATE(AQ_PIXEL_SHADER_START_PC);
+            index += _State(Context, index, 0x01000 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x01018 >> 2, 0x01000000, 1, gcvFALSE, gcvFALSE);
             index += _CLOSE_RANGE();
         }
         else
         {
             /* New Shader instruction PC registers (16bit) */
-            index += _STATE(GCREG_VS_PROGRAM);
-            index += _STATE(GCREG_PS_PROGRAM);
+            index += _State(Context, index, 0x0085C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+            index += _State(Context, index, 0x0101C >> 2, 0x00000100, 1, gcvFALSE, gcvFALSE);
             index += _CLOSE_RANGE();
         }
     }
@@ -2013,7 +4025,7 @@ _InitializeContextBuffer(
                  i += 256 << 2
                  )
             {
-                index += _STATE_COUNT_OFFSET(GCREG_SH_INSTRUCTIONS, i, 256 << 2);
+                index += _State(Context, index, (0x20000 >> 2) + i, 0x00000000, 256 << 2, gcvFALSE, gcvFALSE);
                 index += _CLOSE_RANGE();
             }
         }
@@ -2026,20 +4038,18 @@ _InitializeContextBuffer(
                  i += 256 << 2
                  )
             {
-                index += _STATE_COUNT_OFFSET(GCREG_VS_SHADER_CODE, i, 256 << 2);
+                index += _State(Context, index, (0x0C000 >> 2) + i, 0x00000000, 256 << 2, gcvFALSE, gcvFALSE);
                 index += _CLOSE_RANGE();
             }
 
-            _STATE_MIRROR_COUNT(GCREG_PS_SHADER_CODE,
-                                GCREG_VS_SHADER_CODE,
-                                Context->hardware->identity.instructionCount << 2);
+            _StateMirror(Context, 0x08000 >> 2, Context->hardware->identity.instructionCount << 2 , 0x0C000 >> 2);
         }
         /* if (Context->hardware->identity.instructionCount <= 256). This is non-unified one. */
         else
         {
-            index += _STATE(AQ_VERTEX_SHADER_INST);
+            index += _State(Context, index, 0x04000 >> 2, 0x00000000, 1024, gcvFALSE, gcvFALSE);
             index += _CLOSE_RANGE();
-            index += _STATE(AQ_PIXEL_SHADER_INST);
+            index += _State(Context, index, 0x06000 >> 2, 0x00000000, 1024, gcvFALSE, gcvFALSE);
             index += _CLOSE_RANGE();
         }
     }
@@ -2049,13 +4059,13 @@ _InitializeContextBuffer(
         gctINT numConstants = Context->hardware->identity.numConstants;
 
         /* Base Offset register */
-        index += _STATE(GCREG_PIXEL_SHADER_CONST);
-        index += _STATE(GCREG_VERTEX_SHADER_CONST);
+        index += _State(Context, index, 0x01024 >> 2, 0x00000100, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x00864 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
 
         if (smallBatch)
         {
-            index += _STATE_INIT_VALUE(GCREG_SH_ALLOC_UNIFORMS, numConstants);
+            index += _State(Context, index, 0x010AC >> 2, numConstants, 1, gcvFALSE, gcvFALSE);
         }
 
         for (i = 0;
@@ -2070,22 +4080,22 @@ _InitializeContextBuffer(
                 {
                     if (smallBatch)
                     {
-                        index += _STATE_COUNT_OFFSET(GCREG_GPIPE_UNIFORMS, i, 256 << 2);
+                        index += _State(Context, index, (0x34000 >> 2) + i, 0x00000000, 256 << 2, gcvFALSE, gcvFALSE);
                     }
                     else
                     {
-                        index += _STATE_COUNT_OFFSET(GCREG_PIXEL_UNIFORMS, i, 256 << 2);
+                        index += _State(Context, index, (0x36000 >> 2) + i, 0x00000000, 256 << 2, gcvFALSE, gcvFALSE);
                     }
                 }
                 else
                 {
                     if (smallBatch)
                     {
-                        index += _STATE_COUNT_OFFSET(GCREG_GPIPE_UNIFORMS, i, numConstants << 2);
+                        index += _State(Context, index, (0x34000 >> 2) + i, 0x00000000, numConstants << 2, gcvFALSE, gcvFALSE);
                     }
                     else
                     {
-                        index += _STATE_COUNT_OFFSET(GCREG_PIXEL_UNIFORMS, i, numConstants << 2);
+                        index += _State(Context, index, (0x36000 >> 2) + i, 0x00000000, numConstants << 2, gcvFALSE, gcvFALSE);
                     }
                 }
                 index += _CLOSE_RANGE();
@@ -2094,11 +4104,11 @@ _InitializeContextBuffer(
             {
                 if (numConstants >= 256)
                 {
-                    index += _STATE_COUNT_OFFSET(GCREG_SH_UNIFORMS, i, 256 << 2);
+                    index += _State(Context, index, (0x30000 >> 2) + i, 0x00000000, 256 << 2, gcvFALSE, gcvFALSE);
                 }
                 else
                 {
-                    index += _STATE_COUNT_OFFSET(GCREG_SH_UNIFORMS, i, numConstants << 2);
+                    index += _State(Context, index, (0x30000 >> 2) + i, 0x00000000, numConstants << 2, gcvFALSE, gcvFALSE);
                 }
 
                 index += _CLOSE_RANGE();
@@ -2107,27 +4117,25 @@ _InitializeContextBuffer(
 
         if (halti5 && !smallBatch)
         {
-            _STATE_MIRROR_COUNT(GCREG_GPIPE_UNIFORMS,
-                                GCREG_PIXEL_UNIFORMS,
-                                Context->hardware->identity.numConstants << 2);
+            _StateMirror(Context, 0x34000 >> 2, Context->hardware->identity.numConstants << 2 , 0x36000 >> 2);
         }
     }
 #if gcdENABLE_UNIFIED_CONSTANT
     else
 #endif
     {
-        index += _STATE_COUNT(AQ_VERTEX_SHADER_CONST, vertexUniforms * 4);
-        index += _STATE_COUNT(AQ_PIXEL_SHADER_CONST, fragmentUniforms * 4);
+        index += _State(Context, index, 0x05000 >> 2, 0x00000000, vertexUniforms * 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x07000 >> 2, 0x00000000, fragmentUniforms * 4, gcvFALSE, gcvFALSE);
     }
 
     if (halti1)
     {
-        index += _STATE(GCREG_SH_SAMPLER_ARBITRATION);
+        index += _State(Context, index, 0x00884 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (halti5)
     {
-        index += _STATE(GCREG_SH_ICACHE_INVALIDATE);
+        index += _State(Context, index, 0x008B0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     /* Store the index of the "XD" entry. */
@@ -2135,163 +4143,164 @@ _InitializeContextBuffer(
 
 
     /* Pixel Engine states. */
-    index += _STATE(AQ_DEPTH_CONFIG);
-    index += _STATE(AQ_DEPTH_NEAR);
-    index += _STATE(AQ_DEPTH_FAR);
-    index += _STATE(AQ_DEPTH_NORMALIZE);
-    index += _STATE(AQ_DEPTH_STRIDE);
-    index += _STATE(AQ_STENCIL_OPERATION);
-    index += _STATE(AQ_STENCIL_CONFIG);
-    index += _STATE(AQ_ALPHA_TEST);
-    index += _STATE(AQ_ALPHA_BLEND_FACTOR);
-    index += _STATE(AQ_ALPHA_BLEND);
-    index += _STATE(AQ_PIXEL_CONFIG);
-    index += _STATE(AQ_PIXEL_STRIDE);
-    index += _STATE(GCREG_PE_HIERARCHICAL_CONTROL);
-    index += _STATE_HINT(GCREG_PE_HIERARCHICAL_ADDRESS);
-    index += _STATE(GCREG_PE_EXTRA_REFERENCE);
-    index += _STATE(GCREG_PE_DITHER_LOW);
-    index += _STATE(GCREG_PE_DITHER_HIGH);
+    index += _State(Context, index, 0x01400 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01404 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01408 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0140C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01414 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01418 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0141C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01420 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01424 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01428 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x0142C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01434 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01454 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01458 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x014A0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x014A8 >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x014AC >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
 
     if(gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_HALF_FLOAT_PIPE) )
     {
-        index += _STATE(GCREG_PE_BLEND_FACTOR_LOW);
-        index += _STATE(GCREG_PE_BLEND_FACTOR_HIGH);
+        index += _State(Context, index, 0x014B0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x014B4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
-    index += _STATE(GCREG_PE_CONFIG);
-    index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_CONFIG, 3);
-    index += _STATE(GCREG_PE_BACKFACE_STENCIL);
+    index += _State(Context, index, 0x014A4 >> 2, 0x000E400C, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01580 >> 2, 0x00000000, 3, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x014B8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 
     if (halti3)
     {
-        index += _STATE(GCREG_PS_OUTPUT_MAP);
+        index += _State(Context, index, 0x0103C >> 2, 0x76543210, 1, gcvFALSE, gcvFALSE);
     }
 
-    index += _STATE_HINT_BLOCK(GCREG_PE_COLOR_BASE_ADDRESS, 0,
-                               Context->hardware->identity.pixelPipes);
+    index += _State(Context, index, (0x01460 >> 2) + (0 << 3), 0x00000000, Context->hardware->identity.pixelPipes, gcvFALSE, gcvTRUE);
 
     if (Context->hardware->identity.pixelPipes == 1)
     {
-        index += _STATE_HINT(AQ_PIXEL_ADDRESS);
-        index += _STATE_HINT(AQ_DEPTH_ADDRESS);
+        index += _State(Context, index, 0x01430 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x01410 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
     }
 
     if (Context->hardware->identity.pixelPipes > 1 || halti0)
     {
-        index += _STATE_HINT_BLOCK(GCREG_PE_DEPTH_BASE_ADDRESS, 0,
-                                   Context->hardware->identity.pixelPipes);
+        index += _State(Context, index, (0x01480 >> 2) + (0 << 3), 0x00000000, Context->hardware->identity.pixelPipes, gcvFALSE, gcvTRUE);
     }
 
     for (i = 0; i < 3; i++)
     {
-        index += _STATE_HINT_BLOCK(GCREG_PE_RENDER_TARGET_ADDRESS,
-                                   i,
-                                   Context->hardware->identity.pixelPipes);
+        index += _State(Context, index, (0x01500 >> 2) + (i << 3), 0x00000000, Context->hardware->identity.pixelPipes, gcvFALSE, gcvTRUE);
     }
 
     if (numRT == 16)
     {
         for (i = 0; i < 15; i++)
         {
-            index += _STATE_HINT_BLOCK(GCREG_PE_RENDER_TARGET_ADDRESS_EX2,
-                                       i,
-                                       Context->hardware->identity.pixelPipes);
+            index += _State(Context, index, (0x17C00 >> 2) + (i << 0), 0x00000000, Context->hardware->identity.pixelPipes, gcvFALSE, gcvTRUE);
         }
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_CONFIG_EX2, 15);
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_EXTRA_CONFIG_EX2, 15);
+        index += _State(Context, index, 0x17C40 >> 2, 0x00000000, 15, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x17C80 >> 2, 0x03012000, 15, gcvFALSE, gcvFALSE);
     }
     else if (numRT == 8)
     {
         for (i = 0; i < 7; i++)
         {
-          index += _STATE_HINT_BLOCK(GCREG_PE_RENDER_TARGET_ADDRESS_EX,
-                                     i,
-                                     Context->hardware->identity.pixelPipes);
+          index += _State(Context, index, (0x14800 >> 2) + (i << 3), 0x00000000, Context->hardware->identity.pixelPipes, gcvFALSE, gcvTRUE);
         }
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_CONFIG_EX, 7);
+        index += _State(Context, index, 0x14900 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
     }
 
 
     if (halti3)
     {
-        index += _STATE(GCREG_PE_CONFIG_EX);
+        index += _State(Context, index, 0x014BC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (halti4)
     {
-        index += _STATE(GCREG_PE_ALPHA_CONFIG);
+        index += _State(Context, index, 0x014C0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     }
 
     if (hasGS)
     {
-        index += _STATE(GCREG_COLOR_SLICE);
+        index += _State(Context, index, 0x038A0 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
     }
 
     if (halti5)
     {
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_EXTRA_CONFIG_EX, 7);
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_ALPHA_TEST, 7);
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_ALPHA_CONTROL, 7);
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_BLEND_COLOR_LOW, 7);
-        index += _STATE_COUNT(GCREG_PE_RENDER_TARGET_BLEND_COLOR_HIGH, 7);
+        index += _State(Context, index, 0x14920 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14940 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14960 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14980 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x149A0 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
     }
 
     if (hasRobustness)
     {
-        index += _STATE_HINT(GCREG_PE_RENDER_TARGET_END_ADDRES_EX);
-        index += _STATE_HINT(GCREG_DEPTH_BUFFER_END_ADDRESS);
+        index += _State(Context, index, 0x149C0 >> 2, 0x00000000, 8, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, 0x014C4 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
     }
 
     /* Memory Controller */
-    index += _STATE(GC_MEMORY_CONFIG);
+    index += _State(Context, index, 0x01654 >> 2, 0x00200000, 1, gcvFALSE, gcvFALSE);
 
     index += _CLOSE_RANGE();
-    index += _STATE_HINT(GC_COLOR_CACHE);
-    index += _STATE_HINT(GC_COLOR_BASE);
-    index += _STATE(GC_COLOR_CLEAR_VALUE);
-    index += _STATE_HINT(GC_DEPTH_CACHE);
-    index += _STATE_HINT(GC_DEPTH_BASE);
-    index += _STATE(GC_DEPTH_CLEAR_VALUE);
-    index += _STATE(GC_TILE_STATUS_COUNTER_Z);
-    index += _STATE(GC_TILE_STATUS_COUNTER_C);
-    index += _STATE_HINT(GCREG_MC_CACHE_HZ);
-    index += _STATE(GCREG_MC_COUNTER_HZ);
-    index += _STATE(GCREG_MC_CLEAR_VALUE_HZ);
-    index += _STATE(GCREG_MC_TEXTURE_CONFIG);
-    index += _STATE_HINT(GCREG_MC_TEXTURE_BUFFER);
-    index += _STATE(GCREG_MC_TEXTURE_CLEAR);
+    index += _State(Context, index, 0x01658 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x0165C >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x01660 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01664 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x01668 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x0166C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01670 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01674 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x016A4 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x016AC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x016A8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01720 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
+    index += _State(Context, index, 0x01740 >> 2, 0x00000000, 8, gcvFALSE, gcvTRUE);
+    index += _State(Context, index, 0x01760 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
 
 
     if (halti2)
     {
-        index += _STATE(GCREG_MC_TEXTURE_CLEAR64);
-        index += _STATE(GCREG_MC_COLOR_CLEAR64);
-        index += _STATE_COUNT_OFFSET(GCREG_MRT_MEMORY_CONFIG, 1, 7);
-        index += _STATE_COUNT_OFFSET_HINT(GCREG_MRT_COLOR_CACHE, 1, 7);
-        index += _STATE_COUNT_OFFSET_HINT(GCREG_MRT_COLOR_BASE, 1, 7);
-        index += _STATE_COUNT_OFFSET(GCREG_MRT_COLOR_CLEAR_VALUE, 1, 7);
-        index += _STATE_COUNT_OFFSET(GCREG_MRTMC_COLOR_CLEAR64, 1, 7);
-        index += _STATE_COUNT_OFFSET(GCREG_MRT_TILE_STATUS_COUNTER_C, 1, 7);
+        index += _State(Context, index, 0x01780 >> 2, 0x00000000, 8, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x016BC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, (0x017A0 >> 2) + 1, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, (0x017C0 >> 2) + 1, 0x00000000, 7, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x017E0 >> 2) + 1, 0x00000000, 7, gcvFALSE, gcvTRUE);
+        index += _State(Context, index, (0x01A00 >> 2) + 1, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, (0x01A20 >> 2) + 1, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, (0x01A40 >> 2) + 1, 0x00000000, 7, gcvFALSE, gcvFALSE);
     }
 
     index += _CLOSE_RANGE();
 
     if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_BUG_FIXES18))
     {
-        index += _STATE_INIT_VALUE(GCREG_OCCLUSION_CONTROL, GCREG_OCCLUSION_CONTROL_MODE_RENDER);
+        index += _State(Context, index, 0x03860 >> 2, 0x6, 1, gcvFALSE, gcvFALSE);
         index += _CLOSE_RANGE();
     }
 
     if (halti3)
     {
-        index += _STATE_HINT(GCREG_MC_TEXTURE_BASE_BUFFER);
+        index += _State(Context, index, 0x01A80 >> 2, 0x00000000, 8, gcvFALSE, gcvTRUE);
         index += _CLOSE_RANGE();
     }
 
     if (hasSecurity || hasRobustness)
     {
-        index += _STATE_INIT_VALUE(GCREG_MMU_CONFIG,
-                    gcmSETFIELDVALUE(0, GCREG_MMU_CONFIG, MASK_PAGE_TABLE_ID, MASKED));
+        index += _State(Context, index, 0x001AC >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ?
+ 16:16))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16))), 1, gcvFALSE, gcvFALSE);
     }
 
     /* Semaphore/stall. */
@@ -2306,8 +4315,26 @@ _InitializeContextBuffer(
     if (buffer != gcvNULL)
     {
         buffer[index + 0]
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LINK_COMMAND, OPCODE,   LINK)
-            | gcmSETFIELD     (0, AQ_COMMAND_LINK_COMMAND, PREFETCH, 0);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x08 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         buffer[index + 1]
             = 0;
@@ -2334,8 +4361,26 @@ _InitializeContextBuffer(
     if (buffer != gcvNULL)
     {
         buffer[index + 0]
-            = gcmSETFIELDVALUE(0, AQ_COMMAND_LINK_COMMAND, OPCODE,   LINK)
-            | gcmSETFIELD     (0, AQ_COMMAND_LINK_COMMAND, PREFETCH, 0);
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x08 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
         buffer[index + 1]
             = 0;
@@ -2514,7 +4559,7 @@ _AllocateContextBuffer(
             gckKERNEL_AddProcessDB(kernel,
                                    processID,
                                    dbType,
-                                   Buffer->videoMem ,
+                                   Buffer->videoMem,
                                    gcvNULL,
                                    totalSize));
 #endif
@@ -2621,7 +4666,7 @@ gckCONTEXT_Construct(
     context->exitPipe  = gcvPIPE_3D;
 #else
     context->entryPipe
-        = gcmGETFIELD(context->hardware->identity.chipFeatures, GC_FEATURES, PIPE_2D)
+        = (((((gctUINT32) (context->hardware->identity.chipFeatures)) >> (0 ? 9:9)) & ((gctUINT32) ((((1 ? 9:9) - (0 ? 9:9) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 9:9) - (0 ? 9:9) + 1)))))) )
             ? gcvPIPE_2D
             : gcvPIPE_3D;
     context->exitPipe = gcvPIPE_3D;
@@ -2933,9 +4978,9 @@ gckCONTEXT_Update(
         Context->os, buffer->signal, gcvFALSE, gcvINFINITE
         ));
 
-#if gcmIS_DEBUG(gcdDEBUG_CODE) && defined(gcregContextRegAddrs) && gcdENABLE_3D
+#if gcmIS_DEBUG(gcdDEBUG_CODE) && 1 && gcdENABLE_3D
     /* Update current context token. */
-    buffer->logical[Context->map[gcregContextRegAddrs].index]
+    buffer->logical[Context->map[0x0E14].index]
         = (gctUINT32)gcmPTR2INT32(Context);
 #endif
 
@@ -3024,12 +5069,39 @@ gckCONTEXT_Update(
                     if ((mask == 0) || (mask == ~0U))
                     {
                         /* Process special states. */
-                        if (address == gcMemoryConfigRegAddrs)
+                        if (address == 0x0595)
                         {
                             /* Force auto-disable to be disabled. */
-                            data = gcmSETFIELDVALUE(data, GC_MEMORY_CONFIG, AUTO_DISABLE_C,             DISABLE);
-                            data = gcmSETFIELDVALUE(data, GC_MEMORY_CONFIG, AUTO_DISABLE_Z,             DISABLE);
-                            data = gcmSETFIELDVALUE(data, GC_MEMORY_CONFIG, AUTO_DISABLE_HZ_FAST_CLEAR, DISABLE);
+                            data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)));
+                            data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)));
+                            data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 13:13) - (0 ?
+ 13:13) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 13:13) - (0 ?
+ 13:13) + 1))))))) << (0 ?
+ 13:13))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 13:13) - (0 ?
+ 13:13) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 13:13) - (0 ? 13:13) + 1))))))) << (0 ? 13:13)));
                         }
 
                         /* Set new data. */
@@ -3041,7 +5113,7 @@ gckCONTEXT_Update(
                     {
                         buffer->logical[index]
                             = (~mask & buffer->logical[index])
-                            | ( mask & data);
+                            | (mask & data);
                     }
                 }
             }
@@ -3089,22 +5161,22 @@ gckCONTEXT_Update(
             gctUINT32_PTR nop;
             gctUINT fe2vsCount;
             gctUINT attribCount = elementCount -1;
-            gctUINT32 feAttributeStatgeAddr = AQVertexElementCtrlRegAddrs;
+            gctUINT32 feAttributeStatgeAddr = 0x0180;
             if (gckHARDWARE_IsFeatureAvailable(Context->hardware, gcvFEATURE_HALTI5))
             {
                 fe2vsCount = 32;
-                base = map[gcregFEAttributeRegAddrs].index;
-                feAttributeStatgeAddr = gcregFEAttributeRegAddrs;
+                base = map[0x5E00].index;
+                feAttributeStatgeAddr = 0x5E00;
             }
             else if (gckHARDWARE_IsFeatureAvailable(Context->hardware, gcvFEATURE_HALTI0))
             {
                 fe2vsCount = 16;
-                base = map[AQVertexElementCtrlRegAddrs].index;
+                base = map[0x0180].index;
             }
             else
             {
                 fe2vsCount = 12;
-                base = map[AQVertexElementCtrlRegAddrs].index;
+                base = map[0x0180].index;
             }
 
             /* Set the proper state count. */
@@ -3113,27 +5185,135 @@ gckCONTEXT_Update(
                 gcmkASSERT(gckHARDWARE_IsFeatureAvailable(Context->hardware, gcvFEATURE_ZERO_ATTRIB_SUPPORT));
 
                 buffer->logical[base - 1]
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE , LOAD_STATE)
-                         | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT,   NORMAL)
-                         | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                         | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, feAttributeStatgeAddr);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (feAttributeStatgeAddr) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
                 /* Set the proper state count. */
                 buffer->logical[base + 1] =
-                        gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE , LOAD_STATE)
-                        | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT,   NORMAL)
-                        | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   1)
-                        | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, gcregFEResetAttributesRegAddrs);
+                        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x01F2) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
                 buffer->logical[base + 2] = 0x1;
                 attribCount = 3;
             }
             else
             {
                 buffer->logical[base - 1]
-                    = gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, OPCODE , LOAD_STATE)
-                         | gcmSETFIELDVALUE(0, AQ_COMMAND_LOAD_STATE_COMMAND, FLOAT,   NORMAL)
-                         | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, COUNT,   attribCount)
-                         | gcmSETFIELD     (0, AQ_COMMAND_LOAD_STATE_COMMAND, ADDRESS, feAttributeStatgeAddr);
+                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (attribCount) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (feAttributeStatgeAddr) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
             }
 
             /* Determine the number of NOP commands. */
@@ -3150,7 +5330,16 @@ gckCONTEXT_Update(
                 }
 
                 /* Generate a NOP command. */
-                *nop = gcmSETFIELDVALUE(0, AQ_COMMAND_NOP_COMMAND, OPCODE, NOP);
+                *nop = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
                 /* Advance. */
                 nop += 2;
@@ -3164,11 +5353,11 @@ gckCONTEXT_Update(
             gctUINT32 constCount = 0;
 
             /* Get the const number after merge. */
-            index = map[gcregSHAllocUniformsRegAddrs].index;
+            index = map[0x042B].index;
             data = buffer->logical[index];
-            constCount = gcmGETFIELD(data, GCREG_SH_ALLOC_UNIFORMS, SIZE);
+            constCount = (((((gctUINT32) (data)) >> (0 ? 8:0)) & ((gctUINT32) ((((1 ? 8:0) - (0 ? 8:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 8:0) - (0 ? 8:0) + 1)))))) );
 
-            _UpdateUnifiedReg(Context, gcregGpipeUniformsRegAddrs, numConstant << 2, constCount << 2);
+            _UpdateUnifiedReg(Context, 0xD000, numConstant << 2, constCount << 2);
         }
 
         if (gckHARDWARE_IsFeatureAvailable(Context->hardware, gcvFEATURE_SMALL_BATCH) &&
@@ -3178,17 +5367,17 @@ gckCONTEXT_Update(
             gctUINT32 samplerCount = 0;
 
             /* Get the sampler number after merge. */
-            index = map[gcregSHAllocSamplersRegAddrs].index;
+            index = map[0x042C].index;
             data = buffer->logical[index];
-            samplerCount = gcmGETFIELD(data, GCREG_SH_ALLOC_SAMPLERS, SIZE);
+            samplerCount = (((((gctUINT32) (data)) >> (0 ? 6:0)) & ((gctUINT32) ((((1 ? 6:0) - (0 ? 6:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 6:0) - (0 ? 6:0) + 1)))))) );
 
-            _UpdateUnifiedReg(Context, gcregTXGpipeSamplerCtrl0RegAddrs, numSamplers, samplerCount);
-            _UpdateUnifiedReg(Context, gcregTXGpipeSamplerCtrl1RegAddrs, numSamplers, samplerCount);
-            _UpdateUnifiedReg(Context, gcregTXGpipeSamplerLodMaxMinRegAddrs, numSamplers, samplerCount);
-            _UpdateUnifiedReg(Context, gcregTXGpipeSamplerLodBiasRegAddrs, numSamplers, samplerCount);
-            _UpdateUnifiedReg(Context, gcregTXGpipeSamplerAnisoCtrlRegAddrs, numSamplers, samplerCount);
-            _UpdateUnifiedReg(Context, gcregTXGpipeTextureDescriptorAddrRegAddrs, numSamplers, samplerCount);
-            _UpdateUnifiedReg(Context, gcregTXGpipeTextureCtrlRegAddrs, numSamplers, samplerCount);
+            _UpdateUnifiedReg(Context, 0x5800, numSamplers, samplerCount);
+            _UpdateUnifiedReg(Context, 0x5880, numSamplers, samplerCount);
+            _UpdateUnifiedReg(Context, 0x5900, numSamplers, samplerCount);
+            _UpdateUnifiedReg(Context, 0x5980, numSamplers, samplerCount);
+            _UpdateUnifiedReg(Context, 0x5A00, numSamplers, samplerCount);
+            _UpdateUnifiedReg(Context, 0x5600, numSamplers, samplerCount);
+            _UpdateUnifiedReg(Context, 0x5680, numSamplers, samplerCount);
         }
     }
 
@@ -3273,3 +5462,4 @@ OnError:
     gcmkFOOTER();
     return status;
 }
+

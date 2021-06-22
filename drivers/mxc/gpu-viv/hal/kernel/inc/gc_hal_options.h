@@ -1396,3 +1396,4 @@ This define enables the use of VM for gckCommand and fence buffers.
 
 #endif /* __gc_hal_options_h_ */
 
+

@@ -60,7 +60,6 @@ extern "C" {
 #endif
 #include "gc_hal.h"
 #include "gc_hal_kernel.h"
-#include "AQ.h"
 #include "gc_hal_kernel_hardware.h"
 
 gceSTATUS
@@ -90,3 +89,4 @@ gckHARDWARE_ResetFlopWithTP(
 }
 #endif
 #endif
+

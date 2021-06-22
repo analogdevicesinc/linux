@@ -293,3 +293,4 @@ gckMCFE_HardwareIdle(
     OUT gctBOOL_PTR IsIdle
     );
 #endif
+
