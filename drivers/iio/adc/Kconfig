@@ -386,7 +386,7 @@ config AD9081
 	  Provides direct access via sysfs.
 
 config AD9083
-	tristate "16-Channel, 125 MHz Bandwidth, JESD204B ADC"
+	tristate "Analog Devices AD9083 16-Channel, 125 MHz Bandwidth, JESD204B ADC"
 	depends on SPI
 	select CF_AXI_ADC
 	help
