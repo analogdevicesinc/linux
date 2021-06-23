@@ -107,6 +107,7 @@ config IIO_ALL_ADI_DRIVERS
 	select ADF5355
 	select ADMV1013
 	select ADMV1014
+	select ADRF6780
 	select CF_AXI_DDS
 	select CF_AXI_DDS_AD9122
 	select CF_AXI_DDS_AD9144
