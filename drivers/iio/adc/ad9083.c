@@ -860,22 +860,6 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 	return 0;
 }
 
-#define AIM_CHAN(_chan, _mod, _si, _bits, _sign)			\
-	{								\
-		.type = IIO_VOLTAGE,					\
-		.indexed = 1,						\
-		.modified = 1,						\
-		.channel = _chan,					\
-		.channel2 = _mod,					\
-		.scan_index = _si,					\
-		.scan_type = {						\
-			.sign = _sign,					\
-			.realbits = _bits,				\
-			.storagebits = 16,				\
-			.shift = 0,					\
-		},							\
-	}
-
 static void ad9083_setup_chip_info_tbl(struct ad9083_phy *phy)
 {
 	bool complex;
