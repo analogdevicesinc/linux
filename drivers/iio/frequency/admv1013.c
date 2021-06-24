@@ -20,8 +20,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 
-#include <linux/iio/sysfs.h>
-
 /* ADMV1013 Register Map */
 #define ADMV1013_REG_SPI_CONTROL		0x00
 #define ADMV1013_REG_ALARM			0x01
