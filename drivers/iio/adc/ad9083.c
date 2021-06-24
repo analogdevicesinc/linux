@@ -910,6 +910,8 @@ static int ad9083_probe(struct spi_device *spi)
 	if (!phy)
 		return -ENOMEM;
 
+	mutex_init(&phy->lock);
+
 	spi_set_drvdata(spi, conv);
 
 	conv->reset_gpio =
