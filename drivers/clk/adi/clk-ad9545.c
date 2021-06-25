@@ -403,7 +403,7 @@ struct ad9545_dpll_profile {
 	u8				tdc_source;
 };
 
-struct ad9545_ppl_clk {
+struct ad9545_pll_clk {
 	struct ad9545_state		*st;
 	bool				pll_used;
 	unsigned int			address;
@@ -476,7 +476,7 @@ struct ad9545_state {
 	struct regmap			*regmap;
 	struct ad9545_sys_clk		sys_clk;
 	struct ad9545_aux_dpll_clk	aux_dpll_clk;
-	struct ad9545_ppl_clk		pll_clks[ARRAY_SIZE(ad9545_pll_clk_names)];
+	struct ad9545_pll_clk		pll_clks[ARRAY_SIZE(ad9545_pll_clk_names)];
 	struct ad9545_ref_in_clk	ref_in_clks[ARRAY_SIZE(ad9545_ref_clk_names)];
 	struct ad9545_out_clk		out_clks[ARRAY_SIZE(ad9545_out_clk_names)];
 	struct ad9545_aux_nco_clk	aux_nco_clks[ARRAY_SIZE(ad9545_aux_nco_clk_names)];
@@ -485,7 +485,7 @@ struct ad9545_state {
 };
 
 #define to_ref_in_clk(_hw)	container_of(_hw, struct ad9545_ref_in_clk, hw)
-#define to_pll_clk(_hw)		container_of(_hw, struct ad9545_ppl_clk, hw)
+#define to_pll_clk(_hw)		container_of(_hw, struct ad9545_pll_clk, hw)
 #define to_out_clk(_hw)		container_of(_hw, struct ad9545_out_clk, hw)
 #define to_nco_clk(_hw)		container_of(_hw, struct ad9545_aux_nco_clk, hw)
 #define to_tdc_clk(_hw)		container_of(_hw, struct ad9545_aux_tdc_clk, hw)
@@ -1616,7 +1616,7 @@ static int ad9545_input_refs_setup(struct ad9545_state *st)
 	return regmap_write(st->regmap, AD9545_POWER_DOWN_REF, reg);
 }
 
-static int ad9545_calc_ftw(struct ad9545_ppl_clk *clk, u32 freq, u64 *tuning_word)
+static int ad9545_calc_ftw(struct ad9545_pll_clk *clk, u32 freq, u64 *tuning_word)
 {
 	u64 ftw = 1;
 	u32 ftw_frac;
@@ -1647,7 +1647,7 @@ static int ad9545_calc_ftw(struct ad9545_ppl_clk *clk, u32 freq, u64 *tuning_wor
 	return 0;
 }
 
-static int ad9545_set_freerun_freq(struct ad9545_ppl_clk *clk, u32 freq)
+static int ad9545_set_freerun_freq(struct ad9545_pll_clk *clk, u32 freq)
 {
 	__le64 regval;
 	u64 ftw;
@@ -1681,7 +1681,7 @@ static u32 ad9545_calc_m_div(unsigned long rate)
 	return m_div;
 }
 
-static u64 ad9545_calc_pll_params(struct ad9545_ppl_clk *clk, unsigned long rate,
+static u64 ad9545_calc_pll_params(struct ad9545_pll_clk *clk, unsigned long rate,
 				  unsigned long parent_rate, u32 *m, u32 *n,
 				  unsigned long *frac, unsigned long *mod)
 {
@@ -1725,7 +1725,7 @@ static u64 ad9545_calc_pll_params(struct ad9545_ppl_clk *clk, unsigned long rate
 	return (u32)DIV_ROUND_CLOSEST(output_rate, 2);
 }
 
-static int ad9545_tdc_source_valid(struct ad9545_ppl_clk *clk, unsigned int tdc_source)
+static int ad9545_tdc_source_valid(struct ad9545_pll_clk *clk, unsigned int tdc_source)
 {
 	unsigned int regval;
 	int ret;
@@ -1750,7 +1750,7 @@ static int ad9545_tdc_source_valid(struct ad9545_ppl_clk *clk, unsigned int tdc_
 
 static u8 ad9545_pll_get_parent(struct clk_hw *hw)
 {
-	struct ad9545_ppl_clk *clk = to_pll_clk(hw);
+	struct ad9545_pll_clk *clk = to_pll_clk(hw);
 	struct ad9545_dpll_profile *profile;
 	u8 best_prio = 0xFF;
 	u8 best_parent;
@@ -1788,7 +1788,7 @@ static u8 ad9545_pll_get_parent(struct clk_hw *hw)
 
 static unsigned long ad9545_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
-	struct ad9545_ppl_clk *clk = to_pll_clk(hw);
+	struct ad9545_pll_clk *clk = to_pll_clk(hw);
 	unsigned long output_rate;
 	__le32 regval;
 	u32 frac;
@@ -1845,7 +1845,7 @@ static unsigned long ad9545_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long
 static long ad9545_pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 				      unsigned long *parent_rate)
 {
-	struct ad9545_ppl_clk *clk = to_pll_clk(hw);
+	struct ad9545_pll_clk *clk = to_pll_clk(hw);
 	unsigned long frac;
 	unsigned long mod;
 	int ret;
@@ -1871,7 +1871,7 @@ static long ad9545_pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 
 static int ad9545_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
 {
-	struct ad9545_ppl_clk *clk = to_pll_clk(hw);
+	struct ad9545_pll_clk *clk = to_pll_clk(hw);
 	unsigned long out_rate;
 	unsigned long frac;
 	unsigned long mod;
@@ -1925,7 +1925,7 @@ static const struct clk_ops ad9545_pll_clk_ops = {
 	.get_parent = ad9545_pll_get_parent,
 };
 
-static int ad9545_pll_fast_acq_setup(struct ad9545_ppl_clk *pll, int profile)
+static int ad9545_pll_fast_acq_setup(struct ad9545_pll_clk *pll, int profile)
 {
 	struct ad9545_state *st = pll->st;
 	unsigned int tmp;
@@ -1985,7 +1985,7 @@ static int ad9545_pll_fast_acq_setup(struct ad9545_ppl_clk *pll, int profile)
 static int ad9545_plls_setup(struct ad9545_state *st)
 {
 	struct clk_init_data init[2] = {0};
-	struct ad9545_ppl_clk *pll;
+	struct ad9545_pll_clk *pll;
 	struct clk_hw *hw;
 	int tdc_source;
 	__le32 regval;
