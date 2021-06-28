@@ -102,6 +102,7 @@
 			reg = <0x84A0C800 0x400>;
 			clocks = <&zynqmp_clk 71>, <&adc0_adrv9002 2>;
 			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd";
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {

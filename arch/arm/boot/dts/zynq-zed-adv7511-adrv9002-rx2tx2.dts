@@ -99,6 +99,7 @@
 			reg = <0x44A0C800 0x400>;
 			clocks = <&clkc 16>, <&adc0_adrv9002 2>;
 			clock-names = "s_axi_aclk", "intf_clk";
+			label = "axi-core-tdd";
 		};
 
 		misc_clk_0: misc_clk_0 {
