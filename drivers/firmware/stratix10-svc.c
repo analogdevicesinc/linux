@@ -335,6 +335,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_CRYPTO_CLOSE_SESSION:
 	case COMMAND_FCS_CRYPTO_IMPORT_KEY:
 	case COMMAND_FCS_CRYPTO_REMOVE_KEY:
+	case COMMAND_FCS_CRYPTO_AES_CRYPT_INIT:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		break;
 	case COMMAND_RECONFIG_DATA_SUBMIT:
@@ -386,6 +387,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_ATTESTATION_CERTIFICATE:
 	case COMMAND_FCS_CRYPTO_EXPORT_KEY:
 	case COMMAND_FCS_CRYPTO_GET_KEY_INFO:
+	case COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr2 = svc_pa_to_va(res.a2);
 		cb_data->kaddr3 = &res.a3;
@@ -628,7 +630,23 @@ static int svc_normal_to_secure_thread(void *data)
 			a3 = (unsigned long)pdata->paddr_output;
                         a4 = (unsigned long)pdata->size_output;
 			break;
-
+		case COMMAND_FCS_CRYPTO_AES_CRYPT_INIT:
+			a0 = INTEL_SIP_SMC_FCS_AES_CRYPTO_INIT;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = pdata->arg[2];
+			a4 = (unsigned long)pdata->paddr;
+			a5 = (unsigned long)pdata->size;
+			break;
+		case COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE:
+			a0 = INTEL_SIP_SMC_FCS_AES_CRYPTO_FINALIZE;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = (unsigned long)pdata->paddr;
+			a4 = (unsigned long)pdata->size;
+			a5 = (unsigned long)pdata->paddr_output;
+			a6 = (unsigned long)pdata->size_output;
+			break;
 		/* for polling */
 		case COMMAND_POLL_SERVICE_STATUS:
 			a0 = INTEL_SIP_SMC_SERVICE_COMPLETED;
@@ -727,6 +745,8 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_CRYPTO_EXPORT_KEY:
 			case COMMAND_FCS_CRYPTO_REMOVE_KEY:
 			case COMMAND_FCS_CRYPTO_GET_KEY_INFO:
+			case COMMAND_FCS_CRYPTO_AES_CRYPT_INIT:
+			case COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE:
 				cbdata->status = BIT(SVC_STATUS_INVALID_PARAM);
 				cbdata->kaddr1 = NULL;
 				cbdata->kaddr2 = NULL;
