@@ -786,9 +786,23 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
-	if (errorFlag) {
-		dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
-			__func__, __LINE__, errorFlag);
+	if (ret == TALACT_ERR_RERUN_INIT_CALS) {
+		/* Try once more */
+		ret = TALISE_runInitCals(phy->talDevice,
+				 phy->initCalMask & ~TAL_TX_LO_LEAKAGE_EXTERNAL);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out;
+		}
+
+		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
+	}
+
+	if ((ret != TALACT_NO_ACTION) || errorFlag) {
+		dev_err(&phy->spi->dev,
+			"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
+			__func__, __LINE__, ret, errorFlag);
 		ret = -EFAULT;
 		goto out;
 	}
@@ -803,12 +817,11 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 
 		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
-		if (ret != TALACT_NO_ACTION)
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-
-		if (errorFlag)
-			dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
-				__func__, __LINE__, errorFlag);
+		if ((ret != TALACT_NO_ACTION) || errorFlag) {
+			dev_err(&phy->spi->dev,
+				"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
+				__func__, __LINE__, ret, errorFlag);
+		}
 	}
 
 	/***************************************************/
@@ -1499,18 +1512,20 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			}
 
 			ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
-			if (ret != TALACT_NO_ACTION) {
-				/*** < User: decide what to do based on Talise recovery action returned > ***/
-				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			if (ret == TALACT_ERR_RERUN_INIT_CALS) {
+				/* Try once more */
+				ret = TALISE_runInitCals(phy->talDevice,
+						phy->initCalMask & ~TAL_TX_LO_LEAKAGE_EXTERNAL);
+				if (ret != TALACT_NO_ACTION)
+					dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+
+				ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
 			}
 
-			if (errorFlag) {
-				/*< user code - Check error flag to determine ARM  error> */
-				dev_err(&phy->spi->dev, "%s:%d (ret %d) errorFlag %x", __func__, __LINE__, ret,
-					errorFlag);
-			} else {
-				/*< user code - Calibrations completed successfully > */
-			}
+			if ((ret != TALACT_NO_ACTION) || errorFlag)
+				dev_err(&phy->spi->dev,
+					"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
+					__func__, __LINE__, ret, errorFlag);
 
 			adrv9009_set_radio_state(phy, RADIO_RESTORE_STATE);
 		}
@@ -5953,14 +5968,23 @@ static int adrv9009_jesd204_setup_stage5(struct jesd204_dev *jdev,
 		return JESD204_STATE_CHANGE_DONE;
 
 	ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		return -EFAULT;
+
+	if (ret == TALACT_ERR_RERUN_INIT_CALS) {
+		/* Try once more */
+		ret = TALISE_runInitCals(phy->talDevice,
+				 phy->initCalMask & ~TAL_TX_LO_LEAKAGE_EXTERNAL);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			return -EFAULT;
+		}
+
+		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
 	}
 
-	if (errorFlag) {
-		dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
-			__func__, __LINE__, errorFlag);
+	if ((ret != TALACT_NO_ACTION) || errorFlag) {
+		dev_err(&phy->spi->dev,
+			"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
+			__func__, __LINE__, ret, errorFlag);
 		return -EFAULT;
 	}
 
@@ -5974,12 +5998,11 @@ static int adrv9009_jesd204_setup_stage5(struct jesd204_dev *jdev,
 			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 
 		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
-		if (ret != TALACT_NO_ACTION)
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-
-		if (errorFlag)
-			dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
-				__func__, __LINE__, errorFlag);
+		if ((ret != TALACT_NO_ACTION) || errorFlag) {
+			dev_err(&phy->spi->dev,
+				"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
+				__func__, __LINE__, ret, errorFlag);
+		}
 	}
 
 	return JESD204_STATE_CHANGE_DONE;
