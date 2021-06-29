@@ -302,6 +302,7 @@ struct fcs_sha2_mac_data {
 	uint32_t dst_size;
 	int sha_op_mode;
 	int sha_digest_sz;
+	uint32_t userdata_sz;
 };
 
 /**
@@ -399,6 +400,7 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CRYPTO_GET_KEY_INFO_CMD,
 	INTEL_FCS_DEV_CRYPTO_AES_CRYPT_CMD,
 	INTEL_FCS_DEV_CRYPTO_GET_DIGEST_CMD,
+	INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -492,6 +494,10 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_CRYPTO_GET_DIGEST \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_CRYPTO_GET_DIGEST_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_MAC_VERIFY \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_CMD, struct intel_fcs_dev_ioctl)
 
 #endif
 

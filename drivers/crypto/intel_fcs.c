@@ -226,7 +226,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	struct stratix10_svc_client_msg *msg;
 	const struct firmware *fw;
 	char filename[FILE_NAME_SIZE];
-	size_t tsz, rsz, datasz;
+	size_t tsz, rsz, datasz, ud_sz;
 	uint32_t sid;
 	uint32_t kuid;
 	uint32_t cid;
@@ -234,7 +234,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	void *d_buf;
 	void *ps_buf;
 	void *iv_field_buf;
-	unsigned int buf_sz;
+	unsigned int buf_sz, out_sz;
 	int ret = 0;
 	int i;
 
@@ -1541,6 +1541,92 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 					   10 * FCS_REQUEST_TIMEOUT);
 		 if (!ret && !priv->status) {
 			 if (priv->size > AES_CRYPT_CMD_MAX_SZ) {
+				 dev_err(dev, "returned size %d is incorrect\n",
+					 priv->size);
+				 fcs_close_services(priv, s_buf, d_buf);
+				 return -EFAULT;
+			 }
+
+			 memcpy(data->com_paras.s_mac_data.dst,
+				priv->kbuf, priv->size);
+			 data->com_paras.s_mac_data.dst_size = priv->size;
+		 } else {
+			 data->com_paras.s_mac_data.dst = NULL;
+			 data->com_paras.s_mac_data.dst_size = 0;
+		 }
+
+		 data->status = priv->status;
+
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_to_user\n");
+			 fcs_close_services(priv, s_buf, d_buf);
+			 ret = -EFAULT;
+		 }
+
+		 fcs_close_services(priv, s_buf, d_buf);
+		 break;
+
+	case INTEL_FCS_DEV_CRYPTO_MAC_VERIFY:
+		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_from_user\n");
+			 return -EFAULT;
+		 }
+
+		 sid = data->com_paras.s_mac_data.sid;
+		 cid = data->com_paras.s_mac_data.cid;
+		 kuid = data->com_paras.s_mac_data.kuid;
+		 out_sz = data->com_paras.s_mac_data.dst_size;
+		 ud_sz = data->com_paras.s_mac_data.userdata_sz;
+
+		 msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->arg[2] = kuid;
+		 msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		 msg->arg[4] = data->com_paras.s_mac_data.sha_op_mode |
+			       (data->com_paras.s_mac_data.sha_digest_sz <<
+			       CRYPTO_ECC_DIGEST_SZ_OFFSET);
+		 priv->client.receive_cb = fcs_vab_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 if (ret || priv->status) {
+			 dev_err(dev, "failed to send the cmd=%d,ret=%d, status=%d\n",
+				 COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT, ret, priv->status);
+			 return -EFAULT;
+		 }
+
+		 s_buf = stratix10_svc_allocate_memory(priv->chan,
+						       AES_CRYPT_CMD_MAX_SZ);
+		 if (!s_buf) {
+			 dev_err(dev, "failed allocate source buf\n");
+			 return -ENOMEM;
+		 }
+
+		 d_buf = stratix10_svc_allocate_memory(priv->chan, out_sz);
+		 if (!d_buf) {
+			 dev_err(dev, "failed allocate destation buf\n");
+			 fcs_close_services(priv, s_buf, NULL);
+			 return -ENOMEM;
+		 }
+
+		 memcpy(s_buf, data->com_paras.s_mac_data.src,
+			data->com_paras.s_mac_data.src_size);
+
+		 msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->arg[2] = ud_sz;
+		 msg->payload = s_buf;
+		 msg->payload_length = data->com_paras.s_mac_data.src_size;
+		 msg->payload_output = d_buf;
+		 msg->payload_length_output = out_sz;
+		 priv->client.receive_cb = fcs_attestation_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   10 * FCS_REQUEST_TIMEOUT);
+		 if (!ret && !priv->status) {
+			 if (priv->size > out_sz) {
 				 dev_err(dev, "returned size %d is incorrect\n",
 					 priv->size);
 				 fcs_close_services(priv, s_buf, d_buf);
