@@ -200,6 +200,10 @@ struct stratix10_svc_chan;
  * @COMMAND_FCS_CRYPTO_GET_DIGEST (INIT and FINALIZE): request the SHA-2
  * hash digest on a data block, return status is SVC_STATUS_OK or
  * SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_CRYPTO_MAC_VERIFY (INIT and FINALIZE): check the integrity
+ * and authenticity of a blob, return status is SVC_STATUS_OK or
+ * SVC_STATUS_ERROR
  */
 enum stratix10_svc_command_code {
 	/* for FPGA */
@@ -246,6 +250,8 @@ enum stratix10_svc_command_code {
 	COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE,
 	COMMAND_FCS_CRYPTO_GET_DIGEST_INIT,
 	COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE,
+	COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT,
+	COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE,
 	/* for generic mailbox send command */
 	COMMAND_MBOX_SEND_CMD = 100,
 	/* Non-mailbox SMC Call */
