@@ -242,6 +242,45 @@ struct fcs_crypto_key_object {
 };
 
 /**
+ * struct fcs_acs_crypt_parameter
+ * @bmode: block mode
+ * @aes_mode: encrypt or decrypt
+ * 	0	encrypt
+ * 	1	decrypt
+ * @resv: reserved
+ * @iv: 128-bit IV field
+ */
+struct fcs_acs_crypt_parameter {
+	char bmode;
+	char aes_mode;
+	char resv[10];
+	char iv_field[16];
+};
+
+/**
+ * struct fcs_aes_crypt
+ * @sid: session ID
+ * @cid: context ID
+ * @kuid: key UID
+ * @src: source
+ * @src_size: size of source
+ * @dst: destination
+ * @dst_size: size of destination
+ * @cpara: crypto parameter
+ */
+struct fcs_aes_crypt {
+	uint32_t sid;
+	uint32_t cid;
+	uint32_t kuid;
+	void *src;
+	uint32_t src_size;
+	void *dst;
+	uint32_t dst_size;
+	int cpara_size;
+	struct fcs_acs_crypt_parameter cpara;
+};
+
+/**
  * struct intel_fcs_dev_ioct: common structure passed to Linux
  *	kernel driver for all commands.
  * @status: Used for the return code.
@@ -280,6 +319,7 @@ struct intel_fcs_dev_ioctl {
 		struct fcs_crypto_service_session	s_session;
 		struct fcs_crypto_key_import		k_import;
 		struct fcs_crypto_key_object		k_object;
+		struct fcs_aes_crypt		a_crypt;
 	} com_paras;
 };
 
@@ -332,6 +372,7 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CRYPTO_EXPORT_KEY_CMD,
 	INTEL_FCS_DEV_CRYPTO_REMOVE_KEY_CMD,
 	INTEL_FCS_DEV_CRYPTO_GET_KEY_INFO_CMD,
+	INTEL_FCS_DEV_CRYPTO_AES_CRYPT_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -417,6 +458,10 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_CRYPTO_GET_KEY_INFO \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_CRYPTO_GET_KEY_INFO_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_AES_CRYPT \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_AES_CRYPT_CMD, struct intel_fcs_dev_ioctl)
 
 #endif
 
