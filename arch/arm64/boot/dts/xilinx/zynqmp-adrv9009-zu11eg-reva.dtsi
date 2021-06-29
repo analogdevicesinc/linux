@@ -1318,7 +1318,7 @@
 			clocks = <&zynqmp_clk 71>;
 			interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
 
-			adi,pulses-per-revolution = <2>;
+			pulses-per-revolution = <2>;
 		};
 
 		rx_dma: dma@9c420000 {
