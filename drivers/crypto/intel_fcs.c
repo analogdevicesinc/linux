@@ -44,6 +44,9 @@
 #define CRYPTO_EXPORTED_KEY_OBJECT_MAX_SZ 364
 #define CRYPTO_GET_KEY_INFO_MAX_SZ 144
 
+#define CRYPTO_ECC_PARAM_SZ	4
+#define CRYPTO_ECC_DIGEST_SZ_OFFSET 4
+
 #define AES_CRYPT_CMD_MAX_SZ	SZ_4M /* set 4 Mb for now */
 
 #define SIGMA_SESSION_ID_ONE	0x1
@@ -111,6 +114,9 @@ static void fcs_vab_callback(struct stratix10_svc_client *client,
 		dev_err(client->dev, "request rejected\n");
 	} else if (data->status == BIT(SVC_STATUS_OK)) {
 		priv->status = 0;
+	} else if (data->status == BIT(SVC_STATUS_NO_SUPPORT)) {
+		priv->status = -EINVAL;
+		dev_err(client->dev, "firmware doesn't support...\n");
 	} else {
 		priv->status = -EINVAL;
 		dev_err(client->dev, "rejected, invalid param\n");
@@ -1474,6 +1480,90 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		 fcs_close_services(priv, s_buf, d_buf);
 		 fcs_close_services(priv, ps_buf, NULL);
+		 break;
+
+	case INTEL_FCS_DEV_CRYPTO_GET_DIGEST:
+		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_from_user\n");
+			 return -EFAULT;
+		 }
+
+		 sid = data->com_paras.s_mac_data.sid;
+		 cid = data->com_paras.s_mac_data.cid;
+		 kuid = data->com_paras.s_mac_data.kuid;
+
+		 msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_INIT;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->arg[2] = kuid;
+		 msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		 msg->arg[4] = data->com_paras.s_mac_data.sha_op_mode |
+			       (data->com_paras.s_mac_data.sha_digest_sz <<
+			       CRYPTO_ECC_DIGEST_SZ_OFFSET);
+
+		 priv->client.receive_cb = fcs_vab_callback;
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 if (ret || priv->status) {
+			 dev_err(dev, "failed to send the cmd=%d,ret=%d, status=%d\n",
+				 COMMAND_FCS_CRYPTO_GET_DIGEST_INIT, ret, priv->status);
+			 return -EFAULT;
+		 }
+
+		 s_buf = stratix10_svc_allocate_memory(priv->chan,
+						       AES_CRYPT_CMD_MAX_SZ);
+		 if (!s_buf) {
+			 dev_err(dev, "failed allocate source buf\n");
+			 return -ENOMEM;
+		 }
+
+		 d_buf = stratix10_svc_allocate_memory(priv->chan,
+						       AES_CRYPT_CMD_MAX_SZ);
+		 if (!d_buf) {
+			 dev_err(dev, "failed allocate destation buf\n");
+			 fcs_close_services(priv, s_buf, NULL);
+			 return -ENOMEM;
+		 }
+
+		 memcpy(s_buf, data->com_paras.s_mac_data.src,
+			data->com_paras.s_mac_data.src_size);
+
+		 msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->payload = s_buf;
+		 msg->payload_length = data->com_paras.s_mac_data.src_size;
+		 msg->payload_output = d_buf;
+		 msg->payload_length_output = AES_CRYPT_CMD_MAX_SZ;
+		 priv->client.receive_cb = fcs_attestation_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   10 * FCS_REQUEST_TIMEOUT);
+		 if (!ret && !priv->status) {
+			 if (priv->size > AES_CRYPT_CMD_MAX_SZ) {
+				 dev_err(dev, "returned size %d is incorrect\n",
+					 priv->size);
+				 fcs_close_services(priv, s_buf, d_buf);
+				 return -EFAULT;
+			 }
+
+			 memcpy(data->com_paras.s_mac_data.dst,
+				priv->kbuf, priv->size);
+			 data->com_paras.s_mac_data.dst_size = priv->size;
+		 } else {
+			 data->com_paras.s_mac_data.dst = NULL;
+			 data->com_paras.s_mac_data.dst_size = 0;
+		 }
+
+		 data->status = priv->status;
+
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_to_user\n");
+			 fcs_close_services(priv, s_buf, d_buf);
+			 ret = -EFAULT;
+		 }
+
+		 fcs_close_services(priv, s_buf, d_buf);
 		 break;
 
 	default:
