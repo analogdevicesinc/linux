@@ -925,4 +925,51 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_GET_CRYPTO_SERVICE_KEY_INFO \
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_CRYPTO_SERVICE_KEY_INFO)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_AES_CRYPTO_INIT
+ * Sync call to initialize AES crypto operation
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_AES_CRYPTO_INIT
+ * a1 session ID
+ * a2 context ID
+ * a3 key UID
+ * a4 physical address of AES crypto parameter data (include block mode,
+ *    encrypt/decrypt, IV fields
+ * a5 size of of AES crypto parameter data
+ * a6-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_AES_CRYPTO_INIT 116
+#define INTEL_SIP_SMC_FCS_AES_CRYPTO_INIT \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_AES_CRYPTO_INIT)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_AES_CRYPTO_FINALIZE
+ * Sync call to decrypt/encrypt a data block
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_AES_CRYPTO_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destation
+ * a6 size of destation
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_AES_CRYPTO_FINALIZE 118
+#define INTEL_SIP_SMC_FCS_AES_CRYPTO_FINALIZE \
+        INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_AES_CRYPTO_FINALIZE)
+
 #endif
