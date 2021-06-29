@@ -1023,4 +1023,58 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_GET_DIGEST_FINALIZE \
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_FINALIZE)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_MAC_VERIFY_INIT
+ * Sync call to check the integrity and authenticity of a blob by comparing
+ * the calculated MAC with tagged MAC
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_MAC_VERIFY_INIT
+ * a1 session ID
+ * a2 context ID
+ * a3 key UID
+ * a4 size of crypto parameter data
+ * a5 crypto parameter data
+ * 	3:0	not used
+ *      7:4     digist size
+ *      63:8    not used
+ * a6-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_INIT 122
+#define INTEL_SIP_SMC_FCS_MAC_VERIFY_INIT \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_INIT)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_MAC_VERIFY_FINALIZE
+ * Sync call to check the integrity and authenticity of a blob by comparing
+ * the calculated MAC with tagged MAC
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_MAC_VERIFY_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destation
+ * a6 size of destation
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_FINALIZE 124
+#define INTEL_SIP_SMC_FCS_MAC_VERIFY_FINALIZE \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_FINALIZE)
+
 #endif
