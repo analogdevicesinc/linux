@@ -44,6 +44,8 @@
 #define CRYPTO_EXPORTED_KEY_OBJECT_MAX_SZ 364
 #define CRYPTO_GET_KEY_INFO_MAX_SZ 144
 
+#define AES_CRYPT_CMD_MAX_SZ	SZ_4M /* set 4 Mb for now */
+
 #define SIGMA_SESSION_ID_ONE	0x1
 #define SIGMA_UNKNOWN_SESSION	0xffffffff
 
@@ -220,9 +222,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	char filename[FILE_NAME_SIZE];
 	size_t tsz, rsz, datasz;
 	uint32_t sid;
+	uint32_t kuid;
+	uint32_t cid;
 	void *s_buf;
 	void *d_buf;
 	void *ps_buf;
+	void *iv_field_buf;
 	unsigned int buf_sz;
 	int ret = 0;
 	int i;
@@ -1335,6 +1340,140 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		 }
 
 		 fcs_close_services(priv, NULL, d_buf);
+		 break;
+
+	case INTEL_FCS_DEV_CRYPTO_AES_CRYPT:
+		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_from_user\n");
+			 return -EFAULT;
+		 }
+
+		 iv_field_buf = stratix10_svc_allocate_memory(priv->chan, 28);
+		 if (!iv_field_buf) {
+			 dev_err(dev, "failed allocate iv_field buf\n");
+			 return -ENOMEM;
+		 }
+
+		 sid = data->com_paras.a_crypt.sid;
+		 cid = data->com_paras.a_crypt.cid;
+		 kuid = data->com_paras.a_crypt.kuid;
+
+		 memcpy(iv_field_buf, &data->com_paras.a_crypt.cpara.bmode, 1);
+		 memcpy(iv_field_buf + 1, &data->com_paras.a_crypt.cpara.aes_mode, 1);
+		 memcpy(iv_field_buf + 12, data->com_paras.a_crypt.cpara.iv_field, 16);
+
+		 msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_INIT;
+		 msg->payload = iv_field_buf;
+		 msg->payload_length = data->com_paras.a_crypt.cpara_size;
+		 msg->payload_output = NULL;
+		 msg->payload_length_output = 0;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->arg[2] = kuid;
+
+		 priv->client.receive_cb = fcs_vab_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 if (ret || priv->status) {
+			 dev_err(dev, "failed to send the cmd=%d,ret=%d\n",
+				 COMMAND_FCS_CRYPTO_AES_CRYPT_INIT,
+				 ret);
+			 fcs_close_services(priv, iv_field_buf, NULL);
+			 return -EFAULT;
+		 }
+
+		 fcs_close_services(priv, iv_field_buf, NULL);
+
+		 s_buf = stratix10_svc_allocate_memory(priv->chan,
+				data->com_paras.a_crypt.src_size);
+		 if (!s_buf) {
+			 dev_err(dev, "failed allocate source buf\n");
+			 return -ENOMEM;
+		 }
+
+		 d_buf = stratix10_svc_allocate_memory(priv->chan,
+				data->com_paras.a_crypt.dst_size);
+		 if (!d_buf) {
+			 dev_err(dev, "failed allocate destation buf\n");
+			 fcs_close_services(priv, s_buf, NULL);
+			 return -ENOMEM;
+		 }
+
+		 ret = copy_from_user(s_buf,
+				     data->com_paras.a_crypt.src,
+				     data->com_paras.a_crypt.src_size);
+
+		 if (ret) {
+			dev_err(dev, "failure on copy_from_user\n");
+			fcs_close_services(priv, s_buf, d_buf);
+			return -EFAULT;
+		 }
+
+		 msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->payload = s_buf;
+		 msg->payload_length = data->com_paras.a_crypt.src_size;
+		 msg->payload_output = d_buf;
+		 msg->payload_length_output = data->com_paras.a_crypt.dst_size;
+		 priv->client.receive_cb = fcs_attestation_callback;
+
+		 ps_buf = stratix10_svc_allocate_memory(priv->chan, PS_BUF_SIZE);
+		 if (!ps_buf) {
+			dev_err(dev, "failed to allocate p-status buf\n");
+			fcs_close_services(priv, s_buf, d_buf);
+			return -ENOMEM;
+		 }
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 if (!ret && !priv->status) {
+			/* to query the complete status */
+			msg->payload = ps_buf;
+			msg->payload_length = PS_BUF_SIZE;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+			priv->client.receive_cb = fcs_data_callback;
+
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			dev_dbg(dev, "request service ret=%d\n", ret);
+			if (!ret && !priv->status) {
+				if (!priv->kbuf || priv->size != 16) {
+					dev_err(dev, "unregconize response\n");
+					fcs_close_services(priv, s_buf, d_buf);
+					fcs_close_services(priv, ps_buf, NULL);
+					return -EFAULT;
+				}
+
+				data->com_paras.a_crypt.dst_size =
+					((u32 *)priv->kbuf)[3];
+
+				ret = copy_to_user(
+					data->com_paras.a_crypt.dst, d_buf,
+					data->com_paras.a_crypt.dst_size);
+
+				if (ret) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, s_buf, d_buf);
+					fcs_close_services(priv, ps_buf, NULL);
+					return -EFAULT;
+				}
+			}
+		 } else {
+			data->com_paras.a_crypt.dst = NULL;
+			data->com_paras.a_crypt.dst_size = 0;
+		 }
+
+		 data->status = priv->status;
+
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		 }
+
+		 fcs_close_services(priv, s_buf, d_buf);
+		 fcs_close_services(priv, ps_buf, NULL);
 		 break;
 
 	default:
