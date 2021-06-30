@@ -82,8 +82,10 @@
 #define AD9545_TDC0_PERIOD		0x2A01
 #define AD9545_PLL_STATUS		0x3001
 #define AD9545_MISC			0x3002
+#define AD9545_TEMP0			0x3003
 #define AD9545_REFA_STATUS		0x3005
 #define AD9545_PLL0_STATUS		0x3100
+#define AD9545_PLL0_OPERATION		0x3101
 
 #define AD9545_REF_CTRL_DIF_MSK			GENMASK(3, 2)
 #define AD9545_REF_CTRL_REFA_MSK		GENMASK(5, 4)
@@ -156,6 +158,7 @@
 
 #define AD9545_PWR_CALIB_CHX(x)			(AD9545_PWR_CALIB_CH0 + ((x) * 0x100))
 #define AD9545_PLLX_STATUS(x)			(AD9545_PLL0_STATUS + ((x) * 0x100))
+#define AD9545_PLLX_OPERATION(x)		(AD9545_PLL0_OPERATION + ((x) * 0x100))
 #define AD9545_CTRL_CH(x)			(AD9545_CTRL_CH0 + ((x) * 0x100))
 #define AD9545_DPLLX_FAST_MODE(x)		(AD9545_DPLL0_FAST_MODE + ((x) * 0x100))
 #define AD9545_REFX_STATUS(x)			(AD9545_REFA_STATUS + (x))
@@ -213,7 +216,21 @@
 #define AD9545_AUX_DPLL_REF_FAULT		BIT(2)
 
 /* AD9545_REFX_STATUS bitfields */
+#define AD9545_REFX_SLOW_MSK			BIT(0)
+#define AD9545_REFX_FAST_MSK			BIT(1)
+#define AD9545_REFX_JITTER_MSK			BIT(2)
+#define AD9545_REFX_FAULT_MSK			BIT(3)
 #define AD9545_REFX_VALID_MSK			BIT(4)
+#define AD9545_REFX_LOS_MSK			BIT(5)
+
+/* AD9545_PLL0_STATUS bitfields */
+#define AD9545_PLL_LOCKED			BIT(0)
+
+/* AD9545_PLL0_OPERATION bitfields */
+#define AD9545_PLL_FREERUN			BIT(0)
+#define AD9545_PLL_HOLDOVER			BIT(1)
+#define AD9545_PLL_ACTIVE			BIT(3)
+#define AD9545_PLL_ACTIVE_PROFILE		GENMASK(6, 4)
 
 #define AD9545_SYS_PLL_STABLE_MSK		GENMASK(1, 0)
 #define AD9545_SYS_PLL_STABLE(x)		(((x) & AD9545_SYS_PLL_STABLE_MSK) == 0x3)
@@ -485,6 +502,7 @@ struct ad9545_state {
 };
 
 #define to_ref_in_clk(_hw)	container_of(_hw, struct ad9545_ref_in_clk, hw)
+#define to_aux_dpll_clk(_hw)	container_of(_hw, struct ad9545_aux_dpll_clk, hw)
 #define to_pll_clk(_hw)		container_of(_hw, struct ad9545_pll_clk, hw)
 #define to_out_clk(_hw)		container_of(_hw, struct ad9545_out_clk, hw)
 #define to_nco_clk(_hw)		container_of(_hw, struct ad9545_aux_nco_clk, hw)
@@ -975,6 +993,136 @@ static int ad9545_io_update(struct ad9545_state *st)
 {
 	return regmap_write(st->regmap, AD9545_IO_UPDATE, AD9545_UPDATE_REGS);
 }
+
+#ifdef CONFIG_DEBUG_FS
+#include <linux/debugfs.h>
+
+static int ad9545_aux_dpll_clk_debugfs_show(struct seq_file *s, void *p)
+{
+	struct ad9545_aux_dpll_clk *ref_clk = s->private;
+	u32 regval;
+	int ret;
+
+	ret = ad9545_io_update(ref_clk->st);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(ref_clk->st->regmap, AD9545_MISC, &regval);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(s, "%s:\n", ad9545_aux_dpll_name);
+	seq_printf(s, "Lock status: %s\n",
+		   (regval & AD9545_AUX_DPLL_LOCK_MSK) ? "Locked" : "Unlocked");
+	seq_printf(s, "Reference: %s\n",
+		   (regval & AD9545_AUX_DPLL_REF_FAULT) ? "Faulted" : "Valid");
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(ad9545_aux_dpll_clk_debugfs);
+
+static void ad9545_aux_dpll_clk_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct ad9545_aux_dpll_clk *dpll_clk = to_aux_dpll_clk(hw);
+
+	if (dpll_clk->dpll_used)
+		debugfs_create_file(ad9545_aux_dpll_name, 0444,
+				    dentry, dpll_clk, &ad9545_aux_dpll_clk_debugfs_fops);
+}
+
+static int ad9545_in_clk_debugfs_show(struct seq_file *s, void *p)
+{
+	struct ad9545_ref_in_clk *ref_clk = s->private;
+	u32 regval;
+	int ret;
+
+	ret = ad9545_io_update(ref_clk->st);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(ref_clk->st->regmap, AD9545_REFX_STATUS(ref_clk->address), &regval);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(s, "%s:\n", ad9545_in_clk_names[ref_clk->address]);
+	seq_puts(s, "Reference: ");
+
+	if (regval & AD9545_REFX_VALID_MSK)
+		seq_puts(s, "Valid\n");
+	else
+		seq_printf(s, "Faulted:%s%s%s%s\n",
+			   (regval & AD9545_REFX_LOS_MSK) ? " LOS" : "",
+			   (regval & AD9545_REFX_JITTER_MSK) ? " Excess Jitter" : "",
+			   (regval & AD9545_REFX_FAST_MSK) ? " Too Fast" : "",
+			   (regval & AD9545_REFX_SLOW_MSK) ? " Too Slow" : "");
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(ad9545_in_clk_debugfs);
+
+static void ad9545_in_clk_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct ad9545_ref_in_clk *ref_clk = to_ref_in_clk(hw);
+
+	if (ref_clk->ref_used)
+		debugfs_create_file(ad9545_in_clk_names[ref_clk->address], 0444,
+				    dentry, ref_clk, &ad9545_in_clk_debugfs_fops);
+}
+
+static int ad9545_pll_clk_debugfs_show(struct seq_file *s, void *p)
+{
+	struct ad9545_pll_clk *pll = s->private;
+	__le16 reg;
+	u32 regval;
+	s16 temp;
+	int ret;
+
+	ret = ad9545_io_update(pll->st);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(s, "PLL%d:\n", pll->address);
+
+	ret = regmap_read(pll->st->regmap, AD9545_PLLX_STATUS(pll->address), &regval);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(s, "PLL status: %s\n", (regval & AD9545_PLL_LOCKED) ? "Locked" : "Unlocked");
+
+	ret = regmap_read(pll->st->regmap, AD9545_PLLX_OPERATION(pll->address), &regval);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(s, "Freerun Mode: %s\n", (regval & AD9545_PLL_FREERUN) ? "On" : "Off");
+	seq_printf(s, "Holdover Mode: %s\n", (regval & AD9545_PLL_HOLDOVER) ? "On" : "Off");
+	seq_printf(s, "PLL Profile: %s\n", (regval & AD9545_PLL_ACTIVE) ? "On" : "Off");
+	seq_printf(s, "Profile Number: %ld\n", FIELD_GET(AD9545_PLL_ACTIVE_PROFILE, regval));
+
+	ret = regmap_bulk_read(pll->st->regmap, AD9545_TEMP0, &reg, 2);
+	if (ret < 0)
+		return ret;
+
+	temp = le16_to_cpu(reg);
+	temp /= (1 << 7);
+	seq_printf(s, "Temperature: %d C\n", temp);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(ad9545_pll_clk_debugfs);
+
+static void ad9545_pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct ad9545_pll_clk *pll = to_pll_clk(hw);
+
+	if (pll->pll_used)
+		debugfs_create_file(ad9545_pll_clk_names[pll->address], 0444, dentry,
+				    pll, &ad9545_pll_clk_debugfs_fops);
+}
+#else
+#define ad9545_aux_dpll_clk_debug_init NULL
+#define ad9545_in_clk_debug_init NULL
+#define ad9545_pll_debug_init NULL
+#endif
 
 static int ad9545_sys_clk_setup(struct ad9545_state *st)
 {
@@ -1491,6 +1639,7 @@ static unsigned long ad95452_in_clk_recalc_rate(struct clk_hw *hw, unsigned long
 
 static const struct clk_ops ad9545_in_clk_ops = {
 	.recalc_rate = ad95452_in_clk_recalc_rate,
+	.debug_init = ad9545_in_clk_debug_init,
 };
 
 static int ad9545_input_refs_setup(struct ad9545_state *st)
@@ -1923,6 +2072,7 @@ static const struct clk_ops ad9545_pll_clk_ops = {
 	.round_rate = ad9545_pll_clk_round_rate,
 	.set_rate = ad9545_pll_set_rate,
 	.get_parent = ad9545_pll_get_parent,
+	.debug_init = ad9545_pll_debug_init,
 };
 
 static int ad9545_pll_fast_acq_setup(struct ad9545_pll_clk *pll, int profile)
@@ -2292,6 +2442,7 @@ static unsigned long ad9545_aux_dpll_clk_recalc_rate(struct clk_hw *hw, unsigned
 
 static const struct clk_ops ad9545_aux_dpll_clk_ops = {
 	.recalc_rate = ad9545_aux_dpll_clk_recalc_rate,
+	.debug_init = ad9545_aux_dpll_clk_debug_init,
 };
 
 static int ad9545_aux_dpll_setup(struct ad9545_state *st)
