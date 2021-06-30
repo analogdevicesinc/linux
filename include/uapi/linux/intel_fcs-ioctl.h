@@ -306,6 +306,28 @@ struct fcs_sha2_mac_data {
 };
 
 /**
+ * struct fcs_ecdsa_data
+ * @sid: session ID
+ * @cid: context ID
+ * @kuid: key UID
+ * @src: source
+ * @src_size: size of source
+ * @dst: destination
+ * @dst_size: size of destination
+ * @ecc_algorithm: ECC algorithm
+ */
+struct fcs_ecdsa_data {
+	uint32_t sid;
+	uint32_t cid;
+	uint32_t kuid;
+	void *src;
+	uint32_t src_size;
+	void *dst;
+	uint32_t dst_size;
+	int ecc_algorithm;
+};
+
+/**
  * struct intel_fcs_dev_ioct: common structure passed to Linux
  *	kernel driver for all commands.
  * @status: Used for the return code.
@@ -346,6 +368,7 @@ struct intel_fcs_dev_ioctl {
 		struct fcs_crypto_key_object		k_object;
 		struct fcs_aes_crypt		a_crypt;
 		struct fcs_sha2_mac_data	s_mac_data;
+		struct fcs_ecdsa_data		ecdsa_data;
 	} com_paras;
 };
 
@@ -401,6 +424,7 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CRYPTO_AES_CRYPT_CMD,
 	INTEL_FCS_DEV_CRYPTO_GET_DIGEST_CMD,
 	INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_CMD,
+	INTEL_FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -498,6 +522,10 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_CRYPTO_MAC_VERIFY \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING_CMD, struct intel_fcs_dev_ioctl)
 
 #endif
 
