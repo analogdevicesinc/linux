@@ -201,6 +201,10 @@
 		status = "disabled";
 	};
 
+	rtc-rpmsg {
+		compatible = "fsl,imx-rpmsg-rtc";
+	};
+
 	soc: soc@0 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
