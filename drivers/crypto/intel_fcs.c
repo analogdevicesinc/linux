@@ -234,7 +234,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	void *d_buf;
 	void *ps_buf;
 	void *iv_field_buf;
-	unsigned int buf_sz, out_sz;
+	unsigned int buf_sz, in_sz, out_sz;
 	int ret = 0;
 	int i;
 
@@ -1651,6 +1651,90 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		 fcs_close_services(priv, s_buf, d_buf);
 		 break;
+
+	case INTEL_FCS_DEV_CRYPTO_ECDSA_HASH_SIGNING:
+		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_from_user\n");
+			 return -EFAULT;
+		 }
+
+		 sid = data->com_paras.ecdsa_data.sid;
+		 cid = data->com_paras.ecdsa_data.cid;
+		 kuid = data->com_paras.ecdsa_data.kuid;
+		 in_sz = data->com_paras.ecdsa_data.src_size;
+		 out_sz = data->com_paras.ecdsa_data.dst_size;
+
+		 msg->command = COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_INIT;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->arg[2] = kuid;
+		 msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		 msg->arg[4] = data->com_paras.ecdsa_data.ecc_algorithm & 0xF;
+		 priv->client.receive_cb = fcs_vab_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 if (ret || priv->status) {
+			 dev_err(dev, "failed to send the cmd=%d,ret=%d, status=%d\n",
+				 COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_INIT,
+				 ret, priv->status);
+			 return -EFAULT;
+		 }
+
+		 s_buf = stratix10_svc_allocate_memory(priv->chan, in_sz);
+		 if (!s_buf) {
+			 dev_err(dev, "failed allocate source buf\n");
+			 return -ENOMEM;
+		 }
+
+		 d_buf = stratix10_svc_allocate_memory(priv->chan, out_sz);
+		 if (!d_buf) {
+			 dev_err(dev, "failed allocate destation buf\n");
+			 fcs_close_services(priv, s_buf, NULL);
+			 return -ENOMEM;
+		 }
+
+		 memcpy(s_buf, data->com_paras.ecdsa_data.src,
+			data->com_paras.ecdsa_data.src_size);
+
+		 msg->command = COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE;
+		 msg->arg[0] = sid;
+		 msg->arg[1] = cid;
+		 msg->payload = s_buf;
+		 msg->payload_length = in_sz;
+		 msg->payload_output = d_buf;
+		 msg->payload_length_output = out_sz;
+		 priv->client.receive_cb = fcs_attestation_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   10 * FCS_REQUEST_TIMEOUT);
+		 if (!ret && !priv->status) {
+			 if (priv->size > out_sz) {
+				 dev_err(dev, "returned size %d is incorrect\n",
+					 priv->size);
+				 fcs_close_services(priv, s_buf, d_buf);
+				 return -EFAULT;
+			 }
+
+			 memcpy(data->com_paras.ecdsa_data.dst,
+				priv->kbuf, priv->size);
+			 data->com_paras.ecdsa_data.dst_size = priv->size;
+		 } else {
+			 data->com_paras.ecdsa_data.dst = NULL;
+			 data->com_paras.ecdsa_data.dst_size = 0;
+		 }
+
+		 data->status = priv->status;
+
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_to_user\n");
+			 fcs_close_services(priv, s_buf, d_buf);
+			 ret = -EFAULT;
+		 }
+
+		 fcs_close_services(priv, s_buf, d_buf);
+		 break;
+
 
 	default:
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
