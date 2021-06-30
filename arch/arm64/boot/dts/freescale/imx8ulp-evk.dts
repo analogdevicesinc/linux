@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "imx8ulp.dtsi"
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "NXP i.MX8ULP EVK";
@@ -13,6 +14,30 @@
 
 	chosen {
 		stdout-path = &lpuart5;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_keys>;
+
+		volume-up {
+			label = "Volume Up";
+			gpios = <&gpiof 7 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+		};
+
+		volume-down {
+			label = "Volume Down";
+			gpios = <&gpiof 30 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
+
+		volume-home {
+			label = "Volume Home";
+			gpios = <&gpiof 31 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
 	};
 
 	memory@80000000 {
@@ -309,6 +334,14 @@
 			MX8ULP_PAD_PTD20__FLEXSPI2_A_DATA6	0x42
 			MX8ULP_PAD_PTD21__FLEXSPI2_A_DATA5	0x42
 			MX8ULP_PAD_PTD22__FLEXSPI2_A_DATA4	0x42
+		>;
+	};
+
+	pinctrl_gpio_keys: gpiokeys {
+		fsl,pins = <
+			MX8ULP_PAD_PTF7__PTF7		0x3
+			MX8ULP_PAD_PTF30__PTF30		0x3
+			MX8ULP_PAD_PTF31__PTF31		0x3
 		>;
 	};
 
