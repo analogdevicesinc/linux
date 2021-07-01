@@ -60,6 +60,8 @@ struct ad9528_channel_spec {
  * @sysref_nshot_mode: SYSREF pattern NSHOT mode
  * @sysref_req_trigger_mode: SYSREF request trigger mode
  * @sysref_req_en: SYSREF request pin mode enable (default SPI mode)
+ * @jdev_max_sysref_freq: Maximum SYSREF frequency allowed (Hz)
+ * @dev_desired_sysref_freq: Desired SYSREF frequency (Hz)
  * @pll2_charge_pump_current_nA: Magnitude of PLL2 charge pump current (nA).
  * @pll2_freq_doubler_en: PLL2 frequency doubler enable.
  * @pll2_r1_div: PLL2 R1 divider, range 1..31.
@@ -115,6 +117,7 @@ struct ad9528_platform_data {
 	unsigned char			sysref_req_trigger_mode;
 	bool				sysref_req_en;
 	u32				jdev_max_sysref_freq;
+	u32				jdev_desired_sysref_freq;
 
 	/* PLL2 Setting */
 	unsigned int			pll2_charge_pump_current_nA;
