@@ -1319,9 +1319,17 @@ static int ad9528_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
-	while ((st->jdev_lmfc_lemc_gcd > st->pdata->jdev_max_sysref_freq) &&
-		(st->jdev_lmfc_lemc_gcd % (st->jdev_lmfc_lemc_gcd >> 1) == 0))
-		st->jdev_lmfc_lemc_gcd >>= 1;
+
+	if (st->pdata->jdev_desired_sysref_freq && (st->jdev_lmfc_lemc_gcd %
+		st->pdata->jdev_desired_sysref_freq == 0)) {
+		st->jdev_lmfc_lemc_gcd = st->pdata->jdev_desired_sysref_freq;
+	} else {
+		while ((st->jdev_lmfc_lemc_gcd >
+			st->pdata->jdev_max_sysref_freq) &&
+			(st->jdev_lmfc_lemc_gcd %
+			(st->jdev_lmfc_lemc_gcd >> 1) == 0))
+			st->jdev_lmfc_lemc_gcd >>= 1;
+	}
 
 	kdiv = DIV_ROUND_CLOSEST(st->sysref_src_pll2, st->jdev_lmfc_lemc_gcd);
 	kdiv = clamp_t(unsigned long, kdiv, 1UL, 65535UL);
@@ -1441,6 +1449,9 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	pdata->jdev_max_sysref_freq = INT_MAX;
 	of_property_read_u32(np, "adi,jesd204-max-sysref-frequency-hz",
 			     &pdata->jdev_max_sysref_freq);
+
+	of_property_read_u32(np, "adi,jesd204-desired-sysref-frequency-hz",
+			     &pdata->jdev_desired_sysref_freq);
 
 	/* PLL2 Setting */
 	of_property_read_u32(np, "adi,pll2-charge-pump-current-nA",
