@@ -1,0 +1,101 @@
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_frequency
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Stores the Local Oscillator (LO) frequency in Hz.
+		Reading returns the actual frequency in Hz.
+		The values take the in_altvoltage0_lo_mode into account.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		The frequency divider and multipliers in the LO interface
+		enable measurement sweeps beyond the operating frequency
+		range of the source driving the (LOP, LOM) pins.
+		This enables operation over the full 20 GHz bandwidth
+		of the ADL5960 using a 6 GHz synthesizer as the LO source.
+
+		This attribute Configures the LO path multiplier/divider
+		or bypass. Reading returns the actual mode.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		in_altvoltage0_lo_mode attribute:
+
+		* bypass -> Bypasses the IF frequency mixer
+		* x1 -> The external applied LO frequency is directly
+		  passed into the mixer
+		* x2 -> The external applied LO frequency is doubled and
+		  passed into the mixer
+		* x4 -> The external applied LO frequency is quadrupled and
+		  passed into the mixer
+		* /2 -> The external applied LO frequency is divided and
+		  passed into the mixer
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_frequency
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Stores the Offset frequency applied to the OFP, OFM inputs in Hz.
+		Reading returns the actual frequency in Hz.
+		The values do not take the in_altvoltage1_offset_mode into
+		account. Please see in_altvoltage1_if_frequency.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute Configures the Offset path divider and modes.
+		Reading returns the actual mode.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		in_altvoltage1_offset_mode attribute:
+		* bypass -> Bypasses the IF frequency mixer
+		* off -> Dividers are off, offset signal is disconnected
+		* x1 -> The external applied OFFS frequency is directly
+		  passed into the mixer
+		* /2 -> The external applied OFFS frequency is divided by 2 and
+		  passed into the mixer
+		* /4 -> The external applied OFFS frequency is divided by 4 and
+		  passed into the mixer
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_if_frequency
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Stores the IF frequency applied to IF frequency offset mixer in Hz.
+		Reading returns the actual frequency in Hz.
+		The values take the in_altvoltage1_offset_mode into
+		account.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_voltage0_forward_hardwaregain
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Stores the gain of the IF amplifier in the Forward path,
+		to the (IFFP, IFFM) output, in 6dB steps.
+		Reading returns the actual gain in dB.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_voltage1_reverse_hardwaregain
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Stores the gain of the IF amplifier in the Reverse path,
+		to the (IFRP, IFRM) output, in 6dB steps.
+		Reading returns the actual gain in dB.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_voltage_filter_low_pass_3db_frequency
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Stores the corner frequency of the narrow (CIF2) & wideband (CIF1)
+		bandwidth IF filter in Hz.
+		Reading returns the actual frequency in Hz.
