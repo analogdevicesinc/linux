@@ -106,6 +106,7 @@ config IIO_ALL_ADI_DRIVERS
 	select ADF4360
 	select ADF4371
 	select ADF5355
+	select ADL5960
 	select ADMV1013
 	select ADMV1014
 	select ADMV8818
