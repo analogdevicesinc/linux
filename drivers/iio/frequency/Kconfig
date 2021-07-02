@@ -244,4 +244,23 @@ config ADF5355
 	  To compile this driver as a module, choose M here: the
 	  module will be called adf5355.
 endmenu
+
+#
+# RF Font-Ends
+#
+
+menu "RF Font-Ends"
+config ADL5960
+	tristate "Analog Devices ADL5960 Vector Network Analyzer Front-End"
+	depends on SPI
+	depends on COMMON_CLK
+	depends on OF
+	select REGMAP_SPI
+	help
+	  Say yes here to build support for Analog Devices ADL5960
+	  10 MHz to 20 GHz, Integrated Vector Network Analyzer Front-End.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adl5960.
+endmenu
 endmenu
