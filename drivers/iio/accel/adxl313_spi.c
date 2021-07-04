@@ -24,6 +24,7 @@ static int adxl313_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct regmap *regmap;
+	int ret;
 
 	regmap = devm_regmap_init_spi(spi, &adxl313_spi_regmap_config);
 	if (IS_ERR(regmap)) {
@@ -32,7 +33,12 @@ static int adxl313_spi_probe(struct spi_device *spi)
 		return PTR_ERR(regmap);
 	}
 
-	return adxl313_core_probe(&spi->dev, regmap, id->name);
+	ret = adxl313_core_probe(&spi->dev, regmap, id->name);
+	if (ret < 0)
+		return ret;
+
+	return regmap_update_bits(regmap, ADXL313_REG_POWER_CTL,
+				  ADXL313_I2C_DISABLE, ADXL313_I2C_DISABLE);
 }
 
 static const struct spi_device_id adxl313_spi_id[] = {

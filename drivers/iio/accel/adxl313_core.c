@@ -7,6 +7,7 @@
  * Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ADXL313.pdf
  */
 
+#include <linux/bitfield.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -14,36 +15,255 @@
 #include "adxl313.h"
 
 struct adxl313_data {
-	struct regmap *regmap;
+	struct regmap	*regmap;
+	struct mutex	lock; /* lock to protect transf_buf */
+	__le16		transf_buf ____cacheline_aligned;
 };
+
+static const int adxl313_odr_freqs[][2] = {
+	[0] = { 6, 250000 },
+	[1] = { 12, 500000 },
+	[2] = { 25, 0 },
+	[3] = { 50, 0 },
+	[4] = { 100, 0 },
+	[5] = { 200, 0 },
+	[6] = { 400, 0 },
+	[7] = { 800, 0 },
+	[8] = { 1600, 0 },
+	[9] = { 3200, 0 },
+};
+
+#define ADXL313_ACCEL_CHANNEL(index, addr, axis) {			\
+	.type = IIO_ACCEL,						\
+	.address = addr,						\
+	.modified = 1,							\
+	.channel2 = IIO_MOD_##axis,					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
+			      BIT(IIO_CHAN_INFO_CALIBBIAS),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |		\
+				    BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.info_mask_shared_by_type_available =				\
+		BIT(IIO_CHAN_INFO_SAMP_FREQ),				\
+	.scan_index = index,						\
+	.scan_type = {							\
+		.sign = 's',						\
+		.realbits = 13,						\
+		.storagebits = 16,					\
+		.endianness = IIO_LE,					\
+	},								\
+}
+
+static const struct iio_chan_spec adxl313_channels[] = {
+	ADXL313_ACCEL_CHANNEL(0, ADXL313_REG_DATAX, X),
+	ADXL313_ACCEL_CHANNEL(1, ADXL313_REG_DATAY, Y),
+	ADXL313_ACCEL_CHANNEL(2, ADXL313_REG_DATAZ, Z),
+};
+
+static int adxl313_set_odr(struct adxl313_data *data,
+			   unsigned int freq1, unsigned int freq2)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(adxl313_odr_freqs); i++) {
+		if (adxl313_odr_freqs[i][0] == freq1 &&
+		    adxl313_odr_freqs[i][1] == freq2)
+			break;
+	}
+
+	if (i == ARRAY_SIZE(adxl313_odr_freqs))
+		return -EINVAL;
+
+	return regmap_update_bits(data->regmap, ADXL313_REG_BW_RATE,
+				  ADXL313_RATE_MSK,
+				  FIELD_PREP(ADXL313_RATE_MSK,
+					     ADXL313_RATE_BASE + i));
+}
+
+static int adxl313_read_axis(struct adxl313_data *data,
+			     struct iio_chan_spec const *chan)
+{
+	int ret;
+
+	mutex_lock(&data->lock);
+
+	ret = regmap_bulk_read(data->regmap,
+			       chan->address,
+			       &data->transf_buf, 2);
+	if (ret)
+		goto unlock_ret;
+
+	ret = le16_to_cpu(data->transf_buf);
+
+unlock_ret:
+	mutex_unlock(&data->lock);
+	return ret;
+}
+
+static int adxl313_read_freq_avail(struct iio_dev *indio_dev,
+				   struct iio_chan_spec const *chan,
+				   const int **vals, int *type, int *length,
+				   long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*vals = (const int *)adxl313_odr_freqs;
+		*length = ARRAY_SIZE(adxl313_odr_freqs) * 2;
+		*type = IIO_VAL_INT_PLUS_MICRO;
+		return IIO_AVAIL_LIST;
+	}
+
+	return -EINVAL;
+}
 
 static int adxl313_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val, int *val2, long mask)
 {
-	return 0;
+	struct adxl313_data *data = iio_priv(indio_dev);
+	unsigned int regval;
+	int ret;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		ret = adxl313_read_axis(data, chan);
+		if (ret < 0)
+			return ret;
+
+		*val = sign_extend32(ret, chan->scan_type.realbits - 1);
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SCALE:
+		*val = 0;
+		*val2 = ADXL313_NSCALE;
+		return IIO_VAL_INT_PLUS_NANO;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		ret = regmap_read(data->regmap,
+				  ADXL313_REG_OFS_AXIS(chan->scan_index),
+				  &regval);
+		if (ret)
+			return ret;
+
+		/*
+		 * 8-bit resolution at +/- 0.5g, that is 4x accel data scale
+		 * factor at full resolution
+		 */
+		*val = sign_extend32(regval, 7) * 4;
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		ret = regmap_read(data->regmap, ADXL313_REG_BW_RATE, &regval);
+		if (ret)
+			return ret;
+
+		ret = FIELD_GET(ADXL313_RATE_MSK, regval) - ADXL313_RATE_BASE;
+		*val = adxl313_odr_freqs[ret][0];
+		*val2 = adxl313_odr_freqs[ret][1];
+		return IIO_VAL_INT_PLUS_MICRO;
+	}
+
+	return -EINVAL;
 }
 
 static int adxl313_write_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
 			     int val, int val2, long mask)
 {
-	return 0;
+	struct adxl313_data *data = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_CALIBBIAS:
+		/*
+		 * 8-bit resolution at +/- 0.5g, that is 4x accel data scale
+		 * factor at full resolution
+		 */
+		if (val > 127 * 4 || val < -128 * 4)
+			return -EINVAL;
+
+		return regmap_write(data->regmap,
+				    ADXL313_REG_OFS_AXIS(chan->scan_index),
+				    val / 4);
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return adxl313_set_odr(data, val, val2);
+	}
+
+	return -EINVAL;
 }
 
 static const struct iio_info adxl313_info = {
 	.read_raw	= adxl313_read_raw,
 	.write_raw	= adxl313_write_raw,
+	.read_avail	= adxl313_read_freq_avail
 };
 
-static const struct iio_chan_spec adxl313_channels[] = {
-};
+static int adxl313_setup(struct device *dev, struct adxl313_data *data)
+{
+	unsigned int regval;
+	int ret;
+
+	/* Ensures the device is in a consistent state after start up */
+	ret = regmap_write(data->regmap, ADXL313_REG_SOFT_RESET,
+			   ADXL313_SOFT_RESET);
+	if (ret)
+		return ret;
+
+	if (device_property_read_bool(dev, "spi-3wire")) {
+		ret = regmap_write(data->regmap, ADXL313_REG_DATA_FORMAT,
+				   ADXL313_SPI_3WIRE);
+		if (ret)
+			return ret;
+	}
+
+	ret = regmap_read(data->regmap, ADXL313_REG_DEVID0, &regval);
+	if (ret)
+		return ret;
+
+	if (regval != ADXL313_DEVID0) {
+		dev_err(dev, "Invalid manufacturer ID: 0x%02x\n", regval);
+		return -ENODEV;
+	}
+
+	ret = regmap_read(data->regmap, ADXL313_REG_DEVID1, &regval);
+	if (ret)
+		return ret;
+
+	if (regval != ADXL313_DEVID1) {
+		dev_err(dev, "Invalid mems ID: 0x%02x\n", regval);
+		return -ENODEV;
+	}
+
+	ret = regmap_read(data->regmap, ADXL313_REG_PARTID, &regval);
+	if (ret)
+		return ret;
+
+	if (regval != ADXL313_PARTID) {
+		dev_err(dev, "Invalid device ID: 0x%02x\n", regval);
+		return -ENODEV;
+	}
+
+	/* Sets the range to +/- 4g */
+	ret = regmap_update_bits(data->regmap, ADXL313_REG_DATA_FORMAT,
+				 ADXL313_RANGE_MSK,
+				 FIELD_PREP(ADXL313_RANGE_MSK,
+					    ADXL313_RANGE_4G));
+	if (ret)
+		return ret;
+
+	/* Enables full resolution */
+	ret = regmap_update_bits(data->regmap, ADXL313_REG_DATA_FORMAT,
+				 ADXL313_FULL_RES, ADXL313_FULL_RES);
+	if (ret)
+		return ret;
+
+	/* Enables measurement mode */
+	return regmap_update_bits(data->regmap, ADXL313_REG_POWER_CTL,
+				  ADXL313_POWER_CTL_MSK,
+				  ADXL313_MEASUREMENT_MODE);
+}
 
 int adxl313_core_probe(struct device *dev, struct regmap *regmap,
 		       const char *name)
 {
 	struct adxl313_data *data;
 	struct iio_dev *indio_dev;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*data));
 	if (!indio_dev)
@@ -51,6 +271,7 @@ int adxl313_core_probe(struct device *dev, struct regmap *regmap,
 
 	data = iio_priv(indio_dev);
 	data->regmap = regmap;
+	mutex_init(&data->lock);
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = name;
@@ -58,6 +279,12 @@ int adxl313_core_probe(struct device *dev, struct regmap *regmap,
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = adxl313_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adxl313_channels);
+
+	ret = adxl313_setup(dev, data);
+	if (ret) {
+		dev_err(dev, "ADXL313 setup failed\n");
+		return ret;
+	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
