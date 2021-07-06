@@ -369,6 +369,39 @@ static int hmc7044_read(struct iio_dev *indio_dev,
 	return ret;
 }
 
+static int hmc7044_toggle_bit(struct iio_dev *indio_dev,
+			unsigned int reg,
+			unsigned int mask,
+			unsigned int us_delay)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	unsigned int val;
+	int ret;
+
+	if (hmc->read_write_confirmed) {
+		ret = hmc7044_read(indio_dev, reg, &val);
+		if (ret < 0)
+			return ret;
+	} else {
+		val = 0;
+	}
+
+	ret = hmc7044_write(indio_dev, reg, val | mask);
+	if (ret < 0)
+		return ret;
+
+	val &= ~mask;
+
+	ret = hmc7044_write(indio_dev, reg, val);
+	if (ret < 0)
+		return ret;
+
+	if (us_delay)
+		usleep_range(us_delay, us_delay * 2);
+
+	return 0;
+}
+
 static void hmc7044_read_write_check(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
@@ -905,10 +938,9 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		return -EINVAL;
 
 	/* Resets all registers to default values */
-	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, HMC7044_SOFT_RESET);
-	mdelay(10);
-	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, 0);
-	mdelay(10);
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_SOFT_RESET,
+		HMC7044_SOFT_RESET, 100);
+
 	hmc7044_read_write_check(indio_dev);
 
 	/* Disable all channels */
@@ -1097,13 +1129,14 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	mdelay(10);
 
 	/* Do a restart to reset the system and initiate calibration */
-	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
-		      HMC7044_RESTART_DIV_FSM);
-	mdelay(1);
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
+		HMC7044_RESTART_DIV_FSM, 10000);
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
+		HMC7044_RESEED_REQ, 1000);
+
 	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
 		      (hmc->high_performance_mode_clock_dist_en ?
 		      HMC7044_HIGH_PERF_DISTRIB_PATH : 0));
-	mdelay(1);
 
 	if (!hmc->clkin1_vcoin_en) {
 		u32 pll1_stat;
@@ -1155,10 +1188,9 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	}
 
 	/* Resets all registers to default values */
-	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, HMC7044_SOFT_RESET);
-	mdelay(10);
-	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, 0);
-	mdelay(10);
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_SOFT_RESET,
+		HMC7044_SOFT_RESET, 100);
+
 	hmc7044_read_write_check(indio_dev);
 
 	/* Load the configuration updates (provided by Analog Devices) */
@@ -1249,13 +1281,14 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	mdelay(10);
 
 	/* Do a restart to reset the system and initiate calibration */
-	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
-		HMC7044_RESTART_DIV_FSM);
-	mdelay(1);
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
+		HMC7044_RESTART_DIV_FSM, 1000);
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
+		HMC7044_RESEED_REQ, 1000);
+
 	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
 		(hmc->high_performance_mode_clock_dist_en ?
 		HMC7044_HIGH_PERF_DISTRIB_PATH : 0));
-	mdelay(1);
 
 	for (i = 0; i < hmc->num_channels; i++) {
 		chan = &hmc->channels[i];
@@ -1689,23 +1722,12 @@ static int hmc7044_jesd204_sysref(struct jesd204_dev *jdev)
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int ret;
-	u32 val;
 
 	dev_dbg(dev, "%s:%d\n", __func__, __LINE__);
 
 	mutex_lock(&hmc->lock);
-
-	ret = hmc7044_read(indio_dev, HMC7044_REG_REQ_MODE_0, &val);
-	if (ret < 0) {
-		mutex_unlock(&hmc->lock);
-		return ret;
-	}
-
-	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
-		val | HMC7044_PULSE_GEN_REQ);
-
-	ret = hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0, val);
-
+	ret = hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
+				 HMC7044_PULSE_GEN_REQ, 0);
 	mutex_unlock(&hmc->lock);
 
 	return ret;
@@ -1717,8 +1739,6 @@ static int hmc7044_jesd204_clks_sync1(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
-	int ret;
-	unsigned mask, val;
 
 	if (!hmc->hmc_two_level_tree_sync_en)
 		return JESD204_STATE_CHANGE_DONE;
@@ -1731,30 +1751,19 @@ static int hmc7044_jesd204_clks_sync1(struct jesd204_dev *jdev,
 	if (hmc->is_sysref_provider) {
 		if (hmc->device_id == HMC7044)
 			hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_DISABLED);
-
-		mask = HMC7044_RESTART_DIV_FSM;
 	} else {
 		if (hmc->device_id == HMC7044 && !hmc->clkin0_rfsync_en && !hmc->clkin1_vcoin_en)
 			hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_SYNC);
 		else
 			hmc7044_continuous_chan_sync_enable(indio_dev, 1);
-
-
-		mask = HMC7044_RESTART_DIV_FSM | HMC7044_RESEED_REQ;
 	}
 
-	ret = hmc7044_read(indio_dev, HMC7044_REG_REQ_MODE_0, &val);
-	if (ret < 0)
-		return ret;
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
+		HMC7044_RESTART_DIV_FSM, (hmc->device_id == HMC7044 &&
+		!hmc->clkin1_vcoin_en) ? 10000 : 1000);
 
-	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
-		val | mask);
-
-	ret = hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0, val);
-	if (ret)
-		return ret;
-
-	msleep(1);
+	hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
+		HMC7044_RESEED_REQ, 1000);
 
 	return JESD204_STATE_CHANGE_DONE;
 }
