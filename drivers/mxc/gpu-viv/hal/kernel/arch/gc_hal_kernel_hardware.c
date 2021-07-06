@@ -2038,7 +2038,7 @@ _SetupSRAMVidMem(
             }
             else
             {
-                char sRAMName[20];
+                char sRAMName[32];
                 gctUINT64 data = 0;
                 gctBOOL sRAMRequested;
 
