@@ -827,6 +827,65 @@ static int hmc7044_clk_register(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int hmc7044_info(struct iio_dev *indio_dev)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	u32 alarm_stat = 0, pll1_stat = 0, clkin_freq, active;
+	int ret;
+
+	if (!hmc->read_write_confirmed) {
+		dev_info(&hmc->spi->dev,
+			"Probed, SPI read support failed\n");
+		return 0;
+	}
+
+	if (hmc->device_id == HMC7044 && !hmc->clkin1_vcoin_en) {
+		ret = hmc7044_read(indio_dev,
+			HMC7044_REG_PLL1_STATUS, &pll1_stat);
+		if (ret < 0)
+			return ret;
+
+		if (HMC7044_PLL1_FSM_STATE(pll1_stat) != 2) { /* Lock */
+			msleep(DIV_ROUND_UP(5000, hmc->pll1_loop_bw));
+			ret = hmc7044_read(indio_dev,
+				HMC7044_REG_PLL1_STATUS, &pll1_stat);
+			if (ret < 0)
+				return ret;
+		}
+
+		ret = hmc7044_read(indio_dev,
+			HMC7044_REG_ALARM_READBACK, &alarm_stat);
+		if (ret < 0)
+			return ret;
+
+		active = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
+	} else {
+		active = 1;
+	}
+
+	if (hmc->device_id == HMC7043)
+		active = 0;
+
+	if (hmc->clkin_freq_ccf[active])
+		clkin_freq = hmc->clkin_freq_ccf[active];
+	else
+		clkin_freq = hmc->clkin_freq[active];
+
+	if (hmc->device_id == HMC7044 && !hmc->clkin1_vcoin_en)
+		dev_info(&hmc->spi->dev,
+			"PLL1: %s, CLKIN%u @ %u Hz, PFD: %u kHz - PLL2: %s @ %u.%06u MHz\n",
+			pll1_fsm_states[HMC7044_PLL1_FSM_STATE(pll1_stat)],
+			active, clkin_freq, hmc->pll1_pfd,
+			HMC7044_PLL2_LOCK_DETECT(alarm_stat) ?
+			"Locked" : "Unlocked", hmc->pll2_freq / 1000000,
+			hmc->pll2_freq % 1000000);
+	else
+		dev_info(&hmc->spi->dev, "CLKIN%u @ %u.%06u MHz\n", active,
+			clkin_freq / 1000000, clkin_freq % 1000000);
+
+	return 0;
+}
+
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
@@ -1165,6 +1224,10 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc->clk_data.clks = hmc->clks;
 	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
 
+	ret = hmc7044_info(indio_dev);
+	if (ret)
+		return ret;
+
 	return of_clk_add_provider(hmc->spi->dev.of_node,
 				   of_clk_src_onecell_get,
 				   &hmc->clk_data);
@@ -1304,6 +1367,10 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 
 	hmc->clk_data.clks = hmc->clks;
 	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
+
+	ret = hmc7044_info(indio_dev);
+	if (ret)
+		return ret;
 
 	return of_clk_add_provider(hmc->spi->dev.of_node,
 				of_clk_src_onecell_get,
