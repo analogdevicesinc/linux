@@ -21,28 +21,32 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_keys>;
 
-		volume-up {
-			label = "Volume Up";
-			gpios = <&gpiof 7 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VOLUMEUP>;
-		};
-
-		volume-down {
-			label = "Volume Down";
-			gpios = <&gpiof 30 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VOLUMEDOWN>;
-		};
-
-		volume-home {
-			label = "Volume Home";
+		power-on {
+			label = "PowerOn";
 			gpios = <&gpiof 31 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VOLUMEDOWN>;
+			linux,code = <KEY_POWER>;
 		};
 	};
 
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x0 0x80000000 0 0x80000000>;
+	};
+
+	rpmsg_keys: rpmsg-keys {
+		compatible = "fsl,rpmsg-keys";
+
+		volume-up {
+			label = "VolumeUp";
+			linux,code = <KEY_VOLUMEUP>;
+			rpmsg-key,wakeup;
+		};
+
+		volume-down {
+			label = "VolumeDown";
+			linux,code = <KEY_VOLUMEDOWN>;
+			rpmsg-key,wakeup;
+		};
 	};
 
 	reserved-memory {
@@ -339,8 +343,6 @@
 
 	pinctrl_gpio_keys: gpiokeys {
 		fsl,pins = <
-			MX8ULP_PAD_PTF7__PTF7		0x3
-			MX8ULP_PAD_PTF30__PTF30		0x3
 			MX8ULP_PAD_PTF31__PTF31		0x3
 		>;
 	};
