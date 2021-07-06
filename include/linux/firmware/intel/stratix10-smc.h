@@ -1276,4 +1276,52 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_FINALIZE \
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_FINALIZE)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_GET_PUBLIC_KEY_INIT
+ * Sync call to send the request to get the public key
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_GET_PUBLIC_KEY_INIT
+ * a1 session ID
+ * a2 context ID
+ * a3 key UID
+ * a4 size of crypto parameter data
+ * a5 crypto parameter data
+ *      3:0     EE algorithm
+ *      63:4    not used
+ * a6-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ECDSA_GET_PUBLIC_KEY_INIT 137
+#define INTEL_SIP_SMC_FCS_ECDSA_GET_PUBLIC_KEY_INIT \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDSA_GET_PUBLIC_KEY_INIT)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_GET_PUBLIC_KEY_FINALIZE
+ * Sync call to send the request to get the public key
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_GET_PUBLIC_KEY_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of response data
+ * a4 size of response data
+ * a5-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_FCS_ECDSA_GET_PUBLIC_KEY_FINALIZE 139
+#define INTEL_SIP_SMC_FCS_ECDSA_GET_PUBLIC_KEY_FINALIZE \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_FCS_ECDSA_GET_PUBLIC_KEY_FINALIZE)
+
 #endif
