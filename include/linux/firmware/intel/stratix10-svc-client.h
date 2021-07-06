@@ -224,6 +224,10 @@ struct stratix10_svc_chan;
  * @COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY (INIT and FINALIZE): send the
  * request to get the public key, return status is SVC_STATUS_OK or
  * SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_CRYPTO_ECDH_REQUEST (INIT and FINALIZE): send the request
+ * on generating a share secret on Diffie-Hellman key exchange, return
+ * status is SVC_STATUS_OK or SVC_STATUS_ERROR
  */
 enum stratix10_svc_command_code {
 	/* for FPGA */
@@ -282,6 +286,8 @@ enum stratix10_svc_command_code {
 	COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE,
 	COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_INIT,
 	COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE,
+	COMMAND_FCS_CRYPTO_ECDH_REQUEST_INIT,
+	COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE,
 	/* for generic mailbox send command */
 	COMMAND_MBOX_SEND_CMD = 100,
 	/* Non-mailbox SMC Call */
