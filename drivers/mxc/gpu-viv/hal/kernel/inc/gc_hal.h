@@ -1190,8 +1190,8 @@ gceSTATUS
 gckOS_UserSignal(
     IN gckOS Os,
     IN gctSIGNAL Signal,
-    IN gctINT Recvid,
-    IN gctINT Coid
+    IN gctINT Rcvid,
+    IN const struct sigevent *Event
     );
 #else
 gceSTATUS

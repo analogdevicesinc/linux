@@ -63,6 +63,10 @@
 #include "gc_hal_driver_vg.h"
 #endif
 
+#if defined(__QNXNTO__)
+#include <sys/siginfo.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -700,8 +704,8 @@ typedef struct _gcsHAL_SIGNAL
     IN gctUINT64                process;
 
 #if defined(__QNXNTO__)
-    /* Client pulse side-channel connection ID. Set by client in gcoOS_CreateSignal. */
-    IN gctINT32                 coid;
+    /* Client pulse event. */
+    IN struct sigevent          event;
 
     /* Set by server. */
     IN gctINT32                 rcvid;

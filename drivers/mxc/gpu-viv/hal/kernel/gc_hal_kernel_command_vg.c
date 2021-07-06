@@ -65,8 +65,8 @@
 extern gceSTATUS
 drv_signal_mgr_add(
     gctUINT32 Pid,
-    gctINT32 Coid,
     gctINT32 Rcvid,
+    const struct sigevent *Event,
     gctUINT64 Signal,
     gctPOINTER *Handle);
 #endif
@@ -937,13 +937,13 @@ _ScheduleTasks(
 
                         gcmkVERIFY_OK(gckOS_GetProcessID(&pid));
 
-                        taskSignal->coid  = TaskTable->coid;
                         taskSignal->rcvid = TaskTable->rcvid;
+                        taskSignal->event = TaskTable->event;
 
                         gcmkERR_BREAK(drv_signal_mgr_add(
                                     pid,
-                                    taskSignal->coid,
                                     taskSignal->rcvid,
+                                    &taskSignal->event,
                                     gcmPTR_TO_UINT64(taskSignal->signal),
                                     &signal));
 
@@ -1646,7 +1646,7 @@ _TaskSignal(
         /* Map the signal into kernel space. */
 #ifdef __QNXNTO__
         status = gckOS_UserSignal(
-            Command->os, task->signal, task->rcvid, task->coid
+            Command->os, task->signal, task->rcvid, &task->event
             );
 #else
         status = gckOS_UserSignal(
@@ -3577,8 +3577,8 @@ gckVGCOMMAND_Commit(
     userTaskTableMapped = gcvTRUE;
 
     /* Update the signal info. */
-    TaskTable->coid  = Context->coid;
     TaskTable->rcvid = Context->rcvid;
+    TaskTable->event = Context->event;
 #endif
 
     gcmkONERROR(gckOS_GetProcessID((gctUINT32_PTR)&pid));
@@ -3650,7 +3650,7 @@ gckVGCOMMAND_Commit(
                     Command->os,
                     Context->userSignal,
                     Context->rcvid,
-                    Context->coid
+                    &Context->event
                     ));
 #else
         gcmkONERROR(gckOS_UserSignal(

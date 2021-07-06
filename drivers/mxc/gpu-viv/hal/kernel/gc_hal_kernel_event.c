@@ -1188,8 +1188,8 @@ gckEVENT_Signal(
     iface.u.Signal.process   = 0;
 
 #ifdef __QNXNTO__
-    iface.u.Signal.coid      = 0;
     iface.u.Signal.rcvid     = 0;
+    SIGEV_NONE_INIT(&iface.u.Signal.event);
 
     gcmkONERROR(gckOS_SignalPending(Event->os, Signal));
 #endif
@@ -2002,7 +2002,7 @@ gckEVENT_Notify(
                                signal);
 
 #ifdef __QNXNTO__
-                if ((record->info.u.Signal.coid == 0)
+                if ((record->info.u.Signal.event.sigev_notify == SIGEV_NONE)
                 &&  (record->info.u.Signal.rcvid == 0)
                 )
                 {
@@ -2018,7 +2018,7 @@ gckEVENT_Notify(
                         gckOS_UserSignal(Event->os,
                                          signal,
                                          record->info.u.Signal.rcvid,
-                                         record->info.u.Signal.coid));
+                                         &record->info.u.Signal.event));
                 }
 #else
                 /* Set signal. */
