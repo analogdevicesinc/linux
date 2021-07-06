@@ -63,6 +63,8 @@
 #define HMC7044_VCOIN_MODE_EN		BIT(5)
 #define HMC7044_SYNC_PIN_MODE(x)	(((x) & 0x3) << 6)
 
+#define HMC7044_REG_SCRATCHPAD		0x0008
+
 /* PLL1 */
 #define HMC7044_REG_CLKIN0_BUF_CTRL	0x000A
 #define HMC7044_REG_CLKIN1_BUF_CTRL	0x000B
@@ -321,6 +323,7 @@ struct hmc7044 {
 	u32				jdev_desired_sysref_freq;
 	bool				is_sysref_provider;
 	bool				hmc_two_level_tree_sync_en;
+	bool				read_write_confirmed;
 };
 
 static const char * const hmc7044_input_clk_names[] = {
@@ -364,6 +367,21 @@ static int hmc7044_read(struct iio_dev *indio_dev,
 	*val = buf[2];
 
 	return ret;
+}
+
+static void hmc7044_read_write_check(struct iio_dev *indio_dev)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	unsigned int val;
+
+	hmc7044_write(indio_dev, HMC7044_REG_SCRATCHPAD, 0xAD);
+	hmc7044_read(indio_dev, HMC7044_REG_SCRATCHPAD, &val);
+
+	hmc->read_write_confirmed = (val == 0xAD);
+
+	if (!hmc->read_write_confirmed)
+		dev_warn(&hmc->spi->dev,
+			"Read/Write check failed (0x%X)\n", val);
 }
 
 static unsigned int hmc7044_calc_out_div(unsigned long parent_rate,
@@ -521,17 +539,24 @@ static ssize_t hmc7044_show(struct device *dev,
 
 static int hmc7044_sync_pin_set(struct iio_dev *indio_dev, unsigned mode)
 {
+	struct hmc7044 *hmc = iio_priv(indio_dev);
 	u32 val;
 	int ret;
 
-	ret = hmc7044_read(indio_dev, HMC7044_REG_GLOB_MODE, &val);
-	if (ret < 0)
-		return ret;
+	if (hmc->read_write_confirmed) {
+		ret = hmc7044_read(indio_dev, HMC7044_REG_GLOB_MODE, &val);
+		if (ret < 0)
+			return ret;
+	} else {
+		val = (hmc->clkin0_rfsync_en ? HMC7044_RFSYNC_EN : 0) |
+		      (hmc->clkin1_vcoin_en ? HMC7044_VCOIN_MODE_EN : 0) |
+		      HMC7044_REF_PATH_EN(0xF);
+	}
 
 	val &= ~HMC7044_SYNC_PIN_MODE(~0);
 	val |= HMC7044_SYNC_PIN_MODE(mode);
 
-	return  hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE, val);
+	return hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE, val);
 }
 
 static ssize_t hmc7044_sync_pin_mode_store(struct device *dev,
@@ -884,6 +909,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	mdelay(10);
 	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, 0);
 	mdelay(10);
+	hmc7044_read_write_check(indio_dev);
 
 	/* Disable all channels */
 	for (i = 0; i < HMC7044_NUM_CHAN; i++)
@@ -1133,6 +1159,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	mdelay(10);
 	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, 0);
 	mdelay(10);
+	hmc7044_read_write_check(indio_dev);
 
 	/* Load the configuration updates (provided by Analog Devices) */
 	hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_LOW_PW, 0x4d);
@@ -1500,6 +1527,9 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	int ret;
 	u32 alarm_stat, pll1_stat, pll2_autotune_val, clkin_freq, active;
 
+	if (!hmc->read_write_confirmed)
+		return -EIO;
+
 	ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
 	if (ret < 0)
 		return ret;
@@ -1762,7 +1792,6 @@ static int hmc7044_jesd204_clks_sync3(struct jesd204_dev *jdev,
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	unsigned val;
-	int ret;
 
 	if (!hmc->hmc_two_level_tree_sync_en)
 		return JESD204_STATE_CHANGE_DONE;
@@ -1775,14 +1804,18 @@ static int hmc7044_jesd204_clks_sync3(struct jesd204_dev *jdev,
 	if (hmc->is_sysref_provider)
 		return JESD204_STATE_CHANGE_DONE;
 
-	ret = hmc7044_read(indio_dev, HMC7044_REG_ALARM_READBACK, &val);
-	if (ret < 0)
-		return ret;
+	if (hmc->read_write_confirmed) {
+		int ret;
 
-	if (!HMC7044_CLK_OUT_PH_STATUS(val))
-		dev_err(dev,
-			"%s: SYSREF of the HMC7044 is not valid; that is, its phase output is not stable (0x%X)\n",
-			__func__, val & 0xFF);
+		ret = hmc7044_read(indio_dev, HMC7044_REG_ALARM_READBACK, &val);
+		if (ret < 0)
+			return ret;
+
+		if (!HMC7044_CLK_OUT_PH_STATUS(val))
+			dev_warn(dev,
+				"%s: SYSREF of the HMC7044 is not valid; that is, its phase output is not stable (0x%X)\n",
+				__func__, val & 0xFF);
+	}
 
 	if (hmc->device_id == HMC7044 && !hmc->clkin0_rfsync_en && !hmc->clkin1_vcoin_en)
 		hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_PULSE_GEN_REQ);
