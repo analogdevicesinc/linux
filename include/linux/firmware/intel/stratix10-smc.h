@@ -1324,4 +1324,56 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_ECDSA_GET_PUBLIC_KEY_FINALIZE \
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_FCS_ECDSA_GET_PUBLIC_KEY_FINALIZE)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDH_INIT
+ * Sync call to send the request on generating a share secret on
+ * Diffie-Hellman key exchange
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDH_INIT
+ * a1 session ID
+ * a2 context ID
+ * a3 key UID
+ * a4 size of crypto parameter data
+ * a5 crypto parameter data
+ *      3:0     ECC algorithm
+ *      63:4    not used
+ * a6-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ECDH_INIT 140
+#define INTEL_SIP_SMC_FCS_ECDH_INIT \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDH_INIT)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDH_FINALIZE
+ * Sync call to send the request on generating a share secret on
+ * Diffie-Hellman key exchange
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDH_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destation
+ * a6 size of destation
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ECDH_FINALIZE 142
+#define INTEL_SIP_SMC_FCS_ECDH_FINALIZE \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDH_FINALIZE)
+
 #endif
