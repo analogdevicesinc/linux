@@ -180,6 +180,7 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi5>;
 	pinctrl-1 = <&pinctrl_lpspi5>;
+	cs-gpios = <&gpiof 19 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	spidev0: spi@0 {
@@ -400,7 +401,7 @@
 			MX8ULP_PAD_PTF16__LPSPI5_SIN	0x3
 			MX8ULP_PAD_PTF17__LPSPI5_SOUT	0x3
 			MX8ULP_PAD_PTF18__LPSPI5_SCK	0x3
-			MX8ULP_PAD_PTF19__LPSPI5_PCS0	0x3
+			MX8ULP_PAD_PTF19__PTF19		0x3
 		>;
 	};
 
