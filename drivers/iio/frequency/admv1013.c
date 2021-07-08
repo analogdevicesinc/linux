@@ -343,15 +343,19 @@ static const struct iio_info admv1013_info = {
 	.debugfs_reg_access = &admv1013_reg_access,
 };
 
-static int admv1013_freq_change(struct notifier_block *nb, unsigned long flags, void *data)
+static int admv1013_freq_change(struct notifier_block *nb, unsigned long action, void *data)
 {
 	struct admv1013_dev *dev = container_of(nb, struct admv1013_dev, nb);
 	struct clk_notifier_data *cnd = data;
 
-	/* cache the new rate */
-	dev->clkin_freq = clk_get_rate_scaled(cnd->clk, &dev->clkscale);
+	if (action == POST_RATE_CHANGE) {
+		/* cache the new rate */
+		dev->clkin_freq = clk_get_rate_scaled(cnd->clk, &dev->clkscale);
 
-	return notifier_from_errno(admv1013_update_quad_filters(dev));
+		return notifier_from_errno(admv1013_update_quad_filters(dev));
+	}
+
+	return NOTIFY_OK;
 }
 
 static void admv1013_clk_notifier_unreg(void *data)
