@@ -345,7 +345,7 @@
 		sw0 {
 			label = "SW0";
 			linux,input-type = <5>;
-			linux,code = <0>;
+			linux,code = <13>;
 			gpios = <&gpio0 65 0>;
 		};
 
