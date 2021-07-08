@@ -129,3 +129,49 @@
 &watchdog0 {
 	status = "okay";
 };
+
+&temp_volt {
+	voltage {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		input@2 {
+			label = "0.8V VDD";
+			reg = <2>;
+		};
+
+		input@3 {
+			label = "0.8V VDD_SDM";
+			reg = <3>;
+		};
+
+		input@4 {
+			label = "1.8V VCCADC";
+			reg = <4>;
+		};
+
+		input@5 {
+			label = "1.8V VCCPD";
+			reg = <5>;
+		};
+
+		input@6 {
+			label = "1.8V VCCIO_SDM";
+			reg = <6>;
+		};
+
+		input@7 {
+			label = "0.8V VDD_HPS";
+			reg = <7>;
+		};
+	};
+
+	temperature {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		input@1 {
+			label = "Main Die";
+			reg = <0>;
+		};
+	};
+};
