@@ -89,7 +89,7 @@
 
 		sw15_0 {
 			label = "SW15_0";
-			linux,code = <0>; // SW_LID
+			linux,code = <13>; // SW_LINEIN_INSERT
 			linux,input-type = <0x5>; // EV_SW
 			gpios = <&gpio0 56 0>;
 		};
