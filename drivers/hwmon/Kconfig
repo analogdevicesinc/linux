@@ -1909,6 +1909,16 @@ config SENSORS_SMSC47M192
 	  This driver can also be built as a module. If so, the module
 	  will be called smsc47m192.
 
+config SENSORS_SOC64
+	tristate "64-bit SoC FPGA Hardware monitoring features"
+	depends on INTEL_STRATIX10_SERVICE
+	help
+	  If you say yes here you get support for the temperature and
+	  voltage sensors of 64-bit SoC FPGA devices.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called soc64-hwmon
+
 config SENSORS_SMSC47B397
 	tristate "SMSC LPC47B397-NC"
 	depends on !PPC
