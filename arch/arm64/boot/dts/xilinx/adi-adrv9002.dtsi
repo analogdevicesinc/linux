@@ -31,8 +31,8 @@
 		rx_pinctrl0: rx-pinctrl@0 {
 			adi,increment-step-size = <1>;
 			adi,decrement-step-size = <1>;
-			adi,increment-pin = <2>;
-			adi,decrement-pin = <1>;
+			adi,increment-pin = <3>;
+			adi,decrement-pin = <2>;
 		};
 
 		rx_pinctrl1: rx-pinctrl@1 {
