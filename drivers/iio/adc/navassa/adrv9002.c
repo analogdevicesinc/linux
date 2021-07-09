@@ -2979,29 +2979,29 @@ void adrv9002_en_delays_arm_to_ns(const struct adrv9002_rf_phy *phy,
 	d_ns->riseToOnDelay = DIV_ROUND_CLOSEST_ULL(d->riseToOnDelay * 1000000000ULL, arm_clk);
 }
 
-#define ADRV9002_OF_U32_GET_VALIDATE(dev, node, key, def, min, max,	\
-				     val, mandatory) ({			\
-	u32 tmp;							\
-	int ret, __ret = 0;						\
-	const char *__key = key;					\
-									\
-	val = def;							\
-	ret = of_property_read_u32(node, __key, &tmp);			\
-	if (!ret) {							\
-		if (tmp < (min) || tmp > (max)) {			\
-			dev_err(dev, "Invalid value(%d) for \"%s\"\n",	\
-				tmp, __key);				\
-			__ret = -EINVAL;				\
-		} else {						\
-			val = tmp;					\
-		}							\
-	} else if (mandatory) {						\
-		dev_err(dev, "Missing mandatory prop: \"%s\"\n",	\
-			__key);						\
-		__ret = ret;						\
-	}								\
-									\
-	__ret;								\
+#define ADRV9002_OF_U32_GET_VALIDATE(dev, node, key, def, min, max,		\
+				     val, mandatory) ({				\
+	u32 tmp;								\
+	int ret, __ret = 0;							\
+	const char *__key = key;						\
+										\
+	val = def;								\
+	ret = of_property_read_u32(node, __key, &tmp);				\
+	if (!ret) {								\
+		if (tmp < (min) || tmp > (max)) {				\
+			dev_err(dev, "Invalid value(%d) for \"%s\"\n",		\
+				tmp, __key);					\
+			__ret = -EINVAL;					\
+		} else {							\
+			val = tmp;						\
+		}								\
+	} else if (mandatory) {							\
+		dev_err(dev, "Failed to get mandatory prop: \"%s\", ret=%d\n",	\
+			__key, ret);						\
+		__ret = ret;							\
+	}									\
+										\
+	__ret;									\
 })
 
 #define OF_ADRV9002_PINCTL(key, def, min, max, val, mandatory) \
