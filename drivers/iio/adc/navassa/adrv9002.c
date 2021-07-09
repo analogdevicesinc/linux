@@ -3553,7 +3553,7 @@ of_gpio:
 				"No adi,signal property defined for gpio%d\n",
 				gpio);
 			goto of_child_put;
-		} else if (signal > ADI_ADRV9001_GPIO_SIGNAL_ADC_SWITCHING_CHANNEL2) {
+		} else if (signal > ADI_ADRV9001_GPIO_SIGNAL_JTAG_CTRL) {
 			dev_err(&phy->spi->dev,
 				"Invalid gpio signal: %d\n", signal);
 			ret = -EINVAL;
