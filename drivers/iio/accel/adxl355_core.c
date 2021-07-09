@@ -16,6 +16,29 @@
 
 #include "adxl355.h"
 
+const struct regmap_range adxl355_read_reg_range[] = {
+	regmap_reg_range(ADXL355_DEVID_AD, ADXL355_FIFO_DATA),
+	regmap_reg_range(ADXL355_OFFSET_X_H, ADXL355_SELF_TEST)
+};
+EXPORT_SYMBOL_GPL(adxl355_read_reg_range);
+
+const struct regmap_access_table adxl355_readable_regs_tbl = {
+	.yes_ranges = adxl355_read_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl355_read_reg_range),
+};
+EXPORT_SYMBOL_GPL(adxl355_readable_regs_tbl);
+
+const struct regmap_range adxl355_write_reg_range[] = {
+	regmap_reg_range(ADXL355_OFFSET_X_H, ADXL355_RESET)
+};
+EXPORT_SYMBOL_GPL(adxl355_write_reg_range);
+
+const struct regmap_access_table adxl355_writeable_regs_tbl = {
+	.yes_ranges = adxl355_write_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl355_write_reg_range),
+};
+EXPORT_SYMBOL_GPL(adxl355_writeable_regs_tbl);
+
 enum adxl355_op_mode {
 	ADXL355_MEASUREMENT,
 	ADXL355_STANDBY,
