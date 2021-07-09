@@ -8,6 +8,8 @@
 #ifndef _ADXL355_H_
 #define _ADXL355_H_
 
+#include <linux/regmap.h>
+
 /* ADXL355 Register Definitions */
 #define ADXL355_DEVID_AD	0x00
 #define ADXL355_DEVID_MST	0x01
@@ -67,6 +69,14 @@
  * 3.9ug/LSB = 0.0000039 * 9.80665 = 0.00003824593 m/s^2
  */
 #define ADXL355_NSCALE	38245
+
+extern const struct regmap_range adxl355_read_reg_range[];
+
+extern const struct regmap_access_table adxl355_readable_regs_tbl;
+
+extern const struct regmap_range adxl355_write_reg_range[];
+
+extern const struct regmap_access_table adxl355_writeable_regs_tbl;
 
 int adxl355_core_probe(struct device *dev, struct regmap *regmap,
 		       const char *name);

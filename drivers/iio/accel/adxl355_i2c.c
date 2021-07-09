@@ -11,25 +11,6 @@
 
 #include "adxl355.h"
 
-static const struct regmap_range adxl355_read_reg_range[] = {
-	regmap_reg_range(ADXL355_DEVID_AD, ADXL355_FIFO_DATA),
-	regmap_reg_range(ADXL355_OFFSET_X_H, ADXL355_SELF_TEST)
-};
-
-static const struct regmap_access_table adxl355_readable_regs_tbl = {
-	.yes_ranges = adxl355_read_reg_range,
-	.n_yes_ranges = ARRAY_SIZE(adxl355_read_reg_range),
-};
-
-static const struct regmap_range adxl355_write_reg_range[] = {
-	regmap_reg_range(ADXL355_OFFSET_X_H, ADXL355_RESET)
-};
-
-static const struct regmap_access_table adxl355_writeable_regs_tbl = {
-	.yes_ranges = adxl355_write_reg_range,
-	.n_yes_ranges = ARRAY_SIZE(adxl355_write_reg_range),
-};
-
 static const struct regmap_config adxl355_i2c_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
