@@ -31,6 +31,7 @@
 #define AD9545_SYS_CLK_REF_FREQ		0x0202
 #define AD9545_SYS_STABILITY_T		0x0207
 #define AD9545_COMPENSATE_TDCS		0x0280
+#define AD9545_COMPENSATE_NCOS		0x0281
 #define AD9545_COMPENSATE_DPLL		0x0282
 #define AD9545_AUX_DPLL_CHANGE_LIMIT	0x0283
 #define AD9545_AUX_DPLL_SOURCE		0x0284
@@ -176,6 +177,9 @@
 
 /* AD9545 COMPENSATE TDCS bitfields */
 #define AD9545_COMPENSATE_TDCS_VIA_AUX_DPLL	0x4
+
+/* AD9545 COMPENSATE NCOS bitfields */
+#define AD9545_COMPENSATE_NCOS_VIA_AUX_DPLL	0x44
 
 /* AD9545 COMPENSATE DPLL bitfields */
 #define AD9545_COMPNESATE_VIA_AUX_DPLL		0x44
@@ -2495,6 +2499,10 @@ static int ad9545_aux_dpll_setup(struct ad9545_state *st)
 
 	/* add compensation destination */
 	ret = regmap_write(st->regmap, AD9545_COMPENSATE_DPLL, AD9545_COMPNESATE_VIA_AUX_DPLL);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, AD9545_COMPENSATE_NCOS, AD9545_COMPENSATE_NCOS_VIA_AUX_DPLL);
 	if (ret < 0)
 		return ret;
 
