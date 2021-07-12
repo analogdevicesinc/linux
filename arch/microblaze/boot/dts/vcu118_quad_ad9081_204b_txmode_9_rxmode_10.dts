@@ -18,8 +18,16 @@
 #include "vcu118_quad_ad9081.dtsi"
 
 // This setup assumes 500MHz clock into J41 (0 dBm)
-// TX JESD204B MODE 9, M=8, L=4
-// RX JESD204B MODE 10, M=8, L=4
+// ad9081_204b_txmode_9_rxmode_10: Np 16 use case with med. lane rate
+//     * 4Txs / 4Rxs per MxFE
+//     * DAC_CLK = 12GSPS
+//     * ADC_CLK = 4GSPS
+//     * Tx I/Q Rate: 250 MSPS (Interpolation of 8x6)
+//     * Rx I/Q Rate: 250 MSPS (Decimation of 4x4)
+//     * DAC JESD204B: Mode 9, L=4, M=8, N=N'=16
+//     * ADC JESD204B: Mode 10, L=4, M=8, N=N'=16
+//     * DAC-Side JESD204B Lane Rate: 10.00Gbps
+//     * ADC-Side JESD204B Lane Rate: 10.00Gbps
 
 #define ADRF4360_RF16_FREQUENCY_HZ		12000000000
 //#define ADRF4360_RF16_FREQUENCY_HZ 500000000
