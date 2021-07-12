@@ -1095,6 +1095,21 @@
 				status = "disabled";
 			};
 
+			epdc: epdc@2db30000 {
+				compatible = "fsl,imx7d-epdc";
+				reg = <0x2db30000 0x10000>;
+				clocks = <&cgc2 IMX8ULP_CLK_LPAV_AXI_DIV>,
+					 <&pcc5 IMX8ULP_CLK_EPDC>,
+					 <&cgc2 IMX8ULP_CLK_LPAV_AHB_DIV>;
+				clock-names = "epdc_axi", "epdc_pix", "epdc_ahb";
+				assigned-clocks = <&pcc5 IMX8ULP_CLK_EPDC>, <&cgc2 IMX8ULP_CLK_PLL4_PFD0_DIV2>;
+				assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0_DIV2>;
+				assigned-clock-rates = <0>, <40000000>;
+				power-domains = <&scmi_devpd IMX8ULP_PD_PXP>;
+				interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+				status = "disabled";
+			};
+
 			epxp: epxp@2db40000 {
 				compatible = "fsl,imx8ulp-pxp-dma", "fsl,imx7d-pxp-dma";
 				reg = <0x2db40000 0x10000>;
