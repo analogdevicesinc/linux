@@ -25,11 +25,6 @@
 		#size-cells = <2>;
 		ranges;
 
-		rpmsg_reserved: rpmsg@0x90000000 {
-			no-map;
-			reg = <0 0x90200000 0 0x200000>;
-		};
-
 		vdev0vring0: vdev0vring0@90000000 {
 			compatible = "shared-dma-pool";
 			reg = <0 0x90000000 0 0x8000>;

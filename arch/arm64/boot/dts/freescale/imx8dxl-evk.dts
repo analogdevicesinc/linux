@@ -41,11 +41,6 @@
 		 * };
 		 */
 
-		rpmsg_reserved: rpmsg@0x90200000 {
-			no-map;
-			reg = <0 0x90200000 0 0x200000>;
-		};
-
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";

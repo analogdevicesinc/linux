@@ -339,21 +339,6 @@
 		fsl,heap-id = <0>;
 	};
 
-	rpmsg: rpmsg{
-		compatible = "fsl,imx8qxp-rpmsg";
-		/* up to now, the following channels are used in imx rpmsg
-		 * - tx1/rx1: messages channel.
-		 * - general interrupt1: remote proc finish re-init rpmsg stack
-		 *   when A core is partition reset.
-		 */
-		mbox-names = "tx", "rx", "rxdb";
-		mboxes = <&lsio_mu5 0 1
-			  &lsio_mu5 1 1
-			  &lsio_mu5 3 1>;
-		mub-partition = <3>;
-		status = "disabled";
-	};
-
         sc_pwrkey: sc-powerkey {
 		compatible = "fsl,imx8-pwrkey";
 		linux,keycode = <KEY_POWER>;
