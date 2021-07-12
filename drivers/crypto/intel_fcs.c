@@ -2225,6 +2225,71 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		fcs_close_services(priv, NULL, d_buf);
 		break;
 
+	case INTEL_FCS_DEV_SDOS_DATA_EXT:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		sid = data->com_paras.data_sdos_ext.sid;
+		cid = data->com_paras.data_sdos_ext.cid;
+		in_sz = data->com_paras.data_sdos_ext.src_size;
+
+		s_buf = stratix10_svc_allocate_memory(priv->chan, in_sz);
+		if (!s_buf) {
+			dev_err(dev, "failed allocate source buf\n");
+			return -ENOMEM;
+		}
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan, AES_CRYPT_CMD_MAX_SZ);
+		if (!d_buf) {
+			dev_err(dev, "failed allocate destation buf\n");
+			fcs_close_services(priv, s_buf, NULL);
+			return -ENOMEM;
+		}
+
+		memcpy(s_buf, data->com_paras.data_sdos_ext.src,
+		       data->com_paras.data_sdos_ext.src_size);
+
+		msg->command = COMMAND_FCS_SDOS_DATA_EXT;
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = data->com_paras.data_sdos_ext.op_mode;
+		msg->payload = s_buf;
+		msg->payload_length = in_sz;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = AES_CRYPT_CMD_MAX_SZ;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  10 * FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			if (priv->size > AES_CRYPT_CMD_MAX_SZ) {
+				dev_err(dev, "returned size %d is incorrect\n",
+					priv->size);
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
+
+			memcpy(data->com_paras.data_sdos_ext.dst,
+			       priv->kbuf, priv->size);
+			data->com_paras.data_sdos_ext.dst_size = priv->size;
+		} else {
+			data->com_paras.data_sdos_ext.dst = NULL;
+			data->com_paras.data_sdos_ext.dst_size = 0;
+		}
+
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			fcs_close_services(priv, s_buf, d_buf);
+			return -EFAULT;
+		}
+		fcs_close_services(priv, s_buf, d_buf);
+
+		break;
+
 	default:
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
 		break;
