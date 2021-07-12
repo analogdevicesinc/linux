@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 NXP
+ */
+
+#include "imx8mm-ddr4-evk-rm67191.dts"
+
+/delete-node/ &synaptics_dsx_ts;
+
+&mipi_dsi {
+	panel@0 {
+		compatible = "raydium,rm67199";
+	};
+};
