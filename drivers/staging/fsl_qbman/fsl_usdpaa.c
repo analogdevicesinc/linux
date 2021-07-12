@@ -684,7 +684,7 @@ static int usdpaa_release(struct inode *inode, struct file *filp)
 	qm_check_and_destroy_fqs(qm_cleanup_portal, ctx, check_channel_device);
 
 	while (backend->id_type != usdpaa_id_max) {
-		int leaks = 0;
+		int res_count = 0;
 		list_for_each_entry(res, &ctx->resources[backend->id_type],
 				    list) {
 			if (backend->id_type == usdpaa_id_fqid) {
@@ -696,12 +696,14 @@ static int usdpaa_release(struct inode *inode, struct file *filp)
 						       res->id + i);
 				}
 			}
-			leaks += res->num;
+			res_count += res->num;
+
 			backend->release(res->id, res->num);
 		}
-		if (leaks)
-			pr_crit("USDPAA process leaking %d %s%s\n", leaks,
-				backend->acronym, (leaks > 1) ? "s" : "");
+		if (res_count)
+			pr_info("USDPAA release: %d %s%s\n",
+				res_count, backend->acronym,
+				(res_count > 1) ? "s" : "");
 		backend++;
 	}
 	/* Release any DMA regions */
