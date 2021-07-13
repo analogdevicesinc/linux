@@ -2,7 +2,7 @@
 /*
  * Driver for AD9081 and similar mixed signal front end (MxFE®)
  *
- * Copyright 2019-2020 Analog Devices Inc.
+ * Copyright 2019-2021 Analog Devices Inc.
  */
 //#define DEBUG
 #include <linux/debugfs.h>
@@ -38,6 +38,9 @@
 
 #define CHIPID_AD9081 0x9081
 #define CHIPID_AD9082 0x9082
+#define CHIPID_AD9988 0x9988
+#define CHIPID_AD9986 0x9986
+
 #define CHIPID_MASK 0xFFFF
 #define ID_DUAL BIT(31)
 
@@ -1703,7 +1706,7 @@ static int ad9081_setup(struct spi_device *spi)
 	if (ret != 0)
 		return ret;
 
-	if (conv->id == CHIPID_AD9081) {
+	if (conv->id == CHIPID_AD9081 || conv->id == CHIPID_AD9988) {
 		/* Fix: 4x4 Crossbar Mux0 Mappings for AD9081 */
 		ret  = adi_ad9081_adc_pfir_din_select_set(&phy->ad9081,
 			AD9081_ADC_PFIR_ADC_PAIR0, 0, 1);
@@ -1908,8 +1911,7 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 		if (conv->sample_rate_read_only)
 			return -EPERM;
 
-		if (conv->id == CHIPID_AD9081 || conv->id == CHIPID_AD9082)
-			return ad9081_set_sample_rate(conv, val);
+		return ad9081_set_sample_rate(conv, val);
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
@@ -1970,6 +1972,11 @@ static ssize_t ad9081_phy_store(struct device *dev,
 
 	switch ((u32)this_attr->address & 0xFF) {
 	case AD9081_LOOPBACK_MODE:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		ret = kstrtoul(buf, 0, &res);
 		if (ret || res > 2) {
 			ret = -EINVAL;
@@ -2002,6 +2009,11 @@ static ssize_t ad9081_phy_store(struct device *dev,
 
 		break;
 	case AD9081_DAC_FFH_INDEX_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		ret = kstrtoul(buf, 0, &res);
 		if (ret) {
 			ret = -EINVAL;
@@ -2010,6 +2022,10 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		phy->ffh_hopf_index = res;
 		break;
 	case AD9081_DAC_FFH_FREQ_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -ENOTSUPP;
+			break;
+		}
 		ret = kstrtoll(buf, 10, &lval);
 		if (ret) {
 			ret = -EINVAL;
@@ -2035,6 +2051,11 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		phy->ffh_hopf_vals[phy->ffh_hopf_index] = lval;
 		break;
 	case AD9081_DAC_FFH_MODE_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
 		ret = sysfs_match_string(ffh_modes, buf);
 		if (ret < 0) {
 			ret = -EINVAL;
@@ -2575,7 +2596,8 @@ static int ad9081_parse_fir(struct ad9081_phy *phy,
 	if (ret)
 		return -EIO;
 	ret = adi_ad9081_adc_pfir_quad_mode_set(&phy->ad9081, ctl_pages,
-		phy->chip_id.prod_id == CHIPID_AD9081 ? 1 : 0);
+		(phy->chip_id.prod_id == CHIPID_AD9081 ||
+		phy->chip_id.prod_id == CHIPID_AD9988) ? 1 : 0);
 	if (ret)
 		return -EIO;
 	ret = adi_ad9081_adc_pfir_coeff_page_set(&phy->ad9081, coeff_pages);
@@ -3990,6 +4012,8 @@ static int ad9081_probe(struct spi_device *spi)
 	switch (conv->id) {
 	case CHIPID_AD9081:
 	case CHIPID_AD9082:
+	case CHIPID_AD9988:
+	case CHIPID_AD9986:
 		ret = ad9081_setup(spi);
 		if (ret)
 			break;
@@ -4032,12 +4056,10 @@ static int ad9081_probe(struct spi_device *spi)
 			goto out_clk_del_provider;
 	}
 
-	if (conv->id == CHIPID_AD9081 || conv->id == CHIPID_AD9082) {
-		ret = ad9081_request_fd_irqs(conv);
-		if (ret < 0)
-			dev_warn(&spi->dev,
-				 "Failed to request FastDetect IRQs (%d)", ret);
-	}
+	ret = ad9081_request_fd_irqs(conv);
+	if (ret < 0)
+		dev_warn(&spi->dev,
+			 "Failed to request FastDetect IRQs (%d)", ret);
 
 	gpio = devm_gpiod_get(&spi->dev, "irqb0", GPIOD_IN);
 	if (0 && !IS_ERR(gpio)) { /* REVIST: Not yet used */
@@ -4095,6 +4117,8 @@ static int ad9081_remove(struct spi_device *spi)
 static const struct spi_device_id ad9081_id[] = {
 	{ "ad9081", CHIPID_AD9081 },
 	{ "ad9082", CHIPID_AD9082 },
+	{ "ad9988", CHIPID_AD9988 },
+	{ "ad9986", CHIPID_AD9986 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9081_id);
@@ -4102,6 +4126,8 @@ MODULE_DEVICE_TABLE(spi, ad9081_id);
 static const struct of_device_id ad9081_of_match[] = {
 	{ .compatible = "adi,ad9081" },
 	{ .compatible = "adi,ad9082" },
+	{ .compatible = "adi,ad9988" },
+	{ .compatible = "adi,ad9986" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ad9081_of_match);
