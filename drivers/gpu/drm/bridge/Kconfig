@@ -449,4 +449,12 @@ config DRM_ITE_IT6263
 	help
 	  ITE IT6263 bridge chip driver.
 
+config DRM_ITE_IT6161
+	tristate "ITE IT6161 MIPI/HDMI bridge"
+	depends on OF
+	select DRM_KMS_HELPER
+	select REGMAP_I2C
+	help
+	  ITE IT6161 bridge chip driver.
+
 endmenu
