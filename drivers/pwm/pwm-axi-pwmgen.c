@@ -227,7 +227,7 @@ static int axi_pwmgen_remove(struct platform_device *pdev)
 }
 static struct platform_driver axi_pwmgen_driver = {
 	.driver = {
-		.name = "adi-axi-pwmgen",
+		.name = "adi,axi-pwmgen",
 		.of_match_table = axi_pwmgen_ids,
 	},
 	.probe = axi_pwmgen_probe,
