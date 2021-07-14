@@ -92,7 +92,7 @@ static inline void clear_bits(unsigned long mask, volatile unsigned long *p)
 
 static inline void flush_dcache_range(unsigned long start, unsigned long stop)
 {
-	__flush_dcache_area((void *) start, stop - start);
+	dcache_clean_inval_poc(start, stop - start);
 }
 
 #define hard_smp_processor_id() raw_smp_processor_id()
