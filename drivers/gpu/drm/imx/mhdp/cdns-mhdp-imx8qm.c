@@ -565,7 +565,7 @@ static int cdns_mhdp_firmware_load(struct imx_mhdp_device *imx_mhdp)
 		goto out;
 
 	if (!imx_mhdp->fw) {
-		ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_NOHOTPLUG,
+		ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_NOUEVENT,
 						imx_mhdp->firmware_name,
 						imx_mhdp->mhdp.dev, GFP_KERNEL,
 						imx_mhdp,
