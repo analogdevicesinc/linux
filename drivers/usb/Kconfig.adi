@@ -9,7 +9,6 @@ config USB_ALL_ADI_DRIVERS
 	select USB_HIDDEV
 	select USB_ANNOUNCE_NEW_DEVICES
 	select USB_OTG
-	select USB_OTG_FSM
 	select USB_UAS
 	select USB_EHCI_HCD
 	select USB_STORAGE
