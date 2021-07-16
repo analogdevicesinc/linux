@@ -3422,6 +3422,9 @@ gckHARDWARE_InitializeHardware(
     _ConfigureModuleLevelClockGating(Hardware);
 #endif
 
+    gcmkONERROR(gckOS_WriteRegisterEx(
+        Hardware->os, Hardware->core, 0x00014, 0xFFFFFFFF));
+
     /* Perfrom hardware functions */
     for (i = 0; i < gcvFUNCTION_EXECUTION_NUM; i++)
     {

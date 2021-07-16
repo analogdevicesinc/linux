@@ -1672,6 +1672,14 @@ gckKERNEL_CloseUserData(
     OUT gctPOINTER * KernelPointer
     );
 
+/* Query kernel by core index */
+gceSTATUS
+gckOS_QueryKernel(
+    IN gckKERNEL Kernel,
+    IN gctINT index,
+    OUT gckKERNEL * KernelOut
+    );
+
 gceSTATUS
 gckDVFS_Construct(
     IN gckHARDWARE Hardware,

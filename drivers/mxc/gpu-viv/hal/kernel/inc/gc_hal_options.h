@@ -1394,6 +1394,14 @@ This define enables the use of VM for gckCommand and fence buffers.
 #   define gcdEXTERNAL_SRAM_DEFAULT_POOL 0
 #endif
 
+/*
+    gcdENABLE_RECOVERY_ALL_CORES
+        When enabled, will recovery all cores when the gpu hang.
+*/
+#ifndef gcdENABLE_RECOVERY_ALL_CORES
+#   define gcdENABLE_RECOVERY_ALL_CORES 1
+#endif
+
 #endif /* __gc_hal_options_h_ */
 
 

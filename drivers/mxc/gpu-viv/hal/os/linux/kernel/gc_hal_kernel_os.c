@@ -7343,6 +7343,22 @@ gckOS_QueryOption(
 }
 
 gceSTATUS
+gckOS_QueryKernel(
+    IN gckKERNEL Kernel,
+    IN gctINT index,
+    OUT gckKERNEL * KernelOut
+    )
+{
+    if (Kernel && KernelOut)
+    {
+        gckGALDEVICE device = Kernel->os->device;
+        *KernelOut = device->kernels[index];
+    }
+
+    return gcvSTATUS_OK;
+}
+
+gceSTATUS
 gckOS_MemoryGetSGT(
     IN gckOS Os,
     IN gctPHYS_ADDR Physical,

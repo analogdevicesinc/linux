@@ -161,6 +161,49 @@ gctCONST_STRING _DispatchText[] =
 #endif
 
 #if gcdGPU_TIMEOUT && gcdINTERRUPT_STATISTIC
+#if gcdENABLE_RECOVERY_ALL_CORES
+gceSTATUS
+_ClearPendingIntr(
+    IN gckKERNEL Kernel
+    )
+{
+    gceSTATUS status;
+    gckEVENT eventObj;
+    gctUINT32 i = 0;
+    gcmkHEADER_ARG("Kernel=%p", Kernel);
+
+    /* Validate the arguemnts. */
+    gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
+
+    /* Grab gckEVENT object. */
+    eventObj = Kernel->eventObj;
+    gcmkVERIFY_OBJECT(eventObj, gcvOBJ_EVENT);
+
+    gckOS_AcquireMutex(Kernel->os, Kernel->device->commitMutex, gcdRECOVERY_FORCE_TIMEOUT);
+
+    gcmkONERROR(gckOS_AtomSetMask(eventObj->pending, 0x1FFFFFFF));
+
+    gcmkONERROR(gckEVENT_Notify(eventObj, 1, gcvNULL));
+
+    for(i = 0; i < gcdCOMMAND_QUEUES; i++)
+    {
+        gckOS_Signal(Kernel->command->os, Kernel->command->queues[i].signal, gcvTRUE);
+    }
+
+    gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
+
+    gcmkONERROR(gckCOMMAND_Stop(Kernel->command));
+
+    /* Success. */
+    gcmkFOOTER_NO();
+    return gcvSTATUS_OK;
+OnError:
+    /* Return the status. */
+    gcmkFOOTER();
+    return status;
+}
+#endif
+
 void
 _MonitorTimerFunction(
     gctPOINTER Data
@@ -273,10 +316,71 @@ _MonitorTimerFunction(
 
     if (reset)
     {
-        gckKERNEL_Recovery(kernel);
+#if gcdENABLE_RECOVERY_ALL_CORES
+        gceSTATUS _status = gcvSTATUS_TIMEOUT;
+        gctINT32 resetStatus = 0;
+        if (kernel->hardware->type == gcvHARDWARE_3D)
+        {
+            int i = 0;
+            gckKERNEL ker;
 
-        /* Work in this timeout is done. */
-        kernel->monitoring = gcvFALSE;
+            _status = gckOS_AcquireMutex(kernel->os, kernel->device->recoveryMutex, 0);
+            gcmkVERIFY_OK(gckOS_AtomGet(kernel->os, kernel->resetStatus, &resetStatus));
+
+            if (kernel->hardware->type == gcvHARDWARE_3D
+                && kernel->device->coreNum > 1
+                && (kernel->hardware->identity.chipModel == gcv7000
+                && kernel->hardware->identity.chipRevision == 0x6009))
+            {
+                for (i = 0; i <= gcvCORE_3D_MAX; i++)
+                {
+                    ker = gcvNULL;
+                    gcmkVERIFY_OK(gckOS_QueryKernel(kernel, i, &ker));
+                    if (ker && ker->hardware->type == gcvHARDWARE_3D)
+                    {
+                        gcmkVERIFY_OK(gckOS_AtomSet(ker->os, ker->resetStatus, 1));
+                        ker->monitoring = gcvFALSE;
+                        ker->timer = 0;
+                        gcmkVERIFY_OK(_ClearPendingIntr(ker));
+                    }
+                }
+
+                for (i = 0; i <= gcvCORE_3D_MAX; i++)
+                {
+                    ker = gcvNULL;
+                    gcmkVERIFY_OK(gckOS_QueryKernel(kernel, i, &ker));
+                    if (ker && ker->hardware->type == gcvHARDWARE_3D)
+                    {
+                        gckOS_Delay(ker->os, 50);
+                        gckKERNEL_Recovery(ker);
+                    }
+                }
+
+                for (i = 0; i <= gcvCORE_3D_MAX; i++)
+                {
+                    ker = gcvNULL;
+                    gcmkVERIFY_OK(gckOS_QueryKernel(kernel, i, &ker));
+                    if (ker && ker->hardware->type == gcvHARDWARE_3D)
+                    {
+                        gcmkVERIFY_OK(gckOS_AtomSet(ker->os, ker->resetStatus, 0));
+                    }
+                }
+
+                gcmkPRINT("All core recovery done\n");
+                gcmkPRINT("\n");
+            }
+            if (_status == gcvSTATUS_OK)
+            {
+                gckOS_ReleaseMutex(kernel->os, kernel->device->recoveryMutex);
+            }
+        }
+        else
+#endif
+        {
+            gckKERNEL_Recovery(kernel);
+            /* Work in this timeout is done. */
+            kernel->monitoring = gcvFALSE;
+        }
     }
 
     gcmkVERIFY_OK(gckOS_StartTimer(kernel->os, kernel->monitorTimer, advance));
@@ -742,6 +846,8 @@ gckKERNEL_Construct(
     }
 #endif
 
+    gcmkONERROR(gckOS_AtomConstruct(Os, &kernel->resetStatus));
+    gcmkONERROR(gckOS_AtomSet(Os, kernel->resetStatus, 0));
     /* Return pointer to the gckKERNEL object. */
     *Kernel = kernel;
 
@@ -2432,6 +2538,7 @@ _Commit(
         gckCOMMAND command;
         gckEVENT eventObj;
         gctUINT64 next;
+        gctINT32 resetStatus;
 
         /* Skip the first nested sub-commit struct. */
         if (userPtr)
@@ -2497,6 +2604,13 @@ _Commit(
             gcmkONERROR(gckOS_Broadcast(kernel->os,
                                         kernel->hardware,
                                         gcvBROADCAST_GPU_COMMIT));
+
+            gcmkONERROR(gckOS_AtomGet(kernel->os, kernel->resetStatus, &resetStatus));
+            while(resetStatus == 1)
+            {
+                gckOS_Delay(kernel->os, 2);
+                gcmkONERROR(gckOS_AtomGet(kernel->os, kernel->resetStatus, &resetStatus));
+            }
 
             status = gckCOMMAND_Commit(command,
                                        subCommit,
@@ -5380,6 +5494,7 @@ gckDEVICE_Construct(
 
     gcmkONERROR(gckOS_CreateMutex(Os, &device->stuckDumpMutex));
     gcmkONERROR(gckOS_CreateMutex(Os, &device->commitMutex));
+    gcmkONERROR(gckOS_CreateMutex(Os, &device->recoveryMutex));
 
     device->os = Os;
     device->showSRAMMapInfo = 0;
@@ -5565,6 +5680,10 @@ gckDEVICE_Destroy(
         }
     }
 
+    if (Device->recoveryMutex)
+    {
+        gcmkVERIFY_OK(gckOS_DeleteMutex(Os, Device->recoveryMutex));
+    }
     if (Device->commitMutex)
     {
         gcmkVERIFY_OK(gckOS_DeleteMutex(Os, Device->commitMutex));
