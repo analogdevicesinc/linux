@@ -2120,6 +2120,12 @@ gcoTEXTURE_Disable(
     );
 
 gceSTATUS
+gcoTEXTURE_Clear(
+    IN gcoTEXTURE Texture,
+    IN gctINT MipMap
+    );
+
+gceSTATUS
 gcoTEXTURE_Flush(
     IN gcoTEXTURE Texture
     );
