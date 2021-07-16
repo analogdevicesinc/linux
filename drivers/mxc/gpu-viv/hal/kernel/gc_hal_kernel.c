@@ -319,18 +319,18 @@ _MonitorTimerFunction(
 #if gcdENABLE_RECOVERY_ALL_CORES
         gceSTATUS _status = gcvSTATUS_TIMEOUT;
         gctINT32 resetStatus = 0;
-        if (kernel->hardware->type == gcvHARDWARE_3D)
+
+        if (kernel->hardware->type == gcvHARDWARE_3D
+            && kernel->device->coreNum > 1
+            && (kernel->hardware->identity.chipModel == gcv7000
+            && kernel->hardware->identity.chipRevision == 0x6009))
         {
             int i = 0;
             gckKERNEL ker;
 
             _status = gckOS_AcquireMutex(kernel->os, kernel->device->recoveryMutex, 0);
             gcmkVERIFY_OK(gckOS_AtomGet(kernel->os, kernel->resetStatus, &resetStatus));
-
-            if (kernel->hardware->type == gcvHARDWARE_3D
-                && kernel->device->coreNum > 1
-                && (kernel->hardware->identity.chipModel == gcv7000
-                && kernel->hardware->identity.chipRevision == 0x6009))
+            if (resetStatus == 0 && _status == gcvSTATUS_OK)
             {
                 for (i = 0; i <= gcvCORE_3D_MAX; i++)
                 {
