@@ -12,6 +12,7 @@
 #include <sound/control.h>
 #include <sound/pcm_params.h>
 #include <sound/soc-dapm.h>
+#include <sound/simple_card_utils.h>
 #include "imx-pcm-rpmsg.h"
 
 struct imx_rpmsg {
@@ -19,6 +20,7 @@ struct imx_rpmsg {
 	struct snd_soc_card card;
 	unsigned long sysclk;
 	bool lpa;
+	struct simple_util_jack hp_jack;
 };
 
 static struct dev_pm_ops lpa_pm;
@@ -242,6 +244,11 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
+	data->hp_jack.pin.pin = "Headphone Jack";
+	data->hp_jack.pin.mask = SND_JACK_HEADPHONE;
+	snd_soc_card_jack_new_pins(&data->card, "Headphone Jack", SND_JACK_HEADPHONE,
+				   &data->hp_jack.jack, &data->hp_jack.pin, 1);
+	snd_soc_jack_report(&data->hp_jack.jack, SND_JACK_HEADPHONE, SND_JACK_HEADPHONE);
 fail:
 	pdev->dev.of_node = NULL;
 	return ret;
