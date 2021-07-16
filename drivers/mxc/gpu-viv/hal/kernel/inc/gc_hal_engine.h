@@ -1903,6 +1903,9 @@ typedef struct _gcsTEXTURE
 
     gcuVALUE                    borderColor[4];
     gctBOOL                     descDirty;
+
+    /* texture stage */
+    gctINT                      stage;
 }
 gcsTEXTURE, * gcsTEXTURE_PTR;
 

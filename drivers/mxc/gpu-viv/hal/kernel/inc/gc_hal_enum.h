@@ -866,6 +866,20 @@ typedef enum _gceTEXTURE_DS_TEX_MODE
     gcvTEXTURE_DS_TEXTURE_MODE_INVALID,
 }gceTEXTURE_DS_TEX_MODE;
 
+/* Texture stage */
+typedef enum _gceTEXTURE_STAGE
+{
+    gcvTEXTURE_STAGE_INVALID = -1,
+    gcvTEXTURE_STAGE_VS   = 0,
+    gcvTEXTURE_STAGE_TCS,
+    gcvTEXTURE_STAGE_TES,
+    gcvTEXTURE_STAGE_GS,
+    gcvTEXTURE_STAGE_FS,
+    gcvTEXTURE_STAGE_CS,
+
+    gcvTEXTURE_STAGE_LAST
+}gceTEXTURE_STAGE;
+
 /* Pixel output swizzle modes. */
 typedef enum _gcePIXEL_SWIZZLE
 {
