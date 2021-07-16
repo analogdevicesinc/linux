@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Example devicetree
+ *
+ * Copyright 2021 Analog Devices Inc.
+ *
+ * hdl_project: <fmcomms2/zed>
+ * board_revision: <>
+ *
+ */
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/iio/frequency/adf4159.h>
+
+/*
+ * SPI:
+ * spi1_csn      # "JA1"
+ * spi1_mosi     # "JA2"
+ * spi1_miso     # "JA3"
+ * spi1_clk      # "JA4"
+ * gpio_cftl[0]] # "JA7"        GPIO 54 + 32 + 0
+ * gpio_cftl[1]] # "JA10"       GPIO 54 + 32 + 1
+ */
+
+/ {
+	clocks {
+		clkin: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <1000000000>;
+			clock-output-names = "lo_in";
+			#clock-cells = <0>;
+		};
+		clkin2: clock@1 {
+			compatible = "fixed-clock";
+			clock-frequency = <1000000>;
+			clock-output-names = "offs_in";
+			#clock-cells = <0>;
+		};
+	};
+
+	mux: mux-controller {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio0 73 0>, <&gpio0 74 0>, <&gpio0 75 0>;
+	};
+
+	vna_mux0: mux-rf0 {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux>;
+		mux-state-names = "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7";
+	};
+};
+
+&fpga_axi {
+	/delete-node/ leds;
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <4>;
+	is-decoded-cs = <0>;
+
+	adl5960@0 {
+		compatible = "adi,adl5960";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&clkin>, <&clkin2>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+	};
+};
