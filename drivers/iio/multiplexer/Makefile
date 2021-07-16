@@ -5,3 +5,4 @@
 
 # When adding new entries keep the list in alphabetical order
 obj-$(CONFIG_IIO_MUX) += iio-mux.o
+obj-$(CONFIG_IIO_GEN_MUX) += iio-gen-mux.o
