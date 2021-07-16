@@ -181,6 +181,7 @@
 	pinctrl-0 = <&pinctrl_lpspi5>;
 	pinctrl-1 = <&pinctrl_lpspi5>;
 	cs-gpios = <&gpiof 19 GPIO_ACTIVE_LOW>;
+	pinctrl-assert-gpios = <&pca6416_1 10 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	spidev0: spi@0 {
