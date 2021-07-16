@@ -4018,12 +4018,22 @@ static struct sg_table *_dmabuf_map(struct dma_buf_attachment *attachment,
         gctPHYS_ADDR physical = gcvNULL;
         gctSIZE_T offset = 0;
         gctSIZE_T bytes = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+        DEFINE_DMA_ATTRS(attrs);
+#else
+        unsigned long attrs = 0;
+#endif
 
         if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
         {
             physical = node->VidMem.parent->physical;
             offset = node->VidMem.offset;
             bytes = node->VidMem.bytes;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+            dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#else
+            attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+#endif
         }
         else if (vidMemBlock && vidMemBlock->object.type == gcvOBJ_VIDMEM_BLOCK)
         {
@@ -4040,7 +4050,11 @@ static struct sg_table *_dmabuf_map(struct dma_buf_attachment *attachment,
 
         gcmkERR_BREAK(gckOS_MemoryGetSGT(nodeObject->kernel->os, physical, offset, bytes, (gctPOINTER*)&sgt));
 
-        if (dma_map_sg(attachment->dev, sgt->sgl, sgt->nents, direction) == 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+        if (dma_map_sg_attrs(attachment->dev, sgt->sgl, sgt->nents, direction, &attrs) == 0)
+#else
+        if (dma_map_sg_attrs(attachment->dev, sgt->sgl, sgt->nents, direction, attrs) == 0)
+#endif
         {
             sg_free_table(sgt);
             kfree(sgt);
@@ -4057,7 +4071,30 @@ static void _dmabuf_unmap(struct dma_buf_attachment *attachment,
                           struct sg_table *sgt,
                           enum dma_data_direction direction)
 {
-    dma_unmap_sg(attachment->dev, sgt->sgl, sgt->nents, direction);
+    struct dma_buf *dmabuf = attachment->dmabuf;
+    gckVIDMEM_NODE nodeObject = dmabuf->priv;
+    gcuVIDMEM_NODE_PTR node = nodeObject->node;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+    DEFINE_DMA_ATTRS(attrs);
+#else
+    unsigned long attrs = 0;
+#endif
+
+    if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
+    {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+        dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#else
+        attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+#endif
+
+    }
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+    dma_unmap_sg_attrs(attachment->dev, sgt->sgl, sgt->nents, direction, &attrs);
+#else
+    dma_unmap_sg_attrs(attachment->dev, sgt->sgl, sgt->nents, direction, attrs);
+#endif
 
     sg_free_table(sgt);
     kfree(sgt);
