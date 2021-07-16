@@ -5564,6 +5564,13 @@ gckOS_Signal(
 #endif
     unsigned long flags = 0;
 
+    /*
+     * Default interruptible set to false.
+     * Can be used in the future as argument, received from userspace through
+     * the interfacem similas as gckOS_WaitSignal() does.
+     */
+    gctBOOL interruptible = gcvFALSE;
+
     gcmkHEADER_ARG("Os=%p Signal=%p State=%d", Os, Signal, State);
 
     /* Verify the arguments. */
@@ -5601,7 +5608,28 @@ gckOS_Signal(
     {
         signal->done = 1;
 
-        wake_up(&signal->wait);
+        if (signal->manualReset)
+        {
+            if (interruptible)
+            {
+                wake_up_interruptible_all(&signal->wait);
+            }
+            else
+            {
+                wake_up_all(&signal->wait);
+            }
+        }
+        else
+        {
+            if (interruptible)
+            {
+                wake_up_interruptible(&signal->wait);
+            }
+            else
+            {
+                wake_up(&signal->wait);
+            }
+        }
 
 #if gcdLINUX_SYNC_FILE
 #ifndef CONFIG_SYNC_FILE

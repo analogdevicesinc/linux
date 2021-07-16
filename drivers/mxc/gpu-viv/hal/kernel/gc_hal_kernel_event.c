@@ -261,7 +261,7 @@ _TryToIdleGPU(
         powerLocked = gcvTRUE;
 
         /* Query whether the hardware is idle. */
-        gcmkONERROR(gckHARDWARE_QueryIdle(Event->kernel->hardware, &idle));
+        gcmkONERROR(gckHARDWARE_QueryIdleUnlocked(Event->kernel->hardware, &idle));
 
         gcmkONERROR(gckOS_ReleaseMutex(hardware->os, hardware->powerMutex));
         powerLocked = gcvFALSE;

@@ -2935,7 +2935,6 @@ gckKERNEL_Dispatch(
 
     gctBOOL powerMutexAcquired = gcvFALSE;
     gctBOOL commitMutexAcquired = gcvFALSE;
-    gctBOOL idle = gcvFALSE;
 
     gcmkHEADER_ARG("Kernel=%p Interface=%p", Kernel, Interface);
 
@@ -3249,18 +3248,24 @@ gckKERNEL_Dispatch(
         break;
 
     case gcvHAL_QUERY_POWER_MANAGEMENT_STATE:
-        /* Chip is not idle. */
         Interface->u.QueryPowerManagement.isIdle = gcvFALSE;
+        Interface->u.QueryPowerManagement.state = gcvPOWER_INVALID;
 
-        /* Query the power management state. */
-        gcmkONERROR(gckHARDWARE_QueryPowerState(
-            Kernel->hardware,
-            &Interface->u.QueryPowerManagement.state));
+        gcmkONERROR(gckOS_AcquireMutex(Kernel->os, Kernel->hardware->powerMutex,
+                gcvINFINITE));
+        powerMutexAcquired = gcvTRUE;
+
+        /* Query the power state. */
+        gcmkONERROR(gckHARDWARE_QueryPowerStateUnlocked(Kernel->hardware,
+                &Interface->u.QueryPowerManagement.state));
 
         /* Query the idle state. */
-        gcmkONERROR(
-            gckHARDWARE_QueryIdle(Kernel->hardware,
-                                  &Interface->u.QueryPowerManagement.isIdle));
+        gcmkONERROR(gckHARDWARE_QueryIdleUnlocked(Kernel->hardware,
+                &Interface->u.QueryPowerManagement.isIdle));
+
+        gcmkONERROR(gckOS_ReleaseMutex(Kernel->os,
+                Kernel->hardware->powerMutex));
+        powerMutexAcquired = gcvFALSE;
         break;
 
     case gcvHAL_READ_REGISTER:
@@ -3268,10 +3273,14 @@ gckKERNEL_Dispatch(
         {
             gceCHIPPOWERSTATE power;
 
-            gcmkONERROR(gckOS_AcquireMutex(Kernel->os, Kernel->hardware->powerMutex, gcvINFINITE));
+            gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
+                    Kernel->hardware->powerMutex, gcvINFINITE));
             powerMutexAcquired = gcvTRUE;
-            gcmkONERROR(gckHARDWARE_QueryPowerState(Kernel->hardware,
-                                                              &power));
+
+            /* Query the power state. */
+            gcmkONERROR(gckHARDWARE_QueryPowerStateUnlocked(Kernel->hardware,
+                    &power));
+
             if (power == gcvPOWER_ON)
             {
                 /* Read a register. */
@@ -3287,7 +3296,9 @@ gckKERNEL_Dispatch(
                 Interface->u.ReadRegisterData.data = 0;
                 status = gcvSTATUS_CHIP_NOT_READY;
             }
-            gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->hardware->powerMutex));
+
+            gcmkONERROR(gckOS_ReleaseMutex(Kernel->os,
+                    Kernel->hardware->powerMutex));
             powerMutexAcquired = gcvFALSE;
         }
 #else
@@ -3302,10 +3313,14 @@ gckKERNEL_Dispatch(
         {
             gceCHIPPOWERSTATE power;
 
-            gcmkONERROR(gckOS_AcquireMutex(Kernel->os, Kernel->hardware->powerMutex, gcvINFINITE));
+            gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
+                    Kernel->hardware->powerMutex, gcvINFINITE));
             powerMutexAcquired = gcvTRUE;
-            gcmkONERROR(gckHARDWARE_QueryPowerState(Kernel->hardware,
-                                                                  &power));
+
+            /* Query the power state. */
+            gcmkONERROR(gckHARDWARE_QueryPowerStateUnlocked(Kernel->hardware,
+                    &power));
+
             if (power == gcvPOWER_ON)
             {
                 /* Write a register. */
@@ -3321,7 +3336,9 @@ gckKERNEL_Dispatch(
                 Interface->u.WriteRegisterData.data = 0;
                 status = gcvSTATUS_CHIP_NOT_READY;
             }
-            gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->hardware->powerMutex));
+
+            gcmkONERROR(gckOS_ReleaseMutex(Kernel->os,
+                    Kernel->hardware->powerMutex));
             powerMutexAcquired = gcvFALSE;
         }
 #else
@@ -3579,21 +3596,6 @@ gckKERNEL_Dispatch(
 
     case gcvHAL_SET_FSCALE_VALUE:
 #if gcdENABLE_FSCALE_VAL_ADJUST
-        /* Wait for HW idle, otherwise it is not safe. */
-        gcmkONERROR(gckCOMMAND_Stall(Kernel->command, gcvFALSE));
-
-        for (;;)
-        {
-            gcmkONERROR(gckHARDWARE_QueryIdle(Kernel->hardware, &idle));
-
-            if (idle)
-            {
-                break;
-            }
-
-            gcmkVERIFY_OK(gckOS_Delay(Kernel->os, 1));
-        }
-
         status = gckHARDWARE_SetFscaleValue(Kernel->hardware,
                                             Interface->u.SetFscaleValue.value,
                                             Interface->u.SetFscaleValue.shValue);
@@ -3860,7 +3862,8 @@ OnError:
 
     if (powerMutexAcquired == gcvTRUE)
     {
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, Kernel->hardware->powerMutex));
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os,
+                Kernel->hardware->powerMutex));
     }
 
     if (commitMutexAcquired == gcvTRUE)
