@@ -16,4 +16,16 @@ config IIO_MUX
 	  To compile this driver as a module, choose M here: the
 	  module will be called iio-mux.
 
+config IIO_GEN_MUX
+	tristate "IIO generic multiplexer driver"
+	select MULTIPLEXER
+	depends on OF
+	help
+	  Say yes here to build support for the IIO generic multiplexer.
+	  This driver allows to control MUX devices via IIO device attributes.
+	  Optionally this driver may also register a clock mux.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called iio-gen-mux.
+
 endmenu
