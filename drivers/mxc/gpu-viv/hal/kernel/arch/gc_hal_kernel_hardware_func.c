@@ -3898,7 +3898,7 @@ _FuncExecute_MMU(IN gcsFUNCTION_EXECUTION_PTR Execution)
     gceSTATUS status = gcvSTATUS_OK;
     gctUINT32 address = 0;
     gctUINT32 idle;
-    gctUINT32 timer = 0, delay = 1;
+    gctUINT32 timer = 0, delay = 10;
     gckHARDWARE hardware = (gckHARDWARE)Execution->hardware;
     gckMMU mmu = hardware->kernel->mmu;
 
@@ -4055,7 +4055,7 @@ _FuncExecute_MMU(IN gcsFUNCTION_EXECUTION_PTR Execution)
     /* Wait until MMU configure finishes. */
     do
     {
-        gckOS_Delay(hardware->os, delay);
+        gckOS_Udelay(hardware->os, delay);
 
         gcmkONERROR(gckOS_ReadRegisterEx(
             hardware->os,

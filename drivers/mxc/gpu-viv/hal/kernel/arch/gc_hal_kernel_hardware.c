@@ -13719,7 +13719,7 @@ gckHARDWARE_ExecuteFunctions(
 {
     gceSTATUS status;
     gctUINT32 idle;
-    gctUINT32 i, timer = 0, delay = 1;
+    gctUINT32 i, timer = 0, delay = 10;
     gctUINT32 address;
     gckHARDWARE hardware = (gckHARDWARE)Execution->hardware;
 
@@ -13773,7 +13773,7 @@ gckHARDWARE_ExecuteFunctions(
         /* Wait until GPU idle. */
         do
         {
-            gckOS_Delay(hardware->os, delay);
+            gckOS_Udelay(hardware->os, delay);
 
             gcmkONERROR(gckOS_ReadRegisterEx(
                 hardware->os,

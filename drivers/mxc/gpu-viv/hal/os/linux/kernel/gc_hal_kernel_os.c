@@ -2961,6 +2961,49 @@ gckOS_Delay(
 
 /*******************************************************************************
 **
+**  gckOS_Udelay
+**
+**  Delay execution of the current thread for a number of microseconds.
+**
+**  INPUT:
+**
+**      gckOS Os
+**          Pointer to an gckOS object.
+**
+**      gctUINT32 Delay
+**          Delay to sleep, specified in microseconds.
+**
+**  OUTPUT:
+**
+**      Nothing.
+*/
+gceSTATUS
+gckOS_Udelay(
+    IN gckOS Os,
+    IN gctUINT32 Delay
+    )
+{
+    gcmkHEADER_ARG("Os=%p Delay=%u", Os, Delay);
+
+    if (Delay > 0)
+    {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28)
+        ktime_t delay = ktime_set((Delay / USEC_PER_SEC), (Delay % USEC_PER_SEC) * NSEC_PER_USEC);
+        __set_current_state(TASK_UNINTERRUPTIBLE);
+        schedule_hrtimeout(&delay, HRTIMER_MODE_REL);
+#else
+        usleep_range((unsigned long)Delay, (unsigned long)Delay + 1);
+#endif
+    }
+
+    /* Success. */
+    gcmkFOOTER_NO();
+    return gcvSTATUS_OK;
+}
+
+
+/*******************************************************************************
+**
 **  gckOS_GetTicks
 **
 **  Get the number of milliseconds since the system started.

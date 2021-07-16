@@ -788,6 +788,13 @@ gckOS_Delay(
     IN gctUINT32 Delay
     );
 
+/* Delay a number of milliseconds. */
+gceSTATUS
+gckOS_Udelay(
+    IN gckOS Os,
+    IN gctUINT32 Delay
+    );
+
 /* Get time in milliseconds. */
 gceSTATUS
 gckOS_GetTicks(
