@@ -243,6 +243,18 @@ config ADF5355
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called adf5355.
+
+config ADF5610
+	tristate "Analog Devices ADF5610 Microwave Wideband Synthesizer"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices ADF5610 Microwave
+	  Wideband Synthesizer with Integrated VCO. The driver provides direct
+	  access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adf5610.
 endmenu
 
 #

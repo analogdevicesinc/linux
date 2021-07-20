@@ -1,0 +1,55 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2836", "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			adf5610_xref: clock@0 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <50000000>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		__overlay__ {
+			cs-gpios = <&gpio 8 1>, <&gpio 7 1>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adf5610: adf5610@0 {
+				compatible = "adi,adf5610";
+				reg = <0>;
+
+				//spi-cs-high;
+				spi-cpol;
+				spi-cpha;
+				spi-max-frequency = <10000000>;
+
+				clocks = <&adf5610_xref>;
+				clock-names = "xref";
+
+				adi,power-up-rfout-frequency-hz = /bits/ 64 <14600000000>;
+
+				adi,charge-pump-down-gain-ua =  /bits/ 16 <2540>;
+				adi,charge-pump-up-gain-ua =  /bits/ 16 <2540>;
+				adi,charge-pump-offset-ua =   /bits/ 16  <520>;
+				adi,charge-pump-offset-down-enable;
+			};
+		};
+	};
+};
