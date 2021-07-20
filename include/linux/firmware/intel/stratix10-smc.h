@@ -67,6 +67,9 @@
  *
  * INTEL_SIP_SMC_RSU_ERROR:
  * There is error during the process of remote status update request.
+ *
+ * INTEL_SIP_SMC_STATUS_NOT_SUPPORTED:
+ * Secure monitor software doesn't support the request
  */
 #define INTEL_SIP_SMC_RETURN_UNKNOWN_FUNCTION		0xFFFFFFFF
 #define INTEL_SIP_SMC_STATUS_OK				0x0
@@ -74,6 +77,7 @@
 #define INTEL_SIP_SMC_STATUS_REJECTED			0x2
 #define INTEL_SIP_SMC_STATUS_ERROR			0x4
 #define INTEL_SIP_SMC_RSU_ERROR				0x7
+#define INTEL_SIP_SMC_STATUS_NOT_SUPPORTED		0x8
 
 /**
  * Request INTEL_SIP_SMC_FPGA_CONFIG_START
@@ -723,5 +727,46 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FUNCID_FCS_ATTESTATION_MEASUREMENTS 103
 #define INTEL_SIP_SMC_FCS_ATTESTATION_MEASUREMENTS \
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ATTESTATION_MEASUREMENTS)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_GET_ATTESTATION_CERTIFICATE
+ * Sync call to get device attestation certificate
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_GET_ATTESTATION_CERTIFICATE
+ * a1 the type of certificate request
+ * a2 the physical address which holds certificate response data
+ * a3 the size of the certificate response data
+ * a4-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox error if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of the requested certificate
+ * a3 sized of the requested certificate
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_GET_ATTESTATION_CERTIFICATE 104
+#define INTEL_SIP_SMC_FCS_GET_ATTESTATION_CERTIFICATE \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_ATTESTATION_CERTIFICATE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_CREATE_CERTIFICATE_ON_RELOAD
+ * Sync call to specify what certificate is to be generated
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_CREATE_CERTIFICATE_ON_RELOAD
+ * a1 the type of certificat request
+ * a2-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox error if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_CREATE_CERTIFICATE_ON_RELOAD 105
+#define INTEL_SIP_SMC_FCS_CREATE_CERTIFICATE_ON_RELOAD \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_CREATE_CERTIFICATE_ON_RELOAD)
 
 #endif
