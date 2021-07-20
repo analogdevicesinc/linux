@@ -166,6 +166,12 @@ struct stratix10_svc_chan;
  *
  * @COMMAND_POLL_SERVICE_STATUS: poll if the service request is complete,
  * return statis is SVC_STATUS_OK, SVC_STATUS_ERROR or SVC_STATUS_BUSY
+ *
+ * @COMMAND_FCS_ATTESTATION_CERTIFICATE: get FPGA attestation certificate,
+ * return status is SVC_STATUS_OK or SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD: reload FPGA attestation
+ * certificate, return status is SVC_STATUS_OK or SVC_STATUS_ERROR
  */
 enum stratix10_svc_command_code {
 	/* for FPGA */
@@ -196,6 +202,8 @@ enum stratix10_svc_command_code {
 	COMMAND_FCS_GET_CHIP_ID,
 	COMMAND_FCS_ATTESTATION_SUBKEY,
 	COMMAND_FCS_ATTESTATION_MEASUREMENTS,
+	COMMAND_FCS_ATTESTATION_CERTIFICATE,
+	COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD,
 	/* for general status poll */
 	COMMAND_POLL_SERVICE_STATUS = 40,
 	/* for generic mailbox send command */
