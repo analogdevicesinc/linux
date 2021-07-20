@@ -42,6 +42,9 @@
 
 #define DEFAULT_PIXELDEPTH		10		//set outputPixelDepth to this will make daemon return default pixeldepth
 
+#define VSI_DEFAULT_WIDTH		144
+#define VSI_DEFAULT_HEIGHT		144
+
 #if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
 #define VSI_DEVTYPE	VFL_TYPE_GRABBER
 #else
@@ -371,6 +374,7 @@ void vsi_dec_updatevui(struct v4l2_daemon_dec_info *src, struct v4l2_daemon_dec_
 void vsi_dec_getvui(struct v4l2_format *v4l2fmt, struct v4l2_daemon_dec_info *decinfo);
 void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format);
 void vsiv4l2_initcfg(struct vsi_v4l2_ctx *ctx);
+void vsiv4l2_initfmt(struct vsi_v4l2_ctx *ctx);
 int vsi_get_Level(struct vsi_v4l2_ctx *ctx, int mediatype, int dir, int level);
 int vsiv4l2_setfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 int vsiv4l2_getfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
