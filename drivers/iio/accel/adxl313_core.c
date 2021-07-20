@@ -14,6 +14,35 @@
 
 #include "adxl313.h"
 
+const struct regmap_range adxl313_readable_reg_range[] = {
+	regmap_reg_range(ADXL313_REG_DEVID0, ADXL313_REG_XID),
+	regmap_reg_range(ADXL313_REG_SOFT_RESET, ADXL313_REG_SOFT_RESET),
+	regmap_reg_range(ADXL313_REG_OFS_AXIS(0), ADXL313_REG_OFS_AXIS(2)),
+	regmap_reg_range(ADXL313_REG_THRESH_ACT, ADXL313_REG_ACT_INACT_CTL),
+	regmap_reg_range(ADXL313_REG_BW_RATE, ADXL313_REG_FIFO_STATUS)
+};
+
+const struct regmap_access_table adxl313_readable_regs_table = {
+	.yes_ranges = adxl313_readable_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl313_readable_reg_range)
+};
+EXPORT_SYMBOL_GPL(adxl313_readable_regs_table);
+
+const struct regmap_range adxl313_writable_reg_range[] = {
+	regmap_reg_range(ADXL313_REG_SOFT_RESET, ADXL313_REG_SOFT_RESET),
+	regmap_reg_range(ADXL313_REG_OFS_AXIS(0), ADXL313_REG_OFS_AXIS(2)),
+	regmap_reg_range(ADXL313_REG_THRESH_ACT, ADXL313_REG_ACT_INACT_CTL),
+	regmap_reg_range(ADXL313_REG_BW_RATE, ADXL313_REG_INT_MAP),
+	regmap_reg_range(ADXL313_REG_DATA_FORMAT, ADXL313_REG_DATA_FORMAT),
+	regmap_reg_range(ADXL313_REG_FIFO_CTL, ADXL313_REG_FIFO_CTL)
+};
+
+const struct regmap_access_table adxl313_writable_regs_table = {
+	.yes_ranges = adxl313_writable_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl313_writable_reg_range)
+};
+EXPORT_SYMBOL_GPL(adxl313_writable_regs_table);
+
 struct adxl313_data {
 	struct regmap	*regmap;
 	struct mutex	lock; /* lock to protect transf_buf */

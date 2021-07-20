@@ -14,8 +14,11 @@
 #include "adxl313.h"
 
 static const struct regmap_config adxl313_i2c_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 8,
+	.reg_bits	= 8,
+	.val_bits	= 8,
+	.rd_table	= &adxl313_readable_regs_table,
+	.wr_table	= &adxl313_writable_regs_table,
+	.max_register	= 0x39
 };
 
 static int adxl313_i2c_probe(struct i2c_client *client)

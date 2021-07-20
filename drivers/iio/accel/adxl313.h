@@ -51,6 +51,10 @@
  */
 #define ADXL313_NSCALE 9576806
 
+extern const struct regmap_access_table adxl313_readable_regs_table;
+
+extern const struct regmap_access_table adxl313_writable_regs_table;
+
 int adxl313_core_probe(struct device *dev, struct regmap *regmap,
 		       const char *name);
 #endif /* _ADXL313_H_ */
