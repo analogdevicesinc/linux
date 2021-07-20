@@ -187,6 +187,26 @@ struct fcs_attestation_measuerments {
 };
 
 /**
+ * struct fcs_attestation_certificate
+ * @c_request: certificate request
+ * @rsp_data: response data of the request certificate
+ * @rsp_data_sz: size of response data of the request certificate
+ */
+struct fcs_attestation_certificate {
+	int c_request;
+	char *rsp_data;
+	uint32_t rsp_data_sz;
+};
+
+/**
+ * fcs_attestation_certificate_reload
+ * @c_request: certificate request
+ */
+struct fcs_attestation_certificate_reload {
+	int c_request;
+};
+
+/**
  * struct intel_fcs_dev_ioct: common structure passed to Linux
  *	kernel driver for all commands.
  * @status: Used for the return code.
@@ -219,6 +239,8 @@ struct intel_fcs_dev_ioctl {
 		struct fcs_attestation_chipid	c_id;
 		struct fcs_attestation_subkey	subkey;
 		struct fcs_attestation_measuerments	measurement;
+		struct fcs_attestation_certificate	certificate;
+		struct fcs_attestation_certificate_reload	c_reload;
 	} com_paras;
 };
 
@@ -260,6 +282,8 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CHIP_ID_CMD,
 	INTEL_FCS_DEV_ATTESTATION_SUBKEY_CMD,
 	INTEL_FCS_DEV_ATTESTATION_MEASUREMENT_CMD,
+	INTEL_FCS_DEV_ATTESTATION_GET_CERTIFICATE_CMD,
+	INTEL_FCS_DEV_ATTESTATION_CERTIFICATE_RELOAD_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -309,5 +333,13 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_ATTESTATION_MEASUREMENT \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_ATTESTATION_MEASUREMENT_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_ATTESTATION_GET_CERTIFICATE \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_ATTESTATION_GET_CERTIFICATE_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_ATTESTATION_CERTIFICATE_RELOAD \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_ATTESTATION_CERTIFICATE_RELOAD_CMD, struct intel_fcs_dev_ioctl)
 #endif
 
