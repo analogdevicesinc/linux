@@ -109,7 +109,7 @@ static int adf5610_pll_read(struct adf5610 *adf,
 		.len = 4,
 	};
 	int ret;
-
+#ifdef SPI_LEGACY
 	tx[0] = ADF5610_RD | ((reg & 0x1F) << 1);
 
 	ret = spi_sync_transfer(adf->spi, &t, 1);
@@ -117,7 +117,21 @@ static int adf5610_pll_read(struct adf5610 *adf,
 	*val = (rx[1] << 16) |
 	       (rx[2] << 8) |
 	       (rx[3] >> 0);
+#else
+	tx[0] = 0;
+	tx[1] = 0;
+	tx[2] = reg & 0x1F;
+	tx[3] = 0x0;
 
+	ret = spi_sync_transfer(adf->spi, &t, 1);
+
+	ret |= spi_sync_transfer(adf->spi, &t, 1);
+
+	*val = (rx[0] << 17) |
+	       (rx[1] << 9) |
+	       (rx[2] << 1) |
+	       (rx[3] >> 7);
+#endif
 	return ret;
 }
 
@@ -130,12 +144,17 @@ static int adf5610_pll_write(struct adf5610 *adf,
 		.rx_buf = rx,
 		.len = 4,
 	};
-
+#ifdef SPI_LEGACY
 	tx[0] = ADF5610_WR | ((reg & 0x1F) << 1) | ((val & 0x800000) >> 23);
 	tx[1] = ((val & 0x7f8000) >> 15);
 	tx[2] = ((val & 0x7f80) >> 7);
 	tx[3] = ((val & 0x7f) << 1);
-
+#else
+	tx[0] = ((val & 0xff0000) >> 16);
+	tx[1] = ((val & 0x00ff00) >> 8);
+	tx[2] = ((val & 0x0000ff) >> 0);
+	tx[3] = ((reg & 0x1F) << 3);
+#endif
 	return spi_sync_transfer(adf->spi, &t, 1);
 }
 

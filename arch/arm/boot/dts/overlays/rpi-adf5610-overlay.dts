@@ -25,7 +25,7 @@
 	fragment@2 {
 		target = <&spi0>;
 		__overlay__ {
-			cs-gpios = <&gpio 8 0>, <&gpio 7 1>;
+			cs-gpios = <&gpio 8 1>, <&gpio 7 1>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -35,7 +35,9 @@
 				compatible = "adi,adf5610";
 				reg = <0>;
 
-				spi-cs-high;
+				//spi-cs-high;
+				spi-cpol;
+				spi-cpha;
 				spi-max-frequency = <10000000>;
 
 				clocks = <&adf5610_xref>;
