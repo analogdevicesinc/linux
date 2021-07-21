@@ -617,6 +617,42 @@ static const struct attribute_group ad9083_phy_attribute_group = {
 	.attrs = ad9083_phy_attributes,
 };
 
+static int ad9083_read_raw(struct iio_dev *indio_dev,
+			   const struct iio_chan_spec *chan, int *val,
+			   int *val2, long info)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9083_phy *phy = conv->phy;
+	u64 freq;
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		freq = phy->adc_frequency_hz;
+		do_div(freq, phy->total_dcm);
+		*val = freq;
+
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ad9083_write_raw(struct iio_dev *indio_dev,
+			    const struct iio_chan_spec *chan, int val, int val2,
+			    long info)
+{
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return -ENOTSUPP;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int ad9083_setup(struct axiadc_converter *conv)
 {
 	struct ad9083_phy *phy = conv->phy;
@@ -645,7 +681,7 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	}
 
 	if ((chip_id.prod_id & CHIPID_MASK) != CHIPID_AD9083) {
-		dev_err(dev, "Chip id check failed (%d)\n", chip_id.prod_id);
+		dev_err(dev, "Chip id check failed (%x)\n", chip_id.prod_id);
 		return -ENOENT;
 	}
 
@@ -883,6 +919,8 @@ static void ad9083_setup_chip_info_tbl(struct ad9083_phy *phy)
 		phy->chip_info.channel[i].scan_type.realbits = phy->jesd_param.jesd_n;
 		phy->chip_info.channel[i].scan_type.storagebits = 16;
 		phy->chip_info.channel[i].scan_type.shift = 0;
+		phy->chip_info.channel[i].info_mask_shared_by_type =
+			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 	}
 
 	phy->chip_info.name = "AD9083";
@@ -925,6 +963,8 @@ static int ad9083_probe(struct spi_device *spi)
 	conv->phy = phy;
 	conv->chip_info = &phy->chip_info;
 	conv->reg_access = ad9083_reg_access;
+	conv->write_raw = ad9083_write_raw;
+	conv->read_raw = ad9083_read_raw;
 	conv->attrs = &ad9083_phy_attribute_group;
 
 	if (jdev) {
