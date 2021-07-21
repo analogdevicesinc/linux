@@ -26,6 +26,7 @@
 #define RANDOM_NUMBER_SIZE	32
 #define FILE_NAME_SIZE		32
 #define PS_BUF_SIZE		64
+#define SHA384_SIZE		48
 #define INVALID_STATUS		0xffffffff
 #define INVALID_CID		0xffffffff
 
@@ -995,6 +996,63 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			ret = -EFAULT;
 		}
 
+		break;
+
+	case INTEL_FCS_DEV_GET_ROM_PATCH_SHA384:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		s_buf = stratix10_svc_allocate_memory(priv->chan,
+						      SHA384_SIZE);
+		if (!s_buf) {
+			dev_err(dev, "failed to allocate RNG buffer\n");
+			return -ENOMEM;
+		}
+
+		msg->command = COMMAND_FCS_GET_ROM_PATCH_SHA384;
+		msg->payload = s_buf;
+		msg->payload_length = SHA384_SIZE;
+		priv->client.receive_cb = fcs_data_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+
+		if (!ret && !priv->status) {
+			if (!priv->kbuf) {
+				dev_err(dev, "failure on kbuf\n");
+				fcs_close_services(priv, s_buf, NULL);
+				return -EFAULT;
+			}
+
+			if (priv->size > SHA384_SIZE) {
+				dev_err(dev, "returned size is incorrect\n");
+				fcs_close_services(priv, s_buf, NULL);
+				ret = -EFAULT;
+			}
+
+			for (i = 0; i < 12; i++)
+				dev_dbg(dev, "output_data[%d]=%d\n", i,
+					 *((int *)priv->kbuf + i));
+			for (i = 0; i < 12; i++)
+				data->com_paras.sha384.checksum[i] =
+					*((int *)priv->kbuf + i);
+			data->status = priv->status;
+
+		} else {
+			/* failed to get SHA */
+			data->status = priv->status;
+		}
+
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			fcs_close_services(priv, s_buf, NULL);
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, s_buf, NULL);
 		break;
 
 	default:
