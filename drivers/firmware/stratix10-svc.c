@@ -1105,8 +1105,8 @@ EXPORT_SYMBOL_GPL(stratix10_svc_send);
  */
 void stratix10_svc_done(struct stratix10_svc_chan *chan)
 {
-	/* stop thread when thread is running AND only one active client */
-	if (chan->ctrl->task && chan->ctrl->num_active_client <= 1) {
+	/* stop thread when thread is running */
+	if (chan->ctrl->task) {
 		pr_debug("svc_smc_hvc_shm_thread is stopped\n");
 		kthread_stop(chan->ctrl->task);
 		chan->ctrl->task = NULL;
