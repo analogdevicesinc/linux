@@ -174,10 +174,10 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 			break;
 		case ID_ADRF5720:
 		case ID_ADRF5730:
-			gain = -31500 + code * 500;
+			gain = -1 * code * 500;
 			break;
 		case ID_ADRF5731:
-			gain = -30000 + code * 500;
+			gain = -1 * code * 500;
 			break;
 		case ID_HMC271:
 		case ID_HMC1018:
