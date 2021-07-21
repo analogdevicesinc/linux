@@ -1546,7 +1546,7 @@ static int sec_mipi_dsim_bridge_atomic_check(struct drm_bridge *bridge,
 		input_bus_cfg->flags |= DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE;
 	}
 
-	/* workaround for CEA standard mode "1280x720@60"
+	/* workaround for CEA standard mode "1280x720@60" "1920x1080p24"
 	 * display on 4 data lanes with Non-burst with sync
 	 * pulse DSI mode, since use the standard horizontal
 	 * timings cannot display correctly. And this code
@@ -1556,6 +1556,15 @@ static int sec_mipi_dsim_bridge_atomic_check(struct drm_bridge *bridge,
 	 */
 	if (!strcmp(adjusted_mode->name, "1280x720") &&
 	    drm_mode_vrefresh(adjusted_mode) == 60   &&
+	    dsim->lanes == 4		    &&
+	    dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+		adjusted_mode->hsync_start += 2;
+		adjusted_mode->hsync_end   += 2;
+		adjusted_mode->htotal      += 2;
+	}
+
+	if (!strcmp(adjusted_mode->name, "1920x1080") &&
+	    drm_mode_vrefresh(adjusted_mode) == 24 &&
 	    dsim->lanes == 4		    &&
 	    dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
 		adjusted_mode->hsync_start += 2;
