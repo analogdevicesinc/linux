@@ -1571,6 +1571,7 @@ int iio_buffer_remove_sample(struct iio_buffer *buffer, u8 *data)
 {
 	return buffer->access->remove_from(buffer, data);
 }
+EXPORT_SYMBOL_GPL(iio_buffer_remove_sample);
 
 /**
  * iio_buffer_release() - Free a buffer's resources
