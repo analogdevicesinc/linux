@@ -600,9 +600,15 @@ int32_t adi_adrv9001_fh_Configuration_Inspect(adi_adrv9001_Device_t *adrv9001, a
         }
         /* Configure ADRV9001 GPIOs */
         gainSelectPinSignal = ADI_ADRV9001_GPIO_SIGNAL_FH_GAIN_SEL_0;
+        fhConfig->gainSetupByPinConfig.numGainCtrlPins = ADI_ADRV9001_FH_MAX_NUM_GAIN_SELECT_PINS;
         for (i = 0; i < ADI_ADRV9001_FH_MAX_NUM_GAIN_SELECT_PINS; i++)
         {
             ADI_EXPECT(adi_adrv9001_gpio_Inspect, adrv9001, (gainSelectPinSignal + i), &(fhConfig->gainSetupByPinConfig.gainSelectGpioConfig[i]));
+            if (fhConfig->gainSetupByPinConfig.gainSelectGpioConfig[i].pin == ADI_ADRV9001_GPIO_UNASSIGNED)
+            {
+                fhConfig->gainSetupByPinConfig.numGainCtrlPins = i;
+                break;
+            }
         }
     }
 
@@ -619,9 +625,15 @@ int32_t adi_adrv9001_fh_Configuration_Inspect(adi_adrv9001_Device_t *adrv9001, a
     if (fhConfig->tableIndexCtrl == ADI_ADRV9001_TABLEINDEXCTRL_GPIO)
     {
         frequencySelectPinSignal = ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_0;
+        fhConfig->numTableIndexPins = ADI_ADRV9001_FH_MAX_NUM_FREQ_SELECT_PINS;
         for (i = 0; i < ADI_ADRV9001_FH_MAX_NUM_FREQ_SELECT_PINS; i++)
         {
             ADI_EXPECT(adi_adrv9001_gpio_Inspect, adrv9001, (frequencySelectPinSignal + i), &(fhConfig->tableIndexGpioConfig[i]));
+            if (fhConfig->tableIndexGpioConfig[i].pin == ADI_ADRV9001_GPIO_UNASSIGNED)
+            {
+                fhConfig->numTableIndexPins = i;
+                break;
+            }
         }
     }
 
