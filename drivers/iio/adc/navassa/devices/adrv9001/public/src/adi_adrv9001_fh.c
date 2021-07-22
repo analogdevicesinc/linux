@@ -612,7 +612,7 @@ int32_t adi_adrv9001_fh_Configuration_Inspect(adi_adrv9001_Device_t *adrv9001, a
     if (fhConfig->mode == ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP)
     {
         ADI_EXPECT(adi_adrv9001_gpio_Inspect, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_2, &(fhConfig->hopSignalGpioConfig[1]));
-        ADI_EXPECT(adi_adrv9001_gpio_Inspect, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_2_TABLE_SELECT, &(fhConfig->hopTableSelectConfig.hopTableSelectGpioConfig[0]));
+        ADI_EXPECT(adi_adrv9001_gpio_Inspect, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_2_TABLE_SELECT, &(fhConfig->hopTableSelectConfig.hopTableSelectGpioConfig[1]));
     }
 
     /* Configure table index pins if selected */
