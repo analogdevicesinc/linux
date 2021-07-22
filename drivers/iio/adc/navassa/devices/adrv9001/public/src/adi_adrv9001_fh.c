@@ -17,6 +17,7 @@
 #include "adi_adrv9001_hal.h"
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_rx_types.h"
+#include "adi_adrv9001_tx_types.h"
 #include "adrv9001_bf.h"
 #include "adi_adrv9001_spi.h"
 #include "adi_adrv9001_user.h"
@@ -54,10 +55,6 @@ if (device->devStateInfo.frequencyHoppingEnabled == 0) \
                      "Frequency hopping not enabled in device profile"); \
     ADI_API_RETURN(device); \
 }
-
-/* TODO JP: Consider making the definitions for attenuation settings a #def in tx_types.h */
-static const uint16_t NORMAL_MAX_ATTENUATION_MDB        = 41950;
-static const uint16_t NORMAL_ATTENUATION_RESOLUTION_MDB = 50;
 
 /*  TODO JP: Determine if we need to validate the whole table.
     It's difficult to validate the hop table due to the following:
@@ -233,9 +230,9 @@ static __maybe_unused int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_De
              Will min/max be the same, or will we need a seperate field?
     */
     ADI_RANGE_CHECK(adrv9001, fhConfig->minTxAtten_mdB, 0, fhConfig->maxTxAtten_mdB);
-    ADI_RANGE_CHECK(adrv9001, fhConfig->maxTxAtten_mdB, fhConfig->minTxAtten_mdB, NORMAL_MAX_ATTENUATION_MDB);
+    ADI_RANGE_CHECK(adrv9001, fhConfig->maxTxAtten_mdB, fhConfig->minTxAtten_mdB, ADRV9001_TX_MAX_ATTENUATION_MDB);
 
-    if (fhConfig->minTxAtten_mdB % NORMAL_ATTENUATION_RESOLUTION_MDB != 0)
+    if (fhConfig->minTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB != 0)
     {
         ADI_ERROR_REPORT(&adrv9001->common,
                          ADI_COMMON_ERRSRC_API,
@@ -245,7 +242,7 @@ static __maybe_unused int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_De
                          "Invalid attenuation_mdB value. The resolution of adi_adrv9001_Tx_Attenuation_Set() is only 0.05dB");
     }
 
-    if (fhConfig->maxTxAtten_mdB % NORMAL_ATTENUATION_RESOLUTION_MDB != 0)
+    if (fhConfig->maxTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB != 0)
     {
         ADI_ERROR_REPORT(&adrv9001->common,
                          ADI_COMMON_ERRSRC_API,
