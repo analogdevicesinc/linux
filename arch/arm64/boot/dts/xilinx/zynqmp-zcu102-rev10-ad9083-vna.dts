@@ -15,15 +15,6 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 / {
-	clocks {
-		rx_fixed_link_clk: clock@1 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <250000000>;
-			clock-output-names = "rx_link_clk";
-		};
-	};
-
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
@@ -58,7 +49,7 @@
 
 			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&ad9528 1>, <&axi_ad9083_adxcvr_rx 0>, <&rx_fixed_link_clk>;
+			clocks = <&zynqmp_clk 71>, <&ad9528 1>, <&axi_ad9083_adxcvr_rx 0>, <&axi_ad9083_adxcvr_rx 1>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 			#clock-cells = <0>;
@@ -82,7 +73,7 @@
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
 
 			adi,sys-clk-select = <XCVR_QPLL>;
-			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+			adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 			adi,use-lpm-enable;
 
 			jesd204-device;
@@ -90,7 +81,7 @@
 			jesd204-inputs = <&ad9528 0 0>;
 		};
 
-		spi_adl5960_1: axi_quad_spi1@88100000 {
+		spi_adl5960_1: spi@88100000 {
 			bits-per-word = <8>;
 			clock-names = "ext_spi_clk", "s_axi_aclk";
 			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
@@ -99,15 +90,15 @@
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
 			interrupts = <0 106 1>;
-			num-cs = <0x2>;
+			num-cs = <0x4>;
 			reg = <0x88100000 0x1000>;
-			xlnx,num-ss-bits = <0x2>;
+			xlnx,num-ss-bits = <0x4>;
 			xlnx,spi-mode = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
 
-		spi_adl5960_2: axi_quad_spi2@88200000 {
+		spi_adl5960_2: spi@88200000 {
 			bits-per-word = <8>;
 			clock-names = "ext_spi_clk", "s_axi_aclk";
 			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
@@ -116,15 +107,15 @@
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
 			interrupts = <0 107 1>;
-			num-cs = <0x6>;
+			num-cs = <0x4>;
 			reg = <0x88200000 0x1000>;
-			xlnx,num-ss-bits = <0x6>;
+			xlnx,num-ss-bits = <0x4>;
 			xlnx,spi-mode = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
 
-		spi_bus1: axi_quad_spi0@88000000 {
+		spi_bus1: spi@88000000 {
 			bits-per-word = <8>;
 			clock-names = "ext_spi_clk", "s_axi_aclk";
 			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
