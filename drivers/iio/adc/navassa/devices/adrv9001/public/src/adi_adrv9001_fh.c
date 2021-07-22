@@ -41,7 +41,6 @@
                                                       FREQ_HOPPING_TX_ATTEN_TABLE_NUM_BYTES +\
                                                       FREQ_HOPPING_CONFIGURATION_NUM_BYTES)
 #define FREQ_HOPPING_MAX_NUM_BYTES                   1024u
-#define FREQ_HOPPING_MAX_TX_FE_POWERON_FRAME_DELAY   64u
 #define FREQ_HOPPING_HOP_TABLE_PARTITION_ADDR_OFFSET 16u
 
 #define ADI_FH_CHECK_FH_ENABLED(device) \
@@ -185,7 +184,7 @@ static __maybe_unused int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_De
     }
 
     /* Check txAnalogPowerOnFrameDelay is within range */
-    ADI_RANGE_CHECK(adrv9001, fhConfig->txAnalogPowerOnFrameDelay, 0, FREQ_HOPPING_MAX_TX_FE_POWERON_FRAME_DELAY);
+    ADI_RANGE_CHECK(adrv9001, fhConfig->txAnalogPowerOnFrameDelay, 0, ADI_ADRV9001_FH_MAX_TX_FE_POWERON_FRAME_DELAY);
     /* Ensure tx analog power on delay is zero if Rx is enabled */
     if ((ADRV9001_BF_EQUAL(initializedChannelMask, rxChannelMask))
       &&(fhConfig->txAnalogPowerOnFrameDelay > 0))

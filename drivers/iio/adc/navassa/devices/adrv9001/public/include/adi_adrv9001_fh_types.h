@@ -56,6 +56,11 @@ extern "C" {
 #define ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ 6000000000llu  /* 6 GHz */
 
 /**
+ * \brief Maximum Tx analog front end delay in hop frames
+ */
+#define ADI_ADRV9001_FH_MAX_TX_FE_POWERON_FRAME_DELAY 64u
+
+/**
  * \brief Enumeration of frequency hopping modes
  */
 typedef enum {
