@@ -981,7 +981,7 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	ret = v4l2_subdev_call(src_sd, pad, set_fmt, NULL, &src_fmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		v4l2_err(&isi_cap->sd, "set remote fmt fail!\n");
-		goto fail;
+		return ret;
 	}
 
 	memset(&src_fmt, 0, sizeof(src_fmt));
@@ -990,7 +990,7 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	ret = v4l2_subdev_call(src_sd, pad, get_fmt, NULL, &src_fmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		v4l2_err(&isi_cap->sd, "get remote fmt fail!\n");
-		goto fail;
+		return ret;
 	}
 
 	/* Pixel link master will transfer format to RGB32 or YUV32 */
@@ -1004,12 +1004,10 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 			__func__,
 			src_f->width, src_f->height,
 			dst_f->width, dst_f->height);
-		goto fail;
+		return -EINVAL;
 	}
 
 	return 0;
-fail:
-	return v4l2_subdev_call(src_sd, core, s_power, 0);
 }
 
 static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
