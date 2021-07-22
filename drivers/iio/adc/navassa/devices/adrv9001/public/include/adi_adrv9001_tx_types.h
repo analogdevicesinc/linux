@@ -36,6 +36,8 @@
 #define ADRV9001_TX_PA_RAMP_MAX_CLK_KHZ     1000
 #define ADRV9001_TX_PA_RAMP_LUT_SIZE        256
 
+#define ADRV9001_TX_MAX_ATTENUATION_MDB         41950
+#define ADRV9001_TX_ATTENUATION_RESOLUTION_MDB  50
 /**
 *  \brief Enum to set the Tx Attenuation step size
 */
