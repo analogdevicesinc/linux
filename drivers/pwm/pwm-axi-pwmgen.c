@@ -71,28 +71,34 @@ static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 			     const struct pwm_state *state)
 {
-	unsigned long clk_rate, period_cnt, duty_cnt, offset_cnt;
-	u64 tmp;
+	unsigned long target_rate, clk_rate, period_cnt, duty_cnt, offset_cnt;
+	struct axi_pwmgen *pwm = to_axi_pwmgen(chip);
 	unsigned int ch = device->hwpwm;
-	struct axi_pwmgen *pwm;
 
-	pwm = to_axi_pwmgen(chip);
 	clk_rate = clk_get_rate(pwm->clk);
+	if (state->enabled) {
+		target_rate = DIV_ROUND_CLOSEST(NSEC_PER_SEC, state->period);
+		if (target_rate > clk_rate)
+			return -EINVAL;
+		period_cnt = DIV_ROUND_CLOSEST(clk_rate, target_rate);
+		pwm->ch_period[ch] = period_cnt;
+	} else {
+		pwm->ch_period[ch] = 0;
+	}
+	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PERIOD(ch), pwm->ch_period[ch]);
 
-	tmp = (u64)clk_rate * state->period;
-	period_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
-	pwm->ch_period[ch] = period_cnt;
-	/* The register is 0 based */
-	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PERIOD(ch),
-		state->enabled ? (pwm->ch_period[ch] - 1) : 0);
-
-	tmp = (u64)clk_rate * state->duty_cycle;
-	duty_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
+	target_rate = DIV_ROUND_CLOSEST(NSEC_PER_SEC, state->duty_cycle);
+	duty_cnt = DIV_ROUND_CLOSEST(clk_rate, target_rate);
 	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(ch), duty_cnt);
 
-	tmp = (u64)clk_rate * state->offset;
-	offset_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
-	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_OFFSET(ch), state->offset ? offset_cnt : 0);
+	if (state->offset) {
+		target_rate = DIV_ROUND_CLOSEST(NSEC_PER_SEC, state->duty_cycle);
+		offset_cnt = DIV_ROUND_CLOSEST(clk_rate, target_rate);
+	} else {
+
+		offset_cnt = 0;
+	}
+	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_OFFSET(ch), offset_cnt);
 
 	/* Apply the new config */
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
