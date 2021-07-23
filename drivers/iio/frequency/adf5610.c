@@ -114,6 +114,7 @@ struct adf5610 {
 	enum serial_port_mode	serial_port_mode;
 	struct regmap		*regmap;
 	struct clk		*xref;
+	struct clk		*clk;
 	struct clk_hw		clk_hw;
 	struct clock_scale	scale;
 	u64			rf_out_freq;
@@ -498,7 +499,8 @@ static ssize_t adf5610_write(struct iio_dev *indio_dev,
 		if (ret)
 			break;
 		adf->div_out_freq = val;
-		adf5610_setup(adf);
+		ret = clk_set_rate(adf->clk,
+			to_ccf_scaled(adf->div_out_freq, &adf->scale));
 		break;
 	default:
 		ret = -EINVAL;
@@ -540,7 +542,7 @@ static int adf5610_probe(struct spi_device *spi)
 	struct regmap *regmap;
 	unsigned int chip_id;
 	struct adf5610 *adf;
-	struct clk *clk;
+	const char *parent_name;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*adf));
@@ -591,24 +593,30 @@ static int adf5610_probe(struct spi_device *spi)
 	init.name = spi->dev.of_node->name;
 	init.ops = &adf5610_clk_ops;
 	init.flags = 0;
-	init.parent_names = NULL;
-	init.num_parents = 0;
+	parent_name = __clk_get_name(adf->xref);
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
 
 	adf->clk_hw.init = &init;
 
-	clk = devm_clk_register(&spi->dev, &adf->clk_hw);
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
+	adf->clk = devm_clk_register(&spi->dev, &adf->clk_hw);
+	if (IS_ERR(adf->clk))
+		return PTR_ERR(adf->clk);
 
-	adf->scale.mult = 1;
-	adf->scale.div = 10;
+
+	ret = of_clk_get_scale(spi->dev.of_node,
+		NULL, &adf->scale);
+	if (ret < 0) {
+		adf->scale.mult = 1;
+		adf->scale.div = 1;
+	}
 
 	adf5610_setup(adf);
 
 	dev_info(&spi->dev, "Probed\n");
 
 	return of_clk_add_provider(spi->dev.of_node,
-			of_clk_src_simple_get, clk);
+			of_clk_src_simple_get, adf->clk);
 }
 
 static const struct spi_device_id adf5610_id[] = {
