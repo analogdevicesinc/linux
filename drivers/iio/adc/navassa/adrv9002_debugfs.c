@@ -21,6 +21,7 @@
 #include "adi_adrv9001_ssi_types.h"
 #include "adi_adrv9001_tx.h"
 #include "adi_adrv9001_tx_types.h"
+#include "adi_adrv9001_version.h"
 
 static ssize_t adrv9002_rx_adc_type_get(struct file *file, char __user *userbuf,
 					size_t count, loff_t *ppos)
@@ -870,6 +871,19 @@ static int adrv9002_rx_near_end_loopback_set(void *arg, const u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_rx_near_end_loopback_set_fops, NULL,
 			 adrv9002_rx_near_end_loopback_set, "%llu\n");
 
+static ssize_t adrv9002_api_version_get(struct file *file, char __user *userbuf,
+					size_t count, loff_t *off)
+{
+	return simple_read_from_buffer(userbuf, count, off, ADI_ADRV9001_CURRENT_VERSION "\n",
+				       strlen(ADI_ADRV9001_CURRENT_VERSION) + 1);
+}
+
+static const struct file_operations adrv9002_api_version_get_fops = {
+	.open = simple_open,
+	.read = adrv9002_api_version_get,
+	.llseek = default_llseek,
+};
+
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 {
 	int chan;
@@ -899,6 +913,8 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 			    &tx_ssi_avail_mask, &adrv9002_ssi_mode_avail_fops);
 
 	debugfs_create_file("ssi_delays", 0600, d, phy, &adrv9002_ssi_delays_fops);
+
+	debugfs_create_file("api_version", 0400, d, NULL, &adrv9002_api_version_get_fops);
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->tx_channels); chan++) {
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[chan];
