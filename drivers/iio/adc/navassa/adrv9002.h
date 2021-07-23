@@ -18,6 +18,7 @@
 #include "adi_common_log.h"
 #include "adi_adrv9001_user.h"
 #include "adi_adrv9001_cals_types.h"
+#include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_radio_types.h"
 #include "adi_adrv9001_rx_gaincontrol_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
@@ -27,6 +28,9 @@
 #define ADRV_ADDRESS(port, chan)	((port) << 8 | (chan))
 #define ADRV_ADDRESS_PORT(addr)		((addr) >> 8)
 #define ADRV_ADDRESS_CHAN(addr)		((addr) & 0xFF)
+#define ADRV9002_FH_HOP_SIGNALS_NR	2
+#define ADRV9002_FH_TABLES_NR		2
+#define ADRV9002_FH_BIN_ATTRS_CNT	(ADRV9002_FH_HOP_SIGNALS_NR * ADRV9002_FH_TABLES_NR)
 
 enum {
 	ADRV9002_CHANN_1,
@@ -168,6 +172,11 @@ struct adrv9002_gpio {
 	u32 signal;
 };
 
+struct adrv9002_fh_bin_table {
+	/* page size should be more than enough for a max of 64 entries! */
+	u8 bin_table[PAGE_SIZE];
+};
+
 #define to_clk_priv(_hw) container_of(_hw, struct adrv9002_clock, hw)
 
 struct adrv9002_rf_phy {
@@ -184,6 +193,8 @@ struct adrv9002_rf_phy {
 	size_t				bin_attr_sz;
 	u8				*stream_buf;
 	u16				stream_size;
+	struct adrv9002_fh_bin_table	fh_table_bin_attr[ADRV9002_FH_BIN_ATTRS_CNT];
+	adi_adrv9001_FhCfg_t		fh;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_chan		*channels[ADRV9002_CHANN_MAX * 2];
