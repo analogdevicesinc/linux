@@ -55,21 +55,20 @@ static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 			     struct pwm_state *state)
 {
-	unsigned long tmp, clk_rate, period_cnt, duty_cnt;
+	unsigned long clk_rate, period_cnt, duty_cnt;
+	u64 tmp;
 	struct axi_pwmgen *pwm;
 
 	pwm = to_axi_pwmgen(chip);
 	clk_rate = clk_get_rate(pwm->clk);
 
-	/* Downscale by 1000 in order to avoid overflow when multiplying */
-	tmp = (clk_rate / NSEC_PER_USEC) * state->period;
-	period_cnt = DIV_ROUND_UP(tmp, USEC_PER_SEC);
+	tmp = (u64)clk_rate * state->period;
+	period_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
 	/* The register is 0 based */
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_PULSE_PERIOD, period_cnt - 1);
 
-	/* Downscale by 1000 */
-	tmp = (clk_rate / NSEC_PER_USEC) * state->duty_cycle;
-	duty_cnt = DIV_ROUND_UP(tmp, USEC_PER_SEC);
+	tmp = (u64)clk_rate * state->duty_cycle;
+	duty_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_PULSE_WIDTH, duty_cnt);
 
 	/* Apply the new config */
