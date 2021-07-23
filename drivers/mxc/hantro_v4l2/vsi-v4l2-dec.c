@@ -613,7 +613,10 @@ static int vsi_dec_subscribe_event(
 
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
-	ret = v4l2_event_subscribe(fh, sub, 0, NULL);	//&v4l2_ctrl_sub_ev_ops);
+	if (sub->type == V4L2_EVENT_SKIP)
+		ret = v4l2_event_subscribe(fh, sub, 16, NULL);	//max dpb buffer num
+	else
+		ret = v4l2_event_subscribe(fh, sub, 0, NULL);
 	v4l2_klog(LOGLVL_CONFIG, "%s:%d", __func__, sub->type);
 	return ret;
 }

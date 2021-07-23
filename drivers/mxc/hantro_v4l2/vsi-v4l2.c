@@ -183,6 +183,20 @@ static struct vsi_v4l2_ctx *find_ctx(unsigned long ctxid)
 		return NULL;
 }
 
+static void vsi_v4l2_clear_event(struct vsi_v4l2_ctx *ctx)
+{
+	struct v4l2_event event;
+	int ret;
+
+	if (v4l2_event_pending(&ctx->fh)) {
+		while (v4l2_event_pending(&ctx->fh)) {
+			ret = v4l2_event_dequeue(&ctx->fh, &event, 1);
+			if (ret)
+				return;
+		};
+	}
+}
+
 int vsi_v4l2_reset_ctx(struct vsi_v4l2_ctx *ctx)
 {
 	int ret = 0;
@@ -190,6 +204,7 @@ int vsi_v4l2_reset_ctx(struct vsi_v4l2_ctx *ctx)
 	if (ctx->status != VSI_STATUS_INIT) {
 		v4l2_klog(LOGLVL_BRIEF, "reset ctx %lx", ctx->ctxid);
 		ctx->queued_srcnum = ctx->buffed_capnum = ctx->buffed_cropcapnum = 0;
+		vsi_v4l2_clear_event(ctx);
 		if (isdecoder(ctx)) {
 			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_DESTROY_DEC, NULL);
 			ctx->flag = CTX_FLAG_DEC;
