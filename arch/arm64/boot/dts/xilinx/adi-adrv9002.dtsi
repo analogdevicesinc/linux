@@ -31,6 +31,7 @@
 				"rx2_sampl_clk", "tx2_sampl_clk", "tdd2_intf_clk";
 		#clock-cells = <1>;
 
+
 		rx_pinctrl0: rx-pinctrl@0 {
 			adi,increment-step-size = <1>;
 			adi,decrement-step-size = <1>;
@@ -101,6 +102,18 @@
 			gpio@1 {
 				reg = <ADRV9002_DGPIO_1>;
 				adi,signal = <ADRV9002_GPIO_SIGNAL_ORX_ENABLE_2>;
+			};
+		};
+
+		/* Frequency hopping properties */
+		adi,frequency-hopping {
+			adi,fh-mode = <ADRV9002_FH_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP>;
+			adi-fh-rx-zero-if-en;
+
+			/* Depends on @adi,fh-mode being set to dual hop */
+			adi,fh-hop-signal-2 {
+				adi,fh-hop-rx-ports = <ADRV9002_RX_2>;
+				adi,fh-hop-tx-ports = <ADRV9002_TX_2>;
 			};
 		};
 	};
