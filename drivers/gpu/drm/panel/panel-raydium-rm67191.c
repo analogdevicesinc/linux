@@ -252,6 +252,7 @@ static int rm67191_enable(struct rad_panel *panel)
 {
 	struct mipi_dsi_device *dsi = panel->dsi;
 	struct device *dev = &dsi->dev;
+	u8 dsi_mode;
 	int color_format = color_format_from_dsi_format(dsi->format);
 	int ret;
 
@@ -280,7 +281,8 @@ static int rm67191_enable(struct rad_panel *panel)
 	usleep_range(15000, 17000);
 
 	/* Set DSI mode */
-	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, 0x0B }, 2);
+	dsi_mode = (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) ? 0x0B : 0x00;
+	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, dsi_mode }, 2);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set DSI mode (%d)\n", ret);
 		goto fail;
@@ -333,6 +335,7 @@ static int rm67199_enable(struct rad_panel *panel)
 {
 	struct mipi_dsi_device *dsi = panel->dsi;
 	struct device *dev = &dsi->dev;
+	u8 dsi_mode;
 	int color_format = color_format_from_dsi_format(dsi->format);
 	int ret;
 
@@ -352,7 +355,8 @@ static int rm67199_enable(struct rad_panel *panel)
 		goto fail;
 
 	/* Set DSI mode */
-	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, 0x0B }, 2);
+	dsi_mode = (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) ? 0x0B : 0x00;
+	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, dsi_mode }, 2);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set DSI mode (%d)\n", ret);
 		goto fail;
@@ -589,23 +593,29 @@ static int rad_panel_probe(struct mipi_dsi_device *dsi)
 	panel->pdata = of_id->data;
 
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_HSE |
-			  MIPI_DSI_MODE_VIDEO |
-			  MIPI_DSI_MODE_NO_EOT_PACKET;
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_HSE | MIPI_DSI_MODE_NO_EOT_PACKET;
 
 	ret = of_property_read_u32(np, "video-mode", &video_mode);
 	if (!ret) {
 		switch (video_mode) {
 		case 0:
 			/* burst mode */
-			dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_BURST;
+			dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_BURST |
+					   MIPI_DSI_MODE_VIDEO;
 			break;
 		case 1:
 			/* non-burst mode with sync event */
+			dsi->mode_flags |= MIPI_DSI_MODE_VIDEO;
 			break;
 		case 2:
 			/* non-burst mode with sync pulse */
-			dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
+			dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+					   MIPI_DSI_MODE_VIDEO;
+			break;
+		case 3:
+			/* command mode */
+			dsi->mode_flags |= MIPI_DSI_CLOCK_NON_CONTINUOUS |
+					   MIPI_DSI_MODE_VSYNC_FLUSH;
 			break;
 		default:
 			dev_warn(dev, "invalid video mode %d\n", video_mode);
