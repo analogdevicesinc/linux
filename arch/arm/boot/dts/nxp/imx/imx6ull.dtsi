@@ -130,8 +130,9 @@
 				interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
 				reg = <0x228c000 0x4000>;
 				clocks = <&clks IMX6ULL_CLK_EPDC_ACLK>,
-					 <&clks IMX6ULL_CLK_EPDC_PIX>;
-				clock-names = "epdc_axi", "epdc_pix";
+					 <&clks IMX6ULL_CLK_EPDC_PIX>,
+					 <&clks IMX6UL_CLK_DUMMY>;
+				clock-names = "epdc_axi", "epdc_pix", "epdc_ahb";
 				/* Need to fix epdc-ram */
 				/* epdc-ram = <&gpr 0x4 30>; */
 				status = "disabled";
