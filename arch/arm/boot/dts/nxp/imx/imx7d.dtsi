@@ -242,8 +242,9 @@
 		compatible = "fsl,imx7d-epdc";
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x306f0000 0x10000>;
-		clocks = <&clks IMX7D_CLK_DUMMY>, <&clks IMX7D_EPDC_PIXEL_ROOT_CLK>;
-		clock-names = "epdc_axi", "epdc_pix";
+		clocks = <&clks IMX7D_CLK_DUMMY>, <&clks IMX7D_EPDC_PIXEL_ROOT_CLK>,
+			 <&clks IMX7D_CLK_DUMMY>;
+		clock-names = "epdc_axi", "epdc_pix", "epdc_ahb";
 		epdc-ram = <&gpr 0x4 30>;
 		qos = <&qosc>;
 		status = "disabled";
