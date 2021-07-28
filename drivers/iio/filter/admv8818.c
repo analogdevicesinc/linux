@@ -8,6 +8,7 @@
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/clk.h>
+#include <linux/clk/clkscale.h>
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
@@ -85,6 +86,7 @@ struct admv8818_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct clk		*clkin;
+	struct clock_scale	clkscale;
 	struct notifier_block	nb;
 	/* Protect against concurrent accesses to the device and data content*/
 	struct mutex		lock;
@@ -243,7 +245,8 @@ static int admv8818_rfin_band_select(struct admv8818_state *st)
 {
 	int ret;
 
-	st->cf_hz = clk_get_rate(st->clkin);
+	/* Differ from upstream given the fact CCF does not support u64 frequencies on ARM */
+	st->cf_hz = clk_get_rate_scaled(st->clkin, &st->clkscale);
 
 	mutex_lock(&st->lock);
 
@@ -636,6 +639,10 @@ static int admv8818_clk_setup(struct admv8818_state *st)
 		return ret;
 
 	ret = devm_add_action_or_reset(&spi->dev, admv8818_clk_disable, st);
+	if (ret)
+		return ret;
+
+	ret = of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
 	if (ret)
 		return ret;
 
