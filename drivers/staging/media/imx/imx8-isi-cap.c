@@ -379,6 +379,7 @@ static int cap_vb2_buffer_prepare(struct vb2_buffer *vb2)
 			v4l2_err(&isi_cap->vdev,
 				 "User buffer too small (%ld < %ld)\n",
 				 vb2_plane_size(vb2, i), size);
+
 			return -EINVAL;
 		}
 
@@ -723,15 +724,21 @@ static int isi_cap_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 		return ret;
 	}
 
-	set_frame_bounds(dst_f, src_fmt.format.width, src_fmt.format.height);
-	dst_f->fmt = &mxc_isi_out_formats[0];
+	if (dst_f->width == 0 || dst_f->height == 0)
+		set_frame_bounds(dst_f, src_fmt.format.width, src_fmt.format.height);
+
+	if (!dst_f->fmt)
+		dst_f->fmt = &mxc_isi_out_formats[0];
 
 	for (i = 0; i < dst_f->fmt->memplanes; i++) {
-		dst_f->bytesperline[i] = dst_f->width * dst_f->fmt->depth[i] >> 3;
-		dst_f->sizeimage[i] = dst_f->bytesperline[i] * dst_f->height;
+		if (dst_f->bytesperline[i] == 0)
+			dst_f->bytesperline[i] = dst_f->width * dst_f->fmt->depth[i] >> 3;
+		if (dst_f->sizeimage[i] == 0)
+			dst_f->sizeimage[i] = dst_f->bytesperline[i] * dst_f->height;
 	}
 
-	memcpy(src_f, dst_f, sizeof(*dst_f));
+	if (!src_f->fmt)
+		memcpy(src_f, dst_f, sizeof(*dst_f));
 	return 0;
 }
 
