@@ -694,8 +694,10 @@
 				compatible = "fsl,imx6sll-epdc", "fsl,imx7d-epdc";
 				reg = <0x20f4000 0x4000>;
 				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clks IMX6SLL_CLK_EPDC_AXI>, <&clks IMX6SLL_CLK_EPDC_PIX>;
-				clock-names = "epdc_axi", "epdc_pix";
+				clocks = <&clks IMX6SLL_CLK_EPDC_AXI>,
+					 <&clks IMX6SLL_CLK_EPDC_PIX>,
+					 <&clks IMX6SLL_CLK_DUMMY>;
+				clock-names = "epdc_axi", "epdc_pix", "epdc_ahb";
 				status = "disabled";
 			};
 
