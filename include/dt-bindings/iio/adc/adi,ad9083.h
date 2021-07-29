@@ -25,6 +25,20 @@
 #define AD9083_J_DEC_40 11				/*!< Decimation by 40 */
 #define AD9083_J_DEC_60 15				/*!< Decimation by 60 */
 
+#define AD9083_H_DEC_1 1				/*!< Decimation by 1  */
+#define AD9083_H_DEC_12 12				/*!< Decimation by 12 */
+#define AD9083_H_DEC_14 14				/*!< Decimation by 14 */
+#define AD9083_H_DEC_16 16				/*!< Decimation by 16 */
+#define AD9083_H_DEC_18 18				/*!< Decimation by 18 */
+#define AD9083_H_DEC_24 24				/*!< Decimation by 24 */
+#define AD9083_H_DEC_28 28				/*!< Decimation by 28 */
+#define AD9083_H_DEC_32 32				/*!< Decimation by 32 */
+#define AD9083_H_DEC_36 36				/*!< Decimation by 36 */
+
+#define AD9083_G_DEC_NA 0				/*!< NA */
+#define AD9083_G_DEC_8 8				/*!< Decimation by 8  */
+#define AD9083_G_DEC_16 16				/*!< Decimation by 16 */
+
 #define AD9083_DATAPATH_ADC_CIC 1			/*!< ADC -> CIC -> output */
 #define AD9083_DATAPATH_ADC_CIC_NCO_J 2			/*!< ADC -> CIC -> NCO -> J -> output */
 #define AD9083_DATAPATH_ADC_CIC_J 3			/*!< ADC -> CIC -> J -> output */
