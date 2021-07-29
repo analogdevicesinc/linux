@@ -9030,8 +9030,6 @@ gckHARDWARE_SetFscaleValue(
         gckOS_AcquireMutex(Hardware->os, Hardware->powerMutex, gcvINFINITE));
     acquired =  gcvTRUE;
 
-    gcmkONERROR(gckCOMMAND_Stall(Hardware->kernel->command, gcvFALSE));
-
     Hardware->kernel->timeOut = Hardware->kernel->timeOut * Hardware->powerOnFscaleVal / 64;
 
     Hardware->powerOnFscaleVal = FscaleValue;
@@ -9041,6 +9039,8 @@ gckHARDWARE_SetFscaleValue(
     if (Hardware->chipPowerState == gcvPOWER_ON)
     {
         gctUINT32 data;
+
+        gcmkONERROR(gckCOMMAND_Stall(Hardware->kernel->command, gcvTRUE));
 
         gcmkONERROR(
             gckOS_ReadRegisterEx(Hardware->os,
