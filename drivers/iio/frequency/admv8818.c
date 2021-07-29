@@ -424,7 +424,8 @@ static int admv8818_probe(struct spi_device *spi)
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->info = &admv8818_info;
-	indio_dev->name = "admv8818";
+	//indio_dev->name = "admv8818";
+	indio_dev->name = spi->dev.of_node->name;
 	indio_dev->channels = admv8818_channels;
 	indio_dev->num_channels = ARRAY_SIZE(admv8818_channels);
 

@@ -139,7 +139,8 @@ static int gen_mux_probe(struct platform_device *pdev)
 		"mux-state-names", st->strings, st->max_states);
 	mutex_init(&st->lock);
 
-	indio_dev->name = "iio-gen-mux";
+	//indio_dev->name = "iio-gen-mux";
+	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->info = &gen_mux_info;
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->modes = INDIO_DIRECT_MODE;
