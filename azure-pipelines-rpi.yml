@@ -1,6 +1,7 @@
 trigger:
 - rpi-4.19.y
 - rpi-5.4.y
+- staging-rpi/*
 
 pr:
 - rpi-4.19.y
