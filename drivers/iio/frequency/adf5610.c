@@ -138,8 +138,8 @@ struct adf5610 {
 static int adf5610_pll_read(struct adf5610 *adf,
 			    unsigned int reg, unsigned int *val)
 {
-	u8 tx[4];
-	u8 rx[4];
+	u8 tx[4] = {0};
+	u8 rx[4] = {0};
 	struct spi_transfer t = {
 		.tx_buf = tx,
 		.rx_buf = rx,
@@ -227,7 +227,7 @@ static int adf5610_pll_update_bits(struct adf5610 *adf,
 	if (ret != 0)
 		return ret;
 
-	new = old & ~mask; 
+	new = old & ~mask;
     	new |= val & mask;
 
 	if (new != old)
@@ -329,7 +329,7 @@ static int adf5610_setup(struct adf5610 *adf)
 
 
 	adf5610_pll_write(adf, ADF5610_REG_CP,
-		ADF5610_CP_DOWN_MAG(adf->cp_down_mag) | 
+		ADF5610_CP_DOWN_MAG(adf->cp_down_mag) |
 		ADF5610_CP_UP_MAG(adf->cp_up_mag) |
 		ADF5610_CP_LEAK_MAG(adf->cp_leak_mag) |
 		(adf->cp_leak_up_en ? ADF5610_CP_LEAK_UP_EN : 0) |
@@ -456,9 +456,9 @@ static int adf5610_reg_access(struct iio_dev *indio_dev,
 	struct adf5610 *adf = iio_priv(indio_dev);
 
 	if (rx_val)
-		regmap_read(adf->regmap, reg, rx_val);
+		adf5610_pll_read(adf, reg, rx_val);
 	else
-		regmap_write(adf->regmap, reg, tx_val);
+		adf5610_pll_write(adf, reg, tx_val);
 
 	return 0;
 }
