@@ -1147,10 +1147,16 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
+	struct device *dev = &isi_cap->pdev->dev;
 	struct v4l2_subdev *src_sd;
 	int ret;
 
-	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (isi_cap->is_streaming[isi_cap->id]) {
+		dev_err(dev, "ISI channel[%d] is streaming\n", isi_cap->id);
+		return -EBUSY;
+	}
 
 	src_sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	ret = (!src_sd) ? -EINVAL : v4l2_subdev_call(src_sd, core, s_power, 1);
@@ -1176,6 +1182,7 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 
 disable:
 	mxc_isi_channel_disable(mxc_isi);
+	vb2_ioctl_streamoff(file, priv, type);
 power:
 	v4l2_subdev_call(src_sd, core, s_power, 0);
 	return ret;
@@ -1186,10 +1193,16 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
+	struct device *dev = &isi_cap->pdev->dev;
 	struct v4l2_subdev *src_sd;
 	int ret;
 
-	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (isi_cap->is_streaming[isi_cap->id] == 0) {
+		dev_err(dev, "ISI channel[%d] has stopped\n", isi_cap->id);
+		return -EBUSY;
+	}
 
 	mxc_isi_pipeline_enable(isi_cap, 0);
 	mxc_isi_channel_disable(mxc_isi);
