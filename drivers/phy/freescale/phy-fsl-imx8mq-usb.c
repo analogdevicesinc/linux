@@ -3,6 +3,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/clk.h>
+#include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -56,6 +57,21 @@
 #define PHY_CTRL6_ALT_CLK_SEL		BIT(0)
 
 #define PHY_TUNE_DEFAULT		0xffffffff
+/* PHY control register access */
+#define PHY_CTRL_REG_COUNT_MAX		0x42
+#define PHY_CTRL_REG_OFFSET_MAX		0x201f
+
+#define PHY_CRCTL                      0x30
+#define PHY_CRCTL_DATA_IN_MASK         GENMASK(15, 0)
+#define PHY_CRCTL_CAP_ADDR             BIT(16)
+#define PHY_CRCTL_CAP_DATA             BIT(17)
+#define PHY_CRCTL_CR_WRITE             BIT(18)
+#define PHY_CRCTL_CR_READ              BIT(19)
+
+#define PHY_CRSR			0x34
+#define PHY_CRSR_DATA_OUT_MASK		GENMASK(15, 0)
+#define PHY_CRSR_CR_ACK			BIT(16)
+
 #define PHY_STS0			0x40
 #define PHY_STS0_OTGSESSVLD		BIT(7)
 #define PHY_STS0_CHGDET			BIT(4)
@@ -77,6 +93,9 @@ struct imx8mq_usb_phy {
 	struct notifier_block chg_det_nb;
 	struct power_supply *vbus_power_supply;
 	enum power_supply_usb_type chg_type;
+	struct dentry *debugfs;
+	u16	cr_access_base;
+	u16	cr_read_count;
 };
 
 static u32 phy_tx_vref_tune_from_property(u32 percent)
@@ -150,6 +169,207 @@ static u32 phy_pcs_tx_swing_full_from_property(u32 percent)
 	percent = min(percent, 100U);
 
 	return (percent * 127) / 100;
+};
+
+#define IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT 500000
+static int imx8mq_phy_ctrl_reg_addr(struct imx8mq_usb_phy *imx_phy, u16 offset)
+{
+	void __iomem	*cr_ctrl = imx_phy->base + PHY_CRCTL;
+	void __iomem	*cr_sr = imx_phy->base + PHY_CRSR;
+	struct device	*dev = &imx_phy->phy->dev;
+	int i;
+
+	/* Address Phrase */
+	writel(offset, cr_ctrl);
+	writel(readl(cr_ctrl) | PHY_CRCTL_CAP_ADDR, cr_ctrl);
+
+	/* Wait CRSR[16] == 1 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while (!(readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_addr_err;
+
+	writel(readl(cr_ctrl) & (~PHY_CRCTL_CAP_ADDR), cr_ctrl);
+
+	/* Wait CRSR[16] == 0 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while ((readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_addr_err;
+
+	return 0;
+
+cr_addr_err:
+	dev_err(dev, "Failed to address reg 0x%x.\n", offset);
+	return -EIO;
+}
+
+static int imx8mq_phy_ctrl_reg_read(struct imx8mq_usb_phy *imx_phy, u16 offset)
+{
+	void __iomem	*cr_ctrl = imx_phy->base + PHY_CRCTL;
+	void __iomem	*cr_sr = imx_phy->base + PHY_CRSR;
+	struct device	*dev = &imx_phy->phy->dev;
+	int val, i;
+
+	/* Address Phrase */
+	val = imx8mq_phy_ctrl_reg_addr(imx_phy, offset);
+	if (val)
+		return val;
+
+	/* Read Phrase */
+	writel(readl(cr_ctrl) | PHY_CRCTL_CR_READ, cr_ctrl);
+
+	/* Wait CRSR[16] == 1 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while (!(readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_read_err;
+
+	val = readl(cr_sr);
+	writel(val & ~PHY_CRCTL_CR_READ, cr_ctrl);
+
+	/* Wait CRSR[16] == 0 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while (!(readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_read_err;
+
+	return val;
+
+cr_read_err:
+	dev_err(dev, "Failed to read reg 0x%x.\n", offset);
+	return -EIO;
+}
+
+static int imx8mq_phy_ctrl_reg_write(struct imx8mq_usb_phy *imx_phy,
+				u16 offset, u16 val)
+{
+	void __iomem	*cr_ctrl = imx_phy->base + PHY_CRCTL;
+	void __iomem	*cr_sr = imx_phy->base + PHY_CRSR;
+	struct device	*dev = &imx_phy->phy->dev;
+	int i, ret;
+
+	/* Address Phrase */
+	ret = imx8mq_phy_ctrl_reg_addr(imx_phy, offset);
+	if (ret)
+		return ret;
+
+	writel(val, cr_ctrl);
+
+	/* Set cr_cap_data to be 1'b1 */
+	writel(readl(cr_ctrl) | PHY_CRCTL_CAP_DATA, cr_ctrl);
+	/* Wait CRSR[16] == 1 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while (!(readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_write_err;
+
+	/* Clear cr_cap_data to be 1'br0 */
+	writel(readl(cr_ctrl) & ~PHY_CRCTL_CAP_DATA, cr_ctrl);
+	/* Wait CRSR[16] == 0 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while ((readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_write_err;
+
+	/* Set cr_write to be 1'b1 */
+	writel(readl(cr_ctrl) | PHY_CRCTL_CR_WRITE, cr_ctrl);
+	/* Wait CRSR[16] == 1 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while (!(readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_write_err;
+
+	/* Clear cr_write to be 1'br0 */
+	writel(readl(cr_ctrl) & ~PHY_CRCTL_CR_WRITE, cr_ctrl);
+	/* Wait CRSR[16] == 0 */
+	i = IMX8M_PHY_DEBUG_PORT_LOOP_TIMEOUT;
+	while ((readl(cr_sr) & PHY_CRSR_CR_ACK) && i > 0)
+		i--;
+	if (i == 0)
+		goto cr_write_err;
+
+	return 0;
+
+cr_write_err:
+	dev_err(dev, "Failed to write reg 0x%x.\n", offset);
+
+	return -EIO;
+
+}
+
+static int ctrl_reg_value_show(struct seq_file *s, void *unused)
+{
+	struct imx8mq_usb_phy	*imx_phy = s->private;
+	u16			i, val, base = imx_phy->cr_access_base;
+
+	for (i = 0; i < imx_phy->cr_read_count; i++) {
+		val = imx8mq_phy_ctrl_reg_read(imx_phy, base + i);
+		seq_printf(s, "Control Register 0x%x value is 0x%4x\n",
+			   base + i, val);
+	}
+
+	return 0;
+}
+
+static int ctrl_reg_value_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ctrl_reg_value_show, inode->i_private);
+}
+
+static ssize_t ctrl_reg_value_write(struct file *file, const char __user *ubuf,
+			       size_t count, loff_t *ppos)
+{
+	struct seq_file		*s = file->private_data;
+	struct imx8mq_usb_phy	*imx_phy = s->private;
+	u16			cr_value;
+	int			ret;
+
+	ret = kstrtou16_from_user(ubuf, count, 16, &cr_value);
+	if (ret)
+		return ret;
+
+	imx8mq_phy_ctrl_reg_write(imx_phy, imx_phy->cr_access_base, cr_value);
+
+	return count;
+}
+
+static const struct file_operations ctrl_reg_value_fops = {
+	.open		= ctrl_reg_value_open,
+	.write		= ctrl_reg_value_write,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static void debug_create_files(struct imx8mq_usb_phy *imx_phy)
+{
+	struct device *dev = &imx_phy->phy->dev;
+
+	imx_phy->debugfs = debugfs_create_dir(dev_name(dev),
+					      imx_phy->phy->debugfs);
+
+	debugfs_create_x16("ctrl_reg_base", 0600, imx_phy->debugfs,
+			   &imx_phy->cr_access_base);
+	debugfs_create_x16("ctrl_reg_count", 0600, imx_phy->debugfs,
+			   &imx_phy->cr_read_count);
+	debugfs_create_file("ctrl_reg_value", 0600, imx_phy->debugfs,
+			    imx_phy, &ctrl_reg_value_fops);
+
+	imx_phy->cr_access_base = 0;
+	imx_phy->cr_read_count = 1;
+}
+
+static void debug_remove_files(struct imx8mq_usb_phy *imx_phy)
+{
+	debugfs_remove_recursive(imx_phy->debugfs);
 }
 
 static void imx8m_get_phy_tuning_data(struct imx8mq_usb_phy *imx_phy)
@@ -675,6 +895,8 @@ static int imx8mq_usb_phy_probe(struct platform_device *pdev)
 
 	imx8m_get_phy_tuning_data(imx_phy);
 
+	debug_create_files(imx_phy);
+
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
 
 	return PTR_ERR_OR_ZERO(phy_provider);
@@ -686,6 +908,8 @@ static int imx8mq_usb_phy_remove(struct platform_device *pdev)
 
 	if (device_property_present(&pdev->dev, "vbus-power-supply"))
 		power_supply_unreg_notifier(&imx_phy->chg_det_nb);
+
+	debug_remove_files(imx_phy);
 
 	return 0;
 }
