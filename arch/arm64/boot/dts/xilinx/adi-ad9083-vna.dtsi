@@ -253,6 +253,8 @@
 		adi,nco2_freq-hz = /bits/ 64 <0>;
 		adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC_8>;
 		adi,j_decimation = /bits/ 8 <AD9083_J_DEC_16>;
+		// adi,g_decimation = /bits/ 8 <AD9083_G_DEC_16>;
+		// adi,h_decimation = /bits/ 8 <AD9083_H_DEC_16>;
 		adi,g_decimation = /bits/ 8 <0>;
 		adi,h_decimation = /bits/ 8 <0>;
 		adi,nco0_datapath_mode = /bits/ 8 <AD9083_DATAPATH_ADC_CIC_NCO_J>;
@@ -278,7 +280,7 @@
 		compatible = "adi,admv8818";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
-		clocks = <&ad9528 13>; /* Fixme */
+		clocks = <&adf5610>; /* Fixme */
 		clock-names = "rf_in";
 		clock-scales = <1 10>;
 		label = "admv8818-lo";
@@ -288,7 +290,7 @@
 		compatible = "adi,admv8818";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
-		clocks = <&ad9528 13>; /* Fixme */
+		clocks = <&adf5610>; /* Fixme */
 		clock-names = "rf_in";
 		clock-scales = <1 10>;
 		label = "admv8818-rfin";
@@ -302,10 +304,10 @@
 		clocks = <&ad9528 2>;
 		clock-names = "xref";
 		clock-scales = <1 10>;
-		adi,power-up-rfout-frequency-hz = /bits/ 64 <14600000000>;
+		adi,power-up-div-out-frequency-hz = /bits/ 64 <3000000000>;
 		adi,charge-pump-down-gain-ua =  /bits/ 16 <2540>;
-		adi,charge-pump-up-gain-ua =  /bits/ 16 <2540>;
-		adi,charge-pump-offset-ua =   /bits/ 16  <520>;
+		adi,charge-pump-up-gain-ua = /bits/ 16 <2540>;
+		adi,charge-pump-offset-ua = /bits/ 16  <520>;
 		adi,charge-pump-offset-down-enable;
 		label = "adf5610";
 	};
