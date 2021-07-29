@@ -769,4 +769,25 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_CREATE_CERTIFICATE_ON_RELOAD \
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_CREATE_CERTIFICATE_ON_RELOAD)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_GET_ROM_PATCH_SHA384
+ *
+ * Sync call used to dump the SHA384 hash of the rom patch
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_GET_ROM_PATCH_SHA384
+ * a1 the physical address for firmware to write generated SHA384 data
+ * a2-a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_FCS_ERROR or
+ *      INTEL_SIP_SMC_FCS_REJECTED
+ * a1 mailbox error
+ * a2 the physical address of the SHA384 checksum
+ * a3 size of the SHA384 checksum
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_GET_ROM_PATCH_SHA384 64
+#define INTEL_SIP_SMC_FCS_GET_ROM_PATCH_SHA384 \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_ROM_PATCH_SHA384)
+
 #endif
