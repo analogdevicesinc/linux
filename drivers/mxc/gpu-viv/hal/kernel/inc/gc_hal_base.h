@@ -1190,6 +1190,14 @@ gcoOS_Allocate(
     OUT gctPOINTER * Memory
     );
 
+gceSTATUS
+gcoOS_Realloc(
+    IN gcoOS Os,
+    IN gctSIZE_T Bytes,
+    IN gctSIZE_T OrgBytes,
+    OUT gctPOINTER * Memory
+    );
+
 /* Get allocated memory size. */
 gceSTATUS
 gcoOS_GetMemorySize(
@@ -1225,6 +1233,15 @@ gceSTATUS
 gcoOS_AllocateMemory(
     IN gcoOS Os,
     IN gctSIZE_T Bytes,
+    OUT gctPOINTER * Memory
+    );
+
+/* Realloc memory. */
+gceSTATUS
+gcoOS_ReallocMemory(
+    IN gcoOS Os,
+    IN gctSIZE_T Bytes,
+    IN gctSIZE_T OrgBytes,
     OUT gctPOINTER * Memory
     );
 
