@@ -1776,18 +1776,21 @@ gckEVENT_Notify(
 
         if ((pending & 0x40000000) && Event->kernel->hardware->mmuVersion)
         {
-#if gcdUSE_MMU_EXCEPTION
-#if gcdALLOC_ON_FAULT
-            status = gckHARDWARE_HandleFault(Event->kernel->hardware);
-#endif
-            if (gcmIS_ERROR(status))
+            gctUINT64 mmuException = 0;
+            gckOS_QueryOption(Event->os, "mmuException", &mmuException);
+            if (mmuException)
             {
-                /* Dump error is fault can't be handle. */
-                gckHARDWARE_DumpMMUException(Event->kernel->hardware);
-
-                gckHARDWARE_DumpGPUState(Event->kernel->hardware);
-            }
+#if gcdALLOC_ON_FAULT
+                status = gckHARDWARE_HandleFault(Event->kernel->hardware);
 #endif
+                if (gcmIS_ERROR(status))
+                {
+                    /* Dump error is fault can't be handle. */
+                    gckHARDWARE_DumpMMUException(Event->kernel->hardware);
+
+                    gckHARDWARE_DumpGPUState(Event->kernel->hardware);
+                }
+            }
 
             pending &= 0xBFFFFFFF;
         }

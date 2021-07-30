@@ -321,4 +321,12 @@ gctaOS_SetGPUPower(
     return gckOS_SetGPUPower(Os->os, Core, Power, Clock);
 }
 
-
+gceSTATUS
+gctaOS_QueryOption(
+    IN gctaOS Os,
+    IN gctCONST_STRING Option,
+    OUT gctUINT64 * Value
+    )
+{
+    return gckOS_QueryOption(Os->os, Option, Value);
+}

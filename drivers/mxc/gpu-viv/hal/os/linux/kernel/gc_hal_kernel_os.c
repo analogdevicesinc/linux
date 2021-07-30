@@ -7362,6 +7362,10 @@ gckOS_QueryOption(
     {
         *Value = device->args.allMapInOne;
     }
+    else if (!strcmp(Option, "mmuException"))
+    {
+        *Value = device->args.mmuException;
+    }
     else
     {
         status = gcvSTATUS_NOT_SUPPORTED;

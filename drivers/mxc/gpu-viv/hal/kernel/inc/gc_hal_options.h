@@ -1212,7 +1212,7 @@ This define enables the use of VM for gckCommand and fence buffers.
 
     When enabled, add bounary before and after a range of
     GPU address. So overflow can be trapped by MMU exception.
-    This is a debug option for new MMU and gcdUSE_MMU_EXCEPTION
+    This is a debug option for new MMU and mmuException module parameter
     is enabled.
 */
 #ifndef gcdBOUNDARY_CHECK
@@ -1284,10 +1284,6 @@ This define enables the use of VM for gckCommand and fence buffers.
 #else
 #   define gcdMMU_SECURE_AREA_SIZE              128
 #endif
-#endif
-
-#ifndef gcdUSE_MMU_EXCEPTION
-#   define gcdUSE_MMU_EXCEPTION                 1
 #endif
 
 #ifndef gcdVX_OPTIMIZER

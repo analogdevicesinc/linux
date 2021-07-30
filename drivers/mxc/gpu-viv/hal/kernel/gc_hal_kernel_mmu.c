@@ -315,7 +315,8 @@ OnError:
 }
 
 static gctUINT32
-_SetPage(gctUINT32 PageAddress, gctUINT32 PageAddressExt, gctBOOL Writable)
+_SetPage(gctUINT32 PageAddress, gctUINT32 PageAddressExt,
+        gctBOOL Writable, gctUINT mmuException)
 {
     gctUINT32 entry = PageAddress
                     /* AddressExt */
@@ -330,14 +331,12 @@ _SetPage(gctUINT32 PageAddress, gctUINT32 PageAddressExt, gctBOOL Writable)
         /* writable */
         entry |= (1 << 2);
     }
-#if gcdUSE_MMU_EXCEPTION
-    else
+    else if (mmuException)
     {
         /* If this page is read only, set exception bit to make exception happens
         ** when writing to it. */
         entry |= gcdMMU_STLB_EXCEPTION;
     }
-#endif
 
     return entry;
 }
@@ -800,7 +799,9 @@ _FillFlatMapping(
         for (i = 0; i < (flatSize / gcdMMU_PAGE_4K_SIZE); i++)
         {
             /* Flat mapping in page table. */
-            _WritePageEntry(stlbEntry, _SetPage(physBase + i * gcdMMU_PAGE_4K_SIZE, 0, gcvTRUE));
+            _WritePageEntry(stlbEntry,
+                    _SetPage(physBase + i * gcdMMU_PAGE_4K_SIZE, 0,
+                        gcvTRUE, Mmu->mmuException));
 #if gcdMMU_TABLE_DUMP
             gckOS_Print("%s(%d): insert MTLB[%d] STLB[%d]: %08x\n",
                 __FUNCTION__, __LINE__,
@@ -814,9 +815,9 @@ _FillFlatMapping(
 #if gcdDUMP_IN_KERNEL
         {
             gctPHYS_ADDR_T physical;
-            gctUINT32 data = _SetPage(physBase, 0, gcvTRUE) & ~0xF;
-            gctUINT32 step = (_SetPage(physBase + gcdMMU_PAGE_4K_SIZE, 0, gcvTRUE) & ~0xF) - data;
-            gctUINT32 mask = _SetPage(physBase, 0, gcvTRUE) & 0xF;
+            gctUINT32 data = _SetPage(physBase, 0, gcvTRUE, Mmu->mmuException) & ~0xF;
+            gctUINT32 step = (_SetPage(physBase + gcdMMU_PAGE_4K_SIZE, 0, gcvTRUE, Mmu->mmuException) & ~0xF) - data;
+            gctUINT32 mask = _SetPage(physBase, 0, gcvTRUE, Mmu->mmuException) & 0xF;
 
             physical  = area->stlbPhysical + 4 * _AddressToIndex(area, physBase);
 
@@ -1105,7 +1106,9 @@ _FillFlatMapping(
                 }
                 else
                 {
-                    _WritePageEntry(stlbLogical + sStart, _SetPage(start, physBaseExt, gcvTRUE));
+                    _WritePageEntry(stlbLogical + sStart,
+                        _SetPage(start, physBaseExt,
+                            gcvTRUE, Mmu->mmuException));
                 }
 #if gcdMMU_TABLE_DUMP
                 gckOS_Print("%s(%d): insert STLB[%d]: %08x\n",
@@ -1295,16 +1298,16 @@ _ConstructDynamicStlb(
                 gcvFALSE,
                 (gctPOINTER *)&Area->stlbLogical));
 
-#if gcdUSE_MMU_EXCEPTION
-    gcmkONERROR(_FillPageTable(Area->stlbLogical,
+    if (Mmu->mmuException) {
+        gcmkONERROR(_FillPageTable(Area->stlbLogical,
                                Area->stlbEntries,
                                /* Enable exception */
                                1 << 1));
-#else
-    /* Invalidate all entries. */
-    gcmkONERROR(gckOS_ZeroMemory(Area->stlbLogical,
+    } else {
+        /* Invalidate all entries. */
+        gcmkONERROR(gckOS_ZeroMemory(Area->stlbLogical,
                 Area->stlbSize));
-#endif
+    }
 
     /* Get stlb table physical. */
     gcmkONERROR(gckVIDMEM_NODE_GetPhysical(
@@ -1649,6 +1652,8 @@ _Construct(
     /* Create the page table mutex. */
     gcmkONERROR(gckOS_CreateMutex(os, &mmu->pageTableMutex));
 
+    gcmkONERROR(gckOS_QueryOption(os, "mmuException", &mmuEnabled));
+    mmu->mmuException = (gctUINT) mmuEnabled;
     gcmkONERROR(gckOS_QueryOption(os, "mmu", &mmuEnabled));
 
     if (hardware->mmuVersion == 0)
@@ -2621,12 +2626,15 @@ _FreePages(
 
         if (PageTable != gcvNULL)
         {
-#if gcdUSE_MMU_EXCEPTION
-        /* Enable exception */
-        _WritePageEntry(PageTable, (1 << 1));
-#else
-        _WritePageEntry(PageTable, 0);
-#endif
+            if (Mmu->mmuException)
+            {
+                /* Enable exception */
+                _WritePageEntry(PageTable, (1 << 1));
+            }
+            else
+            {
+                _WritePageEntry(PageTable, 0);
+            }
         }
     }
     else
@@ -2637,12 +2645,15 @@ _FreePages(
 
         if (PageTable != gcvNULL)
         {
-#if gcdUSE_MMU_EXCEPTION
-            /* Enable exception */
-            gcmkVERIFY_OK(_FillPageTable(PageTable, (gctUINT32)PageCount, 1 << 1));
-#else
-            gcmkVERIFY_OK(_FillPageTable(PageTable, (gctUINT32)PageCount, 0));
-#endif
+            if (Mmu->mmuException)
+            {
+                /* Enable exception */
+                gcmkVERIFY_OK(_FillPageTable(PageTable, (gctUINT32)PageCount, 1 << 1));
+            }
+            else
+            {
+                gcmkVERIFY_OK(_FillPageTable(PageTable, (gctUINT32)PageCount, 0));
+            }
         }
     }
 
@@ -2771,7 +2782,8 @@ gckMMU_SetPage(
     }
     else
     {
-        _WritePageEntry(PageEntry, _SetPage(address, addressExt, gcvTRUE));
+        _WritePageEntry(PageEntry,
+                _SetPage(address, addressExt, gcvTRUE, Mmu->mmuException));
     }
 
 #ifdef DUMP_IN_KERNEL

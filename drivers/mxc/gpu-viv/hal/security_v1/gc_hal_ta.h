@@ -103,6 +103,7 @@ typedef struct _gcTA_MMU
     gctPHYS_ADDR    nonSecureSafePagePhysical;
 
     gctPOINTER      mutex;
+    gctUINT         mmuException;
 }
 gcsTA_MMU;
 
@@ -366,6 +367,12 @@ gctaMMU_FreePages(
     IN gctUINT32 PageCount
     );
 
+gceSTATUS
+gctaOS_QueryOption(
+    IN gctaOS Os,
+    IN gctCONST_STRING Option,
+    OUT gctUINT64 * Value
+    );
 #ifdef __cplusplus
 }
 #endif

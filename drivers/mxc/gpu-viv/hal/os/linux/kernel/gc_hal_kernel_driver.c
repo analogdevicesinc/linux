@@ -193,6 +193,10 @@ static int mmu = 1;
 module_param(mmu, int, 0644);
 MODULE_PARM_DESC(mmu, "Disable MMU if set it to 0, enabled by default [Obsolete]");
 
+static uint mmuException = 1;
+module_param(mmuException, uint, 0644);
+MODULE_PARM_DESC(mmuException, "use MMU Exception (1: Enable, 0: Disable)");
+
 static int irqs[gcvCORE_COUNT] = {[0 ... gcvCORE_COUNT - 1] = -1};
 module_param_array(irqs, int, NULL, 0644);
 MODULE_PARM_DESC(irqs, "Array of IRQ numbers of multi-GPU");
@@ -406,6 +410,7 @@ _InitModuleParam(
     p->powerManagement = powerManagement;
 
     p->enableMmu = mmu;
+    p->mmuException = mmuException;
     p->fastClear = fastClear;
 
     p->compression = (compression == -1) ? gcvCOMPRESSION_OPTION_DEFAULT
@@ -527,6 +532,7 @@ _SyncModuleParam(
     powerManagement = p->powerManagement;
 
     mmu             = p->enableMmu;
+    mmuException    = p->mmuException;
     fastClear       = p->fastClear;
     compression     = p->compression;
     gpu3DMinClock   = p->gpu3DMinClock; /* not a module param. */
@@ -605,6 +611,7 @@ gckOS_DumpParam(
     printk("  userClusterMask   = 0x%x\n",    userClusterMask);
     printk("  GPU smallBatch    = %d\n",      smallBatch);
     printk("  allMapInOne       = %d\n",      allMapInOne);
+    printk("  mmuException      = %d\n",      mmuException);
 
     printk("  irqs              = ");
     for (i = 0; i < gcvCORE_COUNT; i++)

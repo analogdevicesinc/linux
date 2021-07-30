@@ -1805,6 +1805,7 @@ struct _gckMMU
     gctUINT32                   contiguousBaseAddress;
     gctUINT32                   externalBaseAddress;
     gctUINT32                   internalBaseAddress;
+    gctUINT                     mmuException;
 };
 
 

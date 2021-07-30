@@ -123,6 +123,7 @@ typedef struct _gcsMODULE_PARAMETERS
 
     gctUINT                 mmuDynamicMap;
     gctUINT                 allMapInOne;
+    gctUINT                 mmuException;
 }
 gcsMODULE_PARAMETERS;
 
