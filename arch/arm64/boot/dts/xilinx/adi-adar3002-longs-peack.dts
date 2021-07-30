@@ -1,0 +1,350 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+
+/ {
+	long_peack_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		// 78 offset
+		out-gpios = <&gpio 110 0>, <&gpio 112 0>, <&gpio 113 0>;
+		label = "long_peack_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "MUTE";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "UPDATE";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "RESET";
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <8>;
+	is-decoded-cs = <1>;
+	adar3002_T0: adar3002_0@0 {
+		compatible = "adi,adar3002";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T0";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 111 0>;
+
+		adar3002_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+
+	adar3002_T1: adar3002_1@1 {
+		compatible = "adi,adar3002";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T1";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 111 0>;
+
+		adar3002_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+
+	adar3002_T2: adar3002_2@2 {
+		compatible = "adi,adar3002";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 111 0>;
+
+		adar3002_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+
+	adar3002_T3: adar3002_3@3 {
+		compatible = "adi,adar3002";
+		reg = <3>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T3";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 111 0>;
+
+		adar3002_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+};
+
