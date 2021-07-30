@@ -285,6 +285,7 @@
 		compatible = "ite,it6161";
 		reg = <0x6c>;
 		it6161-addr-hdmi-tx = <0x4c>;
+		enable-gpios = <&pca6416_1 9 GPIO_ACTIVE_LOW>;
 		interrupt-parent = <&rpmsg_gpioa>;
 		interrupts = <19 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
