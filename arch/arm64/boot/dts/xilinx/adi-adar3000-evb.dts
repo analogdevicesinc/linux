@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+
+&spi0 {
+	status = "okay";
+	adar3000: adar3000@0 {
+		compatible = "adi,adar3000";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adar3000_0@0 {
+			reg = <0>;
+			label = "adar3000_0";
+		};
+	};
+};
+
