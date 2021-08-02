@@ -150,6 +150,21 @@ static int ad9083_reset_pin_ctrl(void *user_data, uint8_t enable)
 	return 0;
 }
 
+static int adi_ad9083_rx_nco_ftw_get(adi_ad9083_device_t *device,
+	uint8_t index, uint8_t *ftw) {
+
+	switch (index) {
+	case 0:
+		return adi_ad9083_hal_bf_get(device, BF_NCO0_FTW_INFO, ftw, 1);
+	case 1:
+		return adi_ad9083_hal_bf_get(device, BF_NCO1_FTW_INFO, ftw, 1);
+	case 2:
+		return adi_ad9083_hal_bf_get(device, BF_NCO2_FTW_INFO, ftw, 1);
+	default:
+		return API_CMS_ERROR_INVALID_PARAM;
+	}
+}
+
 static int ad9083_spi_xfer(void *user_data, u8 *wbuf,
 			   u8 *rbuf, u32 len)
 {
@@ -624,6 +639,8 @@ static int ad9083_read_raw(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9083_phy *phy = conv->phy;
 	u64 freq;
+	u8 ftw;
+	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -631,6 +648,22 @@ static int ad9083_read_raw(struct iio_dev *indio_dev,
 		do_div(freq, phy->total_dcm);
 		*val = freq;
 
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_FREQUENCY:
+		mutex_lock(&phy->lock);
+		ret = adi_ad9083_rx_nco_ftw_get(&phy->adi_ad9083,
+				chan->channel, &ftw);
+		mutex_unlock(&phy->lock);
+
+		if (ret)
+			return ret;
+
+		freq = phy->adc_frequency_hz;
+		do_div(freq, 4 << phy->decimation[0]);
+		freq *= ftw;
+		do_div(freq, 128);
+
+		*val = freq;
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -643,9 +676,23 @@ static int ad9083_write_raw(struct iio_dev *indio_dev,
 			    const struct iio_chan_spec *chan, int val, int val2,
 			    long info)
 {
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9083_phy *phy = conv->phy;
+	u8 ftw;
+	int ret;
+
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return -ENOTSUPP;
+	case IIO_CHAN_INFO_FREQUENCY:
+		mutex_lock(&phy->lock);
+		ftw = DIV_ROUND_CLOSEST_ULL(128ULL * val *
+			(4 << phy->decimation[0]), phy->adc_frequency_hz);
+		ret =  adi_ad9083_rx_nco_ftw_set(&phy->adi_ad9083,
+			chan->channel, ftw);
+		mutex_unlock(&phy->lock);
+
+		return ret;
 	default:
 		return -EINVAL;
 	}
@@ -899,7 +946,7 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 static void ad9083_setup_chip_info_tbl(struct ad9083_phy *phy)
 {
 	bool complex;
-	int i;
+	int i, j;
 
 	if (phy->nco0_datapath_mode == AD9083_DATAPATH_ADC_CIC_NCO_J ||
 	    phy->nco0_datapath_mode == AD9083_DATAPATH_ADC_CIC_NCO_G ||
@@ -923,9 +970,20 @@ static void ad9083_setup_chip_info_tbl(struct ad9083_phy *phy)
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 	}
 
+	if (complex)
+		for (j = 0; j < 3; j++, i++) {
+			phy->chip_info.channel[i].type = IIO_ALTVOLTAGE;
+			phy->chip_info.channel[i].indexed = 1;
+			phy->chip_info.channel[i].output = 1;
+			phy->chip_info.channel[i].channel = j;
+			phy->chip_info.channel[i].scan_index = -1;
+			phy->chip_info.channel[i].info_mask_separate =
+				BIT(IIO_CHAN_INFO_FREQUENCY);
+		}
+
 	phy->chip_info.name = "AD9083";
 	phy->chip_info.max_rate = 2000000000;
-	phy->chip_info.num_channels = phy->jesd_param.jesd_m;
+	phy->chip_info.num_channels = i;
 }
 
 static int ad9083_probe(struct spi_device *spi)
