@@ -42,3 +42,12 @@ pr:
       clean: true
     - script: ./ci/travis/run-build-docker.sh
       displayName: "Build test for '$(DEFCONFIG)'"
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays/?(*.dtbo)'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifactName: '$(artifactName)'
