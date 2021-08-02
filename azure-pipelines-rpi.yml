@@ -7,6 +7,8 @@ pr:
 - rpi-4.19.y
 - rpi-5.4.y
 
+stages:
+- stage: Builds
   jobs:
   - job: checkpatch
     condition: eq(variables['Build.Reason'], 'PullRequest')
@@ -51,3 +53,47 @@ pr:
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
         artifactName: '$(artifactName)'
+
+- stage: PushArtifacts
+  dependsOn: Builds
+  jobs:
+  - job: SWDownloads
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.4.y'))
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig/
+        displayName: 'Archive artifacts'
+      - task: DownloadSecureFile@1
+        name: key
+        displayName: 'Download rsa key'
+        inputs:
+          secureFile: 'id_rsa'
+      - bash: chmod 600 $(key.secureFilePath) ; scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss -vv -i $(key.secureFilePath) -r $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig.tar $DEST_SERVER
+        env:
+          DEST_SERVER: $(SERVER_ADDRESS)
+        displayName: "PushToSWDownloads"
+
+  - job: Artifactory
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.4.y'))
+    pool:
+      name: Default
+      demands:
+        - agent.name -equals lab2_b5
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig/
+        displayName: 'Archive artifacts'
+      - bash: curl -u$USERNAME:$PASSWORD -T $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig.tar $ARTIFACTORY_PATH1 ; curl -u$USERNAME:$PASSWORD -T $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig.tar $ARTIFACTORY_PATH2 ; curl -u$USERNAME:$PASSWORD -T $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig.tar $ARTIFACTORY_PATH3
+        env:
+          USERNAME: $(USER)
+          PASSWORD: $(PASS)
+          ARTIFACTORY_PATH1: $(PATH1)
+          ARTIFACTORY_PATH2: $(PATH2)
+          ARTIFACTORY_PATH3: $(PATH3)
+        displayName: "PushToArtifactory"
