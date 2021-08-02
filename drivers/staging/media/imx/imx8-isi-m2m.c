@@ -532,13 +532,15 @@ static int mxc_isi_m2m_open(struct file *file)
 	struct mxc_isi_ctx *mxc_ctx = NULL;
 	int ret = 0;
 
+	mutex_lock(&isi_m2m->lock);
+	if (isi_m2m->refcnt > 0)
+		goto unlock;
+
 	if (mxc_isi->cap_enabled) {
 		dev_err(dev, "ISI channel[%d] is busy\n", isi_m2m->id);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto unlock;
 	}
-
-	if (mutex_lock_interruptible(&isi_m2m->lock))
-		return -ERESTARTSYS;
 
 	mxc_ctx = kzalloc(sizeof(*mxc_ctx), GFP_KERNEL);
 	if (!mxc_ctx) {
@@ -567,14 +569,14 @@ static int mxc_isi_m2m_open(struct file *file)
 	isi_m2m_fmt_init(&isi_m2m->dst_f, &mxc_isi_out_formats[0]);
 
 	pm_runtime_get_sync(dev);
-	if (atomic_inc_return(&mxc_isi->usage_count) == 1)
-		mxc_isi_channel_init(mxc_isi);
+	mxc_isi_channel_init(mxc_isi);
 
 	/* lock host data */
-	mutex_lock(&mxc_isi->lock);
 	mxc_isi->m2m_enabled = true;
-	mutex_unlock(&mxc_isi->lock);
+	goto unlock;
+
 unlock:
+	isi_m2m->refcnt++;
 	mutex_unlock(&isi_m2m->lock);
 	return ret;
 }
@@ -586,22 +588,24 @@ static int mxc_isi_m2m_release(struct file *file)
 	struct device *dev = &isi_m2m->pdev->dev;
 	struct mxc_isi_ctx *mxc_ctx = file_to_ctx(file);
 
-	v4l2_fh_del(&mxc_ctx->fh);
-	v4l2_fh_exit(&mxc_ctx->fh);
-
 	mutex_lock(&isi_m2m->lock);
-	v4l2_m2m_ctx_release(mxc_ctx->fh.m2m_ctx);
-	mutex_unlock(&isi_m2m->lock);
+	isi_m2m->refcnt--;
+	if (isi_m2m->refcnt == 0) {
+		v4l2_fh_del(&mxc_ctx->fh);
+		v4l2_fh_exit(&mxc_ctx->fh);
 
-	kfree(mxc_ctx);
-	if (atomic_dec_and_test(&mxc_isi->usage_count))
+		v4l2_m2m_ctx_release(mxc_ctx->fh.m2m_ctx);
+
+		kfree(mxc_ctx);
 		mxc_isi_channel_deinit(mxc_isi);
 
-	mutex_lock(&mxc_isi->lock);
-	mxc_isi->m2m_enabled = false;
-	mutex_unlock(&mxc_isi->lock);
+		mxc_isi->m2m_enabled = false;
 
-	pm_runtime_put(dev);
+		pm_runtime_put(dev);
+	}
+
+	mutex_unlock(&isi_m2m->lock);
+
 	return 0;
 }
 
@@ -1255,7 +1259,7 @@ static int isi_m2m_probe(struct platform_device *pdev)
 	}
 	mxc_isi->isi_m2m = isi_m2m;
 	isi_m2m->id = mxc_isi->id;
-
+	isi_m2m->refcnt = 0;
 	isi_m2m->colorspace = V4L2_COLORSPACE_SRGB;
 	isi_m2m->quant = V4L2_QUANTIZATION_FULL_RANGE;
 	isi_m2m->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(isi_m2m->colorspace);

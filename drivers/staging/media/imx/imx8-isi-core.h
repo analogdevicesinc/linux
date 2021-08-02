@@ -227,6 +227,7 @@ struct mxc_isi_m2m_dev {
 	u32 req_out_buf_num;
 
 	u8 id;
+	int refcnt;
 };
 
 struct mxc_isi_ctx {
