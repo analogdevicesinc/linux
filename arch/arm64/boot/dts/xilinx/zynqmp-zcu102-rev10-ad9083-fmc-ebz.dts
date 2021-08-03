@@ -4,7 +4,7 @@
  * https://wiki.analog.com/resources/eval/dpg/ad9083-fmc-ebz
  * https://wiki.analog.com/resources/eval/dpg/eval-ad9083
  *
- * hdl_project: <adc_fmc_ebz/zcu102>
+ * hdl_project: <ad9083_evb/zcu102>
  * board_revision: <>
  *
  * Copyright (C) 2021 Analog Devices Inc.
