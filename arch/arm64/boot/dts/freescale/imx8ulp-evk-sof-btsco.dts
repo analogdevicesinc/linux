@@ -8,6 +8,9 @@
 / {
 	reserved-memory {
 		/delete-node/ dsp_reserved;
+		/delete-node/ dsp_vdev0vring0;
+		/delete-node/ dsp_vdev0vring1;
+		/delete-node/ dsp_vdev0buffer;
 		dsp_reserved0: dsp@8e000000 {
 			reg = <0 0x8e000000 0 0x1000000>;
 			no-map;
@@ -99,6 +102,7 @@
 			<&mu3 2 1>,
 			<&mu3 3 0>,
 			<&mu3 3 1>;
+	/delete-property/ firmware-name;
 	tplg-name = "sof-imx8ulp-btsco.tplg";
 	machine-drv-name = "asoc-simple-card";
 	status = "okay";
