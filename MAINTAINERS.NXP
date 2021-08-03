@@ -615,13 +615,36 @@ F: drivers/dma/imx-sdma.c
 F: include/linux/platform_data/dma-imx-sdma.h
 F: include/linux/platform_data/dma-imx.h
 
-dts/imx
-M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
-M: Peng Fan <peng.fan@nxp.com>
+dts/imx6
+M: Dong Aisheng <aisheng.dong@nxp.com>
 M: Abel Vesa <abel.vesa@nxp.com>
 M: Li Yang <leoyang.li@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
 F: arch/arm/boot/dts/imx*
-F: arch/arm64/boot/dts/freescale/imx*
+
+dts/imx8m
+M: Dong Aisheng <aisheng.dong@nxp.com>
+M: Abel Vesa <abel.vesa@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx8m*
+
+dts/imx8ulp
+M: Jacky Bai <ping.bai@nxp.com>
+M: Dong Aisheng <aisheng.dong@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx8ulp*
+
+dts/imx8
+M: Abel Vesa <abel.vesa@nxp.com>
+M: Dong Aisheng <aisheng.dong@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx8-ss-*
+F: arch/arm64/boot/dts/freescale/imx8d*
+F: arch/arm64/boot/dts/freescale/imx8q*
+F: arch/arm64/boot/dts/freescale/imx8x*
 
 dts/qoriq
 M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
