@@ -3260,7 +3260,7 @@ gckKERNEL_Dispatch(
                 &Interface->u.QueryPowerManagement.state));
 
         /* Query the idle state. */
-        gcmkONERROR(gckHARDWARE_QueryIdleUnlocked(Kernel->hardware,
+        gcmkONERROR(gckHARDWARE_QueryIdle(Kernel->hardware,
                 &Interface->u.QueryPowerManagement.isIdle));
 
         gcmkONERROR(gckOS_ReleaseMutex(Kernel->os,

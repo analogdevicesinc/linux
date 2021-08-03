@@ -8144,7 +8144,7 @@ _PmStallCommand(
     if (Broadcast)
     {
         /* Check for idle. */
-        gcmkONERROR(gckHARDWARE_QueryIdleUnlocked(Hardware, &idle));
+        gcmkONERROR(gckHARDWARE_QueryIdle(Hardware, &idle));
 
         if (!idle)
         {
@@ -9359,7 +9359,7 @@ gckHARDWARE_SetMinFscaleValue(
 #endif
 
 gceSTATUS
-gckHARDWARE_QueryIdleUnlocked(
+gckHARDWARE_QueryIdle(
     IN gckHARDWARE Hardware,
     OUT gctBOOL_PTR IsIdle
     )
@@ -9511,32 +9511,6 @@ gckHARDWARE_QueryIdleUnlocked(
     return gcvSTATUS_OK;
 
 OnError:
-    /* Return the status. */
-    gcmkFOOTER();
-    return status;
-}
-
-gceSTATUS
-gckHARDWARE_QueryIdle(
-    IN gckHARDWARE Hardware,
-    OUT gctBOOL_PTR IsIdle
-    )
-{
-    gceSTATUS status;
-
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
-    gcmkVERIFY_ARGUMENT(IsIdle != gcvNULL);
-
-    gcmkVERIFY_OK(gckOS_AcquireMutex(Hardware->os, Hardware->powerMutex,
-            gcvINFINITE));
-
-    status = gckHARDWARE_QueryIdleUnlocked(Hardware, IsIdle);
-
-    gcmkVERIFY_OK(gckOS_ReleaseMutex(Hardware->os, Hardware->powerMutex));
-
     /* Return the status. */
     gcmkFOOTER();
     return status;

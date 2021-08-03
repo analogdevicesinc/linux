@@ -1885,12 +1885,6 @@ gckKERNEL_AllocateVideoMemory(
     );
 
 gceSTATUS
-gckHARDWARE_QueryIdleUnlocked(
-    IN gckHARDWARE Hardware,
-    OUT gctBOOL_PTR IsIdle
-    );
-
-gceSTATUS
 gckHARDWARE_QueryIdle(
     IN gckHARDWARE Hardware,
     OUT gctBOOL_PTR IsIdle

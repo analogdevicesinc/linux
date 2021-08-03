@@ -4023,7 +4023,7 @@ gckCOMMAND_Stall(
     /* Wait for the idle state. */
     for (;;)
     {
-        gcmkONERROR(gckHARDWARE_QueryIdleUnlocked(hardware, &idle));
+        gcmkONERROR(gckHARDWARE_QueryIdle(hardware, &idle));
 
         if (idle)
         {
