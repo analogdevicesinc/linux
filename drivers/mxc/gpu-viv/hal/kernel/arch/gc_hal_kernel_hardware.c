@@ -8156,6 +8156,23 @@ _PmStallCommand(
     {
         /* Wait to finish all commands. */
         status = gckCOMMAND_Stall(Command, gcvTRUE);
+
+        if (!gcmIS_SUCCESS(status))
+        {
+            goto OnError;
+        }
+
+        for (;;)
+        {
+            gcmkONERROR(gckHARDWARE_QueryIdle(Hardware, &idle));
+
+            if (idle)
+            {
+                break;
+            }
+
+            gcmkVERIFY_OK(gckOS_Delay(Hardware->os, 1));
+        }
     }
 
 OnError:
@@ -9021,16 +9038,24 @@ gckHARDWARE_SetFscaleValue(
     gceSTATUS status;
     gctUINT32 clock;
     gctBOOL acquired = gcvFALSE;
-
+    gctBOOL commitMutexAcquired = gcvFALSE;
     gcmkHEADER_ARG("Hardware=0x%x FscaleValue=%d", Hardware, FscaleValue);
 
     gcmkVERIFY_ARGUMENT(FscaleValue > 0 && FscaleValue <= 64);
+
+    gcmkONERROR(gckOS_AcquireMutex(Hardware->kernel->os,
+                Hardware->kernel->device->commitMutex,
+                gcvINFINITE
+                ));
+
+    commitMutexAcquired = gcvTRUE;
+
+    gcmkONERROR(gckCOMMAND_Stall(Hardware->kernel->command, gcvFALSE));
 
     gcmkONERROR(
         gckOS_AcquireMutex(Hardware->os, Hardware->powerMutex, gcvINFINITE));
     acquired =  gcvTRUE;
 
-    gcmkONERROR(gckCOMMAND_Stall(Hardware->kernel->command, gcvFALSE));
 
     Hardware->kernel->timeOut = Hardware->kernel->timeOut * Hardware->powerOnFscaleVal / 64;
 
@@ -9305,6 +9330,9 @@ gckHARDWARE_SetFscaleValue(
     }
 
     gcmkVERIFY(gckOS_ReleaseMutex(Hardware->os, Hardware->powerMutex));
+    acquired = gcvFALSE;
+    gcmkONERROR(gckOS_ReleaseMutex(Hardware->kernel->os, Hardware->kernel->device->commitMutex));
+    commitMutexAcquired = gcvFALSE;
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
@@ -9314,7 +9342,10 @@ OnError:
     {
         gcmkVERIFY(gckOS_ReleaseMutex(Hardware->os, Hardware->powerMutex));
     }
-
+    if (commitMutexAcquired)
+    {
+        gcmkONERROR(gckOS_ReleaseMutex(Hardware->kernel->os, Hardware->kernel->device->commitMutex));
+}
     gcmkFOOTER();
     return status;
 }

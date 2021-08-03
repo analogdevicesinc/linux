@@ -3937,7 +3937,6 @@ gckCOMMAND_Stall(
     gceSTATUS status;
     gctSIGNAL signal = gcvNULL;
     gctUINT timer = 0;
-    gctBOOL idle = gcvFALSE;
 
     gcmkHEADER_ARG("Command=%p", Command);
 
@@ -4019,19 +4018,6 @@ gckCOMMAND_Stall(
 
     /* Delete the signal. */
     gcmkVERIFY_OK(gckOS_DestroySignal(os, signal));
-
-    /* Wait for the idle state. */
-    for (;;)
-    {
-        gcmkONERROR(gckHARDWARE_QueryIdle(hardware, &idle));
-
-        if (idle)
-        {
-            break;
-        }
-
-        gcmkVERIFY_OK(gckOS_Delay(os, 1));
-    }
 
     /* Success. */
     gcmkFOOTER_NO();
