@@ -261,11 +261,6 @@
 		#size-cells = <2>;
 		ranges;
 
-		rsc_table: rsc_table@90000000 {
-			reg = <0 0x90000000 0 0x8000>;
-			no-map;
-		};
-
 		vdev0vring0: vdev0vring0@90000000 {
 			reg = <0 0x90000000 0 0x8000>;
 			no-map;
@@ -286,7 +281,7 @@
 			no-map;
 		};
 
-		rsc-table {
+		rsc_table: rsc_table@900ff000 {
 			reg = <0 0x900ff000 0 0x1000>;
 			no-map;
 		};
