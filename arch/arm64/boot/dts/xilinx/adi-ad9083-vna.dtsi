@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ * dts file for AD9083-ADL5960 on Xilinx ZynqMP ZCU102 Rev 1.0
  *
- * Copyright (C) 2018-2019 Analog Devices Inc.
+ * Copyright (C) 2021 Analog Devices Inc.
  */
 #include <dt-bindings/iio/frequency/ad9528.h>
 #include <dt-bindings/iio/adc/adi,ad9083.h>
 
 #define ADF9528_DIST_CLK	1000000000
+
+#ifndef ADL5960_FOF
 #define ADL5960_FOF 		256
+#endif
+
+#ifndef AD9083_CIC_DEC
+#define AD9083_CIC_DEC		AD9083_CIC_DEC_8
+#endif
 
 #define AD9083_NCO_FREQ		(ADF9528_DIST_CLK / ADL5960_FOF)
 
@@ -285,7 +292,7 @@
 		adi,nco0_freq-hz = /bits/ 64 <AD9083_NCO_FREQ>;
 		adi,nco1_freq-hz = /bits/ 64 <0>;
 		adi,nco2_freq-hz = /bits/ 64 <0>;
-		adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC_8>;
+		adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC>;
 		adi,j_decimation = /bits/ 8 <AD9083_J_DEC_16>;
 		// adi,g_decimation = /bits/ 8 <AD9083_G_DEC_16>;
 		// adi,h_decimation = /bits/ 8 <AD9083_H_DEC_16>;
