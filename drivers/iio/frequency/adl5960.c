@@ -87,6 +87,7 @@ enum {
 	ADL5960_EXTI_LO_FREQ,
 	ADL5960_EXTI_LO_NOTIFY_EN,
 	ADL5960_EXTI_OFS_FREQ,
+	ADL5960_EXTI_IF_FREQ,
 	ADL5960_EXTI_CIF1,
 	ADL5960_EXTI_CIF2,
 };
@@ -456,9 +457,12 @@ static ssize_t adl5960_read(struct iio_dev *indio_dev,
 		val = (dev->lo_freq * dev->lo_freq_mult);
 		do_div(val, dev->lo_freq_div);
 		break;
-	case ADL5960_EXTI_OFS_FREQ:
+	case ADL5960_EXTI_IF_FREQ:
 		val = clk_get_rate(dev->clkin_offs) * dev->offs_freq_mult;
 		do_div(val, dev->offs_freq_div);
+		break;
+	case ADL5960_EXTI_OFS_FREQ:
+		val = clk_get_rate(dev->clkin_offs);
 		break;
 	default:
 		ret = -EINVAL;
@@ -485,6 +489,13 @@ static ssize_t adl5960_write(struct iio_dev *indio_dev,
 	switch ((u32)private) {
 	case ADL5960_EXTI_LO_FREQ:
 		return adl5960_update_ct_filters(dev, freq);
+	case ADL5960_EXTI_IF_FREQ:
+		mutex_lock(&dev->lock);
+		freq *= dev->offs_freq_div;
+		do_div(freq, dev->offs_freq_mult);
+		ret = clk_set_rate(dev->clkin_offs, freq);
+		mutex_unlock(&dev->lock);
+		break;
 	case ADL5960_EXTI_OFS_FREQ:
 		mutex_lock(&dev->lock);
 		ret = clk_set_rate(dev->clkin_offs, freq);
@@ -649,10 +660,12 @@ static const struct iio_chan_spec_ext_info adl5960_ext_if_info[] = {
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
-	_ADL5960_EXT_INFO("frequency", IIO_SEPARATE,
+	_ADL5960_EXT_INFO("if_frequency", IIO_SEPARATE,
+		ADL5960_EXTI_IF_FREQ),
+	_ADL5960_EXT_INFO("offset_frequency", IIO_SEPARATE,
 		ADL5960_EXTI_OFS_FREQ),
-	IIO_ENUM("mode", IIO_SEPARATE, &adl5960_if_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("mode", IIO_SEPARATE, &adl5960_if_mode_enum),
+	IIO_ENUM("offset_mode", IIO_SEPARATE, &adl5960_if_mode_enum),
+	IIO_ENUM_AVAILABLE_SHARED("offset_mode", IIO_SEPARATE, &adl5960_if_mode_enum),
 	{ },
 };
 
@@ -679,7 +692,7 @@ static const struct iio_chan_spec adl5960_channels[] = {
 	ADL5960_CHAN_OUT(0, "forward"),
 	ADL5960_CHAN_OUT(1, "reverse"),
 	ADL5960_CHAN_IN(0, "lo", adl5960_ext_lo_info),
-	ADL5960_CHAN_IN(1, "offset", adl5960_ext_if_info),
+	ADL5960_CHAN_IN(1, NULL, adl5960_ext_if_info),
 	{
 		.type = IIO_TEMP,
 		.indexed = 1,
