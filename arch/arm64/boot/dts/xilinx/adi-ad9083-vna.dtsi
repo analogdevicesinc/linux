@@ -13,6 +13,21 @@
 #define AD9083_NCO_FREQ		(ADF9528_DIST_CLK / ADL5960_FOF)
 
 / {
+	clk_doubler: hmc561 {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clock-div = <1>;
+		clock-mult = <2>;
+		clocks = <&adf5610>;
+		clock-output-names = "doubler";
+	};
+
+	fixed_clk: fixed-clock {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <0>;
+	};
+
 	/* ADRF5021 GPIO_SW2, GPIO_SW[3,4]_V1, GPIO_SW[3,4]_V2 */
 	mux0: mux-controller0 {
 		compatible = "gpio-mux";
@@ -38,6 +53,11 @@
 
 	clk_mux0: mux-doubler {
 		compatible = "adi,gen_mux";
+		clocks = <&adf5610>, <&fixed_clk>, <&fixed_clk>, <&clk_doubler>;
+		#clock-cells = <0>;
+		clock-names = "bypass", "iso1", "iso2", "doubler";
+		clock-output-names = "clk-mux-out";
+
 		mux-controls = <&mux1>;
 		mux-state-names = "bypass", "iso1", "iso2", "doubler";
 		label = "mux-doubler";
