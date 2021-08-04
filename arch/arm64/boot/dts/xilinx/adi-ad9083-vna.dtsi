@@ -290,7 +290,7 @@
 		compatible = "adi,admv8818";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
-		clocks = <&adf5610>; /* Fixme */
+		clocks = <&clk_mux0>; /* Fixme */
 		clock-names = "rf_in";
 		clock-scales = <1 10>;
 		label = "admv8818-rfin";
@@ -366,7 +366,7 @@
 		reg = <0>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 6>;
+		clocks = <&adf5610>, <&ad9528 8>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-5";
@@ -377,7 +377,7 @@
 		reg = <1>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 7>;
+		clocks = <&adf5610>, <&ad9528 9>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-6";
@@ -387,7 +387,7 @@
 		reg = <2>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 6>;
+		clocks = <&adf5610>, <&ad9528 10>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-7";
@@ -398,7 +398,7 @@
 		reg = <3>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 7>;
+		clocks = <&adf5610>, <&ad9528 11>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-8";
