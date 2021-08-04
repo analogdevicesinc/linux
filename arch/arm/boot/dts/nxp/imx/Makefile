@@ -436,6 +436,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-sdb-mipi-dsi.dtb \
 	imx7d-sdb-gpmi-weim.dtb \
 	imx7d-sdb-m4.dtb \
+	imx7d-sdb-mqs.dtb \
 	imx7d-sdb-qspi.dtb \
 	imx7d-sdb-reva.dtb \
 	imx7d-sdb-sht11.dtb \
