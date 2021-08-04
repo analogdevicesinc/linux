@@ -43,6 +43,20 @@
 		label = "mux-doubler";
 	};
 
+	adl5960-sync@0 {
+		compatible = "adi,one-bit-adc-dac";
+		out-gpios = <&gpio 113 0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "ADL5960x_SYNC";
+		};
+	};
+
+
 };
 
 &spi0 {
