@@ -83,7 +83,7 @@ struct admv8818_dev {
 unsigned long long freq_range_hpf[4][2] = {
 	{1750000000llu, 3550000000llu},
 	{3400000000llu, 7250000000llu},
-	{6600000000, 12000000000},
+	{6600000000, 12600000000},
 	{12500000000, 19900000000}
 };
 
@@ -125,6 +125,7 @@ static int admv8818_hpf_select(struct admv8818_dev *dev, u64 freq)
 	}
 
 hpf_write:
+	//pr_err("%s: %llu - hpf_band %u hpf_step %u\n", __func__, freq, hpf_band, hpf_step);
 	ret = regmap_update_bits(dev->regmap, ADMV8818_REG_WR0_SW,
 				ADMV8818_SW_IN_SET_WR0_MSK |
 				ADMV8818_SW_IN_WR0_MSK,
@@ -439,7 +440,6 @@ static int admv8818_probe(struct spi_device *spi)
 	indio_dev->num_channels = ARRAY_SIZE(admv8818_channels);
 
 	dev->spi = spi;
-
 	dev->clkin = devm_clk_get_optional(&spi->dev, "rf_in");
 	// if (!(dev->clkin))
 	// 	goto exit_clk;
