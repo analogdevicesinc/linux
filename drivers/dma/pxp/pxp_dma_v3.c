@@ -944,6 +944,7 @@ static void pxp_lut_cleanup_multiple(struct pxps *pxp, u64 lut, bool set);
 static void pxp_lut_cleanup_multiple_v3p(struct pxps *pxp, u64 lut, bool set);
 static void pxp_luts_deactivate(struct pxps *pxp, u64 lut_status);
 static void pxp_set_colorkey(struct pxps *pxp);
+static void pxp_software_restart(struct pxps *pxp);
 
 enum {
 	DITHER0_LUT = 0x0,	/* Select the LUT memory for access */
@@ -961,9 +962,11 @@ enum {
 enum pxp_devtype {
 	PXP_V3,
 	PXP_V3P,	/* minor changes over V3, use WFE_B to replace WFE_A */
+	PXP_V3_8ULP,	/* PXP V3 version for iMX8ULP */
 };
 
-#define pxp_is_v3(pxp) (pxp->devdata->version == 30)
+#define pxp_is_v3(pxp) ((pxp->devdata->version == 30) || \
+			(pxp->devdata->version == 32))
 #define pxp_is_v3p(pxp) (pxp->devdata->version == 31)
 
 struct pxp_devdata {
@@ -974,6 +977,7 @@ struct pxp_devdata {
 	void (*pxp_dithering_configure)(struct pxps *pxp);
 	void (*pxp_lut_cleanup_multiple)(struct pxps *pxp, u64 lut, bool set);
 	void (*pxp_data_path_config)(struct pxps *pxp);
+	void (*pxp_restart)(struct pxps *pxp);
 	unsigned int version;
 };
 
@@ -986,6 +990,7 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_lut_cleanup_multiple = pxp_lut_cleanup_multiple,
 		.pxp_dithering_configure = pxp_dithering_configure,
 		.pxp_data_path_config = NULL,
+		.pxp_restart = NULL,
 		.version = 30,
 	},
 	[PXP_V3P] = {
@@ -996,7 +1001,19 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_lut_cleanup_multiple = pxp_lut_cleanup_multiple_v3p,
 		.pxp_dithering_configure = pxp_dithering_configure_v3p,
 		.pxp_data_path_config = pxp_data_path_config_v3p,
+		.pxp_restart = NULL,
 		.version = 31,
+	},
+	[PXP_V3_8ULP] = {
+		.pxp_wfe_a_configure = pxp_wfe_a_configure,
+		.pxp_wfe_a_process = pxp_wfe_a_process,
+		.pxp_lut_status_set = pxp_lut_status_set,
+		.pxp_lut_status_clr = pxp_lut_status_clr,
+		.pxp_lut_cleanup_multiple = pxp_lut_cleanup_multiple,
+		.pxp_dithering_configure = pxp_dithering_configure,
+		.pxp_data_path_config = NULL,
+		.pxp_restart = pxp_software_restart,
+		.version = 32,
 	},
 };
 
@@ -1298,6 +1315,16 @@ static void pxp_set_colorkey(struct pxps *pxp)
 		pxp_writel(0xFFFFFF, HW_PXP_AS_CLRKEYLOW_0);
 		pxp_writel(0, HW_PXP_AS_CLRKEYHIGH_0);
 	}
+}
+
+static void pxp_software_restart(struct pxps *pxp)
+{
+	pxp_soft_reset(pxp);
+	pxp_writel(0x0, HW_PXP_CTRL);
+
+	if (pxp->devdata && pxp->devdata->pxp_data_path_config)
+		pxp->devdata->pxp_data_path_config(pxp);
+	__raw_writel(0xffff, pxp->base + HW_PXP_IRQ_MASK);
 }
 
 static uint32_t pxp_parse_as_fmt(uint32_t format)
@@ -3606,6 +3633,10 @@ static void pxp_clk_enable(struct pxps *pxp)
 
 	clk_prepare_enable(pxp->ipg_clk);
 	clk_prepare_enable(pxp->axi_clk);
+
+	if (pxp->devdata && pxp->devdata->pxp_restart)
+		pxp->devdata->pxp_restart(pxp);
+
 	pxp->clk_stat = CLK_STAT_ON;
 
 	mutex_unlock(&pxp->clk_mutex);
@@ -3624,14 +3655,13 @@ static void pxp_clk_disable(struct pxps *pxp)
 
 	spin_lock_irqsave(&pxp->lock, flags);
 	if ((pxp->pxp_ongoing == 0) && list_empty(&head)) {
+		pxp->clk_stat = CLK_STAT_OFF;
 		spin_unlock_irqrestore(&pxp->lock, flags);
 		clk_disable_unprepare(pxp->ipg_clk);
 		clk_disable_unprepare(pxp->axi_clk);
-		pxp->clk_stat = CLK_STAT_OFF;
+		pm_runtime_put_sync_suspend(pxp->dev);
 	} else
 		spin_unlock_irqrestore(&pxp->lock, flags);
-
-	pm_runtime_put_sync_suspend(pxp->dev);
 
 	mutex_unlock(&pxp->clk_mutex);
 }
@@ -7559,6 +7589,9 @@ static struct platform_device_id imx_pxpdma_devtype[] = {
 		.name = "imx6ull-pxp-dma",
 		.driver_data = PXP_V3P,
 	}, {
+		.name = "imx8ulp-pxp-dma",
+		.driver_data = PXP_V3_8ULP,
+	}, {
 		/* sentinel */
 	}
 };
@@ -7567,6 +7600,7 @@ MODULE_DEVICE_TABLE(platform, imx_pxpdma_devtype);
 static const struct of_device_id imx_pxpdma_dt_ids[] = {
 	{ .compatible = "fsl,imx7d-pxp-dma", .data = &imx_pxpdma_devtype[0], },
 	{ .compatible = "fsl,imx6ull-pxp-dma", .data = &imx_pxpdma_devtype[1], },
+	{ .compatible = "fsl,imx8ulp-pxp-dma", .data = &imx_pxpdma_devtype[2], },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_pxpdma_dt_ids);
