@@ -231,7 +231,7 @@
 	phy-mode = "rgmii-txid";
 	phy-handle = <&ethphy1>;
 	fsl,magic-packet;
-	fsl,rgmii_rxc_dly;
+	rx-internal-delay-ps = <2000>;
 	phy-reset-gpios = <&pca6416_1 0 GPIO_ACTIVE_LOW>;
 	phy-reset-duration = <10>;
 	phy-reset-post-delay = <150>;

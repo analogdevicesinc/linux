@@ -940,7 +940,7 @@
 	fsl,magic-packet;
 	nvmem-cells = <&fec_mac0>;
 	nvmem-cell-names = "mac-address";
-	fsl,rgmii_rxc_dly;
+	rx-internal-delay-ps = <2000>;
 	status = "okay";
 
 	mdio {
@@ -982,7 +982,7 @@
 	fsl,magic-packet;
 	nvmem-cells = <&fec_mac1>;
 	nvmem-cell-names = "mac-address";
-	fsl,rgmii_rxc_dly;
+	rx-internal-delay-ps = <2000>;
 	status = "okay";
 };
 
