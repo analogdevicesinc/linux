@@ -30,12 +30,15 @@ stages:
         bcm2709_arm_adi:
           DEFCONFIG: adi_bcm2709_defconfig
           ARCH: arm
+          artifactName: 'adi_bcm2709_defconfig'
         bcm2711_arm_adi:
           DEFCONFIG: adi_bcm2711_defconfig
           ARCH: arm
+          artifactName: 'adi_bcm2711_defconfig'
         bcmrpi_arm_adi:
           DEFCONFIG: adi_bcmrpi_defconfig
           ARCH: arm
+          artifactName: 'adi_bcmrpi_defconfig'
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -65,7 +68,7 @@ stages:
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig/
+      - bash: cd $(Build.SourcesDirectory)/bin ; tar -zcvf adi_bcm2709_defconfig.tar adi_bcm2709_defconfig ; tar -zcvf adi_bcm2711_defconfig.tar adi_bcm2711_defconfig ; tar -zcvf adi_bcmrpi_defconfig.tar adi_bcmrpi_defconfig
         displayName: 'Archive artifacts'
       - task: DownloadSecureFile@1
         name: key
@@ -87,7 +90,7 @@ stages:
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig/ ; tar -zcvf $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig.tar $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig/
+      - bash: cd $(Build.SourcesDirectory)/bin ; tar -zcvf adi_bcm2709_defconfig.tar adi_bcm2709_defconfig ; tar -zcvf adi_bcm2711_defconfig.tar adi_bcm2711_defconfig ; tar -zcvf adi_bcmrpi_defconfig.tar adi_bcmrpi_defconfig
         displayName: 'Archive artifacts'
       - bash: curl -u$USERNAME:$PASSWORD -T $(Build.SourcesDirectory)/bin/adi_bcm2709_defconfig.tar $ARTIFACTORY_PATH1 ; curl -u$USERNAME:$PASSWORD -T $(Build.SourcesDirectory)/bin/adi_bcm2711_defconfig.tar $ARTIFACTORY_PATH2 ; curl -u$USERNAME:$PASSWORD -T $(Build.SourcesDirectory)/bin/adi_bcmrpi_defconfig.tar $ARTIFACTORY_PATH3
         env:
