@@ -1940,13 +1940,14 @@ static int hmc7044_jesd204_clks_sync1(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
+	bool cont_mode = false;
 	int ret;
-
-	if (!hmc->hmc_two_level_tree_sync_en)
-		return JESD204_STATE_CHANGE_DONE;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
+
+	if (!hmc->hmc_two_level_tree_sync_en)
+		goto reseed;
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
@@ -1974,10 +1975,24 @@ static int hmc7044_jesd204_clks_sync1(struct jesd204_dev *jdev,
 	if (ret)
 		return ret;
 
+reseed:
+	if (hmc->pulse_gen_mode == HMC7044_PULSE_GEN_CONT_PULSE) {
+		cont_mode = true;
+
+		hmc7044_write(indio_dev, HMC7044_REG_PULSE_GEN,
+			      HMC7044_PULSE_GEN_MODE(HMC7044_PULSE_GEN_LEVEL_SENSITIVE));
+		mdelay(10);
+	}
+
 	ret = hmc7044_toggle_bit(indio_dev, HMC7044_REG_REQ_MODE_0,
 		HMC7044_RESEED_REQ, 1000);
 	if (ret)
 		return ret;
+
+	if (cont_mode)
+		hmc7044_write(indio_dev, HMC7044_REG_PULSE_GEN,
+		      HMC7044_PULSE_GEN_MODE(HMC7044_PULSE_GEN_CONT_PULSE));
+
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -2127,6 +2142,8 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 		if (hmc->pulse_gen_mode != HMC7044_PULSE_GEN_CONT_PULSE)
 			dev_warn(dev, "%s: Link%u forcing continuous SYSREF mode\n",
 				__func__, lnk->link_id);
+
+		hmc->pulse_gen_mode = HMC7044_PULSE_GEN_CONT_PULSE;
 
 		ret = hmc7044_write(indio_dev, HMC7044_REG_PULSE_GEN,
 			HMC7044_PULSE_GEN_MODE(HMC7044_PULSE_GEN_CONT_PULSE));
