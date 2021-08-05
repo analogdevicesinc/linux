@@ -1404,4 +1404,29 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FCS_RANDOM_NUMBER_EXT \
         INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_RANDOM_NUMBER_EXT)
 
+/**
+ * Request INTEL_SIP_SMC_FCS_CRYPTION_EXT
+ * Sync call for data encryption or data decryption.
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_CRYPTION_EXT
+ * a1 session ID
+ * a2 context ID
+ * a3 cryption operating mode (1 for encryption and 0 for decryption)
+ * a4 physical address which stores to be encrypted or decrypted data
+ * a5 size of input data
+ * a6 physical address which will hold the encrypted or decrypted output data
+ * a7 size of output data
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of (output) decrypted or encrypted data
+ * a3 size of (output) decrypted or encrypted data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_CRYPTION_EXT 144
+#define INTEL_SIP_SMC_FCS_CRYPTION_EXT \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_CRYPTION_EXT)
+
 #endif

@@ -406,6 +406,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE:
 	case COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE:
 	case COMMAND_FCS_RANDOM_NUMBER_GEN_EXT:
+	case COMMAND_FCS_SDOS_DATA_EXT:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr2 = svc_pa_to_va(res.a2);
 		cb_data->kaddr3 = &res.a3;
@@ -807,6 +808,16 @@ static int svc_normal_to_secure_thread(void *data)
 			a2 = pdata->arg[1];
 			a3 = pdata->arg[2];
 			break;
+		case COMMAND_FCS_SDOS_DATA_EXT:
+			a0 = INTEL_SIP_SMC_FCS_CRYPTION_EXT;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = pdata->arg[2];
+			a4 = (unsigned long)pdata->paddr;
+			a5 = (unsigned long)pdata->size;
+			a6 = (unsigned long)pdata->paddr_output;
+			a7 = (unsigned long)pdata->size_output;
+			break;
 		/* for polling */
 		case COMMAND_POLL_SERVICE_STATUS:
 		case COMMAND_POLL_SERVICE_STATUS_ASYNC:
@@ -934,6 +945,7 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_CRYPTO_ECDH_REQUEST_INIT:
 			case COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE:
 			case COMMAND_FCS_RANDOM_NUMBER_GEN_EXT:
+			case COMMAND_FCS_SDOS_DATA_EXT:
 				cbdata->status = BIT(SVC_STATUS_INVALID_PARAM);
 				cbdata->kaddr1 = NULL;
 				cbdata->kaddr2 = NULL;

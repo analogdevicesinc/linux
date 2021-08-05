@@ -231,6 +231,9 @@ struct stratix10_svc_chan;
  *
  * @COMMAND_FCS_RANDOM_NUMBER_GEN_EXT: extend random number generation,
  * return status is SVC_STATUS_OK or SVC_STATUS_ERROR
+ *
+ * @COMMAND_FCS_SDOS_DATA_EXT: extend SDOS data encryption & decryption,
+ * return status is SVC_STATUS_OK or SVC_STATUS_ERROR
  */
 enum stratix10_svc_command_code {
 	/* for FPGA */
@@ -293,6 +296,7 @@ enum stratix10_svc_command_code {
 	COMMAND_FCS_CRYPTO_ECDH_REQUEST_INIT,
 	COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE,
 	COMMAND_FCS_RANDOM_NUMBER_GEN_EXT,
+	COMMAND_FCS_SDOS_DATA_EXT,
 	/* for generic mailbox send command */
 	COMMAND_MBOX_SEND_CMD = 100,
 	/* Non-mailbox SMC Call */
