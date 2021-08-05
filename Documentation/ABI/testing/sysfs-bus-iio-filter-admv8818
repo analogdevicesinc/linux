@@ -1,0 +1,27 @@
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_high_pass_3db_frequency
+KernelVersion:	5.13.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		The cut-off frequency of the ADMV8818 high pass filter. The value is scaled using
+		the `out_altvoltageY_scale` attribute so that GHz frequencies are valid inputs,
+		The accepted range of values for the frequencies is between 1.75GHz and 19.9GHz.
+
+		The default value for the scale is 1000000, therefore MHz frequency values are
+		passed as input.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_low_pass_3db_frequency
+KernelVersion:	5.13.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		The cut-off frequency of the ADMV8818 low pass filter. The value is scaled using
+		the `out_altvoltageY_scale` attribute so that GHz frequencies are valid inputs,
+		The accepted range of values for the frequencies is between 2.05GHz and 18.85GHz.
+
+		The default value for the scale is 1000000, therefore MHz frequency values are
+		passed as input.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_scale
+KernelVersion:	5.13.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Scale high pass and lowpass filter frequency values to Hz.
