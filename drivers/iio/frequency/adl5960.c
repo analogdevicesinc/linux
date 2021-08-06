@@ -403,14 +403,11 @@ static int adl5960_reg_access(struct iio_dev *indio_dev,
 				unsigned int *read_val)
 {
 	struct adl5960_dev *dev = iio_priv(indio_dev);
-	int ret;
 
 	if (read_val)
 		return regmap_read(dev->regmap, reg, read_val);
 	else
 		return regmap_write(dev->regmap, reg, write_val);
-
-	return ret;
 }
 
 static const struct iio_info adl5960_info = {
