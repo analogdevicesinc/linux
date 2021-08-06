@@ -1,7 +1,7 @@
 /*
  * Cadence HDMI HDCP driver
  *
- * Copyright (C) 2021 NXP Semiconductor, Inc.
+ * Copyright 2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
