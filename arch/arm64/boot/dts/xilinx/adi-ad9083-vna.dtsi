@@ -285,7 +285,7 @@
 		/* adi_ad9083 config */
 
 		adi,vmax-microvolt = <1800>;
-		adi,fc-hz =  /bits/ 64 <800000000>;
+		adi,fc-hz =  /bits/ 64 <125000000>; /* 125 MHz */
 		adi,rterm-ohms = <100>;
 		adi,backoff = <0>;
 		adi,finmax-hz = /bits/ 64 <100000000>;
