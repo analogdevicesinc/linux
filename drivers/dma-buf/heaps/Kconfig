@@ -12,3 +12,11 @@ config DMABUF_HEAPS_CMA
 	  Choose this option to enable dma-buf CMA heap. This heap is backed
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
+
+config DMABUF_HEAPS_DSP
+        tristate "DMA-BUF DSP Heap"
+        depends on DMABUF_HEAPS
+        help
+          Choose this option to enable the dsp dmabuf heap. The dsp heap
+          is allocated by gen allocater. it's allocated according the dts.
+          If in doubt, say Y.
