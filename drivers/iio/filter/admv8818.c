@@ -82,14 +82,14 @@ struct admv8818_dev {
 	u64			clkin_freq;
 };
 
-unsigned long long freq_range_hpf[4][2] = {
+static const unsigned long long freq_range_hpf[4][2] = {
 	{1750000000ULL, 3550000000ULL},
 	{3400000000ULL, 7250000000ULL},
 	{6600000000, 12000000000},
 	{12500000000, 19900000000}
 };
 
-unsigned long long freq_range_lpf[4][2] = {
+static const unsigned long long freq_range_lpf[4][2] = {
 	{2050000000ULL, 3850000000ULL},
 	{3350000000ULL, 7250000000ULL},
 	{7000000000, 13000000000},
