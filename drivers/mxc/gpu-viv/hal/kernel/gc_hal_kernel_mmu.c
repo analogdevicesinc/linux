@@ -1607,7 +1607,7 @@ _Construct(
     gcePOOL pool;
     gctUINT64 data;
     gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
-    gctUINT64 mmuEnabled;
+    gctUINT64 mmuEnabled = 1;
 
     gcmkHEADER_ARG("Kernel=0x%x MmuSize=%lu", Kernel, MmuSize);
 
@@ -1652,7 +1652,7 @@ _Construct(
     /* Create the page table mutex. */
     gcmkONERROR(gckOS_CreateMutex(os, &mmu->pageTableMutex));
 
-    gcmkONERROR(gckOS_QueryOption(os, "mmuException", &mmuEnabled));
+    gckOS_QueryOption(os, "mmuException", &mmuEnabled);
     mmu->mmuException = (gctUINT) mmuEnabled;
     gcmkONERROR(gckOS_QueryOption(os, "mmu", &mmuEnabled));
 

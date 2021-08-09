@@ -202,7 +202,7 @@ _AllocateStlb(
     gceSTATUS status;
     gcsMMU_STLB_PTR stlb;
     gctPOINTER pointer = gcvNULL;
-    gctUINT64 mmuException = 0;
+    gctUINT64 mmuException = 1;
 
     /* Allocate slave TLB record. */
     gcmkONERROR(gctaOS_Allocate(gcmSIZEOF(gcsMMU_STLB), &pointer));
@@ -250,7 +250,7 @@ gctaMMU_Construct(
     gctSIZE_T bytes = 4096;
 
     gcTA_MMU mmu = gcvNULL;
-    gctUINT64 mmuException = 0;
+    gctUINT64 mmuException = 1;
 
     gcmkONERROR(gctaOS_Allocate(
         gcmSIZEOF(gcsTA_MMU),

@@ -1776,7 +1776,7 @@ gckEVENT_Notify(
 
         if ((pending & 0x40000000) && Event->kernel->hardware->mmuVersion)
         {
-            gctUINT64 mmuException = 0;
+            gctUINT64 mmuException = 1;
             gckOS_QueryOption(Event->os, "mmuException", &mmuException);
             if (mmuException)
             {
