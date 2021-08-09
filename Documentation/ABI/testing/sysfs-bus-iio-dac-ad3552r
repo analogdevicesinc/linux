@@ -1,0 +1,10 @@
+What:		/sys/bus/iio/devices/iio:deviceX/precision_mode_en
+KernelVersion:	5.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Select between fast mode and precison mode.
+		0: Fast mode      - For 12 bits precision, the most significant
+				    bits are used and 16 bits are sent to the
+				    device per channel, lats bits being 0.
+		1: Precision mode - For 16 bits precision, 24 bits are sent to
+				    the device per channel, last bits being 0.
