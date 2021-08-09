@@ -363,10 +363,16 @@ static int admv8818_freq_change(struct notifier_block *nb, unsigned long action,
 {
 	struct admv8818_dev *dev = container_of(nb, struct admv8818_dev, nb);
 	struct clk_notifier_data *cnd = data;
+	unsigned long long rate;
 
-	if (action == POST_RATE_CHANGE) {
+	if (action == PRE_RATE_CHANGE) {
 		/* cache the new rate */
-		dev->clkin_freq = clk_get_rate_scaled(cnd->clk, &dev->clkscale);
+		rate = from_ccf_scaled(cnd->new_rate, &dev->clkscale);
+
+		if (rate == dev->clkin_freq)
+			return NOTIFY_OK;
+
+		dev->clkin_freq = rate;
 
 		return notifier_from_errno(admv8818_rfin_band_select(dev));
 	}
