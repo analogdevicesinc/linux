@@ -6405,10 +6405,16 @@ static void pxp_lut_cleanup_multiple(struct pxps *pxp, u64 lut, bool set)
 	struct pxp_config_data *pxp_conf = &pxp->pxp_conf_state;
 	struct pxp_proc_data *proc_data = &pxp_conf->proc_data;
 
+	u32 val;
+
 	if (proc_data->lut_cleanup == 1) {
 		if (set) {
-			__raw_writel((u32)lut, pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_0 + 0x4);
-			__raw_writel((u32)(lut>>32), pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_1 + 0x4);
+			val = __raw_readl(pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_0);
+			val |= (u32)lut;
+			__raw_writel(val, pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_0);
+			val = __raw_readl(pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_1);
+			val |= (u32)(lut >> 32);
+			__raw_writel(val, pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_1);
 		} else {
 			pxp_luts_deactivate(pxp, lut);
 			__raw_writel(0, pxp->base + HW_PXP_WFE_A_STG1_8X1_OUT1_0);
