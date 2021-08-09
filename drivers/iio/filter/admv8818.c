@@ -80,6 +80,7 @@ struct admv8818_dev {
 	struct mutex		lock;
 	unsigned int		freq_scale;
 	u64			clkin_freq;
+	u32			tolerance;
 };
 
 static const unsigned long long freq_range_hpf[4][2] = {
@@ -205,11 +206,13 @@ static int admv8818_rfin_band_select(struct admv8818_dev *dev)
 {
 	int ret;
 
-	ret = admv8818_hpf_select(dev, dev->clkin_freq);
+	ret = admv8818_hpf_select(dev, DIV_ROUND_DOWN_ULL(
+		dev->clkin_freq * (100 - dev->tolerance), 100));
 	if (ret)
 		return ret;
 
-	return admv8818_lpf_select(dev, dev->clkin_freq);
+	return admv8818_lpf_select(dev, DIV_ROUND_UP_ULL(
+		dev->clkin_freq * (100 + dev->tolerance), 100));
 }
 
 static int admv8818_read_hpf_freq(struct admv8818_dev *dev, unsigned int *hpf_freq)
@@ -459,6 +462,11 @@ static int admv8818_clk_setup(struct admv8818_dev *dev)
 	ret = of_clk_get_scale(spi->dev.of_node, NULL, &dev->clkscale);
 	if (ret)
 		return ret;
+
+	of_property_read_u32(spi->dev.of_node,
+		"adi,tolerance-percent", &dev->tolerance);
+
+	dev->tolerance = clamp(dev->tolerance, 0U, 50U);
 
 	ret = clk_prepare_enable(dev->clkin);
 
