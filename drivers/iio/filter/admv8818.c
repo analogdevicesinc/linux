@@ -113,11 +113,14 @@ static int admv8818_hpf_select(struct admv8818_dev *dev, u64 freq)
 		goto hpf_write;
 
 	for (i = 0; i < 4; i++) {
-		if ((freq > freq_range_hpf[i][0]) && freq < freq_range_hpf[i][1]) {
-			hpf_band = i + 1;
-			freq_step = div_u64((freq_range_hpf[i][1] - freq_range_hpf[i][0]), 15);
+		freq_step = div_u64((freq_range_hpf[i][1] -
+			freq_range_hpf[i][0]), 15);
 
-			for (j = 1; j < 16; j++) {
+		if ((freq > freq_range_hpf[i][0]) &&
+			(freq < freq_range_hpf[i][1] + freq_step)) {
+			hpf_band = i + 1;
+
+			for (j = 1; j <= 16; j++) {
 				if (freq < (freq_range_hpf[i][0] + (freq_step * j))) {
 					hpf_step = j - 1;
 					break;
@@ -125,6 +128,12 @@ static int admv8818_hpf_select(struct admv8818_dev *dev, u64 freq)
 			}
 			break;
 		}
+	}
+
+	/* Close HPF frequency gap between 12 and 12.5 GHz */
+	if (freq >= 12000000000 && freq <= 12500000000) {
+		hpf_band = 3;
+		hpf_step = 15;
 	}
 
 hpf_write:
@@ -162,7 +171,7 @@ static int admv8818_lpf_select(struct admv8818_dev *dev, u64 freq)
 			lpf_band = i + 1;
 			freq_step = div_u64((freq_range_lpf[i][1] - freq_range_lpf[i][0]), 15);
 
-			for (j = 1; j < 16; j++) {
+			for (j = 0; j <= 15; j++) {
 				if (freq < (freq_range_lpf[i][0] + (freq_step * j))) {
 					lpf_step = j;
 					break;
