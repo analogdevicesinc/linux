@@ -19,7 +19,7 @@
 
 &axi_i2c0 {
 	current_limiter@5a {
-		compatible = "adi,adm1177";
+		compatible = "adi,adm1177-iio";
 		reg = <0x5a>;
 		adi,r-sense-mohm = <50>; /* 50 mOhm */
 		adi,shutdown-threshold-ma = <1059>; /* 1.059 A */
