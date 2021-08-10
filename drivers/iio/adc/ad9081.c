@@ -2766,9 +2766,10 @@ static adi_ad9081_deser_mode_e
 ad9081_deserializer_mode_get(struct ad9081_jesd_link *txlink)
 {
 	return (txlink->jesd_param.jesd_jesdv == 1) ?
-		((txlink->lane_rate_kbps > 8000000UL) ?
+	((txlink->lane_rate_kbps > (AD9081_DESER_MODE_204B_BR_TRESH / 1000)) ?
 		AD9081_HALF_RATE : AD9081_FULL_RATE) :
-		((txlink->lane_rate_kbps  < 16230000UL) ?
+		((txlink->lane_rate_kbps <
+		(AD9081_DESER_MODE_204C_BR_TRESH / 1000)) ?
 		AD9081_HALF_RATE : AD9081_QUART_RATE);
 }
 
@@ -3588,15 +3589,30 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9081_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9081_phy *phy = priv->phy;
+	u8 jesd_pll_status;
 	int ret;
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
 		lnk->link_id, jesd204_state_op_reason_str(reason));
 
+
+	if (reason == JESD204_STATE_OP_REASON_INIT) {
+		ret = adi_ad9081_jesd_pll_lock_status_get(&phy->ad9081,
+			&jesd_pll_status);
+		if (ret != 0)
+			return ret;
+
+		if (!jesd_pll_status) {
+			dev_err(dev, "JESD PLL Not Locked!\n");
+			return -EFAULT;
+		}
+	}
+
 	if (lnk->is_transmit && (reason == JESD204_STATE_OP_REASON_INIT) &&
 		(lnk->jesd_version == JESD204_VERSION_C)) {
 
-		if ((phy->jesd_tx_link.lane_rate_kbps > 16230000UL) &&
+		if ((phy->jesd_tx_link.lane_rate_kbps >
+			(AD9081_JESDRX_204C_CAL_THRESH / 1000)) &&
 			phy->jesd_tx_link.lane_cal_rate_kbps !=
 			phy->jesd_tx_link.lane_rate_kbps) {
 
