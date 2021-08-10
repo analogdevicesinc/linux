@@ -40,7 +40,16 @@
 #define __FUNCTION_NAME__ __FUNCTION__
 #endif
 
-#define AD9081_API_REV 0x00010100
+#define AD9081_API_REV 0x00010101
+#define AD9081_PLL_LOCK_WAIT 20000
+#define AD9081_JESD_CAL_BOOT_WAIT 250000
+#define AD9081_JESD_MAN_CAL_WAIT 200000
+#define AD9081_JESD_RX_204C_CAL_WAIT 500000
+#define AD9081_JESD_FG_CAL_WAIT 200000
+#define AD9081_SERDES_RST_WAIT 50000
+#define AD9081_DESER_MODE_204B_BR_TRESH 8000000000ULL
+#define AD9081_DESER_MODE_204C_BR_TRESH 16000000000ULL
+#define AD9081_IL_CTLE_UPPER_DB_THRESH 10
 
 /* var error report */
 #define AD9081_MSG_REPORT(var, comment)                                        \
@@ -224,8 +233,6 @@ int32_t adi_ad9081_jesd_tx_pll_status_get(adi_ad9081_device_t *device,
 					  uint8_t *pll_locked);
 int32_t adi_ad9081_jesd_rx_startup_des(adi_ad9081_device_t *device,
 				       adi_ad9081_deser_mode_e deser_mode);
-int32_t adi_ad9081_jesd_pll_lock_status_get(adi_ad9081_device_t *device,
-					    uint8_t *locked);
 uint16_t adi_ad9081_jesd_find_dformat_out_nc(
 	adi_ad9081_jtx_conv_sel_t const *jesd_conv_sel, uint8_t jesd_m);
 uint8_t

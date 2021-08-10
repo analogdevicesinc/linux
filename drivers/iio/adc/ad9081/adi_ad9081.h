@@ -281,6 +281,7 @@
 #define AD9082_ID 0x9082
 #define AD9082_ADC_CLK_FREQ_HZ_MAX 6300000000ULL
 
+#define AD9081_JESDRX_204C_CAL_THRESH 16000000000ULL
 #define AD9081_JESD_SER_COUNT 8
 #define AD9081_JESD_DESER_COUNT 8
 
@@ -686,14 +687,6 @@ typedef enum {
 } adi_ad9081_test_mode_e;
 
 /*!
- * @brief Enumerates DESER CTLE Settings
- */
-typedef enum {
-	IL_GREATER_THAN_10DB = 0, /*!< CTLE settings with > 10dB */
-	IL_LESS_THAN_10DB = 1 /*!< CTLE settings with < 10dB */
-} adi_ad9081_il_settings_e;
-
-/*!
  * @brief Enumerates Reset Operation
  */
 typedef enum {
@@ -781,10 +774,13 @@ typedef struct {
  * @brief Full JESD Deserializer Settings Structure
  */
 typedef struct {
-	uint8_t boost_mask;
-	uint8_t invert_mask;
-	uint8_t ctle_filter[8];
-	uint8_t lane_mapping[2][8];
+	uint8_t boost_mask; /*Calibration boost mode enable Mask,Set per Lane,Enable (Set to 1) if the channels insertion loss is greater than 10 dB*/
+	uint8_t invert_mask; /*Lane Inversion Mask*/
+	uint8_t ctle_filter
+		[8]; /*Equaliser CTLE Filter Selection, Range 0 - 4, based on Jesd IL, Pick lower setting for Higher Insertion loss*/
+	uint8_t lane_mapping
+		[2]
+		[8]; /*Deserialise Lane Mapping, Map Virtual Converter to Physical Lane*/
 } adi_ad9081_des_settings_t;
 
 /*!
@@ -3710,23 +3706,19 @@ adi_ad9081_adc_loopback_master_trig_enable_set(adi_ad9081_device_t *device,
 /*===== 4 . 0   S E R D E S  L I N K  =====*/
 /**
  * @ingroup link_setup
- * @brief  System Top Level API. \n High level API for Master-Slave NCO Sync
+ * @brief  System Top Level API. \n Readback JESD PLL LOCK Status
+ *         JESD PLL should be lock prior to link enable
  *
- * @param  device         Pointer to the device structure
- * @param  is_master      1 for master, 0 for slave
- * @param  trigger_src    0: sysref, 1: lmfc rising edge, 2: lmfc falling edge
- * @param  gpio_index     0~5 to select GPIO0 ~ GPIO5
- * @param  extra_lmfc_num Extra lmfc number in nco master-slave sync mode
+ * @param  device             Pointer to the device structure
+ * @param  jesd_pll_status    Pointer to uint8_t to hold JESD PLL LOCK
+ *                            0 JESD PLL NOT LOCKED
+ *                            1 JESD PLL LOCKED
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
-int32_t adi_ad9081_adc_nco_master_slave_sync(adi_ad9081_device_t *device,
-					     uint8_t is_master,
-					     uint8_t trigger_src,
-					     uint8_t gpio_index,
-					     uint8_t extra_lmfc_num);
-
+int32_t adi_ad9081_jesd_pll_lock_status_get(adi_ad9081_device_t *device,
+					    uint8_t *jesd_pll_status);
 /**
  * @ingroup link_setup
  * @brief  System Top Level API. \n Enable or Disable jtx link
@@ -3776,6 +3768,25 @@ int32_t adi_ad9081_jesd_rx_calibrate_204c(adi_ad9081_device_t *device,
 					  uint8_t force_cal_reset,
 					  uint8_t boost_mask,
 					  uint8_t run_bg_cal);
+
+/**
+ * @ingroup link_setup
+ * @brief  System Top Level API. \n High level API for Master-Slave NCO Sync
+ *
+ * @param  device         Pointer to the device structure
+ * @param  is_master      1 for master, 0 for slave
+ * @param  trigger_src    0: sysref, 1: lmfc rising edge, 2: lmfc falling edge
+ * @param  gpio_index     0~5 to select GPIO0 ~ GPIO5
+ * @param  extra_lmfc_num Extra lmfc number in nco master-slave sync mode
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_nco_master_slave_sync(adi_ad9081_device_t *device,
+					     uint8_t is_master,
+					     uint8_t trigger_src,
+					     uint8_t gpio_index,
+					     uint8_t extra_lmfc_num);
 
 /*===== 4 . 1   S E R D E S  R E C E I V E R  L I N K  =====*/
 /**
@@ -4061,18 +4072,18 @@ int32_t adi_ad9081_jesd_rx_link_status_get(adi_ad9081_device_t *device,
 
 /**
  * @ingroup dac_link_setup
- * @brief  Set JESD RX CTLE
+ * @brief  Set JESD RX Equaliser CTLE configuration based on Channel Insertion Loss
  *         Call after adi_ad9081_device_startup_tx().
  *
- * @param  device      Pointer to the device structure
- * @param  lanes       Lane mask to apply passed il settings to.
- * @param  il_settings CTLE setting, @see adi_il_settings_e
+ * @param  device           Pointer to the device structure
+ * @param  lanes            Lane mask to apply passed il settings to.
+ * @param  il_db            Insertion Loss value in dB
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
-int32_t adi_ad9081_jesd_rx_ctle_set(adi_ad9081_device_t *device, uint8_t lanes,
-				    adi_ad9081_il_settings_e il_settings);
+int32_t adi_ad9081_jesd_rx_ctle_config_set(adi_ad9081_device_t *device,
+					   uint8_t lanes, uint8_t il_db);
 
 /**
  * @ingroup dac_link_setup
@@ -5590,7 +5601,6 @@ int32_t adi_ad9081_device_cbuspll_register_set(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_device_cbuspll_register_get(adi_ad9081_device_t *device,
 					       uint8_t addr, uint8_t *data);
-
 
 /*=====   E X T R A  L O W  L E V E L  A P I S   =====*/
 

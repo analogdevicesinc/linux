@@ -53,6 +53,7 @@ typedef enum {
 	API_CMS_ERROR_PLL_NOT_LOCKED = -21, /*!< PLL is not locked */
 	API_CMS_ERROR_DLL_NOT_LOCKED = -22, /*!< DLL is not locked */
 	API_CMS_ERROR_MODE_NOT_IN_TABLE = -23, /*!< JESD Mode not in table */
+	API_CMS_ERROR_JESD_PLL_NOT_LOCKED = -24, /*!< PD STBY function error */
 	API_CMS_ERROR_FTW_LOAD_ACK = -30, /*!< FTW acknowledge not received */
 	API_CMS_ERROR_NCO_NOT_ENABLED = -31, /*!< The NCO is not enabled */
 	API_CMS_ERROR_INIT_SEQ_FAIL =

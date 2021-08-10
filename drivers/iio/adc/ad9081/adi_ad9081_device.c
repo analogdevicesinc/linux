@@ -334,7 +334,7 @@ int32_t adi_ad9081_device_clk_pll_div_set(adi_ad9081_device_t *device,
 
 	/* check pll lock status */
 	for (i = 0; i < 50; i++) {
-		err = adi_ad9081_hal_delay_us(device, 20000);
+		err = adi_ad9081_hal_delay_us(device, AD9081_PLL_LOCK_WAIT);
 		AD9081_ERROR_RETURN(err);
 		err = adi_ad9081_device_clk_pll_lock_status_get(device,
 								&pll_lock);
@@ -838,7 +838,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 				       "api v%d.%d.%d commit %s for ad%x ",
 				       (AD9081_API_REV & 0xff0000) >> 16,
 				       (AD9081_API_REV & 0xff00) >> 8,
-				       (AD9081_API_REV & 0xff), "95cf02d",
+				       (AD9081_API_REV & 0xff), "dd0c993",
 				       AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
