@@ -135,7 +135,7 @@
 		};
 
 		current_limiter@5a {
-			compatible = "adi,adm1177";
+			compatible = "adi,adm1177-iio";
 			reg = <0x5a>;
 			adi,r-sense-mohm = <100>; /* 100 mOhm */
 			adi,shutdown-threshold-ma = <1059>; /* 1.059 A */
