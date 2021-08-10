@@ -1048,13 +1048,13 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	memset(&link_config, 0x00, sizeof(link_config));
 	link_config.did = 0;
 	link_config.bid = 1;
-	link_config.num_lanes = 4;
+	link_config.num_lanes = 2;
 	for (i = 0; i < link_config.num_lanes; i++) {
 		link_config.lid[i] = i;
 		link_config.lane_mux[i] = i;
 	}
-	link_config.num_converters = 2;
-	link_config.octets_per_frame = 1;
+	link_config.num_converters = 8;
+	link_config.octets_per_frame = 8;
 	link_config.frames_per_multiframe = 32;
 	link_config.converter_resolution = ad9234 ? 12 : 14;
 	link_config.bits_per_sample = 16;

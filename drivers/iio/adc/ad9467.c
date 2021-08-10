@@ -743,9 +743,11 @@ static const struct axiadc_chip_info ad9467_chip_tbl[] = {
 		.scale_table = ad9643_scale_table,
 		.num_scales = ARRAY_SIZE(ad9643_scale_table),
 		.max_testmode = AN877_ADC_TESTMODE_RAMP,
-		.num_channels = 2,
+		.num_channels = 4,
 		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
 		.channel[1] = AIM_CHAN_NOCALIB(1, 1, 14, 'S', 0),
+                .channel[2] = AIM_CHAN_NOCALIB(2, 2, 14, 'S', 0),
+                .channel[3] = AIM_CHAN_NOCALIB(3, 3, 14, 'S', 0),
 	},
 	[ID_AD9683] = {
 		.name = "AD9683",
