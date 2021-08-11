@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 //
-// Copyright 2018 NXP.
+// Copyright 2018-2021 NXP.
 
 /dts-v1/;
 
@@ -12,6 +12,7 @@
 /delete-node/ &can1;
 /delete-node/ &can2;
 /delete-node/ &lcdif;
+/delete-node/ &pxp;
 /delete-node/ &tsc;
 
 / {
@@ -19,6 +20,7 @@
 	compatible = "fsl,imx6ulz-14x14-evk", "fsl,imx6ull", "fsl,imx6ulz";
 
 	/delete-node/ panel;
+	/delete-node/ pxp_v4l2;
 };
 
 &iomuxc {
