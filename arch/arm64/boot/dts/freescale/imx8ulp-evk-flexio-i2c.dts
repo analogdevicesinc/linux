@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2021 NXP
+ */
+
+#include "imx8ulp-evk.dts"
+
+/{
+	aliases {
+		i2c8 = &flexio_i2c_master;
+	};
+};
+
+&lpi2c7 {
+	status = "disabled";
+	/delete-node/ gpio@21;
+};
+
+&flexio_i2c_master {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_flexio_i2c_master>;
+	pinctrl-1 = <&pinctrl_flexio_i2c_master>;
+	sda = /bits/ 8 <0xa>;
+	scl = /bits/ 8 <0xb>;
+	status = "okay";
+
+	pcal6408: gpio@21 {
+		compatible = "nxp,pcal9554b";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		status = "okay";
+	};
+};
+
+&iomuxc1 {
+	pinctrl_flexio_i2c_master: flexiogrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE12__FXIO1_D11	0x20
+			MX8ULP_PAD_PTE13__FXIO1_D10	0x20
+		>;
+	};
+};
