@@ -153,6 +153,7 @@ struct nwl_dsi {
 
 	struct nwl_dsi_transfer *xfer;
 	bool use_dcss;
+	bool modeset_done;
 };
 
 static const struct regmap_config nwl_dsi_regmap_config = {
@@ -869,6 +870,8 @@ nwl_dsi_bridge_atomic_post_disable(struct drm_bridge *bridge,
 		clk_disable_unprepare(dsi->lcdif_clk);
 
 	pm_runtime_put(dsi->dev);
+
+	dsi->modeset_done = false;
 }
 
 static int nwl_dsi_get_dphy_params(struct nwl_dsi *dsi,
@@ -955,6 +958,9 @@ nwl_dsi_bridge_mode_set(struct drm_bridge *bridge,
 	unsigned long phy_ref_rate;
 	int ret;
 
+	if (dsi->modeset_done)
+		return;
+
 	DRM_DEV_DEBUG_DRIVER(dsi->dev, "Setting mode:\n");
 	drm_mode_debug_printmodeline(adjusted_mode);
 	drm_mode_copy(&dsi->mode, adjusted_mode);
@@ -1026,6 +1032,8 @@ nwl_dsi_bridge_mode_set(struct drm_bridge *bridge,
 		DRM_DEV_ERROR(dev, "Failed to deassert DSI: %d\n", ret);
 		goto runtime_put;
 	}
+
+	dsi->modeset_done = true;
 
 	return;
 
