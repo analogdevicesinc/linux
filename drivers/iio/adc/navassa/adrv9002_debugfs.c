@@ -10,10 +10,14 @@
 #include <linux/kernel.h>
 #include <linux/seq_file.h>
 #include <linux/string.h>
+#include <linux/stringify.h>
+#include "linux/spi/spi.h"
 
 #include "adrv9002.h"
 #include "adi_adrv9001_fh.h"
 #include "adi_adrv9001_fh_types.h"
+#include "adi_adrv9001_gpio.h"
+#include "adi_adrv9001_gpio_types.h"
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_rx.h"
 #include "adi_adrv9001_rxSettings_types.h"
@@ -1061,6 +1065,216 @@ static void adrv9002_debugfs_fh_config_create(struct adrv9002_rf_phy *phy, struc
 	debugfs_create_file("fh_config_dump", 0400, d, phy, &adrv9002_fh_config_dump_fops);
 }
 
+/* does not take into account that idx 0 is ADI_ADRV9001_GPIO_UNASSIGNED */
+#define ADRV9002_GPIO_MAX	ADI_ADRV9001_GPIO_ANALOG_11
+
+static int adrv9002_gpio_val_get(void *arg, u64 *val, int gpio)
+{
+	struct adrv9002_rf_phy *phy = arg;
+	adi_adrv9001_GpioPinDirection_e dir;
+	adi_adrv9001_GpioPinLevel_e level;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9001_gpio_PinDirection_Get(phy->adrv9001, gpio, &dir);
+	if (ret)
+		goto unlock;
+
+	if (dir)
+		ret = adi_adrv9001_gpio_OutputPinLevel_Get(phy->adrv9001, gpio, &level);
+	else
+		ret = adi_adrv9001_gpio_InputPinLevel_Get(phy->adrv9001, gpio, &level);
+	if (ret)
+		goto unlock;
+
+	*val = level;
+unlock:
+	mutex_unlock(&phy->lock);
+	return ret ? adrv9002_dev_err(phy) : 0;
+}
+
+static int adrv9002_gpio_val_set(void *arg, const u64 val, int gpio)
+{
+	struct adrv9002_rf_phy *phy = arg;
+	adi_adrv9001_GpioPinDirection_e dir;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9001_gpio_PinDirection_Get(phy->adrv9001, gpio, &dir);
+	if (ret) {
+		mutex_unlock(&phy->lock);
+		return adrv9002_dev_err(phy);
+	}
+
+	if (dir == ADI_ADRV9001_GPIO_PIN_DIRECTION_INPUT) {
+		mutex_unlock(&phy->lock);
+		return -EPERM;
+	}
+
+	ret = adi_adrv9001_gpio_OutputPinLevel_Set(phy->adrv9001, gpio, !!val);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	return 0;
+}
+
+static int adrv9002_gpio_dir_get(void *arg, u64 *val, int gpio)
+{
+	struct adrv9002_rf_phy *phy = arg;
+	adi_adrv9001_GpioPinDirection_e dir;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = adi_adrv9001_gpio_PinDirection_Get(phy->adrv9001, gpio, &dir);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	*val = dir;
+
+	return 0;
+}
+
+static int (*dir_set[4])(adi_adrv9001_Device_t *adrv9001, u32 pin) = {
+	adi_adrv9001_gpio_ManualInput_Configure,
+	adi_adrv9001_gpio_ManualAnalogInput_Configure,
+	adi_adrv9001_gpio_ManualOutput_Configure,
+	adi_adrv9001_gpio_ManualAnalogOutput_Configure,
+};
+
+static int adrv9002_gpio_dir_set(void *arg, const u64 val, int gpio)
+{
+	struct adrv9002_rf_phy *phy = arg;
+	bool agpio = (gpio > ADI_ADRV9001_GPIO_DIGITAL_15) ? true : false;
+	int ret;
+
+	if (val && agpio)
+		/* the nibbles go 4 by 4 and 0 means unassigned. hence the +1 */
+		gpio = (gpio - ADI_ADRV9001_GPIO_ANALOG_00) / 4 + 1;
+	else if (val && !agpio)
+		/* for dgpio's, the crumbs go 2 by 2 */
+		gpio = (gpio - ADI_ADRV9001_GPIO_DIGITAL_00) / 2 + 1;
+
+	mutex_lock(&phy->lock);
+	ret = dir_set[2 * !!val + agpio](phy->adrv9001, gpio);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	return 0;
+}
+
+#define gpio_idx(t, i)	\
+	(strcmp(__stringify(t), "a") ? (i) + ADI_ADRV9001_GPIO_DIGITAL_00 : \
+				(i) + ADI_ADRV9001_GPIO_ANALOG_00)
+
+#define gpio_fops(t, i, v)		(&adrv9002_##t##gpio##i##_##v##_fops)
+
+#define ADRV9002_GPIO_ATTR(t, i)						\
+static int adrv9002_##t##gpio##i##_val_get(void *arg, u64 *val)			\
+{										\
+	return adrv9002_gpio_val_get(arg, val, gpio_idx(t, i));			\
+}										\
+										\
+static int adrv9002_##t##gpio##i##_val_set(void *arg, const u64 val)		\
+{										\
+	return adrv9002_gpio_val_set(arg, val, gpio_idx(t, i));			\
+}										\
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_##t##gpio##i##_val_fops,			\
+			 adrv9002_##t##gpio##i##_val_get,			\
+			 adrv9002_##t##gpio##i##_val_set, "%llu\n");		\
+										\
+										\
+static int adrv9002_##t##gpio##i##_dir_get(void *arg, u64 *val)			\
+{										\
+	return adrv9002_gpio_dir_get(arg, val, gpio_idx(t, i));			\
+}										\
+										\
+static int adrv9002_##t##gpio##i##_dir_set(void *arg, const u64 val)		\
+{										\
+	return adrv9002_gpio_dir_set(arg, val, gpio_idx(t, i));			\
+}										\
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_##t##gpio##i##_dir_fops,			\
+			 adrv9002_##t##gpio##i##_dir_get,			\
+			 adrv9002_##t##gpio##i##_dir_set, "%llu\n")
+/* agpio's */
+ADRV9002_GPIO_ATTR(a, 0);
+ADRV9002_GPIO_ATTR(a, 1);
+ADRV9002_GPIO_ATTR(a, 2);
+ADRV9002_GPIO_ATTR(a, 3);
+ADRV9002_GPIO_ATTR(a, 4);
+ADRV9002_GPIO_ATTR(a, 5);
+ADRV9002_GPIO_ATTR(a, 6);
+ADRV9002_GPIO_ATTR(a, 7);
+ADRV9002_GPIO_ATTR(a, 8);
+ADRV9002_GPIO_ATTR(a, 9);
+ADRV9002_GPIO_ATTR(a, 10);
+ADRV9002_GPIO_ATTR(a, 11);
+/* dgpio's */
+ADRV9002_GPIO_ATTR(d, 0);
+ADRV9002_GPIO_ATTR(d, 1);
+ADRV9002_GPIO_ATTR(d, 2);
+ADRV9002_GPIO_ATTR(d, 3);
+ADRV9002_GPIO_ATTR(d, 4);
+ADRV9002_GPIO_ATTR(d, 5);
+ADRV9002_GPIO_ATTR(d, 6);
+ADRV9002_GPIO_ATTR(d, 7);
+ADRV9002_GPIO_ATTR(d, 8);
+ADRV9002_GPIO_ATTR(d, 9);
+ADRV9002_GPIO_ATTR(d, 10);
+ADRV9002_GPIO_ATTR(d, 11);
+ADRV9002_GPIO_ATTR(d, 12);
+ADRV9002_GPIO_ATTR(d, 13);
+ADRV9002_GPIO_ATTR(d, 14);
+ADRV9002_GPIO_ATTR(d, 15);
+
+static const struct {
+	const char *v;
+	const char *d;
+	const struct file_operations *fops_l;
+	const struct file_operations *fops_d;
+} gpio_helper[ADRV9002_GPIO_MAX] = {
+	{ "dgpio0_value", "dgpio0_direction", gpio_fops(d, 0, val), gpio_fops(d, 0, dir) },
+	{ "dgpio1_value", "dgpio1_direction", gpio_fops(d, 1, val), gpio_fops(d, 1, dir) },
+	{ "dgpio2_value", "dgpio2_direction", gpio_fops(d, 2, val), gpio_fops(d, 2, dir) },
+	{ "dgpio3_value", "dgpio3_direction", gpio_fops(d, 3, val), gpio_fops(d, 3, dir) },
+	{ "dgpio4_value", "dgpio4_direction", gpio_fops(d, 4, val), gpio_fops(d, 4, dir) },
+	{ "dgpio5_value", "dgpio5_direction", gpio_fops(d, 5, val), gpio_fops(d, 5, dir) },
+	{ "dgpio6_value", "dgpio6_direction", gpio_fops(d, 6, val), gpio_fops(d, 6, dir) },
+	{ "dgpio7_value", "dgpio7_direction", gpio_fops(d, 7, val), gpio_fops(d, 7, dir) },
+	{ "dgpio8_value", "dgpio8_direction", gpio_fops(d, 8, val), gpio_fops(d, 8, dir) },
+	{ "dgpio9_value", "dgpio9_direction", gpio_fops(d, 9, val), gpio_fops(d, 9, dir) },
+	{ "dgpio10_value", "dgpio10_direction", gpio_fops(d, 10, val), gpio_fops(d, 10, dir) },
+	{ "dgpio11_value", "dgpio11_direction", gpio_fops(d, 11, val), gpio_fops(d, 11, dir) },
+	{ "dgpio12_value", "dgpio12_direction", gpio_fops(d, 12, val), gpio_fops(d, 12, dir) },
+	{ "dgpio13_value", "dgpio13_direction", gpio_fops(d, 13, val), gpio_fops(d, 13, dir) },
+	{ "dgpio14_value", "dgpio14_direction", gpio_fops(d, 14, val), gpio_fops(d, 14, dir) },
+	{ "dgpio15_value", "dgpio15_direction", gpio_fops(d, 15, val), gpio_fops(d, 15, dir) },
+	{ "agpio0_value", "agpio0_direction", gpio_fops(a, 0, val), gpio_fops(a, 0, dir) },
+	{ "agpio1_value", "agpio1_direction", gpio_fops(a, 1, val), gpio_fops(a, 1, dir) },
+	{ "agpio2_value", "agpio2_direction", gpio_fops(a, 2, val), gpio_fops(a, 2, dir) },
+	{ "agpio3_value", "agpio3_direction", gpio_fops(a, 3, val), gpio_fops(a, 3, dir) },
+	{ "agpio4_value", "agpio4_direction", gpio_fops(a, 4, val), gpio_fops(a, 4, dir) },
+	{ "agpio5_value", "agpio5_direction", gpio_fops(a, 5, val), gpio_fops(a, 5, dir) },
+	{ "agpio6_value", "agpio6_direction", gpio_fops(a, 6, val), gpio_fops(a, 6, dir) },
+	{ "agpio7_value", "agpio7_direction", gpio_fops(a, 7, val), gpio_fops(a, 7, dir) },
+	{ "agpio8_value", "agpio8_direction", gpio_fops(a, 8, val), gpio_fops(a, 8, dir) },
+	{ "agpio9_value", "agpio9_direction", gpio_fops(a, 9, val), gpio_fops(a, 9, dir) },
+	{ "agpio10_value", "agpio10_direction", gpio_fops(a, 10, val), gpio_fops(a, 10, dir) },
+	{ "agpio11_value", "agpio11_direction", gpio_fops(a, 11, val), gpio_fops(a, 11, dir) },
+};
+
+static void adrv9002_debugfs_gpio_config_create(struct adrv9002_rf_phy *phy, struct dentry *d)
+{
+	int g;
+
+	for (g = 0; g < ARRAY_SIZE(gpio_helper); g++) {
+		debugfs_create_file_unsafe(gpio_helper[g].v, 0600, d, phy, gpio_helper[g].fops_l);
+		debugfs_create_file_unsafe(gpio_helper[g].d, 0600, d, phy, gpio_helper[g].fops_d);
+	}
+}
+
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 {
 	int chan;
@@ -1185,4 +1399,5 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 	}
 
 	adrv9002_debugfs_fh_config_create(phy, d);
+	adrv9002_debugfs_gpio_config_create(phy, d);
 }
