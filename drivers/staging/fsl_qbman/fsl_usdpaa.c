@@ -1847,9 +1847,13 @@ ioctl_usdpaa_get_link_status(struct usdpaa_ioctl_link_status_args *input)
 	if (net_dev == NULL)
 		return -ENODEV;
 
-	input->link_status = netif_carrier_ok(net_dev);
-	input->link_autoneg = net_dev->phydev->autoneg;
-	input->link_duplex = net_dev->phydev->duplex;
+	if (net_dev->phydev == NULL) { /* Interface is down from kernel */
+		input->link_status = ETH_LINK_DOWN;
+	} else {
+		input->link_status = netif_carrier_ok(net_dev);
+		input->link_autoneg = net_dev->phydev->autoneg;
+		input->link_duplex = net_dev->phydev->duplex;
+	}
 
 	if (input->link_status)
 		input->link_speed = net_dev->phydev->speed;
