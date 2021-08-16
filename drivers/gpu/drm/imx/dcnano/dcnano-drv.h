@@ -42,6 +42,8 @@ struct dcnano_dev {
 	struct drm_pending_vblank_event *event;
 
 	enum dcnano_port port;
+
+	bool modeset_done;
 };
 
 static inline struct dcnano_dev *to_dcnano_dev(struct drm_device *drm)

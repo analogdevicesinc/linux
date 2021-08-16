@@ -202,6 +202,9 @@ static void dcnano_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
 	struct drm_display_mode *adj = &crtc->state->adjusted_mode;
 
+	if (dcnano->modeset_done)
+		return;
+
 	dcnano_crtc_dbg(crtc, "mode " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj));
 
 	dcnano_crtc_set_pixel_clock(crtc);
@@ -211,6 +214,8 @@ static void dcnano_crtc_mode_set_nofb(struct drm_crtc *crtc)
 
 	if (dcnano->port == DCNANO_DPI_PORT)
 		dcnano_crtc_mode_set_nofb_dpi(crtc);
+
+	dcnano->modeset_done = true;
 }
 
 static void dcnano_crtc_queue_state_event(struct drm_crtc *crtc)
@@ -334,6 +339,8 @@ static void dcnano_crtc_atomic_disable(struct drm_crtc *crtc,
 		crtc->state->event = NULL;
 	}
 	spin_unlock_irq(&crtc->dev->event_lock);
+
+	dcnano->modeset_done = false;
 }
 
 static bool
