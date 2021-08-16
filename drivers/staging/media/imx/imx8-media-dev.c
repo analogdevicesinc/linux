@@ -2,7 +2,7 @@
 /*
  * V4L2 Media Controller Driver for NXP IMX8QXP/QM SOC
  *
- * Copyright (c) 2019 NXP Semiconductor
+ * Copyright 2019-2021 NXP
  *
  */
 
