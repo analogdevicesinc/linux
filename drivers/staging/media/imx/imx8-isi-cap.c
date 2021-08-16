@@ -1454,14 +1454,14 @@ static const struct media_entity_operations mxc_isi_sd_media_ops = {
 };
 
 static int mxc_isi_subdev_enum_mbus_code(struct v4l2_subdev *sd,
-					 struct v4l2_subdev_pad_config *cfg,
+					 struct v4l2_subdev_state *sd_state,
 					 struct v4l2_subdev_mbus_code_enum *code)
 {
 	return 0;
 }
 
 static int mxc_isi_subdev_get_fmt(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_format *fmt)
 {
 	struct mxc_isi_cap_dev *isi_cap = v4l2_get_subdevdata(sd);
@@ -1511,7 +1511,7 @@ static int mxc_isi_subdev_get_fmt(struct v4l2_subdev *sd,
 }
 
 static int mxc_isi_subdev_set_fmt(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_format *fmt)
 {
 	struct mxc_isi_cap_dev *isi_cap = v4l2_get_subdevdata(sd);
@@ -1554,7 +1554,7 @@ static int mxc_isi_subdev_set_fmt(struct v4l2_subdev *sd,
 }
 
 static int mxc_isi_subdev_get_selection(struct v4l2_subdev *sd,
-					struct v4l2_subdev_pad_config *cfg,
+					struct v4l2_subdev_state *sd_state,
 					struct v4l2_subdev_selection *sel)
 {
 	struct mxc_isi_cap_dev *isi_cap = v4l2_get_subdevdata(sd);
@@ -1577,10 +1577,10 @@ static int mxc_isi_subdev_get_selection(struct v4l2_subdev *sd,
 		return 0;
 
 	case V4L2_SEL_TGT_CROP:
-		try_sel = v4l2_subdev_get_try_crop(sd, cfg, sel->pad);
+		try_sel = v4l2_subdev_get_try_crop(sd, sd_state, sel->pad);
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		try_sel = v4l2_subdev_get_try_compose(sd, cfg, sel->pad);
+		try_sel = v4l2_subdev_get_try_compose(sd, sd_state, sel->pad);
 		f = &isi_cap->dst_f;
 		break;
 	default:
@@ -1607,7 +1607,7 @@ static int mxc_isi_subdev_get_selection(struct v4l2_subdev *sd,
 }
 
 static int mxc_isi_subdev_set_selection(struct v4l2_subdev *sd,
-					struct v4l2_subdev_pad_config *cfg,
+					struct v4l2_subdev_state *sd_state,
 					struct v4l2_subdev_selection *sel)
 {
 	struct mxc_isi_cap_dev *isi_cap = v4l2_get_subdevdata(sd);
@@ -1620,10 +1620,10 @@ static int mxc_isi_subdev_set_selection(struct v4l2_subdev *sd,
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
-		try_sel = v4l2_subdev_get_try_crop(sd, cfg, sel->pad);
+		try_sel = v4l2_subdev_get_try_crop(sd, sd_state, sel->pad);
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		try_sel = v4l2_subdev_get_try_compose(sd, cfg, sel->pad);
+		try_sel = v4l2_subdev_get_try_compose(sd, sd_state, sel->pad);
 		f = &isi_cap->dst_f;
 		break;
 	default:
