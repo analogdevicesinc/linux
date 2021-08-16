@@ -5,7 +5,7 @@
  * ISI is a Image Sensor Interface of i.MX8QXP/QM platform, which
  * used to process image from camera sensor to memory or DC
  *
- * Copyright (c) 2019 NXP Semiconductor
+ * Copyright 2019-2021 NXP
  *
  */
 
