@@ -54,8 +54,8 @@
 /* Each client has this additional data */
 struct adt7x10_data {
 	const struct adt7x10_ops *ops;
-	const char		*name;
 	struct device		*hwmon_dev;
+	struct device		*bus_dev;
 	struct mutex		update_lock;
 	u8			config;
 	u8			oldconfig;
@@ -72,25 +72,25 @@ struct adt7x10_data {
 static int adt7x10_read_byte(struct device *dev, u8 reg)
 {
 	struct adt7x10_data *d = dev_get_drvdata(dev);
-	return d->ops->read_byte(dev, reg);
+	return d->ops->read_byte(d->bus_dev, reg);
 }
 
 static int adt7x10_write_byte(struct device *dev, u8 reg, u8 data)
 {
 	struct adt7x10_data *d = dev_get_drvdata(dev);
-	return d->ops->write_byte(dev, reg, data);
+	return d->ops->write_byte(d->bus_dev, reg, data);
 }
 
 static int adt7x10_read_word(struct device *dev, u8 reg)
 {
 	struct adt7x10_data *d = dev_get_drvdata(dev);
-	return d->ops->read_word(dev, reg);
+	return d->ops->read_word(d->bus_dev, reg);
 }
 
 static int adt7x10_write_word(struct device *dev, u8 reg, u16 data)
 {
 	struct adt7x10_data *d = dev_get_drvdata(dev);
-	return d->ops->write_word(dev, reg, data);
+	return d->ops->write_word(d->bus_dev, reg, data);
 }
 
 static const u8 ADT7X10_REG_TEMP[4] = {
@@ -315,14 +315,6 @@ static ssize_t adt7x10_alarm_show(struct device *dev,
 	return sprintf(buf, "%d\n", !!(ret & attr->index));
 }
 
-static ssize_t name_show(struct device *dev, struct device_attribute *da,
-			 char *buf)
-{
-	struct adt7x10_data *data = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%s\n", data->name);
-}
-
 static SENSOR_DEVICE_ATTR_RO(temp1_input, adt7x10_temp, 0);
 static SENSOR_DEVICE_ATTR_RW(temp1_max, adt7x10_temp, 1);
 static SENSOR_DEVICE_ATTR_RW(temp1_min, adt7x10_temp, 2);
@@ -336,9 +328,8 @@ static SENSOR_DEVICE_ATTR_RO(temp1_max_alarm, adt7x10_alarm,
 			     ADT7X10_STAT_T_HIGH);
 static SENSOR_DEVICE_ATTR_RO(temp1_crit_alarm, adt7x10_alarm,
 			     ADT7X10_STAT_T_CRIT);
-static DEVICE_ATTR_RO(name);
 
-static struct attribute *adt7x10_attributes[] = {
+static struct attribute *adt7x10_attrs[] = {
 	&sensor_dev_attr_temp1_input.dev_attr.attr,
 	&sensor_dev_attr_temp1_max.dev_attr.attr,
 	&sensor_dev_attr_temp1_min.dev_attr.attr,
@@ -352,9 +343,7 @@ static struct attribute *adt7x10_attributes[] = {
 	NULL
 };
 
-static const struct attribute_group adt7x10_group = {
-	.attrs = adt7x10_attributes,
-};
+ATTRIBUTE_GROUPS(adt7x10);
 
 int adt7x10_probe(struct device *dev, const char *name, int irq,
 		  const struct adt7x10_ops *ops)
@@ -367,7 +356,7 @@ int adt7x10_probe(struct device *dev, const char *name, int irq,
 		return -ENOMEM;
 
 	data->ops = ops;
-	data->name = name;
+	data->bus_dev = dev;
 
 	dev_set_drvdata(dev, data);
 	mutex_init(&data->update_lock);
@@ -399,26 +388,11 @@ int adt7x10_probe(struct device *dev, const char *name, int irq,
 	if (ret)
 		goto exit_restore;
 
-	/* Register sysfs hooks */
-	ret = sysfs_create_group(&dev->kobj, &adt7x10_group);
-	if (ret)
-		goto exit_restore;
-
-	/*
-	 * The I2C device will already have it's own 'name' attribute, but for
-	 * the SPI device we need to register it. name will only be non NULL if
-	 * the device doesn't register the 'name' attribute on its own.
-	 */
-	if (name) {
-		ret = device_create_file(dev, &dev_attr_name);
-		if (ret)
-			goto exit_remove;
-	}
-
-	data->hwmon_dev = hwmon_device_register(dev);
+	data->hwmon_dev = hwmon_device_register_with_groups(dev, name, data,
+							    adt7x10_groups);
 	if (IS_ERR(data->hwmon_dev)) {
 		ret = PTR_ERR(data->hwmon_dev);
-		goto exit_remove_name;
+		goto exit_restore;
 	}
 
 	if (irq > 0) {
@@ -433,11 +407,6 @@ int adt7x10_probe(struct device *dev, const char *name, int irq,
 
 exit_hwmon_device_unregister:
 	hwmon_device_unregister(data->hwmon_dev);
-exit_remove_name:
-	if (name)
-		device_remove_file(dev, &dev_attr_name);
-exit_remove:
-	sysfs_remove_group(&dev->kobj, &adt7x10_group);
 exit_restore:
 	adt7x10_write_byte(dev, ADT7X10_CONFIG, data->oldconfig);
 	return ret;
@@ -452,9 +421,6 @@ int adt7x10_remove(struct device *dev, int irq)
 		free_irq(irq, dev);
 
 	hwmon_device_unregister(data->hwmon_dev);
-	if (data->name)
-		device_remove_file(dev, &dev_attr_name);
-	sysfs_remove_group(&dev->kobj, &adt7x10_group);
 	if (data->oldconfig != data->config)
 		adt7x10_write_byte(dev, ADT7X10_CONFIG, data->oldconfig);
 	return 0;
