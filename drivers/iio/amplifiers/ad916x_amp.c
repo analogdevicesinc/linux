@@ -19,11 +19,26 @@
 #define AD916x_AMP_SDOACTIVE	BIT(3) | BIT(4)
 
 #define AD916x_AMP_REG_POWERDOWN	0x10
-#define AD916X_AMP_ENABLE		0x00
+#define AD916X_AMP_ENABLE		0x01
 #define AD916X_AMP_DISABLE		0x3B
+#define AD916x_AMP_PD_ADCCLOCK	BIT(0)
+#define AD916x_AMP_PD_ADCCLOCK_ENABLE 0
+#define AD916x_AMP_PD_ADCCLOCK_DISABLE AD916x_AMP_PD_ADCCLOCK
 
 #define AD916x_AMP_REG_TRIM_CM		0x18
 #define AD916x_AMP_REG_DCOUTPUTVOLTAGE	0x19
+
+#define AD916x_AMP_REG_ADC_START		0x1b
+#define AD916x_AMP_ST_ADC_CLKF_0		BIT(0)
+#define AD916x_AMP_ST_ADC_CLKF_0_ENABLE		AD916x_AMP_REG_ADC_START
+#define AD916x_AMP_ST_ADC_CLKF_0_DISABLE	0
+
+#define AD916x_AMP_REG_ADC_EOC		0x1c
+#define AD916x_AMP_ADC_EOC		BIT(0)
+#define AD916x_AMP_ADC_EOC_DONE		AD916x_AMP_ADC_EOC
+#define AD916x_AMP_ADC_EOC_IN_PROGRESS	0
+
+#define AD916x_AMP_REG_ADC_RESULTS	0x1d
 
 struct ad916x_amp_state {
 	struct regmap *map;
@@ -99,6 +114,60 @@ static int ad916x_amp_icm_ua_set(struct ad916x_amp_state *st, u16 icm_ua)
 	return 0;
 }
 
+#define AD916x_AMP_MV_BGA_NOMINAL	1090
+
+static int ad916x_get_adc_mv(struct ad916x_amp_state *st, int *adc_mv)
+{
+	unsigned int val;
+	int rc, rc2;
+
+	rc = regmap_update_bits(st->map, AD916x_AMP_REG_POWERDOWN,
+				AD916x_AMP_PD_ADCCLOCK,
+				AD916x_AMP_PD_ADCCLOCK_ENABLE);
+	if (rc) {
+		dev_err(&st->spi->dev, "Failed to enable ADC clock: %d\n", rc);
+		return rc;
+	}
+
+	rc = regmap_update_bits(st->map, AD916x_AMP_REG_ADC_START,
+				AD916x_AMP_ST_ADC_CLKF_0,
+				AD916x_AMP_ST_ADC_CLKF_0_ENABLE);
+	if (rc) {
+		dev_err(&st->spi->dev, "Failed to start ADC conversion: %d\n", rc);
+		goto error_powerdown_adc_clock;
+	}
+
+	do {
+		rc = regmap_read(st->map, AD916x_AMP_REG_ADC_EOC,
+				 &val);
+		if (rc) {
+			dev_err(&st->spi->dev, "Failed to get ADC "
+				"end of conversion flag: %d\n", rc);
+			goto error_powerdown_adc_clock;
+		}
+	} while ((val & AD916x_AMP_ADC_EOC) != AD916x_AMP_ADC_EOC_DONE);
+
+	rc = regmap_read(st->map, AD916x_AMP_REG_ADC_RESULTS,
+			 &val);
+	if (rc) {
+		dev_err(&st->spi->dev, "Failed to get ADC output code: %d\n", rc);
+		goto error_powerdown_adc_clock;
+	}
+
+	*adc_mv = AD916x_AMP_MV_BGA_NOMINAL * val / 255;
+
+error_powerdown_adc_clock:
+	rc2 = regmap_update_bits(st->map, AD916x_AMP_REG_POWERDOWN,
+				 AD916x_AMP_PD_ADCCLOCK,
+				 AD916x_AMP_PD_ADCCLOCK_DISABLE);
+	if (rc2) {
+		dev_err(&st->spi->dev, "Failed to disable ADC clock: %d\n", rc2);
+		return rc2;
+	}
+
+	return rc;
+}
+
 /* Attributes */
 enum {
 	AD916x_AMP_ICM_UA,
@@ -107,6 +176,7 @@ enum {
 	AD916x_AMP_VOS_ADJ_MV,
 	AD916x_AMP_VOS_ADJ_MV_MIN,
 	AD916x_AMP_VOS_ADJ_MV_MAX,
+	AD916x_AMP_ADC_MV,
 };
 
 static int ad916x_amp_read_raw(struct iio_dev *indio_dev,
@@ -170,6 +240,7 @@ static ssize_t ad916x_attr_show(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct ad916x_amp_state *st = iio_priv(indio_dev);
+	int rc;
 
 	switch (this_attr->address) {
 	case AD916x_AMP_VOS_ADJ_MV:
@@ -184,6 +255,14 @@ static ssize_t ad916x_attr_show(struct device *dev,
 		return sprintf(buf, "%u\n", AD916x_ICM_MIN_UA);
 	case AD916x_AMP_ICM_UA_MAX:
 		return sprintf(buf, "%u\n", AD916x_ICM_MAX_UA);
+	case AD916x_AMP_ADC_MV: {
+		int adc_mv;
+		rc = ad916x_get_adc_mv(st, &adc_mv);
+		if (rc)
+			return rc;
+
+		return sprintf(buf, "%d\n", adc_mv);
+	}
 	default:
 		return -EINVAL;
 	}
@@ -249,6 +328,9 @@ AD916x_IIO_DEVICE_ATTR(vos_adj_mv_min,
 AD916x_IIO_DEVICE_ATTR(vos_adj_mv_max,
 		       S_IRUGO,
 		       AD916x_AMP_VOS_ADJ_MV_MAX);
+AD916x_IIO_DEVICE_ATTR(adc_mv,
+		       S_IRUGO,
+		       AD916x_AMP_ADC_MV);
 
 static struct attribute *ad916x_amp_attributes[] = {
 	&iio_dev_attr_icm_ua.dev_attr.attr,
@@ -257,6 +339,7 @@ static struct attribute *ad916x_amp_attributes[] = {
 	&iio_dev_attr_vos_adj_mv.dev_attr.attr,
 	&iio_dev_attr_vos_adj_mv_min.dev_attr.attr,
 	&iio_dev_attr_vos_adj_mv_max.dev_attr.attr,
+	&iio_dev_attr_adc_mv.dev_attr.attr,
 	NULL,
 };
 
