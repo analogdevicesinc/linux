@@ -15,9 +15,13 @@
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
 
-#define AD916X_AMP_REG(x)	x
-#define AD916X_AMP_ENABLE	0x00
-#define AD916X_AMP_DISABLE	0x3B
+#define AD916x_AMP_REG_SPI_INTFCONFA	0x0
+#define AD916x_AMP_SDOACTIVE	BIT(3) | BIT(4)
+
+#define AD916x_AMP_REG_POWERDOWN	0x10
+#define AD916X_AMP_ENABLE		0x00
+#define AD916X_AMP_DISABLE		0x3B
+
 #define AD916x_AMP_REG_TRIM_CM		0x18
 #define AD916x_AMP_REG_DCOUTPUTVOLTAGE	0x19
 
@@ -116,7 +120,7 @@ static int ad916x_amp_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		ret = regmap_read(st->map, AD916X_AMP_REG(0x10), val);
+		ret = regmap_read(st->map, AD916x_AMP_REG_POWERDOWN, val);
 		if (ret)
 			return ret;
 
@@ -140,7 +144,7 @@ static int ad916x_amp_write_raw(struct iio_dev *indio_dev,
 		if (val != 0 && val != 1)
 			return -EINVAL;
 
-		return regmap_write(st->map, AD916X_AMP_REG(0x10),
+		return regmap_write(st->map, AD916x_AMP_REG_POWERDOWN,
 				    val == 1 ? AD916X_AMP_ENABLE :
 				    AD916X_AMP_DISABLE);
 	default:
@@ -283,7 +287,8 @@ static void ad916x_amp_setup(const struct ad916x_amp_state *st)
 {
 	if (!(st->spi->mode & SPI_3WIRE))
 		/* set SPI to 4-wire mode */
-		regmap_write(st->map, AD916X_AMP_REG(0x00), 0x18);
+		regmap_write(st->map, AD916x_AMP_REG_SPI_INTFCONFA,
+			     AD916x_AMP_SDOACTIVE);
 }
 
 static int ad916x_amp_probe(struct spi_device *spi)
