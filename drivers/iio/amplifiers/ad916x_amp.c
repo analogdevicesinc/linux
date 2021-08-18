@@ -69,20 +69,6 @@ static const struct regmap_config ad916x_amp_regmap_config = {
 	.read_flag_mask = 0x80,
 };
 
-static int ad916x_amp_en_set(struct ad916x_amp_state *st, int enable)
-{
-	if (enable)
-		return regmap_update_bits(st->map,
-				AD916x_AMP_REG_POWERDOWN,
-				AD916x_AMP_ENABLE_MASK | AD916x_AMP_FLD_PD_BG,
-				~(AD916x_AMP_ENABLE_MASK | AD916x_AMP_FLD_PD_BG));
-
-	return regmap_update_bits(st->map,
-				AD916x_AMP_REG_POWERDOWN,
-				AD916x_AMP_ENABLE_MASK,
-				AD916x_AMP_ENABLE_MASK);
-}
-
 static int ad916x_amp_pwr_down_update(struct ad916x_amp_state *st)
 {
 	u32 val;
@@ -178,7 +164,7 @@ static int ad916x_amp_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		ret = regmap_read(st->map, AD916x_AMP_REG_POWERDOWN, val);
+		ret = regmap_read(st->map, AD916X_AMP_REG(0x10), val);
 		if (ret)
 			return ret;
 
@@ -199,7 +185,12 @@ static int ad916x_amp_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		return ad916x_amp_en_set(st, !!val);
+		if (val != 0 && val != 1)
+			return -EINVAL;
+
+		return regmap_write(st->map, AD916X_AMP_REG(0x10),
+				    val == 1 ? AD916X_AMP_ENABLE :
+				    AD916X_AMP_DISABLE);
 	default:
 		return -EINVAL;
 	}
