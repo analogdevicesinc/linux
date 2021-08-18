@@ -75,6 +75,8 @@
 				spi-cpha;
 				spi-cpol;
 				spi-max-frequency = <1000000>;
+				adi,vos-adj-mv = <200>;
+				adi,icm-ua = <10000>;
 			};
 		};
 	};

@@ -293,6 +293,9 @@ static int ad916x_amp_probe(struct spi_device *spi)
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct device_node *np = spi->dev.of_node;
 	const char *dev_name;
+	s32 sval;
+	u32 uval;
+	int rc;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev) {
@@ -305,6 +308,20 @@ static int ad916x_amp_probe(struct spi_device *spi)
 	st->map = devm_regmap_init_spi(spi, &ad916x_amp_regmap_config);
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
+
+	if (of_property_read_s32(np, "adi,vos-adj-mv", &sval) == 0) {
+		dev_info(&spi->dev, "vos-adj-mv: %d\n", sval);
+		rc = ad916x_amp_vos_adj_mv_set(st, sval);
+		if (rc)
+			return rc;
+	}
+
+	if (of_property_read_u32(np, "adi,icm-ua", &uval) == 0) {
+		dev_info(&spi->dev, "icm-ua: %u\n", uval);
+		rc = ad916x_amp_icm_ua_set(st, uval);
+		if (rc)
+			return rc;
+	}
 
 	st->spi = spi;
 

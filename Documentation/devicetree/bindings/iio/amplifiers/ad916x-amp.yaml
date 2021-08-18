@@ -34,6 +34,9 @@ examples:
         amplifier@0 {
             compatible = "adi,ad9166-amp";
             reg = <0>;
+
+            adi,vos-adj-mv = <200>;
+            adi,icm-ua = <10000>;
         };
     };
 ...
