@@ -30,7 +30,7 @@
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 16>;
+		clocks = <&clkc 17>;
 
 		adi,channels {
 			#size-cells = <0>;
@@ -51,7 +51,7 @@
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15 &clkc 15>;
+		clocks = <&clkc 15 &clkc 17>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <1>;
 
