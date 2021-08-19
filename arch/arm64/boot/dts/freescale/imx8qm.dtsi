@@ -531,25 +531,20 @@
 		ranges = <0x55000000 0x0 0x55000000 0x1000000>;
 
 		dsp: dsp@556e8000 {
-			compatible = "fsl,imx8qm-dsp";
+			compatible = "fsl,imx8qm-hifi4";
 			reg = <0x556e8000 0x88000>;
 			clocks = <&clk_dummy>,
 				 <&clk_dummy>,
 				 <&clk_dummy>;
-			clock-names = "ipg", "ocram", "core";
-			fsl,dsp-firmware = "imx/dsp/hifi4.bin";
-			power-domains =
-					<&pd IMX_SC_R_MU_13B>,
+			clock-names = "dsp_clk1", "dsp_clk2", "dsp_clk3";
+			firmware-name = "imx/dsp/hifi4.bin";
+			power-domains = <&pd IMX_SC_R_MU_13B>,
 					<&pd IMX_SC_R_DSP>,
 					<&pd IMX_SC_R_DSP_RAM>;
-			mbox-names = "tx0", "tx1", "tx2", "rx0";
-			mboxes =
-				<&lsio_mu13 0 0>,
-				<&lsio_mu13 0 1>,
-				<&lsio_mu13 0 2>,
-				<&lsio_mu13 1 0>;
-			memory-region = <&dsp_reserved>;
-			fixup-offset = <0x4000000>;
+			mbox-names = "tx", "rx", "rxdb";
+			mboxes = <&lsio_mu13 0 0>,
+				 <&lsio_mu13 1 0>,
+				 <&lsio_mu13 3 0>;
 			status = "disabled";
 		};
 	};
