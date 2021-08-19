@@ -254,7 +254,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8dxl-evk.dtb \
 			  imx8dxl-ddr3-evk-rpmsg.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8dxl-phantom-mek.dtb \
 			  imx8dxl-phantom-mek-rpmsg.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640.dtb \
+dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-ov5640.dtb \
 			  imx8qxp-mek-enet2.dtb imx8qxp-mek-enet2-tja1100.dtb \
 			  imx8qxp-mek-sof-cs42888.dtb imx8qxp-mek-sof-wm8960.dtb \
 			  imx8qxp-mek-rpmsg.dtb imx8qxp-mek-a0.dtb \
@@ -272,7 +272,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640
 			  imx8qxp-mek-dpu-lcdif.dtb \
 			  imx8qxp-mek-dpu-lcdif-rpmsg.dtb \
 			  imx8qxp-mek-pcie-ep.dtb \
-			  imx8dx-mek.dtb imx8dx-mek-rpmsg.dtb imx8dx-mek-dsp.dtb \
+			  imx8dx-mek.dtb imx8dx-mek-rpmsg.dtb \
 			  imx8dx-mek-enet2-tja1100.dtb \
 			  imx8dx-mek-it6263-lvds0-dual-channel.dtb \
 			  imx8dx-mek-it6263-lvds1-dual-channel.dtb \

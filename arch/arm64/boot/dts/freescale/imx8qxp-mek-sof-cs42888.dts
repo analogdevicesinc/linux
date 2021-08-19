@@ -4,6 +4,19 @@
 #include "imx8qxp-mek-rpmsg.dts"
 
 / {
+	reserved-memory {
+		/delete-node/ dsp_reserved;
+		/delete-node/ dsp_reserved_heap;
+		/delete-node/ dsp_vdev0vring0;
+		/delete-node/ dsp_vdev0vring1;
+		/delete-node/ dsp_vdev0buffer;
+
+		dsp_reserved: dsp@92400000 {
+			reg = <0 0x92400000 0 0x2000000>;
+			no-map;
+		};
+	};
+
 	sound-cs42888 {
 		status = "disabled";
 	};
@@ -114,6 +127,14 @@
 			<&esai0_lpcg 0>;
 		assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
 		assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+
+	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
+	mboxes = <&lsio_mu13 2 0>,
+		<&lsio_mu13 2 1>,
+		<&lsio_mu13 3 0>,
+		<&lsio_mu13 3 1>;
+	memory-region = <&dsp_reserved>;
+	/delete-property/ firmware-name;
 
 	reg = <0x596e8000 0x88000>;
 	tplg-name = "sof-imx8-cs42888.tplg";

@@ -94,17 +94,6 @@
 		};
 	};
 
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		dsp_reserved: dsp@92400000 {
-			reg = <0 0x92400000 0 0x2000000>;
-			no-map;
-		};
-	};
-
 	imx8dxl_cm4: imx8dxl_cm4@0 {
 		compatible = "fsl,imx8qxp-cm4";
 		rsc-da = <0x90000000>;

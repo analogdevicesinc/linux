@@ -55,30 +55,21 @@
 &audio_subsys {
 
 	dsp: dsp@596e8000 {
-		compatible = "fsl,imx8qxp-dsp";
+		compatible = "fsl,imx8qxp-hifi4";
 		reg = <0x596e8000 0x88000>;
-		clocks = <&dsp_lpcg 1>,
-			 <&dsp_ram_lpcg 0>,
-			 <&dsp_lpcg 2>;
-		clock-names = "ipg", "ocram", "core";
-		fsl,dsp-firmware = "imx/dsp/hifi4.bin";
-		power-domains =
-				<&pd IMX_SC_R_MU_13B>,
+		clocks = <&clk_dummy>,
+			 <&clk_dummy>,
+			 <&clk_dummy>;
+		clock-names = "dsp_clk1", "dsp_clk2", "dsp_clk3";
+		firmware-name = "imx/dsp/hifi4.bin";
+		power-domains = <&pd IMX_SC_R_MU_13B>,
 				<&pd IMX_SC_R_DSP>,
 				<&pd IMX_SC_R_DSP_RAM>,
 				<&pd IMX_SC_R_IRQSTR_DSP>;
-		mbox-names = "tx0", "tx1", "tx2", "rx0",
-					 "txdb0", "txdb1", "rxdb0", "rxdb1";
-		mboxes =
-			<&lsio_mu13 0 0>,
-			<&lsio_mu13 0 1>,
-			<&lsio_mu13 0 2>,
-			<&lsio_mu13 1 0>,
-
-			<&lsio_mu13 2 0>,
-			<&lsio_mu13 2 1>,
-			<&lsio_mu13 3 0>,
-			<&lsio_mu13 3 1>;
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&lsio_mu13 0 0>,
+			 <&lsio_mu13 1 0>,
+			 <&lsio_mu13 3 0>;
 		status = "disabled";
 	};
 };

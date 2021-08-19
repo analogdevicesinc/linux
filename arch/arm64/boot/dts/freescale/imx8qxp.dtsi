@@ -181,17 +181,6 @@
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		dsp_reserved: dsp@92400000 {
-			reg = <0 0x92400000 0 0x2000000>;
-			no-map;
-		};
-	};
-
 	pmu {
 		compatible = "arm,cortex-a35-pmu";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
@@ -383,8 +372,4 @@
 	clocks = <&clk IMX_SC_R_A35 IMX_SC_PM_CLK_CPU>;
 	clock-latency = <61036>;
 	#cooling-cells = <2>;
-};
-
-&dsp {
-	memory-region = <&dsp_reserved>;
 };
