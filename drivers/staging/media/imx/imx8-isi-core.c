@@ -29,6 +29,8 @@ static const struct soc_device_attribute imx8_soc[] = {
 		.soc_id   = "i.MX8MP",
 	}, {
 		.soc_id   = "i.MX8ULP",
+	}, {
+		/* sentinel */
 	},
 };
 
