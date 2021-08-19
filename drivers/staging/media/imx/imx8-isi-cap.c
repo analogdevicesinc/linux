@@ -243,10 +243,10 @@ static int mxc_isi_update_buf_paddr(struct mxc_isi_buffer *buf, int memplanes)
 	switch (memplanes) {
 	case 3:
 		paddr->cr = vb2_dma_contig_plane_dma_addr(vb2, 2);
-		/* fall through */
+		fallthrough;
 	case 2:
 		paddr->cb = vb2_dma_contig_plane_dma_addr(vb2, 1);
-		/* fall through */
+		fallthrough;
 	case 1:
 		paddr->y = vb2_dma_contig_plane_dma_addr(vb2, 0);
 		break;
@@ -1597,7 +1597,7 @@ static int mxc_isi_subdev_get_selection(struct v4l2_subdev *sd,
 	switch (sel->target) {
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
 		f = &isi_cap->dst_f;
-		/* fall through */
+		fallthrough;
 	case V4L2_SEL_TGT_CROP_BOUNDS:
 		r->width = f->o_width;
 		r->height = f->o_height;
