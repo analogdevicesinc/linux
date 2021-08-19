@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2019-2021 NXP
+ * Device Tree file to support Shared Mac interface for 1046A family SoC.
+ * This file is for MAC10 as shared and rest of the interfaces are for Userspace-DPDK
+ */
+
+#include "fsl-ls1046a-rdb-sdk.dts"
+
+&bportals {
+	bman-bpids@0 {
+		compatible = "fsl,bpid-range";
+		fsl,bpid-range = <16 48>;
+	};
+};
+
+&soc {
+	bp7: buffer-pool@7 {
+		compatible = "fsl,ls1046a-bpool", "fsl,bpool";
+		fsl,bpid = <7>;
+		fsl,bpool-ethernet-cfg = <0 16 0 1728 0 0xdeadbeef>;
+		fsl,bpool-thresholds = <0x400 0xc00 0x0 0x0>;
+		dma-coherent;
+	};
+
+	bp8: buffer-pool@8 {
+		compatible = "fsl,ls1046a-bpool", "fsl,bpool";
+		fsl,bpid = <8>;
+		fsl,bpool-ethernet-cfg = <0 16 0 1728 0 0xabbaf00d>;
+		fsl,bpool-thresholds = <0x100 0x300 0x0 0x0>;
+		dma-coherent;
+	};
+
+	bp9: buffer-pool@9 {
+		compatible = "fsl,ls1046a-bpool", "fsl,bpool";
+		fsl,bpid = <9>;
+		fsl,bpool-ethernet-cfg = <0 16 0 1728 0 0xfeedabba>;
+		fsl,bpool-thresholds = <0x100 0x300 0x0 0x0>;
+		dma-coherent;
+	};
+
+	fsl,dpaa {
+		compatible = "fsl,ls1046a", "fsl,dpaa", "simple-bus";
+		dma-coherent;
+
+		ethernet@2 {
+			compatible = "fsl,dpa-ethernet-init";
+			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
+			fsl,qman-frame-queues-rx = <0x54 1 0x55 1>;
+			fsl,qman-frame-queues-tx = <0x74 1 0x75 1>;
+		};
+
+		ethernet@3 {
+			compatible = "fsl,dpa-ethernet-init";
+			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
+			fsl,qman-frame-queues-rx = <0x56 1 0x57 1>;
+			fsl,qman-frame-queues-tx = <0x76 1 0x77 1>;
+		};
+
+		ethernet@4 {
+			compatible = "fsl,dpa-ethernet-init";
+			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
+			fsl,qman-frame-queues-rx = <0x58 1 0x59 1>;
+			fsl,qman-frame-queues-tx = <0x78 1 0x79 1>;
+		};
+
+		ethernet@5 {
+			compatible = "fsl,dpa-ethernet-init";
+			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
+			fsl,qman-frame-queues-rx = <0x5a 1 0x5b 1>;
+			fsl,qman-frame-queues-tx = <0x7a 1 0x7b 1>;
+		};
+
+		ethernet@8 {
+			compatible = "fsl,dpa-ethernet-init";
+			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
+			fsl,qman-frame-queues-rx = <0x5c 1 0x5d 1>;
+			fsl,qman-frame-queues-tx = <0x7c 1 0x7d 1>;
+		};
+
+		ethernet@9 {
+			fsl,bman-buffer-pools = <&bp7 &bp8 &bp9>;
+			fsl,qman-frame-queues-rx = <0x5e 1 0x5f 1 0x8b 1>;
+			fsl,qman-frame-queues-tx = <0x7e 1 0x7f 1 0x85 1>;
+		};
+
+		dpa-fman0-oh@2 {
+			compatible = "fsl,dpa-oh";
+			/* Define frame queues for the OH port*/
+			/* <OH Rx error, OH Rx default> */
+			fsl,qman-frame-queues-oh = <0x60 1 0x61 1>;
+			fsl,fman-oh-port = <&fman0_oh2>;
+		};
+	};
+};
+
+/ {
+	chosen {
+		name = "chosen";
+		dpaa-extended-args {
+			fman0-extd-args {
+
+				cell-index = <0>;
+				compatible = "fsl,fman-extended-args";
+				dma-aid-mode = "port";
+
+				fman0_rxt1-extd-args {
+					cell-index = <1>;
+					compatible = "fsl,fman-port-10g-rx-extended-args";
+					/* Define Virtual storage profile */
+					/* <number of profiles, default profile id> */
+					vsp-window = <2 0>;
+				};
+			};
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* For legacy usdpaa based use-cases, update the size and
+		   alignment parameters. e.g. to allocate 256 MB memory:
+		   size = <0 0x10000000>;
+		   alignment = <0 0x10000000>;
+		*/
+		usdpaa_mem: usdpaa_mem {
+			compatible = "fsl,usdpaa-mem";
+			alloc-ranges = <0 0 0x10000 0>;
+			size = <0 0x1000>;
+			alignment = <0 0x1000>;
+		};
+	};
+};
+
+&fman0 {
+	fman0_oh2: port@83000 {
+		cell-index = <1>;
+		compatible = "fsl,fman-port-oh";
+		reg = <0x83000 0x1000>;
+	};
+};
