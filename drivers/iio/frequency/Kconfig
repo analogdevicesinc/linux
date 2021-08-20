@@ -112,6 +112,19 @@ config HMC7044
 	  To compile this driver as a module, choose M here: the
 	  module will be called hmc7044.
 
+config HMC705
+	tristate "Analog Devices HMC705 Clock Divider"
+	depends on GPIOLIB
+	depends on COMMON_CLK
+	depends on MUX_GPIO
+	help
+	  Say yes here to build support for Analog Devices HMC705
+	  Clock Divider.
+	  The driver provides direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called hmc705.
+
 config LTC6952
 	tristate "Analog Devices LTC6952 Clock Ultralow Jitter with JESD204B/C"
 	depends on SPI

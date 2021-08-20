@@ -114,6 +114,7 @@ config IIO_ALL_ADI_DRIVERS
 	select CF_AXI_DDS_AD9144
 	select CF_AXI_DDS_AD9739A
 	select HMC7044
+	select HMC705
 	select CF_AXI_DDS_AD9162
 	select CF_AXI_DDS_AD9172
 	select AD916X_AMP
