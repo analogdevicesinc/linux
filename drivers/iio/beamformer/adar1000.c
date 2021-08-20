@@ -2557,7 +2557,6 @@ static int adar1000_probe(struct spi_device *spi)
 			return -ENOMEM;
 
 		st = iio_priv(indio_dev);
-		spi_set_drvdata(spi, indio_dev);
 		st->spi = spi;
 		st->regmap = regmap;
 
