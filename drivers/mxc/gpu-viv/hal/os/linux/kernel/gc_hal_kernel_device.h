@@ -123,12 +123,6 @@ typedef struct _gckGALDEVICE
     /* PCIE Bar */
     gctINT              bars[gcdMAX_GPU_COUNT];
 
-    /* Thread management. */
-    struct task_struct *threadCtxts[gcdMAX_GPU_COUNT];
-    struct semaphore    semas[gcdMAX_GPU_COUNT];
-    gctBOOL             threadInitializeds[gcdMAX_GPU_COUNT];
-    gctBOOL             killThread;
-
     /* States before suspend. */
     gceCHIPPOWERSTATE   statesStored[gcdMAX_GPU_COUNT];
     gctPOINTER          suspendSemaphore;

@@ -1923,7 +1923,20 @@ OnError:
 /******************************************************************************\
 ******************************* Interrupt Handler ******************************
 \******************************************************************************/
-static irqreturn_t isrRoutine(int irq, void *ctxt)
+irqreturn_t threadRoutine(int irq, void *ctxt)
+{
+    gckGALDEVICE device = galDevice;
+    gceCORE core = (gceCORE)gcmPTR2INT32(ctxt) - 1;
+
+    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_DRIVER,
+                   "Starting isr Thread with extension=%p",
+                   device);
+
+    gckKERNEL_Notify(device->kernels[core], gcvNOTIFY_INTERRUPT);
+    return IRQ_HANDLED;
+}
+
+irqreturn_t isrRoutine(int irq, void *ctxt)
 {
     gceSTATUS status;
     gckGALDEVICE device;
@@ -1936,8 +1949,7 @@ static irqreturn_t isrRoutine(int irq, void *ctxt)
 
     if (gcmIS_SUCCESS(status))
     {
-        up(&device->semas[core]);
-        return IRQ_HANDLED;
+        return IRQ_WAKE_THREAD;
     }
 
     return IRQ_NONE;
@@ -1988,7 +2000,6 @@ _SetupIsr(
     gctINT ret = 0;
     gceSTATUS status = gcvSTATUS_OK;
     gckGALDEVICE Device = galDevice;
-    irq_handler_t handler;
 
     gcmkHEADER_ARG("Device=%p Core=%d", Device, Core);
 
@@ -2002,17 +2013,24 @@ _SetupIsr(
     gcmSTATIC_ASSERT(gcvCORE_COUNT == gcmCOUNTOF(isrNames),
                      "isrNames array does not match core types");
 
-    handler = (Core == gcvCORE_VG) ? isrRoutineVG : isrRoutine;
-
     /*
      * Hook up the isr based on the irq line.
      * For shared irq, device-id can not be 0, but CORE_MAJOR value is.
      * Add by 1 here and subtract by 1 in isr to fix the issue.
      */
-    ret = request_irq(
-        Device->irqLines[Core], handler, gcdIRQF_FLAG,
-        isrNames[Core], (void *)(uintptr_t)(Core + 1)
-        );
+    if (gcvCORE_VG == Core) {
+        ret = request_irq(
+            Device->irqLines[Core], isrRoutineVG, gcdIRQF_FLAG,
+            isrNames[Core], (void *)(uintptr_t)(Core + 1)
+            );
+    }
+    else
+    {
+        ret = request_threaded_irq(
+            Device->irqLines[Core], isrRoutine, threadRoutine, gcdIRQF_FLAG,
+            isrNames[Core], (void *)(uintptr_t)(Core + 1)
+            );
+    }
 
     if (ret != 0)
     {
@@ -2054,99 +2072,6 @@ _ReleaseIsr(
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
-}
-
-static int threadRoutine(void *ctxt)
-{
-    gckGALDEVICE device = galDevice;
-    gceCORE core = (gceCORE) gcmPTR2INT32(ctxt);
-
-    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_DRIVER,
-                   "Starting isr Thread with extension=%p",
-                   device);
-
-
-    for (;;)
-    {
-        int down;
-
-        down = down_interruptible(&device->semas[core]);
-        if (down && down != -EINTR)
-        {
-            return down;
-        }
-
-        if (unlikely(device->killThread))
-        {
-            /* The daemon exits. */
-            while (!kthread_should_stop())
-            {
-                gckOS_Delay(device->os, 1);
-            }
-
-            return 0;
-        }
-
-        gckKERNEL_Notify(device->kernels[core], gcvNOTIFY_INTERRUPT);
-    }
-}
-
-static gceSTATUS
-_StartThread(
-    IN gckGALDEVICE Device,
-    IN gceCORE Core
-    )
-{
-    gceSTATUS status = gcvSTATUS_OK;
-    gckGALDEVICE device = galDevice;
-    struct task_struct * task;
-
-    if (device->kernels[Core] != gcvNULL)
-    {
-        /* Start the kernel thread. */
-        task = kthread_run(threadRoutine, (void *)Core,
-                "galcore_deamon/%d", Core);
-
-        if (IS_ERR(task))
-        {
-            gcmkTRACE_ZONE(
-                gcvLEVEL_ERROR, gcvZONE_DRIVER,
-                "%s(%d): Could not start the kernel thread.\n",
-                __FUNCTION__, __LINE__
-                );
-
-            gcmkONERROR(gcvSTATUS_GENERIC_IO);
-        }
-
-        device->threadCtxts[Core]         = task;
-        device->threadInitializeds[Core] = device->kernels[Core]->threadInitialized = gcvTRUE;
-
-        set_user_nice(task, -20);
-    }
-    else
-    {
-        device->threadInitializeds[Core] = gcvFALSE;
-    }
-
-OnError:
-    return status;
-}
-
-static void
-_StopThread(
-    gckGALDEVICE Device,
-    gceCORE Core
-    )
-{
-    if (Device->threadInitializeds[Core])
-    {
-        Device->killThread = gcvTRUE;
-        up(&Device->semas[Core]);
-
-        kthread_stop(Device->threadCtxts[Core]);
-        Device->threadCtxts[Core]        = gcvNULL;
-        Device->threadInitializeds[Core] = gcvFALSE;
-    }
 }
 
 /*******************************************************************************
@@ -2467,15 +2392,6 @@ gckGALDEVICE_Construct(
 
     /* Create the suspend semaphore. */
     gcmkONERROR(gckOS_CreateSemaphore(device->os, &device->suspendSemaphore));
-
-    /* Initialize the kernel thread semaphores. */
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (device->irqLines[i] != -1 && device->kernels[i])
-        {
-            sema_init(&device->semas[i], 0);
-        }
-    }
 
     /* Grab the first valid kernel. */
     for (i = 0; i < gcdMAX_GPU_COUNT; i++)
@@ -2803,17 +2719,6 @@ gckGALDEVICE_Start(
 
     gcmkHEADER_ARG("Device=%p", Device);
 
-    /* Start the kernel threads. */
-    for (i = 0; i < gcvCORE_COUNT; ++i)
-    {
-        if (i == gcvCORE_VG)
-        {
-            continue;
-        }
-
-        gcmkONERROR(_StartThread(Device, i));
-    }
-
     for (i = 0; i < gcvCORE_COUNT; i++)
     {
         if (Device->kernels[i] == gcvNULL)
@@ -2916,15 +2821,11 @@ gckGALDEVICE_Stop(
             gckHARDWARE_StartTimerReset(Device->kernels[i]->hardware);
         }
 
+        synchronize_irq(Device->irqLines[i]);
+
         /* Stop the ISR routine. */
         gcmkONERROR(_ReleaseIsr(i));
 
-    }
-
-    /* Stop the kernel thread. */
-    for (i = 0; i < gcvCORE_COUNT; i++)
-    {
-        _StopThread(Device, i);
     }
 
 OnError:
@@ -2981,6 +2882,7 @@ gckGALDEVICE_Suspend(
         {
             continue;
         }
+        synchronize_irq(Device->irqLines[i]);
         Device->statesStored[i] = gcvPOWER_INVALID;
     }
 
