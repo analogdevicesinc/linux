@@ -62,6 +62,8 @@
 				clock-output-names = "clk-rf8", "clk-rfaux8",
 						"clk-rf16";
 
+				adi,muxout-select = <1>;
+
 				channel@0 {
 					reg = <0>;
 					adi,power-up-frequency = /bits/ 64
