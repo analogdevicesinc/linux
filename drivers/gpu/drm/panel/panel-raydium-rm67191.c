@@ -352,7 +352,7 @@ static int rm67199_enable(struct rad_panel *panel)
 		goto fail;
 
 	/* Set DSI mode */
-	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, 0x08 }, 2);
+	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, 0x0B }, 2);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set DSI mode (%d)\n", ret);
 		goto fail;
