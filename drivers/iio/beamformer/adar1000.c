@@ -2530,8 +2530,8 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 
 static int adar1000_probe(struct spi_device *spi)
 {
-	struct iio_dev **indio_dev;
-	struct adar1000_state **st;
+	struct iio_dev *indio_dev;
+	struct adar1000_state *st;
 	struct device_node *child, *np = spi->dev.of_node;
 	struct regmap *regmap;
 	int ret, cnt = 0, num_dev;
@@ -2544,14 +2544,6 @@ static int adar1000_probe(struct spi_device *spi)
 		return -ENODEV;
 	}
 
-	indio_dev = devm_kzalloc(&spi->dev, num_dev, sizeof(indio_dev));
-	if (!indio_dev)
-		return -ENOMEM;
-
-	st = devm_kzalloc(&spi->dev, num_dev, sizeof(st));
-	if (!st)
-		return -ENOMEM;
-
 	regmap = devm_regmap_init_spi(spi, &adar1000_regmap_config);
 	if (IS_ERR(regmap)) {
 		dev_err(&spi->dev, "Error initializing spi regmap: %ld\n",
@@ -2560,49 +2552,48 @@ static int adar1000_probe(struct spi_device *spi)
 	}
 
 	for_each_available_child_of_node(np, child) {
-		indio_dev[cnt] = devm_iio_device_alloc(&spi->dev,
-						       sizeof(*st));
-		if (!indio_dev[cnt])
+		indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+		if (!indio_dev)
 			return -ENOMEM;
 
-		st[cnt] = iio_priv(indio_dev[cnt]);
-		spi_set_drvdata(spi, indio_dev[cnt]);
-		st[cnt]->spi = spi;
-		st[cnt]->regmap = regmap;
+		st = iio_priv(indio_dev);
+		spi_set_drvdata(spi, indio_dev);
+		st->spi = spi;
+		st->regmap = regmap;
 
 		ret = of_property_read_u32(child, "reg", &tmp);
 		if (ret < 0)
 			return ret;
 
-		st[cnt]->dev_addr = ADAR1000_SPI_ADDR(tmp);
+		st->dev_addr = ADAR1000_SPI_ADDR(tmp);
 
-		sysfs_bin_attr_init(&st[cnt]->bin_pt);
-		st[cnt]->bin_pt.attr.name = "phase_table_config";
-		st[cnt]->bin_pt.attr.mode = 0644;
-		st[cnt]->bin_pt.write = adar1000_pt_bin_write;
-		st[cnt]->bin_pt.read = adar1000_pt_bin_read;
-		st[cnt]->bin_pt.size = 4096;
+		sysfs_bin_attr_init(&st->bin_pt);
+		st->bin_pt.attr.name = "phase_table_config";
+		st->bin_pt.attr.mode = 0644;
+		st->bin_pt.write = adar1000_pt_bin_write;
+		st->bin_pt.read = adar1000_pt_bin_read;
+		st->bin_pt.size = 4096;
 
-		indio_dev[cnt]->dev.parent = &spi->dev;
-		indio_dev[cnt]->dev.of_node = child;
-		indio_dev[cnt]->name = child->name;
-		indio_dev[cnt]->info = &adar1000_info;
-		indio_dev[cnt]->modes = INDIO_DIRECT_MODE;
-		indio_dev[cnt]->channels = adar1000_chan;
-		indio_dev[cnt]->num_channels = ARRAY_SIZE(adar1000_chan);
+		indio_dev->dev.parent = &spi->dev;
+		indio_dev->dev.of_node = child;
+		indio_dev->name = child->name;
+		indio_dev->info = &adar1000_info;
+		indio_dev->modes = INDIO_DIRECT_MODE;
+		indio_dev->channels = adar1000_chan;
+		indio_dev->num_channels = ARRAY_SIZE(adar1000_chan);
 
-		ret = adar1000_setup(indio_dev[cnt]);
+		ret = adar1000_setup(indio_dev);
 		if (ret < 0) {
 			dev_err(&spi->dev, "Setup failed (%d)\n", ret);
 			return ret;
 		}
 
-		ret = devm_iio_device_register(&spi->dev, indio_dev[cnt]);
+		ret = devm_iio_device_register(&spi->dev, indio_dev);
 		if (ret < 0)
 			return ret;
 
-		ret = sysfs_create_bin_file(&indio_dev[cnt]->dev.kobj,
-					    &st[cnt]->bin_pt);
+		ret = sysfs_create_bin_file(&indio_dev->dev.kobj,
+					    &st->bin_pt);
 		if (ret < 0)
 			return ret;
 
