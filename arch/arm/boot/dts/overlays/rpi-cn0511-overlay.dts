@@ -16,7 +16,7 @@
 			};
 		};
 	};
-	/* We have 3 spidev */
+
 	fragment@1 {
 		target = <&spi0_cs_pins>;
 		frag0: __overlay__ {
