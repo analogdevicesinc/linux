@@ -1,0 +1,193 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+
+	fragment@0 {
+		target = <&i2c1>;
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adp5588gpio: adp5588-gpio@34 {
+				compatible = "adi,adp5588-gpio";
+				reg = <0x34>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				interrupt-controller;
+				#interrupt-cells = <2>;
+
+				gpio_10mhzxoen {
+					gpio-hog;
+					gpios = <8 0>; // ADP5588 C0
+					output-high;
+					line-name = "gpio-10mhzxoen";
+				};
+
+				gpio_100mhzxoen {
+					gpio-hog;
+					gpios = <9 0>; // ADP5588 C1
+					output-high;
+					line-name = "gpio-100mhzxoen";
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+
+		__overlay__ {
+			rf_main_2ghz: clock@0 {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <2000000000>;
+				clock-output-names = "rf_main_2ghz";
+			};
+
+			hmc705_gpio_mux: mux-controller@0 {
+				compatible = "gpio-mux";
+				#mux-control-cells = <0>;
+
+				mux-gpios =
+						<&adp5588gpio 0 0>, // ADP5588 R0
+						<&adp5588gpio 1 0>, // ADP5588 R1
+						<&adp5588gpio 2 0>, // ADP5588 R2
+						<&adp5588gpio 3 0>, // ADP5588 R3
+						<&adp5588gpio 4 0>, // ADP5588 R4
+						<&adp5588gpio 5 0>; // ADP5588 R5
+				mux-gpio-names =
+						"byp",
+						"div1",
+						"n0",
+						"n1",
+						"n2",
+						"s0";
+			};
+
+			hmc705: hmc705@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				#clock-cells = <1>;
+
+				compatible = "adi,hmc705";
+
+				mux-controls = <&hmc705_gpio_mux>;
+
+				clocks = <&rf_main_2ghz>;
+				clock-names = "xref";
+			};
+
+			rf_div_2ghz: clock@1 {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <2000000000>;
+				clock-output-names = "rf_div_2ghz";
+			};
+
+			rf_filt_1000mhz: clock@2 {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <1000000000>;
+				clock-output-names = "rf_filt_1000mhz";
+			};
+
+			hmc4069_gpio_mux: mux-controller@1 {
+				compatible = "gpio-mux";
+				#mux-control-cells = <0>;
+
+				mux-gpios =
+						<&adp5588gpio 14 0>, // ADP5588 C6
+						<&adp5588gpio 13 0>, // ADP5588 C5
+						<&adp5588gpio 12 0>, // ADP5588 C4
+						<&adp5588gpio 11 0>, // ADP5588 C3
+						<&adp5588gpio 10 0>; // ADP5588 C2
+				mux-gpio-names =
+						"a0",
+						"a1",
+						"a2",
+						"a3",
+						"a4";
+			};
+
+			hmc4069: hmc4069@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				#clock-cells = <1>;
+
+				compatible = "adi,hmc4069";
+
+				mux-controls = <&hmc4069_gpio_mux>;
+
+				clocks =
+						<&rf_div_2ghz>,
+						<&rf_filt_1000mhz>;
+				clock-names =
+						"vco",
+						"ref";
+			};
+
+			rf_multin_6ghz_amp0_out: clock@3 {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <600000000>;
+				clock-output-names = "rf_multin_6ghz_amp0_out";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@4 {
+		target = <&spi0>;
+		frag1: __overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			cs-gpios = <&gpio 8 1>, <&gpio 25 1>;
+			status = "okay";
+
+			dac0_ad9166: ad9166@0 {
+				compatible = "adi,ad9166";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				clocks = <&rf_multin_6ghz_amp0_out>;
+				clock-names = "dac_clk";
+				spi-cpha;
+				spi-cpol;
+				adi,standalone-probe;
+				adi,dc-test-en;
+				dac_clk-clock-scales = <1 10>;
+			};
+
+			ad9166_amp: ad9166-amp@1 {
+				compatible = "adi,ad9166-amp";
+				reg = <1>;
+				spi-cpha;
+				spi-cpol;
+				spi-max-frequency = <1000000>;
+				adi,vos-adj-mv = <200>;
+				adi,icm-ua = <10000>;
+			};
+		};
+	};
+};
