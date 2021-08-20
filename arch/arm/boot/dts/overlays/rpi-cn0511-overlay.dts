@@ -95,16 +95,7 @@
 		};
 	};
 
-	__overrides__ {
-		cs0_pin = <&frag0>,"brcm,pins:0",
-			  <&frag1>,"cs-gpios:4";
-		cs1_pin = <&frag0>,"brcm,pins:4",
-			  <&frag1>,"cs-gpios:16";
-		cs2_pin = <&frag0>,"brcm,pins:8",
-			  <&frag1>,"cs-gpios:28";
-	};
-
-	fragment@6 {
+	fragment@5 {
 		target = <&i2c1>;
 		__overlay__ {
 			#address-cells = <1>;
