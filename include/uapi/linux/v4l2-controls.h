@@ -197,6 +197,8 @@ enum v4l2_colorfx {
  * We reserve 32 controls for this driver.
  */
 #define V4L2_CID_USER_ATMEL_ISC_BASE		(V4L2_CID_USER_BASE + 0x10c0)
+/* The base for the addi9036 driver controls, 4 controls are reserved */
+#define V4L2_CID_USER_ADDI9036_BASE		(V4L2_CID_DV_CLASS_BASE + 0x100)
 
 /* MPEG-class control IDs */
 /* The MPEG controls are applicable to all codec controls
