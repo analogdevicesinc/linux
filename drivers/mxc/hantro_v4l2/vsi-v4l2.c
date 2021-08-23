@@ -80,7 +80,7 @@ static void release_ctx(struct vsi_v4l2_ctx *ctx, int notifydaemon)
 {
 	int ret = 0;
 
-	if (notifydaemon == 1 && (ctx->status != VSI_STATUS_INIT || ctx->error < 0)) {
+	if (notifydaemon == 1 && test_bit(CTX_FLAG_DAEMONLIVE_BIT, &ctx->flag)) {
 		if (isdecoder(ctx))
 			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_DESTROY_DEC, NULL);
 		else
