@@ -354,6 +354,16 @@ config COMMON_CLK_ALTERA_A10_FPLL
 	  Support for the Altera Fractional PLL found in the reconfiguable logic
 	  of Arria10 and Arria10 SoC FPGAs.
 
+config COMMON_CLK_ALTERA_C5_FPLL
+	tristate "Clock driver for Altera Cyclone5 FPLL"
+	depends on OF && (ARCH_SOCFPGA || NIOS2)
+	help
+	  Support for the Altera Fractional PLL found in the reconfigurable
+	  logic of Cyclone5 and Cyclone5 SoC FPGAs.
+
+	  The Cyclone5 Fractional PLL can generate up to 9 clock output
+	  signals.
+
 config COMMON_CLK_VC5
 	tristate "Clock driver for IDT VersaClock 5,6 devices"
 	depends on I2C
