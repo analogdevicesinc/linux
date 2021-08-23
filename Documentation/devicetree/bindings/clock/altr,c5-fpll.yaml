@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/altr,c5-fpll.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Altera Cyclone V Fractional PLL
+
+maintainers:
+  - Liviu Adace <liviu.adace@analog.com>
+
+description: |
+  Intel/Altera Cyclone V fPLL driver is recalculating the VCO
+  settings each time a new channel's frequency is requested so
+  the desired value can be actually obtained and is recalculating
+  the dividers for the other channels to obtain the closest possible
+  values to the previously set values.
+
+properties:
+  compatible:
+    enum:
+      - altr,c5-fpll
+
+  "#clock-cells":
+    const: 1
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    description: |
+      Clock specifier which is external input clock to the given fPLL.
+    maxItems: 1
+
+  assigned-clocks:
+    maxItems: 9
+
+  assigned-clock-rates:
+    maxItems: 9
+
+  clock-output-names:
+    description: |
+      Names of the output channels for each of the 9 channels.
+    items:
+      - const: c5_out0
+      - const: c5_out1
+      - const: c5_out2
+      - const: c5_out3
+      - const: c5_out4
+      - const: c5_out5
+      - const: c5_out6
+      - const: c5_out7
+      - const: c5_out8
+
+  adi,fractional-carry-bit:
+    description: |
+      Fractional carry bit with a default value of
+      24 that cannot be reconfigured during PLL reconfiguration.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [8, 16, 24, 32]
+
+patternProperties:
+  "^channel@([0-8])$":
+    description: |
+      Represents an output channel of the fPLL.
+    type: object
+
+    properties:
+      reg:
+        maximum: 8
+
+      adi,extended-name:
+        description: |
+          fPLL channel name
+        $ref: /schemas/types.yaml#/definitions/string
+
+    required:
+      - reg
+      - adi,extended-name
+
+additionalProperties: false
+
+required:
+  - compatible
+  - "#clock-cells"
+  - "#address-cells"
+  - "#size-cells"
+  - reg
+  - clocks
+  - assigned-clocks
+  - assigned-clock-rates
+  - clock-output-names
+  - adi,fractional-carry-bit
+
+examples:
+  - |
+    pixel_clock: fpll@0x00100000 {
+      #clock-cells = <0x1>;
+      compatible = "altr,c5-fpll";
+      reg = <0x00100000 0x00000100>;
+      #address-cells = <1>;
+      #size-cells = <0>;
+      clocks = <&ref_clk>;
+      assigned-clocks = <&pixel_clock 0>, <&pixel_clock 1>;
+      assigned-clock-rates = <148500000>, <100000000>;
+      clock-output-names = "c5_out0", "c5_out1", "c5_out2",
+                           "c5_out3", "c5_out4", "c5_out5",
+                           "c5_out6", "c5_out7", "c5_out8";
+      adi,fractional-carry-bit = <32>;
+
+      fpll_c0: channel@0 {
+        reg = <0>;
+        adi,extended-name = "PIXEL_CLOCK";
+      };
+
+      fpll_c1: channel@1 {
+        reg = <1>;
+        adi,extended-name = "DMA_CLOCK";
+      };
+    };
+
+...
