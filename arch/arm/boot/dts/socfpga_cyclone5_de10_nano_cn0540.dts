@@ -82,9 +82,9 @@
 &i2c1 {
 	status = "okay";
 	clock-frequency = <100000>;
-	ltc2606: ltc2606@0 {
+	ltc2606: ltc2606@10 {
 		compatible = "adi,ltc2606";
-		reg = <16>;
+		reg = <0x10>;
 		vref-supply = <&vref>;
 	};
 };
@@ -125,7 +125,7 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		ad7768_1: adc@0x0 {
+		ad7768_1: adc@0 {
 			compatible = "adi,ad7768-1";
 			reg = <0>;
 			spi-max-frequency = <20000000>;
