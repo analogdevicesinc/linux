@@ -16,6 +16,7 @@ drivers/iio/jesd204/altera_adxcvr.o
 drivers/misc/jesd204b/xilinx_jesd204b.o
 drivers/misc/mathworks/mathworks_generic_pci.o
 drivers/clk/clk-altera-a10-fpll.o
+drivers/clk/clk-altera-c5-fpll.o
 drivers/iio/adc/mykonos/mykonos_debug/mykonos_dbgjesd.o
 drivers/iio/adc/mykonos/mykonosMmap.o
 drivers/usb/gadget/function/f_midi.o
