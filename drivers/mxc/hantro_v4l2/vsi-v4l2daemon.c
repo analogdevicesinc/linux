@@ -45,8 +45,11 @@
 
 #define PIPE_DEVICE_NAME      "vsiv4l2daemon"
 
+#if !defined(CONFIG_ANDROID)
+#define CONFIG_INVOKE_VSIDAEMON		1
 static bool invoke_vsidaemon = 1;
 module_param(invoke_vsidaemon, bool, 0644);
+#endif
 
 static int loglevel;
 module_param(loglevel, int, 0644);
@@ -502,28 +505,50 @@ tail:
 
 static int invoke_daemonapp(void)
 {
-	int ret;
-	char loglvl[20] = {0};
-#if defined(CONFIG_ANDROID)
-	char *argv[] = {"/system/bin/sh", "-c", "/vendor/bin/vsidaemon", NULL};
-	char *env[] = {"LD_LIBRARY_PATH=/vendor/lib64",
-		"DAEMON_LOGPATH=/data/vendor/vsi/daemon.log",
-		loglvl,
-		NULL};
+	int ret = 0;
+
+#if defined(CONFIG_INVOKE_VSIDAEMON)
+	if (invoke_vsidaemon) {
+		char loglvl[20] = {0};
+		char *argv[] = {VSI_DAEMON_PATH, NULL};
+		char *env[] = {"LD_LIBRARY_PATH=/usr/lib",
+			"DAEMON_LOGPATH=/home/vsi/daemon.log",
+			loglvl,
+			NULL};
+
+		memcpy(loglvl, "HANTRO_LOG_LEVEL=00", 20);
+		loglvl[17] = loglevel/10 + 0x30;
+		loglvl[18] = loglevel%10 + 0x30;
+		ret = call_usermodehelper(argv[0], argv, env, UMH_WAIT_EXEC);
+		if (ret < 0)
+			return ret;
+
+		ret = wait_event_interruptible_timeout(instance_queue,
+				atomic_read(&daemon_fn) > 0, msecs_to_jiffies(1000));
+		if (ret == -ERESTARTSYS || ret == 0)
+			ret = -ERESTARTSYS;
+
+		v4l2_klog(LOGLVL_BRIEF, "invoke daemon=%d\n", ret);
+	} else {
+		if (atomic_read(&daemon_fn) <= 0)
+			ret = -ENODEV;
+	}
 #else
-	char *argv[] = {VSI_DAEMON_PATH, NULL};
-	char *env[] = {"LD_LIBRARY_PATH=/usr/lib",
-		"DAEMON_LOGPATH=/home/vsi/daemon.log",
-		loglvl,
-		NULL};
+	if (atomic_read(&daemon_fn) <= 0)
+		ret = -ENODEV;
 #endif
-
-	memcpy(loglvl, "HANTRO_LOG_LEVEL=00", 20);
-	loglvl[17] = loglevel/10 + 0x30;
-	loglvl[18] = loglevel%10 + 0x30;
-	ret = call_usermodehelper(argv[0], argv, env, UMH_WAIT_EXEC);
-
 	return ret;
+}
+
+static void quit_daemonapp(void)
+{
+#if defined(CONFIG_INVOKE_VSIDAEMON)
+	if (!invoke_vsidaemon)
+		return;
+
+	vsiv4l2_execcmd(NULL, V4L2_DAEMON_VIDIOC_EXIT, NULL);
+	wait_event_interruptible(instance_queue, atomic_read(&daemon_fn) <= 0);
+#endif
 }
 
 int vsi_v4l2_addinstance(pid_t *ppid)
@@ -531,51 +556,36 @@ int vsi_v4l2_addinstance(pid_t *ppid)
 	int ret = 0;
 
 	v4l2_klog(LOGLVL_BRIEF, "%s from inst num %d", __func__, v4l2_fn);
-	if (!invoke_vsidaemon && atomic_read(&daemon_fn) <= 0)
-		return -ENODEV;
+
 	if (mutex_lock_interruptible(&instance_lock))
 		return -EBUSY;
 
-	if (v4l2_fn >= MAX_STREAMS)
+	if (v4l2_fn >= MAX_STREAMS) {
 		ret = -EBUSY;
-	else {
+	} else {
 		v4l2_fn++;
-		if (v4l2_fn == 1 && invoke_vsidaemon) {
-			ret = invoke_daemonapp();
-			if (ret < 0)
-				v4l2_fn--;
-			else {
-				ret = wait_event_interruptible_timeout(instance_queue,
-						atomic_read(&daemon_fn) > 0, msecs_to_jiffies(1000));
-				if (ret == -ERESTARTSYS || ret == 0) {
-					ret = -ERESTARTSYS;
-					v4l2_fn--;
-					goto tail;
-				}
-			}
-			v4l2_klog(LOGLVL_BRIEF, "invoke daemon=%d:%d", ret, v4l2_fn);
-		}
 		if (v4l2_fn == 1) {
-			/*reset bandwidth info*/
-			ktime_get_real_ts64(&lasttime);
-			accubytes = 0;
+			ret = invoke_daemonapp();
+			if (ret < 0) {
+				v4l2_fn--;
+			} else {
+				ktime_get_real_ts64(&lasttime);
+				accubytes = 0;
+			}
 		}
 	}
-tail:
-	mutex_unlock(&instance_lock);
 
+	mutex_unlock(&instance_lock);
 	return ret;
 }
 
 int vsi_v4l2_quitinstance(void)
 {
-	int ret = 0;
-
 	v4l2_klog(LOGLVL_BRIEF, "%s from instnum %d", __func__, v4l2_fn);
 	if (mutex_lock_interruptible(&instance_lock))
 		return -EBUSY;
 	v4l2_fn--;
-	if (invoke_vsidaemon && v4l2_fn == 0) {
+	if (v4l2_fn == 0) {
 		struct timespec64 curtime;
 		u64 gap;
 
@@ -584,10 +594,9 @@ int vsi_v4l2_quitinstance(void)
 		if (gap <= 0)
 			gap = 1;
 		last_bandwidth = accubytes / gap;
-		ret = vsiv4l2_execcmd(NULL, V4L2_DAEMON_VIDIOC_EXIT, NULL);
-		if (wait_event_interruptible(instance_queue, atomic_read(&daemon_fn) <= 0))
-			ret = -ERESTARTSYS;
+		quit_daemonapp();
 	}
+
 	mutex_unlock(&instance_lock);
 	return 0;
 }
