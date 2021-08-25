@@ -6,6 +6,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/bitfield.h>
 #include <linux/completion.h>
+#include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/fs.h>
 #include <linux/kobject.h>
@@ -24,11 +25,14 @@
 #include <uapi/linux/intel_fcs-ioctl.h>
 
 #define RANDOM_NUMBER_SIZE	32
+#define RANDOM_NUMBER_EXT_SIZE	4080
+#define RANDOM_NUMBER_EXT_OFFSET 12
 #define FILE_NAME_SIZE		32
 #define PS_BUF_SIZE		64
 #define SHA384_SIZE		48
-#define INVALID_STATUS		0xffffffff
-#define INVALID_ID		0xffffffff
+#define INVALID_STATUS		0xFFFFFFFF
+#define INVALID_ID		0xFFFFFFFF
+#define ASYNC_POLL_SERVICE	0x00004F4E
 
 #define DEC_MIN_SZ		72
 #define DEC_MAX_SZ		32712
@@ -88,6 +92,11 @@ static void fcs_data_callback(struct stratix10_svc_client *client,
 		priv->kbuf = data->kaddr2;
 		priv->size = (data->kaddr3) ?
 			*((unsigned int *)data->kaddr3) : 0;
+	} else if ((data->status == BIT(SVC_STATUS_BUSY)) ||
+		   (data->status == BIT(SVC_STATUS_NO_RESPONSE))) {
+		priv->status = 0;
+		priv->kbuf = NULL;
+		priv->size = 0;
 	} else {
 		dev_err(client->dev, "rejected, invalid param\n");
 		priv->status = -EINVAL;
@@ -237,6 +246,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	unsigned int buf_sz, in_sz, out_sz;
 	int ret = 0;
 	int i;
+	int timeout;
 
 	priv = container_of(file->private_data, struct intel_fcs_priv, miscdev);
 	dev = priv->client.dev;
@@ -2139,6 +2149,80 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		fcs_close_services(priv, s_buf, d_buf);
+		break;
+
+	case INTEL_FCS_DEV_RANDOM_NUMBER_GEN_EXT:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		sid = data->com_paras.rn_gen_ext.sid;
+		cid = data->com_paras.rn_gen_ext.cid;
+		out_sz = data->com_paras.rn_gen_ext.rng_sz;
+		buf_sz = RANDOM_NUMBER_EXT_SIZE + RANDOM_NUMBER_EXT_OFFSET;
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan, buf_sz);
+		if (!d_buf) {
+			dev_err(dev, "failed to allocate RNG_EXT output buf\n");
+			return -ENOMEM;
+		}
+
+		msg->command = COMMAND_FCS_RANDOM_NUMBER_GEN_EXT;
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = out_sz;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+		dev_dbg(dev, "request service ret=%d\n", ret);
+
+		if (!ret && !priv->status) {
+			/* to query the complete status */
+			msg->arg[0] = ASYNC_POLL_SERVICE;
+			msg->payload = d_buf;
+			msg->payload_length = buf_sz;
+			msg->command = COMMAND_POLL_SERVICE_STATUS_ASYNC;
+			priv->client.receive_cb = fcs_data_callback;
+
+			timeout = 100;
+			while (timeout != 0) {
+				ret = fcs_request_service(priv, (void *)msg,
+							  FCS_REQUEST_TIMEOUT);
+				dev_dbg(dev, "request service ret=%d\n", ret);
+
+				if (!ret && !priv->status) {
+					if (priv->size == out_sz + RANDOM_NUMBER_EXT_OFFSET) {
+						memcpy(data->com_paras.rn_gen_ext.rng_data,
+						       priv->kbuf + RANDOM_NUMBER_EXT_OFFSET,
+						       out_sz);
+						data->com_paras.rn_gen_ext.rng_sz = out_sz;
+						break;
+					}
+				} else {
+					data->com_paras.rn_gen_ext.rng_data = NULL;
+					data->com_paras.rn_gen_ext.rng_sz = 0;
+					break;
+				}
+				timeout--;
+				mdelay(500);
+			}
+		}
+
+		if (priv->status == 0 && timeout == 0) {
+			data->status = -ETIMEDOUT;
+		} else {
+			data->status = priv->status;
+		}
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			fcs_close_services(priv, NULL, d_buf);
+			return -EFAULT;
+		}
+
+		fcs_close_services(priv, NULL, d_buf);
 		break;
 
 	default:
