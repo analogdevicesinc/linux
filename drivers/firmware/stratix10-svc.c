@@ -372,6 +372,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_RANDOM_NUMBER_GEN:
 	case COMMAND_FCS_GET_PROVISION_DATA:
 	case COMMAND_POLL_SERVICE_STATUS:
+	case COMMAND_POLL_SERVICE_STATUS_ASYNC:
 	case COMMAND_FCS_GET_ROM_PATCH_SHA384:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr1 = &res.a1;
@@ -801,9 +802,11 @@ static int svc_normal_to_secure_thread(void *data)
 			break;
 		/* for polling */
 		case COMMAND_POLL_SERVICE_STATUS:
+		case COMMAND_POLL_SERVICE_STATUS_ASYNC:
 			a0 = INTEL_SIP_SMC_SERVICE_COMPLETED;
 			a1 = (unsigned long)pdata->paddr;
 			a2 = (unsigned long)pdata->size;
+			a3 = pdata->arg[0];
 			break;
 		case COMMAND_FCS_GET_ROM_PATCH_SHA384:
 			a0 = INTEL_SIP_SMC_FCS_GET_ROM_PATCH_SHA384;
@@ -866,6 +869,14 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_POLL_SERVICE_STATUS:
 				svc_thread_cmd_config_status(ctrl,
 							     pdata, cbdata);
+				break;
+			case COMMAND_POLL_SERVICE_STATUS_ASYNC:
+				cbdata->status = BIT(SVC_STATUS_BUSY);
+				cbdata->kaddr1 = NULL;
+				cbdata->kaddr2 = NULL;
+				cbdata->kaddr3 = NULL;
+				pdata->chan->scl->receive_cb(pdata->chan->scl,
+							     cbdata);
 				break;
 			default:
 				pr_warn("it shouldn't happen\n");
@@ -933,6 +944,21 @@ static int svc_normal_to_secure_thread(void *data)
 				svc_pa_to_va(res.a2) : NULL;
 			cbdata->kaddr3 = (res.a3) ? &res.a3 : NULL;
 			pdata->chan->scl->receive_cb(pdata->chan->scl, cbdata);
+			break;
+		case INTEL_SIP_SMC_STATUS_NO_RESPONSE:
+			switch (pdata->command) {
+			case COMMAND_POLL_SERVICE_STATUS_ASYNC:
+				cbdata->status = BIT(SVC_STATUS_NO_RESPONSE);
+				cbdata->kaddr1 = NULL;
+				cbdata->kaddr2 = NULL;
+				cbdata->kaddr3 = NULL;
+				pdata->chan->scl->receive_cb(pdata->chan->scl,
+							     cbdata);
+				break;
+			default:
+				pr_warn("it shouldn't receive no response\n");
+				break;
+			}
 			break;
 		default:
 			pr_warn("Secure firmware doesn't support...\n");

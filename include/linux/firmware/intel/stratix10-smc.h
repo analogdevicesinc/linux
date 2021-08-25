@@ -62,6 +62,10 @@
  * INTEL_SIP_SMC_STATUS_REJECTED:
  * Secure monitor software reject the service client's request.
  *
+ * INTEL_SIP_SMC_STATUS_NO_RESPONSE:
+ * Secure monitor software doesn't recieve any response for the
+ * service client's request yet.
+ *
  * INTEL_SIP_SMC_STATUS_ERROR:
  * There is error during the process of service request.
  *
@@ -75,6 +79,7 @@
 #define INTEL_SIP_SMC_STATUS_OK				0x0
 #define INTEL_SIP_SMC_STATUS_BUSY			0x1
 #define INTEL_SIP_SMC_STATUS_REJECTED			0x2
+#define INTEL_SIP_SMC_STATUS_NO_RESPONSE		0x3
 #define INTEL_SIP_SMC_STATUS_ERROR			0x4
 #define INTEL_SIP_SMC_RSU_ERROR				0x7
 #define INTEL_SIP_SMC_STATUS_NOT_SUPPORTED		0x8
@@ -438,7 +443,8 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
  * a1: this register is optional. If used, it is the physical address for
  *     secure firmware to put output data
  * a2: this register is optional. If used, it is the size of output data
- * a3-a7: not used
+ * a3: this register is optional. Set to 0x00004F4E for asynchronous mode
+ * a4-a7: not used
  *
  * Return status:
  * a0: INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_ERROR,
