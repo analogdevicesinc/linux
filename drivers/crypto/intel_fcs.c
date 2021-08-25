@@ -1117,6 +1117,82 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		 break;
 
+	case INTEL_FCS_DEV_CRYPTO_IMPORT_KEY:
+		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_from_user\n");
+			 return -EFAULT;
+		 }
+
+		 /* Allocate memory for header + key object */
+		 tsz = sizeof(struct fcs_crypto_key_header);
+		 datasz = data->com_paras.k_import.obj_data_sz + tsz;
+
+		 s_buf = stratix10_svc_allocate_memory(priv->chan, datasz);
+		 if (!s_buf) {
+			 dev_err(dev, "failed to allocate key import buffer\n");
+			 return -ENOMEM;
+		 }
+
+		 ps_buf = stratix10_svc_allocate_memory(priv->chan, PS_BUF_SIZE);
+		 if (!ps_buf) {
+			 dev_err(dev, "failed allocate p-status buffer\n");
+			 fcs_close_services(priv, s_buf, NULL);
+			 return -ENOMEM;
+		 }
+
+		 /* copy session ID from the header */
+		 memcpy(s_buf, &data->com_paras.k_import.hd.sid, tsz);
+		 ret = copy_from_user(s_buf + tsz,
+				      data->com_paras.k_import.obj_data,
+				      data->com_paras.k_import.obj_data_sz);
+		 if (ret) {
+			 dev_err(dev, "failed copy buf ret=%d\n", ret);
+			 fcs_close_services(priv, ps_buf, NULL);
+			 fcs_close_services(priv, s_buf, NULL);
+			 return -EFAULT;
+		 }
+
+		 msg->payload = s_buf;
+		 msg->payload_length = datasz;
+		 msg->command = COMMAND_FCS_CRYPTO_IMPORT_KEY;
+		 priv->client.receive_cb = fcs_vab_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 dev_dbg(dev, "request service ret=%d\n", ret);
+
+		 if (!ret && !priv->status) {
+			 /* to query the complete status */
+			 msg->payload = ps_buf;
+			 msg->payload_length = PS_BUF_SIZE;
+			 msg->command = COMMAND_POLL_SERVICE_STATUS;
+			 priv->client.receive_cb = fcs_data_callback;
+			 ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			 dev_dbg(dev, "request service ret=%d\n", ret);
+			 if (!ret && !priv->status)
+				data->status = 0;
+			 else {
+				data->status = priv->status;
+				if (priv->kbuf)
+					data->status |= ((*(u32 *)priv->kbuf) & 0xFF)
+							<< 16;
+			 }
+		 } else {
+			 data->status = priv->status;
+		 }
+
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_to_user\n");
+			 fcs_close_services(priv, ps_buf, NULL);
+			 fcs_close_services(priv, s_buf, NULL);
+			 return -EFAULT;
+		 }
+
+		 fcs_close_services(priv, ps_buf, NULL);
+		 fcs_close_services(priv, s_buf, NULL);
+		 break;
+
 	default:
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
 		break;
