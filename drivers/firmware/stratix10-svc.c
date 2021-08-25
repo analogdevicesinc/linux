@@ -333,6 +333,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_COUNTER_SET_PREAUTHORIZED:
 	case COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD:
 	case COMMAND_FCS_CRYPTO_CLOSE_SESSION:
+	case COMMAND_FCS_CRYPTO_IMPORT_KEY:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		break;
 	case COMMAND_RECONFIG_DATA_SUBMIT:
@@ -598,6 +599,13 @@ static int svc_normal_to_secure_thread(void *data)
 			a1 = pdata->arg[0];
 			a2 = 0;
 			break;
+
+		case COMMAND_FCS_CRYPTO_IMPORT_KEY:
+			a0 = INTEL_SIP_SMC_FCS_IMPORT_CRYPTO_SERVICE_KEY;
+			a1 = (unsigned long)pdata->paddr;
+			a2 = (unsigned long)pdata->size;
+			break;
+
 		/* for polling */
 		case COMMAND_POLL_SERVICE_STATUS:
 			a0 = INTEL_SIP_SMC_SERVICE_COMPLETED;
@@ -692,6 +700,7 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_GET_ROM_PATCH_SHA384:
 			case COMMAND_FCS_CRYPTO_OPEN_SESSION:
 			case COMMAND_FCS_CRYPTO_CLOSE_SESSION:
+			case COMMAND_FCS_CRYPTO_IMPORT_KEY:
 				cbdata->status = BIT(SVC_STATUS_INVALID_PARAM);
 				cbdata->kaddr1 = NULL;
 				cbdata->kaddr2 = NULL;
