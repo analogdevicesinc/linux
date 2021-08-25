@@ -215,6 +215,14 @@ struct fcs_rom_patch_sha384 {
 };
 
 /**
+ * struct fcs_crypto_service_session
+ * @sid: the crypto service session ID
+ */
+struct fcs_crypto_service_session {
+	uint32_t sid;
+};
+
+/**
  * struct intel_fcs_dev_ioct: common structure passed to Linux
  *	kernel driver for all commands.
  * @status: Used for the return code.
@@ -250,6 +258,7 @@ struct intel_fcs_dev_ioctl {
 		struct fcs_attestation_certificate	certificate;
 		struct fcs_attestation_certificate_reload	c_reload;
 		struct fcs_rom_patch_sha384 sha384;
+		struct fcs_crypto_service_session	s_session;
 	} com_paras;
 };
 
@@ -295,7 +304,9 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_ATTESTATION_MEASUREMENT_CMD,
 	INTEL_FCS_DEV_ATTESTATION_GET_CERTIFICATE_CMD,
 	INTEL_FCS_DEV_ATTESTATION_CERTIFICATE_RELOAD_CMD,
-	INTEL_FCS_DEV_GET_ROM_PATCH_SHA384_CMD
+	INTEL_FCS_DEV_GET_ROM_PATCH_SHA384_CMD,
+	INTEL_FCS_DEV_CRYPTO_OPEN_SESSION_CMD = 0xA0,
+	INTEL_FCS_DEV_CRYPTO_CLOSE_SESSION_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -357,5 +368,14 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_GET_ROM_PATCH_SHA384 \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_GET_ROM_PATCH_SHA384_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_OPEN_SESSION \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_OPEN_SESSION_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_CLOSE_SESSION \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_CLOSE_SESSION_CMD, struct intel_fcs_dev_ioctl)
+
 #endif
 

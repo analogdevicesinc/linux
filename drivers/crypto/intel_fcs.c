@@ -28,7 +28,7 @@
 #define PS_BUF_SIZE		64
 #define SHA384_SIZE		48
 #define INVALID_STATUS		0xffffffff
-#define INVALID_CID		0xffffffff
+#define INVALID_ID		0xffffffff
 
 #define DEC_MIN_SZ		72
 #define DEC_MAX_SZ		32712
@@ -61,6 +61,7 @@ struct intel_fcs_priv {
 	unsigned int size;
 	unsigned int cid_low;
 	unsigned int cid_high;
+	unsigned int sid;
 };
 
 static void fcs_data_callback(struct stratix10_svc_client *client,
@@ -141,6 +142,23 @@ static void fcs_attestation_callback(struct stratix10_svc_client *client,
 		priv->status = 0;
 		priv->kbuf = data->kaddr2;
 		priv->size = *((unsigned int *)data->kaddr3);
+	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
+	}
+
+	complete(&priv->completion);
+}
+
+static void fcs_crypto_sessionid_callback(struct stratix10_svc_client *client,
+					 struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	priv->status = data->status;
+	if (data->status == BIT(SVC_STATUS_OK)) {
+		priv->status = 0;
+		priv->sid = *((unsigned int *)data->kaddr2);
 	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
 		priv->status = *((unsigned int *)data->kaddr1);
 		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
@@ -1055,6 +1073,50 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		fcs_close_services(priv, s_buf, NULL);
 		break;
 
+	case INTEL_FCS_DEV_CRYPTO_OPEN_SESSION:
+		msg->command = COMMAND_FCS_CRYPTO_OPEN_SESSION;
+		priv->client.receive_cb = fcs_crypto_sessionid_callback;
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+		if (ret) {
+			dev_err(dev, "failed to send the cmd=%d,ret=%d\n",
+				COMMAND_FCS_CRYPTO_OPEN_SESSION, ret);
+			return -EFAULT;
+		}
+
+		data->status = priv->status;
+		data->com_paras.s_session.sid = priv->sid;
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+		break;
+
+	case INTEL_FCS_DEV_CRYPTO_CLOSE_SESSION:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		msg->command = COMMAND_FCS_CRYPTO_CLOSE_SESSION;
+		msg->arg[0] = data->com_paras.s_session.sid;
+		priv->client.receive_cb = fcs_vab_callback;
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+		 if (ret) {
+			 dev_err(dev, "failed to send the request,ret=%d\n",
+				 ret);
+			 return -EFAULT;
+		 }
+
+		 data->status = priv->status;
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_to_user\n");
+			 ret = -EFAULT;
+		 }
+
+		 break;
+
 	default:
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
 		break;
@@ -1101,8 +1163,9 @@ static int fcs_driver_probe(struct platform_device *pdev)
 	priv->kbuf = NULL;
 	priv->size = 0;
 	priv->status = INVALID_STATUS;
-	priv->cid_low = INVALID_CID;
-	priv->cid_high = INVALID_CID;
+	priv->cid_low = INVALID_ID;
+	priv->cid_high = INVALID_ID;
+	priv->sid = INVALID_ID;
 
 	mutex_init(&priv->lock);
 	priv->chan = stratix10_svc_request_channel_byname(&priv->client,
