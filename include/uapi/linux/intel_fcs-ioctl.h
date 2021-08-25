@@ -352,6 +352,20 @@ struct fcs_ecdsa_sha2_data {
 };
 
 /**
+ * struct fcs_random_number_gen_ext
+ * @sid: session ID
+ * @cid: context ID
+ * @rng_data: random data
+ * @rng_sz: size of random data
+ */
+struct fcs_random_number_gen_ext {
+       uint32_t sid;
+       uint32_t cid;
+       void *rng_data;
+       uint32_t rng_sz;
+};
+
+/**
  * struct intel_fcs_dev_ioct: common structure passed to Linux
  *	kernel driver for all commands.
  * @status: Used for the return code.
@@ -394,6 +408,7 @@ struct intel_fcs_dev_ioctl {
 		struct fcs_sha2_mac_data	s_mac_data;
 		struct fcs_ecdsa_data		ecdsa_data;
 		struct fcs_ecdsa_sha2_data	ecdsa_sha2_data;
+		struct fcs_random_number_gen_ext	rn_gen_ext;
 	} com_paras;
 };
 
@@ -455,6 +470,7 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_CMD,
 	INTEL_FCS_DEV_CRYPTO_ECDSA_GET_PUBLIC_KEY_CMD,
 	INTEL_FCS_DEV_CRYPTO_ECDH_REQUEST_CMD,
+	INTEL_FCS_DEV_RANDOM_NUMBER_GEN_EXT_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -576,6 +592,10 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_CRYPTO_ECDH_REQUEST \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_CRYPTO_ECDH_REQUEST_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_RANDOM_NUMBER_GEN_EXT \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_RANDOM_NUMBER_GEN_EXT_CMD, struct intel_fcs_dev_ioctl)
 
 #endif
 
