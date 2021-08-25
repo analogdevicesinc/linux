@@ -41,6 +41,8 @@
 #define MEASUREMENT_RSP_MAX_SZ	4092
 #define CERTIFICATE_RSP_MAX_SZ	4096
 
+#define CRYPTO_EXPORTED_KEY_OBJECT_MAX_SZ 364
+
 #define SIGMA_SESSION_ID_ONE	0x1
 #define SIGMA_UNKNOWN_SESSION	0xffffffff
 
@@ -1191,6 +1193,64 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		 fcs_close_services(priv, ps_buf, NULL);
 		 fcs_close_services(priv, s_buf, NULL);
+		 break;
+
+	case INTEL_FCS_DEV_CRYPTO_EXPORT_KEY:
+		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_from_user\n");
+			 return -EFAULT;
+		 }
+
+		 if (data->com_paras.k_object.obj_data_sz >
+		     CRYPTO_EXPORTED_KEY_OBJECT_MAX_SZ) {
+			 dev_err(dev, "Invalid key object size %d\n",
+				 data->com_paras.k_object.obj_data_sz);
+			 return -EFAULT;
+		 }
+
+		 d_buf = stratix10_svc_allocate_memory(priv->chan,
+				 CRYPTO_EXPORTED_KEY_OBJECT_MAX_SZ);
+		 if (!d_buf) {
+			 dev_err(dev, "failed allocate key object buf\n");
+			 return -ENOMEM;
+		 }
+
+		 msg->command = COMMAND_FCS_CRYPTO_EXPORT_KEY;
+		 msg->payload = NULL;
+		 msg->payload_length = 0;
+		 msg->payload_output = d_buf;
+		 msg->payload_length_output = CRYPTO_EXPORTED_KEY_OBJECT_MAX_SZ;
+		 msg->arg[0] = data->com_paras.k_object.sid;
+		 msg->arg[1] = data->com_paras.k_object.kid;
+		 priv->client.receive_cb = fcs_attestation_callback;
+
+		 ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		 if (!ret && !priv->status) {
+			 if (priv->size > CRYPTO_EXPORTED_KEY_OBJECT_MAX_SZ) {
+				 dev_err(dev, "returned size %d is incorrect\n",
+					 priv->size);
+				 fcs_close_services(priv, NULL, d_buf);
+				 return -EFAULT;
+			 }
+
+			 memcpy(data->com_paras.k_object.obj_data,
+				priv->kbuf, priv->size);
+			 data->com_paras.k_object.obj_data_sz = priv->size;
+		 } else {
+			 data->com_paras.k_object.obj_data = NULL;
+			 data->com_paras.k_object.obj_data_sz = 0;
+		 }
+
+		 data->status = priv->status;
+
+		 if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			 dev_err(dev, "failure on copy_to_user\n");
+			 fcs_close_services(priv, NULL, d_buf);
+			 ret = -EFAULT;
+		 }
+
+		 fcs_close_services(priv, NULL, d_buf);
 		 break;
 
 	default:
