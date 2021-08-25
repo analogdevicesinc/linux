@@ -490,12 +490,22 @@ _GFPAlloc(
     gcmkHEADER_ARG("Allocator=%p Mdl=%p NumPages=%zu Flags=0x%x", Allocator, Mdl, NumPages, Flags);
 
 #ifdef gcdSYS_FREE_MEMORY_LIMIT
-    if (Flags & gcvALLOC_FLAG_MEMLIMIT)
+    if ((Flags & gcvALLOC_FLAG_MEMLIMIT) && !contiguous)
     {
+        long freeram = 0;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+        freeram = global_zone_page_state(NR_FREE_PAGES);
+#ifdef CONFIG_CMA
+        freeram -= global_zone_page_state(NR_FREE_CMA_PAGES);
+#endif
+#else
         struct sysinfo temsysinfo;
         si_meminfo(&temsysinfo);
+        freeram = temsysinfo.freeram;
+#endif
 
-        if ((temsysinfo.freeram < NumPages) || ((temsysinfo.freeram-NumPages) < gcdSYS_FREE_MEMORY_LIMIT))
+        if ((freeram < NumPages) || ((freeram - NumPages) < gcdSYS_FREE_MEMORY_LIMIT))
         {
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
         }

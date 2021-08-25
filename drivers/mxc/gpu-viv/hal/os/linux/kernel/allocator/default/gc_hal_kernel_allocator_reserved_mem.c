@@ -574,6 +574,7 @@ _ReservedMemoryAllocatorInit(
 
     allocator->capability = gcvALLOC_FLAG_LINUX_RESERVED_MEM
                           | gcvALLOC_FLAG_CONTIGUOUS
+                          | gcvALLOC_FLAG_MEMLIMIT
                           | gcvALLOC_FLAG_DMABUF_EXPORTABLE
                           | gcvALLOC_FLAG_CPU_ACCESS;
 
