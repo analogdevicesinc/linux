@@ -332,6 +332,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_PSGSIGMA_TEARDOWN:
 	case COMMAND_FCS_COUNTER_SET_PREAUTHORIZED:
 	case COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD:
+	case COMMAND_FCS_CRYPTO_CLOSE_SESSION:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		break;
 	case COMMAND_RECONFIG_DATA_SUBMIT:
@@ -384,6 +385,10 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr2 = svc_pa_to_va(res.a2);
 		cb_data->kaddr3 = &res.a3;
+		break;
+	case COMMAND_FCS_CRYPTO_OPEN_SESSION:
+		cb_data->status = BIT(SVC_STATUS_OK);
+		cb_data->kaddr2 = &res.a2;
 		break;
 	default:
 		pr_warn("it shouldn't happen\n");
@@ -582,6 +587,17 @@ static int svc_normal_to_secure_thread(void *data)
 			a1 = pdata->arg[0];
 			a2 = 0;
 			break;
+		/* for crypto service */
+		case COMMAND_FCS_CRYPTO_OPEN_SESSION:
+			a0 = INTEL_SIP_SMC_FCS_OPEN_CRYPTO_SERVICE_SESSION;
+			a1 = 0;
+			a2 = 0;
+			break;
+		case COMMAND_FCS_CRYPTO_CLOSE_SESSION:
+			a0 = INTEL_SIP_SMC_FCS_CLOSE_CRYPTO_SERVICE_SESSION;
+			a1 = pdata->arg[0];
+			a2 = 0;
+			break;
 		/* for polling */
 		case COMMAND_POLL_SERVICE_STATUS:
 			a0 = INTEL_SIP_SMC_SERVICE_COMPLETED;
@@ -674,6 +690,8 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_ATTESTATION_CERTIFICATE:
 			case COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD:
 			case COMMAND_FCS_GET_ROM_PATCH_SHA384:
+			case COMMAND_FCS_CRYPTO_OPEN_SESSION:
+			case COMMAND_FCS_CRYPTO_CLOSE_SESSION:
 				cbdata->status = BIT(SVC_STATUS_INVALID_PARAM);
 				cbdata->kaddr1 = NULL;
 				cbdata->kaddr2 = NULL;
