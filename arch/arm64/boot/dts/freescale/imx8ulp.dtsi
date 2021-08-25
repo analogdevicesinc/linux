@@ -451,10 +451,9 @@
 				compatible = "fsl,imx8ulp-tpm", "fsl,imx7ulp-tpm";
 				reg = <0x29340000 0x1000>;
 				interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&pcc3 IMX8ULP_CLK_TPM5>,
-					 <&pcc3 IMX8ULP_CLK_TPM5>;
+				clocks = <&sosc>, <&sosc>;
 				clock-names = "ipg", "per";
-				status = "disabled";
+				status = "okay";
 			};
 
 			i3c2: i3c-master@29360000 {
