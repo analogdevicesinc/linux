@@ -983,7 +983,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		msg->payload_length = 0;
 		msg->payload_output = d_buf;
 		msg->payload_length_output = CERTIFICATE_RSP_MAX_SZ;
-		msg->arg[0] = data->com_paras.certificate.c_request & 0x000f;
+		msg->arg[0] = data->com_paras.certificate.c_request & 0x001f;
 		priv->client.receive_cb = fcs_attestation_callback;
 
 		ret = fcs_request_service(priv, (void *)msg,
@@ -1022,7 +1022,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		msg->command = COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD;
-		msg->arg[0] = data->com_paras.c_reload.c_request & 0x000f;
+		msg->arg[0] = data->com_paras.c_reload.c_request & 0x001f;
 		priv->client.receive_cb = fcs_vab_callback;
 		ret = fcs_request_service(priv, (void *)msg,
 					  10 * FCS_REQUEST_TIMEOUT);
