@@ -45,7 +45,6 @@
 				adi,standalone-probe;
 				adi,dc-test-en;
 				dac_clk-clock-scales = <1 10>;
-				adi,amp-spi-dev = <&ad9166_amp>;
 			};
 
 			adf4372_clk: adf4372@1 {

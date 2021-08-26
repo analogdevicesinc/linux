@@ -27,7 +27,6 @@
 
 #include "ad916x/AD916x.h"
 #include "ad916x/ad916x_reg.h"
-#include "../amplifiers/ad916x_amp.h"
 
 #define JESD204_OF_PREFIX	"adi,"
 #include <linux/jesd204/jesd204.h>
@@ -78,7 +77,6 @@ struct ad9162_state {
 	unsigned int jesd_subclass;
 	unsigned int sysref_mode;
 	struct mutex lock;
-	struct spi_device *amp_spi_dev;
 };
 
 struct ad9162_clk {
@@ -538,9 +536,6 @@ static int ad9162_setup(struct ad9162_state *st)
 		fsc = 40000;
 
 	ad916x_dac_set_full_scale_current(ad916x_h, fsc/1000);
-	if (st->amp_spi_dev)
-		ad916x_amp_icm_ua_set(spi_get_drvdata(st->amp_spi_dev),
-				      fsc / 2 + 3800);
 
 	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
 					  &st->conv.clkscale[CLK_DAC]);
@@ -1048,40 +1043,6 @@ static int ad916x_standalone_probe(struct ad9162_state *st)
 	return 0;
 }
 
-static int ad9162_find_amp(struct ad9162_state *st, struct spi_device *spi)
-{
-	const struct spi_device_id *spi_id = spi_get_device_id(spi);
-	struct device_node *amp_np = NULL;
-	int ret = 0;
-
-	if (spi_id->driver_data != AD9166)
-		goto exit;
-
-	amp_np = of_parse_phandle(spi->dev.of_node, "adi,amp-spi-dev", 0);
-	if (!amp_np) {
-		dev_info(&spi->dev, "Failed to find amp phandle\n");
-		goto exit;
-	}
-
-	if (!of_device_is_compatible(amp_np, "adi,ad9166-amp")) {
-		dev_warn(&spi->dev, "Incompatible amp phandle found");
-		goto exit;
-	}
-
-	st->amp_spi_dev = of_find_spi_device_by_node(amp_np);
-	if (!st->amp_spi_dev) {
-		dev_info(&spi->dev, "Amp device not ready\n");
-		ret = -EPROBE_DEFER;
-		goto exit;
-	}
-
-exit:
-	if (amp_np)
-		of_node_put(amp_np);
-
-	return ret;
-}
-
 static int ad9162_probe(struct spi_device *spi)
 {
 	struct cf_axi_converter *conv;
@@ -1094,10 +1055,6 @@ static int ad9162_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	conv = &st->conv;
-
-	ret = ad9162_find_amp(st, spi);
-	if (ret)
-		return ret;
 
 	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
 						   GPIOD_OUT_HIGH);

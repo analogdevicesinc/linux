@@ -14,7 +14,6 @@
 #include <linux/mutex.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
-#include "ad916x_amp.h"
 
 #define AD916x_AMP_REG_SPI_INTFCONFA	0x0
 #define AD916x_AMP_SDOACTIVE		GENMASK(4, 3)
@@ -105,7 +104,7 @@ static int ad916x_amp_vos_adj_mv_get(struct ad916x_amp_state *st, int *vos_adj_m
 #define AD916x_ICM_MIN_TO_MAX	(AD916x_ICM_MAX_UA - AD916x_ICM_MIN_UA)
 #define AD916x_AMP_ICM_MAX	(BIT(4) - 1)
 
-int ad916x_amp_icm_ua_set(struct ad916x_amp_state *st, u16 icm_ua)
+static int ad916x_amp_icm_ua_set(struct ad916x_amp_state *st, u16 icm_ua)
 {
 	u8 amp_icm;
 	int rc;
@@ -357,7 +356,6 @@ static int ad916x_amp_probe(struct spi_device *spi)
 		return PTR_ERR(st->map);
 
 	st->spi = spi;
-	spi_set_drvdata(spi, st);
 
 	dev_name = np ? np->name : dev_id->name;
 
