@@ -58,6 +58,24 @@
 			};
 		};
 
+		i2c@41620000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			reg = <0x41620000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+
 		hdmi_dma: dma@43000000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x43000000 0x10000>;
