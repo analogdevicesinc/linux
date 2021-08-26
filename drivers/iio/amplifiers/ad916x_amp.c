@@ -18,8 +18,9 @@
 #define AD916x_AMP_SDOACTIVE		GENMASK(4, 3)
 
 #define AD916x_AMP_REG_POWERDOWN	0x10
-#define AD916X_AMP_ENABLE		0x01
-#define AD916X_AMP_DISABLE		0x3B
+#define AD916x_AMP_PD_CMDACCURRENT	BIT(3)
+#define AD916x_AMP_PD_CMDACCURRENT_ENABLE	0
+#define AD916x_AMP_PD_CMDACCURRENT_DISABLE	AD916x_AMP_PD_CMDACCURRENT
 
 struct ad916x_amp_state {
 	struct regmap *map;
@@ -47,7 +48,8 @@ static int ad916x_amp_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		*val = !(*val);
+		*val = (*val & AD916x_AMP_PD_CMDACCURRENT)
+		       == AD916x_AMP_PD_CMDACCURRENT_ENABLE;
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -67,9 +69,10 @@ static int ad916x_amp_write_raw(struct iio_dev *indio_dev,
 		if (val != 0 && val != 1)
 			return -EINVAL;
 
-		return regmap_write(st->map, AD916x_AMP_REG_POWERDOWN,
-				    val == 1 ? AD916X_AMP_ENABLE :
-				    AD916X_AMP_DISABLE);
+		return regmap_update_bits(st->map, AD916x_AMP_REG_POWERDOWN,
+					  AD916x_AMP_PD_CMDACCURRENT,
+					  val == 1 ? AD916x_AMP_PD_CMDACCURRENT_ENABLE :
+					  AD916x_AMP_PD_CMDACCURRENT_DISABLE);
 	default:
 		return -EINVAL;
 	}
