@@ -973,6 +973,7 @@ static void adv7511_bridge_detach(struct drm_bridge *bridge)
 
 	adv7511_debugfs_remove(adv);
 }
+
 static enum drm_connector_status adv7511_bridge_detect(struct drm_bridge *bridge)
 {
 	struct adv7511 *adv = bridge_to_adv7511(bridge);
@@ -1214,8 +1215,9 @@ static int adv7511_probe(struct i2c_client *i2c)
 	struct adv7511_link_config link_config;
 	struct adv7511 *adv7511;
 	struct device *dev = &i2c->dev;
+	struct regulator *reg_v1p2;
 	unsigned int val;
-	int ret;
+	int ret, reg_v1p2_uV;
 
 	if (!dev->of_node)
 		return -EINVAL;
@@ -1283,6 +1285,17 @@ static int adv7511_probe(struct i2c_client *i2c)
 		ret = adv7533_patch_registers(adv7511);
 	if (ret)
 		goto uninit_regulators;
+
+	if (adv7511->info->type == ADV7533) {
+		ret = match_string(adv7533_supply_names, adv7511->info->num_supplies, "v1p2");
+		reg_v1p2 = adv7511->supplies[ret].consumer;
+		reg_v1p2_uV = regulator_get_voltage(reg_v1p2);
+
+		if (reg_v1p2_uV == 1200000) {
+			regmap_update_bits(adv7511->regmap,
+				ADV7511_REG_SUPPLY_SELECT, 0x80, 0x80);
+		}
+	}
 
 	adv7511_packet_disable(adv7511, 0xffff);
 
