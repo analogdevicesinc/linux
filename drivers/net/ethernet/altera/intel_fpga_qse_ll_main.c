@@ -1359,9 +1359,11 @@ static void intel_fpga_qse_mac_link_down(struct phylink_config *config,
 }
 
 static void intel_fpga_qse_mac_link_up(struct phylink_config *config,
+				       struct phy_device *phy,
 				       unsigned int mode,
-				       phy_interface_t interface,
-				       struct phy_device *phy)
+				       phy_interface_t interface, int speed,
+				       int duplex, bool tx_pause,
+				       bool rx_pause)
 {
 	struct intel_fpga_qse_private *priv =
 			netdev_priv(to_net_dev(config->dev));
