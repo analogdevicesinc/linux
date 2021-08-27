@@ -445,6 +445,8 @@ enum {
 	ADIS16480_SCAN_MAGN_Z,
 	ADIS16480_SCAN_BARO,
 	ADIS16480_SCAN_TEMP,
+	ADIS16480_SCAN_SYS_E_FLAGS,
+	ADIS16480_SCAN_CRC_FAILURE,
 };
 
 static const unsigned int adis16480_calibbias_regs[] = {
@@ -804,6 +806,33 @@ static int adis16480_write_raw(struct iio_dev *indio_dev,
 		}, \
 	}
 
+#define ADIS16495_E_FLAGS_CHANNEL() { \
+		.type = IIO_FLAGS, \
+		.indexed = 1, \
+		.channel = 0, \
+		.scan_index = ADIS16480_SCAN_SYS_E_FLAGS, \
+		.scan_type = { \
+			.sign = 'u', \
+			.realbits = 16, \
+			.storagebits = 16, \
+			.endianness = IIO_BE, \
+		}, \
+	}
+
+#define ADIS16495_CRC_CHANNEL() { \
+		.type = IIO_FLAGS, \
+		.indexed = 1, \
+		.channel = 1, \
+		.scan_index = ADIS16480_SCAN_CRC_FAILURE, \
+		.scan_type = { \
+			.sign = 'u', \
+			.realbits = 16, \
+			.storagebits = 16, \
+			.endianness = IIO_BE, \
+		}, \
+		.extend_name = "crc", \
+	}
+
 static const struct iio_chan_spec adis16480_channels[] = {
 	ADIS16480_GYRO_CHANNEL(X),
 	ADIS16480_GYRO_CHANNEL(Y),
@@ -827,6 +856,19 @@ static const struct iio_chan_spec adis16485_channels[] = {
 	ADIS16480_ACCEL_CHANNEL(Y),
 	ADIS16480_ACCEL_CHANNEL(Z),
 	ADIS16480_TEMP_CHANNEL(),
+	IIO_CHAN_SOFT_TIMESTAMP(7)
+};
+
+static const struct iio_chan_spec adis16495_channels[] = {
+	ADIS16480_GYRO_CHANNEL(X),
+	ADIS16480_GYRO_CHANNEL(Y),
+	ADIS16480_GYRO_CHANNEL(Z),
+	ADIS16480_ACCEL_CHANNEL(X),
+	ADIS16480_ACCEL_CHANNEL(Y),
+	ADIS16480_ACCEL_CHANNEL(Z),
+	ADIS16480_TEMP_CHANNEL(),
+	ADIS16495_E_FLAGS_CHANNEL(),
+	ADIS16495_CRC_CHANNEL(),
 	IIO_CHAN_SOFT_TIMESTAMP(7)
 };
 
@@ -1000,22 +1042,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.has_pps_clk_mode = true,
 		.adis_data = ADIS16480_DATA(16490, &adis16495_timeouts, 0),
 	},
-	[ADIS16490] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = IIO_RAD_TO_DEGREE(20000),
-		.gyro_max_scale = 100,
-		.accel_max_val = IIO_M_S_2_TO_G(16000),
-		.accel_max_scale = 8,
-		.temp_scale = 14285, /* 14.285 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-	},
 	[ADIS16495_1] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = 20000 << 16,
 		.gyro_max_scale = IIO_DEGREE_TO_RAD(125),
 		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
@@ -1030,8 +1059,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 					    ADIS16495_BURST_MAX_DATA * 2),
 	},
 	[ADIS16495_2] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = 18000 << 16,
 		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
 		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
@@ -1046,8 +1075,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 					    ADIS16495_BURST_MAX_DATA * 2),
 	},
 	[ADIS16495_3] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = 20000 << 16,
 		.gyro_max_scale = IIO_DEGREE_TO_RAD(2000),
 		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
@@ -1062,8 +1091,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 					    ADIS16495_BURST_MAX_DATA * 2),
 	},
 	[ADIS16497_1] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = 20000 << 16,
 		.gyro_max_scale = IIO_DEGREE_TO_RAD(125),
 		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
@@ -1078,8 +1107,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 					    ADIS16495_BURST_MAX_DATA * 2),
 	},
 	[ADIS16497_2] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = 18000 << 16,
 		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
 		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
@@ -1094,8 +1123,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 					    ADIS16495_BURST_MAX_DATA * 2),
 	},
 	[ADIS16497_3] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = 20000 << 16,
 		.gyro_max_scale = IIO_DEGREE_TO_RAD(2000),
 		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
@@ -1185,12 +1214,16 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 		goto irq_done;
 	}
 
+	/*
+	 * This is keept like this to be closer as possible with what exists upstream.
+	 * The difference is that in the upstream version we return if the CRC is invalid.
+	 * Here, we push the crc validation to userland as that was explicit requested by
+	 * the BU. Hence, we keep it so that we don't break any potential user of this.
+	 */
 	crc = be16_to_cpu(buffer[offset + 16]) << 16 | be16_to_cpu(buffer[offset + 15]);
 	valid = adis16480_validate_crc((u16 *)&buffer[offset], 15, crc);
-	if (!valid) {
-		dev_err(&adis->spi->dev, "Invalid crc\n");
-		goto irq_done;
-	}
+	if (!valid)
+		dev_warn(&adis->spi->dev, "Invalid crc\n");
 
 	for_each_set_bit(bit, indio_dev->active_scan_mask, indio_dev->masklength) {
 		/*
@@ -1201,6 +1234,22 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 		switch (bit) {
 		case ADIS16480_SCAN_TEMP:
 			st->data[i++] = buffer[offset + 1];
+			break;
+		/*
+		 * \TODO: Purpose a way to support sys_flags upstream. In our tree, we just add
+		 * a new IIO_FLAGS types to accommodate this. However, this might be just too
+		 * generic (lacking meaning) and not acceptable upstream. Anyways, we need to
+		 * have this in sync!
+		 */
+		case ADIS16480_SCAN_SYS_E_FLAGS:
+			st->data[i++] = buffer[offset];
+			break;
+		case ADIS16480_SCAN_CRC_FAILURE:
+			/*
+			 * The negation is to keep things as they were before syncing:
+			 * crc == 1 ? invalid : valid
+			 */
+			st->data[i++] = cpu_to_be16(!valid);
 			break;
 		case ADIS16480_SCAN_GYRO_X ... ADIS16480_SCAN_ACCEL_Z:
 			/* The lower register data is sequenced first */
