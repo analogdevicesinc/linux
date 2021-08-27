@@ -174,7 +174,6 @@ config COMMON_CLK_IDT8T49N24X
 	depends on OF
 	select REGMAP_I2C
 	help
-	---help---
 	  This driver supports the IDT 8T49N24x universal frequency translator
 	  product family.  The only chip in the family that is currently
 	  supported is the 8T49N241. The driver supports setting the rate for
