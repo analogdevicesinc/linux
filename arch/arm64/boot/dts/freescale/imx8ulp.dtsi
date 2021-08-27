@@ -199,6 +199,11 @@
 		ranges = <0x0 0x0 0x0 0x40000000>,
 			 <0x60000000 0x0 0x60000000 0x1000000>;
 
+		caam_sm: caam-sm@26000000 {
+			compatible = "fsl,imx6q-caam-sm";
+			reg = <0x26000000 0x8000>;
+		};
+
 		s4muap: mailbox@27020000 {
 			compatible = "fsl,imx8ulp-mu-s4";
 			reg = <0x27020000 0x10000>;
