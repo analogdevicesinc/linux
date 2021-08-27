@@ -320,20 +320,6 @@ static const struct iio_info adis16460_info = {
 	.debugfs_reg_access = adis_debugfs_reg_access,
 };
 
-static int adis16460_enable_irq(struct adis *adis, bool enable)
-{
-	/*
-	 * There is no way to gate the data-ready signal internally inside the
-	 * ADIS16460 :(
-	 */
-	if (enable)
-		enable_irq(adis->spi->irq);
-	else
-		disable_irq(adis->spi->irq);
-
-	return 0;
-}
-
 #define ADIS16460_DIAG_STAT_IN_CLK_OOS	7
 #define ADIS16460_DIAG_STAT_FLASH_MEM	6
 #define ADIS16460_DIAG_STAT_SELF_TEST	5
@@ -374,7 +360,7 @@ static const struct adis_data adis16460_data = {
 		BIT(ADIS16460_DIAG_STAT_OVERRANGE) |
 		BIT(ADIS16460_DIAG_STAT_SPI_COMM) |
 		BIT(ADIS16460_DIAG_STAT_FLASH_UPT),
-	.enable_irq = adis16460_enable_irq,
+	.unmasked_drdy = true,
 	.timeouts = &adis16460_timeouts,
 };
 
@@ -406,8 +392,14 @@ static int adis16460_probe(struct spi_device *spi)
 	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev, NULL);
 	if (ret)
 		return ret;
-
-	adis16460_enable_irq(&st->adis, 0);
+	/*
+	 * Note that this is not needed in upstream but we still need to have
+	 * it in our tree because the 'IRQF_NO_AUTOEN' flag is still not
+	 * present. With it, the IRQ is automatically disabled when requesting
+	 * it. As soon as we move to a kernel supporting we can drop this call
+	 * and update @adis_validate_irq_flag() accordingly.
+	 */
+	adis_enable_irq(&st->adis, false);
 
 	ret = __adis_initial_startup(&st->adis);
 	if (ret)
