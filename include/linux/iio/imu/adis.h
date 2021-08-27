@@ -49,12 +49,14 @@ struct adis_timeout {
  * @status_error_mask: Bitmask of errors supported by the device
  * @timeouts: Chip specific delays
  * @enable_irq: Hook for ADIS devices that have a special IRQ enable/disable
+ * @unmasked_drdy: True for devices that cannot mask/unmask the data ready pin
  * @has_paging: True if ADIS device has paged registers
  * @burst_reg_cmd:	Register command that triggers burst
  * @burst_len:		Burst size in the SPI RX buffer. If @burst_max_len is defined,
  *			this should be the minimum size supported by the device.
  * @burst_max_len:	Holds the maximum burst size when the device supports
  *			more than one burst mode with different sizes
+ * @burst_max_speed_hz:	Maximum spi speed that can be used in burst mode
  */
 struct adis_data {
 	unsigned int read_delay;
@@ -77,12 +79,14 @@ struct adis_data {
 	unsigned int status_error_mask;
 
 	int (*enable_irq)(struct adis *adis, bool enable);
+	bool unmasked_drdy;
 
 	bool has_paging;
 
 	unsigned int burst_reg_cmd;
 	unsigned int burst_len;
 	unsigned int burst_max_len;
+	unsigned int burst_max_speed_hz;
 };
 
 /**
@@ -426,6 +430,16 @@ static inline int adis_initial_startup(struct adis *adis)
 	mutex_unlock(&adis->state_lock);
 
 	return ret;
+}
+
+static inline void adis_dev_lock(struct adis *adis)
+{
+	mutex_lock(&adis->state_lock);
+}
+
+static inline void adis_dev_unlock(struct adis *adis)
+{
+	mutex_unlock(&adis->state_lock);
 }
 
 int adis_single_conversion(struct iio_dev *indio_dev,
