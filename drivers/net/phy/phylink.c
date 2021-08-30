@@ -2066,6 +2066,7 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
 {
 	struct phylink_link_state config;
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(supported);
+	bool use_inband;
 	char *irq_str;
 	int ret;
 
@@ -2089,6 +2090,15 @@ static int phylink_bringup_phy(struct phylink *pl, struct phy_device *phy,
 			     phy_modes(config.interface),
 			     __ETHTOOL_LINK_MODE_MASK_NBITS, phy->supported,
 			     __ETHTOOL_LINK_MODE_MASK_NBITS, config.advertising,
+			     ERR_PTR(ret));
+		return ret;
+	}
+
+	use_inband = phylink_autoneg_inband(pl->cur_link_an_mode);
+
+	ret = phy_config_inband_aneg(phy, use_inband);
+	if (ret && ret != -EOPNOTSUPP) {
+		phylink_warn(pl, "failed to configure PHY in-band autoneg: %pe\n",
 			     ERR_PTR(ret));
 		return ret;
 	}
