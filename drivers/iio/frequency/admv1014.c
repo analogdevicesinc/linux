@@ -263,7 +263,7 @@ static int admv1014_update_vcm_settings(struct admv1014_dev *dev)
 
 			bb_sw_high_low_cm = ~(i / 8);
 
-			ret = __admv1014_spi_update_bits(dev, ADMV1014_REG_BB_AMP_AGC,
+			return __admv1014_spi_update_bits(dev, ADMV1014_REG_BB_AMP_AGC,
 							ADMV1014_BB_AMP_REF_GEN_MSK |
 							ADMV1014_BB_SWITCH_HIGH_LOW_CM_MSK,
 							ADMV1014_BB_AMP_REF_GEN(i) |
