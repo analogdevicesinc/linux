@@ -639,50 +639,42 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 		return true;
 	}
 
-	/* imx8mq */
-	if (new_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT)
-		return !drm_mode_is_420_only(di, mode);
-
+	/* H20 Section 7.2.2, Colorimetry BT2020 for pixel encoding 10bpc or more */
 	if (new_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_RGB) {
 		if (drm_mode_is_420_only(di, mode))
 			return false;
 
+		/* BT2020_RGB for RGB 10bit or more  */
 		/* 10b RGB is not supported for following VICs */
 		if (vic == 97 || vic == 96 || vic == 95 || vic == 93 || vic == 94)
 			return false;
 
 		video->color_depth = 10;
-
-		return true;
-	}
-
-	if (new_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_CYCC ||
+	} else if (new_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_CYCC ||
 	    new_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_YCC) {
-		if (drm_mode_is_420_only(di, mode)) {
+		/* BT2020_YCC/CYCC for YUV 10bit or more */
+		if (drm_mode_is_420_only(di, mode) ||
+				drm_mode_is_420_also(di, mode))
 			video->color_fmt = YCBCR_4_2_0;
+		else
+			video->color_fmt = YCBCR_4_2_2;
 
-			if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_36)
-				video->color_depth = 12;
-			else if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
-				video->color_depth = 10;
-			else
-				return false;
-
-			return true;
-		}
-
-		video->color_fmt = YCBCR_4_2_2;
-
-		if (!(di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_36))
-			return false;
-
-		video->color_depth = 12;
-
-		return true;
-	}
-
-	video->color_fmt = drm_mode_is_420_only(di, mode) ? YCBCR_4_2_0 : YCBCR_4_4_4;
-	video->color_depth = 8;
+		if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_36)
+			video->color_depth = 12;
+		else if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
+			video->color_depth = 10;
+	} else if (new_state->colorspace == DRM_MODE_COLORIMETRY_SMPTE_170M_YCC ||
+	    new_state->colorspace == DRM_MODE_COLORIMETRY_BT709_YCC ||
+		new_state->colorspace == DRM_MODE_COLORIMETRY_XVYCC_601 ||
+		new_state->colorspace == DRM_MODE_COLORIMETRY_XVYCC_709 ||
+		new_state->colorspace == DRM_MODE_COLORIMETRY_SYCC_601) {
+		/* Colorimetry for HD and SD YUV */
+		if (drm_mode_is_420_only(di, mode) || drm_mode_is_420_also(di, mode))
+			video->color_fmt = YCBCR_4_2_0;
+		else
+			video->color_fmt = YCBCR_4_4_4;
+	} else if (new_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT)
+		return !drm_mode_is_420_only(di, mode);
 
 	return true;
 }
