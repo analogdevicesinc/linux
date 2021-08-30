@@ -506,6 +506,20 @@ config CF_AXI_TDD
 	help
 	  Say yes here to build support for Analog Devices TDD HDL CORE driver.
 
+config AD_PULSAR
+	tristate "Analog Devices PulSAR ADC Driver"
+	depends on SPI_MASTER
+	depends on PWM
+	select IIO_BUFFER
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Say yes here to build support for Analog Devices PulSAR SPI analog to
+	  digital converters (ADC).
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad_pulsar.
+
 config AXI_PULSE_CAPTURE
 	tristate "Analog Devices Laser/Pulse HDL CORE driver"
 	default n

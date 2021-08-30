@@ -145,14 +145,11 @@ static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 	struct pwm_capture capture;
 	int ret;
 	
-	ret = axi_pwmgen_capture(chip, pwm, &capture, 0);
-	if (ret >= 0) {
-		state->enabled = state;
-		state->period = capture.period;
-		state->duty_cycle = capture.duty_cycle;
-		state->offset = capture.offset;
-		state->time_unit = capture.time_unit;
-	}
+	state->enabled = false;
+	state->period = 0;
+	state->duty_cycle = 0;
+	state->offset = 0;
+	state->time_unit = PWM_UNIT_PSEC;
 }
 
 static void axi_pwmgen_disable(struct pwm_chip *chip, struct pwm_device *pwm)
