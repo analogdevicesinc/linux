@@ -253,7 +253,7 @@ static int admv1014_update_vcm_settings(struct admv1014_dev *dev)
 
 	vcm_mv = regulator_get_voltage(dev->reg) / 1000;
 	for (i = 0; i < ARRAY_SIZE(mixer_vgate_table); i++) {
-		vcm_comp = 1050 + (i * 50);
+		vcm_comp = 1050 + (i * 50) + (i / 8 * 50);
 		if (vcm_mv == vcm_comp) {
 			ret = __admv1014_spi_update_bits(dev, ADMV1014_REG_MIXER,
 							ADMV1014_MIXER_VGATE_MSK,
@@ -261,7 +261,7 @@ static int admv1014_update_vcm_settings(struct admv1014_dev *dev)
 			if (ret < 0)
 				return ret;
 
-			bb_sw_high_low_cm = ~(i / 2);
+			bb_sw_high_low_cm = ~(i / 8);
 
 			ret = __admv1014_spi_update_bits(dev, ADMV1014_REG_BB_AMP_AGC,
 							ADMV1014_BB_AMP_REF_GEN_MSK |
