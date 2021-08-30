@@ -531,8 +531,8 @@ static int hdmi_phy_cfg_t28hpc(struct cdns_mhdp_device *mhdp,
 
 	char_freq = pixel_freq * feedback_factor / 1000;
 
-	DRM_INFO("Pixel clock: %d KHz, character clock: %d, bpc is %0d-bit.\n",
-	     pixel_freq, char_freq, mhdp->video_info.color_depth);
+	DRM_INFO("Pixel clock: %d KHz, character clock: %d, bpc is %0d-bit, fmt %d\n",
+	     pixel_freq, char_freq, mhdp->video_info.color_depth, mhdp->video_info.color_fmt);
 
 	/* Get right row from the ctrl_table table.
 	 * Check if 'pixel_freq_khz' value matches the PIXEL_CLK_FREQ column.
