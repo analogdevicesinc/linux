@@ -3341,15 +3341,6 @@ int phylink_speed_up(struct phylink *pl)
 }
 EXPORT_SYMBOL_GPL(phylink_speed_up);
 
-/* The Broadcom BCM84881 in the Methode DM7052 is unable to provide a SGMII
- * or 802.3z control word, so inband will not work.
- */
-static bool phylink_phy_no_inband(struct phy_device *phy)
-{
-	return phy->is_c45 &&
-		(phy->c45_ids.device_ids[1] & 0xfffffff0) == 0xae025150;
-}
-
 static void phylink_sfp_attach(void *upstream, struct sfp_bus *bus)
 {
 	struct phylink *pl = upstream;
@@ -3457,14 +3448,10 @@ static int phylink_sfp_config_phy(struct phylink *pl, struct phy_device *phy)
 	 */
 	ret = phy_validate_inband_aneg(phy, iface);
 	if (ret == PHY_INBAND_ANEG_UNKNOWN) {
-		if (phylink_phy_no_inband(phy))
-			mode = MLO_AN_PHY;
-		else
-			mode = MLO_AN_INBAND;
+		mode = MLO_AN_INBAND;
 
 		phylink_dbg(pl,
-			    "PHY driver does not report in-band autoneg capability, assuming %s\n",
-			    phylink_autoneg_inband(mode) ? "true" : "false");
+			    "PHY driver does not report in-band autoneg capability, assuming true\n");
 	} else if (ret & PHY_INBAND_ANEG_ON) {
 		mode = MLO_AN_INBAND;
 	} else {
