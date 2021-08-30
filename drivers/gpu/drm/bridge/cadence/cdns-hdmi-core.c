@@ -473,6 +473,8 @@ static int cdns_hdmi_connector_atomic_check(struct drm_connector *connector,
 		drm_atomic_get_old_connector_state(state, connector);
 	struct drm_crtc *crtc = new_con_state->crtc;
 	struct drm_crtc_state *new_crtc_state;
+	struct cdns_mhdp_device *mhdp =
+		container_of(connector, struct cdns_mhdp_device, connector.base);
 
 	cdns_hdmi_hdcp_atomic_check(connector, old_con_state, new_con_state);
 	if (!new_con_state->crtc)
@@ -490,6 +492,8 @@ static int cdns_hdmi_connector_atomic_check(struct drm_connector *connector,
 			!new_con_state->hdr_output_metadata ||
 			!old_con_state->hdr_output_metadata ||
 			new_con_state->colorspace != old_con_state->colorspace;
+		/* save new connector state */
+		memcpy(&mhdp->connector.new_state, new_con_state, sizeof(struct drm_connector_state));
 	}
 
 	/*
@@ -619,7 +623,7 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 				 struct drm_display_mode *adjusted_mode)
 {
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
-	struct drm_connector_state *conn_state = mhdp->connector.base.state;
+	struct drm_connector_state *new_state = &mhdp->connector.new_state;
 	struct drm_display_info *di = &mhdp->connector.base.display_info;
 	struct video_info *video = &mhdp->video_info;
 	int vic = drm_match_cea_mode(mode);
@@ -636,10 +640,10 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 	}
 
 	/* imx8mq */
-	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT)
+	if (new_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT)
 		return !drm_mode_is_420_only(di, mode);
 
-	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_RGB) {
+	if (new_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_RGB) {
 		if (drm_mode_is_420_only(di, mode))
 			return false;
 
@@ -652,8 +656,8 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 		return true;
 	}
 
-	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_CYCC ||
-	    conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_YCC) {
+	if (new_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_CYCC ||
+	    new_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_YCC) {
 		if (drm_mode_is_420_only(di, mode)) {
 			video->color_fmt = YCBCR_4_2_0;
 

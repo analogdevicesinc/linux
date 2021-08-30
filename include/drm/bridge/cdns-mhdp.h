@@ -653,6 +653,7 @@ struct cdns_mhdp_bridge {
 
 struct cdns_mhdp_connector {
 	struct drm_connector base;
+	struct drm_connector_state new_state;
 	bool is_mst_connector;
 	struct drm_dp_mst_port *port;
 	struct cdns_mhdp_bridge *bridge;
