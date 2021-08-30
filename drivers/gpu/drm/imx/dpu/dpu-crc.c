@@ -1,5 +1,5 @@
 /*
- * Copyright 2019,2020 NXP
+ * Copyright 2019-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -87,7 +87,7 @@ dpu_crc_parse_source(const char *source_name, enum dpu_crc_source *s,
 		options = kstrdup(source_name + len, GFP_KERNEL);
 
 		while ((opt = strsep(&options, ",")) != NULL) {
-			if (i > 4)
+			if (i > 3)
 				return -EINVAL;
 
 			ret = kstrtouint(opt, 10, &params[i]);
