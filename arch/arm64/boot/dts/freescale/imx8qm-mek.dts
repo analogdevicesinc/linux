@@ -988,7 +988,7 @@
 		compatible = "jedec,spi-nor";
 		spi-max-frequency = <133000000>;
 		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <4>;
+		spi-rx-bus-width = <8>;
 	};
 };
 
