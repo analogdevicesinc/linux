@@ -1,0 +1,83 @@
+// SPDX-License-Identifier:     GPL-2.0
+/*
+ * Copyright (C) 2021, Intel Corporation
+ */
+#include "socfpga_agilex.dtsi"
+
+/ {
+	model = "SoCFPGA Agilex n6010";
+
+	aliases {
+		serial0 = &uart0;
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
+		ethernet2 = &gmac2;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		/* We expect the bootloader to fill in the reg */
+		reg = <0 0 0 0>;
+	};
+
+	soc {
+		clocks {
+			osc1 {
+				clock-frequency = <25000000>;
+			};
+		};
+                agilex_hps_bridges: bridge@80000000 {
+                        compatible = "simple-bus";
+                        reg = <0x80000000 0x60000000>,
+                                <0xf9000000 0x00100000>;
+                        reg-names = "axi_h2f", "axi_h2f_lw";
+                        #address-cells = <0x2>;
+                        #size-cells = <0x1>;
+                        ranges = <0x00000000 0x00000000 0xf9000000 0x00001000>,
+                                <0x00000001 0x02001000 0x82001000 0x00000800>,
+                                <0x00000001 0x02080000 0x82080000 0x00004000>,
+                                <0x00000001 0x02100000 0x82100000 0x00080000>,
+                                <0x00000001 0x02000040 0x82000040 0x00000020>,
+                                <0x00000001 0x02000800 0x82000800 0x00000020>,
+                                <0x00000001 0x02000820 0x82000820 0x00000020>,
+                                <0x00000001 0x02000900 0x82000900 0x00000020>,
+                                <0x00000001 0x02000920 0x82000920 0x00000020>,
+                                <0x00000001 0x02000940 0x82000940 0x00000020>,
+                                <0x00000001 0x00000300 0xf9000300 0x00000010>,
+                                <0x00000001 0x02000000 0x82000000 0x00000010>;
+
+                        uio_cp_eng@0xf9000000 {
+                                compatible = "generic-uio";
+                                reg = <0x00000000 0x00000000 0x00001000>;
+                                status = "okay";
+                        };
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+
+	spidev: spidev@0 {
+		status = "okay";
+		compatible = "linux,spidev";
+		spi-max-frequency = <25000000>;
+		reg = <0>;
+	};
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&fpga_mgr {
+	status = "disabled";
+};
