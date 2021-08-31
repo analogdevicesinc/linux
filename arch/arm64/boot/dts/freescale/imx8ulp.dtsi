@@ -238,6 +238,23 @@
 			status = "okay";
 		};
 
+		dsp: dsp@21170000 {
+			compatible = "fsl,imx8ulp-hifi4";
+			reg = <0x21170000 0x20000>;
+			clocks = <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>,
+				 <&cgc2 IMX8ULP_CLK_LPAV_BUS_DIV>,
+				 <&cgc2 IMX8ULP_CLK_HIFI_DIVPLAT>,
+				 <&pcc5 IMX8ULP_CLK_MU3_B>;
+			clock-names = "core", "ipg", "ocram", "mu";
+			firmware-name = "imx/dsp/hifi4.bin";
+			mbox-names = "tx", "rx", "rxdb";
+			mboxes = <&mu3 0 0>,
+				 <&mu3 1 0>,
+				 <&mu3 3 0>;
+			fsl,dsp-ctrl = <&avd_sim>;
+			status = "disabled";
+		};
+
 		per_bridge3: bus@29000000 {
 			compatible = "simple-bus";
 			reg = <0x29000000 0x800000>;
@@ -937,6 +954,23 @@
 						"edma2-chan28-clk", "edma2-chan29-clk",
 						"edma2-chan30-clk", "edma2-chan31-clk";
 				status = "okay";
+			};
+
+			avd_sim: syscon@2da50000 {
+				compatible = "nxp,imx8ulp-avd-sim", "syscon", "simple-mfd";
+				reg = <0x2da50000 0x38>;
+				clocks = <&pcc5 IMX8ULP_CLK_AVD_SIM>;
+
+				mux: mux-controller {
+					compatible = "mmio-mux";
+					#mux-control-cells = <1>;
+					mux-reg-masks = <0x8 0x00000200>; /* DSI_DPI2_EPDC_DCNANO_MUX_SEL */
+				};
+
+				avd_sim_rst: reset-controller {
+					compatible = "nxp,imx8ulp-avd-sim-reset";
+					#reset-cells = <1>;
+				};
 			};
 
 			cgc2: clock-controller@2da60000 {
