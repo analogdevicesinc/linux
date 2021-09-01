@@ -317,6 +317,7 @@
 	keep-power-in-suspend;
 	non-removable;
 	fsl,sdio-async-interrupt-enabled;
+	wakeup-source;
 	status = "okay";
 
 	wifi_wake_host {
