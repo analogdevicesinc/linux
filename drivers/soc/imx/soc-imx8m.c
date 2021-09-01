@@ -192,7 +192,7 @@ static __maybe_unused const struct of_device_id imx8_soc_match[] = {
 	{ }
 };
 
-static void __init imx8mq_noc_init(void)
+static void imx8mq_noc_init(void)
 {
 	struct arm_smccc_res res;
 
