@@ -710,6 +710,11 @@ M: Dan Nica <dan.nica@nxp.com>
 F: Documentation/devicetree/bindings/i2c/
 F: drivers/i2c/
 
+i3c
+M: Clark Wang <xiaoning.wang@nxp.com>
+F: Documentation/devicetree/bindings/i3c/
+F: drivers/i3c/
+
 input/keypad
 M: Haibo Chen <haibo.chen@nxp.com>
 M: Robin Gong <yibin.gong@nxp.com>
