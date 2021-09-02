@@ -31,8 +31,8 @@ struct bank_2_reg {
 static const struct bank_2_reg fsb_bank_reg[] = {
 	{ 3, 0 },
 	{ 4, 8 },
-	{ 5, 16 },
-	{ 6, 24 },
+	{ 5, 64 },
+	{ 6, 72 },
 	{ 8, 80, true },
 	{ 24, 84, true },
 	{ 26, 88, true },
