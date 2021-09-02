@@ -423,3 +423,12 @@
 
 	};
 };
+
+&fpga_axi {
+	axi_tdd_0: axi-tdd-0@79028000 {
+		compatible = "adi,axi-tdd-1.00";
+		reg = <0x79028000 0x1000>;
+		clocks = <&clkc 15>, <&adc0_ad9364 13>;
+		clock-names = "s_axi_aclk", "intf_clk";
+	};
+};
