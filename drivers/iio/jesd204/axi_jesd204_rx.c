@@ -677,6 +677,7 @@ static void axi_jesd204_rx_watchdog(struct work_struct *work)
 		container_of(work, struct axi_jesd204_rx, watchdog_work.work);
 	unsigned int link_disabled;
 	unsigned int link_status;
+	unsigned int lane_errors;
 	bool restart = false;
 	unsigned int i;
 
@@ -688,13 +689,22 @@ static void axi_jesd204_rx_watchdog(struct work_struct *work)
 	if (link_status == JESD204_LINK_STATUS_DATA) {
 		for (i = 0; i < jesd->num_lanes; i++)
 			restart |= axi_jesd204_rx_check_lane_status(jesd, i);
+	}
 
-		if (restart) {
-			writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
-			mdelay(100);
-			writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
-			jesd204_sysref_async_force(jesd->jdev);
+	for (i = 0; i < jesd->num_lanes; i++) {
+		lane_errors = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_ERRORS(i));
+		if (lane_errors > 128) {
+			dev_err(jesd->dev, "lane %d: %d errors (link will be restarted)\n",
+				i, lane_errors);
+			restart = true;
 		}
+	}
+
+	if (restart) {
+		writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+		mdelay(100);
+		writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+		jesd204_sysref_async_force(jesd->jdev);
 	}
 
 	schedule_delayed_work(&jesd->watchdog_work, HZ);
