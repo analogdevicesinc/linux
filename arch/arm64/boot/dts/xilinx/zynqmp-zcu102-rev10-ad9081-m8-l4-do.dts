@@ -22,6 +22,11 @@
 		// adi,sync-config = <2>;
 		// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
 	};
+
+	axi_data_offload_rx: axi-data-offload-1@9c450000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x9c450000 0x10000>;
+	};
 };
 
 &axi_ad9081_core_tx {
