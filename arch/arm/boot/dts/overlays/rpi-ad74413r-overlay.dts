@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/addac/adi,ad74413r.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			ad74413r_refin: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			cs-gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+			status = "okay";
+
+			ad74413r@0 {
+				compatible = "adi,ad74413r";
+				reg = <0>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				spi-max-frequency = <1000000>;
+				spi-cpol;
+
+				interrupt-parent = <&gpio>;
+				interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+
+				refin-supply = <&ad74413r_refin>;
+
+				channel@0 {
+					reg = <0>;
+
+					adi,ch-func = <CH_FUNC_VOLTAGE_OUTPUT>;
+				};
+
+				channel@1 {
+					reg = <1>;
+
+					adi,ch-func = <CH_FUNC_CURRENT_OUTPUT>;
+				};
+
+				channel@2 {
+					reg = <2>;
+
+					adi,ch-func = <CH_FUNC_VOLTAGE_INPUT>;
+				};
+
+				channel@3 {
+					reg = <3>;
+
+					adi,ch-func = <CH_FUNC_CURRENT_INPUT_EXT_POWER>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&gpio>;
+		__overlay__ {
+			ad74413r_eval_reset_gpio {
+				gpio-hog;
+				gpios = <27 GPIO_ACTIVE_LOW>;
+				output-low;
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@4 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};
