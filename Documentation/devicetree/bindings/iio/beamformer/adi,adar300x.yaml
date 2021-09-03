@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2020 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/adc/adi,adar300x.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADAR300x Ka Band Beamformer
+
+maintainers:
+  - Cristian Pop <cristian.pop@analog.com>
+
+description: |
+  Analog Devices ADAR300x receive/transmit chip, 2-Beam & 4-dual polarized elements, beamforming
+  chip for polarized phased arrays
+
+properties:
+  compatible:
+    enum:
+      - adi,adar3000
+      - adi,adar3001
+      - adi,adar3002
+      - adi,adar3003
+
+  reg:
+    maxItems: 1
+
+patternProperties:
+  "dev@[0-3]":
+    type: object
+
+    properties:
+      reg:
+        description:
+          The device address. On the same SPI lines there can connected up to 16
+          devices, this is done by using the four address bits
+          (ADDR0, ADDR1, ADDR2 and ADDR3).
+          For mode details about this address look at the datasheet at the Chip
+          Addressing section.
+        minimum: 0
+        maximum: 16
+
+      label:
+        description:
+          This label is used to recognize between the 16 ADAR300x devices that
+          can be supported on the same SPI lines. This is useful when trying to
+          identify one device.
+
+    required:
+      - reg
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    adar3000@0 {
+      compatible = "adi,adar3000";
+      reg = <0>;
+      spi-max-frequency = <1000000>;
+
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      dev@0 {
+        reg = <0>;
+        label = "BEAM0";
+      };
+      dev@1 {
+        reg = <1>;
+        label = "BEAM1";
+      };
+      dev@2 {
+        reg = <2>;
+        label = "BEAM2";
+      };
+      dev@3 {
+        reg = <3>;
+        label = "BEAM3";
+      };
+    };
