@@ -11,6 +11,13 @@
 /* the value may need be changed when upstream */
 #define INTEL_FCS_IOCTL		0xC0
 
+/* define macro to be used to fix the size of struct intel_fcs_dev_ioctl */
+#define INTEL_FCS_IOCTL_MAX_SZ		256U
+/* the header include the 8 bytes stucture padding and 4 bytes status */
+#define INTEL_FCS_IOCTL_HEADER_SZ	12U
+#define INTEL_FCS_IOCTL_PLACEHOLDER_SZ	(INTEL_FCS_IOCTL_MAX_SZ - \
+					 INTEL_FCS_IOCTL_HEADER_SZ) / 4
+
 /**
  * enum fcs_vab_img_type - enumeration of image types
  * @INTEL_FCS_IMAGE_HPS: Image to validate is HPS image
@@ -29,6 +36,14 @@ enum fcs_vab_img_type {
 enum fcs_certificate_test {
 	INTEL_FCS_NO_TEST = 0,
 	INTEL_FCS_TEST = 1
+};
+
+/**
+ * struct fcs_placeholder - placeholder of ioctl stuct
+ * @data: placeholder of iotcl struct
+ */
+struct fcs_placeholder {
+	uint32_t data[INTEL_FCS_IOCTL_PLACEHOLDER_SZ];
 };
 
 /**
@@ -390,7 +405,7 @@ struct fcs_sdos_data_ext {
 };
 
 /**
- * struct intel_fcs_dev_ioct: common structure passed to Linux
+ * struct intel_fcs_dev_ioctl: common structure passed to Linux
  *	kernel driver for all commands.
  * @status: Used for the return code.
  *      -1 -- operation is not started
@@ -412,6 +427,7 @@ struct intel_fcs_dev_ioctl {
 
 	/* command parameters */
 	union {
+		struct fcs_placeholder		placeholder;
 		struct fcs_validation_request	s_request;
 		struct fcs_certificate_request	c_request;
 		struct fcs_single_certificate_request	i_request;
