@@ -143,13 +143,11 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Pattern_Configure(adi
  * \note Message type: \ref timing_direct "Direct register access"
  *
  * \param[in]  adrv9001			   Context variable - Pointer to the ADRV9001 device settings data structure
- * \param[in]  channel             The Channel for which to configure the monitor mode vector
  * \param[in]  monitorModeVector   The desired monitor mode vector
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure(adi_adrv9001_Device_t *adrv9001,
-                                                                            adi_common_ChannelNumber_e channel,
                                                                             adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector);
 
 /**
@@ -158,13 +156,11 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure(adi_
  * \note Message type: \ref timing_direct "Direct register access"
  *
  * \param[in]  adrv9001 		   Context variable - Pointer to the ADRV9001 device settings data structure
- * \param[in]  channel             The Channel for which to inspect the monitor mode vector
  * \param[out] monitorModeVector   The current monitor mode vector
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect(adi_adrv9001_Device_t *adrv9001,
-                                                                          adi_common_ChannelNumber_e channel,
                                                                           adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector);
 
 /**

@@ -139,6 +139,8 @@ static void cacheInitInfo(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *
 
     adrv9001->devStateInfo.rxOutputSignaling[0] = init->rx.rxChannelCfg[0].profile.outputSignaling;
     adrv9001->devStateInfo.rxOutputSignaling[1] = init->rx.rxChannelCfg[1].profile.outputSignaling;
+    adrv9001->devStateInfo.gainTableType[0] = init->rx.rxChannelCfg[0].profile.gainTableType;
+    adrv9001->devStateInfo.gainTableType[1] = init->rx.rxChannelCfg[1].profile.gainTableType;
 
     for (i = 0; i < ADI_ADRV9001_MAX_RXCHANNELS; i++)
     {

@@ -140,6 +140,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Configure_Validate
 {
     static const uint32_t DPD_MAX_SAMPLES = 4096;
     static const uint32_t MAX_RX_TX_NORMALIZATION_THRESHOLD_U2D30 = 1 << 30;    // 1.0 in U2.30
+    static const uint32_t MAX_TIME_FILTER_COEFFICIENT = 0x7FFFFFFF;      // 0.999... in U1.31
     adi_adrv9001_RadioState_t state = { 0 };
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
@@ -152,7 +153,8 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Configure_Validate
     ADI_RANGE_CHECK(adrv9001, dpdConfig->rxTxNormalizationUpperThreshold, 0, MAX_RX_TX_NORMALIZATION_THRESHOLD_U2D30);
     ADI_RANGE_CHECK(adrv9001, dpdConfig->countsLessThanPowerThreshold, 0, 4096);
     ADI_RANGE_CHECK(adrv9001, dpdConfig->countsGreaterThanPeakThreshold, 0, 4096);
-    
+    ADI_RANGE_CHECK(adrv9001, dpdConfig->timeFilterCoefficient, 0, MAX_TIME_FILTER_COEFFICIENT);
+
     /* Validate state is CALIBRATED */
     ADI_EXPECT(adi_adrv9001_Radio_State_Get, adrv9001, &state);
     adi_common_port_to_index(ADI_TX, &port_index);
@@ -174,7 +176,7 @@ int32_t adi_adrv9001_dpd_Configure(adi_adrv9001_Device_t *adrv9001,
                                    adi_common_ChannelNumber_e channel,
                                    adi_adrv9001_DpdCfg_t *dpdConfig)
 {
-    uint8_t armData[35] = { 0 };
+    uint8_t armData[44] = { 0 };
 
     uint8_t extData[5] = { 0 };
     uint32_t offset = 0;
@@ -196,6 +198,9 @@ int32_t adi_adrv9001_dpd_Configure(adi_adrv9001_Device_t *adrv9001,
     armData[offset++] = dpdConfig->immediateLutSwitching;
     armData[offset++] = dpdConfig->useSpecialFrame;
     armData[offset++] = dpdConfig->resetLuts;
+    offset++;    /* 1 byte padding for word alignment */
+    offset += 4; /* Leave space for 'dpdSampleRate_Hz', which is a read-only parameter */
+    adrv9001_LoadFourBytes(&offset, armData, dpdConfig->timeFilterCoefficient);
 
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
     extData[1] = OBJID_GS_CONFIG;
@@ -220,7 +225,7 @@ int32_t adi_adrv9001_dpd_Inspect(adi_adrv9001_Device_t *adrv9001,
                                  adi_common_ChannelNumber_e channel,
                                  adi_adrv9001_DpdCfg_t *dpdConfig)
 {
-    uint8_t armReadBack[36] = { 0 };
+    uint8_t armReadBack[40] = { 0 };
 
     uint8_t channelMask = 0;
     uint32_t offset = 0;
@@ -246,6 +251,7 @@ int32_t adi_adrv9001_dpd_Inspect(adi_adrv9001_Device_t *adrv9001,
     dpdConfig->resetLuts                = (bool)armReadBack[offset++];
     offset++;
     adrv9001_ParseFourBytes(&offset, armReadBack, &dpdConfig->dpdSamplingRate_Hz);
+    adrv9001_ParseFourBytes(&offset, armReadBack, &dpdConfig->timeFilterCoefficient);
 
     ADI_API_RETURN(adrv9001);
 }
