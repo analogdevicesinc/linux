@@ -231,11 +231,14 @@ config CRYPTO_DEV_TALITOS2
 config CRYPTO_DEV_INTEL_FCS
 	tristate "Intel FPGA Crypto Service support"
 	depends on INTEL_STRATIX10_SERVICE
+	select HW_RANDOM
 	help
 	 Support crypto services on Intel SoCFPGA platforms. The crypto
 	 services include security certificate, image boot validation,
 	 security key cancellation, get provision data, random number
-	 generation and secure data object storage services.
+	 generation and secure data object storage services. If intel_fcs
+	 is built as loadable module, then need to insmod hw_random.ko
+	 before insmod intel_fcs.ko.
 
 	 Say Y here if you want Intel FCS support
 
