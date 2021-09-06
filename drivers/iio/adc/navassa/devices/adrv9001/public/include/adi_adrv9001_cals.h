@@ -253,6 +253,31 @@ int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t
                                                            uint64_t carrierFrequencies_Hz[],
                                                            uint32_t length);
 
+/**
+ * \brief Runs the ADRV9001 dynamic profiles calibrations
+ * 
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ * 
+ * \pre Channel state is either STANDBY or CALIBRATED only
+ * 
+ * \param[in]  adrv9001          Context variable - Pointer to the ADRV9001 device settings data structure
+ * \param[in]  initCals          Pointer to the InitCals structure which calibrations to run;
+ *                               'calMode' must not be ADI_ADRV9001_INIT_CAL_MODE_ELB_ONLY
+ * \param[in]  timeout_ms        A timeout value in milliseconds to wait for the calibrations to complete
+ * \param[out] errorFlag         A 3-bit error flag that helps identify any errors during Initial calibrations.
+ *                               '0' indicates that there was no error.
+ * \param[in]  dynamicProfile    An array of dynamic profile parameters.
+ * \param[in]  length            Length of the array with '6 'is the maximum
+ * 
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv9001,
+                                                     adi_adrv9001_InitCals_t *initCals,
+                                                     uint32_t timeout_ms,
+                                                     uint8_t *errorFlag,
+                                                     adi_adrv9000_DynamicProfile_t dynamicProfile[],
+                                                     uint32_t length);
+
 #ifdef __cplusplus
 }
 #endif

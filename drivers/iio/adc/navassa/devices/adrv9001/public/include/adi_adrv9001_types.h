@@ -219,6 +219,7 @@ typedef struct adi_adrv9001_Info
     uint8_t currentStreamImageIndex;									/*!< Index of current stream  */
     uint32_t currentStreamImageSize;									/*!< Image size of current stream */
     uint8_t frequencyHoppingEnabled;                                    /*!< Frequency hopping enabled flag from currently loaded profile */
+    adi_adrv9001_RxGainTableType_e gainTableType[ADI_ADRV9001_MAX_RX_ONLY]; /*!< type of gain table loaded during ADRV9001 initialization */
 } adi_adrv9001_Info_t;
 
 /**

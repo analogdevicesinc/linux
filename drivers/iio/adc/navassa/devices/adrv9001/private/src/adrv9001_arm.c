@@ -66,7 +66,7 @@
 #define ADRV9001_ADDR_ARM_DMA_BYTE_SEL_BIT_MASK 0x3
 
 #define ADRV9001_PROFILE_CHUNK_MAX              256u
-
+#define ADRV9001_DYNAMIC_PROFILE_BLOB_SIZE      164
 const char* const adrv9001_error_table_ArmBootStatus[] =
 {
     "ARM is powering up",
@@ -75,8 +75,8 @@ const char* const adrv9001_error_table_ArmBootStatus[] =
     "Efuse data error",
     "Stream image checksum error",
     "Device profile checksum error",
-    "Bootup clkgen setup error",
-    "Bootup SCCG init setup error",
+    "Clock PLL initialization error",
+    "System clock initialization error",
     "Device profile init setup error",
     "JTAG build status ready indication",
     "Bootup clock LOGEN error",
@@ -994,12 +994,12 @@ uint8_t         qFirst;                 //!< SSI Q data first
 uint8_t         txRefClockPin;          //!< TX reference clock pin control
 uint8_t         lvdsBitInversion;       //!< LVDS SSI bit inversion, I bit = 0-bit, Q bit = 1-bit, Strobe bit = 2-bit
 uint8_t         lvdsUseLsbIn12bitMode;  //!< LVDS use LSB in 12 bit mode
-uint8_t         lvdsTxFullRefClkEn;     //!< LVDS Tx full refclk enable
+uint8_t         padding;
 uint8_t         lvdsRxClkInversionEn;   //!< LVDS Rx clock inversion enable
-uint8_t         cmosTxDdrNegStrobeEn;   //!< CMOS Tx DDR negative strobe enable
+uint8_t         padding;
 uint8_t         cmosDdrPosClkEn;        //!< CMOS DDR positive clock enable
-uint8_t         cmosDdrClkInversionEn;  //!< CMOS DDR clock inversion enable
-uint8_t         cmosDdrEn;              //!< CMOS DDR enable
+uint8_t         cmosClkInversionEn;     //!< DDR clock inversion enable
+uint8_t         ddrEn;                  //!< DDR enable
 uint8_t         rxMaskStrobeEn;         //!< Rx enable for strobe mask
 uint8_t         padding[4u];
 */
@@ -1027,17 +1027,17 @@ static void adrv9001_LoadSsiConfig(adi_adrv9001_Device_t *device, uint32_t *offs
 
     cfgData[tempOffset++] = ssiConfig->lvdsUseLsbIn12bitMode;
 
-    cfgData[tempOffset++] = (uint8_t)ssiConfig->lvdsTxFullRefClkEn;
+    tempOffset++;
 
     cfgData[tempOffset++] = (uint8_t)ssiConfig->lvdsRxClkInversionEn;
 
-    cfgData[tempOffset++] = (uint8_t)ssiConfig->cmosTxDdrNegStrobeEn;
+    tempOffset++;
 
     cfgData[tempOffset++] = (uint8_t)ssiConfig->cmosDdrPosClkEn;
 
-    cfgData[tempOffset++] = (uint8_t)ssiConfig->cmosDdrClkInversionEn;
+    cfgData[tempOffset++] = (uint8_t)ssiConfig->cmosClkInversionEn;
 
-    cfgData[tempOffset++] = (uint8_t)ssiConfig->cmosDdrEn;
+    cfgData[tempOffset++] = (uint8_t)ssiConfig->ddrEn;
     
     cfgData[tempOffset++] = (uint8_t)ssiConfig->rxMaskStrobeEn;
 
@@ -1585,7 +1585,7 @@ static void adrv9001_DeviceSysConfigWrite(adi_adrv9001_Device_t *device, const a
     /* 1 byte padding */
     tempOffset += 1;
 
-    cfgData[tempOffset++] = sysConfig->numDynamicProfile;
+    cfgData[tempOffset++] = (adi_adrv9001_NumDynamicProfiles_e)(sysConfig->numDynamicProfiles & 0xFF);
 
     cfgData[tempOffset++] = sysConfig->mcsMode;
 
@@ -2778,6 +2778,19 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.ssiDataFormatSel, ADI_ADRV9001_SSI_FORMAT_2_BIT_SYMBOL_DATA, ADI_ADRV9001_SSI_FORMAT_22_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE_8_BIT_GAIN_INDEX);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.numLaneSel, ADI_ADRV9001_SSI_1_LANE, ADI_ADRV9001_SSI_4_LANE);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.strobeType, ADI_ADRV9001_SSI_SHORT_STROBE, ADI_ADRV9001_SSI_LONG_STROBE);
+            
+            if ((ADI_ADRV9001_SSI_TYPE_LVDS == init->tx.txProfile[i].txSsiConfig.ssiType) &&
+                (false == init->tx.txProfile[i].txSsiConfig.ddrEn) &&
+                (init->tx.txProfile[i].txInterfaceSampleRate_Hz > 30720000))
+            {
+                ADI_ERROR_REPORT(&device->common,
+                    ADI_COMMON_ERRSRC_API,
+                    ADI_COMMON_ERR_INV_PARAM,
+                    ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                    init->tx.txProfile[i].txSsiConfig.ddrEn,
+                    "LVDS SDR only supported for sample rates up to 30.72MHz.");
+                ADI_ERROR_RETURN(device->common.error.newAction);
+            }
         }
     }
 
@@ -2809,11 +2822,24 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
             ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxSsiConfig.numLaneSel, ADI_ADRV9001_SSI_1_LANE, ADI_ADRV9001_SSI_4_LANE);
             ADI_RANGE_CHECK(device, init->rx.rxChannelCfg[i].profile.rxSsiConfig.strobeType, ADI_ADRV9001_SSI_SHORT_STROBE, ADI_ADRV9001_SSI_LONG_STROBE);
 
+            if ((ADI_ADRV9001_SSI_TYPE_LVDS == init->rx.rxChannelCfg[i].profile.rxSsiConfig.ssiType) &&
+                (false == init->rx.rxChannelCfg[i].profile.rxSsiConfig.ddrEn) &&
+                (init->rx.rxChannelCfg[i].profile.rxInterfaceSampleRate_Hz > 30720000))
+            {
+                ADI_ERROR_REPORT(&device->common,
+                    ADI_COMMON_ERRSRC_API,
+                    ADI_COMMON_ERR_INV_PARAM,
+                    ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                    init->rx.rxChannelCfg[i].profile.rxSsiConfig.ddrEn,
+                    "LVDS SDR only supported for sample rates up to 30.72MHz.");
+                ADI_ERROR_RETURN(device->common.error.newAction);
+            }
         }
     }
 
     /* Range check parameters in adi_adrv9001_DeviceSysConfig_t */
     ADI_RANGE_CHECK(device, init->sysConfig.duplexMode, ADI_ADRV9001_TDD_MODE, ADI_ADRV9001_FDD_MODE);
+    ADI_RANGE_CHECK(device, init->sysConfig.numDynamicProfiles, ADI_ADRV9001_NUM_DYNAMIC_PROFILES_DISABLED, ADI_ADRV9001_NUM_DYNAMIC_PROFILES_6);
     ADI_RANGE_CHECK(device, init->sysConfig.adcTypeMonitor, ADI_ADRV9001_ADC_LP, ADI_ADRV9001_ADC_HP);
 
     ADI_API_RETURN(device);
@@ -2984,9 +3010,6 @@ int32_t adrv9001_ArmProfileWrite(adi_adrv9001_Device_t *device, const adi_adrv90
 
     offset++;
 
-
-    
-    
     /* Update 'armChannels' with Tx channel information if the channel is enabled; No action is taken otherwise  */
     if (ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID))
     {
@@ -3228,13 +3251,13 @@ typedef struct {
     txWbIntTop_t txWbIntTop;    // TX wideband Interpolation top block
 }adi_adrv9000_txDynamicProfile_t;
 */
-static void adrv9001_LoadTxDynamicProfile(uint32_t *offset, uint8_t cfgData[], const adi_adrv9001_TxProfile_t *txConfig)
+static void adrv9001_LoadTxDynamicProfile(uint32_t *offset, uint8_t cfgData[], const adi_adrv9000_TxDynamicProfile_t *txDynamicProfile)
 {
     uint32_t tempOffset = *offset;
 
-    adrv9001_LoadFourBytes(&tempOffset, cfgData, txConfig->txInputRate_Hz);
-    adrv9001_LoadFourBytes(&tempOffset, cfgData, txConfig->primarySigBandwidth_Hz);
-    adrv9001_LoadTxWbBlockInterpConfig(&tempOffset, cfgData, &txConfig->txDpProfile.txWbIntTop);
+    adrv9001_LoadFourBytes(&tempOffset, cfgData, txDynamicProfile->txInputRate_Hz);
+    adrv9001_LoadFourBytes(&tempOffset, cfgData, txDynamicProfile->primaryBw_Hz);
+    adrv9001_LoadTxWbBlockInterpConfig(&tempOffset, cfgData, &txDynamicProfile->txWbIntTop);
 
     *offset = tempOffset;
 }
@@ -3250,13 +3273,13 @@ typedef struct {
     rxWbDecTop_t rxWbDecTop;    // rxwb_dec_top block
 }adi_adrv9000_rxDynamicProfile_t;
 */
-static void adrv9001_LoadRxDynamicProfile(uint32_t *offset, uint8_t cfgData[], const adi_adrv9001_RxProfile_t *rxConfig)
+static void adrv9001_LoadRxDynamicProfile(uint32_t *offset, uint8_t cfgData[], const adi_adrv9000_RxDynamicProfile_t *rxDynamicProfile)
 {
     uint32_t tempOffset = *offset;
 
-    adrv9001_LoadFourBytes(&tempOffset, cfgData, rxConfig->rxOutputRate_Hz);
-    adrv9001_LoadFourBytes(&tempOffset, cfgData, rxConfig->primarySigBandwidth_Hz);
-    adrv9001_LoadRxWbDecTopConfig(&tempOffset, cfgData, &rxConfig->rxDpProfile.rxWbDecTop);
+    adrv9001_LoadFourBytes(&tempOffset, cfgData, rxDynamicProfile->rxOutputate_Hz);
+    adrv9001_LoadFourBytes(&tempOffset, cfgData, rxDynamicProfile->primaryBw_Hz);
+    adrv9001_LoadRxWbDecTopConfig(&tempOffset, cfgData, &rxDynamicProfile->rxWbDecTop);
 
     *offset = tempOffset;
 }
@@ -3282,47 +3305,28 @@ typedef struct {
 }adi_adrv9000_dynamicProfileBuf_t;
 */
 int32_t adrv9001_DynamicProfile_Write(adi_adrv9001_Device_t *device,
-                                      uint8_t dynamicProfileIndex,
-                                      const adi_adrv9001_Init_t *init)
+                                      const adi_adrv9000_DynamicProfile_t *dynamicProfile)
 {
-    enum { ADRV9001_DYNAMIC_PROFILE_BLOB_SIZE = 164,  /* Declare a true constant that can be used as an array size */
-           ADRV9001_DYNAMIC_PROFILE_TX_SIZE   = 16,
-           ADRV9001_DYNAMIC_PROFILE_RX_SIZE   = 16 };
-
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-    int i = 0;
-
     uint32_t offset = 0;
     uint8_t cfgData[ADRV9001_DYNAMIC_PROFILE_BLOB_SIZE] = { 0 };
-
-    cfgData[offset++] = dynamicProfileIndex;
+    
+    cfgData[offset++] = dynamicProfile->dynamicProfileIndex;
     cfgData[offset++] = 0; // padding
     cfgData[offset++] = 0; // padding
     cfgData[offset++] = 0; // padding
 
     /* Load data for enabled channels; load zeros for disabled channels */
-    for (i = 0; i < ADI_ADRV9001_MAX_TXCHANNELS; i++)
-    {
-        if (ADRV9001_BF_EQUAL( init->tx.txInitChannelMask, TX_CHANNELS[i] ))
-        {
-            adrv9001_LoadTxDynamicProfile(&offset, cfgData, &init->tx.txProfile[i]);
-        }
-        else
-        {
-            offset += ADRV9001_DYNAMIC_PROFILE_TX_SIZE;
-        }
-    }
-    for (i = 0; i < ADI_ADRV9001_MAX_RXCHANNELS; i++)
-    {
-        if (ADRV9001_BF_EQUAL( init->rx.rxInitChannelMask, RX_CHANNELS[i] ))
-        {
-            adrv9001_LoadRxDynamicProfile(&offset, cfgData, &init->rx.rxChannelCfg[i].profile);
-        }
-        else
-        {
-            offset += ADRV9001_DYNAMIC_PROFILE_RX_SIZE;
-        }
-    }
+    adrv9001_LoadTxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[0].txDynamicProfile);
+    adrv9001_LoadTxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[1].txDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[0].rxDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[1].rxDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[0].orxDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[1].orxDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[0].ilbDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[1].ilbDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[0].elbDynamicProfile);
+    adrv9001_LoadRxDynamicProfile(&offset, cfgData, &dynamicProfile->dynamicProfileChannels[1].elbDynamicProfile);
 
     if (offset != sizeof(cfgData))
     {

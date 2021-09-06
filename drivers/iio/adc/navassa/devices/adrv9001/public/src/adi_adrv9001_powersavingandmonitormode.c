@@ -544,18 +544,15 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Pattern_Configure(adi
 }
 
 static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                                                           adi_common_ChannelNumber_e channel,
                                                                                                            adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector)
 {
     static uint16_t VECTOR_MASK_MAX = 0x3FFF;
     ADI_NULL_PTR_RETURN(&adrv9001->common, monitorModeVector);
-    ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_RANGE_CHECK(adrv9001, monitorModeVector->vectorMask, 0x1, VECTOR_MASK_MAX);
     ADI_API_RETURN(adrv9001);
 }
 
 int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure(adi_adrv9001_Device_t *adrv9001,
-                                                                            adi_common_ChannelNumber_e channel,
                                                                             adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector)
 {
     uint8_t mask = 0;
@@ -566,17 +563,12 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure(adi_
     uint32_t vectorConverted = 0;
     static const uint8_t MONITOR_MODE_VECTOR_MAX = 14;
     static const uint8_t MAX_NIBBLE_PER_VECTOR = 12;
-    adrv9001_BfNvsRegmapRx_e baseAddress = ADRV9001_BF_RX1_CORE;
 
-    ADI_PERFORM_VALIDATION(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure_Validate, adrv9001, channel, monitorModeVector);
-    if (ADI_CHANNEL_2 == channel)
-    {
-        baseAddress = ADRV9001_BF_RX2_CORE;
-    }
+    ADI_PERFORM_VALIDATION(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure_Validate, adrv9001, monitorModeVector);
 
     /* Hard code D14 and D15 = 0x1 */
     bfValue = monitorModeVector->vectorMask | 0xC000;
-    ADI_EXPECT(adrv9001_NvsRegmapRx_CorrCtrl_Set, adrv9001, baseAddress, bfValue);
+    ADI_EXPECT(adrv9001_NvsRegmapRx_CorrCtrl_Set, adrv9001, ADRV9001_BF_RX1_CORE, bfValue);
 
     for (mask = 0; mask < MONITOR_MODE_VECTOR_MAX; mask++)
     {
@@ -590,7 +582,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure(adi_
                 vectorCrumb = ((vectorNibble & 0x8) >> 2) | ((vectorNibble & 0x2) >> 1);
                 vectorConverted |= (vectorCrumb << (nibSel * 2));
             }
-            ADI_EXPECT(adrv9001_NvsRegmapRx_Vcorrsig_Set, adrv9001, baseAddress, mask, vectorConverted);
+            ADI_EXPECT(adrv9001_NvsRegmapRx_Vcorrsig_Set, adrv9001, ADRV9001_BF_RX1_CORE, mask, vectorConverted);
             vectorConverted = 0;
         }
     }
@@ -599,16 +591,13 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure(adi_
 }
 
 static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                                                         adi_common_ChannelNumber_e channel,
                                                                                                          adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector)
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, monitorModeVector);
-    ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_API_RETURN(adrv9001);
 }
 
 int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect(adi_adrv9001_Device_t *adrv9001,
-                                                                          adi_common_ChannelNumber_e channel,
                                                                           adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector)
 {
     uint8_t mask = 0;
@@ -622,22 +611,16 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect(adi_ad
     static const uint8_t MONITOR_MODE_VECTOR_MAX = 14;
     static const uint8_t MAX_CRUMB_PER_READVECTOR = 12;
 
-    adrv9001_BfNvsRegmapRx_e baseAddress = ADRV9001_BF_RX1_CORE;
+    ADI_PERFORM_VALIDATION(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect_Validate, adrv9001, monitorModeVector);
 
-    ADI_PERFORM_VALIDATION(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect_Validate, adrv9001, channel, monitorModeVector);
-    if (ADI_CHANNEL_2 == channel)
-    {
-        baseAddress = ADRV9001_BF_RX2_CORE;
-    }
-
-    ADI_EXPECT(adrv9001_NvsRegmapRx_CorrCtrl_Get, adrv9001, baseAddress, &bfValue);
+    ADI_EXPECT(adrv9001_NvsRegmapRx_CorrCtrl_Get, adrv9001, ADRV9001_BF_RX1_CORE, &bfValue);
     monitorModeVector->vectorMask = bfValue & 0x3FFF;
 
     for (mask = 0; mask < MONITOR_MODE_VECTOR_MAX; mask++)
     {
         if (bfValue & (1 << mask))
         {
-            ADI_EXPECT(adrv9001_NvsRegmapRx_Vcorrsig_Get, adrv9001, baseAddress, mask, &readvector);
+            ADI_EXPECT(adrv9001_NvsRegmapRx_Vcorrsig_Get, adrv9001, ADRV9001_BF_RX1_CORE, mask, &readvector);
 
             for (crumbSel = 0; crumbSel < MAX_CRUMB_PER_READVECTOR; crumbSel++)
             {
@@ -836,7 +819,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_RxDmrPd_Calibrate(adi
 {
     ADI_EXPECT(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_RxDmrPd_Prepare, adrv9001);
     ADI_EXPECT(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Pattern_Configure, adrv9001, monitorModePattern);
-    ADI_EXPECT(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure, adrv9001, ADI_CHANNEL_1, monitorModeVector);
+    ADI_EXPECT(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure, adrv9001, monitorModeVector);
     ADI_EXPECT(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_RxDmrPd_Run, adrv9001, timeout_ms, initCalsError);
     ADI_EXPECT(adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_RxDmrPd_Get, adrv9001, pathDelay);
     ADI_API_RETURN(adrv9001);
@@ -862,7 +845,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorM
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, dmrSearchCfg);
     ADI_RANGE_CHECK(adrv9001, dmrSearchCfg->pathDelay, 0, 2047);
-    ADI_RANGE_CHECK(adrv9001, dmrSearchCfg->magcorrTh, 0, 0x7FFF);
+    ADI_RANGE_CHECK(adrv9001, dmrSearchCfg->magcorrTh, 0, 0x7FFFFFFF);
     ADI_RANGE_CHECK(adrv9001, dmrSearchCfg->detCnt1, 0, 2047);
     ADI_RANGE_CHECK(adrv9001, dmrSearchCfg->detCnt2, dmrSearchCfg->detCnt1, 2047);
     ADI_RANGE_CHECK(adrv9001, dmrSearchCfg->detTgtMin, 0, 0x7FFFFFFF);
@@ -883,10 +866,9 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_DmrSearch_Configure(a
     extData[2] = OBJID_CFG_MONITOR_DMR_SEARCH;
 
     adrv9001_LoadFourBytes(&offset, armData, dmrSearchCfg->pathDelay);
-    adrv9001_LoadTwoBytes(&offset, armData, dmrSearchCfg->magcorrTh);
+    adrv9001_LoadFourBytes(&offset, armData, dmrSearchCfg->magcorrTh);
     adrv9001_LoadTwoBytes(&offset, armData, dmrSearchCfg->detCnt1);
     adrv9001_LoadTwoBytes(&offset, armData, dmrSearchCfg->detCnt2);
-    offset += 2;        /* Skip padding */
     offset += 4;        /* Skip four unused bytes */
     adrv9001_LoadFourBytes(&offset, armData, dmrSearchCfg->detTgtMin);
 

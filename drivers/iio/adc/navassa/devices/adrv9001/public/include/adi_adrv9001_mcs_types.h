@@ -71,8 +71,8 @@ typedef struct adi_adrv9001_McsStatus {
     bool firstDigitalSyncComplete;  /*!< Digital synchronization status */
     bool secondDigitalSyncComplete; /*!< Digital synchronization status */
 #ifdef __KERNEL__
-    int32_t rfPll1Phase_degrees;      /*!< The phase difference between LO1 and MCS reference point in degrees */
-    int32_t rfPll2Phase_degrees;      /*!< The phase difference between LO2 and MCS reference point in degrees */
+    int32_t rfPll1Phase_degrees;    /*!< The phase difference between LO1 and MCS reference point in degrees */
+    int32_t rfPll2Phase_degrees;    /*!< The phase difference between LO2 and MCS reference point in degrees */
 #else
     float rfPll1Phase_degrees;      /*!< The phase difference between LO1 and MCS reference point in degrees */
     float rfPll2Phase_degrees;      /*!< The phase difference between LO2 and MCS reference point in degrees */

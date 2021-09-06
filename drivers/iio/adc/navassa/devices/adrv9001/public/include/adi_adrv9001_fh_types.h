@@ -48,17 +48,12 @@ extern "C" {
 /**
  * \brief Minimum carrier frequency supported in frequency hopping mode
  */
-#define ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ 30000000llu    /* 30 MHz */
+#define ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ 25000000llu    /* 25 MHz */
 
 /**
  * \brief Maximum carrier frequency supported in frequency hopping mode
  */
 #define ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ 6000000000llu  /* 6 GHz */
-
-/**
- * \brief Maximum Tx analog front end delay in hop frames
- */
-#define ADI_ADRV9001_FH_MAX_TX_FE_POWERON_FRAME_DELAY 64u
 
 /**
  * \brief Enumeration of frequency hopping modes

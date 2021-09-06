@@ -706,3 +706,71 @@ int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t
 
     ADI_API_RETURN(adrv9001);
 }
+
+int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate_Validate(adi_adrv9001_Device_t *adrv9001,
+                                                              adi_adrv9001_InitCals_t *initCals,
+                                                              uint8_t *errorFlag,
+                                                              adi_adrv9000_DynamicProfile_t dynamicProfile[],
+                                                              uint32_t length)
+{
+    uint8_t chan_index = 0;
+    uint8_t port_index = 0;
+    static uint8_t MAX_NUM_PROFILE = 6;
+    adi_common_Port_e port = ADI_RX;
+    adi_common_ChannelNumber_e channel = ADI_CHANNEL_1;
+    static const uint32_t CHANNELS[][2] = { {ADI_ADRV9001_RX1, ADI_ADRV9001_RX2},
+                                                {ADI_ADRV9001_TX1, ADI_ADRV9001_TX2} };
+
+    adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
+
+    ADI_ENTRY_PTR_EXPECT(adrv9001, initCals);
+    ADI_NULL_PTR_RETURN(&adrv9001->common, errorFlag);
+
+    ADI_NULL_PTR_RETURN(&adrv9001->common, dynamicProfile); 
+    ADI_RANGE_CHECK(adrv9001, length, 1, MAX_NUM_PROFILE);
+
+    for (port = ADI_RX; port <= ADI_TX; port++)
+    {
+        for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
+        {
+            adi_common_channel_to_index(channel, &chan_index);
+            if (ADRV9001_BF_EQUAL(adrv9001->devStateInfo.initializedChannels, CHANNELS[port_index][chan_index]))
+            {
+                ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, adrv9001, port, channel, &state);
+                if (!(ADI_ADRV9001_CHANNEL_STANDBY == state) && !(ADI_ADRV9001_CHANNEL_CALIBRATED == state))
+                {
+                    adi_common_port_to_index(port, &port_index);
+                    ADI_ERROR_REPORT(&adrv9001->common,
+                        ADI_COMMON_ERRSRC_API,
+                        ADI_COMMON_ERR_API_FAIL,
+                        ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                        currentState.channelStates[port_index][chan_index],
+                        "All channels must be in CALIBRATED state to perform dynamic profiles calibration.");
+                    ADI_API_RETURN(adrv9001)
+                }
+            }
+        }
+    }
+
+    ADI_API_RETURN(adrv9001);
+}
+
+int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv9001,
+                                                     adi_adrv9001_InitCals_t *initCals,
+                                                     uint32_t timeout_ms,
+                                                     uint8_t *errorFlag,
+                                                     adi_adrv9000_DynamicProfile_t dynamicProfile[],
+                                                     uint32_t length)
+{
+    int8_t i = 0;
+    ADI_EXPECT(adi_adrv9001_cals_Dynamic_profiles_calibrate_Validate, adrv9001, initCals, errorFlag, dynamicProfile, length);
+    
+    for (i = 0; i <= (length - 1); i++)
+    {
+        ADI_EXPECT(adi_adrv9001_arm_NextDynamicProfile_Set, adrv9001, &dynamicProfile[i]);
+        ADI_EXPECT(adi_adrv9001_arm_Profile_Switch, adrv9001);
+        ADI_EXPECT(adi_adrv9001_cals_InitCals_Run, adrv9001, initCals, timeout_ms, errorFlag);
+    }
+
+    ADI_API_RETURN(adrv9001);
+}
