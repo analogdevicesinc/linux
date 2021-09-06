@@ -36,10 +36,10 @@
 #define IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(index)            ( (0X08000U)+(index)*(INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N) )    /* No description provided */
 #define IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(index)            ( (0X0C000U)+(index)*(INCR_IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N) )    /* No description provided */
 
-#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N(base,index)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N(index))
-#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N(base,index)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N(index))
-#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(base,index)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(index))
-#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(base,index)      ((base)+IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(index))
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N(base,index)      ((base) + IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_I_N(index))
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N(base,index)      ((base) + IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_TX_Q_N(index))
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(base,index)      ((base) + IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_I_N(index))
+#define pREG_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(base,index)      ((base) + IDX_NVS_AHB_TX_DPD_TOP_DPD_TOP_RX_Q_N(index))
 
 /**
  * \brief Supported DPD amplifier types
@@ -111,23 +111,24 @@ typedef struct adi_adrv9001_DpdCfg
      * \note May read back a slightly different value than written due to floating point conversion error
      */
     uint32_t rxTxNormalizationUpperThreshold;
-
+    
     uint32_t detectionPowerThreshold;   //!< Signal power for the power threshold (U1.31) */
     uint32_t detectionPeakThreshold;    //!< Signal power for the peak threshold (U1.31) */
-
+    
     /** If the number of points below the detectionPowerThreshold exceeds this number, the capture is discarded.
      * To disable, set to 4096
      */
     uint16_t countsLessThanPowerThreshold;
-
+    
     /** If the number of points above the detectionPeakThreshold is less than this number, the capture is discarded.
      * To disable, set to 0
      */
     uint16_t countsGreaterThanPeakThreshold;
-
+    
     bool immediateLutSwitching;             //!< Whether the LUT switches immediately or at the end of a Tx frame */
     bool useSpecialFrame;                   //!< Whether to only run DPD on a user indicated special frame */
     bool resetLuts;                         //!< Whether to reset LUTs to unity. Always read as 0 and is self-clearing */
+    uint32_t timeFilterCoefficient;         /*!< Time filter coefficient in U1.31 format */
     uint32_t dpdSamplingRate_Hz;            /*!< sampling rate in Hz for the DPD actuator and capture.
                                                  'dpdSamplingRate_Hz' is read only and is ignored in adi_adrv9001_dpd_Configure() */
 } adi_adrv9001_DpdCfg_t;

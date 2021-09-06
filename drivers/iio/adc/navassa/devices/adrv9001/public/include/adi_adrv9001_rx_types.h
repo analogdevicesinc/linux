@@ -29,7 +29,7 @@ extern "C" {
 
 #define ADI_ADRV9001_RX_GAIN_INDEX_MIN 187
 #define ADI_ADRV9001_RX_GAIN_INDEX_MAX 255
-    
+
 /**
 *  \brief Rx gain table SRAM base addresses
 */
@@ -123,22 +123,12 @@ typedef enum adi_adrv9001_rxManualGainPeakPowerSignalSel
 } adi_adrv9001_RxInterfaceGainUpdateTiming_e;
 
 /**
-*  \brief Enum to select the type of gain table loaded during ADRV9001 initialization
-*/
-typedef enum adi_adrv9001_RxGainTableType
-{
-    ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE   = 0,   /*!< Gain table to use digital gain to adjust for coarse analog gain steps and maintain a constant gain */
-    ADI_ADRV9001_RX_GAIN_COMPENSATION_TABLE = 1    /*!< Gain table to adjust digital gain when analog gain changes to maintain a constant gain*/
-} adi_adrv9001_RxGainTableType_e;
-
-/**
 * \brief Data structure to set/get the Rx interface gain control parameters for the given Rx channel.
 */
 typedef struct adi_adrv9001_RxInterfaceGainCtrl
 {
     adi_adrv9001_RxInterfaceGainUpdateTiming_e  updateInstance;
     adi_adrv9001_RxInterfaceGainCtrlMode_e controlMode;
-    adi_adrv9001_RxGainTableType_e         gainTableType;
     adi_adrv9001_RxInterfaceGain_e         gain;
 } adi_adrv9001_RxInterfaceGainCtrl_t;
 
