@@ -329,6 +329,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_SEND_CERTIFICATE:
 	case COMMAND_FCS_DATA_ENCRYPTION:
 	case COMMAND_FCS_DATA_DECRYPTION:
+	case COMMAND_FCS_GET_PROVISION_DATA:
 	case COMMAND_FCS_PSGSIGMA_TEARDOWN:
 	case COMMAND_FCS_COUNTER_SET_PREAUTHORIZED:
 	case COMMAND_FCS_ATTESTATION_CERTIFICATE_RELOAD:
@@ -370,7 +371,6 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 		cb_data->kaddr2 = &res.a2;
 		break;
 	case COMMAND_FCS_RANDOM_NUMBER_GEN:
-	case COMMAND_FCS_GET_PROVISION_DATA:
 	case COMMAND_POLL_SERVICE_STATUS:
 	case COMMAND_POLL_SERVICE_STATUS_ASYNC:
 	case COMMAND_FCS_GET_ROM_PATCH_SHA384:
@@ -574,7 +574,7 @@ static int svc_normal_to_secure_thread(void *data)
 			break;
 		case COMMAND_FCS_GET_PROVISION_DATA:
 			a0 = INTEL_SIP_SMC_FCS_GET_PROVISION_DATA;
-			a1 = (unsigned long)pdata->paddr;
+			a1 = 0;
 			a2 = 0;
 			break;
 		case COMMAND_FCS_PSGSIGMA_TEARDOWN:
