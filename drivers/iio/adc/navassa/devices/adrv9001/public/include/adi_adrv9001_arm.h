@@ -529,17 +529,15 @@ int32_t adi_adrv9001_arm_MailboxBusy_Get(adi_adrv9001_Device_t *adrv9001, bool *
  *
  * \note Message type: \ref timing_mailbox "Mailbox command"
  *
- * \pre This command is only supported in PRIMED or RF_ON state.
+ * \pre Channel state any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED.
  *
  * \param[in] adrv9001              Context variable - Pointer to the ADRV9001 device data structure containing settings
- * \param[in] dynamicProfileIndex   Identifier for the profile being loaded
- * \param[in] init                  Pointer to the ADRV9001 initialization settings data structure
+ * \param[in] dynamicProfile        ADRV9001 dynamic profile structure
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_arm_NextDynamicProfile_Set(adi_adrv9001_Device_t *adrv9001, 
-                                                uint8_t dynamicProfileIndex, 
-                                                const adi_adrv9001_Init_t *init);
+                                                const adi_adrv9000_DynamicProfile_t *dynamicProfile);
 
 /** \brief Sends one bank for PFIR coefficients to ARM and waits for it to process them
  *
@@ -548,7 +546,7 @@ int32_t adi_adrv9001_arm_NextDynamicProfile_Set(adi_adrv9001_Device_t *adrv9001,
  *
  * \note Message type: \ref timing_mailbox "Mailbox command"
  *
- * \pre Channel state any of: PRIMED, RF_ENABLED
+ * \pre Channel state any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED
  *
  * \param[in]  adrv9001       Context variable - Pointer to the ADRV9001 device data structure containing settings
  * \param[in]  channelMask  The mask of Tx/Rx channels. For Rx this function updates the channel filters, and
@@ -565,7 +563,7 @@ int32_t adi_adrv9001_arm_NextPfir_Set(adi_adrv9001_Device_t *adrv9001,
  *
  * \note Message type: \ref timing_interrupt "Software interrupt"
  *
- * \pre Channel state is PRIMED
+ * \pre Channel state must be CALIBRATED or PRIMED
  *
  * \param[in]  adrv9001     Context variable - Pointer to the ADRV9001 device data structure containing settings
  *
