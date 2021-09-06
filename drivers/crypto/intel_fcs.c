@@ -9,6 +9,7 @@
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/fs.h>
+#include <linux/hw_random.h>
 #include <linux/kobject.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
@@ -74,6 +75,7 @@ struct intel_fcs_priv {
 	unsigned int cid_low;
 	unsigned int cid_high;
 	unsigned int sid;
+	struct hwrng rng;
 };
 
 static void fcs_data_callback(struct stratix10_svc_client *client,
@@ -2339,6 +2341,56 @@ static int fcs_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int fcs_rng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
+{
+	struct stratix10_svc_client_msg *msg;
+	struct intel_fcs_priv *priv;
+	struct device *dev;
+	void *s_buf;
+	int ret = 0;
+	size_t size;
+
+	priv = (struct intel_fcs_priv *)rng->priv;
+	dev = priv->client.dev;
+
+	msg = devm_kzalloc(dev, sizeof(*msg), GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
+	s_buf = stratix10_svc_allocate_memory(priv->chan,
+					      RANDOM_NUMBER_SIZE);
+	if (!s_buf) {
+		dev_err(dev, "failed to allocate RNG buffer\n");
+		return -ENOMEM;
+	}
+
+	msg->command = COMMAND_FCS_RANDOM_NUMBER_GEN;
+	msg->payload = s_buf;
+	msg->payload_length = RANDOM_NUMBER_SIZE;
+	priv->client.receive_cb = fcs_data_callback;
+
+	ret = fcs_request_service(priv, (void *)msg,
+				  FCS_REQUEST_TIMEOUT);
+	if (!ret && !priv->status) {
+		if (!priv->kbuf) {
+			dev_err(dev, "failure on kbuf\n");
+			fcs_close_services(priv, s_buf, NULL);
+			return -EFAULT;
+		}
+
+		if (max > priv->size)
+			size = priv->size;
+		else
+			size = max;
+
+		memcpy((uint8_t *)buf, (uint8_t *)priv->kbuf, size);
+	}
+
+	fcs_close_services(priv, s_buf, NULL);
+
+	return size;
+}
+
 static const struct file_operations fcs_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = fcs_ioctl,
@@ -2381,14 +2433,25 @@ static int fcs_driver_probe(struct platform_device *pdev)
 
 	init_completion(&priv->completion);
 
-	platform_set_drvdata(pdev, priv);
-
 	ret = misc_register(&priv->miscdev);
 	if (ret) {
 		dev_err(dev, "can't register on minor=%d\n",
 			MISC_DYNAMIC_MINOR);
 		return ret;
 	}
+
+	/* register hwrng device */
+	priv->rng.name = "intel-rng";
+	priv->rng.read = fcs_rng_read;
+	priv->rng.priv = (unsigned long)priv;
+
+	ret = hwrng_register(&priv->rng);
+	if (ret) {
+		dev_err(dev, "can't register RNG device (%d)\n", ret);
+		return ret;
+	}
+
+	platform_set_drvdata(pdev, priv);
 
 	return 0;
 }
@@ -2397,6 +2460,7 @@ static int fcs_driver_remove(struct platform_device *pdev)
 {
 	struct intel_fcs_priv *priv = platform_get_drvdata(pdev);
 
+	hwrng_unregister(&priv->rng);
 	misc_deregister(&priv->miscdev);
 	stratix10_svc_free_channel(priv->chan);
 
