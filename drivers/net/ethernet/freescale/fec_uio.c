@@ -2151,7 +2151,7 @@ static int __maybe_unused fec_enet_uio_resume(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct fec_enet_private *fep = netdev_priv(ndev);
-	int ret;
+	int ret = 0;
 	int val;
 
 	if (fep->reg_phy && !(fep->wol_flag & FEC_WOL_FLAG_ENABLE)) {
