@@ -31,12 +31,15 @@
 #include "adi_adrv9001_tx.h"
 #include "adi_adrv9001_stream.h"
 #include "adi_adrv9001_dpd.h"
+
 #include "adi_adrv9001_fh.h"
+
 #include "adi_adrv9001_gpio.h"
 #include "adi_adrv9001_ssi.h"
 
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_bf_hal.h"
+#include "adrv9001_bf.h"
 
 #define ADI_ADRV9001_ARM_BINARY_IMAGE_FILE_SIZE_BYTES (288*1024)
 
@@ -48,7 +51,7 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, cons
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint32_t i = 0;
 #ifndef __KERNEL__
-     uint8_t armBinaryImageBuffer[ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES];
+    uint8_t armBinaryImageBuffer[ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES];
 #else
     /*
      * linux stack is not that big which means we need to be carefull. Some archs like arm set
@@ -140,7 +143,7 @@ int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, c
     return recoveryAction;
 }
 
-int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, const char *rxGainTablePath, uint32_t rxChannelMask)
+int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, adi_common_Port_e port, const char *rxGainTablePath, adi_common_ChannelNumber_e channel, adi_adrv9001_RxLnaConfig_t *lnaConfig, adi_adrv9001_RxGainTableType_e gainTableType)
 {
     uint8_t maxGainIndex = 0;
     uint8_t prevGainIndex = 0;
@@ -152,13 +155,19 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
     static adi_adrv9001_RxGainTableRow_t rxGainTableRowBuffer[ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS];
     static const uint8_t NUM_COLUMNS = 7;
 
-    static const uint8_t MIN_GAIN_INDEX_ORX = 2;
-    static const uint8_t MAX_GAIN_INDEX_ORX = 14;
-
     int32_t returnTableEntry = NUM_COLUMNS;
+
+    uint8_t minIndex = 0;
+    adrv9001_BfNvsRegmapRxb_e instances[] = { ADRV9001_BF_RXB1_CORE, ADRV9001_BF_RXB2_CORE };
+    adrv9001_BfNvsRegmapRxb_e instance = ADRV9001_BF_RXB1_CORE;
+    uint8_t instanceIdx = 0;
 
     /* Check device pointer is not null */
     ADI_ENTRY_PTR_EXPECT(device, rxGainTablePath);
+
+    adi_common_channel_to_index(channel, &instanceIdx);
+    instance = instances[instanceIdx];
+    ADI_EXPECT(adrv9001_NvsRegmapRxb_AgcMinimumGainIndex_Get, device, instance, &minIndex);
 
     /*Loop until the gain table end is reached or no. of lines scanned exceeds maximum*/
     while (lineCount <  ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS)
@@ -185,10 +194,10 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
 
         rxGainTableRowBuffer[lineCount].adcTiaGain = ((adcControl << 1) | tiaControl);
 
-        if (gainIndex < ADI_ADRV9001_RX_GAIN_INDEX_MIN)
+        if (gainIndex < minIndex)
         {
-            if ((gainIndex < MIN_GAIN_INDEX_ORX) ||
-                (gainIndex > MAX_GAIN_INDEX_ORX))
+            if ((gainIndex < ADI_ADRV9001_ORX_GAIN_INDEX_MIN) ||
+                (gainIndex > ADI_ADRV9001_ORX_GAIN_INDEX_MAX))
             {
                 break;
             }
@@ -211,7 +220,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
     }
 
     maxGainIndex = prevGainIndex;
-    ADI_EXPECT(adi_adrv9001_Rx_GainTable_Write, device, rxChannelMask, maxGainIndex, &rxGainTableRowBuffer[0], lineCount);
+    ADI_EXPECT(adi_adrv9001_Rx_GainTable_Write, device, port, channel, maxGainIndex, &rxGainTableRowBuffer[0], lineCount, lnaConfig, gainTableType);
 
     ADI_API_RETURN(device);
 }

@@ -56,19 +56,25 @@ extern "C" {
  *      running init cals.
  *
  * \param[in] adrv9001           Context variable - Pointer to the ADRV9001 device data structure
- * \param[in] channelMask        An OR'd combination of adi_common_ChannelNumber_e
+ * \param[in] port               The desired Rx or ORx port
+ * \param[in] channel            The Rx Channel from which to write the gain table
  *                               specifying the Rx Channels for which to write the gain table
  * \param[in] gainIndexOffset    The starting gain index from which the gain table is written
  * \param[in] gainTableRows      Array of gain table row entries to write
  * \param[in] arraySize          The number of gain table rows to write
+ * \param[in] lnaConfig          The desired LNA configuration
+ * \param[in] gainTableType      Gain table loaded during ADRV9001 initialization
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_Rx_GainTable_Write(adi_adrv9001_Device_t *adrv9001,
-                                        uint32_t channelMask,
+                                        adi_common_Port_e port,
+                                        adi_common_ChannelNumber_e channel,
                                         uint8_t  gainIndexOffset,
                                         adi_adrv9001_RxGainTableRow_t gainTableRows[],
-                                        uint32_t arraySize);
+                                        uint32_t arraySize,
+                                        adi_adrv9001_RxLnaConfig_t *lnaConfig,
+                                        adi_adrv9001_RxGainTableType_e gainTableType);
 
 /**
  * \brief Reads the gain table entries for the specified Rx channel
@@ -248,12 +254,14 @@ int32_t adi_adrv9001_Rx_InterfaceGain_Set(adi_adrv9001_Device_t *adrv9001,
  * \param[in]  adrv9001                  Context variable - Pointer to the ADRV9001 device data structure
  * \param[in]  channel                   The Rx channel for which to inspect the interface gain control configuration
  * \param[out] rxInterfaceGainConfig     The current Rx interface gain control configuration
+ * \param[out] gainTableType             The current gain table type loaded
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_Rx_InterfaceGain_Inspect(adi_adrv9001_Device_t *adrv9001,
                                               adi_common_ChannelNumber_e channel,
-                                              adi_adrv9001_RxInterfaceGainCtrl_t *rxInterfaceGainConfig);
+                                              adi_adrv9001_RxInterfaceGainCtrl_t *rxInterfaceGainConfig,
+                                              adi_adrv9001_RxGainTableType_e *gainTableType);
 
 /**
  * \brief Get the Rx interface gain for the given Rx channel
@@ -425,6 +433,61 @@ int32_t adi_adrv9001_Rx_PortSwitch_Configure(adi_adrv9001_Device_t *adrv9001,
  */
 int32_t adi_adrv9001_Rx_PortSwitch_Inspect(adi_adrv9001_Device_t *adrv9001, 
                                            adi_adrv9001_RxPortSwitchCfg_t *switchConfig);
+
+/**
+ * \brief Configure the external LNA for the desired RX channel
+ * 
+ * \note Message type: \ref timing_direct "Direct register access"
+ *
+ * \pre Channel state must be STANDBY
+ *
+ * \param[in] adrv9001         Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] channel          The Rx Channel from which to configure the external LNA
+ * \param[in] lnaConfig        The desired LNA configuration
+ * \param[in] gainTableType      Gain table loaded during ADRV9001 initialization
+ * 
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Rx_ExternalLna_Configure(adi_adrv9001_Device_t *adrv9001,
+                                              adi_common_ChannelNumber_e channel,
+                                              adi_adrv9001_RxLnaConfig_t *lnaConfig,
+                                              adi_adrv9001_RxGainTableType_e gainTableType);
+
+/**
+ * \brief Set LNA digital gain delay for the desired RX channel
+ * 
+ * \note Message type: \ref timing_direct "Direct register access"
+ *
+ * \pre Channel state must be STANDBY, CALIBRATED
+ *
+ * \param[in] adrv9001              Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] channel               The Rx Channel from which to configure the external LNA
+ * \param[in] lnaDigitalGainDelay   The desired LNA gain delay
+ * \param[in] gainTableType         Gain table loaded during ADRV9001 initialization
+ * 
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Rx_ExternalLna_DigitalGainDelay_Set(adi_adrv9001_Device_t *adrv9001,
+                                                         adi_common_ChannelNumber_e channel,
+                                                         uint16_t lnaDigitalGainDelay,
+                                                         adi_adrv9001_RxGainTableType_e gainTableType);
+
+/**
+ * \brief Get LNA digital gain delay for the desired RX channel
+ * 
+ * \note Message type: \ref timing_direct "Direct register access"
+ *
+ * \pre Channel state is any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED
+ *
+ * \param[in]  adrv9001              Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in]  channel               The Rx Channel from which to configure the external LNA
+ * \param[out] lnaDigitalGainDelay   The current LNA gain delay
+ * 
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Rx_ExternalLna_DigitalGainDelay_Get(adi_adrv9001_Device_t *adrv9001,
+                                                         adi_common_ChannelNumber_e channel,
+                                                         uint16_t *lnaDigitalGainDelay);
 
 #ifdef __cplusplus
 }

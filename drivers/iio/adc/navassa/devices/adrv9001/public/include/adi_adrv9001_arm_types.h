@@ -54,18 +54,18 @@ typedef enum adi_adrv9001_ArmBootStates
     ADI_ADRV9001_ARM_BOOT_READY                             = 1,    /*!< ARM booted with no failure */
     ADI_ADRV9001_ARM_BOOT_FW_CHECKSUM_ERR                   = 2,    /*!< ARM firmware checksum error */
     ADI_ADRV9001_ARM_BOOT_EFUSE_DATA_ERR                    = 3,    /*!< Efuse data error */
-    ADI_ADRV9001_ARM_BOOT_STREAM_IMG_CHECKSUM_ERR           = 4,    /*!< Stream image checksum error */
+    ADI_ADRV9001_ARM_BOOT_STATE_DATAMEM_ERR                 = 4,    /*!< ARM data memory error */
     ADI_ADRV9001_ARM_BOOT_DEVICE_PROFILE_CHECKSUM_ERR       = 5,    /*!< Device profile checksum error */
     ADI_ADRV9001_ARM_BOOT_CLKGEN_ERR                        = 6,    /*!< Bootup clkgen setup error */
     ADI_ADRV9001_ARM_BOOT_CLKSSI_ERR                        = 7,    /*!< Bootup SSI setup error */
-    ADI_ADRV9001_ARM_BOOT_POWER_INIT_ERR                    = 8,    /*!< Power init setup error */
+    ADI_ADRV9001_ARM_BOOT_DEVICE_PROFILE_INIT_ERR           = 8,    /*!< Device profile init setup error */
     ADI_ADRV9001_ARM_BOOT_JTAG_BUILD_STATUS_READY           = 9,    /*!< JTAG build status ready indication */
     ADI_ADRV9001_ARM_BOOT_CLKLOGEN_ERR                      = 10,   /*!< Bootup clock LOGEN error */
     ADI_ADRV9001_ARM_BOOT_RXQECHW_ERR                       = 11,   /*!< Error initializing RxQEC hardware */
     ADI_ADRV9001_ARM_BOOT_HM_TIMER_ERR                      = 12,   /*!< Failed to create health monitor timers */
     ADI_ADRV9001_ARM_BOOT_ADC_RCAL_ERR                      = 13,   /*!< ADC RCAL error */
-    ADI_ADRV9001_ARM_BOOT_STREAM_RUNTIME_ERR                = 14,   /*!< Stream runtime error */
-    ADI_ADRV9001_ARM_BOOT_CLKGEN_RCAL_ERR                   = 15,   /*!< Bootup clkgen setup after RCAL error */
+    ADI_ADRV9001_ARM_BOOT_STATE_ADC_CCAL_ERR                = 14,   /*!< ADC CCAL error */
+    ADI_ADRV9001_ARM_BOOT_STATE_STREAM_RUNTIME_ERR          = 15,   /*!< Stream Run error */
 } adi_adrv9001_ArmBootStates_e;
 
 /**
