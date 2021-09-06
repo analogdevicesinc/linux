@@ -155,7 +155,7 @@ int32_t adi_adrv9001_arm_StartStatus_Check(adi_adrv9001_Device_t *device, uint32
         {
             break; /* Valid case - ARM booted successfully */
         }
-        else if (state.bootState <= ADI_ADRV9001_ARM_BOOT_CLKGEN_RCAL_ERR)
+        else if (state.bootState <= ADI_ADRV9001_ARM_BOOT_STATE_STREAM_RUNTIME_ERR)
         {
             ADI_EXPECT(adi_adrv9001_arm_SystemError_Get, device, &objId, (uint8_t *)(&errorCode));
             errorCode = ((uint16_t)objId << 8) | errorCode;
@@ -1265,17 +1265,23 @@ int32_t adi_adrv9001_arm_WakeupInterrupt_Set(adi_adrv9001_Device_t *device)
     ADI_API_RETURN(device);
 }
 
+static __maybe_unused int32_t adi_adrv9001_arm_NextDynamicProfile_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+                                                                               const adi_adrv9000_DynamicProfile_t *dynamicProfile)
+{
+    /* Check input pointers are not null */
+    ADI_ENTRY_PTR_EXPECT(adrv9001, dynamicProfile);
+    ADI_RANGE_CHECK(adrv9001, dynamicProfile->dynamicProfileIndex, ADI_ADRV9001_DYNAMIC_PROFILE_INDEX0, ADI_ADRV9001_DYNAMIC_PROFILE_INDEX5)
+    ADI_API_RETURN(adrv9001);
+}
+
 int32_t adi_adrv9001_arm_NextDynamicProfile_Set(adi_adrv9001_Device_t *device,
-                                                uint8_t dynamicProfileIndex,
-                                                const adi_adrv9001_Init_t *init)
+                                                const adi_adrv9000_DynamicProfile_t *dynamicProfile)
 {
     uint8_t extData[5] = { 0 };
 
-    /* Check input pointers are not null */
-    ADI_ENTRY_PTR_EXPECT(device, init);
-
+    ADI_EXPECT(adi_adrv9001_arm_NextDynamicProfile_Set_Validate, device, dynamicProfile);
     /* Send the profile data */
-    ADI_EXPECT(adrv9001_DynamicProfile_Write, device, dynamicProfileIndex, init);
+    ADI_EXPECT(adrv9001_DynamicProfile_Write, device, dynamicProfile);
 
     /* Execute the SET:DYNAMIC_PROFILE command */
     extData[0] = 0xFF;
@@ -1292,17 +1298,24 @@ int32_t adi_adrv9001_arm_NextDynamicProfile_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
+static __maybe_unused int32_t adi_adrv9001_arm_NextPfir_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+                                                                     uint8_t channelMask,
+                                                                     const adi_adrv9001_PfirWbNbBuffer_t *pfirCoeff)
+{
+    /* Check input pointers are not null */
+    ADI_ENTRY_PTR_EXPECT(adrv9001, pfirCoeff);
+    /* Check the channelMask refers to valid channels (bits 0 to 3) and is not empty */
+    ADI_RANGE_CHECK(adrv9001, channelMask, 1, 15)
+    ADI_API_RETURN(adrv9001);
+}
+
 int32_t adi_adrv9001_arm_NextPfir_Set(adi_adrv9001_Device_t *device,
                                       uint8_t channelMask,
                                       const adi_adrv9001_PfirWbNbBuffer_t *pfirCoeff)
 {
     uint8_t extData[5] = { 0 };
 
-    /* Check input pointers are not null */
-    ADI_ENTRY_PTR_EXPECT(device, pfirCoeff);
-
-    /* Check the channelMask refers to valid channels (bits 0 to 3) and is not empty */
-    ADI_RANGE_CHECK(device, channelMask, 1, 15)
+    ADI_EXPECT(adi_adrv9001_arm_NextPfir_Set_Validate, device, channelMask, pfirCoeff);
 
     /* Send the PFIR data */
     ADI_EXPECT(adrv9001_PfirWbNbBuffer_Write, device, pfirCoeff);
@@ -1376,6 +1389,48 @@ int32_t adi_adrv9001_arm_NextTxPulseShaper_Set(adi_adrv9001_Device_t *device,
     }
 
     ADI_API_RETURN(device);
+}
+
+static __maybe_unused int32_t adi_adrv9001_arm_Profile_Switch_Validate(adi_adrv9001_Device_t *adrv9001)
+{
+    uint8_t chan_index = 0;
+    uint8_t port_index = 0;
+    adi_adrv9001_RadioState_t currentState = { 0 };
+    adi_common_Port_e port = ADI_RX;
+    adi_common_ChannelNumber_e channel = ADI_CHANNEL_1;
+    static const uint32_t CHANNELS[][2] = { {ADI_ADRV9001_RX1, ADI_ADRV9001_RX2},
+                                            {ADI_ADRV9001_TX1, ADI_ADRV9001_TX2} };
+
+    adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
+
+    /* Validate current state */
+    ADI_EXPECT(adi_adrv9001_Radio_State_Get, adrv9001, &currentState);
+
+    for (port = ADI_RX; port <= ADI_TX; port++)
+    {
+        for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
+        {
+            adi_common_channel_to_index(channel, &chan_index);
+            if (ADRV9001_BF_EQUAL(adrv9001->devStateInfo.initializedChannels, CHANNELS[port_index][chan_index]))
+            {
+                ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, adrv9001, port, channel, &state);
+                //if ((ADI_ADRV9001_CHANNEL_STANDBY == state) || (ADI_ADRV9001_CHANNEL_RF_ENABLED == state))
+                if(ADI_ADRV9001_CHANNEL_RF_ENABLED == state)
+                {
+                    adi_common_port_to_index(port, &port_index);
+                    ADI_ERROR_REPORT(&adrv9001->common,
+                        ADI_COMMON_ERRSRC_API,
+                        ADI_COMMON_ERR_API_FAIL,
+                        ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                        currentState.channelStates[port_index][chan_index],
+                        "Error while attempting to send profile switch mailbox command to ARM firmware. All the channels must be in one of CALIBRATED or PRIMED state.");
+                    ADI_API_RETURN(adrv9001)
+                }
+            }
+        }
+    }
+
+    ADI_API_RETURN(adrv9001);
 }
 
 int32_t adi_adrv9001_arm_Profile_Switch(adi_adrv9001_Device_t *device)

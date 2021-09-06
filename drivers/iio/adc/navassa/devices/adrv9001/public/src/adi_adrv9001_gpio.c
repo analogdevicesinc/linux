@@ -315,7 +315,24 @@ int32_t adi_adrv9001_gpio_ControlInit_Configure(adi_adrv9001_Device_t *adrv9001,
     }
     if (ADI_ADRV9001_GPIO_UNASSIGNED != initCfg->systemPowerSavingAndMonitorWakeUp.pin)
     {
-        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_MON_WAKEUP, &initCfg->systemPowerSavingAndMonitorWakeUp);
+        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_MON_BBIC_WAKEUP, &initCfg->systemPowerSavingAndMonitorWakeUp);
+    }
+
+    if (ADI_ADRV9001_GPIO_UNASSIGNED != initCfg->rx1ExternalLnaPinCfg[0].pin)
+    {
+        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_RX1_LNA_ATTENUATION_1, &initCfg->rx1ExternalLnaPinCfg[0]);
+    }
+    if (ADI_ADRV9001_GPIO_UNASSIGNED != initCfg->rx1ExternalLnaPinCfg[1].pin)
+    {
+        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_RX1_LNA_ATTENUATION_2, &initCfg->rx1ExternalLnaPinCfg[1]);
+    }
+    if (ADI_ADRV9001_GPIO_UNASSIGNED != initCfg->rx2ExternalLnaPinCfg[0].pin)
+    {
+        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_RX2_LNA_ATTENUATION_1, &initCfg->rx2ExternalLnaPinCfg[0]);
+    }
+    if (ADI_ADRV9001_GPIO_UNASSIGNED != initCfg->rx2ExternalLnaPinCfg[1].pin)
+    {
+        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_RX2_LNA_ATTENUATION_2, &initCfg->rx2ExternalLnaPinCfg[1]);
     }
 
     ADI_API_RETURN(adrv9001);

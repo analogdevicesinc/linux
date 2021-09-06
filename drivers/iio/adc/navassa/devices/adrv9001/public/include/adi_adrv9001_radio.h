@@ -27,7 +27,7 @@ extern "C" {
 /**
  * \brief Minimum supported carrier frequency 
  */
-#define ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ 30000000llu    /* 30 MHz */
+#define ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ 25000000llu    /* 25 MHz */
 /**
  * \brief Maximum supported carrier frequency
  */

@@ -156,7 +156,7 @@ typedef struct adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeRssiCfg
  */
 typedef struct adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeDmrSearchCfg {
     uint32_t pathDelay;     /*!< Path delay from RxDmrPd calibration, 0..2047 samples */
-    int16_t magcorrTh;      /*!< Power threshold, to differentiate noise floor from possible frame data.
+    int32_t  magcorrTh;     /*!< Power threshold, to differentiate noise floor from possible frame data.
                                  Units are 24x the square of the units at input to the frequency discriminator.
                                  Suggested value is 9000 */
     int16_t detCnt1;        /*!< Earliest position in frame to search. Suggested 375 */

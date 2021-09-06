@@ -103,6 +103,7 @@ int32_t adi_adrv9001_Ssi_Rx_TestMode_Configure(adi_adrv9001_Device_t *device,
                     ADI_EXPECT(adrv9001_NvsRegmapRx_CssiRxDebugNibbleSel_Set, device, instance, 0x3);
                     ADI_EXPECT(adrv9001_NvsRegmapRx_CssiRxDebugLoadValue_Set, device, instance, (uint8_t)(ssiTestModeConfig->fixedDataPatternToTransmit & 0xF));
                     ADI_EXPECT(adrv9001_NvsRegmapRx_CssiRxDebugLoad_Set, device, instance, 0x1);
+	                adi_common_hal_Wait_us(&device->common, 1000);
                     ADI_EXPECT(adrv9001_NvsRegmapRx_CssiRxDebugLoad_Set, device, instance, 0x0);
                 }
             }
@@ -138,6 +139,7 @@ int32_t adi_adrv9001_Ssi_Rx_TestMode_Configure(adi_adrv9001_Device_t *device,
             {
                 ADI_EXPECT(adrv9001_NvsRegmapRx_LssiRxDebugLoadValue_Set, device, instance, (uint16_t)(ssiTestModeConfig->fixedDataPatternToTransmit & 0xFFFF));
                 ADI_EXPECT(adrv9001_NvsRegmapRx_LssiRxDebugLoad_Set, device, instance, 0x1);
+	            adi_common_hal_Wait_us(&device->common, 1000);
                 ADI_EXPECT(adrv9001_NvsRegmapRx_LssiRxDebugLoad_Set, device, instance, 0x0);
             }
         }

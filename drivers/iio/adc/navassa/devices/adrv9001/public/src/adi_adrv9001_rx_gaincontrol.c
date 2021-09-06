@@ -440,13 +440,13 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
         gpioCrumb3_2 = (uint8_t)agcCfg->power.feedback_apd_high_apd_low;
         if (ADI_CHANNEL_1 == channel)
         {
-	        gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX1_5_4;
-	        gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX1_7_6;
+            gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX1_5_4;
+            gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX1_7_6;
         }
         else
         {
-	        gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX2_5_4;
-	        gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX2_7_6;
+            gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX2_5_4;
+            gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX2_7_6;
         }
     }
 
@@ -460,8 +460,8 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb1_0 - 1), gpioSource1_0);
     ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb3_2 - 1), gpioSource3_2);
 
-	ADI_EXPECT(adrv9001_NvsRegmapRx_ControlOutMuxSel_Set, device, rxAddr, controlMuxAddress);
-	
+    ADI_EXPECT(adrv9001_NvsRegmapRx_ControlOutMuxSel_Set, device, rxAddr, controlMuxAddress);
+    
 
     ADI_API_RETURN(device);
 }
@@ -592,47 +592,47 @@ int32_t adi_adrv9001_Rx_GainControl_Inspect(adi_adrv9001_Device_t *device,
     agcCfg->power.feedback_inner_high_inner_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
     for (i = 0; i < ADI_ADRV9001_GPIO_PIN_CRUMB_15_14; i++)
     {
-	    ADRV9001_SPIREADBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + i), &bfValue); 
-	    if (agcCfg->agcMode == (adi_adrv9001_RxGainControlDetectionMode_e)(0))
-	    {
-		    switch (bfValue)
-		    {
-		    case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  
-			    agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);      
-			    break;
-		    case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
-			    agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);      
-			    break;
-		    case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:
-			    agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-			    break;
-		    case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
-			    agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-			    break;
-		    default:
-			    break;
-		    }
-	    }
-		else
-		{
-			switch (bfValue)
-			{
-			case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  
-				agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);    
-				break;
-			case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
-				agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-				break;
-			case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:
-				agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-				break;
-			case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
-				agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
-				break;
-			default:
-				break;
-			}
-		}
+        ADRV9001_SPIREADBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + i), &bfValue); 
+        if (agcCfg->agcMode == (adi_adrv9001_RxGainControlDetectionMode_e)(0))
+        {
+            switch (bfValue)
+            {
+            case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  
+                agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);      
+                break;
+            case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
+                agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);      
+                break;
+            case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:
+                agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+                break;
+            case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
+                agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            switch (bfValue)
+            {
+            case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  
+                agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);    
+                break;
+            case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
+                agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+                break;
+            case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:
+                agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+                break;
+            case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
+                agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+                break;
+            default:
+                break;
+            }
+        }
     }
 
     ADI_API_RETURN(device);
@@ -643,11 +643,19 @@ static __maybe_unused int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Set_Va
                                                                         uint8_t minGainIndex,
                                                                         uint8_t maxGainIndex)
 {
+    uint8_t minIndex = 0;
+    adrv9001_BfNvsRegmapRxb_e instances[] = { ADRV9001_BF_RXB1_CORE, ADRV9001_BF_RXB2_CORE };
+    adrv9001_BfNvsRegmapRxb_e instance = ADRV9001_BF_RXB1_CORE;
+    uint8_t instanceIdx = 0;
+
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
-    ADI_RANGE_CHECK(device, minGainIndex, ADI_ADRV9001_RX_GAIN_INDEX_MIN, (maxGainIndex - 1));
-    ADI_RANGE_CHECK(device, maxGainIndex, (minGainIndex + 1), ADI_ADRV9001_RX_GAIN_INDEX_MAX);
+    adi_common_channel_to_index(channel, &instanceIdx);
+    instance = instances[instanceIdx];
+    ADI_EXPECT(adrv9001_NvsRegmapRxb_AgcMinimumGainIndex_Get, device, instance, &minIndex);
 
+    ADI_RANGE_CHECK(device, minGainIndex, minIndex, (maxGainIndex - 1));
+    ADI_RANGE_CHECK(device, maxGainIndex, (minGainIndex + 1), ADI_ADRV9001_RX_GAIN_INDEX_MAX);
     ADI_API_RETURN(device);
 }
 
