@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2019,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -203,7 +203,7 @@ static void fetchdecode_set_fmt(struct dpu_fetchunit *fu,
 	case DRM_FORMAT_NV16:
 	case DRM_FORMAT_NV61:
 		is_yuv422upsamplingmode_interpolate = true;
-		/* fall-through */
+		fallthrough;
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
 		if (deinterlace)
