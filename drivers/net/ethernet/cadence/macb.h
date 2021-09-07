@@ -79,7 +79,6 @@
 #define GEM_NCFGR		0x0004 /* Network Config */
 #define GEM_USRIO		0x000c /* User IO */
 #define GEM_DMACFG		0x0010 /* DMA Configuration */
-#define GEM_PBUFRXCUT		0x0044 /* RX Partial Store and Forward */
 #define GEM_JML			0x0048 /* Jumbo Max Length */
 #define GEM_HRB			0x0080 /* Hash Bottom */
 #define GEM_HRT			0x0084 /* Hash Top */
@@ -91,9 +90,6 @@
 #define GEM_SA3T		0x009C /* Specific3 Top */
 #define GEM_SA4B		0x00A0 /* Specific4 Bottom */
 #define GEM_SA4T		0x00A4 /* Specific4 Top */
-#define GEM_WOL			0x00B8 /* Wake on LAN */
-#define GEM_RXPTPUNI		0x00D4 /* PTP RX Unicast address */
-#define GEM_TXPTPUNI		0x00D8 /* PTP TX Unicast address */
 #define GEM_EFTSH		0x00e8 /* PTP Event Frame Transmitted Seconds Register 47:32 */
 #define GEM_EFRSH		0x00ec /* PTP Event Frame Received Seconds Register 47:32 */
 #define GEM_PEFTSH		0x00f0 /* PTP Peer Event Frame Transmitted Seconds Register 47:32 */
@@ -159,7 +155,6 @@
 #define GEM_PEFTN		0x01f4 /* PTP Peer Event Frame Tx Ns */
 #define GEM_PEFRSL		0x01f8 /* PTP Peer Event Frame Rx Sec Low */
 #define GEM_PEFRN		0x01fc /* PTP Peer Event Frame Rx Ns */
-#define GEM_PCSCNTRL		0x0200 /* PCS Control */
 #define GEM_DCFG1		0x0280 /* Design Config 1 */
 #define GEM_DCFG2		0x0284 /* Design Config 2 */
 #define GEM_DCFG3		0x0288 /* Design Config 3 */
@@ -232,8 +227,6 @@
 #define MACB_TZQ_OFFSET		12 /* Transmit zero quantum pause frame */
 #define MACB_TZQ_SIZE		1
 #define MACB_SRTSM_OFFSET	15
-#define MACB_PTPUNI_OFFSET			20
-#define MACB_PTPUNI_SIZE			1
 #define MACB_OSSMODE_OFFSET 24 /* Enable One Step Synchro Mode */
 #define MACB_OSSMODE_SIZE	1
 
@@ -321,11 +314,6 @@
 #define GEM_ADDR64_OFFSET	30 /* Address bus width - 64b or 32b */
 #define GEM_ADDR64_SIZE		1
 
-/* Bitfields in PBUFRXCUT */
-#define GEM_WTRMRK_OFFSET	0 /* Watermark value offset */
-#define GEM_WTRMRK_SIZE		12
-#define GEM_ENCUTTHRU_OFFSET	31 /* Enable RX partial store and forward */
-#define GEM_ENCUTTHRU_SIZE	1
 
 /* Bitfields in NSR */
 #define MACB_NSR_LINK_OFFSET	0 /* pcs_link_state */
@@ -388,7 +376,7 @@
 #define MACB_PFR_SIZE		1
 #define MACB_PTZ_OFFSET		13 /* Enable pause time zero interrupt */
 #define MACB_PTZ_SIZE		1
-#define MACB_WOL_OFFSET		28 /* Enable WOL received interrupt */
+#define MACB_WOL_OFFSET		14 /* Enable wake-on-lan interrupt */
 #define MACB_WOL_SIZE		1
 #define MACB_DRQFR_OFFSET	18 /* PTP Delay Request Frame Received */
 #define MACB_DRQFR_SIZE		1
@@ -466,10 +454,6 @@
 #define MACB_IDNUM_SIZE				12
 #define MACB_REV_OFFSET				0
 #define MACB_REV_SIZE				16
-
-/* Bitfields in PCSCNTRL */
-#define GEM_PCSAUTONEG_OFFSET			12
-#define GEM_PCSAUTONEG_SIZE			1
 
 /* Bitfields in DCFG1. */
 #define GEM_IRQCOR_OFFSET			23
@@ -584,9 +568,6 @@
 #define GEM_T2OFST_OFFSET			0 /* offset value */
 #define GEM_T2OFST_SIZE				7
 
-/* Bitfields in queue pointer registers */
-#define GEM_RBQP_DISABLE	0x1
-
 /* Offset for screener type 2 compare values (T2CMPOFST).
  * Note the offset is applied after the specified point,
  * e.g. GEM_T2COMPOFST_ETYPE denotes the EtherType field, so an offset
@@ -649,17 +630,10 @@
 #define GEM_CLK_DIV96				5
 
 /* Constants for MAN register */
-#define MACB_MAN_C22_SOF			1
-#define MACB_MAN_C22_WRITE			1
-#define MACB_MAN_C22_READ			2
-#define MACB_MAN_C22_CODE			2
-
-#define MACB_MAN_C45_SOF			0
-#define MACB_MAN_C45_ADDR			0
-#define MACB_MAN_C45_WRITE			1
-#define MACB_MAN_C45_POST_READ_INCR		2
-#define MACB_MAN_C45_READ			3
-#define MACB_MAN_C45_CODE			2
+#define MACB_MAN_SOF				1
+#define MACB_MAN_WRITE				1
+#define MACB_MAN_READ				2
+#define MACB_MAN_CODE				2
 
 /* Capability mask bits */
 #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
@@ -671,11 +645,6 @@
 #define MACB_CAPS_GEM_HAS_PTP			0x00000040
 #define MACB_CAPS_BD_RD_PREFETCH		0x00000080
 #define MACB_CAPS_NEEDS_RSTONUBR		0x00000100
-#define MACB_CAPS_PCS				0x00000400
-#define MACB_CAPS_PARTIAL_STORE_FORWARD		0x00000800
-#define MACB_CAPS_WOL				0x00000200
-#define MACB_CAPS_NEED_TSUCLK			0x00001000
-#define MACB_CAPS_QUEUE_DISABLE			0x00002000
 #define MACB_CAPS_FIFO_MODE			0x10000000
 #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
 #define MACB_CAPS_SG_DISABLED			0x40000000
@@ -1191,7 +1160,6 @@ struct macb {
 	u32	(*macb_reg_readl)(struct macb *bp, int offset);
 	void	(*macb_reg_writel)(struct macb *bp, int offset, u32 value);
 
-	struct macb_dma_desc	*rx_ring_tieoff;
 	size_t			rx_buffer_size;
 
 	unsigned int		rx_ring_size;
@@ -1213,8 +1181,6 @@ struct macb {
 		struct macb_stats	macb;
 		struct gem_stats	gem;
 	}			hw_stats;
-
-	dma_addr_t		rx_ring_tieoff_dma;
 
 	struct macb_or_gem_ops	macbgem_ops;
 
@@ -1241,9 +1207,6 @@ struct macb {
 	unsigned int		jumbo_max_len;
 
 	u32			wol;
-
-	/* holds value of rx watermark value for pbuf_rxcutthru register */
-	u16			rx_watermark;
 
 	struct macb_ptp_info	*ptp_info;	/* macb-ptp interface */
 #ifdef MACB_EXT_DESC
