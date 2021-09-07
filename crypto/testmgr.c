@@ -2792,7 +2792,7 @@ static int __test_tls(struct crypto_aead *tfm, int enc,
 		} else if (ret)
 			continue;
 
-		authsize = 20;
+		authsize = template[i].authlen;
 		ret = crypto_aead_setauthsize(tfm, authsize);
 		if (ret) {
 			pr_err("alg: aead%s: Failed to set authsize to %u on test %d for %s\n",
@@ -5884,7 +5884,16 @@ static const struct alg_test_desc alg_test_descs[] = {
 			.hash = __VECS(streebog512_tv_template)
 		}
 	}, {
-		.alg = "tls10(hmac(sha1),cbc(aes))",
+		.alg = "tls11(hmac(sha1),cbc(aes))",
+		.test = alg_test_tls,
+		.suite = {
+			.tls = {
+				.enc = __VECS(tls12_enc_tv_template),
+				.dec = __VECS(tls12_dec_tv_template)
+			}
+		}
+	}, {
+		.alg = "tls12(hmac(sha256),cbc(aes))",
 		.test = alg_test_tls,
 		.suite = {
 			.tls = {
