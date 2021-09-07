@@ -1724,13 +1724,13 @@ static uint32_t pxp_store_shift_ctrl_config(struct pxp_pixmap *out,
 		switch(out->format) {
 		case PXP_PIX_FMT_YUYV:
 			shift_bypass = 1;
-			/* fall through */
+			fallthrough;
 		case PXP_PIX_FMT_YVYU:
 			shift_ctrl.out_yuv422_1p_en = 1;
 			break;
 		case PXP_PIX_FMT_NV16:
 			shift_bypass = 1;
-			/* fall through */
+			fallthrough;
 		case PXP_PIX_FMT_NV61:
 			shift_ctrl.out_yuv422_2p_en = 1;
 			break;
@@ -7679,7 +7679,7 @@ static int pxp_init_interrupt(struct platform_device *pdev)
 				err);
 			return err;
 		}
-		/* fallthrough */
+		fallthrough;
 	case 1:
 		legacy_irq = platform_get_irq(pdev, 0);
 		if (legacy_irq < 0) {
