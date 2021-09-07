@@ -1,7 +1,7 @@
 /*
  * Samsung MIPI DSIM Bridge
  *
- * Copyright 2018-2019 NXP
+ * Copyright 2018-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -563,10 +563,10 @@ static void sec_mipi_dsim_write_pl_to_sfr_fifo(struct sec_mipi_dsim *dsim,
 	switch (length) {
 	case 3:
 		pl_data |= ((u8 *)payload)[2] << 16;
-		/* fall through */
+		fallthrough;
 	case 2:
 		pl_data |= ((u8 *)payload)[1] << 8;
-		/* fall through */
+		fallthrough;
 	case 1:
 		pl_data |= ((u8 *)payload)[0];
 		dsim_write(dsim, pl_data, DSIM_PAYLOAD);
@@ -613,7 +613,7 @@ static int sec_mipi_dsim_read_pl_from_sfr_fifo(struct sec_mipi_dsim *dsim,
 			((u8 *)payload)[1] = PKTHDR_GET_DATA1(ph);
 			word_count++;
 		}
-		/* fall through */
+		fallthrough;
 	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_1BYTE:
 	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_1BYTE:
 		((u8 *)payload)[0] = PKTHDR_GET_DATA0(ph);
@@ -646,10 +646,10 @@ static int sec_mipi_dsim_read_pl_from_sfr_fifo(struct sec_mipi_dsim *dsim,
 			switch (word_count) {
 			case 3:
 				((u8 *)payload)[2] = (pl >> 16) & 0xff;
-				/* fall through */
+				fallthrough;
 			case 2:
 				((u8 *)payload)[1] = (pl >> 8) & 0xff;
-				/* fall through */
+				fallthrough;
 			case 1:
 				((u8 *)payload)[0] = pl & 0xff;
 				break;
