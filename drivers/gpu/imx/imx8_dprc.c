@@ -511,7 +511,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_UYVY:
 		val |= YUV_EN;
-		/* fall-through */
+		fallthrough;
 	case DRM_FORMAT_RGB565:
 		val |= PIX_SIZE_16BIT;
 		break;
@@ -815,11 +815,11 @@ static int dprc_probe(struct platform_device *pdev)
 	case IMX_SC_R_DC_0_BLIT1:
 	case IMX_SC_R_DC_1_BLIT1:
 		dprc->has_aux_prg = true;
-		/* fall-through */
+		fallthrough;
 	case IMX_SC_R_DC_0_BLIT0:
 	case IMX_SC_R_DC_1_BLIT0:
 		dprc->is_blit_chan = true;
-		/* fall-through */
+		fallthrough;
 	case IMX_SC_R_DC_0_FRAC0:
 	case IMX_SC_R_DC_1_FRAC0:
 		break;
