@@ -1047,7 +1047,7 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 	 */
 	if (!ts->firmware_name) {
 		error = goodix_i2c_read(ts->client, ts->chip->config_addr,
-					ts->config, ts->chip->config_len);
+					ts->config, 9);
 		if (error) {
 			ts->int_trigger_type = GOODIX_INT_TRIGGER;
 			ts->max_touch_num = GOODIX_MAX_CONTACTS;
