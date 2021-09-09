@@ -189,6 +189,24 @@ static void fcs_crypto_sessionid_callback(struct stratix10_svc_client *client,
 	complete(&priv->completion);
 }
 
+static void fcs_hwrng_callback(struct stratix10_svc_client *client,
+			       struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	priv->status = 0;
+	priv->kbuf = NULL;
+	priv->size = 0;
+
+	if ((data->status == BIT(SVC_STATUS_OK)) ||
+	    (data->status == BIT(SVC_STATUS_COMPLETED))) {
+		priv->kbuf = data->kaddr2;
+		priv->size = *((unsigned int *)data->kaddr3);
+	}
+
+	complete(&priv->completion);
+}
+
 static int fcs_request_service(struct intel_fcs_priv *priv,
 			       void *msg, unsigned long timeout)
 {
@@ -2348,45 +2366,46 @@ static int fcs_rng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 	struct device *dev;
 	void *s_buf;
 	int ret = 0;
-	size_t size;
+	size_t size = 0;
 
 	priv = (struct intel_fcs_priv *)rng->priv;
 	dev = priv->client.dev;
 
 	msg = devm_kzalloc(dev, sizeof(*msg), GFP_KERNEL);
-	if (!msg)
+	if (!msg) {
+		dev_err(dev, "failed to allocate msg buffer\n");
 		return -ENOMEM;
+	}
 
 	s_buf = stratix10_svc_allocate_memory(priv->chan,
 					      RANDOM_NUMBER_SIZE);
 	if (!s_buf) {
-		dev_err(dev, "failed to allocate RNG buffer\n");
+		dev_err(dev, "failed to allocate random number buffer\n");
 		return -ENOMEM;
 	}
 
 	msg->command = COMMAND_FCS_RANDOM_NUMBER_GEN;
 	msg->payload = s_buf;
 	msg->payload_length = RANDOM_NUMBER_SIZE;
-	priv->client.receive_cb = fcs_data_callback;
+	priv->client.receive_cb = fcs_hwrng_callback;
 
 	ret = fcs_request_service(priv, (void *)msg,
 				  FCS_REQUEST_TIMEOUT);
 	if (!ret && !priv->status) {
-		if (!priv->kbuf) {
-			dev_err(dev, "failure on kbuf\n");
-			fcs_close_services(priv, s_buf, NULL);
-			return -EFAULT;
+		if (priv->size && priv->kbuf) {
+			if (max > priv->size)
+				size = priv->size;
+			else
+				size = max;
+
+			memcpy((uint8_t *)buf, (uint8_t *)priv->kbuf, size);
 		}
-
-		if (max > priv->size)
-			size = priv->size;
-		else
-			size = max;
-
-		memcpy((uint8_t *)buf, (uint8_t *)priv->kbuf, size);
 	}
 
 	fcs_close_services(priv, s_buf, NULL);
+
+	if (size == 0)
+		return -ENOTSUPP;
 
 	return size;
 }
