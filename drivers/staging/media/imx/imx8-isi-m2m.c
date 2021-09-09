@@ -30,18 +30,13 @@
 
 #include "imx8-isi-hw.h"
 #include "imx8-common.h"
+#include "imx8-isi-fmt.h"
 
 #define to_isi_buffer(x)	\
 	container_of((x), struct mxc_isi_buffer, v4l2_buf)
 
 #define file_to_ctx(file)		\
 	container_of(file->private_data, struct mxc_isi_ctx, fh);
-
-#if defined(CONFIG_IMX8_ISI_CAPTURE)
-extern struct mxc_isi_fmt mxc_isi_out_formats[9];
-#else
-static struct mxc_isi_fmt mxc_isi_out_formats[9] = {};
-#endif
 
 struct mxc_isi_fmt mxc_isi_input_formats[] = {
 	/* Pixel link input format */
@@ -474,7 +469,7 @@ static int isi_m2m_try_fmt(struct mxc_isi_frame *frame,
 	int bpl, i;
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		size = ARRAY_SIZE(mxc_isi_out_formats);
+		size = mxc_isi_out_formats_size;
 		formats = mxc_isi_out_formats;
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		size = ARRAY_SIZE(mxc_isi_input_formats);
@@ -659,7 +654,7 @@ static int mxc_isi_m2m_enum_fmt_vid_cap(struct file *file, void *priv,
 	struct mxc_isi_fmt *fmt;
 
 	dev_dbg(&isi_m2m->pdev->dev, "%s\n", __func__);
-	if (f->index >= (int)ARRAY_SIZE(mxc_isi_out_formats))
+	if (f->index >= (int)mxc_isi_out_formats_size)
 		return -EINVAL;
 
 	fmt = &mxc_isi_out_formats[f->index];
@@ -809,13 +804,13 @@ static int mxc_isi_m2m_s_fmt_vid_cap(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(mxc_isi_out_formats); i++) {
+	for (i = 0; i < mxc_isi_out_formats_size; i++) {
 		fmt = &mxc_isi_out_formats[i];
 		if (pix && fmt->fourcc == pix->pixelformat)
 			break;
 	}
 
-	if (i >= ARRAY_SIZE(mxc_isi_out_formats)) {
+	if (i >= mxc_isi_out_formats_size) {
 		dev_err(&isi_m2m->pdev->dev, "%s, format is not support!\n", __func__);
 		return -EINVAL;
 	}
