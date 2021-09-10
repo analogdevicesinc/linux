@@ -568,6 +568,20 @@ static int vsi_enc_subscribe_event(
 	}
 }
 
+static int vsi_enc_try_encoder_cmd(struct file *file, void *fh, struct v4l2_encoder_cmd *cmd)
+{
+	switch (cmd->cmd) {
+	case V4L2_ENC_CMD_STOP:
+	case V4L2_ENC_CMD_START:
+	case V4L2_ENC_CMD_PAUSE:
+	case V4L2_ENC_CMD_RESUME:
+		cmd->flags = 0;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 static int vsi_enc_encoder_cmd(struct file *file, void *fh, struct v4l2_encoder_cmd *cmd)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
@@ -600,6 +614,7 @@ static int vsi_enc_encoder_cmd(struct file *file, void *fh, struct v4l2_encoder_
 	case V4L2_ENC_CMD_PAUSE:
 	case V4L2_ENC_CMD_RESUME:
 	default:
+		ret = -EINVAL;
 		break;
 	}
 	mutex_unlock(&ctx->ctxlock);
@@ -674,6 +689,7 @@ static const struct v4l2_ioctl_ops vsi_enc_ioctl = {
 	.vidioc_subscribe_event = vsi_enc_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
 
+	.vidioc_try_encoder_cmd = vsi_enc_try_encoder_cmd,
 	//fixme: encoder cmd stop will make streamoff not coming from ffmpeg. Maybe this is the right way to get finished, check later
 	.vidioc_encoder_cmd = vsi_enc_encoder_cmd,
 	.vidioc_enum_framesizes = vsi_enc_encoder_enum_framesizes,
