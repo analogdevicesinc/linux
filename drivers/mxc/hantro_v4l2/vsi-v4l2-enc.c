@@ -550,13 +550,22 @@ static int vsi_enc_subscribe_event(
 	struct v4l2_fh *fh,
 	const struct v4l2_event_subscription *sub)
 {
-	int ret;
-
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
-	ret = v4l2_event_subscribe(fh, sub, 0, NULL);	//&v4l2_ctrl_sub_ev_ops);
+
 	v4l2_klog(LOGLVL_CONFIG, "%s:%d", __func__, sub->type);
-	return ret;
+	switch (sub->type) {
+	case V4L2_EVENT_CTRL:
+		return v4l2_ctrl_subscribe_event(fh, sub);
+	case V4L2_EVENT_SKIP:
+		return v4l2_event_subscribe(fh, sub, 16, NULL);
+	case V4L2_EVENT_EOS:
+	case V4L2_EVENT_CODEC_ERROR:
+	case V4L2_EVENT_INVALID_OPTION:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	default:
+		return -EINVAL;
+	}
 }
 
 static int vsi_enc_encoder_cmd(struct file *file, void *fh, struct v4l2_encoder_cmd *cmd)
