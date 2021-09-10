@@ -252,28 +252,31 @@ static int enc_setvui(struct v4l2_format *v4l2fmt, struct v4l2_daemon_enc_params
 	return 0;
 }
 
-void vsi_dec_getvui(struct v4l2_format *v4l2fmt, struct v4l2_daemon_dec_info *decinfo)
+void vsi_dec_getvui(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {
-	u32 colorspace, quantization, transfer, matrixcoeff;
+	struct v4l2_daemon_dec_info *dec_info = &ctx->mediacfg.decparams.dec_info.dec_info;
+	struct v4l2_pix_format *pix = &fmt->fmt.pix;
 
-	colorspace = quantization = transfer = matrixcoeff = 0;
-	if (decinfo->colour_description_present_flag) {
-		quantization = (decinfo->video_range == 0 ?
+	if (dec_info->colour_description_present_flag) {
+		pix->quantization = (dec_info->video_range == 0 ?
 					V4L2_QUANTIZATION_LIM_RANGE :
 					V4L2_QUANTIZATION_FULL_RANGE);
-		if (decinfo->colour_primaries < ARRAY_SIZE(colorprimaries))
-			colorspace = colorprimaries[decinfo->colour_primaries];
-		if (decinfo->transfer_characteristics < ARRAY_SIZE(colortransfers))
-			transfer = colortransfers[decinfo->transfer_characteristics];
-		if (decinfo->matrix_coefficients < ARRAY_SIZE(colormatrixcoefs))
-			matrixcoeff = colormatrixcoefs[decinfo->matrix_coefficients];
+		if (dec_info->colour_primaries < ARRAY_SIZE(colorprimaries))
+			pix->colorspace = colorprimaries[dec_info->colour_primaries];
+		if (dec_info->transfer_characteristics < ARRAY_SIZE(colortransfers))
+			pix->xfer_func = colortransfers[dec_info->transfer_characteristics];
+		if (dec_info->matrix_coefficients < ARRAY_SIZE(colormatrixcoefs))
+			pix->ycbcr_enc = colormatrixcoefs[dec_info->matrix_coefficients];
+	} else {
+		pix->colorspace = ctx->mediacfg.colorspace;
+		pix->quantization = ctx->mediacfg.quantization;
+		pix->xfer_func = ctx->mediacfg.xfer_func;
+		pix->ycbcr_enc = ctx->mediacfg.ycbcr_enc;
 	}
-	v4l2fmt->fmt.pix.quantization = quantization;
-	v4l2fmt->fmt.pix.colorspace = colorspace;
-	v4l2fmt->fmt.pix.xfer_func = transfer;
-	v4l2fmt->fmt.pix.ycbcr_enc = matrixcoeff;
+
 	v4l2_klog(LOGLVL_CONFIG, "%s:%x:%d:%d:%d:%d",
-		__func__, v4l2fmt->fmt.pix_mp.pixelformat, colorspace, transfer, matrixcoeff, quantization);
+		  __func__, pix->pixelformat, pix->colorspace, pix->xfer_func,
+		  pix->ycbcr_enc, pix->quantization);
 }
 
 void vsi_dec_updatevui(struct v4l2_daemon_dec_info *src, struct v4l2_daemon_dec_info *dst)
@@ -1457,85 +1460,67 @@ static int vsiv4l2_decidepixeldepth(int pixelformat, int origdepth)
 static int vsiv4l2_setfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {
 	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
+	struct v4l2_pix_format *pix = &fmt->fmt.pix;
 	struct vsi_video_fmt *targetfmt;
-	unsigned int *psize;
-	int braw = brawfmt(ctx->flag, fmt->type);
+	int ret = 0;
 
+	ret = vsiv4l2_verifyfmt(ctx, fmt);
+	if (ret != 0)
+		return ret;
 	targetfmt = vsi_find_format(ctx, fmt);
-	if (targetfmt == NULL || fmt->fmt.pix.width <= 0 ||
-	    fmt->fmt.pix.height <= 0) {
-		v4l2_klog(LOGLVL_WARNING, "%lx:%s: invalid format.\n",
-			  ctx->ctxid, __func__);
-		return -EINVAL;
-	}
-
-	if (binputqueue(fmt->type))
-		psize = pcfg->sizeimagesrc;
-	else
-		psize = pcfg->sizeimagedst;
-
-	v4l2_klog(LOGLVL_BRIEF, "%s:%d:%x:%d:%d:%d:%d", __func__,
-		fmt->type, fmt->fmt.pix.pixelformat, fmt->fmt.pix.width, fmt->fmt.pix.height, fmt->fmt.pix.bytesperline, psize[0]);
-	fmt->fmt.pix_mp.num_planes = 1;
 	if (binputqueue(fmt->type)) {
-		pcfg->decparams.dec_info.io_buffer.srcwidth = fmt->fmt.pix.width;
-		pcfg->decparams.dec_info.io_buffer.srcheight = fmt->fmt.pix.height;
+		pcfg->decparams.dec_info.io_buffer.srcwidth = pix->width;
+		pcfg->decparams.dec_info.io_buffer.srcheight = pix->height;
 		pcfg->decparams.dec_info.io_buffer.inputFormat = targetfmt->dec_fmt;
+		pcfg->infmt_fourcc = pix->pixelformat;
 	} else {
-		//dtrc is only for HEVC and VP9
-		if (istiledfmt(targetfmt->dec_fmt)
-			&& pcfg->decparams.dec_info.io_buffer.inputFormat != V4L2_DAEMON_CODEC_DEC_VP9
-			&& pcfg->decparams.dec_info.io_buffer.inputFormat != V4L2_DAEMON_CODEC_DEC_HEVC)
-			return -EINVAL;
-		if (pcfg->decparams.dec_info.io_buffer.output_width)
-			fmt->fmt.pix.width = pcfg->decparams.dec_info.io_buffer.output_width;
-		if (pcfg->decparams.dec_info.io_buffer.output_height)
-			fmt->fmt.pix.height = pcfg->decparams.dec_info.io_buffer.output_height;
-		pcfg->decparams.dec_info.io_buffer.outBufFormat = targetfmt->dec_fmt;
-		pcfg->decparams.dec_info.io_buffer.outputPixelDepth =
-			vsiv4l2_decidepixeldepth(targetfmt->dec_fmt, pcfg->src_pixeldepth);
-	}
-	psize[0] = fmt->fmt.pix.sizeimage;
-	if (!binputqueue(fmt->type)) {
-		if (pcfg->decparams.dec_info.io_buffer.outputPixelDepth < pcfg->src_pixeldepth) {
-			pcfg->bytesperline = fmt->fmt.pix.width * pcfg->decparams.dec_info.io_buffer.outputPixelDepth / 8;
-			pcfg->bytesperline = ALIGN(pcfg->bytesperline, 16);
-			if (fmt->fmt.pix.sizeimage * pcfg->src_pixeldepth <
-				pcfg->decparams.dec_info.io_buffer.outputPixelDepth * pcfg->orig_dpbsize) {
-				verifyPlanesize(psize, braw, fmt->fmt.pix.pixelformat, pcfg->bytesperline, fmt->fmt.pix.height, 1, 1);
-				fmt->fmt.pix.sizeimage = psize[0];
-			}
-		} else if (fmt->fmt.pix.sizeimage < pcfg->orig_dpbsize)
-			fmt->fmt.pix.sizeimage = psize[0] = pcfg->orig_dpbsize;
+		pcfg->outfmt_fourcc = pix->pixelformat;
 
-		if (!pcfg->bytesperline) {
-			pcfg->bytesperline = fmt->fmt.pix.width * pcfg->decparams.dec_info.io_buffer.outputPixelDepth / 8;
+		if (!test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
+			pcfg->decparams.dec_info.io_buffer.output_width = pix->width;
+			pcfg->decparams.dec_info.io_buffer.output_height = pix->height;
+			pcfg->decparams.dec_info.io_buffer.outBufFormat = targetfmt->dec_fmt;
+			pcfg->bytesperline = pix->bytesperline;
+			pcfg->decparams.dec_info.dec_info.visible_rect.left = 0;
+			pcfg->decparams.dec_info.dec_info.visible_rect.top = 0;
+			pcfg->decparams.dec_info.dec_info.visible_rect.width = pix->width;
+			pcfg->decparams.dec_info.dec_info.visible_rect.height = pix->height;
+		} else {
+			//dtrc is only for HEVC and VP9
+			if (istiledfmt(targetfmt->dec_fmt)
+				&& pcfg->decparams.dec_info.io_buffer.inputFormat != V4L2_DAEMON_CODEC_DEC_VP9
+				&& pcfg->decparams.dec_info.io_buffer.inputFormat != V4L2_DAEMON_CODEC_DEC_HEVC)
+				return -EINVAL;
+			if (pcfg->decparams.dec_info.io_buffer.output_width)
+				pix->width = pcfg->decparams.dec_info.io_buffer.output_width;
+			if (pcfg->decparams.dec_info.io_buffer.output_height)
+				pix->height = pcfg->decparams.dec_info.io_buffer.output_height;
+			pcfg->decparams.dec_info.io_buffer.outBufFormat = targetfmt->dec_fmt;
+			pcfg->decparams.dec_info.io_buffer.outputPixelDepth =
+				vsiv4l2_decidepixeldepth(targetfmt->dec_fmt, pcfg->src_pixeldepth);
+			pcfg->bytesperline = pix->width * pcfg->decparams.dec_info.io_buffer.outputPixelDepth / 8;
 			pcfg->bytesperline = ALIGN(pcfg->bytesperline, 16);
+			pix->bytesperline = pcfg->bytesperline;
 		}
-		fmt->fmt.pix.bytesperline = pcfg->bytesperline;
 	}
-
-	if (!psize[0]) {
-		verifyPlanesize(psize, braw, fmt->fmt.pix.pixelformat,
-				pcfg->bytesperline ? pcfg->bytesperline : fmt->fmt.pix.width,
-				fmt->fmt.pix.height, 1, 1);
-		fmt->fmt.pix.sizeimage = psize[0];
-	}
+	ret = vsiv4l2_verifyfmt(ctx, fmt);
 
 	if (binputqueue(fmt->type))
-		pcfg->srcplanes = 1;
+		pcfg->sizeimagesrc[0] = pix->sizeimage;
 	else
-		pcfg->dstplanes = 1;
-	pcfg->field = fmt->fmt.pix.field;
-	pcfg->colorspace = fmt->fmt.pix.colorspace;
-	pcfg->flags = fmt->fmt.pix.flags;
-	pcfg->quantization = fmt->fmt.pix.quantization;
-	pcfg->xfer_func = fmt->fmt.pix.xfer_func;
-	v4l2_klog(LOGLVL_CONFIG, "%d:%d", fmt->fmt.pix.bytesperline, fmt->fmt.pix.sizeimage);
+		pcfg->sizeimagedst[0] = pix->sizeimage;
+	pcfg->field = pix->field;
+	pcfg->colorspace = pix->colorspace;
+	pcfg->flags = pix->flags;
+	pcfg->quantization = pix->quantization;
+	pcfg->xfer_func = pix->xfer_func;
+	pcfg->ycbcr_enc = pix->ycbcr_enc;
 
-	return 0;
+	v4l2_klog(LOGLVL_CONFIG, "%s type:%d, res:%dx%d, bytesperline:%d, sizeimage:%d\n",
+		__func__, fmt->type, pix->width, pix->height, pix->bytesperline,
+		pix->sizeimage);
+	return ret;
 }
-
 
 int vsiv4l2_setfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {
@@ -1632,7 +1617,7 @@ static int vsiv4l2_verifyfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 	struct vsi_video_fmt *vfmt = NULL;
 	u32 bytesperline;
 	int braw;
-	unsigned int psize[VB2_MAX_PLANES];
+	unsigned int psize[VB2_MAX_PLANES] = { 0 };
 
 	if (!isvalidtype(fmt->type, ctx->flag)) {
 		if (V4L2_TYPE_IS_OUTPUT(fmt->type))
@@ -1661,13 +1646,16 @@ static int vsiv4l2_verifyfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 	pix->width = min(pix->width, fmsize.stepwise.max_width);
 	pix->width = max_t(u32, pix->width, fmsize.stepwise.min_width);
 	pix->height = min(pix->height, fmsize.stepwise.max_height);
-	pix->height = max_t(u32, pix->height, fmsize.stepwise.min_width);
+	pix->height = max_t(u32, pix->height, fmsize.stepwise.min_height);
 
 	if (braw) {
-		if (!test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag))
+		if (!test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
 			bytesperline = ALIGN(pix->width, 16);
-		else
-			bytesperline = ALIGN(pix->width * pcfg->decparams.dec_info.io_buffer.outputPixelDepth / 8, 16);
+		} else {
+			int outputPixelDepth = vsiv4l2_decidepixeldepth(vfmt->dec_fmt, pcfg->src_pixeldepth);
+
+			bytesperline = ALIGN(pix->width * outputPixelDepth / 8, 16);
+		}
 	} else {
 		bytesperline = pix->width;
 	}
@@ -1811,32 +1799,32 @@ static int vsiv4l2_getfmt_enc(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 static int vsiv4l2_getfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {
 	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
+	struct v4l2_pix_format *pix = &fmt->fmt.pix;
 	int braw = brawfmt(ctx->flag, fmt->type);
 	int *psize = (binputqueue(fmt->type) ? pcfg->sizeimagesrc : pcfg->sizeimagedst);
 
 	if (binputqueue(fmt->type)) {
-		fmt->fmt.pix.width = pcfg->decparams.dec_info.io_buffer.srcwidth;
-		fmt->fmt.pix.height = pcfg->decparams.dec_info.io_buffer.srcheight;
-		fmt->fmt.pix.pixelformat = find_local_dec_format(pcfg->decparams.dec_info.io_buffer.inputFormat, braw);
+		pix->width = pcfg->decparams.dec_info.io_buffer.srcwidth;
+		pix->height = pcfg->decparams.dec_info.io_buffer.srcheight;
+		pix->pixelformat = find_local_dec_format(pcfg->decparams.dec_info.io_buffer.inputFormat, braw);
+		pix->bytesperline = pix->width;
 	} else {
-		fmt->fmt.pix.width = pcfg->decparams.dec_info.io_buffer.output_width;
-		fmt->fmt.pix.height = pcfg->decparams.dec_info.io_buffer.output_height;
-		fmt->fmt.pix.bytesperline = pcfg->bytesperline;    //return latest value
-		fmt->fmt.pix.pixelformat = find_local_dec_format(pcfg->decparams.dec_info.io_buffer.outBufFormat, braw);
+		pix->width = pcfg->decparams.dec_info.io_buffer.output_width;
+		pix->height = pcfg->decparams.dec_info.io_buffer.output_height;
+		pix->bytesperline = pcfg->bytesperline;
+		pix->pixelformat = find_local_dec_format(pcfg->decparams.dec_info.io_buffer.outBufFormat, braw);
 	}
-	fmt->fmt.pix.field = pcfg->field;
-	fmt->fmt.pix.sizeimage = psize[0];
-	fmt->fmt.pix.colorspace = pcfg->colorspace;
-	fmt->fmt.pix.flags = pcfg->flags;
-	fmt->fmt.pix.quantization = pcfg->quantization;
-	fmt->fmt.pix.xfer_func = pcfg->xfer_func;
-	vsi_dec_getvui(fmt, &pcfg->decparams.dec_info.dec_info);
-	v4l2_klog(LOGLVL_CONFIG, "%s:%x:%d:%d", __func__,
-		fmt->fmt.pix.pixelformat, fmt->fmt.pix.sizeimage,  fmt->fmt.pix.bytesperline);
+	pix->field = pcfg->field;
+	pix->sizeimage = psize[0];
+	pix->flags = pcfg->flags;
+
+	vsi_dec_getvui(ctx, fmt);
+
+	v4l2_klog(LOGLVL_CONFIG, "%s type:%d, res:%dx%d, bytesperline:%d, sizeimage:%d\n",
+		__func__, fmt->type, pix->width, pix->height, pix->bytesperline,
+		pix->sizeimage);
 	return 0;
 }
-
-
 
 int vsiv4l2_getfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {

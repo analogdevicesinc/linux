@@ -138,7 +138,9 @@ static int vsi_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	int ret;
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d", ctx->ctxid, __func__, f->type);
+	v4l2_klog(LOGLVL_CONFIG, "%s fmt:%x, res:%dx%d\n", __func__,
+		  f->fmt.pix.pixelformat, f->fmt.pix.width,
+		  f->fmt.pix.height);
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
 	if (!isvalidtype(f->type, ctx->flag))
@@ -509,15 +511,11 @@ static int vsi_dec_try_fmt(struct file *file, void *prv, struct v4l2_format *f)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 
-	v4l2_klog(LOGLVL_CONFIG, "%s", __func__);
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
-	if (!isvalidtype(f->type, ctx->flag))
-		return -EINVAL;
 
-	if (vsi_find_format(ctx, f) == NULL)
-		return -EINVAL;
-	vsi_dec_getvui(f, &ctx->mediacfg.decparams.dec_info.dec_info);
+	vsiv4l2_verifyfmt(ctx, f);
+	vsi_dec_getvui(ctx, f);
 	return 0;
 }
 
@@ -544,26 +542,6 @@ static int vsi_dec_enum_fmt(struct file *file, void *prv, struct v4l2_fmtdesc *f
 	return 0;
 }
 
-static int vsi_dec_set_selection(struct file *file, void *prv, struct v4l2_selection *s)
-{
-	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
-	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
-
-	//NXP has no PP, so any crop like setting won't work for decoder
-	if (!vsi_v4l2_daemonalive())
-		return -ENODEV;
-	if (mutex_lock_interruptible(&ctx->ctxlock))
-		return -EBUSY;
-	pcfg->decparams.dec_info.dec_info.visible_rect.left = s->r.left;
-	pcfg->decparams.dec_info.dec_info.visible_rect.top = s->r.top;
-	pcfg->decparams.dec_info.dec_info.visible_rect.width = s->r.width;
-	pcfg->decparams.dec_info.dec_info.visible_rect.height = s->r.height;
-	mutex_unlock(&ctx->ctxlock);
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d,%d",
-		ctx->ctxid, __func__, s->r.left, s->r.top, s->r.width, s->r.height);
-	return 0;
-}
-
 static int vsi_dec_get_selection(struct file *file, void *prv, struct v4l2_selection *s)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
@@ -571,11 +549,27 @@ static int vsi_dec_get_selection(struct file *file, void *prv, struct v4l2_selec
 
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
-	s->r.left = pcfg->decparams.dec_info.dec_info.visible_rect.left;
-	s->r.top = pcfg->decparams.dec_info.dec_info.visible_rect.top;
-	s->r.width = pcfg->decparams.dec_info.dec_info.visible_rect.width;
-	s->r.height = pcfg->decparams.dec_info.dec_info.visible_rect.height;
+	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
 
+	switch (s->target) {
+	case V4L2_SEL_TGT_COMPOSE:
+	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
+	case V4L2_SEL_TGT_COMPOSE_PADDED:
+		s->r.left = pcfg->decparams.dec_info.dec_info.visible_rect.left;
+		s->r.top = pcfg->decparams.dec_info.dec_info.visible_rect.top;
+		s->r.width = pcfg->decparams.dec_info.dec_info.visible_rect.width;
+		s->r.height = pcfg->decparams.dec_info.dec_info.visible_rect.height;
+		break;
+	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
+		s->r.left = 0;
+		s->r.top = 0;
+		s->r.width = pcfg->decparams.dec_info.io_buffer.output_width;
+		s->r.height = pcfg->decparams.dec_info.io_buffer.output_width;
+		break;
+	default:
+		return -EINVAL;
+	}
 	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d,%d",
 		ctx->ctxid, __func__, s->r.left, s->r.top, s->r.width, s->r.height);
 
@@ -714,7 +708,6 @@ static const struct v4l2_ioctl_ops vsi_dec_ioctl = {
 	.vidioc_g_fmt_vid_out = vsi_dec_g_fmt,
 	//.vidioc_g_fmt_vid_out_mplane = vsi_dec_g_fmt,
 
-	.vidioc_s_selection = vsi_dec_set_selection,		//VIDIOC_S_SELECTION, VIDIOC_S_CROP
 	.vidioc_g_selection = vsi_dec_get_selection,		//VIDIOC_G_SELECTION, VIDIOC_G_CROP
 
 	.vidioc_subscribe_event = vsi_dec_subscribe_event,

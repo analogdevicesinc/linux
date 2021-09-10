@@ -376,7 +376,7 @@ int vsi_v4l2_quitinstance(void);
 int vsi_v4l2_daemonalive(void);
 
 void vsi_dec_updatevui(struct v4l2_daemon_dec_info *src, struct v4l2_daemon_dec_info *dst);
-void vsi_dec_getvui(struct v4l2_format *v4l2fmt, struct v4l2_daemon_dec_info *decinfo);
+void vsi_dec_getvui(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format);
 int vsiv4l2_enc_getalign(u32 srcfmt, u32 dstfmt, int width);
 void vsiv4l2_initcfg(struct vsi_v4l2_ctx *ctx);
