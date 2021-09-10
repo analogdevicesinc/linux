@@ -731,7 +731,7 @@ static int vsi_dec_queue_setup(
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(vq->drv_priv);
 	int i;
 
-	vsiv4l2_buffer_config(ctx, vq->type, nbuffers, nplanes, sizes);
+	vsiv4l2_buffer_config(ctx, vq, nbuffers, nplanes, sizes);
 	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d", ctx->ctxid, __func__, *nbuffers, *nplanes, sizes[0]);
 
 	for (i = 0; i < *nplanes; i++)

@@ -1771,48 +1771,49 @@ static void calcPlanesize(struct vsi_v4l2_ctx *ctx, int pixelformat, int width, 
 		planeno, size[0], size[1], size[2]);
 }
 
-void vsiv4l2_buffer_config(
+int vsiv4l2_buffer_config(
 	struct vsi_v4l2_ctx *ctx,
-	int type,
+	struct vb2_queue *vq,
 	unsigned int *nbuffers,
 	unsigned int *nplanes,
 	unsigned int sizes[]
 )
 {
-	struct v4l2_format fmt;
-	int i;
-	int *psize = (binputqueue(type) ? ctx->mediacfg.sizeimagesrc : ctx->mediacfg.sizeimagedst);
+	int i, planes;
+	int *psize;
+	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
 
-	fmt.type = type;
-	vsiv4l2_getfmt(ctx, &fmt);
-	for (i = 0; i < VB2_MAX_PLANES; i++)
-		sizes[i] = 0;
-	if (isdecoder(ctx) && !binputqueue(type)) {
-		if (*nbuffers < ctx->mediacfg.minbuf_4capture)
-			*nbuffers = ctx->mediacfg.minbuf_4capture;
+	if (binputqueue(vq->type)) {
+		planes = pcfg->srcplanes;
+		psize = pcfg->sizeimagesrc;
+	} else {
+		planes = pcfg->dstplanes;
+		psize = pcfg->sizeimagedst;
 	}
-	if (isencoder(ctx)) {
-		/*the upper limit is done in videobuf2-core*/
-		if (*nbuffers < ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize)
-			*nbuffers = ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize;
-		*nplanes = fmt.fmt.pix_mp.num_planes;
-	} else
-		*nplanes = 1;
-	for (i = 0; i < *nplanes; i++) {
-		if (psize[i] <= 0) {
-			v4l2_klog(LOGLVL_WARNING, "%lx:%d::%s:planes[%d] size is invalid(%d).\n",
-				  ctx->ctxid, type, __func__, i, psize[i]);
-			sizes[i] = PAGE_SIZE;
-		} else {
-			sizes[i] = psize[i];
+	if (*nplanes) {
+		if (*nplanes != planes)
+			return -EINVAL;
+		for (i = 0; i < planes; i++) {
+			if (sizes[i] < psize[i])
+				return -EINVAL;
 		}
+	}
+	*nplanes = planes;
+	for (i = 0; i < planes; i++)
+		sizes[i] = psize[i];
 
+	if (isencoder(ctx)) {
+		if (*nbuffers + vq->num_buffers < ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize)
+			*nbuffers = ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize - vq->num_buffers;
+	} else {
+		if (!binputqueue(vq->type) && *nbuffers + vq->num_buffers < ctx->mediacfg.minbuf_4capture)
+			*nbuffers = ctx->mediacfg.minbuf_4capture - vq->num_buffers;
 	}
 
-	v4l2_klog(LOGLVL_BRIEF, "%lx:%d::%s:%d:%d:%d:%d:%d", ctx->ctxid, type, __func__,
+	v4l2_klog(LOGLVL_BRIEF, "%lx:%d::%s:%d:%d:%d:%d:%d", ctx->ctxid, vq->type, __func__,
 		*nbuffers, *nplanes, sizes[0], sizes[1], sizes[2]);
+	return 0;
 }
-
 
 void vsiv4l2_set_hwinfo(struct vsi_v4l2_dev_info *hwinfo)
 {

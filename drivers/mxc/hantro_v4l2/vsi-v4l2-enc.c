@@ -91,6 +91,33 @@ static int vsi_enc_reqbufs(
 	return ret;
 }
 
+static int vsi_enc_create_bufs(struct file *filp, void *priv,
+				struct v4l2_create_buffers *create)
+{
+	struct vsi_v4l2_ctx *ctx = fh_to_ctx(filp->private_data);
+	int ret;
+	struct vb2_queue *q;
+
+	if (!vsi_v4l2_daemonalive())
+		return -ENODEV;
+	if (!isvalidtype(create->format.type, ctx->flag))
+		return -EINVAL;
+
+	if (binputqueue(create->format.type))
+		q = &ctx->input_que;
+	else
+		q = &ctx->output_que;
+
+	ret = vb2_create_bufs(q, create);
+
+	if (!binputqueue(create->format.type) && create->count == 0)
+		set_bit(CTX_FLAG_ENC_FLUSHBUF, &ctx->flag);
+	v4l2_klog(LOGLVL_BRIEF, "%lx:%s:%d create for %d buffer, got %d:%d:%d\n",
+		ctx->ctxid, __func__, create->format.type, create->count,
+		q->num_buffers, ret, ctx->status);
+	return ret;
+}
+
 static int vsi_enc_s_parm(struct file *filp, void *priv, struct v4l2_streamparm *parm)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(filp->private_data);
@@ -654,6 +681,7 @@ static int vsi_enc_encoder_enum_framesizes(struct file *file, void *priv,
 static const struct v4l2_ioctl_ops vsi_enc_ioctl = {
 	.vidioc_querycap = vsi_enc_querycap,
 	.vidioc_reqbufs             = vsi_enc_reqbufs,
+	.vidioc_create_bufs         = vsi_enc_create_bufs,
 	.vidioc_prepare_buf         = vsi_enc_prepare_buf,
 	//create_buf can be provided now since we don't know buf type in param
 	.vidioc_querybuf            = vsi_enc_querybuf,
@@ -704,15 +732,15 @@ static int vsi_enc_queue_setup(
 	struct device *alloc_devs[])
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(vq->drv_priv);
-	int i;
+	int i, ret;
 
-	vsiv4l2_buffer_config(ctx, vq->type, nbuffers, nplanes, sizes);
-	v4l2_klog(LOGLVL_CONFIG, "%s:%d,%d,%d", __func__, *nbuffers, *nplanes, sizes[0]);
-
-	for (i = 0; i < *nplanes; i++)
-		alloc_devs[i] = ctx->dev->dev;
-
-	return 0;
+	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d\n", ctx->ctxid, __func__, *nbuffers, *nplanes, sizes[0]);
+	ret = vsiv4l2_buffer_config(ctx, vq, nbuffers, nplanes, sizes);
+	if (ret == 0) {
+		for (i = 0; i < *nplanes; i++)
+			alloc_devs[i] = ctx->dev->dev;
+	}
+	return ret;
 }
 
 static void vsi_enc_buf_queue(struct vb2_buffer *vb)

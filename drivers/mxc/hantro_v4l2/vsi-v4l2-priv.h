@@ -379,9 +379,9 @@ int vsi_get_Level(struct vsi_v4l2_ctx *ctx, int mediatype, int dir, int level);
 int vsiv4l2_setfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 int vsiv4l2_getfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 void vsi_v4l2_update_decfmt(struct vsi_v4l2_ctx *ctx);
-void vsiv4l2_buffer_config(
+int vsiv4l2_buffer_config(
 	struct vsi_v4l2_ctx *ctx,
-	int type,
+	struct vb2_queue *vq,
 	unsigned int *nbuffers,
 	unsigned int *nplanes,
 	unsigned int sizes[]
