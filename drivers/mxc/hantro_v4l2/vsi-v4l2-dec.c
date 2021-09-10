@@ -95,45 +95,6 @@ static int vsi_dec_reqbufs(
 	return ret;
 }
 
-static int vsi_dec_s_parm(struct file *filp, void *priv, struct v4l2_streamparm *parm)
-{
-	struct vsi_v4l2_ctx *ctx = fh_to_ctx(filp->private_data);
-
-	v4l2_klog(LOGLVL_CONFIG, "%s:%d:%d", __func__,
-		parm->parm.output.timeperframe.numerator, parm->parm.output.timeperframe.denominator);
-
-	if (!vsi_v4l2_daemonalive())
-		return -ENODEV;
-	if (!isvalidtype(parm->type, ctx->flag))
-		return -EINVAL;
-
-	if (mutex_lock_interruptible(&ctx->ctxlock))
-		return -EBUSY;
-	if (binputqueue(parm->type))
-		ctx->mediacfg.outputparam = parm->parm.output;
-	else
-		ctx->mediacfg.capparam = parm->parm.capture;
-	mutex_unlock(&ctx->ctxlock);
-	return 0;
-}
-
-static int vsi_dec_g_parm(struct file *filp, void *priv, struct v4l2_streamparm *parm)
-{
-	struct vsi_v4l2_ctx *ctx = fh_to_ctx(filp->private_data);
-
-	v4l2_klog(LOGLVL_CONFIG, "%s:%d", __func__, parm->type);
-	if (!vsi_v4l2_daemonalive())
-		return -ENODEV;
-	if (!isvalidtype(parm->type, ctx->flag))
-		return -EINVAL;
-
-	if (binputqueue(parm->type))
-		parm->parm.output = ctx->mediacfg.outputparam;
-	else
-		parm->parm.capture = ctx->mediacfg.capparam;
-	return 0;
-}
-
 static int vsi_dec_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
@@ -683,8 +644,6 @@ static const struct v4l2_ioctl_ops vsi_dec_ioctl = {
 	.vidioc_dqbuf               = vsi_dec_dqbuf,
 	.vidioc_streamon        = vsi_dec_streamon,
 	.vidioc_streamoff       = vsi_dec_streamoff,
-	.vidioc_s_parm		= vsi_dec_s_parm,
-	.vidioc_g_parm		= vsi_dec_g_parm,
 	.vidioc_g_fmt_vid_cap = vsi_dec_g_fmt,
 	//.vidioc_g_fmt_vid_cap_mplane = vsi_dec_g_fmt,
 	.vidioc_s_fmt_vid_cap = vsi_dec_s_fmt,
