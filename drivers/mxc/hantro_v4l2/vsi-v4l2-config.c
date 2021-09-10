@@ -994,13 +994,13 @@ void vsiv4l2_initcfg(struct vsi_v4l2_ctx *ctxp)
 	ctx->minbuf_4capture = 1;
 	ctx->minbuf_4output = 1;
 
-	ctx->capparam.capability = ctx->capparam.capturemode = V4L2_CAP_TIMEPERFRAME;
-	ctx->capparam.readbuffers = 1;
+	ctx->capparam.capability = V4L2_CAP_TIMEPERFRAME;
+	ctx->capparam.readbuffers = 0;
 	ctx->capparam.timeperframe.numerator = 1;
 	ctx->capparam.timeperframe.denominator = 25;
 
-	ctx->outputparam.capability = ctx->outputparam.outputmode = V4L2_CAP_TIMEPERFRAME;
-	ctx->outputparam.writebuffers = 1;
+	ctx->outputparam.capability = V4L2_CAP_TIMEPERFRAME;
+	ctx->outputparam.writebuffers = 0;
 	ctx->outputparam.timeperframe.numerator = 1;
 	ctx->outputparam.timeperframe.denominator = 25;
 
