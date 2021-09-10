@@ -91,16 +91,6 @@ static int vsi_enc_reqbufs(
 	return ret;
 }
 
-/*choose input source of index*/
-static int vsi_enc_s_input(struct file *file, void *priv, unsigned int index)
-{
-	if (!vsi_v4l2_daemonalive())
-		return -ENODEV;
-
-	v4l2_klog(LOGLVL_FLOW, "%s", __func__);
-	return 0;
-}
-
 static int vsi_enc_s_parm(struct file *filp, void *priv, struct v4l2_streamparm *parm)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(filp->private_data);
@@ -629,7 +619,6 @@ static const struct v4l2_ioctl_ops vsi_enc_ioctl = {
 	.vidioc_dqbuf               = vsi_enc_dqbuf,
 	.vidioc_streamon        = vsi_enc_streamon,
 	.vidioc_streamoff       = vsi_enc_streamoff,
-	.vidioc_s_input             = vsi_enc_s_input,
 	.vidioc_s_parm		= vsi_enc_s_parm,
 	.vidioc_g_parm		= vsi_enc_g_parm,
 	//.vidioc_g_fmt_vid_cap = vsi_enc_g_fmt,
