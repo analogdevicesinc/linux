@@ -661,7 +661,9 @@ static void pfe_eth_set_msglevel(struct net_device *ndev, uint32_t data)
  *
  */
 static int pfe_eth_set_coalesce(struct net_device *ndev,
-				struct ethtool_coalesce *ec)
+				struct ethtool_coalesce *ec,
+				struct kernel_ethtool_coalesce *kernel_coal,
+				struct netlink_ext_ack *extack)
 {
 	if (ec->rx_coalesce_usecs > HIF_RX_COAL_MAX_USECS)
 		return -EINVAL;
@@ -682,7 +684,9 @@ static int pfe_eth_set_coalesce(struct net_device *ndev,
  *
  */
 static int pfe_eth_get_coalesce(struct net_device *ndev,
-				struct ethtool_coalesce *ec)
+				struct ethtool_coalesce *ec,
+				struct kernel_ethtool_coalesce *kernel_coal,
+				struct netlink_ext_ack *extack)
 {
 	int reg_val = readl(HIF_INT_COAL);
 
