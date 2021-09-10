@@ -19,6 +19,7 @@
 		video-mode = <2>;	/* 0: burst mode
 					 * 1: non-burst mode with sync event
 					 * 2: non-burst mode with sync pulse
+					 * 3: command mode
 					 */
 		panel-width-mm = <68>;
 		panel-height-mm = <121>;
