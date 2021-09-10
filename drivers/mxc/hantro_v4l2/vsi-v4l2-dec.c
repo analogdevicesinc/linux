@@ -594,11 +594,33 @@ static int vsi_dec_handlestop_unspec(struct vsi_v4l2_ctx *ctx)
 	return 0;
 }
 
+static int vsi_dec_try_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
+{
+	switch (cmd->cmd) {
+	case V4L2_ENC_CMD_STOP:
+		cmd->stop.pts = 0;
+		break;
+	case V4L2_ENC_CMD_START:
+		cmd->start.speed = 0;
+		cmd->start.format = V4L2_DEC_START_FMT_NONE;
+		break;
+	case V4L2_DEC_CMD_RESET:
+		break;
+	case V4L2_ENC_CMD_PAUSE:
+	case V4L2_ENC_CMD_RESUME:
+	default:
+		return -EINVAL;
+	}
+
+	cmd->flags = 0;
+
+	return 0;
+}
+
 int vsi_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
-	//u32 flag = cmd->flags;
-	int ret = -EBUSY;
+	int ret = 0;
 
 	v4l2_klog(LOGLVL_BRIEF, "%lx:%s:%d in state %d:%d", ctx->ctxid, __func__,
 		cmd->cmd, ctx->status, vb2_is_streaming(&ctx->output_que));
@@ -627,6 +649,7 @@ int vsi_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cm
 	case V4L2_DEC_CMD_PAUSE:
 	case V4L2_DEC_CMD_RESUME:
 	default:
+		ret = -EINVAL;
 		break;
 	}
 	mutex_unlock(&ctx->ctxlock);
@@ -670,7 +693,7 @@ static const struct v4l2_ioctl_ops vsi_dec_ioctl = {
 
 	.vidioc_subscribe_event = vsi_dec_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
-
+	.vidioc_try_decoder_cmd = vsi_dec_try_decoder_cmd,
 	.vidioc_decoder_cmd = vsi_dec_decoder_cmd,
 };
 
