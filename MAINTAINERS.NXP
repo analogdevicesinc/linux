@@ -224,7 +224,7 @@ F: include/linux/pwm_backlight.h
 
 can
 M: Joakim Zhang <qiangqing.zhang@nxp.com>
-M: Pankaj Bansal <pankaj.bansal@nxp.com>
+M: Kuldeep Singh <kuldeep.singh@nxp.com>
 M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
 F: Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
 F: drivers/net/can/
