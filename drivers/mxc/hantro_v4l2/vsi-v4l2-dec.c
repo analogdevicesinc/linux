@@ -95,6 +95,31 @@ static int vsi_dec_reqbufs(
 	return ret;
 }
 
+static int vsi_dec_create_bufs(struct file *filp, void *priv,
+				struct v4l2_create_buffers *create)
+{
+	struct vsi_v4l2_ctx *ctx = fh_to_ctx(filp->private_data);
+	int ret;
+	struct vb2_queue *q;
+
+	if (!vsi_v4l2_daemonalive())
+		return -ENODEV;
+	if (!isvalidtype(create->format.type, ctx->flag))
+		return -EINVAL;
+
+	if (binputqueue(create->format.type))
+		q = &ctx->input_que;
+	else
+		q = &ctx->output_que;
+
+	ret = vb2_create_bufs(q, create);
+
+	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d create for %d buffer, got %d:%d",
+		ctx->ctxid, __func__, create->format.type, create->count, q->num_buffers, ret);
+
+	return ret;
+}
+
 static int vsi_dec_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
@@ -660,6 +685,7 @@ int vsi_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cm
 static const struct v4l2_ioctl_ops vsi_dec_ioctl = {
 	.vidioc_querycap = vsi_dec_querycap,
 	.vidioc_reqbufs             = vsi_dec_reqbufs,
+	.vidioc_create_bufs         = vsi_dec_create_bufs,
 	.vidioc_prepare_buf         = vsi_dec_prepare_buf,
 	//create_buf can be provided now since we don't know buf type in param
 	.vidioc_querybuf            = vsi_dec_querybuf,
@@ -706,14 +732,16 @@ static int vsi_dec_queue_setup(
 	struct device *alloc_devs[])
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(vq->drv_priv);
-	int i;
+	int i, ret;
 
-	vsiv4l2_buffer_config(ctx, vq, nbuffers, nplanes, sizes);
+	ret = vsiv4l2_buffer_config(ctx, vq, nbuffers, nplanes, sizes);
 	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d", ctx->ctxid, __func__, *nbuffers, *nplanes, sizes[0]);
 
-	for (i = 0; i < *nplanes; i++)
-		alloc_devs[i] = ctx->dev->dev;
-	return 0;
+	if (ret == 0) {
+		for (i = 0; i < *nplanes; i++)
+			alloc_devs[i] = ctx->dev->dev;
+	}
+	return ret;
 }
 
 static void vsi_dec_buf_queue(struct vb2_buffer *vb)
