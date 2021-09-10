@@ -195,8 +195,9 @@ static int vsi_enc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 	int ret;
 
-	v4l2_klog(LOGLVL_CONFIG, "%s:%d:%d:%x",
-		__func__, f->fmt.pix_mp.width, f->fmt.pix_mp.height, f->fmt.pix_mp.pixelformat);
+	v4l2_klog(LOGLVL_CONFIG, "%s fmt:%x, res:%dx%d\n", __func__,
+		  f->fmt.pix_mp.pixelformat, f->fmt.pix_mp.width,
+		  f->fmt.pix_mp.height);
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
 	if (!isvalidtype(f->type, ctx->flag))
@@ -476,14 +477,10 @@ static int vsi_enc_try_fmt(struct file *file, void *prv, struct v4l2_format *f)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 
-	v4l2_klog(LOGLVL_CONFIG, "%s:%d", __func__, f->type);
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
-	if (!isvalidtype(f->type, ctx->flag))
-		return -EINVAL;
-	if (vsi_find_format(ctx, f) == NULL)
-		return -EINVAL;
 
+	vsiv4l2_verifyfmt(ctx, f);
 	return 0;
 }
 
@@ -510,6 +507,26 @@ static int vsi_enc_enum_fmt(struct file *file, void *prv, struct v4l2_fmtdesc *f
 	return 0;
 }
 
+static int vsi_enc_valid_crop(struct vsi_v4l2_ctx *ctx)
+{
+	struct v4l2_daemon_enc_general_cmd *general = &ctx->mediacfg.encparams.general;
+	struct v4l2_frmsizeenum fsize;
+
+	vsi_enum_encfsize(&fsize, ctx->mediacfg.outfmt_fourcc);
+
+	general->horOffsetSrc = ALIGN(general->horOffsetSrc, fsize.stepwise.step_width);
+	general->verOffsetSrc = ALIGN(general->verOffsetSrc, fsize.stepwise.step_height);
+	general->width = ALIGN(general->width, fsize.stepwise.step_width);
+	general->height = ALIGN(general->height, fsize.stepwise.step_height);
+
+	general->width = min(general->width, ctx->mediacfg.width_src - general->horOffsetSrc);
+	general->width = max_t(u32, general->width, fsize.stepwise.min_width);
+	general->height = min(general->height, ctx->mediacfg.height_src - general->verOffsetSrc);
+	general->height = max_t(u32, general->height, fsize.stepwise.min_height);
+
+	return 0;
+}
+
 static int vsi_enc_set_selection(struct file *file, void *prv, struct v4l2_selection *s)
 {
 	int ret = 0;
@@ -531,6 +548,7 @@ static int vsi_enc_set_selection(struct file *file, void *prv, struct v4l2_selec
 		pcfg->encparams.general.verOffsetSrc = s->r.top;
 		pcfg->encparams.general.width = s->r.width;
 		pcfg->encparams.general.height = s->r.height;
+		vsi_enc_valid_crop(ctx);
 		set_bit(CTX_FLAG_CONFIGUPDATE_BIT, &ctx->flag);
 		mutex_unlock(&ctx->ctxlock);
 	}
@@ -550,6 +568,7 @@ static int vsi_enc_get_selection(struct file *file, void *prv, struct v4l2_selec
 	if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT &&
 		s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return -EINVAL;
+
 	switch (s->target) {
 	case V4L2_SEL_TGT_CROP:
 		s->r.left = pcfg->encparams.general.horOffsetSrc;
@@ -561,8 +580,8 @@ static int vsi_enc_get_selection(struct file *file, void *prv, struct v4l2_selec
 	case V4L2_SEL_TGT_CROP_BOUNDS:
 		s->r.left = 0;
 		s->r.top = 0;
-		s->r.width = pcfg->encparams.general.lumWidthSrc;
-		s->r.height = pcfg->encparams.general.lumHeightSrc;
+		s->r.width = pcfg->width_src;
+		s->r.height = pcfg->height_src;
 		break;
 	default:
 		return -EINVAL;
@@ -1409,7 +1428,6 @@ static int v4l2_enc_open(struct file *filp)
 		goto err_enc_dec_exit;
 	}
 	vsiv4l2_initcfg(ctx);
-	vsiv4l2_initfmt(ctx);
 	vsi_setup_enc_ctrls(&ctx->ctrlhdl);
 	vfh = (struct v4l2_fh *)filp->private_data;
 	vfh->ctrl_handler = &ctx->ctrlhdl;

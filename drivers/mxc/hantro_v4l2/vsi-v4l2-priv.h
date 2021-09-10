@@ -42,8 +42,8 @@
 
 #define DEFAULT_PIXELDEPTH		10		//set outputPixelDepth to this will make daemon return default pixeldepth
 
-#define VSI_DEFAULT_WIDTH		144
-#define VSI_DEFAULT_HEIGHT		144
+#define VSI_DEFAULT_WIDTH		320
+#define VSI_DEFAULT_HEIGHT		240
 
 #if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
 #define VSI_DEVTYPE	VFL_TYPE_GRABBER
@@ -193,8 +193,10 @@ struct vsi_v4l2_mediacfg {
 
 	/* from set format */
 	//unsigned int width;
+	s32 width_src;
 	//move to encparams.general.width
 	//unsigned int height;
+	s32 height_src;
 	//move to encparams.general.height
 	//unsigned int pixelformat;
 	//move to encparams.general.inputFormat
@@ -209,6 +211,7 @@ struct vsi_v4l2_mediacfg {
 	u32 flags;		/* format flags (V4L2_PIX_FMT_FLAG_*) */
 	u32 quantization;	/* enum v4l2_quantization */
 	u32 xfer_func;	/* enum v4l2_xfer_func */
+	u32 ycbcr_enc;
 	u32 minbuf_4capture;
 	u32 minbuf_4output;
 	u32 multislice_mode;
@@ -231,8 +234,10 @@ struct vsi_v4l2_mediacfg {
 	struct v4l2_enc_ipcm_params ipcminfo;
 
 	/*internal storage*/
-	struct v4l2_daemon_enc_params encparams;
-	struct v4l2_daemon_dec_params decparams;
+	union {
+		struct v4l2_daemon_enc_params encparams;
+		struct v4l2_daemon_dec_params decparams;
+	};
 	struct v4l2_daemon_dec_params decparams_bkup;
 	s32 minbuf_4output_bkup;
 	s32 sizeimagedst_bkup;
@@ -373,9 +378,10 @@ int vsi_v4l2_daemonalive(void);
 void vsi_dec_updatevui(struct v4l2_daemon_dec_info *src, struct v4l2_daemon_dec_info *dst);
 void vsi_dec_getvui(struct v4l2_format *v4l2fmt, struct v4l2_daemon_dec_info *decinfo);
 void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format);
+int vsiv4l2_enc_getalign(u32 srcfmt, u32 dstfmt, int width);
 void vsiv4l2_initcfg(struct vsi_v4l2_ctx *ctx);
-void vsiv4l2_initfmt(struct vsi_v4l2_ctx *ctx);
 int vsi_get_Level(struct vsi_v4l2_ctx *ctx, int mediatype, int dir, int level);
+int vsiv4l2_verifyfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 int vsiv4l2_setfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 int vsiv4l2_getfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 void vsi_v4l2_update_decfmt(struct vsi_v4l2_ctx *ctx);
