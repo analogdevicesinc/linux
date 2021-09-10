@@ -20,7 +20,7 @@
 #ifndef VSI_V4L2_H
 #define VSI_V4L2_H
 
-#define MAX_STREAMS 100
+#define MAX_STREAMS 200
 #define MAX_GOP_SIZE 8
 #define MAX_INTRA_PIC_RATE 0x7fffffff
 #define NO_RESPONSE_SEQID 0xFFFFFFFE

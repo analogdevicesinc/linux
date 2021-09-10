@@ -561,6 +561,7 @@ int vsi_v4l2_addinstance(pid_t *ppid)
 		return -EBUSY;
 
 	if (v4l2_fn >= MAX_STREAMS) {
+		v4l2_klog(LOGLVL_WARNING, "opened instances more than max count:%d\n", v4l2_fn);
 		ret = -EBUSY;
 	} else {
 		v4l2_fn++;
