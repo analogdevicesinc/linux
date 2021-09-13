@@ -8,15 +8,6 @@
 		compatible = "simple-bus";
 		ranges ;
 
-		fmc_i2c: i2c@41620000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			clock-names = "s_axi_aclk";
-			clocks = <&clkc 15>;
-			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
-			reg = <0x41620000 0x1000>;
-		};
-
 		rx1_dma: dma@44A30000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x44a30000 0x1000>;
