@@ -1,89 +1,82 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
-/ {
-	fpga_axi: fpga-axi@0  {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "simple-bus";
-		ranges ;
+&fpga_axi {
+	rx_dma: dma@44A30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "s_axi_aclk", "m_dest_axi_aclk", "fifo_wr_clk";
+		clocks = <&clkc 15>, <&clkc 16>, <&misc_clk_0>;
 
-		rx_dma: dma@44A30000 {
-			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x44a30000 0x1000>;
-			#dma-cells = <1>;
-			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
-			clock-names = "s_axi_aclk", "m_dest_axi_aclk", "fifo_wr_clk";
-			clocks = <&clkc 15>, <&clkc 16>, <&misc_clk_0>;
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
 
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <64>;
-					adi,source-bus-type = <2>;
-					adi,destination-bus-width = <64>;
-					adi,destination-bus-type = <0>;
-				};
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
 			};
 		};
+	};
 
-		tx_dma: dma@44A50000 {
-			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x44A50000 0x10000>;
-			#dma-cells = <1>;
-			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
-			clock-names = "s_axi_aclk", "m_src_axi_aclk", "m_axis_aclk";
-			clocks = <&clkc 15>, <&clkc 16>, <&misc_clk_0>;
+	tx_dma: dma@44A50000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44A50000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "s_axi_aclk", "m_src_axi_aclk", "m_axis_aclk";
+		clocks = <&clkc 15>, <&clkc 16>, <&misc_clk_0>;
 
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
 
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <64>;
-					adi,source-bus-type = <0>;
-					adi,destination-bus-width = <64>;
-					adi,destination-bus-type = <2>;
-				};
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <2>;
 			};
 		};
+	};
 
-		axi_adrv9002_core_rx: axi-adrv9002-rx-lpc@44A00000 {
-			compatible = "adi,axi-adrv9002-rx-1.0";
-			reg = <0x44A00000 0x6000>;
-			clocks = <&adc0_adrv9002 0>;
-			dmas = <&rx_dma 0>;
-			dma-names = "rx";
-			spibus-connected = <&adc0_adrv9002>;
-		};
+	axi_adrv9002_core_rx: axi-adrv9002-rx-lpc@44A00000 {
+		compatible = "adi,axi-adrv9002-rx-1.0";
+		reg = <0x44A00000 0x6000>;
+		clocks = <&adc0_adrv9002 0>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_adrv9002>;
+	};
 
-		axi_adrv9002_core_tx: axi-adrv9002-tx-lpc@44A0A000 {
-			compatible = "adi,axi-adrv9002-rx2tx2-1.0";
-			reg = <0x44A0A000 0x2000>;
-			clocks = <&adc0_adrv9002 1>;
-			clock-names = "sampl_clk";
-			dmas = <&tx_dma 0>;
-			dma-names = "tx";
-			adi,axi-dds-default-scale = <0x800>;
-			adi,axi-dds-default-frequency = <2000000>;
-		};
+	axi_adrv9002_core_tx: axi-adrv9002-tx-lpc@44A0A000 {
+		compatible = "adi,axi-adrv9002-rx2tx2-1.0";
+		reg = <0x44A0A000 0x2000>;
+		clocks = <&adc0_adrv9002 1>;
+		clock-names = "sampl_clk";
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+		adi,axi-dds-default-scale = <0x800>;
+		adi,axi-dds-default-frequency = <2000000>;
+	};
 
-		axi_adrv9002_core_tdd: axi-adrv9002-core-tdd-lpc@44A0C800 {
-			compatible = "adi,axi-tdd-1.00";
-			reg = <0x44A0C800 0x400>;
-			clocks = <&clkc 16>, <&adc0_adrv9002 2>;
-			clock-names = "s_axi_aclk", "intf_clk";
-		};
+	axi_adrv9002_core_tdd: axi-adrv9002-core-tdd-lpc@44A0C800 {
+		compatible = "adi,axi-tdd-1.00";
+		reg = <0x44A0C800 0x400>;
+		clocks = <&clkc 16>, <&adc0_adrv9002 2>;
+		clock-names = "s_axi_aclk", "intf_clk";
+	};
 
-		misc_clk_0: misc_clk_0 {
-			#clock-cells = <0>;
-			clock-frequency = <100000000>;
-			compatible = "fixed-clock";
-		};
+	misc_clk_0: misc_clk_0 {
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		compatible = "fixed-clock";
 	};
 };
 
