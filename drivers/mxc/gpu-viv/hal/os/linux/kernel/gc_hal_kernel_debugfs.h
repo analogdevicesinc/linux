@@ -53,7 +53,9 @@
 *****************************************************************************/
 
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(5,4,0)
 #include <stdarg.h>
+#endif
 
 #ifndef __gc_hal_kernel_debugfs_h_
 #define __gc_hal_kernel_debugfs_h_

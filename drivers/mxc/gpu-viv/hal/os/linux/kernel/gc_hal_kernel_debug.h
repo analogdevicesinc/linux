@@ -59,7 +59,9 @@
 #include <gc_hal_kernel_linux.h>
 #include <linux/spinlock.h>
 #include <linux/time.h>
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(5,4,0)
 #include <stdarg.h>
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 #include <linux/nmi.h>
