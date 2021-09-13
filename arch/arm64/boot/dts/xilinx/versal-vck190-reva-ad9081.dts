@@ -114,5 +114,56 @@
 	clock-frequency = <33333333>;
 };
 
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx_dma: dma@bc420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0xbc420000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 97 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&versal_clk PMC_PL1_REF>;
+		};
+
+		tx_dma: dma@bc430000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0xbc430000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 96 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&versal_clk PMC_PL1_REF>;
+		};
+
+		axi_ad9081_core_rx: axi-ad9081-rx-hpc@a4a10000 {
+			compatible = "adi,axi-ad9081-rx-1.0";
+			reg = <0xa4a10000 0x8000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx0_ad9081>;
+		};
+
+		axi_ad9081_core_tx: axi-ad9081-tx-hpc@a4b10000 {
+			compatible = "adi,axi-ad9081-tx-1.0";
+			reg = <0xa4b10000 0x4000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			clocks = <&trx0_ad9081 1>;
+			clock-names = "sampl_clk";
+			spibus-connected = <&trx0_ad9081>;
+		};
+
+		axi_sysid_0: axi-sysid-0@a5000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0xa5000000 0x10000>;
+		};
+	};
+};
+
 #define fmc_spi spi0
 #include "adi-ad9081-fmc-ebz.dtsi"
