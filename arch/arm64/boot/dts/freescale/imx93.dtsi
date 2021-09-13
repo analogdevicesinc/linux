@@ -1376,6 +1376,38 @@
 			status = "okay";
 		};
 
+		dsi: dsi@4ae10000 {
+			compatible = "fsl,imx93-mipi-dsi";
+			reg = <0x4ae10000 0x4000>;
+			interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX93_CLK_MIPI_TEST_BYTE>,
+				 <&clk IMX93_CLK_MIPI_DSI_GATE>,
+				 <&clk IMX93_CLK_MEDIA_DISP_PIX>;
+			clock-names = "byte", "pclk", "pixel";
+			assigned-clocks = <&clk IMX93_CLK_MIPI_TEST_BYTE>,
+					  <&clk IMX93_CLK_MEDIA_APB>;
+			assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD0>,
+						 <&clk IMX93_CLK_SYS_PLL_PFD1_DIV2>;
+			assigned-clock-rates = <20000000>, <133333333>;
+			phys = <&dphy>;
+			phy-names = "dphy";
+			power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_MIPI_DSI>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					dsi_to_lcdif: endpoint {
+						remote-endpoint = <&lcdif_to_dsi>;
+					};
+				};
+			};
+		};
+
 		lcdif: lcd-controller@4ae30000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1404,6 +1436,7 @@
 
 				lcdif_to_dsi: endpoint@0 {
 					reg = <0>;
+					remote-endpoint = <&dsi_to_lcdif>;
 				};
 
 				lcdif_to_ldb: endpoint@1 {
