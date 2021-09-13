@@ -4250,7 +4250,7 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 	struct adrv9002_fh_bin_table *tbl = &phy->fh_table_bin_attr[hop * 2 + table];
 	adi_adrv9001_FhHopFrame_t hop_tbl[ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE];
 	char *p, *line;
-	int entry = 0, ret, max_sz;
+	int entry = 0, ret, max_sz = ARRAY_SIZE(hop_tbl);
 
 	mutex_lock(&phy->lock);
 	if (!phy->curr_profile->sysConfig.fhModeOn) {
@@ -4274,7 +4274,7 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 	}
 
 	if (phy->fh.mode == ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP)
-		max_sz = ARRAY_SIZE(hop_tbl) / 2;
+		max_sz /= 2;
 
 	p = tbl->bin_table;
 	while ((line = strsep(&p, "\n")) && p) {
