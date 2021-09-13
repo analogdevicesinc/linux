@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
+ *
+ * hdl_project: <>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "versal-vck190-reva.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+
+&gic {
+	num_cpus = <2>;
+	num_interrupts = <96>;
+};
+
+&lpd_dma_chan0 {
+	status = "okay";
+};
+
+&lpd_dma_chan1 {
+	status = "okay";
+};
+
+&lpd_dma_chan2 {
+	status = "okay";
+};
+
+&lpd_dma_chan3 {
+	status = "okay";
+};
+
+&lpd_dma_chan4 {
+	status = "okay";
+};
+
+&lpd_dma_chan5 {
+	status = "okay";
+};
+
+&lpd_dma_chan6 {
+	status = "okay";
+};
+
+&lpd_dma_chan7 {
+	status = "okay";
+};
+
+&cci {
+	status = "okay";
+};
+
+&smmu {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "disabled";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&qspi {
+	is-dual = <1>;
+	num-cs = <1>;
+	spi-rx-bus-width = <4>;
+	spi-tx-bus-width = <4>;
+	status = "okay";
+};
+
+&sdhci1 {
+	clock-frequency = <199999985>;
+	status = "okay";
+};
+
+&sysmon {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	xlnx,numchannels = /bits/8 <0>;
+};
+
+&serial0 {
+	cts-override ;
+	device_type = "serial";
+	port-number = <0>;
+};
+
+&spi0 {
+	is-decoded-cs = <0>;
+	num-cs = <3>;
+	status = "okay";
+};
+
+&spi1 {
+	is-decoded-cs = <0>;
+	num-cs = <3>;
+	status = "okay";
+};
+
+&ttc0 {
+	status = "okay";
+};
+
+&ref_clk {
+	clock-frequency = <33333333>;
+};
+
+#define fmc_spi spi0
+#include "adi-ad9081-fmc-ebz.dtsi"
