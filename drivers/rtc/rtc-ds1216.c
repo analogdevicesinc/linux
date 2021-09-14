@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Dallas DS1216 RTC driver
+ * Dallas DS1216B/C/D/E/F/H RTC driver
  *
  * Copyright (c) 2007 Thomas Bogendoerfer
  *
