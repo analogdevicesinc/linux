@@ -401,7 +401,7 @@ config USB_FOTG210_HCD
 	  module will be called fotg210-hcd.
 
 config USB_MAX3421_HCD
-	tristate "MAX3421 HCD (USB-over-SPI) support"
+	tristate "MAX3421E HCD (USB-over-SPI) support"
 	depends on USB && SPI
 	help
 	  The Maxim MAX3421E chip supports standard USB 2.0-compliant
