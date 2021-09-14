@@ -80,6 +80,11 @@ enum {
 	AD9081_DAC_FFH_FREQ_SET,
 	AD9081_DAC_FFH_INDEX_SET,
 	AD9081_DAC_FFH_MODE_SET,
+	AD9081_JESD204_FSM_ERROR,
+	AD9081_JESD204_FSM_PAUSED,
+	AD9081_JESD204_FSM_STATE,
+	AD9081_JESD204_FSM_RESUME,
+	AD9081_JESD204_FSM_CTRL,
 };
 
 struct ad9081_jesd204_priv {
@@ -165,6 +170,7 @@ struct ad9081_phy {
 	bool config_sync_01_swapped;
 	bool config_sync_0a_cmos_en;
 	bool jrx_link_watchdog_en;
+	bool is_initialized;
 
 	struct device_settings_cache device_cache;
 
@@ -1965,6 +1971,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 	long long lval;
 	uint64_t ftw;
 	bool bres;
+	bool enable;
 	int ret = 0;
 	u8 val;
 
@@ -2073,6 +2080,35 @@ static ssize_t ad9081_phy_store(struct device *dev,
 
 		phy->ffh_hopf_mode = val;
 		break;
+	case AD9081_JESD204_FSM_RESUME:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		ret = jesd204_fsm_resume(phy->jdev, JESD204_LINKS_ALL);
+		break;
+	case AD9081_JESD204_FSM_CTRL:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		ret = strtobool(buf, &enable);
+		if (ret)
+			break;
+
+		if (enable) {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+		} else {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			ret = 0;
+		}
+
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -2090,6 +2126,10 @@ static ssize_t ad9081_phy_show(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
+	struct jesd204_dev *jdev = phy->jdev;
+	struct jesd204_link *links[2];
+	int i, err, num_links;
+	bool paused;
 	int ret = 0;
 
 	mutex_lock(&indio_dev->mlock);
@@ -2111,6 +2151,89 @@ static ssize_t ad9081_phy_show(struct device *dev,
 		break;
 	case AD9081_MCS:
 		ret = sprintf(buf, "%u\n", phy->mcs_cached_val);
+		break;
+	case AD9081_JESD204_FSM_ERROR:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			break;
+		err = 0;
+		for (i = 0; i < num_links; i++) {
+			if (links[i]->error) {
+				err = links[i]->error;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", err);
+		break;
+	case AD9081_JESD204_FSM_PAUSED:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			break;
+		/*
+		 * Take the slowest link; if there are N links and one is
+		 * paused, all are paused. Not sure if this can happen yet,
+		 * but best design it like this here.
+		 */
+		paused = false;
+		for (i = 0; i < num_links; i++) {
+			if (jesd204_link_get_paused(links[i])) {
+				paused = true;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", paused);
+		break;
+	case AD9081_JESD204_FSM_STATE:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
+		if (ret)
+			break;
+		/*
+		 * just get the first link state; we're assuming that all 3
+		 * are in sync and that AD9081_JESD204_FSM_PAUSED
+		 * was called before
+		 */
+		ret = sprintf(buf, "%s\n",
+			jesd204_link_get_state_str(links[0]));
+		break;
+	case AD9081_JESD204_FSM_CTRL:
+		if (!phy->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		ret = sprintf(buf, "%d\n", phy->is_initialized);
 		break;
 	default:
 		ret = -EINVAL;
@@ -2153,6 +2276,31 @@ static IIO_DEVICE_ATTR(out_voltage_main_ffh_mode, S_IRUGO | S_IWUSR,
 static IIO_CONST_ATTR(out_voltage_main_ffh_mode_available,
 		"phase_continuous phase_incontinuous phase_coherent");
 
+static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
+		       ad9081_phy_show,
+		       NULL,
+		       AD9081_JESD204_FSM_ERROR);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_paused, 0444,
+		       ad9081_phy_show,
+		       NULL,
+		       AD9081_JESD204_FSM_PAUSED);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_state, 0444,
+		       ad9081_phy_show,
+		       NULL,
+		       AD9081_JESD204_FSM_STATE);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_resume, 0200,
+		       NULL,
+		       ad9081_phy_store,
+		       AD9081_JESD204_FSM_RESUME);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
+		       ad9081_phy_show,
+		       ad9081_phy_store,
+		       AD9081_JESD204_FSM_CTRL);
+
 static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_loopback_mode.dev_attr.attr,
 	&iio_dev_attr_adc_clk_powerdown.dev_attr.attr,
@@ -2161,6 +2309,11 @@ static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_out_voltage_main_ffh_index.dev_attr.attr,
 	&iio_dev_attr_out_voltage_main_ffh_mode.dev_attr.attr,
 	&iio_const_attr_out_voltage_main_ffh_mode_available.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
 	NULL,
 };
 
@@ -3692,6 +3845,8 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 		if (lnk->is_transmit && phy->jrx_link_watchdog_en)
 			cancel_delayed_work(&phy->dwork);
 
+		phy->is_initialized = false;
+
 		return JESD204_STATE_CHANGE_DONE;
 	}
 
@@ -3707,6 +3862,8 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 
 	if (lnk->is_transmit && phy->jrx_link_watchdog_en)
 		schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
+
+	phy->is_initialized = true;
 
 	return JESD204_STATE_CHANGE_DONE;
 }
