@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * max8903_charger.c - Maxim 8903 USB/Adapter Charger Driver
+ * max8903_charger.c - Maxim 8903A/B/C/D/E/G/H/J/N/Y USB/Adapter Charger Driver
  *
  * Copyright (C) 2011 Samsung Electronics
  * MyungJoo Ham <myungjoo.ham@samsung.com>
