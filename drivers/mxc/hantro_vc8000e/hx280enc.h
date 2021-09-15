@@ -81,6 +81,10 @@
 #define HX280ENC_IOCG_EN_CORE      _IOR(HX280ENC_IOC_MAGIC, 14, unsigned int *)
 
 #define HX280ENC_IOCG_CORE_WAIT     _IOR(HX280ENC_IOC_MAGIC, 19, unsigned int *)
+
+#define HX280ENC_IOC_WRITE_REGS     _IOW(HX280ENC_IOC_MAGIC, 20, struct enc_regs_buffer *)
+#define HX280ENC_IOC_READ_REGS      _IOR(HX280ENC_IOC_MAGIC, 21, struct enc_regs_buffer *)
+
 #define HX280ENC_IOC_MAXNR 30
 
 typedef struct {
@@ -89,4 +93,13 @@ typedef struct {
   int irq;
   u32 resouce_shared; //indicate the core share resources with other cores or not.If 1, means cores can not work at the same time.
 } CORE_CONFIG;
+
+struct enc_regs_buffer {
+	u32 core_id;
+	u32 *regs;
+	u32 offset;
+	u32 size;
+	u32 *reserved;
+};
+
 #endif /* !_HX280ENC_H_ */

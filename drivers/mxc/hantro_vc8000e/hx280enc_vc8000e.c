@@ -408,6 +408,66 @@ static void ReleaseEncoder(hantroenc_t *dev, u32 *core_info)
 
 }
 
+static int hantroenc_write_regs(unsigned long arg)
+{
+	struct enc_regs_buffer regs;
+	hantroenc_t *dev;
+	u32 *reg_buf;
+	u32 i;
+	int ret;
+
+	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
+	if (ret)
+		return ret;
+	if (regs.core_id >= total_core_num ||
+	    (regs.offset + regs.size) / 4 > ARRAY_SIZE(hantroenc_data[regs.core_id].reg_buf)) {
+		pr_err("%s invalid param, core_id:%d, offset:%d, size:%d\n",
+			__func__, regs.core_id, regs.offset, regs.size);
+		return -EINVAL;
+	}
+
+	dev = &hantroenc_data[regs.core_id];
+	reg_buf = &dev->reg_buf[regs.offset / 4];
+	ret = copy_from_user(reg_buf, (void *)regs.regs, regs.size);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < regs.size / 4; i++)
+		iowrite32(reg_buf[i], (dev->hwregs + regs.offset) + i * 4);
+
+	return ret;
+}
+
+static int hantroenc_read_regs(unsigned long arg)
+{
+	struct enc_regs_buffer regs;
+	hantroenc_t *dev;
+	u32 *reg_buf;
+	u32 i;
+	int ret;
+
+	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
+	if (ret)
+		return ret;
+	if (regs.core_id >= total_core_num ||
+	    (regs.offset + regs.size) / 4 > ARRAY_SIZE(hantroenc_data[regs.core_id].reg_buf)) {
+		pr_err("%s invalid param, core_id:%d, offset:%d, size:%d\n",
+			__func__, regs.core_id, regs.offset, regs.size);
+		return -EINVAL;
+	}
+
+	dev = &hantroenc_data[regs.core_id];
+	reg_buf = &dev->reg_buf[regs.offset / 4];
+
+	for (i = 0; i < regs.size / 4; i++)
+		reg_buf[i] = ioread32((dev->hwregs + regs.offset) + i * 4);
+
+	ret = copy_to_user((void *)regs.regs, reg_buf, regs.size);
+
+	return ret;
+}
+
+
 static long hantroenc_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
@@ -562,6 +622,18 @@ static long hantroenc_ioctl(struct file *filp,
 
 		break;
 	}
+	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
+		err = hantroenc_write_regs(arg);
+		if (err)
+			return err;
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
+		err = hantroenc_read_regs(arg);
+		if (err)
+			return err;
+		break;
+	}
 	default: {
 #ifdef HANTROMMU_SUPPORT
 	if (_IOC_TYPE(cmd) == HANTRO_IOC_MMU)
@@ -713,6 +785,17 @@ union {
 		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
 		break;
 	}
+
+	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
+		break;
+	}
+
+	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
+		break;
+	}
+
 	}
 	return 0;
 }
