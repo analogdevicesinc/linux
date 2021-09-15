@@ -182,11 +182,11 @@ static ssize_t axi_jesd204_rx_status_read(struct device *dev,
 	if (jesd->encoder == JESD204_ENCODER_64B66B) {
 		link_rate = DIV_ROUND_CLOSEST(lane_rate, 66);
 		lmfc_rate = (lane_rate * 8) /
-			(66 * ((link_config0 & 0xFF) + 1));
+			(66 * ((link_config0 & 0x3FF) + 1));
 	} else {
 		link_rate = DIV_ROUND_CLOSEST(lane_rate, 40);
 		lmfc_rate = lane_rate /
-			(10 * ((link_config0 & 0xFF) + 1));
+			(10 * ((link_config0 & 0x3FF) + 1));
 	}
 
 	if (jesd->version >= ADI_AXI_PCORE_VER(1, 7, 'a')) {
