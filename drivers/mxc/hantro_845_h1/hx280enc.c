@@ -372,6 +372,60 @@ static long EncRefreshRegs(hx280enc_t *dev, unsigned int *regs)
 	return 0;
 }
 
+static int hx280enc_write_regs(unsigned long arg)
+{
+	struct enc_regs_buffer regs;
+	hx280enc_t *dev = &hx280enc_data;
+	u32 *reg_buf;
+	u32 i;
+	int ret;
+
+	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
+	if (ret)
+		return ret;
+	if ((regs.offset + regs.size) / 4 > ARRAY_SIZE(dev->mirror_regs)) {
+		pr_err("%s invalid param, offset:%d, size:%d\n",
+			__func__, regs.offset, regs.size);
+		return -EINVAL;
+	}
+
+	reg_buf = &dev->mirror_regs[regs.offset / 4];
+	ret = copy_from_user((void *)reg_buf, (void *)regs.regs, regs.size);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < regs.size / 4; i++)
+		iowrite32(reg_buf[i], (dev->hwregs + regs.offset) + i * 4);
+
+	return ret;
+}
+
+static int hx280enc_read_regs(unsigned long arg)
+{
+	struct enc_regs_buffer regs;
+	hx280enc_t *dev = &hx280enc_data;
+	u32 *reg_buf;
+	u32 i;
+	int ret;
+
+	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
+	if (ret)
+		return ret;
+	if ((regs.offset + regs.size) / 4 > ARRAY_SIZE(dev->mirror_regs)) {
+		pr_err("%s invalid param, offset:%d, size:%d\n",
+			__func__, regs.offset, regs.size);
+		return -EINVAL;
+	}
+
+	reg_buf = &dev->mirror_regs[regs.offset / 4];
+
+	for (i = 0; i < regs.size / 4; i++)
+		reg_buf[i] = ioread32((dev->hwregs + regs.offset) + i * 4);
+
+	ret = copy_to_user((void *)regs.regs, (void *)reg_buf, regs.size);
+
+	return ret;
+}
 
 static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -430,6 +484,20 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			return ret1;
 		break;
 	}
+	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
+		err = hx280enc_write_regs(arg);
+		if (err)
+			return err;
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
+		err = hx280enc_read_regs(arg);
+		if (err)
+			return err;
+		break;
+	}
+	default:
+		break;
 	}
 	return 0;
 }
@@ -526,8 +594,18 @@ union {
 		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
 		break;
 	}
+	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
+		break;
 	}
-    return 0;
+	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
+		break;
+	}
+	default:
+		break;
+	}
+	return 0;
 }
 #endif
 
