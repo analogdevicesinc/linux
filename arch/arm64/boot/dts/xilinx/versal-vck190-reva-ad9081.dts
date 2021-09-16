@@ -121,6 +121,10 @@
 	clock-frequency = <33333333>;
 };
 
+&gem0 {
+	local-mac-address = [00 0a 35 ad 90 81];
+};
+
 / {
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
