@@ -20,3 +20,5 @@ dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu1275-revB.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu1285-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu208-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu216-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-alinx-axu15eg.dts
+
