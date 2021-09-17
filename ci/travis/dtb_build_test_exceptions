@@ -1,5 +1,8 @@
 # Device-trees that are upstream/non-ADI, go here
 
+arch/arm64/boot/dts/xilinx/zynqmp-alinx-axu15eg.dts
+arch/arm64/boot/dts/xilinx/zynqmp-alinx-axu15eg-rev1-adrv9009.dts
+arch/arm64/boot/dts/xilinx/zynqmp-alinx-axu15eg-rev1-adrv9009-jesd204-fsm.dts
 arch/arm/boot/dts/socfpga_cyclone5_chameleon96.dts
 arch/arm/boot/dts/socfpga_cyclone5_de0_nano_soc.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu208-revA.dts
