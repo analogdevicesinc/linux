@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADRV9009
- * https://wiki.analog.com/resources/eval/user-guides/adrv9009
- * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
- * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * dts file for Alinx ZynqMP AXU15EG
+ * Modified by Kirill Martynenko <k.martynenko@rubetek.com>
  *
- * hdl_project: <adrv9009/zcu102>
- * board_revision: <>
- *
- * Copyright (C) 2019 Analog Devices Inc.
+ * Based on:  Analog Devices ADRV9009 device tree
+ * hdl_project:
  */
 
 #include "zynqmp-alinx-axu15eg-rev1-adrv9009.dts"
@@ -54,7 +50,7 @@
 };
 
 &axi_adrv9009_adxcvr_rx {
-    	jesd204-device;
+	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs =  <&clk0_ad9528 0 FRAMER_LINK_RX>;
 	clocks = <&clk0_ad9528 1>; /* div40 is controlled by axi_adrv9009_rx_jesd */
@@ -62,7 +58,7 @@
 };
 
 &axi_adrv9009_adxcvr_rx_os {
-    	jesd204-device;
+	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs =  <&clk0_ad9528 0 FRAMER_LINK_ORX>;
 	clocks = <&clk0_ad9528 1>; /* div40 is controlled by axi_adrv9009_rx_os_jesd */
@@ -70,7 +66,7 @@
 };
 
 &axi_adrv9009_adxcvr_tx {
-    	jesd204-device;
+	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs =  <&clk0_ad9528 0 DEFRAMER_LINK_TX>;
 	clocks = <&clk0_ad9528 1>; /* div40 is controlled by axi_adrv9009_tx_jesd */

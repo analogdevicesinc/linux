@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for Xilinx ZynqMP ZCU102 RevA
+ * dts file for Alinx ZynqMP AXU15EG
  *
- * (C) Copyright 2015 - 2020, Xilinx, Inc.
+ * hdl_project:
  *
- * Michal Simek <michal.simek@xilinx.com>
+ * Kirill Martynenko <k.martynenko@rubetek.com>
  */
 
 /dts-v1/;
@@ -186,19 +186,19 @@
 
 &gem3 {
 	status = "okay";
-/*	phy-handle = <&phy0>;
-	phy-mode = "rgmii-id";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gem3_default>;
-	phy0: ethernet-phy@21 {
-		reg = <21>;
-		ti,rx-internal-delay = <0x8>;
-		ti,tx-internal-delay = <0xa>;
-		ti,fifo-depth = <0x1>;
-		ti,dp83867-rxctrl-strap-quirk;
-		// reset-gpios = <&tca6416_u97 6 GPIO_ACTIVE_LOW>; 
-	};
-*/
+	// phy-handle = <&phy0>;
+	// phy-mode = "rgmii-id";
+	// pinctrl-names = "default";
+	// pinctrl-0 = <&pinctrl_gem3_default>;
+	// phy0: ethernet-phy@21 {
+		// reg = <21>;
+		// ti,rx-internal-delay = <0x8>;
+		// ti,tx-internal-delay = <0xa>;
+		// ti,fifo-depth = <0x1>;
+		// ti,dp83867-rxctrl-strap-quirk;
+		// // reset-gpios = <&tca6416_u97 6 GPIO_ACTIVE_LOW>;
+	// };
+
 };
 
 
@@ -225,7 +225,7 @@
 	// tca6416_u97: gpio@20 {
 		// compatible = "ti,tca6416";
 		// reg = <0x20>;
-		// gpio-controller; // IRQ not connected 
+		// gpio-controller; // IRQ not connected
 		// #gpio-cells = <2>;
 		// gpio-line-names = "PS_GTR_LAN_SEL0", "PS_GTR_LAN_SEL1", "PS_GTR_LAN_SEL2", "PS_GTR_LAN_SEL3",
 				// "PCI_CLK_DIR_SEL", "IIC_MUX_RESET_B", "GEM3_EXP_RESET_B",
@@ -233,25 +233,25 @@
 		// gtr-sel0 {
 			// gpio-hog;
 			// gpios = <0 0>;
-			// output-low; // PCIE = 0, DP = 1 
+			// output-low; // PCIE = 0, DP = 1
 			// line-name = "sel0";
 		// };
 		// gtr-sel1 {
 			// gpio-hog;
 			// gpios = <1 0>;
-			// output-high; // PCIE = 0, DP = 1 
+			// output-high; // PCIE = 0, DP = 1
 			// line-name = "sel1";
 		// };
 		// gtr-sel2 {
 			// gpio-hog;
 			// gpios = <2 0>;
-			// output-high; // PCIE = 0, USB0 = 1 
+			// output-high; // PCIE = 0, USB0 = 1
 			// line-name = "sel2";
 		// };
 		// gtr-sel3 {
 			// gpio-hog;
 			// gpios = <3 0>;
-			// output-high; // PCIE = 0, SATA = 1 
+			// output-high; // PCIE = 0, SATA = 1
 			// line-name = "sel3";
 		// };
 	// };
@@ -259,7 +259,7 @@
 	// tca6416_u61: gpio@21 {
 		// compatible = "ti,tca6416";
 		// reg = <0x21>;
-		// gpio-controller; // IRQ not connected 
+		// gpio-controller; // IRQ not connected
 		// #gpio-cells = <2>;
 		// gpio-line-names = "VCCPSPLL_EN", "MGTRAVCC_EN", "MGTRAVTT_EN", "VCCPSDDRPLL_EN", "MIO26_PMU_INPUT_LS",
 				// "PL_PMBUS_ALERT", "PS_PMBUS_ALERT", "MAXIM_PMBUS_ALERT", "PL_DDR4_VTERM_EN",
@@ -267,7 +267,7 @@
 				// "PS_DDR4_VTERM_EN", "PS_DDR4_VPP_2V5_EN", "", "";
 	// };
 
-	// i2c-mux@75 { // u60 
+	// i2c-mux@75 { // u60
 		// compatible = "nxp,pca9544";
 		// #address-cells = <1>;
 		// #size-cells = <0>;
@@ -276,71 +276,71 @@
 			// #address-cells = <1>;
 			// #size-cells = <0>;
 			// reg = <0>;
-			// // PS_PMBUS 
-			// u76: ina226@40 { // u76 
+			// // PS_PMBUS
+			// u76: ina226@40 { // u76
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u76";
 				// reg = <0x40>;
 				// shunt-resistor = <5000>;
 			// };
-			// u77: ina226@41 { // u77 
+			// u77: ina226@41 { // u77
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u77";
 				// reg = <0x41>;
 				// shunt-resistor = <5000>;
 			// };
-			// u78: ina226@42 { // u78 
+			// u78: ina226@42 { // u78
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u78";
 				// reg = <0x42>;
 				// shunt-resistor = <5000>;
 			// };
-			// u87: ina226@43 { // u87 
+			// u87: ina226@43 { // u87
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u87";
 				// reg = <0x43>;
 				// shunt-resistor = <5000>;
 			// };
-			// u85: ina226@44 { // u85 
+			// u85: ina226@44 { // u85
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u85";
 				// reg = <0x44>;
 				// shunt-resistor = <5000>;
 			// };
-			// u86: ina226@45 { // u86 
+			// u86: ina226@45 { // u86
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u86";
 				// reg = <0x45>;
 				// shunt-resistor = <5000>;
 			// };
-			// u93: ina226@46 { // u93 
+			// u93: ina226@46 { // u93
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u93";
 				// reg = <0x46>;
 				// shunt-resistor = <5000>;
 			// };
-			// u88: ina226@47 { // u88 
+			// u88: ina226@47 { // u88
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u88";
 				// reg = <0x47>;
 				// shunt-resistor = <5000>;
 			// };
-			// u15: ina226@4a { // u15 
+			// u15: ina226@4a { // u15
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u15";
 				// reg = <0x4a>;
 				// shunt-resistor = <5000>;
 			// };
-			// u92: ina226@4b { // u92 
+			// u92: ina226@4b { // u92
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u92";
@@ -352,57 +352,57 @@
 			// #address-cells = <1>;
 			// #size-cells = <0>;
 			// reg = <1>;
-			// // PL_PMBUS 
-			// u79: ina226@40 { // u79 
+			// // PL_PMBUS
+			// u79: ina226@40 { // u79
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u79";
 				// reg = <0x40>;
 				// shunt-resistor = <2000>;
 			// };
-			// u81: ina226@41 { // u81 
+			// u81: ina226@41 { // u81
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u81";
 				// reg = <0x41>;
 				// shunt-resistor = <5000>;
 			// };
-			// u80: ina226@42 { // u80 
+			// u80: ina226@42 { // u80
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u80";
 				// reg = <0x42>;
 				// shunt-resistor = <5000>;
 			// };
-			// u84: ina226@43 { // u84 
+			// u84: ina226@43 { // u84
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u84";
 				// reg = <0x43>;
 				// shunt-resistor = <5000>;
 			// };
-			// u16: ina226@44 { // u16 
+			// u16: ina226@44 { // u16
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u16";
 				// reg = <0x44>;
 				// shunt-resistor = <5000>;
 			// };
-			// u65: ina226@45 { // u65 
+			// u65: ina226@45 { // u65
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u65";
 				// reg = <0x45>;
 				// shunt-resistor = <5000>;
 			// };
-			// u74: ina226@46 { // u74 
+			// u74: ina226@46 { // u74
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u74";
 				// reg = <0x46>;
 				// shunt-resistor = <5000>;
 			// };
-			// u75: ina226@47 { // u75 
+			// u75: ina226@47 { // u75
 				// compatible = "ti,ina226";
 				// #io-channel-cells = <1>;
 				// label = "ina226-u75";
@@ -414,16 +414,16 @@
 			// #address-cells = <1>;
 			// #size-cells = <0>;
 			// reg = <2>;
-			// // MAXIM_PMBUS - 00 
-			// max15301@a { // u46 
+			// // MAXIM_PMBUS - 00
+			// max15301@a { // u46
 				// compatible = "maxim,max15301";
 				// reg = <0xa>;
 			// };
-			// max15303@b { // u4 
+			// max15303@b { // u4
 				// compatible = "maxim,max15303";
 				// reg = <0xb>;
 			// };
-			// max15303@10 { // u13 
+			// max15303@10 { // u13
 				// compatible = "maxim,max15303";
 				// reg = <0x10>;
 			// };
@@ -431,11 +431,11 @@
 				// compatible = "maxim,max15301";
 				// reg = <0x13>;
 			// };
-			// max15303@14 { // u7 
+			// max15303@14 { // u7
 				// compatible = "maxim,max15303";
 				// reg = <0x14>;
 			// };
-			// max15303@15 { // u6 
+			// max15303@15 { // u6
 				// compatible = "maxim,max15303";
 				// reg = <0x15>;
 			// };
@@ -443,7 +443,7 @@
 				// compatible = "maxim,max15303";
 				// reg = <0x16>;
 			// };
-			// max15303@17 { // u9 
+			// max15303@17 { // u9
 				// compatible = "maxim,max15303";
 				// reg = <0x17>;
 			// };
@@ -459,16 +459,16 @@
 				// compatible = "maxim,max15303";
 				// reg = <0x1d>;
 			// };
-			// max15303@20 { // u8 
+			// max15303@20 { // u8
 				// compatible = "maxim,max15303";
 				// status = "disabled"; // unreachable
 				// reg = <0x20>;
 			// };
-			// max20751@72 { // u95 
+			// max20751@72 { // u95
 				// compatible = "maxim,max20751";
 				// reg = <0x72>;
 			// };
-			// max20751@73 { // u96 
+			// max20751@73 { // u96
 				// compatible = "maxim,max20751";
 				// reg = <0x73>;
 			// };
@@ -487,8 +487,8 @@
 	scl-gpios = <&gpio 16 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
 
-	// PL i2c via PCA9306 - u45 
-	i2c-mux@74 { // u34 
+	// PL i2c via PCA9306 - u45
+	i2c-mux@74 { // u34
 		compatible = "nxp,pca9548";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -499,13 +499,13 @@
 			reg = <0>;
 			//
 			// * IIC_EEPROM 1kB memory which uses 256B blocks
-			// * where every block has different address.
+			// * where every block has different address
 			// *    0 - 256B address 0x54
 			// * 256B - 512B address 0x55
 			// * 512B - 768B address 0x56
 			// * 768B - 1024B address 0x57
-			 
-			eeprom: eeprom@54 { // u23 
+
+			eeprom: eeprom@54 { // u23
 				compatible = "atmel,24c08";
 				reg = <0x54>;
 			};
@@ -514,7 +514,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <1>;
-			si5341: clock-generator@36 { // SI5341 - u69 
+			si5341: clock-generator@36 { // SI5341 - u69
 				compatible = "silabs,si5341";
 				reg = <0x36>;
 			};
@@ -524,7 +524,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <2>;
-			si570_1: clock-generator@5d { // USER SI570 - u42 
+			si570_1: clock-generator@5d { // USER SI570 - u42
 				#clock-cells = <0>;
 				compatible = "silabs,si570";
 				reg = <0x5d>;
@@ -538,11 +538,11 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <3>;
-			si570_2: clock-generator@5d { // USER MGT SI570 - u56 
+			si570_2: clock-generator@5d { // USER MGT SI570 - u56
 				#clock-cells = <0>;
 				compatible = "silabs,si570";
 				reg = <0x5d>;
-				temperature-stability = <50>; // copy from zc702 
+				temperature-stability = <50>; // copy from zc702
 				factory-fout = <156250000>;
 				clock-frequency = <148500000>;
 				clock-output-names = "si570_mgt";
@@ -552,21 +552,21 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <4>;
-			si5328: clock-generator@69 {// SI5328 - u20 
+			si5328: clock-generator@69 {// SI5328 - u20
 				compatible = "silabs,si5328";
 				reg = <0x69>;
 				//
 				// Chip has interrupt present connected to PL
 				// interrupt-parent = <&>;
 				// interrupts = <>;
-				 
+
 			};
 		};
-		// 5 - 7 unconnected 
+		// 5 - 7 unconnected
 	};
 
 	i2c-mux@75 {
-		compatible = "nxp,pca9548"; // u135 
+		compatible = "nxp,pca9548"; // u135
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x75>;
@@ -575,49 +575,49 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0>;
-			// HPC0_IIC 
+			// HPC0_IIC
 		};
 		i2c@1 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <1>;
-			// HPC1_IIC 
+			// HPC1_IIC
 		};
 		i2c@2 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <2>;
-			// SYSMON 
+			// SYSMON
 		};
 		i2c@3 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <3>;
-			// DDR4 SODIMM 
+			// DDR4 SODIMM
 		};
 		i2c@4 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <4>;
-			// SEP 3 
+			// SEP 3
 		};
 		i2c@5 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <5>;
-			// SEP 2 
+			// SEP 2
 		};
 		i2c@6 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <6>;
-			// SEP 1 
+			// SEP 1
 		};
 		i2c@7 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <7>;
-			// SEP 0 
+			// SEP 0
 		};
 	};
 };
@@ -625,7 +625,7 @@
 
 &pinctrl0 {
 	status = "okay";
-// 	pinctrl_i2c0_default: i2c0-default {
+//	pinctrl_i2c0_default: i2c0-default {
 		// mux {
 			// groups = "i2c0_3_grp";
 			// function = "i2c0";
@@ -862,7 +862,7 @@
 			slew-rate = <SLEW_RATE_SLOW>;
 			io-standard = <IO_STANDARD_LVCMOS18>;
 		};
-	    
+
 		// mux-msp {
 			// function = "gpio0";
 			// groups = "gpio0_13_grp", "gpio0_38_grp";
@@ -873,12 +873,12 @@
 			// slew-rate = <SLEW_RATE_SLOW>;
 			// io-standard = <IO_STANDARD_LVCMOS18>;
 		// };
-	    
+
 		conf-pull-up {
 			pins = "MIO44", "MIO33";   //PS_LED , PS_KEY
 			bias-pull-up;
 		};
-	    
+
 		// conf-pull-none {
 			// pins = "MIO13", "MIO38";  // PS_GPIO1, PS_GPIO2
 			// bias-disable;
@@ -894,26 +894,26 @@
 	status = "okay";
 	is-dual = <1>;
 	flash@0 {
-		compatible = "m25p80", "jedec,spi-nor"; // 32MB 
+		compatible = "m25p80", "jedec,spi-nor"; // 32MB
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x0>;
 		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <4>; // FIXME also DUAL configuration possible 
-		spi-max-frequency = <108000000>; // Based on DC1 spec 
+		spi-rx-bus-width = <4>; // FIXME also DUAL configuration possible
+		spi-max-frequency = <108000000>; // Based on DC1 spec
 		partition@0 { /* for testing purpose */
 			label = "qspi-fsbl-uboot";
 			reg = <0x0 0x100000>;
 		};
-		partition@100000 { 
+		partition@100000 {
 			label = "qspi-linux";
 			reg = <0x100000 0x500000>;
 		};
-		partition@600000 { 
+		partition@600000 {
 			label = "qspi-device-tree";
 			reg = <0x600000 0x20000>;
 		};
-		partition@620000 { 
+		partition@620000 {
 			label = "qspi-rootfs";
 			reg = <0x620000 0x5E0000>;
 		};

@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADRV9009
- * https://wiki.analog.com/resources/eval/user-guides/adrv9009
- * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
- * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * dts file for Alinx ZynqMP AXU15EG
+ * Modified by Kirill Martynenko <k.martynenko@rubetek.com>
  *
- * hdl_project: <adrv9009/zcu102>
- * board_revision: <>
- *
- * Copyright (C) 2019 Analog Devices Inc.
+ * Based on:  Analog Devices ADRV9009 device tree
+ * hdl_project:
  */
 #include "zynqmp-alinx-axu15eg.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -16,21 +12,21 @@
 
 &i2c1 {
 	i2c-mux@75 {
-// 		i2c@0 { /* HPC0 */
-// 			#address-cells = <1>;
-// 			#size-cells = <0>;
-// 			reg = <0>;
-// 			/* HPC0_IIC */
-// 			ad7291@2f {
-// 				compatible = "adi,ad7291";
-// 				reg = <0x2f>;
-// 			};
-//
-// 			eeprom@50 {
-// 				compatible = "at24,24c02";
-// 				reg = <0x50>;
-// 			};
-//
+//		i2c@0 { /* HPC0 */
+//			#address-cells = <1>;
+//			#size-cells = <0>;
+//			reg = <0>;
+//			/* HPC0_IIC */
+//			ad7291@2f {
+//				compatible = "adi,ad7291";
+//				reg = <0x2f>;
+//			};
+//		
+//			eeprom@50 {
+//				compatible = "at24,24c02";
+//				reg = <0x50>;
+//			};
+//		
 // 		};
 		i2c@1 { /* HPC1 */
 			#address-cells = <1>;
@@ -52,7 +48,7 @@
 	};
 };
 
-/ {    
+/ {
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
@@ -144,7 +140,7 @@
 			clocks = <&trx0_adrv9009 1>;
 			clock-names = "sampl_clk";
 		};
-	
+
 		axi_adrv9009_core_tx: axi-adrv9009-tx-hpc@84a04000 {
 			compatible = "adi,axi-adrv9009-tx-1.0";
 			reg = <0x84a04000 0x4000>;
@@ -157,7 +153,7 @@
 			adi,axi-interpolation-core-available;
 			interpolation-gpios = <&gpio 140 GPIO_ACTIVE_HIGH>;
 		};
-	
+
 		axi_adrv9009_rx_jesd: axi-jesd204-rx@84aa0000 {
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x84aa0000 0x1000>;
@@ -173,7 +169,7 @@
 			adi,octets-per-frame = <4>;
 			adi,frames-per-multiframe = <32>;
 		};
-	
+
 		axi_adrv9009_tx_jesd: axi-jesd204-tx@84a90000 {
 			compatible = "adi,axi-jesd204-tx-1.0";
 			reg = <0x84a90000 0x1000>;
@@ -292,7 +288,7 @@
 			reg = <0x85000000 0x10000>;
 		};
 	};
-	
+
 };
 
 &spi0 {
