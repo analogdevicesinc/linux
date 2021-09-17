@@ -25,6 +25,7 @@
 #ifndef _UAPI_HX280ENC_H_
 #define _UAPI_HX280ENC_H_
 #include <linux/ioctl.h>    /* needed for the _IOW etc stuff used later */
+#include <linux/types.h>
 
 /*
  * Macros to help debugging
