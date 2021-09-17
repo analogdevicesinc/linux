@@ -296,6 +296,7 @@ struct hmc7044 {
 	unsigned int			sysref_timer_div;
 	unsigned int			pll1_ref_prio_ctrl;
 	bool				pll1_ref_autorevert_en;
+	bool				skip_lcm_recommendation;
 	bool				clkin0_rfsync_en;
 	bool				clkin1_vcoin_en;
 	bool				high_performance_mode_clock_dist_en;
@@ -804,7 +805,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		}
 	}
 
-	while (lcm_freq > HMC7044_RECOMM_LCM_MAX)
+	while ((lcm_freq > HMC7044_RECOMM_LCM_MAX) && (!hmc->skip_lcm_recommendation))
 		lcm_freq /= 2;
 
 	for (i = 0; i < ARRAY_SIZE(clkin_freq); i++) {
@@ -1270,6 +1271,9 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->pll1_loop_bw = 200;
 		of_property_read_u32(np, "adi,pll1-loop-bandwidth-hz",
 				&hmc->pll1_loop_bw);
+
+		hmc->skip_lcm_recommendation = of_property_read_bool(np,
+				"adi,pll1-skip-lcm-recommendation");
 
 		hmc->pfd1_limit = 0;
 		of_property_read_u32(np, "adi,pfd1-maximum-limit-frequency-hz",
