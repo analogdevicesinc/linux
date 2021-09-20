@@ -202,6 +202,7 @@
 		adi,clkin1-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
 		adi,clkin2-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
 		adi,clkin3-buffer-mode = <HMC7044_CLKIN_AC_COUPLING>;
+		adi,oscin-buffer-mode = <0x15>;
 
 		adi,pll1-clkin-frequencies = <38400000 30720000 30720000 38400000>;
 		/* CLKIN0 -> CLKIN1 -> CLKIN2 -> CLKIN3 */
