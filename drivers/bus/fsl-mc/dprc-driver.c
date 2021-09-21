@@ -834,28 +834,43 @@ EXPORT_SYMBOL_GPL(dprc_cleanup);
  *
  * @mc_dev: Pointer to fsl-mc device representing the DPRC
  *
- * It removes the DPRC's child objects from Linux (not from the MC) and
- * closes the DPRC device in the MC.
- * It tears down the interrupts that were configured for the DPRC device.
- * It destroys the interrupt pool associated with this MC bus.
+ * It removes the DPRC's child objects from Linux (not from the MC).
  */
 static void dprc_remove(struct fsl_mc_device *mc_dev)
 {
+	if (!is_fsl_mc_bus_dprc(mc_dev))
+		return;
+
+	device_for_each_child(&mc_dev->dev, NULL, __fsl_mc_device_remove);
+
+	dev_info(&mc_dev->dev, "DPRC device unbound from driver");
+}
+
+/**
+ * dprc_shutdown - callback invoked when a DPRC should be quiesced
+ *
+ * @mc_dev: Pointer to fsl-mc device representing the DPRC
+ *
+ * Closes the DPRC device in the MC.
+ * It tears down the interrupts that were configured for the DPRC device.
+ * It destroys the interrupt pool associated with this MC bus.
+ */
+static void dprc_shutdown(struct fsl_mc_device *mc_dev)
+{
 	struct fsl_mc_bus *mc_bus = to_fsl_mc_bus(mc_dev);
 
-	if (!mc_bus->irq_resources) {
-		dev_err(&mc_dev->dev, "No irq resources, so unbinding the device failed\n");
+	if (!is_fsl_mc_bus_dprc(mc_dev))
 		return;
-	}
+
+	if (!mc_bus->irq_resources)
+		return;
 
 	if (dev_get_msi_domain(&mc_dev->dev))
 		dprc_teardown_irq(mc_dev);
 
-	device_for_each_child(&mc_dev->dev, NULL, __fsl_mc_device_remove);
-
 	dprc_cleanup(mc_dev);
 
-	dev_info(&mc_dev->dev, "DPRC device unbound from driver");
+	dev_info(&mc_dev->dev, "DPRC device shutdown");
 }
 
 static const struct fsl_mc_device_id match_id_table[] = {
@@ -874,6 +889,7 @@ static struct fsl_mc_driver dprc_driver = {
 	.match_id_table = match_id_table,
 	.probe = dprc_probe,
 	.remove = dprc_remove,
+	.shutdown = dprc_shutdown,
 };
 
 int __init dprc_driver_init(void)
