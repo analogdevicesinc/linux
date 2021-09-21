@@ -187,13 +187,13 @@ static void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int ch
 
 		tx_cfg = &phy->curr_profile->tx.txProfile[chann];
 		*n_lanes = tx_cfg->txSsiConfig.numLaneSel;
-		*cmos_ddr_en = tx_cfg->txSsiConfig.cmosDdrEn;
+		*cmos_ddr_en = tx_cfg->txSsiConfig.ddrEn;
 	} else {
 		adi_adrv9001_RxProfile_t *rx_cfg;
 
 		rx_cfg = &phy->curr_profile->rx.rxChannelCfg[chann].profile;
 		*n_lanes = rx_cfg->rxSsiConfig.numLaneSel;
-		*cmos_ddr_en = rx_cfg->rxSsiConfig.cmosDdrEn;
+		*cmos_ddr_en = rx_cfg->rxSsiConfig.ddrEn;
 	}
 }
 
@@ -890,13 +890,6 @@ static const struct iio_enum adrv9002_ensm_modes_available = {
 	.set = adrv9002_set_ensm_mode,
 };
 
-enum {
-	ADRV9002_INTF_GAIN_MANUAL_CORRECTION,
-	ADRV9002_INTF_GAIN_MANUAL_COMPENSATION,
-	ADRV9002_INTF_GAIN_AUTO_CORRECTION,
-	ADRV9002_INTF_GAIN_AUTO_COMPENSATION,
-};
-
 static int adrv9002_set_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 					      const struct iio_chan_spec *chan,
 					      u32 mode)
@@ -917,21 +910,9 @@ static int adrv9002_set_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 	};
 
 	switch (mode) {
-	case ADRV9002_INTF_GAIN_MANUAL_CORRECTION:
-		rx_intf_gain_mode.controlMode = ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_MANUAL;
-		rx_intf_gain_mode.gainTableType = ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE;
-		break;
-	case ADRV9002_INTF_GAIN_MANUAL_COMPENSATION:
-		rx_intf_gain_mode.controlMode = ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_MANUAL;
-		rx_intf_gain_mode.gainTableType = ADI_ADRV9001_RX_GAIN_COMPENSATION_TABLE;
-		break;
-	case ADRV9002_INTF_GAIN_AUTO_CORRECTION:
-		rx_intf_gain_mode.controlMode = ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_AUTOMATIC;
-		rx_intf_gain_mode.gainTableType = ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE;
-		break;
-	case ADRV9002_INTF_GAIN_AUTO_COMPENSATION:
-		rx_intf_gain_mode.controlMode = ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_AUTOMATIC;
-		rx_intf_gain_mode.gainTableType = ADI_ADRV9001_RX_GAIN_COMPENSATION_TABLE;
+	case ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_AUTOMATIC:
+	case ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_MANUAL:
+		rx_intf_gain_mode.controlMode = mode;
 		break;
 	default:
 		return -EINVAL;
@@ -968,10 +949,9 @@ static int adrv9002_get_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const int chann = ADRV_ADDRESS_CHAN(chan->address);
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[chann];
-	int ret, mode;
+	int ret;
 	struct adi_adrv9001_RxInterfaceGainCtrl rx_intf_gain_mode;
-	const int manual = ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_MANUAL;
-	const int correction_tbl = ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE;
+	u32 gain_table_type;
 
 	mutex_lock(&phy->lock);
 	if (!rx->channel.enabled) {
@@ -981,25 +961,14 @@ static int adrv9002_get_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 
 	ret = adi_adrv9001_Rx_InterfaceGain_Inspect(phy->adrv9001,
 						    rx->channel.number,
-						    &rx_intf_gain_mode);
+						    &rx_intf_gain_mode,
+						    &gain_table_type);
 	mutex_unlock(&phy->lock);
 
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	if (rx_intf_gain_mode.controlMode == manual) {
-		if (rx_intf_gain_mode.gainTableType == correction_tbl)
-			mode = ADRV9002_INTF_GAIN_MANUAL_CORRECTION;
-		else
-			mode = ADRV9002_INTF_GAIN_MANUAL_COMPENSATION;
-	} else {
-		if (rx_intf_gain_mode.gainTableType == correction_tbl)
-			mode = ADRV9002_INTF_GAIN_AUTO_CORRECTION;
-		else
-			mode = ADRV9002_INTF_GAIN_AUTO_COMPENSATION;
-	}
-
-	return mode;
+	return rx_intf_gain_mode.controlMode;
 }
 
 static int adrv9002_get_intf_gain(struct iio_dev *indio_dev,
@@ -1611,10 +1580,7 @@ unlock:
 }
 
 static const char * const adrv9002_digital_gain_ctl_modes[] = {
-	"Gain_Correction_manual_control",
-	"Gain_Compensation_manual_control",
-	"Gain_Correction_automatic_control",
-	"Gain_Compensation_automatic_control",
+	"automatic", "spi"
 };
 
 static const struct iio_enum adrv9002_digital_gain_ctl_modes_available = {
@@ -2480,6 +2446,11 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		} else if (rx_cfg[i].profile.rxSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
 			dev_err(&phy->spi->dev, "SSI interface Long Strobe not supported\n");
 			return -EINVAL;
+		} else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS &&
+			   !rx_cfg[i].profile.rxSsiConfig.ddrEn) {
+			dev_err(&phy->spi->dev, "RX%d: Single Data Rate port not supported for LVDS\n",
+				i + 1);
+			return -EINVAL;
 		}
 
 		dev_dbg(&phy->spi->dev, "RX%d enabled\n", i + 1);
@@ -2499,6 +2470,11 @@ tx:
 			return -EINVAL;
 		} else if (tx_cfg[i].txSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
 			dev_err(&phy->spi->dev, "SSI interface Long Strobe not supported\n");
+			return -EINVAL;
+		} else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS &&
+			   !tx_cfg[i].txSsiConfig.ddrEn) {
+			dev_err(&phy->spi->dev, "TX%d: Single Data Rate port not supported for LVDS\n",
+				i + 1);
 			return -EINVAL;
 		} else if (phy->rx2tx2) {
 			if (!phy->tx_only && !phy->rx_channels[0].channel.enabled) {
@@ -2583,9 +2559,19 @@ static int adrv9002_power_mgmt_config(struct adrv9002_rf_phy *phy)
 static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 {
 	int ret;
-	u8 mask = 0;
-	const u32 valid_profiles = phy->adrv9001->devStateInfo.profilesValid;
-	const u32 channels = phy->adrv9001->devStateInfo.initializedChannels;
+	u8 tx_mask = 0;
+	int c;
+	/*
+	 * There's still no way of getting the gain table type from the profile. We
+	 * always get the correction one (which was the one we were using already).
+	 * There were some talks and this might change in future versions of the DDAPI so,
+	 * let's force this to correction for now and wait a few release cycles for
+	 * proper support. If we do not get it, we might just add a devicetree attribute
+	 * or some runtime sysfs attr. Not ideal but we won't have any choice if we can't
+	 * get this info from the profile.
+	 */
+	adi_adrv9001_RxGainTableType_e t_type = ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE;
+	adi_adrv9001_RxChannelCfg_t *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
 
 	ret = adi_adrv9001_arm_AhbSpiBridge_Enable(phy->adrv9001);
 	if (ret)
@@ -2623,40 +2609,36 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 		return adrv9002_dev_err(phy);
 
 	/* Load gain tables */
-	if ((ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_ORX_PROFILE_VALID)) ||
-	    (ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_TX_PROFILE_VALID))) {
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_ORX1) ? ADI_CHANNEL_1 : 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_ORX2) ? ADI_CHANNEL_2 : 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX1) ? ADI_CHANNEL_1 : 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX2) ? ADI_CHANNEL_2 : 0;
+	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
+		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
+		struct adrv9002_tx_chan *tx = &phy->tx_channels[c];
+		adi_adrv9001_RxProfile_t *p = &rx_cfg[c].profile;
 
-		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, "ORxGainTable.csv",
-							      mask);
+		if (rx->orx_en || tx->channel.enabled) {
+			ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, ADI_ORX,
+								      "ORxGainTable.csv",
+								      rx->channel.number,
+								      &p->lnaConfig, t_type);
+			if (ret)
+				return adrv9002_dev_err(phy);
+		}
+
+		if (tx->channel.enabled)
+			tx_mask |= tx->channel.number;
+
+		if (!rx->channel.enabled)
+			continue;
+
+		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, ADI_RX,
+							      "RxGainTable.csv", rx->channel.number,
+							      &p->lnaConfig, t_type);
 		if (ret)
 			return adrv9002_dev_err(phy);
 	}
 
-	if ((ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_RX_PROFILE_VALID)) ||
-	    (ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_TX_PROFILE_VALID))) {
-		mask = 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_RX1) ? ADI_CHANNEL_1 : 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_RX2) ? ADI_CHANNEL_2 : 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX1) ? ADI_CHANNEL_1 : 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX2) ? ADI_CHANNEL_2 : 0;
-
-		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, "RxGainTable.csv",
-							      mask);
-		if (ret)
-			return adrv9002_dev_err(phy);
-	}
-
-	if (ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_TX_PROFILE_VALID)) {
-		mask = 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX1) ? ADI_CHANNEL_1 : 0;
-		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX2) ? ADI_CHANNEL_2 : 0;
-
+	if (tx_mask) {
 		ret = adi_adrv9001_Utilities_TxAttenTable_Load(phy->adrv9001, "TxAttenTable.csv",
-							       mask);
+							       tx_mask);
 		if (ret)
 			return adrv9002_dev_err(phy);
 	}
