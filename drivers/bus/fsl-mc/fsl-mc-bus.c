@@ -456,7 +456,8 @@ static int fsl_mc_driver_remove(struct device *dev)
 	struct fsl_mc_driver *mc_drv = to_fsl_mc_driver(dev->driver);
 	struct fsl_mc_device *mc_dev = to_fsl_mc_device(dev);
 
-	mc_drv->remove(mc_dev);
+	if (mc_drv->remove)
+		mc_drv->remove(mc_dev);
 
 	return 0;
 }
