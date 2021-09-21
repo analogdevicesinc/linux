@@ -44,13 +44,7 @@ obj-$(CONFIG_ADRV9001) += adrv9002_drv.o
 ccflags-y += -I$(src)/devices/adrv9001/private/include \
 	-I$(src)/devices/adrv9001/private/include/bitfields/c0 \
 	-I$(src)/devices/adrv9001/public/include  \
-	-I$(src)/boards/adrv9001/private/include  \
-	-I$(src)/boards/adrv9001/public/include/  \
 	-I$(src)/common/ \
-	-I$(src)/common/adi_hal/  \
-	-I$(src)/common/adi_error/  \
-	-I$(src)/common/adi_libc/  \
-	-I$(src)/common/adi_logging/  \
 	-I$(src)/platforms/ \
 	-I$(src)/third_party/jsmn/ \
 	-I$(src)/third_party/adi_pmag_macros/ \
