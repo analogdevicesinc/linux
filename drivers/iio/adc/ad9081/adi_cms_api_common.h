@@ -401,6 +401,22 @@ typedef int32_t (*adi_pd_stby_pin_ctrl_t)(void *user_data, uint8_t enable);
 typedef int32_t (*adi_reset_pin_ctrl_t)(void *user_data, uint8_t enable);
 
 /**
+ * @brief  sysref control function
+ *
+ * @param  user_data  A void pointer to a client defined structure containing
+ *                    any parameters/settings that may be required by the
+ *                    function to control the hardware sysref control.
+ * @param  enable     A uint8_t value indicating the desired enable/disable
+ *                    condition.
+ *                    A value of 1 indicates SYSREF n-shot/continuous enable
+ *                    A value of 0 disables SYSREF pulses
+ *
+ * @return 0 for success
+ * @return Any non-zero value indicates an error
+ */
+typedef int32_t (*adi_sysref_ctrl_t)(void *user_data, uint8_t enable);
+
+/**
  * @brief   Control function for GPIO write.
  *
  * @param   user_data   A void pointer to a client defined structure containing
