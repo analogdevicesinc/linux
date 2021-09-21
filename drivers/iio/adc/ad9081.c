@@ -347,6 +347,17 @@ int32_t ad9081_reset_pin_ctrl(void *user_data, uint8_t enable)
 	return 0;
 }
 
+static int ad9081_sysref_ctrl(void *user_data, u8 enable)
+{
+	struct axiadc_converter *conv = user_data;
+	struct ad9081_phy *phy = conv->phy;
+
+	if (phy->jdev && enable)
+		return jesd204_sysref_async_force(phy->jdev);
+
+	return 0;
+}
+
 static int ad9081_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 			     unsigned int writeval, unsigned int *readval)
 {
@@ -3980,15 +3991,6 @@ static const struct jesd204_dev_data jesd204_ad9081_init = {
 		[JESD204_OP_LINK_INIT] = {
 			.per_link = ad9081_jesd204_link_init,
 		},
-		[JESD204_OP_CLOCKS_ENABLE] = {
-			.per_link = ad9081_jesd204_clks_enable,
-		},
-		[JESD204_OP_LINK_ENABLE] = {
-			.per_link = ad9081_jesd204_link_enable,
-		},
-		[JESD204_OP_LINK_RUNNING] = {
-			.per_link = ad9081_jesd204_link_running,
-		},
 		[JESD204_OP_OPT_SETUP_STAGE1] = {
 			.per_device = ad9081_jesd204_setup_stage1,
 			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
@@ -3996,10 +3998,21 @@ static const struct jesd204_dev_data jesd204_ad9081_init = {
 		[JESD204_OP_OPT_SETUP_STAGE2] = {
 			.per_device = ad9081_jesd204_setup_stage2,
 			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+			.post_state_sysref = true,
 		},
 		[JESD204_OP_OPT_SETUP_STAGE3] = {
 			.per_device = ad9081_jesd204_setup_stage3,
 			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_CLOCKS_ENABLE] = {
+			.per_link = ad9081_jesd204_clks_enable,
+		},
+		[JESD204_OP_LINK_ENABLE] = {
+			.per_link = ad9081_jesd204_link_enable,
+			.post_state_sysref = true,
+		},
+		[JESD204_OP_LINK_RUNNING] = {
+			.per_link = ad9081_jesd204_link_running,
 		},
 	},
 
@@ -4072,6 +4085,7 @@ static int ad9081_probe(struct spi_device *spi)
 	phy->ad9081.hal_info.reset_pin_ctrl = ad9081_reset_pin_ctrl;
 	phy->ad9081.hal_info.user_data = conv;
 	phy->ad9081.hal_info.log_write = ad9081_log_write;
+	phy->ad9081.hal_info.sysref_ctrl = ad9081_sysref_ctrl;
 
         phy->ad9081.serdes_info = (adi_ad9081_serdes_settings_t) {
             .ser_settings = { /* txfe jtx */
