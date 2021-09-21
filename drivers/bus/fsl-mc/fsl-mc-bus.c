@@ -464,10 +464,16 @@ static int fsl_mc_driver_remove(struct device *dev)
 
 static void fsl_mc_driver_shutdown(struct device *dev)
 {
-	struct fsl_mc_driver *mc_drv = to_fsl_mc_driver(dev->driver);
 	struct fsl_mc_device *mc_dev = to_fsl_mc_device(dev);
+	struct fsl_mc_driver *mc_drv;
 
-	mc_drv->shutdown(mc_dev);
+	if (!dev->driver)
+		return;
+
+	mc_drv = to_fsl_mc_driver(dev->driver);
+
+	if (mc_drv->shutdown)
+		mc_drv->shutdown(mc_dev);
 }
 
 /*
