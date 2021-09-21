@@ -840,6 +840,8 @@ typedef struct {
 		tx_en_pin_ctrl; /*!< Function pointer to hal tx_enable pin control function */
 	adi_reset_pin_ctrl_t
 		reset_pin_ctrl; /*!< Function pointer to hal reset# pin control function */
+	adi_sysref_ctrl_t
+		sysref_ctrl; /*!< Function pointer to hal sysref control function */
 } adi_ad9081_hal_t;
 
 /*!

@@ -4173,6 +4173,10 @@ int32_t adi_ad9081_jesd_oneshot_sync(adi_ad9081_device_t *device)
 				    BF_SYSREF_MODE_ONESHOT_INFO,
 				    1); /* not paged */
 	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_hal_sysref_ctrl(device, 1);
+	AD9081_ERROR_RETURN(err);
+
 	if (err = adi_ad9081_hal_bf_wait_to_clear(
 		    device, REG_SYSREF_MODE_ADDR,
 		    BF_SYSREF_MODE_ONESHOT_INFO), /* not paged */
@@ -4186,6 +4190,9 @@ int32_t adi_ad9081_jesd_oneshot_sync(adi_ad9081_device_t *device)
 	if (sync_done != 1) {
 		AD9081_LOG_ERR("oneshot sync not finished.");
 	}
+
+	err = adi_ad9081_hal_sysref_ctrl(device, 0);
+	AD9081_ERROR_RETURN(err);
 
 	if (device->dev_info.dev_rev == 3) { /* r2 */
 		err = adi_ad9081_hal_bf_set(device, REG_ADC_DIVIDER_CTRL_ADDR,
