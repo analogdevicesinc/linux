@@ -166,6 +166,9 @@ struct ad9081_phy {
 	u32 multidevice_instance_count;
 	u32 lmfc_delay;
 	u32 nco_sync_ms_extra_lmfc_num;
+	bool nco_sync_direct_sysref_mode_en;
+	u32 sysref_average_cnt_exp;
+	bool sysref_continuous_dis;
 
 	bool config_sync_01_swapped;
 	bool config_sync_0a_cmos_en;
@@ -223,7 +226,72 @@ struct ad9081_phy {
 	u32 ad9081_debugfs_entry_index;
 };
 
-static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
+static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
+				   u8 trigger_src,
+				   u8 extra_lmfc_num)
+{
+	int err;
+
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_hal_bf_set(device, REG_MAIN_AUTO_CLK_GATING_ADDR,
+				    0x00000400, 7);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_adc_ddc_coarse_sync_enable_set(device,
+							AD9081_ADC_CDDC_ALL, 1);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_ddc_coarse_sync_next_set(device,
+						      AD9081_ADC_CDDC_ALL, 1);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_ddc_coarse_trig_nco_reset_enable_set(
+		device, AD9081_ADC_CDDC_ALL, 0);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_adc_ddc_fine_sync_enable_set(device,
+						      AD9081_ADC_FDDC_ALL, 1);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_ddc_fine_sync_next_set(device, AD9081_ADC_FDDC_ALL,
+						    1);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_ddc_fine_trig_nco_reset_enable_set(
+		device, AD9081_ADC_FDDC_ALL, 0);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_device_nco_sync_mode_set(device, 0);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_device_nco_sync_sysref_mode_set(device, trigger_src);
+	AD9081_ERROR_RETURN(err);
+
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_device_nco_sync_extra_lmfc_num_set(device,
+							    extra_lmfc_num);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_adc_ddc_coarse_sync_next_set(device,
+						      AD9081_ADC_CDDC_ALL, 0);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_ddc_fine_sync_next_set(device, AD9081_ADC_FDDC_ALL,
+						    0);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_ddc_coarse_sync_next_set(device,
+						      AD9081_ADC_CDDC_ALL, 1);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_ddc_fine_sync_next_set(device, AD9081_ADC_FDDC_ALL,
+						    1);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_device_nco_sync_reset_via_sysref_set(device, 0);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_device_nco_sync_reset_via_sysref_set(device, 1);
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+static int ad9081_nco_sync(struct ad9081_phy *phy, bool master)
 {
 	int ret;
 
@@ -233,7 +301,11 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 
 	/* trigger_src  0: sysref, 1: lmfc rising edge, 2: lmfc falling edge */
 
-	return adi_ad9081_adc_nco_master_slave_sync(&phy->ad9081,
+	if (phy->nco_sync_direct_sysref_mode_en)
+		return adi_ad9081_adc_nco_sync(&phy->ad9081,
+			0, phy->nco_sync_ms_extra_lmfc_num);
+	else
+		return adi_ad9081_adc_nco_master_slave_sync(&phy->ad9081,
 					     master,
 					     1, /* trigger_src */
 					     0, /* gpio_index */
@@ -1656,7 +1728,7 @@ static int ad9081_setup(struct spi_device *spi)
 
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
 		BF_SYSREF_AVERAGE_INFO,
-		BF_SYSREF_AVERAGE(7));
+		BF_SYSREF_AVERAGE(phy->sysref_average_cnt_exp));
 	if (ret != 0)
 		return ret;
 
@@ -3533,6 +3605,18 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	of_property_read_u32(np, "adi,nco-sync-ms-extra-lmfc-num",
 			&phy->nco_sync_ms_extra_lmfc_num);
 
+	phy->nco_sync_direct_sysref_mode_en =
+		of_property_read_bool(np,
+			"adi,nco-sync-direct-sysref-mode-enable");
+
+	phy->sysref_average_cnt_exp = 7;
+	of_property_read_u32(np, "adi,sysref-average-cnt-exp",
+			&phy->sysref_average_cnt_exp);
+
+	phy->sysref_continuous_dis =
+		of_property_read_bool(np,
+			"adi,continuous-sysref-mode-disable");
+
 	ret = ad9081_parse_dt_tx(phy, np);
 	if (ret < 0) {
 		dev_err(&phy->spi->dev, "failed to parse devicetree");
@@ -3741,7 +3825,10 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 	if (ret)
 		return ret;
 
-	lnk->sysref.mode = JESD204_SYSREF_CONTINUOUS;
+	if (phy->sysref_continuous_dis)
+		lnk->sysref.mode = JESD204_SYSREF_ONESHOT;
+	else
+		lnk->sysref.mode = JESD204_SYSREF_CONTINUOUS;
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -3919,7 +4006,7 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
 		BF_SYSREF_AVERAGE_INFO,
-		BF_SYSREF_AVERAGE(7));
+		BF_SYSREF_AVERAGE(phy->sysref_average_cnt_exp));
 	if (ret != 0)
 		return ret;
 
@@ -3954,9 +4041,9 @@ static int ad9081_jesd204_setup_stage2(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
-	/* Master Slave NCO Sync */
+	/* NCO Sync */
 
-	ret = ad9081_nco_sync_master_slave(phy, jesd204_dev_is_top(jdev));
+	ret = ad9081_nco_sync(phy, jesd204_dev_is_top(jdev));
 	if (ret != 0)
 		return ret;
 
