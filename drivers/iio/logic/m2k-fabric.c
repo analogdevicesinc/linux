@@ -64,6 +64,7 @@ struct m2k_fabric {
 	bool revc;
 	bool revd;
 	bool reve;
+	bool rev_a_fmc;
 };
 
 static DECLARE_BITMAP(m2k_fabric_switch_values_open, M2K_FABRIC_GPIO_MAX);
@@ -153,7 +154,7 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
 	if (update_input) {
 		ngpios += M2K_FABRIC_GPIO_MAX - M2K_FABRIC_GPIO_OUTPUT_MAX;
 
-		if (m2k_fabric->revd || m2k_fabric->reve)
+		if (m2k_fabric->revd || m2k_fabric->reve || m2k_fabric->rev_a_fmc)
 			ngpios--; /* skip M2K_FABRIC_GPIO_EN_SC2 */
 	}
 
@@ -498,6 +499,31 @@ static const struct iio_chan_spec m2k_fabric_chan_spec_reve[] = {
 	}
 };
 
+static const struct iio_chan_spec m2k_fabric_chan_spec_rev_a_fmc[] = {
+        M2K_FABRIC_RX_CHAN_REVD(0),
+        M2K_FABRIC_RX_CHAN_REVD(1),
+        M2K_FABRIC_TX_CHAN(0),
+        M2K_FABRIC_TX_CHAN(1),
+        {
+                .type = IIO_VOLTAGE,
+                .indexed = 1,
+                .channel = 2,
+                .extend_name = "user_supply",
+                .output = 1,
+                .scan_index = -1,
+                .ext_info = m2k_fabric_user_supply_ext_info,
+        },
+        {
+                .type = IIO_VOLTAGE,
+                .indexed = 1,
+                .channel = 3,
+                .extend_name = "user_supply",
+                .output = 1,
+                .scan_index = -1,
+                .ext_info = m2k_fabric_user_supply_ext_info,
+        }
+};
+
 static const struct iio_info m2k_fabric_iio_info = {
 };
 
@@ -542,7 +568,7 @@ static int m2k_fabric_gpios_init(struct device *dev,
 	if (m2k_fabric->revc) {
 		gpio_names = m2k_fabric_gpio_names_revc;
 		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revc);
-	} else if (m2k_fabric->revd || m2k_fabric->reve) {
+	} else if (m2k_fabric->revd || m2k_fabric->reve || m2k_fabric->rev_a_fmc) {
 		gpio_names = m2k_fabric_gpio_names_revd;
 		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revd);
 	}
@@ -566,7 +592,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 {
 	struct m2k_fabric *m2k_fabric;
 	struct iio_dev *indio_dev;
-	bool revc, revd, reve, remain_powerdown;
+	bool revc, revd, reve, rev_a_fmc, remain_powerdown;
 	int ret;
 
 	m2k_fabric_switch_values_open_init();
@@ -580,8 +606,9 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	revc = of_property_read_bool(pdev->dev.of_node, "adi,revc");
 	revd = of_property_read_bool(pdev->dev.of_node, "adi,revd");
 	reve = of_property_read_bool(pdev->dev.of_node, "adi,reve");
+	rev_a_fmc = of_property_read_bool(pdev->dev.of_node, "adi,rev_a_fmc");
 
-	if (!revc && !revd  && !reve) {
+	if (!revc && !revd  && !reve && !rev_a_fmc) {
 		dev_err(&pdev->dev, "Unsupported revision\n");
 		return -EINVAL;
 	}
@@ -589,6 +616,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	m2k_fabric->revc = revc;
 	m2k_fabric->revd = revd;
 	m2k_fabric->reve = reve;
+	m2k_fabric->rev_a_fmc = rev_a_fmc; // ADALM FMC
 
 	m2k_fabric->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(m2k_fabric->clk))
@@ -600,27 +628,36 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	ret = m2k_fabric_gpios_init(&pdev->dev, m2k_fabric);
 	if (ret)
 		return ret;
-
+	
+	
 	m2k_fabric->usr_pow_gpio[0] = devm_gpiod_get(&pdev->dev, "en-usr-pow",
 			GPIOD_OUT_HIGH);
 	if (IS_ERR(m2k_fabric->usr_pow_gpio[0]))
 		return PTR_ERR(m2k_fabric->usr_pow_gpio[0]);
+	
+	if (rev_a_fmc) {
+		m2k_fabric->usr_pow_gpio[0] = devm_gpiod_get(&pdev->dev, "en-usr-pow-pos",
+                	        GPIOD_OUT_HIGH);
+        	if (IS_ERR(m2k_fabric->usr_pow_gpio[0]))
+                	return PTR_ERR(m2k_fabric->usr_pow_gpio[0]);
+	}
 
-
-	if (reve) {
+	if (reve || rev_a_fmc) {
 		m2k_fabric->usr_pow_gpio[1] = devm_gpiod_get(&pdev->dev,
 							     "en-usr-pow-neg",
 							     GPIOD_OUT_HIGH);
 		if (IS_ERR(m2k_fabric->usr_pow_gpio[1]))
 			return PTR_ERR(m2k_fabric->usr_pow_gpio[1]);
+	}
 
+	if (reve && !rev_a_fmc) {
 		m2k_fabric->done_led_overwrite_gpio = devm_gpiod_get(&pdev->dev,
 							"en-done-led-overwrite",
 							GPIOD_OUT_HIGH);
 		if (IS_ERR(m2k_fabric->done_led_overwrite_gpio))
 			return PTR_ERR(m2k_fabric->done_led_overwrite_gpio);
 	}
-
+	
 	remain_powerdown = of_property_read_bool(pdev->dev.of_node,
 						 "adi,powerdown-enable");
 
@@ -648,6 +685,9 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	} else if (m2k_fabric->reve) {
 		indio_dev->channels = m2k_fabric_chan_spec_reve;
 		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_reve);
+	} else if (m2k_fabric->rev_a_fmc) {
+		indio_dev->channels = m2k_fabric_chan_spec_rev_a_fmc;
+		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_rev_a_fmc);
 	}
 
 	platform_set_drvdata(pdev, indio_dev);

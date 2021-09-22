@@ -46,9 +46,10 @@
 		en-awg1-gpio = <&gpio_exp 15 0>;
 		en-awg2-gpio = <&gpio_exp 14 0>;
 
-		en-usr-pow-pos-gpio = <&gpio_exp 7 0>;
+		en-usr-pow-gpio = <&gpio_exp 7 0>;
 		en-usr-pow-neg-gpio = <&gpio_exp 6 0>;
 		en-sc-gpio = <&gpio_exp 5 1>;  
+		en-done-led-override-gpio = <&gpio_exp 4 0>;
 
 		en-sc1-lg-gpio = <&gpio_exp 10 0>;
 		en-sc1-hg-gpio = <&gpio_exp 11 0>;
