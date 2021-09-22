@@ -114,7 +114,7 @@ typedef va_list gctARGUMENTS;
 #define gcmkOUTPUT_STRING(String) \
     printk("%s", String); \
 
-#if !defined(gcdANDROID) || gcdDEBUG
+#if gcdDUMP_IN_KERNEL
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 #define gcmkDUMP_STRING(Os, String) \
     do \
