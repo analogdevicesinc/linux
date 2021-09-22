@@ -5619,6 +5619,12 @@ int32_t adi_ad9081_jesd_rx_gen_2s_comp(adi_ad9081_device_t *device,
 int32_t adi_ad9081_jesd_rx_spo_set(adi_ad9081_device_t *device, uint8_t lane,
 				   uint8_t spo);
 
+int32_t adi_ad9081_adc_ddc_coarse_sync_next_set(adi_ad9081_device_t *device,
+						uint8_t cddcs, uint8_t val);
+
+int32_t adi_ad9081_adc_ddc_fine_sync_next_set(adi_ad9081_device_t *device,
+					      uint8_t fddcs, uint8_t val);
+
 #ifdef __cplusplus
 }
 #endif
