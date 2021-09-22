@@ -448,7 +448,7 @@
 };
 
 &axi_spi3 {
-	ad5592r@0 {
+	adc_ad5592r: ad5592r@0 {
 		#size-cells = <0>;
 		#address-cells = <1>;
 		compatible = "adi,ad5592r";
