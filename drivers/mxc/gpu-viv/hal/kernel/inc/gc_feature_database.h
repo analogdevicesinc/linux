@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-/*Auto created on 2021-08-27 18:08*/
+/*Auto created on 2021-09-17 15:50*/
 #ifndef _gc_feature_database_h_
 #define _gc_feature_database_h_
 
@@ -93,6 +93,7 @@ typedef struct
     gctUINT32 USC_BANKS_1;
     gctUINT32 USC_BANKS_2;
     gctUINT32 VIRTUAL_ADDRESS_BITS;
+    gctUINT32 PHYSICAL_ADDRESS_BITS;
     gctUINT32 Streams;
     gctUINT32 VaryingCount;
     gctUINT32 VertexOutputBufferSize;
@@ -102,6 +103,7 @@ typedef struct
     gctUINT32 RESULT_WINDOW_MAX_SIZE;
     gctUINT32 ClusterAliveMask;
     gctUINT32 G2D_DEC400_MINOR;
+    gctUINT32 G2D_TILING_MINOR;
     gctUINT32 PS_INSTRUCTION_COUNT;
     gctUINT32 NNMadPerCore;
     gctUINT32 NNCoreCount;
@@ -821,6 +823,7 @@ typedef struct
     gctUINT32 CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX:1;
     gctUINT32 KERNEL_XSIZE_YSIZE_NUM_FIX:1;
     gctUINT32 TP_SPECIAL_LIST_PARSER_FIX:1;
+    gctUINT32 DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX:1;
     gctUINT32 NN_INTERLEVE8:1;
     gctUINT32 NN_FP16_ALU:1;
     gctUINT32 NN_INT16_ALU:1;
@@ -872,6 +875,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x1, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -881,6 +885,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -1600,6 +1605,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -1649,6 +1655,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x1, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -1658,6 +1665,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -2377,6 +2385,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -2426,6 +2435,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x1, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -2435,6 +2445,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -3154,6 +3165,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -3203,6 +3215,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x1, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -3212,6 +3225,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -3931,6 +3945,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -3980,6 +3995,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x4, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x80, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -3989,6 +4005,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -4708,6 +4725,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -4757,6 +4775,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x1, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -4766,6 +4785,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -5485,6 +5505,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -5534,6 +5555,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x1, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -5543,6 +5565,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -6262,6 +6285,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -6311,6 +6335,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x1, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -6320,6 +6345,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -7039,6 +7065,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -7088,6 +7115,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x4, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -7097,6 +7125,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -7816,6 +7845,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -7865,6 +7895,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x4, /* gcFEATURE_VALUE_Streams */
         0x8, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -7874,6 +7905,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -8593,6 +8625,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -8642,6 +8675,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x8, /* gcFEATURE_VALUE_Streams */
         0xb, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -8651,6 +8685,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -9370,6 +9405,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -9419,6 +9455,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x8, /* gcFEATURE_VALUE_Streams */
         0xb, /* gcFEATURE_VALUE_VaryingCount */
         0x200, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -9428,6 +9465,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -10147,6 +10185,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -10196,6 +10235,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -10205,6 +10245,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -10924,6 +10965,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -10973,6 +11015,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -10982,6 +11025,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -11701,6 +11745,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -11750,6 +11795,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x1f, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -11759,6 +11805,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -12478,6 +12525,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -12527,6 +12575,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x1f, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -12536,6 +12585,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -13255,6 +13305,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -13304,6 +13355,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x1f, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -13313,6 +13365,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -14032,6 +14085,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -14081,6 +14135,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x8, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -14090,6 +14145,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x10, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -14809,6 +14865,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -14858,6 +14915,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -14867,6 +14925,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x10, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -15586,6 +15645,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -15635,6 +15695,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -15644,6 +15705,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x10, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -16363,6 +16425,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -16412,6 +16475,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -16421,6 +16485,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x10, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -17140,6 +17205,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -17189,6 +17255,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -17198,6 +17265,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x10, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -17917,6 +17985,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -17966,6 +18035,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -17975,6 +18045,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x10, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -18694,6 +18765,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -18743,6 +18815,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -18752,6 +18825,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -19471,6 +19545,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -19520,6 +19595,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -19529,6 +19605,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -20248,6 +20325,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -20297,6 +20375,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x28, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -20306,6 +20385,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x3, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -21025,6 +21105,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -21074,6 +21155,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x28, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x10, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -21083,6 +21165,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x3, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x0, /* gcFEATURE_VALUE_NNMadPerCore */
         0x0, /* gcFEATURE_VALUE_NNCoreCount */
@@ -21802,6 +21885,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x0, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x0, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x0, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x0, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -21851,6 +21935,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x8, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -21860,6 +21945,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x40, /* gcFEATURE_VALUE_NNMadPerCore */
         0x6, /* gcFEATURE_VALUE_NNCoreCount */
@@ -22579,6 +22665,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x1, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x1, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x1, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x1, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x1, /* gcFEATURE_BIT_NN_INT16_ALU */
@@ -22628,6 +22715,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_USC_BANKS_1 */
         0x0, /* gcFEATURE_VALUE_USC_BANKS_2 */
         0x20, /* gcFEATURE_VALUE_VIRTUAL_ADDRESS_BITS */
+        0x0, /* gcFEATURE_VALUE_PHYSICAL_ADDRESS_BITS */
         0x8, /* gcFEATURE_VALUE_Streams */
         0x10, /* gcFEATURE_VALUE_VaryingCount */
         0x400, /* gcFEATURE_VALUE_VertexOutputBufferSize */
@@ -22637,6 +22725,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_RESULT_WINDOW_MAX_SIZE */
         0x0, /* gcFEATURE_VALUE_ClusterAliveMask */
         0x0, /* gcFEATURE_VALUE_G2D_DEC400_MINOR */
+        0x0, /* gcFEATURE_VALUE_G2D_TILING_MINOR */
         0x0, /* gcFEATURE_VALUE_PS_INSTRUCTION_COUNT */
         0x40, /* gcFEATURE_VALUE_NNMadPerCore */
         0x6, /* gcFEATURE_VALUE_NNCoreCount */
@@ -23356,6 +23445,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x1, /* gcFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX */
         0x1, /* gcFEATURE_BIT_KERNEL_XSIZE_YSIZE_NUM_FIX */
         0x1, /* gcFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX */
+        0x1, /* gcFEATURE_BIT_DECOMPRESSOR_TREATS_TOTAL_CORES_AS_ACTIVE_CORES_FIX */
         0x0, /* gcFEATURE_BIT_NN_INTERLEVE8 */
         0x0, /* gcFEATURE_BIT_NN_FP16_ALU */
         0x1, /* gcFEATURE_BIT_NN_INT16_ALU */
