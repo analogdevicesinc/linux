@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-MxFE (using internal PLL)
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad_quadmxfe1_ebz/ad_quadmxfe1_ebz_hdl
+ *
+ * hdl_project: <ad_quadmxfe1_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+#include "vcu118_quad_ad9081_204b_txmode_9_rxmode_10_onchip_pll_revc.dts"
+#include <dt-bindings/jesd204/device-states.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+&axi_ad9081_adxcvr_rx{
+	adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+};
+
+&hmc7043 {
+
+	adi,hmc-two-level-tree-sync-en;
+
+	/delete-property/ jesd204-sysref-provider;
+	/delete-property/ adi,rf-reseeder-disable;
+	jesd204-secondary-sysref-provider;
+
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+
+	adi,clkin0-buffer-mode  = <HMC7044_CLKIN_LVPECL>; /* RFSYNC */
+	adi,clkin1-buffer-mode  = <HMC7044_CLKIN_AC_100OHM_TERM>; /* CLKIN */
+
+	hmc7043_c1: channel@1 {
+		reg = <1>;
+		adi,extended-name = "SYSREF_FPGA";
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		adi,force-mute-enable;
+	};
+
+	hmc7043_c7: channel@7 {
+		reg = <7>;
+		adi,extended-name = "SYSREF_MXFE0";
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		adi,force-mute-enable;
+	};
+
+	hmc7043_c9: channel@9 {
+		reg = <9>;
+		adi,extended-name = "SYSREF_MXFE1";
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		adi,force-mute-enable;
+	};
+
+	hmc7043_c11: channel@11 {
+		reg = <11>;
+		adi,extended-name = "SYSREF_MXFE2";
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		adi,force-mute-enable;
+	};
+
+	hmc7043_c13: channel@13 {
+		reg = <13>;
+		adi,extended-name = "SYSREF_MXFE3";
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		adi,force-mute-enable;
+	};
+};
+
+&trx0_ad9081 {
+	clocks = <&hmc7043 6>;
+	/delete-property/ dev_clk-clock-scales;
+
+	adi,continuous-sysref-mode-disable;
+	adi,nco-sync-direct-sysref-mode-enable;
+	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+};
+
+&trx1_ad9081 {
+	clocks = <&hmc7043 8>;
+	/delete-property/ dev_clk-clock-scales;
+
+	adi,continuous-sysref-mode-disable;
+	adi,nco-sync-direct-sysref-mode-enable;
+	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+};
+
+&trx2_ad9081 {
+	clocks = <&hmc7043 10>;
+	/delete-property/ dev_clk-clock-scales;
+
+	adi,continuous-sysref-mode-disable;
+	adi,nco-sync-direct-sysref-mode-enable;
+	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+};
+
+&trx3_ad9081 {
+	clocks = <&hmc7043 12>;
+	/delete-property/ dev_clk-clock-scales;
+
+	jesd204-stop-states = <
+		JESD204_FSM_STATE_CLK_SYNC_STAGE1
+		JESD204_FSM_STATE_CLK_SYNC_STAGE2
+		JESD204_FSM_STATE_CLK_SYNC_STAGE3
+		JESD204_FSM_STATE_OPT_SETUP_STAGE1
+		JESD204_FSM_STATE_OPT_SETUP_STAGE2
+		JESD204_FSM_STATE_LINK_ENABLE>;
+
+	adi,continuous-sysref-mode-disable;
+	adi,nco-sync-direct-sysref-mode-enable;
+	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+};
+
+&axi_ethernet {
+	local-mac-address = [00 0a 35 00 00 01];
+};
