@@ -33,30 +33,27 @@
 
 	m2k-fabric {
 		compatible = "adi,m2k-fabric";
-		adi,revc;
+		clocks = <&converter_clock>;
+		adi,revd;
 		
-		// modified pinout according the new schematic
-		en-sc-cal1-gpio = <&gpio_exp 9 0>;
-		en-sc1-cal2-gpio = <&gpio_exp 7 0>;
-		en-sc2-cal2-gpio = <&gpio_exp 8 0>;
+		en-sc-cal1-gpio = <&gpio_exp 8 0>;
+		en-sc1-cal2-gpio = <&gpio_exp 1 0>;
+		en-sc2-cal2-gpio = <&gpio_exp 0 0>;
 
-		sc-cal-mux0-gpio = <&gpio_exp 6 0>;
-		sc-cal-mux1-gpio = <&gpio_exp 5 0>;
+		sc-cal-mux0-gpio = <&gpio_exp 2 0>;
+		sc-cal-mux1-gpio = <&gpio_exp 3 0>;
 
-		en-awg1-gpio = <&gpio_exp 16 0>;
-		en-awg2-gpio = <&gpio_exp 15 0>;
+		en-awg1-gpio = <&gpio_exp 15 0>;
+		en-awg2-gpio = <&gpio_exp 14 0>;
 
-		// newly added --- 
-		en-usr-pow-pos-gpio = <&gpio_exp 1 0>;
-		en-usr-pow-neg-gpio = <&gpio_exp 2 0>;
-		en-sc-gpio = <&gpio_exp 3 0>;
-		// ---
+		en-usr-pow-pos-gpio = <&gpio_exp 7 0>;
+		en-usr-pow-neg-gpio = <&gpio_exp 6 0>;
+		en-sc-gpio = <&gpio_exp 5 0>;
 
-		en-sc1-lg-gpio = <&gpio_exp 11 0>;
-		en-sc1-hg-gpio = <&gpio_exp 12 0>;
-		en-sc2-lg-gpio = <&gpio_exp 13 0>;
-		en-sc2-hg-gpio = <&gpio_exp 14 0>;
-
+		en-sc1-lg-gpio = <&gpio_exp 10 0>;
+		en-sc1-hg-gpio = <&gpio_exp 11 0>;
+		en-sc2-lg-gpio = <&gpio_exp 12 0>;
+		en-sc2-hg-gpio = <&gpio_exp 13 0>;
 	};
 
 	ref_1V2: regulator@0 {
@@ -75,7 +72,7 @@
 		regulator-max-microvolt = <5000000>;
 
 		gpio = <&gpio0 87 0>;
-		enable-active-high; // was written as "enabale"
+		enable-active-high; 
 
 		regulator-boot-on;
 		regulator-always-on;
@@ -94,7 +91,6 @@
 &spi0 {
 	status = "okay";
 
-	//  was pll@0
 	converter_clock: pll@1 {
 		compatible = "adi,adf4360-9";
 		reg = <1>;
@@ -110,7 +106,6 @@
 		adi,loop-filter-pfd-frequency-hz = <5000000>;
 	};
 
-	// was converter@1
 	converter@0 {
 		compatible = "adi,ad9963";
 		reg = <0>;
@@ -134,29 +129,6 @@
 
 		#size-cells = <0>;
 		#address-cells = <1>;
-
-		gpio_exp: gpio@34 {
-			compatible = "adi,adp5589";
-			reg = <0x34>;
-
-			#gpio-cells = <2>;
-			gpio-controller;
-		};
-
-		dac@1c {
-			compatible = "adi,ad5625";
-			reg = <0x1c>;
-
-			vref-supply = <&ref_1V2>;
-		};
-
-		// was dac@0f
-		dac@f {
-			compatible = "adi,ad5627";
-			reg = <0x0f>;
-
-			vref-supply = <&ref_1V2>;
-		};
 
 		current_limiter@5a {
 			compatible = "adi,adm1177-iio";
@@ -294,7 +266,7 @@
 		};
 	};
 
-	// logic_analyzer; before, the address was written as 701 0000
+	// logic_analyzer
 	logic_analyzer@70100000 {
 		compatible = "adi,m2k-logic-analyzer";
 		reg = <0x70100000 0x10000>;
@@ -323,6 +295,28 @@
 
 		#size-cells = <0>;
 		#address-cells = <1>;
+
+		gpio_exp: gpio@34 {
+			compatible = "adi,adp5589";
+			reg = <0x34>;
+
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		dac@1c {
+			compatible = "adi,ad5625";
+			reg = <0x1c>;
+
+			vref-supply = <&ref_1V2>;
+		};
+
+		dac@f {
+			compatible = "adi,ad5627";
+			reg = <0x0f>;
+
+			vref-supply = <&ref_1V2>;
+		};
 	};
 
 };
