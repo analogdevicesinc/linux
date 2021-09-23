@@ -45,7 +45,6 @@
 			#size-cells = <0>;
 
 			adis16475: adis16475@0 {
-				compatible = "adi,adis16477-1";
 				reg = <0>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&adis16475_pins>;
@@ -62,5 +61,6 @@
 	__overrides__ {
 		interrupt = <&adis16475_pins>,"brcm,pins:0",
 				<&adis16475>,"interrupts:0";
+		device = <&adis16475>,"compatible";
 	};
 };
