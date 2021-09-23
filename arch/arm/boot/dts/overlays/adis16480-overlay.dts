@@ -59,11 +59,4 @@
 			};
 		};
 	};
-
-	__overrides__ {
-		interrupt = <&adis16480_pins>,"brcm,pins:0",
-				<&adis16480>,"interrupts:0";
-		reset = <&adis16480_pins>,"brcm,pins:4",
-				<&adis16480>,"reset-gpios:4";
-	};
 };
