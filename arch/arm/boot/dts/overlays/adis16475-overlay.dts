@@ -59,8 +59,16 @@
 	};
 
 	__overrides__ {
-		interrupt = <&adis16475_pins>,"brcm,pins:0",
-				<&adis16475>,"interrupts:0";
+		/*
+		 * This gives an option to use the gpio25 as the data ready pin. This
+		 * must be used for the adis16465/7 families as these devices use the
+		 * 14 pin connector where DR is using gpio25. Note that this should
+		 * not be used for the other devices as the gpio25 is both connected to
+		 * the sync selector and to the sync pin (because the sync and DR pins
+		 * are swapped in the 16 pin connector).
+		 */
+		drdy_gpio25 = <&adis16475_pins>,"brcm,pins:0=25",
+				<&adis16475>,"interrupts:0=25";
 		device = <&adis16475>,"compatible";
 	};
 };
