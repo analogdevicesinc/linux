@@ -231,6 +231,7 @@ static int cdns_mhdp_imx_resume(struct device *dev)
 	struct imx_mhdp_device *imx_mhdp = dev_get_drvdata(dev);
 
 	cdns_mhdp_plat_call(&imx_mhdp->mhdp, resume);
+	cdns_mhdp_plat_call(&imx_mhdp->mhdp, phy_set);
 
 	return 0;
 }
