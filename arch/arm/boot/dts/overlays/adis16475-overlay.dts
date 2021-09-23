@@ -62,7 +62,5 @@
 	__overrides__ {
 		interrupt = <&adis16475_pins>,"brcm,pins:0",
 				<&adis16475>,"interrupts:0";
-		reset = <&adis16475_pins>,"brcm,pins:4",
-				<&adis16475>,"reset-gpios:4";
 	};
 };
