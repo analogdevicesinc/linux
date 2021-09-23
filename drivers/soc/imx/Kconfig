@@ -27,4 +27,14 @@ config SOC_IMX9
 	help
 	  If you say yes here, you get support for the NXP i.MX9 family
 
+config RPMSG_LIFE_CYCLE
+	tristate "i.MX8ULP Rpmsg Life Cycle Support"
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on RPMSG
+	default ARCH_MXC
+	help
+	  If you say yes here you get supoort for the rpmsg life cycle support on
+	  i.MX8ULP for low power mode state coordination between A core & M core to
+	  make sure A core can be put into Low power mode without risk by sending
+	  notify to M core.
 endmenu
