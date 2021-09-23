@@ -45,7 +45,6 @@
 			#size-cells = <0>;
 
 			adis16480: adis16480@0 {
-				compatible = "adi,adis16495-3";
 				reg = <0>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&adis16480_pins>;
@@ -58,5 +57,9 @@
 				interrupt-parent = <&gpio>;
 			};
 		};
+	};
+
+	__overrides__ {
+		device = <&adis16480>,"compatible";
 	};
 };
