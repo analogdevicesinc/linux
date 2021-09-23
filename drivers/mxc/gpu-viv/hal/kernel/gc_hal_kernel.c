@@ -4030,7 +4030,7 @@ gckKERNEL_AttachProcessEx(
             }
         }
 
-        if (Kernel->timeoutPID == PID)
+        if (Kernel->timeoutPID == PID && Kernel->hardware != gcvNULL)
         {
             Kernel->timeOut = Kernel->hardware->type == gcvHARDWARE_2D
                             ? gcdGPU_2D_TIMEOUT
@@ -5728,7 +5728,7 @@ gckDEVICE_SetTimeOut(
         }
         else
         {
-            kernel = coreList->kernels[i];
+            continue;
         }
 
         kernel->timeOut = Interface->u.SetTimeOut.timeOut;
