@@ -72,7 +72,7 @@
 		clocks = <&axi_ad9172_jesd>, <&hmc7044 2>, <&hmc7044 3>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 
-		adi,dac-rate-khz = <3000000>;
+		adi,dac-rate-khz = <2949120>;
 		adi,jesd-link-mode = <10>;
 
 		adi,jesd-subclass = <0>;
