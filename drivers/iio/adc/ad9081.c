@@ -409,7 +409,7 @@ static int ad9081_spi_xfer(void *user_data, uint8_t *wbuf, uint8_t *rbuf,
 	return spi_sync_transfer(conv->spi, &t, 1);
 }
 
-int32_t ad9081_reset_pin_ctrl(void *user_data, uint8_t enable)
+static int ad9081_reset_pin_ctrl(void *user_data, u8 enable)
 {
 	struct axiadc_converter *conv = user_data;
 
