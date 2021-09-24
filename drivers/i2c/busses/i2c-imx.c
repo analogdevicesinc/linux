@@ -405,11 +405,11 @@ static void i2c_imx_reset_regs(struct imx_i2c_struct *i2c_imx)
 
 /* Functions for DMA support */
 static int i2c_imx_dma_request(struct imx_i2c_struct *i2c_imx,
+			       struct device *dev,
 			       dma_addr_t phy_addr)
 {
 	struct imx_i2c_dma *dma;
 	struct dma_slave_config dma_sconfig;
-	struct device *dev = &i2c_imx->adapter.dev;
 	int ret;
 
 	dma = devm_kzalloc(dev, sizeof(*dma), GFP_KERNEL);
@@ -1710,6 +1710,13 @@ static int i2c_imx_probe(struct platform_device *pdev)
 	if (ret == -EPROBE_DEFER)
 		goto clk_notifier_unregister;
 
+	/* Init DMA config if supported */
+	ret = i2c_imx_dma_request(i2c_imx, &pdev->dev, phy_addr);
+	if (ret == -EPROBE_DEFER) {
+		dev_err(&pdev->dev, "DMA not ready, go defer probe!\n");
+		goto clk_notifier_unregister;
+	}
+
 	/* Add I2C adapter */
 	ret = i2c_add_numbered_adapter(&i2c_imx->adapter);
 	if (ret < 0)
@@ -1724,15 +1731,8 @@ static int i2c_imx_probe(struct platform_device *pdev)
 		i2c_imx->adapter.name);
 	dev_info(&i2c_imx->adapter.dev, "IMX I2C adapter registered\n");
 
-	/* Init DMA config if supported */
-	ret = i2c_imx_dma_request(i2c_imx, phy_addr);
-	if (ret == -EPROBE_DEFER)
-		goto i2c_adapter_remove;
-
 	return 0;   /* Return OK */
 
-i2c_adapter_remove:
-	i2c_del_adapter(&i2c_imx->adapter);
 clk_notifier_unregister:
 	clk_notifier_unregister(i2c_imx->clk, &i2c_imx->clk_change_nb);
 	free_irq(irq, i2c_imx);
