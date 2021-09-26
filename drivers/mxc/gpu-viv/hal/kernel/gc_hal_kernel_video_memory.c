@@ -2393,7 +2393,7 @@ gckVIDMEM_LockVirtual(
             }
 
 #if gcdENABLE_VG
-            if (Kernel->core == gcvCORE_VG)
+            if ((gcvNULL != Kernel->vg) && (Kernel->core == gcvCORE_VG))
             {
                 gcmkONERROR(gckVGMMU_Flush(Kernel->vg->mmu));
             }
