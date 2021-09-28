@@ -994,22 +994,16 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	if (vb2_is_busy(&isi_cap->vb2_q))
 		return -EBUSY;
 
-	/* Check out put format */
 	for (i = 0; i < mxc_isi_out_formats_size; i++) {
 		fmt = &mxc_isi_out_formats[i];
-		if (pix && fmt->fourcc == pix->pixelformat)
+		if (fmt->fourcc == pix->pixelformat)
 			break;
 	}
 
 	if (i >= mxc_isi_out_formats_size) {
-		dev_dbg(&isi_cap->pdev->dev,
-			"format(%.4s) is not support!\n", (char *)&pix->pixelformat);
-		return -EINVAL;
+		fmt = &mxc_isi_out_formats[0];
+		v4l2_warn(&isi_cap->sd, "Not match format, set default\n");
 	}
-
-	/* update out put frame size and formate */
-	if (pix->height <= 0 || pix->width <= 0)
-		return -EINVAL;
 
 	ret = mxc_isi_cap_try_fmt_mplane(file, priv, f);
 	if (ret)
