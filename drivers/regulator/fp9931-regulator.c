@@ -463,7 +463,7 @@ static int fp9931_pmic_dt_parse_pdata(struct platform_device *pdev,
 					"gpio-pmic-wakeup", 0);
 	if (!gpio_is_valid(fp9931->gpio_pmic_wakeup)) {
 		dev_err(&pdev->dev, "no epdc pmic wakeup pin available\n");
-		return -EINVAL;
+		return fp9931->gpio_pmic_wakeup;
 	}
 	ret = devm_gpio_request_one(&pdev->dev, fp9931->gpio_pmic_wakeup,
 				    GPIOF_OUT_INIT_LOW, "epdc-pmic-wake");
@@ -481,7 +481,7 @@ static int fp9931_pmic_dt_parse_pdata(struct platform_device *pdev,
 					"gpio-pmic-pwrgood", 0);
 	if (!gpio_is_valid(fp9931->gpio_pmic_pwrgood)) {
 		dev_err(&pdev->dev, "no epdc pmic pwrgood pin available\n");
-		return -EINVAL;
+		return fp9931->gpio_pmic_pwrgood;
 	}
 	return devm_gpio_request_one(&pdev->dev, fp9931->gpio_pmic_pwrgood,
 				     GPIOF_IN, "epdc-pwrstat");
