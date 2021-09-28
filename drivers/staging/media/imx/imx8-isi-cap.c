@@ -46,12 +46,14 @@ struct mxc_isi_fmt mxc_isi_src_formats[] = {
 		.depth		= { 32 },
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 2,
 	}, {
 		.name		= "YUV32 (X-Y-U-V)",
 		.fourcc		= V4L2_PIX_FMT_YUV32,
 		.depth		= { 32 },
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 2,
 	}
 };
 
@@ -868,21 +870,20 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 	}
 
 	if (i >= mxc_isi_out_formats_size) {
-		v4l2_err(&isi_cap->sd, "format(%.4s) is not support!\n",
-			 (char *)&pix->pixelformat);
-		return -EINVAL;
+		fmt = &mxc_isi_out_formats[0];
+		v4l2_warn(&isi_cap->sd, "Not match format, set default\n");
 	}
 
-	if (pix->width <= 0 || pix->height <= 0) {
-		v4l2_err(&isi_cap->sd, "%s, W/H=(%d, %d) is not valid\n"
-			, __func__, pix->width, pix->height);
-		return -EINVAL;
-	}
-
-	if (pix->width > ISI_4K)
-		pix->width = ISI_4K;
-	if (pix->height > ISI_8K)
-		pix->height = ISI_8K;
+	/*
+	 * The bit width in CHNL_IMG_CFG[HEIGHT/WIDTH] is 13, so the maximum
+	 * theorical value for image width/height should be 8K, but due to ISI
+	 * line buffer size limitation, the maximum value is 4K
+	 *
+	 * For efficient data transmission, the minimum data width should be
+	 * 16(128/8)
+	 */
+	v4l_bound_align_image(&pix->width, 16, ISI_4K, fmt->align,
+			      &pix->height, 16, ISI_4K, 1, 0);
 
 	pix->num_planes = fmt->memplanes;
 	pix->pixelformat = fmt->fourcc;

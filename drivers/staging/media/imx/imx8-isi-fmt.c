@@ -14,6 +14,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_RGB565,
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 3,
 		.mbus_code  = MEDIA_BUS_FMT_RGB565_1X16,
 	}, {
 		.name		= "RGB24",
@@ -22,6 +23,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_BGR32P,
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 2,
 		.mbus_code  = MEDIA_BUS_FMT_RGB888_1X24,
 	}, {
 		.name		= "BGR24",
@@ -30,6 +32,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_RGB32P,
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 2,
 		.mbus_code  = MEDIA_BUS_FMT_BGR888_1X24,
 	}, {
 		.name		= "YUYV-16",
@@ -38,6 +41,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_YUV422_1P8P,
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 3,
 		.mbus_code	= MEDIA_BUS_FMT_YUYV8_1X16,
 	}, {
 		.name		= "YUV32 (X-Y-U-V)",
@@ -46,6 +50,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_YUV444_1P8,
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 2,
 		.mbus_code	= MEDIA_BUS_FMT_AYUV8_1X32,
 	}, {
 		.name		= "NV12 (YUYV)",
@@ -54,6 +59,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_YUV420_2P8P,
 		.memplanes	= 2,
 		.colplanes	= 2,
+		.align		= 4,
 		.mbus_code	= MEDIA_BUS_FMT_YUYV8_1X16,
 	}, {
 		.name		= "YUV444M (Y-U-V)",
@@ -62,6 +68,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_YUV444_3P8P,
 		.memplanes	= 3,
 		.colplanes	= 3,
+		.align		= 4,
 		.mbus_code	= MEDIA_BUS_FMT_YUV8_1X24,
 	}, {
 		.name		= "xBGR32",
@@ -70,6 +77,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_XRGB32,
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 2,
 		.mbus_code	= MEDIA_BUS_FMT_RGB888_1X24,
 	}, {
 		.name		= "ABGR32",
@@ -78,6 +86,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.color		= MXC_ISI_OUT_FMT_ARGB32,
 		.memplanes	= 1,
 		.colplanes	= 1,
+		.align		= 2,
 		.mbus_code	= MEDIA_BUS_FMT_RGB888_1X24,
 	}
 };

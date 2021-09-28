@@ -132,6 +132,7 @@ struct mxc_isi_fmt {
 	u8	depth[MXC_MAX_PLANES];
 	u16	mdataplanes;
 	u16	flags;
+	u16	align;
 };
 
 struct mxc_isi_ctrls {
