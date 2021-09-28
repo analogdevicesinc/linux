@@ -265,6 +265,7 @@ static int cap_vb2_queue_setup(struct vb2_queue *q,
 		for (i = 0; i < *num_planes; i++)
 			if (sizes[i] < dst_f->sizeimage[i])
 				return -EINVAL;
+		return 0;
 	}
 
 	for (i = 0; i < fmt->memplanes; i++)
@@ -1149,7 +1150,7 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 
 	if (isi_cap->is_streaming[isi_cap->id] == 0) {
 		dev_err(dev, "ISI channel[%d] has stopped\n", isi_cap->id);
-		return -EBUSY;
+		return 0;
 	}
 
 	mxc_isi_pipeline_enable(isi_cap, 0);
@@ -1672,6 +1673,8 @@ static int mxc_isi_register_cap_device(struct mxc_isi_cap_dev *isi_cap,
 	q->buf_struct_size = sizeof(struct mxc_isi_buffer);
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->lock = &isi_cap->lock;
+	q->min_buffers_needed = 2;
+	q->dev = &isi_cap->pdev->dev;
 
 	ret = vb2_queue_init(q);
 	if (ret)
