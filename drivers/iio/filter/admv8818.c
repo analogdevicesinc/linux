@@ -110,8 +110,15 @@ static int admv8818_hpf_select(struct admv8818_dev *dev, u64 freq)
 	u64 freq_step;
 	int ret;
 
-	if (freq < freq_range_hpf[0][0] || freq > freq_range_hpf[3][1])
+	if (freq < freq_range_hpf[0][0])
 		goto hpf_write;
+
+	if (freq > freq_range_hpf[3][1]) {
+		hpf_step = 15;
+		hpf_band = 4;
+
+		goto hpf_write;
+	}
 
 	for (i = 0; i < 4; i++) {
 		freq_step = div_u64((freq_range_hpf[i][1] -
@@ -164,8 +171,14 @@ static int admv8818_lpf_select(struct admv8818_dev *dev, u64 freq)
 	u64 freq_step;
 	int ret;
 
-	if (freq < freq_range_lpf[0][0] || freq > freq_range_lpf[3][1])
+	if (freq > freq_range_lpf[3][1])
 		goto lpf_write;
+
+	if (freq < freq_range_lpf[0][0]) {
+		lpf_band = 1;
+
+		goto lpf_write;
+	}
 
 	for (i = 0; i < 4; i++) {
 		if ((freq > freq_range_lpf[i][0]) && freq < freq_range_lpf[i][1]) {
