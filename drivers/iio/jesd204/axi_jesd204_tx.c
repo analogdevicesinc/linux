@@ -568,7 +568,7 @@ static int axi_jesd204_tx_pcore_check(struct axi_jesd204_tx *jesd)
 	return 0;
 }
 
-static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
+static int axi_jesd204_tx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 		enum jesd204_state_op_reason reason,
 		struct jesd204_link *lnk)
 {
@@ -582,32 +582,12 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 	case JESD204_STATE_OP_REASON_INIT:
 		break;
 	case JESD204_STATE_OP_REASON_UNINIT:
-		if (__clk_is_enabled(jesd->lane_clk)) /* REVIST */
-			clk_disable_unprepare(jesd->lane_clk);
-		if (__clk_is_enabled(jesd->device_clk))
-			clk_disable_unprepare(jesd->device_clk);
-		if (!IS_ERR(jesd->link_clk)) {
-			if (__clk_is_enabled(jesd->link_clk))
-				clk_disable_unprepare(jesd->link_clk);
-		}
 		return JESD204_STATE_CHANGE_DONE;
 	default:
 		return JESD204_STATE_CHANGE_DONE;
 	}
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
-
-	if (jesd->num_lanes != lnk->num_lanes)
-		jesd204_notice(jdev,
-				"Possible instantiation for multiple chips; HDL lanes %u, Link[%u] lanes %u\n",
-				jesd->num_lanes, lnk->link_id, lnk->num_lanes);
-
-	ret = axi_jesd204_tx_apply_config(jesd, lnk);
-	if (ret) {
-		dev_err(dev, "%s: Apply config Link%u failed (%d)\n",
-			__func__, lnk->link_id, ret);
-		return ret;
-	}
 
 	ret = jesd204_link_get_device_clock(lnk, &link_rate);
 	dev_dbg(dev, "%s: Link%u device clock rate %lu (%d)\n",
@@ -676,6 +656,50 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 	if (ret) {
 		dev_err(dev, "%s: Link%u set lane rate %lu kHz failed (%d)\n",
 			__func__, lnk->link_id, lane_rate, ret);
+		return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+
+static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct axi_jesd204_tx *jesd = dev_get_drvdata(dev);
+	int ret;
+
+	switch (reason) {
+	case JESD204_STATE_OP_REASON_INIT:
+		break;
+	case JESD204_STATE_OP_REASON_UNINIT:
+		if (__clk_is_enabled(jesd->lane_clk)) /* REVIST */
+			clk_disable_unprepare(jesd->lane_clk);
+		if (__clk_is_enabled(jesd->device_clk))
+			clk_disable_unprepare(jesd->device_clk);
+		if (!IS_ERR(jesd->link_clk)) {
+			if (__clk_is_enabled(jesd->link_clk))
+				clk_disable_unprepare(jesd->link_clk);
+		}
+		return JESD204_STATE_CHANGE_DONE;
+	default:
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (jesd->num_lanes != lnk->num_lanes)
+		jesd204_notice(jdev,
+				"Possible instantiation for multiple chips; HDL lanes %u, Link[%u] lanes %u\n",
+				jesd->num_lanes, lnk->link_id, lnk->num_lanes);
+
+	ret = axi_jesd204_tx_apply_config(jesd, lnk);
+	if (ret) {
+		dev_err(dev, "%s: Apply config Link%u failed (%d)\n",
+			__func__, lnk->link_id, ret);
 		return ret;
 	}
 
@@ -779,11 +803,14 @@ static int axi_jesd204_tx_jesd204_link_running(struct jesd204_dev *jdev,
 }
 static const struct jesd204_dev_data jesd204_axi_jesd204_tx_init = {
 	.state_ops = {
-		[JESD204_OP_CLOCKS_ENABLE] = {
-			.per_link = axi_jesd204_tx_jesd204_clks_enable,
+		[JESD204_OP_LINK_PRE_SETUP] = {
+			.per_link = axi_jesd204_tx_jesd204_link_pre_setup,
 		},
 		[JESD204_OP_LINK_SETUP] = {
 			.per_link = axi_jesd204_tx_jesd204_link_setup,
+		},
+		[JESD204_OP_CLOCKS_ENABLE] = {
+			.per_link = axi_jesd204_tx_jesd204_clks_enable,
 		},
 		[JESD204_OP_LINK_ENABLE] = {
 			.per_link = axi_jesd204_tx_jesd204_link_enable,
