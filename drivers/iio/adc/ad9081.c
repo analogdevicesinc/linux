@@ -4380,7 +4380,9 @@ static int ad9081_remove(struct spi_device *spi)
 
 	cancel_delayed_work_sync(&phy->dwork);
 
-	iio_device_unregister(conv->indio_dev);
+	if (!jesd204_dev_is_top(phy->jdev))
+		iio_device_unregister(conv->indio_dev);
+
 	clk_disable_unprepare(phy->dev_clk);
 	of_clk_del_provider(spi->dev.of_node);
 	adi_ad9081_device_deinit(&phy->ad9081);
