@@ -15,6 +15,9 @@
 #include <dt-bindings/jesd204/device-states.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
+#define SYSREF_AVG_CNT 4
+#define EXTRA_LMFC_NUM 0
+
 &axi_ad9081_adxcvr_rx{
 	adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 };
@@ -86,7 +89,8 @@
 
 	adi,continuous-sysref-mode-disable;
 	adi,nco-sync-direct-sysref-mode-enable;
-	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+	adi,sysref-average-cnt-exp = <SYSREF_AVG_CNT>; /* 2^4=16 */
+	adi,nco-sync-ms-extra-lmfc-num = <EXTRA_LMFC_NUM>;
 };
 
 &trx1_ad9081 {
@@ -95,7 +99,8 @@
 
 	adi,continuous-sysref-mode-disable;
 	adi,nco-sync-direct-sysref-mode-enable;
-	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+	adi,sysref-average-cnt-exp = <SYSREF_AVG_CNT>; /* 2^4=16 */
+	adi,nco-sync-ms-extra-lmfc-num = <EXTRA_LMFC_NUM>;
 };
 
 &trx2_ad9081 {
@@ -104,7 +109,8 @@
 
 	adi,continuous-sysref-mode-disable;
 	adi,nco-sync-direct-sysref-mode-enable;
-	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+	adi,sysref-average-cnt-exp = <SYSREF_AVG_CNT>; /* 2^4=16 */
+	adi,nco-sync-ms-extra-lmfc-num = <EXTRA_LMFC_NUM>;
 };
 
 &trx3_ad9081 {
@@ -121,7 +127,8 @@
 
 	adi,continuous-sysref-mode-disable;
 	adi,nco-sync-direct-sysref-mode-enable;
-	adi,sysref-average-cnt-exp = <4>; /* 2^4=16 */
+	adi,sysref-average-cnt-exp = <SYSREF_AVG_CNT>; /* 2^4=16 */
+	adi,nco-sync-ms-extra-lmfc-num = <EXTRA_LMFC_NUM>;
 };
 
 /* Using AD-SYNCHRONA14-EBZ */
