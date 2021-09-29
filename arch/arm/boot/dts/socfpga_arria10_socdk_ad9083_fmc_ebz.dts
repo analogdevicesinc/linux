@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9083-FMC-EBZ
+ * https://wiki.analog.com/resources/eval/dpg/ad9083-fmc-ebz
+ * https://wiki.analog.com/resources/eval/dpg/eval-ad9083
+ *
+ * hdl_project: <ad9083_evb/a10soc>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "socfpga_arria10_socdk.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	cap-sd-highspeed;
+	broken-cd;
+	bus-width = <4>;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+};
+
+/ {
+	clocks {
+		sys_clk: sys_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "system_clock";
+		};
+
+		dma_clk: dma_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>;
+			clock-output-names = "dma_clk";
+		};
+
+		rx_fixed_link_clk: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>;
+			clock-output-names = "rx_link_clk";
+		};
+	};
+
+	soc {
+		sys_hps_bridges: bridge@ff200000 {
+			compatible = "simple-bus";
+			reg = <0xff200000 0x00200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0xff200000 0x00200000>;
+
+			sys_gpio_out: gpio@20 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00000020 0x00000010>;
+				altr,gpio-bank-width = <32>;
+				resetvalue = <0>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			sys_spi: spi@40 {
+				compatible = "altr,spi-1.0";
+				reg = <0x00000040 0x00000020>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 26 4>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			axi_ad9083_rx_jesd: axi-jesd204-rx@40000 {
+				compatible = "adi,axi-jesd204-rx-1.0";
+				reg = <0x00040000 0x4000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <0 32 IRQ_TYPE_LEVEL_HIGH>;
+
+				clocks = <&sys_clk>, <&ad9528 1>, <&axi_ad9083_adxcvr_rx 0>, <&rx_fixed_link_clk>;
+				clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd_rx_lane_clk";
+
+				jesd204-device;
+				#jesd204-cells = <2>;
+				jesd204-inputs = <&axi_ad9083_adxcvr_rx 0 0>;
+			};
+
+			axi_ad9083_adxcvr_rx: axi-ad9083-rx-xcvr@44000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
+				reg = <0x00044000 0x00001000>,
+					<0x00048000 0x00001000>,
+					<0x00049000 0x00001000>,
+					<0x0004A000 0x00001000>,
+					<0x0004B000 0x00001000>;
+				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+
+				clocks = <&ad9528 3>, <&rx_link_clk_pll>;
+				clock-names = "ref", "link";
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd204_rx_lane_clock";
+
+				jesd204-device;
+				#jesd204-cells = <2>;
+				jesd204-inputs = <&ad9528 0 0>;
+			};
+
+			rx_link_clk_pll: altera-a10-fpll@45000 {
+				compatible = "altr,a10-fpll";
+				reg = <0x00045000 0x1000>;
+				clocks = <&ad9528 3>;
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd204_rx_link_clock";
+			};
+
+			rx_dma: rx-dmac@4c000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x0004c000 0x00004000>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 31 IRQ_TYPE_LEVEL_HIGH>;
+				#dma-cells = <1>;
+				clocks = <&dma_clk>;
+			};
+
+			axi_ad9083_core_rx: axi-ad9083-rx-hpc@50000 {
+				compatible = "adi,axi-ad9083-rx-1.0";
+				reg = <0x00050000 0x00002000>;
+				dmas = <&rx_dma 0>;
+				dma-names = "rx";
+				spibus-connected = <&adc0_ad9083>;
+
+				jesd204-device;
+				#jesd204-cells = <2>;
+				jesd204-inputs = <&axi_ad9083_rx_jesd 0 0>;
+			};
+		};
+	};
+};
+
+#define spi0 sys_spi
+
+#include "adi-ad9083-fmc-ebz.dtsi"
+
+&ad9528 {
+	/delete-property/ spi-cpol;
+	/delete-property/ spi-cpha;
+};
+
+#define fmc_gpio_base -32	// ?
+
+&adc0_ad9083 {
+	pwdn-gpios = <&sys_gpio_out (fmc_gpio_base + 32) 0>;
+	rstb-gpios = <&sys_gpio_out (fmc_gpio_base + 33) 0>;
+	refsel-gpios = <&sys_gpio_out (fmc_gpio_base + 34) 0>;
+};
