@@ -781,7 +781,6 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 					  struct jesd204_link *jlink)
 {
 	struct jesd204_dev *jdev = &jdev_top->jdev;
-	struct device *dev = jdev->dev.parent;
 	u8 id;
 
 	if (!jlink->num_lanes) {
@@ -797,11 +796,11 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 		return 0;
 
 	if (jlink->lane_ids)
-		devm_kfree(dev, jlink->lane_ids);
+		kfree(jlink->lane_ids);
 
-	jlink->lane_ids = devm_kmalloc_array(dev, jlink->num_lanes,
-					     sizeof(*jlink->lane_ids),
-					     GFP_KERNEL);
+	jlink->lane_ids = kmalloc_array(jlink->num_lanes,
+					sizeof(*jlink->lane_ids),
+					GFP_KERNEL);
 	if (!jlink->lane_ids)
 		return -ENOMEM;
 
