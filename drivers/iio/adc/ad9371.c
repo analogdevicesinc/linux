@@ -4268,8 +4268,8 @@ static void ad9371_info(struct ad9371_rf_phy *phy)
 		 phy->jdev ? " via jesd204-fsm" : "");
 }
 
-int ad9371_jesd204_link_setup(struct jesd204_dev *jdev,
-				enum jesd204_state_op_reason reason)
+int ad9371_jesd204_link_pre_setup(struct jesd204_dev *jdev,
+				  enum jesd204_state_op_reason reason)
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9371_jesd204_priv *priv = jesd204_dev_priv(jdev);
@@ -4304,7 +4304,6 @@ int ad9371_jesd204_link_setup(struct jesd204_dev *jdev,
 		dev_err(&phy->spi->dev, "RESET Failed");
 		return ret;
 	}
-
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -4777,13 +4776,21 @@ static const struct jesd204_dev_data jesd204_ad9371_init = {
 		[JESD204_OP_LINK_INIT] = {
 			.per_link = ad9371_jesd204_link_init,
 		},
-		[JESD204_OP_CLOCKS_ENABLE] = {
-			.per_link = ad9371_jesd204_clks_enable,
+		[JESD204_OP_LINK_PRE_SETUP] = {
+			.per_device = ad9371_jesd204_link_pre_setup,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
 		},
-		[JESD204_OP_LINK_SETUP] = {
-			.per_device = ad9371_jesd204_link_setup,
+		[JESD204_OP_OPT_SETUP_STAGE1] = {
+			.per_device = ad9371_jesd204_setup_stage1,
 			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
 			.post_state_sysref = true,
+		},
+		[JESD204_OP_OPT_SETUP_STAGE2] = {
+			.per_device = ad9371_jesd204_setup_stage2,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_CLOCKS_ENABLE] = {
+			.per_link = ad9371_jesd204_clks_enable,
 		},
 		[JESD204_OP_LINK_ENABLE] = {
 			.per_link = ad9371_jesd204_link_enable,
@@ -4791,14 +4798,6 @@ static const struct jesd204_dev_data jesd204_ad9371_init = {
 		},
 		[JESD204_OP_LINK_RUNNING] = {
 			.per_link = ad9371_jesd204_link_running,
-		},
-		[JESD204_OP_OPT_SETUP_STAGE1] = {
-			.per_device = ad9371_jesd204_setup_stage1,
-			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
-		},
-		[JESD204_OP_OPT_SETUP_STAGE2] = {
-			.per_device = ad9371_jesd204_setup_stage2,
-			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
 		},
 		[JESD204_OP_OPT_POST_RUNNING_STAGE] = {
 			.per_device = ad9371_jesd204_post_running_stage,
