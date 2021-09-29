@@ -11,20 +11,18 @@ artifacts_to_archive() {
 }
 
 artifacts_to_swdownloads() {
+	cd ${SOURCE_DIRECTORY}
 	chmod 600 ${KEY_FILE}
-	for bcm in $bcm_type; do
+	for bcm in $bcm_types; do
 		scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
 		    -i ${KEY_FILE} -r ${SOURCE_DIRECTORY}/adi_${bcm}_defconfig.tar ${DEST_SERVER}
 	done
 }
 
 artifacts_to_artifactory() {
-	local path=($ARTIFACTORY_PATH1 $ARTIFACTORY_PATH2 $ARTIFACTORY_PATH3)
-	local index=1
-	for bcm in $bcm_type; do
-		curl -u$USERNAME:$PASSWORD -T ${SOURCE_DIRECTORY}/adi_${bcm}_defconfig.tar ${path[index]}
-		((index++))
-	done
+	curl -u$USERNAME:$PASSWORD -T ${SOURCE_DIRECTORY}/adi_bcm2709_defconfig.tar $ARTIFACTORY_PATH1
+	curl -u$USERNAME:$PASSWORD -T ${SOURCE_DIRECTORY}/adi_bcm2711_defconfig.tar $ARTIFACTORY_PATH2
+	curl -u$USERNAME:$PASSWORD -T ${SOURCE_DIRECTORY}/adi_bcmrpi_defconfig.tar $ARTIFACTORY_PATH3
 }
 
 artifacts_to_${1}
