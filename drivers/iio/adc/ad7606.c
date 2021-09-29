@@ -571,6 +571,8 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 	int ret;
 	struct iio_dev *indio_dev;
 
+pr_info("%s Probed\n", __func__);
+
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
