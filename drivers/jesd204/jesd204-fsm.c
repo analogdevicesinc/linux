@@ -926,7 +926,7 @@ static int jesd204_fsm_init_link(struct jesd204_dev *jdev,
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
 
-	if (!jdev_top)
+	if (!jdev_top || fsm_data->rollback)
 		return 0;
 
 	return jesd204_dev_init_link_data(jdev_top, fsm_data->link_idx);
