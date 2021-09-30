@@ -371,6 +371,12 @@ static int imx_sc_pd_power(struct generic_pm_domain *domain, bool power_on)
 		return -EBUSY;
 
 	ret = imx_scu_call_rpc(pm_ipc_handle, &msg, true);
+	if (ret == -EACCES)
+	{
+		pr_warn("Resource %d not owned by partition, power state unchanged\n",
+			pd->rsrc);
+		return 0;
+	}
 	if (ret)
 		dev_err(&domain->dev, "failed to power %s resource %d ret %d\n",
 			power_on ? "up" : "off", pd->rsrc, ret);
