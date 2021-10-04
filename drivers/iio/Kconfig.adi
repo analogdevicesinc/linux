@@ -168,3 +168,4 @@ config IIO_ALL_ADI_DRIVERS
 	select AXI_ADXCVR
 	select ONE_BIT_ADC_DAC
 	select ADUX1020
+	select IIO_GEN_MUX
