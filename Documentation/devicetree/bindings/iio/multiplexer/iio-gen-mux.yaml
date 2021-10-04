@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2021 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/multiplexer/io-gen-mux.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: I/O generic multiplexer bindings
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+description: |
+  If a signal or clock multiplexer device is needed to be under application
+  control e.g. one or multiple SPDT switches, these bindings describe
+  that situation.
+
+  For each non-empty string in the mux-state-names property, a valid mux_select
+  value will be created. Valid values can be queried using the
+  mux_select_available attribute. The corresponding mux controller state
+  is described in Documentation/devicetree/bindings/mux/mux-controller.yaml
+
+properties:
+
+  compatible:
+    const: io-channel-mux
+
+  mux-controls: true
+
+  mux-state-names:
+    $ref: /schemas/types.yaml#/definitions/string-array
+    description:
+      List of strings, labeling the mux controller states.
+
+  clocks:
+    description: Must contain a phandle for each entry in clock-names.
+
+  '#clock-cells':
+    const: 0
+
+  clock-names:
+    $ref: /schemas/types.yaml#/definitions/string-array
+    description:
+      List of strings, describing the parent clocks.
+
+  clock-output-names:
+    maxItems: 1
+
+required:
+  - compatible
+  - mux-controls
+  - mux-state-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    mux0: mux-controller {
+      compatible = "gpio-mux";
+      #mux-control-cells = <0>;
+
+      mux-gpios = <&gpio 114 GPIO_ACTIVE_HIGH>, <&gpio 115 GPIO_ACTIVE_HIGH>;
+    };
+
+    clk_mux0: mux-doubler {
+      compatible = "adi,gen_mux";
+
+      clocks = <&fixed_clk0>, <&fixed_clk1>, <&fixed_clk2>, <&fixed_clk3>;
+      #clock-cells = <0>;
+      clock-names = "clk_100", "clk_200", "clk_400", "clk_800";
+      clock-output-names = "clk-mux-out";
+
+      mux-controls = <&mux0>;
+      mux-state-names = "100M", "200M", "400M", "800M";
+    };
+
+...
