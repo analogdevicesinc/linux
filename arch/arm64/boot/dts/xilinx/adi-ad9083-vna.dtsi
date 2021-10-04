@@ -1,0 +1,466 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9083-ADL5960 on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+#include <dt-bindings/iio/frequency/ad9528.h>
+#include <dt-bindings/iio/adc/adi,ad9083.h>
+
+#define ADF9528_DIST_CLK	1000000000
+
+#ifndef ADL5960_FOF
+#define ADL5960_FOF		256
+#endif
+
+#ifndef AD9083_CIC_DEC
+#define AD9083_CIC_DEC		AD9083_CIC_DEC_8
+#endif
+
+#define AD9083_NCO_FREQ		(ADF9528_DIST_CLK / ADL5960_FOF)
+
+/ {
+	clk_doubler: hmc561 {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clock-div = <1>;
+		clock-mult = <2>;
+		clocks = <&adf5610>;
+		clock-output-names = "doubler";
+	};
+
+	fixed_clk: fixed-clock {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <0>;
+	};
+
+	/* ADRF5021 GPIO_SW2, GPIO_SW[3,4]_V1, GPIO_SW[3,4]_V2 */
+	mux0: mux-controller0 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 117 0>, <&gpio 118 0>, <&gpio 116 0>;
+	};
+
+	/* ADRF5021 GPIO_SW0, GPIO_SW1 */
+	mux1: mux-controller1 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 114 0>, <&gpio 115 0>;
+	};
+
+	vna_mux0: mux-rfin {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux0>;
+		mux-state-names =
+			"d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8";
+		label = "mux-rfin";
+	};
+
+	clk_mux0: mux-doubler {
+		compatible = "adi,gen_mux";
+		clocks = <&adf5610>, <&fixed_clk>, <&fixed_clk>, <&clk_doubler>;
+		#clock-cells = <0>;
+		clock-names = "bypass", "iso1", "iso2", "doubler";
+		clock-output-names = "clk-mux-out";
+
+		mux-controls = <&mux1>;
+		mux-state-names = "bypass", "iso1", "iso2", "doubler";
+		label = "mux-doubler";
+	};
+
+	adl5960-sync@0 {
+		compatible = "adi,one-bit-adc-dac";
+		out-gpios = <&gpio 113 0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "ADL5960x_SYNC";
+		};
+	};
+
+
+};
+
+&spi0 {
+	ad9528: ad9528@1 {
+		compatible = "adi,ad9528";
+		reg = <1>;
+		spi-cpol;
+		spi-cpha;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+
+		clock-output-names =
+			"ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2",
+			"ad9528-1_out3", "ad9528-1_out4", "ad9528-1_out5",
+			"ad9528-1_out6", "ad9528-1_out7", "ad9528-1_out8",
+			"ad9528-1_out9", "ad9528-1_out10", "ad9528-1_out11",
+			"ad9528-1_out12", "ad9528-1_out13";
+		#clock-cells = <1>;
+
+		adi,vcxo-freq = <100000000>;
+
+		adi,refa-enable;
+		adi,refa-diff-rcv-enable;
+		adi,refa-r-div = <1>;
+		adi,osc-in-cmos-neg-inp-enable;
+
+		/* SYSREF config */
+		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
+		adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
+		adi,sysref-k-div = <256>;
+		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
+		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
+		adi,jesd204-max-sysref-frequency-hz = <400000>;
+
+		/* PLL1 config */
+		adi,pll1-feedback-src-vcxo;
+		adi,pll1-feedback-div = <4>;
+		adi,pll1-charge-pump-current-nA = <5000>;
+		adi,osc-in-diff-enable;
+
+		/* PLL2 config */
+		/*
+		 * Valid ranges based on VCO locking range:
+		 *   1150.000 MHz - 1341.666 MHz
+		 *    862.500 MHz - 1006.250 MHz
+		 *    690.000 MHz -  805.000 MHz
+		 */
+		adi,pll2-m1-frequency = <ADF9528_DIST_CLK>;
+		adi,pll2-charge-pump-current-nA = <805000>;
+
+		adi,rpole2 = <RPOLE2_900_OHM>;
+		adi,rzero = <RZERO_1850_OHM>;
+		adi,cpole1 = <CPOLE1_16_PF>;
+
+		adi,status-mon-pin0-function-select = <0xFF>; /* No function */
+		adi,status-mon-pin1-function-select = <0xFF>; /* No function */
+
+		ad9528_0_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "FPGA_GLBL_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <8>; /* 125 MHz */
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "ADRF5610_XREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <20>; /* 125 MHz */
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "FPGA_REF_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <2>; /* 500 MHz */
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "ADC_REF_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <4>; /* 250 MHz */
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <5>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "FMC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <5>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c4: channel@4 {
+			reg = <4>;
+			adi,extended-name = "ADL5960_FOF1";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+		ad9528_0_c5: channel@5 {
+			reg = <5>;
+			adi,extended-name = "ADL5960_FOF2";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+		ad9528_0_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "ADL5960_FOF3";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+		ad9528_0_c7: channel@7 {
+			reg = <7>;
+			adi,extended-name = "ADL5960_FOF4";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+		ad9528_0_c8: channel@8 {
+			reg = <8>;
+			adi,extended-name = "ADL5960_FOF5";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+		ad9528_0_c9: channel@9 {
+			reg = <9>;
+			adi,extended-name = "ADL5960_FOF6";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+		ad9528_0_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "ADL5960_FOF7";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+		ad9528_0_c11: channel@11 {
+			reg = <11>;
+			adi,extended-name = "ADL5960_FOF8";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <ADL5960_FOF>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+	};
+
+	adc0_ad9083: ad9083@0 {
+		compatible = "adi,ad9083";
+		reg = <0>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>;
+		jesd204-link-ids = <0>;
+		jesd204-inputs = <&axi_ad9083_core_rx 0 0>;
+
+		spi-max-frequency = <1000000>;
+		clocks = <&ad9528 13>;
+		clock-names = "adc_ref_clk";
+		adi,adc-frequency-hz= /bits/ 64 <2000000000>; /* 2 GHz */
+
+		/* adi_ad9083 config */
+
+		adi,vmax-microvolt = <1800>;
+		adi,fc-hz =  /bits/ 64 <125000000>; /* 125 MHz */
+		adi,rterm-ohms = <100>;
+		adi,backoff = <0>;
+		adi,finmax-hz = /bits/ 64 <100000000>;
+		adi,nco0_freq-hz = /bits/ 64 <AD9083_NCO_FREQ>;
+		adi,nco1_freq-hz = /bits/ 64 <0>;
+		adi,nco2_freq-hz = /bits/ 64 <0>;
+		adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC>;
+		adi,j_decimation = /bits/ 8 <AD9083_J_DEC_16>;
+		// adi,g_decimation = /bits/ 8 <AD9083_G_DEC_16>;
+		// adi,h_decimation = /bits/ 8 <AD9083_H_DEC_16>;
+		adi,g_decimation = /bits/ 8 <0>;
+		adi,h_decimation = /bits/ 8 <0>;
+		adi,nco0_datapath_mode =
+			/bits/ 8 <AD9083_DATAPATH_ADC_CIC_NCO_J>;
+
+		/* JESD204 parameters */
+
+		adi,octets-per-frame = <64>;
+		adi,frames-per-multiframe = <16>;
+		adi,converter-resolution = <16>;
+		adi,bits-per-sample = <16>;
+		adi,converters-per-device = <32>;
+		adi,control-bits-per-sample = <0>;
+		adi,lanes-per-device = <1>;
+		adi,subclass = <0>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+
+	admv8818-1@0{
+		compatible = "adi,admv8818";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		clocks = <&adf5610>; /* Fixme */
+		clock-names = "rf_in";
+		clock-scales = <1 10>;
+		label = "admv8818-lo";
+		adi,tolerance-percent = <3>;
+	};
+
+	admv8818-2@1{
+		compatible = "adi,admv8818";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		clocks = <&clk_mux0>; /* Fixme */
+		clock-names = "rf_in";
+		clock-scales = <1 10>;
+		label = "admv8818-rfin";
+		adi,tolerance-percent = <3>;
+	};
+
+	adf5610: adf5610@2 {
+		compatible = "adi,adf5610";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+		#clock-cells = <0>;
+		clocks = <&ad9528 2>;
+		clock-names = "xref";
+		clock-scales = <1 10>;
+		adi,power-up-div-out-frequency-hz = /bits/ 64 <3000000000>;
+		adi,charge-pump-down-gain-ua =  /bits/ 16 <2540>;
+		adi,charge-pump-up-gain-ua = /bits/ 16 <2540>;
+		adi,charge-pump-offset-ua = /bits/ 16  <520>;
+		adi,charge-pump-offset-down-enable;
+		label = "adf5610";
+	};
+};
+
+&spi_adl5960_1 {
+	adl5960-1@0 {
+		compatible = "adi,adl5960";
+		reg = <0>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 4>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-1";
+	};
+
+	adl5960-2@1 {
+		compatible = "adi,adl5960";
+		reg = <1>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 5>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-2";
+	};
+
+	adl5960-3@2 {
+		compatible = "adi,adl5960";
+		reg = <2>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 6>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-3";
+	};
+
+	adl5960-4@3 {
+		compatible = "adi,adl5960";
+		reg = <3>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 7>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-4";
+	};
+};
+
+&spi_adl5960_2 {
+	adl5960-5@0 {
+		compatible = "adi,adl5960";
+		reg = <0>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 8>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-5";
+	};
+
+	adl5960-6@1 {
+		compatible = "adi,adl5960";
+		reg = <1>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 9>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-6";
+	};
+	adl5960-7@2 {
+		compatible = "adi,adl5960";
+		reg = <2>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 10>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-7";
+	};
+
+	adl5960-8@3 {
+		compatible = "adi,adl5960";
+		reg = <3>;
+		spi-max-frequency = <12500000>;
+		/* Clocks */
+		clocks = <&adf5610>, <&ad9528 11>;
+		clock-names = "lo_in", "offs_in";
+		lo_in-clock-scales = <1 10>;
+		label = "adl5960-8";
+	};
+};
+
+&spi_bus1 {
+	dat1: adrf5720-1@0 {
+		compatible = "adi,adrf5720";
+		reg = <0>;
+		spi-max-frequency = <100000>;
+		label = "adrf5720-rfin";
+	};
+
+	dat2: adrf5720-2@1 {
+		compatible = "adi,adrf5720";
+		reg = <1>;
+		spi-max-frequency = <100000>;
+		label = "adrf5720-lo";
+	};
+};
