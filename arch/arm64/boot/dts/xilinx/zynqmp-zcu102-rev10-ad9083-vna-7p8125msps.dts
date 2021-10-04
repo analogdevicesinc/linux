@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9083-ADL5960
+ * https://wiki.analog.com/resources/eval/dpg/ad9083-fmc-ebz
+ * https://wiki.analog.com/resources/eval/dpg/eval-ad9083
+ *
+ * hdl_project: <adc_fmc_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+#include <dt-bindings/iio/frequency/ad9528.h>
+#include <dt-bindings/iio/adc/adi,ad9083.h>
+
+#define ADL5960_FOF		128
+#define AD9083_CIC_DEC		AD9083_CIC_DEC_16
+
+#include "zynqmp-zcu102-rev10-ad9083-vna-15p625msps.dts"
+
+&adc0_ad9083 {
+	adi,fc-hz =  /bits/ 64 <125000000>; /* 125 MHz */
+};
