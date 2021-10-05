@@ -894,7 +894,7 @@
 	fsl,magic-packet;
 	nvmem-cells = <&fec_mac1>;
 	nvmem-cell-names = "mac-address";
-	fsl,rgmii_rxc_dly;
+	rx-internal-delay-ps = <2000>;
 	/delete-property/ iommus;
 	status = "okay";
 };
@@ -1031,7 +1031,8 @@
 	cd-gpios = <&lsio_gpio5 22 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&lsio_gpio5 21 GPIO_ACTIVE_HIGH>;
 	/delete-property/ iommus;
-	status = "disabled";};
+	status = "disabled";
+};
 
 &i2c0 {
 	#address-cells = <1>;
