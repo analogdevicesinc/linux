@@ -6,6 +6,9 @@
 # When adding new entries keep the list in alphabetical order
 obj-$(CONFIG_ACPI_ALS)		+= acpi-als.o
 obj-$(CONFIG_ADJD_S311)		+= adjd_s311.o
+obj-$(CONFIG_ADPD188)		+= adpd188.o
+obj-$(CONFIG_ADPD188_I2C)	+= adpd188_i2c.o
+obj-$(CONFIG_ADPD188_SPI)	+= adpd188_spi.o
 obj-$(CONFIG_AL3320A)		+= al3320a.o
 obj-$(CONFIG_APDS9300)		+= apds9300.o
 obj-$(CONFIG_APDS9960)		+= apds9960.o
