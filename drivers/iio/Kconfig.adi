@@ -190,3 +190,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADI_IIO_FAKEDEV
 	imply LTC2688
 	imply MAX11410
+	imply ADPD188_I2C if I2C
+	imply ADPD188_SPI if SPI
