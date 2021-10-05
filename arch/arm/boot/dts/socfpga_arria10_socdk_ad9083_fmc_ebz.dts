@@ -52,7 +52,7 @@
 	soc {
 		sys_hps_bridges: bridge@ff200000 {
 			compatible = "simple-bus";
-			reg = <0xff200000 0x00200000>;		//?
+			reg = <0xff200000 0x00200000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x00000000 0xff200000 0x00200000>;
@@ -75,9 +75,9 @@
 				#size-cells = <0x0>;
 			};
 
-			axi_ad9083_rx_jesd: axi-jesd204-rx@C0000 {
+			axi_ad9083_rx_jesd: axi-jesd204-rx@40000 {
 				compatible = "adi,axi-jesd204-rx-1.0";
-				reg = <0x00040000 0x4000>;	//set
+				reg = <0x00040000 0x4000>;
 
 				interrupt-parent = <&intc>;
 				interrupts = <0 32 IRQ_TYPE_LEVEL_HIGH>;
@@ -93,13 +93,13 @@
 				jesd204-inputs = <&axi_ad9083_adxcvr_rx 0 0>;
 			};
 
-			axi_ad9083_adxcvr_rx: axi-ad9083-rx-xcvr@C4000 {
+			axi_ad9083_adxcvr_rx: axi-ad9083-rx-xcvr@44000 {
 				compatible = "adi,altera-adxcvr-1.00.a";
-				reg = <0x00044000 0x00001000>,		// set
-					<0x00040000 0x00001000>,	//?
-					<0x00042000 0x00001000>,	//?
-					<0x00044000 0x00001000>,	//?
-					<0x00046000 0x00001000>;	//?
+				reg = <0x00044000 0x00001000>,
+					<0x00048000 0x00001000>,
+					<0x00049000 0x00001000>,
+					<0x0004A000 0x00001000>,
+					<0x0004B000 0x00001000>;
 				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
 
 				clocks = <&ad9528 3>, <&rx_link_clk_pll>;
@@ -113,27 +113,27 @@
 				jesd204-inputs = <&ad9528 0 0>;
 			};
 
-			rx_link_clk_pll: altera-a10-fpll@60000 {
+			rx_link_clk_pll: altera-a10-fpll@45000 {
 				compatible = "altr,a10-fpll";
-				reg = <0x00060000 0x1000>;	// ?
+				reg = <0x00045000 0x1000>;
 				clocks = <&ad9528 3>;
 
 				#clock-cells = <0>;
 				clock-output-names = "jesd204_rx_link_clock";
 			};
 
-			rx_dma: rx-dmac@D8000 {
+			rx_dma: rx-dmac@4c000 {
 				compatible = "adi,axi-dmac-1.00.a";
-				reg = <0x0004c000 0x00004000>;	// set
+				reg = <0x0004c000 0x00004000>;
 				interrupt-parent = <&intc>;
 				interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
 			};
 
-			axi_ad9083_core_rx: axi-ad9083-rx-hpc@D2000 {
+			axi_ad9083_core_rx: axi-ad9083-rx-hpc@50000 {
 				compatible = "adi,axi-ad9083-rx-1.0";
-				reg = <0x00050000 0x00002000>;	// set
+				reg = <0x00050000 0x00002000>;
 				dmas = <&rx_dma 0>;
 				dma-names = "rx";
 				spibus-connected = <&adc0_ad9083>;
@@ -142,7 +142,6 @@
 				#jesd204-cells = <2>;
 				jesd204-inputs = <&axi_ad9083_rx_jesd 0 0>;
 			};
-
 		};
 	};
 };
