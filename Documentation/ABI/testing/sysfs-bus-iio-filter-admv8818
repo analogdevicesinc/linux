@@ -25,3 +25,36 @@ KernelVersion:	5.13.8
 Contact:	linux-iio@vger.kernel.org
 Description:
 		Scale high pass and lowpass filter frequency values to Hz.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_mode_available
+KernelVersion:	5.13.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		on_altvoltage0_mode attribute:
+
+		- auto -> enable/register the clock rate notifier
+		- manual -> disable/unregister the clock rate notifier
+		- bypass -> bypass LPF/HPF and disable/unregister the clock rate notifier
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_mode
+KernelVersion:	5.13.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute configures the filter mode.
+		Reading returns the actual mode.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_band_pass_bandwidth_3db_frequency
+KernelVersion:	5.13.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Store the band pass bandwidth frequency value applied.
+		Reading returns the bandwidth frequency scaled.
+
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_band_pass_center_frequency
+KernelVersion:	5.13.8
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Store the band pass center frequency value applied.
+		Reading returns the center frequency scaled.
