@@ -701,10 +701,13 @@ static void axi_jesd204_rx_watchdog(struct work_struct *work)
 	}
 
 	if (restart) {
-		writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
-		mdelay(100);
-		writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
-		jesd204_sysref_async_force(jesd->jdev);
+		//writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+		//mdelay(100);
+		//writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+		//jesd204_sysref_async_force(jesd->jdev);
+		jesd204_fsm_stop(jesd->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_clear_errors(jesd->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_start(jesd->jdev, JESD204_LINKS_ALL);
 	}
 
 	schedule_delayed_work(&jesd->watchdog_work, HZ);
