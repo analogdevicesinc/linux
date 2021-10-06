@@ -19,9 +19,6 @@
 #define IMX_SIP_SRTC			0xC2000002
 #define IMX_SIP_SRTC_SET_TIME		0x0
 
-#define SC_IRQ_GROUP_RTC    2
-#define SC_IRQ_RTC          1
-
 static struct imx_sc_ipc *rtc_ipc_handle;
 static struct rtc_device *imx_sc_rtc;
 static bool readonly; /* true if not authorised to set time */
@@ -87,7 +84,7 @@ static int imx_sc_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 static int imx_sc_rtc_alarm_irq_enable(struct device *dev, unsigned int enable)
 {
-	return imx_scu_irq_group_enable(SC_IRQ_GROUP_RTC, SC_IRQ_RTC, enable);
+	return imx_scu_irq_group_enable(IMX_SC_IRQ_GROUP_RTC, IMX_SC_IRQ_RTC, enable);
 }
 
 static int imx_sc_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
@@ -175,7 +172,7 @@ static int imx_sc_rtc_alarm_notify(struct notifier_block *nb,
 					unsigned long event, void *group)
 {
 	/* ignore non-rtc irq */
-	if (!((event & SC_IRQ_RTC) && (*(u8 *)group == SC_IRQ_GROUP_RTC)))
+	if (!((event & IMX_SC_IRQ_RTC) && (*(u8 *)group == IMX_SC_IRQ_GROUP_RTC)))
 		return 0;
 
 	/* Abort the suspend process if the alarm expired during suspend. */
