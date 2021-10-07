@@ -951,9 +951,19 @@
 };
 
 &usbotg3 {
-	dr_mode = "otg";
-	extcon = <&ptn5110>;
 	status = "okay";
+};
+
+&usbotg3_cdns3 {
+	dr_mode = "otg";
+	usb-role-switch;
+	status = "okay";
+
+	port {
+		usb3_drd_sw: endpoint {
+			remote-endpoint = <&typec_dr_sw>;
+		};
+	};
 };
 
 &usdhc1 {
@@ -1033,6 +1043,12 @@
 		interrupt-parent = <&lsio_gpio4>;
 		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
+
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb3_drd_sw>;
+			};
+		};
 
 		usb_con1: connector {
 			compatible = "usb-c-connector";

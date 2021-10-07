@@ -1011,8 +1011,6 @@
 };
 
 &usbotg3 {
-	dr_mode = "otg";
-	extcon = <&ptn5110>;
 	status = "disabled";
 };
 
