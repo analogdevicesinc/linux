@@ -34,7 +34,7 @@
 	m2k-fabric {
 		compatible = "adi,m2k-fabric";
 		clocks = <&converter_clock>;
-		adi,reve; // conform drivers/iio/logic/m2k-fabric.c
+		adi,rev_a_fmc; // conform drivers/iio/logic/m2k-fabric.c
 		
 		en-sc-cal1-gpio = <&gpio_exp 8 0>;
 		en-sc1-cal2-gpio = <&gpio_exp 1 0>;
@@ -46,15 +46,17 @@
 		en-awg1-gpio = <&gpio_exp 15 0>;
 		en-awg2-gpio = <&gpio_exp 14 0>;
 
-		en-usr-pow-gpio = <&gpio_exp 7 0>;
+		en-usr-pow-pos-gpio = <&gpio_exp 7 0>;
 		en-usr-pow-neg-gpio = <&gpio_exp 6 0>;
 		en-sc-gpio = <&gpio_exp 5 1>;  
-		en-done-led-override-gpio = <&gpio_exp 4 0>;
+		//en-done-led-override-gpio = <&gpio_exp 4 0>;
 
 		en-sc1-lg-gpio = <&gpio_exp 10 0>;
 		en-sc1-hg-gpio = <&gpio_exp 11 0>;
 		en-sc2-lg-gpio = <&gpio_exp 12 0>;
 		en-sc2-hg-gpio = <&gpio_exp 13 0>;
+
+		adi,powerdown-enable;
 	};
 
 	ref_1V2: regulator@0 {

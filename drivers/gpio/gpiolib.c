@@ -3951,6 +3951,7 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 			dev_dbg(dev, "using device tree for GPIO lookup\n");
 			desc = of_find_gpio(dev, con_id, idx, &lookupflags);
 		} else if (ACPI_COMPANION(dev)) {
+			pr_err("----------> in gpiolib.c, using acpi <----------\n");
 			dev_dbg(dev, "using ACPI for GPIO lookup\n");
 			desc = acpi_find_gpio(dev, con_id, idx, &flags, &lookupflags);
 		}
@@ -3961,11 +3962,15 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 	 * a result. In that case, use platform lookup as a fallback.
 	 */
 	if (!desc || desc == ERR_PTR(-ENOENT)) {
+		if (desc == ERR_PTR(-ENOENT)) {
+			pr_err("----------> in gpiolib.c, e -ENOENT <----------\n");
+		}
 		dev_dbg(dev, "using lookup tables for GPIO lookup\n");
 		desc = gpiod_find(dev, con_id, idx, &lookupflags);
 	}
 
 	if (IS_ERR(desc)) {
+		pr_err("----------> in gpiolib.c, no gpio consumer for %s <----------\n", con_id);
 		dev_dbg(dev, "No GPIO consumer %s found\n", con_id);
 		return desc;
 	}
@@ -3985,23 +3990,23 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 			 *
 			 * FIXME: Make this more sane and safe.
 			 */
+			pr_err("----------> in gpiolib.c, nonexclusive access <----------\n");
 			dev_info(dev, "nonexclusive access to GPIO for %s\n",
 				 con_id ? con_id : devname);
 			return desc;
 		} else {
+			pr_err("----------> in gpiolib.c, alta ramura <----------\n");
 			return ERR_PTR(ret);
 		}
 	}
 
 	ret = gpiod_configure_flags(desc, con_id, lookupflags, flags);
 	if (ret < 0) {
+		pr_err("----------> in gpiolib.c, setup of gpio failed <----------\n");
 		dev_dbg(dev, "setup of GPIO %s failed\n", con_id);
 		gpiod_put(desc);
 		return ERR_PTR(ret);
 	}
-
-	blocking_notifier_call_chain(&desc->gdev->notifier,
-				     GPIOLINE_CHANGED_REQUESTED, desc);
 
 	return desc;
 }

@@ -99,8 +99,10 @@ struct gpio_desc *__must_check devm_gpiod_get_index(struct device *dev,
 	struct gpio_desc *desc;
 
 	desc = gpiod_get_index(dev, con_id, idx, flags);
-	if (IS_ERR(desc))
+	if (IS_ERR(desc)) {
+		pr_err("----------> in gpiolib-devres.c, is_err  <----------\n");
 		return desc;
+	}
 
 	/*
 	 * For non-exclusive GPIO descriptors, check if this descriptor is
@@ -111,20 +113,24 @@ struct gpio_desc *__must_check devm_gpiod_get_index(struct device *dev,
 
 		dres = devres_find(dev, devm_gpiod_release,
 				   devm_gpiod_match, &desc);
-		if (dres)
+		if (dres) {
+			pr_err("----------> in gpiolib-devres.c, dres <----------\n");
 			return desc;
+		}
 	}
 
 	dr = devres_alloc(devm_gpiod_release, sizeof(struct gpio_desc *),
 			  GFP_KERNEL);
 	if (!dr) {
 		gpiod_put(desc);
+		pr_err("----------> in gpiolib-devres.c, ret enomem <----------\n");
 		return ERR_PTR(-ENOMEM);
 	}
 
 	*dr = desc;
 	devres_add(dev, dr);
 
+	pr_err("----------> in gpiolib-devres.c, ret desc <----------\n");
 	return desc;
 }
 EXPORT_SYMBOL_GPL(devm_gpiod_get_index);
