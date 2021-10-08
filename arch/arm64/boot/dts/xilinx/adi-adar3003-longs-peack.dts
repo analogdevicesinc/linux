@@ -5,7 +5,7 @@
  * Copyright (C) 2018-2019 Analog Devices Inc.
  */
 
-#include "zynqmp-zcu102-rev1.0.dts"
+#include "zynqmp-zcu102-rev10-ad9081-m8-l4.dts"
 
 / {
 	long_peack_control@0 {
@@ -13,7 +13,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		// 78 offset
-		out-gpios = <&gpio 110 0>, <&gpio 112 0>, <&gpio 113 0>;
+		out-gpios = <&gpio 138 0>, <&gpio 140 0>, <&gpio 141 0>;
 		label = "long_peack_control";
 
 		channel@0 {
@@ -31,10 +31,23 @@
 	};
 };
 
-&spi0 {
-	status = "okay";
-	num-cs = <8>;
-	is-decoded-cs = <1>;
+&fpga_axi {
+	axi_spi_pmod: spi@84000000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bits-per-word = <8>;
+		compatible = "xlnx,xps-spi-2.00.a";
+		fifo-size = <16>;
+		// 3 + 121 - 32
+		interrupts = <0 92 IRQ_TYPE_LEVEL_HIGH>;
+		num-cs = <0x8>;
+		reg = <0x84000000 0x10000>;
+		xlnx,num-ss-bits = <0x8>;
+		xlnx,spi-mode = <0>;
+	};
+};
+
+&axi_spi_pmod {
 	adar3003_T0: adar3003_0@0 {
 		compatible = "adi,adar3003";
 		reg = <0>;
@@ -42,7 +55,7 @@
 		label = "adar3003_T0";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reset-gpios = <&gpio 111 0>;
+		reset-gpios = <&gpio 139 0>;
 
 		adar3003_0@0 {
 			reg = <0>;
@@ -120,7 +133,7 @@
 		label = "adar3003_T1";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reset-gpios = <&gpio 111 0>;
+		reset-gpios = <&gpio 139 0>;
 
 		adar3003_0@0 {
 			reg = <0>;
@@ -198,7 +211,7 @@
 		label = "adar3003_T2";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reset-gpios = <&gpio 111 0>;
+		reset-gpios = <&gpio 139 0>;
 
 		adar3003_0@0 {
 			reg = <0>;
@@ -276,7 +289,7 @@
 		label = "adar3003_T3";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reset-gpios = <&gpio 111 0>;
+		reset-gpios = <&gpio 139 0>;
 
 		adar3003_0@0 {
 			reg = <0>;
