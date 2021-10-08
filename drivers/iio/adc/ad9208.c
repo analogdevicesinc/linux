@@ -38,7 +38,7 @@
 #define CHIPID_AD9689			0xE2
 #define CHIPID_AD9694			0xDB
 #define CHIPID_AD9695			0xDE
-#define CHIPID_AD9697			0xDE
+#define CHIPID_AD9697			0xE4
 
 #define CHIPID_MASK			0xFF
 #define ID_DUAL				BIT(31)
