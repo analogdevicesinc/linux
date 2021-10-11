@@ -71,7 +71,7 @@ static int dpa_bp_cmp(const void *dpa_bp0, const void *dpa_bp1)
 struct dpa_bp * __cold __must_check /* __attribute__((nonnull)) */
 dpa_bp_probe(struct platform_device *_of_dev, size_t *count)
 {
-	int			 i, lenp, na, ns, err;
+	int			 i, lenp, na, ns, err, ret;
 	struct device		*dev;
 	struct device_node	*dev_node;
 	const __be32		*bpool_cfg;
@@ -80,12 +80,14 @@ dpa_bp_probe(struct platform_device *_of_dev, size_t *count)
 
 	dev = &_of_dev->dev;
 
-	*count = of_count_phandle_with_args(dev->of_node,
+	ret = of_count_phandle_with_args(dev->of_node,
 			"fsl,bman-buffer-pools", NULL);
-	if (*count < 1) {
+	if (ret < 1) {
 		dev_err(dev, "missing fsl,bman-buffer-pools device tree entry\n");
 		return ERR_PTR(-EINVAL);
 	}
+
+	*count = ret;
 
 	dpa_bp = devm_kzalloc(dev, *count * sizeof(*dpa_bp), GFP_KERNEL);
 	if (dpa_bp == NULL) {
