@@ -904,7 +904,7 @@ F: drivers/net/ethernet/mscc/ocelot.c
 
 net/pfe
 M: Joakim Zhang <qiangqing.zhang@nxp.com>
-M: Calvin Johnson <calvin.johnson@nxp.com>
+M: Anji Jagarlamudi <anji.jagarlmudi@nxp.com>
 M: Madalin Bucur <madalin.bucur@oss.nxp.com>
 M: Martin Gazda <martin.gazda@nxp.com>
 F: Documentation/devicetree/bindings/net/fsl_ppfe/pfe.txt
