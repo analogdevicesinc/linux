@@ -209,6 +209,12 @@ ifeq ($(FLAREON),1)
 EXTRA_CFLAGS += -DFLAREON
 endif
 
+ifeq ($(CONFIG_FTRACE),y)
+ifneq ($(CONFIG_ANDROID),y)
+EXTRA_CFLAGS += -DgcdSYSTRACE=1 -DgcdDEBUG=gcdDEBUG_TRACE
+endif
+endif
+
 ifeq ($(DEBUG), 1)
 EXTRA_CFLAGS += -DDBG=1 -DDEBUG -D_DEBUG
 else
