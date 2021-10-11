@@ -140,7 +140,7 @@ static int imx_sc_rtc_suspend(struct device *dev)
 		err = -EBUSY;
 
 	rtc_state = RTC_NORMAL_MODE;
-	mutex_lock(&imx_sc_rtc->ops_lock);
+	mutex_unlock(&imx_sc_rtc->ops_lock);
 
 	return err;
 }
