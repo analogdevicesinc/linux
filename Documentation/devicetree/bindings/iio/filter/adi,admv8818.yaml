@@ -53,17 +53,13 @@ properties:
   '#clock-cells':
     const: 0
 
-  adi,tolerance-percent:
+  adi,bw-hz:
     description:
       Allows the user to increase the Bandpass Filter (BPF) bandwidth
-      in percent. Normally when invoked by the clk notifier, the driver
+      in Hz. Normally when invoked by the clk notifier, the driver
       sets the HPF cutoff close below the frequency and the LPF cutoff
       close above the frequency, and thus creating a BPF.
-      This tolerance value in percent is applied to both the HPF and LPF
-      before selecting the proper filter bank.
-    $ref: /schemas/types.yaml#/definitions/uint32
-    minimum: 0
-    maximum: 50
+    $ref: /schemas/types.yaml#/definitions/uint64
 
 required:
   - compatible
