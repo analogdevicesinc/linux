@@ -102,6 +102,14 @@ enum supported_parts {
 	ADMV1013,
 };
 
+enum {
+	ADMV1013_DEV_PWRDOWN,
+	ADMV1013_QUAD_PWRDOWN,
+	ADMV1013_VGA_PWRDOWN,
+	ADMV1013_MIXER_PWRDOWN,
+	ADMV1013_DET_PWRDOWN,
+};
+
 struct admv1013_dev {
 	struct spi_device	*spi;
 	struct clk		*clkin;
@@ -196,6 +204,97 @@ exit:
 	mutex_unlock(&dev->lock);
 
 	return ret;
+}
+
+static ssize_t admv1013_read(struct iio_dev *indio_dev,
+			    uintptr_t private,
+			    const struct iio_chan_spec *chan,
+			    char *buf)
+{
+	struct admv1013_dev *dev = iio_priv(indio_dev);
+	unsigned int data;
+	int ret;
+
+	ret = admv1013_spi_read(dev, ADMV1013_REG_ENABLE, &data);
+	if (ret)
+		return ret;
+
+	switch ((u32)private) {
+	case ADMV1013_DEV_PWRDOWN:
+		data = FIELD_GET(ADMV1013_BG_PD_MSK, data);
+
+		break;
+	case ADMV1013_QUAD_PWRDOWN:
+		data = FIELD_GET(ADMV1013_QUAD_PD_MSK, data);
+
+		break;
+	case ADMV1013_VGA_PWRDOWN:
+		data = FIELD_GET(ADMV1013_VGA_PD_MSK, data);
+
+		break;
+	case ADMV1013_MIXER_PWRDOWN:
+		data = FIELD_GET(ADMV1013_MIXER_PD_MSK, data);
+
+		break;
+	case ADMV1013_DET_PWRDOWN:
+		data = FIELD_GET(ADMV1013_DET_EN_MSK, data);
+		data ^= 0x1;
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return sprintf(buf, "%u\n", data);
+}
+
+static ssize_t admv1013_write(struct iio_dev *indio_dev,
+			     uintptr_t private,
+			     const struct iio_chan_spec *chan,
+			     const char *buf, size_t len)
+{
+	struct admv1013_dev *dev = iio_priv(indio_dev);
+	unsigned int data, mask;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &data);
+	if (ret)
+		return ret;
+
+	switch ((u32)private) {
+	case ADMV1013_DEV_PWRDOWN:
+		data = FIELD_PREP(ADMV1013_BG_PD_MSK, data);
+		mask = ADMV1013_BG_PD_MSK;
+
+		break;
+	case ADMV1013_QUAD_PWRDOWN:
+		data = FIELD_PREP(ADMV1013_QUAD_PD_MSK, data);
+		mask = ADMV1013_QUAD_PD_MSK;
+
+		break;
+	case ADMV1013_VGA_PWRDOWN:
+		data = FIELD_PREP(ADMV1013_VGA_PD_MSK, data);
+		mask = ADMV1013_VGA_PD_MSK;
+
+		break;
+	case ADMV1013_MIXER_PWRDOWN:
+		data = FIELD_PREP(ADMV1013_MIXER_PD_MSK, data);
+		mask = ADMV1013_MIXER_PD_MSK;
+
+		break;
+	case ADMV1013_DET_PWRDOWN:
+		data ^= 0x1;
+		data = FIELD_PREP(ADMV1013_DET_EN_MSK, data);
+		mask = ADMV1013_DET_EN_MSK;
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = admv1013_spi_update_bits(dev, ADMV1013_REG_ENABLE, mask, data);
+
+	return ret ? ret : len;
 }
 
 static int admv1013_read_raw(struct iio_dev *indio_dev,
@@ -376,9 +475,35 @@ static void admv1013_clk_notifier_unreg(void *data)
 		BIT(IIO_CHAN_INFO_OFFSET)			\
 	}
 
+#define _ADMV1013_EXT_INFO(_name, _shared, _ident) { \
+		.name = _name, \
+		.read = admv1013_read, \
+		.write = admv1013_write, \
+		.private = _ident, \
+		.shared = _shared, \
+}
+
+static const struct iio_chan_spec_ext_info admv1013_ext_info[] = {
+	_ADMV1013_EXT_INFO("device_powerdown", IIO_SEPARATE, ADMV1013_DEV_PWRDOWN),
+	_ADMV1013_EXT_INFO("quadrupler_powerdown", IIO_SEPARATE, ADMV1013_QUAD_PWRDOWN),
+	_ADMV1013_EXT_INFO("vga_powerdown", IIO_SEPARATE, ADMV1013_VGA_PWRDOWN),
+	_ADMV1013_EXT_INFO("mixer_powerdown", IIO_SEPARATE, ADMV1013_MIXER_PWRDOWN),
+	_ADMV1013_EXT_INFO("detector_powerdown", IIO_SEPARATE, ADMV1013_DET_PWRDOWN),
+	{ },
+};
+
+#define ADMV1013_CHAN_PD(_channel, _admv1013_ext_info) {	\
+	.type = IIO_ALTVOLTAGE,					\
+	.output = 1,						\
+	.indexed = 1,						\
+	.channel = _channel,					\
+	.ext_info = _admv1013_ext_info,				\
+}
+
 static const struct iio_chan_spec admv1013_channels[] = {
 	ADMV1013_CHAN(0, I),
 	ADMV1013_CHAN(0, Q),
+	ADMV1013_CHAN_PD(0, admv1013_ext_info)
 };
 
 static int admv1013_init(struct admv1013_dev *dev)
