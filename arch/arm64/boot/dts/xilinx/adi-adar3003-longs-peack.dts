@@ -45,6 +45,31 @@
 		xlnx,num-ss-bits = <0x8>;
 		xlnx,spi-mode = <0>;
 	};
+	axi_i2c_pmod: i2c@84500000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "s_axi_aclk";
+		clocks = <&zynqmp_clk 71>;
+		compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+		interrupt-names = "iic2intc_irpt";
+		interrupts = <0 93 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x84500000 0x1000>;
+	};
+};
+
+&axi_i2c_pmod {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	i2c_eeprom1: eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+		pagesize = <32>;
+	};
+	i2c_eeprom2: eeprom@51 {
+		compatible = "atmel,24c32";
+		reg = <0x51>;
+		pagesize = <32>;
+	};
 };
 
 &axi_spi_pmod {
