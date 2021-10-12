@@ -400,12 +400,8 @@
 				compatible = "fsl,imx8ulp-cgc1";
 				reg = <0x292c0000 0x10000>;
 				#clock-cells = <1>;
-				assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3>,
-						  <&cgc1 IMX8ULP_CLK_SPLL3_PFD1>,
-						  <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
-				assigned-clock-rates = <540672000>,
-						       <540672000>,
-						       <12288000>;
+				assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
+				assigned-clock-rates = <12288000>;
 			};
 
 			pcc3: clock-controller@292d0000 {
@@ -480,8 +476,8 @@
 					 <&cgc1 IMX8ULP_CLK_DUMMY>;
 				clock-names = "pclk", "fast_clk", "slow_clk";
 				assigned-clocks = <&pcc3 IMX8ULP_CLK_I3C2>;
-				assigned-clock-parents = <&cgc1 IMX8ULP_CLK_FROSC_DIV2>;
-				assigned-clock-rates = <48000000>;
+				assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SOSC_DIV2>;
+				assigned-clock-rates = <24000000>;
 				status = "disabled";
 			};
 

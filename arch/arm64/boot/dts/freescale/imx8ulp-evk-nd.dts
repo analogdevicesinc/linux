@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2021 NXP
+ */
+
+#include "imx8ulp-evk.dts"
+
+&gpu3d {
+	assigned-clock-rates = <200000000>, <200000000>, <200000000>;
+};
+
+&gpu2d {
+	assigned-clock-rates = <200000000>, <200000000>, <200000000>;
+};
+
+&dcnano {
+	/* Place Holder */
+};
+
+&mipi_csi0 {
+	/* Place Holder */
+};
+
+&epdc {
+	/* Place Holder */
+};
+
+&dsp {
+	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>,
+			  <&cgc2 IMX8ULP_CLK_HIFI_DIVPLAT>;
+	assigned-clock-rates = <260000000>, <150000000>;
+};
+
+&i3c2 {
+	assigned-clock-rates = <24000000>;
+};
+
+&usdhc0 {
+	assigned-clock-rates = <198000000>, <198000000>;
+};
+
+&usdhc1 {
+	assigned-clock-rates = <198000000>, <198000000>;
+};
+
+&usdhc2 {
+	assigned-clock-rates = <198000000>, <198000000>;
+};
