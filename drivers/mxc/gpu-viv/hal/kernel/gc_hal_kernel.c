@@ -3360,6 +3360,7 @@ gckKERNEL_Dispatch(
                             Interface->u.DebugLevelZone.enable);
         break;
 
+#if gcdDUMP_IN_KERNEL
     case gcvHAL_DEBUG_DUMP:
         gckOS_DumpBuffer(Kernel->os,
                          Interface->u.DebugDump.type,
@@ -3368,6 +3369,7 @@ gckKERNEL_Dispatch(
                          Interface->u.DebugDump.size);
         status = gcvSTATUS_OK;
         break;
+#endif
 
     case gcvHAL_DUMP_GPU_STATE:
         {
@@ -5751,6 +5753,8 @@ gckDEVICE_Dispatch(
     gceHARDWARE_TYPE type = Interface->hardwareType;
     gctUINT32 coreIndex = Interface->coreIndex;
 
+    gcmkHEADER_ARG("Device=%p Interface=%p", Device, Interface);
+
     switch (Interface->command)
     {
     case gcvHAL_CHIP_INFO:
@@ -5777,6 +5781,7 @@ gckDEVICE_Dispatch(
     }
     else
     {
+        gcmkVERIFY_ARGUMENT(coreIndex < gcvCORE_COUNT);
         /* Need go through gckKERNEL dispatch. */
         if (type == gcvHARDWARE_3D || type == gcvHARDWARE_3D2D || type == gcvHARDWARE_VIP)
         {
@@ -5784,6 +5789,7 @@ gckDEVICE_Dispatch(
         }
         else
         {
+            gcmkVERIFY_ARGUMENT(type < gcvHARDWARE_NUM_TYPES);
             kernel = Device->map[type].kernels[coreIndex];
         }
 
@@ -5800,6 +5806,8 @@ gckDEVICE_Dispatch(
 
         /* Interface->status is handled in gckKERNEL_Dispatch(). */
     }
+
+    gcmkFOOTER();
 
     return status;
 }
