@@ -4,7 +4,7 @@
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
  * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
  *
- * hdl_project: <>
+ * hdl_project: <ad9081_fmca_ebz/vck190>
  * board_revision: <>
  *
  * Copyright (C) 2019-2020 Analog Devices Inc.
