@@ -121,6 +121,14 @@ enum supported_parts {
 	ADMV1014,
 };
 
+enum {
+	ADMV1014_DEV_PWRDOWN,
+	ADMV1014_IBIAS_PWRDOWN,
+	ADMV1014_QUAD_IBIAS_PWRDOWN,
+	ADMV1014_BG_PWRDOWN,
+	ADMV1014_DET_PWRDOWN,
+};
+
 struct admv1014_dev {
 	struct spi_device	*spi;
 	struct clk		*clkin;
@@ -226,6 +234,115 @@ static int admv1014_spi_update_bits(struct admv1014_dev *dev, unsigned int reg,
 	ret = __admv1014_spi_update_bits(dev, reg, mask, val);
 	mutex_unlock(&dev->lock);
 	return ret;
+}
+
+static ssize_t admv1014_read(struct iio_dev *indio_dev,
+			    uintptr_t private,
+			    const struct iio_chan_spec *chan,
+			    char *buf)
+{
+	struct admv1014_dev *dev = iio_priv(indio_dev);
+	unsigned int data;
+	int ret;
+
+	ret = admv1014_spi_read(dev, ADMV1014_REG_ENABLE, &data);
+	if (ret)
+		return ret;
+
+	switch ((u32)private) {
+	case ADMV1014_DEV_PWRDOWN:
+		data = FIELD_GET(ADMV1014_IBIAS_PD_MSK, data) &
+			FIELD_GET(ADMV1014_IF_AMP_PD_MSK, data) &
+			FIELD_GET(ADMV1014_QUAD_BG_PD_MSK, data) &
+			FIELD_GET(ADMV1014_BB_AMP_PD_MSK, data) &
+			FIELD_GET(ADMV1014_QUAD_IBIAS_PD_MSK, data) &
+			FIELD_GET(ADMV1014_BG_PD_MSK, data);
+
+		break;
+	case ADMV1014_IBIAS_PWRDOWN:
+		data = FIELD_GET(ADMV1014_IBIAS_PD_MSK, data);
+
+		break;
+	case ADMV1014_QUAD_IBIAS_PWRDOWN:
+		data = FIELD_GET(ADMV1014_QUAD_IBIAS_PD_MSK, data);
+
+		break;
+	case ADMV1014_BG_PWRDOWN:
+		data = FIELD_GET(ADMV1014_BG_PD_MSK, data) &
+			FIELD_GET(ADMV1014_QUAD_BG_PD_MSK, data);
+
+		break;
+	case ADMV1014_DET_PWRDOWN:
+		data = FIELD_GET(ADMV1014_DET_EN_MSK, data);
+		data ^= 0x1;
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return sprintf(buf, "%u\n", data);
+}
+
+static ssize_t admv1014_write(struct iio_dev *indio_dev,
+			     uintptr_t private,
+			     const struct iio_chan_spec *chan,
+			     const char *buf, size_t len)
+{
+	struct admv1014_dev *dev = iio_priv(indio_dev);
+	unsigned int data, mask;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &data);
+	if (ret)
+		return ret;
+
+	switch ((u32)private) {
+	case ADMV1014_DEV_PWRDOWN:
+		data = FIELD_PREP(ADMV1014_IBIAS_PD_MSK, data) |
+			FIELD_PREP(ADMV1014_IF_AMP_PD_MSK, data) |
+			FIELD_PREP(ADMV1014_QUAD_BG_PD_MSK, data) |
+			FIELD_PREP(ADMV1014_BB_AMP_PD_MSK, data) |
+			FIELD_PREP(ADMV1014_QUAD_IBIAS_PD_MSK, data) |
+			FIELD_PREP(ADMV1014_BG_PD_MSK, data);
+		mask = ADMV1014_IBIAS_PD_MSK |
+			ADMV1014_IF_AMP_PD_MSK |
+			ADMV1014_QUAD_BG_PD_MSK |
+			ADMV1014_BB_AMP_PD_MSK |
+			ADMV1014_QUAD_IBIAS_PD_MSK |
+			ADMV1014_BG_PD_MSK;
+
+		break;
+	case ADMV1014_IBIAS_PWRDOWN:
+		data = FIELD_PREP(ADMV1014_IBIAS_PD_MSK, data);
+		mask = ADMV1014_IBIAS_PD_MSK;
+
+		break;
+	case ADMV1014_QUAD_IBIAS_PWRDOWN:
+		data = FIELD_PREP(ADMV1014_QUAD_IBIAS_PD_MSK, data);
+		mask = ADMV1014_QUAD_IBIAS_PD_MSK;
+
+		break;
+	case ADMV1014_BG_PWRDOWN:
+		data = FIELD_PREP(ADMV1014_BG_PD_MSK, data) |
+			FIELD_PREP(ADMV1014_QUAD_BG_PD_MSK, data);
+		mask = ADMV1014_BG_PD_MSK |
+			ADMV1014_QUAD_BG_PD_MSK;
+
+		break;
+	case ADMV1014_DET_PWRDOWN:
+		data ^= 0x1;
+		data = FIELD_PREP(ADMV1014_DET_EN_MSK, data);
+		mask = ADMV1014_DET_EN_MSK;
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = admv1014_spi_update_bits(dev, ADMV1014_REG_ENABLE, mask, data);
+
+	return ret ? ret : len;
 }
 
 static int admv1014_update_quad_filters(struct admv1014_dev *dev)
@@ -454,9 +571,35 @@ static void admv1014_clk_notifier_unreg(void *data)
 		BIT(IIO_CHAN_INFO_OFFSET)			\
 	}
 
+#define ADMV1014_CHAN_PD(_channel, _admv1014_ext_info) {	\
+	.type = IIO_ALTVOLTAGE,					\
+	.output = 1,						\
+	.indexed = 1,						\
+	.channel = _channel,					\
+	.ext_info = _admv1014_ext_info,				\
+}
+
+#define _ADMV1014_EXT_INFO(_name, _shared, _ident) { \
+		.name = _name, \
+		.read = admv1014_read, \
+		.write = admv1014_write, \
+		.private = _ident, \
+		.shared = _shared, \
+}
+
+static const struct iio_chan_spec_ext_info admv1014_ext_info[] = {
+	_ADMV1014_EXT_INFO("device_powerdown", IIO_SEPARATE, ADMV1014_DEV_PWRDOWN),
+	_ADMV1014_EXT_INFO("ibias_powerdown", IIO_SEPARATE, ADMV1014_IBIAS_PWRDOWN),
+	_ADMV1014_EXT_INFO("lo_path_powerdown", IIO_SEPARATE, ADMV1014_QUAD_IBIAS_PWRDOWN),
+	_ADMV1014_EXT_INFO("bandgap_powerdown", IIO_SEPARATE, ADMV1014_BG_PWRDOWN),
+	_ADMV1014_EXT_INFO("detector_powerdown", IIO_SEPARATE, ADMV1014_DET_PWRDOWN),
+	{ },
+};
+
 static const struct iio_chan_spec admv1014_channels[] = {
 	ADMV1014_CHAN(0, I),
 	ADMV1014_CHAN(0, Q),
+	ADMV1014_CHAN_PD(0, admv1014_ext_info)
 };
 
 static int admv1014_init(struct admv1014_dev *dev)
