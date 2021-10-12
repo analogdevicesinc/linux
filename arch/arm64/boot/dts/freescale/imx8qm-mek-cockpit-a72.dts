@@ -1867,11 +1867,11 @@
 	      <0x592f0000 0x10000>; /* sai1 tx */
 	dma-channels = <2>;
 	interrupts = <GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>, /* sai1 */
-		     <GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "edma0-chan14-rx", "edma0-chan15-tx"; /* sai1 */
-	power-domains = <&pd IMX_SC_R_DMA_0_CH14>,
-			<&pd IMX_SC_R_DMA_0_CH15>;
-	power-domain-names = "edma0-chan14", "edma0-chan15";
+		<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "edma2-chan14-rx", "edma2-chan15-tx"; /* sai1 */
+	power-domains = <&pd IMX_SC_R_DMA_2_CH14>,
+		<&pd IMX_SC_R_DMA_2_CH15>;
+	power-domain-names = "edma2-chan14", "edma2-chan15";
 	status = "okay";
 };
 
@@ -1882,11 +1882,11 @@
 	#dma-cells = <3>;
 	dma-channels = <2>;
 	interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "edma2-chan16-rx", "edma2-chan17-tx";
-	power-domains = <&pd IMX_SC_R_DMA_2_CH16>,
-			<&pd IMX_SC_R_DMA_2_CH17>;
-	power-domain-names = "edma2-chan16", "edma2-chan17";
+				<GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "edma0-chan16-rx", "edma0-chan17-tx";
+	power-domains = <&pd IMX_SC_R_DMA_0_CH16>,
+			<&pd IMX_SC_R_DMA_0_CH17>;
+	power-domain-names = "edma0-chan16", "edma0-chan17";
 	status = "okay";
 };
 
