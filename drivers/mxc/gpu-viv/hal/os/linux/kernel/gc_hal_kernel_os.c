@@ -5971,7 +5971,7 @@ gckOS_CreateUserSignal(
     )
 {
     gceSTATUS status;
-    gctSIZE_T signal;
+    gctSIZE_T signal = 0;
 
     /* Create a new signal. */
     gcmkONERROR(gckOS_CreateSignal(Os, ManualReset, (gctSIGNAL *) &signal));

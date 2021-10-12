@@ -2930,7 +2930,7 @@ gckKERNEL_Dispatch(
     gckKERNEL kernel = Kernel;
     gctUINT32 processID;
 #if !USE_NEW_LINUX_SIGNAL
-    gctSIGNAL   signal;
+    gctSIGNAL   signal = gcvNULL;
 #endif
 
     gctBOOL powerMutexAcquired = gcvFALSE;

@@ -1555,7 +1555,7 @@ _TaskIncrement(
         gcsTASK_INCREMENT_PTR task = (gcsTASK_INCREMENT_PTR) TaskHeader->task;
 
         /* Convert physical into logical address. */
-        gctUINT32_PTR logical;
+        gctUINT32_PTR logical = gcvNULL;
         gcmkERR_BREAK(gckOS_MapPhysical(
             Command->os,
             task->address,
@@ -1599,7 +1599,7 @@ _TaskDecrement(
         gcsTASK_DECREMENT_PTR task = (gcsTASK_DECREMENT_PTR) TaskHeader->task;
 
         /* Convert physical into logical address. */
-        gctUINT32_PTR logical;
+        gctUINT32_PTR logical = gcvNULL;
         gcmkERR_BREAK(gckOS_MapPhysical(
             Command->os,
             task->address,
