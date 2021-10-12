@@ -1213,8 +1213,6 @@ static int adf4371_probe(struct spi_device *spi)
 	mutex_init(&st->lock);
 
 	st->chip_info = &adf4371_chip_info[id->driver_data];
-	indio_dev->dev.parent = &spi->dev;
-
 	if (spi->dev.of_node)
 		indio_dev->name = spi->dev.of_node->name;
 	else

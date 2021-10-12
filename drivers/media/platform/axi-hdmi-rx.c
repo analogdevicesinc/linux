@@ -642,7 +642,7 @@ static int axi_hdmi_rx_s_fmt_vid_cap(struct file *file, void *priv_fh,
 
 	s->pixelformat = pix->pixelformat;
 
-	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_TIMING, 
+	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_TIMING,
 		(s->height << 16) | s->width);
 
 	config |= hdmi_rx->config_flags;
@@ -778,7 +778,7 @@ static int axi_hdmi_rx_nodes_register(struct axi_hdmi_rx *hdmi_rx)
 	if (ret)
 		return ret;
 
-	return video_register_device(vdev, VFL_TYPE_GRABBER, -1);
+	return video_register_device(vdev, VFL_TYPE_VIDEO, -1);
 }
 
 static struct axi_hdmi_rx *notifier_to_axi_hdmi_rx(struct v4l2_async_notifier *n)

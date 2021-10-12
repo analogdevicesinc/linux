@@ -602,11 +602,9 @@ static int adxrs290_probe_trigger(struct iio_dev *indio_dev)
 	ret = devm_request_irq(&st->spi->dev, st->spi->irq,
 			       &iio_trigger_generic_data_rdy_poll,
 			       IRQF_ONESHOT, "adxrs290_irq", st->dready_trig);
-	if (ret < 0) {
-		dev_err(&st->spi->dev, "request irq %d failed\n",
-			st->spi->irq);
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(&st->spi->dev, ret,
+				     "request irq %d failed\n", st->spi->irq);
 
 	ret = devm_iio_trigger_register(&st->spi->dev, st->dready_trig);
 	if (ret) {
@@ -681,10 +679,9 @@ static int adxrs290_probe(struct spi_device *spi)
 	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
 					      &iio_pollfunc_store_time,
 					      &adxrs290_trigger_handler, NULL);
-	if (ret < 0) {
-		dev_err(&spi->dev, "iio triggered buffer setup failed\n");
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret,
+				     "iio triggered buffer setup failed\n");
 
 	ret = adxrs290_probe_trigger(indio_dev);
 	if (ret < 0)

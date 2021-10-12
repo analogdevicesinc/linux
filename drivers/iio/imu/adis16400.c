@@ -527,6 +527,7 @@ static int adis16400_write_raw(struct iio_dev *indio_dev,
 
 		ret = __adis16400_set_filter(indio_dev, sps,
 			val * 1000 + val2 / 1000);
+
 		adis_dev_unlock(&st->adis);
 		return ret;
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -1169,7 +1170,6 @@ static int adis16400_probe(struct spi_device *spi)
 
 	/* setup the industrialio driver allocated elements */
 	st->variant = &adis16400_chips[spi_get_device_id(spi)->driver_data];
-	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->channels = st->variant->channels;
 	indio_dev->num_channels = st->variant->num_channels;

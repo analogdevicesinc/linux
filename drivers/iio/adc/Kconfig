@@ -6,6 +6,16 @@
 
 menu "Analog to digital converters"
 
+config AB8500_GPADC
+	bool "ST-Ericsson AB8500 GPADC driver"
+	depends on AB8500_CORE && REGULATOR_AB8500
+	default y
+	help
+	  AB8500 Analog Baseband, mixed signal integrated circuit GPADC
+	  (General Purpose Analog to Digital Converter) driver used to monitor
+	  internal voltages, convert accessory and battery, AC (charger, mains)
+	  and USB voltages integral to the U8500 platform.
+
 config AD_SIGMA_DELTA
 	tristate
 	select IIO_BUFFER
@@ -83,6 +93,16 @@ config AD7291
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7291.
+
+config AD7292
+	tristate "Analog Devices AD7292 ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD7292
+	  8 Channel ADC with temperature sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad7292.
 
 config AD7298
 	tristate "Analog Devices AD7298 ADC driver"
@@ -298,6 +318,26 @@ config ADM1177
 	  To compile this driver as a module, choose M here: the
 	  module will be called adm1177.
 
+config ADI_AXI_ADC
+	tristate "Analog Devices Generic AXI ADC IP core driver"
+	select IIO_BUFFER
+	select IIO_BUFFER_HW_CONSUMER
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Say yes here to build support for Analog Devices Generic
+	  AXI ADC IP core. The IP core is used for interfacing with
+	  analog-to-digital (ADC) converters that require either a high-speed
+	  serial interface (JESD204B/C) or a source synchronous parallel
+	  interface (LVDS/CMOS).
+	  Typically (for such devices) SPI will be used for configuration only,
+	  while this IP core handles the streaming of data into memory via DMA.
+
+	  Link: https://wiki.analog.com/resources/fpga/docs/axi_adc_ip
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-axi-adc.
+
 config ASPEED_ADC
 	tristate "Aspeed ADC"
 	depends on ARCH_ASPEED || COMPILE_TEST
@@ -311,7 +351,7 @@ config ASPEED_ADC
 
 config AT91_ADC
 	tristate "Atmel AT91 ADC"
-	depends on ARCH_AT91
+	depends on ARCH_AT91 || COMPILE_TEST
 	depends on INPUT && SYSFS
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
@@ -515,7 +555,7 @@ config AXP288_ADC
 
 config BCM_IPROC_ADC
 	tristate "Broadcom IPROC ADC driver"
-	depends on ARCH_BCM_IPROC || COMPILE_TEST
+	depends on (ARCH_BCM_IPROC && OF) || COMPILE_TEST
 	depends on MFD_SYSCON
 	default ARCH_BCM_CYGNUS
 	help
@@ -672,14 +712,38 @@ config INA2XX_ADC
 	  Say yes here to build support for TI INA2xx family of Power Monitors.
 	  This driver is mutually exclusive with the HWMON version.
 
+config INA260_ADC
+	tristate "Texas Instruments INA260 Power Monitors IIO driver"
+	depends on I2C && !SENSORS_INA2XX
+	select REGMAP_I2C
+	select IIO_BUFFER
+	select IIO_KFIFO_BUF
+	help
+	  Say yes here to build support for TI INA260 power monitor.
+	  This driver can also be built as a module. It supports software buffer
+	  mode and raw reads of ina260 iio channels. Up to 4 channels are
+	  supported including timestamp.
+
 config INGENIC_ADC
 	tristate "Ingenic JZ47xx SoCs ADC driver"
 	depends on MIPS || COMPILE_TEST
+	select IIO_BUFFER
 	help
 	  Say yes here to build support for the Ingenic JZ47xx SoCs ADC unit.
 
 	  This driver can also be built as a module. If so, the module will be
 	  called ingenic_adc.
+
+config INTEL_MRFLD_ADC
+	tristate "Intel Merrifield Basin Cove ADC driver"
+	depends on INTEL_SOC_PMIC_MRFLD
+	help
+	  Say yes here to have support for Basin Cove power management IC (PMIC) ADC
+	  device. Depending on platform configuration, this general purpose ADC can
+	  be used for sampling sensors such as thermal resistors.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called intel_mrfld_adc.
 
 config IMX7D_ADC
 	tristate "Freescale IMX7D ADC driver"
@@ -751,6 +815,16 @@ config LTC2485
 	  To compile this driver as a module, choose M here: the module will be
 	  called ltc2485.
 
+config LTC2496
+	tristate "Linear Technology LTC2496 ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Linear Technology LTC2496
+	  16-Bit 8-/16-Channel Delta Sigma ADC.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ltc2496.
+
 config LTC2497
 	tristate "Linear Technology LTC2497 ADC driver"
 	depends on I2C
@@ -767,8 +841,8 @@ config MAX1027
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
 	help
-	  Say yes here to build support for Maxim SPI ADC models
-	  max1027, max1029 and max1031.
+	  Say yes here to build support for Maxim SPI {10,12}-bit ADC models:
+	  max1027, max1029, max1031, max1227, max1229 and max1231.
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called max1027.
@@ -793,6 +867,16 @@ config MAX1118
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called max1118.
+
+config MAX1241
+	tristate "Maxim max1241 ADC driver"
+	depends on SPI_MASTER
+	help
+	  Say yes here to build support for Maxim max1241 12-bit, single-channel
+	  ADC.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called max1241.
 
 config MAX1363
 	tristate "Maxim max1363 ADC driver"
@@ -890,6 +974,16 @@ config MESON_SARADC
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called meson_saradc.
+
+config MP2629_ADC
+	tristate "Monolithic MP2629 ADC driver"
+	depends on MFD_MP2629
+	help
+	  Say yes to have support for battery charger IC MP2629 ADC device
+	  accessed over I2C.
+
+	  This driver provides ADC conversion of system, input power supply
+	  and battery voltage & current information.
 
 config NAU7802
 	tristate "Nuvoton NAU7802 ADC driver"
@@ -994,10 +1088,22 @@ config RCAR_GYRO_ADC
 	  To compile this driver as a module, choose M here: the
 	  module will be called rcar-gyroadc.
 
+config RN5T618_ADC
+	tristate "ADC for the RN5T618/RC5T619 family of chips"
+	depends on MFD_RN5T618
+	help
+	  Say yes here to build support for the integrated ADC inside the
+	  RN5T618/619 series PMICs:
+
+	  This driver can also be built as a module. If so, the module
+	  will be called rn5t618-adc.
+
 config ROCKCHIP_SARADC
 	tristate "Rockchip SARADC driver"
-	depends on ARCH_ROCKCHIP || (ARM && COMPILE_TEST)
+	depends on ARCH_ROCKCHIP || COMPILE_TEST
 	depends on RESET_CONTROLLER
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
 	help
 	  Say yes here to build support for the SARADC found in SoCs from
 	  Rockchip.

@@ -3185,14 +3185,9 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 	int i;
 
 	if (iio_get_debugfs_dentry(indio_dev)) {
-		struct dentry *stats;
-
-		stats = debugfs_create_devm_seqfile(&conv->spi->dev, "status",
-					iio_get_debugfs_dentry(indio_dev),
-					ad9081_status_show);
-		if (PTR_ERR_OR_ZERO(stats))
-			dev_err(&conv->spi->dev,
-				"Failed to create debugfs entry");
+		debugfs_create_devm_seqfile(&conv->spi->dev, "status",
+					    iio_get_debugfs_dentry(indio_dev),
+					    ad9081_status_show);
 
 		ad9081_add_debugfs_entry(indio_dev,
 			"bist_prbs_select_jrx", DBGFS_BIST_PRBS_JRX);
@@ -3206,12 +3201,10 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 			"bist_spo_sweep_jrx", DBGFS_BIST_JRX_SPO_SWEEP);
 
 		for (i = 0; i < phy->ad9081_debugfs_entry_index; i++)
-			stats = debugfs_create_file(
-				phy->debugfs_entry[i].propname, 0644,
-				iio_get_debugfs_dentry(indio_dev),
-				&phy->debugfs_entry[i],
-				&ad9081_debugfs_reg_fops);
-
+			debugfs_create_file( phy->debugfs_entry[i].propname, 0644,
+					    iio_get_debugfs_dentry(indio_dev),
+					    &phy->debugfs_entry[i],
+					    &ad9081_debugfs_reg_fops);
 
 		debugfs_create_file_unsafe("dac-full-scale-current-ua", 0600,
 			iio_get_debugfs_dentry(indio_dev), indio_dev,

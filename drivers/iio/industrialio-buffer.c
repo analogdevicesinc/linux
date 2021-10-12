@@ -21,11 +21,11 @@
 #include <linux/sched/signal.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/iio-opaque.h>
 #include "iio_core.h"
 #include "iio_core_trigger.h"
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
-#include <linux/iio/trigger.h>
 #include <linux/iio/buffer_impl.h>
 
 static const char * const iio_endian_prefix[] = {
@@ -168,6 +168,12 @@ static bool iio_buffer_space_available(struct iio_buffer *buf)
 	return true;
 }
 
+/**
+ * iio_buffer_chrdev_write() - chrdev read for buffer access
+ *
+ * This function relies on all buffer implementations having an
+ * iio_buffer as their first element.
+ **/
 ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
 				      size_t n, loff_t *f_ps)
 {
@@ -694,8 +700,10 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 static void iio_buffer_activate(struct iio_dev *indio_dev,
 	struct iio_buffer *buffer)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+
 	iio_buffer_get(buffer);
-	list_add(&buffer->buffer_list, &indio_dev->buffer_list);
+	list_add(&buffer->buffer_list, &iio_dev_opaque->buffer_list);
 }
 
 static void iio_buffer_deactivate(struct iio_buffer *buffer)
@@ -707,10 +715,11 @@ static void iio_buffer_deactivate(struct iio_buffer *buffer)
 
 static void iio_buffer_deactivate_all(struct iio_dev *indio_dev)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	struct iio_buffer *buffer, *_buffer;
 
 	list_for_each_entry_safe(buffer, _buffer,
-			&indio_dev->buffer_list, buffer_list)
+			&iio_dev_opaque->buffer_list, buffer_list)
 		iio_buffer_deactivate(buffer);
 }
 
@@ -783,6 +792,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	struct iio_buffer *insert_buffer, struct iio_buffer *remove_buffer,
 	struct iio_device_config *config)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	unsigned long *compound_mask;
 	const unsigned long *scan_mask;
 	bool strict_scanmask = false;
@@ -805,12 +815,12 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	 * to verify.
 	 */
 	if (remove_buffer && !insert_buffer &&
-		list_is_singular(&indio_dev->buffer_list))
+		list_is_singular(&iio_dev_opaque->buffer_list))
 			return 0;
 
 	modes = indio_dev->modes;
 
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
 		if (buffer == remove_buffer)
 			continue;
 		modes &= buffer->access->modes;
@@ -831,7 +841,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 		 * Keep things simple for now and only allow a single buffer to
 		 * be connected in hardware mode.
 		 */
-		if (insert_buffer && !list_empty(&indio_dev->buffer_list))
+		if (insert_buffer && !list_empty(&iio_dev_opaque->buffer_list))
 			return -EINVAL;
 		config->mode = INDIO_BUFFER_HARDWARE;
 		strict_scanmask = true;
@@ -854,7 +864,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 
 	scan_timestamp = false;
 
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
 		if (buffer == remove_buffer)
 			continue;
 		bitmap_or(compound_mask, compound_mask, buffer->scan_mask,
@@ -1000,10 +1010,11 @@ error_clear_mux_table:
 
 static int iio_update_demux(struct iio_dev *indio_dev)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	struct iio_buffer *buffer;
 	int ret;
 
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
 		ret = iio_buffer_update_demux(indio_dev, buffer);
 		if (ret < 0)
 			goto error_clear_mux_table;
@@ -1011,7 +1022,7 @@ static int iio_update_demux(struct iio_dev *indio_dev)
 	return 0;
 
 error_clear_mux_table:
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list)
+	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list)
 		iio_buffer_demux_free(buffer);
 
 	return ret;
@@ -1020,6 +1031,7 @@ error_clear_mux_table:
 static int iio_enable_buffers(struct iio_dev *indio_dev,
 	struct iio_device_config *config)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	struct iio_buffer *buffer;
 	int ret;
 
@@ -1057,7 +1069,7 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 		indio_dev->info->hwfifo_set_watermark(indio_dev,
 			config->watermark);
 
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
 		ret = iio_buffer_enable(buffer, indio_dev);
 		if (ret)
 			goto err_disable_buffers;
@@ -1087,7 +1099,7 @@ err_detach_pollfunc:
 					     indio_dev->pollfunc);
 	}
 err_disable_buffers:
-	list_for_each_entry_continue_reverse(buffer, &indio_dev->buffer_list,
+	list_for_each_entry_continue_reverse(buffer, &iio_dev_opaque->buffer_list,
 					     buffer_list)
 		iio_buffer_disable(buffer, indio_dev);
 err_run_postdisable:
@@ -1102,12 +1114,13 @@ err_undo_config:
 
 static int iio_disable_buffers(struct iio_dev *indio_dev)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	struct iio_buffer *buffer;
 	int ret = 0;
 	int ret2;
 
 	/* Wind down existing buffers - iff there are any */
-	if (list_empty(&indio_dev->buffer_list))
+	if (list_empty(&iio_dev_opaque->buffer_list))
 		return 0;
 
 	/*
@@ -1128,7 +1141,7 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 					     indio_dev->pollfunc);
 	}
 
-	list_for_each_entry(buffer, &indio_dev->buffer_list, buffer_list) {
+	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
 		ret2 = iio_buffer_disable(buffer, indio_dev);
 		if (ret2 && !ret)
 			ret = ret2;
@@ -1151,6 +1164,7 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		       struct iio_buffer *insert_buffer,
 		       struct iio_buffer *remove_buffer)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	struct iio_device_config new_config;
 	int ret;
 
@@ -1175,7 +1189,7 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		iio_buffer_activate(indio_dev, insert_buffer);
 
 	/* If no buffers in list, we are done */
-	if (list_empty(&indio_dev->buffer_list))
+	if (list_empty(&iio_dev_opaque->buffer_list))
 		return 0;
 
 	ret = iio_enable_buffers(indio_dev, &new_config);
@@ -1359,25 +1373,13 @@ static struct attribute *iio_buffer_attrs[] = {
 	&dev_attr_data_available.attr,
 };
 
-int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
+static int __iio_buffer_alloc_sysfs_and_mask(struct iio_buffer *buffer,
+					     struct iio_dev *indio_dev)
 {
 	struct iio_dev_attr *p;
 	struct attribute **attr;
-	struct iio_buffer *buffer = indio_dev->buffer;
-	int ret, i, attrn, attrcount, attrcount_orig = 0;
+	int ret, i, attrn, attrcount;
 	const struct iio_chan_spec *channels;
-
-	channels = indio_dev->channels;
-	if (channels) {
-		int ml = indio_dev->masklength;
-
-		for (i = 0; i < indio_dev->num_channels; i++)
-			ml = max(ml, channels[i].scan_index + 1);
-		indio_dev->masklength = ml;
-	}
-
-	if (!buffer)
-		return 0;
 
 	attrcount = 0;
 	if (buffer->attrs) {
@@ -1408,7 +1410,7 @@ int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 
 	indio_dev->groups[indio_dev->groupcounter++] = &buffer->buffer_group;
 
-	attrcount = attrcount_orig;
+	attrcount = 0;
 	INIT_LIST_HEAD(&buffer->scan_el_dev_attr_list);
 	channels = indio_dev->channels;
 	if (channels) {
@@ -1441,7 +1443,7 @@ int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 		ret = -ENOMEM;
 		goto error_free_scan_mask;
 	}
-	attrn = attrcount_orig;
+	attrn = 0;
 
 	list_for_each_entry(p, &buffer->scan_el_dev_attr_list, l)
 		buffer->scan_el_group.attrs[attrn++] = &p->dev_attr.attr;
@@ -1458,6 +1460,35 @@ error_cleanup_dynamic:
 	return ret;
 }
 
+int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
+{
+	struct iio_buffer *buffer = indio_dev->buffer;
+	const struct iio_chan_spec *channels;
+	int i;
+
+	channels = indio_dev->channels;
+	if (channels) {
+		int ml = indio_dev->masklength;
+
+		for (i = 0; i < indio_dev->num_channels; i++)
+			ml = max(ml, channels[i].scan_index + 1);
+		indio_dev->masklength = ml;
+	}
+
+	if (!buffer)
+		return 0;
+
+	return __iio_buffer_alloc_sysfs_and_mask(buffer, indio_dev);
+}
+
+static void __iio_buffer_free_sysfs_and_mask(struct iio_buffer *buffer)
+{
+	iio_buffer_free_scanmask(buffer);
+	kfree(buffer->buffer_group.attrs);
+	kfree(buffer->scan_el_group.attrs);
+	iio_free_chan_devattr_list(&buffer->scan_el_dev_attr_list);
+}
+
 void iio_buffer_free_sysfs_and_mask(struct iio_dev *indio_dev)
 {
 	struct iio_buffer *buffer = indio_dev->buffer;
@@ -1465,10 +1496,7 @@ void iio_buffer_free_sysfs_and_mask(struct iio_dev *indio_dev)
 	if (!buffer)
 		return;
 
-	iio_buffer_free_scanmask(buffer);
-	kfree(buffer->buffer_group.attrs);
-	kfree(buffer->scan_el_group.attrs);
-	iio_free_chan_devattr_list(&buffer->scan_el_dev_attr_list);
+	__iio_buffer_free_sysfs_and_mask(buffer);
 }
 
 /**
@@ -1525,10 +1553,11 @@ static int iio_push_to_buffer(struct iio_buffer *buffer, const void *data)
  */
 int iio_push_to_buffers(struct iio_dev *indio_dev, const void *data)
 {
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	int ret;
 	struct iio_buffer *buf;
 
-	list_for_each_entry(buf, &indio_dev->buffer_list, buffer_list) {
+	list_for_each_entry(buf, &iio_dev_opaque->buffer_list, buffer_list) {
 		ret = iio_push_to_buffer(buf, data);
 		if (ret < 0)
 			return ret;

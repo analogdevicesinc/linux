@@ -45,6 +45,7 @@ struct iio_dev;
  * @data_reg: Address of the data register, if 0 the default address of 0x3 will
  * @irq_flags: flags for the interrupt used by the triggered buffer
  *   be used.
+ * @irq_flags: flags for the interrupt used by the triggered buffer
  */
 struct ad_sigma_delta_info {
 	int (*set_channel)(struct ad_sigma_delta *, unsigned int slot,

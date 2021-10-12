@@ -121,6 +121,13 @@
 		compatible = "iio-hwmon";
 		io-channels = <&dac_avcc 0>, <&dac_avcc 1>, <&dac_avcc 2>, <&dac_avcc 3>;
 	};
+
+	/* 48MHz reference crystal */
+	ref48: ref48M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <48000000>;
+	};
 };
 
 &dcc {
@@ -392,6 +399,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x74>;
+		i2c-mux-idle-disconnect;
 		/* FIXME reset-gpios = <&tca6416_u15 SYSCTLR_IIC_MUX0_RESET_B GPIO_ACTIVE_HIGH>; */
 		i2c_eeprom: i2c@0 {
 			#address-cells = <1>;
@@ -415,10 +423,41 @@
 			#size-cells = <0>;
 			reg = <1>;
 			si5341: clock-generator@36 { /* SI5341 - u43 */
-				compatible = "si5341";
+				compatible = "silabs,si5341";
 				reg = <0x36>;
-			};
+				#clock-cells = <2>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clocks = <&ref48>;
+				clock-names = "xtal";
+				clock-output-names = "si5341";
 
+				si5341_2: out@2 {
+					/* refclk2 for PS-GT, used for USB3 */
+					reg = <2>;
+					always-on;
+				};
+				si5341_3: out@3 {
+					/* refclk3 for PS-GT, used for SATA */
+					reg = <3>;
+					always-on;
+				};
+				si5341_5: out@5 {
+					/* refclk5 PL CLK100 */
+					reg = <5>;
+					always-on;
+				};
+				si5341_6: out@6 {
+					/* refclk6 PL CLK125 */
+					reg = <6>;
+					always-on;
+				};
+				si5341_9: out@9 {
+					/* refclk9 used for PS_REF_CLK 33.3 MHz */
+					reg = <9>;
+					always-on;
+				};
+			};
 		};
 		i2c_si570_user_c0: i2c@2 {
 			#address-cells = <1>;
@@ -452,7 +491,10 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <4>;
-			/* U409B - 8a34001 */
+			idt_8a34001: phc@5b {
+				compatible = "idt,8a34001"; /* u409B */
+				reg = <0x5b>;
+			};
 		};
 		i2c_clk104: i2c@5 {
 			#address-cells = <1>;
@@ -474,6 +516,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x75>;
+		i2c-mux-idle-disconnect;
 		/* FIXME reset-gpios = <&tca6416_u15 SYSCTLR_IIC_MUX0_RESET_B GPIO_ACTIVE_HIGH>; */
 		i2c@0 {
 			#address-cells = <1>;
@@ -547,7 +590,7 @@
 			groups = "i2c0_3_grp";
 			bias-pull-up;
 			slew-rate = <SLEW_RATE_SLOW>;
-			io-standard = <IO_STANDARD_LVCMOS18>;
+			power-source = <IO_STANDARD_LVCMOS18>;
 		};
 	};
 
@@ -560,7 +603,7 @@
 		conf {
 			groups = "gpio0_14_grp", "gpio0_15_grp";
 			slew-rate = <SLEW_RATE_SLOW>;
-			io-standard = <IO_STANDARD_LVCMOS18>;
+			power-source = <IO_STANDARD_LVCMOS18>;
 		};
 	};
 
@@ -574,7 +617,7 @@
 			groups = "i2c1_4_grp";
 			bias-pull-up;
 			slew-rate = <SLEW_RATE_SLOW>;
-			io-standard = <IO_STANDARD_LVCMOS18>;
+			power-source = <IO_STANDARD_LVCMOS18>;
 		};
 	};
 
@@ -587,7 +630,7 @@
 		conf {
 			groups = "gpio0_16_grp", "gpio0_17_grp";
 			slew-rate = <SLEW_RATE_SLOW>;
-			io-standard = <IO_STANDARD_LVCMOS18>;
+			power-source = <IO_STANDARD_LVCMOS18>;
 		};
 	};
 };
@@ -606,6 +649,13 @@
 	};
 };
 
+&psgtr {
+	status = "okay";
+	/* nc, nc, usb3, sata */
+	clocks = <&si5341 0 2>, <&si5341 0 3>;
+	clock-names = "ref2", "ref3";
+};
+
 &rtc {
 	status = "okay";
 };
@@ -622,7 +672,7 @@
 	ceva,p1-burst-params = /bits/ 8 <0x13 0x08 0x4A 0x06>;
 	ceva,p1-retry-params = /bits/ 16 <0x96A4 0x3FFC>;
 	phy-names = "sata-phy";
-	phys = <&lane3 PHY_TYPE_SATA 1 3 125000000>;
+	phys = <&psgtr 3 PHY_TYPE_SATA 1 3>;
 };
 
 /* SD1 with level shifter */
@@ -634,10 +684,6 @@
 	 */
 	no-1-8-v;
 	xlnx,mio-bank = <1>;
-};
-
-&serdes {
-	status = "okay";
 };
 
 &uart0 {
@@ -654,5 +700,5 @@
 	dr_mode = "host";
 	snps,usb3_lpm_capable;
 	phy-names = "usb3-phy";
-	phys = <&lane2 PHY_TYPE_USB3 0 2 26000000>;
+	phys = <&psgtr 2 PHY_TYPE_USB3 0 2>;
 };

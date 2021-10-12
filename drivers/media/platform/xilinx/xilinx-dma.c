@@ -31,7 +31,7 @@
 #define XVIP_DMA_DEF_FORMAT		V4L2_PIX_FMT_YUYV
 #define XVIP_DMA_DEF_WIDTH		1920
 #define XVIP_DMA_DEF_HEIGHT		1080
-
+#define XVIP_DMA_DEF_WIDTH_ALIGN	2
 /* Minimum and maximum widths are expressed in bytes */
 #define XVIP_DMA_MIN_WIDTH		1U
 #define XVIP_DMA_MAX_WIDTH		65535U
@@ -811,7 +811,6 @@ __xvip_dma_try_format(struct xvip_dma *dma,
 	unsigned int min_bpl;
 	unsigned int max_bpl;
 	unsigned int width;
-	unsigned int align;
 	unsigned int bpl;
 	unsigned int i, hsub, vsub, plane_width, plane_height;
 	unsigned int fourcc;
@@ -863,16 +862,8 @@ __xvip_dma_try_format(struct xvip_dma *dma,
 	 * the minimum and maximum values, clamp the requested width and convert
 	 * it back to pixels.
 	 */
-	align = lcm(dma->align, info->bpp >> 3);
-	if (!align) {
-		dev_err(dma->xdev->dev,
-			"transfer alignment is 0: dma->align = %x, bpp = %u\n",
-			dma->align, info->bpp);
-		return;
-	}
-
-	min_width = roundup(XVIP_DMA_MIN_WIDTH, align);
-	max_width = rounddown(XVIP_DMA_MAX_WIDTH, align);
+	min_width = roundup(XVIP_DMA_MIN_WIDTH, dma->width_align);
+	max_width = rounddown(XVIP_DMA_MAX_WIDTH, dma->width_align);
 
 	if (V4L2_TYPE_IS_MULTIPLANAR(dma->format.type)) {
 		struct v4l2_pix_format_mplane *pix_mp;
@@ -881,7 +872,8 @@ __xvip_dma_try_format(struct xvip_dma *dma,
 		pix_mp = &format->fmt.pix_mp;
 		plane_fmt = pix_mp->plane_fmt;
 		pix_mp->field = dma->format.fmt.pix_mp.field;
-		width = rounddown(pix_mp->width * info->bpl_factor, align);
+		width = rounddown(pix_mp->width * info->bpl_factor,
+				  dma->width_align);
 		pix_mp->width = clamp(width, min_width, max_width) /
 				info->bpl_factor;
 		pix_mp->height = clamp(pix_mp->height, XVIP_DMA_MIN_HEIGHT,
@@ -943,7 +935,8 @@ __xvip_dma_try_format(struct xvip_dma *dma,
 
 		pix = &format->fmt.pix;
 		pix->field = dma->format.fmt.pix.field;
-		width = rounddown(pix->width * info->bpl_factor, align);
+		width = rounddown(pix->width * info->bpl_factor,
+				  dma->width_align);
 		pix->width = clamp(width, min_width, max_width) /
 			     info->bpl_factor;
 		pix->height = clamp(pix->height, XVIP_DMA_MIN_HEIGHT,
@@ -1096,8 +1089,8 @@ xvip_dma_s_selection(struct file *file, void *fh, struct v4l2_selection *sel)
 	    sel->r.top != 0 || sel->r.left != 0)
 		return -EINVAL;
 
-	sel->r.width = roundup(max(XVIP_DMA_MIN_WIDTH, sel->r.width),
-			       dma->align);
+	sel->r.width = rounddown(max(XVIP_DMA_MIN_WIDTH, sel->r.width),
+				 dma->width_align);
 	sel->r.height = max(XVIP_DMA_MIN_HEIGHT, sel->r.height);
 	dma->r.width = sel->r.width;
 	dma->r.height = sel->r.height;
@@ -1358,7 +1351,7 @@ int xvip_dma_init(struct xvip_composite_device *xdev, struct xvip_dma *dma,
 					? "output" : "input",
 		 port);
 
-	dma->video.vfl_type = VFL_TYPE_GRABBER;
+	dma->video.vfl_type = VFL_TYPE_VIDEO;
 	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE ||
 	    type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		dma->video.vfl_dir = VFL_DIR_RX;
@@ -1416,14 +1409,20 @@ int xvip_dma_init(struct xvip_composite_device *xdev, struct xvip_dma *dma,
 	if (IS_ERR(dma->dma)) {
 		ret = PTR_ERR(dma->dma);
 		if (ret != -EPROBE_DEFER)
-			dev_err(dma->xdev->dev,
-				"No Video DMA channel found");
+			dev_err(dma->xdev->dev, "no VDMA channel found\n");
 		goto error;
+	}
+
+	xilinx_xdma_get_width_align(dma->dma, &dma->width_align);
+	if (!dma->width_align) {
+		dev_dbg(dma->xdev->dev,
+			"Using width align %d\n", XVIP_DMA_DEF_WIDTH_ALIGN);
+		dma->width_align = XVIP_DMA_DEF_WIDTH_ALIGN;
 	}
 
 	dma->align = 1 << dma->dma->device->copy_align;
 
-	ret = video_register_device(&dma->video, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(&dma->video, VFL_TYPE_VIDEO, -1);
 	if (ret < 0) {
 		dev_err(dma->xdev->dev, "failed to register video device\n");
 		goto error;
@@ -1441,7 +1440,7 @@ void xvip_dma_cleanup(struct xvip_dma *dma)
 	if (video_is_registered(&dma->video))
 		video_unregister_device(&dma->video);
 
-	if (!IS_ERR(dma->dma))
+	if (!IS_ERR_OR_NULL(dma->dma))
 		dma_release_channel(dma->dma);
 
 	v4l2_ctrl_handler_free(&dma->ctrl_handler);

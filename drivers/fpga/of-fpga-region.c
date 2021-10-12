@@ -15,6 +15,7 @@
 #include <linux/of_platform.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/pm_runtime.h>
 
 static const struct of_device_id fpga_region_of_match[] = {
 	{ .compatible = "fpga-region", },
@@ -238,9 +239,6 @@ static struct fpga_image_info *of_fpga_region_parse_ov(
 				  "securemem-authenticated-fpga-config"))
 		info->flags |= FPGA_MGR_SECURE_MEM_AUTH_BITSTREAM;
 
-	if (of_property_read_bool(overlay, "fpga-config-from-dmabuf"))
-		info->flags |= FPGA_MGR_CONFIG_DMA_BUF;
-
 	if (!of_property_read_string(overlay, "firmware-name",
 				     &firmware_name)) {
 		info->firmware_name = devm_kstrdup(dev, firmware_name,
@@ -315,6 +313,7 @@ static int of_fpga_region_notify_pre_apply(struct fpga_region *region,
 	}
 
 	region->info = info;
+	pm_runtime_get_sync(dev->parent);
 	ret = fpga_region_program_fpga(region);
 	if (ret) {
 		/* error; reject overlay */
@@ -337,10 +336,13 @@ static int of_fpga_region_notify_pre_apply(struct fpga_region *region,
 static void of_fpga_region_notify_post_remove(struct fpga_region *region,
 					      struct of_overlay_notify_data *nd)
 {
+	struct device *dev = &region->dev;
+
 	fpga_bridges_disable(&region->bridge_list);
 	fpga_bridges_put(&region->bridge_list);
 	fpga_image_info_free(region->info);
 	region->info = NULL;
+	pm_runtime_put(dev->parent);
 }
 
 /**
@@ -424,9 +426,16 @@ static int of_fpga_region_probe(struct platform_device *pdev)
 		goto eprobe_mgr_put;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0)
+		goto err_pm;
+
+	pm_runtime_put(&pdev->dev);
+
 	ret = fpga_region_register(region);
 	if (ret)
-		goto eprobe_mgr_put;
+		goto err_pm;
 
 	of_platform_populate(np, fpga_region_of_match, NULL, &region->dev);
 	platform_set_drvdata(pdev, region);
@@ -435,6 +444,9 @@ static int of_fpga_region_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_pm:
+	pm_runtime_put(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 eprobe_mgr_put:
 	fpga_mgr_put(mgr);
 	return ret;
@@ -447,6 +459,7 @@ static int of_fpga_region_remove(struct platform_device *pdev)
 
 	fpga_region_unregister(region);
 	fpga_mgr_put(mgr);
+	pm_runtime_disable(region->dev.parent);
 
 	return 0;
 }

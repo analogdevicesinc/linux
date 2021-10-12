@@ -258,9 +258,8 @@ static int ltc2308_parse_dt_diff_chan(struct fwnode_handle *child,
 	return 0;
 }
 
-static int ltc2308_parse_dt(struct ltc2308_dev *adc)
+static int ltc2308_parse_dt(struct ltc2308_dev *adc, struct iio_dev *indio_dev)
 {
-	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
 	struct iio_chan_spec *ltc2308_channels;
 	struct fwnode_handle *fwnode;
 	struct fwnode_handle *child;
@@ -340,7 +339,7 @@ static int ltc2308_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ltc2308_info;
 
-	ret = ltc2308_parse_dt(adc);
+	ret = ltc2308_parse_dt(adc, indio_dev);
 	if (ret < 0)
 		return ret;
 

@@ -94,8 +94,8 @@ static int adrv9363x_box_card_hw_params(struct snd_pcm_substream *substream,
 				      struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *codec_dai = asoc_rtd_to_codec(rtd, 0);
+	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	struct adrv936x_simple_card_data *priv = snd_soc_card_get_drvdata(rtd->card);
 	struct adrv936x_box_simple_dai_props *dai_props = &priv->dai_props[rtd->num];
 	unsigned int mclk, mclk_fs = 0;
@@ -189,8 +189,8 @@ err:
 static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct adrv936x_simple_card_data *priv = snd_soc_card_get_drvdata(rtd->card);
-	struct snd_soc_dai *codec = rtd->codec_dai;
-	struct snd_soc_dai *cpu = rtd->cpu_dai;
+	struct snd_soc_dai *codec = asoc_rtd_to_codec(rtd, 0);
+	struct snd_soc_dai *cpu = asoc_rtd_to_cpu(rtd, 0);
 	struct snd_soc_component *component;
 	struct adrv936x_box_simple_dai_props *dai_props;
 	int ret;

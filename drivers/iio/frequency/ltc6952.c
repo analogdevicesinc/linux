@@ -867,14 +867,9 @@ static int ltc6952_probe(struct spi_device *spi)
 	}
 
 	if (iio_get_debugfs_dentry(indio_dev)) {
-		struct dentry *stats;
-
-		stats = debugfs_create_devm_seqfile(&spi->dev, "status",
-						    iio_get_debugfs_dentry(indio_dev),
-						    ltc6952_status_show);
-		if (PTR_ERR_OR_ZERO(stats))
-			dev_err(&spi->dev,
-				"Failed to create debugfs entry");
+		debugfs_create_devm_seqfile(&spi->dev, "status",
+					    iio_get_debugfs_dentry(indio_dev),
+					    ltc6952_status_show);
 	}
 
 	return ret;

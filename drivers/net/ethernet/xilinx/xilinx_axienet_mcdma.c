@@ -26,6 +26,16 @@ struct axienet_stat {
 	const char *name;
 };
 
+#ifdef CONFIG_XILINX_TSN
+/* TODO
+ * The channel numbers for managemnet frames in 5 channel mcdma on EP+Switch
+ * system. These are not exposed via hdf/dtsi, so need to hardcode here
+ */
+#define TSN_MAX_RX_Q_EPSWITCH 5
+#define TSN_MGMT_CHAN0 2
+#define TSN_MGMT_CHAN1 3
+#endif
+
 static struct axienet_stat axienet_get_tx_strings_stats[] = {
 	{ "txq0_packets" },
 	{ "txq0_bytes"   },
@@ -250,6 +260,7 @@ int __maybe_unused axienet_mcdma_rx_q_init(struct net_device *ndev,
 	int i;
 	struct sk_buff *skb;
 	struct axienet_local *lp = netdev_priv(ndev);
+	dma_addr_t mapping;
 
 	q->rx_bd_ci = 0;
 	q->rx_offset = XMCDMA_CHAN_RX_OFFSET;
@@ -275,12 +286,28 @@ int __maybe_unused axienet_mcdma_rx_q_init(struct net_device *ndev,
 		wmb();
 
 		q->rxq_bd_v[i].sw_id_offset = (phys_addr_t)skb;
-		q->rxq_bd_v[i].phys = dma_map_single(ndev->dev.parent,
-						     skb->data,
-						     lp->max_frm_size,
-						     DMA_FROM_DEVICE);
+		mapping = dma_map_single(ndev->dev.parent,
+					 skb->data,
+					 lp->max_frm_size,
+					 DMA_FROM_DEVICE);
+		if (unlikely(dma_mapping_error(ndev->dev.parent, mapping))) {
+			dev_err(&ndev->dev, "mcdma map error\n");
+			goto out;
+		}
+
+		q->rxq_bd_v[i].phys = mapping;
 		q->rxq_bd_v[i].cntrl = lp->max_frm_size;
 	}
+
+#ifdef CONFIG_XILINX_TSN
+	/* check if this is a mgmt channel */
+	if (lp->num_rx_queues == TSN_MAX_RX_Q_EPSWITCH) {
+		if (q->chan_id == TSN_MGMT_CHAN0)
+			q->flags |= (MCDMA_MGMT_CHAN | MCDMA_MGMT_CHAN_PORT0);
+		else if (q->chan_id == TSN_MGMT_CHAN1)
+			q->flags |= (MCDMA_MGMT_CHAN | MCDMA_MGMT_CHAN_PORT1);
+	}
+#endif
 
 	/* Start updating the Rx channel control register */
 	cr = axienet_dma_in32(q, XMCDMA_CHAN_CR_OFFSET(q->chan_id) +
@@ -494,9 +521,9 @@ void axienet_strings(struct net_device *ndev, u32 sset, u8 *data)
 {
 	struct axienet_local *lp = netdev_priv(ndev);
 	struct axienet_dma_q *q;
-	int i, j, k = 0;
+	int i = AXIENET_ETHTOOLS_SSTATS_LEN, j, k = 0;
 
-	for (i = 0, j = 0; i < AXIENET_TX_SSTATS_LEN(lp);) {
+	for (j = 0; i < AXIENET_TX_SSTATS_LEN(lp) + AXIENET_ETHTOOLS_SSTATS_LEN;) {
 		if (j >= lp->num_tx_queues)
 			break;
 		q = lp->dq[j];
@@ -512,8 +539,8 @@ void axienet_strings(struct net_device *ndev, u32 sset, u8 *data)
 			++j;
 	}
 	k = 0;
-	for (j = 0; i < AXIENET_TX_SSTATS_LEN(lp) +
-			AXIENET_RX_SSTATS_LEN(lp);) {
+	for (j = 0; i < AXIENET_TX_SSTATS_LEN(lp) + AXIENET_RX_SSTATS_LEN(lp) +
+			AXIENET_ETHTOOLS_SSTATS_LEN;) {
 		if (j >= lp->num_rx_queues)
 			break;
 		q = lp->dq[j];
@@ -536,7 +563,8 @@ int axienet_sset_count(struct net_device *ndev, int sset)
 
 	switch (sset) {
 	case ETH_SS_STATS:
-		return (AXIENET_TX_SSTATS_LEN(lp) + AXIENET_RX_SSTATS_LEN(lp));
+		return (AXIENET_TX_SSTATS_LEN(lp) + AXIENET_RX_SSTATS_LEN(lp) +
+			AXIENET_ETHTOOLS_SSTATS_LEN);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -548,9 +576,9 @@ void axienet_get_stats(struct net_device *ndev,
 {
 	struct axienet_local *lp = netdev_priv(ndev);
 	struct axienet_dma_q *q;
-	unsigned int i = 0, j;
+	unsigned int i = AXIENET_ETHTOOLS_SSTATS_LEN, j;
 
-	for (i = 0, j = 0; i < AXIENET_TX_SSTATS_LEN(lp);) {
+	for (j = 0; i < AXIENET_TX_SSTATS_LEN(lp) + AXIENET_ETHTOOLS_SSTATS_LEN;) {
 		if (j >= lp->num_tx_queues)
 			break;
 
@@ -559,8 +587,8 @@ void axienet_get_stats(struct net_device *ndev,
 		data[i++] = q->tx_bytes;
 		++j;
 	}
-	for (j = 0; i < AXIENET_TX_SSTATS_LEN(lp) +
-			AXIENET_RX_SSTATS_LEN(lp);) {
+	for (j = 0; i < AXIENET_TX_SSTATS_LEN(lp) + AXIENET_RX_SSTATS_LEN(lp) +
+			AXIENET_ETHTOOLS_SSTATS_LEN;) {
 		if (j >= lp->num_rx_queues)
 			break;
 
@@ -589,28 +617,7 @@ void __maybe_unused axienet_mcdma_err_handler(unsigned long data)
 
 	lp->axienet_config->setoptions(ndev, lp->options &
 				       ~(XAE_OPTION_TXEN | XAE_OPTION_RXEN));
-
-	if (lp->axienet_config->mactype != XAXIENET_10G_25G &&
-	    lp->axienet_config->mactype != XAXIENET_MRMAC) {
-		mutex_lock(&lp->mii_bus->mdio_lock);
-		/* Disable the MDIO interface till Axi Ethernet Reset is
-		 * Completed. When we do an Axi Ethernet reset, it resets the
-		 * Complete core including the MDIO. So if MDIO is not disabled
-		 * When the reset process is started,
-		 * MDIO will be broken afterwards.
-		 */
-		axienet_mdio_disable(lp);
-		axienet_mdio_wait_until_ready(lp);
-	}
-
 	__axienet_device_reset(q);
-
-	if (lp->axienet_config->mactype != XAXIENET_10G_25G &&
-	    lp->axienet_config->mactype != XAXIENET_MRMAC) {
-		axienet_mdio_enable(lp);
-		axienet_mdio_wait_until_ready(lp);
-		mutex_unlock(&lp->mii_bus->mdio_lock);
-	}
 
 	for (i = 0; i < lp->tx_bd_num; i++) {
 		cur_p = &q->txq_bd_v[i];
@@ -754,6 +761,16 @@ int __maybe_unused axienet_mcdma_tx_probe(struct platform_device *pdev,
 {
 	int i;
 	char dma_name[24];
+	int ret = 0;
+
+#ifdef CONFIG_XILINX_TSN
+	u32 num = XAE_TSN_MIN_QUEUES;
+	/* get number of associated queues */
+	ret = of_property_read_u32(np, "xlnx,num-mm2s-channels", &num);
+	if (ret)
+		num = XAE_TSN_MIN_QUEUES;
+	lp->num_tx_queues = num;
+#endif
 
 	for_each_tx_dma_queue(lp, i) {
 		struct axienet_dma_q *q;
@@ -764,8 +781,13 @@ int __maybe_unused axienet_mcdma_tx_probe(struct platform_device *pdev,
 		snprintf(dma_name, sizeof(dma_name), "mm2s_ch%d_introut",
 			 q->chan_id);
 		q->tx_irq = platform_get_irq_byname(pdev, dma_name);
+#ifdef CONFIG_XILINX_TSN
+		q->eth_hasdre = of_property_read_bool(np,
+						      "xlnx,include-mm2s-dre");
+#else
 		q->eth_hasdre = of_property_read_bool(np,
 						      "xlnx,include-dre");
+#endif
 		spin_lock_init(&q->tx_lock);
 	}
 	of_node_put(np);

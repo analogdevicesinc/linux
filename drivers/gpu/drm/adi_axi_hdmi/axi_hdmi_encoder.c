@@ -17,6 +17,7 @@
 #include <linux/clk.h>
 
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_bridge.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_encoder_slave.h>
 #include <drm/drm_edid.h>
@@ -327,8 +328,12 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 	bridge = of_drm_find_bridge(priv->encoder_slave->dev.of_node);
 	if (bridge) {
 		bridge->encoder = encoder;
-		encoder->bridge = bridge;
-		ret = drm_bridge_attach(encoder, bridge, NULL);
+		/*
+		 * Check if we really need to create th drm_connector.
+		 * If not, DRM_BRIDGE_ATTACH_NO_CONNECTOR can be passed instead
+		 * 0
+		 */
+		ret = drm_bridge_attach(encoder, bridge, NULL, 0);
 		if (ret) {
 		    drm_encoder_cleanup(encoder);
 		    return NULL;

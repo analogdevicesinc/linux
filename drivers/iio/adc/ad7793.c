@@ -556,7 +556,7 @@ static const struct iio_info ad7797_info = {
 	.read_raw = &ad7793_read_raw,
 	.write_raw = &ad7793_write_raw,
 	.write_raw_get_fmt = &ad7793_write_raw_get_fmt,
-	.attrs = &ad7793_attribute_group,
+	.attrs = &ad7797_attribute_group,
 	.validate_trigger = ad_sd_validate_trigger,
 };
 
@@ -814,7 +814,7 @@ static struct ad7793_platform_data *ad7793_parse_dt(struct device *dev)
 	tmp = AD7793_IEXEC1_IOUT1_IEXEC2_IOUT2;
 	of_property_read_u32(np, "adi,current-source-direction", &tmp);
 	pdata->current_source_direction = tmp;
-	
+
 	return pdata;
 }
 #else
@@ -831,7 +831,7 @@ static int ad7793_probe(struct spi_device *spi)
 	struct ad7793_state *st;
 	struct iio_dev *indio_dev;
 	int ret, vref_mv = 0;
-	
+
 	if (spi->dev.of_node)
 		pdata = ad7793_parse_dt(&spi->dev);
 	else
@@ -880,8 +880,6 @@ static int ad7793_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, indio_dev);
 
-	indio_dev->dev.parent = &spi->dev;
-	indio_dev->dev.of_node = spi->dev.of_node;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channels;

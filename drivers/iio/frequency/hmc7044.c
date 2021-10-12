@@ -2236,14 +2236,9 @@ static int hmc7044_probe(struct spi_device *spi)
 	ret = iio_device_register(indio_dev);
 
 	if (iio_get_debugfs_dentry(indio_dev) && (hmc->device_id == HMC7044)) {
-		struct dentry *stats;
-
-		stats = debugfs_create_devm_seqfile(&spi->dev, "status",
-					iio_get_debugfs_dentry(indio_dev),
-					hmc7044_status_show);
-		if (PTR_ERR_OR_ZERO(stats))
-			dev_err(&spi->dev,
-				"Failed to create debugfs entry");
+		debugfs_create_devm_seqfile(&spi->dev, "status",
+					    iio_get_debugfs_dentry(indio_dev),
+					    hmc7044_status_show);
 	}
 
 	return jesd204_fsm_start(hmc->jdev, JESD204_LINKS_ALL);

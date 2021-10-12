@@ -15,7 +15,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio/consumer.h>
 #include <linux/gpio/driver.h>
-#include <linux/gpio.h>
 #include <linux/property.h>
 
 #include <dt-bindings/iio/adi,ad5592r.h>
@@ -221,7 +220,6 @@ static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 			break;
 
 		case CH_MODE_UNUSED:
-			/* fall-through */
 		default:
 			switch (st->channel_offstate[i]) {
 			case CH_OFFSTATE_OUT_TRISTATE:
@@ -238,7 +236,6 @@ static int ad5592r_set_channel_modes(struct ad5592r_state *st)
 				break;
 
 			case CH_OFFSTATE_PULLDOWN:
-				/* fall-through */
 			default:
 				pulldown |= BIT(i);
 				break;
@@ -483,11 +480,11 @@ static ssize_t ad5592r_show_scale_available(struct iio_dev *iio_dev,
 		st->scale_avail[1][0], st->scale_avail[1][1]);
 }
 
-static struct iio_chan_spec_ext_info ad5592r_ext_info[] = {
+static const struct iio_chan_spec_ext_info ad5592r_ext_info[] = {
 	{
 	 .name = "scale_available",
 	 .read = ad5592r_show_scale_available,
-	 .shared = true,
+	 .shared = IIO_SHARED_BY_TYPE,
 	 },
 	{},
 };
@@ -507,11 +504,11 @@ static void ad5592r_setup_channel(struct iio_dev *iio_dev,
 	chan->ext_info = ad5592r_ext_info;
 }
 
-static int ad5592r_alloc_channels(struct ad5592r_state *st)
+static int ad5592r_alloc_channels(struct iio_dev *iio_dev)
 {
+	struct ad5592r_state *st = iio_priv(iio_dev);
 	unsigned i, curr_channel = 0,
 		 num_channels = st->num_channels;
-	struct iio_dev *iio_dev = iio_priv_to_dev(st);
 	struct iio_chan_spec *channels;
 	struct fwnode_handle *child;
 	u32 reg, tmp;
@@ -617,7 +614,6 @@ int ad5592r_probe(struct device *dev, const char *name,
 			return ret;
 	}
 
-	iio_dev->dev.parent = dev;
 	iio_dev->name = name;
 	iio_dev->info = &ad5592r_info;
 	iio_dev->modes = INDIO_DIRECT_MODE;
@@ -635,7 +631,7 @@ int ad5592r_probe(struct device *dev, const char *name,
 	if (ret)
 		goto error_disable_reg;
 
-	ret = ad5592r_alloc_channels(st);
+	ret = ad5592r_alloc_channels(iio_dev);
 	if (ret)
 		goto error_disable_reg;
 

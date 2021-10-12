@@ -37,6 +37,7 @@ obj-y += magnetometer/
 obj-y += multiplexer/
 obj-y += regmap/
 obj-y += orientation/
+obj-y += position/
 obj-y += potentiometer/
 obj-y += potentiostat/
 obj-y += pressure/

@@ -77,7 +77,7 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 	}
 
 	regoff = aie_cal_tile_reg(adev, offset);
-	regend64 = regoff + len;
+	regend64 = regoff + len - 1;
 	if (regend64 >= BIT_ULL(adev->row_shift)) {
 		dev_err(&apart->dev,
 			"Invalid reg operation len %zu.\n", len);
@@ -129,7 +129,7 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 			 AIE_REGS_ATTR_TILE_TYPE_SHIFT;
 		writable = (regs->attribute & AIE_REGS_ATTR_PERM_MASK) >>
 			   AIE_REGS_ATTR_PERM_SHIFT;
-		if (!(ttype & rttype))
+		if (!(BIT(ttype) & rttype))
 			continue;
 		if ((regoff >= regs->soff && regoff <= regs->eoff) ||
 		    (regend32 >= regs->soff && regend32 <= regs->eoff)) {
@@ -160,6 +160,7 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 static int aie_part_write_register(struct aie_partition *apart, size_t offset,
 				   size_t len, void *data, u32 mask)
 {
+	u32 i;
 	int ret;
 	void __iomem *va;
 
@@ -181,10 +182,14 @@ static int aie_part_write_register(struct aie_partition *apart, size_t offset,
 
 	va = apart->adev->base + offset;
 	if (!mask) {
-		if (len == sizeof(u32))
-			iowrite32(*((u32 *)data),  va);
-		else
-			memcpy_toio(va, data, len);
+		/*
+		 * TODO: use the burst mode to improve performance when len
+		 * is more than 4. Additional checks have to be made to ensure
+		 * the destination address is 128 bit aligned when burst mode
+		 * is used.
+		 */
+		for (i = 0; i < len; i = i + 4)
+			iowrite32(*((u32 *)(data + i)), va + i);
 	} else {
 		u32 val = ioread32(va);
 
@@ -231,6 +236,87 @@ static int aie_part_read_register(struct aie_partition *apart, size_t offset,
 }
 
 /**
+ * aie_part_block_set() - AI Engine partition block set registers
+ * @apart: AI engine partition
+ * @args: regestier access arguments
+ * @return: 0 for success, and negative value for failure
+ */
+static int aie_part_block_set(struct aie_partition *apart,
+			      struct aie_reg_args *args)
+{
+	u32 i;
+	int ret;
+
+	for (i = 0; i < args->len; i++) {
+		size_t offset = (size_t)args->offset;
+
+		ret = aie_part_write_register(apart, offset + i * 4,
+					      sizeof(args->val), &args->val,
+					      args->mask);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * aie_part_pin_user_region() - pin user pages for access
+ * @apart: AI engine partition
+ * @region: user space region to pin. Includes virtual address and size of the
+ *	    user space buffer.
+ * @return: 0 for success, and negative value for failure.
+ *
+ * This function pins all the pages of a user space buffer.
+ */
+static int aie_part_pin_user_region(struct aie_partition *apart,
+				    struct aie_part_pinned_region *region)
+{
+	int ret, npages;
+	unsigned long first, last;
+	struct page **pages;
+
+	first = (region->user_addr & PAGE_MASK) >> PAGE_SHIFT;
+	last = ((region->user_addr + region->len - 1) & PAGE_MASK) >>
+		PAGE_SHIFT;
+	npages = last - first + 1;
+
+	pages = kcalloc(npages, sizeof(struct page *), GFP_KERNEL);
+	if (!pages)
+		return -ENOMEM;
+
+	ret = pin_user_pages_fast(region->user_addr, npages, 0, pages);
+	if (ret < 0) {
+		kfree(pages);
+		dev_err(&apart->dev, "Unable to pin user pages\n");
+		return ret;
+	} else if (ret != npages) {
+		unpin_user_pages(pages, ret);
+		kfree(pages);
+		dev_err(&apart->dev, "Unable to pin all user pages\n");
+		return -EFAULT;
+	}
+
+	region->pages = pages;
+	region->npages = npages;
+
+	return 0;
+}
+
+/**
+ * aie_part_unpin_user_region() - unpin user pages
+ * @region: user space region to unpin.
+ *
+ * This function unpins all the pages of a user space buffer. User region passed
+ * to this api must be pinned using aie_part_pin_user_region()
+ */
+static void aie_part_unpin_user_region(struct aie_part_pinned_region *region)
+{
+	unpin_user_pages(region->pages, region->npages);
+	kfree(region->pages);
+}
+
+/**
  * aie_part_access_regs() - AI engine partition registers access
  * @apart: AI engine partition
  * @num_reqs: number of access requests
@@ -248,16 +334,45 @@ static int aie_part_access_regs(struct aie_partition *apart, u32 num_reqs,
 		struct aie_reg_args *args = &reqs[i];
 		int ret;
 
-		if (args->op != AIE_REG_WRITE) {
+		switch (args->op) {
+		case AIE_REG_WRITE:
+		{
+			ret = aie_part_write_register(apart,
+						      (size_t)args->offset,
+						      sizeof(args->val),
+						      &args->val, args->mask);
+			break;
+		}
+		case AIE_REG_BLOCKWRITE:
+		{
+			struct aie_part_pinned_region region;
+
+			region.user_addr = args->dataptr;
+			region.len = args->len * sizeof(u32);
+			ret = aie_part_pin_user_region(apart, &region);
+			if (ret)
+				break;
+
+			ret = aie_part_write_register(apart,
+						      (size_t)args->offset,
+						      sizeof(u32) * args->len,
+						      (void *)args->dataptr,
+						      args->mask);
+			aie_part_unpin_user_region(&region);
+			break;
+		}
+		case AIE_REG_BLOCKSET:
+		{
+			ret = aie_part_block_set(apart, args);
+			break;
+		}
+		default:
 			dev_err(&apart->dev,
 				"Invalid register command type: %u.\n",
 				args->op);
 			return -EINVAL;
 		}
-		ret = aie_part_write_register(apart,
-					      (size_t)args->offset,
-					      sizeof(args->val),
-					      &args->val, args->mask);
+
 		if (ret < 0) {
 			dev_err(&apart->dev, "reg op %u failed: 0x%llx.\n",
 				args->op, args->offset);
@@ -266,6 +381,46 @@ static int aie_part_access_regs(struct aie_partition *apart, u32 num_reqs,
 	}
 
 	return 0;
+}
+
+/**
+ * aie_part_execute_transaction_from_user() - AI engine configure registers
+ * @apart: AI engine partition
+ * @user_args: arguments passed by user.
+ * @return: 0 for success, and negative value for failure.
+ *
+ * This function executes AI engine register access requests that are part of a
+ * buffer that is populated and passed by user.
+ */
+static int aie_part_execute_transaction_from_user(struct aie_partition *apart,
+						  void __user *user_args)
+{
+	long ret;
+	struct aie_txn_inst txn_inst;
+	struct aie_part_pinned_region region;
+
+	if (copy_from_user(&txn_inst, user_args, sizeof(txn_inst)))
+		return -EFAULT;
+
+	region.user_addr = txn_inst.cmdsptr;
+	region.len = txn_inst.num_cmds * sizeof(struct aie_reg_args);
+	ret = aie_part_pin_user_region(apart, &region);
+	if (ret)
+		return ret;
+
+	ret = mutex_lock_interruptible(&apart->mlock);
+	if (ret) {
+		aie_part_unpin_user_region(&region);
+		return ret;
+	}
+
+	ret = aie_part_access_regs(apart, txn_inst.num_cmds,
+				   (struct aie_reg_args *)region.user_addr);
+
+	mutex_unlock(&apart->mlock);
+
+	aie_part_unpin_user_region(&region);
+	return ret;
 }
 
 /**
@@ -373,6 +528,8 @@ static int aie_part_release(struct inode *inode, struct file *filp)
 	aie_part_clear_cached_events(apart);
 	aie_resource_clear_all(&apart->l2_mask);
 
+	aie_part_rscmgr_reset(apart);
+
 	mutex_unlock(&apart->mlock);
 
 	return 0;
@@ -473,8 +630,8 @@ static int aie_part_mmap(struct file *fp, struct vm_area_struct *vma)
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	/* Calculate the partition address */
 	addr = adev->res->start;
-	addr += apart->range.start.col << adev->col_shift;
-	addr += apart->range.start.row << adev->row_shift;
+	addr += (phys_addr_t)apart->range.start.col << adev->col_shift;
+	addr += (phys_addr_t)apart->range.start.row << adev->row_shift;
 	addr += offset;
 	return remap_pfn_range(vma,
 			       vma->vm_start,
@@ -519,6 +676,50 @@ static long aie_part_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		return aie_part_request_tiles_from_user(apart, argp);
 	case AIE_RELEASE_TILES_IOCTL:
 		return aie_part_release_tiles_from_user(apart, argp);
+	case AIE_TRANSACTION_IOCTL:
+		return aie_part_execute_transaction_from_user(apart, argp);
+	case AIE_SET_FREQUENCY_IOCTL:
+	{
+		u64 freq;
+
+		if (copy_from_user(&freq, argp, sizeof(freq)))
+			return -EFAULT;
+
+		ret = mutex_lock_interruptible(&apart->mlock);
+		if (ret)
+			return ret;
+		ret = aie_part_set_freq(apart, freq);
+		mutex_unlock(&apart->mlock);
+		return ret;
+	}
+	case AIE_GET_FREQUENCY_IOCTL:
+	{
+		u64 freq;
+
+		ret = mutex_lock_interruptible(&apart->mlock);
+		if (ret)
+			return ret;
+		ret = aie_part_get_running_freq(apart, &freq);
+		mutex_unlock(&apart->mlock);
+
+		if (!ret) {
+			if (copy_to_user(argp, &freq, sizeof(freq)))
+				return -EFAULT;
+		}
+		return ret;
+	}
+	case AIE_RSC_REQ_IOCTL:
+		return aie_part_rscmgr_rsc_req(apart, argp);
+	case AIE_RSC_REQ_SPECIFIC_IOCTL:
+		return aie_part_rscmgr_rsc_req_specific(apart, argp);
+	case AIE_RSC_RELEASE_IOCTL:
+		return aie_part_rscmgr_rsc_release(apart, argp);
+	case AIE_RSC_FREE_IOCTL:
+		return aie_part_rscmgr_rsc_free(apart, argp);
+	case AIE_RSC_CHECK_AVAIL_IOCTL:
+		return aie_part_rscmgr_rsc_check_avail(apart, argp);
+	case AIE_RSC_GET_COMMON_BROADCAST_IOCTL:
+		return aie_part_rscmgr_get_broadcast(apart, argp);
 	default:
 		dev_err(&apart->dev, "Invalid ioctl command %u.\n", cmd);
 		ret = -EINVAL;
@@ -538,6 +739,18 @@ const struct file_operations aie_part_fops = {
 };
 
 /**
+ * aie_tile_release_device() - release an AI engine tile instance
+ * @dev: AI engine tile device
+ *
+ * It will be called by device driver core when no one holds a valid
+ * pointer to @dev anymore.
+ */
+static void aie_tile_release_device(struct device *dev)
+{
+	put_device(dev);
+}
+
+/**
  * aie_part_release_device() - release an AI engine partition instance
  * @dev: AI engine partition device
  *
@@ -548,7 +761,9 @@ static void aie_part_release_device(struct device *dev)
 {
 	struct aie_partition *apart = dev_to_aiepart(dev);
 	struct aie_device *adev = apart->adev;
+	struct aie_tile *atile = apart->atiles;
 	int ret;
+	u32 index;
 
 	ret = mutex_lock_interruptible(&adev->mlock);
 	if (ret) {
@@ -560,10 +775,16 @@ static void aie_part_release_device(struct device *dev)
 				apart->range.size.col);
 	aie_part_release_event_bitmap(apart);
 	aie_resource_uninitialize(&apart->l2_mask);
+
+	for (index = 0; index < apart->range.size.col * apart->range.size.row;
+	     index++, atile++)
+		put_device(&atile->dev);
+
 	list_del(&apart->node);
 	mutex_unlock(&adev->mlock);
 	aie_fpga_free_bridge(apart);
 	aie_resource_uninitialize(&apart->cores_clk_state);
+	aie_part_rscmgr_finish(apart);
 	put_device(apart->dev.parent);
 }
 
@@ -600,6 +821,55 @@ static int aie_part_create_mems_info(struct aie_partition *apart)
 				       mem->range.size.row;
 	}
 	return 0;
+}
+
+/**
+ * aie_create_tiles() - create AI engine tile devices
+ * @apart: AI engine partition
+ * @return: 0 for success, error code on failure
+ *
+ * This function creates AI engine child tile devices for a given partition.
+ */
+static int aie_create_tiles(struct aie_partition *apart)
+{
+	struct aie_tile *atile;
+	u32 row, col, numtiles;
+	int ret = 0;
+
+	numtiles = apart->range.size.col * apart->range.size.row;
+	atile = devm_kzalloc(&apart->dev, numtiles * sizeof(struct aie_tile),
+			     GFP_KERNEL);
+	if (!atile)
+		return -ENOMEM;
+
+	apart->atiles = atile;
+	for (col = 0; col < apart->range.size.col; col++) {
+		for (row = 0; row < apart->range.size.row; row++) {
+			struct device *tdev = &atile->dev;
+			char tdevname[10];
+
+			atile->apart = apart;
+			atile->loc.col = apart->range.start.col + col;
+			atile->loc.row = apart->range.start.row + row;
+			device_initialize(tdev);
+			tdev->parent = &apart->dev;
+			dev_set_drvdata(tdev, atile);
+			snprintf(tdevname, sizeof(tdevname) - 1, "%d_%d",
+				 apart->range.start.col + col,
+				 apart->range.start.row + row);
+			dev_set_name(tdev, tdevname);
+			tdev->release = aie_tile_release_device;
+			ret = device_add(tdev);
+			if (ret) {
+				dev_err(tdev, "tile device_add failed: %d\n",
+					ret);
+				put_device(tdev);
+				return ret;
+			}
+			atile++;
+		}
+	}
+	return ret;
 }
 
 /**
@@ -677,6 +947,14 @@ static struct aie_partition *aie_create_partition(struct aie_device *adev,
 	dev->coherent_dma_mask = DMA_BIT_MASK(48);
 	dev->dma_mask = &dev->coherent_dma_mask;
 
+	/* Create AI Engine tile devices */
+	ret = aie_create_tiles(apart);
+	if (ret) {
+		dev_err(dev, "Failed to create tile devices.\n");
+		put_device(dev);
+		return ERR_PTR(ret);
+	}
+
 	/*
 	 * Create array to keep the information of the different types of tile
 	 * memories information of the AI engine partition.
@@ -707,6 +985,22 @@ static struct aie_partition *aie_create_partition(struct aie_device *adev,
 	ret = aie_part_create_l2_bitmap(apart);
 	if (ret < 0) {
 		dev_err(&apart->dev, "Failed to allocate l2 bitmap.\n");
+		put_device(dev);
+		return ERR_PTR(ret);
+	}
+
+	ret = aie_part_rscmgr_init(apart);
+	if (ret < 0) {
+		dev_err(&apart->dev,
+			"Failed to initialize resources bitmaps.\n");
+		put_device(dev);
+		return ERR_PTR(ret);
+	}
+
+	/* Create sysfs interface */
+	ret = aie_part_sysfs_init(apart);
+	if (ret) {
+		dev_err(&apart->dev, "Failed to create sysfs interface.\n");
 		put_device(dev);
 		return ERR_PTR(ret);
 	}
@@ -763,7 +1057,7 @@ of_aie_part_probe(struct aie_device *adev, struct device_node *nc)
 		dev_err(&adev->dev,
 			"probe failed: partition %u exists.\n",
 			partition_id);
-		return ERR_PTR(ret);
+		return ERR_PTR(-EINVAL);
 	}
 
 	apart = aie_create_partition(adev, &range);
@@ -800,13 +1094,32 @@ of_aie_part_probe(struct aie_device *adev, struct device_node *nc)
 }
 
 /**
- * aie_destroy_part() - destroy AI engine partition
+ * aie_tile_remove() - remove AI engine tile device.
+ * @atile: AI engine tile.
+ *
+ * This function will remove AI engine tile device.
+ */
+static void aie_tile_remove(struct aie_tile *atile)
+{
+	device_del(&atile->dev);
+	put_device(&atile->dev);
+}
+
+/**
+ * aie_part_remove() - destroy AI engine partition
  * @apart: AI engine partition
  *
  * This function will remove AI engine partition.
  */
 void aie_part_remove(struct aie_partition *apart)
 {
+	struct aie_tile *atile = apart->atiles;
+	u32 index;
+
+	for (index = 0; index < apart->range.size.col * apart->range.size.row;
+	     index++, atile++)
+		aie_tile_remove(atile);
+
 	device_del(&apart->dev);
 	put_device(&apart->dev);
 }
@@ -825,4 +1138,27 @@ bool aie_part_has_regs_mmapped(struct aie_partition *apart)
 
 	mapping = apart->filep->f_inode->i_mapping;
 	return mapping_mapped(mapping);
+}
+
+/**
+ * aie_part_get_tile_rows - helper function to get the number of rows of a
+ *			    tile type.
+ *
+ * @apart: AI engine partition
+ * @ttype: tile type
+ * @return: number of rows of a tile type
+ */
+int aie_part_get_tile_rows(struct aie_partition *apart,
+			   enum aie_tile_type ttype)
+{
+	struct aie_tile_attr *tattr = &apart->adev->ttype_attr[ttype];
+
+	/*
+	 * TODO: number of rows information of the AI engine device
+	 * should get from device tree.
+	 */
+	if (tattr->num_rows != 0xFF)
+		return tattr->num_rows;
+	else
+		return (apart->range.size.row - tattr->start_row);
 }

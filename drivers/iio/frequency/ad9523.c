@@ -1546,7 +1546,6 @@ static int ad9523_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->pdata = pdata;
 
-	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = (pdata->name[0] != 0) ? pdata->name :
 			  spi_get_device_id(spi)->name;
 	indio_dev->info = &ad9523_info;
@@ -1558,11 +1557,7 @@ static int ad9523_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	ret = devm_iio_device_register(&spi->dev, indio_dev);
-	if (ret == 0)
-		dev_info(&spi->dev, "probed %s\n", indio_dev->name);
-
-	return ret;
+	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id ad9523_id[] = {

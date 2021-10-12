@@ -96,6 +96,7 @@ struct cf_axi_dds_state {
 	bool				dma_fifo_ctrl_oneshot;
 
 	struct iio_info			iio_info;
+	struct iio_dev			*indio_dev;
 	size_t				regs_size;
 	void __iomem			*regs;
 	void __iomem			*slave_regs;
@@ -380,7 +381,6 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 	struct clk_notifier_data *cnd = data;
 	struct cf_axi_dds_state *st =
 		container_of(nb, struct cf_axi_dds_state, clk_nb);
-	struct iio_dev *indio_dev = iio_priv_to_dev(st);
 	unsigned int reg, i;
 	unsigned long long val64;
 
@@ -398,7 +398,7 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 			dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i), reg);
 		}
 		cf_axi_dds_start_sync(st);
-		cf_axi_dds_sync_frame(indio_dev);
+		cf_axi_dds_sync_frame(st->indio_dev);
 	}
 
 	return NOTIFY_OK;
@@ -2019,6 +2019,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+	st->indio_dev = indio_dev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs_size = resource_size(res);

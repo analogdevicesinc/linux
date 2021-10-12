@@ -32,6 +32,13 @@
  *   https://www.analog.com/media/en/technical-documentation/application-notes/AN-877.pdf
  */
 
+/*
+ * There's an upstreamed version of this driver that was used as first user of
+ * the high speed adc core. However, that version is still too limited and lacks
+ * support for a lot of things. Hence, we will still take the old driver until the
+ * the upstreamed version is ready to be used...
+ */
+
 #define AN877_ADC_REG_CHIP_PORT_CONF		0x00
 #define AN877_ADC_REG_CHIP_ID			0x01
 #define AN877_ADC_REG_CHIP_GRADE		0x02

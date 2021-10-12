@@ -10,7 +10,6 @@
 #define _MW_STREAM_CHANNEL_H_
 
 #include <linux/dmaengine.h>
-#include <linux/dma-contiguous.h>
 #include <linux/interrupt.h>
 #include <linux/errno.h>
 
@@ -37,9 +36,9 @@ enum mwadma_chan_status {
 };
 
 enum mwadma_buffer_block_state {
-    MWDMA_ACTIVE = 0x1, 
+    MWDMA_ACTIVE = 0x1,
     MWDMA_PENDING = 0x2,
-    MWDMA_READY = 0x3 
+    MWDMA_READY = 0x3
 };
 
 // BLOCK

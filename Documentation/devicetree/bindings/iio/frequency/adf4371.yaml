@@ -43,8 +43,8 @@ properties:
       property allows arbitrary scales. The first element in the array should
       be the multiplier and the second element should be the divider.
     allOf:
-      - $ref: /schemas/types.yaml#/definitions/uint32-array
-      - minimum: 1
+      $ref: /schemas/types.yaml#/definitions/uint32-array
+      minimum: 1
 
   adi,spi-3wire-enable:
     description:
@@ -99,6 +99,8 @@ properties:
       If this property is present, then the phase detector polarity will be set
       to negative because of the positive tuning of the VCO.
 
+  spi-max-frequency: true
+
   '#address-cells':
     const: 1
 
@@ -108,13 +110,7 @@ properties:
   '#clock-cells':
     const: 1
 
-required:
-  - compatible
-  - reg
-  - clocks
-  - clock-names
-
-  patternProperties:
+patternProperties:
   "^channel@[01]$":
     type: object
     description: Represents the external channels which are connected to the device.
@@ -143,6 +139,14 @@ required:
 
     required:
       - reg
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
 
 examples:
   - |

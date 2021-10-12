@@ -395,18 +395,7 @@ static int xilinx_ai_engine_probe(struct platform_device *pdev)
 	}
 	adev->pm_node_id = pm_reg[1];
 
-	adev->eemi_ops = zynqmp_pm_get_eemi_ops();
-	if (IS_ERR(adev->eemi_ops)) {
-		dev_err(&adev->dev, "failed to get eemi ops.\n");
-		return PTR_ERR(adev->eemi_ops);
-	}
-	if (!adev->eemi_ops->reset_assert || !adev->eemi_ops->get_chipid ||
-	    !adev->eemi_ops->ioctl) {
-		dev_err(&adev->dev, "required eemi ops not found.\n");
-		return -EINVAL;
-	}
-
-	ret = adev->eemi_ops->get_chipid(&idcode, &version);
+	ret = zynqmp_pm_get_chipid(&idcode, &version);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to get chip ID\n");
 		return ret;
@@ -460,6 +449,13 @@ static int xilinx_ai_engine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to request AIE IRQ.\n");
 		goto free_ida;
 	}
+
+	adev->clk = devm_clk_get(&pdev->dev, NULL);
+	if (!adev->clk) {
+		dev_err(&pdev->dev, "Failed to get device clock.\n");
+		goto free_ida;
+	}
+
 	return 0;
 
 free_ida:
@@ -530,7 +526,7 @@ static int aie_partition_dev_match(struct device *dev, const void *data)
  *	    NULL.
  *
  * This function looks up all the devices of the AI engine class to check if
- * the device is AI engine partition device if if the partition ID matches.
+ * the device is AI engine partition device if the partition ID matches.
  */
 static struct aie_partition *aie_class_find_partition_from_id(u32 partition_id)
 {
@@ -618,6 +614,19 @@ struct device *aie_partition_request(struct aie_partition_req *req)
 		return ERR_PTR(ret);
 
 	ret = aie_partition_get(apart, req);
+
+	/* Sets bitmaps of statically allocated resources */
+	if (!ret && req->meta_data) {
+		ret = aie_part_rscmgr_set_static(apart,
+						 (void *)req->meta_data);
+		if (ret) {
+			/* release partition if failed to set static resources */
+			mutex_unlock(&apart->mlock);
+			fput(apart->filep);
+			return ERR_PTR(ret);
+		}
+	}
+
 	mutex_unlock(&apart->mlock);
 	if (ret)
 		return ERR_PTR(ret);

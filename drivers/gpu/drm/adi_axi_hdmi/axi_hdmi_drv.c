@@ -17,10 +17,10 @@
 #include <linux/of_graph.h>
 #include <linux/clk.h>
 
-#include <drm/drmP.h>
 #include <drm/drm.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_drv.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
@@ -84,12 +84,7 @@ static int axi_hdmi_init(struct drm_driver *ddrv, struct device *dev)
 	}
 
 	drm_mode_config_reset(ddev);
-
-	ret = drm_fbdev_generic_setup(ddev, 32);
-	if (ret) {
-		DRM_ERROR("failed to initialize drm fbdev: %d\n", ret);
-		goto err_crtc;
-	}
+	drm_fbdev_generic_setup(ddev, 32);
 
 	/* init kms poll for handling hpd */
 	drm_kms_helper_poll_init(ddev);
@@ -132,7 +127,7 @@ static struct drm_driver axi_hdmi_driver = {
 	.gem_prime_vunmap	= drm_gem_cma_prime_vunmap,
 	.gem_prime_mmap		= drm_gem_cma_prime_mmap,
 	.dumb_create		= drm_gem_cma_dumb_create,
-	.gem_free_object	= drm_gem_cma_free_object,
+	.gem_free_object_unlocked = drm_gem_cma_free_object,
 	.gem_vm_ops		= &drm_gem_cma_vm_ops,
 	.dumb_create		= drm_gem_cma_dumb_create,
 	.fops			= &axi_hdmi_driver_fops,

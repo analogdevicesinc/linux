@@ -16,6 +16,7 @@
 
 #define AIE_ARRAY_TILE_ERROR_BC_ID		0U
 #define AIE_SHIM_TILE_ERROR_IRQ_ID		16U
+#define AIE_SHIM_INTR_BC_MAX			5U
 
 /**
  * aie_get_broadcast_event() - get event ID being broadcast on given
@@ -52,9 +53,9 @@ static u8 aie_get_broadcast_event(struct aie_partition *apart,
  * @module: module type.
  * @reg: array to store event status register values.
  */
-static void aie_read_event_status(struct aie_partition *apart,
-				  struct aie_location *loc,
-				  enum aie_module_type module, u32 *reg)
+void aie_read_event_status(struct aie_partition *apart,
+			   struct aie_location *loc,
+			   enum aie_module_type module, u32 *reg)
 {
 	const struct aie_event_attr *event_mod;
 	u8 offset;
@@ -407,9 +408,9 @@ static void aie_part_set_event_bitmap(struct aie_partition *apart,
  * @event: event ID to check.
  * @return: true if event has happened, else false.
  */
-static bool aie_check_error_bitmap(struct aie_partition *apart,
-				   struct aie_location loc,
-				   enum aie_module_type module, u8 event)
+bool aie_check_error_bitmap(struct aie_partition *apart,
+			    struct aie_location loc,
+			    enum aie_module_type module, u8 event)
 {
 	struct aie_resource *event_sts;
 	u32 offset;
@@ -741,6 +742,7 @@ irqreturn_t aie_interrupt(int irq, void *data)
 		if (ret) {
 			dev_err(&apart->dev,
 				"Failed to acquire lock. Process was interrupted by fatal signals\n");
+			mutex_unlock(&adev->mlock);
 			return IRQ_NONE;
 		}
 
@@ -773,9 +775,8 @@ irqreturn_t aie_interrupt(int irq, void *data)
 
 	/* For ES1 silicon, interrupts are latched in NPI */
 	if (adev->version == VERSAL_ES1_REV_ID) {
-		ret = adev->eemi_ops->ioctl(adev->pm_node_id,
-					    IOCTL_AIE_ISR_CLEAR,
-					    AIE_NPI_ERROR_ID, 0, NULL);
+		ret = zynqmp_pm_clear_aie_npi_isr(adev->pm_node_id,
+						  AIE_NPI_ERROR_ID);
 		if (ret < 0)
 			dev_err(&adev->dev, "Failed to clear NPI ISR\n");
 	}
@@ -797,10 +798,10 @@ irqreturn_t aie_interrupt(int irq, void *data)
  * @err_attr: error attribute for given module type.
  * @return: total number of errors found.
  */
-static u32 aie_get_module_error_count(struct aie_partition *apart,
-				      struct aie_location loc,
-				      enum aie_module_type module,
-				      const struct aie_error_attr *err_attr)
+u32 aie_get_module_error_count(struct aie_partition *apart,
+			       struct aie_location loc,
+			       enum aie_module_type module,
+			       const struct aie_error_attr *err_attr)
 {
 	u32 count = 0;
 	u8 i, j;
@@ -822,7 +823,7 @@ static u32 aie_get_module_error_count(struct aie_partition *apart,
  * @apart: AIE partition pointer.
  * @return: total number of errors found.
  */
-static u32 aie_get_error_count(struct aie_partition *apart)
+u32 aie_get_error_count(struct aie_partition *apart)
 {
 	const struct aie_error_attr *core_errs = apart->adev->core_errors;
 	const struct aie_error_attr *mem_errs = apart->adev->mem_errors;
@@ -952,6 +953,62 @@ void aie_part_clear_cached_events(struct aie_partition *apart)
 	aie_resource_clear_all(&apart->core_event_status);
 	aie_resource_clear_all(&apart->mem_event_status);
 	aie_resource_clear_all(&apart->pl_event_status);
+}
+
+/**
+ * aie_part_set_intr_rscs() - set broadcast resources used by interrupt
+ * @apart: AIE partition pointer
+ * @return: 0 for sueccess, and negative value for failure
+ *
+ * This function reserves interrupt broadcast channels resources.
+ */
+int aie_part_set_intr_rscs(struct aie_partition *apart)
+{
+	u32 c, r;
+	int ret;
+
+	for (c = 0; c < apart->range.size.col; c++) {
+		u32 b;
+		struct aie_location l = {
+			.col = apart->range.start.col + c,
+			.row = 0,
+		};
+
+		/* reserved broadcast channels 0 - 5 for SHIM */
+		for (b = 0; b <= AIE_SHIM_INTR_BC_MAX; b++) {
+			ret = aie_part_rscmgr_set_tile_broadcast(apart, l,
+								 AIE_PL_MOD,
+								 b);
+			if (ret)
+				return ret;
+		}
+
+		for (r = 1; r < apart->range.size.row; r++) {
+			struct aie_device *adev = apart->adev;
+			struct aie_tile_attr *tattr;
+			u32 m, ttype;
+
+			b = AIE_ARRAY_TILE_ERROR_BC_ID;
+			l.row = apart->range.start.row + r;
+			ttype = adev->ops->get_tile_type(&l);
+
+			if (WARN_ON(ttype >= AIE_TILE_TYPE_MAX))
+				return -EINVAL;
+
+			tattr = &adev->ttype_attr[ttype];
+			for (m = 0; m < tattr->num_mods; m++) {
+				enum aie_module_type mod = tattr->mods[m];
+
+				ret = aie_part_rscmgr_set_tile_broadcast(apart,
+									 l, mod,
+									 b);
+				if (ret)
+					return ret;
+			}
+		}
+	}
+
+	return 0;
 }
 
 /**

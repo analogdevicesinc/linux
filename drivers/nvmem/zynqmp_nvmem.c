@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2017 - 2019 Xilinx, Inc.
+ * Copyright (C) 2017 - 2021 Xilinx, Inc.
  */
 
 #include <linux/dma-mapping.h>
@@ -11,20 +11,23 @@
 #include <linux/firmware/xlnx-zynqmp.h>
 
 #define SILICON_REVISION_MASK 0xF
+#define P_USER_0_64_UPPER_MASK	0x5FFF0000
+#define P_USER_127_LOWER_4_BIT_MASK 0xF
 #define WORD_INBYTES		(4)
 #define SOC_VER_SIZE		(0x4)
-#define EFUSE_MEMORY_SIZE	(0xF4)
+#define EFUSE_MEMORY_SIZE	(0x177)
 #define UNUSED_SPACE		(0x8)
 #define ZYNQMP_NVMEM_SIZE	(SOC_VER_SIZE + UNUSED_SPACE + \
 				 EFUSE_MEMORY_SIZE)
 #define SOC_VERSION_OFFSET	(0x0)
 #define EFUSE_START_OFFSET	(0xC)
 #define EFUSE_END_OFFSET	(0xFC)
+#define EFUSE_PUF_START_OFFSET	(0x100)
+#define EFUSE_PUF_MID_OFFSET	(0x140)
+#define EFUSE_PUF_END_OFFSET	(0x17F)
 #define EFUSE_NOT_ENABLED	(29)
 #define EFUSE_READ		(0)
 #define EFUSE_WRITE		(1)
-
-static const struct zynqmp_eemi_ops *eemi_ops;
 
 /**
  * struct xilinx_efuse - the basic structure
@@ -32,6 +35,8 @@ static const struct zynqmp_eemi_ops *eemi_ops;
  * @size:	no of words to be read/write
  * @offset:	offset to be read/write`
  * @flag:	0 - represents efuse read and 1- represents efuse write
+ * @pufuserfuse:0 - represents non-puf efuses, offset is used for read/write
+ *		1 - represents puf user fuse row number.
  *
  * this structure stores all the required details to
  * read/write efuse memory.
@@ -41,31 +46,44 @@ struct xilinx_efuse {
 	u32 size;
 	u32 offset;
 	u32 flag;
-	u32 fullmap;
+	u32 pufuserfuse;
 };
 
 static int zynqmp_efuse_access(void *context, unsigned int offset,
-			       void *val, size_t bytes, unsigned int flag)
+			       void *val, size_t bytes, unsigned int flag,
+			       unsigned int pufflag)
 {
 	size_t words = bytes / WORD_INBYTES;
 	struct device *dev = context;
 	dma_addr_t dma_addr, dma_buf;
 	struct xilinx_efuse *efuse;
 	char *data;
-	int ret;
-
-	if (!eemi_ops->efuse_access)
-		return -ENXIO;
+	int ret, value;
 
 	if (bytes % WORD_INBYTES != 0) {
-		dev_err(dev,
-			"ERROR: Bytes requested should be word aligned\n\r");
-		return -ENOTSUPP;
+		dev_err(dev, "Bytes requested should be word aligned\n");
+		return -EOPNOTSUPP;
 	}
-	if (offset % WORD_INBYTES != 0) {
-		dev_err(dev,
-			"ERROR: offset requested should be word aligned\n\r");
-		return -ENOTSUPP;
+
+	if (pufflag == 0 && offset % WORD_INBYTES) {
+		dev_err(dev, "Offset requested should be word aligned\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (pufflag == 1 && flag == EFUSE_WRITE) {
+		memcpy(&value, val, bytes);
+		if ((offset == EFUSE_PUF_START_OFFSET ||
+		     offset == EFUSE_PUF_MID_OFFSET) &&
+		    value & P_USER_0_64_UPPER_MASK) {
+			dev_err(dev, "Only lower 4 bytes are allowed to be programmed in P_USER_0 & P_USER_64\n");
+			return -EOPNOTSUPP;
+		}
+
+		if (offset == EFUSE_PUF_END_OFFSET &&
+		    (value & P_USER_127_LOWER_4_BIT_MASK)) {
+			dev_err(dev, "Only MSB 28 bits are allowed to be programmed for P_USER_127\n");
+			return -EOPNOTSUPP;
+		}
 	}
 
 	efuse = dma_alloc_coherent(dev, sizeof(struct xilinx_efuse),
@@ -91,15 +109,16 @@ static int zynqmp_efuse_access(void *context, unsigned int offset,
 	efuse->src = dma_buf;
 	efuse->size = words;
 	efuse->offset = offset;
+	efuse->pufuserfuse = pufflag;
 
-	eemi_ops->efuse_access(dma_addr, &ret);
+	zynqmp_pm_efuse_access(dma_addr, (u32 *)&ret);
 	if (ret != 0) {
 		if (ret == EFUSE_NOT_ENABLED) {
-			dev_err(dev, "ERROR: efuse access is not enabled\n\r");
-			ret = -ENOTSUPP;
+			dev_err(dev, "efuse access is not enabled\n");
+			ret = -EOPNOTSUPP;
 			goto END;
 		}
-		dev_err(dev, "ERROR: in efuse read %x\n\r", ret);
+		dev_err(dev, "Error in efuse read %x\n", ret);
 		ret = -EPERM;
 		goto END;
 	}
@@ -119,19 +138,19 @@ END:
 static int zynqmp_nvmem_read(void *context, unsigned int offset,
 					void *val, size_t bytes)
 {
-	int ret;
+	int ret, pufflag = 0;
 	int idcode, version;
 
-	if (!eemi_ops->get_chipid)
-		return -ENXIO;
+	if (offset >= EFUSE_PUF_START_OFFSET && offset <= EFUSE_PUF_END_OFFSET)
+		pufflag = 1;
 
 	switch (offset) {
 	/* Soc version offset is zero */
 	case SOC_VERSION_OFFSET:
 		if (bytes != SOC_VER_SIZE)
-			return -ENOTSUPP;
+			return -EOPNOTSUPP;
 
-		ret = eemi_ops->get_chipid(&idcode, &version);
+		ret = zynqmp_pm_get_chipid((u32 *)&idcode, (u32 *)&version);
 		if (ret < 0)
 			return ret;
 
@@ -140,8 +159,9 @@ static int zynqmp_nvmem_read(void *context, unsigned int offset,
 		break;
 	/* Efuse offset starts from 0xc */
 	case EFUSE_START_OFFSET ... EFUSE_END_OFFSET:
+	case EFUSE_PUF_START_OFFSET ... EFUSE_PUF_END_OFFSET:
 		ret = zynqmp_efuse_access(context, offset, val,
-					  bytes, EFUSE_READ);
+					  bytes, EFUSE_READ, pufflag);
 		break;
 	default:
 		*(u32 *)val = 0xDEADBEEF;
@@ -155,12 +175,16 @@ static int zynqmp_nvmem_read(void *context, unsigned int offset,
 static int zynqmp_nvmem_write(void *context,
 			      unsigned int offset, void *val, size_t bytes)
 {
-	/* Efuse offset starts from 0xc */
-	if (offset < EFUSE_START_OFFSET)
-		return -ENOTSUPP;
+	int pufflag = 0;
 
-	return(zynqmp_efuse_access(context, offset,
-				   val, bytes, EFUSE_WRITE));
+	if (offset < EFUSE_START_OFFSET || offset > EFUSE_PUF_END_OFFSET)
+		return -EOPNOTSUPP;
+
+	if (offset >= EFUSE_PUF_START_OFFSET && offset <= EFUSE_PUF_END_OFFSET)
+		pufflag = 1;
+
+	return zynqmp_efuse_access(context, offset,
+				   val, bytes, EFUSE_WRITE, pufflag);
 }
 
 static struct nvmem_config econfig = {
@@ -179,10 +203,6 @@ MODULE_DEVICE_TABLE(of, zynqmp_nvmem_match);
 static int zynqmp_nvmem_probe(struct platform_device *pdev)
 {
 	struct nvmem_device *nvmem;
-
-	eemi_ops = zynqmp_pm_get_eemi_ops();
-	if (IS_ERR(eemi_ops))
-		return PTR_ERR(eemi_ops);
 
 	econfig.dev = &pdev->dev;
 	econfig.priv = &pdev->dev;

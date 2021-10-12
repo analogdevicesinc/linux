@@ -274,6 +274,7 @@ struct adar1000_tx_bias_setting {
 struct adar1000_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
+	struct iio_dev 		*indio_dev;
 	u16			dev_addr;
 
 	int			tx_phase[4];
@@ -2385,17 +2386,13 @@ out:
 
 static int adar1000_request_pt(struct adar1000_state *st)
 {
-
-	struct iio_dev *indio_dev;
 	const struct firmware *fw;
 	struct adar1000_phase *phase_table;
 	const char *name;
 	char *cpy;
 	int ret;
 
-	indio_dev = iio_priv_to_dev(st);
-
-	if (of_property_read_string(indio_dev->dev.of_node,
+	if (of_property_read_string(st->indio_dev->dev.of_node,
 				    "adi,phasetable-name", &name))
 		return -ENOENT;
 
@@ -2557,6 +2554,7 @@ static int adar1000_probe(struct spi_device *spi)
 			return -ENOMEM;
 
 		st = iio_priv(indio_dev);
+		st->indio_dev = indio_dev;
 		st->spi = spi;
 		st->regmap = regmap;
 

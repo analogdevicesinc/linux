@@ -19,7 +19,7 @@
 #include <linux/nvmem-provider.h>
 #include "pmbus.h"
 #include <linux/slab.h>
-#include <linux/time.h>
+#include <linux/timekeeping.h>
 
 #define ADM1266_BLACKBOX_CONFIG	0xD3
 #define ADM1266_PDIO_CONFIG	0xD4
@@ -332,7 +332,6 @@ static int adm1266_state_read(struct seq_file *s, void *pdata)
 
 static void adm1266_init_debugfs(struct adm1266_data *data)
 {
-	struct dentry *entry;
 	struct dentry *root;
 
 	root = pmbus_get_debugfs_dir(data->client);
@@ -343,8 +342,8 @@ static void adm1266_init_debugfs(struct adm1266_data *data)
 	if (!data->debugfs_dir)
 		return;
 
-	entry = debugfs_create_devm_seqfile(&data->client->dev, "sequencer_state",
-					    data->debugfs_dir, adm1266_state_read);
+	debugfs_create_devm_seqfile(&data->client->dev, "sequencer_state", data->debugfs_dir,
+				    adm1266_state_read);
 }
 
 static int adm1266_nvmem_read_blackbox(struct adm1266_data *data, u8 *read_buff)
@@ -430,22 +429,22 @@ static int adm1266_config_nvmem(struct adm1266_data *data)
 
 static int adm1266_set_rtc(struct adm1266_data *data)
 {
-	struct timespec ts;
+	time64_t kt;
 	char write_buf[6];
 	int i;
 
-	getnstimeofday(&ts);
+	kt = ktime_get_seconds();
 
 	memset(write_buf, 0, sizeof(write_buf));
 
 	for (i = 0; i < 4; i++)
-		write_buf[2 + i] = (ts.tv_sec >> (i * 8)) & 0xFF;
+		write_buf[2 + i] = (kt >> (i * 8)) & 0xFF;
 
 	return i2c_smbus_write_block_data(data->client, ADM1266_SET_RTC, sizeof(write_buf),
 					  write_buf);
 }
 
-static int adm1266_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int adm1266_probe(struct i2c_client *client)
 {
 	struct adm1266_data *data;
 	int ret;
@@ -476,7 +475,7 @@ static int adm1266_probe(struct i2c_client *client, const struct i2c_device_id *
 	if (ret < 0)
 		return ret;
 
-	ret = pmbus_do_probe(client, id, &data->info);
+	ret = pmbus_do_probe(client, &data->info);
 	if (ret)
 		return ret;
 
@@ -502,7 +501,7 @@ static struct i2c_driver adm1266_driver = {
 		   .name = "adm1266",
 		   .of_match_table = adm1266_of_match,
 		  },
-	.probe = adm1266_probe,
+	.probe_new = adm1266_probe,
 	.remove = pmbus_do_remove,
 	.id_table = adm1266_id,
 };

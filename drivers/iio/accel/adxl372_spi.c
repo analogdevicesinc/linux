@@ -41,7 +41,7 @@ MODULE_DEVICE_TABLE(spi, adxl372_spi_id);
 
 static const struct of_device_id adxl372_of_match[] = {
 	{ .compatible = "adi,adxl372" },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, adxl372_of_match);
 

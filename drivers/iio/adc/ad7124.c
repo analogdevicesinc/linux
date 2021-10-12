@@ -909,7 +909,6 @@ static int ad7124_probe(struct spi_device *spi)
 	st->sd.num_slots = AD7124_SEQUENCER_SLOTS;
 	spi_set_drvdata(spi, indio_dev);
 
-	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad7124_info;

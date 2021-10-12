@@ -91,10 +91,6 @@
 #define XEL_HEADER_IP_LENGTH_OFFSET	16	/* IP Length Offset */
 
 #define TX_TIMEOUT		(60 * HZ)	/* Tx timeout is 60 seconds. */
-#define ALIGNMENT		4
-
-/* BUFFER_ALIGN(adr) calculates the number of bytes to the next alignment. */
-#define BUFFER_ALIGN(adr) ((ALIGNMENT - ((ulong)adr)) % ALIGNMENT)
 
 #ifdef __BIG_ENDIAN
 #define xemaclite_readl		ioread32be
@@ -517,7 +513,7 @@ static int xemaclite_set_mac_address(struct net_device *dev, void *address)
  *
  * This function is called when Tx time out occurs for Emaclite device.
  */
-static void xemaclite_tx_timeout(struct net_device *dev)
+static void xemaclite_tx_timeout(struct net_device *dev, unsigned int txqueue)
 {
 	struct net_local *lp = netdev_priv(dev);
 	unsigned long flags;
@@ -592,11 +588,10 @@ static void xemaclite_rx_handler(struct net_device *dev)
 {
 	struct net_local *lp = netdev_priv(dev);
 	struct sk_buff *skb;
-	unsigned int align;
 	u32 len;
 
 	len = ETH_FRAME_LEN + ETH_FCS_LEN;
-	skb = netdev_alloc_skb(dev, len + ALIGNMENT);
+	skb = netdev_alloc_skb(dev, len + NET_IP_ALIGN);
 	if (!skb) {
 		/* Couldn't get memory. */
 		dev->stats.rx_dropped++;
@@ -604,16 +599,7 @@ static void xemaclite_rx_handler(struct net_device *dev)
 		return;
 	}
 
-	/* A new skb should have the data halfword aligned, but this code is
-	 * here just in case that isn't true. Calculate how many
-	 * bytes we should reserve to get the data to start on a word
-	 * boundary
-	 */
-	align = BUFFER_ALIGN(skb->data);
-	if (align)
-		skb_reserve(skb, align);
-
-	skb_reserve(skb, 2);
+	skb_reserve(skb, NET_IP_ALIGN);
 
 	len = xemaclite_recv_data(lp, (u8 *)skb->data, len);
 
@@ -924,7 +910,6 @@ static int xemaclite_open(struct net_device *dev)
 	xemaclite_disable_interrupts(lp);
 
 	if (lp->phy_node) {
-		int bmcr;
 
 		lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
 					     xemaclite_adjust_link, 0,
@@ -936,25 +921,6 @@ static int xemaclite_open(struct net_device *dev)
 
 		/* EmacLite doesn't support giga-bit speeds */
 		phy_set_max_speed(lp->phy_dev, SPEED_100);
-
-		/* Don't advertise 1000BASE-T Full/Half duplex speeds */
-		phy_write(lp->phy_dev, MII_CTRL1000, 0);
-
-		/* Advertise only 10 and 100mbps full/half duplex speeds */
-		phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL |
-			  ADVERTISE_CSMA);
-
-		/* Restart auto negotiation */
-		bmcr = phy_read(lp->phy_dev, MII_BMCR);
-		if (bmcr < 0) {
-			dev_err(&lp->ndev->dev, "phy_read failed\n");
-			phy_disconnect(lp->phy_dev);
-			lp->phy_dev = NULL;
-
-			return bmcr;
-		}
-		bmcr |= (BMCR_ANENABLE | BMCR_ANRESTART);
-		phy_write(lp->phy_dev, MII_BMCR, bmcr);
 
 		phy_start(lp->phy_dev);
 	}

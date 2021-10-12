@@ -2,151 +2,15 @@
 /*
  * Xilinx SYSMON for Versal
  *
- * Copyright (C) 2019 - 2020 Xilinx, Inc.
+ * Copyright (C) 2019 - 2021 Xilinx, Inc.
  *
  * Description:
  * This driver is developed for SYSMON on Versal. The driver supports INDIO Mode
- * and supports voltage and temperature monitoring via IIO sysfs interface.
+ * and supports voltage and temperature monitoring via IIO sysfs interface and
+ * in kernel event monitoring for some modules.
  */
 
-#include <linux/clk.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/io.h>
-#include <linux/iio/buffer.h>
-#include <linux/iio/events.h>
-#include <linux/iio/sysfs.h>
-#include <linux/iopoll.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <linux/of_address.h>
-
-/* Channel IDs for Temp Channels */
-/* TEMP_MAX gives the current temperature for Production
- * silicon.
- * TEMP_MAX gives the current maximum temperature for ES1
- * silicon.
- */
-#define TEMP_MAX	160
-
-/* TEMP_MIN is not applicable for Production silicon.
- * TEMP_MIN gives the current minimum temperature for ES1 silicon.
- */
-#define TEMP_MIN	161
-
-#define TEMP_MAX_MAX	162
-#define TEMP_MIN_MIN	163
-#define TEMP_EVENT	164
-#define OT_EVENT	165
-
-/* Register Unlock Code */
-#define NPI_UNLOCK	0xF9E8D7C6
-
-/* Register Offsets */
-#define SYSMON_NPI_LOCK		0x000C
-#define SYSMON_ISR		0x0044
-#define SYSMON_IMR		0x0048
-#define SYSMON_IER		0x004C
-#define SYSMON_IDR		0x0050
-#define SYSMON_ALARM_FLAG	0x1018
-#define SYSMON_TEMP_MAX		0x1030
-#define SYSMON_TEMP_MIN		0x1034
-#define SYSMON_SUPPLY_BASE	0x1040
-#define SYSMON_ALARM_REG	0x1940
-#define SYSMON_TEMP_TH_LOW	0x1970
-#define SYSMON_TEMP_TH_UP	0x1974
-#define SYSMON_OT_TH_LOW	0x1978
-#define SYSMON_OT_TH_UP		0x197C
-#define SYSMON_SUPPLY_TH_LOW	0x1980
-#define SYSMON_SUPPLY_TH_UP	0x1C80
-#define SYSMON_TEMP_MAX_MAX	0x1F90
-#define SYSMON_TEMP_MIN_MIN	0x1F8C
-#define SYSMON_TEMP_EV_CFG	0x1F84
-
-#define SYSMON_NO_OF_EVENTS	32
-
-/* Supply Voltage Conversion macros */
-#define SYSMON_MANTISSA_MASK		0xFFFF
-#define SYSMON_FMT_MASK			0x10000
-#define SYSMON_FMT_SHIFT		16
-#define SYSMON_MODE_MASK		0x60000
-#define SYSMON_MODE_SHIFT		17
-#define SYSMON_MANTISSA_SIGN_SHIFT	15
-#define SYSMON_UPPER_SATURATION_SIGNED	32767
-#define SYSMON_LOWER_SATURATION_SIGNED	-32768
-#define SYSMON_UPPER_SATURATION		65535
-#define SYSMON_LOWER_SATURATION		0
-
-#define SYSMON_CHAN_TEMP_EVENT(_address, _ext, _events) { \
-	.type = IIO_TEMP, \
-	.indexed = 1, \
-	.address = _address, \
-	.channel = _address, \
-	.event_spec = _events, \
-	.num_event_specs = ARRAY_SIZE(_events), \
-	.scan_type = { \
-		.sign = 's', \
-		.realbits = 15, \
-		.storagebits = 16, \
-		.endianness = IIO_CPU, \
-	}, \
-	.extend_name = _ext, \
-	}
-
-#define SYSMON_CHAN_TEMP(_address, _ext) { \
-	.type = IIO_TEMP, \
-	.indexed = 1, \
-	.address = _address, \
-	.channel = _address, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
-		BIT(IIO_CHAN_INFO_PROCESSED), \
-	.scan_type = { \
-		.sign = 's', \
-		.realbits = 15, \
-		.storagebits = 16, \
-		.endianness = IIO_CPU, \
-	}, \
-	.extend_name = _ext, \
-}
-
-#define twoscomp(val) ((((val) ^ 0xFFFF) + 1) & 0x0000FFFF)
-#define ALARM_REG(address) ((address) / 32)
-#define ALARM_SHIFT(address) ((address) % 32)
-
-enum sysmon_alarm_bit {
-	SYSMON_BIT_ALARM0 = 0,
-	SYSMON_BIT_ALARM1 = 1,
-	SYSMON_BIT_ALARM2 = 2,
-	SYSMON_BIT_ALARM3 = 3,
-	SYSMON_BIT_ALARM4 = 4,
-	SYSMON_BIT_ALARM5 = 5,
-	SYSMON_BIT_ALARM6 = 6,
-	SYSMON_BIT_ALARM7 = 7,
-	SYSMON_BIT_OT = 8,
-	SYSMON_BIT_TEMP = 9,
-};
-
-/**
- * struct sysmon - Driver data for Sysmon
- * @base: physical base address of device
- * @dev: pointer to device struct
- * @mutex: to handle multiple user interaction
- * @lock: to help manage interrupt registers correctly
- * @irq: interrupt number of the sysmon
- *
- * This structure contains necessary state for Sysmon driver to operate
- */
-struct sysmon {
-	void __iomem *base;
-	struct device *dev;
-	/* kernel doc above */
-	struct mutex mutex;
-	/* kernel doc above*/
-	spinlock_t lock;
-	int irq;
-};
+#include "versal-sysmon.h"
 
 /* This structure describes temperature events */
 static const struct iio_event_spec sysmon_temp_events[] = {
@@ -193,6 +57,10 @@ static const struct iio_chan_spec temp_channels[] = {
 	SYSMON_CHAN_TEMP(TEMP_MIN, "min"),
 	SYSMON_CHAN_TEMP(TEMP_MAX_MAX, "max_max"),
 	SYSMON_CHAN_TEMP(TEMP_MIN_MIN, "min_min"),
+};
+
+/* Temperature event attributes */
+static const struct iio_chan_spec temp_events[] = {
 	SYSMON_CHAN_TEMP_EVENT(TEMP_EVENT, "temp", sysmon_temp_events),
 	SYSMON_CHAN_TEMP_EVENT(OT_EVENT, "ot", sysmon_temp_events),
 };
@@ -488,12 +356,14 @@ static int sysmon_write_event_config(struct iio_dev *indio_dev,
 			sysmon_write_reg(sysmon, SYSMON_IER, ier);
 		else
 			sysmon_write_reg(sysmon, SYSMON_IDR, ier);
-
 	} else {
-		if (state)
+		if (state) {
 			sysmon_write_reg(sysmon, SYSMON_IER, ier);
-		else
+			sysmon->temp_mask &= ~ier;
+		} else {
 			sysmon_write_reg(sysmon, SYSMON_IDR, ier);
+			sysmon->temp_mask |= ier;
+		}
 	}
 
 	spin_unlock_irqrestore(&sysmon->lock, flags);
@@ -582,6 +452,154 @@ static const struct iio_info iio_dev_info = {
 	.write_event_value = sysmon_write_event_value,
 };
 
+/* sysmon instance for in kernel exported functions */
+static struct sysmon *g_sysmon;
+
+/**
+ * sysmon_register_temp_ops - register temperature based event handler for a
+ *			      given region.
+ * @cb: callback function pointer.
+ * @data: private data to be passed to the callback.
+ * @region_id: id of the region for which the callback is to be set.
+ * @return: 0 for success and negative number in case of failure.
+ */
+int sysmon_register_temp_ops(void (*cb)(void *data, struct regional_node *node),
+			     void *data, enum sysmon_region region_id)
+{
+	struct sysmon *sysmon = g_sysmon;
+	struct region_info *region;
+	int ret = 0, found = 0;
+
+	if (!cb || !sysmon)
+		return -EINVAL;
+
+	ret = mutex_lock_interruptible(&sysmon->mutex);
+	if (ret) {
+		dev_err(sysmon->dev, "Failed to acquire a lock. Process was interrupted by fatal signals");
+		return ret;
+	}
+
+	if (list_empty(&sysmon->region_list)) {
+		dev_err(sysmon->dev, "Failed to set a callback. HW node info missing in the device tree/ Not supported for this device");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	list_for_each_entry(region, &sysmon->region_list, list) {
+		if (region->id == region_id) {
+			found = 1;
+			if (region->cb) {
+				dev_err(sysmon->dev, "Error callback already set. Unregister the existing callback to set a new one.");
+				ret = -EINVAL;
+				goto exit;
+			}
+			region->cb = cb;
+			region->data = data;
+			break;
+		}
+	}
+
+	if (!found) {
+		dev_err(sysmon->dev, "Error invalid region. Please select the correct region");
+		ret = -EINVAL;
+	}
+
+exit:
+	mutex_unlock(&sysmon->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(sysmon_register_temp_ops);
+
+/**
+ * sysmon_unregister_temp_ops - Unregister the callback for temperature
+ *				notification.
+ * @region_id: id of the region for which the callback is to be set.
+ * @return: 0 for success and negative number in case of failure.
+ */
+int sysmon_unregister_temp_ops(enum sysmon_region region_id)
+{
+	struct sysmon *sysmon = g_sysmon;
+	struct region_info *region;
+	int ret = 0, found = 0;
+
+	if (!sysmon)
+		return -EINVAL;
+
+	ret = mutex_lock_interruptible(&sysmon->mutex);
+	if (ret) {
+		dev_err(sysmon->dev, "Failed to acquire a lock. Process was interrupted by fatal signals");
+		return ret;
+	}
+
+	if (list_empty(&sysmon->region_list)) {
+		dev_err(sysmon->dev, "Failed to set a callback. HW node info missing in the device tree/ Not supported for this device");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	list_for_each_entry(region, &sysmon->region_list, list) {
+		if (region->id == region_id) {
+			found = 1;
+			region->cb = NULL;
+			region->data = NULL;
+			break;
+		}
+	}
+
+	if (!found) {
+		dev_err(sysmon->dev, "Error no such region. Please select the correct region");
+		ret = -EINVAL;
+	}
+
+exit:
+	mutex_unlock(&sysmon->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(sysmon_unregister_temp_ops);
+
+/**
+ * sysmon_nodes_by_region - returns the nodes list for a particular region.
+ * @region_id: id for the region for which nodes are requested.
+ * @return: Pointer to the linked list or NULL if region is not present.
+ */
+struct list_head *sysmon_nodes_by_region(enum sysmon_region region_id)
+{
+	struct sysmon *sysmon = g_sysmon;
+	struct region_info *region;
+
+	if (!sysmon)
+		return NULL;
+
+	list_for_each_entry(region, &sysmon->region_list, list) {
+		if (region->id == region_id)
+			return &region->node_list;
+	}
+
+	dev_err(sysmon->dev, "Error invalid region. Please select the correct region");
+
+	return NULL;
+}
+EXPORT_SYMBOL(sysmon_nodes_by_region);
+
+/**
+ * sysmon_get_node_value - returns value of the sensor at a node.
+ * @sat_id: id of the node.
+ * @return: -EINVAL if not initialized or returns raw value of the sensor.
+ */
+int sysmon_get_node_value(int sat_id)
+{
+	struct sysmon *sysmon = g_sysmon;
+	u32 raw;
+
+	if (!sysmon)
+		return -EINVAL;
+
+	sysmon_read_reg(sysmon, SYSMON_NODE_OFFSET, &raw);
+
+	return raw;
+}
+EXPORT_SYMBOL(sysmon_get_node_value);
+
 static void sysmon_push_event(struct iio_dev *indio_dev, u32 address)
 {
 	u32 i;
@@ -600,6 +618,34 @@ static void sysmon_push_event(struct iio_dev *indio_dev, u32 address)
 	}
 }
 
+static void sysmon_region_event_handler(struct sysmon *sysmon)
+{
+	struct region_info *region;
+	struct regional_node *node, *eventnode;
+	u32 regval, event = 0;
+	u16 thresh_up, val;
+
+	sysmon_read_reg(sysmon, SYSMON_TEMP_TH_UP, &regval);
+	thresh_up = (u16)regval;
+
+	list_for_each_entry(region, &sysmon->region_list, list) {
+		list_for_each_entry(node, &region->node_list,
+				    regional_node_list) {
+			val = sysmon_get_node_value(node->sat_id);
+
+			/* Find the highest value */
+			if (compare(val, thresh_up)) {
+				eventnode = node;
+				eventnode->temp = val;
+				thresh_up = val;
+				event = 1;
+			}
+		}
+		if (event && region->cb)
+			region->cb(region->data, eventnode);
+	}
+}
+
 static void sysmon_handle_event(struct iio_dev *indio_dev, u32 event)
 {
 	struct sysmon *sysmon = iio_priv(indio_dev);
@@ -613,12 +659,16 @@ static void sysmon_handle_event(struct iio_dev *indio_dev, u32 event)
 		address = TEMP_EVENT;
 		sysmon_push_event(indio_dev, address);
 		sysmon_write_reg(sysmon, SYSMON_IDR, BIT(SYSMON_BIT_TEMP));
+		sysmon->masked_temp |= BIT(SYSMON_BIT_TEMP);
+		sysmon_region_event_handler(sysmon);
 		break;
 
 	case SYSMON_BIT_OT:
 		address = OT_EVENT;
 		sysmon_push_event(indio_dev, address);
-		sysmon_write_reg(sysmon, SYSMON_IDR, BIT(SYSMON_BIT_TEMP));
+		sysmon_write_reg(sysmon, SYSMON_IDR, BIT(SYSMON_BIT_OT));
+		sysmon->masked_temp |= BIT(SYSMON_BIT_OT);
+		sysmon_region_event_handler(sysmon);
 		break;
 
 	case SYSMON_BIT_ALARM4:
@@ -655,6 +705,62 @@ static void sysmon_handle_events(struct iio_dev *indio_dev,
 		sysmon_handle_event(indio_dev, bit);
 }
 
+static void sysmon_unmask_temp(struct sysmon *sysmon, unsigned int isr)
+{
+	unsigned int unmask, status;
+
+	status = isr & SYSMON_TEMP_MASK;
+
+	/* clear bits that are not active any more */
+	unmask = (sysmon->masked_temp ^ status) & sysmon->masked_temp;
+	sysmon->masked_temp &= status;
+
+	/* clear status of disabled alarm */
+	unmask &= ~sysmon->temp_mask;
+
+	sysmon_write_reg(sysmon, SYSMON_IER, unmask);
+}
+
+/*
+ * The Versal threshold interrupts are level sensitive. Since we can't make the
+ * threshold condition go way from within the interrupt handler, this means as
+ * soon as a threshold condition is present we would enter the interrupt handler
+ * again and again. To work around this we mask all active thresholds interrupts
+ * in the interrupt handler and start a timer. In this timer we poll the
+ * interrupt status and only if the interrupt is inactive we unmask it again.
+ */
+static void sysmon_unmask_worker(struct work_struct *work)
+{
+	struct sysmon *sysmon = container_of(work, struct sysmon,
+					     sysmon_unmask_work.work);
+	unsigned int isr;
+
+	spin_lock_irq(&sysmon->lock);
+
+	/* Read the current interrupt status */
+	sysmon_read_reg(sysmon, SYSMON_ISR, &isr);
+
+	/* Clear interrupts */
+	sysmon_write_reg(sysmon, SYSMON_ISR, isr);
+
+	sysmon_unmask_temp(sysmon, isr);
+
+	spin_unlock_irq(&sysmon->lock);
+
+	/* if still pending some alarm re-trigger the timer */
+	if (sysmon->masked_temp)
+		schedule_delayed_work(&sysmon->sysmon_unmask_work,
+				      msecs_to_jiffies(500));
+	else
+		/*
+		 * Reset the temp_max_max and temp_min_min values to reset the
+		 * previously reached high/low values during an alarm.
+		 * This will enable the user to see the high/low values attained
+		 * during an event
+		 */
+		sysmon_write_reg(sysmon, SYSMON_STATUS_RESET, 1);
+}
+
 static irqreturn_t sysmon_iio_irq(int irq, void *data)
 {
 	u32 isr, imr;
@@ -673,8 +779,10 @@ static irqreturn_t sysmon_iio_irq(int irq, void *data)
 	sysmon_write_reg(sysmon, SYSMON_ISR, isr);
 
 	if (isr) {
-		/* Clear the interrupts*/
 		sysmon_handle_events(indio_dev, isr);
+
+		schedule_delayed_work(&sysmon->sysmon_unmask_work,
+				      msecs_to_jiffies(500));
 	}
 
 	spin_unlock(&sysmon->lock);
@@ -682,26 +790,88 @@ static irqreturn_t sysmon_iio_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int get_hw_node_properties(struct platform_device *pdev,
+				  struct list_head *region_list)
+{
+	struct region_info *region = NULL;
+	struct regional_node *nodes;
+	struct device_node *np = pdev->dev.of_node;
+	int size;
+	u32 id, satid, x, y, i, offset, prev = 0;
+
+	/* get hw-node-info */
+	if (!of_get_property(np, "hw-node", &size))
+		return 0;
+
+	if (size % 16) {
+		dev_info(&pdev->dev, "HW-Node properties not correct");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < (size / 16); i++) {
+		offset = i * 4;
+		of_property_read_u32_index(np, "hw-node", offset, &id);
+		of_property_read_u32_index(np, "hw-node", offset + 1, &satid);
+		of_property_read_u32_index(np, "hw-node", offset + 2, &x);
+		of_property_read_u32_index(np, "hw-node", offset + 3, &y);
+
+		if (list_empty(region_list) || prev != id) {
+			region = devm_kzalloc(&pdev->dev, sizeof(*region),
+					      GFP_KERNEL);
+			if (!region)
+				return -ENOMEM;
+
+			region->id = id;
+			INIT_LIST_HEAD(&region->node_list);
+			list_add(&region->list, region_list);
+		}
+
+		prev = id;
+		nodes = devm_kzalloc(&pdev->dev, sizeof(*nodes), GFP_KERNEL);
+		if (!nodes)
+			return -ENOMEM;
+		nodes->sat_id = satid;
+		nodes->x = x;
+		nodes->y = y;
+		list_add(&nodes->regional_node_list, &region->node_list);
+	}
+
+	return 0;
+}
+
 static int sysmon_parse_dt(struct iio_dev *indio_dev,
 			   struct platform_device *pdev)
 {
+	struct sysmon *sysmon;
 	struct iio_chan_spec *sysmon_channels;
 	struct device_node *child_node = NULL, *np = pdev->dev.of_node;
 	int ret, i = 0;
 	u8 num_supply_chan = 0;
-	u32 reg = 0;
+	u32 reg = 0, num_temp_chan = 0;
 	const char *name;
 	u32 chan_size = sizeof(struct iio_chan_spec);
+	u32 temp_chan_size;
 
+	sysmon = iio_priv(indio_dev);
 	ret = of_property_read_u8(np, "xlnx,numchannels", &num_supply_chan);
 	if (ret < 0)
 		return ret;
 
+	INIT_LIST_HEAD(&sysmon->region_list);
+
+	if (sysmon->irq > 0)
+		get_hw_node_properties(pdev, &sysmon->region_list);
+
 	/* Initialize buffer for channel specification */
+	temp_chan_size = (sysmon->irq > 0) ? (sizeof(temp_channels) +
+					      sizeof(temp_events)) :
+		sizeof(temp_channels);
+
+	num_temp_chan = ARRAY_SIZE(temp_channels);
+
 	sysmon_channels = devm_kzalloc(&pdev->dev,
 				       (chan_size * num_supply_chan) +
-				       sizeof(temp_channels),
-				       GFP_KERNEL);
+				       temp_chan_size, GFP_KERNEL);
 
 	for_each_child_of_node(np, child_node) {
 		ret = of_property_read_u32(child_node, "reg", &reg);
@@ -718,9 +888,13 @@ static int sysmon_parse_dt(struct iio_dev *indio_dev,
 		sysmon_channels[i].channel = reg;
 		sysmon_channels[i].info_mask_separate =
 			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED);
-		sysmon_channels[i].event_spec = sysmon_supply_events;
-		sysmon_channels[i].num_event_specs =
-			ARRAY_SIZE(sysmon_supply_events);
+
+		if (sysmon->irq > 0) {
+			sysmon_channels[i].event_spec = sysmon_supply_events;
+			sysmon_channels[i].num_event_specs =
+				ARRAY_SIZE(sysmon_supply_events);
+		}
+
 		sysmon_channels[i].scan_index = i;
 		sysmon_channels[i].scan_type.realbits = 19;
 		sysmon_channels[i].scan_type.storagebits = 32;
@@ -739,11 +913,26 @@ static int sysmon_parse_dt(struct iio_dev *indio_dev,
 	/* Append static temperature channels to the channel list */
 	memcpy(sysmon_channels + num_supply_chan, temp_channels,
 	       sizeof(temp_channels));
-
-	indio_dev->channels = sysmon_channels;
 	indio_dev->num_channels = num_supply_chan + ARRAY_SIZE(temp_channels);
 
+	if (sysmon->irq > 0) {
+		memcpy(sysmon_channels + num_supply_chan + num_temp_chan,
+		       temp_events, sizeof(temp_events));
+		indio_dev->num_channels += ARRAY_SIZE(temp_events);
+	}
+
+	indio_dev->channels = sysmon_channels;
+
 	return 0;
+}
+
+static void sysmon_init_interrupt(struct sysmon *sysmon)
+{
+	u32 imr;
+
+	/* Read default Interrupt Mask */
+	sysmon_read_reg(sysmon, SYSMON_IMR, &imr);
+	sysmon->temp_mask = imr & SYSMON_TEMP_MASK;
 }
 
 static int sysmon_probe(struct platform_device *pdev)
@@ -759,9 +948,7 @@ static int sysmon_probe(struct platform_device *pdev)
 
 	sysmon = iio_priv(indio_dev);
 
-	sysmon->irq = platform_get_irq(pdev, 0);
-	if (sysmon->irq <= 0)
-		return -ENXIO;
+	sysmon->dev = &pdev->dev;
 
 	mutex_init(&sysmon->mutex);
 	spin_lock_init(&sysmon->lock);
@@ -779,20 +966,34 @@ static int sysmon_probe(struct platform_device *pdev)
 
 	sysmon_write_reg(sysmon, SYSMON_NPI_LOCK, NPI_UNLOCK);
 
+	sysmon->irq = platform_get_irq_optional(pdev, 0);
+
 	ret = sysmon_parse_dt(indio_dev, pdev);
 	if (ret)
 		return ret;
 
-	ret = devm_request_irq(&pdev->dev, sysmon->irq, &sysmon_iio_irq, 0,
-			       "sysmon-irq", indio_dev);
-	if (ret < 0)
-		return ret;
+	if (sysmon->irq > 0) {
+		g_sysmon = sysmon;
+		INIT_DELAYED_WORK(&sysmon->sysmon_unmask_work,
+				  sysmon_unmask_worker);
+		sysmon_init_interrupt(sysmon);
+		ret = devm_request_irq(&pdev->dev, sysmon->irq, &sysmon_iio_irq,
+				       0, "sysmon-irq", indio_dev);
+		if (ret < 0)
+			return ret;
+	} else if (sysmon->irq == -EPROBE_DEFER) {
+		return -EPROBE_DEFER;
+	}
 
 	platform_set_drvdata(pdev, indio_dev);
 
+	ret = iio_device_register(indio_dev);
+	if (ret < 0)
+		return ret;
+
 	dev_info(&pdev->dev, "Successfully registered Versal Sysmon");
 
-	return iio_device_register(indio_dev);
+	return 0;
 }
 
 static int sysmon_remove(struct platform_device *pdev)
