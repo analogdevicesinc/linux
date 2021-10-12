@@ -1,0 +1,30 @@
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_device_powerdown
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Set to 1 to turn off the entire chip.
+		Reading returns 1 if the device is in powerdown state, 0 otherwise.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_ibias_powerdown
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Set to 1 to powerdown the receiver bias current.
+		Reading returns 1 if the receiver bias current is in powerdown state,
+		0 otherwise.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_lo_path_powerdown
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Set to 1 to powerdown the LO path.
+		Reading returns 1 if the LO path is in powerdown state, 0 otherwise.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_bandgap_powerdown
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Set to 1 to powerdown the band gap.
+		Reading returns 1 if the band gap is in powerdown state, 0 otherwise.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_detector_powerdown
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Set to 1 to powerdown the detector.
+		Reading returns 1 if the detector is in powerdown state, 0 otherwise.
