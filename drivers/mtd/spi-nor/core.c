@@ -424,16 +424,17 @@ int spi_nor_read_id(struct spi_nor *nor, u8 naddr, u8 ndummy, u8 *id,
 		    enum spi_nor_protocol proto)
 {
 	int ret;
+#define SPI_NOR_MAX_EDID_LEN    20
 
 	if (nor->spimem) {
 		struct spi_mem_op op =
-			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_ID_LEN);
+			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_EDID_LEN);
 
 		spi_nor_spimem_setup_op(nor, &op, proto);
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
 		ret = nor->controller_ops->read_reg(nor, SPINOR_OP_RDID, id,
-						    SPI_NOR_MAX_ID_LEN);
+						    SPI_NOR_MAX_EDID_LEN);
 	}
 	return ret;
 }
