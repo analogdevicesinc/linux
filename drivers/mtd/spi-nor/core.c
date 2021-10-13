@@ -3564,6 +3564,14 @@ static void spi_nor_sfdp_init_params_deprecated(struct spi_nor *nor)
  */
 static void spi_nor_init_params_deprecated(struct spi_nor *nor)
 {
+	bool is_zynq_qspi = false;
+#ifdef CONFIG_OF
+	struct device_node *np = spi_nor_get_flash_node(nor);
+	struct device_node *np_spi;
+	np_spi = of_get_next_parent(np);
+	is_zynq_qspi = of_property_match_string(np_spi, "compatible", "xlnx,zynq-qspi-1.0") >= 0;
+#endif
+
 	spi_nor_no_sfdp_init_params(nor);
 
 	spi_nor_manufacturer_init_params(nor);
@@ -3571,7 +3579,7 @@ static void spi_nor_init_params_deprecated(struct spi_nor *nor)
 	if (nor->info->no_sfdp_flags & (SPI_NOR_DUAL_READ |
 					SPI_NOR_QUAD_READ |
 					SPI_NOR_OCTAL_READ |
-					SPI_NOR_OCTAL_DTR_READ))
+					SPI_NOR_OCTAL_DTR_READ) && !is_zynq_qspi)
 		spi_nor_sfdp_init_params_deprecated(nor);
 }
 
