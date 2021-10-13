@@ -3460,6 +3460,15 @@ static void spi_nor_late_init_params(struct spi_nor *nor)
  */
 static int spi_nor_init_params(struct spi_nor *nor)
 {
+	bool is_zynq_qspi = false;
+
+#ifdef CONFIG_OF
+	struct device_node *np = spi_nor_get_flash_node(nor);
+	struct device_node *np_spi;
+	np_spi = of_get_next_parent(np);
+	is_zynq_qspi = of_property_match_string(np_spi, "compatible", "xlnx,zynq-qspi-1.0") >= 0;
+#endif
+
 	nor->params = devm_kzalloc(nor->dev, sizeof(*nor->params), GFP_KERNEL);
 	if (!nor->params)
 		return -ENOMEM;
@@ -3469,7 +3478,7 @@ static int spi_nor_init_params(struct spi_nor *nor)
 	spi_nor_manufacturer_init_params(nor);
 
 	if ((nor->info->flags & (SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ)) &&
-	    !(nor->info->flags & SPI_NOR_SKIP_SFDP))
+		!(nor->info->flags & SPI_NOR_SKIP_SFDP) && !is_zynq_qspi)
 		spi_nor_sfdp_init_params(nor);
 
 	spi_nor_post_sfdp_fixups(nor);
