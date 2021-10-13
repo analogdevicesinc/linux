@@ -59,6 +59,14 @@
 #define ADF5610_REG_VCO_CAL	0x0A
 #define ADF5610_VCO_CAL_RECOMM	0x2047
 
+#define ADF5610_REG_GPO_SPI_RDIV	0x0F
+#define ADF5610_GPO_SELECT(x)		(((x) & 0x1f) << 0)
+#define ADF5610_GPO_STATIC_TEST		BIT(5)
+#define ADF5610_GPO_ALWAYS		BIT(6)
+#define ADF5610_GPO_OUTBUFF_HIGH	BIT(7)
+#define ADF5610_GPO_PULLUP_DISABLE	BIT(8)
+#define ADF5610_GPO_PULLDN_DISABLE	BIT(9)
+
 #define ADF5610_REG_GPO2	0x12
 #define ADF5610_GPO_STATE	BIT(0)
 #define ADF5610_LOCK_DETECT	BIT(1)
@@ -327,7 +335,6 @@ static int adf5610_setup(struct adf5610 *adf)
 
 	adf5610_pll_write(adf, ADF5610_REG_VCO_CAL, ADF5610_VCO_CAL_RECOMM);
 
-
 	adf5610_pll_write(adf, ADF5610_REG_CP,
 		ADF5610_CP_DOWN_MAG(adf->cp_down_mag) |
 		ADF5610_CP_UP_MAG(adf->cp_up_mag) |
@@ -336,11 +343,14 @@ static int adf5610_setup(struct adf5610 *adf)
 		(adf->cp_leak_down_en ? ADF5610_CP_LEAK_DN_EN : 0) |
 		(adf->cp_hik_en ? ADF5610_CP_HIK_EN : 0));
 
-	adf5610_vco_write(adf, ADF5610_VCO_REG_PWR,
-		ADF5610_DIV_EN(1) | ADF5610_VCO_BIAS_CNTL(7) | ADF5610_DIV_PWR_CNTL(3));
+	adf5610_pll_write(adf, ADF5610_REG_GPO_SPI_RDIV,
+		ADF5610_GPO_SELECT(1) | ADF5610_GPO_OUTBUFF_HIGH);
 
 	adf5610_vco_write(adf, ADF5610_VCO_REG_OUT,
 		ADF5610_DIFF_DIV_RATIO(adf->div_out_ratio));
+
+	adf5610_vco_write(adf, ADF5610_VCO_REG_PWR,
+		ADF5610_DIV_EN(1) | ADF5610_VCO_BIAS_CNTL(7) | ADF5610_DIV_PWR_CNTL(3));
 
 	/* Trigger the FSM - force ADF5610 to relock whether in integer mode
 	   or fractional mode */
@@ -350,6 +360,11 @@ static int adf5610_setup(struct adf5610 *adf)
 		adf5610_pll_write(adf, ADF5610_REG_FRAC, adf->n_frac);
 	else
 		adf5610_pll_write(adf, ADF5610_REG_INTG, adf->n_int);
+
+	adf5610_vco_write(adf, ADF5610_VCO_REG_OUT,
+		ADF5610_DIFF_DIV_RATIO(7));
+	adf5610_vco_write(adf, ADF5610_VCO_REG_OUT,
+		ADF5610_DIFF_DIV_RATIO(adf->div_out_ratio));
 
 	return 0;
 }
@@ -522,9 +537,10 @@ static const struct iio_chan_spec_ext_info adf5610_frequency[] = {
 
 #define ADF5610_CHANNEL(chan) {					\
 	.type = IIO_ALTVOLTAGE,					\
-	.indexed = 1,						\
 	.channel = (chan),					\
 	.ext_info = adf5610_frequency,				\
+	.indexed = 1,						\
+	.output = 1,						\
 }
 
 static const struct iio_chan_spec adf5610_channels[] = {
