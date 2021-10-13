@@ -393,7 +393,7 @@
 &hdmi_video {
 	fsl,phy_reg_vlev = <0x294>;
 	fsl,phy_reg_cksymtx = <0x800d>;
-	HDMI-supply = <&reg_hdmi>;
+/*	HDMI-supply = <&reg_hdmi>; */
 	status = "okay";
 };
 
