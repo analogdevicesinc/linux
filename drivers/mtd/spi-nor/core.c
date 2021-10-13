@@ -424,16 +424,17 @@ int spi_nor_read_id(struct spi_nor *nor, u8 naddr, u8 ndummy, u8 *id,
 		    enum spi_nor_protocol proto)
 {
 	int ret;
+#define SPI_NOR_MAX_EDID_LEN    20
 
 	if (nor->spimem) {
 		struct spi_mem_op op =
-			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_ID_LEN);
+			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_EDID_LEN);
 
 		spi_nor_spimem_setup_op(nor, &op, proto);
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
 		ret = nor->controller_ops->read_reg(nor, SPINOR_OP_RDID, id,
-						    SPI_NOR_MAX_ID_LEN);
+						    SPI_NOR_MAX_EDID_LEN);
 	}
 	return ret;
 }
@@ -1944,6 +1945,12 @@ static const struct flash_info *spi_nor_match_id(struct spi_nor *nor,
 			if (part->id_len &&
 			    !memcmp(part->id, id, part->id_len)) {
 				nor->manufacturer = manufacturers[i];
+				/* ST and MICRON seem to use the same manufacturer ID */
+				if (id[0] == CFI_MFR_MICRON || id[0] == CFI_MFR_ST)
+					dev_info(nor->dev, "SPI-NOR-UniqueID %*phN\n",
+						 SPI_NOR_MAX_EDID_LEN - part->id_len,
+						 &id[part->id_len]);
+
 				return part;
 			}
 		}
