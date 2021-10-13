@@ -2360,17 +2360,19 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 	unsigned int i;
 	int ret;
 
+	#define SPI_NOR_MAX_EDID_LEN	20
+
 	if (nor->spimem) {
 		struct spi_mem_op op =
 			SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDID, 1),
 				   SPI_MEM_OP_NO_ADDR,
 				   SPI_MEM_OP_NO_DUMMY,
-				   SPI_MEM_OP_DATA_IN(SPI_NOR_MAX_ID_LEN, id, 1));
+				   SPI_MEM_OP_DATA_IN(SPI_NOR_MAX_EDID_LEN, id, 1));
 
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
 		ret = nor->controller_ops->read_reg(nor, SPINOR_OP_RDID, id,
-						    SPI_NOR_MAX_ID_LEN);
+						    SPI_NOR_MAX_EDID_LEN);
 	}
 	if (ret) {
 		dev_dbg(nor->dev, "error %d reading JEDEC ID\n", ret);
@@ -2386,12 +2388,18 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 						 id);
 		if (info) {
 			nor->manufacturer = manufacturers[i];
+
+			/* ST and MICRON seem to use the same manufacturer ID */
+			if (id[0] == CFI_MFR_MICRON || id[0] == CFI_MFR_ST)
+				dev_info(nor->dev, "SPI-NOR-UniqueID %*phN\n",
+					 SPI_NOR_MAX_EDID_LEN - info->id_len, &id[info->id_len]);
 			return info;
 		}
 	}
 
 	dev_err(nor->dev, "unrecognized JEDEC id bytes: %*ph\n",
 		SPI_NOR_MAX_ID_LEN, id);
+
 	return ERR_PTR(-ENODEV);
 }
 
