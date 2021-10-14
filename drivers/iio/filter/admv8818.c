@@ -482,6 +482,8 @@ static int admv8818_clk_setup(struct admv8818_dev *dev)
 	dev->tolerance = clamp(dev->tolerance, 0U, 50U);
 
 	ret = clk_prepare_enable(dev->clkin);
+	if (ret)
+		return ret;
 
 	ret = devm_add_action_or_reset(&spi->dev, admv8818_clk_disable, dev->clkin);
 	if (ret)
