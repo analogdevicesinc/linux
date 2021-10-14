@@ -281,6 +281,8 @@
 		compatible = "wlf,wm8960,lpa";
 		reg = <0x1a>;
 		wlf,shared-lrclk;
+		clocks = <&wm8960_mclk>;
+		clock-names = "mclk";
 	};
 
 	ite_bridge: it6161@6c {
