@@ -166,6 +166,7 @@ static int dp_aux_init(struct cdns_mhdp_device *mhdp,
 
 	mhdp->dp.aux.name = "imx_dp_aux";
 	mhdp->dp.aux.dev = dev;
+	mhdp->dp.aux.drm_dev = mhdp->drm_dev;
 	mhdp->dp.aux.transfer = dp_aux_transfer;
 
 	ret = drm_dp_aux_register(&mhdp->dp.aux);
