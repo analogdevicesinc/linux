@@ -403,8 +403,8 @@ __handle_sync_with_main() {
 
 build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
-	BRANCHES="xcomm_zynq:fast-forward adi-5.4.0:cherry-pick"
-	BRANCHES="$BRANCHES rpi-5.4.y:cherry-pick"
+	BRANCHES="xcomm_zynq:fast-forward adi-5.10.0:cherry-pick"
+	BRANCHES="$BRANCHES rpi-5.10.y:cherry-pick"
 
 	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
 		echo_red "Could not fetch branch '$MAIN_BRANCH'"
