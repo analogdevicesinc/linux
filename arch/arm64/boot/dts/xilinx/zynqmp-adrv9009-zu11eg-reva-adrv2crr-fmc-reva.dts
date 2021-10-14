@@ -167,12 +167,31 @@
 			};
 		};
 	};
+
+	psgtr_ref1: ad9542_out0_c {
+	        compatible = "fixed-clock";
+	        #clock-cells = <0>;
+	        clock-frequency = <125000000>;
+	};
+
+	psgtr_ref2: ad9542_out1_a {
+	        compatible = "fixed-clock";
+	        #clock-cells = <0>;
+	        clock-frequency = <27000000>;
+	};
+
+	psgtr_ref3: ad9542_out1_b {
+	        compatible = "fixed-clock";
+	        #clock-cells = <0>;
+	        clock-frequency = <26000000>;
+	};
 };
 
-&serdes {
+&psgtr {
 	status = "okay";
+	clocks = <&psgtr_ref1>, <&psgtr_ref2>, <&psgtr_ref3>;
+	clock-names = "ref1", "ref2", "ref3";
 };
-
 
 /*
  * SGMII Ethernet: M1 (PHY1)
@@ -183,7 +202,7 @@
 	status = "okay";
 	phy-handle = <&phy1>;
 	phy-mode = "sgmii";
-	phys = <&lane0 PHY_TYPE_SGMII 0 1 125000000>;
+	phys = <&psgtr 0 PHY_TYPE_SGMII 0 1>;
 	mdiobus-connected = <&gem3>;
 };
 
@@ -202,8 +221,8 @@
 &zynqmp_dpsub {
 	status = "okay";
 	phy-names = "dp-phy0", "dp-phy1";
-	phys = <&lane3 PHY_TYPE_DP 0 2 27000000>,
-		<&lane2 PHY_TYPE_DP 1 2 27000000>;
+	phys = <&psgtr 3 PHY_TYPE_DP 0 2>,
+	       <&psgtr 2 PHY_TYPE_DP 1 2>;
 };
 
 &zynqmp_dp_snd_pcm0 {
@@ -242,7 +261,7 @@
 	dr_mode = "host";
 	phy-names = "usb3-phy";
 	//snps,usb3_lpm_capable;
-	phys = <&lane1 PHY_TYPE_USB3 0 3 26000000>;
+	phys = <&psgtr 1 PHY_TYPE_USB3 0 3>;
 	maximum-speed = "super-speed";
 };
 
