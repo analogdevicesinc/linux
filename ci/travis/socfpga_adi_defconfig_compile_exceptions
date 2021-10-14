@@ -6,6 +6,12 @@ sound/isa/ad1848/ad1848.o
 sound/pci/ac97/ac97_patch.o
 sound/pci/ad1889.o
 sound/pci/hda/patch_analog.o
+sound/soc/codecs/wm8782.o
+drivers/gpu/drm/bridge/adv7511/adv7511_debugfs.o
+drivers/gpu/drm/tegra/fb.o
+drivers/media/i2c/adv7511-v4l2.o
+drivers/iio/adc/adi-axi-adc.o
+drivers/iio/adc/navassa/adrv9002_debugfs.o
 drivers/gpu/drm/i2c/adv7511_audio.o
 drivers/gpu/drm/i2c/adv7511_core.o
 drivers/iio/adc/max1027.o

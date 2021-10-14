@@ -6,6 +6,11 @@ sound/isa/ad1848/ad1848.o
 sound/pci/ac97/ac97_patch.o
 sound/pci/ad1889.o
 sound/pci/hda/patch_analog.o
+sound/soc/codecs/wm8782.o
+drivers/gpu/drm/tegra/fb.o
+drivers/media/platform/imageon-bridge.o
+drivers/media/i2c/adv7511-v4l2.o
+drivers/iio/adc/adi-axi-adc.o
 drivers/iio/adc/max1027.o
 drivers/input/misc/adxl34x.o
 drivers/input/misc/adxl34x-i2c.o
