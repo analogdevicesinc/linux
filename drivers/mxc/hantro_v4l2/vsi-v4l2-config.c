@@ -1179,7 +1179,7 @@ static void verifyPlanesize(unsigned int psize[], int braw, int pixelformat, int
 		}
 		if (planeno == 1) {
 			totalsize = basesize + extsize + padsize;
-			psize[0] = max_t(int, PAGE_ALIGN(totalsize), psize[0]);
+			psize[0] = max_t(int, totalsize, psize[0]);
 		} else if (planeno == 2) {
 			psize[0] = basesize;
 			psize[1] = extsize;
@@ -1192,7 +1192,7 @@ static void verifyPlanesize(unsigned int psize[], int braw, int pixelformat, int
 		//for coded format we support 1 plane only
 		//except certain header the CR data can be any small
 		//so just make it page aligned.
-		psize[0] = max_t(int, PAGE_ALIGN(basesize), psize[0]);
+		psize[0] = max_t(int, basesize, psize[0]);
 	}
 	v4l2_klog(LOGLVL_CONFIG, "%s:%d:%d:%d", __func__, psize[0], psize[1], psize[2]);
 }
