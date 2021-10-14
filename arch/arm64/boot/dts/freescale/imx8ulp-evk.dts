@@ -184,6 +184,8 @@
 		model = "imx-spdif";
 		spdif-controller = <&spdif>;
 		spdif-out;
+		fsl,constraint-rate = <16000>, <32000>, <48000>,
+				      <64000>, <96000>, <192000>;
 	};
 
 	rpmsg_audio: rpmsg-audio {
