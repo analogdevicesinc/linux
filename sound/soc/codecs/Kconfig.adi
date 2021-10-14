@@ -38,3 +38,4 @@ config SND_SOC_ALL_ADI_CODECS
 	select SND_USB
 	select SND_USB_AUDIO
 	select SND_SIMPLE_CARD
+	select SND_SOC_AD73311
