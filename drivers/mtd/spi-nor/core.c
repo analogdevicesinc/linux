@@ -3469,12 +3469,14 @@ static void spi_nor_late_init_params(struct spi_nor *nor)
 static int spi_nor_init_params(struct spi_nor *nor)
 {
 	bool is_zynq_qspi = false;
+	bool locking_disable = false;
 
 #ifdef CONFIG_OF
 	struct device_node *np = spi_nor_get_flash_node(nor);
 	struct device_node *np_spi;
 	np_spi = of_get_next_parent(np);
 	is_zynq_qspi = of_property_match_string(np_spi, "compatible", "xlnx,zynq-qspi-1.0") >= 0;
+	locking_disable = of_property_read_bool(np_spi, "spi-nor-locking-disable");
 #endif
 
 	nor->params = devm_kzalloc(nor->dev, sizeof(*nor->params), GFP_KERNEL);
@@ -3484,6 +3486,13 @@ static int spi_nor_init_params(struct spi_nor *nor)
 	spi_nor_info_init_params(nor);
 
 	spi_nor_manufacturer_init_params(nor);
+
+	/*
+	 * Don't move - needs to be behind spi_nor_manufacturer_init_params()
+	 * and before spi_nor_late_init_params()
+	 */
+	if (locking_disable)
+		nor->flags &= ~SNOR_F_HAS_LOCK;
 
 	if ((nor->info->flags & (SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ)) &&
 		!(nor->info->flags & SPI_NOR_SKIP_SFDP) && !is_zynq_qspi)
@@ -3849,6 +3858,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	nor->page_size = nor->params->page_size;
 #ifdef CONFIG_OF
 	np_spi = of_get_next_parent(np);
+
 	if (((of_property_match_string(np_spi, "compatible",
 				       "xlnx,zynq-qspi-1.0") >= 0) ||
 		(of_property_match_string(np_spi, "compatible",
