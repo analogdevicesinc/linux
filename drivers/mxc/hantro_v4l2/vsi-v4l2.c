@@ -84,7 +84,7 @@ static void release_ctx(struct vsi_v4l2_ctx *ctx, int notifydaemon)
 		if (isdecoder(ctx))
 			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_DESTROY_DEC, NULL);
 		else
-			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF, NULL);
+			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_DESTROY_ENC, NULL);
 	}
 	/*vsi_vpu_buf obj is freed here, together with all buffer memory */
 	return_all_buffers(&ctx->input_que, VB2_BUF_STATE_DONE, 0);
@@ -209,7 +209,7 @@ int vsi_v4l2_reset_ctx(struct vsi_v4l2_ctx *ctx)
 			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_DESTROY_DEC, NULL);
 			ctx->flag = CTX_FLAG_DEC;
 		} else {
-			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF, NULL);
+			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_DESTROY_ENC, NULL);
 			ctx->flag = CTX_FLAG_ENC;
 			set_bit(CTX_FLAG_ENC_FLUSHBUF, &ctx->flag);
 		}
@@ -398,7 +398,10 @@ int vsi_v4l2_handle_streamoffdone(struct vsi_v4l2_msg *pmsg)
 	ctx = find_ctx(ctxid);
 	if (ctx == NULL)
 		return -ESRCH;
-	set_bit(CTX_FLAG_STREAMOFFDONE, &ctx->flag);
+	if (pmsg->cmd_id == V4L2_DAEMON_VIDIOC_STREAMOFF_CAPTURE_DONE)
+		set_bit(CTX_FLAG_CAPTUREOFFDONE, &ctx->flag);
+	else
+		set_bit(CTX_FLAG_OUTPUTOFFDONE, &ctx->flag);
 	wake_up_interruptible_all(&ctx->capoffdone_queue);
 	v4l2_klog(LOGLVL_FLOW, "%lx got cap streamoff done", ctxid);
 	return 0;

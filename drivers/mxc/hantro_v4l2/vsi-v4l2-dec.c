@@ -288,14 +288,6 @@ static int vsi_dec_checkctx_srcbuf(struct vsi_v4l2_ctx *ctx)
 	return ret;
 }
 
-static int vsi_checkctx_capoffdone(struct vsi_v4l2_ctx *ctx)
-{
-	if (test_and_clear_bit(CTX_FLAG_STREAMOFFDONE, &ctx->flag)
-		||  ctx->error < 0)
-		return 1;
-	return 0;
-}
-
 static void vsi_dec_update_reso(struct vsi_v4l2_ctx *ctx)
 {
 	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;

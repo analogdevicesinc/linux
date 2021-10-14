@@ -289,7 +289,8 @@ enum {
 	CTX_FLAG_DELAY_SRCCHANGED_BIT,	// src change has come from daemon	 but not sent to app
 	CTX_FLAG_SRCBUF_BIT,				// if any src buf comes from last OUTPUT off or INIT
 	CTX_FLAG_ENC_FLUSHBUF,				// if any src buf comes from last OUTPUT off or INIT
-	CTX_FLAG_STREAMOFFDONE,				// dec daemon finish handling capoff
+	CTX_FLAG_CAPTUREOFFDONE,			// daemon finish handling capoff
+	CTX_FLAG_OUTPUTOFFDONE,				// daemon finish handling outputoff
 };
 
 /* flag for decoder buffer*/
@@ -599,6 +600,22 @@ static inline void print_queinfo(struct vb2_queue *q)
 				k, (unsigned long)data, buf->planes[k].length, buf->planes[k].m.offset);
 		}
 	}
+}
+
+static inline int vsi_checkctx_outputoffdone(struct vsi_v4l2_ctx *ctx)
+{
+	if (test_and_clear_bit(CTX_FLAG_OUTPUTOFFDONE, &ctx->flag)
+		|| ctx->error < 0)
+		return 1;
+	return 0;
+}
+
+static inline int vsi_checkctx_capoffdone(struct vsi_v4l2_ctx *ctx)
+{
+	if (test_and_clear_bit(CTX_FLAG_CAPTUREOFFDONE, &ctx->flag)
+		|| ctx->error < 0)
+		return 1;
+	return 0;
 }
 
 #endif	//VSI_V4L2_PRIV_H

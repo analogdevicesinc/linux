@@ -343,6 +343,7 @@ static int vsi_enc_streamoff(
 	enum v4l2_buf_type type)
 {
 	int i, ret;
+	u32 binput = binputqueue(type);
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(priv);
 	struct vb2_queue *q;
 
@@ -354,23 +355,38 @@ static int vsi_enc_streamoff(
 	if (ctx->status == VSI_STATUS_INIT)
 		return 0;
 
-	if (binputqueue(type))
+	if (binput)
 		q = &ctx->input_que;
 	else
 		q = &ctx->output_que;
 
 	if (mutex_lock_interruptible(&ctx->ctxlock))
 		return -EBUSY;
+	if (binput)
+		vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF_OUTPUT, &binput);
+	else
+		vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF_CAPTURE, &binput);
+	mutex_unlock(&ctx->ctxlock);
+
+	if (binput)
+		ret = wait_event_interruptible(ctx->capoffdone_queue, vsi_checkctx_outputoffdone(ctx));
+	else
+		ret = wait_event_interruptible(ctx->capoffdone_queue, vsi_checkctx_capoffdone(ctx));
+	if (ret != 0)
+		v4l2_klog(LOGLVL_WARNING, "%lx binput:%d, enc wait strmoff done fail\n",
+			  ctx->ctxid, binput);
+
+	if (mutex_lock_interruptible(&ctx->ctxlock))
+		return -EBUSY;
+	ctx->status = ENC_STATUS_STOPPED;
+	if (binput) {
+		clear_bit(CTX_FLAG_FORCEIDR_BIT, &ctx->flag);
+		for (i = 0; i < VIDEO_MAX_FRAME; i++)
+			ctx->srcvbufflag[i] = 0;
+	}
+
 	return_all_buffers(q, VB2_BUF_STATE_DONE, 1);
 	ret = vb2_streamoff(q, type);
-	if (ret == 0) {
-		ctx->status = ENC_STATUS_STOPPED;
-		if (binputqueue(type)) {
-			clear_bit(CTX_FLAG_FORCEIDR_BIT, &ctx->flag);
-			for (i = 0; i < VIDEO_MAX_FRAME; i++)
-				ctx->srcvbufflag[i] = 0;
-		}
-	}
 	mutex_unlock(&ctx->ctxlock);
 	return ret;
 }

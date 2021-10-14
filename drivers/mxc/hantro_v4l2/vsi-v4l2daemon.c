@@ -432,7 +432,8 @@ int vsiv4l2_execcmd(struct vsi_v4l2_ctx *ctx, enum v4l2_daemon_cmd_id id, void *
 	case V4L2_DAEMON_VIDIOC_EXIT:
 		ret = vsi_v4l2_sendcmd(id, 0, 0, NULL, &retflag, 0, 0);
 		break;
-	case V4L2_DAEMON_VIDIOC_STREAMOFF:
+	case V4L2_DAEMON_VIDIOC_DESTROY_ENC:
+	case V4L2_DAEMON_VIDIOC_ENC_RESET:
 		ret = vsi_v4l2_sendcmd(id, ctx->ctxid,
 			ctx->mediacfg.encparams.general.codecFormat, NULL, &retflag, 0, 0);
 		break;
@@ -456,12 +457,20 @@ int vsiv4l2_execcmd(struct vsi_v4l2_ctx *ctx, enum v4l2_daemon_cmd_id id, void *
 			ctx->mediacfg.encparams.general.codecFormat, NULL, &retflag, 0, param);
 		break;
 	case V4L2_DAEMON_VIDIOC_STREAMOFF_OUTPUT:
-		ret = vsi_v4l2_sendcmd(id, ctx->ctxid,
-			ctx->mediacfg.decparams.dec_info.io_buffer.inputFormat, NULL, &retflag, 0, 0);
+		if (isencoder(ctx))
+			ret = vsi_v4l2_sendcmd(id, ctx->ctxid,
+				ctx->mediacfg.encparams.general.inputFormat, NULL, &retflag, 0, 0);
+		else
+			ret = vsi_v4l2_sendcmd(id, ctx->ctxid,
+				ctx->mediacfg.decparams.dec_info.io_buffer.inputFormat, NULL, &retflag, 0, 0);
 		break;
 	case V4L2_DAEMON_VIDIOC_STREAMOFF_CAPTURE:
-		ret = vsi_v4l2_sendcmd(id, ctx->ctxid,
-			ctx->mediacfg.decparams.dec_info.io_buffer.outBufFormat, NULL, &retflag, 0, 0);
+		if (isencoder(ctx))
+			ret = vsi_v4l2_sendcmd(id, ctx->ctxid,
+				ctx->mediacfg.encparams.general.codecFormat, NULL, &retflag, 0, 0);
+		else
+			ret = vsi_v4l2_sendcmd(id, ctx->ctxid,
+				ctx->mediacfg.decparams.dec_info.io_buffer.outBufFormat, NULL, &retflag, 0, 0);
 		break;
 	case V4L2_DAEMON_VIDIOC_STREAMON_OUTPUT:
 		ret = vsi_v4l2_sendcmd(id, ctx->ctxid, ctx->mediacfg.decparams.dec_info.io_buffer.inputFormat,
@@ -631,6 +640,7 @@ static int vsi_handle_daemonmsg(struct vsi_v4l2_msg *pmsg)
 	case V4L2_DAEMON_VIDIOC_WARNONOPTION:
 		return vsi_v4l2_handle_warningmsg(pmsg);
 	case V4L2_DAEMON_VIDIOC_STREAMOFF_CAPTURE_DONE:
+	case V4L2_DAEMON_VIDIOC_STREAMOFF_OUTPUT_DONE:
 		return vsi_v4l2_handle_streamoffdone(pmsg);
 	default:
 		return -EINVAL;
