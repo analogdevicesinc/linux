@@ -1,0 +1,46 @@
+/dts-v1/;
+/plugin/;
+
+#include "../../../include/dt-bindings/mux/mux.h"
+
+/ {
+	compatible = "brcm,bcm2708";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			adc-mux@3 {
+				compatible = "io-channel-mux";
+				io-channels = <&adc 1>;
+				io-channel-names = "parent";
+				mux-controls = <&mux>;
+
+				channels = "out_a0", "out_a1", "test0", "test1",
+				"out_b0", "out_b1", "testb0", "testb1";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			mux: mux-controller@2 {
+				compatible = "adi,adgs1408";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				#mux-control-cells = <0>;
+			};
+
+			adc: ad7298@3 {
+				compatible = "ad7298";
+				#io-channel-cells = <1>;
+				spi-max-frequency = <1000000>;
+				reg = <1>;
+			};
+		};
+	};
+};

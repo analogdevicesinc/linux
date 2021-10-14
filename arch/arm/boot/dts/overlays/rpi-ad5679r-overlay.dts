@@ -1,0 +1,70 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+
+	fragment@0 {
+		target = <&gpio>;
+		__overlay__ {
+			pwm_pins: pwm_pins {
+				brcm,pins = <18>;
+				brcm,function = <2>; /* Alt5 */
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&pwm>;
+		frag1: __overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm_pins>;
+			assigned-clock-rates = <100000000>;
+			status = "okay";
+		};
+	};
+
+	__overrides__ {
+		pin   = <&pwm_pins>,"brcm,pins:0";
+		func  = <&pwm_pins>,"brcm,function:0";
+		clock = <&frag1>,"assigned-clock-rates:0";
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			adc_vref: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad5679r@0{
+				compatible = "adi,ad5679r";
+				reg = <0>;
+				spi-max-frequency = <50000000>;
+				spi-cpha;
+				vcc-supply = <&adc_vref>;
+
+				interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+				interrupt-parent = <&gpio>;
+
+				pwms = <&pwm 0 100>;
+				pwm-names = "pwm-trigger";
+			};
+		};
+	};
+};
