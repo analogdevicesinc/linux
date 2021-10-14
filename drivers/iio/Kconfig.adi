@@ -173,3 +173,4 @@ config IIO_ALL_ADI_DRIVERS
 	select ONE_BIT_ADC_DAC
 	select ADUX1020
 	select IIO_GEN_MUX
+	select AD74413R
