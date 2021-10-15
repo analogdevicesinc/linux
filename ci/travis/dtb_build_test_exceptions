@@ -47,6 +47,7 @@ arch/arm/boot/dts/zynq-zc770-xm013.dts
 arch/arm/boot/dts/zynq-zybo.dts
 arch/arm/boot/dts/zynq-zybo-z7.dts
 arch/arm/boot/dts/zynq-zc702.dts
+arch/arm/boot/dts/zynq-zturn-v5.dts
 
 
 # Anything belonging to ADI, goes here
