@@ -274,8 +274,8 @@ static int adar3000_read_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
 			     int *val, int *val2, long m)
 {
-	// struct adar3000_state *st = iio_priv(indio_dev);
-	// int ret, ch;
+	struct adar3000_state *st = iio_priv(indio_dev);
+	int ret, ch;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
@@ -293,9 +293,9 @@ static int adar3000_write_raw(struct iio_dev *indio_dev,
 			      struct iio_chan_spec const *chan,
 			      int val, int val2, long mask)
 {
-	// struct adar3000_state *st = iio_priv(indio_dev);
-	// u32 code;
-	// int ret;
+	struct adar3000_state *st = iio_priv(indio_dev);
+	u32 code;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
@@ -429,7 +429,7 @@ static ssize_t adar3000_beam_mode_available(struct iio_dev *indio_dev,
 					      const struct iio_chan_spec *chan,
 					      char *buf)
 {
-	// struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	size_t len = 0;
 	int i;
 
@@ -480,20 +480,20 @@ static ssize_t adar3000_beam_mode_write(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 }
 
-// static struct iio_chan_spec_ext_info adar3000_ext_info[] = {
-// 	{
-// 	 .name = "mode_ctrl",
-// 	 .read = adar3000_beam_mode_read,
-// 	 .write = adar3000_beam_mode_write,
-// 	 .shared = IIO_SHARED_BY_TYPE,
-// 	 },
-// 	{
-// 	 .name = "mode_ctrl_available",
-// 	 .read = adar3000_beam_mode_available,
-// 	 .shared = IIO_SHARED_BY_TYPE,
-// 	 },
-// 	{},
-// };
+static struct iio_chan_spec_ext_info adar3000_ext_info[] = {
+	{
+	 .name = "mode_ctrl",
+	 .read = adar3000_beam_mode_read,
+	 .write = adar3000_beam_mode_write,
+	 .shared = IIO_SHARED_BY_TYPE,
+	 },
+	{
+	 .name = "mode_ctrl_available",
+	 .read = adar3000_beam_mode_available,
+	 .shared = IIO_SHARED_BY_TYPE,
+	 },
+	{},
+};
 
 static const struct iio_info adar3000_info = {
 	.read_raw = &adar3000_read_raw,
@@ -506,149 +506,100 @@ static const struct iio_info adar3000_info = {
 static int adar3000_setup(struct iio_dev *indio_dev)
 {
 	struct adar3000_state *st = iio_priv(indio_dev);
-	u32 val = 0;
 	int ret;
-	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
+
 	/* Software reset and activate SDO */
-	
-	ret = regmap_write(st->regmap, 0x0A, 0xAD);
+	ret = adar3000_reg_write(st, ADAR3000_REG_SPI_CONFIG,
+				 ADAR3000_SPI_CONFIG_RESET_ |
+				 ADAR3000_SPI_CONFIG_SDOACTIVE_ |
+				 ADAR3000_SPI_CONFIG_SDOACTIVE |
+				 ADAR3000_SPI_CONFIG_RESET);
 	if (ret < 0)
-		return ret;
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-	ret = regmap_read(st->regmap, 0x0A, &val);
-	if (ret < 0)
-		return ret;
+	       return ret;
 
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-
-	if (val != 0xAD) {
-		dev_err(indio_dev->dev.parent, "Failed ADMV4420 to read/write scratchpad %x ", val);
-		return -EIO;
-	}
-
-	ret = regmap_write(st->regmap, 0x0A, 0x5A);
-	if (ret < 0)
-		return ret;
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-	ret = regmap_read(st->regmap, 0x0A, &val);
-	if (ret < 0)
-		return ret;
-
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-
-	if (val != 0x5A) {
-		dev_err(indio_dev->dev.parent, "Failed ADMV4420 to read/write scratchpad %x ", val);
-		return -EIO;
-	}
-	dev_err(indio_dev->dev.parent, "ADMV4420 to read/write scratchpad %x ", val);
-	
 	return 0;
 }
 
 static int adar3000_probe(struct spi_device *spi)
 {
-	struct iio_dev *indio_dev;
-	struct adar3000_state *st;
-	struct regmap *regmap;
+	struct iio_dev **indio_dev;
+	struct adar3000_state **st;
 	const struct adar3000_chip_info *info;
-	int ret;
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
-	if (!indio_dev)
-		return -ENOMEM;
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);	
-	regmap = devm_regmap_init_spi(spi, &adar3000_regmap_config);
-	if (IS_ERR(regmap)) {
-		dev_err(&spi->dev, "Error  ADMV4420 initializing spi regmap: %ld\n",
-			PTR_ERR(regmap));
-		return PTR_ERR(regmap);
-	}
-	
+	struct device_node *child, *np = spi->dev.of_node;
+	struct regmap *regmap;
+	int ret, cnt = 0, num_dev;
+	u32 tmp;
+
+	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
+
 	info = of_device_get_match_data(&spi->dev);
 	if (!info)
 		return -ENODEV;
 
-	st = iio_priv(indio_dev);
-	st->spi = spi;
-	st->chip_info = info;
-	st->regmap = regmap;
-
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = "admv4420";
-	indio_dev->info = &adar3000_info;
-pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-	ret = adar3000_setup(indio_dev);
-
-	if (ret < 0) {
-		dev_err(&spi->dev, "Setup ADMV4420 failed (%d)\n", ret);
-		return ret;
+	num_dev = of_get_available_child_count(np);
+	if (num_dev < 1 || num_dev > ADAR3000_MAX_DEV) {
+		dev_err(&spi->dev, "Number of devices is incorrect (%d)\n",
+			num_dev);
+		return -ENODEV;
 	}
-	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-	return devm_iio_device_register(&spi->dev, indio_dev);
+
+	indio_dev = devm_kzalloc(&spi->dev, num_dev, sizeof(indio_dev));
+	if (!indio_dev)
+		return -ENOMEM;
+
+	st = devm_kzalloc(&spi->dev, num_dev, sizeof(st));
+	if (!st)
+		return -ENOMEM;
+
+	regmap = devm_regmap_init_spi(spi, &adar3000_regmap_config);
+	if (IS_ERR(regmap)) {
+		dev_err(&spi->dev, "Error initializing spi regmap: %ld\n",
+			PTR_ERR(regmap));
+		return PTR_ERR(regmap);
+	}
+
+	for_each_available_child_of_node(np, child) {
+		indio_dev[cnt] = devm_iio_device_alloc(&spi->dev,
+						       sizeof(*st));
+		if (!indio_dev[cnt])
+			return -ENOMEM;
+
+		st[cnt] = iio_priv(indio_dev[cnt]);
+		st[cnt]->chip_info = info;
+		spi_set_drvdata(spi, indio_dev[cnt]);
+		st[cnt]->spi = spi;
+		st[cnt]->regmap = regmap;
+
+		indio_dev[cnt]->dev.parent = &spi->dev;
+		indio_dev[cnt]->dev.of_node = child;
+		indio_dev[cnt]->name = child->name;
+		indio_dev[cnt]->info = &adar3000_info;
+		indio_dev[cnt]->modes = INDIO_DIRECT_MODE;
+		indio_dev[cnt]->channels = st[cnt]->chip_info->channels;
+		indio_dev[cnt]->num_channels = st[cnt]->chip_info->num_channels;
+
+		ret = of_property_read_u32(child, "reg", &tmp);
+		if (ret < 0)
+			return ret;
+
+		st[cnt]->dev_addr = ADAR3000_SPI_ADDR(tmp);
+
+		/* Do setup for each device */
+		ret = adar3000_setup(indio_dev[cnt]);
+		if (ret < 0) {
+			dev_err(&spi->dev, "Setup failed (%d)\n", ret);
+			return ret;
+		}
+
+		ret = devm_iio_device_register(&spi->dev, indio_dev[cnt]);
+		if (ret < 0)
+			return ret;
+
+		cnt++;
+	}
+
+	return 0;
 }
-
-// static int adar3000_probe(struct spi_device *spi)
-// {
-// 	struct iio_dev *indio_dev;
-// 	struct adar3000_state *st;
-// 	const struct adar3000_chip_info *info;
-// 	struct regmap *regmap;
-// 	int ret;
-// 	// u32 tmp;
-
-// 	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-
-// 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
-// 	if (!indio_dev)
-// 		return -ENOMEM;
-
-// 	regmap = devm_regmap_init_spi(spi, &adar3000_regmap_config);
-// 	if (IS_ERR(regmap)) {
-// 		dev_err(&spi->dev, "Error initializing spi regmap: %ld\n",
-// 			PTR_ERR(regmap));
-// 		return PTR_ERR(regmap);
-// 	}
-// pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	info = of_device_get_match_data(&spi->dev);
-// 	if (!info)
-// 		return -ENODEV;
-// pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	st = iio_priv(indio_dev);
-// 	st->chip_info = info;
-// 	spi_set_drvdata(spi, indio_dev);
-// 	st->spi = spi;
-// 	st->regmap = regmap;
-// pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	indio_dev->dev.parent = &spi->dev;
-// 	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	indio_dev->name = "";
-// 	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	indio_dev->info = &adar3000_info;
-// 	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	indio_dev->modes = INDIO_DIRECT_MODE;
-// 	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	indio_dev->channels = st->chip_info->channels;
-// 	pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	indio_dev->num_channels = st->chip_info->num_channels;
-
-// pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-
-// 	/* Do setup for each device */
-// 	ret = adar3000_setup(indio_dev);
-// 	if (ret < 0) {
-// 		dev_err(&spi->dev, "Setup failed (%d)\n", ret);
-// 		return ret;
-// 	}
-// pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-// 	ret = devm_iio_device_register(&spi->dev, indio_dev);
-// 	if (ret < 0)
-// 		return ret;
-
-// pr_err("%s: %d: Enter ADMV4420 probe\n", __func__, __LINE__);
-
-// 	return 0;
-// }
 
 static const struct of_device_id adar3000_of_match[] = {
 	{ .compatible = "adi,admv4420",
