@@ -434,7 +434,6 @@ static inline int adv7511_debugfs_init(struct adv7511 *adv7511)
 }
 static inline void adv7511_debugfs_remove(struct adv7511 *adv7511)
 {
-	return 0;
 }
 #endif
 
