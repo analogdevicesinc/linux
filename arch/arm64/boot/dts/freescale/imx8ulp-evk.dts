@@ -381,8 +381,9 @@
 
 &sai5 {
 	#sound-dai-cells = <0>;
-	pinctrl-names = "default";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_sai5>;
+	pinctrl-1 = <&pinctrl_sai5>;
 	assigned-clocks = <&cgc1 IMX8ULP_CLK_SAI5_SEL>;
 	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
 	fsl,dataline = <1 0x08 0x01>;
@@ -390,8 +391,9 @@
 };
 
 &spdif {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_spdif>;
+	pinctrl-1 = <&pinctrl_spdif>;
 	assigned-clocks = <&cgc2 IMX8ULP_CLK_SPDIF_SEL>;
 	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
 	status = "okay";
