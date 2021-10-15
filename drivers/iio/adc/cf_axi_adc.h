@@ -32,6 +32,7 @@
 #define ADI_MMCM_RSTN 			(1 << 1)
 
 #define ADI_REG_CNTRL			0x0044
+#define ADI_SYNC			(1 << 3)
 #define ADI_R1_MODE			(1 << 2)
 #define ADI_DDR_EDGESEL			(1 << 1)
 #define ADI_PIN_MODE			(1 << 0)
