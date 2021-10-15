@@ -296,6 +296,23 @@
 	};
 };
 
+&fpga_axi {
+	axi_data_offload_tx: axi-data-offload-0@bc440000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0xbc440000 0x10000>;
+	};
+
+	axi_data_offload_rx: axi-data-offload-1@bc450000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0xbc450000 0x10000>;
+	};
+};
+
+&axi_ad9081_core_tx {
+	adi,axi-data-offload-connected = <&axi_data_offload_tx>;
+	adi,axi-pl-fifo-enable;
+};
+
 #define fmc_spi spi0
 #include "adi-ad9081-fmc-ebz.dtsi"
 
@@ -306,10 +323,6 @@
 	rx1-enable-gpios = <&axi_gpio 24 0>;
 	tx2-enable-gpios = <&axi_gpio 27 0>;
 	tx1-enable-gpios = <&axi_gpio 26 0>;
-};
-
-&axi_ad9081_core_tx {
-	plddrbypass-gpios = <&axi_gpio 28 0>;
 };
 
 &hmc7044 {
