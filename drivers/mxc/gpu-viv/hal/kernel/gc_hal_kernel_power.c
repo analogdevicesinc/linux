@@ -281,7 +281,7 @@ gckDVFS_Construct(
     gckDVFS dvfs = gcvNULL;
     gckOS os = Hardware->os;
 
-    gcmkHEADER_ARG("Hardware=0x%X", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_ARGUMENT(Dvfs != gcvNULL);

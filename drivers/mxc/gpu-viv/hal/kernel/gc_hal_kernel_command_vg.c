@@ -559,7 +559,7 @@ _AllocateTaskContainer(
         /* Set the result. */
         * Buffer = buffer;
 
-        gcmkFOOTER_ARG("*Buffer=0x%x",*Buffer);
+        gcmkFOOTER_ARG("*Buffer=%p",*Buffer);
         /* Success. */
         return gcvSTATUS_OK;
     }
@@ -851,9 +851,8 @@ _ScheduleTasks(
                 {
                     gcmkTRACE_ZONE(
                         gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-                        "  first task container for the block added\n",
-                        block
-                        );
+                        "  first task container for the block %d added\n",
+                        block);
 
                     /* Nothing yet, set the container buffer pointer. */
                     kernelTaskEntry->container = container;
@@ -3050,7 +3049,7 @@ gckVGCOMMAND_Construct(
         /* Return gckVGCOMMAND object pointer. */
         *Command = command;
 
-        gcmkFOOTER_ARG("*Command=0x%x",*Command);
+        gcmkFOOTER_ARG("*Command=%p",*Command);
         /* Success. */
         return gcvSTATUS_OK;
     }
@@ -3373,7 +3372,7 @@ gckVGCOMMAND_Allocate(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Command=%p Size=0x%x CommandBuffer=%p Data=0x%x",
+    gcmkHEADER_ARG("Command=%p Size=0x%x CommandBuffer=%p Data=%p",
         Command, Size, CommandBuffer, Data);
 
     /* Verify the arguments. */

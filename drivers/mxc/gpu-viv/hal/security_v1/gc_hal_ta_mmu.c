@@ -423,7 +423,7 @@ gctaMMU_GetPageEntry(
     gctUINT32 mtlbEntry;
     gctBOOL secure = Address > gcdMMU_SECURE_AREA_START;
 
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT((Address & 0xFFF) == 0);
@@ -483,7 +483,7 @@ gctaMMU_SetPage(
 {
     /* gctBOOL secure; */
 
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(PageEntry != gcvNULL);
@@ -506,7 +506,7 @@ gctaMMU_FreePages(
     gceSTATUS status;
     gctUINT32 i;
     gctUINT32_PTR entry;
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Fill in page table. */
     for (i = 0; i < PageCount; i++)

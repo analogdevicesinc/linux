@@ -162,7 +162,7 @@ gckKERNEL_FindDatabase(
     *Database = database;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Database=0x%x", *Database);
+    gcmkFOOTER_ARG("*Database=%p", *Database);
     return gcvSTATUS_OK;
 
 OnError:
@@ -298,7 +298,7 @@ gckKERNEL_NewRecord(
     *Record = record;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Record=0x%x", *Record);
+    gcmkFOOTER_ARG("*Record=%p", *Record);
     return gcvSTATUS_OK;
 
 OnError:
@@ -411,7 +411,7 @@ gckKERNEL_DeleteRecord(
     gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->db->dbMutex));
 
     /* Success. */
-    gcmkFOOTER_ARG("*Bytes=%lu", gcmOPT_VALUE(Bytes));
+    gcmkFOOTER_ARG("*Bytes=%zu", gcmOPT_VALUE(Bytes));
     return gcvSTATUS_OK;
 
 OnError:
@@ -505,7 +505,7 @@ gckKERNEL_FindRecord(
     gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->db->dbMutex));
 
     /* Success. */
-    gcmkFOOTER_ARG("Record=0x%x", Record);
+    gcmkFOOTER_ARG("Record=%p", Record);
     return gcvSTATUS_OK;
 
 OnError:
@@ -1075,7 +1075,7 @@ gckKERNEL_FindProcessDB(
     gceSTATUS status;
     gcsDATABASE_PTR database;
 
-    gcmkHEADER_ARG("Kernel=%p ProcessID=%d Type=%d Pointer=%p",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d ThreadID=%d Type=%d Pointer=%p",
                    Kernel, ProcessID, ThreadID, Type, Pointer);
 
     /* Verify the arguments. */
@@ -1188,18 +1188,18 @@ gckKERNEL_DestroyProcessDB(
     acquired = gcvFALSE;
 
     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_DATABASE,
-                   "DB(%d): VidMem: total=%lu max=%lu",
+                   "DB(%d): VidMem: total=%llu max=%llu",
                    ProcessID, database->vidMem.totalBytes,
                    database->vidMem.maxBytes);
     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_DATABASE,
-                   "DB(%d): NonPaged: total=%lu max=%lu",
+                   "DB(%d): NonPaged: total=%llu max=%llu",
                    ProcessID, database->nonPaged.totalBytes,
                    database->nonPaged.maxBytes);
     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_DATABASE,
                    "DB(%d): Idle time=%llu",
                    ProcessID, Kernel->db->idleTime);
     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_DATABASE,
-                   "DB(%d): Map: total=%lu max=%lu",
+                   "DB(%d): Map: total=%llu max=%llu",
                    ProcessID, database->mapMemory.totalBytes,
                    database->mapMemory.maxBytes);
 
@@ -1242,7 +1242,7 @@ gckKERNEL_DestroyProcessDB(
                                                          nodeObject));
 
                 gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
-                               "DB: VIDEO_MEMORY 0x%x (status=%d)",
+                               "DB: VIDEO_MEMORY %p (status=%d)",
                                record->data, status);
                 break;
 
@@ -1258,7 +1258,7 @@ gckKERNEL_DestroyProcessDB(
                 gcmRELEASE_NAME(record->physical);
 
                 gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
-                               "DB: NON_PAGED 0x%x, bytes=%lu (status=%d)",
+                               "DB: NON_PAGED %p, bytes=%lu (status=%d)",
                                record->data, record->bytes, status);
                 break;
 
@@ -1338,7 +1338,7 @@ gckKERNEL_DestroyProcessDB(
                 }
 
                 gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
-                               "DB: VIDEO_MEMORY_LOCKED 0x%x (status=%d)",
+                               "DB: VIDEO_MEMORY_LOCKED %p (status=%d)",
                                record->data, status);
                 break;
 
@@ -1347,7 +1347,7 @@ gckKERNEL_DestroyProcessDB(
                 gcmRELEASE_NAME(record->data);
 
                 gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
-                               "DB: CONTEXT 0x%x (status=%d)",
+                               "DB: CONTEXT %p (status=%d)",
                                record->data, status);
                 break;
 
@@ -1360,8 +1360,8 @@ gckKERNEL_DestroyProcessDB(
                                                ProcessID);
 
                 gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
-                               "DB: MAP MEMORY %d (status=%d)",
-                               gcmPTR2INT32(record->data), status);
+                               "DB: MAP MEMORY %p (status=%d)",
+                               record->data, status);
                 break;
 
             case gcvDB_SHBUF:
@@ -1370,13 +1370,13 @@ gckKERNEL_DestroyProcessDB(
                                                    (gctSHBUF) record->data);
 
                 gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
-                               "DB: SHBUF %u (status=%d)",
-                               (gctUINT32)(gctUINTPTR_T) record->data, status);
+                               "DB: SHBUF %p (status=%d)",
+                               record->data, status);
                 break;
 
             default:
                 gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DATABASE,
-                               "DB: Correcupted record=0x%08x type=%d",
+                               "DB: Correcupted record=%p type=%d",
                                record, record->type);
                 break;
             }

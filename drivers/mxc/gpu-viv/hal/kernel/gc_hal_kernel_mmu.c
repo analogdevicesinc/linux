@@ -1609,7 +1609,7 @@ _Construct(
     gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
     gctUINT64 mmuEnabled = 1;
 
-    gcmkHEADER_ARG("Kernel=0x%x MmuSize=%lu", Kernel, MmuSize);
+    gcmkHEADER_ARG("Kernel=%p MmuSize=%lu", Kernel, MmuSize);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -1954,7 +1954,7 @@ _Construct(
     *Mmu = mmu;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Mmu=0x%x", *Mmu);
+    gcmkFOOTER_ARG("*Mmu=%p", *Mmu);
     return gcvSTATUS_OK;
 
 OnError:
@@ -2046,7 +2046,7 @@ _Destroy(
 {
     gckKERNEL kernel = Mmu->hardware->kernel;
 
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
@@ -2336,7 +2336,7 @@ _AllocatePages(
     gctUINT32 pageCount;
     gcsADDRESS_AREA_PTR area = _GetProcessArea(Mmu, PageType, Secure);
 
-    gcmkHEADER_ARG("Mmu=0x%x PageCount=%lu", Mmu, PageCount);
+    gcmkHEADER_ARG("Mmu=%p PageCount=%lu", Mmu, PageCount);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
@@ -2526,7 +2526,7 @@ _AllocatePages(
     gcmkVERIFY_OK(gckOS_ReleaseMutex(Mmu->os, Mmu->pageTableMutex));
 
     /* Success. */
-    gcmkFOOTER_ARG("*PageTable=0x%x *Address=%08x",
+    gcmkFOOTER_ARG("*PageTable=%p *Address=%08x",
                    *PageTable, gcmOPT_VALUE(Address));
     return gcvSTATUS_OK;
 
@@ -2584,7 +2584,7 @@ _FreePages(
     gctUINT32 pageSize = (PageType == gcvPAGE_TYPE_1M)
                        ? gcdMMU_PAGE_1M_SIZE : gcdMMU_PAGE_4K_SIZE;
 
-    gcmkHEADER_ARG("Mmu=0x%x PageTable=0x%x PageCount=%lu",
+    gcmkHEADER_ARG("Mmu=%p PageTable=%p PageCount=%lu",
                    Mmu, PageTable, PageCount);
 
     /* Verify the arguments. */
@@ -2756,7 +2756,7 @@ gckMMU_SetPage(
     gctUINT32 addressExt;
     gctUINT32 address;
 
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
@@ -2894,7 +2894,7 @@ gckMMU_DumpPageTableEntry(
     gctUINT32 stlbEntryNum = (AreaType == gcvAREA_TYPE_4K)
                            ? gcdMMU_STLB_4K_ENTRY_NUM : gcdMMU_STLB_1M_ENTRY_NUM;
 
-    gcmkHEADER_ARG("Mmu=0x%08X Address=0x%08X", Mmu, Address);
+    gcmkHEADER_ARG("Mmu=%p Address=0x%08X", Mmu, Address);
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
 
     gcmkASSERT(Mmu->hardware->mmuVersion > 0);
@@ -3144,7 +3144,7 @@ gckMMU_SetupSRAM(
     gceSTATUS status;
     gckKERNEL kernel = Hardware->kernel;
 
-    gcmkHEADER_ARG("Mmu=0x%x Hardware=0x%x", Mmu, Hardware);
+    gcmkHEADER_ARG("Mmu=%p Hardware=%p", Mmu, Hardware);
 
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
 
@@ -3362,7 +3362,7 @@ gckMMU_GetPageEntry(
     gctUINT32 mtlbOffset, stlbOffset;
     gcsADDRESS_AREA_PTR area = _GetProcessArea(Mmu, PageType, gcvFALSE);
 
-    gcmkHEADER_ARG("Mmu=0x%08X Address=0x%08X", Mmu, Address);
+    gcmkHEADER_ARG("Mmu=%p Address=0x%08X", Mmu, Address);
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
 
     gcmkASSERT(Mmu->hardware->mmuVersion > 0);

@@ -91,7 +91,7 @@ gceSTATUS gckVGMMU_Construct(
     gctUINT32 * pageTable;
     gctUINT32 i;
 
-    gcmkHEADER_ARG("Kernel=0x%x MmuSize=0x%x Mmu=0x%x", Kernel, MmuSize, Mmu);
+    gcmkHEADER_ARG("Kernel=%p MmuSize=0x%x Mmu=%p", Kernel, MmuSize, Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -210,7 +210,7 @@ gceSTATUS gckVGMMU_Construct(
 
     gcmkTRACE_ZONE(
         gcvLEVEL_INFO, gcvZONE_MMU,
-        "%s(%d): %u entries at %p.(0x%08X)\n",
+        "%s(%d): %u entries at %p.(%p)\n",
         __FUNCTION__, __LINE__,
         mmu->entryCount,
         mmu->pageTableLogical,
@@ -241,7 +241,7 @@ gceSTATUS gckVGMMU_Destroy(
     IN gckVGMMU Mmu
     )
 {
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
@@ -301,7 +301,7 @@ gceSTATUS gckVGMMU_AllocatePages(
     gctUINT32 * table;
     gctBOOL allocated = gcvFALSE;
 
-    gcmkHEADER_ARG("Mmu=0x%x PageCount=0x%x PageTable=0x%x Address=0x%x",
+    gcmkHEADER_ARG("Mmu=%p PageCount=0x%zx PageTable=%p Address=%p",
         Mmu, PageCount, PageTable, Address);
 
     /* Verify the arguments. */
@@ -484,7 +484,7 @@ gceSTATUS gckVGMMU_FreePages(
 {
     gctUINT32 * table;
 
-    gcmkHEADER_ARG("Mmu=0x%x PageTable=0x%x PageCount=0x%x",
+    gcmkHEADER_ARG("Mmu=%p PageTable=%p PageCount=0x%x",
         Mmu, PageTable, PageCount);
 
     /* Verify the arguments. */
@@ -522,7 +522,7 @@ gckVGMMU_SetPage(
     IN gctUINT32 *PageEntry
     )
 {
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
@@ -543,7 +543,7 @@ gckVGMMU_Flush(
 {
     gckVGHARDWARE hardware;
 
-    gcmkHEADER_ARG("Mmu=0x%x", Mmu);
+    gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     hardware = Mmu->hardware;
     gcmkVERIFY_OK(

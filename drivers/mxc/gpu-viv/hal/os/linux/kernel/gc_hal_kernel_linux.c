@@ -298,7 +298,7 @@ gckKERNEL_DestroyProcessReservedUserMap(
     PLINUX_MDL mdl;
     PLINUX_MDL_MAP mdlMap = gcvNULL;
 
-    gcmkHEADER_ARG("Logical=0x%08x pid=%u",
+    gcmkHEADER_ARG("Logical=%p pid=%u",
                    Logical, Pid);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -555,7 +555,7 @@ gckKERNEL_UnmapVideoMemory(
     gctPHYS_ADDR physHandle = gcvNULL;
     gctUINT64 mappingInOne  = 1;
 
-    gcmkHEADER_ARG("Logical=0x%08x pid=%u Bytes=%u",
+    gcmkHEADER_ARG("Logical=%p pid=%u Bytes=%zu",
                    Logical, Pid, Bytes);
 
     /* Verify the arguments. */

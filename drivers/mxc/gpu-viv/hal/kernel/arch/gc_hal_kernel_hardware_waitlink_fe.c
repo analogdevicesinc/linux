@@ -148,7 +148,7 @@ gckWLFE_WaitLink(
     gctUINT32 bytes;
     gctBOOL useL2;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x Offset=0x%08x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p Offset=0x%08x *Bytes=%lu",
                    Hardware, Logical, Offset, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -345,7 +345,7 @@ gckWLFE_InvalidatePipe(
     gctBOOL blt = gcvFALSE;
     gctBOOL multiCluster = gcvFALSE;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p *Bytes=%lu",
                    Hardware, Logical, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -586,7 +586,7 @@ gckWLFE_InvalidatePipe(
             gckOS_GetPhysicalAddress(Hardware->os, Logical, &phys);
             gckOS_CPUPhysicalToGPUPhysical(Hardware->os, phys, &phys);
             gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
-                           "0x%08x: EVENT %d", phys, EVENT_ID_INVALIDATE_PIPE);
+                           "0x%08llx: EVENT %d", phys, EVENT_ID_INVALIDATE_PIPE);
         }
 #endif
 
@@ -657,7 +657,7 @@ gckWLFE_InvalidatePipe(
         *logical++ =
             Hardware->executeCount;
 
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: END", Logical);
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: END", Logical);
 
         /* Make sure the CPU writes out the data to memory. */
         gcmkONERROR(
@@ -783,7 +783,7 @@ gckWLFE_Link(
     gctUINT32 link;
     gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x FetchAddress=0x%x FetchSize=%lu "
+    gcmkHEADER_ARG("Hardware=%p Logical=%p FetchAddress=0x%x FetchSize=%lu "
                    "*Bytes=%lu",
                    Hardware, Logical, FetchAddress, FetchSize,
                    gcmOPT_VALUE(Bytes));
@@ -908,7 +908,7 @@ gckWLFE_End(
     gctUINT32 address;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p *Bytes=%lu",
                    Hardware, Logical, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -942,7 +942,7 @@ gckWLFE_End(
         logical[1] =
             Hardware->executeCount;
 
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: END", Logical);
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: END", Logical);
 
         /* Make sure the CPU writes out the data to memory. */
         gcmkONERROR(
@@ -1005,7 +1005,7 @@ gckWLFE_Nop(
     gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p *Bytes=%lu",
                    Hardware, Logical, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -1034,7 +1034,7 @@ gckWLFE_Nop(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: NOP", Logical);
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: NOP", Logical);
     }
 
     if (Bytes != gcvNULL)
@@ -1103,7 +1103,7 @@ gckWLFE_Event(
     gctBOOL extraEventStates;
     gctBOOL multiCluster;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x Event=%u FromWhere=%d *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p Event=%u FromWhere=%d *Bytes=%lu",
                    Hardware, Logical, Event, FromWhere, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -1393,7 +1393,7 @@ gckWLFE_Event(
             gckOS_GetPhysicalAddress(Hardware->os, Logical, &phys);
             gckOS_CPUPhysicalToGPUPhysical(Hardware->os, phys, &phys);
             gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
-                           "0x%08x: EVENT %d", phys, Event);
+                           "0x%08llx: EVENT %d", phys, Event);
         }
 #endif
 
@@ -1476,7 +1476,7 @@ gckWLFE_ChipEnable(
     gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x ChipEnable=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p ChipEnable=0x%x *Bytes=%lu",
                    Hardware, Logical, ChipEnable, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -1509,7 +1509,7 @@ gckWLFE_ChipEnable(
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | ChipEnable
             );
 
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: CHIPENABLE 0x%x", Logical, ChipEnable);
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: CHIPENABLE 0x%x", Logical, ChipEnable);
     }
 
     if (Bytes != gcvNULL)
@@ -1560,7 +1560,7 @@ gckWLFE_Execute(
     gceSTATUS status;
     gctUINT32 control;
 
-    gcmkHEADER_ARG("Hardware=0x%x Address=0x%x Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Address=0x%x Bytes=%lu",
                    Hardware, Address, Bytes);
 
     /* Verify the arguments. */

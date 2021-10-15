@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #include "gc_hal_kernel_precomp.h"
 #include "gc_hal_kernel_buffer.h"
 
@@ -77,7 +76,7 @@ gckEVENT_AllocateQueue(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Event=0x%x", Event);
+    gcmkHEADER_ARG("Event=%p", Event);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -94,7 +93,7 @@ gckEVENT_AllocateQueue(
     Event->freeList = Event->freeList->next;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Queue=0x%x", gcmOPT_POINTER(Queue));
+    gcmkFOOTER_ARG("*Queue=%p", gcmOPT_POINTER(Queue));
     return gcvSTATUS_OK;
 
 OnError:
@@ -111,7 +110,7 @@ gckEVENT_FreeQueue(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Event=0x%x", Event);
+    gcmkHEADER_ARG("Event=%p", Event);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -135,7 +134,7 @@ gckEVENT_FreeRecord(
     gceSTATUS status;
     gctBOOL acquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Event=0x%x Record=0x%x", Event, Record);
+    gcmkHEADER_ARG("Event=%p Record=%p", Event, Record);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -180,7 +179,7 @@ gckEVENT_IsEmpty(
     gceSTATUS status;
     gctSIZE_T i;
 
-    gcmkHEADER_ARG("Event=0x%x", Event);
+    gcmkHEADER_ARG("Event=%p", Event);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -237,7 +236,7 @@ _TryToIdleGPU(
     gctBOOL powerLocked = gcvFALSE;
     gckHARDWARE hardware;
 
-    gcmkHEADER_ARG("Event=0x%x", Event);
+    gcmkHEADER_ARG("Event=%p", Event);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -294,7 +293,7 @@ __RemoveRecordFromProcessDB(
     IN gcsEVENT_PTR Record
     )
 {
-    gcmkHEADER_ARG("Event=0x%x Record=0x%x", Event, Record);
+    gcmkHEADER_ARG("Event=%p Record=%p", Event, Record);
     gcmkVERIFY_ARGUMENT(Record != gcvNULL);
 
     switch (Record->info.command)
@@ -366,7 +365,7 @@ _QueryFlush(
     gceKERNEL_FLUSH flush = 0;
     gckVIDMEM_NODE nodeObject;
 
-    gcmkHEADER_ARG("Event=0x%x Record=0x%x", Event, Record);
+    gcmkHEADER_ARG("Event=%p Record=%p", Event, Record);
     gcmkVERIFY_ARGUMENT(Record != gcvNULL);
 
     while (Record != gcvNULL)
@@ -469,7 +468,7 @@ gckEVENT_Construct(
     gcsEVENT_PTR record;
     gctPOINTER pointer = gcvNULL;
 
-    gcmkHEADER_ARG("Kernel=0x%x", Kernel);
+    gcmkHEADER_ARG("Kernel=%p", Kernel);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -539,7 +538,7 @@ gckEVENT_Construct(
     *Event = eventObj;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Event=0x%x", *Event);
+    gcmkFOOTER_ARG("*Event=%p", *Event);
     return gcvSTATUS_OK;
 
 OnError:
@@ -611,7 +610,7 @@ gckEVENT_Destroy(
     gcsEVENT_PTR record;
     gcsEVENT_QUEUE_PTR queue;
 
-    gcmkHEADER_ARG("Event=0x%x", Event);
+    gcmkHEADER_ARG("Event=%p", Event);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -652,7 +651,7 @@ gckEVENT_Destroy(
             gcmkTRACE_ZONE_N(
                 gcvLEVEL_WARNING, gcvZONE_EVENT,
                 gcmSIZEOF(record) + gcmSIZEOF(queue->source),
-                "Event record 0x%x is still pending for %d.",
+                "Event record %p is still pending for %d.",
                 record, queue->source
                 );
 
@@ -731,7 +730,7 @@ gckEVENT_GetEvent(
     gceSTATUS status;
     gctBOOL acquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Event=0x%x Source=%d", Event, Source);
+    gcmkHEADER_ARG("Event=%p Source=%d", Event, Source);
 
     while (gcvTRUE)
     {
@@ -861,7 +860,7 @@ gckEVENT_AllocateRecord(
     gcsEVENT_PTR record;
     gctPOINTER pointer = gcvNULL;
 
-    gcmkHEADER_ARG("Event=0x%x AllocateAllowed=%d", Event, AllocateAllowed);
+    gcmkHEADER_ARG("Event=%p AllocateAllowed=%d", Event, AllocateAllowed);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -900,7 +899,7 @@ gckEVENT_AllocateRecord(
     gcmkONERROR(gckOS_ReleaseMutex(Event->os, Event->freeEventMutex));
 
     /* Success. */
-    gcmkFOOTER_ARG("*Record=0x%x", gcmOPT_POINTER(Record));
+    gcmkFOOTER_ARG("*Record=%p", gcmOPT_POINTER(Record));
     return gcvSTATUS_OK;
 
 OnError:
@@ -953,7 +952,7 @@ gckEVENT_AddList(
     gcsEVENT_PTR record = gcvNULL;
     gcsEVENT_QUEUE_PTR queue;
 
-    gcmkHEADER_ARG("Event=0x%x Interface=0x%x",
+    gcmkHEADER_ARG("Event=%p Interface=%p",
                    Event, Interface);
 
     gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, _GC_OBJ_ZONE,
@@ -1118,7 +1117,7 @@ gckEVENT_Unlock(
     gceSTATUS status;
     gcsHAL_INTERFACE iface;
 
-    gcmkHEADER_ARG("Event=0x%x FromWhere=%d Node=0x%x",
+    gcmkHEADER_ARG("Event=%p FromWhere=%d Node=%p",
                    Event, FromWhere, Node);
 
     /* Verify the arguments. */
@@ -1174,7 +1173,7 @@ gckEVENT_Signal(
     gceSTATUS status;
     gcsHAL_INTERFACE iface;
 
-    gcmkHEADER_ARG("Event=0x%x Signal=0x%x FromWhere=%d",
+    gcmkHEADER_ARG("Event=%p Signal=%p FromWhere=%d",
                    Event, Signal, FromWhere);
 
     /* Verify the arguments. */
@@ -1263,7 +1262,7 @@ gckEVENT_Submit(
     gceKERNEL_FLUSH flush = gcvFALSE;
     gctUINT64 commitStamp;
 
-    gcmkHEADER_ARG("Event=0x%x Wait=%d", Event, Wait);
+    gcmkHEADER_ARG("Event=%p Wait=%d", Event, Wait);
 
     /* Get gckCOMMAND object. */
     command = Event->command;
@@ -1544,7 +1543,7 @@ gckEVENT_Commit(
     gctBOOL needCopy = gcvFALSE;
     gctPOINTER pointer = gcvNULL;
 
-    gcmkHEADER_ARG("Event=0x%x Queue=0x%x", Event, Queue);
+    gcmkHEADER_ARG("Event=%p Queue=%p", Event, Queue);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -1719,7 +1718,7 @@ gckEVENT_Notify(
 #endif
     gckVIDMEM_NODE nodeObject;
 
-    gcmkHEADER_ARG("Event=0x%x IDs=0x%x", Event, IDs);
+    gcmkHEADER_ARG("Event=%p IDs=0x%x", Event, IDs);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -1981,7 +1980,7 @@ gckEVENT_Notify(
 
             case gcvHAL_UNLOCK_VIDEO_MEMORY:
                 gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_EVENT,
-                               "gcvHAL_UNLOCK_VIDEO_MEMORY: 0x%x",
+                               "gcvHAL_UNLOCK_VIDEO_MEMORY: 0x%llx",
                                record->info.u.UnlockVideoMemory.node);
 
                 nodeObject = gcmUINT64_TO_PTR(record->info.u.UnlockVideoMemory.node);
@@ -2001,7 +2000,7 @@ gckEVENT_Notify(
             case gcvHAL_SIGNAL:
                 signal = gcmUINT64_TO_PTR(record->info.u.Signal.signal);
                 gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_EVENT,
-                               "gcvHAL_SIGNAL: 0x%x",
+                               "gcvHAL_SIGNAL: %p",
                                signal);
 
 #ifdef __QNXNTO__
@@ -2178,7 +2177,7 @@ gckEVENT_FreeProcess(
     gceSTATUS status;
     gcsEVENT_PTR deleteHead, deleteTail;
 
-    gcmkHEADER_ARG("Event=0x%x ProcessID=%d", Event, ProcessID);
+    gcmkHEADER_ARG("Event=%p ProcessID=%d", Event, ProcessID);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
@@ -2330,7 +2329,7 @@ gckEVENT_Dump(
 #endif
     gctINT32 pending;
 
-    gcmkHEADER_ARG("Event=0x%x", Event);
+    gcmkHEADER_ARG("Event=%p", Event);
 
     gcmkPRINT("**************************\n");
     gcmkPRINT("***  EVENT STATE DUMP  ***\n");

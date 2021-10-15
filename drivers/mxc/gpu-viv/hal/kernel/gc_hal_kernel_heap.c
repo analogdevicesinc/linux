@@ -198,7 +198,7 @@ _CompactKernelHeap(
     gctPOINTER p;
     gcskHEAP_PTR freeList = gcvNULL;
 
-    gcmkHEADER_ARG("Heap=0x%x", Heap);
+    gcmkHEADER_ARG("Heap=%p", Heap);
 
     /* Walk all the heaps. */
     for (heap = Heap->heap; heap != gcvNULL; heap = next)
@@ -310,7 +310,7 @@ _CompactKernelHeap(
 
             /* Free the heap. */
             gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HEAP,
-                           "Freeing heap 0x%x (%lu bytes)",
+                           "Freeing heap %p (%lu bytes)",
                            heap, heap->size + gcmSIZEOF(gcskHEAP));
             gcmkVERIFY_OK(gckOS_FreeMemory(Heap->os, heap));
         }
@@ -360,7 +360,7 @@ gckHEAP_Construct(
     gckHEAP heap = gcvNULL;
     gctPOINTER pointer = gcvNULL;
 
-    gcmkHEADER_ARG("Os=0x%x AllocationSize=%lu", Os, AllocationSize);
+    gcmkHEADER_ARG("Os=%p AllocationSize=%lu", Os, AllocationSize);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -401,7 +401,7 @@ gckHEAP_Construct(
     *Heap = heap;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Heap=0x%x", *Heap);
+    gcmkFOOTER_ARG("*Heap=%p", *Heap);
     return gcvSTATUS_OK;
 
 OnError:
@@ -442,7 +442,7 @@ gckHEAP_Destroy(
     gctSIZE_T leaked = 0;
 #endif
 
-    gcmkHEADER_ARG("Heap=0x%x", Heap);
+    gcmkHEADER_ARG("Heap=%p", Heap);
 
     for (heap = Heap->heap; heap != gcvNULL; heap = Heap->heap)
     {
@@ -507,7 +507,7 @@ gckHEAP_Allocate(
     gcskNODE_PTR node, used, prevFree = gcvNULL;
     gctPOINTER memory = gcvNULL;
 
-    gcmkHEADER_ARG("Heap=0x%x Bytes=%lu", Heap, Bytes);
+    gcmkHEADER_ARG("Heap=%p Bytes=%lu", Heap, Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Heap, gcvOBJ_HEAP);
@@ -616,7 +616,7 @@ gckHEAP_Allocate(
                              &memory));
 
     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HEAP,
-                   "Allocated heap 0x%x (%lu bytes)",
+                   "Allocated heap %p (%lu bytes)",
                    memory, Heap->allocationSize);
 
     /* Acquire the mutex. */
@@ -746,7 +746,7 @@ UseNode:
     *Memory = used + 1;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Memory=0x%x", *Memory);
+    gcmkFOOTER_ARG("*Memory=%p", *Memory);
     return gcvSTATUS_OK;
 
 OnError:
@@ -795,7 +795,7 @@ gckHEAP_Free(
     gcskNODE_PTR node;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Heap=0x%x Memory=0x%x", Heap, Memory);
+    gcmkHEADER_ARG("Heap=%p Memory=%p", Heap, Memory);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Heap, gcvOBJ_HEAP);
@@ -836,7 +836,7 @@ gckHEAP_ProfileStart(
     IN gckHEAP Heap
     )
 {
-    gcmkHEADER_ARG("Heap=0x%x", Heap);
+    gcmkHEADER_ARG("Heap=%p", Heap);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Heap, gcvOBJ_HEAP);
@@ -862,7 +862,7 @@ gckHEAP_ProfileEnd(
     IN gctCONST_STRING Title
     )
 {
-    gcmkHEADER_ARG("Heap=0x%x Title=0x%x", Heap, Title);
+    gcmkHEADER_ARG("Heap=%p Title=%p", Heap, Title);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Heap, gcvOBJ_HEAP);

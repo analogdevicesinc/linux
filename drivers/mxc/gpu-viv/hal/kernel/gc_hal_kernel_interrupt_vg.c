@@ -444,7 +444,7 @@ gckVGINTERRUPT_Construct(
     gceSTATUS status;
     gckVGINTERRUPT interrupt = gcvNULL;
 
-    gcmkHEADER_ARG("Kernel=0x%x Interrupt=0x%x", Kernel, Interrupt);
+    gcmkHEADER_ARG("Kernel=%p Interrupt=%p", Kernel, Interrupt);
 
     /* Verify argeuments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -481,7 +481,7 @@ gckVGINTERRUPT_Construct(
         /* Return interrupt object. */
         *Interrupt = interrupt;
 
-        gcmkFOOTER_ARG("*Interrup=0x%x", *Interrupt);
+        gcmkFOOTER_ARG("*Interrup=%p", *Interrupt);
         /* Success. */
         return gcvSTATUS_OK;
     }
@@ -524,7 +524,7 @@ gckVGINTERRUPT_Destroy(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Interrupt=0x%x", Interrupt);
+    gcmkHEADER_ARG("Interrupt=%p", Interrupt);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Interrupt, gcvOBJ_INTERRUPT);
@@ -571,7 +571,7 @@ gckVGINTERRUPT_DumpState(
     IN gckVGINTERRUPT Interrupt
     )
 {
-    gcmkHEADER_ARG("Interrupt=0x%x", Interrupt);
+    gcmkHEADER_ARG("Interrupt=%p", Interrupt);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Interrupt, gcvOBJ_INTERRUPT);
 
@@ -686,7 +686,7 @@ gckVGINTERRUPT_Enable(
     gceSTATUS status;
     gctINT32 i;
 
-    gcmkHEADER_ARG("Interrupt=0x%x Id=0x%x Handler=0x%x", Interrupt, Id, Handler);
+    gcmkHEADER_ARG("Interrupt=%p Id=%p Handler=%p", Interrupt, Id, Handler);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Interrupt, gcvOBJ_INTERRUPT);
@@ -764,7 +764,7 @@ gckVGINTERRUPT_Disable(
     IN gctINT32 Id
     )
 {
-    gcmkHEADER_ARG("Interrupt=0x%x Id=0x%x", Interrupt, Id);
+    gcmkHEADER_ARG("Interrupt=%p Id=0x%x", Interrupt, Id);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Interrupt, gcvOBJ_INTERRUPT);
     gcmkVERIFY_ARGUMENT((Id >= 0) && (Id < gcmCOUNTOF(Interrupt->handlers)));
@@ -811,7 +811,7 @@ gckVGINTERRUPT_Enque(
     gceSTATUS status;
     gctUINT32 triggered;
 
-    gcmkHEADER_ARG("Interrupt=0x%x", Interrupt);
+    gcmkHEADER_ARG("Interrupt=%p", Interrupt);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Interrupt, gcvOBJ_INTERRUPT);

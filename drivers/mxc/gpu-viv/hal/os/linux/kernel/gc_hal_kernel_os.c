@@ -1622,7 +1622,7 @@ gckOS_RequestReservedMemory(
     gckALLOCATOR allocator;
     gcsATTACH_DESC desc;
 
-    gcmkHEADER_ARG("start=0x%lx size=0x%lx name=%s", Start, Size, Name);
+    gcmkHEADER_ARG("start=0x%llx size=0x%lx name=%s", Start, Size, Name);
 
     /* Round up to page size. */
     Size = (Size + ~PAGE_MASK) & PAGE_MASK;
@@ -2044,7 +2044,7 @@ _GetPhysicalAddressProcess(
 
 OnError:
     /* Return the status. */
-    gcmkFOOTER_ARG("*Address=%p", *Address);
+    gcmkFOOTER_ARG("*Address=0x%llx", *Address);
     return status;
 }
 
@@ -3379,7 +3379,7 @@ gckOS_LockPages(
     PLINUX_MDL_MAP  mdlMap;
     gckALLOCATOR    allocator;
 
-    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx", Os, Physical, Logical);
+    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx, Logical=%p", Os, Physical, Bytes, Logical);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -3513,7 +3513,7 @@ gckOS_MapPagesEx(
 
             gcmkTRACE_ZONE(
                 gcvLEVEL_INFO, gcvZONE_OS,
-                "%s(%d): Setup mapping in IOMMU %x => %x",
+                "%s(%d): Setup mapping in IOMMU 0x%x => 0x%llx",
                 __FUNCTION__, __LINE__,
                 Address + offset, phys
                 );
@@ -4139,7 +4139,7 @@ gckOS_ReadMappedPointer(
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
-    gcmkHEADER_ARG("Os=%p Address=%p Data=%u", Os, Address, Data);
+    gcmkHEADER_ARG("Os=%p Address=%p Data=%p", Os, Address, Data);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Address != gcvNULL);
@@ -4406,7 +4406,7 @@ gckOS_CacheClean(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%llx Logical=%p Bytes=0x%zx",
+    gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%zx Logical=%p Bytes=0x%zx",
                    Os, ProcessID, Handle, Offset, Logical, Bytes);
 
     gcmkONERROR(_CacheOperation(Os, ProcessID,
@@ -4454,7 +4454,7 @@ gckOS_CacheInvalidate(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%llx Logical=%p Bytes=0x%zx",
+    gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%zx Logical=%p Bytes=0x%zx",
                    Os, ProcessID, Handle, Offset, Logical, Bytes);
 
     gcmkONERROR(_CacheOperation(Os, ProcessID,
@@ -4502,7 +4502,7 @@ gckOS_CacheFlush(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%llx Logical=%p Bytes=0x%zx",
+    gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%zx Logical=%p Bytes=0x%zx",
                    Os, ProcessID, Handle, Offset, Logical, Bytes);
 
     gcmkONERROR(_CacheOperation(Os, ProcessID,
@@ -7177,7 +7177,7 @@ gckOS_CPUPhysicalToGPUPhysical(
     )
 {
     gcsPLATFORM * platform;
-    gcmkHEADER_ARG("CPUPhysical=%p", CPUPhysical);
+    gcmkHEADER_ARG("CPUPhysical=%llx", CPUPhysical);
 
     platform = Os->device->platform;
 

@@ -225,7 +225,7 @@ gctaHARDWARE_SetMMUStates(
     gctUINT32 reserveBytes = 2 * 4;
     gcsMMU_TABLE_ARRAY_ENTRY * entry;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     entry = (gcsMMU_TABLE_ARRAY_ENTRY *) Hardware->pagetableArray.logical;
 
@@ -376,7 +376,7 @@ gctaHARDWARE_End(
     gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p *Bytes=%lu",
         Hardware, Logical, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -407,7 +407,7 @@ gctaHARDWARE_End(
         logical[1] =
             0;
 
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: END", Logical);
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: END", Logical);
     }
 
     if (Bytes != gcvNULL)
@@ -874,7 +874,7 @@ gctaHARDWARE_DumpMMUException(
     gctUINT32 mmuStatusRegAddress;
     gctUINT32 mmuExceptionAddress;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     mmuStatusRegAddress = 0x00384;
     mmuExceptionAddress = 0x00380;
@@ -965,7 +965,7 @@ gctaHARDWARE_ReadMMUException(
     gctUINT32 mmuStatusRegAddress;
     gctUINT32 mmuExceptionAddress;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     mmuStatusRegAddress = 0x00384;
     mmuExceptionAddress = 0x00380;
@@ -1005,7 +1005,7 @@ gctaHARDWARE_HandleMMUException(
     gctUINT32 mmuStatusRegAddress;
     gctUINT32 mmuExceptionAddress;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     mmuStatusRegAddress = 0x00384;
     mmuExceptionAddress = 0x00380;

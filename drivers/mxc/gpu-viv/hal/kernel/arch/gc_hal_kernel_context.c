@@ -4860,7 +4860,7 @@ gckCONTEXT_Construct(
     *Context = context;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Context=0x%08X", *Context);
+    gcmkFOOTER_ARG("*Context=%p", *Context);
     return gcvSTATUS_OK;
 
 OnError:

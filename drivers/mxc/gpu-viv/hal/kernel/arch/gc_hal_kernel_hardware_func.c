@@ -2486,7 +2486,7 @@ _ProgramMMUStates(
 
     gctBOOL config2D;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -3355,7 +3355,7 @@ _ProgramMMUStatesMCFE(
     gctBOOL ace;
     gctUINT32 reserveBytes = 0;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -10828,7 +10828,7 @@ gceSTATUS gckFUNCTION_Construct(IN         gctPOINTER Hardware)
     gctPOINTER pointer = gcvNULL;
     gctUINT i;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Hardware != gcvNULL);
 
@@ -10941,7 +10941,7 @@ gceSTATUS gckFUNCTION_Destory(IN    gctPOINTER Hardware)
     gckHARDWARE hardware = (gckHARDWARE)Hardware;
     gctUINT i;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Hardware != gcvNULL);
 
@@ -10963,7 +10963,7 @@ gceSTATUS gckFUNCTION_Validate(IN gcsFUNCTION_EXECUTION_PTR Execution,
 {
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
 
-    gcmkHEADER_ARG("Execution=0x%x", Execution);
+    gcmkHEADER_ARG("Execution=%p", Execution);
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Execution != gcvNULL);
     gcmkVERIFY_ARGUMENT(Valid != gcvNULL);
@@ -10982,7 +10982,7 @@ gceSTATUS gckFUNCTION_Init(IN gcsFUNCTION_EXECUTION_PTR Execution)
 {
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
 
-    gcmkHEADER_ARG("Execution=0x%x", Execution);
+    gcmkHEADER_ARG("Execution=%p", Execution);
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Execution != gcvNULL);
 
@@ -11005,7 +11005,7 @@ gceSTATUS gckFUNCTION_Execute(IN gcsFUNCTION_EXECUTION_PTR Execution)
 {
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
 
-    gcmkHEADER_ARG("Execution=0x%x", Execution);
+    gcmkHEADER_ARG("Execution=%p", Execution);
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Execution != gcvNULL);
 
@@ -11022,7 +11022,7 @@ gceSTATUS gckFUNCTION_Release(IN gcsFUNCTION_EXECUTION_PTR Execution)
 {
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
 
-    gcmkHEADER_ARG("Execution=0x%x", Execution);
+    gcmkHEADER_ARG("Execution=%p", Execution);
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Execution != gcvNULL);
 

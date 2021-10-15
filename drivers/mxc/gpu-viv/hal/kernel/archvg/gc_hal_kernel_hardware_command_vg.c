@@ -87,7 +87,7 @@ gckVGCOMMAND_InitializeInfo(
     )
 {
     gceSTATUS status;
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -223,7 +223,7 @@ gckVGCOMMAND_StateCommand(
     IN OUT gctUINT32 * Bytes
     )
 {
-    gcmkHEADER_ARG("Command=0x%x Pipe=0x%x Logical=0x%x Address=0x%x Count=0x%x Bytes = 0x%x",
+    gcmkHEADER_ARG("Command=%p Pipe=0x%x Logical=%p Address=0x%x Count=0x%x Bytes=%p",
                    Command, Pipe, Logical, Address, Count, Bytes);
 
     /* Verify the arguments. */
@@ -392,7 +392,7 @@ gckVGCOMMAND_RestartCommand(
     IN OUT gctUINT32 * Bytes
     )
 {
-    gcmkHEADER_ARG("Command=0x%x Logical=0x%x FetchAddress=0x%x FetchCount=0x%x Bytes = 0x%x",
+    gcmkHEADER_ARG("Command=%p Logical=%p FetchAddress=0x%x FetchCount=0x%x Bytes=%p",
                    Command, Logical, FetchAddress, FetchCount, Bytes);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -526,7 +526,7 @@ gckVGCOMMAND_FetchCommand(
     IN OUT gctUINT32 * Bytes
     )
 {
-    gcmkHEADER_ARG("Command=0x%x Logical=0x%x FetchAddress=0x%x FetchCount=0x%x Bytes = 0x%x",
+    gcmkHEADER_ARG("Command=%p Logical=%p FetchAddress=0x%x FetchCount=0x%x Bytes = %p",
                    Command, Logical, FetchAddress, FetchCount, Bytes);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -676,7 +676,7 @@ gckVGCOMMAND_CallCommand(
     IN OUT gctUINT32 * Bytes
     )
 {
-    gcmkHEADER_ARG("Command=0x%x Logical=0x%x FetchAddress=0x%x FetchCount=0x%x Bytes = 0x%x",
+    gcmkHEADER_ARG("Command=%p Logical=%p FetchAddress=0x%x FetchCount=0x%x Bytes = %p",
                    Command, Logical, FetchAddress, FetchCount, Bytes);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -772,7 +772,7 @@ gckVGCOMMAND_ReturnCommand(
     IN OUT gctUINT32 * Bytes
     )
 {
-    gcmkHEADER_ARG("Command=0x%x Logical=0x%x  Bytes = 0x%x",
+    gcmkHEADER_ARG("Command=%p Logical=%p  Bytes = %p",
                    Command, Logical, Bytes);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -861,7 +861,7 @@ gckVGCOMMAND_EventCommand(
     IN OUT gctUINT32 * Bytes
     )
 {
-    gcmkHEADER_ARG("Command=0x%x Logical=0x%x Block=0x%x InterruptId=0x%x Bytes = 0x%x",
+    gcmkHEADER_ARG("Command=%p Logical=%p Block=0x%x InterruptId=0x%x Bytes = %p",
                    Command, Logical, Block, InterruptId, Bytes);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -1255,7 +1255,7 @@ gckVGCOMMAND_EndCommand(
     IN OUT gctUINT32 * Bytes
     )
 {
-    gcmkHEADER_ARG("Command=0x%x Logical=0x%x InterruptId=0x%x Bytes = 0x%x",
+    gcmkHEADER_ARG("Command=%p Logical=%p InterruptId=0x%x Bytes=%p",
                    Command, Logical, InterruptId, Bytes);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);

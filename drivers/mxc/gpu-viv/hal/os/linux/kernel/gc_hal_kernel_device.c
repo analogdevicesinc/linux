@@ -2171,7 +2171,7 @@ gckGALDEVICE_Construct(
                 {
                     gcmkTRACE_ZONE(
                             gcvLEVEL_ERROR, gcvZONE_DRIVER,
-                            "%s(%d): Failed to claim %lu bytes @ 0x%llx\n",
+                            "%s(%d): Failed to claim %lu bytes @ 0x%lx\n",
                             __FUNCTION__, __LINE__,
                             device->requestedRegisterMemSizes[i], physical
                             );

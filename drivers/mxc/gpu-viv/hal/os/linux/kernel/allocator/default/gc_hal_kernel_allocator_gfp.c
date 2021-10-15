@@ -278,7 +278,7 @@ _NonContiguousAlloc(
 
     MdlPriv->nonContiguousPages = pages;
 
-    gcmkFOOTER_ARG("pages=0x%X", pages);
+    gcmkFOOTER_ARG("pages=%p", pages);
     return gcvSTATUS_OK;
 }
 

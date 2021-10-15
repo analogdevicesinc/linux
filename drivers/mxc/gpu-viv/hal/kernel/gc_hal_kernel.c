@@ -4522,7 +4522,7 @@ gckKERNEL_CreateIntegerDatabase(
 
     *Database = database;
 
-    gcmkFOOTER_ARG("*Database=0x%08X", *Database);
+    gcmkFOOTER_ARG("*Database=%p", *Database);
     return gcvSTATUS_OK;
 
 OnError:
@@ -4749,7 +4749,7 @@ gckKERNEL_QueryIntegerId(
 
     gcmkVERIFY_OK(gckOS_ReleaseMutex(os, database->mutex));
 
-    gcmkFOOTER_ARG("*Pointer=0x%08X", *Pointer);
+    gcmkFOOTER_ARG("*Pointer=%p", *Pointer);
     return gcvSTATUS_OK;
 
 OnError:
@@ -4795,7 +4795,7 @@ gckKERNEL_QueryPointerFromName(
     /* Lookup in database to get pointer. */
     gcmkONERROR(gckKERNEL_QueryIntegerId(database, Name, &pointer));
 
-    gcmkFOOTER_ARG("pointer=0x%X", pointer);
+    gcmkFOOTER_ARG("pointer=%p", pointer);
     return pointer;
 
 OnError:
@@ -4811,7 +4811,7 @@ gckKERNEL_DeleteName(
 {
     gctPOINTER database = Kernel->db->pointerDatabase;
 
-    gcmkHEADER_ARG("Kernel=%p Name=%p", Kernel, Name);
+    gcmkHEADER_ARG("Kernel=%p Name=0x%x", Kernel, Name);
 
     /* Free name if exists. */
     gcmkVERIFY_OK(gckKERNEL_FreeIntegerId(database, Name));

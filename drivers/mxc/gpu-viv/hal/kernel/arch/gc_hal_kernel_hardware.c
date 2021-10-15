@@ -162,7 +162,7 @@ _IdentifyHardwareByDatabase(
     gcsFEATURE_DATABASE *database;
     gctUINT i = 0;
 
-    gcmkHEADER_ARG("Os=0x%x", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Get chip date. */
     gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x00028, &Identity->chipDate));
@@ -474,7 +474,7 @@ _GetHardwareSignature(
 
     gctUINT32 chipIdentity;
 
-    gcmkHEADER_ARG("Os=0x%x", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /***************************************************************************
     ** Get chip ID and revision.
@@ -938,7 +938,7 @@ _DumpDebugRegisters(
     gctUINT32 datas[REG_PER_LINE];
     gctUINT32 oldControl, control;
 
-    gcmkHEADER_ARG("Os=0x%X Descriptor=0x%X", Os, Descriptor);
+    gcmkHEADER_ARG("Os=%p Descriptor=%p", Os, Descriptor);
 
     /* Record control. */
     gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x0, &oldControl));
@@ -1127,7 +1127,7 @@ _IsGPUPresent(
     gcsHARDWARE_SIGNATURE signature;
     gctUINT32 control;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -1248,7 +1248,7 @@ _QueryFeatureDatabase(
 
     gcsFEATURE_DATABASE *database = Hardware->featureDatabase;
 
-    gcmkHEADER_ARG("Hardware=0x%x Feature=%d", Hardware, Feature);
+    gcmkHEADER_ARG("Hardware=%p Feature=%d", Hardware, Feature);
 
      /* Only features needed by common kernel logic added here. */
     switch (Feature)
@@ -2104,7 +2104,7 @@ gckHARDWARE_Construct(
     gctPOINTER pointer = gcvNULL;
     gctUINT    i;
 
-    gcmkHEADER_ARG("Os=0x%x", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2343,7 +2343,7 @@ gckHARDWARE_Construct(
     *Hardware = hardware;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Hardware=0x%x", *Hardware);
+    gcmkFOOTER_ARG("*Hardware=%p", *Hardware);
     return gcvSTATUS_OK;
 
 OnError:
@@ -2448,7 +2448,7 @@ gckHARDWARE_PreDestroy(
     IN gckHARDWARE Hardware
     )
 {
-    gcmkHEADER_ARG("%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     gcmkVERIFY_OK(gckFUNCTION_Destory(Hardware));
 
@@ -2516,7 +2516,7 @@ gckHARDWARE_Destroy(
     gceSTATUS status;
     gctUINT i;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -2581,7 +2581,7 @@ gckHARDWARE_GetType(
     OUT gceHARDWARE_TYPE * Type
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
     gcmkVERIFY_ARGUMENT(Type != gcvNULL);
 
     *Type = Hardware->type;
@@ -2616,7 +2616,7 @@ gckHARDWARE_InitializeHardware(
     gctUINT32 regPMC = 0;
     gctUINT32 i;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -3526,7 +3526,7 @@ gckHARDWARE_QueryMemory(
     OUT gctUINT32 * VerticalTileSize
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -3594,7 +3594,7 @@ gckHARDWARE_QueryChipIdentity(
     OUT gcsHAL_QUERY_CHIP_IDENTITY_PTR Identity
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -3630,7 +3630,7 @@ gckHARDWARE_QueryChipOptions(
     OUT gcsHAL_QUERY_CHIP_OPTIONS_PTR Options
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -3674,7 +3674,7 @@ gckHARDWARE_SplitMemory(
     OUT gctUINT32 * Offset
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x Addres=0x%08x", Hardware, Address);
+    gcmkHEADER_ARG("Hardware=%p Addres=0x%08x", Hardware, Address);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -3759,7 +3759,7 @@ gckHARDWARE_PipeSelect(
     gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x Pipe=%d *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p Pipe=%d *Bytes=%lu",
                    Hardware, Logical, Pipe, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -3874,7 +3874,7 @@ gckHARDWARE_PipeSelect(
             ));
 
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
-                       "0x%x: FLUSH 0x%x", logical, flush);
+                       "%p: FLUSH 0x%x", logical, flush);
 
         /* LoadState(AQSempahore, 1), stall. */
         gcmkONERROR(gckOS_WriteMemory(
@@ -3919,7 +3919,7 @@ gckHARDWARE_PipeSelect(
             ));
 
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
-                       "0x%x: SEMAPHORE 0x%x", logical + 2, stall);
+                       "%p: SEMAPHORE 0x%x", logical + 2, stall);
 
         /* Stall, stall. */
         gcmkONERROR(gckOS_WriteMemory(
@@ -4481,7 +4481,7 @@ gckHARDWARE_UpdateQueueTail(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x Offset=0x%08x",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p Offset=0x%08x",
                    Hardware, Logical, Offset);
 
     /* Verify the hardware. */
@@ -4760,7 +4760,7 @@ gckHARDWARE_QueryCommandBuffer(
     OUT gctUINT32 * ReservedTail
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -4825,7 +4825,7 @@ gckHARDWARE_QuerySystemMemory(
     OUT gctUINT32 * SystemBaseAddress
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -4884,7 +4884,7 @@ gckHARDWARE_SetMMU(
     gceSTATUS status;
     gctUINT32 address = 0;
 
-    gcmkHEADER_ARG("Hardware=0x%x Mmu=0x%x", Hardware, Mmu);
+    gcmkHEADER_ARG("Hardware=%p Mmu=%p", Hardware, Mmu);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -5067,7 +5067,7 @@ gckHARDWARE_FlushMMU(
     gctBOOL bltEngine = gcvFALSE;
     gctBOOL multiCluster = gcvFALSE;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     if (Hardware->mmuVersion == 0)
     {
@@ -5626,7 +5626,7 @@ gckHARDWARE_FlushAsyncMMU(
     gctUINT32_PTR buffer;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p *Bytes=%lu",
                    Hardware, Logical, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -5957,7 +5957,7 @@ gckHARDWARE_FlushMcfeMMU(
     gctUINT32_PTR buffer;
     gctUINT32 flushSize;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* MCFE with old mmu? nonsense!. */
     gcmkASSERT(Hardware->mmuVersion > 0);
@@ -6147,7 +6147,7 @@ gckHARDWARE_BuildVirtualAddress(
     OUT gctUINT32 * Address
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x Index=%u Offset=%u", Hardware, Index, Offset);
+    gcmkHEADER_ARG("Hardware=%p Index=%u Offset=%u", Hardware, Index, Offset);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -6192,7 +6192,7 @@ gckHARDWARE_GetIdle(
     gctINT retry, poll, pollCount;
     gctUINT32 address;
 
-    gcmkHEADER_ARG("Hardware=0x%x Wait=%d", Hardware, Wait);
+    gcmkHEADER_ARG("Hardware=%p Wait=%d", Hardware, Wait);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -6293,7 +6293,7 @@ gckHARDWARE_Flush(
     gctBOOL peTSFlush;
     gctBOOL multiCluster;
 
-    gcmkHEADER_ARG("Hardware=0x%x Flush=0x%x Logical=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Flush=0x%x Logical=%p *Bytes=%lu",
                    Hardware, Flush, Logical, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -6891,7 +6891,7 @@ gckHARDWARE_Flush(
 
                 *logical++ = flush;
 
-                gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: FLUSH 0x%x", logical - 1, flush);
+                gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: FLUSH 0x%x", logical - 1, flush);
             }
 
             if (flushVST)
@@ -7259,7 +7259,7 @@ gckHARDWARE_Flush(
  ~0U : (~(~0U << ((1 ? 31:28) - (0 ? 31:28) + 1))))))) << (0 ? 31:28)));
 
                 gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
-                               "0x%x: FLUSH Icache 0x%x", logical - 1, logical[-1]);
+                               "%p: FLUSH Icache 0x%x", logical - 1, logical[-1]);
 
             }
 
@@ -7634,7 +7634,7 @@ gckHARDWARE_SetFastClear(
     gceSTATUS status;
     gceCOMPRESSION_OPTION compression = (Compression == -1) ? gcvCOMPRESSION_OPTION_DEFAULT : (gceCOMPRESSION_OPTION)Compression;
 
-    gcmkHEADER_ARG("Hardware=0x%x Enable=%d Compression=%d",
+    gcmkHEADER_ARG("Hardware=%p Enable=%d Compression=%d",
                    Hardware, Enable, Compression);
 
     /* Only process if fast clear is available. */
@@ -8427,7 +8427,7 @@ gckHARDWARE_SetPowerState(
     gctBOOL global = gcvFALSE;
     gctBOOL globalAcquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Hardware=0x%x State=%d", Hardware, State);
+    gcmkHEADER_ARG("Hardware=%p State=%d", Hardware, State);
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
@@ -8779,7 +8779,7 @@ gckHARDWARE_QueryPowerStateUnlocked(
     OUT gceCHIPPOWERSTATE* State
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -8816,7 +8816,7 @@ gckHARDWARE_QueryPowerState(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -8857,7 +8857,7 @@ gckHARDWARE_QueryPowerManagement(
     OUT gctBOOL *Enable
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -8902,7 +8902,7 @@ gckHARDWARE_EnablePowerManagement(
     IN gctBOOL Enable
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -8946,7 +8946,7 @@ gckHARDWARE_SetGpuProfiler(
     IN gctBOOL GpuProfiler
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -9039,7 +9039,7 @@ gckHARDWARE_SetFscaleValue(
     gctUINT32 clock;
     gctBOOL acquired = gcvFALSE;
     gctBOOL commitMutexAcquired = gcvFALSE;
-    gcmkHEADER_ARG("Hardware=0x%x FscaleValue=%d", Hardware, FscaleValue);
+    gcmkHEADER_ARG("Hardware=%p FscaleValue=%d", Hardware, FscaleValue);
 
     gcmkVERIFY_ARGUMENT(FscaleValue > 0 && FscaleValue <= 64);
 
@@ -9409,7 +9409,7 @@ gckHARDWARE_QueryIdle(
     gctINT32 pendingInterrupt;
 #endif
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
 #if gcdCAPTURE_ONLY_MODE
     *IsIdle = gcvTRUE;
@@ -9656,7 +9656,7 @@ gckHARDWARE_QueryContextProfile(
     gcsPROFILER_COUNTERS_PART1 * profiler_part1 = Counters_part1;
     gcsPROFILER_COUNTERS_PART2 * profiler_part2 = Counters_part2;
 
-    gcmkHEADER_ARG("Hardware=0x%x Counters_part1=0x%x, Counters_part2=0x%x", Hardware, Counters_part1, Counters_part2);
+    gcmkHEADER_ARG("Hardware=%p Counters_part1=%p, Counters_part2=%p", Hardware, Counters_part1, Counters_part2);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -9739,7 +9739,7 @@ gckHARDWARE_UpdateContextProfile(
     gckCOMMAND command = Hardware->kernel->command;
     gctBOOL mutexAcquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Hardware=0x%x Context=0x%x", Hardware, Context);
+    gcmkHEADER_ARG("Hardware=%p Context=%p", Hardware, Context);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -11736,7 +11736,7 @@ gckHARDWARE_InitProfiler(
     gceSTATUS status;
     gctUINT32 control;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
     gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
                                      Hardware->core,
                                      0x00000,
@@ -12048,7 +12048,7 @@ gckHARDWARE_Reset(
     gctBOOL powerManagement = gcvFALSE;
     gctBOOL globalAcquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -12142,7 +12142,7 @@ gckHARDWARE_GetBaseAddress(
     OUT gctUINT32_PTR BaseAddress
     )
 {
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -12165,7 +12165,7 @@ gckHARDWARE_NeedBaseAddress(
 {
     gctBOOL need = gcvFALSE;
 
-    gcmkHEADER_ARG("Hardware=0x%x State=0x%08x", Hardware, State);
+    gcmkHEADER_ARG("Hardware=%p State=0x%08x", Hardware, State);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -12230,7 +12230,7 @@ gckHARDWARE_IsFeatureAvailable(
 {
     gctBOOL available;
 
-    gcmkHEADER_ARG("Hardware=0x%x Feature=%d", Hardware, Feature);
+    gcmkHEADER_ARG("Hardware=%p Feature=%d", Hardware, Feature);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
@@ -12303,7 +12303,7 @@ gckHARDWARE_DumpMMUException(
     gctUINT32 stlbMask;
     gctUINT32 pgoffMask;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
 #if gcdENABLE_TRUST_APPLICATION
     if (Hardware->options.secureMode == gcvSECURE_IN_TA)
@@ -12450,7 +12450,7 @@ gckHARDWARE_HandleFault(
     gctUINT32 mmuStatusRegAddress;
     gctUINT32 mmuExceptionAddress;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     if (Hardware->options.secureMode == gcvSECURE_NONE)
     {
@@ -12815,7 +12815,7 @@ gckHARDWARE_DumpGPUState(
     gceSTATUS gsShader = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_GEOMETRY_SHADER);
     gceSTATUS nnEngine = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_NN_ENGINE);
 
-    gcmkHEADER_ARG("Hardware=0x%X", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     gcmkPRINT_N(12, "GPU[%d](ChipModel=0x%x ChipRevision=0x%x):\n",
                 core,
@@ -13045,7 +13045,7 @@ gckHARDWARE_ReadPerformanceRegister(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x PerformanceAddress=0x%x IndexAddress=0x%x "
+    gcmkHEADER_ARG("Hardware=%p PerformanceAddress=0x%x IndexAddress=0x%x "
                    "IndexShift=%u Index=%u",
                    Hardware, PerformanceAddress, IndexAddress, IndexShift,
                    Index);
@@ -13092,7 +13092,7 @@ gckHARDWARE_GetFrameInfo(
     gctUINT reset;
 #endif
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Get profile tick. */
     gcmkONERROR(gckOS_GetProfileTick(&info.ticks));
@@ -13447,7 +13447,7 @@ gckHARDWARE_DumpGpuProfile(
     gctUINT clock, i;
     gctUINT32 totalRead, totalWrite, read, write;
 
-    gcmkHEADER_ARG("Hardware=0x%x", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     /* Read clock control register. */
     gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
@@ -13527,7 +13527,7 @@ gckHARDWARE_QueryLoad(
 {
     gctUINT32 debug1;
     gceSTATUS status;
-    gcmkHEADER_ARG("Hardware=0x%X", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_ARGUMENT(Load != gcvNULL);
@@ -13605,7 +13605,7 @@ gckHARDWARE_SetDVFSPeroid(
     gctUINT32 eater1;
 #endif
 
-    gcmkHEADER_ARG("Hardware=0x%X Frequency=%d", Hardware, Frequency);
+    gcmkHEADER_ARG("Hardware=%p Frequency=%d", Hardware, Frequency);
 
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
 
@@ -13690,7 +13690,7 @@ gckHARDWARE_InitDVFS(
     gceSTATUS status;
     gctUINT32 data;
 
-    gcmkHEADER_ARG("Hardware=0x%X", Hardware);
+    gcmkHEADER_ARG("Hardware=%p", Hardware);
 
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
 

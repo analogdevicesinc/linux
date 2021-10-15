@@ -93,7 +93,7 @@ gceSTATUS gckVGKERNEL_Construct(
     gceSTATUS status;
     gckVGKERNEL kernel = gcvNULL;
 
-    gcmkHEADER_ARG("Os=0x%x Context=0x%x", Os, Context);
+    gcmkHEADER_ARG("Os=%p Context=%p", Os, Context);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Kernel != gcvNULL);
@@ -143,7 +143,7 @@ gceSTATUS gckVGKERNEL_Construct(
         /* Return pointer to the gckKERNEL object. */
         *Kernel = kernel;
 
-        gcmkFOOTER_ARG("*Kernel=0x%x", *Kernel);
+        gcmkFOOTER_ARG("*Kernel=%p", *Kernel);
         /* Success. */
         return gcvSTATUS_OK;
     }
@@ -201,7 +201,7 @@ gceSTATUS gckVGKERNEL_Destroy(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Kernel=0x%x", Kernel);
+    gcmkHEADER_ARG("Kernel=%p", Kernel);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -281,7 +281,7 @@ gceSTATUS gckVGKERNEL_Dispatch(
     gctUINT32 processID;
     gctBOOL powerMutexAcquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Kernel=0x%x Interface=0x%x ", Kernel, Interface);
+    gcmkHEADER_ARG("Kernel=%p Interface=%p ", Kernel, Interface);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -498,7 +498,7 @@ gckKERNEL_QueryCommandBuffer(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Kernel=0x%x *Pool=0x%x",
+    gcmkHEADER_ARG("Kernel=%p *Pool=%p",
                    Kernel, Information);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);

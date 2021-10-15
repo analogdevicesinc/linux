@@ -152,7 +152,7 @@ gckASYNC_FE_Nop(
     gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p *Bytes=%lu",
                    Hardware, Logical, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -179,7 +179,7 @@ gckASYNC_FE_Nop(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: NOP", Logical);
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: NOP", Logical);
     }
 
     if (Bytes != gcvNULL)
@@ -215,7 +215,7 @@ gckASYNC_FE_Event(
     gctBOOL extraEventStates;
     gctBOOL multiCluster;
 
-    gcmkHEADER_ARG("Hardware=0x%x Logical=0x%x Event=%u FromWhere=%d *Bytes=%lu",
+    gcmkHEADER_ARG("Hardware=%p Logical=%p Event=%u FromWhere=%d *Bytes=%lu",
                    Hardware, Logical, Event, FromWhere, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -503,7 +503,7 @@ gckASYNC_FE_Event(
             gckOS_GetPhysicalAddress(Hardware->os, Logical, &phys);
             gckOS_CPUPhysicalToGPUPhysical(Hardware->os, phys, &phys);
             gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
-                           "0x%08x: EVENT %d", phys, Event);
+                           "0x%08llx: EVENT %d", phys, Event);
         }
 #endif
 

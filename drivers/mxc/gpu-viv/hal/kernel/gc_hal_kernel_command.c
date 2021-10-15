@@ -1524,7 +1524,7 @@ gckCOMMAND_Construct(
     *Command = command;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Command=0x%x", *Command);
+    gcmkFOOTER_ARG("*Command=%p", *Command);
     return gcvSTATUS_OK;
 
 OnError:
@@ -3252,7 +3252,7 @@ gckCOMMAND_Commit(
     gctPOINTER userPtr = gcvNULL;
     gctBOOL needCopy = gcvFALSE;
 
-    gcmkHEADER_ARG("Command=%p SubCommit=%p delta=%p context=%u pid=%u",
+    gcmkHEADER_ARG("Command=%p SubCommit=%p delta=%p context=%llu pid=%u",
                    Command, SubCommit, delta, SubCommit->context, ProcessId);
 
     gcmkVERIFY_OK(gckOS_QueryNeedCopy(Command->os, ProcessId, &needCopy));
@@ -3496,7 +3496,7 @@ gckCOMMAND_Reserve(
     *BufferSize = bytes;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Buffer=0x%x *BufferSize=%lu", *Buffer, *BufferSize);
+    gcmkFOOTER_ARG("*Buffer=%p *BufferSize=%u", *Buffer, *BufferSize);
     return gcvSTATUS_OK;
 
 OnError:
@@ -4076,7 +4076,7 @@ _AttachWaitLinkFECommand(
     acquired = gcvFALSE;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Context=0x%x", *Context);
+    gcmkFOOTER_ARG("*Context=%p", *Context);
     return gcvSTATUS_OK;
 
 OnError:
