@@ -5230,7 +5230,41 @@ OnError:
 /*******************************************************************************\
 *************************** List Helper *****************************************
 \*******************************************************************************/
+#ifdef LINUX_VERSION_CODE
+void inline
+gcsLIST_Init(
+    gcsLISTHEAD_PTR Node
+    )
+{
+    INIT_LIST_HEAD(Node);
+}
 
+void inline
+gcsLIST_Add(
+    gcsLISTHEAD_PTR New,
+    gcsLISTHEAD_PTR Head
+    )
+{
+    list_add(New, Head);
+}
+
+void inline
+gcsLIST_AddTail(
+    gcsLISTHEAD_PTR New,
+    gcsLISTHEAD_PTR Head
+    )
+{
+    list_add_tail(New, Head);
+}
+
+void inline
+gcsLIST_Del(
+    gcsLISTHEAD_PTR Node
+    )
+{
+    list_del_init(Node);
+}
+#else
 static void
 _ListAdd(
     gcsLISTHEAD_PTR New,
@@ -5288,6 +5322,7 @@ gcsLIST_Del(
 {
     _ListDel(Node->prev, Node->next);
 }
+#endif
 
 gctBOOL
 gcsLIST_Empty(

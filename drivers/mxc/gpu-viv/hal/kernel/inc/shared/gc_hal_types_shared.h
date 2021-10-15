@@ -910,6 +910,10 @@ struct _gckQUEUE
     gctUINT32                   size;
 };
 
+#ifdef LINUX_VERSION_CODE
+typedef struct list_head * gcsLISTHEAD_PTR;
+typedef struct list_head  gcsLISTHEAD;
+#else
 typedef struct _gcsLISTHEAD * gcsLISTHEAD_PTR;
 typedef struct _gcsLISTHEAD
 {
@@ -917,6 +921,7 @@ typedef struct _gcsLISTHEAD
     gcsLISTHEAD_PTR     next;
 }
 gcsLISTHEAD;
+#endif
 
 /*
  * 'Patch' here means a mechanism to let kernel side modify user space reserved
