@@ -399,7 +399,7 @@ static void format_bufinfo_dec(struct vsi_v4l2_ctx *ctx, struct vsi_v4l2_msg *pm
 		decbufinfo->busInBuf = 0;
 		decbufinfo->inBufSize = 0;
 		decbufinfo->busOutBuf = busaddr[0] + buf->planes[0].data_offset;
-		decbufinfo->OutBufSize = ctx->outbuflen[buf->index];//ctx->mediacfg.sizeimagedst[0];
+		decbufinfo->OutBufSize = buf->planes[0].length - buf->planes[0].data_offset;
 		decbufinfo->bytesused = buf->planes[0].bytesused;
 		if (((ctx->mediacfg.src_pixeldepth == ctx->mediacfg.decparams.dec_info.io_buffer.outputPixelDepth)
 			&& ctx->mediacfg.src_pixeldepth != 16)	//p010 can only set by user, not from ctrl sw

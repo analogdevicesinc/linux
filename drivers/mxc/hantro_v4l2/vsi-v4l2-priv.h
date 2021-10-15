@@ -340,6 +340,10 @@ struct vsi_v4l2_ctx {
 	atomic_t dstframen;
 	struct cropinfo *crophead;
 	struct cropinfo *croptail;
+
+	u32 reschange_cnt;
+	bool reschanged_need_notify;
+	bool need_capture_on;
 };
 
 int vsi_v4l2_release(struct file *filp);
@@ -376,6 +380,8 @@ int vsi_v4l2_addinstance(pid_t *ppid);
 int vsi_v4l2_quitinstance(void);
 int vsi_v4l2_daemonalive(void);
 
+void vsi_dec_update_reso(struct vsi_v4l2_ctx *ctx);
+int vsi_dec_capture_on(struct vsi_v4l2_ctx *ctx);
 void vsi_dec_updatevui(struct v4l2_daemon_dec_info *src, struct v4l2_daemon_dec_info *dst);
 void vsi_dec_getvui(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt);
 void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format);
