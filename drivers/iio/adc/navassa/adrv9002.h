@@ -265,6 +265,6 @@ static inline void adrv9002_sync_gpio_toogle(const struct adrv9002_rf_phy *phy)
 #ifdef CONFIG_DEBUG_FS
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d);
 #else
-void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d) {}
+static inline void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d) {}
 #endif
 #endif
