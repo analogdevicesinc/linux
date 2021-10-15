@@ -400,12 +400,42 @@ static ssize_t axiadc_sampling_frequency_available(struct device *dev,
 	return ret;
 }
 
+static ssize_t axiadc_sync_start(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	bool state;
+	u32 reg;
+	int ret;
+
+	ret = strtobool(buf, &state);
+	if (ret < 0)
+		return ret;
+
+	if (state) {
+		mutex_lock(&indio_dev->mlock);
+		reg = axiadc_read(st, ADI_REG_CNTRL);
+		axiadc_write(st, ADI_REG_CNTRL, reg | ADI_SYNC);
+		mutex_unlock(&indio_dev->mlock);
+	}
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(sync_start_enable, 0200,
+		       NULL,
+		       axiadc_sync_start,
+		       0);
+
 static IIO_DEVICE_ATTR(in_voltage_sampling_frequency_available, S_IRUGO,
 		       axiadc_sampling_frequency_available,
 		       NULL,
 		       0);
 
 static struct attribute *axiadc_attributes[] = {
+	&iio_dev_attr_sync_start_enable.dev_attr.attr,
 	&iio_dev_attr_in_voltage_sampling_frequency_available.dev_attr.attr,
 	NULL,
 };
@@ -902,6 +932,60 @@ static const struct of_device_id axiadc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
 
+int axiadc_append_attrs(struct iio_dev *indio_dev,
+	const struct attribute_group *add_group, unsigned int skip_cnt)
+{
+	size_t old_cnt = 0, add_cnt = 0, new_cnt;
+	struct attribute **attrs;
+	struct attribute_group *group;
+	struct iio_info	*iio_info = (struct iio_info *) indio_dev->info;
+
+	if (!add_group)
+		return -EINVAL;
+
+	if (indio_dev->info->attrs) {
+		attrs = indio_dev->info->attrs->attrs;
+		while (*attrs++ != NULL)
+			old_cnt++;
+	} else if (!skip_cnt) {
+		iio_info->attrs = add_group;
+
+		return 0;
+	}
+
+	if (add_group->attrs) {
+		attrs = add_group->attrs;
+		while (*attrs++ != NULL)
+			add_cnt++;
+	}
+
+	if (skip_cnt > add_cnt)
+		return -EINVAL;
+
+	add_cnt -= skip_cnt;
+	new_cnt = old_cnt + add_cnt + 1;
+	attrs = devm_kcalloc(indio_dev->dev.parent, new_cnt,
+		sizeof(*attrs), GFP_KERNEL);
+	if (!attrs)
+		return -ENOMEM;
+
+	group = devm_kzalloc(indio_dev->dev.parent,
+		sizeof(*group), GFP_KERNEL);
+	if (!group)
+		return -ENOMEM;
+
+	if (old_cnt)
+		memcpy(attrs, indio_dev->info->attrs->attrs,
+			old_cnt * sizeof(*attrs));
+	memcpy(attrs + old_cnt, add_group->attrs, add_cnt * sizeof(*attrs));
+	attrs[new_cnt - 1] = NULL;
+	group->attrs = attrs;
+
+	iio_info->attrs = group;
+
+	return 0;
+}
+
 /**
  * axiadc_of_probe - probe method for the AIM device.
  * @of_dev:	pointer to OF device structure
@@ -921,6 +1005,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct axiadc_spidev axiadc_spidev;
 	struct axiadc_converter *conv;
+	unsigned int skip = 1;
 	int ret;
 
 	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
@@ -1051,15 +1136,23 @@ static int axiadc_probe(struct platform_device *pdev)
 			goto err_put_converter;
 	}
 
-	if (!st->dp_disable && of_property_read_bool(pdev->dev.of_node, "adi,axi-decimation-core-available")) {
+	if (!st->dp_disable && of_property_read_bool(pdev->dev.of_node,
+		"adi,axi-decimation-core-available")) {
 		st->decimation_factor = 1;
-		WARN_ON(st->iio_info.attrs != NULL);
-		st->iio_info.attrs = &axiadc_dec_attribute_group;
 		st->gpio_decimation = devm_gpiod_get_optional(&pdev->dev,
 							      "decimation",
 							      GPIOD_OUT_LOW);
 		if (IS_ERR(st->gpio_decimation))
 			dev_err(&pdev->dev, "decimation gpio error\n");
+		skip = 0;
+	}
+
+	ret = axiadc_append_attrs(indio_dev,
+		&axiadc_dec_attribute_group, skip);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to add sysfs attributes (%d)\n", ret);
+		goto err_unconfigure_ring;
 	}
 
 	ret = iio_device_register(indio_dev);
