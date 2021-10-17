@@ -112,6 +112,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	struct device_node *np = NULL;
 	struct of_phandle_args args;
 	const char *platform_name;
+	const char *model_string;
 	struct imx_rpmsg *data;
 	int ret = 0;
 
@@ -164,12 +165,14 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "no reserved DMA memory\n");
 
 	/* Optional codec node */
+	of_property_read_string(np, "model", &model_string);
 	ret = of_parse_phandle_with_fixed_args(np, "audio-codec", 0, 0, &args);
 	if (ret) {
 		if (of_device_is_compatible(np, "fsl,imx7ulp-rpmsg-audio")) {
 			data->dai.codecs->dai_name = "rpmsg-wm8960-hifi";
 			data->dai.codecs->name = RPMSG_CODEC_DRV_NAME_WM8960;
-		} else if (of_device_is_compatible(np, "fsl,imx8mm-rpmsg-audio")) {
+		} else if (of_device_is_compatible(np, "fsl,imx8mm-rpmsg-audio") &&
+			   !strcmp("ak4497-audio", model_string)) {
 			data->dai.codecs->dai_name = "rpmsg-ak4497-aif";
 			data->dai.codecs->name = RPMSG_CODEC_DRV_NAME_AK4497;
 		} else {
