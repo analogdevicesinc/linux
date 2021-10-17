@@ -219,6 +219,17 @@ static int fsl_rpmsg_probe(struct platform_device *pdev)
 		dai_drv->capture.rates = rpmsg->soc_data->rates;
 		dai_drv->playback.formats = rpmsg->soc_data->formats;
 		dai_drv->capture.formats = rpmsg->soc_data->formats;
+
+		/* setup rpmsg-micfil channels and rates */
+		if (of_node_name_eq(np, "rpmsg_micfil")) {
+			rpmsg->buffer_size = 0x100000;
+			dai_drv->capture.channels_min = 1;
+			dai_drv->capture.channels_max = 8;
+			dai_drv->capture.rates = SNDRV_PCM_RATE_8000_48000;
+			dai_drv->capture.formats = SNDRV_PCM_FMTBIT_S32_LE;
+			if (of_device_is_compatible(np, "fsl,imx8mm-rpmsg-audio"))
+				dai_drv->capture.formats = SNDRV_PCM_FMTBIT_S16_LE;
+		}
 	}
 
 	/* Use rpmsg channel name as cpu dai name */
