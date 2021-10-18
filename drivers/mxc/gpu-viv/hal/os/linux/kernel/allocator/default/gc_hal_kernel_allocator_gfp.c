@@ -625,56 +625,52 @@ _GFPAlloc(
                 gcmkONERROR(_NonContiguousAlloc(mdlPriv, NumPages, gfp));
             }
         }
+#if gcdUSE_Linux_SG_TABLE_API
+        result = sg_alloc_table_from_pages(&mdlPriv->sgt,
+                    mdlPriv->nonContiguousPages, NumPages, 0,
+                    NumPages << PAGE_SHIFT, GFP_KERNEL);
 
-        if (Flags & gcvALLOC_FLAG_CACHEABLE)
+#else
+        result = alloc_sg_list_from_pages(&mdlPriv->sgt.sgl,
+                    mdlPriv->nonContiguousPages, NumPages, 0,
+                    NumPages << PAGE_SHIFT, &mdlPriv->sgt.nents);
+
+        mdlPriv->sgt.orig_nents = mdlPriv->sgt.nents;
+#endif
+        if (result < 0)
         {
-#if gcdUSE_Linux_SG_TABLE_API
-            result = sg_alloc_table_from_pages(&mdlPriv->sgt,
-                        mdlPriv->nonContiguousPages, NumPages, 0,
-                        NumPages << PAGE_SHIFT, GFP_KERNEL);
-
-#else
-            result = alloc_sg_list_from_pages(&mdlPriv->sgt.sgl,
-                        mdlPriv->nonContiguousPages, NumPages, 0,
-                        NumPages << PAGE_SHIFT, &mdlPriv->sgt.nents);
-
-            mdlPriv->sgt.orig_nents = mdlPriv->sgt.nents;
-#endif
-            if (result < 0)
+            if (Mdl->pageUnit1M)
             {
-                if (Mdl->pageUnit1M)
-                {
-                    _NonContiguous1MPagesFree(mdlPriv, mdlPriv->numPages1M);
-                }
-                else
-                {
-                    _NonContiguousFree(mdlPriv->nonContiguousPages, NumPages);
-                }
-
-                gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+                _NonContiguous1MPagesFree(mdlPriv, mdlPriv->numPages1M);
+            }
+            else
+            {
+                _NonContiguousFree(mdlPriv->nonContiguousPages, NumPages);
             }
 
-            result = dma_map_sg(galcore_device,
-                        mdlPriv->sgt.sgl, mdlPriv->sgt.nents, DMA_FROM_DEVICE);
+            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+        }
 
-            if (result != mdlPriv->sgt.nents)
+        result = dma_map_sg(galcore_device,
+                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, DMA_FROM_DEVICE);
+
+        if (result != mdlPriv->sgt.nents)
+        {
+            if (Mdl->pageUnit1M)
             {
-                if (Mdl->pageUnit1M)
-                {
-                    _NonContiguous1MPagesFree(mdlPriv, mdlPriv->numPages1M);
-                }
-                else
-                {
-                    _NonContiguousFree(mdlPriv->nonContiguousPages, NumPages);
-                }
+                _NonContiguous1MPagesFree(mdlPriv, mdlPriv->numPages1M);
+            }
+            else
+            {
+                _NonContiguousFree(mdlPriv->nonContiguousPages, NumPages);
+            }
 
 #if gcdUSE_Linux_SG_TABLE_API
-                sg_free_table(&mdlPriv->sgt);
+            sg_free_table(&mdlPriv->sgt);
 #else
-                kfree(mdlPriv->sgt.sgl);
+            kfree(mdlPriv->sgt.sgl);
 #endif
-                gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
-            }
+            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
         }
 
 #if defined(CONFIG_X86)
@@ -825,7 +821,7 @@ _GFPFree(
         dma_unmap_page(galcore_device, mdlPriv->dma_addr,
                 Mdl->numPages << PAGE_SHIFT, DMA_FROM_DEVICE);
     }
-    else if (mdlPriv->sgt.sgl)
+    else
     {
         dma_unmap_sg(galcore_device, mdlPriv->sgt.sgl, mdlPriv->sgt.nents,
                 DMA_FROM_DEVICE);
