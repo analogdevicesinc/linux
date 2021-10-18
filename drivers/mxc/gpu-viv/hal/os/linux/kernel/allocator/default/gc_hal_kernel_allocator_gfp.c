@@ -628,7 +628,7 @@ _GFPAlloc(
 #if gcdUSE_Linux_SG_TABLE_API
         result = sg_alloc_table_from_pages(&mdlPriv->sgt,
                     mdlPriv->nonContiguousPages, NumPages, 0,
-                    NumPages << PAGE_SHIFT, GFP_KERNEL);
+                    NumPages << PAGE_SHIFT, normal_gfp);
 
 #else
         result = alloc_sg_list_from_pages(&mdlPriv->sgt.sgl,
