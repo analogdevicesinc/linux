@@ -31,7 +31,7 @@ config RPMSG_LIFE_CYCLE
 	tristate "i.MX8ULP Rpmsg Life Cycle Support"
 	depends on ARCH_MXC || COMPILE_TEST
 	depends on RPMSG
-	default ARCH_MXC
+	default ARCH_MXC && ARM64
 	help
 	  If you say yes here you get supoort for the rpmsg life cycle support on
 	  i.MX8ULP for low power mode state coordination between A core & M core to
