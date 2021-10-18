@@ -62,9 +62,9 @@
 
 #define gcvVERSION_PATCH        3
 
-#define gcvVERSION_BUILD     336687
+#define gcvVERSION_BUILD     398061
 
-#define gcvVERSION_STRING    "6.4.3.p2.336687"
+#define gcvVERSION_STRING    "6.4.3.p4.398061"
 
 #endif /* __gc_hal_version_h_ */
 
