@@ -90,6 +90,7 @@ enum {
 	JESD204_LNK_ATTR_error,
 	JESD204_LNK_ATTR_state,
 	JESD204_LNK_ATTR_fsm_paused,
+	JESD204_LNK_ATTR_fsm_ignore_errors,
 	JESD204_LNK_ATTR_sample_rate,
 	JESD204_LNK_ATTR_is_transmit,
 	JESD204_LNK_ATTR_num_lanes,
@@ -119,6 +120,7 @@ static const struct jesd204_attr jesd204_lnk_attrs[] = {
 	JESD204_LNK_ATTR_INT(error),
 	JESD204_LNK_ATTR_STR_PRIV(state),
 	JESD204_LNK_ATTR_BOOL_PRIV(fsm_paused),
+	JESD204_LNK_ATTR_BOOL_PRIV(fsm_ignore_errors),
 	JESD204_LNK_ATTR_UINT(sample_rate),
 	JESD204_LNK_ATTR_BOOL(is_transmit),
 	JESD204_LNK_ATTR_UINT(num_lanes),
@@ -644,7 +646,7 @@ static struct device_attribute *jesd204_dev_create_lnk_attrs(
 		for (i2 = 0; i2 < num_lnk_attrs; i2++) {
 			jattr = &jesd204_lnk_attrs[i2];
 			attr = &(lnkattrs[lnkattr_idx].attr);
-			attr->mode = 0444;
+			attr->mode = 0644;
 			attr->name = devm_kasprintf(parent, GFP_KERNEL,
 						    "link%d_%s", i1,
 						    jattr->name);
