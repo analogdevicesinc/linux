@@ -4350,8 +4350,8 @@ static int ad9081_probe(struct spi_device *spi)
 	adi_ad9081_device_api_revision_get(&phy->ad9081, &api_rev[0],
 					   &api_rev[1], &api_rev[2]);
 
-	dev_info(&spi->dev, "%s Rev. %u Grade %u (API %u.%u.%u) probed\n",
-		 conv->chip_info->name, phy->chip_id.dev_revision,
+	dev_info(&spi->dev, "AD%X Rev. %u Grade %u (API %u.%u.%u) probed\n",
+		 conv->id, phy->chip_id.dev_revision,
 		 phy->chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
 
 	ret = jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
