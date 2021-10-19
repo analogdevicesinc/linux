@@ -168,6 +168,7 @@ struct jesd204_link_opaque {
 	struct kref			cb_ref;
 	enum jesd204_dev_state		state;
 	bool				fsm_paused;
+	bool				fsm_ignore_errors;
 	struct jesd204_fsm_data		*fsm_data;
 	unsigned long			flags;
 };
