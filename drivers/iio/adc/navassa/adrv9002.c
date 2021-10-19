@@ -594,9 +594,21 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 	}
 }
 
-static int adrv9002_attr_do_store(const struct adrv9002_rf_phy *phy, const char *buf, u64 address)
+static int adrv9002_fh_set(const struct adrv9002_rf_phy *phy, const char *buf, u64 address)
 {
 	int tbl;
+
+	if (!phy->curr_profile->sysConfig.fhModeOn) {
+		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
+		return -ENOTSUPP;
+	}
+
+	if (address == ADRV9002_HOP_2_TABLE_SEL || address == ADRV9002_HOP_2_TRIGGER) {
+		if (phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
+			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
+			return -ENOTSUPP;
+		}
+	}
 
 	switch (address) {
 	case ADRV9002_HOP_1_TABLE_SEL:
@@ -627,26 +639,12 @@ static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	struct iio_dev_attr *iio_attr = to_iio_dev_attr(attr);
-	int ret = -ENOTSUPP;
+	int ret;
 
 	mutex_lock(&phy->lock);
-	if (!phy->curr_profile->sysConfig.fhModeOn) {
-		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
-		goto out_unlock;
-	}
-
-	if (iio_attr->address == ADRV9002_HOP_2_TABLE_SEL ||
-	    iio_attr->address == ADRV9002_HOP_2_TRIGGER) {
-		if (phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
-			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
-			goto out_unlock;
-		}
-	}
-
-	ret = adrv9002_attr_do_store(phy, buf, iio_attr->address);
-
-out_unlock:
+	ret = adrv9002_fh_set(phy, buf, iio_attr->address);
 	mutex_unlock(&phy->lock);
+
 	return ret ? ret : len;
 }
 
@@ -708,6 +706,7 @@ static ssize_t adrv9002_phy_lo_do_write(struct adrv9002_rf_phy *phy, struct adrv
 
 out_unlock:
 	mutex_unlock(&phy->lock);
+
 	return ret ? ret : len;
 }
 
