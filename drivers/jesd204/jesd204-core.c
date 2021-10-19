@@ -577,6 +577,11 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 
 		jdev->is_top = true;
 
+		if (of_property_read_bool(np, "jesd204-ignore-errors"))
+			for (i = 0; i < jdev_top->num_links; i++)
+				jdev_top->active_links[i].fsm_ignore_errors
+				= true;
+
 		list_add(&jdev_top->entry, &jesd204_topologies);
 		jesd204_topologies_count++;
 	} else {
