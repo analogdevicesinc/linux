@@ -903,13 +903,6 @@ _ScheduleTasks(
 
                     gcmkVERIFY_OK(_RemoveRecordFromProcesDB(Command, taskHeader));
 
-                    gcmkTRACE_ZONE(
-                            gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-                            "    task ID = %d, size = %d\n",
-                            ((gcsTASK_HEADER_PTR) (userTask + 1))->id,
-                            userTask->size
-                            );
-
                     /* Copy the task data. */
                     if(needCopy)
                     {
