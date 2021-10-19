@@ -955,7 +955,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		break;
 	case CDDC_NCO_FREQ_AVAIL:
 		if (chan->output) {
-			if (phy->tx_main_interp == 1 || phy->tx_chan_interp == 1)
+			if (phy->tx_main_interp == 1)
 				range = 0; /* full bw mode */
 			else
 				range = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz, 2);
