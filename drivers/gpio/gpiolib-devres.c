@@ -100,7 +100,6 @@ struct gpio_desc *__must_check devm_gpiod_get_index(struct device *dev,
 
 	desc = gpiod_get_index(dev, con_id, idx, flags);
 	if (IS_ERR(desc)) {
-		pr_err("----------> in gpiolib-devres.c, is_err  <----------\n");
 		return desc;
 	}
 
@@ -114,7 +113,6 @@ struct gpio_desc *__must_check devm_gpiod_get_index(struct device *dev,
 		dres = devres_find(dev, devm_gpiod_release,
 				   devm_gpiod_match, &desc);
 		if (dres) {
-			pr_err("----------> in gpiolib-devres.c, dres <----------\n");
 			return desc;
 		}
 	}
@@ -123,14 +121,12 @@ struct gpio_desc *__must_check devm_gpiod_get_index(struct device *dev,
 			  GFP_KERNEL);
 	if (!dr) {
 		gpiod_put(desc);
-		pr_err("----------> in gpiolib-devres.c, ret enomem <----------\n");
 		return ERR_PTR(-ENOMEM);
 	}
 
 	*dr = desc;
 	devres_add(dev, dr);
 
-	pr_err("----------> in gpiolib-devres.c, ret desc <----------\n");
 	return desc;
 }
 EXPORT_SYMBOL_GPL(devm_gpiod_get_index);

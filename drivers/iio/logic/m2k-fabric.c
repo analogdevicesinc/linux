@@ -152,13 +152,10 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
 	}
 
 	if (update_input) {
-		pr_err("----------> In update_switch_settings inainte de ngpios+= (%d) <----------\n", ngpios);
 		ngpios += M2K_FABRIC_GPIO_MAX - M2K_FABRIC_GPIO_OUTPUT_MAX;
 
-		pr_err("----------> In update_switch_settings inainte de ngpios-- (%d) <----------\n", ngpios);
 		if (m2k_fabric->revd || m2k_fabric->reve || m2k_fabric->rev_a_fmc) {
 			ngpios--; /* skip M2K_FABRIC_GPIO_EN_SC2 */
-			pr_err("----------> Scad ngpios (%d) <----------\n", ngpios);
 		}
 	}
 
@@ -274,10 +271,8 @@ static ssize_t m2k_fabric_user_supply_write(struct iio_dev *indio_dev,
 	int ret;
 
 	ret = strtobool(buf, &state);
-	if (ret) {
-		pr_err("----------> Error la returnarea lui ret din _user_supply_write (%d) <----------\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	// edited here
 	if (chan->channel == 4 && !m2k_fabric->rev_a_fmc) {
@@ -632,7 +627,6 @@ static int m2k_fabric_gpios_init(struct device *dev,
 		gpio_names = m2k_fabric_gpio_names_revd;
 		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revd);
 	} else if (m2k_fabric->rev_a_fmc) {
-		pr_err("----------> in INIT la rev_a_fmc <----------\n");
 		gpio_names = m2k_fabric_gpio_names_rev_a_fmc;
 		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_rev_a_fmc);
 	}
@@ -640,20 +634,13 @@ static int m2k_fabric_gpios_init(struct device *dev,
 	if (!gpio_names)
 		return 0;
 
-	pr_err("----------> in INIT dupa gpio_names = %d <----------\n", num_gpio_names);
 	for (i = 0; i < num_gpio_names; i++) {
 		if (!gpio_names[i])
 			continue;
 		m2k_fabric->switch_gpios[i] = devm_gpiod_get(dev,
 				gpio_names[i], GPIOD_OUT_LOW);
-		bool verific = IS_ERR(m2k_fabric->switch_gpios[i]);
-		pr_err("----------> %d) in INIT: is_err = %d <----------\n", i, verific);
-		if (verific == true) {
-			pr_err("----------> %d.urm) in INIT: is_err = %d <----------\n", i, verific);
-			long pointer_eroare = PTR_ERR(m2k_fabric->switch_gpios[i]);
-			pr_err("----------> pointer_eroare = %ld <----------\n", pointer_eroare);
-			return pointer_eroare;
-		}
+		if (IS_ERR(m2k_fabric->switch_gpios[i]))
+			return PTR_ERR(m2k_fabric->switch_gpios[i]);
 	}
 
 	return 0;
@@ -665,7 +652,6 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	bool revc, revd, reve, rev_a_fmc, remain_powerdown;
 	int ret;
-	int verif = 0;
 
 	m2k_fabric_switch_values_open_init();
 
@@ -692,33 +678,20 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	m2k_fabric->rev_a_fmc = rev_a_fmc; // ADALM FMC
 
 	m2k_fabric->clk = devm_clk_get(&pdev->dev, NULL);
-	pr_err("----------> devm_clk_get: %s  <----------\n", m2k_fabric->clk);
-	if (IS_ERR(m2k_fabric->clk)) { // returns 0
+	if (IS_ERR(m2k_fabric->clk)) {
 		return PTR_ERR(m2k_fabric->clk);
 	}
 
-	verif = clk_prepare_enable(m2k_fabric->clk);
-	pr_err("----------> clk_prepare_enable %d  <----------\n", verif);
-	if (verif < 0) {
-		pr_err("----------> Err clk_prepare_enable <----------\n");
+	if (clk_prepare_enable(m2k_fabric->clk) < 0)
 		return -EINVAL;
-	}
 
 	ret = m2k_fabric_gpios_init(&pdev->dev, m2k_fabric);
-	pr_err("----------> Inainte de INAINTEA verificarii reviziei <----------\n");
-	if (ret) {
-		pr_err("----------> Error la returnarea lui ret din _gpios_init (%d) <----------\n", ret);
+	if (ret)
 		return ret;
-	}
 
-	pr_err("----------> Inainte de verificarea reviziei <----------\n");
 	if (rev_a_fmc) {
-		pr_err("----------> Setare en-usr-pow-pos  <----------\n");
-
 		m2k_fabric->usr_pow_gpio[0] = devm_gpiod_get(&pdev->dev, "en-usr-pow-pos",
                 	        GPIOD_OUT_HIGH);
-
-		pr_err("----------> %s, %d:usr_pow_gpio[0] = %s <----------\n", __FUNCTION__, __LINE__, m2k_fabric->usr_pow_gpio[0]);
 
         	if (IS_ERR(m2k_fabric->usr_pow_gpio[0]))
                 	return PTR_ERR(m2k_fabric->usr_pow_gpio[0]);
@@ -733,22 +706,18 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 
 
 		if (reve) {
-			pr_err("----------> Setare en-done-led-overwrite reve  <----------\n");
 			m2k_fabric->done_led_overwrite_gpio = devm_gpiod_get(&pdev->dev,
 							"en-done-led-overwrite",
 							GPIOD_OUT_HIGH);
 			if (IS_ERR(m2k_fabric->done_led_overwrite_gpio))
 				return PTR_ERR(m2k_fabric->done_led_overwrite_gpio);
 		}
-		pr_err("----------> Setare nimic  <----------\n");
 	}
 
 	if (reve || rev_a_fmc) {
 		m2k_fabric->usr_pow_gpio[1] = devm_gpiod_get(&pdev->dev,
 							     "en-usr-pow-neg",
 							     GPIOD_OUT_HIGH);
-
-		pr_err("----------> %s, %d: %s <----------\n", __FUNCTION__, __LINE__, m2k_fabric->usr_pow_gpio[0]);
 
 		if (IS_ERR(m2k_fabric->usr_pow_gpio[1]))
 			return PTR_ERR(m2k_fabric->usr_pow_gpio[1]);
@@ -784,7 +753,6 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	} else if (m2k_fabric->rev_a_fmc) {
 		indio_dev->channels = m2k_fabric_chan_spec_rev_a_fmc;
 		indio_dev->num_channels = ARRAY_SIZE(m2k_fabric_chan_spec_rev_a_fmc);
-		pr_err("----------> Setare channels in _probe <----------\n");
 	}
 
 	platform_set_drvdata(pdev, indio_dev);
