@@ -554,6 +554,7 @@ enum {
 	ADRV9002_HOP_2_TRIGGER,
 	ADRV9002_INIT_CALS_RUN,
 	ADRV9002_WARMBOOT_SEL,
+	ADRV9002_MCS,
 };
 
 static const char * const adrv9002_hop_table[ADRV9002_FH_TABLES_NR + 1] = {
@@ -773,6 +774,62 @@ static int adrv9002_fh_set(const struct adrv9002_rf_phy *phy, const char *buf, u
 	}
 }
 
+static int adrv9002_mcs_run(struct adrv9002_rf_phy *phy, const char *buf)
+{
+	adi_adrv9001_RadioState_t radio = {0};
+	unsigned int i;
+	int ret, tmp;
+
+	if (!phy->curr_profile->sysConfig.mcsMode) {
+		dev_err(&phy->spi->dev, "Multi chip sync not enabled\n");
+		return -ENOTSUPP;
+	}
+
+	if (phy->mcs_run) {
+		/*
+		 * !\FIXME: Ugly hack but MCS only runs successful once and then always fails
+		 * (get's stuck). Hence let's just not allow running more than once and print
+		 * something so people can see this is a known thing.
+		 */
+		dev_err(&phy->spi->dev, "Multi chip sync can only run once for now...\n");
+		return -EPERM;
+	}
+
+	/* all channels need to be in calibrated state...*/
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		struct adrv9002_chan *c = phy->channels[i];
+
+		ret = adrv9002_channel_to_state(phy, c, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+		if (ret)
+			return ret;
+	}
+
+	ret = api_call(phy, adi_adrv9001_Radio_ToMcsReady);
+	if (ret)
+		return ret;
+
+	tmp = read_poll_timeout(adi_adrv9001_Radio_State_Get, ret,
+				ret || (radio.mcsState == ADI_ADRV9001_ARMMCSSTATES_DONE),
+				20 * USEC_PER_MSEC, 10 * USEC_PER_SEC, false, phy->adrv9001,
+				&radio);
+	if (ret)
+		return __adrv9002_dev_err(phy, __func__, __LINE__);
+	if (tmp)
+		return tmp;
+
+	phy->mcs_run = true;
+
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		struct adrv9002_chan *c = phy->channels[i];
+
+		ret = adrv9002_channel_to_state(phy, c, c->cached_state, false);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *attr,
 				   const char *buf, size_t len)
 {
@@ -788,6 +845,9 @@ static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *
 		break;
 	case ADRV9002_WARMBOOT_SEL:
 		ret = adrv9002_warm_boot_name_save(phy, buf);
+		break;
+	case ADRV9002_MCS:
+		ret = adrv9002_mcs_run(phy, buf);
 		break;
 	default:
 		ret = adrv9002_fh_set(phy, buf, iio_attr->address);
@@ -834,6 +894,14 @@ static int adrv9002_phy_lo_set(struct adrv9002_rf_phy *phy, struct adrv9002_chan
 		init_cals->chanInitCalMask[c->idx] |= c->lo_cals;
 
 	lo_freq.carrierFrequency_Hz = freq;
+	/*
+	 * !\FIXME: This is an ugly workaround for being able to control carriers when a MCS
+	 * enabled profile is loaded. When MCS is on, we get 'loGenOptimization = 2' which is
+	 * not a valid value and hence the API call will fail...
+	 */
+	if (phy->curr_profile->sysConfig.mcsMode &&
+	    lo_freq.loGenOptimization > ADI_ADRV9001_LO_GEN_OPTIMIZATION_POWER_CONSUMPTION)
+		lo_freq.loGenOptimization = ADI_ADRV9001_LO_GEN_OPTIMIZATION_POWER_CONSUMPTION;
 
 	return api_call(phy, adi_adrv9001_Radio_Carrier_Configure, c->port, c->number, &lo_freq);
 }
@@ -2522,6 +2590,7 @@ static IIO_DEVICE_ATTR(initial_calibrations, 0600, adrv9002_attr_show, adrv9002_
 		       ADRV9002_INIT_CALS_RUN);
 static IIO_DEVICE_ATTR(warmboot_coefficients_file, 0600, adrv9002_attr_show, adrv9002_attr_store,
 		       ADRV9002_WARMBOOT_SEL);
+static IIO_DEVICE_ATTR(multi_chip_sync, 0200, NULL, adrv9002_attr_store, ADRV9002_MCS);
 
 static struct attribute *adrv9002_sysfs_attrs[] = {
 	&iio_const_attr_initial_calibrations_available.dev_attr.attr,
@@ -2532,6 +2601,7 @@ static struct attribute *adrv9002_sysfs_attrs[] = {
 	&iio_dev_attr_frequency_hopping_hop2_signal_trigger.dev_attr.attr,
 	&iio_dev_attr_initial_calibrations.dev_attr.attr,
 	&iio_dev_attr_warmboot_coefficients_file.dev_attr.attr,
+	&iio_dev_attr_multi_chip_sync.dev_attr.attr,
 	NULL
 };
 
@@ -3612,6 +3682,7 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 	 * the same behavior as before (as doing it automatically is time consuming).
 	 */
 	phy->run_cals = false;
+	phy->mcs_run = false;
 }
 
 static u32 adrv9002_get_arm_clk(const struct adrv9002_rf_phy *phy)
