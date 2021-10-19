@@ -413,10 +413,7 @@ static int ad9081_reset_pin_ctrl(void *user_data, u8 enable)
 {
 	struct axiadc_converter *conv = user_data;
 
-	if (conv->reset_gpio)
-		return gpiod_direction_output(conv->reset_gpio, enable);
-
-	return 0;
+	return gpiod_direction_output(conv->reset_gpio, enable);
 }
 
 static int ad9081_sysref_ctrl(void *user_data, u8 enable)
@@ -4239,11 +4236,16 @@ static int ad9081_probe(struct spi_device *spi)
 		phy->jesd_tx_link.logiclane_mapping,
 		sizeof(phy->jesd_tx_link.logiclane_mapping));
 
-	ret = adi_ad9081_device_reset(&phy->ad9081, AD9081_HARD_RESET_AND_INIT);
+	ret = adi_ad9081_device_reset(&phy->ad9081,
+		conv->reset_gpio ? AD9081_HARD_RESET_AND_INIT :
+		AD9081_SOFT_RESET_AND_INIT);
 	if (ret < 0) {
 		dev_err(&spi->dev, "reset/init failed (%d)\n", ret);
 		return -ENODEV;
 	}
+
+	if (!conv->reset_gpio)
+		adi_ad9081_hal_delay_us(&phy->ad9081, 20000);
 
 	ret = adi_ad9081_device_chip_id_get(&phy->ad9081, &phy->chip_id);
 	if (ret < 0) {
