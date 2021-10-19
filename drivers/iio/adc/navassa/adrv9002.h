@@ -284,6 +284,7 @@ struct adrv9002_rf_phy {
 	 * derived from RX1/RX2 which means that TX cannot be enabled if RX is not...
 	 */
 	u8				tx_only;
+	bool				mcs_run;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_SsiCalibrationCfg ssi_delays;
 #endif
