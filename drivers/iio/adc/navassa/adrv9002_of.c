@@ -13,6 +13,7 @@
 #include "adrv9002.h"
 #include "adi_adrv9001_dpd_types.h"
 #include "adi_adrv9001_gpio_types.h"
+#include "adi_adrv9001_mcs_types.h"
 #include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_radio.h"
 
@@ -760,7 +761,17 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 	if (ret)
 		return ret;
 
-	return adrv9002_parse_tx_pin_dt(phy, node, tx);
+	ret = adrv9002_parse_tx_pin_dt(phy, node, tx);
+	if (ret)
+		return ret;
+
+	ret = ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, node, "adi,mcs-read-delay", 0,
+					   0, 15, tx->channel.mcs_delay.readDelay, false);
+	if (ret)
+		return ret;
+
+	return ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, node, "adi,mcs-sample-delay", 0, 0,
+					    65535, tx->channel.mcs_delay.sampleDelay, false);
 }
 
 static int adrv9002_parse_rx_pinctl_dt(const struct adrv9002_rf_phy *phy,
@@ -1111,7 +1122,13 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	if (IS_ERR(rx->channel.mux_ctl_2))
 		return PTR_ERR(rx->channel.mux_ctl_2);
 
-	return 0;
+	ret = ADRV9002_OF_RX_OPTIONAL("adi,mcs-read-delay", 1, 1, 15,
+				      rx->channel.mcs_delay.readDelay);
+	if (ret)
+		return ret;
+
+	return ADRV9002_OF_RX_OPTIONAL("adi,mcs-sample-delay", 0, 0, 65535,
+				       rx->channel.mcs_delay.sampleDelay);
 }
 
 static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
