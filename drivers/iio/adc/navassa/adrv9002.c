@@ -43,6 +43,8 @@
 #include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_gpio.h"
 #include "adi_adrv9001_gpio_types.h"
+#include "adi_adrv9001_mcs.h"
+#include "adi_adrv9001_mcs_types.h"
 #include "adi_adrv9001_orx.h"
 #include "adi_adrv9001_powermanagement.h"
 #include "adi_adrv9001_powermanagement_types.h"
@@ -3302,7 +3304,7 @@ static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 		return ret;
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->channels); chan++) {
-		const struct adrv9002_chan *c = phy->channels[chan];
+		struct adrv9002_chan *c = phy->channels[chan];
 		struct adi_adrv9001_ChannelEnablementDelays en_delays;
 
 		if (!c->enabled)
@@ -3342,6 +3344,14 @@ static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 			if (ret)
 				return ret;
 		}
+
+		if (!phy->curr_profile->sysConfig.mcsMode)
+			continue;
+
+		ret = api_call(phy, adi_adrv9001_Mcs_ChannelMcsDelay_Set, c->port,
+			       c->number, &c->mcs_delay);
+		if (ret)
+			return ret;
 	}
 
 	return api_call(phy, adi_adrv9001_arm_System_Program, channel_mask);
