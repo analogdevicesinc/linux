@@ -379,6 +379,78 @@ static int sof_compr_pointer(struct snd_soc_component *component,
 	return 0;
 }
 
+static int sof_compr_get_caps(struct snd_soc_component *component,
+			      struct snd_compr_stream *cstream,
+			      struct snd_compr_caps *caps)
+{
+	caps->num_codecs = 3;
+	caps->min_fragment_size = 3840;
+	caps->max_fragment_size = 3840;
+	caps->min_fragments = 2;
+	caps->max_fragments = 2;
+	caps->codecs[0] = SND_AUDIOCODEC_MP3;
+	caps->codecs[1] = SND_AUDIOCODEC_AAC;
+	caps->codecs[2] = SND_AUDIOCODEC_PCM;
+
+	return 0;
+}
+
+static struct snd_compr_codec_caps caps_pcm = {
+	.num_descriptors = 1,
+	.descriptor[0].max_ch = 2,
+	.descriptor[0].sample_rates[0] = 48000,
+	.descriptor[0].num_sample_rates = 1,
+	.descriptor[0].bit_rate = {1536, 3072},
+	.descriptor[0].num_bitrates = 2,
+	.descriptor[0].profiles = SND_AUDIOPROFILE_PCM,
+	.descriptor[0].modes = 0,
+	.descriptor[0].formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S32_LE,
+};
+
+static struct snd_compr_codec_caps caps_mp3 = {
+	.num_descriptors = 1,
+	.descriptor[0].max_ch = 2,
+	.descriptor[0].sample_rates[0] = 48000,
+	.descriptor[0].num_sample_rates = 1,
+	.descriptor[0].bit_rate = {32, 40, 48, 56, 64, 80, 96, 112, 224, 256, 320},
+	.descriptor[0].num_bitrates = 11,
+	.descriptor[0].profiles = 0,
+	.descriptor[0].modes = SND_AUDIOCHANMODE_MP3_STEREO,
+	.descriptor[0].formats = 0,
+};
+
+static struct snd_compr_codec_caps caps_aac = {
+	.num_descriptors = 1,
+	.descriptor[0].max_ch = 2,
+	.descriptor[0].sample_rates[0] = 48000,
+	.descriptor[0].num_sample_rates = 1,
+	.descriptor[0].bit_rate = {128, 192},
+	.descriptor[0].num_bitrates = 2,
+	.descriptor[0].profiles = 0,
+	.descriptor[0].modes = 0,
+	.descriptor[0].formats = SND_AUDIOSTREAMFORMAT_MP4ADTS | SND_AUDIOSTREAMFORMAT_MP2ADTS,
+};
+
+static int sof_compr_get_codec_caps(struct snd_soc_component *component,
+				    struct snd_compr_stream *cstream,
+				    struct snd_compr_codec_caps *codec)
+{
+	switch (codec->codec) {
+	case SND_AUDIOCODEC_MP3:
+		*codec = caps_mp3;
+		break;
+	case SND_AUDIOCODEC_AAC:
+		*codec = caps_aac;
+		break;
+	case SND_AUDIOCODEC_PCM:
+		*codec = caps_pcm;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 struct snd_compress_ops sof_compressed_ops = {
 	.open		= sof_compr_open,
 	.free		= sof_compr_free,
@@ -387,5 +459,7 @@ struct snd_compress_ops sof_compressed_ops = {
 	.trigger	= sof_compr_trigger,
 	.pointer	= sof_compr_pointer,
 	.copy		= sof_compr_copy,
+	.get_caps	= sof_compr_get_caps,
+	.get_codec_caps	= sof_compr_get_codec_caps,
 };
 EXPORT_SYMBOL(sof_compressed_ops);
