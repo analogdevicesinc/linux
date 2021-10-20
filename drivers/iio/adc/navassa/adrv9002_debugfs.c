@@ -21,6 +21,8 @@
 #include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_gpio.h"
 #include "adi_adrv9001_gpio_types.h"
+#include "adi_adrv9001_mcs.h"
+#include "adi_adrv9001_mcs_types.h"
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_rx.h"
 #include "adi_adrv9001_rxSettings_types.h"
@@ -1314,6 +1316,120 @@ static int adrv9002_tx_ext_path_delay_get(void *arg, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_ext_path_delay_fops,
 			 adrv9002_tx_ext_path_delay_get, NULL, "%llu\n");
 
+static int adrv9002_mcs_status_show(struct seq_file *s, void *ignored)
+{
+	struct adrv9002_rf_phy *phy = s->private;
+	adi_adrv9001_McsStatus_t mcs_status = {0};
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_Mcs_Status_Get, &mcs_status);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return ret;
+
+	/* RF1 PLL */
+	adrv9002_seq_printf(s, &mcs_status, rf1PllSyncStatus.jesdSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf1PllSyncStatus.digitalClocksSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf1PllSyncStatus.clockGenDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf1PllSyncStatus.sdmClockDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf1PllSyncStatus.referenceClockDividerSyncComplete);
+	/* RF2 PLL */
+	adrv9002_seq_printf(s, &mcs_status, rf2PllSyncStatus.jesdSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf2PllSyncStatus.digitalClocksSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf2PllSyncStatus.clockGenDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf2PllSyncStatus.sdmClockDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rf2PllSyncStatus.referenceClockDividerSyncComplete);
+	/* CLK PLL */
+	adrv9002_seq_printf(s, &mcs_status, clkPllSyncStatus.jesdSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllSyncStatus.digitalClocksSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllSyncStatus.clockGenDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllSyncStatus.sdmClockDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllSyncStatus.referenceClockDividerSyncComplete);
+	/* CLK LP PLL */
+	adrv9002_seq_printf(s, &mcs_status, clkPllLpSyncStatus.jesdSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllLpSyncStatus.digitalClocksSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllLpSyncStatus.clockGenDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllLpSyncStatus.sdmClockDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, clkPllLpSyncStatus.referenceClockDividerSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, firstDigitalSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, secondDigitalSyncComplete);
+	adrv9002_seq_printf(s, &mcs_status, rfPll1Phase_degrees);
+	adrv9002_seq_printf(s, &mcs_status, rfPll2Phase_degrees);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(adrv9002_mcs_status);
+
+static int adrv9002_tx_mcs_strobe_delay_get(void *arg, u64 *val)
+{
+	struct adrv9002_tx_chan *tx = arg;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
+	u16 latency = 0;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_Mcs_TxMcsToStrobeSampleLatency_Get,
+		       tx->channel.number, &latency);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return ret;
+
+	*val = latency;
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_mcs_strobe_delay_fops,
+			 adrv9002_tx_mcs_strobe_delay_get, NULL, "%llu\n");
+
+static ssize_t adrv9002_mcs_delays_write(struct file *file, const char __user *userbuf,
+					 size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct adrv9002_chan *c = s->private;
+	struct adrv9002_rf_phy *phy = chan_to_phy(c);
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_Mcs_ChannelMcsDelay_Set, c->port,
+		       c->number, &c->mcs_delay);
+	mutex_unlock(&phy->lock);
+
+	return ret ? ret : count;
+}
+
+static int adrv9002_mcs_delays_show(struct seq_file *s, void *ignored)
+{
+	struct adrv9002_chan *c = s->private;
+	struct adrv9002_rf_phy *phy = chan_to_phy(c);
+	struct adi_adrv9001_McsDelay mcs_status;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_Mcs_ChannelMcsDelay_Get, c->port, c->number, &mcs_status);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return ret;
+
+	adrv9002_seq_printf(s, &mcs_status, readDelay);
+	adrv9002_seq_printf(s, &mcs_status, sampleDelay);
+
+	return 0;
+}
+
+static int adrv9002_mcs_delays_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, adrv9002_mcs_delays_show, inode->i_private);
+}
+
+static const struct file_operations adrv9002_mcs_delays_fops = {
+	.owner          = THIS_MODULE,
+	.open           = adrv9002_mcs_delays_open,
+	.read           = seq_read,
+	.write          = adrv9002_mcs_delays_write,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
 static int adrv9002_tx_dpd_luts_reset_set(void *arg, u64 val)
 {
 	struct adrv9002_tx_chan *tx = arg;
@@ -1486,6 +1602,8 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 
 	debugfs_create_file("api_version", 0400, d, NULL, &adrv9002_api_version_get_fops);
 
+	debugfs_create_file("mcs_status", 0400, d, phy, &adrv9002_mcs_status_fops);
+
 	for (chan = 0; chan < phy->chip->n_tx; chan++) {
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[chan];
 
@@ -1535,6 +1653,16 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 
 		sprintf(attr, "tx%d_carrier_hz", chan);
 		debugfs_create_u64(attr, 0600, d, &tx->channel.carrier);
+		/* mcs tx strobe delay */
+		sprintf(attr, "tx%d_mcs_strobe_delay", chan);
+		debugfs_create_file_unsafe(attr, 0400, d, tx, &adrv9002_tx_mcs_strobe_delay_fops);
+		/* mcs delays */
+		sprintf(attr, "tx%d_mcs_read_delay", chan);
+		debugfs_create_u8(attr, 0600, d, &tx->channel.mcs_delay.readDelay);
+		sprintf(attr, "tx%d_mcs_sample_delay", chan);
+		debugfs_create_u16(attr, 0600, d, &tx->channel.mcs_delay.sampleDelay);
+		sprintf(attr, "tx%d_mcs_delays", chan);
+		debugfs_create_file(attr, 0600, d, &tx->channel, &adrv9002_mcs_delays_fops);
 	}
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->rx_channels); chan++) {
@@ -1583,6 +1711,13 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 
 		sprintf(attr, "rx%d_carrier_hz", chan);
 		debugfs_create_u64(attr, 0600, d, &rx->channel.carrier);
+		/* mcs delays */
+		sprintf(attr, "rx%d_mcs_read_delay", chan);
+		debugfs_create_u8(attr, 0600, d, &rx->channel.mcs_delay.readDelay);
+		sprintf(attr, "rx%d_mcs_sample_delay", chan);
+		debugfs_create_u16(attr, 0600, d, &rx->channel.mcs_delay.sampleDelay);
+		sprintf(attr, "rx%d_mcs_delays", chan);
+		debugfs_create_file(attr, 0600, d, &rx->channel, &adrv9002_mcs_delays_fops);
 	}
 
 	adrv9002_debugfs_fh_config_create(phy, d);
