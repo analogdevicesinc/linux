@@ -163,7 +163,7 @@ _DestroyMdlMap(
     return gcvSTATUS_OK;
 }
 
-/* Must hold Mdl->mpasMutex before call this function. */
+/* Must hold Mdl->mapsMutex before call this function. */
 extern PLINUX_MDL_MAP
 FindMdlMap(
     IN PLINUX_MDL Mdl,
