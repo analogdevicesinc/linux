@@ -22,6 +22,7 @@
 #include "adi_adrv9001_cals_types.h"
 #include "adi_adrv9001_dpd_types.h"
 #include "adi_adrv9001_fh_types.h"
+#include "adi_adrv9001_mcs_types.h"
 #include "adi_adrv9001_radio_types.h"
 #include "adi_adrv9001_rx_gaincontrol_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
@@ -163,6 +164,7 @@ struct adrv9002_chan {
 	 * @adrv9002_chan_ns_to_en_delay() before passing them to the API.
 	 */
 	struct adi_adrv9001_ChannelEnablementDelays en_delays_ns;
+	struct adi_adrv9001_McsDelay mcs_delay;
 	unsigned long rate;
 	adi_adrv9001_InitCalibrations_e lo_cals;
 	adi_adrv9001_ChannelState_e cached_state;
