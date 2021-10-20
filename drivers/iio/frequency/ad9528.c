@@ -284,6 +284,7 @@ struct ad9528_state {
 	unsigned long		sysref_src_pll2;
 
 	struct mutex		lock;
+	u32			*regcache;
 
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
@@ -315,6 +316,18 @@ static int ad9528_read(struct iio_dev *indio_dev, unsigned addr)
 			.len = AD9528_TRANSF_LEN(addr),
 		},
 	};
+
+	if (st->regcache) {
+		switch (AD9528_ADDR(addr)) {
+		case 0x5:
+			return 0xFF05;
+		case 0x509:
+			mdelay(50);
+			return 0x00FF;
+		default:
+			return st->regcache[AD9528_ADDR(addr)];
+		}
+	}
 
 	st->data[0].d32 = cpu_to_be32(AD9528_READ |
 			AD9528_CNT(AD9528_TRANSF_LEN(addr)) |
@@ -355,6 +368,9 @@ static int ad9528_write(struct iio_dev *indio_dev, unsigned addr, unsigned val)
 
 	if (ret < 0)
 		dev_err(&indio_dev->dev, "write failed (%d)", ret);
+
+	if (st->regcache)
+		st->regcache[AD9528_ADDR(addr)] = val;
 
 	return ret;
 }
@@ -1637,6 +1653,11 @@ static int ad9528_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->ad9528_channels;
 	indio_dev->num_channels = pdata->num_channels;
+
+	if (of_property_read_bool(spi->dev.of_node,
+		"adi,spi-write-only-enable"))
+		st->regcache = devm_kcalloc(&spi->dev,
+			0x509, sizeof(*st->regcache), GFP_KERNEL);
 
 	ret = ad9528_setup(indio_dev);
 	if (ret < 0)
