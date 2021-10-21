@@ -197,6 +197,8 @@ typedef enum _gceSURF_FLAG
     gcvSURF_FLAG_MULTI_NODE          = 0x8,
     /* surface no need do dither when resovle*/
     gcvSURF_FLAG_DITHER_DISABLED     = 0x10,
+    /* surface used a fake hal format */
+    gcvSURF_FLAG_FAKE_FORMAT         = 0x20,
 }
 gceSURF_FLAG;
 
