@@ -65,7 +65,7 @@
 #define AD9081_TX_JESD_CS			0
 #define AD9081_TX_JESD_L			4
 #define AD9081_TX_JESD_S			1
-#define AD9081_TX_JESD_HD			1
+#define AD9081_TX_JESD_HD			0
 
 /* RX path */
 #define AD9081_RX_MAIN_DECIMATION		4
@@ -93,7 +93,7 @@
 #define AD9081_RX_JESD_CS			0
 #define AD9081_RX_JESD_L			4
 #define AD9081_RX_JESD_S			1
-#define AD9081_RX_JESD_HD			1
+#define AD9081_RX_JESD_HD			0
 
 
 &rx_dma {
