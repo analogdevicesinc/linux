@@ -238,7 +238,7 @@
 					adi,control-bits-per-sample = <0>;	/* JESD CS */
 					adi,lanes-per-device = <4>;		/* JESD L */
 					adi,samples-per-converter-per-frame = <1>; /* JESD S */
-					adi,high-density = <1>;			/* JESD HD */
+					adi,high-density = <0>;			/* JESD HD */
 				};
 			};
 		};
@@ -343,7 +343,7 @@
 					adi,control-bits-per-sample = <0>;	/* JESD CS */
 					adi,lanes-per-device = <4>;		/* JESD L */
 					adi,samples-per-converter-per-frame = <1>; /* JESD S */
-					adi,high-density = <1>;			/* JESD HD */
+					adi,high-density = <0>;			/* JESD HD */
 				};
 			};
 		};
