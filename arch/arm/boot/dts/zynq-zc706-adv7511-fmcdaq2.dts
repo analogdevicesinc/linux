@@ -74,8 +74,8 @@
 
 		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clkc 16>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
-		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clocks = <&clkc 16>, <&clk0_ad9523 9>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
 
 		adi,octets-per-frame = <8>;
 		adi,frames-per-multiframe = <32>;
@@ -94,8 +94,8 @@
 		#clock-cells = <1>;
 		clock-output-names = "adc_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <XCVR_QPLL>;
-		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+		adi,sys-clk-select = <XCVR_CPLL>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
 	};
 };

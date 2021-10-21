@@ -627,11 +627,23 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_rate = 1250000000UL,
 		.scale_table = ad9680_scale_table,
 		.num_scales = ARRAY_SIZE(ad9680_scale_table),
-		.num_channels = 2,
+		.num_channels = 8,
 		.channel[0] = AD9680_CHAN(0, 0, 14, 'S', 0,
 			ad9680_events, ARRAY_SIZE(ad9680_events)),
 		.channel[1] = AD9680_CHAN(1, 1, 14, 'S', 0,
 			ad9680_events, ARRAY_SIZE(ad9680_events)),
+		.channel[2] = AD9680_CHAN(2, 2, 14, 'S', 0,
+			ad9680_events, ARRAY_SIZE(ad9680_events)),
+		.channel[3] = AD9680_CHAN(3, 3, 14, 'S', 0,
+			ad9680_events, ARRAY_SIZE(ad9680_events)),
+		.channel[4] = AD9680_CHAN(4, 4, 14, 'S', 0,
+			ad9680_events, ARRAY_SIZE(ad9680_events)),
+		.channel[5] = AD9680_CHAN(5, 5, 14, 'S', 0,
+			ad9680_events, ARRAY_SIZE(ad9680_events)),
+		.channel[6] = AD9680_CHAN(6, 6, 14, 'S', 0,
+			ad9680_events, ARRAY_SIZE(ad9680_events)),
+		.channel[7] = AD9680_CHAN(7, 7, 14, 'S', 0,
+			ad9680_events, ARRAY_SIZE(ad9680_events)),	
 	},
 	[ID_AD9680_x2] = {
 		.name = "AD9680",
@@ -799,8 +811,8 @@ static int ad9680_setup_jesd204_link(struct axiadc_converter *conv,
 	unsigned long sysref_rate;
 	int ret;
 
-	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
-	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
+	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 256);
+	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 200);
 
 	if (lane_rate_kHz < 3125000 || lane_rate_kHz > 12500000) {
 		dev_err(&conv->spi->dev, "Lane rate %lu Mbps out of bounds. Must be between 3125 and 12500 Mbps",
@@ -1037,7 +1049,7 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	mdelay(1);
 
 	ret = ad9680_spi_write(spi, 0x008, 0x03);	// select both channels
-	ret |= ad9680_spi_write(spi, 0x201, 0x00);	// full sample rate (decimation = 1)
+	ret |= ad9680_spi_write(spi, 0x201, 0x04);	// full sample rate (decimation = 16)
 
 	if (tmp == 0) {
 		for (; tmp < ARRAY_SIZE(sfdr_optim_regs); tmp++)
@@ -1048,13 +1060,13 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	memset(&link_config, 0x00, sizeof(link_config));
 	link_config.did = 0;
 	link_config.bid = 1;
-	link_config.num_lanes = 4;
+	link_config.num_lanes = 2;
 	for (i = 0; i < link_config.num_lanes; i++) {
 		link_config.lid[i] = i;
 		link_config.lane_mux[i] = i;
 	}
-	link_config.num_converters = 2;
-	link_config.octets_per_frame = 1;
+	link_config.num_converters = 8;
+	link_config.octets_per_frame = 8;
 	link_config.frames_per_multiframe = 32;
 	link_config.converter_resolution = ad9234 ? 12 : 14;
 	link_config.bits_per_sample = 16;

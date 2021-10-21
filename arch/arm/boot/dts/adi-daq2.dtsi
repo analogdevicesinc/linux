@@ -62,7 +62,7 @@
 			adi,extended-name = "ADC_SYSREF";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
-			adi,channel-divider = <128>;
+			adi,channel-divider = <1024>;
 //			adi,output-dis;
 		};
 
@@ -71,7 +71,7 @@
 			adi,extended-name = "CLKD_ADC_SYSREF";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
-			adi,channel-divider = <128>;
+			adi,channel-divider = <1024>;
 //			adi,output-dis;
 		};
 
@@ -98,7 +98,7 @@
 			adi,extended-name = "FMC_DAC_REF_CLK";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
-			adi,channel-divider = <16>;
+			adi,channel-divider = <8>;
 //			adi,output-dis;
 		};
 
