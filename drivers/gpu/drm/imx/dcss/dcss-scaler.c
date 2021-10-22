@@ -452,7 +452,7 @@ static void dcss_scaler_res_set(struct dcss_scaler_ch *ch,
 		src_is_444 = false;
 	} else if (pix_format == DRM_FORMAT_NV12 ||
 		   pix_format == DRM_FORMAT_NV21 ||
-		   pix_format == DRM_FORMAT_NV12_10LE40) {
+		   pix_format == DRM_FORMAT_NV15) {
 		csrc_xres >>= 1;
 		csrc_yres >>= 1;
 		src_is_444 = false;
@@ -862,7 +862,7 @@ void dcss_scaler_setup(struct dcss_scaler *scl, int ch_num,
 
 		if (pix_format == DRM_FORMAT_NV12 ||
 		    pix_format == DRM_FORMAT_NV21 ||
-		    pix_format == DRM_FORMAT_NV12_10LE40) {
+		    pix_format == DRM_FORMAT_NV15) {
 			rtr_8line_en = true;
 			src_format = BUF_FMT_YUV420;
 		} else if (pix_format == DRM_FORMAT_UYVY ||
@@ -874,7 +874,7 @@ void dcss_scaler_setup(struct dcss_scaler *scl, int ch_num,
 
 		use_5_taps = !rtr_8line_en;
 
-		if (pix_format == DRM_FORMAT_NV12_10LE40)
+		if (pix_format == DRM_FORMAT_NV15)
 			pixel_depth = 30;
 	} else {
 		dcss_scaler_yuv_enable(ch, false);

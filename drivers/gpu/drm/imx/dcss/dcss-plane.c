@@ -47,7 +47,7 @@ static const u32 dcss_common_formats[] = {
 	/* YUV420 */
 	DRM_FORMAT_NV12,
 	DRM_FORMAT_NV21,
-	DRM_FORMAT_NV12_10LE40,
+	DRM_FORMAT_NV15,
 };
 
 static const u64 dcss_overlay_format_modifiers[] = {
@@ -141,7 +141,7 @@ static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
 		switch (format) {
 		case DRM_FORMAT_NV12:
 		case DRM_FORMAT_NV21:
-		case DRM_FORMAT_NV12_10LE40:
+		case DRM_FORMAT_NV15:
 			return modifier == DRM_FORMAT_MOD_LINEAR ||
 			       modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
@@ -197,7 +197,7 @@ static bool dcss_plane_can_rotate(const struct drm_format_info *format,
 		supported_rotation = DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_180 |
 				     DRM_MODE_REFLECT_MASK;
 	else if (format->is_yuv && linear_format &&
-		 format->format == DRM_FORMAT_NV12_10LE40)
+		 format->format == DRM_FORMAT_NV15)
 		supported_rotation = DRM_MODE_ROTATE_0 | DRM_MODE_REFLECT_Y;
 
 	return !!(rotation & supported_rotation);
@@ -267,7 +267,7 @@ static bool dcss_plane_is_source_size_allowed(u16 src_w, u16 src_h, u32 pix_fmt)
 {
 	if (src_w < 64 &&
 	    (pix_fmt == DRM_FORMAT_NV12 || pix_fmt == DRM_FORMAT_NV21 ||
-	     pix_fmt == DRM_FORMAT_NV12_10LE40))
+	     pix_fmt == DRM_FORMAT_NV15))
 		return false;
 	else if (src_w < 32 &&
 		 (pix_fmt == DRM_FORMAT_UYVY || pix_fmt == DRM_FORMAT_VYUY ||
@@ -286,7 +286,7 @@ static inline bool dcss_plane_use_dtrc(struct drm_framebuffer *fb,
 		type == DRM_PLANE_TYPE_OVERLAY &&
 		(pix_format == DRM_FORMAT_NV12 ||
 		pix_format == DRM_FORMAT_NV21 ||
-		pix_format == DRM_FORMAT_NV12_10LE40);
+		pix_format == DRM_FORMAT_NV15);
 }
 
 static int dcss_plane_atomic_check(struct drm_plane *plane,
@@ -469,7 +469,7 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 		p1_ba = dma_obj->dma_addr + fb->offsets[0] +
 			fb->pitches[0] * y1 +
 			format->char_per_block[0] * x1;
-	else if (format->format == DRM_FORMAT_NV12_10LE40)
+	else if (format->format == DRM_FORMAT_NV15)
 		p1_ba = dma_obj->dma_addr + fb->offsets[0] +
 			fb->pitches[0] * y1 +
 			format->char_per_block[0] * (x1 >> 2);
@@ -486,7 +486,7 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 		p2_ba = dma_obj->dma_addr + fb->offsets[1] +
 			(((fb->pitches[1] >> 1) * (y1 >> 1) +
 			(x1 >> 1)) << 1);
-	else if (format->format == DRM_FORMAT_NV12_10LE40)
+	else if (format->format == DRM_FORMAT_NV15)
 		p2_ba = dma_obj->dma_addr + fb->offsets[1] +
 			(((fb->pitches[1] >> 1) * (y1 >> 1)) << 1) +
 			format->char_per_block[1] * (x1 >> 2);
