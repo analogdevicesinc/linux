@@ -103,6 +103,7 @@ struct ad9081_jesd_link {
 enum ad9081_clocks {
 	RX_SAMPL_CLK,
 	TX_SAMPL_CLK,
+	RX_SAMPL_CLK_LINK2, /* Dual Link */
 	NUM_AD9081_CLKS,
 };
 
@@ -164,6 +165,7 @@ struct ad9081_phy {
 	u32 mcs_cached_val;
 
 	u32 multidevice_instance_count;
+	bool dual_link_use_own_tpl_en;
 	u32 lmfc_delay;
 	u32 nco_sync_ms_extra_lmfc_num;
 	bool nco_sync_direct_sysref_mode_en;
@@ -184,6 +186,7 @@ struct ad9081_phy {
 	u32 tx_main_interp;
 	u32 tx_chan_interp;
 	u8 tx_dac_chan_xbar[MAX_NUM_MAIN_DATAPATHS];
+	u8 tx_dac_chan_xbar_1x_non1x[MAX_NUM_MAIN_DATAPATHS];
 	u8 tx_main_ffh_select[MAX_NUM_MAIN_DATAPATHS];
 
 	u8 ffh_hopf_index;
@@ -191,11 +194,11 @@ struct ad9081_phy {
 	s64 ffh_hopf_vals[32];
 
 	struct dac_settings_cache dac_cache;
-	struct ad9081_jesd_link jesd_tx_link;
+	struct ad9081_jesd_link jesd_tx_link[2];
 
 	u32 adc_main_decimation[MAX_NUM_MAIN_DATAPATHS];
 	u32 adc_chan_decimation[MAX_NUM_CHANNELIZER];
-	u32 adc_dcm;
+	u32 adc_dcm[2];
 	u64 adc_frequency_hz;
 	s64 rx_fddc_shift[MAX_NUM_CHANNELIZER];
 	s64 rx_cddc_shift[MAX_NUM_MAIN_DATAPATHS];
@@ -326,6 +329,17 @@ int32_t ad9081_jesd_tx_link_dig_reset(adi_ad9081_device_t *device,
 	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
+}
+
+static bool ad9081_link_is_dual(struct ad9081_jesd_link *link)
+{
+	return !!link[0].jesd_param.jesd_duallink;
+}
+
+static adi_ad9081_jesd_link_select_e
+ad9081_link_sel(struct ad9081_jesd_link *link)
+{
+	return ad9081_link_is_dual(link) ? AD9081_LINK_ALL : AD9081_LINK_0;
 }
 
 int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
@@ -545,13 +559,14 @@ static int ad9081_clk_register(struct ad9081_phy *phy, const char *name,
 
 	switch (source) {
 	case RX_SAMPL_CLK:
+	case RX_SAMPL_CLK_LINK2:
 		init.ops = &bb_clk_ops;
 		break;
 	case TX_SAMPL_CLK:
 		init.ops = &bb_clk_ops;
 		break;
 	default:
-			return -EINVAL;
+		return -EINVAL;
 	}
 
 	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
@@ -888,15 +903,26 @@ static void ad9081_iiochan_to_fddc_cddc(struct ad9081_phy *phy,
 	const struct iio_chan_spec *chan, u8 *fddc_num, u8 *fddc_mask,
 	u8 *cddc_num, u8 *cddc_mask)
 {
+	unsigned int l = 0, m = 0, c;
+
 	if (chan->output) {
 		u8 mask = 0;
 		int i;
 
-		*fddc_num = chan->channel;
-		*fddc_mask = BIT(chan->channel) & AD9081_DAC_CH_ALL;
+		c = chan->channel;
+
+		if (ad9081_link_is_dual(phy->jesd_tx_link)) {
+			m = phy->jesd_tx_link[0].jesd_param.jesd_m;
+
+			if (c >= (m / 2))
+				c = c - (m / 2) + 4;
+		}
+
+		*fddc_num = c;
+		*fddc_mask = BIT(c) & AD9081_DAC_CH_ALL;
 
 		for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar); i++)
-			if (phy->tx_dac_chan_xbar[i] & BIT(chan->channel)) {
+			if (phy->tx_dac_chan_xbar[i] & BIT(c)) {
 				mask |= BIT(i);
 				*cddc_num = i;
 
@@ -904,12 +930,26 @@ static void ad9081_iiochan_to_fddc_cddc(struct ad9081_phy *phy,
 
 		*cddc_mask = mask;
 	} else {
-		*fddc_num = phy->jesd_rx_link[0].link_converter_select[chan->address] / 2;
+		if (ad9081_link_is_dual(phy->jesd_rx_link)) {
+			m = phy->jesd_rx_link[0].jesd_param.jesd_m;
+
+			if (chan->address >= m)
+				l = 1;
+			else
+				m = 0;
+		}
+
+		*fddc_num = phy->jesd_rx_link[l].link_converter_select[chan->address - m] / 2;
 		*fddc_mask = BIT(*fddc_num) & AD9081_ADC_FDDC_ALL;
 
 		adi_ad9081_adc_xbar_find_cddc(&phy->ad9081, *fddc_mask , cddc_mask);
 		*cddc_num = ilog2(*cddc_mask & AD9081_ADC_CDDC_ALL);
 	}
+
+	dev_dbg(&phy->spi->dev,
+		"%s_voltage%d: link=%d fddc_num=%d fddc_mask=%X cddc_num=%d cddc_mask=%X",
+		chan->output ? "out" : "in", chan->channel, l,
+		*fddc_num, *fddc_mask, *cddc_num, *cddc_mask);
 }
 
 static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
@@ -943,7 +983,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		break;
 	case FDDC_NCO_FREQ:
 		if (chan->output) {
-			val = phy->tx_chan_shift[chan->channel];
+			val = phy->tx_chan_shift[fddc_num];
 			ret = 0;
 		} else {
 			val = phy->rx_fddc_shift[fddc_num];
@@ -958,7 +998,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				range = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz, 2);
 
 		} else {
-			if (phy->adc_dcm == 1)
+			if (phy->adc_dcm[0] == 1)
 				range = 0; /* full bw mode */
 			else
 				range = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, 2);
@@ -976,7 +1016,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 					phy->tx_main_interp * 2);
 
 		} else {
-			if (phy->adc_dcm == 1 || phy->adc_chan_decimation[fddc_num] == 1)
+			if (phy->adc_dcm[0] == 1 || phy->adc_chan_decimation[fddc_num] == 1)
 				range = 0; /* full bw mode */
 			else
 				range = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz,
@@ -1000,7 +1040,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		break;
 	case FDDC_NCO_PHASE:
 		if (chan->output) {
-			val = phy->dac_cache.chan_phase[chan->channel];
+			val = phy->dac_cache.chan_phase[fddc_num];
 			ret = 0;
 		} else {
 			val = phy->rx_fddc_phase[fddc_num];
@@ -1008,7 +1048,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		}
 		break;
 	case FDDC_NCO_GAIN:
-		val = phy->dac_cache.chan_gain[chan->channel];
+		val = phy->dac_cache.chan_gain[fddc_num];
 		mutex_unlock(&indio_dev->mlock);
 		return ad9081_iio_val_to_str(buf, 0xFFF, val);
 	case CDDC_6DB_GAIN:
@@ -1020,19 +1060,19 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		ret = 0;
 		break;
 	case DAC_MAIN_TEST_TONE_EN:
-		val = phy->dac_cache.main_test_tone_en[chan->channel];
+		val = phy->dac_cache.main_test_tone_en[fddc_num];
 		ret = 0;
 		break;
 	case DAC_CHAN_TEST_TONE_EN:
-		val = phy->dac_cache.chan_test_tone_en[chan->channel];
+		val = phy->dac_cache.chan_test_tone_en[fddc_num];
 		ret = 0;
 		break;
 	case DAC_MAIN_TEST_TONE_OFFSET:
-		val = phy->dac_cache.main_test_tone_offset[chan->channel];
+		val = phy->dac_cache.main_test_tone_offset[fddc_num];
 		mutex_unlock(&indio_dev->mlock);
 		return ad9081_iio_val_to_str(buf, 0x7FFF, val);
 	case DAC_CHAN_TEST_TONE_OFFSET:
-		val = phy->dac_cache.chan_test_tone_offset[chan->channel];
+		val = phy->dac_cache.chan_test_tone_offset[fddc_num];
 		mutex_unlock(&indio_dev->mlock);
 		return ad9081_iio_val_to_str(buf, 0x7FFF, val);
 	case TRX_CONVERTER_RATE:
@@ -1751,8 +1791,9 @@ static int ad9081_setup(struct spi_device *spi)
 	/* start txfe tx */
 	ret = adi_ad9081_device_startup_tx(
 		&phy->ad9081, phy->tx_main_interp, phy->tx_chan_interp,
-		phy->tx_dac_chan_xbar, phy->tx_main_shift, phy->tx_chan_shift,
-		&phy->jesd_tx_link.jesd_param);
+		phy->tx_chan_interp == 1 ? phy->tx_dac_chan_xbar_1x_non1x : phy->tx_dac_chan_xbar,
+		phy->tx_main_shift, phy->tx_chan_shift,
+		&phy->jesd_tx_link[0].jesd_param);
 
 	if (ret != 0)
 		return ret;
@@ -1831,7 +1872,10 @@ static int ad9081_setup(struct spi_device *spi)
 		return ret;
 
 	adi_ad9081_jesd_rx_lmfc_delay_set(&phy->ad9081, AD9081_LINK_0,
-		phy->jesd_tx_link.jrx_tpl_phase_adjust);
+		phy->jesd_tx_link[0].jrx_tpl_phase_adjust);
+
+	adi_ad9081_jesd_rx_lmfc_delay_set(&phy->ad9081, AD9081_LINK_1,
+		phy->jesd_tx_link[1].jrx_tpl_phase_adjust);
 
 	/* setup txfe jtx converter mapping */
 	for (i = 0; i < ARRAY_SIZE(phy->jesd_rx_link[0].link_converter_select);
@@ -1842,7 +1886,7 @@ static int ad9081_setup(struct spi_device *spi)
 		if (ret != 0)
 			return ret;
 	}
-	if (phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) {
+	if (ad9081_link_is_dual(phy->jesd_rx_link)) {
 		for (i = 0;
 		     i < ARRAY_SIZE(phy->jesd_rx_link[1].link_converter_select);
 		     i++) {
@@ -1857,12 +1901,21 @@ static int ad9081_setup(struct spi_device *spi)
 	ret = adi_ad9081_adc_chip_dcm_ratio_get(&phy->ad9081,
 						AD9081_LINK_0, &dcm);
 	if (ret != 0 || !dcm)
-		return ret;
+		return -EINVAL;
 
-	phy->adc_dcm = dcm;
+	phy->adc_dcm[0] = dcm;
+
+	if (ad9081_link_is_dual(phy->jesd_rx_link)) {
+		ret = adi_ad9081_adc_chip_dcm_ratio_get(&phy->ad9081,
+							AD9081_LINK_1, &dcm);
+		if (ret != 0 || !dcm)
+			return -EINVAL;
+
+		phy->adc_dcm[1] = dcm;
+	}
 
 	if (phy->config_sync_01_swapped &&
-		phy->jesd_tx_link.jesd_param.jesd_jesdv != 2) {
+		phy->jesd_tx_link[0].jesd_param.jesd_jesdv != 2) {
 		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
 		adi_ad9081_hal_reg_set(&phy->ad9081,
 			REG_GENERAL_JRX_CTRL_ADDR, 0x80);
@@ -1885,7 +1938,7 @@ static int ad9081_setup(struct spi_device *spi)
 		adi_ad9081_hal_reg_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR, 0x0);
 	}
 
-	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2  &&
+	if (phy->jesd_tx_link[0].jesd_param.jesd_jesdv == 2  &&
 		phy->ad9081.dev_info.dev_rev < 3) {
 		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_JRX_TPL_1_ADDR,
 			BF_JRX_TPL_BUF_PROTECT_EN_INFO,
@@ -1897,8 +1950,13 @@ static int ad9081_setup(struct spi_device *spi)
 	adi_ad9081_dac_irqs_status_get(&phy->ad9081, &status64);
 	dev_dbg(&spi->dev, "DAC IRQ status 0x%llX\n", status64);
 
-	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, dcm);
+	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, phy->adc_dcm[0]);
 	clk_set_rate(phy->clks[RX_SAMPL_CLK], sample_rate);
+
+	if (ad9081_link_is_dual(phy->jesd_rx_link)) {
+		sample_rate = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, phy->adc_dcm[1]);
+		clk_set_rate(phy->clks[RX_SAMPL_CLK_LINK2], sample_rate);
+	}
 
 	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz,
 			phy->tx_main_interp * phy->tx_chan_interp);
@@ -1952,6 +2010,10 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	u8 msb, lsb;
+	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
+
+	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+		&fddc_mask, &cddc_num, &cddc_mask);
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -1963,7 +2025,7 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_ENABLE:
 		if (chan->output) {
-			*val = phy->dac_cache.enable[chan->channel];
+			*val = phy->dac_cache.enable[fddc_num];
 			return IIO_VAL_INT;
 		}
 		break;
@@ -2207,7 +2269,7 @@ static ssize_t ad9081_phy_show(struct device *dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	struct jesd204_dev *jdev = phy->jdev;
-	struct jesd204_link *links[2];
+	struct jesd204_link *links[4];
 	int i, err, num_links;
 	bool paused;
 	int ret = 0;
@@ -2493,7 +2555,7 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 			&phy->ad9081, l, &stat);
 		if (ret)
 			return -EFAULT;
-		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == JESD204_VERSION_C) {
+		if (phy->jesd_tx_link[0].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
 			seq_printf(file,
 				"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
 				l,
@@ -2512,7 +2574,7 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
 			return 0;
 
-		if (!phy->jesd_tx_link.jesd_param.jesd_duallink)
+		if (!ad9081_link_is_dual(phy->jesd_tx_link))
 			return 0;
 	}
 
@@ -2532,7 +2594,7 @@ static void ad9081_work_func(struct work_struct *work)
 	if (!(status & BIT(6))) {
 		dev_err(&phy->spi->dev, "Link Reset IRQ_STATUS0: 0x%X\n", status);
 
-		phy->jesd_tx_link.lane_cal_rate_kbps = 0;
+		phy->jesd_tx_link[0].lane_cal_rate_kbps = 0;
 		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
@@ -2960,11 +3022,11 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 		switch (entry->cmd) {
 		case DBGFS_BIST_PRBS_JRX_ERR:
 			mutex_lock(&indio_dev->mlock);
-			for (i = 0; i < phy->jesd_tx_link.jesd_param.jesd_l; i++) {
+			for (i = 0; i < phy->jesd_tx_link[0].jesd_param.jesd_l; i++) {
 				adi_ad9081_prbs_test_t prbs_rx_result;
 
 				for (j = 0; j < 8; j++)
-					if (phy->jesd_tx_link.logiclane_mapping[j] == i) {
+					if (phy->jesd_tx_link[0].logiclane_mapping[j] == i) {
 						ret = adi_ad9081_jesd_rx_phy_prbs_test_result_get(
 							&phy->ad9081, j, &prbs_rx_result);
 
@@ -3074,12 +3136,12 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		mutex_lock(&indio_dev->mlock);
 		if (val == 0)
 			adi_ad9081_jesd_tx_gen_test(&phy->ad9081,
-				AD9081_LINK_0,
+				ad9081_link_sel(phy->jesd_rx_link),
 				AD9081_JESD_TX_TEST_DATA_SAMPLE,
 				AD9081_JESD_TX_TEST_MODE_DISABLED);
 		else
 			adi_ad9081_jesd_tx_phy_prbs_test(&phy->ad9081,
-				AD9081_LINK_0, ad9081_val_to_prbs(val));
+				ad9081_link_sel(phy->jesd_rx_link), ad9081_val_to_prbs(val));
 		entry->val = val;
 		mutex_unlock(&indio_dev->mlock);
 
@@ -3112,7 +3174,7 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		mutex_lock(&indio_dev->mlock);
 		ret = adi_ad9081_jesd_rx_spo_sweep(&phy->ad9081, val & 0x7,
 				ad9081_val_to_prbs(val2),
-				ad9081_deserializer_mode_get(&phy->jesd_tx_link),
+				ad9081_deserializer_mode_get(&phy->jesd_tx_link[0]),
 				val3, &lv, &rv);
 		if (ret) {
 			mutex_unlock(&indio_dev->mlock);
@@ -3369,7 +3431,7 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 {
 	struct device_node *of_channels, *of_chan;
 	struct device_node *of_trx_path;
-	u32 reg, index;
+	u32 reg, index, tmp;
 	int i, ret;
 
 	of_trx_path = of_get_child_by_name(np, "adi,tx-dacs");
@@ -3399,6 +3461,15 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 			of_property_read_u32(of_chan,
 					     "adi,full-scale-current-ua",
 					     &phy->tx_dac_fsc[reg]);
+
+			ret = of_property_read_u32(of_chan,
+					     "adi,maindp-dac-1x-non1x-crossbar-select",
+					     &tmp);
+
+			if (ret == 0 && tmp < 4)
+				phy->tx_dac_chan_xbar_1x_non1x[reg] = 1 << tmp;
+			else
+				phy->tx_dac_chan_xbar_1x_non1x[reg] = 1 << reg;
 
 			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
 				i++) {
@@ -3466,9 +3537,16 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 	phy->jrx_link_watchdog_en = of_property_read_bool(of_channels,
 		"adi,jrx-link-watchdog-enable");
 
+
+	i = 0;
+
 	for_each_child_of_node(of_channels, of_chan) {
-		ad9081_parse_jesd_link_dt(phy, of_chan, &phy->jesd_tx_link,
+		ad9081_parse_jesd_link_dt(phy, of_chan, &phy->jesd_tx_link[i++],
 					  false);
+		if (i >= ARRAY_SIZE(phy->jrx_link_tx)) {
+			of_node_put(of_chan);
+			break;
+		}
 	}
 
 	of_node_put(of_channels);
@@ -3564,6 +3642,10 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 	for_each_child_of_node(of_channels, of_chan) {
 		ad9081_parse_jesd_link_dt(phy, of_chan, &phy->jesd_rx_link[i++],
 					  true);
+		if (i >= ARRAY_SIZE(phy->jrx_link_rx)) {
+			of_node_put(of_chan);
+			break;
+		}
 	}
 
 	of_node_put(of_channels);
@@ -3580,6 +3662,9 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	phy->multidevice_instance_count = 1;
 	of_property_read_u32(np, "adi,multidevice-instance-count",
 			     &phy->multidevice_instance_count);
+
+	phy->dual_link_use_own_tpl_en =
+		of_property_read_bool(np, "adi,dual-link-use-separate-tpl-enable");
 
 	phy->config_sync_01_swapped =
 		of_property_read_bool(np, "adi,jesd-sync-pins-01-swap-enable");
@@ -3673,7 +3758,14 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].channel = complex ? i / 2 : i;
 		phy->chip_info.channel[c].channel2 =
 			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
+
 		phy->chip_info.channel[c].scan_index = buffer_capable ? i : -1;
+
+		if (phy->dual_link_use_own_tpl_en &&
+			(i >= (phy->jesd_rx_link[0].jesd_param.jesd_m *
+			phy->multidevice_instance_count)))
+			phy->chip_info.channel[c].scan_index = -1;
+
 		phy->chip_info.channel[c].address = i,
 		phy->chip_info.channel[c].info_mask_shared_by_type =
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
@@ -3694,8 +3786,8 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		}
 	}
 
-	m = phy->jesd_tx_link.jesd_param.jesd_m *
-	    (phy->jesd_tx_link.jesd_param.jesd_duallink > 0 ? 2 : 1);
+	m = phy->jesd_tx_link[0].jesd_param.jesd_m *
+	    (ad9081_link_is_dual(phy->jesd_tx_link) ? 2 : 1);
 
 	for (i = 0; i < m; i++, c++) {
 		phy->chip_info.channel[c].type = IIO_VOLTAGE;
@@ -3791,14 +3883,16 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 
 	switch (lnk->link_id) {
 	case DEFRAMER_LINK0_TX:
-		link = &phy->jesd_tx_link;
+	case DEFRAMER_LINK1_TX:
+		link = &phy->jesd_tx_link[0];
 		lnk->sample_rate = phy->dac_frequency_hz;
 		lnk->sample_rate_div = phy->tx_main_interp * phy->tx_chan_interp;
 		break;
 	case FRAMER_LINK0_RX:
-		link = &phy->jesd_rx_link[0];
+	case FRAMER_LINK1_RX:
+		link = &phy->jesd_rx_link[lnk->link_id - FRAMER_LINK0_RX];
 		lnk->sample_rate = phy->adc_frequency_hz;
-		lnk->sample_rate_div = phy->adc_dcm;
+		lnk->sample_rate_div = phy->adc_dcm[lnk->link_id - FRAMER_LINK0_RX];
 		break;
 	default:
 		return -EINVAL;
@@ -3852,32 +3946,30 @@ static int ad9081_jesd204_clks_enable(struct jesd204_dev *jdev,
 	if (lnk->is_transmit && (reason == JESD204_STATE_OP_REASON_INIT) &&
 		(lnk->jesd_version == JESD204_VERSION_C)) {
 
-		if ((phy->jesd_tx_link.lane_rate_kbps >
+		if ((phy->jesd_tx_link[0].lane_rate_kbps >
 			(AD9081_JESDRX_204C_CAL_THRESH / 1000)) &&
-			phy->jesd_tx_link.lane_cal_rate_kbps !=
-			phy->jesd_tx_link.lane_rate_kbps) {
+			phy->jesd_tx_link[0].lane_cal_rate_kbps !=
+			phy->jesd_tx_link[0].lane_rate_kbps) {
 
 			ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 1);
+				ad9081_link_sel(phy->jesd_tx_link), 1);
 			if (ret != 0)
 				return ret;
 
 			dev_info(dev, "running jesd_rx_calibrate_204c, LR %lu kbps",
-				phy->jesd_tx_link.lane_rate_kbps);
+				phy->jesd_tx_link[0].lane_rate_kbps);
 
 			ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 1, 0, 0);
 			if (ret < 0)
 				return ret;
 
 			ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 0);
+				ad9081_link_sel(phy->jesd_tx_link), 0);
 			if (ret != 0)
 				return ret;
 		}
 
-		phy->jesd_tx_link.lane_cal_rate_kbps = phy->jesd_tx_link.lane_rate_kbps;
+		phy->jesd_tx_link[0].lane_cal_rate_kbps = phy->jesd_tx_link[0].lane_rate_kbps;
 	}
 
 	if (!lnk->is_transmit) {
@@ -3907,8 +3999,7 @@ static int ad9081_jesd204_link_enable(struct jesd204_dev *jdev,
 	if (lnk->is_transmit) {
 		/* txfe TX (JRX) link */
 		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0,
+			ad9081_link_sel(phy->jesd_tx_link),
 			reason == JESD204_STATE_OP_REASON_INIT);
 		if (ret != 0)
 			return ret;
@@ -4093,7 +4184,7 @@ static const struct jesd204_dev_data jesd204_ad9081_init = {
 		},
 	},
 
-	.max_num_links = 2,
+	.max_num_links = 4,
 	.num_retries = 3,
 	.sizeof_priv = sizeof(struct ad9081_jesd204_priv),
 };
@@ -4229,12 +4320,12 @@ static int ad9081_probe(struct spi_device *spi)
 		sizeof(phy->jesd_rx_link[1].logiclane_mapping));
 
 	memcpy(phy->ad9081.serdes_info.des_settings.lane_mapping[0],
-		phy->jesd_tx_link.logiclane_mapping,
-		sizeof(phy->jesd_tx_link.logiclane_mapping));
+		phy->jesd_tx_link[0].logiclane_mapping,
+		sizeof(phy->jesd_tx_link[0].logiclane_mapping));
 
 	memcpy(phy->ad9081.serdes_info.des_settings.lane_mapping[1],
-		phy->jesd_tx_link.logiclane_mapping,
-		sizeof(phy->jesd_tx_link.logiclane_mapping));
+		phy->jesd_tx_link[1].logiclane_mapping,
+		sizeof(phy->jesd_tx_link[1].logiclane_mapping));
 
 	ret = adi_ad9081_device_reset(&phy->ad9081,
 		conv->reset_gpio ? AD9081_HARD_RESET_AND_INIT :
@@ -4269,6 +4360,12 @@ static int ad9081_probe(struct spi_device *spi)
 			    __clk_get_name(phy->dev_clk), NULL,
 			    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 			    TX_SAMPL_CLK);
+
+	if (ad9081_link_is_dual(phy->jesd_rx_link))
+		ad9081_clk_register(phy, "-rx_sampl_clk_link2",
+				__clk_get_name(phy->dev_clk), NULL,
+				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+				RX_SAMPL_CLK_LINK2);
 
 	phy->clk_data.clks = phy->clks;
 	phy->clk_data.clk_num = NUM_AD9081_CLKS;
