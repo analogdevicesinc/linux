@@ -33,6 +33,7 @@
 #include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
+#include <linux/jesd204/adi-common.h>
 
 /* ADC Common */
 #define ADI_REG_RSTN			0x0040
@@ -53,6 +54,25 @@
 
 #define ADI_REG_CORRECTION_ENABLE 0x48
 #define ADI_REG_CORRECTION_COEFFICIENT(x) (0x4c + (x) * 4)
+
+#define ADI_USR_CHANMAX(x)		(((x) & 0xFF) << 0)
+#define ADI_TO_USR_CHANMAX(x)		(((x) >> 0) & 0xFF)
+
+#define ADI_REG_CHAN_USR_CNTRL_1(c)		(0x0420 + (c) * 0x40)
+#define ADI_USR_DATATYPE_BE			(1 << 25)
+#define ADI_USR_DATATYPE_SIGNED			(1 << 24)
+#define ADI_USR_DATATYPE_SHIFT(x)		(((x) & 0xFF) << 16)
+#define ADI_TO_USR_DATATYPE_SHIFT(x)		(((x) >> 16) & 0xFF)
+#define ADI_USR_DATATYPE_TOTAL_BITS(x)		(((x) & 0xFF) << 8)
+#define ADI_TO_USR_DATATYPE_TOTAL_BITS(x)	(((x) >> 8) & 0xFF)
+#define ADI_USR_DATATYPE_BITS(x)			(((x) & 0xFF) << 0)
+#define ADI_TO_USR_DATATYPE_BITS(x)		(((x) >> 0) & 0xFF)
+
+#define ADI_REG_CHAN_USR_CNTRL_2(c)		(0x0424 + (c) * 0x40)
+#define ADI_USR_DECIMATION_M(x)			(((x) & 0xFFFF) << 16)
+#define ADI_TO_USR_DECIMATION_M(x)		(((x) >> 16) & 0xFFFF)
+#define ADI_USR_DECIMATION_N(x)			(((x) & 0xFFFF) << 0)
+#define ADI_TO_USR_DECIMATION_N(x)		(((x) >> 0) & 0xFFFF)
 
 #define ADI_MAX_CHANNEL			128
 
@@ -566,7 +586,7 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	mutex_lock(&indio_dev->mlock);
-	if (reg & 0x80000000) {
+	if (st->slave_regs && (reg & 0x80000000)) {
 		if (readval == NULL)
 			axiadc_slave_write(st, (reg & 0xffff), writeval);
 		else
@@ -600,6 +620,8 @@ static const struct of_device_id adc_of_match[] = {
 				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,axi-adrv9002-rx2-1.0",
 				.data = &adrv9002_rx_chip_info },
+	{ .compatible = "adi,axi-adc-tpl-so-10.0.a",
+		.data = &obs_rx_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
@@ -607,15 +629,25 @@ MODULE_DEVICE_TABLE(of, adc_of_match);
 static void adc_fill_channel_data(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
+	unsigned int usr_ctrl, jesd_np;
 	int i;
 
-	st->max_usr_channel = axiadc_read(st, ADI_REG_USR_CNTRL_1);
+	st->max_usr_channel = ADI_USR_CHANMAX(axiadc_read(st, ADI_REG_USR_CNTRL_1));
+
+	/*
+	 * In case JESD TPL (up_tpl_common) is available use
+	 * JESD_NP to set realbits
+	 */
+	jesd_np = axiadc_read(st, ADI_JESD204_REG_TPL_DESCRIPTOR_2);
+	if (jesd_np != 0xDEADDEAD)
+		jesd_np = ADI_JESD204_TPL_TO_NP(jesd_np);
 
 	if (st->max_usr_channel == 0)
 		dev_warn(indio_dev->dev.parent,
 			 "Zero read from REG_USR_CNTRL_1\n");
 
 	for (i = 0; (i < st->max_usr_channel) && (i < ADI_MAX_CHANNEL); i++) {
+		usr_ctrl = axiadc_read(st, ADI_REG_CHAN_USR_CNTRL_1(i));
 		st->channels[i].type = IIO_VOLTAGE;
 		st->channels[i].indexed = 1;
 		st->channels[i].channel = i / 2;
@@ -625,11 +657,16 @@ static void adc_fill_channel_data(struct iio_dev *indio_dev)
 		st->channels[i].scan_index = i;
 		st->channels[i].info_mask_shared_by_all =
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
-		st->channels[i].scan_type.sign = 's';
-		st->channels[i].scan_type.realbits = 16;
-		st->channels[i].scan_type.storagebits = 16;
-		st->channels[i].scan_type.shift = 0;
-		st->channels[i].scan_type.endianness = IIO_LE;
+		st->channels[i].scan_type.sign =
+			(usr_ctrl & ADI_USR_DATATYPE_SIGNED) ? 's' : 'u';
+		st->channels[i].scan_type.realbits =
+			jesd_np ? jesd_np : ADI_TO_USR_DATATYPE_BITS(usr_ctrl);
+		st->channels[i].scan_type.storagebits =
+			ADI_TO_USR_DATATYPE_TOTAL_BITS(usr_ctrl);
+		st->channels[i].scan_type.shift =
+			ADI_TO_USR_DATATYPE_SHIFT(usr_ctrl);
+		st->channels[i].scan_type.endianness =
+			(usr_ctrl & ADI_USR_DATATYPE_BE) ? IIO_BE : IIO_LE;
 	}
 
 	indio_dev->channels = st->channels;
