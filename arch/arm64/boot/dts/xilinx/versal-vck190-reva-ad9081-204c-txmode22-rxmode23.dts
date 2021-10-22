@@ -10,6 +10,19 @@
  * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
+/*
+ * 204C use case with Subclass 0,
+ * Med. lane rate, using gearbox and PRGOGDIV
+ *   1Txs / 1Rxs per MxFE
+ *   DAC_CLK = 11.52 GSPS
+ *   ADC_CLK = 3.84 GSPS
+ *   Tx I/Q Rate: 960 MSPS (Interpolation of 12x1)
+ *   Rx I/Q Rate: 960 MSPS (Decimation of 4x1)
+ *   DAC JESD204C: Mode 22, L=2, M=2, N=N'=12
+ *   ADC JESD204C: Mode 23.00, L=2, M=2, N=N'=12
+ *   DAC-Side JESD204C Lane Rate: 11.88 Gbps
+ *   ADC-Side JESD204C Lane Rate: 11.88 Gbps
+ */
 
 #include "versal-vck190-reva-ad9081.dts"
 
