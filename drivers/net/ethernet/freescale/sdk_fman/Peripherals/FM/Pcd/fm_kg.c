@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2021 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -806,7 +807,7 @@ static t_Error KgWriteSp(t_FmPcd *p_FmPcd, uint8_t hardwarePortId, uint32_t spRe
     /* The calling routine had locked the port, so for each port only one core can access
      * (so we don't need a lock here) */
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
         return FmHcKgWriteSp(p_FmPcd->h_Hc, hardwarePortId, spReg, add);
 
     p_KgRegs = p_FmPcd->p_FmPcdKg->p_FmPcdKgRegs;
@@ -838,7 +839,7 @@ static t_Error KgWriteCpp(t_FmPcd *p_FmPcd, uint8_t hardwarePortId, uint32_t cpp
 
     p_KgRegs = p_FmPcd->p_FmPcdKg->p_FmPcdKgRegs;
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
         err = FmHcKgWriteCpp(p_FmPcd->h_Hc, hardwarePortId, cppReg);
         return err;
@@ -2519,7 +2520,7 @@ t_Error FmPcdKgSetOrBindToClsPlanGrp(t_Handle h_FmPcd, uint8_t hardwarePortId, u
         }
         *p_ClsPlanGrpId = p_GrpParams->clsPlanGrpId;
 
-        if (p_FmPcd->h_Hc)
+        if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
         {
             /* write clsPlan entries to memory */
             err = FmHcPcdKgSetClsPlan(p_FmPcd->h_Hc, p_ClsPlanSet);
@@ -2578,7 +2579,7 @@ t_Error FmPcdKgDeleteOrUnbindPortToClsPlanGrp(t_Handle h_FmPcd, uint8_t hardware
 
     if (!p_ClsPlanGrp->owners)
     {
-        if (p_FmPcd->h_Hc)
+        if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
         {
             err = FmHcPcdKgDeleteClsPlan(p_FmPcd->h_Hc, clsPlanGrpId);
             return err;
@@ -2839,7 +2840,7 @@ t_Error FmPcdKgCcGetSetParams(t_Handle h_FmPcd, t_Handle h_Scheme, uint32_t requ
     if (!FmPcdKgIsSchemeValidSw(h_Scheme))
         RETURN_ERROR(MAJOR, E_ALREADY_EXISTS, ("Scheme is Invalid"));
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
         err = FmHcPcdKgCcGetSetParams(p_FmPcd->h_Hc, h_Scheme, requiredAction, value);
 
@@ -3030,7 +3031,7 @@ t_Handle FM_PCD_KgSchemeSet(t_Handle h_FmPcd,  t_FmPcdKgSchemeParams *p_SchemePa
         return NULL;
     }
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
         err = FmHcPcdKgSetScheme(p_FmPcd->h_Hc,
                                  (t_Handle)p_Scheme,
@@ -3106,7 +3107,7 @@ t_Error  FM_PCD_KgSchemeDelete(t_Handle h_Scheme)
     if (err)
         RETURN_ERROR(MINOR, err, NO_MSG);
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
         err = FmHcPcdKgDeleteScheme(p_FmPcd->h_Hc, h_Scheme);
         if (p_Scheme->p_Lock)
@@ -3141,7 +3142,7 @@ uint32_t  FM_PCD_KgSchemeGetCounter(t_Handle h_Scheme)
     SANITY_CHECK_RETURN_VALUE(h_Scheme, E_INVALID_HANDLE, 0);
 
     p_FmPcd = (t_FmPcd*)(((t_FmPcdKgScheme *)h_Scheme)->h_FmPcd);
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
         return FmHcPcdKgGetSchemeCounter(p_FmPcd->h_Hc, h_Scheme);
 
     physicalSchemeId = ((t_FmPcdKgScheme *)h_Scheme)->schemeId;
@@ -3173,7 +3174,7 @@ t_Error  FM_PCD_KgSchemeSetCounter(t_Handle h_Scheme, uint32_t value)
     if (!FmPcdKgIsSchemeValidSw(h_Scheme))
         RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Requested scheme is invalid."));
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
         return FmHcPcdKgSetSchemeCounter(p_FmPcd->h_Hc, h_Scheme, value);
 
     physicalSchemeId = ((t_FmPcdKgScheme *)h_Scheme)->schemeId;

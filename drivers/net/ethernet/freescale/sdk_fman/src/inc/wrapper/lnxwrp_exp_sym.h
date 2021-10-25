@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2012 Freescale Semiconductor, Inc.
+ * Copyright 2021 NXP
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +62,7 @@ EXPORT_SYMBOL(FM_PCD_ModifyCounter);
 EXPORT_SYMBOL(FM_PCD_SetPlcrStatistics);
 EXPORT_SYMBOL(FM_PCD_SetPrsStatistics);
 EXPORT_SYMBOL(FM_PCD_ForceIntr);
+EXPORT_SYMBOL(FM_PCD_AllowHcUsage);
 EXPORT_SYMBOL(FM_PCD_HcTxConf);
 
 EXPORT_SYMBOL(FM_PCD_NetEnvCharacteristicsSet);

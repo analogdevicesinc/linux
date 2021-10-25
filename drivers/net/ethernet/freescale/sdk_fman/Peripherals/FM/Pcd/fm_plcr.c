@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2021 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1192,7 +1193,7 @@ t_Error FmPcdPlcrCcGetSetParams(t_Handle h_FmPcd, uint16_t profileIndx ,uint32_t
 
     /*intFlags = PlcrProfileLock(&p_FmPcd->p_FmPcdPlcr->profiles[profileIndx]);*/
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
         err = FmHcPcdPlcrCcGetSetParams(p_FmPcd->h_Hc, profileIndx, requiredAction);
 
@@ -1638,7 +1639,7 @@ t_Handle FM_PCD_PlcrProfileSet(t_Handle     h_FmPcd,
         return NULL;
     }
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
          err = FmHcPcdPlcrSetProfile(p_FmPcd->h_Hc, (t_Handle)p_Profile, &plcrProfileReg);
          if (p_ProfileParams->modify)
@@ -1709,7 +1710,7 @@ t_Error FM_PCD_PlcrProfileDelete(t_Handle h_Profile)
 
     FmPcdPlcrInvalidateProfileSw(p_FmPcd,profileIndx);
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
         err = FmHcPcdPlcrDeleteProfile(p_FmPcd->h_Hc, h_Profile);
         if (p_Profile->p_Lock)
@@ -1751,7 +1752,7 @@ uint32_t FM_PCD_PlcrProfileGetCounter(t_Handle h_Profile, e_FmPcdPlcrProfileCoun
     p_FmPcd = p_Profile->h_FmPcd;
     SANITY_CHECK_RETURN_ERROR(p_FmPcd, E_INVALID_HANDLE);
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
         return FmHcPcdPlcrGetProfileCounter(p_FmPcd->h_Hc, h_Profile, counter);
 
     p_FmPcdPlcrRegs = p_FmPcd->p_FmPcdPlcr->p_FmPcdPlcrRegs;
@@ -1806,7 +1807,7 @@ t_Error FM_PCD_PlcrProfileSetCounter(t_Handle h_Profile, e_FmPcdPlcrProfileCount
     p_FmPcd = p_Profile->h_FmPcd;
     profileIndx = p_Profile->absoluteProfileId;
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
         return FmHcPcdPlcrSetProfileCounter(p_FmPcd->h_Hc, h_Profile, counter, value);
 
     p_FmPcdPlcrRegs = p_FmPcd->p_FmPcdPlcr->p_FmPcdPlcrRegs;

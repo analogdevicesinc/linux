@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2021 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1857,7 +1858,7 @@ static t_Error DetachPCD(t_FmPort *p_FmPort)
             *p_BmiNia,
             (p_FmPort->savedBmiNia & BMI_RFNE_FDCS_MASK) | GET_NO_PCD_NIA_BMI_AC_ENQ_FRAME());
 
-    if (FmPcdGetHcHandle(p_FmPort->h_FmPcd))
+    if (FmPcdIsHcUsageAllowed(p_FmPort->h_FmPcd))
         FmPcdHcSync(p_FmPort->h_FmPcd);
 
     if (p_FmPort->requiredAction & UPDATE_NIA_FENE)

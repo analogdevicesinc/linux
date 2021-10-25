@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2021 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -674,6 +675,7 @@ typedef t_Error (t_FmPortGetSetCcParamsCallback) (t_Handle                  h_Fm
 /*          Common API for FM-PCD module                               */
 /***********************************************************************/
 t_Handle    FmPcdGetHcHandle(t_Handle h_FmPcd);
+bool 		FmPcdIsHcUsageAllowed(t_Handle h_FmPcd);
 uint32_t    FmPcdGetSwPrsOffset(t_Handle h_FmPcd, e_NetHeaderType hdr, uint8_t  indexPerHdr);
 uint32_t    FmPcdGetLcv(t_Handle h_FmPcd, uint32_t netEnvId, uint8_t hdrNum);
 uint32_t    FmPcdGetMacsecLcv(t_Handle h_FmPcd, uint32_t netEnvId);

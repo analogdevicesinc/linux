@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2021 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -87,6 +88,8 @@ t_Error     FmHcPcdPlcrCcGetSetParams(t_Handle h_FmHc,uint16_t absoluteProfileId
 t_Error     FmHcPcdSync(t_Handle h_FmHc);
 t_Handle    FmHcGetPort(t_Handle h_FmHc);
 
+void     	FmAllowHcUsage(t_Handle h_FmHc, bool allow);
+bool     	FmIsHcUsageAllowed(t_Handle h_FmHc);
 
 
 

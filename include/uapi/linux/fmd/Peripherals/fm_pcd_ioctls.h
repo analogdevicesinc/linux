@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2012 Freescale Semiconductor, Inc.
+ * Copyright 2021 NXP
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -2938,6 +2939,19 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 @Cautions      Allowed only when PCD is disabled.
 *//***************************************************************************/
 #define FM_PCD_IOC_SET_ADVANCED_OFFLOAD_SUPPORT _IO(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(45))
+
+/**************************************************************************//**
+ @Function      FM_PCD_AllowHcUsage
+
+ @Description   This routine must be called to temporary allow/deny HC usage
+                This is the way to avoid crash of certain HC operations
+                performed under heavy traffic.
+
+ @Param[in] 	uint8_t     0 - Deny HC usage HC, 1 - Allow HC usage
+
+ @Return        0 on success; Error code otherwise.
+*//***************************************************************************/
+#define FM_PCD_IOC_ALLOW_HC_USAGE _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(51), uint8_t)
 
 #if (DPAA_VERSION >= 11)
 /**************************************************************************//**

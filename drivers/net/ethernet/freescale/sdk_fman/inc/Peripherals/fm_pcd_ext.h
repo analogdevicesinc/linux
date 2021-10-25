@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2012 Freescale Semiconductor, Inc
+ * Copyright 2021 NXP
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -678,6 +679,20 @@ void FM_PCD_HcTxConf(t_Handle h_FmPcd, t_DpaaFD *p_Fd);
                 (i.e. guestId != NCSW_MASTER_ID)
 *//***************************************************************************/
 t_Error FM_PCD_ForceIntr (t_Handle h_FmPcd, e_FmPcdExceptions exception);
+
+/**************************************************************************//*
+ @Function      FM_PCD_AllowHcUsage
+
+ @Description   This routine must be called to temporary allow/deny HC usage
+                This is the way to avoid crash of certain HC operations
+                performed under heavy traffic.
+
+ @Param[in] 	uint8_t     0 - Deny HC usage HC, 1 - Allow HC usage
+
+ @Return        0 on success; Error code otherwise.
+
+*//***************************************************************************/
+t_Error FM_PCD_AllowHcUsage(t_Handle h_FmPcd, uint8_t allow);
 
 #if (defined(DEBUG_ERRORS) && (DEBUG_ERRORS > 0))
 /**************************************************************************//**

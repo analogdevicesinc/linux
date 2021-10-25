@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2021 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -771,6 +772,13 @@ t_Handle FmPcdGetHcHandle(t_Handle h_FmPcd)
     return ((t_FmPcd*)h_FmPcd)->h_Hc;
 }
 
+bool FmPcdIsHcUsageAllowed(t_Handle h_FmPcd)
+{
+	ASSERT_COND(h_FmPcd);
+
+    return FmIsHcUsageAllowed(((t_FmPcd*)h_FmPcd)->h_Hc);
+}
+
 bool FmPcdIsAdvancedOffloadSupported(t_Handle h_FmPcd)
 {
     ASSERT_COND(h_FmPcd);
@@ -1058,7 +1066,7 @@ t_Error FM_PCD_Free(t_Handle h_FmPcd)
         p_FmPcd->p_FmPcdPrs = NULL;
     }
 
-    if (p_FmPcd->h_Hc)
+    if (FmIsHcUsageAllowed(p_FmPcd->h_Hc))
     {
         FmHcFree(p_FmPcd->h_Hc);
         p_FmPcd->h_Hc = NULL;
@@ -1955,6 +1963,21 @@ t_Error FM_PCD_ForceIntr (t_Handle h_FmPcd, e_FmPcdExceptions exception)
     return E_OK;
 }
 
+t_Error FM_PCD_AllowHcUsage(t_Handle h_FmPcd, uint8_t allow)
+{
+    t_FmPcd            *p_FmPcd = (t_FmPcd*)h_FmPcd;
+
+    SANITY_CHECK_RETURN_ERROR(h_FmPcd, E_INVALID_HANDLE);
+    SANITY_CHECK_RETURN_ERROR(!p_FmPcd->p_FmPcdDriverParam, E_INVALID_STATE);
+
+    if (p_FmPcd->guestId != NCSW_MASTER_ID)
+        RETURN_ERROR(MAJOR, E_NOT_SUPPORTED, ("FM_PCD_AllowHcUsage - guest mode!"));
+
+    if (p_FmPcd->h_Hc)
+    	FmAllowHcUsage(p_FmPcd->h_Hc, allow);
+
+	return E_OK;
+}
 
 t_Error FM_PCD_ModifyCounter(t_Handle h_FmPcd, e_FmPcdCounters counter, uint32_t value)
 {

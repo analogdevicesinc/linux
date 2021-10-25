@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2021 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -127,6 +128,7 @@ typedef struct t_HcFrame {
 typedef struct t_FmHc {
     t_Handle                    h_FmPcd;
     t_Handle                    h_HcPortDev;
+    bool						usageAllowed;    /**< HC usage is allowed or denied by user via API */
     t_FmPcdQmEnqueueCallback    *f_QmEnqueue;     /**< A callback for enqueuing frames to the QM */
     t_Handle                    h_QmArg;          /**< A handle to the QM module */
     uint8_t                     dataMemId;        /**< Memory partition ID for data buffers */
@@ -252,6 +254,7 @@ t_Handle FmHcConfigAndInit(t_FmHcParams *p_FmHcParams)
     p_FmHc->f_QmEnqueue         = p_FmHcParams->params.f_QmEnqueue;
     p_FmHc->h_QmArg             = p_FmHcParams->params.h_QmArg;
     p_FmHc->dataMemId           = DEFAULT_dataMemId;
+    p_FmHc->usageAllowed		= TRUE;
 
     err = FillBufPool(p_FmHc);
     if (err != E_OK)
@@ -1233,4 +1236,22 @@ t_Handle    FmHcGetPort(t_Handle h_FmHc)
 {
     t_FmHc *p_FmHc = (t_FmHc*)h_FmHc;
     return p_FmHc->h_HcPortDev;
+}
+
+void FmAllowHcUsage(t_Handle h_FmHc, bool allow)
+{
+	t_FmHc *p_FmHc = (t_FmHc*)h_FmHc;
+
+	if (p_FmHc)
+		p_FmHc->usageAllowed = allow;
+}
+
+bool FmIsHcUsageAllowed(t_Handle h_FmHc)
+{
+	t_FmHc *p_FmHc = (t_FmHc*)h_FmHc;
+
+	if (p_FmHc == NULL)
+		return FALSE;
+
+	return p_FmHc->usageAllowed;
 }
