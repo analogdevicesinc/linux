@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * ADE9078 driver
+ *
+ * Copyright 2021 Analog Devices Inc.
+ */
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -8,6 +15,7 @@
 #include <linux/of_platform.h>
 
 #include <linux/spi/spi.h>
+#include <linux/regmap.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -16,13 +24,23 @@
 #include <linux/moduleparam.h>
 #include "ade9078.h"
 
+/*
+ * struct ade9078_device - ade9078 specific data
+ * @spi: 		spi device associated to the ade9078
+ * @tx			transmit buffer for the spi
+ * @rx			receive buffer for the spi
+ * @lock		mutex for the device
+ */
 struct ade9078_device {
 	struct spi_device *spi;
-	struct mutex lock;
 	u8 *tx;
 	u8 *rx;
+	struct mutex lock;
+	struct regmap *regmap;
+	struct iio_dev *indio_dev;
 };
 
+//IIO channels of the ade9078
 static const struct iio_chan_spec ade9078_channels[] = {
 	{
 		.type = IIO_VOLTAGE,
@@ -30,13 +48,24 @@ static const struct iio_chan_spec ade9078_channels[] = {
 		.channel = 0,
 		.scan_index = 0,
         .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-							BIT(IIO_CHAN_INFO_PROCESSED),
+							BIT(IIO_CHAN_INFO_SCALE),
 	},
 };
 
-static int ade9078_spi_write_reg(struct ade9078_device *dev, u16 addr, u32 val)
+/*
+ * ade9078_spi_write_reg() - ade9078 write register over SPI
+ * the data format for communicating with the ade9078 over SPI
+ * is very specific
+ * @context:	void pointer to the SPI device
+ * @reg:		address of the of desired register
+ * @val:  		value to be written to the ade9078
+ */
+static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int val)
 {
-	struct ade9078_device *ade9078_dev = dev;
+	struct device *dev = context;
+	struct spi_device *spi = to_spi_device(dev);
+	struct ade9078_device *ade9078_dev = spi_get_drvdata(spi);
+
 	u16 uiAddr;
 	int ret = 0;
 	struct spi_transfer xfer[] = {
@@ -47,7 +76,7 @@ static int ade9078_spi_write_reg(struct ade9078_device *dev, u16 addr, u32 val)
 		},
 	};
 
-	uiAddr = addr;
+	uiAddr = reg;
 	uiAddr = (uiAddr << 4);
 	uiAddr = uiAddr;
 
@@ -62,16 +91,27 @@ static int ade9078_spi_write_reg(struct ade9078_device *dev, u16 addr, u32 val)
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret)
 	{
-		dev_err(&ade9078_dev->spi->dev, "problem when writing register 0x%x", addr);
+		dev_err(&ade9078_dev->spi->dev, "problem when writing register 0x%x", reg);
 	}
 
 	mutex_unlock(&ade9078_dev->lock);
 	return ret;
 }
 
-static int ade9078_spi_read_reg(struct ade9078_device *dev, u16 addr, u32 *val)
+/*
+ * ade9078_spi_write_reg() - ade9078 read register over SPI
+ * the data format for communicating with the ade9078 over SPI
+ * is very specific
+ * @context:	void pointer to the SPI device
+ * @reg:		address of the of desired register
+ * @val:  		value to be read to the ade9078
+ */
+static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *val)
 {
-	struct ade9078_device *ade9078_dev = dev;
+	struct device *dev = context;
+	struct spi_device *spi = to_spi_device(dev);
+	struct ade9078_device *ade9078_dev = spi_get_drvdata(spi);
+
 	u16 uiAddr;
 	int ret = 0;
 	struct spi_transfer xfer[] = {
@@ -87,7 +127,7 @@ static int ade9078_spi_read_reg(struct ade9078_device *dev, u16 addr, u32 *val)
 		},
 	};
 
-	uiAddr = addr;
+	uiAddr = reg;
 	uiAddr = (uiAddr << 4);
 	uiAddr = (uiAddr | 0x08);
 
@@ -97,7 +137,7 @@ static int ade9078_spi_read_reg(struct ade9078_device *dev, u16 addr, u32 *val)
 
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "problem when reading register 0x%x", addr);
+		dev_err(&ade9078_dev->spi->dev, "problem when reading register 0x%x", reg);
 		goto err_ret;
 	}
 
@@ -108,6 +148,23 @@ err_ret:
 	return ret;
 }
 
+/*
+ * Regmap configuration
+ * The register access of the ade9078 requires a 16 bit address
+ * with the read flag on bit 3. This is not supported by default
+ * regmap functionality, thus reg_read and reg_write have been
+ * replaced with custom functions
+ */
+static const struct regmap_config ade9078_regmap_config = {
+	.reg_bits = 16,
+	.val_bits = 32,
+	//reg_read and write require the use of devm_regmap_init
+	//instead of devm_regmap_init_spi
+	.reg_read = ade9078_spi_read_reg,
+	.reg_write = ade9078_spi_write_reg,
+	.zero_flag_mask = true,
+};
+
 static int ade9078_raw_to_val(int val, int full_scale)
 {
 	u32 tmp = val;
@@ -117,6 +174,14 @@ static int ade9078_raw_to_val(int val, int full_scale)
 	return (int)tmp;
 }
 
+/*
+ * ade9078_read_raw() - IIO read function
+ * @indio_dev:		the IIO device
+ * @chan:			channel specs of the ade9078
+ * @val:			first half of the read value
+ * @val2:			second half of the read value
+ * @mask:			info mask of the channel
+ */
 static int ade9078_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val,
@@ -130,13 +195,13 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&indio_dev->mlock);
-		ret = ade9078_spi_read_reg(ade9078_dev, ADDR_AV_PCF, val);
+		ret = regmap_read(ade9078_dev->regmap, ADDR_AV_PCF, val);
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 
-	case IIO_CHAN_INFO_PROCESSED:
+	case IIO_CHAN_INFO_SCALE:
 		mutex_lock(&indio_dev->mlock);
-		ret = ade9078_spi_read_reg(ade9078_dev, ADDR_AV_PCF, &tmp);
+		ret = regmap_read(ade9078_dev->regmap, ADDR_AV_PCF, &tmp);
 		mutex_unlock(&indio_dev->mlock);
 
 		*val = ade9078_raw_to_val(tmp, ADE9078_PCF_FULL_SCALE_CODES);
@@ -149,6 +214,14 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 	return ret;
 }
 
+/*
+ * ade9078_write_raw() - IIO write function
+ * @indio_dev:		the IIO device
+ * @chan:			channel specs of the ade9078
+ * @val:			first half of the written value
+ * @val2:			second half of the written value
+ * @mask:			info mask of the channel
+ */
 static int ade9078_write_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
 			     int val,
@@ -163,6 +236,13 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+/*
+ * ade9078_reg_acess() - IIO debug register access
+ * @indio_dev:		the IIO device
+ * @reg:			register to be accessed
+ * @tx_val:			value to be transmitted
+ * @rx_val:			value to be received
+ */
 static int ade9078_reg_acess(struct iio_dev *indio_dev,
 		unsigned int reg,
 		unsigned int tx_val,
@@ -171,62 +251,66 @@ static int ade9078_reg_acess(struct iio_dev *indio_dev,
 	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
 
 	if (rx_val)
-		return ade9078_spi_read_reg(ade9078_dev, reg, rx_val);
+		return regmap_read(ade9078_dev->regmap, reg, rx_val);
 	else
-		return ade9078_spi_write_reg(ade9078_dev, reg, tx_val);
+		return regmap_write(ade9078_dev->regmap, reg, tx_val);
 }
 
+/*
+ * ade9078_setup() - initial register setup of the ade9078
+ * @dev:		ade9078 device data
+ */
 static int ade9078_setup(struct ade9078_device *dev)
 {
 	int ret = 0;
 
 	dev_info(&dev->spi->dev, "Setup started");
-	ret = ade9078_spi_write_reg(dev, ADDR_PGA_GAIN, ADE9000_PGA_GAIN);
+	ret = regmap_write(dev->regmap, ADDR_PGA_GAIN, ADE9078_PGA_GAIN);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_CONFIG0, ADE9000_CONFIG0);
+	ret = regmap_write(dev->regmap, ADDR_CONFIG0, ADE9078_CONFIG0);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_CONFIG1, ADE9000_CONFIG1);
+	ret = regmap_write(dev->regmap, ADDR_CONFIG1, ADE9078_CONFIG1);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_CONFIG2, ADE9000_CONFIG2);
+	ret = regmap_write(dev->regmap, ADDR_CONFIG2, ADE9078_CONFIG2);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_CONFIG3, ADE9000_CONFIG3);
+	ret = regmap_write(dev->regmap, ADDR_CONFIG3, ADE9078_CONFIG3);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_ACCMODE, ADE9000_ACCMODE);
+	ret = regmap_write(dev->regmap, ADDR_ACCMODE, ADE9078_ACCMODE);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_ZX_LP_SEL, ADE9000_ZX_LP_SEL);
+	ret = regmap_write(dev->regmap, ADDR_ZX_LP_SEL, ADE9078_ZX_LP_SEL);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_MASK0, ADE9000_MASK0);
+	ret = regmap_write(dev->regmap, ADDR_MASK0, ADE9078_MASK0);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_MASK1, ADE9000_MASK1);
+	ret = regmap_write(dev->regmap, ADDR_MASK1, ADE9078_MASK1);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_EVENT_MASK, ADE9000_EVENT_MASK);
+	ret = regmap_write(dev->regmap, ADDR_EVENT_MASK, ADE9078_EVENT_MASK);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_WFB_CFG, ADE9000_WFB_CFG);
+	ret = regmap_write(dev->regmap, ADDR_WFB_CFG, ADE9078_WFB_CFG);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_VLEVEL, ADE9000_VLEVEL);
+	ret = regmap_write(dev->regmap, ADDR_VLEVEL, ADE9078_VLEVEL);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_DICOEFF, ADE9000_DICOEFF);
+	ret = regmap_write(dev->regmap, ADDR_DICOEFF, ADE9078_DICOEFF);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_EGY_TIME, ADE9000_EGY_TIME);
+	ret = regmap_write(dev->regmap, ADDR_EGY_TIME, ADE9078_EGY_TIME);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_EP_CFG, ADE9000_EP_CFG);
+	ret = regmap_write(dev->regmap, ADDR_EP_CFG, ADE9078_EP_CFG);
 	if(ret)
 		return ret;
-	ret = ade9078_spi_write_reg(dev, ADDR_RUN, ADE9000_RUN_ON);
+	ret = regmap_write(dev->regmap, ADDR_RUN, ADE9078_RUN_ON);
 	if(ret)
 		return ret;
 
@@ -244,9 +328,9 @@ static const struct iio_info ade9078_info = {
 static int ade9078_probe(struct spi_device *spi)
 {
 	int ret = 0;
-//	u32 tmp;
 	struct ade9078_device *ade9078_dev;
 	struct iio_dev *indio_dev;
+	struct regmap *regmap;
 
 
 	printk(KERN_INFO "Enter ade9078_probe\n");
@@ -273,12 +357,17 @@ static int ade9078_probe(struct spi_device *spi)
 		dev_err(&spi->dev,"Unable to allocate ADE9078 TX Buffer");
 		return -ENOMEM;
 	}
+	regmap = devm_regmap_init(&spi->dev, NULL, spi, &ade9078_regmap_config);
+	if (IS_ERR(regmap))
+	{
+		dev_err(&spi->dev,"Unable to allocate ADE9078 regmap");
+		return PTR_ERR(regmap);
+	}
 
 	mutex_init(&ade9078_dev->lock);
-	spi_set_drvdata(spi, indio_dev);
+	spi_set_drvdata(spi, ade9078_dev);
 
 	ade9078_dev->spi = spi;
-
 	ade9078_dev->spi->mode = SPI_MODE_0;
 	spi_setup(ade9078_dev->spi);
 
@@ -289,36 +378,14 @@ static int ade9078_probe(struct spi_device *spi)
 	indio_dev->channels = ade9078_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ade9078_channels);
 
+	ade9078_dev->regmap = regmap;
+	ade9078_dev->indio_dev = indio_dev;
+
 	ret = iio_device_register(indio_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Unable to register IIO device");
 		return ret;
 	}
-
-//	ret = ade9078_spi_read_reg(ade9078_dev, 0x040f, &tmp);
-//	if (ret)
-//	{
-//		printk(KERN_ALERT "Unable to read spi addr 0x040f\n");
-//		return ret;
-//	}
-//	printk(KERN_INFO "Read value from 0x%x is 0x%x\n", 0x040f, tmp);
-//
-//	tmp = 0x12345678;
-//	ret = ade9078_spi_write_reg(ade9078_dev, 0x0402, tmp);
-//	if (ret)
-//	{
-//		printk(KERN_ALERT "Unable to write spi addr 0x040f\n");
-//		return ret;
-//	}
-//	printk(KERN_INFO "Value 0x%x written to 0x%x\n", tmp, 0x040f);
-//
-//	ret = ade9078_spi_read_reg(ade9078_dev, 0x0402, &tmp);
-//	if (ret)
-//	{
-//		printk(KERN_ALERT "Unable to read spi addr 0x040f\n");
-//		return ret;
-//	}
-//	printk(KERN_INFO "Read value from 0x%x is 0x%x\n", 0x040f, tmp);
 
 	ret = ade9078_setup(ade9078_dev);
 	if (ret) {
@@ -331,7 +398,8 @@ static int ade9078_probe(struct spi_device *spi)
 
 static int ade9078_remove(struct spi_device *spi)
 {
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+	struct ade9078_device *ade9078_dev = spi_get_drvdata(spi);
+	struct iio_dev *indio_dev = ade9078_dev->indio_dev;
 
 	printk(KERN_INFO "Exit ade9078_probe\n");
 	iio_device_unregister(indio_dev);
