@@ -846,6 +846,17 @@ again1:
 		}
 	}
 
+	/*
+	 * Sync with FrameGen frame counter moving so that
+	 * we may disable DPRC repeat_en correctly.
+	 * FIXME: to disable preemption and irq to make sure
+	 *        DPRC repeat_en will be disabled ASAP.
+	 */
+	if (need_wait4fgfcm || need_aux_wait4fgfcm)
+		framegen_wait_for_frame_counter_moving(dcstate->use_pc ?
+						       dpu_crtc->m_fg :
+						       dpu_crtc->fg);
+
 	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
 		struct dpu_fetchunit *fe;
 		struct dpu_hscaler *hs;
@@ -855,17 +866,6 @@ again1:
 		old_dpstate = old_dcstate->dpu_plane_states[i];
 		if (!old_dpstate)
 			continue;
-
-		/*
-		 * Sync with FrameGen frame counter moving so that
-		 * we may disable DPRC repeat_en correctly.
-		 * FIXME: to disable preemption and irq to make sure
-		 *        DPRC repeat_en will be disabled ASAP.
-		 */
-		if (need_wait4fgfcm || need_aux_wait4fgfcm)
-			framegen_wait_for_frame_counter_moving(
-					dcstate->use_pc ?
-						dpu_crtc->m_fg : dpu_crtc->fg);
 
 		aux_source_disable = false;
 again2:
