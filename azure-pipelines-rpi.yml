@@ -9,38 +9,40 @@ pr:
 - rpi-5.4.y
 - rpi-5.10.y
 
-pool:
-  vmImage: 'ubuntu-latest'
+stages:
+- stage: Builds
+  jobs:
+  - job: checkpatch
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    variables:
+      BUILD_TYPE: checkpatch
+      TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      fetchDepth: 50
+      clean: true
+    - script: ./ci/travis/run-build.sh
+      displayName: 'Checkpatch Script'
 
-jobs:
-
-- job: checkpatch
-  condition: eq(variables['Build.Reason'], 'PullRequest')
-  variables:
-    BUILD_TYPE: checkpatch
-    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
-  steps:
-  - checkout: self
-    fetchDepth: 50
-    clean: true
-  - script: ./ci/travis/run-build.sh
-    displayName: 'Checkpatch Script'
-
-- job: BuildDockerized
-  strategy:
-    matrix:
-      bcm2709_arm_adi:
-        DEFCONFIG: adi_bcm2709_defconfig
-        ARCH: arm
-      bcm2711_arm_adi:
-        DEFCONFIG: adi_bcm2711_defconfig
-        ARCH: arm
-      bcmrpi_arm_adi:
-        DEFCONFIG: adi_bcmrpi_defconfig
-        ARCH: arm
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-    displayName: "Build test for '$(DEFCONFIG)'"
+  - job: BuildDockerized
+    strategy:
+      matrix:
+        bcm2709_arm_adi:
+          DEFCONFIG: adi_bcm2709_defconfig
+          ARCH: arm
+        bcm2711_arm_adi:
+          DEFCONFIG: adi_bcm2711_defconfig
+          ARCH: arm
+        bcmrpi_arm_adi:
+          DEFCONFIG: adi_bcmrpi_defconfig
+          ARCH: arm
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      fetchDepth: 1
+      clean: true
+    - script: ./ci/travis/run-build-docker.sh
+      displayName: "Build test for '$(DEFCONFIG)'"
