@@ -151,6 +151,7 @@ static const struct attribute *iio_dmaengine_buffer_attrs[] = {
  * iio_dmaengine_buffer_alloc() - Allocate new buffer which uses DMAengine
  * @dev: Parent device for the buffer
  * @channel: DMA channel name, typically "rx".
+ * @ops: DMA buffer ops to use
  *
  * This allocates a new IIO buffer which internally uses the DMAengine framework
  * to perform its transfers. The parent device will be used to request the DMA
@@ -160,7 +161,7 @@ static const struct attribute *iio_dmaengine_buffer_attrs[] = {
  * release it.
  */
 static struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
-	const char *channel)
+	const char *channel, const struct iio_dma_buffer_ops *ops)
 {
 	struct dmaengine_buffer *dmaengine_buffer;
 	unsigned int width, src_width, dest_width;
@@ -198,8 +199,7 @@ static struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	dmaengine_buffer->align = width;
 	dmaengine_buffer->max_size = dma_get_max_seg_size(chan->device->dev);
 
-	iio_dma_buffer_init(&dmaengine_buffer->queue, chan->device->dev,
-		&iio_dmaengine_default_ops);
+	iio_dma_buffer_init(&dmaengine_buffer->queue, chan->device->dev, ops);
 
 	dmaengine_buffer->queue.buffer.attrs = iio_dmaengine_buffer_attrs;
 	dmaengine_buffer->queue.buffer.access = &iio_dmaengine_buffer_ops;
@@ -237,6 +237,7 @@ static void __devm_iio_dmaengine_buffer_free(void *buffer)
  * devm_iio_dmaengine_buffer_alloc() - Resource-managed iio_dmaengine_buffer_alloc()
  * @dev: Parent device for the buffer
  * @channel: DMA channel name, typically "rx".
+ * @ops: DMA buffer ops to use
  *
  * This allocates a new IIO buffer which internally uses the DMAengine framework
  * to perform its transfers. The parent device will be used to request the DMA
@@ -245,12 +246,12 @@ static void __devm_iio_dmaengine_buffer_free(void *buffer)
  * The buffer will be automatically de-allocated once the device gets destroyed.
  */
 static struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
-	const char *channel)
+	const char *channel, const struct iio_dma_buffer_ops *ops)
 {
 	struct iio_buffer *buffer;
 	int ret;
 
-	buffer = iio_dmaengine_buffer_alloc(dev, channel);
+	buffer = iio_dmaengine_buffer_alloc(dev, channel, ops);
 	if (IS_ERR(buffer))
 		return buffer;
 
@@ -277,10 +278,30 @@ int devm_iio_dmaengine_buffer_setup(struct device *dev,
 				    struct iio_dev *indio_dev,
 				    const char *channel)
 {
+	return devm_iio_dmaengine_buffer_setup_with_ops(dev, indio_dev, channel,
+							&iio_dmaengine_default_ops);
+}
+EXPORT_SYMBOL_GPL(devm_iio_dmaengine_buffer_setup);
+
+/**
+ * devm_iio_dmaengine_buffer_setup_with_ops() - Setup a DMA buffer for an IIO device
+ * @dev: Parent device for the buffer
+ * @indio_dev: IIO device to which to attach this buffer.
+ * @channel: DMA channel name, typically "rx".
+ * @ops: DMA buffer ops to use
+ *
+ * Same as devm_iio_dmaengine_buffer_setup() but allows to specify the
+ * buffer callback ops.
+ */
+int devm_iio_dmaengine_buffer_setup_with_ops(struct device *dev,
+					     struct iio_dev *indio_dev,
+					     const char *channel,
+					     const struct iio_dma_buffer_ops *ops)
+{
 	struct iio_buffer *buffer;
 
 	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-						 channel);
+						 channel, ops);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
@@ -288,7 +309,7 @@ int devm_iio_dmaengine_buffer_setup(struct device *dev,
 
 	return iio_device_attach_buffer(indio_dev, buffer);
 }
-EXPORT_SYMBOL_GPL(devm_iio_dmaengine_buffer_setup);
+EXPORT_SYMBOL_GPL(devm_iio_dmaengine_buffer_setup_with_ops);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("DMA buffer for the IIO framework");
