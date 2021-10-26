@@ -54,7 +54,60 @@ stages:
         sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays'
         contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays/?(*.dtbo)'
         targetFolder: '$(Build.ArtifactStagingDirectory)'
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/zImage'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/?(*.dtb)'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
         artifactName: '$(artifactName)'
+
+- stage: PushArtifacts
+  dependsOn: Builds
+  variables:
+    SOURCE_DIRECTORY: $(Build.SourcesDirectory)/bin
+    KEY_FILE: $(key.secureFilePath)
+  jobs:
+  - job: Push_to_SWDownloads
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: ./ci/travis/prepare_artifacts.sh structure
+        displayName: 'Prepare the folder structure'
+      - task: DownloadSecureFile@1
+        name: key
+        displayName: 'Download rsa key'
+        inputs:
+          secureFile: 'id_rsa'
+      - bash: ./ci/travis/prepare_artifacts.sh swdownloads
+        env:
+          DEST_SERVER: $(SERVER_ADDRESS)
+        displayName: "Push to SWDownloads"
+  - job: Push_to_Artifactory
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
+    pool:
+      name: Default
+      demands:
+        - agent.name -equals lab2_b5
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: ./ci/travis/prepare_artifacts.sh structure
+        displayName: 'Prepare the folder structure'
+      - bash: ./ci/travis/prepare_artifacts.sh artifactory
+        env:
+          ARTIFACTORY_PATH: $(PATH)
+          ARTIFACTORY_TOKEN: $(TOKEN)
+        displayName: "Push to Artifactory"
