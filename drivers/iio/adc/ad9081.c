@@ -3265,7 +3265,7 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 					    &phy->debugfs_entry[i],
 					    &ad9081_debugfs_reg_fops);
 
-		debugfs_create_file_unsafe("dac-full-scale-current-ua", 0600,
+		debugfs_create_file_unsafe("dac-full-scale-current-ua", 0200,
 			iio_get_debugfs_dentry(indio_dev), indio_dev,
 			&ad9081_fsc_fops);
 	}
