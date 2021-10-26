@@ -32,12 +32,15 @@ stages:
         bcm2709_arm_adi:
           DEFCONFIG: adi_bcm2709_defconfig
           ARCH: arm
+          artifactName: 'adi_bcm2709_defconfig'
         bcm2711_arm_adi:
           DEFCONFIG: adi_bcm2711_defconfig
           ARCH: arm
+          artifactName: 'adi_bcm2711_defconfig'
         bcmrpi_arm_adi:
           DEFCONFIG: adi_bcmrpi_defconfig
           ARCH: arm
+          artifactName: 'adi_bcmrpi_defconfig'
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -46,3 +49,12 @@ stages:
       clean: true
     - script: ./ci/travis/run-build-docker.sh
       displayName: "Build test for '$(DEFCONFIG)'"
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays/?(*.dtbo)'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifactName: '$(artifactName)'
