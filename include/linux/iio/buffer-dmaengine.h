@@ -9,6 +9,7 @@
 
 struct iio_dev;
 struct iio_dma_buffer_ops;
+struct iio_dma_buffer_queue;
 struct device;
 
 int devm_iio_dmaengine_buffer_setup(struct device *dev,
@@ -18,5 +19,7 @@ int devm_iio_dmaengine_buffer_setup_with_ops(struct device *dev,
 					     struct iio_dev *indio_dev,
 					     const char *channel,
 					     const struct iio_dma_buffer_ops *ops);
+
+void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue);
 
 #endif
