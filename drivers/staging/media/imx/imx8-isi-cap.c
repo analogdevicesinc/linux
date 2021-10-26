@@ -1676,7 +1676,7 @@ static int mxc_isi_register_cap_device(struct mxc_isi_cap_dev *isi_cap,
 
 	memset(q, 0, sizeof(*q));
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
+	q->io_modes = VB2_MMAP | VB2_DMABUF;
 	q->drv_priv = isi_cap;
 	q->ops = &mxc_cap_vb2_qops;
 	q->mem_ops = &vb2_dma_contig_memops;
