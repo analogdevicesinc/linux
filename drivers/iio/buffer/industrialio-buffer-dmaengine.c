@@ -58,7 +58,7 @@ static void iio_dmaengine_buffer_block_done(void *data,
 	iio_dma_buffer_block_done(block);
 }
 
-static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
+int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
 	struct dmaengine_buffer *dmaengine_buffer =
@@ -91,6 +91,7 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(iio_dmaengine_buffer_submit_block);
 
 void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue)
 {
