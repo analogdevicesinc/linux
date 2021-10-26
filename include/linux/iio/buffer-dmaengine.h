@@ -10,6 +10,7 @@
 #include <linux/iio/buffer.h>
 
 struct iio_dev;
+struct iio_dma_buffer_block;
 struct iio_dma_buffer_ops;
 struct iio_dma_buffer_queue;
 struct device;
@@ -24,6 +25,9 @@ int devm_iio_dmaengine_buffer_setup_with_ops(struct device *dev,
 					     const char *channel,
 					     enum iio_buffer_direction dir,
 					     const struct iio_dma_buffer_ops *ops);
+
+int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
+				      struct iio_dma_buffer_block *block);
 
 void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue);
 
