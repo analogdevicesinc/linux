@@ -36,6 +36,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AD7173
 	select AD7266
 	select AD7291
+	select AD7293
 	select AD7298
 	select AD738X
 	select AD7923
