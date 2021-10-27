@@ -72,8 +72,9 @@
 	memory-reserved = <&dsp_reserved0>;
 	memory-region = <&dsp_reserved1>;
 	reg = <0x21170000 0x20000>;
-	pinctrl-names = "default";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_sai5>;
+	pinctrl-1 = <&pinctrl_sai5>;
 
 	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc1 IMX8ULP_CLK_SAI5_SEL>;
 	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4>,  <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
