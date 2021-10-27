@@ -9,6 +9,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <asm/unaligned.h>
 
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -18,6 +19,9 @@
 #include <linux/regmap.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
 #include <linux/iio/sysfs.h>
 
 #include <linux/module.h>
@@ -35,6 +39,10 @@ struct ade9078_device {
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
+	u8 tx_buff[8];
+	u8 rx_buff[8] ____cacheline_aligned;
+	struct spi_transfer	xfer[2];
+	struct spi_message spi_msg;
 	struct mutex lock;
 	struct regmap *regmap;
 	struct iio_dev *indio_dev;
@@ -46,9 +54,16 @@ static const struct iio_chan_spec ade9078_channels[] = {
 		.type = IIO_VOLTAGE,
 		.indexed = 1,
 		.channel = 0,
-		.scan_index = 0,
         .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 							BIT(IIO_CHAN_INFO_SCALE),
+		.scan_index = 0,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 32,
+			.storagebits = 32,
+			.shift = 0,
+			.endianness = IIO_BE,
+		},
 	},
 };
 
@@ -66,7 +81,7 @@ static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int v
 	struct spi_device *spi = to_spi_device(dev);
 	struct ade9078_device *ade9078_dev = spi_get_drvdata(spi);
 
-	u16 uiAddr;
+	u16 addr;
 	int ret = 0;
 	struct spi_transfer xfer[] = {
 		{
@@ -76,17 +91,15 @@ static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int v
 		},
 	};
 
-	uiAddr = reg;
-	uiAddr = (uiAddr << 4);
-	uiAddr = uiAddr;
+	addr = ADE9078_WRITE_REG(reg);
 
 	mutex_lock(&ade9078_dev->lock);
 	ade9078_dev->tx[5] = (u8)  val & 0xFF;
 	ade9078_dev->tx[4] = (u8) (val >> 8) & 0xFF;
 	ade9078_dev->tx[3] = (u8) (val >> 16) & 0xFF;
 	ade9078_dev->tx[2] = (u8) (val >> 24) & 0xFF;
-	ade9078_dev->tx[1] = (u8) uiAddr;
-	ade9078_dev->tx[0] = (u8) (uiAddr >> 8);
+	ade9078_dev->tx[1] = (u8) addr;
+	ade9078_dev->tx[0] = (u8) (addr >> 8);
 
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret)
@@ -112,7 +125,7 @@ static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *v
 	struct spi_device *spi = to_spi_device(dev);
 	struct ade9078_device *ade9078_dev = spi_get_drvdata(spi);
 
-	u16 uiAddr;
+	u16 addr;
 	int ret = 0;
 	struct spi_transfer xfer[] = {
 		{
@@ -127,13 +140,11 @@ static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *v
 		},
 	};
 
-	uiAddr = reg;
-	uiAddr = (uiAddr << 4);
-	uiAddr = (uiAddr | 0x08);
+	addr = ADE9078_READ_REG(reg);
 
 	mutex_lock(&ade9078_dev->lock);
-	ade9078_dev->tx[1] = (u8) uiAddr;
-	ade9078_dev->tx[0] = (u8) (uiAddr >> 8);
+	ade9078_dev->tx[1] = (u8) addr;
+	ade9078_dev->tx[0] = (u8) (addr >> 8);
 
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
@@ -145,6 +156,95 @@ static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *v
 
 err_ret:
 	mutex_unlock(&ade9078_dev->lock);
+	return ret;
+}
+
+/*
+ * ade9078_align() - rearranges the bytes to match BE
+ * @x:  		input of the 32 bit message to be rearranged
+ */
+static u32 ade9078_align(const u8 *x)
+{
+	return x[2] << 24 | x[3] << 16 | x[0] << 8 | x[1];
+}
+
+/*
+ * ade9078_trigger_handler() - the bottom half of the pollfunc
+ * for the iio trigger buffer. It acquires data trough the SPI
+ * and rearranges the data to match BE
+ */
+static irqreturn_t ade9078_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+	u32 data;
+	u32 data2;
+	int ret;
+
+	if(bitmap_empty(indio_dev->active_scan_mask, indio_dev->masklength))
+	{
+		dev_err(&ade9078_dev->spi->dev, "Bitmap empty in trigger handler");
+		goto err_out;
+	}
+
+	mutex_lock(&ade9078_dev->lock);
+	ret = spi_sync(ade9078_dev->spi, &ade9078_dev->spi_msg);
+	if(ret)
+	{
+		mutex_unlock(&ade9078_dev->lock);
+		dev_err(&ade9078_dev->spi->dev, "SPI fail in trigger handler");
+		goto err_out;
+	}
+
+	data = ade9078_align(ade9078_dev->rx_buff);
+
+	iio_push_to_buffers_with_timestamp(indio_dev, &data, pf->timestamp);
+
+	mutex_unlock(&ade9078_dev->lock);
+
+err_out:
+
+	iio_trigger_notify_done(indio_dev->trig);
+	return IRQ_HANDLED;
+}
+
+/*
+ * ade9078_configure_scan() - sets up the transfer parameters
+ * as well as the tx and rx buffers
+ * @indio_dev:		the IIO device
+ */
+int ade9078_configure_scan(struct iio_dev *indio_dev)
+{
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+	int ret = 0;
+	u16 addr;
+
+	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
+
+	addr = ADE9078_READ_REG(ADDR_AV_PCF);
+
+	ade9078_dev->tx_buff[1] = (u8) addr;
+	ade9078_dev->tx_buff[0] = (u8) (addr >> 8);
+	ade9078_dev->tx_buff[2] = 0;
+	ade9078_dev->tx_buff[3] = 0;
+	ade9078_dev->tx_buff[4] = 0;
+	ade9078_dev->tx_buff[5] = 0;
+	ade9078_dev->tx_buff[6] = 0;
+	ade9078_dev->tx_buff[7] = 0;
+
+	ade9078_dev->xfer[0].tx_buf = &ade9078_dev->tx_buff[0];
+	ade9078_dev->xfer[0].bits_per_word = 8;
+	ade9078_dev->xfer[0].len = 2;
+
+	ade9078_dev->xfer[1].rx_buf = &ade9078_dev->rx_buff[0];
+	ade9078_dev->xfer[1].bits_per_word = 8;
+	ade9078_dev->xfer[1].len = 6;
+
+	spi_message_init(&ade9078_dev->spi_msg);
+	spi_message_add_tail(&ade9078_dev->xfer[0], &ade9078_dev->spi_msg);
+	spi_message_add_tail(&ade9078_dev->xfer[1], &ade9078_dev->spi_msg);
+
 	return ret;
 }
 
@@ -258,63 +358,63 @@ static int ade9078_reg_acess(struct iio_dev *indio_dev,
 
 /*
  * ade9078_setup() - initial register setup of the ade9078
- * @dev:		ade9078 device data
+ * @ade9078_dev:		ade9078 device data
  */
-static int ade9078_setup(struct ade9078_device *dev)
+static int ade9078_setup(struct ade9078_device *ade9078_dev)
 {
 	int ret = 0;
 
-	dev_info(&dev->spi->dev, "Setup started");
-	ret = regmap_write(dev->regmap, ADDR_PGA_GAIN, ADE9078_PGA_GAIN);
+	dev_info(&ade9078_dev->spi->dev, "Setup started");
+	ret = regmap_write(ade9078_dev->regmap, ADDR_PGA_GAIN, ADE9078_PGA_GAIN);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_CONFIG0, ADE9078_CONFIG0);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_CONFIG0, ADE9078_CONFIG0);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_CONFIG1, ADE9078_CONFIG1);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_CONFIG1, ADE9078_CONFIG1);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_CONFIG2, ADE9078_CONFIG2);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_CONFIG2, ADE9078_CONFIG2);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_CONFIG3, ADE9078_CONFIG3);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_CONFIG3, ADE9078_CONFIG3);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_ACCMODE, ADE9078_ACCMODE);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_ACCMODE, ADE9078_ACCMODE);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_ZX_LP_SEL, ADE9078_ZX_LP_SEL);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_ZX_LP_SEL, ADE9078_ZX_LP_SEL);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_MASK0, ADE9078_MASK0);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_MASK0, ADE9078_MASK0);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_MASK1, ADE9078_MASK1);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_MASK1, ADE9078_MASK1);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_EVENT_MASK, ADE9078_EVENT_MASK);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_EVENT_MASK, ADE9078_EVENT_MASK);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_WFB_CFG, ADE9078_WFB_CFG);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_WFB_CFG, ADE9078_WFB_CFG);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_VLEVEL, ADE9078_VLEVEL);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_VLEVEL, ADE9078_VLEVEL);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_DICOEFF, ADE9078_DICOEFF);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_DICOEFF, ADE9078_DICOEFF);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_EGY_TIME, ADE9078_EGY_TIME);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_EGY_TIME, ADE9078_EGY_TIME);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_EP_CFG, ADE9078_EP_CFG);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_EP_CFG, ADE9078_EP_CFG);
 	if(ret)
 		return ret;
-	ret = regmap_write(dev->regmap, ADDR_RUN, ADE9078_RUN_ON);
+	ret = regmap_write(ade9078_dev->regmap, ADDR_RUN, ADE9078_RUN_ON);
 	if(ret)
 		return ret;
 
-	dev_info(&dev->spi->dev, "Setup finished");
+	dev_info(&ade9078_dev->spi->dev, "Setup finished");
 
 	return ret;
 }
@@ -380,6 +480,16 @@ static int ade9078_probe(struct spi_device *spi)
 
 	ade9078_dev->regmap = regmap;
 	ade9078_dev->indio_dev = indio_dev;
+
+	ade9078_configure_scan(indio_dev);
+
+
+	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev, &iio_pollfunc_store_time,
+					      &ade9078_trigger_handler, NULL);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to setup triggered buffer: %d\n", ret);
+		return ret;
+	}
 
 	ret = iio_device_register(indio_dev);
 	if (ret) {

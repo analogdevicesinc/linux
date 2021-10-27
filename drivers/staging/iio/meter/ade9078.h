@@ -451,6 +451,10 @@
 #define	ADDR_NIRMSONE_2				0x6BB
 #define	ADDR_NIRMS1012_2			0x6BC
 
+
+#define ADE9078_WRITE_REG(x)		(x << 4)
+#define ADE9078_READ_REG(x)			(((x) << 4) | 0x08)
+
 /*Configuran registers*/
 #define ADE9078_PGA_GAIN 0x0000    	    /*PGA@0x0000. Gain of all channels=1*/
 #define ADE9078_CONFIG0 0x00000008		/*HPF disabled*/
