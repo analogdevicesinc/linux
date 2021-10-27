@@ -8,6 +8,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select IIO
 	select PWM
 	select JESD204
+	select JESD204_TOP_DEVICE
 	select STAGING
 	select FB_TFT
 	select HWMON
