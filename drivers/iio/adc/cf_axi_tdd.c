@@ -75,14 +75,21 @@ enum {
 	CF_AXI_TDD_BURST_COUNT,
 	CF_AXI_TDD_SECONDARY,
 	CF_AXI_TDD_COUNTER_INT,
-	CF_AXI_TDD_FRAME_LEN,
+	CF_AXI_TDD_FRAME_LEN_RAW,
+	CF_AXI_TDD_FRAME_LEN_MS,
 	CF_AXI_TDD_SYNC_TERMINAL_TYPE,
-	CF_AXI_TDD_CHAN_ON,
-	CF_AXI_TDD_CHAN_OFF,
-	CF_AXI_TDD_CHAN_DP_ON,
-	CF_AXI_TDD_CHAN_DP_OFF,
-	CF_AXI_TDD_CHAN_VCO_ON,
-	CF_AXI_TDD_CHAN_VCO_OFF,
+	CF_AXI_TDD_CHAN_ON_RAW,
+	CF_AXI_TDD_CHAN_OFF_RAW,
+	CF_AXI_TDD_CHAN_DP_ON_RAW,
+	CF_AXI_TDD_CHAN_DP_OFF_RAW,
+	CF_AXI_TDD_CHAN_VCO_ON_RAW,
+	CF_AXI_TDD_CHAN_VCO_OFF_RAW,
+	CF_AXI_TDD_CHAN_ON_MS,
+	CF_AXI_TDD_CHAN_OFF_MS,
+	CF_AXI_TDD_CHAN_DP_ON_MS,
+	CF_AXI_TDD_CHAN_DP_OFF_MS,
+	CF_AXI_TDD_CHAN_VCO_ON_MS,
+	CF_AXI_TDD_CHAN_VCO_OFF_MS,
 };
 
 static inline void tdd_write(struct cf_axi_tdd_state *st, const u32 reg, const u32 val)
@@ -193,37 +200,58 @@ static ssize_t cf_axi_tdd_read(struct iio_dev *indio_dev, uintptr_t private,
 	switch (private) {
 	case CF_AXI_TDD_BURST_COUNT:
 		val = tdd_read(st, ADI_REG_TDD_CONTROL_1);
-		return sprintf(buf, "%d\n", val);
+		return sysfs_emit(buf, "%d\n", val);
 	case CF_AXI_TDD_SECONDARY:
 		val = tdd_read(st, ADI_REG_TDD_CONTROL_0);
-		return sprintf(buf, "%lu\n", ADI_TDD_SECONDARY_GET(val));
+		return sysfs_emit(buf, "%lu\n", ADI_TDD_SECONDARY_GET(val));
 	case CF_AXI_TDD_COUNTER_INT:
 		val = tdd_read(st, ADI_REG_TDD_COUNTER_2);
-		return sprintf(buf, "%d\n", val);
+		return sysfs_emit(buf, "%d\n", val);
 	case CF_AXI_TDD_SYNC_TERMINAL_TYPE:
 		val = tdd_read(st, ADI_REG_TDD_SYNC_TERM_TYPE);
-		return sprintf(buf, "%d\n", val);
-	case CF_AXI_TDD_FRAME_LEN:
+		return sysfs_emit(buf, "%d\n", val);
+	case CF_AXI_TDD_FRAME_LEN_MS:
 		val = tdd_read(st, ADI_REG_TDD_FRAME_LENGTH);
 		break;
-	case CF_AXI_TDD_CHAN_ON:
+	case CF_AXI_TDD_CHAN_ON_MS:
 		val = tdd_read(st, ADI_REG_TDD_RX_TX_ON(chan->output, chan->channel));
 		break;
-	case CF_AXI_TDD_CHAN_OFF:
+	case CF_AXI_TDD_CHAN_OFF_MS:
 		val = tdd_read(st, ADI_REG_TDD_RX_TX_OFF(chan->output, chan->channel));
 		break;
-	case CF_AXI_TDD_CHAN_DP_ON:
+	case CF_AXI_TDD_CHAN_DP_ON_MS:
 		val = tdd_read(st, ADI_REG_TDD_RX_TX_DP_ON(chan->output, chan->channel));
 		break;
-	case CF_AXI_TDD_CHAN_DP_OFF:
+	case CF_AXI_TDD_CHAN_DP_OFF_MS:
 		val = tdd_read(st, ADI_REG_TDD_RX_TX_DP_OFF(chan->output, chan->channel));
 		break;
-	case CF_AXI_TDD_CHAN_VCO_ON:
+	case CF_AXI_TDD_CHAN_VCO_ON_MS:
 		val = tdd_read(st, ADI_REG_TDD_VCO_RX_TX_ON(chan->output, chan->channel));
 		break;
-	case CF_AXI_TDD_CHAN_VCO_OFF:
+	case CF_AXI_TDD_CHAN_VCO_OFF_MS:
 		val = tdd_read(st, ADI_REG_TDD_VCO_RX_TX_OFF(chan->output, chan->channel));
 		break;
+	case CF_AXI_TDD_FRAME_LEN_RAW:
+		val = tdd_read(st, ADI_REG_TDD_FRAME_LENGTH);
+		return sysfs_emit(buf, "%d\n", val);
+	case CF_AXI_TDD_CHAN_ON_RAW:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_ON(chan->output, chan->channel));
+		return sysfs_emit(buf, "%d\n", val);
+	case CF_AXI_TDD_CHAN_OFF_RAW:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_OFF(chan->output, chan->channel));
+		return sysfs_emit(buf, "%d\n", val);
+	case CF_AXI_TDD_CHAN_DP_ON_RAW:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_DP_ON(chan->output, chan->channel));
+		return sysfs_emit(buf, "%d\n", val);
+	case CF_AXI_TDD_CHAN_DP_OFF_RAW:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_DP_OFF(chan->output, chan->channel));
+		return sysfs_emit(buf, "%d\n", val);
+	case CF_AXI_TDD_CHAN_VCO_ON_RAW:
+		val = tdd_read(st, ADI_REG_TDD_VCO_RX_TX_ON(chan->output, chan->channel));
+		return sysfs_emit(buf, "%d\n", val);
+	case CF_AXI_TDD_CHAN_VCO_OFF_RAW:
+		val = tdd_read(st, ADI_REG_TDD_VCO_RX_TX_OFF(chan->output, chan->channel));
+		return sysfs_emit(buf, "%d\n", val);
 	default:
 		return -EINVAL;
 	}
@@ -241,6 +269,7 @@ static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 	int ret;
 	int ival, frac;
 	u64 clk_rate, lval;
+	bool raw = false;
 
 	ret = iio_str_to_fixpoint(buf, 100000, &ival, &frac);
 	if (ret)
@@ -265,29 +294,65 @@ static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 	case CF_AXI_TDD_SYNC_TERMINAL_TYPE:
 		tdd_write(st, ADI_REG_TDD_SYNC_TERM_TYPE, val & ADI_TDD_SYNC_PULSE_ENABLE);
 		return len;
-	case CF_AXI_TDD_FRAME_LEN:
+	case CF_AXI_TDD_FRAME_LEN_MS:
 		reg = ADI_REG_TDD_FRAME_LENGTH;
 		break;
-	case CF_AXI_TDD_CHAN_ON:
+	case CF_AXI_TDD_CHAN_ON_MS:
 		reg = ADI_REG_TDD_RX_TX_ON(chan->output, chan->channel);
 		break;
-	case CF_AXI_TDD_CHAN_OFF:
+	case CF_AXI_TDD_CHAN_OFF_MS:
 		reg = ADI_REG_TDD_RX_TX_OFF(chan->output, chan->channel);
 		break;
-	case CF_AXI_TDD_CHAN_DP_ON:
+	case CF_AXI_TDD_CHAN_DP_ON_MS:
 		reg = ADI_REG_TDD_RX_TX_DP_ON(chan->output, chan->channel);
 		break;
-	case CF_AXI_TDD_CHAN_DP_OFF:
+	case CF_AXI_TDD_CHAN_DP_OFF_MS:
 		reg = ADI_REG_TDD_RX_TX_DP_OFF(chan->output, chan->channel);
 		break;
-	case CF_AXI_TDD_CHAN_VCO_ON:
+	case CF_AXI_TDD_CHAN_VCO_ON_MS:
 		reg = ADI_REG_TDD_VCO_RX_TX_ON(chan->output, chan->channel);
 		break;
-	case CF_AXI_TDD_CHAN_VCO_OFF:
+	case CF_AXI_TDD_CHAN_VCO_OFF_MS:
+		reg = ADI_REG_TDD_VCO_RX_TX_OFF(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_FRAME_LEN_RAW:
+		raw = true;
+		reg = ADI_REG_TDD_FRAME_LENGTH;
+		break;
+	case CF_AXI_TDD_CHAN_ON_RAW:
+		raw = true;
+		reg = ADI_REG_TDD_RX_TX_ON(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_OFF_RAW:
+		raw = true;
+		reg = ADI_REG_TDD_RX_TX_OFF(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_DP_ON_RAW:
+		raw = true;
+		reg = ADI_REG_TDD_RX_TX_DP_ON(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_DP_OFF_RAW:
+		raw = true;
+		reg = ADI_REG_TDD_RX_TX_DP_OFF(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_VCO_ON_RAW:
+		raw = true;
+		reg = ADI_REG_TDD_VCO_RX_TX_ON(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_VCO_OFF_RAW:
+		raw = true;
 		reg = ADI_REG_TDD_VCO_RX_TX_OFF(chan->output, chan->channel);
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	if (raw) {
+		if (val & ~0xFFFFFF)
+			return -EINVAL;
+
+		tdd_write(st, reg, val);
+		return len;
 	}
 
 	clk_rate = READ_ONCE(st->clk.rate);
@@ -321,7 +386,8 @@ static const struct iio_chan_spec_ext_info cf_axi_tdd_ext_info[] = {
 	CF_AXI_TDD_IIO_EXT_INFO("burst_count", CF_AXI_TDD_BURST_COUNT, IIO_SHARED_BY_ALL),
 	CF_AXI_TDD_IIO_EXT_INFO("secondary", CF_AXI_TDD_SECONDARY, IIO_SHARED_BY_ALL),
 	CF_AXI_TDD_IIO_EXT_INFO("counter_int", CF_AXI_TDD_COUNTER_INT, IIO_SHARED_BY_ALL),
-	CF_AXI_TDD_IIO_EXT_INFO("frame_length_ms", CF_AXI_TDD_FRAME_LEN, IIO_SHARED_BY_ALL),
+	CF_AXI_TDD_IIO_EXT_INFO("frame_length_ms", CF_AXI_TDD_FRAME_LEN_MS, IIO_SHARED_BY_ALL),
+	CF_AXI_TDD_IIO_EXT_INFO("frame_length_raw", CF_AXI_TDD_FRAME_LEN_RAW, IIO_SHARED_BY_ALL),
 	CF_AXI_TDD_IIO_EXT_INFO("sync_terminal_type", CF_AXI_TDD_SYNC_TERMINAL_TYPE,
 				IIO_SHARED_BY_ALL),
 	{}
@@ -333,12 +399,18 @@ static const struct iio_chan_spec_ext_info cf_axi_tdd_ext_info[] = {
 }
 
 static const struct iio_chan_spec_ext_info cf_axi_tdd_chan_ext_info[] = {
-	CF_AXI_TDD_IIO_EXT_INFO("on_ms", CF_AXI_TDD_CHAN_ON, IIO_SEPARATE),
-	CF_AXI_TDD_IIO_EXT_INFO("off_ms", CF_AXI_TDD_CHAN_OFF, IIO_SEPARATE),
-	CF_AXI_TDD_IIO_EXT_INFO("dp_on_ms", CF_AXI_TDD_CHAN_DP_ON, IIO_SEPARATE),
-	CF_AXI_TDD_IIO_EXT_INFO("dp_off_ms", CF_AXI_TDD_CHAN_DP_OFF, IIO_SEPARATE),
-	CF_AXI_TDD_IIO_EXT_INFO("vco_on_ms", CF_AXI_TDD_CHAN_VCO_ON, IIO_SEPARATE),
-	CF_AXI_TDD_IIO_EXT_INFO("vco_off_ms", CF_AXI_TDD_CHAN_VCO_OFF, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("on_ms", CF_AXI_TDD_CHAN_ON_MS, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("off_ms", CF_AXI_TDD_CHAN_OFF_MS, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("dp_on_ms", CF_AXI_TDD_CHAN_DP_ON_MS, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("dp_off_ms", CF_AXI_TDD_CHAN_DP_OFF_MS, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("vco_on_ms", CF_AXI_TDD_CHAN_VCO_ON_MS, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("vco_off_ms", CF_AXI_TDD_CHAN_VCO_OFF_MS, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("on_raw", CF_AXI_TDD_CHAN_ON_RAW, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("off_raw", CF_AXI_TDD_CHAN_OFF_RAW, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("dp_on_raw", CF_AXI_TDD_CHAN_DP_ON_RAW, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("dp_off_raw", CF_AXI_TDD_CHAN_DP_OFF_RAW, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("vco_on_raw", CF_AXI_TDD_CHAN_VCO_ON_RAW, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("vco_off_raw", CF_AXI_TDD_CHAN_VCO_OFF_RAW, IIO_SEPARATE),
 	{}
 };
 
