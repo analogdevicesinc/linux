@@ -1085,8 +1085,8 @@ put_channel_node:
 	return ret;
 }
 
-static int ad74413r_get_iio_channels(struct ad74413r_state *st, u8 func,
-				     struct iio_chan_spec **iio_channels, unsigned int *count)
+static int ad74413r_find_iio_channels(struct ad74413r_state *st, u8 func,
+				      struct iio_chan_spec **iio_channels, unsigned int *count)
 {
 	switch (func) {
 	case CH_FUNC_HIGH_IMPEDANCE:
@@ -1131,22 +1131,22 @@ static int ad74413r_get_iio_channels(struct ad74413r_state *st, u8 func,
 
 static int ad74413r_count_iio_channels(struct ad74413r_state *st)
 {
-	unsigned int index;
+	unsigned int i;
 	int ret;
 
 	st->indio_dev->num_channels = 0;
 
-	for (index = 0; index < AD74413R_CHANNEL_MAX; index++) {
-		struct ad74413r_channel_config *channel_config = &st->channel_configs[index];
-		struct iio_chan_spec *local_channels;
-		unsigned int num_local_channels;
+	for (i = 0; i < AD74413R_CHANNEL_MAX; i++) {
+		struct ad74413r_channel_config *channel_config = &st->channel_configs[i];
+		struct iio_chan_spec *chans;
+		unsigned int num_chans;
 
-		ret = ad74413r_get_iio_channels(st, channel_config->func, &local_channels,
-						&num_local_channels);
+		ret = ad74413r_find_iio_channels(st, channel_config->func, &chans,
+						 &num_chans);
 		if (ret)
 			return ret;
 
-		st->indio_dev->num_channels += num_local_channels;
+		st->indio_dev->num_channels += num_chans;
 	}
 
 	return 0;
@@ -1155,7 +1155,7 @@ static int ad74413r_count_iio_channels(struct ad74413r_state *st)
 static int ad74413r_setup_iio_channels(struct ad74413r_state *st)
 {
 	struct iio_chan_spec *channels;
-	unsigned int index;
+	unsigned int i;
 	int ret;
 
 	channels = devm_kcalloc(st->dev, sizeof(*channels),
@@ -1165,31 +1165,31 @@ static int ad74413r_setup_iio_channels(struct ad74413r_state *st)
 
 	st->indio_dev->channels = channels;
 
-	for (index = 0; index < AD74413R_CHANNEL_MAX; index++) {
-		struct ad74413r_channel_config *channel_config = &st->channel_configs[index];
-		struct iio_chan_spec *local_channels;
-		unsigned int num_local_channels;
-		unsigned int chan_index;
+	for (i = 0; i < AD74413R_CHANNEL_MAX; i++) {
+		struct ad74413r_channel_config *channel_config = &st->channel_configs[i];
+		struct iio_chan_spec *chans;
+		unsigned int num_chans;
+		unsigned int chan_i;
 
-		ret = ad74413r_get_iio_channels(st, channel_config->func, &local_channels,
-						&num_local_channels);
+		ret = ad74413r_find_iio_channels(st, channel_config->func, &chans,
+						 &num_chans);
 		if (ret)
 			return ret;
 
-		memcpy(channels, local_channels, num_local_channels * sizeof(*local_channels));
+		memcpy(channels, chans, num_chans * sizeof(*chans));
 
-		for (chan_index = 0; chan_index < num_local_channels; chan_index++) {
-			struct iio_chan_spec *local_channel = &channels[chan_index];
+		for (chan_i = 0; chan_i < num_chans; chan_i++) {
+			struct iio_chan_spec *chan = &channels[chan_i];
 
-			local_channel->channel = index;
-			if (local_channel->output)
-				local_channel->scan_index = -1;
+			chan->channel = i;
+			if (chan->output)
+				chan->scan_index = -1;
 			else
-				local_channel->scan_index = index;
+				chan->scan_index = i;
 
 		}
 
-		channels += num_local_channels;
+		channels += num_chans;
 	}
 
 	return 0;
