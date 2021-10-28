@@ -737,16 +737,21 @@ static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
 	spi_message_init(&st->adc_samples_msg);
 	st->adc_active_channels = 0;
 
-	for (channel = 0; channel < AD74413R_CHANNEL_MAX; channel++) {
-		bool status = test_bit(channel, active_scan_mask);
-		u8 *tx_buf;
-
-		ret = ad74413r_set_adc_channel_enable(st, channel, status);
+	for_each_clear_bit(channel, active_scan_mask, AD74413R_CHANNEL_MAX) {
+		ret = ad74413r_set_adc_channel_enable(st, channel, false);
 		if (ret)
 			goto out;
+	}
 
-		if (!status)
-			continue;
+	if (*active_scan_mask == 0)
+		goto out;
+
+	for_each_set_bit(channel, active_scan_mask, AD74413R_CHANNEL_MAX) {
+		u8 *tx_buf;
+
+		ret = ad74413r_set_adc_channel_enable(st, channel, true);
+		if (ret)
+			goto out;
 
 		st->adc_active_channels++;
 
@@ -771,9 +776,6 @@ static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
 
 		transfer_index++;
 	}
-
-	if (transfer_index == 0)
-		goto out;
 
 	xfer = &st->adc_samples_xfer[transfer_index];
 
