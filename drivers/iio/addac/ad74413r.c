@@ -17,8 +17,7 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/interrupt.h>
 #include <linux/mod_devicetable.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
@@ -1014,14 +1013,14 @@ static struct iio_chan_spec ad74413r_digital_input_channels[] = {
 	AD74413R_ADC_VOLTAGE_CHANNEL,
 };
 
-static int ad74413r_of_parse_channel_config(struct ad74413r_state *st,
-					    struct device_node *channel_node)
+static int ad74413r_parse_channel_config(struct ad74413r_state *st,
+					    struct fwnode_handle *channel_node)
 {
 	struct ad74413r_channel_config *channel_config;
 	u32 index;
 	int ret;
 
-	ret = of_property_read_u32(channel_node, "reg", &index);
+	ret = fwnode_property_read_u32(channel_node, "reg", &index);
 	if (ret) {
 		dev_err(st->dev, "Failed to read channel reg: %d\n", ret);
 		return ret;
@@ -1039,10 +1038,10 @@ static int ad74413r_of_parse_channel_config(struct ad74413r_state *st,
 	}
 
 	channel_config->func = CH_FUNC_HIGH_IMPEDANCE;
-	of_property_read_u32(channel_node, "adi,ch-func", &channel_config->func);
+	fwnode_property_read_u32(channel_node, "adi,ch-func", &channel_config->func);
 
 	channel_config->gpo_config = GPO_CONFIG_100K_PULL_DOWN;
-	of_property_read_u32(channel_node, "adi,gpo-config", &channel_config->gpo_config);
+	fwnode_property_read_u32(channel_node, "adi,gpo-config", &channel_config->gpo_config);
 
 	if (channel_config->gpo_config == GPO_CONFIG_LOGIC_PARALLEL) {
 		dev_err(st->dev, "GPO config logic parallel is unsupported\n");
@@ -1064,23 +1063,22 @@ static int ad74413r_of_parse_channel_config(struct ad74413r_state *st,
 
 static int ad74413r_parse_channel_configs(struct ad74413r_state *st)
 {
-	struct device_node *channel_node = NULL;
+	struct fwnode_handle *channel_node = NULL;
 	int ret;
 
-	for_each_available_child_of_node(st->dev->of_node, channel_node) {
-		if (!of_node_name_eq(channel_node, "channel"))
-			continue;
-
-		ret = ad74413r_of_parse_channel_config(st, channel_node);
+	fwnode_for_each_available_child_node(dev_fwnode(st->dev), channel_node) {
+		ret = ad74413r_parse_channel_config(st, channel_node);
 		if (ret) {
 			dev_err(st->dev, "Failed to parse channel %s config: %d\n",
-				channel_node->name, ret);
+				fwnode_get_name(channel_node), ret);
 			goto put_channel_node;
 		}
 	}
 
+	return 0;
+
 put_channel_node:
-	of_node_put(channel_node);
+	fwnode_handle_put(channel_node);
 
 	return ret;
 }
@@ -1217,7 +1215,7 @@ static int ad74413r_probe(struct spi_device *spi)
 
 	st->spi = spi;
 	st->dev = &spi->dev;
-	st->config = of_device_get_match_data(&spi->dev);
+	st->config = device_get_match_data(&spi->dev);
 	st->indio_dev = indio_dev;
 	mutex_init(&st->lock);
 	init_completion(&st->adc_data_completion);
@@ -1263,8 +1261,8 @@ static int ad74413r_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	ret = of_property_read_u32(st->dev->of_node, "adi,rsense-resistance-ohms",
-				   &st->rsense_resistance_ohms);
+	ret = device_property_read_u32(st->dev, "adi,rsense-resistance-ohms",
+				       &st->rsense_resistance_ohms);
 	if (ret) {
 		dev_err(st->dev, "Failed to get rsense resistance: %d\n", ret);
 		return ret;
