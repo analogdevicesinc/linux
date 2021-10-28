@@ -1040,7 +1040,7 @@ static struct ad74413r_channels ad74413r_channels_map[] = {
 };
 
 static int ad74413r_parse_channel_config(struct ad74413r_state *st,
-					    struct fwnode_handle *channel_node)
+					 struct fwnode_handle *channel_node)
 {
 	struct ad74413r_channel_config *channel_config;
 	u32 index;
