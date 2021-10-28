@@ -1048,8 +1048,36 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	ad9680_spi_write(spi, 0x001, 0x01);	// RESET
 	mdelay(1);
 
-	ret = ad9680_spi_write(spi, 0x008, 0x03);	// select both channels
-	ret |= ad9680_spi_write(spi, 0x201, 0x04);	// full sample rate (decimation = 16)
+	ret = ad9680_spi_write(spi, 0x008, 0x03);
+	ret |= ad9680_spi_write(spi, 0x200, 0x03);
+	ret |= ad9680_spi_write(spi, 0x201, 0x04);     
+	ret |= ad9680_spi_write(spi, 0x310, 0x82);
+	ret |= ad9680_spi_write(spi, 0x330, 0x82);
+	ret |= ad9680_spi_write(spi, 0x350, 0x82);
+	ret |= ad9680_spi_write(spi, 0x370, 0x82);
+	ret |= ad9680_spi_write(spi, 0x311, 0x04); 
+	ret |= ad9680_spi_write(spi, 0x331, 0x04);
+	ret |= ad9680_spi_write(spi, 0x351, 0x04);
+	ret |= ad9680_spi_write(spi, 0x371, 0x04);
+	
+	ret |= ad9680_spi_write(spi, 0x314, 0x08);
+	ret |= ad9680_spi_write(spi, 0x320, 0x08);
+	ret |= ad9680_spi_write(spi, 0x327, 0x01);
+	
+	ret |= ad9680_spi_write(spi, 0x334, 0x08);
+	ret |= ad9680_spi_write(spi, 0x340, 0x08);
+	ret |= ad9680_spi_write(spi, 0x347, 0x01);
+	
+	ret |= ad9680_spi_write(spi, 0x354, 0x08);
+	ret |= ad9680_spi_write(spi, 0x360, 0x08);
+	ret |= ad9680_spi_write(spi, 0x367, 0x01);
+	
+	ret |= ad9680_spi_write(spi, 0x374, 0x08);
+	ret |= ad9680_spi_write(spi, 0x380, 0x08);
+	ret |= ad9680_spi_write(spi, 0x387, 0x01);
+	
+	ret |= ad9680_spi_write(spi, 0x300, 0x10);
+	ret |= ad9680_spi_write(spi, 0x300, 0x00);
 
 	if (tmp == 0) {
 		for (; tmp < ARRAY_SIZE(sfdr_optim_regs); tmp++)

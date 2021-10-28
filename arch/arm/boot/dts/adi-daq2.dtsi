@@ -98,7 +98,7 @@
 			adi,extended-name = "FMC_DAC_REF_CLK";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
-			adi,channel-divider = <8>;
+			adi,channel-divider = <16>;
 //			adi,output-dis;
 		};
 
@@ -112,15 +112,7 @@
 		};
 	};
 
-	dac0_ad9144: ad9144@1 {
-		compatible = "adi,ad9144";
-		reg = <1>;
 
-		spi-max-frequency = <1000000>;
-
-		clocks = <&clk0_ad9523 1>, <&clk0_ad9523 8>;
-		clock-names = "dac_clk", "dac_sysref";
-	};
 
 	adc0_ad9680: ad9680@2 {
 		compatible = "adi,ad9680";
