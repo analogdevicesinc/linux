@@ -402,12 +402,6 @@ static int ad74413r_get_adc_rejection(struct ad74413r_state *st, unsigned int ch
 static int ad74413r_set_adc_rejection(struct ad74413r_state *st, unsigned int channel,
 				      unsigned int val)
 {
-	if (!st->config->hart_support && (val == AD74413R_ADC_REJECTION_50_60_HART
-		|| val == AD74413R_ADC_REJECTION_HART)) {
-		dev_err(st->dev, "HART rate not supported %d\n", val);
-		return -EINVAL;
-	}
-
 	return regmap_update_bits(st->regmap, AD74413R_REG_ADC_CONFIG_X(channel),
 				  AD74413R_ADC_CONFIG_REJECTION_MASK,
 				  FIELD_PREP(AD74413R_ADC_CONFIG_REJECTION_MASK, val));
@@ -462,6 +456,12 @@ static int ad74413r_set_adc_rate(struct ad74413r_state *st, unsigned int channel
 		break;
 	default:
 		dev_err(st->dev, "Channel %u ADC rate invalid\n", channel);
+		return -EINVAL;
+	}
+
+	if (!st->config->hart_support && (val == AD74413R_ADC_REJECTION_50_60_HART
+		|| val == AD74413R_ADC_REJECTION_HART)) {
+		dev_err(st->dev, "HART rate not supported %d\n", val);
 		return -EINVAL;
 	}
 
