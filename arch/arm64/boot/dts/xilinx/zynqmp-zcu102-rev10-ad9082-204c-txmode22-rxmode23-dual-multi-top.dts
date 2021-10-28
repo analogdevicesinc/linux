@@ -144,6 +144,7 @@
 		dma-names = "tx";
 		clocks = <&trx0_ad9081 1>;
 		clock-names = "sampl_clk";
+		adi,axi-data-offload-connected = <&axi_data_offload_tx2>;
 		jesd204-device;
 		#jesd204-cells = <2>;
 		jesd204-inputs = <&axi_ad9081_tx_jesd2 1 DEFRAMER_LINK1_TX>;
@@ -205,6 +206,22 @@
 		#jesd204-cells = <2>;
 		jesd204-inputs =  <&hmc7044 1 DEFRAMER_LINK1_TX>;
 	};
+
+	axi_data_offload_tx2: axi-data-offload-tx2@80080000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x80080000 0x10000>;
+		// adi,bringup;
+		// adi,oneshot;
+		// adi,bypass;
+		// adi,sync-config = <2>;
+		// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
+	};
+
+	axi_data_offload_rx2: axi-data-offload-rx2@80070000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x80070000 0x10000>;
+	};
+
 };
 
 &axi_ad9081_rx_jesd {
@@ -225,6 +242,27 @@
 &axi_ad9081_adxcvr_tx {
 	adi,sys-clk-select = <XCVR_QPLL>;
 	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+};
+
+&fpga_axi {
+	axi_data_offload_tx0: axi-data-offload-tx0@9c440000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x9c440000 0x10000>;
+		// adi,bringup;
+		// adi,oneshot;
+		// adi,bypass;
+		// adi,sync-config = <2>;
+		// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
+	};
+
+	axi_data_offload_rx0: axi-data-offload-rx0@9c450000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x9c450000 0x10000>;
+	};
+};
+
+&axi_ad9081_core_tx {
+	adi,axi-data-offload-connected = <&axi_data_offload_tx0>;
 };
 
 &spi1 {
