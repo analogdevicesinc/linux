@@ -325,17 +325,6 @@ static int ad74413r_set_channel_dac_code(struct ad74413r_state *st, unsigned int
 
 static int ad74413r_channel_set_function(struct ad74413r_state *st, unsigned int channel, u8 func)
 {
-	if (func < CH_FUNC_MIN || func > CH_FUNC_MAX) {
-		dev_err(st->dev, "Invalid channel function %d\n", func);
-		return -EINVAL;
-	}
-
-	if (!st->config->hart_support && (func == CH_FUNC_CURRENT_INPUT_EXT_POWER_HART
-		|| func == CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART)) {
-		dev_err(st->dev, "HART function not supported %d\n", func);
-		return -EINVAL;
-	}
-
 	return regmap_update_bits(st->regmap, AD74413R_REG_CH_FUNC_SETUP_X(channel),
 				  AD74413R_CH_FUNC_SETUP_MASK, func);
 }
@@ -1065,6 +1054,18 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 
 	config->func = CH_FUNC_HIGH_IMPEDANCE;
 	fwnode_property_read_u32(channel_node, "adi,ch-func", &config->func);
+
+	if (config->func < CH_FUNC_MIN || config->func > CH_FUNC_MAX) {
+		dev_err(st->dev, "Invalid channel function %d\n", config->func);
+		return -EINVAL;
+	}
+
+	if (!st->config->hart_support
+		&& (config->func == CH_FUNC_CURRENT_INPUT_EXT_POWER_HART
+		    || config->func == CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART)) {
+		dev_err(st->dev, "HART function not supported %d\n", config->func);
+		return -EINVAL;
+	}
 
 	config->gpo_config = GPO_CONFIG_100K_PULL_DOWN;
 	fwnode_property_read_u32(channel_node, "adi,gpo-config", &config->gpo_config);
