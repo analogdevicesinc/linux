@@ -563,8 +563,6 @@ static int ad74413r_get_input_voltage_offset(struct ad74413r_state *st, unsigned
 		return -EINVAL;
 	}
 
-	*val2 = 0;
-
 	return IIO_VAL_INT;
 }
 
@@ -598,7 +596,6 @@ static int ad74413_get_input_current_offset(struct ad74413r_state *st, unsigned 
 		return ret;
 
 	*val = offset * AD74413R_ADC_RESULT_MAX / range;
-	*val2 = 0;
 
 	return IIO_VAL_INT;
 }
