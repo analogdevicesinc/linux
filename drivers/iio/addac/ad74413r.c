@@ -1043,7 +1043,6 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 					 struct fwnode_handle *channel_node)
 {
 	struct ad74413r_channel_config *config;
-	unsigned int num_chans;
 	u32 index;
 	int ret;
 
