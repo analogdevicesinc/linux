@@ -1228,7 +1228,7 @@ static int ad74413r_probe(struct spi_device *spi)
 
 	st->refin_reg = devm_regulator_get(st->dev, "refin");
 	if (IS_ERR(st->refin_reg)) {
-		dev_err(st->dev, "Failed to get refin regulator: %d\n", ret);
+		dev_err_probe(st->dev, "Failed to get refin regulator: %d\n", ret);
 		return PTR_ERR(st->refin_reg);
 	}
 
