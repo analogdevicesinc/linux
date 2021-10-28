@@ -319,11 +319,7 @@ static int ad74413r_set_channel_dac_code(struct ad74413r_state *st, unsigned int
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, AD74413R_REG_CMD_KEY, AD74413R_CMD_KEY_LDAC);
-	if (ret)
-		return ret;
-
-	return 0;
+	return regmap_write(st->regmap, AD74413R_REG_CMD_KEY, AD74413R_CMD_KEY_LDAC);
 }
 
 static int ad74413r_channel_set_function(struct ad74413r_state *st, unsigned int channel, u8 func)
