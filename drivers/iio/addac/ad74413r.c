@@ -231,11 +231,6 @@ const struct regmap_config ad74413r_regmap_config = {
 
 static int ad74413r_set_gpo_mode(struct ad74413r_state *st, unsigned int offset, u8 mode)
 {
-	if (mode < GPO_CONFIG_MIN || mode > GPO_CONFIG_MAX) {
-		dev_err(st->dev, "Invalid gpo config select mode\n");
-		return -EINVAL;
-	}
-
 	return regmap_update_bits(st->regmap, AD74413R_REG_GPO_CONFIG_X(offset),
 				  AD74413R_GPO_CONFIG_GPO_SELECT_MASK, mode);
 }
@@ -1070,8 +1065,10 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 	config->gpo_config = GPO_CONFIG_100K_PULL_DOWN;
 	fwnode_property_read_u32(channel_node, "adi,gpo-config", &config->gpo_config);
 
-	if (config->gpo_config == GPO_CONFIG_LOGIC_PARALLEL) {
-		dev_err(st->dev, "GPO config logic parallel is unsupported\n");
+	if (config->gpo_config < GPO_CONFIG_MIN
+		|| config->gpo_config > GPO_CONFIG_MAX
+		|| config->gpo_config == GPO_CONFIG_LOGIC_PARALLEL) {
+		dev_err(st->dev, "Invalid gpo config mode\n");
 		return -EINVAL;
 	}
 
