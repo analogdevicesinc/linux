@@ -573,7 +573,8 @@ static int mxc_isi_m2m_open(struct file *file)
 	goto unlock;
 
 unlock:
-	isi_m2m->refcnt++;
+	if (ret == 0)
+		isi_m2m->refcnt++;
 	mutex_unlock(&isi_m2m->lock);
 	return ret;
 }
