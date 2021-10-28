@@ -187,13 +187,8 @@ static int vsi_dec_qbuf(struct file *filp, void *priv, struct v4l2_buffer *buf)
 		ctx->inbufbytes[buf->index] = buf->bytesused;
 		ret = vb2_qbuf(&ctx->input_que, vdev->v4l2_dev->mdev, buf);
 	}
-	if (ret == 0 && ctx->status == VSI_STATUS_INIT &&
-		ctx->input_que.queued_count >= ctx->input_que.min_buffers_needed
-		&& vb2_is_streaming(&ctx->input_que)) {
-		v4l2_klog(LOGLVL_FLOW, "%lx:%s start streaming", ctx->ctxid, __func__);
-		ctx->status = DEC_STATUS_DECODING;
-		ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMON_OUTPUT, NULL);
-	}
+	if (ret == 0)
+		ret = vsi_dec_output_on(ctx);
 	mutex_unlock(&ctx->ctxlock);
 	return ret;
 }
@@ -207,6 +202,25 @@ static int vsi_dec_dec2drain(struct vsi_v4l2_ctx *ctx)
 		ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_CMD_STOP, NULL);
 		ctx->status = DEC_STATUS_DRAINING;
 	}
+	return ret;
+}
+
+int vsi_dec_output_on(struct vsi_v4l2_ctx *ctx)
+{
+	int ret = 0;
+
+	if (!ctx->need_output_on)
+		return 0;
+	if (ctx->input_que.queued_count < ctx->input_que.min_buffers_needed)
+		return 0;
+
+	v4l2_klog(LOGLVL_FLOW, "%lx:%s start streaming", ctx->ctxid, __func__);
+	ctx->status = DEC_STATUS_DECODING;
+	ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMON_OUTPUT, NULL);
+	if (ret == 0)
+		vsi_dec_dec2drain(ctx);
+
+	ctx->need_output_on = false;
 	return ret;
 }
 
@@ -256,11 +270,9 @@ static int vsi_dec_streamon(struct file *filp, void *priv, enum v4l2_buf_type ty
 		printbufinfo(&ctx->output_que);
 	} else {
 		ret = vb2_streamon(&ctx->input_que, type);
-		if (ret == 0 && ctx->input_que.queued_count >= ctx->input_que.min_buffers_needed) {
-			ctx->status = DEC_STATUS_DECODING;
-			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMON_OUTPUT, NULL);
-			if (ret == 0)
-				vsi_dec_dec2drain(ctx);
+		if (ret == 0) {
+			ctx->need_output_on = true;
+			ret = vsi_dec_output_on(ctx);
 		}
 		printbufinfo(&ctx->input_que);
 	}
@@ -360,8 +372,10 @@ static int vsi_dec_streamoff(
 	}
 
 	if (binputqueue(type)) {
-		ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF_OUTPUT, NULL);
+		if (!ctx->need_output_on)
+			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF_OUTPUT, NULL);
 		ctx->status = DEC_STATUS_SEEK;
+		ctx->need_output_on = false;
 	} else {
 		ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF_CAPTURE, NULL);
 		if (ctx->status != DEC_STATUS_SEEK && ctx->status != DEC_STATUS_ENDSTREAM)
