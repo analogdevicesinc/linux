@@ -610,8 +610,6 @@ static irqreturn_t ad74413r_trigger_handler(int irq, void *p)
 	unsigned int i;
 	int ret;
 
-	mutex_lock(&st->lock);
-
 	ret = spi_sync(st->spi, &st->adc_samples_msg);
 	if (ret)
 		goto out;
@@ -624,8 +622,6 @@ static irqreturn_t ad74413r_trigger_handler(int irq, void *p)
 
 out:
 	iio_trigger_notify_done(indio_dev->trig);
-
-	mutex_unlock(&st->lock);
 
 	return IRQ_HANDLED;
 }
