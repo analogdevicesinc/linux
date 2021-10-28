@@ -1042,7 +1042,7 @@ static struct ad74413r_channels ad74413r_channels_map[] = {
 static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 					 struct fwnode_handle *channel_node)
 {
-	struct ad74413r_channel_config *channel_config;
+	struct ad74413r_channel_config *config;
 	u32 index;
 	int ret;
 
@@ -1057,32 +1057,32 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 		return -EINVAL;
 	}
 
-	channel_config = &st->channel_configs[index];
-	if (channel_config->initialized) {
+	config = &st->channel_configs[index];
+	if (config->initialized) {
 		dev_err(st->dev, "Channel %u has already been initialized\n", index);
 		return -EINVAL;
 	}
 
-	channel_config->func = CH_FUNC_HIGH_IMPEDANCE;
-	fwnode_property_read_u32(channel_node, "adi,ch-func", &channel_config->func);
+	config->func = CH_FUNC_HIGH_IMPEDANCE;
+	fwnode_property_read_u32(channel_node, "adi,ch-func", &config->func);
 
-	channel_config->gpo_config = GPO_CONFIG_100K_PULL_DOWN;
-	fwnode_property_read_u32(channel_node, "adi,gpo-config", &channel_config->gpo_config);
+	config->gpo_config = GPO_CONFIG_100K_PULL_DOWN;
+	fwnode_property_read_u32(channel_node, "adi,gpo-config", &config->gpo_config);
 
-	if (channel_config->gpo_config == GPO_CONFIG_LOGIC_PARALLEL) {
+	if (config->gpo_config == GPO_CONFIG_LOGIC_PARALLEL) {
 		dev_err(st->dev, "GPO config logic parallel is unsupported\n");
 		return -EINVAL;
 	}
 
-	ret = ad74413r_channel_set_function(st, index, channel_config->func);
+	ret = ad74413r_channel_set_function(st, index, config->func);
 	if (ret)
 		return ret;
 
-	ret = ad74413r_set_gpo_mode(st, index, channel_config->gpo_config);
+	ret = ad74413r_set_gpo_mode(st, index, config->gpo_config);
 	if (ret)
 		return ret;
 
-	channel_config->initialized = true;
+	config->initialized = true;
 
 	return 0;
 }
