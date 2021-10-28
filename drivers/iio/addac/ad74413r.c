@@ -39,6 +39,11 @@ struct ad74413r_channel_config {
 	bool initialized;
 };
 
+struct ad74413r_channels {
+	struct iio_chan_spec *channels;
+	unsigned int num_channels;
+};
+
 struct ad74413r_state {
 	struct ad74413r_channel_config	channel_configs[AD74413R_CHANNEL_MAX];
 	struct gpio_chip		gpiochip;
@@ -1011,6 +1016,29 @@ static struct iio_chan_spec ad74413r_digital_input_channels[] = {
 	AD74413R_ADC_VOLTAGE_CHANNEL,
 };
 
+#define _AD74413R_CHANNELS(_channels)			\
+	{						\
+		.channels = _channels,			\
+		.num_channels = ARRAY_SIZE(_channels),	\
+	}
+
+#define AD74413R_CHANNELS(name) \
+	_AD74413R_CHANNELS(ad74413r_ ## name ## _channels)
+
+static struct ad74413r_channels ad74413r_channels_map[] = {
+	[CH_FUNC_HIGH_IMPEDANCE] = AD74413R_CHANNELS(high_impedance),
+	[CH_FUNC_VOLTAGE_OUTPUT] = AD74413R_CHANNELS(voltage_output),
+	[CH_FUNC_CURRENT_OUTPUT] = AD74413R_CHANNELS(current_output),
+	[CH_FUNC_VOLTAGE_INPUT] = AD74413R_CHANNELS(voltage_input),
+	[CH_FUNC_CURRENT_INPUT_EXT_POWER] = AD74413R_CHANNELS(current_input),
+	[CH_FUNC_CURRENT_INPUT_LOOP_POWER] = AD74413R_CHANNELS(current_input),
+	[CH_FUNC_RESISTANCE_INPUT] = AD74413R_CHANNELS(current_input),
+	[CH_FUNC_DIGITAL_INPUT_LOGIC] = AD74413R_CHANNELS(current_input),
+	[CH_FUNC_DIGITAL_INPUT_LOOP_POWER] = AD74413R_CHANNELS(resistance_input),
+	[CH_FUNC_CURRENT_INPUT_EXT_POWER_HART] = AD74413R_CHANNELS(digital_input),
+	[CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART] = AD74413R_CHANNELS(digital_input),
+};
+
 static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 					    struct fwnode_handle *channel_node)
 {
@@ -1081,67 +1109,15 @@ put_channel_node:
 	return ret;
 }
 
-static int ad74413r_find_iio_channels(struct ad74413r_state *st, u8 func,
-				      struct iio_chan_spec **iio_channels, unsigned int *count)
-{
-	switch (func) {
-	case CH_FUNC_HIGH_IMPEDANCE:
-		*iio_channels = ad74413r_high_impedance_channels;
-		*count = ARRAY_SIZE(ad74413r_high_impedance_channels);
-		break;
-	case CH_FUNC_VOLTAGE_OUTPUT:
-		*iio_channels = ad74413r_voltage_output_channels;
-		*count = ARRAY_SIZE(ad74413r_voltage_output_channels);
-		break;
-	case CH_FUNC_CURRENT_OUTPUT:
-		*iio_channels = ad74413r_current_output_channels;
-		*count = ARRAY_SIZE(ad74413r_current_output_channels);
-		break;
-	case CH_FUNC_VOLTAGE_INPUT:
-		*iio_channels = ad74413r_voltage_input_channels;
-		*count = ARRAY_SIZE(ad74413r_voltage_input_channels);
-		break;
-	case CH_FUNC_CURRENT_INPUT_EXT_POWER:
-	case CH_FUNC_CURRENT_INPUT_LOOP_POWER:
-	case CH_FUNC_CURRENT_INPUT_EXT_POWER_HART:
-	case CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART:
-		*iio_channels = ad74413r_current_input_channels;
-		*count = ARRAY_SIZE(ad74413r_current_input_channels);
-		break;
-	case CH_FUNC_RESISTANCE_INPUT:
-		*iio_channels = ad74413r_resistance_input_channels;
-		*count = ARRAY_SIZE(ad74413r_resistance_input_channels);
-		break;
-	case CH_FUNC_DIGITAL_INPUT_LOGIC:
-	case CH_FUNC_DIGITAL_INPUT_LOOP_POWER:
-		*iio_channels = ad74413r_digital_input_channels;
-		*count = ARRAY_SIZE(ad74413r_digital_input_channels);
-		break;
-	default:
-		dev_err(st->dev, "Unhandled channel config function %d\n", func);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int ad74413r_count_iio_channels(struct ad74413r_state *st)
 {
 	unsigned int i;
-	int ret;
 
 	st->indio_dev->num_channels = 0;
 
 	for (i = 0; i < AD74413R_CHANNEL_MAX; i++) {
-		struct ad74413r_channel_config *channel_config = &st->channel_configs[i];
-		struct iio_chan_spec *chans;
-		unsigned int num_chans;
-
-		ret = ad74413r_find_iio_channels(st, channel_config->func, &chans,
-						 &num_chans);
-		if (ret)
-			return ret;
-
+		struct ad74413r_channel_config *config = &st->channel_configs[i];
+		unsigned int num_chans = ad74413r_channels_map[config->func].num_channels;
 		st->indio_dev->num_channels += num_chans;
 	}
 
@@ -1152,7 +1128,6 @@ static int ad74413r_setup_iio_channels(struct ad74413r_state *st)
 {
 	struct iio_chan_spec *channels;
 	unsigned int i;
-	int ret;
 
 	channels = devm_kcalloc(st->dev, sizeof(*channels),
 				st->indio_dev->num_channels, GFP_KERNEL);
@@ -1162,15 +1137,10 @@ static int ad74413r_setup_iio_channels(struct ad74413r_state *st)
 	st->indio_dev->channels = channels;
 
 	for (i = 0; i < AD74413R_CHANNEL_MAX; i++) {
-		struct ad74413r_channel_config *channel_config = &st->channel_configs[i];
-		struct iio_chan_spec *chans;
-		unsigned int num_chans;
+		struct ad74413r_channel_config *config = &st->channel_configs[i];
+		struct iio_chan_spec *chans = ad74413r_channels_map[config->func].channels;
+		unsigned int num_chans = ad74413r_channels_map[config->func].num_channels;
 		unsigned int chan_i;
-
-		ret = ad74413r_find_iio_channels(st, channel_config->func, &chans,
-						 &num_chans);
-		if (ret)
-			return ret;
 
 		memcpy(channels, chans, num_chans * sizeof(*chans));
 
