@@ -1043,6 +1043,7 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 					 struct fwnode_handle *channel_node)
 {
 	struct ad74413r_channel_config *config;
+	unsigned int num_chans;
 	u32 index;
 	int ret;
 
@@ -1082,6 +1083,8 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 	if (ret)
 		return ret;
 
+	st->indio_dev->num_channels += ad74413r_channels_map[config->func].num_channels;
+
 	config->initialized = true;
 
 	return 0;
@@ -1107,21 +1110,6 @@ put_channel_node:
 	fwnode_handle_put(channel_node);
 
 	return ret;
-}
-
-static int ad74413r_count_iio_channels(struct ad74413r_state *st)
-{
-	unsigned int i;
-
-	st->indio_dev->num_channels = 0;
-
-	for (i = 0; i < AD74413R_CHANNEL_MAX; i++) {
-		struct ad74413r_channel_config *config = &st->channel_configs[i];
-		unsigned int num_chans = ad74413r_channels_map[config->func].num_channels;
-		st->indio_dev->num_channels += num_chans;
-	}
-
-	return 0;
 }
 
 static int ad74413r_setup_iio_channels(struct ad74413r_state *st)
@@ -1256,10 +1244,6 @@ static int ad74413r_probe(struct spi_device *spi)
 	indio_dev->trig = iio_trigger_get(st->trig);
 
 	ret = ad74413r_parse_channel_configs(st);
-	if (ret)
-		return ret;
-
-	ret = ad74413r_count_iio_channels(st);
 	if (ret)
 		return ret;
 
