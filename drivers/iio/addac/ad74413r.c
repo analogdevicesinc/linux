@@ -58,6 +58,11 @@ struct ad74413r_state {
 	size_t				adc_active_channels;
 	struct spi_message		adc_samples_msg;
 	struct spi_transfer		adc_samples_xfer[AD74413R_CHANNEL_MAX + 1];
+
+	/*
+	 * DMA (thus cache coherency maintenance) requires the
+	 * transfer buffers to live in their own cache lines.
+	 */
 	struct {
 		__be32 rx_buf[AD74413R_CHANNEL_MAX];
 		s64 timestamp;
