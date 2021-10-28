@@ -648,46 +648,39 @@ static int ad74413r_get_single_adc_result(struct ad74413r_state *st, unsigned in
 	unsigned int uval;
 	int ret;
 
-	ret = iio_device_claim_direct_mode(st->indio_dev);
-	if (ret)
-		return ret;
-
 	reinit_completion(&st->adc_data_completion);
 
 	ret = ad74413r_set_adc_channel_enable(st, channel, true);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = ad74413r_set_adc_conv_seq(st, AD74413R_CONV_SEQ_SINGLE);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = wait_for_completion_timeout(&st->adc_data_completion,
 					  msecs_to_jiffies(AD74413R_ADC_DATA_TIMEOUT));
 	if (!ret) {
 		ret = -ETIMEDOUT;
-		goto out;
+		return ret;
 	}
 
 	ret = regmap_read(st->regmap, AD74413R_REG_ADC_RESULT_X(channel), &uval);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = ad74413r_set_adc_conv_seq(st, AD74413R_CONV_SEQ_OFF);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = ad74413r_set_adc_channel_enable(st, channel, false);
 	if (ret)
-		goto out;
+		return ret;
 
 	*val = uval;
 	ret = IIO_VAL_INT;
 
-out:
-	iio_device_release_direct_mode(st->indio_dev);
-
-	return ret;
+	return 0;
 }
 
 static int ad74413r_get_single_resistance_result(struct ad74413r_state *st, unsigned int channel,
@@ -838,15 +831,30 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 		}
 		break;
 	case IIO_CHAN_INFO_RAW:
-		if (!chan->output)
+		if (!chan->output) {
+			ret = iio_device_claim_direct_mode(st->indio_dev);
+			if (ret)
+				return ret;
+
 			ret = ad74413r_get_single_adc_result(st, chan->channel, val);
+
+			iio_device_release_direct_mode(st->indio_dev);
+		}
 		break;
 	case IIO_CHAN_INFO_PROCESSED:
 		switch (chan->type) {
 		case IIO_RESISTANCE:
-			if (!chan->output)
+			if (!chan->output) {
+				ret = iio_device_claim_direct_mode(st->indio_dev);
+				if (ret)
+					return ret;
+
+
 				ret = ad74413r_get_single_resistance_result(st, chan->channel,
 									    val);
+
+				iio_device_release_direct_mode(st->indio_dev);
+			}
 			break;
 		default:
 			break;
