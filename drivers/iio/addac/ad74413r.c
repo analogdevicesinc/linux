@@ -1066,7 +1066,7 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 	if (!st->config->hart_support
 		&& (config->func == CH_FUNC_CURRENT_INPUT_EXT_POWER_HART
 		    || config->func == CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART)) {
-		dev_err(st->dev, "HART function not supported %d\n", config->func);
+		dev_err(st->dev, "HART function not supported\n");
 		return -EINVAL;
 	}
 
