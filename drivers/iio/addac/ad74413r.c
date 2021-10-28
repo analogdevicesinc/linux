@@ -120,10 +120,6 @@ struct ad74413r_state {
 #define AD74413R_REG_CMD_KEY		0x44
 #define AD74413R_CMD_KEY_LDAC		0x953a
 
-#define AD74413R_REG_SILLICON_REV		0x46
-#define AD74413R_SILLICON_REV_ID_MASK		GENMASK(7, 0)
-#define AD74413R_SILLICON_REV_ID_EXPECTED	0x8
-
 #define AD74413R_ADC_DATA_TIMEOUT	1000
 
 static const int ad74413r_adc_sampling_rates[] = {
@@ -1204,7 +1200,6 @@ static int ad74413r_probe(struct spi_device *spi)
 {
 	struct ad74413r_state *st;
 	struct iio_dev *indio_dev;
-	unsigned int sillicon_rev_id;
 	const char *name;
 	int ret;
 
@@ -1229,19 +1224,6 @@ static int ad74413r_probe(struct spi_device *spi)
 		ret = PTR_ERR(st->regmap);
 		dev_err(st->dev, "Failed to create regmap: %d\n", ret);
 		return ret;
-	}
-
-	ret = regmap_read(st->regmap, AD74413R_REG_SILLICON_REV, &sillicon_rev_id);
-	if (ret) {
-		dev_err(st->dev, "Failed to read sillicon rev: %d\n", ret);
-		return ret;
-	}
-
-	sillicon_rev_id = FIELD_GET(AD74413R_SILLICON_REV_ID_MASK, sillicon_rev_id);
-	if (sillicon_rev_id != AD74413R_SILLICON_REV_ID_EXPECTED) {
-		dev_err(st->dev, "Read sillicon rev id %d does not match expected rev id %d\n",
-			sillicon_rev_id, AD74413R_SILLICON_REV_ID_EXPECTED);
-		return -EINVAL;
 	}
 
 	st->refin_reg = devm_regulator_get(st->dev, "refin");
