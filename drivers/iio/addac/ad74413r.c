@@ -795,7 +795,7 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
-		case IIO_ALTVOLTAGE:
+		case IIO_VOLTAGE:
 			if (chan->output)
 				ret = ad74413r_get_output_voltage_scale(st, val, val2);
 			else
@@ -816,7 +816,7 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 		break;
 	case IIO_CHAN_INFO_OFFSET:
 		switch (chan->type) {
-		case IIO_ALTVOLTAGE:
+		case IIO_VOLTAGE:
 			if (!chan->output)
 				ret = ad74413r_get_input_voltage_offset(st, chan->channel,
 									val, val2);
@@ -884,7 +884,7 @@ static int ad74413r_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec co
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		switch (chan->type) {
-		case IIO_ALTVOLTAGE:
+		case IIO_VOLTAGE:
 		case IIO_CURRENT:
 			ret = ad74413r_set_channel_dac_code(st, chan->channel, val);
 			break;
@@ -971,7 +971,7 @@ static const struct iio_info ad74413r_info = {
 	}
 
 #define AD74413R_ADC_VOLTAGE_CHANNEL					\
-	AD74413R_ADC_CHANNEL(IIO_ALTVOLTAGE, BIT(IIO_CHAN_INFO_SCALE)	\
+	AD74413R_ADC_CHANNEL(IIO_VOLTAGE, BIT(IIO_CHAN_INFO_SCALE)	\
 			     | BIT(IIO_CHAN_INFO_OFFSET))
 
 #define AD74413R_ADC_CURRENT_CHANNEL					\
@@ -983,7 +983,7 @@ static struct iio_chan_spec ad74413r_high_impedance_channels[] = {
 };
 
 static struct iio_chan_spec ad74413r_voltage_output_channels[] = {
-	AD74413R_DAC_CHANNEL(IIO_ALTVOLTAGE, BIT(IIO_CHAN_INFO_SCALE)),
+	AD74413R_DAC_CHANNEL(IIO_VOLTAGE, BIT(IIO_CHAN_INFO_SCALE)),
 	AD74413R_ADC_CURRENT_CHANNEL,
 };
 
