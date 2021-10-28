@@ -353,7 +353,9 @@ static int ad74413r_set_adc_conv_seq(struct ad74413r_state *st, unsigned int sta
 	if (ret)
 		return ret;
 
-	// Wait 100us before starting conversions
+	/*
+	 * Wait 100us before starting conversions.
+	 */
 	usleep_range(100, 120);
 
 	return 0;
