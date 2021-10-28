@@ -1178,37 +1178,25 @@ static int ad74413r_probe(struct spi_device *spi)
 	name = dev_name(st->dev);
 
 	st->regmap = devm_regmap_init(st->dev, NULL, &spi->dev, &ad74413r_regmap_config);
-	if (IS_ERR(st->regmap)) {
-		ret = PTR_ERR(st->regmap);
-		dev_err(st->dev, "Failed to create regmap: %d\n", ret);
-		return ret;
-	}
+	if (IS_ERR(st->regmap))
+		return PTR_ERR(st->regmap);;
 
 	st->refin_reg = devm_regulator_get(st->dev, "refin");
-	if (IS_ERR(st->refin_reg)) {
-		dev_err_probe(st->dev, "Failed to get refin regulator: %d\n", ret);
+	if (IS_ERR(st->refin_reg))
 		return PTR_ERR(st->refin_reg);
-	}
 
 	ret = regulator_enable(st->refin_reg);
-	if (ret) {
-		dev_err(st->dev, "Failed to enable refin regulator: %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	ret = devm_add_action_or_reset(st->dev, ad74413r_regulator_disable,
 				       st->refin_reg);
-	if (ret) {
-		dev_err(st->dev, "Failed to add refin regulator disable action: %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
-	ret = device_property_read_u32(st->dev, "adi,rsense-resistance-ohms",
-				       &st->rsense_resistance_ohms);
-	if (ret) {
-		dev_err(st->dev, "Failed to get rsense resistance: %d\n", ret);
-		return ret;
-	}
+	st->rsense_resistance_ohms = 100;
+	device_property_read_u32(st->dev, "adi,rsense-resistance-ohms",
+				 &st->rsense_resistance_ohms);
 
 	st->gpiochip.label = name;
 	st->gpiochip.base = -1;
@@ -1221,10 +1209,8 @@ static int ad74413r_probe(struct spi_device *spi)
 	st->gpiochip.get = ad74413r_gpio_get;
 
 	ret = devm_gpiochip_add_data(st->dev, &st->gpiochip, st);
-	if (ret) {
-		dev_err(st->dev, "Failed to add gpio chip: %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	st->trig = devm_iio_trigger_alloc(st->dev, "%s-dev%d", name, indio_dev->id);
 	if (!st->trig)
@@ -1259,17 +1245,13 @@ static int ad74413r_probe(struct spi_device *spi)
 
 	ret = devm_request_irq(st->dev, spi->irq, ad74413r_adc_data_interrupt,
 			       IRQF_TRIGGER_FALLING, name, st);
-	if (ret) {
-		dev_err(st->dev, "Failed to request threaded irq: %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	ret = devm_iio_triggered_buffer_setup(st->dev, indio_dev, &iio_pollfunc_store_time,
 					      &ad74413r_trigger_handler, &ad74413r_buffer_ops);
-	if (ret) {
-		dev_err(st->dev, "Failed to setup triggered buffer: %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	return devm_iio_device_register(st->dev, indio_dev);
 }
