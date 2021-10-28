@@ -1280,7 +1280,6 @@ static int ad74413r_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	indio_dev->dev.parent = st->dev;
 	indio_dev->name = name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
 	indio_dev->info = &ad74413r_info;
