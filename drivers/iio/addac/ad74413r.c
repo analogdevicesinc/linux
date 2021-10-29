@@ -644,39 +644,44 @@ static int ad74413r_get_single_adc_result(struct ad74413r_state *st, unsigned in
 	unsigned int uval;
 	int ret;
 
+	mutex_lock(&st->lock);
+
 	reinit_completion(&st->adc_data_completion);
 
 	ret = ad74413r_set_adc_channel_enable(st, channel, true);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = ad74413r_set_adc_conv_seq(st, AD74413R_CONV_SEQ_SINGLE);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = wait_for_completion_timeout(&st->adc_data_completion,
 					  msecs_to_jiffies(AD74413R_ADC_DATA_TIMEOUT));
 	if (!ret) {
 		ret = -ETIMEDOUT;
-		return ret;
+		goto out;
 	}
 
 	ret = regmap_read(st->regmap, AD74413R_REG_ADC_RESULT_X(channel), &uval);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = ad74413r_set_adc_conv_seq(st, AD74413R_CONV_SEQ_OFF);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = ad74413r_set_adc_channel_enable(st, channel, false);
 	if (ret)
-		return ret;
+		goto out;
 
 	*val = uval;
 	ret = IIO_VAL_INT;
 
-	return 0;
+out:
+	mutex_unlock(&st->lock);
+
+	return ret;
 }
 
 static int ad74413r_get_single_resistance_result(struct ad74413r_state *st, unsigned int channel,
