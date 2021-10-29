@@ -236,6 +236,8 @@
 
 #define ADAR1000_RAM_BIAS_SET_MIN	1
 #define ADAR1000_RAM_BIAS_SET_MAX	7
+#define ADAR1000_SCRATCH_PAD_VAL_1	0xAD
+#define ADAR1000_SCRATCH_PAD_VAL_2	0xEA
 
 struct adar1000_phase {
 	u32 val;
@@ -2500,6 +2502,7 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
 	int ret;
+	u32 val;
 
 	/* Load phase values */
 	ret = adar1000_request_pt(st);
@@ -2514,6 +2517,32 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 			   ADAR1000_SOFTRESET | ADAR1000_SOFTRESET_);
 	if (ret < 0)
 		return ret;
+
+	ret = adar1000_reg_access(indio_dev, ADAR1000_SCRATCH_PAD, ADAR1000_SCRATCH_PAD_VAL_1, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_reg_access(indio_dev, ADAR1000_SCRATCH_PAD, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	if (val != ADAR1000_SCRATCH_PAD_VAL_1) {
+		dev_err(indio_dev->dev.parent, "Failed to read/write scratchpad");
+		return -EIO;
+	}
+
+	ret = adar1000_reg_access(indio_dev, ADAR1000_SCRATCH_PAD, ADAR1000_SCRATCH_PAD_VAL_2, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_reg_access(indio_dev, ADAR1000_SCRATCH_PAD, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	if (val != ADAR1000_SCRATCH_PAD_VAL_2) {
+		dev_err(indio_dev->dev.parent, "Failed to read/write scratchpad");
+		return -EIO;
+	}
 
 	/* Adjust LDOs */
 	ret = regmap_write(st->regmap, st->dev_addr |
