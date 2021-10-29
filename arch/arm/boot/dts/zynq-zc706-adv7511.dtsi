@@ -52,7 +52,7 @@
 						adi,input-clock = "1x";
 						adi,clock-delay = <0>;
 
-						#sound-dai-cells = <0>;
+						#sound-dai-cells = <1>;
 
 						ports {
 							#address-cells = <1>;
@@ -190,7 +190,7 @@
 				bitclock-master;
 			};
 			codec {
-				sound-dai = <&adv7511>;
+				sound-dai = <&adv7511 1>;
 			};
 		};
 	};
