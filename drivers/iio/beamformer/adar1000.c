@@ -2610,18 +2610,17 @@ static int adar1000_probe(struct spi_device *spi)
 
 		ret = adar1000_setup(indio_dev);
 		if (ret < 0) {
-			dev_err(&spi->dev, "Setup failed (%d)\n", ret);
-			return ret;
+			dev_warn(&spi->dev, "Setup failed (%d), dev: %d, cnt: %d\n", ret, tmp, cnt);
+		} else {
+			ret = devm_iio_device_register(&spi->dev, indio_dev);
+			if (ret < 0)
+				return ret;
+
+			ret = sysfs_create_bin_file(&indio_dev->dev.kobj,
+						    &st->bin_pt);
+			if (ret < 0)
+				return ret;
 		}
-
-		ret = devm_iio_device_register(&spi->dev, indio_dev);
-		if (ret < 0)
-			return ret;
-
-		ret = sysfs_create_bin_file(&indio_dev->dev.kobj,
-					    &st->bin_pt);
-		if (ret < 0)
-			return ret;
 
 		cnt++;
 	}
