@@ -39,8 +39,8 @@ struct ade9078_device {
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
-	u8 tx_buff[8];
-	u8 rx_buff[8] ____cacheline_aligned;
+	u8 tx_buff[2];
+	u8 rx_buff[ADE9078_WFB_PAGE_ARRAY_SIZE] ____cacheline_aligned;
 	struct spi_transfer	xfer[2];
 	struct spi_message spi_msg;
 	struct mutex lock;
@@ -87,7 +87,7 @@ static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int v
 		{
 			.tx_buf = ade9078_dev->tx,
 			.bits_per_word = 8,
-			.len = 7,
+			.len = 6,
 		},
 	};
 
@@ -100,6 +100,14 @@ static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int v
 	ade9078_dev->tx[2] = (u8) (val >> 24) & 0xFF;
 	ade9078_dev->tx[1] = (u8) addr;
 	ade9078_dev->tx[0] = (u8) (addr >> 8);
+
+	//registers which are 16 bits
+	if(reg > 0x480 && reg < 0x4FE)
+	{
+		ade9078_dev->tx[3] = (u8)  val & 0xFF;
+		ade9078_dev->tx[2] = (u8) (val >> 8) & 0xFF;
+		xfer[0].len = 4;
+	}
 
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret)
@@ -146,13 +154,21 @@ static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *v
 	ade9078_dev->tx[1] = (u8) addr;
 	ade9078_dev->tx[0] = (u8) (addr >> 8);
 
+	//registers which are 16 bits
+	if(reg > 0x480 && reg < 0x4FE)
+		xfer[1].len = 4;
+
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "problem when reading register 0x%x", reg);
 		goto err_ret;
 	}
 
-	*val = (ade9078_dev->rx[0] << 24) | (ade9078_dev->rx[1] << 16) | (ade9078_dev->rx[2] << 8) | ade9078_dev->rx[3];
+	//registers which are 16 bits
+	if(reg > 0x480 && reg < 0x4FE)
+		*val = (ade9078_dev->rx[0] << 8) | ade9078_dev->rx[1];
+	else
+		*val = (ade9078_dev->rx[0] << 24) | (ade9078_dev->rx[1] << 16) | (ade9078_dev->rx[2] << 8) | ade9078_dev->rx[3];
 
 err_ret:
 	mutex_unlock(&ade9078_dev->lock);
@@ -168,6 +184,20 @@ static u32 ade9078_align(const u8 *x)
 	return x[2] << 24 | x[3] << 16 | x[0] << 8 | x[1];
 }
 
+static void ade9078_pop_wfb(struct iio_poll_func *pf)
+{
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+	u32 i;
+	u32 data;
+
+	for(i=0; i <= ADE9078_WFB_PAGE_SIZE; i=i+4)
+	{
+		data = ade9078_align(&ade9078_dev->rx_buff[i]);
+		iio_push_to_buffers(ade9078_dev->indio_dev, &data);
+	}
+}
+
 /*
  * ade9078_trigger_handler() - the bottom half of the pollfunc
  * for the iio trigger buffer. It acquires data trough the SPI
@@ -178,8 +208,6 @@ static irqreturn_t ade9078_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
-	u32 data;
-	u32 data2;
 	int ret;
 
 	if(bitmap_empty(indio_dev->active_scan_mask, indio_dev->masklength))
@@ -197,9 +225,10 @@ static irqreturn_t ade9078_trigger_handler(int irq, void *p)
 		goto err_out;
 	}
 
-	data = ade9078_align(ade9078_dev->rx_buff);
+//	data = ade9078_align(ade9078_dev->rx_buff);
+//	iio_push_to_buffers_with_timestamp(indio_dev, &data, pf->timestamp);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &data, pf->timestamp);
+	ade9078_pop_wfb(pf);
 
 	mutex_unlock(&ade9078_dev->lock);
 
@@ -207,6 +236,14 @@ err_out:
 
 	iio_trigger_notify_done(indio_dev->trig);
 	return IRQ_HANDLED;
+}
+
+int ade9078_en_wfb(struct ade9078_device *ade9078_dev, bool state)
+{
+	if(state)
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG, BIT_MASK(4), BIT_MASK(4));
+	else
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG, BIT_MASK(4), 0);
 }
 
 /*
@@ -222,16 +259,10 @@ int ade9078_configure_scan(struct iio_dev *indio_dev)
 
 	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
 
-	addr = ADE9078_READ_REG(ADDR_AV_PCF);
+	addr = ADE9078_READ_REG(ADDR_WF_BUFF);
 
 	ade9078_dev->tx_buff[1] = (u8) addr;
 	ade9078_dev->tx_buff[0] = (u8) (addr >> 8);
-	ade9078_dev->tx_buff[2] = 0;
-	ade9078_dev->tx_buff[3] = 0;
-	ade9078_dev->tx_buff[4] = 0;
-	ade9078_dev->tx_buff[5] = 0;
-	ade9078_dev->tx_buff[6] = 0;
-	ade9078_dev->tx_buff[7] = 0;
 
 	ade9078_dev->xfer[0].tx_buf = &ade9078_dev->tx_buff[0];
 	ade9078_dev->xfer[0].bits_per_word = 8;
@@ -239,7 +270,7 @@ int ade9078_configure_scan(struct iio_dev *indio_dev)
 
 	ade9078_dev->xfer[1].rx_buf = &ade9078_dev->rx_buff[0];
 	ade9078_dev->xfer[1].bits_per_word = 8;
-	ade9078_dev->xfer[1].len = 6;
+	ade9078_dev->xfer[1].len = ADE9078_WFB_PAGE_ARRAY_SIZE;
 
 	spi_message_init(&ade9078_dev->spi_msg);
 	spi_message_add_tail(&ade9078_dev->xfer[0], &ade9078_dev->spi_msg);
@@ -503,6 +534,8 @@ static int ade9078_probe(struct spi_device *spi)
 		return ret;
 	}
 
+	ade9078_en_wfb(ade9078_dev, true);
+
 	return ret;
 };
 
@@ -512,6 +545,7 @@ static int ade9078_remove(struct spi_device *spi)
 	struct iio_dev *indio_dev = ade9078_dev->indio_dev;
 
 	printk(KERN_INFO "Exit ade9078_probe\n");
+	ade9078_en_wfb(ade9078_dev, false);
 	iio_device_unregister(indio_dev);
 
 	return 0;

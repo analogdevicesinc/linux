@@ -450,7 +450,7 @@
 #define	ADDR_NIRMS_2				0x6BA
 #define	ADDR_NIRMSONE_2				0x6BB
 #define	ADDR_NIRMS1012_2			0x6BC
-
+#define ADDR_WF_BUFF				0x800
 
 #define ADE9078_WRITE_REG(x)		(x << 4)
 #define ADE9078_READ_REG(x)			(((x) << 4) | 0x08)
@@ -482,11 +482,18 @@
 #define ADE9078_EGY_TIME 0x0FA0			/*Accumulate 4000 samples*/
 
 /*Waveform buffer Settings*/
-#define ADE9078_WFB_CFG 0x1010			/*Neutral current samples enabled, Resampled data enabled*/
-										/*Burst all channels*/
-#define WFB_ELEMENT_ARRAY_SIZE 512  	/*size of buffer to read. 512 Max.Each element IA,VA...IN has max 512 points*/
-										/*[Size of waveform buffer/number of sample sets = 2048/4 = 512]*/
-										/*(Refer ADE9000 technical reference manual for more details)*/
+#define ADE9078_WFB_CFG 0x0329			/*I, Fixed data rate enabled*/
+										/*Stop when waveform buffer is full.*/
+										/*Burst VA_PCF channels*/
+#define ADE9078_WFB_PAGE_SIZE 128
+#define ADE9078_WFB_BYTES_IN_PAGE 4
+#define ADE9078_WFB_PAGE_ARRAY_SIZE \
+	ADE9078_WFB_PAGE_SIZE * ADE9078_WFB_BYTES_IN_PAGE
+#define ADE9078_WFB_FULL_BUFF_SIZE \
+	ADE9078_WFB_PAGE_ARRAY_SIZE * 15
+#define ADE9078_WFB_FULL_BUFF_NR_SAMPLES \
+	ADE9078_WFB_PAGE_SIZE * 15
+
 
 /*Full scale Codes referred from Datasheet.Respective digital codes are produced when ADC inputs are at full scale. Donot Change. */
 #define ADE9078_RMS_FULL_SCALE_CODES  52866837
