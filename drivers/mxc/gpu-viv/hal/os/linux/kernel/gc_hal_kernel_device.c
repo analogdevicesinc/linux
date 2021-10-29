@@ -1588,12 +1588,14 @@ static int gc_clk_write(const char __user *buf, size_t count, void* data)
     char _buf[100];
 
     count = min_t(size_t, count, (sizeof(_buf)-1));
+
     ret = copy_from_user(_buf, buf, count);
     if (ret != 0)
     {
         printk("Error: lost data: %d\n", (int)ret);
         return -EFAULT;
     }
+
     _buf[count] = 0;
 
     _set_clk(_buf);
@@ -2882,54 +2884,33 @@ gckGALDEVICE_Suspend(
         {
             continue;
         }
+
         synchronize_irq(Device->irqLines[i]);
         Device->statesStored[i] = gcvPOWER_INVALID;
-    }
 
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (Device->kernels[i] == gcvNULL)
-        {
-            continue;
-        }
-
+        /* Query previous state and set specific state. */
 #if gcdENABLE_VG
         if (i == gcvCORE_VG)
         {
             vgHardware = Device->kernels[i]->vg->hardware;
-        }
-        else
-#endif
-        {
-            hardware = Device->kernels[i]->hardware;
-        }
 
-        /* Query state. */
-#if gcdENABLE_VG
-        if (i == gcvCORE_VG)
-        {
             gcmkONERROR(gckVGHARDWARE_QueryPowerManagementState(vgHardware,
                     &currentState));
-        }
-        else
-#endif
-        {
-            gcmkONERROR(gckHARDWARE_QueryPowerState(hardware, &currentState));
-        }
 
-        /* Store state. */
-        Device->statesStored[i] = currentState;
-
-#if gcdENABLE_VG
-        if (i == gcvCORE_VG)
-        {
             gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, State));
         }
         else
 #endif
         {
+            hardware = Device->kernels[i]->hardware;
+
+            gcmkONERROR(gckHARDWARE_QueryPowerState(hardware, &currentState));
+
             gcmkONERROR(gckHARDWARE_SetPowerState(hardware, State));
         }
+
+        /* Store state. */
+        Device->statesStored[i] = currentState;
     }
 
     gcmkFOOTER_NO();
@@ -3016,21 +2997,14 @@ gckGALDEVICE_Resume(
         if (i == gcvCORE_VG)
         {
             vgHardware = Device->kernels[i]->vg->hardware;
-        }
-        else
-#endif
-        {
-            hardware = Device->kernels[i]->hardware;
-        }
 
-#if gcdENABLE_VG
-        if (i == gcvCORE_VG)
-        {
             gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, gcvPOWER_ON));
         }
         else
 #endif
         {
+            hardware = Device->kernels[i]->hardware;
+
             gcmkONERROR(gckHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
         }
 
