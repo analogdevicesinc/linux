@@ -230,7 +230,7 @@ static void rm68200_init_sequence(struct rm68200 *ctx)
 	dcs_write_seq(ctx, MCS_CMD_MODE_SW, MCS_CMD1_UCS);
 }
 
-static int rm68200_unprepare(struct drm_panel *panel)
+static int rm68200_disable(struct drm_panel *panel)
 {
 	struct rm68200 *ctx = panel_to_rm68200(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
@@ -245,6 +245,13 @@ static int rm68200_unprepare(struct drm_panel *panel)
 		dev_warn(panel->dev, "failed to enter sleep mode: %d\n", ret);
 
 	msleep(120);
+
+	return 0;
+}
+
+static int rm68200_unprepare(struct drm_panel *panel)
+{
+	struct rm68200 *ctx = panel_to_rm68200(panel);
 
 	gpiod_set_value_cansleep(ctx->enable_gpio, 0);
 
@@ -261,7 +268,6 @@ static int rm68200_unprepare(struct drm_panel *panel)
 static int rm68200_prepare(struct drm_panel *panel)
 {
 	struct rm68200 *ctx = panel_to_rm68200(panel);
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	int ret;
 
 	ret = regulator_enable(ctx->supply);
@@ -278,6 +284,15 @@ static int rm68200_prepare(struct drm_panel *panel)
 	}
 
 	gpiod_set_value_cansleep(ctx->enable_gpio, 1);
+
+	return 0;
+}
+
+static int rm68200_enable(struct drm_panel *panel)
+{
+	struct rm68200 *ctx = panel_to_rm68200(panel);
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	int ret;
 
 	rm68200_init_sequence(ctx);
 
@@ -321,8 +336,10 @@ static int rm68200_get_modes(struct drm_panel *panel,
 }
 
 static const struct drm_panel_funcs rm68200_drm_funcs = {
+	.disable = rm68200_disable,
 	.unprepare = rm68200_unprepare,
 	.prepare = rm68200_prepare,
+	.enable = rm68200_enable,
 	.get_modes = rm68200_get_modes,
 };
 
