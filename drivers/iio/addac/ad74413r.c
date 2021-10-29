@@ -786,8 +786,6 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 	struct ad74413r_state *st = iio_priv(indio_dev);
 	int ret = -EINVAL;
 
-	mutex_lock(&st->lock);
-
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
@@ -864,8 +862,6 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 		break;
 	}
 
-	mutex_unlock(&st->lock);
-
 	return ret;
 }
 
@@ -874,8 +870,6 @@ static int ad74413r_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec co
 {
 	struct ad74413r_state *st = iio_priv(indio_dev);
 	int ret = -EINVAL;
-
-	mutex_lock(&st->lock);
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -895,8 +889,6 @@ static int ad74413r_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec co
 	default:
 		break;
 	}
-
-	mutex_unlock(&st->lock);
 
 	return ret;
 }
