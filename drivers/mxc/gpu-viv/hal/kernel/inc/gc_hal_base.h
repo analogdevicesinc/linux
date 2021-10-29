@@ -3115,8 +3115,8 @@ gcoOS_DebugFatal(
 #   define gcmFATAL             gcoOS_DebugFatal
 #   define gcmkFATAL            gckOS_DebugFatal
 #elif gcdHAS_ELLIPSIS
-#   define gcmFATAL(...)
-#   define gcmkFATAL(...)
+#   define gcmFATAL(...)        do {} while (gcvFALSE)
+#   define gcmkFATAL(...)       do {} while (gcvFALSE)
 #else
     gcmINLINE static void
     __dummy_fatal(
@@ -3172,9 +3172,9 @@ CHECK_PRINTF_FORMAT(2, 3);
 #   define gcmkTRACE_N(Level, ArgumentSize, ...) \
         gckOS_DebugTrace(Level, __VA_ARGS__)
 #elif gcdHAS_ELLIPSIS
-#   define gcmTRACE(...)
-#   define gcmkTRACE(...)
-#   define gcmkTRACE_N(...)
+#   define gcmTRACE(...)        do {} while (gcvFALSE)
+#   define gcmkTRACE(...)       do {} while (gcvFALSE)
+#   define gcmkTRACE_N(...)     do {} while (gcvFALSE)
 #else
     gcmINLINE static void
     __dummy_trace(
@@ -3237,9 +3237,9 @@ gcoOS_DebugTraceZone(
 #   define gcmkTRACE_ZONE_N(Level, Zone, ArgumentSize, ...) \
         gckOS_DebugTraceZone(Level, Zone, __VA_ARGS__)
 #elif gcdHAS_ELLIPSIS
-#   define gcmTRACE_ZONE(...)
-#   define gcmkTRACE_ZONE(...)
-#   define gcmkTRACE_ZONE_N(...)
+#   define gcmTRACE_ZONE(...)       do {} while (gcvFALSE)
+#   define gcmkTRACE_ZONE(...)      do {} while (gcvFALSE)
+#   define gcmkTRACE_ZONE_N(...)    do {} while (gcvFALSE)
 #else
     gcmINLINE static void
     __dummy_trace_zone(
@@ -3281,7 +3281,7 @@ gcoOS_DebugTraceZone(
 #if gcmIS_DEBUG(gcdDEBUG_CODE)
 #   define gcmDEBUG_ONLY(f)         f
 #else
-#   define gcmDEBUG_ONLY(f)
+#   define gcmDEBUG_ONLY(f)         do {} while (gcvFALSE)
 #endif
 
 
@@ -3333,10 +3333,10 @@ gcoOS_StackRemove(
 #   define gcmSTACK_DUMP            gcoOS_StackDump
 #   define gcmSTACK_REMOVE          gcoOS_StackRemove
 #elif gcdHAS_ELLIPSIS
-#   define gcmSTACK_PUSH(...)
-#   define gcmSTACK_POP(...)
-#   define gcmSTACK_DUMP()
-#   define gcmSTACK_REMOVE(...)
+#   define gcmSTACK_PUSH(...)       do {} while (gcvFALSE)
+#   define gcmSTACK_POP(...)        do {} while (gcvFALSE)
+#   define gcmSTACK_DUMP()          do {} while (gcvFALSE)
+#   define gcmSTACK_REMOVE(...)     do {} while (gcvFALSE)
 #else
     gcmINLINE static void
     __dummy_stack_push(
@@ -3361,7 +3361,7 @@ gcoOS_StackRemove(
 
 #   define gcmSTACK_PUSH            __dummy_stack_push
 #   define gcmSTACK_POP(a,b)        __dummy_stack_pop
-#   define gcmSTACK_DUMP()
+#   define gcmSTACK_DUMP()          do {} while (gcvFALSE)
 #   define gcmSTACK_REMOVE(a)       __dummy_stack_remove
 #endif
 
@@ -3399,8 +3399,8 @@ gckOS_BinaryTrace(
 #   define gcmBINARY_TRACE          gcoOS_BinaryTrace
 #   define gcmkBINARY_TRACE         gckOS_BinaryTrace
 #elif gcdHAS_ELLIPSIS
-#   define gcmBINARY_TRACE(Function, Line, Text, ...)
-#   define gcmkBINARY_TRACE(Function, Line, Text, ...)
+#   define gcmBINARY_TRACE(Function, Line, Text, ...)   do {} while (gcvFALSE)
+#   define gcmkBINARY_TRACE(Function, Line, Text, ...)  do {} while (gcvFALSE)
 #else
     gcmINLINE static void
     __dummy_binary_trace(
@@ -3444,8 +3444,8 @@ gcoOS_SysTraceEnd(
 #   define gcmSYSTRACE_BEGIN    gcoOS_SysTraceBegin
 #   define gcmSYSTRACE_END      gcoOS_SysTraceEnd
 #elif gcdHAS_ELLIPSIS
-#   define gcmSYSTRACE_BEGIN(...)
-#   define gcmSYSTRACE_END(...)
+#   define gcmSYSTRACE_BEGIN(...)   do {} while (gcvFALSE)
+#   define gcmSYSTRACE_END(...)     do {} while (gcvFALSE)
 #else
     gcmINLINE static void
     __dummy_systrace_begin(
@@ -3520,7 +3520,7 @@ gcoOS_ProfileDB(
 #else /* !gcdENABLE_PROFILING */
 
 #if gcdEMPTY_HEADER_FOOTER
-#   define gcmHEADER()
+#   define gcmHEADER()                  do {} while (gcvFALSE)
 #elif gcdHAS_ELLIPSIS
 #define gcmHEADER() \
     gctINT8 __user__ = 1; \
@@ -3540,7 +3540,7 @@ gcoOS_ProfileDB(
 
 #if gcdHAS_ELLIPSIS
 #if gcdEMPTY_HEADER_FOOTER
-#   define gcmHEADER_ARG(Text, ...)
+#   define gcmHEADER_ARG(Text, ...)     do {} while (gcvFALSE)
 #else
 #   define gcmHEADER_ARG(Text, ...) \
         gctINT8 __user__ = 1; \
@@ -3563,7 +3563,7 @@ gcoOS_ProfileDB(
 #endif
 
 #if gcdEMPTY_HEADER_FOOTER
-#   define gcmFOOTER()
+#   define gcmFOOTER()                  do {} while (gcvFALSE)
 #elif gcdHAS_ELLIPSIS
 #   define gcmFOOTER() \
     gcmSTACK_POP(__user_ptr__, __FUNCTION__); \
@@ -3583,7 +3583,7 @@ gcoOS_ProfileDB(
 #endif
 
 #if gcdEMPTY_HEADER_FOOTER
-#   define gcmFOOTER_NO()
+#   define gcmFOOTER_NO()               do {} while (gcvFALSE)
 #elif gcdHAS_ELLIPSIS
 #define gcmFOOTER_NO() \
     gcmSTACK_POP(__user_ptr__, __FUNCTION__); \
@@ -3601,7 +3601,7 @@ gcoOS_ProfileDB(
 #endif
 
 #if gcdEMPTY_HEADER_FOOTER
-#   define gcmFOOTER_KILL()
+#   define gcmFOOTER_KILL()             do {} while (gcvFALSE)
 #elif gcdHAS_ELLIPSIS
 #define gcmFOOTER_KILL() \
     gcmSTACK_POP(__user_ptr__, __FUNCTION__); \
@@ -3620,7 +3620,7 @@ gcoOS_ProfileDB(
 
 #if gcdHAS_ELLIPSIS
 #if gcdEMPTY_HEADER_FOOTER
-#   define gcmFOOTER_ARG(Text, ...)
+#   define gcmFOOTER_ARG(Text, ...)     do {} while (gcvFALSE)
 #else
 #   define gcmFOOTER_ARG(Text, ...) \
         gcmSTACK_POP(__user_ptr__, __FUNCTION__); \
@@ -3771,7 +3771,7 @@ CHECK_PRINTF_FORMAT(1, 2);
 #if gcdFEATURE_SANITYCHECK
 #define gcmFEATURE_CHECKED                gcmPRINT_ONCE
 #else
-#define gcmFEATURE_CHECKED(Text, ...)
+#define gcmFEATURE_CHECKED(Text, ...)       do { } while (gcvFALSE)
 #endif
 
 #if gcdPRINT_VERSION
@@ -4133,8 +4133,8 @@ gckOS_DebugBreak(
 #   define gcmBREAK             gcoOS_DebugBreak
 #   define gcmkBREAK            gckOS_DebugBreak
 #else
-#   define gcmBREAK()
-#   define gcmkBREAK()
+#   define gcmBREAK()           do {} while (gcvFALSE)
+#   define gcmkBREAK()          do {} while (gcvFALSE)
 #endif
 
 /*******************************************************************************
@@ -4166,8 +4166,8 @@ gckOS_DebugBreak(
 #   define gcmASSERT(exp)           _gcmASSERT(gcm, exp)
 #   define gcmkASSERT(exp)          _gcmASSERT(gcmk, exp)
 #else
-#   define gcmASSERT(exp)
-#   define gcmkASSERT(exp)
+#   define gcmASSERT(exp)           do {} while (gcvFALSE)
+#   define gcmkASSERT(exp)          do {} while (gcvFALSE)
 #endif
 
 /*******************************************************************************
@@ -4670,8 +4670,8 @@ gckOS_DebugStatus2Name(
 #   define gcmDEBUG_VERIFY_ARGUMENT(arg)    _gcmVERIFY_ARGUMENT(gcm, arg)
 #   define gcmkDEBUG_VERIFY_ARGUMENT(arg)   _gcmkVERIFY_ARGUMENT(gcm, arg)
 #else
-#   define gcmDEBUG_VERIFY_ARGUMENT(arg)
-#   define gcmkDEBUG_VERIFY_ARGUMENT(arg)
+#   define gcmDEBUG_VERIFY_ARGUMENT(arg)    do {} while (0)
+#   define gcmkDEBUG_VERIFY_ARGUMENT(arg)   do {} while (0)
 #endif
 
 /*******************************************************************************
@@ -4735,9 +4735,9 @@ gcoHAL_GetUserDebugOption(
 #define gcmUSER_DEBUG_ERROR_MSG(...)   gcmUSER_DEBUG_MSG(gcvDEBUG_MSG_ERROR, "Error: " __VA_ARGS__)
 #define gcmUSER_DEBUG_WARNING_MSG(...) gcmUSER_DEBUG_MSG(gcvDEBUG_MSG_WARNING, "Warring: " __VA_ARGS__)
 #else
-#define gcmUSER_DEBUG_MSG
-#define gcmUSER_DEBUG_ERROR_MSG
-#define gcmUSER_DEBUG_WARNING_MSG
+#define gcmUSER_DEBUG_MSG              do {} while (0)
+#define gcmUSER_DEBUG_ERROR_MSG        do {} while (0)
+#define gcmUSER_DEBUG_WARNING_MSG      do {} while (0)
 #endif
 
 /*******************************************************************************
