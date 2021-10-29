@@ -4050,10 +4050,6 @@ gckKERNEL_AttachProcessEx(
             Kernel->timeOut = Kernel->hardware->type == gcvHARDWARE_2D
                             ? gcdGPU_2D_TIMEOUT
                             : gcdGPU_TIMEOUT;
-
-            gcmkVERIFY_OK(gckOS_StopTimer(Kernel->os, Kernel->monitorTimer));
-
-            gcmkVERIFY_OK(gckOS_StartTimer(Kernel->os, Kernel->monitorTimer, 100));
         }
     }
 
@@ -5830,6 +5826,8 @@ gckDEVICE_Dispatch(
     else
     {
         gcmkVERIFY_ARGUMENT(coreIndex < gcvCORE_COUNT);
+        gcmkVERIFY_ARGUMENT(type < gcvHARDWARE_NUM_TYPES);
+
         /* Need go through gckKERNEL dispatch. */
         if (type == gcvHARDWARE_3D || type == gcvHARDWARE_3D2D || type == gcvHARDWARE_VIP)
         {
@@ -5837,7 +5835,6 @@ gckDEVICE_Dispatch(
         }
         else
         {
-            gcmkVERIFY_ARGUMENT(type < gcvHARDWARE_NUM_TYPES);
             kernel = Device->map[type].kernels[coreIndex];
         }
 
