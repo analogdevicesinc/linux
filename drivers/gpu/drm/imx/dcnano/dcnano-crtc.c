@@ -196,28 +196,6 @@ dcnano_crtc_mode_valid(struct drm_crtc *crtc,
 	return MODE_OK;
 }
 
-static void dcnano_crtc_mode_set_nofb(struct drm_crtc *crtc)
-{
-	struct drm_device *drm = crtc->dev;
-	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
-	struct drm_display_mode *adj = &crtc->state->adjusted_mode;
-
-	if (dcnano->modeset_done)
-		return;
-
-	dcnano_crtc_dbg(crtc, "mode " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj));
-
-	dcnano_crtc_set_pixel_clock(crtc);
-
-	/* enable power when we start to set mode for CRTC */
-	pm_runtime_get_sync(drm->dev);
-
-	if (dcnano->port == DCNANO_DPI_PORT)
-		dcnano_crtc_mode_set_nofb_dpi(crtc);
-
-	dcnano->modeset_done = true;
-}
-
 static void dcnano_crtc_queue_state_event(struct drm_crtc *crtc)
 {
 	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
@@ -249,26 +227,11 @@ static int dcnano_crtc_atomic_check(struct drm_crtc *crtc,
 	return 0;
 }
 
-static void dcnano_crtc_atomic_begin(struct drm_crtc *crtc,
-				     struct drm_atomic_state *state)
-{
-	struct drm_device *drm = crtc->dev;
-
-	/*
-	 * Enable power by ourselves in case the plane callbacks
-	 * need to access registers.
-	 */
-	pm_runtime_get_sync(drm->dev);
-}
-
 static void dcnano_crtc_atomic_flush(struct drm_crtc *crtc,
 				     struct drm_atomic_state *state)
 {
 	struct drm_crtc_state *old_crtc_state = drm_atomic_get_old_crtc_state(state,
 									      crtc);
-	struct drm_device *drm = crtc->dev;
-
-	pm_runtime_put_sync(drm->dev);
 
 	if (!crtc->state->active && !old_crtc_state->active)
 		return;
@@ -280,12 +243,24 @@ static void dcnano_crtc_atomic_flush(struct drm_crtc *crtc,
 static void dcnano_crtc_atomic_enable(struct drm_crtc *crtc,
 				      struct drm_atomic_state *state)
 {
+	struct drm_device *drm = crtc->dev;
 	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
 	struct drm_plane *plane;
 	struct drm_plane_state *new_plane_state;
+	struct drm_display_mode *adj = &crtc->state->adjusted_mode;
 	int i;
 	u32 primary_fb_fmt = 0;
 	u32 val;
+
+	dcnano_crtc_dbg(crtc, "mode " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj));
+
+	dcnano_crtc_set_pixel_clock(crtc);
+
+	/* enable power when we start to set mode for CRTC */
+	pm_runtime_get_sync(drm->dev);
+
+	if (dcnano->port == DCNANO_DPI_PORT)
+		dcnano_crtc_mode_set_nofb_dpi(crtc);
 
 	drm_crtc_vblank_on(crtc);
 
@@ -339,8 +314,6 @@ static void dcnano_crtc_atomic_disable(struct drm_crtc *crtc,
 		crtc->state->event = NULL;
 	}
 	spin_unlock_irq(&crtc->dev->event_lock);
-
-	dcnano->modeset_done = false;
 }
 
 static bool
@@ -387,9 +360,7 @@ dcnano_crtc_get_scanout_position(struct drm_crtc *crtc,
 
 static const struct drm_crtc_helper_funcs dcnano_crtc_helper_funcs = {
 	.mode_valid		= dcnano_crtc_mode_valid,
-	.mode_set_nofb		= dcnano_crtc_mode_set_nofb,
 	.atomic_check		= dcnano_crtc_atomic_check,
-	.atomic_begin		= dcnano_crtc_atomic_begin,
 	.atomic_flush		= dcnano_crtc_atomic_flush,
 	.atomic_enable		= dcnano_crtc_atomic_enable,
 	.atomic_disable		= dcnano_crtc_atomic_disable,

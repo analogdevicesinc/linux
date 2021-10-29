@@ -155,6 +155,10 @@ static const struct drm_mode_config_funcs dcnano_mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
+static const struct drm_mode_config_helper_funcs dcnano_mode_config_helpers = {
+	.atomic_commit_tail = drm_atomic_helper_commit_tail_rpm,
+};
+
 int dcnano_kms_prepare(struct dcnano_dev *dcnano)
 {
 	struct drm_device *drm = &dcnano->base;
@@ -173,6 +177,7 @@ int dcnano_kms_prepare(struct dcnano_dev *dcnano)
 	drm->mode_config.max_width	= 1280;
 	drm->mode_config.max_height	= 1280;
 	drm->mode_config.funcs		= &dcnano_mode_config_funcs;
+	drm->mode_config.helper_private	= &dcnano_mode_config_helpers;
 	drm->max_vblank_count		= DEBUGCOUNTERVALUE_MAX;
 
 	ret = drm_vblank_init(drm, 1);
