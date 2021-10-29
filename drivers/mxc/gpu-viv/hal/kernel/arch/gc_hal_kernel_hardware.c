@@ -3395,34 +3395,6 @@ gckHARDWARE_InitializeHardware(
         gcmkONERROR(gckOS_WriteRegisterEx(
             Hardware->os, Hardware->core, 0x00090, data));
     }
-	/* Disable RA SE clock gating */
-	if (_IsHardwareMatch(Hardware, gcv7000, 0x6202))
-	{
-		gcmkVERIFY_OK(
-			gckOS_ReadRegisterEx(Hardware->os,
-								 Hardware->core,
-								 Hardware->powerBaseAddress
-								 + 0x00104,
-								 &data));
-		data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ? 5:5) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 5:5) - (0 ?
- 5:5) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ?
- 5:5)));
-
-		data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:6) - (0 ? 6:6) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ?
- 6:6))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 6:6) - (0 ?
- 6:6) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ?
- 6:6)));
-
-		gcmkVERIFY_OK(
-			gckOS_WriteRegisterEx(Hardware->os,
-								  Hardware->core,
-								  Hardware->powerBaseAddress
-								  + 0x00104,
-								  data));
-	}
 
     _ConfigurePolicyID(Hardware);
 
@@ -8113,7 +8085,7 @@ _PmInitializeGPU(
 {
     gceSTATUS status;
 
-   /* Initialize hardware. */
+    /* Initialize hardware. */
     gcmkONERROR(gckHARDWARE_InitializeHardware(Hardware));
 
     gcmkONERROR(gckHARDWARE_SetFastClear(Hardware,

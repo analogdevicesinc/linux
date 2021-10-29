@@ -56,7 +56,6 @@
 #include "gc_hal_kernel_precomp.h"
 
 #if defined(__QNXNTO__)
-#include "gc_hal_kernel_qnx.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/slogcodes.h>

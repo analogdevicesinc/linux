@@ -1428,6 +1428,7 @@ static int gpu_suspend(struct platform_device *dev, pm_message_t state)
 static int gpu_resume(struct platform_device *dev)
 {
     gceSTATUS status;
+
     gckGALDEVICE device = platform_get_drvdata(dev);
 
     if (!device)
