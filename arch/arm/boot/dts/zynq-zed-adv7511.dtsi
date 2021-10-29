@@ -28,7 +28,7 @@
 				adi,input-justification = "right";
 				adi,clock-delay = <0>;
 
-				#sound-dai-cells = <0>;
+				#sound-dai-cells = <1>;
 
 				ports {
 					#address-cells = <1>;
@@ -167,7 +167,7 @@
 				sound-dai = <&axi_spdif_tx_0>;
 			};
 			codec {
-				sound-dai = <&adv7511>;
+				sound-dai = <&adv7511 1>;
 			};
 		};
 	};
