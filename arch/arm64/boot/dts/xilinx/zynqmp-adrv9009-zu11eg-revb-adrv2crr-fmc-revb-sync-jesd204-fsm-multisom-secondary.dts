@@ -8,7 +8,7 @@
  * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
  * https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework
  *
- * hdl_project: <adrv9009zu11eg/adrv2crr_fmc/>
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
  * board_revision: <>
  *
  * Copyright (C) 2021 Analog Devices Inc.
