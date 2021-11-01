@@ -60,6 +60,12 @@ struct ad74413r_state {
 
 	u32				rsense_resistance_ohms;
 
+	struct spi_message		reg_read_msg;
+	struct spi_transfer		reg_read_xfer[2];
+
+	struct spi_message		reg_write_msg;
+	struct spi_transfer		reg_write_xfer[1];
+
 	size_t				adc_active_channels;
 	struct spi_message		adc_samples_msg;
 	struct spi_transfer		adc_samples_xfer[AD74413R_CHANNEL_MAX + 1];
@@ -73,8 +79,8 @@ struct ad74413r_state {
 		s64 timestamp;
 	} adc_samples ____cacheline_aligned;
 	__be32				adc_samples_tx_buf[AD74413R_CHANNEL_MAX];
-	__be32				regmap_tx_buf;
-	__be32				regmap_rx_buf;
+	__be32				reg_read_buf[2];
+	__be32				reg_write_buf[1];
 };
 
 #define AD74413R_REG_NOP		0x00
@@ -157,11 +163,11 @@ static int ad74413r_reg_write(void *context, unsigned int reg, unsigned int val)
 	struct device *dev = context;
 	struct spi_device *spi = to_spi_device(dev);
 	struct ad74413r_state *st = spi_get_drvdata(spi);
-	u8 *buf = (u8 *)&st->regmap_tx_buf;
+	u8 *buf = (u8 *)&st->reg_write_buf[0];
 
 	ad74413r_format_reg_write(reg, val, buf);
 
-	return spi_write(spi, buf, 4);
+	return spi_sync(spi, &st->reg_write_msg);
 }
 
 static int ad74413r_crc_check(struct ad74413r_state *st, u8 *buf)
@@ -170,36 +176,8 @@ static int ad74413r_crc_check(struct ad74413r_state *st, u8 *buf)
 
 	if (buf[3] != expected_crc) {
 		dev_err(st->dev, "Bad CRC, data: %02x%02x%02x, expected: %02x, received: %02x\n",
-				buf[0], buf[1], buf[2], expected_crc, buf[3]);
+			buf[0], buf[1], buf[2], expected_crc, buf[3]);
 		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int ad74413r_reg_read_raw(void *context, unsigned int reg, u8 *buf,
-				 unsigned int count)
-{
-	struct device *dev = context;
-	struct spi_device *spi = to_spi_device(dev);
-	struct ad74413r_state *st = spi_get_drvdata(spi);
-	unsigned int i;
-	int ret;
-
-	ret = ad74413r_reg_write(context, AD74413R_REG_READ_SELECT, reg);
-	if (ret) {
-		dev_err(dev, "Failed to write read select register: %d\n", ret);
-		return ret;
-	}
-
-	for (i = 0; i < count; i++, buf += 4) {
-		ret = spi_read(spi, buf, 4);
-		if (ret)
-			return ret;
-
-		ret = ad74413r_crc_check(st, buf);
-		if (ret)
-			return ret;
 	}
 
 	return 0;
@@ -210,10 +188,17 @@ static int ad74413r_reg_read(void *context, unsigned int reg, unsigned int *val)
 	struct device *dev = context;
 	struct spi_device *spi = to_spi_device(dev);
 	struct ad74413r_state *st = spi_get_drvdata(spi);
-	u8 *buf = (u8 *)&st->regmap_rx_buf;
+	u8 *buf = (u8 *)&st->reg_read_buf[1];
 	int ret;
 
-	ret = ad74413r_reg_read_raw(context, reg, buf, 1);
+	ad74413r_format_reg_write(AD74413R_REG_READ_SELECT, reg,
+				  (u8 *)&st->reg_read_buf[0]);
+
+	ret = spi_sync(spi, &st->reg_read_msg);
+	if (ret)
+		return ret;
+
+	ret = ad74413r_crc_check(st, buf);
 	if (ret)
 		return ret;
 
@@ -1174,6 +1159,22 @@ static int ad74413r_probe(struct spi_device *spi)
 	init_completion(&st->adc_data_completion);
 
 	name = dev_name(st->dev);
+
+	st->reg_read_xfer[0].tx_buf = &st->reg_read_buf[0];
+	st->reg_read_xfer[0].len = 4;
+	st->reg_read_xfer[0].cs_change = 1;
+
+	st->reg_read_xfer[0].rx_buf = &st->reg_read_buf[1];
+	st->reg_read_xfer[0].len = 4;
+	st->reg_read_xfer[0].cs_change = 0;
+
+	spi_message_init_with_transfers(&st->reg_read_msg, st->reg_read_xfer, 2);
+
+	st->reg_write_xfer[0].tx_buf = &st->reg_write_buf[0];
+	st->reg_write_xfer[0].len = 4;
+	st->reg_write_xfer[0].cs_change = 0;
+
+	spi_message_init_with_transfers(&st->reg_write_msg, st->reg_write_xfer, 1);
 
 	st->regmap = devm_regmap_init(st->dev, NULL, &spi->dev, &ad74413r_regmap_config);
 	if (IS_ERR(st->regmap))
