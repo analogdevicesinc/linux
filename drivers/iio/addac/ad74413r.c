@@ -395,7 +395,7 @@ static int ad74413r_rejection_to_rate(struct ad74413r_state *st,
 		return 0;
 	}
 
-	dev_err(st->dev, "ADC rejection invalid\n", channel);
+	dev_err(st->dev, "ADC rejection invalid\n");
 	return -EINVAL;
 }
 
@@ -519,7 +519,7 @@ static int ad74413r_get_input_voltage_scale(struct ad74413r_state *st,
 
 
 static int ad74413r_get_input_voltage_offset(struct ad74413r_state *st,
-					     unsigned int range, int *val)
+					     unsigned int channel, int *val)
 {
 	unsigned int range;
 	int ret;
@@ -535,9 +535,11 @@ static int ad74413r_get_input_voltage_offset(struct ad74413r_state *st,
 	return IIO_VAL_INT;
 }
 
-static int ad74413r_get_input_current_scale(struct ad74413r_state *st, unsigned int channel,
-					       int *val, int *val2)
+static int ad74413r_get_input_current_scale(struct ad74413r_state *st,
+					    unsigned int channel, int *val,
+					    int *val2)
 {
+	unsigned int range;
 	int ret;
 
 	ret = ad74413r_get_adc_range(st, channel, &range);
@@ -553,8 +555,8 @@ static int ad74413r_get_input_current_scale(struct ad74413r_state *st, unsigned 
 	return IIO_VAL_FRACTIONAL;
 }
 
-static int ad74413_get_input_current_offset(struct ad74413r_state *st, unsigned int channel,
-					    int *val, int *val2)
+static int ad74413_get_input_current_offset(struct ad74413r_state *st,
+					    unsigned int channel, int *val)
 {
 	unsigned int range;
 	int voltage_range;
@@ -576,6 +578,36 @@ static int ad74413_get_input_current_offset(struct ad74413r_state *st, unsigned 
 	*val = voltage_offset * AD74413R_ADC_RESULT_MAX / voltage_range;
 
 	return IIO_VAL_INT;
+}
+
+static int ad74413r_get_adc_rate(struct ad74413r_state *st,
+				 unsigned int channel, int *val)
+{
+	unsigned int rejection;
+	int ret;
+
+	ret = ad74413r_get_adc_rejection(st, channel, &rejection);
+	if (ret)
+		return ret;
+
+	ret = ad74413r_rejection_to_rate(st, rejection, val);
+	if (ret)
+		return ret;
+
+	return IIO_VAL_INT;
+}
+
+static int ad74413r_set_adc_rate(struct ad74413r_state *st,
+				 unsigned int channel, int val)
+{
+	unsigned int rejection;
+	int ret;
+
+	ret = ad74413r_rate_to_rejection(st, val, &rejection);
+	if (ret)
+		return ret;
+
+	return ad74413r_set_adc_rejection(st, channel, rejection);
 }
 
 static irqreturn_t ad74413r_trigger_handler(int irq, void *p)
@@ -655,22 +687,15 @@ static int ad74413r_get_single_adc_result(struct ad74413r_state *st, unsigned in
 	return 0;
 }
 
-static int ad74413r_get_single_resistance_result(struct ad74413r_state *st, unsigned int channel,
-						 int *val)
+static int ad74413r_adc_to_resistance_result(struct ad74413r_state *st,
+					     int adc_result, int *val)
 {
-	unsigned int uval;
-	int ret;
+	if (adc_result == AD74413R_ADC_RESULT_MAX)
+		return -EINVAL;
 
-	ret = ad74413r_get_single_adc_result(st, channel, &uval);
-	if (ret < 0)
-		return ret;
-
-	if (uval == AD74413R_ADC_RESULT_MAX)
-		*val = 0;
-	else
-		*val = DIV_ROUND_CLOSEST(uval * 2100, AD74413R_ADC_RESULT_MAX - uval);
-
-	return ret;
+	*val = DIV_ROUND_CLOSEST(adc_result * 2100,
+				 AD74413R_ADC_RESULT_MAX - adc_result);
+	return 0;
 }
 
 static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
@@ -773,26 +798,22 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 			     int *val, int *val2, long info)
 {
 	struct ad74413r_state *st = iio_priv(indio_dev);
-	int ret = -EINVAL;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_VOLTAGE:
 			if (chan->output)
-				ret = ad74413r_get_output_voltage_scale(st, val, val2);
+				return ad74413r_get_output_voltage_scale(st, val, val2);
 			else
-				ret = ad74413r_get_input_voltage_scale(st, chan->channel,
+				return ad74413r_get_input_voltage_scale(st, chan->channel,
 								       val, val2);
-			break;
-
 		case IIO_CURRENT:
 			if (chan->output)
-				ret = ad74413r_get_output_current_scale(st, val, val2);
+				return ad74413r_get_output_current_scale(st, val, val2);
 			else
-				ret = ad74413r_get_input_current_scale(st, chan->channel,
-									  val, val2);
-			break;
+				return ad74413r_get_input_current_scale(st, chan->channel,
+									val, val2);
 		default:
 			break;
 		}
@@ -801,13 +822,13 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 		switch (chan->type) {
 		case IIO_VOLTAGE:
 			if (!chan->output)
-				ret = ad74413r_get_input_voltage_offset(st, chan->channel,
-									val, val2);
+				return ad74413r_get_input_voltage_offset(st, chan->channel,
+									 val);
 			break;
 		case IIO_CURRENT:
 			if (!chan->output)
-				ret = ad74413_get_input_current_offset(st, chan->channel,
-								       val, val2);
+				return ad74413_get_input_current_offset(st, chan->channel,
+									val);
 			break;
 		default:
 			break;
@@ -815,28 +836,40 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 		break;
 	case IIO_CHAN_INFO_RAW:
 		if (!chan->output) {
+			int ret;
+
 			ret = iio_device_claim_direct_mode(st->indio_dev);
 			if (ret)
 				return ret;
 
+			mutex_lock(&st->lock);
 			ret = ad74413r_get_single_adc_result(st, chan->channel, val);
+			mutex_unlock(&st->lock);
 
 			iio_device_release_direct_mode(st->indio_dev);
+
+			return ret;
 		}
 		break;
 	case IIO_CHAN_INFO_PROCESSED:
 		switch (chan->type) {
 		case IIO_RESISTANCE:
 			if (!chan->output) {
+				int ret;
+
 				ret = iio_device_claim_direct_mode(st->indio_dev);
 				if (ret)
 					return ret;
 
-
-				ret = ad74413r_get_single_resistance_result(st, chan->channel,
-									    val);
+				mutex_lock(&st->lock);
+				ret = ad74413r_get_single_adc_result(st, chan->channel, val);
+				mutex_unlock(&st->lock);
 
 				iio_device_release_direct_mode(st->indio_dev);
+
+				ad74413r_adc_to_resistance_result(st, *val, val);
+
+				return ret;
 			}
 			break;
 		default:
@@ -845,48 +878,46 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!chan->output)
-			ret = ad74413r_get_adc_rate(st, chan->channel, val);
+			return ad74413r_get_adc_rate(st, chan->channel, val);
 		break;
 	default:
 		break;
 	}
 
-	return ret;
+	return -EINVAL;
 }
 
 static int ad74413r_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
 			      int val, int val2, long info)
 {
 	struct ad74413r_state *st = iio_priv(indio_dev);
-	int ret = -EINVAL;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		switch (chan->type) {
 		case IIO_VOLTAGE:
 		case IIO_CURRENT:
-			ret = ad74413r_set_channel_dac_code(st, chan->channel, val);
-			break;
+			if (chan->output)
+				return ad74413r_set_channel_dac_code(st, chan->channel, val);
 		default:
 			break;
 		}
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!chan->output)
-			ret = ad74413r_set_adc_rate(st, chan->channel, val);
+			return ad74413r_set_adc_rate(st, chan->channel, val);
 		break;
 	default:
 		break;
 	}
 
-	return ret;
+	return -EINVAL;
 }
 
 static int ad74413r_read_avail(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
 			      const int **vals, int *type, int *length, long info)
 {
 	struct ad74413r_state *st = iio_priv(indio_dev);
-	int ret = -EINVAL;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -898,13 +929,12 @@ static int ad74413r_read_avail(struct iio_dev *indio_dev, struct iio_chan_spec c
 			*length = ARRAY_SIZE(ad74413r_adc_sampling_rates);
 		}
 		*type = IIO_VAL_INT;
-		ret = IIO_AVAIL_LIST;
-		break;
+		return IIO_AVAIL_LIST;
 	default:
 		break;
 	}
 
-	return ret;
+	return -EINVAL;
 }
 
 static const struct iio_buffer_setup_ops ad74413r_buffer_ops = {
