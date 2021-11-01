@@ -102,6 +102,7 @@ struct ad74413r_state {
 
 #define AD74413R_REG_DAC_CODE_X(x)	(0x16 + (x))
 #define AD74413R_DAC_CODE_MAX		((1 << 13) - 1)
+#define AD74413R_DAC_VOLTAGE_MAX	11000
 
 #define AD74413R_REG_GPO_PAR_DATA		0x0d
 #define AD74413R_REG_GPO_CONFIG_X(x)		(0x0e + (x))
