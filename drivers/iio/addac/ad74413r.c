@@ -291,11 +291,6 @@ static int ad74413r_set_channel_dac_code(struct ad74413r_state *st,
 		{ AD74413R_REG_CMD_KEY, AD74413R_CMD_KEY_LDAC },
 	};
 
-	if (dac_code > AD74413R_DAC_CODE_MAX) {
-		dev_err(st->dev, "Invalid dac code %d\n", dac_code);
-		return -EINVAL;
-	}
-
 	return regmap_multi_reg_write(st->regmap, reg_seq, 2);
 }
 
@@ -892,8 +887,14 @@ static int ad74413r_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec co
 		switch (chan->type) {
 		case IIO_VOLTAGE:
 		case IIO_CURRENT:
-			if (chan->output)
+			if (chan->output) {
+				if (val > AD74413R_DAC_CODE_MAX) {
+					dev_err(st->dev, "Invalid DAC code\n", val);
+					return -EINVAL;
+				}
+
 				return ad74413r_set_channel_dac_code(st, chan->channel, val);
+			}
 		default:
 			break;
 		}
