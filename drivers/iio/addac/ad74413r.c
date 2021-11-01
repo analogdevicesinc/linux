@@ -1157,17 +1157,14 @@ static int ad74413r_probe(struct spi_device *spi)
 	st->reg_read_xfer[0].tx_buf = &st->reg_read_buf[0];
 	st->reg_read_xfer[0].len = 4;
 	st->reg_read_xfer[0].cs_change = 1;
-
-	st->reg_read_xfer[0].rx_buf = &st->reg_read_buf[1];
-	st->reg_read_xfer[0].len = 4;
-	st->reg_read_xfer[0].cs_change = 0;
-
+	st->reg_read_xfer[1].rx_buf = &st->reg_read_buf[1];
+	st->reg_read_xfer[1].len = 4;
+	st->reg_read_xfer[1].cs_change = 0;
 	spi_message_init_with_transfers(&st->reg_read_msg, st->reg_read_xfer, 2);
 
 	st->reg_write_xfer[0].tx_buf = &st->reg_write_buf[0];
 	st->reg_write_xfer[0].len = 4;
 	st->reg_write_xfer[0].cs_change = 0;
-
 	spi_message_init_with_transfers(&st->reg_write_msg, st->reg_write_xfer, 1);
 
 	st->regmap = devm_regmap_init(st->dev, NULL, spi, &ad74413r_regmap_config);
