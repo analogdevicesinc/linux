@@ -636,8 +636,8 @@ static irqreturn_t ad74413r_adc_data_interrupt(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int ad74413r_get_single_adc_result(struct ad74413r_state *st, unsigned int channel,
-					  int *val)
+static int _ad74413r_get_single_adc_result(struct ad74413r_state *st,
+					   unsigned int channel, int *val)
 {
 	unsigned int uval;
 	int ret;
@@ -675,6 +675,24 @@ static int ad74413r_get_single_adc_result(struct ad74413r_state *st, unsigned in
 	ret = IIO_VAL_INT;
 
 	return 0;
+}
+
+static int ad74413r_get_single_adc_result(struct ad74413r_state *st,
+					  unsigned int channel, int *val)
+{
+	int ret;
+
+	ret = iio_device_claim_direct_mode(st->indio_dev);
+	if (ret)
+		return ret;
+
+	mutex_lock(&st->lock);
+	ret = _ad74413r_get_single_adc_result(st, channel, val);
+	mutex_unlock(&st->lock);
+
+	iio_device_release_direct_mode(st->indio_dev);
+
+	return ret;
 }
 
 static int ad74413r_adc_to_resistance_result(struct ad74413r_state *st,
@@ -805,73 +823,36 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 				return ad74413r_get_input_current_scale(st, chan->channel,
 									val, val2);
 		default:
-			break;
+			return -EINVAL;
 		}
-		break;
 	case IIO_CHAN_INFO_OFFSET:
 		switch (chan->type) {
 		case IIO_VOLTAGE:
-			if (!chan->output)
-				return ad74413r_get_input_voltage_offset(st, chan->channel,
-									 val);
-			break;
+			return ad74413r_get_input_voltage_offset(st, chan->channel, val);
 		case IIO_CURRENT:
-			if (!chan->output)
-				return ad74413_get_input_current_offset(st, chan->channel,
-									val);
-			break;
+			return ad74413_get_input_current_offset(st, chan->channel, val);
 		default:
-			break;
+			return -EINVAL;
 		}
-		break;
-	case IIO_CHAN_INFO_RAW:
-		if (!chan->output) {
-			int ret;
+	case IIO_CHAN_INFO_RAW: {
+		if (chan->output)
+			return -EINVAL;
 
-			ret = iio_device_claim_direct_mode(st->indio_dev);
-			if (ret)
-				return ret;
+		return ad74413r_get_single_adc_result(st, chan->channel, val);
+	}
+	case IIO_CHAN_INFO_PROCESSED: {
+		int ret;
 
-			mutex_lock(&st->lock);
-			ret = ad74413r_get_single_adc_result(st, chan->channel, val);
-			mutex_unlock(&st->lock);
-
-			iio_device_release_direct_mode(st->indio_dev);
-
+		ret = ad74413r_get_single_adc_result(st, chan->channel, val);
+		if (ret < 0)
 			return ret;
-		}
-		break;
-	case IIO_CHAN_INFO_PROCESSED:
-		switch (chan->type) {
-		case IIO_RESISTANCE:
-			if (!chan->output) {
-				int ret;
 
-				ret = iio_device_claim_direct_mode(st->indio_dev);
-				if (ret)
-					return ret;
+		ad74413r_adc_to_resistance_result(st, *val, val);
 
-				mutex_lock(&st->lock);
-				ret = ad74413r_get_single_adc_result(st, chan->channel, val);
-				mutex_unlock(&st->lock);
-
-				iio_device_release_direct_mode(st->indio_dev);
-
-				ad74413r_adc_to_resistance_result(st, *val, val);
-
-				return ret;
-			}
-			break;
-		default:
-			break;
-		}
-		break;
+		return ret;
+	}
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!chan->output)
-			return ad74413r_get_adc_rate(st, chan->channel, val);
-		break;
-	default:
-		break;
+		return ad74413r_get_adc_rate(st, chan->channel, val);
 	}
 
 	return -EINVAL;
@@ -884,27 +865,17 @@ static int ad74413r_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec co
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
-		switch (chan->type) {
-		case IIO_VOLTAGE:
-		case IIO_CURRENT:
-			if (chan->output) {
-				if (val > AD74413R_DAC_CODE_MAX) {
-					dev_err(st->dev, "Invalid DAC code\n", val);
-					return -EINVAL;
-				}
-
-				return ad74413r_set_channel_dac_code(st, chan->channel, val);
-			}
-		default:
-			break;
-		}
-		break;
-	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!chan->output)
-			return ad74413r_set_adc_rate(st, chan->channel, val);
-		break;
-	default:
-		break;
+			return -EINVAL;
+
+		if (val > AD74413R_DAC_CODE_MAX) {
+			dev_err(st->dev, "Invalid DAC code\n");
+			return -EINVAL;
+		}
+
+		return ad74413r_set_channel_dac_code(st, chan->channel, val);
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad74413r_set_adc_rate(st, chan->channel, val);
 	}
 
 	return -EINVAL;
@@ -926,8 +897,6 @@ static int ad74413r_read_avail(struct iio_dev *indio_dev, struct iio_chan_spec c
 		}
 		*type = IIO_VAL_INT;
 		return IIO_AVAIL_LIST;
-	default:
-		break;
 	}
 
 	return -EINVAL;
