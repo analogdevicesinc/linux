@@ -710,6 +710,19 @@ static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
 	if (*active_scan_mask == 0)
 		goto out;
 
+	/*
+	 * The read select register is used to select which register's value
+	 * will be sent by the slave on the next SPI frame.
+	 *
+	 * Create an SPI message that, on each step, writes to the read select
+	 * register to select the ADC result of the next enabled channel, and
+	 * reads the ADC result of the previous enabled channel.
+	 *
+	 * Example:
+	 * W: [WCH1] [WCH2] [WCH2] [WCH3] [    ]
+	 * R: [    ] [RCH1] [RCH2] [RCH3] [RCH4]
+	 */
+
 	for_each_set_bit(channel, active_scan_mask, AD74413R_CHANNEL_MAX) {
 		u8 *tx_buf;
 
