@@ -963,7 +963,7 @@ static const struct iio_info ad74413r_info = {
 #define AD74413R_ADC_CHANNEL(_type, extra_mask_separate)					\
 	{											\
 		AD74413R_CHANNEL(_type, 0, extra_mask_separate | BIT(IIO_CHAN_INFO_SAMP_FREQ)),	\
-		.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),			\
 		.scan_type = {									\
 			.sign = 'u',								\
 			.realbits = 16,								\
