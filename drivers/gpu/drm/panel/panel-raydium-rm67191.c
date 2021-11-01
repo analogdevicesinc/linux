@@ -589,7 +589,9 @@ static int rad_panel_probe(struct mipi_dsi_device *dsi)
 	panel->pdata = of_id->data;
 
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags =  MIPI_DSI_MODE_VIDEO_HSE | MIPI_DSI_MODE_VIDEO;
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_HSE |
+			  MIPI_DSI_MODE_VIDEO |
+			  MIPI_DSI_MODE_NO_EOT_PACKET;
 
 	ret = of_property_read_u32(np, "video-mode", &video_mode);
 	if (!ret) {
