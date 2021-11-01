@@ -287,21 +287,20 @@ static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	return status;
 }
 
-static int ad74413r_set_channel_dac_code(struct ad74413r_state *st, unsigned int channel,
-					 uint16_t dac_code)
+static int ad74413r_set_channel_dac_code(struct ad74413r_state *st,
+					 unsigned int channel, int dac_code)
 {
-	int ret;
+	struct reg_sequence reg_seq[2] = {
+		{ AD74413R_REG_DAC_CODE_X(channel), dac_code },
+		{ AD74413R_REG_CMD_KEY, AD74413R_CMD_KEY_LDAC },
+	};
 
 	if (dac_code > AD74413R_DAC_CODE_MAX) {
 		dev_err(st->dev, "Invalid dac code %d\n", dac_code);
 		return -EINVAL;
 	}
 
-	ret = regmap_write(st->regmap, AD74413R_REG_DAC_CODE_X(channel), dac_code);
-	if (ret)
-		return ret;
-
-	return regmap_write(st->regmap, AD74413R_REG_CMD_KEY, AD74413R_CMD_KEY_LDAC);
+	return regmap_multi_reg_write(st->regmap, reg_seq, 2);
 }
 
 static int ad74413r_channel_set_function(struct ad74413r_state *st, unsigned int channel, u8 func)
