@@ -488,7 +488,8 @@ static int ad74413r_get_output_voltage_scale(struct ad74413r_state *st,
 	return IIO_VAL_FRACTIONAL;
 }
 
-static int ad74413r_get_output_current_scale(struct ad74413r_state *st, int *val, int *val2)
+static int ad74413r_get_output_current_scale(struct ad74413r_state *st,
+					     int *val, int *val2)
 {
 	*val = regulator_get_voltage(st->refin_reg);
 	*val2 = st->rsense_resistance_ohms * AD74413R_DAC_CODE_MAX * 1000;
@@ -496,7 +497,8 @@ static int ad74413r_get_output_current_scale(struct ad74413r_state *st, int *val
 	return IIO_VAL_FRACTIONAL;
 }
 
-static int ad74413r_get_input_voltage_scale(struct ad74413r_state *st, unsigned int channel,
+static int ad74413r_get_input_voltage_scale(struct ad74413r_state *st,
+					    unsigned int channel,
 					    int *val, int *val2)
 {
 	unsigned int range;
