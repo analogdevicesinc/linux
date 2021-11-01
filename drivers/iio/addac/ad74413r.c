@@ -121,7 +121,6 @@ struct ad74413r_state {
 #define AD74413R_CH_EN_SHIFT(x)		x
 
 #define AD74413R_REG_DIN_COMP_OUT		0x25
-#define AD74413R_DIN_COMP_OUT_MASK_X(x)		BIT(x)
 #define AD74413R_DIN_COMP_OUT_SHIFT_X(x)	x
 
 #define AD74413R_REG_ADC_RESULT_X(x)	(0x26 + (x))
@@ -281,10 +280,7 @@ static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	if (ret)
 		return ret;
 
-	status &= AD74413R_DIN_COMP_OUT_MASK_X(offset);
-	status >>= AD74413R_DIN_COMP_OUT_SHIFT_X(offset);
-
-	return status;
+	return status & AD74413R_DIN_COMP_OUT_SHIFT_X(offset) ? 1 : 0;
 }
 
 static int ad74413r_set_channel_dac_code(struct ad74413r_state *st,
