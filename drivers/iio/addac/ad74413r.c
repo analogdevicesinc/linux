@@ -51,7 +51,6 @@ struct ad74413r_state {
 	struct completion		adc_data_completion;
 
 	struct spi_device		*spi;
-	struct iio_dev			*indio_dev;
 	struct regulator		*refin_reg;
 	struct regmap			*regmap;
 	struct device			*dev;
@@ -626,9 +625,10 @@ out:
 
 static irqreturn_t ad74413r_adc_data_interrupt(int irq, void *data)
 {
-	struct ad74413r_state *st = data;
+	struct iio_dev *indio_dev = data;
+	struct ad74413r_state *st = iio_priv(indio_dev);
 
-	if (iio_buffer_enabled(st->indio_dev))
+	if (iio_buffer_enabled(indio_dev))
 		iio_trigger_poll(st->trig);
 	else
 		complete(&st->adc_data_completion);
@@ -677,12 +677,13 @@ static int _ad74413r_get_single_adc_result(struct ad74413r_state *st,
 	return 0;
 }
 
-static int ad74413r_get_single_adc_result(struct ad74413r_state *st,
+static int ad74413r_get_single_adc_result(struct iio_dev *indio_dev,
 					  unsigned int channel, int *val)
 {
+	struct ad74413r_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = iio_device_claim_direct_mode(st->indio_dev);
+	ret = iio_device_claim_direct_mode(indio_dev);
 	if (ret)
 		return ret;
 
@@ -690,13 +691,12 @@ static int ad74413r_get_single_adc_result(struct ad74413r_state *st,
 	ret = _ad74413r_get_single_adc_result(st, channel, val);
 	mutex_unlock(&st->lock);
 
-	iio_device_release_direct_mode(st->indio_dev);
+	iio_device_release_direct_mode(indio_dev);
 
 	return ret;
 }
 
-static int ad74413r_adc_to_resistance_result(struct ad74413r_state *st,
-					     int adc_result, int *val)
+static int ad74413r_adc_to_resistance_result(int adc_result, int *val)
 {
 	if (adc_result == AD74413R_ADC_RESULT_MAX)
 		return -EINVAL;
@@ -838,16 +838,16 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec con
 		if (chan->output)
 			return -EINVAL;
 
-		return ad74413r_get_single_adc_result(st, chan->channel, val);
+		return ad74413r_get_single_adc_result(indio_dev, chan->channel, val);
 	}
 	case IIO_CHAN_INFO_PROCESSED: {
 		int ret;
 
-		ret = ad74413r_get_single_adc_result(st, chan->channel, val);
+		ret = ad74413r_get_single_adc_result(indio_dev, chan->channel, val);
 		if (ret < 0)
 			return ret;
 
-		ad74413r_adc_to_resistance_result(st, *val, val);
+		ad74413r_adc_to_resistance_result(*val, val);
 
 		return ret;
 	}
@@ -1003,9 +1003,10 @@ static struct ad74413r_channels ad74413r_channels_map[] = {
 	[CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART] = AD74413R_CHANNELS(digital_input),
 };
 
-static int ad74413r_parse_channel_config(struct ad74413r_state *st,
+static int ad74413r_parse_channel_config(struct iio_dev *indio_dev,
 					 struct fwnode_handle *channel_node)
 {
+	struct ad74413r_state *st = iio_priv(indio_dev);
 	struct ad74413r_channel_config *config;
 	u32 index;
 	int ret;
@@ -1060,20 +1061,21 @@ static int ad74413r_parse_channel_config(struct ad74413r_state *st,
 	if (ret)
 		return ret;
 
-	st->indio_dev->num_channels += ad74413r_channels_map[config->func].num_channels;
+	indio_dev->num_channels += ad74413r_channels_map[config->func].num_channels;
 
 	config->initialized = true;
 
 	return 0;
 }
 
-static int ad74413r_parse_channel_configs(struct ad74413r_state *st)
+static int ad74413r_parse_channel_configs(struct iio_dev *indio_dev)
 {
+	struct ad74413r_state *st = iio_priv(indio_dev);
 	struct fwnode_handle *channel_node = NULL;
 	int ret;
 
 	fwnode_for_each_available_child_node(dev_fwnode(st->dev), channel_node) {
-		ret = ad74413r_parse_channel_config(st, channel_node);
+		ret = ad74413r_parse_channel_config(indio_dev, channel_node);
 		if (ret) {
 			dev_err(st->dev, "Failed to parse channel %s config: %d\n",
 				fwnode_get_name(channel_node), ret);
@@ -1089,17 +1091,18 @@ put_channel_node:
 	return ret;
 }
 
-static int ad74413r_setup_iio_channels(struct ad74413r_state *st)
+static int ad74413r_setup_iio_channels(struct iio_dev *indio_dev)
 {
+	struct ad74413r_state *st = iio_priv(indio_dev);
 	struct iio_chan_spec *channels;
 	unsigned int i;
 
 	channels = devm_kcalloc(st->dev, sizeof(*channels),
-				st->indio_dev->num_channels, GFP_KERNEL);
+				indio_dev->num_channels, GFP_KERNEL);
 	if (!channels)
 		return -ENOMEM;
 
-	st->indio_dev->channels = channels;
+	indio_dev->channels = channels;
 
 	for (i = 0; i < AD74413R_CHANNEL_MAX; i++) {
 		struct ad74413r_channel_config *config = &st->channel_configs[i];
@@ -1148,7 +1151,6 @@ static int ad74413r_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->dev = &spi->dev;
 	st->config = device_get_match_data(&spi->dev);
-	st->indio_dev = indio_dev;
 	mutex_init(&st->lock);
 	init_completion(&st->adc_data_completion);
 
@@ -1222,11 +1224,11 @@ static int ad74413r_probe(struct spi_device *spi)
 	indio_dev->info = &ad74413r_info;
 	indio_dev->trig = iio_trigger_get(st->trig);
 
-	ret = ad74413r_parse_channel_configs(st);
+	ret = ad74413r_parse_channel_configs(indio_dev);
 	if (ret)
 		return ret;
 
-	ret = ad74413r_setup_iio_channels(st);
+	ret = ad74413r_setup_iio_channels(indio_dev);
 	if (ret) {
 		dev_err(st->dev, "Failed to setup iio channels: %d\n", ret);
 		return ret;
@@ -1237,7 +1239,7 @@ static int ad74413r_probe(struct spi_device *spi)
 		return ret;
 
 	ret = devm_request_irq(st->dev, spi->irq, ad74413r_adc_data_interrupt,
-			       IRQF_TRIGGER_FALLING, name, st);
+			       IRQF_TRIGGER_FALLING, name, indio_dev);
 	if (ret)
 		return ret;
 
