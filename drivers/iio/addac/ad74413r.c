@@ -377,204 +377,112 @@ static int ad74413r_set_adc_rejection(struct ad74413r_state *st, unsigned int ch
 				  FIELD_PREP(AD74413R_ADC_CONFIG_REJECTION_MASK, val));
 }
 
-static int ad74413r_get_adc_rate(struct ad74413r_state *st, unsigned int channel, int *val)
+static int ad74413r_rejection_to_rate(struct ad74413r_state *st,
+				      unsigned int rej, int *val)
 {
-	unsigned int rej;
-	int ret;
-
-	ret = ad74413r_get_adc_rejection(st, channel, &rej);
-	if (ret)
-		return ret;
-
 	switch (rej) {
 	case AD74413R_ADC_REJECTION_50_60:
 		*val = 20;
-		break;
+		return 0;
 	case AD74413R_ADC_REJECTION_NONE:
 		*val = 4800;
-		break;
+		return 0;
 	case AD74413R_ADC_REJECTION_50_60_HART:
 		*val = 10;
-		break;
+		return 0;
 	case AD74413R_ADC_REJECTION_HART:
 		*val = 1200;
-		break;
-	default:
-		dev_err(st->dev, "Channel %u ADC rejection invalid\n", channel);
-		return -EINVAL;
+		return 0;
 	}
 
-	return IIO_VAL_INT;
+	dev_err(st->dev, "ADC rejection invalid\n", channel);
+	return -EINVAL;
 }
 
-static int ad74413r_set_adc_rate(struct ad74413r_state *st, unsigned int channel, int val)
+static int ad74413r_rate_to_rejection(struct ad74413r_state *st,
+				      int rate, unsigned int *val)
 {
-	unsigned int rej;
-
-	switch (val) {
+	switch (rate) {
 	case 20:
-		rej = AD74413R_ADC_REJECTION_50_60;
-		break;
+		*val = AD74413R_ADC_REJECTION_50_60;
+		return 0;
 	case 4800:
-		rej = AD74413R_ADC_REJECTION_NONE;
-		break;
+		*val = AD74413R_ADC_REJECTION_NONE;
+		return 0;
 	case 10:
-		rej = AD74413R_ADC_REJECTION_50_60_HART;
-		break;
+		*val = AD74413R_ADC_REJECTION_50_60_HART;
+		return 0;
 	case 1200:
-		rej = AD74413R_ADC_REJECTION_HART;
-		break;
-	default:
-		dev_err(st->dev, "Channel %u ADC rate invalid\n", channel);
-		return -EINVAL;
+		*val = AD74413R_ADC_REJECTION_HART;
+		return 0;
 	}
 
-	if (!st->config->hart_support && (val == AD74413R_ADC_REJECTION_50_60_HART
-		|| val == AD74413R_ADC_REJECTION_HART)) {
-		dev_err(st->dev, "HART rate not supported %d\n", val);
-		return -EINVAL;
-	}
-
-	return ad74413r_set_adc_rejection(st, channel, rej);
+	dev_err(st->dev, "ADC rate invalid\n");
+	return -EINVAL;
 }
 
-static int ad74413r_get_adc_voltage_range(struct ad74413r_state *st, unsigned int channel,
-					  int *val)
+static int ad74413r_range_to_voltage_range(struct ad74413r_state *st,
+					   unsigned int range, int *val)
 {
-	unsigned int range;
-	int ret;
-
-	ret = ad74413r_get_adc_range(st, channel, &range);
-	if (ret)
-		return ret;
-
 	switch (range) {
 	case AD74413R_ADC_RANGE_10V:
 		*val = 10000;
-		break;
+		return 0;
 	case AD74413R_ADC_RANGE_2P5V_EXT_POW:
 	case AD74413R_ADC_RANGE_2P5V_INT_POW:
 		*val = 2500;
-		break;
+		return 0;
 	case AD74413R_ADC_RANGE_5V_BI_DIR:
 		*val = 5000;
-		break;
-	default:
-		dev_err(st->dev, "Channel %u ADC range invalid\n", channel);
-		return -EINVAL;
+		return 0;
 	}
 
-	return 0;
+	dev_err(st->dev, "ADC range invalid\n");
+	return -EINVAL;
 }
 
-static int ad74413r_get_adc_voltage_offset(struct ad74413r_state *st, unsigned int channel,
-					   int *val)
+static int ad74413r_range_to_voltage_offset(struct ad74413r_state *st,
+					    unsigned int range, int *val)
 {
-	unsigned int range;
-	int ret;
-
-	ret = ad74413r_get_adc_range(st, channel, &range);
-	if (ret)
-		return ret;
-
 	switch (range) {
 	case AD74413R_ADC_RANGE_10V:
 	case AD74413R_ADC_RANGE_2P5V_EXT_POW:
 		*val = 0;
-		break;
+		return 0;
 	case AD74413R_ADC_RANGE_2P5V_INT_POW:
 	case AD74413R_ADC_RANGE_5V_BI_DIR:
 		*val = -2500;
-		break;
-	default:
-		dev_err(st->dev, "Channel %u ADC range invalid\n", channel);
-		return -EINVAL;
+		return 0;
 	}
 
-	return 0;
+	dev_err(st->dev, "ADC range invalid\n");
+	return -EINVAL;
 }
 
-static int ad74413r_get_input_voltage_scale(struct ad74413r_state *st, unsigned int channel,
-					    int *val, int *val2)
+static int ad74413r_range_to_voltage_offset_raw(struct ad74413r_state *st,
+						unsigned int range, int *val)
 {
-	int ret;
-
-	ret = ad74413r_get_adc_voltage_range(st, channel, val);
-	if (ret)
-		return ret;
-
-	*val2 = AD74413R_ADC_RESULT_MAX;
-
-	return IIO_VAL_FRACTIONAL;
-}
-
-static int ad74413r_get_input_voltage_offset(struct ad74413r_state *st, unsigned int channel,
-					     int *val, int *val2)
-{
-	unsigned int range;
-	int ret;
-
-	ret = ad74413r_get_adc_range(st, channel, &range);
-	if (ret)
-		return ret;
-
 	switch (range) {
 	case AD74413R_ADC_RANGE_10V:
 	case AD74413R_ADC_RANGE_2P5V_EXT_POW:
 		*val = 0;
-		break;
+		return 0;
 	case AD74413R_ADC_RANGE_2P5V_INT_POW:
 		*val = -AD74413R_ADC_RESULT_MAX;
-		break;
+		return 0;
 	case AD74413R_ADC_RANGE_5V_BI_DIR:
 		*val = -AD74413R_ADC_RESULT_MAX / 2;
-		break;
-	default:
-		dev_err(st->dev, "Channel %u ADC range invalid\n", channel);
-		return -EINVAL;
+		return 0;
 	}
 
-	return IIO_VAL_INT;
-}
-
-static int ad74413r_get_input_current_scale(struct ad74413r_state *st, unsigned int channel,
-					       int *val, int *val2)
-{
-	int ret;
-
-	ret = ad74413r_get_adc_voltage_range(st, channel, val);
-	if (ret)
-		return ret;
-
-	*val2 = AD74413R_ADC_RESULT_MAX * st->rsense_resistance_ohms;
-
-	return IIO_VAL_FRACTIONAL;
-}
-
-static int ad74413_get_input_current_offset(struct ad74413r_state *st, unsigned int channel,
-					    int *val, int *val2)
-{
-	int range;
-	int offset;
-	int ret;
-
-	ret = ad74413r_get_adc_voltage_range(st, channel, &range);
-	if (ret)
-		return ret;
-
-	ret = ad74413r_get_adc_voltage_offset(st, channel, &offset);
-	if (ret)
-		return ret;
-
-	*val = offset * AD74413R_ADC_RESULT_MAX / range;
-
-	return IIO_VAL_INT;
+	dev_err(st->dev, "ADC range invalid\n");
+	return -EINVAL;
 }
 
 static int ad74413r_get_output_voltage_scale(struct ad74413r_state *st,
 					     int *val, int *val2)
 {
-	*val = 11000;
+	*val = AD74413R_DAC_VOLTAGE_MAX;
 	*val2 = AD74413R_DAC_CODE_MAX;
 
 	return IIO_VAL_FRACTIONAL;
@@ -586,6 +494,86 @@ static int ad74413r_get_output_current_scale(struct ad74413r_state *st, int *val
 	*val2 = st->rsense_resistance_ohms * AD74413R_DAC_CODE_MAX * 1000;
 
 	return IIO_VAL_FRACTIONAL;
+}
+
+static int ad74413r_get_input_voltage_scale(struct ad74413r_state *st, unsigned int channel,
+					    int *val, int *val2)
+{
+	unsigned int range;
+	int ret;
+
+	ret = ad74413r_get_adc_range(st, channel, &range);
+	if (ret)
+		return ret;
+
+	ret = ad74413r_range_to_voltage_range(st, range, val);
+	if (ret)
+		return ret;
+
+	*val2 = AD74413R_ADC_RESULT_MAX;
+
+	return IIO_VAL_FRACTIONAL;
+}
+
+
+static int ad74413r_get_input_voltage_offset(struct ad74413r_state *st,
+					     unsigned int range, int *val)
+{
+	unsigned int range;
+	int ret;
+
+	ret = ad74413r_get_adc_range(st, channel, &range);
+	if (ret)
+		return ret;
+
+	ret = ad74413r_range_to_voltage_offset_raw(st, range, val);
+	if (ret)
+		return ret;
+
+	return IIO_VAL_INT;
+}
+
+static int ad74413r_get_input_current_scale(struct ad74413r_state *st, unsigned int channel,
+					       int *val, int *val2)
+{
+	int ret;
+
+	ret = ad74413r_get_adc_range(st, channel, &range);
+	if (ret)
+		return ret;
+
+	ret = ad74413r_range_to_voltage_range(st, range, val);
+	if (ret)
+		return ret;
+
+	*val2 = AD74413R_ADC_RESULT_MAX * st->rsense_resistance_ohms;
+
+	return IIO_VAL_FRACTIONAL;
+}
+
+static int ad74413_get_input_current_offset(struct ad74413r_state *st, unsigned int channel,
+					    int *val, int *val2)
+{
+	unsigned int range;
+	int voltage_range;
+	int voltage_offset;
+	int ret;
+
+	ret = ad74413r_get_adc_range(st, channel, &range);
+	if (ret)
+		return ret;
+
+	ret = ad74413r_range_to_voltage_range(st, range, &voltage_range);
+	if (ret)
+		return ret;
+
+	ret = ad74413r_range_to_voltage_offset(st, range, &voltage_offset);
+	if (ret)
+		return ret;
+
+	*val = voltage_offset * AD74413R_ADC_RESULT_MAX / voltage_range;
+
+	return IIO_VAL_INT;
 }
 
 static irqreturn_t ad74413r_trigger_handler(int irq, void *p)
