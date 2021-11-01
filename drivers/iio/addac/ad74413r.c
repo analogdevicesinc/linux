@@ -159,8 +159,7 @@ static void ad74413r_format_reg_write(unsigned int reg, unsigned int val, u8 *bu
 
 static int ad74413r_reg_write(void *context, unsigned int reg, unsigned int val)
 {
-	struct device *dev = context;
-	struct spi_device *spi = to_spi_device(dev);
+	struct spi_device *spi = context;
 	struct ad74413r_state *st = spi_get_drvdata(spi);
 	u8 *buf = (u8 *)&st->reg_write_buf[0];
 
@@ -184,8 +183,7 @@ static int ad74413r_crc_check(struct ad74413r_state *st, u8 *buf)
 
 static int ad74413r_reg_read(void *context, unsigned int reg, unsigned int *val)
 {
-	struct device *dev = context;
-	struct spi_device *spi = to_spi_device(dev);
+	struct spi_device *spi = context;
 	struct ad74413r_state *st = spi_get_drvdata(spi);
 	u8 *buf = (u8 *)&st->reg_read_buf[1];
 	int ret;
@@ -1172,7 +1170,7 @@ static int ad74413r_probe(struct spi_device *spi)
 
 	spi_message_init_with_transfers(&st->reg_write_msg, st->reg_write_xfer, 1);
 
-	st->regmap = devm_regmap_init(st->dev, NULL, &spi->dev, &ad74413r_regmap_config);
+	st->regmap = devm_regmap_init(st->dev, NULL, spi, &ad74413r_regmap_config);
 	if (IS_ERR(st->regmap))
 		return PTR_ERR(st->regmap);;
 
