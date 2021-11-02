@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <asm/unaligned.h>
+#include <linux/interrupt.h>
 
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -20,6 +21,7 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/sysfs.h>
@@ -36,6 +38,10 @@
  * @lock		mutex for the device
  */
 struct ade9078_device {
+	struct mutex lock;
+	u32 irq0_bits;
+	u32 irq1_bits;
+
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
@@ -43,9 +49,10 @@ struct ade9078_device {
 	u8 rx_buff[ADE9078_WFB_PAGE_ARRAY_SIZE] ____cacheline_aligned;
 	struct spi_transfer	xfer[2];
 	struct spi_message spi_msg;
-	struct mutex lock;
 	struct regmap *regmap;
 	struct iio_dev *indio_dev;
+
+	struct iio_trigger *trig;
 };
 
 //IIO channels of the ade9078
@@ -55,6 +62,7 @@ static const struct iio_chan_spec ade9078_channels[] = {
 		.indexed = 1,
 		.channel = 0,
         .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+							BIT(IIO_CHAN_INFO_ENABLE)|
 							BIT(IIO_CHAN_INFO_SCALE),
 		.scan_index = 0,
 		.scan_type = {
@@ -66,6 +74,84 @@ static const struct iio_chan_spec ade9078_channels[] = {
 		},
 	},
 };
+
+static const struct iio_trigger_ops ade9078_trigger_ops = {
+
+};
+
+static int ade9078_set_interrupts(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
+{
+
+	if(interrupt_nr == 0)
+	{
+		ade9078_dev->irq0_bits |= mask;
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, mask);
+	}
+	else
+	{
+		ade9078_dev->irq1_bits |= mask;
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, mask);
+	}
+}
+
+static int ade9078_clear_interrupts(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
+{
+	if(interrupt_nr == 0)
+	{
+		ade9078_dev->irq0_bits &= ~mask;
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, 0);
+	}
+	else
+	{
+		ade9078_dev->irq1_bits &= ~mask;
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, 0);
+	}
+}
+
+static int ade9078_clear_interrupt_status(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
+{
+	if(interrupt_nr == 0)
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0, mask, mask);
+	else
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0, mask, mask);
+}
+
+
+static int ade9078_test_interrupt_status(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
+{
+	u32 val;
+	int ret;
+
+	if(interrupt_nr == 0)
+		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &val);
+	else
+		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS1, &val);
+
+	if (ret)
+		return ret;
+
+	return (val & mask) == mask;
+}
+
+static irqreturn_t ade9078_data_interrupt(int irq, void *data)
+{
+	struct ade9078_device *ade9078_dev = data;
+	u32 error_status;
+
+//	error_status = ade9078_test_interrupt_status(ade9078_dev, 1,
+//			ADE9078_ST_ERROR);
+//	if (error_status)
+//	{
+//		dev_err(&ade9078_dev->spi->dev, "ADE9078 error 0x%x", error_status);
+//		return IRQ_HANDLED;
+//	}
+
+	dev_info(&ade9078_dev->spi->dev, "Interrupted");
+	if (iio_buffer_enabled(ade9078_dev->indio_dev))
+		iio_trigger_poll(ade9078_dev->trig);
+
+	return IRQ_HANDLED;
+}
 
 /*
  * ade9078_spi_write_reg() - ade9078 write register over SPI
@@ -210,6 +296,7 @@ static irqreturn_t ade9078_trigger_handler(int irq, void *p)
 	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
 	int ret;
 
+	dev_info(&ade9078_dev->spi->dev, "Triggered");
 	if(bitmap_empty(indio_dev->active_scan_mask, indio_dev->masklength))
 	{
 		dev_err(&ade9078_dev->spi->dev, "Bitmap empty in trigger handler");
@@ -238,7 +325,7 @@ err_out:
 	return IRQ_HANDLED;
 }
 
-int ade9078_en_wfb(struct ade9078_device *ade9078_dev, bool state)
+static int ade9078_en_wfb(struct ade9078_device *ade9078_dev, bool state)
 {
 	if(state)
 		return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG, BIT_MASK(4), BIT_MASK(4));
@@ -359,8 +446,11 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 			     int val2,
 			     long mask)
 {
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+
 	switch (mask) {
-	case IIO_CHAN_INFO_RAW:
+	case IIO_CHAN_INFO_ENABLE:
+		ade9078_en_wfb(ade9078_dev, val);
 		return 0;
 	}
 
@@ -462,7 +552,7 @@ static int ade9078_probe(struct spi_device *spi)
 	struct ade9078_device *ade9078_dev;
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
-
+	struct iio_trigger *trig;
 
 	printk(KERN_INFO "Enter ade9078_probe\n");
 
@@ -495,8 +585,23 @@ static int ade9078_probe(struct spi_device *spi)
 		return PTR_ERR(regmap);
 	}
 
+	trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d", KBUILD_MODNAME, indio_dev->id);
+	if (!trig)
+	{
+		dev_err(&spi->dev,"Unable to allocate ADE9078 trigger");
+		return -ENOMEM;
+	}
+
 	mutex_init(&ade9078_dev->lock);
 	spi_set_drvdata(spi, ade9078_dev);
+	iio_trigger_set_drvdata(trig, ade9078_dev);
+
+	ret = devm_iio_trigger_register(&spi->dev, trig);
+	if (ret)
+	{
+		dev_err(&spi->dev,"Unable to register ADE9078 trigger");
+		return ret;
+	}
 
 	ade9078_dev->spi = spi;
 	ade9078_dev->spi->mode = SPI_MODE_0;
@@ -508,9 +613,22 @@ static int ade9078_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = ade9078_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ade9078_channels);
+	indio_dev->trig = iio_trigger_get(trig);
 
 	ade9078_dev->regmap = regmap;
 	ade9078_dev->indio_dev = indio_dev;
+
+	ade9078_dev->trig = trig;
+	ade9078_dev->trig->dev.parent = &spi->dev;
+	ade9078_dev->trig->ops = &ade9078_trigger_ops;
+
+	ret = devm_request_irq(&spi->dev, spi->irq, ade9078_data_interrupt,
+			       IRQF_TRIGGER_FALLING, KBUILD_MODNAME, ade9078_dev);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
+		return ret;
+	}
+
 
 	ade9078_configure_scan(indio_dev);
 
@@ -533,6 +651,8 @@ static int ade9078_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "Unable to setup ADE9078");
 		return ret;
 	}
+
+	ade9078_set_interrupts(ade9078_dev, 0, ADE9078_ST0_WFB_TRIG_IRQ);
 
 	ade9078_en_wfb(ade9078_dev, true);
 
