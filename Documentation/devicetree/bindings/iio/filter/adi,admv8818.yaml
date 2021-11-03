@@ -81,7 +81,7 @@ examples:
         clocks = <&admv8818_rfin>;
         clock-scales = <1 5>;
         clock-names = "rf_in";
-        adi,tolerance-percent = <3>;
+        adi,bw-hz = /bits/ 64 <600000000>;
       };
     };
 ...
