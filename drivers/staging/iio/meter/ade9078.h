@@ -553,3 +553,100 @@
 #define ADE9000_WATT_FULL_SCALE_CODES 20694066
 #define ADE9000_RESAMPLED_FULL_SCALE_CODES  18196
 #define ADE9078_PCF_FULL_SCALE_CODES  74770000
+
+#define ADE9078_PHASE_A_CHAN_NR		0
+#define ADE9078_PHASE_B_CHAN_NR		2
+#define ADE9078_PHASE_C_CHAN_NR		4
+#define ADE9078_PHASE_A_CHAN_NAME	"A"
+#define ADE9078_PHASE_B_CHAN_NAME	"B"
+#define ADE9078_PHASE_C_CHAN_NAME	"C"
+
+#define ADE9078_SCAN_POS_IA			BIT(0)
+#define ADE9078_SCAN_POS_VA			BIT(1)
+#define ADE9078_SCAN_POS_IB			BIT(2)
+#define ADE9078_SCAN_POS_VB			BIT(3)
+#define ADE9078_SCAN_POS_IC			BIT(4)
+#define ADE9078_SCAN_POS_VC			BIT(5)
+
+#define CHAN_ADDR_ADJUST(addr,chan)	((chan << 4) | (addr))
+
+#define ADE9078_CHANNEL(num, name)						\
+	{													\
+		.type = IIO_CURRENT,							\
+		.channel = num,									\
+		.extend_name = name,							\
+		.address = CHAN_ADDR_ADJUST(ADDR_AI_PCF,num),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = num,								\
+		.scan_type = {									\
+			.sign = 's',								\
+			.realbits = 32,								\
+			.storagebits = 32,							\
+			.shift = 0,									\
+			.endianness = IIO_BE,						\
+		},												\
+	},													\
+	{													\
+		.type = IIO_VOLTAGE,							\
+		.channel = num,									\
+		.extend_name = name,							\
+		.address = CHAN_ADDR_ADJUST(ADDR_AV_PCF,num),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = num + 1,							\
+		.scan_type = {									\
+			.sign = 's',								\
+			.realbits = 32,								\
+			.storagebits = 32,							\
+			.shift = 0,									\
+			.endianness = IIO_BE,						\
+		},												\
+	},													\
+	{													\
+		.type = IIO_CURRENT,							\
+		.channel = num,									\
+		.address = CHAN_ADDR_ADJUST(ADDR_AIRMS,num),	\
+		.extend_name = name "_rms",						\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = -1								\
+	},													\
+	{													\
+		.type = IIO_VOLTAGE,							\
+		.channel = num,									\
+		.address = CHAN_ADDR_ADJUST(ADDR_AVRMS,num),	\
+		.extend_name = name "_rms",						\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = -1								\
+	},													\
+	{													\
+		.type = IIO_POWER,								\
+		.channel = num,									\
+		.address = CHAN_ADDR_ADJUST(ADDR_AVAR,num),		\
+		.extend_name = name "_reactiv",					\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = -1								\
+	},													\
+	{													\
+		.type = IIO_POWER,								\
+		.channel = num,									\
+		.address = CHAN_ADDR_ADJUST(ADDR_AVA,num),		\
+		.extend_name = name "_apparent",				\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = -1								\
+	},													\
+	{													\
+		.type = IIO_POWER,								\
+		.channel = num,									\
+		.address = CHAN_ADDR_ADJUST(ADDR_AWATT,num),	\
+		.extend_name = name "_fund_reactiv",			\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = -1								\
+	},													\
+	{													\
+		.type = IIO_POWER,								\
+		.channel = num,									\
+		.address = CHAN_ADDR_ADJUST(ADDR_APF,num),		\
+		.extend_name = name "_factor",					\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.scan_index = -1								\
+	}
+

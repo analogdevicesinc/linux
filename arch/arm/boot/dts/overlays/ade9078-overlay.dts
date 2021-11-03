@@ -22,6 +22,10 @@
                 spi-max-frequency = <1000000>;
 		interrupts = <2 2>;
 		interrupt-parent = <&gpio>;
+		adi,wf-cap-sel = <0x1>;
+		adi,wf-mode = <0x0>;
+		adi,wf-src = <0x3>;
+		adi,wf-in-en = <0x0>;
             };
                 };
         };
