@@ -704,7 +704,7 @@ static int ade9078_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, ade9078_dev);
 	iio_trigger_set_drvdata(trig, ade9078_dev);
 
-	ret = devm_iio_trigger_register(&spi->dev, trig);
+	ret = iio_trigger_register(trig);
 	if (ret)
 	{
 		dev_err(&spi->dev,"Unable to register ADE9078 trigger");
@@ -727,7 +727,7 @@ static int ade9078_probe(struct spi_device *spi)
 	ade9078_dev->indio_dev = indio_dev;
 
 	ade9078_dev->trig = trig;
-	ade9078_dev->trig->dev.parent = &spi->dev;
+	ade9078_dev->trig->dev.parent = &ade9078_dev->spi->dev;
 	ade9078_dev->trig->ops = &ade9078_trigger_ops;
 
 	irqflags = irq_get_trigger_type(spi->irq);
@@ -773,6 +773,11 @@ static int ade9078_remove(struct spi_device *spi)
 {
 	struct ade9078_device *ade9078_dev = spi_get_drvdata(spi);
 	struct iio_dev *indio_dev = ade9078_dev->indio_dev;
+
+	printk(KERN_INFO "Exit ade9078_probe\n");
+	ade9078_dev->trig->dev.parent = NULL;
+	iio_trigger_unregister(ade9078_dev->trig);
+	iio_device_unregister(indio_dev);
 
 	return 0;
 }
