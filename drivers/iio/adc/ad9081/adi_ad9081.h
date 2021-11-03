@@ -291,21 +291,6 @@
 /*============= ENUMS ==============*/
 
 /*!
- * @brief Enumerates Chip Output Resolution
- */
-typedef enum {
-	AD9081_CHIP_OUT_RES_16BIT = 0x0, /*!< 16Bit */
-	AD9081_CHIP_OUT_RES_15BIT = 0x1, /*!< 15Bit */
-	AD9081_CHIP_OUT_RES_14BIT = 0x2, /*!< 14Bit */
-	AD9081_CHIP_OUT_RES_13BIT = 0x3, /*!< 13Bit */
-	AD9081_CHIP_OUT_RES_12BIT = 0x4, /*!< 12Bit */
-	AD9081_CHIP_OUT_RES_11BIT = 0x5, /*!< 11Bit */
-	AD9081_CHIP_OUT_RES_10BIT = 0x6, /*!< 10Bit */
-	AD9081_CHIP_OUT_RES_09BIT = 0x7, /*!<  9Bit */
-	AD9081_CHIP_OUT_RES_08BIT = 0x8 /*!<  8Bit */
-} adi_ad9081_chip_output_res_e;
-
-/*!
  * @brief Enumerates DAC Select
  */
 typedef enum {
@@ -318,7 +303,7 @@ typedef enum {
 } adi_ad9081_dac_select_e;
 
 /*!
- * @brief Enumerates DAC Channel Select
+ * @brief Enumerates DAC Channel / Fine DUC Datapath Select
  */
 typedef enum {
 	AD9081_DAC_CH_NONE = 0x00, /*!< No Channel */
@@ -334,27 +319,40 @@ typedef enum {
 } adi_ad9081_dac_channel_select_e;
 
 /*!
- * @brief Enumerates DAC Mode Switch Group Select
+ * @brief Enumerates Main DAC Datapth / Coarse DUC Datapath Select
  */
 typedef enum {
-	AD9081_DAC_MODE_SWITCH_GROUP_NONE = 0x00, /*!< No Group */
-	AD9081_DAC_MODE_SWITCH_GROUP_0 = 0x01, /*!< Group 0 (DAC0 & DAC1) */
-	AD9081_DAC_MODE_SWITCH_GROUP_1 = 0x02, /*!< Group 1 (DAC2 & DAC3) */
-	AD9081_DAC_MODE_SWITCH_GROUP_ALL = 0x03, /*!< All Groups */
-} adi_ad9081_dac_mode_switch_group_select_e;
+	AD9081_DAC_DP_NONE = 0x0, /*!< No Coarse DUC /No Main DAC Datapath */
+	AD9081_DAC_DP_0 = 0x1, /*!< Coarse DUC 0/ Main DAC0 Datapath */
+	AD9081_DAC_DP_1 = 0x2, /*!< Coarse DUC 1/ Main DAC1 Datapath */
+	AD9081_DAC_DP_2 = 0x4, /*!< Coarse DUC 2/ Main DAC2 Datapath */
+	AD9081_DAC_DP_3 = 0x8, /*!< Coarse DUC 3/ Main DAC3 Datapath */
+	AD9081_DAC_DP_ALL = 0x0F /*!< ALL Coarse DUC /ALL Main DAC Datapths */
+} adi_ad9081_dac_dp_select_e;
 
 /*!
- * @brief Enumerates DAC Mode Select
+ * @brief Enumerates DAC PAIRING for DAC mode Configuration
  */
 typedef enum {
-	AD9081_DAC_MODE_0 = 0x00, /*!< I0.Q0 -> DAC0, I1.Q1 -> DAC1 */
-	AD9081_DAC_MODE_1 =
+	AD9081_DAC_PAIR_NONE = 0x00, /*!< No Group */
+	AD9081_DAC_PAIR_0_1 = 0x01, /*!< Group 0 (DAC0 & DAC1) */
+	AD9081_DAC_PAIR_2_3 = 0x02, /*!< Group 1 (DAC2 & DAC3) */
+	AD9081_DAC_PAIR_ALL = 0x03, /*!< All Groups */
+} adi_ad9081_dac_pair_select_e;
+
+/*!
+ * @brief Enumerates DAC PAIR CDUC I/Q Data to DAC Core Modulation Mux Routing modes
+ */
+typedef enum {
+	AD9081_DAC_MUX_MODE_0 =
+		0x00, /*!<  I0.Q0 -> DAC0, Complex I1.Q1 -> DAC1 */
+	AD9081_DAC_MUX_MODE_1 =
 		0x01, /*!< (I0 + I1) / 2 -> DAC0, (Q0 + Q1) / 2 -> DAC1, Data Path NCOs Bypassed */
-	AD9081_DAC_MODE_2 =
+	AD9081_DAC_MUX_MODE_2 =
 		0x02, /*!< I0 -> DAC0, Q0 -> DAC1, Datapath0 NCO Bypassed, Datapath1 Unused */
-	AD9081_DAC_MODE_3 =
+	AD9081_DAC_MUX_MODE_3 =
 		0x03, /*!< (I0 + I1) / 2 -> DAC0, DAC1 Output Tied To Midscale */
-} adi_ad9081_dac_mode_e;
+} adi_ad9081_dac_mod_mux_mode_e;
 
 /*!
  * @brief Enumerates ADC Select
@@ -767,7 +765,9 @@ typedef struct {
 typedef struct {
 	adi_ad9081_ser_lane_settings_t lane_settings[8];
 	uint8_t invert_mask;
-	uint8_t lane_mapping[2][8];
+	uint8_t lane_mapping
+		[2]
+		[8]; /*Deserialise Lane Mapping, Map Virtual Converter to Physical Lane, index is physical, value is logical lane*/
 } adi_ad9081_ser_settings_t;
 
 /*!
@@ -780,7 +780,7 @@ typedef struct {
 		[8]; /*Equaliser CTLE Filter Selection, Range 0 - 4, based on Jesd IL, Pick lower setting for Higher Insertion loss*/
 	uint8_t lane_mapping
 		[2]
-		[8]; /*Deserialise Lane Mapping, Map Virtual Converter to Physical Lane*/
+		[8]; /*Deserialise Lane Mapping, Map Virtual Converter to Physical Lane, index is logical lane, value is physical lane*/
 } adi_ad9081_des_settings_t;
 
 /*!
@@ -840,8 +840,6 @@ typedef struct {
 		tx_en_pin_ctrl; /*!< Function pointer to hal tx_enable pin control function */
 	adi_reset_pin_ctrl_t
 		reset_pin_ctrl; /*!< Function pointer to hal reset# pin control function */
-	adi_sysref_ctrl_t
-		sysref_ctrl; /*!< Function pointer to hal sysref control function */
 } adi_ad9081_hal_t;
 
 /*!
@@ -1132,7 +1130,7 @@ int32_t adi_ad9081_device_main_auto_clk_gen_enable(adi_ad9081_device_t *device,
 
 /*===== 2 . 0   T R A N S M I T  P A T H  S E T U P =====*/
 /**
- * @ingroup tx_setup
+ * @ingroup tx_data_path_setup
  * @brief  System Top Level API. \n Startup Tx As NCO Test Mode
  *         This API will be called after adi_ad9081_device_clk_config_set().
  *
@@ -1154,7 +1152,7 @@ adi_ad9081_device_startup_nco_test(adi_ad9081_device_t *device,
 				   int64_t chan_shift[8], uint16_t dc_offset);
 
 /**
- * @ingroup tx_setup
+ * @ingroup tx_data_path_setup
  * @brief  System Top Level API. \n Startup Tx
  *         This API will be called after adi_ad9081_device_clk_config_set().
  *
@@ -1176,7 +1174,7 @@ int32_t adi_ad9081_device_startup_tx(adi_ad9081_device_t *device,
 				     adi_cms_jesd_param_t *jesd_param);
 
 /**
- * @ingroup tx_setup
+ * @ingroup tx_data_path_setup
  * @brief  System Top Level API. \n Set Fine DUC gain
  *         Call after adi_ad9081_device_startup_tx().
  *
@@ -1190,25 +1188,42 @@ int32_t adi_ad9081_dac_duc_nco_gains_set(adi_ad9081_device_t *device,
 					 uint16_t gains[8]);
 
 /**
- * @ingroup tx_setup
- * @brief  System Top Level API. \n Set DAC working mode
+ * @ingroup tx_data_path_setup
+ * @brief  System Top Level API. \n
+ *         Set DAC Data source Mux mode.
  *         Call after adi_ad9081_device_startup_tx()
  *
  * @param  device   Pointer to the device structure
- * @param  groups   Mode switch groups, @see adi_ad9081_dac_mode_switch_group_select_e
+ * @param  dac_pair DAC Pair Select for mode configuration @see adi_ad9081_dac_pair_select_e
  * @param  mode     Working mode, @see adi_ad9081_dac_mode_e
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
 int32_t
-adi_ad9081_dac_mode_set(adi_ad9081_device_t *device,
-			adi_ad9081_dac_mode_switch_group_select_e groups,
-			adi_ad9081_dac_mode_e mode);
+adi_ad9081_dac_modulation_mux_mode_set(adi_ad9081_device_t *device,
+				       adi_ad9081_dac_pair_select_e dac_pair,
+				       adi_ad9081_dac_mod_mux_mode_e mode);
+
+/**
+ * @ingroup tx_data_path_setup
+ * @brief  Set DAC complex modulation enable
+ *         Call after adi_ad9081_device_startup_tx()
+ *
+ * @param  device   Pointer to the device structure
+ * @param  groups   Mode switch groups, @see adi_ad9081_dac_pair_select_e
+ * @param  enable   1 to enable complex modulation
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_complex_modulation_enable_set(
+	adi_ad9081_device_t *device, adi_ad9081_dac_pair_select_e dac_pair,
+	uint8_t enable);
 
 /*===== 2 . 1   T R A N S M I T  T X E N =====*/
 /**
- * @ingroup tx_txen_setup
+ * @ingroup tx_transmit_en_setup
  * @brief  Set TXEN State Machine Enable
  *
  * @param  device  Pointer to the device structure
@@ -1223,7 +1238,7 @@ adi_ad9081_dac_tx_enable_state_machine_enable_set(adi_ad9081_device_t *device,
 						  uint8_t dacs, uint8_t enable);
 
 /**
- * @ingroup tx_txen_setup
+ * @ingroup tx_transmit_en_setup
  * @brief  Enable SPI as TXEN Control
  *
  * @param  device  Pointer to the device structure
@@ -1237,7 +1252,7 @@ int32_t adi_ad9081_dac_spi_as_tx_en_set(adi_ad9081_device_t *device,
 					uint8_t dacs, uint8_t enable);
 
 /**
- * @ingroup tx_txen_setup
+ * @ingroup tx_transmit_en_setup
  * @brief  Block Top Level API. \n Set Enable on DAC outputs
  *         Call after adi_ad9081_device_startup_tx().
  *
@@ -1252,7 +1267,7 @@ int32_t adi_ad9081_dac_tx_enable_set(adi_ad9081_device_t *device, uint8_t dacs,
 				     uint8_t enable);
 
 /**
- * @ingroup tx_txen_setup
+ * @ingroup tx_transmit_en_setup
  * @brief  Enable/Disable GPIOs Input For Tx Enable Control
  *
  * @param  device     Pointer to the device structure
@@ -1289,12 +1304,13 @@ int32_t adi_ad9081_dac_power_up_set(adi_ad9081_device_t *device, uint8_t dacs,
  * @param  device  Pointer to the device structure
  * @param  dacs    Target DAC Channel to enable data output
  * @param  uA      Desired current value in uA
+ * @param  rerun_cal Paramter to rerun dac cals after fsc change (recommended)
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
 int32_t adi_ad9081_dac_fsc_set(adi_ad9081_device_t *device, uint8_t dacs,
-			       uint32_t uA);
+			       uint32_t uA, uint8_t rerun_cal);
 
 /*===== 2 . 3   T R A N S M I T  C H A N N E L I Z E R  G A I N =====*/
 /**
@@ -1331,8 +1347,14 @@ int32_t adi_ad9081_dac_interpolation_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup tx_dp_setup
- * @brief  Block Top Level API. \n Set Main DAC to Channel Xbar
- *         Call after adi_ad9081_device_startup_tx().
+ * @brief  Block Top Level API. \n
+ *         Manually Set Main DAC to Channel Xbar
+ *         adi_ad9081_device_startup_tx(), Sets the DAC to Channel xbar based on channel interpolation
+ *         For Channel Bypass Modes where CH interpolation is 1, use this
+ *         API to mux IQ data pairs to the DACs
+ *         Refer to 4X4 Cross Bar in SDUG
+ *         Note This mux as a dependancy on channel interpolation, Call this API after
+ *         adi_ad9081_device_startup_tx or adi_ad9081_dac_interpolation_set
  *
  * @param  device     Pointer to the device structure
  * @param  dacs       Target DAC Channel Output
@@ -1409,22 +1431,6 @@ int32_t adi_ad9081_dac_nco_set(adi_ad9081_device_t *device, uint8_t dacs,
 int32_t adi_ad9081_dac_duc_nco_enable_set(adi_ad9081_device_t *device,
 					  uint8_t dacs, uint8_t channels,
 					  uint8_t enable);
-
-/**
- * @ingroup tx_nco_setup
- * @brief  Set DAC complex modulation enable
- *         Call after adi_ad9081_device_startup_tx()
- *
- * @param  device   Pointer to the device structure
- * @param  groups   Mode switch groups, @see adi_ad9081_dac_mode_switch_group_select_e
- * @param  enable   1 to enable complex modulation
- *
- * @return API_CMS_ERROR_OK                     API Completed Successfully
- * @return <0                                   Failed. @see adi_cms_error_e for details.
- */
-int32_t adi_ad9081_dac_complex_modulation_enable_set(
-	adi_ad9081_device_t *device,
-	adi_ad9081_dac_mode_switch_group_select_e groups, uint8_t enable);
 
 /**
  * @ingroup tx_nco_setup
@@ -2005,16 +2011,24 @@ int32_t adi_ad9081_jesd_tx_fbw_sel_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup rx_setup
- * @brief  System Top Level API. \n Set ADC Nyquist Zone
+ * @brief  System Top Level API. \n Set Nyquist Zone operation for each ADC
+ *         Required for correct ADC background Cal operation. See SDUG for more information
+ *         Nyquist Zone = ROUNDDOWN�(fIN/(fADC/2)) + 1
  *         Call after adi_ad9081_device_startup_rx().
  *
+ *
  * @param  device         Pointer to the device structure
- * @param  zone           AD9081_ADC_NYQUIST_ZONE_ODD / AD9081_ADC_NYQUIST_ZONE_EVEN
+ * @param  adc_sel        Masked list of ADC, as defined by adi_ad9081_adc_sel_e to be assign nyquist zone as described by zone parameter
+ * @param  zone           Desired nyquist zone operation for the adcs specified by adc_sel parameter.
+ *                        AD9081_ADC_NYQUIST_ZONE_ODD
+ *                        AD9081_ADC_NYQUIST_ZONE_EVEN
+ *
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
 int32_t adi_ad9081_adc_nyquist_zone_set(adi_ad9081_device_t *device,
+					adi_ad9081_adc_select_e adc_sel,
 					adi_ad9081_adc_nyquist_zone_e zone);
 
 /**
@@ -3455,6 +3469,25 @@ int32_t adi_ad9081_adc_clk_out_enable_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup rx_helper_api
+ * @brief  Set voltage swing level of ADC Clock Output Driver.
+ *
+ * @param  device     	Pointer to the device structure
+ * @param  code       	Input Value ranging -1000 to 1000 mV to estimate voltage swing as:
+ *                      code = (993mV - voltage_swing) / 99mV
+ *						(code -> Swing)
+ *						0 -> 993mV;		1 -> 894mV;		2 -> 795mV;		3 -> 696mV;		4 -> 597mV;		5 -> 498mV;		6 -> 399mV;
+ *						7 -> 300mV;		8 -> 201mV;		9 -> 102mV;		10 -> 3mV;		11 -> -96mV;	12 -> -195mV;	13 -> -294mV;
+ *						14 -> -393mV;	15 -> -492mV;	16 -> -591mV;	17 -> -690mV;	18 -> -789mV;	19 -> -888mV;	20 -> -987mV;
+ *
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_clk_out_voltage_swing_set(adi_ad9081_device_t *device,
+						 int16_t swing_mv);
+
+/**
+ * @ingroup rx_helper_api
  * @brief  Configure mapping between fast detection enable to GPIO
  *
  * @param  device     Pointer to the device structure
@@ -3801,18 +3834,6 @@ int32_t adi_ad9081_jesd_rx_power_down_des(adi_ad9081_device_t *device);
 
 /**
  * @ingroup dac_link_setup
- * @brief  Block Top Level API. \n Start onshot sync
- *         Call after adi_ad9081_device_startup_rx().
- *
- * @param  device       Pointer to the device structure
- *
- * @return API_CMS_ERROR_OK                     API Completed Successfully
- * @return <0                                   Failed. @see adi_cms_error_e for details.
- */
-int32_t adi_ad9081_jesd_oneshot_sync(adi_ad9081_device_t *device);
-
-/**
- * @ingroup dac_link_setup
  * @brief  Read jesd jrx link configuration status
  *
  * @param  device        Pointer to the device structure
@@ -3887,12 +3908,13 @@ int32_t adi_ad9081_jesd_rx_link_select_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup dac_link_setup
- * @brief  Configure the JESD Rx lanes cross bar between physical lane and logic lane
+ * @brief  Configure the JESD Rx lanes cross bar between physical lane and logic lane per link
  *         Call after adi_ad9081_device_startup_tx().
  *
  * @param  device          Pointer to the device structure
  * @param  links           Target link
- * @param  logical_lanes   Logical lane index (0~7 for each value)
+ * @param  logical_lanes   Logical lane to physical lane mapping array (0~7)
+ *                          Where the index is logical lane, value is physical lane
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -4349,7 +4371,7 @@ int32_t adi_ad9081_jesd_tx_format_sel_set(adi_ad9081_device_t *device,
  *
  * @param  device          Pointer to the device structure
  * @param  links           Target link select
- * @param  resolution      Chip output resolution, @see adi_ad9081_chip_output_res_e
+ * @param  resolution      Chip output resolution, Valid Range 8-16
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -4463,6 +4485,22 @@ int32_t adi_ad9081_jesd_tx_synca_onchip_term_enable(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_jesd_tx_syncb_onchip_term_enable(adi_ad9081_device_t *device,
 						    uint8_t enable);
+
+/**
+ * @ingroup adc_link_setup
+ * @brief  Digital reset links
+ *
+ * @param  device     Pointer to the device structure
+ * @param  links      Target link
+ * @param  reset      Enable or disable link reset
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t
+adi_ad9081_jesd_tx_force_digital_reset_set(adi_ad9081_device_t *device,
+					   adi_ad9081_jesd_link_select_e links,
+					   uint8_t reset);
 
 /*=====    A P P E N D I X  =====*/
 /**
@@ -4774,6 +4812,23 @@ adi_ad9081_jesd_tx_jtspat_enable_set(adi_ad9081_device_t *device,
 /*===== A 2 . 0   M U L T I C H I P  S Y N C  &  S U B C L A S S  1   =====*/
 /**
  * @ingroup appdx_mcs
+ * @brief  Block Top Level API. \n Start onshot sync
+ *         Call after adi_ad9081_device_startup_rx() & adi_ad9081_device_startup_tx()
+ *         And Prior to links enable
+ *
+ * @param  device       Pointer to the device structure
+ * @param  subclass     System JESD Synchronization as per application requirements
+ *                      JESD_SUBCLASS_0,
+ *                      JESD_SUBCLASS_1
+ * @return API_CMS_ERROR_OK                     api completed successfully
+ * @return API_CMS_ERROR_JESD_SYNC_NOT_DONE     synchronization did not complete
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_oneshot_sync(adi_ad9081_device_t *device,
+				     adi_cms_jesd_subclass_e subclass);
+
+/**
+ * @ingroup appdx_mcs
  * @brief  Set SYSREF Phase
  *
  * @param  device  Pointer to the device structure
@@ -4951,29 +5006,20 @@ int32_t adi_ad9081_jesd_sysref_enable_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup appdx_mcs
- * @brief  Set sysref capture enable
+ * @brief  Block Top Level API. \n Set sysref input receiver mode
  *
- * @param  device     Pointer to the device structure
- * @param  enable     1:Enable, 0:Disable
- *
- * @return API_CMS_ERROR_OK                     API Completed Successfully
- * @return <0                                   Failed. @see adi_cms_error_e for details.
- */
-int32_t adi_ad9081_jesd_sysref_spi_enable_set(adi_ad9081_device_t *device,
-					      uint8_t enable);
-
-/**
- * @ingroup appdx_mcs
- * @brief  Set sysref input mode
- *
- * @param  device     Pointer to the device structure
- * @param  input_mode 0:AC couple, 1:DC couple
+ * @param  device                                   Pointer to the device structure
+ * @param  enable_receiver                          1:Enable, 0:Disable
+ * @param  enable_capture                           1:Enable, 0:Disable
+ * @param adi_cms_signal_coupling_e input_mode      Parameter of type adi_cms_signal_coupling_e to set the desired sysref signal type
+ *                                                  COUPLING_AC or COUPLING_DC
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
-int32_t adi_ad9081_jesd_sysref_input_mode_set(adi_ad9081_device_t *device,
-					      uint8_t input_mode);
+int32_t adi_ad9081_jesd_sysref_input_mode_set(
+	adi_ad9081_device_t *device, uint8_t enable_receiver,
+	uint8_t enable_capture, adi_cms_signal_coupling_e input_mode);
 
 /**
  * @ingroup appdx_mcs
@@ -5000,6 +5046,117 @@ int32_t adi_ad9081_adc_sysref_resync_mode_set(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_adc_sysref_rise_edge_enable_set(adi_ad9081_device_t *device,
 						   uint8_t enable);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Check if potential setup time violation exists.
+ *
+ * @param  device                                 Pointer to the device structure
+ * @param  setup_risk_assessment                  Pointer to number of ones in setup time register value
+ * @param  hold_risk_assessment                   Pointer to number of ones in hold time register value
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_sysref_setup_hold_get(adi_ad9081_device_t *device,
+					      uint8_t *setup_risk_assessment,
+					      uint8_t *hold_risk_assessment);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Enable and set fine and superfine delay on the SYSREF input.
+ *
+ * @param  device                Pointer to the device structure
+ * @param  enable                00:delay is disabled, 01:fine delay enabled, 10:superfine delay enabled, 11:both enabled
+ * @param  fine_delay            Fine delay adjustment of the SYSREF input in 1.1 ps steps with max of 56 ps
+ * @param  superfine_delay       Super fine delay adjustment of the SYSREF input in ~16 fs steps with max of 4 ps
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_sysref_fine_superfine_delay_set(
+	adi_ad9081_device_t *device, uint8_t enable, uint8_t fine_delay,
+	uint8_t superfine_delay);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Set Sysref edge count to delay enabling one-shot mode.
+ *
+ * @param  device                      Pointer to the device structure
+ * @param  edges                       Number of rising edges to ignore before sync
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_sysref_count_set(adi_ad9081_device_t *device,
+					 uint8_t edges);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Set number of Sysref pulses that are averaged before one-shot mode.
+ *
+ * @param  device                      Pointer to the device structure
+ * @param  pulses                      Number of pulses to be averaged calculated by 2^n
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_sysref_average_set(adi_ad9081_device_t *device,
+					   uint8_t pulses);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Get Sysref phase in monitor mode
+ *
+ * @param  device               Pointer to the device structure
+ * @param  sysref_phase         Pointer to the sysref phase register
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_sysref_monitor_phase_get(adi_ad9081_device_t *device,
+						 uint16_t *sysref_phase);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Get Sysref to lmfc align error in monitor mode
+ *
+ * @param  device                     Pointer to the device structure
+ * @param  lmfc_align_err_get         Pointer to the lmfc align error value
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t
+adi_ad9081_jesd_sysref_monitor_lmfc_align_error_get(adi_ad9081_device_t *device,
+						    uint8_t *lmfc_align_err);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Set Sysref lmfc align threshold in monitor mode
+ *
+ * @param  device                      Pointer to the device structure
+ * @param  sysref_error_window         Sysref error window value
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_sysref_monitor_lmfc_align_threshold_set(
+	adi_ad9081_device_t *device, uint8_t sysref_error_window);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief  Check oneshot sync mode flag if sync is done.
+ *
+ * @param  device                      Pointer to the device structure
+ * @param  sync_done                   Pointer to value of oneshot sync done flag
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t
+adi_ad9081_jesd_sysref_oneshot_sync_done_get(adi_ad9081_device_t *device,
+					     uint8_t *sync_done);
 
 /*===== A 3 . 0   I R Q S   =====*/
 

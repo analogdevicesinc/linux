@@ -52,6 +52,7 @@ ad9081_drv-y := ad9081.o \
 	ad9081/adi_ad9081_device.o \
 	ad9081/adi_ad9081_jesd.o \
 	ad9081/adi_ad9081_hal.o \
+	ad9081/adi_ad9081_sync.o \
 	ad9081/adi_ad9081_dac.o
 
 obj-$(CONFIG_AD9081) += ad9081_drv.o

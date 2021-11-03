@@ -3071,16 +3071,20 @@ int32_t adi_ad9081_jesd_tx_res_sel_set(adi_ad9081_device_t *device,
 				       uint8_t resolution)
 {
 	int32_t err;
+	uint8_t res_setting = 0;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
+	if (resolution > 16 || resolution < 8)
+		AD9081_INVALID_PARAM_RETURN(device);
 
 	if ((links & AD9081_LINK_0) > 0) {
 		err = adi_ad9081_jesd_tx_link_select_set(device, AD9081_LINK_0);
 		AD9081_ERROR_RETURN(err);
 		/* 0: 16bit, 1: 15bit, 2: 14bit, 3: 13bit, 4: 12bit, ..., 8: 8bit */
+		res_setting = 16 - resolution;
 		err = adi_ad9081_hal_bf_set(device, REG_OUT_RES_ADDR,
 					    BF_DFORMAT_RES_INFO,
-					    resolution); /* paged */
+					    res_setting); /* paged */
 		AD9081_ERROR_RETURN(err);
 	}
 	if ((links & AD9081_LINK_1) > 0) {
@@ -3088,7 +3092,7 @@ int32_t adi_ad9081_jesd_tx_res_sel_set(adi_ad9081_device_t *device,
 		AD9081_ERROR_RETURN(err);
 		err = adi_ad9081_hal_bf_set(device, REG_OUT_RES_ADDR,
 					    BF_DFORMAT_RES_INFO,
-					    resolution); /* paged */
+					    res_setting); /* paged */
 		AD9081_ERROR_RETURN(err);
 	}
 
@@ -4062,53 +4066,6 @@ adi_ad9081_jesd_tx_jtspat_enable_set(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
-int32_t adi_ad9081_jesd_sysref_enable_set(adi_ad9081_device_t *device,
-					  uint8_t enable)
-{
-	int32_t err;
-	AD9081_NULL_POINTER_RETURN(device);
-	AD9081_LOG_FUNC();
-
-	/* Power down the sysref receiver and sync circuitry. */
-	err = adi_ad9081_hal_bf_set(device, REG_SYSREF_CTRL_ADDR,
-				    BF_SYSREF_PD_INFO, !enable); /* not paged */
-	AD9081_ERROR_RETURN(err);
-
-	return API_CMS_ERROR_OK;
-}
-
-int32_t adi_ad9081_jesd_sysref_spi_enable_set(adi_ad9081_device_t *device,
-					      uint8_t enable)
-{
-	int32_t err;
-	AD9081_NULL_POINTER_RETURN(device);
-	AD9081_LOG_FUNC();
-
-	/* enables sysref capture */
-	err = adi_ad9081_hal_bf_set(
-		device, 0x0fb0, 0x0103,
-		enable); /* not paged, spi_sysref_en@sysref_control */
-	AD9081_ERROR_RETURN(err);
-
-	return API_CMS_ERROR_OK;
-}
-
-int32_t adi_ad9081_jesd_sysref_input_mode_set(adi_ad9081_device_t *device,
-					      uint8_t input_mode)
-{
-	int32_t err;
-	AD9081_NULL_POINTER_RETURN(device);
-	AD9081_LOG_FUNC();
-
-	/* 0: AC couple, 1: DC couple */
-	err = adi_ad9081_hal_bf_set(device, REG_SYSREF_CTRL_ADDR,
-				    BF_SYSREF_INPUTMODE_INFO,
-				    input_mode); /* not paged */
-	AD9081_ERROR_RETURN(err);
-
-	return API_CMS_ERROR_OK;
-}
-
 int32_t adi_ad9081_jesd_pll_lock_status_get(adi_ad9081_device_t *device,
 					    uint8_t *jesd_pll_status)
 {
@@ -4133,78 +4090,6 @@ int32_t adi_ad9081_jesd_loopback_mode_set(adi_ad9081_device_t *device,
 
 	err = adi_ad9081_hal_bf_set(device, 0x00000941, 0x00000300,
 				    mode); /* not paged */
-	AD9081_ERROR_RETURN(err);
-
-	return API_CMS_ERROR_OK;
-}
-
-int32_t adi_ad9081_jesd_oneshot_sync(adi_ad9081_device_t *device)
-{
-	int32_t err;
-	uint8_t pd_fdacby4, sync_done;
-	AD9081_NULL_POINTER_RETURN(device);
-	AD9081_LOG_FUNC();
-
-	err = adi_ad9081_hal_bf_get(device, REG_CLK_CTRL1_ADDR, 0x00000102,
-				    &pd_fdacby4, 1); /* not paged */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_CLK_CTRL1_ADDR, 0x00000102,
-				    0); /* not paged */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_ROTATION_MODE_ADDR,
-				    BF_ROTATION_MODE_INFO, 1); /* not paged */
-	AD9081_ERROR_RETURN(err);
-
-	if (device->dev_info.dev_rev == 3) { /* r2 */
-		err = adi_ad9081_hal_bf_set(device, REG_ACLK_CTRL_ADDR,
-					    BF_PD_TXDIGCLK_INFO,
-					    1); /* not paged */
-		AD9081_ERROR_RETURN(err);
-		err = adi_ad9081_hal_bf_set(device, REG_ADC_DIVIDER_CTRL_ADDR,
-					    0x00000107, 0); /* not paged */
-		AD9081_ERROR_RETURN(err);
-	}
-
-	err = adi_ad9081_hal_bf_set(device, REG_SYSREF_MODE_ADDR,
-				    BF_SYSREF_MODE_ONESHOT_INFO,
-				    0); /* not paged */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_SYSREF_MODE_ADDR,
-				    BF_SYSREF_MODE_ONESHOT_INFO,
-				    1); /* not paged */
-	AD9081_ERROR_RETURN(err);
-
-	err = adi_ad9081_hal_sysref_ctrl(device, 1);
-	AD9081_ERROR_RETURN(err);
-
-	if (err = adi_ad9081_hal_bf_wait_to_clear(
-		    device, REG_SYSREF_MODE_ADDR,
-		    BF_SYSREF_MODE_ONESHOT_INFO), /* not paged */
-	    err != API_CMS_ERROR_OK) {
-		AD9081_LOG_ERR("sysref_mode_oneshot bit never cleared.");
-	}
-	err = adi_ad9081_hal_bf_get(device, REG_SYSREF_MODE_ADDR,
-				    BF_ONESHOT_SYNC_DONE_INFO, &sync_done,
-				    1); /* not paged */
-	AD9081_ERROR_RETURN(err);
-	if (sync_done != 1) {
-		AD9081_LOG_ERR("oneshot sync not finished.");
-	}
-
-	err = adi_ad9081_hal_sysref_ctrl(device, 0);
-	AD9081_ERROR_RETURN(err);
-
-	if (device->dev_info.dev_rev == 3) { /* r2 */
-		err = adi_ad9081_hal_bf_set(device, REG_ADC_DIVIDER_CTRL_ADDR,
-					    0x00000107, 1); /* not paged */
-		AD9081_ERROR_RETURN(err);
-		err = adi_ad9081_hal_bf_set(device, REG_ACLK_CTRL_ADDR,
-					    BF_PD_TXDIGCLK_INFO,
-					    0); /* not paged */
-		AD9081_ERROR_RETURN(err);
-	}
-	err = adi_ad9081_hal_bf_set(device, REG_CLK_CTRL1_ADDR, 0x00000102,
-				    pd_fdacby4); /* not paged */
 	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;

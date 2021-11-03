@@ -66,23 +66,6 @@ int32_t adi_ad9081_hal_reset_pin_ctrl(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
-int32_t adi_ad9081_hal_sysref_ctrl(adi_ad9081_device_t *device,
-				      uint8_t enable)
-{
-	AD9081_NULL_POINTER_RETURN(device);
-
-	/* Optional callback */
-	if (!device->hal_info.sysref_ctrl)
-		return API_CMS_ERROR_OK;
-
-	if (device->hal_info.sysref_ctrl(device->hal_info.user_data, enable)
-		!= API_CMS_ERROR_OK) {
-		return API_CMS_ERROR_ERROR;
-	}
-
-	return API_CMS_ERROR_OK;
-}
-
 int32_t adi_ad9081_hal_log_write(adi_ad9081_device_t *device,
 				 adi_cms_log_type_e log_type,
 				 const char *comment, ...)
