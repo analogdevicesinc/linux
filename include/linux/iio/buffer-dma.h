@@ -78,12 +78,15 @@ struct iio_dma_buffer_block {
  * @active_block: Block being used in read()
  * @pos: Read offset in the active block
  * @block_size: Size of each block
+ * @next_dequeue: index of next block that will be dequeued
  */
 struct iio_dma_buffer_queue_fileio {
 	struct iio_dma_buffer_block *blocks[2];
 	struct iio_dma_buffer_block *active_block;
 	size_t pos;
 	size_t block_size;
+
+	unsigned int next_dequeue;
 };
 
 /**
@@ -97,8 +100,6 @@ struct iio_dma_buffer_queue_fileio {
  *   atomic context as well as blocks on those lists. This is the outgoing queue
  *   list and typically also a list of active blocks in the part that handles
  *   the DMA controller
- * @incoming: List of buffers on the incoming queue
- * @outgoing: List of buffers on the outgoing queue
  * @active: Whether the buffer is currently active
  * @fileio: FileIO state
  */
@@ -109,8 +110,6 @@ struct iio_dma_buffer_queue {
 
 	struct mutex lock;
 	spinlock_t list_lock;
-	struct list_head incoming;
-	struct list_head outgoing;
 
 	bool active;
 
