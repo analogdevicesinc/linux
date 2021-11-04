@@ -21,8 +21,8 @@ description: |
 properties:
   compatible:
     enum:
-      - adi,ad74413r
       - adi,ad74412r
+      - adi,ad74413r
 
   reg:
     maxItems: 1
