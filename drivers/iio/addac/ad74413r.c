@@ -35,6 +35,7 @@ struct ad74413r_config {
 
 struct ad74413r_channel_config {
 	u32 func;
+	bool gpo_comparator_mode;
 	bool initialized;
 };
 
@@ -108,6 +109,11 @@ struct ad74413r_state {
 #define AD74413R_GPO_CONFIG_DATA_LOW		0
 #define AD74413R_GPO_CONFIG_DATA_HIGH		AD74413R_GPO_CONFIG_GPO_DATA_MASK
 #define AD74413R_GPO_CONFIG_GPO_SELECT_MASK	GENMASK(2, 0)
+#define AD74413R_GPO_CONFIG_100K_PULL_DOWN	0x0
+#define AD74413R_GPO_CONFIG_LOGIC		0x1
+#define AD74413R_GPO_CONFIG_LOGIC_PARALLEL	0x2
+#define AD74413R_GPO_CONFIG_COMPARATOR		0x3
+#define AD74413R_GPO_CONFIG_HIGH_IMPEDANCE	0x4
 
 #define AD74413R_REG_ADC_CONV_CTRL	0x23
 #define AD74413R_CONV_SEQ_MASK		GENMASK(9, 8)
@@ -1026,6 +1032,14 @@ static int ad74413r_parse_channel_config(struct iio_dev *indio_dev,
 	}
 
 	ret = ad74413r_channel_set_function(st, index, config->func);
+	if (ret)
+		return ret;
+
+	config->gpo_comparator_mode = fwnode_property_read_bool(channel_node,
+		"adi,gpo-comparator-mode");
+	ret = ad74413r_set_gpo_mode(st, index, config->gpo_comparator_mode ?
+				    AD74413R_GPO_CONFIG_COMPARATOR
+				    : AD74413R_GPO_CONFIG_LOGIC);
 	if (ret)
 		return ret;
 
