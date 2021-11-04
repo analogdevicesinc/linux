@@ -216,7 +216,7 @@ const struct regmap_config ad74413r_regmap_config = {
 	.reg_write = ad74413r_reg_write,
 };
 
-static int ad74413r_set_gpo_mode(struct ad74413r_state *st, unsigned int offset, u8 mode)
+static int ad74413r_set_gpo_config(struct ad74413r_state *st, unsigned int offset, u8 mode)
 {
 	return regmap_update_bits(st->regmap, AD74413R_REG_GPO_CONFIG_X(offset),
 				  AD74413R_GPO_CONFIG_GPO_SELECT_MASK, mode);
@@ -228,7 +228,7 @@ static void ad74413r_gpio_set(struct gpio_chip *chip, unsigned int offset, int v
 	struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
 	int ret;
 
-	ret = ad74413r_set_gpo_mode(st, offset, GPO_CONFIG_LOGIC);
+	ret = ad74413r_set_gpo_config(st, offset, GPO_CONFIG_LOGIC);
 	if (ret)
 		return;
 
@@ -248,7 +248,7 @@ static void ad74413r_gpio_set_multiple(struct gpio_chip *chip, unsigned long *ma
 	for_each_set_bit_from(offset, mask, AD74413R_CHANNEL_MAX) {
 		struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
 
-		ret = ad74413r_set_gpo_mode(st, offset, GPO_CONFIG_LOGIC_PARALLEL);
+		ret = ad74413r_set_gpo_config(st, offset, GPO_CONFIG_LOGIC_PARALLEL);
 		if (ret)
 			return;
 	}
