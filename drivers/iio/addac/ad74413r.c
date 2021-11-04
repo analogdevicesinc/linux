@@ -277,7 +277,7 @@ static int ad74413r_set_channel_dac_code(struct ad74413r_state *st,
 	return regmap_multi_reg_write(st->regmap, reg_seq, 2);
 }
 
-static int ad74413r_channel_set_function(struct ad74413r_state *st, unsigned int channel, u8 func)
+static int ad74413r_set_channel_function(struct ad74413r_state *st, unsigned int channel, u8 func)
 {
 	return regmap_update_bits(st->regmap, AD74413R_REG_CH_FUNC_SETUP_X(channel),
 				  AD74413R_CH_FUNC_SETUP_MASK, func);
@@ -1084,6 +1084,7 @@ static int ad74413r_setup_channels(struct iio_dev *indio_dev)
 		struct iio_chan_spec *chans = ad74413r_channels_map[config->func].channels;
 		unsigned int num_chans = ad74413r_channels_map[config->func].num_channels;
 		unsigned int chan_i;
+		int ret;
 
 		memcpy(channels, chans, num_chans * sizeof(*chans));
 
@@ -1098,7 +1099,7 @@ static int ad74413r_setup_channels(struct iio_dev *indio_dev)
 
 		}
 
-		ret = ad74413r_channel_set_function(st, i, config->func);
+		ret = ad74413r_set_channel_function(st, i, config->func);
 		if (ret)
 			return ret;
 
