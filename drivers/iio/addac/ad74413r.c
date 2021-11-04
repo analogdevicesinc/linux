@@ -1070,7 +1070,7 @@ put_channel_node:
 	return ret;
 }
 
-static int ad74413r_setup_iio_channels(struct iio_dev *indio_dev)
+static int ad74413r_setup_channels(struct iio_dev *indio_dev)
 {
 	struct ad74413r_state *st = iio_priv(indio_dev);
 	struct iio_chan_spec *channels;
@@ -1208,9 +1208,9 @@ static int ad74413r_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ad74413r_setup_iio_channels(indio_dev);
+	ret = ad74413r_setup_channels(indio_dev);
 	if (ret) {
-		dev_err(st->dev, "Failed to setup iio channels: %d\n", ret);
+		dev_err(st->dev, "Failed to setup channels: %d\n", ret);
 		return ret;
 	}
 
