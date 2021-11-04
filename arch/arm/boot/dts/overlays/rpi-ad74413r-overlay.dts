@@ -50,28 +50,24 @@
 					reg = <0>;
 
 					adi,ch-func = <CH_FUNC_VOLTAGE_OUTPUT>;
-					adi,gpo-config = <GPO_CONFIG_LOGIC>;
 				};
 
 				channel@1 {
 					reg = <1>;
 
 					adi,ch-func = <CH_FUNC_CURRENT_OUTPUT>;
-					adi,gpo-config = <GPO_CONFIG_LOGIC>;
 				};
 
 				channel@2 {
 					reg = <2>;
 
 					adi,ch-func = <CH_FUNC_VOLTAGE_INPUT>;
-					adi,gpo-config = <GPO_CONFIG_DEBOUNCED_COMPARATOR>;
 				};
 
 				channel@3 {
 					reg = <3>;
 
 					adi,ch-func = <CH_FUNC_CURRENT_INPUT_EXT_POWER>;
-					adi,gpo-config = <GPO_CONFIG_DEBOUNCED_COMPARATOR>;
 				};
 			};
 		};
