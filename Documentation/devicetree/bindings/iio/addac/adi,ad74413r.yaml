@@ -4,7 +4,7 @@
 $id: http://devicetree.org/schemas/iio/addac/adi,ad74413r.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Analog Devices AD74413R/AD74412R device driver
+title: Analog Devices AD74413R/AD74412R device
 
 maintainers:
   - Cosmin Tanislav <cosmin.tanislav@analog.com>
