@@ -1,7 +1,7 @@
 /*
  * Samsung MIPI DSI Host Controller on IMX
  *
- * Copyright 2018-2020 NXP
+ * Copyright 2018-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ static int sec_dsim_rstc_reset(struct reset_control *rstc, bool assert)
 	return ret;
 }
 
-static void imx_sec_dsim_encoder_helper_enable(struct drm_encoder *encoder)
+static void imx_sec_dsim_encoder_enable(struct drm_encoder *encoder)
 {
 	int ret;
 	struct imx_sec_dsim_device *dsim_dev = enc_to_dsim(encoder);
@@ -98,7 +98,7 @@ static void imx_sec_dsim_encoder_helper_enable(struct drm_encoder *encoder)
 		dev_err(dsim_dev->dev, "deassert mipi_reset failed\n");
 }
 
-static void imx_sec_dsim_encoder_helper_disable(struct drm_encoder *encoder)
+static void imx_sec_dsim_encoder_disable(struct drm_encoder *encoder)
 {
 	int ret;
 	struct imx_sec_dsim_device *dsim_dev = enc_to_dsim(encoder);
@@ -110,9 +110,9 @@ static void imx_sec_dsim_encoder_helper_disable(struct drm_encoder *encoder)
 	pm_runtime_put_sync(dsim_dev->dev);
 }
 
-static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
-						    struct drm_crtc_state *crtc_state,
-						    struct drm_connector_state *conn_state)
+static int imx_sec_dsim_encoder_atomic_check(struct drm_encoder *encoder,
+					     struct drm_crtc_state *crtc_state,
+					     struct drm_connector_state *conn_state)
 {
 	int ret;
 	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
@@ -142,9 +142,9 @@ static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
 }
 
 static const struct drm_encoder_helper_funcs imx_sec_dsim_encoder_helper_funcs = {
-	.enable  = imx_sec_dsim_encoder_helper_enable,
-	.disable = imx_sec_dsim_encoder_helper_disable,
-	.atomic_check = imx_sec_dsim_encoder_helper_atomic_check,
+	.enable = imx_sec_dsim_encoder_enable,
+	.disable = imx_sec_dsim_encoder_disable,
+	.atomic_check = imx_sec_dsim_encoder_atomic_check,
 };
 
 static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)
