@@ -39,6 +39,10 @@ struct ad74413r_channel_config {
 	bool initialized;
 };
 
+struct ad74413r_gpio_config {
+	unsigned int real_offset;
+};
+
 struct ad74413r_channels {
 	struct iio_chan_spec *channels;
 	unsigned int num_channels;
@@ -46,9 +50,14 @@ struct ad74413r_channels {
 
 struct ad74413r_state {
 	struct ad74413r_channel_config	channel_configs[AD74413R_CHANNEL_MAX];
-	struct gpio_chip		gpiochip;
+	struct ad74413r_gpio_config	gpo_gpio_configs[AD74413R_CHANNEL_MAX];
+	struct ad74413r_gpio_config	comp_gpio_configs[AD74413R_CHANNEL_MAX];
+	struct gpio_chip		gpo_gpiochip;
+	struct gpio_chip		comp_gpiochip;
 	struct mutex			lock;
 	struct completion		adc_data_completion;
+	unsigned int			num_gpo_gpios;
+	unsigned int			num_comparator_gpios;
 
 	struct spi_device		*spi;
 	struct regulator		*refin_reg;
@@ -216,18 +225,22 @@ const struct regmap_config ad74413r_regmap_config = {
 	.reg_write = ad74413r_reg_write,
 };
 
-static int ad74413r_set_gpo_config(struct ad74413r_state *st, unsigned int offset, u8 mode)
+static int ad74413r_set_gpo_config(struct ad74413r_state *st,
+				   unsigned int offset, u8 mode)
 {
 	return regmap_update_bits(st->regmap, AD74413R_REG_GPO_CONFIG_X(offset),
 				  AD74413R_GPO_CONFIG_GPO_SELECT_MASK, mode);
 }
 
-static void ad74413r_gpio_set(struct gpio_chip *chip, unsigned int offset, int val)
+static void ad74413r_gpio_set(struct gpio_chip *chip,
+			      unsigned int offset, int val)
 {
 	struct ad74413r_state *st = gpiochip_get_data(chip);
+	struct ad74413r_gpio_config *config = &st->gpo_gpio_configs[offset];
 	int ret;
 
-	ret = ad74413r_set_gpo_config(st, offset, AD74413R_GPO_CONFIG_LOGIC);
+	ret = ad74413r_set_gpo_config(st, config->real_offset,
+				      AD74413R_GPO_CONFIG_LOGIC);
 	if (ret)
 		return;
 
@@ -237,25 +250,37 @@ static void ad74413r_gpio_set(struct gpio_chip *chip, unsigned int offset, int v
 			       : AD74413R_GPO_CONFIG_DATA_LOW);
 }
 
-static void ad74413r_gpio_set_multiple(struct gpio_chip *chip, unsigned long *mask,
+static void ad74413r_gpio_set_multiple(struct gpio_chip *chip,
+				       unsigned long *mask,
 				       unsigned long *bits)
 {
 	struct ad74413r_state *st = gpiochip_get_data(chip);
+	unsigned long real_mask = 0;
+	unsigned long real_bits = 0;
 	unsigned int offset = 0;
 	int ret;
 
 	for_each_set_bit_from(offset, mask, AD74413R_CHANNEL_MAX) {
-		ret = ad74413r_set_gpo_config(st, offset, AD74413R_GPO_CONFIG_LOGIC_PARALLEL);
+		struct ad74413r_gpio_config *config = &st->gpo_gpio_configs[offset];
+
+		ret = ad74413r_set_gpo_config(st, config->real_offset,
+					      AD74413R_GPO_CONFIG_LOGIC_PARALLEL);
 		if (ret)
 			return;
+
+		real_mask |= BIT(config->real_offset);
+		if (*bits & offset)
+			real_bits |= BIT(config->real_offset);
 	}
 
-	regmap_update_bits(st->regmap, AD74413R_REG_GPO_PAR_DATA, *mask, *bits);
+	regmap_update_bits(st->regmap, AD74413R_REG_GPO_PAR_DATA,
+			   real_mask, real_bits);
 }
 
 static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad74413r_state *st = gpiochip_get_data(chip);
+	struct ad74413r_gpio_config *config = &st->comp_gpio_configs[offset];
 	unsigned int status;
 	int ret;
 
@@ -263,7 +288,44 @@ static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	if (ret)
 		return ret;
 
-	return status & AD74413R_DIN_COMP_OUT_SHIFT_X(offset) ? 1 : 0;
+	status &= AD74413R_DIN_COMP_OUT_SHIFT_X(config->real_offset);
+
+	return status ? 1 : 0;
+}
+
+static int ad74413r_gpio_get_multiple(struct gpio_chip *chip,
+				      unsigned long *mask,
+				      unsigned long *bits)
+{
+	struct ad74413r_state *st = gpiochip_get_data(chip);
+	unsigned int offset = 0;
+	unsigned int val;
+	int ret;
+
+	ret = regmap_read(st->regmap, AD74413R_REG_DIN_COMP_OUT, &val);
+	if (ret)
+		return ret;
+
+	for_each_set_bit_from(offset, mask, AD74413R_CHANNEL_MAX) {
+		struct ad74413r_gpio_config *config = &st->comp_gpio_configs[offset];
+
+		if (val & BIT(config->real_offset))
+			*bits |= offset;
+	}
+
+	return ret;
+}
+
+static int ad74413r_gpio_get_gpo_direction(struct gpio_chip *chip,
+					    unsigned int offset)
+{
+	return GPIO_LINE_DIRECTION_OUT;
+}
+
+static int ad74413r_gpio_get_comp_direction(struct gpio_chip *chip,
+					     unsigned int offset)
+{
+	return GPIO_LINE_DIRECTION_IN;
 }
 
 static int ad74413r_set_channel_dac_code(struct ad74413r_state *st,
@@ -277,9 +339,11 @@ static int ad74413r_set_channel_dac_code(struct ad74413r_state *st,
 	return regmap_multi_reg_write(st->regmap, reg_seq, 2);
 }
 
-static int ad74413r_set_channel_function(struct ad74413r_state *st, unsigned int channel, u8 func)
+static int ad74413r_set_channel_function(struct ad74413r_state *st,
+					 unsigned int channel, u8 func)
 {
-	return regmap_update_bits(st->regmap, AD74413R_REG_CH_FUNC_SETUP_X(channel),
+	return regmap_update_bits(st->regmap,
+				  AD74413R_REG_CH_FUNC_SETUP_X(channel),
 				  AD74413R_CH_FUNC_SETUP_MASK, func);
 }
 
@@ -1027,14 +1091,15 @@ static int ad74413r_parse_channel_config(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
+	if (config->func == CH_FUNC_DIGITAL_INPUT_LOGIC
+		|| config->func == CH_FUNC_DIGITAL_INPUT_LOOP_POWER)
+		st->num_comparator_gpios++;
 
-	config->gpo_comparator_mode = fwnode_property_read_bool(channel_node,
-		"adi,gpo-comparator-mode");
-	ret = ad74413r_set_gpo_mode(st, index, config->gpo_comparator_mode ?
-				    AD74413R_GPO_CONFIG_COMPARATOR
-				    : AD74413R_GPO_CONFIG_LOGIC);
-	if (ret)
-		return ret;
+	config->gpo_comparator = fwnode_property_read_bool(channel_node,
+		"adi,gpo-comparator");
+
+	if (!config->gpo_comparator)
+		st->num_gpo_gpios++;
 
 	indio_dev->num_channels += ad74413r_channels_map[config->func].num_channels;
 
@@ -1109,6 +1174,53 @@ static int ad74413r_setup_channels(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int ad74413r_setup_gpios(struct ad74413r_state *st)
+{
+	unsigned int gpio_i;
+	unsigned int i;
+
+	for (i = 0, gpio_i = 0; i < AD74413R_CHANNEL_MAX; i++) {
+		struct ad74413r_channel_config *config = &st->channel_configs[i];
+		struct ad74413r_gpio_config *gpio_config;
+		u8 gpo_config;
+		int ret;
+
+		if (config->gpo_comparator)
+			gpo_config = AD74413R_GPO_CONFIG_COMPARATOR;
+		else
+			gpo_config = AD74413R_GPO_CONFIG_LOGIC;
+
+		ret = ad74413r_set_gpo_config(st, i, gpo_config);
+		if (ret)
+			return ret;
+
+		if (config->gpo_comparator)
+			continue;
+
+		gpio_config = &st->gpo_gpio_configs[gpio_i];
+		gpio_config->real_offset = i;
+
+		gpio_i++;
+	}
+
+	for (i = 0, gpio_i = 0; i < AD74413R_CHANNEL_MAX; i++) {
+		struct ad74413r_channel_config *config = &st->channel_configs[i];
+		struct ad74413r_gpio_config *gpio_config;
+
+		if (config->func != CH_FUNC_DIGITAL_INPUT_LOGIC
+			|| config->func != CH_FUNC_DIGITAL_INPUT_LOOP_POWER) {
+			continue;
+		}
+
+		gpio_config = &st->comp_gpio_configs[gpio_i];
+		gpio_config->real_offset = i;
+
+		gpio_i++;
+	}
+
+	return 0;
+}
+
 static void ad74413r_regulator_disable(void *regulator)
 {
 	regulator_disable(regulator);
@@ -1170,20 +1282,6 @@ static int ad74413r_probe(struct spi_device *spi)
 	device_property_read_u32(st->dev, "adi,rsense-resistance-ohms",
 				 &st->rsense_resistance_ohms);
 
-	st->gpiochip.label = name;
-	st->gpiochip.base = -1;
-	st->gpiochip.ngpio = AD74413R_CHANNEL_MAX;
-	st->gpiochip.parent = st->dev;
-	st->gpiochip.can_sleep = true;
-	st->gpiochip.set = ad74413r_gpio_set;
-	st->gpiochip.set_multiple = ad74413r_gpio_set_multiple;
-	st->gpiochip.owner = THIS_MODULE;
-	st->gpiochip.get = ad74413r_gpio_get;
-
-	ret = devm_gpiochip_add_data(st->dev, &st->gpiochip, st);
-	if (ret)
-		return ret;
-
 	st->trig = devm_iio_trigger_alloc(st->dev, "%s-dev%d", name, indio_dev->id);
 	if (!st->trig)
 		return -ENOMEM;
@@ -1209,6 +1307,43 @@ static int ad74413r_probe(struct spi_device *spi)
 	if (ret) {
 		dev_err(st->dev, "Failed to setup channels: %d\n", ret);
 		return ret;
+	}
+
+	ret = ad74413r_setup_gpios(st);
+	if (ret) {
+		return ret;
+	}
+
+	if (st->num_gpo_gpios) {
+		st->gpo_gpiochip.label = name;
+		st->gpo_gpiochip.base = -1;
+		st->gpo_gpiochip.ngpio = st->num_gpo_gpios;
+		st->gpo_gpiochip.parent = st->dev;
+		st->gpo_gpiochip.can_sleep = true;
+		st->gpo_gpiochip.set = ad74413r_gpio_set;
+		st->gpo_gpiochip.set_multiple = ad74413r_gpio_set_multiple;
+		st->gpo_gpiochip.get_direction = ad74413r_gpio_get_gpo_direction;
+		st->gpo_gpiochip.owner = THIS_MODULE;
+
+		ret = devm_gpiochip_add_data(st->dev, &st->gpo_gpiochip, st);
+		if (ret)
+			return ret;
+	}
+
+	if (st->num_comparator_gpios) {
+		st->comp_gpiochip.label = name;
+		st->comp_gpiochip.base = -1;
+		st->comp_gpiochip.ngpio = st->num_comparator_gpios;
+		st->comp_gpiochip.parent = st->dev;
+		st->comp_gpiochip.can_sleep = true;
+		st->comp_gpiochip.get = ad74413r_gpio_get;
+		st->comp_gpiochip.get_multiple = ad74413r_gpio_get_multiple;
+		st->comp_gpiochip.get_direction = ad74413r_gpio_get_comp_direction;
+		st->comp_gpiochip.owner = THIS_MODULE;
+
+		ret = devm_gpiochip_add_data(st->dev, &st->comp_gpiochip, st);
+		if (ret)
+			return ret;
 	}
 
 	ret = ad74413r_set_adc_conv_seq(st, AD74413R_CONV_SEQ_OFF);
