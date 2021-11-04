@@ -594,8 +594,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	}
 	wfg_cfg_val |= tmp << 12;
 
-	return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG,
-			wfg_cfg_val, wfg_cfg_val);
+	return regmap_write(ade9078_dev->regmap, ADDR_WFB_CFG, wfg_cfg_val);
 }
 
 /*
