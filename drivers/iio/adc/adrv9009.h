@@ -53,6 +53,7 @@ enum adrv9009_bist_mode {
 enum adrv9009_rx_ext_info {
 	RSSI,
 	RX_QEC,
+	RX_BBDC,
 	RX_HD2,
 	RX_RF_BANDWIDTH,
 	RX_POWERDOWN,
