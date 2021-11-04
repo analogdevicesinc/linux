@@ -34,7 +34,6 @@ struct ad74413r_config {
 };
 
 struct ad74413r_channel_config {
-	u32 gpo_config;
 	u32 func;
 	bool initialized;
 };
@@ -223,11 +222,6 @@ static void ad74413r_gpio_set(struct gpio_chip *chip, unsigned int offset, int v
 	struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
 	int ret;
 
-	if (channel_config->gpo_config != GPO_CONFIG_LOGIC) {
-		dev_err(st->dev, "Cannot set gpo %u, not in logic mode", offset);
-		return;
-	}
-
 	ret = ad74413r_set_gpo_mode(st, offset, GPO_CONFIG_LOGIC);
 	if (ret)
 		return;
@@ -248,11 +242,6 @@ static void ad74413r_gpio_set_multiple(struct gpio_chip *chip, unsigned long *ma
 	for_each_set_bit_from(offset, mask, AD74413R_CHANNEL_MAX) {
 		struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
 
-		if (channel_config->gpo_config != GPO_CONFIG_LOGIC) {
-			dev_err(st->dev, "Cannot set gpo %u, not in logic mode\n", offset);
-			continue;
-		}
-
 		ret = ad74413r_set_gpo_mode(st, offset, GPO_CONFIG_LOGIC_PARALLEL);
 		if (ret)
 			return;
@@ -267,11 +256,6 @@ static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
 	unsigned int status;
 	int ret;
-
-	if (channel_config->gpo_config != GPO_CONFIG_DEBOUNCED_COMPARATOR) {
-		dev_err(st->dev, "Cannot get gpo %u, not in comparator mode\n", offset);
-		return -EINVAL;
-	}
 
 	ret = regmap_read(st->regmap, AD74413R_REG_DIN_COMP_OUT, &status);
 	if (ret)
@@ -1041,21 +1025,7 @@ static int ad74413r_parse_channel_config(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	config->gpo_config = GPO_CONFIG_100K_PULL_DOWN;
-	fwnode_property_read_u32(channel_node, "adi,gpo-config", &config->gpo_config);
-
-	if (config->gpo_config < GPO_CONFIG_MIN
-		|| config->gpo_config > GPO_CONFIG_MAX
-		|| config->gpo_config == GPO_CONFIG_LOGIC_PARALLEL) {
-		dev_err(st->dev, "Invalid gpo config mode\n");
-		return -EINVAL;
-	}
-
 	ret = ad74413r_channel_set_function(st, index, config->func);
-	if (ret)
-		return ret;
-
-	ret = ad74413r_set_gpo_mode(st, index, config->gpo_config);
 	if (ret)
 		return ret;
 
