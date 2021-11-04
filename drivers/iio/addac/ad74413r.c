@@ -1031,9 +1031,6 @@ static int ad74413r_parse_channel_config(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	ret = ad74413r_channel_set_function(st, index, config->func);
-	if (ret)
-		return ret;
 
 	config->gpo_comparator_mode = fwnode_property_read_bool(channel_node,
 		"adi,gpo-comparator-mode");
@@ -1104,6 +1101,10 @@ static int ad74413r_setup_iio_channels(struct iio_dev *indio_dev)
 				chan->scan_index = i;
 
 		}
+
+		ret = ad74413r_channel_set_function(st, i, config->func);
+		if (ret)
+			return ret;
 
 		channels += num_chans;
 	}
