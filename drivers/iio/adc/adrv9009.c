@@ -2109,6 +2109,7 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 	bool enable;
 	int ret = 0;
 	u32 mask;
+	u8 bbdc_en_mask;
 
 	if (!phy->is_initialized)
 		return -EBUSY;
@@ -2241,6 +2242,37 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 		}
 		break;
+	case RX_BBDC:
+
+		switch (chan->channel) {
+		case CHAN_RX1:
+			mask = TAL_DC_OFFSET_RX1;
+			break;
+		case CHAN_RX2:
+			mask = TAL_DC_OFFSET_RX2;
+			break;
+		case CHAN_OBS_RX1:
+			mask = TAL_DC_OFFSET_ORX1;
+			break;
+		case CHAN_OBS_RX2:
+			mask = TAL_DC_OFFSET_ORX1;
+			break;
+		default:
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ret = TALISE_getDigDcOffsetEn(phy->talDevice, &bbdc_en_mask);
+		if (ret)
+			goto out;
+
+		if (enable)
+			bbdc_en_mask |= mask;
+		else
+			bbdc_en_mask &= ~mask;
+
+		ret = TALISE_setDigDcOffsetEn(phy->talDevice, bbdc_en_mask);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -2266,6 +2298,7 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 	int ret = 0;
 	u16 dec_pwr_mdb;
 	u32 mask;
+	u8 bbdc_en_mask;
 
 	if (!phy->is_initialized)
 		return -EBUSY;
@@ -2396,12 +2429,36 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 		if (ret == 0)
 			ret = sprintf(buf, "%u\n", rxGainCtrlPin.enable);
 		break;
+	case RX_BBDC:
 
+		switch (chan->channel) {
+		case CHAN_RX1:
+			mask = TAL_DC_OFFSET_RX1;
+			break;
+		case CHAN_RX2:
+			mask = TAL_DC_OFFSET_RX2;
+			break;
+		case CHAN_OBS_RX1:
+			mask = TAL_DC_OFFSET_ORX1;
+			break;
+		case CHAN_OBS_RX2:
+			mask = TAL_DC_OFFSET_ORX1;
+			break;
+		default:
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ret = TALISE_getDigDcOffsetEn(phy->talDevice, &bbdc_en_mask);
+		if (!ret)
+			ret = sprintf(buf, "%d\n", !!(mask & bbdc_en_mask));
+		break;
 	default:
 		ret = -EINVAL;
 
 	}
 
+out:
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
@@ -2614,6 +2671,7 @@ static const struct iio_chan_spec_ext_info adrv9009_phy_rx_ext_info[] = {
 	IIO_ENUM("gain_control_mode", false, &adrv9009_agc_modes_available),
 	_ADRV9009_EXT_RX_INFO("rssi", RSSI),
 	_ADRV9009_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
+	_ADRV9009_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_BBDC),
 	_ADRV9009_EXT_RX_INFO("hd2_tracking_en", RX_HD2), /* 2nd Harmonic Distortion */
 	_ADRV9009_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
 	_ADRV9009_EXT_RX_INFO("powerdown", RX_POWERDOWN),
@@ -2629,6 +2687,7 @@ static const struct iio_chan_spec_ext_info adrv9009_phy_obs_rx_ext_info[] = {
 	IIO_ENUM_AVAILABLE_SHARED("rf_port_select", 0, &adrv9009_rf_obs_rx_port_available),
 	IIO_ENUM("rf_port_select", false, &adrv9009_rf_obs_rx_port_available),
 	_ADRV9009_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
+	_ADRV9009_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_BBDC),
 	_ADRV9009_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
 	_ADRV9009_EXT_RX_INFO("powerdown", RX_POWERDOWN),
 	{ },
