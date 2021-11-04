@@ -46,6 +46,7 @@
  */
 
 #include "zynqmp-adrv9009-zu11eg-reva.dtsi"
+#include <dt-bindings/clock/ad9545.h>
 
 / {
 	leds {
@@ -318,7 +319,50 @@
 			#size-cells = <0>;
 			reg = <1>;
 
-			/* 4A */
+			ad9545_clock: ad9545@4a {
+				compatible = "adi,ad9545";
+				reg = <0x4a>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				adi,ref-crystal;
+				adi,ref-frequency-hz = <49152000>;
+
+				#clock-cells = <2>;
+
+				assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
+						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL1>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1A>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1AA>;
+				assigned-clock-rates = <10000>, <1875000000>, <156250000>, <156250000>;
+				assigned-clock-phases = <0>, <0>, <0>, <180>;
+
+				aux-nco-clk@AD9545_NCO0 {
+					reg = <AD9545_NCO0>;
+					adi,freq-lock-threshold-ps = <16000000>;
+					adi,phase-lock-threshold-ps = <16000000>;
+				};
+
+				ad9545_apll1: pll-clk@AD9545_PLL1 {
+					reg = <AD9545_PLL1>;
+					adi,pll-source = <4>;
+					adi,pll-loop-bandwidth-hz = <200>;
+				};
+
+				output-clk@AD9545_Q1A {
+					reg = <AD9545_Q1A>;
+					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
+					adi,current-source-microamp = <15000>;
+				};
+
+				output-clk@AD9545_Q1AA {
+					reg = <AD9545_Q1AA>;
+					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
+					adi,current-source-microamp = <15000>;
+				};
+
+			};
 
 		};
 		i2c@2 { /* PTN5150 */
