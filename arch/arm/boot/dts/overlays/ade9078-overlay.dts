@@ -20,13 +20,46 @@
                 compatible = "adi,ade9078";
                 reg = <0>;
                 spi-max-frequency = <1000000>;
+                
+                #address-cells = <1>;
+        	#size-cells = <0>;
 		interrupts = <2 2>;
 		interrupt-parent = <&gpio>;
+		
 		adi,wf-cap-sel = <0x1>;
 		adi,wf-mode = <0x0>;
 		adi,wf-src = <0x3>;
 		adi,wf-in-en = <0x0>;
+		
+		phase@0 {
+		    reg = <0>;
+		    
+		    adi,igain = <0>;
+		    adi,vgain = <0>;
+		    
+		    adi,irmsos = <0>;
+		    adi,vrmsos = <0>;
+		    
+		    adi,pgain = <0>;
+		    adi,wattos = <0>;
+		    adi,varos = <0>;
+		    adi,fvaros = <0>;
+		};
+		phase@1 {
+		    reg = <4>;
+		    
+		    adi,igain = <0>;
+		    adi,vgain = <0>;
+		    
+		    adi,irmsos = <0>;
+		    adi,vrmsos = <0>;
+		    
+		    adi,pgain = <0>;
+		    adi,wattos = <0>;
+		    adi,varos = <0>;
+		    adi,fvaros = <0>;
+		};
             };
-                };
+            };
         };
 };

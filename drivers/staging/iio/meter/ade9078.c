@@ -56,10 +56,14 @@ struct ade9078_device {
 };
 
 //IIO channels of the ade9078
-static const struct iio_chan_spec ade9078_channels[] = {
-		ADE9078_CHANNEL(ADE9078_PHASE_A_CHAN_NR, ADE9078_PHASE_A_CHAN_NAME),
-		ADE9078_CHANNEL(ADE9078_PHASE_B_CHAN_NR, ADE9078_PHASE_B_CHAN_NAME),
-		ADE9078_CHANNEL(ADE9078_PHASE_C_CHAN_NR, ADE9078_PHASE_C_CHAN_NAME),
+static const struct iio_chan_spec ade9078_a_channels[] = {
+		ADE9078_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+};
+static const struct iio_chan_spec ade9078_b_channels[] = {
+		ADE9078_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+};
+static const struct iio_chan_spec ade9078_c_channels[] = {
+		ADE9078_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 };
 
 static const struct iio_trigger_ops ade9078_trigger_ops = {
@@ -367,15 +371,6 @@ static const struct regmap_config ade9078_regmap_config = {
 	.zero_flag_mask = true,
 };
 
-static int ade9078_raw_to_val(int val, int full_scale)
-{
-	u32 tmp = val;
-
-	tmp /= (full_scale/1000);
-
-	return (int)tmp;
-}
-
 /*
  * ade9078_read_raw() - IIO read function
  * @indio_dev:		the IIO device
@@ -639,6 +634,157 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 	return ret;
 }
 
+static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
+		struct device_node *channel_node, u32 channel_nr)
+{
+	int ret;
+	u32 tmp;
+
+	ret = of_property_read_u32(channel_node, "adi,igain", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get igain: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AIGAIN,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(channel_node, "adi,vgain", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get vgain: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AVGAIN,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(channel_node, "adi,irmsos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get irmsos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AIRMSOS,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(channel_node, "adi,vrmsos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get vrmsos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AVRMSOS,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(channel_node, "adi,pgain", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get pgain: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_APGAIN,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(channel_node, "adi,wattos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get wattos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AWATTOS,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(channel_node, "adi,varos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get varos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AVAROS,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(channel_node, "adi,fvaros", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get fvaros: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AFVAROS,channel_nr), tmp);
+	if(ret)
+		return ret;
+
+	return 0;
+}
+
+static int ade9078_setup_iio_channels(struct ade9078_device *ade9078_dev)
+{
+	struct iio_chan_spec *chan;
+	struct device_node *phase_node = NULL;
+	u32 phase_nr;
+	u32 chan_size = 0;
+	int ret = 0;
+
+	chan = devm_kcalloc(&ade9078_dev->spi->dev, ADE9078_MAX_PHASE_NR*ARRAY_SIZE(ade9078_a_channels),
+			sizeof(*ade9078_a_channels), GFP_KERNEL);
+	if(chan == NULL) {
+		dev_err(&ade9078_dev->spi->dev,"Unable to allocate ADE9078 channels");
+		return -ENOMEM;
+	}
+	ade9078_dev->indio_dev->num_channels = 0;
+	ade9078_dev->indio_dev->channels = chan;
+
+	for_each_available_child_of_node((&ade9078_dev->spi->dev)->of_node, phase_node){
+		if (!of_node_name_eq(phase_node, "phase"))
+			continue;
+
+		printk(KERN_INFO "Enter of_node\n");
+
+		ret = of_property_read_u32(phase_node, "reg", &phase_nr);
+		if (ret) {
+			dev_err(&ade9078_dev->spi->dev, "Could not read channel reg : %d\n", ret);
+			goto put_channel_node;
+		}
+
+		switch(phase_nr)
+		{
+		case ADE9078_PHASE_A_NR:
+			memcpy(chan, ade9078_a_channels, sizeof(ade9078_a_channels));
+			chan_size = ARRAY_SIZE(ade9078_a_channels);
+			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
+					ADE9078_PHASE_A_NR);
+			break;
+		case ADE9078_PHASE_B_NR:
+			memcpy(chan, ade9078_b_channels, sizeof(ade9078_b_channels));
+			chan_size = ARRAY_SIZE(ade9078_b_channels);
+			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
+					ADE9078_PHASE_B_NR);
+			break;
+		case ADE9078_PHASE_C_NR:
+			memcpy(chan, ade9078_c_channels, sizeof(ade9078_c_channels));
+			chan_size = ARRAY_SIZE(ade9078_c_channels);
+			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
+					ADE9078_PHASE_C_NR);
+			break;
+		default:
+			break;
+		}
+
+		chan += chan_size;
+		ade9078_dev->indio_dev->num_channels += chan_size;
+	}
+
+put_channel_node:
+	of_node_put(phase_node);
+	return ret;
+}
+
 static const struct iio_buffer_setup_ops ade9078_buffer_ops = {
 	.preenable = &ade9078_buffer_preenable,
 	.postenable = &ade9078_buffer_postenable,
@@ -718,12 +864,10 @@ static int ade9078_probe(struct spi_device *spi)
 	indio_dev->dev.parent = &ade9078_dev->spi->dev;
 	indio_dev->info = &ade9078_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = ade9078_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ade9078_channels);
-//	indio_dev->trig = iio_trigger_get(trig);
 
 	ade9078_dev->regmap = regmap;
 	ade9078_dev->indio_dev = indio_dev;
+	ade9078_setup_iio_channels(ade9078_dev);
 
 	ade9078_dev->trig = trig;
 	ade9078_dev->trig->dev.parent = &ade9078_dev->spi->dev;
