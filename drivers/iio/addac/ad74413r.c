@@ -225,10 +225,9 @@ static int ad74413r_set_gpo_config(struct ad74413r_state *st, unsigned int offse
 static void ad74413r_gpio_set(struct gpio_chip *chip, unsigned int offset, int val)
 {
 	struct ad74413r_state *st = gpiochip_get_data(chip);
-	struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
 	int ret;
 
-	ret = ad74413r_set_gpo_config(st, offset, GPO_CONFIG_LOGIC);
+	ret = ad74413r_set_gpo_config(st, offset, AD74413R_GPO_CONFIG_LOGIC);
 	if (ret)
 		return;
 
@@ -246,9 +245,7 @@ static void ad74413r_gpio_set_multiple(struct gpio_chip *chip, unsigned long *ma
 	int ret;
 
 	for_each_set_bit_from(offset, mask, AD74413R_CHANNEL_MAX) {
-		struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
-
-		ret = ad74413r_set_gpo_config(st, offset, GPO_CONFIG_LOGIC_PARALLEL);
+		ret = ad74413r_set_gpo_config(st, offset, AD74413R_GPO_CONFIG_LOGIC_PARALLEL);
 		if (ret)
 			return;
 	}
@@ -259,7 +256,6 @@ static void ad74413r_gpio_set_multiple(struct gpio_chip *chip, unsigned long *ma
 static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad74413r_state *st = gpiochip_get_data(chip);
-	struct ad74413r_channel_config *channel_config = &st->channel_configs[offset];
 	unsigned int status;
 	int ret;
 
