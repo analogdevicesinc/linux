@@ -90,6 +90,7 @@ patternProperties:
         maxItems: 1
         minimum: 0
         maximum: 10
+        default: 0
 
       adi,gpo-config:
         $ref: /schemas/types.yaml#/definitions/uint32
