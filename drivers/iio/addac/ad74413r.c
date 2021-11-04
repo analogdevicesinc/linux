@@ -35,7 +35,7 @@ struct ad74413r_config {
 
 struct ad74413r_channel_config {
 	u32 func;
-	bool gpo_comparator_mode;
+	bool gpo_comparator;
 	bool initialized;
 };
 
