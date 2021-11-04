@@ -8,7 +8,6 @@
 #define __INDUSTRIALIO_DMA_BUFFER_H__
 
 #include <linux/list.h>
-#include <linux/kref.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/iio/buffer_impl.h>
@@ -16,6 +15,7 @@
 struct iio_dma_buffer_queue;
 struct iio_dma_buffer_ops;
 struct device;
+struct dma_buf;
 
 /**
  * enum iio_block_state - State of a struct iio_dma_buffer_block
@@ -41,8 +41,8 @@ enum iio_block_state {
  * @vaddr: Virutal address of the blocks memory
  * @phys_addr: Physical address of the blocks memory
  * @queue: Parent DMA buffer queue
- * @kref: kref used to manage the lifetime of block
  * @state: Current state of the block
+ * @dmabuf: Underlying DMABUF object
  */
 struct iio_dma_buffer_block {
 	/* May only be accessed by the owner of the block */
@@ -58,13 +58,13 @@ struct iio_dma_buffer_block {
 	size_t size;
 	struct iio_dma_buffer_queue *queue;
 
-	/* Must not be accessed outside the core. */
-	struct kref kref;
 	/*
 	 * Must not be accessed outside the core. Access needs to hold
 	 * queue->list_lock if the block is not owned by the core.
 	 */
 	enum iio_block_state state;
+
+	struct dma_buf *dmabuf;
 };
 
 /**

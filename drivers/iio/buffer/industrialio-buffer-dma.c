@@ -14,6 +14,7 @@
 #include <linux/poll.h>
 #include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
+#include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/sizes.h>
 
@@ -90,104 +91,150 @@
  * callback is called from within the custom callback.
  */
 
-static void iio_buffer_block_release(struct kref *kref)
-{
-	struct iio_dma_buffer_block *block = container_of(kref,
-		struct iio_dma_buffer_block, kref);
-
-	WARN_ON(block->state != IIO_BLOCK_STATE_DEAD);
-
-	dma_free_coherent(block->queue->dev, PAGE_ALIGN(block->size),
-					block->vaddr, block->phys_addr);
-
-	iio_buffer_put(&block->queue->buffer);
-	kfree(block);
-}
-
-static void iio_buffer_block_get(struct iio_dma_buffer_block *block)
-{
-	kref_get(&block->kref);
-}
-
-static void iio_buffer_block_put(struct iio_dma_buffer_block *block)
-{
-	kref_put(&block->kref, iio_buffer_block_release);
-}
-
-/*
- * dma_free_coherent can sleep, hence we need to take some special care to be
- * able to drop a reference from an atomic context.
- */
-static LIST_HEAD(iio_dma_buffer_dead_blocks);
-static DEFINE_SPINLOCK(iio_dma_buffer_dead_blocks_lock);
-
-static void iio_dma_buffer_cleanup_worker(struct work_struct *work)
-{
-	struct iio_dma_buffer_block *block, *_block;
-	LIST_HEAD(block_list);
-
-	spin_lock_irq(&iio_dma_buffer_dead_blocks_lock);
-	list_splice_tail_init(&iio_dma_buffer_dead_blocks, &block_list);
-	spin_unlock_irq(&iio_dma_buffer_dead_blocks_lock);
-
-	list_for_each_entry_safe(block, _block, &block_list, head)
-		iio_buffer_block_release(&block->kref);
-}
-static DECLARE_WORK(iio_dma_buffer_cleanup_work, iio_dma_buffer_cleanup_worker);
-
-static void iio_buffer_block_release_atomic(struct kref *kref)
-{
+struct iio_buffer_dma_buf_attachment {
+	struct scatterlist sgl;
+	struct sg_table sg_table;
 	struct iio_dma_buffer_block *block;
-	unsigned long flags;
-
-	block = container_of(kref, struct iio_dma_buffer_block, kref);
-
-	spin_lock_irqsave(&iio_dma_buffer_dead_blocks_lock, flags);
-	list_add_tail(&block->head, &iio_dma_buffer_dead_blocks);
-	spin_unlock_irqrestore(&iio_dma_buffer_dead_blocks_lock, flags);
-
-	schedule_work(&iio_dma_buffer_cleanup_work);
-}
-
-/*
- * Version of iio_buffer_block_put() that can be called from atomic context
- */
-static void iio_buffer_block_put_atomic(struct iio_dma_buffer_block *block)
-{
-	kref_put(&block->kref, iio_buffer_block_release_atomic);
-}
+};
 
 static struct iio_dma_buffer_queue *iio_buffer_to_queue(struct iio_buffer *buf)
 {
 	return container_of(buf, struct iio_dma_buffer_queue, buffer);
 }
 
+static struct iio_buffer_dma_buf_attachment *
+to_iio_buffer_dma_buf_attachment(struct sg_table *table)
+{
+	return container_of(table, struct iio_buffer_dma_buf_attachment, sg_table);
+}
+
+static void iio_buffer_block_get(struct iio_dma_buffer_block *block)
+{
+	get_dma_buf(block->dmabuf);
+}
+
+static void iio_buffer_block_put(struct iio_dma_buffer_block *block)
+{
+	dma_buf_put(block->dmabuf);
+}
+
+static int iio_buffer_dma_buf_attach(struct dma_buf *dbuf,
+				     struct dma_buf_attachment *at)
+{
+	at->priv = dbuf->priv;
+
+	return 0;
+}
+
+static struct sg_table * iio_buffer_dma_buf_map(struct dma_buf_attachment *at,
+						enum dma_data_direction dma_dir)
+{
+	struct iio_dma_buffer_block *block = at->priv;
+	struct iio_buffer_dma_buf_attachment *dba;
+	int ret;
+
+	dba = kzalloc(sizeof(*dba), GFP_KERNEL);
+	if (!dba)
+		return ERR_PTR(-ENOMEM);
+
+	sg_init_one(&dba->sgl, block->vaddr, PAGE_ALIGN(block->size));
+	dba->sg_table.sgl = &dba->sgl;
+	dba->sg_table.nents = 1;
+	dba->block = block;
+
+	ret = dma_map_sgtable(at->dev, &dba->sg_table, dma_dir, 0);
+	if (ret) {
+		kfree(dba);
+		return ERR_PTR(ret);
+	}
+
+	return &dba->sg_table;
+}
+
+static void iio_buffer_dma_buf_unmap(struct dma_buf_attachment *at,
+				     struct sg_table *sg_table,
+				     enum dma_data_direction dma_dir)
+{
+	struct iio_buffer_dma_buf_attachment *dba =
+		to_iio_buffer_dma_buf_attachment(sg_table);
+
+	dma_unmap_sgtable(at->dev, &dba->sg_table, dma_dir, 0);
+	kfree(dba);
+}
+
+static void iio_buffer_dma_buf_release(struct dma_buf *dbuf)
+{
+	struct iio_dma_buffer_block *block = dbuf->priv;
+	struct iio_dma_buffer_queue *queue = block->queue;
+
+	WARN_ON(block->state != IIO_BLOCK_STATE_DEAD);
+
+	mutex_lock(&queue->lock);
+
+	dma_free_coherent(queue->dev, PAGE_ALIGN(block->size),
+			  block->vaddr, block->phys_addr);
+
+	kfree(block);
+
+	mutex_unlock(&queue->lock);
+	iio_buffer_put(&queue->buffer);
+}
+
+
+static const struct dma_buf_ops iio_dma_buffer_dmabuf_ops = {
+	.attach			= iio_buffer_dma_buf_attach,
+	.map_dma_buf		= iio_buffer_dma_buf_map,
+	.unmap_dma_buf		= iio_buffer_dma_buf_unmap,
+	.release		= iio_buffer_dma_buf_release,
+};
+
 static struct iio_dma_buffer_block *iio_dma_buffer_alloc_block(
 	struct iio_dma_buffer_queue *queue, size_t size)
 {
 	struct iio_dma_buffer_block *block;
+	DEFINE_DMA_BUF_EXPORT_INFO(einfo);
+	struct dma_buf *dmabuf;
+	int err;
 
 	block = kzalloc(sizeof(*block), GFP_KERNEL);
 	if (!block)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	block->vaddr = dma_alloc_coherent(queue->dev, PAGE_ALIGN(size),
 		&block->phys_addr, GFP_KERNEL);
 	if (!block->vaddr) {
-		kfree(block);
-		return NULL;
+		err = -ENOMEM;
+		goto err_free_block;
 	}
 
+	einfo.ops = &iio_dma_buffer_dmabuf_ops;
+	einfo.size = PAGE_ALIGN(size);
+	einfo.priv = block;
+	einfo.flags = O_RDWR;
+
+	dmabuf = dma_buf_export(&einfo);
+	if (IS_ERR(dmabuf)) {
+		err = PTR_ERR(dmabuf);
+		goto err_free_dma;
+	}
+
+	block->dmabuf = dmabuf;
 	block->size = size;
 	block->bytes_used = size;
 	block->state = IIO_BLOCK_STATE_DONE;
 	block->queue = queue;
 	INIT_LIST_HEAD(&block->head);
-	kref_init(&block->kref);
 
 	iio_buffer_get(&queue->buffer);
 
 	return block;
+
+err_free_dma:
+	dma_free_coherent(queue->dev, PAGE_ALIGN(size),
+			  block->vaddr, block->phys_addr);
+err_free_block:
+	kfree(block);
+	return ERR_PTR(err);
 }
 
 static void _iio_dma_buffer_block_done(struct iio_dma_buffer_block *block)
@@ -224,7 +271,7 @@ void iio_dma_buffer_block_done(struct iio_dma_buffer_block *block)
 	_iio_dma_buffer_block_done(block);
 	spin_unlock_irqrestore(&queue->list_lock, flags);
 
-	iio_buffer_block_put_atomic(block);
+	iio_buffer_block_put(block);
 	iio_dma_buffer_queue_wake(queue);
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_block_done);
@@ -250,7 +297,8 @@ void iio_dma_buffer_block_list_abort(struct iio_dma_buffer_queue *queue,
 		list_del(&block->head);
 		block->bytes_used = 0;
 		_iio_dma_buffer_block_done(block);
-		iio_buffer_block_put_atomic(block);
+
+		iio_buffer_block_put(block);
 	}
 	spin_unlock_irqrestore(&queue->list_lock, flags);
 
@@ -340,11 +388,13 @@ int iio_dma_buffer_request_update(struct iio_buffer *buffer)
 
 		if (!block) {
 			block = iio_dma_buffer_alloc_block(queue, size);
-			if (!block) {
-				ret = -ENOMEM;
+			if (IS_ERR(block)) {
+				ret = PTR_ERR(block);
 				goto out_unlock;
 			}
 			queue->fileio.blocks[i] = block;
+
+			iio_buffer_block_get(block);
 		}
 
 		if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN)
