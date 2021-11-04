@@ -41,9 +41,7 @@ properties:
   interrupts:
     maxItems: 1
 
-  refin-supply:
-    description:
-      Reference voltage regulator.
+  refin-supply: true
 
   adi,rsense-resistance-ohms:
     $ref: /schemas/types.yaml#/definitions/uint32
