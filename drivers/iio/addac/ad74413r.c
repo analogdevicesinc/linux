@@ -709,26 +709,6 @@ static int ad74413r_set_adc_rate(struct ad74413r_state *st,
 	return ad74413r_set_adc_rejection(st, channel, rejection);
 }
 
-static int ad74413r_get_voltage_scale(struct ad74413r_state *st,
-				      unsigned int channel, bool output,
-				      int *val, int *val2)
-{
-	if (output)
-		return ad74413r_get_output_voltage_scale(st, val, val2);
-	else
-		return ad74413r_get_input_voltage_scale(st, channel, val, val2);
-}
-
-static int ad74413r_get_current_scale(struct ad74413r_state *st,
-				      unsigned int channel, bool output,
-				      int *val, int *val2)
-{
-	if (output)
-		return ad74413r_get_output_current_scale(st, val, val2);
-	else
-		return ad74413r_get_input_current_scale(st, channel, val, val2);
-}
-
 static irqreturn_t ad74413r_trigger_handler(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
@@ -932,8 +912,7 @@ static int ad74413r_buffer_predisable(struct iio_dev *indio_dev)
 	return ad74413r_set_adc_conv_seq(st, AD74413R_CONV_SEQ_OFF);
 }
 
-static int ad74413r_read_raw(struct iio_dev *indio_dev,
-			     struct iio_chan_spec const *chan,
+static int ad74413r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
 			     int *val, int *val2, long info)
 {
 	struct ad74413r_state *st = iio_priv(indio_dev);
@@ -942,13 +921,17 @@ static int ad74413r_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_VOLTAGE:
-			return ad74413r_get_voltage_scale(st, chan->channel,
-							  chan->output,
-							  val, val2);
+			if (chan->output)
+				return ad74413r_get_output_voltage_scale(st, val, val2);
+			else
+				return ad74413r_get_input_voltage_scale(st, chan->channel,
+								       val, val2);
 		case IIO_CURRENT:
-			return ad74413r_get_current_scale(st, chan->channel,
-							  chan->output,
-							  val, val2);
+			if (chan->output)
+				return ad74413r_get_output_current_scale(st, val, val2);
+			else
+				return ad74413r_get_input_current_scale(st, chan->channel,
+									val, val2);
 		default:
 			return -EINVAL;
 		}
