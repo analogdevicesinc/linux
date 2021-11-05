@@ -104,6 +104,9 @@ struct ad74413r_state {
 #define AD74413R_ADC_REJECTION_50_60_HART	0b10
 #define AD74413R_ADC_REJECTION_HART		0b11
 
+#define AD74413R_REG_DIN_CONFIG_X(x)	(0x09 + (x))
+#define AD74413R_DIN_DEBOUNCE_TIME_MASK	GENMASK(4, 0)
+
 #define AD74413R_REG_DAC_CODE_X(x)	(0x16 + (x))
 #define AD74413R_DAC_CODE_MAX		((1 << 13) - 1)
 #define AD74413R_DAC_VOLTAGE_MAX	11000
@@ -356,15 +359,50 @@ static int ad74413r_gpio_get_multiple(struct gpio_chip *chip,
 }
 
 static int ad74413r_gpio_get_gpo_direction(struct gpio_chip *chip,
-					    unsigned int offset)
+					   unsigned int offset)
 {
 	return GPIO_LINE_DIRECTION_OUT;
 }
 
 static int ad74413r_gpio_get_comp_direction(struct gpio_chip *chip,
-					     unsigned int offset)
+					    unsigned int offset)
 {
 	return GPIO_LINE_DIRECTION_IN;
+}
+
+static int ad74413r_gpio_set_gpo_config(struct gpio_chip *chip,
+					unsigned int offset,
+					unsigned long config)
+{
+	struct ad74413r_state *st = gpiochip_get_data(chip);
+	unsigned int real_offset = st->gpo_gpio_offsets[offset];
+
+	switch (pinconf_to_config_param(config)) {
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		return ad74413r_set_gpo_config(st, real_offset,
+			AD74413R_GPO_CONFIG_100K_PULL_DOWN);
+	case PIN_CONFIG_BIAS_HIGH_IMPEDANCE:
+		return ad74413r_set_gpo_config(st, real_offset,
+			AD74413R_GPO_CONFIG_HIGH_IMPEDANCE);
+	default:
+		return -ENOTSUPP;
+	}
+}
+
+static int ad74413r_gpio_set_comp_config(struct gpio_chip *chip,
+					 unsigned int offset,
+					 unsigned long config)
+{
+	struct ad74413r_state *st = gpiochip_get_data(chip);
+	unsigned int real_offset = st->comp_gpio_offsets[offset];
+
+	switch (pinconf_to_config_param(config)) {
+	case PIN_CONFIG_INPUT_DEBOUNCE:
+		return ad74413r_set_comp_debounce(st, real_offset,
+			pinconf_to_config_argument(config));
+	default:
+		return -ENOTSUPP;
+	}
 }
 
 static int ad74413r_set_channel_dac_code(struct ad74413r_state *st,
@@ -1353,6 +1391,7 @@ static int ad74413r_probe(struct spi_device *spi)
 		st->gpo_gpiochip.can_sleep = true;
 		st->gpo_gpiochip.set = ad74413r_gpio_set;
 		st->gpo_gpiochip.set_multiple = ad74413r_gpio_set_multiple;
+		st->gpo_gpiochip.set_config = ad74413r_gpio_set_gpo_config;
 		st->gpo_gpiochip.get_direction = ad74413r_gpio_get_gpo_direction;
 		st->gpo_gpiochip.owner = THIS_MODULE;
 
@@ -1370,6 +1409,7 @@ static int ad74413r_probe(struct spi_device *spi)
 		st->comp_gpiochip.get = ad74413r_gpio_get;
 		st->comp_gpiochip.get_multiple = ad74413r_gpio_get_multiple;
 		st->comp_gpiochip.get_direction = ad74413r_gpio_get_comp_direction;
+		st->comp_gpiochip.set_config = ad74413r_gpio_set_comp_config;
 		st->comp_gpiochip.owner = THIS_MODULE;
 
 		ret = devm_gpiochip_add_data(st->dev, &st->comp_gpiochip, st);
