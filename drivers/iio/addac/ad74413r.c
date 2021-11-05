@@ -105,7 +105,8 @@ struct ad74413r_state {
 #define AD74413R_ADC_REJECTION_HART		0b11
 
 #define AD74413R_REG_DIN_CONFIG_X(x)	(0x09 + (x))
-#define AD74413R_DIN_DEBOUNCE_TIME_MASK	GENMASK(4, 0)
+#define AD74413R_DIN_DEBOUNCE_MASK	GENMASK(4, 0)
+#define AD74413R_DIN_DEBOUNCE_NUM	(1 << 5)
 
 #define AD74413R_REG_DAC_CODE_X(x)	(0x16 + (x))
 #define AD74413R_DAC_CODE_MAX		((1 << 13) - 1)
@@ -231,46 +232,27 @@ static int ad74413r_set_gpo_config(struct ad74413r_state *st,
 				  AD74413R_GPO_CONFIG_GPO_SELECT_MASK, mode);
 }
 
+static const unsigned int ad74413r_debounce_map[AD74413R_DIN_DEBOUNCE_NUM] = {
+	0,	13,	18,	24,	32,	42,	56,	75,
+	100,	130,	180,	240,	320,	420,	560,	750,
+	1000,	1300,	1800,	2400,	3200,	4200,	5600,	7500,
+	10000,	13000,	18000,	24000,	32000,	42000,	56000,	75000,
+};
+
 static int ad74413r_set_comp_debounce(struct ad74413r_state *st,
 				      unsigned int offset,
 				      unsigned int debounce)
 {
-	unsigned int val;
+	unsigned int val = AD74413R_DIN_DEBOUNCE_NUM - 1;
+	unsigned int i;
 
-	if (debounce < 100) {
-		val = 0x00;
-		debounce /= 1;
-	} else if (debounce < 1000) {
-		val = 0x08;
-		debounce /= 10;
-	} else if (debounce < 10000) {
-		val = 0x10;
-		debounce /= 100;
-	} else {
-		val = 0x18;
-		debounce /= 1000;
-	}
-
-	if (debounce < 13)
-		val += 0x0;
-	else if (debounce < 18)
-		val += 0x1;
-	else if (debounce < 24)
-		val += 0x2;
-	else if (debounce < 32)
-		val += 0x3;
-	else if (debounce < 42)
-		val += 0x4;
-	else if (debounce < 56)
-		val += 0x5;
-	else if (debounce < 75)
-		val += 0x6;
-	else
-		val += 0x7;
+	for (i = 0; i < AD74413R_DIN_DEBOUNCE_NUM; i++)
+		if (debounce <= ad74413r_debounce_map[i])
+			val = i;
 
 	return regmap_update_bits(st->regmap,
 				  AD74413R_REG_DIN_CONFIG_X(offset),
-				  AD74413R_DIN_DEBOUNCE_TIME_MASK,
+				  AD74413R_DIN_DEBOUNCE_MASK,
 				  val);
 }
 
