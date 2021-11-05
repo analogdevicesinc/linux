@@ -1096,7 +1096,7 @@ static struct iio_chan_spec ad74413r_digital_input_channels[] = {
 #define AD74413R_CHANNELS(name) \
 	_AD74413R_CHANNELS(ad74413r_ ## name ## _channels)
 
-static struct ad74413r_channels ad74413r_channels_map[] = {
+static const struct ad74413r_channels ad74413r_channels_map[] = {
 	[CH_FUNC_HIGH_IMPEDANCE] = AD74413R_CHANNELS(high_impedance),
 	[CH_FUNC_VOLTAGE_OUTPUT] = AD74413R_CHANNELS(voltage_output),
 	[CH_FUNC_CURRENT_OUTPUT] = AD74413R_CHANNELS(current_output),
