@@ -456,40 +456,66 @@
 #define ADE9078_READ_REG(x)			(((x) << 4) | 0x08)
 
 /*Configuran registers*/
-#define ADE9078_PGA_GAIN 0x0000    	    /*PGA@0x0000. Gain of all channels=1*/
-#define ADE9078_CONFIG0 0x00000008		/*HPF disabled*/
-#define ADE9078_CONFIG1	0x0002			/*CF3/ZX pin outputs Zero crossing */
-#define ADE9078_CONFIG2	0x0A00			/*Default High pass corner frequency of 1.25Hz*/
-#define ADE9078_CONFIG3	0x0000			/*Peak and overcurrent detection disabled*/
-#define ADE9078_ACCMODE 0x0000			/*50Hz operation, 3P4W Wye configuration, signed accumulation*/
-										/*Clear bit 8 i.e. ACCMODE=0x00xx for 50Hz operation*/
-										/*ACCMODE=0x0x9x for 3Wire delta when phase B is used as reference*/
-#define ADE9078_ZX_LP_SEL 0x0000		/*Line period and zero crossing obtained from VA*/
-#define ADE9078_MASK0 0x00000000		/*Disable all interrupts*/
-#define ADE9078_MASK1 0x00000000		/*Disable all interrupts*/
-#define ADE9078_EVENT_MASK 0x00000000	/*Events disabled */
-#define ADE9078_VLEVEL	0x0022EA28		/*Assuming Vnom=1/2 of full scale.*/
-										/*Refer Technical reference manual for detailed calculations.*/
-#define ADE9078_DICOEFF 0x00000000 		/* Set DICOEFF= 0xFFFFE000 when integrator is enabled*/
+/*PGA@0x0000. Gain of all channels=1*/
+#define ADE9078_PGA_GAIN 			0x0000
+
+/*HPF disabled*/
+#define ADE9078_CONFIG0 			0x00000008
+
+/*CF3/ZX pin outputs Zero crossing */
+#define ADE9078_CONFIG1				0x0002
+
+/*Default High pass corner frequency of 1.25Hz*/
+#define ADE9078_CONFIG2				0x0A00
+
+/*Peak and overcurrent detection disabled*/
+#define ADE9078_CONFIG3				0x0000
+
+/*50Hz operation, 3P4W Wye configuration, signed accumulation*/
+/*Clear bit 8 i.e. ACCMODE=0x00xx for 50Hz operation*/
+/*ACCMODE=0x0x9x for 3Wire delta when phase B is used as reference*/
+#define ADE9078_ACCMODE 			0x0000
+
+/*Line period and zero crossing obtained from VA*/
+#define ADE9078_ZX_LP_SEL 			0x0000
+
+/*Disable all interrupts*/
+#define ADE9078_MASK0 				0x00000000
+
+/*Disable all interrupts*/
+#define ADE9078_MASK1 				0x00000000
+
+/*Events disabled */
+#define ADE9078_EVENT_MASK 			0x00000000
+
+/*Assuming Vnom=1/2 of full scale.*/
+/*Refer Technical reference manual for detailed calculations.*/
+#define ADE9078_VLEVEL				0x0022EA28
+
+/* Set DICOEFF= 0xFFFFE000 when integrator is enabled*/
+#define ADE9078_DICOEFF 			0x00000000
+
+/*DSP ON*/
+#define ADE9078_RUN_ON 				0xFFFFFFFF
+
+/*Energy Accumulation Settings*/
+/*Enable energy accumulation, accumulate samples at 8ksps*/
+/*latch energy accumulation after EGYRDY*/
+/*If accumulation is changed to half line cycle mode, change EGY_TIME*/
+#define ADE9078_EP_CFG 				0x0011
+
+/*Accumulate 4000 samples*/
+#define ADE9078_EGY_TIME 			0x0FA0
 
 /*Constant Definitions***/
-#define ADE9078_FDSP 4000   			/*ADE9000 FDSP: 8000sps, ADE9078 FDSP: 4000sps*/
-#define ADE9078_RUN_ON 0xFFFFFFFF		/*DSP ON*/
-/*Energy Accumulation Settings*/
-#define ADE9078_EP_CFG 0x0011			/*Enable energy accumulation, accumulate samples at 8ksps*/
-										/*latch energy accumulation after EGYRDY*/
-										/*If accumulation is changed to half line cycle mode, change EGY_TIME*/
-#define ADE9078_EGY_TIME 0x0FA0			/*Accumulate 4000 samples*/
-
-/*Waveform buffer Settings*/
-#define ADE9078_WFB_CFG 0x0329			/*I, Fixed data rate enabled*/
-										/*Stop when waveform buffer is full.*/
-										/*Burst VA_PCF channels*/
-#define ADE9078_WFB_PAGE_SIZE 128
-#define ADE9078_WFB_BYTES_IN_PAGE 4
+/*ADE9000 FDSP: 8000sps, ADE9078 FDSP: 4000sps*/
+#define ADE9078_FDSP 				4000
+#define ADE9078_WFB_CFG 			0x0329
+#define ADE9078_WFB_PAGE_SIZE 		128
+#define ADE9078_WFB_BYTES_IN_PAGE 	4
 #define ADE9078_WFB_PAGE_ARRAY_SIZE \
 	ADE9078_WFB_PAGE_SIZE * ADE9078_WFB_BYTES_IN_PAGE
-#define ADE9078_WFB_FULL_BUFF_SIZE \
+#define ADE9078_WFB_FULL_BUFF_SIZE 	\
 	ADE9078_WFB_PAGE_ARRAY_SIZE * 15
 #define ADE9078_WFB_FULL_BUFF_NR_SAMPLES \
 	ADE9078_WFB_PAGE_SIZE * 15
@@ -548,25 +574,26 @@
 	ADE9078_ST1_ERROR3
 
 
-/*Full scale Codes referred from Datasheet.Respective digital codes are produced when ADC inputs are at full scale. Donot Change. */
-#define ADE9078_RMS_FULL_SCALE_CODES  52866837
-#define ADE9000_WATT_FULL_SCALE_CODES 20694066
-#define ADE9000_RESAMPLED_FULL_SCALE_CODES  18196
-#define ADE9078_PCF_FULL_SCALE_CODES  74770000
+/*Full scale Codes referred from Datasheet.Respective digital codes are
+ * produced when ADC inputs are at full scale. Do not Change. */
+#define ADE9078_RMS_FULL_SCALE_CODES  	52866837
+#define ADE9000_WATT_FULL_SCALE_CODES 	20694066
+#define ADE9078_PCF_FULL_SCALE_CODES  	74770000
 
-#define ADE9078_PHASE_A_NR			0
-#define ADE9078_PHASE_B_NR			2
-#define ADE9078_PHASE_C_NR			4
-#define ADE9078_PHASE_A_NAME		"A"
-#define ADE9078_PHASE_B_NAME		"B"
-#define ADE9078_PHASE_C_NAME		"C"
+/*Phase and channel definitions*/
+#define ADE9078_PHASE_A_NR				0
+#define ADE9078_PHASE_B_NR				2
+#define ADE9078_PHASE_C_NR				4
+#define ADE9078_PHASE_A_NAME			"A"
+#define ADE9078_PHASE_B_NAME			"B"
+#define ADE9078_PHASE_C_NAME			"C"
 
-#define ADE9078_SCAN_POS_IA			BIT(0)
-#define ADE9078_SCAN_POS_VA			BIT(1)
-#define ADE9078_SCAN_POS_IB			BIT(2)
-#define ADE9078_SCAN_POS_VB			BIT(3)
-#define ADE9078_SCAN_POS_IC			BIT(4)
-#define ADE9078_SCAN_POS_VC			BIT(5)
+#define ADE9078_SCAN_POS_IA				BIT(0)
+#define ADE9078_SCAN_POS_VA				BIT(1)
+#define ADE9078_SCAN_POS_IB				BIT(2)
+#define ADE9078_SCAN_POS_VB				BIT(3)
+#define ADE9078_SCAN_POS_IC				BIT(4)
+#define ADE9078_SCAN_POS_VC				BIT(5)
 
 #define ADE9078_MAX_PHASE_NR			3
 

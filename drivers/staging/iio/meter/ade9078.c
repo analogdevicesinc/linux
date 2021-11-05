@@ -41,7 +41,6 @@ struct ade9078_device {
 	struct mutex lock;
 	u32 irq0_bits;
 	u32 irq1_bits;
-
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
@@ -51,11 +50,10 @@ struct ade9078_device {
 	struct spi_message spi_msg;
 	struct regmap *regmap;
 	struct iio_dev *indio_dev;
-
 	struct iio_trigger *trig;
 };
 
-//IIO channels of the ade9078
+//IIO channels of the ade9078 for each phase individually
 static const struct iio_chan_spec ade9078_a_channels[] = {
 		ADE9078_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 };
@@ -66,75 +64,6 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 		ADE9078_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 };
 
-static const struct iio_trigger_ops ade9078_trigger_ops = {
-		.validate_device = iio_trigger_validate_own_device,
-};
-
-static int ade9078_set_interrupts(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
-{
-
-	if(interrupt_nr == 0)
-	{
-		ade9078_dev->irq0_bits |= mask;
-		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, mask);
-	}
-	else
-	{
-		ade9078_dev->irq1_bits |= mask;
-		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, mask);
-	}
-}
-
-//static int ade9078_clear_interrupts(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
-//{
-//	if(interrupt_nr == 0)
-//	{
-//		ade9078_dev->irq0_bits &= ~mask;
-//		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, 0);
-//	}
-//	else
-//	{
-//		ade9078_dev->irq1_bits &= ~mask;
-//		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, 0);
-//	}
-//}
-//
-//static int ade9078_clear_interrupt_status(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
-//{
-//	if(interrupt_nr == 0)
-//		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0, mask, mask);
-//	else
-//		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0, mask, mask);
-//}
-//
-//
-//static int ade9078_test_interrupt_status(struct ade9078_device *ade9078_dev, u8 interrupt_nr, u32 mask)
-//{
-//	u32 val;
-//	int ret;
-//
-//	if(interrupt_nr == 0)
-//		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &val);
-//	else
-//		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS1, &val);
-//
-//	if (ret)
-//		return ret;
-//
-//	return (val & mask) == mask;
-//}
-
-static irqreturn_t ade9078_data_interrupt(int irq, void *data)
-{
-	struct ade9078_device *ade9078_dev = data;
-
-	dev_info(&ade9078_dev->spi->dev, "Interrupted");
-	if (iio_buffer_enabled(ade9078_dev->indio_dev))
-		iio_trigger_poll(ade9078_dev->trig);
-
-	return IRQ_HANDLED;
-}
-
 /*
  * ade9078_spi_write_reg() - ade9078 write register over SPI
  * the data format for communicating with the ade9078 over SPI
@@ -143,7 +72,8 @@ static irqreturn_t ade9078_data_interrupt(int irq, void *data)
  * @reg:		address of the of desired register
  * @val:  		value to be written to the ade9078
  */
-static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int val)
+static int ade9078_spi_write_reg(void *context, unsigned int reg,
+		unsigned int val)
 {
 	struct device *dev = context;
 	struct spi_device *spi = to_spi_device(dev);
@@ -180,7 +110,8 @@ static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int v
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret)
 	{
-		dev_err(&ade9078_dev->spi->dev, "problem when writing register 0x%x", reg);
+		dev_err(&ade9078_dev->spi->dev, "problem when writing register 0x%x",
+				reg);
 	}
 
 	mutex_unlock(&ade9078_dev->lock);
@@ -195,7 +126,8 @@ static int ade9078_spi_write_reg(void *context, unsigned int reg, unsigned int v
  * @reg:		address of the of desired register
  * @val:  		value to be read to the ade9078
  */
-static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *val)
+static int ade9078_spi_read_reg(void *context, unsigned int reg,
+		unsigned int *val)
 {
 	struct device *dev = context;
 	struct spi_device *spi = to_spi_device(dev);
@@ -228,7 +160,8 @@ static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *v
 
 	ret = spi_sync_transfer(ade9078_dev->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "problem when reading register 0x%x", reg);
+		dev_err(&ade9078_dev->spi->dev, "problem when reading register 0x%x",
+				reg);
 		goto err_ret;
 	}
 
@@ -236,11 +169,83 @@ static int ade9078_spi_read_reg(void *context, unsigned int reg, unsigned int *v
 	if(reg > 0x480 && reg < 0x4FE)
 		*val = (ade9078_dev->rx[0] << 8) | ade9078_dev->rx[1];
 	else
-		*val = (ade9078_dev->rx[0] << 24) | (ade9078_dev->rx[1] << 16) | (ade9078_dev->rx[2] << 8) | ade9078_dev->rx[3];
+		*val = (ade9078_dev->rx[0] << 24) | (ade9078_dev->rx[1] << 16) |
+		(ade9078_dev->rx[2] << 8) | ade9078_dev->rx[3];
 
 err_ret:
 	mutex_unlock(&ade9078_dev->lock);
 	return ret;
+}
+
+static int ade9078_set_interrupts(struct ade9078_device *ade9078_dev,
+		u8 interrupt_nr, u32 mask)
+{
+
+	if(interrupt_nr == 0)
+	{
+		ade9078_dev->irq0_bits |= mask;
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, mask);
+	}
+	else
+	{
+		ade9078_dev->irq1_bits |= mask;
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, mask);
+	}
+}
+
+//static int ade9078_clear_interrupts(struct ade9078_device *ade9078_dev,
+//		u8 interrupt_nr, u32 mask)
+//{
+//	if(interrupt_nr == 0)
+//	{
+//		ade9078_dev->irq0_bits &= ~mask;
+//		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, 0);
+//	}
+//	else
+//	{
+//		ade9078_dev->irq1_bits &= ~mask;
+//		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, 0);
+//	}
+//}
+//
+//static int ade9078_clear_interrupt_status(struct ade9078_device *ade9078_dev,
+//		u8 interrupt_nr, u32 mask)
+//{
+//	if(interrupt_nr == 0)
+//		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0,
+//				mask, mask);
+//	else
+//		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0,
+//				mask, mask);
+//}
+//
+//
+//static int ade9078_test_interrupt_status(struct ade9078_device *ade9078_dev,
+//		u8 interrupt_nr, u32 mask)
+//{
+//	u32 val;
+//	int ret;
+//
+//	if(interrupt_nr == 0)
+//		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &val);
+//	else
+//		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS1, &val);
+//
+//	if (ret)
+//		return ret;
+//
+//	return (val & mask) == mask;
+//}
+
+static irqreturn_t ade9078_data_interrupt(int irq, void *data)
+{
+	struct ade9078_device *ade9078_dev = data;
+
+	dev_info(&ade9078_dev->spi->dev, "Interrupted");
+	if (iio_buffer_enabled(ade9078_dev->indio_dev))
+		iio_trigger_poll(ade9078_dev->trig);
+
+	return IRQ_HANDLED;
 }
 
 /*
@@ -316,9 +321,11 @@ err_out:
 static int ade9078_en_wfb(struct ade9078_device *ade9078_dev, bool state)
 {
 	if(state)
-		return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG, BIT_MASK(4), BIT_MASK(4));
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG,
+				BIT_MASK(4), BIT_MASK(4));
 	else
-		return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG, BIT_MASK(4), 0);
+		return regmap_update_bits(ade9078_dev->regmap, ADDR_WFB_CFG,
+				BIT_MASK(4), 0);
 }
 
 /*
@@ -326,7 +333,7 @@ static int ade9078_en_wfb(struct ade9078_device *ade9078_dev, bool state)
  * as well as the tx and rx buffers
  * @indio_dev:		the IIO device
  */
-int ade9078_configure_scan(struct iio_dev *indio_dev)
+static int ade9078_configure_scan(struct iio_dev *indio_dev)
 {
 	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
 	int ret = 0;
@@ -353,23 +360,6 @@ int ade9078_configure_scan(struct iio_dev *indio_dev)
 
 	return ret;
 }
-
-/*
- * Regmap configuration
- * The register access of the ade9078 requires a 16 bit address
- * with the read flag on bit 3. This is not supported by default
- * regmap functionality, thus reg_read and reg_write have been
- * replaced with custom functions
- */
-static const struct regmap_config ade9078_regmap_config = {
-	.reg_bits = 16,
-	.val_bits = 32,
-	//reg_read and write require the use of devm_regmap_init
-	//instead of devm_regmap_init_spi
-	.reg_read = ade9078_spi_read_reg,
-	.reg_write = ade9078_spi_write_reg,
-	.zero_flag_mask = true,
-};
 
 /*
  * ade9078_read_raw() - IIO read function
@@ -452,6 +442,298 @@ static int ade9078_reg_acess(struct iio_dev *indio_dev,
 }
 
 /*
+ * ade9078_config_wfb() - reads the ade9078 node and configures the wave form
+ * buffer based on the options set. Additionally is reads the active scan mask
+ * in order to set the input data of the buffer. There are only a few available
+ * input configurations permitted by the IC, any unpermitted configuration will
+ * result in all channels being active.
+ * @indio_dev:		the IIO device
+ */
+static int ade9078_config_wfb(struct iio_dev *indio_dev)
+{
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+	u32 wfg_cfg_val = 0;
+	u32 tmp;
+	int ret;
+
+	bitmap_to_arr32(&wfg_cfg_val, indio_dev->active_scan_mask,
+			indio_dev->masklength);
+
+	switch(wfg_cfg_val)
+	{
+	case ADE9078_SCAN_POS_IA | ADE9078_SCAN_POS_VA :
+		wfg_cfg_val = 0x1;
+		break;
+	case ADE9078_SCAN_POS_IB | ADE9078_SCAN_POS_VB :
+		wfg_cfg_val = 0x2;
+		break;
+	case ADE9078_SCAN_POS_IC | ADE9078_SCAN_POS_VC :
+		wfg_cfg_val = 0x3;
+		break;
+	case ADE9078_SCAN_POS_IA :
+		wfg_cfg_val = 0x8;
+		break;
+	case ADE9078_SCAN_POS_VA :
+		wfg_cfg_val = 0x9;
+		break;
+	case ADE9078_SCAN_POS_IB :
+		wfg_cfg_val = 0xA;
+		break;
+	case ADE9078_SCAN_POS_VB :
+		wfg_cfg_val = 0xB;
+		break;
+	case ADE9078_SCAN_POS_IC :
+		wfg_cfg_val = 0xC;
+		break;
+	case ADE9078_SCAN_POS_VC :
+		wfg_cfg_val = 0xD;
+		break;
+	default:
+		wfg_cfg_val = 0x0;
+		break;
+	}
+
+	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node,
+			"adi,wf-cap-sel", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-cap-sel: %d\n", ret);
+		return ret;
+	}
+	wfg_cfg_val |= tmp << 5;
+
+	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node,
+			"adi,wf-mode", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-mode: %d\n", ret);
+		return ret;
+	}
+	wfg_cfg_val |= tmp << 6;
+
+	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node,
+			"adi,wf-src", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-src: %d\n", ret);
+		return ret;
+	}
+	wfg_cfg_val |= tmp << 8;
+
+	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node,
+			"adi,wf-in-en", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-in-en: %d\n", ret);
+		return ret;
+	}
+	wfg_cfg_val |= tmp << 12;
+
+	return regmap_write(ade9078_dev->regmap, ADDR_WFB_CFG, wfg_cfg_val);
+}
+
+/*
+ * ade9078_buffer_preenable() - configures the wave form buffer
+ * @indio_dev:		the IIO device
+ */
+static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
+{
+	return ade9078_config_wfb(indio_dev);
+}
+
+/*
+ * ade9078_buffer_postenable() - after the iio is enabled
+ * this will enable the ade9078 internal buffer for acquisition
+ * @indio_dev:		the IIO device
+ */
+static int ade9078_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+	int ret;
+
+	ret = ade9078_en_wfb(ade9078_dev, true);
+
+	return ret;
+}
+
+/*
+ * ade9078_buffer_postdisable() - after the iio is disable
+ * this will disable the ade9078 internal buffer for acquisition
+ * @indio_dev:		the IIO device
+ */
+static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+	int ret;
+
+	ret = ade9078_en_wfb(ade9078_dev, false);
+
+	return ret;
+}
+
+/*
+ * ade9078_phase_gain_offset_setup() - reads the gain and offset for
+ * I, V and P from the device-tree for each phase and sets them in the
+ * respective registers
+ * @ade9078_dev:		ade9078 device data
+ * @phase_node: 		phase node in the device-tree
+ * @phase_nr:			the number attributed to each phase, this also
+ * 						represents the phase register offset
+ */
+static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
+		struct device_node *phase_node, u32 phase_nr)
+{
+	int ret;
+	u32 tmp;
+
+	ret = of_property_read_u32(phase_node, "adi,igain", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get igain: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AIGAIN,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(phase_node, "adi,vgain", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get vgain: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AVGAIN,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(phase_node, "adi,irmsos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get irmsos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AIRMSOS,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(phase_node, "adi,vrmsos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get vrmsos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AVRMSOS,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(phase_node, "adi,pgain", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get pgain: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_APGAIN,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(phase_node, "adi,wattos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get wattos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AWATTOS,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(phase_node, "adi,varos", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get varos: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AVAROS,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	ret = of_property_read_u32(phase_node, "adi,fvaros", &tmp);
+	if (ret) {
+		dev_err(&ade9078_dev->spi->dev, "Failed to get fvaros: %d\n", ret);
+		return ret;
+	}
+	ret = regmap_write(ade9078_dev->regmap,
+			PHASE_ADDR_ADJUST(ADDR_AFVAROS,phase_nr), tmp);
+	if(ret)
+		return ret;
+
+	return 0;
+}
+
+/*
+ * ade9078_setup_iio_channels() - parses the phase nodes of the device-tree and
+ * creates the iio channels based on the active phases in the DT. Each phase
+ * has its own I, V and P channels with individual gain and offset parameters.
+ * @ade9078_dev:		ade9078 device data
+ */
+static int ade9078_setup_iio_channels(struct ade9078_device *ade9078_dev)
+{
+	struct iio_chan_spec *chan;
+	struct device_node *phase_node = NULL;
+	u32 phase_nr;
+	u32 chan_size = 0;
+	int ret = 0;
+
+	chan = devm_kcalloc(&ade9078_dev->spi->dev,
+			ADE9078_MAX_PHASE_NR*ARRAY_SIZE(ade9078_a_channels),
+			sizeof(*ade9078_a_channels), GFP_KERNEL);
+	if(chan == NULL) {
+		dev_err(&ade9078_dev->spi->dev,"Unable to allocate ADE9078 channels");
+		return -ENOMEM;
+	}
+	ade9078_dev->indio_dev->num_channels = 0;
+	ade9078_dev->indio_dev->channels = chan;
+
+	for_each_available_child_of_node((&ade9078_dev->spi->dev)->of_node, phase_node){
+		if (!of_node_name_eq(phase_node, "phase"))
+			continue;
+
+		ret = of_property_read_u32(phase_node, "reg", &phase_nr);
+		if (ret) {
+			dev_err(&ade9078_dev->spi->dev, "Could not read channel reg : %d\n",
+					ret);
+			goto put_phase_node;
+		}
+
+		switch(phase_nr)
+		{
+		case ADE9078_PHASE_A_NR:
+			memcpy(chan, ade9078_a_channels, sizeof(ade9078_a_channels));
+			chan_size = ARRAY_SIZE(ade9078_a_channels);
+			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
+					ADE9078_PHASE_A_NR);
+			break;
+		case ADE9078_PHASE_B_NR:
+			memcpy(chan, ade9078_b_channels, sizeof(ade9078_b_channels));
+			chan_size = ARRAY_SIZE(ade9078_b_channels);
+			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
+					ADE9078_PHASE_B_NR);
+			break;
+		case ADE9078_PHASE_C_NR:
+			memcpy(chan, ade9078_c_channels, sizeof(ade9078_c_channels));
+			chan_size = ARRAY_SIZE(ade9078_c_channels);
+			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
+					ADE9078_PHASE_C_NR);
+			break;
+		default:
+			break;
+		}
+
+		chan += chan_size;
+		ade9078_dev->indio_dev->num_channels += chan_size;
+	}
+
+put_phase_node:
+	of_node_put(phase_node);
+	return ret;
+}
+
+/*
  * ade9078_setup() - initial register setup of the ade9078
  * @ade9078_dev:		ade9078 device data
  */
@@ -514,276 +796,10 @@ static int ade9078_setup(struct ade9078_device *ade9078_dev)
 	return ret;
 }
 
-static int ade9078_config_wfb(struct iio_dev *indio_dev)
-{
-	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
-	u32 wfg_cfg_val = 0;
-	u32 tmp;
-	int ret;
 
-	bitmap_to_arr32(&wfg_cfg_val, indio_dev->active_scan_mask, indio_dev->masklength);
-
-	switch(wfg_cfg_val)
-	{
-	case ADE9078_SCAN_POS_IA | ADE9078_SCAN_POS_VA :
-		wfg_cfg_val = 0x1;
-		break;
-	case ADE9078_SCAN_POS_IB | ADE9078_SCAN_POS_VB :
-		wfg_cfg_val = 0x2;
-		break;
-	case ADE9078_SCAN_POS_IC | ADE9078_SCAN_POS_VC :
-		wfg_cfg_val = 0x3;
-		break;
-	case ADE9078_SCAN_POS_IA :
-		wfg_cfg_val = 0x8;
-		break;
-	case ADE9078_SCAN_POS_VA :
-		wfg_cfg_val = 0x9;
-		break;
-	case ADE9078_SCAN_POS_IB :
-		wfg_cfg_val = 0xA;
-		break;
-	case ADE9078_SCAN_POS_VB :
-		wfg_cfg_val = 0xB;
-		break;
-	case ADE9078_SCAN_POS_IC :
-		wfg_cfg_val = 0xC;
-		break;
-	case ADE9078_SCAN_POS_VC :
-		wfg_cfg_val = 0xD;
-		break;
-	default:
-		wfg_cfg_val = 0x0;
-		break;
-	}
-
-	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node, "adi,wf-cap-sel",
-			   &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-cap-sel: %d\n", ret);
-		return ret;
-	}
-	wfg_cfg_val |= tmp << 5;
-
-	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node, "adi,wf-mode",
-			   &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-mode: %d\n", ret);
-		return ret;
-	}
-	wfg_cfg_val |= tmp << 6;
-
-	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node, "adi,wf-src",
-			   &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-src: %d\n", ret);
-		return ret;
-	}
-	wfg_cfg_val |= tmp << 8;
-
-	ret = of_property_read_u32((&ade9078_dev->spi->dev)->of_node, "adi,wf-in-en",
-			   &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get wf-in-en: %d\n", ret);
-		return ret;
-	}
-	wfg_cfg_val |= tmp << 12;
-
-	return regmap_write(ade9078_dev->regmap, ADDR_WFB_CFG, wfg_cfg_val);
-}
-
-/*
- *
- */
-static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
-{
-	int ret;
-
-	ret = ade9078_config_wfb(indio_dev);
-
-	return ret;
-}
-
-/*
- * ade9078_buffer_postenable() - after the iio is enabled
- * this will enable the ade9078 internal buffer for acquisition
- * @indio_dev:		the IIO device
- */
-static int ade9078_buffer_postenable(struct iio_dev *indio_dev)
-{
-	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
-	int ret;
-
-	ret = ade9078_en_wfb(ade9078_dev, true);
-
-	return ret;
-}
-
-/*
- * ade9078_buffer_postdisable() - after the iio is disable
- * this will disable the ade9078 internal buffer for acquisition
- * @indio_dev:		the IIO device
- */
-static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
-{
-	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
-	int ret;
-
-	ret = ade9078_en_wfb(ade9078_dev, false);
-
-	return ret;
-}
-
-static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
-		struct device_node *channel_node, u32 channel_nr)
-{
-	int ret;
-	u32 tmp;
-
-	ret = of_property_read_u32(channel_node, "adi,igain", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get igain: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_AIGAIN,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	ret = of_property_read_u32(channel_node, "adi,vgain", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get vgain: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_AVGAIN,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	ret = of_property_read_u32(channel_node, "adi,irmsos", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get irmsos: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_AIRMSOS,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	ret = of_property_read_u32(channel_node, "adi,vrmsos", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get vrmsos: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_AVRMSOS,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	ret = of_property_read_u32(channel_node, "adi,pgain", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get pgain: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_APGAIN,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	ret = of_property_read_u32(channel_node, "adi,wattos", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get wattos: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_AWATTOS,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	ret = of_property_read_u32(channel_node, "adi,varos", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get varos: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_AVAROS,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	ret = of_property_read_u32(channel_node, "adi,fvaros", &tmp);
-	if (ret) {
-		dev_err(&ade9078_dev->spi->dev, "Failed to get fvaros: %d\n", ret);
-		return ret;
-	}
-	ret = regmap_write(ade9078_dev->regmap,
-			PHASE_ADDR_ADJUST(ADDR_AFVAROS,channel_nr), tmp);
-	if(ret)
-		return ret;
-
-	return 0;
-}
-
-static int ade9078_setup_iio_channels(struct ade9078_device *ade9078_dev)
-{
-	struct iio_chan_spec *chan;
-	struct device_node *phase_node = NULL;
-	u32 phase_nr;
-	u32 chan_size = 0;
-	int ret = 0;
-
-	chan = devm_kcalloc(&ade9078_dev->spi->dev, ADE9078_MAX_PHASE_NR*ARRAY_SIZE(ade9078_a_channels),
-			sizeof(*ade9078_a_channels), GFP_KERNEL);
-	if(chan == NULL) {
-		dev_err(&ade9078_dev->spi->dev,"Unable to allocate ADE9078 channels");
-		return -ENOMEM;
-	}
-	ade9078_dev->indio_dev->num_channels = 0;
-	ade9078_dev->indio_dev->channels = chan;
-
-	for_each_available_child_of_node((&ade9078_dev->spi->dev)->of_node, phase_node){
-		if (!of_node_name_eq(phase_node, "phase"))
-			continue;
-
-		printk(KERN_INFO "Enter of_node\n");
-
-		ret = of_property_read_u32(phase_node, "reg", &phase_nr);
-		if (ret) {
-			dev_err(&ade9078_dev->spi->dev, "Could not read channel reg : %d\n", ret);
-			goto put_channel_node;
-		}
-
-		switch(phase_nr)
-		{
-		case ADE9078_PHASE_A_NR:
-			memcpy(chan, ade9078_a_channels, sizeof(ade9078_a_channels));
-			chan_size = ARRAY_SIZE(ade9078_a_channels);
-			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
-					ADE9078_PHASE_A_NR);
-			break;
-		case ADE9078_PHASE_B_NR:
-			memcpy(chan, ade9078_b_channels, sizeof(ade9078_b_channels));
-			chan_size = ARRAY_SIZE(ade9078_b_channels);
-			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
-					ADE9078_PHASE_B_NR);
-			break;
-		case ADE9078_PHASE_C_NR:
-			memcpy(chan, ade9078_c_channels, sizeof(ade9078_c_channels));
-			chan_size = ARRAY_SIZE(ade9078_c_channels);
-			ade9078_phase_gain_offset_setup(ade9078_dev, phase_node,
-					ADE9078_PHASE_C_NR);
-			break;
-		default:
-			break;
-		}
-
-		chan += chan_size;
-		ade9078_dev->indio_dev->num_channels += chan_size;
-	}
-
-put_channel_node:
-	of_node_put(phase_node);
-	return ret;
-}
+static const struct iio_trigger_ops ade9078_trigger_ops = {
+		.validate_device = iio_trigger_validate_own_device,
+};
 
 static const struct iio_buffer_setup_ops ade9078_buffer_ops = {
 	.preenable = &ade9078_buffer_preenable,
@@ -795,6 +811,23 @@ static const struct iio_info ade9078_info = {
 	.read_raw = &ade9078_read_raw,
 	.write_raw = &ade9078_write_raw,
 	.debugfs_reg_access = &ade9078_reg_acess,
+};
+
+/*
+ * Regmap configuration
+ * The register access of the ade9078 requires a 16 bit address
+ * with the read flag on bit 3. This is not supported by default
+ * regmap functionality, thus reg_read and reg_write have been
+ * replaced with custom functions
+ */
+static const struct regmap_config ade9078_regmap_config = {
+	.reg_bits = 16,
+	.val_bits = 32,
+	//reg_read and write require the use of devm_regmap_init
+	//instead of devm_regmap_init_spi
+	.reg_read = ade9078_spi_read_reg,
+	.reg_write = ade9078_spi_write_reg,
+	.zero_flag_mask = true,
 };
 
 static int ade9078_probe(struct spi_device *spi)
@@ -820,13 +853,15 @@ static int ade9078_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 
-	ade9078_dev->rx = devm_kcalloc(&spi->dev, 6, sizeof(*ade9078_dev->rx), GFP_KERNEL);
+	ade9078_dev->rx = devm_kcalloc(&spi->dev, 6, sizeof(*ade9078_dev->rx),
+			GFP_KERNEL);
 	if(ade9078_dev->rx == NULL)
 	{
 		dev_err(&spi->dev,"Unable to allocate ADE9078 RX Buffer");
 		return-ENOMEM;
 	}
-	ade9078_dev->tx = devm_kcalloc(&spi->dev, 10, sizeof(*ade9078_dev->tx), GFP_KERNEL);
+	ade9078_dev->tx = devm_kcalloc(&spi->dev, 10, sizeof(*ade9078_dev->tx),
+			GFP_KERNEL);
 	if(ade9078_dev->tx == NULL) {
 		dev_err(&spi->dev,"Unable to allocate ADE9078 TX Buffer");
 		return -ENOMEM;
@@ -837,24 +872,24 @@ static int ade9078_probe(struct spi_device *spi)
 		dev_err(&spi->dev,"Unable to allocate ADE9078 regmap");
 		return PTR_ERR(regmap);
 	}
+	spi_set_drvdata(spi, ade9078_dev);
 
-	trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d", KBUILD_MODNAME, indio_dev->id);
+	irqflags = irq_get_trigger_type(spi->irq);
+	ret = devm_request_irq(&spi->dev, spi->irq, ade9078_data_interrupt,
+			irqflags, KBUILD_MODNAME, ade9078_dev);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
+		return ret;
+	}
+
+	trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d", KBUILD_MODNAME,
+			indio_dev->id);
 	if (!trig)
 	{
 		dev_err(&spi->dev,"Unable to allocate ADE9078 trigger");
 		return -ENOMEM;
 	}
-
-	mutex_init(&ade9078_dev->lock);
-	spi_set_drvdata(spi, ade9078_dev);
 	iio_trigger_set_drvdata(trig, ade9078_dev);
-
-	ret = iio_trigger_register(trig);
-	if (ret)
-	{
-		dev_err(&spi->dev,"Unable to register ADE9078 trigger");
-		return ret;
-	}
 
 	ade9078_dev->spi = spi;
 	ade9078_dev->spi->mode = SPI_MODE_0;
@@ -873,23 +908,22 @@ static int ade9078_probe(struct spi_device *spi)
 	ade9078_dev->trig->dev.parent = &ade9078_dev->spi->dev;
 	ade9078_dev->trig->ops = &ade9078_trigger_ops;
 
-	irqflags = irq_get_trigger_type(spi->irq);
-
-	ret = devm_request_irq(&spi->dev, spi->irq, ade9078_data_interrupt,
-			irqflags, KBUILD_MODNAME, ade9078_dev);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
-		return ret;
-	}
-
+	mutex_init(&ade9078_dev->lock);
 
 	ade9078_configure_scan(indio_dev);
 
-
-	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev, &iio_pollfunc_store_time,
-					      &ade9078_trigger_handler, &ade9078_buffer_ops);
+	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
+			&iio_pollfunc_store_time, &ade9078_trigger_handler,
+			&ade9078_buffer_ops);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to setup triggered buffer: %d\n", ret);
+		return ret;
+	}
+
+	ret = iio_trigger_register(trig);
+	if (ret)
+	{
+		dev_err(&spi->dev,"Unable to register ADE9078 trigger");
 		return ret;
 	}
 
@@ -941,5 +975,5 @@ static struct spi_driver ade9078_driver = {
 module_spi_driver(ade9078_driver);
 
 MODULE_AUTHOR("Ciprian Hegbeli <ciprian.hegbeli@analog.com>");
-MODULE_DESCRIPTION("Analog Devices ADE9078 Polyphase Multifunction Energy Metering IC Driver");
+MODULE_DESCRIPTION("Analog Devices ADE9078 High Performance, Polyphase Energy Metering IC Driver");
 MODULE_LICENSE("GPL v2");
