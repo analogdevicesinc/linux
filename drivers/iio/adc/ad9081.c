@@ -228,6 +228,7 @@ struct ad9081_phy {
 
 	struct ad9081_debugfs_entry debugfs_entry[10];
 	u32 ad9081_debugfs_entry_index;
+	u8 direct_lb_map;
 };
 
 static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
@@ -2132,13 +2133,38 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		}
 
 		ret = kstrtoul(buf, 0, &res);
-		if (ret || res > 2) {
-			ret = -EINVAL;
+
+		/* setup mxfe loopback mode */
+		switch (res) {
+		case 0:
+			adi_ad9081_jesd_loopback_mode_set(&phy->ad9081, 0);
+			adi_ad9081_device_direct_loopback_set(&phy->ad9081,
+				0, phy->direct_lb_map);
 			break;
+		case 1:
+			adi_ad9081_device_direct_loopback_set(&phy->ad9081,
+				0, phy->direct_lb_map);
+			adi_ad9081_jesd_loopback_mode_set(&phy->ad9081, 1);
+			break;
+		case 2:
+		case 3:
+			if (phy->adc_frequency_hz != phy->dac_frequency_hz) {
+				dev_err(&phy->spi->dev,
+					"ADC and DAC frequency doesn't match!\n");
+				ret = -EOPNOTSUPP;
+				break;
+			}
+
+			adi_ad9081_jesd_loopback_mode_set(&phy->ad9081, 0);
+			adi_ad9081_device_direct_loopback_set(&phy->ad9081,
+				(res == 2) ? 1 : 3, phy->direct_lb_map);
+			break;
+		default:
+			ret = -EINVAL;
 		}
-		/* setup txfe loopback mode */
-		adi_ad9081_jesd_loopback_mode_set(&phy->ad9081, res);
-		phy->device_cache.loopback_mode = res;
+
+		if (!ret)
+			phy->device_cache.loopback_mode = res;
 		break;
 	case AD9081_ADC_CLK_PWDN:
 		ret = strtobool(buf, &bres);
@@ -2395,6 +2421,8 @@ static IIO_DEVICE_ATTR(loopback_mode, S_IRUGO | S_IWUSR,
 		ad9081_phy_store,
 		AD9081_LOOPBACK_MODE);
 
+static IIO_CONST_ATTR(loopback_mode_available, "0 1 2 3");
+
 static IIO_DEVICE_ATTR(adc_clk_powerdown, S_IRUGO | S_IWUSR,
 		ad9081_phy_show,
 		ad9081_phy_store,
@@ -2450,6 +2478,7 @@ static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
 
 static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_loopback_mode.dev_attr.attr,
+	&iio_const_attr_loopback_mode_available.dev_attr.attr,
 	&iio_dev_attr_adc_clk_powerdown.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	&iio_dev_attr_out_voltage_main_ffh_frequency.dev_attr.attr,
@@ -3273,6 +3302,10 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 		debugfs_create_file_unsafe("dac-full-scale-current-ua", 0200,
 			iio_get_debugfs_dentry(indio_dev), indio_dev,
 			&ad9081_fsc_fops);
+
+		debugfs_create_u8("adi,direct-loopback-mode-dac-adc-mapping",
+			0644, iio_get_debugfs_dentry(indio_dev),
+			&phy->direct_lb_map);
 	}
 
 	sysfs_bin_attr_init(&phy->bin);
@@ -3704,6 +3737,10 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	phy->sysref_continuous_dis =
 		of_property_read_bool(np,
 			"adi,continuous-sysref-mode-disable");
+
+	phy->direct_lb_map = 0x44;
+	of_property_read_u8(np, "adi,direct-loopback-mode-dac-adc-mapping",
+			&phy->direct_lb_map);
 
 	ret = ad9081_parse_dt_tx(phy, np);
 	if (ret < 0) {
