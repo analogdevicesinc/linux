@@ -585,7 +585,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,igain", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get igain: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_AIGAIN,phase_nr), tmp);
@@ -595,7 +595,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,vgain", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get vgain: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_AVGAIN,phase_nr), tmp);
@@ -605,7 +605,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,irmsos", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get irmsos: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_AIRMSOS,phase_nr), tmp);
@@ -615,7 +615,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,vrmsos", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get vrmsos: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_AVRMSOS,phase_nr), tmp);
@@ -625,7 +625,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,pgain", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get pgain: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_APGAIN,phase_nr), tmp);
@@ -635,7 +635,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,wattos", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get wattos: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_AWATTOS,phase_nr), tmp);
@@ -645,7 +645,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,varos", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get varos: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_AVAROS,phase_nr), tmp);
@@ -655,7 +655,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_device *ade9078_dev,
 	ret = of_property_read_u32(phase_node, "adi,fvaros", &tmp);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Failed to get fvaros: %d\n", ret);
-		return ret;
+		tmp = 0;
 	}
 	ret = regmap_write(ade9078_dev->regmap,
 			PHASE_ADDR_ADJUST(ADDR_AFVAROS,phase_nr), tmp);
