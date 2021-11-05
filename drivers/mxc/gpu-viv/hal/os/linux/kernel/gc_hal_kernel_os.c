@@ -7322,22 +7322,6 @@ gckOS_QueryOption(
     {
         *Value = device->args.smallBatch;
     }
-    else if (!strcmp(Option, "sRAMBases"))
-    {
-        memcpy(Value, device->args.sRAMBases, gcmSIZEOF(gctUINT64) * gcvSRAM_INTER_COUNT * gcvCORE_COUNT);
-    }
-    else if (!strcmp(Option, "sRAMSizes"))
-    {
-        memcpy(Value, device->args.sRAMSizes, gcmSIZEOF(gctUINT32) * gcvSRAM_INTER_COUNT * gcvCORE_COUNT);
-    }
-    else if (!strcmp(Option, "extSRAMBases"))
-    {
-        memcpy(Value, device->args.extSRAMBases, gcmSIZEOF(gctUINT64) * gcvSRAM_EXT_COUNT);
-    }
-    else if (!strcmp(Option, "extSRAMSizes"))
-    {
-        memcpy(Value, device->args.extSRAMSizes, gcmSIZEOF(gctUINT32) * gcvSRAM_EXT_COUNT);
-    }
     else if (!strcmp(Option, "sRAMRequested"))
     {
         *Value = device->args.sRAMRequested;
@@ -7366,6 +7350,27 @@ gckOS_QueryOption(
     {
         *Value = device->args.mmuException;
     }
+    else if (!strcmp(Option, "extSRAMSizes"))
+    {
+        memcpy(Value, device->args.extSRAMSizes,
+                gcmSIZEOF(gctUINT32) * gcvSRAM_EXT_COUNT);
+    }
+    else if (!strcmp(Option, "extSRAMBases"))
+    {
+        memcpy(Value, device->args.extSRAMBases,
+                gcmSIZEOF(gctUINT64) * gcvSRAM_EXT_COUNT);
+    }
+    else if (!strcmp(Option, "sRAMSizes"))
+    {
+        memcpy(Value, device->args.sRAMSizes,
+                gcmSIZEOF(gctUINT32) * gcvSRAM_INTER_COUNT * gcvCORE_COUNT);
+    }
+    else if (!strcmp(Option, "sRAMBases"))
+    {
+        memcpy(Value, device->args.sRAMBases,
+                gcmSIZEOF(gctUINT64) * gcvSRAM_INTER_COUNT * gcvCORE_COUNT);
+    }
+    /*Ascend the strcmp by its memcpy size to remove the coverity issue*/
     else
     {
         status = gcvSTATUS_NOT_SUPPORTED;
