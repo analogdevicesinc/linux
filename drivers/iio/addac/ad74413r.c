@@ -147,15 +147,11 @@ struct ad74413r_state {
 #define AD74413R_ADC_DATA_TIMEOUT	1000
 
 static const int ad74413r_adc_sampling_rates[] = {
-	20,
-	4800,
+	20, 4800,
 };
 
 static const int ad74413r_adc_sampling_rates_hart[] = {
-	10,
-	20,
-	1200,
-	4800,
+	10, 20, 1200, 4800,
 };
 
 static int ad74413r_crc(u8 *buf)
