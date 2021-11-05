@@ -786,7 +786,7 @@ static int _ad74413r_get_single_adc_result(struct ad74413r_state *st,
 	*val = uval;
 	ret = IIO_VAL_INT;
 
-	return 0;
+	return ret;
 }
 
 static int ad74413r_get_single_adc_result(struct iio_dev *indio_dev,
