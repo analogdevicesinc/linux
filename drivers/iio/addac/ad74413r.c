@@ -404,7 +404,8 @@ static int ad74413r_set_channel_function(struct ad74413r_state *st,
 				  AD74413R_CH_FUNC_SETUP_MASK, func);
 }
 
-static int ad74413r_set_adc_conv_seq(struct ad74413r_state *st, unsigned int status)
+static int ad74413r_set_adc_conv_seq(struct ad74413r_state *st,
+				     unsigned int status)
 {
 	int ret;
 
@@ -426,7 +427,8 @@ static int ad74413r_set_adc_conv_seq(struct ad74413r_state *st, unsigned int sta
 	return 0;
 }
 
-static int ad74413r_set_adc_channel_enable(struct ad74413r_state *st, unsigned int channel,
+static int ad74413r_set_adc_channel_enable(struct ad74413r_state *st,
+					   unsigned int channel,
 					   bool status)
 {
 	unsigned int val = status << AD74413R_CH_EN_SHIFT(channel);
@@ -435,7 +437,8 @@ static int ad74413r_set_adc_channel_enable(struct ad74413r_state *st, unsigned i
 				  AD74413R_CH_EN_MASK(channel), val);
 }
 
-static int ad74413r_get_adc_range(struct ad74413r_state *st, unsigned int channel,
+static int ad74413r_get_adc_range(struct ad74413r_state *st,
+				  unsigned int channel,
 				  unsigned int *val)
 {
 	int ret;
@@ -449,7 +452,8 @@ static int ad74413r_get_adc_range(struct ad74413r_state *st, unsigned int channe
 	return 0;
 }
 
-static int ad74413r_get_adc_rejection(struct ad74413r_state *st, unsigned int channel,
+static int ad74413r_get_adc_rejection(struct ad74413r_state *st,
+				      unsigned int channel,
 				      unsigned int *val)
 {
 	int ret;
@@ -463,7 +467,8 @@ static int ad74413r_get_adc_rejection(struct ad74413r_state *st, unsigned int ch
 	return 0;
 }
 
-static int ad74413r_set_adc_rejection(struct ad74413r_state *st, unsigned int channel,
+static int ad74413r_set_adc_rejection(struct ad74413r_state *st,
+				      unsigned int channel,
 				      unsigned int val)
 {
 	return regmap_update_bits(st->regmap, AD74413R_REG_ADC_CONFIG_X(channel),
@@ -817,7 +822,7 @@ static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
 	struct ad74413r_state *st = iio_priv(indio_dev);
 	struct spi_transfer *xfer;
 	unsigned int channel;
-	int transfer_index = 0;
+	int index = 0;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -856,14 +861,14 @@ static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
 
 		st->adc_active_channels++;
 
-		xfer = &st->adc_samples_xfer[transfer_index];
+		xfer = &st->adc_samples_xfer[index];
 
-		if (transfer_index == 0)
+		if (index == 0)
 			xfer->rx_buf = NULL;
 		else
-			xfer->rx_buf = &st->adc_samples.rx_buf[transfer_index - 1];
+			xfer->rx_buf = &st->adc_samples.rx_buf[index - 1];
 
-		tx_buf = (u8 *)&st->adc_samples_tx_buf[transfer_index];
+		tx_buf = (u8 *)&st->adc_samples_tx_buf[index];
 
 		xfer->tx_buf = tx_buf;
 		xfer->len = 4;
@@ -875,13 +880,13 @@ static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
 
 		spi_message_add_tail(xfer, &st->adc_samples_msg);
 
-		transfer_index++;
+		index++;
 	}
 
-	xfer = &st->adc_samples_xfer[transfer_index];
+	xfer = &st->adc_samples_xfer[index];
 
 	xfer->tx_buf = NULL;
-	xfer->rx_buf = &st->adc_samples.rx_buf[transfer_index - 1];
+	xfer->rx_buf = &st->adc_samples.rx_buf[index - 1];
 	xfer->len = 4;
 	xfer->cs_change = 0;
 
