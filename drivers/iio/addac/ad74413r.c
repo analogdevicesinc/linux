@@ -1334,7 +1334,7 @@ static int ad74413r_probe(struct spi_device *spi)
 	st->sense_resistor_ohms /= 1000000;
 
 	st->trig = devm_iio_trigger_alloc(st->dev, "%s-dev%d",
-					  st->chip_info->name, iio_device_id(indio_dev));
+					  st->chip_info->name, indio_dev->id);
 	if (!st->trig)
 		return -ENOMEM;
 
