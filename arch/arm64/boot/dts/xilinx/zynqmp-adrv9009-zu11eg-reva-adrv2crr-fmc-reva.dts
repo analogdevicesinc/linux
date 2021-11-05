@@ -49,6 +49,14 @@
 #include <dt-bindings/clock/ad9545.h>
 
 / {
+	ref_clk0: ref_clk_0 {
+		compatible = "fixed-clock";
+		#clock-cells = <1>;
+
+		clock-frequency  = <10000000>;
+		clock-output-names = "Ref-A";
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		led0 {
@@ -329,13 +337,15 @@
 				adi,ref-crystal;
 				adi,ref-frequency-hz = <49152000>;
 
+				clock-names = "Ref-A";
+				clocks = <&ref_clk0 0>;
+
 				#clock-cells = <2>;
 
 				assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
-						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL1>,
-						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1A>,
-						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1AA>;
-				assigned-clock-rates = <10000>, <1875000000>, <156250000>, <156250000>;
+						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL0>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q0A>;
+				assigned-clock-rates = <10000>, <1413120000>, <30720000>;
 				assigned-clock-phases = <0>, <0>, <0>, <180>;
 
 				aux-nco-clk@AD9545_NCO0 {
@@ -344,24 +354,48 @@
 					adi,phase-lock-threshold-ps = <16000000>;
 				};
 
-				ad9545_apll1: pll-clk@AD9545_PLL1 {
-					reg = <AD9545_PLL1>;
-					adi,pll-source = <4>;
-					adi,pll-loop-bandwidth-hz = <200>;
+				/* Ref A (J4) 10Mhz input */
+				ref-input-clk@0 {
+					reg = <0>;
+					adi,single-ended-mode = <DRIVER_MODE_DC_COUPLED_1V8>;
+					adi,r-divider-ratio = <200>;
+					adi,ref-dtol-pbb = <10000000>;
+					adi,ref-monitor-hysteresis-pbb = <87500>;
+					adi,ref-validation-timer-ms = <1>;
+					adi,freq-lock-threshold-ps = <0xFFFFFF>;
+					adi,phase-lock-threshold-ps = <0xFFFFFF>;
+					adi,freq-lock-fill-rate = <20>;
+					adi,freq-lock-drain-rate = <20>;
+					adi,phase-lock-fill-rate = <20>;
+					adi,phase-lock-drain-rate = <20>;
 				};
 
-				output-clk@AD9545_Q1A {
-					reg = <AD9545_Q1A>;
+				ad9545_apll0: pll-clk@AD9545_PLL0 {
+					reg = <AD9545_PLL0>;
+
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					profile@0 {
+						reg = <0>;
+						adi,pll-source = <4>;
+						adi,profile-priority = <20>;
+						adi,pll-loop-bandwidth-uhz = <200000000>;
+					};
+
+					profile@1 {
+						reg = <1>;
+						adi,pll-source = <0>;
+						adi,profile-priority = <0>;
+						adi,pll-loop-bandwidth-uhz = <200000000>;
+					};
+				};
+
+				output-clk@AD9545_Q0A {
+					reg = <AD9545_Q0A>;
 					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
 					adi,current-source-microamp = <15000>;
 				};
-
-				output-clk@AD9545_Q1AA {
-					reg = <AD9545_Q1AA>;
-					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
-					adi,current-source-microamp = <15000>;
-				};
-
 			};
 
 		};
