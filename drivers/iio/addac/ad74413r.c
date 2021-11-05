@@ -39,10 +39,6 @@ struct ad74413r_channel_config {
 	bool initialized;
 };
 
-struct ad74413r_gpio_config {
-	unsigned int real_offset;
-};
-
 struct ad74413r_channels {
 	struct iio_chan_spec *channels;
 	unsigned int num_channels;
@@ -50,8 +46,8 @@ struct ad74413r_channels {
 
 struct ad74413r_state {
 	struct ad74413r_channel_config	channel_configs[AD74413R_CHANNEL_MAX];
-	struct ad74413r_gpio_config	gpo_gpio_configs[AD74413R_CHANNEL_MAX];
-	struct ad74413r_gpio_config	comp_gpio_configs[AD74413R_CHANNEL_MAX];
+	unsigned int			gpo_gpio_offsets[AD74413R_CHANNEL_MAX];
+	unsigned int			comp_gpio_offsets[AD74413R_CHANNEL_MAX];
 	struct gpio_chip		gpo_gpiochip;
 	struct gpio_chip		comp_gpiochip;
 	struct mutex			lock;
@@ -232,19 +228,62 @@ static int ad74413r_set_gpo_config(struct ad74413r_state *st,
 				  AD74413R_GPO_CONFIG_GPO_SELECT_MASK, mode);
 }
 
+static int ad74413r_set_comp_debounce(struct ad74413r_state *st,
+				      unsigned int offset,
+				      unsigned int debounce)
+{
+	unsigned int val;
+
+	if (debounce < 100) {
+		val = 0x00;
+		debounce /= 1;
+	} else if (debounce < 1000) {
+		val = 0x08;
+		debounce /= 10;
+	} else if (debounce < 10000) {
+		val = 0x10;
+		debounce /= 100;
+	} else {
+		val = 0x18;
+		debounce /= 1000;
+	}
+
+	if (debounce < 13)
+		val += 0x0;
+	else if (debounce < 18)
+		val += 0x1;
+	else if (debounce < 24)
+		val += 0x2;
+	else if (debounce < 32)
+		val += 0x3;
+	else if (debounce < 42)
+		val += 0x4;
+	else if (debounce < 56)
+		val += 0x5;
+	else if (debounce < 75)
+		val += 0x6;
+	else
+		val += 0x7;
+
+	return regmap_update_bits(st->regmap,
+				  AD74413R_REG_DIN_CONFIG_X(offset),
+				  AD74413R_DIN_DEBOUNCE_TIME_MASK,
+				  val);
+}
+
 static void ad74413r_gpio_set(struct gpio_chip *chip,
 			      unsigned int offset, int val)
 {
 	struct ad74413r_state *st = gpiochip_get_data(chip);
-	struct ad74413r_gpio_config *config = &st->gpo_gpio_configs[offset];
+	unsigned int real_offset = st->gpo_gpio_offsets[offset];
 	int ret;
 
-	ret = ad74413r_set_gpo_config(st, config->real_offset,
+	ret = ad74413r_set_gpo_config(st, real_offset,
 				      AD74413R_GPO_CONFIG_LOGIC);
 	if (ret)
 		return;
 
-	regmap_update_bits(st->regmap, AD74413R_REG_GPO_CONFIG_X(offset),
+	regmap_update_bits(st->regmap, AD74413R_REG_GPO_CONFIG_X(real_offset),
 			   AD74413R_GPO_CONFIG_GPO_DATA_MASK,
 			   val ? AD74413R_GPO_CONFIG_DATA_HIGH
 			       : AD74413R_GPO_CONFIG_DATA_LOW);
@@ -261,16 +300,16 @@ static void ad74413r_gpio_set_multiple(struct gpio_chip *chip,
 	int ret;
 
 	for_each_set_bit_from(offset, mask, AD74413R_CHANNEL_MAX) {
-		struct ad74413r_gpio_config *config = &st->gpo_gpio_configs[offset];
+		unsigned int real_offset = st->gpo_gpio_offsets[offset];
 
-		ret = ad74413r_set_gpo_config(st, config->real_offset,
+		ret = ad74413r_set_gpo_config(st, real_offset,
 					      AD74413R_GPO_CONFIG_LOGIC_PARALLEL);
 		if (ret)
 			return;
 
-		real_mask |= BIT(config->real_offset);
+		real_mask |= BIT(real_offset);
 		if (*bits & offset)
-			real_bits |= BIT(config->real_offset);
+			real_bits |= BIT(real_offset);
 	}
 
 	regmap_update_bits(st->regmap, AD74413R_REG_GPO_PAR_DATA,
@@ -280,7 +319,7 @@ static void ad74413r_gpio_set_multiple(struct gpio_chip *chip,
 static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad74413r_state *st = gpiochip_get_data(chip);
-	struct ad74413r_gpio_config *config = &st->comp_gpio_configs[offset];
+	unsigned int real_offset = st->comp_gpio_offsets[offset];
 	unsigned int status;
 	int ret;
 
@@ -288,7 +327,7 @@ static int ad74413r_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	if (ret)
 		return ret;
 
-	status &= AD74413R_DIN_COMP_OUT_SHIFT_X(config->real_offset);
+	status &= AD74413R_DIN_COMP_OUT_SHIFT_X(real_offset);
 
 	return status ? 1 : 0;
 }
@@ -307,9 +346,9 @@ static int ad74413r_gpio_get_multiple(struct gpio_chip *chip,
 		return ret;
 
 	for_each_set_bit_from(offset, mask, AD74413R_CHANNEL_MAX) {
-		struct ad74413r_gpio_config *config = &st->comp_gpio_configs[offset];
+		unsigned int real_offset = st->comp_gpio_offsets[offset];
 
-		if (val & BIT(config->real_offset))
+		if (val & BIT(real_offset))
 			*bits |= offset;
 	}
 
@@ -1181,7 +1220,6 @@ static int ad74413r_setup_gpios(struct ad74413r_state *st)
 
 	for (i = 0, gpio_i = 0; i < AD74413R_CHANNEL_MAX; i++) {
 		struct ad74413r_channel_config *config = &st->channel_configs[i];
-		struct ad74413r_gpio_config *gpio_config;
 		u8 gpo_config;
 		int ret;
 
@@ -1197,25 +1235,18 @@ static int ad74413r_setup_gpios(struct ad74413r_state *st)
 		if (config->gpo_comparator)
 			continue;
 
-		gpio_config = &st->gpo_gpio_configs[gpio_i];
-		gpio_config->real_offset = i;
-
-		gpio_i++;
+		st->gpo_gpio_offsets[gpio_i++] = i;
 	}
 
 	for (i = 0, gpio_i = 0; i < AD74413R_CHANNEL_MAX; i++) {
 		struct ad74413r_channel_config *config = &st->channel_configs[i];
-		struct ad74413r_gpio_config *gpio_config;
 
 		if (config->func != CH_FUNC_DIGITAL_INPUT_LOGIC
 			|| config->func != CH_FUNC_DIGITAL_INPUT_LOOP_POWER) {
 			continue;
 		}
 
-		gpio_config = &st->comp_gpio_configs[gpio_i];
-		gpio_config->real_offset = i;
-
-		gpio_i++;
+		st->comp_gpio_offsets[gpio_i++] = i;
 	}
 
 	return 0;
