@@ -243,8 +243,10 @@ static int ad74413r_set_comp_debounce(struct ad74413r_state *st,
 	unsigned int i;
 
 	for (i = 0; i < AD74413R_DIN_DEBOUNCE_NUM; i++)
-		if (debounce <= ad74413r_debounce_map[i])
+		if (debounce <= ad74413r_debounce_map[i]) {
 			val = i;
+			break;
+		}
 
 	return regmap_update_bits(st->regmap,
 				  AD74413R_REG_DIN_CONFIG_X(offset),
