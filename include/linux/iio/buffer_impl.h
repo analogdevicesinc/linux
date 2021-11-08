@@ -39,6 +39,9 @@ struct iio_buffer;
  *                      device stops sampling. Calles are balanced with @enable.
  * @release:		called when the last reference to the buffer is dropped,
  *			should free all resources allocated by the buffer.
+ * @alloc_dmabuf:	called from userspace via ioctl to allocate one DMABUF.
+ * @enqueue_dmabuf:	called from userspace via ioctl to queue this DMABUF
+ *			object to this buffer. Requires a valid DMABUF fd.
  * @modes:		Supported operating modes by this buffer type
  * @flags:		A bitmask combination of INDIO_BUFFER_FLAG_*
  *
@@ -67,6 +70,11 @@ struct iio_buffer_access_funcs {
 	int (*disable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
 
 	void (*release)(struct iio_buffer *buffer);
+
+	int (*alloc_dmabuf)(struct iio_buffer *buffer,
+			    struct iio_dmabuf_alloc_req *req);
+	int (*enqueue_dmabuf)(struct iio_buffer *buffer,
+			      struct iio_dmabuf *block);
 
 	unsigned int modes;
 	unsigned int flags;

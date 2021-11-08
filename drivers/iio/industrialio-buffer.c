@@ -17,6 +17,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/poll.h>
 #include <linux/sched/signal.h>
 
@@ -1580,12 +1581,55 @@ error_iio_dev_put:
 	return ret;
 }
 
+static int iio_buffer_enqueue_dmabuf(struct iio_buffer *buffer,
+				     struct iio_dmabuf __user *user_buf)
+{
+	struct iio_dmabuf dmabuf;
+
+	if (!buffer->access->enqueue_dmabuf)
+		return -ENOSYS;
+
+	if (copy_from_user(&dmabuf, user_buf, sizeof(dmabuf)))
+		return -EFAULT;
+
+	if (dmabuf.resv)
+		return -EINVAL;
+
+	return buffer->access->enqueue_dmabuf(buffer, &dmabuf);
+}
+
+static int iio_buffer_alloc_dmabuf(struct iio_buffer *buffer,
+				   struct iio_dmabuf_alloc_req __user *user_req)
+{
+	struct iio_dmabuf_alloc_req req;
+
+	if (!buffer->access->alloc_dmabuf)
+		return -ENOSYS;
+
+	if (copy_from_user(&req, user_req, sizeof(req)))
+		return -EFAULT;
+
+	if (req.resv)
+		return -EINVAL;
+
+	return buffer->access->alloc_dmabuf(buffer, &req);
+}
+
 static long iio_device_buffer_ioctl(struct iio_dev *indio_dev, struct file *filp,
 				    unsigned int cmd, unsigned long arg)
 {
+	struct iio_dev_buffer_pair *ib = filp->private_data;
+	struct iio_buffer *buffer = ib->buffer;
+	void __user *_arg = (void __user *)arg;
+
 	switch (cmd) {
 	case IIO_BUFFER_GET_FD_IOCTL:
 		return iio_device_buffer_getfd(indio_dev, arg);
+	case IIO_BUFFER_DMABUF_ALLOC_IOCTL:
+		return iio_buffer_alloc_dmabuf(buffer, _arg);
+	case IIO_BUFFER_DMABUF_ENQUEUE_IOCTL:
+		/* TODO: support non-blocking enqueue operation */
+		return iio_buffer_enqueue_dmabuf(buffer, _arg);
 	default:
 		return IIO_IOCTL_UNHANDLED;
 	}
