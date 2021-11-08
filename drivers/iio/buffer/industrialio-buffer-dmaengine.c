@@ -65,25 +65,68 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		iio_buffer_to_dmaengine_buffer(&queue->buffer);
 	struct dma_async_tx_descriptor *desc;
 	enum dma_transfer_direction dma_dir;
+	unsigned int i, nents, *lenghts;
+	struct scatterlist *sgl;
+	unsigned long flags;
+	dma_addr_t *addrs;
 	size_t max_size;
 	dma_cookie_t cookie;
+	size_t len_total;
 
-	max_size = min(block->size, dmaengine_buffer->max_size);
-	max_size = round_down(max_size, dmaengine_buffer->align);
-
-	if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN) {
-		block->bytes_used = max_size;
-		dma_dir = DMA_DEV_TO_MEM;
-	} else {
-		dma_dir = DMA_MEM_TO_DEV;
-	}
-
-	if (!block->bytes_used || block->bytes_used > max_size)
+	if (!block->bytes_used)
 		return -EINVAL;
 
-	desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
-		block->phys_addr, block->bytes_used, dma_dir,
-		DMA_PREP_INTERRUPT);
+	if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN)
+		dma_dir = DMA_DEV_TO_MEM;
+	else
+		dma_dir = DMA_MEM_TO_DEV;
+
+	if (block->sg_table) {
+		sgl = block->sg_table->sgl;
+		nents = sg_nents_for_len(sgl, block->bytes_used);
+
+		addrs = kmalloc(sizeof(*addrs) * nents, GFP_KERNEL);
+		if (!addrs)
+			return -ENOMEM;
+
+		lenghts = kmalloc(sizeof(*lenghts) * nents, GFP_KERNEL);
+		if (!lenghts) {
+			kfree(addrs);
+			return -ENOMEM;
+		}
+
+		len_total = block->bytes_used;
+
+		for (i = 0; i < nents; i++) {
+			addrs[i] = sg_dma_address(sgl);
+			lenghts[i] = min(sg_dma_len(sgl), len_total);
+			len_total -= lenghts[i];
+
+			sgl = sg_next(sgl);
+		}
+
+		flags = block->cyclic ? DMA_PREP_REPEAT : DMA_PREP_INTERRUPT;
+
+		desc = dmaengine_prep_slave_dma_array(dmaengine_buffer->chan,
+						      addrs, lenghts, nents,
+						      dma_dir, flags);
+		kfree(addrs);
+		kfree(lenghts);
+	} else {
+		max_size = min(block->size, dmaengine_buffer->max_size);
+		max_size = round_down(max_size, dmaengine_buffer->align);
+
+		if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN)
+			block->bytes_used = max_size;
+
+		if (block->bytes_used > max_size)
+			return -EINVAL;
+
+		desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
+						   block->phys_addr,
+						   block->bytes_used, dma_dir,
+						   DMA_PREP_INTERRUPT);
+	}
 	if (!desc)
 		return -ENOMEM;
 
@@ -132,6 +175,10 @@ static const struct iio_buffer_access_funcs iio_dmaengine_buffer_ops = {
 	.data_available = iio_dma_buffer_data_available,
 	.space_available = iio_dma_buffer_space_available,
 	.release = iio_dmaengine_buffer_release,
+
+	.enqueue_dmabuf = iio_dma_buffer_enqueue_dmabuf,
+	.attach_dmabuf = iio_dma_buffer_attach_dmabuf,
+	.detach_dmabuf = iio_dma_buffer_detach_dmabuf,
 
 	.modes = INDIO_BUFFER_HARDWARE,
 	.flags = INDIO_BUFFER_FLAG_FIXED_WATERMARK,
