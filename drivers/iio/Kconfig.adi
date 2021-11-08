@@ -27,6 +27,8 @@ config IIO_ALL_ADI_DRIVERS
 	select ADXL345_SPI if SPI
 	select ADXL355_I2C if I2C
 	select ADXL355_SPI if SPI
+	select ADXL367_I2C if I2C
+	select ADXL367_SPI if SPI
 	select ADXL372_I2C if I2C
 	select ADXL372_SPI if SPI
 	select AD400X
