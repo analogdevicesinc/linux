@@ -294,31 +294,36 @@ static void vsi_enum_decfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 	if (vsi_v4l2_hwconfig.max_dec_resolution > 1920) {
 		switch (pixel_format) {
 		case V4L2_PIX_FMT_HEVC:
+		case V4L2_PIX_FMT_VP9:
 			f->stepwise.min_width = 144;
 			f->stepwise.max_width = 4096;
 			f->stepwise.min_height = 144;
-			f->stepwise.max_height = 2160;
+			f->stepwise.max_height = 2304;
 			break;
 		case V4L2_PIX_FMT_H264:
-			f->stepwise.min_width = 96;
+		case V4L2_PIX_FMT_VP8:
+		case V4L2_PIX_FMT_VC1_ANNEX_G:
+		case V4L2_PIX_FMT_VC1_ANNEX_L:
+			f->stepwise.min_width = 48;
 			f->stepwise.max_width = 4096;
 			f->stepwise.min_height = 48;
-			f->stepwise.max_height = 2160;
+			f->stepwise.max_height = 4096;
 			break;
-		case V4L2_PIX_FMT_VP9:
-			f->stepwise.min_width = 96;
-			f->stepwise.max_width = 4096;
-			f->stepwise.min_height = 72;
-			f->stepwise.max_height = 2160;
-			break;
-		case V4L2_PIX_FMT_VP8:
 		case V4L2_PIX_FMT_MPEG4:
 		case V4L2_PIX_FMT_XVID:
 		case V4L2_PIX_FMT_MPEG2:
 		case V4L2_PIX_FMT_H263:
-		case V4L2_PIX_FMT_VC1_ANNEX_G:
-		case V4L2_PIX_FMT_VC1_ANNEX_L:
+			f->stepwise.min_width = 48;
+			f->stepwise.max_width = 1920;
+			f->stepwise.min_height = 48;
+			f->stepwise.max_height = 1088;
+			break;
 		case V4L2_PIX_FMT_JPEG:
+			f->stepwise.min_width = 48;
+			f->stepwise.max_width = 16368;
+			f->stepwise.min_height = 48;
+			f->stepwise.max_height = 16368;
+			break;
 		default:
 			f->stepwise.min_width = 48;
 			f->stepwise.max_width = 1920;
@@ -329,23 +334,26 @@ static void vsi_enum_decfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 	} else {
 		switch (pixel_format) {
 		case V4L2_PIX_FMT_HEVC:
-			f->stepwise.min_width = 144;
-			f->stepwise.min_height = 144;
-			break;
 		case V4L2_PIX_FMT_VP9:
-			f->stepwise.min_width = 72;
-			f->stepwise.min_height = 72;
+			f->stepwise.min_width = 144;
+			f->stepwise.max_width = 1920;
+			f->stepwise.min_height = 144;
+			f->stepwise.max_height = 1088;
 			break;
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_VP8:
 			f->stepwise.min_width = 48;
+			f->stepwise.max_width = 1920;
 			f->stepwise.min_height = 48;
+			f->stepwise.max_height = 4096;
 			break;
 		default:
+			f->stepwise.min_width = 144;
+			f->stepwise.max_width = 1920;
+			f->stepwise.min_height = 144;
+			f->stepwise.max_height = 1088;
 			break;
 		}
-		f->stepwise.max_width = 1920;
-		f->stepwise.max_height = 1088;
 	}
 }
 
@@ -635,11 +643,11 @@ void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 {
 	switch (pixel_format) {
 	case V4L2_PIX_FMT_HEVC:
-		f->stepwise.min_width = 132;
+		f->stepwise.min_width = 136;
 		f->stepwise.max_width = 1920;
 		f->stepwise.step_width = 2;
-		f->stepwise.min_height = 128;
-		f->stepwise.max_height = 1088;
+		f->stepwise.min_height = 136;
+		f->stepwise.max_height = 8192;
 		f->stepwise.step_height = 2;
 		break;
 	case V4L2_PIX_FMT_H264:
@@ -648,13 +656,13 @@ void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 			f->stepwise.max_width = 1920;
 			f->stepwise.step_width = 4;
 			f->stepwise.min_height = 96;
-			f->stepwise.max_height = 2944;
-			f->stepwise.step_height = 2;
+			f->stepwise.max_height = 4080;
+			f->stepwise.step_height = 4;
 		} else {
-			f->stepwise.min_width = 132;
+			f->stepwise.min_width = 144;
 			f->stepwise.max_width = 1920;
 			f->stepwise.step_width = 2;
-			f->stepwise.min_height = 128;
+			f->stepwise.min_height = 144;
 			f->stepwise.max_height = 8192;
 			f->stepwise.step_height = 2;
 		}
@@ -665,7 +673,7 @@ void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 		f->stepwise.step_width = 4;
 		f->stepwise.min_height = 96;
 		f->stepwise.max_height = 4080;
-		f->stepwise.step_height = 2;
+		f->stepwise.step_height = 4;
 		break;
 	default:
 		if (vsi_v4l2_hwconfig.enc_isH1) {
@@ -673,14 +681,14 @@ void vsi_enum_encfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 			f->stepwise.max_width = 1920;
 			f->stepwise.step_width = 4;
 			f->stepwise.min_height = 96;
-			f->stepwise.max_height = 1088;
-			f->stepwise.step_height = 2;
+			f->stepwise.max_height = 4080;
+			f->stepwise.step_height = 4;
 		} else {
-			f->stepwise.min_width = 132;
+			f->stepwise.min_width = 144;
 			f->stepwise.max_width = 1920;
 			f->stepwise.step_width = 2;
-			f->stepwise.min_height = 128;
-			f->stepwise.max_height = 1088;
+			f->stepwise.min_height = 144;
+			f->stepwise.max_height = 8192;
 			f->stepwise.step_height = 2;
 		}
 		break;
