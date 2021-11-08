@@ -135,6 +135,9 @@ static const struct iio_buffer_access_funcs iio_dmaengine_buffer_ops = {
 	.space_available = iio_dma_buffer_space_available,
 	.release = iio_dmaengine_buffer_release,
 
+	.alloc_dmabuf = iio_dma_buffer_alloc_dmabuf,
+	.enqueue_dmabuf = iio_dma_buffer_enqueue_dmabuf,
+
 	.modes = INDIO_BUFFER_HARDWARE,
 	.flags = INDIO_BUFFER_FLAG_FIXED_WATERMARK,
 };
