@@ -127,7 +127,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8mm-ddr4-evk.dtb imx8mm-ddr4-evk-rm67191.dtb imx8mm
 			  imx8mm-ddr4-evk-inmate.dtb \
 			  imx8mm-ddr4-evk-pcie-ep.dtb \
 			  imx8mm-ddr4-evk-revb-rm67199.dtb \
-			  imx8mm-ddr4-evk-rm67199.dtb
+			  imx8mm-ddr4-evk-rm67199.dtb \
+			  imx8mm-ddr4-evk-rm67191-cmd-ram.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mm-emcon-avari.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mm-emtop-baseboard.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mm-evkb.dtb
