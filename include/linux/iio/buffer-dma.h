@@ -42,6 +42,7 @@ enum iio_block_state {
  * @phys_addr: Physical address of the blocks memory
  * @queue: Parent DMA buffer queue
  * @state: Current state of the block
+ * @fileio: True if this buffer is used for fileio mode
  * @dmabuf: Underlying DMABUF object
  */
 struct iio_dma_buffer_block {
@@ -64,6 +65,7 @@ struct iio_dma_buffer_block {
 	 */
 	enum iio_block_state state;
 
+	bool fileio;
 	struct dma_buf *dmabuf;
 };
 
@@ -74,6 +76,7 @@ struct iio_dma_buffer_block {
  * @pos: Read offset in the active block
  * @block_size: Size of each block
  * @next_dequeue: index of next block that will be dequeued
+ * @enabled: Whether the buffer is operating in fileio mode
  */
 struct iio_dma_buffer_queue_fileio {
 	struct iio_dma_buffer_block *blocks[2];
@@ -82,6 +85,7 @@ struct iio_dma_buffer_queue_fileio {
 	size_t block_size;
 
 	unsigned int next_dequeue;
+	bool enabled;
 };
 
 /**
@@ -96,6 +100,8 @@ struct iio_dma_buffer_queue_fileio {
  *   list and typically also a list of active blocks in the part that handles
  *   the DMA controller
  * @active: Whether the buffer is currently active
+ * @num_blocks: Total number of blocks in the queue
+ * @num_fileio_blocks: Number of blocks used for fileio interface
  * @fileio: FileIO state
  */
 struct iio_dma_buffer_queue {
@@ -107,6 +113,8 @@ struct iio_dma_buffer_queue {
 	spinlock_t list_lock;
 
 	bool active;
+	unsigned int num_blocks;
+	unsigned int num_fileio_blocks;
 
 	struct iio_dma_buffer_queue_fileio fileio;
 };
@@ -148,5 +156,10 @@ static inline size_t iio_dma_buffer_space_available(struct iio_buffer *buffer)
 {
 	return iio_dma_buffer_data_available(buffer);
 }
+
+int iio_dma_buffer_alloc_dmabuf(struct iio_buffer *buffer,
+				struct iio_dmabuf_alloc_req *req);
+int iio_dma_buffer_enqueue_dmabuf(struct iio_buffer *buffer,
+				  struct iio_dmabuf *dmabuf);
 
 #endif
