@@ -106,9 +106,9 @@ properties:
     description:
       Digital Rx Detector Program.
     $ref: /schemas/types.yaml#/definitions/uint32
-    enum: [1, 2, 4, 8, 16, 32, 64]
+    enum: [0, 1, 2, 4, 8, 16, 32, 64]
 
-  adi,adi,bb-amp-gain-ctrl:
+  adi,bb-amp-gain-ctrl:
     description:
       Baseband Amp Gain control.
     $ref: /schemas/types.yaml#/definitions/uint32
