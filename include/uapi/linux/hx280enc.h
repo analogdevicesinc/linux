@@ -87,6 +87,8 @@ struct enc_regs_buffer {
 #define HX280ENC_IOC_WRITE_REGS     _IOW(HX280ENC_IOC_MAGIC, 14, struct enc_regs_buffer *)
 #define HX280ENC_IOC_READ_REGS      _IOR(HX280ENC_IOC_MAGIC, 15, struct enc_regs_buffer *)
 
+#define HX280ENC_IOCG_EN_CORE      _IO(HX280ENC_IOC_MAGIC, 16)
+
 #define HX280ENC_IOC_MAXNR 30
 
 #endif /* !_UAPI_HX280ENC_H_ */

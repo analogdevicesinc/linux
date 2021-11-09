@@ -139,6 +139,8 @@ typedef struct {
 	int irq;
 	unsigned long iobaseaddr;
 	unsigned int iosize;
+	u32 reg_corrupt;
+	struct semaphore core_suspend_sem;
 
 	volatile u8 *hwregs;
 	struct fasync_struct *async_queue;
@@ -496,6 +498,28 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			return err;
 		break;
 	}
+	case _IOC_NR(HX280ENC_IOCG_EN_CORE): {
+		u32 reg_value;
+
+		PDEBUG("Enable ENC Core\n");
+
+		if (hx280enc_data.is_reserved == 0)
+			return -EPERM;
+		if (hx280enc_data.reg_corrupt == 1) {
+			hx280enc_data.reg_corrupt = 0;
+			return -EAGAIN;
+		}
+
+		if (down_interruptible(&hx280enc_data.core_suspend_sem))
+			return -ERESTARTSYS;
+
+		reg_value = readl(hx280enc_data.hwregs + 14 * 4);
+		reg_value |= 0x01;
+		writel(reg_value, hx280enc_data.hwregs + 14 * 4);
+		// printk("%s reg_value:%d\n", __func__, reg_value);
+
+		break;
+	}
 	default:
 		break;
 	}
@@ -638,6 +662,7 @@ static int __init hx280enc_init(void)
 	hx280enc_data.irq = irq;
 	hx280enc_data.async_queue = NULL;
 	hx280enc_data.hwregs = NULL;
+	sema_init(&hx280enc_data.core_suspend_sem, 1);
 
 	result = register_chrdev(hx280enc_major, "hx280enc", &hx280enc_fops);
 	if (result < 0) {
@@ -792,6 +817,9 @@ irqreturn_t hx280enc_isr(int irq, void *dev_id)
 		dev->irq_status = irq_status & (~0x01);
 		spin_unlock_irqrestore(&owner_lock, flags);
 
+		if (irq_status & 0x04)
+			up(&hx280enc_data.core_suspend_sem);
+
 		wake_up_all(&enc_wait_queue);
 
 		PDEBUG("IRQ handled!\n");
@@ -931,9 +959,49 @@ static int hantro_h1_dev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int hx280enc_suspend(struct device *dev)
+{
+	int ret = 0;
+	int i;
+
+	PDEBUG("%s start..\n", __func__);
+
+	if (hx280enc_data.is_reserved == 0)
+		return ret;
+
+	ret = down_interruptible(&hx280enc_data.core_suspend_sem);
+	if (ret)
+		return ret;
+	hx280enc_data.reg_corrupt = 1;
+	if (hx280enc_data.irq_status & 0x04) {
+		for (i = 0; i < hx280enc_data.iosize; i += 4)
+			hx280enc_data.mirror_regs[i/4] = readl(hx280enc_data.hwregs + i);
+	}
+	up(&hx280enc_data.core_suspend_sem);
+
+	return ret;
+}
+
+static int hx280enc_resume(struct device *dev)
+{
+	int ret = 0;
+	int i;
+
+	PDEBUG("%s start..\n", __func__);
+
+	if (hx280enc_data.is_reserved == 0 || hx280enc_data.reg_corrupt == 0)
+		return ret;
+
+	for (i = 0; i < hx280enc_data.iosize; i += 4)
+		writel(hx280enc_data.mirror_regs[i/4], hx280enc_data.hwregs + i);
+
+	return ret;
+}
+
 #ifdef CONFIG_PM
 static int __maybe_unused hantro_h1_suspend(struct device *dev)
 {
+	hx280enc_suspend(dev);
 	pm_runtime_put_sync_suspend(dev);   //power off
 	return 0;
 }
@@ -943,6 +1011,7 @@ static int __maybe_unused hantro_h1_resume(struct device *dev)
 
 	hantro_h1_power_on_disirq(hx280enc);
 	hantro_h1_ctrlblk_reset(dev);
+	hx280enc_resume(dev);
 	return 0;
 }
 static int hantro_h1_runtime_suspend(struct device *dev)
