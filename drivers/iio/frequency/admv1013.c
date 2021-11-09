@@ -289,11 +289,11 @@ static int admv1013_update_quad_filters(struct admv1013_dev *dev)
 {
 	unsigned int filt_raw;
 
-	if (dev->clkin_freq <= 5400000000 && dev->clkin_freq <= 7000000000)
+	if (dev->clkin_freq >= 5400000000 && dev->clkin_freq <= 7000000000)
 		filt_raw = 15;
-	else if (dev->clkin_freq <= 5400000000 && dev->clkin_freq <= 8000000000)
+	else if (dev->clkin_freq >= 5400000000 && dev->clkin_freq <= 8000000000)
 		filt_raw = 10;
-	else if (dev->clkin_freq <= 6600000000 && dev->clkin_freq <= 9200000000)
+	else if (dev->clkin_freq >= 6600000000 && dev->clkin_freq <= 9200000000)
 		filt_raw = 5;
 	else
 		filt_raw = 0;
