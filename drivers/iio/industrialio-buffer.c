@@ -382,6 +382,7 @@ void iio_device_detach_buffers(struct iio_dev *indio_dev)
 
 	for (i = 0; i < iio_dev_opaque->attached_buffers_cnt; i++) {
 		buffer = iio_dev_opaque->attached_buffers[i];
+		buffer->indio_dev = NULL;
 		iio_buffer_put(buffer);
 	}
 
@@ -2401,6 +2402,8 @@ int iio_device_attach_buffer(struct iio_dev *indio_dev,
 	/* first buffer is legacy; attach it to the IIO device directly */
 	if (!indio_dev->buffer)
 		indio_dev->buffer = buffer;
+
+	buffer->indio_dev = indio_dev;
 
 	iio_dev_opaque->attached_buffers[cnt - 1] = buffer;
 	iio_dev_opaque->attached_buffers_cnt = cnt;

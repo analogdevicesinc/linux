@@ -39,7 +39,7 @@
 #include <linux/jesd204/adi-common.h>
 
 #include "cf_axi_dds.h"
-#include "ad9122.h"
+//#include "ad9122.h"
 #include "../../misc/adi-axi-data-offload.h"
 
 static const unsigned int interpolation_factors_available[] = {1, 8};
@@ -654,9 +654,11 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
+#if 0
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
 		/* fall-through */
+#endif
 	case IIO_CHAN_INFO_CALIBSCALE:
 		channel = cf_axi_dds_reg_index(chan);
 
@@ -820,9 +822,11 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		cf_axi_dds_start_sync(st, 0);
 		ret = cf_axi_dds_sync_frame(indio_dev);
 		break;
+#if 0
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
 		/* fall-through */
+#endif
 	case IIO_CHAN_INFO_CALIBSCALE:
 		channel = cf_axi_dds_reg_index(chan);
 
@@ -945,7 +949,7 @@ static const struct iio_enum cf_axi_dds_scale_available = {
 };
 
 static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
-	IIO_ENUM_AVAILABLE("scale", &cf_axi_dds_scale_available),
+	IIO_ENUM_AVAILABLE("scale", IIO_SHARED_BY_TYPE, &cf_axi_dds_scale_available),
 	{ },
 };
 
@@ -981,8 +985,8 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	.type = IIO_VOLTAGE, \
 	.indexed = 1, \
 	.channel = _chan, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) | \
-		BIT(IIO_CHAN_INFO_CALIBPHASE), \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) /*| \
+		BIT(IIO_CHAN_INFO_CALIBPHASE)*/, \
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 	.output = 1, \
 	.scan_index = _chan, \
@@ -1812,8 +1816,8 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 
 		if (!(reg & ADI_IQCORRECTION_DISABLE))
 			st->chip_info_generated.channel[c].info_mask_separate =
-			BIT(IIO_CHAN_INFO_CALIBSCALE) |
-			BIT(IIO_CHAN_INFO_CALIBPHASE);
+			BIT(IIO_CHAN_INFO_CALIBSCALE) /*|
+			BIT(IIO_CHAN_INFO_CALIBPHASE)*/;
 
 		if (reg & ADI_XBAR_ENABLE)
 			st->chip_info_generated.channel[c].ext_info =
