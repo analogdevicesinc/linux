@@ -151,6 +151,8 @@ struct iio_buffer {
 	/* @ref: Reference count of the buffer. */
 	struct kref ref;
 
+	struct iio_dev *indio_dev;
+
 	/* @dmabufs: List of DMABUF attachments */
 	struct list_head dmabufs;
 };
