@@ -114,7 +114,8 @@ static int adi_axi_adc_config_dma_buffer(struct device *dev,
 		dma_name = "rx";
 
 	return devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-					       indio_dev, dma_name);
+					       indio_dev, dma_name,
+					       IIO_BUFFER_DIRECTION_IN);
 }
 
 static int adi_axi_adc_read_raw(struct iio_dev *indio_dev,
