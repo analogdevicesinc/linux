@@ -193,8 +193,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	  .indexed = 1,							\
 	  .channel = _chan,						\
 	  .info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
-			BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
-			BIT(IIO_CHAN_INFO_CALIBPHASE),			\
+			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
 	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 	  .ext_info = axiadc_ext_info,					\
 	  .scan_index = _si,						\

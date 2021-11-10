@@ -106,9 +106,9 @@ void axiadc_idelay_set(struct axiadc_state *st, unsigned lane, unsigned val)
 EXPORT_SYMBOL_GPL(axiadc_idelay_set);
 
 static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block)
+				  struct iio_dma_buffer_block *block)
 {
-	struct iio_dev *indio_dev = dev_get_drvdata(queue->dev);
+	struct iio_dev *indio_dev = queue->buffer.indio_dev;
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_dmaengine_buffer_submit_block(queue, block);
@@ -132,6 +132,7 @@ static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 
 	return devm_iio_dmaengine_buffer_setup_with_ops(indio_dev->dev.parent,
 							indio_dev, dma_name,
+							IIO_BUFFER_DIRECTION_IN,
 							&axiadc_dma_buffer_ops);
 }
 

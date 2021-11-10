@@ -23,20 +23,24 @@
 #include "cf_axi_dds.h"
 
 static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block)
+				   struct iio_dma_buffer_block *block)
 {
-	struct cf_axi_dds_state *st = iio_priv(queue->driver_data);
+	//struct cf_axi_dds_state *st = iio_priv(queue->driver_data);
+	struct iio_dev *indio_dev = queue->buffer.indio_dev;
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	bool enable_fifo = false;
 	bool oneshot = true;
 
-	if (block->block.bytes_used) {
+	if (block->bytes_used) {
 		if (cf_axi_dds_dma_fifo_en(st)) {
 			enable_fifo = true;
 
+#if 0
 			if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
 				block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
 				oneshot = false;
 			}
+#endif
 
 			cf_axi_dds_pl_ddr_fifo_ctrl_oneshot(st, oneshot);
 		}
@@ -44,7 +48,7 @@ static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		cf_axi_dds_pl_ddr_fifo_ctrl(st, enable_fifo);
 	}
 
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_TO_DEVICE);
+	return iio_dmaengine_buffer_submit_block(queue, block);
 }
 
 static int dds_buffer_state_set(struct iio_dev *indio_dev, bool state)
@@ -91,17 +95,16 @@ static const struct iio_dma_buffer_ops dds_buffer_dma_buffer_ops = {
 
 int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 {
-	struct iio_buffer *buffer;
+	int ret;
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "tx",
-			&dds_buffer_dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	iio_device_attach_buffer(indio_dev, buffer);
+	ret = devm_iio_dmaengine_buffer_setup_with_ops(indio_dev->dev.parent,
+						       indio_dev, "tx",
+						       IIO_BUFFER_DIRECTION_OUT,
+						       &dds_buffer_dma_buffer_ops);
+	if (ret < 0)
+		return ret;
 
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 	indio_dev->setup_ops = &dds_buffer_setup_ops;
 
 	return 0;
@@ -110,6 +113,6 @@ EXPORT_SYMBOL_GPL(cf_axi_dds_configure_buffer);
 
 void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev)
 {
-	iio_dmaengine_buffer_free(indio_dev->buffer);
+	//iio_dmaengine_buffer_free(indio_dev->buffer);
 }
 EXPORT_SYMBOL_GPL(cf_axi_dds_unconfigure_buffer);
