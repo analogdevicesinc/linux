@@ -2,6 +2,9 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
     compatible = "brcm,bcm2836", "brcm,bcm2835";
     fragment@0 {
@@ -23,7 +26,9 @@
                 
                 #address-cells = <1>;
         	#size-cells = <0>;
-		interrupts = <2 2>;
+        	reset-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+		interrupts = <2 IRQ_TYPE_EDGE_FALLING>, <3 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "irq0", "irq1";
 		interrupt-parent = <&gpio>;
 		
 		adi,wf-cap-sel = <0x1>;

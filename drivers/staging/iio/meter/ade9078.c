@@ -10,7 +10,10 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <asm/unaligned.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/of_irq.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -39,8 +42,10 @@
  */
 struct ade9078_device {
 	struct mutex lock;
+	struct gpio_desc *gpio_reset;
 	u32 irq0_bits;
 	u32 irq1_bits;
+	bool rst_done;
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
@@ -177,22 +182,22 @@ err_ret:
 	return ret;
 }
 
-static int ade9078_set_interrupts(struct ade9078_device *ade9078_dev,
-		u8 interrupt_nr, u32 mask)
-{
-
-	if(interrupt_nr == 0)
-	{
-		ade9078_dev->irq0_bits |= mask;
-		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, mask);
-	}
-	else
-	{
-		ade9078_dev->irq1_bits |= mask;
-		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, mask);
-	}
-}
-
+//static int ade9078_set_interrupts(struct ade9078_device *ade9078_dev,
+//		u8 interrupt_nr, u32 mask)
+//{
+//
+//	if(interrupt_nr == 0)
+//	{
+//		ade9078_dev->irq0_bits |= mask;
+//		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK0, mask, mask);
+//	}
+//	else
+//	{
+//		ade9078_dev->irq1_bits |= mask;
+//		return regmap_update_bits(ade9078_dev->regmap, ADDR_MASK1, mask, mask);
+//	}
+//}
+//
 //static int ade9078_clear_interrupts(struct ade9078_device *ade9078_dev,
 //		u8 interrupt_nr, u32 mask)
 //{
@@ -209,42 +214,100 @@ static int ade9078_set_interrupts(struct ade9078_device *ade9078_dev,
 //}
 //
 //static int ade9078_clear_interrupt_status(struct ade9078_device *ade9078_dev,
-//		u8 interrupt_nr, u32 mask)
+//		u8 interrupt_nr, unsigned int bits)
 //{
+//	u32 mask = 0;
+//
+//	mask |= bits;
 //	if(interrupt_nr == 0)
 //		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0,
 //				mask, mask);
 //	else
-//		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0,
+//		return regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS1,
 //				mask, mask);
 //}
 //
-//
-//static int ade9078_test_interrupt_status(struct ade9078_device *ade9078_dev,
-//		u8 interrupt_nr, u32 mask)
+//static int ade9078_clear_all_interrupt_status(struct ade9078_device *ade9078_dev)
 //{
-//	u32 val;
-//	int ret;
+//	unsigned int ret, val;
 //
-//	if(interrupt_nr == 0)
-//		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &val);
-//	else
-//		ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS1, &val);
-//
+//	ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &val);
+//	if (ret)
+//		return ret;
+//	ret = regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS0, val, val);
 //	if (ret)
 //		return ret;
 //
-//	return (val & mask) == mask;
+//	ret = regmap_read(ade9078_dev->regmap, ADDR_STATUS1, &val);
+//	if (ret)
+//		return ret;
+//	ret = regmap_update_bits(ade9078_dev->regmap, ADDR_STATUS1, val, val);
+//	if (ret)
+//		return ret;
+//
+//	return 0;
 //}
 
-static irqreturn_t ade9078_data_interrupt(int irq, void *data)
+static int ade9078_test_bits(struct regmap *map, unsigned int reg,
+		unsigned int bits)
+{
+	unsigned int val, ret;
+
+	ret = regmap_read(map, reg, &val);
+	if (ret)
+		return ret;
+
+	return (val & bits) == bits;
+}
+
+static irqreturn_t ade9078_irq0_handler(int irq, void *data)
 {
 	struct ade9078_device *ade9078_dev = data;
 
-	dev_info(&ade9078_dev->spi->dev, "Interrupted");
+	dev_info(&ade9078_dev->spi->dev, "IRQ0 Interrupted");
 	if (iio_buffer_enabled(ade9078_dev->indio_dev))
 		iio_trigger_poll(ade9078_dev->trig);
 
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t ade9078_irq0_thread(int irq, void *data)
+{
+	struct ade9078_device *ade9078_dev = data;
+
+	dev_info(&ade9078_dev->spi->dev, "IRQ0 thread");
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t ade9078_irq1_handler(int irq, void *data)
+{
+	struct ade9078_device *ade9078_dev = data;
+
+	dev_info(&ade9078_dev->spi->dev, "IRQ1 Interrupted");
+	if (iio_buffer_enabled(ade9078_dev->indio_dev))
+		iio_trigger_poll(ade9078_dev->trig);
+
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t ade9078_irq1_thread(int irq, void *data)
+{
+	struct ade9078_device *ade9078_dev = data;
+	int result;
+
+	dev_info(&ade9078_dev->spi->dev, "IRQ1 thread");
+	if(ade9078_dev->rst_done == false){
+		result = ade9078_test_bits(ade9078_dev->regmap, ADDR_STATUS1,
+				ADE9078_ST1_RSTDONE);
+		if(result < 0)
+			dev_err(&ade9078_dev->spi->dev, "Error testing reset done");
+		else if(result == 1)
+			ade9078_dev->rst_done = true;
+
+		goto irq_done;
+	}
+
+irq_done:
 	return IRQ_HANDLED;
 }
 
@@ -732,6 +795,23 @@ put_phase_node:
 	of_node_put(phase_node);
 	return ret;
 }
+/*
+ *
+ */
+static int ade9078_reset(struct ade9078_device *ade9078_dev)
+{
+	ade9078_dev->rst_done = false;
+
+	gpiod_set_value_cansleep(ade9078_dev->gpio_reset, 1);
+	usleep_range(1, 100);
+	gpiod_set_value_cansleep(ade9078_dev->gpio_reset, 0);
+	msleep_interruptible(50);
+
+	if(ade9078_dev->rst_done == false)
+		return -EPERM;
+	else
+		return 0;
+}
 
 /*
  * ade9078_setup() - initial register setup of the ade9078
@@ -836,6 +916,8 @@ static int ade9078_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
 	struct iio_trigger *trig;
+	struct gpio_desc *gpio_reset;
+	int irq;
 
 	unsigned long irqflags = 0;
 	int ret = 0;
@@ -855,8 +937,7 @@ static int ade9078_probe(struct spi_device *spi)
 
 	ade9078_dev->rx = devm_kcalloc(&spi->dev, 6, sizeof(*ade9078_dev->rx),
 			GFP_KERNEL);
-	if(ade9078_dev->rx == NULL)
-	{
+	if(ade9078_dev->rx == NULL)	{
 		dev_err(&spi->dev,"Unable to allocate ADE9078 RX Buffer");
 		return-ENOMEM;
 	}
@@ -867,16 +948,35 @@ static int ade9078_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 	regmap = devm_regmap_init(&spi->dev, NULL, spi, &ade9078_regmap_config);
-	if (IS_ERR(regmap))
-	{
+	if (IS_ERR(regmap))	{
 		dev_err(&spi->dev,"Unable to allocate ADE9078 regmap");
 		return PTR_ERR(regmap);
 	}
 	spi_set_drvdata(spi, ade9078_dev);
 
-	irqflags = irq_get_trigger_type(spi->irq);
-	ret = devm_request_irq(&spi->dev, spi->irq, ade9078_data_interrupt,
-			irqflags, KBUILD_MODNAME, ade9078_dev);
+	ade9078_dev->rst_done = false;
+
+	irq = of_irq_get_byname((&spi->dev)->of_node, "irq0");
+	if (irq < 0){
+		dev_err(&spi->dev,"Unable to find irq0");
+		return -EINVAL;
+	}
+	irqflags = irq_get_trigger_type(irq);
+	ret = devm_request_threaded_irq(&spi->dev, irq, ade9078_irq0_handler,
+			ade9078_irq0_thread, irqflags, KBUILD_MODNAME, ade9078_dev);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
+		return ret;
+	}
+
+	irq = of_irq_get_byname((&spi->dev)->of_node, "irq1");
+	if (irq < 0){
+		dev_err(&spi->dev,"Unable to find irq1");
+		return -EINVAL;
+	}
+	irqflags = irq_get_trigger_type(irq);
+	ret = devm_request_threaded_irq(&spi->dev, irq, ade9078_irq1_handler,
+			ade9078_irq1_thread, irqflags, KBUILD_MODNAME, ade9078_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
 		return ret;
@@ -884,12 +984,17 @@ static int ade9078_probe(struct spi_device *spi)
 
 	trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d", KBUILD_MODNAME,
 			indio_dev->id);
-	if (!trig)
-	{
+	if (!trig){
 		dev_err(&spi->dev,"Unable to allocate ADE9078 trigger");
 		return -ENOMEM;
 	}
 	iio_trigger_set_drvdata(trig, ade9078_dev);
+
+	gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
+	if (!gpio_reset){
+		dev_err(&spi->dev,"Unable to allocate ADE9078 reset");
+		return -ENOMEM;
+	}
 
 	ade9078_dev->spi = spi;
 	ade9078_dev->spi->mode = SPI_MODE_0;
@@ -907,6 +1012,8 @@ static int ade9078_probe(struct spi_device *spi)
 	ade9078_dev->trig = trig;
 	ade9078_dev->trig->dev.parent = &ade9078_dev->spi->dev;
 	ade9078_dev->trig->ops = &ade9078_trigger_ops;
+
+	ade9078_dev->gpio_reset = gpio_reset;
 
 	mutex_init(&ade9078_dev->lock);
 
@@ -933,13 +1040,20 @@ static int ade9078_probe(struct spi_device *spi)
 		return ret;
 	}
 
+	ret = ade9078_reset(ade9078_dev);
+	if(ret){
+		dev_err(&spi->dev, "ADE9078 reset failed");
+		return ret;
+	}
+	dev_info(&spi->dev, "Reset done");
+
 	ret = ade9078_setup(ade9078_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Unable to setup ADE9078");
 		return ret;
 	}
 
-	ade9078_set_interrupts(ade9078_dev, 0, ADE9078_ST0_WFB_TRIG_IRQ);
+//	ade9078_set_interrupts(ade9078_dev, 0, ADE9078_ST0_WFB_TRIG_IRQ);
 
 //	ade9078_en_wfb(ade9078_dev, true);
 
