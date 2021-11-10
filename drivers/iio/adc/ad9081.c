@@ -432,11 +432,8 @@ static int ad9081_reset_pin_ctrl(void *user_data, u8 enable)
 	return gpiod_direction_output(conv->reset_gpio, enable);
 }
 
-static int ad9081_sysref_ctrl(void *user_data, u8 enable)
+static int ad9081_sysref_ctrl(struct ad9081_phy *phy, u8 enable)
 {
-	struct axiadc_converter *conv = user_data;
-	struct ad9081_phy *phy = conv->phy;
-
 	if (phy->jdev && enable)
 		return jesd204_sysref_async_force(phy->jdev);
 
@@ -4146,7 +4143,6 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 		phy->jtx_link_rx[0].jesd_param.jesd_subclass)
 		subclass = JESD_SUBCLASS_1;
 
-
 	ret = adi_ad9081_jesd_oneshot_sync(&phy->ad9081, subclass);
 	if (ret != 0)
 		return ret;
@@ -4154,7 +4150,7 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	if (phy->sysref_continuous_dis) {
 		u8 sync_done;
 
-		ad9081_sysref_ctrl(&phy->ad9081, 1);
+		ad9081_sysref_ctrl(phy, 1);
 
 		ret = adi_ad9081_jesd_sysref_oneshot_sync_done_get(&phy->ad9081,
 			&sync_done);
