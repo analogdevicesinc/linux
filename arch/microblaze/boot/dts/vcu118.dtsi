@@ -346,7 +346,7 @@
 			xlnx,kind-of-intr = <0x35f8>;
 			xlnx,num-intr-inputs = <0x10>;
 		};
-		axi_spi: axi_quad_spi@44a70000 {
+		axi_spi: spi@44a70000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			bits-per-word = <8>;

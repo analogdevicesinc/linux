@@ -33,7 +33,7 @@
 };
 
 &amba {
-	axi_spi: axi_quad_spi@7C430000 {
+	axi_spi: spi@7C430000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		bits-per-word = <8>;
