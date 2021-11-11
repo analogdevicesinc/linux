@@ -16,7 +16,7 @@
 };
 
 &fmc_spi {
-	spi_fmcjesdadc1: spi-fmcjesdadc1@0 {
+	spi_fmcjesdadc1: spi@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,spi-ad9250";
