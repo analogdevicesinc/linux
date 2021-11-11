@@ -36,7 +36,7 @@
 };
 
 &amba_pl {
-		axi_spi2: axi_quad_spi@44a80000 {
+		axi_spi2: spi@44a80000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			bits-per-word = <8>;
@@ -50,7 +50,7 @@
 			xlnx,spi-mode = <0>;
 		};
 
-		axi_spi3: axi_quad_spi@44B80000 {
+		axi_spi3: spi@44B80000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			bits-per-word = <8>;

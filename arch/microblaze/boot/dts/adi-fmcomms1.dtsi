@@ -1,6 +1,6 @@
 
 &fmc_i2c {
-	spi_xcomm0: spi_xcomm0@58 {
+	spi_xcomm0: spi@58 {
 		#size-cells = <0>;
 		#address-cells = <1>;
 		compatible = "spi-xcomm";

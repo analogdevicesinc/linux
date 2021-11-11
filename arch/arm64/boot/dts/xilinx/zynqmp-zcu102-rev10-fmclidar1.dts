@@ -43,7 +43,7 @@
 		#size-cells = <0x1>;
 		ranges = <0 0 0 0xffffffff>;
 
-		axi_spi_vco: axi_quad_spi@9c500000 {
+		axi_spi_vco: spi@9c500000 {
 			reg = <0x9c500000 0x10000>;
 			compatible = "xlnx,xps-spi-2.00.a";
 			bits-per-word = <8>;
@@ -60,7 +60,7 @@
 			#size-cells = <0>;
 		};
 
-		axi_spi_afe_adc: axi_quad_spi@9c600000 {
+		axi_spi_afe_adc: spi@9c600000 {
 			reg = <0x9c600000 0x10000>;
 			compatible = "xlnx,xps-spi-2.00.a";
 			bits-per-word = <8>;
