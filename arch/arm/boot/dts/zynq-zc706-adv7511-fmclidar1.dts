@@ -33,7 +33,7 @@
 };
 
 &fpga_axi {
-	axi_spi_vco: axi_quad_spi@7c500000 {
+	axi_spi_vco: spi@7c500000 {
 		reg = <0x7c500000 0x10000>;
 		compatible = "xlnx,xps-spi-2.00.a";
 		bits-per-word = <8>;
@@ -50,7 +50,7 @@
 		#size-cells = <0>;
 	};
 
-	axi_spi_afe_adc: axi_quad_spi@7c600000 {
+	axi_spi_afe_adc: spi@7c600000 {
 		reg = <0x7c600000 0x10000>;
 		compatible = "xlnx,xps-spi-2.00.a";
 		bits-per-word = <8>;
