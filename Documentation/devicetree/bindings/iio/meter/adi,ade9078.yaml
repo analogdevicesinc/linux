@@ -37,6 +37,17 @@ properties:
     interrupts:
       maxItems: 2
 
+    reset-gpios:
+      description: |
+        Must be the device tree identifier of the RESET pin. As the line is
+        active low, it should be marked GPIO_ACTIVE_LOW.
+      maxItems: 1
+
+    interrupt-names:
+      description: |
+        Names to be attributed to the interrupts of the device. Should be "irq0"
+        or "irq1"
+
     adi,wf-cap-sel:
       description: |
         This bit selects whether the waveform buffer is filled with resampled
@@ -79,7 +90,9 @@ properties:
   required:
     - compatible
     - reg
+    - reset-gpios
     - interrupts
+    - interrupt-names
     - adi,wf-cap-sel
     - adi,wf-mode
     - adi,wf-src
@@ -158,7 +171,10 @@ examples:
       #address-cells = <1>;
       #size-cells = <0>;
 
-      interrupts = <2 2>;
+      reset-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+
+      interrupts = <2 IRQ_TYPE_EDGE_FALLING>, <3 IRQ_TYPE_EDGE_FALLING>;
+      interrupt-names = "irq0", "irq1";
       interrupt-parent = <&gpio>;
 
       adi,wf-cap-sel = <0x1>;
