@@ -234,6 +234,7 @@ build_checkpatch() {
 	__update_git_ref "${ref_branch}" "${ref_branch}"
 
 	scripts/checkpatch.pl --git "${ref_branch}.." \
+		--strict \
 		--ignore FILE_PATH_CHANGES \
 		--ignore LONG_LINE \
 		--ignore LONG_LINE_STRING \
