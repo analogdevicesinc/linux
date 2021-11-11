@@ -191,6 +191,7 @@
 			axistream-connected = <&axi_ethernet_dma>;
 			axistream-control-connected = <&axi_ethernet_dma>;
 			clock-frequency = <100000000>;
+			clocks = <&clk_bus_0>;
 			compatible = "xlnx,axi-ethernet-7.2", "xlnx,axi-ethernet-1.00.a";
 			device_type = "network";
 			interrupt-names = "interrupt";
@@ -211,7 +212,6 @@
 			xlnx,gtrefclksrc = <0x0>;
 			xlnx,include-dre ;
 			xlnx,instantiatebitslice0 = <0x0>;
-			xlnx,phy-type = <0x4>;
 			xlnx,phyaddr = <0x1>;
 			xlnx,phyrst-board-interface-dummy-port = <0x0>;
 			xlnx,rable = <0x0>;
