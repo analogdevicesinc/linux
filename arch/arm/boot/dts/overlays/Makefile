@@ -163,6 +163,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-adar1000.dtbo \
 	rpi-adgs1408.dtbo \
 	rpi-adxl345.dtbo \
+	rpi-adxl355.dtbo \
 	rpi-adxl372.dtbo \
 	rpi-adxl375.dtbo \
 	rpi-adxrs290.dtbo \
