@@ -173,6 +173,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-adf4159.dtbo \
 	rpi-adf4371.dtbo \
 	rpi-admv1013.dtbo \
+	rpi-admv1014.dtbo \
 	rpi-adrf6780.dtbo \
 	rpi-ad5677r.dtbo \
 	rpi-ad5686.dtbo \
