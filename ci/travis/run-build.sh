@@ -238,7 +238,8 @@ build_checkpatch() {
 		--ignore FILE_PATH_CHANGES \
 		--ignore LONG_LINE \
 		--ignore LONG_LINE_STRING \
-		--ignore LONG_LINE_COMMENT
+		--ignore LONG_LINE_COMMENT \
+		--ignore PARENTHESIS_ALIGNMENT
 }
 
 build_dtb_build_test() {
