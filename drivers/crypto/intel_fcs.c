@@ -354,7 +354,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		/* Allocate memory for certificate + test word */
 		tsz = sizeof(struct intel_fcs_cert_test_word);
-		datasz = data->com_paras.s_request.size + tsz;
+		datasz = data->com_paras.c_request.size + tsz;
 
 		s_buf = stratix10_svc_allocate_memory(priv->chan, datasz);
 		if (!s_buf) {
@@ -375,7 +375,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		/* Copy in the certificate data (skipping over the test word) */
 		ret = copy_from_user(s_buf + tsz,
 				     data->com_paras.c_request.addr,
-				     data->com_paras.s_request.size);
+				     data->com_paras.c_request.size);
 		if (ret) {
 			dev_err(dev, "failed copy buf ret=%d\n", ret);
 			fcs_close_services(priv, s_buf, ps_buf);
