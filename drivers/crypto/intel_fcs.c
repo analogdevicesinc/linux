@@ -1211,7 +1211,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		 }
 
 		 /* copy session ID from the header */
-		 memcpy(s_buf, &data->com_paras.k_import.hd.sid, tsz);
+		 memcpy(s_buf, &data->com_paras.k_import.hd.sid, sizeof(uint32_t));
 		 ret = copy_from_user(s_buf + tsz,
 				      data->com_paras.k_import.obj_data,
 				      data->com_paras.k_import.obj_data_sz);
