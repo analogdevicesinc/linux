@@ -347,6 +347,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
+		if (data->com_paras.c_request.size == 0 ||
+		    data->com_paras.c_request.addr == NULL) {
+			dev_err(dev, "Invalid VAB request param\n");
+			return -EFAULT;
+		}
+
 		dev_dbg(dev, "Test=%d, Size=%d; Address=0x%p\n",
 			data->com_paras.c_request.test.test_word,
 			data->com_paras.c_request.size,
@@ -506,6 +512,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
+		if (data->com_paras.gp_data.size == 0 ||
+		    data->com_paras.gp_data.addr == NULL) {
+			dev_err(dev, "Invalid provision request param\n");
+			return -EFAULT;
+		}
+
 		s_buf = stratix10_svc_allocate_memory(priv->chan,
 					data->com_paras.gp_data.size);
 		if (!s_buf) {
@@ -593,6 +605,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		    data->com_paras.d_encryption.dst_size > ENC_MAX_SZ) {
 			dev_err(dev, "Invalid SDOS Buffer dst size:%d\n",
 				data->com_paras.d_encryption.dst_size);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.d_encryption.src == NULL ||
+		    data->com_paras.d_encryption.dst == NULL) {
+			dev_err(dev, "Invalid SDOS Buffer pointer\n");
 			return -EFAULT;
 		}
 
@@ -704,6 +722,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		    data->com_paras.d_encryption.dst_size > DEC_MAX_SZ) {
 			dev_err(dev, "Invalid SDOS Buffer dst size:%d\n",
 				data->com_paras.d_encryption.dst_size);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.d_encryption.src == NULL ||
+		    data->com_paras.d_encryption.dst == NULL) {
+			dev_err(dev, "Invalid SDOS Buffer pointer\n");
 			return -EFAULT;
 		}
 
@@ -868,6 +892,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
+		if (data->com_paras.subkey.cmd_data == NULL ||
+		    data->com_paras.subkey.rsp_data == NULL) {
+			dev_err(dev, "Invalid subkey data pointer\n");
+			return -EFAULT;
+		}
+
 		/* allocate buffer for both soruce and destination */
 		rsz = sizeof(struct intel_fcs_attestation_resv_word);
 		datasz = data->com_paras.subkey.cmd_data_sz + rsz;
@@ -943,6 +973,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		if (data->com_paras.measurement.rsp_data_sz > MEASUREMENT_RSP_MAX_SZ) {
 			dev_err(dev, "Invalid measurement RSP size %d\n",
 				data->com_paras.measurement.rsp_data_sz);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.measurement.cmd_data == NULL ||
+		    data->com_paras.measurement.rsp_data == NULL) {
+			dev_err(dev, "Invalid measurement data pointer\n");
 			return -EFAULT;
 		}
 
@@ -1192,6 +1228,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 dev_err(dev, "failure on copy_from_user\n");
 			 return -EFAULT;
 		 }
+
+		if (data->com_paras.k_import.obj_data_sz == 0 ||
+		    data->com_paras.k_import.obj_data == NULL) {
+			dev_err(dev, "Invalid key import request param\n");
+			return -EFAULT;
+		}
 
 		 /* Allocate memory for header + key object */
 		 tsz = sizeof(struct fcs_crypto_key_header);
@@ -2121,6 +2163,18 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
+		if (data->com_paras.ecdsa_data.src_size == 0 ||
+		    data->com_paras.ecdsa_data.src == NULL) {
+			dev_err(dev, "Invalid ECDH request src param\n");
+			return -EFAULT;
+		}
+
+		if (data->com_paras.ecdsa_data.dst_size == 0 ||
+		    data->com_paras.ecdsa_data.dst == NULL) {
+			dev_err(dev, "Invalid ECDH request dst param\n");
+			return -EFAULT;
+		}
+
 		sid = data->com_paras.ecdsa_data.sid;
 		cid = data->com_paras.ecdsa_data.cid;
 		kuid = data->com_paras.ecdsa_data.kuid;
@@ -2274,6 +2328,18 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	case INTEL_FCS_DEV_SDOS_DATA_EXT:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
 			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		if (data->com_paras.data_sdos_ext.src_size == 0 ||
+		    data->com_paras.data_sdos_ext.src == NULL) {
+			dev_err(dev, "Invalid SDOS request src param\n");
+			return -EFAULT;
+		}
+
+		if (data->com_paras.data_sdos_ext.dst_size == 0 ||
+		    data->com_paras.data_sdos_ext.dst == NULL) {
+			dev_err(dev, "Invalid SDOS request dst param\n");
 			return -EFAULT;
 		}
 
