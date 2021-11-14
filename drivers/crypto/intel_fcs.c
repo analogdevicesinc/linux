@@ -2224,6 +2224,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 					  FCS_REQUEST_TIMEOUT);
 		dev_dbg(dev, "request service ret=%d\n", ret);
 
+		timeout = 100;
 		if (!ret && !priv->status) {
 			/* to query the complete status */
 			msg->arg[0] = ASYNC_POLL_SERVICE;
@@ -2232,7 +2233,6 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			msg->command = COMMAND_POLL_SERVICE_STATUS_ASYNC;
 			priv->client.receive_cb = fcs_data_callback;
 
-			timeout = 100;
 			while (timeout != 0) {
 				ret = fcs_request_service(priv, (void *)msg,
 							  FCS_REQUEST_TIMEOUT);
