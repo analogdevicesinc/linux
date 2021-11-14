@@ -919,8 +919,16 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		/* copy the reserve word first then command payload */
 		memcpy(s_buf, &data->com_paras.subkey.resv.resv_word, rsz);
-		memcpy(s_buf + rsz, data->com_paras.subkey.cmd_data,
-		       data->com_paras.subkey.cmd_data_sz);
+
+		/* Copy user data from user space to kernel space */
+		ret = copy_from_user(s_buf + rsz,
+				     data->com_paras.subkey.cmd_data,
+				     data->com_paras.subkey.cmd_data_sz);
+		if (ret) {
+			dev_err(dev, "failure on copy_from_user\n");
+			fcs_close_services(priv, s_buf, d_buf);
+			return -EFAULT;
+		}
 
 		msg->command = COMMAND_FCS_ATTESTATION_SUBKEY;
 		msg->payload = s_buf;
@@ -1003,8 +1011,16 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		/* copy the reserve word first then command payload */
 		memcpy(s_buf, &data->com_paras.measurement.resv.resv_word, rsz);
-		memcpy(s_buf + rsz, data->com_paras.measurement.cmd_data,
-		       data->com_paras.measurement.cmd_data_sz);
+
+		/* Copy user data from user space to kernel space */
+		ret = copy_from_user(s_buf + rsz,
+				     data->com_paras.measurement.cmd_data,
+				     data->com_paras.measurement.cmd_data_sz);
+		if (ret) {
+			dev_err(dev, "failure on copy_from_user\n");
+			fcs_close_services(priv, s_buf, d_buf);
+			return -EFAULT;
+		}
 
 		msg->command = COMMAND_FCS_ATTESTATION_MEASUREMENTS;
 		msg->payload = s_buf;
@@ -2210,8 +2226,15 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -ENOMEM;
 		}
 
-		memcpy(s_buf, data->com_paras.ecdsa_data.src,
-		       data->com_paras.ecdsa_data.src_size);
+		/* Copy user data from user space to kernel space */
+		ret = copy_from_user(s_buf,
+				     data->com_paras.ecdsa_data.src,
+				     data->com_paras.ecdsa_data.src_size);
+		if (ret) {
+			dev_err(dev, "failed copy buf ret=%d\n", ret);
+			fcs_close_services(priv, s_buf, d_buf);
+			return -EFAULT;
+		}
 
 		msg->command = COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE;
 		msg->arg[0] = sid;
@@ -2360,8 +2383,15 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -ENOMEM;
 		}
 
-		memcpy(s_buf, data->com_paras.data_sdos_ext.src,
-		       data->com_paras.data_sdos_ext.src_size);
+		/* Copy user data from user space to kernel space */
+		ret = copy_from_user(s_buf,
+				     data->com_paras.data_sdos_ext.src,
+				     data->com_paras.data_sdos_ext.src_size);
+		if (ret) {
+			dev_err(dev, "failed copy buf ret=%d\n", ret);
+			fcs_close_services(priv, s_buf, d_buf);
+			return -EFAULT;
+		}
 
 		msg->command = COMMAND_FCS_SDOS_DATA_EXT;
 		msg->arg[0] = sid;
