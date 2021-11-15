@@ -662,7 +662,7 @@ static int imx8mq_chg_primary_detect(struct imx8mq_usb_phy *imx_phy)
 	val |= PHY_CTRL1_VDATSRCENB0 | PHY_CTRL1_VDATDETENB0;
 	writel(val, imx_phy->base + PHY_CTRL1);
 
-	usleep_range(1000, 2000);
+	msleep(40);
 
 	/* Check if D- is less than VDAT_REF to determine an SDP per BC 1.2 */
 	val = readl(imx_phy->base + PHY_STS0);
@@ -683,7 +683,7 @@ static int imx8mq_phy_chg_secondary_det(struct imx8mq_usb_phy *imx_phy)
 	writel(val | PHY_CTRL1_VDATSRCENB0 | PHY_CTRL1_VDATDETENB0 |
 		PHY_CTRL1_CHRGSEL, imx_phy->base + PHY_CTRL1);
 
-	usleep_range(1000, 2000);
+	msleep(40);
 
 	/*
 	 * Per BC 1.2, check voltage of D+:
