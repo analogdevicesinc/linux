@@ -669,6 +669,10 @@
 				fpga_mgr: fpga-mgr {
 					compatible = "intel,agilex-soc-fpga-mgr";
 				};
+
+				fcs: fcs {
+					compatible = "intel,agilex-soc-fcs";
+				};
 			};
 		};
 	};
