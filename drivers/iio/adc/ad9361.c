@@ -2864,8 +2864,30 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 				__rx_phase = 0x1A;
 			break;
 		}
+	} else if (clktf == (2 * clkrf)) {
+		__rx_phase = -2;
+		switch (txnco_word) {
+		case 0:
+			rxnco_word = 1;
+			break;
+		case 1:
+		case 2:
+		case 3:
+			txnco_word = 1;
+			rxnco_word = 3;
+			break;
+		}
+	} else if (clktf == (4 * clkrf)) {
+		__rx_phase = -2;
+		txnco_word = 0;
+		rxnco_word = 3;
+	} else if (clkrf == (4 * clktf)) {
+		__rx_phase = -2;
+		txnco_word = 3;
+		rxnco_word = 0;
 	} else
-		dev_err(dev, "Unhandled case in %s line %d clkrf %lu clktf %lu\n",
+		dev_err(dev,
+			"Unhandled case in %s line %d clkrf %lu clktf %lu\n",
 			__func__, __LINE__, clkrf, clktf);
 
 	if (rx_phase >= 0)
