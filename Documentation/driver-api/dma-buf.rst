@@ -1,3 +1,5 @@
+.. _dma-buf:
+
 Buffer Sharing and Synchronization
 ==================================
 
