@@ -2486,17 +2486,57 @@ static int fcs_driver_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id fcs_of_match[] = {
+	{.compatible = "intel,stratix10-soc-fcs"},
+	{.compatible = "intel,agilex-soc-fcs"},
+	{},
+};
+
 static struct platform_driver fcs_driver = {
 	.probe = fcs_driver_probe,
 	.remove = fcs_driver_remove,
 	.driver = {
 		.name = "intel-fcs",
+		.of_match_table = of_match_ptr(fcs_of_match),
 	},
 };
 
-module_platform_driver(fcs_driver);
+MODULE_DEVICE_TABLE(of, fcs_of_match);
+
+static int __init fcs_init(void)
+{
+	struct device_node *fw_np;
+	struct device_node *np;
+	int ret;
+
+	fw_np = of_find_node_by_name(NULL, "svc");
+	if (!fw_np)
+		return -ENODEV;
+
+	of_node_get(fw_np);
+	np = of_find_matching_node(fw_np, fcs_of_match);
+	if (!np) {
+		of_node_put(fw_np);
+		return -ENODEV;
+	}
+
+	of_node_put(np);
+	ret = of_platform_populate(fw_np, fcs_of_match, NULL, NULL);
+	of_node_put(fw_np);
+	if (ret)
+		return ret;
+
+	return platform_driver_register(&fcs_driver);
+}
+
+static void __exit fcs_exit(void)
+{
+	return platform_driver_unregister(&fcs_driver);
+}
+
+module_init(fcs_init);
+module_exit(fcs_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Intel FGPA Crypto Services Driver");
 MODULE_AUTHOR("Richard Gong <richard.gong@intel.com>");
-
