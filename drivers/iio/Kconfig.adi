@@ -79,6 +79,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AD5380
 	select AD5421
 	select AD5624R_SPI if SPI
+	select AD3552R
 	select AD5064
 	select AD5504
 	select AD5446
