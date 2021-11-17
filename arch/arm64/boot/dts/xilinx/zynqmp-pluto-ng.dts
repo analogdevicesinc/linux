@@ -1,0 +1,560 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Analog Devices, Inc. Pluto NG
+ *
+ * hdl_project: <pluto_ng>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+/dts-v1/;
+
+#include "zynqmp.dtsi"
+#include "zynqmp-clk-ccf.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
+#include <dt-bindings/phy/phy.h>
+
+/ {
+	model = "Analog Devices, Inc. Pluto NG";
+	compatible = "xlnx,zynqmp";
+
+	aliases {
+		ethernet0 = &gem3;
+		mmc0 = &sdhci1;
+		rtc0 = &rtc;
+		serial0 = &uart1;
+		i2c0 = &i2c1;
+		spi0 = &spi0;
+	};
+
+	chosen {
+		bootargs = "earlycon";
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x80000000>;
+	};
+
+	psgtr_ref0: ad9542_out0_b {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <26000000>;
+	};
+
+	psgtr_ref1: ad9542_out0_a {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <108000000>;
+	};
+
+	psgtr_ref2: ad9542_out1_b {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <150000000>;
+	};
+};
+
+&psgtr {
+	status = "okay";
+	clocks = <&psgtr_ref0>, <&psgtr_ref1>, <&psgtr_ref2>;
+	clock-names = "ref0", "ref1", "ref2";
+};
+
+&pinctrl0 {
+	status = "okay";
+
+	pinctrl_uart1_default: uart1-default {
+		mux {
+			groups = "uart1_4_grp";
+			function = "uart1";
+		};
+
+		conf {
+			groups = "uart1_4_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO17";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO16";
+			bias-disable;
+		};
+	};
+
+	pinctrl_gem3_default: gem3-default {
+		mux {
+			function = "ethernet3";
+			groups = "ethernet3_0_grp";
+		};
+
+		conf {
+			groups = "ethernet3_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO70", "MIO71", "MIO72",
+				"MIO73", "MIO74", "MIO75";
+			bias-high-impedance;
+			low-power-disable;
+		};
+
+		conf-tx {
+			pins = "MIO64", "MIO65", "MIO66",
+				"MIO67", "MIO68", "MIO69";
+			bias-disable;
+			low-power-enable;
+		};
+
+		mux-mdio {
+			function = "mdio3";
+			groups = "mdio3_0_grp";
+		};
+
+		conf-mdio {
+			groups = "mdio3_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+	};
+
+	pinctrl_sdhci1_default: sdhci1-default {
+		mux {
+			groups = "sdio1_0_grp";
+			function = "sdio1";
+		};
+
+		conf {
+			groups = "sdio1_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+
+		mux-cd {
+			groups = "sdio1_cd_0_grp";
+			function = "sdio1_cd";
+		};
+
+		conf-cd {
+			groups = "sdio1_cd_0_grp";
+			bias-high-impedance;
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		mux-wp {
+			groups = "sdio1_wp_0_grp";
+			function = "sdio1_wp";
+		};
+
+		conf-wp {
+			groups = "sdio1_wp_0_grp";
+			bias-high-impedance;
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_i2c1_default: i2c1-default {
+		mux {
+			groups = "i2c1_8_grp";
+			function = "i2c1";
+		};
+
+		conf {
+			groups = "i2c1_8_grp";
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_usb0_default: usb0-default {
+		mux {
+			groups = "usb0_0_grp";
+			function = "usb0";
+		};
+
+		conf {
+			groups = "usb0_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO52", "MIO53", "MIO55";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO54", "MIO56", "MIO57", "MIO58", "MIO59",
+			"MIO60", "MIO61", "MIO62", "MIO63";
+			bias-disable;
+		};
+	};
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1_default>;
+};
+
+&gem3 {
+	status = "okay";
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gem3_default>;
+
+	phy0: phy@f {
+		reg = <0xf>;
+	};
+};
+
+&sdhci1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdhci1_default>;
+	xlnx,mio_bank = <1>;
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1_default>;
+
+	ltc2945@6a {
+		compatible = "adi,ltc2945";
+		reg = <0x6a>;
+	};
+};
+
+&zynqmp_dpsub {
+	status = "okay";
+	phy-names = "dp-phy0";
+	phys = <&psgtr 1 PHY_TYPE_DP 0 1>;
+};
+
+&zynqmp_dp_snd_codec0 {
+	status = "okay";
+};
+
+&zynqmp_dp_snd_pcm0 {
+	status = "okay";
+};
+
+&zynqmp_dp_snd_pcm1 {
+	status = "okay";
+};
+
+&zynqmp_dp_snd_card0 {
+	status = "okay";
+};
+
+&zynqmp_dpdma {
+	status = "okay";
+};
+
+&sata {
+	status = "okay";
+	ceva,p0-cominit-params = /bits/ 8 <0x18 0x40 0x18 0x28>;
+	ceva,p0-comwake-params = /bits/ 8 <0x06 0x14 0x08 0x0E>;
+	ceva,p0-burst-params = /bits/ 8 <0x13 0x08 0x4A 0x06>;
+	ceva,p0-retry-params = /bits/ 16 <0x96A4 0x3FFC>;
+	ceva,p1-cominit-params = /bits/ 8 <0x18 0x40 0x18 0x28>;
+	ceva,p1-comwake-params = /bits/ 8 <0x06 0x14 0x08 0x0E>;
+	ceva,p1-burst-params = /bits/ 8 <0x13 0x08 0x4A 0x06>;
+	ceva,p1-retry-params = /bits/ 16 <0x96A4 0x3FFC>;
+	phy-names = "sata-phy";
+	phys = <&psgtr 3 PHY_TYPE_SATA 1 2>;
+};
+
+&usb0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb0_default>;
+};
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
+	phy-names = "usb3-phy";
+	phys = <&psgtr 0 PHY_TYPE_USB3 0 0>;
+	maximum-speed = "super-speed";
+};
+
+&gpio {
+	status = "okay";
+
+	usb_reset {
+		gpio-hog;
+		gpios = <13 0>;
+		output-high;
+		line-name = "usb-reset";
+	};
+
+	adrv9002_clksrc {
+		gpio-hog;
+		gpios = <79 0>;
+		output-high;
+		line-name = "adrv9002-clksrc";
+	};
+
+	rf_rx1a_mux_ctl {
+		gpio-hog;
+		gpios = <86 0>;
+		output-high;
+		line-name = "rf_rx1a_mux_ctl";
+	};
+	rf_rx1b_mux_ctl {
+		gpio-hog;
+		gpios = <87 0>;
+		output-high;
+		line-name = "rf_rx1b_mux_ctl";
+	};
+	rf_rx2a_mux_ctl {
+		gpio-hog;
+		gpios = <88 0>;
+		output-high;
+		line-name = "rf_rx2a_mux_ctl";
+	};
+	rf_rx2b_mux_ctl {
+		gpio-hog;
+		gpios = <89 0>;
+		output-high;
+		line-name = "rf_rx2b_mux_ctl";
+	};
+	rf_tx1_mux_ctl1 {
+		gpio-hog;
+		gpios = <90 0>;
+		output-high;
+		line-name = "rf_tx1_mux_ctl1";
+	};
+	rf_tx1_mux_ctl2 {
+		gpio-hog;
+		gpios = <91 0>;
+		output-low;
+		line-name = "rf_tx1_mux_ctl2";
+	};
+	rf_tx2_mux_ctl1 {
+		gpio-hog;
+		gpios = <92 0>;
+		output-low;
+		line-name = "rf_tx2_mux_ctl1";
+	};
+	rf_tx2_mux_ctl2 {
+		gpio-hog;
+		gpios = <93 0>;
+		output-high;
+		line-name = "rf_tx2_mux_ctl2";
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&xilinx_ams {
+	status = "okay";
+};
+
+&ams_ps {
+	status = "okay";
+};
+
+&ams_pl {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/ {
+	fpga_axi  {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx1_dma: dma@84A30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A30000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		rx2_dma: dma@84A40000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A40000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells	 = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx1_dma: dma@84A50000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A50000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		tx2_dma: dma@84A6000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A60000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		axi_adrv9002_core_rx1: axi-adrv9002-rx-lpc@84A00000 {
+			compatible = "adi,axi-adrv9002-rx-1.0";
+			reg = <0x84A00000 0x6000>;
+			clocks = <&adc0_adrv9002 0>;
+			dmas = <&rx1_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_adrv9002>;
+		};
+
+		axi_adrv9002_core_tx1: axi-adrv9002-tx-lpc@84A04000 {
+			compatible = "adi,axi-adrv9002-tx-1.0";
+			reg = <0x84A0A000 0x2000>;
+			clocks = <&adc0_adrv9002 1>;
+			clock-names = "sampl_clk";
+			dmas = <&tx1_dma 0>;
+			dma-names = "tx";
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_adrv9002_core_rx2: axi-adrv9002-rx2-lpc@84A02000 {
+			compatible = "adi,axi-adrv9002-rx2-1.0";
+			reg = <0x84A09000 0x1000>;
+			clocks = <&adc0_adrv9002 3>;
+			clock-names = "sampl_clk";
+			dmas = <&rx2_dma 0>;
+			dma-names = "rx";
+		};
+
+		axi_adrv9002_core_tx2: axi-adrv9002-tx2-lpc@84A06000 {
+			compatible = "adi,axi-adrv9002-tx-1.0";
+			reg = <0x84A0C000 0x2000>;
+			clocks = <&adc0_adrv9002 4>;
+			clock-names = "sampl_clk";
+			dmas = <&tx2_dma 0>;
+			dma-names = "tx";
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+
+	gpio-keys-power {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "gpio-keys";
+
+		power {
+			interrupt-parent = <&gpio>;
+			interrupts = <20 IRQ_TYPE_EDGE_FALLING>;
+			label = "Power";
+			linux,code = <KEY_POWER>;
+			gpio-key,wakeup;
+		};
+	};
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio 19 GPIO_ACTIVE_LOW>;
+	};
+};
+
+#define fmc_spi spi0
+
+#include "adi-adrv9002.dtsi"
+
+&adc0_adrv9002 {
+	reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
+	interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+};
