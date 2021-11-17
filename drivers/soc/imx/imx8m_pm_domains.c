@@ -98,6 +98,9 @@ static int imx8m_pd_get_clocks(struct imx8m_pm_domain *domain)
 {
 	int i, ret;
 
+	if (domain->pd.flags & GENPD_FLAG_PM_PD_CLK)
+		return 0;
+
 	for (i = 0; ; i++) {
 		struct clk *clk = of_clk_get(domain->dev->of_node, i);
 		if (IS_ERR(clk))
@@ -124,6 +127,9 @@ clk_err:
 static void imx8m_pd_put_clocks(struct imx8m_pm_domain *domain)
 {
 	int i;
+
+	if (domain->pd.flags & GENPD_FLAG_PM_PD_CLK)
+		return;
 
 	for (i = domain->num_clks - 1; i >= 0; i--)
 		clk_put(domain->clk[i]);
@@ -170,6 +176,9 @@ static int imx8m_pm_domain_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (of_machine_is_compatible("fsl,imx8mp"))
+		domain->pd.flags |= GENPD_FLAG_PM_PD_CLK;
+
 	ret = imx8m_pd_get_clocks(domain);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
@@ -185,6 +194,12 @@ static int imx8m_pm_domain_probe(struct platform_device *pdev)
 		domain->pd.flags |= GENPD_FLAG_RPM_ALWAYS_ON;
 
 	pm_genpd_init(&domain->pd, NULL, !(domain->pd.flags & GENPD_FLAG_RPM_ALWAYS_ON));
+
+	ret = pm_genpd_of_add_clks(&domain->pd, dev);
+	if (ret) {
+		pm_genpd_remove(&domain->pd);
+		return ret;
+	}
 
 	ret = of_genpd_add_provider_simple(np, &domain->pd);
 	if (ret) {
