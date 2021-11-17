@@ -688,7 +688,7 @@ static const struct net_device_ops dpa_private_ops = {
 	.ndo_init = dpa_ndo_init,
 	.ndo_set_features = dpa_set_features,
 	.ndo_fix_features = dpa_fix_features,
-	.ndo_do_ioctl = dpa_ioctl,
+	.ndo_eth_ioctl = dpa_ioctl,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = dpaa_eth_poll_controller,
 #endif
