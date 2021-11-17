@@ -94,6 +94,12 @@
 			no-map;
 		};
 
+		ele_reserved: ele-reserved@90000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x90000000 0 0x100000>;
+			no-map;
+		};
+
 		vdev0vring0: vdev0vring0@aff00000 {
 			reg = <0 0xaff00000 0 0x8000>;
 			no-map;
@@ -474,6 +480,10 @@
 		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "host-wake";
 	};
+};
+
+&ele_mu {
+	memory-region = <&ele_reserved>;
 };
 
 &fec {
