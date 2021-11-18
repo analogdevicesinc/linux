@@ -6,7 +6,7 @@
 
 #include <linux/dev_printk.h>
 #include <linux/errno.h>
-#include <linux/firmware/imx/s400-api.h>
+#include <linux/firmware/imx/ele_base_msg.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -55,22 +55,17 @@ static const struct bank_2_reg fsb_bank_reg[] = {
 
 struct imx_fsb_s400_fuse {
 	void __iomem *regs;
-	struct imx_s400_api *s400_api;
 	struct nvmem_config config;
 	struct mutex lock;
 };
 
-static int read_words_via_s400_api(struct imx_s400_api *s400_api, u32 *buf,
-				   unsigned int fuse_base)
+static int read_words_via_s400_api(u32 *buf, unsigned int fuse_base)
 {
 	unsigned int i;
 	int err = 0;
 
-	s400_api->tx_msg.header = 0x17970206;
-
 	for (i = 0; i < 8; i++) {
-		s400_api->tx_msg.data[0] = fuse_base + i;
-		err = imx_s400_api_call(s400_api, buf + i);
+		err = read_common_fuse(fuse_base + i, buf + i);
 	}
 
 	return err;
@@ -105,7 +100,6 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 			      size_t bytes)
 {
 	struct imx_fsb_s400_fuse *fuse = priv;
-	struct imx_s400_api *s400_api = fuse->s400_api;
 	unsigned int num_bytes, bank;
 	u32 *buf;
 	int err;
@@ -123,28 +117,22 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 		case 0:
 			break;
 		case LOCK_CFG:
-			err = read_words_via_s400_api(s400_api, &buf[8], 8);
+			err = read_words_via_s400_api(&buf[8], 8);
 			if (err)
 				goto ret;
 			break;
 		case ECID:
-			err = read_words_via_s400_api(s400_api, &buf[16], 16);
+			err = read_words_via_s400_api(&buf[16], 16);
 			if (err)
 				goto ret;
 			break;
 		case UNIQ_ID:
-			fuse->s400_api->tx_msg.header = 0x17970206;
-			fuse->s400_api->tx_msg.data[0] = 0x1;
-
-			err = imx_s400_api_call(s400_api, &buf[56]);
+			err = read_common_fuse(OTP_UNIQ_ID, &buf[56]);
 			if (err)
 				goto ret;
 			break;
 		case OTFAD_CFG:
-			fuse->s400_api->tx_msg.header = 0x17970206;
-			fuse->s400_api->tx_msg.data[0] = 0x2;
-
-			err = imx_s400_api_call(s400_api, &buf[184]);
+			err = read_common_fuse(OTFAD_CONFIG, &buf[184]);
 			if (err)
 				goto ret;
 			break;
@@ -167,17 +155,10 @@ static int imx_fsb_s400_fuse_probe(struct platform_device *pdev)
 {
 	struct imx_fsb_s400_fuse *fuse;
 	struct nvmem_device *nvmem;
-	int err;
 
 	fuse = devm_kzalloc(&pdev->dev, sizeof(*fuse), GFP_KERNEL);
 	if (!fuse)
 		return -ENOMEM;
-
-	err = get_imx_s400_api(&fuse->s400_api);
-	if (err) {
-		dev_err(&pdev->dev, "failed to get imx s400 api: %d\n", err);
-		return err;
-	}
 
 	fuse->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(fuse->regs))
@@ -216,6 +197,7 @@ static struct platform_driver imx_fsb_s400_fuse_driver = {
 	},
 	.probe = imx_fsb_s400_fuse_probe,
 };
+MODULE_DEVICE_TABLE(of, imx_fsb_s400_fuse_match);
 module_platform_driver(imx_fsb_s400_fuse_driver);
 
 MODULE_AUTHOR("Alice Guo <alice.guo@nxp.com>");
