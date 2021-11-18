@@ -75,8 +75,49 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios = <&gpio 145 0>, <&gpio 150 0>, <&gpio 154 0>;
+		out-gpios = <&gpio 145 0>, <&gpio 146 0>, <&gpio 147 0>,
+			<&gpio 148 0>, <&gpio 149 0>, <&gpio 150 0>;
 		label = "xud_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "RX_GAIN_MODE";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "TXRX0";
+		};
+
+		channel@2 {
+			reg = <2>;
+			label = "TXRX1";
+		};
+
+		channel@3 {
+			reg = <3>;
+			label = "TXRX2";
+		};
+
+		channel@4 {
+			reg = <4>;
+			label = "TXRX3";
+		};
+
+		channel@5 {
+			reg = <5>;
+			label = "PLL_OUTPUT_SEL";
+		};
+	};
+
+	imu_control@2 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&gpio 151 0>, <&gpio 152 0>, <&gpio 153 0>,
+			<&gpio 154 0>, <&gpio 155 0>;
+		label = "imu_control";
 
 		channel@0 {
 			reg = <0>;
@@ -85,12 +126,22 @@
 
 		channel@1 {
 			reg = <1>;
-			label = "GPIO5";
+			label = "GPIO1";
 		};
 
 		channel@2 {
 			reg = <2>;
-			label = "IMU_GPIO3";
+			label = "GPIO2";
+		};
+
+		channel@3 {
+			reg = <3>;
+			label = "GPIO3";
+		};
+
+		channel@4 {
+			reg = <4>;
+			label = "RST";
 		};
 	};
 };
