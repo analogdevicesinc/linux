@@ -24,13 +24,13 @@
 		regulator-boot-on;
 	};
 
-	long_peack_control@0 {
+	long_peak_control@0 {
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		// 78 offset
 		out-gpios = <&gpio 138 0>, <&gpio 140 0>, <&gpio 141 0>;
-		label = "long_peack_control";
+		label = "long_peak_control";
 
 		channel@0 {
 			reg = <0>;
