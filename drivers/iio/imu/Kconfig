@@ -83,6 +83,18 @@ config FXOS8700_SPI
 	  This driver can also be built as a module. If so, the module will be
 	  called fxos8700_spi.
 
+config RPMSG_IIO_PEDOMETER
+	tristate "NXP RPMSG IIO PEDOMETER"
+	depends on RPMSG
+	depends on OF
+	default n
+	help
+	  This is the rpmsg virtual sensor driver on imx8ulp, because some
+	  sensors connect with M4 core.
+
+	  This driver can also be build as module. If so, the module will be
+	  called rpmsg_iio_pedometer
+
 config KMX61
 	tristate "Kionix KMX61 6-axis accelerometer and magnetometer"
 	depends on I2C
