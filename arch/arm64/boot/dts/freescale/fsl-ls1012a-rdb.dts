@@ -18,6 +18,8 @@
 		serial0 = &duart0;
 		mmc0 = &esdhc0;
 		mmc1 = &esdhc1;
+		ethernet0 = &pfe_mac0;
+		ethernet1 = &pfe_mac1;
 	};
 };
 
@@ -103,4 +105,42 @@
 
 &sata {
 	status = "okay";
+};
+
+&pfe {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pfe_mac0: ethernet@0 {
+		compatible = "fsl,pfe-gemac-port";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x0>;	/* GEM_ID */
+		fsl,mdio-mux-val = <0x0>;
+		phy-mode = "sgmii";
+		phy-handle = <&sgmii_phy>;
+	};
+
+	pfe_mac1: ethernet@1 {
+		compatible = "fsl,pfe-gemac-port";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x1>;	/* GEM_ID */
+		fsl,mdio-mux-val = <0x0>;
+		phy-mode = "rgmii-id";
+		phy-handle = <&rgmii_phy>;
+	};
+	mdio@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sgmii_phy: ethernet-phy@2 {
+			reg = <0x2>;
+		};
+
+		rgmii_phy: ethernet-phy@1 {
+			reg = <0x1>;
+		};
+	};
 };

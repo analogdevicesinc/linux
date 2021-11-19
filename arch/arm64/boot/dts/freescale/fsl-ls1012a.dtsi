@@ -569,6 +569,35 @@
 		};
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pfe_reserved: packetbuffer@83400000 {
+			reg = <0 0x83400000 0 0xc00000>;
+		};
+	};
+
+	pfe: pfe@4000000 {
+		compatible = "fsl,pfe";
+		reg =   <0x0 0x04000000 0x0 0xc00000>,	/* AXI 16M */
+			<0x0 0x83400000 0x0 0xc00000>;  /* PFE DDR 12M */
+		reg-names = "pfe", "pfe-ddr";
+		fsl,pfe-num-interfaces = <0x2>;
+		interrupts = <0 172 0x4>,    /* HIF interrupt */
+			     <0 173 0x4>,    /*HIF_NOCPY interrupt */
+			     <0 174 0x4>;    /* WoL interrupt */
+		interrupt-names = "pfe_hif", "pfe_hif_nocpy", "pfe_wol";
+		memory-region = <&pfe_reserved>;
+		fsl,pfe-scfg = <&scfg 0>;
+		fsl,rcpm-wakeup = <&rcpm 0xf0000020>;
+		clocks = <&clockgen 4 0>;
+		clock-names = "pfe";
+
+		status = "okay";
+	};
+
 	firmware {
 		optee {
 			compatible = "linaro,optee-tz";
