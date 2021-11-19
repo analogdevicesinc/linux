@@ -1339,6 +1339,7 @@ static int ad74413r_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st->trig->ops = &ad74413r_trigger_ops;
+	st->trig->dev.parent = st->dev;
 	iio_trigger_set_drvdata(st->trig, st);
 
 	ret = devm_iio_trigger_register(st->dev, st->trig);
