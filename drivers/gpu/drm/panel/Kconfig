@@ -605,6 +605,17 @@ config DRM_PANEL_RAYDIUM_RM69380
 	  This panel controller can be found in the Lenovo Xiaoxin Pad Pro 2021
 	  in combination with an EDO OLED panel.
 
+config DRM_PANEL_ROCKTECK_HIMAX8394F
+	tristate "Rocktech Himax8394f 720x1280 DSI video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Rocktech Himax8394f
+	  TFT-LCD modules. The panel has a 720x1280 resolution and uses
+	  24 bit RGB per pixel. It provides a MIPI DSI interface to the host
+	  and has a built-in LED backlight.
+
 config DRM_PANEL_RONBO_RB070D30
 	tristate "Ronbo Electronics RB070D30 panel"
 	depends on OF
