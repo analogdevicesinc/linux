@@ -20,6 +20,7 @@
 	#jesd204-cells = <2>;
 	jesd204-top-device = <0>; /* This is the TOP device */
 	jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
+	//jesd204-ignore-errors;
 
 	jesd204-inputs =
 		<&trx1_adrv9009 0 FRAMER_LINK_RX>,
@@ -75,24 +76,24 @@
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs = <&axi_adrv9009_adxcvr_rx 0 FRAMER_LINK_RX>;
-	clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>, <&hmc7044_fmc 5>;
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "conv2";
+	clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>, <&hmc7044_fmc 5>, <&axi_adrv9009_adxcvr_rx 1>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "conv2", "link_clk";
 };
 
 &axi_adrv9009_rx_os_jesd {
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs = <&axi_adrv9009_adxcvr_rx_os 0 FRAMER_LINK_ORX>;
-	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>, <&hmc7044_fmc 4>;
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "conv2";
+	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>, <&hmc7044_fmc 4>, <&axi_adrv9009_adxcvr_rx_os 1>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "conv2", "link_clk";
 };
 
 &axi_adrv9009_tx_jesd {
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs = <&axi_adrv9009_adxcvr_tx 0 DEFRAMER_LINK_TX>;
-	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>, <&hmc7044_fmc 4>;
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "conv2";
+	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>, <&hmc7044_fmc 4>, <&axi_adrv9009_adxcvr_tx 1>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "conv2", "link_clk";
 };
 
 &axi_adrv9009_adxcvr_rx {
@@ -101,6 +102,7 @@
 	jesd204-inputs =  <&hmc7044 0 FRAMER_LINK_RX>;
 	clock-names = "conv", "conv2";
 	clocks = <&hmc7044 5>, <&hmc7044_fmc 5>;
+	adi,out-clk-select = <XCVR_REFCLK>;
 };
 
 &axi_adrv9009_adxcvr_rx_os {
@@ -109,6 +111,7 @@
 	jesd204-inputs =  <&hmc7044 0 FRAMER_LINK_ORX>;
 	clock-names = "conv", "conv2";
 	clocks = <&hmc7044 4>, <&hmc7044_fmc 4>;
+	adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 };
 
 &axi_adrv9009_adxcvr_tx {
@@ -117,6 +120,7 @@
 	jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK_TX>;
 	clock-names = "conv", "conv2";
 	clocks = <&hmc7044 4>, <&hmc7044_fmc 4>;
+	adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 };
 
 &hmc7044 {
