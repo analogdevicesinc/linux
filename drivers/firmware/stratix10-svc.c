@@ -207,6 +207,8 @@ static void svc_thread_cmd_data_claim(struct stratix10_svc_controller *ctrl,
 {
 	struct arm_smccc_res res;
 	unsigned long timeout;
+	void *buf_claim_addr[4] = {NULL};
+	int buf_claim_count = 0;
 
 	reinit_completion(&ctrl->complete_status);
 	timeout = msecs_to_jiffies(FPGA_CONFIG_DATA_CLAIM_TIMEOUT_MS);
@@ -218,20 +220,35 @@ static void svc_thread_cmd_data_claim(struct stratix10_svc_controller *ctrl,
 
 		if (res.a0 == INTEL_SIP_SMC_STATUS_OK) {
 			if (!res.a1) {
+				/* Transaction of 4 blocks are now done */
 				complete(&ctrl->complete_status);
+				cb_data->status = BIT(SVC_STATUS_BUFFER_DONE);
+				cb_data->kaddr1 = buf_claim_addr[0];
+				cb_data->kaddr2 = buf_claim_addr[1];
+				cb_data->kaddr3 = buf_claim_addr[2];
+				cb_data->kaddr4 = buf_claim_addr[3];
+				p_data->chan->scl->receive_cb(p_data->chan->scl,
+				cb_data);
 				break;
 			}
-			cb_data->status = BIT(SVC_STATUS_BUFFER_DONE);
-			cb_data->kaddr1 = svc_pa_to_va(res.a1);
-			cb_data->kaddr2 = (res.a2) ?
-					  svc_pa_to_va(res.a2) : NULL;
-			cb_data->kaddr3 = (res.a3) ?
-					  svc_pa_to_va(res.a3) : NULL;
-			p_data->chan->scl->receive_cb(p_data->chan->scl,
-						      cb_data);
-		} else {
-			pr_debug("%s: secure world busy, polling again\n",
-				 __func__);
+
+			if (buf_claim_count >= 4) {
+				/* Maximum buffer to reclaim */
+				pr_err("%s Buffer re-claim error", __func__);
+				break;
+			}
+
+			buf_claim_addr[buf_claim_count++]
+			= svc_pa_to_va(res.a1);
+			if (res.a2) {
+				buf_claim_addr[buf_claim_count++]
+				= svc_pa_to_va(res.a2);
+			}
+			if (res.a3) {
+				buf_claim_addr[buf_claim_count++]
+				= svc_pa_to_va(res.a3);
+			}
+
 		}
 	} while (res.a0 == INTEL_SIP_SMC_STATUS_OK ||
 		 res.a0 == INTEL_SIP_SMC_STATUS_BUSY ||
