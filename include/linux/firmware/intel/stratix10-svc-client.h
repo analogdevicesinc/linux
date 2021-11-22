@@ -234,6 +234,9 @@ struct stratix10_svc_chan;
  *
  * @COMMAND_FCS_SDOS_DATA_EXT: extend SDOS data encryption & decryption,
  * return status is SVC_STATUS_OK or SVC_STATUS_ERROR
+ *
+ * @COMMAND_SMC_SVC_VERSION: Non-mailbox SMC SVC API Version,
+ * return status is SVC_STATUS_OK
  */
 enum stratix10_svc_command_code {
 	/* for FPGA */
