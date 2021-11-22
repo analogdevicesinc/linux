@@ -1109,6 +1109,7 @@ pxp_class_fail:
 register_cdev_fail:
 	return ret;
 }
+EXPORT_SYMBOL_GPL(register_pxp_device);
 
 void unregister_pxp_device(void)
 {
@@ -1120,3 +1121,5 @@ void unregister_pxp_device(void)
 		major = 0;
 	}
 }
+EXPORT_SYMBOL_GPL(unregister_pxp_device);
+MODULE_LICENSE("GPL");

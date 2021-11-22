@@ -7,7 +7,7 @@ config MXC_PXP_V2
 	  If unsure, select N.
 
 config MXC_PXP_V3
-	bool "MXC PxP V3 support"
+	tristate "MXC PxP V3 support"
 	select DMA_ENGINE
 	help
 	  Support the PxP V3(Pixel Pipeline) on i.MX7D. The PxP V3 supports
@@ -15,7 +15,7 @@ config MXC_PXP_V3
 	  If unsure, select N.
 
 config MXC_PXP_CLIENT_DEVICE
-	bool "MXC PxP Client Device"
+	tristate "MXC PxP Client Device"
 	default y
 	depends on MXC_PXP_V2 || MXC_PXP_V3
 

@@ -50,7 +50,7 @@ struct pxp_channel {
 
 void pxp_get_collision_info(struct pxp_collision_info *info);
 
-#ifdef CONFIG_MXC_PXP_CLIENT_DEVICE
+#if IS_ENABLED(CONFIG_MXC_PXP_CLIENT_DEVICE)
 int register_pxp_device(void);
 void unregister_pxp_device(void);
 #else
