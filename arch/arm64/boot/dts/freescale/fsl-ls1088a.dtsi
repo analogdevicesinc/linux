@@ -416,7 +416,7 @@
 		};
 
 		i2c0: i2c@2000000 {
-			compatible = "fsl,vf610-i2c";
+			compatible = "fsl,ls1088a-i2c", "fsl,vf610-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x2000000 0x0 0x10000>;
@@ -427,35 +427,38 @@
 		};
 
 		i2c1: i2c@2010000 {
-			compatible = "fsl,vf610-i2c";
+			compatible = "fsl,ls1088a-i2c", "fsl,vf610-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x2010000 0x0 0x10000>;
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
 					    QORIQ_CLK_PLL_DIV(8)>;
+			scl-gpios = <&gpio2 12 0>;
 			status = "disabled";
 		};
 
 		i2c2: i2c@2020000 {
-			compatible = "fsl,vf610-i2c";
+			compatible = "fsl,ls1088a-i2c", "fsl,vf610-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x2020000 0x0 0x10000>;
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
 					    QORIQ_CLK_PLL_DIV(8)>;
+			scl-gpios = <&gpio3 28 0>;
 			status = "disabled";
 		};
 
 		i2c3: i2c@2030000 {
-			compatible = "fsl,vf610-i2c";
+			compatible = "fsl,ls1088a-i2c", "fsl,vf610-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x2030000 0x0 0x10000>;
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
 					    QORIQ_CLK_PLL_DIV(8)>;
+			scl-gpios = <&gpio3 30 0>;
 			status = "disabled";
 		};
 
