@@ -337,7 +337,7 @@ static int vsi_dec_streamoff(
 	void *priv,
 	enum v4l2_buf_type type)
 {
-	int ret;
+	int ret = 0;
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(priv);
 	struct vb2_queue *q;
 	enum v4l2_buf_type otype;
