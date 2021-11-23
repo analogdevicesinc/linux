@@ -1082,7 +1082,7 @@
 			compatible = "fsl,ls2080a-pcie";
 			reg-names = "regs", "config";
 			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "intr";
+			interrupt-names = "aer";
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
@@ -1104,7 +1104,7 @@
 			compatible = "fsl,ls2080a-pcie";
 			reg-names = "regs", "config";
 			interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "intr";
+			interrupt-names = "aer";
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
@@ -1126,7 +1126,7 @@
 			compatible = "fsl,ls2080a-pcie";
 			reg-names = "regs", "config";
 			interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "intr";
+			interrupt-names = "aer";
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
@@ -1148,7 +1148,7 @@
 			compatible = "fsl,ls2080a-pcie";
 			reg-names = "regs", "config";
 			interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "intr";
+			interrupt-names = "aer";
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
