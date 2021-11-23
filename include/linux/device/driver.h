@@ -240,6 +240,7 @@ extern int driver_deferred_probe_timeout;
 void driver_deferred_probe_add(struct device *dev);
 int driver_deferred_probe_check_state(struct device *dev);
 void driver_init(void);
+void driver_deferred_probe_trigger(void);
 
 /**
  * module_driver() - Helper macro for drivers that don't do anything
