@@ -239,6 +239,7 @@ driver_find_device_by_acpi_dev(const struct device_driver *drv, const void *adev
 void driver_deferred_probe_add(struct device *dev);
 int driver_deferred_probe_check_state(struct device *dev);
 void driver_init(void);
+void driver_deferred_probe_trigger(void);
 
 /**
  * module_driver() - Helper macro for drivers that don't do anything
