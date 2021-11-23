@@ -171,7 +171,7 @@ static bool driver_deferred_probe_enable = false;
  * changes in the midst of a probe, then deferred processing should be triggered
  * again.
  */
-static void driver_deferred_probe_trigger(void)
+void driver_deferred_probe_trigger(void)
 {
 	if (!driver_deferred_probe_enable)
 		return;
@@ -193,7 +193,7 @@ static void driver_deferred_probe_trigger(void)
 	 */
 	queue_work(system_unbound_wq, &deferred_probe_work);
 }
-
+EXPORT_SYMBOL_GPL(driver_deferred_probe_trigger);
 /**
  * device_block_probing() - Block/defer device's probes
  *
