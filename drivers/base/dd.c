@@ -194,7 +194,7 @@ void driver_deferred_probe_trigger(void)
 	 */
 	queue_work(system_unbound_wq, &deferred_probe_work);
 }
-
+EXPORT_SYMBOL_GPL(driver_deferred_probe_trigger);
 /**
  * device_block_probing() - Block/defer device's probes
  *
