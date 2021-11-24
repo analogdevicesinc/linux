@@ -13,11 +13,11 @@
 
 &i2c1 {
 	i2c-mux@75 {
-		i2c@1 { /* HPC1 */
+		i2c@0 { /* HPC0 */
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <1>;
-
+			reg = <0>;
+			/* HPC0_IIC */
 			eeprom@50 {
 				compatible = "at24,24c02";
 				reg = <0x50>;
