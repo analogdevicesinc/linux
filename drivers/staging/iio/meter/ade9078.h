@@ -516,9 +516,9 @@
 #define ADE9078_WFB_PAGE_ARRAY_SIZE \
 	ADE9078_WFB_PAGE_SIZE * ADE9078_WFB_BYTES_IN_PAGE
 #define ADE9078_WFB_FULL_BUFF_SIZE 	\
-	ADE9078_WFB_PAGE_ARRAY_SIZE * 15
+	ADE9078_WFB_PAGE_ARRAY_SIZE * 16
 #define ADE9078_WFB_FULL_BUFF_NR_SAMPLES \
-	ADE9078_WFB_PAGE_SIZE * 15
+	ADE9078_WFB_PAGE_SIZE * 16
 
 /*Status and Mask register bits*/
 #define ADE9078_ST0_EGYRDY 			BIT(0)
@@ -621,6 +621,8 @@
 		.extend_name = name,							\
 		.address = PHASE_ADDR_ADJUST(ADDR_AV_PCF,num),	\
         .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+		.event_spec = ade9078_events,					\
+		.num_event_specs = ARRAY_SIZE(ade9078_events),	\
 		.scan_index = num + 1,							\
 		.scan_type = {									\
 			.sign = 's',								\
