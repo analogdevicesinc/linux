@@ -251,6 +251,16 @@ static int ade9078_update_mask1(struct ade9078_device *ade9078_dev)
 	return 0;
 }
 
+/*
+ * ade9078_test_bits() - tests the bits of a given register within the IC
+ * @map:				regmap device
+ * @reg:				register to be tested
+ * @bits:				bits to be checked
+ *
+ * Returns 0 if at least one of the tested bits is not set, 1 if all tested
+ * bits are set and a negative error number if the underlying regmap_read()
+ * fails.
+ */
 static int ade9078_test_bits(struct regmap *map, unsigned int reg,
 		unsigned int bits)
 {
@@ -263,47 +273,62 @@ static int ade9078_test_bits(struct regmap *map, unsigned int reg,
 	return (val & bits) == bits;
 }
 
+/*
+ * ade9078_irq0_handler() - handler for IRQ0. A hand-off for the threaded
+ * 							handler
+ */
 static irqreturn_t ade9078_irq0_handler(int irq, void *data)
 {
 	struct ade9078_device *ade9078_dev = data;
 
 	dev_info(&ade9078_dev->spi->dev, "IRQ0 Interrupted");
-//	if (iio_buffer_enabled(ade9078_dev->indio_dev))
-//		iio_trigger_poll(ade9078_dev->trig);
 
 	return IRQ_WAKE_THREAD;
 }
 
+/*
+ * ade9078_irq0_thread() - Thread for IRQ0. It reads Status register 0 and
+ * checks for the IRQ activation. This is configured to acquire samples in to
+ * the IC buffer and dump it in to the iio_buffer according to Stop When Buffer
+ * Is Full Mode, Stop Filling on Trigger and Capture Around Trigger from the
+ * ADE9078 Datasheet
+ */
 static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 {
 	struct ade9078_device *ade9078_dev = data;
 	u32 status;
 	u32 handled_irq = 0;
 
-
-
 	regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &status);
 	dev_info(&ade9078_dev->spi->dev, "IRQ0 status 0x%x", status);
 
 	if(((status & ADE9078_ST0_PAGE_FULL) == ADE9078_ST0_PAGE_FULL) &&
-	((ade9078_dev->irq0_bits & ADE9078_ST0_PAGE_FULL) == ADE9078_ST0_PAGE_FULL))
+	((ade9078_dev->irq0_bits & ADE9078_ST0_PAGE_FULL) ==
+			ADE9078_ST0_PAGE_FULL))
 	{
+		//Stop Filling on Trigger and Center Capture Around Trigger
 		if(ade9078_dev->wf_mode){
 			regmap_write(ade9078_dev->regmap, ADDR_WFB_TRG_CFG,
 					ade9078_dev->wfb_trg_cfg);
 			ade9078_dev->irq0_bits |= ADE9078_ST0_WFB_TRIG_IRQ;
 		}
 		else{
+			//Stop When Buffer Is Full Mode
 			iio_trigger_poll(ade9078_dev->trig);
 		}
+
+		//disable Page full interrupt
 		ade9078_dev->irq0_bits &= ~ADE9078_ST0_PAGE_FULL;
 		regmap_write(ade9078_dev->regmap, ADDR_MASK0,
 				ade9078_dev->irq0_bits);
+
 		dev_info(&ade9078_dev->spi->dev, "IRQ0 ADE9078_ST0_PAGE_FULL");
 		handled_irq |= ADE9078_ST0_PAGE_FULL;
 	}
+
 	if(((status & ADE9078_ST0_WFB_TRIG_IRQ) == ADE9078_ST0_WFB_TRIG_IRQ) &&
-	((ade9078_dev->irq0_bits & ADE9078_ST0_WFB_TRIG_IRQ) == ADE9078_ST0_WFB_TRIG_IRQ))
+	((ade9078_dev->irq0_bits & ADE9078_ST0_WFB_TRIG_IRQ) ==
+			ADE9078_ST0_WFB_TRIG_IRQ))
 	{
 		//Stop Filling on Trigger and Center Capture Around Trigger
 		iio_trigger_poll(ade9078_dev->trig);
@@ -319,6 +344,10 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/*
+ * ade9078_irq1_handler() - handler for IRQ1. A hand-off for the threaded
+ * 							handler
+ */
 static irqreturn_t ade9078_irq1_handler(int irq, void *data)
 {
 	struct ade9078_device *ade9078_dev = data;
@@ -328,6 +357,11 @@ static irqreturn_t ade9078_irq1_handler(int irq, void *data)
 	return IRQ_WAKE_THREAD;
 }
 
+/*
+ * ade9078_irq1_thread() - Thread for IRQ1. It reads Status register 1 and
+ * checks for the IRQ activation. This thread handles the reset condition and
+ * the zero-crossing conditions for all 3 phases on Voltage and Current
+ */
 static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 {
 	struct ade9078_device *ade9078_dev = data;
@@ -336,6 +370,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	u32 status;
 	s64 timestamp = iio_get_time_ns(indio_dev);
 
+	//reset
 	if(ade9078_dev->rst_done == false){
 		result = ade9078_test_bits(ade9078_dev->regmap, ADDR_STATUS1,
 				ADE9078_ST1_RSTDONE);
@@ -349,6 +384,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 
 	regmap_read(ade9078_dev->regmap, ADDR_STATUS1, &status);
 
+	//crossings
 	if((((status & ADE9078_ST1_ZXVA) == ADE9078_ST1_ZXVA) ||
 	   ((status & ADE9078_ST1_ZXTOVA) == ADE9078_ST1_ZXTOVA)) &&
 	   ((ade9078_dev->irq1_bits & ADE9078_ST1_ZXVA) == ADE9078_ST1_ZXVA))
@@ -573,6 +609,11 @@ static int ade9078_reg_acess(struct iio_dev *indio_dev,
 		return regmap_write(ade9078_dev->regmap, reg, tx_val);
 }
 
+/*
+ * ade9078_write_event_config() - IIO event configure to enable zero-crossing
+ * and zero-crossing timeout on voltage and current for each phases. These
+ * events will also influence the trigger conditions for the buffer capture.
+ */
 static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				const struct iio_chan_spec *chan,
 				enum iio_event_type type,
@@ -682,6 +723,14 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 	return 0;
 }
 
+/*
+ * ade9078_read_event_vlaue() - Outputs the result of the zero-crossing for
+ * voltage and current for each phase.
+ * Result:
+ * 0 - if crossing event not set
+ * 1 - if crossing event occurred
+ * -1 - if crossing timeout (only for Voltages)
+ */
 static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 	      const struct iio_chan_spec *chan,
 	      enum iio_event_type type,
@@ -865,6 +914,15 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	return regmap_write(ade9078_dev->regmap, ADDR_WFB_CFG, wfg_cfg_val);
 }
 
+/*
+ * ade9078_wfb_interrupt_setup() - Configures the wave form buffer interrupt
+ * according to modes
+ * @ade9078_dev:		ade9078 device data
+ * @mode:				modes according to datasheet; values [0-2]
+ *
+ * This sets the interrupt register and other registers related to the
+ * interrupts according to mode [0-2] from the datasheet
+ */
 static int ade9078_wfb_interrupt_setup(struct ade9078_device *ade9078_dev,
 		u8 mode)
 {
@@ -924,7 +982,7 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 }
 
 /*
- * ade9078_buffer_postenable() - after the iio is enabled
+ * ade9078_buffer_postenable() - after the IIO is enabled
  * this will enable the ade9078 internal buffer for acquisition
  * @indio_dev:		the IIO device
  */
@@ -1142,8 +1200,10 @@ put_phase_node:
 	of_node_put(phase_node);
 	return ret;
 }
+
 /*
- *
+ * ade9078_reset() - Reset sequence for the ADE9078
+ * @ade9078_dev:		ade9078 device data
  */
 static int ade9078_reset(struct ade9078_device *ade9078_dev)
 {
