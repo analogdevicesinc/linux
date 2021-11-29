@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/iio/frequency/adi,adrf6780.yaml#
@@ -7,11 +7,14 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: ADRF6780 Microwave Upconverter
 
 maintainers:
-- Antoniu Miclaus <antoniu.miclaus@analog.com>
+  - Antoniu Miclaus <antoniu.miclaus@analog.com>
 
 description: |
-   wideband, microwave upconverter optimized for point to point microwave
+   Wideband, microwave upconverter optimized for point to point microwave
    radio designs operating in the 5.9 GHz to 23.6 GHz frequency range.
+
+   https://www.analog.com/en/products/adrf6780.html
+
 properties:
   compatible:
     enum:
@@ -25,107 +28,104 @@ properties:
 
   clocks:
     description:
-      Definition of the external clock (see clock/clock-bindings.txt)
+      Definition of the external clock.
     minItems: 1
 
   clock-names:
-    description:
-      Must be "lo_in"
-    maxItems: 1
+    items:
+      - const: lo_in
 
   clock-output-names:
     maxItems: 1
 
-  adi,parity-en:
-    description:
-      Enable Parity for Write execution.
-    type: boolean
-
   adi,vga-buff-en:
     description:
-      VGA Buffer Enable.
-    type: boolean
-
-  adi,det-en:
-    description:
-      Detector Enable.
+      RF Variable Gain Amplifier Buffer Enable. Gain is controlled by
+      the voltage on the VATT pin.
     type: boolean
 
   adi,lo-buff-en:
     description:
-      LO Buffer Enable.
+      Local Oscillator Amplifier Enable. Disable to put the part in
+      a power down state.
     type: boolean
 
   adi,if-mode-en:
     description:
-      IF Mode Enable.
+      Intermediate Frequency Mode Enable. Either IF Mode or I/Q Mode
+      can be enabled at a time.
     type: boolean
 
   adi,iq-mode-en:
     description:
-      IQ Mode Enable.
+      I/Q Mode Enable. Either IF Mode or I/Q Mode can be enabled at a
+      time.
     type: boolean
 
   adi,lo-x2-en:
     description:
-      LO x2 Enable.
+      Double the Local Oscillator output frequency from the Local
+      Oscillator Input Frequency. Either LOx1 or LOx2 can be enabled
+      at a time.
     type: boolean
 
   adi,lo-ppf-en:
     description:
-      LO x1 Enable.
+      Local Oscillator input frequency equal to the Local Oscillator
+      output frequency (LO x1). Either LOx1 or LOx2 can be enabled
+      at a time.
     type: boolean
 
   adi,lo-en:
     description:
-      LO Enable.
+      Enable additional cirtuitry in the LO chain. Disable to put the
+      part in a power down state.
     type: boolean
 
   adi,uc-bias-en:
     description:
-      UC Bias Enable.
+      Enable all bias circuitry thourghout the entire part.
+      Disable to put the part in a power down state.
     type: boolean
 
   adi,lo-sideband:
     description:
-      Switch to the Other LO Sideband.
+      Switch to the Lower LO Sideband. By default the Upper LO
+      sideband is enabled.
     type: boolean
 
   adi,vdet-out-en:
     description:
-      VDET Output Select Enable.
+      VDET Output Select Enable. Expose the RF detector output to the
+      VDET external pin.
     type: boolean
-
-  '#address-cells':
-    const: 1
-
-  '#size-cells':
-    const: 0
 
   '#clock-cells':
     const: 0
 
+dependencies:
+  adi,lo-x2-en: [ "adi,lo-en" ]
+  adi,lo-ppf-en: [ "adi,lo-en" ]
+
 required:
-- compatible
-- reg
-- clocks
-- clock-names
+  - compatible
+  - reg
+  - clocks
+  - clock-names
 
 additionalProperties: false
 
 examples:
-- |
+  - |
     spi {
       #address-cells = <1>;
       #size-cells = <0>;
-      adrf6780@0{
+      adrf6780@0 {
         compatible = "adi,adrf6780";
         reg = <0>;
         spi-max-frequency = <1000000>;
         clocks = <&adrf6780_lo>;
         clock-names = "lo_in";
-        adi,parity-en;
       };
     };
 ...
-
