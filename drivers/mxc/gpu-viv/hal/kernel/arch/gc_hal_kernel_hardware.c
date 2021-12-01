@@ -12829,6 +12829,9 @@ gckHARDWARE_DumpGPUState(
     gcmkONERROR(gckOS_ReadRegisterEx(os, core, 0x00668, &dmaLow));
     gcmkONERROR(gckOS_ReadRegisterEx(os, core, 0x0066C, &dmaHigh));
     gcmkONERROR(gckOS_ReadRegisterEx(os, core, 0x0066C, &dmaHigh));
+#ifdef __QNXNTO__
+    SLOG_CRITICAL("[galcore] Dumping GPU State to: %s", gpuLog);
+#endif
 
     gcmkPRINT_N(0, "**************************\n");
     gcmkPRINT_N(0, "***   GPU STATE DUMP   ***\n");
