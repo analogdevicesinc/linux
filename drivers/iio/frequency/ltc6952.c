@@ -18,6 +18,7 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/jesd204/jesd204.h>
 
 /* Register address macro */
 #define LTC6952_REG(x)		(x)
@@ -214,6 +215,7 @@ struct ltc6952_state {
 	struct ltc6952_output		outputs[LTC6952_NUM_CHAN];
 	struct clk			*clks[LTC6952_NUM_CHAN];
 	struct clk_onecell_data		clk_data;
+	struct jesd204_dev		*jdev;
 };
 
 #define to_output(_hw) container_of(_hw, struct ltc6952_output, hw)
@@ -691,6 +693,16 @@ follower:
 		ret |= ltc6952_write(indio_dev, LTC6952_REG(0x0F) +
 				     LTC6952_CH_OFFSET(chan->num),
 				     LTC6952_ADEL(chan->analog_delay));
+
+
+
+
+		ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0D) +
+					  LTC6952_CH_OFFSET(chan->num),
+					  LTC6952_MODE_MSK,
+					  LTC6952_MODE(chan->sysref_mode ? 1 : 0));
+
+
 		if (ret < 0)
 			goto err_unlock;
 
@@ -799,6 +811,8 @@ static int ltc6952_parse_dt(struct device *dev,
 		of_property_read_string(chan_np, "adi,extended-name",
 					&st->channels[cnt].extended_name);
 
+		st->channels[cnt].sysref_mode = of_property_read_bool(chan_np, "adi,sysref");
+
 		cnt++;
 	}
 
@@ -827,6 +841,69 @@ static int ltc6952_status_show(struct seq_file *file, void *offset)
 	return 0;
 }
 
+static int ltc6952_jesd204_sysref(struct jesd204_dev *jdev)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ltc6952_state *st = iio_priv(indio_dev);
+
+pr_err("%s: %s\n", st->spi->dev.of_node->name, __FUNCTION__);
+
+	ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SSRQ_MSK, LTC6952_SSRQ(1));
+//	usleep_range(1000, 1001); /* sleep > 1000us */
+//	ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+//				  LTC6952_SSRQ_MSK, LTC6952_SSRQ(0));
+
+	return 0;
+}
+
+static int ltc6952_jesd204_clks_sync1(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ltc6952_state *st = iio_priv(indio_dev);
+	int ret;
+
+pr_err("%s: %s\n", st->spi->dev.of_node->name, __FUNCTION__);
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+
+
+	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SRQMD_MSK, LTC6952_SRQMD(0));
+	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SSRQ_MSK, LTC6952_SSRQ(0));
+	usleep_range(1000, 1001); /* sleep > 1000us */
+	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SSRQ_MSK, LTC6952_SSRQ(1));
+	usleep_range(1000, 1001); /* sleep > 1000us */
+	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SSRQ_MSK, LTC6952_SSRQ(0));
+	usleep_range(1000, 1001); /* sleep > 1000us */
+	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SRQMD_MSK, LTC6952_SRQMD(1));
+
+
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data ltc6952_jesd204_data = {
+	.sysref_cb = ltc6952_jesd204_sysref,
+	.state_ops = {
+		[JESD204_OP_CLK_SYNC_STAGE1] = {
+			.per_device = ltc6952_jesd204_clks_sync1,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+	},
+};
+
 static int ltc6952_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -838,6 +915,10 @@ static int ltc6952_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	st->jdev = devm_jesd204_dev_register(&spi->dev, &ltc6952_jesd204_data);
+	if (IS_ERR(st->jdev))
+		return PTR_ERR(st->jdev);
 
 	mutex_init(&st->lock);
 
@@ -877,7 +958,7 @@ static int ltc6952_probe(struct spi_device *spi)
 				"Failed to create debugfs entry");
 	}
 
-	return ret;
+	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 }
 
 static int ltc6952_remove(struct spi_device *spi)
