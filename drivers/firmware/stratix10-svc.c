@@ -1442,11 +1442,20 @@ void stratix10_svc_done(struct stratix10_svc_chan *chan)
 {
 	/* stop thread when thread is running */
 	if (chan->task) {
-		pr_debug("%s: %s: svc_smc_hvc_shm_thread is stopped\n",
-		__func__, chan->name);
-		kthread_stop(chan->task);
+
+		if (!IS_ERR(chan->task)) {
+			struct task_struct *task_to_stop = chan->task;
+
+			chan->task = NULL;
+			pr_debug("%s: %s: svc_smc_hvc_shm_thread is stopping\n",
+					__func__, chan->name);
+			kthread_stop(task_to_stop);
+		}
+
 		chan->task = NULL;
 	}
+	pr_debug("%s: %s: svc_smc_hvc_shm_thread has stopped\n",
+					__func__, chan->name);
 }
 EXPORT_SYMBOL_GPL(stratix10_svc_done);
 
