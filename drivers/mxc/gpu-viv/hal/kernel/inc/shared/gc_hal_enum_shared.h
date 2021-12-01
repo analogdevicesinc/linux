@@ -785,6 +785,7 @@ typedef enum _gceSURF_TYPE
     gcvSURF_DMABUF_EXPORTABLE       = 0x400000, /* master node can be exported as dma-buf fd */
     gcvSURF_CACHE_MODE_128          = 0x800000,
     gcvSURF_TILED                   = 0x1000000, /* force create tile buffer, as we will convert it to supertile according to related hardware feature by default */
+    gcvSURF_LINEAR_NO_ALIGNMENT     = 0x2000000, /* only for linear render target buffer */
 
     gcvSURF_TEXTURE_LINEAR               = gcvSURF_TEXTURE
                                          | gcvSURF_LINEAR,
