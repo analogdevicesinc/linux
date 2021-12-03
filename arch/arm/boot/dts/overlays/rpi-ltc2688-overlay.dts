@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the 16 channel LTC2688 DAC
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&{/} {
+	vcc: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+};
+
+&{/clocks} {
+	ltc2688_tgp1: clock@0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+
+		clock-frequency = <262144>;
+		clock-output-names = "TGP1";
+	};
+
+	ltc2688_tgp2: clock@1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+
+		clock-frequency = <131072>;
+		clock-output-names = "TGP2";
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ltc2688: ltc2688@0 {
+		compatible = "adi,ltc2688";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vcc-supply = <&vcc>;
+		iovcc-supply = <&vcc>;
+
+		channel@0 {
+			reg = <0>;
+			adi,toggle-dither-input = <1>;
+			clocks = <&ltc2688_tgp2>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,overrange;
+			adi,output-range-microvolt = <(-5000000) 5000000>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,toggle-mode;
+			adi,toggle-dither-input = <0>;
+			clocks = <&ltc2688_tgp1>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,toggle-dither-input = <1>;
+			clocks = <&ltc2688_tgp2>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			adi,toggle-mode;
+		};
+	};
+};
+
+/ {
+	__overrides__ {
+		cs_pin = <&ltc2688>,"reg:0";
+		tgp1_rate = <&ltc2688_tgp1>,"clock-frequency:0";
+		tgp2_rate = <&ltc2688_tgp2>,"clock-frequency:0";
+	};
+};
