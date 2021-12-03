@@ -1,0 +1,379 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9988-FMCB-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe/quick-start
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ *
+ * hdl_project: <ad9081_fmca_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9081.dts"
+
+#define HMC7044_PLL2_FREQUENCY	2949120000
+#define AD9988_DAC_FREQUENCY	11796480000
+#define AD9988_ADC_FREQUENCY	3932160000
+
+/*
+ * These numbers get you to exactly 250.000MSPS baseband rate
+ * with the expense of worse phase noise performance at the output of the HMC7044
+ * due to the large feedback dividers. Ideally you would use a 100MHz or 125MHz VCXO
+ * for this frequency
+ */
+
+//#define HMC7044_PLL2_FREQUENCY	3000000000
+//#define AD9988_DAC_FREQUENCY	12000000000
+//#define AD9988_ADC_FREQUENCY	4000000000
+
+&axi_ad9081_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_CPLL>;
+};
+
+&spi1 {
+	status = "okay";
+
+	hmc7044: hmc7044@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
+
+		/*
+		* There are different versions of the AD9081-FMCA-EBZ & AD9082-FMCA-EBZ
+		* VCXO = 122.880 MHz, XO = 122.880MHz (AD9081-FMC-EBZ & AD9082-FMC-EBZ)
+		* VCXO = 100.000 MHz, XO = 100.000MHz (AD9081-FMC-EBZ-A2 & AD9082-FMC-EBZ-A2)
+		* To determine which board is which, read the freqency printed on the VCXO
+		* or use the fru-dump utility:
+		* #fru-dump -b /sys/bus/i2c/devices/15-0050/eeprom
+		*/
+
+		adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+
+		adi,pll2-output-frequency = <HMC7044_PLL2_FREQUENCY>;
+
+		adi,sysref-timer-divider = <1024>;
+		adi,pulse-generator-mode = <0>;
+
+		adi,clkin0-buffer-mode  = <0x07>;
+		adi,clkin1-buffer-mode  = <0x07>;
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x37 0x33 0x00 0x00>;
+
+		clock-output-names =
+			"hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+			"hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+			"hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+			"hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+			"hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "CORE_CLK_RX";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+
+		};
+		hmc7044_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "DEV_REFCLK";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,divider = <1536>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,jesd204-sysref-chan;
+		};
+
+		hmc7044_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "CORE_CLK_TX";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		hmc7044_c8: channel@8 {
+			reg = <8>;
+			adi,extended-name = "FPGA_REFCLK1";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "CORE_CLK_RX_ALT";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		hmc7044_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "FPGA_REFCLK2";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "FPGA_SYSREF";
+			adi,divider = <1536>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,jesd204-sysref-chan;
+		};
+	};
+};
+
+&fmc_spi {
+	/delete-node/ ad9081@0;
+
+	trx0_ad9081: ad9988@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9988";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+
+		/* Clocks */
+		clocks = <&hmc7044 2>;
+		clock-names = "dev_clk";
+
+		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		/* GPIO */
+		reset-gpios = <&gpio 133 0>;
+		sysref-req-gpios = <&gpio 121 0>;
+		rx2-enable-gpios = <&gpio 135 0>;
+		rx1-enable-gpios = <&gpio 134 0>;
+		tx2-enable-gpios = <&gpio 137 0>;
+		tx1-enable-gpios = <&gpio 136 0>;
+
+		/* JESD204-FSM */
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-link-ids = <FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+		jesd204-inputs =
+			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
+			<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
+
+		adi,tx-dacs {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			adi,dac-frequency-hz = /bits/ 64 <AD9988_DAC_FREQUENCY>;
+
+			adi,main-data-paths {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				adi,interpolation = <8>;
+
+				ad9081_dac0: dac@0 {
+					reg = <0>;
+					adi,crossbar-select = <&ad9081_tx_fddc_chan0>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <250000000>; /* 250 MHz */
+				};
+				ad9081_dac1: dac@1 {
+					reg = <1>;
+					adi,crossbar-select = <&ad9081_tx_fddc_chan1>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <500000000>; /* 500 MHz */
+				};
+				ad9081_dac2: dac@2 {
+					reg = <2>;
+					adi,crossbar-select = <&ad9081_tx_fddc_chan2>; /* All 4 channels @ dac2 */
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>;  /* 1000 MHz */
+				};
+				ad9081_dac3: dac@3 {
+					reg = <3>;
+					adi,crossbar-select = <&ad9081_tx_fddc_chan3>; /* All 4 channels @ dac2 */
+					adi,nco-frequency-shift-hz = /bits/ 64 <1500000000>; /* 1500 MHz */
+				};
+			};
+
+			adi,channelizer-paths {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				adi,interpolation = <6>;
+
+				ad9081_tx_fddc_chan0: channel@0 {
+					reg = <0>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+				ad9081_tx_fddc_chan1: channel@1 {
+					reg = <1>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+				ad9081_tx_fddc_chan2: channel@2 {
+					reg = <2>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+				ad9081_tx_fddc_chan3: channel@3 {
+					reg = <3>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+			};
+
+			adi,jesd-links {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				ad9081_tx_jesd_l0: link@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+
+					adi,logical-lane-mapping = /bits/ 8 <0 2 7 7 1 7 7 3>;
+
+					adi,link-mode = <9>;			/* JESD Quick Configuration Mode */
+					adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
+					adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
+					adi,dual-link = <0>;			/* JESD Dual Link Mode */
+
+					adi,converters-per-device = <8>;	/* JESD M */
+					adi,octets-per-frame = <4>;		/* JESD F */
+
+					adi,frames-per-multiframe = <32>;	/* JESD K */
+					adi,converter-resolution = <16>;	/* JESD N */
+					adi,bits-per-sample = <16>;		/* JESD NP' */
+					adi,control-bits-per-sample = <0>;	/* JESD CS */
+					adi,lanes-per-device = <4>;		/* JESD L */
+					adi,samples-per-converter-per-frame = <1>; /* JESD S */
+					adi,high-density = <0>;			/* JESD HD */
+				};
+			};
+		};
+
+		adi,rx-adcs {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			adi,adc-frequency-hz = /bits/ 64 <AD9988_ADC_FREQUENCY>;
+
+			adi,main-data-paths {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				ad9081_adc0: adc@0 {
+					reg = <0>;
+					adi,decimation = <4>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <250000000>;
+					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					//adi,crossbar-select = <&ad9081_rx_fddc_chan0>, <&ad9081_rx_fddc_chan2>; /* Static for now */
+				};
+				ad9081_adc1: adc@1 {
+					reg = <1>;
+					adi,decimation = <4>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <500000000>;
+					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					//adi,crossbar-select = <&ad9081_rx_fddc_chan1>, <&ad9081_rx_fddc_chan3>; /* Static for now */
+				};
+				ad9081_adc2: adc@2 {
+					reg = <2>;
+					adi,decimation = <4>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <1000000000>;
+					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					//adi,crossbar-select = <&ad9081_rx_fddc_chan4>, <&ad9081_rx_fddc_chan6>; /* Static for now */
+				};
+				ad9081_adc3: adc@3 {
+					reg = <3>;
+					adi,decimation = <4>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <1500000000>;
+					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					//adi,crossbar-select = <&ad9081_rx_fddc_chan5>, <&ad9081_rx_fddc_chan7>; /* Static for now */
+				};
+			};
+
+			adi,channelizer-paths {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+
+				ad9081_rx_fddc_chan0: channel@0 {
+					reg = <0>;
+					adi,decimation = <4>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+				ad9081_rx_fddc_chan1: channel@1 {
+					reg = <1>;
+					adi,decimation = <4>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+				ad9081_rx_fddc_chan4: channel@4 {
+					reg = <4>;
+					adi,decimation = <4>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+				ad9081_rx_fddc_chan5: channel@5 {
+					reg = <5>;
+					adi,decimation = <4>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+
+				};
+			};
+
+			adi,jesd-links {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				ad9081_rx_jesd_l0: link@0 {
+					reg = <0>;
+					adi,converter-select =
+						<&ad9081_rx_fddc_chan0 FDDC_I>, <&ad9081_rx_fddc_chan0 FDDC_Q>,
+						<&ad9081_rx_fddc_chan1 FDDC_I>, <&ad9081_rx_fddc_chan1 FDDC_Q>,
+						<&ad9081_rx_fddc_chan4 FDDC_I>, <&ad9081_rx_fddc_chan4 FDDC_Q>,
+						<&ad9081_rx_fddc_chan5 FDDC_I>, <&ad9081_rx_fddc_chan5 FDDC_Q>;
+
+					adi,logical-lane-mapping = /bits/ 8 <2 0 7 7 7 7 3 1>;
+
+					adi,link-mode = <10>;			/* JESD Quick Configuration Mode */
+					adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
+					adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
+					adi,dual-link = <0>;			/* JESD Dual Link Mode */
+
+					adi,converters-per-device = <8>;	/* JESD M */
+					adi,octets-per-frame = <4>;		/* JESD F */
+
+					adi,frames-per-multiframe = <32>;	/* JESD K */
+					adi,converter-resolution = <16>;	/* JESD N */
+					adi,bits-per-sample = <16>;		/* JESD NP' */
+					adi,control-bits-per-sample = <0>;	/* JESD CS */
+					adi,lanes-per-device = <4>;		/* JESD L */
+					adi,samples-per-converter-per-frame = <1>; /* JESD S */
+					adi,high-density = <0>;			/* JESD HD */
+				};
+			};
+		};
+	};
+};
