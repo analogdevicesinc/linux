@@ -1,0 +1,72 @@
+From b62e2e1763cda3a6c494ed754317f19be1249297 Mon Sep 17 00:00:00 2001
+From: Cosmin Tanislav <demonsingur@gmail.com>
+Date: Sun, 5 Dec 2021 13:40:43 +0200
+Subject: iio: add addac subdirectory
+
+For IIO devices that expose both ADC and DAC functionality.
+
+Signed-off-by: Cosmin Tanislav <cosmin.tanislav@analog.com>
+Link: https://lore.kernel.org/r/20211205114045.173612-2-cosmin.tanislav@analog.com
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+---
+ drivers/iio/Kconfig        | 1 +
+ drivers/iio/Makefile       | 1 +
+ drivers/iio/addac/Kconfig  | 8 ++++++++
+ drivers/iio/addac/Makefile | 6 ++++++
+ 4 files changed, 16 insertions(+)
+ create mode 100644 drivers/iio/addac/Kconfig
+ create mode 100644 drivers/iio/addac/Makefile
+
+diff --git a/drivers/iio/Kconfig b/drivers/iio/Kconfig
+index 2334ad249b462..4fb4321a72cb1 100644
+--- a/drivers/iio/Kconfig
++++ b/drivers/iio/Kconfig
+@@ -70,6 +70,7 @@ config IIO_TRIGGERED_EVENT
+ 
+ source "drivers/iio/accel/Kconfig"
+ source "drivers/iio/adc/Kconfig"
++source "drivers/iio/addac/Kconfig"
+ source "drivers/iio/afe/Kconfig"
+ source "drivers/iio/amplifiers/Kconfig"
+ source "drivers/iio/cdc/Kconfig"
+diff --git a/drivers/iio/Makefile b/drivers/iio/Makefile
+index 65e39bd4f9346..8d48c70fee4d3 100644
+--- a/drivers/iio/Makefile
++++ b/drivers/iio/Makefile
+@@ -15,6 +15,7 @@ obj-$(CONFIG_IIO_TRIGGERED_EVENT) += industrialio-triggered-event.o
+ 
+ obj-y += accel/
+ obj-y += adc/
++obj-y += addac/
+ obj-y += afe/
+ obj-y += amplifiers/
+ obj-y += buffer/
+diff --git a/drivers/iio/addac/Kconfig b/drivers/iio/addac/Kconfig
+new file mode 100644
+index 0000000000000..2e64d7755d5ea
+--- /dev/null
++++ b/drivers/iio/addac/Kconfig
+@@ -0,0 +1,8 @@
++#
++# ADC DAC drivers
++#
++# When adding new entries keep the list in alphabetical order
++
++menu "Analog to digital and digital to analog converters"
++
++endmenu
+diff --git a/drivers/iio/addac/Makefile b/drivers/iio/addac/Makefile
+new file mode 100644
+index 0000000000000..b888b9ee12da0
+--- /dev/null
++++ b/drivers/iio/addac/Makefile
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: GPL-2.0
++#
++# Makefile for industrial I/O ADDAC drivers
++#
++
++# When adding new entries keep the list in alphabetical order
+-- 
+cgit 1.2.3-1.el7
+

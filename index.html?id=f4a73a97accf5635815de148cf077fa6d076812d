@@ -1,0 +1,35 @@
+From f4a73a97accf5635815de148cf077fa6d076812d Mon Sep 17 00:00:00 2001
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Mon, 20 Dec 2021 16:47:26 +0000
+Subject: iio:addac:ad74413r: Fix uninitialized ret in a path that won't be
+ hit.
+
+I don't believe it's possible to hit this, because we drop
+out of __iio_update_buffers() earlier in the event of an empty
+list.  However, that is not visible to the compiler so lets
+return an error if we do hit the loop with an empty bitmask.
+
+Fixes: 5d97d9e9a703 ("iio: addac: ad74413r: fix off by one in ad74413r_parse_channel_config()")
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Cc: Cosmin Tanislav <cosmin.tanislav@analog.com>
+Link: https://lore.kernel.org/r/20211220164726.3136307-1-jic23@kernel.org
+---
+ drivers/iio/addac/ad74413r.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/iio/addac/ad74413r.c b/drivers/iio/addac/ad74413r.c
+index 289d254943e16..5271073bb74e7 100644
+--- a/drivers/iio/addac/ad74413r.c
++++ b/drivers/iio/addac/ad74413r.c
+@@ -843,7 +843,7 @@ static int ad74413r_update_scan_mode(struct iio_dev *indio_dev,
+ 	u8 *rx_buf = &st->adc_samples_buf.rx_buf[-1 * AD74413R_FRAME_SIZE];
+ 	u8 *tx_buf = st->adc_samples_tx_buf;
+ 	unsigned int channel;
+-	int ret;
++	int ret = -EINVAL;
+ 
+ 	mutex_lock(&st->lock);
+ 
+-- 
+cgit 1.2.3-1.el7
+

@@ -1,0 +1,33 @@
+From 5d97d9e9a703be2a602ac24c1ba3dae22155a2c8 Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 15 Dec 2021 14:50:53 +0300
+Subject: iio: addac: ad74413r: fix off by one in
+ ad74413r_parse_channel_config()
+
+The > needs to be >= to prevent accessing one element beyond the end of
+the st->channel_configs[] array.
+
+Fixes: fea251b6a5db ("iio: addac: add AD74413R driver")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Reviewed-by: Cosmin Tanislav <cosmin.tanislav@analog.com>
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+---
+ drivers/iio/addac/ad74413r.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/iio/addac/ad74413r.c b/drivers/iio/addac/ad74413r.c
+index cbd9aa9b399a2..289d254943e16 100644
+--- a/drivers/iio/addac/ad74413r.c
++++ b/drivers/iio/addac/ad74413r.c
+@@ -1150,7 +1150,7 @@ static int ad74413r_parse_channel_config(struct iio_dev *indio_dev,
+ 		return ret;
+ 	}
+ 
+-	if (index > AD74413R_CHANNEL_MAX) {
++	if (index >= AD74413R_CHANNEL_MAX) {
+ 		dev_err(st->dev, "Channel index %u is too large\n", index);
+ 		return -EINVAL;
+ 	}
+-- 
+cgit 1.2.3-1.el7
+
