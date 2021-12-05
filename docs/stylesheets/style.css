@@ -1,0 +1,50 @@
+:root {
+  --left-col-min-width: 50px;
+}
+
+
+.devattr-header {
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(38, 50, 56, 0.3);
+  padding-bottom: 5px;
+}
+
+.devattr-table {
+  border-bottom-width: 10px;
+  background-color: rgb(102, 102, 102, 0.01);
+}
+
+.devattr-topleft-col {
+  color: green;
+  width: 400px;
+  white-space: nowrap;
+  min-width: var(--left-col-min-width);
+}
+
+.devattr-bottomleft-col {
+  border-bottom: 1px solid rgba(0, 0, 0, 0);
+  /*Transparent*/
+  padding-bottom: 10px;
+  width: 400px;
+  white-space: nowrap;
+  min-width: var(--left-col-min-width);
+}
+
+.devattr-name-col {
+  padding-right: 10px;
+}
+
+.devattr-type-col {
+  color: rgb(102, 102, 102);
+}
+
+.devattr-about {
+  border-bottom: 1px solid rgb(159, 180, 190);
+  width: 100%;
+  padding-bottom: 10px;
+}
+
+.enum-dt {
+  background-color: rgb(126, 126, 126, 0.2);
+  border: 3px solid rgb(126, 126, 126, 0.2);
+}

@@ -1,0 +1,6 @@
+git+https://github.com/tfcollins/mkdocs-devicetree-plugin.git#egg=mkdocs-devicetree-plugin
+mkdocs
+mkdocs-material==7.1
+pymdown-extensions
+mkdocstrings
+mike

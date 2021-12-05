@@ -1,0 +1,41 @@
+site_name: linux
+site_description: ADI Linux Kernel
+site_author: Analog Devices, Inc.
+
+theme:
+  name: material
+  features:
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: deep orange
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep orange
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+
+nav:
+    - Home: index.md
+    - Devs:
+        {% block content -%}
+        {% for dev in devs -%}
+              - devs/{{ dev }}
+        {% endfor %}
+        {% endblock %}
+
+repo_url: https://github.com/analogdevicesinc/linux
+
+markdown_extensions:
+    - pymdownx.superfences
+    - pymdownx.tabbed
+
+plugins:
+  - search
+  - dt-plugin
+
+extra_css:
+  - stylesheets/style.css

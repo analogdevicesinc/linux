@@ -1,0 +1,29 @@
+name: Documentation
+
+on: [push, pull_request]
+
+jobs:
+  BuildDocs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r docs/requirements.txt
+      - name: Check doc build
+        run: |
+          mkdocs build -v -s
+
+      - name: Publish master doc
+        if: github.ref == 'refs/heads/master'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          destination_dir: master

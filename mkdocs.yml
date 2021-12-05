@@ -1,0 +1,73 @@
+site_name: linux
+site_description: ADI Linux Kernel
+site_author: Analog Devices, Inc.
+
+theme:
+  name: material
+  features:
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: deep orange
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep orange
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+
+nav:
+    - Home: index.md
+    - Devs:
+        - devs/ADI_AD5766.md
+        - devs/ADI_AD5770R.md
+        - devs/ADI_LTC2983.md
+        - devs/ADI_ADXL355.md
+        - devs/ADI_ADXL345.md
+        - devs/ADI_ADXL372.md
+        - devs/ADI_ADIS16240.md
+        - devs/ADI_ADMV8818.md
+        - devs/ADI_LTC2308.md
+        - devs/ADI_AD7606.md
+        - devs/ADI_AD7949.md
+        - devs/ADI_AD7768-1.md
+        - devs/ADI_AXI-ADC.md
+        - devs/ADI_AXI-PULSE-CAPTURE.md
+        - devs/ADI_LTC2471.md
+        - devs/ADI_AD7780.md
+        - devs/ADI_AD9467.md
+        - devs/ADI_AD7124.md
+        - devs/ADI_AD7923.md
+        - devs/ADI_ADAR1000.md
+        - devs/ADI_AD9083.md
+        - devs/ADI_AD7091R5.md
+        - devs/ADI_AD7291.md
+        - devs/ADI_AD7292.md
+        - devs/ADI_AD7192.md
+        - devs/ADI_ADRF6780.md
+        - devs/ADI_ADMV1014.md
+        - devs/ADI_ADL5960.md
+        - devs/ADI_ADMV1013.md
+        - devs/ADI_LTC6952.md
+        - devs/ADI_HMC425A.md
+        - devs/ADI_ADA4250.md
+        - devs/ADI_ADIS16475.md
+        - devs/ADI_ADIS16460.md
+        - devs/ADI_ADAR300X.md
+        - devs/ADI_ADXRS290.md
+        
+
+repo_url: https://github.com/analogdevicesinc/linux
+
+markdown_extensions:
+    - pymdownx.superfences
+    - pymdownx.tabbed
+
+plugins:
+  - search
+  - dt-plugin
+
+extra_css:
+  - stylesheets/style.css
