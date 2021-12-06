@@ -459,8 +459,8 @@
 /*PGA@0x0000. Gain of all channels=1*/
 #define ADE9078_PGA_GAIN 			0x0000
 
-/*HPF disabled*/
-#define ADE9078_CONFIG0 			0x00000008
+/*Default configuration*/
+#define ADE9078_CONFIG0 			0x00000000
 
 /*CF3/ZX pin outputs Zero crossing */
 #define ADE9078_CONFIG1				0x0002

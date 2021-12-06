@@ -314,6 +314,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		}
 		else{
 			//Stop When Buffer Is Full Mode
+			ade9078_en_wfb(ade9078_dev, false);
 			iio_trigger_poll(ade9078_dev->trig);
 		}
 
@@ -331,6 +332,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 			ADE9078_ST0_WFB_TRIG_IRQ))
 	{
 		//Stop Filling on Trigger and Center Capture Around Trigger
+		ade9078_en_wfb(ade9078_dev, false);
 		iio_trigger_poll(ade9078_dev->trig);
 
 		handled_irq |= ADE9078_ST0_WFB_TRIG_IRQ;
