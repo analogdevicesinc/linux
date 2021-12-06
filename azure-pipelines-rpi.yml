@@ -1,44 +1,113 @@
 trigger:
 - rpi-4.19.y
 - rpi-5.4.y
+- rpi-5.10.y
 - staging-rpi/*
 
 pr:
 - rpi-4.19.y
 - rpi-5.4.y
+- rpi-5.10.y
 
-pool:
-  vmImage: 'ubuntu-latest'
+stages:
+- stage: Builds
+  jobs:
+  - job: checkpatch
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    variables:
+      BUILD_TYPE: checkpatch
+      TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      fetchDepth: 50
+      clean: true
+    - script: ./ci/travis/run-build.sh
+      displayName: 'Checkpatch Script'
 
-jobs:
+  - job: BuildDockerized
+    strategy:
+      matrix:
+        bcm2709_arm_adi:
+          DEFCONFIG: adi_bcm2709_defconfig
+          ARCH: arm
+          artifactName: 'adi_bcm2709_defconfig'
+        bcm2711_arm_adi:
+          DEFCONFIG: adi_bcm2711_defconfig
+          ARCH: arm
+          artifactName: 'adi_bcm2711_defconfig'
+        bcmrpi_arm_adi:
+          DEFCONFIG: adi_bcmrpi_defconfig
+          ARCH: arm
+          artifactName: 'adi_bcmrpi_defconfig'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+      fetchDepth: 1
+      clean: true
+    - script: ./ci/travis/run-build-docker.sh
+      displayName: "Build test for '$(DEFCONFIG)'"
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays/?(*.dtbo)'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/zImage'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts'
+        contents: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/?(*.dtb)'
+        targetFolder: '$(Build.ArtifactStagingDirectory)'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifactName: '$(artifactName)'
 
-- job: checkpatch
-  condition: eq(variables['Build.Reason'], 'PullRequest')
+- stage: PushArtifacts
+  dependsOn: Builds
   variables:
-    BUILD_TYPE: checkpatch
-    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
-  steps:
-  - checkout: self
-    fetchDepth: 50
-    clean: true
-  - script: ./ci/travis/run-build.sh
-    displayName: 'Checkpatch Script'
-
-- job: BuildDockerized
-  strategy:
-    matrix:
-      bcm2709_arm_adi:
-        DEFCONFIG: adi_bcm2709_defconfig
-        ARCH: arm
-      bcm2711_arm_adi:
-        DEFCONFIG: adi_bcm2711_defconfig
-        ARCH: arm
-      bcmrpi_arm_adi:
-        DEFCONFIG: adi_bcmrpi_defconfig
-        ARCH: arm
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
-  - script: ./ci/travis/run-build-docker.sh
-    displayName: "Build test for '$(DEFCONFIG)'"
+    SOURCE_DIRECTORY: $(Build.SourcesDirectory)/bin
+    KEY_FILE: $(key.secureFilePath)
+  jobs:
+  - job: Push_to_SWDownloads
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: ./ci/travis/prepare_artifacts.sh structure
+        displayName: 'Prepare the folder structure'
+      - task: DownloadSecureFile@1
+        name: key
+        displayName: 'Download rsa key'
+        inputs:
+          secureFile: 'id_rsa'
+      - bash: ./ci/travis/prepare_artifacts.sh swdownloads
+        env:
+          DEST_SERVER: $(SERVER_ADDRESS)
+        displayName: "Push to SWDownloads"
+  - job: Push_to_Artifactory
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
+    pool:
+      name: Default
+      demands:
+        - agent.name -equals lab2_b5
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          path: $(Build.SourcesDirectory)/bin
+      - bash: ./ci/travis/prepare_artifacts.sh structure
+        displayName: 'Prepare the folder structure'
+      - bash: ./ci/travis/prepare_artifacts.sh artifactory
+        env:
+          ARTIFACTORY_PATH: $(PATH)
+          ARTIFACTORY_TOKEN: $(TOKEN)
+        displayName: "Push to Artifactory"
