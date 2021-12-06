@@ -12,6 +12,13 @@
 	/delete-node/ sound-ak4497;
 	/delete-node/ sound-micfil;
 
+	ak4458_reset: gpio-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
+		#reset-cells = <0>;
+		initially-in-reset;
+	};
+
 	leds {
 		panel {
 			label = "green:panel";
@@ -97,18 +104,35 @@
 	};
 
 	sound-ak4458 {
-		compatible = "fsl,imx-audio-ak4458";
+		compatible = "fsl,imx-audio-card";
 		model = "ak4458-audio";
-		audio-cpu = <&sai1>;
-		audio-codec = <&ak4458_1>, <&ak4458_2>;
-		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
+		pri-dai-link {
+			link-name = "akcodec";
+			format = "i2s";
+			fsl,mclk-equal-bclk;
+			cpu {
+				sound-dai = <&sai1>;
+			};
+			codec {
+				sound-codec = <&ak4458_1>, <&ak4458_2>;
+			};
+		};
 	};
 
 	sound-ak5552 {
-		compatible = "fsl,imx-audio-ak5552";
+		compatible = "fsl,imx-audio-card";
 		model = "ak5552-audio";
-		audio-cpu = <&sai5>;
-		audio-codec = <&ak5552>;
+		pri-dai-link {
+			link-name = "akcodec";
+			format = "i2s";
+			fsl,mclk-equal-bclk;
+			cpu {
+				sound-dai = <&sai5>;
+			};
+			codec {
+				sound-dai = <&ak5552>;
+			};
+		};
 	};
 };
 
@@ -177,33 +201,46 @@
 	};
 
 	ak4458_1: ak4458@10 {
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "0";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x10>;
+		resets = <&ak4458_reset>;
 		AVDD-supply = <&reg_dac_avdd_5v0>;
 		DVDD-supply = <&reg_dac_dvdd_3v3>;
+		status = "okay";
 	};
 
 	ak4458_2: ak4458@12 {
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "1";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x12>;
+		resets = <&ak4458_reset>;
 		AVDD-supply = <&reg_dac_avdd_5v0>;
 		DVDD-supply = <&reg_dac_dvdd_3v3>;
+		status = "okay";
 	};
 
 	ak4458_3: ak4458@11 {
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "2";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x11>;
+		resets = <&ak4458_reset>;
 		AVDD-supply = <&reg_dac_avdd_5v0>;
 		DVDD-supply = <&reg_dac_dvdd_3v3>;
 		status = "disabled";
 	};
 
 	ak5552: ak5552@13 {
+		#sound-dai-cells = <0>;
 		compatible = "asahi-kasei,ak5552";
 		reg = <0x13>;
 		reset-gpios = <&pca6416 3 GPIO_ACTIVE_LOW>;
 		AVDD-supply = <&reg_adc_avdd_5v0>;
 		DVDD-supply = <&reg_adc_dvdd_3v3>;
+		status = "okay";
 	};
 };
 
@@ -352,6 +389,10 @@
 
 &pcie0_ep {
 	/delete-property/ pinctrl-0;
+};
+
+&sai1 {
+	fsl,dataline = <0 0xff 0xff>;
 };
 
 &sai3 {
