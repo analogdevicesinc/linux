@@ -1647,7 +1647,7 @@ static int ov5640_enum_frameintervals(struct v4l2_subdev *sd,
 {
 	int i, j, count;
 
-	if (fie->index < 0 || fie->index > ov5640_mode_MAX)
+	if (fie->index > ov5640_mode_MAX)
 		return -EINVAL;
 
 	if (fie->width == 0 || fie->height == 0 ||
