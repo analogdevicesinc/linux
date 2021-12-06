@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices AD-FMCOMMS11-EBZ
+ * Analog Devices AD-FMCJESDADC1 FMC
  * https://wiki.analog.com/resources/eval/user-guides/ad-fmcjesdadc1-ebz
  *
  * hdl_project: <fmcjesdadc1/zc706>
  * board_revision: <>
  *
- * Copyright (C) 2014-2020 Analog Devices Inc.
+ * Copyright (C) 2014-2021 Analog Devices Inc.
 */
 /dts-v1/;
 
