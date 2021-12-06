@@ -1,4 +1,13 @@
-
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCADC5-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcadc5-ebz
+ *
+ * hdl_project: <fmcadc5/vc707>
+ * board_revision: <>
+ *
+ * Copyright (C) 2014-2021 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "vc707.dtsi"
