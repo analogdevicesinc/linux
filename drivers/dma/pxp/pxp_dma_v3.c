@@ -626,7 +626,7 @@ struct edge_node {
 	uint32_t adjvex;
 	uint32_t prev_vnode;
 	struct edge_node *next;
-	uint32_t mux_used;
+	unsigned long mux_used;
 	struct mux_config muxes;
 };
 
@@ -3127,7 +3127,7 @@ static void mux_config_helper(struct mux_config *path_ctrl,
 
 	if (enode->mux_used) {
 		do {
-			mux_pos = find_next_bit((unsigned long *)&enode->mux_used,
+			mux_pos = find_next_bit(&enode->mux_used,
 						32, mux_pos);
 			if (mux_pos >= 16)
 				break;
@@ -7780,7 +7780,7 @@ static bool search_mux_chain(uint32_t mux_id,
 						break;
 				}
 
-				set_bit(next_mux, (unsigned long *)&enode->mux_used);
+				set_bit(next_mux, &enode->mux_used);
 				set_mux_val(&enode->muxes, next_mux, j);
 				break;
 			}
@@ -7827,7 +7827,7 @@ static void enode_mux_config(unsigned int vnode_id,
 		}
 
 		if (via_mux) {
-			set_bit(i, (unsigned long *)&enode->mux_used);
+			set_bit(i, &enode->mux_used);
 			set_mux_val(&enode->muxes, i, j);
 			break;
 		}
@@ -7881,7 +7881,7 @@ static int pxp_create_initial_graph(struct platform_device *pdev)
 
 				curr = enode;
 				enode_mux_config(i, enode);
-				dev_dbg(&pdev->dev, "(%d -> %d): mux_used 0x%x, mux_config 0x%x\n\n",
+				dev_dbg(&pdev->dev, "(%d -> %d): mux_used 0x%lx, mux_config 0x%x\n\n",
 					 i, j, enode->mux_used, *(unsigned int*)&enode->muxes);
 			}
 		}
