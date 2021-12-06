@@ -36,10 +36,29 @@
 
 /*
  * struct ade9078_device - ade9078 specific data
- * @spi: 		spi device associated to the ade9078
+ * @lock		mutex for the device
+ * @gpio_reset	reset gpio pointer, retrieved from DT
+ * @irq0_bits	IRQ0 mask and status bits, are set by the driver and are passed
+ * 				to the IC after being set
+ * @irq1_bits	IRQ1 mask and status bits, are set by the driver and are passed
+ * 				to the IC after being set
+ * @rst_done	flag for when reset sequence irq has been received
+ * @wf_mode		wave form buffer mode, read datasheet for more details,
+ * 				retrieved from DT
+ * @wfb_trg_cfg	wave form buffer triger configuration, read datasheet for more
+ * 				details, retrieved from DT
+ * @spi 		spi device associated to the ade9078
  * @tx			transmit buffer for the spi
  * @rx			receive buffer for the spi
- * @lock		mutex for the device
+ * @tx_buff		transmit buffer for the iio buffer trough spi, used in iio
+ * 				buffer configuration
+ * @rx_buff		receive buffer for the iio buffer trough spi, will contain the
+ * 				samples from the IC wave form buffer
+ * @xfer		transfer setup used in iio buffer configuration
+ * @spi_msg		message transfer trough spi, used in iio buffer configuration
+ * @regmap		register map pointer
+ * @indio_dev:	the IIO device
+ * @trig		iio trigger pointer, is connected to IRQ0 and IRQ1
  */
 struct ade9078_device {
 	struct mutex lock;
