@@ -430,15 +430,6 @@ irq_done:
 }
 
 /*
- * ade9078_align() - rearranges the bytes to match BE
- * @x:  		input of the 32 bit message to be rearranged
- */
-static u32 ade9078_align(const u8 *x)
-{
-	return x[2] << 24 | x[3] << 16 | x[0] << 8 | x[1];
-}
-
-/*
  * ade9078_pop_wfb() - parses the SPI receive buffer, rearranges
  * the bits and pushes the data to the IIO buffer
  */
@@ -451,7 +442,7 @@ static void ade9078_pop_wfb(struct iio_poll_func *pf)
 
 	for(i=0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i=i+4)
 	{
-		data = ade9078_align(&ade9078_dev->rx_buff[i]);
+		data = get_unaligned_be32(&ade9078_dev->rx_buff[i]);
 		iio_push_to_buffers(ade9078_dev->indio_dev, &data);
 	}
 
