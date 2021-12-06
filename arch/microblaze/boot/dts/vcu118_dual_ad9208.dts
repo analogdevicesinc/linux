@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9208 / AD9689 ANALOG-TO-DIGITAL CONVERTER
+ * https://wiki.analog.com/resources/eval/ad9208-3000ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad9208
+ *
+ * hdl_project: <ad9208_dual_ebz/vcu118>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
 /dts-v1/;
 
 #include "vcu118.dtsi"
