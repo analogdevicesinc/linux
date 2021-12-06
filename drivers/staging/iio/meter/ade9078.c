@@ -548,6 +548,42 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 		iio_device_release_direct_mode(indio_dev);
 
 		return IIO_VAL_INT;
+		break;
+
+	case IIO_CHAN_INFO_SCALE:
+		switch(chan->type) {
+		case IIO_CURRENT:
+			if(chan->address >= ADDR_AI_PCF && chan->address <= ADDR_CI_PCF){
+				*val = 1;
+				*val2 = ADE9078_PCF_FULL_SCALE_CODES;
+				return IIO_VAL_FRACTIONAL;
+			}
+			if(chan->address >= ADDR_AIRMS && chan->address <= ADDR_CIRMS){
+				*val = 1;
+				*val2 = ADE9078_RMS_FULL_SCALE_CODES;
+				return IIO_VAL_FRACTIONAL;
+			}
+			break;
+		case IIO_VOLTAGE:
+			if(chan->address >= ADDR_AV_PCF && chan->address <= ADDR_CV_PCF){
+				*val = 1;
+				*val2 = ADE9078_PCF_FULL_SCALE_CODES;
+				return IIO_VAL_FRACTIONAL;
+			}
+			if(chan->address >= ADDR_AVRMS && chan->address <= ADDR_CVRMS){
+				*val = 1;
+				*val2 = ADE9078_RMS_FULL_SCALE_CODES;
+				return IIO_VAL_FRACTIONAL;
+			}
+			break;
+		case IIO_POWER:
+			*val = 1;
+			*val2 = ADE9000_WATT_FULL_SCALE_CODES;
+			return IIO_VAL_FRACTIONAL;
+			break;
+		default: break;
+		}
+		break;
 	default:
 		return -EINVAL;
 	}

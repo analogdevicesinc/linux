@@ -605,7 +605,8 @@
 		.channel = num,									\
 		.extend_name = name,							\
 		.address = PHASE_ADDR_ADJUST(ADDR_AI_PCF,num),	\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.scan_index = num,								\
 		.scan_type = {									\
 			.sign = 's',								\
@@ -620,7 +621,8 @@
 		.channel = num,									\
 		.extend_name = name,							\
 		.address = PHASE_ADDR_ADJUST(ADDR_AV_PCF,num),	\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.event_spec = ade9078_events,					\
 		.num_event_specs = ARRAY_SIZE(ade9078_events),	\
 		.scan_index = num + 1,							\
@@ -637,7 +639,8 @@
 		.channel = num,									\
 		.address = PHASE_ADDR_ADJUST(ADDR_AIRMS,num),	\
 		.extend_name = name "_rms",						\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.scan_index = -1								\
 	},													\
 	{													\
@@ -645,7 +648,8 @@
 		.channel = num,									\
 		.address = PHASE_ADDR_ADJUST(ADDR_AVRMS,num),	\
 		.extend_name = name "_rms",						\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.scan_index = -1								\
 	},													\
 	{													\
@@ -653,7 +657,8 @@
 		.channel = num,									\
 		.address = PHASE_ADDR_ADJUST(ADDR_AVAR,num),	\
 		.extend_name = name "_reactiv",					\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.scan_index = -1								\
 	},													\
 	{													\
@@ -661,7 +666,8 @@
 		.channel = num,									\
 		.address = PHASE_ADDR_ADJUST(ADDR_AVA,num),		\
 		.extend_name = name "_apparent",				\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.scan_index = -1								\
 	},													\
 	{													\
@@ -669,7 +675,8 @@
 		.channel = num,									\
 		.address = PHASE_ADDR_ADJUST(ADDR_AWATT,num),	\
 		.extend_name = name "_fund_reactiv",			\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.scan_index = -1								\
 	},													\
 	{													\
@@ -677,6 +684,7 @@
 		.channel = num,									\
 		.address = PHASE_ADDR_ADJUST(ADDR_APF,num),		\
 		.extend_name = name "_factor",					\
-        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+        .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
+							BIT(IIO_CHAN_INFO_SCALE),	\
 		.scan_index = -1								\
 	}
