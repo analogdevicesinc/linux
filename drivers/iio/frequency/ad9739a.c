@@ -53,7 +53,8 @@ static int ad9739a_read(struct spi_device *spi, unsigned reg)
 
 	buf[0] = 0x80 | (0x7F & reg);
 
-	ret = spi_write_then_read(spi, &buf[0], 1, &buf[1], 1);
+	// comentez
+	//ret = spi_write_then_read(spi, &buf[0], 1, &buf[1], 1);
 	if (ret < 0)
 		return ret;
 
@@ -67,7 +68,8 @@ static int ad9739a_write(struct spi_device *spi, unsigned reg, unsigned val)
 
 	buf[0] = reg & 0x7F;
 	buf[1] = val;
-	ret = spi_write_then_read(spi, buf, 2, NULL, 0);
+	// comentez
+	// ret = spi_write_then_read(spi, buf, 2, NULL, 0);
 	if (ret < 0)
 		return ret;
 
@@ -80,32 +82,32 @@ static int ad9739a_setup(struct cf_axi_converter *conv)
 	int repeat, status;
 
 	/* Configure for the 4-wire SPI mode with MSB. */
-	ad9739a_write(spi, REG_MODE, 0x00);
+	// comentez ad9739a_write(spi, REG_MODE, 0x00);
 
 	/* Software reset to default SPI values. */
-	ad9739a_write(spi, REG_MODE, MODE_RESET);
+	// comentez ad9739a_write(spi, REG_MODE, MODE_RESET);
 
 	/* Clear the reset bit. */
-	ad9739a_write(spi, REG_MODE, 0x00);
+	// comentez ad9739a_write(spi, REG_MODE, 0x00);
 
 	/* Set the common-mode voltage of DACCLK_P and DACCLK_N inputs */
-	ad9739a_write(spi, REG_CROSS_CNT1, CROSS_CNT1_CLKP_OFFSET(0xF));
-	ad9739a_write(spi, REG_CROSS_CNT2, CROSS_CNT2_CLKN_OFFSET(0xF));
+	// comentez ad9739a_write(spi, REG_CROSS_CNT1, CROSS_CNT1_CLKP_OFFSET(0xF));
+	// comentez ad9739a_write(spi, REG_CROSS_CNT2, CROSS_CNT2_CLKN_OFFSET(0xF));
 
 	/* Configure the Mu controller. */
-	ad9739a_write(spi, REG_PHS_DET, PHS_DET_CMP_BST | PHS_DET_PHS_DET_AUTO_EN);
-	ad9739a_write(spi, REG_MU_DUTY, MU_DUTY_MU_DUTY_AUTO_EN);
-	ad9739a_write(spi, REG_MU_CNT2, MU_CNT2_SRCH_MODE(2) | MU_CNT2_SET_PHS(4));
-	ad9739a_write(spi, REG_MU_CNT3, MU_CNT3_MUDEL(0x6C));
+	// comentez ad9739a_write(spi, REG_PHS_DET, PHS_DET_CMP_BST | PHS_DET_PHS_DET_AUTO_EN);
+	// comentez ad9739a_write(spi, REG_MU_DUTY, MU_DUTY_MU_DUTY_AUTO_EN);
+	// comentez ad9739a_write(spi, REG_MU_CNT2, MU_CNT2_SRCH_MODE(2) | MU_CNT2_SET_PHS(4));
+	// comentez ad9739a_write(spi, REG_MU_CNT3, MU_CNT3_MUDEL(0x6C));
 
 	for (repeat = 0; repeat < 3; repeat++) {
-		ad9739a_write(spi, REG_MU_CNT4,
-				MU_CNT4_SEARCH_TOL | MU_CNT4_RETRY | MU_CNT4_GUARD(0xB));
-		ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1));
+		// comentez ad9739a_write(spi, REG_MU_CNT4,
+		// comentez		MU_CNT4_SEARCH_TOL | MU_CNT4_RETRY | MU_CNT4_GUARD(0xB));
+		// comentez ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1));
 		/* Enable the Mu controller search and track mode. */
-		ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1) | MU_CNT1_ENABLE);
+		// comentez ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1) | MU_CNT1_ENABLE);
 		mdelay(10);
-		status = ad9739a_read(spi, REG_MU_STAT1);
+		// comentez status = ad9739a_read(spi, REG_MU_STAT1);
 		if (status == MU_STAT1_MU_LKD)
 			return 0;
 	}
@@ -124,9 +126,10 @@ static int ad9739a_set_fsc(struct cf_axi_converter *conv, u16 fsc_ua)
 
 	fsc_ua = clamp_t(u16, fsc_ua, AD9739A_MIN_FSC, AD9739A_MAX_FSC);
 	reg_val = (fsc_ua - AD9739A_MIN_FSC) * 10 / 226;
-	ret = ad9739a_write(spi, REG_FSC_1, FSC_1_FSC_1(reg_val));
-	ret |= ad9739a_write(spi, REG_FSC_2, FSC_2_FSC_2((reg_val >> 8)));
-
+	/* comentez
+	 * ret = ad9739a_write(spi, REG_FSC_1, FSC_1_FSC_1(reg_val));
+	 * ret |= ad9739a_write(spi, REG_FSC_2, FSC_2_FSC_2((reg_val >> 8)));
+	 */
 	phy->pdata->fsc_ua = fsc_ua;
 
 	return ret;
@@ -148,10 +151,10 @@ static int ad9739a_set_op_mode(struct cf_axi_converter *conv, enum operation_mod
 	int ret;
 
 	if (op_mode == NORMAL_BASEBAND_OPERATION) {
-		ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(NORMAL_BASEBAND));
+		// comentez ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(NORMAL_BASEBAND));
 		phy->pdata->mix_mode_en = false;
 	} else {
-		ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(MIX_MODE));
+		// comentez ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(MIX_MODE));
 		phy->pdata->mix_mode_en = true;
 	}
 
@@ -175,17 +178,18 @@ static int ad9739a_prepare(struct cf_axi_converter *conv)
 
 	for (repeat = 0; repeat < 3; repeat++) {
 		/* Set FINE_DEL_SKEW to 2. */
-		ad9739a_write(spi, REG_LVDS_REC_CNT4,
-				LVDS_REC_CNT4_DCI_DEL(0x7) | LVDS_REC_CNT4_FINE_DEL_SKEW(0x2));
+		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT4,
+		// comentez		LVDS_REC_CNT4_DCI_DEL(0x7) | LVDS_REC_CNT4_FINE_DEL_SKEW(0x2));
 		/* Disable the data Rx controller before enabling it. */
-		ad9739a_write(spi, REG_LVDS_REC_CNT1, 0x00);
+		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT1, 0x00);
 		/* Enable the data Rx controller for loop and IRQ. */
-		ad9739a_write(spi, REG_LVDS_REC_CNT1, LVDS_REC_CNT1_RCVR_LOOP_ON);
+		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT1, LVDS_REC_CNT1_RCVR_LOOP_ON);
 		/* Enable the data Rx controller for search and track mode. */
-		ad9739a_write(spi, REG_LVDS_REC_CNT1,
-				LVDS_REC_CNT1_RCVR_LOOP_ON | LVDS_REC_CNT1_RCVR_CNT_ENA);
+		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT1,
+		//		LVDS_REC_CNT1_RCVR_LOOP_ON | LVDS_REC_CNT1_RCVR_CNT_ENA);
 		mdelay(10);
-		status = ad9739a_read(spi, REG_LVDS_REC_STAT9);
+		// comentez status = ad9739a_read(spi, REG_LVDS_REC_STAT9);
+		status = 0;
 		if (status == (LVDS_REC_STAT9_RCVR_TRK_ON | LVDS_REC_STAT9_RCVR_LCK)) {
 			break;
 		}
@@ -343,6 +347,8 @@ static int ad9739a_probe(struct spi_device *spi)
 	unsigned id;
 	int ret;
 
+	pr_err("\n\n----------> Am intrat in probe <----------\n\n");
+
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
@@ -361,7 +367,8 @@ static int ad9739a_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	id = ad9739a_read(spi, REG_PART_ID);
+	// comentez id = ad9739a_read(spi, REG_PART_ID);
+	pr_err("\n\n----------> part id = %d <----------\n\n", (ad9739a_read(spi, 0x1F) & 0x0F));
 	if (id != AD9739A_ID) {
 		ret = -ENODEV;
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
@@ -403,8 +410,10 @@ static int ad9739a_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, conv);
 
+	pr_err("\n\n----------> Ies din probe <----------\n\n");
 	return 0;
 out:
+	pr_err("\n\n----------> Ies din probe cu ret <----------\n\n");
 	return ret;
 }
 
