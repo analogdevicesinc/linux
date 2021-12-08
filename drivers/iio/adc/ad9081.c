@@ -2641,57 +2641,55 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 	u16 stat;
 	u8 vals[3];
 
-	for (l = AD9081_LINK_0; l < AD9081_LINK_ALL; l++) {
+	for (l = AD9081_LINK_0; !phy->tx_disable && (l < (ad9081_link_is_dual(phy->jrx_link_tx) ?
+		AD9081_LINK_ALL : AD9081_LINK_1)); l++) {
 
 		ret = adi_ad9081_jesd_rx_link_status_get(
 			&phy->ad9081, l, &stat);
 		if (ret)
 			return -EFAULT;
 
-		if (phy->jtx_link_rx[l - 1].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
-			stat >>= 8;
-			seq_printf(file,
-				"JESD TX (JRX) Link%d 204C status %s (%d)\n",
-				l, ad9081_jrx_204c_states[stat & 0x7], stat);
-		} else {
-			seq_printf(file,
-				"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
-				l, stat & 0xF);
-		}
-
 		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_3_ADDR, &vals[0]);
 		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_4_ADDR, &vals[1]);
 		adi_ad9081_hal_reg_get(&phy->ad9081, REG_JRX_TPL_5_ADDR, &vals[2]);
 
-		seq_printf(file,
-			"JESD TX (JRX) Link%d TPL Phase Difference Read %u, Set %u\n",
-			l, vals[2], vals[1] << 8 | vals[0]);
+		if (phy->jrx_link_tx[l - 1].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
+			stat >>= 8;
+			seq_printf(file,
+				"JESD TX (JRX) Link%d 204C status %s (%d), TPL Phase Difference Read %u, Set %u\n",
+				l - 1, ad9081_jrx_204c_states[stat & 0x7], stat,
+				vals[2], vals[1] << 8 | vals[0]);
+		} else {
+			seq_printf(file,
+				"JESD TX (JRX) Link%d 204B 0x%X lanes in DATA, TPL Phase Difference Read %u, Set %u\n",
+				l - 1, stat & 0xF, vals[2], vals[1] << 8 | vals[0]);
+		}
+	}
+
+	for (l = AD9081_LINK_0; !phy->rx_disable && (l < (ad9081_link_is_dual(phy->jtx_link_rx) ?
+		AD9081_LINK_ALL : AD9081_LINK_1)); l++) {
 
 		ret = adi_ad9081_jesd_tx_link_status_get(
 			&phy->ad9081, l, &stat);
 		if (ret)
 			return -EFAULT;
-		if (phy->jrx_link_tx[0].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
+
+		if (phy->jtx_link_rx[0].jesd_param.jesd_jesdv == JESD204_VERSION_C) {
 			seq_printf(file,
-				"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
-				l,
+				"JESD RX (JTX) Link%d 204C PLL %s, PHASE %s, MODE %s\n",
+				l - 1,
 				stat & BIT(5) ? "locked" : "unlocked",
 				stat & BIT(6) ? "established" : "lost",
 				stat & BIT(7) ? "invalid" : "valid");
 		} else {
 			seq_printf(file,
-				"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
-				l, ad9081_jtx_qbf_states[stat & 0xF],
+				"JESD RX (JTX) Link%d 204B in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
+				l - 1, ad9081_jtx_qbf_states[stat & 0xf],
 				stat & BIT(4) ? "deasserted" : "asserted",
 				stat & BIT(5) ? "locked" : "unlocked",
 				stat & BIT(6) ? "established" : "lost",
 				stat & BIT(7) ? "invalid" : "valid");
 		}
-		if (!phy->jtx_link_rx[l - 1].jesd_param.jesd_duallink)
-			return 0;
-
-		if (!ad9081_link_is_dual(phy->jrx_link_tx))
-			return 0;
 	}
 
 	return 0;
