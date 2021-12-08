@@ -155,7 +155,7 @@ void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, unsigned int width,
 							  baddr, nonzero_mod);
 
 		/* consider PRG y offset to calculate buffer address */
-		baddr += (y_offset % mt_h) * stride;
+		baddr += (dma_addr_t)(y_offset % mt_h) * stride;
 	}
 
 	mutex_lock(&fu->mutex);
