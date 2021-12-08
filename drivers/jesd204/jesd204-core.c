@@ -940,7 +940,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		return ERR_PTR(-ENODEV);
 	}
 
-	if (!jdev)
+	if (jesd204_dyn_dt_change)
 		return ERR_PTR(-EPROBE_DEFER);
 
 	ret = jesd204_dev_init_links_data(dev, jdev, init);
