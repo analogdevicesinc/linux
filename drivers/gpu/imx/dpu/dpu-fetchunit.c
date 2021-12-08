@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 NXP
+ * Copyright 2018-2019,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -116,7 +116,7 @@ void fetchunit_set_burstlength(struct dpu_fetchunit *fu,
 	if (use_prefetch) {
 		/* consider PRG x offset to calculate buffer address */
 		if (nonzero_mod)
-			baddr += (x_offset % mt_w) * (bpp / 8);
+			baddr += (dma_addr_t)(x_offset % mt_w) * (bpp / 8);
 
 		burst_size = fetchunit_burst_size_fixup_tkt343664(baddr);
 		burst_length = burst_size / 8;
