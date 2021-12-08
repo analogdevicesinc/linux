@@ -146,7 +146,7 @@ void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, unsigned int width,
 
 	if (nonzero_mod) {
 		/* consider PRG x offset to calculate buffer address */
-		baddr += (x_offset % mt_w) * (bpp / 8);
+		baddr += (dma_addr_t)(x_offset % mt_w) * (bpp / 8);
 
 		burst_size = fetchunit_burst_size_fixup_tkt343664(baddr);
 
