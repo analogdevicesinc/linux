@@ -146,7 +146,7 @@ fetchdecode_set_src_stride(struct dpu_fetchunit *fu,
 	if (use_prefetch) {
 		/* consider PRG x offset to calculate buffer address */
 		if (nonzero_mod)
-			baddr += (x_offset % mt_w) * (bpp / 8);
+			baddr += (dma_addr_t)(x_offset % mt_w) * (bpp / 8);
 
 		burst_size = fetchunit_burst_size_fixup_tkt343664(baddr);
 
