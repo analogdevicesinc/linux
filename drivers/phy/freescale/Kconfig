@@ -56,6 +56,16 @@ config PHY_FSL_LYNX_XGKR_ALGORITHM
 	  Link training algorithm for copper backplane Ethernet (10GBase-KR,
 	  25GBase-KR, 40GBase-KR4) on the Lynx SerDes PHY.
 
+config PHY_FSL_LYNX_10G
+	tristate "Freescale Layerscape Lynx 10G SerDes PHY support"
+	depends on OF
+	depends on ARCH_LAYERSCAPE || COMPILE_TEST
+	select PHY_FSL_LYNX_XGKR_ALGORITHM
+	select GENERIC_PHY
+	help
+	  Enable this to add support for the Lynx 10G SerDes PHY as found on
+	  NXP's Layerscape platform such as LS1088A or LS1028A.
+
 config PHY_FSL_LYNX_28G
 	tristate "Freescale Layerscape Lynx 28G SerDes PHY support"
 	depends on OF
