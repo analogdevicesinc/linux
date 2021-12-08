@@ -24,6 +24,10 @@
 #include "ad9739a.h"
 #include "cf_axi_dds.h"
 
+#define REG_DATA_CTRL 0x02
+#define REG_SETUP_HOLD 0x04
+#define REG_SMP 0x05
+
 struct ad9739a_platform_data {
 	bool mix_mode_en;
 	u32 fsc_ua;
@@ -53,8 +57,7 @@ static int ad9739a_read(struct spi_device *spi, unsigned reg)
 
 	buf[0] = 0x80 | (0x7F & reg);
 
-	// comentez
-	//ret = spi_write_then_read(spi, &buf[0], 1, &buf[1], 1);
+	ret = spi_write_then_read(spi, &buf[0], 1, &buf[1], 1);
 	if (ret < 0)
 		return ret;
 
@@ -68,8 +71,8 @@ static int ad9739a_write(struct spi_device *spi, unsigned reg, unsigned val)
 
 	buf[0] = reg & 0x7F;
 	buf[1] = val;
-	// comentez
-	// ret = spi_write_then_read(spi, buf, 2, NULL, 0);
+
+	ret = spi_write_then_read(spi, buf, 2, NULL, 0);
 	if (ret < 0)
 		return ret;
 
@@ -81,33 +84,35 @@ static int ad9739a_setup(struct cf_axi_converter *conv)
 	struct spi_device *spi = conv->spi;
 	int repeat, status;
 
+	return 0;
+
 	/* Configure for the 4-wire SPI mode with MSB. */
-	// comentez ad9739a_write(spi, REG_MODE, 0x00);
+	ad9739a_write(spi, REG_MODE, 0x00);
 
 	/* Software reset to default SPI values. */
-	// comentez ad9739a_write(spi, REG_MODE, MODE_RESET);
+	ad9739a_write(spi, REG_MODE, MODE_RESET);
 
 	/* Clear the reset bit. */
-	// comentez ad9739a_write(spi, REG_MODE, 0x00);
+	ad9739a_write(spi, REG_MODE, 0x00);
 
 	/* Set the common-mode voltage of DACCLK_P and DACCLK_N inputs */
-	// comentez ad9739a_write(spi, REG_CROSS_CNT1, CROSS_CNT1_CLKP_OFFSET(0xF));
-	// comentez ad9739a_write(spi, REG_CROSS_CNT2, CROSS_CNT2_CLKN_OFFSET(0xF));
+	ad9739a_write(spi, REG_CROSS_CNT1, CROSS_CNT1_CLKP_OFFSET(0xF));
+	ad9739a_write(spi, REG_CROSS_CNT2, CROSS_CNT2_CLKN_OFFSET(0xF));
 
 	/* Configure the Mu controller. */
-	// comentez ad9739a_write(spi, REG_PHS_DET, PHS_DET_CMP_BST | PHS_DET_PHS_DET_AUTO_EN);
-	// comentez ad9739a_write(spi, REG_MU_DUTY, MU_DUTY_MU_DUTY_AUTO_EN);
-	// comentez ad9739a_write(spi, REG_MU_CNT2, MU_CNT2_SRCH_MODE(2) | MU_CNT2_SET_PHS(4));
-	// comentez ad9739a_write(spi, REG_MU_CNT3, MU_CNT3_MUDEL(0x6C));
+	ad9739a_write(spi, REG_PHS_DET, PHS_DET_CMP_BST | PHS_DET_PHS_DET_AUTO_EN);
+	ad9739a_write(spi, REG_MU_DUTY, MU_DUTY_MU_DUTY_AUTO_EN);
+	ad9739a_write(spi, REG_MU_CNT2, MU_CNT2_SRCH_MODE(2) | MU_CNT2_SET_PHS(4));
+	ad9739a_write(spi, REG_MU_CNT3, MU_CNT3_MUDEL(0x6C));
 
 	for (repeat = 0; repeat < 3; repeat++) {
-		// comentez ad9739a_write(spi, REG_MU_CNT4,
-		// comentez		MU_CNT4_SEARCH_TOL | MU_CNT4_RETRY | MU_CNT4_GUARD(0xB));
-		// comentez ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1));
+		ad9739a_write(spi, REG_MU_CNT4,
+		MU_CNT4_SEARCH_TOL | MU_CNT4_RETRY | MU_CNT4_GUARD(0xB));
+		ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1));
 		/* Enable the Mu controller search and track mode. */
-		// comentez ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1) | MU_CNT1_ENABLE);
+		ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1) | MU_CNT1_ENABLE);
 		mdelay(10);
-		// comentez status = ad9739a_read(spi, REG_MU_STAT1);
+		status = ad9739a_read(spi, REG_MU_STAT1);
 		if (status == MU_STAT1_MU_LKD)
 			return 0;
 	}
@@ -126,10 +131,8 @@ static int ad9739a_set_fsc(struct cf_axi_converter *conv, u16 fsc_ua)
 
 	fsc_ua = clamp_t(u16, fsc_ua, AD9739A_MIN_FSC, AD9739A_MAX_FSC);
 	reg_val = (fsc_ua - AD9739A_MIN_FSC) * 10 / 226;
-	/* comentez
-	 * ret = ad9739a_write(spi, REG_FSC_1, FSC_1_FSC_1(reg_val));
-	 * ret |= ad9739a_write(spi, REG_FSC_2, FSC_2_FSC_2((reg_val >> 8)));
-	 */
+	ret = ad9739a_write(spi, REG_FSC_1, FSC_1_FSC_1(reg_val));
+	ret |= ad9739a_write(spi, REG_FSC_2, FSC_2_FSC_2((reg_val >> 8)));
 	phy->pdata->fsc_ua = fsc_ua;
 
 	return ret;
@@ -151,10 +154,10 @@ static int ad9739a_set_op_mode(struct cf_axi_converter *conv, enum operation_mod
 	int ret;
 
 	if (op_mode == NORMAL_BASEBAND_OPERATION) {
-		// comentez ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(NORMAL_BASEBAND));
+		ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(NORMAL_BASEBAND));
 		phy->pdata->mix_mode_en = false;
 	} else {
-		// comentez ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(MIX_MODE));
+		ret = ad9739a_write(spi, REG_DEC_CNT, DEC_CNT_DAC_DEC(MIX_MODE));
 		phy->pdata->mix_mode_en = true;
 	}
 
@@ -176,20 +179,21 @@ static int ad9739a_prepare(struct cf_axi_converter *conv)
 	struct ad9739a_phy *phy = conv_to_phy(conv);
 	int repeat, status, ret;
 
+	return 0;
+
 	for (repeat = 0; repeat < 3; repeat++) {
 		/* Set FINE_DEL_SKEW to 2. */
-		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT4,
-		// comentez		LVDS_REC_CNT4_DCI_DEL(0x7) | LVDS_REC_CNT4_FINE_DEL_SKEW(0x2));
+		ad9739a_write(spi, REG_LVDS_REC_CNT4,
+		LVDS_REC_CNT4_DCI_DEL(0x7) | LVDS_REC_CNT4_FINE_DEL_SKEW(0x2));
 		/* Disable the data Rx controller before enabling it. */
-		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT1, 0x00);
+		ad9739a_write(spi, REG_LVDS_REC_CNT1, 0x00);
 		/* Enable the data Rx controller for loop and IRQ. */
-		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT1, LVDS_REC_CNT1_RCVR_LOOP_ON);
+		ad9739a_write(spi, REG_LVDS_REC_CNT1, LVDS_REC_CNT1_RCVR_LOOP_ON);
 		/* Enable the data Rx controller for search and track mode. */
-		// comentez ad9739a_write(spi, REG_LVDS_REC_CNT1,
-		//		LVDS_REC_CNT1_RCVR_LOOP_ON | LVDS_REC_CNT1_RCVR_CNT_ENA);
+		ad9739a_write(spi, REG_LVDS_REC_CNT1,
+				LVDS_REC_CNT1_RCVR_LOOP_ON | LVDS_REC_CNT1_RCVR_CNT_ENA);
 		mdelay(10);
-		// comentez status = ad9739a_read(spi, REG_LVDS_REC_STAT9);
-		status = 0;
+		status = ad9739a_read(spi, REG_LVDS_REC_STAT9);
 		if (status == (LVDS_REC_STAT9_RCVR_TRK_ON | LVDS_REC_STAT9_RCVR_LCK)) {
 			break;
 		}
@@ -347,8 +351,6 @@ static int ad9739a_probe(struct spi_device *spi)
 	unsigned id;
 	int ret;
 
-	pr_err("\n\n----------> Am intrat in probe <----------\n\n");
-
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
@@ -367,13 +369,19 @@ static int ad9739a_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	// comentez id = ad9739a_read(spi, REG_PART_ID);
-	pr_err("\n\n----------> part id = %d <----------\n\n", (ad9739a_read(spi, 0x1F) & 0x0F));
+	id = ad9739a_read(spi, REG_PART_ID);
+	/*
 	if (id != AD9739A_ID) {
 		ret = -ENODEV;
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
 		goto out;
 	}
+	*/
+	// bit 7 -> 0 = DAC input data is in 2's complement
+	//       -> 1 = DAC input data is in unsigned binary format
+	ad9739a_write(spi, REG_DATA_CTRL, 0x80);
+	ad9739a_write(spi, REG_SETUP_HOLD, 0x27);
+	ad9739a_write(spi, REG_SMP, 0x8); // 7 is the value from datasheet
 
 	conv->phy = phy;
 	conv->write = ad9739a_write;
