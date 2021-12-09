@@ -72,7 +72,11 @@ struct ade9078_device {
 	u8 *tx;
 	u8 *rx;
 	u8 tx_buff[2];
-	u8 rx_buff[ADE9078_WFB_FULL_BUFF_SIZE] ____cacheline_aligned;
+	union
+	{
+		u8 byte[ADE9078_WFB_FULL_BUFF_SIZE];
+		__be32 word[ADE9078_WFB_FULL_BUFF_NR_SAMPLES];
+	}rx_buff ____cacheline_aligned;
 	struct spi_transfer	xfer[2];
 	struct spi_message spi_msg;
 	struct regmap *regmap;
@@ -459,12 +463,11 @@ static void ade9078_pop_wfb(struct iio_poll_func *pf)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
 	u32 i;
-	u32 data;
 
-	for(i=0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i=i+4)
+	for(i=0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
 	{
-		data = get_unaligned_be32(&ade9078_dev->rx_buff[i]);
-		iio_push_to_buffers(ade9078_dev->indio_dev, &data);
+		iio_push_to_buffers(ade9078_dev->indio_dev,
+				&ade9078_dev->rx_buff.word[i]);
 	}
 
 	dev_info(&ade9078_dev->spi->dev, "Pushed to buffer");
@@ -530,7 +533,7 @@ static int ade9078_configure_scan(struct iio_dev *indio_dev)
 	ade9078_dev->xfer[0].bits_per_word = 8;
 	ade9078_dev->xfer[0].len = 2;
 
-	ade9078_dev->xfer[1].rx_buf = &ade9078_dev->rx_buff[0];
+	ade9078_dev->xfer[1].rx_buf = &ade9078_dev->rx_buff.byte[0];
 	ade9078_dev->xfer[1].bits_per_word = 8;
 	ade9078_dev->xfer[1].len = ADE9078_WFB_FULL_BUFF_SIZE;
 
