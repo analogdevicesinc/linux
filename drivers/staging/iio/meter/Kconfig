@@ -33,13 +33,5 @@ config ADE7854_SPI
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ade7854-spi.
-	  
-config ADE9078
-	tristate "Analog Devices ADE9078 Poly Phase Multifunction Energy Metering IC Driver"
-	depends on SPI
-	default n
-	help
-	  Support driver for the ADE9078, select y to build the driver.
-	  Select M to build it as a module.
 
 endmenu
