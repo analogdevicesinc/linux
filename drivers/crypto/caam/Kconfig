@@ -120,7 +120,7 @@ config CRYPTO_DEV_FSL_CAAM_CRYPTO_API
 
 config CRYPTO_DEV_FSL_CAAM_CRYPTO_API_QI
 	bool "Queue Interface as Crypto API backend"
-	depends on FSL_DPAA && NET
+	depends on FSL_SDK_DPA && NET
 	default y
 	select CRYPTO_DEV_FSL_CAAM_CRYPTO_API_DESC
 	select CRYPTO_AUTHENC

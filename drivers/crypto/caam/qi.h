@@ -11,7 +11,7 @@
 
 #include <crypto/algapi.h>
 #include <linux/compiler_attributes.h>
-#include <soc/fsl/qman.h>
+#include <linux/fsl_qman.h>
 #include "compat.h"
 #include "desc.h"
 #include "desc_constr.h"
