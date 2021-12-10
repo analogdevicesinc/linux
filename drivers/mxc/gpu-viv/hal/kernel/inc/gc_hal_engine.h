@@ -302,7 +302,7 @@ typedef struct _gscSURF_BLITDRAW_ARGS
        struct _gscSURF_BLITDRAW_ARG_v1
        {
             /* Whether it's clear or blit operation, can be extended. */
-            gceBLITDRAW_TYPE type;
+            gceBLIT_TYPE type;
 
             union _gscSURF_BLITDRAW_UNION
             {
@@ -506,6 +506,12 @@ gcoSURF_DrawBlitDepth(
     gscSURF_BLITDRAW_BLIT *Args
 );
 
+gceSTATUS
+gcoSURF_ComputeBlit(
+    gcsSURF_VIEW* SrcView,
+    gcsSURF_VIEW* DstView,
+    gscSURF_BLITDRAW_BLIT* Args
+);
 
 /******************************************************************************\
 ******************************** gcoINDEX Object *******************************

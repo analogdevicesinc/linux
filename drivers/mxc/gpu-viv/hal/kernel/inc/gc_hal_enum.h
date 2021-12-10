@@ -1604,16 +1604,17 @@ typedef enum _gceCLEAR
 }
 gceCLEAR;
 
-typedef enum _gceBLITDRAW_TYPE
+typedef enum _gceBLIT_TYPE
 {
-    gcvBLITDRAW_CLEAR      = 0,
-    gcvBLITDRAW_BLIT       = 1,
-    gcvBLITDRAW_BLIT_DEPTH = 2,
+    gcvBLIT_DRAW_CLEAR      = 0,
+    gcvBLIT_DRAW_BLIT       = 1,
+    gcvBLIT_DRAW_BLIT_DEPTH = 2,
+    gcvBLIT_COMPUTE_BLIT    = 3,
 
     /* last number, not a real type */
-    gcvBLITDRAW_NUM_TYPE
+    gcvBLIT_NUM_TYPE
  }
-gceBLITDRAW_TYPE;
+gceBLIT_TYPE;
 
 typedef enum _gceSPLIT_DRAW_TYPE
 {
