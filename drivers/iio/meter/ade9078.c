@@ -300,19 +300,6 @@ static int ade9078_test_bits(struct regmap *map, unsigned int reg,
 }
 
 /*
- * ade9078_irq0_handler() - handler for IRQ0. A hand-off for the threaded
- * 							handler
- */
-static irqreturn_t ade9078_irq0_handler(int irq, void *data)
-{
-	struct ade9078_device *ade9078_dev = data;
-
-	dev_info(&ade9078_dev->spi->dev, "IRQ0 Interrupted");
-
-	return IRQ_WAKE_THREAD;
-}
-
-/*
  * ade9078_irq0_thread() - Thread for IRQ0. It reads Status register 0 and
  * checks for the IRQ activation. This is configured to acquire samples in to
  * the IC buffer and dump it in to the iio_buffer according to Stop When Buffer
@@ -373,19 +360,6 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	dev_info(&ade9078_dev->spi->dev, "IRQ0 thread done");
 
 	return IRQ_HANDLED;
-}
-
-/*
- * ade9078_irq1_handler() - handler for IRQ1. A hand-off for the threaded
- * 							handler
- */
-static irqreturn_t ade9078_irq1_handler(int irq, void *data)
-{
-	struct ade9078_device *ade9078_dev = data;
-
-	dev_info(&ade9078_dev->spi->dev, "IRQ1 Interrupted");
-
-	return IRQ_WAKE_THREAD;
 }
 
 /*
@@ -1457,8 +1431,8 @@ static int ade9078_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 	irqflags = irq_get_trigger_type(irq);
-	ret = devm_request_threaded_irq(&spi->dev, irq, ade9078_irq0_handler,
-			ade9078_irq0_thread, irqflags, KBUILD_MODNAME, ade9078_dev);
+	ret = devm_request_threaded_irq(&spi->dev, irq, NULL, ade9078_irq0_thread,
+			irqflags | IRQF_ONESHOT, KBUILD_MODNAME, ade9078_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
 		return ret;
@@ -1470,8 +1444,8 @@ static int ade9078_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 	irqflags = irq_get_trigger_type(irq);
-	ret = devm_request_threaded_irq(&spi->dev, irq, ade9078_irq1_handler,
-			ade9078_irq1_thread, irqflags, KBUILD_MODNAME, ade9078_dev);
+	ret = devm_request_threaded_irq(&spi->dev, irq, NULL, ade9078_irq1_thread,
+			irqflags | IRQF_ONESHOT, KBUILD_MODNAME, ade9078_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
 		return ret;
@@ -1517,8 +1491,7 @@ static int ade9078_probe(struct spi_device *spi)
 	ade9078_configure_scan(indio_dev);
 
 	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
-			&iio_pollfunc_store_time, &ade9078_trigger_handler,
-			&ade9078_buffer_ops);
+			NULL, &ade9078_trigger_handler,	&ade9078_buffer_ops);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to setup triggered buffer: %d\n", ret);
 		return ret;
