@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-/*Auto created on 2021-11-26 16:36*/
+/*Auto created on 2021-12-07 15:26*/
 #ifndef _gc_feature_database_h_
 #define _gc_feature_database_h_
 
@@ -579,6 +579,8 @@ typedef struct
     gctUINT32 TX_ETC2_COMPRESSION:1;
     gctUINT32 HIGHP_VEC2:1;
     gctUINT32 MMU_PD_42_BIT_ADDRESS:1;
+    gctUINT32 BLT_ROBUSTNESS_FIX:1;
+    gctUINT32 TFB_PERF_FIX:1;
     gctUINT32 VG_TS_CULLING:1;
     gctUINT32 VG_FP25:1;
     gctUINT32 VG_AYUV_INPUT_OUTPUT:1;
@@ -1369,6 +1371,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -2157,6 +2161,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -2945,6 +2951,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -3733,6 +3741,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -4521,6 +4531,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -5309,6 +5321,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -6097,6 +6111,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -6885,6 +6901,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -7673,6 +7691,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -8461,6 +8481,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -9249,6 +9271,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -10037,6 +10061,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -10825,6 +10851,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -11613,6 +11641,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -12401,6 +12431,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -13189,6 +13221,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -13977,6 +14011,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -14765,6 +14801,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -15553,6 +15591,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -16341,6 +16381,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -17129,6 +17171,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -17917,6 +17961,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -18705,6 +18751,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -19493,6 +19541,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -20281,6 +20331,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -21069,6 +21121,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -21857,6 +21911,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -22208,7 +22264,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x1f, /* gcFEATURE_VALUE_NN_X_OFFSET */
         0x1f, /* gcFEATURE_VALUE_NN_Y_OFFSET */
         0x100, /* gcFEATURE_VALUE_DDR_KERNEL_BURST_SIZE */
-        0x0, /* gcFEATURE_VALUE_MIN_AXI_BURST_SIZE */
+        0x100, /* gcFEATURE_VALUE_MIN_AXI_BURST_SIZE */
         0x10, /* gcFEATURE_VALUE_OUTIMAGE_X_STRIDE_BITS */
         0x10, /* gcFEATURE_VALUE_OUTIMAGE_Y_STRIDE_BITS */
         0x0, /* gcFEATURE_VALUE_OUTIMAGE_SLICE_BITS */
@@ -22645,6 +22701,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
@@ -22996,7 +23054,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x1f, /* gcFEATURE_VALUE_NN_X_OFFSET */
         0x1f, /* gcFEATURE_VALUE_NN_Y_OFFSET */
         0x100, /* gcFEATURE_VALUE_DDR_KERNEL_BURST_SIZE */
-        0x0, /* gcFEATURE_VALUE_MIN_AXI_BURST_SIZE */
+        0x100, /* gcFEATURE_VALUE_MIN_AXI_BURST_SIZE */
         0x10, /* gcFEATURE_VALUE_OUTIMAGE_X_STRIDE_BITS */
         0x10, /* gcFEATURE_VALUE_OUTIMAGE_Y_STRIDE_BITS */
         0x0, /* gcFEATURE_VALUE_OUTIMAGE_SLICE_BITS */
@@ -23433,6 +23491,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_TX_ETC2_COMPRESSION */
         0x0, /* gcFEATURE_BIT_HIGHP_VEC2 */
         0x0, /* gcFEATURE_BIT_MMU_PD_42_BIT_ADDRESS */
+        0x0, /* gcFEATURE_BIT_BLT_ROBUSTNESS_FIX */
+        0x0, /* gcFEATURE_BIT_TFB_PERF_FIX */
         0x0, /* gcFEATURE_BIT_VG_TS_CULLING */
         0x0, /* gcFEATURE_BIT_VG_FP25 */
         0x0, /* gcFEATURE_BIT_VG_AYUV_INPUT_OUTPUT */
