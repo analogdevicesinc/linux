@@ -24,10 +24,6 @@
 #include "ad9739a.h"
 #include "cf_axi_dds.h"
 
-#define REG_DATA_CTRL 0x02
-#define REG_SETUP_HOLD 0x04
-#define REG_SMP 0x05
-
 struct ad9739a_platform_data {
 	bool mix_mode_en;
 	u32 fsc_ua;
@@ -71,7 +67,6 @@ static int ad9739a_write(struct spi_device *spi, unsigned reg, unsigned val)
 
 	buf[0] = reg & 0x7F;
 	buf[1] = val;
-
 	ret = spi_write_then_read(spi, buf, 2, NULL, 0);
 	if (ret < 0)
 		return ret;
@@ -83,8 +78,6 @@ static int ad9739a_setup(struct cf_axi_converter *conv)
 {
 	struct spi_device *spi = conv->spi;
 	int repeat, status;
-
-	return 0;
 
 	/* Configure for the 4-wire SPI mode with MSB. */
 	ad9739a_write(spi, REG_MODE, 0x00);
@@ -107,7 +100,7 @@ static int ad9739a_setup(struct cf_axi_converter *conv)
 
 	for (repeat = 0; repeat < 3; repeat++) {
 		ad9739a_write(spi, REG_MU_CNT4,
-		MU_CNT4_SEARCH_TOL | MU_CNT4_RETRY | MU_CNT4_GUARD(0xB));
+				MU_CNT4_SEARCH_TOL | MU_CNT4_RETRY | MU_CNT4_GUARD(0xB));
 		ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1));
 		/* Enable the Mu controller search and track mode. */
 		ad9739a_write(spi, REG_MU_CNT1, MU_CNT1_GAIN(1) | MU_CNT1_ENABLE);
@@ -133,6 +126,7 @@ static int ad9739a_set_fsc(struct cf_axi_converter *conv, u16 fsc_ua)
 	reg_val = (fsc_ua - AD9739A_MIN_FSC) * 10 / 226;
 	ret = ad9739a_write(spi, REG_FSC_1, FSC_1_FSC_1(reg_val));
 	ret |= ad9739a_write(spi, REG_FSC_2, FSC_2_FSC_2((reg_val >> 8)));
+
 	phy->pdata->fsc_ua = fsc_ua;
 
 	return ret;
@@ -179,12 +173,10 @@ static int ad9739a_prepare(struct cf_axi_converter *conv)
 	struct ad9739a_phy *phy = conv_to_phy(conv);
 	int repeat, status, ret;
 
-	return 0;
-
 	for (repeat = 0; repeat < 3; repeat++) {
 		/* Set FINE_DEL_SKEW to 2. */
 		ad9739a_write(spi, REG_LVDS_REC_CNT4,
-		LVDS_REC_CNT4_DCI_DEL(0x7) | LVDS_REC_CNT4_FINE_DEL_SKEW(0x2));
+				LVDS_REC_CNT4_DCI_DEL(0x7) | LVDS_REC_CNT4_FINE_DEL_SKEW(0x2));
 		/* Disable the data Rx controller before enabling it. */
 		ad9739a_write(spi, REG_LVDS_REC_CNT1, 0x00);
 		/* Enable the data Rx controller for loop and IRQ. */
@@ -370,18 +362,11 @@ static int ad9739a_probe(struct spi_device *spi)
 	}
 
 	id = ad9739a_read(spi, REG_PART_ID);
-	/*
 	if (id != AD9739A_ID) {
 		ret = -ENODEV;
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
 		goto out;
 	}
-	*/
-	// bit 7 -> 0 = DAC input data is in 2's complement
-	//       -> 1 = DAC input data is in unsigned binary format
-	ad9739a_write(spi, REG_DATA_CTRL, 0x80);
-	ad9739a_write(spi, REG_SETUP_HOLD, 0x27);
-	ad9739a_write(spi, REG_SMP, 0x8); // 7 is the value from datasheet
 
 	conv->phy = phy;
 	conv->write = ad9739a_write;
@@ -418,10 +403,8 @@ static int ad9739a_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, conv);
 
-	pr_err("\n\n----------> Ies din probe <----------\n\n");
 	return 0;
 out:
-	pr_err("\n\n----------> Ies din probe cu ret <----------\n\n");
 	return ret;
 }
 
