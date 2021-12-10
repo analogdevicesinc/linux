@@ -37,6 +37,7 @@
 /*
  * struct ade9078_device - ade9078 specific data
  * @lock		mutex for the device
+ * @slock		spinlock used for irq handling
  * @gpio_reset	reset gpio pointer, retrieved from DT
  * @irq0_bits	IRQ0 mask and status bits, are set by the driver and are passed
  * 				to the IC after being set
@@ -62,12 +63,14 @@
  */
 struct ade9078_device {
 	struct mutex lock;
+	spinlock_t slock;
 	struct gpio_desc *gpio_reset;
 	u32 irq0_bits;
 	u32 irq1_bits;
 	bool rst_done;
 	u8 wf_mode;
 	u16 wfb_trg_cfg;
+	volatile bool triggered;
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
@@ -324,6 +327,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 
 	regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &status);
 	dev_info(&ade9078_dev->spi->dev, "IRQ0 status 0x%x", status);
+	ade9078_dev->triggered = false;
 
 	if(((status & ADE9078_ST0_PAGE_FULL) == ADE9078_ST0_PAGE_FULL) &&
 	((ade9078_dev->irq0_bits & ADE9078_ST0_PAGE_FULL) ==
@@ -338,7 +342,8 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		else{
 			//Stop When Buffer Is Full Mode
 			ade9078_en_wfb(ade9078_dev, false);
-			iio_trigger_poll(ade9078_dev->trig);
+//			iio_trigger_poll(ade9078_dev->trig);
+			ade9078_dev->triggered = true;
 		}
 
 		//disable Page full interrupt
@@ -356,7 +361,8 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	{
 		//Stop Filling on Trigger and Center Capture Around Trigger
 		ade9078_en_wfb(ade9078_dev, false);
-		iio_trigger_poll(ade9078_dev->trig);
+//		iio_trigger_poll(ade9078_dev->trig);
+		ade9078_dev->triggered = true;
 
 		handled_irq |= ADE9078_ST0_WFB_TRIG_IRQ;
 		dev_info(&ade9078_dev->spi->dev, "IRQ0 ADE9078_ST0_WFB_TRIG_IRQ");
@@ -1029,19 +1035,6 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 		break;
 	}
 
-	return ret;
-}
-
-/*
- * ade9078_buffer_postenable() - after the IIO is enabled
- * this will enable the ade9078 internal buffer for acquisition
- * @indio_dev:		the IIO device
- */
-static int ade9078_buffer_postenable(struct iio_dev *indio_dev)
-{
-	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
-	int ret;
-
 	ret = ade9078_update_mask0(ade9078_dev);
 	if (ret) {
 		dev_err(&ade9078_dev->spi->dev, "Post-enable update mask0 fail");
@@ -1054,6 +1047,34 @@ static int ade9078_buffer_postenable(struct iio_dev *indio_dev)
 	}
 
 	return ret;
+}
+
+/*
+ * ade9078_buffer_postenable() - after the IIO is enabled
+ * this will enable the ade9078 internal buffer for acquisition
+ * @indio_dev:		the IIO device
+ */
+static int ade9078_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
+	u8 count = 0;
+	unsigned long flags;
+
+	while(ade9078_dev->triggered == false)
+	{
+		msleep_interruptible(1);
+		count++;
+		if(count > 9)
+		{
+			dev_err(&ade9078_dev->spi->dev, "Post-enable trigger timeout");
+			return -ESRCH;
+		}
+	}
+
+	spin_lock_irqsave(&ade9078_dev->slock, flags);
+	iio_trigger_poll(ade9078_dev->trig);
+	spin_unlock_irqrestore(&ade9078_dev->slock, flags);
+	return 0;
 }
 
 /*
@@ -1082,6 +1103,8 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 		dev_err(&ade9078_dev->spi->dev, "Post-disable update maks0 fail");
 		return ret;
 	}
+
+	ade9078_dev->triggered = true;
 
 	return ret;
 }
@@ -1468,6 +1491,7 @@ static int ade9078_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 
+	ade9078_dev->triggered = false;
 	ade9078_dev->spi = spi;
 	ade9078_dev->spi->mode = SPI_MODE_0;
 	spi_setup(ade9078_dev->spi);
