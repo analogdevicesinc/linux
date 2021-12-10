@@ -3068,6 +3068,7 @@ gckHARDWARE_InitializeHardware(
      || _IsHardwareMatch(Hardware, gcv2000, 0x5108)
      || _IsHardwareMatch(Hardware, gcv7000, 0x6202)
      || _IsHardwareMatch(Hardware, gcv7000, 0x6203)
+     || _IsHardwareMatch(Hardware, gcv7000, 0x6204)
      || (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_TX_DESCRIPTOR)
        && !gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_TX_DESC_CACHE_CLOCKGATE_FIX)
         )
