@@ -48,6 +48,8 @@
  * 				retrieved from DT
  * @wfb_trg_cfg	wave form buffer triger configuration, read datasheet for more
  * 				details, retrieved from DT
+ * @triggered	flag used in irq0 ISR to mark that the frame buffer has been
+ * 				triggered for output
  * @spi 		spi device associated to the ade9078
  * @tx			transmit buffer for the spi
  * @rx			receive buffer for the spi
@@ -982,7 +984,8 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_device *ade9078_dev,
 }
 
 /*
- * ade9078_buffer_preenable() - configures the wave form buffer
+ * ade9078_buffer_preenable() - configures the wave form buffer, sets the
+ * interrupts and enables the buffer
  * @indio_dev:		the IIO device
  */
 static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
@@ -1024,8 +1027,8 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 }
 
 /*
- * ade9078_buffer_postenable() - after the IIO is enabled
- * this will enable the ade9078 internal buffer for acquisition
+ * ade9078_buffer_postenable() - after the IIO is enabled we wait for the
+ * wave form buffer flag to be enabled and push the output to the IIO buffer
  * @indio_dev:		the IIO device
  */
 static int ade9078_buffer_postenable(struct iio_dev *indio_dev)
