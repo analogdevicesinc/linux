@@ -150,8 +150,12 @@ void __init imx_src_init(void)
 	u32 val;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx51-src");
-	if (!np)
-		return;
+	if (!np) {
+		np = of_find_compatible_node(NULL, NULL, "fsl,imx7d-src");
+		if (!np)
+			return;
+	}
+
 	src_base = of_iomap(np, 0);
 	WARN_ON(!src_base);
 
