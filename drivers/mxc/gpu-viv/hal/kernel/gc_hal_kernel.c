@@ -1645,9 +1645,11 @@ _ReleaseVideoMemory(
             type,
             gcmINT2PTR(Handle)));
 
-    gckVIDMEM_HANDLE_Dereference(Kernel, ProcessID, Handle);
+    gcmkONERROR(
+        gckVIDMEM_HANDLE_Dereference(Kernel, ProcessID, Handle));
 
-    gckVIDMEM_NODE_Dereference(Kernel, nodeObject);
+    gcmkONERROR(
+        gckVIDMEM_NODE_Dereference(Kernel, nodeObject));
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
