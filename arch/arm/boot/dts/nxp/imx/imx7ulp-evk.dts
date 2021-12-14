@@ -222,7 +222,7 @@
 	};
 
 	rpmsg_sensor: rpmsg-sensor {
-		compatible = "fsl,rpmsg-input";
+		compatible = "nxp,rpmsg-iio-pedometer", "fsl,rpmsg-input";
 	};
 
 	rpmsg_audio: rpmsg_audio {
