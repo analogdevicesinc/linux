@@ -9399,13 +9399,44 @@ ad9361_gt_bin_read(struct file *filp, struct kobject *kobj,
 	return ret;
 }
 
+static int ad9361_spi_check(struct spi_device *spi)
+{
+	u8 buf[3] = {0};
+	int ret;
+	u16 cmd;
+	struct spi_transfer t = {
+		.tx_buf = buf,
+		.rx_buf = buf,
+		.len = sizeof(buf),
+	};
+
+	/*
+	 * We need do a low level spi transfer to get the effective speed
+	 * otherwise we would just do a ad9361_spi_read()
+	 */
+	cmd = AD_READ | AD_CNT(1) | AD_ADDR(REG_PRODUCT_ID);
+	buf[0] = cmd >> 8;
+	buf[1] = cmd & 0xFF;
+
+	ret = spi_sync_transfer(spi, &t, 1);
+	if (ret)
+		return ret;
+
+	if ((buf[2] & PRODUCT_ID_MASK) != PRODUCT_ID_9361) {
+		dev_err(&spi->dev, "%s : Unsupported PRODUCT_ID 0x%X", __func__, buf[2]);
+		return -ENODEV;
+	}
+
+	return t.effective_speed_hz;
+}
+
 static int ad9361_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct ad9361_rf_phy_state *st;
 	struct ad9361_rf_phy *phy;
 	struct clk *clk = NULL;
-	int ret, rev;
+	int ret, rev, hz;
 
 	dev_info(&spi->dev, "%s : enter (%s)", __func__,
 		 spi_get_device_id(spi)->name);
@@ -9468,12 +9499,9 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ad9361_reset(phy);
 
-	ret = ad9361_spi_read(spi, REG_PRODUCT_ID);
-	if ((ret & PRODUCT_ID_MASK) != PRODUCT_ID_9361) {
-		dev_err(&spi->dev, "%s : Unsupported PRODUCT_ID 0x%X",
-			__func__, ret);
-		return -ENODEV;
-	}
+	hz = ad9361_spi_check(spi);
+	if (hz < 0)
+		return hz;
 
 	rev = ret & REV_MASK;
 
@@ -9544,8 +9572,12 @@ static int ad9361_probe(struct spi_device *spi)
 	if (ret < 0)
 		dev_warn(&spi->dev, "%s: failed to register debugfs", __func__);
 
-	dev_info(&spi->dev, "%s : AD936x Rev %d successfully initialized",
-		 __func__, rev);
+	if (hz > 0)
+		dev_info(&spi->dev, "%s : AD936x Rev %d successfully initialized (SPI @ %u.%02u MHz)",
+				__func__, rev, hz / 1000000, hz % 1000000 / 1000 / 10);
+	else
+		dev_info(&spi->dev, "%s : AD936x Rev %d successfully initialized",
+				__func__, rev);
 
 	return 0;
 
