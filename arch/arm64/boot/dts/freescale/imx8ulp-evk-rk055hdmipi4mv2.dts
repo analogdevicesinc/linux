@@ -56,3 +56,16 @@
 		};
 	};
 };
+
+&i2c_rpbus_1 {
+	goodix@14 {
+		compatible = "goodix,gt911";
+		reg = <0x14>;
+		interrupt-parent = <&rpmsg_gpiob>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		irq-gpios = <&rpmsg_gpiob 5 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&pca6416_1 5 GPIO_ACTIVE_HIGH>;
+		touchscreen-size-x = <720>;
+		touchscreen-size-y = <1280>;
+	};
+};
