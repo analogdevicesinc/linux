@@ -130,6 +130,7 @@ static int imx_rpmsg_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	struct rtc_rpmsg_data msg;
 	int ret;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RPMSG_RTC;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -153,6 +154,7 @@ static int imx_rpmsg_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 	time = rtc_tm_to_time64(tm);
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RPMSG_RTC;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -172,6 +174,7 @@ static int imx_rpmsg_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	struct rtc_rpmsg_data msg;
 	int ret;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RPMSG_RTC;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -194,6 +197,7 @@ static int imx_rpmsg_rtc_alarm_irq_enable(struct device *dev,
 	struct rtc_rpmsg_data msg;
 	int ret;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RPMSG_RTC;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -216,6 +220,7 @@ static int imx_rpmsg_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 
 	time = rtc_tm_to_time64(&alrm->time);
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RPMSG_RTC;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
