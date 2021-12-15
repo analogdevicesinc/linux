@@ -151,6 +151,7 @@ static int pf1550_enable(struct regulator_dev *reg)
 	struct pf1550_regulator_info *info = rdev_get_drvdata(reg);
 	struct pf1550_regulator_rpmsg msg;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cmd = PF1550_ENABLE;
 	msg.regulator = reg->desc->id;
 
@@ -162,6 +163,7 @@ static int pf1550_disable(struct regulator_dev *reg)
 	struct pf1550_regulator_info *info = rdev_get_drvdata(reg);
 	struct pf1550_regulator_rpmsg msg;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cmd = PF1550_DISABLE;
 	msg.regulator = reg->desc->id;
 
@@ -174,6 +176,7 @@ static int pf1550_is_enabled(struct regulator_dev *reg)
 	struct pf1550_regulator_rpmsg msg;
 	int err;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cmd = PF1550_IS_ENABLED;
 	msg.regulator = reg->desc->id;
 
@@ -194,6 +197,7 @@ static int pf1550_set_voltage(struct regulator_dev *reg,
 	struct pf1550_regulator_rpmsg msg;
 	int err;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cmd = PF1550_SET_VOL;
 	msg.regulator = reg->desc->id;
 	msg.voltage = minuV;
@@ -216,6 +220,7 @@ static int pf1550_get_voltage(struct regulator_dev *reg)
 	struct pf1550_regulator_rpmsg msg;
 	int err;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cmd = PF1550_GET_VOL;
 	msg.regulator = reg->desc->id;
 	msg.voltage = 0;
@@ -411,6 +416,7 @@ static ssize_t pf1550_registers_show(struct device *dev,
 	int err;
 	size_t bufpos = 0, count = MAX_REGS * 7;
 
+	memset(&msg, 0, sizeof(msg));
 	for (i = 0; i < MAX_REGS; i++) {
 		snprintf(buf + bufpos, count - bufpos, "%.*x: ", 2, i);
 		bufpos += 4;
@@ -459,6 +465,7 @@ static ssize_t pf1550_register_store(struct device *dev,
 	if (kstrtoul(start, 16, &value))
 		return -EINVAL;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cmd = PF1550_SET_REG;
 	msg.reg = reg;
 	msg.val = value;
