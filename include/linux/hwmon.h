@@ -390,6 +390,16 @@ enum hwmon_intrusion_attributes {
  *			Channel number
  *		@val:	Value to write
  *		The function returns 0 on success or a negative error number.
+ * @reg_access:
+ *		Callback to read or write register values.
+ *		Parameters are:
+ *		@dev:	Pointer to hardware monitoring device
+ *		@reg:	Register address to read or write
+ *		@writeval:
+ *			Value to write to register. 0 when reading.
+ *		@readval:
+ *			Pointer to value read from register. NULL when writing.
+ *		The function returns 0 on success or a negative error number.
  */
 struct hwmon_ops {
 	umode_t (*is_visible)(const void *drvdata, enum hwmon_sensor_types type,
@@ -400,6 +410,8 @@ struct hwmon_ops {
 		    u32 attr, int channel, const char **str);
 	int (*write)(struct device *dev, enum hwmon_sensor_types type,
 		     u32 attr, int channel, long val);
+	int (*reg_access)(struct device *dev, unsigned int reg,
+			  unsigned int writeval, unsigned int *readval);
 };
 
 /**

@@ -136,6 +136,8 @@ The list of hwmon operations is defined as::
 		    u32 attr, int, long *);
 	int (*write)(struct device *, enum hwmon_sensor_types type,
 		     u32 attr, int, long);
+	int (*reg_access)(struct device *dev, unsigned int reg,
+			  unsigned int writeval, unsigned int *readval);
   };
 
 It defines the following operations.
@@ -151,6 +153,13 @@ It defines the following operations.
 * write:
     Pointer to a function for writing a value to the chip. This function is
     optional, but must be provided if any writeable attributes exist.
+
+* reg_access:
+    Pointer to a function for writing or reading a register to the chip.
+    This function is optional.
+    WARNING: Drivers implementing this function must block any access that
+    may cause issues such as power loss, board resets, flash corruption or
+    bricking.
 
 Each sensor channel is described with struct hwmon_channel_info, which is
 defined as follows::
