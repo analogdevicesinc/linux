@@ -10,6 +10,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/bitops.h>
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/gfp.h>
@@ -35,6 +36,12 @@ struct hwmon_device {
 	struct list_head tzdata;
 	struct attribute_group group;
 	const struct attribute_group **groups;
+#if defined(CONFIG_DEBUG_FS)
+	struct dentry *debugfs_dentry;
+	unsigned int cached_reg_addr;
+	char read_buf[20];
+	unsigned int read_buf_len;
+#endif
 };
 
 #define to_hwmon_device(d) container_of(d, struct hwmon_device, dev)
@@ -63,6 +70,113 @@ struct hwmon_thermal_data {
 	int index;			/* sensor index */
 	struct thermal_zone_device *tzd;/* thermal zone device */
 };
+
+static struct dentry *hwmon_debugfs_dentry;
+
+#if defined(CONFIG_DEBUG_FS)
+static ssize_t hwmon_debugfs_read_reg(struct file *file, char __user *userbuf,
+				      size_t count, loff_t *ppos)
+{
+	struct hwmon_device *hwdev = file->private_data;
+	struct device *hdev = &hwdev->dev;
+	unsigned int val = 0;
+	int ret;
+
+	if (*ppos > 0)
+		return simple_read_from_buffer(userbuf, count, ppos,
+					       hwdev->read_buf,
+					       hwdev->read_buf_len);
+
+	ret = hwdev->chip->ops->debugfs_reg_access(hdev, hwdev->cached_reg_addr,
+						   0, &val);
+	if (ret) {
+		dev_err(hdev->parent, "%s: read failed\n", __func__);
+		return ret;
+	}
+
+	hwdev->read_buf_len = snprintf(hwdev->read_buf, sizeof(hwdev->read_buf),
+				       "0x%X\n", val);
+
+	return simple_read_from_buffer(userbuf, count, ppos, hwdev->read_buf,
+				       hwdev->read_buf_len);
+}
+
+static ssize_t hwmon_debugfs_write_reg(struct file *file,
+				       const char __user *userbuf,
+				       size_t count, loff_t *ppos)
+{
+	struct hwmon_device *hwdev = file->private_data;
+	struct device *hdev = &hwdev->dev;
+	unsigned int reg, val;
+	char buf[80];
+	int ret;
+
+	count = min_t(size_t, count, sizeof(buf) - 1);
+	if (copy_from_user(buf, userbuf, count))
+		return -EFAULT;
+
+	buf[count] = 0;
+
+	ret = sscanf(buf, "%i %i", &reg, &val);
+
+	switch (ret) {
+	case 1:
+		hwdev->cached_reg_addr = reg;
+		break;
+	case 2:
+		hwdev->cached_reg_addr = reg;
+		ret = hwdev->chip->ops->debugfs_reg_access(hdev, reg, val,
+							   NULL);
+		if (ret) {
+			dev_err(hdev->parent, "%s: write failed\n", __func__);
+			return ret;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static const struct file_operations hwmon_debugfs_reg_fops = {
+	.open = simple_open,
+	.read = hwmon_debugfs_read_reg,
+	.write = hwmon_debugfs_write_reg,
+};
+
+static void hwmon_device_register_debugfs(struct hwmon_device *hwdev)
+{
+	if (IS_ERR(hwmon_debugfs_dentry))
+		return;
+
+	if (!hwdev->chip || !hwdev->chip->ops ||
+		!hwdev->chip->ops->debugfs_reg_access)
+		return;
+
+	hwdev->debugfs_dentry = debugfs_create_dir(dev_name(&hwdev->dev),
+						   hwmon_debugfs_dentry);
+
+	if (IS_ERR(hwdev->debugfs_dentry))
+		return;
+
+	debugfs_create_file("direct_reg_access", 0644, hwdev->debugfs_dentry,
+			    hwdev, &hwmon_debugfs_reg_fops);
+}
+
+static void hwmon_device_unregister_debugfs(struct hwmon_device *hwdev)
+{
+	debugfs_remove_recursive(hwdev->debugfs_dentry);
+}
+#else
+static void hwmon_device_register_debugfs(struct hwmon_device *hwdev)
+{
+}
+
+static void hwmon_device_unregister_debugfs(struct hwmon_device *hwdev)
+{
+}
+#endif /* CONFIG_DEBUG_FS */
 
 static ssize_t
 name_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -113,6 +227,8 @@ static void hwmon_free_attrs(struct attribute **attrs)
 static void hwmon_dev_release(struct device *dev)
 {
 	struct hwmon_device *hwdev = to_hwmon_device(dev);
+
+	hwmon_device_unregister_debugfs(hwdev);
 
 	if (hwdev->group.attrs)
 		hwmon_free_attrs(hwdev->group.attrs);
@@ -779,6 +895,8 @@ __hwmon_device_register(struct device *dev, const char *name, void *drvdata,
 		}
 	}
 
+	hwmon_device_register_debugfs(hwdev);
+
 	return hdev;
 
 free_hwmon:
@@ -1024,12 +1142,16 @@ static int __init hwmon_init(void)
 		pr_err("couldn't register hwmon sysfs class\n");
 		return err;
 	}
+
+	hwmon_debugfs_dentry = debugfs_create_dir("hwmon", NULL);
+
 	return 0;
 }
 
 static void __exit hwmon_exit(void)
 {
 	class_unregister(&hwmon_class);
+	debugfs_remove(hwmon_debugfs_dentry);
 }
 
 subsys_initcall(hwmon_init);
