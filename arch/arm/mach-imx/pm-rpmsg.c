@@ -126,6 +126,7 @@ static int pm_vlls_notify_m4(bool enter)
 {
 	struct pm_rpmsg_data msg;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RMPSG_LIFECYCLE;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -140,6 +141,7 @@ void pm_shutdown_notify_m4(void)
 {
 	struct pm_rpmsg_data msg;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RMPSG_LIFECYCLE;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -155,6 +157,7 @@ void pm_reboot_notify_m4(void)
 {
 	struct pm_rpmsg_data msg;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RMPSG_LIFECYCLE;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -170,6 +173,7 @@ void  pm_heartbeat_off_notify_m4(bool enter)
 {
 	struct pm_rpmsg_data msg;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.cate = IMX_RMPSG_LIFECYCLE;
 	msg.header.major = IMX_RMPSG_MAJOR;
 	msg.header.minor = IMX_RMPSG_MINOR;
@@ -184,6 +188,7 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 {
 	struct pm_rpmsg_data msg;
 
+	memset(&msg, 0, sizeof(msg));
 	/* Notify M4 side A7 in RUN mode at boot time */
 	if (pm_rpmsg.first_flag) {
 		pm_vlls_notify_m4(false);
