@@ -12,7 +12,6 @@ config USB_ALL_ADI_DRIVERS
 	select USB_UAS
 	select USB_EHCI_HCD
 	select USB_STORAGE
-	select USB_MASS_STORAGE
 	select USB_CHIPIDEA
 	select USB_CHIPIDEA_UDC
 	select USB_CHIPIDEA_HOST
