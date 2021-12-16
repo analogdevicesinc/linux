@@ -18,6 +18,8 @@
 #include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
 #include <dt-bindings/phy/phy.h>
 
+#undef PLUTO_NG_USB_ROLE_SW
+
 / {
 	model = "Analog Devices, Inc. Pluto NG";
 	compatible = "xlnx,zynqmp";
@@ -245,6 +247,34 @@
 		compatible = "adi,ltc2945";
 		reg = <0x6a>;
 	};
+
+	typec_pd: usb-pd@38 {
+		compatible = "ti,tps6598x";
+		reg = <0x38>;
+		interrupt-parent = <&gpio>;
+		interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+
+#ifdef PLUTO_NG_USB_ROLE_SW
+		typec_con: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			port {
+				typec_ep: endpoint {
+					remote-endpoint = <&otg_ep>;
+				};
+			};
+		};
+#endif
+	};
+
+	typec_pd1: usb-pd@3f {
+		compatible = "ti,tps6598x";
+		reg = <0x3F>;
+		interrupt-parent = <&gpio>;
+		interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+	};
 };
 
 &zynqmp_dpsub {
@@ -299,6 +329,18 @@
 	phy-names = "usb3-phy";
 	phys = <&psgtr 0 PHY_TYPE_USB3 0 0>;
 	maximum-speed = "super-speed";
+#ifdef PLUTO_NG_USB_ROLE_SW
+	usb-role-switch;
+	role-switch-default-mode = "device";
+
+	port@0 {
+		reg = <0>;
+
+		otg_ep: endpoint {
+			remote-endpoint = <&typec_con>;
+		};
+	};
+#endif
 };
 
 &gpio {
