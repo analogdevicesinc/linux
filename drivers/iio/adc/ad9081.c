@@ -3114,6 +3114,8 @@ enum ad9081_debugfs_cmd {
 	DBGFS_BIST_JRX_SPO_SET,
 	DBGFS_BIST_JRX_SPO_SWEEP,
 	DBGFS_BIST_PRBS_JTX,
+	DBGFS_DEV_API_INFO,
+	DBGFS_DEV_CHIP_INFO,
 };
 
 static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
@@ -3127,6 +3129,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 	u64 val = 0;
 	ssize_t len = 0;
 	int ret, i, j;
+	u8 api_rev[3];
 
 	if (entry->out_value) {
 		switch (entry->size) {
@@ -3175,6 +3178,20 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 			break;
 		case DBGFS_BIST_JRX_SPO_SET:
 			len = snprintf(buf, sizeof(buf), "%d\n", (int) entry->val);
+			break;
+		case DBGFS_DEV_API_INFO:
+			adi_ad9081_device_api_revision_get(&phy->ad9081,
+				&api_rev[0], &api_rev[1], &api_rev[2]);
+
+			len = snprintf(buf, sizeof(buf), "%u.%u.%u\n",
+				api_rev[0], api_rev[1], api_rev[2]);
+			break;
+		case DBGFS_DEV_CHIP_INFO:
+			adi_ad9081_device_api_revision_get(&phy->ad9081, &api_rev[0],
+				&api_rev[1], &api_rev[2]);
+
+			len = snprintf(buf, sizeof(buf), "AD%X Rev. %u Grade %u\n",
+				conv->id, phy->chip_id.dev_revision, phy->chip_id.prod_grade);
 			break;
 		default:
 			val = entry->val;
@@ -3389,6 +3406,10 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 			"bist_spo_set_jrx", DBGFS_BIST_JRX_SPO_SET);
 		ad9081_add_debugfs_entry(indio_dev,
 			"bist_spo_sweep_jrx", DBGFS_BIST_JRX_SPO_SWEEP);
+		ad9081_add_debugfs_entry(indio_dev,
+			"api_version", DBGFS_DEV_API_INFO);
+		ad9081_add_debugfs_entry(indio_dev,
+			"chip_version", DBGFS_DEV_CHIP_INFO);
 
 		for (i = 0; i < phy->ad9081_debugfs_entry_index; i++)
 			debugfs_create_file( phy->debugfs_entry[i].propname, 0644,
