@@ -15,6 +15,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/kernel.h>
 #include <linux/kfifo.h>
+#include <linux/busfreq-imx.h>
 
 #include "compat.h"
 
@@ -101,6 +102,7 @@ static int caam_rng_read_one(struct device *jrdev,
 		return -ENOMEM;
 	}
 
+	request_bus_freq(BUS_FREQ_HIGH);
 	init_completion(done);
 	err = caam_jr_enqueue(jrdev,
 			      caam_init_desc(desc, dst_dma),
@@ -110,6 +112,7 @@ static int caam_rng_read_one(struct device *jrdev,
 		err = 0;
 	}
 
+	release_bus_freq(BUS_FREQ_HIGH);
 	dma_unmap_single(jrdev, dst_dma, len, DMA_FROM_DEVICE);
 
 	return err ?: (ret ?: len);
