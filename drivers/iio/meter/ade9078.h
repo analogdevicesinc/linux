@@ -607,6 +607,8 @@
 		.address = PHASE_ADDR_ADJUST(ADDR_AI_PCF,num),	\
         .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
 							BIT(IIO_CHAN_INFO_SCALE),	\
+		.event_spec = ade9078_events,					\
+		.num_event_specs = ARRAY_SIZE(ade9078_events),	\
 		.scan_index = num,								\
 		.scan_type = {									\
 			.sign = 's',								\
