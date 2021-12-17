@@ -598,31 +598,6 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 }
 
 /*
- * ade9078_write_raw() - IIO write function
- * @indio_dev:		the IIO device
- * @chan:			channel specs of the ade9078
- * @val:			first half of the written value
- * @val2:			second half of the written value
- * @mask:			info mask of the channel
- */
-static int ade9078_write_raw(struct iio_dev *indio_dev,
-			     struct iio_chan_spec const *chan,
-			     int val,
-			     int val2,
-			     long mask)
-{
-//	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
-
-	switch (mask) {
-	case IIO_CHAN_INFO_ENABLE:
-//		ade9078_en_wfb(ade9078_dev, val);
-		return 0;
-	}
-
-	return -EINVAL;
-}
-
-/*
  * ade9078_reg_acess() - IIO debug register access
  * @indio_dev:		the IIO device
  * @reg:			register to be accessed
@@ -1359,7 +1334,6 @@ static const struct iio_buffer_setup_ops ade9078_buffer_ops = {
 
 static const struct iio_info ade9078_info = {
 	.read_raw = &ade9078_read_raw,
-	.write_raw = &ade9078_write_raw,
 	.debugfs_reg_access = &ade9078_reg_acess,
 	.write_event_config = &ade9078_write_event_config,
 	.read_event_value = &ade9078_read_event_vlaue,
