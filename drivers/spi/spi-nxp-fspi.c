@@ -404,6 +404,7 @@ struct nxp_fspi {
 	int selected;
 #define FSPI_INITILIZED		(1 << 0)
 #define FSPI_RXCLKSRC_3		(1 << 1)
+#define FSPI_DTR_ODD_ADDR	(1 << 2)
 	int flags;
 };
 
@@ -855,22 +856,42 @@ static void nxp_fspi_read_rxfifo(struct nxp_fspi *f,
 {
 	void __iomem *base = f->iobase;
 	int i, ret;
-	int len = op->data.nbytes;
+	int len, cnt;
 	u8 *buf = (u8 *) op->data.buf.in;
+
+	/* DTR with ODD address need read one more byte */
+	len = (f->flags & FSPI_DTR_ODD_ADDR) ? op-> data.nbytes + 1 : op->data.nbytes;
 
 	/*
 	 * Default value of water mark level is 8 bytes, hence in single
 	 * read request controller can read max 8 bytes of data.
 	 */
-	for (i = 0; i < ALIGN_DOWN(len, 8); i += 8) {
+	cnt = ALIGN_DOWN(len, 8);
+
+	for (i = 0; i < cnt;) {
 		/* Wait for RXFIFO available */
 		ret = fspi_readl_poll_tout(f, f->iobase + FSPI_INTR,
 					   FSPI_INTR_IPRXWA, 0,
 					   POLL_TOUT, true);
 		WARN_ON(ret);
 
-		*(u32 *)(buf + i) = fspi_readl(f, base + FSPI_RFDR);
-		*(u32 *)(buf + i + 4) = fspi_readl(f, base + FSPI_RFDR + 4);
+		if (f->flags & FSPI_DTR_ODD_ADDR && !i) {
+			/*
+			 * DTR read always start from 2bytes alignment address,
+			 * if read from an odd address A, it actually read from
+			 * address A-1, need to abandon the first byte here
+			 */
+			u8 tmp[8];
+			*(u32 *)tmp = fspi_readl(f, base + FSPI_RFDR);
+			*(u32 *)(tmp + 4) = fspi_readl(f, base + FSPI_RFDR + 4);
+			memcpy(buf, tmp + 1, 7);
+			i += 7;
+			f->flags &= ~FSPI_DTR_ODD_ADDR;
+		} else {
+			*(u32 *)(buf + i) = fspi_readl(f, base + FSPI_RFDR);
+			*(u32 *)(buf + i + 4) = fspi_readl(f, base + FSPI_RFDR + 4);
+			i += 8;
+		}
 		/* move the FIFO pointer */
 		fspi_writel(f, FSPI_INTR_IPRXWA, base + FSPI_INTR);
 	}
@@ -880,13 +901,13 @@ static void nxp_fspi_read_rxfifo(struct nxp_fspi *f,
 		int size, j;
 
 		buf = op->data.buf.in + i;
+		len -= i;
 		/* Wait for RXFIFO available */
 		ret = fspi_readl_poll_tout(f, f->iobase + FSPI_INTR,
 					   FSPI_INTR_IPRXWA, 0,
 					   POLL_TOUT, true);
 		WARN_ON(ret);
 
-		len = op->data.nbytes - i;
 		for (j = 0; j < op->data.nbytes - i; j += 4) {
 			tmp = fspi_readl(f, base + FSPI_RFDR + j);
 			size = min(len, 4);
@@ -917,16 +938,31 @@ static int nxp_fspi_do_op(struct nxp_fspi *f, const struct spi_mem_op *op)
 	init_completion(&f->c);
 
 	fspi_writel(f, op->addr.val, base + FSPI_IPCR0);
+
 	/*
 	 * Always start the sequence at the same index since we update
 	 * the LUT at each exec_op() call. And also specify the DATA
 	 * length, since it's has not been specified in the LUT.
+	 *
+	 * OCTAL DTR read always start from 2bytes alignment address,
+	 * if read from an odd address A, it actually read from
+	 * address A-1, need to read one more byte to get all
+	 * data needed.
 	 */
 	seqid_lut = f->devtype_data->lut_num - 1;
-	fspi_writel(f, op->data.nbytes |
-		 (seqid_lut << FSPI_IPCR1_SEQID_SHIFT) |
-		 (seqnum << FSPI_IPCR1_SEQNUM_SHIFT),
-		 base + FSPI_IPCR1);
+	if ((op->addr.val & 1) && (op->data.dir == SPI_MEM_DATA_IN) &&
+	    op->cmd.dtr && op->addr.dtr && op->dummy.dtr && op->data.dtr) {
+		f->flags |= FSPI_DTR_ODD_ADDR;
+		fspi_writel(f, (op->data.nbytes + 1) |
+			 (seqid_lut << FSPI_IPCR1_SEQID_SHIFT) |
+			 (seqnum << FSPI_IPCR1_SEQNUM_SHIFT),
+			 base + FSPI_IPCR1);
+	} else {
+		fspi_writel(f, op->data.nbytes |
+			 (seqid_lut << FSPI_IPCR1_SEQID_SHIFT) |
+			 (seqnum << FSPI_IPCR1_SEQNUM_SHIFT),
+			 base + FSPI_IPCR1);
+	}
 
 	/* Trigger the LUT now. */
 	fspi_writel(f, FSPI_IPCMD_TRG, base + FSPI_IPCMD);
