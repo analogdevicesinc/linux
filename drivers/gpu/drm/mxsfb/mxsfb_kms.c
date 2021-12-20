@@ -623,9 +623,16 @@ static int mxsfb_plane_atomic_check(struct drm_plane *plane,
 									     plane);
 	struct mxsfb_drm_private *mxsfb = to_mxsfb_drm_private(plane->dev);
 	struct drm_crtc_state *crtc_state;
+	struct drm_framebuffer *fb = plane_state->fb;
+	struct drm_plane_state *old_state = plane->state;
+	struct drm_framebuffer *old_fb = old_state->fb;
 
 	crtc_state = drm_atomic_get_new_crtc_state(state,
 						   &mxsfb->crtc);
+
+	if (plane->type == DRM_PLANE_TYPE_PRIMARY && old_fb && fb &&
+	    old_fb->pitches[0] != fb->pitches[0])
+		crtc_state->mode_changed = true;
 
 	return drm_atomic_helper_check_plane_state(plane_state, crtc_state,
 						   DRM_PLANE_NO_SCALING,
