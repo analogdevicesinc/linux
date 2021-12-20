@@ -1,0 +1,217 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9081_fmca_ebz/vcu128>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "vcu128.dtsi"
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+#define fmc_i2c fmcp_hspc_iic
+#define fmc_spi axi_spi
+
+/ {
+	model = "Analog Devices AD9081-FMCA-EBZ @Xilinx/vcu128";
+};
+
+/* ad9081_fmca_ebz_vcu128: updated master */
+&axi_intc {
+	xlnx,kind-of-intr = <0xffff05f0>;
+};
+
+&axi_ethernet_0 {
+	local-mac-address = [00 0a 35 01 90 81];
+};
+
+&amba_pl {
+	rx_dma: dma@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <256>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	tx_dma: dma@7c430000  {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c430000 0x10000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <256>;
+				adi,destination-bus-type = <2>;
+			};
+		};
+	};
+
+	axi_ad9081_core_rx: axi-ad9081-rx-hpc@44a10000 {
+		compatible = "adi,axi-ad9081-rx-1.0";
+		reg = <0x44a10000 0x8000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&trx0_ad9081>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>;
+	};
+
+	axi_ad9081_core_tx: axi-ad9081-tx-hpc@44b10000 {
+		compatible = "adi,axi-ad9081-tx-1.0";
+		reg = <0x44b10000 0x4000>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+		clocks = <&trx0_ad9081 1>;
+		clock-names = "sampl_clk";
+		spibus-connected = <&trx0_ad9081>;
+		adi,axi-pl-fifo-enable;
+		adi,axi-data-offload-connected = <&axi_data_offload_tx>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
+	};
+
+	axi_ad9081_rx_jesd: axi-jesd204-rx@44a90000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44a90000 0x4000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <14 2>;
+
+		clocks = <&clk_bus_0>, <&axi_ad9081_adxcvr_rx 1>, <&hmc7044 8>, <&axi_ad9081_adxcvr_rx 0>;
+		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_rx_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9081_adxcvr_rx 0 FRAMER_LINK0_RX>;
+	};
+
+	axi_ad9081_tx_jesd: axi-jesd204-tx@44b90000 {
+		compatible = "adi,axi-jesd204-tx-1.0";
+		reg = <0x44b90000 0x4000>;
+
+		interrupt-parent = <&axi_intc>;
+		interrupts = <15 2>;
+
+		clocks = <&clk_bus_0>, <&axi_ad9081_adxcvr_tx 1>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 0>;
+		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_tx_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9081_adxcvr_tx 0 DEFRAMER_LINK0_TX>;
+	};
+
+	axi_ad9081_adxcvr_rx: axi-adxcvr-rx@44a60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x1000>;
+
+		clocks = <&hmc7044 12>; /* div40 is controlled by axi_ad9081_rx_jesd */
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+		adi,use-lpm-enable;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs =  <&hmc7044 0 FRAMER_LINK0_RX>;
+	};
+
+	axi_ad9081_adxcvr_tx: axi-adxcvr-tx@44b60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44b60000 0x1000>;
+
+		clocks = <&hmc7044 12>; /* div40 is controlled by axi_ad9081_tx_jesd */
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "tx_gt_clk", "tx_out_clk";
+
+		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK0_TX>;
+	};
+
+	axi_sysid_0: axi-sysid-0@45000000 {
+		compatible = "adi,axi-sysid-1.00.a";
+		reg = <0x45000000 0x10000>;
+	};
+
+	axi_data_offload_rx: data_offload@7c450000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c450000 0x10000>;
+	};
+
+	axi_data_offload_tx: data_offload@7c440000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x7c440000 0x10000>;
+	};
+};
+
+#include "adi-ad9081-fmc-ebz.dtsi"
+
+&trx0_ad9081 {
+	reset-gpios = <&axi_gpio 55 0>;
+	irqb0-gpios = <&axi_gpio 52 0>;
+	irqb1-gpios = <&axi_gpio 53 0>;
+	sysref-req-gpios = <&axi_gpio 43 0>;
+	rx2-enable-gpios = <&axi_gpio 57 0>;
+	rx1-enable-gpios = <&axi_gpio 56 0>;
+	tx2-enable-gpios = <&axi_gpio 59 0>;
+	tx1-enable-gpios = <&axi_gpio 58 0>;
+};
+
+&axi_ad9081_core_tx {
+	plddrbypass-gpios = <&axi_gpio 60 0>;
+};
