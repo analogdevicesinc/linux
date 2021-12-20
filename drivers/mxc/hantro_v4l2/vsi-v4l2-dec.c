@@ -306,8 +306,10 @@ static bool vsi_dec_check_reschange(struct vsi_v4l2_ctx *ctx)
 		return true;
 	if (pcfg->sizeimagedst[0] < pcfg->sizeimagedst_bkup)
 		return true;
-	if (pcfg->decparams.dec_info.dec_info.needed_dpb_nums != pcfg->decparams_bkup.dec_info.dec_info.needed_dpb_nums)
-		return true;
+	if (test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
+		if (pcfg->decparams.dec_info.dec_info.needed_dpb_nums != pcfg->decparams_bkup.dec_info.dec_info.needed_dpb_nums)
+			return true;
+	}
 	if (q->num_buffers < pcfg->minbuf_4output_bkup)
 		return true;
 

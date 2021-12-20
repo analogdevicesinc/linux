@@ -355,6 +355,14 @@ static void vsi_enum_decfsize(struct v4l2_frmsizeenum *f, u32 pixel_format)
 			break;
 		}
 	}
+
+	if (pixel_format == V4L2_PIX_FMT_HEVC || pixel_format == V4L2_PIX_FMT_VP9) {
+		f->stepwise.step_width = 8;
+		f->stepwise.step_height = 8;
+	} else {
+		f->stepwise.step_width = 16;
+		f->stepwise.step_height = 16;
+	}
 }
 
 int vsi_get_Level(struct vsi_v4l2_ctx *ctx, int mediatype, int dir, int level)
@@ -1469,6 +1477,7 @@ static int vsiv4l2_setfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {
 	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
 	struct v4l2_pix_format *pix = &fmt->fmt.pix;
+	struct v4l2_pix_format pix_ori = fmt->fmt.pix;
 	struct vsi_video_fmt *targetfmt;
 	int ret = 0;
 
@@ -1485,14 +1494,20 @@ static int vsiv4l2_setfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 		pcfg->outfmt_fourcc = pix->pixelformat;
 
 		if (!test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
+			struct v4l2_frmsizeenum fmsize;
+
 			pcfg->decparams.dec_info.io_buffer.output_width = pix->width;
 			pcfg->decparams.dec_info.io_buffer.output_height = pix->height;
 			pcfg->decparams.dec_info.io_buffer.outBufFormat = targetfmt->dec_fmt;
 			pcfg->bytesperline = pix->bytesperline;
+
+			vsi_enum_decfsize(&fmsize, pcfg->infmt_fourcc);
 			pcfg->decparams.dec_info.dec_info.visible_rect.left = 0;
 			pcfg->decparams.dec_info.dec_info.visible_rect.top = 0;
-			pcfg->decparams.dec_info.dec_info.visible_rect.width = pix->width;
-			pcfg->decparams.dec_info.dec_info.visible_rect.height = pix->height;
+			pcfg->decparams.dec_info.dec_info.visible_rect.width =
+				clamp(pix_ori.width, fmsize.stepwise.min_width, fmsize.stepwise.max_width);
+			pcfg->decparams.dec_info.dec_info.visible_rect.height =
+				clamp(pix_ori.height, fmsize.stepwise.min_height, fmsize.stepwise.max_height);
 		} else {
 			//dtrc is only for HEVC and VP9
 			if (istiledfmt(targetfmt->dec_fmt)
@@ -1571,10 +1586,8 @@ static int vsiv4l2_verifyfmt_enc(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 		fmsize.pixel_format = pixmp->pixelformat;
 	vsi_enum_encfsize(&fmsize, fmsize.pixel_format);
 
-	pixmp->width = min(pixmp->width, fmsize.stepwise.max_width);
-	pixmp->width = max_t(u32, pixmp->width, fmsize.stepwise.min_width);
-	pixmp->height = min(pixmp->height, fmsize.stepwise.max_height);
-	pixmp->height = max_t(u32, pixmp->height, fmsize.stepwise.min_height);
+	pixmp->width = clamp(pixmp->width, fmsize.stepwise.min_width, fmsize.stepwise.max_width);
+	pixmp->height = clamp(pixmp->height, fmsize.stepwise.min_height, fmsize.stepwise.max_height);
 
 	if (vsi_v4l2_hwconfig.enc_isH1) {
 		if (pixmp->width & 0x3)
@@ -1651,10 +1664,12 @@ static int vsiv4l2_verifyfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 		fmsize.pixel_format = pcfg->infmt_fourcc;
 
 	vsi_enum_decfsize(&fmsize, fmsize.pixel_format);
-	pix->width = min(pix->width, fmsize.stepwise.max_width);
-	pix->width = max_t(u32, pix->width, fmsize.stepwise.min_width);
-	pix->height = min(pix->height, fmsize.stepwise.max_height);
-	pix->height = max_t(u32, pix->height, fmsize.stepwise.min_height);
+	if (V4L2_TYPE_IS_CAPTURE(fmt->type)) {
+		pix->width = ALIGN(pix->width, fmsize.stepwise.step_width);
+		pix->height = ALIGN(pix->height, fmsize.stepwise.step_height);
+	}
+	pix->width = clamp(pix->width, fmsize.stepwise.min_width, fmsize.stepwise.max_width);
+	pix->height = clamp(pix->height, fmsize.stepwise.min_height, fmsize.stepwise.max_height);
 
 	if (braw) {
 		if (!test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
