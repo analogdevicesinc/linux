@@ -317,7 +317,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	u32 handled_irq = 0;
 
 	regmap_read(ade9078_dev->regmap, ADDR_STATUS0, &status);
-	dev_info(&ade9078_dev->spi->dev, "IRQ0 status 0x%x", status);
+	dev_dbg(&ade9078_dev->spi->dev, "IRQ0 status 0x%x", status);
 	ade9078_dev->triggered = false;
 
 	if(((status & ADE9078_ST0_PAGE_FULL) == ADE9078_ST0_PAGE_FULL) &&
@@ -342,7 +342,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		regmap_write(ade9078_dev->regmap, ADDR_MASK0,
 				ade9078_dev->irq0_bits);
 
-		dev_info(&ade9078_dev->spi->dev, "IRQ0 ADE9078_ST0_PAGE_FULL");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ0 ADE9078_ST0_PAGE_FULL");
 		handled_irq |= ADE9078_ST0_PAGE_FULL;
 	}
 
@@ -356,12 +356,12 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		ade9078_dev->triggered = true;
 
 		handled_irq |= ADE9078_ST0_WFB_TRIG_IRQ;
-		dev_info(&ade9078_dev->spi->dev, "IRQ0 ADE9078_ST0_WFB_TRIG_IRQ");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ0 ADE9078_ST0_WFB_TRIG_IRQ");
 	}
 
 	regmap_write(ade9078_dev->regmap, ADDR_STATUS0, handled_irq);
 
-	dev_info(&ade9078_dev->spi->dev, "IRQ0 thread done");
+	dev_dbg(&ade9078_dev->spi->dev, "IRQ0 thread done");
 
 	return IRQ_HANDLED;
 }
@@ -387,7 +387,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 			dev_err(&ade9078_dev->spi->dev, "Error testing reset done");
 		else if(result == 1)
 			ade9078_dev->rst_done = true;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 Reset");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 Reset");
 		goto irq_done;
 	}
 
@@ -404,7 +404,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXVA;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXVA");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXVA");
 	}
 	if(((status & ADE9078_ST1_ZXTOVA) == ADE9078_ST1_ZXTOVA) &&
 	   ((ade9078_dev->irq1_bits & ADE9078_ST1_ZXTOVA) == ADE9078_ST1_ZXTOVA))
@@ -416,7 +416,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXTOVA;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXTOVA");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXTOVA");
 	}
 
 	if(((status & ADE9078_ST1_ZXVB) == ADE9078_ST1_ZXVB) &&
@@ -429,7 +429,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXVB;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXVB");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXVB");
 
 	}
 	if(((status & ADE9078_ST1_ZXTOVB) == ADE9078_ST1_ZXTOVB) &&
@@ -442,7 +442,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXTOVB;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXTOVB");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXTOVB");
 	}
 
 	if(((status & ADE9078_ST1_ZXVC) == ADE9078_ST1_ZXVC) &&
@@ -455,7 +455,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXVC;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXVC");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXVC");
 	}
 	if(((status & ADE9078_ST1_ZXTOVC) == ADE9078_ST1_ZXTOVC) &&
 	   ((ade9078_dev->irq1_bits & ADE9078_ST1_ZXTOVC) == ADE9078_ST1_ZXTOVC))
@@ -467,7 +467,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXTOVC;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXTOVC");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXTOVC");
 	}
 	if(((status & ADE9078_ST1_ZXIA) == ADE9078_ST1_ZXIA) &&
 	   ((ade9078_dev->irq1_bits & ADE9078_ST1_ZXIA) == ADE9078_ST1_ZXIA))
@@ -479,7 +479,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXIA;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXIA");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXIA");
 	}
 	if(((status & ADE9078_ST1_ZXIB) == ADE9078_ST1_ZXIB) &&
 	   ((ade9078_dev->irq1_bits & ADE9078_ST1_ZXIB) == ADE9078_ST1_ZXIB))
@@ -491,7 +491,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXIB;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXIB");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXIB");
 	}
 	if(((status & ADE9078_ST1_ZXIC) == ADE9078_ST1_ZXIC) &&
 	   ((ade9078_dev->irq1_bits & ADE9078_ST1_ZXIC) == ADE9078_ST1_ZXIC))
@@ -503,11 +503,11 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							IIO_EV_DIR_EITHER),
 				   timestamp);
 		ade9078_dev->irq1_status |= ADE9078_ST1_ZXIC;
-		dev_info(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXIC");
+		dev_dbg(&ade9078_dev->spi->dev, "IRQ1 ADE9078_ST1_ZXIC");
 	}
 
 irq_done:
-	dev_info(&ade9078_dev->spi->dev, "IRQ1 thread done");
+	dev_dbg(&ade9078_dev->spi->dev, "IRQ1 thread done");
 	return IRQ_HANDLED;
 }
 
@@ -527,7 +527,7 @@ static void ade9078_pop_wfb(struct iio_poll_func *pf)
 				&ade9078_dev->rx_buff.word[i]);
 	}
 
-	dev_info(&ade9078_dev->spi->dev, "Pushed to buffer");
+	dev_dbg(&ade9078_dev->spi->dev, "Pushed to buffer");
 }
 
 /*
@@ -542,7 +542,7 @@ static irqreturn_t ade9078_trigger_handler(int irq, void *p)
 	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
 	int ret;
 
-	dev_info(&ade9078_dev->spi->dev, "Triggered");
+	dev_dbg(&ade9078_dev->spi->dev, "Triggered");
 	if(bitmap_empty(indio_dev->active_scan_mask, indio_dev->masklength))
 	{
 		dev_err(&ade9078_dev->spi->dev, "Bitmap empty in trigger handler");
@@ -710,17 +710,17 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 	u32 status1 = 0;
 	int ret;
 
-	dev_info(&ade9078_dev->spi->dev, "Enter event");
+	dev_dbg(&ade9078_dev->spi->dev, "Enter event");
 
 	number = chan->channel;
-	dev_info(&ade9078_dev->spi->dev, "Event channel %d", number);
+	dev_dbg(&ade9078_dev->spi->dev, "Event channel %d", number);
 	switch(number){
 	case ADE9078_PHASE_A_NR:
 		if(chan->type == IIO_VOLTAGE){
 			if(state){
 				ade9078_dev->irq1_bits |= ADE9078_ST1_ZXVA | ADE9078_ST1_ZXTOVA;
 				ade9078_dev->wfb_trg_cfg |= BIT(6);
-				dev_info(&ade9078_dev->spi->dev, "ZXVA set");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXVA set");
 			}
 			else{
 				ade9078_dev->irq1_bits &= ~ADE9078_ST1_ZXVA &
@@ -728,20 +728,20 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				ade9078_dev->irq1_status &= ~ADE9078_ST1_ZXVA &
 											~ADE9078_ST1_ZXTOVA;
 				ade9078_dev->wfb_trg_cfg &= ~BIT(6);
-				dev_info(&ade9078_dev->spi->dev, "ZXVA cleared");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXVA cleared");
 			}
 		}
 		else if(chan->type == IIO_CURRENT){
 			if(state){
 				ade9078_dev->irq1_bits |= ADE9078_ST1_ZXIA;
 				ade9078_dev->wfb_trg_cfg |= BIT(3);
-				dev_info(&ade9078_dev->spi->dev, "ZXIA set");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXIA set");
 			}
 			else {
 				ade9078_dev->irq1_bits &= ~ADE9078_ST1_ZXIA;
 				ade9078_dev->irq1_status &= ~ADE9078_ST1_ZXIA;
 				ade9078_dev->wfb_trg_cfg &= ~BIT(3);
-				dev_info(&ade9078_dev->spi->dev, "ZXIA cleared");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXIA cleared");
 			}
 		}
 		break;
@@ -750,7 +750,7 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 			if(state){
 				ade9078_dev->irq1_bits |= ADE9078_ST1_ZXVB | ADE9078_ST1_ZXTOVB;
 				ade9078_dev->wfb_trg_cfg |= BIT(7);
-				dev_info(&ade9078_dev->spi->dev, "ZXVB set");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXVB set");
 			}
 			else{
 				ade9078_dev->irq1_bits &= ~ADE9078_ST1_ZXVB &
@@ -758,20 +758,20 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				ade9078_dev->irq1_status &= ~ADE9078_ST1_ZXVB &
 											~ADE9078_ST1_ZXTOVB;
 				ade9078_dev->wfb_trg_cfg &= ~BIT(7);
-				dev_info(&ade9078_dev->spi->dev, "ZXVB cleared");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXVB cleared");
 			}
 		}
 		else if(chan->type == IIO_CURRENT){
 			if(state){
 				ade9078_dev->irq1_bits |= ADE9078_ST1_ZXIB;
 				ade9078_dev->wfb_trg_cfg |= BIT(4);
-				dev_info(&ade9078_dev->spi->dev, "ZXIB set");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXIB set");
 			}
 			else{
 				ade9078_dev->irq1_bits &= ~ADE9078_ST1_ZXIB;
 				ade9078_dev->irq1_status &= ~ADE9078_ST1_ZXIB;
 				ade9078_dev->wfb_trg_cfg &= ~BIT(4);
-				dev_info(&ade9078_dev->spi->dev, "ZXIB cleared");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXIB cleared");
 			}
 		}
 		break;
@@ -780,7 +780,7 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 			if(state){
 				ade9078_dev->irq1_bits |= ADE9078_ST1_ZXVC | ADE9078_ST1_ZXTOVC;
 				ade9078_dev->wfb_trg_cfg |= BIT(8);
-				dev_info(&ade9078_dev->spi->dev, "ZXVC set");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXVC set");
 			}
 			else{
 				ade9078_dev->irq1_bits &= ~ADE9078_ST1_ZXVC &
@@ -788,20 +788,20 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				ade9078_dev->irq1_status &= ~ADE9078_ST1_ZXVC &
 											~ADE9078_ST1_ZXTOVC;
 				ade9078_dev->wfb_trg_cfg &= ~BIT(8);
-				dev_info(&ade9078_dev->spi->dev, "ZXVC cleared");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXVC cleared");
 			}
 		}
 		else if(chan->type == IIO_CURRENT){
 			if(state){
 				ade9078_dev->irq1_bits |= ADE9078_ST1_ZXIC;
 				ade9078_dev->wfb_trg_cfg |= BIT(5);
-				dev_info(&ade9078_dev->spi->dev, "ZXIC set");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXIC set");
 			}
 			else{
 				ade9078_dev->irq1_bits &= ~ADE9078_ST1_ZXIC;
 				ade9078_dev->irq1_status &= ~ADE9078_ST1_ZXIC;
 				ade9078_dev->wfb_trg_cfg &= ~BIT(5);
-				dev_info(&ade9078_dev->spi->dev, "ZXIC cleared");
+				dev_dbg(&ade9078_dev->spi->dev, "ZXIC cleared");
 			}
 		}
 		break;
@@ -928,7 +928,7 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 	}
 
 	regmap_write(ade9078_dev->regmap, ADDR_STATUS1, handled_irq1);
-	dev_info(&ade9078_dev->spi->dev, "Read event handled_irq1 0x%x", handled_irq1);
+	dev_dbg(&ade9078_dev->spi->dev, "Read event handled_irq1 0x%x", handled_irq1);
 	return IIO_VAL_INT;
 }
 
@@ -1352,7 +1352,7 @@ static int ade9078_setup(struct ade9078_device *ade9078_dev)
 {
 	int ret = 0;
 
-	dev_info(&ade9078_dev->spi->dev, "Setup started");
+	dev_dbg(&ade9078_dev->spi->dev, "Setup started");
 	ret = regmap_write(ade9078_dev->regmap, ADDR_PGA_GAIN, ADE9078_PGA_GAIN);
 	if(ret)
 		return ret;
@@ -1414,7 +1414,7 @@ static int ade9078_setup(struct ade9078_device *ade9078_dev)
 	if (ret)
 		return ret;
 
-	dev_info(&ade9078_dev->spi->dev, "Setup finished");
+	dev_dbg(&ade9078_dev->spi->dev, "Setup finished");
 
 	return ret;
 }
@@ -1466,7 +1466,7 @@ static int ade9078_probe(struct spi_device *spi)
 	unsigned long irqflags = 0;
 	int ret = 0;
 
-	printk(KERN_INFO "Enter ade9078_probe\n");
+	dev_info(&spi->dev,"Enter ade9078_probe\n");
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*ade9078_dev));
 	if(indio_dev == NULL) {
@@ -1591,7 +1591,7 @@ static int ade9078_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "ADE9078 reset failed");
 		return ret;
 	}
-	dev_info(&spi->dev, "Reset done");
+	dev_dbg(&spi->dev, "Reset done");
 
 	ret = ade9078_setup(ade9078_dev);
 	if (ret) {
@@ -1607,7 +1607,7 @@ static int ade9078_remove(struct spi_device *spi)
 	struct ade9078_device *ade9078_dev = spi_get_drvdata(spi);
 	struct iio_dev *indio_dev = ade9078_dev->indio_dev;
 
-	printk(KERN_INFO "Exit ade9078_probe\n");
+	dev_info(&spi->dev,"Exit ade9078_probe\n");
 	ade9078_dev->trig->dev.parent = NULL;
 	iio_trigger_unregister(ade9078_dev->trig);
 	iio_device_unregister(indio_dev);
