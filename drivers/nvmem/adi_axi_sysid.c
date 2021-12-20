@@ -116,7 +116,7 @@ static int axi_sysid_validate_v1_1(struct platform_device *pdev,
 				   struct build_info_header_v1_1 *build)
 {
 	struct sysid_header_v1 *header;
-	char custom_info[48];
+	char custom_info[128];
 	struct tm tm;
 	time64_t t = 0;
 
@@ -131,7 +131,8 @@ static int axi_sysid_validate_v1_1(struct platform_device *pdev,
 	time64_to_tm(t, 0, &tm);
 
 	if (axi_sysid_get_str(st, header->custom_info_offs))
-		sprintf(custom_info, "%s%s%s", " [", axi_sysid_get_str(st, header->custom_info_offs), "]");
+		snprintf(custom_info, sizeof(custom_info), "%s%s%s",
+			" [", axi_sysid_get_str(st, header->custom_info_offs), "]");
 	else
 		custom_info[0] = 0;
 
@@ -154,7 +155,7 @@ static int axi_sysid_validate_v1(struct platform_device *pdev,
 				 struct build_info_header_v1 *build)
 {
 	struct sysid_header_v1 *header;
-	char custom_info[48];
+	char custom_info[128];
 	struct tm tm;
 	time64_t t = 0;
 
@@ -169,7 +170,8 @@ static int axi_sysid_validate_v1(struct platform_device *pdev,
 	time64_to_tm(t, 0, &tm);
 
 	if (axi_sysid_get_str(st, header->custom_info_offs))
-		sprintf(custom_info, "%s%s%s", " [", axi_sysid_get_str(st, header->custom_info_offs), "]");
+		snprintf(custom_info, sizeof(custom_info), "%s%s%s",
+			" [", axi_sysid_get_str(st, header->custom_info_offs), "]");
 	else
 		custom_info[0] = 0;
 
