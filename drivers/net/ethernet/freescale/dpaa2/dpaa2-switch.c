@@ -598,6 +598,7 @@ static int dpaa2_switch_port_link_state_update(struct net_device *netdev)
 {
 	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
 	struct dpsw_link_state state;
+	int tries = 5;
 	int err;
 
 	/* When we manage the MAC/PHY using phylink there is no need
@@ -615,6 +616,7 @@ static int dpaa2_switch_port_link_state_update(struct net_device *netdev)
 	if (!netif_running(netdev))
 		return 0;
 
+get_link_state:
 	err = dpsw_if_get_link_state(port_priv->ethsw_data->mc_io, 0,
 				     port_priv->ethsw_data->dpsw_handle,
 				     port_priv->idx, &state);
@@ -634,7 +636,12 @@ static int dpaa2_switch_port_link_state_update(struct net_device *netdev)
 			netif_tx_stop_all_queues(netdev);
 		}
 		port_priv->link_state = state.up;
+	} else {
+		if (--tries) {
+			goto get_link_state;
+		}
 	}
+
 
 	return 0;
 }
