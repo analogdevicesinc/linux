@@ -309,6 +309,18 @@ static int adt7x10_write(struct device *dev, enum hwmon_sensor_types type,
 	}
 }
 
+static int adt7x10_reg_access(struct device *hdev, unsigned int reg,
+			      unsigned int writeval,
+			      unsigned int *readval)
+{
+	struct adt7x10_data *data = dev_get_drvdata(hdev);
+
+	if (!readval)
+		return regmap_write(data->regmap, reg, writeval);
+
+	return regmap_read(data->regmap, reg, readval);
+}
+
 static const struct hwmon_channel_info *adt7x10_info[] = {
 	HWMON_CHANNEL_INFO(temp, HWMON_T_INPUT | HWMON_T_MAX | HWMON_T_MIN |
 			   HWMON_T_CRIT | HWMON_T_MAX_HYST | HWMON_T_MIN_HYST |
@@ -321,6 +333,7 @@ static const struct hwmon_ops adt7x10_hwmon_ops = {
 	.is_visible = adt7x10_is_visible,
 	.read = adt7x10_read,
 	.write = adt7x10_write,
+	.reg_access = adt7x10_reg_access,
 };
 
 static const struct hwmon_chip_info adt7x10_chip_info = {
