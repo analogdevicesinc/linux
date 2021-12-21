@@ -1232,9 +1232,19 @@ OnError:
 
 static gctBOOL
 _IsGPUIdle(
-    IN gctUINT32 Idle
+    IN gctUINT32 Idle,
+    IN gckHARDWARE Hardware
     )
 {
+    if (Hardware->identity.chipModel == 0x7000
+        && Hardware->identity.chipRevision == 0x6205
+        && Hardware->identity.productID == 0x70007
+        && Hardware->identity.ecoID == 0x0
+        && Hardware->identity.customerID == 0x12)
+    {
+        Idle = (Idle | (1 << 14));
+    }
+
     return Idle == 0x7FFFFFFF;
 }
 
@@ -6197,7 +6207,7 @@ gckHARDWARE_GetIdle(
                                              &address));
 
             /* See if we have to wait for FE idle. */
-            if (_IsGPUIdle(idle)
+            if (_IsGPUIdle(idle, Hardware)
              && (address == Hardware->lastEnd + 8)
              )
             {
@@ -6207,7 +6217,7 @@ gckHARDWARE_GetIdle(
         }
 
         /* Check if we need to wait for FE and FE is busy. */
-        if (Wait && !_IsGPUIdle(idle))
+        if (Wait && !_IsGPUIdle(idle, Hardware))
         {
             /* Wait a little. */
             gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
@@ -13844,7 +13854,7 @@ gckHARDWARE_ExecuteFunctions(
             }
 #endif
         }
-        while (!_IsGPUIdle(idle));
+        while (!_IsGPUIdle(idle, hardware));
     }
 
     return gcvSTATUS_OK;
