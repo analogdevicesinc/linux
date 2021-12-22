@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/imu/nxp,rpmsg_iio_pedometer.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP virtual pedometer sensor through rpmsg
+
+maintainers:
+  - Haibo Chen <haibo.chen@nxp.com>
+
+description: |
+  For NXP iMX7ULP/iMX8ULP evk board, some sensors connect with M4 core,
+  A core has to communicate with sensors through virtual IO bus like
+  RPMSG.
+
+properties:
+  compatible:
+    enum:
+      - nxp,rpmsg-iio-pedometer
+
+required:
+  - compatible
+
+additionalProperties: false
+
+examples:
+  - |
+    rpmsg_sensor:rpmsg-sensor {
+        compatible = "nxp,rpmsg-iio-pedometer";
+    };
