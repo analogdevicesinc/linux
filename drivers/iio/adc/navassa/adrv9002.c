@@ -1142,6 +1142,7 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	struct adi_adrv9001_RxChannelCfg *rx_cfg = &phy->curr_profile->rx.rxChannelCfg[channel];
 	bool enable;
+	u32 val;
 
 	mutex_lock(&phy->lock);
 	if (!rx->channel.enabled && port == ADI_RX) {
@@ -1230,6 +1231,15 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 		if (ret)
 			ret = adrv9002_dev_err(phy);
 		break;
+	case RX_BBDC_LOOP_GAIN:
+		ret = kstrtou32(buf, 10, &val);
+		if (ret)
+			goto unlock;
+
+		ret = adi_adrv9010_bbdc_LoopGain_Set(phy->adrv9001, rx->channel.number, val);
+		if (ret)
+			ret = adrv9002_dev_err(phy);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1247,7 +1257,7 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	int ret = 0;
 	u16 dec_pwr_mdb;
-	u32 rssi_pwr_mdb;
+	u32 rssi_pwr_mdb, val;
 	struct adi_adrv9001_TrackingCals tracking_cals;
 	const u32 *calls_mask = tracking_cals.chanTrackingCalMask;
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
@@ -1345,6 +1355,15 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 		}
 
 		ret = sprintf(buf, "%d\n", bbdc);
+		break;
+	case RX_BBDC_LOOP_GAIN:
+		ret = adi_adrv9010_bbdc_LoopGain_Get(phy->adrv9001, rx->channel.number, &val);
+		if (ret) {
+			mutex_unlock(&phy->lock);
+			return adrv9002_dev_err(phy);
+		}
+
+		ret = sysfs_emit(buf, "%u\n", val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1659,6 +1678,7 @@ static const struct iio_chan_spec_ext_info adrv9002_phy_rx_ext_info[] = {
 	_ADRV9002_EXT_RX_INFO("rfdc_tracking_en", RX_RFDC),
 	_ADRV9002_EXT_RX_INFO("dynamic_adc_switch_en", RX_ADC_SWITCH),
 	_ADRV9002_EXT_RX_INFO("bbdc_rejection_en", RX_BBDC),
+	_ADRV9002_EXT_RX_INFO("bbdc_loop_gain_raw", RX_BBDC_LOOP_GAIN),
 	{ },
 };
 
