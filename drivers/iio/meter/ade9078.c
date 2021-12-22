@@ -5,6 +5,7 @@
  * Copyright 2021 Analog Devices Inc.
  */
 
+#include <asm/unaligned.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iio/iio.h>
@@ -453,18 +454,12 @@ static int ade9078_spi_write_reg(void *context,
 
 	addr = ADE9078_WRITE_REG(reg);
 
-	mutex_lock(&ade9078_dev->lock);
-	ade9078_dev->tx[5] = (u8)val & 0xFF;
-	ade9078_dev->tx[4] = (u8)(val >> 8) & 0xFF;
-	ade9078_dev->tx[3] = (u8)(val >> 16) & 0xFF;
-	ade9078_dev->tx[2] = (u8)(val >> 24) & 0xFF;
-	ade9078_dev->tx[1] = (u8)addr;
-	ade9078_dev->tx[0] = (u8)(addr >> 8);
+	put_unaligned_be16(addr, ade9078_dev->tx);
+	put_unaligned_be32(val, &ade9078_dev->tx[2]);
 
 	//registers which are 16 bits
 	if (reg > 0x480 && reg < 0x4FE) {
-		ade9078_dev->tx[3] = (u8)val & 0xFF;
-		ade9078_dev->tx[2] = (u8)(val >> 8) & 0xFF;
+		put_unaligned_be16(val, &ade9078_dev->tx[2]);
 		xfer[0].len = 4;
 	}
 
@@ -475,7 +470,6 @@ static int ade9078_spi_write_reg(void *context,
 			reg);
 	}
 
-	mutex_unlock(&ade9078_dev->lock);
 	return ret;
 }
 
@@ -512,9 +506,7 @@ static int ade9078_spi_read_reg(void *context,
 
 	addr = ADE9078_READ_REG(reg);
 
-	mutex_lock(&ade9078_dev->lock);
-	ade9078_dev->tx[1] = (u8)addr;
-	ade9078_dev->tx[0] = (u8)(addr >> 8);
+	put_unaligned_be16(addr, ade9078_dev->tx);
 
 	//registers which are 16 bits
 	if (reg > 0x480 && reg < 0x4FE)
@@ -530,13 +522,11 @@ static int ade9078_spi_read_reg(void *context,
 
 	//registers which are 16 bits
 	if (reg > 0x480 && reg < 0x4FE)
-		*val = (ade9078_dev->rx[0] << 8) | ade9078_dev->rx[1];
+		*val = get_unaligned_be16(ade9078_dev->rx);
 	else
-		*val = (ade9078_dev->rx[0] << 24) | (ade9078_dev->rx[1] << 16) |
-			(ade9078_dev->rx[2] << 8) | ade9078_dev->rx[3];
+		*val = get_unaligned_be32(ade9078_dev->rx);
 
 err_ret:
-	mutex_unlock(&ade9078_dev->lock);
 	return ret;
 }
 
