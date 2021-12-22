@@ -87,7 +87,7 @@
 	};
 };
 
-&i2c_to_spi_1 {
+&i2c_to_spi_2 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	ad5760@0 {
@@ -108,7 +108,7 @@
 	};
 };
 
-&i2c_to_spi_2 {
+&i2c_to_spi_1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	adrf5720@0 {
