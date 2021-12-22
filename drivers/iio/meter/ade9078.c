@@ -923,7 +923,7 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	int ret;
-	s32 *measured;
+	s32 measured;
 	struct ade9078_device *ade9078_dev = iio_priv(indio_dev);
 
 	switch (mask) {
@@ -932,10 +932,10 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		ret = regmap_read(ade9078_dev->regmap, chan->address, measured);
+		ret = regmap_read(ade9078_dev->regmap, chan->address, &measured);
 
 		iio_device_release_direct_mode(indio_dev);
-		*val = *measured;
+		*val = measured;
 
 		return IIO_VAL_INT;
 
