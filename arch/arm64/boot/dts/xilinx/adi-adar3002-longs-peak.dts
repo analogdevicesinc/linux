@@ -140,7 +140,7 @@
 };
 
 &axi_spi_pmod {
-	adar3002_T0: adar3002_0@0 {
+	adar3002_csb_0@0 {
 		compatible = "adi,adar3002";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
@@ -149,76 +149,76 @@
 		#size-cells = <0>;
 		reset-gpios = <&gpio 139 0>;
 
-		adar3002_0@0 {
+		adar3002_csb_0_0@0 {
 			reg = <0>;
 			label = "adar3002_U1E";
 		};
-		adar3002_1@1 {
+		adar3002_csb_0_1@1 {
 			reg = <1>;
 			label = "adar3002_U2E";
 		};
-		adar3002_2@2 {
+		adar3002_csb_0_2@2 {
 			reg = <2>;
 			label = "adar3002_U3E";
 		};
-		adar3002_3@3 {
+		adar3002_csb_0_3@3 {
 			reg = <3>;
 			label = "adar3002_U4E";
 		};
 
-		adar3002_4@4 {
+		adar3002_csb_0_4@4 {
 			reg = <4>;
 			label = "adar3002_U1F";
 		};
-		adar3002_5@5 {
+		adar3002_csb_0_5@5 {
 			reg = <5>;
 			label = "adar3002_U2F";
 		};
-		adar3002_6@6 {
+		adar3002_csb_0_6@6 {
 			reg = <6>;
 			label = "adar3002_U3F";
 		};
-		adar3002_7@7 {
+		adar3002_csb_0_7@7 {
 			reg = <7>;
 			label = "adar3002_U4F";
 		};
 
-		adar3002_8@8 {
+		adar3002_csb_0_8@8 {
 			reg = <8>;
 			label = "adar3002_U1G";
 		};
-		adar3002_9@9 {
+		adar3002_csb_0_9@9 {
 			reg = <9>;
 			label = "adar3002_U2G";
 		};
-		adar3002_10@10 {
+		adar3002_csb_0_10@10 {
 			reg = <10>;
 			label = "adar3002_U3G";
 		};
-		adar3002_11@11 {
+		adar3002_csb_0_11@11 {
 			reg = <11>;
 			label = "adar3002_U4G";
 		};
 
-		adar3002_12@12 {
+		adar3002_csb_0_12@12 {
 			reg = <12>;
 			label = "adar3002_U1H";
 		};
-		adar3002_13@13 {
+		adar3002_csb_0_13@13 {
 			reg = <13>;
 			label = "adar3002_U2H";
 		};
-		adar3002_14@14 {
+		adar3002_csb_0_14@14 {
 			reg = <14>;
 			label = "adar3002_U3H";
 		};
-		adar3002_15@15 {
+		adar3002_csb_0_15@15 {
 			reg = <15>;
 			label = "adar3002_U4H";
 		};
 	};
 
-	adar3002_T1: adar3002_1@1 {
+	adar3002_csb_1@1 {
 		compatible = "adi,adar3002";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
@@ -227,76 +227,76 @@
 		#size-cells = <0>;
 		reset-gpios = <&gpio 139 0>;
 
-		adar3002_0@0 {
+		adar3002_csb_1_0@0 {
 			reg = <0>;
 			label = "adar3002_U1E";
 		};
-		adar3002_1@1 {
+		adar3002_csb_1_1@1 {
 			reg = <1>;
 			label = "adar3002_U2E";
 		};
-		adar3002_2@2 {
+		adar3002_csb_1_2@2 {
 			reg = <2>;
 			label = "adar3002_U3E";
 		};
-		adar3002_3@3 {
+		adar3002_csb_1_3@3 {
 			reg = <3>;
 			label = "adar3002_U4E";
 		};
 
-		adar3002_4@4 {
+		adar3002_csb_1_4@4 {
 			reg = <4>;
 			label = "adar3002_U1F";
 		};
-		adar3002_5@5 {
+		adar3002_csb_1_5@5 {
 			reg = <5>;
 			label = "adar3002_U2F";
 		};
-		adar3002_6@6 {
+		adar3002_csb_1_6@6 {
 			reg = <6>;
 			label = "adar3002_U3F";
 		};
-		adar3002_7@7 {
+		adar3002_csb_1_7@7 {
 			reg = <7>;
 			label = "adar3002_U4F";
 		};
 
-		adar3002_8@8 {
+		adar3002_csb_1_8@8 {
 			reg = <8>;
 			label = "adar3002_U1G";
 		};
-		adar3002_9@9 {
+		adar3002_csb_1_9@9 {
 			reg = <9>;
 			label = "adar3002_U2G";
 		};
-		adar3002_10@10 {
+		adar3002_csb_1_10@10 {
 			reg = <10>;
 			label = "adar3002_U3G";
 		};
-		adar3002_11@11 {
+		adar3002_csb_1_11@11 {
 			reg = <11>;
 			label = "adar3002_U4G";
 		};
 
-		adar3002_12@12 {
+		adar3002_csb_1_12@12 {
 			reg = <12>;
 			label = "adar3002_U1H";
 		};
-		adar3002_13@13 {
+		adar3002_csb_1_13@13 {
 			reg = <13>;
 			label = "adar3002_U2H";
 		};
-		adar3002_14@14 {
+		adar3002_csb_1_14@14 {
 			reg = <14>;
 			label = "adar3002_U3H";
 		};
-		adar3002_15@15 {
+		adar3002_csb_1_15@15 {
 			reg = <15>;
 			label = "adar3002_U4H";
 		};
 	};
 
-	adar3002_T2: adar3002_2@2 {
+	adar3002_csb_2@2 {
 		compatible = "adi,adar3002";
 		reg = <2>;
 		spi-max-frequency = <1000000>;
@@ -305,76 +305,76 @@
 		#size-cells = <0>;
 		reset-gpios = <&gpio 139 0>;
 
-		adar3002_0@0 {
+		adar3002_csb_2_0@0 {
 			reg = <0>;
 			label = "adar3002_U1E";
 		};
-		adar3002_1@1 {
+		adar3002_csb_2_1@1 {
 			reg = <1>;
 			label = "adar3002_U2E";
 		};
-		adar3002_2@2 {
+		adar3002_csb_2_2@2 {
 			reg = <2>;
 			label = "adar3002_U3E";
 		};
-		adar3002_3@3 {
+		adar3002_csb_2_3@3 {
 			reg = <3>;
 			label = "adar3002_U4E";
 		};
 
-		adar3002_4@4 {
+		adar3002_csb_2_4@4 {
 			reg = <4>;
 			label = "adar3002_U1F";
 		};
-		adar3002_5@5 {
+		adar3002_csb_2_5@5 {
 			reg = <5>;
 			label = "adar3002_U2F";
 		};
-		adar3002_6@6 {
+		adar3002_csb_2_6@6 {
 			reg = <6>;
 			label = "adar3002_U3F";
 		};
-		adar3002_7@7 {
+		adar3002_csb_2_7@7 {
 			reg = <7>;
 			label = "adar3002_U4F";
 		};
 
-		adar3002_8@8 {
+		adar3002_csb_2_8@8 {
 			reg = <8>;
 			label = "adar3002_U1G";
 		};
-		adar3002_9@9 {
+		adar3002_csb_2_9@9 {
 			reg = <9>;
 			label = "adar3002_U2G";
 		};
-		adar3002_10@10 {
+		adar3002_csb_2_10@10 {
 			reg = <10>;
 			label = "adar3002_U3G";
 		};
-		adar3002_11@11 {
+		adar3002_csb_2_11@11 {
 			reg = <11>;
 			label = "adar3002_U4G";
 		};
 
-		adar3002_12@12 {
+		adar3002_csb_2_12@12 {
 			reg = <12>;
 			label = "adar3002_U1H";
 		};
-		adar3002_13@13 {
+		adar3002_csb_2_13@13 {
 			reg = <13>;
 			label = "adar3002_U2H";
 		};
-		adar3002_14@14 {
+		adar3002_csb_2_14@14 {
 			reg = <14>;
 			label = "adar3002_U3H";
 		};
-		adar3002_15@15 {
+		adar3002_csb_2_15@15 {
 			reg = <15>;
 			label = "adar3002_U4H";
 		};
 	};
 
-	adar3002_T3: adar3002_3@3 {
+	adar3002_csb_3@3 {
 		compatible = "adi,adar3002";
 		reg = <3>;
 		spi-max-frequency = <1000000>;
@@ -383,70 +383,70 @@
 		#size-cells = <0>;
 		reset-gpios = <&gpio 139 0>;
 
-		adar3002_0@0 {
+		adar3002_csb_3_0@0 {
 			reg = <0>;
 			label = "adar3002_U1E";
 		};
-		adar3002_1@1 {
+		adar3002_csb_3_1@1 {
 			reg = <1>;
 			label = "adar3002_U2E";
 		};
-		adar3002_2@2 {
+		adar3002_csb_3_2@2 {
 			reg = <2>;
 			label = "adar3002_U3E";
 		};
-		adar3002_3@3 {
+		adar3002_csb_3_3@3 {
 			reg = <3>;
 			label = "adar3002_U4E";
 		};
 
-		adar3002_4@4 {
+		adar3002_csb_3_4@4 {
 			reg = <4>;
 			label = "adar3002_U1F";
 		};
-		adar3002_5@5 {
+		adar3002_csb_3_5@5 {
 			reg = <5>;
 			label = "adar3002_U2F";
 		};
-		adar3002_6@6 {
+		adar3002_csb_3_6@6 {
 			reg = <6>;
 			label = "adar3002_U3F";
 		};
-		adar3002_7@7 {
+		adar3002_csb_3_7@7 {
 			reg = <7>;
 			label = "adar3002_U4F";
 		};
 
-		adar3002_8@8 {
+		adar3002_csb_3_8@8 {
 			reg = <8>;
 			label = "adar3002_U1G";
 		};
-		adar3002_9@9 {
+		adar3002_csb_3_9@9 {
 			reg = <9>;
 			label = "adar3002_U2G";
 		};
-		adar3002_10@10 {
+		adar3002_csb_3_10@10 {
 			reg = <10>;
 			label = "adar3002_U3G";
 		};
-		adar3002_11@11 {
+		adar3002_csb_3_11@11 {
 			reg = <11>;
 			label = "adar3002_U4G";
 		};
 
-		adar3002_12@12 {
+		adar3002_csb_3_12@12 {
 			reg = <12>;
 			label = "adar3002_U1H";
 		};
-		adar3002_13@13 {
+		adar3002_csb_3_13@13 {
 			reg = <13>;
 			label = "adar3002_U2H";
 		};
-		adar3002_14@14 {
+		adar3002_csb_3_14@14 {
 			reg = <14>;
 			label = "adar3002_U3H";
 		};
-		adar3002_15@15 {
+		adar3002_csb_3_15@15 {
 			reg = <15>;
 			label = "adar3002_U4H";
 		};
