@@ -77,12 +77,12 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	i2c_to_spi_1: spi@28 {
-		compatible = "nxp,sc18is602";
+		compatible = "nxp,sc18is602b";
 		reg = <0x28>;
 	};
 
 	i2c_to_spi_2: spi@29 {
-		compatible = "nxp,sc18is602";
+		compatible = "nxp,sc18is602b";
 		reg = <0x29>;
 	};
 };
