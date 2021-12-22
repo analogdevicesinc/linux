@@ -267,6 +267,22 @@ patternProperties:
       '#size-cells':
          const: 0
 
+      adi,pll-internal-zero-delay:
+        description: |
+          Rate of the output that will be used as a feedback path for this PLL bloc.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 200000000
+
+      adi,pll-internal-zero-delay-feedback:
+        description: |
+          Internal zero delay feedback path. Choose one from the possible outputs depending
+          on the parent PLL. If parrent PLL is PLL0 choose from [0, 5] otherweise [6, 9].
+          Mentioning an output for the feedback path here, will cause the respective clock's
+          rate to become imutable.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
       adi,fast-acq-trigger-mode:
         description: |
           If this is not specified Fast Acquisition will be used every time. See reg 0x2106
