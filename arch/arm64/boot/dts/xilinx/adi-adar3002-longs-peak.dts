@@ -129,14 +129,12 @@
 		compatible = "adi,adl5240";
 		label = "adl5240_LE1";
 		reg = <2>;
-		spi-3wire;
 		spi-max-frequency = <1000000>;
 	};
 	adl5240@3 {
 		compatible = "adi,adl5240";
 		label = "adl5240_LE2";
 		reg = <3>;
-		spi-3wire;
 		spi-max-frequency = <1000000>;
 	};
 };
