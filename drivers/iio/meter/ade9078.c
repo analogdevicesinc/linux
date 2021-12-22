@@ -134,7 +134,7 @@
 #define ADE9078_WFB_CFG			0x0329
 #define ADE9078_WFB_PAGE_SIZE		128
 #define ADE9078_WFB_BYTES_IN_PAGE	4
-#define ADE9078_WFB_PAGE_ARRAY_SIZE 	\
+#define ADE9078_WFB_PAGE_ARRAY_SIZE	\
 	(ADE9078_WFB_PAGE_SIZE * ADE9078_WFB_BYTES_IN_PAGE)
 #define ADE9078_WFB_FULL_BUFF_SIZE	\
 	(ADE9078_WFB_PAGE_ARRAY_SIZE * 16)
@@ -221,13 +221,13 @@
 
 #define PHASE_ADDR_ADJUST(addr, chan)	(((chan) << 4) | (addr))
 
-#define ADE9078_CHANNEL(_num, _name) {					\
+#define ADE9078_CURRENT_CHANNEL(_num, _name) {				\
 	.type = IIO_CURRENT,						\
 	.channel = _num,						\
 	.extend_name = _name,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AI_PCF, _num),		\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = _num,						\
@@ -238,14 +238,15 @@
 		.shift = 0,						\
 		.endianness = IIO_BE,					\
 	},								\
-},									\
-{									\
+}
+
+#define ADE9078_VOLTAGE_CHANNEL(_num, _name) {				\
 	.type = IIO_VOLTAGE,						\
 	.channel = _num,						\
 	.extend_name = _name,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AV_PCF, _num),		\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = _num + 1,						\
@@ -256,59 +257,65 @@
 		.shift = 0,						\
 		.endianness = IIO_BE,					\
 	},								\
-},									\
-{									\
+}
+
+#define ADE9078_CURRENT_RMS_CHANNEL(_num, _name) {			\
 	.type = IIO_CURRENT,						\
 	.channel = _num,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AIRMS, _num),			\
 	.extend_name = _name "_rms",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
-},									\
-{									\
+}
+
+#define ADE9078_VOLTAGE_RMS_CHANNEL(_num, _name) {			\
 	.type = IIO_VOLTAGE,						\
 	.channel = _num,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AVRMS, _num),			\
 	.extend_name = _name "_rms",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
-},									\
-{									\
+}
+
+#define ADE9078_POWER_REACTIV_CHANNEL(_num, _name) {			\
 	.type = IIO_POWER,						\
 	.channel = _num,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AVAR, _num),			\
 	.extend_name = _name "_reactiv",				\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
-},									\
-{									\
+}
+
+#define ADE9078_POWER_APPARENT_CHANNEL(_num, _name) {			\
 	.type = IIO_POWER,						\
 	.channel = _num,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AVA, _num),			\
 	.extend_name = _name "_apparent",				\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
-},									\
-{									\
+}
+
+#define ADE9078_POWER_FUND_REACTIV_CHANNEL(_num, _name) {		\
 	.type = IIO_POWER,						\
 	.channel = _num,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AWATT, _num),			\
 	.extend_name = _name "_fund_reactiv",				\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
-},									\
-{									\
+}
+
+#define ADE9078_POWER_FACTOR_CHANNEL(_num, _name) {			\
 	.type = IIO_POWER,						\
 	.channel = _num,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_APF, _num),			\
 	.extend_name = _name "_factor",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
 }
 
@@ -380,15 +387,42 @@ static const struct iio_event_spec ade9078_events[] = {
 
 //IIO channels of the ade9078 for each phase individually
 static const struct iio_chan_spec ade9078_a_channels[] = {
-	ADE9078_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+	ADE9078_CURRENT_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+	ADE9078_CURRENT_RMS_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+	ADE9078_VOLTAGE_RMS_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+	ADE9078_POWER_REACTIV_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_A_NR,
+				       ADE9078_PHASE_A_NAME),
+	ADE9078_POWER_FUND_REACTIV_CHANNEL(ADE9078_PHASE_A_NR,
+					   ADE9078_PHASE_A_NAME),
+	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 };
 
 static const struct iio_chan_spec ade9078_b_channels[] = {
-	ADE9078_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+	ADE9078_CURRENT_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+	ADE9078_CURRENT_RMS_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+	ADE9078_VOLTAGE_RMS_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+	ADE9078_POWER_REACTIV_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_B_NR,
+				       ADE9078_PHASE_B_NAME),
+	ADE9078_POWER_FUND_REACTIV_CHANNEL(ADE9078_PHASE_B_NR,
+					   ADE9078_PHASE_B_NAME),
+	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
 };
 
 static const struct iio_chan_spec ade9078_c_channels[] = {
-	ADE9078_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
+	ADE9078_CURRENT_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
+	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
+	ADE9078_CURRENT_RMS_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
+	ADE9078_VOLTAGE_RMS_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
+	ADE9078_POWER_REACTIV_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
+	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_C_NR,
+				       ADE9078_PHASE_C_NAME),
+	ADE9078_POWER_FUND_REACTIV_CHANNEL(ADE9078_PHASE_C_NR,
+					   ADE9078_PHASE_C_NAME),
+	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 };
 
 /*
