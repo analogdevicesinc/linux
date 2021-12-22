@@ -5,33 +5,17 @@
  * Copyright 2021 Analog Devices Inc.
  */
 
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/device.h>
-#include <asm/unaligned.h>
 #include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/of_irq.h>
 #include <linux/gpio/consumer.h>
-
-#include <linux/of_address.h>
-#include <linux/of_device.h>
-#include <linux/of_platform.h>
-
-#include <linux/spi/spi.h>
-#include <linux/regmap.h>
-
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
-#include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
-
-#include <linux/module.h>
-#include <linux/moduleparam.h>
+#include <linux/of_irq.h>
+#include <linux/spi/spi.h>
+#include <linux/regmap.h>
 
 //address of ADE90XX registers
 #define	ADDR_AIGAIN			0x000
@@ -2351,7 +2335,7 @@ static const struct spi_device_id ade9078_id[] = {
 
 static struct spi_driver ade9078_driver = {
 		.driver = {
-				.name = "ade9078",
+			.name = "ade9078",
 		},
 		.probe = ade9078_probe,
 		.remove = ade9078_remove,
