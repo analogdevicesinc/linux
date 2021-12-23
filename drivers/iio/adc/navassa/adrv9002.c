@@ -94,7 +94,7 @@
 #define ADRV9002_HP_CLK_PLL_DAHZ	884736000
 
 /* Frequency hopping */
-#define ADRV9002_FH_TABLE_COL_SZ	5
+#define ADRV9002_FH_TABLE_COL_SZ	7
 
 /* IRQ Masks */
 #define ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR		0x08000000
@@ -898,31 +898,23 @@ static int adrv9002_set_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 	const int chann = ADRV_ADDRESS_CHAN(chan->address);
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[chann];
 	int ret;
-	struct adi_adrv9001_RxInterfaceGainCtrl rx_intf_gain_mode = {
-		.updateInstance = ADI_ADRV9001_RX_INTERFACE_GAIN_UPDATE_TIMING_NOW,
-		/*
-		 * Reset gain to 0db. The reason is that depending on the gain
-		 * table and the profile being used, some gains that make sense
-		 * in one mode, might not make sense in the mode we are trying
-		 * to change to.
-		 */
-		.gain = ADI_ADRV9001_RX_INTERFACE_GAIN_0_DB,
-	};
-
-	switch (mode) {
-	case ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_AUTOMATIC:
-	case ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_MANUAL:
-		rx_intf_gain_mode.controlMode = mode;
-		break;
-	default:
-		return -EINVAL;
-	};
+	struct adi_adrv9001_RxInterfaceGainCtrl rx_intf_gain_mode = {0};
+	u32 gain_table_type;
 
 	mutex_lock(&phy->lock);
 	if (!rx->channel.enabled) {
 		mutex_unlock(&phy->lock);
 		return -ENODEV;
 	}
+
+	ret = adi_adrv9001_Rx_InterfaceGain_Inspect(phy->adrv9001, rx->channel.number,
+						    &rx_intf_gain_mode, &gain_table_type);
+	if (ret) {
+		mutex_unlock(&phy->lock);
+		return adrv9002_dev_err(phy);
+	}
+
+	rx_intf_gain_mode.controlMode = mode;
 
 	ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
 	if (ret)
@@ -1385,7 +1377,7 @@ static const u32 tx_track_calls[] = {
 	[TX_LOL] = ADI_ADRV9001_TRACKING_CAL_TX_LO_LEAKAGE,
 	[TX_LB_PD] = ADI_ADRV9001_TRACKING_CAL_TX_LB_PD,
 	[TX_PAC] = ADI_ADRV9001_TRACKING_CAL_TX_PAC,
-	[TX_CLGC] = ADI_ADRV9001_TRACKING_CAL_TX_CLGC
+	[TX_CLGC] = ADI_ADRV9001_TRACKING_CAL_TX_DPD_CLGC
 };
 
 static int adrv9002_set_atten_control_mode(struct iio_dev *indio_dev,
@@ -3288,36 +3280,29 @@ static int adrv9002_fh_parse_table_control(struct adrv9002_rf_phy *phy,
 	}								\
 }
 
-static int adrv9002_fh_parse_gpio_gain_control(struct adrv9002_rf_phy *phy,
-					       const struct device_node *node)
+static int adrv9002_fh_parse_chan_gpio_gain_control_chan(struct adrv9002_rf_phy *phy,
+							 const struct device_node *fh, int chan)
 {
 	int ret;
-	struct device_node *fh;
-	adi_adrv9001_FhGainSetupByPinCfg_t *gpio_gain = &phy->fh.gainSetupByPinConfig;
+	adi_adrv9001_FhGainSetupByPinCfg_t *gpio_gain = &phy->fh.gainSetupByPinConfig[chan];
 	u32 pin, p;
 	int size;
 
-	fh = of_get_child_by_name(node, "adi,fh-gain-setup-by-pin");
-	if (!fh)
-		return 0;
-
-	phy->fh.gainSetupByPin = true;
 	ret = OF_ADRV9002_DGPIO(fh, "adi,fh-gain-select-pin", pin, true);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	ret = OF_ADRV9002_FH("adi,fh-gain-select-npins", 0, 1,
 			     ADI_ADRV9001_FH_MAX_NUM_GAIN_SELECT_PINS,
 			     gpio_gain->numGainCtrlPins, true);
 	if (ret)
-		goto of_put;
+		return ret;
 
 	/* assign gpios now */
 	for (p = 0; p < gpio_gain->numGainCtrlPins; p++) {
 		if ((pin + p) > ADI_ADRV9001_GPIO_DIGITAL_15) {
 			dev_err(&phy->spi->dev, "Invalid DGPIO given for gain ctl: %d\n", pin + p);
-			ret = -EINVAL;
-			goto of_put;
+			return -EINVAL;
 		}
 		gpio_gain->gainSelectGpioConfig[p].pin = pin + p;
 	}
@@ -3329,8 +3314,7 @@ static int adrv9002_fh_parse_gpio_gain_control(struct adrv9002_rf_phy *phy,
 	size = of_property_count_elems_of_size(fh, "adi,fh-rx-gain-table", sizeof(u32));
 	if (size <= 0 || size > (1 << gpio_gain->numGainCtrlPins)) {
 		dev_err(&phy->spi->dev, "Invalid size:%d for fh rx gain table\n", size);
-		ret = -EINVAL;
-		goto of_put;
+		return -EINVAL;
 	}
 
 	assign_fh_gpio_ctl_table(fh, "adi,fh-rx-gain-table", size, &gpio_gain->rxGainTable[0]);
@@ -3339,14 +3323,60 @@ static int adrv9002_fh_parse_gpio_gain_control(struct adrv9002_rf_phy *phy,
 	size = of_property_count_elems_of_size(fh, "adi,fh-tx-atten-table", sizeof(u32));
 	if (size <= 0 || size > (1 << gpio_gain->numGainCtrlPins)) {
 		dev_err(&phy->spi->dev, "Invalid size:%d for fh tx gain table\n", size);
-		ret = -EINVAL;
-		goto of_put;
+		return -EINVAL;
 	}
 
 	assign_fh_gpio_ctl_table(fh, "adi,fh-tx-atten-table", size, &gpio_gain->txAttenTable[0]);
 	gpio_gain->numTxAttenTableEntries = size;
-of_put:
-	of_node_put(fh);
+
+	return 0;
+}
+
+static int adrv9002_fh_parse_gpio_gain_control(struct adrv9002_rf_phy *phy,
+					       const struct device_node *node)
+{
+	struct device_node *gain, *child;
+	int ret = 0, n_chann;
+
+	gain = of_get_child_by_name(node, "adi,fh-gain-setup-by-pin");
+	if (!gain)
+		return 0;
+
+	n_chann = of_get_available_child_count(gain);
+	if (n_chann != ADRV9002_CHANN_MAX) {
+		dev_err(&phy->spi->dev, "If set, Gain setup by pin must be set for both channels!\n");
+		of_node_put(gain);
+		return -EINVAL;
+	}
+
+	for_each_available_child_of_node(gain, child) {
+		u32 chann;
+
+		ret = of_property_read_u32(child, "reg", &chann);
+		if (ret) {
+			dev_err(&phy->spi->dev,
+				"No reg property defined for gain pin setup channel\n");
+			goto of_child_put;
+		} else if (chann > ADRV9002_CHANN_2) {
+			dev_err(&phy->spi->dev,
+				"Invalid value for gain pin setup channel: %d\n", chann);
+			ret = -EINVAL;
+			goto of_child_put;
+		}
+
+		ret = adrv9002_fh_parse_chan_gpio_gain_control_chan(phy, child, chann);
+		if (ret)
+			goto of_child_put;
+	}
+
+	phy->fh.gainSetupByPin = true;
+
+	of_node_put(gain);
+	return 0;
+
+of_child_put:
+	of_node_put(child);
+	of_node_put(gain);
 	return ret;
 }
 
@@ -3354,8 +3384,8 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 {
 	adi_adrv9001_FhhopTableSelectCfg_t *hop_tbl = &phy->fh.hopTableSelectConfig;
 	struct device_node *fh;
-	u64 lo;
 	int ret;
+	u64 lo;
 	int hop;
 
 	fh = of_get_child_by_name(node, "adi,frequency-hopping");
@@ -4013,7 +4043,7 @@ of_gpio:
 				"No adi,signal property defined for gpio%d\n",
 				gpio);
 			goto of_child_put;
-		} else if (signal > ADI_ADRV9001_GPIO_SIGNAL_JTAG_CTRL) {
+		} else if (signal >= ADI_ADRV9001_GPIO_NUM_SIGNALS) {
 			dev_err(&phy->spi->dev,
 				"Invalid gpio signal: %d\n", signal);
 			ret = -EINVAL;
@@ -4281,7 +4311,7 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 	p = tbl->bin_table;
 	while ((line = strsep(&p, "\n")) && p) {
 		u64 lo;
-		u32 rx10_if, rx20_if, rx_gain, tx_atten;
+		u32 rx10_if, rx20_if, rx1_gain, tx1_atten, rx2_gain, tx2_atten;
 
 		 /* skip comment lines or blank lines */
 		if (line[0] == '#' || !line[0])
@@ -4289,8 +4319,8 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 		else if (strstr(line, "table>"))
 			continue;
 
-		ret = sscanf(line, "%llu,%u,%u,%u,%u", &lo, &rx10_if, &rx20_if, &rx_gain,
-			     &tx_atten);
+		ret = sscanf(line, "%llu,%u,%u,%u,%u,%u,%u", &lo, &rx10_if, &rx20_if, &rx1_gain,
+			     &tx1_atten, &rx2_gain, &tx2_atten);
 		if (ret != ADRV9002_FH_TABLE_COL_SZ) {
 			dev_err(&phy->spi->dev, "Failed to parse hop:%d table:%d line:%s\n",
 				hop, table, line);
@@ -4311,8 +4341,10 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 		hop_tbl[entry].hopFrequencyHz = lo;
 		hop_tbl[entry].rx1OffsetFrequencyHz = rx10_if;
 		hop_tbl[entry].rx2OffsetFrequencyHz = rx10_if;
-		hop_tbl[entry].rxGainIndex = rx_gain;
-		hop_tbl[entry].txAttenuation_mdB = tx_atten;
+		hop_tbl[entry].rx1GainIndex = rx1_gain;
+		hop_tbl[entry].tx1Attenuation_fifthdB = tx1_atten;
+		hop_tbl[entry].rx2GainIndex = rx1_gain;
+		hop_tbl[entry].tx2Attenuation_fifthdB = tx2_atten;
 		entry++;
 	}
 

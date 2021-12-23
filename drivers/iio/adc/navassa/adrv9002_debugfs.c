@@ -895,24 +895,26 @@ static const char * const dgpio_str[] = {
 	"dgpio14", "dgpio15"
 };
 
-static void adrv9002_fh_gain_config_dump_show(struct seq_file *s, const adi_adrv9001_FhCfg_t *cfg)
+static void adrv9002_fh_gain_config_dump_show(struct seq_file *s, const adi_adrv9001_FhCfg_t *cfg,
+					      int chan)
 {
-	const adi_adrv9001_FhGainSetupByPinCfg_t *gain = &cfg->gainSetupByPinConfig;
+	const adi_adrv9001_FhGainSetupByPinCfg_t *gain = &cfg->gainSetupByPinConfig[chan];
 	int e;
 
-	adrv9002_seq_printf(s, &cfg->gainSetupByPinConfig, numRxGainTableEntries);
+	seq_printf(s, "Gain Pin Config channel(%d):\n", chan);
+	adrv9002_seq_printf(s, &cfg->gainSetupByPinConfig[chan], numRxGainTableEntries);
 	seq_puts(s, "RX Gain Table: ");
 	for (e = 0; e < gain->numRxGainTableEntries; e++)
 		seq_printf(s, "%u ", gain->rxGainTable[e]);
 	seq_puts(s, "\n");
 
-	adrv9002_seq_printf(s, &cfg->gainSetupByPinConfig, numTxAttenTableEntries);
+	adrv9002_seq_printf(s, &cfg->gainSetupByPinConfig[chan], numTxAttenTableEntries);
 	seq_puts(s, "TX Atten Table: ");
 	for (e = 0; e < gain->numTxAttenTableEntries; e++)
 		seq_printf(s, "%u ", gain->txAttenTable[e]);
 	seq_puts(s, "\n");
 
-	adrv9002_seq_printf(s, &cfg->gainSetupByPinConfig, numGainCtrlPins);
+	adrv9002_seq_printf(s, &cfg->gainSetupByPinConfig[chan], numGainCtrlPins);
 	seq_puts(s, "Gain Select Pins: ");
 	for (e = 0; e < gain->numGainCtrlPins; e++)
 		seq_printf(s, "%s ", dgpio_str[gain->gainSelectGpioConfig[e].pin]);
@@ -961,8 +963,12 @@ static int adrv9002_fh_config_dump_show(struct seq_file *s, void *ignored)
 	if (cfg.numTableIndexPins)
 		seq_puts(s, "\n");
 	adrv9002_seq_printf(s, &cfg, gainSetupByPin);
-	if (cfg.gainSetupByPin)
-		adrv9002_fh_gain_config_dump_show(s, &cfg);
+	if (cfg.gainSetupByPin) {
+		int c;
+
+		for (c = 0; c < ADRV9002_CHANN_MAX; c++)
+			adrv9002_fh_gain_config_dump_show(s, &cfg, c);
+	}
 
 	return 0;
 }
@@ -986,11 +992,12 @@ static int adrv9002_hop_table_dump_show(struct seq_file *s, int hop, int tbl_idx
 	}
 
 	if (read_back)
-		seq_puts(s, "hop_freq_hz rx1_off_freq_hz rx2_off_freq_hz rx_gain tx_atten\n");
+		seq_puts(s, "hop_freq_hz rx1_off_freq_hz rx2_off_freq_hz rx1_gain tx1_atten rx2_gain tx2_atten\n");
 	for (e = 0; e < read_back; e++) {
-		seq_printf(s, "%-11llu %-15d %-15d %-7u %u\n", tbl[e].hopFrequencyHz,
+		seq_printf(s, "%-11llu %-15d %-15d %-8u %-9u %-8u %u\n", tbl[e].hopFrequencyHz,
 			   tbl[e].rx1OffsetFrequencyHz, tbl[e].rx2OffsetFrequencyHz,
-			   tbl[e].rxGainIndex, tbl[e].txAttenuation_mdB);
+			   tbl[e].rx1GainIndex, tbl[e].tx1Attenuation_fifthdB,
+			   tbl[e].rx2GainIndex, tbl[e].tx2Attenuation_fifthdB);
 	}
 
 	mutex_unlock(&phy->lock);
