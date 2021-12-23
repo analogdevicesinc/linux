@@ -781,9 +781,14 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_Get(adi_adrv9001_Device
 																uint32_t maskChannel2)
 {
 	uint32_t tblSize[4];
-	uint32_t vecTbl[ADI_ADRV9001_WB_MAX_NUM_ENTRY] = { 0 };
+#ifndef __KERNEL__
+        uint32_t vecTbl[ADI_ADRV9001_WB_MAX_NUM_ENTRY] = { 0 };
 	uint8_t calVal[ADI_ADRV9001_WB_MAX_NUM_COEFF];
-	int calNo;
+#else
+	static uint32_t vecTbl[ADI_ADRV9001_WB_MAX_NUM_ENTRY];
+	static uint8_t calVal[ADI_ADRV9001_WB_MAX_NUM_COEFF];
+#endif
+        int calNo;
 
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020000, tblSize, sizeof(tblSize), 0);
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020004, vecTbl, tblSize[0]*16, 1);
@@ -822,9 +827,14 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_Set(adi_adrv9001_Device
 																uint32_t maskChannel2)
 {
 	uint32_t tblSize[4];
-	uint32_t vecTbl[ADI_ADRV9001_WB_MAX_NUM_ENTRY] = { 0 };
+#ifndef __KERNEL__
+        uint32_t vecTbl[ADI_ADRV9001_WB_MAX_NUM_ENTRY] = { 0 };
 	uint8_t calVal[ADI_ADRV9001_WB_MAX_NUM_COEFF];
-	int calNo;
+#else
+	static uint32_t vecTbl[ADI_ADRV9001_WB_MAX_NUM_ENTRY];
+	static uint8_t calVal[ADI_ADRV9001_WB_MAX_NUM_COEFF];
+#endif
+        int calNo;
 
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020000, tblSize, sizeof(tblSize), 0);
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020004, vecTbl, tblSize[0]*16, 1);
