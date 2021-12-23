@@ -690,7 +690,7 @@ static int adar300x_get_mem_value(struct iio_dev *indio_dev,
 
 	adar300x_unpack_data(packed, unpacked, ADAR300x_UNPACKED_BEAMSTATE_LEN);
 
-	*val = unpacked[chan->address];
+	*val = unpacked[chan->address % st->chip_info->unpacked_beamst_len];
 
 err_unlock:
 	mutex_unlock(&st->lock);
