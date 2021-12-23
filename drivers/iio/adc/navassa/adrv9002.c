@@ -716,31 +716,23 @@ static int adrv9002_set_digital_gain_ctl_mode(struct iio_dev *indio_dev,
 	const int chann = ADRV_ADDRESS_CHAN(chan->address);
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[chann];
 	int ret;
-	struct adi_adrv9001_RxInterfaceGainCtrl rx_intf_gain_mode = {
-		.updateInstance = ADI_ADRV9001_RX_INTERFACE_GAIN_UPDATE_TIMING_NOW,
-		/*
-		 * Reset gain to 0db. The reason is that depending on the gain
-		 * table and the profile being used, some gains that make sense
-		 * in one mode, might not make sense in the mode we are trying
-		 * to change to.
-		 */
-		.gain = ADI_ADRV9001_RX_INTERFACE_GAIN_0_DB,
-	};
-
-	switch (mode) {
-	case ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_AUTOMATIC:
-	case ADI_ADRV9001_RX_INTERFACE_GAIN_CONTROL_MANUAL:
-		rx_intf_gain_mode.controlMode = mode;
-		break;
-	default:
-		return -EINVAL;
-	};
+	struct adi_adrv9001_RxInterfaceGainCtrl rx_intf_gain_mode = {0};
+	u32 gain_table_type;
 
 	mutex_lock(&phy->lock);
 	if (!rx->channel.enabled) {
 		mutex_unlock(&phy->lock);
 		return -ENODEV;
 	}
+
+	ret = adi_adrv9001_Rx_InterfaceGain_Inspect(phy->adrv9001, rx->channel.number,
+						    &rx_intf_gain_mode, &gain_table_type);
+	if (ret) {
+		mutex_unlock(&phy->lock);
+		return adrv9002_dev_err(phy);
+	}
+
+	rx_intf_gain_mode.controlMode = mode;
 
 	ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_RX,
 					ADI_ADRV9001_CHANNEL_CALIBRATED, true);
@@ -1183,7 +1175,7 @@ static const u32 tx_track_calls[] = {
 	[TX_LOL] = ADI_ADRV9001_TRACKING_CAL_TX_LO_LEAKAGE,
 	[TX_LB_PD] = ADI_ADRV9001_TRACKING_CAL_TX_LB_PD,
 	[TX_PAC] = ADI_ADRV9001_TRACKING_CAL_TX_PAC,
-	[TX_CLGC] = ADI_ADRV9001_TRACKING_CAL_TX_CLGC
+	[TX_CLGC] = ADI_ADRV9001_TRACKING_CAL_TX_DPD_CLGC
 };
 
 static int adrv9002_set_atten_control_mode(struct iio_dev *indio_dev,
