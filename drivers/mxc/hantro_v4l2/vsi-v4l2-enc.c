@@ -888,13 +888,17 @@ static int vsi_v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->mediacfg.encparams.specific.enc_h26x_cmd.qpMax_vpx = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_MAX_QP:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP:
 		ctx->mediacfg.encparams.specific.enc_h26x_cmd.qpMax_h26x = ctrl->val;
+		ctx->mediacfg.encparams.specific.enc_h26x_cmd.qpMaxI = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_VPX_MIN_QP:
 		ctx->mediacfg.encparams.specific.enc_h26x_cmd.qpMin_vpx = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_MIN_QP:
+	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP:
 		ctx->mediacfg.encparams.specific.enc_h26x_cmd.qpMin_h26x = ctrl->val;
+		ctx->mediacfg.encparams.specific.enc_h26x_cmd.qpMinI = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 		if (ctrl->val != 0)
@@ -1148,6 +1152,22 @@ static struct v4l2_ctrl_config vsi_v4l2_encctrl_defs[] = {
 		.min = V4L2_MPEG_VIDEO_HEVC_LEVEL_1,
 		.max = V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1,
 		.def = V4L2_MPEG_VIDEO_HEVC_LEVEL_5,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 51,
+		.step = 1,
+		.def = 51,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 51,
+		.step = 1,
+		.def = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_MAX_QP,
