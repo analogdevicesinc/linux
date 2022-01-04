@@ -1,5 +1,5 @@
 /*
- * Copyright 2018,2021 NXP
+ * Copyright 2018,2021-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -99,6 +99,8 @@ static int lcdif_crtc_atomic_check(struct drm_crtc *crtc,
 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state,
 									  crtc);
+	struct drm_crtc_state *old_crtc_state = drm_atomic_get_old_crtc_state(state,
+									      crtc);
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 
 	/* Don't check 'bus_format' when CRTC is
@@ -128,6 +130,17 @@ static int lcdif_crtc_atomic_check(struct drm_crtc *crtc,
 			imx_crtc_state->bus_format);
 		return -EINVAL;
 	}
+
+	/*
+	 * Force the connectors_changed flag of the new CRTC state to true,
+	 * if the active flag of the new CRTC state is set to false in the
+	 * self refresh mode.  This makes it possible for relevant encoder
+	 * and bridges to be disabled if the entire display pipeline needs
+	 * to be disabled in the self refresh mode, e.g., the fb emulation
+	 * is to be blanked.
+	 */
+	if (old_crtc_state->self_refresh_active && !crtc_state->active)
+		crtc_state->connectors_changed = true;
 
 	return 0;
 }
