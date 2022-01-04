@@ -289,6 +289,8 @@ static int cdns_hdcp_auth_check(struct cdns_mhdp_device *mhdp)
 		DRM_INFO("Authentication completed successfully!\n");
 		/* Dump hdmi and phy register */
 		mhdp->hdcp.state = HDCP_STATE_AUTHENTICATED;
+		mhdp->hdcp.value = DRM_MODE_CONTENT_PROTECTION_ENABLED;
+		schedule_work(&mhdp->hdcp.prop_work);
 		return 0;
 	}
 
@@ -807,7 +809,6 @@ static void cdns_hdcp_prop_work(struct work_struct *work)
 					   struct cdns_mhdp_device, hdcp);
 
 	struct drm_device *dev = mhdp->drm_dev;
-	struct drm_connector_state *state;
 
 	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 	mutex_lock(&mhdp->hdcp.mutex);
@@ -818,8 +819,8 @@ static void cdns_hdcp_prop_work(struct work_struct *work)
 	 * we're running just after hdcp has been disabled, so just exit
 	 */
 	if (mhdp->hdcp.value != DRM_MODE_CONTENT_PROTECTION_UNDESIRED) {
-		state = mhdp->connector.base.state;
-		state->content_protection = mhdp->hdcp.value;
+		drm_hdcp_update_content_protection(&mhdp->connector.base,
+				mhdp->hdcp.value);
 	}
 
 	mutex_unlock(&mhdp->hdcp.mutex);
