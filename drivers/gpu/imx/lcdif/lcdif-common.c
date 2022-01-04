@@ -1,5 +1,5 @@
 /*
- * Copyright 2018,2021 NXP
+ * Copyright 2018,2021-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -380,8 +380,8 @@ EXPORT_SYMBOL(lcdif_set_fb_addr);
 void lcdif_set_fb_hcrop(struct lcdif_soc *lcdif, u32 src_w,
 			u32 fb_w, bool crop)
 {
-	u32 mask_cnt, htotal, hcount;
-	u32 vdctrl2, vdctrl3, vdctrl4, transfer_count;
+	u32 mask_cnt;
+	u32 vdctrl3, vdctrl4, transfer_count;
 	u32 pigeon_12_0, pigeon_12_1, pigeon_12_2;
 
 	if (!crop) {
@@ -391,23 +391,14 @@ void lcdif_set_fb_hcrop(struct lcdif_soc *lcdif, u32 src_w,
 		return;
 	}
 
-	/* transfer_count's hcount, vdctrl2's htotal and vdctrl4's
-	 * H_VALID_DATA_CNT should use fb width instead of hactive
-	 * when requires cropping.
-	 * */
+	/*
+	 * transfer_count's hcount and vdctrl4's H_VALID_DATA_CNT
+	 * should use fb width instead of hactive when requires cropping.
+	 */
 	transfer_count = readl(lcdif->base + LCDIF_TRANSFER_COUNT);
-	hcount = TRANSFER_COUNT_GET_HCOUNT(transfer_count);
-
 	transfer_count &= ~TRANSFER_COUNT_SET_HCOUNT(0xffff);
 	transfer_count |= TRANSFER_COUNT_SET_HCOUNT(fb_w);
 	writel(transfer_count, lcdif->base + LCDIF_TRANSFER_COUNT);
-
-	vdctrl2 = readl(lcdif->base + LCDIF_VDCTRL2);
-	htotal  = VDCTRL2_GET_HSYNC_PERIOD(vdctrl2);
-	htotal  += fb_w - hcount;
-	vdctrl2 &= ~VDCTRL2_SET_HSYNC_PERIOD(0x3ffff);
-	vdctrl2 |= VDCTRL2_SET_HSYNC_PERIOD(htotal);
-	writel(vdctrl2, lcdif->base + LCDIF_VDCTRL2);
 
 	vdctrl4 = readl(lcdif->base + LCDIF_VDCTRL4);
 	vdctrl4 &= ~SET_DOTCLK_H_VALID_DATA_CNT(0x3ffff);
