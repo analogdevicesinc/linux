@@ -1,7 +1,7 @@
 /*
  * Samsung MIPI DSIM Bridge
  *
- * Copyright 2018-2021 NXP
+ * Copyright 2018-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1341,7 +1341,8 @@ sec_mipi_dsim_bridge_atomic_enable(struct drm_bridge *bridge,
 
 	old_crtc_state = drm_atomic_get_old_crtc_state(old_state, crtc);
 	/* Don't do enablement operation if we're coming back from PSR. */
-	if (old_crtc_state && old_crtc_state->self_refresh_active)
+	if (old_crtc_state && old_crtc_state->self_refresh_active &&
+	    dsim->enabled)
 		return;
 
 	if (dsim->enabled)
