@@ -1,7 +1,7 @@
 /*
  * Samsung MIPI DSI Host Controller on IMX
  *
- * Copyright 2018-2021 NXP
+ * Copyright 2018-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -123,7 +123,8 @@ imx_sec_dsim_encoder_atomic_enable(struct drm_encoder *encoder,
 
 	old_crtc_state = drm_atomic_get_old_crtc_state(state, crtc);
 	/* Coming back from self refresh, nothing to do. */
-	if (old_crtc_state && old_crtc_state->self_refresh_active)
+	if (old_crtc_state && old_crtc_state->self_refresh_active &&
+	    dsim_dev->enabled)
 		return;
 
 	if (dsim_dev->enabled)
