@@ -21,6 +21,7 @@
 
 #define ADXCVR_REG_RESETN		0x0010
 #define ADXCVR_RESETN			(1 << 0)
+#define ADXCVR_BUFSTATUS_RST	(1 << 1)
 
 #define ADXCVR_REG_STATUS		0x0014
 #define ADXCVR_STATUS			(1 << 0)
