@@ -1648,7 +1648,7 @@ static int max1363_probe(struct i2c_client *client,
 	if (ret)
 		goto error_disable_reg;
 
-	indio_dev->name = id->name;
+	indio_dev->name = client->dev.of_node ? client->dev.of_node->name : id->name;
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->info = st->chip_info->info;
