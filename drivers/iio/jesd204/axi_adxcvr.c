@@ -403,7 +403,7 @@ static int adxcvr_status_error(struct device *dev)
 	do {
 		mdelay(1);
 		status = adxcvr_read(st, ADXCVR_REG_STATUS);
-	} while ((timeout--) && (status == 0));
+	} while ((timeout--) && !(status & BIT(0)));
 
 	if (!(status & BIT(0))) {
 		if (!st->qpll_enable && !st->cpll_enable) {
@@ -454,20 +454,69 @@ static void adxcvr_work_func(struct work_struct *work)
 			__func__, div40_rate, ret);
 }
 
-static int adxcvr_clk_enable(struct clk_hw *hw)
+static int adxcvr_reset(struct adxcvr_state *st)
 {
-	struct adxcvr_state *st =
-		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	int ret, retry = 1;
-
-	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
 
 	do {
 		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 		udelay(2);
 		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+		dev_dbg(st->dev, "%s: %s %s Reset\n",
+			__func__,
+			adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+			st->tx_enable ? "TX" : "RX");
 		ret = adxcvr_status_error(st->dev);
 	} while (ret < 0 && retry--);
+
+	return ret;
+}
+
+static int adxcvr_clk_enable(struct clk_hw *hw)
+{
+	struct adxcvr_state *st =
+		container_of(hw, struct adxcvr_state, lane_clk_hw);
+	int ret, retry = 10;
+	unsigned int status;
+	int bufstatus_err;
+
+	dev_dbg(st->dev, "%s: %s\n", __func__, st->tx_enable ? "TX" : "RX");
+
+	ret = adxcvr_reset(st);
+	if (ret < 0)
+		return ret;
+
+	if (st->xcvr.version >= ADI_AXI_PCORE_VER(17, 5, 'a')) {
+		do {
+			adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_BUFSTATUS_RST | ADXCVR_RESETN);
+			adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+			mdelay(1);
+			status = adxcvr_read(st, ADXCVR_REG_STATUS);
+			bufstatus_err = ((status & BIT(5)) || (status & BIT(6)));
+			if (bufstatus_err) {
+				ret = adxcvr_reset(st);
+				if (ret < 0)
+					return ret;
+			}
+		} while (bufstatus_err && retry--);
+
+		if (status & BIT(5))
+			dev_err(st->dev, "%s: %s %s %s error, status: 0x%x\n",
+				__func__,
+				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+				st->tx_enable ? "TX" : "RX",
+				"buffer underflow", status);
+
+		if (status & BIT(6))
+			dev_err(st->dev, "%s: %s %s %s error, status: 0x%x\n",
+				__func__,
+				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
+				st->tx_enable ? "TX" : "RX",
+				"buffer overflow", status);
+
+		if (bufstatus_err)
+			return -EIO;
+	}
 
 	return ret;
 }
