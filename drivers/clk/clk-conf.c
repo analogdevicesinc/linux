@@ -116,6 +116,55 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 	return 0;
 }
 
+static int __set_clk_nshot(struct device_node *node, bool clk_supplier)
+{
+	struct of_phandle_args clkspec;
+	struct property	*prop;
+	const __be32 *cur;
+	int rc, index = 0;
+	struct clk *clk;
+	u32 nshot;
+
+	of_property_for_each_u32(node, "assigned-clock-nshot", prop, cur, nshot) {
+		if (nshot) {
+			rc = of_parse_phandle_with_args(node, "assigned-clocks",
+							"#clock-cells",	index, &clkspec);
+			if (rc < 0) {
+				/* skip empty (null) phandles */
+				if (rc == -ENOENT)
+					continue;
+
+				return rc;
+			}
+
+			if (clkspec.np == node && !clk_supplier) {
+				of_node_put(clkspec.np);
+				return 0;
+			}
+
+			clk = of_clk_get_from_provider(&clkspec);
+			if (IS_ERR(clk)) {
+				if (PTR_ERR(clk) != -EPROBE_DEFER)
+					pr_err("clk: couldn't get clock %d for %pOF\n", index,
+					       node);
+				of_node_put(clkspec.np);
+				return PTR_ERR(clk);
+			}
+
+			rc = clk_set_nshot(clk, nshot);
+			if (rc < 0)
+				pr_warn("clk: couldn't set %s clk nshot to %u (%d), current nshot: %u\n",
+					__clk_get_name(clk), nshot, rc, clk_get_nshot(clk));
+
+			clk_put(clk);
+			of_node_put(clkspec.np);
+		}
+		index++;
+	}
+
+	return 0;
+}
+
 /**
  * of_clk_set_defaults() - parse and set assigned clocks configuration
  * @node: device node to apply clock settings for
@@ -139,6 +188,10 @@ int of_clk_set_defaults(struct device_node *node, bool clk_supplier)
 	if (rc < 0)
 		return rc;
 
-	return __set_clk_rates(node, clk_supplier);
+	rc = __set_clk_rates(node, clk_supplier);
+	if (rc < 0)
+		return rc;
+
+	return __set_clk_nshot(node, clk_supplier);
 }
 EXPORT_SYMBOL_GPL(of_clk_set_defaults);
