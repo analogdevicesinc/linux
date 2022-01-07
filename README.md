@@ -15,11 +15,9 @@ The Linux kernel in this repository is the [Linux kernel from Xilinx](https://gi
 
 Details about the drivers that are of interest [and supported] by this repository can be found on the [Analog Devices wiki](https://wiki.analog.com/resources/tools-software/linux-drivers-all). This readme focuses on details specific to how this code is structured/organized, how it was derived, etc.
 
-For the current master, the last point in git history where things were merged from Xilinx is commit [dd100de5395b65494a285a37a74ccceab4f39520](https://github.com/analogdevicesinc/linux/commit/dd100de5395b65494a285a37a74ccceab4f39520). That commit (being a working branched) was merged into master via commit [d1873cb62263704a93d904420daf5941f38599b4](https://github.com/analogdevicesinc/linux/commit/d1873cb62263704a93d904420daf5941f38599b4).
+The current master is based on [xilinx v2021.1](https://github.com/Xilinx/linux-xlnx/tree/xilinx-v2021.1). For details about the merge see commit [67d89797e6b7](https://github.com/analogdevicesinc/linux/commit/67d89797e6b7e313f93f3683f7dd0479895ee9b0) ("Merge tag 'xilinx-v2021.1' of https://github.com/Xilinx/linux-xlnx.git"). In this Xilinx release, the current version of upstream Linux is [Linux 5.10](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v5.10).
 
 For legacy reasons, the [xcomm_zynq](https://github.com/analogdevicesinc/linux/tree/xcomm_zynq) branch is still available and should be in-sync with current master. That branch used to be the old master branch.
-
-The current version of upstream Linux that Xilinx merged into their tree is from [Linux 4.14](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v4.14). No other patches seem to have been added after this (by Xilinx).
 
 ## How to build
 
@@ -37,22 +35,18 @@ Release branches can be built using other GCC toolchains, but in the official SD
 ## Rebased branches
 
 Starting with branch [adi-4.9.0](https://github.com/analogdevicesinc/linux/tree/adi-4.9.0) there are rebased branches.
-They're typically rebased branches from Xilinx with the ADI patches on top.
+They're typically rebased branches from Xilinx with the ADI patches on top so that it's easier to identify patches that are not yet upstreamed.
 
 For [adi-4.9.0](https://github.com/analogdevicesinc/linux/tree/adi-4.9.0) the base was branch [xlnx_rebase_v4.9](https://github.com/Xilinx/linux-xlnx/tree/xlnx_rebase_v4.9) at commit [d45e196f59364e9f5eafe46027a7d2af349083974](https://github.com/analogdevicesinc/linux/commit/d45e196f59364e9f5eafe46027a7d2af349083974) in the ADI repo and commit [45e196f59364e9f5eafe46027a7d2af349083974](https://github.com/Xilinx/linux-xlnx/commit/45e196f59364e9f5eafe46027a7d2af349083974) in the Xilinx repo. All ADI patches & drivers up to a specific point in time were cherry-picked to that branch from master.
 Note that since the `adi-4.9.0` branch is the first rebased branch, it's not particularly the best rebase that could have been done, but it should provide some patches that are somewhat reasonable to take and apply on top of an upstream 4.9 kernel [after some polishing].
 
-The current master branch has an equivalent [adi-4.14.0](https://github.com/analogdevicesinc/linux/tree/adi-4.14.0).
-The common base/commit for this branch is commit https://github.com/analogdevicesinc/linux/commit/ad4cd988ba86ab0fb306d57f244b7eaa6cce79a4 from the [xlnx_rebase_v4.14](https://github.com/Xilinx/linux-xlnx/tree/xlnx_rebase_v4.14). Note that the [same hash is present](https://github.com/xilinx/linux-xlnx/commit/ad4cd988ba86ab0fb306d57f244b7eaa6cce79a4) in the Xilinx. As such, the `adi-4.14.0` is an incremental improvement for rebased branches in this repo.
+The latest rebased branch depends on the current linux version supported in master. At the time of writing it is 5.10 so that [adi-5.10.0](https://github.com/analogdevicesinc/linux/tree/adi-5.10.0) is the latest. Also note that a diff between the latest rebased branch and master (`git diff master adi-5.10.0`) must be NULL.
 
 ## Raspberry Pi branches
 
-These provide a kernel that is good to run on a Raspberry Pi board. Some of the drivers that are developed internally are prototyped on top of this board.
+These provide a kernel that is good to run on a Raspberry Pi board. All the drivers present in the master branch should be automatically cherry-picked into the latest rpi branch.
 
-The typical ones are [rpi-4.0.y](https://github.com/analogdevicesinc/linux/tree/rpi-4.0.y), [rpi-4.9.y](https://github.com/analogdevicesinc/linux/tree/rpi-4.9.y) and [rpi-4.14.y](https://github.com/analogdevicesinc/linux/tree/rpi-4.14.y). The first 2 are upstream RPi branches merged with the ADI master branch from this repo. The 3rd is a rebased version of upstream rpi-4.14.y at some point in time.
-
-These branches are a bit hard to maintain. They require constant conflict resolution whenever rebasing, so they rarely get updated.
-As such, [rpi-4.14.y](https://github.com/analogdevicesinc/linux/tree/rpi-4.14.y) will probably be the last RPi branch. The idea is that with the next stable Linux kernel (4.19) support for RPi boards should be good enough in the upstream kernel, so that there won't be a need to keep these special branches.
+As in the rebased branches, the latest rpi branch should be in accordance with the current kernel version supported in master. At the time of writing, the kernel version in master is 5.10 so that the correspondent latest rpi branch is [rpi-5.10.y](https://github.com/analogdevicesinc/linux/tree/rpi-5.10.y).
 
 ## Intel/Altera branches
 
