@@ -573,11 +573,25 @@ static void hotplug_work_func(struct work_struct *work)
 
 	if (connector->status == connector_status_connected) {
 		DRM_INFO("HDMI Cable Plug In\n");
+
+		/* Recovery HDCP state */
+		if (connector->state->content_protection != DRM_MODE_CONTENT_PROTECTION_UNDESIRED)
+			mhdp->hdcp.state = HDCP_STATE_ENABLING;
+
 		mhdp->force_mode_set = true;
 		enable_irq(mhdp->irq[IRQ_OUT]);
 	} else if (connector->status == connector_status_disconnected) {
 		/* Cable Disconnedted  */
 		DRM_INFO("HDMI Cable Plug Out\n");
+
+		/* Disable HDCP when cable plugout,
+		 * set content_protection to DESIRED, recovery HDCP state after cable plugin
+		 */
+		if (connector->state->content_protection != DRM_MODE_CONTENT_PROTECTION_UNDESIRED) {
+			connector->state->content_protection = DRM_MODE_CONTENT_PROTECTION_DESIRED;
+			mhdp->hdcp.state = HDCP_STATE_DISABLING;
+		}
+
 		/* force mode set for cable replugin to recovery HDMI2.0 video modes */
 		mhdp->force_mode_set = true;
 		enable_irq(mhdp->irq[IRQ_IN]);

@@ -580,6 +580,14 @@ static void hotplug_work_func(struct work_struct *work)
 			DRM_DEBUG_DRIVER("Finished %s - early\n", __func__);
 			return;
 		}
+		/* Disable HDCP when cable plugout,
+		 * set content_protection to DESIRED, recovery HDCP state after cable plugin
+		 */
+		if (connector->state->content_protection
+				!= DRM_MODE_CONTENT_PROTECTION_UNDESIRED) {
+			connector->state->content_protection = DRM_MODE_CONTENT_PROTECTION_DESIRED;
+			mhdp->hdcp.state = HDCP_STATE_DISABLING;
+		}
 		DRM_DEBUG_DRIVER("Calling drm_kms_helper_hotplug_event\n");
 		/* Note that before we call the helper functions we need
 		 * to force the cdns_dp_connector_detect function from
@@ -614,6 +622,10 @@ static void hotplug_work_func(struct work_struct *work)
 				cdns_dp_connector_detect(connector, false);
 			if (connector_sts == connector_status_connected) {
 				DRM_DEBUG_DRIVER("HDMI/DP Cable Plug In\n");
+				/* Recovery HDCP state */
+				if (connector->state->content_protection
+						!= DRM_MODE_CONTENT_PROTECTION_UNDESIRED)
+					mhdp->hdcp.state = HDCP_STATE_ENABLING;
 				break;
 			}
 		}
