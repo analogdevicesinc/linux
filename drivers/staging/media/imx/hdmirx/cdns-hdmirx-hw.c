@@ -434,7 +434,7 @@ static void get_color_depth(struct cdns_hdmirx_device *hdmirx, int clk_ratio)
 		else
 			dev_info(&hdmirx->pdev->dev, "Detect mode VIC %d and HDMI_VIC=%d %dbit YUV422\n",
 				hdmirx->vic_code, hdmirx->hdmi_vic,  hdmirx->color_depth);
-			break;
+		break;
 	case PIXEL_ENCODING_YUV444:
 		if ((0 != hdmirx->vic_code) || (0 == hdmirx->hdmi_vic))
 			dev_info(&hdmirx->pdev->dev, "Detect mode VIC %d %dbit YUV444\n",
@@ -513,11 +513,11 @@ static int hdmirx_firmware_load(struct cdns_hdmirx_device *hdmirx)
 		return 0;
 
 	if (!hdmirx->fw) {
-		ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
-						hdmirx->firmware_name,
-						&hdmirx->pdev->dev, GFP_KERNEL,
-						hdmirx,
-						hdmirx_firmware_load_cont);
+		ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_NOUEVENT,
+					      hdmirx->firmware_name,
+					      &hdmirx->pdev->dev, GFP_KERNEL,
+					      hdmirx,
+					      hdmirx_firmware_load_cont);
 		if (ret < 0) {
 			DRM_ERROR("failed to load firmware\n");
 			return -ENOENT;
