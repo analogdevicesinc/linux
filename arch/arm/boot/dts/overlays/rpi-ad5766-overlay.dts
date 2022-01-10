@@ -33,4 +33,37 @@
 			status = "disabled";
 		};
 	};
+
+	fragment@3 {
+		target-path = "/";
+		
+		__overlay__ {
+			long_peack_control@0 {
+				compatible = "adi,one-bit-adc-dac";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				in-gpios = <&gpio 23 0>, <&gpio 24 0>;
+				out-gpios = <&gpio 5 0>, <&gpio 6 0>;
+				label = "long_peack_control";
+
+				channel@0 {
+					reg = <0>;
+					label = "in_gpio23";
+				};
+				channel@1 {
+					reg = <1>;
+					label = "in_gpio24";
+				};
+
+				channel@2 {
+					reg = <2>;
+					label = "out_gpio5";
+				};
+				channel@3 {
+					reg = <3>;
+					label = "out_gpio6";
+				};	
+			};
+		};
+	};
 };
