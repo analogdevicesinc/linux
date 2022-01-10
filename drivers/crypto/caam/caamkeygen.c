@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2020 NXP
+ * Copyright 2020, 2022 NXP
  */
 
 #include <linux/types.h>
@@ -277,14 +277,14 @@ static int validate_input(struct caam_keygen_cmd *key_crt, unsigned long arg,
 			 * Black key generated from plaintext,
 			 * get the plaintext (input key) and its size
 			 */
-			ret = validate_key_size(strlen(tmp),
+			ret = validate_key_size(key_crt->key_value_len,
 						u64_to_user_ptr(key_crt->blob),
 						key_crt->blob_len);
 			if (ret)
 				goto free_resource;
 
 			info->key = tmp;
-			info->key_len = strlen(tmp);
+			info->key_len = key_crt->key_value_len;
 		}
 		info->type = type;
 	} else {
