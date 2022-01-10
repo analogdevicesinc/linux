@@ -61,7 +61,13 @@ config LLD_VERSION
 	default 0
 
 config RUST_IS_AVAILABLE
-	def_bool $(success,$(srctree)/scripts/rust_is_available.sh)
+	# Because some common tools like 'diff' don't support permissions of
+	# the files, 'rust_is_available.sh' in some trees that managed with such
+	# tools result in having no execution permission.  As a temporal work
+	# around, we specify the interpreter ('/bin/sh').  It will be unneeded
+	# once 'rust_is_available.sh' is merged in the mainline with its execution
+	# permission.
+	def_bool $(success,/bin/sh $(srctree)/scripts/rust_is_available.sh)
 	help
 	  This shows whether a suitable Rust toolchain is available (found).
 
