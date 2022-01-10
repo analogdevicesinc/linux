@@ -616,7 +616,7 @@ static int ad5766_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct ad5766_state *st;
 	int ret;
-
+	printk(KERN_INFO, "ad5766_probe");
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;

@@ -3,7 +3,7 @@
  * Analog Devices ONE_BIT_ADC_DAC
  * Digital to Analog Converters driver
  *
- * Copyright 2020 Analog Devices Inc.
+ * Copyright 2022 Analog Devices Inc.
  */
 
 #include <linux/device.h>
@@ -18,9 +18,12 @@ enum ch_direction {
 };
 
 struct one_bit_adc_dac_state {
+	int			in_num_ch;
+	int			out_num_ch;
 	struct platform_device  *pdev;
 	struct gpio_descs       *in_gpio_descs;
 	struct gpio_descs       *out_gpio_descs;
+	const char		**labels;
 };
 
 static int one_bit_adc_dac_read_raw(struct iio_dev *indio_dev,
@@ -65,9 +68,24 @@ static int one_bit_adc_dac_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static int one_bit_adc_dac_read_label(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, char *label)
+{
+	struct one_bit_adc_dac_state *st = iio_priv(indio_dev);
+	int ch;
+
+	if (chan->output)
+		ch = chan->channel + st->in_num_ch;
+	else
+		ch = chan->channel;
+
+	return sprintf(label, "%s\n", st->labels[ch]);
+}
+
 static const struct iio_info one_bit_adc_dac_info = {
 	.read_raw = &one_bit_adc_dac_read_raw,
 	.write_raw = &one_bit_adc_dac_write_raw,
+	.read_label = &one_bit_adc_dac_read_label,
 };
 
 static int one_bit_adc_dac_set_ch(struct iio_chan_spec *channels,
@@ -87,17 +105,26 @@ static int one_bit_adc_dac_set_ch(struct iio_chan_spec *channels,
 	return 0;
 }
 
-static void one_bit_adc_dac_set_channel_label(struct device *device,
+static int one_bit_adc_dac_set_channel_label(struct iio_dev *indio_dev,
 						struct iio_chan_spec *channels,
 						int num_channels)
 {
+	struct device *device = indio_dev->dev.parent;
+	struct one_bit_adc_dac_state *st = iio_priv(indio_dev);
 	struct fwnode_handle *fwnode;
 	struct fwnode_handle *child;
 	struct iio_chan_spec *chan;
 	const char *label;
-	int crt_ch = 0;
+	int crt_ch = 0, child_num, i = 0;
 
 	fwnode = dev_fwnode(device);
+	child_num = device_get_child_node_count(device);
+
+	st->labels = devm_kzalloc(device, sizeof(*st->labels) * child_num, GFP_KERNEL);
+	if (!st->labels)
+		return -ENOMEM;
+
+	i = child_num - 1;
 	fwnode_for_each_child_node(fwnode, child) {
 		if (fwnode_property_read_u32(child, "reg", &crt_ch))
 			continue;
@@ -109,9 +136,10 @@ static void one_bit_adc_dac_set_channel_label(struct device *device,
 			continue;
 
 		chan = &channels[crt_ch];
-		chan->info_mask_separate |= BIT(IIO_CHAN_INFO_LABEL);
-		chan->label_name = label;
+		st->labels[i--] = label;
 	}
+
+	return 0;
 }
 
 static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
@@ -120,6 +148,7 @@ static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 	struct iio_chan_spec *channels;
 	int ret, in_num_ch = 0, out_num_ch = 0;
 
+	// printk(KERN_WARNING "%s: %s: %d\n", __FILE__, __func__, __LINE__);
 	st->in_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "in", GPIOD_IN);
 	if (IS_ERR(st->in_gpio_descs))
 		return PTR_ERR(st->in_gpio_descs);
@@ -133,6 +162,8 @@ static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 
 	if (st->out_gpio_descs)
 		out_num_ch = st->out_gpio_descs->ndescs;
+	st->in_num_ch = in_num_ch;
+	st->out_num_ch = out_num_ch;
 
 	channels = devm_kcalloc(indio_dev->dev.parent, in_num_ch + out_num_ch,
 				sizeof(*channels), GFP_KERNEL);
@@ -147,7 +178,10 @@ static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	one_bit_adc_dac_set_channel_label(indio_dev->dev.parent, channels, in_num_ch + out_num_ch);
+	ret = one_bit_adc_dac_set_channel_label(indio_dev, channels, in_num_ch + out_num_ch);
+	if (ret)
+		return ret;
+
 	indio_dev->channels = channels;
 	indio_dev->num_channels = in_num_ch + out_num_ch;
 

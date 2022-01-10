@@ -3957,14 +3957,14 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].scan_type.storagebits =
 			(phy->jtx_link_rx[0].jesd_param.jesd_np > 8) ? 16 : 8;
 		phy->chip_info.channel[c].scan_type.sign = 's';
-		phy->chip_info.channel[c].info_mask_separate |= BIT(IIO_CHAN_INFO_LABEL);
+		// phy->chip_info.channel[c].info_mask_separate |= BIT(IIO_CHAN_INFO_LABEL);
 
 		if (i < m) {
 			phy->chip_info.channel[c].ext_info = rxadc_ext_info;
-			phy->chip_info.channel[c].label_name =
-				ad9081_lable_writer(phy, &phy->chip_info.channel[c]);
+			// phy->chip_info.channel[c].label_name =
+			// 	ad9081_lable_writer(phy, &phy->chip_info.channel[c]);
 		} else {
-			phy->chip_info.channel[c].label_name = "buffer_only";
+			// phy->chip_info.channel[c].label_name = "buffer_only";
 		}
 	}
 
@@ -3983,12 +3983,12 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].info_mask_shared_by_type =
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 
-		phy->chip_info.channel[c].info_mask_separate =
-			BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_LABEL);
+		// phy->chip_info.channel[c].info_mask_separate =
+		// 	BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_LABEL);
 
 		phy->chip_info.channel[c].ext_info = txdac_ext_info;
-		phy->chip_info.channel[c].label_name = ad9081_lable_writer(phy,
-			&phy->chip_info.channel[c]);
+		// phy->chip_info.channel[c].label_name = ad9081_lable_writer(phy,
+			// &phy->chip_info.channel[c]);
 	}
 
 	phy->chip_info.channel[c].type = IIO_TEMP;
