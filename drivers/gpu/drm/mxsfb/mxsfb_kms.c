@@ -391,7 +391,7 @@ static enum drm_mode_status mxsfb_crtc_mode_valid(struct drm_crtc *crtc,
 	if (!crtc->primary->state->fb)
 		bpp = 32;
 	else
-		bpp = crtc->primary->state->fb->format->depth;
+		bpp = crtc->primary->state->fb->format->cpp[0] * 8;
 
 	bw = (u64)mode->clock * 1000;
 	bw = bw * mode->hdisplay * mode->vdisplay * (bpp / 8);
