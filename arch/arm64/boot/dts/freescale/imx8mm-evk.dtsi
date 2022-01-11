@@ -670,6 +670,8 @@
 		<&clk IMX8MM_AUDIO_PLL2_OUT>;
 	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
 	fsl,sai-asynchronous;
+	fsl,sai-multi-lane;
+	dmas = <&sdma2 8 25 0>, <&sdma2 9 25 0>;
 	status = "disabled";
 };
 
