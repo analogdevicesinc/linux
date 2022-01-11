@@ -5625,6 +5625,30 @@ static int adrv9009_jesd204_clks_enable(struct jesd204_dev *jdev,
 				"%s:%d (ret %d)", __func__, __LINE__, ret);
 			ret = -EFAULT;
 		}
+
+		ret = TALISE_enableFramerLink(phy->talDevice,
+			priv->link[lnk->link_id].source_id, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev,
+				"%s:%d (ret %d)", __func__, __LINE__, ret);
+			return -EFAULT;
+		}
+
+		dev_dbg(&phy->spi->dev,
+			"%s:%d Link %d Framer enabled", __func__, __LINE__,
+			priv->link[lnk->link_id].source_id);
+
+		/*************************************************/
+		/**** Enable SYSREF to Talise JESD204B Framer ***/
+		/*************************************************/
+		/*** < User: Make sure SYSREF is stopped/disabled > ***/
+		ret = TALISE_enableSysrefToFramer(phy->talDevice,
+			priv->link[lnk->link_id].source_id, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev,
+				"%s:%d (ret %d)", __func__, __LINE__, ret);
+			return -EFAULT;
+		}
 	} else {
 		ret = TALISE_enableSysrefToDeframer(phy->talDevice,
 			priv->link[lnk->link_id].source_id, 0);
@@ -5664,26 +5688,7 @@ static int adrv9009_jesd204_link_enable(struct jesd204_dev *jdev,
 	if (!lnk->num_converters)
 		return JESD204_STATE_CHANGE_DONE;
 
-	if (priv->link[lnk->link_id].is_framer) {
-		ret = TALISE_enableFramerLink(phy->talDevice,
-			priv->link[lnk->link_id].source_id, 1);
-		if (ret != TALACT_NO_ACTION) {
-			dev_err(&phy->spi->dev,
-				"%s:%d (ret %d)", __func__, __LINE__, ret);
-			return -EFAULT;
-		}
-		/*************************************************/
-		/**** Enable SYSREF to Talise JESD204B Framer ***/
-		/*************************************************/
-		/*** < User: Make sure SYSREF is stopped/disabled > ***/
-		ret = TALISE_enableSysrefToFramer(phy->talDevice,
-			priv->link[lnk->link_id].source_id, 1);
-		if (ret != TALACT_NO_ACTION) {
-			dev_err(&phy->spi->dev,
-				"%s:%d (ret %d)", __func__, __LINE__, ret);
-			return -EFAULT;
-		}
-	} else {
+	if (!priv->link[lnk->link_id].is_framer) {
 		ret = TALISE_enableDeframerLink(phy->talDevice,
 			priv->link[lnk->link_id].source_id, 1);
 		if (ret != TALACT_NO_ACTION) {
