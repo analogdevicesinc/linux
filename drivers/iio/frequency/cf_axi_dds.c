@@ -1250,70 +1250,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
-	[ID_AD9172_M2] = {
-		.name = "AD9172",
-		.channel = {
-			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_I, 0),
-			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_Q, 1),
-			CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
-			CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
-			CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
-			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
-		},
-		.num_channels = 6,
-		.num_dp_disable_channels = 2,
-		.num_dds_channels = 4,
-		.num_buf_channels = 2,
-	},
-	[ID_AD9172_M4] = {
-		.name = "AD9172",
-		.channel = {
-			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_I, 0),
-			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_Q, 1),
-			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_I, 2),
-			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_Q, 3),
-			CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
-			CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
-			CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
-			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
-			CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
-			CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
-			CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
-			CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
-
-		},
-		.num_channels = 12,
-		.num_dp_disable_channels = 4,
-		.num_dds_channels = 8,
-		.num_buf_channels = 4,
-	},
-	[ID_AD9172_M6] = {
-		.name = "AD9172",
-		.channel = {
-			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_I, 0),
-			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_Q, 1),
-			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_I, 2),
-			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_Q, 3),
-			CF_AXI_DDS_CHAN_BUF_MOD(2, IIO_MOD_I, 4),
-			CF_AXI_DDS_CHAN_BUF_MOD(2, IIO_MOD_Q, 5),
-			CF_AXI_DDS_CHAN(0, 0, "1A"),
-			CF_AXI_DDS_CHAN(1, 0, "1B"),
-			CF_AXI_DDS_CHAN(2, 0, "2A"),
-			CF_AXI_DDS_CHAN(3, 0, "2B"),
-			CF_AXI_DDS_CHAN(4, 0, "3A"),
-			CF_AXI_DDS_CHAN(5, 0, "3B"),
-			CF_AXI_DDS_CHAN(6, 0, "4A"),
-			CF_AXI_DDS_CHAN(7, 0, "4B"),
-			CF_AXI_DDS_CHAN(8, 0, "5A"),
-			CF_AXI_DDS_CHAN(9, 0, "5B"),
-			CF_AXI_DDS_CHAN(10, 0, "6A"),
-			CF_AXI_DDS_CHAN(11, 0, "6B"),
-		},
-		.num_channels = 18,
-		.num_dp_disable_channels = 6,
-		.num_dds_channels = 12,
-		.num_buf_channels = 6,
-	},
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
@@ -1780,8 +1716,21 @@ static const struct jesd204_dev_data jesd204_cf_axi_dds_init = {
 	},
 };
 
+struct axidds_core_info {
+	unsigned int version;
+	bool standalone;
+	bool rate_format_skip_en;
+	bool complex_modified;
+	bool issue_sync_en;
+	struct cf_axi_dds_chip_info *chip_info;
+	unsigned int data_format;
+	unsigned int rate;
+	long info_mask_separate;
+	const char *name;
+};
+
 static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
-					  const char *name, bool complex)
+	const struct axidds_core_info *info)
 {
 	u32 i, c, reg, m, n, np;
 
@@ -1801,9 +1750,10 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 		st->chip_info_generated.channel[c].type = IIO_VOLTAGE;
 		st->chip_info_generated.channel[c].output = 1;
 		st->chip_info_generated.channel[c].indexed = 1;
-		st->chip_info_generated.channel[c].modified = complex ? 1 : 0;
+		st->chip_info_generated.channel[c].modified =
+			info->complex_modified ? 1 : 0;
 		st->chip_info_generated.channel[c].channel =
-			complex ? i / 2 : i;
+			info->complex_modified ? i / 2 : i;
 		st->chip_info_generated.channel[c].channel2 =
 			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
 		st->chip_info_generated.channel[c].scan_index = i;
@@ -1818,6 +1768,9 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 		if (reg & ADI_XBAR_ENABLE)
 			st->chip_info_generated.channel[c].ext_info =
 			axidds_ext_info;
+
+		st->chip_info_generated.channel[c].info_mask_separate |=
+			info->info_mask_separate;
 
 		st->chip_info_generated.channel[c].scan_type.realbits = n;
 		st->chip_info_generated.channel[c].scan_type.storagebits = np;
@@ -1856,22 +1809,10 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 	st->chip_info_generated.num_dp_disable_channels = m;
 	st->chip_info_generated.num_dds_channels = i;
 	st->chip_info_generated.num_buf_channels = m;
-	st->chip_info_generated.name = name;
+	st->chip_info_generated.name = info->name;
 
 	return 0;
 }
-
-struct axidds_core_info {
-	unsigned int version;
-	bool standalone;
-	bool rate_format_skip_en;
-	bool complex_modified;
-	bool issue_sync_en;
-	struct cf_axi_dds_chip_info *chip_info;
-	unsigned int data_format;
-	unsigned int rate;
-	const char *name;
-};
 
 static const struct axidds_core_info ad9122_6_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
@@ -1958,6 +1899,13 @@ static const struct axidds_core_info ad9081_1_00_a_info = {
 	.complex_modified = true,
 };
 
+static const struct axidds_core_info ad9172_1_00_a_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.name = "AD917x",
+	.complex_modified = true,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE),
+};
+
 static const struct axidds_core_info adrv9002_9_01_b_info = {
 	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
 	.standalone = true,
@@ -2008,7 +1956,7 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	    .data = &ad9963_1_00_a_info,
 	}, {
 	    .compatible = "adi,axi-ad9172-1.0",
-	    .data = &ad9162_1_00_a_info,
+	    .data = &ad9172_1_00_a_info,
 	}, {
 	    .compatible = "adi,axi-ad9081-tx-1.0",
 	    .data = &ad9081_1_00_a_info,
@@ -2140,8 +2088,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		if (info->chip_info) {
 			st->chip_info = info->chip_info;
 		} else {
-			ret = cf_axi_dds_setup_chip_info_tbl(st, info->name,
-					info->complex_modified);
+			ret = cf_axi_dds_setup_chip_info_tbl(st, info);
 			if (ret) {
 				dev_err(&pdev->dev,
 					"Invalid number of converters identified");
@@ -2168,7 +2115,18 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 		st->dac_clk = conv->get_data_clk(conv);
 
-		st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
+		if (conv->id == ID_AUTO_SYNTH_PARAM) {
+			ret = cf_axi_dds_setup_chip_info_tbl(st, info);
+			if (ret) {
+				dev_err(&pdev->dev,
+					"Invalid number of converters identified");
+				return ret;
+			}
+
+			st->chip_info = &st->chip_info_generated;
+		} else {
+			st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
+		}
 	}
 
 	/*
