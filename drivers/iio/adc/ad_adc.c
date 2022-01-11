@@ -566,7 +566,7 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	mutex_lock(&indio_dev->mlock);
-	if (reg & 0x80000000) {
+	if (st->slave_regs && reg & 0x80000000) {
 		if (readval == NULL)
 			axiadc_slave_write(st, (reg & 0xffff), writeval);
 		else
