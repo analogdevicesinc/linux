@@ -920,7 +920,7 @@ static int ad9172_probe(struct spi_device *spi)
 	conv->write_raw = ad9172_write_raw;
 	conv->read_raw = ad9172_read_raw;
 	conv->spi = spi;
-	conv->id = ID_AD9172_M2;
+	conv->id = ID_AUTO_SYNTH_PARAM;
 
 	ret = ad9172_get_clks(conv);
 	if (ret < 0) {
@@ -946,28 +946,21 @@ static int ad9172_probe(struct spi_device *spi)
 
 	if (st->interpolation == 1) {
 		conv->attrs = NULL;
-		conv->id = ID_AD9172_M2;
 	} else {
 		switch (st->appJesdConfig.jesd_M) {
 		case 2:
-			conv->id = ID_AD9172_M2;
-
 			if (st->jesd_dual_link_mode)
 				conv->attrs = &ad9172_attribute_group_dual_m2;
 			else
 				conv->attrs = &ad9172_attribute_group_m2;
 			break;
 		case 4:
-			conv->id = ID_AD9172_M4;
-
 			if (st->jesd_dual_link_mode)
 				conv->attrs = &ad9172_attribute_group_dual_m4;
 			else
 				conv->attrs = &ad9172_attribute_group_m4;
 			break;
 		case 6:
-			conv->id = ID_AD9172_M6;
-
 			if (st->jesd_dual_link_mode)
 				conv->attrs = &ad9172_attribute_group_dual_m6;
 			else
