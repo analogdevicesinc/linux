@@ -694,14 +694,16 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 
 	flags = 0;
 
-	ret = ad9361_dig_tune(phy, (axiadc_read(st, ADI_AXI_REG_ID)) ?
-		0 : 61440000, flags);
+	ret = ad9361_dig_tune(phy, 61440000, axiadc_read(st, ADI_AXI_REG_ID) ?
+		flags | RESTORE_DEFAULT : flags);
 	if (ret < 0)
 		goto error;
 
 	if (flags & (DO_IDELAY | DO_ODELAY)) {
-		ret = ad9361_dig_tune(phy, (axiadc_read(st, ADI_AXI_REG_ID)) ?
-			0 : 61440000, flags & BE_VERBOSE);
+		ret = ad9361_dig_tune(phy, 61440000,
+			axiadc_read(st, ADI_AXI_REG_ID) ?
+			flags | RESTORE_DEFAULT | BE_VERBOSE :
+			flags | BE_VERBOSE);
 		if (ret < 0)
 			goto error;
 	}
