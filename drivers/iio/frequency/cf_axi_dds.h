@@ -199,9 +199,7 @@ enum {
 	ID_AD9154,
 	ID_AD9162,
 	ID_AD9162_COMPLEX,
-	ID_AD9172_M2,
-	ID_AD9172_M4,
-	ID_AD9172_M6,
+	ID_AUTO_SYNTH_PARAM = ~0,
 };
 
 enum fifo_ctrl {
