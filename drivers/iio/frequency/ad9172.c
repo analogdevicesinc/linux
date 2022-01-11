@@ -58,6 +58,7 @@ struct ad9172_state {
 	u32 jesd_dual_link_mode;
 	u32 jesd_subclass;
 	u32 clock_output_config;
+	bool pll_bypass;
 	signal_type_t syncoutb_type;
 	signal_coupling_t sysref_coupling;
 	u8 nco_main_enable;
@@ -107,8 +108,8 @@ static int ad9172_setup(struct ad9172_state *st)
 	adi_chip_id_t dac_chip_id;
 	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
 	int ret, i;
-	u64 dac_rate_Hz;
-	unsigned long dac_clkin_Hz, lane_rate_kHz;
+	u64 dac_rate_Hz, dac_clkin_Hz;
+	unsigned long lane_rate_kHz;
 	ad917x_jesd_link_stat_t link_status;
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	unsigned long pll_mult;
@@ -149,14 +150,25 @@ static int ad9172_setup(struct ad9172_state *st)
 	dev_info(dev, "AD916x Revision: %d.%d.%d\n",
 		 revision[0], revision[1], revision[2]);
 
-	dac_clkin_Hz = clk_get_rate(st->conv.clk[CLK_DAC]);
+	dac_clkin_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
+		&st->conv.clkscale[CLK_DAC]);
 
-	dev_info(dev, "PLL Input rate %lu\n", dac_clkin_Hz);
+	dev_info(dev, "CLK Input rate %llu\n", dac_clkin_Hz);
 
-	pll_mult = DIV_ROUND_CLOSEST(st->dac_rate_khz, dac_clkin_Hz / 1000);
+	if (!st->pll_bypass) {
+		u64 tmp = dac_clkin_Hz;
 
-	ret = ad917x_set_dac_clk(ad917x_h, (u64)dac_clkin_Hz * pll_mult,
-				 1, dac_clkin_Hz);
+		do_div(tmp, 1000);
+
+		pll_mult = DIV_ROUND_CLOSEST_ULL(st->dac_rate_khz, tmp);
+
+		ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz * pll_mult,
+			1, dac_clkin_Hz);
+	} else {
+		ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz, 0,
+			dac_clkin_Hz);
+	}
+
 	if (ret != 0) {
 		dev_err(dev, "ad917x_set_dac_clk failed (%d)\n", ret);
 		return ret;
@@ -165,7 +177,7 @@ static int ad9172_setup(struct ad9172_state *st)
 	msleep(100); /* Wait 100 ms for PLL to lock */
 
 	ret = ad917x_get_dac_clk_status(ad917x_h,
-				  &pll_lock_status, &dll_lock_stat);
+		&pll_lock_status, &dll_lock_stat);
 	if (ret != 0) {
 		dev_err(dev, "ad917x_get_dac_clk_status failed (%d)\n", ret);
 		return ret;
@@ -829,6 +841,8 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 
 	st->jesd_subclass = 0;
 	of_property_read_u32(np, "adi,jesd-subclass", &st->jesd_subclass);
+
+	st->pll_bypass = of_property_read_bool(np, "adi,direct-clocking-enable");
 
 	st->dac_interpolation = 1;
 	of_property_read_u32(np, "adi,dac-interpolation",
