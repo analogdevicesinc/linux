@@ -272,21 +272,26 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	msleep(100);
 
-	ret = ad917x_jesd_get_link_status(ad917x_h, JESD_LINK_0, &link_status);
-	if (ret != 0) {
-		dev_err(dev,
-			"DAC:MODE:JESD: ERROR : Get Link status failed \r\n");
-		return -EIO;
-	}
+	for (i = JESD_LINK_0; i <= JESD_LINK_1; i++) {
+		ret = ad917x_jesd_get_link_status(ad917x_h, i, &link_status);
+		if (ret != 0) {
+			dev_err(dev,
+				"DAC:MODE:JESD: ERROR : Get Link%d status failed \r\n", i);
+			return -EIO;
+		}
 
-	dev_info(dev, "code_grp_sync: %x\n", link_status.code_grp_sync_stat);
-	dev_info(dev, "frame_sync_stat: %x\n", link_status.frame_sync_stat);
-	dev_info(dev, "good_checksum_stat: %x\n",
-		 link_status.good_checksum_stat);
-	dev_info(dev, "init_lane_sync_stat: %x\n",
-		 link_status.init_lane_sync_stat);
-	dev_info(dev, "%d lanes @ %lu kBps\n",
-		 st->appJesdConfig.jesd_L, lane_rate_kHz);
+		dev_info(dev, "Link%d code_grp_sync: %x\n", i, link_status.code_grp_sync_stat);
+		dev_info(dev, "Link%d frame_sync_stat: %x\n", i, link_status.frame_sync_stat);
+		dev_info(dev, "Link%d good_checksum_stat: %x\n",
+			i, link_status.good_checksum_stat);
+		dev_info(dev, "Link%d init_lane_sync_stat: %x\n",
+			i, link_status.init_lane_sync_stat);
+		dev_info(dev, "Link%d %d lanes @ %lu kBps\n",
+			i, st->appJesdConfig.jesd_L, lane_rate_kHz);
+
+		if (!st->jesd_dual_link_mode)
+			break;
+	}
 
 	if (st->jesd_dual_link_mode || st->interpolation == 1)
 		dac_mask = AD917X_DAC0 | AD917X_DAC1;
@@ -818,6 +823,9 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 
 	st->jesd_link_mode = 10;
 	of_property_read_u32(np, "adi,jesd-link-mode", &st->jesd_link_mode);
+
+	st->jesd_dual_link_mode = 0;
+	of_property_read_u32(np, "adi,dual-link", &st->jesd_dual_link_mode);
 
 	st->jesd_subclass = 0;
 	of_property_read_u32(np, "adi,jesd-subclass", &st->jesd_subclass);
