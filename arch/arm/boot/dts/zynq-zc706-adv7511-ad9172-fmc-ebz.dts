@@ -15,6 +15,19 @@
 #include "zynq-zc706-adv7511.dtsi"
 #include <dt-bindings/jesd204/adxcvr.h>
 
+&i2c_mux {
+	i2c@5 { /* HPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+	};
+};
+
 &fpga_axi {
 	tx_dma: tx-dmac@7c420000 {
 		#dma-cells = <1>;
