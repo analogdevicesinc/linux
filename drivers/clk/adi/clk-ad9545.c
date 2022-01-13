@@ -1617,7 +1617,7 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 
 		for (j = 0; j < ARRAY_SIZE(ad9545_out_source_ua); j++)
 			if (ad9545_out_source_ua[j] == st->out_clks[out_i].source_ua)
-				reg |= FIELD_PREP(GENMASK(2, 1), i);
+				reg |= FIELD_PREP(GENMASK(2, 1), j);
 
 		reg |= FIELD_PREP(GENMASK(4, 3), st->out_clks[out_i].output_mode);
 
