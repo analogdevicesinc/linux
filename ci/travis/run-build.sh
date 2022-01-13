@@ -239,7 +239,9 @@ build_checkpatch() {
 		--ignore LONG_LINE \
 		--ignore LONG_LINE_STRING \
 		--ignore LONG_LINE_COMMENT \
-		--ignore PARENTHESIS_ALIGNMENT
+		--ignore PARENTHESIS_ALIGNMENT \
+		--ignore CAMELCASE \
+		--ignore UNDOCUMENTED_DT_STRING
 }
 
 build_dtb_build_test() {
