@@ -7,7 +7,7 @@
  * hdl_project: <dac_fmc_ebz/zcu102>
  * board_revision: <>
  *
- * Copyright (C) 2018-2020 Analog Devices Inc.
+ * Copyright (C) 2018-2022 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
@@ -72,6 +72,11 @@
 			dma-names = "tx";
 			spibus-connected = <&dac0_ad9172>;
 			adi,axi-pl-fifo-enable;
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9172_jesd 0 0>;
 		};
 
 		axi_ad9172_jesd: axi-jesd204-tx@84a90000 {
@@ -83,14 +88,13 @@
 			clocks = <&zynqmp_clk 71>, <&axi_ad9172_adxcvr 1>, <&axi_ad9172_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-			adi,octets-per-frame = <1>;
-			adi,frames-per-multiframe = <32>;
-			adi,converter-resolution = <16>;
-			adi,bits-per-sample = <16>;
-			adi,converters-per-device = <2>;
-
 			#clock-cells = <0>;
 			clock-output-names = "jesd_dac_lane_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9172_adxcvr 0 0>;
 		};
 
 		axi_ad9172_adxcvr: axi-adxcvr-tx@84a60000 {
@@ -106,6 +110,11 @@
 
 			#clock-cells = <1>;
 			clock-output-names = "dac_gt_clk", "tx_out_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&hmc7044 0 0>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {

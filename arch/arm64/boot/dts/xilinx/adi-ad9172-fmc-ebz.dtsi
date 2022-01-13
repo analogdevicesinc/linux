@@ -2,7 +2,7 @@
 /*
  * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
  *
- * Copyright (C) 2018-2019 Analog Devices Inc.
+ * Copyright (C) 2018-2022 Analog Devices Inc.
  */
 
 &fmc_spi {
@@ -37,6 +37,12 @@
 				     "hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
 				     "hmc7044_out12", "hmc7044_out13";
 
+		/* jesd204-fsm support */
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
+
 		hmc7044_c2: channel@2 {
 			reg = <2>;
 			adi,extended-name = "DAC_CLK";
@@ -48,6 +54,7 @@
 			adi,extended-name = "DAC_SYSREF";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <1>;	// LVPECL
+			adi,jesd204-sysref-chan;
 		};
 		hmc7044_c12: channel@12 {
 			reg = <12>;
@@ -60,6 +67,7 @@
 			adi,extended-name = "FPGA_SYSREF";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <2>;	// LVDS
+			adi,jesd204-sysref-chan;
 		};
 	};
 
@@ -69,18 +77,26 @@
 		compatible = "adi,ad9172";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
-		clocks = <&axi_ad9172_jesd>, <&hmc7044 2>, <&hmc7044 3>;
-		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+		clocks = <&hmc7044 2>;
+		clock-names = "dac_clk";
 
 		adi,dac-rate-khz = <2949120>;
 		adi,jesd-link-mode = <10>;
 
-		adi,jesd-subclass = <0>;
+		adi,jesd-subclass = <1>;
 		adi,dac-interpolation = <1>;
 		adi,channel-interpolation = <1>;
 		adi,clock-output-divider = <1>;
 		adi,syncoutb-signal-type-lvds-enable;
+		adi,scrambling = <1>;
+		adi,sysref-mode = <2>; /* SYSREF_CONTINUOUS */
 
+		/* jesd204-fsm support */
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-link-ids = <0>;
+		jesd204-inputs = <&axi_ad9172_core 0 0>;
 	};
 };
 
