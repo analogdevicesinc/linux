@@ -275,6 +275,10 @@ void jesd204_copy_link_params(struct jesd204_link *dst,
 	dst->dac_adj_resolution_steps = src->dac_adj_resolution_steps;
 	dst->dac_adj_direction = src->dac_adj_direction;
 	dst->dac_phase_adj = src->dac_phase_adj;
+	dst->sysref.mode = dst->sysref.mode;
+	dst->sysref.capture_falling_edge = dst->sysref.capture_falling_edge;
+	dst->sysref.valid_falling_edge = dst->sysref.valid_falling_edge;
+	dst->sysref.lmfc_offset = dst->sysref.lmfc_offset;
 }
 EXPORT_SYMBOL_GPL(jesd204_copy_link_params);
 
