@@ -35,20 +35,6 @@
 		reg = <0x7c420000 0x10000>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <0>;
-				adi,destination-bus-width = <128>;
-				adi,destination-bus-type = <1>;
-				adi,cyclic;
-			};
-		};
 	};
 
 	axi_ad9172_core: axi-ad9172-hpc@44A04000 {
