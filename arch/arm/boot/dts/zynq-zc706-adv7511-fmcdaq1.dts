@@ -25,6 +25,27 @@
 		};
 	};
 
+	tx_dma: dma@44a40000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a40000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <128>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
 	ad9684_core: ad9684-core@44a20000 {
 		compatible = "adi,axi-ad9684-1.0";
 		reg = <0x44a20000 0x10000>;
@@ -37,6 +58,8 @@
 		compatible = "adi,axi-ad9122-6.00.a";
 		reg = <0x44a04000 0x10000>;
 		spibus-connected = <&dac_ad9122>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
 	};
 };
 

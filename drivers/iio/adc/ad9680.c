@@ -57,7 +57,7 @@
 #define AD9680_OUTPUT_MODE_TWOS_COMPLEMENT	0x1
 
 #define CHIPID_AD9680			0xC5
-#define CHIPID_AD9684			0xD3
+#define CHIPID_AD9684			0xD2
 #define CHIPID_AD9234			0xCE
 #define CHIPID_AD9694			0xDB
 #define CHIPID_AD9094			0xE8
@@ -1116,6 +1116,7 @@ static int ad9684_setup(struct spi_device *spi)
 	ret |= ad9680_spi_write(spi, 0x03f, 0x80);
 	ret |= ad9680_spi_write(spi, 0x040, 0xbf);
 	ret |= ad9680_spi_write(spi, 0x568, 0x01);
+	ret |= ad9680_spi_write(spi, 0x569, 0x02);
 
 	clk_stat = ad9680_spi_read(spi, 0x11c);
 	dev_info(&spi->dev, "AD9684 input clock %s\n",

@@ -37,7 +37,7 @@
 
 			clock-output-names = "ad9523_out0", "ad9523_out1", "ad9523_out2", "ad9523_out3", "ad9523_out4", "ad9523_out5", "ad9523_out6", "ad9523_out7", "ad9523_out8", "ad9523_out9", "ad9523_out10", "ad9523_out11", "ad9523_out12", "ad9523_out13";
 			adi,vcxo-freq = <125000000>;
-
+			adi,pll1-bypass-enable;
 			adi,osc-in-diff-enable;
 
 			adi,refa-r-div = <0>;
@@ -49,11 +49,19 @@
 			adi,ref-mode = <1>;
 
 			adi,pll2-charge-pump-current-nA = <413000>;
-			adi,pll2-ndiv-a-cnt = <0>;
-			adi,pll2-ndiv-b-cnt = <6>;
-			adi,pll2-r2-div = <1>;
-			adi,pll2-vco-div-m1 = <3>;
-			adi,pll2-vco-div-m2 = <3>;
+			/*
+			 * Valid ranges based on VCO locking range:
+			 *    980.00 MHz - 1033.33 MHz
+			 *    735.00 MHz -  775.00 MHz
+			 *    588.00 MHz -  620.00 MHz
+			 */
+			adi,pll2-m1-freq = <1000000000>;
+
+			//adi,pll2-ndiv-a-cnt = <0>;
+			//adi,pll2-ndiv-b-cnt = <12>;
+			//adi,pll2-r2-div = <1>;
+			//adi,pll2-vco-div-m1 = <3>;
+			//adi,pll2-vco-div-m2 = <3>;
 
 			adi,rpole2 = <0>;
 			adi,rzero = <7>;
@@ -62,33 +70,33 @@
 			ad9523_c2:channel@2 {
 				reg = <2>;
 				adi,extended-name = "DAC_CLK";
-				adi,driver-mode = <2>;
-				adi,divider-phase = <0>;
+				adi,driver-mode = <3>;
+				adi,divider-phase = <1>;
 				adi,channel-divider = <2>;
 			};
 
 			ad9523_c4:channel@4 {
 				reg = <4>;
 				adi,extended-name = "DAC_REF_CLK";
-				adi,driver-mode = <2>;
-				adi,divider-phase = <0>;
-				adi,channel-divider = <16>;
+				adi,driver-mode = <3>;
+				adi,divider-phase = <1>;
+				adi,channel-divider = <64>;
 			};
 
 			ad9523_c8:channel@8 {
 				reg = <8>;
 				adi,extended-name = "DAC_FPGA_CLK";
-				adi,driver-mode = <2>;
-				adi,divider-phase = <0>;
+				adi,driver-mode = <3>;
+				adi,divider-phase = <1>;
 				adi,channel-divider = <2>;
 			};
 
 			ad9523_c13:channel@13 {
 				reg = <13>;
 				adi,extended-name = "ADC_CLK";
-				adi,driver-mode = <2>;
-				adi,divider-phase = <0>;
-				adi,channel-divider = <2>;
+				adi,driver-mode = <3>;
+				adi,divider-phase = <1>;
+				adi,channel-divider = <2>; // 500M
 			};
 		};
 
