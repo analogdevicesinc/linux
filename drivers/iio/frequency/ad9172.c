@@ -221,12 +221,12 @@ static int ad9172_setup(struct ad9172_state *st)
 	if (ret != 0)
 		return ret;
 
-	dev_info(dev, "AD916x DAC Chip ID: %d\n", dac_chip_id.chip_type);
-	dev_info(dev, "AD916x DAC Product ID: %x\n", dac_chip_id.prod_id);
-	dev_info(dev, "AD916x DAC Product Grade: %d\n", dac_chip_id.prod_grade);
-	dev_info(dev, "AD916x DAC Product Revision: %d\n",
+	dev_info(dev, "ad917x DAC Chip ID: %d\n", dac_chip_id.chip_type);
+	dev_info(dev, "ad917x DAC Product ID: %x\n", dac_chip_id.prod_id);
+	dev_info(dev, "ad917x DAC Product Grade: %d\n", dac_chip_id.prod_grade);
+	dev_info(dev, "ad917x DAC Product Revision: %d\n",
 		 dac_chip_id.dev_revision);
-	dev_info(dev, "AD916x Revision: %d.%d.%d\n",
+	dev_info(dev, "ad917x Revision: %d.%d.%d\n",
 		 revision[0], revision[1], revision[2]);
 
 	dac_clkin_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
