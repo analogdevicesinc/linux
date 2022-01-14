@@ -151,6 +151,9 @@
 #define ADE9078_WFB_FULL_BUFF_NR_SAMPLES \
 	(ADE9078_WFB_PAGE_SIZE * 16)
 
+#define ADE9078_SWRST_BIT		BIT(0)
+#define ADE9078_SWRST_MASK		BIT(0)
+
 //Status and Mask register bits
 #define ADE9078_ST0_WFB_TRIG		16
 #define ADE9078_ST0_WFB_TRIG_BIT	BIT(ADE9078_ST0_WFB_TRIG)
@@ -330,7 +333,6 @@
  * struct ade9078_state - ade9078 specific data
  * @lock	mutex for the device
  * @slock       spinlock used for irq handling
- * @gpio_reset	reset gpio pointer, retrieved from DT
  * @irq0_bits	IRQ0 mask and status bits, are set by the driver and are passed
  *		to the IC after being set
  * @irq1_bits	IRQ1 mask and status bits, are set by the driver and are passed
@@ -361,7 +363,6 @@
 struct ade9078_state {
 	struct mutex lock;
 	spinlock_t slock;
-	struct gpio_desc *gpio_reset;
 	u32 irq0_bits;
 	u32 irq1_bits;
 	u32 irq1_status;
@@ -1612,13 +1613,28 @@ put_phase_node:
  */
 static int ade9078_reset(struct ade9078_state *st)
 {
+	struct gpio_desc *gpio_reset;
+	int ret;
+
 	st->rst_done = false;
 
-	//TODO gpiod_set_value_cansleep(st->gpio_reset, 0); in imu/adis.c
-	gpiod_set_value_cansleep(st->gpio_reset, 1);
-	usleep_range(1, 100);
-	gpiod_set_value_cansleep(st->gpio_reset, 0);
-	msleep_interruptible(50);
+	gpio_reset = devm_gpiod_get_optional(&st->spi->dev, "reset",
+					     GPIOD_OUT_HIGH);
+	if (IS_ERR(gpio_reset))
+		return PTR_ERR(gpio_reset);
+
+	if (gpio_reset) {
+		gpiod_set_value_cansleep(gpio_reset, 1);
+		usleep_range(1, 100);
+		gpiod_set_value_cansleep(gpio_reset, 0);
+		msleep_interruptible(50);
+	} else {
+		ret = regmap_update_bits(st->regmap, ADDR_CONFIG1,
+					 ADE9078_SWRST_MASK, ADE9078_SWRST_BIT);
+		if (ret)
+			return ret;
+		usleep_range(80, 100);
+	}
 
 	if (!st->rst_done)
 		return -EPERM;
@@ -1735,7 +1751,6 @@ static int ade9078_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
 	struct iio_trigger *trig;
-	struct gpio_desc *gpio_reset;
 	int irq;
 	unsigned long irqflags;
 	int ret;
@@ -1809,12 +1824,6 @@ static int ade9078_probe(struct spi_device *spi)
 	}
 	iio_trigger_set_drvdata(trig, st);
 
-	gpio_reset = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
-	if (!gpio_reset) {
-		dev_err(&spi->dev, "Unable to allocate ADE9078 reset");
-		return -ENOMEM;
-	}
-
 	st->spi = spi;
 	st->spi->mode = SPI_MODE_0;
 	ret = spi_setup(st->spi);
@@ -1838,8 +1847,6 @@ static int ade9078_probe(struct spi_device *spi)
 	st->trig = trig;
 	st->trig->dev.parent = &st->spi->dev;
 	st->trig->ops = &ade9078_trigger_ops;
-
-	st->gpio_reset = gpio_reset;
 
 	mutex_init(&st->lock);
 
