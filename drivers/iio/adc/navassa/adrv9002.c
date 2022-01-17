@@ -555,8 +555,10 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 			dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
 			mutex_unlock(&phy->lock);
 			return -ENOTSUPP;
-		} else if (iio_attr->address &&
-			   mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
+		}
+
+		if (iio_attr->address &&
+		    mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
 			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
 			mutex_unlock(&phy->lock);
 			return -ENOTSUPP;
@@ -589,8 +591,10 @@ static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *
 		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
 		mutex_unlock(&phy->lock);
 		return -ENOTSUPP;
-	} else if (iio_attr->address == ADRV9002_HOP_2_TABLE_SEL ||
-		   iio_attr->address == ADRV9002_HOP_2_TRIGGER) {
+	}
+
+	if (iio_attr->address == ADRV9002_HOP_2_TABLE_SEL ||
+	    iio_attr->address == ADRV9002_HOP_2_TRIGGER) {
 		if (phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
 			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
 			mutex_unlock(&phy->lock);
@@ -816,7 +820,9 @@ static int adrv9002_set_ensm_mode(struct iio_dev *indio_dev,
 	if (!chann->enabled) {
 		mutex_unlock(&phy->lock);
 		return -ENODEV;
-	} else if (adrv9002_orx_enabled(phy, chann)) {
+	}
+
+	if (adrv9002_orx_enabled(phy, chann)) {
 		mutex_unlock(&phy->lock);
 		return -EPERM;
 	}
@@ -1051,7 +1057,9 @@ static int adrv9002_set_port_en_mode(struct iio_dev *indio_dev,
 	if (!chann->enabled) {
 		mutex_unlock(&phy->lock);
 		return -ENODEV;
-	} else if (adrv9002_orx_enabled(phy, chann)) {
+	}
+
+	if (adrv9002_orx_enabled(phy, chann)) {
 		/*
 		 * Don't allow changing port enable mode if ORx is enabled, because it
 		 * might trigger an ensm state transition which can potentially break ORx
@@ -2030,7 +2038,9 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 			if (!rx->orx_gpio) {
 				mutex_unlock(&phy->lock);
 				return -ENOTSUPP;
-			} else if (val && !adrv9002_orx_can_enable(phy, chann)) {
+			}
+
+			if (val && !adrv9002_orx_can_enable(phy, chann)) {
 				mutex_unlock(&phy->lock);
 				return -EPERM;
 			}
@@ -2447,19 +2457,27 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 				i + 1, rx_cfg[i].profile.rxOutputRate_Hz,
 				phy->rx_channels[0].channel.rate);
 			return -EINVAL;
-		} else if (phy->rx2tx2 && i && !phy->rx_channels[0].channel.enabled) {
+		}
+
+		if (phy->rx2tx2 && i && !phy->rx_channels[0].channel.enabled) {
 			dev_err(&phy->spi->dev, "In rx2tx2, RX%d cannot be enabled while RX1 is disabled",
 				i + 1);
 			return -EINVAL;
-		} else if (phy->ssi_type != rx_cfg[i].profile.rxSsiConfig.ssiType) {
+		}
+
+		if (phy->ssi_type != rx_cfg[i].profile.rxSsiConfig.ssiType) {
 			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, RX%d=%d\n",
 				phy->ssi_type, i + 1, rx_cfg[i].profile.rxSsiConfig.ssiType);
 			return -EINVAL;
-		} else if (rx_cfg[i].profile.rxSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
+		}
+
+		if (rx_cfg[i].profile.rxSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
 			dev_err(&phy->spi->dev, "SSI interface Long Strobe not supported\n");
 			return -EINVAL;
-		} else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS &&
-			   !rx_cfg[i].profile.rxSsiConfig.ddrEn) {
+		}
+
+		if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS &&
+		    !rx_cfg[i].profile.rxSsiConfig.ddrEn) {
 			dev_err(&phy->spi->dev, "RX%d: Single Data Rate port not supported for LVDS\n",
 				i + 1);
 			return -EINVAL;
@@ -2480,15 +2498,21 @@ tx:
 			dev_err(&phy->spi->dev, "SSI interface mismatch. PHY=%d, TX%d=%d\n",
 				phy->ssi_type, i + 1,  tx_cfg[i].txSsiConfig.ssiType);
 			return -EINVAL;
-		} else if (tx_cfg[i].txSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
+		}
+
+		if (tx_cfg[i].txSsiConfig.strobeType == ADI_ADRV9001_SSI_LONG_STROBE) {
 			dev_err(&phy->spi->dev, "SSI interface Long Strobe not supported\n");
 			return -EINVAL;
-		} else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS &&
-			   !tx_cfg[i].txSsiConfig.ddrEn) {
+		}
+
+		if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS &&
+		    !tx_cfg[i].txSsiConfig.ddrEn) {
 			dev_err(&phy->spi->dev, "TX%d: Single Data Rate port not supported for LVDS\n",
 				i + 1);
 			return -EINVAL;
-		} else if (phy->rx2tx2) {
+		}
+
+		if (phy->rx2tx2) {
 			if (!phy->tx_only && !phy->rx_channels[0].channel.enabled) {
 				/*
 				 * pretty much means that in this case either all channels are
@@ -2498,12 +2522,16 @@ tx:
 				dev_err(&phy->spi->dev, "In rx2tx2, TX%d cannot be enabled while RX1 is disabled",
 					i + 1);
 				return -EINVAL;
-			} else if (i && !phy->tx_channels[0].channel.enabled) {
+			}
+
+			if (i && !phy->tx_channels[0].channel.enabled) {
 				dev_err(&phy->spi->dev, "In rx2tx2, TX%d cannot be enabled while TX1 is disabled",
 					i + 1);
 				return -EINVAL;
-			} else if (!phy->tx_only &&
-				   tx_cfg[i].txInputRate_Hz != phy->rx_channels[0].channel.rate) {
+			}
+
+			if (!phy->tx_only &&
+			    tx_cfg[i].txInputRate_Hz != phy->rx_channels[0].channel.rate) {
 				/*
 				 * pretty much means that in this case, all ports must have
 				 * the same rate. We match against RX1 since RX2 can be disabled
@@ -2513,8 +2541,10 @@ tx:
 					i + 1, tx_cfg[i].txInputRate_Hz,
 					phy->rx_channels[0].channel.rate);
 				return -EINVAL;
-			} else if (phy->tx_only && i &&
-				   tx_cfg[i].txInputRate_Hz != phy->tx_channels[0].channel.rate) {
+			}
+
+			if (phy->tx_only && i &&
+			    tx_cfg[i].txInputRate_Hz != phy->tx_channels[0].channel.rate) {
 				dev_err(&phy->spi->dev, "In rx2tx2, TX%d rate=%u must be equal to TX1, rate=%ld\n",
 					i + 1, tx_cfg[i].txInputRate_Hz,
 					phy->tx_channels[0].channel.rate);
@@ -3003,9 +3033,9 @@ static int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
 	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
 		struct adrv9002_chan *c = phy->channels[i];
 
-		if (!c->enabled) {
+		if (!c->enabled)
 			continue;
-		} else if (phy->rx2tx2 && c->idx) {
+		if (phy->rx2tx2 && c->idx) {
 			/*
 			 * In rx2tx2 we should treat both channels as the same. Hence, we will run
 			 * the test simultaneosly for both and configure the same delays.
@@ -3357,7 +3387,9 @@ static int adrv9002_fh_parse_gpio_gain_control(struct adrv9002_rf_phy *phy,
 			dev_err(&phy->spi->dev,
 				"No reg property defined for gain pin setup channel\n");
 			goto of_child_put;
-		} else if (chann > ADRV9002_CHANN_2) {
+		}
+
+		if (chann > ADRV9002_CHANN_2) {
 			dev_err(&phy->spi->dev,
 				"Invalid value for gain pin setup channel: %d\n", chann);
 			ret = -EINVAL;
@@ -3429,9 +3461,10 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 
 	ret = OF_ADRV9002_FH("adi,fh-min-tx-atten-mdb", 0, 0, ADRV9001_TX_MAX_ATTENUATION_MDB,
 			     phy->fh.minTxAtten_mdB, false);
-	if (ret) {
+	if (ret)
 		goto of_put;
-	} else if (phy->fh.minTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB) {
+
+	if (phy->fh.minTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB) {
 		dev_err(&phy->spi->dev, "adi,fh-min-tx-atten-mdb must have %d resolution\n",
 			ADRV9001_TX_ATTENUATION_RESOLUTION_MDB);
 		ret = -EINVAL;
@@ -3441,9 +3474,10 @@ static int adrv9002_parse_fh_dt(struct adrv9002_rf_phy *phy, const struct device
 	ret = OF_ADRV9002_FH("adi,fh-max-tx-atten-mdb", ADRV9001_TX_MAX_ATTENUATION_MDB,
 			     phy->fh.minTxAtten_mdB, ADRV9001_TX_MAX_ATTENUATION_MDB,
 			     phy->fh.maxTxAtten_mdB, false);
-	if (ret) {
+	if (ret)
 		goto of_put;
-	} else if (phy->fh.maxTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB) {
+
+	if (phy->fh.maxTxAtten_mdB % ADRV9001_TX_ATTENUATION_RESOLUTION_MDB) {
 		dev_err(&phy->spi->dev, "adi,fh-max-tx-atten-mdb must have %d resolution\n",
 			ADRV9001_TX_ATTENUATION_RESOLUTION_MDB);
 		ret = -EINVAL;
@@ -3942,10 +3976,10 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 							      of_fwnode_handle(node),
 							      GPIOD_OUT_LOW, NULL);
 	if (IS_ERR(rx->orx_gpio)) {
-		if (PTR_ERR(rx->orx_gpio) == -ENOENT)
-			rx->orx_gpio = NULL;
-		else
+		if (PTR_ERR(rx->orx_gpio) != -ENOENT)
 			return PTR_ERR(rx->orx_gpio);
+
+		rx->orx_gpio = NULL;
 	}
 
 	return 0;
@@ -3970,7 +4004,9 @@ static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 			dev_err(&phy->spi->dev,
 				"No reg property defined for channel\n");
 			goto of_child_put;
-		} else if (chann > 1) {
+		}
+
+		if (chann > 1) {
 			dev_err(&phy->spi->dev,
 				"Invalid value for channel: %d\n", chann);
 			ret = -EINVAL;
@@ -4027,8 +4063,10 @@ of_gpio:
 			dev_err(&phy->spi->dev,
 				"No reg property defined for gpio\n");
 			goto of_child_put;
-		} else if (gpio < ADI_ADRV9001_GPIO_DIGITAL_00 ||
-			   gpio > ADI_ADRV9001_GPIO_ANALOG_11) {
+		}
+
+		if (gpio < ADI_ADRV9001_GPIO_DIGITAL_00 ||
+		    gpio > ADI_ADRV9001_GPIO_ANALOG_11) {
 			dev_err(&phy->spi->dev,
 				"Invalid gpio number: %d\n", gpio);
 			ret = -EINVAL;
@@ -4043,12 +4081,15 @@ of_gpio:
 				"No adi,signal property defined for gpio%d\n",
 				gpio);
 			goto of_child_put;
-		} else if (signal >= ADI_ADRV9001_GPIO_NUM_SIGNALS) {
+		}
+
+		if (signal >= ADI_ADRV9001_GPIO_NUM_SIGNALS) {
 			dev_err(&phy->spi->dev,
 				"Invalid gpio signal: %d\n", signal);
 			ret = -EINVAL;
 			goto of_child_put;
 		}
+
 		phy->adrv9002_gpios[idx].signal = signal;
 
 		ret = of_property_read_u32(child, "adi,polarity", &polarity);
@@ -4076,8 +4117,6 @@ of_gpio:
 				goto of_child_put;
 			}
 			phy->adrv9002_gpios[idx].gpio.master = master;
-		} else {
-			ret = 0;
 		}
 
 		idx++;
@@ -4165,17 +4204,17 @@ static ssize_t adrv9002_stream_bin_write(struct file *filp, struct kobject *kobj
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 
-	if (off + count <= bin_attr->size) {
-		mutex_lock(&phy->lock);
-		if (!off)
-			phy->stream_size = 0;
-		memcpy(phy->stream_buf + off, buf, count);
-		phy->stream_size += count;
-		mutex_unlock(&phy->lock);
-	} else {
+	if (off + count > bin_attr->size) {
 		dev_err(&phy->spi->dev, "Invalid stream image size:%lld!\n", count + off);
 		return -EINVAL;
 	}
+
+	mutex_lock(&phy->lock);
+	if (!off)
+		phy->stream_size = 0;
+	memcpy(phy->stream_buf + off, buf, count);
+	phy->stream_size += count;
+	mutex_unlock(&phy->lock);
 
 	return count;
 }
@@ -4289,7 +4328,9 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
 		mutex_unlock(&phy->lock);
 		return -ENOTSUPP;
-	} else if (hop && phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
+	}
+
+	if (hop && phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
 		dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
 		mutex_unlock(&phy->lock);
 		return -ENOTSUPP;
@@ -4316,7 +4357,7 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 		 /* skip comment lines or blank lines */
 		if (line[0] == '#' || !line[0])
 			continue;
-		else if (strstr(line, "table>"))
+		if (strstr(line, "table>"))
 			continue;
 
 		ret = sscanf(line, "%llu,%u,%u,%u,%u,%u,%u", &lo, &rx10_if, &rx20_if, &rx1_gain,
@@ -4326,12 +4367,16 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 				hop, table, line);
 			mutex_unlock(&phy->lock);
 			return -EINVAL;
-		} else if (entry > max_sz) {
+		}
+
+		if (entry > max_sz) {
 			dev_err(&phy->spi->dev, "Hop:%d table:%d too big:%d\n", hop, table, entry);
 			mutex_unlock(&phy->lock);
 			return -EINVAL;
-		} else if (lo < ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ ||
-			   lo > ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ) {
+		}
+
+		if (lo < ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ ||
+		    lo > ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ) {
 			dev_err(&phy->spi->dev, "Invalid value for lo:%llu, in table entry:%d\n",
 				lo, entry);
 			mutex_unlock(&phy->lock);
