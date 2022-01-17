@@ -585,11 +585,6 @@
 			gpio-key,wakeup;
 		};
 	};
-
-	gpio-poweroff {
-		compatible = "gpio-poweroff";
-		gpios = <&gpio 19 GPIO_ACTIVE_LOW>;
-	};
 };
 
 #define fmc_spi spi0
