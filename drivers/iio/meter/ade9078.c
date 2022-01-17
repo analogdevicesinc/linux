@@ -381,7 +381,7 @@ struct ade9078_state {
 	union{
 		u8 byte[ADE9078_WFB_FULL_BUFF_SIZE];
 		__be32 word[ADE9078_WFB_FULL_BUFF_NR_SAMPLES];
-	}rx_buff ____cacheline_aligned;
+	} rx_buff ____cacheline_aligned;
 	u8 tx_buff[2];
 };
 
@@ -795,8 +795,6 @@ static void ade9078_pop_wfb(struct iio_poll_func *pf)
 
 	for (i = 0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
 		iio_push_to_buffers(st->indio_dev, &st->rx_buff.word[i]);
-
-
 	dev_dbg(&st->spi->dev, "Pushed to buffer");
 }
 
@@ -1245,7 +1243,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	st->wf_mode = tmp;
 
 	ret = of_property_read_u32((&st->spi->dev)->of_node, "adi,wf-src",
-				    &tmp);
+				   &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev,
 			"Failed to get wf-src: %d\n",
@@ -1255,7 +1253,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	wfg_cfg_val |= FIELD_PREP(ADE9078_WF_SRC_MASK, tmp);
 
 	ret = of_property_read_u32((&st->spi->dev)->of_node, "adi,wf-in-en",
-				    &tmp);
+				   &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get wf-in-en: %d\n", ret);
 		return ret;
@@ -1409,37 +1407,36 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 }
 
 /*
- * ade9078_phase_gain_offset_setup() - reads the gain and offset for
+ * ade9078_phase_chan_config() - reads the gain and offset for
  * I, V and P from the device-tree for each phase and sets them in the
  * respective registers
  * @st:		ade9078 device data
- * @phase_node:		phase node in the device-tree
- * @phase_nr:			the number attributed to each phase, this also
- *					represents the phase register offset
+ * @phase_node:	phase node in the device-tree
+ * @phase_nr:	the number attributed to each phase, this also
+ *		represents the phase register offset
  */
-static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
-					   struct device_node *phase_node,
-					   u32 phase_nr)
+static int ade9078_phase_chan_config(struct ade9078_state *st,
+				     struct fwnode_handle *phase_node,
+				     u32 phase_nr)
 {
-	int ret;
 	u32 tmp;
+	int ret;
 
-	ret = of_property_read_u32(phase_node, "adi,igain", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,igain", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get igain: %d\n", ret);
 		tmp = 0;
 	}
+
 	ret = regmap_write(st->regmap,
 			   PHASE_ADDR_ADJUST(ADDR_AIGAIN, phase_nr),
 			   tmp);
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(phase_node, "adi,vgain", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,vgain", &tmp);
 	if (ret) {
-		dev_err(&st->spi->dev,
-			"Failed to get vgain: %d\n",
-			ret);
+		dev_err(&st->spi->dev, "Failed to get vgain: %d\n", ret);
 		tmp = 0;
 	}
 	ret = regmap_write(st->regmap,
@@ -1448,11 +1445,9 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(phase_node, "adi,irmsos", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,irmsos", &tmp);
 	if (ret) {
-		dev_err(&st->spi->dev,
-			"Failed to get irmsos: %d\n",
-			ret);
+		dev_err(&st->spi->dev, "Failed to get irmsos: %d\n", ret);
 		tmp = 0;
 	}
 	ret = regmap_write(st->regmap,
@@ -1461,11 +1456,9 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(phase_node, "adi,vrmsos", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,vrmsos", &tmp);
 	if (ret) {
-		dev_err(&st->spi->dev,
-			"Failed to get vrmsos: %d\n",
-			ret);
+		dev_err(&st->spi->dev, "Failed to get vrmsos: %d\n", ret);
 		tmp = 0;
 	}
 	ret = regmap_write(st->regmap,
@@ -1474,7 +1467,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(phase_node, "adi,pgain", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,pgain", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get pgain: %d\n", ret);
 		tmp = 0;
@@ -1485,7 +1478,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(phase_node, "adi,wattos", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,wattos", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get wattos: %d\n", ret);
 		tmp = 0;
@@ -1496,7 +1489,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(phase_node, "adi,varos", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,varos", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev,
 			"Failed to get varos: %d\n",
@@ -1509,7 +1502,7 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(phase_node, "adi,fvaros", &tmp);
+	ret = fwnode_property_read_u32(phase_node, "adi,fvaros", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get fvaros: %d\n", ret);
 		tmp = 0;
@@ -1532,65 +1525,55 @@ static int ade9078_phase_gain_offset_setup(struct ade9078_state *st,
 static int ade9078_setup_iio_channels(struct ade9078_state *st)
 {
 	struct iio_chan_spec *chan;
-	struct device_node *phase_node = NULL;
+	struct fwnode_handle *phase_node = NULL;
+	struct device *dev = &st->spi->dev;
 	u32 phase_nr;
 	u32 chan_size = 0;
-	int ret = 0;
+	int ret;
 
-	chan = devm_kcalloc(&st->spi->dev,
+	chan = devm_kcalloc(dev,
 			    ADE9078_MAX_PHASE_NR *
 			    ARRAY_SIZE(ade9078_a_channels),
-			sizeof(*ade9078_a_channels), GFP_KERNEL);
+			    sizeof(*ade9078_a_channels), GFP_KERNEL);
 	if (!chan) {
-		dev_err(&st->spi->dev, "Unable to allocate ADE9078 channels");
+		dev_err(dev, "Unable to allocate ADE9078 channels");
 		return -ENOMEM;
 	}
 	st->indio_dev->num_channels = 0;
 	st->indio_dev->channels = chan;
 
-	for_each_available_child_of_node((&st->spi->dev)->of_node, phase_node){
-		if (!of_node_name_eq(phase_node, "phase"))
-			continue;
-
-		ret = of_property_read_u32(phase_node, "reg", &phase_nr);
+	fwnode_for_each_available_child_node(dev_fwnode(dev), phase_node) {
+		ret = fwnode_property_read_u32(phase_node, "reg", &phase_nr);
 		if (ret) {
-			dev_err(&st->spi->dev,
-				"Could not read channel reg : %d\n",
-				ret);
-			goto put_phase_node;
+			dev_err(dev, "Could not read channel reg : %d\n", ret);
+			return ret;
 		}
 
 		switch (phase_nr) {
 		case ADE9078_PHASE_A_NR:
-			memcpy(chan,
-			       ade9078_a_channels,
-				sizeof(ade9078_a_channels));
+			memcpy(chan, ade9078_a_channels,
+			       sizeof(ade9078_a_channels));
 			chan_size = ARRAY_SIZE(ade9078_a_channels);
-			ret = ade9078_phase_gain_offset_setup(st,
-							      phase_node,
-							    ADE9078_PHASE_A_NR);
+			ret = ade9078_phase_chan_config(st, phase_node,
+							ADE9078_PHASE_A_NR);
 			if (ret)
 				return ret;
 			break;
 		case ADE9078_PHASE_B_NR:
-			memcpy(chan,
-			       ade9078_b_channels,
-				sizeof(ade9078_b_channels));
+			memcpy(chan, ade9078_b_channels,
+			       sizeof(ade9078_b_channels));
 			chan_size = ARRAY_SIZE(ade9078_b_channels);
-			ret = ade9078_phase_gain_offset_setup(st,
-							      phase_node,
-							    ADE9078_PHASE_B_NR);
+			ret = ade9078_phase_chan_config(st, phase_node,
+							ADE9078_PHASE_B_NR);
 			if (ret)
 				return ret;
 			break;
 		case ADE9078_PHASE_C_NR:
-			memcpy(chan,
-			       ade9078_c_channels,
-				sizeof(ade9078_c_channels));
+			memcpy(chan, ade9078_c_channels,
+			       sizeof(ade9078_c_channels));
 			chan_size = ARRAY_SIZE(ade9078_c_channels);
-			ret = ade9078_phase_gain_offset_setup(st,
-							      phase_node,
-							    ADE9078_PHASE_C_NR);
+			ret = ade9078_phase_chan_config(st, phase_node,
+							ADE9078_PHASE_C_NR);
 			if (ret)
 				return ret;
 			break;
@@ -1602,9 +1585,7 @@ static int ade9078_setup_iio_channels(struct ade9078_state *st)
 		st->indio_dev->num_channels += chan_size;
 	}
 
-put_phase_node:
-	of_node_put(phase_node);
-	return ret;
+	return 0;
 }
 
 /*
