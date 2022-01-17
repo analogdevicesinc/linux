@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include "imx8dxl-ddr3-evk.dts"
+#include "imx8dxl-ddr3l-evk.dts"
 
 &imx8dxl_cm4 {
 	/* Assume you have partitioned M4, so M4 is not controled by Linux */

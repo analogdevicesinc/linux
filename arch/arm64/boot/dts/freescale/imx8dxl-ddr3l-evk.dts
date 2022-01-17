@@ -8,7 +8,7 @@
 #include "imx8dxl.dtsi"
 
 / {
-	model = "Freescale i.MX8DXL DDR3 EVK";
+	model = "Freescale i.MX8DXL DDR3L EVK";
 	compatible = "fsl,imx8dxl-evk", "fsl,imx8dxl";
 
 	chosen {
