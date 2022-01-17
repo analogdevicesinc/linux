@@ -1341,7 +1341,7 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txClkDelay[chan]);
 		sprintf(attr, "tx%d_ssi_refclk_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txRefClkDelay[chan]);
-		sprintf(attr, "tx%d_ssi_strobe_delay_delay", chan);
+		sprintf(attr, "tx%d_ssi_strobe_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txStrobeDelay[chan]);
 		sprintf(attr, "tx%d_ssi_i_data_delay", chan);
 		debugfs_create_u8(attr, 0600, d, &phy->ssi_delays.txIDataDelay[chan]);
