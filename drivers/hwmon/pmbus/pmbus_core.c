@@ -6,6 +6,7 @@
  * Copyright (c) 2012 Guenter Roeck
  */
 
+#include <linux/bitfield.h>
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/math64.h>
@@ -27,6 +28,10 @@
  */
 #define PMBUS_ATTR_ALLOC_SIZE	32
 #define PMBUS_NAME_SIZE		24
+#define PMBUS_REG_MASK		GENMASK(15, 0)
+#define PMBUS_PHASE_MASK	GENMASK(23, 16)
+#define PMBUS_PAGE_MASK		GENMASK(27, 24)
+#define PMBUS_SIZE_MASK		GENMASK(31, 28)
 
 struct pmbus_sensor {
 	struct pmbus_sensor *next;
@@ -2540,6 +2545,68 @@ static int pmbus_init_debugfs(struct i2c_client *client,
 }
 #endif	/* IS_ENABLED(CONFIG_DEBUG_FS) */
 
+static umode_t pmbus_is_visible(const void *data,
+				enum hwmon_sensor_types type,
+				u32 attr, int channel)
+{
+	return 0;
+}
+
+static int pmbus_reg_access(struct device *dev, unsigned int addr,
+			    unsigned int writeval, unsigned int *readval)
+{
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	struct pmbus_data *data = i2c_get_clientdata(client);
+	unsigned int reg = FIELD_GET(PMBUS_REG_MASK, addr);
+	unsigned int phase = FIELD_GET(PMBUS_PHASE_MASK, addr);
+	unsigned int page = FIELD_GET(PMBUS_PAGE_MASK, addr);
+	unsigned int size = FIELD_GET(PMBUS_SIZE_MASK, addr);
+	int ret;
+
+	if (size == 0)
+		size = 1;
+
+	if (size != 1 && size != 2)
+		return -EINVAL;
+
+	mutex_lock(&data->update_lock);
+
+	if (readval) {
+		if (size == 1)
+			ret = pmbus_read_byte_data(client, page, reg);
+		else
+			ret = pmbus_read_word_data(client, page, phase, reg);
+
+		if (ret >= 0) {
+			*readval = ret;
+			ret = 0;
+		}
+	} else {
+		if (size == 1)
+			ret = pmbus_write_byte_data(client, page, reg, writeval);
+		else
+			ret = pmbus_write_word_data(client, page, reg, writeval);
+	}
+
+	mutex_unlock(&data->update_lock);
+
+	return ret;
+}
+
+static const struct hwmon_channel_info *pmbus_info[] = {
+	NULL,
+};
+
+static const struct hwmon_ops pmbus_hwmon_ops = {
+	.is_visible = pmbus_is_visible,
+	.reg_access = pmbus_reg_access,
+};
+
+static const struct hwmon_chip_info pmbus_chip_info = {
+	.ops = &pmbus_hwmon_ops,
+	.info = pmbus_info,
+};
+
 int pmbus_do_probe(struct i2c_client *client, struct pmbus_driver_info *info)
 {
 	struct device *dev = &client->dev;
@@ -2598,8 +2665,9 @@ int pmbus_do_probe(struct i2c_client *client, struct pmbus_driver_info *info)
 
 	data->groups[0] = &data->group;
 	memcpy(data->groups + 1, info->groups, sizeof(void *) * groups_num);
-	data->hwmon_dev = devm_hwmon_device_register_with_groups(dev,
-					client->name, data, data->groups);
+	data->hwmon_dev = devm_hwmon_device_register_with_info(dev,
+					client->name, data, &pmbus_chip_info,
+					data->groups);
 	if (IS_ERR(data->hwmon_dev)) {
 		dev_err(dev, "Failed to register hwmon device\n");
 		return PTR_ERR(data->hwmon_dev);
