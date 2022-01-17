@@ -143,7 +143,7 @@ struct adrv9002_chan {
 	u32 power;
 	int nco_freq;
 	u8 idx;
-	u8 enabled;;
+	u8 enabled;
 };
 
 struct adrv9002_rx_chan {
@@ -199,7 +199,7 @@ struct adrv9002_rf_phy {
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_chan		*channels[ADRV9002_CHANN_MAX * 2];
-	struct adrv9002_gpio 		*adrv9002_gpios;
+	struct adrv9002_gpio		*adrv9002_gpios;
 	struct adi_adrv9001_Device	adrv9001_device;
 	struct adi_adrv9001_Device	*adrv9001;
 	struct adrv9002_hal_cfg		hal;
@@ -253,10 +253,10 @@ int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u
 u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan);
 void adrv9002_axi_hdl_loopback(struct adrv9002_rf_phy *phy, int channel, bool enable);
 
-static inline void adrv9002_sync_gpio_toogle(const struct adrv9002_rf_phy *phy)
+static inline void adrv9002_sync_gpio_toggle(const struct adrv9002_rf_phy *phy)
 {
 	if (phy->rx2tx2) {
-		/* toogle ssi sync gpio */
+		/* toggle ssi sync gpio */
 		gpiod_set_value_cansleep(phy->ssi_sync, 1);
 		usleep_range(5000, 5005);
 		gpiod_set_value_cansleep(phy->ssi_sync, 0);

@@ -70,7 +70,8 @@
 #define ADRV9002_TX_EN(nr)	BIT(((nr) * 2 + 1) & 0x3)
 
 #define ADRV9002_RX_MAX_GAIN_mdB	\
-	((ADI_ADRV9001_RX_GAIN_INDEX_MAX - ADI_ADRV9001_RX_GAIN_INDEX_MIN) * ADRV9002_RX_GAIN_STEP_mDB)
+	((ADI_ADRV9001_RX_GAIN_INDEX_MAX - ADI_ADRV9001_RX_GAIN_INDEX_MIN) *	\
+	 ADRV9002_RX_GAIN_STEP_mDB)
 #define ADRV9002_RX_GAIN_STEP_mDB	500
 #define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
@@ -90,7 +91,7 @@
 	(ADRV9002_RX_MAX_GAIN_mdB - ADRV9002_ORX_MAX_GAIN_DROP_mdB); \
 })
 
-#define ADRV9002_STREAM_BINARY_SZ 	ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES
+#define ADRV9002_STREAM_BINARY_SZ	ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES
 #define ADRV9002_HP_CLK_PLL_DAHZ	884736000
 
 /* Frequency hopping */
@@ -213,7 +214,7 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		if (!chann->enabled)
 			continue;
 
-		adrv9002_sync_gpio_toogle(phy);
+		adrv9002_sync_gpio_toggle(phy);
 
 		adrv9002_get_ssi_interface(phy, chann->idx, chann->port == ADI_TX, &n_lanes,
 					   &cmos_ddr);
@@ -268,7 +269,7 @@ static char *adrv9002_clk_set_dev_name(struct adrv9002_rf_phy *phy,
 		return NULL;
 
 	if (*name == '-')
-		len = strlcpy(dest, dev_name(&phy->spi->dev),
+		len = strscpy(dest, dev_name(&phy->spi->dev),
 			      ADRV9002_MAX_CLK_NAME);
 	else
 		*dest = '\0';
@@ -1437,7 +1438,7 @@ unlock:
 }
 
 static int adrv9002_get_atten_control_mode(struct iio_dev *indio_dev,
-				     const struct iio_chan_spec *chan)
+					   const struct iio_chan_spec *chan)
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const int chann = ADRV_ADDRESS_CHAN(chan->address);
@@ -2101,7 +2102,6 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 	.address = ADRV_ADDRESS(port, chan),                    \
 }
 
-
 #define ADRV9002_IIO_AUX_CONV_CHAN(idx, out, chan) {		\
 	.type = IIO_VOLTAGE,					\
 	.indexed = 1,						\
@@ -2600,6 +2600,7 @@ static int adrv9002_power_mgmt_config(struct adrv9002_rf_phy *phy)
 
 static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 {
+	int spi_mode = ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252;
 	int ret;
 	u8 tx_mask = 0;
 	int c;
@@ -2628,17 +2629,16 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 	 */
 	if (phy->stream_size == ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES)
 		ret = adi_adrv9001_Stream_Image_Write(phy->adrv9001, 0, phy->stream_buf,
-						      phy->stream_size,
-						      ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252);
+						      phy->stream_size, spi_mode);
 	else
 		ret = adi_adrv9001_Utilities_StreamImage_Load(phy->adrv9001, "Navassa_Stream.bin",
-					ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252);
+							      spi_mode);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
 	/* program arm firmware */
 	ret = adi_adrv9001_Utilities_ArmImage_Load(phy->adrv9001, "Navassa_EvaluationFw.bin",
-					ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252);
+						   spi_mode);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
@@ -2718,15 +2718,18 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 	};
 	struct adi_adrv9001_Carrier carrier = {0};
 
-	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_LO1, &pll_loop_filter);
+	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_LO1,
+						   &pll_loop_filter);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_LO2, &pll_loop_filter);
+	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_LO2,
+						   &pll_loop_filter);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_AUX, &pll_loop_filter);
+	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_AUX,
+						   &pll_loop_filter);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
@@ -2899,17 +2902,17 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
 						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7;
 	struct adi_adrv9001_TxSsiTestModeCfg cfg = {0};
 	struct adi_adrv9001_TxSsiTestModeStatus status = {0};
+	adi_adrv9001_SsiDataFormat_e data_fmt = ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA;
 
 	cfg.testData = test_data;
 
-	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number, phy->ssi_type,
-							  ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-							  &cfg, &status);
+	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number,
+							  phy->ssi_type, data_fmt, &cfg, &status);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	dev_dbg(&phy->spi->dev, "[c%d]: d_e:%u, f_f:%u f_e:%u, s_e:%u", chan->number, status.dataError,
-		status.fifoFull, status.fifoEmpty, status.strobeAlignError);
+	dev_dbg(&phy->spi->dev, "[c%d]: d_e:%u, f_f:%u f_e:%u, s_e:%u", chan->number,
+		status.dataError, status.fifoFull, status.fifoEmpty, status.strobeAlignError);
 
 	/* only looking for data errors for now */
 	if (status.dataError)
@@ -2924,9 +2927,8 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
 		return 0;
 
 	memset(&status, 0, sizeof(status));
-	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number, phy->ssi_type,
-							  ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-							  &cfg, &status);
+	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001, chan->number,
+							  phy->ssi_type, data_fmt, &cfg, &status);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
@@ -2944,12 +2946,14 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 {
 	int ret;
 	struct adrv9002_chan *chan;
+	adi_adrv9001_SsiDataFormat_e data_fmt = ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA;
 
 	dev_dbg(&phy->spi->dev, "cfg test stop:%u, ssi:%d, c:%d, tx:%d\n", stop,
 		phy->ssi_type, chann, tx);
 
 	if (tx) {
 		struct adi_adrv9001_TxSsiTestModeCfg cfg = {0};
+
 		chan = &phy->tx_channels[chann].channel;
 
 		if (stop)
@@ -2967,9 +2971,8 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 			/* CMOS */
 			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE;
 
-		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
-							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-							     &cfg);
+		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number,
+							     phy->ssi_type, data_fmt, &cfg);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
@@ -2981,14 +2984,14 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		if (!chan->enabled)
 			return 0;
 
-		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
-							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-							     &cfg);
+		ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, chan->number,
+							     phy->ssi_type, data_fmt, &cfg);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
 	} else {
 		struct adi_adrv9001_RxSsiTestModeCfg cfg = {0};
+
 		chan = &phy->rx_channels[chann].channel;
 
 		if (stop)
@@ -2999,9 +3002,8 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 			/* CMOS */
 			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE;
 
-		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
-							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-							     &cfg);
+		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number,
+							     phy->ssi_type, data_fmt, &cfg);
 		if (ret)
 			return adrv9002_dev_err(phy);
 
@@ -3013,9 +3015,8 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 		if (!chan->enabled)
 			return 0;
 
-		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number, phy->ssi_type,
-							     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-							     &cfg);
+		ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, chan->number,
+							     phy->ssi_type, data_fmt, &cfg);
 		if (ret)
 			return adrv9002_dev_err(phy);
 	}
@@ -4089,7 +4090,6 @@ of_gpio:
 			ret = -EINVAL;
 			goto of_child_put;
 		}
-
 		phy->adrv9002_gpios[idx].signal = signal;
 
 		ret = of_property_read_u32(child, "adi,polarity", &polarity);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * ADRV9002 debugfs interface
  *
@@ -241,6 +241,7 @@ void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dent
 	const char *attr = adrv9002_agc_get_attr(rx->channel.number, member); \
 	debugfs_create_bool(attr, 0600, d, &rx->agc.member); \
 }
+
 	adrv9002_agc_add_file_u8(peakWaitTime);
 	adrv9002_agc_add_file_u8(maxGainIndex);
 	adrv9002_agc_add_file_u8(minGainIndex);
@@ -366,23 +367,23 @@ static int adrv9002_pll_status_show(struct seq_file *s, void *ignored)
 					       ADI_ADRV9001_PLL_LO1, &lo1);
 
 	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-	                                       ADI_ADRV9001_PLL_LO2, &lo2);
+					       ADI_ADRV9001_PLL_LO2, &lo2);
 	if (ret)
 		goto error;
 
 	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-	                                       ADI_ADRV9001_PLL_AUX, &aux);
+					       ADI_ADRV9001_PLL_AUX, &aux);
 	if (ret)
 		goto error;
 
 	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-	                                       ADI_ADRV9001_PLL_CLK, &clk);
+					       ADI_ADRV9001_PLL_CLK, &clk);
 	if (ret)
 		goto error;
 
 	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-	                                       ADI_ADRV9001_PLL_CLK_LP,
-	                                       &clk_lp);
+					       ADI_ADRV9001_PLL_CLK_LP,
+					       &clk_lp);
 	if (ret)
 		goto error;
 	mutex_unlock(&phy->lock);
@@ -889,6 +890,7 @@ static const struct file_operations adrv9002_api_version_get_fops = {
 	.read = adrv9002_api_version_get,
 	.llseek = default_llseek,
 };
+
 static const char * const dgpio_str[] = {
 	"Unassigned", "dgpio0", "dgpio1", "dgpio2", "dgpio3", "dgpio4", "dgpio5",
 	"dgpio6", "dgpio7", "dgpio8", "dgpio9", "dgpio10", "dgpio11", "dgpio12", "dgpio13",
