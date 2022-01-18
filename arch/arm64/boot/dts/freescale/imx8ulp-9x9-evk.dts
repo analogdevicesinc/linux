@@ -39,3 +39,11 @@
 		MX8ULP_PAD_PTE20__USB1_OC	0x10003
 	>;
 };
+
+&i2c_rpbus_0 {
+	fxls8974@18 {
+		compatible = "nxp,fxls8974cf";
+		reg = <0x18>;
+		drive-open-drain;
+	};
+};
