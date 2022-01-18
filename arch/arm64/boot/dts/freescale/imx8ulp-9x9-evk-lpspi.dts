@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx8ulp-9x9-evk.dts"
+
+&lpuart6 {
+	status = "disabled";
+};
+
+&sai6 {
+	status = "disabled";
+};
+
+&lpspi5 {
+	pinctrl-assert-gpios = <&pca6416_1 10 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
