@@ -9,6 +9,17 @@
 	model = "NXP i.MX8ULP 9X9 EVK";
 };
 
+&iomuxc1 {
+	pinctrl_sai6: sai6grp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE10__I2S6_TX_BCLK  0x43
+			MX8ULP_PAD_PTE11__I2S6_TX_FS    0x43
+			MX8ULP_PAD_PTE14__I2S6_TXD2     0x43
+			MX8ULP_PAD_PTE6__I2S6_RXD0 	0x43
+		>;
+	};
+};
+
 &pinctrl_dsi {
 	fsl,pins = <
 		MX8ULP_PAD_PTF21__PTF21		0x3
@@ -52,4 +63,40 @@
 		reg = <0x18>;
 		drive-open-drain;
 	};
+};
+
+&pinctrl_lpuart6 {
+	fsl,pins = <
+		MX8ULP_PAD_PTF18__LPUART6_TX    0x3
+		MX8ULP_PAD_PTF19__LPUART6_RX    0x3
+		MX8ULP_PAD_PTF16__LPUART6_CTS_B 0x3
+		MX8ULP_PAD_PTF17__LPUART6_RTS_B 0x3
+	>;
+};
+
+&lpspi5 { /* conflict with lpuart6 PAD_PTF16-19 */
+	status = "disabled";
+};
+
+&lpuart6 {
+	pinctrl-assert-gpios = <&pca6416_1 10 GPIO_ACTIVE_LOW>;
+};
+
+&sai5 {
+	status = "disabled";
+};
+
+&sai6 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_sai6>;
+	pinctrl-1 = <&pinctrl_sai6>;
+	assigned-clocks = <&cgc2 IMX8ULP_CLK_SAI6_SEL>;
+	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
+	fsl,dataline = <1 0x01 0x04>;
+	status = "okay";
+};
+
+&btcpu {
+	sound-dai = <&sai6>;
 };
