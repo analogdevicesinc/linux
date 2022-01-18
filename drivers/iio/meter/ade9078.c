@@ -204,6 +204,9 @@
 #define ADE9078_WFB_TRG_ZXVC		8
 #define ADE9078_WFB_TRG_ZXVC_BIT	BIT(ADE9078_WFB_TRG_ZXVC)
 
+#define ADE9078_MODE_0_1_PAGE_BIT	BIT(15)
+#define ADE9078_MODE_2_PAGE_BIT		BIT(7)
+
 /*
  * Full scale Codes referred from Datasheet.Respective digital codes are
  * produced when ADC inputs are at full scale. Do not Change.
@@ -1281,13 +1284,14 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 	if (ret)
 		return ret;
 
-	//TODO 0x8000 and 0x80 ???
 	if (mode == 1 || mode == 0) {
-		ret = regmap_write(st->regmap, ADDR_WFB_PG_IRQEN, 0x8000);
+		ret = regmap_write(st->regmap, ADDR_WFB_PG_IRQEN,
+				   ADE9078_MODE_0_1_PAGE_BIT);
 		if (ret)
 			return ret;
 	} else if (mode == 2) {
-		ret = regmap_write(st->regmap, ADDR_WFB_PG_IRQEN, 0x80);
+		ret = regmap_write(st->regmap, ADDR_WFB_PG_IRQEN,
+				   ADE9078_MODE_2_PAGE_BIT);
 		if (ret)
 			return ret;
 	}
