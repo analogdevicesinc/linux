@@ -41,6 +41,7 @@
 #define AD9545_REF_A_PERIOD		0x0404
 #define AD9545_REF_A_OFFSET_LIMIT	0x040C
 #define AD9545_REF_A_MONITOR_HYST	0x040F
+#define AD9545_REF_A_VALID_TIMER	0x0410
 #define AD9545_PHASE_LOCK_THRESH	0x0800
 #define AD9545_PHASE_LOCK_FILL_RATE	0x0803
 #define AD9545_PHASE_LOCK_DRAIN_RATE	0x0804
@@ -116,6 +117,7 @@
 #define AD9545_REF_X_PERIOD(x)			(AD9545_REF_A_PERIOD + ((x) * 0x20))
 #define AD9545_REF_X_OFFSET_LIMIT(x)		(AD9545_REF_A_OFFSET_LIMIT + ((x) * 0x20))
 #define AD9545_REF_X_MONITOR_HYST(x)		(AD9545_REF_A_MONITOR_HYST + ((x) * 0x20))
+#define AD9545_REF_X_VALID_TIMER(x)		(AD9545_REF_A_VALID_TIMER + ((x) * 0x20))
 #define AD9545_REF_X_PHASE_LOCK_FILL(x)		(AD9545_PHASE_LOCK_FILL_RATE + ((x) * 0x20))
 #define AD9545_REF_X_PHASE_LOCK_DRAIN(x)	(AD9545_PHASE_LOCK_DRAIN_RATE + ((x) * 0x20))
 #define AD9545_REF_X_FREQ_LOCK_FILL(x)		(AD9545_FREQ_LOCK_FILL_RATE + ((x) * 0x20))
@@ -1815,6 +1817,12 @@ static int ad9545_input_refs_setup(struct ad9545_state *st)
 
 		regval = cpu_to_le32(st->ref_in_clks[i].freq_thresh_ps);
 		ret = regmap_bulk_write(st->regmap, AD9545_SOURCEX_FREQ_THRESH(i),
+					&regval, 3);
+		if (ret < 0)
+			return ret;
+
+		regval = cpu_to_le32(st->ref_in_clks[i].valid_t_ms);
+		ret = regmap_bulk_write(st->regmap, AD9545_REF_X_VALID_TIMER(i),
 					&regval, 3);
 		if (ret < 0)
 			return ret;
