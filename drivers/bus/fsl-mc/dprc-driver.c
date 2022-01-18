@@ -847,6 +847,8 @@ static void dprc_remove(struct fsl_mc_device *mc_dev)
 
 	device_for_each_child(&mc_dev->dev, NULL, __fsl_mc_device_remove);
 
+	dprc_cleanup(mc_dev);
+
 	if (fsl_mc_is_root_dprc(&mc_dev->dev))
 		fsl_mc_uapi_remove_device_file(to_fsl_mc_bus(mc_dev));
 
