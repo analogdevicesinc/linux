@@ -772,7 +772,12 @@ dprc_cleanup:
  */
 static void dprc_teardown_irq(struct fsl_mc_device *mc_dev)
 {
-	struct fsl_mc_device_irq *irq = mc_dev->irqs[0];
+	struct fsl_mc_device_irq *irq;
+
+	if (!mc_dev->irqs)
+		return;
+
+	irq = mc_dev->irqs[0];
 
 	(void)disable_dprc_irq(mc_dev);
 
