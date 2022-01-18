@@ -1844,15 +1844,13 @@ static int ade9078_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	//TODO devm_iio_trigger_register()
-	ret = iio_trigger_register(trig);
+	ret = devm_iio_trigger_register(&spi->dev, trig);
 	if (ret) {
 		dev_err(&spi->dev, "Unable to register ADE9078 trigger");
 		return ret;
 	}
 
-	//TODO devm_iio_device_register()
-	ret = iio_device_register(indio_dev);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Unable to register IIO device");
 		return ret;
@@ -1875,13 +1873,8 @@ static int ade9078_probe(struct spi_device *spi)
 
 static int ade9078_remove(struct spi_device *spi)
 {
-	struct ade9078_state *st = spi_get_drvdata(spi);
-	struct iio_dev *indio_dev = st->indio_dev;
 
 	dev_info(&spi->dev, "Exit ADE9078");
-	st->trig->dev.parent = NULL;
-	iio_trigger_unregister(st->trig);
-	iio_device_unregister(indio_dev);
 
 	return 0;
 }
