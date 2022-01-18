@@ -437,6 +437,25 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 	ADE9078_POWER_FACTOR_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 };
 
+static const struct reg_sequence ade9078_reg_sequence[] = {
+	{ADDR_PGA_GAIN, ADE9078_PGA_GAIN},
+	{ADDR_CONFIG0, ADE9078_CONFIG0},
+	{ADDR_CONFIG1, ADE9078_CONFIG1},
+	{ADDR_CONFIG2, ADE9078_CONFIG2},
+	{ADDR_CONFIG3, ADE9078_CONFIG3},
+	{ADDR_ACCMODE, ADE9078_ACCMODE},
+	{ADDR_ZX_LP_SEL, ADE9078_ZX_LP_SEL},
+	{ADDR_MASK0, ADE9078_MASK0},
+	{ADDR_MASK1, ADE9078_MASK1},
+	{ADDR_EVENT_MASK, ADE9078_EVENT_MASK},
+	{ADDR_WFB_CFG, ADE9078_WFB_CFG},
+	{ADDR_VLEVEL, ADE9078_VLEVEL},
+	{ADDR_DICOEFF, ADE9078_DICOEFF},
+	{ADDR_EGY_TIME, ADE9078_EGY_TIME},
+	{ADDR_EP_CFG, ADE9078_EP_CFG},
+	{ADDR_RUN, ADE9078_RUN_ON}
+};
+
 /*
  * ade9078_spi_write_reg() - ade9078 write register over SPI
  * the data format for communicating with the ade9078 over SPI
@@ -1635,53 +1654,8 @@ static int ade9078_setup(struct ade9078_state *st)
 {
 	int ret = 0;
 
-	//TODO regmap_multi_reg_write()
-	ret = regmap_write(st->regmap, ADDR_PGA_GAIN, ADE9078_PGA_GAIN);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_CONFIG0, ADE9078_CONFIG0);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_CONFIG1, ADE9078_CONFIG1);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_CONFIG2, ADE9078_CONFIG2);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_CONFIG3, ADE9078_CONFIG3);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_ACCMODE, ADE9078_ACCMODE);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_ZX_LP_SEL, ADE9078_ZX_LP_SEL);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_MASK0, ADE9078_MASK0);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_MASK1, ADE9078_MASK1);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_EVENT_MASK, ADE9078_EVENT_MASK);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_WFB_CFG, ADE9078_WFB_CFG);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_VLEVEL, ADE9078_VLEVEL);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_DICOEFF, ADE9078_DICOEFF);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_EGY_TIME, ADE9078_EGY_TIME);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_EP_CFG, ADE9078_EP_CFG);
-	if (ret)
-		return ret;
-	ret = regmap_write(st->regmap, ADDR_RUN, ADE9078_RUN_ON);
+	ret = regmap_multi_reg_write(st->regmap, ade9078_reg_sequence,
+				     ARRAY_SIZE(ade9078_reg_sequence));
 	if (ret)
 		return ret;
 
