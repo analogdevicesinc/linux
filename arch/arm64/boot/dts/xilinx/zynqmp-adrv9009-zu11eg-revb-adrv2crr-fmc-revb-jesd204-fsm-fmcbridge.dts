@@ -126,3 +126,10 @@
 		spi-max-frequency = <500000>;
 	};
 };
+
+&i2c_fmc {
+	eeprom@52 {
+		compatible = "at24,24c02";
+		reg = <0x52>;
+	};
+};
