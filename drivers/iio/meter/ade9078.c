@@ -1861,6 +1861,13 @@ static const struct spi_device_id ade9078_id[] = {
 		{"ade9078", 0},
 		{}
 };
+MODULE_DEVICE_TABLE(spi, ade9078_id);
+
+static const struct of_device_id ade9078_of_match[] = {
+	{ .compatible = "adi,ade9078" },
+	{}
+};
+MODULE_DEVICE_TABLE(of, ade9078_of_match);
 
 static struct spi_driver ade9078_driver = {
 		.driver = {
@@ -1870,7 +1877,6 @@ static struct spi_driver ade9078_driver = {
 		.remove = ade9078_remove,
 		.id_table = ade9078_id,
 };
-
 module_spi_driver(ade9078_driver);
 
 MODULE_AUTHOR("Ciprian Hegbeli <ciprian.hegbeli@analog.com>");
