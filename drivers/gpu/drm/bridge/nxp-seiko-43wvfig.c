@@ -151,11 +151,41 @@ static void seiko_adapter_bridge_disable(struct drm_bridge *bridge)
 		DRM_DEV_ERROR(dev, "failed to unprepare panel\n");
 }
 
+#define MAX_INPUT_FORMATS 1
+static u32 *
+seiko_adapter_atomic_get_input_bus_fmts(struct drm_bridge *bridge,
+					struct drm_bridge_state *bridge_state,
+					struct drm_crtc_state *crtc_state,
+					struct drm_connector_state *conn_state,
+					u32 output_fmt,
+					unsigned int *num_input_fmts) {
+	struct seiko_adapter *adap = bridge->driver_private;
+	u32 *input_fmts;
+
+	*num_input_fmts = 0;
+
+	input_fmts = kcalloc(MAX_INPUT_FORMATS, sizeof(*input_fmts),
+			     GFP_KERNEL);
+	if (!input_fmts)
+		return NULL;
+
+	input_fmts[0] = adap->bus_format;
+	*num_input_fmts = MAX_INPUT_FORMATS;
+
+	return input_fmts;
+}
+
 static const struct drm_bridge_funcs seiko_adapter_bridge_funcs = {
 	.enable = seiko_adapter_bridge_enable,
 	.disable = seiko_adapter_bridge_disable,
 	.attach = seiko_adapter_bridge_attach,
 	.detach = seiko_adapter_bridge_detach,
+
+	.atomic_get_input_bus_fmts = seiko_adapter_atomic_get_input_bus_fmts,
+
+	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
+	.atomic_reset = drm_atomic_helper_bridge_reset,
 };
 
 static int seiko_adapter_probe(struct platform_device *pdev)
