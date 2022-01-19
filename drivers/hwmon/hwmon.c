@@ -762,7 +762,7 @@ __hwmon_create_attrs(const void *drvdata, const struct hwmon_chip_info *chip)
 		nattrs += hwmon_num_channel_attrs(chip->info[i]);
 
 	if (nattrs == 0)
-		return ERR_PTR(-EINVAL);
+		return NULL;
 
 	attrs = kcalloc(nattrs + 1, sizeof(*attrs), GFP_KERNEL);
 	if (!attrs)
@@ -822,15 +822,16 @@ __hwmon_device_register(struct device *dev, const char *name, void *drvdata,
 			goto free_hwmon;
 		}
 
+		ngroups = 0;
+
 		attrs = __hwmon_create_attrs(drvdata, chip);
 		if (IS_ERR(attrs)) {
 			err = PTR_ERR(attrs);
 			goto free_hwmon;
+		} else if (attrs) {
+			hwdev->group.attrs = attrs;
+			hwdev->groups[ngroups++] = &hwdev->group;
 		}
-
-		hwdev->group.attrs = attrs;
-		ngroups = 0;
-		hwdev->groups[ngroups++] = &hwdev->group;
 
 		if (groups) {
 			for (i = 0; groups[i]; i++)
