@@ -48,6 +48,13 @@
 #define AD9545_FREQ_LOCK_FILL_RATE	0x0808
 #define AD9545_FREQ_LOCK_DRAIN_RATE	0x0809
 #define AD9545_DPLL0_FTW		0x1000
+#define AD9545_DPLL0_SLEW_RATE		0x1011
+#define AD9545_MODULATION_COUNTER_A0	0x10C2
+#define AD9545_MODULATION_COUNTER_B0	0x10C6
+#define AD9545_MODULATION_COUNTER_C0	0x10CA
+#define AD9545_MODULATOR_A0		0x10CF
+#define AD9545_MODULATOR_B0		0x10D0
+#define AD9545_MODULATOR_C0		0x10D1
 #define	AD9545_NSHOT_REQ_CH0		0x10D3
 #define AD9545_NSHOT_EN_AB0		0x10D4
 #define AD9545_NSHOT_EN_C0		0x10D5
@@ -59,12 +66,19 @@
 #define AD9545_Q0A_PHASE_CONF		0x1108
 #define AD9545_DPLL0_EN			0x1200
 #define AD9545_DPLL0_SOURCE		0x1201
+#define AD9545_DPLL0_ZERO_DELAY_FB	0x1202
+#define AD9545_DPLL0_FB_MODE		0x1203
 #define AD9545_DPLL0_LOOP_BW		0x1204
+#define AD9545_DPLL0_HITLESS_N		0x1208
 #define AD9545_DPLL0_N_DIV		0x120C
 #define AD9545_DPLL0_FRAC		0x1210
 #define AD9545_DPLL0_MOD		0x1213
 #define AD9545_DPLL0_FAST_L1		0x1216
 #define AD9545_DPLL0_FAST_L2		0x1217
+#define AD9545_MODULATION_COUNTER_A1	0x14C2
+#define AD9545_MODULATION_COUNTER_B1	0x14C6
+#define AD9545_MODULATOR_A1		0x14CF
+#define AD9545_MODULATOR_B1		0x14D0
 #define AD9545_NSHOT_EN_AB1		0x14D4
 #define AD9545_DRIVER_1A_CONF		0x14D7
 #define AD9545_Q1A_DIV			0x1500
@@ -140,9 +154,13 @@
 
 #define AD9545_NSHOT_REQ_CH(x)			(AD9545_NSHOT_REQ_CH0 + ((x) * 0x400))
 #define AD9545_DPLLX_FTW(x)			(AD9545_DPLL0_FTW + ((x) * 0x400))
+#define AD9545_DPLLX_SLEW_RATE(x)		(AD9545_DPLL0_SLEW_RATE + ((x) * 0x400))
 #define AD9545_DPLLX_EN(x, y)			(AD9545_DPLL0_EN + ((x) * 0x400) + ((y) * 0x20))
 #define AD9545_DPLLX_SOURCE(x, y)		(AD9545_DPLL0_SOURCE + ((x) * 0x400) + ((y) * 0x20))
+#define AD9545_DPLLX_FB_PATH(x, y)		(AD9545_DPLL0_ZERO_DELAY_FB + ((x) * 0x400) + ((y) * 0x20))
+#define AD9545_DPLLX_FB_MODE(x, y)		(AD9545_DPLL0_FB_MODE + ((x) * 0x400) + ((y) * 0x20))
 #define AD9545_DPLLX_LOOP_BW(x, y)		(AD9545_DPLL0_LOOP_BW + ((x) * 0x400) + ((y) * 0x20))
+#define AD9545_DPLLX_HITLESS_N(x, y)		(AD9545_DPLL0_HITLESS_N + ((x) * 0x400) + ((y) * 0x20))
 #define AD9545_DPLLX_N_DIV(x, y)		(AD9545_DPLL0_N_DIV + ((x) * 0x400) + ((y) * 0x20))
 #define AD9545_DPLLX_FRAC_DIV(x, y)		(AD9545_DPLL0_FRAC + ((x) * 0x400) + ((y) * 0x20))
 #define AD9545_DPLLX_MOD_DIV(x, y)		(AD9545_DPLL0_MOD + ((x) * 0x400) + ((y) * 0x20))
@@ -188,6 +206,11 @@
 #define AD9545_EN_PROFILE_MSK			BIT(0)
 #define AD9545_SEL_PRIORITY_MSK			GENMASK(5, 1)
 
+/* define AD9545_DPLLX_FB_MODE bitfields */
+#define AD9545_EN_HITLESS_MSK			BIT(0)
+#define AD9545_TAG_MODE_MSK			GENMASK(4, 2)
+#define AD9545_BASE_FILTER_MSK			BIT(7)
+
 /* AD9545_PWR_CALIB_CHX bitfields */
 #define AD9545_PWR_DOWN_CH			BIT(0)
 #define AD9545_CALIB_APLL			BIT(1)
@@ -203,6 +226,9 @@
 /* AD9545_DIV_OPS_QX bitfields */
 #define AD9545_DIV_OPS_MUTE_A_MSK		BIT(2)
 #define AD9545_DIV_OPS_MUTE_AA_MSK		BIT(3)
+
+/* AD9545 Modulator bitfields */
+#define AD9545_MODULATOR_EN			BIT(0)
 
 /* AD9545_NSHOT_REQ_CH bitfields */
 #define AD9545_NSHOT_NR_MSK			GENMASK(5, 0)
@@ -241,6 +267,10 @@
 
 #define AD9545_APLL_LOCKED(x)			((x) & BIT(3))
 
+/*  AD9545 tagging modes */
+#define AD9545_NO_TAGGING			0
+#define AD9545_FB_PATH_TAG			2
+
 #define AD9545_SYS_CLK_STABILITY_MS	50
 
 #define AD9545_R_DIV_MAX		0x40000000
@@ -259,6 +289,7 @@
 #define AD9545_MAX_NSHOT_PULSES		63
 
 #define AD9545_NCO_MAX_FREQ		65535
+#define AD9545_MAX_ZERO_DELAY_RATE	200000000
 
 static const unsigned int ad9545_apll_rate_ranges_hz[2][2] = {
 	{2400000000U, 3200000000U}, {3200000000U, 4000000000U}
@@ -355,48 +386,70 @@ enum ad9545_output_mode {
 };
 
 struct ad9545_outputs_regs {
+	u16	modulator_reg;
+	u16	modulation_counter_reg;
 	u16	nshot_en_reg;
 	u8	nshot_en_msk;
 };
 
 static const struct ad9545_outputs_regs ad9545_out_regs[] = {
 	{
+		.modulator_reg = AD9545_MODULATOR_A0,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_A0,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
 		.nshot_en_msk = BIT(0),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_A0,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_A0,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
 		.nshot_en_msk = BIT(2),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_B0,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_B0,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
 		.nshot_en_msk = BIT(4),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_B0,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_B0,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB0,
 		.nshot_en_msk = BIT(6),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_C0,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_C0,
 		.nshot_en_reg = AD9545_NSHOT_EN_C0,
 		.nshot_en_msk = BIT(0),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_C0,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_C0,
 		.nshot_en_reg = AD9545_NSHOT_EN_C0,
 		.nshot_en_msk = BIT(2),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_A1,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_A1,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
 		.nshot_en_msk = BIT(0),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_A1,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_A1,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
 		.nshot_en_msk = BIT(2),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_B1,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_B1,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
 		.nshot_en_msk = BIT(4),
 	},
 	{
+		.modulator_reg = AD9545_MODULATOR_B1,
+		.modulation_counter_reg = AD9545_MODULATION_COUNTER_B1,
 		.nshot_en_reg = AD9545_NSHOT_EN_AB1,
 		.nshot_en_msk = BIT(6),
 	},
@@ -410,6 +463,7 @@ struct ad9545_out_clk {
 	u32				source_ua;
 	struct clk_hw			hw;
 	unsigned int			address;
+	unsigned long			rate_requested_hz;
 };
 
 struct ad9545_dpll_profile {
@@ -422,6 +476,7 @@ struct ad9545_dpll_profile {
 	unsigned int			fast_acq_settle_ms;
 	bool				en;
 	u8				tdc_source;
+	bool				fb_tagging;
 };
 
 struct ad9545_pll_clk {
@@ -434,6 +489,11 @@ struct ad9545_pll_clk {
 	struct ad9545_dpll_profile	profiles[AD9545_MAX_DPLL_PROFILES];
 	unsigned int			free_run_freq;
 	unsigned int			fast_acq_trigger_mode;
+	unsigned long			rate_requested_hz;
+	bool				internal_zero_delay;
+	u8				internal_zero_delay_source;
+	unsigned long			internal_zero_delay_source_rate_hz;
+	u32				slew_rate_limit_ps;
 };
 
 struct ad9545_ref_in_clk {
@@ -678,6 +738,33 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode", &val);
 		if (!ret)
 			st->pll_clks[addr].fast_acq_trigger_mode = val;
+
+		ret = fwnode_property_read_u32(child, "adi,pll-slew-rate-limit-ps", &val);
+		if (!ret)
+			st->pll_clks[addr].slew_rate_limit_ps = val;
+
+		prop_found = fwnode_property_present(child, "adi,pll-internal-zero-delay-feedback");
+		st->pll_clks[addr].internal_zero_delay = prop_found;
+
+		ret = fwnode_property_read_u32(child, "adi,pll-internal-zero-delay-feedback", &val);
+		if (prop_found && !ret) {
+			if (val >= ARRAY_SIZE(ad9545_out_clk_names)) {
+				dev_err(st->dev, "Invalid zero-delay fb path: %u.", val);
+				return -EINVAL;
+			}
+
+			st->pll_clks[addr].internal_zero_delay_source = val;
+		}
+
+		ret = fwnode_property_read_u32(child, "adi,pll-internal-zero-delay", &val);
+		if (prop_found && !ret) {
+			if (val >= AD9545_MAX_ZERO_DELAY_RATE) {
+				dev_err(st->dev, "Invalid zero-delay output rate: %u.", val);
+				return -EINVAL;
+			}
+
+			st->pll_clks[addr].internal_zero_delay_source_rate_hz = val;
+		}
 
 		/* parse DPLL profiles */
 		fwnode_for_each_available_child_node(child, profile_node) {
@@ -1241,7 +1328,7 @@ static unsigned long ad95452_out_clk_recalc_rate(struct clk_hw *hw, unsigned lon
 static long ad9545_out_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 				      unsigned long *parent_rate)
 {
-	u32 out_rate;
+	unsigned long out_rate;
 	u32 qdiv;
 
 	qdiv = div64_u64(*parent_rate, rate);
@@ -1571,15 +1658,33 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 		st->clks[AD9545_CLK_OUT][i] = st->out_clks[i].hw.clk;
 	}
 
-	/* set to autosync to trigger on DPLL freq lock */
 	for (i = 0; i < ARRAY_SIZE(st->pll_clks); i++) {
-		reg = FIELD_PREP(AD9545_SYNC_CTRL_MODE_MSK, 3);
+		reg = 0;
+
+		/* For hitless mode, wait for DPLL reference in order to sync outputs */
+		if (st->pll_clks[i].internal_zero_delay) {
+			reg = FIELD_PREP(AD9545_SYNC_CTRL_DPLL_REF_MSK, 1);
+
+			ret = regmap_write(st->regmap, AD9545_SYNC_CTRLX(i), reg);
+			if (ret < 0)
+				return ret;
+
+			ret = ad9545_io_update(st);
+			if (ret < 0)
+				return ret;
+		}
+
+		reg |= FIELD_PREP(AD9545_SYNC_CTRL_MODE_MSK, 1);
 		ret = regmap_write(st->regmap, AD9545_SYNC_CTRLX(i), reg);
+		if (ret < 0)
+			return ret;
+
+		ret = ad9545_io_update(st);
 		if (ret < 0)
 			return ret;
 	}
 
-	return ad9545_io_update(st);
+	return 0;
 }
 
 static int ad9545_set_r_div(struct ad9545_state *st, u32 div, int addr)
@@ -1806,6 +1911,9 @@ static int ad9545_set_freerun_freq(struct ad9545_pll_clk *clk, u32 freq)
 	u64 ftw;
 	int ret;
 
+	if (!freq)
+		return 0;
+
 	ret = ad9545_calc_ftw(clk, freq, &ftw);
 	if (ret < 0)
 		return ret;
@@ -1834,9 +1942,63 @@ static u32 ad9545_calc_m_div(unsigned long rate)
 	return m_div;
 }
 
+/*
+ * Zero delay mode forbids use of the Fractional
+ * part of DPLL in calculation, turning
+ * the Digital PLL part in an Integer-N PLL.
+ * The configuration turns into two cascaded Integer N PLLs.
+ */
+static u64 ad9545_calc_pll_zero_delay_params(struct ad9545_pll_clk *clk, unsigned long rate,
+					     unsigned long parent_rate, u32 *m, u32 *n,
+					     int profile_nr)
+{
+	unsigned long out_rate_hz;
+	u32 m_div, n_div, q_div;
+	int output_nr;
+
+	output_nr = clk->internal_zero_delay_source;
+	out_rate_hz = clk->internal_zero_delay_source_rate_hz;
+
+	if (!out_rate_hz || !parent_rate)
+		return rate;
+
+	/*
+	 * The frequency translation factor for internal zero delay mode:
+	 * f_out_x = N * f_ref_div_x
+	 */
+	n_div = DIV_ROUND_CLOSEST(out_rate_hz, parent_rate);
+	if (!n_div)
+		return rate;
+
+	/* set q-div beforehand */
+	q_div = DIV_ROUND_UP_ULL(rate, out_rate_hz);
+	ad9545_set_q_div(clk->st, output_nr, q_div);
+
+	/* half divider at output requires APLL to generate twice the frequency demanded */
+	rate *= 2;
+
+	/* Find a suitable M divider */
+	for (m_div = AD9545_APLL_M_DIV_MIN; m_div < AD9545_APLL_M_DIV_MAX; m_div++) {
+		unsigned long dpll_rate;
+
+		if (rate % m_div != 0)
+			continue;
+
+		dpll_rate = DIV_ROUND_UP_ULL(rate, m_div);
+		if (dpll_rate >= ad9545_apll_pfd_rate_ranges_hz[0] &&
+		    dpll_rate <= ad9545_apll_pfd_rate_ranges_hz[1])
+			break;
+	}
+
+	*m = m_div;
+	*n = n_div;
+
+	return q_div * out_rate_hz;
+}
+
 static u64 ad9545_calc_pll_params(struct ad9545_pll_clk *clk, unsigned long rate,
-				  unsigned long parent_rate, u32 *m, u32 *n,
-				  unsigned long *frac, unsigned long *mod)
+				  unsigned long parent_rate, bool zero_delay, u32 *m, u32 *n,
+				  unsigned long *frac, unsigned long *mod, int profile_nr)
 {
 	u32 min_dpll_n_div;
 	u64 output_rate;
@@ -1844,6 +2006,13 @@ static u64 ad9545_calc_pll_params(struct ad9545_pll_clk *clk, unsigned long rate
 	u32 m_div;
 	u64 den;
 	u64 num;
+
+	if (zero_delay) {
+		*frac = 0;
+		*mod = 1;
+
+		return ad9545_calc_pll_zero_delay_params(clk, rate, parent_rate, m, n, profile_nr);
+	}
 
 	/* half divider at output requires APLL to generate twice the frequency demanded */
 	rate *= 2;
@@ -1988,9 +2157,44 @@ static unsigned long ad9545_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long
 
 	mod = le32_to_cpu(regval);
 
-	/* Output rate of APLL = parent_rate * (N + (Frac / Mod)) * M */
-	output_rate = mul_u64_u32_div(frac * parent_rate, m, mod);
-	output_rate += parent_rate * n * m;
+	if (clk->internal_zero_delay) {
+		int output_nr = clk->internal_zero_delay_source;
+		u32 q_div;
+
+		ret = ad9545_get_q_div(clk->st, output_nr, &q_div);
+		if (ret < 0)
+			return ret;
+
+		if (!m)
+			return 0;
+
+		if (clk->profiles[i].fb_tagging) {
+			ret = regmap_bulk_read(clk->st->regmap,
+					       ad9545_out_regs[output_nr].modulation_counter_reg,
+					       &regval, 4);
+			if (ret < 0)
+				return ret;
+
+			n = le32_to_cpu(regval);
+		} else {
+			ret = regmap_bulk_read(clk->st->regmap,
+					       AD9545_DPLLX_HITLESS_N(clk->address, i),
+					       &regval, 4);
+			if (ret < 0)
+				return ret;
+
+			n = le32_to_cpu(regval) + 1;
+		}
+
+		output_rate = 2 * q_div * parent_rate * n;
+	} else {
+		if (!mod)
+			return 0;
+
+		/* Output rate of APLL = parent_rate * (N + (Frac / Mod)) * M */
+		output_rate = mul_u64_u32_div(frac * parent_rate, m, mod);
+		output_rate += parent_rate * n * m;
+	}
 
 	return output_rate / 2;
 }
@@ -2001,11 +2205,14 @@ static long ad9545_pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	struct ad9545_pll_clk *clk = to_pll_clk(hw);
 	unsigned long frac;
 	unsigned long mod;
+	bool zero_delay;
 	int ret;
 	u64 ftw;
 	int i;
 	u32 m;
 	u32 n;
+
+	clk->rate_requested_hz = rate;
 
 	/* if no ref is valid, check if requested rate can be set in free run mode */
 	i = ad9545_pll_get_parent(hw);
@@ -2014,12 +2221,61 @@ static long ad9545_pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 		m = ad9545_calc_m_div(rate * 2);
 		ret = ad9545_calc_ftw(clk,  div_u64(rate * 2, m), &ftw);
 		if (ret < 0)
-			return 0;
+			return ret;
 
 		return rate;
 	}
 
-	return ad9545_calc_pll_params(clk, rate, *parent_rate, &m, &n, &frac, &mod);
+	zero_delay = clk->internal_zero_delay;
+
+	return ad9545_calc_pll_params(clk, rate, *parent_rate, zero_delay, &m, &n, &frac, &mod, i);
+}
+
+static int ad9545_pll_set_feedback_tagging(struct ad9545_pll_clk *clk, unsigned long rate,
+					   unsigned long parent_rate, unsigned int profile_nr,
+					   u32 *n)
+{
+	unsigned long out_rate_hz;
+	int fb_output_nr;
+	__le32 regval;
+	u32 q_div;
+	int ret;
+	u8 val;
+
+	clk->profiles[profile_nr].fb_tagging = true;
+
+	val = FIELD_PREP(AD9545_TAG_MODE_MSK, AD9545_FB_PATH_TAG) | AD9545_BASE_FILTER_MSK;
+	ret = regmap_update_bits(clk->st->regmap, AD9545_DPLLX_FB_MODE(clk->address, profile_nr),
+				 AD9545_BASE_FILTER_MSK | AD9545_TAG_MODE_MSK, val);
+	if (ret < 0)
+		return ret;
+
+	fb_output_nr = clk->internal_zero_delay_source;
+	out_rate_hz = clk->internal_zero_delay_source_rate_hz;
+
+	if (!out_rate_hz)
+		return 0;
+
+	q_div = DIV_ROUND_UP_ULL(rate, out_rate_hz);
+
+	/* Limit tagging frequency via N-Div */
+	*n = DIV_ROUND_UP(out_rate_hz, AD9545_IN_MAX_TDC_FREQ_HZ);
+	regval = cpu_to_le32(*n - 1);
+	ret = regmap_bulk_write(clk->st->regmap, AD9545_DPLLX_HITLESS_N(clk->address, profile_nr),
+				&regval, 4);
+	if (ret < 0)
+		return ret;
+
+	/* determine modulation period */
+	regval = cpu_to_le32(DIV_ROUND_CLOSEST_ULL(rate, q_div * parent_rate));
+	ret = regmap_bulk_write(clk->st->regmap,
+				ad9545_out_regs[fb_output_nr].modulation_counter_reg,
+				&regval, 4);
+	if (ret < 0)
+		return ret;
+
+	return regmap_update_bits(clk->st->regmap, ad9545_out_regs[fb_output_nr].modulator_reg,
+				  AD9545_MODULATOR_EN, AD9545_MODULATOR_EN);
 }
 
 static int ad9545_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
@@ -2028,7 +2284,10 @@ static int ad9545_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	unsigned long out_rate;
 	unsigned long frac;
 	unsigned long mod;
+	int fb_output_nr;
+	bool zero_delay;
 	__le32 regval;
+	u32 q_div;
 	int ret;
 	u32 m;
 	u32 n;
@@ -2041,12 +2300,54 @@ static int ad9545_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	for (i = 0; i < clk->num_parents; i++) {
 		parent_rate = clk_hw_get_rate(clk->parents[i]);
 
-		out_rate = ad9545_calc_pll_params(clk, rate, parent_rate, &m, &n, &frac, &mod);
-		if (out_rate != rate)
-			return -EINVAL;
+		zero_delay = clk->internal_zero_delay;
+		out_rate = ad9545_calc_pll_params(clk, rate, parent_rate, zero_delay, &m, &n, &frac,
+						  &mod, i);
+
+		/*
+		 * Feedback under 2 kHz needs to be from tagged
+		 * sources when hitless mode is active.
+		 */
+		clk->profiles[i].fb_tagging = false;
+		if (zero_delay && parent_rate < 2000) {
+			ret = ad9545_pll_set_feedback_tagging(clk, rate, parent_rate, i, &n);
+		} else if (zero_delay) {
+			ret = regmap_write(clk->st->regmap,
+					   AD9545_DPLLX_FB_MODE(clk->address, i),
+					   FIELD_PREP(AD9545_EN_HITLESS_MSK, 1));
+		} else {
+			ret = regmap_write(clk->st->regmap,
+					   AD9545_DPLLX_FB_MODE(clk->address, i), 0);
+		}
+
+		if (ret < 0)
+			return ret;
+
+		if (zero_delay) {
+			/*
+			 * In zero delay mode: Phase Buildout N needs to be programmed to:
+			 * N BUILDOUT = N HITLESS × 2 × Q/M
+			 */
+
+			fb_output_nr = clk->internal_zero_delay_source;
+			if (!clk->internal_zero_delay_source_rate_hz)
+				return 0;
+
+			q_div = DIV_ROUND_UP_ULL(rate, clk->internal_zero_delay_source_rate_hz);
+			regval = cpu_to_le32(DIV_ROUND_UP(n * 2 * q_div, m) - 1);
+		} else {
+			regval = cpu_to_le32(n - 1);
+		}
+
+		ret = regmap_bulk_write(clk->st->regmap,
+					AD9545_DPLLX_N_DIV(clk->address, i),
+					&regval, 4);
+		if (ret < 0)
+			return ret;
 
 		regval = cpu_to_le32(n - 1);
-		ret = regmap_bulk_write(clk->st->regmap, AD9545_DPLLX_N_DIV(clk->address, i),
+		ret = regmap_bulk_write(clk->st->regmap,
+					AD9545_DPLLX_HITLESS_N(clk->address, i),
 					&regval, 4);
 		if (ret < 0)
 			return ret;
@@ -2176,6 +2477,13 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 		pll->num_parents = init[i].num_parents;
 		pll->parents = init[i].parent_hws;
 
+		if (!pll->slew_rate_limit_ps) {
+			regval = cpu_to_le32(pll->slew_rate_limit_ps);
+			ret = regmap_bulk_write(st->regmap, AD9545_DPLLX_SLEW_RATE(i), &regval, 4);
+			if (ret < 0)
+				return ret;
+		}
+
 		for (j = 0; j < AD9545_MAX_DPLL_PROFILES; j++) {
 			if (!pll->profiles[j].en)
 				continue;
@@ -2186,6 +2494,22 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 			reg = AD9545_EN_PROFILE_MSK |
 				FIELD_PREP(AD9545_SEL_PRIORITY_MSK, pll->profiles[j].priority);
 			ret = regmap_write(st->regmap, AD9545_DPLLX_EN(i, j), reg);
+			if (ret < 0)
+				return ret;
+
+			reg = pll->internal_zero_delay_source;
+			if (i > 0) {
+				/* output numbering in this reg starts from 0 for each DPLL */
+				if (reg > 5)
+					reg -= 6;
+			}
+
+			ret = regmap_write(st->regmap, AD9545_DPLLX_FB_PATH(i, j), reg);
+			if (ret < 0)
+				return ret;
+
+			reg = FIELD_PREP(AD9545_EN_HITLESS_MSK, pll->internal_zero_delay);
+			ret = regmap_write(st->regmap, AD9545_DPLLX_FB_MODE(i, j), reg);
 			if (ret < 0)
 				return ret;
 
