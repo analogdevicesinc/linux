@@ -1679,7 +1679,7 @@ t_Error ValidateNextEngineParams(
 
         case (e_FM_PCD_HASH):
             p_FmPcdCcNextEngineParams->nextEngine = e_FM_PCD_CC;
-            /* fall through */
+            fallthrough;
         case (e_FM_PCD_CC):
             if (!p_FmPcdCcNextEngineParams->params.ccParams.h_CcNode)
                 RETURN_ERROR(MAJOR, E_NULL_POINTER,
