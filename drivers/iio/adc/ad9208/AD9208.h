@@ -85,6 +85,14 @@ typedef struct {
 	hw_open_t hw_open;	/**< Function Pointer to HAL initialization function*/
 	hw_close_t hw_close;	/**< Function Pointer to HAL de-initialization function*/
 	uint64_t adc_clk_freq_hz;   /**< ADC Clock Frequency in Hz. Valid range 2.5GHz to 3.1 GHz */
+
+	uint64_t input_clk_min_hz;
+	uint64_t input_clk_max_hz;
+	uint64_t adc_clk_min_hz;
+	uint64_t adc_clk_max_hz;
+	uint32_t slr_max_mbps;
+	uint32_t slr_min_mbps;
+	uint32_t model;
 } ad9208_handle_t;
 
 /**

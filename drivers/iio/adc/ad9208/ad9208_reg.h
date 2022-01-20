@@ -264,4 +264,9 @@ int ad9208_is_sync_spi_update_enabled(ad9208_handle_t *h, uint8_t *enabled);
 #define AD9208_FULL_SCALE_CFG_REG     0x1910
 #define AD9208_TRM_VREF(x)            (((x)&0xF)<<0)
 
+/* AD9680 Registers */
+#define AD9680_CLOCK_DIV_REG		0x10B
+#define AD9680_CLOCK_DIV_PHASE_REG	0x10C
+#define AD9680_INPUT_FS_RANGE_REG	0x025
+
 #endif /*__AD9208_REG_H__*/

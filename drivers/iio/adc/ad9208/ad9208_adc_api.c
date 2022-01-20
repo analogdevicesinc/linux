@@ -226,6 +226,9 @@ int ad9208_adc_set_input_scale(ad9208_handle_t *h,
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
 
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
+
 	switch (full_scale_range) {
 	case AD9208_ADC_SCALE_2P04_VPP:
 		fs_val = 0;
@@ -310,6 +313,9 @@ static int ad9208_adc_set_vcm_export(ad9208_handle_t *h, uint8_t en)
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
 
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
+
 	err = ad9208_register_read(h, AD9208_EXT_VCM_CTRL_REG, &tmp_reg);
 	if (err != API_ERROR_OK)
 		return err;
@@ -334,6 +340,10 @@ int ad9208_adc_set_input_cfg(ad9208_handle_t *h,
 
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
+
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
+
 	if ((analog_input_mode >= COUPLING_UNKNOWN) || (ext_vref > 1))
 		return API_ERROR_INVALID_PARAM;
 	if ((analog_input_mode == COUPLING_DC) && (ext_vref == 1)) {
@@ -386,6 +396,10 @@ int ad9208_adc_set_input_buffer_cfg(ad9208_handle_t *h,
 
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
+
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
+
 	err = ad9208_check_buffer_current(buff_curr_n);
 	if (err != API_ERROR_OK)
 		return err;
@@ -429,6 +443,9 @@ int ad9208_adc_set_dc_offset_filt_en(ad9208_handle_t *h, uint8_t en)
 		return API_ERROR_INVALID_HANDLE_PTR;
 	if (en > 1)
 		return API_ERROR_INVALID_PARAM;
+
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
 
 	err = ad9208_register_read(h, AD9208_DC_OFFSET_CAL_CTRL, &tmp_reg);
 	if (err != API_ERROR_OK)
@@ -941,13 +958,19 @@ int ad9208_adc_set_ddc_nco_reset(ad9208_handle_t *h)
 int ad9208_adc_set_clk_phase(ad9208_handle_t *h, uint8_t phase_adj)
 {
 	int err;
+	uint16_t addr;
 
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
 	if (phase_adj > AD9208_IP_CLK_PHASE_ADJ(ALL))
 		return API_ERROR_INVALID_PARAM;
 
-	err = ad9208_register_write(h, AD9208_IP_CLK_PHASE_ADJ_REG, phase_adj);
+	if (h->model == 0x9680)
+		addr = AD9680_CLOCK_DIV_PHASE_REG;
+	else
+		addr = AD9208_IP_CLK_PHASE_ADJ_REG;
+
+	err = ad9208_register_write(h, addr, phase_adj);
 	if (err != API_ERROR_OK)
 		return err;
 
@@ -963,6 +986,9 @@ int ad9208_adc_temp_sensor_set_enable(ad9208_handle_t *h, uint8_t en)
 		return API_ERROR_INVALID_HANDLE_PTR;
 	if (en > 1)
 		return API_ERROR_INVALID_PARAM;
+
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
 
 	err = ad9208_adc_set_vcm_export(h, 0x0);
 	if (err != API_ERROR_OK)
