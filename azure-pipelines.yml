@@ -36,11 +36,17 @@ jobs:
   variables:
     BUILD_TYPE: checkpatch
     TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
+    COMMIT: $[ variables['Build.SourceVersion'] ]
+    REPO_URL: $[ variables['Build.Repository.Uri'] ]
   steps:
-  - checkout: self
-    fetchDepth: 50
-    clean: true
-  - script: ./ci/travis/run-build.sh
+  - checkout: none
+  - script: |
+      set -ex
+      git init
+      git remote add origin ${REPO_URL}
+      git fetch --filter=tree:0 --no-tags origin ${COMMIT}
+      git checkout --progress --force ${COMMIT}
+      ./ci/travis/run-build.sh
     displayName: 'Checkpatch Script'
 
 - job: check_is_new_adi_driver_dual_licensed
