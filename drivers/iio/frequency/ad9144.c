@@ -150,6 +150,9 @@ static int ad9144_get_temperature_code(struct cf_axi_converter *conv)
 	struct ad9144_state *st = container_of(conv, struct ad9144_state, conv);
 	unsigned val1, val2;
 
+	regmap_write(st->map, REG_DIE_TEMP_CTRL0, 1);
+	regmap_write(st->map, REG_DIE_TEMP_UPDATE, 1);
+
 	regmap_read(st->map, REG_DIE_TEMP0, &val1);
 	regmap_read(st->map, REG_DIE_TEMP1, &val2);
 	return ((val2 & 0xFF) << 8) | (val1 & 0xFF);
