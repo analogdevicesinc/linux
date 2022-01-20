@@ -84,46 +84,46 @@ static int check_jesd_params_range(jesd_param_t jesd_param)
 	if ((jesd_param.jesd_L != 1) &&
 	    (jesd_param.jesd_L != 2) &&
 	    (jesd_param.jesd_L != 4) && (jesd_param.jesd_L != 8)) {
-		/*printf("API:AD9208:Err: Invalid JESD L \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD L\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	if ((jesd_param.jesd_M != 1) &&
 	    (jesd_param.jesd_M != 2) &&
 	    (jesd_param.jesd_M != 4) && (jesd_param.jesd_M != 8)) {
-		/*printf("API:AD9208:Err: Invalid JESD M \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD M\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	if ((jesd_param.jesd_F != 1) &&
 	    (jesd_param.jesd_F != 2) &&
 	    (jesd_param.jesd_F != 4) && (jesd_param.jesd_F != 8)) {
 
-		/*printf("API:AD9208:Err: Invalid JESD F \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD F\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	if ((jesd_param.jesd_N < N_MIN) || (jesd_param.jesd_N > N_MAX)) {
 
-		/*printf("API:AD9208:Err: Invalid JESD N \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD N\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	if ((jesd_param.jesd_K < K_MIN) || (jesd_param.jesd_K > K_MAX) ||
 	    (jesd_param.jesd_K % 4 != 0)) {
 
-		/*printf("API:AD9208:Err: Invalid JESD K \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD K\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	if (jesd_param.jesd_CS > CS_MAX) {
 
-		/*printf("API:AD9208:Err: Invalid JESD CS \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD CS\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	if (jesd_param.jesd_CF > CF_DEFAULT) {
 
-		/*printf("API:AD9208:Err: Invalid JESD CF \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD CF\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	if ((jesd_param.jesd_NP != 8) && (jesd_param.jesd_NP != 16)) {
 
-		/*printf("API:AD9208:Err: Invalid JESD NP \r\n"); */
+		pr_err("API:AD9208:Err: Invalid JESD NP\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 
