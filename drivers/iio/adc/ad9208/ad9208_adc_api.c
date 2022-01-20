@@ -257,6 +257,51 @@ int ad9208_adc_set_input_scale(ad9208_handle_t *h,
 	return API_ERROR_OK;
 }
 
+int ad9208_adc_get_input_scale(ad9208_handle_t *h, uint8_t *full_scale_range)
+{
+	int err;
+	uint8_t tmp_reg;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	if (!full_scale_range)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
+
+	err = ad9208_register_read(h,
+				    AD9208_FULL_SCALE_CFG_REG, &tmp_reg);
+	if (err != API_ERROR_OK)
+		return err;
+
+	switch (AD9208_TRM_VREF(tmp_reg)) {
+	case 0:
+		*full_scale_range = AD9208_ADC_SCALE_2P04_VPP;
+		break;
+	case 0x8:
+		*full_scale_range = AD9208_ADC_SCALE_1P13_VPP;
+		break;
+	case 0x9:
+		*full_scale_range = AD9208_ADC_SCALE_1P25_VPP;
+		break;
+	case 0xD:
+		*full_scale_range = AD9208_ADC_SCALE_1P7_VPP;
+		break;
+	case 0xE:
+		*full_scale_range = AD9208_ADC_SCALE_1P81_VPP;
+		break;
+	case 0xF:
+		*full_scale_range = AD9208_ADC_SCALE_1P93_VPP;
+		break;
+	default:
+		return API_ERROR_INVALID_PARAM;
+	}
+
+	return API_ERROR_OK;
+}
+
 static int ad9208_adc_set_vcm_export(ad9208_handle_t *h, uint8_t en)
 {
 	int err;

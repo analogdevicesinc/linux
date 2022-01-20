@@ -1067,6 +1067,8 @@ int ad9208_get_revision(ad9208_handle_t *h, uint8_t *rev_major,
 int ad9208_adc_set_input_scale(ad9208_handle_t *h,
 			       ad9208_adc_scale_range_t full_scale_range);
 
+int ad9208_adc_get_input_scale(ad9208_handle_t *h, uint8_t *full_scale_range);
+
 int ad9208_get_decimation(ad9208_handle_t *h, uint8_t *dcm);
 
 #endif /* !__AD9208API_H__ */
