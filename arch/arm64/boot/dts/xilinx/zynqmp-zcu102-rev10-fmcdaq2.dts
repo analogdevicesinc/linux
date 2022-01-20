@@ -6,7 +6,7 @@
  * hdl_project: <daq2/zcu102>
  * board_revision: <>
  *
- * Copyright 2016-2020 Analog Devices Inc.
+ * Copyright 2016-2022 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
@@ -93,6 +93,11 @@
 			dma-names = "tx";
 			spibus-connected = <&dac0_ad9144>;
 			adi,axi-pl-fifo-enable;
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9144_jesd 1 0>;
 		};
 
 		axi_ad9144_jesd: axi-jesd204-tx@84a90000 {
@@ -104,14 +109,13 @@
 			clocks = <&zynqmp_clk 71>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-			adi,octets-per-frame = <1>;
-			adi,frames-per-multiframe = <32>;
-			adi,converter-resolution = <16>;
-			adi,bits-per-sample = <16>;
-			adi,converters-per-device = <2>;
-
 			#clock-cells = <0>;
 			clock-output-names = "jesd_dac_lane_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9144_adxcvr 1 0>;
 		};
 
 		axi_ad9680_core: axi-ad9680-hpc@84a10000 {
@@ -120,6 +124,11 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9680>;
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9680_jesd 0 0>;
 		};
 
 		axi_ad9680_jesd: axi-jesd204-rx@84aa0000 {
@@ -131,11 +140,13 @@
 			clocks = <&zynqmp_clk 71>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-			adi,octets-per-frame = <1>;
-			adi,frames-per-multiframe = <32>;
-
 			#clock-cells = <0>;
 			clock-output-names = "jesd_adc_lane_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9680_adxcvr 0 0>;
 		};
 
 		axi_ad9680_adxcvr: axi-adxcvr-rx@84a50000{
@@ -149,8 +160,12 @@
 			clock-output-names = "adc_gt_clk", "rx_out_clk";
 
 			adi,sys-clk-select = <XCVR_CPLL>;
-			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+			adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 			adi,use-lpm-enable;
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
 		};
 
 		axi_ad9144_adxcvr: axi-adxcvr-tx@84a60000{
@@ -164,8 +179,12 @@
 			clock-output-names = "dac_gt_clk", "tx_out_clk";
 
 			adi,sys-clk-select = <XCVR_QPLL>;
-			adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+			adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 			adi,use-lpm-enable;
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
