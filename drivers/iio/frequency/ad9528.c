@@ -1235,6 +1235,53 @@ pll2_bypassed:
 	return 0;
 }
 
+static int ad9528_lmfc_lemc_validate(struct ad9528_state *st, u64 dividend, u32 divisor)
+{
+	u32 rem, rem_l, rem_u, gcd_val, min;
+
+	if (divisor > dividend) {
+		unsigned long best_num, best_den;
+
+		rational_best_approximation(dividend, divisor,
+			65535, 65535, &best_num, &best_den);
+
+		divisor /= best_den;
+	}
+
+	gcd_val = gcd(dividend, divisor);
+	min = DIV_ROUND_CLOSEST(st->sysref_src_pll2, 65535UL);
+
+	if (gcd_val >= min) {
+		dev_dbg(&st->spi->dev,
+			"%s: dividend=%llu divisor=%u GCD=%u (st->sysref_src_pll2=%lu, min=%u)",
+			__func__, dividend, divisor, gcd_val, st->sysref_src_pll2, min);
+
+		st->jdev_lmfc_lemc_gcd = gcd_val;
+		return 0;
+	}
+
+	div_u64_rem(st->sysref_src_pll2, divisor, &rem);
+
+	dev_dbg(&st->spi->dev,
+		"%s: dividend=%llu divisor=%u GCD=%u rem=%u (st->sysref_src_pll2=%lu)",
+		__func__, dividend, divisor, gcd_val, rem, st->sysref_src_pll2);
+
+	div_u64_rem(dividend, divisor, &rem);
+	div_u64_rem(dividend, divisor - 1, &rem_l);
+	div_u64_rem(dividend, divisor + 1, &rem_u);
+
+	if (rem_l > rem && rem_u > rem) {
+		if (st->jdev_lmfc_lemc_gcd)
+			st->jdev_lmfc_lemc_gcd = min(st->jdev_lmfc_lemc_gcd, divisor);
+		else
+			st->jdev_lmfc_lemc_gcd = divisor;
+
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
 static int ad9528_jesd204_link_supported(struct jesd204_dev *jdev,
 		enum jesd204_state_op_reason reason,
 		struct jesd204_link *lnk)
@@ -1260,15 +1307,17 @@ static int ad9528_jesd204_link_supported(struct jesd204_dev *jdev,
 
 	if (st->jdev_lmfc_lemc_rate) {
 		st->jdev_lmfc_lemc_rate = min(st->jdev_lmfc_lemc_rate, (u32)rate);
-		st->jdev_lmfc_lemc_gcd = gcd(st->jdev_lmfc_lemc_gcd, rate);
+		ret = ad9528_lmfc_lemc_validate(st, st->jdev_lmfc_lemc_gcd, rate);
 	} else {
 		st->jdev_lmfc_lemc_rate = rate;
-		st->jdev_lmfc_lemc_gcd = gcd(st->sysref_src_pll2, rate);
+		ret = ad9528_lmfc_lemc_validate(st, st->sysref_src_pll2, rate);
 	}
 
 	dev_dbg(dev, "%s:%d link_num %u LMFC/LEMC %u/%lu gcd %u\n",
 		__func__, __LINE__, lnk->link_id, st->jdev_lmfc_lemc_rate,
 		rate, st->jdev_lmfc_lemc_gcd);
+	if (ret)
+		return ret;
 
 	return JESD204_STATE_CHANGE_DONE;
 }
