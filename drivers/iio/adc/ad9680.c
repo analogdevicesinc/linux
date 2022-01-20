@@ -1569,7 +1569,7 @@ static int ad9680_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9680_id[] = {
-	{ "ad9680", CHIPID_AD9680 },
+/*	{ "ad9680", CHIPID_AD9680 }, Now handled in the ad9208 device driver */
 	{ "ad9234", CHIPID_AD9234 },
 	{ "ad9684", CHIPID_AD9684 },
 	{ "ad9694", CHIPID_AD9694 },
