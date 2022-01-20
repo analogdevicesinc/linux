@@ -1746,6 +1746,8 @@ struct axidds_core_info {
 	unsigned int rate;
 	long info_mask_separate;
 	const char *name;
+	struct iio_chan_spec device_channels[AXIDDS_MAX_NUM_CHANNELS];
+	unsigned int num_device_channels;
 };
 
 static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
@@ -1830,9 +1832,18 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 		}
 	}
 
+	st->chip_info_generated.num_dds_channels = i;
+
+	for (i = 0; i < info->num_device_channels; i++, c++) {
+		if (c > ARRAY_SIZE(st->chip_info_generated.channel))
+			return -EINVAL;
+		memcpy(&st->chip_info_generated.channel[c],
+			&info->device_channels[i],
+			sizeof(info->device_channels[0]));
+	}
+
 	st->chip_info_generated.num_channels = c;
 	st->chip_info_generated.num_dp_disable_channels = m;
-	st->chip_info_generated.num_dds_channels = i;
 	st->chip_info_generated.num_buf_channels = m;
 	st->chip_info_generated.name = info->name;
 
@@ -1875,6 +1886,17 @@ static const struct axidds_core_info ad9144_7_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
 	.rate = 1,
 	.issue_sync_en = 1,
+	.complex_modified = false,
+	.device_channels = {{
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.scan_index = -1,
+		.info_mask_separate =
+			BIT(IIO_CHAN_INFO_PROCESSED) |
+			BIT(IIO_CHAN_INFO_CALIBBIAS),
+	}},
+	.num_device_channels = 1,
 };
 
 static const struct axidds_core_info ad9739a_8_00_b_info = {
