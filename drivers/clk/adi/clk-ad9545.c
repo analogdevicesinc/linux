@@ -2141,7 +2141,7 @@ static unsigned long ad9545_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long
 	 */
 	i = ad9545_pll_get_parent(hw);
 	if (i == clk->num_parents)
-		return div_u64(clk->free_run_freq * m, 2);
+		return DIV_ROUND_UP(clk->free_run_freq, 2) * m;
 
 	parent_rate = clk_hw_get_rate(clk->parents[i]);
 
