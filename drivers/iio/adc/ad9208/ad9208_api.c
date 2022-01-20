@@ -270,26 +270,31 @@ int ad9208_set_input_clk_cfg(ad9208_handle_t *h, uint64_t clk_freq_hz,
 
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
-	if ((clk_freq_hz > AD9208_IP_CLK_MAX_HZ) ||
-	    (clk_freq_hz < AD9208_IP_CLK_MIN_HZ))
+	if (clk_freq_hz > h->input_clk_max_hz || clk_freq_hz < h->input_clk_min_hz)
 		return API_ERROR_INVALID_PARAM;
 	if ((div != 1) && (div != 2) && (div != 4))
 		return API_ERROR_INVALID_PARAM;
 
 	fs_hz = DIV_U64(clk_freq_hz, div);
 
-	if ((fs_hz > AD9208_ADC_CLK_MAX_HZ) || (fs_hz < AD9208_ADC_CLK_MIN_HZ))
+	if (fs_hz > h->adc_clk_max_hz || fs_hz < h->adc_clk_min_hz)
 		return API_ERROR_INVALID_PARAM;
 
-	err = ad9208_register_read(h, AD9208_IP_CLK_CFG_REG, &tmp_reg);
-	if (err != API_ERROR_OK)
-		return err;
+	if (h->model == 0x9680) {
+		err = ad9208_register_write(h, AD9680_CLOCK_DIV_REG, div - 1);
+		if (err != API_ERROR_OK)
+			return err;
+	} else {
+		err = ad9208_register_read(h, AD9208_IP_CLK_CFG_REG, &tmp_reg);
+		if (err != API_ERROR_OK)
+			return err;
 
-	tmp_reg &= ~AD9208_IP_CLK_DIV(ALL);
-	tmp_reg |= AD9208_IP_CLK_DIV(div - 1);
-	err = ad9208_register_write(h, AD9208_IP_CLK_CFG_REG, tmp_reg);
-	if (err != API_ERROR_OK)
-		return err;
+		tmp_reg &= ~AD9208_IP_CLK_DIV(ALL);
+		tmp_reg |= AD9208_IP_CLK_DIV(div - 1);
+		err = ad9208_register_write(h, AD9208_IP_CLK_CFG_REG, tmp_reg);
+		if (err != API_ERROR_OK)
+			return err;
+	}
 
 	h->adc_clk_freq_hz = fs_hz;
 	return API_ERROR_OK;
@@ -315,6 +320,9 @@ int ad9208_set_input_clk_duty_cycle_stabilizer(ad9208_handle_t *h, uint8_t en)
 		return API_ERROR_INVALID_HANDLE_PTR;
 	if (en > 1)
 		return API_ERROR_INVALID_PARAM;
+
+	if (h->model == 0x9680) /* N/A */
+		return API_ERROR_NOT_SUPPORTED;
 
 	tmp_reg_addr = AD9208_IP_CLK_DCS1_REG;
 	err = ad9208_register_write(h, tmp_reg_addr, en);

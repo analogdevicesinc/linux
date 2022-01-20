@@ -144,7 +144,7 @@ int ad9208_jesd_enable_link(ad9208_handle_t *h, uint8_t en)
 	err = ad9208_register_read(h, AD9208_JESD_LINK_CTRL1_REG, &tmp_reg);
 	if (err != API_ERROR_OK)
 		return err;
-	if (en) {
+	if (en && h->model != 0x9680) {
 		err = ad9208_register_write_tbl(h,
 						&ADI_REC_SERDES_INIT_TBL[0],
 						ARRAY_SIZE
@@ -184,7 +184,7 @@ int ad9208_jesd_set_if_config(ad9208_handle_t *h,
 	if (h->adc_clk_freq_hz != 0)
 		fout = DIV_U64(h->adc_clk_freq_hz, dcm);
 	else {
-		/*printf("API:AD9208: JESD :INVALID: CLK FREQ \r\n"); */
+		pr_err("API:AD9208: JESD :INVALID: CLK FREQ\n");
 		return API_ERROR_INVALID_PARAM;
 	}
 	/*Calculate Lane Rate */
@@ -192,15 +192,23 @@ int ad9208_jesd_set_if_config(ad9208_handle_t *h,
 	slr = DIV_U64(DIV_U64(slr, 8), jesd_param.jesd_L);
 	slr_mbps = DIV_U64(slr, 1000000);
 
-	if ((slr_mbps > LANE_RATE_MAX_MBPS) || (slr_mbps < LANE_RATE_MIN_MBPS)) {
-		/*printf("API:AD9208: JESD :INVALID: SLR :%lld \r\n", slr_mbps); */
+	if (slr_mbps > h->slr_max_mbps || slr_mbps < h->slr_min_mbps) {
+		pr_err("API:AD9208: JESD :INVALID: SLR :%lld\n", slr_mbps);
 		return API_ERROR_INVALID_PARAM;
 	}
 
 	/*CFG SERDES PLL for SLR */
-	err = get_jesd_serdes_vco_cfg(slr_mbps, &vco_cfg);
+	if (h->model == 0x9680) {
+		if (slr_mbps < 6250)
+			err = ad9208_register_write(h, 0x56e, 0x10);
+		else
+			err = ad9208_register_write(h, 0x56e, 0x00);
+	} else {
+		err = get_jesd_serdes_vco_cfg(slr_mbps, &vco_cfg);
+	}
 	if (err != API_ERROR_OK)
 		return err;
+
 	err = ad9208_register_read(h, AD9208_JESD_SERDES_PLL_CFG_REG, &tmp_reg);
 	if (err != API_ERROR_OK)
 		return err;
@@ -535,12 +543,13 @@ int ad9208_jesd_syref_config_set(ad9208_handle_t *h,
 	err = ad9208_register_write(h, AD9208_SYSREF_CTRL_0_REG, tmp_reg);
 	if (err != API_ERROR_OK)
 		return err;
-
-	tmp_reg = AD9208_SYSREF_WIN_NEG(neg_window_skew) |
-		  AD9208_SYSREF_WIN_POS(pos_window_skew);
-	err = ad9208_register_write(h, AD9208_SYSREF_CTRL_2_REG, tmp_reg);
-	if (err != API_ERROR_OK)
-		return err;
+	if (h->model != 0x9680) {
+		tmp_reg = AD9208_SYSREF_WIN_NEG(neg_window_skew) |
+			AD9208_SYSREF_WIN_POS(pos_window_skew);
+		err = ad9208_register_write(h, AD9208_SYSREF_CTRL_2_REG, tmp_reg);
+		if (err != API_ERROR_OK)
+			return err;
+	}
 
 	return API_ERROR_OK;
 }
