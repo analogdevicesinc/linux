@@ -44,7 +44,7 @@
 
 static const unsigned int interpolation_factors_available[] = {1, 8};
 
-static const char * const dds_extend_names[] = {
+static const char * const dds_extend_names_complex[] = {
 	"TX1_I_F1", "TX1_I_F2", "TX1_Q_F1", "TX1_Q_F2",
 	"TX2_I_F1", "TX2_I_F2", "TX2_Q_F1", "TX2_Q_F2",
 	"TX3_I_F1", "TX3_I_F2", "TX3_Q_F1", "TX3_Q_F2",
@@ -77,6 +77,25 @@ static const char * const dds_extend_names[] = {
 	"TX30_I_F1", "TX30_I_F2", "TX30_Q_F1", "TX30_Q_F2",
 	"TX31_I_F1", "TX31_I_F2", "TX31_Q_F1", "TX31_Q_F2",
 	"TX32_I_F1", "TX32_I_F2", "TX32_Q_F1", "TX32_Q_F2",
+};
+
+static const char * const dds_extend_names[] = {
+	"1A", "1B", "2A", "2B",
+	"3A", "3B", "4A", "4B",
+	"5A", "5B", "6A", "6B",
+	"7A", "7B", "8A", "8B",
+	"9A", "9B", "10A", "10B",
+	"11A", "11B", "12A", "12B",
+	"13A", "13B", "14A", "14B",
+	"15A", "15B", "16A", "16B",
+	"17A", "17B", "18A", "18B",
+	"19A", "19B", "20A", "20B",
+	"21A", "21B", "22A", "22B",
+	"23A", "23B", "24A", "24B",
+	"25A", "25B", "26A", "26B",
+	"27A", "27B", "28A", "28B",
+	"29A", "29B", "30A", "30B",
+	"31A", "31B", "32A", "32B",
 };
 
 struct cf_axi_dds_state {
@@ -1799,9 +1818,15 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 
 			st->chip_info_generated.channel[c].ext_info =
 				cf_axi_dds_ext_info;
-			if (i < ARRAY_SIZE(dds_extend_names))
-				st->chip_info_generated.channel[
-					c].extend_name = dds_extend_names[i];
+			if (info->complex_modified) {
+				if (i < ARRAY_SIZE(dds_extend_names_complex))
+					st->chip_info_generated.channel[c].extend_name =
+						dds_extend_names_complex[i];
+			} else {
+				if (i < ARRAY_SIZE(dds_extend_names))
+					st->chip_info_generated.channel[c].extend_name =
+						dds_extend_names[i];
+			}
 		}
 	}
 
