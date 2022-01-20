@@ -283,6 +283,13 @@ patternProperties:
         $ref: /schemas/types.yaml#/definitions/uint32
         enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+      adi,pll-slew-rate-limit-ps:
+        description: |
+          DPLL0 phase slew limit rate (in picoseconds/second).
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 1
+        maximum: 4000000000
+
       adi,fast-acq-trigger-mode:
         description: |
           If this is not specified Fast Acquisition will be used every time. See reg 0x2106
