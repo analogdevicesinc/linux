@@ -1532,7 +1532,7 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
             /* case for using sw parser as the initial NIA address, before
                * HW parsing
                */
-            if ((p_PcdParams->p_PrsParams->additionalParams[i].hdr == HEADER_TYPE_NONE) && 
+            if ((p_PcdParams->p_PrsParams->additionalParams[i].hdr == HEADER_TYPE_NONE) &&
                     p_PcdParams->p_PrsParams->additionalParams[i].swPrsEnable)
             {
                 initialSwPrs = FmPcdGetSwPrsOffset(p_FmPort->h_FmPcd, HEADER_TYPE_NONE,
@@ -6002,7 +6002,7 @@ t_Error FM_PORT_EnterDsar(t_Handle h_FmPortRx, t_FmPortDsarParams *params)
     t_FmGetSetParams fmGetSetParams;
     memset(&fmGetSetParams, 0, sizeof (t_FmGetSetParams));
     fmGetSetParams.setParams.type = UPDATE_FPM_BRKC_SLP;
-    fmGetSetParams.setParams.sleep = 1;    
+    fmGetSetParams.setParams.sleep = 1;
 
     err = DsarCheckParams(params, p_FmPort->deepSleepVars.autoResMaxSizes);
     if (err != E_OK)

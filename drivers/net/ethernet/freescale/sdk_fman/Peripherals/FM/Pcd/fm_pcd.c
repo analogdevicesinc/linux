@@ -1976,7 +1976,7 @@ t_Error FM_PCD_AllowHcUsage(t_Handle h_FmPcd, uint8_t allow)
     if (p_FmPcd->h_Hc)
     	FmAllowHcUsage(p_FmPcd->h_Hc, allow);
 
-	return E_OK;
+    return E_OK;
 }
 
 t_Error FM_PCD_ModifyCounter(t_Handle h_FmPcd, e_FmPcdCounters counter, uint32_t value)
