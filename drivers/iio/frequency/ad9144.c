@@ -1,9 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * AD9144 SPI DAC driver for AXI DDS PCORE/COREFPGA Module
  *
- * Copyright 2014 Analog Devices Inc.
+ * Copyright 2014-2022 Analog Devices Inc.
  *
- * Licensed under the GPL-2.
  */
 
 #include <linux/module.h>
@@ -18,6 +18,10 @@
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
 #include <linux/regmap.h>
+
+#define JESD204_OF_PREFIX "adi,"
+#include <linux/jesd204/jesd204.h>
+#include <linux/jesd204/jesd204-of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -35,35 +39,6 @@ enum chip_id {
 	CHIPID_AD9144 = AD9144_CHIPID(0x91, 0x44, 0x0),
 	CHIPID_AD9152 = AD9144_CHIPID(0x91, 0x52, 0x0),
 	CHIPID_AD9154 = AD9144_CHIPID(0x91, 0x54, 0x9),
-};
-
-enum ad9144_sync_mode {
-	AD9144_SYNC_ONESHOT,
-	AD9144_SYNC_CONTINUOUS
-};
-
-struct ad9144_sysref_config {
-	enum ad9144_sync_mode mode;
-	bool capture_falling_edge;
-};
-
-struct ad9144_jesd204_link_config {
-	uint8_t did;
-	uint8_t bid;
-
-	uint8_t num_lanes;
-	uint8_t num_converters;
-	uint8_t octets_per_frame;
-	uint8_t frames_per_multiframe;
-	uint8_t samples_per_frame;
-
-	uint8_t lane_mux[8];
-
-	bool scrambling;
-	bool high_density;
-	uint8_t subclass;
-
-	struct ad9144_sysref_config sysref;
 };
 
 #define AD9144_MOD_TYPE_NONE		(0x0 << 2)
@@ -87,7 +62,13 @@ struct ad9144_platform_data {
 	unsigned int sync_mode;
 };
 
+struct ad9144_jesd204_priv {
+	struct ad9144_state *st;
+};
+
 struct ad9144_state {
+	struct jesd204_dev *jdev;
+	struct jesd204_link link_config;
 	struct cf_axi_converter conv;
 	unsigned int interpolation;
 	unsigned int fcenter_shift;
@@ -97,7 +78,7 @@ struct ad9144_state {
 	unsigned int num_lanes;
 	unsigned int num_converters;
 	unsigned int octets_per_frame;
-
+	u8 lane_mux[8];
 	unsigned int pll_frequency;
 	bool pll_enable;
 };
@@ -264,7 +245,7 @@ static int ad9144_setup_pll(struct ad9144_state *st)
 }
 
 static int ad9144_setup_link(struct ad9144_state *st,
-	struct ad9144_jesd204_link_config *config)
+	struct jesd204_link *config)
 {
 	struct regmap *map = st->map;
 	unsigned int lane_mask;
@@ -298,8 +279,8 @@ static int ad9144_setup_link(struct ad9144_state *st,
 		else
 			j = 2*i;
 
-		val = config->lane_mux[j];
-		val |= config->lane_mux[j+1] << 3;
+		val = st->lane_mux[j];
+		val |= st->lane_mux[j + 1] << 3;
 		regmap_write(map, REG_XBAR(i), val);
 	}
 
@@ -312,8 +293,8 @@ static int ad9144_setup_link(struct ad9144_state *st,
 
 	regmap_write(map, REG_GENERAL_JRX_CTRL_1, config->subclass);
 
-	regmap_write(map, REG_ILS_DID, config->did);
-	regmap_write(map, REG_ILS_BID, config->bid);
+	regmap_write(map, REG_ILS_DID, config->device_id);
+	regmap_write(map, REG_ILS_BID, config->bank_id);
 
 	val = L; /* L */
 	if (config->scrambling)
@@ -329,7 +310,7 @@ static int ad9144_setup_link(struct ad9144_state *st,
 	val |= config->subclass << 5; /* SUBCLASSV */
 	regmap_write(map, REG_ILS_NP, val);
 
-	val = config->samples_per_frame - 1; /* S */
+	val = config->samples_per_conv_frame - 1; /* S */
 	val |= BIT(5); /* JESDVER */
 	regmap_write(map, REG_ILS_S, val);
 
@@ -664,8 +645,37 @@ static const struct reg_sequence ad9144_optimal_serdes_settings[] = {
 	{ 0x2a0, 0x06 },
 };
 
+static int ad9144_link_status_get(struct ad9144_state *st)
+{
+	struct regmap *map = st->map;
+	struct device *dev = regmap_get_device(map);
+	int ret, i;
+	unsigned int regs[4];
+
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		ret = regmap_read(map, REG_CODEGRPSYNCFLG + i, &regs[i]);
+		if (ret != 0) {
+			dev_err(dev, "Get Link0 status failed\n");
+			return -EIO;
+		}
+	}
+
+	dev_info(dev, "Link0 code grp sync: %x\n", regs[0]);
+	dev_info(dev, "Link0 frame sync stat: %x\n", regs[1]);
+	dev_info(dev, "Link0 good checksum stat: %x\n", regs[2]);
+	dev_info(dev, "Link0 init lane_sync stat: %x\n", regs[3]);
+	dev_info(dev, "Link0 %d lanes @ %lu kBps\n", st->num_lanes,
+		 ad9144_get_lane_rate(st, ad9144_get_sample_rate(st)));
+
+	if (hweight8(regs[0]) != st->num_lanes ||
+		regs[0] != regs[1] || regs[0] != regs[3])
+		ret = -EFAULT;
+
+	return 0;
+}
+
 static int ad9144_setup(struct ad9144_state *st,
-	struct ad9144_jesd204_link_config *link_config)
+	struct jesd204_link *link_config)
 {
 	struct regmap *map = st->map;
 	unsigned int sync_mode;
@@ -773,7 +783,7 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	phy_mask = 0xff;
 	for (i = 0; i < link_config->num_lanes; i++)
-		phy_mask &= ~BIT(link_config->lane_mux[i]);
+		phy_mask &= ~BIT(st->lane_mux[i]);
 
 	regmap_write(map, REG_MASTER_PD, 0x00);
 	regmap_write(map, REG_PHY_PD, phy_mask);
@@ -794,7 +804,7 @@ static int ad9144_setup(struct ad9144_state *st,
 		regmap_write(map, 0x307, 0x0a);	// receive buffer delay
 	}
 
-	if (link_config->sysref.mode == AD9144_SYNC_ONESHOT)
+	if (link_config->sysref.mode == JESD204_SYSREF_ONESHOT)
 		sync_mode = 0x1;
 	else
 		sync_mode = 0x2;
@@ -805,6 +815,9 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	ad9144_setup_samplerate(st);
 
+	if (st->jdev)
+		return 0;
+
 	regmap_write(map, 0x300, 0x01);	// enable link
 
 	return 0;
@@ -812,11 +825,8 @@ static int ad9144_setup(struct ad9144_state *st,
 
 static int ad9144_get_clks(struct cf_axi_converter *conv)
 {
+	struct ad9144_state *st = container_of(conv, struct ad9144_state, conv);
 	int ret;
-
-	conv->clk[CLK_DATA] = devm_clk_get(&conv->spi->dev, clk_names[CLK_DATA]);
-	if (IS_ERR(conv->clk[CLK_DATA]))
-		return PTR_ERR(conv->clk[CLK_DATA]);
 
 	conv->clk[CLK_DAC] = devm_clk_get(&conv->spi->dev, clk_names[CLK_DAC]);
 	if (IS_ERR(conv->clk[CLK_DAC]))
@@ -825,6 +835,12 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 	ret = clk_prepare_enable(conv->clk[CLK_DAC]);
 	if (ret < 0)
 		return ret;
+
+	if (!st->jdev) {
+		conv->clk[CLK_DATA] = devm_clk_get(&conv->spi->dev, clk_names[CLK_DATA]);
+		if (IS_ERR(conv->clk[CLK_DATA]))
+			return PTR_ERR(conv->clk[CLK_DATA]);
+	}
 
 	conv->clk[CLK_REF] = devm_clk_get(&conv->spi->dev, clk_names[CLK_REF]);
 	if (IS_ERR(conv->clk[CLK_REF])) {
@@ -924,6 +940,24 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 		sample_rate = ad9144_round_pll_rate(st, sample_rate);
 	else
 		sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
+
+	if (st->jdev) {
+		jesd204_fsm_stop(st->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_clear_errors(st->jdev, JESD204_LINKS_ALL);
+
+		if (!st->pll_enable) {
+			ret = clk_set_rate(conv->clk[CLK_DAC], sample_rate);
+			if (ret < 0) {
+				dev_err(&conv->spi->dev,
+					"Failed to set sample rate: %d\n", ret);
+				return ret;
+			}
+		} else {
+			st->pll_frequency = sample_rate;
+		}
+
+		return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	}
 
 	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 128);
 	lane_rate_kHz = ad9144_get_lane_rate(st, sample_rate);
@@ -1077,9 +1111,10 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,jesd-link-mode", &tmp);
 	pdata->jesd_link_mode = (tmp > 13 ? 4 : tmp);
 
-	tmp = 1;
-	of_property_read_u32(np, "adi,jesd-subclass", &tmp);
-	pdata->jesd_subclass = (tmp > 1 ? 1 : tmp);
+	tmp = JESD204_SUBCLASS_1;
+	of_property_read_u32(np, "adi,subclass", &tmp);
+	pdata->jesd_subclass = (tmp > JESD204_SUBCLASS_1 ?
+		JESD204_SUBCLASS_1 : tmp);
 
 	pdata->pll_enable = of_property_read_bool(np, "adi,pll-enable");
 
@@ -1090,11 +1125,11 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	if (pdata->pll_enable && !pdata->pll_frequency)
 		dev_err(dev, "DAC pll enabled but missing 'adi,pll-frequency'\n");
 
-	tmp = AD9144_SYNC_ONESHOT;
-	of_property_read_u32(np, "adi,sync-mode", &tmp);
+	tmp = JESD204_SYSREF_ONESHOT;
+	of_property_read_u32(np, "adi,sysref-mode", &tmp);
 	pdata->sync_mode = tmp;
 
-	if (pdata->sync_mode == AD9144_SYNC_CONTINUOUS && !pdata->jesd_subclass)
+	if (pdata->sync_mode == JESD204_SYSREF_CONTINUOUS && !pdata->jesd_subclass)
 		dev_warn(dev, "Continuous sync mode can only be used in Subclass 1\n");
 
 	/*
@@ -1138,10 +1173,125 @@ static int ad9144_reset(struct ad9144_state *st, bool spi4wire)
 	return ret;
 }
 
+static int ad9144_jesd204_link_init(struct jesd204_dev *jdev,
+				    enum jesd204_state_op_reason reason,
+				    struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9144_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9144_state *st = priv->st;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	jesd204_copy_link_params(lnk, &st->link_config);
+
+	lnk->sample_rate = ad9144_get_sample_rate(st);
+	lnk->sample_rate_div = st->interpolation;
+	lnk->jesd_encoder = JESD204_ENCODER_8B10B;
+	lnk->jesd_version = JESD204_VERSION_B;
+	lnk->is_transmit = true;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9144_jesd204_link_setup(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason,
+				      struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9144_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9144_state *st = priv->st;
+	int ret;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	/*Enable Link*/
+
+	ret = ad9144_setup(st, lnk);
+	if (ret != 0) {
+		dev_err(dev, "Failed to enabled JESD204 link (%d)\n", ret);
+		return -EFAULT;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9144_jesd204_link_enable(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason,
+				      struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9144_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9144_state *st = priv->st;
+	int ret;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	/*Enable Link*/
+	ret = regmap_write(st->map, 0x300, reason == JESD204_STATE_OP_REASON_INIT);
+	if (ret != 0) {
+		dev_err(dev, "Failed to enabled JESD204 link (%d)\n", ret);
+		return -EFAULT;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9144_jesd204_link_running(struct jesd204_dev *jdev,
+				       enum jesd204_state_op_reason reason,
+				       struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9144_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct ad9144_state *st = priv->st;
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	ret = ad9144_link_status_get(st);
+	if (ret) {
+		dev_err(dev, "Failed JESD204 link status (%d)\n", ret);
+		return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data jesd204_ad9144_init = {
+	.state_ops = {
+		[JESD204_OP_LINK_INIT] = {
+			.per_link = ad9144_jesd204_link_init,
+		},
+		[JESD204_OP_LINK_SETUP] = {
+			.per_link = ad9144_jesd204_link_setup,
+		},
+		[JESD204_OP_LINK_ENABLE] = {
+			.per_link = ad9144_jesd204_link_enable,
+			.post_state_sysref = true,
+		},
+		[JESD204_OP_LINK_RUNNING] = {
+			.per_link = ad9144_jesd204_link_running,
+		},
+	},
+
+	.max_num_links = 1,
+	.num_retries = 2,
+	.sizeof_priv = sizeof(struct ad9144_jesd204_priv),
+};
+
 static int ad9144_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
-	struct ad9144_jesd204_link_config link_config;
 	struct cf_axi_converter *conv;
 	struct ad9144_platform_data *pdata;
 	struct ad9144_state *st;
@@ -1176,6 +1326,17 @@ static int ad9144_probe(struct spi_device *spi)
 	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
 	if (st == NULL)
 		return -ENOMEM;
+
+	st->jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_ad9144_init);
+	if (IS_ERR(st->jdev))
+		return PTR_ERR(st->jdev);
+
+	if (st->jdev) {
+		struct ad9144_jesd204_priv *priv;
+
+		priv = jesd204_dev_priv(st->jdev);
+		priv->st = st;
+	}
 
 	st->id = (enum chip_id) dev_id->driver_data;
 	st->interpolation = pdata->interpolation;
@@ -1250,24 +1411,7 @@ static int ad9144_probe(struct spi_device *spi)
 	conv->write_raw = ad9144_write_raw;
 	conv->read_raw = ad9144_read_raw;
 	conv->spi = spi;
-
-	switch (st->id) {
-	case CHIPID_AD9135:
-		conv->id = ID_AD9135;
-		break;
-	case CHIPID_AD9136:
-		conv->id = ID_AD9136;
-		break;
-	case CHIPID_AD9144:
-		conv->id = ID_AD9144;
-		break;
-	case CHIPID_AD9154:
-		conv->id = ID_AD9154;
-		break;
-	default:
-		conv->id = ID_AD9152;
-		break;
-	}
+	conv->id = ID_AUTO_SYNTH_PARAM; /* generate channel list automatically */
 
 	ret = ad9144_get_clks(conv);
 	if (ret < 0) {
@@ -1280,23 +1424,31 @@ static int ad9144_probe(struct spi_device *spi)
 	st->num_converters = ad9144_jesd_modes[pdata->jesd_link_mode].m;
 	st->octets_per_frame = ad9144_jesd_modes[pdata->jesd_link_mode].f;
 
-	memset(&link_config, 0x00, sizeof(link_config));
+	st->link_config.device_id = 0;
+	st->link_config.bank_id = 0;
+	st->link_config.num_lanes = st->num_lanes;
+	st->link_config.num_converters = st->num_converters;
+	st->link_config.octets_per_frame = st->octets_per_frame;
+	st->link_config.frames_per_multiframe = 32;
+	st->link_config.samples_per_conv_frame = ad9144_jesd_modes[pdata->jesd_link_mode].s;
 
-	link_config.did = 0;
-	link_config.bid = 0;
-	link_config.num_lanes = st->num_lanes;
-	link_config.num_converters = st->num_converters;
-	link_config.octets_per_frame = st->octets_per_frame;
-	link_config.frames_per_multiframe = 32;
-	link_config.samples_per_frame = ad9144_jesd_modes[pdata->jesd_link_mode].s;
-
-	link_config.high_density = ad9144_jesd_modes[pdata->jesd_link_mode].hd;
-	link_config.scrambling = true;
-	link_config.subclass = pdata->jesd_subclass;
-	link_config.sysref.mode = pdata->sync_mode;
+	st->link_config.high_density = ad9144_jesd_modes[pdata->jesd_link_mode].hd;
+	st->link_config.scrambling = true;
+	st->link_config.subclass = pdata->jesd_subclass;
+	st->link_config.sysref.mode = pdata->sync_mode;
+	st->link_config.bits_per_sample = ad9144_jesd_modes[pdata->jesd_link_mode].np;
+	st->link_config.converter_resolution = ad9144_jesd_modes[pdata->jesd_link_mode].n;
 
 	for (i = 0; i < 8; i++)
-		link_config.lane_mux[i] = pdata->xbar_lane_sel[i];
+		st->lane_mux[i] = pdata->xbar_lane_sel[i];
+
+	ret = ad9144_update_sysref(st, ad9144_get_sample_rate(st));
+	if (ret < 0)
+		return ret;
+
+	/* No need to continue here when jesd204-fsm enabled */
+	if (st->jdev)
+		goto done;
 
 	lane_rate_kHz = ad9144_get_lane_rate(st, ad9144_get_sample_rate(st));
 	dev_dbg(&spi->dev, "Setting lane rate %ld kHz\n", lane_rate_kHz);
@@ -1308,26 +1460,24 @@ static int ad9144_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	ret = ad9144_update_sysref(st, ad9144_get_sample_rate(st));
-	if (ret < 0)
-		return ret;
-
 	ret = clk_prepare_enable(conv->clk[0]);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
 	}
 
-	ret = ad9144_setup(st, &link_config);
+	ret = ad9144_setup(st, &st->link_config);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
 	}
 
-	spi_set_drvdata(spi, conv);
+	ad9144_link_status_get(st);
 
+done:
+	spi_set_drvdata(spi, conv);
 	dev_dbg(&spi->dev, "Probed.\n");
-	return 0;
+	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 out:
 	return ret;
 }
