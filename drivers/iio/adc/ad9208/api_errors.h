@@ -34,7 +34,7 @@
 /** Invalid parameter passed */
 #define API_ERROR_INVALID_PARAM (-EINVAL)
 /** Not supported */
-#define API_ERROR_NOT_SUPPORTED (-ENOTSUP)
+#define API_ERROR_NOT_SUPPORTED (-EOPNOTSUPP)
 /** The VCO is out of range */
 #define API_ERROR_VCO_OUT_OF_RANGE (-EINVAL)
 /** FTW Acknowledge not received */
