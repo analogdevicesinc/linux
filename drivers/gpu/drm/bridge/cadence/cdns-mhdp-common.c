@@ -201,7 +201,7 @@ int cdns_mhdp_mailbox_validate_receive(struct cdns_mhdp_device *mhdp,
 
 	if (opcode != header[0] || module_id != header[1] ||
 	    req_size != mbox_size) {
-		DRM_DEV_ERROR(mhdp->dev,
+		DRM_DEV_INFO(mhdp->dev,
 			      "Hmmm spurious mailbox data maybe, cleaning out...%d:%d:%d vs %d:%d:%d\n",
 			      module_id, opcode, req_size, header[1],
 			      header[0], mbox_size);
