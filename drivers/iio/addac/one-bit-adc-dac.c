@@ -11,6 +11,7 @@
 #include <linux/iio/iio.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
+#include <linux/interrupt.h>
 
 enum ch_direction {
 	CH_IN,
@@ -141,17 +142,28 @@ static int one_bit_adc_dac_set_channel_label(struct iio_dev *indio_dev,
 
 	return 0;
 }
+static irqreturn_t one_bit_adc_dac_irq_handler(int irq, void *pw) {
+
+	printk(KERN_WARNING "cristi %s: %s: %d\n", __FILE__, __func__, __LINE__);
+
+	return 0;
+}
 
 static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 {
 	struct one_bit_adc_dac_state *st = iio_priv(indio_dev);
 	struct iio_chan_spec *channels;
-	int ret, in_num_ch = 0, out_num_ch = 0;
+	int ret, in_num_ch = 0, out_num_ch = 0, irqNumber;
 
 	// printk(KERN_WARNING "%s: %s: %d\n", __FILE__, __func__, __LINE__);
 	st->in_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "in", GPIOD_IN);
 	if (IS_ERR(st->in_gpio_descs))
 		return PTR_ERR(st->in_gpio_descs);
+
+	irqNumber = gpiod_to_irq(st->in_gpio_descs->desc[0]);
+	ret = devm_request_irq(indio_dev->dev.parent, irqNumber,
+			       &one_bit_adc_dac_irq_handler,
+			       IRQF_TRIGGER_RISING, "one_bit_adc_dac_irq", NULL);
 
 	if (st->in_gpio_descs)
 		in_num_ch = st->in_gpio_descs->ndescs;
