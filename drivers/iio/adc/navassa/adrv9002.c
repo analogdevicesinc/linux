@@ -573,7 +573,7 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 		if (table >= ADRV9002_FH_TABLES_NR)
 			table = ADRV9002_FH_TABLES_NR;
 
-		return sprintf(buf, "%s\n", adrv9002_hop_table[table]);
+		return sysfs_emit(buf, "%s\n", adrv9002_hop_table[table]);
 	default:
 		return -EINVAL;
 	}
@@ -720,7 +720,7 @@ static ssize_t adrv9002_phy_lo_read(struct iio_dev *indio_dev,
 			return adrv9002_dev_err(phy);
 		}
 
-		ret = sprintf(buf, "%llu\n", lo_freq.carrierFrequency_Hz);
+		ret = sysfs_emit(buf, "%llu\n", lo_freq.carrierFrequency_Hz);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1295,7 +1295,8 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 			return adrv9002_dev_err(phy);
 		}
 
-		ret = sprintf(buf, "%d\n", calls_mask[channel] & rx_track_calls[private] ? 1 : 0);
+		ret = sysfs_emit(buf, "%d\n",
+				 calls_mask[channel] & rx_track_calls[private] ? 1 : 0);
 		break;
 	case RX_DECIMATION_POWER:
 		/* it might depend on proper AGC parameters */
@@ -1307,7 +1308,7 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 			return adrv9002_dev_err(phy);
 		}
 
-		ret = sprintf(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000, dec_pwr_mdb % 1000);
+		ret = sysfs_emit(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000, dec_pwr_mdb % 1000);
 		break;
 	case RX_RSSI:
 		ret = adi_adrv9001_Rx_Rssi_Read(phy->adrv9001,
@@ -1317,11 +1318,11 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 			return adrv9002_dev_err(phy);
 		}
 
-		ret = sprintf(buf, "%u.%02u dB\n", rssi_pwr_mdb / 1000, rssi_pwr_mdb % 1000);
+		ret = sysfs_emit(buf, "%u.%02u dB\n", rssi_pwr_mdb / 1000, rssi_pwr_mdb % 1000);
 		break;
 	case RX_RF_BANDWIDTH:
 		rx_cfg = &phy->curr_profile->rx.rxChannelCfg[chan->channel];
-		ret = sprintf(buf, "%u\n", rx_cfg->profile.primarySigBandwidth_Hz);
+		ret = sysfs_emit(buf, "%u\n", rx_cfg->profile.primarySigBandwidth_Hz);
 		break;
 	case RX_NCO_FREQUENCY:
 		if (!rx_cfg->profile.rxDpProfile.rxNbDem.rxNbNco.rxNbNcoEn) {
@@ -1329,7 +1330,7 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 			return -ENOTSUPP;
 		}
 
-		ret = sprintf(buf, "%d\n", rx->channel.nco_freq);
+		ret = sysfs_emit(buf, "%d\n", rx->channel.nco_freq);
 		break;
 	case RX_ADC_SWITCH:
 		ret = adi_adrv9001_Rx_AdcSwitchEnable_Get(phy->adrv9001,
@@ -1340,7 +1341,7 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 			return adrv9002_dev_err(phy);
 		}
 
-		ret = sprintf(buf, "%d\n", enable);
+		ret = sysfs_emit(buf, "%d\n", enable);
 		break;
 	case RX_BBDC:
 		if (!rx->orx_en && port == ADI_ORX) {
@@ -1355,7 +1356,7 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 			return adrv9002_dev_err(phy);
 		}
 
-		ret = sprintf(buf, "%d\n", bbdc);
+		ret = sysfs_emit(buf, "%d\n", bbdc);
 		break;
 	case RX_BBDC_LOOP_GAIN:
 		ret = adi_adrv9010_bbdc_LoopGain_Get(phy->adrv9001, rx->channel.number, &val);
@@ -1509,10 +1510,10 @@ static ssize_t adrv9002_phy_tx_read(struct iio_dev *indio_dev,
 		}
 
 		val = calls_mask[channel] & tx_track_calls[private] ? 1 : 0;
-		ret = sprintf(buf, "%d\n", val);
+		ret = sysfs_emit(buf, "%d\n", val);
 		break;
 	case TX_RF_BANDWIDTH:
-		ret = sprintf(buf, "%d\n", tx_cfg->primarySigBandwidth_Hz);
+		ret = sysfs_emit(buf, "%d\n", tx_cfg->primarySigBandwidth_Hz);
 		break;
 	case TX_NCO_FREQUENCY:
 		/*
@@ -1524,7 +1525,7 @@ static ssize_t adrv9002_phy_tx_read(struct iio_dev *indio_dev,
 			return -ENOTSUPP;
 		}
 
-		ret = sprintf(buf, "%d\n", tx->channel.nco_freq);
+		ret = sysfs_emit(buf, "%d\n", tx->channel.nco_freq);
 		break;
 	default:
 		ret = -EINVAL;
