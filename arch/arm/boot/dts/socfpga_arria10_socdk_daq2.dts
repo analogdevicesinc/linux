@@ -4,9 +4,9 @@
  * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq2-ebz
  *
  * hdl_project: <daq2/a10soc>
- * board_revision: <C>
+ * board_revision: <Rev.C>
  *
- * Copyright 2016-2019 Analog Devices Inc.
+ * Copyright 2016-2022 Analog Devices Inc.
  */
 /dts-v1/;
 #include "socfpga_arria10_socdk.dtsi"
@@ -121,6 +121,11 @@
 				spibus-connected = <&dac0_ad9144>;
 				adi,axi-pl-fifo-enable;
 				plddrbypass-gpios = <&sys_gpio_out 12 0>;
+
+				/* jesd204-fsm support */
+				jesd204-device;
+				#jesd204-cells = <2>;
+				jesd204-inputs = <&axi_ad9144_jesd 1 0>;
 			};
 
 			axi_ad9144_jesd: axi-jesd204-tx@20000 {
@@ -133,14 +138,14 @@
 				clocks = <&sys_clk>, <&tx_device_clk_pll>, <&axi_ad9144_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-				adi,octets-per-frame = <1>;
-				adi,frames-per-multiframe = <32>;
-				adi,converter-resolution = <16>;
-				adi,bits-per-sample = <16>;
-				adi,converters-per-device = <2>;
-
 				#clock-cells = <0>;
 				clock-output-names = "jesd_dac_lane_clk";
+
+				/* jesd204-fsm support */
+				jesd204-device;
+				#jesd204-cells = <2>;
+				jesd204-inputs = <&axi_ad9144_xcvr 1 0>;
+
 			};
 
 			axi_ad9680_core: axi-ad9680-hpc@50000 {
@@ -149,6 +154,11 @@
 				dmas = <&rx_dma 0>;
 				dma-names = "rx";
 				spibus-connected = <&adc0_ad9680>;
+
+				/* jesd204-fsm support */
+				jesd204-device;
+				#jesd204-cells = <2>;
+				jesd204-inputs = <&axi_ad9680_jesd 0 0>;
 			};
 
 			axi_ad9680_jesd: axi-jesd204-rx@40000 {
@@ -161,11 +171,13 @@
 				clocks = <&sys_clk>, <&rx_device_clk_pll>, <&axi_ad9680_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-				adi,octets-per-frame = <1>;
-				adi,frames-per-multiframe = <32>;
-
 				#clock-cells = <0>;
 				clock-output-names = "jesd_adc_lane_clk";
+
+				/* jesd204-fsm support */
+				jesd204-device;
+				#jesd204-cells = <2>;
+				jesd204-inputs = <&axi_ad9680_xcvr 0 0>;
 			};
 
 			axi_ad9144_xcvr: axi-ad9144-xcvr@24000 {
@@ -182,6 +194,10 @@
 				clocks = <&clk0_ad9523 9>, <&tx_device_clk_pll>;
 				clock-names = "ref", "link";
 				clock-output-names = "jesd204_tx_lane_clock";
+
+				/* jesd204-fsm support */
+				jesd204-device;
+				#jesd204-cells = <2>;
 			};
 
 			axi_ad9680_xcvr: axi-ad9680-xcvr@44000 {
@@ -197,6 +213,10 @@
 				clocks = <&clk0_ad9523 4>, <&rx_device_clk_pll>;
 				clock-names = "ref", "link";
 				clock-output-names = "jesd204_rx_lane_clock";
+
+				/* jesd204-fsm support */
+				jesd204-device;
+				#jesd204-cells = <2>;
 			};
 
 			tx_device_clk_pll: altera-a10-fpll@25000 {
