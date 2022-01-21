@@ -513,9 +513,6 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
 				st->tx_enable ? "TX" : "RX",
 				"buffer overflow", status);
-
-		if (bufstatus_err)
-			return -EIO;
 	}
 
 	return ret;
