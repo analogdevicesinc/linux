@@ -838,6 +838,9 @@ static int axi_jesd204_rx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	}
 
 	rate = clk_round_rate(jesd->lane_clk, lane_rate);
+	dev_dbg(dev, "%s: Link%u round lane rate %lu returned %ld\n",
+		__func__, lnk->link_id, lane_rate, rate);
+
 	if (rate != (long)lane_rate) {
 		struct clk *parent;
 
@@ -848,8 +851,14 @@ static int axi_jesd204_rx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 		parent = clk_get_parent(jesd->lane_clk);
 		rate = clk_get_rate(parent);
 
+		dev_dbg(dev, "%s: Link%u lane parent rate %ld link_rate %ld\n",
+			__func__, lnk->link_id, rate, link_rate);
+
 		if (rate != (long)link_rate) {
 			rate = clk_round_rate(parent, link_rate);
+			dev_dbg(dev, "%s: Link%u round lane parent rate %ld\n",
+				__func__, lnk->link_id, rate);
+
 			if (rate == (long)link_rate) {
 				ret = clk_set_rate(parent, link_rate);
 				if (!ret && !IS_ERR_OR_NULL(jesd->conv2_clk))
