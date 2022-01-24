@@ -20,6 +20,9 @@
 #define ADI_POW2_48 ((uint64_t)1u << 48)
 #define ADI_MAXUINT48 (ADI_POW2_48 - 1)
 
+#define ADI_POW2_12 ((uint64_t)1u << 12)
+#define ADI_MAXUINT12 (ADI_POW2_12 - 1)
+
 #define ADI_POW2_32 ((uint64_t)1u << 32)
 #define ADI_MAXUINT32 (ADI_POW2_32 - 1)
 #define ADI_MAXUINT24 (0xFFFFFF)
