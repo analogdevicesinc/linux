@@ -708,6 +708,33 @@ int ad9208_adc_set_ddc_nco_mode(ad9208_handle_t *h,
 	return API_ERROR_OK;
 }
 
+int ad9680_adc_set_ddc_nco_ftw(ad9208_handle_t *h, uint8_t ddc_ch,
+			       uint64_t ftw, uint64_t mod_a, uint64_t mod_b)
+{
+	int err, offset;
+	uint8_t tmp_reg;
+
+	if (h == NULL)
+		return API_ERROR_INVALID_HANDLE_PTR;
+	if (ddc_ch >= AD9208_NOF_FC_MAX)
+		return API_ERROR_INVALID_PARAM;
+	offset = (AD9208_DDCX_REG_OFFSET * ddc_ch);
+
+	err = ad9208_register_write(h, (0x314 + offset),
+				    ADI_GET_BYTE(ftw, 0));
+	if (err != API_ERROR_OK)
+		return err;
+	err = ad9208_register_write(h, (0x315 + offset),
+				    ADI_GET_BYTE(ftw, 8));
+	if (err != API_ERROR_OK)
+		return err;
+
+	ad9208_is_sync_spi_update_enabled(h, &tmp_reg);
+	if (tmp_reg)
+		ad9208_register_chip_transfer(h);
+	return API_ERROR_OK;
+}
+
 int ad9208_adc_set_ddc_nco_ftw(ad9208_handle_t *h, uint8_t ddc_ch,
 			       uint64_t ftw, uint64_t mod_a, uint64_t mod_b)
 {
@@ -716,6 +743,10 @@ int ad9208_adc_set_ddc_nco_ftw(ad9208_handle_t *h, uint8_t ddc_ch,
 
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
+
+	if (h->model == 0x9680)
+		return ad9680_adc_set_ddc_nco_ftw(h, ddc_ch, ftw, 0, 0);
+
 	if (ddc_ch >= AD9208_NOF_FC_MAX)
 		return API_ERROR_INVALID_PARAM;
 	offset = (AD9208_DDCX_REG_OFFSET * ddc_ch);
@@ -875,7 +906,7 @@ int ad9208_adc_set_ddc_nco(ad9208_handle_t *h, uint8_t ddc_ch,
 		 *  value is integer power of 2
 		 */
 		tmp_freq = DIV_U64(h->adc_clk_freq_hz, carrier_freq_hz);
-		tmp_freq = DIV_U64(ADI_POW2_48, tmp_freq);
+		tmp_freq = DIV_U64(h->model != 0x9680 ? ADI_POW2_48 : ADI_POW2_12, tmp_freq);
 
 		/* Write FTW */
 		err = ad9208_adc_set_ddc_nco_ftw(h, ddc_ch, tmp_freq, 0, 0);
@@ -905,9 +936,9 @@ int ad9208_adc_set_ddc_nco(ad9208_handle_t *h, uint8_t ddc_ch,
 			ftw = DIV_U64(M * ((uint64_t) 1u << i), N);
 			ftw *= ((uint64_t) 1u << (48 - i));
 		} else
-			ftw = DIV_U64(M * (ADI_POW2_48), N);
+			ftw = DIV_U64(M * (h->model != 0x9680 ? ADI_POW2_48 : ADI_POW2_12), N);
 
-		adi_api_utils_mult_128(M, ADI_POW2_48, &tmp_ah, &tmp_al);
+		adi_api_utils_mult_128(M, h->model != 0x9680 ? ADI_POW2_48 : ADI_POW2_12, &tmp_ah, &tmp_al);
 		adi_api_utils_mod_128(tmp_ah, tmp_al, N, &tmp_fl);
 
 		maw = tmp_fl;
