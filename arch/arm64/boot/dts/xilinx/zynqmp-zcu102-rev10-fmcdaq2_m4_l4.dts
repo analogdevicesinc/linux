@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCDAQ2-EBZ using M4, L4
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq2-ebz
+ *
+ * hdl_project: <daq2/zcu102>
+ * board_revision: <Rev.C>
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-fmcdaq2.dts"
+
+// Synthesis parameter:
+// RX_JESD_M = 4
+// RX_JESD_L = 4
+// RX_JESD_S = 1
+// TX_JESD_M = 4
+// TX_JESD_L = 4
+// TX_JESD_S = 1
+
+&dac0_ad9144 {
+	adi,jesd-link-mode = <2>;
+	adi,interpolation = <2>;
+
+	adi,frequency-center-shift = <100000000>;
+};
+
+&adc0_ad9680 {
+	adi,converters-per-device = <4>;	/* JESD204 (M) */
+	adi,octets-per-frame = <2>;		/* JESD204 (F) */
+
+	/* DDC setup */
+	adi,ddc-channel-number = <AD9208_2_DDC_MODE>;
+	ad9208_ddc0: channel@0 {
+		reg = <0>;
+		adi,decimation = <4>;
+		adi,nco-mode-select = <AD9208_NCO_MODE_VIF>;
+		adi,nco-channel-carrier-frequency-hz = /bits/ 64 <100000000>;
+		adi,nco-channel-phase-offset = /bits/ 64 <0>;
+	};
+
+	ad9208_ddc1: channel@1 {
+		reg = <1>;
+		adi,decimation = <4>;
+		adi,nco-mode-select = <AD9208_NCO_MODE_VIF>;
+		adi,nco-channel-carrier-frequency-hz = /bits/ 64 <100000000>;
+		adi,nco-channel-phase-offset = /bits/ 64 <0>;
+	};
+};
