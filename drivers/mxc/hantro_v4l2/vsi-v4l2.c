@@ -747,7 +747,7 @@ static struct platform_driver v4l2_drm_platform_driver = {
 static const struct platform_device_info v4l2_platform_info = {
 	.name		= DRIVER_NAME,
 	.id		= -1,
-	.dma_mask	= DMA_BIT_MASK(64),
+	.dma_mask	= ~0ULL,
 };
 
 module_platform_driver(v4l2_drm_platform_driver);
