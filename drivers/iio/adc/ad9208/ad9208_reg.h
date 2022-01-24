@@ -268,5 +268,6 @@ int ad9208_is_sync_spi_update_enabled(ad9208_handle_t *h, uint8_t *enabled);
 #define AD9680_CLOCK_DIV_REG		0x10B
 #define AD9680_CLOCK_DIV_PHASE_REG	0x10C
 #define AD9680_INPUT_FS_RANGE_REG	0x025
+#define AD9680_JESD_QUICK_CONF_REG	0x570
 
 #endif /*__AD9208_REG_H__*/

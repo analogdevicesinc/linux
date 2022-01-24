@@ -218,6 +218,16 @@ int ad9208_jesd_set_if_config(ad9208_handle_t *h,
 	if (err != API_ERROR_OK)
 		return err;
 
+	if (h->model == 0x9680) {
+		tmp_reg = ilog2(jesd_param.jesd_F);
+		tmp_reg |= ilog2(jesd_param.jesd_M) << 3;
+		tmp_reg |= ilog2(jesd_param.jesd_L) << 6;
+
+		err = ad9208_register_write(h, AD9680_JESD_QUICK_CONF_REG, tmp_reg);
+		if (err != API_ERROR_OK)
+			return err;
+	}
+
 	/*Set NOF Converters */
 	err = ad9208_register_write(h,
 				    AD9208_JESD_M_CFG_REG,
