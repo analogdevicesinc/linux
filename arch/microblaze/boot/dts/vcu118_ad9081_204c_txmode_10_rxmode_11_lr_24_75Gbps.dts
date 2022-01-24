@@ -224,14 +224,14 @@
 				reg = <0>;
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
-				adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				//adi,crossbar-select = <&trx0_ad9081_rx_fddc_chan0>, <&trx0_ad9081_rx_fddc_chan2>; /* Static for now */
 			};
 			trx0_ad9081_adc1: adc@1 {
 				reg = <1>;
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
-				adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				//adi,crossbar-select = <&trx0_ad9081_rx_fddc_chan1>, <&trx0_ad9081_rx_fddc_chan3>; /* Static for now */
 			};
 		};
