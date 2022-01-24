@@ -167,7 +167,7 @@
 		ad9208_ddc0: channel@0 {
 			reg = <0>;
 			adi,decimation = <2>;
-			adi,nco-mode-select = <AD9208_NCO_MODE_VIF>;
+			adi,nco-mixer-mode-select = <AD9208_NCO_MODE_VIF>;
 			adi,nco-channel-carrier-frequency-hz = /bits/ 64 <70000000>;
 			adi,nco-channel-phase-offset = /bits/ 64 <0>;
 			adi,ddc-gain-6dB-enable;
