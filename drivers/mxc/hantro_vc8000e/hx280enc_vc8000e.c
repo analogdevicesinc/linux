@@ -146,7 +146,6 @@ static unsigned int sram_size;
 /* and this is our MAJOR; use 0 for dynamic allocation (recommended)*/
 static int hantroenc_major;
 static int total_core_num;
-static volatile unsigned int asic_status;
 /* dynamic allocation*/
 static hantroenc_t *hantroenc_data;
 //static unsigned int pcie = 0;          /* used in hantro_mmu.c*/
@@ -696,6 +695,7 @@ static int hantroenc_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+#ifdef CONFIG_COMPAT
 static long hantroenc_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long err = 0;
@@ -707,6 +707,7 @@ static long hantroenc_ioctl32(struct file *filp, unsigned int cmd, unsigned long
 		return err; \
 	force_uaccess_end(old_fs); \
 }
+#endif
 
 union {
 	unsigned long kux;
