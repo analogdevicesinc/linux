@@ -1026,16 +1026,20 @@ static int ad9208_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9208_phy *phy = conv->phy;
+	u64 freq;
+	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
 		return ad9208_get_scale(conv, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!conv->clk)
-			return -ENODEV;
+		ret = ad9208_get_adc_clk_freq(&phy->ad9208, &freq);
+		if (ret)
+			return ret;
 
-		*val = conv->adc_clk = clk_get_rate_scaled(conv->clk,
-							   &conv->adc_clkscale);
+		do_div(freq, phy->dcm);
+		*val = conv->adc_clk = freq;
 		return IIO_VAL_INT;
 
 	}
