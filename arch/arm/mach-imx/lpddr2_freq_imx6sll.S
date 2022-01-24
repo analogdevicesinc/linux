@@ -374,10 +374,6 @@ poll_dvfs_clear_1:
 	bic	r6, r6, #0x100
 	str	r6, [r5, #MMDC0_MADPCR0]
 
-	ldr	r6,  =0xa0000000
-	str	r6, [r5, #0x83c]
-
-
 #ifdef CONFIG_CACHE_L2X0
 	ldr	r7, =IMX_IO_P2V(MX6Q_L2_BASE_ADDR)
 	ldr	r3, [r7, #PL310_AUX_CTRL]
