@@ -284,7 +284,7 @@
 					reg = <0>;
 					adi,decimation = <4>;
 					adi,nco-frequency-shift-hz =  /bits/ 64 <400000000>;
-					adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 			};
 

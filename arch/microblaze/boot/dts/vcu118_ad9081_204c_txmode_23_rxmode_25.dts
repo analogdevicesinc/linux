@@ -175,13 +175,13 @@
 				reg = <0>;
 				adi,decimation = <3>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <1000000000>;
-				adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 			};
 			ad9081_adc1: adc@1 {
 				reg = <1>;
 				adi,decimation = <3>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <(1100000000)>;
-				adi,nco-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 			};
 		};
 		adi,channelizer-paths {
