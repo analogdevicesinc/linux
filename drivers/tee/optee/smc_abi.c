@@ -33,6 +33,9 @@
 #include <linux/kmemleak.h>
 #define CREATE_TRACE_POINTS
 #include "optee_trace.h"
+#if defined(CONFIG_HAVE_IMX_BUSFREQ)
+#include <linux/busfreq-imx.h>
+#endif
 
 /*
  * This file implement the SMC ABI used when communicating with secure world
@@ -927,6 +930,16 @@ static int optee_smc_do_call_with_arg(struct tee_context *ctx,
 	}
 	/* Initialize waiter */
 	optee_cq_wait_init(&optee->call_queue, &w, system_thread);
+
+#if defined(CONFIG_HAVE_IMX_BUSFREQ)
+	/*
+	 * Request Busfreq to HIGH to prevent DDR self-refresh while
+	 * executing Secure stuff.
+	 */
+	if (optee->smc.sec_caps & OPTEE_SMC_SEC_CAP_IMX_BUSFREQ)
+		request_bus_freq(BUS_FREQ_HIGH);
+#endif
+
 	while (true) {
 		struct arm_smccc_res res;
 
@@ -956,6 +969,15 @@ static int optee_smc_do_call_with_arg(struct tee_context *ctx,
 	}
 
 	optee_rpc_finalize_call(&call_ctx);
+
+#if defined(CONFIG_HAVE_IMX_BUSFREQ)
+	/*
+	 * Release Busfreq from HIGH
+	 */
+	if (optee->smc.sec_caps & OPTEE_SMC_SEC_CAP_IMX_BUSFREQ)
+		release_bus_freq(BUS_FREQ_HIGH);
+#endif
+
 	/*
 	 * We're done with our thread in secure world, if there's any
 	 * thread waiters wake up one.
@@ -1680,6 +1702,11 @@ static int optee_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto err_free_pool;
 	}
+
+#if defined(CONFIG_HAVE_IMX_BUSFREQ)
+	if (of_find_compatible_node(NULL, NULL, "fsl,imx_busfreq"))
+		sec_caps |= OPTEE_SMC_SEC_CAP_IMX_BUSFREQ;
+#endif
 
 	optee->ops = &optee_ops;
 	optee->smc.invoke_fn = invoke_fn;
