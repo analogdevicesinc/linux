@@ -84,11 +84,6 @@
 			compatible = "at24,24c02";
 			reg = <0x50>;
 		};
-
-		eeprom@54 {
-			compatible = "at24,24c02";
-			reg = <0x54>;
-		};
 	};
 
 	i2c@6 { /* LPC IIC */
@@ -98,11 +93,6 @@
 		eeprom@50 {
 			compatible = "at24,24c02";
 			reg = <0x50>;
-		};
-
-		eeprom@54 {
-			compatible = "at24,24c02";
-			reg = <0x54>;
 		};
 	};
 };
