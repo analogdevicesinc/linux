@@ -28,11 +28,6 @@
 			reg = <0x50>;
 		};
 
-		eeprom@54 {
-			compatible = "at24,24c02";
-			reg = <0x54>;
-		};
-
 		ad7291@2f {
 			compatible = "adi,ad7291";
 			reg = <0x2f>;
