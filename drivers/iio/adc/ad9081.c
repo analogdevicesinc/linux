@@ -162,6 +162,9 @@ struct ad9081_phy {
 
 	struct delayed_work dwork;
 
+	const char **rx_labels;
+	const char **tx_labels;
+
 	u32 mcs_cached_val;
 
 	u32 multidevice_instance_count;
@@ -2155,6 +2158,16 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 
 	return 0;
 }
+static int ad9081_read_label(struct iio_dev *indio_dev,
+			     const struct iio_chan_spec *chan, char *label)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+
+	return sprintf(label, "%s\n",
+		chan->output ? phy->tx_labels[chan->channel] :
+		phy->rx_labels[chan->channel]);
+}
 
 static const char* const ffh_modes[] = {
 	"phase_continuous", "phase_incontinuous", "phase_coherent"
@@ -3931,6 +3944,12 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		return -EINVAL;
 	}
 
+	phy->rx_labels = devm_kcalloc(&phy->spi->dev,
+				   m * phy->multidevice_instance_count,
+				   sizeof(*phy->rx_labels), GFP_KERNEL);
+	if (!phy->rx_labels)
+		return -ENOMEM;
+
 	for (c = 0, i = 0; i < (m * phy->multidevice_instance_count);
 		 i++, c++) {
 		phy->chip_info.channel[c].type = IIO_VOLTAGE;
@@ -3957,19 +3976,23 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].scan_type.storagebits =
 			(phy->jtx_link_rx[0].jesd_param.jesd_np > 8) ? 16 : 8;
 		phy->chip_info.channel[c].scan_type.sign = 's';
-		phy->chip_info.channel[c].info_mask_separate |= BIT(IIO_CHAN_INFO_LABEL);
 
 		if (i < m) {
 			phy->chip_info.channel[c].ext_info = rxadc_ext_info;
-			phy->chip_info.channel[c].label_name =
+			phy->rx_labels[phy->chip_info.channel[c].channel] =
 				ad9081_lable_writer(phy, &phy->chip_info.channel[c]);
 		} else {
-			phy->chip_info.channel[c].label_name = "buffer_only";
+			phy->rx_labels[phy->chip_info.channel[c].channel] = "buffer_only";
 		}
 	}
 
 	m = phy->jrx_link_tx[0].jesd_param.jesd_m *
-	    (ad9081_link_is_dual(phy->jrx_link_tx) ? 2 : 1);
+		(ad9081_link_is_dual(phy->jrx_link_tx) ? 2 : 1);
+
+	phy->tx_labels = devm_kcalloc(&phy->spi->dev, m,
+		sizeof(*phy->tx_labels), GFP_KERNEL);
+	if (!phy->tx_labels)
+		return -ENOMEM;
 
 	for (i = 0; i < m; i++, c++) {
 		phy->chip_info.channel[c].type = IIO_VOLTAGE;
@@ -3984,11 +4007,11 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 
 		phy->chip_info.channel[c].info_mask_separate =
-			BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_LABEL);
+			BIT(IIO_CHAN_INFO_ENABLE);
 
 		phy->chip_info.channel[c].ext_info = txdac_ext_info;
-		phy->chip_info.channel[c].label_name = ad9081_lable_writer(phy,
-			&phy->chip_info.channel[c]);
+		phy->tx_labels[phy->chip_info.channel[c].channel] =
+			ad9081_lable_writer(phy, &phy->chip_info.channel[c]);
 	}
 
 	phy->chip_info.channel[c].type = IIO_TEMP;
@@ -4007,6 +4030,7 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 static const struct iio_info ad9081_iio_info = {
 	.read_raw = &ad9081_read_raw,
 	.write_raw = &ad9081_write_raw,
+	.read_label = &ad9081_read_label,
 	.debugfs_reg_access = &ad9081_reg_access,
 	.attrs = &ad9081_phy_attribute_group,
 };
