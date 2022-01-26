@@ -19,11 +19,6 @@
 		#size-cells = <0>;
 		#address-cells = <1>;
 		reg = <6>;
-
-		eeprom@50 {
-			compatible = "at24,24c02";
-			reg = <0x50>;
-		};
 	};
 };
 
