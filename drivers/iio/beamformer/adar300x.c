@@ -182,9 +182,7 @@
 	.channel = (_num),					\
 	.address = (_id),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-			      BIT(IIO_CHAN_INFO_SCALE) |	\
-			      BIT(IIO_CHAN_INFO_LABEL),		\
-	.label_name = name,					\
+			      BIT(IIO_CHAN_INFO_SCALE),		\
 	.scan_index = (_id),					\
 	.scan_type = {						\
 		.sign = 'u',					\
@@ -202,9 +200,7 @@
 	.channel = (_num),					\
 	.address = (_id),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-			      BIT(IIO_CHAN_INFO_SCALE) |	\
-			      BIT(IIO_CHAN_INFO_LABEL),		\
-	.label_name = name,					\
+			      BIT(IIO_CHAN_INFO_SCALE),		\
 	.scan_index = (_id),					\
 	.scan_type = {						\
 		.sign = 'u',					\
