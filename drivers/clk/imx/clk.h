@@ -179,6 +179,9 @@ extern struct imx_fracn_gppll_clk imx_fracn_gppll_integer;
 #define imx_clk_hw_gate_flags(name, parent, reg, shift, flags) \
 	__imx_clk_hw_gate(name, parent, reg, shift, flags, 0)
 
+#define imx_dev_clk_hw_gate_shared(dev, name, parent, reg, shift, shared_count) \
+	__imx_clk_hw_gate2(dev, name, parent, reg, shift, 0x1, 0, shared_count)
+
 #define imx_clk_hw_gate2_flags(name, parent, reg, shift, flags) \
 	__imx_clk_hw_gate2(NULL, name, parent, reg, shift, 0x3, flags, NULL)
 
@@ -417,7 +420,7 @@ static inline struct clk_hw *__imx_clk_hw_gate2(struct device *dev, const char *
 						unsigned int *share_count)
 {
 	return clk_hw_register_gate2(dev, name, parent, flags | CLK_SET_RATE_PARENT, reg,
-					shift, cgr_val, 0x3, 0, &imx_ccm_lock, share_count);
+					shift, cgr_val, cgr_val, 0, &imx_ccm_lock, share_count);
 }
 
 static inline struct clk *imx_dev_clk_mux(struct device *dev, const char *name,
