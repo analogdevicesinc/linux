@@ -182,6 +182,7 @@ struct ad9081_phy {
 	bool is_initialized;
 	bool tx_disable;
 	bool rx_disable;
+	bool standalone;
 
 	struct device_settings_cache device_cache;
 
@@ -3840,6 +3841,8 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	struct device_node *np = dev->of_node;
 	int ret;
 
+	phy->standalone = of_property_read_bool(np, "adi,standalone-enable");
+
 	phy->multidevice_instance_count = 1;
 	of_property_read_u32(np, "adi,multidevice-instance-count",
 			     &phy->multidevice_instance_count);
@@ -4656,7 +4659,7 @@ static int ad9081_probe(struct spi_device *spi)
 
 	conv->attrs = &ad9081_phy_attribute_group;
 
-	if (!jesd204_dev_is_top(jdev)) {
+	if (phy->standalone || !jesd204_dev_is_top(jdev)) {
 		ret = ad9081_register_iiodev(conv);
 		if (ret)
 			goto out_clk_del_provider;
@@ -4712,7 +4715,7 @@ static int ad9081_remove(struct spi_device *spi)
 
 	cancel_delayed_work_sync(&phy->dwork);
 
-	if (!jesd204_dev_is_top(phy->jdev))
+	if (phy->standalone || !jesd204_dev_is_top(phy->jdev))
 		iio_device_unregister(conv->indio_dev);
 
 	clk_disable_unprepare(phy->dev_clk);
