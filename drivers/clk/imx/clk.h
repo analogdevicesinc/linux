@@ -144,7 +144,7 @@ extern struct imx_fracn_gppll_clk imx_fracn_gppll_integer;
 	to_clk(imx_clk_hw_gate2(name, parent, reg, shift))
 
 #define imx_clk_gate2_cgr(name, parent, reg, shift, cgr_val) \
-	to_clk(__imx_clk_hw_gate2(name, parent, reg, shift, cgr_val, 0, NULL))
+	to_clk(__imx_clk_hw_gate2(NULL, name, parent, reg, shift, cgr_val, 0, NULL))
 
 #define imx_clk_gate2_flags(name, parent, reg, shift, flags) \
 	to_clk(imx_clk_hw_gate2_flags(name, parent, reg, shift, flags))
@@ -180,13 +180,13 @@ extern struct imx_fracn_gppll_clk imx_fracn_gppll_integer;
 	__imx_clk_hw_gate(name, parent, reg, shift, flags, 0)
 
 #define imx_clk_hw_gate2_flags(name, parent, reg, shift, flags) \
-	__imx_clk_hw_gate2(name, parent, reg, shift, 0x3, flags, NULL)
+	__imx_clk_hw_gate2(NULL, name, parent, reg, shift, 0x3, flags, NULL)
 
 #define imx_clk_hw_gate2_shared(name, parent, reg, shift, shared_count) \
-	__imx_clk_hw_gate2(name, parent, reg, shift, 0x3, 0, shared_count)
+	__imx_clk_hw_gate2(NULL, name, parent, reg, shift, 0x3, 0, shared_count)
 
 #define imx_clk_hw_gate2_shared2(name, parent, reg, shift, shared_count) \
-	__imx_clk_hw_gate2(name, parent, reg, shift, 0x3, CLK_OPS_PARENT_ENABLE, shared_count)
+	__imx_clk_hw_gate2(NULL, name, parent, reg, shift, 0x3, CLK_OPS_PARENT_ENABLE, shared_count)
 
 #define imx_clk_hw_gate3(name, parent, reg, shift) \
 	imx_clk_hw_gate3_flags(name, parent, reg, shift, 0)
@@ -410,12 +410,13 @@ static inline struct clk_hw *__imx_clk_hw_gate(const char *name, const char *par
 					shift, clk_gate_flags, &imx_ccm_lock);
 }
 
-static inline struct clk_hw *__imx_clk_hw_gate2(const char *name, const char *parent,
+static inline struct clk_hw *__imx_clk_hw_gate2(struct device *dev, const char *name,
+						const char *parent,
 						void __iomem *reg, u8 shift, u8 cgr_val,
 						unsigned long flags,
 						unsigned int *share_count)
 {
-	return clk_hw_register_gate2(NULL, name, parent, flags | CLK_SET_RATE_PARENT, reg,
+	return clk_hw_register_gate2(dev, name, parent, flags | CLK_SET_RATE_PARENT, reg,
 					shift, cgr_val, 0x3, 0, &imx_ccm_lock, share_count);
 }
 
