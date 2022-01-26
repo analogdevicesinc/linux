@@ -260,6 +260,9 @@ struct axiadc_converter {
 			enum iio_event_direction dir,
 			int state);
 
+	int (*read_label)(struct iio_dev *indio_dev,
+			const struct iio_chan_spec *chan, char *label);
+
 	int (*post_setup)(struct iio_dev *indio_dev);
 	int (*post_iio_register)(struct iio_dev *indio_dev);
 	int (*set_pnsel)(struct iio_dev *indio_dev, unsigned chan,
