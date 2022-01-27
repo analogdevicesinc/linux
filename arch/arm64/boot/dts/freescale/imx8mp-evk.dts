@@ -872,7 +872,6 @@
 };
 
 &usb3_phy0 {
-	vbus-power-supply = <&ptn5110>;
 	fsl,phy-tx-vref-tune = <0xe>;
 	fsl,phy-tx-preemp-amp-tune = <3>;
 	fsl,phy-tx-vboost-level = <5>;
