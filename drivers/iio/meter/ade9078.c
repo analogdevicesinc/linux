@@ -11,10 +11,11 @@
 #include <linux/gpio/consumer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
-#include <linux/iio/trigger.h>
-#include <linux/iio/trigger_consumer.h>
-#include <linux/iio/triggered_buffer.h>
+#include <linux/iio/kfifo_buf.h>
 #include <linux/iio/events.h>
+#include <linux/iio/sysfs.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
 #include <linux/of_irq.h>
 #include <linux/spi/spi.h>
 #include <linux/regmap.h>
@@ -335,7 +336,6 @@
 /*
  * struct ade9078_state - ade9078 specific data
  * @lock	mutex for the device
- * @slock       spinlock used for irq handling
  * @irq0_bits	IRQ0 mask and status bits, are set by the driver and are passed
  *		to the IC after being set
  * @irq1_bits	IRQ1 mask and status bits, are set by the driver and are passed
@@ -346,8 +346,6 @@
  *		retrieved from DT
  * @wfb_trg	wave form buffer triger configuration, read datasheet for more
  *		details, retrieved from DT
- * @triggered	flag used in irq0 ISR to mark that the frame buffer has been
- *		triggered for output
  * @spi		spi device associated to the ade9078
  * @tx		transmit buffer for the spi
  * @rx		receive buffer for the spi
@@ -365,14 +363,12 @@
 
 struct ade9078_state {
 	struct mutex lock;
-	spinlock_t slock;
 	u32 irq0_bits;
 	u32 irq1_bits;
 	u32 irq1_status;
 	bool rst_done;
 	u8 wf_mode;
 	u32 wfb_trg;
-	bool triggered;
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
@@ -380,7 +376,6 @@ struct ade9078_state {
 	struct spi_message spi_msg;
 	struct regmap *regmap;
 	struct iio_dev *indio_dev;
-	struct iio_trigger *trig;
 	union{
 		u8 byte[ADE9078_WFB_FULL_BUFF_SIZE];
 		__be32 word[ADE9078_WFB_FULL_BUFF_NR_SAMPLES];
@@ -495,8 +490,7 @@ static int ade9078_spi_write_reg(void *context,
 
 	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
-		dev_err(&st->spi->dev,
-			"problem when writing register 0x%x",
+		dev_err(&st->spi->dev, "problem when writing register 0x%x",
 			reg);
 	}
 
@@ -611,6 +605,31 @@ static int ade9078_test_bits(struct regmap *map, unsigned int reg,
 }
 
 /*
+ * ade9078_iio_push_buffer() - reads out the content of the waveform buffer and
+ * pushes it to the IIO buffer.
+ * @st:		ade9078 device data
+ */
+static int ade9078_iio_push_buffer(struct ade9078_state *st)
+{
+	u32 i;
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = spi_sync(st->spi, &st->spi_msg);
+	if (ret) {
+		mutex_unlock(&st->lock);
+		dev_err(&st->spi->dev, "SPI fail in trigger handler");
+		return ret;
+	}
+
+	for (i = 0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
+		iio_push_to_buffers(st->indio_dev, &st->rx_buff.word[i]);
+
+	mutex_unlock(&st->lock);
+	return 0;
+}
+
+/*
  * ade9078_irq0_thread() - Thread for IRQ0. It reads Status register 0 and
  * checks for the IRQ activation. This is configured to acquire samples in to
  * the IC buffer and dump it in to the iio_buffer according to Stop When Buffer
@@ -626,11 +645,12 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	int ret;
 
 	ret = regmap_read(st->regmap, ADDR_STATUS0, &status);
-	if (ret)
-		return ret;
+	if (ret) {
+		dev_err(&st->spi->dev, "IRQ0 read status fail");
+		goto irq0_done;
+	}
 
 	dev_dbg(&st->spi->dev, "IRQ0 status 0x%x", status);
-	st->triggered = false;
 
 	if ((status & ADE9078_ST0_PAGE_FULL_BIT) &&
 	    (st->irq0_bits & ADE9078_ST0_PAGE_FULL_BIT)) {
@@ -638,24 +658,34 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		if (st->wf_mode) {
 			ret = regmap_write(st->regmap, ADDR_WFB_TRG_CFG,
 					   st->wfb_trg);
-			if (ret)
-				return ret;
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 WFB write fail");
+				goto irq0_done;
+			}
 
 			set_bit(ADE9078_ST0_WFB_TRIG, irq0_bits);
 
 		} else {
 			//Stop When Buffer Is Full Mode
 			ret = ade9078_en_wfb(st, false);
-			if (ret)
-				return ret;
-			st->triggered = true;
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 WFB stop fail");
+				goto irq0_done;
+			}
+			ret = ade9078_iio_push_buffer(st);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 IIO push fail");
+				goto irq0_done;
+			}
 		}
 
 		//disable Page full interrupt
 		clear_bit(ADE9078_ST0_PAGE_FULL, irq0_bits);
 		ret = regmap_write(st->regmap, ADDR_MASK0, st->irq0_bits);
-		if (ret)
-			return ret;
+		if (ret) {
+			dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
+			goto irq0_done;
+		}
 
 		set_bit(ADE9078_ST0_PAGE_FULL, (unsigned long *)&handled_irq);
 		dev_dbg(&st->spi->dev, "IRQ0 ADE9078_ST0_PAGE_FULL_BIT");
@@ -665,10 +695,16 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	    (st->irq0_bits & ADE9078_ST0_WFB_TRIG_BIT)) {
 		//Stop Filling on Trigger and Center Capture Around Trigger
 		ret = ade9078_en_wfb(st, false);
-		if (ret)
-			return ret;
+		if (ret) {
+			dev_err(&st->spi->dev, "IRQ0 WFB fail");
+			goto irq0_done;
+		}
 
-		st->triggered = true;
+		ret = ade9078_iio_push_buffer(st);
+		if (ret) {
+			dev_err(&st->spi->dev, "IRQ0 IIO push fail @ WFB TRIG");
+			goto irq0_done;
+		}
 
 		set_bit(ADE9078_ST0_WFB_TRIG, (unsigned long *)&handled_irq);
 		dev_dbg(&st->spi->dev, "IRQ0 ADE9078_ST0_WFB_TRIG_BIT");
@@ -676,8 +712,9 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 
 	ret = regmap_write(st->regmap, ADDR_STATUS0, handled_irq);
 	if (ret)
-		return ret;
+		dev_err(&st->spi->dev, "IRQ0 write status fail");
 
+irq0_done:
 	return IRQ_HANDLED;
 }
 
@@ -708,7 +745,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		else if (result == 1)
 			st->rst_done = true;
 		dev_dbg(&st->spi->dev, "IRQ1 Reset");
-		goto irq_done;
+		goto irq1_done;
 	}
 
 	ret = regmap_read(st->regmap, ADDR_STATUS1, &status);
@@ -801,53 +838,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		}
 	}
 
-irq_done:
-	return IRQ_HANDLED;
-}
-
-/*
- * ade9078_pop_wfb() - parses the SPI receive buffer, and pushes the data to
- * the IIO buffer
- */
-static void ade9078_pop_wfb(struct iio_poll_func *pf)
-{
-	struct iio_dev *indio_dev = pf->indio_dev;
-	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 i;
-
-	for (i = 0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
-		iio_push_to_buffers(st->indio_dev, &st->rx_buff.word[i]);
-	dev_dbg(&st->spi->dev, "Pushed to buffer");
-}
-
-/*
- * ade9078_trigger_handler() - the bottom half of the pollfunc
- * for the iio trigger buffer. It acquires data trough the SPI
- * and rearranges the data to match BE
- */
-static irqreturn_t ade9078_trigger_handler(int irq, void *p)
-{
-	struct iio_poll_func *pf = p;
-	struct iio_dev *indio_dev = pf->indio_dev;
-	struct ade9078_state *st = iio_priv(indio_dev);
-	int ret;
-
-	dev_dbg(&st->spi->dev, "Triggered");
-
-	mutex_lock(&st->lock);
-	ret = spi_sync(st->spi, &st->spi_msg);
-	if (ret) {
-		mutex_unlock(&st->lock);
-		dev_err(&st->spi->dev, "SPI fail in trigger handler");
-		goto err_out;
-	}
-
-	ade9078_pop_wfb(pf);
-
-err_out:
-
-	mutex_unlock(&st->lock);
-	iio_trigger_notify_done(indio_dev->trig);
+irq1_done:
 	return IRQ_HANDLED;
 }
 
@@ -1288,7 +1279,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 /*
  * ade9078_wfb_interrupt_setup() - Configures the wave form buffer interrupt
  * according to modes
- * @st:ade9078 device data
+ * @st:		ade9078 device data
  * @mode:	modes according to datasheet; values [0-2]
  *
  * This sets the interrupt register and other registers related to the
@@ -1369,32 +1360,6 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 }
 
 /*
- * ade9078_buffer_postenable() - after the IIO is enabled we wait for the
- * wave form buffer flag to be enabled and push the output to the IIO buffer
- * @indio_dev:	the IIO device
- */
-static int ade9078_buffer_postenable(struct iio_dev *indio_dev)
-{
-	struct ade9078_state *st = iio_priv(indio_dev);
-	u8 count = 0;
-	unsigned long flags;
-
-	while (!st->triggered) {
-		msleep_interruptible(1);
-		count++;
-		if (count > 9) {
-			dev_err(&st->spi->dev, "Post-enable trigger timeout");
-			return -ESRCH;
-		}
-	}
-
-	spin_lock_irqsave(&st->slock, flags);
-	iio_trigger_poll(st->trig);
-	spin_unlock_irqrestore(&st->slock, flags);
-	return 0;
-}
-
-/*
  * ade9078_buffer_postdisable() - after the iio is disable
  * this will disable the ade9078 internal buffer for acquisition
  * @indio_dev:	the IIO device
@@ -1423,8 +1388,6 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 		dev_err(&st->spi->dev, "Post-disable update maks0 fail");
 		return ret;
 	}
-
-	st->triggered = true;
 
 	return 0;
 }
@@ -1672,13 +1635,8 @@ static int ade9078_setup(struct ade9078_state *st)
 	return ret;
 }
 
-static const struct iio_trigger_ops ade9078_trigger_ops = {
-	.validate_device = iio_trigger_validate_own_device,
-};
-
 static const struct iio_buffer_setup_ops ade9078_buffer_ops = {
 	.preenable = &ade9078_buffer_preenable,
-	.postenable = &ade9078_buffer_postenable,
 	.postdisable = &ade9078_buffer_postdisable,
 };
 
@@ -1709,7 +1667,7 @@ static int ade9078_probe(struct spi_device *spi)
 	struct ade9078_state *st;
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
-	struct iio_trigger *trig;
+	struct iio_buffer *buffer;
 	int irq;
 	unsigned long irqflags;
 	int ret;
@@ -1728,13 +1686,13 @@ static int ade9078_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 
-	st->rx = devm_kcalloc(&spi->dev, ADE9078_RX_DEPTH,
-			      sizeof(*st->rx), GFP_KERNEL);
+	st->rx = devm_kcalloc(&spi->dev, ADE9078_RX_DEPTH, sizeof(*st->rx),
+			      GFP_KERNEL);
 	if (!st->rx)
 		return -ENOMEM;
 
-	st->tx = devm_kcalloc(&spi->dev, ADE9078_TX_DEPTH,
-			      sizeof(*st->tx), GFP_KERNEL);
+	st->tx = devm_kcalloc(&spi->dev, ADE9078_TX_DEPTH, sizeof(*st->tx),
+			      GFP_KERNEL);
 	if (!st->tx)
 		return -ENOMEM;
 
@@ -1775,14 +1733,6 @@ static int ade9078_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d", KBUILD_MODNAME,
-				      indio_dev->id);
-	if (!trig) {
-		dev_err(&spi->dev, "Unable to allocate ADE9078 trigger");
-		return -ENOMEM;
-	}
-	iio_trigger_set_drvdata(trig, st);
-
 	st->spi = spi;
 	st->spi->mode = SPI_MODE_0;
 	ret = spi_setup(st->spi);
@@ -1793,7 +1743,8 @@ static int ade9078_probe(struct spi_device *spi)
 
 	indio_dev->dev.parent = &st->spi->dev;
 	indio_dev->info = &ade9078_info;
-	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
+	indio_dev->setup_ops = &ade9078_buffer_ops;
 
 	st->regmap = regmap;
 	st->indio_dev = indio_dev;
@@ -1803,30 +1754,18 @@ static int ade9078_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	st->trig = trig;
-	st->trig->dev.parent = &st->spi->dev;
-	st->trig->ops = &ade9078_trigger_ops;
-
 	mutex_init(&st->lock);
 
 	ret = ade9078_configure_scan(indio_dev);
 	if (ret)
 		return ret;
 
-	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
-					      NULL, &ade9078_trigger_handler,
-					      &ade9078_buffer_ops);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to setup triggered buffer: %d\n",
-			ret);
-		return ret;
-	}
 
-	ret = devm_iio_trigger_register(&spi->dev, trig);
-	if (ret) {
-		dev_err(&spi->dev, "Unable to register ADE9078 trigger");
-		return ret;
-	}
+	buffer = devm_iio_kfifo_allocate(&spi->dev);
+	if (!buffer)
+		return -ENOMEM;
+
+	iio_device_attach_buffer(indio_dev, buffer);
 
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret) {
