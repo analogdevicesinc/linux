@@ -4754,6 +4754,7 @@ static int ad9081_probe(struct spi_device *spi)
 	conv->reg_access = ad9081_reg_access;
 	conv->write_raw = ad9081_write_raw;
 	conv->read_raw = ad9081_read_raw;
+	conv->read_label = ad9081_read_label;
 #if 0
 	conv->read_event_value = ad9081_read_thresh,
 	conv->write_event_value = ad9081_write_thresh,
