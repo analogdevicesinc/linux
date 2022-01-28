@@ -670,8 +670,6 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		goto irq0_done;
 	}
 
-	dev_dbg(&st->spi->dev, "IRQ0 status 0x%x", status);
-
 	if ((status & ADE9078_ST0_PAGE_FULL_BIT) &&
 	    (st->irq0_bits & ADE9078_ST0_PAGE_FULL_BIT)) {
 		//Stop Filling on Trigger and Center Capture Around Trigger
@@ -708,7 +706,6 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		}
 
 		set_bit(ADE9078_ST0_PAGE_FULL, (unsigned long *)&handled_irq);
-		dev_dbg(&st->spi->dev, "IRQ0 ADE9078_ST0_PAGE_FULL_BIT");
 	}
 
 	if ((status & ADE9078_ST0_WFB_TRIG_BIT) &&
@@ -727,7 +724,6 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		}
 
 		set_bit(ADE9078_ST0_WFB_TRIG, (unsigned long *)&handled_irq);
-		dev_dbg(&st->spi->dev, "IRQ0 ADE9078_ST0_WFB_TRIG_BIT");
 	}
 
 	ret = regmap_write(st->regmap, ADDR_STATUS0, handled_irq);
@@ -764,7 +760,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 			dev_err(&st->spi->dev, "Error testing reset done");
 		else if (result == 1)
 			st->rst_done = true;
-		dev_dbg(&st->spi->dev, "IRQ1 Reset");
 		goto irq1_done;
 	}
 
@@ -1084,10 +1079,7 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 	unsigned long *wfb_trg = (unsigned long *)&st->wfb_trg;
 	int ret;
 
-	dev_dbg(&st->spi->dev, "Enter event");
-
 	number = chan->channel;
-	dev_dbg(&st->spi->dev, "Event channel %d", number);
 
 	switch (number) {
 	case ADE9078_PHASE_A_NR:
@@ -1096,25 +1088,21 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				set_bit(ADE9078_ST1_ZXVA, irq1_bits);
 				set_bit(ADE9078_ST1_ZXTOVA, irq1_bits);
 				set_bit(ADE9078_WFB_TRG_ZXVA, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXVA set");
 			} else {
 				clear_bit(ADE9078_ST1_ZXVA, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXTOVA, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXVA, irq1_status);
 				clear_bit(ADE9078_ST1_ZXTOVA, irq1_status);
 				clear_bit(ADE9078_WFB_TRG_ZXVA, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXVA cleared");
 			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (state) {
 				set_bit(ADE9078_ST1_ZXIA, irq1_bits);
 				set_bit(ADE9078_WFB_TRG_ZXIA, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXIA set");
 			} else {
 				clear_bit(ADE9078_ST1_ZXIA, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXIA, irq1_status);
 				clear_bit(ADE9078_WFB_TRG_ZXIA, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXIA cleared");
 			}
 		}
 		break;
@@ -1124,25 +1112,21 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				set_bit(ADE9078_ST1_ZXVB, irq1_bits);
 				set_bit(ADE9078_ST1_ZXTOVB, irq1_bits);
 				set_bit(ADE9078_WFB_TRG_ZXVB, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXVB set");
 			} else {
 				clear_bit(ADE9078_ST1_ZXVB, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXTOVB, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXVB, irq1_status);
 				clear_bit(ADE9078_ST1_ZXTOVB, irq1_status);
 				clear_bit(ADE9078_WFB_TRG_ZXVB, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXVB cleared");
 			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (state) {
 				set_bit(ADE9078_ST1_ZXIB, irq1_bits);
 				set_bit(ADE9078_WFB_TRG_ZXIB, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXIB set");
 			} else {
 				clear_bit(ADE9078_ST1_ZXIB, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXIB, irq1_status);
 				clear_bit(ADE9078_WFB_TRG_ZXIB, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXIB cleared");
 			}
 		}
 		break;
@@ -1152,25 +1136,21 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				set_bit(ADE9078_ST1_ZXVC, irq1_bits);
 				set_bit(ADE9078_ST1_ZXTOVC, irq1_bits);
 				set_bit(ADE9078_WFB_TRG_ZXVC, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXVC set");
 			} else {
 				clear_bit(ADE9078_ST1_ZXVC, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXTOVC, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXVC, irq1_status);
 				clear_bit(ADE9078_ST1_ZXTOVC, irq1_status);
 				clear_bit(ADE9078_WFB_TRG_ZXVC, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXVC cleared");
 			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (state) {
 				set_bit(ADE9078_ST1_ZXIC, irq1_bits);
 				set_bit(ADE9078_WFB_TRG_ZXIC, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXIC set");
 			} else {
 				clear_bit(ADE9078_ST1_ZXIC, irq1_bits);
 				clear_bit(ADE9078_ST1_ZXIC, irq1_status);
 				clear_bit(ADE9078_WFB_TRG_ZXIC, wfb_trg);
-				dev_dbg(&st->spi->dev, "ZXIC cleared");
 			}
 		}
 		break;
@@ -1649,8 +1629,6 @@ static int ade9078_probe(struct spi_device *spi)
 	unsigned long irqflags;
 	int ret;
 
-	dev_info(&spi->dev, "Enter ADE9078");
-
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev) {
 		dev_err(&spi->dev, "Unable to allocate ADE9078 IIO");
@@ -1762,13 +1740,6 @@ static int ade9078_probe(struct spi_device *spi)
 	return ret;
 };
 
-static int ade9078_remove(struct spi_device *spi)
-{
-	dev_info(&spi->dev, "Exit ADE9078");
-
-	return 0;
-}
-
 static const struct spi_device_id ade9078_id[] = {
 		{"ade9078", 0},
 		{}
@@ -1786,7 +1757,6 @@ static struct spi_driver ade9078_driver = {
 			.name = "ade9078",
 		},
 		.probe = ade9078_probe,
-		.remove = ade9078_remove,
 		.id_table = ade9078_id,
 };
 module_spi_driver(ade9078_driver);
