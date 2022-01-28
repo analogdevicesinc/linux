@@ -25,6 +25,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/uaccess.h>
+#include <linux/regulator/consumer.h>
 
 #define JESD204_OF_PREFIX	"adi,"
 #include <linux/jesd204/jesd204.h>
@@ -85,6 +86,7 @@ enum {
 	AD9081_JESD204_FSM_STATE,
 	AD9081_JESD204_FSM_RESUME,
 	AD9081_JESD204_FSM_CTRL,
+	AD9081_POWER_DOWN,
 };
 
 struct ad9081_jesd204_priv {
@@ -155,6 +157,7 @@ struct ad9081_phy {
 	struct gpio_desc *rx2_en_gpio;
 	struct gpio_desc *tx1_en_gpio;
 	struct gpio_desc *tx2_en_gpio;
+	struct regulator *supply_reg;
 
 	struct clk *clks[NUM_AD9081_CLKS];
 	struct ad9081_clock clk_priv[NUM_AD9081_CLKS];
@@ -2174,6 +2177,73 @@ static const char* const ffh_modes[] = {
 	"phase_continuous", "phase_incontinuous", "phase_coherent"
 };
 
+static int ad9081_set_power_state(struct ad9081_phy *phy, bool on)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	int ret;
+
+	if (on) {
+		if (phy->is_initialized)
+			return 0;
+
+		if (phy->supply_reg) {
+			ret = regulator_enable(phy->supply_reg);
+			if (ret) {
+				dev_err(&phy->spi->dev,
+					"%s: Failed to enable vdd supply voltage!\n",
+					__func__);
+				return ret;
+			}
+		}
+
+		ret = adi_ad9081_device_reset(&phy->ad9081,
+			conv->reset_gpio ? AD9081_HARD_RESET_AND_INIT :
+			AD9081_SOFT_RESET_AND_INIT);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "%s: reset/init failed (%d)\n",
+				__func__, ret);
+			return ret;
+		}
+
+		ret = ad9081_setup(phy->spi);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "%s: setup failed (%d)\n",
+				__func__, ret);
+			return ret;
+		}
+
+		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+		ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+	} else {
+		if (!phy->is_initialized)
+			return 0;
+
+		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+
+		ret = adi_ad9081_device_reset(&phy->ad9081,
+			conv->reset_gpio ? AD9081_HARD_RESET_AND_INIT :
+			AD9081_SOFT_RESET_AND_INIT);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "%s: reset/init failed (%d)\n",
+				__func__, ret);
+			return ret;
+		}
+
+		if (phy->supply_reg) {
+			ret = regulator_disable(phy->supply_reg);
+			if (ret) {
+				dev_err(&phy->spi->dev,
+					"%s: Failed to disable vdd supply voltage!\n",
+					__func__);
+				return ret;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static ssize_t ad9081_phy_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t len)
@@ -2375,6 +2445,12 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		}
 
 		break;
+	case AD9081_POWER_DOWN:
+		ret = strtobool(buf, &enable);
+		if (ret)
+			break;
+		ret = ad9081_set_power_state(phy, !enable);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -2521,6 +2597,9 @@ static ssize_t ad9081_phy_show(struct device *dev,
 
 		ret = sprintf(buf, "%d\n", phy->is_initialized);
 		break;
+	case AD9081_POWER_DOWN:
+		ret = sprintf(buf, "%d\n", !phy->is_initialized);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -2589,6 +2668,11 @@ static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
 		       ad9081_phy_store,
 		       AD9081_JESD204_FSM_CTRL);
 
+static IIO_DEVICE_ATTR(powerdown, 0644,
+		       ad9081_phy_show,
+		       ad9081_phy_store,
+		       AD9081_POWER_DOWN);
+
 static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_loopback_mode.dev_attr.attr,
 	&iio_const_attr_loopback_mode_available.dev_attr.attr,
@@ -2603,6 +2687,7 @@ static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
+	&iio_dev_attr_powerdown.dev_attr.attr,
 	NULL,
 };
 
@@ -4433,6 +4518,11 @@ static irqreturn_t ad9081_irq_handler(int irq, void *p)
 	return IRQ_HANDLED;
 }
 
+static void ad9081_reg_disable(void *data)
+{
+	regulator_disable(data);
+}
+
 static int ad9081_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv;
@@ -4569,6 +4659,23 @@ static int ad9081_probe(struct spi_device *spi)
 	if (ret < 0) {
 		dev_err(&spi->dev, "Parsing devicetree failed (%d)\n", ret);
 		return -ENODEV;
+	}
+
+	phy->supply_reg = devm_regulator_get(&spi->dev, "vdd");
+	if (IS_ERR(phy->supply_reg))
+		return dev_err_probe(&spi->dev, PTR_ERR(phy->supply_reg),
+				     "failed to get the vdd supply regulator\n");
+
+	if (phy->supply_reg) {
+		ret = regulator_enable(phy->supply_reg);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to enable vdd supply voltage!\n");
+			return ret;
+		}
+
+		ret = devm_add_action_or_reset(&spi->dev, ad9081_reg_disable, phy->supply_reg);
+		if (ret)
+			return ret;
 	}
 
 	ret = adi_ad9081_device_reset(&phy->ad9081,
