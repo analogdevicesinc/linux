@@ -335,7 +335,6 @@
 
 /*
  * struct ade9078_state - ade9078 specific data
- * @lock	mutex for the device
  * @irq0_bits	IRQ0 mask and status bits, are set by the driver and are passed
  *		to the IC after being set
  * @irq1_bits	IRQ1 mask and status bits, are set by the driver and are passed
@@ -362,7 +361,6 @@
  */
 
 struct ade9078_state {
-	struct mutex lock;
 	u32 irq0_bits;
 	u32 irq1_bits;
 	u32 irq1_status;
@@ -614,10 +612,8 @@ static int ade9078_iio_push_buffer(struct ade9078_state *st)
 	u32 i;
 	int ret;
 
-	mutex_lock(&st->lock);
 	ret = spi_sync(st->spi, &st->spi_msg);
 	if (ret) {
-		mutex_unlock(&st->lock);
 		dev_err(&st->spi->dev, "SPI fail in trigger handler");
 		return ret;
 	}
@@ -625,7 +621,6 @@ static int ade9078_iio_push_buffer(struct ade9078_state *st)
 	for (i = 0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
 		iio_push_to_buffers(st->indio_dev, &st->rx_buff.word[i]);
 
-	mutex_unlock(&st->lock);
 	return 0;
 }
 
@@ -1754,12 +1749,9 @@ static int ade9078_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	mutex_init(&st->lock);
-
 	ret = ade9078_configure_scan(indio_dev);
 	if (ret)
 		return ret;
-
 
 	buffer = devm_iio_kfifo_allocate(&spi->dev);
 	if (!buffer)
@@ -1790,7 +1782,6 @@ static int ade9078_probe(struct spi_device *spi)
 
 static int ade9078_remove(struct spi_device *spi)
 {
-
 	dev_info(&spi->dev, "Exit ADE9078");
 
 	return 0;
