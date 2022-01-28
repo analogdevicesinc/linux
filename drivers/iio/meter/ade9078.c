@@ -38,6 +38,7 @@
 #define	ADDR_AWATT			0x210
 #define	ADDR_AVAR			0x211
 #define	ADDR_AVA			0x212
+#define ADDR_AFVAR			0x214
 #define	ADDR_APF			0x216
 #define	ADDR_CI_PCF			0x24A
 #define	ADDR_CV_PCF			0x24B
@@ -231,6 +232,9 @@
 #define ADE9078_SCAN_POS_IC		BIT(4)
 #define ADE9078_SCAN_POS_VC		BIT(5)
 
+#define ADE9078_PHASE_B_POS		5
+#define ADE9078_PHASE_C_POS		6
+
 #define ADE9078_MAX_PHASE_NR		3
 
 #define PHASE_ADDR_ADJUST(addr, chan)	(((chan) << 4) | (addr))
@@ -241,7 +245,8 @@
 	.extend_name = _name,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AI_PCF, _num),		\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			      BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = _num,						\
@@ -260,7 +265,8 @@
 	.extend_name = _name,						\
 	.address = PHASE_ADDR_ADJUST(ADDR_AV_PCF, _num),		\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			      BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = _num + 1,						\
@@ -279,7 +285,8 @@
 	.address = PHASE_ADDR_ADJUST(ADDR_AIRMS, _num),			\
 	.extend_name = _name "_rms",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			      BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_OFFSET),		\
 	.scan_index = -1						\
 }
 
@@ -289,7 +296,20 @@
 	.address = PHASE_ADDR_ADJUST(ADDR_AVRMS, _num),			\
 	.extend_name = _name "_rms",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			      BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_OFFSET),		\
+	.scan_index = -1						\
+}
+
+#define ADE9078_POWER_ACTIV_CHANNEL(_num, _name) {			\
+	.type = IIO_POWER,						\
+	.channel = _num,						\
+	.address = PHASE_ADDR_ADJUST(ADDR_AWATT, _num),			\
+	.extend_name = _name "_activ",					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
+			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_OFFSET) |		\
+			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
 	.scan_index = -1						\
 }
 
@@ -299,7 +319,8 @@
 	.address = PHASE_ADDR_ADJUST(ADDR_AVAR, _num),			\
 	.extend_name = _name "_reactiv",				\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			      BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_OFFSET),		\
 	.scan_index = -1						\
 }
 
@@ -316,10 +337,11 @@
 #define ADE9078_POWER_FUND_REACTIV_CHANNEL(_num, _name) {		\
 	.type = IIO_POWER,						\
 	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AWATT, _num),			\
+	.address = PHASE_ADDR_ADJUST(ADDR_AFVAR, _num),			\
 	.extend_name = _name "_fund_reactiv",				\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			      BIT(IIO_CHAN_INFO_SCALE),			\
+			      BIT(IIO_CHAN_INFO_SCALE) |		\
+			      BIT(IIO_CHAN_INFO_OFFSET),		\
 	.scan_index = -1						\
 }
 
@@ -396,6 +418,7 @@ static const struct iio_chan_spec ade9078_a_channels[] = {
 	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 	ADE9078_CURRENT_RMS_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 	ADE9078_VOLTAGE_RMS_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
+	ADE9078_POWER_ACTIV_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 	ADE9078_POWER_REACTIV_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_A_NR,
 				       ADE9078_PHASE_A_NAME),
@@ -409,6 +432,7 @@ static const struct iio_chan_spec ade9078_b_channels[] = {
 	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
 	ADE9078_CURRENT_RMS_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
 	ADE9078_VOLTAGE_RMS_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
+	ADE9078_POWER_ACTIV_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
 	ADE9078_POWER_REACTIV_CHANNEL(ADE9078_PHASE_B_NR, ADE9078_PHASE_B_NAME),
 	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_B_NR,
 				       ADE9078_PHASE_B_NAME),
@@ -422,6 +446,7 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 	ADE9078_CURRENT_RMS_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 	ADE9078_VOLTAGE_RMS_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
+	ADE9078_POWER_ACTIV_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 	ADE9078_POWER_REACTIV_CHANNEL(ADE9078_PHASE_C_NR, ADE9078_PHASE_C_NAME),
 	ADE9078_POWER_APPARENT_CHANNEL(ADE9078_PHASE_C_NR,
 				       ADE9078_PHASE_C_NAME),
@@ -880,9 +905,9 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 			    int *val2,
 			    long mask)
 {
-	int ret;
-	int measured;
 	struct ade9078_state *st = iio_priv(indio_dev);
+	int measured;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
@@ -941,6 +966,84 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 	}
 
 	return 0;
+}
+
+/*
+ * ade9078_write_raw() - IIO write function
+ * @indio_dev:	the IIO device
+ * @chan:	channel specs of the ade9078
+ * @val:	first half of the read value
+ * @val2:	second half of the read value
+ * @mask:	info mask of the channel
+ */
+static int ade9078_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     int val,
+			     int val2,
+			     long mask)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	u32 addr = 0xFFFFF;
+	unsigned long tmp;
+	int ret;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_OFFSET:
+		switch (chan->type) {
+		case IIO_CURRENT:
+			addr = PHASE_ADDR_ADJUST(ADDR_AIRMSOS, chan->channel);
+			break;
+		case IIO_VOLTAGE:
+			addr = PHASE_ADDR_ADJUST(ADDR_AVRMSOS, chan->channel);
+			break;
+		case IIO_POWER:
+			tmp = chan->address;
+			clear_bit(ADE9078_PHASE_B_POS, &tmp);
+			clear_bit(ADE9078_PHASE_C_POS, &tmp);
+
+			switch (tmp) {
+			case ADDR_AWATT:
+				addr = PHASE_ADDR_ADJUST(ADDR_AWATTOS,
+							 chan->channel);
+				break;
+			case ADDR_AVAR:
+				addr = PHASE_ADDR_ADJUST(ADDR_AVAROS,
+							 chan->channel);
+				break;
+			case ADDR_AFVAR:
+				addr = PHASE_ADDR_ADJUST(ADDR_AFVAROS,
+							 chan->channel);
+				break;
+			default:
+				return -EINVAL;
+			}
+
+			break;
+		default:
+			return -EINVAL;
+		}
+		break;
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		switch (chan->type) {
+		case IIO_CURRENT:
+			addr = PHASE_ADDR_ADJUST(ADDR_AIGAIN, chan->channel);
+			break;
+		case IIO_VOLTAGE:
+			addr = PHASE_ADDR_ADJUST(ADDR_AVGAIN, chan->channel);
+			break;
+		case IIO_POWER:
+			addr = PHASE_ADDR_ADJUST(ADDR_APGAIN, chan->channel);
+			break;
+		default:
+			return -EINVAL;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = regmap_write(st->regmap, addr, val);
+	return ret;
 }
 
 /*
@@ -1388,116 +1491,6 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 }
 
 /*
- * ade9078_phase_chan_config() - reads the gain and offset for
- * I, V and P from the device-tree for each phase and sets them in the
- * respective registers
- * @st:		ade9078 device data
- * @phase_node:	phase node in the device-tree
- * @phase_nr:	the number attributed to each phase, this also
- *		represents the phase register offset
- */
-static int ade9078_phase_chan_config(struct ade9078_state *st,
-				     struct fwnode_handle *phase_node,
-				     u32 phase_nr)
-{
-	u32 tmp;
-	int ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,igain", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev, "Failed to get igain: %d\n", ret);
-		tmp = 0;
-	}
-
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_AIGAIN, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,vgain", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev, "Failed to get vgain: %d\n", ret);
-		tmp = 0;
-	}
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_AVGAIN, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,irmsos", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev, "Failed to get irmsos: %d\n", ret);
-		tmp = 0;
-	}
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_AIRMSOS, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,vrmsos", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev, "Failed to get vrmsos: %d\n", ret);
-		tmp = 0;
-	}
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_AVRMSOS, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,pgain", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev, "Failed to get pgain: %d\n", ret);
-		tmp = 0;
-	}
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_APGAIN, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,wattos", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev, "Failed to get wattos: %d\n", ret);
-		tmp = 0;
-	}
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_AWATTOS, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,varos", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev,
-			"Failed to get varos: %d\n",
-			ret);
-		tmp = 0;
-	}
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_AVAROS, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	ret = fwnode_property_read_u32(phase_node, "adi,fvaros", &tmp);
-	if (ret) {
-		dev_err(&st->spi->dev, "Failed to get fvaros: %d\n", ret);
-		tmp = 0;
-	}
-	ret = regmap_write(st->regmap,
-			   PHASE_ADDR_ADJUST(ADDR_AFVAROS, phase_nr),
-			   tmp);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-/*
  * ade9078_setup_iio_channels() - parses the phase nodes of the device-tree and
  * creates the iio channels based on the active phases in the DT. Each phase
  * has its own I, V and P channels with individual gain and offset parameters.
@@ -1535,28 +1528,16 @@ static int ade9078_setup_iio_channels(struct ade9078_state *st)
 			memcpy(chan, ade9078_a_channels,
 			       sizeof(ade9078_a_channels));
 			chan_size = ARRAY_SIZE(ade9078_a_channels);
-			ret = ade9078_phase_chan_config(st, phase_node,
-							ADE9078_PHASE_A_NR);
-			if (ret)
-				return ret;
 			break;
 		case ADE9078_PHASE_B_NR:
 			memcpy(chan, ade9078_b_channels,
 			       sizeof(ade9078_b_channels));
 			chan_size = ARRAY_SIZE(ade9078_b_channels);
-			ret = ade9078_phase_chan_config(st, phase_node,
-							ADE9078_PHASE_B_NR);
-			if (ret)
-				return ret;
 			break;
 		case ADE9078_PHASE_C_NR:
 			memcpy(chan, ade9078_c_channels,
 			       sizeof(ade9078_c_channels));
 			chan_size = ARRAY_SIZE(ade9078_c_channels);
-			ret = ade9078_phase_chan_config(st, phase_node,
-							ADE9078_PHASE_C_NR);
-			if (ret)
-				return ret;
 			break;
 		default:
 			return -EINVAL;
@@ -1637,6 +1618,7 @@ static const struct iio_buffer_setup_ops ade9078_buffer_ops = {
 
 static const struct iio_info ade9078_info = {
 	.read_raw = &ade9078_read_raw,
+	.write_raw = &ade9078_write_raw,
 	.debugfs_reg_access = &ade9078_reg_access,
 	.write_event_config = &ade9078_write_event_config,
 	.read_event_value = &ade9078_read_event_vlaue,

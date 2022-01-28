@@ -118,46 +118,6 @@ patternProperties:
         minimum: 0
         maximum: 4
 
-      adi,igain:
-        description: |
-          Current gain adjust
-      maxItems: 1
-
-      adi,vgain:
-        description: |
-          Voltage gain adjust.
-      maxItems: 1
-
-      adi,irmsos:
-        description: |
-          Current rms offset for filter based AIRMS calculation.
-      maxItems: 1
-
-      adi,vrmsos:
-        description: |
-          Voltage rms offset for filter based AVRMS calculation.
-      maxItems: 1
-
-      adi,pgain:
-        description: |
-          Power gain adjust for AWATT, AVA, AVAR, and AFVAR calculations.
-      maxItems: 1
-
-      adi,wattos:
-        description: |
-          Total active power offset correction for AWATT calculation.
-      maxItems: 1
-
-      adi,varos:
-        description: |
-          Total reactive power offset correction for AVAR calculation.
-      maxItems: 1
-
-      adi,fvaros:
-        description: |
-          Fundamental reactive power offset correction for AFVAR calculation.
-      maxItems: 1
-
     required:
       - reg
 
@@ -184,30 +144,8 @@ examples:
 
       phase@0 {
         reg = <0>;
-
-        adi,igain = <0>;
-        adi,vgain = <0>;
-
-        adi,irmsos = <0>;
-        adi,vrmsos = <0>;
-
-        adi,pgain = <0>;
-        adi,wattos = <0>;
-        adi,varos = <0>;
-        adi,fvaros = <0>;
       };
       phase@1 {
         reg = <4>;
-
-        adi,igain = <0>;
-        adi,vgain = <0>;
-
-        adi,irmsos = <0>;
-        adi,vrmsos = <0>;
-
-        adi,pgain = <0>;
-        adi,wattos = <0>;
-        adi,varos = <0>;
-        adi,fvaros = <0>;
       };
     };

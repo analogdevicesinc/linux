@@ -38,31 +38,9 @@
 		
 		phase@0 {
 		    reg = <0>;
-		    
-		    adi,igain = <0>;
-		    adi,vgain = <0>;
-		    
-		    adi,irmsos = <0>;
-		    adi,vrmsos = <0>;
-		    
-		    adi,pgain = <0>;
-		    adi,wattos = <0>;
-		    adi,varos = <0>;
-		    adi,fvaros = <0>;
 		};
 		phase@1 {
 		    reg = <4>;
-		    
-		    adi,igain = <0>;
-		    adi,vgain = <0>;
-		    
-		    adi,irmsos = <0>;
-		    adi,vrmsos = <0>;
-		    
-		    adi,pgain = <0>;
-		    adi,wattos = <0>;
-		    adi,varos = <0>;
-		    adi,fvaros = <0>;
 		};
             };
             };
