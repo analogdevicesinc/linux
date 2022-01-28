@@ -60,6 +60,7 @@ struct axiadc_state {
 	unsigned int			have_slave_channels;
 	bool				additional_channel;
 	bool				dp_disable;
+	bool				ext_sync_avail;
 
 	struct iio_chan_spec		channels[AXIADC_MAX_CHANNEL];
 };
@@ -400,34 +401,84 @@ static ssize_t axiadc_sampling_frequency_available(struct device *dev,
 	return ret;
 }
 
-static ssize_t axiadc_sync_start(struct device *dev,
+static const char * const axiadc_sync_ctrls[] = {
+	"arm", "disarm", "trigger_manual",
+};
+
+static ssize_t axiadc_sync_start_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct axiadc_state *st = iio_priv(indio_dev);
-	bool state;
-	u32 reg;
 	int ret;
 
-	ret = strtobool(buf, &state);
+	ret = sysfs_match_string(axiadc_sync_ctrls, buf);
 	if (ret < 0)
 		return ret;
 
-	if (state) {
-		mutex_lock(&indio_dev->mlock);
+	mutex_lock(&indio_dev->mlock);
+	if (st->ext_sync_avail) {
+		switch (ret) {
+		case 0:
+			axiadc_write(st, ADI_REG_CNTRL_2, ADI_EXT_SYNC_ARM);
+			break;
+		case 1:
+			axiadc_write(st, ADI_REG_CNTRL_2, ADI_EXT_SYNC_DISARM);
+			break;
+		case 2:
+			axiadc_write(st, ADI_REG_CNTRL_2, ADI_MANUAL_SYNC_REQUEST);
+			break;
+		default:
+			ret = -EINVAL;
+		}
+	} else if (ret == 0) {
+		u32 reg;
+
 		reg = axiadc_read(st, ADI_REG_CNTRL);
 		axiadc_write(st, ADI_REG_CNTRL, reg | ADI_SYNC);
-		mutex_unlock(&indio_dev->mlock);
 	}
+	mutex_unlock(&indio_dev->mlock);
 
-	return len;
+	return ret < 0 ? ret : len;
 }
 
-static IIO_DEVICE_ATTR(sync_start_enable, 0200,
-		       NULL,
-		       axiadc_sync_start,
+static ssize_t axiadc_sync_start_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	u32 reg;
+
+	switch ((u32)this_attr->address) {
+	case 0:
+		reg = axiadc_read(st, ADI_REG_SYNC_STATUS);
+
+		return sprintf(buf, "%s\n", reg & ADI_ADC_SYNC_STATUS ?
+			axiadc_sync_ctrls[0] : axiadc_sync_ctrls[1]);
+	case 1:
+		if (st->ext_sync_avail)
+			return sprintf(buf, "arm disarm trigger_manual\n");
+		else
+			return sprintf(buf, "arm\n");
+	default:
+		return -EINVAL;
+	}
+
+	return -EINVAL;
+}
+
+static IIO_DEVICE_ATTR(sync_start_enable, 0644,
+		       axiadc_sync_start_show,
+		       axiadc_sync_start_store,
 		       0);
+
+static IIO_DEVICE_ATTR(sync_start_enable_available, 0444,
+		       axiadc_sync_start_show,
+		       NULL,
+		       1);
 
 static IIO_DEVICE_ATTR(in_voltage_sampling_frequency_available, S_IRUGO,
 		       axiadc_sampling_frequency_available,
@@ -436,6 +487,7 @@ static IIO_DEVICE_ATTR(in_voltage_sampling_frequency_available, S_IRUGO,
 
 static struct attribute *axiadc_attributes[] = {
 	&iio_dev_attr_sync_start_enable.dev_attr.attr,
+	&iio_dev_attr_sync_start_enable_available.dev_attr.attr,
 	&iio_dev_attr_in_voltage_sampling_frequency_available.dev_attr.attr,
 	NULL,
 };
@@ -1020,7 +1072,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct axiadc_spidev axiadc_spidev;
 	struct axiadc_converter *conv;
-	unsigned int skip = 1;
+	unsigned int config, skip = 1;
 	int ret;
 
 	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
@@ -1076,6 +1128,8 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, indio_dev);
 
+	config = axiadc_read(st, ADI_REG_CONFIG);
+	st->ext_sync_avail = !!(config & ADI_EXT_SYNC);
 	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
 
 	conv = to_converter(st->dev_spi);
