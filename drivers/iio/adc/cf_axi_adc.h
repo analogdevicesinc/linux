@@ -26,6 +26,7 @@
 #define ADI_CMOS_OR_LVDS_N		(1 << 7)
 #define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
 #define ADI_SCALECORRECTION_ONLY	(1 << 9)
+#define ADI_EXT_SYNC			(1 << 12)
 
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN				(1 << 0)
@@ -36,6 +37,11 @@
 #define ADI_R1_MODE			(1 << 2)
 #define ADI_DDR_EDGESEL			(1 << 1)
 #define ADI_PIN_MODE			(1 << 0)
+
+#define ADI_REG_CNTRL_2			0x0048
+#define ADI_EXT_SYNC_ARM		(1 << 1)
+#define ADI_EXT_SYNC_DISARM		(1 << 2)
+#define ADI_MANUAL_SYNC_REQUEST		(1 << 8)
 
 #define ADI_REG_CLK_FREQ			0x0054
 #define ADI_CLK_FREQ(x)			(((x) & 0xFFFFFFFF) << 0)
@@ -64,6 +70,9 @@
 #define ADI_DELAY_STATUS			(1 << 8)
 #define ADI_DELAY_RDATA(x)		(((x) & 0x1F) << 0)
 #define ADI_TO_DELAY_RDATA(x)		(((x) >> 0) & 0x1F)
+
+#define ADI_REG_SYNC_STATUS		0x0068
+#define ADI_ADC_SYNC_STATUS		(1 << 0)
 
 #define ADI_REG_DRP_CNTRL		0x0070
 #define ADI_DRP_SEL			(1 << 29)
