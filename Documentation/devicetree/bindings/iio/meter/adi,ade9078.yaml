@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2021 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/addac/adi,ade9078.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADE9078 High Performance, Polyphase Energy Metering driver
+
+mainterners:
+  -Ciprian Hegbeli <ciprian.hegbeli@analog.com>
+
+description: |
+  The ADE9078 1 is a highly accurate, fully integrated energy
+  metering device. Interfacing with both current transformer
+  (CT) and Rogowski coil sensors, the ADE9078 enables users to
+  develop a 3-phase metrology platform, which achieves high
+  performance for Class 1 up to Class 0.2 meters.
+
+properties:
+  compatible:
+    enum:
+      - adi,ade9078
+
+    reg:
+      maxItems: 1
+
+    '#address-cells':
+      const: 1
+
+    '#size-cells':
+      const: 0
+
+    spi-max-frequency:
+      maximum: 1000000
+
+    interrupts:
+      maxItems: 2
+
+    reset-gpios:
+      description: |
+        Must be the device tree identifier of the RESET pin. As the line is
+        active low, it should be marked GPIO_ACTIVE_LOW.
+      maxItems: 1
+
+    interrupt-names:
+      description: |
+        Names to be attributed to the interrupts of the device. Should be "irq0"
+        or "irq1"
+
+    adi,wf-cap-sel:
+      description: |
+        This bit selects whether the waveform buffer is filled with resampled
+        data or fixed data rate data
+      maxItems: 1
+      minimum: 0
+      maximum: 1
+
+    adi,wf-mode:
+      description: |
+        Fixed data rate waveforms filling and trigger based modes.
+        0 - Stop when waveform buffer is full.
+        1 - Continuous fill—stop only on enabled trigger events.
+        2 - Continuous filling—center capture around enabled trigger events.
+        3 - Continuous fill—save event address of enabled trigger events.
+      maxItems: 1
+      minimum: 0
+      maximum: 3
+
+    adi,wf-src:
+      description: |
+        Waveform buffer source and DREADY, data ready update rate, selection.
+        0 - Sinc4 output, at 16 kSPS.
+        1 - Reserved
+        2 - Sinc4 + IIR LPF output, at 4 kSPS.
+        3 - Current and voltage channel waveform samples,processed by the DSP
+            (xI_PCF, xV_PCF) at 4 kSPS.
+      maxItems: 1
+      minimum: 0
+      maximum: 3
+
+    adi,wf-in-en:
+      description: |
+        This setting determines whether the IN waveform samples are read out of
+        the waveform buffer through SPI.
+      maxItems: 1
+      minimum: 0
+      maximum: 1
+
+  required:
+    - compatible
+    - reg
+    - interrupts
+    - interrupt-names
+    - adi,wf-cap-sel
+    - adi,wf-mode
+    - adi,wf-src
+    - adi,wf-in-en
+
+patternProperties:
+  "^phase@[0-3]$":
+    type: object
+    description: |
+      Represents the external phases which are externally connected. Each phase
+      has a current, voltage and power component
+
+    properties:
+      reg:
+        description: |
+          The phase represented by a number
+          0 - Phase A
+          1 - unused
+          2 - Phase B
+          3 - unused
+          4 - Phase C
+        maxItems: 1
+        minimum: 0
+        maximum: 4
+
+    required:
+      - reg
+
+examples:
+  - |
+    ade9078@0 {
+      compatible = "adi,ade9078";
+      reg = <0>;
+      spi-max-frequency = <1000000>;
+
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      reset-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+
+      interrupts = <2 IRQ_TYPE_EDGE_FALLING>, <3 IRQ_TYPE_EDGE_FALLING>;
+      interrupt-names = "irq0", "irq1";
+      interrupt-parent = <&gpio>;
+
+      adi,wf-cap-sel = <0x1>;
+      adi,wf-mode = <0x0>;
+      adi,wf-src = <0x3>;
+      adi,wf-in-en = <0x0>;
+
+      phase@0 {
+        reg = <0>;
+      };
+      phase@1 {
+        reg = <4>;
+      };
+    };
