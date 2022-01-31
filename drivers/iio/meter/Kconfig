@@ -7,7 +7,8 @@ menu "Active energy metering IC"
 config ADE9078
 	tristate "Analog Devices ADE9078 Poly Phase Multifunction Energy Metering IC Driver"
 	depends on SPI
-	default n
+	select REGMAP_SPI
+	select IIO_BUFFER
 	help
 	  Support driver for the ADE9078, select y to build the driver.
 	  Select M to build it as a module.
