@@ -606,28 +606,6 @@ static int ade9078_update_mask0(struct ade9078_state *st)
 }
 
 /*
- * ade9078_test_bits() - tests the bits of a given register within the IC
- * @map:	regmap device
- * @reg:	register to be tested
- * @bits:	bits to be checked
- *
- * Returns 0 if at least one of the tested bits is not set, 1 if all tested
- * bits are set and a negative error number if the underlying regmap_read()
- * fails.
- */
-static int ade9078_test_bits(struct regmap *map, unsigned int reg,
-			     unsigned int bits)
-{
-	int val, ret;
-
-	ret = regmap_read(map, reg, &val);
-	if (ret)
-		return ret;
-
-	return (val & bits) == bits;
-}
-
-/*
  * ade9078_iio_push_buffer() - reads out the content of the waveform buffer and
  * pushes it to the IIO buffer.
  * @st:		ade9078 device data
@@ -743,7 +721,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 {
 	struct ade9078_state *st = data;
 	struct iio_dev *indio_dev = st->indio_dev;
-	int result;
+	u32 result;
 	u32 status;
 	u32 tmp;
 	s64 timestamp = iio_get_time_ns(indio_dev);
@@ -754,12 +732,13 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 
 	//reset
 	if (!st->rst_done) {
-		result = ade9078_test_bits(st->regmap, ADDR_STATUS1,
-					   ADE9078_ST1_RSTDONE_BIT);
-		if (result < 0)
-			dev_err(&st->spi->dev, "Error testing reset done");
-		else if (result == 1)
+		ret = regmap_read(st->regmap, ADDR_STATUS1, &result);
+		if (ret)
+			return ret;
+		if (result & ADE9078_ST1_RSTDONE_BIT)
 			st->rst_done = true;
+		else
+			dev_err(&st->spi->dev, "Error testing reset done");
 		goto irq1_done;
 	}
 
