@@ -20,7 +20,7 @@
 #include <linux/spi/spi.h>
 #include <linux/regmap.h>
 
-//address of ADE90XX registers
+/*address of ADE90XX registers*/
 #define	ADDR_AIGAIN			0x000
 #define	ADDR_AVGAIN			0x00B
 #define	ADDR_AIRMSOS			0x00C
@@ -84,16 +84,16 @@
  */
 #define ADE9078_PGA_GAIN		0x0000
 
-//Default configuration
+/*Default configuration*/
 #define ADE9078_CONFIG0			0x00000000
 
-//CF3/ZX pin outputs Zero crossing
+/*CF3/ZX pin outputs Zero crossing*/
 #define ADE9078_CONFIG1			0x0002
 
-//Default High pass corner frequency of 1.25Hz
+/*Default High pass corner frequency of 1.25Hz*/
 #define ADE9078_CONFIG2			0x0A00
 
-//Peak and overcurrent detection disabled
+/*Peak and overcurrent detection disabled*/
 #define ADE9078_CONFIG3			0x0000
 
 /*
@@ -103,16 +103,16 @@
  */
 #define ADE9078_ACCMODE			0x0000
 
-//Line period and zero crossing obtained from VA
+/*Line period and zero crossing obtained from VA*/
 #define ADE9078_ZX_LP_SEL		0x0000
 
-//Disable all interrupts
+/*Disable all interrupts*/
 #define ADE9078_MASK0			0x00000000
 
-//Disable all interrupts
+/*Disable all interrupts*/
 #define ADE9078_MASK1			0x00000000
 
-//Events disabled
+/*Events disabled*/
 #define ADE9078_EVENT_MASK		0x00000000
 
 /*
@@ -121,10 +121,10 @@
  */
 #define ADE9078_VLEVEL			0x0022EA28
 
-//Set DICOEFF= 0xFFFFE000 when integrator is enabled
+/*Set DICOEFF= 0xFFFFE000 when integrator is enabled*/
 #define ADE9078_DICOEFF			0x00000000
 
-//DSP ON
+/*DSP ON*/
 #define ADE9078_RUN_ON			0xFFFFFFFF
 
 /*
@@ -135,7 +135,7 @@
  */
 #define ADE9078_EP_CFG			0x0011
 
-//Accumulate 4000 samples
+/*Accumulate 4000 samples*/
 #define ADE9078_EGY_TIME		0x0FA0
 
 /*
@@ -156,7 +156,7 @@
 #define ADE9078_SWRST_BIT		BIT(0)
 #define ADE9078_SWRST_MASK		BIT(0)
 
-//Status and Mask register bits
+/*Status and Mask register bits*/
 #define ADE9078_ST0_WFB_TRIG		16
 #define ADE9078_ST0_WFB_TRIG_BIT	BIT(ADE9078_ST0_WFB_TRIG)
 #define ADE9078_ST0_PAGE_FULL		17
@@ -217,7 +217,7 @@
 #define ADE9000_WATT_FULL_SCALE_CODES	20694066
 #define ADE9078_PCF_FULL_SCALE_CODES	74770000
 
-//Phase and channel definitions
+/*Phase and channel definitions*/
 #define ADE9078_PHASE_A_NR		0
 #define ADE9078_PHASE_B_NR		2
 #define ADE9078_PHASE_C_NR		4
@@ -412,7 +412,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	},
 };
 
-//IIO channels of the ade9078 for each phase individually
+/*IIO channels of the ade9078 for each phase individually*/
 static const struct iio_chan_spec ade9078_a_channels[] = {
 	ADE9078_CURRENT_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
@@ -477,7 +477,7 @@ static const struct reg_sequence ade9078_reg_sequence[] = {
 /*
  * ade9078_spi_write_reg() - ade9078 write register over SPI
  * the data format for communicating with the ade9078 over SPI
- * is very specific
+ * is very specific and can access both 32bit and 16bit registers
  * @context:	void pointer to the SPI device
  * @reg:	address of the of desired register
  * @val:	value to be written to the ade9078
@@ -523,7 +523,7 @@ static int ade9078_spi_write_reg(void *context,
 /*
  * ade9078_spi_write_reg() - ade9078 read register over SPI
  * the data format for communicating with the ade9078 over SPI
- * is very specific
+ * is very specific and can access both 32bit and 16bit registers
  * @context:	void pointer to the SPI device
  * @reg:	address of the of desired register
  * @val:	value to be read to the ade9078
@@ -1369,7 +1369,7 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 }
 
 /*
- * ade9078_buffer_preenable() - configures the wave form buffer, sets the
+ * ade9078_buffer_preenable() - configures the waveform buffer, sets the
  * interrupts and enables the buffer
  * @indio_dev:	the IIO device
  */
@@ -1451,8 +1451,7 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 
 /*
  * ade9078_setup_iio_channels() - parses the phase nodes of the device-tree and
- * creates the iio channels based on the active phases in the DT. Each phase
- * has its own I, V and P channels with individual gain and offset parameters.
+ * creates the iio channels based on the active phases in the DT.
  * @st:		ade9078 device data
  */
 static int ade9078_setup_iio_channels(struct ade9078_state *st)
@@ -1510,7 +1509,9 @@ static int ade9078_setup_iio_channels(struct ade9078_state *st)
 }
 
 /*
- * ade9078_reset() - Reset sequence for the ADE9078
+ * ade9078_reset() - Reset sequence for the ADE9078, the hardware reset is
+ * optional in the DT. When no hardware reset has been declared a software
+ * reset is executed
  * @st:		ade9078 device data
  */
 static int ade9078_reset(struct ade9078_state *st)
