@@ -202,6 +202,7 @@ void dpaa_eth_init_ports(struct mac_device *mac_dev,
 		struct dpa_buffer_layout_s *buf_layout,
 		struct device *dev);
 void dpa_release_sgt(struct qm_sg_entry *sgt);
+void dpa_release_sgt_by_bpid(struct qm_sg_entry *sgt);
 void __attribute__((nonnull))
 dpa_fd_release(const struct net_device *net_dev, const struct qm_fd *fd);
 void count_ern(struct dpa_percpu_priv_s *percpu_priv,
