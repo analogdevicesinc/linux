@@ -17,55 +17,55 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of_irq.h>
-#include <linux/spi/spi.h>
 #include <linux/regmap.h>
+#include <linux/spi/spi.h>
 
-/*address of ADE90XX registers*/
-#define	ADDR_AIGAIN			0x000
-#define	ADDR_AVGAIN			0x00B
-#define	ADDR_AIRMSOS			0x00C
-#define	ADDR_AVRMSOS			0x00D
-#define	ADDR_APGAIN			0x00E
-#define	ADDR_AWATTOS			0x00F
-#define	ADDR_AVAROS			0x010
-#define	ADDR_AFVAROS			0x012
-#define	ADDR_CONFIG0			0x060
-#define	ADDR_DICOEFF			0x072
-#define	ADDR_AI_PCF			0x20A
-#define	ADDR_AV_PCF			0x20B
-#define	ADDR_AIRMS			0x20C
-#define	ADDR_AVRMS			0x20D
-#define	ADDR_AWATT			0x210
-#define	ADDR_AVAR			0x211
-#define	ADDR_AVA			0x212
-#define ADDR_AFVAR			0x214
-#define	ADDR_APF			0x216
-#define	ADDR_CI_PCF			0x24A
-#define	ADDR_CV_PCF			0x24B
-#define	ADDR_CIRMS			0x24C
-#define	ADDR_CVRMS			0x24D
-#define	ADDR_AWATT_ACC			0x2E5
-#define	ADDR_STATUS0			0x402
-#define	ADDR_STATUS1			0x403
-#define	ADDR_MASK0			0x405
-#define	ADDR_MASK1			0x406
-#define	ADDR_EVENT_MASK			0x407
-#define	ADDR_VLEVEL			0x40F
-#define	ADDR_RUN			0x480
-#define	ADDR_CONFIG1			0x481
-#define	ADDR_ACCMODE			0x492
-#define	ADDR_CONFIG3			0x493
-#define	ADDR_ZX_LP_SEL			0x49A
-#define	ADDR_WFB_CFG			0x4A0
-#define	ADDR_WFB_PG_IRQEN		0x4A1
-#define	ADDR_WFB_TRG_CFG		0x4A2
-#define	ADDR_WFB_TRG_STAT		0x4A3
-#define	ADDR_CONFIG2			0x4AF
-#define	ADDR_EP_CFG			0x4B0
-#define	ADDR_EGY_TIME			0x4B2
-#define	ADDR_PGA_GAIN			0x4B9
-#define	ADDR_VERSION			0x4FE
-#define ADDR_WF_BUFF			0x800
+/* Address of ADE90XX registers */
+#define	ADE9078_REG_AIGAIN		0x000
+#define	ADE9078_REG_AVGAIN		0x00B
+#define	ADE9078_REG_AIRMSOS		0x00C
+#define	ADE9078_REG_AVRMSOS		0x00D
+#define	ADE9078_REG_APGAIN		0x00E
+#define	ADE9078_REG_AWATTOS		0x00F
+#define	ADE9078_REG_AVAROS		0x010
+#define	ADE9078_REG_AFVAROS		0x012
+#define	ADE9078_REG_CONFIG0		0x060
+#define	ADE9078_REG_DICOEFF		0x072
+#define	ADE9078_REG_AI_PCF		0x20A
+#define	ADE9078_REG_AV_PCF		0x20B
+#define	ADE9078_REG_AIRMS		0x20C
+#define	ADE9078_REG_AVRMS		0x20D
+#define	ADE9078_REG_AWATT		0x210
+#define	ADE9078_REG_AVAR		0x211
+#define	ADE9078_REG_AVA			0x212
+#define ADE9078_REG_AFVAR		0x214
+#define	ADE9078_REG_APF			0x216
+#define	ADE9078_REG_CI_PCF		0x24A
+#define	ADE9078_REG_CV_PCF		0x24B
+#define	ADE9078_REG_CIRMS		0x24C
+#define	ADE9078_REG_CVRMS		0x24D
+#define	ADE9078_REG_AWATT_ACC		0x2E5
+#define	ADE9078_REG_STATUS0		0x402
+#define	ADE9078_REG_STATUS1		0x403
+#define	ADE9078_REG_MASK0		0x405
+#define	ADE9078_REG_MASK1		0x406
+#define	ADE9078_REG_EVENT_MASK		0x407
+#define	ADE9078_REG_VLEVEL		0x40F
+#define	ADE9078_REG_RUN			0x480
+#define ADE9078_REG_CONFIG1		0x481
+#define	ADE9078_REG_ACCMODE		0x492
+#define	ADE9078_REG_CONFIG3		0x493
+#define	ADE9078_REG_ZX_LP_SEL		0x49A
+#define	ADE9078_REG_WFB_CFG		0x4A0
+#define	ADE9078_REG_WFB_PG_IRQEN	0x4A1
+#define	ADE9078_REG_WFB_TRG_CFG		0x4A2
+#define	ADE9078_REG_WFB_TRG_STAT	0x4A3
+#define	ADE9078_REG_CONFIG2		0x4AF
+#define	ADE9078_REG_EP_CFG		0x4B0
+#define	ADE9078_REG_EGY_TIME		0x4B2
+#define	ADE9078_REG_PGA_GAIN		0x4B9
+#define	ADE9078_REG_VERSION		0x4FE
+#define ADE9078_REG_WF_BUFF		0x800
 
 #define ADE9078_REG_ADDR_MASK		GENMASK(15, 4)
 #define ADE9078_REG_READ_BIT_MASK	BIT(3)
@@ -84,16 +84,16 @@
  */
 #define ADE9078_PGA_GAIN		0x0000
 
-/*Default configuration*/
+/* Default configuration */
 #define ADE9078_CONFIG0			0x00000000
 
-/*CF3/ZX pin outputs Zero crossing*/
+/* CF3/ZX pin outputs Zero crossing */
 #define ADE9078_CONFIG1			0x0002
 
-/*Default High pass corner frequency of 1.25Hz*/
+/* Default High pass corner frequency of 1.25Hz */
 #define ADE9078_CONFIG2			0x0A00
 
-/*Peak and overcurrent detection disabled*/
+/* Peak and overcurrent detection disabled */
 #define ADE9078_CONFIG3			0x0000
 
 /*
@@ -103,28 +103,28 @@
  */
 #define ADE9078_ACCMODE			0x0000
 
-/*Line period and zero crossing obtained from VA*/
+/*Line period and zero crossing obtained from VA */
 #define ADE9078_ZX_LP_SEL		0x0000
 
-/*Disable all interrupts*/
+/* Disable all interrupts */
 #define ADE9078_MASK0			0x00000000
 
-/*Disable all interrupts*/
+/* Disable all interrupts */
 #define ADE9078_MASK1			0x00000000
 
-/*Events disabled*/
+/* Events disabled */
 #define ADE9078_EVENT_MASK		0x00000000
 
 /*
  * Assuming Vnom=1/2 of full scale.
- * Refer Technical reference manual for detailed calculations.
+ * Refer to Technical reference manual for detailed calculations.
  */
 #define ADE9078_VLEVEL			0x0022EA28
 
-/*Set DICOEFF= 0xFFFFE000 when integrator is enabled*/
+/* Set DICOEFF= 0xFFFFE000 when integrator is enabled */
 #define ADE9078_DICOEFF			0x00000000
 
-/*DSP ON*/
+/* DSP ON */
 #define ADE9078_RUN_ON			0xFFFFFFFF
 
 /*
@@ -135,7 +135,7 @@
  */
 #define ADE9078_EP_CFG			0x0011
 
-/*Accumulate 4000 samples*/
+/* Accumulate 4000 samples */
 #define ADE9078_EGY_TIME		0x0FA0
 
 /*
@@ -156,7 +156,7 @@
 #define ADE9078_SWRST_BIT		BIT(0)
 #define ADE9078_SWRST_MASK		BIT(0)
 
-/*Status and Mask register bits*/
+/* Status and Mask register bits*/
 #define ADE9078_ST0_WFB_TRIG		16
 #define ADE9078_ST0_WFB_TRIG_BIT	BIT(ADE9078_ST0_WFB_TRIG)
 #define ADE9078_ST0_PAGE_FULL		17
@@ -187,9 +187,9 @@
 #define ADE9078_ST1_ERROR3		BIT(31)
 #define ADE9078_ST_ERROR \
 	(ADE9078_ST1_ERROR0 | \
-	ADE9078_ST1_ERROR1 | \
-	ADE9078_ST1_ERROR2 | \
-	ADE9078_ST1_ERROR3)
+	 ADE9078_ST1_ERROR1 | \
+	 ADE9078_ST1_ERROR2 | \
+	 ADE9078_ST1_ERROR3)
 #define ADE9078_ST1_CROSSING_FIRST	6
 #define ADE9078_ST1_CROSSING_DEPTH	16
 
@@ -217,7 +217,7 @@
 #define ADE9000_WATT_FULL_SCALE_CODES	20694066
 #define ADE9078_PCF_FULL_SCALE_CODES	74770000
 
-/*Phase and channel definitions*/
+/* Phase and channel definitions */
 #define ADE9078_PHASE_A_NR		0
 #define ADE9078_PHASE_B_NR		2
 #define ADE9078_PHASE_C_NR		4
@@ -237,19 +237,20 @@
 
 #define ADE9078_MAX_PHASE_NR		3
 
-#define PHASE_ADDR_ADJUST(addr, chan)	(((chan) << 4) | (addr))
+#define ADE9078_ADDR_ADJUST(addr, chan)					\
+	(((chan) << 4) | (addr))
 
-#define ADE9078_CURRENT_CHANNEL(_num, _name) {				\
+#define ADE9078_CURRENT_CHANNEL(num, name) {				\
 	.type = IIO_CURRENT,						\
-	.channel = _num,						\
-	.extend_name = _name,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AI_PCF, _num),		\
+	.channel = num,							\
+	.extend_name = name,						\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AI_PCF, num),	\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
-	.scan_index = _num,						\
+	.scan_index = num,						\
 	.scan_type = {							\
 		.sign = 's',						\
 		.realbits = 32,						\
@@ -259,17 +260,17 @@
 	},								\
 }
 
-#define ADE9078_VOLTAGE_CHANNEL(_num, _name) {				\
+#define ADE9078_VOLTAGE_CHANNEL(num, name) {				\
 	.type = IIO_VOLTAGE,						\
-	.channel = _num,						\
-	.extend_name = _name,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AV_PCF, _num),		\
+	.channel = num,							\
+	.extend_name = name,						\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AV_PCF, num),	\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
-	.scan_index = _num + 1,						\
+	.scan_index = num + 1,						\
 	.scan_type = {							\
 		.sign = 's',						\
 		.realbits = 32,						\
@@ -279,33 +280,33 @@
 	},								\
 }
 
-#define ADE9078_CURRENT_RMS_CHANNEL(_num, _name) {			\
+#define ADE9078_CURRENT_RMS_CHANNEL(num, name) {			\
 	.type = IIO_CURRENT,						\
-	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AIRMS, _num),			\
-	.extend_name = _name "_rms",					\
+	.channel = num,							\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AIRMS, num),		\
+	.extend_name = name "_rms",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
 	.scan_index = -1						\
 }
 
-#define ADE9078_VOLTAGE_RMS_CHANNEL(_num, _name) {			\
+#define ADE9078_VOLTAGE_RMS_CHANNEL(num, name) {			\
 	.type = IIO_VOLTAGE,						\
-	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AVRMS, _num),			\
-	.extend_name = _name "_rms",					\
+	.channel = num,							\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AVRMS, num),		\
+	.extend_name = name "_rms",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
 	.scan_index = -1						\
 }
 
-#define ADE9078_POWER_ACTIV_CHANNEL(_num, _name) {			\
+#define ADE9078_POWER_ACTIV_CHANNEL(num, name) {			\
 	.type = IIO_POWER,						\
-	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AWATT, _num),			\
-	.extend_name = _name "_activ",					\
+	.channel = num,							\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AWATT, num),		\
+	.extend_name = name "_activ",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET) |		\
@@ -313,43 +314,43 @@
 	.scan_index = -1						\
 }
 
-#define ADE9078_POWER_REACTIV_CHANNEL(_num, _name) {			\
+#define ADE9078_POWER_REACTIV_CHANNEL(num, name) {			\
 	.type = IIO_POWER,						\
-	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AVAR, _num),			\
-	.extend_name = _name "_reactiv",				\
+	.channel = num,							\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AVAR, num),		\
+	.extend_name = name "_reactiv",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
 	.scan_index = -1						\
 }
 
-#define ADE9078_POWER_APPARENT_CHANNEL(_num, _name) {			\
+#define ADE9078_POWER_APPARENT_CHANNEL(num, name) {			\
 	.type = IIO_POWER,						\
-	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AVA, _num),			\
-	.extend_name = _name "_apparent",				\
+	.channel = num,							\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AVA, num),		\
+	.extend_name = name "_apparent",				\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
 }
 
-#define ADE9078_POWER_FUND_REACTIV_CHANNEL(_num, _name) {		\
+#define ADE9078_POWER_FUND_REACTIV_CHANNEL(num, name) {			\
 	.type = IIO_POWER,						\
-	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_AFVAR, _num),			\
-	.extend_name = _name "_fund_reactiv",				\
+	.channel = num,							\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AFVAR, num),		\
+	.extend_name = name "_fund_reactiv",				\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
 	.scan_index = -1						\
 }
 
-#define ADE9078_POWER_FACTOR_CHANNEL(_num, _name) {			\
+#define ADE9078_POWER_FACTOR_CHANNEL(num, name) {			\
 	.type = IIO_POWER,						\
-	.channel = _num,						\
-	.address = PHASE_ADDR_ADJUST(ADDR_APF, _num),			\
-	.extend_name = _name "_factor",					\
+	.channel = num,							\
+	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_APF, num),		\
+	.extend_name = name "_factor",					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
@@ -412,7 +413,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	},
 };
 
-/*IIO channels of the ade9078 for each phase individually*/
+/* IIO channels of the ade9078 for each phase individually */
 static const struct iio_chan_spec ade9078_a_channels[] = {
 	ADE9078_CURRENT_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
 	ADE9078_VOLTAGE_CHANNEL(ADE9078_PHASE_A_NR, ADE9078_PHASE_A_NAME),
@@ -456,22 +457,22 @@ static const struct iio_chan_spec ade9078_c_channels[] = {
 };
 
 static const struct reg_sequence ade9078_reg_sequence[] = {
-	{ADDR_PGA_GAIN, ADE9078_PGA_GAIN},
-	{ADDR_CONFIG0, ADE9078_CONFIG0},
-	{ADDR_CONFIG1, ADE9078_CONFIG1},
-	{ADDR_CONFIG2, ADE9078_CONFIG2},
-	{ADDR_CONFIG3, ADE9078_CONFIG3},
-	{ADDR_ACCMODE, ADE9078_ACCMODE},
-	{ADDR_ZX_LP_SEL, ADE9078_ZX_LP_SEL},
-	{ADDR_MASK0, ADE9078_MASK0},
-	{ADDR_MASK1, ADE9078_MASK1},
-	{ADDR_EVENT_MASK, ADE9078_EVENT_MASK},
-	{ADDR_WFB_CFG, ADE9078_WFB_CFG},
-	{ADDR_VLEVEL, ADE9078_VLEVEL},
-	{ADDR_DICOEFF, ADE9078_DICOEFF},
-	{ADDR_EGY_TIME, ADE9078_EGY_TIME},
-	{ADDR_EP_CFG, ADE9078_EP_CFG},
-	{ADDR_RUN, ADE9078_RUN_ON}
+	{ ADE9078_REG_PGA_GAIN, ADE9078_PGA_GAIN },
+	{ ADE9078_REG_CONFIG0, ADE9078_CONFIG0 },
+	{ ADE9078_REG_CONFIG1, ADE9078_CONFIG1 },
+	{ ADE9078_REG_CONFIG2, ADE9078_CONFIG2 },
+	{ ADE9078_REG_CONFIG3, ADE9078_CONFIG3 },
+	{ ADE9078_REG_ACCMODE, ADE9078_ACCMODE },
+	{ ADE9078_REG_ZX_LP_SEL, ADE9078_ZX_LP_SEL },
+	{ ADE9078_REG_MASK0, ADE9078_MASK0 },
+	{ ADE9078_REG_MASK1, ADE9078_MASK1 },
+	{ ADE9078_REG_EVENT_MASK, ADE9078_EVENT_MASK },
+	{ ADE9078_REG_WFB_CFG, ADE9078_WFB_CFG },
+	{ ADE9078_REG_VLEVEL, ADE9078_VLEVEL },
+	{ ADE9078_REG_DICOEFF, ADE9078_DICOEFF },
+	{ ADE9078_REG_EGY_TIME, ADE9078_EGY_TIME },
+	{ ADE9078_REG_EP_CFG, ADE9078_EP_CFG },
+	{ ADE9078_REG_RUN, ADE9078_RUN_ON }
 };
 
 /*
@@ -584,7 +585,7 @@ err_ret:
  */
 static int ade9078_en_wfb(struct ade9078_state *st, bool state)
 {
-	return regmap_update_bits(st->regmap, ADDR_WFB_CFG, BIT_MASK(4),
+	return regmap_update_bits(st->regmap, ADE9078_REG_WFB_CFG, BIT_MASK(4),
 				  state ? BIT_MASK(4) : 0);
 }
 
@@ -597,12 +598,12 @@ static int ade9078_update_mask0(struct ade9078_state *st)
 {
 	int ret;
 
-	ret = regmap_write(st->regmap, ADDR_STATUS0, GENMASK(31, 0));
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
 
 	if (ret)
 		return ret;
 
-	return regmap_write(st->regmap, ADDR_MASK0, st->irq0_bits);
+	return regmap_write(st->regmap, ADE9078_REG_MASK0, st->irq0_bits);
 }
 
 /*
@@ -642,7 +643,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	unsigned long *irq0_bits = (unsigned long *)&st->irq0_bits;
 	int ret;
 
-	ret = regmap_read(st->regmap, ADDR_STATUS0, &status);
+	ret = regmap_read(st->regmap, ADE9078_REG_STATUS0, &status);
 	if (ret) {
 		dev_err(&st->spi->dev, "IRQ0 read status fail");
 		goto irq0_done;
@@ -652,7 +653,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	    (st->irq0_bits & ADE9078_ST0_PAGE_FULL_BIT)) {
 		//Stop Filling on Trigger and Center Capture Around Trigger
 		if (st->wf_mode) {
-			ret = regmap_write(st->regmap, ADDR_WFB_TRG_CFG,
+			ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG,
 					   st->wfb_trg);
 			if (ret) {
 				dev_err(&st->spi->dev, "IRQ0 WFB write fail");
@@ -677,7 +678,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 
 		//disable Page full interrupt
 		clear_bit(ADE9078_ST0_PAGE_FULL, irq0_bits);
-		ret = regmap_write(st->regmap, ADDR_MASK0, st->irq0_bits);
+		ret = regmap_write(st->regmap, ADE9078_REG_MASK0, st->irq0_bits);
 		if (ret) {
 			dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
 			goto irq0_done;
@@ -704,7 +705,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		set_bit(ADE9078_ST0_WFB_TRIG, (unsigned long *)&handled_irq);
 	}
 
-	ret = regmap_write(st->regmap, ADDR_STATUS0, handled_irq);
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, handled_irq);
 	if (ret)
 		dev_err(&st->spi->dev, "IRQ0 write status fail");
 
@@ -732,7 +733,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 
 	//reset
 	if (!st->rst_done) {
-		ret = regmap_read(st->regmap, ADDR_STATUS1, &result);
+		ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &result);
 		if (ret)
 			return ret;
 		if (result & ADE9078_ST1_RSTDONE_BIT)
@@ -742,7 +743,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		goto irq1_done;
 	}
 
-	ret = regmap_read(st->regmap, ADDR_STATUS1, &status);
+	ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &status);
 	if (ret)
 		return ret;
 
@@ -848,7 +849,7 @@ static int ade9078_configure_scan(struct iio_dev *indio_dev)
 
 	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
 
-	addr = FIELD_PREP(ADE9078_REG_ADDR_MASK, ADDR_WF_BUFF) |
+	addr = FIELD_PREP(ADE9078_REG_ADDR_MASK, ADE9078_REG_WF_BUFF) |
 	       ADE9078_REG_READ_BIT_MASK;
 
 	put_unaligned_be16(addr, st->tx_buff);
@@ -899,28 +900,28 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_CURRENT:
-			if (chan->address >= ADDR_AI_PCF &&
-			    chan->address <= ADDR_CI_PCF){
+			if (chan->address >= ADE9078_REG_AI_PCF &&
+			    chan->address <= ADE9078_REG_CI_PCF){
 				*val = 1;
 				*val2 = ADE9078_PCF_FULL_SCALE_CODES;
 				return IIO_VAL_FRACTIONAL;
 			}
-			if (chan->address >= ADDR_AIRMS &&
-			    chan->address <= ADDR_CIRMS){
+			if (chan->address >= ADE9078_REG_AIRMS &&
+			    chan->address <= ADE9078_REG_CIRMS){
 				*val = 1;
 				*val2 = ADE9078_RMS_FULL_SCALE_CODES;
 				return IIO_VAL_FRACTIONAL;
 			}
 			break;
 		case IIO_VOLTAGE:
-			if (chan->address >= ADDR_AV_PCF &&
-			    chan->address <= ADDR_CV_PCF){
+			if (chan->address >= ADE9078_REG_AV_PCF &&
+			    chan->address <= ADE9078_REG_CV_PCF){
 				*val = 1;
 				*val2 = ADE9078_PCF_FULL_SCALE_CODES;
 				return IIO_VAL_FRACTIONAL;
 			}
-			if (chan->address >= ADDR_AVRMS &&
-			    chan->address <= ADDR_CVRMS){
+			if (chan->address >= ADE9078_REG_AVRMS &&
+			    chan->address <= ADE9078_REG_CVRMS){
 				*val = 1;
 				*val2 = ADE9078_RMS_FULL_SCALE_CODES;
 				return IIO_VAL_FRACTIONAL;
@@ -965,10 +966,12 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OFFSET:
 		switch (chan->type) {
 		case IIO_CURRENT:
-			addr = PHASE_ADDR_ADJUST(ADDR_AIRMSOS, chan->channel);
+			addr = ADE9078_ADDR_ADJUST(ADE9078_REG_AIRMSOS,
+						   chan->channel);
 			break;
 		case IIO_VOLTAGE:
-			addr = PHASE_ADDR_ADJUST(ADDR_AVRMSOS, chan->channel);
+			addr = ADE9078_ADDR_ADJUST(ADE9078_REG_AVRMSOS,
+						   chan->channel);
 			break;
 		case IIO_POWER:
 			tmp = chan->address;
@@ -976,17 +979,17 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 			clear_bit(ADE9078_PHASE_C_POS, &tmp);
 
 			switch (tmp) {
-			case ADDR_AWATT:
-				addr = PHASE_ADDR_ADJUST(ADDR_AWATTOS,
-							 chan->channel);
+			case ADE9078_REG_AWATTOS:
+				addr = ADE9078_ADDR_ADJUST(ADE9078_REG_AWATTOS,
+							   chan->channel);
 				break;
-			case ADDR_AVAR:
-				addr = PHASE_ADDR_ADJUST(ADDR_AVAROS,
-							 chan->channel);
+			case ADE9078_REG_AVAR:
+				addr = ADE9078_ADDR_ADJUST(ADE9078_REG_AVAROS,
+							   chan->channel);
 				break;
-			case ADDR_AFVAR:
-				addr = PHASE_ADDR_ADJUST(ADDR_AFVAROS,
-							 chan->channel);
+			case ADE9078_REG_AFVAR:
+				addr = ADE9078_ADDR_ADJUST(ADE9078_REG_AFVAROS,
+							   chan->channel);
 				break;
 			default:
 				return -EINVAL;
@@ -1000,13 +1003,16 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		switch (chan->type) {
 		case IIO_CURRENT:
-			addr = PHASE_ADDR_ADJUST(ADDR_AIGAIN, chan->channel);
+			addr = ADE9078_ADDR_ADJUST(ADE9078_REG_AIGAIN,
+						   chan->channel);
 			break;
 		case IIO_VOLTAGE:
-			addr = PHASE_ADDR_ADJUST(ADDR_AVGAIN, chan->channel);
+			addr = ADE9078_ADDR_ADJUST(ADE9078_REG_AVGAIN,
+						   chan->channel);
 			break;
 		case IIO_POWER:
-			addr = PHASE_ADDR_ADJUST(ADDR_APGAIN, chan->channel);
+			addr = ADE9078_ADDR_ADJUST(ADE9078_REG_APGAIN,
+						   chan->channel);
 			break;
 		default:
 			return -EINVAL;
@@ -1137,11 +1143,11 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	ret = regmap_write(st->regmap, ADDR_STATUS1, GENMASK(31, 0));
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, GENMASK(31, 0));
 	if (ret)
 		return ret;
 
-	return regmap_write(st->regmap, ADDR_MASK1, st->irq1_bits);
+	return regmap_write(st->regmap, ADE9078_REG_MASK1, st->irq1_bits);
 }
 
 /*
@@ -1237,7 +1243,7 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	ret = regmap_write(st->regmap, ADDR_STATUS1, (u32)handeled_irq);
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, (u32)handeled_irq);
 	if (ret)
 		return ret;
 
@@ -1330,7 +1336,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	}
 	wfg_cfg_val |= FIELD_PREP(ADE9078_WF_IN_EN_MASK, tmp);
 
-	return regmap_write(st->regmap, ADDR_WFB_CFG, wfg_cfg_val);
+	return regmap_write(st->regmap, ADE9078_REG_WFB_CFG, wfg_cfg_val);
 }
 
 /*
@@ -1347,17 +1353,17 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 	int ret;
 	unsigned long *irq0_bits = (unsigned long *)&st->irq0_bits;
 
-	ret = regmap_write(st->regmap, ADDR_WFB_TRG_CFG, 0x0);
+	ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG, 0x0);
 	if (ret)
 		return ret;
 
 	if (mode == 1 || mode == 0) {
-		ret = regmap_write(st->regmap, ADDR_WFB_PG_IRQEN,
+		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
 				   ADE9078_MODE_0_1_PAGE_BIT);
 		if (ret)
 			return ret;
 	} else if (mode == 2) {
-		ret = regmap_write(st->regmap, ADDR_WFB_PG_IRQEN,
+		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
 				   ADE9078_MODE_2_PAGE_BIT);
 		if (ret)
 			return ret;
@@ -1433,7 +1439,7 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 		return ret;
 	}
 
-	ret = regmap_write(st->regmap, ADDR_WFB_TRG_CFG, 0x0);
+	ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG, 0x0);
 	if (ret)
 		return ret;
 
@@ -1532,7 +1538,7 @@ static int ade9078_reset(struct ade9078_state *st)
 		gpiod_set_value_cansleep(gpio_reset, 0);
 		msleep_interruptible(50);
 	} else {
-		ret = regmap_update_bits(st->regmap, ADDR_CONFIG1,
+		ret = regmap_update_bits(st->regmap, ADE9078_REG_CONFIG1,
 					 ADE9078_SWRST_MASK, ADE9078_SWRST_BIT);
 		if (ret)
 			return ret;
@@ -1560,11 +1566,11 @@ static int ade9078_setup(struct ade9078_state *st)
 
 	msleep_interruptible(2);
 
-	ret = regmap_write(st->regmap, ADDR_STATUS0, GENMASK(31, 0));
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADDR_STATUS1, GENMASK(31, 0));
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, GENMASK(31, 0));
 	if (ret)
 		return ret;
 
