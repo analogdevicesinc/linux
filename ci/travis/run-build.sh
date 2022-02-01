@@ -195,15 +195,6 @@ build_default() {
 	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" = "1" ] ; then
 		check_all_adi_files_have_been_built
 	fi
-
-	make savedefconfig
-	mv defconfig arch/$ARCH/configs/$DEFCONFIG
-
-	git diff --exit-code || {
-		echo_red "Defconfig file should be updated: 'arch/$ARCH/configs/$DEFCONFIG'"
-		echo_red "Run 'make savedefconfig', overwrite it and commit it"
-		return 1
-	}
 }
 
 build_allmodconfig() {
