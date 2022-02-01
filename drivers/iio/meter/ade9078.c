@@ -236,6 +236,7 @@
 #define ADE9078_PHASE_C_POS		6
 
 #define ADE9078_MAX_PHASE_NR		3
+#define AD9078_CHANNELS_PER_PHASE 	9
 
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
@@ -1466,7 +1467,6 @@ static int ade9078_setup_iio_channels(struct ade9078_state *st)
 	struct fwnode_handle *phase_node = NULL;
 	struct device *dev = &st->spi->dev;
 	u32 phase_nr;
-	u32 chan_size = 0;
 	int ret;
 
 	chan = devm_kcalloc(dev,
@@ -1491,24 +1491,21 @@ static int ade9078_setup_iio_channels(struct ade9078_state *st)
 		case ADE9078_PHASE_A_NR:
 			memcpy(chan, ade9078_a_channels,
 			       sizeof(ade9078_a_channels));
-			chan_size = ARRAY_SIZE(ade9078_a_channels);
 			break;
 		case ADE9078_PHASE_B_NR:
 			memcpy(chan, ade9078_b_channels,
 			       sizeof(ade9078_b_channels));
-			chan_size = ARRAY_SIZE(ade9078_b_channels);
 			break;
 		case ADE9078_PHASE_C_NR:
 			memcpy(chan, ade9078_c_channels,
 			       sizeof(ade9078_c_channels));
-			chan_size = ARRAY_SIZE(ade9078_c_channels);
 			break;
 		default:
 			return -EINVAL;
 		}
 
-		chan += chan_size;
-		st->indio_dev->num_channels += chan_size;
+		chan += AD9078_CHANNELS_PER_PHASE;
+		st->indio_dev->num_channels += AD9078_CHANNELS_PER_PHASE;
 	}
 
 	return 0;
