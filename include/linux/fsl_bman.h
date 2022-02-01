@@ -471,6 +471,18 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 			u32 flags);
 
 /**
+ * bman_release_by_bpid - Release buffer(s) to the buffer pool
+ * @bpid: the ID of the buffer pool to release to
+ * @bufs: an array of buffers to release
+ * @num: the number of buffers in @bufs (1-8)
+ *
+ * Adds the given buffers to RCR entries. Behavior similar to bman_release with
+ * the exception of the flag options and no stockpile. If the RCR ring is full,
+ * the function will return -EBUSY. Otherwise, it returns zero.
+ */
+int bman_release_by_bpid(u8 bpid, const struct bm_buffer *bufs, u8 num);
+
+/**
  * bman_acquire - Acquire buffer(s) from a buffer pool
  * @pool: the buffer pool object to acquire from
  * @bufs: array for storing the acquired buffers

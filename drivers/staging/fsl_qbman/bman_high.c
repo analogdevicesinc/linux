@@ -892,6 +892,50 @@ static inline int __bman_release(struct bman_pool *pool,
 	return 0;
 }
 
+int bman_release_by_bpid(u8 bpid, const struct bm_buffer *bufs, u8 num)
+{
+	struct bman_portal *p;
+	struct bm_rcr_entry *r;
+	__maybe_unused unsigned long irqflags;
+	u32 i = num - 1;
+
+#ifdef CONFIG_FSL_DPA_CHECKING
+	if (!num || num > 8)
+		return -EINVAL;
+#endif
+
+	memset(&irqflags, 0, sizeof(irqflags));
+
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
+	r = try_rel_start(&p, NULL, &irqflags, 0);
+#else
+	r = try_rel_start(&p, &irqflags, 0);
+#endif
+	if (!r)
+		return -EBUSY;
+
+	/* We can copy all but the first entry, as this can trigger badness
+	 * with the valid-bit. Use the overlay to mask the verb byte.
+	 */
+	r->bufs[0].opaque =
+		((cpu_to_be64((bufs[0].opaque |
+			      ((u64)bpid << 48))
+			      & 0x00ffffffffffffff)));
+	if (i) {
+		for (i = 1; i < num; i++)
+			r->bufs[i].opaque =
+				cpu_to_be64(bufs[i].opaque);
+	}
+
+	bm_rcr_pvb_commit(&p->p, BM_RCR_VERB_CMD_BPID_SINGLE |
+			(num & BM_RCR_VERB_BUFCOUNT_MASK));
+
+	PORTAL_IRQ_UNLOCK(p, irqflags);
+	put_affine_portal();
+	return 0;
+}
+EXPORT_SYMBOL(bman_release_by_bpid);
+
 int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 			u32 flags)
 {
