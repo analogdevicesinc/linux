@@ -114,6 +114,7 @@ struct cf_axi_dds_state {
 	enum fifo_ctrl			dma_fifo_ctrl_bypass;
 	bool				dma_fifo_ctrl_oneshot;
 	bool				issue_sync_en;
+	bool				ext_sync_avail;
 
 	struct iio_info			iio_info;
 	struct iio_dev			*indio_dev;
@@ -552,37 +553,91 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 	return ret;
 }
 
-static ssize_t cf_axi_sync_start(struct device *dev,
+
+static const char * const axidds_sync_ctrls[] = {
+	"arm", "disarm", "trigger_manual",
+};
+
+static ssize_t axidds_sync_start_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	bool state;
 	int ret;
 
-	ret = strtobool(buf, &state);
+	ret = sysfs_match_string(axidds_sync_ctrls, buf);
 	if (ret < 0)
 		return ret;
 
-	if (state)
+	mutex_lock(&indio_dev->mlock);
+	if (st->ext_sync_avail) {
+		switch (ret) {
+		case 0:
+			dds_write(st, ADI_REG_CNTRL_1, ADI_EXT_SYNC_ARM);
+			break;
+		case 1:
+			dds_write(st, ADI_REG_CNTRL_1, ADI_EXT_SYNC_DISARM);
+			break;
+		case 2:
+			dds_write(st, ADI_REG_CNTRL_1, ADI_MANUAL_SYNC_REQUEST);
+			break;
+		default:
+			ret = -EINVAL;
+		}
+	} else if (ret == 0) {
 		cf_axi_dds_start_sync(st, 0);
+	}
+	mutex_unlock(&indio_dev->mlock);
 
-	return len;
+	return ret < 0 ? ret : len;
 }
+
+static ssize_t axidds_sync_start_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	u32 reg;
+
+	switch ((u32)this_attr->address) {
+	case 0:
+		reg = dds_read(st, ADI_REG_SYNC_STATUS);
+
+		return sprintf(buf, "%s\n", reg & ADI_ADC_SYNC_STATUS ?
+			axidds_sync_ctrls[0] : axidds_sync_ctrls[1]);
+	case 1:
+		if (st->ext_sync_avail)
+			return sprintf(buf, "arm disarm trigger_manual\n");
+		else
+			return sprintf(buf, "arm\n");
+	default:
+		return -EINVAL;
+	}
+
+	return -EINVAL;
+}
+
+static IIO_DEVICE_ATTR(sync_start_enable, 0644,
+		       axidds_sync_start_show,
+		       axidds_sync_start_store,
+		       0);
+
+static IIO_DEVICE_ATTR(sync_start_enable_available, 0444,
+		       axidds_sync_start_show,
+		       NULL,
+		       1);
 
 static IIO_DEVICE_ATTR(out_voltage_sampling_frequency_available, 0444,
 		       cf_axi_sampling_frequency_available,
 		       NULL,
 		       0);
 
-static IIO_DEVICE_ATTR(sync_start_enable, 0200,
-		       NULL,
-		       cf_axi_sync_start,
-		       0);
-
 static struct attribute *cf_axi_attributes[] = {
 	&iio_dev_attr_sync_start_enable.dev_attr.attr,
+	&iio_dev_attr_sync_start_enable_available.dev_attr.attr,
 	&iio_dev_attr_out_voltage_sampling_frequency_available.dev_attr.attr,
 	NULL,
 };
@@ -2082,7 +2137,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	struct cf_axi_dds_state *st;
 	struct iio_dev *indio_dev;
 	struct resource *res;
-	unsigned int ctrl_2;
+	unsigned int ctrl_2, config;
 	unsigned int rate;
 	unsigned int drp_status;
 	int timeout = 100;
@@ -2190,6 +2245,9 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	st->issue_sync_en = info->issue_sync_en;
 	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_AXI_REG_VERSION);
+
+	config = dds_read(st, ADI_REG_CONFIG);
+	st->ext_sync_avail = !!(config & ADI_EXT_SYNC);
 	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
 
 	if (ADI_AXI_PCORE_VER_MAJOR(st->version) >
