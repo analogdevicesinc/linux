@@ -1782,10 +1782,30 @@ static int cf_axi_dds_jesd204_link_supported(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
+static int cf_axi_dds_jesd204_post_running_stage(struct jesd204_dev *jdev,
+					       enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+
+	if (reason == JESD204_STATE_OP_REASON_INIT) {
+		cf_axi_dds_start_sync(st, 0);
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+
+}
+
 static const struct jesd204_dev_data jesd204_cf_axi_dds_init = {
 	.state_ops = {
 		[JESD204_OP_LINK_SUPPORTED] = {
 			.per_link = cf_axi_dds_jesd204_link_supported,
+		},
+		[JESD204_OP_OPT_POST_RUNNING_STAGE] = {
+			.per_device = cf_axi_dds_jesd204_post_running_stage,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
 		},
 	},
 };
