@@ -25,6 +25,7 @@
 #define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
 #define ADI_SCALECORRECTION_ONLY	(1 << 9)
 #define ADI_XBAR_ENABLE			(1 << 10)
+#define ADI_EXT_SYNC			(1 << 12)
 
 /* DAC COMMON */
 
@@ -33,8 +34,10 @@
 #define ADI_MMCM_RSTN		(1 << 1)
 
 #define ADI_REG_CNTRL_1		0x0044
-#define ADI_ENABLE		(1 << 0) /* v7.0 */
 #define ADI_SYNC		(1 << 0) /* v8.0 */
+#define ADI_EXT_SYNC_ARM	(1 << 1)
+#define ADI_EXT_SYNC_DISARM	(1 << 2)
+#define ADI_MANUAL_SYNC_REQUEST	(1 << 8)
 
 #define ADI_REG_CNTRL_2		0x0048
 #define ADI_PAR_TYPE		(1 << 7)
@@ -77,6 +80,9 @@ enum dds_data_select {
 
 #define ADI_REG_STATUS		0x005C
 #define ADI_STATUS		(1 << 0)
+
+#define ADI_REG_SYNC_STATUS	0x0068
+#define ADI_ADC_SYNC_STATUS	(1 << 0)
 
 #define ADI_REG_DRP_CNTRL	0x0070
 #define ADI_DRP_SEL		(1 << 29)
