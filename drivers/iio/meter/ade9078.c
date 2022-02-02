@@ -498,7 +498,6 @@ static int ade9078_spi_write_reg(void *context,
 		{
 			.tx_buf = st->tx,
 			.bits_per_word = 8,
-			.len = 6,
 		},
 	};
 
@@ -507,11 +506,11 @@ static int ade9078_spi_write_reg(void *context,
 	put_unaligned_be16(addr, st->tx);
 	put_unaligned_be32(val, &st->tx[2]);
 
-	//registers which are 16 bits
-	if (reg > 0x480 && reg < 0x4FE) {
+	if (reg > ADE9078_REG_RUN && reg < ADE9078_REG_VERSION) {
 		put_unaligned_be16(val, &st->tx[2]);
 		xfer[0].len = 4;
-	}
+	} else
+		xfer[0].len = 6;
 
 	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
@@ -549,7 +548,6 @@ static int ade9078_spi_read_reg(void *context,
 		{
 			.rx_buf = st->rx,
 			.bits_per_word = 8,
-			.len = 6,
 		},
 	};
 
@@ -558,9 +556,10 @@ static int ade9078_spi_read_reg(void *context,
 
 	put_unaligned_be16(addr, st->tx);
 
-	//registers which are 16 bits
-	if (reg > 0x480 && reg < 0x4FE)
+	if (reg > ADE9078_REG_RUN && reg < ADE9078_REG_VERSION)
 		xfer[1].len = 4;
+	else
+		xfer[1].len = 6;
 
 	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
