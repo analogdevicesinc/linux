@@ -206,6 +206,15 @@
 #define ADE9078_WFB_TRG_ZXVC		8
 #define ADE9078_WFB_TRG_ZXVC_BIT	BIT(ADE9078_WFB_TRG_ZXVC)
 
+/* Stop when waveform buffer is full */
+#define ADE9078_WFB_FULL_MODE		0x0
+/* Continuous fill—stop only on enabled trigger events */
+#define ADE9078_WFB_EN_TRIG_MODE	0x1
+/* Continuous filling—center capture around enabled trigger events */
+#define ADE9078_WFB_C_EN_TRIG_MODE	0x2
+/* Continuous fill—save event address of enabled trigger events */
+#define ADE9078_WFB_SAVE_EN_TRIG_MODE	0x3
+
 #define ADE9078_MODE_0_1_PAGE_BIT	BIT(15)
 #define ADE9078_MODE_2_PAGE_BIT		BIT(7)
 
@@ -236,7 +245,7 @@
 #define ADE9078_PHASE_C_POS		6
 
 #define ADE9078_MAX_PHASE_NR		3
-#define AD9078_CHANNELS_PER_PHASE 	9
+#define AD9078_CHANNELS_PER_PHASE	9
 
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
@@ -509,8 +518,9 @@ static int ade9078_spi_write_reg(void *context,
 	if (reg > ADE9078_REG_RUN && reg < ADE9078_REG_VERSION) {
 		put_unaligned_be16(val, &st->tx[2]);
 		xfer[0].len = 4;
-	} else
+	} else {
 		xfer[0].len = 6;
+	}
 
 	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
@@ -585,8 +595,8 @@ err_ret:
  */
 static int ade9078_en_wfb(struct ade9078_state *st, bool state)
 {
-	return regmap_update_bits(st->regmap, ADE9078_REG_WFB_CFG, BIT_MASK(4),
-				  state ? BIT_MASK(4) : 0);
+	return regmap_update_bits(st->regmap, ADE9078_REG_WFB_CFG, BIT(4),
+				  state ? BIT(4) : 0);
 }
 
 /*
@@ -622,7 +632,7 @@ static int ade9078_iio_push_buffer(struct ade9078_state *st)
 		return ret;
 	}
 
-	for (i = 0; i <= ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
+	for (i = 0; i < ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
 		iio_push_to_buffers(st->indio_dev, &st->rx_buff.word[i]);
 
 	return 0;
@@ -1357,12 +1367,12 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 	if (ret)
 		return ret;
 
-	if (mode == 1 || mode == 0) {
+	if (mode == ADE9078_WFB_FULL_MODE || mode == ADE9078_WFB_EN_TRIG_MODE) {
 		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
 				   ADE9078_MODE_0_1_PAGE_BIT);
 		if (ret)
 			return ret;
-	} else if (mode == 2) {
+	} else if (mode == ADE9078_WFB_C_EN_TRIG_MODE) {
 		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
 				   ADE9078_MODE_2_PAGE_BIT);
 		if (ret)
@@ -1388,31 +1398,16 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	switch (st->wf_mode) {
-	case 0:
-		ret = ade9078_wfb_interrupt_setup(st, 0);
-		if (ret)
-			return ret;
-		break;
-	case 1:
-		ret = ade9078_wfb_interrupt_setup(st, 1);
-		if (ret)
-			return ret;
-		break;
-	case 2:
-		ret = ade9078_wfb_interrupt_setup(st, 2);
-		if (ret)
-			return ret;
-		break;
-	default:
-		return -EINVAL;
-	}
+	ret = ade9078_wfb_interrupt_setup(st, st->wf_mode);
+	if (ret)
+		return ret;
 
 	ret = ade9078_update_mask0(st);
 	if (ret) {
 		dev_err(&st->spi->dev, "Post-enable update mask0 fail");
 		return ret;
 	}
+
 	ret = ade9078_en_wfb(st, true);
 	if (ret) {
 		dev_err(&st->spi->dev, "Post-enable wfb enable fail");
