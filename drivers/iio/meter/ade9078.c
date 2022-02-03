@@ -732,6 +732,7 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 {
 	struct ade9078_state *st = data;
 	struct iio_dev *indio_dev = st->indio_dev;
+	struct iio_chan_spec const *chan = indio_dev->channels;
 	unsigned int bit = ADE9078_ST1_CROSSING_FIRST;
 	s64 timestamp = iio_get_time_ns(indio_dev);
 	u32 result;
@@ -745,10 +746,12 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &result);
 		if (ret)
 			return ret;
+
 		if (result & ADE9078_ST1_RSTDONE_BIT)
 			st->rst_done = true;
 		else
 			dev_err(&st->spi->dev, "Error testing reset done");
+
 		goto irq1_done;
 	}
 
@@ -765,78 +768,42 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	//crossings
 	for_each_set_bit_from(bit, (unsigned long *)&interrupts,
 			      ADE9078_ST1_CROSSING_DEPTH) {
+
 		tmp = status & BIT(bit);
-		if (tmp == ADE9078_ST1_ZXVA_BIT) {
+
+		switch (tmp){
+		case ADE9078_ST1_ZXVA_BIT:
+		case ADE9078_ST1_ZXTOVA_BIT:
+		case ADE9078_ST1_ZXIA_BIT:
 			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE,
+				       IIO_UNMOD_EVENT_CODE(chan->type,
 							    ADE9078_PHASE_A_NR,
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXTOVA_BIT) {
+			break;
+		case ADE9078_ST1_ZXVB_BIT:
+		case ADE9078_ST1_ZXTOVB_BIT:
+		case ADE9078_ST1_ZXIB_BIT:
 			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE,
-							    ADE9078_PHASE_A_NR,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_EITHER),
-				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXIA_BIT) {
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_CURRENT,
-							    ADE9078_PHASE_A_NR,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_EITHER),
-				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXVB_BIT) {
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE,
+				       IIO_UNMOD_EVENT_CODE(chan->type,
 							    ADE9078_PHASE_B_NR,
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXTOVB_BIT) {
+			break;
+		case ADE9078_ST1_ZXVC_BIT:
+		case ADE9078_ST1_ZXTOVC_BIT:
+		case ADE9078_ST1_ZXIC_BIT:
 			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE,
-							    ADE9078_PHASE_B_NR,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_EITHER),
-				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXIB_BIT) {
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_CURRENT,
-							    ADE9078_PHASE_B_NR,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_EITHER),
-				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXVC_BIT) {
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE,
+				       IIO_UNMOD_EVENT_CODE(chan->type,
 							    ADE9078_PHASE_C_NR,
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXTOVC_BIT) {
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE,
-							    ADE9078_PHASE_C_NR,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_EITHER),
-				       timestamp);
-		}
-		if (tmp == ADE9078_ST1_ZXIC_BIT) {
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_CURRENT,
-							    ADE9078_PHASE_C_NR,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_EITHER),
-				       timestamp);
+			break;
+		default:
+			goto irq1_done;
 		}
 	}
 
