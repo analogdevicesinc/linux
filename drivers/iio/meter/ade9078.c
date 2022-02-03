@@ -40,6 +40,10 @@
 #define	ADE9078_REG_AVA			0x212
 #define ADE9078_REG_AFVAR		0x214
 #define	ADE9078_REG_APF			0x216
+#define	ADE9078_REG_BI_PCF		0x22A
+#define	ADE9078_REG_BV_PCF		0x22B
+#define	ADE9078_REG_BIRMS		0x22C
+#define	ADE9078_REG_BVRMS		0x22D
 #define	ADE9078_REG_CI_PCF		0x24A
 #define	ADE9078_REG_CV_PCF		0x24B
 #define	ADE9078_REG_CIRMS		0x24C
@@ -872,41 +876,35 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 		return ret ?: IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
-		switch (chan->type) {
-		case IIO_CURRENT:
-			if (chan->address >= ADE9078_REG_AI_PCF &&
-			    chan->address <= ADE9078_REG_CI_PCF){
+		if ((chan->type == IIO_CURRENT) ||
+		    (chan->type == IIO_VOLTAGE)) {
+			switch (chan->address) {
+			case ADE9078_REG_AI_PCF:
+			case ADE9078_REG_AV_PCF:
+			case ADE9078_REG_BI_PCF:
+			case ADE9078_REG_BV_PCF:
+			case ADE9078_REG_CI_PCF:
+			case ADE9078_REG_CV_PCF:
 				*val = 1;
 				*val2 = ADE9078_PCF_FULL_SCALE_CODES;
 				return IIO_VAL_FRACTIONAL;
-			}
-			if (chan->address >= ADE9078_REG_AIRMS &&
-			    chan->address <= ADE9078_REG_CIRMS){
+			case ADE9078_REG_AIRMS:
+			case ADE9078_REG_AVRMS:
+			case ADE9078_REG_BIRMS:
+			case ADE9078_REG_BVRMS:
+			case ADE9078_REG_CIRMS:
+			case ADE9078_REG_CVRMS:
 				*val = 1;
 				*val2 = ADE9078_RMS_FULL_SCALE_CODES;
 				return IIO_VAL_FRACTIONAL;
+			default:
+				return -EINVAL;
 			}
-			break;
-		case IIO_VOLTAGE:
-			if (chan->address >= ADE9078_REG_AV_PCF &&
-			    chan->address <= ADE9078_REG_CV_PCF){
-				*val = 1;
-				*val2 = ADE9078_PCF_FULL_SCALE_CODES;
-				return IIO_VAL_FRACTIONAL;
-			}
-			if (chan->address >= ADE9078_REG_AVRMS &&
-			    chan->address <= ADE9078_REG_CVRMS){
-				*val = 1;
-				*val2 = ADE9078_RMS_FULL_SCALE_CODES;
-				return IIO_VAL_FRACTIONAL;
-			}
-			break;
-		case IIO_POWER:
+		} else if (chan->type == IIO_POWER) {
 			*val = 1;
 			*val2 = ADE9000_WATT_FULL_SCALE_CODES;
 			return IIO_VAL_FRACTIONAL;
-
-		default:
+		} else {
 			return -EINVAL;
 		}
 		break;
