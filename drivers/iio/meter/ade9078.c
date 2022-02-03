@@ -592,7 +592,7 @@ err_ret:
  */
 static bool ade9078_is_volatile_reg(struct device *dev, unsigned int reg)
 {
-	switch(reg) {
+	switch (reg) {
 	case ADE9078_REG_STATUS0:
 	case ADE9078_REG_STATUS1:
 	case ADE9078_REG_MASK0:
@@ -602,6 +602,7 @@ static bool ade9078_is_volatile_reg(struct device *dev, unsigned int reg)
 		return false;
 	}
 }
+
 /*
  * ade9078_en_wfb() - enables or disables the WFBuffer in the ADE9078
  * @st:		ade9078 device data
@@ -772,10 +773,9 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	//crossings
 	for_each_set_bit_from(bit, (unsigned long *)&interrupts,
 			      ADE9078_ST1_CROSSING_DEPTH) {
-
 		tmp = status & BIT(bit);
 
-		switch (tmp){
+		switch (tmp) {
 		case ADE9078_ST1_ZXVA_BIT:
 		case ADE9078_ST1_ZXTOVA_BIT:
 		case ADE9078_ST1_ZXIA_BIT:
@@ -876,8 +876,7 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 		return ret ?: IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
-		if ((chan->type == IIO_CURRENT) ||
-		    (chan->type == IIO_VOLTAGE)) {
+		if (chan->type == IIO_CURRENT || chan->type == IIO_VOLTAGE) {
 			switch (chan->address) {
 			case ADE9078_REG_AI_PCF:
 			case ADE9078_REG_AV_PCF:
@@ -1485,7 +1484,7 @@ static int ade9078_reset(struct ade9078_state *st)
 		msleep_interruptible(50);
 	} else {
 		ret = regmap_update_bits(st->regmap, ADE9078_REG_CONFIG1,
-					 ADE9078_SWRST_MASK, ADE9078_SWRST_BIT);
+					 ADE9078_SWRST_BIT, ADE9078_SWRST_BIT);
 		if (ret)
 			return ret;
 		usleep_range(80, 100);
