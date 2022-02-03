@@ -1049,7 +1049,7 @@ static int ad9083_probe(struct spi_device *spi)
 
 	ret = ad9083_setup(conv);
 	if (ret < 0)
-		return -ENODEV;
+		return ret;
 
 	return jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
 }
