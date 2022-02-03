@@ -150,6 +150,11 @@
 
 #include "adi-ad9083-fmc-ebz.dtsi"
 
+&ad9528 {
+	/delete-property/ spi-cpol;
+	/delete-property/ spi-cpha;
+};
+
 #define fmc_gpio_base -32	// ?
 
 &adc0_ad9083 {
