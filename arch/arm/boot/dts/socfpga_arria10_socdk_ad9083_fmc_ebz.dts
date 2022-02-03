@@ -126,7 +126,7 @@
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x0004c000 0x00004000>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
+				interrupts = <0 31 IRQ_TYPE_LEVEL_HIGH>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
 			};
