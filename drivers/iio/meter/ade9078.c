@@ -368,11 +368,6 @@
 
 /*
  * struct ade9078_state - ade9078 specific data
- * @irq0_bits	IRQ0 mask and status bits, are set by the driver and are passed
- *		to the IC after being set
- * @irq1_bits	IRQ1 mask and status bits, are set by the driver and are passed
- *		to the IC after being set
- * @irq1_status status variable updated in irq1 and used in IIO event readout
  * @rst_done	flag for when reset sequence irq has been received
  * @wf_mode	wave form buffer mode, read datasheet for more details,
  *		retrieved from DT
@@ -394,9 +389,6 @@
  */
 
 struct ade9078_state {
-	u32 irq0_bits;
-	u32 irq1_bits;
-	u32 irq1_status;
 	bool rst_done;
 	u8 wf_mode;
 	u32 wfb_trg;
@@ -589,31 +581,32 @@ err_ret:
 }
 
 /*
+ * ade9078_is_volatile_reg() - list of ade9078 registers which should use
+ * caching
+ * @dev:	device data
+ * @reg:	address of the of desired register
+ */
+static bool ade9078_is_volatile_reg(struct device *dev, unsigned int reg)
+{
+	switch(reg) {
+	case ADE9078_REG_STATUS0:
+	case ADE9078_REG_STATUS1:
+	case ADE9078_REG_MASK0:
+	case ADE9078_REG_MASK1:
+		return true;
+	default:
+		return false;
+	}
+}
+/*
  * ade9078_en_wfb() - enables or disables the WFBuffer in the ADE9078
- * @st:ade9078 device data
+ * @st:		ade9078 device data
  * @state:	true for enabled; false for disabled
  */
 static int ade9078_en_wfb(struct ade9078_state *st, bool state)
 {
 	return regmap_update_bits(st->regmap, ADE9078_REG_WFB_CFG, BIT(4),
 				  state ? BIT(4) : 0);
-}
-
-/*
- * ade9078_update_mask0() - updates interrupt mask0 and resets all of the status
- * register 0
- * @st:ade9078 device data
- */
-static int ade9078_update_mask0(struct ade9078_state *st)
-{
-	int ret;
-
-	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
-
-	if (ret)
-		return ret;
-
-	return regmap_write(st->regmap, ADE9078_REG_MASK0, st->irq0_bits);
 }
 
 /*
@@ -649,8 +642,8 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 {
 	struct ade9078_state *st = data;
 	u32 status;
+	u32 interrupts;
 	u32 handled_irq = 0;
-	unsigned long *irq0_bits = (unsigned long *)&st->irq0_bits;
 	int ret;
 
 	ret = regmap_read(st->regmap, ADE9078_REG_STATUS0, &status);
@@ -659,8 +652,14 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		goto irq0_done;
 	}
 
+	ret = regmap_read(st->regmap, ADE9078_REG_MASK0, &interrupts);
+	if (ret) {
+		dev_err(&st->spi->dev, "IRQ0 read status fail");
+		goto irq0_done;
+	}
+
 	if ((status & ADE9078_ST0_PAGE_FULL_BIT) &&
-	    (st->irq0_bits & ADE9078_ST0_PAGE_FULL_BIT)) {
+	    (interrupts & ADE9078_ST0_PAGE_FULL_BIT)) {
 		//Stop Filling on Trigger and Center Capture Around Trigger
 		if (st->wf_mode) {
 			ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG,
@@ -670,7 +669,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 				goto irq0_done;
 			}
 
-			set_bit(ADE9078_ST0_WFB_TRIG, irq0_bits);
+			interrupts |= ADE9078_ST0_WFB_TRIG_BIT;
 
 		} else {
 			//Stop When Buffer Is Full Mode
@@ -687,8 +686,9 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		}
 
 		//disable Page full interrupt
-		clear_bit(ADE9078_ST0_PAGE_FULL, irq0_bits);
-		ret = regmap_write(st->regmap, ADE9078_REG_MASK0, st->irq0_bits);
+		interrupts &= ~ADE9078_ST0_PAGE_FULL_BIT;
+
+		ret = regmap_write(st->regmap, ADE9078_REG_MASK0, interrupts);
 		if (ret) {
 			dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
 			goto irq0_done;
@@ -698,7 +698,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	}
 
 	if ((status & ADE9078_ST0_WFB_TRIG_BIT) &&
-	    (st->irq0_bits & ADE9078_ST0_WFB_TRIG_BIT)) {
+	    (interrupts & ADE9078_ST0_WFB_TRIG_BIT)) {
 		//Stop Filling on Trigger and Center Capture Around Trigger
 		ret = ade9078_en_wfb(st, false);
 		if (ret) {
@@ -732,13 +732,12 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 {
 	struct ade9078_state *st = data;
 	struct iio_dev *indio_dev = st->indio_dev;
+	unsigned int bit = ADE9078_ST1_CROSSING_FIRST;
+	s64 timestamp = iio_get_time_ns(indio_dev);
 	u32 result;
 	u32 status;
+	u32 interrupts;
 	u32 tmp;
-	s64 timestamp = iio_get_time_ns(indio_dev);
-	unsigned int bit = ADE9078_ST1_CROSSING_FIRST;
-	unsigned long *irq1_bits = (unsigned long *)&st->irq1_bits;
-	unsigned long *irq1_status = (unsigned long *)&st->irq1_status;
 	int ret;
 
 	//reset
@@ -755,10 +754,17 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 
 	ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &status);
 	if (ret)
-		return ret;
+		goto irq1_done;
+
+	ret = regmap_read(st->regmap, ADE9078_REG_MASK1, &interrupts);
+	if (ret) {
+		dev_err(&st->spi->dev, "IRQ1 read status fail");
+		goto irq1_done;
+	}
 
 	//crossings
-	for_each_set_bit_from(bit, irq1_bits, ADE9078_ST1_CROSSING_DEPTH) {
+	for_each_set_bit_from(bit, (unsigned long *)&interrupts,
+			      ADE9078_ST1_CROSSING_DEPTH) {
 		tmp = status & BIT(bit);
 		if (tmp == ADE9078_ST1_ZXVA_BIT) {
 			iio_push_event(indio_dev,
@@ -767,7 +773,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXTOVA_BIT) {
 			iio_push_event(indio_dev,
@@ -776,7 +781,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXIA_BIT) {
 			iio_push_event(indio_dev,
@@ -785,7 +789,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXVB_BIT) {
 			iio_push_event(indio_dev,
@@ -794,7 +797,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXTOVB_BIT) {
 			iio_push_event(indio_dev,
@@ -803,7 +805,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXIB_BIT) {
 			iio_push_event(indio_dev,
@@ -812,7 +813,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXVC_BIT) {
 			iio_push_event(indio_dev,
@@ -821,7 +821,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXTOVC_BIT) {
 			iio_push_event(indio_dev,
@@ -830,7 +829,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 		if (tmp == ADE9078_ST1_ZXIC_BIT) {
 			iio_push_event(indio_dev,
@@ -839,7 +837,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_EITHER),
 				       timestamp);
-			set_bit(bit, irq1_status);
 		}
 	}
 
@@ -1069,9 +1066,7 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 number;
-	unsigned long *irq1_bits = (unsigned long *)&st->irq1_bits;
-	unsigned long *irq1_status = (unsigned long *)&st->irq1_status;
-	unsigned long *wfb_trg = (unsigned long *)&st->wfb_trg;
+	u32 interrupts;
 	int ret;
 
 	number = chan->channel;
@@ -1080,72 +1075,63 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 	case ADE9078_PHASE_A_NR:
 		if (chan->type == IIO_VOLTAGE) {
 			if (state) {
-				set_bit(ADE9078_ST1_ZXVA, irq1_bits);
-				set_bit(ADE9078_ST1_ZXTOVA, irq1_bits);
-				set_bit(ADE9078_WFB_TRG_ZXVA, wfb_trg);
+				interrupts |= ADE9078_ST1_ZXVA_BIT;
+				interrupts |= ADE9078_ST1_ZXTOVA_BIT;
+				st->wfb_trg |= ADE9078_WFB_TRG_ZXVA_BIT;
 			} else {
-				clear_bit(ADE9078_ST1_ZXVA, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXTOVA, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXVA, irq1_status);
-				clear_bit(ADE9078_ST1_ZXTOVA, irq1_status);
-				clear_bit(ADE9078_WFB_TRG_ZXVA, wfb_trg);
+				interrupts &= ~ADE9078_ST1_ZXVA_BIT;
+				interrupts &= ~ADE9078_ST1_ZXTOVA_BIT;
+				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXVA_BIT;
 			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (state) {
-				set_bit(ADE9078_ST1_ZXIA, irq1_bits);
-				set_bit(ADE9078_WFB_TRG_ZXIA, wfb_trg);
+				interrupts |= ADE9078_ST1_ZXIA_BIT;
+				st->wfb_trg |= ADE9078_WFB_TRG_ZXIA_BIT;
 			} else {
-				clear_bit(ADE9078_ST1_ZXIA, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXIA, irq1_status);
-				clear_bit(ADE9078_WFB_TRG_ZXIA, wfb_trg);
+				interrupts &= ~ADE9078_ST1_ZXIA_BIT;
+				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXIA_BIT;
 			}
 		}
 		break;
 	case ADE9078_PHASE_B_NR:
 		if (chan->type == IIO_VOLTAGE) {
 			if (state) {
-				set_bit(ADE9078_ST1_ZXVB, irq1_bits);
-				set_bit(ADE9078_ST1_ZXTOVB, irq1_bits);
-				set_bit(ADE9078_WFB_TRG_ZXVB, wfb_trg);
+				interrupts |= ADE9078_ST1_ZXVB_BIT;
+				interrupts |= ADE9078_ST1_ZXTOVB_BIT;
+				st->wfb_trg |= ADE9078_WFB_TRG_ZXVB_BIT;
 			} else {
-				clear_bit(ADE9078_ST1_ZXVB, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXTOVB, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXVB, irq1_status);
-				clear_bit(ADE9078_ST1_ZXTOVB, irq1_status);
-				clear_bit(ADE9078_WFB_TRG_ZXVB, wfb_trg);
+				interrupts &= ~ADE9078_ST1_ZXVB_BIT;
+				interrupts &= ~ADE9078_ST1_ZXTOVB_BIT;
+				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXVB_BIT;
 			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (state) {
-				set_bit(ADE9078_ST1_ZXIB, irq1_bits);
-				set_bit(ADE9078_WFB_TRG_ZXIB, wfb_trg);
+				interrupts |= ADE9078_ST1_ZXIB_BIT;
+				st->wfb_trg |= ADE9078_WFB_TRG_ZXIB_BIT;
 			} else {
-				clear_bit(ADE9078_ST1_ZXIB, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXIB, irq1_status);
-				clear_bit(ADE9078_WFB_TRG_ZXIB, wfb_trg);
+				interrupts &= ~ADE9078_ST1_ZXIB_BIT;
+				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXIB_BIT;
 			}
 		}
 		break;
 	case ADE9078_PHASE_C_NR:
 		if (chan->type == IIO_VOLTAGE) {
 			if (state) {
-				set_bit(ADE9078_ST1_ZXVC, irq1_bits);
-				set_bit(ADE9078_ST1_ZXTOVC, irq1_bits);
-				set_bit(ADE9078_WFB_TRG_ZXVC, wfb_trg);
+				interrupts |= ADE9078_ST1_ZXVC_BIT;
+				interrupts |= ADE9078_ST1_ZXTOVC_BIT;
+				st->wfb_trg |= ADE9078_WFB_TRG_ZXVC_BIT;
 			} else {
-				clear_bit(ADE9078_ST1_ZXVC, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXTOVC, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXVC, irq1_status);
-				clear_bit(ADE9078_ST1_ZXTOVC, irq1_status);
-				clear_bit(ADE9078_WFB_TRG_ZXVC, wfb_trg);
+				interrupts &= ~ADE9078_ST1_ZXVC_BIT;
+				interrupts &= ~ADE9078_ST1_ZXTOVC_BIT;
+				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXVC_BIT;
 			}
 		} else if (chan->type == IIO_CURRENT) {
 			if (state) {
-				set_bit(ADE9078_ST1_ZXIC, irq1_bits);
-				set_bit(ADE9078_WFB_TRG_ZXIC, wfb_trg);
+				interrupts |= ADE9078_ST1_ZXIC_BIT;
+				st->wfb_trg |= ADE9078_WFB_TRG_ZXIC_BIT;
 			} else {
-				clear_bit(ADE9078_ST1_ZXIC, irq1_bits);
-				clear_bit(ADE9078_ST1_ZXIC, irq1_status);
-				clear_bit(ADE9078_WFB_TRG_ZXIC, wfb_trg);
+				interrupts &= ~ADE9078_ST1_ZXIC_BIT;
+				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXIC_BIT;
 			}
 		}
 		break;
@@ -1157,7 +1143,8 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	return regmap_write(st->regmap, ADE9078_REG_MASK1, st->irq1_bits);
+	return regmap_update_bits(st->regmap, ADE9078_REG_MASK1, interrupts,
+				  interrupts);
 }
 
 /*
@@ -1177,74 +1164,72 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 number;
-	u32 status1 = st->irq1_status;
+	u32 status;
 	unsigned long handeled_irq = 0;
-	unsigned long *irq1_status = (unsigned long *)&st->irq1_status;
+	u32 interrupts;
 	int ret;
 
-	*val = 0;
+	ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &status);
+	if (ret)
+		return ret;
 
+	ret = regmap_read(st->regmap, ADE9078_REG_MASK1, &interrupts);
+	if (ret)
+		return ret;
+
+	*val = 0;
 	number = chan->channel;
 	switch (number) {
 	case ADE9078_PHASE_A_NR:
 		if (chan->type == IIO_VOLTAGE) {
-			if (status1 & ADE9078_ST1_ZXVA_BIT) {
+			if (status & ADE9078_ST1_ZXVA_BIT) {
 				*val = 1;
-				clear_bit(ADE9078_ST1_ZXVA, irq1_status);
 				set_bit(ADE9078_ST1_ZXVA, &handeled_irq);
-			} else if (status1 & ADE9078_ST1_ZXTOVA_BIT) {
+			} else if (status & ADE9078_ST1_ZXTOVA_BIT) {
 				*val = -1;
-				clear_bit(ADE9078_ST1_ZXTOVA, irq1_status);
 				set_bit(ADE9078_ST1_ZXTOVA, &handeled_irq);
 			}
-			if (!(st->irq1_bits & ADE9078_ST1_ZXTOVA_BIT))
+			if (!(interrupts & ADE9078_ST1_ZXTOVA_BIT))
 				*val = 0;
 		} else if (chan->type == IIO_CURRENT) {
-			if (status1 & ADE9078_ST1_ZXIA_BIT) {
+			if (status & ADE9078_ST1_ZXIA_BIT) {
 				*val = 1;
-				clear_bit(ADE9078_ST1_ZXIA, irq1_status);
 				set_bit(ADE9078_ST1_ZXIA, &handeled_irq);
 			}
 		}
 		break;
 	case ADE9078_PHASE_B_NR:
 		if (chan->type == IIO_VOLTAGE) {
-			if (status1 & ADE9078_ST1_ZXVB_BIT) {
+			if (status & ADE9078_ST1_ZXVB_BIT) {
 				*val = 1;
-				clear_bit(ADE9078_ST1_ZXVB, irq1_status);
 				set_bit(ADE9078_ST1_ZXVB, &handeled_irq);
-			} else if (status1 & ADE9078_ST1_ZXTOVB_BIT) {
+			} else if (status & ADE9078_ST1_ZXTOVB_BIT) {
 				*val = -1;
-				clear_bit(ADE9078_ST1_ZXTOVB, irq1_status);
 				set_bit(ADE9078_ST1_ZXTOVB, &handeled_irq);
 			}
-			if (!(st->irq1_bits & ADE9078_ST1_ZXTOVB_BIT))
+			if (!(interrupts & ADE9078_ST1_ZXTOVB_BIT))
 				*val = 0;
 		} else if (chan->type == IIO_CURRENT) {
-			if (status1 & ADE9078_ST1_ZXIB_BIT) {
+			if (status & ADE9078_ST1_ZXIB_BIT) {
 				*val = 1;
-				clear_bit(ADE9078_ST1_ZXIB, irq1_status);
 				set_bit(ADE9078_ST1_ZXIB, &handeled_irq);
 			}
 		}
 		break;
 	case ADE9078_PHASE_C_NR:
 		if (chan->type == IIO_VOLTAGE) {
-			if (status1 & ADE9078_ST1_ZXVC_BIT) {
+			if (status & ADE9078_ST1_ZXVC_BIT) {
 				*val = 1;
-				clear_bit(ADE9078_ST1_ZXVC, irq1_status);
 				set_bit(ADE9078_ST1_ZXVC, &handeled_irq);
-			} else if (status1 & ADE9078_ST1_ZXTOVC_BIT) {
+			} else if (status & ADE9078_ST1_ZXTOVC_BIT) {
 				*val = -1;
-				clear_bit(ADE9078_ST1_ZXTOVC, irq1_status);
 				set_bit(ADE9078_ST1_ZXTOVC, &handeled_irq);
 			}
-			if (!(st->irq1_bits & ADE9078_ST1_ZXTOVC_BIT))
+			if (!(interrupts & ADE9078_ST1_ZXTOVC_BIT))
 				*val = 0;
 		} else if (chan->type == IIO_CURRENT) {
-			if (status1 & ADE9078_ST1_ZXIC_BIT) {
+			if (status & ADE9078_ST1_ZXIC_BIT) {
 				*val = 1;
-				clear_bit(ADE9078_ST1_ZXIC, irq1_status);
 				set_bit(ADE9078_ST1_ZXIC, &handeled_irq);
 			}
 		}
@@ -1361,7 +1346,6 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 {
 	int ret;
-	unsigned long *irq0_bits = (unsigned long *)&st->irq0_bits;
 
 	ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG, 0x0);
 	if (ret)
@@ -1379,7 +1363,15 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 			return ret;
 	}
 
-	set_bit(ADE9078_ST0_PAGE_FULL, irq0_bits);
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
+	if (ret)
+		return ret;
+
+	return regmap_update_bits(st->regmap, ADE9078_REG_MASK0,
+				  ADE9078_ST0_PAGE_FULL_BIT,
+				  ADE9078_ST0_PAGE_FULL_BIT);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -1402,12 +1394,6 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	ret = ade9078_update_mask0(st);
-	if (ret) {
-		dev_err(&st->spi->dev, "Post-enable update mask0 fail");
-		return ret;
-	}
-
 	ret = ade9078_en_wfb(st, true);
 	if (ret) {
 		dev_err(&st->spi->dev, "Post-enable wfb enable fail");
@@ -1425,7 +1411,7 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	unsigned long *irq0_bits = (unsigned long *)&st->irq0_bits;
+	u32 interrupts = 0;
 	int ret;
 
 	ret = ade9078_en_wfb(st, false);
@@ -1438,14 +1424,18 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	clear_bit(ADE9078_ST0_WFB_TRIG, irq0_bits);
-	clear_bit(ADE9078_ST0_PAGE_FULL, irq0_bits);
+	interrupts |= ADE9078_ST0_WFB_TRIG_BIT;
+	interrupts |= ADE9078_ST0_PAGE_FULL_BIT;
 
-	ret = ade9078_update_mask0(st);
+	return regmap_update_bits(st->regmap, ADE9078_REG_MASK0, interrupts, 0);
 	if (ret) {
 		dev_err(&st->spi->dev, "Post-disable update maks0 fail");
 		return ret;
 	}
+
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -1591,9 +1581,11 @@ static const struct iio_info ade9078_info = {
 static const struct regmap_config ade9078_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 32,
+	.zero_flag_mask = true,
+	.cache_type = REGCACHE_RBTREE,
 	.reg_read = ade9078_spi_read_reg,
 	.reg_write = ade9078_spi_write_reg,
-	.zero_flag_mask = true,
+	.volatile_reg = ade9078_is_volatile_reg,
 };
 
 static int ade9078_probe(struct spi_device *spi)
