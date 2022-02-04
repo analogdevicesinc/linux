@@ -484,7 +484,6 @@ static int ade9078_spi_write_reg(void *context,
 	struct spi_transfer xfer[] = {
 		{
 			.tx_buf = st->tx,
-			.bits_per_word = 8,
 		},
 	};
 
@@ -530,12 +529,10 @@ static int ade9078_spi_read_reg(void *context,
 	struct spi_transfer xfer[] = {
 		{
 			.tx_buf = st->tx,
-			.bits_per_word = 8,
 			.len = 2,
 		},
 		{
 			.rx_buf = st->rx,
-			.bits_per_word = 8,
 		},
 	};
 
@@ -815,11 +812,9 @@ static int ade9078_configure_scan(struct iio_dev *indio_dev)
 	put_unaligned_be16(addr, st->tx_buff);
 
 	st->xfer[0].tx_buf = &st->tx_buff[0];
-	st->xfer[0].bits_per_word = 8;
 	st->xfer[0].len = 2;
 
 	st->xfer[1].rx_buf = &st->rx_buff.byte[0];
-	st->xfer[1].bits_per_word = 8;
 	st->xfer[1].len = ADE9078_WFB_FULL_BUFF_SIZE;
 
 	spi_message_init_with_transfers(&st->spi_msg, st->xfer, 2);
@@ -1604,12 +1599,6 @@ static int ade9078_probe(struct spi_device *spi)
 	}
 
 	st->spi = spi;
-	st->spi->mode = SPI_MODE_0;
-	ret = spi_setup(st->spi);
-	if (ret) {
-		dev_err(&spi->dev, "Failed spi setup: %d\n", ret);
-		return ret;
-	}
 
 	indio_dev->dev.parent = &st->spi->dev;
 	indio_dev->info = &ade9078_info;
