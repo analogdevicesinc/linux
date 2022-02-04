@@ -603,8 +603,8 @@ static int ade9078_en_wfb(struct ade9078_state *st, bool state)
  */
 static int ade9078_iio_push_buffer(struct ade9078_state *st)
 {
-	u32 i;
 	int ret;
+	u32 i;
 
 	ret = spi_sync(st->spi, &st->spi_msg);
 	if (ret) {
@@ -628,9 +628,9 @@ static int ade9078_iio_push_buffer(struct ade9078_state *st)
 static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 {
 	struct ade9078_state *st = data;
-	u32 status;
-	u32 interrupts;
 	u32 handled_irq = 0;
+	u32 interrupts;
+	u32 status;
 	int ret;
 
 	ret = regmap_read(st->regmap, ADE9078_REG_STATUS0, &status);
@@ -722,9 +722,9 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	struct iio_chan_spec const *chan = indio_dev->channels;
 	unsigned int bit = ADE9078_ST1_CROSSING_FIRST;
 	s64 timestamp = iio_get_time_ns(indio_dev);
+	u32 interrupts;
 	u32 result;
 	u32 status;
-	u32 interrupts;
 	u32 tmp;
 	int ret;
 
@@ -1011,8 +1011,8 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				      int state)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 number;
 	u32 interrupts;
+	u32 number;
 	int ret;
 
 	number = chan->channel;
@@ -1109,10 +1109,10 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 				    int *val, int *val2)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 number;
-	u32 status;
 	u32 handeled_irq = 0;
 	u32 interrupts;
+	u32 number;
+	u32 status;
 	int ret;
 
 	ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &status);
@@ -1393,9 +1393,9 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
  */
 static int ade9078_setup_iio_channels(struct ade9078_state *st)
 {
-	struct iio_chan_spec *chan;
 	struct fwnode_handle *phase_node = NULL;
 	struct device *dev = &st->spi->dev;
+	struct iio_chan_spec *chan;
 	u32 phase_nr;
 	int ret;
 
@@ -1536,12 +1536,12 @@ static const struct regmap_config ade9078_regmap_config = {
 
 static int ade9078_probe(struct spi_device *spi)
 {
-	struct ade9078_state *st;
 	struct iio_dev *indio_dev;
-	struct regmap *regmap;
 	struct iio_buffer *buffer;
-	int irq;
+	struct ade9078_state *st;
 	unsigned long irqflags;
+	struct regmap *regmap;
+	int irq;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
