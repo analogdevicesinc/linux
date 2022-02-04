@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# IIO meter drivers configuration
+#
+menu "Active energy metering IC"
+
+config ADE9078
+	tristate "Analog Devices ADE9078 Poly Phase Multifunction Energy Metering IC Driver"
+	depends on SPI
+	select REGMAP_SPI
+	select IIO_BUFFER
+	help
+	  Support driver for the ADE9078Poly Phase Multifunction Energy Meter,
+	  select y to build the driver.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called ade9078
+
+endmenu
