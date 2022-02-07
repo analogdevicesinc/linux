@@ -1243,14 +1243,6 @@ M: Pankaj Gupta <pankaj.gupta@nxp.com>
 M: Silvano Di Ninno <silvano.dininno@nxp.com>
 F: drivers/tee/optee/
 
-xen
-M: Peng Fan <peng.fan@nxp.com>
-M: Catalin Dan Udma <catalin-dan.udma@nxp.com>
-F: Documentation/devicetree/bindings/i2c/i2c-xen.txt
-F: drivers/i2c/busses/xen*
-F: include/xen/interface/io/i2cif.h
-N: xen
-
 hotfix
 M: Aisheng Dong <aisheng.dong@nxp.com>
 M: Li Yang <leoyang.li@nxp.com>
