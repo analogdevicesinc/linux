@@ -28,5 +28,15 @@ config AXI_JESD204_RX
 config XILINX_TRANSCEIVER
 	tristate
 
+config ADI_IIO_FAKEDEV
+	tristate "Analog Devices Generic IIO fake device driver"
+	help
+	  This driver allows to link a list of device sysfs attributes
+	  from either a platform, spi or i2c device to an iio device.
+	  This driver should only be used for debug or test purposes.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-iio-fakedev.
+
 endif
 
