@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,axi-adc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Generic IIO fake device driver
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+description: |
+  This driver allows to link a list of device sysfs attributes
+  from either a platform, spi or i2c device to an iio device.
+  This driver should only be used for debug or test purposes.
+
+properties:
+  compatible:
+    enum:
+      - adi,iio-fake-platform-device
+      - adi,iio-fake-spi-device"
+      - adi,iio-fake-i2c-device"
+
+  adi,faked-dev:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      A reference (phandle) to a the actual device to which the fake device links attribues from.
+
+  adi,attribute-names:
+    $ref: /schemas/types.yaml#/definitions/string-array
+    description:
+      List of device sysfs attribute strings.
+
+required:
+  - compatible
+  - adi,faked-dev
+  - adi,attribute-names
+
+additionalProperties: false
+
+examples:
+  - |
+  axi-jesd204-rx@0 {
+    compatible = "adi,iio-fake-platform-device";
+    adi,faked-dev = <&axi_ad9081_rx_jesd>;
+    adi,attribute-names =
+      "status", "encoder", "lane0_info", "lane1_info",
+      "lane2_info", "lane3_info";
+    label = "axi-jesd204-rx";
+  };
+
+  axi-jesd204-rx@1 {
+    compatible = "adi,iio-fake-platform-device";
+    adi,faked-dev = <&axi_ad9081_tx_jesd>;
+    adi,attribute-names = "status", "encoder";
+    label = "axi-jesd204-rx";
+  };
+
+  axi-adxcvr-rx@2 {
+    compatible = "adi,iio-fake-platform-device";
+    adi,faked-dev = <&axi_ad9081_adxcvr_rx>;
+    adi,attribute-names =
+      "eyescan_info", "prbs_status", "prbs_counter_reset",
+      "prescale", "enable", "prbs_error_counters", "reg_access",
+      "eye_data", "prbs_select";
+    label = "axi-adxcvr-rx";
+  };
+
+  axi-adxcvr-tx@4 {
+    compatible = "adi,iio-fake-platform-device";
+    adi,faked-dev = <&axi_ad9081_adxcvr_tx>;
+    adi,attribute-names = "prbs_select", "prbs_error_inject", "reg_access";
+    label = "axi-adxcvr-tx";
+  };
+...
