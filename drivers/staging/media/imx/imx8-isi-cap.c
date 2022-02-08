@@ -337,14 +337,19 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct vb2_buffer *vb2;
 	unsigned long flags;
 	int i, j;
+	int ret;
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
 
-	if (count < 2)
-		return -ENOBUFS;
+	if (count < 2) {
+		ret = -ENOBUFS;
+		goto err;
+	}
 
-	if (!mxc_isi)
-		return -EINVAL;
+	if (!mxc_isi) {
+		ret = -EINVAL;
+		goto err;
+	}
 
 	/* Create a buffer for discard operation */
 	for (i = 0; i < isi_cap->pix.num_planes; i++) {
@@ -363,7 +368,8 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 				dev_err(&isi_cap->pdev->dev,
 					"alloc dma buffer(%d) fail\n", j);
 			}
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto err;
 		}
 		dev_dbg(&isi_cap->pdev->dev,
 			"%s: num_plane=%d discard_size=%d discard_buffer=%p\n"
@@ -402,6 +408,28 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	spin_unlock_irqrestore(&isi_cap->slock, flags);
 
 	return 0;
+
+err:
+	spin_lock_irqsave(&isi_cap->slock, flags);
+	while (!list_empty(&isi_cap->out_active)) {
+		buf = list_entry(isi_cap->out_active.next,
+				 struct mxc_isi_buffer, list);
+		list_del_init(&buf->list);
+		if (buf->discard)
+			continue;
+
+		vb2_buffer_done(&buf->v4l2_buf.vb2_buf, VB2_BUF_STATE_ERROR);
+	}
+
+	while (!list_empty(&isi_cap->out_pending)) {
+		buf = list_entry(isi_cap->out_pending.next,
+				 struct mxc_isi_buffer, list);
+		list_del_init(&buf->list);
+		vb2_buffer_done(&buf->v4l2_buf.vb2_buf, VB2_BUF_STATE_ERROR);
+	}
+	spin_unlock_irqrestore(&isi_cap->slock, flags);
+
+	return ret;
 }
 
 static void cap_vb2_stop_streaming(struct vb2_queue *q)
