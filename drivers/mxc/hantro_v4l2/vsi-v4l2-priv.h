@@ -305,6 +305,7 @@ struct vsi_v4l2_ctx {
 	struct vsi_v4l2_device *dev;
 	ulong ctxid;
 	struct mutex ctxlock;
+	atomic_t refcnt;
 
 	s32 status;		/*hold current status*/
 	s32 error;
