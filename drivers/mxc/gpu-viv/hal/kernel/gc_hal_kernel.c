@@ -55,6 +55,8 @@
 
 #include "gc_hal_kernel_precomp.h"
 
+#include "gc_hal_kernel_debug.h"
+
 #if gcdDEC_ENABLE_AHB
 #include "viv_dec300_main.h"
 #endif
@@ -467,6 +469,15 @@ _SetRecovery(
     {
         /* Dump stuck information if Recovery is disabled. */
         Kernel->stuckDump = gcmMAX(StuckDump, gcvSTUCK_DUMP_USER_COMMAND);
+    }
+
+    /*
+        Dump level in 11~15 is FORCE-DUMP model. Whether Recovery is enabled
+        or not, the driver will dump related information.
+    */
+    if (StuckDump > gcvSTUCK_DUMP_ALL_CORE)
+    {
+        Kernel->stuckDump = StuckDump - 10;
     }
 
     return gcvSTATUS_OK;
@@ -4116,6 +4127,9 @@ gckKERNEL_Recovery(
     if (Kernel->stuckDump == gcvSTUCK_DUMP_NONE)
     {
         gcmkPRINT("[galcore]: GPU[%d] hang, automatic recovery.", Kernel->core);
+#ifdef __QNXNTO__
+        SLOG_CRITICAL("[galcore]: GPU[%d] hang, automatic recovery.", Kernel->core);
+#endif
     }
     else if (Kernel->stuckDump == gcvSTUCK_DUMP_ALL_CORE)
     {

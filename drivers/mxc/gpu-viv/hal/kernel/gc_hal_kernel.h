@@ -205,24 +205,40 @@ extern "C" {
 /*******************************************************************************
 ***** Stuck Dump Level ********************************************************/
 
-/* Dump nonthing when stuck happens. */
-#define gcvSTUCK_DUMP_NONE          0
+/*
+  Stuck Dump Level
 
-/* Dump GPU state and memory near stuck point. */
-#define gcvSTUCK_DUMP_NEARBY_MEMORY 1
+  Level  1 ~  5 : NORMAL model, when recovery is enabled, stuck dump is invalid
+  Level 11 ~ 15 : FORCE model, whether recovery is enabled or not, driver will
+                  dump as level set
 
-/* Beside gcvSTUCK_DUMP_NEARBY_MEMORY, dump context buffer and user command buffer. */
-#define gcvSTUCK_DUMP_USER_COMMAND  2
+  NONE : Dump nothing when stuck happens.
 
-/* Beside gcvSTUCK_DUMP_USER_COMMAND, commit will be stall
-** to make sure command causing stuck isn't missed. */
-#define gcvSTUCK_DUMP_STALL_COMMAND 3
+  NEARBY_MEMORY : Dump GPU state and memory near stuck point.
+  USER_COMMAND  : Beside NEARBY_MEMORY, dump context buffer and user command
+                  buffer.
+  STALL_COMMAND : Beside USER_COMMAND, commit will be stall to make sure command
+                  causing stuck isn't missed.
+  ALL_COMMAND   : Beside USER_COMMAND, dump kernel command buffer.
+  ALL_CORE      : Dump all the cores with ALL_COMMAND level.
+*/
+typedef enum _gceSTUCK_DUMP_LEVEL
+{
+    gcvSTUCK_DUMP_NONE = 0,
 
-/* Beside gcvSTUCK_DUMP_USER_COMMAND, dump kernel command buffer. */
-#define gcvSTUCK_DUMP_ALL_COMMAND   4
+    gcvSTUCK_DUMP_NEARBY_MEMORY = 1,
+    gcvSTUCK_DUMP_USER_COMMAND,
+    gcvSTUCK_DUMP_STALL_COMMAND,
+    gcvSTUCK_DUMP_ALL_COMMAND,
+    gcvSTUCK_DUMP_ALL_CORE,
 
-/* Dump all the cores with level 4 dump. */
-#define gcvSTUCK_DUMP_ALL_CORE      5
+    gcvSTUCK_FORCE_DUMP_NEARBY_MEMORY = 11,
+    gcvSTUCK_FORCE_DUMP_USER_COMMAND,
+    gcvSTUCK_FORCE_DUMP_STALL_COMMAND,
+    gcvSTUCK_FORCE_DUMP_ALL_COMMAND,
+    gcvSTUCK_FORCE_DUMP_ALL_CORE,
+}
+gceSTUCK_DUMP_LEVEL;
 
 /*******************************************************************************
 ***** Page table **************************************************************/

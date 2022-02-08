@@ -180,10 +180,17 @@ static uint recovery = 0;
 module_param(recovery, uint, 0644);
 MODULE_PARM_DESC(recovery, "Recover GPU from stuck (1: Enable, 0: Disable)");
 
-/* Middle needs about 40KB buffer, Maximal may need more than 200KB buffer. */
+/*
+ * Level of stuck dump content, 0~5 and 11~15.
+ * 0: Disable. 1: Dump nearby memory. 2: Dump user command.
+ * 3: Commit stall besides level2. 4: Dump kernel command buffer besides level3.
+ * 5: Dump all the cores with level4.
+ *
+ * Level 1~5 + 10 means force dump, whether the recovery is enabled or not.
+ */
 static uint stuckDump = 0;
 module_param(stuckDump, uint, 0644);
-MODULE_PARM_DESC(stuckDump, "Level of stuck dump content (1: Minimal, 2: Middle, 3: Maximal)");
+MODULE_PARM_DESC(stuckDump, "Level of stuck dump content.");
 
 static int showArgs = 0;
 module_param(showArgs, int, 0644);
