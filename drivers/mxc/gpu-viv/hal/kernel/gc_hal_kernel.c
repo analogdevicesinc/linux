@@ -2140,6 +2140,10 @@ OnError:
 */
 #if defined(CONFIG_DMA_SHARED_BUFFER)
 #include <linux/dma-buf.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
+#include <linux/module.h>
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
 
 gceSTATUS
 _SetVidMemMetadata(

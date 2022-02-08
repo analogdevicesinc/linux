@@ -4001,6 +4001,10 @@ gckVIDMEM_NODE_GetType(
 #include <linux/slab.h>
 #include <linux/mm_types.h>
 #include <linux/dma-buf.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
+#include <linux/module.h>
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
 
 static struct sg_table *_dmabuf_map(struct dma_buf_attachment *attachment,
                                     enum dma_data_direction direction)
