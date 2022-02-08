@@ -56,12 +56,20 @@
 		};
 	};
 
+	spi_clock: axi-clkgen@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 16>;
+		clock-names = "s_axi_aclk", "clkin1";
+	};
+
 	axi_spi_engine_0: spi@0x44a00000 {
 		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
-		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15 &clkc 15>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15 &spi_clock>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <1>;
 
