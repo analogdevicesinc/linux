@@ -910,6 +910,9 @@ static void adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 
 	st->cpll_enable = st->sys_clk_sel == XCVR_CPLL;
 
+	of_property_read_u32(np, "adi,jesd204-fsm-delayed-start-ms",
+		&st->fsm_enable_delay_ms);
+
 	adxcvr_parse_dt_vco_ranges(st, np);
 }
 
@@ -987,6 +990,14 @@ static void adxcvr_device_remove_files(void *data)
 	}
 
 	device_remove_file(st->dev, &dev_attr_reg_access);
+}
+
+static void adxcvr_fsm_en_work(struct work_struct *work)
+{
+	struct adxcvr_state *st =
+		container_of(work, struct adxcvr_state, jesd_fsm_en_work.work);
+
+	jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 }
 
 static int adxcvr_probe(struct platform_device *pdev)
@@ -1162,9 +1173,15 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	devm_add_action_or_reset(st->dev, adxcvr_device_remove_files, st);
 
-	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
-	if (ret)
-		goto unreg_eyescan;
+	if (st->fsm_enable_delay_ms) {
+		INIT_DELAYED_WORK(&st->jesd_fsm_en_work, adxcvr_fsm_en_work);
+		schedule_delayed_work(&st->jesd_fsm_en_work,
+			msecs_to_jiffies(st->fsm_enable_delay_ms));
+	} else {
+		ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+		if (ret)
+			goto unreg_eyescan;
+	}
 
 	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s on %s at 0x%08llX. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
