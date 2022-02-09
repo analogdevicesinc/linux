@@ -70,12 +70,14 @@ struct adxcvr_state {
 	struct clk_hw		lane_clk_hw;
 	struct clk_hw		qpll_clk_hw;
 	struct work_struct	work;
+	struct delayed_work jesd_fsm_en_work;
 	struct mutex		mutex;
 	unsigned long		lane_rate;
 	bool			tx_enable;
 	bool			qpll_enable;
 	u32			sys_clk_sel;
 	u32			out_clk_sel;
+	u32			fsm_enable_delay_ms;
 
 	struct clk		*clks[3];
 	struct clk_onecell_data clk_lookup;
