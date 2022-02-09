@@ -548,8 +548,11 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 			video->color_fmt = YCBCR_4_2_0;
 		else
 			video->color_fmt = YCBCR_4_4_4;
-	} else if (new_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT)
-		return !drm_mode_is_420_only(di, mode);
+	} else if (new_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT) {
+		/* set default color fmt for YUV420 only mode */
+		if (drm_mode_is_420_only(di, mode))
+			video->color_fmt = YCBCR_4_2_0;
+	}
 
 	return true;
 }
