@@ -3,7 +3,7 @@
  * Copyright 2019 NXP
  *	Sandor Yu <Sandor.yu@nxp.com>
  */
- /* HDMI Only driver, LVDS is disabled */
+ /* HDMI, LVDS1 and MIPI DSI1. LVDS0 and MIPI0 are disabled */
 
 /dts-v1/;
 
@@ -43,27 +43,11 @@
 	status = "disabled";
 };
 
-&ldb2_phy {
-	status = "disabled";
-};
-
-&ldb2 {
-	status = "disabled";
-};
-
 &mipi0_dsi_host {
 	status = "disabled";
 };
 
-&mipi1_dphy {
-	status = "disabled";
-};
-
-&mipi1_dsi_host {
-	status = "disabled";
-};
-
-&mipi1_dphy {
+&mipi0_dphy {
 	status = "disabled";
 };
 
