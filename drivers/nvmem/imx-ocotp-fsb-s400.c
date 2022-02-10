@@ -21,6 +21,12 @@
 #define ECID		0x02
 #define UNIQ_ID		0x07
 #define OTFAD_CFG	0x17
+#define MAPPING_SIZE	0x20
+
+enum soc_type {
+	IMX8ULP,
+	IMX93,
+};
 
 struct bank_2_reg {
 	unsigned int bank;
@@ -28,64 +34,47 @@ struct bank_2_reg {
 	bool flag;
 };
 
-static const struct bank_2_reg fsb_bank_reg[] = {
-	{ 3, 0 },
-	{ 4, 8 },
-	{ 5, 64 },
-	{ 6, 72 },
-	{ 8, 80, true },
-	{ 24, 84, true },
-	{ 26, 88, true },
-	{ 27, 92, true },
-	{ 28, 96 },
-	{ 29, 104 },
-	{ 30, 112 },
-	{ 31, 120 },
-	{ 37, 128 },
-	{ 38, 136 },
-	{ 39, 144 },
-	{ 40, 152 },
-	{ 41, 160 },
-	{ 42, 168 },
-	{ 43, 176 },
-	{ 44, 184 },
-	{ 45, 192 },
-	{ 46, 200 },
+struct imx_fsb_s400_hw {
+	enum soc_type soc;
+	unsigned int fsb_otp_shadow;
+	const struct bank_2_reg fsb_bank_reg[MAPPING_SIZE];
 };
 
 struct imx_fsb_s400_fuse {
 	void __iomem *regs;
 	struct nvmem_config config;
 	struct mutex lock;
+	const struct imx_fsb_s400_hw *hw;
 };
 
-static int read_words_via_s400_api(u32 *buf, unsigned int fuse_base)
+static int read_words_via_s400_api(u32 *buf, unsigned int fuse_base, unsigned int num)
 {
 	unsigned int i;
 	int err = 0;
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < num; i++)
 		err = read_common_fuse(fuse_base + i, buf + i);
-	}
 
 	return err;
 }
 
-static int read_words_via_fsb(void __iomem *regs, unsigned int bank, u32 *buf)
+static int read_words_via_fsb(void *priv, unsigned int bank, u32 *buf)
 {
+	struct imx_fsb_s400_fuse *fuse = priv;
+	void __iomem *regs = fuse->regs + fuse->hw->fsb_otp_shadow;
 	unsigned int i;
 	unsigned int reg_id = UINT_MAX;
-	unsigned int size = ARRAY_SIZE(fsb_bank_reg);
+	unsigned int size = ARRAY_SIZE(fuse->hw->fsb_bank_reg);
 
 	for (i = 0; i < size; i++) {
-		if (fsb_bank_reg[i].bank == bank) {
-			reg_id = fsb_bank_reg[i].reg;
+		if (fuse->hw->fsb_bank_reg[i].bank == bank) {
+			reg_id = fuse->hw->fsb_bank_reg[i].reg;
 			break;
 		}
 	}
 
 	if (reg_id != UINT_MAX) {
-		size = fsb_bank_reg[i].flag ? 4 : 8;
+		size = fuse->hw->fsb_bank_reg[i].flag ? 4 : 8;
 
 		for (i = 0; i < size; i++) {
 			*buf = readl_relaxed(regs + (reg_id + i) * 4);
@@ -96,10 +85,23 @@ static int read_words_via_fsb(void __iomem *regs, unsigned int bank, u32 *buf)
 	return 0;
 }
 
+static int read_nwords_via_fsb(void __iomem *regs, u32 *buf, u32 fuse_base, u32 num)
+{
+	unsigned int i;
+
+	for (i = 0; i < num; i++) {
+		*buf = readl_relaxed(regs + (fuse_base + i) * 4);
+		buf = buf + 1;
+	}
+
+	return 0;
+}
+
 static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 			      size_t bytes)
 {
 	struct imx_fsb_s400_fuse *fuse = priv;
+	void __iomem *regs = fuse->regs + fuse->hw->fsb_otp_shadow;
 	unsigned int num_bytes, bank;
 	u32 *buf;
 	int err;
@@ -112,34 +114,60 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 	err = -EINVAL;
 
 	mutex_lock(&fuse->lock);
-	for (bank = 0; bank < 63; bank++) {
-		switch (bank) {
-		case 0:
-			break;
-		case LOCK_CFG:
-			err = read_words_via_s400_api(&buf[8], 8);
-			if (err)
-				goto ret;
-			break;
-		case ECID:
-			err = read_words_via_s400_api(&buf[16], 16);
-			if (err)
-				goto ret;
-			break;
-		case UNIQ_ID:
-			err = read_common_fuse(OTP_UNIQ_ID, &buf[56]);
-			if (err)
-				goto ret;
-			break;
-		case OTFAD_CFG:
-			err = read_common_fuse(OTFAD_CONFIG, &buf[184]);
-			if (err)
-				goto ret;
-			break;
-		default:
-			err = read_words_via_fsb(fuse->regs + 0x800, bank, &buf[bank * 8]);
-			break;
+	if (fuse->hw->soc == IMX8ULP) {
+		for (bank = 0; bank < 63; bank++) {
+			switch (bank) {
+			case 0:
+				break;
+			case LOCK_CFG:
+				err = read_words_via_s400_api(&buf[8], 8, 8);
+				if (err)
+					goto ret;
+				break;
+			case ECID:
+				err = read_words_via_s400_api(&buf[16], 16, 8);
+				if (err)
+					goto ret;
+				break;
+			case UNIQ_ID:
+				err = read_common_fuse(OTP_UNIQ_ID, &buf[56]);
+				if (err)
+					goto ret;
+				break;
+			case OTFAD_CFG:
+				err = read_common_fuse(OTFAD_CONFIG, &buf[184]);
+				if (err)
+					goto ret;
+				break;
+			default:
+				err = read_words_via_fsb(priv, bank, &buf[bank * 8]);
+				break;
+			}
 		}
+	} else if (fuse->hw->soc == IMX93) {
+		for (bank = 0; bank < 6; bank++)
+			read_nwords_via_fsb(regs, &buf[bank * 8], bank * 8, 8);
+
+		read_nwords_via_fsb(regs, &buf[48], 48, 4); /* OTP_UNIQ_ID */
+
+		err = read_words_via_s400_api(&buf[63], 63, 1);
+		if (err)
+			goto ret;
+
+		err = read_words_via_s400_api(&buf[128], 128, 16);
+		if (err)
+			goto ret;
+
+		err = read_words_via_s400_api(&buf[182], 182, 1);
+		if (err)
+			goto ret;
+
+		err = read_words_via_s400_api(&buf[188], 188, 1);
+		if (err)
+			goto ret;
+
+		for (bank = 39; bank < 64; bank++)
+			read_nwords_via_fsb(regs, &buf[bank * 8], bank * 8, 8);
 	}
 
 	memcpy(val, (u8 *)(buf + offset), bytes);
@@ -171,6 +199,8 @@ static int imx_fsb_s400_fuse_probe(struct platform_device *pdev)
 	fuse->config.size = 2048; /* 64 Banks */
 	fuse->config.reg_read = fsb_s400_fuse_read;
 	fuse->config.priv = fuse;
+	mutex_init(&fuse->lock);
+	fuse->hw = of_device_get_match_data(&pdev->dev);
 
 	nvmem = devm_nvmem_register(&pdev->dev, &fuse->config);
 	if (IS_ERR(nvmem)) {
@@ -178,15 +208,48 @@ static int imx_fsb_s400_fuse_probe(struct platform_device *pdev)
 		return PTR_ERR(nvmem);
 	}
 
-	mutex_init(&fuse->lock);
-
 	dev_dbg(&pdev->dev, "fuse nvmem device registered successfully\n");
 
 	return 0;
 }
 
+static const struct imx_fsb_s400_hw imx8ulp_fsb_s400_hw = {
+	.soc = IMX8ULP,
+	.fsb_otp_shadow = 0x800,
+	.fsb_bank_reg = {
+		[0] = { 3, 0 },
+		[1] = { 4, 8 },
+		[2] = { 5, 16 },
+		[3] = { 6, 24 },
+		[4] = { 8, 80, true },
+		[5] = { 24, 84, true },
+		[6] = { 26, 88, true },
+		[7] = { 27, 92, true },
+		[8] = { 28, 96 },
+		[9] = { 29, 104 },
+		[10] = { 30, 112 },
+		[11] = { 31, 120 },
+		[12] = { 37, 128 },
+		[13] = { 38, 136 },
+		[14] = { 39, 144 },
+		[15] = { 40, 152 },
+		[16] = { 41, 160 },
+		[17] = { 42, 168 },
+		[18] = { 43, 176 },
+		[19] = { 44, 184 },
+		[20] = { 45, 192 },
+		[21] = { 46, 200 },
+	},
+};
+
+static const struct imx_fsb_s400_hw imx93_fsb_s400_hw = {
+	.soc = IMX93,
+	.fsb_otp_shadow = 0x8000,
+};
+
 static const struct of_device_id imx_fsb_s400_fuse_match[] = {
-	{ .compatible = "fsl,imx8ulp-ocotp", },
+	{ .compatible = "fsl,imx8ulp-ocotp", .data = &imx8ulp_fsb_s400_hw, },
+	{ .compatible = "fsl,imx93-ocotp", .data = &imx93_fsb_s400_hw, },
 	{},
 };
 
