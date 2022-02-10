@@ -229,6 +229,7 @@ static int adin1110_round_len(int len)
 	/* can read/write only mutiples of 4 bytes of payload */
 	len = ALIGN(len, 4);
 
+	/* NOTE: ADIN1110_WR_HEADER_LEN should be used for write ops. */
 	if (len + ADIN1110_RD_HEADER_LEN > ADIN1110_MAX_BUFF)
 		return -EINVAL;
 
@@ -242,6 +243,7 @@ static void adin1110_read_fifo(struct adin1110_priv *priv)
 	struct spi_transfer t[2] = {0};
 	struct sk_buff *rxb;
 	u32 frame_size;
+	u32 frame_size_no_fcs;
 	int round_len;
 	u8 *rxpkt;
 	int ret;
@@ -251,14 +253,16 @@ static void adin1110_read_fifo(struct adin1110_priv *priv)
 		return;
 
 	/* the read frame size includes the extra 2 bytes from the  ADIN1110 frame header */
-	if (frame_size < ADIN1110_FRAME_HEADER_LEN)
+	if (frame_size < ADIN1110_FRAME_HEADER_LEN + ADIN1110_FEC_LEN)
 		return;
 
 	round_len = adin1110_round_len(frame_size);
 	if (round_len < 0)
 		return;
 
-	rxb = netdev_alloc_skb(priv->netdev, frame_size - ADIN1110_FRAME_HEADER_LEN);
+	frame_size_no_fcs = frame_size - ADIN1110_FRAME_HEADER_LEN - ADIN1110_FEC_LEN;
+
+	rxb = netdev_alloc_skb(priv->netdev, frame_size_no_fcs);
 	if (!rxb)
 		return;
 
@@ -286,9 +290,9 @@ static void adin1110_read_fifo(struct adin1110_priv *priv)
 		return;
 	}
 
-	rxpkt = skb_put(rxb, frame_size - ADIN1110_FRAME_HEADER_LEN);
+	rxpkt = skb_put(rxb, frame_size_no_fcs);
 	memcpy(rxpkt, &priv->data[header_len + ADIN1110_FRAME_HEADER_LEN],
-	       frame_size - ADIN1110_FRAME_HEADER_LEN);
+	       frame_size_no_fcs);
 
 	rxb->protocol = eth_type_trans(rxb, priv->netdev);
 
@@ -303,6 +307,7 @@ static int adin1110_write_fifo(struct adin1110_priv *priv, struct sk_buff *txb)
 	u32 header_len = ADIN1110_WR_HEADER_LEN;
 	int padding = 0;
 	int round_len;
+	int padded_len;
 	int ret;
 
 	/* Pad frame to 64 byte length,
@@ -312,12 +317,13 @@ static int adin1110_write_fifo(struct adin1110_priv *priv, struct sk_buff *txb)
 	 */
 	if (txb->len + ADIN1110_FEC_LEN < 64)
 		padding = 64 - (txb->len + ADIN1110_FEC_LEN);
+	padded_len = txb->len + padding + ADIN1110_FRAME_HEADER_LEN;
 
-	round_len = adin1110_round_len(txb->len + padding + ADIN1110_FRAME_HEADER_LEN);
+	round_len = adin1110_round_len(padded_len);
 	if (round_len < 0)
 		return round_len;
 
-	ret = adin1110_write_reg(priv, ADIN1110_TX_FSIZE, round_len);
+	ret = adin1110_write_reg(priv, ADIN1110_TX_FSIZE, padded_len);
 	if (ret < 0)
 		return ret;
 
