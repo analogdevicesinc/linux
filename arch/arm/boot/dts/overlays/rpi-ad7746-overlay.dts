@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7746: ad7746@48 {
+				compatible = "adi,ad7746";
+				clock-frequency = <400000>;
+				reg = <0x48>;
+				label = "my_ad7746";
+			};
+		};
+	};
+
+	__overrides__ {
+		addr = <&ad7746>,"reg:0";
+	};
+};
