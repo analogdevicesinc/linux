@@ -261,7 +261,6 @@ struct it6161 {
 	struct regmap *regmap_hdmi_tx;
 
 	u32 it6161_addr_hdmi_tx;
-	u32 irq;
 
 	struct gpio_desc *enable_gpio;
 
@@ -1167,18 +1166,14 @@ static void it6161_bridge_enable(struct drm_bridge *bridge)
 	if (it6161->bridge_enable)
 		return;
 
-	/* disable irq to avoid unnessary interrupter when device reset */
-	disable_irq(it6161->irq);
-
 	mipi_rx_init(it6161);
 	hdmi_tx_init(it6161);
 	it6161_set_interrupts_active_level(HIGH);
 	it6161_mipi_rx_int_mask_enable(it6161);
 	it6161_hdmi_tx_int_mask_enable(it6161);
 
-	enable_irq(it6161->irq);
-
 	it6161->bridge_enable = true;
+
 }
 
 static void it6161_bridge_disable(struct drm_bridge *bridge)
@@ -2304,7 +2299,7 @@ static int it6161_parse_dt(struct it6161 *it6161, struct device_node *np)
 static int it6161_i2c_probe(struct i2c_client *i2c_mipi_rx)
 {
 	struct device *dev = &i2c_mipi_rx->dev;
-	int err;
+	int err, intp_irq;
 
 	it6161 = devm_kzalloc(dev, sizeof(*it6161), GFP_KERNEL);
 	if (!it6161)
@@ -2344,14 +2339,14 @@ static int it6161_i2c_probe(struct i2c_client *i2c_mipi_rx)
 	it6161->enable_drv_hold = DEFAULT_DRV_HOLD;
 	it6161_set_interrupts_active_level(HIGH);
 
-	it6161->irq = i2c_mipi_rx->irq;
+	intp_irq = i2c_mipi_rx->irq;
 
-	if (!it6161->irq) {
+	if (!intp_irq) {
 		DRM_DEV_ERROR(dev, "it6112 failed to get INTP IRQ");
 		return -ENODEV;
 	}
 
-	err = devm_request_threaded_irq(&i2c_mipi_rx->dev, it6161->irq, NULL,
+	err = devm_request_threaded_irq(&i2c_mipi_rx->dev, intp_irq, NULL,
 					it6161_intp_threaded_handler,
 					IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "it6161-intp", it6161);
 	if (err) {
