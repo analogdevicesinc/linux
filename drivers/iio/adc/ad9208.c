@@ -102,6 +102,9 @@ struct ad9208_phy {
 	u32 sysref_mode;
 	u32 sysref_count;
 	struct ad9208_ddc ddc[4];
+
+	u8 logic_lanes_count;
+	u8 logic_lanes[8];
 };
 
 static int ad9208_udelay(void *user_data, unsigned int us)
@@ -942,6 +945,15 @@ static int ad9208_setup(struct spi_device *spi)
 		return ret;
 	}
 
+	/* Configure xbar */
+	for (i = 0; i < phy->logic_lanes_count; i++) {
+		ret = ad9208_jesd_set_lane_xbar(&phy->ad9208, i, phy->logic_lanes[i]);
+		if (ret != 0) {
+			dev_err(&spi->dev, "Failed to setup lane xbar for %d -> %d (%d)\n", i, phy->logic_lanes[i], ret);
+			return ret;
+		}
+	}
+
 	timeout = 10;
 
 	do {
@@ -1159,7 +1171,7 @@ static int ad9208_parse_dt(struct ad9208_phy *phy, struct device *dev)
 {
 	struct device_node *np = dev->of_node;
 	struct device_node *chan_np;
-	u32 tmp, reg;
+	u32 tmp, reg, i;
 	int ret;
 
 	/* Pin Config */
@@ -1290,6 +1302,19 @@ static int ad9208_parse_dt(struct ad9208_phy *phy, struct device *dev)
 
 	JESD204_LNK_READ_SUBCLASS(dev, np, &phy->jesd204_link,
 				  &phy->jesd_subclass, JESD_SUBCLASS_0);
+
+	/*Logic lane configuration*/
+	phy->logic_lanes_count = 0;
+	for (i = 0; i < sizeof(phy->logic_lanes); i++)
+		phy->logic_lanes[i] = i;
+
+	if (!of_property_read_u8_array(np, "adi,logic-lanes-mapping",
+		      phy->logic_lanes, sizeof(phy->logic_lanes)/2))
+		phy->logic_lanes_count = sizeof(phy->logic_lanes)/2;
+
+	if (!of_property_read_u8_array(np, "adi,logic-lanes-mapping",
+		      phy->logic_lanes, sizeof(phy->logic_lanes)))
+		phy->logic_lanes_count = sizeof(phy->logic_lanes);
 
 	return 0;
 }
