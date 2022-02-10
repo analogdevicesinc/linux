@@ -201,8 +201,7 @@
 		compatible = "cdn,imx8qm-hdmirx";
 		reg = <0x58268000 0x10000>, /* HDP Controller */
 			<0x58261000 0x1000>; /* HDP SubSystem CSR  */
-		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>,
-				<13 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <10>, <13>;
 		interrupt-names = "plug_in", "plug_out";
 		interrupt-parent = <&irqsteer_hdmi_rx>;
 		clocks = <&clk IMX_SC_R_HDMI_RX IMX_SC_PM_CLK_MISC1>,

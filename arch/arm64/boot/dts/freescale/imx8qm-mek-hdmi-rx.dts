@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020 - 2022 NXP
  * Sandor Yu <Sandor.yu@nxp.com>
  */
 /*
@@ -28,6 +28,26 @@
 	status = "okay";
 };
 
+&isi_0 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+
+	m2m_device {
+		status = "okay";
+	};
+};
+
+&isi_1 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
 /* HDMI RX */
 &isi_2 {
 	interface = <4 0 2>;  /* <Input MIPI_VCx Output>
@@ -49,11 +69,53 @@
 	};
 };
 
+&isi_4 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_5 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_6 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_7 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
 &mipi_csi_0 {
+	/delete-property/virtual-channel;
 	status = "disabled";
 };
 
 &i2c_mipi_csi0 {
+	status = "disabled";
+};
+
+&mipi_csi_1 {
+	/delete-property/virtual-channel;
+	status = "disabled";
+};
+
+&i2c_mipi_csi1 {
 	status = "disabled";
 };
 
@@ -88,6 +150,7 @@
 &hdmi_rx_lpcg_i2c0_ipg_s {
 	status = "okay";
 };
+
 &hdmi_rx_lpcg_sink_p {
 	status = "okay";
 };
