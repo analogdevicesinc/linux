@@ -4,7 +4,7 @@
  * \brief Contains functions to support Talise Rx and Observation Rx data path
  *        control
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -1003,7 +1003,7 @@ uint32_t TALISE_setRxDataFormat (taliseDevice_t *device, taliseRxDataFormat_t *r
               intConfig |= SIGNED_MAGNITUDE_BITM;   /* signed */
               npCheck = 24;
          }
-        
+
         if (rxDataFormat->formatSelect == TAL_GAIN_COMPENSATION_DISABLED)
         {
             intConfig &= ~SLICER_NUMBERBITS_BITM;   /* 2 bit on I, 2 bit on Q */
@@ -2519,7 +2519,7 @@ uint32_t TALISE_getRxDecPower(taliseDevice_t *device, taliseRxChannels_t rxChann
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
             TAL_ERR_INV_RX_DEC_POWER_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
     }
-    
+
     if (rxChannel == TAL_RX1)
     {
         decPowerAddr = TALISE_ADDR_DEC_POWER_CH1;
@@ -2533,7 +2533,7 @@ uint32_t TALISE_getRxDecPower(taliseDevice_t *device, taliseRxChannels_t rxChann
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
             TAL_ERR_GETRXDECPOWER_INV_CHANNEL, retVal, TALACT_ERR_CHECK_PARAM);
     }
-    
+
     /* Check that rx profile is valid in current config */
     if (((device->devStateInfo.profilesValid & RX_PROFILE_VALID) == 0)
         || (device->devStateInfo.initializedChannels & (uint32_t)rxChannel) == 0)
@@ -2541,18 +2541,18 @@ uint32_t TALISE_getRxDecPower(taliseDevice_t *device, taliseRxChannels_t rxChann
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
             TAL_ERR_GETRXDECPOWER_INV_PROFILE, retVal, TALACT_ERR_CHECK_PARAM);
     }
-    
+
     /* Write some value to generate a strobe to latch the value */
     halError = talSpiWriteByte(device->devHalInfo, decPowerAddr, 0x01);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
-    
+
     /* Read Rx1 Dec Power register */
     halError = talSpiReadByte(device->devHalInfo, decPowerAddr, &rxDecPower_dBFS);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
-    
+
     *rxDecPower_mdBFS = ((uint16_t)rxDecPower_dBFS) * 250; /* 250 = 1000 * 0.25dB */
-    
+
     return (uint32_t)retVal;
 }

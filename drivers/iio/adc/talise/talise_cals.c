@@ -3,7 +3,7 @@
  * \file talise_cals.c
  * \brief Contains functions to support Talise init and tracking calibrations
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -27,7 +27,6 @@ uint32_t TALISE_runInitCals(taliseDevice_t *device, uint32_t calMask)
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_runInitCals()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -65,7 +64,6 @@ uint32_t TALISE_waitInitCals(taliseDevice_t *device, uint32_t timeoutMs, uint8_t
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_waitInitCals()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -131,7 +129,6 @@ uint32_t TALISE_checkInitCalComplete(taliseDevice_t *device, uint8_t *areCalsRun
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_checkInitCalComplete()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -206,7 +203,6 @@ uint32_t TALISE_abortInitCals(taliseDevice_t *device, uint32_t *calsCompleted)
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_abortInitCals()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -291,7 +287,6 @@ uint32_t TALISE_getInitCalStatus(taliseDevice_t *device, uint32_t *calsSincePowe
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getInitCalStatus()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -407,7 +402,6 @@ uint32_t TALISE_enableTrackingCals(taliseDevice_t *device, uint32_t enableMask)
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_enableTrackingCals()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -485,7 +479,6 @@ uint32_t TALISE_getEnabledTrackingCals(taliseDevice_t *device, uint32_t *enableM
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getEnabledTrackingCals()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -548,7 +541,6 @@ uint32_t TALISE_rescheduleTrackingCal(taliseDevice_t *device, taliseTrackingCali
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_rescheduleTrackingCal()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -638,7 +630,6 @@ uint32_t TALISE_setAllTrackCalState(taliseDevice_t *device, uint32_t calSubsetMa
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_setAllTrackCalState()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -713,7 +704,6 @@ uint32_t TALISE_getAllTrackCalState(taliseDevice_t *device, uint32_t *resumeCalM
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getAllTrackCalState()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -781,7 +771,6 @@ uint32_t TALISE_getTxLolStatus(taliseDevice_t *device, taliseTxChannels_t channe
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getTxLolStatus()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -858,7 +847,6 @@ uint32_t TALISE_getTxQecStatus(taliseDevice_t *device, taliseTxChannels_t channe
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getTxQecStatus()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -935,7 +923,6 @@ uint32_t TALISE_getRxQecStatus(taliseDevice_t *device, taliseRxChannels_t channe
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getRxQecStatus()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -1012,7 +999,6 @@ uint32_t TALISE_getOrxQecStatus(taliseDevice_t *device, taliseObsRxChannels_t ch
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getOrxQecStatus()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -1089,7 +1075,6 @@ uint32_t TALISE_getRxHd2Status(taliseDevice_t *device, taliseRxChannels_t channe
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getRxHd2Status()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -1387,7 +1372,6 @@ uint32_t TALISE_resetExtTxLolChannel(taliseDevice_t *device, taliseTxChannels_t 
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_resetExtTxLolChannel()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -1463,7 +1447,6 @@ uint32_t TALISE_setRxHd2Config(taliseDevice_t *device, taliseRxHd2Config_t *hd2C
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_setRxHd2Config()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -1526,7 +1509,6 @@ uint32_t TALISE_getRxHd2Config(taliseDevice_t *device, taliseRxHd2Config_t *hd2C
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getRxHd2Config()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -1686,7 +1668,7 @@ uint32_t TALISE_setDigDcOffsetEn(taliseDevice_t *device, uint8_t enableMask)
     {
         dataToWrite |= (enableMask & ((uint8_t)TAL_DC_OFFSET_RX1 |(uint8_t) TAL_DC_OFFSET_RX2));
     }
-    
+
     halError = talSpiWriteField(device->devHalInfo,  REG_ADDRESS, dataToWrite, 0x06, 1); /* Write RX enable bits to the register */
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
@@ -1697,7 +1679,7 @@ uint32_t TALISE_setDigDcOffsetEn(taliseDevice_t *device, uint8_t enableMask)
     {
         dataToWrite |= ((enableMask & ((uint8_t)TAL_DC_OFFSET_ORX1 | (uint8_t)TAL_DC_OFFSET_ORX2)) >> 2);
     }
-    
+
     halError = talSpiWriteField(device->devHalInfo,  REG_ADDRESS, dataToWrite, 0x03, 0);  /* Write Loopback, ORx1 and ORx2 enable bits to the register */
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
@@ -1740,6 +1722,171 @@ uint32_t TALISE_getDigDcOffsetEn(taliseDevice_t *device,uint8_t *enableMask)
     enableMaskData |= (uint8_t)(readbackData << 2);  /* adjust bits to match channel :refer enum mykonosRfDcOffsettEn_t. */
 
     *enableMask = enableMaskData;
+
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_getTrackingCalsBatchSize(taliseDevice_t *device, taliseTrackingCalBatchSize_t* batchsize_us)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    talRecoveryActions_t retValWarn = TALACT_NO_ACTION;
+
+    uint8_t armFieldValue[16] = { 0 };
+    uint32_t radioStatus = 0;
+    uint8_t byteOffset = 0x3C;
+    uint32_t batchsizetime;
+
+    static const uint32_t CODECHECK_PARAM_GETTCALBATCHSIZE_ERR1 = 2;
+
+#if TALISE_VERBOSE
+    adiHalErr_t halError = ADIHAL_OK;
+
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getTrackingCalsBatchSize()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    retValWarn = retVal;
+
+    if (batchsize_us == NULL)
+    {
+        return (uint32_t)talApiErrHandler(device,
+            TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_GETTCAL_BATCHSIZE_NULL_PARAM,
+            retVal,
+            TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* read radio state to make sure ARM is in radioOff/IDLE state or ready state */
+    retVal = (talRecoveryActions_t)TALISE_getRadioState(device, &radioStatus);
+    IF_ERR_RETURN_U32(retVal);
+
+    /* SW Test */
+    if (device->devStateInfo.swTest == CODECHECK_PARAM_GETTCALBATCHSIZE_ERR1)
+    {
+        radioStatus = 0;
+    }
+    /* throw error if not in radioOff/IDLE state or ready state */
+    if (((radioStatus & 0x07) != TALISE_ARM_RADIO_STATUS_IDLE) &&
+        ((radioStatus & 0x07) != TALISE_ARM_RADIO_STATUS_READY))
+    {
+        return (uint32_t)talApiErrHandler(device,
+            TAL_ERRHDL_API_FAIL,
+            TAL_ERR_GETTCAL_BATCH_SIZE_ARMSTATE_ERROR,
+            retVal,
+            TALACT_ERR_RESET_ARM);
+    }
+
+    retVal = (talRecoveryActions_t)TALISE_readArmConfig(device,
+        TALISE_ARM_OBJECTID_CAL_SCHEDULER,
+        byteOffset,
+        &armFieldValue[0],
+        16);
+    IF_ERR_RETURN_U32(retVal);
+    batchsizetime = (taliseTrackingCalBatchSize_t)((armFieldValue[1] << 2) + (armFieldValue[0]));
+    switch (batchsizetime)
+    {
+        case 500: *batchsize_us = TAL_TRACK_BATCH_SIZE_500_US; break;
+        case 200: *batchsize_us = TAL_TRACK_BATCH_SIZE_200_US; break;
+        return (uint32_t)talApiErrHandler(device,
+            TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_GETTCAL_BATCHSIZE_INV_VALUE,
+            retVal,
+            TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* If no other higher priority errors, return possible log warning */
+    if (retVal == TALACT_NO_ACTION)
+    {
+        retVal = retValWarn;
+    }
+
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_setTrackingCalsBatchSize(taliseDevice_t *device, taliseTrackingCalBatchSize_t batchsize_us)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    talRecoveryActions_t retValWarn = TALACT_NO_ACTION;
+
+    uint8_t armFieldValue[16] = { 0 };
+    uint32_t radioStatus = 0;
+    uint8_t byteOffset = 0x3C;
+
+    static const uint32_t CODECHECK_PARAM_SETTCALBATCHSIZE_ERR1 = 2;
+
+#if TALISE_VERBOSE
+    adiHalErr_t halError = ADIHAL_OK;
+
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_setTrackingCalsBatchSize()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    retValWarn = retVal;
+
+    /* check bactch size and set the address */
+    switch (batchsize_us)
+    {
+    case TAL_TRACK_BATCH_SIZE_500_US:
+        armFieldValue[0] = (uint8_t)0xF4;
+        armFieldValue[4] = (uint8_t)0xF4;
+        armFieldValue[8] = (uint8_t)0xF4;
+        armFieldValue[12] = (uint8_t)0xF4;
+        armFieldValue[1] = (uint8_t)0x01;
+        armFieldValue[5] = (uint8_t)0x01;
+        armFieldValue[9] = (uint8_t)0x01;
+        armFieldValue[13] = (uint8_t)0x01;
+        break;
+
+    case TAL_TRACK_BATCH_SIZE_200_US:
+        armFieldValue[0] = (uint8_t)0xC8;
+        armFieldValue[4] = (uint8_t)0xC8;
+        armFieldValue[8] = (uint8_t)0xC8;
+        armFieldValue[12] = (uint8_t)0xC8;
+        break;
+
+    default:
+        return (uint32_t)talApiErrHandler(device,
+            TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_SETTCAL_BATCH_SIZE_PARAM,
+            retVal,
+            TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* read radio state to make sure ARM is in radioOff/IDLE state or ready state */
+    retVal = (talRecoveryActions_t)TALISE_getRadioState(device, &radioStatus);
+    IF_ERR_RETURN_U32(retVal);
+
+    /* SW Test */
+    if (device->devStateInfo.swTest == CODECHECK_PARAM_SETTCALBATCHSIZE_ERR1)
+    {
+        radioStatus = 0;
+    }
+
+    /* throw error if not in radioOff/IDLE state or ready state */
+    if (((radioStatus & 0x07) != TALISE_ARM_RADIO_STATUS_IDLE) &&
+        ((radioStatus & 0x07) != TALISE_ARM_RADIO_STATUS_READY))
+    {
+        return (uint32_t)talApiErrHandler(device,
+            TAL_ERRHDL_API_FAIL,
+            TAL_ERR_SETTCAL_BATCH_SIZE_ARMSTATE_ERROR,
+            retVal,
+            TALACT_ERR_RESET_ARM);
+    }
+
+    /* other armFieldValues remain zero */
+
+    retVal = (talRecoveryActions_t)TALISE_writeArmConfig(device,
+        TALISE_ARM_OBJECTID_CAL_SCHEDULER,
+        byteOffset,
+        &armFieldValue[0],
+        16);
+    IF_ERR_RETURN_U32(retVal);
+
+    /* If no other higher priority errors, return possible log warning */
+    if (retVal == TALACT_NO_ACTION)
+    {
+        retVal = retValWarn;
+    }
 
     return (uint32_t)retVal;
 }
@@ -1953,4 +2100,3 @@ const char* talGetCalErrorMessage(uint32_t errSrc, uint32_t errCode)
 #endif
 
 }
-
