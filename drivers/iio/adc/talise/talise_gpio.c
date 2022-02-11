@@ -3,7 +3,7 @@
  * \file talise_gpio.c
  * \brief Talise GPIO functions
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -378,7 +378,7 @@ uint32_t TALISE_getGpIntMask(taliseDevice_t *device, uint16_t *gpIntMask)
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getGpIntMask()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
-    
+
     /* checking for null pointer */
     if (gpIntMask == NULL)
     {
@@ -390,11 +390,11 @@ uint32_t TALISE_getGpIntMask(taliseDevice_t *device, uint16_t *gpIntMask)
         halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_1, &gpIntLsb);
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
-        
+
         halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_0, &gpIntMsb);
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
-        
+
         *gpIntMask = ((((uint16_t)gpIntMsb) << 8) & TAL_GPMASK_MSB) | ((uint16_t)gpIntLsb & TAL_GPMASK_LSB);
     }
 
@@ -437,6 +437,7 @@ uint32_t TALISE_getGpIntStatus(taliseDevice_t *device, uint16_t *gpIntStatus)
 uint32_t TALISE_getTemperature(taliseDevice_t *device, int16_t *temperatureDegC)
 {
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
+
     uint8_t armExtData[1] = {TALISE_ARM_OBJECTID_TEMP_SENSOR};
     uint8_t cmdStatusByte = 0;
     uint8_t armReadBack[2] = {0};
@@ -446,7 +447,6 @@ uint32_t TALISE_getTemperature(taliseDevice_t *device, int16_t *temperatureDegC)
 
 #if TALISE_VERBOSE
     adiHalErr_t halError = ADIHAL_OK;
-
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getTemperature()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
@@ -1639,7 +1639,7 @@ uint32_t TALISE_gpIntHandler(taliseDevice_t *device, uint32_t *gpIntStatus, tali
     {
         /* Deframer A */
         if (((gpIntDeframerSources & DEFRAMER_A_BD_ERROR) > 0) ||
-        	((gpIntDeframerSources & DEFRAMER_A_NIT_ERROR) > 0) ||
+		((gpIntDeframerSources & DEFRAMER_A_NIT_ERROR) > 0) ||
             ((gpIntDeframerSources & DEFRAMER_A_UEK_ERROR) > 0))
         {
             if (gpIntDiag != NULL)
@@ -2402,5 +2402,3 @@ const char* talGetGpioErrorMessage(uint32_t errSrc, uint32_t errCode)
 #endif
 
 }
-
-
