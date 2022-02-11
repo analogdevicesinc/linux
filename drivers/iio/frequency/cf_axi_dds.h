@@ -198,6 +198,7 @@ enum dds_data_select {
 enum {
 	ID_AD9122,
 	ID_AD9739A,
+	ID_AD9783,
 	ID_AD9135,
 	ID_AD9136,
 	ID_AD9144,

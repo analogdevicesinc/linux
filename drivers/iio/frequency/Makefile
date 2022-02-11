@@ -24,6 +24,7 @@ obj-$(CONFIG_CF_AXI_DDS) += cf_axi_dds_drv.o
 obj-$(CONFIG_CF_AXI_DDS_AD9122) += ad9122.o
 obj-$(CONFIG_CF_AXI_DDS_AD9144) += ad9144.o
 obj-$(CONFIG_CF_AXI_DDS_AD9739A) += ad9739a.o
+obj-$(CONFIG_CF_AXI_DDS_AD9783) += ad9783.o
 obj-$(CONFIG_HMC7044) += hmc7044.o
 obj-$(CONFIG_LTC6952) += ltc6952.o
 
