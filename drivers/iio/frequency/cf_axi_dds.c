@@ -1192,6 +1192,18 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_buf_channels = 1,
 
 	},
+	[ID_AD9783] = {
+		.name = "AD9783",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF(0),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+		},
+		.num_channels = 3,
+		.num_dds_channels = 2,
+		.num_buf_channels = 1,
+
+	},
 	[ID_AD9136] = {
 		.name = "AD9136",
 		.channel = {
@@ -1983,6 +1995,11 @@ static const struct axidds_core_info ad9739a_8_00_b_info = {
 	.issue_sync_en = 1,
 };
 
+static const struct axidds_core_info ad9783_1_0_info = {
+	.version = ADI_AXI_PCORE_VER(9, 0, 'b'),
+	.rate = 1,
+};
+
 static const struct axidds_core_info ad9371_6_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
 	.standalone = true,
@@ -2082,6 +2099,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
         }, {
 	    .compatible = "adi,axi-ad9162-1.0",
 	    .data = &ad9162_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9783-1.0",
+	    .data = &ad9783_1_0_info,
 	}, {
 	    .compatible = "adi,axi-ad9963-dds-1.00.a",
 	    .data = &ad9963_1_00_a_info,
