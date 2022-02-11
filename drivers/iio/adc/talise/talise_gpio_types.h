@@ -3,7 +3,7 @@
  * \file talise_gpio_types.h
  * \brief Contains functions to allow control of the General Purpose IO functions on the Talise device
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -26,7 +26,7 @@ typedef enum
     TAL_GPIO_ARM_OUT_MODE = 9,      /*!< Allows internal ARM processor to output on GPIO pins */
     TAL_GPIO_SLICER_OUT_MODE = 10   /*!< Allows Slicer active configuration to the GPIO output  pins */
 } taliseGpioMode_t;
-    
+
 /**
  *  \brief Enum to set the GPIO3v3 mode
  */
