@@ -4,7 +4,7 @@
  * \brief Contains top level Talise related function prototypes for
  *        talise.c
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -165,7 +165,7 @@ uint32_t TALISE_shutdown(taliseDevice_t *device);
  * A bit value of 0 indicates that the sync has not occured.
  *
  *
- * \pre This function can be called any time after the device has been initialized and PLL lock status has 
+ * \pre This function can be called any time after the device has been initialized and PLL lock status has
  * been verified.
  *
  * \dep_begin
@@ -252,7 +252,7 @@ uint32_t TALISE_serializerReset(taliseDevice_t *device);
 /**
  * \brief Sets up the chip for multichip LOs Phase synchronization
  *
- *  LOs on multiple chips can be phase synchronized to support active  
+ *  LOs on multiple chips can be phase synchronized to support active
  *  antenna system and beam forming applications.This function should
  *  be run after all transceivers have finished the TALISE_setRfPllFrequency(),
  *  and before TALISE_runInitCals().
@@ -531,7 +531,7 @@ uint32_t TALISE_getApiVersion (taliseDevice_t *device, uint32_t *siVer, uint32_t
 
 /**
  * \brief Reads back the silicon revision for the Talise Device
- * 
+ *
  * revision's bit  |  Description
  * ----------------|-----------------
  *       3:0       |  minor revision
@@ -542,8 +542,8 @@ uint32_t TALISE_getApiVersion (taliseDevice_t *device, uint32_t *siVer, uint32_t
  * \dep_end
  *
  * \param device Structure pointer to the Talise data structure containing settings
- * \param revision Return value of the Talise silicon revision in hex where 
-        upper nibble (4 bits) indicates the major revision and the lower nibble 
+ * \param revision Return value of the Talise silicon revision in hex where
+        upper nibble (4 bits) indicates the major revision and the lower nibble
         indicates the minor revision.
  *
  * \retval TALACT_WARN_RESET_LOG recovery action for log reset
