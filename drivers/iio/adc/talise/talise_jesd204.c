@@ -3,7 +3,7 @@
  * \file talise_jesd204.c
  * \brief Contains functions to support Talise JESD204b data interface
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -1376,11 +1376,17 @@ uint32_t TALISE_enableDeframerLink(taliseDevice_t *device, taliseDeframerSel_t d
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
     adiHalErr_t halError = ADIHAL_OK;
     uint16_t deframerOffset = 0;
+    static const uint16_t CDR_RESET_ADDR = 0x187e;
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_enableDeframerLink()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
+
+    /* Add reset for CDR to prevent lockup issue */
+    halError = talSpiWriteField(device->devHalInfo, CDR_RESET_ADDR, 1, 0x01, 7);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
 
     if (deframerSel == TAL_DEFRAMER_A)
     {
@@ -2019,8 +2025,8 @@ uint32_t TALISE_getDfrmIlasMismatch(taliseDevice_t *device, taliseDeframerSel_t 
     uint8_t syncRegister = 0;               /* Local holds contents of syncB register                                */
     uint16_t cfgAddrArray[15] = {0};        /* Local holds cfg addresses for spiReadBytes to fetch Cfg values        */
     uint16_t ilasAddrArray[15] = {0};       /* Local holds ilas addresses for spiReadBytes to fetch ILAS values      */
-    taliseJesd204bLane0Config_t dfrmCfgLocal = {0}; /* Local deframer configuration settings                               */
-    taliseJesd204bLane0Config_t dfrmIlasLocal = {0}; /* Local deframer Ilas settings                                       */
+    taliseJesd204bLane0Config_t dfrmCfgLocal = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* Local deframer configuration settings                               */
+    taliseJesd204bLane0Config_t dfrmIlasLocal = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* Local deframer Ilas settings                                       */
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getDfrmIlasMismatch()\n");
@@ -2030,7 +2036,7 @@ uint32_t TALISE_getDfrmIlasMismatch(taliseDevice_t *device, taliseDeframerSel_t 
     if (mismatch == NULL)
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                TAL_ERR_JESD204B_ILAS_MISMATCH_NULLPARAM, retVal, TALACT_ERR_CHECK_PARAM);        
+                TAL_ERR_JESD204B_ILAS_MISMATCH_NULLPARAM, retVal, TALACT_ERR_CHECK_PARAM);
     }
 
     *mismatch = 0;
@@ -2773,4 +2779,3 @@ uint32_t TALISE_framerSyncbToggle(taliseDevice_t *device, taliseFramerSel_t fram
 
     return (uint32_t)retVal;
 }
-

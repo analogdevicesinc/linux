@@ -4,7 +4,7 @@
  * \brief Contains Talise receive related function prototypes for
  *        talise_rx.c
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -514,7 +514,7 @@ uint32_t TALISE_setGainTableExtCtrlPins(taliseDevice_t *device, taliseRxChannels
  * If the receiver is disabled during the power measurement, this function returns a 0 value for rx1DecPower_mdBFS
  *
  * The resolution of this function is 0.25dB.
- * When the measurement location is HB2 (i.e., powerUseRfirOut == powerUseBBDC2 == 0) the dynamic range of this function is 40dB. 
+ * When the measurement location is HB2 (i.e., powerUseRfirOut == powerUseBBDC2 == 0) the dynamic range of this function is 40dB.
  * Signals lower than -40dBFS may not be measured accurately. When measuring from RfirOut or BBDC2, the dynamic range of this
  * function is 60dB. Signals lower than -60 dBFS may not be measured accurately.
  *

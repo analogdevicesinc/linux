@@ -3,7 +3,7 @@
  * \file talise_radioctrl.h
  * \brief Contains Talise related function prototypes for talise_radioctrl.c
  *
- *  Talise API version: 3.6.0.5
+ *  Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -649,7 +649,7 @@ uint32_t TALISE_setOrxLoSource(taliseDevice_t *device, taliseObsRxLoSource_t orx
  * \pre This function can be used after the device has been fully initialized
  *      and the init cals have already run. This can be called in the
  *      radio On or Off state.
- * 
+ *
  * \note In radio Off, this function will read back RF PLL
  *
  * \dep_begin

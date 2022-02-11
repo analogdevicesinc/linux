@@ -3,7 +3,7 @@
  * \file talise_agc.c
  * \brief Contains Talise API AGC function calls
  *
- * Talise API version: 3.6.0.5
+ * Talise API version: 3.6.2.1
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -40,7 +40,7 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
     static const uint8_t underRangeLowPowerGainStepRecoveryBitMask = 0x1F;
     static const uint8_t powerMeasurementDurationBitMask = 0x1F;
     static const uint8_t agcSlowLoopSettlingDelayBitMask = 0x7F;
-    static const uint8_t ip3OverRangeThreshBitMask = 0x3F;    
+    static const uint8_t ip3OverRangeThreshBitMask = 0x3F;
     static const uint8_t apdHighThreshMin = 0x07;
     static const uint8_t apdHighThreshMax = 0x31;
     static const uint8_t apdLowGainModeHighThreshMin = 0x07;
@@ -433,7 +433,7 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         IF_ERR_RETURN_U32(retVal);
     }
 
-    if ((rxAgcCtrl->agcPeak.apdLowGainModeLowThresh < apdLowGainModeLowThreshMin) || 
+    if ((rxAgcCtrl->agcPeak.apdLowGainModeLowThresh < apdLowGainModeLowThreshMin) ||
         (rxAgcCtrl->agcPeak.apdLowGainModeLowThresh > apdLowGainModeLowThreshMax))
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
@@ -607,7 +607,7 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_INV_AGC_PKK_HB2THRSHCFG_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
     }
-    
+
     /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
     if (rxAgcCtrl->agcPeak.hb2UnderRangeLowThreshExceededCnt == 0)
     {
@@ -616,7 +616,7 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
     halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_ADCOVRG_LOW_INT0_COUNTER, rxAgcCtrl->agcPeak.hb2UnderRangeLowThreshExceededCnt);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
-    
+
     /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
     if (rxAgcCtrl->agcPeak.hb2UnderRangeMidThreshExceededCnt == 0)
     {
@@ -771,7 +771,7 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
     }
-    
+
     if ((rxAgcCtrl->agcPower.powerLogShift << 2) & ~powerLogShiftBitMask)
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
@@ -783,13 +783,13 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
     }
-    
+
     /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
     if (rxAgcCtrl->agcPower.overRangeLowPowerGainStepAttack == 0)
     {
         rxAgcCtrl->agcPower.overRangeLowPowerGainStepAttack = 4;
     }
-    
+
     if ((rxAgcCtrl->agcPower.overRangeLowPowerGainStepAttack) & ~overRangeLowPowerGainStepAttackBitMask)
     {
        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
@@ -801,13 +801,13 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
     }
-    
+
     /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
     if (rxAgcCtrl->agcPower.overRangeHighPowerGainStepAttack == 0)
     {
         rxAgcCtrl->agcPower.overRangeHighPowerGainStepAttack = 4;
     }
-    
+
     if ((rxAgcCtrl->agcPower.overRangeHighPowerGainStepAttack) & ~overRangeHighPowerGainStepAttackBitMask)
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
@@ -819,7 +819,7 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
     }
-    
+
     return (uint32_t)retVal;
 }
 
@@ -1152,11 +1152,11 @@ uint32_t TALISE_getAgcPeakRegisters(taliseDevice_t *device, taliseAgcPeak_t *agc
     halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_AGC_CONFIG1, &agcPeak->hb2OvrgSel, hb2OvrgSelMask, 5);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
-    
+
     halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_AGC_ADCOVRG_LOW_INT0_COUNTER, &agcPeak->hb2UnderRangeLowThreshExceededCnt);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
-    
+
     halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_AGC_ADCOVRG_LOW_INT1_COUNTER, &agcPeak->hb2UnderRangeMidThreshExceededCnt);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
@@ -1263,11 +1263,11 @@ uint32_t TALISE_getAgcPowerRegisters(taliseDevice_t *device, taliseAgcPower_t *a
     halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_AGC_UPPER_POWER_THRESHOLD, &agcPower->upper1PowerThresh, upper1PowerThreshMask, 0);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
-    
+
     halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_UPPER0_THRESHOLD_GAIN_STEP, &agcPower->overRangeLowPowerGainStepAttack, overRangeLowPowerGainStepAttackBitMask, 0);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
-    
+
     halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_UPPER1_THRESHOLD_GAIN_STEP, &agcPower->overRangeHighPowerGainStepAttack, overRangeHighPowerGainStepAttackBitMask, 0);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
