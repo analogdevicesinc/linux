@@ -550,6 +550,8 @@
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&pcc3 IMX7ULP_CLK_DSI>;
 			clock-names = "mipi_dsi_clk";
+			assigned-clocks = <&pcc3 IMX7ULP_CLK_DSI>;
+			assigned-clock-parents = <&scg1 IMX7ULP_CLK_NIC1_DIV>;
 			data-lanes-num = <2>;
 			phy-ref-clkfreq = <24000000>;
 			max-data-rate  = <800000000>;
@@ -565,6 +567,8 @@
 				 <&pcc3 IMX7ULP_CLK_LCDIF>,
 				 <&scg1 IMX7ULP_CLK_DUMMY>;
 			clock-names = "axi", "pix", "disp_axi";
+			assigned-clocks = <&pcc3 IMX7ULP_CLK_LCDIF>;
+			assigned-clock-parents = <&scg1 IMX7ULP_CLK_NIC1_DIV>;
 			status = "disabled";
 		};
 
