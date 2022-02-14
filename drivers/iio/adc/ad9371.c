@@ -4530,7 +4530,8 @@ static int ad9371_jesd204_clks_enable(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (!lnk->num_converters)
 		return JESD204_STATE_CHANGE_DONE;
@@ -4557,9 +4558,21 @@ static int ad9371_jesd204_clks_enable(struct jesd204_dev *jdev,
 				getMykonosErrorMessage(ret), ret);
 			return -EFAULT;
 		}
+		ret = MYKONOS_enableSysrefToRxFramer(mykDevice, 1);
+		if (ret) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			return -EFAULT;
+		}
 		break;
 	case FRAMER_LINK_ORX:
 		ret = MYKONOS_enableSysrefToObsRxFramer(mykDevice, 0);
+		if (ret) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			return -EFAULT;
+		}
+		ret = MYKONOS_enableSysrefToObsRxFramer(mykDevice, 1);
 		if (ret) {
 			dev_err(&phy->spi->dev, "%s (%d)",
 				getMykonosErrorMessage(ret), ret);
@@ -4586,38 +4599,19 @@ static int ad9371_jesd204_link_enable(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (!lnk->num_converters)
 		return JESD204_STATE_CHANGE_DONE;
 
-	switch (lnk->link_id) {
-	case DEFRAMER_LINK_TX:
+	if (lnk->link_id == DEFRAMER_LINK_TX) {
 		ret = MYKONOS_enableSysrefToDeframer(mykDevice, 1);
 		if (ret) {
 			dev_err(&phy->spi->dev, "%s (%d)",
 				getMykonosErrorMessage(ret), ret);
 			return -EFAULT;
 		}
-		break;
-	case FRAMER_LINK_RX:
-		ret = MYKONOS_enableSysrefToRxFramer(mykDevice, 1);
-		if (ret) {
-			dev_err(&phy->spi->dev, "%s (%d)",
-				getMykonosErrorMessage(ret), ret);
-			return -EFAULT;
-		}
-		break;
-	case FRAMER_LINK_ORX:
-		ret = MYKONOS_enableSysrefToObsRxFramer(mykDevice, 1);
-		if (ret) {
-			dev_err(&phy->spi->dev, "%s (%d)",
-				getMykonosErrorMessage(ret), ret);
-			return -EFAULT;
-		}
-		break;
-	default:
-		return -EINVAL;
 	}
 
 	return JESD204_STATE_CHANGE_DONE;
@@ -4791,6 +4785,7 @@ static const struct jesd204_dev_data jesd204_ad9371_init = {
 		},
 		[JESD204_OP_CLOCKS_ENABLE] = {
 			.per_link = ad9371_jesd204_clks_enable,
+			.post_state_sysref = true,
 		},
 		[JESD204_OP_LINK_ENABLE] = {
 			.per_link = ad9371_jesd204_link_enable,
