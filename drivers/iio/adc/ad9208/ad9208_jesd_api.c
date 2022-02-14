@@ -365,43 +365,72 @@ int ad9208_jesd_set_lane_xbar(ad9208_handle_t *h,
 	if ((physical_lane > (LANE_MAX - 1)) || (logical_lane > LANE_MAX - 1))
 		return API_ERROR_INVALID_PARAM;
 
-	switch (physical_lane) {
-	case 0:
-	case 1:
-		tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG;
-		break;
-	case 2:
-	case 3:
-		tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 1;
-		break;
-	case 4:
-	case 5:
-		tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 3;
-		break;
-	case 6:
-	case 7:
-		tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 4;
-		break;
-	default:
-		return API_ERROR_INVALID_PARAM;
-	}
+	if (h->model == 0x9680) {
+		if (logical_lane > 3)
+			return API_ERROR_INVALID_PARAM;
 
-	tmp_nibble = (physical_lane % 2) ? 1 : 0;
+		switch (physical_lane) {
+		case 0:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG;
+			break;
+		case 1:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 1;
+			break;
+		case 2:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 3;
+			break;
+		case 3:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 4;
+			break;
+		default:
+			return API_ERROR_INVALID_PARAM;
+		}
 
-	err = ad9208_register_read(h, tmp_reg_addr, &tmp_reg_val);
-	if (err != API_ERROR_OK)
-		return err;
-	if (tmp_nibble == 0) {
-		tmp_reg_val &= (~AD9208_JESD_XBAR_LN_EVEN(ALL));
-		tmp_reg_val |= AD9208_JESD_XBAR_LN_EVEN(logical_lane);
+		err = ad9208_register_write(h, tmp_reg_addr, logical_lane);
+		if (err != API_ERROR_OK)
+			return err;
 	} else {
-		tmp_reg_val &= (~AD9208_JESD_XBAR_LN_ODD(ALL));
-		tmp_reg_val |= AD9208_JESD_XBAR_LN_ODD(logical_lane);
-	}
-	err = ad9208_register_write(h, tmp_reg_addr, tmp_reg_val);
-	if (err != API_ERROR_OK)
-		return err;
 
+		if ((physical_lane > (LANE_MAX - 1)) || (logical_lane > LANE_MAX - 1))
+			return API_ERROR_INVALID_PARAM;
+
+		switch (physical_lane) {
+		case 0:
+		case 1:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG;
+			break;
+		case 2:
+		case 3:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 1;
+			break;
+		case 4:
+		case 5:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 3;
+			break;
+		case 6:
+		case 7:
+			tmp_reg_addr = AD9208_JESD_XBAR_CFG_REG + 4;
+			break;
+		default:
+			return API_ERROR_INVALID_PARAM;
+		}
+
+		tmp_nibble = (physical_lane % 2) ? 1 : 0;
+
+		err = ad9208_register_read(h, tmp_reg_addr, &tmp_reg_val);
+		if (err != API_ERROR_OK)
+			return err;
+		if (tmp_nibble == 0) {
+			tmp_reg_val &= (~AD9208_JESD_XBAR_LN_EVEN(ALL));
+			tmp_reg_val |= AD9208_JESD_XBAR_LN_EVEN(logical_lane);
+		} else {
+			tmp_reg_val &= (~AD9208_JESD_XBAR_LN_ODD(ALL));
+			tmp_reg_val |= AD9208_JESD_XBAR_LN_ODD(logical_lane);
+		}
+		err = ad9208_register_write(h, tmp_reg_addr, tmp_reg_val);
+		if (err != API_ERROR_OK)
+			return err;
+	}
 	return API_ERROR_OK;
 }
 
@@ -423,14 +452,21 @@ int ad9208_jesd_get_lane_xbar(ad9208_handle_t *h, uint8_t *phy_log_map)
 		if (err != API_ERROR_OK)
 			return err;
 	}
-	phy_log_map[0] = tmp_reg[0] & AD9208_JESD_XBAR_LN_EVEN(ALL);
-	phy_log_map[1] = (tmp_reg[0] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
-	phy_log_map[2] = tmp_reg[1] & AD9208_JESD_XBAR_LN_EVEN(ALL);
-	phy_log_map[3] = (tmp_reg[1] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
-	phy_log_map[4] = tmp_reg[3] & AD9208_JESD_XBAR_LN_EVEN(ALL);
-	phy_log_map[5] = (tmp_reg[3] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
-	phy_log_map[6] = tmp_reg[4] & AD9208_JESD_XBAR_LN_EVEN(ALL);
-	phy_log_map[7] = (tmp_reg[4] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
+	if (h->model == 0x9680) {
+		phy_log_map[0] = tmp_reg[0] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+		phy_log_map[1] = tmp_reg[1] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+		phy_log_map[2] = tmp_reg[3] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+		phy_log_map[3] = tmp_reg[4] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+	} else {
+		phy_log_map[0] = tmp_reg[0] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+		phy_log_map[1] = (tmp_reg[0] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
+		phy_log_map[2] = tmp_reg[1] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+		phy_log_map[3] = (tmp_reg[1] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
+		phy_log_map[4] = tmp_reg[3] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+		phy_log_map[5] = (tmp_reg[3] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
+		phy_log_map[6] = tmp_reg[4] & AD9208_JESD_XBAR_LN_EVEN(ALL);
+		phy_log_map[7] = (tmp_reg[4] & AD9208_JESD_XBAR_LN_ODD(ALL)) >> 4;
+	}
 	return API_ERROR_OK;
 }
 
