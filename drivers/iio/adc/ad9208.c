@@ -101,6 +101,8 @@ struct ad9208_phy {
 	u32 sysref_pos_window_skew;
 	u32 sysref_mode;
 	u32 sysref_count;
+	u8 logical_lane_mapping[8];
+
 	struct ad9208_ddc ddc[4];
 };
 
@@ -765,7 +767,7 @@ static int ad9208_setup(struct spi_device *spi)
 	struct ad9208_phy *phy = conv->phy;
 
 	uint64_t lane_rate_kbps;
-	u8 pll_stat, dcm;
+	u8 pll_stat, dcm, lanes;
 	int ret, timeout, i;
 	u64 sample_rate;
 	ad9208_adc_data_frmt_t input_fmt, output_fmt;
@@ -906,6 +908,27 @@ static int ad9208_setup(struct spi_device *spi)
 				dev_err(&spi->dev,
 					"Failed to set ddc nco phase offset: %d\n",
 					ret);
+				return ret;
+			}
+		}
+	}
+
+	if (phy->ad9208.model == 0x9680)
+		lanes = ARRAY_SIZE(phy->logical_lane_mapping) / 2;
+	else
+		lanes = ARRAY_SIZE(phy->logical_lane_mapping);
+
+	ret = of_property_read_u8_array(spi->dev.of_node,
+		"adi,logic-lanes-mapping",
+		phy->logical_lane_mapping, lanes);
+	if (!ret) {
+		for (i = 0; i < lanes; i++) {
+			ret = ad9208_jesd_set_lane_xbar(&phy->ad9208, i,
+				phy->logical_lane_mapping[i]);
+			if (ret) {
+				dev_err(&spi->dev,
+					"Failed to set jesd204 logical lane mapping %d, %u\n",
+					i, phy->logical_lane_mapping[i]);
 				return ret;
 			}
 		}
