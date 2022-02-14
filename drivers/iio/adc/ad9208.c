@@ -1620,12 +1620,15 @@ static int ad9208_remove(struct spi_device *spi)
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9208_phy *phy = conv->phy;
 
+	jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+	jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 	clk_disable_unprepare(conv->clk);
 
 	if (!IS_ERR_OR_NULL(conv->sysref_clk))
 		clk_disable_unprepare(conv->sysref_clk);
 
-	clk_disable_unprepare(conv->lane_clk);
+	if (!IS_ERR_OR_NULL(conv->lane_clk))
+		clk_disable_unprepare(conv->lane_clk);
 
 	ad9208_deinit(&phy->ad9208);
 
