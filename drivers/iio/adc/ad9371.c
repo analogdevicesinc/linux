@@ -5026,6 +5026,8 @@ static int ad9371_remove(struct spi_device *spi)
 {
 	struct ad9371_rf_phy *phy = ad9371_spi_to_phy(spi);
 
+	jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+	jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 	release_firmware(phy->fw);
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin);
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin_gt);
