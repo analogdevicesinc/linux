@@ -52,6 +52,8 @@ properties:
       description: |
         This bit selects whether the waveform buffer is filled with resampled
         data or fixed data rate data
+        0 - WF_RESAMPLED_DATA
+        1 - WF_FIXED_DATA_RATE
       maxItems: 1
       minimum: 0
       maximum: 1
@@ -59,10 +61,10 @@ properties:
     adi,wf-mode:
       description: |
         Fixed data rate waveforms filling and trigger based modes.
-        0 - Stop when waveform buffer is full.
-        1 - Continuous fill—stop only on enabled trigger events.
-        2 - Continuous filling—center capture around enabled trigger events.
-        3 - Continuous fill—save event address of enabled trigger events.
+        0 - WFB_FULL_MODE (Stop when waveform buffer is full)
+        1 - WFB_EN_TRIG_MODE (Continuous fill—stop only on enabled trigger events)
+        2 - WFB_CENTER_EN_TRIG_MODE (Continuous filling—center capture around enabled trigger events)
+        3 - WFB_SVAE_EN_TRIG_MODE (Continuous fill—save event address of enabled trigger events)
       maxItems: 1
       minimum: 0
       maximum: 3
@@ -70,11 +72,11 @@ properties:
     adi,wf-src:
       description: |
         Waveform buffer source and DREADY, data ready update rate, selection.
-        0 - Sinc4 output, at 16 kSPS.
+        0 - WFB_SRC_SINC4 (Sinc4 output, at 16 kSPS)
         1 - Reserved
-        2 - Sinc4 + IIR LPF output, at 4 kSPS.
-        3 - Current and voltage channel waveform samples,processed by the DSP
-            (xI_PCF, xV_PCF) at 4 kSPS.
+        2 - WFB_SRC_SINC4_IIR_LPF (Sinc4 + IIR LPF output, at 4 kSPS)
+        3 - WFB_SRC_DSP (Current and voltage channel waveform samples,processed by the DSP
+            (xI_PCF, xV_PCF) at 4 kSPS)
       maxItems: 1
       minimum: 0
       maximum: 3
@@ -83,6 +85,8 @@ properties:
       description: |
         This setting determines whether the IN waveform samples are read out of
         the waveform buffer through SPI.
+        0 - WFB_IN_DISABLE
+        1 - WFB_IN_EN
       maxItems: 1
       minimum: 0
       maximum: 1
@@ -124,28 +128,26 @@ patternProperties:
 examples:
   - |
     ade9078@0 {
-      compatible = "adi,ade9078";
-      reg = <0>;
-      spi-max-frequency = <1000000>;
+	compatible = "adi,ade9078";
+	reg = <0>;
+	spi-max-frequency = <7000000>;
 
-      #address-cells = <1>;
-      #size-cells = <0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reset-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+	interrupts = <2 IRQ_TYPE_EDGE_FALLING>, <3 IRQ_TYPE_EDGE_FALLING>;
+	interrupt-names = "irq0", "irq1";
+	interrupt-parent = <&gpio>;
 
-      reset-gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
+	adi,wf-cap-sel = <WF_FIXED_DATA_RATE>;
+	adi,wf-mode = <WFB_FULL_MODE>;
+	adi,wf-src = <WFB_SRC_DSP>;
+	adi,wf-in-en = <WFB_IN_DISABLE>;
 
-      interrupts = <2 IRQ_TYPE_EDGE_FALLING>, <3 IRQ_TYPE_EDGE_FALLING>;
-      interrupt-names = "irq0", "irq1";
-      interrupt-parent = <&gpio>;
-
-      adi,wf-cap-sel = <0x1>;
-      adi,wf-mode = <0x0>;
-      adi,wf-src = <0x3>;
-      adi,wf-in-en = <0x0>;
-
-      phase@0 {
-        reg = <0>;
-      };
-      phase@1 {
-        reg = <4>;
-      };
+	phase@0 {
+	    reg = <0>;
+	};
+	phase@1 {
+	    reg = <4>;
+	};
     };

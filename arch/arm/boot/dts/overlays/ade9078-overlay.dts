@@ -4,6 +4,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/meter/adi,ade9078.h>
 
 / {
     compatible = "brcm,bcm2836", "brcm,bcm2835";
@@ -31,10 +32,10 @@
 		interrupt-names = "irq0", "irq1";
 		interrupt-parent = <&gpio>;
 		
-		adi,wf-cap-sel = <0x1>;
-		adi,wf-mode = <0x0>;
-		adi,wf-src = <0x3>;
-		adi,wf-in-en = <0x0>;
+		adi,wf-cap-sel = <WF_FIXED_DATA_RATE>;
+		adi,wf-mode = <WFB_FULL_MODE>;
+		adi,wf-src = <WFB_SRC_DSP>;
+		adi,wf-in-en = <WFB_IN_DISABLE>;
 		
 		phase@0 {
 		    reg = <0>;
