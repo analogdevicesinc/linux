@@ -573,7 +573,7 @@ static int adin1110_set_mac_address(struct net_device *netdev, void *addr)
 	if (!is_valid_ether_addr(sa->sa_data))
 		return -EADDRNOTAVAIL;
 
-	ether_addr_copy(netdev->dev_addr, addr);
+	ether_addr_copy(netdev->dev_addr, sa->sa_data);
 	memset(mask, 0xFF, ETH_ALEN);
 
 	return adin1110_write_mac_address(priv, 0, netdev->dev_addr, mask);
