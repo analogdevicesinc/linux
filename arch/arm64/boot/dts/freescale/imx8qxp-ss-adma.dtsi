@@ -60,7 +60,7 @@
 		clocks = <&clk_dummy>,
 			 <&clk_dummy>,
 			 <&clk_dummy>;
-		clock-names = "dsp_clk1", "dsp_clk2", "dsp_clk3";
+		clock-names = "core", "ipg", "ocram";
 		firmware-name = "imx/dsp/hifi4.bin";
 		power-domains = <&pd IMX_SC_R_MU_13B>,
 				<&pd IMX_SC_R_DSP>,
