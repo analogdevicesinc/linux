@@ -1339,6 +1339,19 @@ static int imx_pcie_suspend_noirq(struct device *dev)
 	if (!(imx_pcie->drvdata->flags & IMX_PCIE_FLAG_SUPPORTS_SUSPEND))
 		return 0;
 
+	if (unlikely(imx_pcie->drvdata->variant == IMX6Q)) {
+		/*
+		 * L2 can exit by 'reset' or Inband beacon (from remote EP)
+		 * toggling phy_powerdown has same effect as 'inband beacon'
+		 * So, toggle bit18 of GPR1, used as a workaround of errata
+		 * ERR005723 "PCIe PCIe does not support L2 Power Down"
+		 */
+		regmap_update_bits(imx_pcie->iomuxc_gpr, IOMUXC_GPR1,
+				   IMX6Q_GPR1_PCIE_TEST_PD,
+				   IMX6Q_GPR1_PCIE_TEST_PD);
+		return 0;
+	}
+
 	imx_pcie_msi_save_restore(imx_pcie, true);
 	imx_pcie_pm_turnoff(imx_pcie);
 	imx_pcie_stop_link(imx_pcie->pci);
@@ -1355,6 +1368,18 @@ static int imx_pcie_resume_noirq(struct device *dev)
 
 	if (!(imx_pcie->drvdata->flags & IMX_PCIE_FLAG_SUPPORTS_SUSPEND))
 		return 0;
+
+	if (unlikely(imx_pcie->drvdata->variant == IMX6Q)) {
+		/*
+		 * L2 can exit by 'reset' or Inband beacon (from remote EP)
+		 * toggling phy_powerdown has same effect as 'inband beacon'
+		 * So, toggle bit18 of GPR1, used as a workaround of errata
+		 * ERR005723 "PCIe PCIe does not support L2 Power Down"
+		 */
+		regmap_update_bits(imx_pcie->iomuxc_gpr, IOMUXC_GPR1,
+				IMX6Q_GPR1_PCIE_TEST_PD, 0);
+		return 0;
+	}
 
 	ret = imx_pcie_host_init(pp);
 	if (ret)
@@ -1669,6 +1694,7 @@ static const struct imx_pcie_drvdata drvdata[] = {
 	[IMX6Q] = {
 		.variant = IMX6Q,
 		.flags = IMX_PCIE_FLAG_IMX_PHY |
+			 IMX_PCIE_FLAG_SUPPORTS_SUSPEND |
 			 IMX_PCIE_FLAG_IMX_SPEED_CHANGE,
 		.dbi_length = 0x200,
 		.gpr = "fsl,imx6q-iomuxc-gpr",
