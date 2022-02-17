@@ -224,7 +224,7 @@ struct ceetm_qdisc_stats {
 
 struct ceetm_class_stats {
 	/* Software counters */
-	struct gnet_stats_basic_packed bstats;
+	struct gnet_stats_basic_sync bstats;
 	__u32 ern_drop_count;
 	__u32 congested_count;
 };
