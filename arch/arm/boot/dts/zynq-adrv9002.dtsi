@@ -50,7 +50,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44A50000 0x10000>;
 		#dma-cells = <1>;
-		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 		clock-names = "s_axi_aclk", "m_src_axi_aclk", "m_axis_aclk";
 		clocks = <&clkc 15>, <&clkc 16>, <&misc_clk_0>;
 
