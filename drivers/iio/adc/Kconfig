@@ -306,6 +306,17 @@ config AD9963
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad9963.
 
+config ADAQ8092
+	tristate "Analog Devices ADAQ8092 uModule Data Acquisition Module"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices ADAQ802
+	  14-bit, 105MSPS, high-speed dual-channel data acquisition
+	  (DAQ) uModule solution.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adaq8092.
+
 config ADM1177
 	tristate "Analog Devices ADM1177 Digital Power Monitor driver"
 	depends on I2C
