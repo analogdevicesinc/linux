@@ -10,7 +10,6 @@
 			#size-cells = <0>;
 			
 			status = "okay";
-			
 			adc: ad7746@48 {
 				compatible = "adi,ad7746";
 				reg = <0x48>;
