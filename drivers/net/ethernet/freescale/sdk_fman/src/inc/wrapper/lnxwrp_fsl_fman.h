@@ -787,7 +787,7 @@ int fm_mac_add_hash_mac_addr(struct fm_mac_dev *fm_mac_dev,
 		t_EnetAddr *mac_addr);
 
 int fm_mac_modify_mac_addr(struct fm_mac_dev *fm_mac_dev,
-					 uint8_t *addr);
+					const uint8_t *addr);
 
 int fm_mac_adjust_link(struct fm_mac_dev *fm_mac_dev,
 		bool link, int speed, bool duplex);

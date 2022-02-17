@@ -109,7 +109,7 @@ int dpa_netdev_init(struct net_device *net_dev,
 	net_dev->vlan_features = net_dev->features;
 
 	memcpy(net_dev->perm_addr, mac_addr, net_dev->addr_len);
-	memcpy(net_dev->dev_addr, mac_addr, net_dev->addr_len);
+	eth_hw_addr_set(net_dev, mac_addr);
 
 	net_dev->ethtool_ops = &dpa_ethtool_ops;
 

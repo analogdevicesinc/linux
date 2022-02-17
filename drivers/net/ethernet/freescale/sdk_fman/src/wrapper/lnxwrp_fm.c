@@ -1925,7 +1925,7 @@ int fm_mac_add_hash_mac_addr(struct fm_mac_dev *fm_mac_dev,
 EXPORT_SYMBOL(fm_mac_add_hash_mac_addr);
 
 int fm_mac_modify_mac_addr(struct fm_mac_dev *fm_mac_dev,
-					 uint8_t *addr)
+					const uint8_t *addr)
 {
 	int	_errno;
 	t_Error err;
