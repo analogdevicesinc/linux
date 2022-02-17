@@ -1997,6 +1997,8 @@ static int ad9081_setup(struct spi_device *spi)
 	if (ret != 0)
 		return ret;
 
+	printk(KERN_INFO"cristi %lld %lld", dev_frequency_hz, phy->dac_frequency_hz);
+
 	if (dev_frequency_hz != phy->dac_frequency_hz) {
 		ret = adi_ad9081_device_clk_pll_lock_status_get(&phy->ad9081,
 								&txfe_pll_stat);

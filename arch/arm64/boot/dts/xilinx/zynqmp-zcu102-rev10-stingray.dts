@@ -332,3 +332,21 @@
 &hmc7044 {
 	adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
 };
+
+/ {
+	clocks {
+		refclk_12g: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <1200000000>;
+			clock-output-names = "refclk_12g";
+		};
+	};
+};
+
+&fmc_spi {
+	trx0_ad9081: ad9081@0 {
+		clocks = <&refclk_12g>;
+		dev_clk-clock-scales = <1 10>;
+	};
+};
