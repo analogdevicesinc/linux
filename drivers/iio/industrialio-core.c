@@ -652,6 +652,9 @@ static ssize_t __iio_format_value(char *buf, size_t len, unsigned int type,
 	}
 	case IIO_VAL_CHAR:
 		return scnprintf(buf, len, "%c", (char)vals[0]);
+	case IIO_VAL_INT_64:
+		tmp2 = (s64)((((u64)vals[1]) << 32) | (u32)vals[0]);
+		return scnprintf(buf, len, "%lld", tmp2);
 	default:
 		return 0;
 	}
