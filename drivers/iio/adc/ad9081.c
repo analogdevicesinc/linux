@@ -160,6 +160,7 @@ struct ad9081_phy {
 	struct regulator *supply_reg;
 
 	struct clk *clks[NUM_AD9081_CLKS];
+	struct clock_scale clkscale[NUM_AD9081_CLKS];
 	struct ad9081_clock clk_priv[NUM_AD9081_CLKS];
 	struct clk_onecell_data clk_data;
 
@@ -576,6 +577,9 @@ static int ad9081_clk_register(struct ad9081_phy *phy, const char *name,
 	default:
 		return -EINVAL;
 	}
+
+	of_clk_get_scale(phy->spi->dev.of_node, &name[1],
+				 &phy->clkscale[source]);
 
 	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
 	phy->clks[source] = clk;
@@ -1799,7 +1803,8 @@ static int ad9081_setup_tx(struct spi_device *spi)
 
 	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->dac_frequency_hz,
 			phy->tx_main_interp * phy->tx_chan_interp);
-	clk_set_rate(phy->clks[TX_SAMPL_CLK], sample_rate);
+	clk_set_rate_scaled(phy->clks[TX_SAMPL_CLK], sample_rate,
+		&phy->clkscale[TX_SAMPL_CLK]);
 
 	for (i = 0; i < ARRAY_SIZE(phy->tx_dac_fsc); i++) {
 		if (phy->tx_dac_fsc[i]) {
@@ -1947,11 +1952,14 @@ static int ad9081_setup_rx(struct spi_device *spi)
 	}
 
 	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, phy->adc_dcm[0]);
-	clk_set_rate(phy->clks[RX_SAMPL_CLK], sample_rate);
+	clk_set_rate_scaled(phy->clks[RX_SAMPL_CLK], sample_rate,
+		&phy->clkscale[RX_SAMPL_CLK]);
+
 
 	if (ad9081_link_is_dual(phy->jtx_link_rx)) {
 		sample_rate = DIV_ROUND_CLOSEST_ULL(phy->adc_frequency_hz, phy->adc_dcm[1]);
-		clk_set_rate(phy->clks[RX_SAMPL_CLK_LINK2], sample_rate);
+		clk_set_rate_scaled(phy->clks[RX_SAMPL_CLK_LINK2], sample_rate,
+			&phy->clkscale[RX_SAMPL_CLK_LINK2]);
 	}
 
 	return 0;
@@ -2077,6 +2085,7 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 	struct ad9081_phy *phy = conv->phy;
 	u8 msb, lsb;
 	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
+	u64 freq;
 
 	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
 		&fddc_mask, &cddc_num, &cddc_mask);
@@ -2086,9 +2095,13 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 		if (!conv->clk)
 			return -ENODEV;
 
-		*val = conv->adc_clk =
-			clk_get_rate_scaled(conv->clk, &conv->adc_clkscale);
-		return IIO_VAL_INT;
+		freq = clk_get_rate_scaled(conv->clk,
+				&phy->clkscale[RX_SAMPL_CLK]);
+
+		*val = (u32)freq;
+		*val2 = (u32)(freq >> 32);
+
+		return IIO_VAL_INT_64;
 	case IIO_CHAN_INFO_ENABLE:
 		if (chan->output) {
 			*val = phy->dac_cache.enable[fddc_num];
