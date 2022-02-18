@@ -39,6 +39,7 @@
 #define DEFAULT_GOP_SIZE	1
 #define DEFAULT_INTRA_PIC_RATE	30
 #define DEFAULT_QP			30
+#define DEFAULT_CHROMA_QP_INDEX_OFFSET	0
 
 #define DEFAULT_PIXELDEPTH		10		//set outputPixelDepth to this will make daemon return default pixeldepth
 

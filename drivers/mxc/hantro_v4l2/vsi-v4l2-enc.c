@@ -945,6 +945,9 @@ static int vsi_v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_CPB_SIZE:
 		ctx->mediacfg.encparams.specific.enc_h26x_cmd.cpbSize = ctrl->val;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET:
+		ctx->mediacfg.encparams.specific.enc_h26x_cmd.chromaQpOffset = ctrl->val;
+		break;
 	case V4L2_CID_MPEG_VIDEO_VPX_P_FRAME_QP:
 		ctx->mediacfg.encparams.specific.enc_h26x_cmd.qpHdrP_vpx = ctrl->val;
 		break;
@@ -1267,6 +1270,14 @@ static struct v4l2_ctrl_config vsi_v4l2_encctrl_defs[] = {
 		.max = 288000000,
 		.step = 1,
 		.def = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = -12,
+		.max = 12,
+		.step = 1,
+		.def = DEFAULT_CHROMA_QP_INDEX_OFFSET,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP,
