@@ -2023,6 +2023,13 @@ static const struct axidds_core_info ad9081_1_00_a_info = {
 	.complex_modified = true,
 };
 
+static const struct axidds_core_info ad9081_1_00_a_real_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.name = "AD9081",
+	.standalone = true,
+	.complex_modified = false,
+};
+
 static const struct axidds_core_info ad9172_1_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
 	.name = "AD917x",
@@ -2084,6 +2091,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9081-tx-1.0",
 	    .data = &ad9081_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9081-tx-1.0-real",
+	    .data = &ad9081_1_00_a_real_info,
 	}, {
 	    .compatible = "adi,axi-adrv9002-tx-1.0",
 	    .data = &adrv9002_9_01_b_info
