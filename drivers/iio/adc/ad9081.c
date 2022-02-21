@@ -4025,7 +4025,7 @@ static char* ad9081_lable_writer(struct ad9081_phy *phy, const struct iio_chan_s
 }
 
 static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
-				      bool complex, bool buffer_capable)
+				      bool complex_rx, bool complex_tx, bool buffer_capable)
 {
 	int i, c, m;
 
@@ -4056,8 +4056,8 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].type = IIO_VOLTAGE;
 		phy->chip_info.channel[c].output = 0;
 		phy->chip_info.channel[c].indexed = 1;
-		phy->chip_info.channel[c].modified = complex ? 1 : 0;
-		phy->chip_info.channel[c].channel = complex ? i / 2 : i;
+		phy->chip_info.channel[c].modified = complex_rx ? 1 : 0;
+		phy->chip_info.channel[c].channel = complex_rx ? i / 2 : i;
 		phy->chip_info.channel[c].channel2 =
 			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
 
@@ -4099,8 +4099,8 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 		phy->chip_info.channel[c].type = IIO_VOLTAGE;
 		phy->chip_info.channel[c].output = 1;
 		phy->chip_info.channel[c].indexed = 1;
-		phy->chip_info.channel[c].modified = complex ? 1 : 0;
-		phy->chip_info.channel[c].channel = complex ? i / 2 : i;
+		phy->chip_info.channel[c].modified = complex_tx ? 1 : 0;
+		phy->chip_info.channel[c].channel = complex_tx ? i / 2 : i;
 		phy->chip_info.channel[c].channel2 =
 			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
 		phy->chip_info.channel[c].scan_index = -1;
@@ -4747,7 +4747,9 @@ static int ad9081_probe(struct spi_device *spi)
 		if (ret)
 			break;
 		conv->chip_info = &phy->chip_info;
-		ret = ad9081_setup_chip_info_tbl(phy, true,
+		ret = ad9081_setup_chip_info_tbl(phy, true, true,
+			// (phy->adc_dcm[0] == 1) ? false : true,
+			// (phy->tx_main_interp == 1) ? false : true,
 			jesd204_dev_is_top(jdev));
 		if (ret)
 			break;
