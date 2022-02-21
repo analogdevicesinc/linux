@@ -577,7 +577,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			llval = llval >> 16;
 		}
 
-		if (!strcmp(chan->extend_name, "user_logic")) {
+		if (chan->extend_name && !strcmp(chan->extend_name, "user_logic")) {
 			tmp = axiadc_read(st,
 				ADI_REG_CHAN_USR_CNTRL_2(channel));
 
