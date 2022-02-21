@@ -568,26 +568,30 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val2 = 0;
 		ret = conv->read_raw(indio_dev, chan, val, val2, m);
-		if (ret < 0 || !*val) {
+		llval = (u64)*val2 << 32 | *val;
+		if (ret < 0 || !llval) {
 			tmp = ADI_TO_CLK_FREQ(axiadc_read(st, ADI_REG_CLK_FREQ));
 			llval = tmp * 100000000ULL /* FIXME */ * ADI_TO_CLK_RATIO(axiadc_read(st, ADI_REG_CLK_RATIO));
-			*val = llval >> 16;
+			llval = llval >> 16;
 		}
 
-		if (chan->extend_name) {
+		if (!strcmp(chan->extend_name, "user_logic")) {
 			tmp = axiadc_read(st,
 				ADI_REG_CHAN_USR_CNTRL_2(channel));
 
 			llval = ADI_TO_USR_DECIMATION_M(tmp) * conv->adc_clk;
 			do_div(llval, ADI_TO_USR_DECIMATION_N(tmp));
-			*val = llval;
 		}
 
 		if (st->decimation_factor)
-			*val /= st->decimation_factor;
+			do_div(llval, st->decimation_factor);
 
-		return IIO_VAL_INT;
+		*val = lower_32_bits(llval);
+		*val2 = upper_32_bits(llval);
+
+		return IIO_VAL_INT_64;
 	default:
 		return conv->read_raw(indio_dev, chan, val, val2, m);
 
