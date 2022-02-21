@@ -102,6 +102,7 @@ struct cf_axi_dds_state {
 	struct device			*dev_spi;
 	struct axi_data_offload_state	*data_offload;
 	struct clk			*clk;
+	struct clock_scale		clkscale;
 	struct cf_axi_dds_chip_info	*chip_info;
 	struct gpio_desc		*plddrbypass_gpio;
 	struct gpio_desc		*interpolation_gpio;
@@ -284,12 +285,12 @@ int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable)
 }
 
 static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st,
-						unsigned long *freq)
+						u64 *freq)
 {
 	struct cf_axi_converter *conv;
 
 	if (st->standalone) {
-		*freq = st->dac_clk = clk_get_rate(st->clk);
+		*freq = st->dac_clk = clk_get_rate_scaled(st->clk, &st->clkscale);
 	} else {
 		conv = to_converter(st->dev_spi);
 		if (!conv->get_data_clk)
@@ -501,7 +502,8 @@ static int cf_axi_interpolation_set(struct cf_axi_dds_state *st,
 static ssize_t cf_axi_interpolation_store(struct cf_axi_dds_state *st,
 					  unsigned long frequency)
 {
-	unsigned long parent, val;
+	unsigned long val;
+	u64 parent;
 	int i, ret;
 
 	if (!frequency)
@@ -511,7 +513,7 @@ static ssize_t cf_axi_interpolation_store(struct cf_axi_dds_state *st,
 	if (ret < 0)
 		return ret;
 
-	val = DIV_ROUND_CLOSEST(parent, frequency);
+	val = DIV_ROUND_CLOSEST_ULL(parent, frequency);
 
 	for (i = 0; i < ARRAY_SIZE(interpolation_factors_available); i++) {
 		if (val == interpolation_factors_available[i]) {
@@ -529,7 +531,7 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	unsigned long freq;
+	u64 freq;
 	int i, ret;
 
 	if (!st->interpolation_factor)
@@ -543,8 +545,8 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 	}
 
 	for (i = 0, ret = 0; i < ARRAY_SIZE(interpolation_factors_available); i++)
-		ret += snprintf(buf + ret, PAGE_SIZE - ret, "%ld ",
-				freq / interpolation_factors_available[i]);
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "%lld ",
+				div_u64(freq, interpolation_factors_available[i]));
 
 	ret += snprintf(&buf[ret], PAGE_SIZE - ret, "\n");
 
@@ -669,8 +671,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	struct cf_axi_converter *conv;
-	unsigned long long val64;
-	unsigned long freq;
+	unsigned long long val64, freq;
 	unsigned int reg, channel, phase = 0;
 	int ret;
 
@@ -722,12 +723,13 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			break;
 
 		if (chan->type == IIO_VOLTAGE && st->interpolation_factor)
-			freq /= st->interpolation_factor;
+			do_div(freq, st->interpolation_factor);
 
-		*val = freq;
+		*val = lower_32_bits(freq);
+		*val2 = upper_32_bits(freq);
 
 		mutex_unlock(&indio_dev->mlock);
-		return IIO_VAL_INT;
+		return IIO_VAL_INT_64;
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
 		/* fall-through */
@@ -2198,11 +2200,13 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		if (IS_ERR(st->clk))
 			return PTR_ERR(st->clk);
 
+		of_clk_get_scale(np, "sampl_clk", &st->clkscale);
+
 		ret = clk_prepare_enable(st->clk);
 		if (ret < 0)
 			return ret;
 
-		st->dac_clk = clk_get_rate(st->clk);
+		st->dac_clk = clk_get_rate_scaled(st->clk, &st->clkscale);
 
 		st->clk_nb.notifier_call = cf_axi_dds_rate_change;
 		clk_notifier_register(st->clk, &st->clk_nb);
