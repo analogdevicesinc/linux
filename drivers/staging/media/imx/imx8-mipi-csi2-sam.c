@@ -37,9 +37,12 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/videodev2.h>
+#include <linux/v4l2-mediabus.h>
+#include <linux/reset.h>
+#include <linux/version.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
-#include <linux/reset.h>
+#include <media/v4l2-event.h>
 
 #define CSIS_DRIVER_NAME		"mxc-mipi-csi2-sam"
 #define CSIS_SUBDEV_NAME		"mxc-mipi-csi2"
@@ -440,6 +443,7 @@ struct csi_state {
 
 	struct mipi_csis_pdata const *pdata;
 	bool hdr;
+	u32 val;
 };
 
 static int debug;
@@ -724,6 +728,9 @@ static void __mipi_csis_set_format(struct csi_state *state)
 		val |= (PIXEL_MODE_DUAL_PIXEL_MODE <<
 			MIPI_CSIS_ISPCONFIG_CH0_PIXEL_MODE_SHIFT);
 	mipi_csis_write(state, MIPI_CSIS_ISPCONFIG_CH0, val);
+
+	/* clean 32bit , with normal mode */
+	val &= ~MIPI_CSIS_ISPCFG_ALIGN_32BIT;
 
 	/* Pixel resolution */
 	val = mf->width | (mf->height << 16);
@@ -1142,6 +1149,8 @@ static int mipi_csis_set_fmt(struct v4l2_subdev *mipi_sd,
 		csis_fmt = &mipi_csis_formats[0];
 		mf->code = csis_fmt->code;
 	}
+
+	state->csis_fmt = csis_fmt;
 
 	return 0;
 }
@@ -1780,22 +1789,98 @@ static struct mipi_csis_gate_clk_ops imx8mp_gclk_ops = {
 	.gclk_disable = mipi_csis_imx8mp_gclk_disable,
 };
 
+static void mipi_csis_imx8mp_dewarp_ctl_data_type(struct csi_state *state,
+		int bus_width)
+{
+	switch (state->index) {
+	case 0:
+		state->val = ISP_DEWARP_CTRL_ISP_0_DATA_TYPE(bus_width);
+		break;
+	case 1:
+		state->val = ISP_DEWARP_CTRL_ISP_1_DATA_TYPE(bus_width);
+		break;
+	default:
+		v4l2_err(&state->sd, "%s :csi subdev index err!\n", __func__);
+		break;
+	}
+}
+
+static void mipi_csis_imx8mp_dewarp_ctl_left_just_mode(struct csi_state *state)
+{
+	switch (state->index) {
+	case 0:
+		state->val |= ISP_DEWARP_CTRL_ISP_0_LEFT_JUST_MODE;
+		break;
+	case 1:
+		state->val |= ISP_DEWARP_CTRL_ISP_1_LEFT_JUST_MODE;
+		break;
+	default:
+		v4l2_err(&state->sd, "%s :csi subdev index err!\n", __func__);
+		break;
+	}
+}
+
 static void mipi_csis_imx8mp_phy_reset(struct csi_state *state)
 {
-	u32 val;
+	int ret = 0;
+	struct v4l2_subdev *sen_sd;
+
+	struct v4l2_subdev_mbus_code_enum code = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
 
 	mipi_csis_imx8mn_phy_reset(state);
+	sen_sd = csis_get_remote_subdev(state, __func__);
+	if (!sen_sd)
+		goto csi_phy_initial_cfg;
+
+	ret = v4l2_subdev_call(sen_sd, pad, enum_mbus_code, NULL, &code);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		v4l2_err(&state->sd, "enum_mbus_code error !!!\n");
+		return;
+	} else if (ret == -ENOIOCTLCMD)
+		goto csi_phy_initial_cfg;
 
 	/* temporary place */
 	if (state->mix_gpr) {
-		val  = ISP_DEWARP_CTRL_ISP_0_DATA_TYPE(ISP_DEWARP_CTRL_DATA_TYPE_RAW12);
-		val |= ISP_DEWARP_CTRL_ISP_1_DATA_TYPE(ISP_DEWARP_CTRL_DATA_TYPE_RAW12);
-		val |= ISP_DEWARP_CTRL_ID_MODE(ISP_DEWARP_CTRL_ID_MODE_012);
-		val |= ISP_DEWARP_CTRL_ISP_0_LEFT_JUST_MODE;
-		val |= ISP_DEWARP_CTRL_ISP_1_LEFT_JUST_MODE;
-
-		regmap_write(state->mix_gpr, ISP_DEWARP_CTRL, val);
+		if ((code.code == MEDIA_BUS_FMT_SRGGB8_1X8) ||
+				(code.code == MEDIA_BUS_FMT_SGRBG8_1X8) ||
+				(code.code == MEDIA_BUS_FMT_SGBRG8_1X8) ||
+				(code.code == MEDIA_BUS_FMT_SBGGR8_1X8)) {
+			mipi_csis_imx8mp_dewarp_ctl_data_type(state,
+					 ISP_DEWARP_CTRL_DATA_TYPE_RAW8);
+			v4l2_dbg(1, debug, &state->sd,
+					"%s: bus fmt is 8 bit!\n", __func__);
+		} else if ((code.code == MEDIA_BUS_FMT_SRGGB10_1X10) ||
+				(code.code == MEDIA_BUS_FMT_SGRBG10_1X10) ||
+				(code.code == MEDIA_BUS_FMT_SGBRG10_1X10) ||
+				(code.code == MEDIA_BUS_FMT_SBGGR10_1X10)) {
+			mipi_csis_imx8mp_dewarp_ctl_data_type(state,
+					ISP_DEWARP_CTRL_DATA_TYPE_RAW10);
+			v4l2_dbg(1, debug, &state->sd,
+					"%s: bus fmt is 10 bit !\n", __func__);
+		} else {
+			mipi_csis_imx8mp_dewarp_ctl_data_type(state,
+					ISP_DEWARP_CTRL_DATA_TYPE_RAW12);
+			v4l2_dbg(1, debug, &state->sd,
+					"%s: bus fmt is 12 bit !\n", __func__);
+		}
+		goto write_regmap;
 	}
+
+csi_phy_initial_cfg:
+	mipi_csis_imx8mp_dewarp_ctl_data_type(state,
+			ISP_DEWARP_CTRL_DATA_TYPE_RAW12);
+	v4l2_dbg(1, debug, &state->sd,
+			"%s: bus fmt is 12 bit !\n", __func__);
+
+write_regmap:
+	state->val |= ISP_DEWARP_CTRL_ID_MODE(ISP_DEWARP_CTRL_ID_MODE_012);
+	mipi_csis_imx8mp_dewarp_ctl_left_just_mode(state);
+	regmap_update_bits(state->mix_gpr, ISP_DEWARP_CTRL,
+			state->val, state->val);
+
+	return;
 }
 
 static struct mipi_csis_phy_ops imx8mp_phy_ops = {
@@ -1828,6 +1913,7 @@ static int mipi_csis_probe(struct platform_device *pdev)
 	state->pdev = pdev;
 	mipi_sd = &state->sd;
 	state->dev = dev;
+	state->val = 0;
 
 	ret = mipi_csis_parse_dt(pdev, state);
 	if (ret < 0)
