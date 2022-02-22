@@ -236,6 +236,7 @@
 		scu_key: keys {
 			compatible = "fsl,imx8qxp-sc-key", "fsl,imx-sc-key";
 			linux,keycodes = <KEY_POWER>;
+			wakeup-source;
 			status = "disabled";
 		};
 
@@ -328,12 +329,6 @@
 	imx_ion {
 		compatible = "fsl,mxc-ion";
 		fsl,heap-id = <0>;
-	};
-
-        sc_pwrkey: sc-powerkey {
-		compatible = "fsl,imx8-pwrkey";
-		linux,keycode = <KEY_POWER>;
-		wakeup-source;
 	};
 
 	/* sorted in register address */
