@@ -804,8 +804,6 @@ static int ade9078_configure_scan(struct iio_dev *indio_dev)
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u16 addr;
 
-	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
-
 	addr = FIELD_PREP(ADE9078_REG_ADDR_MASK, ADE9078_REG_WF_BUFF) |
 	       ADE9078_REG_READ_BIT_MASK;
 
@@ -1532,7 +1530,6 @@ static const struct regmap_config ade9078_regmap_config = {
 static int ade9078_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
-	struct iio_buffer *buffer;
 	struct ade9078_state *st;
 	unsigned long irqflags;
 	struct regmap *regmap;
@@ -1602,8 +1599,7 @@ static int ade9078_probe(struct spi_device *spi)
 
 	indio_dev->dev.parent = &st->spi->dev;
 	indio_dev->info = &ade9078_info;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
-	indio_dev->setup_ops = &ade9078_buffer_ops;
+	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	st->regmap = regmap;
 	st->indio_dev = indio_dev;
@@ -1617,11 +1613,11 @@ static int ade9078_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	buffer = devm_iio_kfifo_allocate(&spi->dev);
-	if (!buffer)
-		return -ENOMEM;
-
-	iio_device_attach_buffer(indio_dev, buffer);
+	ret = devm_iio_kfifo_buffer_setup(&spi->dev, indio_dev,
+					  INDIO_BUFFER_SOFTWARE,
+					  &ade9078_buffer_ops);
+	if (ret)
+		return ret;
 
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret) {
