@@ -332,8 +332,8 @@
 	#include "imx8-ss-dma.dtsi"
 	#include "imx8-ss-img.dtsi"
 
-	sc_pwrkey: sc-powerkey {
-		compatible = "fsl,imx8-pwrkey";
+	scu_key: keys {
+		compatible = "fsl,imx8qm-sc-key", "fsl,imx-sc-key";
 		linux,keycode = <KEY_POWER>;
 		xen,passthrough;
 	};

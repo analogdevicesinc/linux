@@ -783,7 +783,7 @@
 			 <IMX_SC_R_MJPEG_ENC_S3>;
 };
 
-&sc_pwrkey {
+&scu_key {
 	status = "disabled";
 };
 
