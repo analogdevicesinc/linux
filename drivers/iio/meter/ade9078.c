@@ -1531,7 +1531,7 @@ static int ade9078_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct ade9078_state *st;
-	unsigned long irqflags;
+	struct iio_buffer *buffer;
 	struct regmap *regmap;
 	int irq;
 	int ret;
@@ -1599,7 +1599,8 @@ static int ade9078_probe(struct spi_device *spi)
 
 	indio_dev->dev.parent = &st->spi->dev;
 	indio_dev->info = &ade9078_info;
-	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
+	indio_dev->setup_ops = &ade9078_buffer_ops;
 
 	st->regmap = regmap;
 	st->indio_dev = indio_dev;
@@ -1613,17 +1614,11 @@ static int ade9078_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_iio_kfifo_buffer_setup(&spi->dev, indio_dev,
-					  INDIO_BUFFER_SOFTWARE,
-					  &ade9078_buffer_ops);
-	if (ret)
-		return ret;
+	buffer = devm_iio_kfifo_allocate(&spi->dev);
+	if (!buffer)
+		return -ENOMEM;
 
-	ret = devm_iio_device_register(&spi->dev, indio_dev);
-	if (ret) {
-		dev_err(&spi->dev, "Unable to register IIO device");
-		return ret;
-	}
+	iio_device_attach_buffer(indio_dev, buffer);
 
 	ret = ade9078_reset(st);
 	if (ret) {
