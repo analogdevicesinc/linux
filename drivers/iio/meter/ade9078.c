@@ -5,7 +5,6 @@
  * Copyright 2021 Analog Devices Inc.
  */
 
-#include <asm/unaligned.h>
 #include <linux/bitfield.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
@@ -19,6 +18,7 @@
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
+#include <asm/unaligned.h>
 
 /* Address of ADE90XX registers */
 #define	ADE9078_REG_AIGAIN		0x000
@@ -93,6 +93,10 @@
 
 /* CF3/ZX pin outputs Zero crossing */
 #define ADE9078_CONFIG1			0x0002
+
+//TODO: This looks like it could be better expressed in terms
+//of defines for the fields contained in this register.
+//Same for many of the ones that follow.
 
 /* Default High pass corner frequency of 1.25Hz */
 #define ADE9078_CONFIG2			0x0A00
@@ -220,6 +224,9 @@
 #define ADE9078_PHASE_B_NAME		"B"
 #define ADE9078_PHASE_C_NAME		"C"
 
+//TODO These will be passed into a new macro as below (once each)
+//so probably will be better just used inline there.
+
 #define ADE9078_SCAN_POS_IA		BIT(0)
 #define ADE9078_SCAN_POS_VA		BIT(1)
 #define ADE9078_SCAN_POS_IB		BIT(2)
@@ -235,6 +242,12 @@
 
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
+
+//TODO extend_name defines new ABI.  Needs documentation in
+//Documentation/ABI/testing/sysfs-bus-iio-*
+//and a very strong reason why it makes sense to do it this way rather than
+//via modifiers or similar.
+//reorder the code so these defs are near the use of them.
 
 #define ADE9078_CURRENT_CHANNEL(num, name) {				\
 	.type = IIO_CURRENT,						\
@@ -385,6 +398,10 @@ struct ade9078_state {
 	struct spi_message spi_msg;
 	struct regmap *regmap;
 	struct iio_dev *indio_dev;
+//TODO This is always a bad sign.  If you need to go from the state back
+//to the iio_dev then you should have passed the iio_dev in the first
+//place - in this particular case the iio_dev should be your private
+//data for the irq handlers, not the ade9078 state structure.
 	union{
 		u8 byte[ADE9078_WFB_FULL_BUFF_SIZE];
 		__be32 word[ADE9078_WFB_FULL_BUFF_NR_SAMPLES];
@@ -462,6 +479,11 @@ static const struct reg_sequence ade9078_reg_sequence[] = {
 	{ ADE9078_REG_EP_CFG, ADE9078_EP_CFG },
 	{ ADE9078_REG_RUN, ADE9078_RUN_ON }
 };
+
+//TODO As mentioned below, I don't immediately understand why this can't
+//be done with appropriate standard regmap.  Perhaps you could give
+//more details of what is missing.  I'd like to see that added to
+//regmap if possible.
 
 /*
  * ade9078_spi_write_reg() - ade9078 write register over SPI
@@ -546,6 +568,12 @@ static int ade9078_spi_read_reg(void *context,
 	else
 		xfer[1].len = 6;
 
+
+// TODO This doesn't look like a fixed length register which is expected
+//for regmap...  Also that len should just be the rx register which
+//you treat below as 16 bit and 32 bit (so 2 and 4, not 4 and 6).
+//
+//Can the larger registers be treated as bulk reads of pairs of smaller ones?
 	ret = spi_sync_transfer(st->spi, xfer, ARRAY_SIZE(xfer));
 	if (ret) {
 		dev_err(&st->spi->dev, "problem when reading register 0x%x",
@@ -704,6 +732,8 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		dev_err(&st->spi->dev, "IRQ0 write status fail");
 
 irq0_done:
+//TODO As below. return wherever you have a goto.  This common exit just makes
+//the code less readable.
 	return IRQ_HANDLED;
 }
 
@@ -725,7 +755,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	u32 tmp;
 	int ret;
 
-	//reset
 	if (!st->rst_done) {
 		ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &result);
 		if (ret)
@@ -749,9 +778,8 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		goto irq1_done;
 	}
 
-	//crossings
 	for_each_set_bit_from(bit, (unsigned long *)&interrupts,
-			      ADE9078_ST1_CROSSING_DEPTH) {
+			      ADE9078_ST1_CROSSING_DEPTH){
 		tmp = status & BIT(bit);
 
 		switch (tmp) {
@@ -791,6 +819,8 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	}
 
 irq1_done:
+//TODO return IRQ_HANDLED; in all these paths.  No point in going to a common
+//exit that doesn't do anything.
 	return IRQ_HANDLED;
 }
 
@@ -844,11 +874,13 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		ret = regmap_read(st->regmap, chan->address, &measured);
+		if (ret)
+			return ret;
 
 		iio_device_release_direct_mode(indio_dev);
 		*val = measured;
 
-		return ret ?: IIO_VAL_INT;
+		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
 		if (chan->type == IIO_CURRENT || chan->type == IIO_VOLTAGE) {
@@ -887,6 +919,7 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 	}
 
 	return 0;
+//TODO I don't think you can reach this
 }
 
 /*
@@ -905,8 +938,9 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 addr = 0xFFFFF;
+//TODO If that value is used, something went wrong.  I don't think it is, so
+//don't assign it.
 	u32 tmp;
-	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_OFFSET:
@@ -968,8 +1002,7 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	ret = regmap_write(st->regmap, addr, val);
-	return ret;
+	return regmap_write(st->regmap, addr, val);
 }
 
 /*
@@ -992,6 +1025,7 @@ static int ade9078_reg_access(struct iio_dev *indio_dev,
 	return regmap_write(st->regmap, reg, tx_val);
 }
 
+//TODO All these function description comments should be valid kernel-doc.
 /*
  * ade9078_write_event_config() - IIO event configure to enable zero-crossing
  * and zero-crossing timeout on voltage and current for each phases. These
@@ -1012,6 +1046,14 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 
 	switch (number) {
 	case ADE9078_PHASE_A_NR:
+//TODO I would use a lookup on the phase into an array of structures.
+//The structure would then have fields for which bit to set etc
+//for a voltage channel and for a current channel.
+//
+//That way this all becomes one bit of code and some const data
+//rather that 3 sets of near identical code. If you can make
+//this sort of thing data rather than code that is almost always
+//the best choice.
 		if (chan->type == IIO_VOLTAGE) {
 			if (state) {
 				interrupts |= ADE9078_ST1_ZXVA_BIT;
@@ -1095,6 +1137,8 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
  * -1 - if crossing timeout (only for Voltages)
  */
 static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
+//TODO value?  If so, this should be reading the thresholds, not anything
+//about current status of events.
 				    const struct iio_chan_spec *chan,
 				    enum iio_event_type type,
 				    enum iio_event_direction dir,
@@ -1102,7 +1146,7 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 				    int *val, int *val2)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 handeled_irq = 0;
+	u32 handled_irq = 0;
 	u32 interrupts;
 	u32 number;
 	u32 status;
@@ -1123,17 +1167,17 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 		if (chan->type == IIO_VOLTAGE) {
 			if (status & ADE9078_ST1_ZXVA_BIT) {
 				*val = 1;
-				handeled_irq |= ADE9078_ST1_ZXVA_BIT;
+				handled_irq |= ADE9078_ST1_ZXVA_BIT;
 			} else if (status & ADE9078_ST1_ZXTOVA_BIT) {
 				*val = -1;
-				handeled_irq |= ADE9078_ST1_ZXTOVA_BIT;
+				handled_irq |= ADE9078_ST1_ZXTOVA_BIT;
 			}
 			if (!(interrupts & ADE9078_ST1_ZXTOVA_BIT))
 				*val = 0;
 		} else if (chan->type == IIO_CURRENT) {
 			if (status & ADE9078_ST1_ZXIA_BIT) {
 				*val = 1;
-				handeled_irq |= ADE9078_ST1_ZXIA_BIT;
+				handled_irq |= ADE9078_ST1_ZXIA_BIT;
 			}
 		}
 		break;
@@ -1141,17 +1185,17 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 		if (chan->type == IIO_VOLTAGE) {
 			if (status & ADE9078_ST1_ZXVB_BIT) {
 				*val = 1;
-				handeled_irq |= ADE9078_ST1_ZXVB_BIT;
+				handled_irq |= ADE9078_ST1_ZXVB_BIT;
 			} else if (status & ADE9078_ST1_ZXTOVB_BIT) {
 				*val = -1;
-				handeled_irq |= ADE9078_ST1_ZXTOVB_BIT;
+				handled_irq |= ADE9078_ST1_ZXTOVB_BIT;
 			}
 			if (!(interrupts & ADE9078_ST1_ZXTOVB_BIT))
 				*val = 0;
 		} else if (chan->type == IIO_CURRENT) {
 			if (status & ADE9078_ST1_ZXIB_BIT) {
 				*val = 1;
-				handeled_irq |= ADE9078_ST1_ZXIB_BIT;
+				handled_irq |= ADE9078_ST1_ZXIB_BIT;
 			}
 		}
 		break;
@@ -1159,17 +1203,17 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 		if (chan->type == IIO_VOLTAGE) {
 			if (status & ADE9078_ST1_ZXVC_BIT) {
 				*val = 1;
-				handeled_irq |= ADE9078_ST1_ZXVC_BIT;
+				handled_irq |= ADE9078_ST1_ZXVC_BIT;
 			} else if (status & ADE9078_ST1_ZXTOVC_BIT) {
 				*val = -1;
-				handeled_irq |= ADE9078_ST1_ZXTOVC_BIT;
+				handled_irq |= ADE9078_ST1_ZXTOVC_BIT;
 			}
 			if (!(interrupts & ADE9078_ST1_ZXTOVC_BIT))
 				*val = 0;
 		} else if (chan->type == IIO_CURRENT) {
 			if (status & ADE9078_ST1_ZXIC_BIT) {
 				*val = 1;
-				handeled_irq |= ADE9078_ST1_ZXIC_BIT;
+				handled_irq |= ADE9078_ST1_ZXIC_BIT;
 			}
 		}
 		break;
@@ -1177,13 +1221,17 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, handeled_irq);
+	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, handled_irq);
+//TODO Are there other bits, or is this always going to write all bits that
+//might be set? If it is all such bits then
 	if (ret)
 		return ret;
 
 	return IIO_VAL_INT;
 }
 
+//TODO Make this valid kernel-doc.  Then check for any warnings by running the
+//kernel-doc build scripts.
 /*
  * ade9078_config_wfb() - reads the ade9078 node and configures the wave form
  * buffer based on the options set. Additionally is reads the active scan mask
@@ -1203,6 +1251,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 			indio_dev->masklength);
 
 	switch (wfg_cfg_val) {
+//TODO Use another variable so that this becomes more readable.
 	case ADE9078_SCAN_POS_IA | ADE9078_SCAN_POS_VA:
 		wfg_cfg_val = 0x1;
 		break;
@@ -1234,7 +1283,8 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 		wfg_cfg_val = 0x0;
 		break;
 	}
-
+//TODO Generic device properties form include/linux/properties.h only for new
+//IIO drivers unless there is a very strong reason why it won't work.
 	ret = of_property_read_u32((&st->spi->dev)->of_node, "adi,wf-cap-sel",
 				   &tmp);
 	if (ret) {
@@ -1289,7 +1339,7 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 	ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG, 0x0);
 	if (ret)
 		return ret;
-
+//TODO A switch statement would be cleaner here.
 	if (mode == ADE9078_WFB_FULL_MODE || mode == ADE9078_WFB_EN_TRIG_MODE) {
 		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
 				   ADE9078_MODE_0_1_PAGE_BIT);
@@ -1309,10 +1359,6 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 	return regmap_update_bits(st->regmap, ADE9078_REG_MASK0,
 				  ADE9078_ST0_PAGE_FULL_BIT,
 				  ADE9078_ST0_PAGE_FULL_BIT);
-	if (ret)
-		return ret;
-
-	return 0;
 }
 
 /*
@@ -1372,11 +1418,7 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 		return ret;
 	}
 
-	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
-	if (ret)
-		return ret;
-
-	return 0;
+	return regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
 }
 
 /*
@@ -1464,7 +1506,7 @@ static int ade9078_reset(struct ade9078_state *st)
 			return ret;
 		usleep_range(80, 100);
 	}
-
+//TODO Why EPERM?  Seems more like an IO error
 	if (!st->rst_done)
 		return -EPERM;
 
@@ -1477,7 +1519,7 @@ static int ade9078_reset(struct ade9078_state *st)
  */
 static int ade9078_setup(struct ade9078_state *st)
 {
-	int ret = 0;
+	int ret;
 
 	ret = regmap_multi_reg_write(st->regmap, ade9078_reg_sequence,
 				     ARRAY_SIZE(ade9078_reg_sequence));
@@ -1490,11 +1532,7 @@ static int ade9078_setup(struct ade9078_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, GENMASK(31, 0));
-	if (ret)
-		return ret;
-
-	return ret;
+	return regmap_write(st->regmap, ADE9078_REG_STATUS1, GENMASK(31, 0));
 }
 
 static const struct iio_buffer_setup_ops ade9078_buffer_ops = {
@@ -1509,7 +1547,11 @@ static const struct iio_info ade9078_info = {
 	.write_event_config = &ade9078_write_event_config,
 	.read_event_value = &ade9078_read_event_vlaue,
 };
-
+//TODO How big would the changes needed to support this in the regmap
+//core be?   Superficially I can't immediately see why it won't work.
+//regmap appears to support setting flags in any of the address bytes
+//as it uses regmap_set_work_buf_flag_mask() internally and
+//that will set bits in any of the reg_bits/8 bytes.
 /*
  * Regmap configuration
  * The register access of the ade9078 requires a 16 bit address
@@ -1542,12 +1584,8 @@ static int ade9078_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 	st = iio_priv(indio_dev);
-	if (!st) {
-		dev_err(&spi->dev,
-			"Unable to allocate ADE9078 device structure");
-		return -ENOMEM;
-	}
-
+//TODO Avoid having multiple small allocations like this by making them part of
+//the iio_priv() structure.
 	st->rx = devm_kcalloc(&spi->dev, ADE9078_RX_DEPTH, sizeof(*st->rx),
 			      GFP_KERNEL);
 	if (!st->rx)
@@ -1557,23 +1595,32 @@ static int ade9078_probe(struct spi_device *spi)
 			      GFP_KERNEL);
 	if (!st->tx)
 		return -ENOMEM;
-
+//TODO Probably better to pass the iio_device structure and have a pointer to
+//spi in there.
 	regmap = devm_regmap_init(&spi->dev, NULL, spi, &ade9078_regmap_config);
+//TODO This shouldn't be needed after you've changed the passed context to provide
+//the iio_dev structure and you can then call iio_priv() on that.
 	if (IS_ERR(regmap))	{
 		dev_err(&spi->dev, "Unable to allocate ADE9078 regmap");
 		return PTR_ERR(regmap);
 	}
 	spi_set_drvdata(spi, st);
 
+//TODO A generic firmware properties version of irq_get_by_name is queued in
+//the i2c tree.  Please use that here and mention it in the
+//patch description / cover letter.  I'll probably have pulled it into
+//IIO shortly anyway.
+//https://git.kernel.org/pub/scm/linux/kernel/git/wsa/linux.git/commit/?h=i2c/alert-for-acpi&id=ca0acb511c21738b32386ce0f85c284b351d919e
+
 	irq = of_irq_get_byname((&spi->dev)->of_node, "irq0");
 	if (irq < 0) {
 		dev_err(&spi->dev, "Unable to find irq0");
 		return -EINVAL;
 	}
-	irqflags = irq_get_trigger_type(irq);
+
 	ret = devm_request_threaded_irq(&spi->dev, irq, NULL,
 					ade9078_irq0_thread,
-					irqflags | IRQF_ONESHOT,
+					IRQF_ONESHOT,
 					KBUILD_MODNAME, st);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
@@ -1585,10 +1632,10 @@ static int ade9078_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "Unable to find irq1");
 		return -EINVAL;
 	}
-	irqflags = irq_get_trigger_type(irq);
+
 	ret = devm_request_threaded_irq(&spi->dev, irq, NULL,
 					ade9078_irq1_thread,
-					irqflags | IRQF_ONESHOT,
+					IRQF_ONESHOT,
 					KBUILD_MODNAME, st);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
@@ -1604,7 +1651,8 @@ static int ade9078_probe(struct spi_device *spi)
 
 	st->regmap = regmap;
 	st->indio_dev = indio_dev;
-	ade9078_setup_iio_channels(st);
+
+	ret = ade9078_setup_iio_channels(st);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to set up IIO channels");
 		return ret;
@@ -1629,6 +1677,12 @@ static int ade9078_probe(struct spi_device *spi)
 	ret = ade9078_setup(st);
 	if (ret) {
 		dev_err(&spi->dev, "Unable to setup ADE9078");
+		return ret;
+	}
+
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret) {
+		dev_err(&spi->dev, "Unable to register IIO device");
 		return ret;
 	}
 
@@ -1657,5 +1711,5 @@ static struct spi_driver ade9078_driver = {
 module_spi_driver(ade9078_driver);
 
 MODULE_AUTHOR("Ciprian Hegbeli <ciprian.hegbeli@analog.com>");
-MODULE_DESCRIPTION("Analog Devices ADE9078 High Performance,Polyphase Energy Metering IC Driver");
+MODULE_DESCRIPTION("Analog Devices ADE9078 Polyphase Energy Metering IC Driver");
 MODULE_LICENSE("GPL v2");
