@@ -416,7 +416,7 @@ static void dp_phy_power_down(struct cdns_mhdp_device *mhdp)
 
 }
 
-static int dp_phy_power_up(struct cdns_mhdp_device *mhdp)
+int cdns_dp_phy_power_up(struct cdns_mhdp_device *mhdp)
 {
 	u32 val, i;
 
@@ -490,8 +490,6 @@ static int dp_phy_power_up(struct cdns_mhdp_device *mhdp)
 
 int cdns_dp_phy_set_imx8mq(struct cdns_mhdp_device *mhdp)
 {
-	int ret;
-
 	/* Disable phy clock if PHY in power up state */
 	dp_phy_power_down(mhdp);
 
@@ -504,20 +502,13 @@ int cdns_dp_phy_set_imx8mq(struct cdns_mhdp_device *mhdp)
 	cdns_phy_reg_write(mhdp, TX_DIAG_ACYA_2, 1);
 	cdns_phy_reg_write(mhdp, TX_DIAG_ACYA_3, 1);
 
-	/* PHY power up */
-	ret = dp_phy_power_up(mhdp);
-	if (ret < 0)
-		return ret;
-
 	dp_aux_cfg(mhdp);
 
-	return ret;
+	return true;
 }
 
 int cdns_dp_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
 {
-	int ret;
-
 	/* Disable phy clock if PHY in power up state */
 	dp_phy_power_down(mhdp);
 
@@ -529,11 +520,6 @@ int cdns_dp_phy_set_imx8qm(struct cdns_mhdp_device *mhdp)
 	cdns_phy_reg_write(mhdp, TX_DIAG_ACYA_1, 1);
 	cdns_phy_reg_write(mhdp, TX_DIAG_ACYA_2, 1);
 	cdns_phy_reg_write(mhdp, TX_DIAG_ACYA_3, 1);
-
-	/* PHY power up */
-	ret = dp_phy_power_up(mhdp);
-	if (ret < 0)
-		return ret;
 
 	dp_aux_cfg(mhdp);
 
