@@ -1,5 +1,6 @@
 /*
  * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright 2020-2022 NXP
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -55,8 +56,6 @@ static DECLARE_BITMAP(minors, MINOR_COUNT);
 static int ethosu_pdev_probe(struct platform_device *pdev)
 {
 	struct ethosu_device *edev;
-	struct resource *in_queue_res;
-	struct resource *out_queue_res;
 	int minor;
 	int ret;
 
@@ -69,23 +68,6 @@ static int ethosu_pdev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	/* Get path to TCM memory */
-	in_queue_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						    "in_queue");
-	if (IS_ERR(in_queue_res)) {
-		dev_err(&pdev->dev, "Failed to get in_queue resource.\n");
-
-		return PTR_ERR(in_queue_res);
-	}
-
-	out_queue_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						     "out_queue");
-	if (IS_ERR(out_queue_res)) {
-		dev_err(&pdev->dev, "Failed to get out_queue resource.\n");
-
-		return PTR_ERR(out_queue_res);
-	}
-
 	/* Allocate memory for Arm Ethos-U device */
 	edev = devm_kzalloc(&pdev->dev, sizeof(*edev), GFP_KERNEL);
 	if (!edev)
@@ -95,8 +77,7 @@ static int ethosu_pdev_probe(struct platform_device *pdev)
 
 	/* Initialize device */
 	ret = ethosu_dev_init(edev, &pdev->dev, ethosu_class,
-			      MKDEV(MAJOR(devt), minor), in_queue_res,
-			      out_queue_res);
+			      MKDEV(MAJOR(devt), minor));
 	if (ret)
 		goto free_dev;
 

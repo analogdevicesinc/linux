@@ -24,5 +24,5 @@ ethosu-objs := ethosu_driver.o \
                ethosu_buffer.o \
                ethosu_device.o \
                ethosu_inference.o \
-               ethosu_mailbox.o \
+               ethosu_rpmsg.o \
                ethosu_network.o

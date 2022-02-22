@@ -26,7 +26,7 @@
  ****************************************************************************/
 
 #include "uapi/ethosu.h"
-#include "ethosu_mailbox.h"
+#include "ethosu_rpmsg.h"
 
 #include <linux/device.h>
 #include <linux/cdev.h>
@@ -48,7 +48,7 @@ struct ethosu_device {
 	struct                class *class;
 	dev_t                 devt;
 	struct mutex          mutex;
-	struct ethosu_mailbox mailbox;
+	struct ethosu_rpmsg   erp;
 	struct list_head      capabilities_list;
 	struct list_head      inference_list;
 };
@@ -76,9 +76,7 @@ struct ethosu_capabilities {
 int ethosu_dev_init(struct ethosu_device *edev,
 		    struct device *dev,
 		    struct class *class,
-		    dev_t devt,
-		    struct resource *in_queue,
-		    struct resource *out_queue);
+		    dev_t devt);
 
 /**
  * ethosu_dev_deinit() - Initialize the device

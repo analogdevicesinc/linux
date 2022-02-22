@@ -86,7 +86,7 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 
 	inf->status = ETHOSU_UAPI_STATUS_ERROR;
 
-	ret = ethosu_mailbox_inference(&inf->edev->mailbox, inf,
+	ret = ethosu_rpmsg_inference(&inf->edev->erp, inf,
 				       inf->ifm_count, inf->ifm,
 				       inf->ofm_count, inf->ofm,
 				       inf->net->buf,
