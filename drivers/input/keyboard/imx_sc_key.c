@@ -27,6 +27,7 @@
 struct imx_key_drv_data {
 	u32 keycode;
 	bool keystate;  /* true: pressed, false: released */
+	int wakeup;
 	struct delayed_work check_work;
 	struct input_dev *input;
 	struct imx_sc_ipc *key_ipc_handle;
@@ -110,6 +111,7 @@ static void imx_sc_key_action(void *data)
 
 static int imx_sc_key_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	struct imx_key_drv_data *priv;
 	struct input_dev *input;
 	int error;
@@ -129,6 +131,8 @@ static int imx_sc_key_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&priv->check_work, imx_sc_check_for_events);
+
+	priv->wakeup = of_property_read_bool(np, "wakeup-source");
 
 	input = devm_input_allocate_device(&pdev->dev);
 	if (!input) {
@@ -150,6 +154,8 @@ static int imx_sc_key_probe(struct platform_device *pdev)
 
 	priv->input = input;
 	platform_set_drvdata(pdev, priv);
+
+	device_init_wakeup(&pdev->dev, !!(priv->wakeup));
 
 	error = imx_scu_irq_group_enable(SC_IRQ_GROUP_WAKE, SC_IRQ_BUTTON,
 					 true);
