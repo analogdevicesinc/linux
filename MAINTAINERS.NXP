@@ -121,6 +121,12 @@ M: Alison Wang <alison.wang@nxp.com>
 M: Shengjiu Wang <shengjiu.wang@nxp.com>
 F: sound/soc/fsl/imx-audmux*
 
+audio/xcvr
+M: Viorel Suman <viorel.suman@nxp.com>
+F: sound/soc/fsl/fsl_xcvr.c
+F: sound/soc/fsl/fsl_xcvr.h
+F: sound/soc/fsl/fsl_xcvr_sysfs.c
+
 audio/card
 M: Alison Wang <alison.wang@nxp.com>
 M: Shengjiu Wang <shengjiu.wang@nxp.com>
