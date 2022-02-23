@@ -1459,6 +1459,9 @@ err_i2c_unregister_edid:
 uninit_regulators:
 	adv7511_uninit_regulators(adv7511);
 #if IS_ENABLED(CONFIG_OF_DYNAMIC)
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
 	if (endpoint)
 		remote_node = of_graph_get_remote_port_parent(endpoint);
