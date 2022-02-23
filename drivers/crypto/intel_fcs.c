@@ -60,6 +60,9 @@
 #define FCS_REQUEST_TIMEOUT (msecs_to_jiffies(SVC_FCS_REQUEST_TIMEOUT_MS))
 #define FCS_COMPLETED_TIMEOUT (msecs_to_jiffies(SVC_COMPLETED_TIMEOUT_MS))
 
+/*SDM required minimun 8 bytes of data for crypto service*/
+#define CRYPTO_SERVICE_MIN_DATA_SIZE	8
+
 typedef void (*fcs_callback)(struct stratix10_svc_client *client,
 			     struct stratix10_svc_cb_data *data);
 
@@ -274,6 +277,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	void *output_file_pointer;
 	unsigned int buf_sz, in_sz, out_sz;
 	uint32_t remaining_size, data_size, total_out_size;
+	uint32_t sign_size;
 	int ret = 0;
 	int i;
 	int timeout;
@@ -2007,7 +2011,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -EFAULT;
 		 }
 
-		 s_buf = stratix10_svc_allocate_memory(priv->chan, in_sz);
+		 input_file_pointer = data->com_paras.ecdsa_data.src;
+
+		 remaining_size = data->com_paras.ecdsa_data.src_size;
+
+		 s_buf = stratix10_svc_allocate_memory(priv->chan,
+												AES_CRYPT_CMD_MAX_SZ);
 		 if (!s_buf) {
 			 dev_err(dev, "failed allocate source buf\n");
 			 fcs_close_services(priv, NULL, NULL);
@@ -2021,34 +2030,59 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -ENOMEM;
 		 }
 
-		 memcpy(s_buf, data->com_paras.ecdsa_data.src,
-			data->com_paras.ecdsa_data.src_size);
+		 while (remaining_size > 0) {
+			if (remaining_size > AES_CRYPT_CMD_MAX_SZ) {
+				msg->command =
+					COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE;
+				data_size = AES_CRYPT_CMD_MAX_SZ;
+				dev_dbg(dev, "ECDSA data sign update stage. data_size=%d\n",
+						data_size);
+			} else {
+				msg->command =
+					COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE;
+				data_size = remaining_size;
+				dev_dbg(dev, "ECDSA data sign finalize stage. data_size=%d\n",
+						data_size);
+			}
 
-		 msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE;
-		 msg->arg[0] = sid;
-		 msg->arg[1] = cid;
-		 msg->payload = s_buf;
-		 msg->payload_length = in_sz;
-		 msg->payload_output = d_buf;
-		 msg->payload_length_output = out_sz;
-		 priv->client.receive_cb = fcs_attestation_callback;
+			memcpy(s_buf, input_file_pointer, data_size);
 
-		 ret = fcs_request_service(priv, (void *)msg,
-					   10 * FCS_REQUEST_TIMEOUT);
-		 if (!ret && !priv->status) {
-			 if (priv->size > out_sz) {
-				 dev_err(dev, "returned size %d is incorrect\n",
-					 priv->size);
-				 fcs_close_services(priv, s_buf, d_buf);
-				 return -EFAULT;
-			 }
+			msg->arg[0] = sid;
+			msg->arg[1] = cid;
+			msg->payload = s_buf;
+			msg->payload_length = data_size;
+			msg->payload_output = d_buf;
+			msg->payload_length_output = out_sz;
+			priv->client.receive_cb = fcs_attestation_callback;
 
-			 memcpy(data->com_paras.ecdsa_data.dst,
-				priv->kbuf, priv->size);
-			 data->com_paras.ecdsa_data.dst_size = priv->size;
-		 } else {
-			 data->com_paras.ecdsa_data.dst = NULL;
-			 data->com_paras.ecdsa_data.dst_size = 0;
+			ret = fcs_request_service(priv, (void *)msg,
+						10 * FCS_REQUEST_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (priv->size > out_sz) {
+					dev_err(dev, "returned size %d is incorrect\n",
+						priv->size);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+			} else {
+				data->com_paras.ecdsa_data.dst = NULL;
+				data->com_paras.ecdsa_data.dst_size = 0;
+				dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+				ret, priv->status);
+				break;
+			}
+
+			remaining_size -= data_size;
+			if (remaining_size == 0) {
+				dev_dbg(dev, "ECDSA data sign finish sending\n");
+				memcpy(data->com_paras.ecdsa_data.dst, priv->kbuf, priv->size);
+				data->com_paras.ecdsa_data.dst_size = priv->size;
+				break;
+			} else {
+				input_file_pointer += data_size;
+				dev_dbg(dev, "Complete update. Remaining size = %d\n",
+						remaining_size);
+			}
 		 }
 
 		 data->status = priv->status;
@@ -2181,7 +2215,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -EFAULT;
 		 }
 
-		 s_buf = stratix10_svc_allocate_memory(priv->chan, in_sz);
+		 input_file_pointer = data->com_paras.ecdsa_sha2_data.src;
+		 remaining_size = data->com_paras.ecdsa_sha2_data.src_size;
+		 sign_size = data->com_paras.ecdsa_sha2_data.src_size -
+						data->com_paras.ecdsa_sha2_data.userdata_sz;
+
+		 s_buf = stratix10_svc_allocate_memory(priv->chan,
+												AES_CRYPT_CMD_MAX_SZ);
 		 if (!s_buf) {
 			 dev_err(dev, "failed allocate source buf\n");
 			 fcs_close_services(priv, NULL, NULL);
@@ -2195,35 +2235,72 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -ENOMEM;
 		 }
 
-		 memcpy(s_buf, data->com_paras.ecdsa_sha2_data.src,
-			data->com_paras.ecdsa_sha2_data.src_size);
+		 while (remaining_size > 0) {
+			if (remaining_size > AES_CRYPT_CMD_MAX_SZ) {
+				/* Finalize stage require minimun 8bytes data size */
+				if ((remaining_size - AES_CRYPT_CMD_MAX_SZ) >=
+					(CRYPTO_SERVICE_MIN_DATA_SIZE + sign_size)) {
+					data_size = AES_CRYPT_CMD_MAX_SZ;
+					ud_sz = AES_CRYPT_CMD_MAX_SZ;
+					dev_dbg(dev, "Update full. data_size=%d, ud_sz=%ld\n",
+							data_size, ud_sz);
+				} else {
+					data_size = (remaining_size - CRYPTO_SERVICE_MIN_DATA_SIZE -
+								sign_size);
+					ud_sz = (remaining_size - CRYPTO_SERVICE_MIN_DATA_SIZE -
+							sign_size);
+					dev_dbg(dev, "Update partial. data_size=%d, ud_sz=%ld\n",
+							data_size, ud_sz);
+				}
+				msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE;
+			} else {
+				data_size = remaining_size;
+				ud_sz = remaining_size - sign_size;
+				msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE;
+				dev_dbg(dev, "Finalize. data_size=%d, ud_sz=%ld\n", data_size,
+						ud_sz);
+			}
 
-		 msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE;
-		 msg->arg[0] = sid;
-		 msg->arg[1] = cid;
-		 msg->arg[2] = ud_sz;
-		 msg->payload = s_buf;
-		 msg->payload_length = in_sz;
-		 msg->payload_output = d_buf;
-		 msg->payload_length_output = out_sz;
-		 priv->client.receive_cb = fcs_attestation_callback;
+			memcpy(s_buf, input_file_pointer, data_size);
 
-		 ret = fcs_request_service(priv, (void *)msg,
-					   10 * FCS_REQUEST_TIMEOUT);
-		 if (!ret && !priv->status) {
-			 if (priv->size > out_sz) {
-				 dev_err(dev, "returned size %d is incorrect\n",
-					 priv->size);
-				 fcs_close_services(priv, s_buf, d_buf);
-				 return -EFAULT;
-			 }
+			msg->arg[0] = sid;
+			msg->arg[1] = cid;
+			msg->arg[2] = ud_sz;
+			msg->payload = s_buf;
+			msg->payload_length = data_size;
+			msg->payload_output = d_buf;
+			msg->payload_length_output = out_sz;
+			priv->client.receive_cb = fcs_attestation_callback;
 
-			 memcpy(data->com_paras.ecdsa_sha2_data.dst,
-				priv->kbuf, priv->size);
-			 data->com_paras.ecdsa_sha2_data.dst_size = priv->size;
-		 } else {
-			 data->com_paras.ecdsa_sha2_data.dst = NULL;
-			 data->com_paras.ecdsa_sha2_data.dst_size = 0;
+			ret = fcs_request_service(priv, (void *)msg,
+						10 * FCS_REQUEST_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (priv->size > out_sz) {
+					dev_err(dev, "returned size %d is incorrect\n",
+						priv->size);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+			} else {
+				data->com_paras.ecdsa_sha2_data.dst = NULL;
+				data->com_paras.ecdsa_sha2_data.dst_size = 0;
+				dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+						ret, priv->status);
+				break;
+			}
+
+			remaining_size -= data_size;
+			if (remaining_size == 0) {
+				dev_dbg(dev, "ECDSA data verify finish sending\n");
+				memcpy(data->com_paras.ecdsa_sha2_data.dst, priv->kbuf,
+						priv->size);
+				data->com_paras.ecdsa_sha2_data.dst_size = priv->size;
+				break;
+			} else {
+				input_file_pointer += data_size;
+				dev_dbg(dev, "Complete one update. Remaining size = %d\n",
+						remaining_size);
+			}
 		 }
 
 		 data->status = priv->status;
