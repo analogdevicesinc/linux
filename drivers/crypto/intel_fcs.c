@@ -1748,6 +1748,9 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -EFAULT;
 		 }
 
+		 input_file_pointer = data->com_paras.s_mac_data.src;
+		 remaining_size = data->com_paras.s_mac_data.src_size;
+
 		 s_buf = stratix10_svc_allocate_memory(priv->chan,
 						       AES_CRYPT_CMD_MAX_SZ);
 		 if (!s_buf) {
@@ -1764,34 +1767,57 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -ENOMEM;
 		 }
 
-		 memcpy(s_buf, data->com_paras.s_mac_data.src,
-			data->com_paras.s_mac_data.src_size);
+		 while (remaining_size > 0) {
+			if (remaining_size > AES_CRYPT_CMD_MAX_SZ) {
+				msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_UPDATE;
+				data_size = AES_CRYPT_CMD_MAX_SZ;
+				dev_dbg(dev, "Crypto get digest update. data_size=%d\n",
+						data_size);
+			} else {
+				msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE;
+				data_size = remaining_size;
+				dev_dbg(dev, "Crypto get digest finalize. data_size=%d\n",
+						data_size);
+			}
 
-		 msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE;
-		 msg->arg[0] = sid;
-		 msg->arg[1] = cid;
-		 msg->payload = s_buf;
-		 msg->payload_length = data->com_paras.s_mac_data.src_size;
-		 msg->payload_output = d_buf;
-		 msg->payload_length_output = AES_CRYPT_CMD_MAX_SZ;
-		 priv->client.receive_cb = fcs_attestation_callback;
+			memcpy(s_buf, input_file_pointer, data_size);
 
-		 ret = fcs_request_service(priv, (void *)msg,
-					   10 * FCS_REQUEST_TIMEOUT);
-		 if (!ret && !priv->status) {
-			 if (priv->size > AES_CRYPT_CMD_MAX_SZ) {
-				 dev_err(dev, "returned size %d is incorrect\n",
-					 priv->size);
-				 fcs_close_services(priv, s_buf, d_buf);
-				 return -EFAULT;
-			 }
+			msg->arg[0] = sid;
+			msg->arg[1] = cid;
+			msg->payload = s_buf;
+			msg->payload_length = data_size;
+			msg->payload_output = d_buf;
+			msg->payload_length_output = AES_CRYPT_CMD_MAX_SZ;
+			priv->client.receive_cb = fcs_attestation_callback;
 
-			 memcpy(data->com_paras.s_mac_data.dst,
-				priv->kbuf, priv->size);
-			 data->com_paras.s_mac_data.dst_size = priv->size;
-		 } else {
-			 data->com_paras.s_mac_data.dst = NULL;
-			 data->com_paras.s_mac_data.dst_size = 0;
+			ret = fcs_request_service(priv, (void *)msg,
+						10 * FCS_REQUEST_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (priv->size > AES_CRYPT_CMD_MAX_SZ) {
+					dev_err(dev, "returned size %d is incorrect\n",
+						priv->size);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+			} else {
+				data->com_paras.s_mac_data.dst = NULL;
+				data->com_paras.s_mac_data.dst_size = 0;
+				dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+						ret, priv->status);
+				break;
+			}
+
+			remaining_size -= data_size;
+			if (remaining_size == 0) {
+				dev_dbg(dev, "Crypto get digest finish sending\n");
+				memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+				data->com_paras.s_mac_data.dst_size = priv->size;
+				break;
+			} else {
+				input_file_pointer += data_size;
+				dev_dbg(dev, "Complete update. Remaining size = %d\n",
+						remaining_size);
+			}
 		 }
 
 		 data->status = priv->status;
@@ -1837,6 +1863,11 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -EFAULT;
 		 }
 
+		 input_file_pointer = data->com_paras.s_mac_data.src;
+		 remaining_size = data->com_paras.s_mac_data.src_size;
+		 sign_size = data->com_paras.s_mac_data.src_size
+						- data->com_paras.s_mac_data.userdata_sz;
+
 		 s_buf = stratix10_svc_allocate_memory(priv->chan,
 						       AES_CRYPT_CMD_MAX_SZ);
 		 if (!s_buf) {
@@ -1852,35 +1883,71 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 return -ENOMEM;
 		 }
 
-		 memcpy(s_buf, data->com_paras.s_mac_data.src,
-			data->com_paras.s_mac_data.src_size);
+		 while (remaining_size > 0) {
+			if (remaining_size > AES_CRYPT_CMD_MAX_SZ) {
+				/* Finalize stage require minimun 8bytes data size */
+				if ((remaining_size - AES_CRYPT_CMD_MAX_SZ) >=
+					(CRYPTO_SERVICE_MIN_DATA_SIZE + sign_size)) {
+					data_size = AES_CRYPT_CMD_MAX_SZ;
+					ud_sz = AES_CRYPT_CMD_MAX_SZ;
+					dev_dbg(dev, "Update full. data_size=%d, ud_sz=%ld\n",
+							data_size, ud_sz);
+				} else {
+					data_size = (remaining_size - CRYPTO_SERVICE_MIN_DATA_SIZE -
+								sign_size);
+					ud_sz = (remaining_size - CRYPTO_SERVICE_MIN_DATA_SIZE -
+							sign_size);
+					dev_dbg(dev, "Update partial. data_size=%d, ud_sz=%ld\n",
+							data_size, ud_sz);
+				}
+				msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE;
+			} else {
+				data_size = remaining_size;
+				ud_sz = remaining_size - sign_size;
+				msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE;
+				dev_dbg(dev, "Finalize. data_size=%d, ud_sz=%ld\n", data_size,
+						ud_sz);
+			}
 
-		 msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE;
-		 msg->arg[0] = sid;
-		 msg->arg[1] = cid;
-		 msg->arg[2] = ud_sz;
-		 msg->payload = s_buf;
-		 msg->payload_length = data->com_paras.s_mac_data.src_size;
-		 msg->payload_output = d_buf;
-		 msg->payload_length_output = out_sz;
-		 priv->client.receive_cb = fcs_attestation_callback;
+			memcpy(s_buf, input_file_pointer, data_size);
 
-		 ret = fcs_request_service(priv, (void *)msg,
-					   10 * FCS_REQUEST_TIMEOUT);
-		 if (!ret && !priv->status) {
-			 if (priv->size > out_sz) {
-				 dev_err(dev, "returned size %d is incorrect\n",
-					 priv->size);
-				 fcs_close_services(priv, s_buf, d_buf);
-				 return -EFAULT;
-			 }
+			msg->arg[0] = sid;
+			msg->arg[1] = cid;
+			msg->arg[2] = ud_sz;
+			msg->payload = s_buf;
+			msg->payload_length = data_size;
+			msg->payload_output = d_buf;
+			msg->payload_length_output = out_sz;
+			priv->client.receive_cb = fcs_attestation_callback;
 
-			 memcpy(data->com_paras.s_mac_data.dst,
-				priv->kbuf, priv->size);
-			 data->com_paras.s_mac_data.dst_size = priv->size;
-		 } else {
-			 data->com_paras.s_mac_data.dst = NULL;
-			 data->com_paras.s_mac_data.dst_size = 0;
+			ret = fcs_request_service(priv, (void *)msg,
+						10 * FCS_REQUEST_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (priv->size > out_sz) {
+					dev_err(dev, "returned size %d is incorrect\n",
+						priv->size);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+			} else {
+				data->com_paras.s_mac_data.dst = NULL;
+				data->com_paras.s_mac_data.dst_size = 0;
+				dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+						ret, priv->status);
+				break;
+			}
+
+			remaining_size -= data_size;
+			if (remaining_size == 0) {
+				dev_dbg(dev, "Crypto get verify finish sending\n");
+				memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+				data->com_paras.s_mac_data.dst_size = priv->size;
+				break;
+			} else {
+				input_file_pointer += data_size;
+				dev_dbg(dev, "Complete one update. Remaining size = %d\n",
+						remaining_size);
+			}
 		 }
 
 		 data->status = priv->status;
