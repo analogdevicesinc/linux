@@ -4705,12 +4705,7 @@ static int ad9081_probe(struct spi_device *spi)
 		return -ENODEV;
 	}
 
-	spi_id = spi_get_device_id(spi)->driver_data;
 	conv->id = phy->chip_id.prod_id;
-	if (conv->id != (spi_id & CHIPID_MASK)) {
-		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
-		return -ENODEV;
-	}
 
 	if (!phy->rx_disable)
 		ad9081_clk_register(phy, "-rx_sampl_clk",
@@ -4743,6 +4738,12 @@ static int ad9081_probe(struct spi_device *spi)
 	case CHIPID_AD9082:
 	case CHIPID_AD9988:
 	case CHIPID_AD9986:
+		spi_id = spi_get_device_id(spi)->driver_data & CHIPID_MASK;
+
+		if (conv->id != spi_id)
+			dev_warn(&spi->dev, "Expected AD%X found AD%X\n",
+				spi_id, conv->id);
+
 		ret = ad9081_setup(spi);
 		if (ret)
 			break;
