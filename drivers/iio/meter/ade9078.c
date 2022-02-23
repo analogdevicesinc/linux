@@ -644,13 +644,13 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	ret = regmap_read(st->regmap, ADE9078_REG_STATUS0, &status);
 	if (ret) {
 		dev_err(&st->spi->dev, "IRQ0 read status fail");
-		goto irq0_done;
+		return IRQ_HANDLED;
 	}
 
 	ret = regmap_read(st->regmap, ADE9078_REG_MASK0, &interrupts);
 	if (ret) {
 		dev_err(&st->spi->dev, "IRQ0 read status fail");
-		goto irq0_done;
+		return IRQ_HANDLED;
 	}
 
 	if ((status & ADE9078_ST0_PAGE_FULL_BIT) &&
@@ -661,7 +661,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 					   st->wfb_trg);
 			if (ret) {
 				dev_err(&st->spi->dev, "IRQ0 WFB write fail");
-				goto irq0_done;
+				return IRQ_HANDLED;
 			}
 
 			interrupts |= ADE9078_ST0_WFB_TRIG_BIT;
@@ -671,12 +671,12 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 			ret = ade9078_en_wfb(st, false);
 			if (ret) {
 				dev_err(&st->spi->dev, "IRQ0 WFB stop fail");
-				goto irq0_done;
+				return IRQ_HANDLED;
 			}
 			ret = ade9078_iio_push_buffer(indio_dev);
 			if (ret) {
 				dev_err(&st->spi->dev, "IRQ0 IIO push fail");
-				goto irq0_done;
+				return IRQ_HANDLED;
 			}
 		}
 
@@ -686,7 +686,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		ret = regmap_write(st->regmap, ADE9078_REG_MASK0, interrupts);
 		if (ret) {
 			dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
-			goto irq0_done;
+			return IRQ_HANDLED;
 		}
 
 		handled_irq |= ADE9078_ST0_PAGE_FULL_BIT;
@@ -698,13 +698,13 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 		ret = ade9078_en_wfb(st, false);
 		if (ret) {
 			dev_err(&st->spi->dev, "IRQ0 WFB fail");
-			goto irq0_done;
+			return IRQ_HANDLED;
 		}
 
 		ret = ade9078_iio_push_buffer(indio_dev);
 		if (ret) {
 			dev_err(&st->spi->dev, "IRQ0 IIO push fail @ WFB TRIG");
-			goto irq0_done;
+			return IRQ_HANDLED;
 		}
 
 		handled_irq |= ADE9078_ST0_WFB_TRIG_BIT;
@@ -714,9 +714,6 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	if (ret)
 		dev_err(&st->spi->dev, "IRQ0 write status fail");
 
-irq0_done:
-//TODO As below. return wherever you have a goto.  This common exit just makes
-//the code less readable.
 	return IRQ_HANDLED;
 }
 
@@ -748,17 +745,17 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 		else
 			dev_err(&st->spi->dev, "Error testing reset done");
 
-		goto irq1_done;
+		return IRQ_HANDLED;
 	}
 
 	ret = regmap_read(st->regmap, ADE9078_REG_STATUS1, &status);
 	if (ret)
-		goto irq1_done;
+		return IRQ_HANDLED;
 
 	ret = regmap_read(st->regmap, ADE9078_REG_MASK1, &interrupts);
 	if (ret) {
 		dev_err(&st->spi->dev, "IRQ1 read status fail");
-		goto irq1_done;
+		return IRQ_HANDLED;
 	}
 
 	for_each_set_bit_from(bit, (unsigned long *)&interrupts,
@@ -797,13 +794,10 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 				       timestamp);
 			break;
 		default:
-			goto irq1_done;
+			return IRQ_HANDLED;
 		}
 	}
 
-irq1_done:
-//TODO return IRQ_HANDLED; in all these paths.  No point in going to a common
-//exit that doesn't do anything.
 	return IRQ_HANDLED;
 }
 
