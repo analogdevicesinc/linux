@@ -959,21 +959,18 @@ pcie/dwc
 M: Richard Zhu <hongxing.zhu@nxp.com>
 M: Z.q. Hou <zhiqiang.hou@nxp.com>
 M: Ionut Vicovan <ionut.vicovan@nxp.com>
-F: Documentation/devicetree/bindings/pci/fsl,imx6q-pcie.txt
-F: Documentation/devicetree/bindings/pci/layerscape-pci.txt
 F: drivers/pci/controller/dwc/
+
+pcie/dwc-imx
+M: Richard Zhu <hongxing.zhu@nxp.com>
+F: Documentation/devicetree/bindings/pci/fsl,imx6q-pcie.txt
+F: drivers/pci/controller/dwc/pci-imx6.c
 F: include/dt-bindings/soc/imx8_hsio.h
 
-pcie/mobiveil
-M: Richard Zhu <hongxing.zhu@nxp.com>
+pcie/dwc-qoriq
 M: Z.q. Hou <zhiqiang.hou@nxp.com>
-M: Ionut Vicovan <ionut.vicovan@nxp.com>
 F: Documentation/devicetree/bindings/pci/layerscape-pci.txt
-F: Documentation/devicetree/bindings/pci/layerscape-pcie-gen4.txt
-F: arch/arm/kernel/bios32.c
-F: arch/arm64/kernel/pci.c
-F: drivers/pci/controller/mobiveil/
-F: drivers/pci/pcie/portdrv_core.c
+F: drivers/pci/controller/dwc/pci-layerscape*
 
 perf
 M: Joakim Zhang <qiangqing.zhang@nxp.com>
