@@ -904,6 +904,9 @@ static int caam_probe(struct platform_device *pdev)
 	if (imx_soc_match) {
 		np = of_find_compatible_node(NULL, NULL, "fsl,imx-scu");
 
+		if (!np)
+			np = of_find_compatible_node(NULL, NULL, "fsl,imx-ele");
+
 		ctrlpriv->scu_en = !!np;
 		of_node_put(np);
 
