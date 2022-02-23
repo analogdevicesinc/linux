@@ -237,12 +237,57 @@
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
 
+/*
+ * struct ade9078_state - ade9078 specific data
+ * @rst_done	flag for when reset sequence irq has been received
+ * @wf_mode	wave form buffer mode, read datasheet for more details,
+ *		retrieved from DT
+ * @wfb_trg	wave form buffer triger configuration, read datasheet for more
+ *		details, retrieved from DT
+ * @spi		spi device associated to the ade9078
+ * @tx		transmit buffer for the spi
+ * @rx		receive buffer for the spi
+ * @xfer	transfer setup used in iio buffer configuration
+ * @spi_msg	message transfer trough spi, used in iio buffer
+ *		configuration
+ * @regmap	register map pointer
+ * @indio_dev:	the IIO device
+ * @trig	iio trigger pointer, is connected to IRQ0 and IRQ1
+ * @rx_buff	receive buffer for the iio buffer trough spi, will
+ *		contain the samples from the IC wave form buffer
+ * @tx_buff	transmit buffer for the iio buffer trough spi, used
+ *		in iio	buffer configuration
+ */
+struct ade9078_state {
+	bool rst_done;
+	u8 wf_mode;
+	u32 wfb_trg;
+	struct spi_device *spi;
+	u8 *tx;
+	u8 *rx;
+	struct spi_transfer xfer[2];
+	struct spi_message spi_msg;
+	struct regmap *regmap;
+	union{
+		u8 byte[ADE9078_WFB_FULL_BUFF_SIZE];
+		__be32 word[ADE9078_WFB_FULL_BUFF_NR_SAMPLES];
+	} rx_buff ____cacheline_aligned;
+	u8 tx_buff[2];
+};
+
+static const struct iio_event_spec ade9078_events[] = {
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_EITHER,
+		.mask_separate = BIT(IIO_EV_INFO_ENABLE) |
+				 BIT(IIO_EV_INFO_VALUE),
+	},
+};
+
 //TODO extend_name defines new ABI.  Needs documentation in
 //Documentation/ABI/testing/sysfs-bus-iio-*
 //and a very strong reason why it makes sense to do it this way rather than
 //via modifiers or similar.
-//reorder the code so these defs are near the use of them.
-
 #define ADE9078_CURRENT_CHANNEL(num, name) {				\
 	.type = IIO_CURRENT,						\
 	.channel = num,							\
@@ -358,59 +403,6 @@
 			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
 }
-
-/*
- * struct ade9078_state - ade9078 specific data
- * @rst_done	flag for when reset sequence irq has been received
- * @wf_mode	wave form buffer mode, read datasheet for more details,
- *		retrieved from DT
- * @wfb_trg	wave form buffer triger configuration, read datasheet for more
- *		details, retrieved from DT
- * @spi		spi device associated to the ade9078
- * @tx		transmit buffer for the spi
- * @rx		receive buffer for the spi
- * @xfer	transfer setup used in iio buffer configuration
- * @spi_msg	message transfer trough spi, used in iio buffer
- *		configuration
- * @regmap	register map pointer
- * @indio_dev:	the IIO device
- * @trig	iio trigger pointer, is connected to IRQ0 and IRQ1
- * @rx_buff	receive buffer for the iio buffer trough spi, will
- *		contain the samples from the IC wave form buffer
- * @tx_buff	transmit buffer for the iio buffer trough spi, used
- *		in iio	buffer configuration
- */
-
-struct ade9078_state {
-	bool rst_done;
-	u8 wf_mode;
-	u32 wfb_trg;
-	struct spi_device *spi;
-	u8 *tx;
-	u8 *rx;
-	struct spi_transfer xfer[2];
-	struct spi_message spi_msg;
-	struct regmap *regmap;
-	struct iio_dev *indio_dev;
-//TODO This is always a bad sign.  If you need to go from the state back
-//to the iio_dev then you should have passed the iio_dev in the first
-//place - in this particular case the iio_dev should be your private
-//data for the irq handlers, not the ade9078 state structure.
-	union{
-		u8 byte[ADE9078_WFB_FULL_BUFF_SIZE];
-		__be32 word[ADE9078_WFB_FULL_BUFF_NR_SAMPLES];
-	} rx_buff ____cacheline_aligned;
-	u8 tx_buff[2];
-};
-
-static const struct iio_event_spec ade9078_events[] = {
-	{
-		.type = IIO_EV_TYPE_THRESH,
-		.dir = IIO_EV_DIR_EITHER,
-		.mask_separate = BIT(IIO_EV_INFO_ENABLE) |
-				 BIT(IIO_EV_INFO_VALUE),
-	},
-};
 
 /* IIO channels of the ade9078 for each phase individually */
 static const struct iio_chan_spec ade9078_a_channels[] = {
@@ -614,8 +606,9 @@ static int ade9078_en_wfb(struct ade9078_state *st, bool state)
  * pushes it to the IIO buffer.
  * @st:		ade9078 device data
  */
-static int ade9078_iio_push_buffer(struct ade9078_state *st)
+static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
 {
+	struct ade9078_state *st = iio_priv(indio_dev);
 	int ret;
 	u32 i;
 
@@ -626,7 +619,7 @@ static int ade9078_iio_push_buffer(struct ade9078_state *st)
 	}
 
 	for (i = 0; i < ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
-		iio_push_to_buffers(st->indio_dev, &st->rx_buff.word[i]);
+		iio_push_to_buffers(indio_dev, &st->rx_buff.word[i]);
 
 	return 0;
 }
@@ -640,7 +633,9 @@ static int ade9078_iio_push_buffer(struct ade9078_state *st)
  */
 static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 {
-	struct ade9078_state *st = data;
+
+	struct iio_dev *indio_dev = data;
+	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 handled_irq = 0;
 	u32 interrupts;
 	u32 status;
@@ -678,7 +673,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 				dev_err(&st->spi->dev, "IRQ0 WFB stop fail");
 				goto irq0_done;
 			}
-			ret = ade9078_iio_push_buffer(st);
+			ret = ade9078_iio_push_buffer(indio_dev);
 			if (ret) {
 				dev_err(&st->spi->dev, "IRQ0 IIO push fail");
 				goto irq0_done;
@@ -706,7 +701,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 			goto irq0_done;
 		}
 
-		ret = ade9078_iio_push_buffer(st);
+		ret = ade9078_iio_push_buffer(indio_dev);
 		if (ret) {
 			dev_err(&st->spi->dev, "IRQ0 IIO push fail @ WFB TRIG");
 			goto irq0_done;
@@ -732,8 +727,8 @@ irq0_done:
  */
 static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 {
-	struct ade9078_state *st = data;
-	struct iio_dev *indio_dev = st->indio_dev;
+	struct iio_dev *indio_dev = data;
+	struct ade9078_state *st = iio_priv(indio_dev);
 	struct iio_chan_spec const *chan = indio_dev->channels;
 	unsigned int bit = ADE9078_ST1_CROSSING_FIRST;
 	s64 timestamp = iio_get_time_ns(indio_dev);
@@ -1414,10 +1409,11 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
  * creates the iio channels based on the active phases in the DT.
  * @st:		ade9078 device data
  */
-static int ade9078_setup_iio_channels(struct ade9078_state *st)
+static int ade9078_setup_iio_channels(struct iio_dev *indio_dev)
 {
-	struct fwnode_handle *phase_node = NULL;
+	struct ade9078_state *st = iio_priv(indio_dev);
 	struct device *dev = &st->spi->dev;
+	struct fwnode_handle *phase_node = NULL;
 	struct iio_chan_spec *chan;
 	u32 phase_nr;
 	int ret;
@@ -1430,8 +1426,8 @@ static int ade9078_setup_iio_channels(struct ade9078_state *st)
 		dev_err(dev, "Unable to allocate ADE9078 channels");
 		return -ENOMEM;
 	}
-	st->indio_dev->num_channels = 0;
-	st->indio_dev->channels = chan;
+	indio_dev->num_channels = 0;
+	indio_dev->channels = chan;
 
 	fwnode_for_each_available_child_node(dev_fwnode(dev), phase_node) {
 		ret = fwnode_property_read_u32(phase_node, "reg", &phase_nr);
@@ -1458,7 +1454,7 @@ static int ade9078_setup_iio_channels(struct ade9078_state *st)
 		}
 
 		chan += AD9078_CHANNELS_PER_PHASE;
-		st->indio_dev->num_channels += AD9078_CHANNELS_PER_PHASE;
+		indio_dev->num_channels += AD9078_CHANNELS_PER_PHASE;
 	}
 
 	return 0;
@@ -1609,7 +1605,7 @@ static int ade9078_probe(struct spi_device *spi)
 	ret = devm_request_threaded_irq(&spi->dev, irq, NULL,
 					ade9078_irq0_thread,
 					IRQF_ONESHOT,
-					KBUILD_MODNAME, st);
+					KBUILD_MODNAME, indio_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
 		return ret;
@@ -1624,7 +1620,7 @@ static int ade9078_probe(struct spi_device *spi)
 	ret = devm_request_threaded_irq(&spi->dev, irq, NULL,
 					ade9078_irq1_thread,
 					IRQF_ONESHOT,
-					KBUILD_MODNAME, st);
+					KBUILD_MODNAME, indio_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to request threaded irq: %d\n", ret);
 		return ret;
@@ -1638,9 +1634,8 @@ static int ade9078_probe(struct spi_device *spi)
 	indio_dev->setup_ops = &ade9078_buffer_ops;
 
 	st->regmap = regmap;
-	st->indio_dev = indio_dev;
 
-	ret = ade9078_setup_iio_channels(st);
+	ret = ade9078_setup_iio_channels(indio_dev);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to set up IIO channels");
 		return ret;
