@@ -333,8 +333,8 @@
 		mub-partition = <3>;
 		memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>,
 				<&vdev1vring0>, <&vdev1vring1>, <&rsc_table0>;
-		core-index = <0>;
-		core-id = <IMX_SC_R_M4_0_PID0>;
+		reg = <0>;
+		rsrc-id = <IMX_SC_R_M4_0_PID0>;
 		status = "okay";
 		power-domains = <&pd IMX_SC_R_M4_0_PID0>,
 				<&pd IMX_SC_R_M4_0_MU_1A>;
@@ -350,8 +350,8 @@
 		mub-partition = <4>;
 		memory-region = <&vdevbuffer>, <&vdev2vring0>, <&vdev2vring1>,
 				<&vdev3vring0>, <&vdev3vring1>, <&rsc_table1>;
-		core-index = <1>;
-		core-id = <IMX_SC_R_M4_1_PID0>;
+		reg = <1>;
+		rsrc-id = <IMX_SC_R_M4_0_PID1>;
 		status = "okay";
 		power-domains = <&pd IMX_SC_R_M4_1_PID0>,
 				<&pd IMX_SC_R_M4_1_MU_1A>;

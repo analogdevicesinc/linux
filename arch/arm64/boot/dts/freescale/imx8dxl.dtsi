@@ -102,8 +102,8 @@
 			  &lsio_mu5 1 1
 			  &lsio_mu5 3 1>;
 		mub-partition = <3>;
-		core-index = <0>;
-		core-id = <IMX_SC_R_M4_0_PID0>;
+		reg = <0>;
+		rsrc-id = <IMX_SC_R_M4_0_PID0>;
 		status = "disabled";
 		power-domains = <&pd IMX_SC_R_M4_0_PID0>,
 				<&pd IMX_SC_R_M4_0_MU_1A>;
