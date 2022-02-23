@@ -270,7 +270,10 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	void *d_buf;
 	void *ps_buf;
 	void *iv_field_buf;
+	void *input_file_pointer;
+	void *output_file_pointer;
 	unsigned int buf_sz, in_sz, out_sz;
+	uint32_t remaining_size, data_size, total_out_size;
 	int ret = 0;
 	int i;
 	int timeout;
@@ -1548,7 +1551,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 	case INTEL_FCS_DEV_CRYPTO_AES_CRYPT:
 		 if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
-			 dev_err(dev, "failure on copy_from_user\n");
+			 dev_err(dev, "failure on copy_from_user data\n");
 			 mutex_unlock(&priv->lock);
 			 return -EFAULT;
 		 }
@@ -1591,8 +1594,14 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		 fcs_free_memory(priv, iv_field_buf, NULL, NULL);
 
+		 input_file_pointer = data->com_paras.a_crypt.src;
+		 output_file_pointer = data->com_paras.a_crypt.dst;
+
+		 remaining_size = data->com_paras.a_crypt.src_size;
+		 total_out_size = 0;
+
 		 s_buf = stratix10_svc_allocate_memory(priv->chan,
-				data->com_paras.a_crypt.src_size);
+					AES_CRYPT_CMD_MAX_SZ);
 		 if (!s_buf) {
 			 dev_err(dev, "failed allocate source buf\n");
 			 fcs_close_services(priv, NULL, NULL);
@@ -1600,76 +1609,99 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		 }
 
 		 d_buf = stratix10_svc_allocate_memory(priv->chan,
-				data->com_paras.a_crypt.dst_size);
+					AES_CRYPT_CMD_MAX_SZ);
 		 if (!d_buf) {
 			 dev_err(dev, "failed allocate destation buf\n");
 			 fcs_close_services(priv, s_buf, NULL);
 			 return -ENOMEM;
 		 }
 
-		 ret = copy_from_user(s_buf,
-				     data->com_paras.a_crypt.src,
-				     data->com_paras.a_crypt.src_size);
-
-		 if (ret) {
-			dev_err(dev, "failure on copy_from_user\n");
-			fcs_close_services(priv, s_buf, d_buf);
-			return -EFAULT;
-		 }
-
-		 msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE;
-		 msg->arg[0] = sid;
-		 msg->arg[1] = cid;
-		 msg->payload = s_buf;
-		 msg->payload_length = data->com_paras.a_crypt.src_size;
-		 msg->payload_output = d_buf;
-		 msg->payload_length_output = data->com_paras.a_crypt.dst_size;
-		 priv->client.receive_cb = fcs_attestation_callback;
-
 		 ps_buf = stratix10_svc_allocate_memory(priv->chan, PS_BUF_SIZE);
 		 if (!ps_buf) {
-			dev_err(dev, "failed to allocate p-status buf\n");
-			fcs_close_services(priv, s_buf, d_buf);
-			return -ENOMEM;
+			 dev_err(dev, "failed to allocate p-status buf\n");
+			 fcs_close_services(priv, s_buf, d_buf);
+			 return -ENOMEM;
 		 }
 
-		 ret = fcs_request_service(priv, (void *)msg,
-					   FCS_REQUEST_TIMEOUT);
-		 if (!ret && !priv->status) {
-			/* to query the complete status */
-			msg->payload = ps_buf;
-			msg->payload_length = PS_BUF_SIZE;
-			msg->command = COMMAND_POLL_SERVICE_STATUS;
-			priv->client.receive_cb = fcs_data_callback;
+		 while (remaining_size > 0) {
+			if (remaining_size > AES_CRYPT_CMD_MAX_SZ) {
+				msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_UPDATE;
+				data_size = AES_CRYPT_CMD_MAX_SZ;
+				dev_dbg(dev, "AES crypt update. data_size=%d\n", data_size);
+			} else {
+				msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE;
+				data_size = remaining_size;
+				dev_dbg(dev, "AES crypt finalize. data_size=%d\n", data_size);
+			}
+
+			ret = copy_from_user(s_buf, input_file_pointer, data_size);
+
+			if (ret) {
+				dev_err(dev, "failure on copy_from_user s_buf\n");
+				fcs_free_memory(priv, s_buf, d_buf, ps_buf);
+				fcs_close_services(priv, NULL, NULL);
+				return -EFAULT;
+			}
+
+			msg->arg[0] = sid;
+			msg->arg[1] = cid;
+			msg->payload = s_buf;
+			msg->payload_length = data_size;
+			msg->payload_output = d_buf;
+			msg->payload_length_output = data_size;
+			priv->client.receive_cb = fcs_attestation_callback;
 
 			ret = fcs_request_service(priv, (void *)msg,
-						  FCS_COMPLETED_TIMEOUT);
-			dev_dbg(dev, "request service ret=%d\n", ret);
+						   FCS_REQUEST_TIMEOUT);
 			if (!ret && !priv->status) {
-				if (!priv->kbuf || priv->size != 16) {
-					dev_err(dev, "unregconize response\n");
-					fcs_free_memory(priv, s_buf, d_buf, ps_buf);
-					fcs_close_services(priv, NULL, NULL);
-					return -EFAULT;
+				/* to query the complete status */
+				msg->payload = ps_buf;
+				msg->payload_length = PS_BUF_SIZE;
+				msg->command = COMMAND_POLL_SERVICE_STATUS;
+				priv->client.receive_cb = fcs_data_callback;
+
+				ret = fcs_request_service(priv, (void *)msg,
+							  FCS_COMPLETED_TIMEOUT);
+				if (!ret && !priv->status) {
+					if (!priv->kbuf || priv->size != 16) {
+						dev_err(dev, "unregconize response\n");
+						fcs_free_memory(priv, s_buf, d_buf, ps_buf);
+						fcs_close_services(priv, NULL, NULL);
+						return -EFAULT;
+					}
+
+					buf_sz = ((u32 *)priv->kbuf)[3];
+
+					ret = copy_to_user(output_file_pointer, d_buf, buf_sz);
+
+					total_out_size += buf_sz;
+
+					if (ret) {
+						dev_err(dev, "failure on copy_to_user\n");
+						fcs_free_memory(priv, s_buf, d_buf, ps_buf);
+						fcs_close_services(priv, NULL, NULL);
+						return -EFAULT;
+					}
 				}
-
-				data->com_paras.a_crypt.dst_size =
-					((u32 *)priv->kbuf)[3];
-
-				ret = copy_to_user(
-					data->com_paras.a_crypt.dst, d_buf,
-					data->com_paras.a_crypt.dst_size);
-
-				if (ret) {
-					dev_err(dev, "failure on copy_to_user\n");
-					fcs_free_memory(priv, s_buf, d_buf, ps_buf);
-					fcs_close_services(priv, NULL, NULL);
-					return -EFAULT;
-				}
+			} else {
+				data->com_paras.a_crypt.dst = NULL;
+				data->com_paras.a_crypt.dst_size = 0;
+				dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+						ret, priv->status);
+				break;
 			}
-		 } else {
-			data->com_paras.a_crypt.dst = NULL;
-			data->com_paras.a_crypt.dst_size = 0;
+
+			remaining_size -= data_size;
+			if (remaining_size == 0) {
+				dev_dbg(dev, "AES crypt finish sending\n");
+				data->com_paras.a_crypt.dst_size = total_out_size;
+				break;
+			} else {
+				input_file_pointer += data_size;
+				output_file_pointer += data_size;
+				dev_dbg(dev, "Complete one update. Remaining size = %d\n",
+						remaining_size);
+			}
 		 }
 
 		 data->status = priv->status;
