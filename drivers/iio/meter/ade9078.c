@@ -548,7 +548,6 @@ static int ade9078_spi_read_reg(void *context,
 	else
 		xfer[1].len = 6;
 
-
 // TODO This doesn't look like a fixed length register which is expected
 //for regmap...  Also that len should just be the rx register which
 //you treat below as 16 bit and 32 bit (so 2 and 4, not 4 and 6).
@@ -633,7 +632,6 @@ static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
  */
 static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 {
-
 	struct iio_dev *indio_dev = data;
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 handled_irq = 0;
@@ -894,9 +892,6 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 	default:
 		return -EINVAL;
 	}
-
-	return 0;
-//TODO I don't think you can reach this
 }
 
 /*
@@ -914,9 +909,7 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 			     long mask)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 addr = 0xFFFFF;
-//TODO If that value is used, something went wrong.  I don't think it is, so
-//don't assign it.
+	u32 addr;
 	u32 tmp;
 
 	switch (mask) {
@@ -1221,14 +1214,14 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 wfg_cfg_val = 0;
+	u32 active_scans;
 	u32 tmp;
 	int ret;
 
-	bitmap_to_arr32(&wfg_cfg_val, indio_dev->active_scan_mask,
+	bitmap_to_arr32(&active_scans, indio_dev->active_scan_mask,
 			indio_dev->masklength);
 
-	switch (wfg_cfg_val) {
-//TODO Use another variable so that this becomes more readable.
+	switch (active_scans) {
 	case ADE9078_SCAN_POS_IA | ADE9078_SCAN_POS_VA:
 		wfg_cfg_val = 0x1;
 		break;
@@ -1316,17 +1309,23 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 	ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG, 0x0);
 	if (ret)
 		return ret;
-//TODO A switch statement would be cleaner here.
-	if (mode == ADE9078_WFB_FULL_MODE || mode == ADE9078_WFB_EN_TRIG_MODE) {
+
+	switch (mode) {
+	case ADE9078_WFB_FULL_MODE:
+	case ADE9078_WFB_EN_TRIG_MODE:
 		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
 				   ADE9078_MODE_0_1_PAGE_BIT);
 		if (ret)
 			return ret;
-	} else if (mode == ADE9078_WFB_C_EN_TRIG_MODE) {
+		break;
+	case ADE9078_WFB_C_EN_TRIG_MODE:
 		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
 				   ADE9078_MODE_2_PAGE_BIT);
 		if (ret)
 			return ret;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	ret = regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
@@ -1484,9 +1483,9 @@ static int ade9078_reset(struct ade9078_state *st)
 			return ret;
 		usleep_range(80, 100);
 	}
-//TODO Why EPERM?  Seems more like an IO error
+
 	if (!st->rst_done)
-		return -EPERM;
+		return -EIO;
 
 	return 0;
 }
@@ -1525,6 +1524,7 @@ static const struct iio_info ade9078_info = {
 	.write_event_config = &ade9078_write_event_config,
 	.read_event_value = &ade9078_read_event_vlaue,
 };
+
 //TODO How big would the changes needed to support this in the regmap
 //core be?   Superficially I can't immediately see why it won't work.
 //regmap appears to support setting flags in any of the address bytes
