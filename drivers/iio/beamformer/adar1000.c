@@ -507,9 +507,11 @@ static void adar1000_phase_search(struct adar1000_state *st, int val, int val2,
 {
 	int i, prev, next;
 
-	val %= 360;
+	if (val > 360)
+		val = 360;
+
 	if (val < 0)
-		val += 360;
+		val = 0;
 
 	for (i = 0; i < st->pt_size - 1; i++) {
 		if (st->pt_info[i].val > val)
