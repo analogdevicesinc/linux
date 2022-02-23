@@ -951,6 +951,29 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_AES_CRYPTO_INIT)
 
 /**
+ * Request INTEL_SIP_SMC_FCS_AES_CRYPTO_UPDATE
+ * Sync call to decrypt/encrypt a data block
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_AES_CRYPTO_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1-a3 not used
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_AES_CRYPTO_UPDATE 117
+#define INTEL_SIP_SMC_FCS_AES_CRYPTO_UPDATE \
+        INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_AES_CRYPTO_UPDATE)
+
+/**
  * Request INTEL_SIP_SMC_FCS_AES_CRYPTO_FINALIZE
  * Sync call to decrypt/encrypt a data block
  *
@@ -998,6 +1021,31 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_INIT 119
 #define INTEL_SIP_SMC_FCS_GET_DIGEST_INIT \
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_INIT)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_GET_DIGEST_UPDATE
+ * Sync call to request the SHA-2 hash digest on a blob
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_GET_DIGEST_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_UPDATE 120
+#define INTEL_SIP_SMC_FCS_GET_DIGEST_UPDATE \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_UPDATE)
 
 /**
  * Request INTEL_SIP_SMC_FCS_GET_DIGEST_FINALIZE
@@ -1051,6 +1099,32 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_INIT 122
 #define INTEL_SIP_SMC_FCS_MAC_VERIFY_INIT \
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_INIT)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_MAC_VERIFY_UPDATE
+ * Sync call to check the integrity and authenticity of a blob by comparing
+ * the calculated MAC with tagged MAC
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_MAC_VERIFY_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_UPDATE 123
+#define INTEL_SIP_SMC_FCS_MAC_VERIFY_UPDATE \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_UPDATE)
 
 /**
  * Request INTEL_SIP_SMC_FCS_MAC_VERIFY_FINALIZE
@@ -1154,6 +1228,31 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_ECDSA_SHA2_DATA_SIGNING_INIT)
 
 /**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_UPDATE
+ * Sync call to digital signature signing request on a data blob
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_ECDSA_SHA2_DATA_SIGNING_UPDATE 129
+#define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_UPDATE \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_ECDSA_SHA2_DATA_SIGNING_UPDATE)
+
+/**
  * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_FINALIZE
  * Sync call to digital signature signing request on a data blob
  *
@@ -1251,6 +1350,31 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_INIT 134
 #define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_INIT \
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_INIT)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_UPDATE
+ * Sync call to send digital signature verify request
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source (contain user data)
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 size of user data
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_UPDATE 135
+#define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_UPDATE \
+        INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_UPDATE)
 
 /**
  * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_FINALIZE

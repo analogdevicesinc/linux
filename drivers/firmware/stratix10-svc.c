@@ -416,12 +416,17 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_ATTESTATION_CERTIFICATE:
 	case COMMAND_FCS_CRYPTO_EXPORT_KEY:
 	case COMMAND_FCS_CRYPTO_GET_KEY_INFO:
+	case COMMAND_FCS_CRYPTO_AES_CRYPT_UPDATE:
 	case COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE:
+	case COMMAND_FCS_CRYPTO_GET_DIGEST_UPDATE:
 	case COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE:
+	case COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE:
 	case COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE:
 	case COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE:
+	case COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE:
 	case COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE:
 	case COMMAND_FCS_CRYPTO_ECDSA_HASH_VERIFY_FINALIZE:
+	case COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE:
 	case COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE:
 	case COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE:
 	case COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE:
@@ -690,6 +695,15 @@ static int svc_normal_to_secure_thread(void *data)
 			a4 = (unsigned long)pdata->paddr;
 			a5 = (unsigned long)pdata->size;
 			break;
+		case COMMAND_FCS_CRYPTO_AES_CRYPT_UPDATE:
+			a0 = INTEL_SIP_SMC_FCS_AES_CRYPTO_UPDATE;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = (unsigned long)pdata->paddr;
+			a4 = (unsigned long)pdata->size;
+			a5 = (unsigned long)pdata->paddr_output;
+			a6 = (unsigned long)pdata->size_output;
+			break;
 		case COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE:
 			a0 = INTEL_SIP_SMC_FCS_AES_CRYPTO_FINALIZE;
 			a1 = pdata->arg[0];
@@ -707,6 +721,15 @@ static int svc_normal_to_secure_thread(void *data)
 			a4 = pdata->arg[3];
 			a5 = pdata->arg[4];
 			break;
+		case COMMAND_FCS_CRYPTO_GET_DIGEST_UPDATE:
+			a0 = INTEL_SIP_SMC_FCS_GET_DIGEST_UPDATE;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = (unsigned long)pdata->paddr;
+			a4 = (unsigned long)pdata->size;
+			a5 = (unsigned long)pdata->paddr_output;
+			a6 = (unsigned long)pdata->size_output;
+			break;
 		case COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE:
 			a0 = INTEL_SIP_SMC_FCS_GET_DIGEST_FINALIZE;
 			a1 = pdata->arg[0];
@@ -723,6 +746,16 @@ static int svc_normal_to_secure_thread(void *data)
 			a3 = pdata->arg[2];
 			a4 = pdata->arg[3];
 			a5 = pdata->arg[4];
+			break;
+		case COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE:
+			a0 = INTEL_SIP_SMC_FCS_MAC_VERIFY_UPDATE;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = (unsigned long)pdata->paddr;
+			a4 = (unsigned long)pdata->size;
+			a5 = (unsigned long)pdata->paddr_output;
+			a6 = (unsigned long)pdata->size_output;
+			a7 = pdata->arg[2];
 			break;
 		case COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE:
 			a0 = INTEL_SIP_SMC_FCS_MAC_VERIFY_FINALIZE;
@@ -759,6 +792,15 @@ static int svc_normal_to_secure_thread(void *data)
 			a4 = pdata->arg[3];
 			a5 = pdata->arg[4];
 			break;
+		case COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE:
+			a0 = INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_UPDATE;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = (unsigned long)pdata->paddr;
+			a4 = (unsigned long)pdata->size;
+			a5 = (unsigned long)pdata->paddr_output;
+			a6 = (unsigned long)pdata->size_output;
+			break;
 		case COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE:
 			a0 = INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_FINALIZE;
 			a1 = pdata->arg[0];
@@ -792,6 +834,16 @@ static int svc_normal_to_secure_thread(void *data)
 			a3 = pdata->arg[2];
 			a4 = pdata->arg[3];
 			a5 = pdata->arg[4];
+			break;
+		case COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE:
+			a0 = INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_UPDATE;
+			a1 = pdata->arg[0];
+			a2 = pdata->arg[1];
+			a3 = (unsigned long)pdata->paddr;
+			a4 = (unsigned long)pdata->size;
+			a5 = (unsigned long)pdata->paddr_output;
+			a6 = (unsigned long)pdata->size_output;
+			a7 = pdata->arg[2];
 			break;
 		case COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE:
 			a0 = INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_FINALIZE;
@@ -978,18 +1030,23 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_CRYPTO_REMOVE_KEY:
 			case COMMAND_FCS_CRYPTO_GET_KEY_INFO:
 			case COMMAND_FCS_CRYPTO_AES_CRYPT_INIT:
+			case COMMAND_FCS_CRYPTO_AES_CRYPT_UPDATE:
 			case COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE:
 			case COMMAND_FCS_CRYPTO_GET_DIGEST_INIT:
+			case COMMAND_FCS_CRYPTO_GET_DIGEST_UPDATE:
 			case COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE:
 			case COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT:
+			case COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE:
 			case COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE:
 			case COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_INIT:
 			case COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_FINALIZE:
 			case COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_INIT:
+			case COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE:
 			case COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE:
 			case COMMAND_FCS_CRYPTO_ECDSA_HASH_VERIFY_INIT:
 			case COMMAND_FCS_CRYPTO_ECDSA_HASH_VERIFY_FINALIZE:
 			case COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_INIT:
+			case COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE:
 			case COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE:
 			case COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_INIT:
 			case COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE:
