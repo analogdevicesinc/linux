@@ -1037,7 +1037,7 @@
 	isl29023@44 {
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_isl29023>;
-		compatible = "fsl,isl29023";
+		compatible = "isil,isl29023";
 		reg = <0x44>;
 		rext = <499>;
 		interrupt-parent = <&lsio_gpio4>;
@@ -1045,7 +1045,7 @@
 	};
 
 	fxos8700@1e {
-		compatible = "fsl,fxos8700";
+		compatible = "nxp,fxos8700";
 		reg = <0x1e>;
 		interrupt-open-drain;
 	};
