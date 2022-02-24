@@ -577,6 +577,10 @@ void ata_scsi_error(struct Scsi_Host *host)
 	/* finish or retry handled scmd's and clean up */
 	WARN_ON(!list_empty(&eh_work_q));
 
+#ifdef CONFIG_AHCI_IMX_PMP
+	ap->flags &= ~(0x7 << 29);
+#endif
+
 }
 
 /**
@@ -2090,6 +2094,10 @@ static void ata_eh_link_autopsy(struct ata_link *link)
 
 	if (ehc->i.flags & ATA_EHI_NO_AUTOPSY)
 		return;
+
+#ifdef CONFIG_AHCI_IMX_PMP
+	ata_msleep(ap, 20);
+#endif
 
 	/* obtain and analyze SError */
 	rc = sata_scr_read(link, SCR_ERROR, &serror);
@@ -3735,6 +3743,11 @@ int ata_eh_recover(struct ata_port *ap, ata_prereset_fn_t prereset,
 	struct ata_device *dev;
 	int rc, nr_fails;
 	unsigned long flags, deadline;
+
+#ifdef CONFIG_AHCI_IMX_PMP
+	if (ap->flags & (1 << 31))
+		ap->flags |= (1 << 29);
+#endif
 
 	/* prep for recovery */
 	ata_for_each_link(link, ap, EDGE) {

@@ -4684,6 +4684,9 @@ void ata_scsi_hotplug(struct work_struct *work)
 	ata_scsi_scan_host(ap, 0);
 
 	mutex_unlock(&ap->scsi_scan_mutex);
+#ifdef CONFIG_AHCI_IMX_PMP
+	ap->flags &= ~(0x7 << 29);
+#endif
 }
 
 /**
