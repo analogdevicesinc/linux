@@ -4,12 +4,12 @@
 &lpi2c5 {
 
 	fxas2100x@20 {
-		compatible = "fsl,fxas2100x";
+		compatible = "nxp,fxas21002c";
 		reg = <0x20>;
 	};
 
 	fxos8700@1e {
-		compatible = "fsl,fxos8700";
+		compatible = "nxp,fxos8700";
 		reg = <0x1e>;
 	};
 
