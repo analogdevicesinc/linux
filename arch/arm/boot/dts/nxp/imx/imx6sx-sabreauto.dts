@@ -792,7 +792,7 @@
 	};
 
 	isl29023@44 {
-		compatible = "fsl,isl29023";
+		compatible = "isil,isl29023";
 		reg = <0x44>;
 		rext = <499>;
 		interrupt-parent = <&gpio3>;
