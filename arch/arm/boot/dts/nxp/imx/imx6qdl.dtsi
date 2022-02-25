@@ -385,7 +385,7 @@
 					clocks = <&clks IMX6QDL_CLK_SPDIF_GCLK>, <&clks IMX6QDL_CLK_OSC>,
 						 <&clks IMX6QDL_CLK_SPDIF>, <&clks IMX6QDL_CLK_ASRC>,
 						 <&clks IMX6QDL_CLK_DUMMY>, <&clks IMX6QDL_CLK_ESAI_EXTAL>,
-						 <&clks IMX6QDL_CLK_IPG>, <&clks IMX6QDL_CLK_DUMMY>,
+						 <&clks IMX6QDL_CLK_IPG>, <&clks IMX6QDL_CLK_MLB>,
 						 <&clks IMX6QDL_CLK_DUMMY>, <&clks IMX6QDL_CLK_SPBA>;
 					clock-names = "core",  "rxtx0",
 						      "rxtx1", "rxtx2",
@@ -1176,11 +1176,16 @@
 				status = "disabled";
 			};
 
-			mlb@218c000 {
+			mlb: mlb@218c000 {
+				compatible = "fsl,imx6q-mlb150";
 				reg = <0x0218c000 0x4000>;
 				interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>,
 					     <0 117 IRQ_TYPE_LEVEL_HIGH>,
 					     <0 126 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks IMX6QDL_CLK_MLB>;
+				clock-names = "mlb";
+				iram = <&ocram>;
+				status = "disabled";
 			};
 
 			usdhc1: mmc@2190000 {

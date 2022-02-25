@@ -120,6 +120,11 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6dl-rex-basic.dtb \
 	imx6dl-riotboard.dtb \
 	imx6dl-sabreauto.dtb \
+	imx6dl-sabreauto-enetirq.dtb \
+	imx6dl-sabreauto-flexcan1.dtb \
+	imx6dl-sabreauto-ecspi.dtb \
+	imx6dl-sabreauto-gpmi-weim.dtb \
+	imx6dl-sabreauto-pcie.dtb \
 	imx6dl-sabrelite.dtb \
 	imx6dl-sabresd.dtb \
 	imx6dl-sabresd-ldo.dtb \
@@ -237,6 +242,11 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-prtwd2.dtb \
 	imx6q-rex-pro.dtb \
 	imx6q-sabreauto.dtb \
+	imx6q-sabreauto-enetirq.dtb \
+	imx6q-sabreauto-flexcan1.dtb \
+	imx6q-sabreauto-ecspi.dtb \
+	imx6q-sabreauto-gpmi-weim.dtb \
+	imx6q-sabreauto-pcie.dtb \
 	imx6q-sabrelite.dtb \
 	imx6q-sabresd.dtb \
 	imx6q-sabresd-ldo.dtb \
@@ -281,6 +291,9 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6qp-phytec-mira-rdk-nand.dtb \
 	imx6qp-prtwd3.dtb \
 	imx6qp-sabreauto.dtb \
+	imx6qp-sabreauto-flexcan1.dtb \
+	imx6qp-sabreauto-ecspi.dtb \
+	imx6qp-sabreauto-gpmi-weim.dtb \
 	imx6qp-sabresd.dtb \
 	imx6qp-sabresd-ldo.dtb \
 	imx6qp-sabresd-btwifi.dtb \
