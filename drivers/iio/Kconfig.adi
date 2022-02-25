@@ -59,6 +59,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AD9361
 	select AD9361_EXT_BAND_CONTROL
 	select AD9371
+	select ADAQ8092
 	select ADAR1000
 	select ADAR3000
 	select ADRV9009
