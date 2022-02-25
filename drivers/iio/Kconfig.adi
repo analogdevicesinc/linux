@@ -65,6 +65,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD9361
 	imply AD9361_EXT_BAND_CONTROL
 	imply AD9371
+	imply ADAQ8092
 	imply ADAR1000
 	imply ADAR3000
 	imply ADRV9009
