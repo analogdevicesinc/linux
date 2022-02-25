@@ -36,10 +36,6 @@
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_bf.h"
 #include "adi_adrv9001_hal.h"
-#ifdef __KERNEL__
-#include <linux/string.h>
-#endif
-
 
 /* Header files related to libraries */
 
@@ -105,8 +101,8 @@ const char* const adrv9001_error_table_CmdCtrlMboxCmdError[] =
     "Command error"
 };
 
-const char* const adrv9001_error_table_CmdError[] =
-{
+const char* const adrv9001_error_table_CmdError[] = 
+{ 
     "Error occurred during an Init Calibration. Check that no signal is being applied to the Rx ports. Check that "
         "correct external LOs are applied, and synchronized,  where appropriate",
     "Error occurred during a Tracking Calibration. Disable tracking calibrations, reset and program. If enabled "
@@ -255,7 +251,7 @@ static __maybe_unused int32_t adrv9001_DmaMemReadByte(adi_adrv9001_Device_t *dev
     }
 
     regRead |= ADRV9001_DMA_CTL_LEGACY_MODE;
-
+    
     /* bus size, 2'b00=byte; 2'b01=half-word; 2'b10=full-word; 2'b11=invalid */
     /* core_bf.bus_size.write(bf_status, 2'b10); */
     regRead |= ADRV9001_BF_ENCODE(0, ADRV9001_DMA_CTL_BUS_SIZE_MASK, ADRV9001_DMA_CTL_BUS_SIZE_SHIFT);
@@ -327,7 +323,7 @@ static __maybe_unused int32_t adrv9001_DmaMemReadByte(adi_adrv9001_Device_t *dev
             returnData[i + 1] = dataRead0;
             ADRV9001_SPIREADBYTEDMA(device, "ARM_DMA_DATA_2", ADRV9001_ADDR_ARM_DMA_DATA2, &dataRead0);
             returnData[i + 2] = dataRead0;
-
+            
             /* 'single_instruction' has to be cleared before reading DMA_DATA3 and set back after */
             ADI_EXPECT(adrv9001_NvsRegmapCore_SingleInstruction_Set, device, 0x0);
             ADRV9001_SPIREADBYTEDMA(device, "ARM_DMA_DATA_3", ADRV9001_ADDR_ARM_DMA_DATA3, &dataRead0);
@@ -1044,7 +1040,7 @@ static void adrv9001_LoadSsiConfig(adi_adrv9001_Device_t *device, uint32_t *offs
     cfgData[tempOffset++] = (uint8_t)ssiConfig->cmosClkInversionEn;
 
     cfgData[tempOffset++] = (uint8_t)ssiConfig->ddrEn;
-
+    
     cfgData[tempOffset++] = (uint8_t)ssiConfig->rxMaskStrobeEn;
 
     /* 4 bytes of padding is needed for alignment */
@@ -1565,15 +1561,15 @@ typedef struct
     duplexMode_e    duplexMode;
     uint8_t         fhModeOn;
     uint8_t         reserved1[1u];       //< Reserved for future feature
-    uint8_t         numDynamicProfile;   // Number of Profile. =1 means only one profile and no switching
+    uint8_t         numDynamicProfile;   // Number of Profile. =1 means only one profile and no switching 
     mcsMode_e       mcsMode;             // MCS mode selection: 0 - Disable, 1 - MCS Only, 2 - MCS + RFPLL phase sync
-    adcType_e       adcTypeMonitor;      // ADC type used in Monitor Mode
-    uint16_t        pllLockTime_us;      // Required lock time in microseconds for PLLs, based on ref_clk and loop bandwidth
-    pllModulus_t    pllModuli;           // PLL moduli
-    uint16_t        pllPhaseSyncWait_us; // Worst case phase sync wait time in FH
-    mcsInf_e        mcsInterfaceType;    // 0-Disabled, 1-CMOS, 2-LVDS
-    uint8_t         warmBootEnable;      // Enable WarmBoot - Load initCal cefficients instead of running initCals
-    uint32_t        reserved[1u];        // Reserved for future feature
+    adcType_e       adcTypeMonitor;      // ADC type used in Monitor Mode 
+    uint16_t        pllLockTime_us;      // Required lock time in microseconds for PLLs, based on ref_clk and loop bandwidth 
+    pllModulus_t    pllModuli;           // PLL moduli 
+    uint16_t        pllPhaseSyncWait_us; // Worst case phase sync wait time in FH 
+    mcsInf_e        mcsInterfaceType;    // 0-Disabled, 1-CMOS, 2-LVDS 
+    uint8_t         warmBootEnable;      // Enable WarmBoot - Load initCal cefficients instead of running initCals     
+    uint32_t        reserved[1u];        // Reserved for future feature 
 } deviceSysConfig_t;
 */
 static void adrv9001_DeviceSysConfigWrite(adi_adrv9001_Device_t *device, const adi_adrv9001_DeviceSysConfig_t *sysConfig, uint8_t cfgData[], uint32_t *offset)
@@ -1611,13 +1607,13 @@ static void adrv9001_DeviceSysConfigWrite(adi_adrv9001_Device_t *device, const a
     {
         adrv9001_LoadFourBytes(&tempOffset, cfgData, sysConfig->pllModulus.dmModulus[i]);
     }
-
+    
     /* PLL phase sync wait time in us */
     adrv9001_LoadTwoBytes(&tempOffset, cfgData, sysConfig->pllPhaseSyncWait_us);
 
     cfgData[tempOffset++] = sysConfig->mcsInterfaceType;
     cfgData[tempOffset++] = sysConfig->warmBootEnable;
-
+    
     /* 4 bytes padding; Reserved for future use */
     tempOffset += 4;
 
@@ -1994,7 +1990,7 @@ int32_t adrv9001_DmaMemWrite(adi_adrv9001_Device_t *device, uint32_t address, co
     uint8_t singleInstruction = 0;
     uint8_t spiMode = 0;
     uint8_t spiConfig_A = 0;
-
+    
     ADI_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
 
     ADRV9001_DMAINFO("ARM_MEM_WRITE", armMemAddress, byteCount);
@@ -2013,7 +2009,7 @@ int32_t adrv9001_DmaMemWrite(adi_adrv9001_Device_t *device, uint32_t address, co
     /* If Address is not on word boundary, Or ByteCount is not on Word boundary */
     if (((armMemAddress & 0x00000003) > 0) || ((byteCount & 0x00000003) > 0))
     {
-        if ((ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252 == spiWriteMode) ||
+        if ((ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252 == spiWriteMode) || 
             (ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4 == spiWriteMode))
         {
             ADI_ERROR_REPORT(&device->common,
@@ -2057,7 +2053,7 @@ int32_t adrv9001_DmaMemWrite(adi_adrv9001_Device_t *device, uint32_t address, co
 
     /* setting up the DMA control register for a write */
     ADRV9001_SPIWRITEBYTEDMA(device, "ARM_DMA_CTL", ADRV9001_ADDR_ARM_DMA_CTL, regWrite);
-
+    
     /* Enable single instruction and disable SPI streaming mode by default.
      * If ADRV9001 SPI streming mode is selected, then single instruction and single instruction are disbled */
     ADI_EXPECT(adrv9001_NvsRegmapCore_SingleInstruction_Set, device, 0x1);
@@ -2180,25 +2176,15 @@ int32_t adrv9001_DmaMemWriteFH(adi_adrv9001_Device_t *device, adi_adrv9001_FhHop
 	uint32_t    dataIndex = 0;
 	uint32_t    spiBufferSize = ((HAL_SPIWRITEARRAY_BUFFERSIZE / 3) - 1);
 	uint8_t     spiWriteArrray[HAL_SPIWRITEARRAY_BUFFERSIZE] = { 0 };
-	uint32_t    ADDR_ARM_DMA_DATA[4] = { ADRV9001_ADDR_ARM_DMA_DATA3, ADRV9001_ADDR_ARM_DMA_DATA2, ADRV9001_ADDR_ARM_DMA_DATA1, ADRV9001_ADDR_ARM_DMA_DATA0 };
-	uint32_t    index = 0;
-#ifndef __KERNEL__
 	uint8_t     addrMsbArray[ADRV9001_FREQ_HOPPING_MAX_NUM_BYTES] = { 0 };
 	uint8_t     addrLsbArray[ADRV9001_FREQ_HOPPING_MAX_NUM_BYTES] = { 0 };
 	uint8_t     dataArray[ADRV9001_FREQ_HOPPING_MAX_NUM_BYTES] = { 0 };
-#else
-	static uint8_t     addrMsbArray[ADRV9001_FREQ_HOPPING_MAX_NUM_BYTES];
-	static uint8_t     addrLsbArray[ADRV9001_FREQ_HOPPING_MAX_NUM_BYTES];
-	static uint8_t     dataArray[ADRV9001_FREQ_HOPPING_MAX_NUM_BYTES];
-
-	memset(addrMsbArray, 0, sizeof(addrMsbArray));
-	memset(addrLsbArray, 0, sizeof(addrLsbArray));
-	memset(dataArray, 0, sizeof(dataArray));
-#endif
-
+	uint32_t    ADDR_ARM_DMA_DATA[4] = { ADRV9001_ADDR_ARM_DMA_DATA3, ADRV9001_ADDR_ARM_DMA_DATA2, ADRV9001_ADDR_ARM_DMA_DATA1, ADRV9001_ADDR_ARM_DMA_DATA0 };
+	uint32_t    index = 0;
+    
 	ADI_ENTRY_PTR_ARRAY_EXPECT(device, numHopTableEntries, numHopTableEntriesByteCount);
 	ADI_ENTRY_PTR_ARRAY_EXPECT(device, hopTableBufferData, hopTableBufferDataByteCount);
-
+	
 	/* Trigger appropriate SPI Interrupt upon table load */
 	if (hopSignal == ADI_ADRV9001_FH_HOP_SIGNAL_1)
 	{
@@ -2214,7 +2200,7 @@ int32_t adrv9001_DmaMemWriteFH(adi_adrv9001_Device_t *device, adi_adrv9001_FhHop
 	}
 
 	ADRV9001_DMAINFO("ARM_MEM_WRITE", armMemAddress, byteCount);
-
+	
 	regWrite &= ~ADRV9001_DMA_CTL_RD_WRB;
 	regWrite |= ADRV9001_DMA_CTL_SYS_CODEB;
 	regWrite |= ADRV9001_BF_ENCODE(2, ADRV9001_DMA_CTL_BUS_SIZE_MASK, ADRV9001_DMA_CTL_BUS_SIZE_SHIFT);
@@ -2262,7 +2248,7 @@ int32_t adrv9001_DmaMemWriteFH(adi_adrv9001_Device_t *device, adi_adrv9001_FhHop
 		dataArray[addrIndex] = numHopTableEntries[dataIndex];
 		addrIndex++;
 	}
-
+    
 	addrMsbArray[addrIndex] = (uint8_t)(((ADRV9001_SPI_WRITE_POLARITY & 0x01) << 7) | ((ADRV9001_ADDR_ARM_DMA_ADDR3 >> 8) & 0x7F));
 	addrLsbArray[addrIndex] = (uint8_t)ADRV9001_ADDR_ARM_DMA_ADDR3;
 	dataArray[addrIndex] = (uint8_t)((hopTableBufferAddress) >> ADRV9001_ADDR_ARM_DMA_ADDR3_BYTE_SHIFT);
@@ -2412,7 +2398,7 @@ int32_t adrv9001_DmaMemRead(adi_adrv9001_Device_t *device, uint32_t address, uin
         returnData[i + 2] = dataRead;
         ADRV9001_SPIREADBYTEDMA(device, "ARM_DMA_DATA_1", ADRV9001_ADDR_ARM_DMA_DATA1, &dataRead);
         returnData[i + 1] = dataRead;
-
+        
         /* 'single_instruction' has to be cleared before reading DMA_DATA3 and set back after */
         ADI_EXPECT(adrv9001_NvsRegmapCore_SingleInstruction_Set, device, 0x0);
         ADRV9001_SPIREADBYTEDMA(device, "ARM_DMA_DATA_0", ADRV9001_ADDR_ARM_DMA_DATA0, &dataRead);
@@ -2477,7 +2463,7 @@ int32_t adrv9001_FlexStreamProcessorMemWrite(adi_adrv9001_Device_t *device,
     /* If Address is not on word boundary, Or ByteCount is not on Word boundary */
     if (((flexSpAddress & 0x00000003) > 0) || ((byteCount & 0x00000003) > 0))
     {
-        if ((ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252 == spiWriteMode) ||
+        if ((ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252 == spiWriteMode) || 
             (ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4 == spiWriteMode))
         {
             ADI_ERROR_REPORT(&device->common,
@@ -2512,7 +2498,7 @@ int32_t adrv9001_FlexStreamProcessorMemWrite(adi_adrv9001_Device_t *device,
 
     /* setting up the flex SP DMA control register for a write */
     ADRV9001_SPIWRITEBYTEDMA(device, "FLEX_SP_ARM_DMA_CTL", ADRV9001_ADDR_FLEX_SP_ARM_DMA_CTL, regWrite);
-
+    
     /* Enable single instruction and disable SPI streaming mode by default.
      * If ADRV9001 SPI streming mode is selected, then single instruction and single instruction are disbled */
     ADI_EXPECT(adrv9001_NvsRegmapCore_SingleInstruction_Set, device, 0x1);
@@ -2775,7 +2761,7 @@ static const char* adrv9001_CmdErrMsgGet(uint32_t errCode)
     {
         return adrv9001_error_table_CmdError[6];
     }
-
+    
     return NULL;
 }
 
@@ -2832,7 +2818,7 @@ int32_t adrv9001_ArmCmdErrorHandler(adi_adrv9001_Device_t *device, uint32_t detE
 
             ADI_EXPECT(adrv9001_ArmMailBoxErrCodeGet, device, &mailboxErrCode);
             errorString = adrv9001_CmdErrMsgGet(mailboxErrCode);
-
+            
             ADI_ERROR_REPORT(&device->common,
                              ADI_ADRV9001_SRC_ARMCMD,
                              mailboxErrCode,
@@ -2934,7 +2920,7 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
             ADI_ERROR_RETURN(device->common.error.newAction);
         }
     }
-
+    
     /* Range check parameters in adi_adrv9001_TxSettings_t */
     for (i = 0; i < ADI_ADRV9001_MAX_TXCHANNELS; i++)
     {
@@ -2950,7 +2936,7 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.ssiDataFormatSel, ADI_ADRV9001_SSI_FORMAT_2_BIT_SYMBOL_DATA, ADI_ADRV9001_SSI_FORMAT_22_BIT_I_Q_DATA_1_BIT_GAIN_CHANGE_8_BIT_GAIN_INDEX);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.numLaneSel, ADI_ADRV9001_SSI_1_LANE, ADI_ADRV9001_SSI_4_LANE);
             ADI_RANGE_CHECK(device, init->tx.txProfile[i].txSsiConfig.strobeType, ADI_ADRV9001_SSI_SHORT_STROBE, ADI_ADRV9001_SSI_LONG_STROBE);
-
+            
             if ((ADI_ADRV9001_SSI_TYPE_LVDS == init->tx.txProfile[i].txSsiConfig.ssiType) &&
                 (false == init->tx.txProfile[i].txSsiConfig.ddrEn) &&
                 (init->tx.txProfile[i].txInterfaceSampleRate_Hz > 30720000))
@@ -3127,7 +3113,7 @@ int32_t adrv9001_ArmProfileWrite(adi_adrv9001_Device_t *device, const adi_adrv90
     cfgData[offset++] = (uint8_t)(init->clocks.armPowerSavingClkDiv - 1);
 
     cfgData[offset++] = (uint8_t)init->clocks.refClockOutEnable;
-
+    
     cfgData[offset++] = (uint8_t)init->clocks.auxPllPower;
     cfgData[offset++] = (uint8_t)init->clocks.clkPllPower;
 
@@ -3186,14 +3172,14 @@ int32_t adrv9001_ArmProfileWrite(adi_adrv9001_Device_t *device, const adi_adrv90
     if (ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID))
     {
         armChannels |= (init->tx.txInitChannelMask & (ADI_ADRV9001_TX1 | ADI_ADRV9001_TX2));
-
+        
         /* Tx channels must have a valid and enabled ILB channel unless the signaling is Direct FM/FSK */
         if(ADRV9001_BF_EQUAL(init->tx.txInitChannelMask, ADI_ADRV9001_TX1) &&
             (init->tx.txProfile[0].outputSignaling != ADI_ADRV9001_TX_DIRECT_FM_FSK))
         {
             armChannels |= (init->rx.rxInitChannelMask & ADI_ADRV9001_ILB1);
         }
-
+            
         if (ADRV9001_BF_EQUAL(init->tx.txInitChannelMask, ADI_ADRV9001_TX2) &&
             (init->tx.txProfile[1].outputSignaling != ADI_ADRV9001_TX_DIRECT_FM_FSK))
         {
@@ -3482,7 +3468,7 @@ int32_t adrv9001_DynamicProfile_Write(adi_adrv9001_Device_t *device,
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint32_t offset = 0;
     uint8_t cfgData[ADRV9001_DYNAMIC_PROFILE_BLOB_SIZE] = { 0 };
-
+    
     cfgData[offset++] = dynamicProfile->dynamicProfileIndex;
     cfgData[offset++] = 0; // padding
     cfgData[offset++] = 0; // padding
