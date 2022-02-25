@@ -1081,6 +1081,14 @@ L:	linux-media@vger.kernel.org
 S:	Maintained
 F:	drivers/media/i2c/ad9389b*
 
+ANALOG DEVICES INC ADAQ8092 DRIVER
+M:	Antoniu Miclaus <antoniu.miclaus@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/linux-software-drivers
+F:	Documentation/devicetree/bindings/iio/adc/adi,adaq8092.yaml
+F:	drivers/iio/adc/adaq8092.c
+
 ANALOG DEVICES INC ADAR100 DRIVER
 M:	Mircea Caprioru <mircea.caprioru@analog.com>
 L:	linux-iio@vger.kernel.org
