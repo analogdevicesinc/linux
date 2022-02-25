@@ -367,9 +367,9 @@ static int cdns_hdmi_connector_atomic_check(struct drm_connector *connector,
 			!new_con_state->hdr_output_metadata ||
 			!old_con_state->hdr_output_metadata ||
 			new_con_state->colorspace != old_con_state->colorspace;
-		/* save new connector state */
-		memcpy(&mhdp->connector.new_state, new_con_state, sizeof(struct drm_connector_state));
 	}
+	/* save new connector state */
+	memcpy(&mhdp->connector.new_state, new_con_state, sizeof(struct drm_connector_state));
 
 	/*
 	 * These properties are handled by fastset, and might not end up in a
