@@ -154,4 +154,18 @@
 			linux,code = <BTN_MISC>;
 		};
 	};
+
+	one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios	= <&gpio0 68 0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "phaser_enable";
+		};
+	};
 };
