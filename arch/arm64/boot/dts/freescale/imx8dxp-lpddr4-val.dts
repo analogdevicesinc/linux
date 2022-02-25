@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8dxp.dtsi"
+#include "imx8x-val.dtsi"
+
+/ {
+	model = "Freescale i.MX8DXP VALIDATION";
+	compatible = "fsl,imx8dxp-val", "fsl,imx8dxp", "fsl,imx8qxp";
+};
+
+&usbotg3 {
+	dr_mode = "otg";
+	extcon = <&typec_ptn5150>;
+	status = "okay";
+};
+
+&vpu_decoder {
+	status = "okay";
+};

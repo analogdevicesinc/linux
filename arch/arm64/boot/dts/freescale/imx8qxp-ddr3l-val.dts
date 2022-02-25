@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8qxp-lpddr4-val.dts"
+
+/ {
+	model = "Freescale i.MX8QXP DDR3L VALIDATION";
+	compatible = "fsl,imx8qxp-ddr3l-val", "fsl,imx8qxp";
+
+	reserved-memory {
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x14000000>;
+			alloc-ranges = <0 0xc0000000 0 0x14000000>;
+			linux,cma-default;
+		};
+	};
+};

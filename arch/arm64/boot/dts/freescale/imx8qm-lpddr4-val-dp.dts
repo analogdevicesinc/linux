@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+/*
+ * DP only dts, disable ldb display.
+ */
+#include "imx8qm-lpddr4-val.dts"
+
+/ {
+	sound-hdmi {
+		compatible = "fsl,imx-audio-cdnhdmi";
+		model = "imx-audio-dp";
+		audio-cpu = <&sai5>;
+		hdmi-out;
+	};
+};
+
+&sai5 {
+	status = "okay";
+};
+
+&sai5_lpcg {
+	status = "okay";
+};
+
+&ldb1_phy {
+	status = "disabled";
+};
+
+&ldb1 {
+	status = "disabled";
+};
+
+&i2c1_lvds0 {
+	status = "disabled";
+};
+
+&irqsteer_hdmi {
+	status = "okay";
+};
+
+&hdmi_lpcg_i2c0 {
+	status = "okay";
+};
+
+&hdmi_lpcg_lis_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_pwm_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_i2s {
+	status = "okay";
+};
+
+&hdmi_lpcg_gpio_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_msi_hclk {
+	status = "okay";
+};
+
+&hdmi_lpcg_pxl {
+	status = "okay";
+};
+
+&hdmi_lpcg_phy {
+	status = "okay";
+};
+
+&hdmi_lpcg_apb_mux_csr {
+	status = "okay";
+};
+
+&hdmi_lpcg_apb_mux_ctrl {
+	status = "okay";
+};
+
+&hdmi_lpcg_apb {
+	status = "okay";
+};
+
+&hdmi {
+	compatible = "cdn,imx8qm-dp";
+	firmware-name = "dpfw.bin";
+	lane-mapping = <0x1b>;
+	hdcp-config = <0x2>;
+	status = "okay";
+};
+
+&spdif1 {
+	status = "okay";
+};
+
+&spdif1_lpcg {
+	status = "okay";
+};

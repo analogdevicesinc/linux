@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2017~2019 NXP
+ */
+
+#include "imx8qm-lpddr4-val.dts"
+
+&iomuxc {
+	pinctrl_lpspi0: lpspi0grp {
+		fsl,pins = <
+			IMX8QM_SPI0_SCK_DMA_SPI0_SCK		0x6000040
+			IMX8QM_SPI0_SDO_DMA_SPI0_SDO		0x6000040
+			IMX8QM_SPI0_SDI_DMA_SPI0_SDI		0x6000040
+		>;
+	};
+
+	pinctrl_lpspi0_cs: lpspi0cs {
+		fsl,pins = <
+			IMX8QM_SPI0_CS0_LSIO_GPIO3_IO05		0x21
+		>;
+	};
+
+	pinctrl_lpspi3: lpspi3grp {
+		fsl,pins = <
+			IMX8QM_SPI3_SCK_DMA_SPI3_SCK		0x6000040
+			IMX8QM_SPI3_SDO_DMA_SPI3_SDO		0x6000040
+			IMX8QM_SPI3_SDI_DMA_SPI3_SDI		0x6000040
+			IMX8QM_SPI3_CS0_DMA_SPI3_CS0		0x6000040
+		>;
+	};
+};
+
+&lpspi0 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi0 &pinctrl_lpspi0_cs>;
+	cs-gpios = <&lsio_gpio3 5 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	flash: at45db041e@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,at45", "atmel,dataflash";
+		spi-max-frequency = <5000000>;
+		reg = <0>;
+	};
+};
+
+&lpspi3 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <30000000>;
+	};
+};
