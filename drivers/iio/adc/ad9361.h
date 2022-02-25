@@ -32,6 +32,7 @@ enum ad9361_clocks {
 	TX_RFPLL_DUMMY,
 	RX_RFPLL,
 	TX_RFPLL,
+	PL_INTF_CLK,
 	NUM_AD9361_CLKS,
 };
 
