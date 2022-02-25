@@ -5757,7 +5757,10 @@ static inline int ad9361_set_muldiv(struct refclk_scale *priv, u32 mul, u32 div)
 static int ad9361_get_clk_scaler(struct clk_hw *hw)
 {
 	struct refclk_scale *clk_priv = to_clk_priv(hw);
+	struct ad9361_rf_phy *phy = clk_priv->phy;
+	struct ad9361_phy_platform_data *pd = phy->pdata;
 	struct spi_device *spi = clk_priv->spi;
+	const bool lvds_mode = pd->port_ctrl.pp_conf[2] & LVDS_MODE;
 	u32 tmp, tmp1;
 
 	switch (clk_priv->source) {
@@ -5822,6 +5825,8 @@ static int ad9361_get_clk_scaler(struct clk_hw *hw)
 			tmp = (1 << (tmp - 1));
 
 		return ad9361_set_muldiv(clk_priv, 1, tmp);
+	case PL_INTF_CLK:
+		return ad9361_set_muldiv(clk_priv, (ad9361_uses_rx2tx2(phy) + 1) << lvds_mode, 1);
 	default:
 		return -EINVAL;
 	}
@@ -5990,6 +5995,8 @@ static int ad9361_set_clk_scaler(struct clk_hw *hw, bool set)
 			return ad9361_spi_writef(spi, REG_TX_ENABLE_FILTER_CTRL,
 					TX_FIR_ENABLE_INTERPOLATION(~0), tmp);
 		break;
+	case PL_INTF_CLK:
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -6063,6 +6070,11 @@ static int ad9361_clk_factor_set_rate(struct clk_hw *hw, unsigned long rate,
 static const struct clk_ops refclk_scale_ops = {
 	.round_rate = ad9361_clk_factor_round_rate,
 	.set_rate = ad9361_clk_factor_set_rate,
+	.recalc_rate = ad9361_clk_factor_recalc_rate,
+};
+
+static const struct clk_ops pl_intf_clk_ops = {
+	.round_rate = ad9361_clk_factor_round_rate,
 	.recalc_rate = ad9361_clk_factor_recalc_rate,
 };
 
@@ -6587,6 +6599,9 @@ static int ad9361_clk_register(struct ad9361_rf_phy *phy,
 	case TX_RFPLL:
 		init.ops = &rfpll_clk_ops;
 		break;
+	case PL_INTF_CLK:
+		init.ops = &pl_intf_clk_ops;
+		break;
 	default:
 		init.ops = &refclk_scale_ops;
 	}
@@ -6716,6 +6731,9 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 
 	ad9361_clk_register(phy, "-tx_sampl_clk", "-clktf_clk", NULL,
 		flags | CLK_IGNORE_UNUSED, TX_SAMPL_CLK);
+
+	ad9361_clk_register(phy, "-pl_intf_clk", "-tx_sampl_clk", NULL,
+		flags | CLK_IGNORE_UNUSED, PL_INTF_CLK);
 
 	ad9361_clk_register(phy, "-rx_rfpll_int", "-rx_refclk", NULL,
 		flags | CLK_IGNORE_UNUSED, RX_RFPLL_INT);
