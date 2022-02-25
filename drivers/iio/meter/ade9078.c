@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
-/*
+/**
  * ADE9078 driver
  *
  * Copyright 2021 Analog Devices Inc.
@@ -237,25 +237,25 @@
 #define ADE9078_ADDR_ADJUST(addr, chan)					\
 	(((chan) << 4) | (addr))
 
-/*
- * struct ade9078_state - ade9078 specific data
- * @rst_done	flag for when reset sequence irq has been received
- * @wf_mode	wave form buffer mode, read datasheet for more details,
+/**
+ * struct ade9078_state - ADE9078 specific data
+ * @rst_done:	flag for when reset sequence irq has been received
+ * @wf_mode:	wave form buffer mode, read datasheet for more details,
  *		retrieved from DT
- * @wfb_trg	wave form buffer triger configuration, read datasheet for more
+ * @wfb_trg:	wave form buffer triger configuration, read datasheet for more
  *		details, retrieved from DT
- * @spi		spi device associated to the ade9078
- * @tx		transmit buffer for the spi
- * @rx		receive buffer for the spi
- * @xfer	transfer setup used in iio buffer configuration
- * @spi_msg	message transfer trough spi, used in iio buffer
+ * @spi:		spi device associated to the ade9078
+ * @tx:		transmit buffer for the spi
+ * @rx:		receive buffer for the spi
+ * @xfer:	transfer setup used in iio buffer configuration
+ * @spi_msg:	message transfer trough spi, used in iio buffer
  *		configuration
- * @regmap	register map pointer
+ * @regmap:	register map pointer
  * @indio_dev:	the IIO device
- * @trig	iio trigger pointer, is connected to IRQ0 and IRQ1
- * @rx_buff	receive buffer for the iio buffer trough spi, will
+ * @trig:	iio trigger pointer, is connected to IRQ0 and IRQ1
+ * @rx_buff:	receive buffer for the iio buffer trough spi, will
  *		contain the samples from the IC wave form buffer
- * @tx_buff	transmit buffer for the iio buffer trough spi, used
+ * @tx_buff:	transmit buffer for the iio buffer trough spi, used
  *		in iio	buffer configuration
  */
 struct ade9078_state {
@@ -465,13 +465,15 @@ static const struct reg_sequence ade9078_reg_sequence[] = {
 //more details of what is missing.  I'd like to see that added to
 //regmap if possible.
 
-/*
- * ade9078_spi_write_reg() - ade9078 write register over SPI
- * the data format for communicating with the ade9078 over SPI
- * is very specific and can access both 32bit and 16bit registers
+/**
+ * ade9078_spi_write_reg() - ADE9078 write register over SPI
  * @context:	void pointer to the SPI device
  * @reg:	address of the of desired register
  * @val:	value to be written to the ade9078
+ *
+ *
+ * The data format for communicating with the ade9078 over SPI
+ * is very specific and can access both 32bit and 16bit registers
  */
 static int ade9078_spi_write_reg(void *context,
 				 unsigned int reg,
@@ -510,13 +512,14 @@ static int ade9078_spi_write_reg(void *context,
 	return ret;
 }
 
-/*
- * ade9078_spi_write_reg() - ade9078 read register over SPI
- * the data format for communicating with the ade9078 over SPI
- * is very specific and can access both 32bit and 16bit registers
+/**
+ * ade9078_spi_write_reg() - ADE9078 read register over SPI
  * @context:	void pointer to the SPI device
  * @reg:	address of the of desired register
  * @val:	value to be read to the ade9078
+ *
+ * The data format for communicating with the ade9078 over SPI
+ * is very specific and can access both 32bit and 16bit registers
  */
 static int ade9078_spi_read_reg(void *context,
 				unsigned int reg,
@@ -570,8 +573,8 @@ err_ret:
 	return ret;
 }
 
-/*
- * ade9078_is_volatile_reg() - list of ade9078 registers which should use
+/**
+ * ade9078_is_volatile_reg() - List of ade9078 registers which should use
  * caching
  * @dev:	device data
  * @reg:	address of the of desired register
@@ -589,7 +592,7 @@ static bool ade9078_is_volatile_reg(struct device *dev, unsigned int reg)
 	}
 }
 
-/*
+/**
  * ade9078_en_wfb() - enables or disables the WFBuffer in the ADE9078
  * @st:		ade9078 device data
  * @state:	true for enabled; false for disabled
@@ -600,10 +603,10 @@ static int ade9078_en_wfb(struct ade9078_state *st, bool state)
 				  state ? BIT(4) : 0);
 }
 
-/*
+/**
  * ade9078_iio_push_buffer() - reads out the content of the waveform buffer and
  * pushes it to the IIO buffer.
- * @st:		ade9078 device data
+ * @indio_dev:	the IIO device
  */
 static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
 {
@@ -623,12 +626,15 @@ static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
 	return 0;
 }
 
-/*
- * ade9078_irq0_thread() - Thread for IRQ0. It reads Status register 0 and
- * checks for the IRQ activation. This is configured to acquire samples in to
- * the IC buffer and dump it in to the iio_buffer according to Stop When Buffer
- * Is Full Mode, Stop Filling on Trigger and Capture Around Trigger from the
- * ADE9078 Datasheet
+/**
+ * ade9078_irq0_thread() - Thread for IRQ0.
+ * @irq:	interrupt
+ * @data: 	private callback data passed trough the interrupt.
+ *
+ * It reads Status register 0 and checks for the IRQ activation. This is
+ * configured to acquire samples in to the IC buffer and dump it in to the
+ * iio_buffer according to Stop When Buffer Is Full Mode, Stop Filling on
+ * Trigger and Capture Around Trigger from the ADE9078 Datasheet
  */
 static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 {
@@ -715,10 +721,14 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/*
- * ade9078_irq1_thread() - Thread for IRQ1. It reads Status register 1 and
- * checks for the IRQ activation. This thread handles the reset condition and
- * the zero-crossing conditions for all 3 phases on Voltage and Current
+/**
+ * ade9078_irq1_thread() - Thread for IRQ1.
+ * @irq:	interrupt
+ * @data: 	private callback data passed trough the interrupt.
+ *
+ * It reads Status register 1 and checks for the IRQ activation. This thread
+ * handles the reset condition and the zero-crossing conditions for all 3 phases
+ * on Voltage and Current
  */
 static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 {
@@ -799,8 +809,8 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/*
- * ade9078_configure_scan() - sets up the transfer parameters
+/**
+ * ade9078_configure_scan() - Sets up the transfer parameters
  * as well as the tx and rx buffers
  * @indio_dev:	the IIO device
  */
@@ -824,7 +834,7 @@ static int ade9078_configure_scan(struct iio_dev *indio_dev)
 	return 0;
 }
 
-/*
+/**
  * ade9078_read_raw() - IIO read function
  * @indio_dev:	the IIO device
  * @chan:	channel specs of the ade9078
@@ -894,7 +904,7 @@ static int ade9078_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
-/*
+/**
  * ade9078_write_raw() - IIO write function
  * @indio_dev:	the IIO device
  * @chan:	channel specs of the ade9078
@@ -975,7 +985,7 @@ static int ade9078_write_raw(struct iio_dev *indio_dev,
 	return regmap_write(st->regmap, addr, val);
 }
 
-/*
+/**
  * ade9078_reg_access() - IIO debug register access
  * @indio_dev:	the IIO device
  * @reg:	register to be accessed
@@ -995,11 +1005,17 @@ static int ade9078_reg_access(struct iio_dev *indio_dev,
 	return regmap_write(st->regmap, reg, tx_val);
 }
 
-//TODO All these function description comments should be valid kernel-doc.
-/*
- * ade9078_write_event_config() - IIO event configure to enable zero-crossing
- * and zero-crossing timeout on voltage and current for each phases. These
- * events will also influence the trigger conditions for the buffer capture.
+/**
+ * ade9078_write_event_config() - IIO event configure to enable zero-crossing.
+ * @indio_dev: the device instance data
+ * @chan: channel for the event whose state is being set
+ * @type: type of the event whose state is being set
+ * @dir: direction of the vent whose state is being set
+ * @state: whether to enable or disable the device.
+ *
+ * This will enable zero-crossing and zero-crossing timeout on voltage and
+ * current for each phases. These events will also influence the trigger
+ * conditions for the buffer capture.
  */
 static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				      const struct iio_chan_spec *chan,
@@ -1098,13 +1114,25 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 				  interrupts);
 }
 
-/*
+/**
  * ade9078_read_event_vlaue() - Outputs the result of the zero-crossing for
  * voltage and current for each phase.
- * Result:
- * 0 - if crossing event not set
- * 1 - if crossing event occurred
- * -1 - if crossing timeout (only for Voltages)
+ * @indio_dev: device instance specific data
+ * @chan: channel for the event whose value is being read
+ * @type: type of the event whose value is being read
+ * @dir: direction of the vent whose value is being read
+ * @info: info type of the event whose value is being read
+ * @val: value for the event code.
+ * @val2: unused
+ *
+ * The conventional meaning of this type of function would be to display the
+ * threshold value rather then the sate of it. This however would be counter
+ * intuitive because ADE9078 can only detect zero-crossings. Thus the return
+ * results are different from the expected type.
+ * Return:
+ * 	0 - if crossing event not set
+ * 	1 - if crossing event occurred
+ * 	-1 - if crossing timeout (only for Voltages)
  */
 static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 //TODO value?  If so, this should be reading the thresholds, not anything
@@ -1200,15 +1228,16 @@ static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 	return IIO_VAL_INT;
 }
 
-//TODO Make this valid kernel-doc.  Then check for any warnings by running the
-//kernel-doc build scripts.
-/*
- * ade9078_config_wfb() - reads the ade9078 node and configures the wave form
- * buffer based on the options set. Additionally is reads the active scan mask
- * in order to set the input data of the buffer. There are only a few available
- * input configurations permitted by the IC, any unpermitted configuration will
- * result in all channels being active.
+/**
+ * ade9078_config_wfb() - Reads the ade9078 node and configures the wave form
+ * buffer based on the options set.
  * @indio_dev:	the IIO device
+ *
+ * Besides parsing the device tree for the configuration of the waveform buffer,
+ * additionally it reads the active scan mask in order to set the input data of
+ * the buffer. There are only a few available input configurations permitted by
+ * the IC, any unpermitted configuration will result in all channels being
+ * active.
  */
 static int ade9078_config_wfb(struct iio_dev *indio_dev)
 {
@@ -1293,7 +1322,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	return regmap_write(st->regmap, ADE9078_REG_WFB_CFG, wfg_cfg_val);
 }
 
-/*
+/**
  * ade9078_wfb_interrupt_setup() - Configures the wave form buffer interrupt
  * according to modes
  * @st:		ade9078 device data
@@ -1337,8 +1366,8 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 				  ADE9078_ST0_PAGE_FULL_BIT);
 }
 
-/*
- * ade9078_buffer_preenable() - configures the waveform buffer, sets the
+/**
+ * ade9078_buffer_preenable() - Configures the waveform buffer, sets the
  * interrupts and enables the buffer
  * @indio_dev:	the IIO device
  */
@@ -1364,8 +1393,8 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 	return 0;
 }
 
-/*
- * ade9078_buffer_postdisable() - after the iio is disable
+/**
+ * ade9078_buffer_postdisable() - After the iio is disable
  * this will disable the ade9078 internal buffer for acquisition
  * @indio_dev:	the IIO device
  */
@@ -1397,10 +1426,10 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 	return regmap_write(st->regmap, ADE9078_REG_STATUS0, GENMASK(31, 0));
 }
 
-/*
+/**
  * ade9078_setup_iio_channels() - parses the phase nodes of the device-tree and
  * creates the iio channels based on the active phases in the DT.
- * @st:		ade9078 device data
+ * @indio_dev:	the IIO device
  */
 static int ade9078_setup_iio_channels(struct iio_dev *indio_dev)
 {
@@ -1453,11 +1482,12 @@ static int ade9078_setup_iio_channels(struct iio_dev *indio_dev)
 	return 0;
 }
 
-/*
- * ade9078_reset() - Reset sequence for the ADE9078, the hardware reset is
- * optional in the DT. When no hardware reset has been declared a software
- * reset is executed
+/**
+ * ade9078_reset() - Reset sequence for the ADE9078.
  * @st:		ade9078 device data
+ *
+ * The hardware reset is optional in the DT. When no hardware reset has been
+ * declared a software reset is executed.
  */
 static int ade9078_reset(struct ade9078_state *st)
 {
@@ -1490,7 +1520,7 @@ static int ade9078_reset(struct ade9078_state *st)
 	return 0;
 }
 
-/*
+/**
  * ade9078_setup() - initial register setup of the ade9078
  * @st:		ade9078 device data
  */
