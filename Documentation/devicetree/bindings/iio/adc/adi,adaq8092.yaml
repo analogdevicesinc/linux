@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,adaq8092.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADAQ8092 Dual-Channel uModule Data Acquisition Solution
+
+maintainers:
+  - Antoniu Miclaus <antoniu.miclaus@analog.com>
+
+description: |
+   The ADAQ8092 is a 14-bit, 105MSPS high-speed dual-channel data acquisition
+   (DAQ) uModule solution. It incorporates signal conditioning, ADC driver, and
+   ADC in a single package vias system-in-package (SIP) technology.
+
+   https://www.analog.com/en/products/adaq8092.html
+
+properties:
+  compatible:
+    enum:
+      - adi,adaq8092
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    description:
+      External clock that provides sampling frequency of the ADC.
+    items:
+      - const: clkin
+
+  adc-pd1-gpios:
+    description:
+      Powerdown the ADC channel 1.
+    maxItems: 1
+
+  adc-pd2-gpios:
+    description:
+      Powerdown the ADC channel 2.
+    maxItems: 1
+
+  avdd-supply: true
+
+  avcc-supply: true
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - avdd-supply
+  - avcc-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        adc@0 {
+            compatible = "adi,adaq8092";
+            reg = <0>;
+            spi-max-frequency = <1000000>;
+
+            adc-pd1-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+            adc-pd2-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+
+            avcc-supply = <&avcc>;
+            avdd-supply = <&avdd>;
+
+            clocks = <&adaq8092_clkin>;
+            clock-names = "clkin";
+        };
+    };
+...
