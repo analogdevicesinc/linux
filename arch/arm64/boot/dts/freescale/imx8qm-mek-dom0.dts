@@ -1,0 +1,791 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+#include "imx8qm-mek.dts"
+#include "imx8qm-xen.dtsi"
+
+/ {
+	model = "Freescale i.MX8QM MEK";
+	compatible = "fsl,imx8qm-mek", "fsl,imx8qm";
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		stdout-path = &lpuart0;
+
+		/* Could be updated by U-Boot */
+		module@0 {
+			bootargs = "earlycon=xen console=hvc0 loglevel=8 root=/dev/mmcblk1p2 rw  rootwait";
+			compatible = "xen,linux-zimage", "xen,multiboot-module";
+			reg = <0x00000000 0x80a00000 0x00000000 0xf93a00>;
+               };
+	};
+
+	domu {
+		/*
+		 * There are 5 MUs, 0A is used by Dom0, 1A is used
+		 * by ATF, so for DomU, 2A/3A/4A could be used.
+		 * SC_R_MU_0A
+		 * SC_R_MU_1A
+		 * SC_R_MU_2A
+		 * SC_R_MU_3A
+		 * SC_R_MU_4A
+		 * The rsrcs and pads will be configured by uboot scu_rm cmd
+		 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		doma {
+			compatible = "xen,domu";
+			/*
+			 * The name entry in VM configuration file
+			 * needs to be same as here.
+			 */
+			domain_name = "DomU";
+			/*
+			 * The reg property will be updated by U-Boot to
+			 * reflect the partition id.
+			 */
+			reg = <0>;
+			init_on_rsrcs = <
+				IMX_SC_R_MU_2A
+			>;
+			rsrcs = <
+				IMX_SC_R_MU_2A
+				IMX_SC_R_GPU_0_PID0
+				IMX_SC_R_GPU_0_PID1
+				IMX_SC_R_GPU_0_PID2
+				IMX_SC_R_GPU_0_PID3
+				IMX_SC_R_LVDS_0
+				IMX_SC_R_LVDS_0_I2C_0
+				IMX_SC_R_LVDS_0_PWM_0
+				IMX_SC_R_DC_0
+				IMX_SC_R_DC_0_BLIT0
+				IMX_SC_R_DC_0_BLIT1
+				IMX_SC_R_DC_0_BLIT2
+				IMX_SC_R_DC_0_BLIT_OUT
+				IMX_SC_R_DC_0_WARP
+				IMX_SC_R_DC_0_VIDEO0
+				IMX_SC_R_DC_0_VIDEO1
+				IMX_SC_R_DC_0_FRAC0
+				IMX_SC_R_DC_0_PLL_0
+				IMX_SC_R_DC_0_PLL_1
+				IMX_SC_R_SDHC_0
+				/*vpu*/
+				IMX_SC_R_VPU_PID0
+				IMX_SC_R_VPU_PID1
+				IMX_SC_R_VPU_PID2
+				IMX_SC_R_VPU_PID3
+				IMX_SC_R_VPU_PID4
+				IMX_SC_R_VPU_PID5
+				IMX_SC_R_VPU_PID6
+				IMX_SC_R_VPU_PID7
+				IMX_SC_R_VPU
+				IMX_SC_R_VPU_DEC_0
+				IMX_SC_R_VPU_ENC_0
+				IMX_SC_R_VPU_ENC_1
+				IMX_SC_R_VPU_TS_0
+				IMX_SC_R_VPU_MU_0
+				IMX_SC_R_VPU_MU_1
+				IMX_SC_R_VPU_MU_2
+				IMX_SC_R_VPU_MU_3
+				IMX_SC_R_MU_13A
+				IMX_SC_R_MU_13B
+				IMX_SC_R_DSP
+				IMX_SC_R_DSP_RAM
+				/* usbotg1 */
+				IMX_SC_R_USB_0
+				IMX_SC_R_USB_0_PHY
+				/* usbotg3 */
+				IMX_SC_R_USB_2
+				IMX_SC_R_USB_2_PHY
+
+				/* ASRC0 */
+				IMX_SC_R_DMA_2_CH0
+				IMX_SC_R_DMA_2_CH1
+				IMX_SC_R_DMA_2_CH2
+				IMX_SC_R_DMA_2_CH3
+				IMX_SC_R_DMA_2_CH4
+				IMX_SC_R_DMA_2_CH5
+				IMX_SC_R_DMA_2_CH6
+				IMX_SC_R_DMA_2_CH7
+				IMX_SC_R_DMA_2_CH8
+				IMX_SC_R_DMA_2_CH9
+				IMX_SC_R_DMA_2_CH10
+				IMX_SC_R_DMA_2_CH11
+				IMX_SC_R_DMA_2_CH12
+				IMX_SC_R_DMA_2_CH13
+				IMX_SC_R_DMA_2_CH14
+				IMX_SC_R_DMA_2_CH15
+				IMX_SC_R_DMA_2_CH16
+				IMX_SC_R_DMA_2_CH17
+				IMX_SC_R_DMA_2_CH18
+				IMX_SC_R_DMA_2_CH19
+				IMX_SC_R_DMA_2_CH20
+				IMX_SC_R_AUDIO_CLK_0
+				IMX_SC_R_AUDIO_CLK_1
+				IMX_SC_R_MCLK_OUT_0
+				IMX_SC_R_MCLK_OUT_1
+				IMX_SC_R_AUDIO_PLL_0
+				IMX_SC_R_AUDIO_PLL_1
+				IMX_SC_R_ASRC_0
+				IMX_SC_R_ASRC_1
+				IMX_SC_R_ESAI_0
+				IMX_SC_R_ESAI_1
+				IMX_SC_R_SAI_0
+				IMX_SC_R_SAI_1
+				IMX_SC_R_SAI_2
+				IMX_SC_R_SAI_3
+				IMX_SC_R_SAI_4
+				IMX_SC_R_SAI_5
+				IMX_SC_R_SAI_6
+				IMX_SC_R_SAI_7
+				IMX_SC_R_SPDIF_0
+				IMX_SC_R_SPDIF_1
+				IMX_SC_R_MQS_0
+				IMX_SC_R_DMA_3_CH0
+				IMX_SC_R_DMA_3_CH1
+				IMX_SC_R_DMA_3_CH2
+				IMX_SC_R_DMA_3_CH3
+				IMX_SC_R_DMA_3_CH4
+				IMX_SC_R_DMA_3_CH5
+				IMX_SC_R_DMA_3_CH6
+				IMX_SC_R_DMA_3_CH7
+				IMX_SC_R_DMA_3_CH8
+				IMX_SC_R_DMA_3_CH9
+				IMX_SC_R_DMA_3_CH10
+
+				IMX_SC_R_SATA_0
+				IMX_SC_R_PCIE_A
+				IMX_SC_R_PCIE_B
+				IMX_SC_R_SERDES_0
+				IMX_SC_R_SERDES_1
+				IMX_SC_R_HSIO_GPIO
+
+				IMX_SC_R_DMA_0_CH14
+				IMX_SC_R_DMA_0_CH15
+				IMX_SC_R_UART_1
+
+				IMX_SC_R_MIPI_0
+				IMX_SC_R_MIPI_0_I2C_0
+				IMX_SC_R_MIPI_0_I2C_1
+				IMX_SC_R_MIPI_1
+				IMX_SC_R_MIPI_1_I2C_0
+				IMX_SC_R_MIPI_1_I2C_1
+
+				IMX_SC_R_HDMI_PLL_0
+				IMX_SC_R_HDMI_PLL_1
+				IMX_SC_R_HDMI
+				IMX_SC_R_HDMI_I2C_0
+				IMX_SC_R_HDMI_I2S
+
+				IMX_SC_R_CSI_0
+				IMX_SC_R_CSI_0_I2C_0
+				IMX_SC_R_CSI_1
+				IMX_SC_R_CSI_1_I2C_0
+				IMX_SC_R_ISI_CH0
+				IMX_SC_R_ISI_CH1
+				IMX_SC_R_ISI_CH2
+				IMX_SC_R_ISI_CH3
+				IMX_SC_R_ISI_CH4
+				IMX_SC_R_ISI_CH5
+				IMX_SC_R_ISI_CH6
+				IMX_SC_R_ISI_CH7
+				IMX_SC_R_MJPEG_DEC_MP
+				IMX_SC_R_MJPEG_DEC_S0
+				IMX_SC_R_MJPEG_DEC_S1
+				IMX_SC_R_MJPEG_DEC_S2
+				IMX_SC_R_MJPEG_DEC_S3
+				IMX_SC_R_MJPEG_ENC_MP
+				IMX_SC_R_MJPEG_ENC_S0
+				IMX_SC_R_MJPEG_ENC_S1
+				IMX_SC_R_MJPEG_ENC_S2
+				IMX_SC_R_MJPEG_ENC_S3
+			>;
+			pads = <
+				/* i2c1_lvds1 */
+				IMX8QM_LVDS0_I2C1_SCL
+				IMX8QM_LVDS0_I2C1_SDA
+				/* emmc */
+				IMX8QM_EMMC0_CLK
+				IMX8QM_EMMC0_CMD
+				IMX8QM_EMMC0_DATA0
+				IMX8QM_EMMC0_DATA1
+				IMX8QM_EMMC0_DATA2
+				IMX8QM_EMMC0_DATA3
+				IMX8QM_EMMC0_DATA4
+				IMX8QM_EMMC0_DATA5
+				IMX8QM_EMMC0_DATA6
+				IMX8QM_EMMC0_DATA7
+				IMX8QM_EMMC0_STROBE
+				IMX8QM_EMMC0_RESET_B
+
+				/* lvds pwm */
+				IMX8QM_LVDS0_GPIO00
+
+				/* usbotg1/3 */
+				IMX8QM_USB_SS3_TC0
+				IMX8QM_QSPI1A_SS0_B
+				IMX8QM_USB_SS3_TC3
+				IMX8QM_QSPI1A_DATA0
+
+				/* ESAI0 */
+				IMX8QM_ESAI0_FSR
+				IMX8QM_ESAI0_FST
+				IMX8QM_ESAI0_SCKR
+				IMX8QM_ESAI0_SCKT
+				IMX8QM_ESAI0_TX0
+				IMX8QM_ESAI0_TX1
+				IMX8QM_ESAI0_TX2_RX3
+				IMX8QM_ESAI0_TX3_RX2
+				IMX8QM_ESAI0_TX4_RX1
+				IMX8QM_ESAI0_TX5_RX0
+				/* SAI1 */
+				IMX8QM_SAI1_RXD
+				IMX8QM_SAI1_RXC
+				IMX8QM_SAI1_RXFS
+				IMX8QM_SAI1_TXD
+				IMX8QM_SAI1_TXC
+
+				IMX8QM_PCIE_CTRL0_CLKREQ_B
+				IMX8QM_PCIE_CTRL0_WAKE_B
+				IMX8QM_PCIE_CTRL0_PERST_B
+				IMX8QM_LVDS1_I2C0_SDA
+				IMX8QM_USDHC2_RESET_B
+
+				IMX8QM_QSPI1A_DQS
+				IMX8QM_UART1_RX
+				IMX8QM_UART1_TX
+				IMX8QM_UART1_CTS_B
+				IMX8QM_UART1_RTS_B
+
+				IMX8QM_MIPI_CSI0_I2C0_SCL
+				IMX8QM_MIPI_CSI0_I2C0_SDA
+				IMX8QM_MIPI_CSI1_I2C0_SCL
+				IMX8QM_MIPI_CSI1_I2C0_SDA
+				IMX8QM_MIPI_CSI1_GPIO0_00
+
+				IMX8QM_MIPI_CSI0_GPIO0_00
+				IMX8QM_MIPI_CSI0_GPIO0_01
+				IMX8QM_MIPI_CSI0_MCLK_OUT
+
+				IMX8QM_USDHC2_WP
+
+				IMX8QM_MIPI_DSI0_I2C0_SCL
+				IMX8QM_MIPI_DSI0_I2C0_SDA
+				IMX8QM_MIPI_DSI0_GPIO0_01
+
+				IMX8QM_MIPI_DSI1_I2C0_SCL
+				IMX8QM_MIPI_DSI1_I2C0_SDA
+				IMX8QM_MIPI_DSI1_GPIO0_01
+
+				IMX8QM_SCU_GPIO0_07
+
+				IMX8QM_SPI0_CS1
+				IMX8QM_SPI2_CS1
+				IMX8QM_SAI1_RXFS
+				IMX8QM_SAI1_RXC
+			>;
+
+			gpios = <&lsio_gpio1 13 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio1 19 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio1 27 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio1 28 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio1 30 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio4 1 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio4 3 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio4 6 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio4 9 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio4 11 GPIO_ACTIVE_HIGH>,
+				<&lsio_gpio4 19 GPIO_ACTIVE_HIGH>,
+				<&lsio_gpio4 22 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio4 25 GPIO_ACTIVE_HIGH>,
+				<&lsio_gpio4 26 GPIO_ACTIVE_HIGH>,
+				<&lsio_gpio4 27 GPIO_ACTIVE_LOW>,
+				<&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	/* Interrupt 33 is not used, use it virtual PL031 */
+	rtc0: rtc@23000000 {
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+		xen,passthrough;
+	};
+
+	gpio4_dummy: gpio4_dummy@0{
+		/* Passthrough gpio4 interrupt to DomU */
+		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
+		xen,passthrough;
+	};
+
+	gpio1_dummy: gpio1_dummy@0{
+		/* Passthrough gpio1 interrupt to DomU */
+		interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
+		xen,passthrough;
+	};
+
+	reserved-device-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		decoder_boot@0x84000000 {
+			no-map;
+			reg = <0 0x84000000 0 0x2000000>;
+			xen,passthrough;
+		};
+		encoder_boot@0x86000000 {
+			no-map;
+			reg = <0 0x86000000 0 0x400000>;
+			xen,passthrough;
+		};
+		m4@0x88000000 {
+			no-map;
+			reg = <0 0x88000000 0 0x8000000>;
+			xen,passthrough;
+		};
+		decoder_rpc@0x92000000 {
+			no-map;
+			reg = <0 0x92000000 0 0x200000>;
+			xen,passthrough;
+		};
+		encoder_rpc@0x92200000 {
+			no-map;
+			reg = <0 0x92200000 0 0x200000>;
+			xen,passthrough;
+		};
+		dsp@0x92400000 {
+			no-map;
+			reg = <0 0x92400000 0 0x2000000>;
+			xen,passthrough;
+		};
+		encoder_reserved@0x94400000 {
+			no-map;
+			reg = <0 0x94400000 0 0x800000>;
+			xen,passthrough;
+		};
+		ts_boot@0x95000000 {
+			no-map;
+			reg = <0 0x95000000 0 0x400000>;
+			xen,passthrough;
+		};
+	};
+};
+
+&{/reserved-memory} {
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x3c000000>;
+			alloc-ranges = <0 0xc0000000 0 0x58000000>;
+			linux,cma-default;
+		};
+};
+
+&smmu {
+	mmu-masters = <&dpu1 0x13>, <&gpu_3d0 0x15>, <&usdhc1 0x12>, <&edma0 0x14>,
+		      <&vpu_decoder 0x7>, <&usbotg1 0x11>, <&usbotg3 0x4>,
+		      <&pciea 0x8>, <&edma214 0x10>, <&isi_0 0x5>;
+};
+
+&edma0 {
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+	xen,passthrough;
+};
+
+&gpu_3d0{
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+	xen,passthrough;
+};
+
+&gpu_3d1{
+	status = "okay";
+};
+
+&imx8_gpu_ss {
+	cores = <&gpu_3d1>;
+	reg = <0xa8000000 0x58000000>, <0x0 0x10000000>;
+	status = "okay";
+};
+
+&lsio_mu1 {
+	/* not map for dom0, dom0 will mmio trap to xen */
+	xen,no-map;
+};
+
+/ {
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dpu2_disp0>, <&dpu2_disp1>;
+	};
+};
+
+&dc0_irqsteer {
+	reg = <0x56000000 0x20000>;
+	xen,passthrough;
+};
+
+&dc0_pc {
+	xen,passthrough;
+};
+
+&dc0_prg1 {
+	xen,passthrough;
+};
+
+&dc0_prg2 {
+	xen,passthrough;
+};
+
+&dc0_prg3 {
+	xen,passthrough;
+};
+
+&dc0_prg4 {
+	xen,passthrough;
+};
+
+&dc0_prg5 {
+	xen,passthrough;
+};
+
+&dc0_prg6 {
+	xen,passthrough;
+};
+
+&dc0_prg7 {
+	xen,passthrough;
+};
+
+&dc0_prg8 {
+	xen,passthrough;
+};
+
+&dc0_prg9 {
+	xen,passthrough;
+};
+
+&dc0_dpr1_channel1 {
+	xen,passthrough;
+};
+
+&dc0_dpr1_channel2 {
+	xen,passthrough;
+};
+
+&dc0_dpr1_channel3 {
+	xen,passthrough;
+};
+
+&dc0_dpr2_channel1 {
+	xen,passthrough;
+};
+
+&dc0_dpr2_channel2 {
+	xen,passthrough;
+};
+
+&dc0_dpr2_channel3 {
+	xen,passthrough;
+};
+
+&dpu1 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+&irqsteer_lvds0 {
+	reg = <0x56240000 0x10000>;
+	xen,passthrough;
+};
+
+&lvds0_region {
+	xen,passthrough;
+};
+
+&i2c1_lvds0 {
+	xen,passthrough;
+};
+
+&ldb1_phy {
+	xen,passthrough;
+};
+
+&ldb1 {
+	xen,passthrough;
+};
+
+&usdhc1 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+&sdhc0_lpcg {
+	xen,passthrough;
+};
+
+&lsio_mu2 {
+	xen,passthrough;
+};
+
+&lsio_gpio1 {
+	/*
+	 * Use GPT1 interrupt for hack
+	 * This could be removed when interrupt sharing be supported.
+	 */
+	interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+	xen,domu-irq;
+	xen,shared;
+};
+
+/*
+&gpt0 {
+	/delete-property/ interrupts;
+	status = "disabled";
+};
+*/
+
+&lsio_gpio4 {
+	/*
+	 * Use GPT0 interrupt for hack
+	 * This could be removed when interrupt sharing be supported.
+	 */
+	interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+	xen,domu-irq;
+	xen,shared;
+};
+
+&gpio0_mipi_csi0 {
+	xen,passthrough;
+};
+
+&gpio0_mipi_csi1 {
+	xen,passthrough;
+};
+
+/* vpu_subsys */
+&vpu_lpcg {
+	xen,passthrough;
+};
+
+&vpu_decoder {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+	fsl,sc_rsrc_id = <IMX_SC_R_VPU_DEC_0>,
+			 <IMX_SC_R_VPU_TS_0>,
+			 <IMX_SC_R_VPU_PID0>,
+			 <IMX_SC_R_VPU_PID1>,
+			 <IMX_SC_R_VPU_PID2>,
+			 <IMX_SC_R_VPU_PID3>,
+			 <IMX_SC_R_VPU_PID4>,
+			 <IMX_SC_R_VPU_PID5>,
+			 <IMX_SC_R_VPU_PID6>,
+			 <IMX_SC_R_VPU_PID7>;
+};
+
+&vpu_encoder {
+	xen,passthrough;
+};
+
+/*
+&vpu_ts {
+	xen,passthrough;
+};
+*/
+
+&dsp {
+	xen,passthrough;
+};
+
+&lsio_mu13 {
+	xen,passthrough;
+};
+
+&mu_m0 {
+	xen,passthrough;
+};
+
+&mu1_m0 {
+	xen,passthrough;
+};
+
+&mu2_m0 {
+	xen,passthrough;
+};
+
+/*
+&mu3_m0 {
+	xen,passthrough;
+};
+*/
+
+&vpu_enc_core0 {
+	xen,passthrough;
+};
+
+&vpu_enc_core1 {
+	xen,passthrough;
+};
+
+&usbotg1 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+&usbmisc1 {
+	xen,passthrough;
+};
+
+&usbphy1 {
+	xen,passthrough;
+};
+
+&usb2_lpcg {
+	xen,passthrough;
+};
+
+&usbotg3 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+/*
+&usb3phynop1 {
+	status = "disabled";
+};
+*/
+
+&usb3_lpcg {
+	xen,passthrough;
+};
+
+&ptn5110 {
+	status = "disabled";
+};
+
+&{/cbtl04gp} {
+	status = "disabled";
+};
+
+&audio_subsys {
+	reg = <0 0x59000000 0 0x1000000>;
+	xen,passthrough;
+};
+
+/* Passthrough baseboard audio to DomU */
+&cs42888 {
+	xen,passthrough;
+};
+
+&reg_audio {
+	xen,passthrough;
+};
+
+&{/sound-cs42888} {
+	xen,passthrough;
+};
+
+&esai0 {
+	xen,passthrough;
+};
+
+&wm8960 {
+	xen,passthrough;
+};
+
+&hsio_subsys {
+	xen,passthrough;
+};
+
+&pciea {
+       #stream-id-cells = <1>;
+       iommus = <&smmu>;
+       xen,passthrough;
+       fsl,sc_rsrc_id = <IMX_SC_R_PCIE_A>;
+};
+
+&pcieb {
+       xen,passthrough;
+};
+
+&epdev_on {
+	status = "disabled";
+};
+
+&lpuart1 {
+	xen,passthrough;
+};
+
+&modem_reset {
+	status = "disabled";
+};
+
+&edma214 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+};
+
+&hdmi_subsys {
+	xen,passthrough;
+	reg = <0 0x56260000 0 0x10000>;
+};
+
+&img_subsys {
+	xen,passthrough;
+	reg = <0 0x58000000 0 0x1000000>;
+};
+
+&mipi0_subsys {
+	xen,passthrough;
+	reg = <0 0x56220000 0 0x10000>;
+};
+
+&mipi1_subsys {
+	xen,passthrough;
+	reg = <0 0x57220000 0 0x10000>;
+};
+
+&isi_0 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+	fsl,sc_rsrc_id = <IMX_SC_R_ISI_CH0>,
+			 <IMX_SC_R_ISI_CH1>,
+			 <IMX_SC_R_ISI_CH2>,
+			 <IMX_SC_R_ISI_CH3>,
+			 <IMX_SC_R_ISI_CH4>,
+			 <IMX_SC_R_ISI_CH5>,
+			 <IMX_SC_R_ISI_CH6>,
+			 <IMX_SC_R_ISI_CH7>,
+			 <IMX_SC_R_ISI_CH0>,
+			 <IMX_SC_R_MJPEG_DEC_S0>,
+			 <IMX_SC_R_MJPEG_DEC_S1>,
+			 <IMX_SC_R_MJPEG_DEC_S2>,
+			 <IMX_SC_R_MJPEG_DEC_S3>,
+			 <IMX_SC_R_MJPEG_ENC_S0>,
+			 <IMX_SC_R_MJPEG_ENC_S1>,
+			 <IMX_SC_R_MJPEG_ENC_S2>,
+			 <IMX_SC_R_MJPEG_ENC_S3>;
+};
+
+&sc_pwrkey {
+	status = "disabled";
+};
+
+&pwm_lvds0 {
+	status = "disabled";
+};
+
+&uart0_lpcg {
+	status = "disabled";
+};

@@ -1842,7 +1842,7 @@
 		  &mu2_m0 1 0>;
 	status = "okay";
 
-	core0@1020000 {
+	vpu_enc_core0: core0@1020000 {
 		compatible = "fsl,imx8-mu1-vpu-m0";
 		reg = <0x1020000 0x20000>;
 		reg-csr = <0x1090000 0x10000>;
@@ -1853,7 +1853,7 @@
 		print-buf-size = <0x80000>;
 	};
 
-	core1@1040000 {
+	vpu_enc_core1: core1@1040000 {
 		compatible = "fsl,imx8-mu2-vpu-m0";
 		reg = <0x1040000 0x20000>;
 		reg-csr = <0x10A0000 0x10000>;
