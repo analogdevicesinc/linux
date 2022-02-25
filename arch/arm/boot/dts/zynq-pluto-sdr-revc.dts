@@ -48,7 +48,7 @@
 	axi_tdd_0: axi-tdd-0@7C440000 {
 		compatible = "adi,axi-tdd-1.00";
 		reg = <0x7C440000 0x10000>;
-		clocks = <&clkc 15>, <&adc0_ad9364 13>;
+		clocks = <&clkc 15>, <&adc0_ad9364 20>;
 		clock-names = "s_axi_aclk", "intf_clk";
 	};
 	axi_spi: spi@7C430000 {
@@ -161,11 +161,16 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios	= <&gpio0 68 0>;
+		out-gpios	= <&gpio0 68 0>, <&gpio0 71 0>;
 
 		channel@0 {
 			reg = <0>;
 			label = "phaser_enable";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "tdd_ext_sync";
 		};
 	};
 };
