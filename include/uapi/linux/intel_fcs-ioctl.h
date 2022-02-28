@@ -39,6 +39,24 @@ enum fcs_certificate_test {
 };
 
 /**
+ * struct fcs_mbox_send_cmd - send generic mailbox command
+ * @mbox_cmd: mailbox command code
+ * @urgent: 0 for CASUAL, 1 for URGENT
+ * @cmd_data: virtual address of mailbox command data
+ * @cmd_data_sz: size of mailbox command data in bytes
+ * @rsp_data: virtual address to store response data
+ * @rsp_data_sz: maximun size to store response data in bytes
+ */
+struct fcs_mbox_send_cmd {
+	uint32_t mbox_cmd;
+	uint8_t urgent;
+	void *cmd_data;
+	uint16_t cmd_data_sz;
+	void *rsp_data;
+	uint16_t rsp_data_sz;
+};
+
+/**
  * struct fcs_placeholder - placeholder of ioctl stuct
  * @data: placeholder of iotcl struct
  */
@@ -427,6 +445,7 @@ struct intel_fcs_dev_ioctl {
 
 	/* command parameters */
 	union {
+		struct fcs_mbox_send_cmd	mbox_send_cmd;
 		struct fcs_placeholder		placeholder;
 		struct fcs_validation_request	s_request;
 		struct fcs_certificate_request	c_request;
@@ -461,6 +480,8 @@ struct intel_fcs_dev_ioctl {
  *
  * @INTEL_FCS_DEV_VERSION_CMD:
  *
+ * @INTEL_FCS_DEV_MBOX_SEND_CMD:
+ *
  * @INTEL_FCS_DEV_CERTIFICATE_CMD:
  *
  * @INTEL_FCS_DEV_VALIDATE_REQUEST_CMD:
@@ -482,6 +503,7 @@ struct intel_fcs_dev_ioctl {
 enum intel_fcs_command_code {
 	INTEL_FCS_DEV_COMMAND_NONE = 0,
 	INTEL_FCS_DEV_VERSION_CMD = 1,
+	INTEL_FCS_DEV_MBOX_SEND_CMD,
 	INTEL_FCS_DEV_CERTIFICATE_CMD = 0xB,
 	INTEL_FCS_DEV_VALIDATE_REQUEST_CMD = 0x78,
 	INTEL_FCS_DEV_COUNTER_SET_CMD,
@@ -519,6 +541,10 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_VERSION_REQUEST \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_VERSION_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_MBOX_SEND \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_MBOX_SEND_CMD, struct intel_fcs_dev_ioctl)
 
 #define INTEL_FCS_DEV_VALIDATION_REQUEST \
 	_IOWR(INTEL_FCS_IOCTL, \
