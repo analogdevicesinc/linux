@@ -210,6 +210,28 @@ static void fcs_hwrng_callback(struct stratix10_svc_client *client,
 	complete(&priv->completion);
 }
 
+static void fcs_mbox_send_cmd_callback(struct stratix10_svc_client *client,
+				     struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	if (data->status == BIT(SVC_STATUS_OK)) {
+		priv->status =  0;
+		priv->size = *((unsigned int *)data->kaddr2);
+	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
+	} else if (data->status == BIT(SVC_STATUS_INVALID_PARAM)) {
+		priv->status = -EINVAL;
+		dev_err(client->dev, "request rejected\n");
+	} else {
+		priv->status = -EINVAL;
+		dev_err(client->dev, "rejected, invalid param\n");
+	}
+
+	complete(&priv->completion);
+}
+
 static int fcs_request_service(struct intel_fcs_priv *priv,
 			       void *msg, unsigned long timeout)
 {
@@ -2723,6 +2745,111 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 		fcs_close_services(priv, s_buf, d_buf);
 
+		break;
+
+	case INTEL_FCS_DEV_MBOX_SEND:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.mbox_send_cmd.cmd_data_sz % 4) {
+			dev_err(dev, "Command data size (%d) is not 4 byte align\n",
+			data->com_paras.mbox_send_cmd.cmd_data_sz);
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.mbox_send_cmd.rsp_data_sz % 4) {
+			dev_err(dev, "Respond data size (%d) is not 4 byte align\n",
+			data->com_paras.mbox_send_cmd.rsp_data_sz);
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		if (data->com_paras.mbox_send_cmd.cmd_data_sz) {
+			s_buf = stratix10_svc_allocate_memory(priv->chan,
+					data->com_paras.mbox_send_cmd.cmd_data_sz);
+			if (!s_buf) {
+				dev_err(dev, "failed allocate source CMD buf\n");
+				mutex_unlock(&priv->lock);
+				return -ENOMEM;
+			}
+		} else {
+			s_buf = NULL;
+		}
+
+		if (data->com_paras.mbox_send_cmd.rsp_data_sz) {
+			d_buf = stratix10_svc_allocate_memory(priv->chan,
+					data->com_paras.mbox_send_cmd.rsp_data_sz);
+			if (!d_buf) {
+				dev_err(dev, "failed allocate destination RSP buf\n");
+				fcs_free_memory(priv, s_buf, NULL, NULL);
+				mutex_unlock(&priv->lock);
+				return -ENOMEM;
+			}
+		} else {
+			d_buf = NULL;
+		}
+
+		if (s_buf != NULL) {
+			/* Copy user data from user space to kernel space */
+			ret = copy_from_user(s_buf,
+						data->com_paras.mbox_send_cmd.cmd_data,
+						data->com_paras.mbox_send_cmd.cmd_data_sz);
+			if (ret) {
+				dev_err(dev, "failed copy buf ret=%d\n", ret);
+				fcs_free_memory(priv, s_buf, d_buf, NULL);
+				mutex_unlock(&priv->lock);
+				return -EFAULT;
+			}
+		}
+
+		msg->command = COMMAND_MBOX_SEND_CMD;
+		msg->arg[0] = data->com_paras.mbox_send_cmd.mbox_cmd;
+		msg->arg[1] = data->com_paras.mbox_send_cmd.urgent;
+		msg->payload = s_buf;
+		msg->payload_length = data->com_paras.mbox_send_cmd.cmd_data_sz;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = data->com_paras.mbox_send_cmd.rsp_data_sz;
+		priv->client.receive_cb = fcs_mbox_send_cmd_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  10 * FCS_REQUEST_TIMEOUT);
+
+		if (!ret && !priv->status) {
+			if (priv->size > data->com_paras.mbox_send_cmd.rsp_data_sz) {
+				dev_err(dev, "Resp data size (%d) bigger than dest size\n",
+						priv->size);
+				fcs_close_services(priv, s_buf, d_buf);
+				return -EFAULT;
+			}
+
+			data->com_paras.mbox_send_cmd.rsp_data_sz = priv->size;
+
+			if (data->com_paras.mbox_send_cmd.rsp_data_sz) {
+				ret = copy_to_user(data->com_paras.mbox_send_cmd.rsp_data, d_buf,
+									data->com_paras.mbox_send_cmd.rsp_data_sz);
+
+				if (ret) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+			}
+		} else {
+			data->com_paras.mbox_send_cmd.rsp_data = NULL;
+			data->com_paras.mbox_send_cmd.rsp_data_sz = 0;
+		}
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, s_buf, d_buf);
 		break;
 
 	default:
