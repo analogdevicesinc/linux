@@ -274,6 +274,8 @@ struct pxp_pixmap {
 	uint32_t flags;
 	bool valid;
 	dma_addr_t paddr;
+	dma_addr_t paddr_u;
+	dma_addr_t paddr_v;
 	struct pxp_alpha_global g_alpha;
 };
 
@@ -2457,30 +2459,30 @@ static int pxp_ps_config(struct pxp_pixmap *input,
 	case 1:		/* 1 Plane YUV */
 		break;
 	case 2:		/* NV16,NV61,NV12,NV21 */
+		U = (input->paddr_u) ? input->paddr_u :
+				       input->paddr + input->width * input->height;
 		if ((input->format == PXP_PIX_FMT_NV16) ||
-		    (input->format == PXP_PIX_FMT_NV61)) {
-			U = input->paddr + input->width * input->height;
+		    (input->format == PXP_PIX_FMT_NV61))
 			pxp_writel(U + offset, HW_PXP_PS_UBUF);
-		}
-		else {
-			U = input->paddr + input->width * input->height;
+		else
 			pxp_writel(U + (offset >> 1), HW_PXP_PS_UBUF);
-		}
 		break;
 	case 3:		/* YUV422P, YUV420P */
+		U = (input->paddr_u) ? input->paddr_u :
+				       input->paddr + input->width * input->height;
 		if (input->format == PXP_PIX_FMT_YUV422P) {
-			U = input->paddr + input->width * input->height;
 			pxp_writel(U + (offset >> 1), HW_PXP_PS_UBUF);
-			V = U + (input->width * input->height >> 1);
+			V = (input->paddr_v) ? input->paddr_v :
+					       U + (input->width * input->height >> 1);
 			pxp_writel(V + (offset >> 1), HW_PXP_PS_VBUF);
 		} else if (input->format == PXP_PIX_FMT_YUV420P) {
-			U = input->paddr + input->width * input->height;
 			pxp_writel(U + (offset >> 2), HW_PXP_PS_UBUF);
-			V = U + (input->width * input->height >> 2);
+			V = (input->paddr_v) ? input->paddr_v :
+					       U + (input->width * input->height >> 2);
 			pxp_writel(V + (offset >> 2), HW_PXP_PS_VBUF);
 		} else if (input->format == PXP_PIX_FMT_YVU420P) {
-			U = input->paddr + input->width * input->height;
-			V = U + (input->width * input->height >> 2);
+			V = (input->paddr_v) ? input->paddr_v :
+					       U + (input->width * input->height >> 2);
 			pxp_writel(U + (offset >> 2), HW_PXP_PS_VBUF);
 			pxp_writel(V + (offset >> 2), HW_PXP_PS_UBUF);
 		}
@@ -2756,7 +2758,8 @@ static int pxp_out_config(struct pxp_pixmap *output)
 
 	pxp_writel(output->paddr, HW_PXP_OUT_BUF);
 	if (is_yuv(output->format) == 2) {
-		UV = output->paddr + output->width * output->height;
+		UV = (output->paddr_u) ? output->paddr_u :
+					  output->paddr + output->width * output->height;
 		if ((output->format == PXP_PIX_FMT_NV16) ||
 		    (output->format == PXP_PIX_FMT_NV61))
 			pxp_writel(UV + offset, HW_PXP_OUT_BUF2);
@@ -3698,8 +3701,10 @@ static int convert_param_to_pixmap(struct pxp_pixmap *pixmap,
 	pixmap->width  = param->width;
 	pixmap->height = param->height;
 	pixmap->format = param->pixel_fmt;
-	pixmap->paddr  = param->paddr;
 	pixmap->bpp    = get_bpp_from_fmt(pixmap->format);
+	pixmap->paddr  = param->paddr;
+	pixmap->paddr_u  = param->paddr_u;
+	pixmap->paddr_v  = param->paddr_v;
 
 	if (pxp_legacy) {
 		pixmap->pitch = (param->stride) ? (param->stride * pixmap->bpp >> 3) :
