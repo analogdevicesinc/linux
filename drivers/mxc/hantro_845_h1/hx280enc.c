@@ -990,8 +990,11 @@ static int hx280enc_resume(struct device *dev)
 	if (hx280enc_data.is_reserved == 0 || hx280enc_data.reg_corrupt == 0)
 		return ret;
 
-	for (i = 0; i < hx280enc_data.iosize; i += 4)
-		writel(hx280enc_data.mirror_regs[i/4], hx280enc_data.hwregs + i);
+	if (hx280enc_data.irq_status & 0x04) {
+		for (i = 0; i < hx280enc_data.iosize; i += 4)
+			writel(hx280enc_data.mirror_regs[i/4], hx280enc_data.hwregs + i);
+		hx280enc_data.reg_corrupt = 0;
+	}
 
 	return ret;
 }
