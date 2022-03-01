@@ -389,8 +389,12 @@ static void format_bufinfo_dec(struct vsi_v4l2_ctx *ctx, struct vsi_v4l2_msg *pm
 	dma_addr_t  busaddr[4];
 
 	memcpy((void *)&pmsg->params.dec_params.io_buffer, (void *)&ctx->mediacfg.decparams.io_buffer, sizeof(struct v4l2_daemon_dec_buffers));
-	if (binputqueue(buf->type))
-		pmsg->params.dec_params.dec_info.io_buffer.timestamp = buf->timestamp;
+	if (binputqueue(buf->type)) {
+		if (test_and_clear_bit(BUF_FLAG_TIMESTAMP_INVALID, &ctx->srcvbufflag[buf->index]))
+			pmsg->params.dec_params.dec_info.io_buffer.timestamp = -1;
+		else
+			pmsg->params.dec_params.dec_info.io_buffer.timestamp = buf->timestamp;
+	}
 	getbusaddr(ctx, busaddr, buf);
 	decbufinfo = &pmsg->params.dec_params.io_buffer;
 	if (!binputqueue(buf->type)) {

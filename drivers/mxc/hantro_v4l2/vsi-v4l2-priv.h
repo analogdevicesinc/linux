@@ -299,6 +299,7 @@ enum {
 	BUF_FLAG_QUEUED = 0,		/*buf queued from app*/
 	BUF_FLAG_DONE,			/*buf returned from daemon*/
 	BUF_FLAG_CROPCHANGE,		/*crop area update not sent to app but buffed */
+	BUF_FLAG_TIMESTAMP_INVALID,
 };
 
 struct vsi_v4l2_ctx {

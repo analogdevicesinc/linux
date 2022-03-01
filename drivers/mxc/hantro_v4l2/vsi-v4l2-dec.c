@@ -185,6 +185,8 @@ static int vsi_dec_qbuf(struct file *filp, void *priv, struct v4l2_buffer *buf)
 	} else {
 		ctx->inbuflen[buf->index] = buf->length;
 		ctx->inbufbytes[buf->index] = buf->bytesused;
+		if (buf->timestamp.tv_sec < 0 || buf->timestamp.tv_usec < 0)
+			set_bit(BUF_FLAG_TIMESTAMP_INVALID, &ctx->srcvbufflag[buf->index]);
 		ret = vb2_qbuf(&ctx->input_que, vdev->v4l2_dev->mdev, buf);
 	}
 	if (ret == 0)
