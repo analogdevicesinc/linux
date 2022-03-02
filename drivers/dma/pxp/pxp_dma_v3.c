@@ -2727,14 +2727,14 @@ static int pxp_rotation0_config(struct pxp_pixmap *input)
 static int pxp_csc2_config(struct pxp_pixmap *output)
 {
 	if (is_yuv(output->format)) {
-		/* RGB -> YUV */
-		pxp_writel(0x4, HW_PXP_CSC2_CTRL);
-		pxp_writel(0x0096004D, HW_PXP_CSC2_COEF0);
-		pxp_writel(0x05DA001D, HW_PXP_CSC2_COEF1);
-		pxp_writel(0x007005B6, HW_PXP_CSC2_COEF2);
-		pxp_writel(0x057C009E, HW_PXP_CSC2_COEF3);
-		pxp_writel(0x000005E6, HW_PXP_CSC2_COEF4);
-		pxp_writel(0x00000000, HW_PXP_CSC2_COEF5);
+		/* RGB -> YCbCr */
+		pxp_writel(0x6, HW_PXP_CSC2_CTRL);
+		pxp_writel(0x00810042, HW_PXP_CSC2_COEF0);
+		pxp_writel(0x07DA0019, HW_PXP_CSC2_COEF1);
+		pxp_writel(0x007007B6, HW_PXP_CSC2_COEF2);
+		pxp_writel(0x07A20070, HW_PXP_CSC2_COEF3);
+		pxp_writel(0x001007EE, HW_PXP_CSC2_COEF4);
+		pxp_writel(0x00800080, HW_PXP_CSC2_COEF5);
 	}
 
 	pxp_writel(BF_PXP_CTRL_ENABLE_CSC2(1), HW_PXP_CTRL_SET);
