@@ -383,7 +383,7 @@ int32_t(*adi_hal_ssi_Reset)(void *devHalCfg) = linux_ssi_reset;
 /* File IO abstraction */
 int32_t (*adi_hal_ArmImagePageGet)(void *devHalCfg, const char *ImagePath, uint32_t pageIndex, uint32_t pageSize, uint8_t *rdBuff) = linux_image_page_get;
 int32_t (*adi_hal_StreamImagePageGet)(void *devHalCfg, const char *ImagePath, uint32_t pageIndex, uint32_t pageSize, uint8_t *rdBuff) = linux_image_page_get;
-int32_t (*adi_hal_RxGainTableEntryGet)(void *devHalCfg, const char *rxGainTablePath, uint16_t lineCount, uint8_t *gainIndex, uint8_t *rxFeGain, uint8_t *tiaControl, uint8_t *adcControl,
+int32_t (*adi_hal_RxGainTableEntryGet)(void *devHalCfg, const char *rxGainTablePath, uint16_t lineCount, uint8_t *gainIndex, uint8_t *rxFeGain,uint8_t *tiaControl, uint8_t *adcControl,
 				      uint8_t *extControl, uint16_t *phaseOffset, int16_t *digGain) = linux_rx_gain_table_entry_get;
 int32_t (*adi_hal_TxAttenTableEntryGet)(void *devHalCfg, const char *txAttenTablePath, uint16_t lineCount, uint16_t *attenIndex, uint8_t *txAttenHp,
 				       uint16_t *txAttenMult) = linux_tx_atten_table_entry_get;
