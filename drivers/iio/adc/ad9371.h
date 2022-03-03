@@ -231,6 +231,7 @@ struct ad9371_rf_phy {
 	u32			cal_mask;
 	u32			rf_bandwith[3];
 	bool			is_initialized;
+	bool			large_freq_step_cal_en;
 };
 
 int ad9371_hdl_loopback(struct ad9371_rf_phy *phy, bool enable);
