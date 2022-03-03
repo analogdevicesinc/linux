@@ -111,6 +111,7 @@ enum ad9371_iio_dev_attr {
 	AD9371_ENSM_MODE,
 	AD9371_ENSM_MODE_AVAIL,
 	AD9371_INIT_CAL,
+	AD9371_LARGE_LO_STEP_CAL,
 };
 
 int ad9371_spi_read(struct spi_device *spi, unsigned reg)
@@ -1208,6 +1209,9 @@ static ssize_t ad9371_phy_store(struct device *dev,
 			ad9371_set_radio_state(phy, RADIO_RESTORE_STATE);
 		}
 		break;
+	case AD9371_LARGE_LO_STEP_CAL:
+		ret = strtobool(buf, &phy->large_freq_step_cal_en);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1240,6 +1244,9 @@ static ssize_t ad9371_phy_show(struct device *dev,
 
 		if (val)
 			ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
+		break;
+	case AD9371_LARGE_LO_STEP_CAL:
+		ret = sprintf(buf, "%u\n", phy->large_freq_step_cal_en);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1299,6 +1306,25 @@ static IIO_DEVICE_ATTR(calibrate_tx_lol_ext_en, S_IRUGO | S_IWUSR,
 		       ad9371_phy_store,
 		       AD9371_INIT_CAL | (TX_LO_LEAKAGE_EXTERNAL << 8));
 
+static IIO_DEVICE_ATTR(calibrate_loopback_rx_lo_delay_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (LOOPBACK_RX_LO_DELAY << 8));
+
+static IIO_DEVICE_ATTR(calibrate_loopback_rx_rx_qec_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (LOOPBACK_RX_RX_QEC_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_rx_lo_delay_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_INIT_CAL | (RX_LO_DELAY << 8));
+
+static IIO_DEVICE_ATTR(large_lo_step_calibration_en, S_IRUGO | S_IWUSR,
+		       ad9371_phy_show,
+		       ad9371_phy_store,
+		       AD9371_LARGE_LO_STEP_CAL);
 
 static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
@@ -1308,6 +1334,10 @@ static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_loopback_rx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_loopback_rx_rx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_rx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_large_lo_step_calibration_en.dev_attr.attr,
 	NULL,
 };
 
@@ -1326,6 +1356,10 @@ static struct attribute *ad9375_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_vswr_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_loopback_rx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_loopback_rx_rx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_rx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_large_lo_step_calibration_en.dev_attr.attr,
 	NULL,
 };
 
@@ -1364,7 +1398,7 @@ static ssize_t ad9371_phy_lo_write(struct iio_dev *indio_dev,
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	u64 readin;
 	u8 status;
-	int ret = 0;
+	int ret = 0, retry = 10;
 
 	ret = kstrtoull(buf, 10, &readin);
 	if (ret)
@@ -1378,9 +1412,30 @@ static ssize_t ad9371_phy_lo_write(struct iio_dev *indio_dev,
 		if (ret != MYKONOS_ERR_OK)
 			break;
 
-		ret = MYKONOS_checkPllsLockStatus(phy->mykDevice, &status);
-		if (!((status & BIT(chan->channel + 1) || (ret != MYKONOS_ERR_OK))))
-			ret = -EFAULT;
+		do {
+			ret = MYKONOS_checkPllsLockStatus(phy->mykDevice, &status);
+			if (!((status & BIT(chan->channel + 1) || (ret != MYKONOS_ERR_OK)))) {
+				msleep(20);
+				ret = -EFAULT;
+			}
+		} while (retry-- && ret == -EFAULT); /* Wait for up to 200ms */
+
+		if (phy->large_freq_step_cal_en) {
+			ret  = ad9371_init_cal(phy, TX_QEC_INIT | LOOPBACK_RX_LO_DELAY |
+				LOOPBACK_RX_RX_QEC_INIT | RX_LO_DELAY | RX_QEC_INIT);
+			if (ret != MYKONOS_ERR_OK) {
+				dev_err(&phy->spi->dev, "%s (%d)",
+					getMykonosErrorMessage(ret), ret);
+				ret = -EFAULT;
+			}
+		} else {
+			ret = MYKONOS_resetExtTxLolChannel(phy->mykDevice,
+				phy->mykDevice->tx->txChannels);
+
+			if (ret != MYKONOS_ERR_OK)
+				dev_err(&phy->spi->dev, "%s: %s (%d)", __func__,
+					getMykonosErrorMessage(ret), ret);
+		}
 
 		ad9371_set_radio_state(phy, RADIO_RESTORE_STATE);
 		break;
