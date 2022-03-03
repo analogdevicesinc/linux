@@ -1,0 +1,11 @@
+[Unit]
+Description=Analog Devices Stingray power up/down sequence
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/bin/python3 /usr/share/systemd/stingray_power.py up
+ExecStop=/usr/bin/python3 /usr/share/systemd/stingray_power.py down
+
+[Install]
+WantedBy=multi-user.target
