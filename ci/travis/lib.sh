@@ -1,5 +1,8 @@
 #!/bin/sh -e
 
+echo "#####################LIB.SH#####################"
+set -x
+
 TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR:-'./'}
 
 command_exists() {
@@ -41,3 +44,6 @@ FULL_BUILD_DIR="${TRAVIS_BUILD_DIR}/${LOCAL_BUILD_DIR}"
 }
 
 . "${FULL_BUILD_DIR}/lib.sh"
+
+set +x
+echo "#####################LIB.SH#####################"

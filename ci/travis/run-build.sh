@@ -6,7 +6,7 @@ if [ -d /docker_build_dir ] ; then
 	cd /docker_build_dir
 fi
 
-. ./ci/travis/lib.sh
+#. ./ci/travis/lib.sh
 
 MAIN_BRANCH=${MAIN_BRANCH:-master}
 
