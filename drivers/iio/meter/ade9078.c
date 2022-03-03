@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
  * ADE9078 driver
  *
@@ -1712,4 +1712,4 @@ module_spi_driver(ade9078_driver);
 
 MODULE_AUTHOR("Ciprian Hegbeli <ciprian.hegbeli@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADE9078 Polyphase Energy Metering IC Driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("Dual BSD/GPL");
