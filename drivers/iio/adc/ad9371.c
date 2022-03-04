@@ -3739,7 +3739,23 @@ static int ad9371_parse_profile(struct ad9371_rf_phy *phy,
 		if (clocks) {
 			GET_TOKEN(mykDevice->clocks, deviceClock_kHz);
 			GET_TOKEN(mykDevice->clocks, clkPllVcoFreq_kHz);
-			GET_TOKEN(mykDevice->clocks, clkPllVcoDiv);
+
+			ret = sscanf(line, " <clkPllVcoDiv=%u.%u>", &int32, &int32_2);
+			if (ret > 0) {
+				if (ret == 1) {
+					if (int32 == 1)
+						mykDevice->clocks->clkPllVcoDiv = VCODIV_1;
+					else if (int32 == 2)
+						mykDevice->clocks->clkPllVcoDiv = VCODIV_2;
+					else if (int32 == 3)
+						mykDevice->clocks->clkPllVcoDiv = VCODIV_3;
+				} else if (ret == 2) {
+					if (int32 == 1 && int32_2 == 5)
+						mykDevice->clocks->clkPllVcoDiv = VCODIV_1p5;
+				}
+				continue;
+			}
+
 			GET_TOKEN(mykDevice->clocks, clkPllHsDiv);
 		}
 
