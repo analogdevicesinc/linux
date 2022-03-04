@@ -13491,6 +13491,13 @@ F:	Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml
 F:	Documentation/devicetree/bindings/iio/dac/adi,ltc2672.yaml
 F:	drivers/iio/dac/ltc2664.c
 
+LTC2387 IIO ADC DRIVER
+M:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/devicetree/bindings/iio/adc/lltc,ltc2387.yaml
+
 LTC2688 IIO DAC DRIVER
 M:	Nuno Sá <nuno.sa@analog.com>
 L:	linux-iio@vger.kernel.org
