@@ -2656,6 +2656,7 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[c];
 		adi_adrv9001_RxProfile_t *p = &rx_cfg[c].profile;
+		const char *rx_table;
 
 		if (rx->orx_en || tx->channel.enabled) {
 			ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, ADI_ORX,
@@ -2672,9 +2673,10 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 		if (!rx->channel.enabled)
 			continue;
 
-		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, ADI_RX,
-							      "RxGainTable.csv", rx->channel.number,
-							      &p->lnaConfig, t_type);
+		rx_table = p->gainTableType ? "RxGainTable_GainCompensated.csv" : "RxGainTable.csv";
+		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, ADI_RX, rx_table,
+							      rx->channel.number, &p->lnaConfig,
+							      t_type);
 		if (ret)
 			return adrv9002_dev_err(phy);
 	}
@@ -4281,6 +4283,11 @@ const char *const mcs[] = {
 	"Enabled RFPLL Phase"
 };
 
+const char *const rx_gain_type[] = {
+	"Correction",
+	"Compensated"
+};
+
 static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj,
 					 struct bin_attribute *bin_attr, char *buf, loff_t pos,
 					 size_t count)
@@ -4301,6 +4308,8 @@ static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj
 		       "RX2 LO: %s\n"
 		       "TX1 LO: %s\n"
 		       "TX2 LO: %s\n"
+		       "RX1 Gain Table Type: %s\n"
+		       "RX2 Gain Table Type: %s\n"
 		       "RX Channel Mask: 0x%x\n"
 		       "TX Channel Mask: 0x%x\n"
 		       "Duplex Mode: %s\n"
@@ -4310,6 +4319,8 @@ static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj
 		       clks->clkPllVcoFreq_daHz * 10ULL, clks->armPowerSavingClkDiv,
 		       lo_maps[clks->rx1LoSelect], lo_maps[clks->rx2LoSelect],
 		       lo_maps[clks->tx1LoSelect], lo_maps[clks->tx2LoSelect],
+		       rx_gain_type[rx->rxChannelCfg[ADRV9002_CHANN_1].profile.gainTableType],
+		       rx_gain_type[rx->rxChannelCfg[ADRV9002_CHANN_2].profile.gainTableType],
 		       rx->rxInitChannelMask, tx->txInitChannelMask, duplex[sys->duplexMode],
 		       sys->fhModeOn, mcs[sys->mcsMode], ssi[phy->ssi_type]);
 
