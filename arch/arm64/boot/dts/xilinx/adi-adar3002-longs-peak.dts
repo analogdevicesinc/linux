@@ -108,6 +108,22 @@
 		vss-supply = <&dac_vss>;
 		vdd-supply = <&dac_vdd>;
 	};
+
+	admv4420_CSB1@2 {
+		compatible = "adi,admv4420";
+		reg = <2>;
+		spi-max-frequency = <500000>;
+		label = "admv4420_CSB1";
+		adi,lo-freq-khz = <16750000>;
+	};
+
+	admv4420_CSB2@3 {
+		compatible = "adi,admv4420";
+		reg = <3>;
+		spi-max-frequency = <500000>;
+		label = "admv4420_CSB2";
+		adi,lo-freq-khz = <16750000>;
+	};
 };
 
 &i2c_to_spi_1 {
