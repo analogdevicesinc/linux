@@ -27,7 +27,7 @@
 };
 
 &i2c2 {
-	status = "disable";
+	status = "disabled";
 };
 
 &reg_arm {
