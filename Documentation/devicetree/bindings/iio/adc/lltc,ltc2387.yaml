@@ -1,0 +1,72 @@
+# Copyright 2022 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/adc/ltc2387.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Linear Technology / Analog Devices LTC2387 ADC
+
+maintainers:
+  - Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+
+description: |
+  The LTC2387-18 is a low noise, high speed, 18-bit 15Msps
+  successive approximation register (SAR) ADC ideally
+  suited for a wide range of applications.
+
+  https://www.analog.com/media/en/technical-documentation/data-sheets/238718fa.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/238716f.pdf
+
+properties:
+  compatible:
+    enum:
+      - ltc2387-16
+      - ltc2387-18
+
+  pwms:
+    maxItems: 2
+    description:
+      PWM signals used to synchronize the sampling procedure 
+      
+  pwm-names:
+    description:
+    const:
+      - cnv
+      - clk_en
+
+  clocks:
+    maxItems: 1
+      Sampling clock 
+
+  dmas:
+    maxItems: 1
+
+  dma-names:
+    items:
+      - const: rx
+
+  adi,use-two-lanes:
+    description: The device uses two lanes for data transfer
+    type: boolean
+
+required:
+  - compatible
+  - pwms
+  - pwm-names
+  - clocks
+  - dmas
+  - dma-names
+
+examples:
+  dts: |
+    ltc2387: adc@0{
+      compatible = "ltc2387-16";
+      pwms = <&pwm 0 0
+              &pwm 1 0>;
+      pwm-names = "cnv", "clk_en";
+      clocks = <&ref_clk 0>;
+      dmas = <&rx_dma 0>;
+      dma-names = "rx";
+
+      adi,use-two-lanes;
+    };
