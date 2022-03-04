@@ -4,67 +4,36 @@
  *	Dong Aisheng <aisheng.dong@nxp.com>
  */
 
-vpu_subsys: bus@2c000000 {
-	compatible = "simple-bus";
+vpu: vpu@2c000000 {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0x2c000000 0x0 0x2c000000 0x2000000>;
+	reg = <0 0x2c000000 0 0x1000000>;
+	power-domains = <&pd IMX_SC_R_VPU>;
+	status = "disabled";
 
-	vpu_lpcg: clock-controller@2d000000 {
+	vpu_lpcg: clock-controller@2c000000 {
 		compatible = "fsl,imx8qxp-lpcg-vpu";
 		reg = <0x2c000000 0x2000000>;
 		#clock-cells = <1>;
 		status = "disabled";
 	};
 
-	vpu_decoder: vpu_decoder@2c000000 {
-		compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
-		reg = <0x2c000000 0x1000000>;
-		reg-names = "vpu_regs";
-		power-domains = <&pd IMX_SC_R_VPU_DEC_0>,
-				<&pd IMX_SC_R_VPU>;
-		power-domain-names = "vpudec", "vpu";
-
-		mbox-names = "tx0", "tx1", "rx";
-		mboxes = <&mu_m0 0 0
-			  &mu_m0 0 1
-			  &mu_m0 1 0>;
-
-		status = "disabled";
-	};
-
-	vpu_encoder: vpu_encoder@2d000000 {
-		compatible = "nxp,imx8qxp-b0-vpuenc";
-		reg = <0x2d000000 0x1000000>,	/*VPU Encoder*/
-			<0x2c000000 0x2000000>; /*VPU*/
-		reg-names = "vpu_regs";
-		power-domains = <&pd IMX_SC_R_VPU_ENC_0>,
-				<&pd IMX_SC_R_VPU>;
-		power-domain-names = "vpuenc1", "vpu";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		status = "disabled";
-	};
-
 	mu_m0: mailbox@2d000000 {
-		compatible = "fsl,imx8-mu0-vpu-m0", "fsl,imx6sx-mu";
+		compatible = "fsl,imx6sx-mu";
 		reg = <0x2d000000 0x20000>;
 		interrupts = <GIC_SPI 469 IRQ_TYPE_LEVEL_HIGH>;
 		#mbox-cells = <2>;
 		power-domains = <&pd IMX_SC_R_VPU_MU_0>;
-		power-domain-names = "vpumu0";
-		fsl,vpu_ap_mu_id = <16>;
 		status = "okay";
 	};
 
 	mu1_m0: mailbox@2d020000 {
-		compatible = "fsl,imx8-mu1-vpu-m0", "fsl,imx6sx-mu";
+		compatible = "fsl,imx6sx-mu";
 		reg = <0x2d020000 0x20000>;
 		interrupts = <GIC_SPI 470 IRQ_TYPE_LEVEL_HIGH>;
-		fsl,vpu_ap_mu_id = <17>;
 		#mbox-cells = <2>;
 		power-domains = <&pd IMX_SC_R_VPU_MU_1>;
-		power-domain-names = "vpumu1";
 		status = "okay";
 	};
 
@@ -72,10 +41,39 @@ vpu_subsys: bus@2c000000 {
 		compatible = "fsl,imx8-mu2-vpu-m0", "fsl,imx6sx-mu";
 		reg = <0x2d040000 0x20000>;
 		interrupts = <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>;
-		fsl,vpu_ap_mu_id = <18>;
 		#mbox-cells = <2>;
 		power-domains = <&pd IMX_SC_R_VPU_MU_2>;
-		power-domain-names = "vpumu2";
+		status = "disabled";
+	};
+
+	vpu_core0: vpu-core@2d080000 {
+		reg = <0x2d080000 0x10000>;
+		compatible = "nxp,imx8q-vpu-decoder";
+		power-domains = <&pd IMX_SC_R_VPU_DEC_0>;
+		mbox-names = "tx0", "tx1", "rx";
+		mboxes = <&mu_m0 0 0>,
+			<&mu_m0 0 1>,
+			<&mu_m0 1 0>;
+		status = "disabled";
+	};
+	vpu_core1: vpu-core@2d090000 {
+		reg = <0x2d090000 0x10000>;
+		compatible = "nxp,imx8q-vpu-encoder";
+		power-domains = <&pd IMX_SC_R_VPU_ENC_0>;
+		mbox-names = "tx0", "tx1", "rx";
+		mboxes = <&mu1_m0 0 0>,
+			<&mu1_m0 0 1>,
+			<&mu1_m0 1 0>;
+		status = "disabled";
+	};
+	vpu_core2: vpu-core@2d0a0000 {
+		reg = <0x2d0a0000 0x10000>;
+		compatible = "nxp,imx8q-vpu-encoder";
+		power-domains = <&pd IMX_SC_R_VPU_ENC_1>;
+		mbox-names = "tx0", "tx1", "rx";
+		mboxes = <&mu2_m0 0 0>,
+			<&mu2_m0 0 1>,
+			<&mu2_m0 1 0>;
 		status = "disabled";
 	};
 };

@@ -102,9 +102,13 @@
 			no-map;
 			reg = <0 0x84000000 0 0x2000000>;
 		};
-		encoder_boot: encoder_boot@86000000 {
+		encoder1_boot: encoder1_boot@86000000 {
 			no-map;
-			reg = <0 0x86000000 0 0x400000>;
+			reg = <0 0x86000000 0 0x200000>;
+		};
+		encoder2_boot: encoder2_boot@86200000 {
+			no-map;
+			reg = <0 0x86200000 0 0x200000>;
 		};
 		/*
 		 * reserved-memory layout
@@ -134,17 +138,17 @@
 			no-map;
 			reg = <0 0x92000000 0 0x0>;
 		};
-		encoder_rpc: encoder_rpc@92200000 {
-			no-map;
-			reg = <0 0x92200000 0 0x0>;
-		};
 		dsp_reserved: dsp@92400000 {
 			no-map;
 			reg = <0 0x92400000 0 0x2000000>;
 		};
-		encoder_reserved: encoder_reserved@94400000 {
+		encoder1_rpc: encoder1_rpc@94400000 {
 			no-map;
-			reg = <0 0x94400000 0 0x800000>;
+			reg = <0 0x94400000 0 0x700000>;
+		};
+		encoder2_rpc: encoder1_rpc@94b00000 {
+			no-map;
+			reg = <0 0x94b00000 0 0x700000>;
 		};
 
 		/* global autoconfigured region for contiguous allocations */
@@ -1742,56 +1746,27 @@
 	status = "okay";
 };
 
-&vpu_decoder {
-	compatible = "nxp,imx8qm-b0-vpudec";
-	boot-region = <&decoder_boot>;
-	rpc-region = <&decoder_rpc>;
-	reg-csr = <0x2d080000>;
-	core_type = <2>;
+&vpu {
+	compatible = "nxp,imx8qm-vpu";
 	status = "okay";
 };
 
-&vpu_encoder {
-	compatible = "nxp,imx8qm-b0-vpuenc";
-	boot-region = <&encoder_boot>;
-	rpc-region = <&encoder_rpc>;
-	reserved-region = <&encoder_reserved>;
-	reg-rpc-system = <0x40000000>;
-	resolution-max = <1920 1080>;
-	power-domains = <&pd IMX_SC_R_VPU_ENC_0>, <&pd IMX_SC_R_VPU_ENC_1>,
-			<&pd IMX_SC_R_VPU>;
-	power-domain-names = "vpuenc1", "vpuenc2", "vpu";
-	mbox-names = "enc1_tx0", "enc1_tx1", "enc1_rx",
-		     "enc2_tx0", "enc2_tx1", "enc2_rx";
-	mboxes = <&mu1_m0 0 0
-		  &mu1_m0 0 1
-		  &mu1_m0 1 0
-		  &mu2_m0 0 0
-		  &mu2_m0 0 1
-		  &mu2_m0 1 0>;
+&vpu_core0 {
+	reg = <0x2d080000 0x10000>;
+	memory-region = <&decoder_boot>, <&decoder_rpc>;
 	status = "okay";
+};
 
-	core0@1020000 {
-		compatible = "fsl,imx8-mu1-vpu-m0";
-		reg = <0x1020000 0x20000>;
-		reg-csr = <0x1090000 0x10000>;
-		interrupts = <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>;
-		fsl,vpu_ap_mu_id = <17>;
-		fw-buf-size = <0x200000>;
-		rpc-buf-size = <0x80000>;
-		print-buf-size = <0x80000>;
-	};
+&vpu_core1 {
+	reg = <0x2d090000 0x10000>;
+	memory-region = <&encoder1_boot>, <&encoder1_rpc>;
+	status = "okay";
+};
 
-	core1@1040000 {
-		compatible = "fsl,imx8-mu2-vpu-m0";
-		reg = <0x1040000 0x20000>;
-		reg-csr = <0x10A0000 0x10000>;
-		interrupts = <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>;
-		fsl,vpu_ap_mu_id = <18>;
-		fw-buf-size = <0x200000>;
-		rpc-buf-size = <0x80000>;
-		print-buf-size = <0x80000>;
-	};
+&vpu_core2 {
+	reg = <0x2d0a0000 0x10000>;
+	memory-region = <&encoder2_boot>, <&encoder2_rpc>;
+	status = "okay";
 };
 
 &lsio_gpio0 {

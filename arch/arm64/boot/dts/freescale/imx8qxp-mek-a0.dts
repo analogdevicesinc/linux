@@ -6,11 +6,3 @@
 /dts-v1/;
 
 #include "imx8qxp-mek.dts"
-
-&vpu_encoder {
-	status = "disabled";
-};
-
-&vpu_decoder {
-	status = "disabled";
-};

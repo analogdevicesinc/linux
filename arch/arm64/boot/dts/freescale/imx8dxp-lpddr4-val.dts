@@ -18,7 +18,3 @@
 	extcon = <&typec_ptn5150>;
 	status = "okay";
 };
-
-&vpu_decoder {
-	status = "okay";
-};

@@ -97,12 +97,7 @@
 		};
 
 		decoder_rpc: decoder-rpc@92000000 {
-			reg = <0 0x92000000 0 0x200000>;
-			no-map;
-		};
-
-		encoder_rpc: encoder-rpc@92200000 {
-			reg = <0 0x92200000 0 0x200000>;
+			reg = <0 0x92000000 0 0x100000>;
 			no-map;
 		};
 
@@ -130,9 +125,9 @@
 			no-map;
 		};
 
-		encoder_reserved: encoder_reserved@94400000 {
+		encoder_rpc: encoder-rpc@94400000 {
+			reg = <0 0x94400000 0 0x700000>;
 			no-map;
-			reg = <0 0x94400000 0 0x800000>;
 		};
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
@@ -1098,37 +1093,21 @@
 	status = "okay";
 };
 
-&vpu_decoder {
-	boot-region = <&decoder_boot>;
-	rpc-region = <&decoder_rpc>;
-	reg-csr = <0x2d040000>;
-	core_type = <1>;
+&vpu {
+	compatible = "nxp,imx8qxp-vpu";
 	status = "okay";
 };
 
-&vpu_encoder {
-	boot-region = <&encoder_boot>;
-	rpc-region = <&encoder_rpc>;
-	reserved-region = <&encoder_reserved>;
-	reg-rpc-system = <0x40000000>;
-	resolution-max = <1920 1920>;
-	fps-max = <120>;
-	mbox-names = "enc1_tx0", "enc1_tx1", "enc1_rx";
-	mboxes = <&mu1_m0 0 0
-		  &mu1_m0 0 1
-		  &mu1_m0 1 0>;
+&vpu_core0 {
+	reg = <0x2d040000 0x10000>;
+	memory-region = <&decoder_boot>, <&decoder_rpc>;
 	status = "okay";
+};
 
-	core0@1020000 {
-		compatible = "fsl,imx8-mu1-vpu-m0";
-		reg = <0x1020000 0x20000>;
-		reg-csr = <0x1050000 0x10000>;
-		interrupts = <GIC_SPI 470 IRQ_TYPE_LEVEL_HIGH>;
-		fsl,vpu_ap_mu_id = <17>;
-		fw-buf-size = <0x200000>;
-		rpc-buf-size = <0x80000>;
-		print-buf-size = <0x80000>;
-	};
+&vpu_core1 {
+	reg = <0x2d050000 0x10000>;
+	memory-region = <&encoder_boot>, <&encoder_rpc>;
+	status = "okay";
 };
 
 &gpu_3d0 {

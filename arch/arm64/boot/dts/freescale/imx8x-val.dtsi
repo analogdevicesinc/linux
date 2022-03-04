@@ -841,7 +841,3 @@
 		};
 	};
 };
-
-&vpu_encoder {
-	status = "okay";
-};

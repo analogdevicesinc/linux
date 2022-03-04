@@ -26,20 +26,21 @@
 			reg = <0 0x84000000 0 0x2000000>;
 		};
 
-		encoder_boot: encoder_boot@86000000 {
+		encoder1_boot: encoder1_boot@86000000 {
 			no-map;
-			reg = <0 0x86000000 0 0x400000>;
+			reg = <0 0x86000000 0 0x200000>;
+		};
+
+		encoder2_boot: encoder2_boot@86200000 {
+			no-map;
+			reg = <0 0x86200000 0 0x200000>;
 		};
 
 		decoder_rpc: decoder_rpc@92000000 {
 			no-map;
-			reg = <0 0x92000000 0 0x200000>;
+			reg = <0 0x92000000 0 0x100000>;
 		};
 
-		encoder_rpc: encoder_rpc@92200000 {
-			no-map;
-			reg = <0 0x92200000 0 0x200000>;
-		};
 		dsp_reserved: dsp@92400000 {
 			reg = <0 0x92400000 0 0x1000000>;
 			no-map;
@@ -61,9 +62,13 @@
 			reg = <0 0x94300000 0 0x100000>;
 			no-map;
 		};
-		encoder_reserved: encoder_reserved@94400000 {
+		encoder1_rpc: encoder1_rpc@94400000 {
 			no-map;
-			reg = <0 0x94400000 0 0x800000>;
+			reg = <0 0x94400000 0 0x700000>;
+		};
+		encoder2_rpc: encoder1_rpc@94b00000 {
+			no-map;
+			reg = <0 0x94b00000 0 0x700000>;
 		};
 
 		/* global autoconfigured region for contiguous allocations */
