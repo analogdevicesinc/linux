@@ -22,6 +22,10 @@
 	fsl,hdcp;
 };
 
+&battery {
+	status = "disabled";
+};
+
 &i2c2 {
 	status = "disable";
 };
