@@ -1604,6 +1604,7 @@ enum netdev_priv_flags {
 enum netdev_ml_priv_type {
 	ML_PRIV_NONE,
 	ML_PRIV_CAN,
+	ML_PRIV_OPEN_ALLIANCE,
 };
 
 /**

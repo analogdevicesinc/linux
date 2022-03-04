@@ -144,6 +144,19 @@ source "drivers/net/ethernet/nvidia/Kconfig"
 source "drivers/net/ethernet/nxp/Kconfig"
 source "drivers/net/ethernet/oki-semi/Kconfig"
 
+config OPEN_ALLIANCE
+	tristate "Open Alliance 10BASE-T1x support."
+	select CRC8
+	depends on SPI
+	help
+	  The Open Alliance SPI protocol is used on 10BASE-T1x
+	  MACPHY Serial Interface for communication
+	  with the host controller.
+	  Say Y to include support for the OPEN_ALLIANCE.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called dnet.
+
 config ETHOC
 	tristate "OpenCores 10/100 Mbps Ethernet MAC support"
 	depends on HAS_IOMEM && HAS_DMA

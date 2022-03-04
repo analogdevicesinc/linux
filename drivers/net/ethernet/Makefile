@@ -67,6 +67,7 @@ obj-$(CONFIG_NET_VENDOR_NI) += ni/
 obj-$(CONFIG_NET_VENDOR_NVIDIA) += nvidia/
 obj-$(CONFIG_LPC_ENET) += nxp/
 obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
+obj-$(CONFIG_OPEN_ALLIANCE) += open_alliance.o
 obj-$(CONFIG_ETHOC) += ethoc.o
 obj-$(CONFIG_NET_VENDOR_PACKET_ENGINES) += packetengines/
 obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
