@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices LTC2387
+ *
+ * hdl_project: <ltc2387_fmc/zed>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+
+	clocks {
+		ext_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ref_clk: clk@0x44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&ext_clk>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "ref_clk";
+	};
+
+	axi_pwm_gen: pwm@0x44a60000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44a60000 0x1000>;
+		label = "ltc2387_if";
+		#pwm-cells = <2>;
+		clocks = <&ref_clk 0>;
+	};
+
+	ltc2387: adc@0{
+		compatible = "ltc2387-16";
+		pwms = <&axi_pwm_gen 0 0
+			&axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		clocks = <&ref_clk 0>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		adi,use-two-lanes;
+	};
+};
