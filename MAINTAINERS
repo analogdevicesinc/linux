@@ -996,6 +996,7 @@ L:	linux-iio@vger.kernel.org
 S:	Supported
 W:	http://ez.analog.com/community/linux-device-drivers
 F:	Documentation/devicetree/bindings/iio/adc/ad4630.yaml
+F:	arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts
 F:	drivers/iio/adc/ad4630.c
 
 ANALOG DEVICES INC AD5686 DRIVER
