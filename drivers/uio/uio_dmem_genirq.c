@@ -170,7 +170,7 @@ static int uio_dmem_genirq_probe(struct platform_device *pdev)
 					       pdev->dev.of_node);
 		uioinfo->version = "devicetree";
 		/* alloc pdata */
-		pdata = kzalloc(sizeof(pdata), GFP_KERNEL);
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 		if (!pdata) {
 			dev_err(&pdev->dev, "unable to kmalloc\n");
 			return -ENOMEM;
