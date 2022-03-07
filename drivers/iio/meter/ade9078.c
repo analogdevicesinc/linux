@@ -1025,85 +1025,39 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
 	u32 interrupts;
-	u32 number;
 	int ret;
+	struct irq_wfb_trig {
+		u32 irq;
+		u32 wfb_trg;
+	};
+	struct irq_wfb_trig trig_arr[6] = {
+		{.irq = ADE9078_ST1_ZXVA_BIT | ADE9078_ST1_ZXTOVA_BIT,
+		 .wfb_trg = ADE9078_WFB_TRG_ZXVA_BIT
+		},
+		{.irq = ADE9078_ST1_ZXIA_BIT,
+		 .wfb_trg = ADE9078_WFB_TRG_ZXIA_BIT
+		},
+		{.irq = ADE9078_ST1_ZXVB_BIT | ADE9078_ST1_ZXTOVB_BIT,
+		 .wfb_trg = ADE9078_WFB_TRG_ZXVB_BIT
+		},
+		{.irq = ADE9078_ST1_ZXIB_BIT,
+		 .wfb_trg = ADE9078_WFB_TRG_ZXIB_BIT
+		},
+		{.irq = ADE9078_ST1_ZXVC_BIT | ADE9078_ST1_ZXTOVC_BIT,
+		 .wfb_trg = ADE9078_WFB_TRG_ZXVC_BIT
+		},
+		{.irq = ADE9078_ST1_ZXIC_BIT,
+		 .wfb_trg = ADE9078_WFB_TRG_ZXIC_BIT
+		},
+	};
 
-	number = chan->channel;
-
-	switch (number) {
-	case ADE9078_PHASE_A_NR:
-//TODO I would use a lookup on the phase into an array of structures.
-//The structure would then have fields for which bit to set etc
-//for a voltage channel and for a current channel.
-//
-//That way this all becomes one bit of code and some const data
-//rather that 3 sets of near identical code. If you can make
-//this sort of thing data rather than code that is almost always
-//the best choice.
-		if (chan->type == IIO_VOLTAGE) {
-			if (state) {
-				interrupts |= ADE9078_ST1_ZXVA_BIT;
-				interrupts |= ADE9078_ST1_ZXTOVA_BIT;
-				st->wfb_trg |= ADE9078_WFB_TRG_ZXVA_BIT;
-			} else {
-				interrupts &= ~ADE9078_ST1_ZXVA_BIT;
-				interrupts &= ~ADE9078_ST1_ZXTOVA_BIT;
-				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXVA_BIT;
-			}
-		} else if (chan->type == IIO_CURRENT) {
-			if (state) {
-				interrupts |= ADE9078_ST1_ZXIA_BIT;
-				st->wfb_trg |= ADE9078_WFB_TRG_ZXIA_BIT;
-			} else {
-				interrupts &= ~ADE9078_ST1_ZXIA_BIT;
-				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXIA_BIT;
-			}
-		}
-		break;
-	case ADE9078_PHASE_B_NR:
-		if (chan->type == IIO_VOLTAGE) {
-			if (state) {
-				interrupts |= ADE9078_ST1_ZXVB_BIT;
-				interrupts |= ADE9078_ST1_ZXTOVB_BIT;
-				st->wfb_trg |= ADE9078_WFB_TRG_ZXVB_BIT;
-			} else {
-				interrupts &= ~ADE9078_ST1_ZXVB_BIT;
-				interrupts &= ~ADE9078_ST1_ZXTOVB_BIT;
-				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXVB_BIT;
-			}
-		} else if (chan->type == IIO_CURRENT) {
-			if (state) {
-				interrupts |= ADE9078_ST1_ZXIB_BIT;
-				st->wfb_trg |= ADE9078_WFB_TRG_ZXIB_BIT;
-			} else {
-				interrupts &= ~ADE9078_ST1_ZXIB_BIT;
-				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXIB_BIT;
-			}
-		}
-		break;
-	case ADE9078_PHASE_C_NR:
-		if (chan->type == IIO_VOLTAGE) {
-			if (state) {
-				interrupts |= ADE9078_ST1_ZXVC_BIT;
-				interrupts |= ADE9078_ST1_ZXTOVC_BIT;
-				st->wfb_trg |= ADE9078_WFB_TRG_ZXVC_BIT;
-			} else {
-				interrupts &= ~ADE9078_ST1_ZXVC_BIT;
-				interrupts &= ~ADE9078_ST1_ZXTOVC_BIT;
-				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXVC_BIT;
-			}
-		} else if (chan->type == IIO_CURRENT) {
-			if (state) {
-				interrupts |= ADE9078_ST1_ZXIC_BIT;
-				st->wfb_trg |= ADE9078_WFB_TRG_ZXIC_BIT;
-			} else {
-				interrupts &= ~ADE9078_ST1_ZXIC_BIT;
-				st->wfb_trg &= ~ADE9078_WFB_TRG_ZXIC_BIT;
-			}
-		}
-		break;
-	default:
-		return -EINVAL;
+	if (state) {
+		interrupts |= trig_arr[chan->channel + chan->type].irq;
+		st->wfb_trg |= trig_arr[chan->channel + chan->type].wfb_trg;
+	}
+	else {
+		interrupts &= ~trig_arr[chan->channel + chan->type].irq;
+		st->wfb_trg &= ~trig_arr[chan->channel + chan->type].wfb_trg;
 	}
 
 	ret = regmap_write(st->regmap, ADE9078_REG_STATUS1, GENMASK(31, 0));
