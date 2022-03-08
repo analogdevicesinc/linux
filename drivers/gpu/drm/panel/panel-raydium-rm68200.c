@@ -253,12 +253,12 @@ static int rm68200_unprepare(struct drm_panel *panel)
 {
 	struct rm68200 *ctx = panel_to_rm68200(panel);
 
-	gpiod_set_value_cansleep(ctx->enable_gpio, 0);
-
 	if (ctx->reset_gpio) {
 		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 		msleep(20);
 	}
+
+	gpiod_set_value_cansleep(ctx->enable_gpio, 0);
 
 	regulator_disable(ctx->supply);
 
@@ -276,14 +276,14 @@ static int rm68200_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
+	gpiod_set_value_cansleep(ctx->enable_gpio, 1);
+
 	if (ctx->reset_gpio) {
 		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 		msleep(20);
 		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 		msleep(100);
 	}
-
-	gpiod_set_value_cansleep(ctx->enable_gpio, 1);
 
 	return 0;
 }
