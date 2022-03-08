@@ -12,17 +12,17 @@
 		#size-cells = <1>;
 		ranges;
 
-		m4_reserved: m4@0x9ff00000 {
+		m4_reserved: m4@9ff00000 {
 			no-map;
 			reg = <0x9ff00000 0x100000>;
 		};
 
-		rpmsg_reserved: rpmsg@0xbff00000 {
+		rpmsg_reserved: rpmsg@bff00000 {
 			no-map;
 			reg = <0xbff00000 0x100000>;
 		};
 	};
-	m4_tcm: tcml@007f8000 {
+	m4_tcm: tcml@7f8000 {
 		compatible = "fsl, m4_tcml";
 		reg = <0x007f8000 0x8000>;
 	};
