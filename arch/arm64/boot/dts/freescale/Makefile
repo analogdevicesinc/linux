@@ -240,7 +240,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8ulp-evk.dtb imx8ulp-evk-lpspi-slave.dtb \
 			  imx8ulp-evk-i3c.dtb imx8ulp-evk-rk055hdmipi4m.dtb imx8ulp-evk-rk055hdmipi4mv2.dtb \
 			  imx8ulp-evk-epdc.dtb imx8ulp-evk-sof-btsco.dtb \
-			  imx8ulp-evk-flexio-i2c.dtb imx8ulp-evk-nd.dtb imx8ulp-9x9-evk.dtb
+			  imx8ulp-evk-flexio-i2c.dtb imx8ulp-evk-nd.dtb imx8ulp-9x9-evk.dtb \
+			  imx8ulp-9x9-evk-rk055hdmipi4m.dtb imx8ulp-9x9-evk-rk055hdmipi4mv2.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-14x14-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-kontron-bl-osm-s.dtb
