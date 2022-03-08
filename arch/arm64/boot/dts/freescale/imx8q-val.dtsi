@@ -34,11 +34,11 @@
 		#size-cells = <2>;
 		ranges;
 
-		decoder_boot: decoder_boot@0x84000000 {
+		decoder_boot: decoder_boot@84000000 {
 			no-map;
 			reg = <0 0x84000000 0 0x2000000>;
 		};
-		encoder_boot: encoder_boot@0x86000000 {
+		encoder_boot: encoder_boot@86000000 {
 			no-map;
 			reg = <0 0x86000000 0 0x400000>;
 		};
@@ -48,15 +48,15 @@
 		 * Shouldn't be used at A core and Linux side.
 		 *
 		 */
-		m4_reserved: m4@0x88000000 {
+		m4_reserved: m4@88000000 {
 			no-map;
 			reg = <0 0x88000000 0 0x8000000>;
 		};
-		decoder_rpc: decoder_rpc@0x92000000 {
+		decoder_rpc: decoder_rpc@92000000 {
 			no-map;
 			reg = <0 0x92000000 0 0x200000>;
 		};
-		encoder_rpc: encoder_rpc@0x92200000 {
+		encoder_rpc: encoder_rpc@92200000 {
 			no-map;
 			reg = <0 0x92200000 0 0x200000>;
 		};
@@ -81,7 +81,7 @@
 			reg = <0 0x94300000 0 0x100000>;
 			no-map;
 		};
-		encoder_reserved: encoder_reserved@0x94400000 {
+		encoder_reserved: encoder_reserved@94400000 {
 			no-map;
 			reg = <0 0x94400000 0 0x800000>;
 		};
