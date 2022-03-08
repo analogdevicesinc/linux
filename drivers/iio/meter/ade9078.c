@@ -1236,18 +1236,15 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 		wfg_cfg_val = 0x0;
 		break;
 	}
-//TODO Generic device properties form include/linux/properties.h only for new
-//IIO drivers unless there is a very strong reason why it won't work.
-	ret = of_property_read_u32((&st->spi->dev)->of_node, "adi,wf-cap-sel",
-				   &tmp);
+
+	ret = device_property_read_u32(&st->spi->dev, "adi,wf-cap-sel", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get wf-cap-sel: %d\n", ret);
 		return ret;
 	}
 	wfg_cfg_val |= FIELD_PREP(ADE9078_WF_CAP_SEL_MASK, tmp);
 
-	ret = of_property_read_u32((&st->spi->dev)->of_node, "adi,wf-mode",
-				   &tmp);
+	ret = device_property_read_u32(&st->spi->dev, "adi,wf-mode", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get wf-mode: %d\n", ret);
 		return ret;
@@ -1255,8 +1252,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	wfg_cfg_val |= FIELD_PREP(ADE9078_WF_MODE_MASK, tmp);
 	st->wf_mode = tmp;
 
-	ret = of_property_read_u32((&st->spi->dev)->of_node, "adi,wf-src",
-				   &tmp);
+	ret = device_property_read_u32(&st->spi->dev, "adi,wf-src", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev,
 			"Failed to get wf-src: %d\n",
@@ -1265,8 +1261,7 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	}
 	wfg_cfg_val |= FIELD_PREP(ADE9078_WF_SRC_MASK, tmp);
 
-	ret = of_property_read_u32((&st->spi->dev)->of_node, "adi,wf-in-en",
-				   &tmp);
+	ret = device_property_read_u32(&st->spi->dev, "adi,wf-in-en", &tmp);
 	if (ret) {
 		dev_err(&st->spi->dev, "Failed to get wf-in-en: %d\n", ret);
 		return ret;
