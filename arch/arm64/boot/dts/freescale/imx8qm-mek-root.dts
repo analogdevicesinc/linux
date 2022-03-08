@@ -64,28 +64,28 @@
 
 &{/reserved-memory} {
 
-	jh_reserved: jh@0xfdc00000 {
+	jh_reserved: jh@fdc00000 {
 		no-map;
 		reg = <0x0 0xfdc00000 0x0 0x400000>;
 	};
 
-	loader_reserved: loader@0xfdb00000 {
+	loader_reserved: loader@fdb00000 {
 		no-map;
 		reg = <0x0 0xfdb00000 0x0 0x00100000>;
 	};
 
-	ivshmem_reserved: ivshmem@0xfd900000 {
+	ivshmem_reserved: ivshmem@fd900000 {
 		no-map;
 		reg = <0x0 0xfd900000 0x0 0x00200000>;
 	};
 
-	pci_reserved: pci@0xfd700000 {
+	pci_reserved: pci@fd700000 {
 		no-map;
 		reg = <0x0 0xfd700000 0x0 0x00200000>;
 	};
 
 	/* Decrease if no need such big memory */
-	inmate_reserved: inmate@0xdf7000000 {
+	inmate_reserved: inmate@df7000000 {
 		no-map;
 		reg = <0x0 0xdf700000 0x0 0x1e000000>;
 	};

@@ -331,42 +331,42 @@
 		#size-cells = <2>;
 		ranges;
 
-		decoder_boot@0x84000000 {
+		decoder_boot@84000000 {
 			no-map;
 			reg = <0 0x84000000 0 0x2000000>;
 			xen,passthrough;
 		};
-		encoder_boot@0x86000000 {
+		encoder_boot@86000000 {
 			no-map;
 			reg = <0 0x86000000 0 0x400000>;
 			xen,passthrough;
 		};
-		m4@0x88000000 {
+		m4@88000000 {
 			no-map;
 			reg = <0 0x88000000 0 0x8000000>;
 			xen,passthrough;
 		};
-		decoder_rpc@0x92000000 {
+		decoder_rpc@92000000 {
 			no-map;
 			reg = <0 0x92000000 0 0x200000>;
 			xen,passthrough;
 		};
-		encoder_rpc@0x92200000 {
+		encoder_rpc@92200000 {
 			no-map;
 			reg = <0 0x92200000 0 0x200000>;
 			xen,passthrough;
 		};
-		dsp@0x92400000 {
+		dsp@92400000 {
 			no-map;
 			reg = <0 0x92400000 0 0x2000000>;
 			xen,passthrough;
 		};
-		encoder_reserved@0x94400000 {
+		encoder_reserved@94400000 {
 			no-map;
 			reg = <0 0x94400000 0 0x800000>;
 			xen,passthrough;
 		};
-		ts_boot@0x95000000 {
+		ts_boot@95000000 {
 			no-map;
 			reg = <0 0x95000000 0 0x400000>;
 			xen,passthrough;

@@ -38,7 +38,7 @@
 		 * Shouldn't be used at A core and Linux side.
 		 *
 		 */
-		m4_reserved: m4@0x88000000 {
+		m4_reserved: m4@88000000 {
 			no-map;
 			reg = <0 0x88000000 0 0x8000000>;
 		};

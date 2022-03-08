@@ -89,7 +89,7 @@
 		power-domains = <&pd IMX_SC_R_SATA_0>;
 	};
 
-	pciea: pcie@0x5f000000 {
+	pciea: pcie@5f000000 {
 		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
 		reg = <0x5f000000 0x10000>, /* Controller reg */
 		      <0x6ff00000 0x80000>, /* PCI cfg space */
@@ -135,7 +135,7 @@
 		status = "disabled";
 	};
 
-	pciea_ep: pcie_ep@0x5f000000 {
+	pciea_ep: pcie_ep@5f000000 {
 		compatible = "fsl,imx8qm-pcie-ep";
 		reg = <0x5f000000 0x00010000>,
 		      <0x5f080000 0xf0000>, /* lpcg, csr, msic, gpio */
@@ -169,7 +169,7 @@
 		status = "disabled";
 	};
 
-	pcieb: pcie@0x5f010000 {
+	pcieb: pcie@5f010000 {
 		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
 		reg = <0x5f010000 0x10000>, /* Controller reg */
 		      <0x7ff00000 0x80000>, /* PCI cfg space */
