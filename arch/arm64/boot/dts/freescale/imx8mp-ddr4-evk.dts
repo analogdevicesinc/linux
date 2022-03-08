@@ -8,9 +8,7 @@
 / {
 	model = "NXP i.MX8MPlus DDR4 EVK board";
 
-	gpio-leds {
-		status = "disabled";
-	};
+	/delete-node/ gpio-leds;
 };
 
 &flexspi {
