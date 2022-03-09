@@ -39,6 +39,10 @@
 // TX_JESD_NP=12
 
 #include "zynqmp-zcu102-rev10-ad9081.dts"
+#include <dt-bindings/jesd204/device-states.h>
+
+#define JESD204_FSM_STOP_STATES		1
+#define JESD204_SUBCLASS		1
 
 &fpga_axi {
 	top_device: jesd204-top-device {
@@ -49,6 +53,13 @@
 		jesd204-top-device = <1>; /* This is the TOP device for TOPOLOGY 1*/
 		jesd204-link-ids = <FRAMER_LINK1_RX DEFRAMER_LINK1_TX>;
 		//jesd204-ignore-errors;
+
+#ifdef JESD204_FSM_STOP_STATES
+		jesd204-stop-states = <
+			JESD204_FSM_STATE_LINK_SETUP
+			JESD204_FSM_STATE_CLOCKS_ENABLE
+			JESD204_FSM_STATE_LINK_ENABLE>;
+#endif
 
 		jesd204-inputs =
 			<&axi_ad9081_rx_jesd2 1 FRAMER_LINK1_RX>,
@@ -63,7 +74,7 @@
 
 				adi,sample-rate = /bits/ 64 <960000000>;
 
-				adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+				adi,subclass = <JESD204_SUBCLASS>;	/* JESD SUBCLASS 0,1,2 */
 				adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 				adi,dual-link = <1>;			/* JESD Dual Link Mode */
 				adi,converters-per-device = <2>;	/* JESD M */
@@ -85,7 +96,7 @@
 
 				adi,sample-rate = /bits/ 64 <960000000>;
 
-				adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+				adi,subclass = <JESD204_SUBCLASS>;	/* JESD SUBCLASS 0,1,2 */
 				adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 				adi,dual-link = <1>;			/* JESD Dual Link Mode */
 				adi,converters-per-device = <2>;	/* JESD M */
@@ -320,8 +331,11 @@
 			adi,extended-name = "DEV_SYSREF";
 			adi,divider = <768>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-			//adi,jesd204-sysref-chan;
+#if (JESD204_SUBCLASS == 1)
+			adi,jesd204-sysref-chan;
+#else
 			adi,disable; /* Completely disable channel */
+#endif
 		};
 
 		hmc7044_c6: channel@6 {
@@ -357,8 +371,11 @@
 			adi,extended-name = "FPGA_SYSREF";
 			adi,divider = <768>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-			//adi,jesd204-sysref-chan;
+#if (JESD204_SUBCLASS == 1)
+			adi,jesd204-sysref-chan;
+#else
 			adi,disable; /* Completely disable channel */
+#endif
 		};
 	};
 };
@@ -388,11 +405,20 @@
 		jesd204-link-ids = <FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
 		//jesd204-ignore-errors;
 
+#ifdef JESD204_FSM_STOP_STATES
+		jesd204-stop-states = <
+			JESD204_FSM_STATE_LINK_SETUP
+			JESD204_FSM_STATE_CLOCKS_ENABLE
+			JESD204_FSM_STATE_LINK_ENABLE>;
+#endif
+
 		jesd204-inputs =
 			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
 			<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
 
+#if (JESD204_SUBCLASS == 0)
 		adi,continuous-sysref-mode-disable;
+#endif
 
 		adi,dual-link-use-separate-tpl-enable;
 
@@ -454,7 +480,7 @@
 					adi,logical-lane-mapping = /bits/ 8 <0 2 7 7 1 7 7 3>;
 
 					adi,link-mode = <22>;			/* JESD Quick Configuration Mode */
-					adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+					adi,subclass = <JESD204_SUBCLASS>;	/* JESD SUBCLASS 0,1,2 */
 					adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 					adi,dual-link = <1>;			/* JESD Dual Link Mode */
 
@@ -485,7 +511,7 @@
 					adi,logical-lane-mapping = /bits/ 8 <7 7 7 7 7 1 0 7>;
 
 					adi,link-mode = <22>;			/* JESD Quick Configuration Mode */
-					adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+					adi,subclass = <JESD204_SUBCLASS>;	/* JESD SUBCLASS 0,1,2 */
 					adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 					adi,dual-link = <1>;			/* JESD Dual Link Mode */
 
@@ -561,7 +587,7 @@
 					adi,logical-lane-mapping = /bits/ 8 <7 0 7 7 7 7 7 1>;
 
 					adi,link-mode = <23>;			/* JESD Quick Configuration Mode */
-					adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+					adi,subclass = <JESD204_SUBCLASS>;	/* JESD SUBCLASS 0,1,2 */
 					adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 					adi,dual-link = <1>;			/* JESD Dual Link Mode */
 
@@ -585,7 +611,7 @@
 					adi,logical-lane-mapping = /bits/ 8 <7 7 7 7 1 0 7 7>;
 
 					adi,link-mode = <23>;			/* JESD Quick Configuration Mode */
-					adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+					adi,subclass = <JESD204_SUBCLASS>;	/* JESD SUBCLASS 0,1,2 */
 					adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 					adi,dual-link = <1>;			/* JESD Dual Link Mode */
 
