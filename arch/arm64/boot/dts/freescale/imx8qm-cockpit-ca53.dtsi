@@ -252,6 +252,12 @@
 			compatible = "fsl,imx8qm-sc-rtc";
 		};
 
+		scu_key: scu-key {
+			compatible = "fsl,imx8qm-sc-key", "fsl,imx-sc-key";
+			linux,keycodes = <KEY_POWER>;
+			wakeup-source;
+		};
+
 		watchdog {
 			compatible = "fsl,imx8qm-sc-wdt", "fsl,imx-sc-wdt";
 			timeout-sec = <60>;
@@ -367,12 +373,6 @@
 		mboxes = <&lsio_mu8 0 1
 			  &lsio_mu8 1 1>;
 		status = "disabled";
-	};
-
-	sc_pwrkey: sc-powerkey {
-		compatible = "fsl,imx8-pwrkey";
-		linux,keycode = <KEY_POWER>;
-		wakeup-source;
 	};
 
 	vpu_subsys_dsp: bus@55000000 {
