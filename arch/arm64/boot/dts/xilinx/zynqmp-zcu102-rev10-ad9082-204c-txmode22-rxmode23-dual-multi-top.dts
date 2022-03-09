@@ -244,27 +244,6 @@
 	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 };
 
-&fpga_axi {
-	axi_data_offload_tx0: axi-data-offload-tx0@9c440000 {
-		compatible = "adi,axi-data-offload-1.0.a";
-		reg = <0x9c440000 0x10000>;
-		// adi,bringup;
-		// adi,oneshot;
-		// adi,bypass;
-		// adi,sync-config = <2>;
-		// adi,transfer-length = /bits/ 64 <0x10000>; // 2**16 bytes
-	};
-
-	axi_data_offload_rx0: axi-data-offload-rx0@9c450000 {
-		compatible = "adi,axi-data-offload-1.0.a";
-		reg = <0x9c450000 0x10000>;
-	};
-};
-
-&axi_ad9081_core_tx {
-	adi,axi-data-offload-connected = <&axi_data_offload_tx0>;
-};
-
 &spi1 {
 	status = "okay";
 
