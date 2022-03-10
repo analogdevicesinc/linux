@@ -343,72 +343,69 @@ __update_main_mirror() {
 
 __handle_sync_with_main() {
 	local dst_branch="$1"
-	local method="$2"
+	local depth
 
 	__update_git_ref "$dst_branch" || {
 		echo_red "Could not fetch branch '$dst_branch'"
 		return 1
 	}
 
-	if [ "$method" = "cherry-pick" ] ; then
-		local depth
-		if [ "$GIT_FETCH_DEPTH" = "disabled" ] ; then
-			depth=50
-		else
-			GIT_FETCH_DEPTH=${GIT_FETCH_DEPTH:-50}
-			depth=$((GIT_FETCH_DEPTH - 1))
-		fi
-		# FIXME: kind of dumb, the code below; maybe do this a bit neater
-		local cm="$(git log "FETCH_HEAD~${depth}..FETCH_HEAD" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
-		[ -n "$cm" ] || {
-			echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
-			return 1
-		}
-		branch_contains_commit "$cm" "${ORIGIN}/${MAIN_BRANCH}" || {
-			echo_red "Commit '$cm' is not in branch '${MAIN_BRANCH}'"
-			return 1
-		}
-		# Make sure that we are adding something new, or cherry-pick complains
-		if git diff --quiet "$cm" "${ORIGIN}/${MAIN_BRANCH}" ; then
-			return 0
-		fi
-
-		tmpfile=$(mktemp)
-
-		if [ "$CI" = "true" ] ; then
-			# setup an email account so that we can cherry-pick stuff
-			git config user.name "CSE CI"
-			git config user.email "cse-ci-notifications@analog.com"
-		fi
-
-		git checkout FETCH_HEAD
-		# cherry-pick until all commits; if we get a merge-commit, handle it
-		git cherry-pick -x "${cm}..${ORIGIN}/${MAIN_BRANCH}" 1>/dev/null 2>$tmpfile || {
-			was_a_merge=0
-			while grep -q "is a merge" $tmpfile ; do
-				was_a_merge=1
-				# clear file
-				cat /dev/null > $tmpfile
-				# retry ; we may have a new merge commit
-				git cherry-pick --continue 1>/dev/null 2>$tmpfile || {
-					was_a_merge=0
-					continue
-				}
-			done
-			if [ "$was_a_merge" != "1" ]; then
-				echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/${MAIN_BRANCH}'"
-				echo_red "$(cat $tmpfile)"
-				return 1
-			fi
-		}
-		__push_back_to_github "$dst_branch" || return 1
+	if [ "$GIT_FETCH_DEPTH" = "disabled" ] ; then
+		depth=50
+	else
+		GIT_FETCH_DEPTH=${GIT_FETCH_DEPTH:-50}
+		depth=$((GIT_FETCH_DEPTH - 1))
+	fi
+	# FIXME: kind of dumb, the code below; maybe do this a bit neater
+	local cm="$(git log "FETCH_HEAD~${depth}..FETCH_HEAD" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
+	[ -n "$cm" ] || {
+		echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
+		return 1
+	}
+	branch_contains_commit "$cm" "${ORIGIN}/${MAIN_BRANCH}" || {
+		echo_red "Commit '$cm' is not in branch '${MAIN_BRANCH}'"
+		return 1
+	}
+	# Make sure that we are adding something new, or cherry-pick complains
+	if git diff --quiet "$cm" "${ORIGIN}/${MAIN_BRANCH}" ; then
 		return 0
 	fi
+
+	tmpfile=$(mktemp)
+
+	if [ "$CI" = "true" ] ; then
+		# setup an email account so that we can cherry-pick stuff
+		git config user.name "CSE CI"
+		git config user.email "cse-ci-notifications@analog.com"
+	fi
+
+	git checkout FETCH_HEAD
+	# cherry-pick until all commits; if we get a merge-commit, handle it
+	git cherry-pick -x "${cm}..${ORIGIN}/${MAIN_BRANCH}" 1>/dev/null 2>$tmpfile || {
+		was_a_merge=0
+		while grep -q "is a merge" $tmpfile ; do
+			was_a_merge=1
+			# clear file
+			cat /dev/null > $tmpfile
+			# retry ; we may have a new merge commit
+			git cherry-pick --continue 1>/dev/null 2>$tmpfile || {
+				was_a_merge=0
+				continue
+			}
+		done
+		if [ "$was_a_merge" != "1" ]; then
+			echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/${MAIN_BRANCH}'"
+			echo_red "$(cat $tmpfile)"
+			return 1
+		fi
+	}
+	__push_back_to_github "$dst_branch" || return 1
+	return 0
 }
 
 build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
-	BRANCHES="adi-5.10.0:cherry-pick rpi-5.10.y:cherry-pick"
+	BRANCHES="adi-5.10.0 rpi-5.10.y"
 
 	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
 		echo_red "Could not fetch branch '$MAIN_BRANCH'"
@@ -418,11 +415,7 @@ build_sync_branches_with_main() {
 	__update_main_mirror "$MAIN_MIRROR"
 
 	for branch in $BRANCHES ; do
-		local dst_branch="$(echo $branch | cut -d: -f1)"
-		[ -n "$dst_branch" ] || break
-		local method="$(echo $branch | cut -d: -f2)"
-		[ -n "$method" ] || break
-		__handle_sync_with_main "$dst_branch" "$method"
+		__handle_sync_with_main "$branch"
 	done
 }
 
