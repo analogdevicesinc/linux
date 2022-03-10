@@ -323,6 +323,24 @@ __push_back_to_github() {
 	}
 }
 
+MAIN_MIRROR="xcomm_zynq"
+
+__update_main_mirror() {
+	__update_git_ref "$MAIN_MIRROR" "$MAIN_MIRROR" || {
+		echo_red "Could not fetch branch '$MAIN_BRANCH'"
+		return 1
+	}
+
+	git checkout "$MAIN_MIRROR"
+	git merge --ff-only ${ORIGIN}/${MAIN_BRANCH} || {
+		echo_red "Failed while syncing ${ORIGIN}/${MAIN_BRANCH} over '$MAIN_MIRROR'"
+		return 1
+	}
+
+	__push_back_to_github "$MAIN_MIRROR"
+	return $?
+}
+
 __handle_sync_with_main() {
 	local dst_branch="$1"
 	local method="$2"
@@ -331,16 +349,6 @@ __handle_sync_with_main() {
 		echo_red "Could not fetch branch '$dst_branch'"
 		return 1
 	}
-
-	if [ "$method" = "fast-forward" ] ; then
-		git checkout FETCH_HEAD
-		git merge --ff-only ${ORIGIN}/${MAIN_BRANCH} || {
-			echo_red "Failed while syncing ${ORIGIN}/${MAIN_BRANCH} over '$dst_branch'"
-			return 1
-		}
-		__push_back_to_github "$dst_branch" || return 1
-		return 0
-	fi
 
 	if [ "$method" = "cherry-pick" ] ; then
 		local depth
@@ -400,13 +408,14 @@ __handle_sync_with_main() {
 
 build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
-	BRANCHES="xcomm_zynq:fast-forward adi-5.10.0:cherry-pick"
-	BRANCHES="$BRANCHES rpi-5.10.y:cherry-pick"
+	BRANCHES="adi-5.10.0:cherry-pick rpi-5.10.y:cherry-pick"
 
 	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
 		echo_red "Could not fetch branch '$MAIN_BRANCH'"
 		return 1
 	}
+
+	__update_main_mirror "$MAIN_MIRROR"
 
 	for branch in $BRANCHES ; do
 		local dst_branch="$(echo $branch | cut -d: -f1)"
