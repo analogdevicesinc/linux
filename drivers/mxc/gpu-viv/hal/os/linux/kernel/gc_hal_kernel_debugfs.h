@@ -53,7 +53,9 @@
 *****************************************************************************/
 
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(5,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
+#include <linux/stdarg.h>
+#else
 #include <stdarg.h>
 #endif
 

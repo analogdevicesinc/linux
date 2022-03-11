@@ -73,6 +73,10 @@ MODULE_IMPORT_NS(DMA_BUF);
 
 #define _GC_OBJ_ZONE gcvZONE_OS
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
+
 /* Descriptor of a dma_buf imported. */
 typedef struct _gcsDMABUF
 {
