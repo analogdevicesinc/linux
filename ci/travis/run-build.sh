@@ -224,6 +224,9 @@ build_checkpatch() {
 		exit 1
 	fi
 
+	# install checkpatch dependencies
+	sudo pip install ply
+
 	__update_git_ref "${ref_branch}" "${ref_branch}"
 
 	scripts/checkpatch.pl --git "${ref_branch}.." \
