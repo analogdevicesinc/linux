@@ -326,11 +326,6 @@ __push_back_to_github() {
 MAIN_MIRROR="xcomm_zynq"
 
 __update_main_mirror() {
-	__update_git_ref "$MAIN_MIRROR" "$MAIN_MIRROR" || {
-		echo_red "Could not fetch branch '$MAIN_BRANCH'"
-		return 1
-	}
-
 	git checkout "$MAIN_MIRROR"
 	git merge --ff-only ${ORIGIN}/${MAIN_BRANCH} || {
 		echo_red "Failed while syncing ${ORIGIN}/${MAIN_BRANCH} over '$MAIN_MIRROR'"
@@ -343,33 +338,17 @@ __update_main_mirror() {
 
 __handle_sync_with_main() {
 	local dst_branch="$1"
-	local depth
+	local cm=$(git log --reverse --oneline ${MAIN_MIRROR}..${MAIN_BRANCH} | awk '{print $1}' | head -1)
+
+	[ -n "$cm" ] || {
+		echo_red "No commits to cherry-pick... Was "${MAIN_MIRROR}" manually updated?!"
+		return 1
+	}
 
 	__update_git_ref "$dst_branch" || {
 		echo_red "Could not fetch branch '$dst_branch'"
 		return 1
 	}
-
-	if [ "$GIT_FETCH_DEPTH" = "disabled" ] ; then
-		depth=50
-	else
-		GIT_FETCH_DEPTH=${GIT_FETCH_DEPTH:-50}
-		depth=$((GIT_FETCH_DEPTH - 1))
-	fi
-	# FIXME: kind of dumb, the code below; maybe do this a bit neater
-	local cm="$(git log "FETCH_HEAD~${depth}..FETCH_HEAD" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
-	[ -n "$cm" ] || {
-		echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
-		return 1
-	}
-	branch_contains_commit "$cm" "${ORIGIN}/${MAIN_BRANCH}" || {
-		echo_red "Commit '$cm' is not in branch '${MAIN_BRANCH}'"
-		return 1
-	}
-	# Make sure that we are adding something new, or cherry-pick complains
-	if git diff --quiet "$cm" "${ORIGIN}/${MAIN_BRANCH}" ; then
-		return 0
-	fi
 
 	tmpfile=$(mktemp)
 
@@ -380,8 +359,9 @@ __handle_sync_with_main() {
 	fi
 
 	git checkout FETCH_HEAD
-	# cherry-pick until all commits; if we get a merge-commit, handle it
-	git cherry-pick -x "${cm}..${ORIGIN}/${MAIN_BRANCH}" 1>/dev/null 2>$tmpfile || {
+	# cherry-pick until all commits; if we get a merge-commit, handle it. Note that
+	# ~1 is because we also want ${cm} to be cherry-picked!
+	git cherry-pick -x "${cm}~1..${ORIGIN}/${MAIN_BRANCH}" 1>/dev/null 2>$tmpfile || {
 		was_a_merge=0
 		while grep -q "is a merge" $tmpfile ; do
 			was_a_merge=1
@@ -396,6 +376,7 @@ __handle_sync_with_main() {
 		if [ "$was_a_merge" != "1" ]; then
 			echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/${MAIN_BRANCH}'"
 			echo_red "$(cat $tmpfile)"
+			git cherry-pick --abort
 			return 1
 		fi
 	}
@@ -412,11 +393,29 @@ build_sync_branches_with_main() {
 		return 1
 	}
 
-	__update_main_mirror "$MAIN_MIRROR"
+	# needed for __handle_sync_with_main() so we can properly get the list
+	# of commits to cherry-pick
+	__update_git_ref "$MAIN_MIRROR" "$MAIN_MIRROR" || {
+		echo_red "Could not fetch branch '$MAIN_MIRROR'"
+		return 1
+	}
 
 	for branch in $BRANCHES ; do
-		__handle_sync_with_main "$branch"
+		__handle_sync_with_main "$branch" || {
+			# In case cherry-picking fails, we need to still make sure that our mirror
+			# get's updated. Otherwise in the next time this job is called, we will
+			# have commits to cherry-pick that do not belong to this call... Furthermore
+			# at this stage the cherry-pick needs to be handled manually. Note that,
+			# in theory, the cherry-pick should never fail for the ADI rebased branch
+			# (adi-${kernerversion}) but that is not true for the pi branch where it can
+		        # fail and where it might actually be acceptable to fail (when touching in
+			# xilinx specific code that we do not care in pi platforms).
+			__update_main_mirror "$MAIN_MIRROR"
+			return 1
+		}
 	done
+
+	__update_main_mirror "$MAIN_MIRROR"
 }
 
 ORIGIN=${ORIGIN:-origin}
