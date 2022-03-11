@@ -1236,6 +1236,15 @@ _IsGPUIdle(
     IN gckHARDWARE Hardware
     )
 {
+    return Idle == 0x7FFFFFFF;
+}
+
+static gctBOOL
+_IsGPUIdle2(
+    IN gctUINT32 Idle,
+    IN gckHARDWARE Hardware
+    )
+{
     if (Hardware->identity.chipModel == 0x7000
         && Hardware->identity.chipRevision == 0x6205
         && Hardware->identity.productID == 0x70007
@@ -1243,6 +1252,10 @@ _IsGPUIdle(
         && Hardware->identity.customerID == 0x12)
     {
         Idle = (Idle | (1 << 14));
+        if (Idle == 0x7FFFFFFF)
+        {
+            gckOS_Delay(Hardware->os, 2);
+        }
     }
 
     return Idle == 0x7FFFFFFF;
@@ -13854,7 +13867,7 @@ gckHARDWARE_ExecuteFunctions(
             }
 #endif
         }
-        while (!_IsGPUIdle(idle, hardware));
+        while (!_IsGPUIdle2(idle, hardware));
     }
 
     return gcvSTATUS_OK;

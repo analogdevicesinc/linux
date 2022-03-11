@@ -5077,6 +5077,9 @@ gckOS_SetGPUPower(
         if (platform && platform->ops->setClock)
         {
             gcmkVERIFY_OK(platform->ops->setClock(platform, Core, Clock));
+            if (Clock)
+                gckOS_Delay(Os, 2);
+
         }
 
         if (Clock)
@@ -5095,6 +5098,9 @@ gckOS_SetGPUPower(
         if (platform && platform->ops->setPower)
         {
             gcmkVERIFY_OK(platform->ops->setPower(platform, Core, Power));
+            if (Power)
+                gckOS_Delay(Os, 2);
+
         }
 
         Os->powerStates[Core] = Power;
