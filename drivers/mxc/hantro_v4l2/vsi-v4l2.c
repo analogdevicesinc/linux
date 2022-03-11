@@ -277,6 +277,20 @@ int vsi_v4l2_handle_picconsumed(struct vsi_v4l2_msg *pmsg)
 		event.u.data[0] = pmsg->params.dec_params.io_buffer.inbufidx;
 
 	v4l2_event_queue_fh(&ctx->fh, &event);
+
+	/*
+	 * Invalid inbufidx means we don't know ctrlsw drop which frame.
+	 * So, increase capture sequence to notify user.
+	 */
+	if (pmsg->params.dec_params.io_buffer.inbufidx < 0) {
+		if (mutex_lock_interruptible(&ctx->ctxlock)) {
+			put_ctx(ctx);
+			return -EBUSY;
+		}
+		ctx->cap_sequence++;
+		mutex_unlock(&ctx->ctxlock);
+	}
+
 	put_ctx(ctx);
 	return 0;
 }
@@ -491,6 +505,7 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 	struct vsi_v4l2_ctx *ctx;
 	struct vb2_queue *vq = NULL;
 	struct vb2_buffer	*vb;
+	struct vb2_v4l2_buffer *vbuf;
 	int ret = 0;
 
 	ctx = get_ctx(ctxid);
@@ -524,8 +539,16 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 			goto out;
 		}
 		atomic_inc(&ctx->srcframen);
-		if (ctx->input_que.streaming && vb->state == VB2_BUF_STATE_ACTIVE)
-			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+		if (ctx->input_que.streaming && vb->state == VB2_BUF_STATE_ACTIVE) {
+			vbuf = to_vb2_v4l2_buffer(vb);
+			vbuf->sequence = ctx->out_sequence++;
+			if (pmsg->param_type & ERROR_BUFFER_FLAG) {
+				v4l2_klog(LOGLVL_BRIEF, "got error srcbuf %d\n", inbufidx);
+				vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
+			} else {
+				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			}
+		}
 		if (isdecoder(ctx)) {
 			ctx->queued_srcnum--;
 			if (!test_bit(BUF_FLAG_QUEUED, &ctx->srcvbufflag[inbufidx])) {
@@ -595,6 +618,8 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 				ctx->buffed_cropcapnum++;
 				v4l2_klog(LOGLVL_FLOW, "dec output framed %d size = %d", outbufidx, vb->planes[0].bytesused);
 			}
+			vbuf = to_vb2_v4l2_buffer(vb);
+			vbuf->sequence = ctx->cap_sequence++;
 			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		} else {
 			v4l2_klog(LOGLVL_WARNING, "dstbuf %d is not active\n", outbufidx);

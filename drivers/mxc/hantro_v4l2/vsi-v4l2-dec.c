@@ -798,6 +798,13 @@ static int vsi_dec_buf_prepare(struct vb2_buffer *vb)
 
 static int vsi_dec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
+	struct vsi_v4l2_ctx *ctx = fh_to_ctx(q->drv_priv);
+
+	if (V4L2_TYPE_IS_OUTPUT(q->type))
+		ctx->out_sequence = 0;
+	else
+		ctx->cap_sequence = 0;
+
 	return 0;
 }
 static void vsi_dec_stop_streaming(struct vb2_queue *vq)

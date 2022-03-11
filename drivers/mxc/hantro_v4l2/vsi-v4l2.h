@@ -40,6 +40,7 @@
 #define LAST_BUFFER_FLAG	(1<<4)
 #define FORCE_IDR			(1<<5)
 #define UPDATE_INFO			(1<<6)
+#define ERROR_BUFFER_FLAG		(1 << 7)
 
 #define VSI_V4L2_MAX_ROI_REGIONS			8
 #define VSI_V4L2_MAX_ROI_REGIONS_H1		2

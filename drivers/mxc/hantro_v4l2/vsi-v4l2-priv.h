@@ -348,6 +348,9 @@ struct vsi_v4l2_ctx {
 	bool reschanged_need_notify;
 	bool need_capture_on;
 	bool need_output_on;
+
+	u32 out_sequence;
+	u32 cap_sequence;
 };
 
 int vsi_v4l2_release(struct file *filp);
