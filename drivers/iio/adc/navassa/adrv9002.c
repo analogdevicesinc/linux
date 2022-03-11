@@ -4579,7 +4579,7 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (!phy->bin_attr_buf)
 		return -ENOMEM;
 
-	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &bin_attr_profile_config);
+	ret = device_create_bin_file(&indio_dev->dev, &bin_attr_profile_config);
 	if (ret < 0)
 		return ret;
 
@@ -4587,12 +4587,12 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (!phy->stream_buf)
 		return -ENOMEM;
 
-	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &bin_attr_stream_config);
+	ret = device_create_bin_file(&indio_dev->dev, &bin_attr_stream_config);
 	if (ret < 0)
 		return ret;
 
 	for (c = 0; c < ARRAY_SIZE(hop_attrs); c++) {
-		ret = sysfs_create_bin_file(&indio_dev->dev.kobj, hop_attrs[c]);
+		ret = device_create_bin_file(&indio_dev->dev, hop_attrs[c]);
 		if (ret < 0)
 			return ret;
 	}
