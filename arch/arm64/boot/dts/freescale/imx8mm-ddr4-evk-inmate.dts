@@ -70,47 +70,7 @@
 /delete-node/ &{/busfreq};
 /delete-node/ &{/soc@0/ddr-pmu@3d800000};
 
-&hsiomix_pd {
-	status = "disabled";
-};
-
-&pcie_pd {
-	status = "disabled";
-};
-
-&usb_otg1_pd {
-	status = "disabled";
-};
-
-&usb_otg2_pd {
-	status = "disabled";
-};
-
-&gpumix_pd {
-	status = "disabled";
-};
-
-&vpumix_pd {
-	status = "disabled";
-};
-
-&vpu_g1_pd {
-	status = "disabled";
-};
-
-&vpu_g2_pd {
-	status = "disabled";
-};
-
-&vpu_h1_pd {
-	status = "disabled";
-};
-
-&dispmix_pd {
-	status = "disabled";
-};
-
-&mipi_pd {
+&gpc {
 	status = "disabled";
 };
 
