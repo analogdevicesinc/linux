@@ -124,6 +124,18 @@ static int vsi_dec_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	if (mutex_lock_interruptible(&ctx->ctxlock))
 		return -EBUSY;
 	ret = vsiv4l2_setfmt(ctx, f);
+
+	if (V4L2_TYPE_IS_OUTPUT(f->type) && !test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
+		struct v4l2_format fc;
+
+		memset(&fc, 0, sizeof(fc));
+		fc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		fc.fmt.pix.pixelformat = ctx->mediacfg.outfmt_fourcc;
+		fc.fmt.pix.width = f->fmt.pix.width;
+		fc.fmt.pix.height = f->fmt.pix.height;
+		ret = vsiv4l2_setfmt(ctx, &fc);
+	}
+
 	mutex_unlock(&ctx->ctxlock);
 	return ret;
 }
