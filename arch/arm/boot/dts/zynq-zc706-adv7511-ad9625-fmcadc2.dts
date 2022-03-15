@@ -59,16 +59,6 @@
 			reg = <0x50>;
 		};
 	};
-
-	i2c@6 { /* LPC IIC */
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <6>;
-		eeprom@50 {
-			compatible = "at24,24c02";
-			reg = <0x50>;
-		};
-	};
 };
 
 &fpga_axi {
