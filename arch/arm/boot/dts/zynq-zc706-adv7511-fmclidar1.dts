@@ -20,9 +20,9 @@
 		#size-cells = <0>;
 		reg = <5>;
 
-		eeprom@54 {
+		eeprom@50 {
 			compatible = "at24,24c02";
-			reg = <0x54>;
+			reg = <0x50>;
 		};
 	};
 };
