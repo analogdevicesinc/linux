@@ -1019,6 +1019,7 @@
 
 			crypto: crypto@2100000 {
 				compatible = "fsl,sec-v4.0";
+				entropy-delay = <12000>;
 				#address-cells = <1>;
 				#size-cells = <1>;
 				reg = <0x2100000 0x10000>;
