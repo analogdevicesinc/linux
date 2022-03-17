@@ -271,7 +271,6 @@ struct hmc7044_chan_spec {
 	bool			high_performance_mode_dis;
 	bool			start_up_mode_dynamic_enable;
 	bool			dynamic_driver_enable;
-	bool			output_control0_rb4_enable;
 	bool			force_mute_enable;
 	bool			is_sysref;
 	unsigned int		divider;
@@ -1282,8 +1281,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			return ret;
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
 			      (chan->start_up_mode_dynamic_enable ?
-			      HMC7044_START_UP_MODE_DYN_EN : 0) |
-			      (chan->output_control0_rb4_enable ? BIT(4) : 0) |
+			      HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
 			      (chan->high_performance_mode_dis ?
 			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
 			      HMC7044_CH_EN);
@@ -1485,8 +1483,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
 			(chan->start_up_mode_dynamic_enable ?
-			HMC7044_START_UP_MODE_DYN_EN : 0) |
-			(chan->output_control0_rb4_enable ? BIT(4) : 0) |
+			HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
 			(chan->high_performance_mode_dis ?
 			0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
 			HMC7044_CH_EN);
@@ -1727,9 +1724,6 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].dynamic_driver_enable =
 			of_property_read_bool(chan_np,
 					      "adi,dynamic-driver-enable");
-		hmc->channels[cnt].output_control0_rb4_enable =
-			of_property_read_bool(chan_np,
-					      "adi,control0-rb4-enable");
 		hmc->channels[cnt].force_mute_enable =
 			of_property_read_bool(chan_np,
 					      "adi,force-mute-enable");
@@ -1862,8 +1856,7 @@ static int hmc7044_continuous_chan_sync_enable(struct iio_dev *indio_dev, bool e
 
 		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
 			      (chan->start_up_mode_dynamic_enable ?
-			      HMC7044_START_UP_MODE_DYN_EN : 0) |
-			      (chan->output_control0_rb4_enable ? BIT(4) : 0) |
+			      HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
 			      (chan->high_performance_mode_dis ?
 			      0 : HMC7044_HI_PERF_MODE) |
 			      ((enable || chan->start_up_mode_dynamic_enable) ?
