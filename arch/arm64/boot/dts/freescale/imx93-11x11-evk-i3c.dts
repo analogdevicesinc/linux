@@ -30,6 +30,20 @@
 	i2c-scl-hz = <400000>;
 	status = "okay";
 
+	adv7535: hdmi@3d {
+		compatible = "adi,adv7535";
+		reg = <0x3d 0x00 0x50>;
+		adi,addr-cec = <0x3b>;
+		adi,dsi-lanes = <4>;
+		status = "okay";
+
+		port {
+			adv7535_to_dsi: endpoint {
+				remote-endpoint = <&dsi_to_adv7535>;
+			};
+		};
+	};
+
 	/* i3c device with static i2c address*/
 	lsm6dso_i3c: imu@6a,208006c0000 {
 		reg = <0x6a 0x208 0x6c0000>;

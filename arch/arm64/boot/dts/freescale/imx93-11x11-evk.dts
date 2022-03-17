@@ -212,6 +212,16 @@
 
 &dsi {
 	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			dsi_to_adv7535: endpoint {
+				remote-endpoint = <&adv7535_to_dsi>;
+			};
+		};
+	};
 };
 
 &eqos {
@@ -304,6 +314,20 @@
 			0x0000 /* 4:FN_DMICCDAT */
 			0x0000 /* 5:Default */
 		>;
+	};
+
+	adv7535: hdmi@3d {
+		compatible = "adi,adv7535";
+		reg = <0x3d>;
+		adi,addr-cec = <0x3b>;
+		adi,dsi-lanes = <4>;
+		status = "okay";
+
+		port {
+			adv7535_to_dsi: endpoint {
+				remote-endpoint = <&dsi_to_adv7535>;
+			};
+		};
 	};
 
 	inertial-meter@6a {
@@ -508,6 +532,10 @@
 	pinctrl-names = "default";
 	pinctrl-assert-gpios = <&pcal6524 19 GPIO_ACTIVE_HIGH>;
 	pinctrl-0 = <&pinctrl_uart5>;
+	status = "okay";
+};
+
+&media_blk_ctrl {
 	status = "okay";
 };
 
