@@ -49,6 +49,10 @@ stages:
       clean: true
     - script: ./ci/travis/run-build-docker.sh
       displayName: "Build test for '$(DEFCONFIG)'"
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)
+        tar -C /home/vsts/work/1/s/modules/lib/modules/./ -cvf /home/vsts/work/1/a/rpi_modules.tar.gz .
+      displayName: 'Copy modules'
     - task: CopyFiles@2
       inputs:
         sourceFolder: '$(Agent.BuildDirectory)/s/arch/arm/boot/dts/overlays'
