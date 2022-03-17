@@ -2361,6 +2361,21 @@ gcoSURF_QueryVidMemNode(
     OUT gctSIZE_T_PTR TsBytes
     );
 
+/* Query vid mem Multi node info. */
+gceSTATUS
+gcoSURF_QueryVidMemMultiNode(
+    IN gcoSURF Surface,
+    OUT gctUINT32 * Node,
+    OUT gcePOOL * Pool,
+    OUT gctSIZE_T_PTR Bytes,
+    OUT gctUINT32 * Node2,
+    OUT gcePOOL * Pool2,
+    OUT gctSIZE_T_PTR Bytes2,
+    OUT gctUINT32 * Node3,
+    OUT gcePOOL * Pool3,
+    OUT gctSIZE_T_PTR Bytes3
+    );
+
 /* Set the color type of the surface. */
 gceSTATUS
 gcoSURF_SetColorType(
