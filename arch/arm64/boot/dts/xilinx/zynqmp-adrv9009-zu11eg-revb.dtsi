@@ -17,25 +17,21 @@
 &hmc7044_c1 {
 	adi,force-mute-enable;
 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
 };
 
 &hmc7044_c3 {
 	adi,force-mute-enable;
 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
 };
 
 &hmc7044_c8 {
 	adi,force-mute-enable;
 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
 };
 
 &hmc7044_c9 {
 	adi,force-mute-enable;
 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
 };
 
 &hmc7044_c6 {
