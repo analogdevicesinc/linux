@@ -154,7 +154,6 @@
 		adi,startup-mode-dynamic-enable;
 		adi,high-performance-mode-disable;
 		adi,force-mute-enable;
-		adi,control0-rb4-enable;
 	};
 
 	hmc7044_car_c2: channel@2 {
@@ -172,7 +171,6 @@
 		adi,startup-mode-dynamic-enable;
 		adi,high-performance-mode-disable;
 		adi,force-mute-enable;
-		adi,control0-rb4-enable;
 	};
 
 	hmc7044_car_c9: channel@9 {
