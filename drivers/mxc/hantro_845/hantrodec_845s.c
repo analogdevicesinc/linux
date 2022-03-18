@@ -183,6 +183,7 @@ typedef struct {
 	int thermal_cur;
 	int thermal_event;
 	struct thermal_cooling_device *cooling;
+	bool skip_blkctrl;
 } hantrodec_t;
 
 static hantrodec_t hantrodec_data[HXDEC_MAX_CORES]; /* dynamic allocation? */
@@ -264,6 +265,9 @@ static int hantro_ctrlblk_reset(hantrodec_t *dev)
 {
 	volatile u8 *iobase;
 	u32 val;
+
+	if (dev->skip_blkctrl)
+		return 0;
 
 	//config G1/G2
 	hantro_clk_enable(&dev->clk);
@@ -1934,6 +1938,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	int err = 0;
 	struct resource *res;
 	int id;
+	struct device_node *node;
 
 	id = hantro_device_id(&pdev->dev);
 	if (id == HANTRO_CORE_ID_INVALID || id >= HXDEC_MAX_CORES) {
@@ -1960,7 +1965,16 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	pr_debug("hantro: dec, bus clock: 0x%lX, 0x%lX\n", clk_get_rate(hantrodec_data[id].clk.dec),
 				clk_get_rate(hantrodec_data[id].clk.bus));
 
+	/*
+	 * If integrate power-domains into blk-ctrl driver, vpu driver don't
+	 * need handle it again.
+	 */
+	node = of_parse_phandle(pdev->dev.of_node, "power-domains", 0);
+	hantrodec_data[id].skip_blkctrl = !strcmp(node->name, "blk-ctrl");
+	of_node_put(node);
+
 	pm_runtime_enable(&pdev->dev);
+	hantro_clk_enable(&hantrodec_data[id].clk);
 
 	err = hantrodec_init(pdev, id);
 	if (err != 0) {
@@ -1987,6 +2001,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 error:
 	pr_err("hantro probe failed\n");
 out:
+	hantro_clk_disable(&hantrodec_data[id].clk);
 	return err;
 }
 
