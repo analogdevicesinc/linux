@@ -189,14 +189,16 @@ build_default() {
 	APT_LIST="$APT_LIST git"
 
 	apt_update_install $APT_LIST
+	set -x
 	make ${DEFCONFIG}
-	if [[ "${BUILD_SOURCEBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ staging-rpi ]]; then
+	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
     		make -j$NUM_JOBS zImage modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
 	else
     		# normal build
     		make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
 	fi
+	set +x
 
 	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" = "1" ] ; then
 		check_all_adi_files_have_been_built
