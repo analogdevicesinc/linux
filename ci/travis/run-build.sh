@@ -190,7 +190,8 @@ build_default() {
 
 	apt_update_install $APT_LIST
 	make ${DEFCONFIG}
-	if [[ "${BUILD_SOURCEBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ staging-rpi ]]; then
+	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
+		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
     		make -j$NUM_JOBS zImage modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
 	else
