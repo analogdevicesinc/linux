@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-9x9-qsb.dts"
+
+/ {
+	panel {
+		compatible = "ontat,kd50g21-40nt-a1";
+		power-supply = <&reg_vdd_3v3>;
+		enable-gpios = <&pcal6524 22 GPIO_ACTIVE_HIGH>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&display_out>;
+			};
+		};
+	};
+};
+
+&lcdif {
+	status = "okay";
+	assigned-clock-rates = <150000000>, <30000000>, <400000000>, <133333333>;
+};
+
+&media_blk_ctrl {
+	status = "okay";
+};
+
+&parallel_disp_fmt {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdif>;
+	fsl,interface-pix-fmt = "rgb666";
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			display_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+/* pin conflicts */
+&sai3 {
+	status = "disabled";
+};
