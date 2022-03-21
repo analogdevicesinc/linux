@@ -40,6 +40,14 @@ config DRM_IMX_IPUV3
 	default y if DRM_IMX=y
 	default m if DRM_IMX=m
 
+config DRM_IMX93_PARALLEL_DISPLAY_FORMAT
+	tristate "Support for i.MX93 parallel display format"
+	select DRM_PANEL_BRIDGE
+	depends on DRM_IMX && OF && MFD_SYSCON
+	help
+	  Choose this to enable the internal parallel display format
+	  configuration found on i.MX93 processors.
+
 config DRM_IMX_HDMI
 	tristate "Freescale i.MX DRM HDMI"
 	select DRM_DW_HDMI
