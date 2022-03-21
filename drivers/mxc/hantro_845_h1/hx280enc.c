@@ -147,6 +147,7 @@ typedef struct {
 	unsigned int mirror_regs[512];
 	struct device *dev;
 	struct mutex dev_mutex;
+	bool skip_blkctrl;
 } hx280enc_t;
 
 /* dynamic allocation? */
@@ -190,6 +191,9 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
 {
 	volatile u8 *iobase;
 	u32 val;
+
+	if (hx280enc_data.skip_blkctrl)
+		return 0;
 
 	//config H1
 	hantro_h1_clk_enable(dev);
@@ -863,6 +867,7 @@ static int hantro_h1_probe(struct platform_device *pdev)
 	struct device *temp_class;
 	struct resource *res;
 	unsigned long reg_base;
+	struct device_node *node;
 
 	hantro_h1_dev = &pdev->dev;
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs_hantro_h1");
@@ -896,6 +901,14 @@ static int hantro_h1_probe(struct platform_device *pdev)
 	}
 
 	PDEBUG("hantro: h1 clock: 0x%lX, 0x%lX\n", clk_get_rate(hantro_clk_h1), clk_get_rate(hantro_clk_h1_bus));
+
+	/*
+	 * If integrate power-domains into blk-ctrl driver, vpu driver don't
+	 * need handle it again.
+	 */
+	node = of_parse_phandle(pdev->dev.of_node, "power-domains", 0);
+	hx280enc_data.skip_blkctrl = !strcmp(node->name, "blk-ctrl");
+	of_node_put(node);
 
 	hantro_h1_clk_enable(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
