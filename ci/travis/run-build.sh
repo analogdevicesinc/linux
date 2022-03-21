@@ -192,10 +192,11 @@ build_default() {
 	make ${DEFCONFIG}
 	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
 		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging-rpi ]]; then
+		echo "Rpi build"
     		make -j$NUM_JOBS zImage modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
 	else
-    		# normal build
+    		echo "Normal build"
     		make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
 	fi
 
