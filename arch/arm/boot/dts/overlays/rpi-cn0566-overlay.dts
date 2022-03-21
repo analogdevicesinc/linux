@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2836", "brcm,bcm2835", "brcm,bcm2709";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			clkin: clock@0 {
+				compatible = "fixed-clock";
+				clock-frequency = <100000000>;
+				clock-output-names = "adf4159_ext_refclk";
+				#clock-cells = <0>;
+			};
+		};
+	};
+
+	/* We have 2 spidev */
+	fragment@1 {
+		target = <&spi0_cs_pins>;
+		frag0: __overlay__ {
+			brcm,pins = <8 7 27>;
+			brcm,function = <1>; //output
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			cs-gpios = <&gpio 8 1>,  <&gpio 7 1>,  <&gpio 27 1>;
+			status = "okay";
+
+			adar1000@0 {
+				compatible = "adi,adar1000";
+				reg = <0>;
+				spi-max-frequency = <3600000>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				adar1000_0@0 {
+					reg = <0>;
+					label = "BEAM0";
+					adi,phasetable-name = "adar1000_std_phasetable";
+				};
+
+			};
+
+			adar1000@1 {
+				compatible = "adi,adar1000";
+				reg = <1>;
+				spi-max-frequency = <3600000>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				adar1000_1@0 {
+					reg = <0>;
+					label = "BEAM1";
+					adi,phasetable-name = "adar1000_std_phasetable";
+				};
+			};
+
+			adf4159@2 {
+				compatible = "adi,adf4159";
+				reg = <2>;
+				label = "pll0";
+				spi-max-frequency = <3600000>;
+				/* Clocks */
+				clocks = <&clkin>;
+				clock-names = "clkin";
+				clock-output-names = "rf_out";
+				#clock-cells = <0>;
+				adi,power-up-frequency-hz = /bits/ 64 <3000000000>;
+				adi,charge-pump-current-microamp = <900>;
+				adi,clk1-div = <100>;
+				adi,clk2-timer-div = <0>;
+				adi,clk2-timer-div-2 = <0>;
+				adi,clk-div-mode = <0>;
+				adi,delay-start-word = <0>;
+				adi,deviation = <1000>;
+				adi,deviation-2 = <0>;
+				adi,deviation-offset = <1>;
+				adi,interrupt-mode-select = <0>;
+				adi,muxout-select = <15>;
+				adi,negative-bleed-current-microamp = <0>;
+				adi,phase = <0>;
+				adi,ramp-mode-select = <0>;
+				adi,ramp-status-mode = <3>;
+				adi,reference-div-factor = <1>;
+				adi,step-word = <0>;
+				adi,step-word-2 = <0>;
+			};
+		};
+	};
+
+	fragment@3 {
+		target-path = "/";
+		__overlay__ {
+			one-bit-adc-dac@0 {
+				compatible = "adi,one-bit-adc-dac";
+				label = "gpios";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				in-gpios = <&gpio 25 0>;
+				out-gpios = <&gpio 4 0>, <&gpio 17 0>, <&gpio 22 0>, <&gpio 5 0>,
+					    <&gpio 6 0>, <&gpio 13 0>, <&gpio 18 0>, <&gpio 24 0>,
+					    <&gpio 12 0>, <&gpio 23 0>;
+				status = "okay";
+				channel@0 {
+					reg = <0>;
+					label = "MUXOUT";
+				};
+				channel@1 {
+					reg = <1>;
+					label = "DIV_S0";
+				};
+				channel@2 {
+					reg = <2>;
+					label = "RX_LOAD";
+				};
+				channel@3 {
+					reg = <3>;
+					label = "TR";
+				};
+				channel@4 {
+					reg = <4>;
+					label = "DIV_S1";
+				};
+				channel@5 {
+					reg = <5>;
+					label = "DIV_S2";
+				};
+				channel@6 {
+					reg = <6>;
+					label = "DIV_MR";
+				};
+				channel@7 {
+					reg = <7>;
+					label = "VCTRL_1";
+				};
+				channel@8 {
+					reg = <8>;
+					label = "VCTRL_2";
+				};
+				channel@9 {
+					reg = <9>;
+					label = "TX_SW";
+				};
+				channel@10 {
+					reg = <10>;
+					label = "BURST";
+				};
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			ad7291@2f {
+				compatible = "adi,ad7291";
+				label = "housekeeping_adc";
+				clock-frequency = <400000>;
+				reg = <0x2a>;
+			};
+
+			eeprom@50 {
+				compatible = "at24,24c32";
+				clock-frequency = <400000>;
+				reg = <0x57>;
+			};
+		};
+	};
+};
