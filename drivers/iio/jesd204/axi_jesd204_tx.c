@@ -916,19 +916,13 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 	 * This is used in axi_jesd204_rx_jesd204_link_setup() where the
 	 * main REFCLK is the parent of jesd->lane_clk.
 	 */
-	jesd->conv2_clk = devm_clk_get(&pdev->dev, "conv2");
-	if (IS_ERR(jesd->conv2_clk)) {
-		if (PTR_ERR(jesd->conv2_clk) != -ENOENT)
-			return PTR_ERR(jesd->conv2_clk);
-		jesd->conv2_clk = NULL;
-	}
+	jesd->conv2_clk = devm_clk_get_optional(&pdev->dev, "conv2");
+	if (IS_ERR(jesd->conv2_clk))
+		return PTR_ERR(jesd->conv2_clk);
 
-	jesd->link_clk = devm_clk_get(&pdev->dev, "link_clk");
-	if (IS_ERR(jesd->link_clk)) {
-		if (PTR_ERR(jesd->link_clk) != -ENOENT)
-			return PTR_ERR(jesd->link_clk);
-		jesd->link_clk = NULL;
-	}
+	jesd->link_clk = devm_clk_get_optional(&pdev->dev, "link_clk");
+	if (IS_ERR(jesd->link_clk))
+		return PTR_ERR(jesd->link_clk);
 
 	ret = clk_prepare_enable(jesd->axi_clk);
 	if (ret)
