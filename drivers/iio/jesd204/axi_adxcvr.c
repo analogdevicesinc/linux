@@ -1024,12 +1024,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 	 * Otional CPLL/QPLL REFCLK from a difference source
 	 * which rate and state must be in sync with the conv clk
 	 */
-	st->conv2_clk = devm_clk_get(&pdev->dev, "conv2");
-	if (IS_ERR(st->conv2_clk)) {
-		if (PTR_ERR(st->conv2_clk) != -ENOENT)
-			return PTR_ERR(st->conv2_clk);
-		st->conv2_clk = NULL;
-	}
+	st->conv2_clk = devm_clk_get_optional(&pdev->dev, "conv2");
+	if (IS_ERR(st->conv2_clk))
+		return PTR_ERR(st->conv2_clk);
 
 	st->lane_rate_div40_clk = devm_clk_get(&pdev->dev, "div40");
 	if (IS_ERR(st->lane_rate_div40_clk)) {
