@@ -36,7 +36,7 @@ struct axi_pwmgen {
 	void __iomem		*base;
 
 	/* Used to store the period when the channel is disabled */
-	unsigned int		ch_period[4];
+	unsigned long long	ch_period[4];
 };
 
 static inline unsigned int axi_pwmgen_read(struct axi_pwmgen *pwm,
