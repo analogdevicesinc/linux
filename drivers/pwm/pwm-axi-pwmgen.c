@@ -110,6 +110,52 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 	return 0;
 }
 
+static int axi_pwmgen_capture(struct pwm_chip *chip, struct pwm_device *device,
+			      struct pwm_capture *capture,
+			      unsigned long timeout)
+{
+	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
+	unsigned long long rate, cnt, clk_period_ps;
+	unsigned int ch = device->hwpwm;
+
+	(void)(timeout);
+
+	rate = clk_get_rate(pwmgen->clk);
+	clk_period_ps = DIV_ROUND_CLOSEST_ULL(AXI_PWMGEN_PSEC_PER_SEC, rate);
+	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PERIOD(ch));
+	cnt *= clk_period_ps;
+	capture->period = cnt ? DIV_ROUND_CLOSEST_ULL(cnt,
+				axi_pwmgen_scales[device->state.time_unit]) : 0;
+	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_DUTY(ch));
+	cnt *= clk_period_ps;
+	capture->duty_cycle = cnt ? DIV_ROUND_CLOSEST_ULL(cnt,
+				axi_pwmgen_scales[device->state.time_unit]) : 0;
+	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PHASE(ch));
+	cnt *= clk_period_ps;
+	capture->phase = cnt ? DIV_ROUND_CLOSEST_ULL(cnt,
+				axi_pwmgen_scales[device->state.time_unit]) : 0;
+	capture->time_unit = device->state.time_unit;
+
+	return 0;
+}
+
+static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+				 struct pwm_state *state)
+{
+	struct pwm_capture capture;
+	int ret;
+	
+	ret = axi_pwmgen_capture(chip, pwm, &capture, 0);
+	if (ret < 0)
+		return;
+
+	state->enabled = state;
+	state->period = capture.period;
+	state->duty_cycle = capture.duty_cycle;
+	state->phase = capture.phase;
+	state->time_unit = capture.time_unit;
+}
+
 static void axi_pwmgen_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	unsigned int ch = pwm->hwpwm;
@@ -134,6 +180,8 @@ static const struct pwm_ops axi_pwmgen_pwm_ops = {
 	.apply = axi_pwmgen_apply,
 	.disable = axi_pwmgen_disable,
 	.enable = axi_pwmgen_enable,
+	.capture = axi_pwmgen_capture,
+	.get_state = axi_pwmgen_get_state,
 	.owner = THIS_MODULE,
 };
 
