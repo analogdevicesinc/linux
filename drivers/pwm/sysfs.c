@@ -103,6 +103,41 @@ static ssize_t duty_cycle_store(struct device *child,
 	return ret ? : size;
 }
 
+static ssize_t phase_show(struct device *child,
+			  struct device_attribute *attr,
+			  char *buf)
+{
+	const struct pwm_device *pwm = child_to_pwm_device(child);
+	struct pwm_state state;
+
+	pwm_get_state(pwm, &state);
+
+	return sprintf(buf, "%llu\n", state.phase);
+}
+
+static ssize_t phase_store(struct device *child,
+			   struct device_attribute *attr,
+			   const char *buf, size_t size)
+{
+	struct pwm_export *export = child_to_pwm_export(child);
+	struct pwm_device *pwm = export->pwm;
+	struct pwm_state state;
+	u64 val;
+	int ret;
+
+	ret = kstrtou64(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&export->lock);
+	pwm_get_state(pwm, &state);
+	state.phase = val;
+	ret = pwm_apply_state(pwm, &state);
+	mutex_unlock(&export->lock);
+
+	return ret ? : size;
+}
+
 static ssize_t enable_show(struct device *child,
 			   struct device_attribute *attr,
 			   char *buf)
@@ -212,11 +247,13 @@ static ssize_t capture_show(struct device *child,
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%llu %llu\n", result.period, result.duty_cycle);
+	return sprintf(buf, "%llu %llu %llu\n", result.period,
+		       result.duty_cycle, result.phase);
 }
 
 static DEVICE_ATTR_RW(period);
 static DEVICE_ATTR_RW(duty_cycle);
+static DEVICE_ATTR_RW(phase);
 static DEVICE_ATTR_RW(enable);
 static DEVICE_ATTR_RW(polarity);
 static DEVICE_ATTR_RO(capture);
@@ -224,6 +261,7 @@ static DEVICE_ATTR_RO(capture);
 static struct attribute *pwm_attrs[] = {
 	&dev_attr_period.attr,
 	&dev_attr_duty_cycle.attr,
+	&dev_attr_phase.attr,
 	&dev_attr_enable.attr,
 	&dev_attr_polarity.attr,
 	&dev_attr_capture.attr,
