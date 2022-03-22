@@ -585,7 +585,8 @@ int pwm_apply_state(struct pwm_device *pwm, const struct pwm_state *state)
 	    state->duty_cycle == pwm->state.duty_cycle &&
 	    state->polarity == pwm->state.polarity &&
 	    state->phase == pwm->state.phase &&
-	    state->enabled == pwm->state.enabled)
+	    state->enabled == pwm->state.enabled &&
+	    state->time_unit == pwm->state.time_unit)
 		return 0;
 
 	if (chip->ops->apply) {
@@ -712,6 +713,7 @@ int pwm_adjust_config(struct pwm_device *pwm)
 		state.duty_cycle = 0;
 		state.period = pargs.period;
 		state.polarity = pargs.polarity;
+		state.time_unit = pargs.time_unit;
 
 		return pwm_apply_state(pwm, &state);
 	}
@@ -1267,6 +1269,15 @@ void devm_pwm_put(struct device *dev, struct pwm_device *pwm)
 EXPORT_SYMBOL_GPL(devm_pwm_put);
 
 #ifdef CONFIG_DEBUG_FS
+
+const char *pwm_time_unit_strings[] = {
+	[PWM_UNIT_SEC] = "s",
+	[PWM_UNIT_MSEC] = "ms",
+	[PWM_UNIT_USEC] = "us",
+	[PWM_UNIT_NSEC] = "ns",
+	[PWM_UNIT_PSEC] = "ps",
+};
+
 static void pwm_dbg_show(struct pwm_chip *chip, struct seq_file *s)
 {
 	unsigned int i;
@@ -1276,6 +1287,8 @@ static void pwm_dbg_show(struct pwm_chip *chip, struct seq_file *s)
 		struct pwm_state state;
 
 		pwm_get_state(pwm, &state);
+		if (!state.time_unit)
+			state.time_unit = PWM_UNIT_NSEC;
 
 		seq_printf(s, " pwm-%-3d (%-20.20s):", i, pwm->label);
 
@@ -1285,9 +1298,12 @@ static void pwm_dbg_show(struct pwm_chip *chip, struct seq_file *s)
 		if (state.enabled)
 			seq_puts(s, " enabled");
 
-		seq_printf(s, " period: %llu ns", state.period);
-		seq_printf(s, " duty: %llu ns", state.duty_cycle);
-		seq_printf(s, " phase: %llu ns", state.phase);
+		seq_printf(s, " period: %llu %s", state.period,
+			   pwm_time_unit_strings[state.time_unit]);
+		seq_printf(s, " duty: %llu %s", state.duty_cycle,
+			   pwm_time_unit_strings[state.time_unit]);
+		seq_printf(s, " phase: %llu %s", state.phase,
+			   pwm_time_unit_strings[state.time_unit]);
 		seq_printf(s, " polarity: %s",
 			   state.polarity ? "inverse" : "normal");
 
