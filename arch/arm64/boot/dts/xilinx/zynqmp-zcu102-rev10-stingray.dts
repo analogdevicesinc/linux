@@ -160,6 +160,19 @@
 		xlnx,spi-mode = <0>;
 	};
 
+	axi_spi_fmc: spi@85300000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bits-per-word = <8>;
+		compatible = "xlnx,xps-spi-2.00.a";
+		fifo-size = <16>;
+		interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+		num-cs = <0x8>;
+		reg = <0x85300000 0x10000>;
+		xlnx,num-ss-bits = <0x8>;
+		xlnx,spi-mode = <0>;
+	};
+
 	axi_i2c_pmod: i2c@85100000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -312,7 +325,9 @@
 		spi-max-frequency = <12500000>;
 		vcc-supply = <&vcc_ltc2314>;
 	};
+};
 
+&axi_spi_fmc {
 	adf4371_clk0: adf4371-0@6 {
 		compatible = "adi,adf4371";
 		reg = <6>;
@@ -321,7 +336,7 @@
 		#clock-cells = <1>;
 		#size-cells = <0>;
 
-		spi-max-frequency = <12500000>;
+		spi-max-frequency = <6250000>;
 		clocks = <&adf4371_clkin>;
 		clock-names = "clkin";
 		clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
