@@ -331,11 +331,11 @@ int vsi_v4l2_send_reschange(struct vsi_v4l2_ctx *ctx)
 {
 	struct v4l2_event event;
 
-	if (ctx->need_capture_on)
-		vsi_dec_capture_on(ctx);
-
-	if (!ctx->reschanged_need_notify)
+	if (!ctx->reschanged_need_notify) {
+		if (ctx->need_capture_on)
+			vsi_dec_capture_on(ctx);
 		return 0;
+	}
 
 	vsi_v4l2_update_decfmt(ctx);
 
