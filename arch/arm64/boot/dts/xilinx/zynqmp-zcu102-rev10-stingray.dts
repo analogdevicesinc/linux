@@ -346,6 +346,7 @@
 
 &hmc7044 {
 	adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
+	adi,pll1-ref-autorevert-enable;
 };
 
 &i2c1 {
