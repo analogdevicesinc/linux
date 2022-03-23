@@ -22,6 +22,6 @@
  */
 
 &hmc7044 {
-	adi,pll1-clkin-frequencies = <100000000 10000000 0 0>;
+	adi,pll1-clkin-frequencies = <100000000 100000000 0 0>;
         adi,vcxo-frequency = <100000000>;
 };
