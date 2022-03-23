@@ -821,7 +821,8 @@ static int ceetm_init_prio(struct Qdisc *sch, struct ceetm_qdisc *priv,
 	struct ceetm_class *parent_cl, *child_cl;
 	struct net_device *dev = qdisc_dev(sch);
 	struct Qdisc *root_qdisc = dev->qdisc;
-	unsigned int i;
+	struct ceetm_class_stats *cstats;
+	unsigned int i, j;
 	int err;
 
 	pr_debug(KBUILD_BASENAME " : %s : qdisc %X\n", __func__, sch->handle);
@@ -869,7 +870,11 @@ static int ceetm_init_prio(struct Qdisc *sch, struct ceetm_qdisc *priv,
 			err = -ENOMEM;
 			goto err_init_prio_cls;
 		}
-		gnet_stats_basic_sync_init(&child_cl->prio.cstats->bstats);
+
+		for_each_online_cpu(j) {
+			cstats = per_cpu_ptr(child_cl->prio.cstats, j);
+			gnet_stats_basic_sync_init(&cstats->bstats);
+		}
 
 		child_cl->common.classid = TC_H_MAKE(sch->handle, (i + 1));
 		child_cl->parent = sch;
@@ -914,7 +919,8 @@ static int ceetm_init_wbfs(struct Qdisc *sch, struct ceetm_qdisc *priv,
 	struct ceetm_class *parent_cl, *child_cl, *tmp_cl, *root_cl = NULL;
 	struct Qdisc *root_qdisc, *parent_qdisc = NULL;
 	struct net_device *dev = qdisc_dev(sch);
-	unsigned int i, id, prio_a, prio_b;
+	unsigned int i, j, id, prio_a, prio_b;
+	struct ceetm_class_stats *cstats;
 	int err, group_b, small_group;
 	struct ceetm_qdisc *root_priv;
 
@@ -1085,7 +1091,11 @@ static int ceetm_init_wbfs(struct Qdisc *sch, struct ceetm_qdisc *priv,
 			err = -ENOMEM;
 			goto err_init_wbfs_cls;
 		}
-		gnet_stats_basic_sync_init(&child_cl->wbfs.cstats->bstats);
+
+		for_each_online_cpu(j) {
+			cstats = per_cpu_ptr(child_cl->wbfs.cstats, j);
+			gnet_stats_basic_sync_init(&cstats->bstats);
+		}
 
 		child_cl->common.classid = TC_H_MAKE(sch->handle, (i + 1));
 		child_cl->parent = sch;
