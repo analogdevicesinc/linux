@@ -46,6 +46,7 @@ struct imx_sec_dsim_device {
 	int irq;
 	struct clk *clk_cfg;
 	struct clk *clk_pllref;
+	struct clk *clk_apb;
 	struct drm_encoder encoder;
 
 	struct reset_control *soft_resetn;
@@ -448,6 +449,10 @@ static int imx_sec_dsim_probe(struct platform_device *pdev)
 	if (IS_ERR(dsim_dev->clk_pllref))
 		return PTR_ERR(dsim_dev->clk_pllref);
 
+	dsim_dev->clk_apb = devm_clk_get(dev, "apb-root");
+	if (IS_ERR(dsim_dev->clk_apb))
+		return PTR_ERR(dsim_dev->clk_apb);
+
 	ret = sec_dsim_of_parse_resets(dsim_dev);
 	if (ret)
 		return ret;
@@ -494,6 +499,7 @@ static int imx_sec_dsim_runtime_suspend(struct device *dev)
 
 	clk_disable_unprepare(dsim_dev->clk_cfg);
 	clk_disable_unprepare(dsim_dev->clk_pllref);
+	clk_disable_unprepare(dsim_dev->clk_apb);
 
 	release_bus_freq(BUS_FREQ_HIGH);
 
@@ -524,6 +530,10 @@ static int imx_sec_dsim_runtime_resume(struct device *dev)
 		return ret;
 
 	ret = clk_prepare_enable(dsim_dev->clk_cfg);
+	if (WARN_ON(unlikely(ret)))
+		return ret;
+
+	ret = clk_prepare_enable(dsim_dev->clk_apb);
 	if (WARN_ON(unlikely(ret)))
 		return ret;
 
