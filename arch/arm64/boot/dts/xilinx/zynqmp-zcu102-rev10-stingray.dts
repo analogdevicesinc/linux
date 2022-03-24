@@ -345,6 +345,9 @@
 };
 
 &hmc7044 {
+	adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
+	adi,vcxo-frequency = <122880000>;
+
 	adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
 	adi,pll1-ref-autorevert-enable;
 };
