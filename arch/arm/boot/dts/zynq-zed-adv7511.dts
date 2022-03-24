@@ -14,3 +14,7 @@
 
 #include "zynq-zed.dtsi"
 #include "zynq-zed-adv7511.dtsi"
+
+&eeprom1 {
+	status = "disabled";
+};
