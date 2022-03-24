@@ -606,6 +606,16 @@ config REGULATOR_MAX8998
 	  via I2C bus. The provided regulator is suitable for S3C6410
 	  and S5PC1XX chips to control VCC_CORE and VCC_USIM voltages.
 
+config REGULATOR_MAX77658
+	bool "Maxim Integrated MAX77658 Regulator"
+	depends on MFD_MAX77658
+	help
+	  Say Y here to add support for Maxim Integrated MAX77658. 
+	  This is a 3A Switch Mode Charger with Fuel Gauge.
+	  This driver provides common support for accessing the device,
+	  additional drivers must be enabled in order to use the functionality
+	  of the device.
+
 config REGULATOR_MAX77686
 	tristate "Maxim 77686 regulator"
 	depends on MFD_MAX77686 || COMPILE_TEST

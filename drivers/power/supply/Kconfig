@@ -537,6 +537,16 @@ config CHARGER_MAX77650
 	  Say Y to enable support for the battery charger control of MAX77650
 	  PMICs.
 
+config POWER_MAX77658
+	tristate "Maxim Integrated MAX77658 Charger with Fuel Gauge"
+	depends on MFD_MAX77658
+	help
+	  Say Y to enable support for Maxim Integrated MAX77658. 
+	  This is a 3A Switch Mode Charger with Fuel Gauge.
+	  This driver provides common support for accessing the device,
+	  additional drivers must be enabled in order to use the functionality
+	  of the device.
+
 config CHARGER_MAX77693
 	tristate "Maxim MAX77693 battery charger driver"
 	depends on MFD_MAX77693
