@@ -25,3 +25,19 @@
 	adi,pll1-clkin-frequencies = <100000000 100000000 0 0>;
         adi,vcxo-frequency = <100000000>;
 };
+
+/ {
+	clocks {
+		direct_clk_12000m: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <1200000000>;	/* DAC_FREQUENCY / 10 */
+			clock-output-names = "direct_clk_12000m";
+		};
+	};
+};
+
+&trx0_ad9081 {
+	clocks = <&direct_clk_12000m>;	/* dev_clk */
+	dev_clk-clock-scales = <1 10>;
+};
