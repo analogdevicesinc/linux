@@ -1601,6 +1601,7 @@ static int ade9078_probe(struct spi_device *spi)
 
 	st->spi = spi;
 
+	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->dev.parent = &st->spi->dev;
 	indio_dev->info = &ade9078_info;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
