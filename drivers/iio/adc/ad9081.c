@@ -47,6 +47,8 @@
 
 #define MAX_NUM_MAIN_DATAPATHS 4
 #define MAX_NUM_CHANNELIZER 8
+#define MAX_NUM_RX_NCO_CHAN_REGS 16
+#define MAX_NUM_TX_NCO_CHAN_REGS 31
 
 #define for_each_cddc(bit, mask) \
 	for ((bit) = 0; (bit) < MAX_NUM_MAIN_DATAPATHS; (bit)++) \
@@ -72,15 +74,16 @@ enum {	CDDC_NCO_FREQ,
 	TRX_CONVERTER_RATE,
 	TRX_ENABLE,
 	CDDC_FFH_HOPF_SET,
+	ADC_CDDC_FFH_TRIG_HOP_EN,
+	CDDC_FFH_INDEX_SET,
+	DAC_FFH_GPIO_MODE_SET,
+	DAC_FFH_FREQ_SET,
 };
 
 enum {
 	AD9081_LOOPBACK_MODE,
 	AD9081_ADC_CLK_PWDN,
 	AD9081_MCS,
-	AD9081_DAC_FFH_FREQ_SET,
-	AD9081_DAC_FFH_INDEX_SET,
-	AD9081_DAC_FFH_MODE_SET,
 	AD9081_JESD204_FSM_ERROR,
 	AD9081_JESD204_FSM_PAUSED,
 	AD9081_JESD204_FSM_STATE,
@@ -200,9 +203,10 @@ struct ad9081_phy {
 	u8 tx_dac_chan_xbar_1x_non1x[MAX_NUM_MAIN_DATAPATHS];
 	u8 tx_main_ffh_select[MAX_NUM_MAIN_DATAPATHS];
 
-	u8 ffh_hopf_index;
-	u8 ffh_hopf_mode;
-	s64 ffh_hopf_vals[32];
+	u8 tx_ffh_hopf_index[MAX_NUM_MAIN_DATAPATHS];
+	u8 tx_ffh_hopf_mode[MAX_NUM_MAIN_DATAPATHS];
+	s64 tx_ffh_hopf_vals[MAX_NUM_TX_NCO_CHAN_REGS][MAX_NUM_MAIN_DATAPATHS];
+	bool tx_ffh_hopf_via_gpio_en;
 
 	struct dac_settings_cache dac_cache;
 	struct ad9081_jesd_link jrx_link_tx[2];
@@ -212,9 +216,9 @@ struct ad9081_phy {
 	u32 adc_dcm[2];
 	u64 adc_frequency_hz;
 	s64 rx_fddc_shift[MAX_NUM_CHANNELIZER];
-	s64 rx_cddc_shift[MAX_NUM_MAIN_DATAPATHS];
+	s64 rx_cddc_shift[MAX_NUM_RX_NCO_CHAN_REGS][MAX_NUM_MAIN_DATAPATHS];
 	s32 rx_fddc_phase[MAX_NUM_CHANNELIZER];
-	s32 rx_cddc_phase[MAX_NUM_MAIN_DATAPATHS];
+	s32 rx_cddc_phase[MAX_NUM_RX_NCO_CHAN_REGS][MAX_NUM_MAIN_DATAPATHS];
 
 	u32 rx_nyquist_zone[MAX_NUM_MAIN_DATAPATHS];
 	u8 rx_cddc_c2r[MAX_NUM_MAIN_DATAPATHS];
@@ -226,6 +230,11 @@ struct ad9081_phy {
 	u8 rx_fddc_mxr_if[MAX_NUM_CHANNELIZER];
 	u8 rx_fddc_select;
 	u8 rx_cddc_select;
+	u8 rx_main_ffh_select[MAX_NUM_MAIN_DATAPATHS];
+	u8 rx_main_ffh_index[MAX_NUM_MAIN_DATAPATHS];
+	u8 rx_main_ffh_mode[MAX_NUM_MAIN_DATAPATHS];
+	u8 rx_cddc_nco_channel_select_mode[MAX_NUM_MAIN_DATAPATHS];
+	bool rx_main_ffh_trig_en[MAX_NUM_MAIN_DATAPATHS];
 
 	adi_cms_chip_id_t chip_id;
 
@@ -239,6 +248,7 @@ struct ad9081_phy {
 	struct ad9081_debugfs_entry debugfs_entry[10];
 	u32 ad9081_debugfs_entry_index;
 	u8 direct_lb_map;
+	u8 rx_ffh_gpio_mux_sel[6];
 };
 
 static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
@@ -968,6 +978,84 @@ static const struct iio_enum ad9081_nyquist_zone_enum = {
 	.get = ad9081_nyquist_zone_read,
 };
 
+static int ad9081_main_ffh_mode_read(struct iio_dev *indio_dev,
+				const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
+
+	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+		&fddc_mask, &cddc_num, &cddc_mask);
+
+	if (chan->output)
+		return phy->tx_ffh_hopf_mode[cddc_num];
+
+	return phy->rx_main_ffh_mode[cddc_num];
+}
+
+static int ad9081_main_ffh_mode_write(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan,
+				 unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
+	int ret, i;
+
+	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
+		&fddc_mask, &cddc_num, &cddc_mask);
+
+	mutex_lock(&indio_dev->mlock);
+	if (chan->output) {
+		ret = adi_ad9081_dac_duc_main_nco_hopf_mode_set(&phy->ad9081,
+						  cddc_mask, item);
+		if (!ret)
+			for_each_cddc(i, cddc_mask)
+				phy->tx_ffh_hopf_mode[i] = item;
+
+	} else {
+		ret = adi_ad9081_adc_ddc_coarse_nco_channel_update_mode_set(&phy->ad9081,
+			cddc_mask, item > 0);
+
+		if (item > 0)
+			ret = adi_ad9081_adc_ddc_coarse_gpio_chip_xfer_mode_set(&phy->ad9081,
+				cddc_mask, item - 1);
+
+		if (!ret)
+			phy->rx_main_ffh_mode[cddc_num] = item;
+	}
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
+static const char *const ad9081_dac_main_ffh_modes[] = {
+	"phase_continuous",
+	"phase_incontinuous",
+	"phase_coherent",
+};
+
+static const struct iio_enum ad9081_dac_main_ffh_mode_enum = {
+	.items = ad9081_dac_main_ffh_modes,
+	.num_items = ARRAY_SIZE(ad9081_dac_main_ffh_modes),
+	.set = ad9081_main_ffh_mode_write,
+	.get = ad9081_main_ffh_mode_read,
+};
+
+static const char *const ad9081_adc_main_ffh_modes[] = {
+	"instantaneous_update",
+	"synchronous_update_by_transfer_bit",
+	"synchronous_update_by_gpio",
+};
+
+static const struct iio_enum ad9081_adc_main_ffh_mode_enum = {
+	.items = ad9081_adc_main_ffh_modes,
+	.num_items = ARRAY_SIZE(ad9081_adc_main_ffh_modes),
+	.set = ad9081_main_ffh_mode_write,
+	.get = ad9081_main_ffh_mode_read,
+};
+
 static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				    uintptr_t private,
 				    const struct iio_chan_spec *chan, char *buf)
@@ -993,7 +1081,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				break;
 			}
 		} else {
-			val = phy->rx_cddc_shift[cddc_num];
+			val = phy->rx_cddc_shift[phy->rx_main_ffh_index[cddc_num]][cddc_num];
 			ret = 0;
 		}
 		break;
@@ -1050,7 +1138,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				break;
 			}
 		} else {
-			val = phy->rx_cddc_phase[cddc_num];
+			val = phy->rx_cddc_phase[phy->rx_main_ffh_index[cddc_num]][cddc_num];
 			ret = 0;
 		}
 		break;
@@ -1100,14 +1188,64 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		ret = 0;
 		break;
 	case CDDC_FFH_HOPF_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+
 		if (chan->output) {
 			for_each_cddc(i, cddc_mask) {
 				val = phy->tx_main_ffh_select[i];
 				ret = 0;
 				goto out_unlock;
 			}
+		} else {
+			val = phy->rx_main_ffh_select[cddc_num];
+			ret = 0;
 		}
-		/* fall-through */
+		break;
+	case CDDC_FFH_INDEX_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+
+		if (chan->output) {
+			val = phy->tx_ffh_hopf_index[cddc_num];
+			ret = 0;
+		} else {
+			val = phy->rx_main_ffh_index[cddc_num];
+			ret = 0;
+		}
+		break;
+	case ADC_CDDC_FFH_TRIG_HOP_EN:
+	case DAC_FFH_GPIO_MODE_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+
+		if (chan->output) {
+			val = phy->tx_ffh_hopf_via_gpio_en;
+			ret = 0;
+		} else {
+			val = phy->rx_main_ffh_trig_en[cddc_num];
+			ret = 0;
+		}
+		break;
+	case DAC_FFH_FREQ_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+
+		if (phy->tx_disable) {
+			ret = -ENODEV;
+			break;
+		}
+		ret = sysfs_emit(buf, "%lld\n",
+			phy->tx_ffh_hopf_vals[phy->tx_ffh_hopf_index[cddc_num]][cddc_num]);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1134,6 +1272,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
 	s16 val16;
 	s64 val64;
+	u64 ftw;
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -1161,7 +1300,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			ret = adi_ad9081_adc_ddc_coarse_nco_set(&phy->ad9081,
 								cddc_mask, readin);
 			if (!ret)
-				phy->rx_cddc_shift[cddc_num] = readin;
+				phy->rx_cddc_shift[phy->rx_main_ffh_index[cddc_num]][cddc_num] = readin;
 			else
 				ret = -EFAULT;
 		}
@@ -1217,7 +1356,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			ret =  adi_ad9081_adc_ddc_coarse_nco_phase_offset_set(
 				&phy->ad9081, cddc_mask, val64);
 			if (!ret)
-				phy->rx_cddc_phase[cddc_num] = readin;
+				phy->rx_cddc_phase[phy->rx_main_ffh_index[cddc_num]][cddc_num] = readin;
 			else
 				ret = -EFAULT;
 		}
@@ -1327,21 +1466,131 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		break;
 
 	case CDDC_FFH_HOPF_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
 		ret = kstrtoll(buf, 10, &readin);
 		if (ret)
 			goto out;
 
 		if (chan->output) {
+			if (readin < 0 || readin >= MAX_NUM_TX_NCO_CHAN_REGS) {
+				ret = -EINVAL;
+				goto out;
+			}
 			/* set main nco */
 			for_each_cddc(i, cddc_mask) {
-				ret = adi_ad9081_dac_duc_main_nco_hopf_select_set(
-						&phy->ad9081, BIT(i), readin);
+				ret = adi_ad9081_dac_duc_main_nco_hopf_select_set(&phy->ad9081,
+					BIT(i), readin + 1);
 				if (!ret)
 					phy->tx_main_ffh_select[i] = readin;
 				else
 					ret = -EFAULT;
 			}
+		} else {
+			if (readin < 0 || readin >= MAX_NUM_RX_NCO_CHAN_REGS) {
+				ret = -EINVAL;
+				goto out;
+			}
+			ret = adi_ad9081_adc_ddc_coarse_nco_channel_selection_set(&phy->ad9081,
+				cddc_mask, readin);
+			if (!ret)
+				phy->rx_main_ffh_select[cddc_num] = readin;
+			else
+				ret = -EFAULT;
 		}
+		break;
+	case CDDC_FFH_INDEX_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			goto out;
+
+		if (chan->output) {
+			readin = clamp_t(long long, readin, 0, 30);
+			if (readin < 0 || readin >= MAX_NUM_TX_NCO_CHAN_REGS) {
+				ret = -EINVAL;
+				goto out;
+			}
+			for_each_cddc(i, cddc_mask)
+				phy->tx_ffh_hopf_index[i] = readin;
+		} else {
+			if (readin < 0 || readin >= MAX_NUM_RX_NCO_CHAN_REGS) {
+				ret = -EINVAL;
+				goto out;
+			}
+			ret = adi_ad9081_adc_ddc_coarse_nco_channel_update_index_set(&phy->ad9081,
+				cddc_mask, readin);
+			if (!ret)
+				phy->rx_main_ffh_index[cddc_num] = readin;
+			else
+				ret = -EFAULT;
+		}
+		break;
+	case ADC_CDDC_FFH_TRIG_HOP_EN:
+	case DAC_FFH_GPIO_MODE_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+		ret = strtobool(buf, &enable);
+		if (ret)
+			goto out;
+
+		if (chan->output) {
+			ret = adi_ad9081_dac_duc_main_nco_hopf_gpio_as_hop_en_set(&phy->ad9081,
+				enable);
+			if (!ret)
+				phy->tx_ffh_hopf_via_gpio_en = enable;
+
+			adi_ad9081_jesd_rx_syncb_mode_set(&phy->ad9081, 0);
+			adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081,
+				!enable);
+		} else {
+			ret = adi_ad9081_adc_ddc_coarse_trig_hop_en_set(&phy->ad9081,
+				cddc_mask, enable);
+			if (!ret)
+				phy->rx_main_ffh_trig_en[cddc_num] = enable;
+		}
+		break;
+	case DAC_FFH_FREQ_SET:
+		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
+
+		if (phy->tx_disable) {
+			ret = -ENODEV;
+			break;
+		}
+
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+		ret = adi_ad9081_hal_calc_tx_nco_ftw32(&phy->ad9081,
+				phy->ad9081.dev_info.dac_freq_hz, readin,
+				&ftw);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = adi_ad9081_dac_duc_main_nco_hopf_ftw_set(&phy->ad9081,
+						 cddc_mask,
+						 phy->tx_ffh_hopf_index[cddc_num] + 1,
+						 ftw);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+		for_each_cddc(i, cddc_mask)
+			phy->tx_ffh_hopf_vals[phy->tx_ffh_hopf_index[cddc_num]][i] = readin;
 		break;
 	default:
 		ret = -EINVAL;
@@ -1358,6 +1607,8 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 	IIO_ENUM_AVAILABLE("test_mode", &ad9081_testmode_enum),
 	IIO_ENUM("nyquist_zone", IIO_SEPARATE, &ad9081_nyquist_zone_enum),
 	IIO_ENUM_AVAILABLE("nyquist_zone", &ad9081_nyquist_zone_enum),
+	IIO_ENUM("main_ffh_mode", IIO_SEPARATE, &ad9081_adc_main_ffh_mode_enum),
+	IIO_ENUM_AVAILABLE("main_ffh_mode", &ad9081_adc_main_ffh_mode_enum),
 	{
 		.name = "main_nco_frequency",
 		.read = ad9081_ext_info_read,
@@ -1420,10 +1671,33 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.shared = true,
 		.private = TRX_CONVERTER_RATE,
 	},
+	{
+		.name = "main_nco_ffh_select",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = CDDC_FFH_HOPF_SET,
+	},
+	{
+		.name = "main_nco_ffh_index",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = CDDC_FFH_INDEX_SET,
+	},
+	{
+		.name = "main_ffh_trig_hop_en",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = ADC_CDDC_FFH_TRIG_HOP_EN,
+	},
 	{},
 };
 
 static struct iio_chan_spec_ext_info txdac_ext_info[] = {
+	IIO_ENUM("main_ffh_mode", IIO_SEPARATE, &ad9081_dac_main_ffh_mode_enum),
+	IIO_ENUM_AVAILABLE("main_ffh_mode", &ad9081_dac_main_ffh_mode_enum),
 	{
 		.name = "main_nco_frequency",
 		.read = ad9081_ext_info_read,
@@ -1513,6 +1787,27 @@ static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 		.write = ad9081_ext_info_write,
 		.shared = false,
 		.private = CDDC_FFH_HOPF_SET,
+	},
+	{
+		.name = "main_nco_ffh_index",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = CDDC_FFH_INDEX_SET,
+	},
+	{
+		.name = "main_ffh_gpio_mode_en",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = true,
+		.private = DAC_FFH_GPIO_MODE_SET,
+	},
+	{
+		.name = "main_nco_ffh_frequency",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = DAC_FFH_FREQ_SET,
 	},
 	{},
 };
@@ -1814,6 +2109,12 @@ static int ad9081_setup_tx(struct spi_device *spi)
 		}
 	}
 
+	if (phy->tx_ffh_hopf_via_gpio_en) {
+		adi_ad9081_jesd_rx_syncb_mode_set(&phy->ad9081, 0);
+		adi_ad9081_dac_duc_main_nco_hopf_gpio_as_hop_en_set(&phy->ad9081, 1);
+		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
+	}
+
 	return 0;
 }
 
@@ -1869,7 +2170,7 @@ static int ad9081_setup_rx(struct spi_device *spi)
 	/* start txfe rx */
 	ret = adi_ad9081_device_startup_rx(&phy->ad9081, phy->rx_cddc_select,
 					   phy->rx_fddc_select,
-					   phy->rx_cddc_shift,
+					   phy->rx_cddc_shift[0],
 					   phy->rx_fddc_shift, phy->rx_cddc_dcm,
 					   phy->rx_fddc_dcm, phy->rx_cddc_c2r,
 					   phy->rx_fddc_c2r, jesd_param,
@@ -1900,6 +2201,12 @@ static int ad9081_setup_rx(struct spi_device *spi)
 			phy->rx_nyquist_zone[i]);
 		if (ret != 0)
 			return ret;
+
+		ret = adi_ad9081_adc_ddc_coarse_nco_channel_select_via_gpio_set(&phy->ad9081,
+			BIT(i), phy->rx_cddc_nco_channel_select_mode[i]);
+		if (ret != 0)
+			return ret;
+
 	}
 
 	for_each_fddc(i, phy->rx_fddc_select) {
@@ -1917,9 +2224,8 @@ static int ad9081_setup_rx(struct spi_device *spi)
 	/* setup txfe jtx converter mapping */
 	for (i = 0; i < ARRAY_SIZE(phy->jtx_link_rx[0].link_converter_select);
 	     i++) {
-		ret = adi_ad9081_jesd_tx_conv_sel_set(
-			&phy->ad9081, AD9081_LINK_0, i,
-			phy->jtx_link_rx[0].link_converter_select[i]);
+		ret = adi_ad9081_jesd_tx_conv_sel_set(&phy->ad9081,
+			AD9081_LINK_0, i, phy->jtx_link_rx[0].link_converter_select[i]);
 		if (ret != 0)
 			return ret;
 	}
@@ -1962,7 +2268,14 @@ static int ad9081_setup_rx(struct spi_device *spi)
 			&phy->clkscale[RX_SAMPL_CLK_LINK2]);
 	}
 
-	return 0;
+	for (i = 0; i < ARRAY_SIZE(phy->rx_ffh_gpio_mux_sel); i++)
+		if (phy->rx_ffh_gpio_mux_sel[i] == AD9081_PERI_SEL_SYNCINB1_N ||
+			phy->rx_ffh_gpio_mux_sel[i] == AD9081_PERI_SEL_SYNCINB1_P)
+			adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
+				BF_PD_SYNCB_RX_RC_INFO, 0);
+
+	return adi_ad9081_adc_ddc_ffh_sel_to_gpio_mapping_set(&phy->ad9081,
+		phy->rx_ffh_gpio_mux_sel);
 }
 
 static int ad9081_setup(struct spi_device *spi)
@@ -2266,12 +2579,9 @@ static ssize_t ad9081_phy_store(struct device *dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	unsigned long res;
-	long long lval;
-	uint64_t ftw;
 	bool bres;
 	bool enable;
 	int ret = 0;
-	u8 val;
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -2348,87 +2658,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			phy->mcs_cached_val = res;
 
 		break;
-	case AD9081_DAC_FFH_INDEX_SET:
-		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
-			ret = -ENOTSUPP;
-			break;
-		}
 
-		if (phy->tx_disable) {
-			ret = -ENODEV;
-			break;
-		}
-
-		ret = kstrtoul(buf, 0, &res);
-		if (ret) {
-			ret = -EINVAL;
-			break;
-		}
-		phy->ffh_hopf_index = res;
-		break;
-	case AD9081_DAC_FFH_FREQ_SET:
-		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
-			ret = -ENOTSUPP;
-			break;
-		}
-
-		if (phy->tx_disable) {
-			ret = -ENODEV;
-			break;
-		}
-
-		ret = kstrtoll(buf, 10, &lval);
-		if (ret) {
-			ret = -EINVAL;
-			break;
-		}
-		ret = adi_ad9081_hal_calc_tx_nco_ftw32(&phy->ad9081,
-				phy->ad9081.dev_info.dac_freq_hz, lval,
-				&ftw);
-		if (ret) {
-			ret = -EINVAL;
-			break;
-		}
-
-		ret = adi_ad9081_dac_duc_main_nco_hopf_ftw_set(&phy->ad9081,
-						 AD9081_DAC_ALL,
-						 phy->ffh_hopf_index,
-						 ftw);
-		if (ret) {
-			ret = -EINVAL;
-			break;
-		}
-
-		phy->ffh_hopf_vals[phy->ffh_hopf_index] = lval;
-		break;
-	case AD9081_DAC_FFH_MODE_SET:
-		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
-			ret = -ENOTSUPP;
-			break;
-		}
-
-		if (phy->tx_disable) {
-			ret = -ENODEV;
-			break;
-		}
-
-		ret = sysfs_match_string(ffh_modes, buf);
-		if (ret < 0) {
-			ret = -EINVAL;
-			break;
-		}
-
-		val = ret;
-
-		ret = adi_ad9081_dac_duc_main_nco_hopf_mode_set(&phy->ad9081,
-						  AD9081_DAC_ALL, val);
-		if (ret) {
-			ret = -EINVAL;
-			break;
-		}
-
-		phy->ffh_hopf_mode = val;
-		break;
 	case AD9081_JESD204_FSM_RESUME:
 		if (!phy->jdev) {
 			ret = -ENOTSUPP;
@@ -2502,27 +2732,6 @@ static ssize_t ad9081_phy_show(struct device *dev,
 			break;
 		}
 		ret = sprintf(buf, "%u\n", phy->device_cache.adc_clk_pwdn);
-		break;
-	case AD9081_DAC_FFH_INDEX_SET:
-		if (phy->tx_disable) {
-			ret = -ENODEV;
-			break;
-		}
-		ret = sprintf(buf, "%u\n", phy->ffh_hopf_index);
-		break;
-	case AD9081_DAC_FFH_FREQ_SET:
-		if (phy->tx_disable) {
-			ret = -ENODEV;
-			break;
-		}
-		ret = sprintf(buf, "%lld\n", phy->ffh_hopf_vals[phy->ffh_hopf_index]);
-		break;
-	case AD9081_DAC_FFH_MODE_SET:
-		if (phy->tx_disable) {
-			ret = -ENODEV;
-			break;
-		}
-		ret = sprintf(buf, "%s\n", ffh_modes[phy->ffh_hopf_mode]);
 		break;
 	case AD9081_MCS:
 		ret = sprintf(buf, "%u\n", phy->mcs_cached_val);
@@ -2638,24 +2847,6 @@ static IIO_DEVICE_ATTR(multichip_sync, S_IRUGO | S_IWUSR,
 		ad9081_phy_store,
 		AD9081_MCS);
 
-static IIO_DEVICE_ATTR(out_voltage_main_ffh_frequency, S_IRUGO | S_IWUSR,
-		ad9081_phy_show,
-		ad9081_phy_store,
-		AD9081_DAC_FFH_FREQ_SET);
-
-static IIO_DEVICE_ATTR(out_voltage_main_ffh_index, S_IRUGO | S_IWUSR,
-		ad9081_phy_show,
-		ad9081_phy_store,
-		AD9081_DAC_FFH_INDEX_SET);
-
-static IIO_DEVICE_ATTR(out_voltage_main_ffh_mode, S_IRUGO | S_IWUSR,
-		ad9081_phy_show,
-		ad9081_phy_store,
-		AD9081_DAC_FFH_MODE_SET);
-
-static IIO_CONST_ATTR(out_voltage_main_ffh_mode_available,
-		"phase_continuous phase_incontinuous phase_coherent");
-
 static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
 		       ad9081_phy_show,
 		       NULL,
@@ -2691,10 +2882,6 @@ static struct attribute *ad9081_phy_attributes[] = {
 	&iio_const_attr_loopback_mode_available.dev_attr.attr,
 	&iio_dev_attr_adc_clk_powerdown.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
-	&iio_dev_attr_out_voltage_main_ffh_frequency.dev_attr.attr,
-	&iio_dev_attr_out_voltage_main_ffh_index.dev_attr.attr,
-	&iio_dev_attr_out_voltage_main_ffh_mode.dev_attr.attr,
-	&iio_const_attr_out_voltage_main_ffh_mode_available.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
@@ -3709,6 +3896,9 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 	of_property_read_u64(of_trx_path, "adi,dac-frequency-hz",
 			     &phy->dac_frequency_hz);
 
+	phy->tx_ffh_hopf_via_gpio_en =
+		of_property_read_bool(of_trx_path, "adi,ffh-hopf-via-gpio-enable");
+
 	/* The 4 DAC Main Datapaths */
 
 	of_channels = of_get_child_by_name(of_trx_path, "adi,main-data-paths");
@@ -3843,6 +4033,11 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 
 	of_property_read_u32(of_trx_path, "adi,nyquist-zone", &nz);
 
+	of_property_read_variable_u8_array(of_trx_path,
+		"adi,ffh-gpio-mux-sel", phy->rx_ffh_gpio_mux_sel,
+		ARRAY_SIZE(phy->rx_ffh_gpio_mux_sel),
+		ARRAY_SIZE(phy->rx_ffh_gpio_mux_sel));
+
 	/* The 4 DAC Main Datapaths */
 
 	of_channels = of_get_child_by_name(of_trx_path, "adi,main-data-paths");
@@ -3856,7 +4051,10 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 		if (!ret && (reg < ARRAY_SIZE(phy->tx_main_shift))) {
 			of_property_read_u64(of_chan,
 					     "adi,nco-frequency-shift-hz",
-					     &phy->rx_cddc_shift[reg]);
+					     &phy->rx_cddc_shift[0][reg]);
+			of_property_read_u8(of_chan,
+					     "adi,nco-channel-select-mode",
+					     &phy->rx_cddc_nco_channel_select_mode[reg]);
 			of_property_read_u32(of_chan, "adi,decimation",
 					     &phy->adc_main_decimation[reg]);
 			phy->rx_cddc_c2r[reg] = of_property_read_bool(
@@ -4354,6 +4552,10 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 		schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
 
 	phy->is_initialized = true;
+
+	/* Need to redo this since GPIOx might have been clobbered by master/slave sync */
+	adi_ad9081_dac_duc_main_nco_hopf_gpio_as_hop_en_set(&phy->ad9081,
+		phy->tx_ffh_hopf_via_gpio_en);
 
 	return JESD204_STATE_CHANGE_DONE;
 }
