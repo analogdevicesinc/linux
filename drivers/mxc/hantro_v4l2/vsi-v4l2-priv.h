@@ -153,6 +153,8 @@ enum VCEncColorConversionType {
 
 #define V4L2_YCBCR_ENC_BT470_6M		(V4L2_YCBCR_ENC_SMPTE240M+1)
 
+#define VSI_EXTRA_CAPTURE_BUFFER_COUNT		2
+
 /*V4L2 status*/
 enum CTX_STATUS {
 	VSI_STATUS_INIT = 0,	/*init is a public state for dec and enc*/

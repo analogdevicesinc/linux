@@ -324,7 +324,7 @@ static bool vsi_dec_check_reschange(struct vsi_v4l2_ctx *ctx)
 		if (pcfg->decparams.dec_info.dec_info.needed_dpb_nums != pcfg->decparams_bkup.dec_info.dec_info.needed_dpb_nums)
 			return true;
 	}
-	if (q->num_buffers < pcfg->minbuf_4output_bkup)
+	if (q->num_buffers < (pcfg->minbuf_4output_bkup + VSI_EXTRA_CAPTURE_BUFFER_COUNT))
 		return true;
 
 	return false;
