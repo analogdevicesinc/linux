@@ -492,6 +492,25 @@ static const struct imx8m_blk_ctrl_data imx8mm_vpu_blk_ctl_dev_data = {
 	.num_domains = ARRAY_SIZE(imx8mm_vpu_blk_ctl_domain_data),
 };
 
+#define IMX8MP_VPUBLK_G1	0
+#define IMX8MP_VPUBLK_G2	1
+#define IMX8MP_VPUBLK_VCE	2
+
+static const struct imx8m_blk_ctrl_noc_data imx8mp_vpu_noc_data[] = {
+	[IMX8MP_VPUBLK_G1] = {
+		.off = 0xd80,
+		.priority = 0x80000303,
+	},
+	[IMX8MP_VPUBLK_G2] = {
+		.off = 0xe00,
+		.priority = 0x80000303,
+	},
+	[IMX8MP_VPUBLK_VCE] = {
+		.off = 0xe80,
+		.priority = 0x80000303,
+	},
+};
+
 static const struct imx8m_blk_ctrl_domain_data imx8mp_vpu_blk_ctl_domain_data[] = {
 	[IMX8MP_VPUBLK_PD_G1] = {
 		.name = "vpublk-g1",
@@ -500,6 +519,9 @@ static const struct imx8m_blk_ctrl_domain_data imx8mp_vpu_blk_ctl_domain_data[] 
 		.gpc_name = "g1",
 		.rst_mask = BIT(1),
 		.clk_mask = BIT(1),
+		.noc_data = {
+			&imx8mp_vpu_noc_data[IMX8MP_VPUBLK_G1],
+		},
 	},
 	[IMX8MP_VPUBLK_PD_G2] = {
 		.name = "vpublk-g2",
@@ -508,6 +530,9 @@ static const struct imx8m_blk_ctrl_domain_data imx8mp_vpu_blk_ctl_domain_data[] 
 		.gpc_name = "g2",
 		.rst_mask = BIT(0),
 		.clk_mask = BIT(0),
+		.noc_data = {
+			&imx8mp_vpu_noc_data[IMX8MP_VPUBLK_G2],
+		},
 	},
 	[IMX8MP_VPUBLK_PD_VC8000E] = {
 		.name = "vpublk-h1",
@@ -516,6 +541,9 @@ static const struct imx8m_blk_ctrl_domain_data imx8mp_vpu_blk_ctl_domain_data[] 
 		.gpc_name = "h1",
 		.rst_mask = BIT(2),
 		.clk_mask = BIT(2),
+		.noc_data = {
+			&imx8mp_vpu_noc_data[IMX8MP_VPUBLK_VCE],
+		},
 	},
 };
 
