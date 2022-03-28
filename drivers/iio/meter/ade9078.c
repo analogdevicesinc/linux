@@ -586,9 +586,9 @@ static bool ade9078_is_volatile_reg(struct device *dev, unsigned int reg)
 	case ADE9078_REG_STATUS1:
 	case ADE9078_REG_MASK0:
 	case ADE9078_REG_MASK1:
-		return true;
-	default:
 		return false;
+	default:
+		return true;
 	}
 }
 
