@@ -2973,6 +2973,11 @@ static struct clk *ad9545_clk_src_twocell_get(struct of_phandle_args *clkspec, v
 	return clks[clk_type][clk_address];
 }
 
+static void ad9545_clk_del_provider(void *of_node)
+{
+	of_clk_del_provider(of_node);
+}
+
 static int ad9545_setup(struct ad9545_state *st)
 {
 	int ret;
@@ -3026,6 +3031,11 @@ static int ad9545_setup(struct ad9545_state *st)
 	ret = of_clk_add_provider(st->dev->of_node, ad9545_clk_src_twocell_get,
 				  &st->clks[AD9545_CLK_OUT]);
 	if (ret < 0)
+		return ret;
+
+	ret = devm_add_action_or_reset(st->dev, ad9545_clk_del_provider,
+				       st->dev->of_node);
+	if (ret)
 		return ret;
 
 	ret = ad9545_calib_aplls(st);
