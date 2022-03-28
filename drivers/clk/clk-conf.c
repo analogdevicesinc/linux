@@ -33,9 +33,12 @@ static int __set_clk_parents(struct device_node *node, bool clk_supplier)
 			else
 				return rc;
 		}
-		if (clkspec.np == node && !clk_supplier)
+		if (clkspec.np == node && !clk_supplier) {
+			of_node_put(clkspec.np);
 			return 0;
+		}
 		pclk = of_clk_get_from_provider(&clkspec);
+		of_node_put(clkspec.np);
 		if (IS_ERR(pclk)) {
 			if (PTR_ERR(pclk) != -EPROBE_DEFER)
 				pr_warn("clk: couldn't get parent clock %d for %pOF\n",
@@ -49,7 +52,7 @@ static int __set_clk_parents(struct device_node *node, bool clk_supplier)
 			goto err;
 		if (clkspec.np == node && !clk_supplier) {
 			rc = 0;
-			goto err;
+			goto err_of_put;
 		}
 		clk = of_clk_get_from_provider(&clkspec);
 		if (IS_ERR(clk)) {
@@ -57,7 +60,7 @@ static int __set_clk_parents(struct device_node *node, bool clk_supplier)
 				pr_warn("clk: couldn't get assigned clock %d for %pOF\n",
 					index, node);
 			rc = PTR_ERR(clk);
-			goto err;
+			goto err_of_put;
 		}
 
 		rc = clk_set_parent(clk, pclk);
@@ -66,8 +69,11 @@ static int __set_clk_parents(struct device_node *node, bool clk_supplier)
 			       __clk_get_name(clk), __clk_get_name(pclk), rc);
 		clk_put(clk);
 		clk_put(pclk);
+		of_node_put(clkspec.np);
 	}
 	return 0;
+err_of_put:
+	of_node_put(clkspec.np);
 err:
 	clk_put(pclk);
 	return rc;
@@ -93,14 +99,17 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 				else
 					return rc;
 			}
-			if (clkspec.np == node && !clk_supplier)
+			if (clkspec.np == node && !clk_supplier) {
+				of_node_put(clkspec.np);
 				return 0;
+			}
 
 			clk = of_clk_get_from_provider(&clkspec);
 			if (IS_ERR(clk)) {
 				if (PTR_ERR(clk) != -EPROBE_DEFER)
 					pr_warn("clk: couldn't get clock %d for %pOF\n",
 						index, node);
+				of_node_put(clkspec.np);
 				return PTR_ERR(clk);
 			}
 
@@ -110,6 +119,7 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 				       __clk_get_name(clk), rate, rc,
 				       clk_get_rate(clk));
 			clk_put(clk);
+			of_node_put(clkspec.np);
 		}
 		index++;
 	}
