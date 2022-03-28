@@ -717,12 +717,85 @@ out_fail:
 	return ret;
 }
 
-static int ad9545_parse_dt_plls(struct ad9545_state *st)
+static int ad9545_parse_dt_pll_profiles(struct ad9545_state *st, const struct fwnode_handle *child,
+					u32 addr)
 {
 	struct fwnode_handle *profile_node;
+	int ret = 0;
+
+	/* parse DPLL profiles */
+	fwnode_for_each_available_child_node(child, profile_node) {
+		u32 profile_addr;
+		u32 val;
+
+		ret = fwnode_property_read_u32(profile_node, "reg", &profile_addr);
+		if (ret < 0) {
+			dev_err(st->dev, "Could not read Profile reg property.");
+			goto out_fail;
+		}
+
+		if (profile_addr >= AD9545_MAX_DPLL_PROFILES) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
+
+		st->pll_clks[addr].profiles[profile_addr].en = true;
+		st->pll_clks[addr].profiles[profile_addr].address = profile_addr;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,pll-loop-bandwidth-uhz", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
+				profile_addr);
+			goto out_fail;
+		}
+
+		st->pll_clks[addr].profiles[profile_addr].loop_bw_uhz = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode", &val);
+		if (!ret)
+			st->pll_clks[addr].fast_acq_trigger_mode = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-excess-bw", &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].fast_acq_excess_bw = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-timeout-ms", &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].fast_acq_timeout_ms = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-lock-settle-ms",
+					       &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].fast_acq_settle_ms = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,profile-priority", &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].priority = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,pll-source", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
+				profile_addr);
+			goto out_fail;
+		}
+
+		if (val > 5) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
+
+		st->pll_clks[addr].profiles[profile_addr].tdc_source = val;
+	}
+
+out_fail:
+	fwnode_handle_put(profile_node);
+	return ret;
+}
+
+static int ad9545_parse_dt_plls(struct ad9545_state *st)
+{
 	struct fwnode_handle *fwnode;
 	struct fwnode_handle *child;
-	u32 profile_addr;
 	bool prop_found;
 	u32 val;
 	u32 addr;
@@ -737,11 +810,11 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 
 		ret = fwnode_property_read_u32(child, "reg", &addr);
 		if (ret < 0)
-			goto out_fail_child;
+			goto out_fail;
 
 		if (addr > 1) {
 			ret = -EINVAL;
-			goto out_fail_child;
+			goto out_fail;
 		}
 
 		st->pll_clks[addr].pll_used = true;
@@ -759,7 +832,7 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 			if (val >= ARRAY_SIZE(ad9545_out_clk_names)) {
 				dev_err(st->dev, "Invalid zero-delay fb path: %u.", val);
 				ret = -EINVAL;
-				goto out_fail_child;
+				goto out_fail;
 			}
 
 			st->pll_clks[addr].internal_zero_delay_source = val;
@@ -770,81 +843,18 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 			if (val >= AD9545_MAX_ZERO_DELAY_RATE) {
 				dev_err(st->dev, "Invalid zero-delay output rate: %u.", val);
 				ret = -EINVAL;
-				goto out_fail_child;
+				goto out_fail;
 			}
 
 			st->pll_clks[addr].internal_zero_delay_source_rate_hz = val;
 		}
 
-		/* parse DPLL profiles */
-		fwnode_for_each_available_child_node(child, profile_node) {
-			ret = fwnode_property_read_u32(profile_node, "reg", &profile_addr);
-			if (ret < 0) {
-				dev_err(st->dev, "Could not read Profile reg property.");
-				goto out_fail_profile;
-			}
-
-			if (profile_addr >= AD9545_MAX_DPLL_PROFILES) {
-				ret = -EINVAL;
-				goto out_fail_profile;
-			}
-
-			st->pll_clks[addr].profiles[profile_addr].en = true;
-			st->pll_clks[addr].profiles[profile_addr].address = profile_addr;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,pll-loop-bandwidth-uhz", &val);
-			if (ret < 0) {
-				dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
-					profile_addr);
-				goto out_fail_profile;
-			}
-
-			st->pll_clks[addr].profiles[profile_addr].loop_bw_uhz = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode",
-						       &val);
-			if (!ret)
-				st->pll_clks[addr].fast_acq_trigger_mode = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-excess-bw",
-						       &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].fast_acq_excess_bw = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-timeout-ms",
-						       &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].fast_acq_timeout_ms = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-lock-settle-ms",
-						       &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].fast_acq_settle_ms = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,profile-priority", &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].priority = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,pll-source", &val);
-			if (ret < 0) {
-				dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
-					profile_addr);
-				goto out_fail_profile;
-			}
-
-			if (val > 5) {
-				ret = -EINVAL;
-				goto out_fail_profile;
-			}
-
-			st->pll_clks[addr].profiles[profile_addr].tdc_source = val;
-		}
-
+		ret = ad9545_parse_dt_pll_profiles(st, child, addr);
+		if (ret)
+			goto out_fail;
 	}
 
-out_fail_profile:
-	fwnode_handle_put(profile_node);
-out_fail_child:
+out_fail:
 	fwnode_handle_put(child);
 	return ret;
 }
