@@ -608,6 +608,22 @@ static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 		st->ref_in_clks[ref_ind].address = ref_ind;
 		st->ref_in_clks[ref_ind].st = st;
 
+		ret = fwnode_property_read_u32(child, "adi,phase-lock-fill-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].phase_lock_fill_rate = val;
+
+		ret = fwnode_property_read_u32(child, "adi,phase-lock-drain-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].phase_lock_drain_rate = val;
+
+		ret = fwnode_property_read_u32(child, "adi,freq-lock-fill-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].freq_lock_fill_rate = val;
+
+		ret = fwnode_property_read_u32(child, "adi,freq-lock-drain-rate", &val);
+		if (!ret)
+			st->ref_in_clks[ref_ind].freq_lock_drain_rate = val;
+
 		prop_found = fwnode_property_present(child, "adi,single-ended-mode");
 		if (prop_found) {
 			st->ref_in_clks[ref_ind].mode = AD9545_SINGLE_ENDED;
@@ -687,22 +703,6 @@ static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 
 		st->ref_in_clks[ref_ind].phase_thresh_ps = val;
 
-		ret = fwnode_property_read_u32(child, "adi,phase-lock-fill-rate", &val);
-		if (!ret)
-			st->ref_in_clks[ref_ind].phase_lock_fill_rate = val;
-
-		ret = fwnode_property_read_u32(child, "adi,phase-lock-drain-rate", &val);
-		if (!ret)
-			st->ref_in_clks[ref_ind].phase_lock_drain_rate = val;
-
-		ret = fwnode_property_read_u32(child, "adi,freq-lock-fill-rate", &val);
-		if (!ret)
-			st->ref_in_clks[ref_ind].freq_lock_fill_rate = val;
-
-		ret = fwnode_property_read_u32(child, "adi,freq-lock-drain-rate", &val);
-		if (!ret)
-			st->ref_in_clks[ref_ind].freq_lock_drain_rate = val;
-
 		clk = devm_clk_get(st->dev, ad9545_ref_clk_names[ref_ind]);
 		if (IS_ERR(clk)) {
 			ret = PTR_ERR(clk);
@@ -710,7 +710,6 @@ static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 		}
 
 		st->ref_in_clks[ref_ind].parent_clk = clk;
-		ret = 0;
 	}
 
 out_fail:
@@ -1026,6 +1025,10 @@ static int ad9545_parse_dt_aux_dpll(struct ad9545_state *st)
 	st->aux_dpll_clk.dpll_used = true;
 	st->aux_dpll_clk.st = st;
 
+	ret = fwnode_property_read_u32(child, "adi,rate-change-limit", &val);
+	if (!ret)
+		st->aux_dpll_clk.rate_change_limit = val;
+
 	ret = fwnode_property_read_u32(child, "adi,compensation-source", &val);
 	if (ret < 0) {
 		dev_err(st->dev, "No TDC source specified for aux. DPLL.");
@@ -1041,12 +1044,6 @@ static int ad9545_parse_dt_aux_dpll(struct ad9545_state *st)
 	}
 
 	st->aux_dpll_clk.loop_bw_mhz = val;
-
-	ret = fwnode_property_read_u32(child, "adi,rate-change-limit", &val);
-	if (!ret)
-		st->aux_dpll_clk.rate_change_limit = val;
-	else
-		ret = 0;
 
 out_fail:
 	fwnode_handle_put(child);
