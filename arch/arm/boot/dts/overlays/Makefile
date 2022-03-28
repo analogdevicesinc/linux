@@ -209,6 +209,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-cn0504.dtbo \
 	rpi-cn0508.dtbo \
 	rpi-cn0511.dtbo \
+	rpi-cn0552.dtbo \
 	rpi-cn0566.dtbo \
 	rpi-dac.dtbo \
 	rpi-dc1962c.dtbo \
