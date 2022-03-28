@@ -1774,8 +1774,9 @@ static int hmc7044_get_clks(struct device *dev,
 
 		hmc->clkin_freq_ccf[i] = clk_get_rate(clk);
 
-		devm_add_action_or_reset(dev,
-					 hmc7044_clk_disable_unprepare, clk);
+		ret = devm_add_action_or_reset(dev, hmc7044_clk_disable_unprepare, clk);
+		if (ret)
+			return ret;
 
 		hmc->clk_input[i] = clk;
 	}
