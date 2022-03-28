@@ -1,0 +1,32 @@
+What:		/sys/bus/iio/devices/iio:deviceX/frequency
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Stores the PLL frequency in Hz for output channels.
+		Reading returns the frequency in Hz.
+
+What:		/sys/bus/iio/devices/iio:deviceX/muxout_select
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		The mux output allows the user to access various internal points on
+		the chip. Valid values that can be written are:
+		* high_z -> high impedance output
+		* lock_detect -> digital lock detector output
+		* muxout_low -> low output
+		* f_div_rclk_2 -> fdiv_rclk/2
+		* f_div_nclk_2 -> fdiv_nclk/2
+		* muxout_high -> high output
+
+What:		/sys/bus/iio/devices/iio:deviceX/muxout_select_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		muxout_mode attribute:
+		* high_z
+		* lock_detect
+		* muxout_low
+		* f_div_rclk_2
+		* f_div_nclk_2
+		* muxout_high
