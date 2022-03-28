@@ -737,10 +737,6 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 		st->pll_clks[addr].pll_used = true;
 		st->pll_clks[addr].address = addr;
 
-		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode", &val);
-		if (!ret)
-			st->pll_clks[addr].fast_acq_trigger_mode = val;
-
 		ret = fwnode_property_read_u32(child, "adi,pll-slew-rate-limit-ps", &val);
 		if (!ret)
 			st->pll_clks[addr].slew_rate_limit_ps = val;
@@ -790,6 +786,11 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 			}
 
 			st->pll_clks[addr].profiles[profile_addr].loop_bw_uhz = val;
+
+			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode",
+						       &val);
+			if (!ret)
+				st->pll_clks[addr].fast_acq_trigger_mode = val;
 
 			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-excess-bw",
 						       &val);
