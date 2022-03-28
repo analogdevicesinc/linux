@@ -249,6 +249,7 @@ struct ad9081_phy {
 	u32 ad9081_debugfs_entry_index;
 	u8 direct_lb_map;
 	u8 rx_ffh_gpio_mux_sel[6];
+	u8 sync_ms_gpio_num;
 };
 
 static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
@@ -333,7 +334,7 @@ static int ad9081_nco_sync(struct ad9081_phy *phy, bool master)
 		return adi_ad9081_adc_nco_master_slave_sync(&phy->ad9081,
 					     master,
 					     1, /* trigger_src */
-					     0, /* gpio_index */
+					     phy->sync_ms_gpio_num, /* gpio_index */
 					     phy->nco_sync_ms_extra_lmfc_num);
 }
 
@@ -4178,6 +4179,9 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	phy->direct_lb_map = 0x44;
 	of_property_read_u8(np, "adi,direct-loopback-mode-dac-adc-mapping",
 			&phy->direct_lb_map);
+
+	of_property_read_u8(np, "adi,master-slave-sync-gpio-num",
+			&phy->sync_ms_gpio_num);
 
 	ret = ad9081_parse_dt_tx(phy, np);
 	if (ret == -ENODEV && phy->dac_frequency_hz) {
