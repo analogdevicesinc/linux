@@ -17,6 +17,7 @@
 #include <linux/rational.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 
 #include <dt-bindings/clock/ad9545.h>
 
@@ -723,8 +724,7 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 
 	prop_found = false;
 	fwnode_for_each_available_child_node(fwnode, child) {
-		profile_node = fwnode_get_next_available_child_node(child, NULL);
-		if (!profile_node)
+		if (strncmp(fwnode_get_name(child), "pll-clk", strlen("pll-clk")))
 			continue;
 
 		ret = fwnode_property_read_u32(child, "reg", &addr);
