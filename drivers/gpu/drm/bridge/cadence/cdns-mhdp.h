@@ -11,7 +11,7 @@
 #ifndef CDNS_MHDP_H
 #define CDNS_MHDP_H
 
-#include <drm/drm_dp_mst_helper.h>
+#include <drm/dp/drm_dp_mst_helper.h>
 
 #define CDNS_APB_CFG				0x00000
 #define CDNS_APB_CTRL				(CDNS_APB_CFG + 0x00)

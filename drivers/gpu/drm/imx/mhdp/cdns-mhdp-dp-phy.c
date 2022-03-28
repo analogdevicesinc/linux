@@ -12,7 +12,7 @@
 #include <linux/clk.h>
 #include <linux/kernel.h>
 #include <drm/drm_print.h>
-#include <drm/drm_dp_helper.h>
+#include <drm/dp/drm_dp_helper.h>
 #include <drm/bridge/cdns-mhdp.h>
 #include "cdns-mhdp-phy.h"
 

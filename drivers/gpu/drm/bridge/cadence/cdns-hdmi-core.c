@@ -102,7 +102,7 @@ static int hdmi_avi_info_set(struct cdns_mhdp_device *mhdp,
 		break;
 	}
 
-	drm_hdmi_avi_infoframe_colorspace(&frame, conn_state);
+	drm_hdmi_avi_infoframe_colorimetry(&frame, conn_state);
 
 	adj_mode = &mhdp->bridge.base.encoder->crtc->state->adjusted_mode;
 
