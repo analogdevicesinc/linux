@@ -40,6 +40,8 @@
 		//adi,vcxo-frequency = <122880000>;
 
 		adi,pll1-clkin-frequencies = <100000000 10000000 0 0>;
+		adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
+		adi,pll1-ref-autorevert-enable;
 		adi,vcxo-frequency = <100000000>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
