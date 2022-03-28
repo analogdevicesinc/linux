@@ -212,7 +212,7 @@
 // assign rxen[1]          = gpio_o[57]; 135
 // assign txen[0]          = gpio_o[58]; 136
 // assign txen[1]          = gpio_o[59]; 137
-// assign dac_fifo_bypass  = gpio_o[60];
+
 
 &trx0_ad9081 {
 	reset-gpios = <&gpio 133 0>;
@@ -221,8 +221,4 @@
 	rx1-enable-gpios = <&gpio 134 0>;
 	tx2-enable-gpios = <&gpio 137 0>;
 	tx1-enable-gpios = <&gpio 136 0>;
-};
-
-&axi_ad9081_core_tx {
-	plddrbypass-gpios = <&gpio 138 0>;
 };
