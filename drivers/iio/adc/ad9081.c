@@ -41,6 +41,9 @@
 #define CHIPID_AD9082 0x9082
 #define CHIPID_AD9988 0x9988
 #define CHIPID_AD9986 0x9986
+#define CHIPID_AD9177 0x9177
+#define CHIPID_AD9207 0x9207
+#define CHIPID_AD9209 0x9209
 
 #define CHIPID_MASK 0xFFFF
 #define ID_DUAL BIT(31)
@@ -4944,6 +4947,9 @@ static int ad9081_probe(struct spi_device *spi)
 	case CHIPID_AD9082:
 	case CHIPID_AD9988:
 	case CHIPID_AD9986:
+	case CHIPID_AD9177:
+	case CHIPID_AD9207:
+	case CHIPID_AD9209:
 		spi_id = spi_get_device_id(spi)->driver_data & CHIPID_MASK;
 
 		if (conv->id != spi_id)
@@ -5060,6 +5066,9 @@ static const struct spi_device_id ad9081_id[] = {
 	{ "ad9082", CHIPID_AD9082 },
 	{ "ad9988", CHIPID_AD9988 },
 	{ "ad9986", CHIPID_AD9986 },
+	{ "ad9177", CHIPID_AD9177 },
+	{ "ad9207", CHIPID_AD9207 },
+	{ "ad9209", CHIPID_AD9209 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9081_id);
@@ -5069,6 +5078,9 @@ static const struct of_device_id ad9081_of_match[] = {
 	{ .compatible = "adi,ad9082" },
 	{ .compatible = "adi,ad9988" },
 	{ .compatible = "adi,ad9986" },
+	{ .compatible = "adi,ad9177" },
+	{ .compatible = "adi,ad9207" },
+	{ .compatible = "adi,ad9209" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ad9081_of_match);
