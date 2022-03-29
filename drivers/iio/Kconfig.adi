@@ -178,3 +178,4 @@ config IIO_ALL_ADI_DRIVERS
 	select IIO_GEN_MUX
 	select AD74413R
 	select ADI_IIO_FAKEDEV
+	select LTC2688
