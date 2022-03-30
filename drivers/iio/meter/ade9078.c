@@ -611,8 +611,12 @@ static int ade9078_en_wfb(struct ade9078_state *st, bool state)
 static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
+	u8 nr_activ_chan;
 	int ret;
 	u32 i;
+
+	nr_activ_chan = bitmap_weight(indio_dev->active_scan_mask,
+				      indio_dev->masklength);
 
 	ret = spi_sync(st->spi, &st->spi_msg);
 	if (ret) {
@@ -620,8 +624,10 @@ static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
 		return ret;
 	}
 
-	for (i = 0; i < ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i++)
+	for (i = 0; i < ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i+=nr_activ_chan)
+	{
 		iio_push_to_buffers(indio_dev, &st->rx_buff.word[i]);
+	}
 
 	return 0;
 }
