@@ -1684,7 +1684,10 @@ static int vsiv4l2_verifyfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 	}
 	pix->bytesperline = bytesperline;
 
-	psize[0] = pix->sizeimage;
+	if (V4L2_TYPE_IS_OUTPUT(fmt->type))
+		psize[0] = max_t(u32, pcfg->sizeimagesrc[0], pix->sizeimage);
+	else
+		psize[0] = max_t(u32, pcfg->sizeimagedst[0], pix->sizeimage);
 	verifyPlanesize(psize, braw, pix->pixelformat, bytesperline,
 			pix->height, 1, 1);
 	pix->sizeimage = psize[0];
