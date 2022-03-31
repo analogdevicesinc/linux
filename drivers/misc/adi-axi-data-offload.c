@@ -47,8 +47,8 @@
 #define AXI_DO_REG_SYNC_CONFIG			0x104
 
 #define AXI_DO_REG_FSM_DEBUG			0x0200
-#define   AXI_DO_BIT_FSM_DEBUG_FSM_STATE_WRITE	GENMASK(1, 0)
-#define   AXI_DO_BIT_FSM_DEBUG_FSM_STATE_READ	GENMASK(5, 4)
+#define   AXI_DO_BIT_FSM_DEBUG_FSM_STATE_WRITE	GENMASK(4, 0)
+#define   AXI_DO_BIT_FSM_DEBUG_FSM_STATE_READ	GENMASK(11, 8)
 
 #define AXI_DO_REG_SAMPLE_COUNT_LSB		0x0204
 #define AXI_DO_REG_SAMPLE_COUNT_MSB		0x0208
@@ -266,7 +266,7 @@ ADI_REG_DEVICE_ATTR(sync_config, 0644, AXI_DO_REG_SYNC_CONFIG, GENMASK(1, 0), 0,
 ADI_REG_DEVICE_ATTR(fsm_debug_state_write, 0444, AXI_DO_REG_FSM_DEBUG,
 		AXI_DO_BIT_FSM_DEBUG_FSM_STATE_WRITE, 0, "%lld\n", false);
 ADI_REG_DEVICE_ATTR(fsm_debug_state_read, 0444, AXI_DO_REG_FSM_DEBUG,
-		AXI_DO_BIT_FSM_DEBUG_FSM_STATE_READ, 4, "%lld\n", false);
+		AXI_DO_BIT_FSM_DEBUG_FSM_STATE_READ, 8, "%lld\n", false);
 
 /* May encounter race condition - maybe read the value multiple times? */
 ADI_REG_DEVICE_ATTR(sample_count, 0444, AXI_DO_REG_SAMPLE_COUNT_LSB, ~0u, 0, "%llu\n", true);
