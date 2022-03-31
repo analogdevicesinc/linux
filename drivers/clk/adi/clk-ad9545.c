@@ -565,7 +565,7 @@ struct ad9545_state {
 	struct ad9545_out_clk		out_clks[ARRAY_SIZE(ad9545_out_clk_names)];
 	struct ad9545_aux_nco_clk	aux_nco_clks[ARRAY_SIZE(ad9545_aux_nco_clk_names)];
 	struct ad9545_aux_tdc_clk	aux_tdc_clks[ARRAY_SIZE(ad9545_aux_tdc_clk_names)];
-	struct clk			**clks[4];
+	struct clk_hw			**clks[4];
 };
 
 #define to_ref_in_clk(_hw)	container_of(_hw, struct ad9545_ref_in_clk, hw)
@@ -1702,7 +1702,7 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_OUT][i] = st->out_clks[i].hw.clk;
+		st->clks[AD9545_CLK_OUT][i] = &st->out_clks[i].hw;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(st->pll_clks); i++) {
@@ -2596,7 +2596,7 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_PLL][i] = pll->hw.clk;
+		st->clks[AD9545_CLK_PLL][i] = &pll->hw;
 	}
 
 	return 0;
@@ -2698,7 +2698,7 @@ static int ad9545_aux_ncos_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_NCO][i] = nco->hw.clk;
+		st->clks[AD9545_CLK_NCO][i] = &nco->hw;
 	}
 
 	return 0;
@@ -2810,7 +2810,7 @@ static int ad9545_aux_tdcs_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_AUX_TDC][i] = tdc->hw.clk;
+		st->clks[AD9545_CLK_AUX_TDC][i] = &tdc->hw;
 	}
 
 	return 0;
@@ -2997,11 +2997,11 @@ static int ad9545_calib_aplls(struct ad9545_state *st)
 	return 0;
 }
 
-static struct clk *ad9545_clk_src_twocell_get(struct of_phandle_args *clkspec, void *data)
+static struct clk_hw *ad9545_clk_hw_twocell_get(struct of_phandle_args *clkspec, void *data)
 {
 	unsigned int clk_address = clkspec->args[1];
 	unsigned int clk_type = clkspec->args[0];
-	struct clk ***clks = data;
+	struct clk_hw ***clks = data;
 
 	if (clk_type > AD9545_CLK_AUX_TDC) {
 		pr_err("%s: invalid clock type %u\n", __func__, clk_type);
@@ -3016,11 +3016,6 @@ static struct clk *ad9545_clk_src_twocell_get(struct of_phandle_args *clkspec, v
 	}
 
 	return clks[clk_type][clk_address];
-}
-
-static void ad9545_clk_del_provider(void *of_node)
-{
-	of_clk_del_provider(of_node);
 }
 
 static int ad9545_setup(struct ad9545_state *st)
@@ -3073,14 +3068,9 @@ static int ad9545_setup(struct ad9545_state *st)
 	if (ret < 0)
 		return ret;
 
-	ret = of_clk_add_provider(st->dev->of_node, ad9545_clk_src_twocell_get,
-				  &st->clks[AD9545_CLK_OUT]);
+	ret = devm_of_clk_add_hw_provider(st->dev, ad9545_clk_hw_twocell_get,
+					  &st->clks[AD9545_CLK_OUT]);
 	if (ret < 0)
-		return ret;
-
-	ret = devm_add_action_or_reset(st->dev, ad9545_clk_del_provider,
-				       st->dev->of_node);
-	if (ret)
 		return ret;
 
 	ret = ad9545_calib_aplls(st);
