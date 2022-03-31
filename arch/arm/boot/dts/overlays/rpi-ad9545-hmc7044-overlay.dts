@@ -511,6 +511,7 @@
 				compatible = "gpio-poweroff";
 				gpios = <&gpio 21 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 				input;
+				force;
 			};
 		};
 	};
