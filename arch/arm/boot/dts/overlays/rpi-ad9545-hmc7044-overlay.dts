@@ -70,6 +70,20 @@
 	};
 
 	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
 		target = <&spi0>;
 		__overlay__ {
 			compatible = "brcm,bcm2835-spi";
@@ -424,7 +438,7 @@
 		};
 	};
 
-	fragment@2 {
+	fragment@4 {
 		target = <&gpio>;
 		__overlay__ {
 
@@ -490,7 +504,7 @@
 		};
 	};
 
-	fragment@3 {
+	fragment@5 {
 		target-path = "/";
 		__overlay__ {
 			power_ctrl: power_ctrl {
@@ -501,7 +515,7 @@
 		};
 	};
 
-	fragment@4 {
+	fragment@6 {
 		target-path = "/soc";
 		__overlay__ {
 			shutdown_button: shutdown_button@3 {
@@ -515,20 +529,6 @@
 					debounce-interval = <100>;
 				};
 			};
-		};
-	};
-
-	fragment@5 {
-		target = <&spidev0>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@6 {
-		target = <&spidev1>;
-		__overlay__ {
-			status = "disabled";
 		};
 	};
 
