@@ -7,7 +7,7 @@
  * split out from mpc85xx_edac EDAC driver.
  *
  * Parts Copyrighted (c) 2013 by Freescale Semiconductor, Inc.
- *
+ * Parts Copyrighted (c) 2022 NXP
  * Author: Dave Jiang <djiang@mvista.com>
  *
  * 2006-2007 (c) MontaVista Software, Inc.
@@ -331,18 +331,24 @@ static void fsl_mc_check(struct mem_ctl_info *mci)
 		sbe_ecc_decode(cap_high, cap_low, syndrome,
 				&bad_data_bit, &bad_ecc_bit);
 
-		if (bad_data_bit != -1)
+		if (bad_data_bit >= 0)
 			fsl_mc_printk(mci, KERN_ERR,
 				"Faulty Data bit: %d\n", bad_data_bit);
-		if (bad_ecc_bit != -1)
+		if (bad_ecc_bit >= 0)
 			fsl_mc_printk(mci, KERN_ERR,
-				"Faulty ECC bit: %d\n", bad_ecc_bit);
-
-		fsl_mc_printk(mci, KERN_ERR,
-			"Expected Data / ECC:\t%#8.8x_%08x / %#2.2x\n",
-			cap_high ^ (1 << (bad_data_bit - 32)),
-			cap_low ^ (1 << bad_data_bit),
-			syndrome ^ (1 << bad_ecc_bit));
+					"Faulty ECC bit: %d\n", bad_ecc_bit);
+		if ((bad_data_bit > 0 && bad_data_bit < 32) && bad_ecc_bit > 0) {
+			fsl_mc_printk(mci, KERN_ERR,
+				"Expected Data / ECC:\t%#8.8x_%08x / %#2.2x\n",
+				cap_high, cap_low ^ (1 << bad_data_bit),
+				syndrome ^ (1 << bad_ecc_bit));
+		}
+		if (bad_data_bit >= 32 && bad_ecc_bit > 0) {
+			fsl_mc_printk(mci, KERN_ERR,
+				"Expected Data / ECC:\t%#8.8x_%08x / %#2.2x\n",
+				cap_high ^ (1 << (bad_data_bit - 32)),
+				cap_low, syndrome ^ (1 << bad_ecc_bit));
+		}
 	}
 
 	fsl_mc_printk(mci, KERN_ERR,
