@@ -18,7 +18,7 @@
 		compatible = "goodix,gt1151";
 		reg = <0x14>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
+		pinctrl-0 = <&pinctrl_i2c3_dsi_ts_int>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
 		irq-gpios = <&gpio5 7 GPIO_ACTIVE_HIGH>;

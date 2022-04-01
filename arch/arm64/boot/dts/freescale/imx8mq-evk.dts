@@ -835,6 +835,12 @@
 		>;
 	};
 
+	pinctrl_i2c3_dsi_ts_int: dsi_ts_int {
+		fsl,pins = <
+			MX8MQ_IOMUXC_ECSPI1_MOSI_GPIO5_IO7		0x59
+		>;
+	};
+
 	pinctrl_pcie0: pcie0grp {
 		fsl,pins = <
 			MX8MQ_IOMUXC_I2C4_SCL_PCIE1_CLKREQ_B		0x76
