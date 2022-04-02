@@ -1435,11 +1435,9 @@ static int put_hantro_core_desc32(struct core_desc *kp, struct core_desc_32 __us
 static long hantrodec_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 #define HANTRO_IOCTL32(err, filp, cmd, arg) { \
-		mm_segment_t old_fs = force_uaccess_begin(); \
 		err = hantrodec_ioctl(filp, cmd, arg); \
 		if (err) \
 			return err; \
-		force_uaccess_end(old_fs); \
 	}
 
 	union {
