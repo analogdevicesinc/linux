@@ -7,5 +7,6 @@ config DRM_IMX_CDNS_MHDP
 	select DRM_CDNS_HDMI
 	select DRM_CDNS_AUDIO
 	select DRM_CDNS_HDCP
+	depends on DRM
 	help
 	  Choose this if you want to use HDMI on i.MX8.
