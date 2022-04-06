@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADF4377
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-frequency/adf4377
+ *
+ * hdl_project: <adf4377_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	clocks {
+		adf4377_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adf4377: frequency@0 {
+		compatible = "adi,adf4377";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		ce-en-gpios = <&gpio0 89 GPIO_ACTIVE_HIGH>;
+		enclk1-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>;
+		enclk2-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+
+		clocks = <&adf4377_clkin>;
+		clock-names = "ref_in";
+	};
+};
