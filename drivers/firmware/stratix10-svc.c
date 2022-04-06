@@ -41,7 +41,6 @@
 
 /* stratix10 service layer clients */
 #define STRATIX10_RSU				"stratix10-rsu"
-#define INTEL_FCS				"intel-fcs"
 
 typedef void (svc_invoke_fn)(unsigned long, unsigned long, unsigned long,
 			     unsigned long, unsigned long, unsigned long,
@@ -1723,23 +1722,8 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 	}
 
 	ret = platform_device_add(svc->stratix10_svc_rsu);
-	if (ret) {
-		platform_device_put(svc->stratix10_svc_rsu);
-		goto err_free_kfifo;
-	}
-
-	svc->intel_svc_fcs = platform_device_alloc(INTEL_FCS, 1);
-	if (!svc->intel_svc_fcs) {
-		dev_err(dev, "failed to allocate %s device\n", INTEL_FCS);
-		ret = -ENOMEM;
-		goto err_unregister_dev;
-	}
-
-	ret = platform_device_add(svc->intel_svc_fcs);
-	if (ret) {
-		platform_device_put(svc->intel_svc_fcs);
-		goto err_unregister_dev;
-	}
+	if (ret)
+		goto err_put_device;
 
 	dev_set_drvdata(dev, svc);
 
@@ -1747,10 +1731,10 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_destroy_pool:
-	gen_pool_destroy(genpool);
 err_put_device:
 	platform_device_put(svc->stratix10_svc_rsu);
+err_destroy_pool:
+	gen_pool_destroy(genpool);
 
 	return ret;
 }
