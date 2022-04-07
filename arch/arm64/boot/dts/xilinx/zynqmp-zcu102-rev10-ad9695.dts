@@ -46,6 +46,13 @@
 			clock-accuracy = <1000000000>;
 			clock-output-names = "dev_clk";
 		};
+		sysref: clock@2 {
+			#clock-cells = <0>;
+			compatible = "adjustable-clock";
+			clock-frequency = <5078125>;
+			clock-accuracy = <1000000000>;
+			clock-output-names = "adc_sysref";
+		};
 	};
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
@@ -93,7 +100,7 @@
 
 			adi,octets-per-frame = <1>;
 			adi,frames-per-multiframe = <32>;
-			adi,subclass = <0>;
+			adi,subclass = <1>;
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd_adc_lane_clk";
@@ -136,8 +143,8 @@
 		spi-max-frequency = <5000000>;
 		reg = <0>;
 
-		clocks = <&axi_ad9695_jesd>, <&ad9695_clkin>;
-		clock-names = "jesd_adc_clk", "adc_clk";
+		clocks = <&axi_ad9695_jesd>, <&ad9695_clkin>, <&sysref>;
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 
 		adi,powerdown-mode = <AD9208_PDN_MODE_POWERDOWN>;
 
@@ -163,7 +170,7 @@
 		adi,converters-per-device = <2>;
 		adi,control-bits-per-sample = <0>;
 		adi,lanes-per-device = <4>;
-		adi,subclass = <0>;
+		adi,subclass = <1>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
