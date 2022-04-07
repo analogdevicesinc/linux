@@ -111,6 +111,7 @@ config IIO_ALL_ADI_DRIVERS
 	select ADF4350
 	select ADF4360
 	select ADF4371
+	select ADF4377
 	select ADF5355
 	select ADL5960
 	select ADMV1013
@@ -122,6 +123,7 @@ config IIO_ALL_ADI_DRIVERS
 	select CF_AXI_DDS_AD9122
 	select CF_AXI_DDS_AD9144
 	select CF_AXI_DDS_AD9739A
+	select CF_AXI_DDS_AD9783
 	select HMC7044
 	select CF_AXI_DDS_AD9162
 	select CF_AXI_DDS_AD9172
@@ -178,3 +180,4 @@ config IIO_ALL_ADI_DRIVERS
 	select IIO_GEN_MUX
 	select AD74413R
 	select ADI_IIO_FAKEDEV
+	select LTC2688

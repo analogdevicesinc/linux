@@ -13,6 +13,7 @@ obj-$(CONFIG_ADF4159) += adf4159.o
 obj-$(CONFIG_ADF4350) += adf4350.o
 obj-$(CONFIG_ADF4360) += adf4360.o
 obj-$(CONFIG_ADF4371) += adf4371.o
+obj-$(CONFIG_ADF4377) += adf4377.o
 obj-$(CONFIG_ADF5355) += adf5355.o
 obj-$(CONFIG_ADL5960) += adl5960.o
 obj-$(CONFIG_ADMV1013) += admv1013.o
@@ -24,6 +25,7 @@ obj-$(CONFIG_CF_AXI_DDS) += cf_axi_dds_drv.o
 obj-$(CONFIG_CF_AXI_DDS_AD9122) += ad9122.o
 obj-$(CONFIG_CF_AXI_DDS_AD9144) += ad9144.o
 obj-$(CONFIG_CF_AXI_DDS_AD9739A) += ad9739a.o
+obj-$(CONFIG_CF_AXI_DDS_AD9783) += ad9783.o
 obj-$(CONFIG_HMC7044) += hmc7044.o
 obj-$(CONFIG_LTC6952) += ltc6952.o
 

@@ -1089,6 +1089,14 @@ L:	linux-media@vger.kernel.org
 S:	Maintained
 F:	drivers/media/i2c/ad9389b*
 
+ANALOG DEVICES INC AD9783 DRIVER
+M:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/devicetree/bindings/iio/frequency/adi,ad9783.yaml
+F:	drivers/iio/frequency/ad9783.c
+
 ANALOG DEVICES INC ADAR100 DRIVER
 M:	Mircea Caprioru <mircea.caprioru@analog.com>
 L:	linux-iio@vger.kernel.org
@@ -10468,6 +10476,15 @@ L:	linux-iio@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/iio/dac/lltc,ltc1660.yaml
 F:	drivers/iio/dac/ltc1660.c
+
+LTC2688 IIO DAC DRIVER
+M:	Nuno Sá <nuno.sa@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/ABI/testing/sysfs-bus-iio-dac-ltc2688
+F:	Documentation/devicetree/bindings/iio/dac/adi,ltc2688.yaml
+F:	drivers/iio/dac/ltc2688.c
 
 LTC2947 HARDWARE MONITOR DRIVER
 M:	Nuno Sá <nuno.sa@analog.com>

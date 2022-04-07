@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * hdl_project: <ad9783_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	clocks {
+		ad9783_clk: clock@0 {
+			compatible = "fixed-clock";
+			#clock-cells =<0>;
+			clock-frequency = <500000000>;
+		};
+	};
+};
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		tx_dma: tx-dmac@9c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c420000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <1>;
+				};
+			};
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+
+		axi_ad9783_core: ad9783_core_dds@94204000 {
+			compatible = "adi,axi-ad9783-1.0";
+			reg = <0x94204000 0x4000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			spibus-connected = <&ad9783_spi>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ad9783_spi: ad9783@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9783";
+		reg = <0>;
+		spi-max-freequency = <10000000>;
+		clocks = <&ad9783_clk>;
+		clock-names = "dac_clk";
+	};
+};
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
+};

@@ -17,6 +17,7 @@
 #include <linux/rational.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 
 #include <dt-bindings/clock/ad9545.h>
 
@@ -564,7 +565,7 @@ struct ad9545_state {
 	struct ad9545_out_clk		out_clks[ARRAY_SIZE(ad9545_out_clk_names)];
 	struct ad9545_aux_nco_clk	aux_nco_clks[ARRAY_SIZE(ad9545_aux_nco_clk_names)];
 	struct ad9545_aux_tdc_clk	aux_tdc_clks[ARRAY_SIZE(ad9545_aux_tdc_clk_names)];
-	struct clk			**clks[4];
+	struct clk_hw			**clks[4];
 };
 
 #define to_ref_in_clk(_hw)	container_of(_hw, struct ad9545_ref_in_clk, hw)
@@ -582,7 +583,7 @@ static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 	bool prop_found;
 	int ref_ind;
 	u32 val;
-	int ret;
+	int ret = 0;
 	int i;
 
 	fwnode = dev_fwnode(st->dev);
@@ -595,92 +596,17 @@ static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 		ret = fwnode_property_read_u32(child, "reg", &ref_ind);
 		if (ret < 0) {
 			dev_err(st->dev, "reg not specified in ref node.");
-			return ret;
+			goto out_fail;
 		}
 
-		if (ref_ind > 3)
-			return -EINVAL;
+		if (ref_ind > 3) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
 
 		st->ref_in_clks[ref_ind].ref_used = true;
 		st->ref_in_clks[ref_ind].address = ref_ind;
 		st->ref_in_clks[ref_ind].st = st;
-
-		prop_found = fwnode_property_present(child, "adi,single-ended-mode");
-		if (prop_found) {
-			st->ref_in_clks[ref_ind].mode = AD9545_SINGLE_ENDED;
-			ret = fwnode_property_read_u32(child, "adi,single-ended-mode", &val);
-			if (ret < 0)
-				return ret;
-
-			st->ref_in_clks[ref_ind].s_conf = val;
-		} else {
-			st->ref_in_clks[ref_ind].mode = AD9545_DIFFERENTIAL;
-			ret = fwnode_property_read_u32(child, "adi,differential-mode", &val);
-			if (ret < 0)
-				return ret;
-
-			st->ref_in_clks[ref_ind].d_conf = val;
-		}
-
-		ret = fwnode_property_read_u32(child, "adi,r-divider-ratio", &val);
-		if (ret < 0) {
-			dev_err(st->dev, "No r-divider-ratio specified for ref: %d", ref_ind);
-			return ret;
-		}
-
-		st->ref_in_clks[ref_ind].r_div_ratio = val;
-
-		ret = fwnode_property_read_u32(child, "adi,ref-dtol-pbb", &val);
-		if (ret < 0) {
-			dev_err(st->dev, "No ref-dtol-pbb specified for ref: %d", ref_ind);
-			return ret;
-		}
-
-		st->ref_in_clks[ref_ind].d_tol_ppb = val;
-
-		ret = fwnode_property_read_u32(child, "adi,ref-monitor-hysteresis-pbb", &val);
-		if (ret < 0) {
-			dev_err(st->dev, "No ref-monitor-hysteresis-pbb specified for ref: %d",
-				ref_ind);
-			return ret;
-		}
-
-		for (i = 0; i < ARRAY_SIZE(ad9545_hyst_scales_bp); i++) {
-			if (ad9545_hyst_scales_bp[i] == val) {
-				st->ref_in_clks[ref_ind].monitor_hyst_scale = i;
-				break;
-			}
-		}
-
-		if (i == ARRAY_SIZE(ad9545_hyst_scales_bp))
-			return -EINVAL;
-
-		ret = fwnode_property_read_u32(child, "adi,ref-validation-timer-ms", &val);
-		if (ret < 0) {
-			dev_err(st->dev, "No ref-validation-timer-ms specified for ref: %d",
-				ref_ind);
-			return ret;
-		}
-
-		st->ref_in_clks[ref_ind].valid_t_ms = val;
-
-		ret = fwnode_property_read_u32(child, "adi,freq-lock-threshold-ps", &val);
-		if (ret < 0) {
-			dev_err(st->dev, "No freq-lock-threshold-ps specified for ref: %d",
-				ref_ind);
-			return ret;
-		}
-
-		st->ref_in_clks[ref_ind].freq_thresh_ps = val;
-
-		ret = fwnode_property_read_u32(child, "adi,phase-lock-threshold-ps", &val);
-		if (ret < 0) {
-			dev_err(st->dev, "No phase-lock-threshold-ps specified for ref: %d",
-				ref_ind);
-			return ret;
-		}
-
-		st->ref_in_clks[ref_ind].phase_thresh_ps = val;
 
 		ret = fwnode_property_read_u32(child, "adi,phase-lock-fill-rate", &val);
 		if (!ret)
@@ -698,48 +624,201 @@ static int ad9545_parse_dt_inputs(struct ad9545_state *st)
 		if (!ret)
 			st->ref_in_clks[ref_ind].freq_lock_drain_rate = val;
 
+		prop_found = fwnode_property_present(child, "adi,single-ended-mode");
+		if (prop_found) {
+			st->ref_in_clks[ref_ind].mode = AD9545_SINGLE_ENDED;
+			ret = fwnode_property_read_u32(child, "adi,single-ended-mode", &val);
+			if (ret < 0)
+				goto out_fail;
+
+			st->ref_in_clks[ref_ind].s_conf = val;
+		} else {
+			st->ref_in_clks[ref_ind].mode = AD9545_DIFFERENTIAL;
+			ret = fwnode_property_read_u32(child, "adi,differential-mode", &val);
+			if (ret < 0)
+				goto out_fail;
+
+			st->ref_in_clks[ref_ind].d_conf = val;
+		}
+
+		ret = fwnode_property_read_u32(child, "adi,r-divider-ratio", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "No r-divider-ratio specified for ref: %d", ref_ind);
+			goto out_fail;
+		}
+
+		st->ref_in_clks[ref_ind].r_div_ratio = val;
+
+		ret = fwnode_property_read_u32(child, "adi,ref-dtol-pbb", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "No ref-dtol-pbb specified for ref: %d", ref_ind);
+			goto out_fail;
+		}
+
+		st->ref_in_clks[ref_ind].d_tol_ppb = val;
+
+		ret = fwnode_property_read_u32(child, "adi,ref-monitor-hysteresis-pbb", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "No ref-monitor-hysteresis-pbb specified for ref: %d",
+				ref_ind);
+			goto out_fail;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(ad9545_hyst_scales_bp); i++) {
+			if (ad9545_hyst_scales_bp[i] == val) {
+				st->ref_in_clks[ref_ind].monitor_hyst_scale = i;
+				break;
+			}
+		}
+
+		if (i == ARRAY_SIZE(ad9545_hyst_scales_bp)) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
+
+		ret = fwnode_property_read_u32(child, "adi,ref-validation-timer-ms", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "No ref-validation-timer-ms specified for ref: %d",
+				ref_ind);
+			goto out_fail;
+		}
+
+		st->ref_in_clks[ref_ind].valid_t_ms = val;
+
+		ret = fwnode_property_read_u32(child, "adi,freq-lock-threshold-ps", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "No freq-lock-threshold-ps specified for ref: %d",
+				ref_ind);
+			goto out_fail;
+		}
+
+		st->ref_in_clks[ref_ind].freq_thresh_ps = val;
+
+		ret = fwnode_property_read_u32(child, "adi,phase-lock-threshold-ps", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "No phase-lock-threshold-ps specified for ref: %d",
+				ref_ind);
+			goto out_fail;
+		}
+
+		st->ref_in_clks[ref_ind].phase_thresh_ps = val;
+
 		clk = devm_clk_get(st->dev, ad9545_ref_clk_names[ref_ind]);
-		if (IS_ERR(clk))
-			return PTR_ERR(clk);
+		if (IS_ERR(clk)) {
+			ret = PTR_ERR(clk);
+			goto out_fail;
+		}
 
 		st->ref_in_clks[ref_ind].parent_clk = clk;
 	}
 
-	return 0;
+out_fail:
+	fwnode_handle_put(child);
+	return ret;
+}
+
+static int ad9545_parse_dt_pll_profiles(struct ad9545_state *st, const struct fwnode_handle *child,
+					u32 addr)
+{
+	struct fwnode_handle *profile_node;
+	int ret = 0;
+
+	/* parse DPLL profiles */
+	fwnode_for_each_available_child_node(child, profile_node) {
+		u32 profile_addr;
+		u32 val;
+
+		ret = fwnode_property_read_u32(profile_node, "reg", &profile_addr);
+		if (ret < 0) {
+			dev_err(st->dev, "Could not read Profile reg property.");
+			goto out_fail;
+		}
+
+		if (profile_addr >= AD9545_MAX_DPLL_PROFILES) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
+
+		st->pll_clks[addr].profiles[profile_addr].en = true;
+		st->pll_clks[addr].profiles[profile_addr].address = profile_addr;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,pll-loop-bandwidth-uhz", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
+				profile_addr);
+			goto out_fail;
+		}
+
+		st->pll_clks[addr].profiles[profile_addr].loop_bw_uhz = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode", &val);
+		if (!ret)
+			st->pll_clks[addr].fast_acq_trigger_mode = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-excess-bw", &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].fast_acq_excess_bw = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-timeout-ms", &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].fast_acq_timeout_ms = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-lock-settle-ms",
+					       &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].fast_acq_settle_ms = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,profile-priority", &val);
+		if (!ret)
+			st->pll_clks[addr].profiles[profile_addr].priority = val;
+
+		ret = fwnode_property_read_u32(profile_node, "adi,pll-source", &val);
+		if (ret < 0) {
+			dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
+				profile_addr);
+			goto out_fail;
+		}
+
+		if (val > 5) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
+
+		st->pll_clks[addr].profiles[profile_addr].tdc_source = val;
+	}
+
+out_fail:
+	fwnode_handle_put(profile_node);
+	return ret;
 }
 
 static int ad9545_parse_dt_plls(struct ad9545_state *st)
 {
-	struct fwnode_handle *profile_node;
 	struct fwnode_handle *fwnode;
 	struct fwnode_handle *child;
-	u32 profile_addr;
 	bool prop_found;
 	u32 val;
 	u32 addr;
-	int ret;
+	int ret = 0;
 
 	fwnode = dev_fwnode(st->dev);
 
 	prop_found = false;
 	fwnode_for_each_available_child_node(fwnode, child) {
-		profile_node = fwnode_get_next_available_child_node(child, NULL);
-		if (!profile_node)
+		if (strncmp(fwnode_get_name(child), "pll-clk", strlen("pll-clk")))
 			continue;
 
 		ret = fwnode_property_read_u32(child, "reg", &addr);
 		if (ret < 0)
-			return ret;
+			goto out_fail;
 
-		if (addr > 1)
-			return -EINVAL;
+		if (addr > 1) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
 
 		st->pll_clks[addr].pll_used = true;
 		st->pll_clks[addr].address = addr;
-
-		ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-trigger-mode", &val);
-		if (!ret)
-			st->pll_clks[addr].fast_acq_trigger_mode = val;
 
 		ret = fwnode_property_read_u32(child, "adi,pll-slew-rate-limit-ps", &val);
 		if (!ret)
@@ -752,7 +831,8 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 		if (prop_found && !ret) {
 			if (val >= ARRAY_SIZE(ad9545_out_clk_names)) {
 				dev_err(st->dev, "Invalid zero-delay fb path: %u.", val);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto out_fail;
 			}
 
 			st->pll_clks[addr].internal_zero_delay_source = val;
@@ -762,70 +842,21 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 		if (prop_found && !ret) {
 			if (val >= AD9545_MAX_ZERO_DELAY_RATE) {
 				dev_err(st->dev, "Invalid zero-delay output rate: %u.", val);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto out_fail;
 			}
 
 			st->pll_clks[addr].internal_zero_delay_source_rate_hz = val;
 		}
 
-		/* parse DPLL profiles */
-		fwnode_for_each_available_child_node(child, profile_node) {
-			ret = fwnode_property_read_u32(profile_node, "reg", &profile_addr);
-			if (ret < 0) {
-				dev_err(st->dev, "Could not read Profile reg property.");
-				return ret;
-			}
-
-			if (profile_addr >= AD9545_MAX_DPLL_PROFILES)
-				return -EINVAL;
-
-			st->pll_clks[addr].profiles[profile_addr].en = true;
-			st->pll_clks[addr].profiles[profile_addr].address = profile_addr;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,pll-loop-bandwidth-uhz", &val);
-			if (ret < 0) {
-				dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
-					profile_addr);
-				return ret;
-			}
-
-			st->pll_clks[addr].profiles[profile_addr].loop_bw_uhz = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-excess-bw",
-						       &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].fast_acq_excess_bw = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-timeout-ms",
-						       &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].fast_acq_timeout_ms = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,fast-acq-lock-settle-ms",
-						       &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].fast_acq_settle_ms = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,profile-priority", &val);
-			if (!ret)
-				st->pll_clks[addr].profiles[profile_addr].priority = val;
-
-			ret = fwnode_property_read_u32(profile_node, "adi,pll-source", &val);
-			if (ret < 0) {
-				dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
-					profile_addr);
-				return ret;
-			}
-
-			if (val > 5)
-				return -EINVAL;
-
-			st->pll_clks[addr].profiles[profile_addr].tdc_source = val;
-		}
-
+		ret = ad9545_parse_dt_pll_profiles(st, child, addr);
+		if (ret)
+			goto out_fail;
 	}
 
-	return 0;
+out_fail:
+	fwnode_handle_put(child);
+	return ret;
 }
 
 static int ad9545_parse_dt_outputs(struct ad9545_state *st)
@@ -835,7 +866,7 @@ static int ad9545_parse_dt_outputs(struct ad9545_state *st)
 	bool prop_found;
 	int out_ind;
 	u32 val;
-	int ret;
+	int ret = 0;
 
 	fwnode = dev_fwnode(st->dev);
 
@@ -847,11 +878,13 @@ static int ad9545_parse_dt_outputs(struct ad9545_state *st)
 		ret = fwnode_property_read_u32(child, "reg", &out_ind);
 		if (ret < 0) {
 			dev_err(st->dev, "No reg specified for output.");
-			return ret;
+			goto out_fail;
 		}
 
-		if (out_ind > 9)
-			return -EINVAL;
+		if (out_ind > 9) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
 
 		st->out_clks[out_ind].output_used = true;
 		st->out_clks[out_ind].address = out_ind;
@@ -863,7 +896,7 @@ static int ad9545_parse_dt_outputs(struct ad9545_state *st)
 		if (ret < 0) {
 			dev_err(st->dev, "No current-source-microamp specified for output: %d",
 				out_ind);
-			return ret;
+			goto out_fail;
 		}
 
 		st->out_clks[out_ind].source_ua = val;
@@ -871,13 +904,15 @@ static int ad9545_parse_dt_outputs(struct ad9545_state *st)
 		ret = fwnode_property_read_u32(child, "adi,output-mode", &val);
 		if (ret < 0) {
 			dev_err(st->dev, "No output-mode specified for output: %d", out_ind);
-			return ret;
+			goto out_fail;
 		}
 
 		st->out_clks[out_ind].output_mode = val;
 	}
 
-	return 0;
+out_fail:
+	fwnode_handle_put(child);
+	return ret;
 }
 
 static int ad9545_parse_dt_ncos(struct ad9545_state *st)
@@ -887,7 +922,7 @@ static int ad9545_parse_dt_ncos(struct ad9545_state *st)
 	bool prop_found;
 	u32 val;
 	u32 addr;
-	int ret;
+	int ret = 0;
 
 	fwnode = dev_fwnode(st->dev);
 
@@ -900,11 +935,13 @@ static int ad9545_parse_dt_ncos(struct ad9545_state *st)
 		ret = fwnode_property_read_u32(child, "reg", &addr);
 		if (ret < 0) {
 			dev_err(st->dev, "No reg specified for aux. NCO.");
-			return ret;
+			goto out_fail;
 		}
 
-		if (addr > 1)
-			return -EINVAL;
+		if (addr > 1) {
+			ret = -EINVAL;
+			goto out_fail;
+		}
 
 		st->aux_nco_clks[addr].nco_used = true;
 		st->aux_nco_clks[addr].address = addr;
@@ -914,7 +951,7 @@ static int ad9545_parse_dt_ncos(struct ad9545_state *st)
 		if (ret < 0) {
 			dev_err(st->dev, "No freq-lock-threshold-ps specified for aux. NCO: %d",
 				addr);
-			return ret;
+			goto out_fail;
 		}
 
 		st->aux_nco_clks[addr].freq_thresh_ps = val;
@@ -923,13 +960,15 @@ static int ad9545_parse_dt_ncos(struct ad9545_state *st)
 		if (ret < 0) {
 			dev_err(st->dev, "No phase-lock-threshold-ps specified for aux. NCO: %d",
 				addr);
-			return ret;
+			goto out_fail;
 		}
 
 		st->aux_nco_clks[addr].phase_thresh_ps = val;
 	}
 
-	return 0;
+out_fail:
+	fwnode_handle_put(child);
+	return ret;
 }
 
 static int ad9545_parse_dt_tdcs(struct ad9545_state *st)
@@ -938,7 +977,7 @@ static int ad9545_parse_dt_tdcs(struct ad9545_state *st)
 	struct fwnode_handle *child;
 	u32 val;
 	u32 addr;
-	int ret;
+	int ret = 0;
 
 	fwnode = dev_fwnode(st->dev);
 	fwnode_for_each_available_child_node(fwnode, child) {
@@ -948,12 +987,13 @@ static int ad9545_parse_dt_tdcs(struct ad9545_state *st)
 		ret = fwnode_property_read_u32(child, "reg", &addr);
 		if (ret < 0) {
 			dev_err(st->dev, "No reg specified for aux. TDC.");
-			return ret;
+			goto out_fail;
 		}
 
 		if (addr > 1) {
 			dev_err(st->dev, "Invalid address: %u for aux. TDC.", addr);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out_fail;
 		}
 
 		st->aux_tdc_clks[addr].tdc_used = true;
@@ -963,18 +1003,21 @@ static int ad9545_parse_dt_tdcs(struct ad9545_state *st)
 		ret = fwnode_property_read_u32(child, "adi,pin-nr", &val);
 		if (ret < 0) {
 			dev_err(st->dev, "No source pin specified for aux. TDC: %d", addr);
-			return ret;
+			goto out_fail;
 		}
 
 		if (val >= ARRAY_SIZE(ad9545_ref_m_clk_names)) {
 			dev_err(st->dev, "Invalid Mx pin-nr: %d", val);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out_fail;
 		}
 
 		st->aux_tdc_clks[addr].pin_nr = val;
 	}
 
-	return 0;
+out_fail:
+	fwnode_handle_put(child);
+	return ret;
 }
 
 static int ad9545_parse_dt_aux_dpll(struct ad9545_state *st)
@@ -992,10 +1035,14 @@ static int ad9545_parse_dt_aux_dpll(struct ad9545_state *st)
 	st->aux_dpll_clk.dpll_used = true;
 	st->aux_dpll_clk.st = st;
 
+	ret = fwnode_property_read_u32(child, "adi,rate-change-limit", &val);
+	if (!ret)
+		st->aux_dpll_clk.rate_change_limit = val;
+
 	ret = fwnode_property_read_u32(child, "adi,compensation-source", &val);
 	if (ret < 0) {
 		dev_err(st->dev, "No TDC source specified for aux. DPLL.");
-		return ret;
+		goto out_fail;
 	}
 
 	st->aux_dpll_clk.source = val;
@@ -1003,16 +1050,14 @@ static int ad9545_parse_dt_aux_dpll(struct ad9545_state *st)
 	ret = fwnode_property_read_u32(child, "adi,aux-dpll-bw-mhz", &val);
 	if (ret < 0) {
 		dev_err(st->dev, "No loop bw specified for aux. DPLL.");
-		return ret;
+		goto out_fail;
 	}
 
 	st->aux_dpll_clk.loop_bw_mhz = val;
 
-	ret = fwnode_property_read_u32(child, "adi,rate-change-limit", &val);
-	if (!ret)
-		st->aux_dpll_clk.rate_change_limit = val;
-
-	return 0;
+out_fail:
+	fwnode_handle_put(child);
+	return ret;
 }
 
 static int ad9545_parse_dt(struct ad9545_state *st)
@@ -1657,7 +1702,7 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_OUT][i] = st->out_clks[i].hw.clk;
+		st->clks[AD9545_CLK_OUT][i] = &st->out_clks[i].hw;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(st->pll_clks); i++) {
@@ -2551,7 +2596,7 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_PLL][i] = pll->hw.clk;
+		st->clks[AD9545_CLK_PLL][i] = &pll->hw;
 	}
 
 	return 0;
@@ -2653,7 +2698,7 @@ static int ad9545_aux_ncos_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_NCO][i] = nco->hw.clk;
+		st->clks[AD9545_CLK_NCO][i] = &nco->hw;
 	}
 
 	return 0;
@@ -2765,7 +2810,7 @@ static int ad9545_aux_tdcs_setup(struct ad9545_state *st)
 		if (ret < 0)
 			return ret;
 
-		st->clks[AD9545_CLK_AUX_TDC][i] = tdc->hw.clk;
+		st->clks[AD9545_CLK_AUX_TDC][i] = &tdc->hw;
 	}
 
 	return 0;
@@ -2952,11 +2997,11 @@ static int ad9545_calib_aplls(struct ad9545_state *st)
 	return 0;
 }
 
-static struct clk *ad9545_clk_src_twocell_get(struct of_phandle_args *clkspec, void *data)
+static struct clk_hw *ad9545_clk_hw_twocell_get(struct of_phandle_args *clkspec, void *data)
 {
 	unsigned int clk_address = clkspec->args[1];
 	unsigned int clk_type = clkspec->args[0];
-	struct clk ***clks = data;
+	struct clk_hw ***clks = data;
 
 	if (clk_type > AD9545_CLK_AUX_TDC) {
 		pr_err("%s: invalid clock type %u\n", __func__, clk_type);
@@ -3023,8 +3068,8 @@ static int ad9545_setup(struct ad9545_state *st)
 	if (ret < 0)
 		return ret;
 
-	ret = of_clk_add_provider(st->dev->of_node, ad9545_clk_src_twocell_get,
-				  &st->clks[AD9545_CLK_OUT]);
+	ret = devm_of_clk_add_hw_provider(st->dev, ad9545_clk_hw_twocell_get,
+					  &st->clks[AD9545_CLK_OUT]);
 	if (ret < 0)
 		return ret;
 
