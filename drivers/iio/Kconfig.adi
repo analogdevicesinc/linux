@@ -34,6 +34,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADXL372_I2C if I2C
 	imply ADXL372_SPI if SPI
 	imply AD400X
+	imply AD4130
 	imply AD4134
 	imply AD6676
 	imply AD7091R5
