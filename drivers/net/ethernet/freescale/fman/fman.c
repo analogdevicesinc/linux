@@ -2,6 +2,7 @@
 /*
  * Copyright 2008 - 2015 Freescale Semiconductor Inc.
  * Copyright 2020 NXP
+ * Copyright 2020 Puresoftware Ltd.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -17,6 +18,7 @@
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
 #include <linux/libfdt_env.h>
+#include <linux/acpi.h>
 
 #include "fman.h"
 #include "fman_muram.h"
@@ -30,6 +32,7 @@
 #define BASE_TX_PORTID			0x28
 
 /* Modules registers offsets */
+#define MRM_SIZE		0x60000
 #define BMI_OFFSET		0x00080000
 #define QMI_OFFSET		0x00080400
 #define KG_OFFSET		0x000C1000
@@ -2687,6 +2690,160 @@ static const struct of_device_id fman_muram_match[] = {
 };
 MODULE_DEVICE_TABLE(of, fman_muram_match);
 
+static struct fman *read_acpi_node(struct platform_device *pdev)
+{
+	struct fwnode_handle *fwnode_muram, *fw_fmnode;
+	phys_addr_t phys_base_addr;
+	phys_addr_t phys_end_addr;
+	resource_size_t mem_size;
+	struct resource *res;
+	struct fman *fman;
+	u32 val, range[2];
+	u32 io_size = 0;
+	const char *cp;
+	int err, irq;
+	u32 clk_rate;
+
+	fman = kzalloc(sizeof(*fman), GFP_KERNEL);
+	if (!fman)
+		return ERR_PTR(-ENOMEM);
+
+	fw_fmnode = fwnode_handle_get(pdev->dev.fwnode);
+	err = fwnode_property_read_u32(pdev->dev.fwnode,
+				       "cell-index", &val);
+
+	if (err) {
+		dev_err(&pdev->dev, "%s: failed to read cell-index\n",
+			__func__);
+		goto fman_free;
+	}
+	fman->dts_params.id = (u8)val;
+
+	/* Get the FM interrupt */
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (!res) {
+		dev_err(&pdev->dev, "%s: Can't get FMan IRQ resource\n",
+			__func__);
+		err = -EINVAL;
+		goto fman_free;
+	}
+	irq = res->start;
+
+	/* Get the FM error interrupt */
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
+	if (!res) {
+		dev_err(&pdev->dev, "%s: Can't get FMan Error IRQ resource\n",
+			__func__);
+		err = -EINVAL;
+		goto fman_free;
+	}
+	fman->dts_params.err_irq = res->start;
+
+	/* Get the FM address */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(&pdev->dev, "%s: Can't get FMan memory resource\n",
+			__func__);
+		err = -EINVAL;
+		goto fman_free;
+	}
+
+	phys_base_addr = res->start;
+	mem_size = resource_size(res);
+
+	err = fwnode_property_read_u32(pdev->dev.fwnode,
+				       "clock-frequency", &clk_rate);
+	if (!clk_rate) {
+		dev_err(&pdev->dev, "%s: Failed to determine FM%d clock rate\n",
+			__func__, fman->dts_params.id);
+		goto fman_free;
+	}
+	/* Rounding to MHz */
+	fman->dts_params.clk_freq = DIV_ROUND_UP(clk_rate, 1000000);
+
+	err = fwnode_property_read_u32_array(pdev->dev.fwnode,
+					     "fsl,qman-channel-range",
+					     &range[0], 2);
+	if (err) {
+		dev_err(&pdev->dev, "%s: failed to read fsl,qman-channel-range\n",
+			__func__);
+		goto fman_free;
+	}
+	fman->dts_params.qman_channel_base = range[0];
+	fman->dts_params.num_of_qman_channels = range[1];
+
+	/* Get the MURAM base address and size */
+	device_for_each_child_node(&pdev->dev, fwnode_muram) {
+		if (!fwnode_property_read_string(fwnode_muram,
+						 "compatible", &cp)) {
+			if (!strcmp(cp, "fsl,fman-muram")) {
+				if (fwnode_property_present(fwnode_muram, "reg")) {
+					fwnode_property_read_u32_array(fwnode_muram,
+								       "reg",
+								       &io_size,
+								       1);
+				}
+				break;
+			}
+		}
+	}
+	fman->dts_params.muram_res.start = phys_base_addr;
+	if (!io_size)
+		phys_end_addr = phys_base_addr + MRM_SIZE - 1;
+	else
+		phys_end_addr = phys_base_addr + io_size - 1;
+	fman->dts_params.muram_res.end   = phys_end_addr;
+	fman->dts_params.muram_res.flags = IORESOURCE_MEM;
+
+	err = devm_request_irq(&pdev->dev, irq, fman_irq, IRQF_SHARED,
+			       "fman", fman);
+	if (err < 0) {
+		dev_err(&pdev->dev, "%s: irq %d allocation failed (error = %d)\n",
+			__func__, irq, err);
+		goto fman_free;
+	}
+
+	if (fman->dts_params.err_irq != 0) {
+		err = devm_request_irq(&pdev->dev, fman->dts_params.err_irq,
+				       fman_err_irq, IRQF_SHARED,
+				       "fman-err", fman);
+		if (err < 0) {
+			dev_err(&pdev->dev, "%s: irq %d allocation failed (error = %d)\n",
+				__func__, fman->dts_params.err_irq, err);
+			goto fman_free;
+		}
+	}
+
+	fman->dts_params.res = res;
+	if (!fman->dts_params.res) {
+		dev_err(&pdev->dev, "%s: platform_get_resource() failed\n",
+			__func__);
+		err = -EINVAL;
+		goto fman_free;
+	}
+
+	fman->dts_params.base_addr =
+		devm_ioremap(&pdev->dev, phys_base_addr, mem_size);
+	if (!fman->dts_params.base_addr) {
+		dev_err(&pdev->dev, "%s: devm_ioremap() failed\n", __func__);
+		err = -ENOMEM;
+		goto fman_free;
+	}
+
+	fman->dev = &pdev->dev;
+
+#ifdef CONFIG_DPAA_ERRATUM_A050385
+	fman_has_err_a050385 = device_property_read_bool(&pdev->dev,
+							 "fsl,erratum-a050385");
+#endif
+
+	return fman;
+
+fman_free:
+	kfree(fman);
+	return ERR_PTR(err);
+}
+
 static struct fman *read_dts_node(struct platform_device *of_dev)
 {
 	struct fman *fman;
@@ -2853,7 +3010,11 @@ static int fman_probe(struct platform_device *of_dev)
 
 	dev = &of_dev->dev;
 
-	fman = read_dts_node(of_dev);
+	if (is_acpi_node(dev->fwnode))
+		fman = read_acpi_node(of_dev);
+	else
+		fman = read_dts_node(of_dev);
+
 	if (IS_ERR(fman))
 		return PTR_ERR(fman);
 
@@ -2903,10 +3064,16 @@ static const struct of_device_id fman_match[] = {
 
 MODULE_DEVICE_TABLE(of, fman_match);
 
+static const struct acpi_device_id acpi_fman_match[] = {
+	{"NXP0024", 0}
+};
+MODULE_DEVICE_TABLE(acpi, acpi_fman_match);
+
 static struct platform_driver fman_driver = {
 	.driver = {
 		.name = "fsl-fman",
 		.of_match_table = fman_match,
+		.acpi_match_table = ACPI_PTR(acpi_fman_match),
 	},
 	.probe = fman_probe,
 };
