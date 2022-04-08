@@ -50,9 +50,6 @@
 #define   AXI_DO_BIT_FSM_DEBUG_FSM_STATE_WRITE	GENMASK(4, 0)
 #define   AXI_DO_BIT_FSM_DEBUG_FSM_STATE_READ	GENMASK(11, 8)
 
-#define AXI_DO_REG_SAMPLE_COUNT_LSB		0x0204
-#define AXI_DO_REG_SAMPLE_COUNT_MSB		0x0208
-
 
 /* Private driver data */
 
@@ -268,9 +265,6 @@ ADI_REG_DEVICE_ATTR(fsm_debug_state_write, 0444, AXI_DO_REG_FSM_DEBUG,
 ADI_REG_DEVICE_ATTR(fsm_debug_state_read, 0444, AXI_DO_REG_FSM_DEBUG,
 		AXI_DO_BIT_FSM_DEBUG_FSM_STATE_READ, 8, "%lld\n", false);
 
-/* May encounter race condition - maybe read the value multiple times? */
-ADI_REG_DEVICE_ATTR(sample_count, 0444, AXI_DO_REG_SAMPLE_COUNT_LSB, ~0u, 0, "%llu\n", true);
-
 static struct axi_do_dbg_attr *axi_data_offload_dbg_attrs[] = {
 	&axi_data_offload_dbg_version_attr,
 	&axi_data_offload_dbg_identification_attr,
@@ -288,7 +282,6 @@ static struct axi_do_dbg_attr *axi_data_offload_dbg_attrs[] = {
 	&axi_data_offload_dbg_sync_config_attr,
 	&axi_data_offload_dbg_fsm_debug_state_write_attr,
 	&axi_data_offload_dbg_fsm_debug_state_read_attr,
-	&axi_data_offload_dbg_sample_count_attr,
 	NULL /* END OF LIST MARKER */
 };
 
