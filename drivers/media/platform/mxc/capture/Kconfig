@@ -5,19 +5,19 @@ config VIDEO_V4L2_MXC_INT_DEVICE
 
 config VIDEO_MXC_CSI_CAMERA
 	tristate "CSI camera support"
-	depends on VIDEO_MXC_CAPTURE && VIDEO_V4L2
+	depends on VIDEO_MXC_CAPTURE && VIDEO_DEV
 	help
 		This is the video4linux2 capture driver based on CSI module.
 
 config MXC_VADC
 	tristate "mxc VADC support"
-	depends on VIDEO_MXC_CAPTURE && VIDEO_V4L2
+	depends on VIDEO_MXC_CAPTURE && VIDEO_DEV
 	help
 		If you plan to use the VADC with your MXC system, say Y here.
 
 config MXC_MIPI_CSI
 	tristate "mxc mipi csi driver"
-	depends on VIDEO_MXC_CAPTURE && VIDEO_V4L2
+	depends on VIDEO_MXC_CAPTURE && VIDEO_DEV
 	help
 		This is a V4L2 driver for i.MX7D SoC MIPI-CSI2 receiver devices.
 
