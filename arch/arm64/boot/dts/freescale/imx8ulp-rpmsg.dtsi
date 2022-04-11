@@ -62,4 +62,9 @@
 		fsl,pwm-channel-number = <6>;
 		status = "disabled";
 	};
+
+	rpmsg_sensor: rpmsg-sensor {
+		compatible = "nxp,rpmsg-iio-pedometer";
+		status = "okay";
+	};
 };

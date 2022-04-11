@@ -272,11 +272,6 @@
 		reg = <0x60>;
 	};
 
-	lsm6dsm@6a {
-		compatible = "st,lsm6dso";
-		reg = <0x6a>;
-	};
-
 	wm8960: wm8960@1a {
 		compatible = "wlf,wm8960,lpa";
 		reg = <0x1a>;
