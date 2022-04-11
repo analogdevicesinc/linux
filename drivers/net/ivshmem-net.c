@@ -853,6 +853,7 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 	int vendor_cap;
 	u32 id, dword;
 	int ret;
+	char dev_addr[6];
 
 	ret = pcim_enable_device(pdev);
 	if (ret) {
@@ -976,7 +977,8 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 
 	INIT_WORK(&in->state_work, ivshm_net_state_change);
 
-	eth_random_addr(ndev->dev_addr);
+	eth_random_addr(dev_addr);
+	dev_addr_set(ndev, dev_addr);
 	ndev->netdev_ops = &ivshm_net_ops;
 	ndev->ethtool_ops = &ivshm_net_ethtool_ops;
 	ndev->mtu = min_t(u32, IVSHM_NET_MTU_DEF, in->qsize / 16);
