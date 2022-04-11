@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -333,7 +333,7 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 		framegen_wait_for_frame_counter_moving(dpu_crtc->m_fg);
 
 		for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
-			dpu_block_id_t source;
+			lb_sec_sel_t source;
 			bool aux_source_flag;
 			bool use_prefetch;
 
@@ -701,7 +701,8 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_layerblend *lb;
 		struct dpu_extdst *ed;
 		extdst_src_sel_t ed_src;
-		dpu_block_id_t blend, source;
+		dpu_block_id_t blend;
+		lb_sec_sel_t source;
 		unsigned int stream_id;
 		int lb_id;
 		bool release_aux_source;
@@ -793,7 +794,7 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *ed = res->ed[dplane->stream_id], *aux_ed;
 	struct dpu_fetchunit *fu;
-	dpu_block_id_t source;
+	lb_sec_sel_t source;
 	struct completion *shdld_done;
 	struct completion *m_content_shdld_done = NULL;
 	struct completion *s_content_shdld_done = NULL;
