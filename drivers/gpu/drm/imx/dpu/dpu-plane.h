@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2019,2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -134,10 +134,25 @@ source_to_fu(struct dpu_plane_res *res, lb_sec_sel_t source)
 
 	switch (fu_type) {
 	case DPU_PLANE_SRC_FD:
+		if (fu_id >= ARRAY_SIZE(res->fd)) {
+			WARN_ON(1);
+			return NULL;
+		}
+
 		return res->fd[fu_id];
 	case DPU_PLANE_SRC_FL:
+		if (fu_id >= ARRAY_SIZE(res->fl)) {
+			WARN_ON(1);
+			return NULL;
+		}
+
 		return res->fl[fu_id];
 	case DPU_PLANE_SRC_FW:
+		if (fu_id >= ARRAY_SIZE(res->fw)) {
+			WARN_ON(1);
+			return NULL;
+		}
+
 		return res->fw[fu_id];
 	}
 
