@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019 NXP.
+ * Copyright 2019-2022 NXP.
  */
 
 #include <drm/drm_atomic.h>
@@ -246,7 +246,8 @@ static void dcss_plane_get_hdr10_pipe_cfg(struct drm_plane_state *plane_state,
 		break;
 	}
 
-	ipipe_cfg->pr = plane_state->color_range;
+	ipipe_cfg->pr = plane_state->color_range == DRM_COLOR_YCBCR_FULL_RANGE ?
+			PR_FULL : PR_LIMITED;
 }
 
 static bool
