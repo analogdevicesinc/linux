@@ -214,6 +214,7 @@ config ARCH_MXC
 	bool "NXP i.MX SoC family"
 	select ARM64_ERRATUM_843419
 	select ARM64_ERRATUM_845719 if COMPAT
+	select GPIOLIB
 	select IMX_GPCV2
 	select IMX_GPCV2_PM_DOMAINS
 	select HAVE_IMX_BUSFREQ
