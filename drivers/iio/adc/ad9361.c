@@ -543,7 +543,7 @@ static const u8 split_gain_table[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE][3] =
 }};
 
 
-static const u8 split_gain_table_abs_gain[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE] =
+static const s8 split_gain_table_abs_gain[RXGAIN_TBLS_END][SIZE_SPLIT_TABLE] =
 {{  /* 800 MHz */
 	-1, -1, -1, -1, -1, -1, -1, 2,
 	8, 13, 19, 20, 21, 22, 23, 24,
