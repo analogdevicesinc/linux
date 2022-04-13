@@ -84,6 +84,71 @@
 	};
 
 	fragment@3 {
+		target = <&gpio>;
+		__overlay__ {
+			gpio_overrides: gpio_overrides {
+				/* GPIO_4_HMC7044_CAR - 4
+				 * GPIO_1_HMC7044_CAR - 17
+				 * GPIO_2_HMC7044_CAR - 27
+				 * GPIO_3_HMC7044_CAR - 22
+				 * RESETB_AD9545_PI - 25
+				 * RESET_HMC7044_CAR_PI - 5
+				 * VCXO_SELECT_PI - 6
+				 * GPIO19_PI - 19
+				 * GPIO26_PI - 26
+				 * GPIO23_PI - 16 - SYNC Enable
+				 */
+
+				pin-25-reset-high {
+					pins = "gpio25";
+					function = "gpio_out";
+					bias-pull-up;
+					output-high;
+					export;
+				};
+
+				pin-5-reset-low {
+					pins = "gpio5";
+					function = "gpio_out";
+					bias-pull-down;
+				};
+
+				pin-6-vcxo-select {
+					pins = "gpio6";
+					function = "gpio_out";
+					/* GPIO 6:
+					 * 0 - For the 100 MHz VCXO to HMC7044:
+					 * bias-pull-down;
+					 *
+					 * 1 - For the 122.88 MHz VCXO to HMC7044:
+					 * bias-pull-up;
+					 * output-high;
+					 */
+
+					bias-pull-down;
+
+					export;
+				};
+
+				pin-12-red_led {
+					pins = "gpio12";
+					function = "gpio_out";
+					bias-pull-up;
+					output-high;
+					export;
+				};
+
+				pin-16-sync-en {
+					pins = "gpio23";
+					function = "gpio_out";
+					bias-pull-down;
+					export;
+				};
+			};
+		};
+	};
+
+	fragment@4 {
 		target = <&spi0>;
 		__overlay__ {
 			compatible = "brcm,bcm2835-spi";
@@ -98,6 +163,13 @@
 
 				#address-cells = <1>;
 				#size-cells = <0>;
+
+				/*
+				 * Bind our pinctrl state to the first clock
+				 * provider we probe so it's applied before them.
+				 */
+				pinctrl-0 = <&gpio_overrides>;
+				pinctrl-names = "default";
 
 				adi,ref-crystal;
 				adi,ref-frequency-hz = <49152000>;
@@ -438,72 +510,6 @@
 		};
 	};
 
-	fragment@4 {
-		target = <&gpio>;
-		__overlay__ {
-
-			gpio_overrides: gpio_overrides {
-				/* GPIO_4_HMC7044_CAR - 4
-				 * GPIO_1_HMC7044_CAR - 17
-				 * GPIO_2_HMC7044_CAR - 27
-				 * GPIO_3_HMC7044_CAR - 22
-				 * RESETB_AD9545_PI - 25
-				 * RESET_HMC7044_CAR_PI - 5
-				 * VCXO_SELECT_PI - 6
-				 * GPIO19_PI - 19
-				 * GPIO26_PI - 26
-				 * GPIO23_PI - 16 - SYNC Enable
-				 */
-
-				pin-25-reset-high {
-					pins = "gpio25";
-					function = "gpio_out";
-					bias-pull-up;
-					output-high;
-					export;
-				};
-
-				pin-5-reset-low {
-					pins = "gpio5";
-					function = "gpio_out";
-					bias-pull-down;
-				};
-
-				pin-6-vcxo-select {
-					pins = "gpio6";
-					function = "gpio_out";
-					/* GPIO 6:
-					 * 0 - For the 100 MHz VCXO to HMC7044:
-					 * bias-pull-down;
-					 *
-					 * 1 - For the 122.88 MHz VCXO to HMC7044:
-					 * bias-pull-up;
-					 * output-high;
-					 */
-
-					bias-pull-down;
-
-					export;
-				};
-
-				pin-12-red_led {
-					pins = "gpio12";
-					function = "gpio_out";
-					bias-pull-up;
-					output-high;
-					export;
-				};
-
-				pin-16-sync-en {
-					pins = "gpio23";
-					function = "gpio_out";
-					bias-pull-down;
-					export;
-				};
-			};
-		};
-	};
-
 	fragment@5 {
 		target-path = "/";
 		__overlay__ {
@@ -534,14 +540,6 @@
 	};
 
 	fragment@7 {
-		target = <&gpio>;
-		__overlay__ {
-			pinctrl-names = "default";
-			pinctrl-0 = <&gpio_overrides>;
-		};
-	};
-
-	fragment@8 {
 		target = <&i2c1>;
 		__overlay__ {
 			compatible = "brcm,bcm2711-i2c";
