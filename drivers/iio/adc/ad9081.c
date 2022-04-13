@@ -2335,6 +2335,19 @@ static int ad9081_setup(struct spi_device *spi)
 		}
 	}
 
+	ret = ad9081_setup_tx(spi);
+	if (ret)
+		return ret;
+
+	ret = ad9081_setup_rx(spi);
+	if (ret)
+		return ret;
+
+	if (phy->config_sync_0a_cmos_en) {
+		adi_ad9081_jesd_rx_synca_mode_set(&phy->ad9081, 0);
+		adi_ad9081_hal_reg_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR, 0x0);
+	}
+
 	if (phy->config_sync_01_swapped) {
 		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
 		adi_ad9081_hal_reg_set(&phy->ad9081,
@@ -2352,20 +2365,6 @@ static int ad9081_setup(struct spi_device *spi)
 					BF_PD_SYNCB_RX_RC_INFO, 0,
 					BF_SYNCB_RX_MODE_RC_INFO, 1);
 	}
-
-	if (phy->config_sync_0a_cmos_en) {
-		adi_ad9081_jesd_rx_synca_mode_set(&phy->ad9081, 0);
-		adi_ad9081_hal_reg_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR, 0x0);
-	}
-
-
-	ret = ad9081_setup_tx(spi);
-	if (ret)
-		return ret;
-
-	ret = ad9081_setup_rx(spi);
-	if (ret)
-		return ret;
 
 	return 0;
 }
