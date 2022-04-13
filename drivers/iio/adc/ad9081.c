@@ -78,6 +78,7 @@ enum {	CDDC_NCO_FREQ,
 	TRX_ENABLE,
 	CDDC_FFH_HOPF_SET,
 	ADC_CDDC_FFH_TRIG_HOP_EN,
+	ADC_FFH_GPIO_MODE_SET,
 	CDDC_FFH_INDEX_SET,
 	DAC_FFH_GPIO_MODE_SET,
 	DAC_FFH_FREQ_SET,
@@ -238,6 +239,7 @@ struct ad9081_phy {
 	u8 rx_main_ffh_mode[MAX_NUM_MAIN_DATAPATHS];
 	u8 rx_cddc_nco_channel_select_mode[MAX_NUM_MAIN_DATAPATHS];
 	bool rx_main_ffh_trig_en[MAX_NUM_MAIN_DATAPATHS];
+	bool rx_main_ffh_gpio_en[MAX_NUM_MAIN_DATAPATHS];
 
 	adi_cms_chip_id_t chip_id;
 
@@ -1214,15 +1216,15 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 			break;
 		}
 
-		if (chan->output) {
+		if (chan->output)
 			val = phy->tx_ffh_hopf_index[cddc_num];
-			ret = 0;
-		} else {
+		else
 			val = phy->rx_main_ffh_index[cddc_num];
-			ret = 0;
-		}
+
+		ret = 0;
 		break;
 	case ADC_CDDC_FFH_TRIG_HOP_EN:
+	case ADC_FFH_GPIO_MODE_SET:
 	case DAC_FFH_GPIO_MODE_SET:
 		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
 			ret = -EOPNOTSUPP;
@@ -1231,11 +1233,13 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 
 		if (chan->output) {
 			val = phy->tx_ffh_hopf_via_gpio_en;
-			ret = 0;
 		} else {
-			val = phy->rx_main_ffh_trig_en[cddc_num];
-			ret = 0;
+			if (private == ADC_FFH_GPIO_MODE_SET)
+				val = phy->rx_main_ffh_gpio_en[cddc_num];
+			else
+				val = phy->rx_main_ffh_trig_en[cddc_num];
 		}
+		ret = 0;
 		break;
 	case DAC_FFH_FREQ_SET:
 		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
@@ -1536,6 +1540,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 		}
 		break;
 	case ADC_CDDC_FFH_TRIG_HOP_EN:
+	case ADC_FFH_GPIO_MODE_SET:
 	case DAC_FFH_GPIO_MODE_SET:
 		if (conv->id == CHIPID_AD9988 || conv->id == CHIPID_AD9986) {
 			ret = -EOPNOTSUPP;
@@ -1555,10 +1560,17 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081,
 				!enable);
 		} else {
-			ret = adi_ad9081_adc_ddc_coarse_trig_hop_en_set(&phy->ad9081,
-				cddc_mask, enable);
-			if (!ret)
-				phy->rx_main_ffh_trig_en[cddc_num] = enable;
+			if (private == ADC_FFH_GPIO_MODE_SET) {
+				ret = adi_ad9081_adc_ddc_coarse_nco_channel_select_via_gpio_set(&phy->ad9081,
+					cddc_mask, enable ? phy->rx_cddc_nco_channel_select_mode[cddc_num] : 0);
+				if (!ret)
+					phy->rx_main_ffh_gpio_en[cddc_num] = enable;
+			} else {
+				ret = adi_ad9081_adc_ddc_coarse_trig_hop_en_set(&phy->ad9081,
+					cddc_mask, enable);
+				if (!ret)
+					phy->rx_main_ffh_trig_en[cddc_num] = enable;
+			}
 		}
 		break;
 	case DAC_FFH_FREQ_SET:
@@ -1695,6 +1707,13 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.write = ad9081_ext_info_write,
 		.shared = false,
 		.private = ADC_CDDC_FFH_TRIG_HOP_EN,
+	},
+	{
+		.name = "main_ffh_gpio_mode_en",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = ADC_FFH_GPIO_MODE_SET,
 	},
 	{},
 };
