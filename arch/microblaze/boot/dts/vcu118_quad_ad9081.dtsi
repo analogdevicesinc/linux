@@ -273,15 +273,6 @@
 	};
 };
 
-&axi_gpio_2 {
-	ad9081_gpio0_mux {
-		gpio-hog;
-		gpios = <44 GPIO_ACTIVE_HIGH>;
-		output-high; /* output-high gpio_mode - connect GPIO_0 of MxFE3 (output) to GPIO_0 of MxFE0,1,2 (input) */
-		line-name = "GPIO_0 HDL mux mode";
-	};
-};
-
 / {
 	vref: regulator-vref {
 		compatible = "regulator-fixed";
@@ -624,4 +615,6 @@
 	rx1-enable-gpios = <&axi_gpio 48 0>;
 	tx2-enable-gpios = <&axi_gpio 60 0>;
 	tx1-enable-gpios = <&axi_gpio 56 0>;
+	/* output-high gpio_mode - connect GPIO_0 of MxFE3 (output) to GPIO_0 of MxFE0,1,2 (input) */
+	ms-sync-enable-gpios = <&axi_gpio_2 44 GPIO_ACTIVE_HIGH>;
 };
