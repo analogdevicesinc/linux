@@ -8,7 +8,7 @@
  * hdl_project: <ad_quadmxfe1_ebz/vcu118>
  * board_revision: <>
  *
- * Copyright (C) 2019-2020 Analog Devices Inc.
+ * Copyright (C) 2019-2022 Analog Devices Inc.
  */
 
 #include <dt-bindings/iio/frequency/hmc7044.h>
@@ -95,6 +95,96 @@
 #define AD9081_RX_JESD_S			1
 #define AD9081_RX_JESD_HD			0
 
+#define AD9081_FFH_CHAN_SEL_MODE		AD9081_FFH_CHAN_SEL_3GPIO_MODE
+
+&axi_ad9081_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_CPLL>;
+	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+};
+
+&axi_ad9081_adxcvr_tx {
+	adi,sys-clk-select = <XCVR_QPLL>;
+	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+};
+
+/ {
+	mux0: mux-controller0 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&axi_gpio_2 0 0>, <&axi_gpio_2 1 0>, <&axi_gpio_2 2 0>;
+	};
+
+	tx_mux0: mux-txffh {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux0>;
+		mux-state-names =
+			"0", "1", "2", "3", "4", "5", "6", "7";
+		label = "mux-txffh";
+	};
+
+	mux1: mux-controller1 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&axi_gpio_2 6 0>, <&axi_gpio_2 7 0>,
+			<&axi_gpio_2 8 0>, <&axi_gpio_2 9 0>;
+	};
+
+	rx_mux1: mux-rxffh {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux1>;
+		mux-state-names =
+			"0", "1", "2", "3", "4", "5", "6", "7",
+			"8", "9", "10", "11", "12", "13", "14", "15";
+		label = "mux-rxffh";
+	};
+
+	mux2: mux-controller2 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&axi_gpio_2 11 0>, <&axi_gpio_2 12 0>;
+	};
+
+	rx_mux2: mux-rxnco {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux2>;
+		mux-state-names =
+			"0", "1", "2", "3";
+		label = "mux-rxnco";
+	};
+
+	mux3: mux-controller3 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&axi_gpio_2 13 0>, <&axi_gpio_2 14 0>;
+	};
+
+	rx_mux3: mux-txnco {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux3>;
+		mux-state-names =
+			"0", "1", "2", "3";
+		label = "mux-txnco";
+	};
+};
+
+&axi_gpio_2 {
+	ad9081_gpio10 {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "GPIO_10 high";
+	};
+	ad9081_gpio5 {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "GPIO_5 high";
+	};
+};
 
 &rx_dma {
 	adi,channels {
@@ -294,6 +384,13 @@
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
 		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
+		adi,ffh-gpio-mux-sel = /bits/ 8 <
+			AD9081_PERI_SEL_SYNCINB1_N
+			AD9081_PERI_SEL_SYNCINB1_P
+			AD9081_PERI_SEL_GPIO6
+			AD9081_PERI_SEL_GPIO7
+			AD9081_PERI_SEL_GPIO8
+			AD9081_PERI_SEL_GPIO9>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -302,6 +399,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx0_ad9081_rx_fddc_chan0>, <&trx0_ad9081_rx_fddc_chan2>; /* Static for now */
 			};
 			trx0_ad9081_adc1: adc@1 {
@@ -309,6 +407,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <(AD9081_RX_MAIN_NCO_SHIFT)>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx0_ad9081_rx_fddc_chan1>, <&trx0_ad9081_rx_fddc_chan3>; /* Static for now */
 			};
 			trx0_ad9081_adc2: adc@2 {
@@ -316,6 +415,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx0_ad9081_rx_fddc_chan4>, <&trx0_ad9081_rx_fddc_chan6>; /* Static for now */
 			};
 			trx0_ad9081_adc3: adc@3 {
@@ -323,6 +423,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx0_ad9081_rx_fddc_chan5>, <&trx0_ad9081_rx_fddc_chan7>; /* Static for now */
 			};
 		};
@@ -469,6 +570,13 @@
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
 		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
+		adi,ffh-gpio-mux-sel = /bits/ 8 <
+			AD9081_PERI_SEL_SYNCINB1_N
+			AD9081_PERI_SEL_SYNCINB1_P
+			AD9081_PERI_SEL_GPIO6
+			AD9081_PERI_SEL_GPIO7
+			AD9081_PERI_SEL_GPIO8
+			AD9081_PERI_SEL_GPIO9>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -477,6 +585,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx1_ad9081_rx_fddc_chan0>, <&trx1_ad9081_rx_fddc_chan2>; /* Static for now */
 			};
 			trx1_ad9081_adc1: adc@1 {
@@ -484,6 +593,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx1_ad9081_rx_fddc_chan1>, <&trx1_ad9081_rx_fddc_chan3>; /* Static for now */
 			};
 			trx1_ad9081_adc2: adc@2 {
@@ -491,6 +601,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx1_ad9081_rx_fddc_chan4>, <&trx1_ad9081_rx_fddc_chan6>; /* Static for now */
 			};
 			trx1_ad9081_adc3: adc@3 {
@@ -498,6 +609,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx1_ad9081_rx_fddc_chan5>, <&trx1_ad9081_rx_fddc_chan7>; /* Static for now */
 			};
 		};
@@ -644,6 +756,13 @@
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
 		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
+		adi,ffh-gpio-mux-sel = /bits/ 8 <
+			AD9081_PERI_SEL_SYNCINB1_N
+			AD9081_PERI_SEL_SYNCINB1_P
+			AD9081_PERI_SEL_GPIO6
+			AD9081_PERI_SEL_GPIO7
+			AD9081_PERI_SEL_GPIO8
+			AD9081_PERI_SEL_GPIO9>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -652,6 +771,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx2_ad9081_rx_fddc_chan0>, <&trx2_ad9081_rx_fddc_chan2>; /* Static for now */
 			};
 			trx2_ad9081_adc1: adc@1 {
@@ -659,6 +779,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx2_ad9081_rx_fddc_chan1>, <&trx2_ad9081_rx_fddc_chan3>; /* Static for now */
 			};
 			trx2_ad9081_adc2: adc@2 {
@@ -666,6 +787,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx2_ad9081_rx_fddc_chan4>, <&trx2_ad9081_rx_fddc_chan6>; /* Static for now */
 			};
 			trx2_ad9081_adc3: adc@3 {
@@ -673,6 +795,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx2_ad9081_rx_fddc_chan5>, <&trx2_ad9081_rx_fddc_chan7>; /* Static for now */
 			};
 		};
@@ -819,6 +942,13 @@
 		#address-cells = <1>;
 		adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
 		adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE>;
+		adi,ffh-gpio-mux-sel = /bits/ 8 <
+			AD9081_PERI_SEL_SYNCINB1_N
+			AD9081_PERI_SEL_SYNCINB1_P
+			AD9081_PERI_SEL_GPIO6
+			AD9081_PERI_SEL_GPIO7
+			AD9081_PERI_SEL_GPIO8
+			AD9081_PERI_SEL_GPIO9>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -827,6 +957,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx3_ad9081_rx_fddc_chan0>, <&trx3_ad9081_rx_fddc_chan2>; /* Static for now */
 			};
 			trx3_ad9081_adc1: adc@1 {
@@ -834,6 +965,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx3_ad9081_rx_fddc_chan1>, <&trx3_ad9081_rx_fddc_chan3>; /* Static for now */
 			};
 			trx3_ad9081_adc2: adc@2 {
@@ -841,6 +973,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx3_ad9081_rx_fddc_chan4>, <&trx3_ad9081_rx_fddc_chan6>; /* Static for now */
 			};
 			trx3_ad9081_adc3: adc@3 {
@@ -848,6 +981,7 @@
 				adi,decimation = <AD9081_RX_MAIN_DECIMATION>;
 				adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_MAIN_NCO_SHIFT>;
 				adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+				adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_MODE>;
 				//adi,crossbar-select = <&trx3_ad9081_rx_fddc_chan5>, <&trx3_ad9081_rx_fddc_chan7>; /* Static for now */
 			};
 		};
