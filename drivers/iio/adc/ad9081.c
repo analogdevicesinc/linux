@@ -164,6 +164,7 @@ struct ad9081_phy {
 	struct gpio_desc *rx2_en_gpio;
 	struct gpio_desc *tx1_en_gpio;
 	struct gpio_desc *tx2_en_gpio;
+	struct gpio_desc *ms_sync_en_gpio;
 	struct regulator *supply_reg;
 
 	struct clk *clks[NUM_AD9081_CLKS];
@@ -318,6 +319,27 @@ static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_device_nco_sync_reset_via_sysref_set(device, 1);
 	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int adi_ad9081_device_gpio_set_highz(adi_ad9081_device_t *device, u8 gpio_index)
+{
+	int err;
+
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(gpio_index > 5);
+
+	if ((gpio_index & 1) == 0) {
+		err = adi_ad9081_hal_bf_set(device,
+			REG_GPIO_CFG0_ADDR + (gpio_index >> 1), 0x0400, 0);
+		AD9081_ERROR_RETURN(err);
+	} else {
+		err = adi_ad9081_hal_bf_set(device,
+			REG_GPIO_CFG0_ADDR + (gpio_index >> 1), 0x0404, 0);
+		AD9081_ERROR_RETURN(err);
+	}
 
 	return API_CMS_ERROR_OK;
 }
@@ -4582,6 +4604,9 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 	adi_ad9081_dac_duc_main_nco_hopf_gpio_as_hop_en_set(&phy->ad9081,
 		phy->tx_ffh_hopf_via_gpio_en);
 
+	if (phy->ms_sync_en_gpio)
+		gpiod_set_value(phy->ms_sync_en_gpio, 0);
+
 	return JESD204_STATE_CHANGE_DONE;
 }
 
@@ -4607,8 +4632,12 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	adi_cms_jesd_subclass_e subclass = JESD_SUBCLASS_0;
 	int ret;
 
-	if (reason != JESD204_STATE_OP_REASON_INIT)
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		if (phy->ms_sync_en_gpio)
+			gpiod_set_value(phy->ms_sync_en_gpio, 0);
+
 		return JESD204_STATE_CHANGE_DONE;
+	}
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
@@ -4663,6 +4692,16 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	if (ret != 0)
 		return ret;
 
+	if (phy->ms_sync_en_gpio)
+		gpiod_set_value(phy->ms_sync_en_gpio, 1);
+
+	if (jesd204_dev_is_top(jdev)) {
+		/* We need to make sure the master-slave master GPIO is enabled before we move on */
+		ret = adi_ad9081_device_nco_sync_gpio_set(&phy->ad9081, phy->sync_ms_gpio_num, 1);
+		if (ret != 0)
+			return ret;
+	}
+
 	return JESD204_STATE_CHANGE_DONE;
 }
 
@@ -4702,6 +4741,10 @@ static int ad9081_jesd204_setup_stage3(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
 	ret = adi_ad9081_device_nco_sync_post(&phy->ad9081);
+	if (ret != 0)
+		return ret;
+
+	ret = adi_ad9081_device_gpio_set_highz(&phy->ad9081, phy->sync_ms_gpio_num);
 	if (ret != 0)
 		return ret;
 
@@ -4894,6 +4937,11 @@ static int ad9081_probe(struct spi_device *spi)
 		devm_gpiod_get_optional(&spi->dev, "tx2-enable", GPIOD_OUT_LOW);
 	if (IS_ERR(phy->tx2_en_gpio))
 		return PTR_ERR(phy->tx2_en_gpio);
+
+	phy->ms_sync_en_gpio =
+		devm_gpiod_get_optional(&spi->dev, "ms-sync-enable", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->ms_sync_en_gpio))
+		return PTR_ERR(phy->ms_sync_en_gpio);
 
 	ret = ad9081_parse_dt(phy, &spi->dev);
 	if (ret < 0) {
