@@ -13,79 +13,79 @@
 #include "zynqmp-zcu102-rev10-ad9081-m8-l4.dts"
 
 / {
-	ad9081_gpio_control@0 {
-		compatible = "adi,one-bit-adc-dac";
-		#address-cells = <1>;
-		#size-cells = <0>;
+	mux0: mux-controller0 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
 
-		out-gpios = <&gpio 110 0>, <&gpio 111 0>, <&gpio 112 0>,
-			<&gpio 113 0>, <&gpio 114 0>, <&gpio 115 0>,
-			<&gpio 116 0>, <&gpio 117 0>, <&gpio 118 0>,
-			<&gpio 119 0>, <&gpio 120 0>, <&gpio 138 0>,
-			<&gpio 139 0>, <&gpio 140 0>, <&gpio 141 0>;
+		mux-gpios = <&gpio 110 0>, <&gpio 111 0>, <&gpio 112 0>,
+			<&gpio 113 0>, <&gpio 114 0>;
+	};
 
-		label = "ad9081_gpio";
+	tx_mux0: mux-txffh {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux0>;
+		mux-state-names =
+			"0", "1", "2", "3", "4", "5", "6", "7",
+			"8", "9", "10", "11", "12", "13", "14", "15",
+			"16", "17", "18", "19", "20", "21", "22", "23",
+			"24", "25", "26", "27", "28", "29", "30";
+		label = "mux-txffh";
+	};
 
-		channel@0 {
-			reg = <0>;
-			label = "GPIO_0";
-		};
-		channel@1 {
-			reg = <1>;
-			label = "GPIO_1";
-		};
-		channel@2 {
-			reg = <2>;
-			label = "GPIO_2";
-		};
-		channel@3 {
-			reg = <3>;
-			label = "GPIO_3";
-		};
-		channel@4 {
-			reg = <4>;
-			label = "GPIO_4";
-		};
-		channel@5 {
-			reg = <5>;
-			label = "GPIO_5";
-		};
-		channel@6 {
-			reg = <6>;
-			label = "GPIO_6";
-		};
-		channel@7 {
-			reg = <7>;
-			label = "GPIO_7";
-		};
-		channel@8 {
-			reg = <8>;
-			label = "GPIO_8";
-		};
-		channel@9 {
-			reg = <9>;
-			label = "GPIO_9";
-		};
-		channel@10 {
-			reg = <10>;
-			label = "GPIO_10";
-		};
-		channel@11 {
-			reg = <11>;
-			label = "GPIO_SYNCIN1P";
-		};
-		channel@12 {
-			reg = <12>;
-			label = "GPIO_SYNCIN1N";
-		};
-		channel@13 {
-			reg = <13>;
-			label = "GPIO_SYNCOUT1P";
-		};
-		channel@14 {
-			reg = <14>;
-			label = "GPIO_SYNCOUT1N";
-		};
+	mux1: mux-controller1 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 116 0>, <&gpio 117 0>, <&gpio 118 0>,
+			<&gpio 119 0>;
+	};
+
+	rx_mux1: mux-rxffh {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux1>;
+		mux-state-names =
+			"0", "1", "2", "3", "4", "5", "6", "7",
+			"8", "9", "10", "11", "12", "13", "14", "15";
+		label = "mux-rxffh";
+	};
+
+	mux2: mux-controller2 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 140 0>, <&gpio 141 0>;
+	};
+
+	rx_mux2: mux-rxnco {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux2>;
+		mux-state-names =
+			"0", "1", "2", "3";
+		label = "mux-rxnco";
+	};
+
+	mux3: mux-controller3 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 138 0>, <&gpio 139 0>;
+	};
+
+	rx_mux3: mux-txnco {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux3>;
+		mux-state-names =
+			"0", "1", "2", "3";
+		label = "mux-txnco";
+	};
+};
+
+&gpio {
+	ad9081_gpio5 {
+		gpio-hog;
+		gpios = <115 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "GPIO_5 high";
 	};
 };
 
@@ -106,13 +106,13 @@
 };
 
 &ad9081_adc1 {
-	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_REG_MODE>;
+	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_4GPIO_MODE>;
 };
 
 &ad9081_adc2 {
-	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_REG_MODE>;
+	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_4GPIO_MODE>;
 };
 
 &ad9081_adc3 {
-	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_REG_MODE>;
+	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_4GPIO_MODE>;
 };
