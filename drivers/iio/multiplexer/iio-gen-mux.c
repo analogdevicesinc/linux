@@ -170,7 +170,7 @@ static ssize_t gen_mux_show(struct device *dev,
 		break;
 	case 1:
 		for (i = 0; i < st->max_states; i++) {
-			if (strlen(st->strings[i]))
+			if (st->strings[i] && strlen(st->strings[i]))
 				ret += sysfs_emit_at(buf, ret, "%s ",
 					st->strings[i]);
 		}
