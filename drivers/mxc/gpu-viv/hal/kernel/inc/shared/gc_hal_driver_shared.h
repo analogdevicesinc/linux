@@ -551,7 +551,7 @@ typedef struct _gcsHAL_ATTACH
 
 #if gcdCAPTURE_ONLY_MODE
     IN gctBOOL                  queryCapSize;
-    IN gctPOINTER               contextLogical[gcdCONTEXT_BUFFER_NUM];
+    IN gctPOINTER               contextLogical[gcdCONTEXT_BUFFER_COUNT];
     OUT gctSIZE_T               captureSize;
 #endif
 }
@@ -606,7 +606,7 @@ typedef struct _gcsHAL_COMMAND_LOCATION
     gctUINT64                   next;
 
 #if gcdCAPTURE_ONLY_MODE
-    gctPOINTER                  contextLogical[gcdCONTEXT_BUFFER_NUM];
+    gctPOINTER                  contextLogical[gcdCONTEXT_BUFFER_COUNT];
 #endif
 }
 gcsHAL_COMMAND_LOCATION;
