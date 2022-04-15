@@ -981,6 +981,11 @@ gckKERNEL_Destroy(
         gcmkVERIFY_OK(gckOS_AtomDestroy(Kernel->os, Kernel->atomClients));
     }
 
+    if (Kernel->resetStatus)
+    {
+        gcmkVERIFY_OK(gckOS_AtomDestroy(Kernel->os, Kernel->resetStatus));
+    }
+
     gcmkVERIFY_OK(gckOS_DeleteMutex(Kernel->os, Kernel->vidMemBlockMutex));
 
     /* Destroy the database. */
