@@ -138,6 +138,8 @@ module_param(initgpu3DMinClock, int, 0644);
 
 struct platform_device *pdevice;
 
+#if gcdENABLE_FSCALE_VAL_ADJUST && \
+    (defined(CONFIG_DEVICE_THERMAL) || defined(CONFIG_DEVICE_THERMAL_MODULE))
 #if defined(CONFIG_ANDROID)
 int gcdENABLE_GPU_THERMAL = 0;
 struct devfreq_cooling_device {
@@ -149,6 +151,7 @@ struct devfreq_cooling_device {
 
 static DEFINE_IDR(devfreq_idr);
 static DEFINE_MUTEX(devfreq_cooling_lock);
+#  endif
 #endif
 
 #ifdef CONFIG_GPU_LOW_MEMORY_KILLER
