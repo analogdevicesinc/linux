@@ -8,7 +8,7 @@ menu "MXC HANTRO(Video Processing Unit) V4L2 support"
 
 config MXC_HANTRO_V4L2
 	tristate "Support for MXC HANTRO(Video Processing Unit) V4L2 driver"
-	depends on VIDEO_V4L2
+	depends on VIDEO_DEV
 	default y
 	help
 		VPU hantro v4l2 device.
