@@ -22,10 +22,10 @@
 #define AXI_PWMGEN_REG_NPWM		0x14
 #define AXI_PWMGEN_CH_PERIOD_BASE	0x40
 #define AXI_PWMGEN_CH_DUTY_BASE		0x44
-#define AXI_PWMGEN_CH_OFFSET_BASE	0x48
+#define AXI_PWMGEN_CH_PHASE_BASE	0x48
 #define AXI_PWMGEN_CHX_PERIOD(ch)	(AXI_PWMGEN_CH_PERIOD_BASE + (12 * (ch)))
 #define AXI_PWMGEN_CHX_DUTY(ch)		(AXI_PWMGEN_CH_DUTY_BASE + (12 * (ch)))
-#define AXI_PWMGEN_CHX_OFFSET(ch)	(AXI_PWMGEN_CH_OFFSET_BASE + (12 * (ch)))
+#define AXI_PWMGEN_CHX_PHASE(ch)	(AXI_PWMGEN_CH_PHASE_BASE + (12 * (ch)))
 #define AXI_PWMGEN_TEST_DATA		0x5A0F0081
 #define AXI_PWMGEN_LOAD_CONIG		BIT(1)
 #define AXI_PWMGEN_RESET		BIT(0)
@@ -71,7 +71,7 @@ static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 			     const struct pwm_state *state)
 {
-	unsigned long clk_rate, period_cnt, duty_cnt, offset_cnt;
+	unsigned long clk_rate, period_cnt, duty_cnt, phase_cnt;
 	u64 tmp;
 	unsigned int ch = device->hwpwm;
 	struct axi_pwmgen *pwm;
@@ -90,9 +90,9 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 	duty_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
 	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(ch), duty_cnt);
 
-	tmp = (u64)clk_rate * state->offset;
-	offset_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
-	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_OFFSET(ch), state->offset ? offset_cnt : 0);
+	tmp = (u64)clk_rate * state->phase;
+	phase_cnt = DIV_ROUND_UP_ULL(tmp, NSEC_PER_SEC);
+	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PHASE(ch), state->phase ? phase_cnt : 0);
 
 	/* Apply the new config */
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
@@ -157,7 +157,7 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 	for (idx = 0; idx < pwm->chip.npwm; idx++) {
 		axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PERIOD(idx), 0);
 		axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(idx), 0);
-		axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_OFFSET(idx), 0);
+		axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PHASE(idx), 0);
 	}
 
 	/* Enable the core */
