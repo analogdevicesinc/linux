@@ -46,7 +46,7 @@ After being requested, a PWM has to be configured using::
 
 	int pwm_apply_state(struct pwm_device *pwm, struct pwm_state *state);
 
-This API controls both the PWM period/duty_cycle config and the
+This API controls both the PWM period, duty_cycle and phase config and the
 enable/disable state.
 
 As a consumer, don't rely on the output's state for a disabled PWM. If it's
@@ -115,6 +115,10 @@ channel that was exported. The following properties will then be available:
   duty_cycle
     The active time of the PWM signal (read/write).
     Value is in nanoseconds and must be less than the period.
+
+  phase
+    The phase difference between the actual PWM signal and the reference one.
+    The value is expressed in nanoseconds and must be lower than period.
 
   polarity
     Changes the polarity of the PWM signal (read/write).
