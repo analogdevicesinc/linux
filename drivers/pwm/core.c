@@ -197,6 +197,7 @@ static int __pwm_apply(struct pwm_device *pwm, const struct pwm_state *state)
 	    state->polarity == pwm->state.polarity &&
 	    state->enabled == pwm->state.enabled &&
 	    state->usage_power == pwm->state.usage_power)
+	    state->phase == pwm->state.phase)
 		return 0;
 
 	err = chip->ops->apply(chip, pwm, state);
