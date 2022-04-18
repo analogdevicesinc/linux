@@ -249,6 +249,10 @@ static const struct mxs_phy_data imx7ulp_phy_data = {
 	.flags = MXS_PHY_HAS_DCD,
 };
 
+static const struct mxs_phy_data imx8ulp_phy_data = {
+	.flags = MXS_PHY_HAS_DCD,
+};
+
 static const struct of_device_id mxs_phy_dt_ids[] = {
 	{ .compatible = "fsl,imx6sx-usbphy", .data = &imx6sx_phy_data, },
 	{ .compatible = "fsl,imx6sl-usbphy", .data = &imx6sl_phy_data, },
@@ -257,6 +261,7 @@ static const struct of_device_id mxs_phy_dt_ids[] = {
 	{ .compatible = "fsl,vf610-usbphy", .data = &vf610_phy_data, },
 	{ .compatible = "fsl,imx6ul-usbphy", .data = &imx6ul_phy_data, },
 	{ .compatible = "fsl,imx7ulp-usbphy", .data = &imx7ulp_phy_data, },
+	{ .compatible = "fsl,imx8ulp-usbphy", .data = &imx8ulp_phy_data, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mxs_phy_dt_ids);
@@ -287,6 +292,11 @@ static inline bool is_imx6sl_phy(struct mxs_phy *mxs_phy)
 static inline bool is_imx7ulp_phy(struct mxs_phy *mxs_phy)
 {
 	return mxs_phy->data == &imx7ulp_phy_data;
+}
+
+static inline bool is_imx8ulp_phy(struct mxs_phy *mxs_phy)
+{
+	return mxs_phy->data == &imx8ulp_phy_data;
 }
 
 static inline bool is_imx6ul_phy(struct mxs_phy *mxs_phy)
@@ -346,12 +356,29 @@ static int mxs_phy_pll_enable(void __iomem *base, bool enable)
 	return ret;
 }
 
+/*
+ * The imx8ulp phy registers are not properly reset after a warm
+ * reset (ERR051269). Using the following steps to reset DEBUG and
+ * PLL_SIC regs. CTRL and PWD regs are reset by "SFT" bit in
+ * stmp_reset_block().
+ */
+static void mxs_phy_regs_reset(void __iomem *base)
+{
+	writel(0x7f180000, base + HW_USBPHY_DEBUG_SET);
+	writel(~0x7f180000, base + HW_USBPHY_DEBUG_CLR);
+	writel(0x00d12000, base + HW_USBPHY_PLL_SIC_SET);
+	writel(~0x00d12000, base + HW_USBPHY_PLL_SIC_CLR);
+}
+
 static int mxs_phy_hw_init(struct mxs_phy *mxs_phy)
 {
 	int ret;
 	void __iomem *base = mxs_phy->phy.io_priv;
 
-	if (is_imx7ulp_phy(mxs_phy)) {
+	if (is_imx8ulp_phy(mxs_phy))
+		mxs_phy_regs_reset(base);
+
+	if (is_imx7ulp_phy(mxs_phy) || is_imx8ulp_phy(mxs_phy)) {
 		ret = mxs_phy_pll_enable(base, true);
 		if (ret)
 			return ret;
@@ -409,7 +436,7 @@ static int mxs_phy_hw_init(struct mxs_phy *mxs_phy)
 	return 0;
 
 disable_pll:
-	if (is_imx7ulp_phy(mxs_phy))
+	if (is_imx7ulp_phy(mxs_phy) || is_imx8ulp_phy(mxs_phy))
 		mxs_phy_pll_enable(base, false);
 	return ret;
 }
@@ -528,7 +555,7 @@ static void mxs_phy_shutdown(struct usb_phy *phy)
 	writel(BM_USBPHY_CTRL_CLKGATE,
 	       phy->io_priv + HW_USBPHY_CTRL_SET);
 
-	if (is_imx7ulp_phy(mxs_phy))
+	if (is_imx7ulp_phy(mxs_phy) || is_imx8ulp_phy(mxs_phy))
 		mxs_phy_pll_enable(phy->io_priv, false);
 
 	if (mxs_phy->phy_3p0)
