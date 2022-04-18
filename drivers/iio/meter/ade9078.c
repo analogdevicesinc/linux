@@ -70,6 +70,7 @@
 #define	ADE9078_REG_PGA_GAIN		0x4B9
 #define	ADE9078_REG_VERSION		0x4FE
 #define ADE9078_REG_WF_BUFF		0x800
+#define ADE9078_REG_WF_HALF_BUFF	0xC00
 
 #define ADE9078_REG_ADDR_MASK		GENMASK(15, 4)
 #define ADE9078_REG_READ_BIT_MASK	BIT(3)
@@ -153,13 +154,17 @@
 #define ADE9078_FDSP			4000
 #define ADE9078_WFB_CFG			0x0329
 #define ADE9078_WFB_PAGE_SIZE		128
-#define ADE9078_WFB_BYTES_IN_PAGE	4
-#define ADE9078_WFB_PAGE_ARRAY_SIZE	\
-	(ADE9078_WFB_PAGE_SIZE * ADE9078_WFB_BYTES_IN_PAGE)
-#define ADE9078_WFB_FULL_BUFF_SIZE	\
-	(ADE9078_WFB_PAGE_ARRAY_SIZE * 16)
+#define ADE9078_WFB_NR_OF_PAGES		16
+#define ADE9078_WFB_MAX_CHANNELS	8
+#define ADE9078_WFB_BYTES_IN_SAMPLE	4
+#define ADE9078_WFB_SAMPLES_IN_PAGE	\
+	(ADE9078_WFB_PAGE_SIZE / ADE9078_WFB_MAX_CHANNELS)
+#define ADE9078_WFB_MAX_SAMPLES_CHAN	\
+	(ADE9078_WFB_SAMPLES_IN_PAGE * ADE9078_WFB_NR_OF_PAGES)
 #define ADE9078_WFB_FULL_BUFF_NR_SAMPLES \
-	(ADE9078_WFB_PAGE_SIZE * 16)
+	(ADE9078_WFB_PAGE_SIZE * ADE9078_WFB_NR_OF_PAGES)
+#define ADE9078_WFB_FULL_BUFF_SIZE	\
+	(ADE9078_WFB_FULL_BUFF_NR_SAMPLES * ADE9078_WFB_BYTES_IN_SAMPLE)
 
 #define ADE9078_SWRST_BIT		BIT(0)
 
@@ -202,11 +207,11 @@
 #define ADE9078_WFB_EN_TRIG_MODE	0x1
 /* Continuous filling—center capture around enabled trigger events */
 #define ADE9078_WFB_C_EN_TRIG_MODE	0x2
-/* Continuous fill—save event address of enabled trigger events */
-#define ADE9078_WFB_SAVE_EN_TRIG_MODE	0x3
+/* Continuous fill—used as streaming mode for continuous data output */
+#define ADE9078_WFB_STREAMING_MODE	0x3
 
-#define ADE9078_MODE_0_1_PAGE_BIT	BIT(15)
-#define ADE9078_MODE_2_PAGE_BIT		BIT(7)
+#define ADE9078_LAST_PAGE_BIT		BIT(15)
+#define ADE9078_MIDDLE_PAGE_BIT		BIT(7)
 
 /*
  * Full scale Codes referred from Datasheet.Respective digital codes are
@@ -586,10 +591,139 @@ static bool ade9078_is_volatile_reg(struct device *dev, unsigned int reg)
 	case ADE9078_REG_STATUS1:
 	case ADE9078_REG_MASK0:
 	case ADE9078_REG_MASK1:
+	case ADE9078_REG_WFB_PG_IRQEN:
 		return false;
 	default:
 		return true;
 	}
+}
+
+/**
+ * ade9078_configure_scan() - Sets up the transfer parameters
+ * as well as the tx and rx buffers
+ * @indio_dev:	the IIO device
+ * @wfb_addr:	buffer address to read from
+ */
+static int ade9078_configure_scan(struct iio_dev *indio_dev, u32 wfb_addr)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	u16 addr;
+
+	addr = FIELD_PREP(ADE9078_REG_ADDR_MASK, wfb_addr) |
+	       ADE9078_REG_READ_BIT_MASK;
+
+	put_unaligned_be16(addr, st->tx_buff);
+
+	st->xfer[0].tx_buf = &st->tx_buff[0];
+	st->xfer[0].len = 2;
+
+	st->xfer[1].rx_buf = &st->rx_buff.byte[0];
+	st->xfer[1].len = ADE9078_WFB_FULL_BUFF_SIZE;
+
+	spi_message_init_with_transfers(&st->spi_msg, st->xfer, 2);
+	return 0;
+}
+
+/**
+ * ade9078_iio_push_streaming() - designed for reading the FIFO in continuous
+ * mode.
+ * @indio_dev:	the IIO device
+ *
+ * This function implements a continuous streaming mode, of the internal FIFO.
+ * To maintain continuity, only half of the FIFO is read out any given time
+ * while the other half fills up and is pushed to the IIO buffer. Thus after
+ * each iio_push_to_buffer the interrupt is set to either the last page or the
+ * middle page and the read address of the FIFO to either the beginning of the
+ * first page of to the beginning of page 8 (middle page + 1)
+ */
+static int ade9078_iio_push_streaming(struct iio_dev *indio_dev)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	u32 nr_of_samples;
+	u32 current_page;
+	u8 nr_activ_chan;
+	int ret;
+	u32 i;
+
+	nr_activ_chan = bitmap_weight(indio_dev->active_scan_mask,
+				      indio_dev->masklength);
+
+	ret = spi_sync(st->spi, &st->spi_msg);
+	if (ret) {
+		dev_err(&st->spi->dev, "SPI fail in trigger handler");
+		return ret;
+	}
+
+	nr_of_samples = (ADE9078_WFB_MAX_SAMPLES_CHAN * nr_activ_chan) / 2;
+
+	for (i = 0; i < nr_of_samples; i += nr_activ_chan)
+		iio_push_to_buffers(indio_dev, &st->rx_buff.word[i]);
+
+	ret = regmap_read(st->regmap, ADE9078_REG_WFB_PG_IRQEN, &current_page);
+	if (ret) {
+		dev_err(&st->spi->dev, "IRQ0 WFB read fail");
+		return ret;
+	}
+
+	//switch pages to be read and which interrupt to occur
+	if (current_page & ADE9078_MIDDLE_PAGE_BIT) {
+		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
+				   ADE9078_LAST_PAGE_BIT);
+		if (ret) {
+			dev_err(&st->spi->dev, "IRQ0 WFB write fail");
+			return ret;
+		}
+
+		ret = ade9078_configure_scan(indio_dev,
+					     ADE9078_REG_WF_HALF_BUFF);
+		if (ret)
+			return ret;
+	} else {
+		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
+				   ADE9078_MIDDLE_PAGE_BIT);
+		if (ret) {
+			dev_err(&st->spi->dev,
+				"IRQ0 WFB write fail");
+			return IRQ_HANDLED;
+		}
+
+		ret = ade9078_configure_scan(indio_dev,
+					     ADE9078_REG_WF_BUFF);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * ade9078_iio_push_buffer() - reads out the content of the waveform buffer and
+ * pushes it to the IIO buffer.
+ * @indio_dev:	the IIO device
+ */
+static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
+{
+	struct ade9078_state *st = iio_priv(indio_dev);
+	u32 nr_of_samples;
+	u8 nr_activ_chan;
+	int ret;
+	u32 i;
+
+	nr_activ_chan = bitmap_weight(indio_dev->active_scan_mask,
+				      indio_dev->masklength);
+
+	ret = spi_sync(st->spi, &st->spi_msg);
+	if (ret) {
+		dev_err(&st->spi->dev, "SPI fail in trigger handler");
+		return ret;
+	}
+
+	nr_of_samples = ADE9078_WFB_MAX_SAMPLES_CHAN * nr_activ_chan;
+
+	for (i = 0; i < nr_of_samples; i += nr_activ_chan)
+		iio_push_to_buffers(indio_dev, &st->rx_buff.word[i]);
+
+	return 0;
 }
 
 /**
@@ -604,38 +738,9 @@ static int ade9078_en_wfb(struct ade9078_state *st, bool state)
 }
 
 /**
- * ade9078_iio_push_buffer() - reads out the content of the waveform buffer and
- * pushes it to the IIO buffer.
- * @indio_dev:	the IIO device
- */
-static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
-{
-	struct ade9078_state *st = iio_priv(indio_dev);
-	u8 nr_activ_chan;
-	int ret;
-	u32 i;
-
-	nr_activ_chan = bitmap_weight(indio_dev->active_scan_mask,
-				      indio_dev->masklength);
-
-	ret = spi_sync(st->spi, &st->spi_msg);
-	if (ret) {
-		dev_err(&st->spi->dev, "SPI fail in trigger handler");
-		return ret;
-	}
-
-	for (i = 0; i < ADE9078_WFB_FULL_BUFF_NR_SAMPLES; i+=nr_activ_chan)
-	{
-		iio_push_to_buffers(indio_dev, &st->rx_buff.word[i]);
-	}
-
-	return 0;
-}
-
-/**
  * ade9078_irq0_thread() - Thread for IRQ0.
  * @irq:	interrupt
- * @data: 	private callback data passed trough the interrupt.
+ * @data:	private callback data passed trough the interrupt.
  *
  * It reads Status register 0 and checks for the IRQ activation. This is
  * configured to acquire samples in to the IC buffer and dump it in to the
@@ -665,19 +770,8 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 
 	if ((status & ADE9078_ST0_PAGE_FULL_BIT) &&
 	    (interrupts & ADE9078_ST0_PAGE_FULL_BIT)) {
-		//Stop Filling on Trigger and Center Capture Around Trigger
-		if (st->wf_mode) {
-			ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG,
-					   st->wfb_trg);
-			if (ret) {
-				dev_err(&st->spi->dev, "IRQ0 WFB write fail");
-				return IRQ_HANDLED;
-			}
-
-			interrupts |= ADE9078_ST0_WFB_TRIG_BIT;
-
-		} else {
-			//Stop When Buffer Is Full Mode
+		switch (st->wf_mode) {
+		case ADE9078_WFB_FULL_MODE:
 			ret = ade9078_en_wfb(st, false);
 			if (ret) {
 				dev_err(&st->spi->dev, "IRQ0 WFB stop fail");
@@ -688,14 +782,72 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 				dev_err(&st->spi->dev, "IRQ0 IIO push fail");
 				return IRQ_HANDLED;
 			}
-		}
 
-		//disable Page full interrupt
-		interrupts &= ~ADE9078_ST0_PAGE_FULL_BIT;
+			interrupts &= ~ADE9078_ST0_PAGE_FULL_BIT;
 
-		ret = regmap_write(st->regmap, ADE9078_REG_MASK0, interrupts);
-		if (ret) {
-			dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
+			ret = regmap_write(st->regmap, ADE9078_REG_MASK0,
+					   interrupts);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
+				return IRQ_HANDLED;
+			}
+			break;
+
+		case ADE9078_WFB_C_EN_TRIG_MODE:
+			ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
+					   ADE9078_LAST_PAGE_BIT);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 WFB write fail");
+				return IRQ_HANDLED;
+			}
+
+			ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG,
+					   st->wfb_trg);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 WFB write fail");
+				return IRQ_HANDLED;
+			}
+
+			interrupts |= ADE9078_ST0_WFB_TRIG_BIT;
+			interrupts &= ~ADE9078_ST0_PAGE_FULL_BIT;
+
+			ret = regmap_write(st->regmap, ADE9078_REG_MASK0,
+					   interrupts);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
+				return IRQ_HANDLED;
+			}
+			break;
+
+		case ADE9078_WFB_EN_TRIG_MODE:
+			ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG,
+					   st->wfb_trg);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 WFB write fail");
+				return IRQ_HANDLED;
+			}
+
+			interrupts |= ADE9078_ST0_WFB_TRIG_BIT;
+
+			interrupts &= ~ADE9078_ST0_PAGE_FULL_BIT;
+
+			ret = regmap_write(st->regmap, ADE9078_REG_MASK0,
+					   interrupts);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 MAKS0 write fail");
+				return IRQ_HANDLED;
+			}
+			break;
+
+		case ADE9078_WFB_STREAMING_MODE:
+			ret = ade9078_iio_push_streaming(indio_dev);
+			if (ret) {
+				dev_err(&st->spi->dev, "IRQ0 IIO push fail");
+				return IRQ_HANDLED;
+			}
+			break;
+
+		default:
 			return IRQ_HANDLED;
 		}
 
@@ -730,7 +882,7 @@ static irqreturn_t ade9078_irq0_thread(int irq, void *data)
 /**
  * ade9078_irq1_thread() - Thread for IRQ1.
  * @irq:	interrupt
- * @data: 	private callback data passed trough the interrupt.
+ * @data:	private callback data passed trough the interrupt.
  *
  * It reads Status register 1 and checks for the IRQ activation. This thread
  * handles the reset condition and the zero-crossing conditions for all 3 phases
@@ -813,31 +965,6 @@ static irqreturn_t ade9078_irq1_thread(int irq, void *data)
 	}
 
 	return IRQ_HANDLED;
-}
-
-/**
- * ade9078_configure_scan() - Sets up the transfer parameters
- * as well as the tx and rx buffers
- * @indio_dev:	the IIO device
- */
-static int ade9078_configure_scan(struct iio_dev *indio_dev)
-{
-	struct ade9078_state *st = iio_priv(indio_dev);
-	u16 addr;
-
-	addr = FIELD_PREP(ADE9078_REG_ADDR_MASK, ADE9078_REG_WF_BUFF) |
-	       ADE9078_REG_READ_BIT_MASK;
-
-	put_unaligned_be16(addr, st->tx_buff);
-
-	st->xfer[0].tx_buf = &st->tx_buff[0];
-	st->xfer[0].len = 2;
-
-	st->xfer[1].rx_buf = &st->rx_buff.byte[0];
-	st->xfer[1].len = ADE9078_WFB_FULL_BUFF_SIZE;
-
-	spi_message_init_with_transfers(&st->spi_msg, st->xfer, 2);
-	return 0;
 }
 
 /**
@@ -1060,8 +1187,7 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
 	if (state) {
 		interrupts |= trig_arr[chan->channel + chan->type].irq;
 		st->wfb_trg |= trig_arr[chan->channel + chan->type].wfb_trg;
-	}
-	else {
+	} else {
 		interrupts &= ~trig_arr[chan->channel + chan->type].irq;
 		st->wfb_trg &= ~trig_arr[chan->channel + chan->type].wfb_trg;
 	}
@@ -1090,9 +1216,9 @@ static int ade9078_write_event_config(struct iio_dev *indio_dev,
  * intuitive because ADE9078 can only detect zero-crossings. Thus the return
  * results are different from the expected type.
  * Return:
- * 	0 - if crossing event not set
- * 	1 - if crossing event occurred
- * 	-1 - if crossing timeout (only for Voltages)
+ *	0 - if crossing event not set
+ *	1 - if crossing event occurred
+ *	-1 - if crossing timeout (only for Voltages)
  */
 static int ade9078_read_event_vlaue(struct iio_dev *indio_dev,
 //TODO value?  If so, this should be reading the thresholds, not anything
@@ -1298,13 +1424,19 @@ static int ade9078_wfb_interrupt_setup(struct ade9078_state *st, u8 mode)
 	case ADE9078_WFB_FULL_MODE:
 	case ADE9078_WFB_EN_TRIG_MODE:
 		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
-				   ADE9078_MODE_0_1_PAGE_BIT);
+				   ADE9078_LAST_PAGE_BIT);
 		if (ret)
 			return ret;
 		break;
 	case ADE9078_WFB_C_EN_TRIG_MODE:
 		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
-				   ADE9078_MODE_2_PAGE_BIT);
+				   ADE9078_MIDDLE_PAGE_BIT);
+		if (ret)
+			return ret;
+		break;
+	case ADE9078_WFB_STREAMING_MODE:
+		ret = regmap_write(st->regmap, ADE9078_REG_WFB_PG_IRQEN,
+				   ADE9078_MIDDLE_PAGE_BIT);
 		if (ret)
 			return ret;
 		break;
@@ -1366,6 +1498,10 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 	}
 
 	ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG, 0x0);
+	if (ret)
+		return ret;
+
+	ret = ade9078_configure_scan(indio_dev, ADE9078_REG_WF_BUFF);
 	if (ret)
 		return ret;
 
@@ -1621,7 +1757,7 @@ static int ade9078_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	ret = ade9078_configure_scan(indio_dev);
+	ret = ade9078_configure_scan(indio_dev, ADE9078_REG_WF_BUFF);
 	if (ret)
 		return ret;
 
