@@ -5328,7 +5328,7 @@ static int pxp_process_update(struct mxc_epdc_fb_data *fb_data,
 	dma_chan = &fb_data->pxp_chan->dma_chan;
 
 	txd = dma_chan->device->device_prep_slave_sg(dma_chan, sg, 2,
-						     DMA_TO_DEVICE,
+						     DMA_MEM_TO_DEV,
 						     DMA_PREP_INTERRUPT,
 						     NULL);
 	if (!txd) {
