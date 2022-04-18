@@ -581,6 +581,7 @@ static inline void pwm_apply_args(struct pwm_device *pwm)
 	state.enabled = false;
 	state.polarity = pwm->args.polarity;
 	state.period = pwm->args.period;
+	state.phase = pwm->args.phase;
 
 	pwm_apply_state(pwm, &state);
 }
