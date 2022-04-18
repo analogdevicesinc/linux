@@ -38,7 +38,7 @@ enum pwm_polarity {
  */
 struct pwm_args {
 	u64 period;
-	unsigned int phase;
+	u64 phase;
 	enum pwm_polarity polarity;
 };
 
@@ -62,7 +62,7 @@ enum {
 struct pwm_state {
 	u64 period;
 	u64 duty_cycle;
-	unsigned int phase;
+	u64 phase;
 	enum pwm_polarity polarity;
 	bool enabled;
 	bool usage_power;
@@ -148,13 +148,13 @@ static inline u64 pwm_get_duty_cycle(const struct pwm_device *pwm)
 	return state.duty_cycle;
 }
 
-static inline void pwm_set_phase(struct pwm_device *pwm, unsigned int phase)
+static inline void pwm_set_phase(struct pwm_device *pwm, u64 phase)
 {
 	if (pwm)
 		pwm->state.phase = phase;
 }
 
-static inline unsigned int pwm_get_phase(const struct pwm_device *pwm)
+static inline u64 pwm_get_phase(const struct pwm_device *pwm)
 {
 	struct pwm_state state;
 
@@ -276,6 +276,7 @@ pwm_set_relative_duty_cycle(struct pwm_state *state, unsigned int duty_cycle,
 struct pwm_capture {
 	u64 period;
 	u64 duty_cycle;
+	u64 phase;
 };
 
 /**
