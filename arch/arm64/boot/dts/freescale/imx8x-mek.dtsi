@@ -320,6 +320,10 @@
 
 };
 
+&lsio_mu5 {
+	status = "okay";
+};
+
 &cm40_i2c {
 	#address-cells = <1>;
 	#size-cells = <0>;
