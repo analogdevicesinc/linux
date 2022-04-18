@@ -29,6 +29,7 @@ enum pwm_polarity {
  * struct pwm_args - board-dependent PWM arguments
  * @period: reference period
  * @polarity: reference polarity
+ * @phase: reference phase
  *
  * This structure describes board-dependent arguments attached to a PWM
  * device. These arguments are usually retrieved from the PWM lookup table or
@@ -40,6 +41,7 @@ enum pwm_polarity {
  */
 struct pwm_args {
 	u64 period;
+	unsigned int phase;
 	enum pwm_polarity polarity;
 };
 
@@ -52,6 +54,7 @@ enum {
  * struct pwm_state - state of a PWM channel
  * @period: PWM period (in nanoseconds)
  * @duty_cycle: PWM duty cycle (in nanoseconds)
+ * @phase: PWM phase (in nanoseconds)
  * @polarity: PWM polarity
  * @enabled: PWM enabled status
  * @usage_power: If set, the PWM driver is only required to maintain the power
@@ -62,6 +65,7 @@ enum {
 struct pwm_state {
 	u64 period;
 	u64 duty_cycle;
+	unsigned int phase;
 	enum pwm_polarity polarity;
 	bool enabled;
 	bool usage_power;
@@ -147,6 +151,21 @@ static inline u64 pwm_get_duty_cycle(const struct pwm_device *pwm)
 	return state.duty_cycle;
 }
 
+static inline void pwm_set_phase(struct pwm_device *pwm, unsigned int phase)
+{
+	if (pwm)
+		pwm->state.phase = phase;
+}
+
+static inline unsigned int pwm_get_phase(const struct pwm_device *pwm)
+{
+	struct pwm_state state;
+
+	pwm_get_state(pwm, &state);
+
+	return state.phase;
+}
+
 static inline enum pwm_polarity pwm_get_polarity(const struct pwm_device *pwm)
 {
 	struct pwm_state state;
@@ -193,6 +212,7 @@ static inline void pwm_init_state(const struct pwm_device *pwm,
 	state->period = args.period;
 	state->polarity = args.polarity;
 	state->duty_cycle = 0;
+	state->phase = 0;
 	state->usage_power = false;
 }
 
@@ -320,6 +340,7 @@ struct pwm_chip {
 struct pwm_capture {
 	unsigned int period;
 	unsigned int duty_cycle;
+	unsigned int phase;
 };
 
 #if IS_ENABLED(CONFIG_PWM)
