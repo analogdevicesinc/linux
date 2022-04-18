@@ -93,3 +93,10 @@ KernelVersion:	5.10
 Contact:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
 Description:
 		Sets the PWM signal phase in nanoseconds.
+
+What:		/sys/class/pwm/pwmchipN/pwmX/time_unit
+Date:		Apr 2022
+KernelVersion:	5.10
+Contact:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+Description:
+		Sets the PWM signal period, duty_cycle and phase time unit.
