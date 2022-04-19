@@ -130,11 +130,18 @@
 					export;
 				};
 
-				pin-12-red_led {
+				pin-32-red_led {
 					pins = "gpio12";
 					function = "gpio_out";
 					bias-pull-up;
 					output-high;
+					export;
+				};
+
+				pin-36-green_led {
+					pins = "gpio16";
+					function = "gpio_out";
+					bias-pull-up;
 					export;
 				};
 
