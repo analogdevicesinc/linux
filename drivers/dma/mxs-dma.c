@@ -961,3 +961,6 @@ static struct platform_driver mxs_dma_driver = {
 };
 
 builtin_platform_driver(mxs_dma_driver);
+
+MODULE_DESCRIPTION("MXS DMA driver");
+MODULE_LICENSE("GPL");
