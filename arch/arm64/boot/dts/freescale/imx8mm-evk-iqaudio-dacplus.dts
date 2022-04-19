@@ -24,9 +24,6 @@
 	sound-pcm512x {
 		compatible = "fsl,imx-audio-pcm512x";
 		model = "pcm512x-audio";
-		audio-cpu = <&sai5>;
-		audio-codec = <&pcm512x>;
-		format = "i2s";
 		audio-widgets =
 			"Line", "Left Line Out Jack",
 			"Line", "Right Line Out Jack";
@@ -34,6 +31,18 @@
 			"Left Line Out Jack", "OUTL",
 			"Right Line Out Jack", "OUTR";
 		dac,24db_digital_gain;
+
+		pri-dai-link {
+			link-name = "pcm512x-hifi";
+			format = "i2s";
+			cpu {
+				sound-dai = <&sai5>;
+			};
+
+			codec {
+				sound-dai = <&pcm512x>;
+			};
+		};
 	};
 };
 
@@ -56,6 +65,7 @@
 		AVDD-supply = <&reg_3v3_vext>;
 		DVDD-supply = <&reg_3v3_vext>;
 		CPVDD-supply = <&reg_3v3_vext>;
+		#sound-dai-cells = <0>;
 	};
 };
 
@@ -75,5 +85,6 @@
 };
 
 &sai5 {
+	#sound-dai-cells = <0>;
 	status = "okay";
 };
