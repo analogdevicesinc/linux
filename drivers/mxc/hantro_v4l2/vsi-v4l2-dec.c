@@ -484,7 +484,6 @@ static int vsi_dec_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		v4l2_klog(LOGLVL_FLOW, "rfc offest update=%x:%x", p->reserved, p->reserved2);
 
 		if (p->bytesused == 0 && (ctx->status == DEC_STATUS_ENDSTREAM || test_bit(CTX_FLAG_ENDOFSTRM_BIT, &ctx->flag))) {
-			p->flags |= V4L2_BUF_FLAG_LAST;
 			ctx->status = DEC_STATUS_ENDSTREAM;
 			clear_bit(CTX_FLAG_ENDOFSTRM_BIT, &ctx->flag);
 			v4l2_klog(LOGLVL_BRIEF, "send eos flag");

@@ -434,7 +434,6 @@ static int vsi_enc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	if (!binputqueue(p->type)) {
 		if (ret == 0) {
 			if (ctx->vbufflag[p->index] & LAST_BUFFER_FLAG) {
-				p->flags |= V4L2_BUF_FLAG_LAST;
 				vsi_v4l2_sendeos(ctx);
 				if (ctx->status == ENC_STATUS_DRAINING)
 					ctx->status = ENC_STATUS_EOS;
