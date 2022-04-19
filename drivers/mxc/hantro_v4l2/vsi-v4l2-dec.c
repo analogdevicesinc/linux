@@ -310,6 +310,8 @@ static bool vsi_dec_check_reschange(struct vsi_v4l2_ctx *ctx)
 
 	if (!ctx->need_capture_on && !vb2_is_streaming(q))
 		return true;
+	if (vb2_is_streaming(q))
+		return true;
 	if (pcfg->decparams.dec_info.io_buffer.output_width != pcfg->decparams_bkup.io_buffer.output_width)
 		return true;
 	if (pcfg->decparams.dec_info.io_buffer.output_height != pcfg->decparams_bkup.io_buffer.output_height)

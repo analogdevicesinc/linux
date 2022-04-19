@@ -1147,11 +1147,36 @@ static int get_fmtprofile(struct vsi_v4l2_mediacfg *pcfg)
 	}
 }
 
+static int vsi_calc_table_size(int pixelformat, int width, int height)
+{
+	int luma_table_size = 0;
+	int chroma_table_size = 0;
+	int width_in_cbs;
+	int height_in_cbs;
+
+	if (pixelformat != V4L2_PIX_FMT_RFC && pixelformat != V4L2_PIX_FMT_RFCX)
+		return 0;
+
+	/*luma table size*/
+	width_in_cbs = ALIGN(DIV_ROUND_UP(width, 8), 16);
+	height_in_cbs = DIV_ROUND_UP(height, 8);
+	luma_table_size = ALIGN(width_in_cbs * height_in_cbs, 16);
+
+	/*chroma table size*/
+	width_in_cbs = ALIGN(DIV_ROUND_UP(width, 16), 16);
+	height_in_cbs = DIV_ROUND_UP(height / 2, 4);
+	chroma_table_size = ALIGN(width_in_cbs * height_in_cbs, 16);
+
+	return luma_table_size + chroma_table_size;
+}
+
 static void verifyPlanesize(unsigned int psize[], int braw, int pixelformat, int width, int height, int planeno, int bdecoder)
 {
 	int totalsize = 0;
 	int basesize = width * height, extsize = 0, quadsize = 0;
 	int padsize = 0;
+	int tablesize = 0;
+	int mvssize = 0;
 
 	if (braw) {
 		if (enc_isRGBformat(pixelformat)) {
@@ -1193,8 +1218,19 @@ static void verifyPlanesize(unsigned int psize[], int braw, int pixelformat, int
 				break;
 			}
 		}
+		switch (pixelformat) {
+		case V4L2_PIX_FMT_RFC:
+		case V4L2_PIX_FMT_RFCX:
+			mvssize = DIV_ROUND_UP(width, 64) * DIV_ROUND_UP(height, 64) * 64 * 16;
+			padsize = max_t(int, padsize, mvssize);
+			tablesize = vsi_calc_table_size(pixelformat, width, height);
+			break;
+		default:
+			tablesize = 0;
+			break;
+		}
 		if (planeno == 1) {
-			totalsize = basesize + extsize + padsize;
+			totalsize = basesize + extsize + padsize + tablesize;
 			psize[0] = max_t(int, totalsize, psize[0]);
 		} else if (planeno == 2) {
 			psize[0] = basesize;
@@ -1684,10 +1720,7 @@ static int vsiv4l2_verifyfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 	}
 	pix->bytesperline = bytesperline;
 
-	if (V4L2_TYPE_IS_OUTPUT(fmt->type))
-		psize[0] = max_t(u32, pcfg->sizeimagesrc[0], pix->sizeimage);
-	else
-		psize[0] = max_t(u32, pcfg->sizeimagedst[0], pix->sizeimage);
+	psize[0] = pix->sizeimage;
 	verifyPlanesize(psize, braw, pix->pixelformat, bytesperline,
 			pix->height, 1, 1);
 	pix->sizeimage = psize[0];
