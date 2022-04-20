@@ -41,6 +41,11 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
 		ranges;
+
+		axi_sysid_0: axi-sysid-0@45000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x45000000 0x10000>;
+		};
 	};
 };
 
