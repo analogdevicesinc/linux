@@ -296,5 +296,10 @@
 			adi,axi-pl-fifo-enable;
 			plddrbypass-gpios = <&gpio 146 0>;
 		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x2000>;
+		};
 	};
 };
