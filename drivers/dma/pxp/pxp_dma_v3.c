@@ -7765,7 +7765,7 @@ static bool search_mux_chain(uint32_t mux_id,
 		if (output == 0xff)
 			break;
 
-		if ((output == enode->adjvex)) {
+		if (output == enode->adjvex) {
 			/* found */
 			found = true;
 			break;
