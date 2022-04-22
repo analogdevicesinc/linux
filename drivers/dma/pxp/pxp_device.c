@@ -355,7 +355,7 @@ static int pxp_ioc_config_chan(struct pxp_file *priv, unsigned long arg)
 
 	txd = chan->device->device_prep_slave_sg(chan,
 						 sg, sg_len,
-						 DMA_TO_DEVICE,
+						 DMA_MEM_TO_DEV,
 						 DMA_PREP_INTERRUPT,
 						 NULL);
 	if (!txd) {
