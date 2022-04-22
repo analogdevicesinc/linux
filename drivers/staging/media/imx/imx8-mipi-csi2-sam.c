@@ -1352,11 +1352,11 @@ static int csis_ioc_qcap(struct v4l2_subdev *dev, void *args)
 
 #ifdef CONFIG_HARDENED_USERCOPY
 #define USER_TO_KERNEL(TYPE) \
-	do {\
+	({\
 		TYPE tmp; \
 		arg = (void *)(&tmp); \
 		copy_from_user(arg, arg_user, sizeof(TYPE));\
-	} while (0)
+	})
 
 #define KERNEL_TO_USER(TYPE) \
 		copy_to_user(arg_user, arg, sizeof(TYPE));
