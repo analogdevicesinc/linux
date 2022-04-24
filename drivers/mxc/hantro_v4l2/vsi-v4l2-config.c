@@ -1528,6 +1528,8 @@ static int vsiv4l2_setfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 		pcfg->infmt_fourcc = pix->pixelformat;
 	} else {
 		pcfg->outfmt_fourcc = pix->pixelformat;
+		pcfg->decparams.dec_info.io_buffer.outputPixelDepth =
+				vsiv4l2_decidepixeldepth(targetfmt->dec_fmt, pcfg->src_pixeldepth);
 
 		if (!test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
 			struct v4l2_frmsizeenum fmsize;
@@ -1555,8 +1557,6 @@ static int vsiv4l2_setfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 			if (pcfg->decparams.dec_info.io_buffer.output_height)
 				pix->height = pcfg->decparams.dec_info.io_buffer.output_height;
 			pcfg->decparams.dec_info.io_buffer.outBufFormat = targetfmt->dec_fmt;
-			pcfg->decparams.dec_info.io_buffer.outputPixelDepth =
-				vsiv4l2_decidepixeldepth(targetfmt->dec_fmt, pcfg->src_pixeldepth);
 			pcfg->bytesperline = pix->width * pcfg->decparams.dec_info.io_buffer.outputPixelDepth / 8;
 			pcfg->bytesperline = ALIGN(pcfg->bytesperline, 16);
 			pix->bytesperline = pcfg->bytesperline;

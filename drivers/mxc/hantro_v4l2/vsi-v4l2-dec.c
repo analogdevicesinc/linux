@@ -312,6 +312,10 @@ static bool vsi_dec_check_reschange(struct vsi_v4l2_ctx *ctx)
 		return true;
 	if (vb2_is_streaming(q))
 		return true;
+	if (pcfg->decparams_bkup.dec_info.dec_info.bit_depth == 8) {
+		if (pcfg->decparams.dec_info.io_buffer.outputPixelDepth > 8)
+			return true;
+	}
 	if (pcfg->decparams.dec_info.io_buffer.output_width != pcfg->decparams_bkup.io_buffer.output_width)
 		return true;
 	if (pcfg->decparams.dec_info.io_buffer.output_height != pcfg->decparams_bkup.io_buffer.output_height)
