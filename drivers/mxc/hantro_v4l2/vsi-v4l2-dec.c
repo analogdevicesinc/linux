@@ -261,8 +261,32 @@ int vsi_dec_capture_on(struct vsi_v4l2_ctx *ctx)
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 	}
 	ctx->need_capture_on = false;
+	ctx->reschange_notified = false;
 
 	return ret;
+}
+
+int vsi_dec_capture_off(struct vsi_v4l2_ctx *ctx)
+{
+	int ret;
+	struct vb2_queue *q = &ctx->output_que;
+
+	if (!vb2_is_streaming(q))
+		return 0;
+
+	ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMOFF_CAPTURE, NULL);
+	if (ret < 0)
+		return -EFAULT;
+
+	mutex_unlock(&ctx->ctxlock);
+	if (wait_event_interruptible(ctx->capoffdone_queue, vsi_checkctx_capoffdone(ctx) != 0))
+		v4l2_klog(LOGLVL_WARNING, "%lx wait capture streamoff done timeout\n", ctx->ctxid);
+	if (mutex_lock_interruptible(&ctx->ctxlock))
+		return -EBUSY;
+	ctx->buffed_capnum = 0;
+	ctx->buffed_cropcapnum = 0;
+	return_all_buffers(q, VB2_BUF_STATE_ERROR, 1);
+	return vb2_streamoff(q, q->type);
 }
 
 static int vsi_dec_streamon(struct file *filp, void *priv, enum v4l2_buf_type type)
@@ -303,44 +327,11 @@ static int vsi_dec_checkctx_srcbuf(struct vsi_v4l2_ctx *ctx)
 	return ret;
 }
 
-static bool vsi_dec_check_reschange(struct vsi_v4l2_ctx *ctx)
-{
-	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
-	struct vb2_queue *q = &ctx->output_que;
-
-	if (!ctx->need_capture_on && !vb2_is_streaming(q))
-		return true;
-	if (vb2_is_streaming(q))
-		return true;
-	if (pcfg->decparams_bkup.dec_info.dec_info.bit_depth == 8) {
-		if (pcfg->decparams.dec_info.io_buffer.outputPixelDepth > 8)
-			return true;
-	}
-	if (pcfg->decparams.dec_info.io_buffer.output_width != pcfg->decparams_bkup.io_buffer.output_width)
-		return true;
-	if (pcfg->decparams.dec_info.io_buffer.output_height != pcfg->decparams_bkup.io_buffer.output_height)
-		return true;
-	if (pcfg->decparams.dec_info.dec_info.visible_rect.width != pcfg->decparams_bkup.dec_info.dec_info.visible_rect.width)
-		return true;
-	if (pcfg->decparams.dec_info.dec_info.visible_rect.height != pcfg->decparams_bkup.dec_info.dec_info.visible_rect.height)
-		return true;
-	if (pcfg->sizeimagedst[0] < pcfg->sizeimagedst_bkup)
-		return true;
-	if (test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
-		if (pcfg->decparams.dec_info.dec_info.needed_dpb_nums != pcfg->decparams_bkup.dec_info.dec_info.needed_dpb_nums)
-			return true;
-	}
-	if (q->num_buffers < (pcfg->minbuf_4output_bkup + VSI_EXTRA_CAPTURE_BUFFER_COUNT))
-		return true;
-
-	return false;
-}
-
 void vsi_dec_update_reso(struct vsi_v4l2_ctx *ctx)
 {
 	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
 
-	ctx->reschanged_need_notify = vsi_dec_check_reschange(ctx);
+	ctx->reschanged_need_notify = true;
 	pcfg->decparams.dec_info.dec_info = pcfg->decparams_bkup.dec_info.dec_info;
 	pcfg->decparams.dec_info.io_buffer.srcwidth = pcfg->decparams_bkup.io_buffer.srcwidth;
 	pcfg->decparams.dec_info.io_buffer.srcheight = pcfg->decparams_bkup.io_buffer.srcheight;
@@ -662,6 +653,34 @@ static int vsi_dec_handlestop_unspec(struct vsi_v4l2_ctx *ctx)
 	return 0;
 }
 
+static int vsi_dec_start_cmd(struct vsi_v4l2_ctx *ctx)
+{
+	int ret = 0;
+
+	if (ctx->status == DEC_STATUS_STOPPED) {
+		ctx->status = DEC_STATUS_DECODING;
+		ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_CMD_START, NULL);
+		if (ret < 0)
+			return ret;
+	}
+	if (ctx->reschange_notified) {
+		if (vb2_is_streaming(&ctx->output_que)) {
+			ret = vsi_dec_capture_off(ctx);
+			if (ret < 0) {
+				v4l2_klog(LOGLVL_ERROR,
+					  "ctx[%ld] capture off in start cmd fail\n",
+					  ctx->ctxid & 0xffff);
+				return ret;
+			}
+			ctx->need_capture_on = true;
+		}
+		if (ctx->need_capture_on)
+			ret = vsi_dec_capture_on(ctx);
+	}
+
+	return ret;
+}
+
 static int vsi_dec_try_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 {
 	switch (cmd->cmd) {
@@ -706,10 +725,7 @@ int vsi_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cm
 			ret = vsi_dec_handlestop_unspec(ctx);
 		break;
 	case V4L2_DEC_CMD_START:
-		if (ctx->status == DEC_STATUS_STOPPED) {
-			ctx->status = DEC_STATUS_DECODING;
-			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_CMD_START, cmd);
-		}
+		ret = vsi_dec_start_cmd(ctx);
 		break;
 	case V4L2_DEC_CMD_RESET:
 		ret = vsi_v4l2_reset_ctx(ctx);

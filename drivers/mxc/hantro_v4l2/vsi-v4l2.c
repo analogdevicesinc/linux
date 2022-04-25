@@ -344,6 +344,7 @@ int vsi_v4l2_send_reschange(struct vsi_v4l2_ctx *ctx)
 	event.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION,
 	v4l2_event_queue_fh(&ctx->fh, &event);
 	ctx->reschanged_need_notify = false;
+	ctx->reschange_notified = true;
 	return 0;
 }
 
