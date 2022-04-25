@@ -18,7 +18,7 @@ else
 		fi
 	done
 	export OS_TYPE=ubuntu
-	export OS_VERSION=latest
+	export OS_VERSION=20.04
 	prepare_docker_image
 	run_docker_script run-build.sh
 fi
