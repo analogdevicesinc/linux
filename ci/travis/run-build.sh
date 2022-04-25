@@ -179,6 +179,11 @@ build_default() {
 	APT_LIST="$APT_LIST git"
 
 	apt_update_install $APT_LIST
+
+	# make sure git does not complain about unsafe repositories when
+	# building inside docker.
+	[ -d /docker_build_dir ] && git config --global --add safe.directory /docker_build_dir
+
 	make ${DEFCONFIG}
 	make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
 
