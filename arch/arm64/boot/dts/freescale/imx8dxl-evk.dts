@@ -351,7 +351,7 @@
 &imx8dxl_cm4 {
 	memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>,
 			<&vdev1vring0>, <&vdev1vring1>, <&rsc_table>;
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c2 {
@@ -538,7 +538,7 @@
 };
 
 &cm40_intmux {
-	status = "okay";
+	status = "disabled";
 };
 
 &lpuart0 {
@@ -557,7 +557,7 @@
 &cm40_lpuart {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_cm40_lpuart>;
-	status = "okay";
+	status = "disabled";
 };
 
 &flexcan2 {
