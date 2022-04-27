@@ -688,7 +688,7 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 			clk_disable_unprepare(jesd->lane_clk);
 		if (__clk_is_enabled(jesd->device_clk))
 			clk_disable_unprepare(jesd->device_clk);
-		if (!IS_ERR(jesd->link_clk)) {
+		if (!IS_ERR_OR_NULL(jesd->link_clk)) {
 			if (__clk_is_enabled(jesd->link_clk))
 				clk_disable_unprepare(jesd->link_clk);
 		}
