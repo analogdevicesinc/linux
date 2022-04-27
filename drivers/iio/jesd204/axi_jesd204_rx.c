@@ -930,7 +930,7 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 	case JESD204_STATE_OP_REASON_UNINIT:
 		if (__clk_is_enabled(jesd->device_clk))
 			clk_disable_unprepare(jesd->device_clk);
-		if (!IS_ERR(jesd->link_clk)) {
+		if (!IS_ERR_OR_NULL(jesd->link_clk)) {
 			if (__clk_is_enabled(jesd->link_clk))
 				clk_disable_unprepare(jesd->link_clk);
 		}
