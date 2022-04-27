@@ -603,13 +603,9 @@ static int adar1000_read_raw(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		*val = -1 * (ret / 1000);
-		*val2 = (ret % 1000) * 1000;
+		*val = ret;
 
-		if (!*val)
-			*val2 *= -1;
-
-		return IIO_VAL_INT_PLUS_MICRO;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		return adar1000_get_phase(st, chan->channel, chan->output,
 					  val, val2);
