@@ -1200,7 +1200,7 @@ static void jesd204_fsm_set_paused_state(struct jesd204_dev *jdev,
 			return;
 
 		jesd204_notice(jdev, "JESD204[%u] %s state %s\n",
-			       link_idx,
+			       ol->link.link_id,
 			       paused ? "paused at" : "resuming from",
 			       jesd204_state_str(table[0].state));
 
@@ -1215,7 +1215,7 @@ static void jesd204_fsm_set_paused_state(struct jesd204_dev *jdev,
 			continue;
 
 		jesd204_notice(jdev, "JESD204[%u] %s state %s\n",
-			       link_idx,
+			       ol->link.link_id,
 			       paused ? "paused at" : "resuming from",
 			       jesd204_state_str(table[0].state));
 
