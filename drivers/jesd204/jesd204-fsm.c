@@ -414,8 +414,8 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 
 	if (fsm_data->cur_state != JESD204_STATE_DONT_CARE &&
 	    fsm_data->nxt_state != JESD204_STATE_DONT_CARE)
-		jesd204_info(jdev, "JESD204[%u] transition %s -> %s\n",
-			     ol->link.link_id,
+		jesd204_info(jdev, "JESD204[%u:%u] transition %s -> %s\n",
+			     jesd204_dev_top_dev(jdev)->topo_id, ol->link.link_id,
 			     jesd204_state_str(fsm_data->cur_state),
 			     jesd204_state_str(fsm_data->nxt_state));
 
@@ -597,8 +597,8 @@ static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev_it,
 	if (ret < 0) {
 		ol = &jdev_top->active_links[link_idx];
 		jesd204_err(jdev_it,
-			    "JESD204[%u] In %s got error from cb: %d%s\n",
-			    ol->link.link_id,
+			    "JESD204[%u:%u] In %s got error from cb: %d%s\n",
+			    jdev_top->topo_id, ol->link.link_id,
 			    jesd204_state_str(fsm_data->nxt_state), ret,
 			    ol->fsm_ignore_errors ? " (ignoring!)" : "");
 
@@ -693,8 +693,8 @@ static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 	if (link_idx != JESD204_LINKS_ALL) {
 		ol = &jdev_top->active_links[link_idx];
 		if (test_and_set_bit(JESD204_FSM_BUSY, &ol->flags)) {
-			jesd204_err(jdev, "JESD204[%u]: FSM is busy\n",
-				    ol->link.link_id);
+			jesd204_err(jdev, "JESD204[%u:%u]: FSM is busy\n",
+				    jdev_top->topo_id, ol->link.link_id);
 			return -EBUSY;
 		}
 		return 0;
@@ -703,8 +703,8 @@ static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
 		ol = &jdev_top->active_links[link_idx];
 		if (test_and_set_bit(JESD204_FSM_BUSY, &ol->flags)) {
-			jesd204_err(jdev, "JESD204[%u]: FSM is busy\n",
-				    ol->link.link_id);
+			jesd204_err(jdev, "JESD204[%u:%u]: FSM is busy\n",
+				    jdev_top->topo_id, ol->link.link_id);
 			goto err_unwind_busy;
 		}
 	}
@@ -758,8 +758,8 @@ static int jesd204_validate_lnk_state(struct jesd204_dev *jdev,
 		return -EINVALID_STATE;
 
 	jesd204_warn(jdev,
-		 "JESD204[%u] invalid link state: %s, exp: %s, nxt: %s\n",
-		 ol->link.link_id,
+		 "JESD204[%u:%u] invalid link state: %s, exp: %s, nxt: %s\n",
+		 jesd204_dev_top_dev(jdev)->topo_id, ol->link.link_id,
 		 jesd204_state_str(ol->state),
 		 jesd204_state_str(cur_state),
 		 jesd204_state_str(nxt_state));
@@ -778,14 +778,14 @@ static int jesd204_validate_resuming_state(struct jesd204_dev *jdev,
 		return 0;
 
 	if (ol->fsm_paused && !resuming) {
-		jesd204_warn(jdev, "JESD204[%u] FSM is paused; a resume is required\n",
-			     ol->link.link_id);
+		jesd204_warn(jdev, "JESD204[%u:%u] FSM is paused; a resume is required\n",
+			     jesd204_dev_top_dev(jdev)->topo_id, ol->link.link_id);
 		return -EINVAL;
 	}
 
 	if (!ol->fsm_paused && resuming) {
-		jesd204_warn(jdev, "JESD204[%u] FSM is NOT paused; a transition is required\n",
-			     ol->link.link_id);
+		jesd204_warn(jdev, "JESD204[%u:%u] FSM is NOT paused; a transition is required\n",
+			     jesd204_dev_top_dev(jdev)->topo_id, ol->link.link_id);
 		return -EINVAL;
 	}
 
@@ -1199,8 +1199,8 @@ static void jesd204_fsm_set_paused_state(struct jesd204_dev *jdev,
 		if (ol->fsm_paused == paused)
 			return;
 
-		jesd204_notice(jdev, "JESD204[%u] %s state %s\n",
-			       ol->link.link_id,
+		jesd204_notice(jdev, "JESD204[%u:%u] %s state %s\n",
+			       jdev_top->topo_id, ol->link.link_id,
 			       paused ? "paused at" : "resuming from",
 			       jesd204_state_str(table[0].state));
 
@@ -1214,8 +1214,8 @@ static void jesd204_fsm_set_paused_state(struct jesd204_dev *jdev,
 		if (ol->fsm_paused == paused)
 			continue;
 
-		jesd204_notice(jdev, "JESD204[%u] %s state %s\n",
-			       ol->link.link_id,
+		jesd204_notice(jdev, "JESD204[%u:%u] %s state %s\n",
+			       jdev_top->topo_id, ol->link.link_id,
 			       paused ? "paused at" : "resuming from",
 			       jesd204_state_str(table[0].state));
 
