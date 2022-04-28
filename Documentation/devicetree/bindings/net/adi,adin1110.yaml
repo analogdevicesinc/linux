@@ -18,12 +18,21 @@ description: |
   an Ethernet PHY core with a MAC and all the associated analog
   circuitry, input and output clock buffering.
 
+  The ADIN2111 is a low power, low complexity, two-Ethernet ports
+  switch with integrated 10BASE-T1L PHYs and one serial peripheral
+  interface (SPI) port. The device is designed for industrial Ethernet
+  applications using low power constrained nodes and is compliant
+  with the IEEE 802.3cg-2019 Ethernet standard for long reach
+  10 Mbps single pair Ethernet (SPE).
+
   The device has a 4-wire SPI interface for communication
   between the MAC and host processor.
 
 properties:
   compatible:
-    const: adi,adin1110
+    enum:
+      - adi,adin1110
+      - adi,adin2111
 
   '#address-cells':
     const: 1
@@ -42,17 +51,31 @@ properties:
   interrupts:
     maxItems: 1
 
-  phy@0:
+patternProperties:
+  "^phy@[0-1]$":
     description: |
       ADIN1100 PHY that is present on the same chip as the MAC.
     type: object
 
     properties:
       reg:
-        const: 0
+        items:
+          maximum: 1
 
-      compatible:
-        const: ethernet-phy-id0283.bc91
+    allOf:
+      - if:
+          properties:
+            compatible:
+              contains:
+                const: adi,adin1110
+        then:
+          properties:
+            compatible:
+              const: ethernet-phy-id0283.bc91
+        else:
+          properties:
+            compatible:
+              const: ethernet-phy-id0283.bca1
 
     required:
       - compatible
