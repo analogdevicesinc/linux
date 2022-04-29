@@ -232,6 +232,13 @@
 #define ADE9078_SCAN_POS_VB		BIT(3)
 #define ADE9078_SCAN_POS_IC		BIT(4)
 #define ADE9078_SCAN_POS_VC		BIT(5)
+#define ADE9078_SCAN_POS_ALL \
+	(ADE9078_SCAN_POS_IA | \
+	 ADE9078_SCAN_POS_VA | \
+	 ADE9078_SCAN_POS_IB | \
+	 ADE9078_SCAN_POS_VB | \
+	 ADE9078_SCAN_POS_IC | \
+	 ADE9078_SCAN_POS_VC)
 
 #define ADE9078_PHASE_B_POS_BIT		BIT(5)
 #define ADE9078_PHASE_C_POS_BIT		BIT(6)
@@ -244,29 +251,33 @@
 
 /**
  * struct ade9078_state - ADE9078 specific data
- * @rst_done:	flag for when reset sequence irq has been received
- * @wf_mode:	wave form buffer mode, read datasheet for more details,
- *		retrieved from DT
- * @wfb_trg:	wave form buffer triger configuration, read datasheet for more
- *		details, retrieved from DT
+ * @rst_done:		flag for when reset sequence irq has been received
+ * @wf_mode:		wave form buffer mode, read datasheet for more details,
+ *			retrieved from DT
+ * @wfb_trg:		wave form buffer triger configuration, read datasheet
+ *			for more details, retrieved from DT
+ * @wfb_nr_activ_chan:	number of active channels in the IIO buffer
+ * @wfb_nr_samples:	number of maximum samples in the IC buffer
  * @spi:		spi device associated to the ade9078
- * @tx:		transmit buffer for the spi
- * @rx:		receive buffer for the spi
- * @xfer:	transfer setup used in iio buffer configuration
- * @spi_msg:	message transfer trough spi, used in iio buffer
- *		configuration
- * @regmap:	register map pointer
- * @indio_dev:	the IIO device
- * @trig:	iio trigger pointer, is connected to IRQ0 and IRQ1
- * @rx_buff:	receive buffer for the iio buffer trough spi, will
- *		contain the samples from the IC wave form buffer
- * @tx_buff:	transmit buffer for the iio buffer trough spi, used
- *		in iio	buffer configuration
+ * @tx:			transmit buffer for the spi
+ * @rx:			receive buffer for the spi
+ * @xfer:		transfer setup used in iio buffer configuration
+ * @spi_msg:		message transfer trough spi, used in iio buffer
+ *			configuration
+ * @regmap:		register map pointer
+ * @indio_dev:		the IIO device
+ * @trig:		iio trigger pointer, is connected to IRQ0 and IRQ1
+ * @rx_buff:		receive buffer for the iio buffer trough spi, will
+ *			contain the samples from the IC wave form buffer
+ * @tx_buff:		transmit buffer for the iio buffer trough spi, used
+ *			in iio	buffer configuration
  */
 struct ade9078_state {
 	bool rst_done;
 	u8 wf_mode;
 	u32 wfb_trg;
+	u8 wfb_nr_activ_chan;
+	u32 wfb_nr_samples;
 	struct spi_device *spi;
 	u8 *tx;
 	u8 *rx;
@@ -603,6 +614,9 @@ static bool ade9078_is_volatile_reg(struct device *dev, unsigned int reg)
  * as well as the tx and rx buffers
  * @indio_dev:	the IIO device
  * @wfb_addr:	buffer address to read from
+ *
+ * In case the waveform buffer is set to streaming mode, only half of the buffer
+ * will be read out at a time
  */
 static int ade9078_configure_scan(struct iio_dev *indio_dev, u32 wfb_addr)
 {
@@ -618,7 +632,11 @@ static int ade9078_configure_scan(struct iio_dev *indio_dev, u32 wfb_addr)
 	st->xfer[0].len = 2;
 
 	st->xfer[1].rx_buf = &st->rx_buff.byte[0];
-	st->xfer[1].len = ADE9078_WFB_FULL_BUFF_SIZE;
+
+	if (st->wf_mode == ADE9078_WFB_STREAMING_MODE)
+		st->xfer[1].len = (st->wfb_nr_samples / 2) * 4;
+	else
+		st->xfer[1].len = st->wfb_nr_samples * 4;
 
 	spi_message_init_with_transfers(&st->spi_msg, st->xfer, 2);
 	return 0;
@@ -639,14 +657,9 @@ static int ade9078_configure_scan(struct iio_dev *indio_dev, u32 wfb_addr)
 static int ade9078_iio_push_streaming(struct iio_dev *indio_dev)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 nr_of_samples;
 	u32 current_page;
-	u8 nr_activ_chan;
 	int ret;
 	u32 i;
-
-	nr_activ_chan = bitmap_weight(indio_dev->active_scan_mask,
-				      indio_dev->masklength);
 
 	ret = spi_sync(st->spi, &st->spi_msg);
 	if (ret) {
@@ -654,9 +667,7 @@ static int ade9078_iio_push_streaming(struct iio_dev *indio_dev)
 		return ret;
 	}
 
-	nr_of_samples = (ADE9078_WFB_MAX_SAMPLES_CHAN * nr_activ_chan) / 2;
-
-	for (i = 0; i < nr_of_samples; i += nr_activ_chan)
+	for (i = 0; i < st->wfb_nr_samples / 2; i += st->wfb_nr_activ_chan)
 		iio_push_to_buffers(indio_dev, &st->rx_buff.word[i]);
 
 	ret = regmap_read(st->regmap, ADE9078_REG_WFB_PG_IRQEN, &current_page);
@@ -704,13 +715,8 @@ static int ade9078_iio_push_streaming(struct iio_dev *indio_dev)
 static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
 {
 	struct ade9078_state *st = iio_priv(indio_dev);
-	u32 nr_of_samples;
-	u8 nr_activ_chan;
 	int ret;
 	u32 i;
-
-	nr_activ_chan = bitmap_weight(indio_dev->active_scan_mask,
-				      indio_dev->masklength);
 
 	ret = spi_sync(st->spi, &st->spi_msg);
 	if (ret) {
@@ -718,9 +724,7 @@ static int ade9078_iio_push_buffer(struct iio_dev *indio_dev)
 		return ret;
 	}
 
-	nr_of_samples = ADE9078_WFB_MAX_SAMPLES_CHAN * nr_activ_chan;
-
-	for (i = 0; i < nr_of_samples; i += nr_activ_chan)
+	for (i = 0; i < st->wfb_nr_samples; i += st->wfb_nr_activ_chan)
 		iio_push_to_buffers(indio_dev, &st->rx_buff.word[i]);
 
 	return 0;
@@ -1339,34 +1343,47 @@ static int ade9078_config_wfb(struct iio_dev *indio_dev)
 	switch (active_scans) {
 	case ADE9078_SCAN_POS_IA | ADE9078_SCAN_POS_VA:
 		wfg_cfg_val = 0x1;
+		st->wfb_nr_activ_chan = 2;
 		break;
 	case ADE9078_SCAN_POS_IB | ADE9078_SCAN_POS_VB:
 		wfg_cfg_val = 0x2;
+		st->wfb_nr_activ_chan = 2;
 		break;
 	case ADE9078_SCAN_POS_IC | ADE9078_SCAN_POS_VC:
 		wfg_cfg_val = 0x3;
+		st->wfb_nr_activ_chan = 2;
 		break;
 	case ADE9078_SCAN_POS_IA:
 		wfg_cfg_val = 0x8;
+		st->wfb_nr_activ_chan = 1;
 		break;
 	case ADE9078_SCAN_POS_VA:
 		wfg_cfg_val = 0x9;
+		st->wfb_nr_activ_chan = 1;
 		break;
 	case ADE9078_SCAN_POS_IB:
 		wfg_cfg_val = 0xA;
+		st->wfb_nr_activ_chan = 1;
 		break;
 	case ADE9078_SCAN_POS_VB:
 		wfg_cfg_val = 0xB;
+		st->wfb_nr_activ_chan = 1;
 		break;
 	case ADE9078_SCAN_POS_IC:
 		wfg_cfg_val = 0xC;
+		st->wfb_nr_activ_chan = 1;
 		break;
 	case ADE9078_SCAN_POS_VC:
 		wfg_cfg_val = 0xD;
+		st->wfb_nr_activ_chan = 1;
+		break;
+	case ADE9078_SCAN_POS_ALL:
+		wfg_cfg_val = 0x0;
+		st->wfb_nr_activ_chan = 6;
 		break;
 	default:
-		wfg_cfg_val = 0x0;
-		break;
+		dev_err(&st->spi->dev, "Unsupported combination of scans");
+		return -EINVAL;
 	}
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,wf-cap-sel", &tmp);
@@ -1467,6 +1484,13 @@ static int ade9078_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
+	st->wfb_nr_samples = ADE9078_WFB_MAX_SAMPLES_CHAN *
+			     st->wfb_nr_activ_chan;
+
+	ret = ade9078_configure_scan(indio_dev, ADE9078_REG_WF_BUFF);
+	if (ret)
+		return ret;
+
 	ret = ade9078_wfb_interrupt_setup(st, st->wf_mode);
 	if (ret)
 		return ret;
@@ -1498,10 +1522,6 @@ static int ade9078_buffer_postdisable(struct iio_dev *indio_dev)
 	}
 
 	ret = regmap_write(st->regmap, ADE9078_REG_WFB_TRG_CFG, 0x0);
-	if (ret)
-		return ret;
-
-	ret = ade9078_configure_scan(indio_dev, ADE9078_REG_WF_BUFF);
 	if (ret)
 		return ret;
 
@@ -1756,10 +1776,6 @@ static int ade9078_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "Failed to set up IIO channels");
 		return ret;
 	}
-
-	ret = ade9078_configure_scan(indio_dev, ADE9078_REG_WF_BUFF);
-	if (ret)
-		return ret;
 
 	buffer = devm_iio_kfifo_allocate(&spi->dev);
 	if (!buffer)
