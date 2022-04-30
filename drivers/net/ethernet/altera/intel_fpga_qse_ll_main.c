@@ -1243,7 +1243,7 @@ static void intel_fpga_qse_validate(struct phylink_config *config,
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 
 	if (state->interface != PHY_INTERFACE_MODE_NA &&
-	    state->interface != PHY_INTERFACE_MODE_10GKR) {
+	    state->interface != PHY_INTERFACE_MODE_10GBASER) {
 		bitmap_zero(supported, __ETHTOOL_LINK_MODE_MASK_NBITS);
 		return;
 	}
@@ -1260,7 +1260,7 @@ static void intel_fpga_qse_validate(struct phylink_config *config,
 
 	switch (state->interface) {
 	case PHY_INTERFACE_MODE_NA:
-	case PHY_INTERFACE_MODE_10GKR:
+	case PHY_INTERFACE_MODE_10GBASER:
 		phylink_set(mask, 10000baseT_Full);
 		phylink_set(mask, 10000baseCR_Full);
 		phylink_set(mask, 10000baseSR_Full);
@@ -1328,8 +1328,8 @@ static void intel_fpga_qse_mac_config(struct phylink_config *config,
 			     phy_csroffs(reconfig_busy), PHY_RECONFIG_BUSY)) {
 		csrwr32(0, priv->phy_reconfig_csr,
 			phy_csroffs(logical_chan_num));
-		switch (state->speed) {
-		case SPEED_10000:
+		switch (state->interface) {
+		case PHY_INTERFACE_MODE_10GBASER:
 			speed_reconfig |= (PHY_ETH_SPEED_10000 |
 					   PHY_RECONFIG_START);
 			break;
