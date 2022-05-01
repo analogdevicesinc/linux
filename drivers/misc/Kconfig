@@ -61,6 +61,21 @@ config ADI_AXI_DATA_OFFLOAD
 	  This option is usually not enabled manually but rather by other
 	  drivers that use the data offload engine to manage DMA transfers.
 
+config ADI_AXI_TDD_NG
+	tristate "support Analog Devices TDD NG"
+	depends on HAS_IOMEM
+	depends on IIO
+	help
+	  The ADI AXI TDD NG core is the reworked and generic TDD engine which
+	  was developed for general use in Analog Devices HDL projects. Unlike
+	  the previous TDD engine, this core can only be used standalone mode,
+	  and is not embedded into other devices.
+
+	  The exposed sysfs interface follows the IIO specification, but is
+	  not registered into the IIO device tree, and doesn not rely on IIO
+	  kernel APIs. This means the device will now show up in IIO by default,
+	  but may be made available using an iio_fakedev
+
 config ATMEL_TCLIB
 	bool "Atmel AT32/AT91 Timer/Counter Library"
 	depends on ARCH_AT91
