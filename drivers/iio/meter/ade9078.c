@@ -315,6 +315,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = num,						\
+	.indexed = 1,							\
 	.scan_type = {							\
 		.sign = 's',						\
 		.realbits = 32,						\
@@ -335,6 +336,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	.event_spec = ade9078_events,					\
 	.num_event_specs = ARRAY_SIZE(ade9078_events),			\
 	.scan_index = num + 1,						\
+	.indexed = 1,							\
 	.scan_type = {							\
 		.sign = 's',						\
 		.realbits = 32,						\
@@ -349,6 +351,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	.channel = num,							\
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AIRMS, num),		\
 	.extend_name = name "_rms",					\
+	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
@@ -360,6 +363,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	.channel = num,							\
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AVRMS, num),		\
 	.extend_name = name "_rms",					\
+	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
@@ -370,7 +374,8 @@ static const struct iio_event_spec ade9078_events[] = {
 	.type = IIO_POWER,						\
 	.channel = num,							\
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AWATT, num),		\
-	.extend_name = name "_activ",					\
+	.extend_name = name "_active",					\
+	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET) |		\
@@ -382,7 +387,8 @@ static const struct iio_event_spec ade9078_events[] = {
 	.type = IIO_POWER,						\
 	.channel = num,							\
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AVAR, num),		\
-	.extend_name = name "_reactiv",					\
+	.extend_name = name "_reactive",				\
+	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
@@ -394,6 +400,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	.channel = num,							\
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AVA, num),		\
 	.extend_name = name "_apparent",				\
+	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
@@ -403,7 +410,8 @@ static const struct iio_event_spec ade9078_events[] = {
 	.type = IIO_POWER,						\
 	.channel = num,							\
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_AFVAR, num),		\
-	.extend_name = name "_fund_reactiv",				\
+	.extend_name = name "_fund_reactive",				\
+	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
@@ -415,6 +423,7 @@ static const struct iio_event_spec ade9078_events[] = {
 	.channel = num,							\
 	.address = ADE9078_ADDR_ADJUST(ADE9078_REG_APF, num),		\
 	.extend_name = name "_factor",					\
+	.indexed = 1,							\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_index = -1						\
