@@ -267,7 +267,7 @@ patternProperties:
       '#size-cells':
          const: 0
 
-      adi,pll-internal-zero-delay:
+      adi,pll-internal-zero-delay-feedback-hz:
         description: |
           Rate of the output that will be used as a feedback path for this PLL bloc.
         $ref: /schemas/types.yaml#/definitions/uint32
