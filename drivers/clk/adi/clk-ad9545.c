@@ -838,7 +838,8 @@ static int ad9545_parse_dt_plls(struct ad9545_state *st)
 			st->pll_clks[addr].internal_zero_delay_source = val;
 		}
 
-		ret = fwnode_property_read_u32(child, "adi,pll-internal-zero-delay", &val);
+		ret = fwnode_property_read_u32(child, "adi,pll-internal-zero-delay-feedback-hz",
+					       &val);
 		if (prop_found && !ret) {
 			if (val >= AD9545_MAX_ZERO_DELAY_RATE) {
 				dev_err(st->dev, "Invalid zero-delay output rate: %u.", val);
