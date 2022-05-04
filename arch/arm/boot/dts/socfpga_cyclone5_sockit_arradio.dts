@@ -121,19 +121,7 @@
 			#address-cells = <2>;
 			#size-cells = <1>;
 			ranges = <0x00000000 0x00000000 0xc0000000 0x00010000>,
-				<0x00000001 0x00009000 0xff209000 0x00000080>,
 				<0x00000001 0x00100000 0xff300000 0x00100000>;
-
-			alt_vip_vfr_vga: vip@100009000 {
-				compatible = "ALTR,vip-frame-reader-9.1";
-				reg = <0x00000001 0x00009000 0x00000080>;
-				max-width = <1360>;
-				max-height = <768>;
-				bits-per-color = <8>;
-				colors-per-beat = <4>;
-				beats-per-pixel = <1>;
-				mem-word-width = <128>;
-			};
 
 			c5soc_sys_cpu_interconnect: bridge@100100000 {
 				compatible = "simple-bus";
