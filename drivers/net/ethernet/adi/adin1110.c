@@ -494,7 +494,8 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 		return IRQ_HANDLED;
 	}
 
-	priv->tx_space = val;
+	/* TX FIFO space is expressed in half-words */
+	priv->tx_space = 2 * val;
 
 	if (status1 & ADIN1110_RX_RDY)
 		adin1110_read_frames(priv);
@@ -685,7 +686,7 @@ static int adin1110_net_open(struct net_device *net_dev)
 		return ret;
 	}
 
-	priv->tx_space = val;
+	priv->tx_space = 2 * val;
 
 	ret = adin1110_init_mac(priv);
 	if (ret < 0)
