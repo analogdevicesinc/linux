@@ -250,12 +250,16 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	disp_clock_rate = m->crtc_clock * 1000;
 
 	if (encoder_type == DRM_MODE_ENCODER_TMDS) {
-		if (side_by_side)
-			dpu_pxlink_set_mst_addr(dpu, fg->id, fg->id ? 2 : 1);
-		else
-			dpu_pxlink_set_mst_addr(dpu, fg->id, 1);
-
 		clk_set_parent(fg->clk_disp, fg->clk_bypass);
+		if (side_by_side) {
+			dpu_pxlink_set_mst_addr(dpu, fg->id, fg->id ? 2 : 1);
+			clk_set_rate(fg->clk_bypass, disp_clock_rate / 2);
+			clk_set_rate(fg->clk_disp, disp_clock_rate / 2);
+		} else {
+			dpu_pxlink_set_mst_addr(dpu, fg->id, 1);
+			clk_set_rate(fg->clk_bypass, disp_clock_rate);
+			clk_set_rate(fg->clk_disp, disp_clock_rate);
+		}
 
 		fg->use_bypass_clk = true;
 	} else {
