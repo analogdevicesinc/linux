@@ -40,12 +40,18 @@ config DRM_IMX_IPUV3
 	default y if DRM_IMX=y
 	default m if DRM_IMX=m
 
+config IMX8MP_HDMI_PAVI
+	tristate "NXP i.MX8MP HDMI Audio Video (PVI/PAI)"
+	help
+	  Choose this if you want to use HDMI PAI/PVI on i.MX8MP.
+
 config DRM_IMX_HDMI
 	tristate "Freescale i.MX DRM HDMI"
 	select DRM_DW_HDMI
+	select IMX8MP_HDMI_PAVI
 	depends on DRM_IMX && OF
 	help
-	  Choose this if you want to use HDMI on i.MX6.
+	  Choose this if you want to use HDMI on i.MX6/i.MX8.
 
 source "drivers/gpu/drm/imx/dcss/Kconfig"
 source "drivers/gpu/drm/imx/lcdc/Kconfig"
