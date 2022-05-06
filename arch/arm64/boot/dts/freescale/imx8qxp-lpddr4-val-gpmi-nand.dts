@@ -38,6 +38,7 @@
 	pinctrl-0 = <&pinctrl_gpmi_nand_1>;
 	status = "okay";
 	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
 };
 
 /* Disabled the usdhc1/usdhc2 since pin conflict */

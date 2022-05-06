@@ -306,6 +306,7 @@
 	status = "okay";
 	nand-on-flash-bbt;
 	fsl,max-nand-cs = <1>;
+	fsl,use-minimum-ecc;
 };
 
 &i2c2 {
