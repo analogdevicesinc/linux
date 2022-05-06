@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices AD7768-1
- * https://www.analog.com/en/products/ad7768-1.html
- * https://wiki.analog.com/resources/eval/user-guides/circuits-from-the-lab/cn0540
- * https://wiki.analog.com/resources/eval/user-guides/cn0540
+ * Analog Devices ADAQ4003
  *
- * hdl_project: <cn0540/coraz7s>
+ * hdl_project: <adc_pmdz/zed>
  * board_revision: <A>
  *
- * Copyright (C) 2020 Analog Devices Inc.
+ * Copyright (C) 2022 Analog Devices Inc.
  */
 /dts-v1/;
-#include "zynq-coraz7s.dtsi"
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -56,12 +54,9 @@
 		#size-cells = <0x0>;
 
 		adc@0 {
-			compatible = "adi,adaq4003";
-			// compatible = "ad7982";
+			compatible = "adi,ad4020";
 			reg = <0>;
 			spi-max-frequency = <80000000>;
-			// spi-cpol;
-			// spi-cpha;
 			clocks = <&spi_clk>;
 			clock-names = "ref_clk";
 			dmas = <&rx_dma 0>;

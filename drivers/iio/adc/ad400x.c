@@ -272,10 +272,10 @@ static const struct iio_info ad400x_info = {
 };
 
 static const struct spi_device_id ad400x_id[] = {
-	{"ad4003", ID_AD4003},
-	{"ad4007", ID_AD4007},
-	{"ad4011", ID_AD4011},
-	{"ad4020", ID_AD4020},
+	{"a324d4003", ID_AD4003},
+	{"a324d4007", ID_AD4007},
+	{"a324d4011", ID_AD4011},
+	{"a324d4020", ID_AD4020},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad400x_id);
@@ -338,61 +338,7 @@ static int ad400x_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct iio_buffer *buffer;
 	int ret, dev_id;
-
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
-	if (!indio_dev)
-		return -ENOMEM;
-
-	dev_id = spi_get_device_id(spi)->driver_data;
-	st = iio_priv(indio_dev);
-	st->spi = spi;
-
-	st->vref = devm_regulator_get(&spi->dev, "vref");
-	if (IS_ERR(st->vref))
-		return PTR_ERR(st->vref);
-
-	ret = regulator_enable(st->vref);
-	if (ret < 0)
-		return ret;
-
-	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
-	indio_dev->setup_ops = &ad400x_buffer_setup_ops;
-	indio_dev->info = &ad400x_info;
-
-	if (dev_id == ID_AD4020)
-		indio_dev->channels = ad4020_channel;
-	else
-		indio_dev->channels = ad400x_channels;
-
-	indio_dev->num_channels = 1;
-	st->num_bits = indio_dev->channels->scan_type.realbits;
-
-	/* Set turbo mode */
-	st->turbo_mode = true;
-	ret = ad400x_set_mode(st);
-	if (ret < 0)
-		return ret;
-
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
-					    &dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	iio_device_attach_buffer(indio_dev, buffer);
-
-	ret = devm_iio_device_register(&spi->dev, indio_dev);
-	if (ret < 0)
-		goto error;
-
-	return 0;
-
-error:
-	iio_dmaengine_buffer_free(indio_dev->buffer);
-	regulator_disable(st->vref);
-
-	return ret;
+	return -1;
 }
 
 static int ad400x_remove(struct spi_device *spi)
@@ -407,10 +353,10 @@ static int ad400x_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id ad400x_of_match[] = {
-	{ .compatible = "adi,ad4003" },
-	{ .compatible = "adi,ad4007" },
-	{ .compatible = "adi,ad4011" },
-	{ .compatible = "adi,ad4020" },
+	{ .compatible = "adi,ad2134003" },
+	{ .compatible = "adi,ad2134007" },
+	{ .compatible = "adi,ad2134011" },
+	{ .compatible = "adi,ad2134020" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad400x_of_match);
