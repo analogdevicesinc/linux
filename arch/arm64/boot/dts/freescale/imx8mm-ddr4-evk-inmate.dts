@@ -158,10 +158,6 @@
 	status = "disabled";
 };
 
-&dispmix_gpr {
-	/delete-property/ compatible;
-};
-
 &sdma1 {
 	status = "disabled";
 };
