@@ -9,7 +9,9 @@
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/phy/phy.h>
 #include <linux/regmap.h>
+#include <linux/reset.h>
 
 #include <video/imx-ipu-v3.h>
 
@@ -22,6 +24,7 @@
 #include <drm/drm_of.h>
 #include <drm/drm_simple_kms_helper.h>
 
+#include "imx8mp-hdmi-pavi.h"
 #include "imx-drm.h"
 
 struct imx_hdmi;
@@ -31,17 +34,39 @@ struct imx_hdmi_encoder {
 	struct imx_hdmi *hdmi;
 };
 
+/* GPR reg */
+struct imx_hdmi_chip_data {
+	int	reg_offset;
+	u32	mask_bits;
+	u32	shift_bit;
+};
+
 struct imx_hdmi {
 	struct device *dev;
 	struct drm_bridge *bridge;
 	struct dw_hdmi *hdmi;
 	struct regmap *regmap;
+	const struct imx_hdmi_chip_data *chip_data;
+	struct phy *phy;
 };
 
 static inline struct imx_hdmi *enc_to_imx_hdmi(struct drm_encoder *e)
 {
 	return container_of(e, struct imx_hdmi_encoder, encoder)->hdmi;
 }
+
+struct clk_bulk_data imx8mp_clocks[] = {
+	{ .id = "pix_clk"  },
+	{ .id = "phy_int"  },
+	{ .id = "prep_clk" },
+	{ .id = "skp_clk"  },
+	{ .id = "sfr_clk"  },
+	{ .id = "cec_clk"  },
+	{ .id = "apb_clk"  },
+	{ .id = "hpi_clk"  },
+	{ .id = "fdcc_ref" },
+	{ .id = "pipe_clk" },
+};
 
 static const struct dw_hdmi_mpll_config imx_mpll_cfg[] = {
 	{
@@ -101,7 +126,7 @@ static const struct dw_hdmi_curr_ctrl imx_cur_ctr[] = {
  * PREEMP config 0.00
  * TX/CK level 10
  */
-static const struct dw_hdmi_phy_config imx_phy_config[] = {
+static const struct dw_hdmi_phy_config imx6_phy_config[] = {
 	/*pixelclk   symbol   term   vlev */
 	{ 216000000, 0x800d, 0x0005, 0x01ad},
 	{ ~0UL,      0x0000, 0x0000, 0x0000}
@@ -112,9 +137,11 @@ static void dw_hdmi_imx_encoder_enable(struct drm_encoder *encoder)
 	struct imx_hdmi *hdmi = enc_to_imx_hdmi(encoder);
 	int mux = drm_of_encoder_active_port_id(hdmi->dev->of_node, encoder);
 
-	regmap_update_bits(hdmi->regmap, IOMUXC_GPR3,
-			   IMX6Q_GPR3_HDMI_MUX_CTL_MASK,
-			   mux << IMX6Q_GPR3_HDMI_MUX_CTL_SHIFT);
+	if (hdmi->chip_data->reg_offset < 0)
+		return;
+
+	regmap_update_bits(hdmi->regmap, hdmi->chip_data->reg_offset,
+			   hdmi->chip_data->mask_bits, mux << hdmi->chip_data->shift_bit);
 }
 
 static int dw_hdmi_imx_atomic_check(struct drm_encoder *encoder,
@@ -124,6 +151,7 @@ static int dw_hdmi_imx_atomic_check(struct drm_encoder *encoder,
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 
 	imx_crtc_state->bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+	imx_crtc_state->bus_flags = DRM_BUS_FLAG_DE_HIGH;
 	imx_crtc_state->di_hsync_pin = 2;
 	imx_crtc_state->di_vsync_pin = 3;
 
@@ -163,18 +191,169 @@ imx6dl_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 	return MODE_OK;
 }
 
+static bool imx8mp_hdmi_check_clk_rate(int rate_khz)
+{
+	int rate = rate_khz * 1000;
+
+	/* Check hdmi phy pixel clock support rate */
+	if (rate != clk_round_rate(imx8mp_clocks[0].clk, rate))
+		return  false;
+	return true;
+}
+
+static enum drm_mode_status
+imx8mp_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
+		       const struct drm_display_info *info,
+		       const struct drm_display_mode *mode)
+{
+	if (mode->clock < 13500)
+		return MODE_CLOCK_LOW;
+	if (mode->clock > 297000)
+		return MODE_CLOCK_HIGH;
+
+	if (!imx8mp_hdmi_check_clk_rate(mode->clock))
+		return MODE_CLOCK_RANGE;
+
+	/* We don't support double-clocked and Interlaced modes */
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK ||
+			mode->flags & DRM_MODE_FLAG_INTERLACE)
+		return MODE_BAD;
+
+	return MODE_OK;
+}
+
+struct imx_hdmi_chip_data imx6_chip_data = {
+	.reg_offset = IOMUXC_GPR3,
+	.mask_bits = IMX6Q_GPR3_HDMI_MUX_CTL_MASK,
+	.shift_bit = IMX6Q_GPR3_HDMI_MUX_CTL_SHIFT,
+};
+
 static struct dw_hdmi_plat_data imx6q_hdmi_drv_data = {
 	.mpll_cfg   = imx_mpll_cfg,
 	.cur_ctr    = imx_cur_ctr,
-	.phy_config = imx_phy_config,
+	.phy_config = imx6_phy_config,
 	.mode_valid = imx6q_hdmi_mode_valid,
+	.phy_data   = &imx6_chip_data,
 };
 
 static struct dw_hdmi_plat_data imx6dl_hdmi_drv_data = {
 	.mpll_cfg = imx_mpll_cfg,
 	.cur_ctr  = imx_cur_ctr,
-	.phy_config = imx_phy_config,
+	.phy_config = imx6_phy_config,
 	.mode_valid = imx6dl_hdmi_mode_valid,
+	.phy_data   = &imx6_chip_data,
+};
+
+static int imx8mp_hdmi_phy_init(struct dw_hdmi *dw_hdmi, void *data,
+				const struct drm_display_info *display,
+				const struct drm_display_mode *mode)
+{
+	struct imx_hdmi *hdmi = (struct imx_hdmi *)data;
+	int val;
+
+	dev_dbg(hdmi->dev, "%s\n", __func__);
+
+	dw_hdmi_phy_gen1_reset(dw_hdmi);
+
+	/* enable PVI */
+	imx8mp_hdmi_pavi_powerup();
+	imx8mp_hdmi_pvi_enable(mode);
+
+	regmap_read(hdmi->regmap, 0x200, &val);
+	/* HDMI PHY power off */
+	val |= 0x8;
+	regmap_write(hdmi->regmap, 0x200, val);
+	/* HDMI PHY power on */
+	val &= ~0x8;
+	/* Enable CEC */
+	val |= 0x2;
+	regmap_write(hdmi->regmap, 0x200, val);
+
+	if (!hdmi->phy)
+		return 0;
+
+	phy_power_on(hdmi->phy);
+
+	return 0;
+}
+
+static void imx8mp_hdmi_phy_disable(struct dw_hdmi *dw_hdmi, void *data)
+{
+	struct imx_hdmi *hdmi = (struct imx_hdmi *)data;
+	int val;
+
+	dev_dbg(hdmi->dev, "%s\n", __func__);
+	if (!hdmi->phy)
+		return;
+
+	/* disable PVI */
+	imx8mp_hdmi_pvi_disable();
+	imx8mp_hdmi_pavi_powerdown();
+
+	/* TODO */
+	regmap_read(hdmi->regmap, 0x200, &val);
+	/* Disable CEC */
+	val &= ~0x2;
+	/* Power down HDMI PHY
+	 * TODO move PHY power off to hdmi phy driver
+	 * val |= 0x8;
+	 * regmap_write(hdmi->regmap, 0x200, val);
+	*/
+}
+
+static int imx8mp_hdmimix_setup(struct imx_hdmi *hdmi)
+{
+	int ret;
+
+	if (NULL == imx8mp_hdmi_pavi_init()) {
+		dev_err(hdmi->dev, "No pavi info found\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = device_reset(hdmi->dev);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	ret = devm_clk_bulk_get(hdmi->dev, ARRAY_SIZE(imx8mp_clocks), imx8mp_clocks);
+	if (ret < 0) {
+		dev_err(hdmi->dev, "No hdmimix bulk clk got\n");
+		return -EPROBE_DEFER;
+	}
+
+	return clk_bulk_prepare_enable(ARRAY_SIZE(imx8mp_clocks), imx8mp_clocks);
+}
+
+void imx8mp_hdmi_enable_audio(struct dw_hdmi *dw_hdmi, int channel,
+			      int width, int rate, int non_pcm)
+{
+	imx8mp_hdmi_pai_enable(channel, width, rate, non_pcm);
+}
+
+void imx8mp_hdmi_disable_audio(struct dw_hdmi *dw_hdmi)
+{
+	imx8mp_hdmi_pai_disable();
+}
+
+static const struct dw_hdmi_phy_ops imx8mp_hdmi_phy_ops = {
+	.init		= imx8mp_hdmi_phy_init,
+	.disable	= imx8mp_hdmi_phy_disable,
+	.read_hpd = dw_hdmi_phy_read_hpd,
+	.update_hpd = dw_hdmi_phy_update_hpd,
+	.setup_hpd = dw_hdmi_phy_setup_hpd,
+};
+
+struct imx_hdmi_chip_data imx8mp_chip_data = {
+	.reg_offset = -1,
+};
+
+static const struct dw_hdmi_plat_data imx8mp_hdmi_drv_data = {
+	.mode_valid = imx8mp_hdmi_mode_valid,
+	.phy_data   = &imx8mp_chip_data,
+	.phy_ops    = &imx8mp_hdmi_phy_ops,
+	.phy_name   = "samsung_dw_hdmi_phy2",
+	.phy_force_vendor = true,
+	.enable_audio	= imx8mp_hdmi_enable_audio,
+	.disable_audio  = imx8mp_hdmi_disable_audio,
 };
 
 static const struct of_device_id dw_hdmi_imx_dt_ids[] = {
@@ -183,6 +362,9 @@ static const struct of_device_id dw_hdmi_imx_dt_ids[] = {
 	}, {
 	  .compatible = "fsl,imx6dl-hdmi",
 	  .data = &imx6dl_hdmi_drv_data
+	}, {
+	  .compatible = "fsl,imx8mp-hdmi",
+	  .data = &imx8mp_hdmi_drv_data
 	},
 	{},
 };
@@ -221,6 +403,7 @@ static int dw_hdmi_imx_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	const struct of_device_id *match = of_match_node(dw_hdmi_imx_dt_ids, np);
+	struct dw_hdmi_plat_data *plat_data;
 	struct imx_hdmi *hdmi;
 	int ret;
 
@@ -237,7 +420,29 @@ static int dw_hdmi_imx_probe(struct platform_device *pdev)
 		return PTR_ERR(hdmi->regmap);
 	}
 
-	hdmi->hdmi = dw_hdmi_probe(pdev, match->data);
+	hdmi->phy = devm_phy_optional_get(hdmi->dev, "hdmi");
+	if (IS_ERR(hdmi->phy)) {
+		ret = PTR_ERR(hdmi->phy);
+		if (ret != -EPROBE_DEFER)
+			dev_err(hdmi->dev, "failed to get phy\n");
+		return ret;
+	}
+
+	plat_data = devm_kmemdup(&pdev->dev, match->data,
+				sizeof(*plat_data), GFP_KERNEL);
+	if (!plat_data)
+		return -ENOMEM;
+
+	hdmi->chip_data = plat_data->phy_data;
+	plat_data->phy_data = hdmi;
+
+	if (of_device_is_compatible(pdev->dev.of_node, "fsl,imx8mp-hdmi")) {
+		ret = imx8mp_hdmimix_setup(hdmi);
+		if (ret < 0)
+			return ret;
+	}
+
+	hdmi->hdmi = dw_hdmi_probe(pdev, plat_data);
 	if (IS_ERR(hdmi->hdmi))
 		return PTR_ERR(hdmi->hdmi);
 
@@ -263,11 +468,25 @@ static void dw_hdmi_imx_remove(struct platform_device *pdev)
 	dw_hdmi_remove(hdmi->hdmi);
 }
 
+static int __maybe_unused dw_hdmi_imx_resume(struct device *dev)
+{
+	struct imx_hdmi *hdmi = dev_get_drvdata(dev);
+
+	dw_hdmi_resume(hdmi->hdmi);
+
+	return 0;
+}
+
+static const struct dev_pm_ops dw_hdmi_imx_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(NULL, dw_hdmi_imx_resume)
+};
+
 static struct platform_driver dw_hdmi_imx_platform_driver = {
 	.probe  = dw_hdmi_imx_probe,
 	.remove_new = dw_hdmi_imx_remove,
 	.driver = {
 		.name = "dwhdmi-imx",
+		.pm = &dw_hdmi_imx_pm,
 		.of_match_table = dw_hdmi_imx_dt_ids,
 	},
 };
