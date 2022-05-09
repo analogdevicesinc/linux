@@ -689,8 +689,10 @@ static int adin1110_net_open(struct net_device *net_dev)
 	priv->tx_space = 2 * val;
 
 	ret = adin1110_init_mac(priv);
-	if (ret < 0)
+	if (ret < 0) {
+		mutex_unlock(&priv->lock);
 		return ret;
+	}
 
 	mutex_unlock(&priv->lock);
 
