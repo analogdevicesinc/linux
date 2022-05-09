@@ -26,22 +26,28 @@
 
 #define ADIN1110_PHY_ID				0x1
 
+#define ADIN1110_CONFIG1			0x04
+#define   ADIN1110_CONFIG1_SYNC			BIT(15)
+
 #define ADIN1110_CONFIG2			0x06
+#define   ADIN211_FWD_UNK2PORT			GENMASK(14, 13)
+#define   ADIN2111_P2_FWD_UNK2HOST		BIT(12)
 #define   ADIN1110_CRC_APPEND			BIT(5)
 #define   ADIN1110_FWD_UNK2HOST			BIT(2)
 
 #define ADIN1110_STATUS0			0x08
 
 #define ADIN1110_STATUS1			0x09
+#define   ADIN2111_P2_RX_RDY			BIT(17)
 #define   ADIN1110_SPI_ERR			BIT(10)
 #define   ADIN1110_RX_RDY			BIT(4)
 #define   ADIN1110_TX_RDY			BIT(3)
 
 #define ADIN1110_IMASK1				0x0D
+#define   ADIN2111_RX_RDY_IRQ			BIT(17)
 #define   ADIN1110_SPI_ERR_IRQ			BIT(10)
 #define   ADIN1110_RX_RDY_IRQ			BIT(4)
 #define   ADIN1110_TX_RDY_IRQ			BIT(3)
-#define   ADIN1110_LINK_CHANGE_IRQ		BIT(1)
 
 #define ADIN1110_MDIOACC			0x20
 #define   ADIN1110_MDIO_TRDONE			BIT(31)
@@ -63,6 +69,7 @@
 #define ADIN1110_TFC				0x3F
 
 #define ADIN1110_MAC_ADDR_FILTER_UPR		0x50
+#define   ADIN2111_MAC_ADDR_APPLY2PORT2		BIT(31)
 #define   ADIN1110_MAC_ADDR_APPLY2PORT		BIT(30)
 #define   ADIN1110_MAC_ADDR_HOST_PRI		BIT(19)
 #define   ADIN1110_MAC_ADDR_TO_HOST		BIT(16)
@@ -76,19 +83,22 @@
 #define ADIN1110_RX_FSIZE			0x90
 #define ADIN1110_RX				0x91
 
-#define ADIN1110_RX_FRM_CNT			0xA0
-#define ADIN1110_RX_MCAST_CNT			0xA2
-#define ADIN1110_RX_CRC_ERR_CNT			0xA4
-#define ADIN1110_RX_ALGN_ERR_CNT		0xA5
-#define ADIN1110_RX_LS_ERR_CNT			0xA6
-#define ADIN1110_RX_PHY_ERR_CNT			0xA7
-#define ADIN1110_RX_DROP_FULL_CNT		0xAC
+#define ADIN1110_RX_FRM_CNT(x)			(0xA0 + ((x) * 0x30))
+#define ADIN1110_RX_MCAST_CNT(x)		(0xA2 + ((x) * 0x30))
+#define ADIN1110_RX_CRC_ERR_CNT(x)		(0xA4 + ((x) * 0x30))
+#define ADIN1110_RX_ALGN_ERR_CNT(x)		(0xA5 + ((x) * 0x30))
+#define ADIN1110_RX_LS_ERR_CNT(x)		(0xA6 + ((x) * 0x30))
+#define ADIN1110_RX_PHY_ERR_CNT(x)		(0xA7 + ((x) * 0x30))
+#define ADIN1110_RX_DROP_FULL_CNT(x)		(0xAC + ((x) * 0x30))
 
-#define ADIN1110_TX_FRM_CNT			0xA8
-#define ADIN1110_TX_MCAST_CNT			0xAA
+#define ADIN1110_TX_FRM_CNT(x)			(0xA8 + ((x) * 0x30))
+#define ADIN1110_TX_MCAST_CNT(x)		(0xAA + ((x) * 0x30))
 
-#define ADIN1110_CLEAR_STATUS0			0x1F7F
-#define ADIN1110_CLEAR_STATUS1			0x1F01D0A
+#define ADIN2111_RX_P2_FSIZE			0xC0
+#define ADIN2111_RX_P2				0xC1
+
+#define ADIN1110_CLEAR_STATUS0			0xFFF
+#define ADIN1110_CLEAR_STATUS1			U32_MAX
 
 /* MDIO_OP codes */
 #define ADIN1110_MDIO_OP_WR			0x1
@@ -106,28 +116,75 @@
 #define ADIN1110_FEC_LEN			4
 
 #define ADIN1110_PHY_ID_VAL			0x0283BC91
+#define ADIN2111_PHY_ID_VAL			0x0283BCA1
 
 #define ADIN1110_TX_SPACE_MAX			0x0FFF
 
+#define ADIN_MAC_MAX_PORTS			2
+
+#define ADIN_MAC_ADDR_SLOT			0
+#define ADIN_MAC_BROADCAST_ADDR_SLOT		1
+#define ADIN_MAC_MULTICAST_ADDR_SLOT		2
+
 DECLARE_CRC8_TABLE(adin1110_crc_table);
 
+enum adin1110_chips_id {
+	ADIN1110_MAC = 0,
+	ADIN2111_MAC,
+};
+
+struct adin1110_cfg {
+	enum adin1110_chips_id	id;
+	char			name[MDIO_NAME_SIZE];
+	u32			phy_ids[PHY_MAX_ADDR];
+	u32			ports_nr;
+	u32			phy_id_val;
+};
+
+struct adin1110_port_priv {
+	struct adin1110_priv		*priv;
+	struct net_device		*netdev;
+	struct phy_device		*phydev;
+	struct work_struct		tx_work;
+	u64				rx_bytes;
+	u64				tx_bytes;
+	struct work_struct		rx_mode_work;
+	u32				flags;
+	struct sk_buff_head		txq;
+	u32				nr;
+	struct adin1110_cfg		*cfg;
+};
+
 struct adin1110_priv {
-	struct mutex		lock; /* protect spi */
-	spinlock_t		state_lock; /* protect RX mode */
-	struct work_struct	tx_work;
-	u32			tx_space;
-	u64			rx_bytes;
-	u64			tx_bytes;
-	struct work_struct	rx_mode_work;
-	u32			flags;
-	struct sk_buff_head	txq;
-	struct mii_bus		*mii_bus;
-	struct phy_device	*phydev;
-	struct net_device	*netdev;
-	struct spi_device	*spidev;
-	bool			append_crc;
-	int			irq;
-	u8			data[ADIN1110_MAX_BUFF] ____cacheline_aligned;
+	struct mutex			lock; /* protect spi */
+	spinlock_t			state_lock; /* protect RX mode */
+	struct mii_bus			*mii_bus;
+	struct spi_device		*spidev;
+	bool				append_crc;
+	struct adin1110_cfg		*cfg;
+	u32				tx_space;
+	u32				irq_mask;
+	int				irq;
+	struct adin1110_port_priv	*ports[ADIN_MAC_MAX_PORTS];
+	char				mii_bus_name[MII_BUS_ID_SIZE];
+	u8				data[ADIN1110_MAX_BUFF] ____cacheline_aligned;
+};
+
+struct adin1110_cfg adin1110_cfgs[] = {
+	{
+		.id = ADIN1110_MAC,
+		.name = "adin1110",
+		.phy_ids = {1},
+		.ports_nr = 1,
+		.phy_id_val = ADIN1110_PHY_ID_VAL,
+	},
+	{
+		.id = ADIN2111_MAC,
+		.name = "adin2111",
+		.phy_ids = {1, 2},
+		.ports_nr = 2,
+		.phy_id_val = ADIN2111_PHY_ID_VAL,
+	},
 };
 
 static u8 adin1110_crc_data(u8 *data, u32 len)
@@ -175,7 +232,7 @@ static int adin1110_read_reg(struct adin1110_priv *priv, u16 reg, u32 *val)
 		recv_crc = priv->data[header_len + ADIN1110_REG_LEN];
 
 		if (crc != recv_crc) {
-			netdev_err(priv->netdev, "CRC error.");
+			dev_err(&priv->spidev->dev, "CRC error.");
 			return -EBADMSG;
 		}
 	}
@@ -236,18 +293,26 @@ static int adin1110_round_len(int len)
 	return len;
 }
 
-static int adin1110_read_fifo(struct adin1110_priv *priv)
+static int adin1110_read_fifo(struct adin1110_port_priv *port_priv)
 {
+	struct adin1110_priv *priv = port_priv->priv;
 	u32 header_len = ADIN1110_RD_HEADER_LEN;
-	__le16 __reg = cpu_to_le16(ADIN1110_RX);
 	struct spi_transfer t[2] = {0};
+	u32 frame_size_no_fcs;
 	struct sk_buff *rxb;
 	u32 frame_size;
-	u32 frame_size_no_fcs;
 	int round_len;
+	__le16 __reg;
 	int ret;
 
-	ret = adin1110_read_reg(priv, ADIN1110_RX_FSIZE, &frame_size);
+	if (!port_priv->nr) {
+		__reg = cpu_to_le16(ADIN1110_RX);
+		ret = adin1110_read_reg(priv, ADIN1110_RX_FSIZE, &frame_size);
+	} else {
+		__reg = cpu_to_le16(ADIN2111_RX_P2);
+		ret = adin1110_read_reg(priv, ADIN2111_RX_P2_FSIZE, &frame_size);
+	}
+
 	if (ret < 0)
 		return ret;
 
@@ -261,7 +326,7 @@ static int adin1110_read_fifo(struct adin1110_priv *priv)
 
 	frame_size_no_fcs = frame_size - ADIN1110_FRAME_HEADER_LEN - ADIN1110_FEC_LEN;
 
-	rxb = netdev_alloc_skb(priv->netdev, frame_size_no_fcs);
+	rxb = netdev_alloc_skb(port_priv->netdev, frame_size_no_fcs);
 	if (!rxb)
 		return -ENOMEM;
 
@@ -293,19 +358,21 @@ static int adin1110_read_fifo(struct adin1110_priv *priv)
 	skb_copy_to_linear_data(rxb, &priv->data[header_len + ADIN1110_FRAME_HEADER_LEN],
 				frame_size_no_fcs);
 
-	rxb->protocol = eth_type_trans(rxb, priv->netdev);
+	rxb->protocol = eth_type_trans(rxb, port_priv->netdev);
 
 	netif_rx_ni(rxb);
 
-	priv->rx_bytes += frame_size - ADIN1110_FRAME_HEADER_LEN;
+	port_priv->rx_bytes += frame_size - ADIN1110_FRAME_HEADER_LEN;
 
 	return 0;
 }
 
-static int adin1110_write_fifo(struct adin1110_priv *priv, struct sk_buff *txb)
+static int adin1110_write_fifo(struct adin1110_port_priv *port_priv, struct sk_buff *txb)
 {
+	struct adin1110_priv *priv = port_priv->priv;
 	__le16 __reg = cpu_to_le16(ADIN1110_TX);
 	u32 header_len = ADIN1110_WR_HEADER_LEN;
+	__be16 frame_header;
 	int padding = 0;
 	int round_len;
 	int padded_len;
@@ -338,13 +405,17 @@ static int adin1110_write_fifo(struct adin1110_priv *priv, struct sk_buff *txb)
 		header_len++;
 	}
 
+	/* mention the port on which to send the frame in the frame header */
+	frame_header = cpu_to_be16(port_priv->nr);
+	memcpy(&priv->data[header_len], &frame_header, ADIN1110_FRAME_HEADER_LEN);
+
 	memcpy(&priv->data[header_len + ADIN1110_FRAME_HEADER_LEN], txb->data, txb->len);
 
 	ret = spi_write(priv->spidev, &priv->data[0], round_len + header_len);
 	if (ret < 0)
 		return ret;
 
-	priv->tx_bytes += txb->len;
+	port_priv->tx_bytes += txb->len;
 
 	return 0;
 }
@@ -371,7 +442,7 @@ static int adin1110_mdio_read(struct mii_bus *bus, int phy_id, int reg)
 
 	val |= FIELD_PREP(ADIN1110_MDIO_OP, ADIN1110_MDIO_OP_RD);
 	val |= FIELD_PREP(ADIN1110_MDIO_ST, 0x1);
-	val |= FIELD_PREP(ADIN1110_MDIO_PRTAD, 0x1);
+	val |= FIELD_PREP(ADIN1110_MDIO_PRTAD, phy_id);
 	val |= FIELD_PREP(ADIN1110_MDIO_DEVAD, reg);
 
 	/* write the clause 22 read command to the chip */
@@ -407,7 +478,7 @@ static int adin1110_mdio_write(struct mii_bus *bus, int phy_id, int reg, u16 reg
 
 	val |= FIELD_PREP(ADIN1110_MDIO_OP, ADIN1110_MDIO_OP_WR);
 	val |= FIELD_PREP(ADIN1110_MDIO_ST, 0x1);
-	val |= FIELD_PREP(ADIN1110_MDIO_PRTAD, 0x1);
+	val |= FIELD_PREP(ADIN1110_MDIO_PRTAD, phy_id);
 	val |= FIELD_PREP(ADIN1110_MDIO_DEVAD, reg);
 	val |= FIELD_PREP(ADIN1110_MDIO_DATA, reg_val);
 
@@ -426,6 +497,7 @@ static int adin1110_mdio_write(struct mii_bus *bus, int phy_id, int reg, u16 reg
 }
 
 /* ADIN1110 MAC-PHY contains an ADIN1100 PHY.
+ * ADIN2111 MAC-PHY contains two ADIN1100 PHYs.
  * By registering a new MDIO bus we allow the PAL to discover
  * the encapsulated PHY and probe the ADIN1100 driver.
  */
@@ -438,12 +510,15 @@ static int adin1110_register_mdiobus(struct adin1110_priv *priv, struct device *
 	if (!mii_bus)
 		return -ENOMEM;
 
-	mii_bus->name = "adin1110_eth_mii";
+	snprintf(priv->mii_bus_name, MII_BUS_ID_SIZE, "%s-%u",
+		 priv->cfg->name, priv->spidev->chip_select);
+
+	mii_bus->name = priv->mii_bus_name;
 	mii_bus->read = adin1110_mdio_read;
 	mii_bus->write = adin1110_mdio_write;
 	mii_bus->priv = priv;
 	mii_bus->parent = dev;
-	mii_bus->phy_mask = ~((u32)BIT(0));
+	mii_bus->phy_mask = ~((u32)GENMASK(2, 0));
 	snprintf(mii_bus->id, MII_BUS_ID_SIZE, "%s", dev_name(dev));
 
 	ret = devm_mdiobus_register(dev, mii_bus);
@@ -455,8 +530,17 @@ static int adin1110_register_mdiobus(struct adin1110_priv *priv, struct device *
 	return 0;
 }
 
-static void adin1110_read_frames(struct adin1110_priv *priv)
+static bool adin1110_port_rx_ready(struct adin1110_port_priv *port_priv, u32 status)
 {
+	if (!port_priv->nr)
+		return !!(status & ADIN1110_RX_RDY);
+	else
+		return !!(status & ADIN2111_P2_RX_RDY);
+}
+
+static void adin1110_read_frames(struct adin1110_port_priv *port_priv)
+{
+	struct adin1110_priv *priv = port_priv->priv;
 	u32 status1;
 	int ret;
 
@@ -465,13 +549,21 @@ static void adin1110_read_frames(struct adin1110_priv *priv)
 		if (ret < 0)
 			return;
 
-		if (!(status1 & ADIN1110_RX_RDY))
+		if (!adin1110_port_rx_ready(port_priv, status1))
 			break;
 
-		ret = adin1110_read_fifo(priv);
+		ret = adin1110_read_fifo(port_priv);
 		if (ret < 0)
 			return;
 	}
+}
+
+static void adin1110_wake_queues(struct adin1110_priv *priv)
+{
+	int i;
+
+	for (i = 0; i < priv->cfg->ports_nr; i++)
+		netif_wake_queue(priv->ports[i]->netdev);
 }
 
 static irqreturn_t adin1110_irq(int irq, void *p)
@@ -480,13 +572,14 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 	u32 status1;
 	u32 val;
 	int ret;
+	int i;
 
 	mutex_lock(&priv->lock);
 
 	adin1110_read_reg(priv, ADIN1110_STATUS1, &status1);
 
 	if (priv->append_crc && (status1 & ADIN1110_SPI_ERR))
-		netdev_warn(priv->netdev, "SPI CRC error on write.\n");
+		dev_warn(&priv->spidev->dev, "SPI CRC error on write.\n");
 
 	ret = adin1110_read_reg(priv, ADIN1110_TX_SPACE, &val);
 	if (ret < 0) {
@@ -497,30 +590,39 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 	/* TX FIFO space is expressed in half-words */
 	priv->tx_space = 2 * val;
 
-	if (status1 & ADIN1110_RX_RDY)
-		adin1110_read_frames(priv);
+	for (i = 0; i < priv->cfg->ports_nr; i++) {
+		if (adin1110_port_rx_ready(priv->ports[i], status1))
+			adin1110_read_frames(priv->ports[i]);
+	}
 
 	/* clear IRQ sources */
-	adin1110_write_reg(priv, ADIN1110_STATUS0, ADIN1110_CLEAR_STATUS0);
-	adin1110_write_reg(priv, ADIN1110_STATUS1, ADIN1110_CLEAR_STATUS1);
+	ret = adin1110_write_reg(priv, ADIN1110_STATUS0, ADIN1110_CLEAR_STATUS0);
+	ret = adin1110_write_reg(priv, ADIN1110_STATUS1, priv->irq_mask);
 
 	mutex_unlock(&priv->lock);
 
 	if (priv->tx_space > 0)
-		netif_wake_queue(priv->netdev);
+		adin1110_wake_queues(priv);
 
 	return IRQ_HANDLED;
 }
 
 /* ADIN1110 can filter up to 16 MAC addresses, mac_nr here is the slot used */
-static int adin1110_write_mac_address(struct adin1110_priv *priv, int mac_nr, u8 *addr, u8 *mask)
+static int adin1110_write_mac_address(struct adin1110_port_priv *port_priv, int mac_nr, u8 *addr,
+				      u8 *mask)
 {
+	struct adin1110_priv *priv = port_priv->priv;
 	u32 offset = mac_nr * 2;
+	u32 port_rules;
 	int ret;
 	u32 val;
 
+	port_rules = ADIN1110_MAC_ADDR_APPLY2PORT;
+	if (priv->cfg->id == ADIN2111_MAC)
+		port_rules |= ADIN2111_MAC_ADDR_APPLY2PORT2;
+
 	/* tell MAC to forward this DA to host */
-	val = ADIN1110_MAC_ADDR_APPLY2PORT | ADIN1110_MAC_ADDR_TO_HOST;
+	val = port_rules | ADIN1110_MAC_ADDR_TO_HOST;
 	val |= get_unaligned_be16(&addr[0]);
 	ret = adin1110_write_reg(priv, ADIN1110_MAC_ADDR_FILTER_UPR + offset, val);
 	if (ret < 0)
@@ -531,8 +633,7 @@ static int adin1110_write_mac_address(struct adin1110_priv *priv, int mac_nr, u8
 	if (ret < 0)
 		return ret;
 
-	val = ADIN1110_MAC_ADDR_APPLY2PORT | ADIN1110_MAC_ADDR_TO_HOST;
-	val |= get_unaligned_be16(&mask[0]);
+	val = get_unaligned_be16(&mask[0]);
 	ret = adin1110_write_reg(priv, ADIN1110_MAC_ADDR_MASK_UPR + offset, val);
 	if (ret < 0)
 		return ret;
@@ -541,8 +642,9 @@ static int adin1110_write_mac_address(struct adin1110_priv *priv, int mac_nr, u8
 	return adin1110_write_reg(priv, ADIN1110_MAC_ADDR_MASK_LWR + offset, val);
 }
 
-static int adin1110_clear_mac_address(struct adin1110_priv *priv, int mac_nr)
+static int adin1110_clear_mac_address(struct adin1110_port_priv *port_priv, int mac_nr)
 {
+	struct adin1110_priv *priv = port_priv->priv;
 	u32 offset = mac_nr * 2;
 	int ret;
 
@@ -561,7 +663,8 @@ static int adin1110_clear_mac_address(struct adin1110_priv *priv, int mac_nr)
 	return adin1110_write_reg(priv, ADIN1110_MAC_ADDR_MASK_LWR + offset, 0);
 }
 
-static int adin1110_multicast_filter(struct adin1110_priv *priv, int mac_nr, bool accept_multicast)
+static int adin1110_multicast_filter(struct adin1110_port_priv *port_priv, int mac_nr,
+				     bool accept_multicast)
 {
 	u8 mask[ETH_ALEN] = {0};
 	u8 mac[ETH_ALEN] = {0};
@@ -570,15 +673,15 @@ static int adin1110_multicast_filter(struct adin1110_priv *priv, int mac_nr, boo
 		mask[0] = BIT(1);
 		mac[0] = BIT(1);
 
-		return adin1110_write_mac_address(priv, mac_nr, mac, mask);
+		return adin1110_write_mac_address(port_priv, mac_nr, mac, mask);
 	}
 
-	return adin1110_clear_mac_address(priv, mac_nr);
+	return adin1110_clear_mac_address(port_priv, mac_nr);
 }
 
 static int adin1110_set_mac_address(struct net_device *netdev, void *addr)
 {
-	struct adin1110_priv *priv = netdev_priv(netdev);
+	struct adin1110_port_priv *port_priv = netdev_priv(netdev);
 	struct sockaddr *sa = addr;
 	u8 mask[ETH_ALEN];
 
@@ -591,7 +694,7 @@ static int adin1110_set_mac_address(struct net_device *netdev, void *addr)
 	ether_addr_copy(netdev->dev_addr, sa->sa_data);
 	memset(mask, 0xFF, ETH_ALEN);
 
-	return adin1110_write_mac_address(priv, 0, netdev->dev_addr, mask);
+	return adin1110_write_mac_address(port_priv, ADIN_MAC_ADDR_SLOT, netdev->dev_addr, mask);
 }
 
 static int adin1110_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
@@ -607,46 +710,55 @@ static int adin1110_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
 
 static void adin1110_rx_mode_work(struct work_struct *work)
 {
-	struct adin1110_priv *priv = container_of(work, struct adin1110_priv, rx_mode_work);
+	struct adin1110_port_priv *port_priv = container_of(work, struct adin1110_port_priv, rx_mode_work);
+	struct adin1110_priv *priv = port_priv->priv;
+	u32 mask;
+
+	if (!port_priv->nr)
+		mask = ADIN1110_FWD_UNK2HOST;
+	else
+		mask = ADIN2111_P2_FWD_UNK2HOST;
 
 	mutex_lock(&priv->lock);
 
-	adin1110_set_bits(priv, ADIN1110_CONFIG2, ADIN1110_FWD_UNK2HOST,
-			  (priv->flags & IFF_PROMISC) ? ADIN1110_FWD_UNK2HOST : 0);
+	adin1110_set_bits(priv, ADIN1110_CONFIG2, mask,
+			  (port_priv->flags & IFF_PROMISC) ? mask : 0);
 
-	adin1110_multicast_filter(priv, 2, !!(priv->flags & IFF_ALLMULTI));
+	adin1110_multicast_filter(port_priv, ADIN_MAC_MULTICAST_ADDR_SLOT,
+				  !!(port_priv->flags & IFF_ALLMULTI));
 
 	mutex_unlock(&priv->lock);
 }
 
 static void adin1110_set_rx_mode(struct net_device *dev)
 {
-	struct adin1110_priv *priv = netdev_priv(dev);
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	struct adin1110_priv *priv = port_priv->priv;
 
 	spin_lock(&priv->state_lock);
 
-	priv->flags = dev->flags;
-	schedule_work(&priv->rx_mode_work);
+	port_priv->flags = dev->flags;
+	schedule_work(&port_priv->rx_mode_work);
 
 	spin_unlock(&priv->state_lock);
 }
 
-static int adin1110_init_mac(struct adin1110_priv *priv)
+static int adin1110_init_mac(struct adin1110_port_priv *port_priv)
 {
-	struct net_device *netdev = priv->netdev;
+	struct net_device *netdev = port_priv->netdev;
 	u8 mask[ETH_ALEN];
 	u8 mac[ETH_ALEN];
 	int ret;
 
 	memset(mask, 0xFF, ETH_ALEN);
-	ret = adin1110_write_mac_address(priv, 0, netdev->dev_addr, mask);
+	ret = adin1110_write_mac_address(port_priv, ADIN_MAC_ADDR_SLOT, netdev->dev_addr, mask);
 	if (ret < 0) {
 		netdev_err(netdev, "Could not set MAC address: %pM, %d\n", mac, ret);
 		return ret;
 	}
 
 	memset(mac, 0xFF, ETH_ALEN);
-	ret = adin1110_write_mac_address(priv, 1, mac, mask);
+	ret = adin1110_write_mac_address(port_priv, ADIN_MAC_BROADCAST_ADDR_SLOT, mac, mask);
 	if (ret < 0) {
 		netdev_err(netdev, "Could not set Broadcast MAC address: %d\n", ret);
 		return ret;
@@ -657,22 +769,32 @@ static int adin1110_init_mac(struct adin1110_priv *priv)
 
 static int adin1110_net_open(struct net_device *net_dev)
 {
-	struct adin1110_priv *priv = netdev_priv(net_dev);
+	struct adin1110_port_priv *port_priv = netdev_priv(net_dev);
+	struct adin1110_priv *priv = port_priv->priv;
 	u32 val;
 	int ret;
 
 	mutex_lock(&priv->lock);
 
+	/* Configure MAC to compute and append the FCS itself.
+	 * If ADIN2111 configure MAC to forward unknown host to other port.
+	 */
 	val = ADIN1110_CRC_APPEND;
+	if (priv->cfg->id == ADIN2111_MAC)
+		val |= ADIN211_FWD_UNK2PORT;
+
 	ret = adin1110_set_bits(priv, ADIN1110_CONFIG2, val, val);
 	if (ret < 0) {
 		mutex_unlock(&priv->lock);
 		return ret;
 	}
 
-	val = ADIN1110_TX_RDY_IRQ | ADIN1110_RX_RDY_IRQ | ADIN1110_LINK_CHANGE_IRQ |
-	      ADIN1110_SPI_ERR_IRQ;
-	ret = adin1110_set_bits(priv, ADIN1110_IMASK1, val, 0);
+	val = ADIN1110_TX_RDY_IRQ | ADIN1110_RX_RDY_IRQ | ADIN1110_SPI_ERR_IRQ;
+	if (priv->cfg->id == ADIN2111_MAC)
+		val |= ADIN2111_RX_RDY_IRQ;
+
+	priv->irq_mask = val;
+	ret = adin1110_write_reg(priv, ADIN1110_IMASK1, ~val);
 	if (ret < 0) {
 		netdev_err(net_dev, "Failed to enable chip IRQs: %d\n", ret);
 		mutex_unlock(&priv->lock);
@@ -688,7 +810,14 @@ static int adin1110_net_open(struct net_device *net_dev)
 
 	priv->tx_space = 2 * val;
 
-	ret = adin1110_init_mac(priv);
+	ret = adin1110_init_mac(port_priv);
+	if (ret < 0) {
+		mutex_unlock(&priv->lock);
+		return ret;
+	}
+
+	ret = adin1110_set_bits(priv, ADIN1110_CONFIG1, ADIN1110_CONFIG1_SYNC,
+				ADIN1110_CONFIG1_SYNC);
 	if (ret < 0) {
 		mutex_unlock(&priv->lock);
 		return ret;
@@ -696,54 +825,44 @@ static int adin1110_net_open(struct net_device *net_dev)
 
 	mutex_unlock(&priv->lock);
 
-	phy_start(priv->phydev);
+	phy_start(port_priv->phydev);
 
-	/* ADIN1110 INT_N pin will be used to signal the host */
-	ret = request_threaded_irq(net_dev->irq, NULL, adin1110_irq,
-				   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-				   net_dev->name, priv);
-
-	if (ret < 0) {
-		netdev_err(net_dev, "Failed to get IRQ: %d\n", ret);
-		return ret;
-	}
-
-	netif_start_queue(priv->netdev);
+	netif_start_queue(net_dev);
 
 	return ret;
 }
 
 static int adin1110_net_stop(struct net_device *net_dev)
 {
-	struct adin1110_priv *priv = netdev_priv(net_dev);
+	struct adin1110_port_priv *port_priv = netdev_priv(net_dev);
 
-	netif_stop_queue(priv->netdev);
-	flush_work(&priv->tx_work);
-	phy_stop(priv->phydev);
-	free_irq(net_dev->irq, priv);
+	netif_stop_queue(port_priv->netdev);
+	flush_work(&port_priv->tx_work);
+	phy_stop(port_priv->phydev);
 
 	return 0;
 }
 
 static void adin1110_tx_work(struct work_struct *work)
 {
-	struct adin1110_priv *priv = container_of(work, struct adin1110_priv, tx_work);
+	struct adin1110_port_priv *port_priv = container_of(work, struct adin1110_port_priv, tx_work);
+	struct adin1110_priv *priv = port_priv->priv;
 	struct sk_buff *txb;
 	bool last;
 	int ret;
 
 	mutex_lock(&priv->lock);
 
-	last = skb_queue_empty(&priv->txq);
+	last = skb_queue_empty(&port_priv->txq);
 
 	while (!last) {
-		txb = skb_dequeue(&priv->txq);
-		last = skb_queue_empty(&priv->txq);
+		txb = skb_dequeue(&port_priv->txq);
+		last = skb_queue_empty(&port_priv->txq);
 
 		if (txb) {
-			ret = adin1110_write_fifo(priv, txb);
+			ret = adin1110_write_fifo(port_priv, txb);
 			if (ret < 0)
-				netdev_err(priv->netdev, "Frame write error: %d\n", ret);
+				netdev_err(port_priv->netdev, "Frame write error: %d\n", ret);
 
 			dev_kfree_skb(txb);
 		}
@@ -754,7 +873,8 @@ static void adin1110_tx_work(struct work_struct *work)
 
 static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-	struct adin1110_priv *priv = netdev_priv(dev);
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	struct adin1110_priv *priv = port_priv->priv;
 	netdev_tx_t netdev_ret = NETDEV_TX_OK;
 	u32 tx_space_needed;
 
@@ -766,51 +886,76 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 		netdev_ret = NETDEV_TX_BUSY;
 	} else {
 		priv->tx_space -= tx_space_needed;
-		skb_queue_tail(&priv->txq, skb);
+		skb_queue_tail(&port_priv->txq, skb);
 	}
 
 	spin_unlock(&priv->state_lock);
 
-	schedule_work(&priv->tx_work);
+	schedule_work(&port_priv->tx_work);
 
 	return netdev_ret;
 }
 
 void adin1110_ndo_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *storage)
 {
-	struct adin1110_priv *priv = netdev_priv(dev);
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	struct adin1110_priv *priv = port_priv->priv;
 	u32 val;
 
 	mutex_lock(&priv->lock);
 
-	adin1110_read_reg(priv, ADIN1110_RX_FRM_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_RX_FRM_CNT(port_priv->nr), &val);
 	storage->rx_packets = val;
 
-	adin1110_read_reg(priv, ADIN1110_TX_FRM_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_TX_FRM_CNT(port_priv->nr), &val);
 	storage->tx_packets = val;
 
-	storage->rx_bytes = priv->rx_bytes;
-	storage->tx_bytes = priv->tx_bytes;
+	storage->rx_bytes = port_priv->rx_bytes;
+	storage->tx_bytes = port_priv->tx_bytes;
 
-	adin1110_read_reg(priv, ADIN1110_RX_CRC_ERR_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_RX_CRC_ERR_CNT(port_priv->nr), &val);
 	storage->rx_errors += val;
 
-	adin1110_read_reg(priv, ADIN1110_RX_ALGN_ERR_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_RX_ALGN_ERR_CNT(port_priv->nr), &val);
 	storage->rx_errors += val;
 
-	adin1110_read_reg(priv, ADIN1110_RX_LS_ERR_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_RX_LS_ERR_CNT(port_priv->nr), &val);
 	storage->rx_errors += val;
 
-	adin1110_read_reg(priv, ADIN1110_RX_PHY_ERR_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_RX_PHY_ERR_CNT(port_priv->nr), &val);
 	storage->rx_errors += val;
 
-	adin1110_read_reg(priv, ADIN1110_RX_DROP_FULL_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_RX_DROP_FULL_CNT(port_priv->nr), &val);
 	storage->rx_dropped = val;
 
-	adin1110_read_reg(priv, ADIN1110_RX_MCAST_CNT, &val);
+	adin1110_read_reg(priv, ADIN1110_RX_MCAST_CNT(port_priv->nr), &val);
 	storage->multicast = val;
 
 	mutex_unlock(&priv->lock);
+}
+
+static int adin1110_port_get_port_parent_id(struct net_device *dev,
+					    struct netdev_phys_item_id *ppid)
+{
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	struct adin1110_priv *priv = port_priv->priv;
+
+	ppid->id_len = strnlen(priv->mii_bus_name, MII_BUS_ID_SIZE);
+	memcpy(ppid->id, priv->mii_bus_name, ppid->id_len);
+
+	return 0;
+}
+
+static int adin1110_ndo_get_phys_port_name(struct net_device *dev, char *name, size_t len)
+{
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	int err;
+
+	err = snprintf(name, len, "p%d", port_priv->nr);
+	if (err >= len)
+		return -EINVAL;
+
+	return 0;
 }
 
 static const struct net_device_ops adin1110_netdev_ops = {
@@ -822,6 +967,8 @@ static const struct net_device_ops adin1110_netdev_ops = {
 	.ndo_set_rx_mode	= adin1110_set_rx_mode,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_get_stats64	= adin1110_ndo_get_stats64,
+	.ndo_get_port_parent_id	= adin1110_port_get_port_parent_id,
+	.ndo_get_phys_port_name	= adin1110_ndo_get_phys_port_name,
 };
 
 static void adin1110_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *di)
@@ -856,12 +1003,10 @@ static int adin1110_check_spi(struct adin1110_priv *priv)
 	if (ret < 0)
 		return ret;
 
-	if (val != ADIN1110_PHY_ID_VAL) {
-		netdev_err(priv->netdev, "PHY ID read: %x\n", val);
+	if (val != priv->cfg->phy_id_val) {
+		dev_err(&priv->spidev->dev, "PHY ID read: %x\n", val);
 		return -EIO;
 	}
-
-	snprintf(priv->netdev->name, IFNAMSIZ, "adin1110-%u", priv->spidev->chip_select);
 
 	return 0;
 }
@@ -871,91 +1016,141 @@ static void adin1110_disconnect_phy(void *data)
 	phy_disconnect(data);
 }
 
-static int adin1110_probe(struct spi_device *spi)
+static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 {
-	struct device *dev = &spi->dev;
-	struct adin1110_priv *priv;
+	struct device *dev = &priv->spidev->dev;
+	struct adin1110_port_priv *port_priv;
 	struct net_device *netdev;
 	const u8 *mac_addr;
 	u8 mac[ETH_ALEN];
 	int ret;
+	int i;
 
-	netdev = devm_alloc_etherdev(dev, sizeof(struct adin1110_priv));
-	if (!netdev)
+	for (i = 0; i < priv->cfg->ports_nr; i++) {
+		netdev = devm_alloc_etherdev(dev, sizeof(*port_priv));
+		if (!netdev)
+			return -ENOMEM;
+
+		port_priv = netdev_priv(netdev);
+		port_priv->netdev = netdev;
+		port_priv->priv = priv;
+		port_priv->cfg = priv->cfg;
+		port_priv->nr = i;
+		priv->ports[i] = port_priv;
+		SET_NETDEV_DEV(netdev, dev);
+
+		mac_addr = device_get_mac_address(dev, mac, ETH_ALEN);
+		if (!mac_addr) {
+			netdev_err(netdev, "MAC address invalid: %pM\n", mac);
+			return -EINVAL;
+		}
+
+		ether_addr_copy(netdev->dev_addr, mac);
+
+		netdev->irq = priv->spidev->irq;
+		INIT_WORK(&port_priv->tx_work, adin1110_tx_work);
+		INIT_WORK(&port_priv->rx_mode_work, adin1110_rx_mode_work);
+		skb_queue_head_init(&port_priv->txq);
+
+		netif_carrier_off(netdev);
+
+		/* FIXME: This should be changed to 10BASET1L when introduced to PAL */
+		netdev->if_port = IF_PORT_10BASET;
+		netdev->netdev_ops = &adin1110_netdev_ops;
+		netdev->ethtool_ops = &adin1110_ethtool_ops;
+
+		switch (priv->cfg->id) {
+		case ADIN1110_MAC:
+			snprintf(port_priv->netdev->name, IFNAMSIZ, "%s-%u", priv->cfg->name,
+				 priv->spidev->chip_select);
+			break;
+		case ADIN2111_MAC:
+			snprintf(port_priv->netdev->name, IFNAMSIZ, "%s-%u-p%d", priv->cfg->name,
+				 priv->spidev->chip_select, i);
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		ret = devm_register_netdev(dev, netdev);
+		if (ret < 0) {
+			dev_err(dev, "failed to register network device\n");
+			return ret;
+		}
+
+		port_priv->phydev = get_phy_device(priv->mii_bus, i + 1, false);
+		if (!port_priv->phydev) {
+			netdev_err(netdev, "Could not find PHY with device address: %d.\n", i);
+			return -ENODEV;
+		}
+
+		port_priv->phydev = phy_connect(netdev, phydev_name(port_priv->phydev),
+						adin1110_adjust_link, PHY_INTERFACE_MODE_MII);
+		if (IS_ERR(port_priv->phydev)) {
+			netdev_err(netdev, "Could not connect PHY with device address: %d.\n", i);
+			return PTR_ERR(port_priv->phydev);
+		}
+
+		ret = devm_add_action_or_reset(dev, adin1110_disconnect_phy, port_priv->phydev);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* ADIN1110 INT_N pin will be used to signal the host */
+	return devm_request_threaded_irq(dev, priv->spidev->irq, NULL, adin1110_irq,
+					 IRQF_TRIGGER_LOW | IRQF_ONESHOT, dev_name(dev), priv);
+}
+
+static int adin1110_probe(struct spi_device *spi)
+{
+	const struct spi_device_id *dev_id = spi_get_device_id(spi);
+	struct device *dev = &spi->dev;
+	struct adin1110_priv *priv;
+	int ret;
+
+	priv = devm_kzalloc(dev, sizeof(struct adin1110_priv), GFP_KERNEL);
+	if (!priv)
 		return -ENOMEM;
 
-	priv = netdev_priv(netdev);
 	priv->spidev = spi;
-	priv->netdev = netdev;
+	priv->cfg = &adin1110_cfgs[dev_id->driver_data];
 	spi->bits_per_word = 8;
-	SET_NETDEV_DEV(netdev, dev);
 
 	mutex_init(&priv->lock);
 	spin_lock_init(&priv->state_lock);
-
-	INIT_WORK(&priv->tx_work, adin1110_tx_work);
-	INIT_WORK(&priv->rx_mode_work, adin1110_rx_mode_work);
 
 	/* use of CRC on control and data transactions is pin dependent */
 	priv->append_crc = device_property_read_bool(dev, "adi,spi-crc");
 	if (priv->append_crc)
 		crc8_populate_msb(adin1110_crc_table, 0x7);
 
-	mac_addr = device_get_mac_address(dev, mac, ETH_ALEN);
-	if (!mac_addr) {
-		netdev_err(netdev, "MAC address invalid: %pM, %d\n", mac, ret);
-		return -EINVAL;
-	}
-
-	ether_addr_copy(netdev->dev_addr, mac);
-
 	ret = adin1110_check_spi(priv);
 	if (ret < 0) {
-		netdev_err(netdev, "SPI read failed: %d\n", ret);
+		dev_err(dev, "SPI read failed: %d\n", ret);
 		return ret;
 	}
 
 	ret = adin1110_register_mdiobus(priv, dev);
 	if (ret < 0) {
-		netdev_err(netdev, "Could not register MDIO bus %d\n", ret);
+		dev_err(dev, "Could not register MDIO bus %d\n", ret);
 		return ret;
 	}
 
-	skb_queue_head_init(&priv->txq);
-
-	netdev->irq = spi->irq;
-
-	netif_carrier_off(priv->netdev);
-
-	/* FIXME: This should be changed to 10BASET1L when introduced to PAL */
-	netdev->if_port = IF_PORT_10BASET;
-	netdev->netdev_ops = &adin1110_netdev_ops;
-	netdev->ethtool_ops = &adin1110_ethtool_ops;
-
-	ret = devm_register_netdev(dev, netdev);
-	if (ret) {
-		dev_err(dev, "failed to register network device\n");
-		return ret;
-	}
-
-	/* there is only one PHY connected to our registered MDIO bus */
-	priv->phydev = phy_find_first(priv->mii_bus);
-	if (!priv->phydev)
-		return -ENODEV;
-
-	priv->phydev = phy_connect(netdev, phydev_name(priv->phydev),
-				   adin1110_adjust_link, PHY_INTERFACE_MODE_MII);
-	if (IS_ERR(priv->phydev))
-		return PTR_ERR(priv->phydev);
-
-	return devm_add_action_or_reset(dev, adin1110_disconnect_phy, priv->phydev);
+	return adin1110_probe_netdevs(priv);
 }
 
 static const struct of_device_id adin1110_match_table[] = {
 	{ .compatible = "adi,adin1110" },
+	{ .compatible = "adi,adin2111" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adin1110_match_table);
+
+static const struct spi_device_id adin1110_spi_id[] = {
+	{ .name = "adin1110", .driver_data = ADIN1110_MAC },
+	{ .name = "adin2111", .driver_data = ADIN2111_MAC },
+	{ }
+};
 
 static struct spi_driver adin1110_driver = {
 	.driver = {
@@ -963,6 +1158,7 @@ static struct spi_driver adin1110_driver = {
 		.of_match_table = adin1110_match_table,
 	},
 	.probe = adin1110_probe,
+	.id_table = adin1110_spi_id,
 };
 module_spi_driver(adin1110_driver);
 
