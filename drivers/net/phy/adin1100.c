@@ -16,6 +16,7 @@
 
 #define PHY_ID_ADIN1100				0x0283bc81
 #define PHY_ID_ADIN1110				0x0283bc91
+#define PHY_ID_ADIN2111				0x0283bca1
 
 static const int phy_10_features_array[] = {
 	ETHTOOL_LINK_MODE_10baseT_Full_BIT,
@@ -130,6 +131,8 @@ static int adin_match_phy_device(struct phy_device *phydev)
 	case PHY_ID_ADIN1100:
 		return 1;
 	case PHY_ID_ADIN1110:
+		return 1;
+	case PHY_ID_ADIN2111:
 		return 1;
 	default:
 		return 0;
@@ -482,7 +485,8 @@ static int adin_probe(struct phy_device *phydev)
 
 static struct phy_driver adin_driver[] = {
 	{
-		PHY_ID_MATCH_MODEL(PHY_ID_ADIN1100),
+		.phy_id			= PHY_ID_ADIN1100,
+		.phy_id_mask		= GENMASK(31, 8),
 		.name			= "ADIN1100",
 		.get_features		= adin_get_features,
 		.match_phy_device	= adin_match_phy_device,
@@ -506,6 +510,7 @@ module_phy_driver(adin_driver);
 static struct mdio_device_id __maybe_unused adin_tbl[] = {
 	{ PHY_ID_MATCH_MODEL(PHY_ID_ADIN1100) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_ADIN1110) },
+	{ PHY_ID_MATCH_MODEL(PHY_ID_ADIN2111) },
 	{ }
 };
 
