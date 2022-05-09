@@ -173,6 +173,7 @@ typedef struct {
 	struct fasync_struct *async_queue_dec;
 	struct fasync_struct *async_queue_pp;
 	struct thermal_cooling_device *cooling;
+	bool skip_blkctrl;
 } hantrodec_t;
 
 static hantrodec_t hantrodec_data; /* dynamic allocation? */
@@ -287,6 +288,9 @@ static int hantro_clk_disable(struct device *dev)
 static int hantro_ctrlblk_reset(struct device *dev)
 {
 	volatile u8 *iobase;
+
+	if (hantrodec_data.skip_blkctrl)
+		return 0;
 
 	//config G1/G2
 	hantro_clk_enable(dev);
@@ -1780,6 +1784,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	struct device *temp_class;
 	struct resource *res;
 	unsigned long reg_base;
+	struct device_node *node;
 
 	hantro_dev = &pdev->dev;
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs_hantro");
@@ -1802,6 +1807,18 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	}
 	pr_debug("hantro: g1, g2, bus clock: 0x%lX, 0x%lX, 0x%lX\n", clk_get_rate(hantro_clk_g1),
 				clk_get_rate(hantro_clk_g2), clk_get_rate(hantro_clk_bus));
+
+	/*
+	 * If integrate power-domains into blk-ctrl driver, vpu driver don't
+	 * need handle it again.
+	 */
+	node = of_parse_phandle(pdev->dev.of_node, "power-domains", 0);
+	if (!node) {
+		pr_err("hantro: not get power-domains\n");
+		return -ENODEV;
+	}
+	hantrodec_data.skip_blkctrl = !strcmp(node->name, "blk-ctrl");
+	of_node_put(node);
 
 #if 0
 	hantro_regulator = regulator_get(&pdev->dev, "regulator");
