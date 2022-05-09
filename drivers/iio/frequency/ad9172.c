@@ -27,6 +27,7 @@
 
 #include "cf_axi_dds.h"
 #include "ad917x/AD917x.h"
+#include "ad917x/ad917x_reg.h"
 
 #define AD9172_SAMPLE_RATE_KHZ 3000000UL /* 3 GSPS */
 
@@ -418,6 +419,7 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	u16 val16 = 0;
+	u8 cached_page_mask;
 	int ret;
 
 	switch (m) {
@@ -425,6 +427,9 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 		*val = ad9172_get_data_clk(conv);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
+		ad917x_register_read(&st->dac_h,
+			AD917X_SPI_PAGEINDX_REG, &cached_page_mask);
+
 		ret = ad917x_set_page_idx(ad917x_h,
 					  AD917X_DAC_NONE, BIT(chan->channel));
 		if (ret < 0)
@@ -432,6 +437,9 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 		ret = ad917x_get_channel_gain(ad917x_h, &val16);
 		if (ret < 0)
 			return ret;
+
+		ad917x_register_write(&st->dac_h,
+			AD917X_SPI_PAGEINDX_REG, cached_page_mask);
 
 		*val = val16;
 		*val2 = 11;
