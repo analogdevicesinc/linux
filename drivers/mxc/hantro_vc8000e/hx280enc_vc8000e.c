@@ -53,6 +53,7 @@
 #include <linux/vmalloc.h>
 #include <linux/timer.h>
 #include <linux/compat.h>
+#include <linux/of.h>
 
 /* our own stuff */
 #include "hx280enc.h"
@@ -66,6 +67,7 @@
 static struct device *hantro_vc8000e_dev;
 static struct clk *hantro_clk_vc8000e;
 static struct clk *hantro_clk_vc8000e_bus;
+static bool hantro_skip_blkctrl;
 #define BLK_CTL_BASE        0x38330000
 #endif
 
@@ -180,6 +182,9 @@ static int hantro_vc8000e_ctrlblk_reset(struct device *dev)
 {
 	volatile u8 *iobase;
 	u32 val;
+
+	if (hantro_skip_blkctrl)
+		return 0;
 
 	//config vc8000e
 	hantro_vc8000e_clk_enable(dev);
@@ -1178,6 +1183,7 @@ static int hantro_vc8000e_probe(struct platform_device *pdev)
 {
 	int err = 0;
 	struct resource *res;
+	struct device_node *node;
 
 	hantro_vc8000e_dev = &pdev->dev;
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs_hantro_vc8000e");
@@ -1202,6 +1208,18 @@ static int hantro_vc8000e_probe(struct platform_device *pdev)
 	}
 
 	PDEBUG("hantro: vc8000e clock: 0x%lX, 0x%lX\n", clk_get_rate(hantro_clk_vc8000e), clk_get_rate(hantro_clk_vc8000e_bus));
+
+	/*
+	 * If integrate power-domains into blk-ctrl driver, vpu driver don't
+	 * need handle it again.
+	 */
+	node = of_parse_phandle(pdev->dev.of_node, "power-domains", 0);
+	if (!node) {
+		pr_err("hantro vc8000e: not get power-domains\n");
+		return -ENODEV;
+	}
+	hantro_skip_blkctrl = !strcmp(node->name, "blk-ctrl");
+	of_node_put(node);
 
 	hantro_vc8000e_clk_enable(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
