@@ -86,6 +86,7 @@ int ad917x_register_read_block(ad917x_handle_t *h,
 #define AD917X_DP_INTERP_MODE(x)      (((x) & 0xF) << 4)
 
 #define AD917X_DDSM_DATAPATH_CFG_REG  0x112
+#define AD917X_DDSM_EN_COMPLEX_MOD    BIT(6)
 #define AD917X_DDSM_MODE(x)           (((x) & 0x3) << 4)
 #define AD917X_DDSM_NCO_EN            BIT(3)
 #define AD917X_DDSM_MODULUS_EN        BIT(2)

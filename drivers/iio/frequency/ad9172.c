@@ -27,6 +27,7 @@
 
 #include "cf_axi_dds.h"
 #include "ad917x/AD917x.h"
+#include "ad917x/ad917x_reg.h"
 
 #define AD9172_SAMPLE_RATE_KHZ 3000000UL /* 3 GSPS */
 
@@ -66,6 +67,7 @@ struct ad9172_state {
 	u32 dac_interpolation;
 	u32 channel_interpolation;
 	u32 interpolation;
+	u32 mod_switch_config;
 	u32 jesd_link_mode;
 	u32 jesd_dual_link_mode;
 	u32 jesd_subclass;
@@ -157,13 +159,50 @@ static int ad9172_link_status_get(struct ad9172_state *st, unsigned long lane_ra
 	return 0;
 }
 
+static int ad9172_setup_modulator_config(struct ad9172_state *st)
+{
+	int ret, mask;
+	u8 ddsm_datapath_cfg;
+
+	for (mask = AD917X_DAC0; mask <= AD917X_DAC1; mask++) {
+		ret = ad917x_set_page_idx(&st->dac_h, mask, AD917X_CH_NONE);
+		if (ret)
+			return ret;
+
+		ret = ad917x_register_read(&st->dac_h,
+			AD917X_DDSM_DATAPATH_CFG_REG, &ddsm_datapath_cfg);
+		if (ret)
+			return ret;
+
+		ddsm_datapath_cfg &= ~AD917X_DDSM_MODE(~0) | AD917X_DDSM_EN_COMPLEX_MOD;
+
+		if (st->mod_switch_config)
+			ddsm_datapath_cfg &= ~AD917X_DDSM_NCO_EN;
+
+		if ((st->mod_switch_config & 0xF) == 3) {
+			if ((mask == AD917X_DAC1) && (st->mod_switch_config & BIT(5)))
+				ad917x_register_write(&st->dac_h, 0xFF, BIT(1));
+			else
+				ddsm_datapath_cfg |= AD917X_DDSM_NCO_EN;
+		}
+
+		ddsm_datapath_cfg |= AD917X_DDSM_MODE(st->mod_switch_config & 0xF) |
+			(st->mod_switch_config & BIT(4) ? AD917X_DDSM_EN_COMPLEX_MOD : 0);
+
+		ret = ad917x_register_write(&st->dac_h, AD917X_DDSM_DATAPATH_CFG_REG, ddsm_datapath_cfg);
+		if (ret)
+			return ret;
+	}
+	return 0;
+};
+
 static int ad9172_finalize_setup(struct ad9172_state *st)
 {
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	int ret;
 	u8 dac_mask, chan_mask;
 
-	if (st->jesd_dual_link_mode || st->interpolation == 1)
+	if (st->jesd_dual_link_mode || st->interpolation == 1 || (st->mod_switch_config & 0xF) > 1)
 		dac_mask = AD917X_DAC0 | AD917X_DAC1;
 	else
 		dac_mask = AD917X_DAC0;
@@ -183,11 +222,15 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 		ad917x_nco_enable(ad917x_h, st->nco_main_enable, 0);
 	}
 
+	ret = ad9172_setup_modulator_config(st);
+	if (ret)
+		return -EIO;
+
 	ret = ad917x_set_page_idx(ad917x_h, dac_mask, AD917X_CH_NONE);
 	if (ret != 0)
 		return -EIO;
 
-	return regmap_write(st->map, 0x596, 0x1c);
+	return regmap_write(st->map, 0x596, 0x0c);
 }
 
 static int ad9172_setup(struct ad9172_state *st)
@@ -612,6 +655,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	int ret = 0;
 	s64 val64 = 0;
 	s16 val16_2, val16 = 0;
+	u8 ddsm_datapath_cfg;
 
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address & ~0xFF) {
@@ -639,7 +683,10 @@ static ssize_t ad9172_attr_show(struct device *dev,
 		val64 = !!(st->nco_channel_enable & BIT(dest));
 		break;
 	case AD9172_ATTR_MAIN_NCO_EN(0):
-		val64 = !!(st->nco_main_enable & BIT(dest));
+		ad917x_set_page_idx(ad917x_h, BIT(dest), AD917X_CH_NONE);
+		ret = ad917x_register_read(ad917x_h,
+			AD917X_DDSM_DATAPATH_CFG_REG, &ddsm_datapath_cfg);
+		val64 = !!(ddsm_datapath_cfg & AD917X_DDSM_NCO_EN);
 		break;
 	default:
 		ret = -EINVAL;
@@ -934,6 +981,9 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 	st->channel_interpolation = 1;
 	of_property_read_u32(np, "adi,channel-interpolation",
 			     &st->channel_interpolation);
+
+	of_property_read_u32(np, "adi,modulatior-switch-config",
+			     &st->mod_switch_config);
 
 	st->clock_output_config = 0;
 	of_property_read_u32(np, "adi,clock-output-divider",
@@ -1345,6 +1395,7 @@ static int ad9172_probe(struct spi_device *spi)
 	st->dac_h.reset_pin_ctrl = NULL;
 	st->dac_h.syncoutb = st->syncoutb_type;
 	st->dac_h.sysref = st->sysref_coupling;
+	st->dac_h.mod_switch_config = st->mod_switch_config & 0xF;
 
 	st->standalone = device_property_read_bool(&spi->dev, "adi,standalone-probe");
 

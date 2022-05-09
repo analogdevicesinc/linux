@@ -95,6 +95,7 @@ typedef struct {
 	tx_en_pin_ctrl; /**< Function Pointer to HAL TX_ENABLE Pin Ctrl function*/
 	reset_pin_ctrl_t
 	reset_pin_ctrl; /**< Function Point to HAL RESETB Pin Ctrl Function*/
+	uint32_t mod_switch_config; /**< Modulator Switch Configuration */
 	hw_open_t hw_open;      /**< Function Pointer to HAL initialization function*/
 	hw_close_t
 	hw_close;    /**< Function Pointer to HAL de-initialization function*/

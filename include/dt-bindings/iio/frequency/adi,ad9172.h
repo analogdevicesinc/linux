@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD917x SPI DAC driver
+ *
+ * Copyright 2022 Analog Devices Inc.
+ *
+ */
+
+#ifndef _DT_BINDINGS_IIO_FREQUENCY_AD9172_H_
+#define _DT_BINDINGS_IIO_FREQUENCY_AD9172_H_
+
+/* adi,modulatior-switch-config */
+
+#define AD9172_MODULATOR_SWITCH_CONF_0	0x0
+#define AD9172_MODULATOR_SWITCH_CONF_1	0x1
+#define AD9172_MODULATOR_SWITCH_CONF_2	0x2
+#define AD9172_MODULATOR_SWITCH_CONF_3	0x3
+#define AD9172_MODULATOR_SWITCH_CONF_3A	0x13
+#define AD9172_MODULATOR_SWITCH_CONF_3B	0x33
+
+#endif /* _DT_BINDINGS_IIO_FREQUENCY_AD9172_H_ */

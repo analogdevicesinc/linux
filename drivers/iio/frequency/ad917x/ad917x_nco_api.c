@@ -822,7 +822,8 @@ int ad917x_nco_set(ad917x_handle_t *h,
 			if (err != API_ERROR_OK)
 				return err;
 			err = ad917x_register_write(h, AD917X_DDSM_DATAPATH_CFG_REG,
-						    AD917X_DDSM_MODE(0) | AD917X_DDSM_NCO_EN);
+						    AD917X_DDSM_MODE(h->mod_switch_config) |
+						    AD917X_DDSM_NCO_EN);
 			if (err != API_ERROR_OK)
 				return err;
 			/*DDSM CAL EN */
@@ -915,7 +916,8 @@ int ad917x_nco_set(ad917x_handle_t *h,
 				return err;
 
 			err = ad917x_register_write(h, AD917X_DDSM_DATAPATH_CFG_REG,
-						    AD917X_DDSM_MODE(0) | AD917X_DDSM_NCO_EN | AD917X_DDSM_MODULUS_EN);
+						    AD917X_DDSM_MODE(h->mod_switch_config) |
+						    AD917X_DDSM_NCO_EN | AD917X_DDSM_MODULUS_EN);
 			if (err != API_ERROR_OK)
 				return err;
 			/*DDSM CAL EN */
