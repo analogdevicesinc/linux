@@ -1,0 +1,74 @@
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		i2c@41620000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			reg = <0x41620000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			eeprom1: eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+        };
+
+	leds {
+		compatible = "gpio-leds";
+		ld0 {
+			label = "ld0:red";
+			gpios = <&gpio0 73 0>;
+		};
+
+		ld1 {
+			label = "ld1:red";
+			gpios = <&gpio0 74 0>;
+		};
+
+		ld2 {
+			label = "ld2:red";
+			gpios = <&gpio0 75 0>;
+		};
+
+		ld3 {
+			label = "ld3:red";
+			gpios = <&gpio0 76 0>;
+		};
+
+		ld4 {
+			label = "ld4:red";
+			gpios = <&gpio0 77 0>;
+		};
+
+		ld5 {
+			label = "ld5:red";
+			gpios = <&gpio0 78 0>;
+		};
+
+		ld6 {
+			label = "ld6:red";
+			gpios = <&gpio0 79 0>;
+		};
+
+		ld7 {
+			label = "ld7:red";
+			gpios = <&gpio0 80 0>;
+		};
+	};
+};
