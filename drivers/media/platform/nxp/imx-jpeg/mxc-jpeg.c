@@ -575,6 +575,10 @@ static unsigned int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-3)");
 
+static unsigned int sw_reset = 1;
+module_param(sw_reset, int, 0644);
+MODULE_PARM_DESC(sw_reset, "SW reset every frame (0=no reset, 1=do reset)");
+
 static unsigned int hw_timeout = 2000;
 module_param(hw_timeout, int, 0644);
 MODULE_PARM_DESC(hw_timeout, "MXC JPEG hw timeout, the number of milliseconds");
@@ -979,7 +983,7 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 	buf_state = VB2_BUF_STATE_DONE;
 
 buffers_done:
-	mxc_jpeg_job_finish(ctx, buf_state, false);
+	mxc_jpeg_job_finish(ctx, buf_state, sw_reset);
 	spin_unlock(&jpeg->hw_lock);
 	cancel_delayed_work(&ctx->task_timer);
 	v4l2_m2m_job_finish(jpeg->m2m_dev, ctx->fh.m2m_ctx);
