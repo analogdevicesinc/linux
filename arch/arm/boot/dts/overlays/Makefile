@@ -167,6 +167,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	qca7000-uart0.dtbo \
 	rotary-encoder.dtbo \
 	rpi-ada4250.dtbo \
+	rpi-adin1110.dtbo \
 	rpi-adau1761.dtbo \
 	rpi-adau1472.dtbo \
 	rpi-addi9036.dtbo \
