@@ -194,6 +194,8 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-ad9545-hmc7044.dtbo \
 	rpi-ad9834.dtbo \
 	rpi-adar1000.dtbo \
+	rpi-adar3002-longs-peak.dtbo \
+	rpi-adar3003-longs-peak.dtbo \
 	rpi-adgs1408.dtbo \
 	rpi-adxl345.dtbo \
 	rpi-adxl355.dtbo \
