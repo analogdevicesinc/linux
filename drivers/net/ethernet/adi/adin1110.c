@@ -72,6 +72,7 @@
 #define   ADIN2111_MAC_ADDR_APPLY2PORT2		BIT(31)
 #define   ADIN1110_MAC_ADDR_APPLY2PORT		BIT(30)
 #define   ADIN1110_MAC_ADDR_HOST_PRI		BIT(19)
+#define   ADIN2111_MAC_ADDR_TO_OTHER_PORT	BIT(17)
 #define   ADIN1110_MAC_ADDR_TO_HOST		BIT(16)
 #define   ADIN1110_MAC_ADDR			GENMASK(15, 0)
 
@@ -618,8 +619,13 @@ static int adin1110_write_mac_address(struct adin1110_port_priv *port_priv, int 
 	u32 val;
 
 	port_rules = ADIN1110_MAC_ADDR_APPLY2PORT;
-	if (priv->cfg->id == ADIN2111_MAC)
+	if (priv->cfg->id == ADIN2111_MAC) {
 		port_rules |= ADIN2111_MAC_ADDR_APPLY2PORT2;
+
+		/* Broadcast and multicast should also be forwarded to the other port */
+		if (mac_nr != ADIN_MAC_ADDR_SLOT)
+			port_rules |= ADIN2111_MAC_ADDR_TO_OTHER_PORT;
+	}
 
 	/* tell MAC to forward this DA to host */
 	val = port_rules | ADIN1110_MAC_ADDR_TO_HOST;
