@@ -1316,7 +1316,8 @@ static int ad9528_jesd204_link_supported(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d link_num %u LMFC/LEMC %u/%lu gcd %u\n",
 		__func__, __LINE__, lnk->link_id, st->jdev_lmfc_lemc_rate,
 		rate, st->jdev_lmfc_lemc_gcd);
-	if (ret)
+
+	if (ret && lnk->subclass != JESD204_SUBCLASS_0)
 		return ret;
 
 	return JESD204_STATE_CHANGE_DONE;
