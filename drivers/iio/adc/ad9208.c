@@ -1548,11 +1548,20 @@ static int ad9208_probe(struct spi_device *spi)
 	case CHIPID_AD9208:
 	case CHIPID_AD6684:
 	case CHIPID_AD9689:
-	case CHIPID_AD9694:
 		phy->ad9208.model = 0x9208;
 		phy->ad9208.input_clk_min_hz = 2500000000ULL;
 		phy->ad9208.input_clk_max_hz = 6000000000ULL;
 		phy->ad9208.adc_clk_min_hz = 2500000000ULL;
+		phy->ad9208.adc_clk_max_hz = 3100000000ULL;
+		phy->ad9208.slr_max_mbps = 16000;
+		phy->ad9208.slr_min_mbps = 390;
+		chan_id = (spi_id & ID_DUAL) ? ID_AD9208_X2 : ID_AD9208;
+		break;
+	case CHIPID_AD9694:
+		phy->ad9208.model = 0x9208;
+		phy->ad9208.input_clk_min_hz = 500000000ULL;
+		phy->ad9208.input_clk_max_hz = 600000000ULL;
+		phy->ad9208.adc_clk_min_hz = 500000000ULL;
 		phy->ad9208.adc_clk_max_hz = 3100000000ULL;
 		phy->ad9208.slr_max_mbps = 16000;
 		phy->ad9208.slr_min_mbps = 390;
