@@ -2,7 +2,7 @@
 /*
  * Analog Devices ADF4371 SPI Wideband Synthesizer driver
  *
- * Copyright 2019 Analog Devices Inc.
+ * Copyright 2019-2022 Analog Devices Inc.
  */
 #include <linux/bitfield.h>
 #include <linux/clk.h>
@@ -99,6 +99,10 @@
 #define ADF4371_VCO_ALC_TOUT_MSK	GENMASK(4, 0)
 #define ADF4371_VCO_ALC_TOUT(x)		FIELD_PREP(ADF4371_VCO_ALC_TOUT_MSK, x)
 
+/* ADF4371_REG72 */
+#define ADF4371_AUX_FREQ_SEL_MSK	BIT(6)
+#define ADF4371_AUX_FREQ_SEL(x)		FIELD_PREP(ADF4371_AUX_FREQ_SEL_MSK, x)
+
 /* ADF4371_REG73 */
 #define ADF4371_ADC_CLK_DISABLE_MSK	BIT(2)
 #define ADF4371_ADC_CLK_DISABLE(x)	FIELD_PREP(ADF4371_ADC_CLK_DISABLE_MSK, x)
@@ -129,6 +133,7 @@ enum {
 	ADF4371_POWER_DOWN,
 	ADF4371_CHANNEL_NAME,
 	ADF4371_MUXOUT_ENABLE,
+	ADF4371_AUX_FREQ_VCO_ENABLE,
 };
 
 enum {
@@ -287,6 +292,7 @@ struct adf4371_state {
 	bool muxout_1v8_en;
 	bool spi_3wire_en;
 	bool differential_ref_clk;
+	bool rf8aux_vco_en;
 	u8 buf[10] ____cacheline_aligned;
 };
 
@@ -304,7 +310,8 @@ static unsigned long long adf4371_pll_fract_n_get_rate(struct adf4371_state *st,
 	do_div(tmp, st->mod2);
 	val += tmp + ADF4371_MODULUS1 / 2;
 
-	if (channel == ADF4371_CH_RF8 || channel == ADF4371_CH_RFAUX8)
+	if (channel == ADF4371_CH_RF8 ||
+		(channel == ADF4371_CH_RFAUX8 && !st->rf8aux_vco_en))
 		ref_div_sel = st->rf_div_sel;
 	else
 		ref_div_sel = 0;
@@ -356,8 +363,15 @@ static int adf4371_set_freq(struct adf4371_state *st, unsigned long long freq,
 	int ret;
 
 	switch (channel) {
-	case ADF4371_CH_RF8:
 	case ADF4371_CH_RFAUX8:
+		if (st->rf8aux_vco_en) {
+			if (ADF4371_CHECK_RANGE(freq, VCO_FREQ))
+				return -EINVAL;
+
+			break;
+		}
+		fallthrough;
+	case ADF4371_CH_RF8:
 		if (ADF4371_CHECK_RANGE(freq, OUT_RF8_FREQ))
 			return -EINVAL;
 
@@ -623,6 +637,13 @@ static ssize_t adf4371_read(struct iio_dev *indio_dev,
 
 		val = !(readval & BIT(bit));
 		break;
+	case ADF4371_AUX_FREQ_VCO_ENABLE:
+		ret = regmap_read(st->regmap, ADF4371_REG(0x72), &readval);
+		if (ret < 0)
+			break;
+
+		val = !!(readval & ADF4371_AUX_FREQ_SEL_MSK);
+		break;
 	case ADF4371_CHANNEL_NAME:
 		return sprintf(buf, "%s\n", adf4371_ch_names[chan->channel]);
 	case ADF4371_MUXOUT_ENABLE:
@@ -643,7 +664,7 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 {
 	struct adf4371_state *st = iio_priv(indio_dev);
 	unsigned long long freq;
-	bool power_down, muxout_en;
+	bool power_down, muxout_en, enable;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -668,12 +689,25 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 			break;
 
 		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x20),
-					 ADF4371_MUXOUT_EN_MSK,
+					 ADF4371_AUX_FREQ_SEL_MSK,
 					 ADF4371_MUXOUT_EN(muxout_en));
 		if (ret < 0)
 			break;
 
 		st->muxout_en = muxout_en;
+		break;
+	case ADF4371_AUX_FREQ_VCO_ENABLE:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			break;
+
+		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x72),
+					 ADF4371_AUX_FREQ_SEL_MSK,
+					 ADF4371_AUX_FREQ_SEL(enable));
+		if (ret < 0)
+			break;
+
+		st->rf8aux_vco_en = enable;
 		break;
 	default:
 		ret = -EINVAL;
@@ -756,6 +790,37 @@ static const struct iio_chan_spec_ext_info adf4371_ext_info[] = {
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE), \
 	}
 
+static const struct iio_chan_spec_ext_info adf4371_ext_info_aux[] = {
+	/*
+	 * Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
+	 * values > 2^32 in order to support the entire frequency range
+	 * in Hz. Using scale is a bit ugly.
+	 */
+	_ADF4371_EXT_INFO("frequency", ADF4371_FREQ),
+	_ADF4371_EXT_INFO("powerdown", ADF4371_POWER_DOWN),
+	_ADF4371_EXT_INFO("vco_output_enable", ADF4371_AUX_FREQ_VCO_ENABLE),
+	_ADF4371_EXT_INFO("name", ADF4371_CHANNEL_NAME),
+	{
+		.name = "muxout_enable",
+		.read = adf4371_read,
+		.write = adf4371_write,
+		.private = ADF4371_MUXOUT_ENABLE,
+		.shared = IIO_SHARED_BY_ALL,
+	},
+	IIO_ENUM("muxout_mode", IIO_SHARED_BY_ALL, &adf4371_muxout_mode_enum),
+	IIO_ENUM_AVAILABLE("muxout_mode", &adf4371_muxout_mode_enum),
+	{ },
+};
+
+#define ADF4371_AUX_CHANNEL(index) { \
+		.type = IIO_ALTVOLTAGE, \
+		.output = 1, \
+		.channel = index, \
+		.ext_info = adf4371_ext_info_aux, \
+		.indexed = 1, \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE), \
+	}
+
 static const struct iio_chan_spec adf4371_chan[] = {
 	{
 		.type = IIO_TEMP,
@@ -764,7 +829,7 @@ static const struct iio_chan_spec adf4371_chan[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
 	},
 	ADF4371_CHANNEL(ADF4371_CH_RF8),
-	ADF4371_CHANNEL(ADF4371_CH_RFAUX8),
+	ADF4371_AUX_CHANNEL(ADF4371_CH_RFAUX8),
 	ADF4371_CHANNEL(ADF4371_CH_RF16),
 	ADF4371_CHANNEL(ADF4371_CH_RF32),
 };
