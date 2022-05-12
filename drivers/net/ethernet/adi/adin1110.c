@@ -122,9 +122,9 @@
 
 #define ADIN_MAC_MAX_PORTS			2
 
-#define ADIN_MAC_ADDR_SLOT			0
-#define ADIN_MAC_BROADCAST_ADDR_SLOT		1
-#define ADIN_MAC_MULTICAST_ADDR_SLOT		2
+#define ADIN_MAC_MULTICAST_ADDR_SLOT		0
+#define ADIN_MAC_ADDR_SLOT			1
+#define ADIN_MAC_BROADCAST_ADDR_SLOT		2
 
 DECLARE_CRC8_TABLE(adin1110_crc_table);
 
@@ -633,13 +633,18 @@ static int adin1110_write_mac_address(struct adin1110_port_priv *port_priv, int 
 	if (ret < 0)
 		return ret;
 
-	val = get_unaligned_be16(&mask[0]);
-	ret = adin1110_write_reg(priv, ADIN1110_MAC_ADDR_MASK_UPR + offset, val);
-	if (ret < 0)
-		return ret;
+	/* only the first two MAC address slots support masking */
+	if (mac_nr < ADIN_MAC_BROADCAST_ADDR_SLOT) {
+		val = get_unaligned_be16(&mask[0]);
+		ret = adin1110_write_reg(priv, ADIN1110_MAC_ADDR_MASK_UPR + offset, val);
+		if (ret < 0)
+			return ret;
 
-	val = get_unaligned_be32(&mask[2]);
-	return adin1110_write_reg(priv, ADIN1110_MAC_ADDR_MASK_LWR + offset, val);
+		val = get_unaligned_be32(&mask[2]);
+		return adin1110_write_reg(priv, ADIN1110_MAC_ADDR_MASK_LWR + offset, val);
+	}
+
+	return 0;
 }
 
 static int adin1110_clear_mac_address(struct adin1110_port_priv *port_priv, int mac_nr)
