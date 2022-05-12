@@ -2,6 +2,8 @@
 /*
  * dts file for AD9083-ADL5960 on Xilinx ZynqMP ZCU102 Rev 1.0
  *
+ * board_revision: <Rev.B>
+ *
  * Copyright (C) 2021 Analog Devices Inc.
  */
 #include <dt-bindings/iio/frequency/ad9528.h>
@@ -20,15 +22,6 @@
 #define AD9083_NCO_FREQ		(ADF9528_DIST_CLK / ADL5960_FOF)
 
 / {
-	clk_doubler: hmc561 {
-		#clock-cells = <0>;
-		compatible = "fixed-factor-clock";
-		clock-div = <1>;
-		clock-mult = <2>;
-		clocks = <&adf5610>;
-		clock-output-names = "doubler";
-	};
-
 	fixed_clk: fixed-clock {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
@@ -59,16 +52,16 @@
 		label = "mux-rfin";
 	};
 
-	clk_mux0: mux-doubler {
+	clk_mux0: mux-adf4371 {
 		compatible = "adi,gen_mux";
-		clocks = <&adf5610>, <&fixed_clk>, <&fixed_clk>, <&clk_doubler>;
+		clocks = <&adf4371 3>, <&adf4371 0>, <&adf4371 2>, <&fixed_clk>;
 		#clock-cells = <0>;
-		clock-names = "bypass", "iso1", "iso2", "doubler";
+		clock-names = "pll0-clk-rf32", "pll0-clk-rf8", "pll0-clk-rf16", "disabled";
 		clock-output-names = "clk-mux-out";
 
 		mux-controls = <&mux1>;
-		mux-state-names = "bypass", "iso1", "iso2", "doubler";
-		label = "mux-doubler";
+		mux-state-names = "rf32", "rf8", "rf16", "disabled";
+		label = "mux-adf4371";
 	};
 
 	adl5960-sync@0 {
@@ -83,8 +76,6 @@
 			label = "ADL5960x_SYNC";
 		};
 	};
-
-
 };
 
 &spi0 {
@@ -124,7 +115,7 @@
 		adi,sysref-k-div = <256>;
 		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
 		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
-		adi,jesd204-max-sysref-frequency-hz = <400000>;
+		//adi,jesd204-max-sysref-frequency-hz = <400000>;
 
 		/* PLL1 config */
 		adi,pll1-feedback-src-vcxo;
@@ -319,17 +310,6 @@
 &spi1 {
 	status = "okay";
 
-	admv8818-1@0{
-		compatible = "adi,admv8818";
-		reg = <0>;
-		spi-max-frequency = <1000000>;
-		clocks = <&adf5610>; /* Fixme */
-		clock-names = "rf_in";
-		clock-scales = <1 10>;
-		label = "admv8818-lo";
-		adi,tolerance-percent = <3>;
-	};
-
 	admv8818-2@1{
 		compatible = "adi,admv8818";
 		reg = <1>;
@@ -341,20 +321,39 @@
 		adi,tolerance-percent = <3>;
 	};
 
-	adf5610: adf5610@2 {
-		compatible = "adi,adf5610";
+	adf4371: adf4371@2 {
+		compatible = "adi,adf4371";
 		reg = <2>;
 		spi-max-frequency = <1000000>;
-		#clock-cells = <0>;
+		#address-cells = <1>;
+		#clock-cells = <1>;
+		#size-cells = <0>;
 		clocks = <&ad9528 2>;
-		clock-names = "xref";
+		clock-names = "clkin";
 		clock-scales = <1 10>;
-		adi,power-up-div-out-frequency-hz = /bits/ 64 <3000000000>;
-		adi,charge-pump-down-gain-ua =  /bits/ 16 <2540>;
-		adi,charge-pump-up-gain-ua = /bits/ 16 <2540>;
-		adi,charge-pump-offset-ua = /bits/ 16  <520>;
-		adi,charge-pump-offset-down-enable;
-		label = "adf5610";
+		label = "adf4371";
+		clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
+			"pll0-clk-rf16", "pll0-clk-rf32";
+		channel@0 {
+			reg = <0>;
+			adi,power-up-frequency = /bits/ 64 <1000000000>;
+			adi,output-enable;
+		};
+		channel@1 {
+			reg = <1>;
+			adi,power-up-frequency = /bits/ 64 <1000000000>;
+			adi,output-enable;
+		};
+		channel@2 {
+			reg = <2>;
+			adi,power-up-frequency = /bits/ 64 <8000000000>;
+			adi,output-enable;
+		};
+		channel@3 {
+			reg = <3>;
+			adi,power-up-frequency = /bits/ 64 <16000000000>;
+			adi,output-enable;
+		};
 	};
 };
 
@@ -364,7 +363,7 @@
 		reg = <0>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 4>;
+		clocks = <&adf4371 1>, <&ad9528 4>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-1";
@@ -375,7 +374,7 @@
 		reg = <1>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 5>;
+		clocks = <&adf4371 1>, <&ad9528 5>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-2";
@@ -386,7 +385,7 @@
 		reg = <2>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 6>;
+		clocks = <&adf4371 1>, <&ad9528 6>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-3";
@@ -397,7 +396,7 @@
 		reg = <3>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 7>;
+		clocks = <&adf4371 1>, <&ad9528 7>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-4";
@@ -410,7 +409,7 @@
 		reg = <0>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 8>;
+		clocks = <&adf4371 1>, <&ad9528 8>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-5";
@@ -421,7 +420,7 @@
 		reg = <1>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 9>;
+		clocks = <&adf4371 1>, <&ad9528 9>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-6";
@@ -431,7 +430,7 @@
 		reg = <2>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 10>;
+		clocks = <&adf4371 1>, <&ad9528 10>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-7";
@@ -442,7 +441,7 @@
 		reg = <3>;
 		spi-max-frequency = <12500000>;
 		/* Clocks */
-		clocks = <&adf5610>, <&ad9528 11>;
+		clocks = <&adf4371 1>, <&ad9528 11>;
 		clock-names = "lo_in", "offs_in";
 		lo_in-clock-scales = <1 10>;
 		label = "adl5960-8";
