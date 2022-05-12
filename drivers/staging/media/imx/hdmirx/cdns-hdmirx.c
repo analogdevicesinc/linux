@@ -938,6 +938,8 @@ static int tmdsmon_fn(void *data)
 			continue;
 
 		if (change) {
+			char event_string[32];
+			char *envp[] = { event_string, NULL };
 			if (hdmirx->initialized) {
 				if (hdmirx->hdcp_fw_loaded && !hdmirx->allow_hdcp)
 					cdns_hdcprx_disable(hdmirx);
@@ -986,6 +988,12 @@ static int tmdsmon_fn(void *data)
 			startup_attempts = 0;
 			hdmirx->initialized = true;
 			hdmirx->cable_plugin = true;
+
+			/* Only send the UEVENT after HDMI RX is ready */
+			sprintf(event_string, "EVENT=hdmirxin");
+			kobject_uevent_env(&hdmirx->pdev->dev.kobj,
+					   KOBJ_CHANGE, envp);
+
 		} else {
 			if (hdmirx->initialized) {
 
@@ -1102,10 +1110,6 @@ static void hpd5v_work_func(struct work_struct *work)
 		}
 		hdmirx->initialized = 0;
 		hdmirx->tmds_clk = -1;
-
-		sprintf(event_string, "EVENT=hdmirxin");
-		kobject_uevent_env(&hdmirx->pdev->dev.kobj, KOBJ_CHANGE, envp);
-		hdmirx->cable_plugin = true;
 #ifdef CONFIG_MHDP_HDMIRX_CEC
 		if (hdmirx->is_cec) {
 			hdmirx_cec_init(hdmirx);
