@@ -635,12 +635,33 @@ M: Li Yang <leoyang.li@nxp.com>
 M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
 F: arch/arm/boot/dts/imx*
 
-dts/imx8m
+dts/imx8mq
 M: Dong Aisheng <aisheng.dong@nxp.com>
 M: Abel Vesa <abel.vesa@nxp.com>
 M: Li Yang <leoyang.li@nxp.com>
 M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
-F: arch/arm64/boot/dts/freescale/imx8m*
+F: arch/arm64/boot/dts/freescale/imx8mq*
+
+dts/imx8mm
+M: Dong Aisheng <aisheng.dong@nxp.com>
+M: Abel Vesa <abel.vesa@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx8mm*
+
+dts/imx8mn
+M: Dong Aisheng <aisheng.dong@nxp.com>
+M: Abel Vesa <abel.vesa@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx8mn*
+
+dts/imx8mp
+M: Dong Aisheng <aisheng.dong@nxp.com>
+M: Abel Vesa <abel.vesa@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx8mp*
 
 dts/imx8ulp
 M: Jacky Bai <ping.bai@nxp.com>
