@@ -50,32 +50,8 @@
 };
 
 &i2c3 {
-	clock-frequency = <100000>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c3>;
-	status = "okay";
+	/delete-node/ov5640_mipi@3c;
 
-	ov5640_1: ov5640_mipi@3c {
-		status = "disabled";
-	};
-
-	os08a20_1: os08a20_mipi@36 {
-		compatible = "ovti,os08a20";
-		reg = <0x36>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_csi0_pwn>, <&pinctrl_csi0_rst>, <&pinctrl_csi_mclk>;
-		clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
-		clock-names = "csi_mclk";
-		assigned-clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
-		assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
-		assigned-clock-rates = <24000000>;
-		csi_id = <1>;
-		pwn-gpios = <&gpio2 11 GPIO_ACTIVE_HIGH>;
-		rst-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
-		mclk = <24000000>;
-		mclk_source = <0>;
-		status = "disabled";
-	};
 };
 
 &cameradev {
@@ -111,5 +87,5 @@
 };
 
 &mipi_csi_1 {
-	status = "disabled";
+	/delete-node/port@1;
 };
