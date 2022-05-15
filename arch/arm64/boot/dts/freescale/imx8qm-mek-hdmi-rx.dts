@@ -11,7 +11,7 @@
 
 / {
 	sound-hdmi-rx {
-		compatible = "fsl,imx-audio-cdnhdmi";
+		compatible = "fsl,imx-audio-hdmi";
 		model = "imx-audio-hdmi-rx";
 		audio-cpu = <&sai4>;
 		protocol = <1>;
