@@ -10,3 +10,18 @@
  */
 #include "zynqmp-zcu102-rev1.0.dts"
 #include "adi-cn0506-rgmii.dtsi"
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x2000>;
+		};
+	};
+};
