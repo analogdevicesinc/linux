@@ -1,0 +1,66 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+
+	fragment@0 {
+		target-path = "/clocks";
+
+		__overlay__ {
+			max14830_xtal: max14830_xtal {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <3686400>;
+			};
+		};
+
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			cs-gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+			status = "okay";
+
+			max14830@0 {
+				compatible = "maxim,max14830";
+				reg = <0>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				spi-max-frequency = <5000000>;
+				interrupts = <27 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-parent = <&gpio>;
+
+				clocks = <&max14830_xtal>;
+				clock-names = "xtal";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};
