@@ -16,11 +16,11 @@
 
 /{
    fpga_axi: fpga-axi@0 {
-        compatible = "simple-bus";
-        #address-cells = <0x1>;
-        #size-cells = <0x1>;
-        ranges;
-   };
+	compatible = "simple-bus";
+	#address-cells = <0x1>;
+	#size-cells = <0x1>;
+	ranges;
+	};
 };
 
 &usb0 {
