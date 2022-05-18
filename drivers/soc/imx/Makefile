@@ -5,5 +5,6 @@ endif
 obj-$(CONFIG_SOC_IMX8M) += soc-imx8m.o
 obj-$(CONFIG_IMX8M_BUSFREQ) += busfreq-imx8mq.o
 obj-$(CONFIG_SOC_IMX9) += imx93-src.o
+obj-$(CONFIG_SOC_DEV_IMX9) += soc-imx9.o
 obj-${CONFIG_SECVIO_SC} += secvio/
 obj-$(CONFIG_RPMSG_LIFE_CYCLE) += rpmsg_life_cycle.o
