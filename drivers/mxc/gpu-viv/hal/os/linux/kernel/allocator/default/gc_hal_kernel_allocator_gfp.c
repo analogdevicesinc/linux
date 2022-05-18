@@ -302,7 +302,11 @@ _NonContiguous1MPagesFree(
             else
 #endif
             {
-                __free_pages(MdlPriv->Pages1M[i], get_order(gcd1M_PAGE_SIZE));
+                int order = get_order(gcd1M_PAGE_SIZE);
+                if (order < MAX_ORDER)
+                {
+                    __free_pages(MdlPriv->Pages1M[i], order);
+                }
             }
         }
     }
@@ -594,7 +598,11 @@ _GFPAlloc(
             else
 #endif
             {
-                __free_pages(mdlPriv->contiguousPages, get_order(bytes));
+                int order = get_order(bytes);
+                if (order < MAX_ORDER)
+                {
+                    __free_pages(mdlPriv->contiguousPages, order);
+                }
             }
 
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
@@ -876,7 +884,11 @@ _GFPFree(
         else
 #endif
         {
-            __free_pages(mdlPriv->contiguousPages, get_order(Mdl->numPages * PAGE_SIZE));
+            int order = get_order(Mdl->numPages * PAGE_SIZE);
+            if (order < MAX_ORDER)
+            {
+                __free_pages(mdlPriv->contiguousPages, order);
+            }  
         }
     }
     else
