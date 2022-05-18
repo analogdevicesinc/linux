@@ -235,6 +235,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek.dtb imx8qm-mek-ov5640.dtb \
 			  imx8qm-mek-pcie-ep.dtb \
 			  imx8qm-mek-usdhc3-m2.dtb imx8qm-mek-usd-wifi.dtb \
 			  imx8qm-mek-hdmi-rx.dtb \
+			  imx8qm-mek-hdmi-rx-ov5640.dtb \
 			  imx8qm-lpddr4-val.dtb imx8qm-lpddr4-val-mqs.dtb \
 			  imx8qm-lpddr4-val-spdif.dtb imx8qm-mek-ca53.dtb \
 			  imx8qm-mek-ca72.dtb imx8qm-lpddr4-val-ca53.dtb \

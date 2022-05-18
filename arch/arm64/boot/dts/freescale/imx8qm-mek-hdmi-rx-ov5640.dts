@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 - 2022 NXP
+ * Oliver F. Brown <oliver.brown@nxp.com>
+ */
+/*
+ * HDMI RX and OV5640 on MIPI CSI 1
+ */
+
+#include "imx8qm-mek-hdmi.dts"
+
+/ {
+	sound-hdmi-rx {
+		compatible = "fsl,imx-audio-cdnhdmi";
+		model = "imx-audio-hdmi-rx";
+		audio-cpu = <&sai4>;
+		protocol = <1>;
+		hdmi-in;
+	};
+};
+
+&sai4 {
+	fsl,sai-asynchronous;
+	status = "okay";
+};
+
+&sai4_lpcg {
+	status = "okay";
+};
+
+&isi_0 {
+	status = "okay";
+
+	cap_device {
+		status = "disabled";
+	};
+
+	m2m_device {
+		status = "okay";
+	};
+};
+
+&isi_1 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+
+&isi_2 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+&isi_3 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+
+&isi_4 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_5 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+/* HDMI RX */
+&isi_6 {
+	interface = <4 0 2>;  /* <Input MIPI_VCx Output>
+						Input:  0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
+						VCx:    0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
+						Output: 0-DC0, 1-DC1, 2-MEM */
+	status = "okay";
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_7 {
+	/* For HDMI RX 4K chain buf */
+	interface = <4 0 2>;
+	status = "okay";
+	cap_device {
+		status = "okay";
+	};
+};
+
+&mipi_csi_0 {
+        /delete-property/virtual-channel;
+	status = "disabled";
+};
+
+&i2c_mipi_csi0 {
+	status = "disabled";
+};
+
+&mipi_csi_1 {
+	/delete-property/virtual-channel;
+
+	/* Camera 1  MIPI CSI-2 (CSIS0) */
+	port@1 {
+		reg = <1>;
+		mipi_csi1_ep: endpoint {
+			remote-endpoint = <&ov5640_mipi_1_ep>;
+			data-lanes = <1 2>;
+			bus-type = <4>;
+		};
+	};
+};
+
+&i2c_mipi_csi1 {
+	ov5640_mipi_1: ov5640_mipi@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi1>;
+		clocks = <&xtal24m>;
+		clock-names = "xclk";
+		csi_id = <0>;
+		powerdown-gpios = <&lsio_gpio1 31 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&lsio_gpio1 30 GPIO_ACTIVE_LOW>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		mipi_csi;
+		status = "okay";
+		port {
+			ov5640_mipi_1_ep: endpoint {
+				remote-endpoint = <&mipi_csi1_ep>;
+				data-lanes = <1 2>;
+				clocks-lanes = <0>;
+			};
+		};
+	};
+
+	/delete-node/max9286_mipi@6a;
+};
+
+&hdmi_rx_lpcg_gpio_ipg_s {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_pwm_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_pwm_ipg_s {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_pwm {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0 {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0_div {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0_ipg {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_i2c0_ipg_s {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_sink_p {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_sink_s {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_hd_core {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_pxl {
+	status = "okay";
+};
+
+&hdmi_rx_lpcg_enc {
+	status = "okay";
+};
+
+&irqsteer_hdmi_rx {
+	status = "okay";
+};
+
+&hdmi_rx {
+	fsl,cec;
+	firmware-name = "hdmirxfw.bin";
+	assigned-clocks = <&clk IMX_SC_R_HDMI_RX IMX_SC_PM_CLK_MISC1>,
+						<&clk IMX_SC_R_HDMI_RX IMX_SC_PM_CLK_MISC3>;
+	assigned-clock-parents = <&hdmi_rx_dig_pll>,
+							<&clk IMX_SC_R_HDMI_RX_BYPASS IMX_SC_PM_CLK_MISC2>;
+	assigned-clock-rates = <400000000>, <0>;
+	status = "okay";
+};
