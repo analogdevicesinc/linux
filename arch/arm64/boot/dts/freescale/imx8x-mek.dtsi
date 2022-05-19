@@ -264,21 +264,26 @@
 			"Mic Jack", "MICB";
 	};
 
-	imx8x_cm4: imx8x_cm4@0 {
-		compatible = "fsl,imx8qxp-cm4";
-		rsc-da = <0x90000000>;
-		mbox-names = "tx", "rx", "rxdb";
-		mboxes = <&lsio_mu5 0 1
-			  &lsio_mu5 1 1
-			  &lsio_mu5 3 1>;
-		mub-partition = <3>;
-		memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>,
-				<&vdev1vring0>, <&vdev1vring1>, <&rsc_table>;
-		reg = <0>;
-		rsrc-id = <IMX_SC_R_M4_0_PID0>;
-		status = "okay";
-		power-domains = <&pd IMX_SC_R_M4_0_PID0>,
-				<&pd IMX_SC_R_M4_0_MU_1A>;
+	cm4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		imx8x_cm4: imx8x_cm4@0 {
+			compatible = "fsl,imx8qxp-cm4";
+			rsc-da = <0x90000000>;
+			mbox-names = "tx", "rx", "rxdb";
+			mboxes = <&lsio_mu5 0 1
+				  &lsio_mu5 1 1
+				  &lsio_mu5 3 1>;
+			mub-partition = <3>;
+			memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>,
+					<&vdev1vring0>, <&vdev1vring1>, <&rsc_table>;
+			reg = <0>;
+			rsrc-id = <IMX_SC_R_M4_0_PID0>;
+			status = "okay";
+			power-domains = <&pd IMX_SC_R_M4_0_PID0>,
+					<&pd IMX_SC_R_M4_0_MU_1A>;
+		};
 	};
 
 	reserved-memory {
