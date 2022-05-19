@@ -1530,9 +1530,21 @@ static int v4l2_enc_mmap(struct file *filp, struct vm_area_struct *vma)
 static __poll_t vsi_enc_poll(struct file *file, poll_table *wait)
 {
 	__poll_t ret = 0;
+	struct v4l2_fh *fh = file->private_data;
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 	int dstn = atomic_read(&ctx->dstframen);
 	int srcn = atomic_read(&ctx->srcframen);
+
+	/*
+	 * poll_wait() MUST be called on the first invocation on all the
+	 * potential queues of interest, even if we are not interested in their
+	 * events during this first call. Failure to do so will result in
+	 * queue's events to be ignored because the poll_table won't be capable
+	 * of adding new wait queues thereafter.
+	 */
+	poll_wait(file, &ctx->input_que.done_wq, wait);
+	poll_wait(file, &ctx->output_que.done_wq, wait);
+	poll_wait(file, &fh->wait, wait);
 
 	if (!vsi_v4l2_daemonalive())
 		ret |= POLLERR;
