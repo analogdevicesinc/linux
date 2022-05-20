@@ -7,6 +7,18 @@
 
 / {
 	model = "NXP i.MX8ULP 9X9 EVK";
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_keys>;
+
+		power-on {
+			label = "PowerOn";
+			gpios = <&gpiof 11 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+		};
+	};
 };
 
 &iomuxc1 {
@@ -41,6 +53,12 @@
 		MX8ULP_PAD_PTF10__ENET0_1588_CLKIN 0x43
 	>;
 
+};
+
+&pinctrl_gpio_keys {
+	fsl,pins = <
+		MX8ULP_PAD_PTF11__PTF11		0x3
+	>;
 };
 
 &pinctrl_usb1 {
