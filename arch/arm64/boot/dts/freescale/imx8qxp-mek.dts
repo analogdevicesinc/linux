@@ -288,24 +288,6 @@
 	};
 };
 
-
-&vpu {
-	compatible = "nxp,imx8qxp-vpu";
-	status = "okay";
-};
-
-&vpu_core0 {
-	reg = <0x2d040000 0x10000>;
-	memory-region = <&decoder_boot>, <&decoder_rpc>;
-	status = "okay";
-};
-
-&vpu_core1 {
-	reg = <0x2d050000 0x10000>;
-	memory-region = <&encoder_boot>, <&encoder_rpc>;
-	status = "okay";
-};
-
 &iomuxc {
 	pinctrl_fec1: fec1grp {
 		fsl,pins = <
