@@ -685,8 +685,8 @@ static int adin1110_multicast_filter(struct adin1110_port_priv *port_priv, int m
 	u8 mac[ETH_ALEN] = {0};
 
 	if (accept_multicast) {
-		mask[0] = BIT(1);
-		mac[0] = BIT(1);
+		mask[0] = BIT(0);
+		mac[0] = BIT(0);
 
 		return adin1110_write_mac_address(port_priv, mac_nr, mac, mask);
 	}
