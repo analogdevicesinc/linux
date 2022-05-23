@@ -1238,10 +1238,20 @@
 		};
 
 		ocotp: efuse@47510000 {
-			compatible = "fsl,imx93-ocotp", "syscon";
+			compatible = "fsl,imx93-ocotp", "syscon", "simple-mfd";
 			reg = <0x47510000 0x10000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			imx93_uid: soc-uid@c0 {
+				reg = <0xc0 0x10>;
+			};
+
+			imx93_soc: imx93-soc {
+				compatible = "fsl,imx93-soc";
+				nvmem-cells = <&imx93_uid>;
+				nvmem-cell-names = "soc_unique_id";
+			};
 
 			eth_mac1: mac-address@4ec {
 				reg = <0x4ec 0x6>;
@@ -1250,7 +1260,6 @@
 			eth_mac2: mac-address@4f2 {
 				reg = <0x4f2 0x6>;
 			};
-
 		};
 
 		s4muap: mailbox@47520000 {
@@ -1330,6 +1339,16 @@
 			compatible = "fsl,imx93-ddr-pmu";
 			reg = <0x4e300dc0 0x200>;
 			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		ele_mu: ele-mu {
+			compatible = "fsl,imx93-ele";
+			mboxes = <&s4muap 0 0 &s4muap 1 0>;
+			mbox-names = "tx", "rx";
+			fsl,ele_mu_did = <3>;
+			fsl,ele_mu_id = <2>;
+			fsl,ele_mu_max_users = <4>;
+			status = "okay";
 		};
 	};
 };
