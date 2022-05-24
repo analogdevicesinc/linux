@@ -355,6 +355,10 @@ static int adin1110_read_fifo(struct adin1110_port_priv *port_priv)
 		return ret;
 	}
 
+	/* Already forwarded to the other port if it did not match any MAC Addresses. */
+	if (priv->cfg->id == ADIN2111_MAC)
+		rxb->offload_fwd_mark = 1;
+
 	skb_put(rxb, frame_size_no_fcs);
 	skb_copy_to_linear_data(rxb, &priv->data[header_len + ADIN1110_FRAME_HEADER_LEN],
 				frame_size_no_fcs);
