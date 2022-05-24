@@ -93,6 +93,7 @@
 		adi,det-prog = <4>;
 		adi,parity-en;
 		adi,bb-amp-gain-ctrl = <0>;
+		adi,det-en;
 	};
 
 	admv1014_b@3 {
@@ -109,6 +110,7 @@
 		adi,det-prog = <4>;
 		adi,parity-en;
 		adi,bb-amp-gain-ctrl = <0>;
+		adi,det-en;
 	};
 
 	lo_adf5356: adf5356@4 {
