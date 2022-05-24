@@ -816,7 +816,10 @@ static int xilinx_spi_probe(struct platform_device *pdev)
 	master->transfer_one = xspi_start_transfer;
 	master->prepare_transfer_hardware = xspi_prepare_transfer_hardware;
 	master->unprepare_transfer_hardware = xspi_unprepare_transfer_hardware;
-	master->bits_per_word_mask = SPI_BPW_MASK(8);
+	pr_err("\n[xspi]  bpw %d",bits_per_word);
+	master->bits_per_word_mask = SPI_BPW_MASK(8) | 
+				     SPI_BPW_MASK(bits_per_word);
+	pr_err("\n[xspi]  bpw mask%d",master->bits_per_word_mask);
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_CS_HIGH;
 
 	xspi->bytes_per_word = bits_per_word / 8;

@@ -1,0 +1,259 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	clocks {
+		ext_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <120000000>;
+		};
+	};
+
+        one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio_mux 0 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 1 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 2 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 3 GPIO_ACTIVE_HIGH>,
+                            <&gpio_mux 4 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 5 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 6 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 7 GPIO_ACTIVE_HIGH>,
+                            <&gpio_mux 11 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 12 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 13 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 14 GPIO_ACTIVE_HIGH>;
+                
+                channel@0 {
+                        reg = <0>;
+                        label = "GPIO0_VIO";
+                };
+                channel@1 {
+                        reg = <1>;
+                        label = "GPIO1_VIO";
+                };
+                channel@2 {
+                        reg = <2>;
+                        label = "GPIO2_VIO";
+                };
+                channel@3 {
+                        reg = <3>;
+                        label = "GPIO3_VIO";
+                };
+                channel@4 {
+                        reg = <4>;
+                        label = "GPIO4_VIO";
+                };
+                channel@5 {
+                        reg = <5>;
+                        label = "GPIO5_VIO";
+                };
+                channel@6 {
+                        reg = <6>;
+                        label = "GPIO6_VIO";
+                };
+                channel@7 {
+                        reg = <7>;
+                        label = "GPIO7_VIO";
+                };
+                channel@8 {
+                        reg = <8>;
+                        label = "PAD_ADC0";
+                };
+                channel@9 {
+                        reg = <9>;
+                        label = "PAD_ADC1";
+                };
+                channel@10 {
+                        reg = <10>;
+                        label = "PAD_ADC2";
+                };
+                channel@11 {
+                        reg = <11>;
+                        label = "PAD_ADC3";
+                };
+        };
+};
+
+&fpga_axi {
+	axi_pwm_gen: pwm@44AF0000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44AF0000 0x1000>;
+		label = "ltc2387_if";
+		#pwm-cells = <2>;
+		clocks = <&ext_clk>;
+	};
+        
+	rx_dma0: dmac@44AA0000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44AA0000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+        
+	rx_dma1: dmac@44AB0000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44AB0000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+        
+	rx_dma2: dmac@44AC0000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44AC0000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+        
+	rx_dma3: dmac@0x44AD0000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44AD0000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ltc2387_0@0{
+		compatible = "ltc2387-16";
+                label = "ltc2387_0";
+		pwms = <&axi_pwm_gen 0 0
+			&axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		clocks = <&ref_clk>;
+		dmas = <&rx_dma0 0>;
+		dma-names = "rx";
+		adi,use-two-lanes;
+	};
+
+	ltc2387_1@1{
+		compatible = "ltc2387-16";
+                label = "ltc2387_1";
+		pwms = <&axi_pwm_gen 0 0
+			&axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		clocks = <&ref_clk>;
+		dmas = <&rx_dma1 0>;
+		dma-names = "rx";
+		adi,use-two-lanes;
+	};
+
+	ltc2387_2@2{
+		compatible = "ltc2387-16";
+                label = "ltc2387_2";
+		pwms = <&axi_pwm_gen 0 0
+			&axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		clocks = <&ref_clk>;
+		dmas = <&rx_dma2 0>;
+		dma-names = "rx";
+		adi,use-two-lanes;
+	};
+
+	ltc2387_3@3{
+		compatible = "ltc2387-16";
+                label = "ltc2387_3";
+		pwms = <&axi_pwm_gen 0 0
+			&axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		clocks = <&ref_clk>;
+		dmas = <&rx_dma3 0>;
+		dma-names = "rx";
+		adi,use-two-lanes;
+	};
+
+	ref_clk: axi-clkgen@44B00040 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44B00000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "ref_clk";
+	};
+
+        qspi0: spi@0x44B30000 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg = <0x44B30000 0x1000>;
+                num-cs = <0x1>;
+                compatible = "xlnx,xps-spi-2.00.a";
+                bits-per-word = <16>;
+                fifo-size = <16>;
+                clock-names = "ext_spi_clk", "s_axi_aclk";
+                clocks = <&clkc 15>, <&clkc 15>;
+                interrupt-names = "ip2intc_irpt";
+                interrupt-parent = <&intc>;
+		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
+
+                gpio_mux: max7301@0 {
+                        compatible = "max7301";
+                        reg = <0>;
+                        spi-max-frequency = <20000000>;
+                        
+                        #gpio-cells = <2>;
+                        gpio-controller;
+                };
+        };
+};

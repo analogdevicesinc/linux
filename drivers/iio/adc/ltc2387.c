@@ -352,7 +352,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	indio_dev->channels = &ltc2387_channels[id];
 	indio_dev->num_channels = 1;
 	indio_dev->dev.parent = &pdev->dev;
-	indio_dev->name = "ltc2387";
+	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->info = &ltc2387_info;
 	indio_dev->setup_ops = &ltc2387_buffer_ops;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;

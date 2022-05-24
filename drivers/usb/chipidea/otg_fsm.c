@@ -459,6 +459,7 @@ static void ci_otg_drv_vbus(struct otg_fsm *fsm, int on)
 	struct ci_hdrc	*ci = container_of(fsm, struct ci_hdrc, fsm);
 
 	if (on) {
+		pr_err("\n[ci_otg]vbus en");
 		/* Enable power power */
 		hw_write(ci, OP_PORTSC, PORTSC_W1C_BITS | PORTSC_PP,
 							PORTSC_PP);
@@ -472,9 +473,13 @@ static void ci_otg_drv_vbus(struct otg_fsm *fsm, int on)
 			}
 		}
 
+		pr_err("\n[ci_otg]check flags");
 		if (ci->platdata->flags & CI_HDRC_PHY_VBUS_CONTROL &&
-				ci->usb_phy && ci->usb_phy->set_vbus)
-			ci->usb_phy->set_vbus(ci->usb_phy, 1);
+				ci->usb_phy && ci->usb_phy->set_vbus){
+
+				pr_err("\n[ci_otg]vbus en");
+				ci->usb_phy->set_vbus(ci->usb_phy, 1);
+				}
 
 		/* Disable data pulse irq */
 		hw_write_otgsc(ci, OTGSC_DPIE, 0);
@@ -482,6 +487,7 @@ static void ci_otg_drv_vbus(struct otg_fsm *fsm, int on)
 		fsm->a_srp_det = 0;
 		fsm->power_up = 0;
 	} else {
+		pr_err("\n[ci_otg]vbus dis");
 		if (ci->platdata->reg_vbus)
 			regulator_disable(ci->platdata->reg_vbus);
 

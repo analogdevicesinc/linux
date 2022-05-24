@@ -20,7 +20,7 @@
 
 &usb0 {
 	status = "okay";
-	dr_mode = "host"; /* This breaks OTG mode */
+	// dr_mode = "host"; /* This breaks OTG mode */
 };
 
 &uart1 {

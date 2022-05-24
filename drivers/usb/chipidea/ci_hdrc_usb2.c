@@ -22,7 +22,7 @@ struct ci_hdrc_usb2_priv {
 	struct platform_device	*ci_pdev;
 	struct clk		*clk;
 };
-
+	
 static const struct ci_hdrc_platform_data ci_default_pdata = {
 	.capoffset	= DEF_CAPOFFSET,
 	.flags		= CI_HDRC_DISABLE_STREAMING,
@@ -30,6 +30,7 @@ static const struct ci_hdrc_platform_data ci_default_pdata = {
 
 static const struct ci_hdrc_platform_data ci_zynq_pdata = {
 	.capoffset	= DEF_CAPOFFSET,
+	.flags          = CI_HDRC_PHY_VBUS_CONTROL,
 };
 
 static const struct ci_hdrc_platform_data ci_zevio_pdata = {

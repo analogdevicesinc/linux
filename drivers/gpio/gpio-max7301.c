@@ -22,6 +22,7 @@ static int max7301_spi_write(struct device *dev, unsigned int reg,
 	struct spi_device *spi = to_spi_device(dev);
 	u16 word = ((reg & 0x7F) << 8) | (val & 0xFF);
 
+	pr_err("\n[max7301] wr %u",word);
 	return spi_write_then_read(spi, &word, sizeof(word), NULL, 0);
 }
 
@@ -38,6 +39,8 @@ static int max7301_spi_read(struct device *dev, unsigned int reg)
 				  sizeof(word));
 	if (ret)
 		return ret;
+
+	pr_err("\n[max7301] rd %u",word);
 	return word & 0xff;
 }
 
@@ -47,7 +50,7 @@ static int max7301_probe(struct spi_device *spi)
 	int ret;
 
 	/* bits_per_word cannot be configured in platform data */
-	spi->bits_per_word = 16;
+	spi->bits_per_word = 16;	
 	ret = spi_setup(spi);
 	if (ret < 0)
 		return ret;
