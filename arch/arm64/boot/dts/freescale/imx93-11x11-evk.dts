@@ -59,7 +59,15 @@
 			reg = <0 0xa4020000 0 0x100000>;
 			no-map;
 		};
+	};
 
+	reg_can2_stby: regulator-can2-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can2-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&adp5585gpio 5 GPIO_ACTIVE_LOW>;
+		enable-active-low;
 	};
 
 	reg_vdd_12v: regulator-vdd-12v {
@@ -214,6 +222,13 @@
 			reset-deassert-us = <80000>;
 		};
 	};
+};
+
+&flexcan2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan2>;
+	xceiver-supply = <&reg_can2_stby>;
+	status = "okay";
 };
 
 &lpi2c1 {
@@ -611,6 +626,13 @@
 			MX93_PAD_ENET2_TD3__GPIO4_IO16			0x51e
 			MX93_PAD_ENET2_TXC__GPIO4_IO21                  0x51e
 			MX93_PAD_ENET2_TX_CTL__GPIO4_IO20               0x51e
+		>;
+	};
+
+	pinctrl_flexcan2: flexcan2grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO25__CAN2_TX	0x139e
+			MX93_PAD_GPIO_IO27__CAN2_RX	0x139e
 		>;
 	};
 
