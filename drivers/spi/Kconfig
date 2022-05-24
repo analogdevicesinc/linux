@@ -57,6 +57,14 @@ config SPI_MEM
 
 comment "SPI Master Controller Drivers"
 
+config SPI_ADI_EMU
+	depends on SPI
+	select REGMAP_SPI
+	tristate "Analog Devices SPI Emulator Controller"
+	help
+	  This enables support for the Analog Devices, Inc. SPI Emulator
+	  Controller.
+
 config SPI_ALTERA
 	tristate "Altera SPI Controller"
 	select REGMAP_MMIO
