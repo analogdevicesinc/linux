@@ -543,7 +543,7 @@ static inline int qbman_swp_CDAN_set_context_enable(struct qbman_swp *s,
 static inline void *qbman_swp_mc_complete(struct qbman_swp *swp, void *cmd,
 					  u8 cmd_verb)
 {
-	int loopvar = 2000;
+	int loopvar = 10000;
 
 	qbman_swp_mc_submit(swp, cmd, cmd_verb);
 

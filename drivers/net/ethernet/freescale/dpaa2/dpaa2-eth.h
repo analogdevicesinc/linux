@@ -374,7 +374,7 @@ static inline struct dpaa2_faead *dpaa2_get_faead(void *buf_addr, bool swa)
  * hardware becomes unresponsive, but not give up too easily if
  * the portal really is busy for valid reasons
  */
-#define DPAA2_ETH_SWP_BUSY_RETRIES	1000
+#define DPAA2_ETH_SWP_BUSY_RETRIES	10000
 
 /* Driver statistics, other than those in struct rtnl_link_stats64.
  * These are usually collected per-CPU and aggregated by ethtool.
