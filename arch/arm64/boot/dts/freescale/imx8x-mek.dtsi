@@ -267,6 +267,7 @@
 	cm4 {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		compatible = "simple-bus";
 
 		imx8x_cm4: imx8x_cm4@0 {
 			compatible = "fsl,imx8qxp-cm4";
