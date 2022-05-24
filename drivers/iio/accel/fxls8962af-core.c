@@ -1208,6 +1208,13 @@ int fxls8962af_core_probe(struct device *dev, struct regmap *regmap, int irq)
 						  &fxls8962af_buffer_ops);
 		if (ret)
 			return ret;
+	} else if (device_property_read_bool(dev, "drive-open-drain")) {
+		ret = regmap_update_bits(data->regmap, FXLS8962AF_SENS_CONFIG4,
+					 FXLS8962AF_SC4_INT_PP_OD_MASK,
+					 FXLS8962AF_SC4_INT_PP_OD_PREP(1));
+		if (ret)
+			return ret;
+
 	}
 
 	ret = pm_runtime_set_active(dev);
