@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0
+#include "versatile-pb.dts"
+
+/ {
+	spi_adi_emu@0 {
+		compatible = "adi,spi-adi-emu";
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
