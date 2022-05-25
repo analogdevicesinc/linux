@@ -318,6 +318,17 @@ config ADM1177
 	  To compile this driver as a module, choose M here: the
 	  module will be called adm1177.
 
+config IIO_ADI_EMU
+	tristate "Analog Devices IIO Emulator driver"
+	depends on SPI
+	select SPI_ADI_EMU
+	help
+	  Say yes here to enable support for Analog Devices IIO Emulator
+	  driver.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called iio-adi-emu.
+
 config ADI_AXI_ADC
 	tristate "Analog Devices Generic AXI ADC IP core driver"
 	select IIO_BUFFER
