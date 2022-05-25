@@ -39,7 +39,7 @@
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.scan_type = {						\
 			.sign = 's',					\
-			.storagebits = 32,				\
+			.storagebits = 16,				\
 			.realbits = resolution,				\
 		},							\
 	}
@@ -182,7 +182,7 @@ static int ltc2387_setup(struct iio_dev *indio_dev)
 
 	if (fwnode_property_present(fwnode, "adi,use-two-lanes"))
 		ltc->lane_mode = TWO_LANES;
-	
+
 	return ltc2387_set_sampling_freq(ltc, 15*MHz);
 	// return ltc2387_set_conversion(ltc, false);
 }
