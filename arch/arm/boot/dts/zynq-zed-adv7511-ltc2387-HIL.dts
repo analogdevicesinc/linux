@@ -23,15 +23,16 @@
 			    <&gpio_mux 1 GPIO_ACTIVE_HIGH>,
 			    <&gpio_mux 2 GPIO_ACTIVE_HIGH>,
 			    <&gpio_mux 3 GPIO_ACTIVE_HIGH>,
-                            <&gpio_mux 4 GPIO_ACTIVE_HIGH>,
-			    <&gpio_mux 5 GPIO_ACTIVE_HIGH>,
-			    <&gpio_mux 6 GPIO_ACTIVE_HIGH>,
-			    <&gpio_mux 7 GPIO_ACTIVE_HIGH>,
-                            <&gpio_mux 11 GPIO_ACTIVE_HIGH>,
+                <&gpio_mux 11 GPIO_ACTIVE_HIGH>,
 			    <&gpio_mux 12 GPIO_ACTIVE_HIGH>,
 			    <&gpio_mux 13 GPIO_ACTIVE_HIGH>,
 			    <&gpio_mux 14 GPIO_ACTIVE_HIGH>;
-                
+
+        in-gpios = <&gpio_mux 4 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 5 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 6 GPIO_ACTIVE_HIGH>,
+			    <&gpio_mux 7 GPIO_ACTIVE_HIGH>;
+
                 channel@0 {
                         reg = <0>;
                         label = "GPIO0_VIO";
@@ -84,17 +85,25 @@
 };
 
 &fpga_axi {
-	axi_pwm_gen: pwm@44AF0000 {
+	axi_pwm_gen: pwm@44B10000 {
 		compatible = "adi,axi-pwmgen";
-		reg = <0x44AF0000 0x1000>;
+		reg = <0x44B10000 0x1000>;
 		label = "ltc2387_if";
 		#pwm-cells = <2>;
 		clocks = <&ext_clk>;
 	};
+
+	axi_pwm_gen_1: pwm@44C10000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44C10000 0x1000>;
+		label = "ltc2387_if_1";
+		#pwm-cells = <2>;
+		clocks = <&ext_clk>;
+	};
         
-	rx_dma0: dmac@44AA0000 {
+	rx_dma0: dmac@44A40000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x44AA0000 0x1000>;
+		reg = <0x44A40000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
@@ -113,9 +122,9 @@
 		};
 	};
         
-	rx_dma1: dmac@44AB0000 {
+	rx_dma1: dmac@44A50000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x44AB0000 0x1000>;
+		reg = <0x44A50000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
@@ -134,11 +143,11 @@
 		};
 	};
         
-	rx_dma2: dmac@44AC0000 {
+	rx_dma2: dmac@44A60000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x44AC0000 0x1000>;
+		reg = <0x44A60000 0x1000>;
 		#dma-cells = <1>;
-		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		adi,channels {
@@ -155,11 +164,11 @@
 		};
 	};
         
-	rx_dma3: dmac@0x44AD0000 {
+	rx_dma3: dmac@0x44A70000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x44AD0000 0x1000>;
+		reg = <0x44A70000 0x1000>;
 		#dma-cells = <1>;
-		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		adi,channels {
@@ -191,8 +200,8 @@
 	ltc2387_1@1{
 		compatible = "ltc2387-16";
                 label = "ltc2387_1";
-		pwms = <&axi_pwm_gen 0 0
-			&axi_pwm_gen 1 0>;
+		pwms = <&axi_pwm_gen 2 0
+			&axi_pwm_gen 3 0>;
 		pwm-names = "cnv", "clk_en";
 		clocks = <&ref_clk>;
 		dmas = <&rx_dma1 0>;
@@ -203,8 +212,8 @@
 	ltc2387_2@2{
 		compatible = "ltc2387-16";
                 label = "ltc2387_2";
-		pwms = <&axi_pwm_gen 0 0
-			&axi_pwm_gen 1 0>;
+		pwms = <&axi_pwm_gen_1 0 0
+			&axi_pwm_gen_1 1 0>;
 		pwm-names = "cnv", "clk_en";
 		clocks = <&ref_clk>;
 		dmas = <&rx_dma2 0>;
@@ -215,8 +224,8 @@
 	ltc2387_3@3{
 		compatible = "ltc2387-16";
                 label = "ltc2387_3";
-		pwms = <&axi_pwm_gen 0 0
-			&axi_pwm_gen 1 0>;
+		pwms = <&axi_pwm_gen_1 2 0
+			&axi_pwm_gen_1 3 0>;
 		pwm-names = "cnv", "clk_en";
 		clocks = <&ref_clk>;
 		dmas = <&rx_dma3 0>;
@@ -224,7 +233,7 @@
 		adi,use-two-lanes;
 	};
 
-	ref_clk: axi-clkgen@44B00040 {
+	ref_clk: axi-clkgen@44B00000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44B00000 0x10000>;
 		#clock-cells = <0>;
@@ -233,7 +242,31 @@
 		clock-output-names = "ref_clk";
 	};
 
-        qspi0: spi@0x44B30000 {
+        qspi0: spi@0x44B20000 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg = <0x44B20000 0x1000>;
+                num-cs = <0x1>;
+                compatible = "xlnx,xps-spi-2.00.a";
+                bits-per-word = <16>;
+                fifo-size = <16>;
+                clock-names = "ext_spi_clk", "s_axi_aclk";
+                clocks = <&clkc 15>, <&clkc 15>;
+                interrupt-names = "ip2intc_irpt";
+                interrupt-parent = <&intc>;
+		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+
+                gpio_mux: max7301@0 {
+                        compatible = "max7301";
+                        reg = <0>;
+                        spi-max-frequency = <20000000>;
+                        #gpio-cells = <2>;
+                        gpio-controller;
+                };
+        };
+
+
+        qspi1: spi@0x44B30000 {
                 #address-cells = <1>;
                 #size-cells = <0>;
                 reg = <0x44B30000 0x1000>;
@@ -245,15 +278,26 @@
                 clocks = <&clkc 15>, <&clkc 15>;
                 interrupt-names = "ip2intc_irpt";
                 interrupt-parent = <&intc>;
-		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
-
-                gpio_mux: max7301@0 {
-                        compatible = "max7301";
-                        reg = <0>;
-                        spi-max-frequency = <20000000>;
-                        
-                        #gpio-cells = <2>;
-                        gpio-controller;
-                };
-        };
+                interrupts = <0 36 IRQ_TYPE_LEVEL_HIGH>;
+               ad3552r@0 {
+                   compatible = "adi,ad3552r";
+                   reg = <0>;
+                   spi-max-frequency = <20000000>;
+                    #address-cells = <1>;
+                    #size-cells = <0>;
+                   channel@0 {
+                       reg = <0>;
+                       adi,output-range-microvolt = <0 10000000>;
+                   };
+                   channel@1 {
+                       reg = <1>;
+                       custom-output-range-config {
+                           adi,gain-offset = <5>;
+                           adi,gain-scaling-p-inv-log2 = <1>;
+                           adi,gain-scaling-n-inv-log2 = <2>;
+                           adi,rfb-ohms = <1>;
+                       };
+                   };
+               };
+           };
 };
