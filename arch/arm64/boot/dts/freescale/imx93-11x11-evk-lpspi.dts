@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-11x11-evk.dts"
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&lpuart7 {
+	status = "disabled";
+};
+
+&lpspi3 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	pinctrl-1 = <&pinctrl_lpspi3>;
+	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+	pinctrl-assert-gpios = <&adp5585gpio 4 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&iomuxc {
+	pinctrl_lpspi3: lpspi3grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO08__GPIO2_IO08		0x3fe
+			MX93_PAD_GPIO_IO09__LPSPI3_SIN		0x3fe
+			MX93_PAD_GPIO_IO10__LPSPI3_SOUT		0x3fe
+			MX93_PAD_GPIO_IO11__LPSPI3_SCK		0x3fe
+		>;
+	};
+};
