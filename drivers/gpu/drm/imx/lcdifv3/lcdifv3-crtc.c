@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2019,2020 NXP
+ * Copyright 2019,2020,2022 NXP
  */
 
 #include <linux/component.h>
@@ -201,7 +201,8 @@ static enum drm_mode_status lcdifv3_crtc_mode_valid(struct drm_crtc * crtc,
 						    const struct drm_display_mode *mode)
 {
 	u8 vic;
-	long rate;
+	long rounded_rate;
+	unsigned long pclk_rate;
 	struct drm_display_mode *dmt, copy;
 	struct lcdifv3_crtc *lcdifv3_crtc = to_lcdifv3_crtc(crtc);
 	struct lcdifv3_soc *lcdifv3 = dev_get_drvdata(lcdifv3_crtc->dev->parent);
@@ -225,9 +226,16 @@ static enum drm_mode_status lcdifv3_crtc_mode_valid(struct drm_crtc * crtc,
 	return MODE_OK;
 
 check_pix_clk:
-	rate = lcdifv3_pix_clk_round_rate(lcdifv3, mode->clock * 1000);
+	pclk_rate = mode->clock * 1000;
 
-	if (rate <= 0 || rate != mode->clock * 1000)
+	rounded_rate = lcdifv3_pix_clk_round_rate(lcdifv3, pclk_rate);
+
+	if (rounded_rate <= 0)
+		return MODE_BAD;
+
+	/* allow +/-0.5% HDMI pixel clock rate shift */
+	if (rounded_rate < pclk_rate * 995 / 1000 ||
+	    rounded_rate > pclk_rate * 1005 / 1000)
 		return MODE_BAD;
 
 	return MODE_OK;
