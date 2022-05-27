@@ -54,6 +54,12 @@ config CLK_HSDK
 	help
 	  This driver supports the HSDK core, system, ddr, tunnel and hdmi PLLs
 	  control.
+	  
+config COMMON_CLK_AD242X
+	tristate "Clock driver for AD242x A2B nodes"
+	depends on AD2428
+	---help---
+	  This driver supports clock outputs on AD242x A2B nodes.
 
 config COMMON_CLK_MAX77686
 	tristate "Clock driver for Maxim 77620/77686/77802 MFD"

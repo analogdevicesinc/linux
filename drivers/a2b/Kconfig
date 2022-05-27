@@ -1,0 +1,13 @@
+
+menuconfig A2B
+	tristate "A2B support"
+	depends on I2C
+	select MFD_CORE
+	select REGMAP
+
+if A2B
+
+config AD2428
+	tristate "AD2428 (and similar) support"
+
+endif
