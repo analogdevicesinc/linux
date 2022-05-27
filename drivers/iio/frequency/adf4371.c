@@ -473,6 +473,40 @@ static int adf4371_channel_power_down(struct adf4371_state *st,
 	return regmap_write(st->regmap, reg, readval);
 }
 
+static int adf4371_get_muxout_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan)
+{
+	struct adf4371_state *st = iio_priv(indio_dev);
+	unsigned int readval;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADF4371_REG(0x20), &readval);
+	if (ret < 0)
+		return ret;
+
+	readval &= ADF4371_MUXOUT_MSK;
+
+	return (readval >> 4);
+}
+
+static int adf4371_set_muxout_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan,
+				   unsigned int mode)
+{
+	struct adf4371_state *st = iio_priv(indio_dev);
+
+	return regmap_update_bits(st->regmap, ADF4371_REG(0x20),
+				  ADF4371_MUXOUT_MSK,
+				  ADF4371_MUXOUT(mode));
+}
+
+static const struct iio_enum adf4371_muxout_mode_enum = {
+	.items = adf4371_muxout_modes,
+	.num_items = ARRAY_SIZE(adf4371_muxout_modes),
+	.get = adf4371_get_muxout_mode,
+	.set = adf4371_set_muxout_mode,
+};
+
 static int adf4371_write_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
 			int val,
@@ -613,18 +647,21 @@ static ssize_t adf4371_read(struct iio_dev *indio_dev,
 	struct adf4371_state *st = iio_priv(indio_dev);
 	unsigned long long val = 0;
 	unsigned int readval, reg, bit;
-	int ret;
+	int muxout_mode, ret;
 
 	switch ((u32)private) {
 	case ADF4371_FREQ:
 		val = adf4371_pll_fract_n_get_rate(st, chan->channel);
-		ret = regmap_read(st->regmap, ADF4371_REG(0x7C), &readval);
-		if (ret < 0)
-			break;
+		muxout_mode = adf4371_get_muxout_mode(indio_dev, chan);
+		if (st->spi_3wire_en && (muxout_mode == ADF4371_DIG_LOCK)) {
+			ret = regmap_read(st->regmap, ADF4371_REG(0x7C), &readval);
+			if (ret < 0)
+				break;
 
-		if (readval == 0x00) {
-			dev_dbg(&st->spi->dev, "PLL un-locked\n");
-			ret = -EBUSY;
+			if (readval == 0x00) {
+				dev_dbg(&st->spi->dev, "PLL un-locked\n");
+				ret = -EBUSY;
+			}
 		}
 		break;
 	case ADF4371_POWER_DOWN:
@@ -717,40 +754,6 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 
 	return ret ? ret : len;
 }
-
-static int adf4371_get_muxout_mode(struct iio_dev *indio_dev,
-				   const struct iio_chan_spec *chan)
-{
-	struct adf4371_state *st = iio_priv(indio_dev);
-	unsigned int readval;
-	int ret;
-
-	ret = regmap_read(st->regmap, ADF4371_REG(0x20), &readval);
-	if (ret < 0)
-		return ret;
-
-	readval &= ADF4371_MUXOUT_MSK;
-
-	return (readval >> 4);
-}
-
-static int adf4371_set_muxout_mode(struct iio_dev *indio_dev,
-				   const struct iio_chan_spec *chan,
-				   unsigned int mode)
-{
-	struct adf4371_state *st = iio_priv(indio_dev);
-
-	return regmap_update_bits(st->regmap, ADF4371_REG(0x20),
-				  ADF4371_MUXOUT_MSK,
-				  ADF4371_MUXOUT(mode));
-}
-
-static const struct iio_enum adf4371_muxout_mode_enum = {
-	.items = adf4371_muxout_modes,
-	.num_items = ARRAY_SIZE(adf4371_muxout_modes),
-	.get = adf4371_get_muxout_mode,
-	.set = adf4371_set_muxout_mode,
-};
 
 #define _ADF4371_EXT_INFO(_name, _ident) { \
 		.name = _name, \
