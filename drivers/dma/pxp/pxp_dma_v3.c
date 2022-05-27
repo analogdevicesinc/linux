@@ -962,14 +962,14 @@ enum {
 };
 
 enum pxp_devtype {
-	PXP_V3,
+	PXP_V3 = 0,
 	PXP_V3P,	/* minor changes over V3, use WFE_B to replace WFE_A */
 	PXP_V3_8ULP,	/* PXP V3 version for iMX8ULP */
 };
 
-#define pxp_is_v3(pxp) ((pxp->devdata->version == 30) || \
-			(pxp->devdata->version == 32))
-#define pxp_is_v3p(pxp) (pxp->devdata->version == 31)
+#define pxp_is_v3(pxp) ((pxp->devdata->version == PXP_V3) || \
+			(pxp->devdata->version == PXP_V3_8ULP))
+#define pxp_is_v3p(pxp) (pxp->devdata->version == PXP_V3P)
 
 struct pxp_devdata {
 	void (*pxp_wfe_a_configure)(struct pxps *pxp);
@@ -993,7 +993,7 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_dithering_configure = pxp_dithering_configure,
 		.pxp_data_path_config = NULL,
 		.pxp_restart = NULL,
-		.version = 30,
+		.version = PXP_V3,
 	},
 	[PXP_V3P] = {
 		.pxp_wfe_a_configure = pxp_wfe_a_configure_v3p,
@@ -1004,7 +1004,7 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_dithering_configure = pxp_dithering_configure_v3p,
 		.pxp_data_path_config = pxp_data_path_config_v3p,
 		.pxp_restart = NULL,
-		.version = 31,
+		.version = PXP_V3P,
 	},
 	[PXP_V3_8ULP] = {
 		.pxp_wfe_a_configure = pxp_wfe_a_configure,
@@ -1015,7 +1015,7 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_dithering_configure = pxp_dithering_configure,
 		.pxp_data_path_config = NULL,
 		.pxp_restart = pxp_software_restart,
-		.version = 32,
+		.version = PXP_V3_8ULP,
 	},
 };
 
@@ -1887,10 +1887,21 @@ static uint32_t pxp_fetch_shift_calc(uint32_t in_fmt, uint32_t out_fmt,
 
 static int pxp_start(struct pxps *pxp)
 {
-	__raw_writel(BM_PXP_CTRL_ENABLE_ROTATE1 | BM_PXP_CTRL_ENABLE |
-		BM_PXP_CTRL_ENABLE_CSC2 | BM_PXP_CTRL_ENABLE_LUT |
-		BM_PXP_CTRL_ENABLE_PS_AS_OUT | BM_PXP_CTRL_ENABLE_ROTATE0,
-			pxp->base + HW_PXP_CTRL_SET);
+	u32 val;
+
+	val = (BM_PXP_CTRL_ENABLE_ROTATE1 |
+	       BM_PXP_CTRL_ENABLE |
+	       BM_PXP_CTRL_ENABLE_CSC2 |
+	       BM_PXP_CTRL_ENABLE_PS_AS_OUT |
+	       BM_PXP_CTRL_ENABLE_ROTATE0 |
+	       BM_PXP_CTRL_BLOCK_SIZE);
+
+	if (pxp->devdata->version <= PXP_V3_8ULP) {
+		val |= BM_PXP_CTRL_ENABLE_LUT;
+		val &= ~(BM_PXP_CTRL_BLOCK_SIZE);
+	}
+
+	__raw_writel(val, pxp->base + HW_PXP_CTRL_SET);
 	dump_pxp_reg(pxp);
 
 	return 0;
