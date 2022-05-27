@@ -204,6 +204,11 @@ int ad9208_is_sync_spi_update_enabled(ad9208_handle_t *h, uint8_t *enabled);
 #define AD9208_JESD_LINK_CTRL1_REG    0x0571
 #define AD9208_JESD_LINK_PDN          BIT(0)
 
+#define AD9208_JESD_LINK_CTRL_3_REG		0x573
+#define AD9208_JESD_LINK_OFF			0x000
+#define AD9208_JESD_LINK_PN9			0x006
+#define AD9208_JESD_LINK_PN23			0x004
+
 #define AD9208_JESD_ID_CFG_REG_OFFSET 0x3
 #define AD9208_JESD_DID_CFG_REG       0x0580
 #define AD9208_JESD_BID_CFG_REG       0x0581

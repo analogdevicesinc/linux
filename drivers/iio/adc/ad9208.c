@@ -168,13 +168,52 @@ static unsigned int ad9208_pnsel_to_testmode(enum adc_pn_sel sel)
 static int ad9208_testmode_set(struct iio_dev *indio_dev, unsigned int chan,
 	unsigned int mode)
 {
+	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9208_phy *phy = conv->phy;
+	unsigned int link_mode, axi_pn_mode;
 	int ret;
 
 	ad9208_adc_set_channel_select(&phy->ad9208, BIT(chan & 1));
 	/* FIXME: Add support for DDC testmodes */
 	ret = ad9208_register_write(&phy->ad9208, AD9208_REG_TEST_MODE, mode);
+	if (ret < 0)
+		return ret;
+
+	if (conv->id == CHIPID_AD9680) {
+		switch (mode) {
+		case AD9208_TESTMODE_PN9_SEQ:
+			link_mode = AD9208_JESD_LINK_PN9;
+			axi_pn_mode = 0;
+			break;
+
+		case AD9208_TESTMODE_PN23_SEQ:
+			link_mode = AD9208_JESD_LINK_PN23;
+			axi_pn_mode = 1;
+			break;
+
+		case AD9208_JESD_LINK_OFF:
+			link_mode = AD9208_JESD_LINK_OFF;
+			axi_pn_mode = 0;
+			break;
+		default:
+			goto ch_select;
+		}
+
+		ret = ad9208_register_write(&phy->ad9208, AD9208_JESD_LINK_CTRL_3_REG, link_mode);
+		if (ret < 0)
+			return ret;
+
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_3(chan), ADI_ADC_PN_SEL(axi_pn_mode));
+
+		if (link_mode == AD9208_JESD_LINK_OFF) {
+			ret = ad9208_reset(&phy->ad9208, 0);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
+ch_select:
 	conv->testmode[chan] = mode;
 	ad9208_adc_set_channel_select(&phy->ad9208, AD9208_ADC_CH_ALL);
 
