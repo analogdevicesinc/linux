@@ -1566,7 +1566,7 @@ static uint32_t pxp_store_ctrl_config(struct pxp_pixmap *out, uint8_t mode,
 	} else {
 		if (fill_en) {
 			ctrl.fill_data_en = 1;
-			ctrl.wr_num_bytes = 2;
+			ctrl.wr_num_bytes = 3;
 		}
 		ctrl.store_memory_en = 1;
 	}
