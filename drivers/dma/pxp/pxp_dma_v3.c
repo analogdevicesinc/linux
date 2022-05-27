@@ -1575,6 +1575,7 @@ static uint32_t pxp_store_ctrl_config(struct pxp_pixmap *out, uint8_t mode,
 		ctrl.block_en = 1;
 
 	ctrl.ch_en = 1;
+	ctrl.block_16 = 1;
 
 	return *(uint32_t *)&ctrl;
 }
