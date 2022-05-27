@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Copyright 2019 NXP
+ * Copyright 2019,2022 NXP
  */
 
 #include <linux/busfreq-imx.h>
@@ -82,6 +82,7 @@ static struct lcdifv3_soc_pdata imx8mp_lcdif3_pdata = {
 	.hdmimix     = true,
 };
 static const struct of_device_id imx_lcdifv3_dt_ids[] = {
+	{ .compatible = "fsl,imx93-lcdif", },
 	{ .compatible = "fsl,imx8mp-lcdif1", .data = &imx8mp_lcdif1_pdata, },
 	{ .compatible = "fsl,imx8mp-lcdif2", .data = &imx8mp_lcdif2_pdata, },
 	{ .compatible = "fsl,imx8mp-lcdif3", .data = &imx8mp_lcdif3_pdata,},
@@ -759,7 +760,7 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, lcdifv3);
 
-	if (soc_pdata->hdmimix) {
+	if (soc_pdata && soc_pdata->hdmimix) {
 		ret = hdmimix_lcdif3_setup(lcdifv3);
 		if (ret < 0) {
 			dev_err(dev, "hdmimix lcdif3 setup failed\n");
