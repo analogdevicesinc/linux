@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/clock/adi,ad242x-clk.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Analog Devices AD242x clock provider
+
+maintainers:
+  - Daniel Mack <daniel@zonque.org>
+
+description: |
+  This module is part of the AD242x MFD device. For more details and an example
+  refer to Documentation/devicetree/bindings/mfd/ad242x.yaml.
+
+properties:
+  compatible:
+    enum:
+      - adi,ad2428w-clk
+
+  '#clock-cells':
+    const: 1
+
+  clock-output-names:
+    minItems: 2
+    maxItems: 2
+    description: |
+      Array of two strings to use as names for the generated output clocks
+
+required:
+  - compatible
+  - '#clock-cells'

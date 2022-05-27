@@ -50,6 +50,12 @@ config CLK_HSDK
 	help
 	  This driver supports the HSDK core, system, ddr, tunnel and hdmi PLLs
 	  control.
+	  
+config COMMON_CLK_AD242X
+	tristate "Clock driver for AD242x A2B nodes"
+	depends on AD2428
+	---help---
+	  This driver supports clock outputs on AD242x A2B nodes.
 
 config LMK04832
 	tristate "Ti LMK04832 JESD204B Compliant Clock Jitter Cleaner"

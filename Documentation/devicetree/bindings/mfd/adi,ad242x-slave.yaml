@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/mfd/adi,ad242x-slave.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Analog Devices AD242x A²B slave node transceiver
+
+maintainers:
+  - Daniel Mack <daniel@zonque.org>
+
+description: |
+  AD242x slave nodes are connected to the master node through a daisy-chain.
+  Modules of this type must be listed under the 'nodes' property of the master
+  DT schema.
+
+properties:
+  compatible:
+    enum:
+      - adi,ad2428w-slave
+
+  adi,tdm-mode:
+    description: The TDM mode to use
+    allOf:
+      - $ref: '/schemas/types.yaml#/definitions/uint32'
+      - enum: [2, 4, 8, 12, 16, 20, 24, 32]
+
+  adi,tdm-slot-size:
+    description: The TDM slot size to use
+    allOf:
+      - $ref: '/schemas/types.yaml#/definitions/uint32'
+      - enum: [16, 32]
+
+  adi,alternating-sync:
+    description: Drives the SYNC pin for I²S operation
+    type: boolean
+
+  adi,invert-sync:
+    description: Invert the SYNC pin
+    type: boolean
+
+  adi,early-sync:
+    description: |
+      Make the SYNC pin change one cycle before the first slot is transmitted
+    type: boolean
+
+  adi,spread-a2b-clock:
+    description: Enables spread spectrum mode for A²B bus clocks
+    type: boolean
+
+  adi,spread-a2b-i2s-clock:
+    description: Enables spread spectrum mode for both A²B and I²S clocks
+    type: boolean
+
+  adi,spread-spectrum-high:
+    description: Selects high spectrum spreading mode
+    type: boolean
+
+  upstream:
+    type: object
+    properties:
+      rx-slots:
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        description: |
+          A bitmask that describes the slots that are received by the
+          transceiver from the upstream (A) side and put into its TX output
+          framebuffers. If not specified, an empty bitmask is assumed.
+
+      '#tx-slots':
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        description: |
+          The number of slots this transceiver contributes to the upstream
+          traffic from its RX input frame buffer
+
+      '#forward-slots':
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        description: |
+          The number of slots this transceiver forwards from the upstream side
+          to the downstream side.
+
+  downstream:
+    type: object
+    properties:
+      rx-slots:
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        description: |
+          A bitmask that describes the slots that are received by the
+          transceiver from the downstream (B) side and put into its TX output
+          framebuffers. If not specified, an empty bitmask is assumed.
+
+      '#tx-slots':
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        description: |
+          The number of slots this transceiver contributes to the downstream
+          traffic from its RX input frame buffer
+
+      '#forward-slots':
+        $ref: '/schemas/types.yaml#/definitions/uint32'
+        description: |
+          The number of slots this transceiver forwards from the downstream side
+          to the upstream side.
+
+required:
+  - compatible
+  - adi,tdm-mode
+  - adi,tdm-slot-size
+  - upstream
+  - downstream
