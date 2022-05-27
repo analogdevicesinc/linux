@@ -115,9 +115,10 @@ struct um_desc
 
     size_t pageCount;
     size_t extraPage;
+    unsigned int  alloc_from_res;
 };
 
-static int import_physical_map(struct um_desc *um, unsigned long phys)
+static int import_physical_map(gckOS Os, struct um_desc *um, unsigned long phys)
 {
     um->type = UM_PHYSICAL_MAP;
     um->physical = phys & PAGE_MASK;
@@ -125,7 +126,32 @@ static int import_physical_map(struct um_desc *um, unsigned long phys)
     return 0;
 }
 
-static int import_page_map(struct um_desc *um,
+static gceSTATUS
+phy_is_from_reserved(IN gckOS           Os,
+                 IN gctPHYS_ADDR_T  Physical)
+{
+    gceSTATUS      status   = gcvSTATUS_NOT_FOUND;
+    gckGALDEVICE   device   = Os->device;
+
+    if (device->contiguousSize) {
+        if ((Physical >= device->contiguousBase) &&
+            (Physical <= device->contiguousBase + device->contiguousSize)) {
+            status = gcvSTATUS_OK;
+            return status;
+        }
+    }
+    if (device->externalSize) {
+        if ((Physical >= device->externalBase) &&
+            (Physical <= device->externalBase + device->externalSize)) {
+            status = gcvSTATUS_OK;
+            return status;
+        }
+    }
+    return status;
+}
+
+
+static int import_page_map(gckOS Os, struct um_desc *um,
                 unsigned long addr, size_t page_count, size_t size)
 {
     int i;
@@ -184,30 +210,34 @@ static int import_page_map(struct um_desc *um,
             ++um->chunk_count;
         }
     }
+    if (gcmIS_SUCCESS(phy_is_from_reserved(Os, (gctPHYS_ADDR_T)page_to_pfn(pages[0]) << PAGE_SHIFT)))
+        um->alloc_from_res = 1;
 
+    if (!um->alloc_from_res) {
 #if gcdUSE_Linux_SG_TABLE_API
-    result = sg_alloc_table_from_pages(&um->sgt, pages, page_count,
-                    addr & ~PAGE_MASK, size, GFP_KERNEL | gcdNOWARN);
+        result = sg_alloc_table_from_pages(&um->sgt, pages, page_count,
+                        addr & ~PAGE_MASK, size, GFP_KERNEL | gcdNOWARN);
 
 #else
-    result = alloc_sg_list_from_pages(&um->sgt.sgl, pages, page_count,
-                    addr & ~PAGE_MASK, size, &um->sgt.nents);
+        result = alloc_sg_list_from_pages(&um->sgt.sgl, pages, page_count,
+                        addr & ~PAGE_MASK, size, &um->sgt.nents);
 
-    um->sgt.orig_nents = um->sgt.nents;
+        um->sgt.orig_nents = um->sgt.nents;
 #endif
-    if (unlikely(result < 0))
-    {
-        printk("[galcore]: %s: sg_alloc_table_from_pages failed\n", __FUNCTION__);
-        goto error;
-    }
+        if (unlikely(result < 0))
+        {
+            printk("[galcore]: %s: sg_alloc_table_from_pages failed\n", __FUNCTION__);
+            goto error;
+        }
 
-    result = dma_map_sg(galcore_device, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE);
-    if (unlikely(result != um->sgt.nents))
-    {
-        printk("[galcore]: %s: dma_map_sg failed\n", __FUNCTION__);
-        goto error;
+        result = dma_map_sg(galcore_device, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE);
+        if (unlikely(result != um->sgt.nents))
+        {
+            printk("[galcore]: %s: dma_map_sg failed\n", __FUNCTION__);
+            goto error;
+        }
+        dma_sync_sg_for_cpu(galcore_device, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);
     }
-
     um->type = UM_PAGE_MAP;
     um->pages = pages;
 
@@ -228,7 +258,7 @@ error:
 }
 
 
-static int import_pfn_map(struct um_desc *um,
+static int import_pfn_map(gckOS Os, struct um_desc *um,
                 unsigned long addr, size_t pfn_count)
 {
     int i;
@@ -343,9 +373,11 @@ static int import_pfn_map(struct um_desc *um,
             ++um->chunk_count;
         }
     }
+    if (gcmIS_SUCCESS(phy_is_from_reserved(Os, (gctPHYS_ADDR_T)pfns[0] << PAGE_SHIFT)))
+        um->alloc_from_res = 1;
 
-    if (pageCount == pfn_count)
-    {
+
+    if (pageCount == pfn_count && !um->alloc_from_res) {
 #if gcdUSE_Linux_SG_TABLE_API
         result = sg_alloc_table_from_pages(&um->sgt, pages, pfn_count,
                         addr & ~PAGE_MASK, pfn_count * PAGE_SIZE, GFP_KERNEL | gcdNOWARN);
@@ -396,7 +428,6 @@ err:
 
     return -ENOTTY;
 }
-
 static gceSTATUS
 _Import(
     IN gckOS Os,
@@ -513,17 +544,17 @@ _Import(
 
     if (Physical != gcvINVALID_PHYSICAL_ADDRESS)
     {
-        result = import_physical_map(UserMemory, Physical);
+        result = import_physical_map(Os, UserMemory, Physical);
     }
     else
     {
         if (vm_flags & VM_PFNMAP)
         {
-            result = import_pfn_map(UserMemory, memory, pageCount);
+            result = import_pfn_map(Os, UserMemory, memory, pageCount);
         }
         else
         {
-            result = import_page_map(UserMemory, memory, pageCount, Size);
+            result = import_page_map(Os, UserMemory, memory, pageCount, Size);
         }
     }
 
@@ -801,7 +832,7 @@ _UserMemoryCache(
     struct um_desc *um = Mdl->priv;
     enum dma_data_direction dir;
 
-    if (um->type == UM_PHYSICAL_MAP)
+    if (um->type == UM_PHYSICAL_MAP || um->alloc_from_res)
     {
         _MemoryBarrier();
         return gcvSTATUS_OK;
