@@ -30,6 +30,9 @@ static const struct soc_device_attribute imx8_soc[] = {
 	}, {
 		.soc_id   = "i.MX8ULP",
 	}, {
+		.soc_id   = "i.MX93",
+		.revision = "1.0",
+	}, {
 		/* sentinel */
 	},
 };
@@ -670,7 +673,8 @@ static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 			mxc_isi->buf_active_reverse = true;
 		}
 	} else if (!strcmp(match->soc_id, "i.MX8MP") ||
-		   !strcmp(match->soc_id, "i.MX8ULP")) {
+		   !strcmp(match->soc_id, "i.MX8ULP") ||
+		   !strcmp(match->soc_id, "i.MX93")) {
 		memcpy(ier_reg, &mxc_imx8_isi_ier_v2, sizeof(*ier_reg));
 		mxc_isi->buf_active_reverse = true;
 	}
@@ -865,6 +869,7 @@ static const struct of_device_id mxc_isi_of_match[] = {
 	{.compatible = "nxp,imx8mn-isi", .data = &mxc_imx8mn_data },
 	{.compatible = "nxp,imx8mp-isi", .data = &mxc_imx8mp_data },
 	{.compatible = "nxp,imx8ulp-isi", .data = &mxc_imx8ulp_data },
+	{.compatible = "nxp,imx93-isi", .data = &mxc_imx8ulp_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mxc_isi_of_match);
