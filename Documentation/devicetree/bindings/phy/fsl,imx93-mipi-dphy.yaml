@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/phy/fsl,imx93-mipi-dphy.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Freescale i.MX93 Synopsys DesignWare MIPI DPHY
+
+maintainers:
+  - Liu Ying <victor.liu@nxp.com>
+
+properties:
+  compatible:
+    const: fsl,imx93-mipi-dphy
+
+  "#phy-cells":
+    const: 0
+
+  clocks:
+    items:
+      - description: PHY configuration clock
+      - description: PHY reference clock
+
+  clock-names:
+    items:
+      - const: phy_cfg
+      - const: phy_ref
+
+  power-domains:
+    maxItems: 1
+
+  assigned-clocks:
+    maxItems: 1
+
+  assigned-clock-parents:
+    maxItems: 1
+
+  assigned-clock-rates:
+    maxItems: 1
+
+required:
+  - compatible
+  - "#phy-cells"
+  - clocks
+  - clock-names
+  - power-domains
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/imx93-clock.h>
+    #include <dt-bindings/power/imx93-power.h>
+    dphy: dphy {
+        compatible = "fsl,imx93-mipi-dphy";
+        clocks = <&clk IMX93_CLK_MIPI_PHY_CFG>, <&clk IMX93_CLK_24M>;
+        clock-names = "phy_cfg", "phy_ref";
+        assigned-clocks = <&clk IMX93_CLK_MIPI_PHY_CFG>;
+        assigned-clock-parents = <&clk IMX93_CLK_24M>;
+        assigned-clock-rates = <24000000>;
+        #phy-cells = <0>;
+        power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_MIPI_DSI>;
+    };
+
+...
