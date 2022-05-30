@@ -1608,9 +1608,8 @@ static int max310x_i2c_probe(struct i2c_client *client)
 
 static int max310x_i2c_remove(struct i2c_client *client)
 {
-	max310x_remove(&client->dev);
-
-	return 0;
+	/* I2C client remove callback returns int before 5.15. */
+	return max310x_remove(&client->dev);
 }
 
 static struct i2c_driver max310x_i2c_driver = {
