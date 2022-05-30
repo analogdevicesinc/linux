@@ -1,0 +1,151 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/imx/fsl,imx93-mipi-dsi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Freescale i.MX93 Synopsys DesignWare MIPI DSI host controller
+
+maintainers:
+  - Liu Ying <victor.liu@nxp.com>
+
+description:
+  Synopsys DesignWare MIPI DSI host controller found in Freescale i.MX93 SoC.
+
+allOf:
+  - $ref: ../dsi-controller.yaml#
+
+properties:
+  compatible:
+    const: fsl,imx93-mipi-dsi
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  clocks:
+    items:
+      - description: byte clock
+      - description: apb clock
+      - description: pixel clock
+
+  clock-names:
+    items:
+      - const: byte
+      - const: pclk
+      - const: pixel
+
+  assigned-clocks: true
+  assigned-clock-parents: true
+  assigned-clock-rates: true
+
+  phys:
+    maxItems: 1
+    description:
+      Phandle to the phy module representing a MIPI DPHY.
+
+  phy-names:
+    items:
+      - const: dphy
+
+  power-domains:
+    maxItems: 1
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/properties/port
+        description:
+          Input port node to receive pixel data from display controller.
+
+      port@1:
+        $ref: /schemas/graph.yaml#/properties/port
+        description:
+          Output port node to a panel or a bridge input port.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+  - phys
+  - phy-names
+  - power-domains
+  - ports
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/imx93-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/power/imx93-power.h>
+    dsi: dsi@4ae10000 {
+        compatible = "fsl,imx93-mipi-dsi";
+        reg = <0x4ae10000 0x4000>;
+        interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&clk IMX93_CLK_MIPI_TEST_BYTE>,
+                 <&clk IMX93_CLK_MIPI_DSI_GATE>,
+                 <&clk IMX93_CLK_MEDIA_DISP_PIX>;
+        clock-names = "byte", "pclk", "pixel";
+        assigned-clocks = <&clk IMX93_CLK_MIPI_TEST_BYTE>,
+                          <&clk IMX93_CLK_MEDIA_APB>;
+        assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD0>,
+                                 <&clk IMX93_CLK_SYS_PLL_PFD1_DIV2>;
+        assigned-clock-rates = <20000000>, <133333333>;
+        phys = <&dphy>;
+        phy-names = "dphy";
+        power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_MIPI_DSI>;
+
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        panel@0 {
+            compatible = "raydium,rm67191";
+            reg = <0>;
+            dsi-lanes = <4>;
+            video-mode = <2>;
+            width-mm = <68>;
+            height-mm = <121>;
+
+            port {
+                panel_in: endpoint {
+                    remote-endpoint = <&dsi_out>;
+                };
+            };
+        };
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+
+                dsi_to_lcdif: endpoint {
+                    remote-endpoint = <&lcdif_to_dsi>;
+                };
+            };
+
+            port@1 {
+                reg = <1>;
+
+                dsi_out: endpoint {
+                    remote-endpoint = <&panel_in>;
+                };
+            };
+        };
+    };
+
+...
