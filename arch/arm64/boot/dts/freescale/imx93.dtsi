@@ -1186,6 +1186,19 @@
 				fsl,tuning-step = <2>;
 				status = "disabled";
 			};
+
+			epxp: epxp@4ae20000 {
+				compatible = "fsl,imx93-pxp-dma", "fsl,imx8ulp-pxp-dma";
+				reg = <0x4ae20000 0x10000>;
+				interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clk IMX93_CLK_MEDIA_APB>,
+					 <&clk IMX93_CLK_MEDIA_AXI>;
+				clock-names = "pxp_ipg", "pxp_axi";
+				pxp-gpr = <&media_blk_ctrl>;
+				power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_PXP>;
+				status = "disabled";
+			};
 		};
 
 		gpio2: gpio@43810000 {
