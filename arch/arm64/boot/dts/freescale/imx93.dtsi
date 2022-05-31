@@ -1366,6 +1366,22 @@
 			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		ldb_phy: phy@4ac10024 {
+			compatible = "fsl,imx93-lvds-phy";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			gpr = <&media_blk_ctrl>;
+			clocks = <&clk IMX93_CLK_MEDIA_APB>;
+			clock-names = "apb";
+			power-domains = <&mediamix>;
+			status = "disabled";
+
+			ldb_phy1: port@0 {
+				reg = <0>;
+				#phy-cells = <0>;
+			};
+		};
+
 		ele_mu: ele-mu {
 			compatible = "fsl,imx93-ele";
 			mboxes = <&s4muap 0 0 &s4muap 1 0>;
