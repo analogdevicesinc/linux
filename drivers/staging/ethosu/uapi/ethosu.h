@@ -62,7 +62,7 @@ namespace EthosU {
 #define ETHOSU_FD_MAX                   16
 
 /* Maximum number of PMUs available */
-#define ETHOSU_PMU_EVENT_MAX             8
+#define ETHOSU_PMU_EVENT_MAX             4
 
 /****************************************************************************
  * Types

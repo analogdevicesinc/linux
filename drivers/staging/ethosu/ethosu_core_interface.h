@@ -35,7 +35,7 @@ namespace EthosU {
 #define ETHOSU_CORE_BUFFER_MAX 16
 
 /** Maximum number of PMU counters to be returned for inference */
-#define ETHOSU_CORE_PMU_MAX 8
+#define ETHOSU_CORE_PMU_MAX 4
 
 #define ETHOSU_CORE_MSG_MAGIC 0x41457631
 #define ETHOSU_CORE_MSG_VERSION_MAJOR 0
