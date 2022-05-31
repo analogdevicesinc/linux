@@ -33,6 +33,8 @@
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <linux/of.h>
+#include <linux/regmap.h>
+#include <linux/mfd/syscon.h>
 
 #include "regs-pxp_v3.h"
 #include "reg_bitfields.h"
@@ -321,6 +323,8 @@ struct pxps {
 	struct task_struct *dispatch;
 	wait_queue_head_t thread_waitq;
 	struct completion complete;
+
+	struct regmap *gpr;
 };
 
 #define to_pxp_dma(d) container_of(d, struct pxp_dma, dma)
@@ -947,6 +951,7 @@ static void pxp_lut_cleanup_multiple_v3p(struct pxps *pxp, u64 lut, bool set);
 static void pxp_luts_deactivate(struct pxps *pxp, u64 lut_status);
 static void pxp_set_colorkey(struct pxps *pxp);
 static void pxp_software_restart(struct pxps *pxp);
+static void imx93_pxp_software_restart(struct pxps *pxp);
 
 enum {
 	DITHER0_LUT = 0x0,	/* Select the LUT memory for access */
@@ -965,6 +970,7 @@ enum pxp_devtype {
 	PXP_V3 = 0,
 	PXP_V3P,	/* minor changes over V3, use WFE_B to replace WFE_A */
 	PXP_V3_8ULP,	/* PXP V3 version for iMX8ULP */
+	PXP_V3_IMX93,	/* PXP V3 version for iMX93 */
 };
 
 #define pxp_is_v3(pxp) ((pxp->devdata->version == PXP_V3) || \
@@ -1016,6 +1022,17 @@ static const struct pxp_devdata pxp_devdata[] = {
 		.pxp_data_path_config = NULL,
 		.pxp_restart = pxp_software_restart,
 		.version = PXP_V3_8ULP,
+	},
+	[PXP_V3_IMX93] = {
+		.pxp_wfe_a_configure = NULL,
+		.pxp_wfe_a_process = NULL,
+		.pxp_lut_status_set = NULL,
+		.pxp_lut_status_clr = NULL,
+		.pxp_lut_cleanup_multiple = NULL,
+		.pxp_dithering_configure = NULL,
+		.pxp_data_path_config = NULL,
+		.pxp_restart = imx93_pxp_software_restart,
+		.version = PXP_V3_IMX93,
 	},
 };
 
@@ -1327,6 +1344,13 @@ static void pxp_software_restart(struct pxps *pxp)
 	if (pxp->devdata && pxp->devdata->pxp_data_path_config)
 		pxp->devdata->pxp_data_path_config(pxp);
 	__raw_writel(0xffff, pxp->base + HW_PXP_IRQ_MASK);
+}
+
+static void imx93_pxp_software_restart(struct pxps *pxp)
+{
+	pxp_software_restart(pxp);
+
+	/* config mediamix for PXP, keep default so far */
 }
 
 static uint32_t pxp_parse_as_fmt(uint32_t format)
@@ -3645,7 +3669,6 @@ static void pxp_clk_enable(struct pxps *pxp)
 	}
 
 	pm_runtime_get_sync(pxp->dev);
-
 	clk_prepare_enable(pxp->ipg_clk);
 	clk_prepare_enable(pxp->axi_clk);
 
@@ -4150,13 +4173,16 @@ static irqreturn_t pxp_irq(int irq, void *dev_id)
 
 		pxp_writel(BM_PXP_CTRL_ENABLE, HW_PXP_CTRL_CLR);
 	}
-	pxp_collision_status_report(pxp, &col_info);
-	pxp_histogram_status_report(pxp, &hist_status);
-	/*XXX before a new update operation, we should
-	 * always clear all the collision information
-	 */
-	pxp_collision_detection_disable(pxp);
-	pxp_histogram_disable(pxp);
+
+	if (pxp->devdata->version < PXP_V3_IMX93) {
+		pxp_collision_status_report(pxp, &col_info);
+		pxp_histogram_status_report(pxp, &hist_status);
+		/*XXX before a new update operation, we should
+		 * always clear all the collision information
+		 */
+		pxp_collision_detection_disable(pxp);
+		pxp_histogram_disable(pxp);
+	}
 
 	pxp_writel(0x0, HW_PXP_CTRL);
 	pxp_soft_reset(pxp);
@@ -7609,6 +7635,9 @@ static struct platform_device_id imx_pxpdma_devtype[] = {
 		.name = "imx8ulp-pxp-dma",
 		.driver_data = PXP_V3_8ULP,
 	}, {
+		.name = "imx93-pxp-dma",
+		.driver_data = PXP_V3_IMX93,
+	}, {
 		/* sentinel */
 	}
 };
@@ -7618,6 +7647,7 @@ static const struct of_device_id imx_pxpdma_dt_ids[] = {
 	{ .compatible = "fsl,imx7d-pxp-dma", .data = &imx_pxpdma_devtype[0], },
 	{ .compatible = "fsl,imx6ull-pxp-dma", .data = &imx_pxpdma_devtype[1], },
 	{ .compatible = "fsl,imx8ulp-pxp-dma", .data = &imx_pxpdma_devtype[2], },
+	{ .compatible = "fsl,imx93-pxp-dma", .data = &imx_pxpdma_devtype[3], },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_pxpdma_dt_ids);
@@ -8037,9 +8067,14 @@ static int pxp_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	pxp->gpr = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "pxp-gpr");
+	if (IS_ERR(pxp->gpr))
+		pxp->gpr = NULL;
+
 	pxp_clk_enable(pxp);
 	pxp_soft_reset(pxp);
 	pxp_writel(0x0, HW_PXP_CTRL);
+
 	/* Initialize DMA engine */
 	err = pxp_dma_init(pxp);
 	if (err < 0)
