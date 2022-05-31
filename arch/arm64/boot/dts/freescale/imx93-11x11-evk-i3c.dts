@@ -37,6 +37,16 @@
 	};
 
 	/* i2c devices */
+	codec: wm8960@1a {
+		compatible = "wlf,wm8960";
+		reg = <0x1a 0x00 0x50>;
+		clocks = <&clk IMX93_CLK_SAI3_GATE>;
+		clock-names = "mclk";
+		wlf,shared-lrclk;
+		wlf,hp-cfg = <3 2 3>;
+		wlf,gpio-cfg = <1 3>;
+		SPKVDD1-supply = <&reg_audio_pwr>;
+	};
 };
 
 &iomuxc {
