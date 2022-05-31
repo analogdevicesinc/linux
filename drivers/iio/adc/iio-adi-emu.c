@@ -9,15 +9,21 @@
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
 
+struct adi_emu_priv {
+	bool enable;
+};
+
 static int adi_emu_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val,
 			    int *val2,
 			    long mask)
 {
+	struct adi_emu_priv *priv = iio_priv(indio_dev);
+
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		*val = 0;
+		*val = priv->enable;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel)
@@ -36,8 +42,11 @@ static int adi_emu_write_raw(struct iio_dev *indio_dev,
 			     int val2,
 			     long mask)
 {
+	struct adi_emu_priv *priv = iio_priv(indio_dev);
+
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
+		priv->enable = val;
 		return 0;
 	}
 
@@ -70,10 +79,14 @@ static const struct iio_chan_spec adi_emu_channels[] = {
 static int adi_emu_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
+	struct adi_emu_priv *priv;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, 0);
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*priv));
 	if (!indio_dev)
 		return -ENOMEM;
+
+	priv = iio_priv(indio_dev);
+	priv->enable = false;
 
 	indio_dev->name = "iio-adi-emu";
 	indio_dev->channels = adi_emu_channels;
