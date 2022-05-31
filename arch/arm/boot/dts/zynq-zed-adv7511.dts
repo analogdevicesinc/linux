@@ -14,3 +14,51 @@
 
 #include "zynq-zed.dtsi"
 #include "zynq-zed-adv7511.dtsi"
+
+&eeprom1 {
+	status = "disabled";
+};
+
+&gpio0 {
+	ad3552r_qspi {
+		gpio-hog;
+		gpios = <89 0>;
+		output-high;
+		line-name = "ad3552r-qspi";
+	};
+};
+
+&fpga_axi {
+	spi_clkgen: spi-clkgen@44A70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15 &clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+	};
+
+	spi_engine_dac: spi@44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 4>;
+		clocks = <&clkc 15 &spi_clkgen>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+      		ad3552r@0 {
+			compatible = "adi,ad3552r";
+			reg = <0>;
+			spi-max-frequency = <20000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel@0 {
+			      reg = <0>;
+			      adi,output-range-microvolt = <0 10000000>;
+			};
+		};
+	};
+
+};
