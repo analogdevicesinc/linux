@@ -1366,6 +1366,36 @@
 			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		ldb: ldb@4ac10020 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "fsl,imx93-ldb";
+			clocks = <&clk IMX93_CLK_LVDS_GATE>;
+			clock-names = "ldb";
+			assigned-clocks = <&clk IMX93_CLK_MEDIA_LDB>;
+			assigned-clock-parents = <&clk IMX93_CLK_VIDEO_PLL>;
+			gpr = <&media_blk_ctrl>;
+			power-domains = <&mediamix>;
+			status = "disabled";
+
+			lvds-channel@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				phys = <&ldb_phy1>;
+				phy-names = "ldb_phy";
+				status = "disabled";
+
+				port@0 {
+					reg = <0>;
+
+					ldb_ch0: endpoint {
+						remote-endpoint = <&lcdif_to_ldb>;
+					};
+				};
+			};
+		};
+
 		ldb_phy: phy@4ac10024 {
 			compatible = "fsl,imx93-lvds-phy";
 			#address-cells = <1>;
@@ -1457,6 +1487,7 @@
 
 				lcdif_to_ldb: endpoint@1 {
 					reg = <1>;
+					remote-endpoint = <&ldb_ch0>;
 				};
 
 				lcdif_to_dpi: endpoint@2 {
