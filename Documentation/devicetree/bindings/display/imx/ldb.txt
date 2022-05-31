@@ -10,7 +10,8 @@ Required properties:
  - #address-cells : should be <1>
  - #size-cells : should be <0>
  - compatible : should be "fsl,imx53-ldb" or "fsl,imx6q-ldb" or
-                "fsl,imx8qm-ldb" or "fsl,imx8qxp-ldb" or "fsl,imx8mp-ldb".
+                "fsl,imx8qm-ldb" or "fsl,imx8qxp-ldb" or "fsl,imx8mp-ldb" or
+                "fsl,imx93-ldb".
                 All LDB versions are similar.
                 i.MX6q/dl has an additional multiplexer in the front to select
                 any of the two or four IPU display interfaces as input for each
@@ -19,6 +20,7 @@ Required properties:
                 phy.
                 i.MX8qxp and i.MX8mp LDB only supports one LVDS encoder
                 channel(either channel0 or channel1).
+                i.MX93 LDB only supports one LVDS encoder channel(channel0).
  - gpr : should be <&gpr> on i.MX53 and i.MX6q.
          The phandle points to the iomuxc-gpr region containing the LVDS
          control register.
@@ -44,21 +46,21 @@ Required properties:
         The following clocks are expected on i.MX8qxp:
                 "aux_pixel" - auxiliary pixel clock in dual channel mode
                 "aux_bypass" - auxiliary bypass clock in dual channel mode
-        The following clocks are expected on i.MX8mp:
+        The following clocks are expected on i.MX8mp and i.MX93:
                 "ldb" - ldb root clock
         The needed clock numbers for each are documented in
         Documentation/devicetree/bindings/clock/imx5-clock.yaml, and in
         Documentation/devicetree/bindings/clock/imx6q-clock.yaml and in
         Documentation/devicetree/bindings/clock/imx8qm-lpcg.txt, and in
         Documentation/devicetree/bindings/clock/imx8qxp-lpcg.txt.
-- power-domains : phandle pointing to power domain, only required by i.MX8qm and
-                  i.MX8qxp.
+- power-domains : phandle pointing to power domain, only required by i.MX8qm,
+                  i.MX8qxp, i.MX8mp and i.MX93.
 
 Optional properties:
  - pinctrl-names : should be "default" on i.MX53, not used on i.MX6q, i.MX8qm
-                   i.MX8qxp and i.MX8mp
+                   i.MX8qxp, i.MX8mp and i.MX93
  - pinctrl-0 : a phandle pointing to LVDS pin settings on i.MX53,
-               not used on i.MX6q, i.MX8qm, i.MX8qxp and i.MX8mp
+               not used on i.MX6q, i.MX8qm, i.MX8qxp, i.MX8mp and i.MX93
  - fsl,dual-channel : boolean. if it exists, only LVDS channel 0 should
    be configured - one input will be distributed on both outputs in dual
    channel mode
@@ -81,14 +83,16 @@ Required properties:
    to the four LVDS multiplexer inputs.
    On i.MX8qm, the two channels of LDB connect to one display interface of DPU.
    On i.MX8mp, the two channels of LDB connect to LCDIFv3.
+   On i.MX93, the channel of LDB connect to LCDIFv3.
    A single output port (port@2 on i.MX5, port@4 on i.MX6, port@1 on i.MX8qm,
-   i.MX8qxp and i.MX8mp) must be connected to a panel input port or a bridge
-   input port.
+   i.MX8qxp, i.MX8mp and i.MX93) must be connected to a panel input port or
+   a bridge input port.
    Optionally, the output port can be left out if display-timings are used
    instead.
- - phys: the phandle for the LVDS PHY device. Valid only on i.MX8qm, i.MX8qxp
-         and i.MX8mp.
- - phy-names: should be "ldb_phy". Valid only on i.MX8qm, i.MX8qxp and i.MX8mp.
+ - phys: the phandle for the LVDS PHY device. Valid only on i.MX8qm, i.MX8qxp,
+         i.MX8mp and i.MX93.
+ - phy-names: should be "ldb_phy". Valid only on i.MX8qm, i.MX8qxp, i.MX8mp
+              and i.MX93.
 
 Optional properties (required if display-timings are used):
  - ddc-i2c-bus: phandle of an I2C controller used for DDC EDID probing
