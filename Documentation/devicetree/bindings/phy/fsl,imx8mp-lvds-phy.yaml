@@ -11,13 +11,15 @@ maintainers:
   - Liu Ying <victor.liu@nxp.com>
 
 description: |
-  LVDS PHY found on i.MX8MP SoC.  The IP block contains two PHYs, each of
-  which supports a four data lane LVDS channel.
+  LVDS PHY found on i.MX8MP and i.MX93 SoCs.  i.MX8MP LVDS PHY IP contains
+  two PHYs, each of which supports a four data lane LVDS channel.  i.MX93
+  LVDS PHY IP contains one PHY.
 
 properties:
   compatible:
     enum:
       - fsl,imx8mp-lvds-phy
+      - fsl,imx93-lvds-phy
 
   "#address-cells":
     const: 1
@@ -35,6 +37,9 @@ properties:
   clock-names:
     items:
       - const: apb
+
+  power-domains:
+    maxItems: 1
 
   port@0:
     type: object
@@ -69,13 +74,35 @@ required:
   - "#address-cells"
   - "#size-cells"
   - gpr
+  - clocks
+  - clock-names
+  - power-domains
   - port@0
-  - port@1
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx8mp-lvds-phy
+    then:
+      required:
+        - port@1
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx93-lvds-phy
+    then:
+      properties:
+        port@1: false
 
 additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/clock/imx8mp-clock.h>
     ldb_phy: phy@32ec0128 {
         compatible = "fsl,imx8mp-lvds-phy";
         #address-cells = <1>;
@@ -83,6 +110,7 @@ examples:
         gpr = <&mediamix_blk_ctl>;
         clocks = <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
         clock-names = "apb";
+        power-domains = <&mediamix_pd>;
 
         ldb_phy1: port@0 {
             reg = <0>;
