@@ -1460,6 +1460,7 @@
 			compatible = "fsl,imx93-lcdif";
 			reg = <0x4ae30000 0x10000>;
 			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,gpr = <&media_blk_ctrl>;
 			clocks = <&clk IMX93_CLK_MEDIA_DISP_PIX>,
 				 <&clk IMX93_CLK_MEDIA_AXI>,
 				 <&clk IMX93_CLK_LCDIF_GATE>;
