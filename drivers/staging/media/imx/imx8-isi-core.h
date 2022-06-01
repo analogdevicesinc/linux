@@ -399,6 +399,7 @@ struct mxc_isi_dev {
 
 	int interface[MAX_PORTS];
 	int id;
+	int irq;
 
 	unsigned int hflip:1;
 	unsigned int vflip:1;

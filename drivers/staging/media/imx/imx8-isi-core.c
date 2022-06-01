@@ -766,12 +766,14 @@ static int mxc_isi_probe(struct platform_device *pdev)
 
 	mxc_isi_clean_registers(mxc_isi);
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
+	ret = platform_get_irq(pdev, 0);
+	if (ret < 0) {
 		dev_err(dev, "Failed to get IRQ resource\n");
 		goto err;
 	}
-	ret = devm_request_irq(dev, res->start, mxc_isi_irq_handler,
+	mxc_isi->irq = ret;
+
+	ret = devm_request_irq(dev, mxc_isi->irq, mxc_isi_irq_handler,
 			       0, dev_name(dev), mxc_isi);
 	if (ret < 0) {
 		dev_err(dev, "failed to install irq (%d)\n", ret);
