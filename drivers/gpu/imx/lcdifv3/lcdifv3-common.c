@@ -734,6 +734,15 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 	if (IS_ERR(lcdifv3->base))
 		return PTR_ERR(lcdifv3->base);
 
+	if (of_device_is_compatible(np, "fsl,imx93-lcdif")) {
+		lcdifv3->gpr = syscon_regmap_lookup_by_phandle(np, "fsl,gpr");
+		if (IS_ERR(lcdifv3->gpr)) {
+			ret = PTR_ERR(lcdifv3->gpr);
+			dev_err(dev, "failed to get gpr: %d\n", ret);
+			return ret;
+		}
+	}
+
 	lcdifv3->dev = dev;
 
 	/* reset controller to avoid any conflict
@@ -796,6 +805,10 @@ static int imx_lcdifv3_runtime_suspend(struct device *dev)
 
 	release_bus_freq(BUS_FREQ_HIGH);
 
+	/* clear LCDIF QoS and cache */
+	if (of_device_is_compatible(dev->of_node, "fsl,imx93-lcdif"))
+		regmap_write(lcdifv3->gpr, 0xc, 0x0);
+
 	return 0;
 }
 
@@ -811,6 +824,10 @@ static int imx_lcdifv3_runtime_resume(struct device *dev)
 
 	if (!atomic_dec_and_test(&lcdifv3->rpm_suspended))
 		return 0;
+
+	/* set LCDIF QoS and cache */
+	if (of_device_is_compatible(dev->of_node, "fsl,imx93-lcdif"))
+		regmap_write(lcdifv3->gpr, 0xc, 0x3712);
 
 	request_bus_freq(BUS_FREQ_HIGH);
 
