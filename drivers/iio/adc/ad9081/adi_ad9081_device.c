@@ -856,7 +856,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 				       "api v%d.%d.%d commit %s for ad%x ",
 				       (AD9081_API_REV & 0xff0000) >> 16,
 				       (AD9081_API_REV & 0xff00) >> 8,
-				       (AD9081_API_REV & 0xff), "5b813df",
+				       (AD9081_API_REV & 0xff), "9b8a574",
 				       AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
