@@ -4213,4 +4213,189 @@ int32_t adi_ad9081_adc_smon_next_sync_mode_set(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
+int32_t
+adi_ad9081_adc_data_inversion_dc_coupling_set(adi_ad9081_device_t *device,
+					      adi_ad9081_adc_select_e adc_sel,
+					      uint8_t enable)
+{
+	int32_t err;
+	uint32_t reg_customer_up_transfer_addr = 0x2100;
+	uint32_t reg_user_settings_adc_cal_addr = 0x2115;
+	uint32_t reg_data_inversion_dc_coupling_addr = 0x2111;
+	uint8_t data_inversion_setting = 0x0;
+	int i = 0;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(enable > 1);
+
+	err = adi_ad9081_hal_reg_get(device,
+				     reg_data_inversion_dc_coupling_addr,
+				     &data_inversion_setting);
+	AD9081_ERROR_RETURN(err);
+
+	if (enable) {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				data_inversion_setting |= (0x1 << i);
+			}
+		}
+	} else {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				data_inversion_setting &= ~(0x1 << i);
+			}
+		}
+	}
+	err = adi_ad9081_hal_reg_set(device,
+				     reg_data_inversion_dc_coupling_addr,
+				     data_inversion_setting);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(
+		device, reg_user_settings_adc_cal_addr,
+		1); /* Enable user-defined ADC calibration settings */
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(device, reg_customer_up_transfer_addr,
+				     1); /* Trigger Data Transfer */
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t
+adi_ad9081_adc_offset_timing_calibration_set(adi_ad9081_device_t *device,
+					     adi_ad9081_adc_select_e adc_sel,
+					     uint8_t enable)
+{
+	int32_t err;
+	uint32_t reg_customer_up_transfer_addr = 0x2100;
+	uint32_t reg_user_settings_adc_cal_addr = 0x2115;
+	uint32_t reg_offset_timing_calibration_addr = 0x2116;
+	uint8_t offset_timing_calibration_setting = 0x0;
+	int i = 0;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(enable > 1);
+
+	err = adi_ad9081_hal_reg_get(device, reg_offset_timing_calibration_addr,
+				     &offset_timing_calibration_setting);
+	AD9081_ERROR_RETURN(err);
+
+	if (enable) {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				offset_timing_calibration_setting |= (0x1 << i);
+			}
+		}
+	} else {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				offset_timing_calibration_setting &=
+					~(0x1 << i);
+			}
+		}
+	}
+	err = adi_ad9081_hal_reg_set(device, reg_offset_timing_calibration_addr,
+				     offset_timing_calibration_setting);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(
+		device, reg_user_settings_adc_cal_addr,
+		1); /* Enable user-defined ADC calibration settings */
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(device, reg_customer_up_transfer_addr,
+				     1); /* Trigger Data Transfer */
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_adc_gain_calibration_set(adi_ad9081_device_t *device,
+					    adi_ad9081_adc_select_e adc_sel,
+					    uint8_t enable)
+{
+	int32_t err;
+	uint32_t reg_customer_up_transfer_addr = 0x2100;
+	uint32_t reg_user_settings_adc_cal_addr = 0x2115;
+	uint32_t reg_gain_calibration_addr = 0x2117;
+	uint8_t gain_calibration_setting = 0x0;
+	int i = 0;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(enable > 1);
+
+	err = adi_ad9081_hal_reg_get(device, reg_gain_calibration_addr,
+				     &gain_calibration_setting);
+	AD9081_ERROR_RETURN(err);
+
+	if (enable) {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				gain_calibration_setting |= (0x1 << i);
+			}
+		}
+	} else {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				gain_calibration_setting &= ~(0x1 << i);
+			}
+		}
+	}
+	err = adi_ad9081_hal_reg_set(device, reg_gain_calibration_addr,
+				     gain_calibration_setting);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(
+		device, reg_user_settings_adc_cal_addr,
+		1); /* Enable user-defined ADC calibration settings */
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(device, reg_customer_up_transfer_addr,
+				     1); /* Trigger Data Transfer */
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_adc_offset_calibration_set(adi_ad9081_device_t *device,
+					      adi_ad9081_adc_select_e adc_sel,
+					      uint8_t enable)
+{
+	int32_t err;
+	uint32_t reg_customer_up_transfer_addr = 0x2100;
+	uint32_t reg_user_settings_adc_cal_addr = 0x2115;
+	uint32_t reg_offset_calibration_addr = 0x2117;
+	uint8_t offset_calibration_setting = 0x0;
+	int i = 0;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(enable > 1);
+
+	err = adi_ad9081_hal_reg_get(device, reg_offset_calibration_addr,
+				     &offset_calibration_setting);
+	AD9081_ERROR_RETURN(err);
+
+	if (enable) {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				offset_calibration_setting |= (0x1 << (4 + i));
+			}
+		}
+	} else {
+		for (i = 0; i < 4; i++) {
+			if ((1 << i) & adc_sel) {
+				offset_calibration_setting &= ~(0x1 << (4 + i));
+			}
+		}
+	}
+	err = adi_ad9081_hal_reg_set(device, reg_offset_calibration_addr,
+				     offset_calibration_setting);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(
+		device, reg_user_settings_adc_cal_addr,
+		1); /* Enable user-defined ADC calibration settings */
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_reg_set(device, reg_customer_up_transfer_addr,
+				     1); /* Trigger Data Transfer */
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
 /*! @} */
