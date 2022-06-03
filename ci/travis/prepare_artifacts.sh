@@ -25,7 +25,7 @@ artifacts_structure() {
 		cd ../
 		cp -r ./adi_"${typeBCM[$index]}"_defconfig/* ./${timestamp}
 	done
-	tar -C ${SOURCE_DIRECTORY}/${timestamp}/modules -cvf ${SOURCE_DIRECTORY}/${timestamp}/rpi_modules.tar.gz .
+	tar -C ${SOURCE_DIRECTORY}/${timestamp}/modules -czvf ${SOURCE_DIRECTORY}/${timestamp}/rpi_modules.tar.gz .
 	rm -r ${SOURCE_DIRECTORY}/${timestamp}/modules
 }
 
@@ -45,7 +45,7 @@ artifacts_swdownloads() {
 	md5_modules=($(md5sum rpi_modules.tar.gz| cut -d ' ' -f 1))
 
 	rm rpi_modules.tar.gz rpi_git_properties.txt
-	tar -C ${PWD} -cvf rpi_latest_boot.tar.gz *
+	tar -C ${PWD} -czvf rpi_latest_boot.tar.gz *
 	md5_boot=($(md5sum rpi_latest_boot.tar.gz| cut -d ' ' -f 1))
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
 	    -i ${KEY_FILE} -r rpi_latest_boot.tar.gz ${DEST_SERVER}
