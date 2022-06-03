@@ -157,37 +157,57 @@
 		};
 	};
 
-	spi@0x44B30000 {
+        qspi0: spi@0x44B20000 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg = <0x44B20000 0x1000>;
+                num-cs = <0x1>;
+                compatible = "xlnx,xps-spi-2.00.a";
+                bits-per-word = <16>;
+                fifo-size = <16>;
+                clock-names = "ext_spi_clk", "s_axi_aclk";
+                clocks = <&clkc 15>, <&clkc 15>;
+                interrupt-names = "ip2intc_irpt";
+                interrupt-parent = <&intc>;
+                interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+
+                gpio_mux: max7301@0 {
+                        compatible = "max7301";
+                        reg = <0>;
+                        spi-max-frequency = <20000000>;
+                        #gpio-cells = <2>;
+                        gpio-controller;
+                };
+        };
+
+	spi_clkgen: spi-clkgen@44d30000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44d30000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15 &clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+	};
+
+	spi_engine_dac: spi@44d00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44d00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 36 4>;
+		clocks = <&clkc 15 &spi_clkgen>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reg = <0x44B30000 0x1000>;
-		num-cs = <0x1>;
-		compatible = "xlnx,xps-spi-2.00.a";
-		bits-per-word = <16>;
-		fifo-size = <16>;
-		clock-names = "ext_spi_clk", "s_axi_aclk";
-		clocks = <&clkc 15>, <&clkc 15>;
-		interrupt-names = "ip2intc_irpt";
-		interrupt-parent = <&intc>;
-		interrupts = <0 36 IRQ_TYPE_LEVEL_HIGH>;
-		ad3552r@0 {
+      		ad3552r@0 {
 			compatible = "adi,ad3552r";
 			reg = <0>;
 			spi-max-frequency = <20000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			channel@0 {
-				reg = <0>;
-				adi,output-range-microvolt = <0 10000000>;
-			};
-			channel@1 {
-				reg = <1>;
-				custom-output-range-config {
-					adi,gain-offset = <5>;
-					adi,gain-scaling-p-inv-log2 = <1>;
-					adi,gain-scaling-n-inv-log2 = <2>;
-					adi,rfb-ohms = <1>;
-				};
+			      reg = <0>;
+			      adi,output-range-microvolt = <0 5000000>;
 			};
 		};
 	};
@@ -219,4 +239,3 @@
 
 	};
 };
-
