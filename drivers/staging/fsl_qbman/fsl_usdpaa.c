@@ -47,6 +47,7 @@ struct dpa_proxy_priv_s {
 
 struct eventfd_list {
 	struct list_head d_list;
+	struct list_head ctx_list;
 	struct net_device *ndev;
 	struct eventfd_ctx *efd_ctx;
 };
@@ -58,7 +59,8 @@ static void phy_link_updates(struct net_device *net_dev);
 static inline int
 ioctl_usdpaa_get_link_status(struct usdpaa_ioctl_link_status_args *input);
 
-static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args);
+struct ctx;
+static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args, struct ctx *ctx);
 static int ioctl_disable_if_link_status(char *if_name);
 
 /* Physical address range of the memory reservation, exported for mm/mem.c */
@@ -153,6 +155,8 @@ struct ctx {
 	struct list_head maps;
 	/* list of portal maps */
 	struct list_head portals;
+	/* list of event fds */
+	struct list_head events;
 };
 
 /* Different resource classes */
@@ -396,6 +400,7 @@ static int usdpaa_open(struct inode *inode, struct file *filp)
 
 	INIT_LIST_HEAD(&ctx->maps);
 	INIT_LIST_HEAD(&ctx->portals);
+	INIT_LIST_HEAD(&ctx->events);
 	spin_lock_init(&ctx->lock);
 
 	//filp->f_mapping->backing_dev_info = &directly_mappable_cdev_bdi;
@@ -597,11 +602,12 @@ static int usdpaa_release(struct inode *inode, struct file *filp)
 	struct mem_mapping *map, *tmpmap;
 	struct portal_mapping *portal, *tmpportal;
 	const struct alloc_backend *backend = &alloc_backends[0];
-	struct active_resource *res;
+	struct active_resource *tmp, *res;
 	struct qm_portal *qm_cleanup_portal = NULL;
 	struct bm_portal *bm_cleanup_portal = NULL;
 	struct qm_portal_config *qm_alloced_portal = NULL;
 	struct bm_portal_config *bm_alloced_portal = NULL;
+	struct eventfd_list *ev_mem, *tmp_ev_mem;
 
 	struct qm_portal **portal_array;
 	int portal_count = 0;
@@ -685,7 +691,7 @@ static int usdpaa_release(struct inode *inode, struct file *filp)
 
 	while (backend->id_type != usdpaa_id_max) {
 		int res_count = 0;
-		list_for_each_entry(res, &ctx->resources[backend->id_type],
+		list_for_each_entry_safe(res, tmp, &ctx->resources[backend->id_type],
 				    list) {
 			if (backend->id_type == usdpaa_id_fqid) {
 				int i = 0;
@@ -699,6 +705,8 @@ static int usdpaa_release(struct inode *inode, struct file *filp)
 			res_count += res->num;
 
 			backend->release(res->id, res->num);
+			list_del(&res->list);
+			kfree(res);
 		}
 		if (res_count)
 			pr_info("USDPAA release: %d %s%s\n",
@@ -728,6 +736,14 @@ static int usdpaa_release(struct inode *inode, struct file *filp)
 		kfree(map);
 	}
 	spin_unlock(&mem_lock);
+
+	/* free eventfds */
+	list_for_each_entry_safe(ev_mem, tmp_ev_mem, &ctx->events, ctx_list) {
+		eventfd_ctx_put(ev_mem->efd_ctx);
+		list_del(&ev_mem->ctx_list);
+		list_del(&ev_mem->d_list);
+		kfree(ev_mem);
+	}
 
 	/* Return portals */
 	list_for_each_entry_safe(portal, tmpportal, &ctx->portals, list) {
@@ -1908,7 +1924,7 @@ static void phy_link_updates(struct net_device *net_dev)
 
 static int setup_eventfd(struct task_struct *userspace_task,
 			struct usdpaa_ioctl_link_status *args,
-			struct net_device *net_dev)
+			struct net_device *net_dev, struct ctx *ctx)
 {
 	struct file *efd_file = NULL;
 	struct list_head *position = NULL;
@@ -1936,6 +1952,7 @@ static int setup_eventfd(struct task_struct *userspace_task,
 		return -ENOMEM;
 	}
 	INIT_LIST_HEAD(&ev_mem->d_list);
+	INIT_LIST_HEAD(&ev_mem->ctx_list);
 
 	ev_mem->ndev = net_dev;
 	ev_mem->efd_ctx = eventfd_ctx_fileget(efd_file);
@@ -1944,6 +1961,7 @@ static int setup_eventfd(struct task_struct *userspace_task,
 		kfree(ev_mem);
 		return -EINVAL;
 	}
+	list_add(&ev_mem->ctx_list, &ctx->events);
 	list_add(&ev_mem->d_list, &eventfd_head);
 
 	return 0;
@@ -1957,7 +1975,7 @@ static int setup_eventfd(struct task_struct *userspace_task,
  * args->efd:		The eventfd value which should be waked up when
  *			there is any link update received.
  */
-static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
+static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args, struct ctx *ctx)
 {
 	struct net_device *net_dev = NULL;
 	struct dpa_proxy_priv_s *priv = NULL;
@@ -1982,7 +2000,7 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 		/* Get current task context from which IOCTL was called */
 		userspace_task = current;
 
-		ret = setup_eventfd(userspace_task, args, net_dev);
+		ret = setup_eventfd(userspace_task, args, net_dev, ctx);
 		if (ret)
 			return ret;
 
@@ -2011,7 +2029,7 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 			/* Get current task context from which IOCTL was called */
 			userspace_task = current;
 
-			ret = setup_eventfd(userspace_task, args, net_dev);
+			ret = setup_eventfd(userspace_task, args, net_dev, ctx);
 			if (ret) {
 				dev->platform_data = NULL;
 				free_netdev(net_dev);
@@ -2040,7 +2058,7 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 		/* Get current task context from which IOCTL was called */
 		userspace_task = current;
 
-		ret = setup_eventfd(userspace_task, args, net_dev);
+		ret = setup_eventfd(userspace_task, args, net_dev, ctx);
 		if (ret) {
 			free_netdev(net_dev);
 			return ret;
@@ -2095,6 +2113,7 @@ static int ioctl_disable_if_link_status(char *if_name)
 			ev_mem = list_entry(position, struct eventfd_list, d_list);
 			if (ev_mem->ndev == net_dev) {
 				eventfd_ctx_put(ev_mem->efd_ctx);
+				list_del(&ev_mem->ctx_list);
 				list_del(position);
 				kfree(ev_mem);
 				break;
@@ -2122,6 +2141,7 @@ static int ioctl_disable_if_link_status(char *if_name)
 		ev_mem = list_entry(position, struct eventfd_list, d_list);
 		if (ev_mem->ndev == net_dev) {
 			eventfd_ctx_put(ev_mem->efd_ctx);
+			list_del(&ev_mem->ctx_list);
 			list_del(&ev_mem->d_list);
 			kfree(ev_mem);
 			break;
@@ -2213,7 +2233,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		input.if_name[IF_NAME_MAX_LEN - 1] = '\0';
 
-		ret = ioctl_en_if_link_status(&input);
+		ret = ioctl_en_if_link_status(&input, ctx);
 		if (ret)
 			pr_err("Error(%d) enable link interrupt:IF: %s\n",
 				ret, input.if_name);
