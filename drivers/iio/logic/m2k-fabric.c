@@ -614,7 +614,7 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 		if (IS_ERR(m2k_fabric->usr_pow_gpio[1]))
 			return PTR_ERR(m2k_fabric->usr_pow_gpio[1]);
 
-		m2k_fabric->done_led_overwrite_gpio = devm_gpiod_get(&pdev->dev,
+		m2k_fabric->done_led_overwrite_gpio = devm_gpiod_get_optional(&pdev->dev,
 							"en-done-led-overwrite",
 							GPIOD_OUT_HIGH);
 		if (IS_ERR(m2k_fabric->done_led_overwrite_gpio))
