@@ -155,6 +155,13 @@
 
 #define CHIPID_AD9649			0x6F
 
+/*
+ * Analog Devices MACH1
+ */
+
+#define CHIPID_MACH1			0x7
+#define MACH1_ADC_REG_CHIP_ID		0x3
+
 enum {
 	ID_AD9467,
 	ID_AD9643,
@@ -166,6 +173,7 @@ enum {
 	ID_AD9434,
 	ID_AD9652,
 	ID_AD9649,
+	ID_MACH1,
 };
 
 static int ad9467_spi_read(struct spi_device *spi, unsigned reg)
@@ -223,7 +231,8 @@ static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 
 	if (readval == NULL) {
 		ret = ad9467_spi_write(spi, reg, writeval);
-		ad9467_spi_write(spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
+		if (conv->chip_info->id != CHIPID_MACH1)
+			ad9467_spi_write(spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
 		return ret;
 	} else {
 		ret = ad9467_spi_read(spi, reg);
@@ -545,6 +554,10 @@ static const int ad9649_scale_table[][2] = {
 	{2000, 0},
 };
 
+static const int mach1_scale_table[][2] = {
+	{6000, 0},
+};
+
 static void ad9467_scale(struct axiadc_converter *conv, int index,
 	unsigned int *val, unsigned int *val2)
 {
@@ -558,8 +571,8 @@ static void ad9467_scale(struct axiadc_converter *conv, int index,
 
 	tmp = (conv->chip_info->scale_table[index][0] * 1000000ULL) >>
 		    conv->chip_info->channel[0].scan_type.realbits;
-	*val = tmp / 1000000;
-	*val2 = tmp % 1000000;
+	*val = tmp / 1000000000;
+	*val2 = tmp % 1000000000;
 }
 
 static const char *const testmodes[] = {
@@ -607,7 +620,7 @@ static ssize_t ad9467_show_scale_available(struct iio_dev *indio_dev,
 
 	for (i = 0; i < conv->chip_info->num_scales; i++) {
 		ad9467_scale(conv, i, &scale[0], &scale[1]);
-		len += sprintf(buf + len, "%u.%06u ", scale[0], scale[1]);
+		len += sprintf(buf + len, "%u.%09u ", scale[0], scale[1]);
 	}
 
 	/* replace last space with a newline */
@@ -726,6 +739,22 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	  },								\
 	}
 
+#define AIM_CHAN_NOCALIB_32(_chan, _si, _bits, _sign, _shift)		\
+	{ .type = IIO_VOLTAGE,						\
+	  .indexed = 1,							\
+	  .channel = _chan,						\
+	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	  .ext_info = axiadc_ext_info,			\
+	  .scan_index = _si,						\
+	  .scan_type = {						\
+			.sign = _sign,					\
+			.realbits = _bits,				\
+			.storagebits = 32,				\
+			.shift = _shift,				\
+	  },								\
+	}
+
 static const struct axiadc_chip_info ad9467_chip_tbl[] = {
 	[ID_AD9467] = {
 		.name = "AD9467",
@@ -832,6 +861,16 @@ static const struct axiadc_chip_info ad9467_chip_tbl[] = {
 		.max_testmode = AN877_ADC_TESTMODE_MIXED_BIT_FREQUENCY,
 		.num_channels = 1,
 		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 14, 'S', 0),
+	},
+	[ID_MACH1] = {
+		.name = "MACH1",
+		.id = CHIPID_MACH1,
+		.max_rate = 40000000UL,
+		.scale_table = mach1_scale_table,
+		.num_scales = ARRAY_SIZE(mach1_scale_table),
+		.max_testmode = AN877_ADC_TESTMODE_MIXED_BIT_FREQUENCY,
+		.num_channels = 1,
+		.channel[0] = AIM_CHAN_NOCALIB_32(0, 0, 20, 'S', 0),
 	},
 };
 
@@ -1004,6 +1043,7 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 		break;
 	case CHIPID_AD9649:
 	case CHIPID_AD9625:
+	case CHIPID_MACH1:
 		i = 0;
 		goto skip_reg_read;
 	default:
@@ -1023,7 +1063,7 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 skip_reg_read:
 	ad9467_scale(conv, i, val, val2);
 
-	return IIO_VAL_INT_PLUS_MICRO;
+	return IIO_VAL_INT_PLUS_NANO;
 }
 
 static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
@@ -1034,6 +1074,7 @@ static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
 	switch (conv->chip_info->id) {
 	case CHIPID_AD9625:
 	case CHIPID_AD9649:
+	case CHIPID_MACH1:
 		return -EINVAL;
 	default:
 		break;
@@ -1124,6 +1165,24 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int mach1_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	unsigned int reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
+	//  Set EDGESEL to 0 - Sample with posedge
+	reg_cntrl &= ~ADI_DDR_EDGESEL;
+	// Set SDR mode,
+	// reg_cntrl |= ADI_SDR_DDR_N;
+	// Set number of lanes
+	reg_cntrl |= ADI_NUM_LANES(conv->num_lanes);
+
+	axiadc_write(st, ADI_REG_CNTRL, reg_cntrl);
+
+	return 0;
+}
+
 static int ad9467_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -1202,6 +1261,8 @@ static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
 	case CHIPID_AD9649:
 		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
 		return 0;
+	case CHIPID_MACH1:
+		return 0;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", chip_id);
 		return -ENODEV;;
@@ -1219,8 +1280,9 @@ static int ad9467_probe(struct spi_device *spi)
 {
 	const struct axiadc_chip_info *info;
 	struct axiadc_converter *conv, *st;
-	unsigned int id;
+	unsigned int id, id_reg;
 	int ret;
+	u32 val;
 
 	info = of_device_get_match_data(&spi->dev);
 	if (!info)
@@ -1261,6 +1323,12 @@ static int ad9467_probe(struct spi_device *spi)
 	if (IS_ERR(st->reset_gpio))
 		return PTR_ERR(st->reset_gpio);
 
+	st->num_lanes = 1;
+
+	ret = of_property_read_u32(spi->dev.of_node, "num_lanes", &val);
+	if (ret == 0)
+		st->num_lanes = val;
+
 	if (st->reset_gpio) {
 		udelay(1);
 		ret = gpiod_direction_output(st->reset_gpio, 1);
@@ -1273,7 +1341,12 @@ static int ad9467_probe(struct spi_device *spi)
 
 	conv->chip_info = info;
 
-	id = ad9467_spi_read(spi, AN877_ADC_REG_CHIP_ID);
+	if(conv->chip_info->id == CHIPID_MACH1)
+		id_reg = MACH1_ADC_REG_CHIP_ID;
+	else
+		id_reg = AN877_ADC_REG_CHIP_ID;
+
+	id = ad9467_spi_read(spi, id_reg);
 	if (id != conv->chip_info->id) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
 		return -ENODEV;
@@ -1282,14 +1355,20 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->reg_access = ad9467_reg_access;
 	conv->write_raw = ad9467_write_raw;
 	conv->read_raw = ad9467_read_raw;
-	conv->post_setup = ad9467_post_setup;
+	if (conv->chip_info->id != CHIPID_MACH1)
+		conv->post_setup = ad9467_post_setup;
+	else
+		conv->post_setup = mach1_post_setup;
 	conv->set_pnsel = ad9467_set_pnsel;
 
 	ret = ad9467_setup(conv, id);
 	if (ret)
 		return ret;
 
-	return ad9467_outputmode_set(spi, conv->adc_output_mode);
+	if (conv->chip_info->id != CHIPID_MACH1)
+		return ad9467_outputmode_set(spi, conv->adc_output_mode);
+
+	return 0;
 }
 
 static const struct of_device_id ad9467_of_match[] = {
@@ -1303,6 +1382,7 @@ static const struct of_device_id ad9467_of_match[] = {
 	{ .compatible = "adi,ad9625", .data = &ad9467_chip_tbl[ID_AD9625], },
 	{ .compatible = "adi,ad9652", .data = &ad9467_chip_tbl[ID_AD9652], },
 	{ .compatible = "adi,ad9649", .data = &ad9467_chip_tbl[ID_AD9649], },
+	{ .compatible = "adi,mach1", .data = &ad9467_chip_tbl[ID_MACH1], },
 	{}
 };
 MODULE_DEVICE_TABLE(of, ad9467_of_match);
