@@ -983,8 +983,6 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 	unsigned vref_val, vref_mask;
 	unsigned int i;
 
-	vref_val = ad9467_spi_read(conv->spi, AN877_ADC_REG_VREF);
-
 	switch (conv->chip_info->id) {
 	case CHIPID_AD9467:
 		vref_mask = AD9467_REG_VREF_MASK;
@@ -1003,10 +1001,15 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 	case CHIPID_AD9652:
 		vref_mask = AD9652_REG_VREF_MASK;
 		break;
+	case CHIPID_AD9649:
+		i = 0;
+		goto skip_reg_read;
 	default:
 		vref_mask = 0xFFFF;
 		break;
 	}
+
+	vref_val = ad9467_spi_read(conv->spi, AN877_ADC_REG_VREF);
 
 	vref_val &= vref_mask;
 
@@ -1015,6 +1018,7 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 			break;
 	}
 
+skip_reg_read:
 	ad9467_scale(conv, i, val, val2);
 
 	return IIO_VAL_INT_PLUS_MICRO;
@@ -1024,6 +1028,13 @@ static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
 {
 	unsigned int scale_val[2];
 	unsigned int i;
+
+	switch (conv->chip_info->id) {
+	case CHIPID_AD9649:
+		return -EINVAL;
+	default:
+		break;
+	}
 
 	if (val != 0)
 		return -EINVAL;
