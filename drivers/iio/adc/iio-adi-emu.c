@@ -13,6 +13,14 @@
 #define REG_DEVICE_CONFIG	0x02
 #define POWER_DOWN		BIT(5)
 
+#define REG_CNVST		0x03
+#define CNVST			BIT(0)
+
+#define REG_CH0_DATA_HIGH	0x04
+#define REG_CH0_DATA_LOW	0x05
+#define REG_CH1_DATA_HIGH	0x06
+#define REG_CH1_DATA_LOW	0x07
+
 struct adi_emu_priv {
 	bool		enable;
 	struct regmap	*regmap;
@@ -25,16 +33,37 @@ static int adi_emu_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct adi_emu_priv *priv = iio_priv(indio_dev);
+	unsigned int high, low;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
 		*val = priv->enable;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
-		if (chan->channel)
-			*val = 1;
-		else
-			*val = 0;
+		ret = regmap_write(priv->regmap, REG_CNVST, CNVST);
+		if (ret)
+			return ret;
+		if (chan->channel) {
+			ret = regmap_read(priv->regmap,
+				REG_CH1_DATA_HIGH, &high);
+			if (ret)
+				return ret;
+			ret = regmap_read(priv->regmap,
+				REG_CH1_DATA_LOW, &low);
+			if (ret)
+				return ret;
+		} else {
+			ret = regmap_read(priv->regmap,
+				REG_CH0_DATA_HIGH, &high);
+			if (ret)
+				return ret;
+			ret = regmap_read(priv->regmap,
+				REG_CH0_DATA_LOW, &low);
+			if (ret)
+				return ret;
+		}
+		*val = (high << 8) | low;
 		return IIO_VAL_INT;
 	}
 
