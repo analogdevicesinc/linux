@@ -21,9 +21,21 @@
 #define REG_CH1_DATA_HIGH	0x06
 #define REG_CH1_DATA_LOW	0x07
 
+#define REG_TEST_MODE		0x08
+#define TEST_MODE(x)		(((x) & 0x7) << 1)
+
+enum adi_emu_test_mode {
+	TEST_OFF,
+	TEST_MIDSCALE,
+	TEST_POSITIVE,
+	TEST_NEGATIVE,
+	TEST_RAMP,
+};
+
 struct adi_emu_priv {
 	bool		enable;
 	struct regmap	*regmap;
+	unsigned int	test_mode;
 };
 
 static int adi_emu_read_raw(struct iio_dev *indio_dev,
@@ -110,11 +122,59 @@ static const struct iio_info adi_emu_info = {
 	.debugfs_reg_access = &adi_emu_reg_access,
 };
 
+static const char * const adi_emu_test_modes[] = {
+	[TEST_OFF] = "off",
+	[TEST_MIDSCALE] = "midscale",
+	[TEST_POSITIVE] = "positive",
+	[TEST_NEGATIVE] = "negative",
+	[TEST_RAMP] = "ramp",
+};
+
+static int adi_emu_test_mode_write(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int item)
+{
+	struct adi_emu_priv *priv = iio_priv(indio_dev);
+	int ret;
+
+	ret = regmap_write(priv->regmap, REG_TEST_MODE,
+		TEST_MODE(item));
+	if (ret)
+		return ret;
+
+	if (priv->enable)
+		priv->test_mode = item;
+
+	return 0;
+}
+
+static int adi_emu_test_mode_read(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct adi_emu_priv *priv = iio_priv(indio_dev);
+
+	return priv->test_mode;
+}
+
+static const struct iio_enum adi_emu_test_mode_enum = {
+	.items = adi_emu_test_modes,
+	.num_items = ARRAY_SIZE(adi_emu_test_modes),
+	.set = adi_emu_test_mode_write,
+	.get = adi_emu_test_mode_read,
+};
+
+static struct iio_chan_spec_ext_info adi_emu_ext_info[] = {
+	IIO_ENUM("test_mode", IIO_SHARED_BY_ALL, &adi_emu_test_mode_enum),
+	IIO_ENUM_AVAILABLE_SHARED("test_mode", IIO_SHARED_BY_ALL,
+		&adi_emu_test_mode_enum),
+	{},
+};
+
 static const struct iio_chan_spec adi_emu_channels[] = {
 	{
 		.type = IIO_VOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_ENABLE),
+		.ext_info = adi_emu_ext_info,
 		.output = 0,
 		.indexed = 1,
 		.channel = 0,
@@ -122,6 +182,7 @@ static const struct iio_chan_spec adi_emu_channels[] = {
 		.type = IIO_VOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_ENABLE),
+		.ext_info = adi_emu_ext_info,
 		.output = 0,
 		.indexed = 1,
 		.channel = 1,
@@ -145,6 +206,7 @@ static int adi_emu_probe(struct spi_device *spi)
 
 	priv = iio_priv(indio_dev);
 	priv->enable = false;
+	priv->test_mode = TEST_RAMP;
 	priv->regmap = devm_regmap_init_spi(spi, &adi_emu_regmap_config);
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
