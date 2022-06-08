@@ -33,14 +33,29 @@
 #define KHz 1000
 #define MHz (1000 * KHz)
 
-#define LTC2378_CHAN(resolution)					\
+#define LTC2378_MULTIPLE_CHAN(_idx, _storagebits, _realbits, _shift)	\
+	{								\
+		.type = IIO_VOLTAGE,					\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.indexed = 1,						\
+		.channel = _idx,					\
+		.scan_index = _idx,					\
+		.scan_type = {						\
+			.sign = 's',					\
+			.storagebits = _storagebits,			\
+			.realbits = _realbits,				\
+			.shift = _shift,				\
+		},							\
+	}
+
+#define LTC2378_CHAN(_realbits, _storagebits)				\
 	{								\
 		.type = IIO_VOLTAGE,					\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.scan_type = {						\
 			.sign = 's',					\
-			.storagebits = 16,				\
-			.realbits = resolution,				\
+			.storagebits = _storagebits,			\
+			.realbits = _realbits,				\
 		},							\
 	}
 
@@ -50,59 +65,86 @@ enum ltc2387_lane_modes {
 };
 
 enum ltc2387_id {
-	ID_LTC2387_16 = 1,
-	ID_LTC2387_18
+	ID_LTC2387_16,
+	ID_LTC2387_16_X4,
+	ID_LTC2387_18,
+	ID_LTC2387_18_X4,
 };
 
-const unsigned int ltc2387_resolutions[] = {
-	[ID_LTC2387_16] = 16,
-	[ID_LTC2387_18] = 18
+struct ltc2387_info {
+	int resolution;
+	int num_channels;
+	unsigned int test_pattern[2];
+	struct iio_chan_spec channels[4];
 };
 
-const unsigned int ltc2387_testpatterns[][2] = {
+static const struct ltc2387_info ltc2387_infos[] = {
 	[ID_LTC2387_16] = {
-		[ONE_LANE] = 0b1010000001111111,
-		[TWO_LANES] = 0b1100110000111111
+		.resolution = 16,
+		.test_pattern = {
+			[ONE_LANE] = 0b1010000001111111,
+			[TWO_LANES] = 0b1100110000111111
+		},
+		.channels = {
+			LTC2378_CHAN(16, 16),
+		},
+		.num_channels = 1,
+	},
+	[ID_LTC2387_16_X4] = {
+		.resolution = 16,
+		.test_pattern = {
+			[ONE_LANE] = 0b1010000001111111,
+			[TWO_LANES] = 0b1100110000111111
+		},
+		.channels = {
+			LTC2378_MULTIPLE_CHAN(0, 64, 16, 0),
+			LTC2378_MULTIPLE_CHAN(1, 64, 16, 16),
+			LTC2378_MULTIPLE_CHAN(2, 64, 16, 32),
+			LTC2378_MULTIPLE_CHAN(3, 64, 16, 48),
+		},
+		.num_channels = 4,
 	},
 	[ID_LTC2387_18] = {
-		[ONE_LANE] = 0b101000000111111100,
-		[TWO_LANES] = 0b110011000011111100
-	}
+		.resolution = 18,
+		.test_pattern = {
+			[ONE_LANE] = 0b101000000111111100,
+			[TWO_LANES] = 0b110011000011111100
+		},
+		.channels = {
+			LTC2378_CHAN(18, 32),
+		},
+		.num_channels = 1,
+	},
+	[ID_LTC2387_18_X4] = {
+		.resolution = 18,
+		.test_pattern = {
+			[ONE_LANE] = 0b101000000111111100,
+			[TWO_LANES] = 0b110011000011111100
+		},
+		.channels = {
+			LTC2378_MULTIPLE_CHAN(0, 128, 32, 0),
+			LTC2378_MULTIPLE_CHAN(1, 128, 32, 32),
+			LTC2378_MULTIPLE_CHAN(2, 128, 32, 64),
+			LTC2378_MULTIPLE_CHAN(3, 128, 32, 96),
+		},
+		.num_channels = 4,
+	},
 };
 
 struct ltc2387_dev {
 	struct mutex		lock;
 
 	int			sampling_freq;
-	unsigned int		resolution;
 	unsigned int		vref_mv;
 	unsigned int		id;
 	enum ltc2387_lane_modes	lane_mode;
 	struct gpio_desc 	*gpio_testpat;
+	struct ltc2387_info	*device_info;
 	struct clk		*ref_clk;
 	struct pwm_device	*clk_en;
 	struct regulator	*vref;
 	struct pwm_device	*cnv;
 };
-
-
-static const struct iio_chan_spec ltc2387_channels[] = {
-	[ID_LTC2387_16] = LTC2378_CHAN(16),
-	[ID_LTC2387_18] = LTC2378_CHAN(18)
-};
-
-static const struct of_device_id ltc2387_of_match[] = {
-	{
-		.compatible = "ltc2387-18",
-		.data = (void *) ID_LTC2387_18
-	},
-	{
-		.compatible = "ltc2387-16",
-		.data = (void *) ID_LTC2387_16
-	},
-	{ }
-};
-MODULE_DEVICE_TABLE(of, ltc2387_of_match);
 
 // static int ltc2387_set_conversion(struct ltc2387_dev *ltc, bool enabled)
 // {
@@ -157,9 +199,9 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 
 	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
 	if (ltc->lane_mode == TWO_LANES)
-		clk_en_time = DIV_ROUND_UP_ULL(ltc->resolution, 4);
+		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 4);
 	else
-		clk_en_time = DIV_ROUND_UP_ULL(ltc->resolution, 2);
+		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
 	clk_en_state.period = cnv_state.period;
 	clk_en_state.duty_cycle = ref_clk_period_ps * clk_en_time;
 	clk_en_state.offset = 0;
@@ -278,6 +320,24 @@ static const struct iio_info ltc2387_info = {
 	.write_raw = ltc2387_write_raw,
 };
 
+static const struct of_device_id ltc2387_of_match[] = {
+	{
+		.compatible = "ltc2387-16",
+		.data = &ltc2387_infos[ID_LTC2387_16]
+	},{
+		.compatible = "ltc2387-16-x4",
+		.data = &ltc2387_infos[ID_LTC2387_16_X4]
+	},{
+		.compatible = "ltc2387-18",
+		.data = &ltc2387_infos[ID_LTC2387_18]
+	},{
+		.compatible = "ltc2387-18-x4",
+		.data = &ltc2387_infos[ID_LTC2387_18_X4]
+	},
+	{}
+};
+MODULE_DEVICE_TABLE(of, ltc2387_of_match);
+
 static int ltc2387_probe(struct platform_device *pdev)
 {
 	const struct of_device_id	*device_id;
@@ -285,7 +345,6 @@ static int ltc2387_probe(struct platform_device *pdev)
 	struct iio_buffer		*buffer;
 	struct ltc2387_dev		*ltc;
 	int				ret;
-	int				id;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*ltc));
 	if (!indio_dev)
@@ -294,7 +353,12 @@ static int ltc2387_probe(struct platform_device *pdev)
 	ltc = iio_priv(indio_dev);
 
 	ltc->vref = devm_regulator_get_optional(&pdev->dev, "vref");
-	if (!IS_ERR(ltc->vref)) {
+	if (IS_ERR(ltc->vref)) {
+		if (PTR_ERR(ltc->vref) != -ENODEV)
+			return PTR_ERR(ltc->vref);
+		ltc->vref = NULL;
+	}
+	if (ltc->vref) {
 		ret = regulator_enable(ltc->vref);
 		if (ret) {
 			dev_err(&pdev->dev, "Can't to enable vref regulator\n");
@@ -318,7 +382,6 @@ static int ltc2387_probe(struct platform_device *pdev)
 	// 					    GPIOD_OUT_HIGH);
 	// if (IS_ERR(ltc->gpio_testpat))
 	// 	return PTR_ERR(ltc->gpio_testpat);
-
 	ltc->ref_clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(ltc->ref_clk))
 		return PTR_ERR(ltc->ref_clk);
@@ -343,14 +406,11 @@ static int ltc2387_probe(struct platform_device *pdev)
 	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_cnv_diasble,
 				       ltc->cnv);
 
-	device_id = of_match_device(of_match_ptr(ltc2387_of_match), &pdev->dev);
-	id = (int) device_id->data;
+	device_id = of_match_device(ltc2387_of_match, &pdev->dev);
+	ltc->device_info = device_id->data;
 
-	ltc->id = id;
-	ltc->resolution = ltc2387_resolutions[id];
-
-	indio_dev->channels = &ltc2387_channels[id];
-	indio_dev->num_channels = 1;
+	indio_dev->channels = ltc->device_info->channels;
+	indio_dev->num_channels = ltc->device_info->num_channels;
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->info = &ltc2387_info;
@@ -379,7 +439,7 @@ static struct platform_driver ltc2387_driver = {
 	.probe          = ltc2387_probe,
 	.driver         = {
 		.name   = "ltc2387",
-		.of_match_table = of_match_ptr(ltc2387_of_match),
+		.of_match_table = ltc2387_of_match,
 	},
 };
 module_platform_driver(ltc2387_driver);
