@@ -38,7 +38,7 @@ artifacts_artifactory() {
 
 #archive artifacts and upload to SWDownloads
 artifacts_swdownloads() {
-	cd ${SOURCE_DIRECTORY}/${timestamp}
+	cd ${SOURCE_DIRECTORY}/${timestamp} || exit 1
 	chmod 600 ${KEY_FILE}
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
 		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}
