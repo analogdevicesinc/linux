@@ -17,6 +17,7 @@
 #include <linux/mii.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
+#include <linux/open_alliance.h>
 #include <linux/regulator/consumer.h>
 #include <linux/phy.h>
 #include <linux/property.h>
@@ -166,6 +167,7 @@ struct adin1110_priv {
 	u32				tx_space;
 	u32				irq_mask;
 	int				irq;
+	struct open_alliance		*oa;
 	struct adin1110_port_priv	*ports[ADIN_MAC_MAX_PORTS];
 	char				mii_bus_name[MII_BUS_ID_SIZE];
 	u8				data[ADIN1110_MAX_BUFF] ____cacheline_aligned;
@@ -193,7 +195,7 @@ static u8 adin1110_crc_data(u8 *data, u32 len)
 	return crc8(adin1110_crc_table, data, len, 0);
 }
 
-static int adin1110_read_reg(struct adin1110_priv *priv, u16 reg, u32 *val)
+static int adin1110_read_reg_generic(struct adin1110_priv *priv, u16 reg, u32 *val)
 {
 	struct spi_transfer t[2] = {0};
 	__le16 __reg = cpu_to_le16(reg);
@@ -243,7 +245,23 @@ static int adin1110_read_reg(struct adin1110_priv *priv, u16 reg, u32 *val)
 	return ret;
 }
 
-static int adin1110_write_reg(struct adin1110_priv *priv, u16 reg, u32 val)
+static int adin1110_read_reg(struct adin1110_priv *priv, u16 reg, u32 *val)
+{
+	if (priv->oa) {
+		u8 mms;
+
+		if (reg < 0x30)
+			mms = OPEN_ALLIANCE_MMS_CTRL;
+		else
+			mms = OPEN_ALLIANCE_MMS_MAC;
+
+		return open_alliance_read_reg(priv->oa, mms, reg, val);
+	} else {
+		return adin1110_read_reg_generic(priv, reg, val);
+	}
+}
+
+static int adin1110_write_reg_generic(struct adin1110_priv *priv, u16 reg, u32 val)
 {
 	u32 header_len = ADIN1110_WR_HEADER_LEN;
 	u32 write_len = ADIN1110_REG_LEN;
@@ -265,6 +283,22 @@ static int adin1110_write_reg(struct adin1110_priv *priv, u16 reg, u32 val)
 	}
 
 	return spi_write(priv->spidev, &priv->data[0], header_len + write_len);
+}
+
+static int adin1110_write_reg(struct adin1110_priv *priv, u16 reg, u32 val)
+{
+	if (priv->oa) {
+		u8 mms;
+
+		if (reg < 0x30)
+			mms = OPEN_ALLIANCE_MMS_CTRL;
+		else
+			mms = OPEN_ALLIANCE_MMS_MAC;
+
+		return open_alliance_write_reg(priv->oa, mms, reg, val);
+	} else {
+		return adin1110_write_reg_generic(priv, reg, val);
+	}
 }
 
 static int adin1110_set_bits(struct adin1110_priv *priv, u16 reg, unsigned long mask,
@@ -571,6 +605,36 @@ static void adin1110_wake_queues(struct adin1110_priv *priv)
 		netif_wake_queue(priv->ports[i]->netdev);
 }
 
+static int adin1110_get_tx_space(struct adin1110_priv *priv, u32 *tx_space)
+{
+	u32 val;
+	int ret;
+
+	if (priv->oa) {
+		*tx_space = open_alliance_tx_space(priv->oa);
+	} else {
+		ret = adin1110_read_reg(priv, ADIN1110_TX_SPACE, &val);
+		if (ret < 0)
+			return ret;
+
+		*tx_space = val * 2;
+	}
+
+	return 0;
+}
+
+/* clear IRQ sources */
+int adin1110_clear_irqs(struct adin1110_priv *priv)
+{
+	int ret;
+
+	ret = adin1110_write_reg(priv, ADIN1110_STATUS0, ADIN1110_CLEAR_STATUS0);
+	if (ret < 0)
+		return ret;
+
+	return adin1110_write_reg(priv, ADIN1110_STATUS1, priv->irq_mask);
+}
+
 static irqreturn_t adin1110_irq(int irq, void *p)
 {
 	struct adin1110_priv *priv = p;
@@ -586,30 +650,79 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 	if (priv->append_crc && (status1 & ADIN1110_SPI_ERR))
 		dev_warn(&priv->spidev->dev, "SPI CRC error on write.\n");
 
-	ret = adin1110_read_reg(priv, ADIN1110_TX_SPACE, &val);
+	ret = adin1110_get_tx_space(priv, &val);
 	if (ret < 0) {
 		mutex_unlock(&priv->lock);
 		return IRQ_HANDLED;
 	}
 
-	/* TX FIFO space is expressed in half-words */
-	priv->tx_space = 2 * val;
+	priv->tx_space = val;
 
 	for (i = 0; i < priv->cfg->ports_nr; i++) {
 		if (adin1110_port_rx_ready(priv->ports[i], status1))
 			adin1110_read_frames(priv->ports[i]);
 	}
 
-	/* clear IRQ sources */
-	ret = adin1110_write_reg(priv, ADIN1110_STATUS0, ADIN1110_CLEAR_STATUS0);
-	ret = adin1110_write_reg(priv, ADIN1110_STATUS1, priv->irq_mask);
+	ret = adin1110_clear_irqs(priv);
 
 	mutex_unlock(&priv->lock);
+
+	if (ret < 0)
+		return ret;
 
 	if (priv->tx_space > 0)
 		adin1110_wake_queues(priv);
 
 	return IRQ_HANDLED;
+}
+
+static irqreturn_t adin1110_oa_irq(int irq, void *p)
+{
+	struct adin1110_priv *priv = p;
+	int ret;
+	u32 val;
+
+	mutex_lock(&priv->lock);
+
+	open_alliance_read_rxb(priv->oa);
+	ret = adin1110_get_tx_space(priv, &val);
+	if (ret < 0) {
+		mutex_unlock(&priv->lock);
+		return IRQ_HANDLED;
+	}
+
+	priv->tx_space = val;
+
+	ret = adin1110_clear_irqs(priv);
+
+	mutex_unlock(&priv->lock);
+
+	if (ret < 0)
+		return IRQ_HANDLED;
+
+	if (priv->tx_space > 0)
+		adin1110_wake_queues(priv);
+
+	return IRQ_HANDLED;
+}
+
+static int adin1110_set_rx_irq(void *p, bool masked)
+{
+	struct adin1110_priv *priv = p;
+	u32 mask;
+	int ret;
+
+	mutex_lock(&priv->lock);
+
+	mask = ADIN1110_RX_RDY_IRQ | ADIN1110_TX_RDY_IRQ;
+	if (priv->cfg->id == ADIN2111_MAC)
+		mask |= ADIN2111_RX_RDY_IRQ;
+
+	ret = adin1110_set_bits(priv, ADIN1110_IMASK1, mask, masked ? mask : 0);
+
+	mutex_unlock(&priv->lock);
+
+	return ret;
 }
 
 /* ADIN1110 can filter up to 16 MAC addresses, mac_nr here is the slot used */
@@ -816,7 +929,7 @@ static int adin1110_net_open(struct net_device *net_dev)
 		return ret;
 	}
 
-	ret = adin1110_read_reg(priv, ADIN1110_TX_SPACE, &val);
+	ret = adin1110_get_tx_space(priv, &val);
 	if (ret < 0) {
 		netdev_err(net_dev, "Failed to read TX FIFO space: %d\n", ret);
 		mutex_unlock(&priv->lock);
@@ -842,6 +955,7 @@ static int adin1110_net_open(struct net_device *net_dev)
 
 	phy_start(port_priv->phydev);
 
+	open_alliance_net_open(priv->oa);
 	netif_start_queue(net_dev);
 
 	return ret;
@@ -875,9 +989,15 @@ static void adin1110_tx_work(struct work_struct *work)
 		last = skb_queue_empty(&port_priv->txq);
 
 		if (txb) {
-			ret = adin1110_write_fifo(port_priv, txb);
+			if (priv->oa)
+				ret = open_alliance_write_txb(priv->oa, txb, port_priv->nr);
+			else
+				ret = adin1110_write_fifo(port_priv, txb);
 			if (ret < 0)
 				netdev_err(port_priv->netdev, "Frame write error: %d\n", ret);
+
+			if (priv->oa)
+				priv->tx_space = ret;
 
 			dev_kfree_skb(txb);
 		}
@@ -993,11 +1113,44 @@ static void adin1110_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo 
 	strscpy(di->bus_info, dev_name(dev->dev.parent), sizeof(di->bus_info));
 }
 
+static void adin1110_ethtool_get_strings(struct net_device *dev, u32 sset, u8 *data)
+{
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	struct adin1110_priv *priv = port_priv->priv;
+
+	if (priv->oa)
+		open_alliance_ethtool_get_strings(priv->oa, sset, data);
+}
+
+static int adin1110_ethtool_get_sset_count(struct net_device *dev, int sset)
+{
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	struct adin1110_priv *priv = port_priv->priv;
+
+	if (priv->oa)
+		return open_alliance_ethtool_get_sset_count(priv->oa, sset);
+
+	return 0;
+}
+
+static void adin1110_ethtool_get_stats(struct net_device *dev, struct ethtool_stats *stats,
+				       u64 *data)
+{
+	struct adin1110_port_priv *port_priv = netdev_priv(dev);
+	struct adin1110_priv *priv = port_priv->priv;
+
+	if (priv->oa)
+		open_alliance_ethtool_get_stats(priv->oa, stats, data);
+}
+
 static const struct ethtool_ops adin1110_ethtool_ops = {
 	.get_drvinfo		= adin1110_get_drvinfo,
 	.get_link		= ethtool_op_get_link,
 	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
 	.set_link_ksettings	= phy_ethtool_set_link_ksettings,
+	.get_strings		= adin1110_ethtool_get_strings,
+	.get_sset_count		= adin1110_ethtool_get_sset_count,
+	.get_ethtool_stats	= adin1110_ethtool_get_stats,
 };
 
 static void adin1110_adjust_link(struct net_device *dev)
@@ -1031,8 +1184,14 @@ static void adin1110_disconnect_phy(void *data)
 	phy_disconnect(data);
 }
 
-static int adin1110_probe_netdevs(struct adin1110_priv *priv)
+static void adin1110_remove_open_alliance(void *data)
 {
+	open_alliance_remove(data);
+}
+
+static int adin1110_init_netdevs(struct adin1110_priv *priv)
+{
+	struct net_device *netdevs[OPEN_ALLIANCE_MAX_PORTS] = {0};
 	struct device *dev = &priv->spidev->dev;
 	struct adin1110_port_priv *port_priv;
 	struct net_device *netdev;
@@ -1042,17 +1201,17 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 	int i;
 
 	for (i = 0; i < priv->cfg->ports_nr; i++) {
-		netdev = devm_alloc_etherdev(dev, sizeof(*port_priv));
-		if (!netdev)
+		netdevs[i] = devm_alloc_etherdev(dev, sizeof(*port_priv));
+		if (!netdevs[i])
 			return -ENOMEM;
 
-		port_priv = netdev_priv(netdev);
-		port_priv->netdev = netdev;
+		port_priv = netdev_priv(netdevs[i]);
+		port_priv->netdev = netdevs[i];
 		port_priv->priv = priv;
 		port_priv->cfg = priv->cfg;
 		port_priv->nr = i;
 		priv->ports[i] = port_priv;
-		SET_NETDEV_DEV(netdev, dev);
+		SET_NETDEV_DEV(netdevs[i], dev);
 
 		mac_addr = device_get_mac_address(dev, mac, ETH_ALEN);
 		if (!mac_addr) {
@@ -1060,20 +1219,20 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 			return -EINVAL;
 		}
 
-		ether_addr_copy(netdev->dev_addr, mac);
+		ether_addr_copy(netdevs[i]->dev_addr, mac);
 
-		netdev->irq = priv->spidev->irq;
+		netdevs[i]->irq = priv->spidev->irq;
 		INIT_WORK(&port_priv->tx_work, adin1110_tx_work);
 		INIT_WORK(&port_priv->rx_mode_work, adin1110_rx_mode_work);
 		skb_queue_head_init(&port_priv->txq);
 
-		netif_carrier_off(netdev);
+		netif_carrier_off(netdevs[i]);
 
 		/* FIXME: This should be changed to 10BASET1L when introduced to PAL */
-		netdev->if_port = IF_PORT_10BASET;
-		netdev->netdev_ops = &adin1110_netdev_ops;
-		netdev->ethtool_ops = &adin1110_ethtool_ops;
-		netdev->priv_flags |= IFF_UNICAST_FLT;
+		netdevs[i]->if_port = IF_PORT_10BASET;
+		netdevs[i]->netdev_ops = &adin1110_netdev_ops;
+		netdevs[i]->ethtool_ops = &adin1110_ethtool_ops;
+		netdevs[i]->priv_flags |= IFF_UNICAST_FLT;
 
 		switch (priv->cfg->id) {
 		case ADIN1110_MAC:
@@ -1087,8 +1246,32 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 		default:
 			return -EINVAL;
 		}
+	}
 
-		ret = devm_register_netdev(dev, netdev);
+	if (device_property_read_bool(dev, "open-alliance")) {
+		priv->oa = open_alliance_init(priv->spidev, netdevs,
+					      2, BIT(0), adin1110_set_rx_irq, priv);
+		if (IS_ERR(priv->oa))
+			return PTR_ERR(priv->oa);
+
+		ret = devm_add_action_or_reset(dev, adin1110_remove_open_alliance, priv->oa);
+	}
+
+	return 0;
+}
+
+static int adin1110_register_netdevs(struct adin1110_priv *priv)
+{
+	struct device *dev = &priv->spidev->dev;
+	struct adin1110_port_priv *port_priv;
+	irqreturn_t (*irq_bh)(int, void *);
+	int ret;
+	int i;
+
+	for (i = 0; i < priv->cfg->ports_nr; i++) {
+		port_priv = priv->ports[i];
+
+		ret = devm_register_netdev(dev, port_priv->netdev);
 		if (ret < 0) {
 			dev_err(dev, "failed to register network device\n");
 			return ret;
@@ -1096,14 +1279,14 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 
 		port_priv->phydev = get_phy_device(priv->mii_bus, i + 1, false);
 		if (!port_priv->phydev) {
-			netdev_err(netdev, "Could not find PHY with device address: %d.\n", i);
+			netdev_err(port_priv->netdev, "Could not find PHY with device address: %d.\n", i);
 			return -ENODEV;
 		}
 
-		port_priv->phydev = phy_connect(netdev, phydev_name(port_priv->phydev),
+		port_priv->phydev = phy_connect(port_priv->netdev, phydev_name(port_priv->phydev),
 						adin1110_adjust_link, PHY_INTERFACE_MODE_MII);
 		if (IS_ERR(port_priv->phydev)) {
-			netdev_err(netdev, "Could not connect PHY with device address: %d.\n", i);
+			netdev_err(port_priv->netdev, "Could not connect PHY with device address: %d.\n", i);
 			return PTR_ERR(port_priv->phydev);
 		}
 
@@ -1113,7 +1296,12 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 	}
 
 	/* ADIN1110 INT_N pin will be used to signal the host */
-	return devm_request_threaded_irq(dev, priv->spidev->irq, NULL, adin1110_irq,
+	if (!priv->oa)
+		irq_bh = adin1110_irq;
+	else
+		irq_bh = adin1110_oa_irq;
+
+	return devm_request_threaded_irq(dev, priv->spidev->irq, NULL, irq_bh,
 					 IRQF_TRIGGER_LOW | IRQF_ONESHOT, dev_name(dev), priv);
 }
 
@@ -1140,6 +1328,10 @@ static int adin1110_probe(struct spi_device *spi)
 	if (priv->append_crc)
 		crc8_populate_msb(adin1110_crc_table, 0x7);
 
+	ret = adin1110_init_netdevs(priv);
+	if (ret < 0)
+		return ret;
+
 	ret = adin1110_check_spi(priv);
 	if (ret < 0) {
 		dev_err(dev, "SPI read failed: %d\n", ret);
@@ -1152,7 +1344,7 @@ static int adin1110_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	return adin1110_probe_netdevs(priv);
+	return adin1110_register_netdevs(priv);
 }
 
 static const struct of_device_id adin1110_match_table[] = {
