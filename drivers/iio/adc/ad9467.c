@@ -516,6 +516,10 @@ static const int ad9467_scale_table[][2] = {
 	{2300, 8}, {2400, 9}, {2500, 10},
 };
 
+static const int ad9625_scale_table[][2] = {
+	{1000, 0},
+};
+
 static const int ad9643_scale_table[][2] = {
 	{2087, 0x0F}, {2065, 0x0E}, {2042, 0x0D}, {2020, 0x0C}, {1997, 0x0B},
 	{1975, 0x0A}, {1952, 0x09}, {1930, 0x08}, {1907, 0x07}, {1885, 0x06},
@@ -782,8 +786,8 @@ static const struct axiadc_chip_info ad9467_chip_tbl[] = {
 		.name = "AD9625",
 		.id = CHIPID_AD9625,
 		.max_rate = 2500000000UL,
-		.scale_table = ad9643_scale_table,
-		.num_scales = ARRAY_SIZE(ad9643_scale_table),
+		.scale_table = ad9625_scale_table,
+		.num_scales = ARRAY_SIZE(ad9625_scale_table),
 		.max_testmode = AN877_ADC_TESTMODE_RAMP,
 		.num_channels = 1,
 		.channel[0] = AIM_CHAN_NOCALIB(0, 0, 12, 'S', 0),
@@ -992,8 +996,6 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 		break;
 	case CHIPID_AD9250:
 	case CHIPID_AD9683:
-	case CHIPID_AD9625:
-		vref_mask = AD9250_REG_VREF_MASK;
 		break;
 	case CHIPID_AD9265:
 		vref_mask = AD9265_REG_VREF_MASK;
@@ -1002,6 +1004,7 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 		vref_mask = AD9652_REG_VREF_MASK;
 		break;
 	case CHIPID_AD9649:
+	case CHIPID_AD9625:
 		i = 0;
 		goto skip_reg_read;
 	default:
@@ -1030,6 +1033,7 @@ static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
 	unsigned int i;
 
 	switch (conv->chip_info->id) {
+	case CHIPID_AD9625:
 	case CHIPID_AD9649:
 		return -EINVAL;
 	default:
