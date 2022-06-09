@@ -20,6 +20,10 @@
 		status = "disabled";
 	};
 
+	sound-bt-sco {
+		status = "disabled";
+	};
+
 	sound-mqs {
 		compatible = "fsl,imx6sx-sdb-mqs",
 			     "fsl,imx-audio-mqs";
