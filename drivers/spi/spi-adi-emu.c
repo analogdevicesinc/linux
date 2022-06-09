@@ -102,6 +102,8 @@ static int spi_adi_emu_transfer_one(struct spi_master *master,
 	}
 
 	if ((transfer->len == 2) && tx_buf) {
+		if (emu->power_down && (tx_buf[0] != REG_DEVICE_CONFIG))
+			goto done;
 		if ((tx_buf[0] == REG_CNVST) && (tx_buf[1] & CNVST)) {
 			switch (emu->test_mode) {
 				case TEST_OFF:
