@@ -9,6 +9,9 @@
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
 #include <linux/regmap.h>
 
 #define REG_SCRATCH_PAD		0x01
@@ -239,6 +242,48 @@ static struct iio_chan_spec_ext_info adi_emu_ext_info[] = {
 	{},
 };
 
+static irqreturn_t adi_emu_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct adi_emu_priv *priv = iio_priv(indio_dev);
+	unsigned int high, low;
+	u16 buf[2];
+	int i = 0, ret;
+
+	ret = regmap_write(priv->regmap, REG_CNVST, CNVST);
+	if (ret)
+		return ret;
+	if (*indio_dev->active_scan_mask & BIT(0)) {
+		ret = regmap_read(priv->regmap,
+			REG_CH0_DATA_HIGH, &high);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap,
+			REG_CH0_DATA_LOW, &low);
+		if (ret)
+			return ret;
+		buf[i++] = (high << 8) | low;
+	}
+	if (*indio_dev->active_scan_mask & BIT(1)) {
+		ret = regmap_read(priv->regmap,
+			REG_CH1_DATA_HIGH, &high);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap,
+			REG_CH1_DATA_LOW, &low);
+		if (ret)
+			return ret;
+		buf[i] = (high << 8) | low;
+	}
+
+	iio_push_to_buffers(indio_dev, buf);
+
+	iio_trigger_notify_done(indio_dev->trig);
+
+	return IRQ_HANDLED;
+}
+
 static const struct iio_chan_spec adi_emu_channels[] = {
 	{
 		.type = IIO_VOLTAGE,
@@ -248,6 +293,14 @@ static const struct iio_chan_spec adi_emu_channels[] = {
 		.output = 0,
 		.indexed = 1,
 		.channel = 0,
+		.scan_index = 0,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+			.shift = 0,
+			.endianness = IIO_LE,
+		},
 	}, {
 		.type = IIO_VOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
@@ -256,6 +309,14 @@ static const struct iio_chan_spec adi_emu_channels[] = {
 		.output = 0,
 		.indexed = 1,
 		.channel = 1,
+		.scan_index = 1,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+			.shift = 0,
+			.endianness = IIO_LE,
+		},
 	}
 };
 
@@ -285,6 +346,9 @@ static int adi_emu_probe(struct spi_device *spi)
 	indio_dev->channels = adi_emu_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adi_emu_channels);
 	indio_dev->info = &adi_emu_info;
+
+	devm_iio_triggered_buffer_setup(&spi->dev, indio_dev, NULL,
+			&adi_emu_trigger_handler, NULL);
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
