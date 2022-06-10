@@ -87,6 +87,13 @@
 #include <linux/dma-buf.h>
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#if defined(CONFIG_TRACE_GPU_MEM)
+#   include <trace/events/gpu_mem.h>
+gctINT64 totalMem;
+#endif
+#endif
+
 #define _GC_OBJ_ZONE    gcvZONE_OS
 
 #include "gc_hal_kernel_allocator.h"
@@ -7645,3 +7652,32 @@ gckOS_GetPolicyID(
     return status;
 }
 
+gceSTATUS
+gckOS_TraceGpuMemory(
+    IN gckOS Os,
+    IN gctINT32 ProcessID,
+    IN gctINT64 Delta
+    )
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#if defined(CONFIG_TRACE_GPU_MEM)
+    gctUINT32 pid = 0;
+
+    if (ProcessID == -1)
+        gckOS_GetProcessID(&pid);
+    else
+        pid = ProcessID;
+
+    if (trace_gpu_mem_total_enabled()) {
+        totalMem += Delta;
+
+        if (Delta < 0)
+            Delta = -Delta;
+
+        trace_gpu_mem_total(0, 0, (gctUINT64)totalMem);
+        trace_gpu_mem_total(0, ProcessID, (gctUINT64)Delta);
+    }
+#endif
+#endif
+    return gcvSTATUS_OK;
+}

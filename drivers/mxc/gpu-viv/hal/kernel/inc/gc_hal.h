@@ -629,6 +629,13 @@ gckOS_GetProcessNameByPid(
     OUT gctUINT8_PTR String
     );
 
+gceSTATUS
+gckOS_TraceGpuMemory(
+    IN gckOS Os,
+    IN gctINT32 ProcessID,
+    IN gctINT64 Delta
+    );
+
 /*******************************************************************************
 **
 **  gckOS_AtomConstruct
