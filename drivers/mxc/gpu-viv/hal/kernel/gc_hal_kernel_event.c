@@ -335,7 +335,7 @@ _ReleaseVideoMemoryHandle(
 
         Record->info.u.UnlockVideoMemory.node = gcmPTR_TO_UINT64(nodeObject);
 
-        gckVIDMEM_HANDLE_Dereference(Kernel, Record->processID, handle);
+        gcmkONERROR(gckVIDMEM_HANDLE_Dereference(Kernel, Record->processID, handle));
         break;
 
     default:

@@ -1661,11 +1661,9 @@ _ReleaseVideoMemory(
             type,
             gcmINT2PTR(Handle)));
 
-    gcmkONERROR(
-        gckVIDMEM_HANDLE_Dereference(Kernel, ProcessID, Handle));
+    gcmkONERROR(gckVIDMEM_HANDLE_Dereference(Kernel, ProcessID, Handle));
 
-    gcmkONERROR(
-        gckVIDMEM_NODE_Dereference(Kernel, nodeObject));
+    gcmkONERROR(gckVIDMEM_NODE_Dereference(Kernel, nodeObject));
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
@@ -1950,7 +1948,7 @@ _BottomHalfUnlockVideoMemory(
         ));
 
     /* Deref handle. */
-    gckVIDMEM_HANDLE_Dereference(Kernel, ProcessID, Node);
+    gcmkONERROR(gckVIDMEM_HANDLE_Dereference(Kernel, ProcessID, Node));
 
     /* Unlock video memory, synced. */
     gcmkONERROR(gckVIDMEM_NODE_Unlock(Kernel, nodeObject, ProcessID, gcvNULL));
