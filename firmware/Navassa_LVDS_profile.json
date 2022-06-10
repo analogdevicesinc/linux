@@ -1179,7 +1179,8 @@
     "pllModulus": {
       "modulus": [ 8388593, 8388593, 8388593, 8388593, 8388593 ],
       "dmModulus": [ 8388593, 8388593 ]
-    }
+    },
+    "warmBootEnable": false
   },
   "pfirBuffer": {
     "pfirRxWbNbChFilterCoeff_A": {
