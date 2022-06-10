@@ -50,3 +50,17 @@
 &lcdif {
 	assigned-clock-rates = <484000000>, <121000000>, <400000000>, <133333333>;
 };
+
+&lpi2c1 {
+	touchscreen@14 {
+		compatible = "goodix,gt1151";
+		reg = <0x14>;
+		interrupt-parent = <&pcal6524>;
+		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+		irq-gpios = <&pcal6524 7 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&adp5585gpio 9 GPIO_ACTIVE_HIGH>;
+		edge-failling-trigger;
+		touchscreen-size-x = <1080>;
+		touchscreen-size-y = <1920>;
+	};
+};
