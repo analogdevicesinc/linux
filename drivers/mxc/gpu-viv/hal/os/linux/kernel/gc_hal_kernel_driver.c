@@ -1377,7 +1377,10 @@ static int __devinit gpu_probe(struct platform_device *pdev)
             }
         }
 
-        gcmkFOOTER_ARG(KERN_INFO "Failed to register gpu driver: %d\n", ret);
+        gcmkPRINT("galcore: retry probe\n");
+        ret = -EPROBE_DEFER;
+        gcmkFOOTER_ARG(KERN_INFO "probe end ret=%d", ret);
+        return ret;
     }
     else
     {
