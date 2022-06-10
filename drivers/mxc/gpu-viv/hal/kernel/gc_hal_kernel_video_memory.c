@@ -212,7 +212,7 @@ _Merge(
 static gceSTATUS
 _TraceGpuMem(
     IN gckOS Os,
-    IN gctUINT32 ProcessID,
+    IN gctINT32 ProcessID,
     IN gctINT64 Delta
     )
 {
