@@ -1747,7 +1747,7 @@ _ConfigurePolicyID(
             gcmkVERIFY_OK(gckOS_ReadRegisterEx(
                 os,
                 core,
-                (0x0080 + offset) << 2,
+                (0x0070 + offset) << 2,
                 &currentAxiConfig
                 ));
 
@@ -1756,7 +1756,7 @@ _ConfigurePolicyID(
             gcmkVERIFY_OK(gckOS_WriteRegisterEx(
                 os,
                 core,
-                (0x0080 + offset) << 2,
+                (0x0070 + offset) << 2,
                 currentAxiConfig
                 ));
         }
