@@ -373,7 +373,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_arm_Memory_ReadWrite_V
                          "Invalid parameter value. byteCount must be a multiple of 4 when using autoIncrement");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-
+    
     ADI_RANGE_CHECK(device, spiWriteMode, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STREAMING_BYTES_4);
     ADI_API_RETURN(device);
 }
@@ -398,7 +398,7 @@ int32_t adi_adrv9001_arm_Memory_Read32(adi_adrv9001_Device_t *device,
 	uint8_t autoIncrement)
 {
 	//uint8_t data[] = { 0 };
-
+	
 	ADI_PERFORM_VALIDATION(adi_adrv9001_arm_Memory_ReadWrite_Validate, device, address, (uint8_t *)returnData, byteCount, 0, autoIncrement);
 
 	ADI_EXPECT(adrv9001_DmaMemRead, device, address, (uint8_t *)returnData, byteCount, autoIncrement);
@@ -1193,7 +1193,7 @@ int32_t adi_adrv9001_arm_System_Program(adi_adrv9001_Device_t *device, uint8_t c
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_ILB1) >> (ilbFlgShift)) |
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_ELB1) >> (elbFlgShift)) |
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_TX1) << (txFlgShiftUp)));
-
+	
 	/*Mask for Channel 2 */
 	device->devStateInfo.chProfEnMask[1] = (((device->devStateInfo.initializedChannels & ADI_ADRV9001_RX2) >> 1) |
 								   ((device->devStateInfo.initializedChannels & ADI_ADRV9001_ORX2) >> (orxFlgShift  + 1)) |
@@ -1206,7 +1206,7 @@ int32_t adi_adrv9001_arm_System_Program(adi_adrv9001_Device_t *device, uint8_t c
 		device->devStateInfo.chProfEnMask[0] = device->devStateInfo.chProfEnMask[0] | adcPortBFlg;
 		device->devStateInfo.chProfEnMask[1] = device->devStateInfo.chProfEnMask[1] | adcPortBFlg;
 	}
-
+	
     ADI_API_RETURN(device);
 }
 
@@ -1425,12 +1425,12 @@ int32_t adi_adrv9001_arm_Start(adi_adrv9001_Device_t *device)
 {
     uint8_t armCtl1 = 0;
     uint8_t mailBox[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
-
+    
     ADI_ENTRY_EXPECT(device);
 
     /* Set MailBox 0xFF */
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, device, ADRV9001_ADDR_ARM_MAILBOX_GET, &mailBox[0], 4, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
-
+    
     armCtl1 = ADRV9001_AC1_ARM_DEBUG_ENABLE | ADRV9001_AC1_ARM_MEM_HRESP_MASK | ADRV9001_AC1_ARM_M3_RUN;
     ADRV9001_SPIWRITEBYTE(device, "ARM_CTL_1", ADRV9001_ADDR_ARM_CTL_1, armCtl1);
 
