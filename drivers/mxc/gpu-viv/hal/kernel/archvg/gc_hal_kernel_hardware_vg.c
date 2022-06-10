@@ -1938,29 +1938,9 @@ gckVGHARDWARE_SetPowerState(
 
         if (status == gcvSTATUS_TIMEOUT)
         {
-            /* Check if we already own this mutex. */
-            if ((Hardware->powerProcess == process)
-            &&  (Hardware->powerThread  == thread)
-            )
-            {
-                /* Bail out on recursive power management. */
-                gcmkFOOTER_NO();
-                return gcvSTATUS_OK;
-            }
-            else if (State == gcvPOWER_IDLE)
-            {
-                /* gcvPOWER_IDLE_BROADCAST is from IST,
-                ** so waiting here will cause deadlock,
-                ** if lock holder call gckCOMMAND_Stall() */
-                gcmkONERROR(gcvSTATUS_INVALID_REQUEST);
-            }
-            else
-            {
-                /* Acquire the power mutex. */
-                gcmkONERROR(gckOS_AcquireMutex(os,
-                                               Hardware->powerMutex,
-                                               gcvINFINITE));
-            }
+            /* Pm in progress, abort. */
+            status = gcvSTATUS_OK;
+            goto OnError;
         }
     }
     else
