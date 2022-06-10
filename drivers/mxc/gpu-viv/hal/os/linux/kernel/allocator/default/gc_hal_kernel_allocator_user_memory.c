@@ -135,14 +135,14 @@ phy_is_from_reserved(IN gckOS           Os,
 
     if (device->contiguousSize) {
         if ((Physical >= device->contiguousBase) &&
-            (Physical <= device->contiguousBase + device->contiguousSize)) {
+            (Physical < device->contiguousBase + device->contiguousSize)) {
             status = gcvSTATUS_OK;
             return status;
         }
     }
     if (device->externalSize) {
         if ((Physical >= device->externalBase) &&
-            (Physical <= device->externalBase + device->externalSize)) {
+            (Physical < device->externalBase + device->externalSize)) {
             status = gcvSTATUS_OK;
             return status;
         }
