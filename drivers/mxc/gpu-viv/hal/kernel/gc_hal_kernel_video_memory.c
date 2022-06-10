@@ -67,6 +67,14 @@ extern const uint64_t slogLowWaterFPC;
 
 #define _GC_OBJ_ZONE    gcvZONE_VIDMEM
 
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#include <trace/events/gpu_mem.h>
+
+gctUINT64 totalMem;
+#endif
+#endif
+
 /******************************************************************************\
 ******************************* Private Functions ******************************
 \******************************************************************************/
@@ -208,6 +216,34 @@ _Merge(
     status = gcmkOS_SAFE_FREE(Os, node);
     return status;
 }
+
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+static gceSTATUS
+_TraceGpuMem(IN gctUINT32 ProcessID, IN gctINT64 Delta)
+{
+    gctUINT32 pid = 0;
+
+    if (ProcessID == -1)
+        gckOS_GetProcessID(&pid);
+    else
+        pid = ProcessID;
+
+    if (trace_gpu_mem_total_enabled())
+    {
+        totalMem += Delta;
+
+        if (Delta < 0)
+            Delta = -Delta;
+
+        trace_gpu_mem_total(0, 0, (gctUINT64)totalMem);
+        trace_gpu_mem_total(0, ProcessID, (gctUINT64)Delta);
+    }
+
+    return gcvSTATUS_OK;
+}
+#endif
+#endif
 
 /******************************************************************************\
 ******************************* gckVIDMEM API Code ******************************
@@ -897,6 +933,12 @@ gckVIDMEM_AllocateLinear(
     /* Adjust the number of free bytes. */
     Memory->freeBytes   -= node->VidMem.bytes;
 
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+    _TraceGpuMem((gctINT32)node->VidMem.processID, node->VidMem.bytes);
+#endif
+#endif
+
     if (Memory->freeBytes < Memory->minFreeBytes)
     {
         Memory->minFreeBytes = Memory->freeBytes;
@@ -1018,6 +1060,12 @@ gckVIDMEM_AllocateVirtual(
                                   &node->Virtual.bytes,
                                   &node->Virtual.gid,
                                   &node->Virtual.physical));
+
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+    _TraceGpuMem(-1, node->Virtual.bytes);
+#endif
+#endif
 
     /* Calculate required GPU page (4096) count. */
     /* Assume start address is 4096 aligned. */
@@ -1805,6 +1853,12 @@ gckVIDMEM_AllocateVirtualChunk(
                               &Bytes,
                               &node));
 
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+    _TraceGpuMem(-1, Bytes);
+#endif
+#endif
+
     /* Return pointer to the gcuVIDMEM_NODE union. */
     *Node = node;
 
@@ -1958,6 +2012,12 @@ gckVIDMEM_Free(
             /* Update the number of free bytes. */
             memory->freeBytes += Node->VidMem.bytes;
 
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+            _TraceGpuMem((gctINT32)Node->VidMem.processID, -(gctINT64)Node->VidMem.bytes);
+#endif
+#endif
+
             /* Find the next free node. */
             for (node = Node->VidMem.next;
                  node != gcvNULL && node->VidMem.nextFree == gcvNULL;
@@ -2050,6 +2110,12 @@ gckVIDMEM_Free(
                 }
 
                 vidMemBlock->freeBytes += Node->VirtualChunk.bytes;
+
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+                _TraceGpuMem(-1, -(gctINT64)Node->VirtualChunk.bytes);
+#endif
+#endif
 
                 /* Find the next free chunk. */
                 for (node = Node->VirtualChunk.next;
@@ -2148,6 +2214,12 @@ gckVIDMEM_Free(
     gcmkVERIFY_OK(gckOS_FreePagedMemory(kernel->os,
                                         Node->Virtual.physical,
                                         Node->Virtual.bytes));
+
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+    _TraceGpuMem(-1, -(gctINT64)Node->Virtual.bytes);
+#endif
+#endif
 
     /* Delete the gcuVIDMEM_NODE union. */
     gcmkVERIFY_OK(gcmkOS_SAFE_FREE(kernel->os, Node));
@@ -4583,6 +4655,12 @@ gckVIDMEM_NODE_WrapUserMemory(
                 referenced = gcvTRUE;
                 found = gcvTRUE;
 
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+                _TraceGpuMem(-1, dmabuf->size);
+#endif
+#endif
+
                 *NodeObject = nodeObject;
                 *Bytes = (gctUINT64)dmabuf->size;
             }
@@ -4643,6 +4721,12 @@ gckVIDMEM_NODE_WrapUserMemory(
 
             node->Virtual.pageCount = (pageCountCpu * pageSizeCpu -
                     (physicalAddress & (pageSizeCpu - 1) & ~(4096 - 1))) >> 12;
+
+#if (defined LINUX_VERSION_CODE) && (defined CONFIG_TRACE_GPU_MEM)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+            _TraceGpuMem(-1, node->Virtual.bytes);
+#endif
+#endif
 
             *NodeObject = nodeObject;
             *Bytes = (gctUINT64)node->Virtual.bytes;
