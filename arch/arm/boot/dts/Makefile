@@ -182,7 +182,13 @@ dtb-$(CONFIG_ARCH_BERLIN) += \
 dtb-$(CONFIG_ARCH_BRCMSTB) += \
 	bcm7445-bcm97445svmb.dtb
 dtb-$(CONFIG_ARCH_BCMBCA) += \
-	bcm947622.dtb
+	bcm947622.dtb \
+	bcm963148.dtb \
+	bcm963178.dtb \
+	bcm96756.dtb \
+	bcm96846.dtb \
+	bcm96855.dtb \
+	bcm96878.dtb
 dtb-$(CONFIG_ARCH_CLPS711X) += \
 	ep7211-edb7211.dtb
 dtb-$(CONFIG_ARCH_DAVINCI) += \
