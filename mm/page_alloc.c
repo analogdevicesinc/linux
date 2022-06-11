@@ -6778,13 +6778,18 @@ static void __ref memmap_init_compound(struct page *head,
 		set_page_count(page, 0);
 
 		/*
-		 * The first tail page stores compound_mapcount_ptr() and
-		 * compound_order() and the second tail page stores
-		 * compound_pincount_ptr(). Call prep_compound_head() after
-		 * the first and second tail pages have been initialized to
-		 * not have the data overwritten.
+		 * The first tail page stores compound_mapcount_ptr(),
+		 * compound_order() and compound_pincount_ptr(). Call
+		 * prep_compound_head() after the first tail page have
+		 * been initialized to not have the data overwritten.
+		 *
+		 * Note the idea to make this right after we initialize
+		 * the offending tail pages is trying to take advantage
+		 * of the likelihood of those tail struct pages being
+		 * cached given that we will read them right after in
+		 * prep_compound_head().
 		 */
-		if (pfn == head_pfn + 2)
+		if (unlikely(pfn == head_pfn + 1))
 			prep_compound_head(head, order);
 	}
 }
