@@ -167,36 +167,6 @@ static int adrv9009_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
-int adrv9009_hdl_loopback(struct adrv9009_rf_phy *phy, bool enable)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	struct axiadc_state *st;
-	unsigned reg, addr, chan, version;
-
-	if (!conv)
-		return -ENODEV;
-
-	st = iio_priv(conv->indio_dev);
-	version = axiadc_read(st, 0x4000);
-
-	addr = 0x4418;
-
-	for (chan = 0; chan < conv->chip_info->num_channels; chan++) {
-		reg = axiadc_read(st, addr + (chan) * 0x40);
-
-		if (enable && reg != 0x8) {
-			conv->scratch_reg[chan] = reg;
-			reg = 0x8;
-		} else if (reg == 0x8)
-			reg = conv->scratch_reg[chan];
-
-		axiadc_write(st, addr + (chan) * 0x40, reg);
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(adrv9009_hdl_loopback);
-
 static int adrv9009_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -270,12 +240,6 @@ struct adrv9009_rf_phy *adrv9009_spi_to_phy(struct spi_device *spi)
 EXPORT_SYMBOL(adrv9009_spi_to_phy);
 
 #else  /* CONFIG_CF_AXI_ADC */
-
-int adrv9009_hdl_loopback(struct adrv9009_rf_phy *phy, bool enable)
-{
-	return -ENODEV;
-}
-EXPORT_SYMBOL(adrv9009_hdl_loopback);
 
 int adrv9009_register_axi_converter(struct adrv9009_rf_phy *phy)
 {
