@@ -1390,7 +1390,6 @@ static int intel_fpga_qse_ll_probe(struct platform_device *pdev)
 	struct resource *phy_reconfig_csr;
 	struct intel_fpga_qse_private *priv;
 	struct device_node *np = pdev->dev.of_node;
-	const unsigned char *macaddr;
 	const struct of_device_id *of_id = NULL;
 
 	ndev = alloc_etherdev(sizeof(struct intel_fpga_qse_private));
@@ -1578,10 +1577,8 @@ static int intel_fpga_qse_ll_probe(struct platform_device *pdev)
 	}
 
 	/* get default MAC address from device tree */
-	macaddr = of_get_mac_address(pdev->dev.of_node);
-	if (!IS_ERR(macaddr))
-		ether_addr_copy(ndev->dev_addr, macaddr);
-	else
+	ret = of_get_mac_address(pdev->dev.of_node, ndev->dev_addr);
+	if (ret)
 		eth_hw_addr_random(ndev);
 
 	/* initialize netdev */
