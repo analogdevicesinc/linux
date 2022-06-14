@@ -239,7 +239,6 @@ struct adrv9009_rf_phy {
 	u32 			orx_channel_enabled;
 };
 
-int adrv9009_hdl_loopback(struct adrv9009_rf_phy *phy, bool enable);
 int adrv9009_register_axi_converter(struct adrv9009_rf_phy *phy);
 struct adrv9009_rf_phy *adrv9009_spi_to_phy(struct spi_device *spi);
 int adrv9009_spi_read(struct spi_device *spi, u32 reg);
