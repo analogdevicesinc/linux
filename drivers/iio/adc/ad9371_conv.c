@@ -130,18 +130,13 @@ static int ad9371_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 
-	unsigned tmp, num_chan;
+	unsigned num_chan;
 	int i;
 
 	num_chan = conv->chip_info->num_channels;
 
 	conv->indio_dev = indio_dev;
 	axiadc_write(st, ADI_REG_CNTRL, 0);
-	tmp = axiadc_read(st, 0x4048);
-
-	tmp &= ~BIT(5);
-	axiadc_write(st, 0x4048, tmp);
-	axiadc_write(st, 0x404c, 3); /* RATE */
 
 	for (i = 0; i < num_chan; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i),
