@@ -180,15 +180,6 @@ static int adrv9009_post_setup(struct iio_dev *indio_dev)
 	conv->indio_dev = indio_dev;
 	axiadc_write(st, ADI_REG_CNTRL, 0);
 
-	if (has_tx_and_en(conv->phy)) {
-		unsigned tmp;
-
-		tmp = axiadc_read(st, 0x4048);
-		tmp &= ~BIT(5);
-		axiadc_write(st, 0x4048, tmp);
-		axiadc_write(st, 0x404c, 3); /* RATE */
-	}
-
 	for (i = 0; i < num_chan; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i),
 			     ADI_DCFILT_OFFSET(0));
@@ -198,7 +189,6 @@ static int adrv9009_post_setup(struct iio_dev *indio_dev)
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
-
 
 	return 0;
 }
