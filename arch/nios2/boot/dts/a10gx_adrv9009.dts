@@ -828,7 +828,7 @@
 
 		axi_adrv9009_core_rx: axi-adrv9009-rx-hpc@10060000 {
 			compatible = "adi,axi-adrv9009-rx-1.0";
-			reg = <0x10060000 0x00008000>;
+			reg = <0x10060000 0x00002000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&trx0_adrv9009>;
@@ -836,7 +836,7 @@
 
 		axi_adrv9009_core_tx: axi-adrv9009-tx-hpc@10064000 {
 			compatible = "adi,axi-adrv9009-tx-1.0";
-			reg = <0x10064000 0x00004000>;
+			reg = <0x10064000 0x00002000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			clocks = <&trx0_adrv9009 2>;
