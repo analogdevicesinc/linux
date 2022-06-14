@@ -470,7 +470,7 @@
 
 		axi_ad9371_rx: axi-ad9371-rx-hpc@10050000 {
 			compatible = "adi,axi-ad9371-rx-1.0";
-			reg = <0x10050000 0x00008000>;
+			reg = <0x10050000 0x00002000>;
 			dmas = <&axi_ad9371_rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&trx0_ad9371>;
@@ -478,7 +478,7 @@
 
 		axi_ad9371_tx: axi-ad9371-tx-hpc@10054000 {
 			compatible = "adi,axi-ad9371-tx-1.0";
-			reg = <0x10054000 0x00004000>;
+			reg = <0x10054000 0x00002000>;
 			dmas = <&axi_ad9371_tx_dma 0>;
 			dma-names = "tx";
 			clocks = <&trx0_ad9371 2>;
