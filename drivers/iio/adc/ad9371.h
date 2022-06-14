@@ -234,7 +234,6 @@ struct ad9371_rf_phy {
 	bool			large_freq_step_cal_en;
 };
 
-int ad9371_hdl_loopback(struct ad9371_rf_phy *phy, bool enable);
 int ad9371_register_axi_converter(struct ad9371_rf_phy *phy);
 struct ad9371_rf_phy* ad9371_spi_to_phy(struct spi_device *spi);
 int ad9371_spi_read(struct spi_device *spi, u32 reg);
