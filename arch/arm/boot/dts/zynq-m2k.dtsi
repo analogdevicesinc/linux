@@ -19,15 +19,6 @@
 	chosen {
 		stdout-path = "/amba@0/uart@E0001000";
 	};
-
-	usb_phy0: phy0 {
-		compatible = "ulpi-phy";
-		#phy-cells = <0>;
-		reg = <0xe0002000 0x1000>;
-		view-port = <0x0170>;
-		drv-vbus;
-	};
-
 };
 
 &cpu0 {
@@ -55,7 +46,6 @@
 	xlnx,phy-reset-gpio = <&gpio0 52 0>;
 	dr_mode = "otg";
 	status = "okay";
-	usb-phy = <&usb_phy0>;
 };
 
 &clkc {
