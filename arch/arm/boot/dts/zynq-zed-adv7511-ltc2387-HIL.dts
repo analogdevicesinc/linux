@@ -180,9 +180,9 @@
                 };
         };
 
-	spi_clkgen: spi-clkgen@44d30000 {
+	spi_clkgen: spi-clkgen@44d40000 {
 		compatible = "adi,axi-clkgen-2.00.a";
-		reg = <0x44d30000 0x10000>;
+		reg = <0x44d40000 0x10000>;
 		#clock-cells = <0>;
 		clocks = <&clkc 15 &clkc 15>;
 		clock-names = "s_axi_aclk", "clkin1";
