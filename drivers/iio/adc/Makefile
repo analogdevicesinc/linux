@@ -9,6 +9,7 @@ obj-$(CONFIG_AD_SIGMA_DELTA) += ad_sigma_delta.o
 obj-$(CONFIG_AD4000) += ad4000.o
 obj-$(CONFIG_AD4130) += ad4130.o
 obj-$(CONFIG_AD4134) += ad4134.o
+obj-$(CONFIG_AD4630) += ad4630.o
 obj-$(CONFIG_AD4695) += ad4695.o
 obj-$(CONFIG_AD6676) += ad6676.o
 obj-$(CONFIG_AD7091R) += ad7091r-base.o
