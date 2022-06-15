@@ -1,0 +1,22 @@
+What:		/sys/bus/iio/devices/iio:deviceX/sample_averaging
+KernelVersion: 5.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+    This attribute is used to set the number of samples used by the
+    averaging filter block. The resulted buffer read will be the
+    mean value of the following number of 'sample_averaging' samples.
+
+What:		/sys/bus/iio/devices/iio:deviceX/sample_averaging_available
+KernelVersion: 5.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+    Reading returns a list with the possible averageing values
+    The supported values are:
+      0 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltage_test_pattern
+KernelVersion: 5.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+    This attribute is used to write/read the 32bit test pattern to be
+    sent by the device when the test_pattern channel is enabled.
