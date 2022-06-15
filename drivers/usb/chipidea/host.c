@@ -58,11 +58,11 @@ static int ehci_ci_portpower(struct usb_hcd *hcd, int portnum, bool enable)
 	}
 
 	if (ci->platdata->flags & CI_HDRC_PHY_VBUS_CONTROL &&
-			ci->usb_phy && ci->usb_phy->set_vbus) {
+	    ci->usb_phy) {
 		if (enable)
-			ci->usb_phy->set_vbus(ci->usb_phy, 1);
+			ci->usb_phy->otg->set_vbus(ci->usb_phy->otg, 1);
 		else
-			ci->usb_phy->set_vbus(ci->usb_phy, 0);
+			ci->usb_phy->otg->set_vbus(ci->usb_phy->otg, 0);
 	}
 
 	if (enable && (ci->platdata->phy_mode == USBPHY_INTERFACE_MODE_HSIC)) {
