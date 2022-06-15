@@ -107,6 +107,20 @@
 				clock-frequency = <400000>;
 				reg = <0x4c>;
 			};
+
+			eeprom@51 {
+				compatible = "atmel,24c32";
+				reg = <0x51>;
+			};
+		};
+	};
+
+	fragment@6 {
+		target = <&i2c0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
 		};
 	};
 };
