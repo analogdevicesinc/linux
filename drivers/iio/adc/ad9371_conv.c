@@ -129,16 +129,12 @@ static int ad9371_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-
-	unsigned num_chan;
 	int i;
-
-	num_chan = conv->chip_info->num_channels;
 
 	conv->indio_dev = indio_dev;
 	axiadc_write(st, ADI_REG_CNTRL, 0);
 
-	for (i = 0; i < num_chan; i++) {
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i),
 			     ADI_DCFILT_OFFSET(0));
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
@@ -147,7 +143,6 @@ static int ad9371_post_setup(struct iio_dev *indio_dev)
 			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
 			     ADI_ENABLE | ADI_IQCOR_ENB);
 	}
-
 
 	return 0;
 }
