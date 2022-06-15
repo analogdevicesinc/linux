@@ -28,14 +28,6 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	usb_phy0: phy0@e0002000 {
-		compatible = "ulpi-phy";
-		#phy-cells = <0>;
-		reg = <0xe0002000 0x1000>;
-		view-port = <0x0170>;
-		drv-vbus;
-	};
-
 	fpga_axi: fpga-axi@0 {
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
@@ -81,6 +73,5 @@
 &usb0 {
 	status = "okay";
 	dr_mode = "host";
-	usb-phy = <&usb_phy0>;
 };
 
