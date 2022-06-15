@@ -320,48 +320,6 @@
 				};
 			};
 		};
-
-		gpu-thermal {
-			polling-delay-passive = <250>;
-			polling-delay = <2000>;
-			thermal-sensors = <&tmu 1>;
-
-			trips {
-				gpu_alert: gpu-alert {
-					temperature = <80000>;
-					hysteresis = <2000>;
-					type = "passive";
-				};
-
-				gpu-crit {
-					temperature = <90000>;
-					hysteresis = <2000>;
-					type = "critical";
-				};
-			};
-
-			cooling-maps {
-				map0 {
-					trip = <&gpu_alert>;
-					cooling-device =
-						<&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-			};
-		};
-
-		vpu-thermal {
-			polling-delay-passive = <250>;
-			polling-delay = <2000>;
-			thermal-sensors = <&tmu 2>;
-
-			trips {
-				vpu-crit {
-					temperature = <90000>;
-					hysteresis = <2000>;
-					type = "critical";
-				};
-			};
-		};
 	};
 
 	timer {
@@ -1615,31 +1573,6 @@
 			};
 		};
 
-		gpu: gpu@38000000 {
-			compatible = "vivante,gc";
-			reg = <0x38000000 0x40000>;
-			interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk IMX8MQ_CLK_GPU_ROOT>,
-			         <&clk IMX8MQ_CLK_GPU_SHADER_DIV>,
-			         <&clk IMX8MQ_CLK_GPU_AXI>,
-			         <&clk IMX8MQ_CLK_GPU_AHB>;
-			clock-names = "core", "shader", "bus", "reg";
-			#cooling-cells = <2>;
-			assigned-clocks = <&clk IMX8MQ_CLK_GPU_CORE_SRC>,
-			                  <&clk IMX8MQ_CLK_GPU_SHADER_SRC>,
-			                  <&clk IMX8MQ_CLK_GPU_AXI>,
-			                  <&clk IMX8MQ_CLK_GPU_AHB>,
-			                  <&clk IMX8MQ_GPU_PLL_BYPASS>;
-			assigned-clock-parents = <&clk IMX8MQ_GPU_PLL_OUT>,
-			                         <&clk IMX8MQ_GPU_PLL_OUT>,
-			                         <&clk IMX8MQ_GPU_PLL_OUT>,
-			                         <&clk IMX8MQ_GPU_PLL_OUT>,
-			                         <&clk IMX8MQ_GPU_PLL>;
-			assigned-clock-rates = <800000000>, <800000000>,
-			                       <800000000>, <800000000>, <0>;
-			power-domains = <&pgc_gpu>;
-		};
-
 		usb_dwc3_0: usb@38100000 {
 			compatible = "fsl,imx8mq-dwc3", "snps,dwc3";
 			reg = <0x38100000 0x10000>;
@@ -1702,33 +1635,6 @@
 			assigned-clock-rates = <100000000>;
 			#phy-cells = <0>;
 			status = "disabled";
-		};
-
-		vpu_g1: video-codec@38300000 {
-			compatible = "nxp,imx8mq-vpu-g1";
-			reg = <0x38300000 0x10000>;
-			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk IMX8MQ_CLK_VPU_G1_ROOT>;
-			power-domains = <&vpu_blk_ctrl IMX8MQ_VPUBLK_PD_G1>;
-		};
-
-		vpu_g2: video-codec@38310000 {
-			compatible = "nxp,imx8mq-vpu-g2";
-			reg = <0x38310000 0x10000>;
-			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk IMX8MQ_CLK_VPU_G2_ROOT>;
-			power-domains = <&vpu_blk_ctrl IMX8MQ_VPUBLK_PD_G2>;
-		};
-
-		vpu_blk_ctrl: blk-ctrl@38320000 {
-			compatible = "fsl,imx8mq-vpu-blk-ctrl";
-			reg = <0x38320000 0x100>;
-			power-domains = <&pgc_vpu>, <&pgc_vpu>, <&pgc_vpu>;
-			power-domain-names = "bus", "g1", "g2";
-			clocks = <&clk IMX8MQ_CLK_VPU_G1_ROOT>,
-				 <&clk IMX8MQ_CLK_VPU_G2_ROOT>;
-			clock-names = "g1", "g2";
-			#power-domain-cells = <1>;
 		};
 
 		pcie0: pcie@33800000 {
