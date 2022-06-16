@@ -796,6 +796,19 @@ config LTC2308
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc2308.
 
+config LTC2387
+	tristate "Linear Technology LTC2387 ADC driver"
+	depends on PWM
+	select IIO_BUFFER
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Say yes here to build support for Linear Technology LTC2387 18/16
+	  bit 15Msps SAR ADC.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called ltc2387.
+
 config LTC2471
 	tristate "Linear Technology LTC2471 and LTC2473 ADC driver"
 	depends on I2C
