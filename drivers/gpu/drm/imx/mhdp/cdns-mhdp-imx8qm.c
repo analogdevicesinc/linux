@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  * this program is free software; you can redistribute it and/or modify
  * it under the terms of the gnu general public license version 2 as
@@ -512,12 +512,16 @@ void cdns_mhdp_pclk_rate_imx8qm(struct cdns_mhdp_device *mhdp)
 	struct imx_mhdp_device *imx_mhdp =
 				container_of(mhdp, struct imx_mhdp_device, mhdp);
 
+	mutex_lock(&mhdp->iolock);
+
 	/* set pixel clock before video mode setup */
 	imx8qm_pixel_clk_disable(imx_mhdp);
 
 	imx8qm_pixel_clk_set_rate(imx_mhdp, imx_mhdp->mhdp.mode.clock * 1000);
 
 	imx8qm_pixel_clk_enable(imx_mhdp);
+
+	mutex_unlock(&mhdp->iolock);
 
 	/* Config pixel link mux */
 	imx8qm_pixel_link_mux(imx_mhdp);
