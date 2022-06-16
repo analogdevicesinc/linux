@@ -56,7 +56,7 @@
 		};
 	};
 
-	spi_clock: axi-clkgen@44a70000 {
+	spi_clock: spieng-axi-clkgen@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;
