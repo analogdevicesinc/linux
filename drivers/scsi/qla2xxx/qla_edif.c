@@ -510,19 +510,35 @@ qla_edif_app_start(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 		/* mark doorbell as active since an app is now present */
 		vha->e_dbell.db_flags |= EDB_ACTIVE;
 	} else {
-		ql_dbg(ql_dbg_edif, vha, 0x911e, "%s doorbell already active\n",
-		     __func__);
+		goto out;
 	}
 
 	if (N2N_TOPO(vha->hw)) {
 		list_for_each_entry_safe(fcport, tf, &vha->vp_fcports, list)
 			fcport->n2n_link_reset_cnt = 0;
 
-		if (vha->hw->flags.n2n_fw_acc_sec)
-			set_bit(N2N_LINK_RESET, &vha->dpc_flags);
-		else
+		if (vha->hw->flags.n2n_fw_acc_sec) {
+			list_for_each_entry_safe(fcport, tf, &vha->vp_fcports, list)
+				qla_edif_sa_ctl_init(vha, fcport);
+
+			/*
+			 * While authentication app was not running, remote device
+			 * could still try to login with this local port.  Let's
+			 * clear the state and try again.
+			 */
+			qla2x00_wait_for_sess_deletion(vha);
+
+			/* bounce the link to get the other guy to relogin */
+			if (!vha->hw->flags.n2n_bigger) {
+				set_bit(N2N_LINK_RESET, &vha->dpc_flags);
+				qla2xxx_wake_dpc(vha);
+			}
+		} else {
+			qla2x00_wait_for_hba_online(vha);
 			set_bit(ISP_ABORT_NEEDED, &vha->dpc_flags);
-		qla2xxx_wake_dpc(vha);
+			qla2xxx_wake_dpc(vha);
+			qla2x00_wait_for_hba_online(vha);
+		}
 	} else {
 		list_for_each_entry_safe(fcport, tf, &vha->vp_fcports, list) {
 			ql_dbg(ql_dbg_edif, vha, 0x2058,
@@ -568,6 +584,7 @@ qla_edif_app_start(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 			qlt_schedule_sess_for_deletion(fcport);
 			qla_edif_sa_ctl_init(vha, fcport);
 		}
+		set_bit(RELOGIN_NEEDED, &vha->dpc_flags);
 	}
 
 	if (vha->pur_cinfo.enode_flags != ENODE_ACTIVE) {
@@ -578,6 +595,7 @@ qla_edif_app_start(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 		     __func__);
 	}
 
+out:
 	appreply.host_support_edif = vha->hw->flags.edif_enabled;
 	appreply.edif_enode_active = vha->pur_cinfo.enode_flags;
 	appreply.edif_edb_active = vha->e_dbell.db_flags;
@@ -919,17 +937,21 @@ qla_edif_app_getfcinfo(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 			if (tdid.b24 != 0 && tdid.b24 != fcport->d_id.b24)
 				continue;
 
-			if (fcport->scan_state != QLA_FCPORT_FOUND)
-				continue;
+			if (!N2N_TOPO(vha->hw)) {
+				if (fcport->scan_state != QLA_FCPORT_FOUND)
+					continue;
 
-			if (fcport->port_type == FCT_UNKNOWN && !fcport->fc4_features)
-				rval = qla24xx_async_gffid(vha, fcport, true);
+				if (fcport->port_type == FCT_UNKNOWN &&
+				    !fcport->fc4_features)
+					rval = qla24xx_async_gffid(vha, fcport,
+								   true);
 
-			if (!rval &&
-			    !(fcport->fc4_features & FC4_FF_TARGET ||
-			      fcport->port_type &
-			      (FCT_TARGET | FCT_NVME_TARGET)))
-				continue;
+				if (!rval &&
+				    !(fcport->fc4_features & FC4_FF_TARGET ||
+				      fcport->port_type &
+				      (FCT_TARGET | FCT_NVME_TARGET)))
+					continue;
+			}
 
 			rval = 0;
 
@@ -2565,14 +2587,29 @@ void qla24xx_auth_els(scsi_qla_host_t *vha, void **pkt, struct rsp_que **rsp)
 
 	fcport = qla2x00_find_fcport_by_pid(host, &purex->pur_info.pur_sid);
 
-	if (DBELL_INACTIVE(vha) ||
-	    (fcport && EDIF_SESSION_DOWN(fcport))) {
+	if (DBELL_INACTIVE(vha)) {
 		ql_dbg(ql_dbg_edif, host, 0x0910c, "%s e_dbell.db_flags =%x %06x\n",
 		    __func__, host->e_dbell.db_flags,
 		    fcport ? fcport->d_id.b24 : 0);
 
 		qla_els_reject_iocb(host, (*rsp)->qpair, &a);
 		qla_enode_free(host, ptr);
+		return;
+	}
+
+	if (fcport && EDIF_SESSION_DOWN(fcport)) {
+		ql_dbg(ql_dbg_edif, host, 0x13b6,
+		    "%s terminate exchange. Send logo to 0x%x\n",
+		    __func__, a.did.b24);
+
+		a.tx_byte_count = a.tx_len = 0;
+		a.tx_addr = 0;
+		a.control_flags = EPD_RX_XCHG;  /* EPD_RX_XCHG = terminate cmd */
+		qla_els_reject_iocb(host, (*rsp)->qpair, &a);
+		qla_enode_free(host, ptr);
+		/* send logo to let remote port knows to tear down session */
+		fcport->send_els_logo = 1;
+		qlt_schedule_sess_for_deletion(fcport);
 		return;
 	}
 
@@ -2951,6 +2988,12 @@ qla28xx_start_scsi_edif(srb_t *sp)
 
 	tot_dsds = nseg;
 	req_cnt = qla24xx_calc_iocbs(vha, tot_dsds);
+
+	sp->iores.res_type = RESOURCE_INI;
+	sp->iores.iocb_cnt = req_cnt;
+	if (qla_get_iocbs(sp->qpair, &sp->iores))
+		goto queuing_error;
+
 	if (req->cnt < (req_cnt + 2)) {
 		cnt = IS_SHADOW_REG_CAPABLE(ha) ? *req->out_ptr :
 		    rd_reg_dword(req->req_q_out);
@@ -3142,6 +3185,7 @@ queuing_error:
 		mempool_free(sp->u.scmd.ct6_ctx, ha->ctx_mempool);
 		sp->u.scmd.ct6_ctx = NULL;
 	}
+	qla_put_iocbs(sp->qpair, &sp->iores);
 	spin_unlock_irqrestore(lock, flags);
 
 	return QLA_FUNCTION_FAILED;
@@ -3494,7 +3538,7 @@ int qla_edif_process_els(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 	if (qla_bsg_check(vha, bsg_job, fcport))
 		return 0;
 
-	if (fcport->loop_id == FC_NO_LOOP_ID) {
+	if (EDIF_SESS_DELETE(fcport)) {
 		ql_dbg(ql_dbg_edif, vha, 0x910d,
 		    "%s ELS code %x, no loop id.\n", __func__,
 		    bsg_request->rqst_data.r_els.els_code);
