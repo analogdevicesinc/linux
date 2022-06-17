@@ -188,11 +188,35 @@
 		clock-names = "s_axi_aclk", "clkin1";
 	};
 
-	spi_engine_dac: spi@44d00000 {
+	spi_engine_dac0: spi@44d00000 {
 		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x44d00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 36 4>;
+		clocks = <&clkc 15 &spi_clkgen>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+      		ad3552r@0 {
+			compatible = "adi,ad3552r";
+			reg = <0>;
+			spi-max-frequency = <20000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel@0 {
+			      reg = <0>;
+			      adi,output-range-microvolt = <0 5000000>;
+			};
+		};
+	};
+
+	spi_engine_dac1: spi@44e00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44e00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 35 4>;
 		clocks = <&clkc 15 &spi_clkgen>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <1>;
