@@ -886,7 +886,7 @@ static int fsl_sai_startup(struct snd_pcm_substream *substream,
 					   sai->dma_params_rx.maxburst);
 
 	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
-			SNDRV_PCM_HW_PARAM_RATE, &fsl_sai_rate_constraints);
+			SNDRV_PCM_HW_PARAM_RATE, &sai->constraint_rates);
 
 	return ret;
 }
@@ -1394,6 +1394,8 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	char tmp[8];
 	int irq, ret, i;
 	int index;
+	int j, k = 0;
+	u64 clk_rate[2];
 	u32 dmas[4];
 
 	sai = devm_kzalloc(dev, sizeof(*sai), GFP_KERNEL);
@@ -1450,6 +1452,27 @@ static int fsl_sai_probe(struct platform_device *pdev)
 
 	fsl_asoc_get_pll_clocks(&pdev->dev, &sai->pll8k_clk,
 				&sai->pll11k_clk);
+
+	sai->constraint_rates = fsl_sai_rate_constraints;
+	if (sai->pll8k_clk || sai->pll11k_clk) {
+		sai->constraint_rates.list = sai->constraint_rates_list;
+		sai->constraint_rates.count = 0;
+		for (i = 0; i < FAL_SAI_NUM_RATES; i++) {
+			clk_rate[0] = clk_get_rate(sai->pll8k_clk);
+			clk_rate[1] = clk_get_rate(sai->pll11k_clk);
+			for (j = 0; j < 2; j++) {
+				if (clk_rate[j] != 0 &&
+				    do_div(clk_rate[j], fsl_sai_rates[i]) == 0) {
+					sai->constraint_rates_list[k++] = fsl_sai_rates[i];
+					sai->constraint_rates.count++;
+				}
+			}
+		}
+
+		/* protection for if there is no proper rate found*/
+		if (!sai->constraint_rates.count)
+			sai->constraint_rates = fsl_sai_rate_constraints;
+	}
 
 	/* Use Multi FIFO mode depending on the support from SDMA script */
 	ret = of_property_read_u32_array(np, "dmas", dmas, 4);
