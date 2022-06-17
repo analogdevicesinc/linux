@@ -15,10 +15,6 @@
 #include "zynq-zed.dtsi"
 #include "zynq-zed-adv7511.dtsi"
 
-&eeprom1 {
-	status = "disabled";
-};
-
 &gpio0 {
 	ad3552r_qspi {
 		gpio-hog;
@@ -56,7 +52,7 @@
 			#size-cells = <0>;
 			channel@0 {
 			      reg = <0>;
-			      adi,output-range-microvolt = <0 10000000>;
+			      adi,output-range-microvolt = <0 5000000>;
 			};
 		};
 	};
