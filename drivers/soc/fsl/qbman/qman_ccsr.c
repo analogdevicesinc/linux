@@ -252,10 +252,18 @@ static const struct qman_error_info_mdata error_mdata[] = {
 	{ 0x01FF, 24, "FQD cache tag memory 3" },
 	{ 0x0FFF, 512, "FQD cache memory" },
 	{ 0x07FF, 128, "SFDR memory" },
-	{ 0x01FF, 72, "WQ context memory" },
+	{ 0x01FF, 84, "WQ context memory" },
 	{ 0x00FF, 240, "CGR memory" },
 	{ 0x00FF, 302, "Internal Order Restoration List memory" },
-	{ 0x01FF, 256, "SW portal ring memory" },
+	{ 0x7FFF, 256, "SW portal ring memory" },
+	{ 0x07FF, 181, "CEETM class queue descriptor memory" },
+	{ 0x0FFF, 140, "CEETM extended SFDR memory" },
+	{ 0x0FFF, 25, "CEETM logical FQ mapping memory" },
+	{ 0x0FFF, 96, "CEETM dequeue context memory" },
+	{ 0x07FF, 396, "CEETM ccgr memory" },
+	{ 0x00FF, 146, "CEETM CQ channel shaping memory" },
+	{ 0x007F, 256, "CEETM CQ channel scheduling memory" },
+	{ 0x01FF, 88, "CEETM dequeue statistics memory" },
 };
 
 #define QMAN_ERRS_TO_DISABLE (QM_EIRQ_PLWI | QM_EIRQ_PEBI)
