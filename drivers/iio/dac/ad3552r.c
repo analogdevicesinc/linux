@@ -514,9 +514,22 @@ static int ad3552r_write_raw(struct iio_dev *indio_dev,
 	return err;
 }
 
+static int ad3552r_reg_access(struct iio_dev *indio_dev,
+			      unsigned reg, unsigned writeval,
+			      unsigned *readval)
+{
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+
+	if (readval)
+		return ad3552r_read_reg(dac, reg, (u16 *)readval);
+
+	return ad3552r_write_reg(dac, reg, writeval);
+}
+
 static const struct iio_info ad3552r_iio_info = {
 	.read_raw = ad3552r_read_raw,
-	.write_raw = ad3552r_write_raw
+	.write_raw = ad3552r_write_raw,
+	.debugfs_reg_access = ad3552r_reg_access
 };
 
 static int32_t ad3552r_trigger_hw_ldac(struct gpio_desc *ldac)
