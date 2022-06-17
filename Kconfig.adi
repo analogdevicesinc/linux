@@ -87,6 +87,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select LEDS_AS3645A
 
 source "drivers/clk/Kconfig.adi"
+source "drivers/gpio/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
 source "drivers/iio/Kconfig.adi"
 source "drivers/input/Kconfig.adi"

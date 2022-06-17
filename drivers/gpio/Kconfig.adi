@@ -1,0 +1,8 @@
+# This file exists solely to be include in Kconfig.adi
+
+config GPIO_ALL_ADI_DRIVERS
+	tristate "Build all GPIO drivers for the Analog Devices kernel"
+	select GPIO_MAX730X
+	select GPIO_MAX7300
+	select GPIO_MAX7301
+
