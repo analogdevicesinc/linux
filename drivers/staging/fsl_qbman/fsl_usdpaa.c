@@ -2206,7 +2206,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	}
 	case USDPAA_IOCTL_ENABLE_LINK_STATUS_INTERRUPT:
 	{
-		struct usdpaa_ioctl_link_status input;
+		struct usdpaa_ioctl_link_status input = {0};
 		int ret;
 
 		if (copy_from_user(&input, a, sizeof(input)))
@@ -2233,7 +2233,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case USDPAA_IOCTL_GET_LINK_STATUS:
 	{
 		int ret;
-		struct usdpaa_ioctl_link_status_args input;
+		struct usdpaa_ioctl_link_status_args input = {0};
 
 		if (copy_from_user(&input, a, sizeof(input)))
 			return -EFAULT;
@@ -2249,7 +2249,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	}
 	case USDPAA_IOCTL_UPDATE_LINK_STATUS:
 	{
-		struct usdpaa_ioctl_update_link_status input;
+		struct usdpaa_ioctl_update_link_status input = {0};
 		int ret;
 
 		if (copy_from_user(&input, a, sizeof(input)))
@@ -2272,7 +2272,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	}
 	case USDPAA_IOCTL_UPDATE_LINK_SPEED:
 	{
-		struct usdpaa_ioctl_update_link_speed input;
+		struct usdpaa_ioctl_update_link_speed input = {0};
 		int ret;
 
 		if (copy_from_user(&input, a, sizeof(input)))
