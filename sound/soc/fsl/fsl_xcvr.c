@@ -19,6 +19,7 @@
 #include "imx-pcm.h"
 
 #define FSL_XCVR_CAPDS_SIZE	256
+#define SPDIF_NUM_RATES		7
 
 enum fsl_xcvr_pll_verison {
 	PLL_MX8MP,
@@ -55,6 +56,8 @@ struct fsl_xcvr {
 	u8 cap_ds[FSL_XCVR_CAPDS_SIZE];
 	struct work_struct work_rst;
 	spinlock_t lock; /* Protect hw_reset and trigger */
+	struct snd_pcm_hw_constraint_list spdif_constr_rates;
+	u32 spdif_constr_rates_list[SPDIF_NUM_RATES];
 };
 
 static const struct fsl_xcvr_pll_conf {
@@ -585,8 +588,12 @@ static int fsl_xcvr_startup(struct snd_pcm_substream *substream,
 	switch (xcvr->mode) {
 	case FSL_XCVR_MODE_SPDIF:
 	case FSL_XCVR_MODE_ARC:
-		ret = fsl_xcvr_constr(substream, &fsl_xcvr_spdif_channels_constr,
-				      &fsl_xcvr_spdif_rates_constr);
+		if (xcvr->soc_data->spdif_only && tx)
+			ret = fsl_xcvr_constr(substream, &fsl_xcvr_spdif_channels_constr,
+					      &xcvr->spdif_constr_rates);
+		else
+			ret = fsl_xcvr_constr(substream, &fsl_xcvr_spdif_channels_constr,
+					      &fsl_xcvr_spdif_rates_constr);
 		break;
 	case FSL_XCVR_MODE_EARC:
 		ret = fsl_xcvr_constr(substream, &fsl_xcvr_earc_channels_constr,
@@ -1370,6 +1377,8 @@ static int fsl_xcvr_probe(struct platform_device *pdev)
 	struct resource *rx_res, *tx_res;
 	void __iomem *regs;
 	int ret, irq;
+	int i, j, k = 0;
+	u64 clk_rate[2];
 
 	xcvr = devm_kzalloc(dev, sizeof(*xcvr), GFP_KERNEL);
 	if (!xcvr)
@@ -1404,6 +1413,26 @@ static int fsl_xcvr_probe(struct platform_device *pdev)
 
 	fsl_asoc_get_pll_clocks(dev, &xcvr->pll8k_clk,
 				&xcvr->pll11k_clk);
+
+	xcvr->spdif_constr_rates = fsl_xcvr_spdif_rates_constr;
+	if (xcvr->soc_data->spdif_only) {
+		xcvr->spdif_constr_rates.list = xcvr->spdif_constr_rates_list;
+		xcvr->spdif_constr_rates.count = 0;
+		for (i = 0; i < SPDIF_NUM_RATES; i++) {
+			clk_rate[0] = clk_get_rate(xcvr->pll8k_clk);
+			clk_rate[1] = clk_get_rate(xcvr->pll11k_clk);
+			if (!(clk_rate[0] || clk_rate[1]))
+				clk_rate[0] = clk_get_rate(xcvr->phy_clk);
+			for (j = 0; j < 2; j++) {
+				if (clk_rate[j] != 0 &&
+				    do_div(clk_rate[j], fsl_xcvr_spdif_rates[i]) == 0) {
+					xcvr->spdif_constr_rates_list[k++] =
+					fsl_xcvr_spdif_rates[i];
+					xcvr->spdif_constr_rates.count++;
+				}
+			}
+		}
+	}
 
 	xcvr->ram_addr = devm_platform_ioremap_resource_byname(pdev, "ram");
 	if (IS_ERR(xcvr->ram_addr))
