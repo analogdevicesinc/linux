@@ -333,6 +333,7 @@ static int sysc_add_named_clock_from_child(struct sysc *ddata,
 		return -ENODEV;
 
 	clock = devm_get_clk_from_child(ddata->dev, child, name);
+	of_node_put(child);
 	if (IS_ERR(clock))
 		return PTR_ERR(clock);
 
