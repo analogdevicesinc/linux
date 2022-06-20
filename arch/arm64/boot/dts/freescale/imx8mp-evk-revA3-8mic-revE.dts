@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx8mp-evk.dts"
+
+/ {
+	mic_leds {
+		compatible = "gpio-leds";
+		mic0 {
+			label = "mic0";
+			gpios = <&pca9555 5 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic1 {
+			label = "mic1";
+			gpios = <&pca9555 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic2 {
+			label = "mic2";
+			gpios = <&pca9555 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic3 {
+			label = "mic3";
+			gpios = <&pca9555 2 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic4 {
+			label = "mic4";
+			gpios = <&pca9555 1 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic5 {
+			label = "mic5";
+			gpios = <&pca9555 0 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic6 {
+			label = "mic6";
+			gpios = <&pca9555 4 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic7 {
+			label = "mic7";
+			gpios = <&pca9555 3 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	sw_keys {
+		compatible = "gpio-keys";
+
+		sw4: volume_down {
+			label = "Volume Down";
+			gpios = <&pca9555 15 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		sw3: volume_up {
+			label = "Volume Up";
+			gpios = <&pca9555 14 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		sw2: volume_mute {
+			label = "Volume Mute";
+			gpios = <&pca9555 13 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_MUTE>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		sw1: key_act {
+			label = "Key Act";
+			gpios = <&pca9555 12 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_F9>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <12 IRQ_TYPE_LEVEL_LOW>;
+		};
+	};
+
+	reg_vddext_3v3: regulator-vddext {
+		compatible = "regulator-fixed";
+		regulator-name = "VDDEXT_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+};
+
+&iomuxc {
+	pinctrl_swpdm_mute_irq: swpdm_mute_grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_ECSPI1_MISO__GPIO5_IO08	0x19
+		>;
+	};
+
+	pinctrl_pushbutton_irq: pushbutton_grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_ECSPI1_SS0__GPIO5_IO09 0xb0
+		>;
+	};
+};
+
+&i2c3 {
+	pca9555: gpio@21 {
+		compatible = "nxp,pca9555";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pushbutton_irq>;
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
+		vcc-supply = <&reg_vddext_3v3>;
+		status = "okay";
+	};
+};
+
+&uart3 {
+	status = "disabled";
+};
