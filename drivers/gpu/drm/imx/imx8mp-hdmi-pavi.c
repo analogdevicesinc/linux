@@ -172,13 +172,13 @@ static int imx8mp_hdmi_pavi_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	pavi->reset_pai = devm_reset_control_get(dev, "pai_rst");
+	pavi->reset_pai = devm_reset_control_get_optional(dev, "pai_rst");
 	if (IS_ERR(pavi->reset_pai)) {
 		dev_err(pavi->dev, "No PAI reset\n");
 		return -EPROBE_DEFER;
 	}
 
-	pavi->reset_pvi = devm_reset_control_get(dev, "pvi_rst");
+	pavi->reset_pvi = devm_reset_control_get_optional(dev, "pvi_rst");
 	if (IS_ERR(pavi->reset_pvi)) {
 		dev_err(pavi->dev, "No PVI reset\n");
 		return -EPROBE_DEFER;
