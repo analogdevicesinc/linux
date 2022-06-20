@@ -547,7 +547,7 @@ static int hdmimix_lcdif3_setup(struct lcdifv3_soc *lcdifv3)
 		return ret;
 
 	/* enable lpcg of hdmimix lcdif and nor */
-	ret = devm_clk_bulk_get(dev, ARRAY_SIZE(clocks), clocks);
+	ret = devm_clk_bulk_get_optional(dev, ARRAY_SIZE(clocks), clocks);
 	if (ret < 0)
 		return ret;
 	ret = clk_bulk_prepare_enable(ARRAY_SIZE(clocks), clocks);
