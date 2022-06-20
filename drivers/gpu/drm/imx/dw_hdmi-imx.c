@@ -195,6 +195,9 @@ static bool imx8mp_hdmi_check_clk_rate(int rate_khz)
 {
 	int rate = rate_khz * 1000;
 
+	if (!imx8mp_clocks[0].clk)
+		return true;
+
 	/* Check hdmi phy pixel clock support rate */
 	if (rate != clk_round_rate(imx8mp_clocks[0].clk, rate))
 		return  false;
@@ -314,7 +317,7 @@ static int imx8mp_hdmimix_setup(struct imx_hdmi *hdmi)
 	if (ret == -EPROBE_DEFER)
 		return ret;
 
-	ret = devm_clk_bulk_get(hdmi->dev, ARRAY_SIZE(imx8mp_clocks), imx8mp_clocks);
+	ret = devm_clk_bulk_get_optional(hdmi->dev, ARRAY_SIZE(imx8mp_clocks), imx8mp_clocks);
 	if (ret < 0) {
 		dev_err(hdmi->dev, "No hdmimix bulk clk got\n");
 		return -EPROBE_DEFER;
