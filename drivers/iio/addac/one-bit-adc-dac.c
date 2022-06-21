@@ -19,7 +19,6 @@ enum ch_direction {
 
 struct one_bit_adc_dac_state {
 	int			in_num_ch;
-	int			out_num_ch;
 	struct platform_device  *pdev;
 	struct gpio_descs       *in_gpio_descs;
 	struct gpio_descs       *out_gpio_descs;
