@@ -142,14 +142,14 @@ static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 {
 	struct one_bit_adc_dac_state *st = iio_priv(indio_dev);
 	struct iio_chan_spec *channels;
-	int ret, in_num_ch = 0, out_num_ch = 0;
+	int ret, out_num_ch = 0;
 
 	st->in_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "in", GPIOD_IN);
 	if (IS_ERR(st->in_gpio_descs))
 		return PTR_ERR(st->in_gpio_descs);
 
 	if (st->in_gpio_descs)
-		in_num_ch = st->in_gpio_descs->ndescs;
+		st->in_num_ch = st->in_gpio_descs->ndescs;
 
 	st->out_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "out", GPIOD_OUT_LOW);
 	if (IS_ERR(st->out_gpio_descs))
@@ -157,26 +157,25 @@ static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 
 	if (st->out_gpio_descs)
 		out_num_ch = st->out_gpio_descs->ndescs;
-
-	channels = devm_kcalloc(indio_dev->dev.parent, in_num_ch + out_num_ch,
+	channels = devm_kcalloc(indio_dev->dev.parent, st->in_num_ch + out_num_ch,
 				sizeof(*channels), GFP_KERNEL);
 	if (!channels)
 		return -ENOMEM;
 
-	ret = one_bit_adc_dac_set_ch(&channels[0], in_num_ch, CH_IN);
+	ret = one_bit_adc_dac_set_ch(&channels[0], st->in_num_ch, CH_IN);
 	if (ret)
 		return ret;
 
-	ret = one_bit_adc_dac_set_ch(&channels[in_num_ch], out_num_ch, CH_OUT);
+	ret = one_bit_adc_dac_set_ch(&channels[st->in_num_ch], out_num_ch, CH_OUT);
 	if (ret)
 		return ret;
 
-	ret = one_bit_adc_dac_set_channel_label(indio_dev, channels, in_num_ch + out_num_ch);
+	ret = one_bit_adc_dac_set_channel_label(indio_dev, channels, st->in_num_ch + out_num_ch);
 	if (ret)
 		return ret;
 
 	indio_dev->channels = channels;
-	indio_dev->num_channels = in_num_ch + out_num_ch;
+	indio_dev->num_channels = st->in_num_ch + out_num_ch;
 
 	return 0;
 }
