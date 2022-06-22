@@ -24,6 +24,10 @@
 	};
 };
 
+&usb0 {
+	dr_mode = "host";
+};
+
 &fpga_axi {
 	spi_clkgen: spi-clkgen@44A70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
