@@ -69,7 +69,7 @@
 		fsl,rpmsg-out;
 		assigned-clocks = <&clk IMX8MM_CLK_SAI3>;
 		assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
-		assigned-clock-rates = <12288000>;
+		assigned-clock-rates = <24576000>;
 		clocks = <&clk IMX8MM_CLK_SAI3_IPG>,
 			 <&clk IMX8MM_CLK_SAI3_ROOT>,
 			 <&clk IMX8MM_CLK_SDMA3_ROOT>,
