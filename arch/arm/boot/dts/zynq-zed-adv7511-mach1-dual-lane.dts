@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9467
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl
+ * https://wiki.analog.com/resources/eval/ad9467-fmc-250ebz
+ * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
+ *
+ * hdl_project: <ad9467_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-adv7511-mach1.dts"
+
+&fmc_spi {
+	adc_ad9467: ad9467@0 {
+		num_lanes = <2>;
+	};
+
+};
+
+&spi1 {
+
+	clk0_ad9508: ad9508@0 {
+		ad9508_0_c2:channel@2 {
+			reg = <2>;
+			adi,extended-name = "CNV";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HIGHZ_CMOS | DRIVER_CMOS_P_ENABLE | DRIVER_PHASE_CMOS_P_NORMAL | DRIVER_CMOS_N_ENABLE | DRIVER_PHASE_CMOS_N_FORCE_LOW)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+		};
+	};
+};
