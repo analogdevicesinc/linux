@@ -16,6 +16,10 @@
 #include <linux/kernel.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/dmaengine.h>
+#include <linux/spi/spi-engine.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 
 /* Register addresses */
 /* Primary address space */
@@ -275,6 +279,8 @@ struct ad3552r_desc {
 	unsigned long		enabled_ch;
 	unsigned int		num_ch;
 	enum ad3542r_id		chip_id;
+
+	bool			spi_is_dma_mapped;
 };
 
 static const u16 addr_mask_map[][2] = {
@@ -530,6 +536,58 @@ static const struct iio_info ad3552r_iio_info = {
 	.read_raw = ad3552r_read_raw,
 	.write_raw = ad3552r_write_raw,
 	.debugfs_reg_access = ad3552r_reg_access
+};
+
+static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+	struct spi_transfer xfer = {
+		.len = 1,
+		.bits_per_word = 8
+	};
+	u8 tx_data;
+	struct spi_message msg;
+	int ret;
+
+	if (dac->spi_is_dma_mapped) {
+		tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
+		spi_message_init_with_transfers(&msg, &xfer, 1);
+		ret = spi_engine_offload_load_msg(dac->spi, &msg);
+		if (ret < 0)
+			return ret;
+		spi_engine_offload_enable(dac->spi, true);
+	}
+	return ret;
+}
+
+static int ad3552r_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+
+	if (dac->spi_is_dma_mapped) {
+		spi_engine_offload_enable(dac->spi, false);
+		spi_bus_unlock(dac->spi->master);
+	}
+
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops ad3552r_buffer_ops = {
+	.postenable = &ad3552r_buffer_postenable,
+	.predisable = &ad3552r_buffer_predisable,
+};
+
+static int hw_submit_block(struct iio_dma_buffer_queue *queue,
+			   struct iio_dma_buffer_block *block)
+{
+	block->block.bytes_used = block->block.size;
+
+	return iio_dmaengine_buffer_submit_block(queue, block, DMA_MEM_TO_DEV);
+}
+
+static const struct iio_dma_buffer_ops ad3552r_dma_buffer_ops = {
+	.submit = hw_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
 };
 
 static int32_t ad3552r_trigger_hw_ldac(struct gpio_desc *ldac)
@@ -895,6 +953,29 @@ static void ad3552r_reg_disable(void *reg)
 	regulator_disable(reg);
 }
 
+static int ad3552r_hardware_buffer_alloc(struct iio_dev *indio_dev)
+{
+	struct iio_buffer *buffer;
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+
+	indio_dev->modes |=  INDIO_BUFFER_HARDWARE;
+	indio_dev->setup_ops = &ad3552r_buffer_ops;
+	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
+					    "tx",
+					    &ad3552r_dma_buffer_ops,
+					    indio_dev);
+	if (IS_ERR(buffer)) {
+		iio_dmaengine_buffer_free(indio_dev->buffer);
+		return PTR_ERR(buffer);
+	}
+	dev_info(&dac->spi->dev,"DMA engine buffer alloc");
+
+	iio_device_attach_buffer(indio_dev, buffer);
+	dev_info(&dac->spi->dev,"IIO buffer attached");
+
+	return 0;
+}
+
 static int ad3552r_configure_device(struct ad3552r_desc *dac)
 {
 	struct device *dev = &dac->spi->dev;
@@ -1098,6 +1179,7 @@ static int ad3552r_probe(struct spi_device *spi)
 	dac = iio_priv(indio_dev);
 	dac->spi = spi;
 	dac->chip_id = id->driver_data;
+	dac->spi_is_dma_mapped = spi_engine_offload_supported(spi);
 
 	mutex_init(&dac->lock);
 
@@ -1118,16 +1200,26 @@ static int ad3552r_probe(struct spi_device *spi)
 	/* indio_dev->direction don't exist in 5.14 */
 	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 
-	/* In 5.14 devm_iio_triggered_buffer_setup_ext is used */
-	//err = devm_iio_triggered_buffer_setup_ext(&indio_dev->dev, indio_dev, NULL,
-	//					  &ad3552r_trigger_handler,
-	//					  IIO_BUFFER_DIRECTION_OUT,
-	//					  NULL,
-	//					  NULL);
-	err = devm_iio_triggered_buffer_setup(&indio_dev->dev, indio_dev, NULL,
-					      &ad3552r_trigger_handler, NULL);
-	if (err)
-		return err;
+	if (dac->spi_is_dma_mapped) {
+		ad3552r_hardware_buffer_alloc(indio_dev);
+		if (err)
+			return err;
+	} else {
+		indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
+		/* In 5.14 devm_iio_triggered_buffer_setup_ext is used */
+		//err = devm_iio_triggered_buffer_setup_ext(&indio_dev->dev, indio_dev, NULL,
+		//					  &ad3552r_trigger_handler,
+		//					  IIO_BUFFER_DIRECTION_OUT,
+		//					  NULL,
+		//					  NULL);
+		err = devm_iio_triggered_buffer_setup(&indio_dev->dev,
+						      indio_dev,
+						      NULL,
+						      &ad3552r_trigger_handler,
+						      &ad3552r_buffer_ops);
+		if (err)
+			return err;
+	}
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
