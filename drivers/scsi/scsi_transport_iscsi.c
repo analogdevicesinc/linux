@@ -4812,7 +4812,7 @@ free_priv:
 }
 EXPORT_SYMBOL_GPL(iscsi_register_transport);
 
-int iscsi_unregister_transport(struct iscsi_transport *tt)
+void iscsi_unregister_transport(struct iscsi_transport *tt)
 {
 	struct iscsi_internal *priv;
 	unsigned long flags;
@@ -4835,8 +4835,6 @@ int iscsi_unregister_transport(struct iscsi_transport *tt)
 	sysfs_remove_group(&priv->dev.kobj, &iscsi_transport_group);
 	device_unregister(&priv->dev);
 	mutex_unlock(&rx_queue_mutex);
-
-	return 0;
 }
 EXPORT_SYMBOL_GPL(iscsi_unregister_transport);
 
