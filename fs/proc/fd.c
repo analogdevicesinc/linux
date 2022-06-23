@@ -23,6 +23,7 @@ static int seq_show(struct seq_file *m, void *v)
 	struct files_struct *files = NULL;
 	int f_flags = 0, ret = -ENOENT;
 	struct file *file = NULL;
+	struct inode *inode = NULL;
 	struct task_struct *task;
 
 	task = get_proc_task(m->private);
@@ -54,11 +55,19 @@ static int seq_show(struct seq_file *m, void *v)
 	if (ret)
 		return ret;
 
+	inode = file_inode(file);
+
 	seq_printf(m, "pos:\t%lli\n", (long long)file->f_pos);
 	seq_printf(m, "flags:\t0%o\n", f_flags);
 	seq_printf(m, "mnt_id:\t%i\n", real_mount(file->f_path.mnt)->mnt_id);
-	seq_printf(m, "ino:\t%lu\n", file_inode(file)->i_ino);
-	seq_printf(m, "size:\t%lli\n", (long long)file_inode(file)->i_size);
+	seq_printf(m, "ino:\t%lu\n", inode->i_ino);
+	seq_printf(m, "size:\t%lli\n", (long long)inode->i_size);
+
+	if (is_anon_inode(inode)) {
+		seq_puts(m, "path:\t");
+		seq_file_path(m, file, "\n");
+		seq_putc(m, '\n');
+	}
 
 	/* show_fd_locks() never deferences files so a stale value is safe */
 	show_fd_locks(m, file, files);
