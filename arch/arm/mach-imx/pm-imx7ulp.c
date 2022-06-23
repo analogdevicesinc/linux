@@ -124,6 +124,14 @@
 #define REFRESH_SEQ1	0xB480
 #define REFRESH		((REFRESH_SEQ1 << 16) | REFRESH_SEQ0)
 
+#define WDOG_CS_EN		BIT(7)
+#define WDOG_TOVAL		0x8
+#define WDOG_CS_ULK		BIT(11)
+#define WDOG_CS_RCS		BIT(10)
+#define WDOG_CS_UPDATE		BIT(5)
+#define WDOG_CS_WAIT		BIT(1)
+#define WDOG_CS_STOP		BIT(0)
+
 static void __iomem *smc1_base;
 static void __iomem *pmc0_base;
 static void __iomem *pmc1_base;
@@ -486,18 +494,26 @@ static int imx7ulp_suspend_finish(unsigned long val)
 	return 0;
 }
 
-static void imx7ulp_wdog_refresh(void)
+static void imx7ulp_wdog_disable(void)
 {
 	/*
 	 * On revision 2.2, wdog2 is by default disabled when out of
-	 * reset, so here, we ONLY refresh wdog1.
+	 * reset, so here, we ONLY disable wdog1. WDOG was in unlock
+	 * state when power on reset or resume from low power mode.
 	 */
-	if (readl_relaxed(wdog1_base + WDOG_CS) & WDOG_CS_CMD32EN) {
-		writel(REFRESH, wdog1_base + WDOG_CNT);
-	} else {
-		writel_relaxed(REFRESH_SEQ0, wdog1_base + WDOG_CNT);
-		writel_relaxed(REFRESH_SEQ1, wdog1_base + WDOG_CNT);
-	}
+
+	u32 value = readl_relaxed(wdog1_base + WDOG_CS);
+
+	if (!(value & WDOG_CS_ULK))
+		return;
+
+	value &= ~WDOG_CS_EN;
+	value |= WDOG_CS_CMD32EN | WDOG_CS_UPDATE | WDOG_CS_WAIT | WDOG_CS_STOP;
+	writel_relaxed(value, wdog1_base + WDOG_CS);
+	writel_relaxed(0xffff, wdog1_base + WDOG_TOVAL);
+
+	while (readl_relaxed(wdog1_base + WDOG_CS) & WDOG_CS_ULK);
+	while (!(readl_relaxed(wdog1_base + WDOG_CS) & WDOG_CS_RCS));
 }
 
 static int imx7ulp_pm_enter(suspend_state_t state)
@@ -550,12 +566,11 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 			imx7ulp_tpm_restore();
 			imx7ulp_set_lpm(ULP_PM_RUN);
 	}
+		imx7ulp_wdog_disable();
 		break;
 	default:
 		return -EINVAL;
 	}
-
-	imx7ulp_wdog_refresh();
 
 	return 0;
 }
