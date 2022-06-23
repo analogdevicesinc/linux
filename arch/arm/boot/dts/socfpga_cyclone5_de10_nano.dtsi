@@ -220,6 +220,11 @@
 		};
 	};
 
+	axi_sysid_0: axi-sysid-0@00018000 {
+		compatible = "adi,axi-sysid-1.00.a";
+		reg = <0x00018000 0x8000>;
+	};
+
 	hdmi_tx_dma: dma@0x00080000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x00080000 0x00000800>;
