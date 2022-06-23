@@ -455,9 +455,9 @@ void lcdifv3_set_mode(struct lcdifv3_soc *lcdifv3, struct videomode *vmode)
 	}
 
 	if (vmode->flags & DISPLAY_FLAGS_PIXDATA_NEGEDGE)
-		writel(CTRL_INV_PXCK, lcdifv3->base + LCDIFV3_CTRL_CLR);
-	else
 		writel(CTRL_INV_PXCK, lcdifv3->base + LCDIFV3_CTRL_SET);
+	else
+		writel(CTRL_INV_PXCK, lcdifv3->base + LCDIFV3_CTRL_CLR);
 }
 EXPORT_SYMBOL(lcdifv3_set_mode);
 
