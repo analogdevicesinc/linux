@@ -322,6 +322,19 @@ dpr-channel@560e0000 {
 	power-domains = <&pd IMX_SC_R_DC_0>;
 };
 
+Freescale i.MX93 parallel display format
+========================================
+Required properties:
+- compatible: should be "fsl,imx93-parallel-display-format"
+- power-domains: phandle pointing to power domain
+- ports: It contains port nodes with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+  Port 0 is the input port connected to the display controller,
+  port 1 is the output port connected to a panel or a bridge.
+Optional properties:
+- fsl,interface-pix-fmt: How this display is connected to the
+  display interface, can be "rgb565", "rgb666" and "rgb888".
+
 LCDIF mux display support
 =========================
 
