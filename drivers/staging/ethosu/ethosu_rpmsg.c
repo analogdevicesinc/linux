@@ -98,6 +98,35 @@ int ethosu_rpmsg_capabilities_request(struct ethosu_rpmsg *erp, void *user_arg)
 	return 0;
 }
 
+int ethosu_rpmsg_power_request(struct ethosu_rpmsg *erp,
+			       enum ethosu_core_power_req_type power_type)
+{
+	struct ethosu_core_msg msg = {
+		.magic  = ETHOSU_CORE_MSG_MAGIC,
+		.type   = ETHOSU_CORE_MSG_POWER_REQ,
+		.length = sizeof(struct ethosu_core_power_req)
+	};
+	struct ethosu_core_power_req req;
+	struct rpmsg_device *rpdev = erp->rpdev;
+	uint8_t data[sizeof(struct ethosu_core_msg) +
+		sizeof(struct ethosu_core_power_req)];
+	int ret;
+
+	req.type = power_type;
+	memcpy(data, &msg, sizeof(struct ethosu_core_msg));
+	memcpy(data + sizeof(struct ethosu_core_msg), &req,
+	       sizeof(struct ethosu_core_power_req));
+
+	ret = rpmsg_send(rpdev->ept, (void *)&data,
+			 sizeof(struct ethosu_core_msg) +
+			 sizeof(struct ethosu_core_power_req));
+	if (ret) {
+		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+		return ret;
+	}
+	return 0;
+}
+
 int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 			   void *user_arg,
 			   uint32_t ifm_count,

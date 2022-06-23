@@ -83,4 +83,13 @@ int ethosu_dev_init(struct ethosu_device *edev,
  */
 void ethosu_dev_deinit(struct ethosu_device *edev);
 
+/**
+ * ethosu_suspend() - Suspend the device
+ */
+int ethosu_suspend(struct device *dev);
+/**
+ * ethosu_resume() - Resume the device
+ */
+int ethosu_resume(struct device *dev);
+
 #endif /* ETHOSU_DEVICE_H */

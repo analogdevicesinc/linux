@@ -27,6 +27,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 
+#include "ethosu_core_interface.h"
 #include "ethosu_device.h"
 
 /****************************************************************************
@@ -101,6 +102,29 @@ static int ethosu_pdev_remove(struct platform_device *pdev)
 	return 0;
 }
 
+int ethosu_suspend(struct device *dev)
+{
+	struct ethosu_device *edev = dev->driver_data;
+	int ret;
+
+	ret = ethosu_rpmsg_power_request(&edev->erp, ETHOSU_CORE_POWER_REQ_SUSPEND);
+	return ret;
+}
+
+int ethosu_resume(struct device *dev)
+{
+	struct ethosu_device *edev = dev->driver_data;
+	int ret;
+
+	ret = ethosu_rpmsg_power_request(&edev->erp, ETHOSU_CORE_POWER_REQ_RESUME);
+	return ret;
+}
+
+struct dev_pm_ops ethosu_pm_ops = {
+	.suspend = ethosu_suspend,
+	.resume = ethosu_resume,
+};
+
 static const struct of_device_id ethosu_pdev_match[] = {
 	{ .compatible = "arm,ethosu" },
 	{ /* Sentinel */ },
@@ -115,6 +139,7 @@ static struct platform_driver ethosu_pdev_driver = {
 		.name           = ETHOSU_DRIVER_NAME,
 		.owner          = THIS_MODULE,
 		.of_match_table = of_match_ptr(ethosu_pdev_match),
+		.pm		= &ethosu_pm_ops,
 	},
 };
 

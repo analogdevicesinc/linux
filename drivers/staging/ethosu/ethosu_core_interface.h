@@ -60,6 +60,7 @@ enum ethosu_core_msg_type {
 	ETHOSU_CORE_MSG_VERSION_RSP,
 	ETHOSU_CORE_MSG_CAPABILITIES_REQ,
 	ETHOSU_CORE_MSG_CAPABILITIES_RSP,
+	ETHOSU_CORE_MSG_POWER_REQ,
 	ETHOSU_CORE_MSG_MAX
 };
 
@@ -159,6 +160,18 @@ struct ethosu_core_msg_capabilities_rsp {
 	uint32_t macs_per_cc;
 	uint32_t cmd_stream_version;
 	uint32_t custom_dma;
+};
+
+enum ethosu_core_power_req_type {
+	ETHOSU_CORE_POWER_REQ_SUSPEND = 0,
+	ETHOSU_CORE_POWER_REQ_RESUME
+};
+
+/**
+ * struct ethosu_core_power_req - Message power request
+ */
+struct ethosu_core_power_req {
+	enum ethosu_core_power_req_type type;
 };
 
 /**

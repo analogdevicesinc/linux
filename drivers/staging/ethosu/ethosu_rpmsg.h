@@ -7,6 +7,7 @@
 #define ETHOSU_RPMSG_H
 
 #include <linux/types.h>
+#include "ethosu_core_interface.h"
 
 struct device;
 struct ethosu_buffer;
@@ -48,6 +49,14 @@ int ethosu_rpmsg_version_request(struct ethosu_rpmsg *erp);
  */
 int ethosu_rpmsg_capabilities_request(struct ethosu_rpmsg *erp,
 				      void *user_arg);
+
+/**
+ * ethosu_rpmsg_power_request - Send power request
+ *
+ * Return: 0 on success, else error code
+ */
+int ethosu_rpmsg_power_request(struct ethosu_rpmsg *erp,
+			       enum ethosu_core_power_req_type power_type);
 
 /**
  * ethosu_rpmsg_inference() - Send inference
