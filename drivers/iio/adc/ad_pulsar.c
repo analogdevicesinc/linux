@@ -5,6 +5,8 @@
  * Copyright 2022 Analog Devices Inc.
  */
 
+#include <linux/bitfield.h>
+#include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -19,29 +21,47 @@
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/property.h>
 #include <linux/pwm.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-engine.h>
 #include <linux/regulator/consumer.h>
 
-#define AD4003_READ_COMMAND	0x54
-#define AD4003_WRITE_COMMAND	0x14
-#define AD4003_RESERVED_MSK	0xE0
-#define AD4003_REG_CONFIG       0x00
-#define AD4003_TURBO_MODE       BIT(1)
-#define AD4003_HIGH_Z_MODE      BIT(2)
+#define AD4003_READ_COMMAND	        0x54
+#define AD4003_WRITE_COMMAND	        0x14
+#define AD4003_RESERVED_MSK	        0xE0
+#define AD4003_REG_CONFIG               0x00
+#define AD4003_TURBO_MODE               BIT(1)
+#define AD4003_HIGH_Z_MODE              BIT(2)
 
-#define AD_PULSAR_CHANNEL(info)                                                 \
-        {                                                                       \
-                .type = IIO_VOLTAGE,                                            \
-                .info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) |       \
-                                           BIT(IIO_CHAN_INFO_SCALE),            \
-		.scan_type = {						        \
-			.sign = info.input_type == SINGLE_ENDED ? 'u' : 's',    \
-			.storagebits = 32,			                \
-			.realbits = info.resolution,				\
-		}                                                               \
-        }
+#define AD7682_CFG_MSK                  BIT(13)
+#define AD7682_INCC                     GENMASK(12,10)
+#define AD7682_POLARITY_MSK             BIT(12)
+#define AD7682_PAIR_MSK                 BIT(11)
+#define AD7682_REF_MSK                  BIT(10)
+#define AD7682_SEL_MSK                  GENMASK(9, 7)
+#define AD7682_FILTER_MSK               BIT(6)
+#define AD7682_REFBUF_MSK               GENMASK(5, 3)
+#define AD7682_SEQ_MSK                  GENMASK(2, 1)
+#define AD7682_READBACK_MSK             BIT(0)
+#define AD7682_UPDATE_CFG               AD7682_CFG_MSK
+#define AD7682_NO_READBACK              AD7682_READBACK_MSK
+#define AD7682_CH_POLARITY(x)           FIELD_PREP(AD7682_POLARITY_MSK, x)
+#define AD7682_CH_PAIR(x)               FIELD_PREP(AD7682_PAIR_MSK, x)
+#define AD7682_CH_REF(x)                FIELD_PREP(AD7682_REF_MSK, x)
+#define AD7682_SEQ_SCAN(x)              FIELD_PREP(AD7682_SEQ_MSK, x)
+#define AD7682_SEL_CH(x)                FIELD_PREP(AD7682_SEL_MSK, x)
+#define AD7682_CH_TEMP_SENSOR           AD7682_CH_POLARITY(0) | \
+                                        AD7682_CH_PAIR(1) | \
+                                        AD7682_CH_REF(1)
+
+#define AD_PULSAR_SET_CHANNEL(ch, info)                                             \
+        ch.type = IIO_VOLTAGE;                                                  \
+        ch.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) |             \
+                                     BIT(IIO_CHAN_INFO_SCALE);                  \
+        ch.scan_type.sign = info->input_type == SINGLE_ENDED ? 'u' : 's';       \
+        ch.scan_type.storagebits = 32;			                        \
+        ch.scan_type.realbits = info->resolution;
 
 enum {
         ID_AD7988_5,
@@ -55,6 +75,7 @@ enum {
         ID_AD7693,
         ID_AD7691,
         ID_AD7690,
+        ID_AD7689,
         ID_AD7688,
         ID_AD7687,
         ID_AD7686,
@@ -68,8 +89,20 @@ enum {
 };
 
 enum ad_pulsar_input_type {
-        SINGLE_ENDED = 0,
-        DIFFERENTIAL
+        DIFFERENTIAL = 0,
+        SINGLE_ENDED,
+};
+
+enum ad_pulsar_input_polarity {
+        BIPOLAR = 0,
+        UNIPOLAR
+};
+
+enum ad_pulsar_sequencer_scan {
+        DISABLED = 0,
+        UPDATE,
+        ALL_CHANNELS_AND_TEMP,
+        ALL_CHANNELS,
 };
 
 struct ad_pulsar_spi_config {
@@ -83,7 +116,9 @@ struct ad_pulsar_chip_info {
         const struct ad_pulsar_spi_config *config;
         enum ad_pulsar_input_type input_type;
         const char *name;
+        int num_channels;
         int resolution;
+        bool sequencer;
         int sclk_rate;
         int max_rate;
 };
@@ -101,6 +136,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 500000,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 80000000
         },
         [ID_AD7988_1] = {
@@ -108,6 +144,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 100000,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 80000000
         },
         [ID_AD7984] = {
@@ -115,6 +152,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 1333333,
                 .resolution = 18,
+                .num_channels = 1,
                 .sclk_rate = 80000000
         },
         [ID_AD7983] = {
@@ -122,6 +160,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 1333333,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 80000000
         },
         [ID_AD7982] = {
@@ -129,6 +168,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 1000000,
                 .resolution = 18,
+                .num_channels = 1,
                 .sclk_rate = 80000000
         },
         [ID_AD7980] = {
@@ -136,6 +176,8 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 1000000,
                 .resolution = 16,
+                .num_channels = 1,
+                .num_channels = 1,
                 .sclk_rate = 80000000
         },
         [ID_AD7946] = {
@@ -143,6 +185,8 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 500000,
                 .resolution = 14,
+                .num_channels = 1,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD7942] = {
@@ -150,6 +194,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 250000,
                 .resolution = 14,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD7693] = {
@@ -157,6 +202,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 500000,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD7691] = {
@@ -164,6 +210,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 250000,
                 .resolution = 18,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD7690] = {
@@ -171,6 +218,15 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 400000,
                 .resolution = 18,
+                .num_channels = 1,
+                .sclk_rate = 40000000
+        },
+        [ID_AD7689] = {
+                .name = "ad7689",
+                .input_type = DIFFERENTIAL,
+                .max_rate = 250000,
+                .resolution = 16,
+                .num_channels = 4,
                 .sclk_rate = 40000000
         },
         [ID_AD7688] = {
@@ -178,6 +234,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 500000,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD7687] = {
@@ -185,6 +242,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 250000,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD7686] = {
@@ -192,6 +250,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 500000,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD7685] = {
@@ -199,6 +258,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = SINGLE_ENDED,
                 .max_rate = 250000,
                 .resolution = 16,
+                .num_channels = 1,
                 .sclk_rate = 40000000
         },
         [ID_AD4022] = {
@@ -206,6 +266,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 500000,
                 .resolution = 20,
+                .num_channels = 1,
                 .sclk_rate = 80000000,
                 .config = &ad4003_spi_init,
         },
@@ -214,6 +275,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 1000000,
                 .resolution = 20,
+                .num_channels = 1,
                 .sclk_rate = 80000000,
                 .config = &ad4003_spi_init,
         },
@@ -222,6 +284,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 1800000,
                 .resolution = 20,
+                .num_channels = 1,
                 .sclk_rate = 80000000,
                 .config = &ad4003_spi_init,
         },
@@ -230,6 +293,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 500000,
                 .resolution = 18,
+                .num_channels = 1,
                 .sclk_rate = 80000000,
                 .config = &ad4003_spi_init,
         },
@@ -238,6 +302,7 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 1000000,
                 .resolution = 18,
+                .num_channels = 1,
                 .sclk_rate = 80000000,
                 .config = &ad4003_spi_init,
         },
@@ -246,40 +311,43 @@ static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
                 .input_type = DIFFERENTIAL,
                 .max_rate = 2000000,
                 .resolution = 18,
+                .num_channels = 1,
                 .sclk_rate = 80000000,
                 .config = &ad4003_spi_init,
         }
 };
 
-static const struct iio_chan_spec ad_pulsar_iio_channels[] = {
-        [ID_AD7988_5] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7988_5]),
-        [ID_AD7988_1] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7988_1]),
-        [ID_AD7984] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7984]),
-        [ID_AD7983] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7983]),
-        [ID_AD7982] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7982]),
-        [ID_AD7980] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7980]),
-        [ID_AD7946] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7946]),
-        [ID_AD7942] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7942]),
-        [ID_AD7693] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7693]),
-        [ID_AD7691] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7691]),
-        [ID_AD7690] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7690]),
-        [ID_AD7688] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7688]),
-        [ID_AD7687] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7687]),
-        [ID_AD7686] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7686]),
-        [ID_AD7685] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7685]),
-        [ID_AD4022] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4022]),
-        [ID_AD4021] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4021]),
-        [ID_AD4020] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4020]),
-        [ID_AD4011] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4011]),
-        [ID_AD4007] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4007]),
-        [ID_AD4003] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4003]),
-};
+// static const struct iio_chan_spec ad_pulsar_iio_channels[] = {
+//         [ID_AD7988_5] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7988_5]),
+//         [ID_AD7988_1] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7988_1]),
+//         [ID_AD7984] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7984]),
+//         [ID_AD7983] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7983]),
+//         [ID_AD7982] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7982]),
+//         [ID_AD7980] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7980]),
+//         [ID_AD7946] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7946]),
+//         [ID_AD7942] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7942]),
+//         [ID_AD7693] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7693]),
+//         [ID_AD7691] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7691]),
+//         [ID_AD7690] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7690]),
+//         [ID_AD7688] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7688]),
+//         [ID_AD7687] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7687]),
+//         [ID_AD7686] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7686]),
+//         [ID_AD7685] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD7685]),
+//         [ID_AD4022] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4022]),
+//         [ID_AD4021] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4021]),
+//         [ID_AD4020] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4020]),
+//         [ID_AD4011] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4011]),
+//         [ID_AD4007] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4007]),
+//         [ID_AD4003] = AD_PULSAR_CHANNEL(ad_pulsar_chip_infos[ID_AD4003]),
+// };
 
 struct ad_pulsar_adc {
         const struct ad_pulsar_chip_info *info;
+	struct iio_chan_spec *channels;
         struct pwm_device *cnv;
 	struct spi_device *spi;
 	struct regulator *vref;
+        unsigned int *seq_buf;
         struct clk *ref_clk;
         int spi_speed_hz;
         int samp_freq;
@@ -368,7 +436,7 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	if (ret < 0)
 		return ret;
 
-	adc->samp_freq = (int)DIV_ROUND_CLOSEST_ULL(ref_clk_rate, target);
+	adc->samp_freq = DIV_ROUND_CLOSEST_ULL(ref_clk_rate, target);
 
         return ret;
 }
@@ -530,17 +598,54 @@ MODULE_DEVICE_TABLE(of, ad_pulsar_of_match);
 
 static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 {
-	struct device *child, *dev = indio_dev->dev.parent;
         struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-	struct iio_chan_spec *iio_channels;
-        int num_ch, ret;
+	struct device *dev = indio_dev->dev.parent;
+        struct fwnode_handle *child;
+        int num_ch, ret, i;
 
+        adc->channels = devm_kzalloc(indio_dev->dev.parent,
+                                adc->info->num_channels * sizeof(adc->channels),
+                                GFP_KERNEL);
+        adc->seq_buf = devm_kzalloc(indio_dev->dev.parent,
+                                adc->info->num_channels * sizeof(adc->seq_buf),
+                                GFP_KERNEL);
 	num_ch = device_get_child_node_count(dev);
-        iio_channels = devm_kzalloc(indio_dev->dev.parent,
-                                    num_ch * sizeof(*iio_channels), GFP_KERNEL);
-        device_for_each_child_node(dev, child) {
+        if (num_ch > adc->info->num_channels)
+                return -EINVAL;
+        if (!adc->info->sequencer) {
+                AD_PULSAR_SET_CHANNEL(adc->channels[0], adc->info);
 
+                return ret;
         }
+        for (i = 0; i < adc->info->num_channels; i++) {
+                AD_PULSAR_SET_CHANNEL(adc->channels[i], adc->info);
+                adc->seq_buf[i] = AD7682_UPDATE_CFG | AD7682_NO_READBACK |
+                                  AD7682_SEQ_SCAN(ALL_CHANNELS) |
+                                  AD7682_SEL_CH(i);
+        }
+
+        device_for_each_child_node(dev, child) {
+                ret = fwnode_property_read_u32(child, "reg", &i);
+                if (ret)
+                        return ret;
+
+                if (i > adc->info->num_channels)
+                        return -EINVAL;
+
+                if (fwnode_property_present(child, "temp-sensor")) {
+                        adc->seq_buf[i] |= AD7682_CH_TEMP_SENSOR;
+                        adc->channels[i].type = IIO_TEMP;
+                } else {
+                        if (!fwnode_property_present(child, "bipolar")) {
+                                adc->channels[i].scan_type.sign = 'u';
+                                adc->seq_buf[i] |= AD7682_CH_POLARITY(UNIPOLAR);
+                        }
+                        ret = fwnode_property_present(child, "differential");
+                        adc->seq_buf[i] |= AD7682_CH_PAIR(SINGLE_ENDED);
+
+                }
+        }
+
         return ret;
 }
 
@@ -595,13 +700,13 @@ static int ad_pulsar_probe(struct spi_device *spi)
         if (ret < 0)
                 return ret;
 
-        device_id = (int)device_get_match_data(&spi->dev);
+        device_id = device_get_match_data(&spi->dev);
         adc->device_id = device_id;
         adc->info = &ad_pulsar_chip_infos[device_id];
         indio_dev->name = adc->info->name;
 	indio_dev->dev.parent = &spi->dev;
-        indio_dev->channels = &ad_pulsar_iio_channels[device_id];
-	indio_dev->num_channels = 1;
+        indio_dev->channels = adc->channels;
+	indio_dev->num_channels = adc->info->num_channels;
         indio_dev->info = &ad_pulsar_iio_info;
         indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad_pulsar_buffer_ops;

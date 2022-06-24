@@ -69,6 +69,14 @@
 			pwms = <&adc_trigger 0 0>;
 			pwm-names = "cnv";
 			vref-supply = <&vref>;
+			channel@0 {
+				reg = <0>;
+
+				bipolar;
+				adi,differential;
+				adi,buffer-enable;
+
+			};
 		};
 	};
 
