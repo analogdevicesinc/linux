@@ -171,14 +171,6 @@
 	jesd204-inputs = <&hmc7043 0 DEFRAMER_LINK0_TX>; /* omit axi_ad9081_adxcvr_tx */
 };
 
-&rx_dma {
-	/delete-node/ adi,channels; /* This comes from the synthesis paramtes */
-};
-
-&tx_dma {
-	/delete-node/ adi,channels; /* This comes from the synthesis paramtes */
-};
-
 &adf4371_clk0 {
 	channel@2 {
 		reg = <2>;
