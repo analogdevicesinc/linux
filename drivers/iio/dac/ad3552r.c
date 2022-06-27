@@ -1081,7 +1081,15 @@ static int ad3552r_init(struct ad3552r_desc *dac)
 		return -ENODEV;
 	}
 
-	return ad3552r_configure_device(dac);
+	err = ad3552r_configure_device(dac);
+	if (err) {
+		dev_err(&dac->spi->dev, "Fail to configure\n");
+		return err;
+	}
+
+	//TODO: Sergiu add register config here
+
+	return err;
 }
 
 static int ad3552r_probe(struct spi_device *spi)
@@ -1124,10 +1132,10 @@ static int ad3552r_probe(struct spi_device *spi)
 	//					  IIO_BUFFER_DIRECTION_OUT,
 	//					  NULL,
 	//					  NULL);
-	err = devm_iio_triggered_buffer_setup(&indio_dev->dev, indio_dev, NULL,
-					      &ad3552r_trigger_handler, NULL);
-	if (err)
-		return err;
+//	err = devm_iio_triggered_buffer_setup(&indio_dev->dev, indio_dev, NULL,
+//					      &ad3552r_trigger_handler, NULL);
+//	if (err)
+//		return err;
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
