@@ -8,8 +8,22 @@
  * hdl_project: <ad_quadmxfe1_ebz/vcu118>
  * board_revision: <Rev.C>
  *
- * Copyright (C) 2019-2020 Analog Devices Inc.
+ * Copyright (C) 2019-2022 Analog Devices Inc.
  */
+
+// HDL Synthesis Parameters:
+// JESD_MODE=64B66B
+// RX_RATE=16.5
+// TX_RATE=16.5
+// REF_CLK_RATE=250
+// RX_JESD_M=8
+// RX_JESD_L=2
+// RX_JESD_S=1
+// TX_JESD_M=16
+// TX_JESD_L=4
+// TX_JESD_S=1
+// RX_KS_PER_CHANNEL=32
+// TX_KS_PER_CHANNEL=16
 
 #include "vcu118_quad_ad9081_204c_txmode_11_rxmode_4.dts"
 
