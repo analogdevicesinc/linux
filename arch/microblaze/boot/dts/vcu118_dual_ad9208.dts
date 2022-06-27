@@ -31,19 +31,6 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <12 2>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <512>;
-				adi,source-bus-type = <1>;
-				adi,destination-bus-width = <512>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 
 	axi_ad9208_0_jesd_rx: axi-jesd204-rx@44a90000 {
