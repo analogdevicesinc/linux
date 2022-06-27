@@ -1228,8 +1228,9 @@
 				compatible = "fsl,imx8mm-mipi-dsim";
 				reg = <0x32e10000 0x400>;
 				clocks = <&clk IMX8MM_CLK_DSI_CORE>,
-					 <&clk IMX8MM_CLK_DSI_PHY_REF>;
-				clock-names = "cfg", "pll-ref";
+					 <&clk IMX8MM_CLK_DSI_PHY_REF>,
+					 <&clk IMX8MM_CLK_DISP_APB_ROOT>;
+				clock-names = "cfg", "pll-ref", "apb-root";
 				assigned-clocks = <&clk IMX8MM_CLK_DSI_CORE>,
 						  <&clk IMX8MM_CLK_DSI_PHY_REF>;
 				assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_266M>,
