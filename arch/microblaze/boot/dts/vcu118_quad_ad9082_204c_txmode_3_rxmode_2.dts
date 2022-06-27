@@ -8,8 +8,24 @@
  * hdl_project: <ad_quadmxfe1_ebz/vcu118>
  * board_revision: <>
  *
- * Copyright (C) 2021 Analog Devices Inc.
+ * Copyright (C) 2021-2022 Analog Devices Inc.
  */
+
+// HDL Synthesis Parameters:
+// JESD_MODE=64B66B
+// RX_RATE=16.5
+// TX_RATE=16.5
+// REF_CLK_RATE=250
+// RX_JESD_M=4
+// RX_JESD_L=1
+// RX_JESD_NP=16
+// RX_JESD_S=1
+// TX_JESD_M=8
+// TX_JESD_L=2
+// TX_JESD_S=1
+// TX_JESD_NP=16
+// RX_KS_PER_CHANNEL=16
+// TX_KS_PER_CHANNEL=16
 
 #include <dt-bindings/iio/frequency/hmc7044.h>
 #include <dt-bindings/iio/adc/adi,ad9081.h>
@@ -28,22 +44,6 @@
 //     * ADC JESD204C: Mode 2, L=1, M=4, N=N'=16
 //     * DAC-Side JESD204C Lane Rate: 16.5Gbps
 //     * ADC-Side JESD204C Lane Rate: 16.5Gbps
-
-// HDL Synthesis Parameters:
-// JESD_MODE=64B66B
-// RX_RATE=16.5
-// TX_RATE=16.5
-// REF_CLK_RATE=250
-// RX_JESD_M=4
-// RX_JESD_L=1
-// RX_JESD_NP=16
-// RX_JESD_S=1
-// TX_JESD_M=8
-// TX_JESD_L=2
-// TX_JESD_S=1
-// TX_JESD_NP=16
-// RX_KS_PER_CHANNEL=16
-// TX_KS_PER_CHANNEL=16
 
 #define ADF4371_RF16_FREQUENCY_HZ		12000000000
 

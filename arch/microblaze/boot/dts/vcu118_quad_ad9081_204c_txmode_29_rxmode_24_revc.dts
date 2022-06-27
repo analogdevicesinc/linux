@@ -8,26 +8,8 @@
  * hdl_project: <ad_quadmxfe1_ebz/vcu118>
  * board_revision: <>
  *
- * Copyright (C) 2019-2020 Analog Devices Inc.
+ * Copyright (C) 2019-2022 Analog Devices Inc.
  */
-
-#include <dt-bindings/iio/frequency/hmc7044.h>
-#include <dt-bindings/iio/adc/adi,ad9081.h>
-#include <dt-bindings/gpio/gpio.h>
-
-#include "vcu118_quad_ad9081.dtsi"
-
-// This setup assumes 500MHz clock into J41 (0 dBm)
-// ad9081_204c_txmode_29_rxmode_24_lr_24_75Gbps: Np 12 use case with high lane rate
-//     * 8Txs / 8Rxs per MxFE
-//     * DAC_CLK = 12GSPS
-//     * ADC_CLK = 4GSPS
-//     * Tx I/Q Rate: 1 GSPS (Interpolation of 12x1)
-//     * Rx I/Q Rate: 1 GSPS (Decimation of 4x1)
-//     * DAC JESD204C: Mode 24, L=4, M=8, N=N'=12
-//     * ADC JESD204C: Mode 29, L=4, M=8, N=N'=12
-//     * DAC-Side JESD204C Lane Rate: 24.75Gbps
-//     * ADC-Side JESD204C Lane Rate: 24.75Gbps
 
 // HDL Synthesis Parameters:
 // JESD_MODE=64B66B
@@ -46,6 +28,24 @@
 // TX_PLL_SEL=1
 // RX_KS_PER_CHANNEL=16
 // TX_KS_PER_CHANNEL=16
+
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#include "vcu118_quad_ad9081.dtsi"
+
+// This setup assumes 500MHz clock into J41 (0 dBm)
+// ad9081_204c_txmode_29_rxmode_24_lr_24_75Gbps: Np 12 use case with high lane rate
+//     * 8Txs / 8Rxs per MxFE
+//     * DAC_CLK = 12GSPS
+//     * ADC_CLK = 4GSPS
+//     * Tx I/Q Rate: 1 GSPS (Interpolation of 12x1)
+//     * Rx I/Q Rate: 1 GSPS (Decimation of 4x1)
+//     * DAC JESD204C: Mode 24, L=4, M=8, N=N'=12
+//     * ADC JESD204C: Mode 29, L=4, M=8, N=N'=12
+//     * DAC-Side JESD204C Lane Rate: 24.75Gbps
+//     * ADC-Side JESD204C Lane Rate: 24.75Gbps
 
 #define ADF4371_RF16_FREQUENCY_HZ		12000000000
 
