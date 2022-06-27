@@ -133,30 +133,6 @@
 	jesd204-inputs = <&hmc7043 0 DEFRAMER_LINK0_TX>; /* omit axi_ad9081_adxcvr_tx */
 };
 
-&rx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-width = <1024>; /* Needs to be 64 * JESD_L */
-			adi,source-bus-type = <2>;
-			adi,destination-bus-width = <512>; /* fixed */
-			adi,destination-bus-type = <0>;
-		};
-	};
-};
-
-&tx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-width = <512>; /* fixed*/
-			adi,source-bus-type = <0>;
-			adi,destination-bus-width = <1024>; /* Needs to be 64 * JESD_L */
-			adi,destination-bus-type = <2>;
-		};
-	};
-};
-
 &adf4371_clk0 {
 	channel@2 {
 		reg = <2>;
