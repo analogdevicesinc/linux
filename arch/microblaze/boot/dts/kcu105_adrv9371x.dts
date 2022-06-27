@@ -62,19 +62,6 @@
 		reg = <0x7c400000 0x10000>;
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <2>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 	rx_obs_dma: rx-obs-dmac@7c440000  {
 		compatible = "adi,axi-dmac-1.00.a";
@@ -83,19 +70,6 @@
 		reg = <0x7c440000  0x10000>;
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <2>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 	tx_dma: tx-dmac@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
@@ -104,19 +78,6 @@
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <128>;
-				adi,source-bus-type = <0>;
-				adi,destination-bus-width = <128>;
-				adi,destination-bus-type = <1>;
-			};
-		};
 	};
 	axi_rx_clkgen: axi-clkgen@43c10000  {
 		compatible = "adi,axi-clkgen-2.00.a";
