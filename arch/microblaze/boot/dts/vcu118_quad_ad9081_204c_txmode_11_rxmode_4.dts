@@ -21,7 +21,7 @@
 // TX JESD204C MODE 11, M=16, L=4
 // RX JESD204C MODE 4, M=8, L=2
 
-#define ADRF4360_RF16_FREQUENCY_HZ		12000000000
+#define ADF4371_RF16_FREQUENCY_HZ		12000000000
 
 #define HMC7043_FPGA_XCVR_CLKDIV		2
 #define HMC7043_FPGA_LINK_CLKDIV_TX		2
@@ -29,7 +29,7 @@
 #define HMC7043_SYSREF_CLKDIV			256
 #define HMC7043_SYSREF_TIMER			(HMC7043_SYSREF_CLKDIV * 4)
 
-#define AD9081_DAC_FREQUENCY			ADRF4360_RF16_FREQUENCY_HZ
+#define AD9081_DAC_FREQUENCY			ADF4371_RF16_FREQUENCY_HZ
 #define AD9081_ADC_FREQUENCY			4000000000
 
  /* TX path */
@@ -148,28 +148,28 @@
 &adf4371_clk0 {
 	channel@2 {
 		reg = <2>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RF16_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RF16_FREQUENCY_HZ>;
 	};
 };
 
 &adf4371_clk1 {
 	channel@2 {
 		reg = <2>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RF16_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RF16_FREQUENCY_HZ>;
 	};
 };
 
 &adf4371_clk2 {
 	channel@2 {
 		reg = <2>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RF16_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RF16_FREQUENCY_HZ>;
 	};
 };
 
 &adf4371_clk3 {
 	channel@2 {
 		reg = <2>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RF16_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RF16_FREQUENCY_HZ>;
 	};
 };
 
