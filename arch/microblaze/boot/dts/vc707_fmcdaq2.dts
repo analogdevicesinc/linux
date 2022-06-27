@@ -28,19 +28,6 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <12 2>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <1>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 	tx_dma: tx-dmac@7c420000 {
 		#dma-cells = <1>;
@@ -49,19 +36,6 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <13 2>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <128>;
-				adi,source-bus-type = <0>;
-				adi,destination-bus-width = <128>;
-				adi,destination-bus-type = <1>;
-			};
-		};
 	};
 	axi_ad9680_core: axi-ad9680-hpc@44a10000 {
 		compatible = "adi,axi-ad9680-1.0";

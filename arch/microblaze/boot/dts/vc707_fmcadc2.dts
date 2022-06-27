@@ -62,19 +62,6 @@
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <1>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 	axi_adxcvr: axi-adxcvr@44a60000 {
 		compatible = "adi,axi-adxcvr-1.0";

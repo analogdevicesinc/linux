@@ -165,29 +165,6 @@
 /delete-node/ &axi_ad9081_adxcvr_rx;
 /delete-node/ &axi_ad9081_adxcvr_tx;
 
-&rx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-width = <512>; /* Needs to be 32 * JESD_L */
-			adi,source-bus-type = <2>;
-			adi,destination-bus-width = <512>;  /* Needs to be 32 * JESD_L */
-			adi,destination-bus-type = <0>;
-		};
-	};
-};
-
-&tx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-width = <512>; /* Needs to be 32 * JESD_L */
-			adi,source-bus-type = <0>;
-			adi,destination-bus-width = <512>; /* Needs to be 32 * JESD_L */
-			adi,destination-bus-type = <2>;
-		};
-	};
-};
 &hmc7043 {
 	hmc7043_c0: channel@0 {
 		reg = <0>;

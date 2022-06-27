@@ -138,19 +138,6 @@
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <1>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 };
 
