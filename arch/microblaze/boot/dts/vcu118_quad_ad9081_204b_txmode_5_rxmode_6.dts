@@ -29,15 +29,15 @@
 //     * DAC-Side JESD204B Lane Rate: 5.00Gbps
 //     * ADC-Side JESD204B Lane Rate: 5.00Gbps
 
-#define ADRF4360_RFx_FREQUENCY_HZ		4000000000
+#define ADF4371_RFx_FREQUENCY_HZ		4000000000
 
 #define HMC7043_FPGA_XCVR_CLKDIV		2
 #define HMC7043_FPGA_LINK_CLKDIV		4
 #define HMC7043_SYSREF_CLKDIV			256
 #define HMC7043_SYSREF_TIMER			(HMC7043_SYSREF_CLKDIV * 4)
 
-#define AD9081_DAC_FREQUENCY			ADRF4360_RFx_FREQUENCY_HZ
-#define AD9081_ADC_FREQUENCY			ADRF4360_RFx_FREQUENCY_HZ
+#define AD9081_DAC_FREQUENCY			ADF4371_RFx_FREQUENCY_HZ
+#define AD9081_ADC_FREQUENCY			ADF4371_RFx_FREQUENCY_HZ
 
  /* TX path */
 #define AD9081_TX_MAIN_INTERPOLATION		4
@@ -108,7 +108,7 @@
 	adrf5020_ctrl {
 		gpio-hog;
 		gpios = <34 GPIO_ACTIVE_HIGH>;
-#if ADRF4360_RFx_FREQUENCY_HZ < 8000000000
+#if ADF4371_RFx_FREQUENCY_HZ < 8000000000
 #define ADF4371_OUTPUT 1
 		output-low; /* output-low for the RF2 <-> clk-rfaux8 output */
 #else
@@ -122,28 +122,28 @@
 &adf4371_clk0 {
 	channel@ADF4371_OUTPUT {
 		reg = <ADF4371_OUTPUT>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RFx_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RFx_FREQUENCY_HZ>;
 	};
 };
 
 &adf4371_clk1 {
 	channel@ADF4371_OUTPUT {
 		reg = <ADF4371_OUTPUT>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RFx_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RFx_FREQUENCY_HZ>;
 	};
 };
 
 &adf4371_clk2 {
 	channel@ADF4371_OUTPUT {
 		reg = <ADF4371_OUTPUT>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RFx_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RFx_FREQUENCY_HZ>;
 	};
 };
 
 &adf4371_clk3 {
 	channel@ADF4371_OUTPUT {
 		reg = <ADF4371_OUTPUT>;
-		adi,power-up-frequency = /bits/ 64 <ADRF4360_RFx_FREQUENCY_HZ>;
+		adi,power-up-frequency = /bits/ 64 <ADF4371_RFx_FREQUENCY_HZ>;
 	};
 };
 
