@@ -23,19 +23,6 @@
 		reg = <0x7c420000 0x10000>;
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <0>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <2>;
-			};
-		};
 	};
 	axi_ad9643: cf-ad9643-core-lpc@79020000 {
 		compatible = "adi,axi-ad9643-6.00.a";

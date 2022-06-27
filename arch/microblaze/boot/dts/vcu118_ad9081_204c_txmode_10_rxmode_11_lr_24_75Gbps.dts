@@ -78,26 +78,6 @@
 	adi,out-clk-select = <XCVR_REFCLK>;
 };
 
-&rx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-type = <2>;
-			adi,destination-bus-type = <0>;
-		};
-	};
-};
-
-&tx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-type = <0>;
-			adi,destination-bus-type = <2>;
-		};
-	};
-};
-
 &hmc7044 {
 
 	adi,pll2-output-frequency = <3000000000>;
