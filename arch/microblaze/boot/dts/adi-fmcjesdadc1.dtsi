@@ -35,7 +35,7 @@
 			clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
 		};
 
-		adc0_ad9250: ad9250-0@0 {
+		adc0_ad9250: ad9250-0@2 {
 			compatible = "adi,ad9250_2";
 			reg = <2>;
 			spi-max-frequency = <10000000>;
@@ -43,7 +43,7 @@
 			clock-names = "jesd_dac_clk", "adc_clk";
 		};
 
-		adc1_ad9250: ad9250-1@1 {
+		adc1_ad9250: ad9250-1@3 {
 			compatible = "adi,ad9250_2";
 			reg = <3>;
 			spi-max-frequency = <10000000>;
