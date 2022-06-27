@@ -20,6 +20,8 @@
 #include <linux/spi/spi-engine.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
+#include <linux/pwm.h>
+#include <linux/clk.h>
 
 /* Register addresses */
 /* Primary address space */
@@ -136,6 +138,9 @@
 #define AD3552R_SCRATCH_PAD_TEST_VAL2			0xB2
 #define AD3552R_GAIN_SCALE				1000
 #define AD3552R_LDAC_PULSE_US				100
+
+#define KHz 1000
+#define MHz (1000 * KHz)
 
 enum ad3552r_ch_vref_select {
 	/* Internal source with Vref I/O floating */
@@ -281,6 +286,9 @@ struct ad3552r_desc {
 	enum ad3542r_id		chip_id;
 
 	bool			spi_is_dma_mapped;
+	struct pwm_device	*cnv;
+	struct clk		*ext_clk;
+	int			sampling_freq;
 };
 
 static const u16 addr_mask_map[][2] = {
@@ -444,8 +452,35 @@ static int ad3552r_set_ch_value(struct ad3552r_desc *dac,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
 				BIT(IIO_CHAN_INFO_SCALE) |	\
 				BIT(IIO_CHAN_INFO_ENABLE) |	\
+				BIT(IIO_CHAN_INFO_SAMP_FREQ) |	\
 				BIT(IIO_CHAN_INFO_OFFSET),	\
 })
+
+static int ad3552r_set_sampling_freq(struct ad3552r_desc *dac, int freq)
+{
+	unsigned long long target, ext_clk_period_ps;
+	struct pwm_state cnv_state;
+	unsigned long ext_clk_rate;
+	int ret;
+
+	ext_clk_rate = clk_get_rate(dac->ext_clk);
+
+	target = DIV_ROUND_CLOSEST_ULL(ext_clk_rate, freq);
+	ext_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000ULL, ext_clk_rate);
+	cnv_state.period = ext_clk_period_ps * target;
+	cnv_state.duty_cycle = ext_clk_period_ps;
+	cnv_state.offset = ext_clk_period_ps;
+	cnv_state.time_unit = PWM_UNIT_PSEC;
+	cnv_state.enabled = true;
+
+	ret = pwm_apply_state(dac->cnv, &cnv_state);
+	if (ret < 0)
+		return ret;
+
+	dac->sampling_freq = (int)DIV_ROUND_CLOSEST_ULL(ext_clk_rate, target);
+
+	return ret;
+}
 
 static int ad3552r_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
@@ -482,6 +517,9 @@ static int ad3552r_read_raw(struct iio_dev *indio_dev,
 		*val = dac->ch_data[ch].scale_int;
 		*val2 = dac->ch_data[ch].scale_dec;
 		return IIO_VAL_INT_PLUS_MICRO;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = dac->sampling_freq;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_OFFSET:
 		*val = dac->ch_data[ch].offset_int;
 		*val2 = dac->ch_data[ch].offset_dec;
@@ -511,6 +549,8 @@ static int ad3552r_write_raw(struct iio_dev *indio_dev,
 		err = ad3552r_set_ch_value(dac, AD3552R_CH_DAC_POWERDOWN,
 					   chan->channel, !val);
 		break;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad3552r_set_sampling_freq(dac, val);
 	default:
 		err = -EINVAL;
 		break;
@@ -546,11 +586,14 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 		.bits_per_word = 8
 	};
 	u8 tx_data;
+	u8 rx_data[2];
 	struct spi_message msg;
 	int ret;
 
 	if (dac->spi_is_dma_mapped) {
 		tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
+		xfer.tx_buf = &tx_data;
+		xfer.rx_buf = rx_data;
 		spi_message_init_with_transfers(&msg, &xfer, 1);
 		ret = spi_engine_offload_load_msg(dac->spi, &msg);
 		if (ret < 0)
@@ -965,7 +1008,7 @@ static int ad3552r_hardware_buffer_alloc(struct iio_dev *indio_dev)
 					    &ad3552r_dma_buffer_ops,
 					    indio_dev);
 	if (IS_ERR(buffer)) {
-		iio_dmaengine_buffer_free(indio_dev->buffer);
+		iio_dmaengine_buffer_free(buffer);
 		return PTR_ERR(buffer);
 	}
 	dev_info(&dac->spi->dev,"DMA engine buffer alloc");
@@ -1126,6 +1169,11 @@ put_child:
 	return err;
 }
 
+static void ad3552r_cnv_diasble(void *data)
+{
+	pwm_disable(data);
+}
+
 static int ad3552r_init(struct ad3552r_desc *dac)
 {
 	int err;
@@ -1162,7 +1210,19 @@ static int ad3552r_init(struct ad3552r_desc *dac)
 		return -ENODEV;
 	}
 
-	return ad3552r_configure_device(dac);
+	err = ad3552r_configure_device(dac);
+	if (err) {
+		dev_err(&dac->spi->dev, "Fail to configure\n");
+		return err;
+	}
+
+	err = ad3552r_set_sampling_freq(dac, 1*MHz);
+	if (err) {
+		dev_err(&dac->spi->dev, "Failed to set sampling freq\n");
+		return err;
+	}
+
+	return err;
 }
 
 static int ad3552r_probe(struct spi_device *spi)
@@ -1182,6 +1242,19 @@ static int ad3552r_probe(struct spi_device *spi)
 	dac->spi_is_dma_mapped = spi_engine_offload_supported(spi);
 
 	mutex_init(&dac->lock);
+
+	dac->ext_clk = devm_clk_get(&spi->dev, NULL);
+	if (IS_ERR(dac->ext_clk))
+		return PTR_ERR(dac->ext_clk);
+
+	dac->cnv = devm_pwm_get(&spi->dev, "cnv");
+	if (IS_ERR(dac->cnv))
+		return PTR_ERR(dac->cnv);
+	err = devm_add_action_or_reset(&spi->dev, ad3552r_cnv_diasble,
+				       dac->cnv);
+	if (err)
+		return err;
+
 
 	err = ad3552r_init(dac);
 	if (err)
