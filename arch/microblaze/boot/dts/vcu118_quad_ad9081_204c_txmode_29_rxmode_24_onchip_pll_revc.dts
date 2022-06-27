@@ -8,8 +8,26 @@
  * hdl_project: <ad_quadmxfe1_ebz/vcu118>
  * board_revision: <Rev.C>
  *
- * Copyright (C) 2021 Analog Devices Inc.
+ * Copyright (C) 2021-2022 Analog Devices Inc.
  */
+
+// HDL Synthesis Parameters:
+// JESD_MODE=64B66B
+// RX_RATE=24.75
+// TX_RATE=24.75
+// REF_CLK_RATE=250
+// RX_JESD_M=8
+// RX_JESD_L=4
+// RX_JESD_S=1
+// RX_JESD_NP=12
+// TX_JESD_M=8
+// TX_JESD_L=4
+// TX_JESD_S=1
+// TX_JESD_NP=12
+// RX_PLL_SEL=1
+// TX_PLL_SEL=1
+// RX_KS_PER_CHANNEL=16
+// TX_KS_PER_CHANNEL=16
 
 // For MxFE0
 //	* Cap rotate: DNI C886, Populate C1118
