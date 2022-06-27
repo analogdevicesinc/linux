@@ -14,6 +14,15 @@
 
 #include "zynq-zed.dtsi"
 #include "zynq-zed-adv7511.dtsi"
+/ {
+	clocks {
+		ext_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <120000000>;
+		};
+	};
+};
 
 &gpio0 {
 	ad3552r_qspi {
@@ -29,6 +38,14 @@
 };
 
 &fpga_axi {
+	axi_pwm_gen: pwm@44B00000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44B00000 0x1000>;
+		label = "ad3552r_trigger";
+		#pwm-cells = <2>;
+		clocks = <&ext_clk>;
+	};
+
 	tx_dma: rx-dmac@0x44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x10000>;
@@ -78,6 +95,9 @@
 			#size-cells = <0>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
+			pwms = <&axi_pwm_gen 0 0>;
+			pwm-names = "cnv";
+			clocks = <&ext_clk>;
 			channel@0 {
 			      reg = <0>;
 			      adi,output-range-microvolt = <0 5000000>;
