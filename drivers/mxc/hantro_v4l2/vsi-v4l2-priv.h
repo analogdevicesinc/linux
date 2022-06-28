@@ -184,6 +184,7 @@ struct vsi_video_fmt {
 	s32 enc_fmt;	//our own enc video format defines
 	s32 dec_fmt;	//our own dec video format defines
 	u32 flag;
+	u32 num_planes;
 };
 
 struct vsi_v4l2_mediacfg {
