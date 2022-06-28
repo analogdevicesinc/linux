@@ -64,3 +64,26 @@
 	};
 };
 
+&{/} {
+	#include <dt-bindings/gpio/gpio.h>
+
+	one-bit-adc-dac {
+		compatible = "adi,one-bit-adc-dac";
+		label = "gpios";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		in-gpios = <&gpio 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		out-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+
+		channel@0 {
+			reg = <0>;
+			label = "EXT_BTN";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "EXT_LED";
+		};
+	};
+};
