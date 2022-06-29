@@ -1739,14 +1739,14 @@ static int mipi_csis_imx8mp_gclk_get(struct csi_state *state)
 {
 	struct device *dev = state->dev;
 
-	state->csi_pclk = devm_clk_get(dev, "media_blk_csi_pclk");
+	state->csi_pclk = devm_clk_get_optional(dev, "media_blk_csi_pclk");
 	if (IS_ERR(state->csi_pclk)) {
 		if (PTR_ERR(state->csi_pclk) != -EPROBE_DEFER)
 			dev_err(dev, "Failed to get media csi pclk\n");
 		return PTR_ERR(state->csi_pclk);
 	}
 
-	state->csi_aclk = devm_clk_get(dev, "media_blk_csi_aclk");
+	state->csi_aclk = devm_clk_get_optional(dev, "media_blk_csi_aclk");
 	if (IS_ERR(state->csi_aclk)) {
 		if (PTR_ERR(state->csi_pclk) != -EPROBE_DEFER)
 			dev_err(dev, "Failed to get media csi aclk\n");
