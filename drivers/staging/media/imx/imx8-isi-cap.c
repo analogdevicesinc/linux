@@ -278,7 +278,8 @@ static int cap_vb2_queue_setup(struct vb2_queue *q,
 	for (i = 0; i < fmt->memplanes; i++) {
 		unsigned int size = (wh * fmt->depth[i]) / 8;
 
-		if (i == 1 && fmt->fourcc == V4L2_PIX_FMT_NV12)
+		if (i == 1 && (fmt->fourcc == V4L2_PIX_FMT_NV12 ||
+			       fmt->fourcc == V4L2_PIX_FMT_NV12M))
 			size >>= 1;
 		sizes[i] = max_t(u32, size, dst_f->sizeimage[i]);
 	}
@@ -903,7 +904,8 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 					(pix->width * fmt->depth[i]) >> 3;
 
 		if (pix->plane_fmt[i].sizeimage == 0) {
-			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12))
+			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12 ||
+					 pix->pixelformat == V4L2_PIX_FMT_NV12M))
 				pix->plane_fmt[i].sizeimage =
 				  (pix->width * (pix->height >> 1) * fmt->depth[i] >> 3);
 			else
@@ -1025,7 +1027,8 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 					(pix->width * fmt->depth[i]) >> 3;
 
 		if (pix->plane_fmt[i].sizeimage == 0) {
-			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12))
+			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12 ||
+					 pix->pixelformat == V4L2_PIX_FMT_NV12M))
 				pix->plane_fmt[i].sizeimage =
 				  (pix->width * (pix->height >> 1) * fmt->depth[i] >> 3);
 			else
