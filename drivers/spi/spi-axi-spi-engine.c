@@ -361,7 +361,7 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	writel(0, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
 	j = 0;
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-		if (!xfer->tx_buf)
+		if ((!xfer->tx_buf) || (xfer->tx_buf == (void *)-1))
 			continue;
 		buf = xfer->tx_buf;
 		for (i = 0; i < xfer->len; i++, j++)
