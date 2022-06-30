@@ -1272,6 +1272,7 @@ static int ad3552r_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	/* indio_dev->direction don't exist in 5.14 */
 	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
+	spi_set_drvdata(spi, indio_dev);
 
 	if (dac->spi_is_dma_mapped) {
 		ad3552r_hardware_buffer_alloc(indio_dev);
@@ -1297,6 +1298,15 @@ static int ad3552r_probe(struct spi_device *spi)
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
+static int ad3552r_remove(struct spi_device *spi)
+{
+	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+
+	iio_dmaengine_buffer_free(indio_dev->buffer);
+
+	return 0;
+}
+
 static const struct spi_device_id ad3552r_id[] = {
 	{ "ad3542r", AD3542R_ID },
 	{ "ad3552r", AD3552R_ID },
@@ -1317,6 +1327,7 @@ static struct spi_driver ad3552r_driver = {
 		.of_match_table = ad3552r_of_match,
 	},
 	.probe = ad3552r_probe,
+	.remove = ad3552r_remove,
 	.id_table = ad3552r_id
 };
 module_spi_driver(ad3552r_driver);
