@@ -10,7 +10,7 @@
  *
  */
 #include <drm/bridge/cdns-mhdp.h>
-#include <drm/drm_hdcp.h>
+#include <drm/display/drm_hdcp_helper.h>
 #include <drm/drm_print.h>
 #include <linux/firmware.h>
 

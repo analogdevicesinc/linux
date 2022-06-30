@@ -10,14 +10,15 @@
  *
  */
 #include <drm/bridge/cdns-mhdp.h>
+#include <drm/display/drm_hdcp_helper.h>
+#include <drm/display/drm_hdmi_helper.h>
+#include <drm/display/drm_scdc_helper.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_encoder_slave.h>
-#include <drm/drm_hdcp.h>
 #include <drm/drm_of.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_print.h>
-#include <drm/drm_scdc_helper.h>
 #include <drm/drm_vblank.h>
 #include <linux/delay.h>
 #include <linux/err.h>

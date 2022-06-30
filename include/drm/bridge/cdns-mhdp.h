@@ -18,8 +18,8 @@
 
 #include <drm/drm_bridge.h>
 #include <drm/drm_connector.h>
-#include <drm/dp/drm_dp_helper.h>
-#include <drm/dp/drm_dp_mst_helper.h>
+#include <drm/display/drm_dp_helper.h>
+#include <drm/display/drm_dp_mst_helper.h>
 #include <media/cec.h>
 #include <linux/bitops.h>
 #include <sound/hdmi-codec.h>
