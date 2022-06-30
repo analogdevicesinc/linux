@@ -581,20 +581,29 @@ static const struct iio_info ad3552r_iio_info = {
 static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad3552r_desc *dac = iio_priv(indio_dev);
-	struct spi_transfer xfer = {
-		.len = 1,
-		.bits_per_word = 8
+	struct spi_transfer xfer[] = {
+		{
+			.len = 1,
+			.bits_per_word = 8
+		},
+		{
+			.len = 1,
+			.bits_per_word = 16
+		}
 	};
 	u8 tx_data;
-	u8 rx_data[2];
 	struct spi_message msg;
 	int ret;
 
 	if (dac->spi_is_dma_mapped) {
-		tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
-		xfer.tx_buf = &tx_data;
-		xfer.rx_buf = rx_data;
-		spi_message_init_with_transfers(&msg, &xfer, 1);
+		spi_bus_lock(dac->spi->master);
+
+		tx_data = AD3552R_REG_ADDR_CH_DAC_16B(0);
+		xfer[0].tx_buf = &tx_data;
+		xfer[0].rx_buf = NULL;
+		xfer[1].tx_buf = (void *)-1;
+		xfer[1].rx_buf = NULL;
+		spi_message_init_with_transfers(&msg, xfer, 2);
 		ret = spi_engine_offload_load_msg(dac->spi, &msg);
 		if (ret < 0)
 			return ret;
