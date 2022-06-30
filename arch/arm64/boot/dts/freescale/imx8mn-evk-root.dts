@@ -52,6 +52,15 @@
 	};
 };
 
+&cpu_pd_wait {
+	/delete-property/ compatible;
+};
+
+&{/busfreq} {
+	/* Disable busfreq, to avoid 1st Linux busfreq crash other inmates */
+	status = "disabled";
+};
+
 &iomuxc {
 	/*
 	 * Used for the 2nd Linux.
