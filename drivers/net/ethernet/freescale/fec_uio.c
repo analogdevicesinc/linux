@@ -16,6 +16,7 @@
 #include <linux/busfreq-imx.h>
 #include <linux/of_mdio.h>
 #include "fec.h"
+#include <linux/pinctrl/consumer.h>
 
 struct fec_dev *fec_dev;
 static const char fec_uio_version[] = "FEC UIO driver v1.0";
