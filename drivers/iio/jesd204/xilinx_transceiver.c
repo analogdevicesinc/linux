@@ -1615,8 +1615,8 @@ int xilinx_xcvr_prbs_err_cnt_get(struct xilinx_xcvr *xcvr,
 
 	if (xcvr->type != XILINX_XCVR_TYPE_S7_GTX2) {
 		val2 = xilinx_xcvr_drp_read(xcvr, drp_port, addr + 1);
-		if (val < 0)
-			return val;
+		if (val2 < 0)
+			return val2;
 	}
 
 	*cnt = ((val2 & 0xFFFF) << 16) | (val & 0xFFFF);
