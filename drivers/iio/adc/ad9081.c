@@ -480,9 +480,11 @@ static int ad9081_reset_pin_ctrl(void *user_data, u8 enable)
 	return gpiod_direction_output(conv->reset_gpio, enable);
 }
 
-static int ad9081_sysref_ctrl(struct ad9081_phy *phy, u8 enable)
+static int ad9081_sysref_ctrl(void *clk_src)
 {
-	if (phy->jdev && enable)
+	struct ad9081_phy *phy = clk_src;
+
+	if (phy->jdev)
 		return jesd204_sysref_async_force(phy->jdev);
 
 	return 0;
@@ -4465,10 +4467,13 @@ static int ad9081_jesd204_link_init(struct jesd204_dev *jdev,
 	if (ret)
 		return ret;
 
-	if (phy->sysref_continuous_dis)
+	if (phy->sysref_continuous_dis) {
 		lnk->sysref.mode = JESD204_SYSREF_ONESHOT;
-	else
+		phy->ad9081.clk_info.sysref_mode = SYSREF_ONESHOT;
+	} else {
 		lnk->sysref.mode = JESD204_SYSREF_CONTINUOUS;
+		phy->ad9081.clk_info.sysref_mode = SYSREF_CONT;
+	}
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -4667,20 +4672,6 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 	if (ret != 0)
 		return ret;
 
-	if (phy->sysref_continuous_dis) {
-		u8 sync_done;
-
-		ad9081_sysref_ctrl(phy, 1);
-
-		ret = adi_ad9081_jesd_sysref_oneshot_sync_done_get(&phy->ad9081,
-			&sync_done);
-		if (ret != 0)
-			return ret;
-
-		if (sync_done != 1)
-			return JESD204_STATE_CHANGE_ERROR;
-	}
-
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
 		BF_AVRG_FLOW_EN_INFO, 0);
 	if (ret != 0)
@@ -4858,6 +4849,9 @@ static int ad9081_probe(struct spi_device *spi)
 	phy->ad9081.hal_info.reset_pin_ctrl = ad9081_reset_pin_ctrl;
 	phy->ad9081.hal_info.user_data = conv;
 	phy->ad9081.hal_info.log_write = ad9081_log_write;
+
+	phy->ad9081.clk_info.sysref_ctrl = ad9081_sysref_ctrl;
+	phy->ad9081.clk_info.clk_src = phy;
 
 	phy->ad9081.serdes_info = (adi_ad9081_serdes_settings_t) {
 		.ser_settings = { /* txfe jtx */
