@@ -275,6 +275,7 @@ struct ad9528_state {
 	struct clk_onecell_data		clk_data;
 	struct clk			*clks[AD9528_NUM_CHAN];
 	struct gpio_desc			*reset_gpio;
+	struct gpio_desc		*sysref_req_gpio;
 	struct jesd204_dev 		*jdev;
 	u32				jdev_lmfc_lemc_rate;
 	u32				jdev_lmfc_lemc_gcd;
@@ -1334,21 +1335,27 @@ static int ad9528_jesd204_sysref(struct jesd204_dev *jdev)
 
 	mutex_lock(&st->lock);
 
-	val = ad9528_read(indio_dev, AD9528_SYSREF_CTRL);
-	if (val < 0) {
-		mutex_unlock(&st->lock);
-		return val;
+	if (st->sysref_req_gpio && st->pdata->sysref_req_en) {
+		gpiod_direction_output(st->sysref_req_gpio, 1);
+		mdelay(1);
+		ret = gpiod_direction_output(st->sysref_req_gpio, 0);
+	} else {
+		val = ad9528_read(indio_dev, AD9528_SYSREF_CTRL);
+		if (val < 0) {
+			mutex_unlock(&st->lock);
+			return val;
+		}
+
+		val &= ~AD9528_SYSREF_PATTERN_REQ;
+
+		ad9528_write(indio_dev, AD9528_SYSREF_CTRL, val);
+
+		val |= AD9528_SYSREF_PATTERN_REQ;
+
+		ret = ad9528_write(indio_dev, AD9528_SYSREF_CTRL, val);
+
+		ad9528_io_update(indio_dev);
 	}
-
-	val &= ~AD9528_SYSREF_PATTERN_REQ;
-
-	ad9528_write(indio_dev, AD9528_SYSREF_CTRL, val);
-
-	val |= AD9528_SYSREF_PATTERN_REQ;
-
-	ret = ad9528_write(indio_dev, AD9528_SYSREF_CTRL, val);
-
-	ad9528_io_update(indio_dev);
 
 	mutex_unlock(&st->lock);
 
@@ -1392,6 +1399,10 @@ static int ad9528_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 			DIV_ROUND_CLOSEST(st->sysref_src_pll2, kdiv);
 
 	ad9528_io_update(indio_dev);
+
+	if (st->sysref_req_gpio && st->pdata->sysref_req_en &&
+		st->pdata->sysref_pattern_mode == SYSREF_PATTERN_CONTINUOUS)
+		gpiod_direction_output(st->sysref_req_gpio, 1);
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -1681,6 +1692,12 @@ static int ad9528_probe(struct spi_device *spi)
 		if (ret)
 			return ret;
 	}
+
+	st->sysref_req_gpio = devm_gpiod_get_optional(&spi->dev, "sysref-req",
+					GPIOD_OUT_LOW);
+	if (IS_ERR(st->sysref_req_gpio))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->sysref_req_gpio),
+				     "cannot get sysref request gpio\n");
 
 	status0_gpio = devm_gpiod_get_optional(&spi->dev,
 					"status0", GPIOD_OUT_LOW);
