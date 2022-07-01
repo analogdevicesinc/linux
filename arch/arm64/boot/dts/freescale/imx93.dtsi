@@ -1062,6 +1062,18 @@
 				status = "disabled";
 			};
 
+			flexio_i2c_master: flexio@425c0000 {
+				compatible = "imx,flexio_i2c_master";
+				reg = <0x425c0000 0x10000>;
+				interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clk IMX93_CLK_FLEXIO1_GATE>,
+					 <&clk IMX93_CLK_FLEXIO1_GATE>;
+				clock-names = "per", "ipg";
+				assigned-clocks = <&clk IMX93_CLK_FLEXIO1_GATE>;
+				assigned-clock-parents = <&clk IMX93_CLK_FLEXIO1>;
+				assigned-clock-rates = <24000000>;
+				status = "disabled";
+			};
 		};
 
 		aips3: bus@42800000 {
