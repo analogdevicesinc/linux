@@ -67,7 +67,7 @@
 				channel@0 {
 					reg = <0>;
 					adi,power-up-frequency = /bits/ 64
-								<5000000000>;
+								<6000000000>;
 				};
 			};
 
