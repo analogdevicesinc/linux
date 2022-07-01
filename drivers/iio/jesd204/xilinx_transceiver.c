@@ -646,7 +646,7 @@ int xilinx_xcvr_gth34_cpll_read_config(struct xilinx_xcvr *xcvr,
 	return 0;
 }
 
-int xilinx_xcvr_gtx2_cpll_read_config(struct xilinx_xcvr *xcvr,
+static int xilinx_xcvr_gtx2_cpll_read_config(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, struct xilinx_xcvr_cpll_config *conf)
 {
 	int val;
