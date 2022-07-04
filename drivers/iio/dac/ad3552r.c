@@ -587,18 +587,36 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 			.bits_per_word = 8
 		},
 		{
-			.len = 1,
+			.len = 2,
 			.bits_per_word = 16
 		}
 	};
-	u8 tx_data;
 	struct spi_message msg;
+	u32 active_scans;
+	u8 tx_data;
 	int ret;
 
 	if (dac->spi_is_dma_mapped) {
 		spi_bus_lock(dac->spi->master);
 
-		tx_data = AD3552R_REG_ADDR_CH_DAC_16B(0);
+		bitmap_to_arr32(&active_scans, indio_dev->active_scan_mask,
+				indio_dev->masklength);
+		switch (active_scans) {
+		case AD3552R_MASK_CH(0) | AD3552R_MASK_CH(1):
+			xfer[1].len = 4;
+			xfer[1].bits_per_word = 32;
+			tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
+			break;
+		case AD3552R_MASK_CH(0):
+			tx_data = AD3552R_REG_ADDR_CH_DAC_16B(0);
+			break;
+		case AD3552R_MASK_CH(1):
+			tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
+			break;
+		default:
+			return -EINVAL;
+		}
+
 		xfer[0].tx_buf = &tx_data;
 		xfer[0].rx_buf = NULL;
 		xfer[1].tx_buf = (void *)-1;
