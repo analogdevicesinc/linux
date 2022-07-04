@@ -16,7 +16,6 @@
 /*============= I N C L U D E S ============*/
 #include "adi_ad9081_config.h"
 #include "adi_ad9081_hal.h"
-#include "adi_utils.h"
 
 /*============= C O D E ====================*/
 
