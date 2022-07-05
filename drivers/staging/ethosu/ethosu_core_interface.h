@@ -42,6 +42,9 @@ namespace EthosU {
 #define ETHOSU_CORE_MSG_VERSION_MINOR 2
 #define ETHOSU_CORE_MSG_VERSION_PATCH 0
 
+#define ETHOSU_CORE_INFERENCE_MODEL 0
+#define ETHOSU_CORE_INFERENCE_OP    1
+
 /**
  * enum ethosu_core_msg_type - Message types
  *
@@ -107,6 +110,7 @@ struct ethosu_core_inference_req {
 	struct ethosu_core_buffer network;
 	uint8_t                   pmu_event_config[ETHOSU_CORE_PMU_MAX];
 	uint32_t                  pmu_cycle_counter_enable;
+	uint32_t                  inference_type;
 };
 
 struct ethosu_core_inference_rsp {

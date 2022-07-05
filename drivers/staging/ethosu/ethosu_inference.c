@@ -92,7 +92,8 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 				       inf->net->buf,
 				       inf->pmu_event_config,
 				       ETHOSU_PMU_EVENT_MAX,
-				       inf->pmu_cycle_counter_enable);
+				       inf->pmu_cycle_counter_enable,
+				       inf->inference_type);
 	if (ret)
 		return ret;
 
@@ -233,6 +234,17 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	inf = devm_kzalloc(edev->dev, sizeof(*inf), GFP_KERNEL);
 	if (!inf)
 		return -ENOMEM;
+	switch (uapi->inference_type) {
+	case ETHOSU_UAPI_INFERENCE_MODEL:
+		inf->inference_type = ETHOSU_CORE_INFERENCE_MODEL;
+		break;
+	case ETHOSU_UAPI_INFERENCE_OP:
+		inf->inference_type = ETHOSU_CORE_INFERENCE_OP;
+		break;
+	default:
+		inf->inference_type = ETHOSU_CORE_INFERENCE_MODEL;
+		break;
+	}
 
 	inf->edev = edev;
 	inf->net = net;

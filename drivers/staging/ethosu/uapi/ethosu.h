@@ -174,6 +174,14 @@ struct ethosu_uapi_device_capabilities {
 };
 
 /**
+ * enum ethosu_uapi_inference_type - Inference type
+ */
+enum ethosu_uapi_inference_type {
+	ETHOSU_UAPI_INFERENCE_MODEL = 0,
+	ETHOSU_UAPI_INFERENCE_OP
+};
+
+/**
  * struct ethosu_uapi_inference_create - Create network request
  * @ifm_count:		Number of IFM file descriptors
  * @ifm_fd:		IFM buffer file descriptors
@@ -185,6 +193,7 @@ struct ethosu_uapi_inference_create {
 	__u32                         ifm_fd[ETHOSU_FD_MAX];
 	__u32                         ofm_count;
 	__u32                         ofm_fd[ETHOSU_FD_MAX];
+	enum ethosu_uapi_inference_type inference_type;
 	struct ethosu_uapi_pmu_config pmu_config;
 };
 

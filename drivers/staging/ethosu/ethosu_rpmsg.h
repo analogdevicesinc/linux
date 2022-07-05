@@ -63,7 +63,8 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 			   struct ethosu_buffer *network,
 			   uint8_t *pmu_event_config,
 			   uint8_t pmu_event_config_count,
-			   uint8_t pmu_cycle_counter_enable
+			   uint8_t pmu_cycle_counter_enable,
+			   uint32_t inference_type
 			   );
 
 int ethosu_rpmsg_init(struct ethosu_rpmsg *erp,

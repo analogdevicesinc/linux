@@ -74,6 +74,7 @@ struct ethosu_inference {
 	uint32_t                pmu_event_count[ETHOSU_PMU_EVENT_MAX];
 	uint32_t                pmu_cycle_counter_enable;
 	uint64_t                pmu_cycle_counter_count;
+	uint32_t                inference_type;
 	struct list_head        list;
 };
 

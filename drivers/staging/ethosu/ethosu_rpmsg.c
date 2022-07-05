@@ -107,7 +107,8 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 			   struct ethosu_buffer *network,
 			   uint8_t *pmu_event_config,
 			   uint8_t pmu_event_config_count,
-			   uint8_t pmu_cycle_counter_enable)
+			   uint8_t pmu_cycle_counter_enable,
+			   uint32_t inference_type)
 {
 	struct ethosu_core_msg msg = {
 		.magic  = ETHOSU_CORE_MSG_MAGIC,
@@ -132,6 +133,7 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 	req.ifm_count = ifm_count;
 	req.ofm_count = ofm_count;
 	req.pmu_cycle_counter_enable = pmu_cycle_counter_enable;
+	req.inference_type = inference_type;
 
 	for (i = 0; i < ifm_count; i++)
 		ethosu_core_set_size(ifm[i], &req.ifm[i]);
