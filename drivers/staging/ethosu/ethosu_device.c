@@ -38,6 +38,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/remoteproc.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 
@@ -48,6 +49,8 @@
 #define DMA_ADDR_BITS 32 /* Number of address bits */
 
 #define CAPABILITIES_RESP_TIMEOUT_MS 2000
+
+#define ETHOSU_FIRMWARE_NAME "ethosu_firmware"
 
 /****************************************************************************
  * Types
@@ -243,10 +246,31 @@ static int ethosu_open(struct inode *inode,
 {
 	struct ethosu_device *edev =
 		container_of(inode->i_cdev, struct ethosu_device, cdev);
+	phandle rproc_phandle;
+	struct rproc *rproc;
+	int ret = 0;
 
 	file->private_data = edev;
 
 	dev_info(edev->dev, "Opening device node.\n");
+
+	if (of_property_read_u32(edev->dev->of_node, "fsl,cm33-proc",
+				 &rproc_phandle)) {
+		dev_err(edev->dev, "could not get rproc phandle\n");
+		return -ENODEV;
+	}
+
+	rproc = rproc_get_by_phandle(rproc_phandle);
+	if (!rproc) {
+		dev_err(edev->dev, "could not get rproc handle\n");
+		return -EINVAL;
+	}
+
+	rproc_set_firmware(rproc, ETHOSU_FIRMWARE_NAME);
+
+	ret = rproc_boot(rproc);
+	if (ret)
+		dev_err(edev->dev, "could not boot a remote processor\n");
 
 	return nonseekable_open(inode, file);
 }
