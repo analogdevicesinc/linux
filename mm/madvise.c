@@ -1171,13 +1171,15 @@ madvise_behavior_valid(int behavior)
 }
 
 static bool
-process_madvise_behavior_valid(int behavior)
+process_madvise_behavior_valid(int behavior, struct task_struct *task)
 {
 	switch (behavior) {
 	case MADV_COLD:
 	case MADV_PAGEOUT:
 	case MADV_WILLNEED:
 		return true;
+	case MADV_COLLAPSE:
+		return task == current || capable(CAP_SYS_ADMIN);
 	default:
 		return false;
 	}
@@ -1455,7 +1457,7 @@ SYSCALL_DEFINE5(process_madvise, int, pidfd, const struct iovec __user *, vec,
 		goto free_iov;
 	}
 
-	if (!process_madvise_behavior_valid(behavior)) {
+	if (!process_madvise_behavior_valid(behavior, task)) {
 		ret = -EINVAL;
 		goto release_task;
 	}
