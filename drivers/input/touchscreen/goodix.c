@@ -508,6 +508,16 @@ static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 	struct goodix_ts_data *ts = dev_id;
 
 	goodix_process_events(ts);
+
+	/*
+	 * according to debug, for 911 chip, when touch over 3 fingers
+	 * in the meantime, this 911 chip need wait a bit time to let
+	 * internal logic retrun back to normal to handle the i2c operation
+	 * otherwise the following i2c command may meet timeout fail.
+	 */
+	if (!strcmp(ts->id, "911"))
+		usleep_range(50, 100);
+
 	goodix_i2c_write_u8(ts->client, GOODIX_READ_COOR_ADDR, 0);
 
 	return IRQ_HANDLED;
