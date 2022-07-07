@@ -144,7 +144,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_pins_wakeup>;
 
-		wowlan {
+		button-wowlan {
 			label = "Wake on WiFi";
 			gpios = <&pio 113 GPIO_ACTIVE_HIGH>;
 			linux,code = <KEY_WAKEUP>;
@@ -228,6 +228,10 @@
 
 &auxadc {
 	status = "okay";
+};
+
+&cci {
+	proc-supply = <&mt6358_vproc12_reg>;
 };
 
 &cpu0 {
@@ -378,7 +382,7 @@
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	keep-power-in-suspend;
-	enable-sdio-wakeup;
+	wakeup-source;
 	cap-sdio-irq;
 	non-removable;
 	no-mmc;
@@ -815,6 +819,10 @@
 		compatible = "google,cros-ec-rpmsg";
 		mediatek,rpmsg-name = "cros-ec-rpmsg";
 	};
+};
+
+&mfg_async {
+	domain-supply = <&mt6358_vsram_gpu_reg>;
 };
 
 &mfg {
