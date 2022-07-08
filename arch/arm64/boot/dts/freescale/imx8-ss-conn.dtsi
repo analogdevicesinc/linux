@@ -77,6 +77,8 @@ conn_subsys: bus@5b000000 {
 			 <&sdhc0_lpcg 2>,
 			 <&sdhc0_lpcg 0>;
 		clock-names = "ipg", "ahb", "per";
+		assigned-clocks = <&clk IMX_SC_R_SDHC_0 IMX_SC_PM_CLK_PER>;
+		assigned-clock-rates = <400000000>;
 		power-domains = <&pd IMX_SC_R_SDHC_0>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step= <2>;
@@ -90,6 +92,8 @@ conn_subsys: bus@5b000000 {
 			 <&sdhc1_lpcg 2>,
 			 <&sdhc1_lpcg 0>;
 		clock-names = "ipg", "ahb", "per";
+		assigned-clocks = <&clk IMX_SC_R_SDHC_1 IMX_SC_PM_CLK_PER>;
+		assigned-clock-rates = <200000000>;
 		power-domains = <&pd IMX_SC_R_SDHC_1>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step = <2>;
@@ -103,6 +107,8 @@ conn_subsys: bus@5b000000 {
 			 <&sdhc2_lpcg 2>,
 			 <&sdhc2_lpcg 0>;
 		clock-names = "ipg", "ahb", "per";
+		assigned-clocks = <&clk IMX_SC_R_SDHC_2 IMX_SC_PM_CLK_PER>;
+		assigned-clock-rates = <200000000>;
 		power-domains = <&pd IMX_SC_R_SDHC_2>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step= <2>;
