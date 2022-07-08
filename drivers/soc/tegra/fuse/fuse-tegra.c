@@ -452,10 +452,25 @@ static ssize_t platform_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(platform);
 
+static ssize_t production_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	u32 reg = 0;
+
+	if (tegra_is_silicon())
+		if (tegra_fuse_readl(TEGRA_FUSE_PRODUCTION_MODE, &reg))
+			dev_err(dev, "failed to read production fuse!\n");
+
+	return sprintf(buf, "%d\n", reg);
+}
+
+static DEVICE_ATTR_RO(production);
+
 static struct attribute *tegra194_soc_attr[] = {
 	&dev_attr_major.attr,
 	&dev_attr_minor.attr,
 	&dev_attr_platform.attr,
+	&dev_attr_production.attr,
 	NULL,
 };
 
@@ -568,6 +583,7 @@ static int __init tegra_init_fuse(void)
 	np = of_find_matching_node(NULL, car_match);
 	if (np) {
 		void __iomem *base = of_iomap(np, 0);
+		of_node_put(np);
 		if (base) {
 			tegra_enable_fuse_clk(base);
 			iounmap(base);
