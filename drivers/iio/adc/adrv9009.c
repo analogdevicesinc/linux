@@ -6083,9 +6083,21 @@ static int adrv9009_jesd204_setup_stage5(struct jesd204_dev *jdev,
 	}
 
 	if ((ret != TALACT_NO_ACTION) || errorFlag) {
+		uint32_t calsSincePowerUp = 0, calsLastRun = 0, calsMinimum = 0;
+		uint8_t initErrCal = 0, initErrCode = 0;
+
 		dev_err(&phy->spi->dev,
 			"%s:%d (ret %d): Init Cal errorFlag (0x%X)",
 			__func__, __LINE__, ret, errorFlag);
+
+		ret = TALISE_getInitCalStatus(phy->talDevice, &calsSincePowerUp,
+			&calsLastRun, &calsMinimum, &initErrCal, &initErrCode);
+
+		dev_err(&phy->spi->dev,
+			"%s:%d (ret %d): Init Cal calsSincePowerUp (0x%X) calsLastRun (0x%X) calsMinimum (0x%X) initErrCal (0x%X) initErrCode (0x%X)\n",
+			__func__, __LINE__, ret, calsSincePowerUp, calsLastRun,
+			calsMinimum, initErrCal, initErrCode);
+
 		return -EFAULT;
 	}
 
