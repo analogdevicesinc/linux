@@ -182,6 +182,15 @@
 		enable-active-high;
 	};
 
+	reg_pcieb: regulator-pcie {
+		compatible = "regulator-fixed";
+		regulator-name = "mpcie_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9557_a 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
 	reg_usb_otg1_vbus: regulator-usbotg1-vbus {
 		compatible = "regulator-fixed";
 		regulator-name = "usb_otg1_vbus";
@@ -1021,9 +1030,9 @@
 	compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
-	disable-gpio = <&pca9557_a 2 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
+	vpcie-supply = <&reg_pcieb>;
 	status = "okay";
 };
 
