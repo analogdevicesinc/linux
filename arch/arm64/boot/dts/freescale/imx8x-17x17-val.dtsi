@@ -25,6 +25,15 @@
 			gpio = <&pca9557_a 0 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_pcieb: regulator-pcie {
+			compatible = "regulator-fixed";
+			regulator-name = "mpcie_3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&pca9557_a 5 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
 	};
 };
 
@@ -109,9 +118,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	clkreq-gpio = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
-	disable-gpio = <&pca9557_a 5 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
 	epdev_on-supply = <&epdev_on>;
+	vpcie-supply = <&reg_pcieb>;
 	status = "okay";
 };
 
