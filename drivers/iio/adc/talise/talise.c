@@ -2770,7 +2770,7 @@ uint32_t TALISE_initDigitalClocks(taliseDevice_t *device, taliseDigClocks_t *clo
         loopFilterR1C3 = 0xC5;
         loopFilterR3   = (vcoIndex <= 2 || (vcoIndex > 6 && vcoIndex <= 8) || vcoIndex == 14) ? 14 : 13 ;
     }
-    else if (scaledRefClk_kHz >= 69120 && scaledRefClk_kHz < 80000)
+    else if (scaledRefClk_kHz >= 69120 && scaledRefClk_kHz <= 80000)
     { /* scaledRefClkMhz = 76.8 MHz */
         vcoCalOffset   = (vcoIndex == 11 || (vcoIndex > 35 && vcoIndex <= 37) || (vcoIndex > 29 && vcoIndex <= 34)|| vcoIndex == 40 || vcoIndex == 44) ?
                 14 :(vcoIndex <= 10 || vcoIndex > 44) ?
