@@ -180,6 +180,17 @@
 		enable-active-high;
 	};
 
+	reg_pciea: regulator-pcie {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pciea_reg>;
+		regulator-name = "mpcie_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&lsio_gpio4 9 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
 	reg_usdhc2_vmmc: usdhc2-vmmc {
 		compatible = "regulator-fixed";
 		regulator-name = "SD1_SPWR";
@@ -913,9 +924,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
 	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
-	disable-gpio = <&lsio_gpio4 9 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
 	epdev_on-supply = <&epdev_on>;
+	vpcie-supply = <&reg_pciea>;
 	reserved-region = <&rpmsg_reserved>;
 	status = "disabled";
 };
@@ -1532,6 +1543,11 @@
 			IMX8QM_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
 			IMX8QM_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27		0x06000021
 			IMX8QM_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x06000021
+		>;
+	};
+
+	pinctrl_pciea_reg: pcieareggrp {
+		fsl,pins = <
 			IMX8QM_USDHC2_RESET_B_LSIO_GPIO4_IO09			0x06000021
 		>;
 	};
