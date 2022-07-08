@@ -18,7 +18,6 @@
 	ext_osc = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
-	disable-gpio = <&lsio_gpio4 9 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
 	epdev_on-supply = <&epdev_on>;
 	num-lanes = <2>;
