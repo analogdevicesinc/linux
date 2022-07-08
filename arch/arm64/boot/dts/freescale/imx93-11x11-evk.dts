@@ -124,22 +124,20 @@
 		regulator-always-on;
 	};
 
-	sound-wm8960 {
-		compatible = "fsl,imx-audio-wm8960";
-		model = "wm8960-audio";
+	sound-wm8962 {
+		compatible = "fsl,imx-audio-wm8962";
+		model = "wm8962-audio";
 		audio-cpu = <&sai3>;
 		audio-codec = <&codec>;
 		hp-det-gpio = <&pcal6524 4 GPIO_ACTIVE_HIGH>;
 		audio-routing =
-			"Headphone Jack", "HP_L",
-			"Headphone Jack", "HP_R",
-			"Ext Spk", "SPK_LP",
-			"Ext Spk", "SPK_LN",
-			"Ext Spk", "SPK_RP",
-			"Ext Spk", "SPK_RN",
-			"LINPUT1", "Mic Jack",
-			"LINPUT3", "Mic Jack",
-			"Mic Jack", "MICB";
+			"Headphone Jack", "HPOUTL",
+			"Headphone Jack", "HPOUTR",
+			"Ext Spk", "SPKOUTL",
+			"Ext Spk", "SPKOUTR",
+			"AMIC", "MICBIAS",
+			"IN3R", "AMIC",
+			"IN1R", "AMIC";
 	};
 
 	bt_sco_codec: bt-sco-codec {
@@ -274,15 +272,26 @@
 	pinctrl-0 = <&pinctrl_lpi2c1>;
 	status = "okay";
 
-	codec: wm8960@1a {
-		compatible = "wlf,wm8960";
+	codec: wm8962@1a {
+		compatible = "wlf,wm8962";
 		reg = <0x1a>;
 		clocks = <&clk IMX93_CLK_SAI3_GATE>;
-		clock-names = "mclk";
-		wlf,shared-lrclk;
-		wlf,hp-cfg = <3 2 3>;
-		wlf,gpio-cfg = <1 3>;
+		DCVDD-supply = <&reg_audio_pwr>;
+		DBVDD-supply = <&reg_audio_pwr>;
+		AVDD-supply = <&reg_audio_pwr>;
+		CPVDD-supply = <&reg_audio_pwr>;
+		MICVDD-supply = <&reg_audio_pwr>;
+		PLLVDD-supply = <&reg_audio_pwr>;
 		SPKVDD1-supply = <&reg_audio_pwr>;
+		SPKVDD2-supply = <&reg_audio_pwr>;
+		gpio-cfg = <
+			0x0000 /* 0:Default */
+			0x0000 /* 1:Default */
+			0x0000 /* 2:FN_DMICCLK */
+			0x0000 /* 3:Default */
+			0x0000 /* 4:FN_DMICCDAT */
+			0x0000 /* 5:Default */
+		>;
 	};
 
 	inertial-meter@6a {
