@@ -115,7 +115,7 @@
 		regulator-always-on;
 	};
 
-	sound-wm8960 {
+	sound-wm8962 {
 		status = "disabled";
 	};
 
