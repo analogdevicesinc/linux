@@ -215,6 +215,32 @@ enum {
 	BOTH_OFF
 };
 
+#define mxc_copy_from_user(to, from, n)			\
+({												\
+	unsigned long res = 0;						\
+	typeof(to) _to = (to);						\
+	typeof(from) _from = (from);				\
+	typeof(n) _n = (n);							\
+	if (!access_ok(_from, _n))					\
+		memcpy(_to, _from, _n);					\
+	else										\
+		res = copy_from_user(_to, _from, _n);	\
+	res;										\
+})
+
+#define mxc_copy_to_user(to, from, n)		\
+({											\
+	unsigned long res = 0;					\
+	typeof(to) _to = (to);					\
+	typeof(from) _from = (from);			\
+	typeof(n) _n = (n);						\
+	if (!access_ok(_to, _n))				\
+		memcpy(_to, _from, _n);				\
+	else									\
+		res = copy_to_user(_to, _from, _n);	\
+	res;									\
+})
+
 static bool g_dp_in_use[2];
 LIST_HEAD(fb_alloc_list);
 
@@ -2203,7 +2229,7 @@ static int mxcfb_ioctl(struct fb_info *fbi, unsigned int cmd, unsigned long arg)
 				break;
 			}
 
-			if (copy_from_user(&pos, (void *)arg, sizeof(pos))) {
+			if (mxc_copy_from_user(&pos, (void *)arg, sizeof(pos))) {
 				retval = -EFAULT;
 				break;
 			}
@@ -2238,7 +2264,7 @@ static int mxcfb_ioctl(struct fb_info *fbi, unsigned int cmd, unsigned long arg)
 			retval = ipu_disp_set_window_pos(mxc_fbi->ipu, mxc_fbi->ipu_ch,
 							 pos.x, pos.y);
 
-			if (copy_to_user((void *)arg, &pos, sizeof(pos))) {
+			if (mxc_copy_to_user((void *)arg, &pos, sizeof(pos))) {
 				retval = -EFAULT;
 				break;
 			}
