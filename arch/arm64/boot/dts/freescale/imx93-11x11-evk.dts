@@ -448,6 +448,18 @@
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	status = "okay";
 
+	adp5585_isp: mfd-isp@34 {
+		compatible = "adi,adp5585";
+		reg = <0x34>;
+		status = "okay";
+
+		adp5585gpio_isp: gpio-isp@34 {
+			compatible = "adp5585-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+
 	ptn5110: tcpc@50 {
 		compatible = "nxp,ptn5110", "tcpci";
 		reg = <0x50>;
