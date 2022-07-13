@@ -2407,12 +2407,6 @@ int madvise_collapse(struct vm_area_struct *vma, struct vm_area_struct **prev,
 	BUG_ON(vma->vm_start > start);
 	BUG_ON(vma->vm_end < end);
 
-	cc = kmalloc(sizeof(*cc), GFP_KERNEL);
-	if (!cc)
-		return -ENOMEM;
-	cc->is_khugepaged = false;
-	cc->last_target_node = NUMA_NO_NODE;
-
 	*prev = vma;
 
 	/* TODO: Support file/shmem */
@@ -2424,6 +2418,12 @@ int madvise_collapse(struct vm_area_struct *vma, struct vm_area_struct **prev,
 
 	if (!hugepage_vma_check(vma, vma->vm_flags, false, false, false))
 		return -EINVAL;
+
+	cc = kmalloc(sizeof(*cc), GFP_KERNEL);
+	if (!cc)
+		return -ENOMEM;
+	cc->is_khugepaged = false;
+	cc->last_target_node = NUMA_NO_NODE;
 
 	mmgrab(mm);
 	lru_add_drain_all();
