@@ -272,6 +272,8 @@ static int ethosu_open(struct inode *inode,
 	if (ret)
 		dev_err(edev->dev, "could not boot a remote processor\n");
 
+	edev->open = true;
+
 	return nonseekable_open(inode, file);
 }
 

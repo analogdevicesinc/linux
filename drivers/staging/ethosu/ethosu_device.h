@@ -51,6 +51,7 @@ struct ethosu_device {
 	struct ethosu_rpmsg   erp;
 	struct list_head      capabilities_list;
 	struct list_head      inference_list;
+	bool                  open;
 };
 
 /**

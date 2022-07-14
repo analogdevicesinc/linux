@@ -105,18 +105,22 @@ static int ethosu_pdev_remove(struct platform_device *pdev)
 int ethosu_suspend(struct device *dev)
 {
 	struct ethosu_device *edev = dev->driver_data;
-	int ret;
+	int ret = 0;
 
-	ret = ethosu_rpmsg_power_request(&edev->erp, ETHOSU_CORE_POWER_REQ_SUSPEND);
+	if (edev->open)
+		ret = ethosu_rpmsg_power_request(&edev->erp, ETHOSU_CORE_POWER_REQ_SUSPEND);
+
 	return ret;
 }
 
 int ethosu_resume(struct device *dev)
 {
 	struct ethosu_device *edev = dev->driver_data;
-	int ret;
+	int ret = 0;
 
-	ret = ethosu_rpmsg_power_request(&edev->erp, ETHOSU_CORE_POWER_REQ_RESUME);
+	if (edev->open)
+		ret = ethosu_rpmsg_power_request(&edev->erp, ETHOSU_CORE_POWER_REQ_RESUME);
+
 	return ret;
 }
 
