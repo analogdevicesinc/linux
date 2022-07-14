@@ -3514,6 +3514,24 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 							prbs_rx_result.phy_prbs_pass);
 					}
 			}
+
+			if (ad9081_link_is_dual(phy->jrx_link_tx)) {
+				len += snprintf(buf + len, sizeof(buf), ": ");
+				for (i = 0; i < phy->jrx_link_tx[1].jesd_param.jesd_l; i++) {
+					adi_ad9081_prbs_test_t prbs_rx_result;
+
+					for (j = 0; j < 8; j++)
+						if (phy->jrx_link_tx[1].logiclane_mapping[j] == i) {
+							ret = adi_ad9081_jesd_rx_phy_prbs_test_result_get(&phy->ad9081,
+								j, &prbs_rx_result);
+
+							len += snprintf(buf + len, sizeof(buf), "%u/%u ",
+								prbs_rx_result.phy_prbs_err_cnt,
+								prbs_rx_result.phy_prbs_pass);
+						}
+				}
+			}
+
 			mutex_unlock(&indio_dev->mlock);
 			len += snprintf(buf + len, sizeof(buf), "\n");
 			break;
