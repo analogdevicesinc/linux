@@ -30,7 +30,7 @@
 		regulator-boot-on;
 	};
 
-	stingray_control@0 {
+	stingray_ctrl: stingray_control@0 {
 		compatible = "adi,one-bit-adc-dac";
 	        #address-cells = <1>;
 	        #size-cells = <0>;

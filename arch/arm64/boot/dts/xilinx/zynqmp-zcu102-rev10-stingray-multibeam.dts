@@ -277,3 +277,7 @@
 	};
 };
 
+&stingray_ctrl {
+	out-gpios = <&gpio 159 0>, <&gpio 160 0>, <&gpio 161 0>,
+		<&gpio 162 0>, <&gpio 163 0>, <&gpio 164 0>;
+};
