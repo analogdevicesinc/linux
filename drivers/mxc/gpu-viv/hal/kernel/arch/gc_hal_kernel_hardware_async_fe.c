@@ -85,7 +85,7 @@ gckASYNC_FE_Construct(
     gcmkVERIFY_OK(gckOS_ReadRegisterEx(
         Hardware->os,
         Hardware->core,
-        0x006EC,
+        0x007E4,
        &data
         ));
 
@@ -588,7 +588,7 @@ gckASYNC_FE_UpdateAvaiable(
     status = gckOS_ReadRegisterEx(
         Hardware->os,
         Hardware->core,
-        0x006EC,
+        0x007E4,
         &data
         );
 
@@ -643,7 +643,7 @@ gckASYNC_FE_Execute(
     gcmkONERROR(gckOS_WriteRegisterEx(
         Hardware->os,
         Hardware->core,
-        0x006E4,
+        0x007DC,
         Address
         ));
 
@@ -655,7 +655,7 @@ gckASYNC_FE_Execute(
     gcmkONERROR(gckOS_WriteRegisterEx(
         Hardware->os,
         Hardware->core,
-        0x006E8,
+        0x007E0,
         Address + Bytes
         ));
 
