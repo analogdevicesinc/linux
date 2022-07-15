@@ -537,7 +537,7 @@ static int invoke_daemonapp(void)
 			return ret;
 
 		ret = wait_event_interruptible_timeout(instance_queue,
-				atomic_read(&daemon_fn) > 0, msecs_to_jiffies(1000));
+				atomic_read(&daemon_fn) > 0, msecs_to_jiffies(10000));
 		if (ret == -ERESTARTSYS || ret == 0)
 			ret = -ERESTARTSYS;
 
