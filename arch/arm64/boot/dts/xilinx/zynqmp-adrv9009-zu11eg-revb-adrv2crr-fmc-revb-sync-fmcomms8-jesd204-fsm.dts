@@ -162,3 +162,7 @@
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
 	adi,hmc-two-level-tree-sync-en;
 };
+
+&hmc7044_car_c9 {
+	adi,coarse-digital-delay = <0x01>;
+};
