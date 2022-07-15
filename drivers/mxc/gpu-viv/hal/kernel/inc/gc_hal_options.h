@@ -1400,4 +1400,14 @@ This define enables the use of VM for gckCommand and fence buffers.
 
 #endif /* __gc_hal_options_h_ */
 
+/*
+ *   gcdENABLE_VIDEO_MEMORY_TRACE
+ *       Dynamic trace video memory, if set to 1.
+ *       Depends on kernel support.
+ *       Only support Linux OS currently.
+ */
+#ifndef gcdENABLE_VIDEO_MEMORY_TRACE
+#    define gcdENABLE_VIDEO_MEMORY_TRACE            0
+#endif
+
 

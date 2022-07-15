@@ -1185,6 +1185,8 @@ typedef union _gcuVIDMEM_NODE
         /* Customer private handle */
         gctUINT32               gid;
 
+        gctUINT32               processID;
+
         /* Page table information. */
         /* Used only when node is not contiguous */
         gctSIZE_T               pageCount;
@@ -1236,6 +1238,8 @@ typedef union _gcuVIDMEM_NODE
 
         /* Kernel virtual address. */
         gctPOINTER              kvaddr;
+
+        gctUINT32               processID;
 
         /* Locked counter. */
     }

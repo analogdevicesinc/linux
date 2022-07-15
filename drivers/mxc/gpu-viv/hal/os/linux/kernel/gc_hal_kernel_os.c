@@ -90,7 +90,13 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 #if defined(CONFIG_TRACE_GPU_MEM)
 #   include <trace/events/gpu_mem.h>
-gctINT64 totalMem;
+typedef struct trace_mem {
+    gctUINT32 pid;
+    atomic64_t total;
+    struct trace_mem *next;
+} traceMem;
+
+traceMem *memTraceList;
 #endif
 #endif
 
@@ -876,6 +882,22 @@ gckOS_Destroy(
     /* Mark the gckOS object as unknown. */
     Os->object.type = gcvOBJ_UNKNOWN;
 
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#if defined(CONFIG_TRACE_GPU_MEM)
+    while (gcvTRUE) {
+        if (memTraceList) {
+            traceMem *p_node = memTraceList;
+
+            memTraceList = memTraceList->next;
+            gckOS_Free(Os, p_node);
+            p_node = NULL;
+        } else {
+            break;
+        }
+    }
+#endif
+#endif
 
 #if gcdDUMP_IN_KERNEL
     mutex_lock(&Os->dumpFilpMutex);
@@ -7661,21 +7683,82 @@ gckOS_TraceGpuMemory(
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 #if defined(CONFIG_TRACE_GPU_MEM)
-    gctUINT32 pid = 0;
+    traceMem *traceList = gcvNULL;
+    gctBOOL addNodeFlag = gcvTRUE;
 
-    if (ProcessID == -1)
-        gckOS_GetProcessID(&pid);
-    else
-        pid = ProcessID;
+    /* if first node is null, create it. */
+    if (!memTraceList) {
+        gctPOINTER pointer = gcvNULL;
+
+        gckOS_Allocate(Os, sizeof(traceMem), &pointer);
+        gckOS_ZeroMemory(pointer, sizeof(traceMem));
+        memTraceList = pointer;
+        memTraceList->pid = 0;
+        atomic64_set(&memTraceList->total, 0);
+        memTraceList->next = gcvNULL;
+    }
+
+    traceList = memTraceList;
+
+    /* traverse all the node */
+    while (gcvTRUE) {
+        /* hit the matched node */
+        if (ProcessID == traceList->pid) {
+            if (Delta > 0)
+                atomic64_add(Delta, &traceList->total);
+            else
+                atomic64_sub(-Delta, &traceList->total);
+            addNodeFlag = gcvFALSE;
+            break;
+        } else if (traceList->pid == 0) {
+        /* hit the first node update the global usage */
+            if (Delta > 0)
+                atomic64_add(Delta, &memTraceList->total);
+            else
+                atomic64_sub(-Delta, &memTraceList->total);
+        }
+        if (!traceList->next)
+            break;
+        else
+            traceList = traceList->next;
+    }
+
+    /* if there isn't matched node, create one */
+    if (!traceList->next && addNodeFlag) {
+        gctPOINTER pointer = gcvNULL;
+        traceMem *newNode = gcvNULL;
+
+        gckOS_Allocate(Os, sizeof(traceMem), &pointer);
+        gckOS_ZeroMemory(newNode, sizeof(traceMem));
+
+        newNode = pointer;
+        newNode->pid = ProcessID;
+        atomic64_set(&newNode->total, Delta);
+        newNode->next = gcvNULL;
+        traceList->next = newNode;
+        traceList = traceList->next;
+    }
 
     if (trace_gpu_mem_total_enabled()) {
-        totalMem += Delta;
+        trace_gpu_mem_total(0, 0, (gctUINT64)atomic64_read(&memTraceList->total));
+        trace_gpu_mem_total(0, ProcessID, (gctUINT64)atomic64_read(&traceList->total));
+    }
 
-        if (Delta < 0)
-            Delta = -Delta;
+    /* clean useless node */
+    while (gcvTRUE) {
+        traceMem *t_node = traceList->next;
 
-        trace_gpu_mem_total(0, 0, (gctUINT64)totalMem);
-        trace_gpu_mem_total(0, ProcessID, (gctUINT64)Delta);
+        if (t_node) {
+            if (atomic64_read(&t_node->total) <= 0) {
+                traceList->next = t_node->next;
+                gckOS_Free(Os, t_node);
+                t_node = NULL;
+            } else {
+                traceList = traceList->next;
+            }
+        } else {
+            break;
+        }
     }
 #endif
 #endif

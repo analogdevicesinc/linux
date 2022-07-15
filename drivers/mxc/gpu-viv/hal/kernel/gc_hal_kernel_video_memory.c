@@ -216,7 +216,9 @@ _TraceGpuMem(
     IN gctINT64 Delta
     )
 {
+#if gcdENABLE_VIDEO_MEMORY_TRACE
     gckOS_TraceGpuMemory(Os, ProcessID, Delta);
+#endif
 
     return gcvSTATUS_OK;
 }
@@ -1033,7 +1035,9 @@ gckVIDMEM_AllocateVirtual(
                                   &node->Virtual.gid,
                                   &node->Virtual.physical));
 
-    _TraceGpuMem(os, -1, node->Virtual.bytes);
+    gckOS_GetProcessID(&node->Virtual.processID);
+
+    _TraceGpuMem(os, (gctINT32)node->Virtual.processID, node->Virtual.bytes);
 
     /* Calculate required GPU page (4096) count. */
     /* Assume start address is 4096 aligned. */
@@ -1749,7 +1753,7 @@ _AllocateVirtualChunk(
 
     /* Fill in the information. */
     node->VirtualChunk.parent = VidMemBlock;
-
+    gcmkVERIFY_OK(gckOS_GetProcessID(&node->VirtualChunk.processID));
     VidMemBlock->freeBytes -= node->VirtualChunk.bytes;
 
     *Bytes = bytes;
@@ -1821,7 +1825,7 @@ gckVIDMEM_AllocateVirtualChunk(
                               &Bytes,
                               &node));
 
-    _TraceGpuMem(Kernel->os, -1, Bytes);
+    _TraceGpuMem(Kernel->os, (gctINT32)node->VirtualChunk.processID, Bytes);
 
     /* Return pointer to the gcuVIDMEM_NODE union. */
     *Node = node;
@@ -2071,8 +2075,7 @@ gckVIDMEM_Free(
 
                 vidMemBlock->freeBytes += Node->VirtualChunk.bytes;
 
-                _TraceGpuMem(Kernel->os, -1, -(gctINT64)Node->VirtualChunk.bytes);
-
+                _TraceGpuMem(Kernel->os, (gctINT32)Node->VirtualChunk.processID, -(gctINT64)Node->VirtualChunk.bytes);
                 /* Find the next free chunk. */
                 for (node = Node->VirtualChunk.next;
                      node != gcvNULL && node->VirtualChunk.nextFree == gcvNULL;
@@ -2171,7 +2174,7 @@ gckVIDMEM_Free(
                                         Node->Virtual.physical,
                                         Node->Virtual.bytes));
 
-    _TraceGpuMem(Kernel->os, -1, -(gctINT64)Node->Virtual.bytes);
+    _TraceGpuMem(kernel->os, (gctINT32)Node->Virtual.processID, -(gctINT64)Node->Virtual.bytes);
 
     /* Delete the gcuVIDMEM_NODE union. */
     gcmkVERIFY_OK(gcmkOS_SAFE_FREE(kernel->os, Node));
@@ -3793,8 +3796,6 @@ gckVIDMEM_NODE_UnlockCPU(
 
                     node->VidMem.logical = gcvNULL;
                 }
-                /* Reset. */
-                node->VidMem.processID = 0;
             }
 #endif
         }
@@ -4598,8 +4599,13 @@ gckVIDMEM_NODE_WrapUserMemory(
         if (dmabuf->ops == &_dmabuf_ops)
         {
             gctBOOL referenced = gcvFALSE;
-            nodeObject = dmabuf->priv;
+            gcuVIDMEM_NODE_PTR node;
+            gckVIDMEM_BLOCK vidMemBlock;
+            gctUINT32 pid;
 
+            nodeObject = dmabuf->priv;
+            node = nodeObject->node;
+            vidMemBlock = node->VirtualChunk.parent;
             do
             {
                 /* Reference the node. */
@@ -4607,7 +4613,14 @@ gckVIDMEM_NODE_WrapUserMemory(
                 referenced = gcvTRUE;
                 found = gcvTRUE;
 
-                _TraceGpuMem(Kernel->os, -1, dmabuf->size);
+                gckOS_GetProcessID(&pid);
+                if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
+                    node->VidMem.processID = pid;
+                else if (vidMemBlock && vidMemBlock->object.type == gcvOBJ_VIDMEM_BLOCK)
+                    node->VirtualChunk.processID = pid;
+                else
+                    node->Virtual.processID = pid;
+                _TraceGpuMem(Kernel->os, pid, dmabuf->size);
 
                 *NodeObject = nodeObject;
                 *Bytes = (gctUINT64)dmabuf->size;
@@ -4670,7 +4683,8 @@ gckVIDMEM_NODE_WrapUserMemory(
             node->Virtual.pageCount = (pageCountCpu * pageSizeCpu -
                     (physicalAddress & (pageSizeCpu - 1) & ~(4096 - 1))) >> 12;
 
-            _TraceGpuMem(Kernel->os, -1, node->Virtual.bytes);
+            gcmkVERIFY_OK(gckOS_GetProcessID(&node->Virtual.processID));
+            _TraceGpuMem(Kernel->os, (gctINT32)node->Virtual.processID, node->Virtual.bytes);
 
             *NodeObject = nodeObject;
             *Bytes = (gctUINT64)node->Virtual.bytes;
