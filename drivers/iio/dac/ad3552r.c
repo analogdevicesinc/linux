@@ -584,11 +584,14 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 	struct spi_transfer xfer[] = {
 		{
 			.len = 1,
-			.bits_per_word = 8
+			.bits_per_word = 8,
+			.speed_hz = 60*MHz
 		},
 		{
 			.len = 2,
-			.bits_per_word = 16
+			.bits_per_word = 16,
+			.speed_hz = 60*MHz,
+
 		}
 	};
 	struct spi_message msg;
