@@ -1407,7 +1407,11 @@ This define enables the use of VM for gckCommand and fence buffers.
  *       Only support Linux OS currently.
  */
 #ifndef gcdENABLE_VIDEO_MEMORY_TRACE
+#ifdef ANDROID
 #    define gcdENABLE_VIDEO_MEMORY_TRACE            0
+#    else
+#    define gcdENABLE_VIDEO_MEMORY_TRACE            1
+#    endif
 #endif
 
 
