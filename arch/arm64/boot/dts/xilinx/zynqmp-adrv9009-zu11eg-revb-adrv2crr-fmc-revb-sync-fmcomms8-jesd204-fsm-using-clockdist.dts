@@ -141,6 +141,7 @@
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
 		adi,startup-mode-dynamic-enable;
 		adi,high-performance-mode-disable;
+		adi,coarse-digital-delay = <0x01>;
 		adi,force-mute-enable;
 	};
 
@@ -148,6 +149,7 @@
 		reg = <9>;
 		adi,extended-name = "REFCLK_OUT4";
 		adi,divider = <REF_DIV>;
+		adi,coarse-digital-delay = <0x01>;
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
 	};
 };
