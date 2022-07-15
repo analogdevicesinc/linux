@@ -673,6 +673,8 @@ _FillFlatMapping(
     gctUINT64 end  = base + flatSize;
     gctUINT32 reqVirtualBase = 0;
     gctUINT32 flatVirtualBase = 0;
+    gctUINT32 pageOffset = 0;
+    gctUINT32 virtPageOffset = 0;
     gctUINT32 i;
 
     /************************ Get flat mapping type and range. ************************/
@@ -747,6 +749,29 @@ _FillFlatMapping(
     {
         reqVirtualBase = *GpuBaseAddress;
     }
+
+    if (area->mappingStart != gcvINVALID_ADDRESS && mtlb >= area->mappingStart && mtlb < area->mappingEnd)
+    {
+        pageOffset = flatBase & (gcdMMU_PAGE_4K_SIZE - 1);
+        virtPageOffset = reqVirtualBase & (gcdMMU_PAGE_4K_SIZE - 1);
+        reqVirtualBase = reqVirtualBase & ~(gcdMMU_PAGE_4K_SIZE - 1);
+        flatBase = flatBase & ~(gcdMMU_PAGE_4K_SIZE - 1);
+        flatSize = (physBase + flatSize - flatBase + gcdMMU_PAGE_4K_SIZE - 1) & (~(gcdMMU_PAGE_4K_SIZE - 1));
+        PhysBase = flatBase;
+        physBase = (gctUINT32)flatBase;
+    }
+    else
+    {
+        pageOffset = flatBase & (gcdMMU_PAGE_1M_SIZE - 1);
+        virtPageOffset = reqVirtualBase & (gcdMMU_PAGE_1M_SIZE - 1);
+        reqVirtualBase = reqVirtualBase & ~(gcdMMU_PAGE_1M_SIZE - 1);
+        flatBase = flatBase & ~(gcdMMU_PAGE_1M_SIZE - 1);
+        flatSize = (physBase + flatSize - flatBase + gcdMMU_PAGE_1M_SIZE - 1) & (~(gcdMMU_PAGE_1M_SIZE - 1));
+        PhysBase = flatBase;
+        physBase = (gctUINT32)flatBase;
+    }
+    if (reqVirtualBase && pageOffset != virtPageOffset)
+        return gcvSTATUS_NOT_SUPPORTED;
 
     /*
      * if no partcial physical range overlap to request entire shift mapping,
@@ -899,7 +924,7 @@ _FillFlatMapping(
         /* No matter direct mapping or shift mapping or specific mapping, store gpu virtual ranges */
         flatVirtualBase = (mStart << gcdMMU_MTLB_SHIFT)
                         | (sStart << gcdMMU_STLB_1M_SHIFT)
-                        | (physBase & gcdMMU_PAGE_1M_MASK);
+                        | pageOffset;
 
         /* Return GPU virtual base address if necessary */
         if (GpuBaseAddress)
@@ -1189,8 +1214,8 @@ _FillFlatMapping(
         gcmkASSERT(Mmu->gpuPhysicalRangeCount <= gcdMAX_FLAT_MAPPING_COUNT);
 
         /* Store the gpu virtual ranges */
-        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].start = flatVirtualBase;
-        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].end   = flatVirtualBase + flatSize - 1;
+        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].start = flatVirtualBase - pageOffset;
+        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].end   = flatVirtualBase - pageOffset + flatSize - 1;
         Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].size  = flatSize;
         Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].flag  = mapFlag;
         Mmu->gpuAddressRangeCount++;
