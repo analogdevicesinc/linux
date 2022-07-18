@@ -4909,7 +4909,7 @@ static int ad9081_probe(struct spi_device *spi)
 	phy->ad9081.hal_info.log_write = ad9081_log_write;
 
 	phy->ad9081.clk_info.sysref_ctrl = ad9081_sysref_ctrl;
-	phy->ad9081.clk_info.clk_src = phy;
+	phy->ad9081.clk_info.sysref_clk = phy;
 
 	phy->ad9081.serdes_info = (adi_ad9081_serdes_settings_t) {
 		.ser_settings = { /* txfe jtx */
