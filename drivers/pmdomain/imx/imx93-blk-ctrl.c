@@ -142,6 +142,8 @@ static int imx93_blk_ctrl_power_on(struct generic_pm_domain *genpd)
 		return ret;
 	}
 
+	/* Make sure PM runtime is active */
+	pm_runtime_set_active(bc->dev);
 	ret = pm_runtime_get_sync(bc->dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(bc->dev);
