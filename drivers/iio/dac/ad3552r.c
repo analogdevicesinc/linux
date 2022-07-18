@@ -581,50 +581,68 @@ static const struct iio_info ad3552r_iio_info = {
 static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad3552r_desc *dac = iio_priv(indio_dev);
-	struct spi_transfer xfer[] = {
-		{
-			.len = 1,
-			.bits_per_word = 8,
-			.speed_hz = 60*MHz
-		},
-		{
-			.len = 2,
-			.bits_per_word = 16,
-			.speed_hz = 60*MHz,
-
-		}
+	struct spi_transfer xfer_addr = {
+		.len = 1,
+		.bits_per_word = 8,
+		.cs_change = 1
+	};
+	struct spi_transfer xfer_data = {
+		.len = 2,
+		.bits_per_word = 16,
+		.speed_hz = 60*MHz,
+		.cs_change = 1
 	};
 	struct spi_message msg;
+	u16 byte_loop_count;
 	u32 active_scans;
 	u8 tx_data;
 	int ret;
 
 	if (dac->spi_is_dma_mapped) {
-		spi_bus_lock(dac->spi->master);
-
 		bitmap_to_arr32(&active_scans, indio_dev->active_scan_mask,
 				indio_dev->masklength);
 		switch (active_scans) {
 		case AD3552R_MASK_CH(0) | AD3552R_MASK_CH(1):
-			xfer[1].len = 4;
-			xfer[1].bits_per_word = 32;
+			xfer_data.len = 4;
+			xfer_data.bits_per_word = 32;
 			tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
+			byte_loop_count = 4;
 			break;
 		case AD3552R_MASK_CH(0):
 			tx_data = AD3552R_REG_ADDR_CH_DAC_16B(0);
+			byte_loop_count = 2;
 			break;
 		case AD3552R_MASK_CH(1):
 			tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
+			byte_loop_count = 2;
 			break;
 		default:
 			return -EINVAL;
 		}
 
-		xfer[0].tx_buf = &tx_data;
-		xfer[0].rx_buf = NULL;
-		xfer[1].tx_buf = (void *)-1;
-		xfer[1].rx_buf = NULL;
-		spi_message_init_with_transfers(&msg, xfer, 2);
+		ret = ad3552r_update_reg_field(dac,
+					       AD3552R_REG_ADDR_TRANSFER_REGISTER,
+					       AD3552R_MASK_STREAM_LENGTH_KEEP_VALUE,
+					       0xFFFF);
+		if (ret < 0) {
+			return ret;
+		}
+
+		ret = ad3552r_write_reg(dac,
+					AD3552R_REG_ADDR_STREAM_MODE,
+					byte_loop_count);
+		if (ret < 0) {
+			return ret;
+		}
+
+		xfer_addr.tx_buf = &tx_data;
+		xfer_addr.rx_buf = NULL;
+		xfer_data.tx_buf = (void *)-1;
+		xfer_data.rx_buf = NULL;
+
+		spi_message_init_with_transfers(&msg, &xfer_data, 1);
+		spi_sync_transfer(dac->spi, &xfer_addr, 1);
+		spi_bus_lock(dac->spi->master);
 		ret = spi_engine_offload_load_msg(dac->spi, &msg);
 		if (ret < 0)
 			return ret;
@@ -636,10 +654,27 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 static int ad3552r_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad3552r_desc *dac = iio_priv(indio_dev);
+	int ret;
 
 	if (dac->spi_is_dma_mapped) {
 		spi_engine_offload_enable(dac->spi, false);
 		spi_bus_unlock(dac->spi->master);
+
+		ret = ad3552r_update_reg_field(dac,
+					       AD3552R_REG_ADDR_TRANSFER_REGISTER,
+					       AD3552R_MASK_STREAM_LENGTH_KEEP_VALUE,
+					       0x0);
+		if (ret < 0)
+			return ret;
+
+
+		ret = ad3552r_update_reg_field(dac,
+					       AD3552R_REG_ADDR_TRANSFER_REGISTER,
+					       AD3552R_MASK_STREAM_LENGTH_KEEP_VALUE,
+					       0x0);
+		if (ret < 0)
+			return ret;
+
 	}
 
 	return 0;
