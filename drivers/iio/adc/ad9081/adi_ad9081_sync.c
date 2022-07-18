@@ -87,11 +87,11 @@ int32_t adi_ad9081_jesd_sysref_input_mode_set(
 int32_t adi_ad9081_sync_sysref_ctrl(adi_ad9081_device_t *device)
 {
 	AD9081_NULL_POINTER_RETURN(device);
-	AD9081_NULL_POINTER_RETURN(device->clk_info.clk_src);
+	AD9081_NULL_POINTER_RETURN(device->clk_info.sysref_clk);
 	AD9081_NULL_POINTER_RETURN(device->clk_info.sysref_ctrl);
 
 	if (API_CMS_ERROR_OK !=
-	    device->clk_info.sysref_ctrl(device->clk_info.clk_src)) {
+	    device->clk_info.sysref_ctrl(device->clk_info.sysref_clk)) {
 		return API_CMS_ERROR_SYSREF_CTRL;
 	}
 

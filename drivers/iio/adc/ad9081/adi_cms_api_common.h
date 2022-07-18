@@ -436,13 +436,13 @@ typedef int32_t (*adi_reset_pin_ctrl_t)(void *user_data, uint8_t enable);
 /**
  * @brief sysref control function
  *
- * @param clk_src   A void pointer to a structure containing the clock source
- *                  required by the function to control the hardware sysref control.
+ * @param sysref_clk   A void pointer to a structure containing the clock source
+ *                     required by the function to control the hardware sysref control.
  *
  * @return 0 for success
  * @return Any non-zero value indicates an error
  */
-typedef int32_t (*adi_sysref_ctrl_t)(void *clk_src);
+typedef int32_t (*adi_sysref_ctrl_t)(void *sysref_clk);
 
 /**
  * @brief   Control function for GPIO write.
