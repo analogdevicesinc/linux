@@ -452,8 +452,8 @@ static int ad3552r_set_ch_value(struct ad3552r_desc *dac,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
 				BIT(IIO_CHAN_INFO_SCALE) |	\
 				BIT(IIO_CHAN_INFO_ENABLE) |	\
-				BIT(IIO_CHAN_INFO_SAMP_FREQ) |	\
 				BIT(IIO_CHAN_INFO_OFFSET),	\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 })
 
 static int ad3552r_set_sampling_freq(struct ad3552r_desc *dac, int freq)
@@ -550,7 +550,8 @@ static int ad3552r_write_raw(struct iio_dev *indio_dev,
 					   chan->channel, !val);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad3552r_set_sampling_freq(dac, val);
+		err = ad3552r_set_sampling_freq(dac, val);
+		break;
 	default:
 		err = -EINVAL;
 		break;
