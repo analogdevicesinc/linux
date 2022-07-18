@@ -858,7 +858,7 @@ typedef struct {
  * @brief Device Clock Structure
  */
 typedef struct {
-	void *clk_src; /*!< Pointer to connect clk src related to sysref ctrl */
+	void *sysref_clk; /*!< Clk source related to sysref ctrl */
 	adi_sysref_ctrl_t
 		sysref_ctrl; /*!< Function pointer to sysref control function */
 	adi_cms_jesd_sysref_mode_e
