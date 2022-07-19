@@ -3997,63 +3997,15 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	return 0;
 }
 
-static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
+static int adrv9002_parse_gpios_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
 {
+	struct device_node *of_gpios, *child;
+	struct device *dev = &phy->spi->dev;
 	int ret = 0, idx = 0;
-	struct device_node *of_channels, *of_gpios = NULL;
-	struct device_node *parent = phy->spi->dev.of_node, *child;
 
-	/* handle channels */
-	of_channels = of_get_child_by_name(parent, "adi,channels");
-	if (!of_channels)
-		goto of_gpio;
-
-	for_each_available_child_of_node(of_channels, child) {
-		u32 chann, port;
-
-		ret = of_property_read_u32(child, "reg", &chann);
-		if (ret) {
-			dev_err(&phy->spi->dev,
-				"No reg property defined for channel\n");
-			goto of_child_put;
-		}
-
-		if (chann > 1) {
-			dev_err(&phy->spi->dev,
-				"Invalid value for channel: %d\n", chann);
-			ret = -EINVAL;
-			goto of_child_put;
-		}
-
-		ret = of_property_read_u32(child, "adi,port", &port);
-		if (ret) {
-			dev_err(&phy->spi->dev,
-				"No port property defined for channel\n");
-			goto of_child_put;
-		}
-
-		switch (port) {
-		case ADI_TX:
-			ret = adrv9002_parse_tx_dt(phy, child, chann);
-			break;
-		case ADI_RX:
-			ret = adrv9002_parse_rx_dt(phy, child, chann);
-			break;
-		default:
-			dev_err(&phy->spi->dev, "Unknown port: %d\n", port);
-			ret = -EINVAL;
-			break;
-		};
-
-		if (ret)
-			goto of_child_put;
-	}
-
-of_gpio:
-	/* handle gpios */
-	of_gpios = of_get_child_by_name(parent, "adi,gpios");
+	of_gpios = of_get_child_by_name(node, "adi,gpios");
 	if (!of_gpios)
-		goto of_channels_put;
+		return 0;
 
 	phy->ngpios = of_get_child_count(of_gpios);
 	if (!phy->ngpios)
@@ -4072,15 +4024,13 @@ of_gpio:
 
 		ret = of_property_read_u32(child, "reg", &gpio);
 		if (ret) {
-			dev_err(&phy->spi->dev,
-				"No reg property defined for gpio\n");
+			dev_err(dev, "No reg property defined for gpio\n");
 			goto of_child_put;
 		}
 
 		if (gpio < ADI_ADRV9001_GPIO_DIGITAL_00 ||
 		    gpio > ADI_ADRV9001_GPIO_ANALOG_11) {
-			dev_err(&phy->spi->dev,
-				"Invalid gpio number: %d\n", gpio);
+			dev_err(dev, "Invalid gpio number: %d\n", gpio);
 			ret = -EINVAL;
 			goto of_child_put;
 		}
@@ -4089,30 +4039,26 @@ of_gpio:
 
 		ret = of_property_read_u32(child, "adi,signal", &signal);
 		if (ret) {
-			dev_err(&phy->spi->dev,
-				"No adi,signal property defined for gpio%d\n",
-				gpio);
+			dev_err(dev, "No adi,signal property defined for gpio%d\n", gpio);
 			goto of_child_put;
 		}
 
 		if (signal >= ADI_ADRV9001_GPIO_NUM_SIGNALS) {
-			dev_err(&phy->spi->dev,
-				"Invalid gpio signal: %d\n", signal);
+			dev_err(dev, "Invalid gpio signal: %d\n", signal);
 			ret = -EINVAL;
 			goto of_child_put;
 		}
+
 		phy->adrv9002_gpios[idx].signal = signal;
 
 		ret = of_property_read_u32(child, "adi,polarity", &polarity);
 		if (!ret) {
 			if (polarity > ADI_ADRV9001_GPIO_POLARITY_INVERTED) {
-				dev_err(&phy->spi->dev,
-					"Invalid gpio polarity: %d\n",
-					polarity);
-
+				dev_err(dev, "Invalid gpio polarity: %d\n", polarity);
 				ret = -EINVAL;
 				goto of_child_put;
 			}
+
 			phy->adrv9002_gpios[idx].gpio.polarity = polarity;
 		}
 
@@ -4120,29 +4066,97 @@ of_gpio:
 		if (!ret) {
 			if (master != ADI_ADRV9001_GPIO_MASTER_ADRV9001 &&
 			    master != ADI_ADRV9001_GPIO_MASTER_BBIC) {
-				dev_err(&phy->spi->dev,
-					"Invalid gpio master: %d\n",
-					master);
-
+				dev_err(dev, "Invalid gpio master: %d\n", master);
 				ret = -EINVAL;
 				goto of_child_put;
 			}
+
 			phy->adrv9002_gpios[idx].gpio.master = master;
 		}
 
 		idx++;
 	}
 
-	ret = 0;
+	of_node_put(of_gpios);
+	return 0;
 
 of_child_put:
 	of_node_put(child);
 of_gpio_put:
 	of_node_put(of_gpios);
-of_channels_put:
+	return ret;
+}
+
+static int adrv9002_parse_channels_dt(struct adrv9002_rf_phy *phy, const struct device_node *node)
+{
+	struct device_node *of_channels, *child;
+	struct device *dev = &phy->spi->dev;
+	int ret;
+
+	of_channels = of_get_child_by_name(node, "adi,channels");
+	if (!of_channels)
+		return 0;
+
+	for_each_available_child_of_node(of_channels, child) {
+		u32 chann, port;
+
+		ret = of_property_read_u32(child, "reg", &chann);
+		if (ret) {
+			dev_err(dev, "No reg property defined for channel\n");
+			goto of_error_put;
+		}
+
+		if (chann >= ADRV9002_CHANN_MAX) {
+			dev_err(dev, "Invalid value for channel: %d\n", chann);
+			ret = -EINVAL;
+			goto of_error_put;
+		}
+
+		ret = of_property_read_u32(child, "adi,port", &port);
+		if (ret) {
+			dev_err(dev, "No port property defined for channel\n");
+			goto of_error_put;
+		}
+
+		switch (port) {
+		case ADI_TX:
+			ret = adrv9002_parse_tx_dt(phy, child, chann);
+			break;
+		case ADI_RX:
+			ret = adrv9002_parse_rx_dt(phy, child, chann);
+			break;
+		default:
+			dev_err(dev, "Unknown port: %d\n", port);
+			ret = -EINVAL;
+			break;
+		};
+
+		if (ret)
+			goto of_error_put;
+	}
+
 	of_node_put(of_channels);
+	return 0;
+
+of_error_put:
+	of_node_put(child);
+	of_node_put(of_channels);
+	return ret;
+}
+
+static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
+{
+	struct device_node *parent = phy->spi->dev.of_node;
+	int ret;
+
+	ret = adrv9002_parse_channels_dt(phy, parent);
 	if (ret)
 		return ret;
+
+	ret = adrv9002_parse_gpios_dt(phy, parent);
+	if (ret)
+		return ret;
+
 	return adrv9002_parse_fh_dt(phy, parent);
 }
 
