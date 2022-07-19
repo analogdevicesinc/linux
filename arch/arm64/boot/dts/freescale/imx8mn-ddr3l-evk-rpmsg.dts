@@ -90,6 +90,7 @@
 			  &mu 3 1>;
 		memory-region = <&vdev0vring0>, <&vdev0vring1>, <&vdevbuffer>, <&rsc_table>;
 		status = "okay";
+		fsl,startup-delay-ms = <500>;
 	};
 };
 
