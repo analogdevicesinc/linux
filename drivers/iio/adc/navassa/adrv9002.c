@@ -3999,7 +3999,7 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 
 static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 {
-	int ret, idx = 0;
+	int ret = 0, idx = 0;
 	struct device_node *of_channels, *of_gpios = NULL;
 	struct device_node *parent = phy->spi->dev.of_node, *child;
 
@@ -4133,7 +4133,7 @@ of_gpio:
 		idx++;
 	}
 
-	ret = adrv9002_parse_fh_dt(phy, parent);
+	ret = 0;
 
 of_child_put:
 	of_node_put(child);
@@ -4141,7 +4141,9 @@ of_gpio_put:
 	of_node_put(of_gpios);
 of_channels_put:
 	of_node_put(of_channels);
-	return ret;
+	if (ret)
+		return ret;
+	return adrv9002_parse_fh_dt(phy, parent);
 }
 
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
