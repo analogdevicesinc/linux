@@ -22,10 +22,10 @@
 
 		in-gpios =  <&gpio_mux 4 GPIO_ACTIVE_HIGH>,
 				<&gpio_mux 5 GPIO_ACTIVE_HIGH>;
-		out-gpios = <&gpio_mux 0 GPIO_ACTIVE_HIGH>,
-				<&gpio_mux 1 GPIO_ACTIVE_HIGH>,
+		out-gpios = <&gpio_mux 3 GPIO_ACTIVE_HIGH>,
 				<&gpio_mux 2 GPIO_ACTIVE_HIGH>,
-				<&gpio_mux 3 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 1 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 0 GPIO_ACTIVE_HIGH>,
 				<&gpio_mux 6 GPIO_ACTIVE_HIGH>,
 				<&gpio_mux 7 GPIO_ACTIVE_HIGH>,
 				<&gpio_mux 11 GPIO_ACTIVE_HIGH>,
