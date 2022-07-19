@@ -50,6 +50,7 @@
 			  &mu 3 1>;
 		memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>, <&rsc_table>;
 		syscon = <&src>;
+		fsl,startup-delay-ms = <500>;
 	};
 };
 
