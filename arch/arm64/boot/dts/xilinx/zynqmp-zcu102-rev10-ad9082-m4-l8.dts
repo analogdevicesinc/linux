@@ -119,7 +119,7 @@
 		hmc7044_c12: channel@12 {
 			reg = <12>;
 			adi,extended-name = "FPGA_REFCLK2";
-			adi,divider = <6>;
+			adi,divider = <4>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 		};
 		hmc7044_c13: channel@13 {
