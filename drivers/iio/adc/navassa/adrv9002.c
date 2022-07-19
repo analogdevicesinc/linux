@@ -223,9 +223,17 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		if (ret)
 			return ret;
 
-		if (chann->port == ADI_RX) {
-			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
+		/*
+		 * We should set the tdd rate on TX's iterations since only at this point we
+		 * have the up to date dds rate. Moreover it does not make sense to do any
+		 * tdd configuration if both TX/RX on the same channel are not enabled.
+		 */
+		if (chann->port == ADI_TX) {
+			struct adrv9002_rx_chan *rx = &phy->rx_channels[chann->idx];
 			unsigned long rate;
+
+			if (!rx->channel.enabled)
+				continue;
 
 			rate = adrv9002_axi_dds_rate_get(phy, chann->idx) * chann->rate;
 			clk_set_rate(rx->tdd_clk, rate);
