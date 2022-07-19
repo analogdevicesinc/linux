@@ -346,11 +346,20 @@ static int lpi2c_imx_config(struct lpi2c_imx_struct *lpi2c_imx)
 static int lpi2c_imx_master_enable(struct lpi2c_imx_struct *lpi2c_imx)
 {
 	unsigned int temp;
+	bool enable_runtime_pm = false;
 	int ret;
 
+	if (!pm_runtime_enabled(lpi2c_imx->adapter.dev.parent)) {
+		pm_runtime_enable(lpi2c_imx->adapter.dev.parent);
+		enable_runtime_pm = true;
+	}
+
 	ret = pm_runtime_resume_and_get(lpi2c_imx->adapter.dev.parent);
-	if (ret < 0)
+	if (ret < 0) {
+		if (enable_runtime_pm)
+			pm_runtime_disable(lpi2c_imx->adapter.dev.parent);
 		return ret;
+	}
 
 	temp = MCR_RST;
 	writel(temp, lpi2c_imx->base + LPI2C_MCR);
@@ -364,11 +373,17 @@ static int lpi2c_imx_master_enable(struct lpi2c_imx_struct *lpi2c_imx)
 	temp |= MCR_MEN;
 	writel(temp, lpi2c_imx->base + LPI2C_MCR);
 
+	if (enable_runtime_pm)
+		pm_runtime_disable(lpi2c_imx->adapter.dev.parent);
+
 	return 0;
 
 rpm_put:
 	pm_runtime_mark_last_busy(lpi2c_imx->adapter.dev.parent);
 	pm_runtime_put_autosuspend(lpi2c_imx->adapter.dev.parent);
+
+	if (enable_runtime_pm)
+		pm_runtime_disable(lpi2c_imx->adapter.dev.parent);
 
 	return ret;
 }
