@@ -235,7 +235,7 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 			if (!rx->channel.enabled)
 				continue;
 
-			rate = adrv9002_axi_dds_rate_get(phy, chann->idx) * chann->rate;
+			rate = adrv9002_axi_dds_rate_get(phy, chann->idx) * rx->channel.rate;
 			clk_set_rate(rx->tdd_clk, rate);
 		}
 	}
