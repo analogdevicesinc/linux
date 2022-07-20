@@ -87,8 +87,11 @@ static struct kmem_cache *mm_slot_cache __read_mostly;
 
 struct collapse_control {
 	/* Num pages scanned per node */
-	int node_load[MAX_NUMNODES];
-
+#if HPAGE_PMD_ORDER < 16
+	u16 node_load[MAX_NUMNODES];
+#else
+	u32 node_load[MAX_NUMNODES];
+#endif
 	/* Last target selected in khugepaged_find_target_node() */
 	int last_target_node;
 };
