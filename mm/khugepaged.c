@@ -576,9 +576,10 @@ static int __collapse_huge_page_isolate(struct vm_area_struct *vma,
 		pte_t pteval = *_pte;
 		if (pte_none(pteval) || (pte_present(pteval) &&
 				is_zero_pfn(pte_pfn(pteval)))) {
+			++none_or_zero;
 			if (!userfaultfd_armed(vma) &&
-			    (++none_or_zero <= khugepaged_max_ptes_none ||
-			     !cc->is_khugepaged)) {
+			    (!cc->is_khugepaged ||
+			     none_or_zero <= khugepaged_max_ptes_none)) {
 				continue;
 			} else {
 				result = SCAN_EXCEED_NONE_PTE;
@@ -598,11 +599,14 @@ static int __collapse_huge_page_isolate(struct vm_area_struct *vma,
 
 		VM_BUG_ON_PAGE(!PageAnon(page), page);
 
-		if (cc->is_khugepaged && page_mapcount(page) > 1 &&
-		    ++shared > khugepaged_max_ptes_shared) {
-			result = SCAN_EXCEED_SHARED_PTE;
-			count_vm_event(THP_SCAN_EXCEED_SHARED_PTE);
-			goto out;
+		if (page_mapcount(page) > 1) {
+			++shared;
+			if (cc->is_khugepaged &&
+			    shared > khugepaged_max_ptes_shared) {
+				result = SCAN_EXCEED_SHARED_PTE;
+				count_vm_event(THP_SCAN_EXCEED_SHARED_PTE);
+				goto out;
+			}
 		}
 
 		if (PageCompound(page)) {
@@ -1134,8 +1138,9 @@ static int khugepaged_scan_pmd(struct mm_struct *mm, struct vm_area_struct *vma,
 	     _pte++, _address += PAGE_SIZE) {
 		pte_t pteval = *_pte;
 		if (is_swap_pte(pteval)) {
-			if (++unmapped <= khugepaged_max_ptes_swap ||
-			    !cc->is_khugepaged) {
+			++unmapped;
+			if (!cc->is_khugepaged ||
+			    unmapped <= khugepaged_max_ptes_swap) {
 				/*
 				 * Always be strict with uffd-wp
 				 * enabled swap entries.  Please see
@@ -1153,9 +1158,10 @@ static int khugepaged_scan_pmd(struct mm_struct *mm, struct vm_area_struct *vma,
 			}
 		}
 		if (pte_none(pteval) || is_zero_pfn(pte_pfn(pteval))) {
+			++none_or_zero;
 			if (!userfaultfd_armed(vma) &&
-			    (++none_or_zero <= khugepaged_max_ptes_none ||
-			     !cc->is_khugepaged)) {
+			    (!cc->is_khugepaged ||
+			     none_or_zero <= khugepaged_max_ptes_none)) {
 				continue;
 			} else {
 				result = SCAN_EXCEED_NONE_PTE;
@@ -1185,12 +1191,14 @@ static int khugepaged_scan_pmd(struct mm_struct *mm, struct vm_area_struct *vma,
 			goto out_unmap;
 		}
 
-		if (cc->is_khugepaged &&
-		    page_mapcount(page) > 1 &&
-		    ++shared > khugepaged_max_ptes_shared) {
-			result = SCAN_EXCEED_SHARED_PTE;
-			count_vm_event(THP_SCAN_EXCEED_SHARED_PTE);
-			goto out_unmap;
+		if (page_mapcount(page) > 1) {
+			++shared;
+			if (cc->is_khugepaged &&
+			    shared > khugepaged_max_ptes_shared) {
+				result = SCAN_EXCEED_SHARED_PTE;
+				count_vm_event(THP_SCAN_EXCEED_SHARED_PTE);
+				goto out_unmap;
+			}
 		}
 
 		page = compound_head(page);
@@ -1926,8 +1934,9 @@ static int khugepaged_scan_file(struct mm_struct *mm, struct file *file,
 			continue;
 
 		if (xa_is_value(page)) {
+			++swap;
 			if (cc->is_khugepaged &&
-			    ++swap > khugepaged_max_ptes_swap) {
+			    swap > khugepaged_max_ptes_swap) {
 				result = SCAN_EXCEED_SWAP_PTE;
 				count_vm_event(THP_SCAN_EXCEED_SWAP_PTE);
 				break;
@@ -1978,8 +1987,8 @@ static int khugepaged_scan_file(struct mm_struct *mm, struct file *file,
 	rcu_read_unlock();
 
 	if (result == SCAN_SUCCEED) {
-		if (present < HPAGE_PMD_NR - khugepaged_max_ptes_none &&
-		    cc->is_khugepaged) {
+		if (cc->is_khugepaged &&
+		    present < HPAGE_PMD_NR - khugepaged_max_ptes_none) {
 			result = SCAN_EXCEED_NONE_PTE;
 			count_vm_event(THP_SCAN_EXCEED_NONE_PTE);
 		} else {
