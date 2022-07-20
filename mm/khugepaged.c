@@ -2413,9 +2413,6 @@ int madvise_collapse(struct vm_area_struct *vma, struct vm_area_struct **prev,
 	if (!vma->anon_vma || !vma_is_anonymous(vma))
 		return -EINVAL;
 
-	hstart = (start + ~HPAGE_PMD_MASK) & HPAGE_PMD_MASK;
-	hend = end & HPAGE_PMD_MASK;
-
 	if (!hugepage_vma_check(vma, vma->vm_flags, false, false, false))
 		return -EINVAL;
 
@@ -2427,6 +2424,9 @@ int madvise_collapse(struct vm_area_struct *vma, struct vm_area_struct **prev,
 
 	mmgrab(mm);
 	lru_add_drain_all();
+
+	hstart = (start + ~HPAGE_PMD_MASK) & HPAGE_PMD_MASK;
+	hend = end & HPAGE_PMD_MASK;
 
 	for (addr = hstart; addr < hend; addr += HPAGE_PMD_SIZE) {
 		int result = SCAN_FAIL;
