@@ -389,8 +389,6 @@ static int dw_mipi_dsi_host_detach(struct mipi_dsi_host *host,
 
 	drm_of_panel_bridge_remove(host->dev->of_node, 1, 0);
 
-	drm_bridge_remove(&dsi->bridge);
-
 	return 0;
 }
 
@@ -1305,6 +1303,8 @@ __dw_mipi_dsi_probe(struct platform_device *pdev,
 
 static void __dw_mipi_dsi_remove(struct dw_mipi_dsi *dsi)
 {
+	drm_bridge_remove(&dsi->bridge);
+
 	mipi_dsi_host_unregister(&dsi->dsi_host);
 
 	pm_runtime_disable(dsi->dev);
