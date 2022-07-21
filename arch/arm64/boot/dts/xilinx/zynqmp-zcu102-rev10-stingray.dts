@@ -12,6 +12,10 @@
 
 #include "zynqmp-zcu102-rev10-ad9081-m8-l4-tdd.dts"
 
+&axi_data_offload_tx {
+	/delete-property/ adi,oneshot;
+};
+
 / {
 	clocks {
 		adf4371_clkin: clock@0 {
@@ -35,8 +39,8 @@
 	        #address-cells = <1>;
 	        #size-cells = <0>;
 
-	        out-gpios = <&gpio 139 0>, <&gpio 140 0>, <&gpio 141 0>,
-			<&gpio 142 0>, <&gpio 143 0>, <&gpio 144 0>;
+	        out-gpios = <&gpio 159 0>, <&gpio 160 0>, <&gpio 161 0>,
+			<&gpio 162 0>, <&gpio 163 0>, <&gpio 164 0>;
 		label = "stingray_control";
 
 	        channel@0 {
