@@ -583,7 +583,7 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw,
 	if (st->ref_is_div40)
 		*prate = rate * (1000 / 40);
 
-	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
+	dev_dbg(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
 		__func__, rate, *prate);
 
 	/* Just check if we can support the requested rate */
@@ -609,7 +609,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 	unsigned int i;
 	int ret;
 
-	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
+	dev_dbg(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
 
 	clk25_div = DIV_ROUND_CLOSEST(parent_rate, 25000000);
