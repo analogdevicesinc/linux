@@ -203,44 +203,30 @@ void mxc_isi_channel_set_outbuf(struct mxc_isi_dev *mxc_isi,
 {
 	struct vb2_buffer *vb2_buf = &buf->v4l2_buf.vb2_buf;
 	u32 framecount = buf->v4l2_buf.sequence;
-	struct frame_addr *paddr = &buf->paddr;
-	struct mxc_isi_cap_dev *isi_cap;
-	struct v4l2_pix_format_mplane *pix;
-	int val = 0;
+	dma_addr_t *dma_addrs = buf->dma_addrs;
+	struct mxc_isi_cap_dev *isi_cap = mxc_isi->isi_cap;
+	struct v4l2_pix_format_mplane *pix = &isi_cap->pix;
+	int val = 0, i;
 
-	if (buf->discard) {
-		isi_cap = mxc_isi->isi_cap;
-		pix = &isi_cap->pix;
-		paddr->y = isi_cap->discard_buffer_dma[0];
-		if (pix->num_planes == 2)
-			paddr->cb = isi_cap->discard_buffer_dma[1];
-		if (pix->num_planes == 3) {
-			paddr->cb = isi_cap->discard_buffer_dma[1];
-			paddr->cr = isi_cap->discard_buffer_dma[2];
-		}
-	} else {
-		paddr->y = vb2_dma_contig_plane_dma_addr(vb2_buf, 0);
-
-		if (vb2_buf->num_planes == 2)
-			paddr->cb = vb2_dma_contig_plane_dma_addr(vb2_buf, 1);
-		if (vb2_buf->num_planes == 3) {
-			paddr->cb = vb2_dma_contig_plane_dma_addr(vb2_buf, 1);
-			paddr->cr = vb2_dma_contig_plane_dma_addr(vb2_buf, 2);
-		}
+	for (i = 0; i < pix->num_planes; ++i) {
+		if (buf->discard)
+			dma_addrs[i] = isi_cap->discard_buffer_dma[i];
+		else
+			dma_addrs[i] = vb2_dma_contig_plane_dma_addr(vb2_buf, i);
 	}
 
 	val = readl(mxc_isi->regs + CHNL_OUT_BUF_CTRL);
 
 	if (framecount == 0 || ((is_buf_active(mxc_isi, 2)) && (framecount != 1))) {
-		writel(paddr->y, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_Y);
-		writel(paddr->cb, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_U);
-		writel(paddr->cr, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_V);
+		writel(dma_addrs[0], mxc_isi->regs + CHNL_OUT_BUF1_ADDR_Y);
+		writel(dma_addrs[1], mxc_isi->regs + CHNL_OUT_BUF1_ADDR_U);
+		writel(dma_addrs[2], mxc_isi->regs + CHNL_OUT_BUF1_ADDR_V);
 		val ^= CHNL_OUT_BUF_CTRL_LOAD_BUF1_ADDR_MASK;
 		buf->id = MXC_ISI_BUF1;
 	} else if (framecount == 1 || is_buf_active(mxc_isi, 1)) {
-		writel(paddr->y, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_Y);
-		writel(paddr->cb, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_U);
-		writel(paddr->cr, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_V);
+		writel(dma_addrs[0], mxc_isi->regs + CHNL_OUT_BUF2_ADDR_Y);
+		writel(dma_addrs[1], mxc_isi->regs + CHNL_OUT_BUF2_ADDR_U);
+		writel(dma_addrs[2], mxc_isi->regs + CHNL_OUT_BUF2_ADDR_V);
 		val ^= CHNL_OUT_BUF_CTRL_LOAD_BUF2_ADDR_MASK;
 		buf->id = MXC_ISI_BUF2;
 	}
@@ -252,11 +238,11 @@ void mxc_isi_channel_set_m2m_src_addr(struct mxc_isi_dev *mxc_isi,
 			struct mxc_isi_buffer *buf)
 {
 	struct vb2_buffer *vb2_buf = &buf->v4l2_buf.vb2_buf;
-	struct frame_addr *paddr = &buf->paddr;
+	dma_addr_t *dma_addrs = buf->dma_addrs;
 
 	/* Only support one plane */
-	paddr->y = vb2_dma_contig_plane_dma_addr(vb2_buf, 0);
-	writel(paddr->y, mxc_isi->regs + CHNL_IN_BUF_ADDR);
+	dma_addrs[0] = vb2_dma_contig_plane_dma_addr(vb2_buf, 0);
+	writel(dma_addrs[0], mxc_isi->regs + CHNL_IN_BUF_ADDR);
 }
 EXPORT_SYMBOL_GPL(mxc_isi_channel_set_m2m_src_addr);
 

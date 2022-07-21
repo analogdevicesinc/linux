@@ -160,31 +160,6 @@ static int mxc_isi_pipeline_enable(struct mxc_isi_cap_dev *isi_cap, bool enable)
 	return ret;
 }
 
-static int mxc_isi_update_buf_paddr(struct mxc_isi_buffer *buf, int memplanes)
-{
-	struct frame_addr *paddr = &buf->paddr;
-	struct vb2_buffer *vb2 = &buf->v4l2_buf.vb2_buf;
-
-	paddr->cb = 0;
-	paddr->cr = 0;
-
-	switch (memplanes) {
-	case 3:
-		paddr->cr = vb2_dma_contig_plane_dma_addr(vb2, 2);
-		fallthrough;
-	case 2:
-		paddr->cb = vb2_dma_contig_plane_dma_addr(vb2, 1);
-		fallthrough;
-	case 1:
-		paddr->y = vb2_dma_contig_plane_dma_addr(vb2, 0);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi)
 {
 	struct mxc_isi_cap_dev *isi_cap = mxc_isi->isi_cap;
@@ -251,9 +226,9 @@ static int cap_vb2_queue_setup(struct vb2_queue *q,
 			       struct device *alloc_devs[])
 {
 	struct mxc_isi_cap_dev *isi_cap = vb2_get_drv_priv(q);
+	struct v4l2_pix_format_mplane *format = &isi_cap->pix;
 	struct mxc_isi_frame *dst_f = &isi_cap->dst_f;
 	struct mxc_isi_fmt *fmt = dst_f->fmt;
-	unsigned long wh;
 	int i;
 
 	if (!fmt)
@@ -269,21 +244,13 @@ static int cap_vb2_queue_setup(struct vb2_queue *q,
 		return 0;
 	}
 
-	for (i = 0; i < fmt->memplanes; i++)
-		alloc_devs[i] = &isi_cap->pdev->dev;
-
-	wh = dst_f->width * dst_f->height;
-
 	*num_planes = fmt->memplanes;
 
 	for (i = 0; i < fmt->memplanes; i++) {
-		unsigned int size = (wh * fmt->depth[i]) / 8;
-
-		if (i == 1 && (fmt->fourcc == V4L2_PIX_FMT_NV12 ||
-			       fmt->fourcc == V4L2_PIX_FMT_NV12M))
-			size >>= 1;
-		sizes[i] = max_t(u32, size, dst_f->sizeimage[i]);
+		alloc_devs[i] = &isi_cap->pdev->dev;
+		sizes[i] = format->plane_fmt[i].sizeimage;
 	}
+
 	dev_dbg(&isi_cap->pdev->dev, "%s, buf_n=%d, size=%d\n",
 		__func__, *num_buffers, sizes[0]);
 
@@ -319,6 +286,27 @@ static int cap_vb2_buffer_prepare(struct vb2_buffer *vb2)
 	return 0;
 }
 
+static int cap_vb2_buffer_init(struct vb2_buffer *vb2)
+{
+	struct vb2_v4l2_buffer *v4l2_buf = to_vb2_v4l2_buffer(vb2);
+	struct mxc_isi_buffer *buf = to_isi_buffer(v4l2_buf);
+	struct mxc_isi_cap_dev *isi_cap = vb2_get_drv_priv(vb2->vb2_queue);
+	struct mxc_isi_frame *dst_f = &isi_cap->dst_f;
+	int i;
+
+	for (i = 0; i < dst_f->fmt->memplanes; ++i)
+		buf->dma_addrs[i] = vb2_dma_contig_plane_dma_addr(vb2, i);
+
+	if (dst_f->fmt->colplanes != dst_f->fmt->memplanes) {
+		unsigned int size = dst_f->bytesperline[0] * dst_f->height;
+
+		for (i = 1; i < dst_f->fmt->colplanes; ++i)
+			buf->dma_addrs[i] = buf->dma_addrs[i-1] + size;
+	}
+
+	return 0;
+}
+
 static void cap_vb2_buffer_queue(struct vb2_buffer *vb2)
 {
 	struct vb2_v4l2_buffer *v4l2_buf = to_vb2_v4l2_buffer(vb2);
@@ -328,7 +316,6 @@ static void cap_vb2_buffer_queue(struct vb2_buffer *vb2)
 
 	spin_lock_irqsave(&isi_cap->slock, flags);
 
-	mxc_isi_update_buf_paddr(buf, isi_cap->dst_f.fmt->mdataplanes);
 	list_add_tail(&buf->list, &isi_cap->out_pending);
 	v4l2_buf->field = V4L2_FIELD_NONE;
 
@@ -491,6 +478,7 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
 static struct vb2_ops mxc_cap_vb2_qops = {
 	.queue_setup		= cap_vb2_queue_setup,
 	.buf_prepare		= cap_vb2_buffer_prepare,
+	.buf_init		= cap_vb2_buffer_init,
 	.buf_queue		= cap_vb2_buffer_queue,
 	.wait_prepare		= vb2_ops_wait_prepare,
 	.wait_finish		= vb2_ops_wait_finish,
@@ -915,6 +903,16 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 		}
 	}
 
+	if (fmt->colplanes != fmt->memplanes) {
+		for (i = 1; i < fmt->colplanes; ++i) {
+			struct v4l2_plane_pix_format *plane = &pix->plane_fmt[i];
+
+			pix->plane_fmt[0].sizeimage += plane->sizeimage;
+			plane->bytesperline = 0;
+			plane->sizeimage = 0;
+		}
+	}
+
 	return 0;
 }
 
@@ -1020,7 +1018,7 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 
 	pix->num_planes = fmt->memplanes;
 
-	for (i = 0; i < pix->num_planes; i++) {
+	for (i = 0; i < fmt->colplanes; i++) {
 		bpl = pix->plane_fmt[i].bytesperline;
 
 		if ((bpl == 0) || (bpl / (fmt->depth[i] >> 3)) < pix->width)
@@ -1038,14 +1036,19 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 		}
 	}
 
-	if (pix->num_planes > 1) {
-		for (i = 0; i < pix->num_planes; i++) {
-			dst_f->bytesperline[i] = pix->plane_fmt[i].bytesperline;
-			dst_f->sizeimage[i]    = pix->plane_fmt[i].sizeimage;
+	if (fmt->colplanes != fmt->memplanes) {
+		for (i = 1; i < fmt->colplanes; ++i) {
+			struct v4l2_plane_pix_format *plane = &pix->plane_fmt[i];
+
+			pix->plane_fmt[0].sizeimage += plane->sizeimage;
+			plane->bytesperline = 0;
+			plane->sizeimage = 0;
 		}
-	} else {
-		dst_f->bytesperline[0] = dst_f->width * dst_f->fmt->depth[0] / 8;
-		dst_f->sizeimage[0]    = dst_f->height * dst_f->bytesperline[0];
+	}
+
+	for (i = 0; i < pix->num_planes; i++) {
+		dst_f->bytesperline[i] = pix->plane_fmt[i].bytesperline;
+		dst_f->sizeimage[i]    = pix->plane_fmt[i].sizeimage;
 	}
 
 	memcpy(&isi_cap->pix, pix, sizeof(*pix));
