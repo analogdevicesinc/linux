@@ -395,6 +395,7 @@ struct nxp_fspi {
 	u32 memmap_phy_size;
 	u32 memmap_start;
 	u32 memmap_len;
+	bool individual_mode;
 	struct clk *clk, *clk_en;
 	struct device *dev;
 	struct completion c;
@@ -1209,9 +1210,14 @@ static int nxp_fspi_default_setup(struct nxp_fspi *f)
 	fspi_writel(f, FSPI_DLLBCR_OVRDEN, base + FSPI_DLLBCR);
 
 	/* enable module */
-	fspi_writel(f, FSPI_MCR0_AHB_TIMEOUT(0xFF) |
-		    FSPI_MCR0_IP_TIMEOUT(0xFF) | (u32) FSPI_MCR0_OCTCOMB_EN,
-		    base + FSPI_MCR0);
+	reg = FSPI_MCR0_AHB_TIMEOUT(0xFF) | FSPI_MCR0_IP_TIMEOUT(0xFF);
+
+	/* if there are individual devices connected to each fspi port, */
+	/* please enable individual mode in DT. */
+	if (!f->individual_mode)
+		reg |= FSPI_MCR0_OCTCOMB_EN;
+
+	fspi_writel(f, reg, base + FSPI_MCR0);
 
 	/*
 	 * Disable same device enable bit and configure all target devices
@@ -1397,6 +1403,10 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 		goto err_disable_clk;
 	}
 
+	/* check if the controller work in combination or individual mode */
+	f->individual_mode = of_property_read_bool(np,
+						   "nxp,fspi-individual-mode");
+
 	mutex_init(&f->lock);
 
 	ctlr->bus_num = -1;
@@ -1469,12 +1479,12 @@ static int nxp_fspi_initialized(struct nxp_fspi *f)
 static int nxp_fspi_need_reinit(struct nxp_fspi *f)
 {
 	/*
-	 * we always use the controller in combination mode, so we check
-	 * this register bit to determine if the controller once lost power,
-	 * such as suspend/resume, and need to be re-init.
+	 * MCR2 SAMEDEVICEEN was set by default, so we check this
+	 * register bit to determine if the controller once lost
+	 * power, such as suspend/resume, and need to be re-init.
 	 */
 
-	return !(readl(f->iobase + FSPI_MCR0) & FSPI_MCR0_OCTCOMB_EN);
+	return (readl(f->iobase + FSPI_MCR2) & FSPI_MCR2_SAMEDEVICEEN);
 }
 
 static int nxp_fspi_runtime_suspend(struct device *dev)
