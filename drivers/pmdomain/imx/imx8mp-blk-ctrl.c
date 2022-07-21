@@ -687,6 +687,7 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 		.reg_bits	= 32,
 		.val_bits	= 32,
 		.reg_stride	= 4,
+		.disable_debugfs = true,
 	};
 
 	bc = devm_kzalloc(dev, sizeof(*bc), GFP_KERNEL);
