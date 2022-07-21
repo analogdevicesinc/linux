@@ -21,6 +21,8 @@ arm/soc
 		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/soc-part2
 	mvebu/soc
 		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-arm-5.20-1
+	at91/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-5.20
 
 arm/dt
 	samsung/dt
@@ -113,6 +115,14 @@ arm/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-5.20-1
 	mvebu/dt64
 		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-5.20-1
+	patch
+		ARM: dts: aspeed: centriq2400: drop the board
+	aspeed/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt-bindings-aspeed-5.20
+	qcom/dts-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-dts-for-5.20-2
+	qcom/dt64-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-5.20-2
 
 arm/drivers
 	renesas/drivers
@@ -141,6 +151,9 @@ arm/drivers
 		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-5.20
 	patch
 		soc: fujitsu: Add A64FX diagnostic interrupt driver
+		soc: a64fx-diag: disable modular build
+	qcom/drivers-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-5.20-2
 
 arm/defconfig
 	renesas/defconfig
@@ -157,10 +170,16 @@ arm/defconfig
 		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/defconfig-arm64
 	qcom/defconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20
+	qcom/defconfig-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20-2
 
 arm/late
 
 arm/fixes
+	patch
+		mailmap: update Baolin Wang's email
+	at91/fixes-3
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-5.19-3
 
 arm/newsoc
 	sunplus/newsoc
