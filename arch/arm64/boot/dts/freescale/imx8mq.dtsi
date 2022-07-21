@@ -1686,7 +1686,7 @@
 					 <&clk IMX8MQ_VIDEO2_PLL_OUT>,
 					 <&clk IMX8MQ_CLK_DISP_DTRC>,
 					 <&clk IMX8MQ_VIDEO2_PLL1_REF_SEL>,
-					 <&clk IMX8MQ_CLK_PHY_27MHZ>;
+					 <&hdmi_phy_27m>;
 				clock-names = "apb", "axi", "rtrm", "pix", "dtrc", "pll_src",
 						      "pll_phy_ref";
 				assigned-clocks = <&clk IMX8MQ_CLK_DISP_AXI>,
