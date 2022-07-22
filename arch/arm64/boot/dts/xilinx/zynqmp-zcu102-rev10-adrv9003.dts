@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9002
+ *
+ * hdl_project: <adrv9001/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-adrv9002.dts"
+
+/delete-node/ &tx2_dma;
+/delete-node/ &axi_adrv9002_core_tx2;
+/delete-node/ &axi_adrv9002_core_tdd2;
+
+&adc0_adrv9002 {
+	compatible = "adi,adrv9003";
+
+	clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "tdd1_intf_clk", "rx2_sampl_clk";
+	/* delete tx2 and ORX2 gpio */
+	adi,channels {
+		/delete-node/ tx@1;
+		rx@1 {
+			/delete-property/ orx-gpios;
+		};
+	};
+
+	adi,gpios {
+		/delete-node/ gpio@1;
+	};
+};
