@@ -2152,6 +2152,34 @@ static const struct iio_chan_spec adrv9002_phy_chan[] = {
 	},
 };
 
+static const struct iio_chan_spec adrv9003_phy_chan[] = {
+	ADRV9002_IIO_LO_CHAN(0, "RX1_LO", ADI_RX, ADRV9002_CHANN_1),
+	ADRV9002_IIO_LO_CHAN(1, "RX2_LO", ADI_RX, ADRV9002_CHANN_2),
+	ADRV9002_IIO_LO_CHAN(2, "TX1_LO", ADI_TX, ADRV9002_CHANN_1),
+	ADRV9002_IIO_TX_CHAN(0, ADI_TX, ADRV9002_CHANN_1),
+	ADRV9002_IIO_AUX_CONV_CHAN(1, true, ADI_ADRV9001_AUXDAC0),
+	ADRV9002_IIO_AUX_CONV_CHAN(2, true, ADI_ADRV9001_AUXDAC1),
+	ADRV9002_IIO_AUX_CONV_CHAN(3, true, ADI_ADRV9001_AUXDAC2),
+	ADRV9002_IIO_AUX_CONV_CHAN(4, true, ADI_ADRV9001_AUXDAC3),
+	ADRV9002_IIO_RX_CHAN(0, ADI_RX, ADRV9002_CHANN_1),
+	ADRV9002_IIO_RX_CHAN(1, ADI_RX, ADRV9002_CHANN_2),
+	/*
+	 * as Orx shares the same data path as Rx, let's just point
+	 * them to the same Rx index...
+	 */
+	ADRV9002_IIO_ORX_CHAN(0, ADI_ORX, ADRV9002_CHANN_1),
+	ADRV9002_IIO_AUX_CONV_CHAN(2, false, ADI_ADRV9001_AUXADC0),
+	ADRV9002_IIO_AUX_CONV_CHAN(3, false, ADI_ADRV9001_AUXADC1),
+	ADRV9002_IIO_AUX_CONV_CHAN(4, false, ADI_ADRV9001_AUXADC2),
+	ADRV9002_IIO_AUX_CONV_CHAN(5, false, ADI_ADRV9001_AUXADC3),
+	{
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
+};
+
 static IIO_CONST_ATTR(frequency_hopping_hop_table_select_available, "TABLE_A TABLE_B");
 static IIO_DEVICE_ATTR(frequency_hopping_hop1_table_select, 0600, adrv9002_attr_show,
 		       adrv9002_attr_store, ADRV9002_HOP_1_TABLE_SEL);
@@ -2501,6 +2529,11 @@ tx:
 		/* tx validations*/
 		if (!ADRV9001_BF_EQUAL(phy->curr_profile->tx.txInitChannelMask, tx_channels[i]))
 			continue;
+
+		if (i >= phy->chip->n_tx) {
+			dev_err(&phy->spi->dev, "TX%d not supported for this device\n", i + 1);
+			return -EINVAL;
+		}
 
 		/* check @tx_only comments in adrv9002.h to better understand the next checks */
 		if (phy->ssi_type != tx_cfg[i].txSsiConfig.ssiType) {
@@ -3656,6 +3689,11 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
 	int ret;
 
+	if (channel >= phy->chip->n_tx) {
+		dev_err(&phy->spi->dev, "TX%d not supported for this device\n", channel + 1);
+		return -EINVAL;
+	}
+
 	if (of_property_read_bool(node, "adi,dac-full-scale-boost"))
 		tx->dac_boost_en = true;
 
@@ -4174,6 +4212,10 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 
 		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
 			break;
+		/* nothing else to do if there's no TX2 */
+		if (chan->port == ADI_TX && chan->idx >= phy->chip->n_tx)
+			break;
+
 		adrv9002_axi_interface_enable(phy, chan->idx, chan->port == ADI_TX, false);
 	}
 
@@ -4535,6 +4577,14 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		if (IS_ERR(rx->channel.clk))
 			return PTR_ERR(rx->channel.clk);
 
+		/*
+		 * We do not support more TXs so break now. Note that in rx2tx2 mode, we
+		 * set the clk pointer of a non existing channel but since it won't ever
+		 * be used it's not a problem so let's keep the code simple in here.
+		 */
+		if (c >= phy->chip->n_tx)
+			break;
+
 		tx->clk = adrv9002_clk_register(phy, clk_names[c + TX1_SAMPL_CLK],
 						CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
 						c + TX1_SAMPL_CLK);
@@ -4556,7 +4606,7 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	}
 
 	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS) {
-		ret = adrv9002_profile_load(phy, "Navassa_LVDS_profile.json");
+		ret = adrv9002_profile_load(phy, phy->chip->lvd_profile);
 		if (ret)
 			return ret;
 	}
@@ -4578,11 +4628,11 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		return ret;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi->dev.of_node->name;
+	indio_dev->name = phy->chip->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &adrv9002_phy_info;
-	indio_dev->channels = adrv9002_phy_chan;
-	indio_dev->num_channels = ARRAY_SIZE(adrv9002_phy_chan);
+	indio_dev->channels = phy->chip->channels;
+	indio_dev->num_channels = phy->chip->num_channels;
 
 	if (spi->irq) {
 		const unsigned long mask = IRQF_TRIGGER_RISING | IRQF_ONESHOT;
@@ -4639,17 +4689,49 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
+static const struct adrv9002_chip_info adrv9002_info[] = {
+	[ID_ADRV9002] = {
+		.channels = adrv9002_phy_chan,
+		.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+		.cmos_profile = "Navassa_CMOS_profile.json",
+		.lvd_profile = "Navassa_LVDS_profile.json",
+		.name = "adrv9002-phy",
+		.n_tx = ADRV9002_CHANN_MAX,
+	},
+	[ID_ADRV9002_RX2TX2] = {
+		.channels = adrv9002_phy_chan,
+		.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
+		.cmos_profile = "Navassa_CMOS_profile.json",
+		.lvd_profile = "Navassa_LVDS_profile.json",
+		.name = "adrv9002-phy",
+		.n_tx = ADRV9002_CHANN_MAX,
+		.rx2tx2 = true,
+	},
+	[ID_ADRV9003] = {
+		.channels = adrv9003_phy_chan,
+		.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
+		.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
+		.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
+		.name = "adrv9003-phy",
+		.n_tx = 1,
+	},
+	[ID_ADRV9003_RX2TX2] = {
+		.channels = adrv9003_phy_chan,
+		.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
+		.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
+		.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
+		.name = "adrv9003-phy",
+		.n_tx = 1,
+		.rx2tx2 = true,
+	},
+};
+
 static int adrv9002_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adrv9002_rf_phy *phy;
 	struct clk *clk = NULL;
 	int ret, c;
-	const int *id;
-
-	id = of_device_get_match_data(&spi->dev);
-	if (!id)
-		return -EINVAL;
 
 	clk = devm_clk_get(&spi->dev, "adrv9002_ext_refclk");
 	if (IS_ERR(clk))
@@ -4662,8 +4744,13 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy = iio_priv(indio_dev);
 	phy->indio_dev = indio_dev;
 	phy->spi = spi;
-	phy->spi_device_id = *id;
-	if (phy->spi_device_id == ID_ADRV9002_RX2TX2)
+
+	phy->chip = of_device_get_match_data(&spi->dev);
+	if (!phy->chip)
+		return -EINVAL;
+
+	/* in the future we might want to get rid of 'phy->rx2tx2' and just use chip_info  */
+	if (phy->chip->rx2tx2)
 		phy->rx2tx2 = true;
 
 	mutex_init(&phy->lock);
@@ -4671,7 +4758,7 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->hal.spi = spi;
 	phy->adrv9001->common.devHalInfo = &phy->hal;
 
-	ret = adrv9002_profile_load(phy, "Navassa_CMOS_profile.json");
+	ret = adrv9002_profile_load(phy, phy->chip->cmos_profile);
 	if (ret)
 		return ret;
 
@@ -4716,12 +4803,11 @@ static int adrv9002_probe(struct spi_device *spi)
 	return adrv9002_register_axi_converter(phy);
 }
 
-static const int adrv9002_id = ID_ADRV9002;
-static const int adrv9002_rx2tx2_id = ID_ADRV9002_RX2TX2;
-
 static const struct of_device_id adrv9002_of_match[] = {
-	{.compatible = "adi,adrv9002", .data = &adrv9002_id},
-	{.compatible = "adi,adrv9002-rx2tx2", .data = &adrv9002_rx2tx2_id},
+	{.compatible = "adi,adrv9002", .data = &adrv9002_info[ID_ADRV9002]},
+	{.compatible = "adi,adrv9002-rx2tx2", .data = &adrv9002_info[ID_ADRV9002_RX2TX2]},
+	{.compatible = "adi,adrv9003", .data = &adrv9002_info[ID_ADRV9003]},
+	{.compatible = "adi,adrv9003-rx2tx2", .data = &adrv9002_info[ID_ADRV9003_RX2TX2]},
 	{}
 };
 

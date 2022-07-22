@@ -25,6 +25,8 @@
 #include "adi_adrv9001_ssi_types.h"
 #include "linux_platform.h"
 
+struct iio_chan_spec;
+
 #define ADRV_ADDRESS(port, chan)	((port) << 8 | (chan))
 #define ADRV_ADDRESS_PORT(addr)		((addr) >> 8)
 #define ADRV_ADDRESS_CHAN(addr)		((addr) & 0xFF)
@@ -51,6 +53,8 @@ enum {
 enum ad900x_device_id {
 	ID_ADRV9002,
 	ID_ADRV9002_RX2TX2,
+	ID_ADRV9003,
+	ID_ADRV9003_RX2TX2,
 };
 
 enum adrv9002_clocks {
@@ -180,7 +184,18 @@ struct adrv9002_fh_bin_table {
 
 #define to_clk_priv(_hw) container_of(_hw, struct adrv9002_clock, hw)
 
+struct adrv9002_chip_info {
+	const struct iio_chan_spec *channels;
+	const char *cmos_profile;
+	const char *lvd_profile;
+	const char *name;
+	u32 num_channels;
+	u32 n_tx;
+	bool rx2tx2;
+};
+
 struct adrv9002_rf_phy {
+	const struct adrv9002_chip_info *chip;
 	struct spi_device		*spi;
 	struct iio_dev			*indio_dev;
 	struct gpio_desc		*reset_gpio;
@@ -207,7 +222,6 @@ struct adrv9002_rf_phy {
 	struct adi_adrv9001_Init	profile;
 	struct adi_adrv9001_InitCals	init_cals;
 	u32				n_clks;
-	int				spi_device_id;
 	int				ngpios;
 	u8				rx2tx2;
 	/* ssi type of the axi cores - cannot really change at runtime */
