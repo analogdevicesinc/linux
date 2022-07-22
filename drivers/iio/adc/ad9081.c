@@ -4050,6 +4050,14 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 		return -ENODEV;
 	}
 
+	ret = of_property_read_u32(of_channels, "adi,lane-invert-mask", &tmp);
+	if (!ret)
+		phy->ad9081.serdes_info.des_settings.invert_mask = tmp;
+
+	ret = of_property_read_u32(of_channels, "adi,lane-boost-mask", &tmp);
+	if (!ret)
+		phy->ad9081.serdes_info.des_settings.boost_mask = tmp;
+
 	of_property_read_variable_u8_array(
 		of_channels, "adi,ctle-filter-settings",
 		phy->ad9081.serdes_info.des_settings.ctle_filter, 1,
@@ -4084,7 +4092,8 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 	struct device_node *of_channels, *of_chan;
 	struct device_node *of_trx_path;
 	u32 reg, tmp, nz;
-	int ret;
+	int ret, i;
+	u8 lane_cfg[8];
 
 	/* The 4 ADC Main Datapaths */
 
@@ -4175,6 +4184,37 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 		of_node_put(of_trx_path);
 		return -ENODEV;
 	}
+
+	ret = of_property_read_u32(of_channels, "adi,lane-invert-mask", &tmp);
+	if (!ret)
+		phy->ad9081.serdes_info.ser_settings.invert_mask = tmp;
+
+	ret = of_property_read_variable_u8_array(of_channels,
+		"adi,lane-swing-settings", lane_cfg, ARRAY_SIZE(lane_cfg),
+		ARRAY_SIZE(lane_cfg));
+
+	if (ret > 0)
+		for (i = 0; i < ARRAY_SIZE(lane_cfg); i++)
+			phy->ad9081.serdes_info.ser_settings.lane_settings[i].swing_setting =
+				lane_cfg[i];
+
+	ret = of_property_read_variable_u8_array(of_channels,
+		"adi,lane-pre-emp-settings", lane_cfg, ARRAY_SIZE(lane_cfg),
+		ARRAY_SIZE(lane_cfg));
+
+	if (ret > 0)
+		for (i = 0; i < ARRAY_SIZE(lane_cfg); i++)
+			phy->ad9081.serdes_info.ser_settings.lane_settings[i].pre_emp_setting =
+				lane_cfg[i];
+
+	ret = of_property_read_variable_u8_array(of_channels,
+		"adi,lane-post-emp-settings", lane_cfg, ARRAY_SIZE(lane_cfg),
+		ARRAY_SIZE(lane_cfg));
+
+	if (ret > 0)
+		for (i = 0; i < ARRAY_SIZE(lane_cfg); i++)
+			phy->ad9081.serdes_info.ser_settings.lane_settings[i].post_emp_setting =
+				lane_cfg[i];
 
 	for_each_child_of_node(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
