@@ -389,6 +389,8 @@
 				#size-cells = <0>;
 				#address-cells = <1>;
 
+				adi,lane-invert-mask = <0>;
+
 				ad9081_tx_jesd_l0: link@0 {
 					#address-cells = <1>;
 					#size-cells = <0>;
@@ -495,6 +497,8 @@
 			adi,jesd-links {
 				#size-cells = <0>;
 				#address-cells = <1>;
+
+				adi,lane-invert-mask = <0>;
 
 				ad9081_rx_jesd_l0: link@0 {
 					reg = <0>;
