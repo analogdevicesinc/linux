@@ -1316,7 +1316,7 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 
 	debugfs_create_file("api_version", 0400, d, NULL, &adrv9002_api_version_get_fops);
 
-	for (chan = 0; chan < ARRAY_SIZE(phy->tx_channels); chan++) {
+	for (chan = 0; chan < phy->chip->n_tx; chan++) {
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[chan];
 
 		sprintf(attr, "tx%d_attenuation_pin_control", chan);

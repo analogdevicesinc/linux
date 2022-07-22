@@ -537,6 +537,7 @@ void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, 
 
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 {
+	int id = phy->chip->rx2tx2 ? ID_ADRV9002_RX2TX2 : ID_ADRV9002;
 	struct axiadc_converter *conv;
 	struct spi_device *spi = phy->spi;
 
@@ -544,7 +545,7 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 	if (!conv)
 		return -ENOMEM;
 
-	conv->chip_info = &axiadc_chip_info_tbl[phy->spi_device_id];
+	conv->chip_info = &axiadc_chip_info_tbl[id];
 	conv->write_raw = adrv9002_write_raw;
 	conv->read_raw = adrv9002_read_raw;
 	conv->post_setup = adrv9002_post_setup;
