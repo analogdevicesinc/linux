@@ -279,8 +279,6 @@ bool cgroup_ssid_enabled(int ssid)
  *
  * - When mounting an existing superblock, mount options should match.
  *
- * - Remount is disallowed.
- *
  * - rename(2) is disallowed.
  *
  * - "tasks" is removed.  Everything should be at process granularity.  Use
@@ -1309,6 +1307,20 @@ struct cgroup_root *cgroup_root_from_kf(struct kernfs_root *kf_root)
 	return root_cgrp->root;
 }
 
+void cgroup_favor_dynmods(struct cgroup_root *root, bool favor)
+{
+	bool favoring = root->flags & CGRP_ROOT_FAVOR_DYNMODS;
+
+	/* see the comment above CGRP_ROOT_FAVOR_DYNMODS definition */
+	if (favor && !favoring) {
+		rcu_sync_enter(&cgroup_threadgroup_rwsem.rss);
+		root->flags |= CGRP_ROOT_FAVOR_DYNMODS;
+	} else if (!favor && favoring) {
+		rcu_sync_exit(&cgroup_threadgroup_rwsem.rss);
+		root->flags &= ~CGRP_ROOT_FAVOR_DYNMODS;
+	}
+}
+
 static int cgroup_init_root_id(struct cgroup_root *root)
 {
 	int id;
@@ -1369,6 +1381,7 @@ static void cgroup_destroy_root(struct cgroup_root *root)
 		cgroup_root_count--;
 	}
 
+	cgroup_favor_dynmods(root, false);
 	cgroup_exit_root_id(root);
 
 	mutex_unlock(&cgroup_mutex);
@@ -1861,16 +1874,22 @@ int cgroup_show_path(struct seq_file *sf, struct kernfs_node *kf_node,
 }
 
 enum cgroup2_param {
-	Opt_nsdelegate,
-	Opt_memory_localevents,
-	Opt_memory_recursiveprot,
+	Opt_nsdelegate, Opt_nonsdelegate,
+	Opt_favordynmods, Opt_nofavordynmods,
+	Opt_memory_localevents, Opt_memory_nolocalevents,
+	Opt_memory_recursiveprot, Opt_memory_norecursiveprot,
 	nr__cgroup2_params
 };
 
 static const struct fs_parameter_spec cgroup2_fs_parameters[] = {
 	fsparam_flag("nsdelegate",		Opt_nsdelegate),
+	fsparam_flag("nonsdelegate",		Opt_nonsdelegate),
+	fsparam_flag("favordynmods",		Opt_favordynmods),
+	fsparam_flag("nofavordynmods",		Opt_nofavordynmods),
 	fsparam_flag("memory_localevents",	Opt_memory_localevents),
+	fsparam_flag("memory_nolocalevents",	Opt_memory_nolocalevents),
 	fsparam_flag("memory_recursiveprot",	Opt_memory_recursiveprot),
+	fsparam_flag("memory_norecursiveprot",	Opt_memory_norecursiveprot),
 	{}
 };
 
@@ -1888,11 +1907,26 @@ static int cgroup2_parse_param(struct fs_context *fc, struct fs_parameter *param
 	case Opt_nsdelegate:
 		ctx->flags |= CGRP_ROOT_NS_DELEGATE;
 		return 0;
+	case Opt_nonsdelegate:
+		ctx->flags &= ~CGRP_ROOT_NS_DELEGATE;
+		return 0;
+	case Opt_favordynmods:
+		ctx->flags |= CGRP_ROOT_FAVOR_DYNMODS;
+		return 0;
+	case Opt_nofavordynmods:
+		ctx->flags &= ~CGRP_ROOT_FAVOR_DYNMODS;
+		return 0;
 	case Opt_memory_localevents:
 		ctx->flags |= CGRP_ROOT_MEMORY_LOCAL_EVENTS;
 		return 0;
+	case Opt_memory_nolocalevents:
+		ctx->flags &= ~CGRP_ROOT_MEMORY_LOCAL_EVENTS;
+		return 0;
 	case Opt_memory_recursiveprot:
 		ctx->flags |= CGRP_ROOT_MEMORY_RECURSIVE_PROT;
+		return 0;
+	case Opt_memory_norecursiveprot:
+		ctx->flags &= ~CGRP_ROOT_MEMORY_RECURSIVE_PROT;
 		return 0;
 	}
 	return -EINVAL;
@@ -1905,6 +1939,9 @@ static void apply_cgroup_root_flags(unsigned int root_flags)
 			cgrp_dfl_root.flags |= CGRP_ROOT_NS_DELEGATE;
 		else
 			cgrp_dfl_root.flags &= ~CGRP_ROOT_NS_DELEGATE;
+
+		cgroup_favor_dynmods(&cgrp_dfl_root,
+				     root_flags & CGRP_ROOT_FAVOR_DYNMODS);
 
 		if (root_flags & CGRP_ROOT_MEMORY_LOCAL_EVENTS)
 			cgrp_dfl_root.flags |= CGRP_ROOT_MEMORY_LOCAL_EVENTS;
@@ -1922,6 +1959,8 @@ static int cgroup_show_options(struct seq_file *seq, struct kernfs_root *kf_root
 {
 	if (cgrp_dfl_root.flags & CGRP_ROOT_NS_DELEGATE)
 		seq_puts(seq, ",nsdelegate");
+	if (cgrp_dfl_root.flags & CGRP_ROOT_FAVOR_DYNMODS)
+		seq_puts(seq, ",favordynmods");
 	if (cgrp_dfl_root.flags & CGRP_ROOT_MEMORY_LOCAL_EVENTS)
 		seq_puts(seq, ",memory_localevents");
 	if (cgrp_dfl_root.flags & CGRP_ROOT_MEMORY_RECURSIVE_PROT)
@@ -1972,7 +2011,8 @@ void init_cgroup_root(struct cgroup_fs_context *ctx)
 	cgrp->root = root;
 	init_cgroup_housekeeping(cgrp);
 
-	root->flags = ctx->flags;
+	/* DYNMODS must be modified through cgroup_favor_dynmods() */
+	root->flags = ctx->flags & ~CGRP_ROOT_FAVOR_DYNMODS;
 	if (ctx->release_agent)
 		strscpy(root->release_agent_path, ctx->release_agent, PATH_MAX);
 	if (ctx->name)
@@ -2194,6 +2234,10 @@ static int cgroup_init_fs_context(struct fs_context *fc)
 	put_user_ns(fc->user_ns);
 	fc->user_ns = get_user_ns(ctx->ns->user_ns);
 	fc->global = true;
+
+#ifdef CONFIG_CGROUP_FAVOR_DYNMODS
+	ctx->flags |= CGRP_ROOT_FAVOR_DYNMODS;
+#endif
 	return 0;
 }
 
@@ -2941,11 +2985,10 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 	struct cgroup_subsys_state *d_css;
 	struct cgroup *dsct;
 	struct css_set *src_cset;
+	bool has_tasks;
 	int ret;
 
 	lockdep_assert_held(&cgroup_mutex);
-
-	percpu_down_write(&cgroup_threadgroup_rwsem);
 
 	/* look up all csses currently attached to @cgrp's subtree */
 	spin_lock_irq(&css_set_lock);
@@ -2956,6 +2999,16 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 			cgroup_migrate_add_src(link->cset, dsct, &mgctx);
 	}
 	spin_unlock_irq(&css_set_lock);
+
+	/*
+	 * We need to write-lock threadgroup_rwsem while migrating tasks.
+	 * However, if there are no source csets for @cgrp, changing its
+	 * controllers isn't gonna produce any task migrations and the
+	 * write-locking can be skipped safely.
+	 */
+	has_tasks = !list_empty(&mgctx.preloaded_src_csets);
+	if (has_tasks)
+		percpu_down_write(&cgroup_threadgroup_rwsem);
 
 	/* NULL dst indicates self on default hierarchy */
 	ret = cgroup_migrate_prepare_dst(&mgctx);
@@ -2976,7 +3029,8 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 	ret = cgroup_migrate_execute(&mgctx);
 out_finish:
 	cgroup_migrate_finish(&mgctx);
-	percpu_up_write(&cgroup_threadgroup_rwsem);
+	if (has_tasks)
+		percpu_up_write(&cgroup_threadgroup_rwsem);
 	return ret;
 }
 
@@ -5843,12 +5897,6 @@ int __init cgroup_init(void)
 
 	cgroup_rstat_boot();
 
-	/*
-	 * The latency of the synchronize_rcu() is too high for cgroups,
-	 * avoid it at the cost of forcing all readers into the slow path.
-	 */
-	rcu_sync_enter_start(&cgroup_threadgroup_rwsem.rss);
-
 	get_user_ns(init_cgroup_ns.user_ns);
 
 	mutex_lock(&cgroup_mutex);
@@ -6760,6 +6808,7 @@ static ssize_t features_show(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	return snprintf(buf, PAGE_SIZE,
 			"nsdelegate\n"
+			"favordynmods\n"
 			"memory_localevents\n"
 			"memory_recursiveprot\n");
 }
