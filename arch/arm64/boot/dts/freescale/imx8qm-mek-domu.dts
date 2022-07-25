@@ -259,7 +259,7 @@
 			clock-output-names = "xtal_24MHz";
 		};
 
-		scu {
+		system-controller {
 			compatible = "fsl,imx-scu";
 			mbox-names = "tx0", "tx1", "tx2", "tx3",
 				     "rx0", "rx1", "rx2", "rx3",
