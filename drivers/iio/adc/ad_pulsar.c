@@ -56,14 +56,21 @@
 #define AD7682_REFBUF_SEL(x)            FIELD_PREP(AD7682_REFBUF_MSK, x)
 #define AD7682_BW_SEL(x)                FIELD_PREP(AD7682_FILTER_MSK, x)
 #define AD7682_SEL_CH(x)                FIELD_PREP(AD7682_SEL_MSK, x)
+#define AD7682_GET_FILTER(x)            FIELD_GET(AD7682_FILTER_MSK, x)
 
-#define AD7682_CH_TEMP_SENSOR           AD7682_CH_TYPE(SINGLE_ENDED) |         \
-        AD7682_CH_REF(GND) | AD7682_CH_POLARITY(BIPOLAR)
+#define AD7862_SET_TYPE(reg, type)      reg = (reg & ~AD7682_PAIR_MSK) | \
+                                        AD7682_CH_TYPE(type)
+#define AD7682_SET_POLARITY(reg, pol)   reg = (reg & ~AD7682_POLARITY_MSK) | \
+                                        AD7682_CH_POLARITY(pol)
+
+#define AD7682_CH_TEMP_SENSOR           AD7682_REFBUF_SEL(INT_REF_4096) | \
+        AD7682_UPDATE_CFG | AD7682_CH_TYPE(SINGLE_ENDED) | AD7682_CH_REF(GND) |\
+        AD7682_CH_POLARITY(BIPOLAR)
 #define AD7682_SEQ_EN_CHANNEL(i)        AD7682_UPDATE_CFG | AD7682_SEL_CH(i) | \
         AD7682_NO_READBACK | AD7682_CH_REF(COM) | AD7682_SEQ_SCAN(DISABLED) |  \
-        AD7682_CH_POLARITY(BIPOLAR) | AD7682_CH_TYPE(SINGLE_ENDED) |          \
-        AD7682_REFBUF_SEL(EXT_REF_4) | AD7682_BW_SEL(FUL_BW)
-        // AD7682_CH_POLARITY(UNIPOLAR) | AD7682_CH_TYPE(SINGLE_ENDED) |          \
+        AD7682_CH_POLARITY(UNIPOLAR) | AD7682_CH_TYPE(SINGLE_ENDED) |          \
+        AD7682_REFBUF_SEL(INT_REF_4096) | AD7682_BW_SEL(FULL_BW)
+        // AD7682_REFBUF_SEL(EXT_REF_4) | AD7682_BW_SEL(FULL_BW)
 
 enum {
         ID_AD7988_5,
@@ -125,7 +132,12 @@ enum ad_pulsar_sequencer_scan {
 
 enum ad_pulsar_filter_bw {
         QUARTER_BW = 0,
-        FUL_BW
+        FULL_BW
+};
+
+unsigned int ad_pulsar_filter_freq[] = {
+        [QUARTER_BW] = 1700000,
+        [FULL_BW] = 425000
 };
 
 struct ad_pulsar_chip_info {
@@ -360,7 +372,7 @@ static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
                 // .speed_hz = adc->info->sclk_rate / 4,
                 .speed_hz = adc->info->sclk_rate,
                 // .len = 4,
-                .len = 2,
+                .len = 4,
 	};
         unsigned int rx, tx;
         int ret;
@@ -431,14 +443,14 @@ static int ad_pulsar_read_channel(struct iio_dev *indio_dev,
         unsigned int temp;
         int ret, i;
 
-        // temp = adc->seq_buf[chan->scan_index] & AD7682_SEQ_SCAN(DISABLED);
-        temp = (0x3C79 | (chan->scan_index << 7));
+        temp = chan->address;
 
-        for (i = 0; i < 3; i++) {
+        for (i = 0; i < 4; i++) {
                 ret = ad_pulsar_reg_read(adc, temp, val);
                 if (ret < 0)
                         return ret;
         }
+
         return 0;
 }
 
@@ -461,13 +473,24 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 
                 return IIO_VAL_INT;
         case IIO_CHAN_INFO_SCALE:
-		ret = regulator_get_voltage(adc->vref);
-		if (ret < 0)
-			return ret;
-		*val = ret / 1000;
-		*val2 = adc->info->resolution;
+		switch (chan->type) {
+		case IIO_VOLTAGE:
+                        ret = regulator_get_voltage(adc->vref);
+                        if (ret < 0)
+                                return ret;
+                        *val = ret / 1000;
+                        *val2 = adc->info->resolution;
 
-		return IIO_VAL_FRACTIONAL_LOG2;
+                        return IIO_VAL_FRACTIONAL_LOG2;
+                case IIO_TEMP:
+                        *val = 283;
+                        return IIO_VAL_INT;
+                }
+        case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
+                *val = AD7682_GET_FILTER(chan->address);
+
+                return IIO_VAL_INT;
+
         default:
                 return -EINVAL;
         }
@@ -482,10 +505,32 @@ static int ad_pulsar_write_raw(struct iio_dev *indio_dev,
         switch (info){
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad_pulsar_set_samp_freq(adc, val);
+        case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
+                return ad_pulsar_set_lpf(adc, chan->scan_index, val);
 	default:
 		return -EINVAL;
         }
 }
+
+static ssize_t ad_pulsar_show_filter_avail(struct device *dev,
+				           struct device_attribute *attr,
+				           char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	int i, len = 0;
+
+	for (i = 0; i < ARRAY_SIZE(ad_pulsar_filter_freq); i++) {
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%d ",
+                                 ad_pulsar_filter_freq[i]);
+	}
+
+	buf[len - 1] = '\n';
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(filter_low_pass_3db_frequency_available,
+		       0444, ad_pulsar_show_filter_avail, NULL, 0);
 
 static void ad_pulsar_reg_disable(void *data)
 {
@@ -506,6 +551,8 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 {
         struct ad_pulsar_adc *adc = iio_priv(indio_dev);
         unsigned int spi_tx_data = 0xFFFFFFFF;
+        int ret, ch, first, second, last, i;
+        unsigned int freq, num_en_ch;
         unsigned int spi_rx_data;
         struct spi_transfer xfer = {
                 .tx_buf = &spi_tx_data,
@@ -515,23 +562,6 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
                 .speed_hz = adc->info->sclk_rate,
         };
         struct spi_message msg;
-        int ret, ch, first, second, last, i;
-
-        // spi_bus_lock(adc->spi->master);
-
-        // if (adc->info->sequencer)
-        //         spi_message_init_with_transfers(&msg, adc->seq_xfer,
-        //                                         indio_dev->num_channels);
-        // else
-        //         spi_message_init_with_transfers(&msg, &xfer, 1);
-
-        // struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-        unsigned int freq, num_en_ch;
-
-        // ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, __cpu_to_be16(0x3FF9));
-        // ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, __cpu_to_be16(0x3FF9));
-        // ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, __cpu_to_be16(adc->seq_buf[0]));
-        // ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, __cpu_to_be16(adc->seq_buf[0]));
 
         if (adc->info->sequencer) {
 
@@ -544,55 +574,34 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
                 }
                 spi_message_init(&msg);
 
-                i = -1;
                 spi_tx_data = 0;
 	        for_each_set_bit(ch, indio_dev->active_scan_mask, indio_dev->masklength) {
-                        i++;
-                        adc->seq_buf[i] = AD7682_SEQ_EN_CHANNEL(ch);
-                        adc->seq_buf[i] = adc->seq_buf[i] << 2;
-                        adc->seq_xfer[i].tx_buf = &adc->seq_buf[i];
-                        // adc->seq_xfer[i].tx_buf = &spi_tx_data;
-                        adc->seq_xfer[i].rx_buf = &spi_rx_data;
-                        adc->seq_xfer[i].len = 1;
-                        adc->seq_xfer[i].bits_per_word = adc->info->resolution;
-                        adc->seq_xfer[i].speed_hz = adc->info->sclk_rate;
-                        adc->seq_xfer[i].cs_change = 1;
-                        adc->seq_xfer[i].word_delay.value = 4;
-                        adc->seq_xfer[i].word_delay.unit = SPI_DELAY_UNIT_USECS;
-                        // adc->seq_xfer[i].cs_change_delay.value = 4;
-                        // adc->seq_xfer[i].cs_change_delay.unit = SPI_DELAY_UNIT_USECS;
-                        // adc->seq_xfer[i].delay_usecs = 4;// tAcq = 4us
+                        adc->seq_xfer[ch].cs_change = 1;
+                        adc->seq_xfer[ch].word_delay.value = 2;
+                        adc->seq_xfer[ch].word_delay.unit = SPI_DELAY_UNIT_USECS;
                         if (num_en_ch > 2 && (ch == first || ch == second))
                                 continue;
-                        spi_message_add_tail(&adc->seq_xfer[i], &msg);
+                        if (ch == last && num_en_ch <= 2) {
+                                adc->seq_xfer[ch].cs_change = 0;
+                                adc->seq_xfer[ch].word_delay.value = 0;
+                        }
+                        spi_message_add_tail(&adc->seq_xfer[ch], &msg);
                 }
                 if (num_en_ch > 2) {
-                        adc->seq_xfer[1].cs_change = 0;
-                        adc->seq_xfer[1].word_delay.value = 0;
-                        spi_message_add_tail(&adc->seq_xfer[0], &msg);
-                        spi_message_add_tail(&adc->seq_xfer[1], &msg);
+                        adc->seq_xfer[second].cs_change = 0;
+                        adc->seq_xfer[second].word_delay.value = 0;
+                        spi_message_add_tail(&adc->seq_xfer[first], &msg);
+                        spi_message_add_tail(&adc->seq_xfer[second], &msg);
                 }
-                // spi_message_add_tail(&adc->seq_xfer[0], &msg);
-                // spi_message_add_tail(&adc->seq_xfer[1], &msg);
-                // for (i = 0; i < num_en_ch - 2 && num_en_ch > 2; i++)
-                //         list_rotate_left(&msg.transfers);
-                        // list_rotate_left(&msg.transfers);
-                /*
-                struct spi transfer xfer = malloc num hweight scan elmeents
-                foreach set bit in scan_mask {
-                         transfer-> buf = &adc->seq_xfer
-                }
-                if (num_en_ch >2)
-                        roll transfers by 2 elements
-                */
+
                 freq = clamp(adc->samp_freq, 0, adc->info->max_rate / num_en_ch);
                 ad_pulsar_set_samp_freq(adc, freq);
-                ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, adc->seq_buf[0]);
-                ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, adc->seq_buf[1]);
+                ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, adc->seq_buf[first]);
+                if (num_en_ch > 1)
+                        ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, adc->seq_buf[second]);
+                else
+                        ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, adc->seq_buf[first]);
 
-
-                // spi_message_init_with_transfers(&msg, adc->seq_xfer,
-                //                                 num_en_ch);
         } else {
                 spi_message_init_with_transfers(&msg, &xfer, 1);
         }
@@ -633,9 +642,18 @@ static const struct iio_buffer_setup_ops ad_pulsar_buffer_ops = {
 	.postdisable = &ad_pulsar_buffer_postdisable,
 };
 
+
+static struct attribute *ad_pulsar_attr[] = {
+	&iio_dev_attr_filter_low_pass_3db_frequency_available.dev_attr.attr,
+	NULL
+};
+static const struct attribute_group ad_pulsar_attr_group = {
+	.attrs = ad_pulsar_attr,
+};
 static const struct iio_info ad_pulsar_iio_info = {
-        .read_raw = ad_pulsar_read_raw,
-        .write_raw = ad_pulsar_write_raw,
+        .attrs = &ad_pulsar_attr_group,
+        .read_raw = &ad_pulsar_read_raw,
+        .write_raw = &ad_pulsar_write_raw,
         .debugfs_reg_access = &ad_pulsar_reg_access,
 };
 
@@ -652,10 +670,10 @@ static int ad_pulsar_setup(struct iio_dev *indio_dev)
                         return ret;
         }
 */
-        if (adc->info->sequencer){
-                ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, 0x3FF9);
-                ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, 0x3FF9);
-        }
+        // if (adc->info->sequencer){
+        //         ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, 0x3FF9);
+        //         ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, 0x3FF9);
+        // }
 
         return ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
 }
@@ -727,10 +745,11 @@ static void ad_pulsar_set_channel(struct iio_chan_spec *ch, int i, int num_ch,
         ch[i].indexed = 1;
         ch[i].channel = i;
         ch[i].scan_index = i;
-        ch[i].info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
-                                        BIT(IIO_CHAN_INFO_SCALE);
-	ch[i].info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
-        ch[i].scan_type.sign = info->input_type == SINGLE_ENDED ? 'u' : 's';
+        ch[i].info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ);
+	ch[i].info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+                                   BIT(IIO_CHAN_INFO_SCALE) |
+                                   BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY);
+        ch[i].scan_type.sign = 'u';
         ch[i].scan_type.storagebits = 32;
         ch[i].scan_type.realbits = info->resolution;
 }
@@ -773,18 +792,14 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
                                     num_ch * sizeof (struct spi_transfer),
                                     GFP_KERNEL);
 
-        /*for (i = 0; i < num_ch; i++) {
-                adc->seq_buf[i] = AD7682_SEQ_EN_CHANNEL(i);
+        for (i = 0; i < num_ch; i++) {
                 adc->seq_xfer[i].tx_buf = &adc->seq_buf[i];
                 adc->seq_xfer[i].rx_buf = &dummy;
                 adc->seq_xfer[i].len = 1;
                 adc->seq_xfer[i].bits_per_word = adc->info->resolution;
                 adc->seq_xfer[i].speed_hz = adc->info->sclk_rate;
-                adc->seq_xfer[i].cs_change = 1;
-                adc->seq_xfer[i].delay_usecs = 5;// tAcq = 4us
         }
-        adc->seq_xfer[num_ch - 1].cs_change = 0;
-        */
+
         i = 0;
         device_for_each_child_node(dev, child) {
                 in[0] = 0;
@@ -799,37 +814,41 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
                         if (in[0] > 7 || in[1] > 7 || in[0] % 2 != 0 ||
                             (in[0] % 2 == 0 && in[1] != in[0] + 1))
                                 return -EINVAL;
-
-                        adc->seq_buf[i] &= ~AD7682_CH_TYPE(SINGLE_ENDED);
+                        adc->seq_buf[i] = AD7682_SEQ_EN_CHANNEL(in[0]);
+                        AD7862_SET_TYPE(adc->seq_buf[i], DIFFERENTIAL);
                         adc->channels[i].differential = 1;
                         adc->channels[i].channel2 = in[1];
 
+                } else if (fwnode_property_present(child, "temp-sensor")) {
+                        adc->seq_buf[i] = AD7682_CH_TEMP_SENSOR;
+                        adc->channels[i].type = IIO_TEMP;
+                        adc->channels[i].indexed = 0;
+                        // adc->channels[i].scan_type.sign = 's';
                 } else {
                         ret = fwnode_property_read_u32(child, "reg", &in[0]);
                         if (ret < 0)
                                 return ret;
+                        adc->seq_buf[i] = AD7682_SEQ_EN_CHANNEL(in[0]);
 
                         if (in[0] > adc->info->num_channels)
                                 return -EINVAL;
                 }
 
+                if (fwnode_property_present(child, "bipolar")) {
+                        adc->channels[i].scan_type.sign = 's';
+                        AD7682_SET_POLARITY(adc->seq_buf[i], BIPOLAR);
+                }
                 adc->channels[i].channel = in[0];
                 adc->channels[i].scan_index = i;
-
-                // if (fwnode_property_present(child, "temp-sensor")) {
-                //         adc->seq_buf[i] = AD7682_CH_TEMP_SENSOR;
-                //         adc->channels[i].type = IIO_TEMP;
-                //         adc->channels[i].scan_type.sign = 's';
-                // }
-
-                // if (fwnode_property_present(child, "bipolar")) {
-                //         adc->channels[i].scan_type.sign = 's';
-                //         adc->seq_buf[i] &= ~AD782_CH_POLARITY(UNIPOLAR);
-                // }
+                adc->channels[i].address = adc->seq_buf[i];
                 i++;
         }
+        for (i = 0; i < num_ch; i++)
+                adc->seq_buf[i] = adc->seq_buf[i] << 2;
+
         indio_dev->channels = adc->channels;
 	indio_dev->num_channels = num_ch;
+
         return 0;
 }
 
@@ -885,9 +904,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 
         adc->device_id = device_get_match_data(&spi->dev);
         adc->info = &ad_pulsar_chip_infos[adc->device_id];
-	// adc->regmap = devm_regmap_init_spi(spi, &adc->info->regmap_config);
-	// if (IS_ERR(adc->regmap))
-	// 	return PTR_ERR(adc->regmap);
 
         ret = ad_pulsar_parse_channels(indio_dev);
         if (ret < 0)

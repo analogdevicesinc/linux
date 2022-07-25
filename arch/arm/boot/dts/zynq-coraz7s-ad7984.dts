@@ -73,41 +73,36 @@
 			pwm-names = "cnv";
 			vref-supply = <&vref>;
 			channel@0 {
-				reg = <0>;
-				// diff-channels = <0 1>;
+				// reg = <0>;
+				// bipolar;
+				diff-channels = <0 1>;
 				// bipolar;
 			};
+			// channel@1 {
+			// 	reg = <1>;
+			// 	// diff-channel = <2 3>;
+			// };
 			channel@1 {
-				reg = <1>;
-				// diff-channel = <2 3>;
-			};
-			channel@2 {
 				reg = <2>;
 			};
-			channel@3 {
+			channel@2 {
 				reg = <3>;
 			};
-			channel@4 {
+			channel@3 {
 				reg = <4>;
 			};
-			channel@5 {
+			channel@4 {
 				reg = <5>;
 			};
-			channel@6 {
+			channel@5 {
 				reg = <6>;
 			};
-			channel@7 {
+			channel@6 {
 				reg = <7>;
 			};
-			// channel@3 {
-			// 	reg = <5>;
-			// };
-			// channel@4 {
-			// 	reg = <6>;
-			// };
-			// channel@5 {
-			// 	reg = <7>;
-			// };
+			channel@7{
+				temp-sensor;
+			};
 		};
 	};
 
