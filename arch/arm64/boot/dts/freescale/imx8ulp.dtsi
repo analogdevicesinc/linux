@@ -177,9 +177,9 @@
 		#clock-cells = <0>;
 	};
 
-	sram@2201f000 {
+	sram0: sram@22010000 {
 		compatible = "mmio-sram";
-		reg = <0x0 0x2201f000 0x0 0x1000>;
+		reg = <0x0 0x22010000 0x0 0x00010000>;
 
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -250,6 +250,7 @@
 			fsl,ele_mu_id = <2>;
 			fsl,ele_mu_max_users = <4>;
 			status = "okay";
+			sram-pool = <&sram0>;
 		};
 
 		dsp: dsp@21170000 {
