@@ -5,126 +5,12 @@
  * based on socfpga_cyclone5_de0_nano_soc.dts
  */
 
-#include "socfpga_cyclone5.dtsi"
+#include "socfpga_cyclone5_de10_nano_hps.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
 
-/ {
-	model = "Terasic DE10-Nano";
-	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
-
-	chosen {
-		bootargs = "earlyprintk";
-		stdout-path = "serial0:115200n8";
-	};
-
-	memory {
-		name = "memory";
-		device_type = "memory";
-		reg = <0x0 0x40000000>;	/* 1GB */
-	};
-
-	soc {
-		fpga_axi: axi_h2f_lw_bridge@0xff200000 {
-			compatible = "simple-bus";
-			reg = <0xff200000 0x00200000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			ranges = <0x00000000 0xff200000 0x00200000>;
-		};
-	};
-
-	aliases {
-		ethernet0 = &gmac1;
-		udc0 = &usb1;
-	};
-
-	clocks {
-		sys_clk: sys_clk {
-			#clock-cells = <0x0>;
-			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
-			clock-output-names = "sys_clk";
-		};
-	};
-
-	ltc2308_vref: voltage-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
-		regulator-min-microvolt = <4096000>;
-		regulator-max-microvolt = <4096000>;
-		regulator-always-on;
-	};
-};
-
-&uart0 {
-	status = "okay";
-};
-
-&gmac1 {
-	status = "okay";
-	phy-mode = "rgmii";
-
-	rxd0-skew-ps = <420>;
-	rxd1-skew-ps = <420>;
-	rxd2-skew-ps = <420>;
-	rxd3-skew-ps = <420>;
-	txen-skew-ps = <0>;
-	txc-skew-ps = <1860>;
-	rxdv-skew-ps = <420>;
-	rxc-skew-ps = <1680>;
-};
-
-&mmc0 {
-	status = "okay";
-	u-boot,dm-pre-reloc;
-};
-
-&usb1 {
-	status = "okay";
-};
-
-&uart0 {
-	clock-frequency = <100000000>;
-	u-boot,dm-pre-reloc;
-};
-
-&gpio0 {
-	status = "okay";
-};
-
-&gpio1 {
-	status = "okay";
-};
-
-&gpio2 {
-	status = "okay";
-};
-
-&porta {
-	bank-name = "porta";
-};
-
-&portb {
-	bank-name = "portb";
-};
-
-&portc {
-	bank-name = "portc";
-};
-
 &i2c0 {
-	status = "okay";
-	clock-frequency = <100000>;
-
-	adxl345@53 {
-		compatible = "adi,adxl34x";
-		reg = <0x53>;
-		interrupt-parent = <&portc>;
-		interrupts = <3 2>;
-	};
-
 	adv7513: adv7513@39 {
 		compatible = "adi,adv7513";
 		reg = <0x39>, <0x3f>;
