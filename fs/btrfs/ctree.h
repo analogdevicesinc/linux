@@ -891,6 +891,7 @@ struct btrfs_fs_info {
 
 	struct kobject *space_info_kobj;
 	struct kobject *qgroups_kobj;
+	struct kobject *discard_kobj;
 
 	/* used to keep from writing metadata until there is a nice batch */
 	struct percpu_counter dirty_metadata_bytes;
@@ -1102,7 +1103,6 @@ struct btrfs_fs_info {
 
 #ifdef CONFIG_BTRFS_DEBUG
 	struct kobject *debug_kobj;
-	struct kobject *discard_debug_kobj;
 	struct list_head allocated_roots;
 
 	spinlock_t eb_leak_lock;
