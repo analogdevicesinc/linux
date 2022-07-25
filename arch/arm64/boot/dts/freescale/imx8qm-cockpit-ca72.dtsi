@@ -226,7 +226,7 @@
 			compatible = "fsl,imx8qm-sc-rtc";
 		};
 
-		scu_key: scu-key {
+		scu_key: keys {
 			compatible = "fsl,imx8qm-sc-key", "fsl,imx-sc-key";
 			linux,keycodes = <KEY_POWER>;
 			wakeup-source;
