@@ -175,7 +175,7 @@
 		};
 
 		ocotp: ocotp {
-			compatible = "fsl,imx8qxp-scu-ocotp";
+			compatible = "fsl,imx8dxl-scu-ocotp", "fsl,imx8qxp-scu-ocotp";
 			#address-cells = <1>;
 			#size-cells = <1>;
 
