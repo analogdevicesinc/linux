@@ -123,6 +123,8 @@ arm/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-dts-for-5.20-2
 	qcom/dt64-2
 		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-5.20-2
+	at91/dt-3
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-5.20-3
 
 arm/drivers
 	renesas/drivers
@@ -172,6 +174,14 @@ arm/defconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20
 	qcom/defconfig-2
 		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20-2
+	patch
+		ARM: refresh defconfig files
+		ARM: defconfig: remove irda remnants
+		ARM: defconfig: remove stale CONFIG_ZBOOT_ROM entries
+		ARM: defconfig: address renamed CONFIG_DEBUG_INFO=y
+		ARM: defconfig: remove broken CONFIG_THUMB disables
+		ARM: defconfig: kill remnants of CONFIG_LEDS
+		arm64: refresh defconfig file
 
 arm/late
 
@@ -180,10 +190,52 @@ arm/fixes
 		mailmap: update Baolin Wang's email
 	at91/fixes-3
 		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-5.19-3
+	patch
+		ARM: pxa2xx: Fix GPIO descriptor tables
+
+arm/boardfiles-3
+	renesas/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v5.20-tag1
+	sunxi/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-config64-for-5.20-1
+	tegra/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-arm64-defconfig
+	imx/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-5.20
+	broadcom/defconfig
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/defconfig
+	broadcom/defconfig-64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/defconfig-arm64
+	qcom/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20
+	qcom/defconfig-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20-2
+	patch
+		ARM: refresh defconfig files
+		ARM: defconfig: remove irda remnants
+		ARM: defconfig: remove stale CONFIG_ZBOOT_ROM entries
+		ARM: defconfig: address renamed CONFIG_DEBUG_INFO=y
+		ARM: defconfig: remove broken CONFIG_THUMB disables
+		ARM: defconfig: kill remnants of CONFIG_LEDS
+		ARM: add ATAGS dependencies to non-DT platforms
+		ARM: add CONFIG_UNUSED_BOARD_FILES
+		ARM: pxa: add Kconfig dependencies for ATAGS based boards
+		ARM: orion: add ATAGS dependencies
+		ARM: davinci: mark all ATAGS board files as unused
+		ARM: ep93xx: mark most board files as unused
+		ARM: mmp: mark all board files for removal
+		ARM: footbridge: mark cats board for removal
+		ARM: sa1100: mark most boards as unused
+		ARM: omap1: add Kconfig dependencies for unused boards
+		ARM: s3c: mark most board files as unused
+		ARM: iop32x: mark as unused
+		ARM: cns3xxx: add CONFIG_UNUSED_BOARD_FILES dependency
 
 arm/newsoc
 	sunplus/newsoc
 		Merge branch 'sunplus/newsoc' into arm/newsoc
 	nuvoton/newsoc
 		Merge branch 'nuvoton/newsoc' into arm/newsoc
+	patch
+		MAINTAINERS: rectify entry for ARM/NUVOTON NPCM ARCHITECTURE
 
