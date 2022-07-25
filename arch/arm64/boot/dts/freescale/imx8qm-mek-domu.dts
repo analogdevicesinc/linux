@@ -274,7 +274,7 @@
 				  &lsio_mu2 1 3
 				  &lsio_mu2 3 3>;
 
-			pd: imx8qx-pd {
+			pd: power-controller {
 				compatible = "fsl,imx8qm-scu-pd", "fsl,scu-pd";
 				#power-domain-cells = <1>;
 			};
