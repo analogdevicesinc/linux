@@ -13,6 +13,8 @@
 #include "zynqmp-zcu102-rev10-ad9081-m8-l4-tdd.dts"
 
 / {
+	model = "Stingray ZynqMP ZCU102 Rev1.0";
+
 	clocks {
 		adf4371_clkin: clock@0 {
 			#clock-cells = <0>;
