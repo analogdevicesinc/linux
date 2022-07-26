@@ -1,0 +1,116 @@
+/*
+* Add this piece of dtsi fragment as #include "socfpga_stratix10_qse.dtsi"
+* in the file socfpga_stratix10_socdk.dts. Compile it in the kernel along with
+* socfpga_stratix10.dtsi.
+*/
+
+/{
+	soc {
+		clocks {
+			ptp_ctrl_10G_clk: ptp_ctrl_10G_clk {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <312500000>;
+				clock-output-names = "ptp_ctrl_10G_clk-clk";
+			};
+		};
+
+		i2c0: i2c@ffc02800 {
+			status = "okay";
+		};
+
+		s10_hps_bridges: bridge@80000000 {
+			compatible = "simple-bus";
+			reg = <0x80000000 0x60000000>,
+				<0xf9000000 0x00100000>;
+			reg-names = "axi_h2f", "axi_h2f_lw";
+			#address-cells = <0x2>;
+			#size-cells = <0x1>;
+			ranges = <0x00000000 0x00000000 0x80000000 0x00040000>,
+				<0x00000001 0x00020000 0xf9020000 0x00001000>,
+				<0x00000001 0x00022000 0xf9022000 0x00002000>,
+				<0x00000001 0x00026000 0xf9026000 0x00000040>,
+				<0x00000001 0x00002020 0xf9002020 0x00000020>,
+				<0x00000001 0x00002000 0xf9002000 0x00000020>,
+				<0x00000001 0x00002120 0xf9002120 0x00000020>,
+				<0x00000001 0x00002100 0xf9002100 0x00000020>,
+				<0x00000001 0x00002140 0xf9002140 0x00000020>,
+				<0x00000001 0x00030100 0xf9030100 0x00000010>,
+				<0x00000001 0x00000300 0xf9000300 0x00000010>,
+				<0x00000001 0x00000310 0xf9000310 0x00000010>;
+
+			qse_0_qse: ethernet@0x100020000 {
+				compatible = "altr,qse-msgdma-2.0";
+				reg-names = "control_port", "xcvr_ctrl", "tod_ctrl",
+						"tx_csr", "tx_pref", "rx_csr", "rx_pref",
+						"rx_fifo", "phy_reconfig_csr";
+				reg = <0x00000001 0x00020000 0x00001000>,
+					<0x00000001 0x00022000 0x00002000>,
+					<0x00000001 0x00026000 0x00000040>,
+					<0x00000001 0x00002020 0x00000020>,
+					<0x00000001 0x00002000 0x00000020>,
+					<0x00000001 0x00002120 0x00000020>,
+					<0x00000001 0x00002100 0x00000020>,
+					<0x00000001 0x00002140 0x00000020>,
+					<0x00000001 0x00030100 0x00000010>;
+				dma-coherent;
+				phy-mode = "10gbase-r";
+				sfp = <&sfp_eth0>;
+				clocks = <&ptp_ctrl_10G_clk>;
+				clock-names = "tod_clk";
+				interrupt-parent = <&intc>;
+				interrupt-names = "tx_irq", "rx_irq";
+				interrupts = <0 21 4>,
+						<0 22 4>;
+				rx-fifo-depth = <0x20000>;
+				tx-fifo-depth = <0x1000>;
+				rx-fifo-almost-full = <0x10000>;
+				rx-fifo-almost-empty = <0x8000>;
+				local-mac-address = [00 00 00 00 00 00];
+				altr,tx-pma-delay-ns = <0xD>;
+				altr,rx-pma-delay-ns = <0x8>;
+				altr,tx-pma-delay-fns = <0x24D>;
+				altr,rx-pma-delay-fns = <0x3E97>;
+				altr,has-ptp;
+				status = "okay";
+			};
+
+			sfp_eth0: sfp-eth0 {
+				compatible = "sff,sfp";
+				i2c-bus = <&i2c0>;
+				los-gpio = <&mge_10g_status_pio 0 GPIO_ACTIVE_HIGH>;
+				mod-def0-gpio = <&mge_10g_status_pio 2 GPIO_ACTIVE_LOW>;
+				maximum-power-milliwatt = <1000>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&sfp_ctrl_pio &mge_10g_status_pio>;
+				tx-disable-gpio = <&sfp_ctrl_pio 0 GPIO_ACTIVE_HIGH>;
+				tx-fault-gpio = <&mge_10g_status_pio 1 GPIO_ACTIVE_HIGH>;
+				rate-select0-gpio = <&sfp_ctrl_pio 2 GPIO_ACTIVE_HIGH>;
+			};
+
+			sfp_ctrl_pio: gpio@300 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00000001 0x00000300 0x10>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 23 4>;
+				altr,gpio-bank-width = <4>;
+				altr,interrupt-type = <2>;
+				altr,interrupt_type = <2>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			mge_10g_status_pio: gpio@310 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00000001 0x00000310 0x10>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 24 4>;
+				altr,gpio-bank-width = <4>;
+				altr,interrupt-type = <2>;
+				altr,interrupt_type = <2>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+		};
+	};
+};
