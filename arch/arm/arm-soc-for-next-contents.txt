@@ -125,6 +125,11 @@ arm/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-5.20-2
 	at91/dt-3
 		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-5.20-3
+	at91/dt-4
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-5.20-4
+	patch
+		dt-bindings: soc: bcm: drop quotes when not needed
+		dt-bindings: soc: bcm: use absolute path to other schema
 
 arm/drivers
 	renesas/drivers
@@ -182,6 +187,7 @@ arm/defconfig
 		ARM: defconfig: remove broken CONFIG_THUMB disables
 		ARM: defconfig: kill remnants of CONFIG_LEDS
 		arm64: refresh defconfig file
+		arm64: defconfig: Sync some configs with savedefconfig
 
 arm/late
 
@@ -238,4 +244,3 @@ arm/newsoc
 		Merge branch 'nuvoton/newsoc' into arm/newsoc
 	patch
 		MAINTAINERS: rectify entry for ARM/NUVOTON NPCM ARCHITECTURE
-
