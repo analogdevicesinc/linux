@@ -548,6 +548,13 @@ F: arch/arm64/boot/dts/freescale/imx8d*
 F: arch/arm64/boot/dts/freescale/imx8q*
 F: arch/arm64/boot/dts/freescale/imx8x*
 
+dts/imx9
+M: Peng Fan <peng.fan@nxp.com>
+M: Dong Aisheng <aisheng.dong@nxp.com>
+M: Jacky Bai <ping.bai@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx9*
+
 dts/qoriq
 M: Li Yang <leoyang.li@nxp.com>
 F: Documentation/devicetree/bindings/arm/freescale/fsl,layerscape-dcfg.txt
