@@ -854,6 +854,8 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
 /*!
  * This structure defines all the ioctls for this module.
  */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static struct v4l2_int_ioctl_desc adv7180_ioctl_desc[] = {
 
 	{vidioc_int_dev_init_num, (v4l2_int_ioctl_func*)ioctl_dev_init},
@@ -907,6 +909,7 @@ static struct v4l2_int_ioctl_desc adv7180_ioctl_desc[] = {
 	{vidioc_int_g_chip_ident_num,
 				(v4l2_int_ioctl_func *)ioctl_g_chip_ident},
 };
+#pragma GCC diagnostic pop
 
 static struct v4l2_int_slave adv7180_slave = {
 	.ioctls = adv7180_ioctl_desc,

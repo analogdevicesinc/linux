@@ -278,6 +278,8 @@ enum v4l2_int_ioctl_num {
 		return desc;						\
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 V4L2_INT_WRAPPER_1(enum_fmt_cap, struct v4l2_fmtdesc, *);
 V4L2_INT_WRAPPER_1(g_fmt_cap, struct v4l2_format, *);
 V4L2_INT_WRAPPER_1(s_fmt_cap, struct v4l2_format, *);
@@ -305,5 +307,6 @@ V4L2_INT_WRAPPER_1(enum_frameintervals, struct v4l2_frmivalenum, *);
 V4L2_INT_WRAPPER_0(reset);
 V4L2_INT_WRAPPER_0(init);
 V4L2_INT_WRAPPER_1(g_chip_ident, int, *);
+#pragma GCC diagnostic pop
 
 #endif
