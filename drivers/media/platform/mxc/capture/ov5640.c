@@ -1779,6 +1779,8 @@ static int ioctl_dev_exit(struct v4l2_int_device *s)
  * This structure defines all the ioctls for this module and links them to the
  * enumeration.
  */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static struct v4l2_int_ioctl_desc ov5640_ioctl_desc[] = {
 	{ vidioc_int_dev_init_num,
 	  (v4l2_int_ioctl_func *)ioctl_dev_init },
@@ -1809,6 +1811,7 @@ static struct v4l2_int_ioctl_desc ov5640_ioctl_desc[] = {
 	{ vidioc_int_g_chip_ident_num,
 	  (v4l2_int_ioctl_func *)ioctl_g_chip_ident },
 };
+#pragma GCC diagnostic pop
 
 static struct v4l2_int_slave ov5640_slave = {
 	.ioctls = ov5640_ioctl_desc,
