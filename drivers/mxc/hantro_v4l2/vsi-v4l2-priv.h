@@ -185,6 +185,7 @@ struct vsi_video_fmt {
 	s32 dec_fmt;	//our own dec video format defines
 	u32 flag;
 	u32 num_planes;
+	u32 comp_planes;
 };
 
 struct vsi_v4l2_mediacfg {
@@ -414,6 +415,7 @@ int vsiv4l2_buffer_config(
 struct vsi_video_fmt *vsi_find_format(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f);
 struct vsi_video_fmt *vsi_enum_dec_format(int idx, int braw, struct vsi_v4l2_ctx *ctx);
 struct vsi_video_fmt *vsi_enum_encformat(int idx, int braw);
+struct vsi_video_fmt *vsi_get_fmt_by_fourcc(u32 fourcc);
 int vsi_set_profile(struct vsi_v4l2_ctx *ctx, int type, int profile);
 int vsi_get_profile(struct vsi_v4l2_ctx *ctx, int type);
 void vsiv4l2_set_hwinfo(struct vsi_v4l2_dev_info *hwinfo);

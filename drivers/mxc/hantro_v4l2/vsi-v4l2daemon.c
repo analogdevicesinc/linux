@@ -346,19 +346,26 @@ static u32 format_bufinfo_enc(struct vsi_v4l2_ctx *ctx, struct vsi_v4l2_msg *pms
 	planeno = getbusaddr(ctx, busaddr, buf);
 	encbufinfo = &pmsg->params.enc_params.io_buffer;
 	if (binputqueue(buf->type)) {
+		struct vsi_video_fmt *fmt = vsi_get_fmt_by_fourcc(ctx->mediacfg.infmt_fourcc);
+
 		encbufinfo->busLumaOrig = encbufinfo->busLuma = busaddr[0] + buf->planes[0].data_offset;
 		encbufinfo->busLumaSize = ctx->mediacfg.sizeimagesrc[0];
 		encbufinfo->busChromaUOrig = encbufinfo->busChromaU = 0;
 		encbufinfo->busChromaUSize = 0;
 		encbufinfo->busChromaVOrig = encbufinfo->busChromaV = 0;
 		encbufinfo->busChromaVSize = 0;
-		if (planeno == 2) {
-			encbufinfo->busChromaUOrig = encbufinfo->busChromaU = busaddr[1] + buf->planes[1].data_offset;
+		if (fmt && fmt->comp_planes > 1) {
+			if (planeno > 1)
+				encbufinfo->busChromaUOrig = encbufinfo->busChromaU = busaddr[1] + buf->planes[1].data_offset;
+			else
+				encbufinfo->busChromaUOrig = encbufinfo->busLuma + ctx->mediacfg.sizeimagesrc[0];
 			encbufinfo->busChromaUSize = ctx->mediacfg.sizeimagesrc[1];
-		} else if (planeno == 3) {
-			encbufinfo->busChromaUOrig = encbufinfo->busChromaU = busaddr[1] + buf->planes[1].data_offset;
-			encbufinfo->busChromaUSize = ctx->mediacfg.sizeimagesrc[1];
-			encbufinfo->busChromaVOrig = encbufinfo->busChromaV = busaddr[2] + buf->planes[2].data_offset;
+		}
+		if (fmt && fmt->comp_planes > 2) {
+			if (planeno > 2)
+				encbufinfo->busChromaVOrig = encbufinfo->busChromaV = busaddr[2] + buf->planes[2].data_offset;
+			else
+				encbufinfo->busChromaVOrig = encbufinfo->busChromaUOrig + ctx->mediacfg.sizeimagesrc[1];
 			encbufinfo->busChromaVSize = ctx->mediacfg.sizeimagesrc[2];
 		}
 		encbufinfo->busOutBuf = 0;
