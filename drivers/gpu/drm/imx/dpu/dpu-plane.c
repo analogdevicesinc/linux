@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2019,2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -281,10 +281,10 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
-	src_w = drm_rect_width(&new_plane_state->src) >> 16;
-	src_h = drm_rect_height(&new_plane_state->src) >> 16;
-	src_x = new_plane_state->src.x1 >> 16;
-	src_y = new_plane_state->src.y1 >> 16;
+	src_w = new_plane_state->src_w >> 16;
+	src_h = new_plane_state->src_h >> 16;
+	src_x = new_plane_state->src_x >> 16;
+	src_y = new_plane_state->src_y >> 16;
 
 	fb_is_interlaced = !!(fb->flags & DRM_MODE_FB_INTERLACED);
 
