@@ -1703,6 +1703,31 @@ int vsiv4l2_setfmt(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 		return vsiv4l2_setfmt_dec(ctx, fmt);
 }
 
+static u32 vsiv4l2_default_bytesperline(u32 fourcc, u32 width)
+{
+	u32 bytesperline = width;
+
+	switch (fourcc) {
+	case V4L2_PIX_FMT_BGR32:
+	case V4L2_PIX_FMT_RGBX32:
+	case V4L2_PIX_FMT_ABGR32:
+	case V4L2_PIX_FMT_RGBA32:
+		bytesperline = width * 4;
+		break;
+	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_RGB565:
+	case V4L2_PIX_FMT_BGR565:
+	case V4L2_PIX_FMT_RGB555:
+		bytesperline = width * 2;
+		break;
+	default:
+		bytesperline = width;
+		break;
+	}
+
+	return bytesperline;
+}
+
 static int vsiv4l2_verifyfmt_enc(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {
 	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
@@ -1753,7 +1778,8 @@ static int vsiv4l2_verifyfmt_enc(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 	if (pixmp->field == V4L2_FIELD_ANY)
 		pixmp->field = V4L2_FIELD_NONE;
 
-	bytesperline = max_t(int, pixmp->plane_fmt[0].bytesperline, pixmp->width);
+	bytesperline = max_t(int, pixmp->plane_fmt[0].bytesperline,
+			     vsiv4l2_default_bytesperline(pixmp->pixelformat, pixmp->width));
 	if (braw) {
 		bytesperline = vsiv4l2_enc_getalign(vfmt->enc_fmt,
 			pcfg->encparams.general.codecFormat, bytesperline);
@@ -1820,14 +1846,14 @@ static int vsiv4l2_verifyfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *f
 
 	if (braw) {
 		if (!test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag)) {
-			bytesperline = ALIGN(pix->width, 16);
+			bytesperline = ALIGN(vsiv4l2_default_bytesperline(pix->pixelformat, pix->width), 16);
 		} else {
 			int outputPixelDepth = vsiv4l2_decidepixeldepth(vfmt->dec_fmt, pcfg->src_pixeldepth);
 
 			bytesperline = ALIGN(pix->width * outputPixelDepth / 8, 16);
 		}
 	} else {
-		bytesperline = pix->width;
+		bytesperline = vsiv4l2_default_bytesperline(pix->pixelformat, pix->width);
 	}
 	pix->bytesperline = bytesperline;
 
