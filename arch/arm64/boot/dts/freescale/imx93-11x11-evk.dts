@@ -458,6 +458,11 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
+
+		adp5585pwm_isp: pwm-isp@34 {
+			compatible = "adp5585-pwm";
+			#pwm-cells = <3>;
+		};
 	};
 
 	ptn5110: tcpc@50 {
