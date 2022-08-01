@@ -1266,77 +1266,54 @@ static int vsi_calc_table_size(int pixelformat, int width, int height)
 
 static void verifyPlanesize(u32 psize[], int braw, int pixelformat, int width, int height, int bdecoder)
 {
-	int basesize = width * height, extsize = 0, quadsize = 0;
+	int basesize = width * height;
 	int chromausize = 0;
 	int chromavsize = 0;
 	int padsize = 0;
 	int tablesize = 0;
 	int mvssize = 0;
 
-	if (braw) {
-		if (enc_isRGBformat(pixelformat)) {
-			extsize = 0;
-			quadsize = 0;
-		} else {
-			switch (pixelformat) {
-			case V4L2_PIX_FMT_NV12:
-			case V4L2_PIX_FMT_NV12M:
-			case V4L2_PIX_FMT_NV21:
-			case V4L2_PIX_FMT_NV21M:
-			case V4L2_PIX_FMT_NV12X:
-			case V4L2_PIX_FMT_DTRC:
-			case V4L2_PIX_FMT_P010:
-			case V4L2_PIX_FMT_TILEX:
-			case V4L2_PIX_FMT_RFC:
-			case V4L2_PIX_FMT_RFCX:
-			case V4L2_PIX_FMT_411SP:
-				extsize = basesize / 2;
-				quadsize = basesize / 4;
-				chromausize = extsize;
-				if (bdecoder)
-					padsize = quadsize + 32;
-				break;
-			case V4L2_PIX_FMT_YUV420:
-			case V4L2_PIX_FMT_YUV420M:
-				extsize = basesize / 4;
-				quadsize = basesize / 4;
-				chromausize = quadsize;
-				chromavsize = quadsize;
-				if (bdecoder)
-					padsize = quadsize + 32;
-				break;
-			case V4L2_PIX_FMT_NV16:
-				extsize = basesize;
-				chromausize = extsize;
-				quadsize = 0;
-				break;
-			case V4L2_PIX_FMT_NV24:
-				extsize = basesize * 2;
-				chromausize = extsize;
-				quadsize = 0;
-				break;
-			case V4L2_PIX_FMT_GREY:
-			case V4L2_PIX_FMT_YUYV:
-				extsize = 0;
-				quadsize = 0;
-				break;
-			default:
-				extsize = basesize;
-				quadsize = basesize / 2;
-				break;
-			}
-		}
-		switch (pixelformat) {
-		case V4L2_PIX_FMT_RFC:
-		case V4L2_PIX_FMT_RFCX:
-			mvssize = DIV_ROUND_UP(width, 64) * DIV_ROUND_UP(height, 64) * 64 * 16;
-			padsize = max_t(int, padsize, mvssize);
-			tablesize = vsi_calc_table_size(pixelformat, width, height);
-			break;
-		default:
-			tablesize = 0;
-			break;
-		}
+	switch (pixelformat) {
+	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_NV12M:
+	case V4L2_PIX_FMT_NV21:
+	case V4L2_PIX_FMT_NV21M:
+	case V4L2_PIX_FMT_NV12X:
+	case V4L2_PIX_FMT_DTRC:
+	case V4L2_PIX_FMT_P010:
+	case V4L2_PIX_FMT_TILEX:
+	case V4L2_PIX_FMT_411SP:
+		chromausize = basesize / 2;
+		if (bdecoder)
+			padsize = basesize / 4 + 32;
+		break;
+	case V4L2_PIX_FMT_YUV420:
+	case V4L2_PIX_FMT_YUV420M:
+		chromausize = basesize / 4;
+		chromavsize = basesize / 4;
+		if (bdecoder)
+			padsize = basesize / 4 + 32;
+		break;
+	case V4L2_PIX_FMT_NV16:
+		chromausize = basesize;
+		break;
+	case V4L2_PIX_FMT_NV24:
+		chromausize = basesize * 2;
+		break;
+	case V4L2_PIX_FMT_GREY:
+	case V4L2_PIX_FMT_YUYV:
+		break;
+	case V4L2_PIX_FMT_RFC:
+	case V4L2_PIX_FMT_RFCX:
+		chromausize = basesize / 2;
+		if (bdecoder)
+			padsize = basesize / 4 + 32;
+		mvssize = DIV_ROUND_UP(width, 64) * DIV_ROUND_UP(height, 64) * 64 * 16;
+		padsize = max_t(int, padsize, mvssize);
+		tablesize = vsi_calc_table_size(pixelformat, width, height);
+		break;
+	default:
+		break;
 	}
 
 	//for coded format we support 1 plane only
