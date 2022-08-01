@@ -446,6 +446,7 @@
 
 &lpuart5 {
 	pinctrl-names = "default";
+	pinctrl-assert-gpios = <&pcal6524 19 GPIO_ACTIVE_HIGH>;
 	pinctrl-0 = <&pinctrl_uart5>;
 	status = "okay";
 };
