@@ -121,7 +121,7 @@
 
 	sound-cs42448 {
 		compatible = "fsl,imx-audio-card";
-		model = "imx-audio-cs42448";
+		model = "imx-cs42448";
 		status = "okay";
 		pri-dai-link {
 			link-name = "cs42448";
