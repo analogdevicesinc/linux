@@ -1307,10 +1307,12 @@ static void verifyPlanesize(u32 psize[], int braw, int pixelformat, int width, i
 				break;
 			case V4L2_PIX_FMT_NV16:
 				extsize = basesize;
+				chromausize = extsize;
 				quadsize = 0;
 				break;
 			case V4L2_PIX_FMT_NV24:
 				extsize = basesize * 2;
+				chromausize = extsize;
 				quadsize = 0;
 				break;
 			case V4L2_PIX_FMT_GREY:
