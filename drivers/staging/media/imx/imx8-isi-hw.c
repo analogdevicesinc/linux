@@ -205,10 +205,9 @@ void mxc_isi_channel_set_outbuf(struct mxc_isi_dev *mxc_isi,
 	u32 framecount = buf->v4l2_buf.sequence;
 	dma_addr_t *dma_addrs = buf->dma_addrs;
 	struct mxc_isi_cap_dev *isi_cap = mxc_isi->isi_cap;
-	struct v4l2_pix_format_mplane *pix = &isi_cap->pix;
 	int val = 0, i;
 
-	for (i = 0; i < pix->num_planes; ++i) {
+	for (i = 0; i < vb2_buf->num_planes; ++i) {
 		if (buf->discard)
 			dma_addrs[i] = isi_cap->discard_buffer_dma[i];
 		else
