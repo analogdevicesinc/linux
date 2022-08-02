@@ -381,9 +381,13 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	/* add two list member to out_discard list head */
 	isi_cap->buf_discard[0].discard = true;
+	vb2 = &isi_cap->buf_discard[0].v4l2_buf.vb2_buf;
+	vb2->num_planes = isi_cap->pix.num_planes;
 	list_add_tail(&isi_cap->buf_discard[0].list, &isi_cap->out_discard);
 
 	isi_cap->buf_discard[1].discard = true;
+	vb2 = &isi_cap->buf_discard[1].v4l2_buf.vb2_buf;
+	vb2->num_planes = isi_cap->pix.num_planes;
 	list_add_tail(&isi_cap->buf_discard[1].list, &isi_cap->out_discard);
 
 	/* ISI channel output buffer 1 */
