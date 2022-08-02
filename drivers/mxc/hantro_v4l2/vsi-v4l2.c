@@ -238,6 +238,7 @@ int vsi_v4l2_reset_ctx(struct vsi_v4l2_ctx *ctx)
 		return_all_buffers(&ctx->output_que, VB2_BUF_STATE_DONE, 0);
 		removeallcropinfo(ctx);
 		ctx->status = VSI_STATUS_INIT;
+		ctx->reschange_cnt = 0;
 		vsi_set_ctx_error(ctx, 0);
 		if (isdecoder(ctx)) {
 			wake_up_interruptible_all(&ctx->retbuf_queue);
