@@ -18,6 +18,7 @@
 		 <&enet0_lpcg 1>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy2>;
+	phy-supply = <&mii_select>;
 	status = "okay";
 
 	mdio {
@@ -26,7 +27,7 @@
 
 		ethphy2: ethernet-phy@2 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <2>;
+			reg = <5>;
 			tja110x,refclk_in;
 		};
 	};
