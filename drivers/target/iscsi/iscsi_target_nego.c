@@ -62,31 +62,34 @@ int extract_param(
 	int len;
 
 	if (!in_buf || !pattern || !out_buf || !type)
-		return -1;
+		return -EINVAL;
 
 	ptr = strstr(in_buf, pattern);
 	if (!ptr)
-		return -1;
+		return -ENOENT;
 
 	ptr = strstr(ptr, "=");
 	if (!ptr)
-		return -1;
+		return -EINVAL;
 
 	ptr += 1;
 	if (*ptr == '0' && (*(ptr+1) == 'x' || *(ptr+1) == 'X')) {
 		ptr += 2; /* skip 0x */
 		*type = HEX;
+	} else if (*ptr == '0' && (*(ptr+1) == 'b' || *(ptr+1) == 'B')) {
+		ptr += 2; /* skip 0b */
+		*type = BASE64;
 	} else
 		*type = DECIMAL;
 
 	len = strlen_semi(ptr);
 	if (len < 0)
-		return -1;
+		return -EINVAL;
 
 	if (len >= max_length) {
 		pr_err("Length of input: %d exceeds max_length:"
 			" %d\n", len, max_length);
-		return -1;
+		return -EINVAL;
 	}
 	memcpy(out_buf, ptr, len);
 	out_buf[len] = '\0';
@@ -811,7 +814,7 @@ static int iscsi_target_do_authentication(
 	return 0;
 }
 
-static bool iscsi_conn_auth_required(struct iscsit_conn *conn)
+bool iscsi_conn_auth_required(struct iscsit_conn *conn)
 {
 	struct iscsi_node_acl *nacl;
 	struct se_node_acl *se_nacl;
