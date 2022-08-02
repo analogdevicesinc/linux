@@ -1239,7 +1239,7 @@ static int ad9467_probe(struct spi_device *spi)
 	if (IS_ERR(st->clk))
 		return PTR_ERR(st->clk);
 
-	if (info->id != CHIPID_AD9625) {
+	if (info->id != CHIPID_AD9625 && info->id != CHIPID_AD9250) {
 		ret = clk_prepare_enable(st->clk);
 		if (ret < 0)
 			return ret;
