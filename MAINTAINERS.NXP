@@ -598,6 +598,11 @@ M: Haibo Chen <haibo.chen@nxp.com>
 F: Documentation/devicetree/bindings/gpio/
 F: drivers/gpio/
 
+hwrng
+M: Kshitiz Varshney <kshitiz.varshney@nxp.com>
+F: Documentation/devicetree/bindings/rng/
+F: drivers/char/hw_random/
+
 i2c
 M: Clark Wang <xiaoning.wang@nxp.com>
 F: Documentation/devicetree/bindings/i2c/
