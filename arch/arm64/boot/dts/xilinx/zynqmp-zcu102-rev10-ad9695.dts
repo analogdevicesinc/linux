@@ -4,7 +4,7 @@
  * https://wiki.analog.com/resources/eval/ad9208-3000ebz
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad9208
  *
- * hdl_project: <ad9695/zcu102>
+ * hdl_project: <ad9695_fmc/zcu102>
  * board_revision: <>
  *
  * Copyright (C) 2019-2022 Analog Devices Inc.
