@@ -86,6 +86,11 @@
 		#size-cells = <2>;
 		ranges;
 
+		gpu_reserved: gpu_reserved@880000000 {
+			no-map;
+			reg = <0x8 0x80000000 0 0x10000000>;
+		};
+
 		decoder_boot: decoder-boot@84000000 {
 			reg = <0 0x84000000 0 0x2000000>;
 			no-map;
@@ -1115,6 +1120,7 @@
 };
 
 &imx8_gpu_ss {
+	memory-region=<&gpu_reserved>;
 	status = "okay";
 };
 
