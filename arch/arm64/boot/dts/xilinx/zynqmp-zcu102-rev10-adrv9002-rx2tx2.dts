@@ -60,7 +60,7 @@
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x84A50000 0x10000>;
 			#dma-cells = <1>;
-			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
