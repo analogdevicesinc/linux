@@ -614,6 +614,7 @@ F: Documentation/devicetree/bindings/i3c/
 F: drivers/i3c/
 
 input/keypad
+M: Joy Zou <joy.zou@nxp.com>
 M: Haibo Chen <haibo.chen@nxp.com>
 F: Documentation/devicetree/bindings/input/
 F: drivers/input/keyboard/
