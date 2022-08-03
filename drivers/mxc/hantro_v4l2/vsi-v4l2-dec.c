@@ -343,6 +343,9 @@ void vsi_dec_update_reso(struct vsi_v4l2_ctx *ctx)
 	pcfg->src_pixeldepth = pcfg->decparams_bkup.dec_info.dec_info.bit_depth;
 	pcfg->minbuf_4output = pcfg->minbuf_4capture = pcfg->minbuf_4output_bkup;
 	pcfg->sizeimagedst[0] = pcfg->sizeimagedst_bkup;
+	pcfg->sizeimagedst[1] = 0;
+	pcfg->sizeimagedst[2] = 0;
+	pcfg->sizeimagedst[3] = 0;
 }
 
 static int vsi_dec_streamoff(
@@ -554,7 +557,7 @@ static int vsi_dec_try_fmt(struct file *file, void *prv, struct v4l2_format *f)
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
 
-	vsiv4l2_verifyfmt(ctx, f);
+	vsiv4l2_verifyfmt(ctx, f, 1);
 	vsi_dec_getvui(ctx, f);
 	return 0;
 }
