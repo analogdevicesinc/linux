@@ -309,7 +309,6 @@ err_reg_read:
 	mutex_unlock(&mhdp->api_lock);
 	DRM_DEV_ERROR(mhdp->dev, "Failed to read register.\n");
 
-mutex_unlock(&mhdp->api_lock);
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_reg_read);
