@@ -1602,9 +1602,7 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		break;
 	case ADRV9009_INIT_CAL:
 		val = (u32)this_attr->address >> 8;
-
-		if (val)
-			ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
+		ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
 		break;
 	case ADRV9009_JESD204_FSM_ERROR:
 		if (!phy->jdev) {
