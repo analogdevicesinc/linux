@@ -1241,9 +1241,7 @@ static ssize_t ad9371_phy_show(struct device *dev,
 		break;
 	case AD9371_INIT_CAL:
 		val = (u32)this_attr->address >> 8;
-
-		if (val)
-			ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
+		ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
 		break;
 	case AD9371_LARGE_LO_STEP_CAL:
 		ret = sprintf(buf, "%u\n", phy->large_freq_step_cal_en);
