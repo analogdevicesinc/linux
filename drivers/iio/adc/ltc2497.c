@@ -41,13 +41,14 @@ static int ltc2497_result_and_measure(struct ltc2497core_driverdata *ddata,
 		}
 
 		*val = (be32_to_cpu(st->buf) >> 14) - (1 << 17);
+	} else {
+		ret = i2c_smbus_write_byte(st->client,
+					   LTC2497_ENABLE | address);
+		if (ret)
+			dev_err(&st->client->dev, "i2c transfer failed: %pe\n",
+				ERR_PTR(ret));
 	}
 
-	ret = i2c_smbus_write_byte(st->client,
-				   LTC2497_ENABLE | address);
-	if (ret)
-		dev_err(&st->client->dev, "i2c transfer failed: %pe\n",
-			ERR_PTR(ret));
 	return ret;
 }
 
