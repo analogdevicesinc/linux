@@ -14,9 +14,9 @@
 
 #include "ltc2497.h"
 
-#define LTC2497_SGL			BIT(4)
-#define LTC2497_DIFF			0
-#define LTC2497_SIGN			BIT(3)
+#define LTC2497_SGL BIT(4)
+#define LTC2497_DIFF 0
+#define LTC2497_SIGN BIT(3)
 
 static int ltc2497core_wait_conv(struct ltc2497core_driverdata *ddata)
 {
@@ -28,8 +28,7 @@ static int ltc2497core_wait_conv(struct ltc2497core_driverdata *ddata)
 		/* delay if conversion time not passed
 		 * since last read or write
 		 */
-		if (msleep_interruptible(
-		    LTC2497_CONVERSION_TIME_MS - time_elapsed))
+		if (msleep_interruptible(LTC2497_CONVERSION_TIME_MS - time_elapsed))
 			return -ERESTARTSYS;
 
 		return 0;
@@ -45,7 +44,8 @@ static int ltc2497core_wait_conv(struct ltc2497core_driverdata *ddata)
 	return 1;
 }
 
-static int ltc2497core_read(struct ltc2497core_driverdata *ddata, u8 address, int *val)
+static int ltc2497core_read(struct ltc2497core_driverdata *ddata, u8 address,
+			    int *val)
 {
 	int ret;
 
@@ -73,8 +73,8 @@ static int ltc2497core_read(struct ltc2497core_driverdata *ddata, u8 address, in
 }
 
 static int ltc2497core_read_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *chan,
-			    int *val, int *val2, long mask)
+				struct iio_chan_spec const *chan, int *val,
+				int *val2, long mask)
 {
 	struct ltc2497core_driverdata *ddata = iio_priv(indio_dev);
 	int ret;
@@ -95,7 +95,7 @@ static int ltc2497core_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		*val = ret / 1000;
-		*val2 = 17;
+		*val2 = ddata->chip_info->resolution + 1;
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 
@@ -104,26 +104,26 @@ static int ltc2497core_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
-#define LTC2497_CHAN(_chan, _addr, _ds_name) { \
-	.type = IIO_VOLTAGE, \
-	.indexed = 1, \
-	.channel = (_chan), \
-	.address = (_addr | (_chan / 2) | ((_chan & 1) ? LTC2497_SIGN : 0)), \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
-	.datasheet_name = (_ds_name), \
-}
+#define LTC2497_CHAN(_chan, _addr, _ds_name)                                   \
+	{                                                                      \
+		.type = IIO_VOLTAGE, .indexed = 1, .channel = (_chan),         \
+		.address = (_addr | (_chan / 2) |                              \
+			    ((_chan & 1) ? LTC2497_SIGN : 0)),                 \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),                  \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),          \
+		.datasheet_name = (_ds_name),                                  \
+	}
 
-#define LTC2497_CHAN_DIFF(_chan, _addr) { \
-	.type = IIO_VOLTAGE, \
-	.indexed = 1, \
-	.channel = (_chan) * 2 + ((_addr) & LTC2497_SIGN ? 1 : 0), \
-	.channel2 = (_chan) * 2 + ((_addr) & LTC2497_SIGN ? 0 : 1),\
-	.address = (_addr | _chan), \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
-	.differential = 1, \
-}
+#define LTC2497_CHAN_DIFF(_chan, _addr)                                        \
+	{                                                                      \
+		.type = IIO_VOLTAGE, .indexed = 1,                             \
+		.channel = (_chan)*2 + ((_addr)&LTC2497_SIGN ? 1 : 0),         \
+		.channel2 = (_chan)*2 + ((_addr)&LTC2497_SIGN ? 0 : 1),        \
+		.address = (_addr | _chan),                                    \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),                  \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),          \
+		.differential = 1,                                             \
+	}
 
 static const struct iio_chan_spec ltc2497core_channel[] = {
 	LTC2497_CHAN(0, LTC2497_SGL, "CH0"),
@@ -172,6 +172,9 @@ int ltc2497core_probe(struct device *dev, struct iio_dev *indio_dev)
 	indio_dev->name = dev_name(dev);
 	indio_dev->info = &ltc2497core_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+
+	ddata->chip_info = device_get_match_data(dev);
+
 	indio_dev->channels = ltc2497core_channel;
 	indio_dev->num_channels = ARRAY_SIZE(ltc2497core_channel);
 
@@ -202,7 +205,6 @@ int ltc2497core_probe(struct device *dev, struct iio_dev *indio_dev)
 			goto err_regulator_disable;
 		}
 	}
-
 	ddata->addr_prev = LTC2497_CONFIG_DEFAULT;
 	ddata->time_prev = ktime_get();
 

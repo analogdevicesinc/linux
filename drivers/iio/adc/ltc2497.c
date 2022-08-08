@@ -26,6 +26,7 @@ struct ltc2497_driverdata {
 	__be32 buf ____cacheline_aligned;
 };
 
+
 static int ltc2497_result_and_measure(struct ltc2497core_driverdata *ddata,
 				      u8 address, int *val)
 {
@@ -33,20 +34,45 @@ static int ltc2497_result_and_measure(struct ltc2497core_driverdata *ddata,
 		container_of(ddata, struct ltc2497_driverdata, common_ddata);
 	int ret;
 
-	if (val) {
-		ret = i2c_master_recv(st->client, (char *)&st->buf, 3);
-		if (ret < 0) {
-			dev_err(&st->client->dev, "i2c_master_recv failed\n");
-			return ret;
+	switch (ddata->chip_info->type) {
+	case TYPE_LTC2497:
+		if (val) {
+			ret = i2c_master_recv(st->client, (char *)&st->buf, 3);
+			if (ret < 0) {
+				dev_err(&st->client->dev,
+					"i2c_master_recv failed\n");
+				return ret;
+			}
+			*val = (be32_to_cpu(st->buf) >> 14) - (1 << 17);
+		} else {
+			ret = i2c_smbus_write_byte(st->client,
+						   LTC2497_ENABLE | address);
+			if (ret)
+				dev_err(&st->client->dev,
+					"i2c transfer failed: %pe\n",
+					ERR_PTR(ret));
 		}
-
-		*val = (be32_to_cpu(st->buf) >> 14) - (1 << 17);
-	} else {
-		ret = i2c_smbus_write_byte(st->client,
-				   LTC2497_ENABLE | address);
-		if (ret)
-			dev_err(&st->client->dev, "i2c transfer failed: %pe\n",
-				ERR_PTR(ret));
+		break;
+	case TYPE_LTC2499:
+		if (val) {
+			ret = i2c_master_recv(st->client, (char *)&st->buf, 4);
+			if (ret < 0) {
+				dev_err(&st->client->dev,
+					"i2c_master_recv failed\n");
+				return ret;
+			}
+			*val = (be32_to_cpu(st->buf) >> 6) - (1 << 25);
+		} else {
+			ret = i2c_smbus_write_byte(st->client,
+						   LTC2497_ENABLE | address);
+			if (ret)
+				dev_err(&st->client->dev,
+					"i2c transfer failed: %pe\n",
+					ERR_PTR(ret));
+		}
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	return ret;
@@ -59,8 +85,8 @@ static int ltc2497_probe(struct i2c_client *client,
 	struct ltc2497_driverdata *st;
 	struct device *dev = &client->dev;
 
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C |
-				     I2C_FUNC_SMBUS_WRITE_BYTE))
+	if (!i2c_check_functionality(client->adapter,
+				     I2C_FUNC_I2C | I2C_FUNC_SMBUS_WRITE_BYTE))
 		return -EOPNOTSUPP;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
@@ -84,15 +110,28 @@ static int ltc2497_remove(struct i2c_client *client)
 	return 0;
 }
 
+static struct chip_info ltc2497_info[] = {
+	[TYPE_LTC2497] = {
+		.type = TYPE_LTC2497,
+		.resolution = 16,
+	},
+	[TYPE_LTC2499] = {
+		.type = TYPE_LTC2499,
+		.resolution = 24,
+	}
+};
+
 static const struct i2c_device_id ltc2497_id[] = {
-	{ "ltc2497", 0 },
+	{ "ltc2497", TYPE_LTC2497 },
+	{ "ltc2499", TYPE_LTC2499 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ltc2497_id);
 
 static const struct of_device_id ltc2497_of_match[] = {
-	{ .compatible = "lltc,ltc2497", },
-	{},
+	{ .compatible = "lltc,ltc2497", .data = (void *)&ltc2497_info[TYPE_LTC2497] },
+	{ .compatible = "lltc,ltc2499", .data = (void *)&ltc2497_info[TYPE_LTC2499] },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, ltc2497_of_match);
 

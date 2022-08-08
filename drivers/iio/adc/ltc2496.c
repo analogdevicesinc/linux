@@ -46,16 +46,16 @@ static int ltc2496_result_and_measure(struct ltc2497core_driverdata *ddata,
 	st->txbuf[0] = LTC2497_ENABLE | address;
 
 	ret = spi_sync_transfer(st->spi, &t, 1);
-	if (ret < 0)  {
+	if (ret < 0) {
 		dev_err(&st->spi->dev, "spi_sync_transfer failed: %pe\n",
 			ERR_PTR(ret));
 		return ret;
 	}
 
 	if (val)
-		*val = ((st->rxbuf[0] & 0x3f) << 12 |
-			st->rxbuf[1] << 4 | st->rxbuf[2] >> 4) -
-			(1 << 17);
+		*val = ((st->rxbuf[0] & 0x3f) << 12 | st->rxbuf[1] << 4 |
+			st->rxbuf[2] >> 4) -
+		       (1 << 17);
 
 	return 0;
 }
@@ -87,8 +87,13 @@ static int ltc2496_remove(struct spi_device *spi)
 	return 0;
 }
 
+static struct chip_info ltc2496_info = {
+	.type = TYPE_LTC2496,
+	.resolution = 16
+};
+
 static const struct of_device_id ltc2496_of_match[] = {
-	{ .compatible = "lltc,ltc2496", },
+	{ .compatible = "lltc,ltc2496", .data = (void *)&ltc2496_info },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ltc2496_of_match);
