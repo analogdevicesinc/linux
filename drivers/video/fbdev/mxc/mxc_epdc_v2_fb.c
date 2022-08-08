@@ -4772,8 +4772,8 @@ static void mxc_epdc_fb_fw_handler(const struct firmware *fw,
 	struct fb_var_screeninfo *screeninfo = &fb_data->epdc_fb_var;
 	u32 xres, yres;
 	struct clk *epdc_parent;
-	unsigned long rounded_parent_rate, epdc_pix_rate,
-			rounded_pix_clk, target_pix_clk;
+	unsigned long target_pix_clk, epdc_pix_rate;
+	long rounded_pix_clk, rounded_parent_rate;
 
 	if (fw == NULL) {
 		/* If default FW file load failed, we give up */
