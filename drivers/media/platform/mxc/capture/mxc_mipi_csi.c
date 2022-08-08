@@ -928,12 +928,12 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 {
 	struct csi_state *state = notifier_to_mipi_dev(notifier);
 
+	if (subdev == NULL)
+		return -EINVAL;
+
 	/* Find platform data for this sensor subdev */
 	if (state->fwnode == dev_fwnode(subdev->dev))
 		state->sensor_sd = subdev;
-
-	if (subdev == NULL)
-		return -EINVAL;
 
 	v4l2_info(&state->v4l2_dev, "Registered sensor subdevice: %s\n",
 		  subdev->name);
