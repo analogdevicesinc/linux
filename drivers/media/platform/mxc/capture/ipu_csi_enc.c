@@ -61,8 +61,8 @@ static int csi_enc_setup(cam_data *cam)
 	ipu_channel_params_t params;
 	u32 pixel_fmt;
 	int err = 0, sensor_protocol = 0;
-	dma_addr_t dummy = cam->dummy_frame.buffer.m.offset;
-	ipu_channel_t chan = (cam->csi == 0) ? CSI_MEM0 : CSI_MEM1;
+	dma_addr_t dummy;
+	ipu_channel_t chan;
 #ifdef CONFIG_MXC_MIPI_CSI2
 	void *mipi_csi2_info;
 	int ipu_id;
@@ -74,6 +74,9 @@ static int csi_enc_setup(cam_data *cam)
 		printk(KERN_ERR "cam private is NULL\n");
 		return -ENXIO;
 	}
+
+	dummy = cam->dummy_frame.buffer.m.offset;
+	chan = (cam->csi == 0) ? CSI_MEM0 : CSI_MEM1;
 
 	memset(&params, 0, sizeof(ipu_channel_params_t));
 	params.csi_mem.csi = cam->csi;
