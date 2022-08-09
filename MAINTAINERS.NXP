@@ -719,10 +719,10 @@ F: drivers/mtd/nand/raw/gpmi-nand/
 F: include/linux/fsl_ifc.h
 
 net/dpaa1
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
-M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+M: Camelia Groza <camelia.groza@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+R: Madalin Bucur <madalin.bucur@oss.nxp.com>
 F: drivers/net/ethernet/freescale/sdk_dpaa/
 F: drivers/net/ethernet/freescale/sdk_fman/
 F: drivers/staging/fsl_qbman/
@@ -734,10 +734,9 @@ F: include/uapi/linux/fmd/
 
 net/dpaa2
 M: Ioana Ciornei <ioana.ciornei@nxp.com>
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
-M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+R: Madalin Bucur <madalin.bucur@oss.nxp.com>
 F: Documentation/ABI/stable/sysfs-bus-fsl-mc
 F: drivers/bus/fsl-mc/
 F: drivers/net/ethernet/freescale/dpaa2/
@@ -750,30 +749,25 @@ F: include/uapi/linux/fsl_mc.h
 
 net/dwc_eqos
 M: Clark Wang <xiaoning.wang@nxp.com>
-M: Wei Fang <wei.fang@nxp.com>
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
 F: drivers/net/ethernet/stmicro/stmmac/
 
 net/enetc
-M: Claudiu Manoil <claudiu.manoil@nxp.com>
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
-M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+M: Vladimir Oltean <vladimir.oltean@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
 F: drivers/net/ethernet/freescale/enetc/
 
 net/etsec
 M: Claudiu Manoil <claudiu.manoil@nxp.com>
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
-M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+R: Madalin Bucur <madalin.bucur@oss.nxp.com>
 F: drivers/net/ethernet/freescale/gianfar*
 
 net/fec
 M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
 F: Documentation/devicetree/bindings/net/fsl-fec.txt
 F: drivers/net/ethernet/freescale/fec.h
 F: drivers/net/ethernet/freescale/fec_main.c
@@ -785,48 +779,41 @@ M: Sachin Saxena <sachin.saxena@nxp.com>
 F: drivers/net/ethernet/freescale/fec_uio.c
 
 net/ls1028-switch
-M: Claudiu Manoil <claudiu.manoil@nxp.com>
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
+M: Vladimir Oltean <vladimir.oltean@nxp.com>
 F: drivers/net/ethernet/mscc/ocelot.c
 
 net/pfe
-M: Anji Jagarlamudi <anji.jagarlmudi@nxp.com>
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
-M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+M: Chaitanya Sakinam <Chaitanya.sakinam@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+R: Madalin Bucur <madalin.bucur@oss.nxp.com>
 F: Documentation/devicetree/bindings/net/fsl_ppfe/pfe.txt
 F: drivers/staging/fsl_ppfe/
 
 net/phy
 M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+R: Florin Chiculita <florinlaurentiu.chiculita@nxp.com>
 F: drivers/net/phy/
 F: include/linux/phy.h
 
 net/ptp
 M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
 F: drivers/ptp/
 
 net/tsn
-M: Claudiu Manoil <claudiu.manoil@nxp.com>
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
-M: Po Liu <Po.Liu@nxp.com>
-M: Wei Fang <wei.fang@nxp.com>
-M: Clark Wang <xiaoning.wang@nxp.com>
+M: Xiaoliang Yang <xiaoliang.yang_1@nxp.com>
+M: Vladimir Oltean <vladimir.oltean@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
 F: include/net/tsn.h
 F: include/uapi/linux/tsn.h
-F: net/tsn/Kconfig
-F: net/tsn/Makefile
-F: net/tsn/genl_tsn.c
+F: net/tsn/
 
 net/tsn-switch
-M: Madalin Bucur <madalin.bucur@oss.nxp.com>
-M: Martin Gazda <martin.gazda@nxp.com>
 M: Xiaoliang Yang <xiaoliang.yang_1@nxp.com>
+M: Vladimir Oltean <vladimir.oltean@nxp.com>
 
 nfc
 M: Jun Li <jun.li@nxp.com>
