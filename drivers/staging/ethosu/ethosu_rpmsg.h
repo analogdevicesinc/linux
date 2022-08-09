@@ -7,6 +7,7 @@
 #define ETHOSU_RPMSG_H
 
 #include <linux/types.h>
+#include <linux/completion.h>
 #include "ethosu_core_interface.h"
 
 struct device;
@@ -20,6 +21,7 @@ struct ethosu_rpmsg {
 	struct rpmsg_device	*rpdev;
 	ethosu_rpmsg_cb		callback;
 	void			*user_arg;
+	struct completion       rpmsg_ready;
 };
 /**
  * ethosu_rpmsg_ping() - Send ping message

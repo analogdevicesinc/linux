@@ -266,11 +266,18 @@ static int ethosu_open(struct inode *inode,
 		return -EINVAL;
 	}
 
-	rproc_set_firmware(rproc, ETHOSU_FIRMWARE_NAME);
+	ret = rproc_set_firmware(rproc, ETHOSU_FIRMWARE_NAME);
 
-	ret = rproc_boot(rproc);
-	if (ret)
-		dev_err(edev->dev, "could not boot a remote processor\n");
+	if (!ret && atomic_read(&rproc->power) == 0) {
+		init_completion(&edev->erp.rpmsg_ready);
+		ret = rproc_boot(rproc);
+		if (ret)
+			dev_err(edev->dev, "could not boot a remote processor\n");
+		else
+			wait_for_completion_interruptible(&edev->erp.rpmsg_ready);
+	} else {
+		dev_err(edev->dev, "can't change firmware or remote processor is running\n");
+	}
 
 	edev->open = true;
 

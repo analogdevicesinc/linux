@@ -222,6 +222,7 @@ static int ethosu_rpmsg_probe(struct rpmsg_device *rpdev)
 	if (ret) {
 		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
 	}
+	complete(&grp->rpmsg_ready);
 
 	return 0;
 }
