@@ -95,7 +95,7 @@ static int ltc2497core_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		*val = ret / 1000;
-		*val2 = 17;
+		*val2 = ddata->chip_info->resolution + 1;
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 
@@ -168,6 +168,8 @@ int ltc2497core_probe(struct device *dev, struct iio_dev *indio_dev)
 {
 	struct ltc2497core_driverdata *ddata = iio_priv(indio_dev);
 	int ret;
+
+	ddata->chip_info = device_get_match_data(dev);
 
 	indio_dev->name = dev_name(dev);
 	indio_dev->info = &ltc2497core_info;

@@ -87,8 +87,13 @@ static int ltc2496_remove(struct spi_device *spi)
 	return 0;
 }
 
+static struct chip_info ltc2496_info = {
+	.type = TYPE_LTC2496,
+	.resolution = 16
+};
+
 static const struct of_device_id ltc2496_of_match[] = {
-	{ .compatible = "lltc,ltc2496", },
+	{ .compatible = "lltc,ltc2496", .data = (void *)&ltc2496_info },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ltc2496_of_match);
