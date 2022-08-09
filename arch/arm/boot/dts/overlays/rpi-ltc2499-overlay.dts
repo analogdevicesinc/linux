@@ -3,41 +3,27 @@
 /plugin/;
 
 / {
-	compatible = "brcm,bcm2835", "brcm,bcm2711";
+	compatible = "brcm,bcm2835";
 
-	fragment@0 {
-		target-path = "/";
-
-		__overlay__ {
-
-			vref: fixedregulator@0 {
-				compatible = "regulator-fixed";
-				regulator-name = "vref";
-				regulator-min-microvolt = <2500000>;
-				regulator-max-microvolt = <2500000>;
-				phandle = <0x1>;
-			};
-		};
+	vref: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vref";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		phandle = <0x1>;
 	};
 
-	fragment@1 {
-		target = <&i2c1>;
-		__overlay__ {
-			#address-cells = <0x1>;
-			#size-cells = <0x0>;
+	&i2c1 {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+		status = "okay";
+		ltc2499: ltc2499@76 {
+			compatible = "lltc,ltc2499";
+			reg = <0x76>;
+			label = "my_ltc2499";
+			vref-supply = <&vref>;
+			clock-frequency = <400000>;
 			status = "okay";
-			ltc2499: ltc2499@76 {
-				compatible = "lltc,ltc2499";
-				reg = <0x76>;
-				label = "my_ltc2499";
-				vref-supply = <&vref>;
-				clock-frequency = <400000>;
-				status = "okay";
-			};
 		};
-	};
-
-	__overrides__ {
-		addr = <&ltc2499>,"reg:0";
-	};
+	}
 };
