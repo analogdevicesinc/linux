@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2020,2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -583,6 +583,10 @@ static int dpu_get_irq(struct platform_device *pdev, struct dpu_soc *dpu)
 	DPU_GET_IRQ(disengcfg_framecomplete1);
 	DPU_GET_IRQ(sig1_shdload);
 	DPU_GET_IRQ(sig1_valid);
+	DPU_GET_IRQ(comctrl_sw0);
+	DPU_GET_IRQ(comctrl_sw1);
+	DPU_GET_IRQ(comctrl_sw2);
+	DPU_GET_IRQ(comctrl_sw3);
 
 	return 0;
 }
@@ -628,6 +632,10 @@ DPU_IRQ_HANDLER_DEFINE(disengcfg_shdload1, DISENGCFG_SHDLOAD1)
 DPU_IRQ_HANDLER_DEFINE(disengcfg_framecomplete1, DISENGCFG_FRAMECOMPLETE1)
 DPU_IRQ_HANDLER_DEFINE(sig1_shdload, SIG1_SHDLOAD);
 DPU_IRQ_HANDLER_DEFINE(sig1_valid, SIG1_VALID);
+DPU_IRQ_HANDLER_DEFINE(comctrl_sw0, COMCTRL_SW0);
+DPU_IRQ_HANDLER_DEFINE(comctrl_sw1, COMCTRL_SW1);
+DPU_IRQ_HANDLER_DEFINE(comctrl_sw2, COMCTRL_SW2);
+DPU_IRQ_HANDLER_DEFINE(comctrl_sw3, COMCTRL_SW3);
 
 int dpu_map_irq(struct dpu_soc *dpu, int irq)
 {
@@ -712,6 +720,10 @@ static int dpu_irq_init(struct dpu_soc *dpu)
 	DPU_IRQ_CHIP_PM_GET(disengcfg_framecomplete1);
 	DPU_IRQ_CHIP_PM_GET(sig1_shdload);
 	DPU_IRQ_CHIP_PM_GET(sig1_valid);
+	DPU_IRQ_CHIP_PM_GET(comctrl_sw0);
+	DPU_IRQ_CHIP_PM_GET(comctrl_sw1);
+	DPU_IRQ_CHIP_PM_GET(comctrl_sw2);
+	DPU_IRQ_CHIP_PM_GET(comctrl_sw3);
 
 #define DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(name)	\
 irq_set_chained_handler_and_data(dpu->irq_##name, dpu_##name##_irq_handler, dpu)
@@ -728,6 +740,10 @@ irq_set_chained_handler_and_data(dpu->irq_##name, dpu_##name##_irq_handler, dpu)
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(disengcfg_framecomplete1);
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(sig1_shdload);
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(sig1_valid);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(comctrl_sw0);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(comctrl_sw1);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(comctrl_sw2);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(comctrl_sw3);
 
 #define DPU_IRQ_CHIP_PM_PUT_CHECK(name)					\
 {									\
@@ -752,6 +768,10 @@ pm_get_rollback:
 	DPU_IRQ_CHIP_PM_PUT_CHECK(disengcfg_framecomplete1);
 	DPU_IRQ_CHIP_PM_PUT_CHECK(sig1_shdload);
 	DPU_IRQ_CHIP_PM_PUT_CHECK(sig1_valid);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(comctrl_sw0);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(comctrl_sw1);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(comctrl_sw2);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(comctrl_sw3);
 
 	return ret;
 }
@@ -775,6 +795,10 @@ irq_set_chained_handler_and_data(dpu->irq_##name, NULL, NULL)
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(disengcfg_framecomplete1);
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(sig1_shdload);
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(sig1_valid);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(comctrl_sw0);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(comctrl_sw1);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(comctrl_sw2);
+	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(comctrl_sw3);
 
 #define DPU_IRQ_CHIP_PM_PUT(name)				\
 {								\
@@ -794,6 +818,10 @@ irq_set_chained_handler_and_data(dpu->irq_##name, NULL, NULL)
 	DPU_IRQ_CHIP_PM_PUT(disengcfg_framecomplete1);
 	DPU_IRQ_CHIP_PM_PUT(sig1_shdload);
 	DPU_IRQ_CHIP_PM_PUT(sig1_valid);
+	DPU_IRQ_CHIP_PM_PUT(comctrl_sw0);
+	DPU_IRQ_CHIP_PM_PUT(comctrl_sw1);
+	DPU_IRQ_CHIP_PM_PUT(comctrl_sw2);
+	DPU_IRQ_CHIP_PM_PUT(comctrl_sw3);
 
 	for (i = 0; i < dpu->irq_line_num; i++) {
 		irq = irq_linear_revmap(dpu->domain, i);
