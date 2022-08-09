@@ -4174,7 +4174,7 @@ static irqreturn_t pxp_irq(int irq, void *dev_id)
 		pxp_writel(BM_PXP_CTRL_ENABLE, HW_PXP_CTRL_CLR);
 	}
 
-	if (pxp->devdata->version < PXP_V3_IMX93) {
+	if (pxp->devdata && pxp->devdata->version < PXP_V3_IMX93) {
 		pxp_collision_status_report(pxp, &col_info);
 		pxp_histogram_status_report(pxp, &hist_status);
 		/*XXX before a new update operation, we should
