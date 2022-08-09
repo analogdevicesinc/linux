@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017,2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -35,6 +35,7 @@
 #define COMCTRL_INTERRUPTCLEAR0                     ((uint32_t)(0x60))
 #define COMCTRL_INTERRUPTCLEAR0_INTERRUPTCLEAR0_MASK 0xFFFFFFFFU
 
+#define COMCTRL_USERINTERRUPTPRESET1                ((uint32_t)(0x8C))
 
 #define PIXENGCFG_FETCHDECODE9_DYNAMIC              ((uint32_t)(0x828))
 #define PIXENGCFG_FETCHDECODE9_DYNAMIC_RESET_VALUE  0U
