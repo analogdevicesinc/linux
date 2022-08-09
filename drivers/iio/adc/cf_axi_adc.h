@@ -214,6 +214,7 @@ struct axiadc_converter {
 	void 			*phy;
 	struct gpio_desc		*pwrdown_gpio;
 	struct gpio_desc		*reset_gpio;
+	struct gpio_desc		*uncorr_gpio;
 	unsigned			num_lanes;
 	unsigned			id;
 	unsigned			adc_output_mode;
