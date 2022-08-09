@@ -1136,7 +1136,7 @@ void __init imx7d_pm_init(void)
 	if (imx_src_is_m4_enabled()) {
 		/* map the 32K of M4 TCM */
 		np = of_find_node_by_path(
-			"/tcml@007f8000");
+			"/tcml@7f8000");
 		if (np)
 			lpm_m4tcm_base = of_iomap(np, 0);
 		WARN_ON(!lpm_m4tcm_base);
