@@ -321,7 +321,7 @@
 		};
 
 		i2c0: i2c@2180000 {
-			compatible = "fsl,vf610-i2c";
+			compatible = "fsl,ls1021a-i2c", "fsl,vf610-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x2180000 0x0 0x10000>;
@@ -333,7 +333,7 @@
 		};
 
 		i2c1: i2c@2190000 {
-			compatible = "fsl,vf610-i2c";
+			compatible = "fsl,ls1021a-i2c", "fsl,vf610-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x2190000 0x0 0x10000>;
@@ -341,11 +341,12 @@
 			clocks = <&clockgen 4 1>;
 			dma-names = "rx", "tx";
 			dmas = <&edma0 1 36>, <&edma0 1 37>;
+			scl-gpios = <&gpio3 27 0>;
 			status = "disabled";
 		};
 
 		i2c2: i2c@21a0000 {
-			compatible = "fsl,vf610-i2c";
+			compatible = "fsl,ls1021a-i2c", "fsl,vf610-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x21a0000 0x0 0x10000>;
@@ -353,6 +354,7 @@
 			clocks = <&clockgen 4 1>;
 			dma-names = "rx", "tx";
 			dmas = <&edma0 1 34>, <&edma0 1 35>;
+			scl-gpios = <&gpio1 11 0>;
 			status = "disabled";
 		};
 
