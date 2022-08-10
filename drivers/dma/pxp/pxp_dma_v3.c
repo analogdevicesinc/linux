@@ -4118,7 +4118,7 @@ static irqreturn_t pxp_irq(int irq, void *dev_id)
 	dma_async_tx_callback callback;
 	void *callback_param;
 	unsigned long flags;
-	u32 hist_status;
+	u32 hist_status = 0;
 	int pxp_irq_status = 0;
 
 	dump_pxp_reg(pxp);
