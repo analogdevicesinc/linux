@@ -20,7 +20,7 @@
 		pinctrl-0 = <&pinctrl_pmic>;
 		pinctrl-names = "default";
 		interrupt-parent = <&gpio1>;
-		interrupts = <3 GPIO_ACTIVE_LOW>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
 		rohm,reset-snvs-powered;
 
 		#clock-cells = <0>;
