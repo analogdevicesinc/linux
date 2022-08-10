@@ -710,6 +710,7 @@
 					    QORIQ_CLK_PLL_DIV(2)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
 					    QORIQ_CLK_PLL_DIV(2)>;
+			dma-noncoherent;
 		};
 
 		aux_bus: bus {
