@@ -77,7 +77,8 @@ static ssize_t a2b_mailbox_chardev_read(struct file *filp, char __user *buf,
 			ret = regmap_read(regmap, A2B_MBOXDATA(1, i), &val);
 			if (ret)
 				break;
-			buf[read] = val;
+			if (copy_to_user(buf + read, &val, sizeof(char)))
+				return -EFAULT;
 			read++;
 		}
 
@@ -127,8 +128,10 @@ ssize_t a2b_mailbox_chardev_write(struct file *filp, const char __user *buf,
 		}
 
 		for (i = 0; i < mbox->word_size; i++) {
-			ret = regmap_write(regmap, A2B_MBOXDATA(0, i),
-					   buf[written]);
+			char c;
+			if (copy_from_user(&c, buf + written, sizeof(char)))
+				return -EFAULT;
+			ret = regmap_write(regmap, A2B_MBOXDATA(0, i), c);
 			if (ret)
 				break;
 			written++;
