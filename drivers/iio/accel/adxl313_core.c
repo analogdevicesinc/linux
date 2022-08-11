@@ -11,8 +11,16 @@
 #include <linux/iio/iio.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
+#include <linux/spi/spi.h>
 
 #include "adxl313.h"
+
+static const struct regmap_range adxl312_readable_reg_range[] = {
+	regmap_reg_range(ADXL313_REG_DEVID0, ADXL313_REG_DEVID0),
+	regmap_reg_range(ADXL313_REG_OFS_AXIS(0), ADXL313_REG_OFS_AXIS(2)),
+	regmap_reg_range(ADXL313_REG_THRESH_ACT, ADXL313_REG_ACT_INACT_CTL),
+	regmap_reg_range(ADXL313_REG_BW_RATE, ADXL313_REG_FIFO_STATUS),
+};
 
 static const struct regmap_range adxl313_readable_reg_range[] = {
 	regmap_reg_range(ADXL313_REG_DEVID0, ADXL313_REG_XID),
@@ -22,11 +30,31 @@ static const struct regmap_range adxl313_readable_reg_range[] = {
 	regmap_reg_range(ADXL313_REG_BW_RATE, ADXL313_REG_FIFO_STATUS),
 };
 
+const struct regmap_access_table adxl312_readable_regs_table = {
+	.yes_ranges = adxl312_readable_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl312_readable_reg_range),
+};
+EXPORT_SYMBOL_NS_GPL(adxl312_readable_regs_table, IIO_ADXL312);
+
 const struct regmap_access_table adxl313_readable_regs_table = {
 	.yes_ranges = adxl313_readable_reg_range,
 	.n_yes_ranges = ARRAY_SIZE(adxl313_readable_reg_range),
 };
 EXPORT_SYMBOL_NS_GPL(adxl313_readable_regs_table, IIO_ADXL313);
+
+const struct regmap_access_table adxl314_readable_regs_table = {
+	.yes_ranges = adxl312_readable_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl312_readable_reg_range),
+};
+EXPORT_SYMBOL_NS_GPL(adxl314_readable_regs_table, IIO_ADXL314);
+
+static const struct regmap_range adxl312_writable_reg_range[] = {
+	regmap_reg_range(ADXL313_REG_OFS_AXIS(0), ADXL313_REG_OFS_AXIS(2)),
+	regmap_reg_range(ADXL313_REG_THRESH_ACT, ADXL313_REG_ACT_INACT_CTL),
+	regmap_reg_range(ADXL313_REG_BW_RATE, ADXL313_REG_INT_MAP),
+	regmap_reg_range(ADXL313_REG_DATA_FORMAT, ADXL313_REG_DATA_FORMAT),
+	regmap_reg_range(ADXL313_REG_FIFO_CTL, ADXL313_REG_FIFO_CTL),
+};
 
 static const struct regmap_range adxl313_writable_reg_range[] = {
 	regmap_reg_range(ADXL313_REG_SOFT_RESET, ADXL313_REG_SOFT_RESET),
@@ -37,14 +65,27 @@ static const struct regmap_range adxl313_writable_reg_range[] = {
 	regmap_reg_range(ADXL313_REG_FIFO_CTL, ADXL313_REG_FIFO_CTL),
 };
 
+const struct regmap_access_table adxl312_writable_regs_table = {
+	.yes_ranges = adxl312_writable_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl312_writable_reg_range),
+};
+EXPORT_SYMBOL_NS_GPL(adxl312_writable_regs_table, IIO_ADXL312);
+
 const struct regmap_access_table adxl313_writable_regs_table = {
 	.yes_ranges = adxl313_writable_reg_range,
 	.n_yes_ranges = ARRAY_SIZE(adxl313_writable_reg_range),
 };
 EXPORT_SYMBOL_NS_GPL(adxl313_writable_regs_table, IIO_ADXL313);
 
+const struct regmap_access_table adxl314_writable_regs_table = {
+	.yes_ranges = adxl312_writable_reg_range,
+	.n_yes_ranges = ARRAY_SIZE(adxl312_writable_reg_range),
+};
+EXPORT_SYMBOL_NS_GPL(adxl314_writable_regs_table, IIO_ADXL314);
+
 struct adxl313_data {
 	struct regmap	*regmap;
+	const struct spi_device_id *id;
 	struct mutex	lock; /* lock to protect transf_buf */
 	__le16		transf_buf ____cacheline_aligned;
 };
@@ -156,12 +197,33 @@ static int adxl313_read_raw(struct iio_dev *indio_dev,
 		*val = sign_extend32(ret, chan->scan_type.realbits - 1);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		/*
-		 * Scale for any g range is given in datasheet as
-		 * 1024 LSB/g = 0.0009765625 * 9.80665 = 0.009576806640625 m/s^2
-		 */
 		*val = 0;
-		*val2 = 9576806;
+
+		if (data->id->driver_data == ADXL312) {
+			/*
+			 * Scale for any g range (full range) is given in datasheet as
+			 * 345 LSB/g = 0.0028985507 * 9.80665 = 0.028425072222155 m/s^2
+			 */
+			*val2 = 28425072;
+		}
+
+		if (data->id->driver_data == ADXL313) {
+			/*
+			 * Scale for any g range is given in datasheet as
+			 * 1024 LSB/g = 0.0009765625 * 9.80665 = 0.009576806640625 m/s^2
+			 */
+			*val2 = 9576806;
+		}
+
+		if (data->id->driver_data == ADXL314) {
+			/*
+			 * ADXL314
+			 * At +/-200g with 13-bit resolution, scale factor is given in datasheet as
+			 * 48.83 mg/LSB = 0.0488300 * 9.80665 = 0.4788587195 m/s^2.
+			*/
+			*val2 = 478858719;
+		}
+
 		return IIO_VAL_INT_PLUS_NANO;
 	case IIO_CHAN_INFO_CALIBBIAS:
 		ret = regmap_read(data->regmap,
@@ -170,7 +232,7 @@ static int adxl313_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		/*
-		 * 8-bit resolution at +/- 0.5g, that is 4x accel data scale
+		 * 8-bit resolution at minimum range, that is 4x accel data scale
 		 * factor at full resolution
 		 */
 		*val = sign_extend32(regval, 7) * 4;
@@ -198,9 +260,10 @@ static int adxl313_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBBIAS:
 		/*
-		 * 8-bit resolution at +/- 0.5g, that is 4x accel data scale
+		 * 8-bit resolution at minimum range, that is 4x accel data scale
 		 * factor at full resolution
 		 */
+
 		if (clamp_val(val, -128 * 4, 127 * 4) != val)
 			return -EINVAL;
 
@@ -223,14 +286,17 @@ static const struct iio_info adxl313_info = {
 static int adxl313_setup(struct device *dev, struct adxl313_data *data,
 			 int (*setup)(struct device *, struct regmap *))
 {
+	enum adxl313_device_type dev_type = data->id->driver_data;
 	unsigned int regval;
 	int ret;
 
-	/* Ensures the device is in a consistent state after start up */
-	ret = regmap_write(data->regmap, ADXL313_REG_SOFT_RESET,
-			   ADXL313_SOFT_RESET);
-	if (ret)
-		return ret;
+	/* If ADXL313, ensures the device is in a consistent state after start up */
+	if (dev_type == ADXL313) {
+		ret = regmap_write(data->regmap, ADXL313_REG_SOFT_RESET,
+				ADXL313_SOFT_RESET);
+		if (ret)
+			return ret;
+	}
 
 	if (setup) {
 		ret = setup(dev, data->regmap);
@@ -242,41 +308,55 @@ static int adxl313_setup(struct device *dev, struct adxl313_data *data,
 	if (ret)
 		return ret;
 
-	if (regval != ADXL313_DEVID0) {
-		dev_err(dev, "Invalid manufacturer ID: 0x%02x\n", regval);
+	if ((dev_type == ADXL313) && (regval != ADXL313_DEVID0)) {
+		dev_err(dev, "Invalid manufacturer ID: %#02x\n", regval);
 		return -ENODEV;
 	}
 
-	ret = regmap_read(data->regmap, ADXL313_REG_DEVID1, &regval);
-	if (ret)
-		return ret;
+	/* If ADXL313, check DEVID1 and PARTID */
+	if (regval == ADXL313_DEVID0) {
+		ret = regmap_read(data->regmap, ADXL313_REG_DEVID1, &regval);
+		if (ret)
+			return ret;
 
-	if (regval != ADXL313_DEVID1) {
-		dev_err(dev, "Invalid mems ID: 0x%02x\n", regval);
+		if (regval != ADXL313_DEVID1) {
+			dev_err(dev, "Invalid mems ID: 0x%02x\n", regval);
+			return -ENODEV;
+		}
+
+		ret = regmap_read(data->regmap, ADXL313_REG_PARTID, &regval);
+		if (ret)
+			return ret;
+
+		if (regval != ADXL313_PARTID) {
+			dev_err(dev, "Invalid device ID: 0x%02x\n", regval);
+			return -ENODEV;
+		}
+	}
+
+	/* If ADXL312 or ADXL314 device, check DEVID0 */
+	if ((dev_type != ADXL313) && (regval != ADXL313_DEVID0_ADXL312_314)) {
+		dev_err(dev, "Invalid manufacturer ID: %#02x\n", regval);
 		return -ENODEV;
 	}
 
-	ret = regmap_read(data->regmap, ADXL313_REG_PARTID, &regval);
-	if (ret)
-		return ret;
+	dev_info(dev, "%s detected.\n", data->id->name);
 
-	if (regval != ADXL313_PARTID) {
-		dev_err(dev, "Invalid device ID: 0x%02x\n", regval);
-		return -ENODEV;
+	/* Sets the range to maximum, full resolution, for ADXL312 and ADXL313 */
+	if (dev_type != ADXL314) {
+		ret = regmap_update_bits(data->regmap, ADXL313_REG_DATA_FORMAT,
+					ADXL313_RANGE_MSK,
+					FIELD_PREP(ADXL313_RANGE_MSK, 0x02));
+
+		if (ret)
+			return ret;
+
+		/* Enables full resolution */
+		ret = regmap_update_bits(data->regmap, ADXL313_REG_DATA_FORMAT,
+					ADXL313_FULL_RES, 0);
+		if (ret)
+			return ret;
 	}
-
-	/* Sets the range to +/- 4g */
-	ret = regmap_update_bits(data->regmap, ADXL313_REG_DATA_FORMAT,
-				 ADXL313_RANGE_MSK,
-				 FIELD_PREP(ADXL313_RANGE_MSK, ADXL313_RANGE_4G));
-	if (ret)
-		return ret;
-
-	/* Enables full resolution */
-	ret = regmap_update_bits(data->regmap, ADXL313_REG_DATA_FORMAT,
-				 ADXL313_FULL_RES, ADXL313_FULL_RES);
-	if (ret)
-		return ret;
 
 	/* Enables measurement mode */
 	return regmap_update_bits(data->regmap, ADXL313_REG_POWER_CTL,
@@ -296,7 +376,7 @@ static int adxl313_setup(struct device *dev, struct adxl313_data *data,
  */
 int adxl313_core_probe(struct device *dev,
 		       struct regmap *regmap,
-		       const char *name,
+		       const struct spi_device_id *id,
 		       int (*setup)(struct device *, struct regmap *))
 {
 	struct adxl313_data *data;
@@ -309,9 +389,10 @@ int adxl313_core_probe(struct device *dev,
 
 	data = iio_priv(indio_dev);
 	data->regmap = regmap;
+	data->id = id;
 	mutex_init(&data->lock);
 
-	indio_dev->name = name;
+	indio_dev->name = id->name;
 	indio_dev->info = &adxl313_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = adxl313_channels;
@@ -319,13 +400,13 @@ int adxl313_core_probe(struct device *dev,
 
 	ret = adxl313_setup(dev, data, setup);
 	if (ret) {
-		dev_err(dev, "ADXL313 setup failed\n");
+		dev_err(dev, "Device %s setup failed\n", id->name);
 		return ret;
 	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
-EXPORT_SYMBOL_NS_GPL(adxl313_core_probe, IIO_ADXL313);
+EXPORT_SYMBOL_GPL(adxl313_core_probe);
 
 MODULE_AUTHOR("Lucas Stankus <lucas.p.stankus@gmail.com>");
 MODULE_DESCRIPTION("ADXL313 3-Axis Digital Accelerometer core driver");
