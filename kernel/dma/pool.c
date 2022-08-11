@@ -205,7 +205,7 @@ static int __init dma_atomic_pool_init(void)
 		ret = -ENOMEM;
 	if (has_managed_dma()) {
 		atomic_pool_dma = __dma_atomic_pool_init(atomic_pool_size,
-						GFP_KERNEL | GFP_DMA);
+						GFP_KERNEL | GFP_DMA | __GFP_NOWARN);
 		if (!atomic_pool_dma)
 			ret = -ENOMEM;
 	}
