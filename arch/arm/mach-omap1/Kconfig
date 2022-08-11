@@ -134,8 +134,8 @@ config MACH_OMAP_INNOVATOR
 	depends on ARCH_OMAP15XX || ARCH_OMAP16XX
 	depends on UNUSED_BOARD_FILES
 	help
-          TI OMAP 1510 or 1610 Innovator board support. Say Y here if you
-          have such a board.
+	  TI OMAP 1510 or 1610 Innovator board support. Say Y here if you
+	  have such a board.
 
 config MACH_OMAP_H2
 	bool "TI H2 Support"
@@ -165,7 +165,7 @@ config MACH_OMAP_OSK
 	depends on ARCH_OMAP16XX
 	help
 	  TI OMAP 5912 OSK (OMAP Starter Kit) board support. Say Y here
-          if you have such a board.
+	  if you have such a board.
 
 config OMAP_OSK_MISTRAL
 	bool "Mistral QVGA board Support"
@@ -206,10 +206,10 @@ config MACH_OMAP_PALMZ71
 	depends on ARCH_OMAP15XX
 	depends on UNUSED_BOARD_FILES
 	help
-	 Support for the Palm Zire71 PDA. To boot the kernel,
-	 you'll need a PalmOS compatible bootloader; check out
-	 http://hackndev.com/palm/z71 for more information.
-	 Say Y here if you have such a PDA, say N otherwise.
+	  Support for the Palm Zire71 PDA. To boot the kernel,
+	  you'll need a PalmOS compatible bootloader; check out
+	  http://hackndev.com/palm/z71 for more information.
+	  Say Y here if you have such a PDA, say N otherwise.
 
 config MACH_OMAP_PALMTT
 	bool "Palm Tungsten|T"
@@ -257,10 +257,10 @@ config MACH_OMAP_GENERIC
 	depends on ARCH_OMAP15XX || ARCH_OMAP16XX
 	depends on UNUSED_BOARD_FILES
 	help
-          Support for generic OMAP-1510, 1610 or 1710 board with
-          no FPGA. Can be used as template for porting Linux to
-          custom OMAP boards. Say Y here if you have a custom
-          board.
+	  Support for generic OMAP-1510, 1610 or 1710 board with
+	  no FPGA. Can be used as template for porting Linux to
+	  custom OMAP boards. Say Y here if you have a custom
+	  board.
 
 endmenu
 
