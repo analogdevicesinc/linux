@@ -1257,7 +1257,7 @@ struct cifs_tcon {
 	struct fscache_volume *fscache;	/* cookie for share */
 #endif
 	struct list_head pending_opens;	/* list of incomplete opens */
-	struct cached_fid crfid; /* Cached root fid */
+	struct cached_fid cfid; /* Cached root fid */
 	/* BB add field for back pointer to sb struct(s)? */
 #ifdef CONFIG_CIFS_DFS_UPCALL
 	struct list_head ulist; /* cache update list */
@@ -2132,9 +2132,9 @@ static inline bool cifs_is_referral_server(struct cifs_tcon *tcon,
 	return is_tcon_dfs(tcon) || (ref && (ref->flags & DFSREF_REFERRAL_SERVER));
 }
 
-static inline u64 cifs_flock_len(struct file_lock *fl)
+static inline u64 cifs_flock_len(const struct file_lock *fl)
 {
-	return fl->fl_end == OFFSET_MAX ? 0 : fl->fl_end - fl->fl_start + 1;
+	return (u64)fl->fl_end - fl->fl_start + 1;
 }
 
 static inline size_t ntlmssp_workstation_name_size(const struct cifs_ses *ses)
