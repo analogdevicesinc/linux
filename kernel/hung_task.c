@@ -204,8 +204,23 @@ static void check_hung_uninterruptible_tasks(unsigned long timeout)
 	}
  unlock:
 	rcu_read_unlock();
-	if (hung_task_show_lock)
-		debug_show_all_locks();
+#if defined(CONFIG_PROVE_LOCKING)
+	if (hung_task_show_lock && debug_locks) {
+		pr_warn("\nShowing all threads with locks held in the system:\n");
+		rcu_read_lock();
+		for_each_process_thread(g, t) {
+			if (t->lockdep_depth && t != current) {
+				sched_show_task(t);
+				debug_show_held_locks(t);
+				touch_nmi_watchdog();
+				touch_all_softlockup_watchdogs();
+			}
+		}
+		rcu_read_unlock();
+		pr_warn("\n");
+		pr_warn("=============================================\n\n");
+	}
+#endif
 
 	if (hung_task_show_all_bt) {
 		hung_task_show_all_bt = false;
