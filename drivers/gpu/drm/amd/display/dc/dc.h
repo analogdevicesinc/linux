@@ -47,7 +47,7 @@ struct aux_payload;
 struct set_config_cmd_payload;
 struct dmub_notification;
 
-#define DC_VER "3.2.196"
+#define DC_VER "3.2.197"
 
 #define MAX_SURFACES 3
 #define MAX_PLANES 6
@@ -118,7 +118,26 @@ struct dc_plane_cap {
 	uint32_t min_height;
 };
 
-// Color management caps (DPP and MPC)
+/**
+ * DOC: color-management-caps
+ *
+ * **Color management caps (DPP and MPC)**
+ *
+ * Modules/color calculates various color operations which are translated to
+ * abstracted HW. DCE 5-12 had almost no important changes, but starting with
+ * DCN1, every new generation comes with fairly major differences in color
+ * pipeline. Therefore, we abstract color pipe capabilities so modules/DM can
+ * decide mapping to HW block based on logical capabilities.
+ */
+
+/**
+ * struct rom_curve_caps - predefined transfer function caps for degamma and regamma
+ * @srgb: RGB color space transfer func
+ * @bt2020: BT.2020 transfer func
+ * @gamma2_2: standard gamma
+ * @pq: perceptual quantizer transfer function
+ * @hlg: hybrid log–gamma transfer function
+ */
 struct rom_curve_caps {
 	uint16_t srgb : 1;
 	uint16_t bt2020 : 1;
@@ -127,36 +146,68 @@ struct rom_curve_caps {
 	uint16_t hlg : 1;
 };
 
+/**
+ * struct dpp_color_caps - color pipeline capabilities for display pipe and
+ * plane blocks
+ *
+ * @dcn_arch: all DCE generations treated the same
+ * @input_lut_shared: shared with DGAM. Input LUT is different than most LUTs,
+ * just plain 256-entry lookup
+ * @icsc: input color space conversion
+ * @dgam_ram: programmable degamma LUT
+ * @post_csc: post color space conversion, before gamut remap
+ * @gamma_corr: degamma correction
+ * @hw_3d_lut: 3D LUT support. It implies a shaper LUT before. It may be shared
+ * with MPC by setting mpc:shared_3d_lut flag
+ * @ogam_ram: programmable out/blend gamma LUT
+ * @ocsc: output color space conversion
+ * @dgam_rom_for_yuv: pre-defined degamma LUT for YUV planes
+ * @dgam_rom_caps: pre-definied curve caps for degamma 1D LUT
+ * @ogam_rom_caps: pre-definied curve caps for regamma 1D LUT
+ *
+ * Note: hdr_mult and gamut remap (CTM) are always available in DPP (in that order)
+ */
 struct dpp_color_caps {
-	uint16_t dcn_arch : 1; // all DCE generations treated the same
-	// input lut is different than most LUTs, just plain 256-entry lookup
-	uint16_t input_lut_shared : 1; // shared with DGAM
+	uint16_t dcn_arch : 1;
+	uint16_t input_lut_shared : 1;
 	uint16_t icsc : 1;
 	uint16_t dgam_ram : 1;
-	uint16_t post_csc : 1; // before gamut remap
+	uint16_t post_csc : 1;
 	uint16_t gamma_corr : 1;
-
-	// hdr_mult and gamut remap always available in DPP (in that order)
-	// 3d lut implies shaper LUT,
-	// it may be shared with MPC - check MPC:shared_3d_lut flag
 	uint16_t hw_3d_lut : 1;
-	uint16_t ogam_ram : 1; // blnd gam
+	uint16_t ogam_ram : 1;
 	uint16_t ocsc : 1;
 	uint16_t dgam_rom_for_yuv : 1;
 	struct rom_curve_caps dgam_rom_caps;
 	struct rom_curve_caps ogam_rom_caps;
 };
 
+/**
+ * struct mpc_color_caps - color pipeline capabilities for multiple pipe and
+ * plane combined blocks
+ *
+ * @gamut_remap: color transformation matrix
+ * @ogam_ram: programmable out gamma LUT
+ * @ocsc: output color space conversion matrix
+ * @num_3dluts: MPC 3D LUT; always assumes a preceding shaper LUT
+ * @shared_3d_lut: shared 3D LUT flag. Can be either DPP or MPC, but single
+ * instance
+ * @ogam_rom_caps: pre-definied curve caps for regamma 1D LUT
+ */
 struct mpc_color_caps {
 	uint16_t gamut_remap : 1;
 	uint16_t ogam_ram : 1;
 	uint16_t ocsc : 1;
-	uint16_t num_3dluts : 3; //3d lut always assumes a preceding shaper LUT
-	uint16_t shared_3d_lut:1; //can be in either DPP or MPC, but single instance
-
+	uint16_t num_3dluts : 3;
+	uint16_t shared_3d_lut:1;
 	struct rom_curve_caps ogam_rom_caps;
 };
 
+/**
+ * struct dc_color_caps - color pipes capabilities for DPP and MPC hw blocks
+ * @dpp: color pipes caps for DPP
+ * @mpc: color pipes caps for MPC
+ */
 struct dc_color_caps {
 	struct dpp_color_caps dpp;
 	struct mpc_color_caps mpc;
@@ -213,6 +264,7 @@ struct dc_caps {
 	uint32_t cache_num_ways;
 	uint16_t subvp_fw_processing_delay_us;
 	uint16_t subvp_prefetch_end_to_mall_start_us;
+	uint8_t subvp_swath_height_margin_lines; // subvp start line must be aligned to 2 x swath height
 	uint16_t subvp_pstate_allow_width_us;
 	uint16_t subvp_vertical_int_margin_us;
 	bool seamless_odm;
@@ -384,9 +436,31 @@ enum dcc_option {
 	DCC_HALF_REQ_DISALBE = 2,
 };
 
+/**
+ * enum pipe_split_policy - Pipe split strategy supported by DCN
+ *
+ * This enum is used to define the pipe split policy supported by DCN. By
+ * default, DC favors MPC_SPLIT_DYNAMIC.
+ */
 enum pipe_split_policy {
+	/**
+	 * @MPC_SPLIT_DYNAMIC: DC will automatically decide how to split the
+	 * pipe in order to bring the best trade-off between performance and
+	 * power consumption. This is the recommended option.
+	 */
 	MPC_SPLIT_DYNAMIC = 0,
+
+	/**
+	 * @MPC_SPLIT_DYNAMIC: Avoid pipe split, which means that DC will not
+	 * try any sort of split optimization.
+	 */
 	MPC_SPLIT_AVOID = 1,
+
+	/**
+	 * @MPC_SPLIT_DYNAMIC: With this option, DC will only try to optimize
+	 * the pipe utilization when using a single display; if the user
+	 * connects to a second display, DC will avoid pipe split.
+	 */
 	MPC_SPLIT_AVOID_MULT_DISP = 2,
 };
 
@@ -609,6 +683,7 @@ struct dc_bounding_box_overrides {
 	int percent_of_ideal_drambw;
 	int dram_clock_change_latency_ns;
 	int dummy_clock_change_latency_ns;
+	int fclk_clock_change_latency_ns;
 	/* This forces a hard min on the DCFCLK we use
 	 * for DML.  Unlike the debug option for forcing
 	 * DCFCLK, this override affects watermark calculations
@@ -620,6 +695,14 @@ struct dc_state;
 struct resource_pool;
 struct dce_hwseq;
 
+/**
+ * struct dc_debug_options - DC debug struct
+ *
+ * This struct provides a simple mechanism for developers to change some
+ * configurations, enable/disable features, and activate extra debug options.
+ * This can be very handy to narrow down whether some specific feature is
+ * causing an issue or not.
+ */
 struct dc_debug_options {
 	bool native422_support;
 	bool disable_dsc;
@@ -639,6 +722,11 @@ struct dc_debug_options {
 	bool disable_stutter;
 	bool use_max_lb;
 	enum dcc_option disable_dcc;
+
+	/**
+	 * @pipe_split_policy: Define which pipe split policy is used by the
+	 * display core.
+	 */
 	enum pipe_split_policy pipe_split_policy;
 	bool force_single_disp_pipe_split;
 	bool voltage_align_fclk;
@@ -751,6 +839,7 @@ struct dc_debug_options {
 	uint32_t mst_start_top_delay;
 	uint8_t psr_power_use_phy_fsm;
 	enum dml_hostvm_override_opts dml_hostvm_override;
+	bool dml_disallow_alternate_prefetch_modes;
 	bool use_legacy_soc_bb_mechanism;
 	bool exit_idle_opt_for_cursor_updates;
 	bool enable_single_display_2to1_odm_policy;
@@ -810,6 +899,17 @@ struct dc {
 
 	uint32_t *dcn_reg_offsets;
 	uint32_t *nbio_reg_offsets;
+
+	/* Scratch memory */
+	struct {
+		struct {
+			/*
+			 * For matching clock_limits table in driver with table
+			 * from PMFW.
+			 */
+			struct _vcs_dpi_voltage_scaling_st clock_limits[DC__VOLTAGE_STATES];
+		} update_bw_bounding_box;
+	} scratch;
 };
 
 enum frame_buffer_mode {

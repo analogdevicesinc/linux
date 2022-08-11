@@ -1,6 +1,5 @@
-/* SPDX-License-Identifier: MIT */
 /*
- * Copyright 2022 Advanced Micro Devices, Inc.
+ * Copyright 2021 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,27 +19,14 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
- * Authors: AMD
- *
  */
 
-#ifndef _DCN314_RESOURCE_H_
-#define _DCN314_RESOURCE_H_
+#ifndef __SIENNA_CICHLID_H__
+#define __SIENNA_CICHLID_H__
 
-#include "core_types.h"
+#include "amdgpu.h"
 
-extern struct _vcs_dpi_ip_params_st dcn3_14_ip;
-extern struct _vcs_dpi_soc_bounding_box_st dcn3_14_soc;
+int sienna_cichlid_reset_init(struct amdgpu_device *adev);
+int sienna_cichlid_reset_fini(struct amdgpu_device *adev);
 
-#define TO_DCN314_RES_POOL(pool)\
-	container_of(pool, struct dcn314_resource_pool, base)
-
-struct dcn314_resource_pool {
-	struct resource_pool base;
-};
-
-struct resource_pool *dcn314_create_resource_pool(
-		const struct dc_init_data *init_data,
-		struct dc *dc);
-
-#endif /* _DCN314_RESOURCE_H_ */
+#endif
