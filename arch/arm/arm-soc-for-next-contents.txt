@@ -1,0 +1,246 @@
+arm/soc
+	samsung/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-soc-5.20
+	omap/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v5.20/soc-signed
+	zynq/soc-64
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-soc-for-v5.20
+	zynq/soc
+		https://github.com/Xilinx/linux-xlnx tags/zynq-soc-for-v5.20
+	renesas/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v5.20-tag1
+	broadcom/soc
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/soc
+	broadcom/maintainers
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/maintainers
+	imx/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-soc-5.20
+	davinci/dm3xxx-remove
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-gpio tags/davinci-boards-delete-v5.20
+	broadcom/soc-2
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/soc-part2
+	mvebu/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-arm-5.20-1
+	at91/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-5.20
+
+arm/dt
+	samsung/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt-5.20
+	samsung/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-5.20
+	renesas/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-dt-for-v5.20-tag1
+	renesas/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v5.20-tag1
+	socfpga/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_updates_for_v5.20
+	dt/cleanup-arm64
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/dt64-cleanup-5.20
+	dt/cleanup-arm
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/dt-cleanup-5.20
+	amlogic/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm-dt-for-v5.20
+	amlogic/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm64-dt-for-v5.20
+	omap/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tmlind/linux-omap tags/omap-for-v5.20/dt-signed
+	rockchip/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v5.20-rockchip-dts64-1
+	rockchip/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v5.20-rockchip-dts32-1
+	ux500/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-nomadik tags/ux500-dts-v5.20
+	at91/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-5.20
+	stm32/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/atorgue/stm32 tags/stm32-dt-for-v5.20-1
+	juno/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-5.20
+	dt/cleanup-arm64-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/dt64-cleanup-5.20-2
+	dt/cleanup-arm-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/dt-cleanup-5.20-2
+	samsung/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt-5.20-2
+	samsung/dt64-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-5.20-2
+	zynq/dt
+		https://github.com/Xilinx/linux-xlnx tags/zynq-dt-for-v5.20
+	zynq/dt64
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-v5.20
+	renesas/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-dt-for-v5.20-tag2
+	renesas/dt-bindings-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v5.20-tag2
+	mediatek/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/matthias.bgg/linux tags/v5.19-next-dts32
+	mediatek/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/matthias.bgg/linux tags/v5.19-next-dts64
+	sunxi/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-5.20-1
+	tegra/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-dt-bindings
+	tegra/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-arm-dt
+	tegra/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-arm64-dt
+	k3/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dt-for-v5.20
+	keystone/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-keystone-dt-for-v5.20
+	imx/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-bindings-5.20
+	imx/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt-5.20
+	imx/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-dt64-5.20
+	sunxi/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-5.20-2
+	at91/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-5.20-2
+	qcom/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-dts-for-5.20
+	qcom/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-5.20
+	broadcom/dt
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/devicetree
+	broadcom/dt64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/devicetree-arm64
+	broadcom/dt-bindings
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/devicetree-part2
+	broadcom/dt64-2
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/devicetree-arm64-part2
+	mvebu/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-5.20-1
+	mvebu/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-5.20-1
+	patch
+		ARM: dts: aspeed: centriq2400: drop the board
+	aspeed/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt-bindings-aspeed-5.20
+	qcom/dts-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-dts-for-5.20-2
+	qcom/dt64-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-5.20-2
+	at91/dt-3
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-5.20-3
+	at91/dt-4
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-5.20-4
+	patch
+		dt-bindings: soc: bcm: drop quotes when not needed
+		dt-bindings: soc: bcm: use absolute path to other schema
+
+arm/drivers
+	renesas/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v5.20-tag1
+	amlogic/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-drivers-for-v5.20
+	drivers/memory
+		git://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-5.20
+	firmware/scmi
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-5.20
+	sunxi/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-drivers-for-5.20-1
+	mediatek/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/matthias.bgg/linux tags/v5.19-next-soc
+	tegra/firmware
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-firmware
+	tegra/memory
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-memory
+	ti/soc-drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-driver-soc-for-v5.20
+	imx/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-drivers-5.20
+	broadcom/drivers
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/drivers
+	qcom/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-5.20
+	patch
+		soc: fujitsu: Add A64FX diagnostic interrupt driver
+		soc: a64fx-diag: disable modular build
+	qcom/drivers-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-5.20-2
+
+arm/defconfig
+	renesas/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v5.20-tag1
+	sunxi/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-config64-for-5.20-1
+	tegra/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-arm64-defconfig
+	imx/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-5.20
+	broadcom/defconfig
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/defconfig
+	broadcom/defconfig-64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/defconfig-arm64
+	qcom/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20
+	qcom/defconfig-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20-2
+	patch
+		ARM: refresh defconfig files
+		ARM: defconfig: remove irda remnants
+		ARM: defconfig: remove stale CONFIG_ZBOOT_ROM entries
+		ARM: defconfig: address renamed CONFIG_DEBUG_INFO=y
+		ARM: defconfig: remove broken CONFIG_THUMB disables
+		ARM: defconfig: kill remnants of CONFIG_LEDS
+		arm64: refresh defconfig file
+		arm64: defconfig: Sync some configs with savedefconfig
+
+arm/late
+
+arm/fixes
+	patch
+		mailmap: update Baolin Wang's email
+	at91/fixes-3
+		git://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-5.19-3
+	patch
+		ARM: pxa2xx: Fix GPIO descriptor tables
+
+arm/boardfiles-3
+	renesas/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v5.20-tag1
+	sunxi/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-config64-for-5.20-1
+	tegra/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-5.20-arm64-defconfig
+	imx/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-defconfig-5.20
+	broadcom/defconfig
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/defconfig
+	broadcom/defconfig-64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-5.20/defconfig-arm64
+	qcom/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20
+	qcom/defconfig-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-5.20-2
+	patch
+		ARM: refresh defconfig files
+		ARM: defconfig: remove irda remnants
+		ARM: defconfig: remove stale CONFIG_ZBOOT_ROM entries
+		ARM: defconfig: address renamed CONFIG_DEBUG_INFO=y
+		ARM: defconfig: remove broken CONFIG_THUMB disables
+		ARM: defconfig: kill remnants of CONFIG_LEDS
+		ARM: add ATAGS dependencies to non-DT platforms
+		ARM: add CONFIG_UNUSED_BOARD_FILES
+		ARM: pxa: add Kconfig dependencies for ATAGS based boards
+		ARM: orion: add ATAGS dependencies
+		ARM: davinci: mark all ATAGS board files as unused
+		ARM: ep93xx: mark most board files as unused
+		ARM: mmp: mark all board files for removal
+		ARM: footbridge: mark cats board for removal
+		ARM: sa1100: mark most boards as unused
+		ARM: omap1: add Kconfig dependencies for unused boards
+		ARM: s3c: mark most board files as unused
+		ARM: iop32x: mark as unused
+		ARM: cns3xxx: add CONFIG_UNUSED_BOARD_FILES dependency
+
+arm/newsoc
+	sunplus/newsoc
+		Merge branch 'sunplus/newsoc' into arm/newsoc
+	nuvoton/newsoc
+		Merge branch 'nuvoton/newsoc' into arm/newsoc
+	patch
+		MAINTAINERS: rectify entry for ARM/NUVOTON NPCM ARCHITECTURE
