@@ -159,6 +159,7 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states,
 	struct dpu_hscaler *hs;
 	struct dpu_vscaler *vs;
 	lb_prim_sel_t stage;
+	lb_sec_sel_t current_source;
 	dpu_block_id_t blend;
 	unsigned int sid, src_sid;
 	unsigned int num_planes;
@@ -219,9 +220,23 @@ again:
 		/* assign source */
 		mutex_lock(&grp->mutex);
 		for (j = 0; j < total_asrc_num; j++) {
-			k = ffs(src_a_mask) - 1;
-			if (k < 0)
-				return -EINVAL;
+			/*
+			 * When going through the available plane sources, let's
+			 * try the current source first, if it exists. That would
+			 * avoid switching the source for planes that are not
+			 * actually included in the userspace commit.
+			 */
+			current_source = alloc_aux_source ?
+					 dpstate->aux_source : dpstate->source;
+			if (j == 0 && current_source) {
+				for (k = 0; k < ARRAY_SIZE(sources); k++)
+					if (current_source == sources[k])
+						break;
+			} else {
+				k = ffs(src_a_mask) - 1;
+				if (k < 0)
+					return -EINVAL;
+			}
 
 			fu = source_to_fu(&grp->res, sources[k]);
 			if (!fu)
