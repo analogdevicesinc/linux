@@ -87,7 +87,9 @@ static struct kmem_cache *mm_slot_cache __read_mostly;
 
 struct collapse_control {
 	/* Num pages scanned per node */
-#if HPAGE_PMD_ORDER < 16
+#if defined(CONFIG_PPC64)
+	u32 node_load[MAX_NUMNODES];
+#elif HPAGE_PMD_ORDER < 16
 	u16 node_load[MAX_NUMNODES];
 #else
 	u32 node_load[MAX_NUMNODES];
