@@ -454,8 +454,12 @@ roll_back:
 leave:
 	if (status < 0 && did_quota_inode)
 		dquot_free_inode(inode);
-	if (handle)
+	if (handle) {
+		if (status < 0 && new_fe_bh != NULL)
+			ocfs2_set_links_count((struct ocfs2_dinode *)
+					new_fe_bh->b_data, 0);
 		ocfs2_commit_trans(osb, handle);
+	}
 
 	ocfs2_inode_unlock(dir, 1);
 	if (did_block_signals)
@@ -599,6 +603,8 @@ static int __ocfs2_mknod_locked(struct inode *dir,
 leave:
 	if (status < 0) {
 		if (*new_fe_bh) {
+			if (fe)
+				ocfs2_set_links_count(fe, 0);
 			brelse(*new_fe_bh);
 			*new_fe_bh = NULL;
 		}
@@ -2028,8 +2034,12 @@ bail:
 					ocfs2_clusters_to_bytes(osb->sb, 1));
 	if (status < 0 && did_quota_inode)
 		dquot_free_inode(inode);
-	if (handle)
+	if (handle) {
+		if (status < 0 && new_fe_bh != NULL)
+			ocfs2_set_links_count((struct ocfs2_dinode *)
+					new_fe_bh->b_data, 0);
 		ocfs2_commit_trans(osb, handle);
+	}
 
 	ocfs2_inode_unlock(dir, 1);
 	if (did_block_signals)
