@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017,2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -80,6 +80,7 @@ struct drm_imx_dpu_wait {
  */
 enum drm_imx_dpu_param {
 	DRM_IMX_MAX_DPUS,
+	DRM_IMX_GET_FENCE,
 };
 
 #if defined(__cplusplus)
