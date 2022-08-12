@@ -396,24 +396,12 @@ int dpu_be_blit(struct dpu_bliteng *dpu_be,
 }
 EXPORT_SYMBOL(dpu_be_blit);
 
-#define STORE9_SEQCOMPLETE_IRQ		2U
-#define STORE9_SEQCOMPLETE_IRQ_MASK	(1U<<STORE9_SEQCOMPLETE_IRQ)
 void dpu_be_wait(struct dpu_bliteng *dpu_be)
 {
 	if (!dpu_be->sync) return;
 
-	dpu_cs_wait_fifo_space(dpu_be);
-
-	dpu_be_write(dpu_be, 0x14000001, CMDSEQ_HIF);
-	dpu_be_write(dpu_be, PIXENGCFG_STORE9_TRIGGER, CMDSEQ_HIF);
-	dpu_be_write(dpu_be, 0x10, CMDSEQ_HIF);
-
-	while ((dpu_be_read(dpu_be, COMCTRL_INTERRUPTSTATUS0) &
-		STORE9_SEQCOMPLETE_IRQ_MASK) == 0)
-		usleep_range(30, 50);
-
-	dpu_be_write(dpu_be, STORE9_SEQCOMPLETE_IRQ_MASK,
-		COMCTRL_INTERRUPTCLEAR0);
+	/* Emit empty fence and stall until signaled */
+	dpu_be_emit_fence(dpu_be, NULL, true);
 
 	dpu_be->sync = false;
 }
