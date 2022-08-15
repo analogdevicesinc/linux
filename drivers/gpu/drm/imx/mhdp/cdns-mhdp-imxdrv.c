@@ -5,6 +5,7 @@
  * it under the terms of the gnu general public license version 2 as
  * published by the free software foundation.
  */
+#include <linux/media-bus-format.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/component.h>
