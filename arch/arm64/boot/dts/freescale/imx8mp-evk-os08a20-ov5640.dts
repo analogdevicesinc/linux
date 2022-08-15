@@ -49,11 +49,8 @@
 		compatible = "ovti,os08a20";
 		reg = <0x36>;
 		pinctrl-names = "default";
-		clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
+		clocks = <&clk_dummy>;
 		clock-names = "csi_mclk";
-		assigned-clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
-		assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
-		assigned-clock-rates = <24000000>;
 		csi_id = <0>;
 		mclk = <24000000>;
 		mclk_source = <0>;
