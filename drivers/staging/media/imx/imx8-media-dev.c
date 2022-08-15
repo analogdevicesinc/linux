@@ -193,7 +193,7 @@ static int mxc_md_do_clean(struct mxc_md *mxc_md, struct media_pad *pad)
 	if (!pad->entity->num_links)
 		return 0;
 
-	remote_pad = media_entity_remote_pad(pad);
+	remote_pad = media_pad_remote_pad_first(pad);
 	if (remote_pad == NULL) {
 		dev_err(dev, "%s get remote pad fail\n", __func__);
 		return -ENODEV;
