@@ -9,7 +9,7 @@ artifacts_structure() {
 	mkdir ${timestamp}
 
 	GIT_SHA=$(git rev-parse --short HEAD)
-	GIT_SHA_DATE=$(git show -s --format="%ci" ${GIT_SHA} | sed -e "s/ \|\:/-/g")
+	GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
 	echo "git_sha=${GIT_SHA}" >> ${timestamp}/rpi_git_properties.txt
 	echo "git_sha_date=${GIT_SHA_DATE}" >> ${timestamp}/rpi_git_properties.txt
 
