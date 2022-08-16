@@ -7,7 +7,7 @@
 
 /{
 	aliases {
-		i2c8 = &flexio_i2c_master;
+		i2c8 = &flexio_i2c;
 	};
 };
 
@@ -16,10 +16,11 @@
 	/delete-node/ gpio@21;
 };
 
-&flexio_i2c_master {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	clock-frequency = <100000>;
+&flexio1 {
+	status = "okay";
+};
+
+&flexio_i2c {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_flexio_i2c_master>;
 	pinctrl-1 = <&pinctrl_flexio_i2c_master>;

@@ -468,8 +468,10 @@
 				status = "okay";
 			};
 
-			flexio_i2c_master: flexio@29350000 {
-				compatible = "imx,flexio_i2c_master";
+			flexio1: flexio@29350000 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "nxp,imx-flexio";
 				reg = <0x29350000 0x10000>;
 				interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&pcc3 IMX8ULP_CLK_FLEXIO1>,
@@ -479,6 +481,14 @@
 				assigned-clock-parents = <&cgc1 IMX8ULP_CLK_XBAR_DIVBUS>;
 				assigned-clock-rates = <24000000>;
 				status = "disabled";
+
+				flexio_i2c: flexio-i2c {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "nxp,imx-flexio-i2c-master";
+					clock-frequency = <100000>;
+					status = "disabled";
+				};
 			};
 
 			i3c2: i3c-master@29360000 {
