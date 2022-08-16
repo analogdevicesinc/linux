@@ -47,6 +47,7 @@ struct dpu_plane_state {
 	unsigned int		base_h;
 
 	bool			is_top;
+	bool			use_prefetch;
 };
 
 /* TODO: Add source entries for subsidiary layers. */

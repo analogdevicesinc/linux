@@ -319,6 +319,7 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_plane_state *old_dpstate;
 		struct drm_plane_state *plane_state;
 		struct dpu_plane *dplane;
+		struct drm_plane *plane;
 		struct dpu_plane_res *res;
 		struct dpu_fetchunit *fu;
 		struct dpu_fetchunit *fe = NULL;
@@ -328,6 +329,7 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_extdst *ed;
 		extdst_src_sel_t ed_src;
 		int lb_id;
+		bool crtc_disabling_on_primary = false;
 
 		old_dpstate = old_dcstate->dpu_plane_states[i];
 		if (!old_dpstate)
@@ -364,11 +366,25 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 			extdst_pixengcfg_src_sel(ed, ed_src);
 		}
 
-		fu->ops->disable_src_buf(fu);
-		if (fetchunit_is_fetchdecode(fu)) {
-			fetchdecode_pixengcfg_dynamic_src_sel(fu,
-							FD_SRC_DISABLE);
-			fe->ops->disable_src_buf(fe);
+		plane = old_dpstate->base.plane;
+		if (!crtc->state->enable &&
+		    plane->type == DRM_PLANE_TYPE_PRIMARY)
+			crtc_disabling_on_primary = true;
+
+		if (crtc_disabling_on_primary && old_dpstate->use_prefetch) {
+			fu->ops->pin_off(fu);
+			if (fetchunit_is_fetchdecode(fu) &&
+			    fe->ops->is_enabled(fe))
+				fe->ops->pin_off(fe);
+		} else {
+			fu->ops->disable_src_buf(fu);
+			fu->ops->unpin_off(fu);
+			if (fetchunit_is_fetchdecode(fu)) {
+				fetchdecode_pixengcfg_dynamic_src_sel(fu,
+								FD_SRC_DISABLE);
+				fe->ops->disable_src_buf(fe);
+				fe->ops->unpin_off(fe);
+			}
 		}
 	}
 }
@@ -433,14 +449,14 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 		if (!fu)
 			return;
 
-		if (!fu->ops->is_enabled(fu))
+		if (!fu->ops->is_enabled(fu) || fu->ops->is_pinned_off(fu))
 			fu->ops->set_stream_id(fu, DPU_PLANE_SRC_DISABLED);
 
 		if (!fetchunit_is_fetchdecode(fu))
 			continue;
 
 		fe = fetchdecode_get_fetcheco(fu);
-		if (!fe->ops->is_enabled(fe))
+		if (!fe->ops->is_enabled(fe) || fe->ops->is_pinned_off(fe))
 			fe->ops->set_stream_id(fe, DPU_PLANE_SRC_DISABLED);
 
 		hs = fetchdecode_get_hscaler(fu);
