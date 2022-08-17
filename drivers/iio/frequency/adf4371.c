@@ -711,7 +711,15 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 		if (ret)
 			break;
 
-		ret = adf4371_set_freq(st, freq, chan->channel);
+		ret = clk_set_rate(st->clks[chan->channel],
+			to_ccf_scaled(freq, &st->scale));
+
+		freq = adf4371_pll_fract_n_get_rate(st, ADF4371_CH_RFAUX8);
+
+		clk_set_rate(st->clks[ADF4371_CH_RFAUX8],
+			to_ccf_scaled(freq, &st->scale));
+
+		//ret = adf4371_set_freq(st, freq, chan->channel);
 		break;
 	case ADF4371_POWER_DOWN:
 		ret = kstrtobool(buf, &power_down);
