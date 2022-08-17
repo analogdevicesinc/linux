@@ -460,6 +460,10 @@ static const struct csis_pix_format mipi_csis_formats[] = {
 		.fmt_reg = MIPI_CSIS_ISPCFG_FMT_RGB888,
 		.data_alignment = 24,
 	}, {
+		.code = MEDIA_BUS_FMT_UYVY8_1X16,
+		.fmt_reg = MIPI_CSIS_ISPCFG_FMT_YCBCR422_8BIT,
+		.data_alignment = 16,
+	}, {
 		.code = MEDIA_BUS_FMT_UYVY8_2X8,
 		.fmt_reg = MIPI_CSIS_ISPCFG_FMT_YCBCR422_8BIT,
 		.data_alignment = 16,
@@ -949,6 +953,7 @@ static void disp_mix_gasket_config(struct csi_state *state)
 	case MEDIA_BUS_FMT_YUYV8_2X8:
 	case MEDIA_BUS_FMT_YVYU8_2X8:
 	case MEDIA_BUS_FMT_UYVY8_2X8:
+	case MEDIA_BUS_FMT_UYVY8_1X16:
 	case MEDIA_BUS_FMT_VYUY8_2X8:
 		fmt_val = GASKET_0_CTRL_DATA_TYPE_YUV422_8;
 		break;
@@ -1137,7 +1142,6 @@ static int mipi_csis_set_fmt(struct v4l2_subdev *mipi_sd,
 	}
 
 	format->pad = source_pad->index;
-	mf->code = MEDIA_BUS_FMT_UYVY8_2X8;
 	ret = v4l2_subdev_call(sen_sd, pad, set_fmt, NULL, format);
 	if (ret < 0) {
 		v4l2_err(&state->sd, "%s, set sensor format fail\n", __func__);
