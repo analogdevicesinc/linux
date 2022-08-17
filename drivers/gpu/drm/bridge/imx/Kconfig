@@ -18,15 +18,6 @@ config DRM_IMX8MP_HDMI_PVI
 	  Choose this to enable support for the internal HDMI TX Parallel
 	  Video Interface found on the Freescale i.MX8MP SoC.
 
-config DRM_IMX8QM_LDB
-	tristate "Freescale i.MX8QM LVDS display bridge"
-	depends on OF
-	depends on COMMON_CLK
-	select DRM_KMS_HELPER
-	help
-	  Choose this to enable the internal LVDS Display Bridge(LDB) found in
-	  Freescale i.MX8qm processor.  Official name of LDB is pixel mapper.
-
 config DRM_IMX8QXP_LDB
 	tristate "Freescale i.MX8QXP LVDS display bridge"
 	depends on OF

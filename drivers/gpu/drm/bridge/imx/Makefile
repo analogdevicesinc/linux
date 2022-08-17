@@ -1,8 +1,5 @@
 obj-$(CONFIG_DRM_IMX8MP_DW_HDMI_BRIDGE) += imx8mp-hdmi-tx.o
 obj-$(CONFIG_DRM_IMX8MP_HDMI_PVI) += imx8mp-hdmi-pvi.o
-imx8qm-ldb-objs := imx-ldb-helper.o imx8qm-ldb-drv.o
-obj-$(CONFIG_DRM_IMX8QM_LDB) += imx8qm-ldb.o
-
 imx8qxp-ldb-objs := imx-ldb-helper.o imx8qxp-ldb-drv.o
 obj-$(CONFIG_DRM_IMX8QXP_LDB) += imx8qxp-ldb.o
 
