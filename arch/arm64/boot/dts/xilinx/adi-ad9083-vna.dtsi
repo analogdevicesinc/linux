@@ -92,7 +92,6 @@
 		jesd204-sysref-provider;
 
 		spi-max-frequency = <10000000>;
-		adi,spi-3wire-enable;
 
 		clock-output-names =
 			"ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2",
