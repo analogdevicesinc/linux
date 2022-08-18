@@ -231,6 +231,8 @@ struct crypt_config {
 	struct mutex bio_alloc_lock;
 
 	u8 *authenc_key; /* space for keys in authenc() format (if used) */
+	unsigned int is_hbk;
+	struct hw_bound_key_info hbk_info;
 	u8 key[] __counted_by(key_size);
 };
 
@@ -2491,10 +2493,16 @@ static int crypt_setkey(struct crypt_config *cc)
 			r = crypto_aead_setkey(cc->cipher_tfm.tfms_aead[i],
 					       cc->key + (i * subkey_size),
 					       subkey_size);
-		else
+		else {
+			cc->cipher_tfm.tfms[i]->base.is_hbk = cc->is_hbk;
+			if (cc->is_hbk)
+				memcpy(&(cc->cipher_tfm.tfms[i]->base.hbk_info),
+				       &(cc->hbk_info),
+				       sizeof(struct hw_bound_key_info));
 			r = crypto_skcipher_setkey(cc->cipher_tfm.tfms[i],
 						   cc->key + (i * subkey_size),
 						   subkey_size);
+		}
 		if (r)
 			err = r;
 	}
@@ -2555,9 +2563,11 @@ static int set_key_trusted(struct crypt_config *cc, struct key *key)
 	if (!tkp)
 		return -EKEYREVOKED;
 
+	cc->is_hbk = tkp->is_hw_bound;
 	if (cc->key_size != tkp->key_len)
 		return -EINVAL;
 
+	memcpy(&(cc->hbk_info), &(tkp->hbk_info), sizeof(struct hw_bound_key_info));
 	memcpy(cc->key, tkp->key, cc->key_size);
 
 	return 0;
