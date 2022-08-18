@@ -18,6 +18,8 @@ static int a2b_get_slot_mask(const struct device_node *np, const char *propname,
 	unsigned int i, num;
 	int ret, proplen;
 
+	printk("\n %s", __func__);
+
 	if (!of_get_property(np, propname, &proplen))
 		return 0;
 
