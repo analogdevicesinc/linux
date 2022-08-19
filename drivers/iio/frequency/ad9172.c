@@ -48,12 +48,18 @@ enum chip_id {
 	CHIPID_AD9176 = 0x76,
 };
 
+struct ad9172_chip_info {
+	const struct iio_chan_spec *channels;
+	const u32 num_channels;
+};
+
 struct ad9172_state {
 	struct cf_axi_converter conv;
 	enum chip_id id;
 	struct regmap *map;
 	struct jesd204_dev *jdev;
 	struct jesd204_link jesd204_link;
+	struct ad9172_chip_info *ad9172_info;
 	ad917x_handle_t dac_h;
 	jesd_param_t appJesdConfig;
 	u32 dac_rate_khz;
@@ -67,6 +73,8 @@ struct ad9172_state {
 	u32 scrambling;
 	u32 sysref_mode;
 	bool pll_bypass;
+	bool test_tone_en[6];
+	u32 test_tone_scale[6];
 	signal_type_t syncoutb_type;
 	signal_coupling_t sysref_coupling;
 	u8 nco_main_enable;
@@ -425,17 +433,23 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 		*val = ad9172_get_data_clk(conv);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		ret = ad917x_set_page_idx(ad917x_h,
-					  AD917X_DAC_NONE, BIT(chan->channel));
-		if (ret < 0)
-			return ret;
-		ret = ad917x_get_channel_gain(ad917x_h, &val16);
-		if (ret < 0)
-			return ret;
+		if (chan->type == IIO_VOLTAGE) {
+			ret = ad917x_set_page_idx(ad917x_h,
+						AD917X_DAC_NONE, BIT(chan->channel));
+			if (ret < 0)
+				return ret;
+			ret = ad917x_get_channel_gain(ad917x_h, &val16);
+			if (ret < 0)
+				return ret;
 
-		*val = val16;
-		*val2 = 11;
-		return IIO_VAL_FRACTIONAL_LOG2;
+			*val = val16;
+			*val2 = 11;
+			return IIO_VAL_FRACTIONAL_LOG2;
+		} else {
+			*val = st->test_tone_scale[chan->address];
+			*val2 = 15;
+			return IIO_VAL_FRACTIONAL_LOG2;
+		}
 	}
 	return -EINVAL;
 }
@@ -452,15 +466,28 @@ static int ad9172_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
-		val16 = clamp_t(u16, val * 2048 + (val2 * 2048 / 1000000),
-				0, 4095);
-		ret = ad917x_set_page_idx(ad917x_h,
-					  AD917X_DAC_NONE, BIT(chan->channel));
-		if (ret < 0)
-			return ret;
-		ret = ad917x_set_channel_gain(ad917x_h, val16);
-		if (ret < 0)
-			return ret;
+		if (chan->type == IIO_VOLTAGE) {
+			val16 = clamp_t(u16, val * 2048 + (val2 * 2048 / 1000000),
+					0, 4095);
+			ret = ad917x_set_page_idx(ad917x_h,
+						AD917X_DAC_NONE, BIT(chan->channel));
+			if (ret < 0)
+				return ret;
+			ret = ad917x_set_channel_gain(ad917x_h, val16);
+			if (ret < 0)
+				return ret;
+		} else {
+			val16 = clamp_t(u16, val * 32767 + DIV_ROUND_CLOSEST_ULL(val2 * 32767ULL, 1000000),
+					0, 32767);
+			ret = ad917x_set_page_idx(ad917x_h,
+						AD917X_DAC_NONE, BIT(chan->address));
+			if (ret < 0)
+				return ret;
+			ret = ad917x_set_dc_cal_tone_amp(ad917x_h, val16);
+			if (ret < 0)
+				return ret;
+			st->test_tone_scale[chan->address] = val16;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -525,7 +552,7 @@ static ssize_t ad9172_attr_store(struct device *dev,
 	case AD9172_ATTR_CHAN_NCO(0):
 		readin *= st->dac_interpolation;
 		ret = ad917x_nco_set(ad917x_h, AD917X_DAC_NONE, BIT(dest),
-				     readin, 0x1FFF, 0, 0);
+				     readin, st->test_tone_scale[dest], st->test_tone_en[dest], 0);
 		st->nco_channel_enable |= BIT(dest);
 		break;
 	case AD9172_ATTR_CHAN_PHASE(0):
@@ -561,6 +588,7 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		ret = ad917x_nco_enable(ad917x_h, st->nco_main_enable,
 					st->nco_channel_enable);
 		break;
+
 	default:
 		ret = -EINVAL;
 	}
@@ -887,6 +915,9 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 	st->jesd_dual_link_mode = 0;
 	of_property_read_u32(np, "adi,dual-link", &st->jesd_dual_link_mode);
 
+	if (device_property_read_bool(&spi->dev, "adi,standalone-probe"))
+		st->jesd_dual_link_mode = 1;
+
 	st->jesd_subclass = 0;
 	of_property_read_u32(np, "adi,jesd-subclass", &st->jesd_subclass);
 
@@ -1073,6 +1104,174 @@ static const struct jesd204_dev_data jesd204_ad9172_init = {
 	.sizeof_priv = sizeof(struct ad9172_jesd204_priv),
 };
 
+
+/*
+ * This info structure is only used when the device is used in standalone mode.
+ * As for now, the only use case for standalone mode is to use this devices as
+ * oscillators making use of the nco only mode.
+ */
+
+#define AD9172_VOLTAGE_CHAN(index, add) { \
+	.type = IIO_ALTVOLTAGE,	\
+	.indexed = 1, \
+	.channel = index, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE), \
+	.output = 1, \
+	.address = add, \
+	.extend_name = "channel_nco", \
+}
+
+
+static int ad9172_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			     unsigned int writeval, unsigned int *readval)
+{
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	if (readval == NULL)
+		ad9172_write(conv->spi, reg, writeval);
+	else
+		*readval = ad9172_read(conv->spi, reg);
+
+	return 0;
+}
+
+static const struct iio_chan_spec ad9172_chann_spec[] = {
+	AD9172_VOLTAGE_CHAN(0, 0),
+	AD9172_VOLTAGE_CHAN(1, 3),
+};
+
+static IIO_DEVICE_ATTR(out_altvoltage0_channel_nco_frequency, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO(0));
+
+static IIO_DEVICE_ATTR(out_altvoltage1_channel_nco_frequency, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO(3));
+
+static IIO_DEVICE_ATTR(out_altvoltage0_main_nco_frequency, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO(0));
+
+static IIO_DEVICE_ATTR(out_altvoltage1_main_nco_frequency, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO(1));
+
+static IIO_DEVICE_ATTR(out_altvoltage0_channel_nco_enable, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(0));
+
+static IIO_DEVICE_ATTR(out_altvoltage1_channel_nco_enable, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(3));
+
+static IIO_DEVICE_ATTR(out_altvoltage0_main_nco_enable, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO_EN(0));
+
+static IIO_DEVICE_ATTR(out_altvoltage1_main_nco_enable, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO_EN(1));
+
+static IIO_DEVICE_ATTR(out_altvoltage0_channel_nco_phase, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(0));
+
+static IIO_DEVICE_ATTR(out_altvoltage1_channel_nco_phase, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(3));
+
+static IIO_DEVICE_ATTR(out_altvoltage0_main_nco_phase, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_PHASE(0));
+
+static IIO_DEVICE_ATTR(out_altvoltage1_main_nco_phase, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_PHASE(1));
+
+static struct attribute *ad9172_attributes_standalone[] = {
+	&iio_dev_attr_out_altvoltage0_channel_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage1_channel_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage0_main_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage1_main_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage0_channel_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage1_channel_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage0_main_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage1_main_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage0_channel_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage1_channel_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage0_main_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage1_main_nco_phase.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad9172_attribute_group_standalone = {
+	.attrs = ad9172_attributes_standalone,
+};
+
+static struct ad9172_chip_info ad9172_info[] = {
+	[0] = {
+		.num_channels = 2,
+		.channels = ad9172_chann_spec,
+	},
+};
+
+static const struct iio_info ad9172_iio_info = {
+	.read_raw = ad9172_read_raw,
+	.write_raw = ad9172_write_raw,
+	.debugfs_reg_access = ad9172_reg_access,
+	.attrs = &ad9172_attribute_group_standalone,
+};
+
+static int ad9172_standalone_probe(struct ad9172_state *st)
+{
+	struct iio_dev *indio_dev = NULL;
+	struct device *dev = &st->conv.spi->dev;
+	struct device_node *np = dev->of_node;
+	int ret, i;
+	//u8 _index = spi_get_device_id(st->conv.spi)->driver_data;
+
+	indio_dev = devm_iio_device_alloc(dev, 0);
+	if (!indio_dev)
+		return -ENOMEM;
+
+	st->ad9172_info = &ad9172_info[0];
+
+	indio_dev->dev.parent = dev;
+	indio_dev->name = np ? np->name :
+		spi_get_device_id(st->conv.spi)->name;
+	indio_dev->num_channels = st->ad9172_info->num_channels;
+	indio_dev->channels = st->ad9172_info->channels;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = &ad9172_iio_info;
+
+	for (i = 0; i < ARRAY_SIZE(st->test_tone_en); i++) {
+		st->test_tone_en[i] = true;
+		st->test_tone_scale[i] = 0x1FFF;
+	}
+
+	ret = devm_iio_device_register(dev, indio_dev);
+	if (ret) {
+		dev_err(dev, "Failed to register iio dev\n");
+		return ret;
+	}
+
+	iio_device_set_drvdata(indio_dev, &st->conv);
+
+	return ad9172_finalize_setup(st);
+}
+
 static int ad9172_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
@@ -1182,6 +1381,11 @@ static int ad9172_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, conv);
 
 	dev_info(&spi->dev, "Probed.\n");
+
+	/* check for standalone probing... */
+	if (device_property_read_bool(&spi->dev, "adi,standalone-probe"))
+		return ad9172_standalone_probe(st);
+
 
 	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 out:
