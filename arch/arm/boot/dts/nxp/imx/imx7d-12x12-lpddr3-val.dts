@@ -434,7 +434,7 @@
 	codec: wm8958@1a {
 		compatible = "wlf,wm8958";
 		reg = <0x1a>;
-		clocks = <&clks IMX7D_AUDIO_MCLK_ROOT_CLK>,
+		clocks = <&clks IMX7D_AUDIO_MCLK_ROOT_DIV>,
 			<&clks IMX7D_CLK_DUMMY>;
 		clock-names = "MCLK1", "MCLK2";
 
