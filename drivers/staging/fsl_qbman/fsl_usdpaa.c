@@ -863,28 +863,30 @@ static unsigned long usdpaa_get_unmapped_area(struct file *file,
 {
 	struct vm_area_struct *vma;
 
+	/* Need to align the address to the largest pagesize of the mapping
+	 * because the MMU requires the virtual address to have the same
+	 * alignment as the physical address
+	 */
+	unsigned long align_addr = USDPAA_MEM_ROUNDUP(addr,
+						      largest_page_size(len));
+	VMA_ITERATOR(vmi, current->mm, align_addr);
+
 	if (len % PAGE_SIZE)
 		return -EINVAL;
 	if (!len)
 		return -EINVAL;
 
-	/* Need to align the address to the largest pagesize of the mapping
-	 * because the MMU requires the virtual address to have the same
-	 * alignment as the physical address */
-	addr = USDPAA_MEM_ROUNDUP(addr, largest_page_size(len));
-	vma = find_vma(current->mm, addr);
 	/* Keep searching until we reach the end of currently-used virtual
 	 * address-space or we find a big enough gap. */
-	while (vma) {
-		if ((addr + len) < vma->vm_start)
-			return addr;
+	for_each_vma(vmi, vma) {
+		if ((align_addr + len) < vma->vm_start)
+			return align_addr;
 
-		addr = USDPAA_MEM_ROUNDUP(vma->vm_end,  largest_page_size(len));
-		vma = vma->vm_next;
+		align_addr = USDPAA_MEM_ROUNDUP(vma->vm_end, largest_page_size(len));
 	}
-	if ((TASK_SIZE - len) < addr)
+	if ((TASK_SIZE - len) < align_addr)
 		return -ENOMEM;
-	return addr;
+	return align_addr;
 }
 
 static long ioctl_id_alloc(struct ctx *ctx, void __user *arg)
