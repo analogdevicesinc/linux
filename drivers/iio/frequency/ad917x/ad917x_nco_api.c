@@ -803,11 +803,6 @@ int ad917x_nco_set(ad917x_handle_t *h,
 		tmp_freq *= 2;
 	}
 
-	/* DC TEST TONE EN */
-	err = ad917x_dc_test_tone_set(h, dc_test_tone_en);
-	if (err != API_ERROR_OK)
-		return err;
-
 	if (is_pow2 == 1) {
 		/* Integer NCO mode */
 		/* As we are in Integer NCO mode it guranteed the
@@ -844,6 +839,17 @@ int ad917x_nco_set(ad917x_handle_t *h,
 			err = ad917x_register_write(h, AD917X_SPI_PAGEINDX_REG, (channels & 0x3F));
 			if (err != API_ERROR_OK)
 				return err;
+
+			/* Amplitude */
+			err = ad917x_set_dc_cal_tone_amp(h, amplitude);
+			if (err != API_ERROR_OK)
+				return err;
+
+			/* DC TEST TONE EN */
+			err = ad917x_dc_test_tone_set(h, dc_test_tone_en);
+			if (err != API_ERROR_OK)
+				return err;
+
 			err = ad917x_register_read(h, AD917X_DDSC_DATAPATH_CFG_REG, &ddsc_datapath_cfg);
 			if (err != API_ERROR_OK)
 				return err;
@@ -926,6 +932,17 @@ int ad917x_nco_set(ad917x_handle_t *h,
 			err = ad917x_register_write(h, AD917X_SPI_PAGEINDX_REG, (channels & 0x3F));
 			if (err != API_ERROR_OK)
 				return err;
+
+			/* Amplitude */
+			err = ad917x_set_dc_cal_tone_amp(h, amplitude);
+			if (err != API_ERROR_OK)
+				return err;
+
+			/* DC TEST TONE EN */
+			err = ad917x_dc_test_tone_set(h, dc_test_tone_en);
+			if (err != API_ERROR_OK)
+				return err;
+
 			err = ad917x_register_read(h, AD917X_DDSC_DATAPATH_CFG_REG, &ddsc_datapath_cfg);
 			if (err != API_ERROR_OK)
 				return err;
@@ -939,10 +956,7 @@ int ad917x_nco_set(ad917x_handle_t *h,
 				return err;
 		}
 	}
-	/* Amplitude */
-	err = ad917x_set_dc_cal_tone_amp(h, amplitude);
-	if (err != API_ERROR_OK)
-		return err;
+
 	return API_ERROR_OK;
 }
 
