@@ -49,7 +49,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/compat.h>
-//#include <linux/busfreq-imx.h>
+#include <linux/busfreq-imx.h>
 
 #ifdef CONFIG_DEVICE_THERMAL
 #include <linux/thermal.h>
@@ -146,7 +146,7 @@ static struct device *hantro_dev;
 static struct clk *hantro_clk_g1;
 static struct clk *hantro_clk_g2;
 static struct clk *hantro_clk_bus;
-//static struct regulator *hantro_regulator;
+static struct regulator *hantro_regulator;
 
 static int hantro_dbg = -1;
 module_param(hantro_dbg, int, 0644);
@@ -227,7 +227,6 @@ DECLARE_WAIT_QUEUE_HEAD(hw_queue);
 static u32 cfg[HXDEC_MAX_CORES];
 static u32 timeout;
 
-#if 0
 static int hantro_update_voltage(struct device *dev)
 {
 	unsigned long new_vol, old_vol;
@@ -255,7 +254,6 @@ static int hantro_update_voltage(struct device *dev)
 	}
 	return 0;
 }
-#endif
 
 static int hantro_clk_enable(struct device *dev)
 {
@@ -335,7 +333,7 @@ static int hantro_thermal_check(struct device *dev)
 	}
 	pr_info("hantro: event(%d), g1, g2, bus clock: %ld, %ld, %ld\n", thermal_cur,
 		clk_get_rate(hantro_clk_g1),	clk_get_rate(hantro_clk_g2), clk_get_rate(hantro_clk_bus));
-	//hantro_update_voltage(dev);
+	hantro_update_voltage(dev);
 	return 0;
 }
 
@@ -1820,14 +1818,13 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	hantrodec_data.skip_blkctrl = !strcmp(node->name, "blk-ctrl");
 	of_node_put(node);
 
-#if 0
-	hantro_regulator = regulator_get(&pdev->dev, "regulator");
+	hantro_regulator = devm_regulator_get(&pdev->dev, "vpu");
 	if (IS_ERR(hantro_regulator)) {
 		pr_err("hantro: get regulator failed\n");
 		return -ENODEV;
 	}
 	hantro_update_voltage(&pdev->dev);
-#endif
+
 	hantro_clk_enable(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
