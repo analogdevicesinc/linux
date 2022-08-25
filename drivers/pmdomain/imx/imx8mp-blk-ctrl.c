@@ -375,13 +375,13 @@ static void imx8mp_hdmi_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 		regmap_set_bits(bc->regmap, HDMI_TX_CONTROL0,
 				FIELD_PREP(HDMI_LCDIF_NOC_HURRY_MASK, 7));
 		break;
-	case IMX8MP_HDMIBLK_PD_PAI:
-		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
-		regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
-		break;
 	case IMX8MP_HDMIBLK_PD_PVI:
 		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(28));
 		regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(22));
+		fallthrough;
+	case IMX8MP_HDMIBLK_PD_PAI:
+		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
+		regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
 		break;
 	case IMX8MP_HDMIBLK_PD_TRNG:
 		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(27) | BIT(30));
@@ -434,13 +434,13 @@ static void imx8mp_hdmi_blk_ctrl_power_off(struct imx8mp_blk_ctrl *bc,
 				  BIT(16) | BIT(17) | BIT(18) |
 				  BIT(19) | BIT(20));
 		break;
-	case IMX8MP_HDMIBLK_PD_PAI:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
-		break;
 	case IMX8MP_HDMIBLK_PD_PVI:
 		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(22));
 		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(28));
+		fallthrough;
+	case IMX8MP_HDMIBLK_PD_PAI:
+		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
+		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
 		break;
 	case IMX8MP_HDMIBLK_PD_TRNG:
 		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(20));
