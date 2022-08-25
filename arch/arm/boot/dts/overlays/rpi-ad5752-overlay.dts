@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+
+	ad5752_refin: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+};
+
+&spidev0 {
+	status = "disable";
+};
+
+&spidev1 {
+	status = "disable";
+};
+
+&spi0 {
+	status = "okay";
+
+	ad5754@0 {
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "adi,ad5754r";
+		reg = <0>;
+		
+		spi-cpol;
+		spi-max-frequency = <1000000>;
+
+		channel@0 {
+			reg = <0>;
+			output-range-microvolts = <0 5000000>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			output-range-microvolts = <0 5000000>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			output-range-microvolts = <(-5000000) 5000000>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			output-range-microvolts = <(-5000000) 5000000>;
+		};
+	};
+};
