@@ -465,6 +465,38 @@ static int a2b_node_set_pll_config(struct a2b_node *node)
 	return a2b_node_write(node, A2B_PLLCTL, val);
 }
 
+static int a2b_node_set_i2s_config(struct a2b_node *node)
+{
+	struct a2b_i2s_config *i2s_cfg = &node->i2s_config;
+	uint8_t val = 0;
+
+	if (i2s_cfg->tx0_enable)
+		val |= A2B_I2SCTL_TX0EN;
+
+	if (i2s_cfg->tx1_enable)
+		val |= A2B_I2SCTL_TX1EN;
+
+	if (i2s_cfg->tx2_pin_intlv)
+		val |= A2B_I2SCTL_TX2PINTL;
+
+	if (i2s_cfg->tx_bclk_inv)
+		val |= A2B_I2SCTL_TXBCLKINV;
+
+	if (i2s_cfg->rx0_enable)
+		val |= A2B_I2SCTL_RX0EN;
+
+	if (i2s_cfg->rx1_enable)
+		val |= A2B_I2SCTL_RX1EN;
+
+	if (i2s_cfg->rx2_pin_intlv)
+		val |= A2B_I2SCTL_RX2PINTL;
+
+	if (i2s_cfg->rx_bclk_inv)
+		val |= A2B_I2SCTL_RXBCLKINV;
+
+	return a2b_node_write(node, A2B_I2SCTL, val);
+}
+
 static int a2b_bus_discover(struct a2b_mainnode *mainnode)
 {
 	struct a2b_mainnode_slot_config mainnode_config;
@@ -574,6 +606,10 @@ static int a2b_bus_discover(struct a2b_mainnode *mainnode)
 			return ret;
 
 		ret = a2b_node_set_pin_config(&subnode->node);
+		if (ret)
+			return ret;
+
+		ret = a2b_node_set_i2s_config(&subnode->node);
 		if (ret)
 			return ret;
 
@@ -702,6 +738,10 @@ static int a2b_mainnode_startup(struct a2b_mainnode *mainnode)
 		return ret;
 
 	ret = a2b_node_set_pin_config(&mainnode->node);
+	if (ret)
+		return ret;
+
+	ret = a2b_node_set_i2s_config(&mainnode->node);
 	if (ret)
 		return ret;
 

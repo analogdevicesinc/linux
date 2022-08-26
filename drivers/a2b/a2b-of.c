@@ -122,6 +122,10 @@ static int a2b_of_subnode_read_config(struct a2b_subnode *subnode)
 	if (ret)
 		return ret;
 
+	ret = a2b_of_read_i2s_config(&subnode->node);
+	if (ret)
+		return ret;
+
 	return a2b_of_read_tdm_config(&subnode->node);
 }
 
@@ -266,6 +270,10 @@ int a2b_of_mainnode_read_config(struct a2b_mainnode *mainnode)
 	if (ret)
 		return ret;
 
+	ret = a2b_of_read_i2s_config(&mainnode->node);
+	if (ret)
+		return ret;
+
 	return a2b_of_read_tdm_config(&mainnode->node);
 }
 
@@ -386,6 +394,25 @@ int a2b_of_read_tdm_config(struct a2b_node *node)
 	cfg->alt_sync = of_property_read_bool(np, "adi,alternating-sync");
 	cfg->early_sync = of_property_read_bool(np, "adi,early-sync");
 	cfg->invert_sync = of_property_read_bool(np, "adi,invert-sync");
+
+	return 0;
+}
+
+int a2b_of_read_i2s_config(struct a2b_node *node)
+{
+	struct device_node *np = node->dev.of_node;
+	struct a2b_i2s_config *cfg = &node->i2s_config;
+
+	cfg->tx0_enable = of_property_read_bool(np, "adi,tx0-enable");
+	cfg->tx1_enable = of_property_read_bool(np, "adi,tx1-enable");
+	cfg->tx2_pin_intlv =
+		of_property_read_bool(np, "adi,tx2-pin-interleave");
+	cfg->tx_bclk_inv = of_property_read_bool(np, "adi,tx-bclk-invert");
+	cfg->rx0_enable = of_property_read_bool(np, "adi,rx0-enable");
+	cfg->rx1_enable = of_property_read_bool(np, "adi,rx1-enable");
+	cfg->rx2_pin_intlv =
+		of_property_read_bool(np, "adi,rx2-pin-interleave");
+	cfg->rx_bclk_inv = of_property_read_bool(np, "adi,rx-bclk-invert");
 
 	return 0;
 }

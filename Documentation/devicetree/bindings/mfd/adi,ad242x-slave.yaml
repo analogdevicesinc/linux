@@ -56,6 +56,38 @@ properties:
     description: Selects high spectrum spreading mode
     type: boolean
 
+  adi,tx0-enable:
+    description: Enables I2S/TDM data on TX0 pin
+    type: boolean
+
+  adi,tx1-enable:
+    description: Enables I2S/TDM data on TX1 pin
+    type: boolean
+
+  adi,tx2-pin-interleave:
+    description: Enables slots interleaving on TX pins
+    type: boolean
+
+  adi,tx-bclk-invert:
+    description: Drives TX pins on falling edge of BCLK
+    type: boolean
+
+  adi,rx0-enable:
+    description: Enables I2S/TDM data on RX0 pin
+    type: boolean
+
+  adi,rx1-enable:
+    description: Enables I2S/TDM data on RX1 pin
+    type: boolean
+
+  adi,rx2-pin-interleave:
+    description: Enables slots interleaving on RX pins
+    type: boolean
+
+  adi,rx-bclk-invert:
+    description: Drives RX pins on falling edge of BCLK
+    type: boolean
+
   upstream:
     type: object
     properties:

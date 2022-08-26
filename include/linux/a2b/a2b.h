@@ -92,6 +92,28 @@ struct a2b_pll_config {
 };
 
 /**
+ * struct a2b_i2s_config - A2B I2S configuration
+ * @tx0_enable: I2S TX 0 Enable
+ * @tx1_enable: I2S TX 1 Enable
+ * @tx2_pin_intlv: TX 2 Pin Interleave
+ * @tx_bclk_inv: TX BCLK Invert
+ * @rx0_enable: I2S RX 0 Enable
+ * @rx1_enable: I2S RX 1 Enable
+ * @rx2_pin_intlv: RX 2 Pin Interleave
+ * @rx_bclk_inv: RX BCLK Invert
+ */
+struct a2b_i2s_config {
+	bool tx0_enable : 1;
+	bool tx1_enable : 1;
+	bool tx2_pin_intlv : 1;
+	bool tx_bclk_inv : 1;
+	bool rx0_enable : 1;
+	bool rx1_enable : 1;
+	bool rx2_pin_intlv : 1;
+	bool rx_bclk_inv : 1;
+};
+
+/**
  * struct a2b_node - A2B node state struct
  * @id: ID of the device on the bus, A2B_MAINNODE_ID for mainnodes
  * @dev: Device driver framework base struct
@@ -119,6 +141,7 @@ struct a2b_node {
 	struct a2b_tdm_config tdm_config;
 	struct a2b_pll_config pll_config;
 	enum a2b_pin_drive_strength pin_config;
+	struct a2b_i2s_config i2s_config;
 
 	uint8_t vendor_id;
 	uint8_t product_id;
@@ -292,6 +315,7 @@ int a2b_of_read_transceiver_config(struct a2b_node *node);
 int a2b_of_read_tdm_config(struct a2b_node *node);
 int a2b_of_read_pll_config(struct a2b_node *node);
 int a2b_of_read_pin_config(struct a2b_node *node);
+int a2b_of_read_i2s_config(struct a2b_node *node);
 
 int a2b_node_init_extra_regmap(struct a2b_node *node);
 
