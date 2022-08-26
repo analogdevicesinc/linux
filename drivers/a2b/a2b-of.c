@@ -126,6 +126,10 @@ static int a2b_of_subnode_read_config(struct a2b_subnode *subnode)
 	if (ret)
 		return ret;
 
+	ret = a2b_of_read_pdm_config(&subnode->node);
+	if (ret)
+		return ret;
+
 	return a2b_of_read_tdm_config(&subnode->node);
 }
 
@@ -274,6 +278,10 @@ int a2b_of_mainnode_read_config(struct a2b_mainnode *mainnode)
 	if (ret)
 		return ret;
 
+	ret = a2b_of_read_pdm_config(&mainnode->node);
+	if (ret)
+		return ret;
+
 	return a2b_of_read_tdm_config(&mainnode->node);
 }
 
@@ -413,6 +421,48 @@ int a2b_of_read_i2s_config(struct a2b_node *node)
 	cfg->rx2_pin_intlv =
 		of_property_read_bool(np, "adi,rx2-pin-interleave");
 	cfg->rx_bclk_inv = of_property_read_bool(np, "adi,rx-bclk-invert");
+
+	return 0;
+}
+
+int a2b_of_read_pdm_config(struct a2b_node *node)
+{
+	struct device_node *np = node->dev.of_node;
+	struct a2b_pdm_config *pdm_cfg = &node->pdm_config;
+	struct a2b_i2s_config *i2s_cfg = &node->i2s_config;
+	u32 val = 1;
+
+	of_property_read_u32(np, "adi,sff-divisor", &val);
+
+	switch (val) {
+	case 1:
+		pdm_cfg->sff_divisor = SUPERFRAME;
+		break;
+	case 2:
+		pdm_cfg->sff_divisor = SUPERFRAME_DIV_2;
+		break;
+	case 4:
+		pdm_cfg->sff_divisor = SUPERFRAME_DIV_4;
+		break;
+	default:
+		dev_err(&node->dev,
+			"%pOF: Invalid value '%d' for 'sff-divisor'\n", np,
+			val);
+		return -EINVAL;
+	}
+
+	pdm_cfg->pdm0_enable = of_property_read_bool(np, "adi,pdm0-enable");
+	pdm_cfg->pdm0_stereo = of_property_read_bool(np, "adi,pdm0-stereo");
+	pdm_cfg->pdm1_enable = of_property_read_bool(np, "adi,pdm1-enable");
+	pdm_cfg->pdm1_stereo = of_property_read_bool(np, "adi,pdm1-stereo");
+	pdm_cfg->hpf_enable = of_property_read_bool(np, "adi,hpf-enable");
+
+	if ((i2s_cfg->rx0_enable && pdm_cfg->pdm0_enable) ||
+	    (i2s_cfg->rx1_enable && pdm_cfg->pdm1_enable))
+		dev_warn(
+			&node->dev,
+			"%pOF: PDM takes precedence when both PDM and RX pins are enabled'\n",
+			np);
 
 	return 0;
 }

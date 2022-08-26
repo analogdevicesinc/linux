@@ -79,6 +79,18 @@ enum a2b_spread_spectrum_mode {
 };
 
 /**
+ * enum a2b_pdm_rate - PDM Sample Rate select
+ * @SUPERFRAME: Super frame rate
+ * @SUPERFRAME_DIV_2: Super frame rate divide by 2
+ * @SUPERFRAME_DIV_4: Super frame rate divide by 4
+ */
+enum a2b_sff_divisor {
+	SUPERFRAME,
+	SUPERFRAME_DIV_2,
+	SUPERFRAME_DIV_4,
+};
+
+/**
  * struct a2b_pll_config - A2B node PLL configuration
  * @spread_spectrum_mode: Spread spectrum mode
  * @spread_spectrum_high: Whether to use high or low spectrum depth of
@@ -114,6 +126,24 @@ struct a2b_i2s_config {
 };
 
 /**
+ * struct a2b_pdm_config - A2B PDM configuration
+ * @sff_divisor: Superframe rate divisor
+ * @pdm0_enable: PDM0 Enable
+ * @pdm0_stereo: PDM0 is stereo
+ * @pdm1_enable: PDM1 Enable
+ * @pdm1_stereo: PDM1 is stereo
+ * @hpf_enable: Highpass Filter Enable
+ */
+struct a2b_pdm_config {
+	enum a2b_sff_divisor sff_divisor;
+	bool pdm0_enable : 1;
+	bool pdm0_stereo : 1;
+	bool pdm1_enable : 1;
+	bool pdm1_stereo : 1;
+	bool hpf_enable : 1;
+};
+
+/**
  * struct a2b_node - A2B node state struct
  * @id: ID of the device on the bus, A2B_MAINNODE_ID for mainnodes
  * @dev: Device driver framework base struct
@@ -142,6 +172,7 @@ struct a2b_node {
 	struct a2b_pll_config pll_config;
 	enum a2b_pin_drive_strength pin_config;
 	struct a2b_i2s_config i2s_config;
+	struct a2b_pdm_config pdm_config;
 
 	uint8_t vendor_id;
 	uint8_t product_id;
@@ -316,6 +347,7 @@ int a2b_of_read_tdm_config(struct a2b_node *node);
 int a2b_of_read_pll_config(struct a2b_node *node);
 int a2b_of_read_pin_config(struct a2b_node *node);
 int a2b_of_read_i2s_config(struct a2b_node *node);
+int a2b_of_read_pdm_config(struct a2b_node *node);
 
 int a2b_node_init_extra_regmap(struct a2b_node *node);
 

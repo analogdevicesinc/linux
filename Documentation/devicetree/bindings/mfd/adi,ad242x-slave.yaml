@@ -88,6 +88,34 @@ properties:
     description: Drives RX pins on falling edge of BCLK
     type: boolean
 
+  adi,sff-divisor:
+    description:
+      Output rate of PDM demodulators will be Superframe rate
+      divided by sff-divisor
+    allOf:
+      - $ref: '/schemas/types.yaml#/definitions/uint32'
+      - enum: [1, 2, 4]
+
+  adi,pdm0-enable:
+    description: Enables PDM reception on RX0 pin
+    type: boolean
+
+  adi,pdm0-stereo:
+    description: Selects two channels of PDM signal on RX0 pin
+    type: boolean
+
+  adi,pdm1-enable:
+    description: Enables PDM reception on RX1 pin
+    type: boolean
+
+  adi,pdm1-stereo:
+    description: Selects two channels of PDM signal on RX1 pin
+    type: boolean
+
+  adi,hpf-enable:
+    description: Enables High Pass filtering on received PDM data
+    type: boolean
+
   upstream:
     type: object
     properties:
