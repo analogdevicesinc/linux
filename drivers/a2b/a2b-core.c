@@ -497,6 +497,31 @@ static int a2b_node_set_i2s_config(struct a2b_node *node)
 	return a2b_node_write(node, A2B_I2SCTL, val);
 }
 
+static int a2b_node_set_pdm_config(struct a2b_node *node)
+{
+	struct a2b_pdm_config *pdm_cfg = &node->pdm_config;
+	uint8_t val = 0;
+
+	val |= A2B_PDMCTL_PDMRATE(pdm_cfg->sff_divisor);
+
+	if (pdm_cfg->pdm0_enable)
+		val |= A2B_PDMCTL_PDM0EN;
+
+	if (pdm_cfg->pdm0_stereo)
+		val |= A2B_PDMCTL_PDM0SLOTS;
+
+	if (pdm_cfg->pdm1_enable)
+		val |= A2B_PDMCTL_PDM1EN;
+
+	if (pdm_cfg->pdm1_stereo)
+		val |= A2B_PDMCTL_PDM1SLOTS;
+
+	if (pdm_cfg->hpf_enable)
+		val |= A2B_PDMCTL_HPFEN;
+
+	return a2b_node_write(node, A2B_PDMCTL, val);
+}
+
 static int a2b_bus_discover(struct a2b_mainnode *mainnode)
 {
 	struct a2b_mainnode_slot_config mainnode_config;
@@ -610,6 +635,10 @@ static int a2b_bus_discover(struct a2b_mainnode *mainnode)
 			return ret;
 
 		ret = a2b_node_set_i2s_config(&subnode->node);
+		if (ret)
+			return ret;
+
+		ret = a2b_node_set_pdm_config(&subnode->node);
 		if (ret)
 			return ret;
 
@@ -742,6 +771,10 @@ static int a2b_mainnode_startup(struct a2b_mainnode *mainnode)
 		return ret;
 
 	ret = a2b_node_set_i2s_config(&mainnode->node);
+	if (ret)
+		return ret;
+
+	ret = a2b_node_set_pdm_config(&mainnode->node);
 	if (ret)
 		return ret;
 
