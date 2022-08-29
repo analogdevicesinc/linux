@@ -386,7 +386,7 @@ struct usdpaa_ioctl_link_status {
 	_IOW(USDPAA_IOCTL_MAGIC, 0x0E, struct usdpaa_ioctl_link_status)
 
 #define USDPAA_IOCTL_DISABLE_LINK_STATUS_INTERRUPT \
-	_IOW(USDPAA_IOCTL_MAGIC, 0x0F, char *)
+	_IOW(USDPAA_IOCTL_MAGIC, 0x0F, char[IF_NAME_MAX_LEN])
 
 struct usdpaa_ioctl_link_status_args {
 	/* network device node name */
@@ -425,7 +425,7 @@ struct usdpaa_ioctl_update_link_speed {
 	_IOR(USDPAA_IOCTL_MAGIC, 0x14, int)
 
 #define USDPAA_IOCTL_RESTART_LINK_AUTONEG \
-	_IOW(USDPAA_IOCTL_MAGIC, 0x13, char *)
+	_IOW(USDPAA_IOCTL_MAGIC, 0x13, char[IF_NAME_MAX_LEN])
 
 #ifdef __cplusplus
 }
