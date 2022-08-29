@@ -66,7 +66,7 @@
 #define A2B_SWSTAT 0x14
 #define A2B_SWSTAT_FIN BIT(0)
 #define A2B_SWSTAT_FAULT BIT(1)
-#define A2B_SWSTAT_FAULTCODE(X) (((X)&0x7) >> 4)
+#define A2B_SWSTAT_FAULTCODE(X) (((X) >> 4) & 7)
 #define A2B_SWSTAT_FAULT_NLOC BIT(7)
 
 #define A2B_INTSTAT 0x15
@@ -188,7 +188,7 @@
 
 #define A2B_I2SRATE 0x43
 #define A2B_I2SRATE_I2SRATE(X) ((X)&3)
-#define A2B_I2SRATE_BCLKRATE(X) (((X) << 3) & 3)
+#define A2B_I2SRATE_BCLKRATE(X) (((X)&3) << 3)
 #define A2B_I2SRATE_REDUCE BIT(6)
 #define A2B_I2SRATE_SHARE BIT(7)
 
