@@ -1042,7 +1042,9 @@ struct qm_mcc_ceetm_mapping_shaper_tcfc_config {
 			u32 ertcr:24;
 			u16 crtbl;
 			u16 ertbl;
-			u8 mps;	/* This will be hardcoded by driver with 60 */
+			/* MPS will be hardcoded by the driver to either 0
+			 * or 60. See A-010383 for details. */
+			u8 mps;
 			u8 __reserved2[47];
 		} __packed shaper_config;
 		struct {
