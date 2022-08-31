@@ -257,10 +257,12 @@ void vsi_dec_getvui(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 	struct v4l2_daemon_dec_info *dec_info = &ctx->mediacfg.decparams.dec_info.dec_info;
 	struct v4l2_pix_format *pix = &fmt->fmt.pix;
 
+	if (test_bit(CTX_FLAG_SRCCHANGED_BIT, &ctx->flag))
+		pix->quantization = (dec_info->video_range == 0 ?  V4L2_QUANTIZATION_LIM_RANGE :
+								   V4L2_QUANTIZATION_FULL_RANGE);
+	else
+		pix->quantization = ctx->mediacfg.quantization;
 	if (dec_info->colour_description_present_flag) {
-		pix->quantization = (dec_info->video_range == 0 ?
-					V4L2_QUANTIZATION_LIM_RANGE :
-					V4L2_QUANTIZATION_FULL_RANGE);
 		if (dec_info->colour_primaries < ARRAY_SIZE(colorprimaries))
 			pix->colorspace = colorprimaries[dec_info->colour_primaries];
 		if (dec_info->transfer_characteristics < ARRAY_SIZE(colortransfers))
@@ -269,7 +271,6 @@ void vsi_dec_getvui(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 			pix->ycbcr_enc = colormatrixcoefs[dec_info->matrix_coefficients];
 	} else {
 		pix->colorspace = ctx->mediacfg.colorspace;
-		pix->quantization = ctx->mediacfg.quantization;
 		pix->xfer_func = ctx->mediacfg.xfer_func;
 		pix->ycbcr_enc = ctx->mediacfg.ycbcr_enc;
 	}
