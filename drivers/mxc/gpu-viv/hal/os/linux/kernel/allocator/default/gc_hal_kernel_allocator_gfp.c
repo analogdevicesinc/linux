@@ -525,6 +525,7 @@ _GFPAlloc(
         /* remove __GFP_HIGHMEM bit, add __GFP_DMA32 bit */
         gfp &= ~__GFP_HIGHMEM;
         gfp |= __GFP_DMA32;
+        normal_gfp |= __GFP_DMA32;
     }
 #else
     if (Flags & gcvALLOC_FLAG_4GB_ADDR || (Allocator->os->device->platform->flagBits & gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS))
