@@ -1901,12 +1901,7 @@ _AdjustParam(
 
     if ((of_find_compatible_node(NULL, NULL, "fsl,imx8mq-gpu") ||
     of_find_compatible_node(NULL, NULL, "fsl,imx8mm-gpu") ||
-    of_find_compatible_node(NULL, NULL, "fsl,imx8mn-gpu")) &&
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
-        ((Args->baseAddress + totalram_pages() * PAGE_SIZE) > 0x100000000))
-#else
-        ((Args->baseAddress + totalram_pages * PAGE_SIZE) > 0x100000000))
-#endif
+    of_find_compatible_node(NULL, NULL, "fsl,imx8mn-gpu")))
     {
         Platform->flagBits |= gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS;
     }
