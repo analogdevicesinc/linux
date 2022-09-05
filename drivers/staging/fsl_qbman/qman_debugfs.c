@@ -1211,7 +1211,7 @@ static int qman_fqd_dest_wq_show(struct seq_file *file, void *offset)
 	for (i = 0; i < 0xFFFF; i++) {
 		if (wq[i])
 			seq_printf(file, "Channel: 0x%x WQ: 0x%x WQ_ID: 0x%x, "
-				"count = %u\n", i >> 3, i & 0x3, i, wq[i]);
+				"count = %u\n", i >> 3, i & 0x7, i, wq[i]);
 	}
 	vfree(wq);
 	return 0;
