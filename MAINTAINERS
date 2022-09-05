@@ -1045,6 +1045,14 @@ S:	Supported
 F:	drivers/iio/dac/ad400x.c
 F:	Documentation/devicetree/bindings/iio/adc/ad400x.txt
 
+ANALOG DEVICES INC AD4134 DRIVER
+M:	Cosmin Tanislav <cosmin.tanislav@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/devicetree/bindings/iio/adc/adi,ad4134-spi-engine.yaml
+F:	Documentation/devicetree/bindings/iio/adc/adi,ad4134.yaml
+
 ANALOG DEVICES INC AD5686 DRIVER
 M:	Stefan Popa <stefan.popa@analog.com>
 L:	linux-pm@vger.kernel.org
