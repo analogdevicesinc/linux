@@ -124,6 +124,9 @@ typedef struct _gcsMODULE_PARAMETERS
     gctUINT                 mmuDynamicMap;
     gctUINT                 allMapInOne;
     gctUINT                 mmuException;
+
+    /* GPU timeout for operation. */
+    gctUINT                 gpuTimeout;
 }
 gcsMODULE_PARAMETERS;
 

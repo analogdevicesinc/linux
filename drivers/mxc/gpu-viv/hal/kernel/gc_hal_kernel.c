@@ -528,6 +528,7 @@ gckKERNEL_Construct(
     gctUINT64 data;
     gctUINT32 recovery;
     gctUINT32 stuckDump;
+    gctUINT gpuTimeout = 0;
     gctUINT64 dynamicMap = 1;
 
     gcmkHEADER_ARG("Os=%p Context=%p", Os, Context);
@@ -662,7 +663,9 @@ gckKERNEL_Construct(
         gcmkONERROR(
             gckVGKERNEL_Construct(Os, Context, kernel, &kernel->vg));
 
-        kernel->timeOut = gcdGPU_TIMEOUT;
+        status = gckOS_QueryOption(Os, "gpuTimeout", &data);
+        gpuTimeout = (gctUINT)data;
+        kernel->timeOut = gpuTimeout;
 
         status = gckOS_QueryOption(Os, "contiguousBase", &contiguousBase);
 
@@ -701,9 +704,11 @@ gckKERNEL_Construct(
             kernel->sRAMPhysFaked[i] = gcvFALSE;
         }
 
+        status = gckOS_QueryOption(Os, "gpuTimeout", &data);
+        gpuTimeout = (gctUINT)data;
         kernel->timeOut = kernel->hardware->type == gcvHARDWARE_2D
                         ? gcdGPU_2D_TIMEOUT
-                        : gcdGPU_TIMEOUT
+                        : gpuTimeout
                         ;
 
 #if gcdSHARED_PAGETABLE
@@ -4067,9 +4072,15 @@ gckKERNEL_AttachProcessEx(
 
         if (Kernel->timeoutPID == PID && Kernel->hardware != gcvNULL)
         {
+            gceSTATUS sta;
+            gctUINT gpuTimeout = 0;
+            gctUINT64 data;
+
+            sta = gckOS_QueryOption(Kernel->os, "gpuTimeout", &data);
+            gpuTimeout = (gctUINT)data;
             Kernel->timeOut = Kernel->hardware->type == gcvHARDWARE_2D
                             ? gcdGPU_2D_TIMEOUT
-                            : gcdGPU_TIMEOUT;
+                            : gpuTimeout;
         }
     }
 
