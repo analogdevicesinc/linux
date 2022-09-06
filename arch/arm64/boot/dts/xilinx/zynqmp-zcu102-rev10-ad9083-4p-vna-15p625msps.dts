@@ -327,6 +327,9 @@
 			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
 			compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
 			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 92 1>;
 			num-cs = <0x1>;
 			reg = <0x88300000 0x1000>;
 			xlnx,num-ss-bits = <0x1>;
