@@ -80,6 +80,7 @@ struct ad9172_state {
 	u8 nco_main_enable;
 	u8 nco_channel_enable;
 	u8 logic_lanes[8];
+	bool standalone;
 };
 
 struct ad9172_jesd204_priv {
@@ -337,8 +338,8 @@ static int ad9172_setup(struct ad9172_state *st)
 		 ((pll_lock_status & 0x1) == 0x1) ?
 		 "Locked" : "Unlocked",  pll_lock_status);
 
-	/* No need to continue here when jesd204-fsm enabled */
-	if (st->jdev)
+	/* No need to continue here when jesd204-fsm enabled or standalone setup */
+	if (st->jdev || st->standalone)
 		return 0;
 
 	ad917x_get_dac_clk_freq(ad917x_h, &dac_rate_Hz);
@@ -1339,13 +1340,15 @@ static int ad9172_probe(struct spi_device *spi)
 	st->dac_h.syncoutb = st->syncoutb_type;
 	st->dac_h.sysref = st->sysref_coupling;
 
+	st->standalone = device_property_read_bool(&spi->dev, "adi,standalone-probe");
+
 	ret = ad9172_setup(st);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
 	}
 
-	if (st->interpolation == 1) {
+	if (st->interpolation == 1 || st->standalone) {
 		conv->attrs = NULL;
 	} else {
 		switch (st->appJesdConfig.jesd_M) {
@@ -1377,9 +1380,8 @@ static int ad9172_probe(struct spi_device *spi)
 	dev_info(&spi->dev, "Probed.\n");
 
 	/* check for standalone probing... */
-	if (device_property_read_bool(&spi->dev, "adi,standalone-probe"))
+	if (st->standalone)
 		return ad9172_standalone_probe(st);
-
 
 	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 out:
