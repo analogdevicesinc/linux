@@ -731,7 +731,7 @@ static int xlnx_mix_set_active_area(struct xlnx_mix_hw *mixer,
 
 	if (hactive > ld->hw_config.max_width ||
 	    vactive > ld->hw_config.max_height) {
-		DRM_ERROR("Invalid layer dimention\n");
+		DRM_ERROR("Invalid layer dimension\n");
 		return -EINVAL;
 	}
 	/* set resolution */
@@ -2026,6 +2026,7 @@ static int xlnx_mix_plane_atomic_check(struct drm_plane *plane,
 	struct xlnx_mix_plane *mix_plane = to_xlnx_plane(plane);
 	struct xlnx_mix_hw *mixer_hw = to_mixer_hw(mix_plane);
 	struct xlnx_mix *mix;
+	int scale_factor[3] = {1, 2, 4};
 
 	/* No check required for the drm_primary_plane */
 	mix = container_of(mixer_hw, struct xlnx_mix, mixer_hw);
@@ -2034,6 +2035,13 @@ static int xlnx_mix_plane_atomic_check(struct drm_plane *plane,
 
 	scale = xlnx_mix_get_layer_scaling(mixer_hw,
 					   mix_plane->mixer_layer->id);
+
+	if (state->fb && (((state->src_w >> 16) * scale_factor[scale] != state->crtc_w) ||
+			  ((state->src_h >> 16) * scale_factor[scale] != state->crtc_h))) {
+		DRM_DEBUG_KMS("Not possible to scale to the desired dimensions\n");
+		return -EINVAL;
+	}
+
 	if (is_window_valid(mixer_hw, state->crtc_x, state->crtc_y,
 			    state->src_w >> 16, state->src_h >> 16, scale))
 		return 0;
@@ -3121,11 +3129,9 @@ static int xlnx_mix_remove(struct platform_device *pdev)
 	if (mixer->disp_bridge) {
 		of_xlnx_bridge_put(mixer->disp_bridge);
 		xlnx_mix_crtc_atomic_disable(&mixer->crtc.crtc, NULL);
-		xlnx_drm_pipeline_exit(mixer->master);
-	} else {
-		xlnx_drm_pipeline_exit(mixer->master);
-		component_del(&pdev->dev, &xlnx_mix_component_ops);
 	}
+	xlnx_drm_pipeline_exit(mixer->master);
+	component_del(&pdev->dev, &xlnx_mix_component_ops);
 	return 0;
 }
 

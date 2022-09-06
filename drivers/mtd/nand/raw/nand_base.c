@@ -1273,6 +1273,15 @@ int nand_change_read_column_op(struct nand_chip *chip,
 			       unsigned int offset_in_page, void *buf,
 			       unsigned int len, bool force_8bit)
 {
+	return nand_check_change_read_column_op(chip, offset_in_page, buf,
+						len, force_8bit, false);
+}
+
+int nand_check_change_read_column_op(struct nand_chip *chip,
+				     unsigned int offset_in_page, void *buf,
+				     unsigned int len, bool force_8bit,
+				     bool check_only)
+{
 	struct mtd_info *mtd = nand_to_mtd(chip);
 
 	if (len && !buf)
@@ -1309,8 +1318,14 @@ int nand_change_read_column_op(struct nand_chip *chip,
 
 		instrs[3].ctx.data.force_8bit = force_8bit;
 
+		if (check_only)
+			return nand_check_op(chip, &op);
+
 		return nand_exec_op(chip, &op);
 	}
+
+	if (check_only)
+		return 0;
 
 	chip->legacy.cmdfunc(chip, NAND_CMD_RNDOUT, offset_in_page, -1);
 	if (len)
@@ -3009,10 +3024,19 @@ static int nand_read_subpage(struct nand_chip *chip, uint32_t data_offs,
 		    (busw - 1))
 			aligned_len++;
 
-		ret = nand_change_read_column_op(chip,
-						 mtd->writesize + aligned_pos,
-						 &chip->oob_poi[aligned_pos],
-						 aligned_len, false);
+		ret = nand_check_change_read_column_op(chip,
+						       mtd->writesize + aligned_pos,
+						       &chip->oob_poi[aligned_pos],
+						       aligned_len, false, true);
+		if (!ret)
+			ret = nand_change_read_column_op(chip,
+							 mtd->writesize + aligned_pos,
+							 &chip->oob_poi[aligned_pos],
+							 aligned_len, false);
+		else
+			ret = nand_change_read_column_op(chip, mtd->writesize,
+							 chip->oob_poi,
+							 mtd->oobsize, false);
 		if (ret)
 			return ret;
 	}

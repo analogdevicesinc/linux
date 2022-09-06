@@ -39,6 +39,16 @@
 /* Loader commands */
 #define PM_LOAD_PDI			0x701
 
+/* NVM Commands */
+#define PM_BBRAM_WRITE_KEY		0xB01
+#define PM_BBRAM_ZEROIZE		0xB02
+#define PM_BBRAM_WRITE_USERDATA		0xB03
+#define PM_BBRAM_READ_USERDATA		0xB04
+#define PM_BBRAM_LOCK_USERDATA		0xB05
+
+/* Secure Commands */
+#define PM_WRITE_AES_KEY		0x568
+
 /* Number of 32bits values in payload */
 #define PAYLOAD_ARG_CNT	4U
 
@@ -77,14 +87,6 @@
 #define XILINX_ZYNQMP_PM_FPGA_AUTHENTICATION_OCM	BIT(2)
 #define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_USERKEY	BIT(3)
 #define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_DEVKEY		BIT(4)
-
-/*
- * Node IDs for the Error Events.
- */
-#define EVENT_ERROR_PMC_ERR1	(0x28100000U)
-#define EVENT_ERROR_PMC_ERR2	(0x28104000U)
-#define EVENT_ERROR_PSM_ERR1	(0x28108000U)
-#define EVENT_ERROR_PSM_ERR2	(0x2810C000U)
 
 enum pm_api_cb_id {
 	PM_INIT_SUSPEND_CB = 30,
@@ -195,6 +197,9 @@ enum pm_ioctl_id {
 	IOCTL_AIE_ISR_CLEAR = 24,
 	/* Register SGI to ATF */
 	IOCTL_REGISTER_SGI = 25,
+	/* Runtime feature configuration */
+	IOCTL_SET_FEATURE_CONFIG = 26,
+	IOCTL_GET_FEATURE_CONFIG = 27,
 };
 
 enum pm_query_id {
@@ -573,6 +578,14 @@ enum pm_reset_reason {
 	PM_RESET_REASON_SLR_SRST = 10,
 };
 
+enum pm_feature_config_id {
+	PM_FEATURE_INVALID = 0,
+	PM_FEATURE_OVERTEMP_STATUS = 1,
+	PM_FEATURE_OVERTEMP_VALUE = 2,
+	PM_FEATURE_EXTWDT_STATUS = 3,
+	PM_FEATURE_EXTWDT_VALUE = 4,
+};
+
 /**
  * struct zynqmp_pm_query_data - PM query data
  * @qid:	query ID
@@ -626,6 +639,12 @@ int zynqmp_pm_aes_engine(const u64 address, u32 *out);
 int zynqmp_pm_efuse_access(const u64 address, u32 *out);
 int zynqmp_pm_secure_load(const u64 src_addr, u64 key_addr, u64 *dst);
 int zynqmp_pm_load_pdi(const u32 src, const u64 address);
+int zynqmp_pm_write_aes_key(const u32 keylen, const u32 keysrc, const u64 keyaddr);
+int zynqmp_pm_bbram_write_usrdata(u32 data);
+int zynqmp_pm_bbram_read_usrdata(const u64 outaddr);
+int zynqmp_pm_bbram_write_aeskey(u32 keylen, const u64 keyaddr);
+int zynqmp_pm_bbram_zeroize(void);
+int zynqmp_pm_bbram_lock_userdata(void);
 int zynqmp_pm_fpga_read(const u32 reg_numframes, const u64 phys_address,
 			u32 readback_type, u32 *value);
 int zynqmp_pm_sha_hash(const u64 address, const u32 size, const u32 flags);
@@ -685,6 +704,8 @@ int zynqmp_pm_pinctrl_set_config(const u32 pin, const u32 param,
 int zynqmp_pm_register_notifier(const u32 node, const u32 event,
 				const u32 wake, const u32 enable);
 int zynqmp_pm_feature(const u32 api_id);
+int zynqmp_pm_set_feature_config(enum pm_feature_config_id id, u32 value);
+int zynqmp_pm_get_feature_config(enum pm_feature_config_id id, u32 *payload);
 #else
 static inline int zynqmp_pm_get_api_version(u32 *version)
 {
@@ -777,13 +798,13 @@ static inline int zynqmp_pm_sd_dll_reset(u32 node_id, u32 type)
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_reset_assert(const enum zynqmp_pm_reset reset,
+static inline int zynqmp_pm_reset_assert(const u32 reset,
 					 const enum zynqmp_pm_reset_action assert_flag)
 {
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_reset_get_status(const enum zynqmp_pm_reset reset,
+static inline int zynqmp_pm_reset_get_status(const u32 reset,
 					     u32 *status)
 {
 	return -ENODEV;
@@ -865,7 +886,7 @@ static inline int zynqmp_pm_read_pggs(u32 index, u32 *value)
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_usb_set_state(u32 state, u32 value)
+static inline int zynqmp_pm_usb_set_state(u32 node, u32 state, u32 value)
 {
 	return -ENODEV;
 }
@@ -1063,12 +1084,42 @@ static inline int zynqmp_pm_load_pdi(const u32 src, const u64 address)
 	return -ENODEV;
 }
 
+static inline int zynqmp_pm_write_aes_key(const u32 keylen, const u32 keysrc, const u64 keyaddr)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_bbram_write_usrdata(u32 data)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_bbram_read_usrdata(const u64 outaddr)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_bbram_write_aeskey(const u64 keyaddr, u16 keylen)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_bbram_zeroize(void)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_bbram_lock_userdata(void)
+{
+	return -ENODEV;
+}
+
 static inline int zynqmp_pm_probe_counter_read(u32 deviceid, u32 reg, u32 *value)
 {
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_probe_counter_write(u32 reg, u32 value)
+static inline int zynqmp_pm_probe_counter_write(u32 domain, u32 reg, u32 value)
 {
 	return -ENODEV;
 }
@@ -1094,6 +1145,18 @@ static inline int zynqmp_pm_register_notifier(const u32 node, const u32 event,
 	return -ENODEV;
 }
 static inline int zynqmp_pm_feature(const u32 api_id)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_set_feature_config(enum pm_feature_config_id id,
+					       u32 value)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_get_feature_config(enum pm_feature_config_id id,
+					       u32 *payload)
 {
 	return -ENODEV;
 }

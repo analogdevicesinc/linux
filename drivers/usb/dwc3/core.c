@@ -527,6 +527,9 @@ err1:
 
 static void dwc3_free_scratch_buffers(struct dwc3 *dwc)
 {
+	if (dwc->dr_mode == USB_DR_MODE_HOST)
+		return;
+
 	if (!dwc->has_hibernation)
 		return;
 
@@ -822,7 +825,8 @@ static void dwc3_core_setup_global_control(struct dwc3 *dwc)
 		 * REVISIT Enabling this bit so that host-mode hibernation
 		 * will work. Device-mode hibernation is not yet implemented.
 		 */
-		reg |= DWC3_GCTL_GBLHIBERNATIONEN;
+		if (dwc->dr_mode == USB_DR_MODE_HOST)
+			reg |= DWC3_GCTL_GBLHIBERNATIONEN;
 		break;
 	default:
 		/* nothing */
@@ -1676,7 +1680,8 @@ static int dwc3_probe(struct platform_device *pdev)
 	 * which requests the power controller for entering into
 	 * D3/D0 state. Try getting the regulator.
 	 */
-	dwc->dwc3_pmu = devm_regulator_get(dev, "dwc3-pmu-regulator");
+	dwc->dwc3_pmu = devm_regulator_get(dev,
+					   dev->parent->of_node->full_name);
 	if (!IS_ERR(dwc->dwc3_pmu)) {
 		ret = regulator_enable(dwc->dwc3_pmu);
 		if (ret) {
@@ -1842,6 +1847,18 @@ static int dwc3_suspend_common(struct dwc3 *dwc, pm_message_t msg)
 	default:
 		/* do nothing */
 		break;
+	}
+
+	/* Put the core into D3 state */
+	if (dwc->dwc3_pmu) {
+		int ret;
+
+		ret = regulator_disable(dwc->dwc3_pmu);
+		if (ret) {
+			dev_err(dwc->dev,
+				"Failed to disable dwc3_pmu supply\n");
+			return ret;
+		}
 	}
 
 	return 0;

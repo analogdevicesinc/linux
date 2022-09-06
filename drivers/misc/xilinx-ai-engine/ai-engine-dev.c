@@ -185,11 +185,6 @@ static int aie_partition_get(struct aie_partition *apart,
 	 *    which resources used by application.
 	 */
 
-	/* scan to setup the initial clock state for tiles */
-	ret = aie_part_scan_clk_state(apart);
-	if (ret)
-		return ret;
-
 	/* Get a file for the partition */
 	filep = anon_inode_getfile(dev_name(&apart->dev), &aie_part_fops,
 				   apart, O_RDWR);
@@ -205,6 +200,16 @@ static int aie_partition_get(struct aie_partition *apart,
 
 	apart->status = XAIE_PART_STATUS_INUSE;
 	apart->cntrflag = req->flag;
+
+	/* open AI engine partition instance to get it ready for use */
+	ret = aie_part_open(apart, (void *)req->meta_data);
+	if (ret) {
+		dev_err(&apart->dev, "Failed to open partition %u instance.\n",
+			apart->partition_id);
+		fput(filep);
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -471,10 +476,14 @@ free_dev:
 static int xilinx_ai_engine_remove(struct platform_device *pdev)
 {
 	struct aie_device *adev = platform_get_drvdata(pdev);
-	struct aie_partition *apart;
+	struct list_head *node, *pos;
 
-	list_for_each_entry(apart, &adev->partitions, node)
+	list_for_each_safe(pos, node, &adev->partitions) {
+		struct aie_partition *apart;
+
+		apart = list_entry(pos, struct aie_partition, node);
 		aie_part_remove(apart);
+	}
 
 	device_del(&adev->dev);
 	put_device(&adev->dev);
@@ -614,18 +623,6 @@ struct device *aie_partition_request(struct aie_partition_req *req)
 		return ERR_PTR(ret);
 
 	ret = aie_partition_get(apart, req);
-
-	/* Sets bitmaps of statically allocated resources */
-	if (!ret && req->meta_data) {
-		ret = aie_part_rscmgr_set_static(apart,
-						 (void *)req->meta_data);
-		if (ret) {
-			/* release partition if failed to set static resources */
-			mutex_unlock(&apart->mlock);
-			fput(apart->filep);
-			return ERR_PTR(ret);
-		}
-	}
 
 	mutex_unlock(&apart->mlock);
 	if (ret)

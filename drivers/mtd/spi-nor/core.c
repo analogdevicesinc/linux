@@ -1670,6 +1670,8 @@ static u8 spi_nor_get_sr_bp_mask(struct spi_nor *nor)
 
 	if (nor->flags & SNOR_F_HAS_SR_BP3_BIT6)
 		return mask | SR_BP3_BIT6;
+	else if (nor->flags & SNOR_F_HAS_SR_BP3_BIT5)
+		return mask | SR_BP3_BIT5;
 
 	if (nor->flags & SNOR_F_HAS_4BIT_BP)
 		return mask | SR_BP3;
@@ -1854,6 +1856,9 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 
 		if (nor->flags & SNOR_F_HAS_SR_BP3_BIT6 && val & SR_BP3)
 			val = (val & ~SR_BP3) | SR_BP3_BIT6;
+		else if (nor->flags & SNOR_F_HAS_SR_BP3_BIT5 &&
+			 val & SR_BP3_BIT5)
+			val |= SR_BP3_BIT5;
 
 		if (val & ~mask)
 			return -EINVAL;
@@ -1939,6 +1944,9 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, uint64_t len)
 
 		if (nor->flags & SNOR_F_HAS_SR_BP3_BIT6 && val & SR_BP3)
 			val = (val & ~SR_BP3) | SR_BP3_BIT6;
+		else if (nor->flags & SNOR_F_HAS_SR_BP3_BIT5 &&
+			 val & SR_BP3_BIT5)
+			val |= SR_BP3_BIT5;
 
 		/* Some power-of-two sizes are not supported */
 		if (val & ~mask)
@@ -2007,6 +2015,14 @@ static int write_sr_modify_protection(struct spi_nor *nor, u8 status,
 
 		if (lock_bits > 7)
 			bp_mask |= SR_BP3;
+	} else if (nor->jedec_id == CFI_MFR_WINBND) { /* Winbond */
+		status_new &= ~SR_BP3_BIT5;
+
+		/* Protected area starts from top */
+		status_new &= ~SR_BP_TB;
+
+		if (lock_bits > 7)
+			bp_mask |= SR_BP3_BIT5;
 	}
 
 	if (nor->is_lock)
@@ -2033,6 +2049,9 @@ static u8 bp_bits_from_sr(struct spi_nor *nor, u8 status)
 	ret = (((status) & SR_BP_BIT_MASK) >> SR_BP_BIT_OFFSET);
 	if (nor->jedec_id == 0x20)
 		ret |= ((status & SR_BP3) >> (SR_BP_BIT_OFFSET + 1));
+	else if ((nor->jedec_id == CFI_MFR_WINBND) &&
+		 (nor->flags & SNOR_F_HAS_4BIT_BP))
+		ret |= ((status & SR_BP3_BIT5) >> SR_BP_BIT_OFFSET);
 
 	return ret;
 }
@@ -2394,31 +2413,27 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 	u32 read_len = 0;
 	u32 rem_bank_len = 0;
 	u8 bank;
-	u8 is_ofst_odd = 0;
 	u8 cur_bank;
 	u8 nxt_bank;
 	u32 bank_size;
-	u_char *ptr;
 
 #define OFFSET_16_MB 0x1000000
 	dev_dbg(nor->dev, "from 0x%08x, len %zd\n", (u32)from, len);
+	if (nor->isparallel && (from & 1)) {
+		u8 two[2];
+		size_t local_retlen;
 
-	if (nor->isparallel && (offset & 1)) {
-		/* We can hit this case when we use file system like ubifs */
-		from = (loff_t)(from - 1);
-		len = (size_t)(len + 1);
-		is_ofst_odd = 1;
-		ptr = kmalloc(len, GFP_KERNEL);
-		if (!ptr)
-			return -ENOMEM;
-
-	} else {
-		ptr = buf;
+		ret = spi_nor_read(mtd, (from & ~1), 2, &local_retlen, two);
+		if (ret < 0)
+			return ret;
+		buf[0] = two[1]; /* copy odd byte to buffer */
+		++buf;
+		*retlen += 1; /* We've read only one actual byte */
+		--len;
+		++from;
 	}
 	ret = spi_nor_lock_and_prep(nor);
 	if (ret) {
-		if (is_ofst_odd == 1)
-			kfree(ptr);
 		return ret;
 	}
 
@@ -2492,7 +2507,7 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 
 		offset = spi_nor_convert_addr(nor, offset);
 
-		ret = spi_nor_read_data(nor, (offset), read_len, ptr);
+		ret = spi_nor_read_data(nor, (offset), read_len, buf);
 		if (ret == 0) {
 			/* We shouldn't see 0-length reads */
 			ret = -EIO;
@@ -2502,23 +2517,14 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 			goto read_err;
 
 		WARN_ON(ret > len);
-		if (is_ofst_odd == 1) {
-			memcpy(buf, (ptr + 1), (len - 1));
-			*retlen += (ret - 1);
-		} else {
-			*retlen += ret;
-		}
+		*retlen += ret;
 		buf += ret;
-		if (!is_ofst_odd)
-			ptr += ret;
 		from += ret;
 		len -= ret;
 	}
 	ret = 0;
 
 read_err:
-	if (is_ofst_odd == 1)
-		kfree(ptr);
 	spi_nor_unlock_and_unprep(nor);
 	return ret;
 }
@@ -3945,6 +3951,8 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 		nor->flags |= SNOR_F_HAS_4BIT_BP;
 		if (info->flags & SPI_NOR_BP3_SR_BIT6)
 			nor->flags |= SNOR_F_HAS_SR_BP3_BIT6;
+		else if (info->flags & SPI_NOR_BP3_SR_BIT5)
+			nor->flags |= SNOR_F_HAS_SR_BP3_BIT5;
 	}
 
 	if (info->flags & SPI_NOR_NO_ERASE)

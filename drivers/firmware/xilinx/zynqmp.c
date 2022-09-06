@@ -918,6 +918,104 @@ int zynqmp_pm_load_pdi(const u32 src, const u64 address)
 EXPORT_SYMBOL_GPL(zynqmp_pm_load_pdi);
 
 /**
+ * zynqmp_pm_write_aes_key - Write AES key registers
+ * @keylen:	Size of the input key to be written
+ * @keysrc:	Key Source to be selected to which provided
+ *			key should be updated
+ * @keyaddr: Address of a buffer which should contain the key
+ *			to be written
+ *
+ * This function provides support to write AES volatile user keys.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_write_aes_key(const u32 keylen, const u32 keysrc,
+			    const u64 keyaddr)
+{
+	return zynqmp_pm_invoke_fn(PM_WRITE_AES_KEY, keylen, keysrc,
+				   lower_32_bits(keyaddr),
+				   upper_32_bits(keyaddr), NULL);
+}
+EXPORT_SYMBOL_GPL(zynqmp_pm_write_aes_key);
+
+/**
+ * zynqmp_pm_bbram_write_aeskey - Write AES key in BBRAM
+ * @keylen:	Size of the input key to be written
+ * @keyaddr: Address of a buffer which should contain the key
+ *			to be written
+ *
+ * This function provides support to write AES keys into BBRAM.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_bbram_write_aeskey(u32 keylen, const u64 keyaddr)
+{
+	return zynqmp_pm_invoke_fn(PM_BBRAM_WRITE_KEY, keylen,
+				   lower_32_bits(keyaddr),
+				   upper_32_bits(keyaddr), 0, NULL);
+}
+EXPORT_SYMBOL_GPL(zynqmp_pm_bbram_write_aeskey);
+
+/**
+ * zynqmp_pm_bbram_write_usrdata - Write user data in BBRAM
+ * @data: User data to be written in BBRAM
+ *
+ * This function provides support to write user data into BBRAM.
+ * The size of the user data must be 4 bytes.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_bbram_write_usrdata(u32 data)
+{
+	return zynqmp_pm_invoke_fn(PM_BBRAM_WRITE_USERDATA, data, 0, 0, 0,
+				   NULL);
+}
+EXPORT_SYMBOL_GPL(zynqmp_pm_bbram_write_usrdata);
+
+/**
+ * zynqmp_pm_bbram_read_usrdata - Read user data in BBRAM
+ * @outaddr: Address of a buffer to store the user data read from BBRAM
+ *
+ * This function provides support to read user data in BBRAM.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_bbram_read_usrdata(const u64 outaddr)
+{
+	return zynqmp_pm_invoke_fn(PM_BBRAM_READ_USERDATA, outaddr, 0, 0, 0,
+				   NULL);
+}
+EXPORT_SYMBOL_GPL(zynqmp_pm_bbram_read_usrdata);
+
+/**
+ * zynqmp_pm_bbram_zeroize - Zeroizes AES key in BBRAM
+ *
+ * Description:
+ * This function provides support to zeroize AES key in BBRAM.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_bbram_zeroize(void)
+{
+	return zynqmp_pm_invoke_fn(PM_BBRAM_ZEROIZE, 0, 0, 0, 0, NULL);
+}
+EXPORT_SYMBOL_GPL(zynqmp_pm_bbram_zeroize);
+
+/**
+ * zynqmp_pm_bbram_lock_userdata - Locks user data for write
+ *
+ * Description:
+ * This function disables writing user data into BBRAM.
+ *
+ * Return: Returns status, either success or error+reason
+ */
+int zynqmp_pm_bbram_lock_userdata(void)
+{
+	return zynqmp_pm_invoke_fn(PM_BBRAM_LOCK_USERDATA, 0, 0, 0, 0, NULL);
+}
+EXPORT_SYMBOL_GPL(zynqmp_pm_bbram_lock_userdata);
+
+/**
  * zynqmp_pm_fpga_read - Perform the fpga configuration readback
  * @reg_numframes: Configuration register offset (or) Number of frames to read
  * @phys_address: Physical Address of the buffer
@@ -1665,6 +1763,33 @@ int zynqmp_pm_system_shutdown(const u32 type, const u32 subtype)
 }
 
 /**
+ * zynqmp_pm_set_feature_config - PM call to request IOCTL for feature config
+ * @id:         The config ID of the feature to be configured
+ * @value:      The config value of the feature to be configured
+ *
+ * Return:      Returns 0 on success or error value on failure.
+ */
+int zynqmp_pm_set_feature_config(enum pm_feature_config_id id, u32 value)
+{
+	return zynqmp_pm_invoke_fn(PM_IOCTL, 0, IOCTL_SET_FEATURE_CONFIG,
+				   id, value, NULL);
+}
+
+/**
+ * zynqmp_pm_get_feature_config - PM call to get value of configured feature
+ * @id:         The config id of the feature to be queried
+ * @payload:    Returned value array
+ *
+ * Return:      Returns 0 on success or error value on failure.
+ */
+int zynqmp_pm_get_feature_config(enum pm_feature_config_id id,
+				 u32 *payload)
+{
+	return zynqmp_pm_invoke_fn(PM_IOCTL, 0, IOCTL_GET_FEATURE_CONFIG,
+				   id, 0, payload);
+}
+
+/**
  * struct zynqmp_pm_shutdown_scope - Struct for shutdown scope
  * @subtype:	Shutdown subtype
  * @name:	Matching string for scope argument
@@ -1965,6 +2090,75 @@ static ssize_t last_reset_reason_show(struct device *device,
 }
 static DEVICE_ATTR_RO(last_reset_reason);
 
+static atomic_t feature_conf_id;
+
+static ssize_t feature_config_id_show(struct device *device,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	return sysfs_emit(buf, "%d\n", atomic_read(&feature_conf_id));
+}
+
+static ssize_t feature_config_id_store(struct device *device,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
+{
+	u32 config_id;
+	int ret;
+
+	if (!buf)
+		return -EINVAL;
+
+	ret = kstrtou32(buf, 10, &config_id);
+	if (ret)
+		return ret;
+
+	atomic_set(&feature_conf_id, config_id);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(feature_config_id);
+
+static ssize_t feature_config_value_show(struct device *device,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	int ret;
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+
+	ret = zynqmp_pm_get_feature_config(atomic_read(&feature_conf_id),
+					   ret_payload);
+	if (ret)
+		return ret;
+
+	return sysfs_emit(buf, "%d\n", ret_payload[1]);
+}
+
+static ssize_t feature_config_value_store(struct device *device,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	u32 value;
+	int ret;
+
+	if (!buf)
+		return -EINVAL;
+
+	ret = kstrtou32(buf, 10, &value);
+	if (ret)
+		return ret;
+
+	ret = zynqmp_pm_set_feature_config(atomic_read(&feature_conf_id),
+					   value);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(feature_config_value);
+
 static struct attribute *zynqmp_firmware_attrs[] = {
 	&dev_attr_ggs0.attr,
 	&dev_attr_ggs1.attr,
@@ -1977,6 +2171,8 @@ static struct attribute *zynqmp_firmware_attrs[] = {
 	&dev_attr_shutdown_scope.attr,
 	&dev_attr_health_status.attr,
 	&dev_attr_last_reset_reason.attr,
+	&dev_attr_feature_config_id.attr,
+	&dev_attr_feature_config_value.attr,
 	NULL,
 };
 

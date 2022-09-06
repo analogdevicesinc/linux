@@ -23,6 +23,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/slab.h>
 #include <uapi/linux/xlnx-ai-engine.h>
 
 /*
@@ -628,11 +629,13 @@ struct aie_sysfs_attr {
  * @loc: tile co-ordinates
  * @apart: parent partition the tile belongs to
  * @dev: device for the AI engine tile device
+ * @attr_grp: attribute group
  */
 struct aie_tile {
 	struct aie_location loc;
 	struct aie_partition *apart;
 	struct device dev;
+	struct attribute_group *attr_grp;
 };
 
 /**
@@ -751,6 +754,7 @@ struct aie_part_bridge {
  * @adev: pointer to AI device instance
  * @filep: pointer to file for refcount on the users of the partition
  * @pmems: pointer to partition memories types
+ * @dbufs_cache: memory management object for preallocated dmabuf descriptors
  * @trscs: resources bitmaps for each tile
  * @freq_req: required frequency
  * @br: AI engine FPGA bridge
@@ -765,6 +769,7 @@ struct aie_part_bridge {
  * @mem_event_status: memory module event bitmap
  * @pl_event_status: pl module event bitmap
  * @l2_mask: level 2 interrupt controller mask bitmap
+ * @attr_grp: attribute group
  * @partition_id: partition id. Partition ID is the identifier
  *		  of the AI engine partition in the system.
  * @status: indicate if the partition is in use
@@ -782,6 +787,7 @@ struct aie_partition {
 	struct aie_device *adev;
 	struct file *filep;
 	struct aie_part_mem *pmems;
+	struct kmem_cache *dbufs_cache;
 	struct aie_tile_rscs trscs[AIE_TILE_TYPE_MAX];
 	u64 freq_req;
 	struct aie_range range;
@@ -795,6 +801,7 @@ struct aie_partition {
 	struct aie_resource mem_event_status;
 	struct aie_resource pl_event_status;
 	struct aie_resource l2_mask;
+	struct attribute_group *attr_grp;
 	u32 partition_id;
 	u32 status;
 	u32 cntrflag;
@@ -980,6 +987,7 @@ struct aie_partition *of_aie_part_probe(struct aie_device *adev,
 					struct device_node *nc);
 void aie_part_remove(struct aie_partition *apart);
 int aie_part_clean(struct aie_partition *apart);
+int aie_part_open(struct aie_partition *apart, void *rsc_metadata);
 
 int aie_fpga_create_bridge(struct aie_partition *apart);
 void aie_fpga_free_bridge(struct aie_partition *apart);
@@ -994,6 +1002,7 @@ long aie_part_set_bd(struct aie_partition *apart, void __user *user_args);
 long aie_part_set_dmabuf_bd(struct aie_partition *apart,
 			    void __user *user_args);
 void aie_part_release_dmabufs(struct aie_partition *apart);
+int aie_part_prealloc_dbufs_cache(struct aie_partition *apart);
 
 int aie_part_scan_clk_state(struct aie_partition *apart);
 bool aie_part_check_clk_enable_loc(struct aie_partition *apart,
@@ -1041,7 +1050,10 @@ int aie_part_rscmgr_set_tile_broadcast(struct aie_partition *apart,
 				       struct aie_location loc,
 				       enum aie_module_type mod, uint32_t id);
 
-int aie_part_sysfs_init(struct aie_partition *apart);
+int aie_part_sysfs_create_entries(struct aie_partition *apart);
+void aie_part_sysfs_remove_entries(struct aie_partition *apart);
+int aie_tile_sysfs_create_entries(struct aie_tile *atile);
+void aie_tile_sysfs_remove_entries(struct aie_tile *atile);
 ssize_t aie_sysfs_read_handler(struct file *filp, struct kobject *kobj,
 			       struct bin_attribute *attr, char *buf,
 			       loff_t offset, size_t max_size);
@@ -1088,5 +1100,7 @@ void aie_read_event_status(struct aie_partition *apart,
 			   enum aie_module_type module, u32 *reg);
 ssize_t aie_part_read_cb_status(struct kobject *kobj, char *buffer,
 				ssize_t size);
+long aie_part_rscmgr_get_statistics(struct aie_partition *apart,
+				    void __user *user_args);
 
 #endif /* AIE_INTERNAL_H */

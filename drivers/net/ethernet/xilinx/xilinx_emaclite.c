@@ -4,7 +4,7 @@
  * This is a new flat driver which is based on the original emac_lite
  * driver from John Williams <john.williams@xilinx.com>.
  *
- * 2007 - 2013 (c) Xilinx, Inc.
+ * Copyright (c) 2007 - 2013 Xilinx, Inc.
  */
 
 #include <linux/module.h>
@@ -1165,9 +1165,8 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
 	}
 
 	dev_info(dev,
-		 "Xilinx EmacLite at 0x%08X mapped to 0x%08lX, irq=%d\n",
-		 (unsigned int __force)ndev->mem_start,
-		 (unsigned long __force)lp->base_addr, ndev->irq);
+		 "Xilinx EmacLite at 0x%08lX mapped to 0x%p, irq=%d\n",
+		 (unsigned long __force)ndev->mem_start, lp->base_addr, ndev->irq);
 	return 0;
 
 error:

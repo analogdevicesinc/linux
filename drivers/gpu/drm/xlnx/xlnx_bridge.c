@@ -311,7 +311,7 @@ static ssize_t xlnx_bridge_debugfs_read(struct file *f, char __user *buf,
 					size_t size, loff_t *pos)
 {
 	struct xlnx_bridge *bridge = f->f_inode->i_private;
-	int ret;
+	int ret, count = 0;
 
 	if (size <= 0)
 		return -EINVAL;
@@ -319,13 +319,14 @@ static ssize_t xlnx_bridge_debugfs_read(struct file *f, char __user *buf,
 	if (*pos != 0)
 		return 0;
 
-	size = min(size, strlen(bridge->debugfs_file->status));
-	ret = copy_to_user(buf, bridge->debugfs_file->status, size);
-	if (ret)
-		return ret;
+	if (bridge->debugfs_file->status) {
+		count = min(size, strlen(bridge->debugfs_file->status));
+		ret = copy_to_user(buf, bridge->debugfs_file->status, count);
+		if (ret)
+			count = -EFAULT;
+	}
 
-	*pos = size + 1;
-	return size;
+	return count;
 }
 
 static ssize_t xlnx_bridge_debugfs_write(struct file *f, const char __user *buf,
@@ -396,8 +397,12 @@ static int xlnx_bridge_debugfs_register(struct xlnx_bridge *bridge)
 	if (!file)
 		return -ENOMEM;
 
-	snprintf(file_name, sizeof(file_name), "xlnx_bridge-%s%s",
-		 bridge->of_node->name, bridge->extra_name);
+	if (bridge->extra_name)
+		snprintf(file_name, sizeof(file_name), "xlnx_bridge-%s%s",
+			 bridge->of_node->name, bridge->extra_name);
+	else
+		snprintf(file_name, sizeof(file_name), "xlnx_bridge-%s",
+			 bridge->of_node->name);
 	file->file = debugfs_create_file(file_name, 0444, dir->dir, bridge,
 					 &xlnx_bridge_debugfs_fops);
 	bridge->debugfs_file = file;
@@ -407,6 +412,10 @@ static int xlnx_bridge_debugfs_register(struct xlnx_bridge *bridge)
 
 static void xlnx_bridge_debugfs_unregister(struct xlnx_bridge *bridge)
 {
+	if (!bridge->debugfs_file) {
+		pr_err("bridge %s debugfs file is NULL\n", bridge->of_node->name);
+		return;
+	}
 	debugfs_remove(bridge->debugfs_file->file);
 	kfree(bridge->debugfs_file);
 }
@@ -506,7 +515,8 @@ void xlnx_bridge_unregister(struct xlnx_bridge *bridge)
 		return;
 
 	mutex_lock(&helper.lock);
-	WARN_ON(bridge->owned);
+	pr_warn("unregister bridge %s which is owned by other component\n",
+		bridge->of_node->name);
 	xlnx_bridge_debugfs_unregister(bridge);
 	list_del(&bridge->list);
 	mutex_unlock(&helper.lock);

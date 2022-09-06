@@ -99,7 +99,7 @@ static int zynqmp_aes_xcrypt(struct skcipher_request *req, unsigned int flags)
 	int err, ret, src_data = 0, dst_data = 0;
 	dma_addr_t dma_addr, dma_addr_buf;
 	struct zynqmp_aes_data *abuf;
-	struct skcipher_walk walk;
+	struct skcipher_walk walk = {0};
 	unsigned int data_size;
 	size_t dma_size;
 	char *kbuf;
@@ -150,7 +150,7 @@ static int zynqmp_aes_xcrypt(struct skcipher_request *req, unsigned int flags)
 		abuf->key = 0;
 	}
 
-	zynqmp_pm_aes_engine(dma_addr_buf, &ret);
+	zynqmp_pm_aes_engine(dma_addr_buf, (u32 *)&ret);
 
 	if (ret != 0) {
 		switch (ret) {
