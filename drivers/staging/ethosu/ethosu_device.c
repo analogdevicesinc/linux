@@ -164,6 +164,9 @@ static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
 	case ETHOSU_CORE_MSG_PONG:
 		dev_info(edev->dev, "Msg: Pong\n");
 		break;
+	case ETHOSU_CORE_MSG_POWER_RSP:
+		dev_info(edev->dev, "Msg: Power response\n");
+		break;
 	case ETHOSU_CORE_MSG_INFERENCE_RSP:
 		if (header->length != sizeof(struct ethosu_core_inference_rsp)) {
 			dev_warn(edev->dev,
