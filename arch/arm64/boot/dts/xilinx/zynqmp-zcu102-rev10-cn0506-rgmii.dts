@@ -3,7 +3,7 @@
  * ADIN PHY FMC board
  * https://wiki.analog.com/resources/tools-software/linux-drivers/net-phy/adin
  *
- * hdl_project: <cn0506_rgmii/zcu102>
+ * hdl_project: <cn0506/zcu102>
  * board_revision: <>
  *
  * Copyright 2020 Analog Devices Inc.
