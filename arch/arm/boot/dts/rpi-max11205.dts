@@ -1,0 +1,48 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2836", "brcm,bcm2835";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			max11205_vref: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <3200000>;
+				regulator-max-microvolt = <3200000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			max11205@0 {
+				compatible = "maxim,max11205a";
+				reg = <0>;
+				spi-max-frequency = <5000000>;
+				spi-cpha;
+				interrupts = <19 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-parent = <&gpio>;
+				vref-supply = <&max11205_vref>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};
+
