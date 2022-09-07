@@ -25,6 +25,8 @@
 	adi,channel-interpolation = <4>;
 	adi,clock-output-divider = <4>;
 	adi,syncoutb-signal-type-lvds-enable;
+
+	adi,standalone-probe;
 };
 
 &axi_ad9172_adxcvr {
