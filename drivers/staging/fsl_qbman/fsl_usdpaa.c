@@ -2211,6 +2211,8 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&input, a, sizeof(input)))
 			return -EFAULT;
+		input.if_name[IF_NAME_MAX_LEN - 1] = '\0';
+
 		ret = ioctl_en_if_link_status(&input);
 		if (ret)
 			pr_err("Error(%d) enable link interrupt:IF: %s\n",
@@ -2239,6 +2241,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&input, a, sizeof(input)))
 			return -EFAULT;
+		input.if_name[IF_NAME_MAX_LEN - 1] = '\0';
 
 		ret = ioctl_usdpaa_get_link_status(&input);
 		if (ret)
@@ -2256,6 +2259,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&input, a, sizeof(input)))
 			return -EFAULT;
+		input.if_name[IF_NAME_MAX_LEN - 1] = '\0';
 
 		ret = ioctl_set_link_status(&input);
 		if (ret)
@@ -2279,6 +2283,7 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&input, a, sizeof(input)))
 			return -EFAULT;
+		input.if_name[IF_NAME_MAX_LEN - 1] = '\0';
 
 		ret = ioctl_set_link_speed(&input);
 		if (ret)
