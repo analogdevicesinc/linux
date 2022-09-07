@@ -25,7 +25,7 @@
 	fixed_clk: fixed-clock {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
-		clock-frequency = <0>;
+		clock-frequency = <10000000>;
 	};
 
 	/* gpio_sw4_v1, gpio_sw4_v2*/
@@ -98,7 +98,7 @@
 
 	adl5960-sync@0 {
 		compatible = "adi,one-bit-adc-dac";
-		out-gpios = <&gpio 113 0>, <&gpio 121 0>;
+		out-gpios = <&gpio 113 0>, <&gpio 121 0>, <&gpio 112 1>, <&gpio 126 1>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -110,6 +110,14 @@
 		channel@1 {
 			reg = <1>;
 			label = "MIX2_EN";
+		};
+		channel@2 {
+			reg = <3>;
+			label = "AD9528_REF_SEL";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "GPIO_SW_PG";
 		};
 	};
 };
@@ -224,6 +232,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+		clocks = <&fixed_clk>;
+
 		jesd204-device;
 		#jesd204-cells = <2>;
 		jesd204-sysref-provider;
@@ -241,8 +251,10 @@
 		adi,vcxo-freq = <100000000>;
 
 		adi,refa-enable;
+		adi,refb-enable;
 		adi,refa-diff-rcv-enable;
 		adi,refa-r-div = <1>;
+		adi,refb-r-div = <1>;
 		adi,osc-in-cmos-neg-inp-enable;
 
 		/* SYSREF config */
@@ -255,7 +267,7 @@
 
 		/* PLL1 config */
 		adi,pll1-feedback-src-vcxo;
-		adi,pll1-feedback-div = <4>;
+		adi,pll1-feedback-div = <10>;
 		adi,pll1-charge-pump-current-nA = <5000>;
 		adi,osc-in-diff-enable;
 
