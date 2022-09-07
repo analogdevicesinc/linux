@@ -1219,7 +1219,6 @@ static int ov5640_init_mode(struct ov5640 *sensor,
 	struct reg_value *pModeSetting = NULL;
 	s32 ArySize = 0;
 	int retval = 0;
-	u32 msec_wait4stable = 0;
 	enum ov5640_downsize_mode dn_mode, orig_dn_mode;
 
 	if ((mode > ov5640_mode_MAX || mode < ov5640_mode_MIN)
@@ -1270,18 +1269,7 @@ static int ov5640_init_mode(struct ov5640 *sensor,
 	OV5640_get_light_freq(sensor);
 	OV5640_set_bandingfilter(sensor);
 	ov5640_set_virtual_channel(sensor, sensor->csi);
-
-	/* add delay to wait for sensor stable */
-	if (mode == ov5640_mode_QSXGA_2592_1944) {
-		/* dump the first two frames: 1/7.5*2
-		 * the frame rate of QSXGA is 7.5fps */
-		msec_wait4stable = 267;
-	} else {
-		/* dump the first eighteen frames: 1/30*18 */
-		msec_wait4stable = 600;
-	}
-	msleep(msec_wait4stable);
-
+	msleep(10);
 err:
 	return retval;
 }
