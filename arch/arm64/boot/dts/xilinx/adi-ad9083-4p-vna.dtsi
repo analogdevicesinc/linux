@@ -64,7 +64,7 @@
 		compatible = "adi,gen_mux";
 		mux-controls = <&mux0>;
 		mux-state-names =
-			"d1", "d2", "d3", "d4";
+			"d4", "d3", "d2", "d1";
 		label = "mux-rfin";
 	};
 
@@ -102,6 +102,7 @@
 
 		#address-cells = <1>;
 		#size-cells = <0>;
+		label = "misc-gpio-ctrl";
 
 		channel@0 {
 			reg = <0>;
@@ -111,13 +112,13 @@
 			reg = <1>;
 			label = "MIX2_EN";
 		};
-		channel@2 {
-			reg = <3>;
+		channel@2 { /* Inverted */
+			reg = <2>;
 			label = "AD9528_REF_SEL";
 		};
-		channel@4 {
-			reg = <4>;
-			label = "GPIO_SW_PG";
+		channel@3 { /* Inverted */
+			reg = <3>;
+			label = "SW_PG";
 		};
 	};
 };
@@ -210,11 +211,6 @@
 		channel@2 {
 			reg = <2>;
 			adi,power-up-frequency = /bits/ 64 <8000000000>;
-			adi,output-enable;
-		};
-		channel@3 {
-			reg = <3>;
-			adi,power-up-frequency = /bits/ 64 <16000000000>;
 			adi,output-enable;
 		};
 	};
@@ -412,16 +408,16 @@
 };
 
 &axi_spi_bus1 {
-	dat1: adrf5720-1@0 {
+	dat1: adrf5720-1@1 {
 		compatible = "adi,adrf5720";
-		reg = <0>;
+		reg = <1>;
 		spi-max-frequency = <100000>;
 		label = "adrf5720-rfin";
 	};
 
-	dat2: adrf5720-2@1 {
+	dat2: adrf5720-2@0 {
 		compatible = "adi,adrf5720";
-		reg = <1>;
+		reg = <0>;
 		spi-max-frequency = <100000>;
 		label = "adrf5720-lo";
 	};
@@ -522,7 +518,7 @@
 		clocks = <&clk_mux0>; /* Fixme */
 		clock-names = "rf_in";
 		clock-scales = <1 10>;
-		label = "admv8818-rfin";
+		label = "admv8818";
 		adi,tolerance-percent = <3>;
 	};
 };
