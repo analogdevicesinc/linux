@@ -307,7 +307,7 @@
 			adi,extended-name = "AD4371_XREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <20>; /* 125 MHz */
+			adi,channel-divider = <40>; /* 25 MHz */
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
