@@ -226,7 +226,7 @@
 		adi,jesd204-framer-b-bank-id = <0>;
 		adi,jesd204-framer-b-device-id = <0>;
 		adi,jesd204-framer-b-lane0-id = <0>;
-		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-m = <4>;
 		adi,jesd204-framer-b-k = <32>;
 		adi,jesd204-framer-b-f = <4>;
 		adi,jesd204-framer-b-np = <16>;
@@ -250,7 +250,7 @@
 		adi,jesd204-deframer-a-k = <32>;
 		adi,jesd204-deframer-a-scramble = <1>;
 		adi,jesd204-deframer-a-external-sysref = <1>;
-		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x03>;
 		adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
 		adi,jesd204-deframer-a-lmfc-offset = <1>;
 		adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
@@ -353,12 +353,15 @@
 		adi,tx-profile-tx-bbf3d-bcorner_khz = <113000>;
 		adi,tx-profile-loop-back-adc-profile = /bits/ 16 <206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
 
+//<212 140 175 90 1280 699 1304 59 1343 33 913 27 48 48 34 192 0 0 0 0 48 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+//<206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+
 		adi,tx-settings-deframer-sel = <0>;
 		adi,tx-settings-tx-channels = <3>;
 		adi,tx-settings-tx-atten-step-size = <0>;
-		adi,tx-settings-tx1-atten_md-b = <10000>;
-		adi,tx-settings-tx2-atten_md-b = <10000>;
-		adi,tx-settings-dis-tx-data-if-pll-unlock = <0>;
+		adi,tx-settings-tx1-atten_md-b = <0>;
+		adi,tx-settings-tx2-atten_md-b = <0>;
+		adi,tx-settings-dis-tx-data-if-pll-unlock = <2>;
 
 		/* Clocks */
 
@@ -366,7 +369,7 @@
 		adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
 		adi,dig-clocks-clk-pll-hs-div = <1>;
 		adi,dig-clocks-rf-pll-use-external-lo = <0>;
-		adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
+		adi,dig-clocks-rf-pll-phase-sync-mode = <0>;
 
 		/* AGC */
 
@@ -419,20 +422,20 @@
 		adi,rxagc-agc-rx1-min-gain-index = <195>;
 		adi,rxagc-agc-rx2-max-gain-index = <255>;
 		adi,rxagc-agc-rx2-min-gain-index = <195>;
-		adi,rxagc-agc-gain-update-counter_us = <250>;
+		adi,rxagc-agc-gain-update-counter_us = <125>;
 		adi,rxagc-agc-rx1-attack-delay = <10>;
 		adi,rxagc-agc-rx2-attack-delay = <10>;
 		adi,rxagc-agc-slow-loop-settling-delay = <16>;
 		adi,rxagc-agc-low-thresh-prevent-gain = <0>;
 		adi,rxagc-agc-change-gain-if-thresh-high = <1>;
-		adi,rxagc-agc-peak-thresh-gain-control-mode = <1>;
+		adi,rxagc-agc-peak-thresh-gain-control-mode = <0>;
 		adi,rxagc-agc-reset-on-rxon = <0>;
 		adi,rxagc-agc-enable-sync-pulse-for-gain-counter = <0>;
-		adi,rxagc-agc-enable-ip3-optimization-thresh = <0>;
+		adi,rxagc-agc-enable-ip3-optimization-thresh = <1>;
 		adi,rxagc-ip3-over-range-thresh = <31>;
 		adi,rxagc-ip3-over-range-thresh-index = <246>;
 		adi,rxagc-ip3-peak-exceeded-cnt = <4>;
-		adi,rxagc-agc-enable-fast-recovery-loop = <0>;
+		adi,rxagc-agc-enable-fast-recovery-loop = <1>;
 
 
 		/* Misc */
@@ -590,7 +593,7 @@
 		adi,jesd204-framer-b-bank-id = <0>;
 		adi,jesd204-framer-b-device-id = <0>;
 		adi,jesd204-framer-b-lane0-id = <0>;
-		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-m = <4>;
 		adi,jesd204-framer-b-k = <32>;
 		adi,jesd204-framer-b-f = <4>;
 		adi,jesd204-framer-b-np = <16>;
@@ -614,7 +617,7 @@
 		adi,jesd204-deframer-a-k = <32>;
 		adi,jesd204-deframer-a-scramble = <1>;
 		adi,jesd204-deframer-a-external-sysref = <1>;
-		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x03>;
 		adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
 		adi,jesd204-deframer-a-lmfc-offset = <1>;
 		adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
@@ -717,12 +720,15 @@
 		adi,tx-profile-tx-bbf3d-bcorner_khz = <113000>;
 		adi,tx-profile-loop-back-adc-profile = /bits/ 16 <206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
 
+//<212 140 175 90 1280 699 1304 59 1343 33 913 27 48 48 34 192 0 0 0 0 48 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+//<206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+
 		adi,tx-settings-deframer-sel = <0>;
 		adi,tx-settings-tx-channels = <3>;
 		adi,tx-settings-tx-atten-step-size = <0>;
-		adi,tx-settings-tx1-atten_md-b = <10000>;
-		adi,tx-settings-tx2-atten_md-b = <10000>;
-		adi,tx-settings-dis-tx-data-if-pll-unlock = <0>;
+		adi,tx-settings-tx1-atten_md-b = <0>;
+		adi,tx-settings-tx2-atten_md-b = <0>;
+		adi,tx-settings-dis-tx-data-if-pll-unlock = <2>;
 
 		/* Clocks */
 
@@ -730,7 +736,7 @@
 		adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
 		adi,dig-clocks-clk-pll-hs-div = <1>;
 		adi,dig-clocks-rf-pll-use-external-lo = <0>;
-		adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
+		adi,dig-clocks-rf-pll-phase-sync-mode = <0>;
 
 		/* AGC */
 
@@ -783,20 +789,20 @@
 		adi,rxagc-agc-rx1-min-gain-index = <195>;
 		adi,rxagc-agc-rx2-max-gain-index = <255>;
 		adi,rxagc-agc-rx2-min-gain-index = <195>;
-		adi,rxagc-agc-gain-update-counter_us = <250>;
+		adi,rxagc-agc-gain-update-counter_us = <125>;
 		adi,rxagc-agc-rx1-attack-delay = <10>;
 		adi,rxagc-agc-rx2-attack-delay = <10>;
 		adi,rxagc-agc-slow-loop-settling-delay = <16>;
 		adi,rxagc-agc-low-thresh-prevent-gain = <0>;
 		adi,rxagc-agc-change-gain-if-thresh-high = <1>;
-		adi,rxagc-agc-peak-thresh-gain-control-mode = <1>;
+		adi,rxagc-agc-peak-thresh-gain-control-mode = <0>;
 		adi,rxagc-agc-reset-on-rxon = <0>;
 		adi,rxagc-agc-enable-sync-pulse-for-gain-counter = <0>;
-		adi,rxagc-agc-enable-ip3-optimization-thresh = <0>;
+		adi,rxagc-agc-enable-ip3-optimization-thresh = <1>;
 		adi,rxagc-ip3-over-range-thresh = <31>;
 		adi,rxagc-ip3-over-range-thresh-index = <246>;
 		adi,rxagc-ip3-peak-exceeded-cnt = <4>;
-		adi,rxagc-agc-enable-fast-recovery-loop = <0>;
+		adi,rxagc-agc-enable-fast-recovery-loop = <1>;
 
 
 		/* Misc */
