@@ -179,6 +179,17 @@ config AD5696_I2C
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad5696.
 
+config AD5752
+	tristate "Analog Devices AD5754/AD5734/AD5724/AD5752/AD5732/AD5722 DAC driver"
+	depends on SPI_MASTER
+	help
+	  Say yes here to build support for Analog Devices AD5754, AD57534,
+	  AD5724, AD5752, AD5732, AD5722 dual/quad channel Digital to
+	  Analog Converter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad5752.
+
 config AD5755
 	tristate "Analog Devices AD5755/AD5755-1/AD5757/AD5735/AD5737 DAC driver"
 	depends on SPI_MASTER
