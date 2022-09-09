@@ -147,15 +147,9 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	struct spi_device *spi, struct spi_transfer *xfer)
 {
 	unsigned int clk_div;
-	unsigned int speed;
-
-	if (xfer->speed_hz)
-		speed = xfer->speed_hz;
-	else
-		speed = spi->max_speed_hz;
 
 	clk_div = DIV_ROUND_UP(clk_get_rate(spi_engine->ref_clk),
-		speed * 2);
+		xfer->speed_hz * 2);
 	if (clk_div > 255)
 		clk_div = 255;
 	else if (clk_div > 0)
