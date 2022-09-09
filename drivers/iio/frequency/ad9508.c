@@ -463,6 +463,11 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 
 	dev_dbg(&indio_dev->dev, "ad9508 setup\n");
 
+	msleep(1000);
+	gpiod_set_value(st->sync_gpio, 1);
+	msleep(1000);
+	gpiod_set_value(st->sync_gpio, 0);
+
 	ret = ad9508_write(indio_dev, AD9508_SERIAL_PORT_CONFIG,
 			AD9508_SER_CONF_SOFT_RESET |
 			((st->spi->mode & SPI_3WIRE || pdata->spi3wire) ? 0 :
