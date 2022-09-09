@@ -473,7 +473,8 @@
 	wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
 		interrupt-parent = <&pcal6524>;
-		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+		/* pcal6524 IO expander limitation: only support edge-triggered irq */
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-names = "host-wake";
 	};
 };
