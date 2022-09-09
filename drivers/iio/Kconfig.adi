@@ -181,3 +181,4 @@ config IIO_ALL_ADI_DRIVERS
 	select AD74413R
 	select ADI_IIO_FAKEDEV
 	select LTC2688
+	select AD5752
