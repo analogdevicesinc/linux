@@ -222,6 +222,9 @@
 		spi-max-frequency = <1000000>;
 		spi-cpha;
 
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		channel@0 {
 			reg = <0>;
 			output-range-microvolts = <0 5000000>;
