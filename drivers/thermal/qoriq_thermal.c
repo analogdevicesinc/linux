@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright 2016 Freescale Semiconductor, Inc.
+// Copyright 2022 NXP
 
 #include <linux/clk.h>
 #include <linux/err.h>
@@ -18,14 +19,17 @@
 #define SITES_MAX		16
 #define TMR_DISABLE		0x0
 #define TMR_ME			0x80000000
+#define TMR_CMD			BIT(29)
 #define TMR_ALPF		0x0c000000
 #define TMR_ALPF_V2		0x03000000
 #define TMTMIR_DEFAULT	0x0000000f
 #define TIER_DISABLE	0x0
 #define TEUMR0_V2		0x51009c00
+#define TEUMR0_V21		0x55010c00
 #define TMSARA_V2		0xe
 #define TMU_VER1		0x1
 #define TMU_VER2		0x2
+#define TMU_VER93		0x3
 
 #define REGS_TMR	0x000	/* Mode Register */
 #define TMR_DISABLE	0x0
@@ -231,6 +235,9 @@ static void qoriq_tmu_init_device(struct qoriq_tmu_data *data)
 
 	if (data->ver == TMU_VER1) {
 		regmap_write(data->regmap, REGS_TMTMIR, TMTMIR_DEFAULT);
+	} else if (data->ver == TMU_VER93) {
+		regmap_write(data->regmap, REGS_V2_TMTMIR, TMTMIR_DEFAULT);
+		regmap_write(data->regmap, REGS_V2_TEUMR(0), TEUMR0_V21);
 	} else {
 		regmap_write(data->regmap, REGS_V2_TMTMIR, TMTMIR_DEFAULT);
 		regmap_write(data->regmap, REGS_V2_TEUMR(0), TEUMR0_V2);
@@ -330,6 +337,9 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 	}
 	data->ver = (ver >> 8) & 0xff;
 
+	if (of_find_compatible_node(NULL, NULL, "fsl,imx93-tmu"))
+		data->ver = TMU_VER93;
+
 	qoriq_tmu_init_device(data);	/* TMU initialization */
 
 	ret = qoriq_tmu_calibration(dev, data);	/* TMU calibration */
@@ -356,6 +366,12 @@ static int qoriq_tmu_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
+	if (data->ver == TMU_VER93) {
+		ret = regmap_update_bits(data->regmap, REGS_TMR, TMR_CMD, TMR_CMD);
+		if (ret)
+			return ret;
+	}
+
 	clk_disable_unprepare(data->clk);
 
 	return 0;
@@ -370,6 +386,12 @@ static int qoriq_tmu_resume(struct device *dev)
 	if (ret)
 		return ret;
 
+	if (data->ver == TMU_VER93) {
+		ret = regmap_update_bits(data->regmap, REGS_TMR, TMR_CMD, 0);
+		if (ret)
+			return ret;
+	}
+
 	/* Enable monitoring */
 	return regmap_update_bits(data->regmap, REGS_TMR, TMR_ME, TMR_ME);
 }
@@ -380,6 +402,7 @@ static DEFINE_SIMPLE_DEV_PM_OPS(qoriq_tmu_pm_ops,
 static const struct of_device_id qoriq_tmu_match[] = {
 	{ .compatible = "fsl,qoriq-tmu", },
 	{ .compatible = "fsl,imx8mq-tmu", },
+	{ .compatible = "fsl,imx93-tmu", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, qoriq_tmu_match);
