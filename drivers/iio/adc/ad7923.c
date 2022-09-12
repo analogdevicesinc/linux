@@ -8,6 +8,7 @@
 
 #include <linux/device.h>
 #include <linux/kernel.h>
+#include <linux/property.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
@@ -297,6 +298,7 @@ static const struct iio_info ad7923_info = {
 
 static int ad7923_probe(struct spi_device *spi)
 {
+	u32 ad7923_range = AD7923_RANGE;
 	struct ad7923_state *st;
 	struct iio_dev *indio_dev;
 	const struct ad7923_chip_info *info;
@@ -310,8 +312,11 @@ static int ad7923_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, indio_dev);
 
+	if (device_property_read_bool(&spi->dev, "adi,range-double"))
+		ad7923_range = 0;
+
 	st->spi = spi;
-	st->settings = AD7923_CODING | AD7923_RANGE |
+	st->settings = AD7923_CODING | ad7923_range |
 			AD7923_PM_MODE_WRITE(AD7923_PM_MODE_OPS);
 
 	info = &ad7923_chip_info[spi_get_device_id(spi)->driver_data];
