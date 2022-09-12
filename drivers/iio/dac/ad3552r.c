@@ -689,9 +689,6 @@ static const struct iio_buffer_setup_ops ad3552r_buffer_ops = {
 static int hw_submit_block(struct iio_dma_buffer_queue *queue,
 			   struct iio_dma_buffer_block *block)
 {
-	block->block.bytes_used = block->block.size;
-	block->block.flags |= IIO_BUFFER_BLOCK_FLAG_CYCLIC;
-
 	return iio_dmaengine_buffer_submit_block(queue, block, DMA_MEM_TO_DEV);
 }
 
