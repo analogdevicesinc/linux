@@ -41,7 +41,7 @@
 		compatible = "gpio-mux";
 		#mux-control-cells = <0>;
 
-		mux-gpios = <&gpio 116 0>;
+		mux-gpios = <&gpio 116 1>;
 	};
 
 	/* gpio_sw1_v1, gpio_sw1_v2 */
@@ -98,7 +98,7 @@
 
 	adl5960-sync@0 {
 		compatible = "adi,one-bit-adc-dac";
-		out-gpios = <&gpio 113 0>, <&gpio 121 0>, <&gpio 112 1>, <&gpio 126 1>;
+		out-gpios = <&gpio 113 0>, <&gpio 121 0>, <&gpio 112 1>, <&gpio 126 1>, <&gpio 128 0>, <&gpio 129 1>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -120,6 +120,16 @@
 			reg = <3>;
 			label = "SW_PG";
 		};
+
+		channel@4 {
+			reg = <4>;
+			label = "ADMV8818_SFL";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "AD5732_CLR";
+		};
+
 	};
 };
 
