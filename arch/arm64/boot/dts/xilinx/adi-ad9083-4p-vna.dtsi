@@ -392,7 +392,7 @@
 			adi,extended-name = "TX_DEVICE_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <10>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 		ad9528_0_c11: channel@11 {
@@ -513,18 +513,20 @@
 
 		adi,jesd-subclass = <0>;
 		adi,dac-interpolation = <8>;
-		adi,channel-interpolation = <4>;
+		adi,channel-interpolation = <3>;
 		adi,clock-output-divider = <4>;
 		adi,syncoutb-signal-type-lvds-enable;
 
 		adi,standalone-probe; /* NO JESD204, NO TPL, just NCO TEST TONE */
 
 		/* jesd204-fsm support */
-		// jesd204-device;
-		// #jesd204-cells = <2>;
-		// jesd204-top-device = <0>; /* This is the TOP device */
-		// jesd204-link-ids = <0>;
-		// jesd204-inputs = <&axi_ad9172_core 1 0>;
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <1>; /* This is the TOP device */
+		jesd204-link-ids = <0>;
+		jesd204-inputs = <&axi_ad9172_core 1 0>;
+		jesd204-ignore-errors;
+
 	};
 };
 

@@ -399,15 +399,15 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
 
-			clocks = <&ad9528 12>;
+			clocks = <&ad9528 10>;
 			clock-names = "conv";
 
 			adi,sys-clk-select = <XCVR_QPLL>;
-			adi,out-clk-select = <XCVR_REFCLK>;
+			adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 			adi,use-lpm-enable;
 
 			#clock-cells = <1>;
-			clock-output-names = "dac_gt_clk", "tx_out_clk";
+			clock-output-names = "tx_gt_clk", "tx_out_clk";
 
 			/* jesd204-fsm support */
 			jesd204-device;
