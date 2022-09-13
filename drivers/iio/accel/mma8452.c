@@ -1620,9 +1620,18 @@ static int mma8452_probe(struct i2c_client *client)
 	indio_dev->num_channels = data->chip_info->num_channels;
 	indio_dev->available_scan_masks = mma8452_scan_masks;
 
-	ret = mma8452_reset(client);
-	if (ret < 0)
-		goto disable_regulators;
+	/*
+	 * the fxls8471 reset bit has issue, after set this
+	 * bit, no i2c ack, and even worse, the following
+	 * i2c command all has no response. This is just
+	 * a workaround to avoid the reset operation on
+	 * fxls8471.
+	 */
+	if ( ret != FXLS8471_DEVICE_ID) {
+		ret = mma8452_reset(client);
+		if (ret < 0)
+			goto disable_regulators;
+	}
 
 	data->data_cfg = MMA8452_DATA_CFG_FS_2G;
 	ret = i2c_smbus_write_byte_data(client, MMA8452_DATA_CFG,
