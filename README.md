@@ -15,7 +15,7 @@ The Linux kernel in this repository is the [Linux kernel from Xilinx](https://gi
 
 Details about the drivers that are of interest [and supported] by this repository can be found on the [Analog Devices wiki](https://wiki.analog.com/resources/tools-software/linux-drivers-all). This readme focuses on details specific to how this code is structured/organized, how it was derived, etc.
 
-The current master is based on [xilinx v2021.1](https://github.com/Xilinx/linux-xlnx/tree/xilinx-v2021.1). For details about the merge see commit [67d89797e6b7](https://github.com/analogdevicesinc/linux/commit/67d89797e6b7e313f93f3683f7dd0479895ee9b0) ("Merge tag 'xilinx-v2021.1' of https://github.com/Xilinx/linux-xlnx.git"). In this Xilinx release, the current version of upstream Linux is [Linux 5.10](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v5.10).
+The current master is based on [xilinx v2021.2](https://github.com/Xilinx/linux-xlnx/tree/xilinx-v2021.2). For details about the merge see commit [8290da63ebff](https://github.com/analogdevicesinc/linux/commit/8290da63ebff9cb0aa6c221b7f52425455843529) ("Merge tag 'xilinx-v2021.2' of https://github.com/Xilinx/linux-xlnx.git"). In this Xilinx release, the current version of upstream Linux is [Linux 5.10](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v5.10).
 
 For legacy reasons, the [xcomm_zynq](https://github.com/analogdevicesinc/linux/tree/xcomm_zynq) branch is still available and should be in-sync with current master. That branch used to be the old master branch.
 
