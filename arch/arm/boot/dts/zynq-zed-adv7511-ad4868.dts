@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+
+	clocks {
+		ext_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: dmac@43E00000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x43E00000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_pwm_gen: pwm@0x43d00000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x43d00000 0x1000>;
+		label = "cnv";
+		#pwm-cells = <2>;
+		clocks = <&ext_clk>;
+	};
+
+	cf_axi_adc@0x43c00000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x43c00000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&ad4868>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ad4868: adc@0{
+		compatible = "adi,ad4858";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&ext_clk>;
+		clock-names = "scki";
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		pwms = <&axi_pwm_gen 0 0>;
+		pwm-names = "cnv";
+	};
+};

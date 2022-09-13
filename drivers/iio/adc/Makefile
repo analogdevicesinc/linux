@@ -7,6 +7,7 @@
 obj-$(CONFIG_AB8500_GPADC) += ab8500-gpadc.o
 obj-$(CONFIG_AD_SIGMA_DELTA) += ad_sigma_delta.o
 obj-$(CONFIG_AD400X) += ad400x.o
+obj-$(CONFIG_AD4858) += ad4858.o
 obj-$(CONFIG_AD6676) += ad6676.o
 obj-$(CONFIG_AD7173) += ad7173.o
 obj-$(CONFIG_AD7091R5) += ad7091r5.o ad7091r-base.o
