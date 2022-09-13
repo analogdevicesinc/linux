@@ -1008,6 +1008,14 @@ F:	arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts
 F:	Documentation/ABI/testing/sysfs-bus-iio-adc-ad4630
 F:	Documentation/devicetree/bindings/iio/adc/ad4630.yaml
 F:	drivers/iio/adc/ad4630.c
+=======
+ANALOG DEVICES INC AD4858 DRIVER
+M:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+L:	linux-iio@vger.kernel.org
+W:	http://ez.analog.com/community/linux-device-drivers
+S:	Supported
+F:	drivers/iio/adc/ad4858.c
+F:	Documentation/devicetree/bindings/iio/adc/adi,ad4858.yaml
 
 ANALOG DEVICES INC AD5686 DRIVER
 M:	Stefan Popa <stefan.popa@analog.com>
