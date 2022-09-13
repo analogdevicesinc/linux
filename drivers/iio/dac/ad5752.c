@@ -315,7 +315,7 @@ static int ad5752_get_output_range(struct ad5752_state *st, struct fwnode_handle
 static int ad5752_reg_write(void *context, unsigned int reg, unsigned int val)
 {
 	struct ad5752_state *st = context;
-	
+
 	struct spi_transfer tx = {
 		.tx_buf = st->tx_buff,
 		.len = 3,
@@ -374,7 +374,6 @@ static int ad5752_set_dac_code(struct ad5752_state *st, u32 channel, u32 code)
 	int ret;
 
 	mutex_lock(&st->lock);
-	printk("AD5752 writing channel %d %d %d\n", channel, code, st->sub_lsb);
 	ret = regmap_write_bits(st->regmap, AD5752_REG_ADDR(AD5752_DAC, channel),
 				st->chip_info->data_mask, code << st->sub_lsb);
 	if (ret)
@@ -427,7 +426,6 @@ static int ad5752_enable_channels(struct ad5752_state *st)
 					AD5752_RANGE_MASK, st->range_idx);
 		if (ret)
 			goto free_node;
-
 		ret = regmap_read(st->regmap, AD5752_REG_ADDR(AD5752_PWR, AD5752_PU_ADDR), &power_reg);
 		if  (ret)
 			return ret;
@@ -564,6 +562,11 @@ static int ad5752_probe(struct spi_device *spi)
 	st->dac_max_code = (1 << st->chip_info->resolution) - 1;
 	st->sub_lsb = AD5752_MAX_RESOLUTION - st->chip_info->resolution;
 
+	/* Disable daisy-chain mode */
+	ret = regmap_write_bits(st->regmap, AD5752_REG_ADDR(AD5752_CTRL, 1), GENMASK(15, 0), 1);
+	if (ret)
+		return ret;
+
 	vref_reg = devm_regulator_get_optional(st->dev, "vref");
 	if (IS_ERR(vref_reg)) {
 		if (st->chip_info->internal_vref == false)
@@ -598,7 +601,6 @@ static int ad5752_probe(struct spi_device *spi)
 	indio_dev->num_channels = st->chip_info->num_channels;
 
 	ret = ad5752_enable_channels(st);
-	printk("AD5752 ret: %d\n", ret);
 	if (ret)
 		return ret;
 
