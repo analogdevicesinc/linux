@@ -1150,9 +1150,11 @@
 			reg = <0x2e000000 0x10000>;
 			interrupts =  <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&pcc5 IMX8ULP_CLK_GPU3D>,
-				<&cgc1 IMX8ULP_CLK_DUMMY>;
+				<&cgc1 IMX8ULP_CLK_DUMMY>,
+				<&cgc2 IMX8ULP_CLK_LPAV_AXI_DIV>,
+				<&cgc2 IMX8ULP_CLK_LPAV_AHB_DIV>;
 			power-domains = <&scmi_devpd IMX8ULP_PD_GPU3D>;
-			clock-names = "core", "shader";
+			clock-names = "core", "shader", "axi", "ahb";
 			assigned-clocks = <&cgc2 IMX8ULP_CLK_PLL4_PFD2>,
 				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>,
 				<&pcc5 IMX8ULP_CLK_GPU3D>;
@@ -1168,9 +1170,11 @@
 			compatible = "fsl,imx8-gpu";
 			reg = <0x2e010000 0x40000>;
 			interrupts =  <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&pcc5 IMX8ULP_CLK_GPU2D>;
+			clocks = <&pcc5 IMX8ULP_CLK_GPU2D>,
+				<&cgc2 IMX8ULP_CLK_LPAV_AXI_DIV>,
+				<&cgc2 IMX8ULP_CLK_LPAV_AHB_DIV>;
 			power-domains = <&scmi_devpd IMX8ULP_PD_GPU2D>;
-			clock-names = "core";
+			clock-names = "core", "axi", "ahb";
 			assigned-clocks = <&cgc2 IMX8ULP_CLK_PLL4_PFD2>,
 				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>,
 				<&pcc5 IMX8ULP_CLK_GPU2D>;
