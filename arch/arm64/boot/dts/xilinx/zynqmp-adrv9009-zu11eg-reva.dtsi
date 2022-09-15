@@ -226,7 +226,7 @@
 		adi,jesd204-framer-b-bank-id = <0>;
 		adi,jesd204-framer-b-device-id = <0>;
 		adi,jesd204-framer-b-lane0-id = <0>;
-		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-m = <4>;
 		adi,jesd204-framer-b-k = <32>;
 		adi,jesd204-framer-b-f = <4>;
 		adi,jesd204-framer-b-np = <16>;
@@ -250,7 +250,7 @@
 		adi,jesd204-deframer-a-k = <32>;
 		adi,jesd204-deframer-a-scramble = <1>;
 		adi,jesd204-deframer-a-external-sysref = <1>;
-		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x03>;
 		adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
 		adi,jesd204-deframer-a-lmfc-offset = <1>;
 		adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
@@ -590,7 +590,7 @@
 		adi,jesd204-framer-b-bank-id = <0>;
 		adi,jesd204-framer-b-device-id = <0>;
 		adi,jesd204-framer-b-lane0-id = <0>;
-		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-m = <4>;
 		adi,jesd204-framer-b-k = <32>;
 		adi,jesd204-framer-b-f = <4>;
 		adi,jesd204-framer-b-np = <16>;
@@ -614,7 +614,7 @@
 		adi,jesd204-deframer-a-k = <32>;
 		adi,jesd204-deframer-a-scramble = <1>;
 		adi,jesd204-deframer-a-external-sysref = <1>;
-		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x03>;
 		adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
 		adi,jesd204-deframer-a-lmfc-offset = <1>;
 		adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
