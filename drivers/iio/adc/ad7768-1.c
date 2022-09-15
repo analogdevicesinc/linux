@@ -842,10 +842,8 @@ static int ad7768_hardware_buffer_alloc(struct iio_dev *indio_dev)
 					    "rx",
 					    &dma_buffer_ops,
 					    indio_dev);
-	if (IS_ERR(buffer)) {
-		iio_dmaengine_buffer_free(indio_dev->buffer);
+	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
-	}
 
 	iio_device_attach_buffer(indio_dev, buffer);
 
