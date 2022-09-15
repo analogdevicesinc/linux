@@ -838,10 +838,9 @@ static int ad7768_hardware_buffer_alloc(struct iio_dev *indio_dev)
 
 	indio_dev->modes |=  INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad7768_buffer_ops;
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-					    "rx",
-					    &dma_buffer_ops,
-					    indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
+						 "rx", &dma_buffer_ops,
+						 indio_dev);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
