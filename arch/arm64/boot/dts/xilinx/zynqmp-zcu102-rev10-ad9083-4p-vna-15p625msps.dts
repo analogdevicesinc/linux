@@ -201,10 +201,20 @@
 // };
 
 #include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/clock/xlnx-zynqmp-clk.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/jesd204/adxcvr.h>
 
 / {
+	clocks {
+		ext_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+		};
+	};
+
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
@@ -270,6 +280,44 @@
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&ad9528 0 0>;
 		};
+
+                rx_dma: dmac@84C30000 {
+                        compatible = "adi,axi-dmac-1.00.a";
+                        reg = <0x84C30000 0x1000>;
+                        #dma-cells = <1>;
+                        interrupts = <0 95 IRQ_TYPE_LEVEL_HIGH>;
+                        clocks = <&zynqmp_clk PL0_REF>;
+
+                        adi,channels {
+                                #size-cells = <0>;
+                                #address-cells = <1>;
+
+                                dma-channel@0 {
+                                        reg = <0>;
+                                        adi,source-bus-width = <256>;
+                                        adi,source-bus-type = <2>;
+                                        adi,destination-bus-width = <64>;
+                                        adi,destination-bus-type = <0>;
+                                };
+                        };
+                };
+
+                axi_pwm_gen: pwm@84C50000 {
+                        compatible = "adi,axi-pwmgen";
+                        reg = <0x84C50000 0x1000>;
+                        label = "cnv";
+                        #pwm-cells = <2>;
+                        // clocks = <&ext_clk>;
+                        clocks = <&zynqmp_clk PL0_REF>;
+                };
+
+                cf_axi_adc@84C00000 {
+                        compatible = "adi,axi-adc-10.0.a";
+                        reg = <0x84C00000 0x10000>;
+                        dmas = <&rx_dma 0>;
+                        dma-names = "rx";
+                        spibus-connected = <&ad4868>;
+                };
 
 		axi_spi_adl5960_1: spi@88200000 {
 			#address-cells = <1>;
@@ -442,6 +490,23 @@
 
 &spi0 {
 	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+
+	ad4868: adc@0{
+		compatible = "adi,ad4858";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		// clocks = <&ext_clk>;
+                clocks = <&zynqmp_clk PL0_REF>;
+		clock-names = "scki";
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		pwms = <&axi_pwm_gen 0 0>;
+		pwm-names = "cnv";
+	};
 };
 
 #include "adi-ad9083-4p-vna.dtsi"
