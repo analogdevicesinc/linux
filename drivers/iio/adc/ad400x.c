@@ -332,6 +332,11 @@ static const struct iio_buffer_setup_ops ad400x_buffer_setup_ops = {
 	.postdisable = &ad400x_buffer_postdisable,
 };
 
+static void ad400x_regulator_disable(void *reg)
+{
+	regulator_disable(reg);
+}
+
 static int ad400x_probe(struct spi_device *spi)
 {
 	struct ad400x_state *st;
@@ -355,6 +360,10 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
+	ret = devm_add_action_or_reset(&spi->dev, ad400x_regulator_disable, &st->vref);
+	if (ret)
+		return ret;
+
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
@@ -375,35 +384,14 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
-					    &dma_buffer_ops, indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
+						 &dma_buffer_ops, indio_dev);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
 	iio_device_attach_buffer(indio_dev, buffer);
 
-	ret = devm_iio_device_register(&spi->dev, indio_dev);
-	if (ret < 0)
-		goto error;
-
-	return 0;
-
-error:
-	iio_dmaengine_buffer_free(indio_dev->buffer);
-	regulator_disable(st->vref);
-
-	return ret;
-}
-
-static int ad400x_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct ad400x_state *st = iio_priv(indio_dev);
-
-	iio_dmaengine_buffer_free(indio_dev->buffer);
-	regulator_disable(st->vref);
-
-	return 0;
+	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct of_device_id ad400x_of_match[] = {
@@ -421,7 +409,6 @@ static struct spi_driver ad400x_driver = {
 		.of_match_table = ad400x_of_match,
 	},
 	.probe          = ad400x_probe,
-	.remove		= ad400x_remove,
 	.id_table       = ad400x_id,
 };
 module_spi_driver(ad400x_driver);
