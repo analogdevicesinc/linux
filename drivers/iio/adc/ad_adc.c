@@ -335,8 +335,8 @@ static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 	if (dma_name == NULL)
 		dma_name = "rx";
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
-			&axiadc_dma_buffer_ops, indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
+						 &axiadc_dma_buffer_ops, indio_dev);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
@@ -344,11 +344,6 @@ static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 	iio_device_attach_buffer(indio_dev, buffer);
 
 	return 0;
-}
-
-static void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev)
-{
-	iio_dmaengine_buffer_free(indio_dev->buffer);
 }
 
 static int axiadc_hw_consumer_predisable(struct iio_dev *indio_dev)
@@ -673,6 +668,11 @@ static void adc_fill_channel_data(struct iio_dev *indio_dev)
 	indio_dev->num_channels = st->max_usr_channel;
 }
 
+static void adc_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
 static int adc_probe(struct platform_device *pdev)
 {
 	const struct adc_chip_info *info;
@@ -702,6 +702,10 @@ static int adc_probe(struct platform_device *pdev)
 		ret = clk_prepare_enable(st->clk);
 		if (ret)
 			return ret;
+
+		ret = devm_add_action_or_reset(&pdev->dev, adc_clk_disable, st->clk);
+		if (ret)
+			return ret;
 	}
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -721,7 +725,7 @@ static int adc_probe(struct platform_device *pdev)
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	if (info->has_frontend) {
-		st->frontend = iio_hw_consumer_alloc(&pdev->dev);
+		st->frontend = devm_iio_hw_consumer_alloc(&pdev->dev);
 		if (IS_ERR(st->frontend))
 			return PTR_ERR(st->frontend);
 		indio_dev->setup_ops = &axiadc_hw_consumer_setup_ops;
@@ -738,44 +742,16 @@ static int adc_probe(struct platform_device *pdev)
 
 	ret = axiadc_configure_ring_stream(indio_dev, "rx");
 	if (ret)
-		goto err_free_frontend;
+		return ret;
 
 	/* handle special probe */
 	if (info->special_probe) {
 		ret = info->special_probe(pdev);
 		if (ret)
-			goto err_unconfigure_ring;
+			return ret;
 	}
 
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto err_unconfigure_ring;
-
-	return 0;
-
-err_unconfigure_ring:
-	axiadc_unconfigure_ring_stream(indio_dev);
-err_free_frontend:
-	if (st->frontend)
-		iio_hw_consumer_free(st->frontend);
-
-	return ret;
-}
-
-static int adc_remove(struct platform_device *pdev)
-{
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-	struct axiadc_state *st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-	axiadc_unconfigure_ring_stream(indio_dev);
-	if (st->frontend)
-		iio_hw_consumer_free(st->frontend);
-
-	if (!IS_ERR(st->clk))
-		clk_disable_unprepare(st->clk);
-
-	return 0;
+	return devm_iio_device_register(&pdev->dev, indio_dev);
 }
 
 static struct platform_driver adc_driver = {
@@ -784,7 +760,6 @@ static struct platform_driver adc_driver = {
 		.of_match_table = adc_of_match,
 	},
 	.probe	  = adc_probe,
-	.remove	 = adc_remove,
 };
 
 module_platform_driver(adc_driver);
