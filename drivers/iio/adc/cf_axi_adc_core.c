@@ -135,8 +135,8 @@ static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 	if (dma_name == NULL)
 		dma_name = "rx";
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
-			&axiadc_dma_buffer_ops, indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
+						 &axiadc_dma_buffer_ops, indio_dev);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
@@ -144,11 +144,6 @@ static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
 	iio_device_attach_buffer(indio_dev, buffer);
 
 	return 0;
-}
-
-static void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev)
-{
-	iio_dmaengine_buffer_free(indio_dev->buffer);
 }
 
 static int axiadc_chan_to_regoffset(struct iio_chan_spec const *chan)
@@ -1057,6 +1052,14 @@ int axiadc_append_attrs(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static void axiadc_release_converter(void *conv)
+{
+	struct device *dev = conv;
+
+	put_device(dev);
+	module_put(dev->driver->owner);
+}
+
 /**
  * axiadc_of_probe - probe method for the AIM device.
  * @of_dev:	pointer to OF device structure
@@ -1108,19 +1111,19 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	get_device(axiadc_spidev.dev_spi);
 
+	ret = devm_add_action_or_reset(&pdev->dev, axiadc_release_converter, axiadc_spidev.dev_spi);
+	if (ret)
+		return ret;
+
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
-	if (indio_dev == NULL) {
-		ret = -ENOMEM;
-		goto err_put_converter;
-	}
+	if (!indio_dev)
+		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
 
 	st->jdev = devm_jesd204_dev_register(&pdev->dev, &jesd204_axiadc_init);
-	if (IS_ERR(st->jdev)) {
-		ret = PTR_ERR(st->jdev);
-		goto err_put_converter;
-	}
+	if (IS_ERR(st->jdev))
+		return PTR_ERR(st->jdev);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs_size = resource_size(mem);
@@ -1180,8 +1183,7 @@ static int axiadc_probe(struct platform_device *pdev)
 			ADI_AXI_PCORE_VER_MAJOR(st->pcore_version),
 			ADI_AXI_PCORE_VER_MINOR(st->pcore_version),
 			ADI_AXI_PCORE_VER_PATCH(st->pcore_version));
-		ret = -ENODEV;
-		goto err_put_converter;
+		return -ENODEV;
 	}
 
 	indio_dev->dev.parent = &pdev->dev;
@@ -1199,14 +1201,14 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (conv->post_setup) {
 		ret = conv->post_setup(indio_dev);
 		if (ret < 0)
-			goto err_put_converter;
+			return ret;
 	}
 
 	if (!st->dp_disable && !axiadc_read(st, ADI_AXI_REG_ID) &&
 		of_find_property(pdev->dev.of_node, "dmas", NULL)) {
 		ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		if (ret < 0)
-			goto err_put_converter;
+			return ret;
 	}
 
 	if (!st->dp_disable && of_property_read_bool(pdev->dev.of_node,
@@ -1225,21 +1227,12 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Failed to add sysfs attributes (%d)\n", ret);
-		goto err_unconfigure_ring;
+		return ret;
 	}
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto err_unconfigure_ring;
-
-	dev_info(&pdev->dev, "ADI AIM (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,"
-		 " probed ADC %s as %s\n",
-		ADI_AXI_PCORE_VER_MAJOR(st->pcore_version),
-		ADI_AXI_PCORE_VER_MINOR(st->pcore_version),
-		ADI_AXI_PCORE_VER_PATCH(st->pcore_version),
-		 (unsigned long long)mem->start, st->regs,
-		 conv->chip_info->name,
-		 axiadc_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER");
+		return ret;
 
 	if (iio_get_debugfs_dentry(indio_dev))
 		debugfs_create_file("pseudorandom_err_check", 0644,
@@ -1255,40 +1248,16 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 	if (ret)
-		goto err_unconfigure_ring;
+		return ret;
 
-	return 0;
-
-err_unconfigure_ring:
-	if (!st->dp_disable)
-			axiadc_unconfigure_ring_stream(indio_dev);
-err_put_converter:
-	put_device(axiadc_spidev.dev_spi);
-	module_put(axiadc_spidev.dev_spi->driver->owner);
-
-	return ret;
-}
-
-/**
- * axiadc_remove - unbinds the driver from the AIM device.
- * @of_dev:	pointer to OF device structure
- *
- * This function is called if a device is physically removed from the system or
- * if the driver module is being unloaded. It frees any resources allocated to
- * the device.
- */
-static int axiadc_remove(struct platform_device *pdev)
-{
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-	struct axiadc_state *st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-	if (!st->dp_disable && !axiadc_read(st, ADI_AXI_REG_ID) &&
-		of_find_property(pdev->dev.of_node, "dmas", NULL))
-		axiadc_unconfigure_ring_stream(indio_dev);
-
-	put_device(st->dev_spi);
-	module_put(st->dev_spi->driver->owner);
+	dev_info(&pdev->dev,
+		 "ADI AIM (%d.%.2d.%c) at 0x%08llX mapped to 0x%p probed ADC %s as %s\n",
+		 ADI_AXI_PCORE_VER_MAJOR(st->pcore_version),
+		 ADI_AXI_PCORE_VER_MINOR(st->pcore_version),
+		 ADI_AXI_PCORE_VER_PATCH(st->pcore_version),
+		 (unsigned long long)mem->start, st->regs,
+		 conv->chip_info->name,
+		 axiadc_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER");
 
 	return 0;
 }
@@ -1300,7 +1269,6 @@ static struct platform_driver axiadc_driver = {
 		.of_match_table = axiadc_of_match,
 	},
 	.probe		= axiadc_probe,
-	.remove		= axiadc_remove,
 };
 
 module_platform_driver(axiadc_driver);
