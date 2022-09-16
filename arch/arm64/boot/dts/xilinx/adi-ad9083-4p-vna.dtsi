@@ -224,13 +224,13 @@
 			adi,output-enable;
 		};
 	};
-#if 0
+
 	dac1_ad5732: ad5732@1 {
 		compatible = "adi,ad5732r";
 		reg = <1>;
 
 		spi-max-frequency = <1000000>;
-		spi-cpha;
+		spi-cpol;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -247,7 +247,7 @@
 			adi,init-dac-code = <34000>;
 		};
 	};
-#endif
+
 	ad9528: ad9528@2 {
 		compatible = "adi,ad9528";
 		reg = <2>;
