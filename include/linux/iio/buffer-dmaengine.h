@@ -18,11 +18,6 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block, int direction);
 void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue);
 
-struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
-					      const char *channel,
-					      const struct iio_dma_buffer_ops *ops,
-					      void *data);
-
 struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
 						   const char *channel,
 						   const struct iio_dma_buffer_ops *ops,
