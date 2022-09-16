@@ -745,7 +745,7 @@ static int mx6s_csi_enable(struct mx6s_csi_dev *csi_dev)
 	unsigned long val;
 	int timeout, timeout2;
 
-	csi_dev->skipframe = 0;
+	csi_dev->skipframe = 3;
 	csisw_reset(csi_dev);
 
 	if (pix->field == V4L2_FIELD_INTERLACED)
@@ -1131,7 +1131,7 @@ static irqreturn_t mx6s_csi_irq_handler(int irq, void *data)
 		cr18 |= BIT_CSI_ENABLE;
 		csi_write(csi_dev, cr18, CSI_CSICR18);
 
-		csi_dev->skipframe = 1;
+		csi_dev->skipframe++;
 		pr_debug("base address switching Change Err.\n");
 	}
 
