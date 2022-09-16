@@ -670,19 +670,21 @@ static int adau1860_set_dai_sysclk(struct snd_soc_dai *dai,
 static int adau1860_set_dai_fmt(struct snd_soc_dai *dai,
 		unsigned int fmt)
 {
-	int lrclk, bclk;
+	struct snd_soc_component *component = dai->component;
+	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
+	uint8_t lrclk = 0, bclk = 0, ctrl1 = 0;
+	int base;
 
-	lrclk = 0;
-	bclk = 0;
+	dev_dbg(dai->dev, "%s: Format: %d", __func__, fmt);
 
-	dev_dbg(dai->dev, "%s", __func__);
+	base = dai->driver->base;
 
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
-	case SND_SOC_DAIFMT_DSP_A:
-		break;
 	case SND_SOC_DAIFMT_I2S:
+		ctrl1 |= ADAU1860_DAI_FORMAT_I2S;
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
+		ctrl1 |= ADAU1860_DAI_FORMAT_LEFT_J;
 		break;
 	case SND_SOC_DAIFMT_RIGHT_J:
 		break;
@@ -711,16 +713,29 @@ static int adau1860_set_dai_fmt(struct snd_soc_dai *dai,
 	case SND_SOC_DAIFMT_NB_NF:
 		break;
 	case SND_SOC_DAIFMT_IB_IF:
+		bclk = ADAU1860_SPT_BCLK_POL;
+		lrclk = ADAU1860_SPT_LRCLK_POL;
 		break;
 	case SND_SOC_DAIFMT_IB_NF:
+		bclk = ADAU1860_SPT_BCLK_POL;
 		break;
 	case SND_SOC_DAIFMT_NB_IF:
+		lrclk = ADAU1860_SPT_LRCLK_POL;
 		break;
 	default:
 		dev_err(dai->dev, "Unsupported invert mode on DAI %d\n",
 			dai->id);
 		return -EINVAL;
 	}
+
+	adau->dai_fmt = fmt & SND_SOC_DAIFMT_FORMAT_MASK;
+
+	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL1_OFFS,
+			ADAU1860_DAI_DATA_FMT_MSK, ctrl1);
+	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL2_OFFS,
+			ADAU1860_SPT_BCLK_POL, bclk);
+	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL3_OFFS,
+			ADAU1860_SPT_LRCLK_POL, lrclk);
 
 	return 0;
 }
@@ -788,6 +803,7 @@ static struct snd_soc_dai_driver adau1860_dai[] = {
 	{
 		.name = "adau1860-sai0",
 		.id = 0,
+		.base = ADAU1860_SPT0_CTRL1,
 		.playback = {
 			.stream_name = "SAI0 Playback",
 			.channels_min = 1,
@@ -807,6 +823,7 @@ static struct snd_soc_dai_driver adau1860_dai[] = {
 	{
 		.name = "adau1860-sai1",
 		.id = 1,
+		.base = ADAU1860_SPT1_CTRL1,
 		.playback = {
 			.stream_name = "SAI1 Playback",
 			.channels_min = 1,
