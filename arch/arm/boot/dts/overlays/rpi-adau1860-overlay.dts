@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&clocks>;
+		__overlay__ {
+			adau1860_mclk: oscillator {
+				compatible = "fixed-clock";
+				status = "okay";
+				#clock-cells=<0>;
+				clock-frequency = <24576000>;
+				clock-output-names = "adau1860_mclk";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2s>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adau1860: audio-codec@64 {
+				#sound-dai-cells = <0>;
+				reg = <0x64>;
+				compatible = "adi,adau1860";
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&sound>;
+		sound_overlay: __overlay__ {
+			status = "okay";
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "adau1860-audio";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,frame-master = <&codecdai>;
+			simple-audio-card,bitclock-master = <&codecdai>;
+			simple-audio-card,widgets =
+					"Headphone", "Headphone Out";
+			simple-audio-card,routing =
+					"Headphone Out", "HPOUTP",
+					"Headphone Out", "HPOUTN";
+			cpudai: simple-audio-card,cpu {
+					sound-dai = <&i2s>;
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <32>;
+			};
+			codecdai: simple-audio-card,codec {
+				sound-dai = <&adau1860>;
+			};
+		};
+	};
+
+	__overrides__ {
+		card-name = <&sound_overlay>,"simple-audio-card,name";
+	};
+};
