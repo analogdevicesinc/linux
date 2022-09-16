@@ -1624,7 +1624,7 @@ static struct device *dds_converter_find(struct device *dev)
 	return conv_dev;
 }
 
-static void dds_converter_put(struct device *conv_dev)
+static void dds_converter_put(void *conv_dev)
 {
 	put_device(conv_dev);
 }
@@ -2179,6 +2179,18 @@ int cf_axi_append_attrs(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static void dds_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
+static void dds_clk_notifier_unreg(void *data)
+{
+	struct cf_axi_dds_state *st = data;
+
+	clk_notifier_unregister(st->clk, &st->clk_nb);
+}
+
 static int cf_axi_dds_probe(struct platform_device *pdev)
 {
 
@@ -2236,10 +2248,18 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		if (ret < 0)
 			return ret;
 
+		ret = devm_add_action_or_reset(&pdev->dev, dds_clk_disable, st->clk);
+		if (ret)
+			return ret;
+
 		st->dac_clk = clk_get_rate_scaled(st->clk, &st->clkscale);
 
 		st->clk_nb.notifier_call = cf_axi_dds_rate_change;
 		clk_notifier_register(st->clk, &st->clk_nb);
+
+		ret = devm_add_action_or_reset(&pdev->dev, dds_clk_notifier_unreg, st);
+		if (ret)
+			return ret;
 
 		if (info->chip_info) {
 			st->chip_info = info->chip_info;
@@ -2258,11 +2278,13 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		if (IS_ERR(st->dev_spi))
 			return PTR_ERR(st->dev_spi);
 
+		ret = devm_add_action_or_reset(&pdev->dev, dds_converter_put, st->dev_spi);
+		if (ret)
+			return ret;
+
 		conv = to_converter(st->dev_spi);
-		if (IS_ERR(conv)) {
-			ret = PTR_ERR(conv);
-			goto err_converter_put;
-		}
+		if (IS_ERR(conv))
+			return PTR_ERR(conv);
 
 		iio_device_set_drvdata(indio_dev, conv);
 		conv->indio_dev = indio_dev;
@@ -2292,8 +2314,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	 */
 	if (!st->dac_clk) {
 		dev_err(&pdev->dev, "Cannot have dac_clk=0. Deferring probe...\n");
-		ret = -EPROBE_DEFER;
-		goto err_converter_put;
+		return -EPROBE_DEFER;
 	}
 
 	st->issue_sync_en = info->issue_sync_en;
@@ -2313,8 +2334,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			ADI_AXI_PCORE_VER_MAJOR(st->version),
 			ADI_AXI_PCORE_VER_MINOR(st->version),
 			ADI_AXI_PCORE_VER_PATCH(st->version));
-		ret = -ENODEV;
-		goto err_converter_put;
+		return -ENODEV;
 	}
 
 	indio_dev->dev.parent = &pdev->dev;
@@ -2342,8 +2362,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	if (timeout == -1) {
 		dev_err(&pdev->dev, "DRP unlocked.\n");
-		ret = -ETIMEDOUT;
-		goto err_converter_put;
+		return -ETIMEDOUT;
 	}
 
 	dds_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
@@ -2359,7 +2378,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	if (conv && conv->setup) {
 		ret = conv->setup(conv);
 		if (ret < 0)
-			goto err_converter_put;
+			return ret;
 	}
 
 	ctrl_2 = 0;
@@ -2433,7 +2452,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev,
 				"Failed to add sysfs attributes (%d)\n", ret);
-			goto err_converter_put;
+			return ret;
 		}
 
 	}
@@ -2465,7 +2484,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		if (of_find_property(np, "dmas", NULL)) {
 			ret = cf_axi_dds_configure_buffer(indio_dev);
 			if (ret)
-				goto err_converter_put;
+				return ret;
 
 			indio_dev->available_scan_masks =
 				st->chip_info->scan_masks;
@@ -2480,17 +2499,9 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			st->master_regs = ioremap(regs[0], regs[1]);
 	}
 
-	ret = iio_device_register(indio_dev);
+	ret = devm_iio_device_register(&pdev->dev, indio_dev);
 	if (ret)
-		goto err_unconfigure_buffer;
-
-	dev_info(&pdev->dev, "Analog Devices CF_AXI_DDS_DDS %s (%d.%.2d.%c) at 0x%08llX mapped"
-		" to 0x%p, probed DDS %s\n",
-		dds_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER",
-		ADI_AXI_PCORE_VER_MAJOR(st->version),
-		ADI_AXI_PCORE_VER_MINOR(st->version),
-		ADI_AXI_PCORE_VER_PATCH(st->version),
-		(unsigned long long)res->start, st->regs, st->chip_info->name);
+		return ret;
 
 	st->plddrbypass_gpio = devm_gpiod_get_optional(&pdev->dev,
 			"plddrbypass", GPIOD_ASIS);
@@ -2504,40 +2515,15 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 	if (ret)
-		goto err_unconfigure_buffer;
+		return ret;
 
-	return 0;
-
-err_unconfigure_buffer:
-	cf_axi_dds_unconfigure_buffer(indio_dev);
-err_converter_put:
-	if (st->dev_spi)
-		dds_converter_put(st->dev_spi);
-	if (st->clk) {
-		clk_notifier_unregister(st->clk, &st->clk_nb);
-		clk_disable_unprepare(st->clk);
-	}
-
-	return ret;
-}
-
-static int cf_axi_dds_remove(struct platform_device *pdev)
-{
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-
-	if (!st->dp_disable && !dds_read(st, ADI_AXI_REG_ID) &&
-		of_find_property(pdev->dev.of_node, "dmas", NULL))
-		cf_axi_dds_unconfigure_buffer(indio_dev);
-
-	if (st->dev_spi)
-		dds_converter_put(st->dev_spi);
-	if (st->clk) {
-		clk_notifier_unregister(st->clk, &st->clk_nb);
-		clk_disable_unprepare(st->clk);
-	}
+	dev_info(&pdev->dev,
+		 "Analog Devices CF_AXI_DDS_DDS %s (%d.%.2d.%c) at 0x%08llX mapped to 0x%p, probed DDS %s\n",
+		 dds_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER",
+		 ADI_AXI_PCORE_VER_MAJOR(st->version),
+		 ADI_AXI_PCORE_VER_MINOR(st->version),
+		 ADI_AXI_PCORE_VER_PATCH(st->version),
+		 (unsigned long long)res->start, st->regs, st->chip_info->name);
 
 	return 0;
 }
@@ -2549,7 +2535,6 @@ static struct platform_driver cf_axi_dds_driver = {
 		.of_match_table = cf_axi_dds_of_match,
 	},
 	.probe		= cf_axi_dds_probe,
-	.remove		= cf_axi_dds_remove,
 };
 module_platform_driver(cf_axi_dds_driver);
 
