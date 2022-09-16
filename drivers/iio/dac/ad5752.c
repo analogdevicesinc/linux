@@ -270,7 +270,8 @@ static unsigned int ad5752_real_ch(struct ad5752_state *st, u32 channel, u32 *re
 	case 2:
 		if (channel == 0)
 			*real_channel = 0;
-		*real_channel = 2;
+		else
+			*real_channel = 2;
 		break;
 	case 4:
 		*real_channel = channel;
@@ -492,6 +493,8 @@ static int ad5752_read_raw(struct iio_dev *indio_dev,
 		ret = regmap_read(st->regmap, real_channel, val);
 		if (ret)
 			return ret;
+
+		*val >>= st->sub_lsb;
 		break;
 	case IIO_CHAN_INFO_SCALE:
 		range = &ad5752_range[st->range_idx];
