@@ -1081,6 +1081,11 @@
 			MX8MP_IOMUXC_HDMI_HPD__HDMIMIX_HDMI_HPD		0x40000010
 			MX8MP_IOMUXC_HDMI_CEC__HDMIMIX_HDMI_CEC		0x40000010
 
+			/*
+			 * M.2 pin20 & pin21 need to be set to 11 for 88W9098 to select the
+			 * default Reference Clock Frequency
+			 */
+			MX8MP_IOMUXC_SD1_DATA7__GPIO2_IO09		0x1c4
 		>;
 	};
 
