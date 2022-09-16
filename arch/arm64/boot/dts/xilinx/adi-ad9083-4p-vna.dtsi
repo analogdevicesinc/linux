@@ -237,14 +237,14 @@
 
 		channel@0 {
 			reg = <0>;
-			output-range-microvolts = <0 5000000>;
-			adi,init-dac-code = <32000>;
+			output-range-microvolts = <(-5000000) 5000000>;
+			adi,init-dac-code = <5000>;
 		};
 
 		channel@1 {
 			reg = <1>;
-			output-range-microvolts = <0 5000000>;
-			adi,init-dac-code = <34000>;
+			output-range-microvolts = <(-5000000) 5000000>;
+			adi,init-dac-code = <5000>;
 		};
 	};
 
