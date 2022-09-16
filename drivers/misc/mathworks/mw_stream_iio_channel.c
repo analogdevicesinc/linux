@@ -306,22 +306,15 @@ static int devm_mw_stream_configure_buffer(struct iio_dev *indio_dev)
 {
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 	struct iio_buffer *buffer;
-	int status;
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, mwchan->dmaname,
-			&mw_stream_iio_buffer_dma_buffer_ops, indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, mwchan->dmaname,
+						 &mw_stream_iio_buffer_dma_buffer_ops, indio_dev);
 	if (IS_ERR(buffer)) {
 		if(PTR_ERR(buffer) == -EPROBE_DEFER)
 			dev_info(&indio_dev->dev, "Deferring probe for DMA engine driver load\n");
 		else
 			dev_err(&indio_dev->dev, "Failed to allocate IIO DMA buffer: %ld\n", PTR_ERR(buffer));
 		return PTR_ERR(buffer);
-	}
-
-	status = devm_add_action(indio_dev->dev.parent,(devm_action_fn)iio_dmaengine_buffer_free, buffer);
-	if(status){
-		iio_dmaengine_buffer_free(buffer);
-		return status;
 	}
 
 	iio_device_attach_buffer(indio_dev, buffer);
