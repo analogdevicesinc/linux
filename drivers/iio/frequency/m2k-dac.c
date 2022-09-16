@@ -594,8 +594,8 @@ static int m2k_dac_alloc_channel(struct platform_device *pdev,
 	indio_dev->channels = &m2k_dac_channel_info;
 	indio_dev->num_channels = 1;
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-		m2k_dac_ch_dma_names[num], &m2k_dac_dma_buffer_ops, indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, m2k_dac_ch_dma_names[num],
+						 &m2k_dac_dma_buffer_ops, indio_dev);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
@@ -650,6 +650,11 @@ static int m2k_dac_attach_dds(struct platform_device *pdev,
 	return 0;
 }
 
+static void m2k_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
 static int m2k_dac_probe(struct platform_device *pdev)
 {
 	struct m2k_dac *m2k_dac;
@@ -676,58 +681,33 @@ static int m2k_dac_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	ret = devm_add_action_or_reset(&pdev->dev, m2k_clk_disable, m2k_dac->clk);
+	if (ret)
+		return ret;
+
 	reg = cf_axi_dds_to_signed_mag_fmt(1, 0);
 	iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(0));
 	iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(1));
 
 	ret = m2k_dac_attach_dds(pdev, m2k_dac);
 	if (ret)
-		goto err_clk_disable;
+		return ret;
 
 	ret = m2k_dac_alloc_channel(pdev, m2k_dac, 0);
 	if (ret)
-		goto err_clk_disable;
+		return ret;
 
 	ret = m2k_dac_alloc_channel(pdev, m2k_dac, 1);
 	if (ret)
-		goto err_unconfigure_buffer_a;
-
-	ret = iio_device_register(m2k_dac->ch_indio_dev[0]);
-	if (ret)
-		goto err_unconfigure_buffer_b;
-
-	ret = iio_device_register(m2k_dac->ch_indio_dev[1]);
-	if (ret)
-		goto err_unregister_device_a;
+		return ret;
 
 	platform_set_drvdata(pdev, m2k_dac);
 
-	return 0;
+	ret = devm_iio_device_register(&pdev->dev, m2k_dac->ch_indio_dev[0]);
+	if (ret)
+		return ret;
 
-err_unregister_device_a:
-	iio_device_unregister(m2k_dac->ch_indio_dev[0]);
-err_unconfigure_buffer_b:
-	iio_dmaengine_buffer_free(m2k_dac->ch_indio_dev[1]->buffer);
-err_unconfigure_buffer_a:
-	iio_dmaengine_buffer_free(m2k_dac->ch_indio_dev[0]->buffer);
-err_clk_disable:
-	clk_disable_unprepare(m2k_dac->clk);
-
-	return ret;
-}
-
-static int m2k_dac_remove(struct platform_device *pdev)
-{
-	struct m2k_dac *m2k_dac = platform_get_drvdata(pdev);
-
-	iio_device_unregister(m2k_dac->ch_indio_dev[1]);
-	iio_device_unregister(m2k_dac->ch_indio_dev[0]);
-	iio_dmaengine_buffer_free(m2k_dac->ch_indio_dev[1]->buffer);
-	iio_dmaengine_buffer_free(m2k_dac->ch_indio_dev[0]->buffer);
-	clk_disable_unprepare(m2k_dac->clk);
-	mutex_destroy(&m2k_dac->lock);
-
-	return 0;
+	return devm_iio_device_register(&pdev->dev, m2k_dac->ch_indio_dev[1]);
 }
 
 static const struct of_device_id m2k_dac_of_match[] = {
@@ -746,7 +726,6 @@ static struct platform_driver m2k_dac_driver = {
 		.of_match_table = m2k_dac_of_match,
 	},
 	.probe = m2k_dac_probe,
-	.remove	= m2k_dac_remove,
 };
 module_platform_driver(m2k_dac_driver);
 
