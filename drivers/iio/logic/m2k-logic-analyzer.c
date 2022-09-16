@@ -1141,8 +1141,8 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_tx->direction = IIO_DEVICE_DIRECTION_OUT;
 	indio_dev_tx->setup_ops = &m2k_la_tx_setup_ops;
 
-	buffer_tx = iio_dmaengine_buffer_alloc(&pdev->dev, "tx",
-			&m2k_la_dma_buffer_ops, indio_dev_tx);
+	buffer_tx = devm_iio_dmaengine_buffer_alloc(&pdev->dev, "tx", &m2k_la_dma_buffer_ops,
+						    indio_dev_tx);
 	if (IS_ERR(buffer_tx))
 		return PTR_ERR(buffer_tx);
 	iio_device_attach_buffer(indio_dev_tx, buffer_tx);
@@ -1160,8 +1160,8 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_rx->channels = m2k_la_rx_chan_spec,
 	indio_dev_rx->num_channels = ARRAY_SIZE(m2k_la_rx_chan_spec);
 
-	buffer_rx = iio_dmaengine_buffer_alloc(&pdev->dev, "rx",
-			&m2k_la_dma_buffer_ops, indio_dev_rx);
+	buffer_rx = devm_iio_dmaengine_buffer_alloc(&pdev->dev, "rx", &m2k_la_dma_buffer_ops,
+						    indio_dev_rx);
 	if (IS_ERR(buffer_rx))
 		return PTR_ERR(buffer_rx);
 	iio_device_attach_buffer(indio_dev_rx, buffer_rx);
