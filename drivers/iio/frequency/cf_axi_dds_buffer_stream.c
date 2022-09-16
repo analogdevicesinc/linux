@@ -93,8 +93,8 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 {
 	struct iio_buffer *buffer;
 
-	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "tx",
-			&dds_buffer_dma_buffer_ops, indio_dev);
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "tx",
+						 &dds_buffer_dma_buffer_ops, indio_dev);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
@@ -108,8 +108,3 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 }
 EXPORT_SYMBOL_GPL(cf_axi_dds_configure_buffer);
 
-void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev)
-{
-	iio_dmaengine_buffer_free(indio_dev->buffer);
-}
-EXPORT_SYMBOL_GPL(cf_axi_dds_unconfigure_buffer);
