@@ -90,6 +90,8 @@
 			#size-cells = <0>;
 			clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_PHY>;
 			clock-names = "phy";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_PHY>;
+			assigned-clock-parents = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
 			power-domains = <&pd IMX_SC_R_LVDS_0>;
 			status = "disabled";
 
@@ -111,6 +113,8 @@
 			clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>,
 				 <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
 			clock-names = "pixel", "bypass";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>;
+			assigned-clock-parents = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
 			power-domains = <&pd IMX_SC_R_LVDS_0>;
 			gpr = <&lvds0_region>;
 			status = "disabled";
@@ -277,6 +281,8 @@
 			#size-cells = <0>;
 			clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_PHY>;
 			clock-names = "phy";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_PHY>;
+			assigned-clock-parents = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
 			power-domains = <&pd IMX_SC_R_LVDS_1>;
 			status = "disabled";
 
@@ -298,6 +304,8 @@
 			clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>,
 				 <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
 			clock-names = "pixel", "bypass";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>;
+			assigned-clock-parents = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
 			power-domains = <&pd IMX_SC_R_LVDS_1>;
 			gpr = <&lvds1_region>;
 			status = "disabled";
