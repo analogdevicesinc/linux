@@ -722,6 +722,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 	master->dev.of_node = pdev->dev.of_node;
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_3WIRE;
 	master->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
+	master->bits_per_word_mask = GENMASK(31, 0);
 	master->transfer_one_message = spi_engine_transfer_one_message;
 	master->num_chipselect = 8;
 
