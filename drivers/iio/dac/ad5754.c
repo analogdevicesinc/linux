@@ -5,17 +5,9 @@
  */
 
 #include <linux/bitfield.h>
-#include <linux/crc8.h>
 #include <linux/device.h>
 #include <linux/err.h>
-#include <linux/gpio/driver.h>
-#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
-#include <linux/iio/trigger.h>
-#include <linux/iio/trigger_consumer.h>
-#include <linux/iio/triggered_buffer.h>
-#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/mod_devicetable.h>
 #include <linux/property.h>
@@ -37,8 +29,8 @@
 #define AD5754_REG_RD			BIT(7)
 
 #define AD5754_CLEAR_FUNC		BIT(2)
-#define AD5754_LOAD_FUNC		BIT(2) | BIT(0)
-#define AD5754_NOOP_FUNC		0x18
+#define AD5754_LOAD_FUNC		(BIT(2) | BIT(0))
+#define AD5754_NOOP_FUNC		GENMASK(4, 3)
 
 #define AD5754_PU_ADDR			0
 #define AD5754_PU_MASK			GENMASK(3, 0)
@@ -51,7 +43,7 @@
 #define AD5754_PWR_REG			BIT(1)
 #define AD5754_CTRL_REG			GENMASK(1, 0)
 
-#define AD5754_REG_ADDR(reg, addr)	((reg << 3) | addr)
+#define AD5754_REG_ADDR(reg, addr)	(((reg) << 3) | (addr))
 
 #define AD5754_CHANNEL(_channel)					\
 	{								\
@@ -62,7 +54,7 @@
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)    |	\
 				      BIT(IIO_CHAN_INFO_SCALE)  |	\
 				      BIT(IIO_CHAN_INFO_OFFSET)		\
-	}					
+	}
 
 enum ad5754_num_channels {
 	AD5754_2_CHANNELS,
@@ -99,7 +91,6 @@ enum AD5754_TYPE {
 };
 
 struct ad5754_chip_info {
-	enum AD5754_TYPE chip_type;
 	const char *name;
 	u32 resolution;
 	bool internal_vref;
@@ -123,7 +114,6 @@ const struct iio_chan_spec ad5754_channels[][AD5754_MAX_CHANNELS] = {
 
 const struct ad5754_chip_info ad5754_chip_info_data[] = {
 	[AD5722] = {
-		.chip_type = AD5722,
 		.name = "ad5722",
 		.resolution = 12,
 		.data_mask = AD5754_DATA_MASK(4),
@@ -132,7 +122,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_2_CHANNELS],
 	},
 	[AD5732] = {
-		.chip_type = AD5732,
 		.name = "ad5732",
 		.resolution = 14,
 		.data_mask = AD5754_DATA_MASK(2),
@@ -141,7 +130,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_2_CHANNELS],
 	},
 	[AD5752] = {
-		.chip_type = AD5752,
 		.name = "ad5752",
 		.resolution = 16,
 		.data_mask = AD5754_DATA_MASK(0),
@@ -150,7 +138,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_2_CHANNELS],
 	},
 	[AD5724] = {
-		.chip_type = AD5724,
 		.name = "ad5724",
 		.resolution = 12,
 		.data_mask = AD5754_DATA_MASK(4),
@@ -159,7 +146,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_4_CHANNELS],
 	},
 	[AD5734] = {
-		.chip_type = AD5734,
 		.name = "ad5734",
 		.resolution = 14,
 		.data_mask = AD5754_DATA_MASK(2),
@@ -168,7 +154,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_4_CHANNELS],
 	},
 	[AD5754] = {
-		.chip_type = AD5754,
 		.name = "ad5754",
 		.resolution = 16,
 		.data_mask = AD5754_DATA_MASK(0),
@@ -177,7 +162,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_4_CHANNELS],
 	},
 	[AD5722R] = {
-		.chip_type = AD5722R,
 		.name = "ad5722r",
 		.resolution = 12,
 		.data_mask = AD5754_DATA_MASK(4),
@@ -186,7 +170,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_2_CHANNELS],
 	},
 	[AD5732R] = {
-		.chip_type = AD5732R,
 		.name = "ad5732r",
 		.resolution = 14,
 		.data_mask = AD5754_DATA_MASK(2),
@@ -195,7 +178,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_2_CHANNELS],
 	},
 	[AD5752R] = {
-		.chip_type = AD5752R,
 		.name = "ad5752r",
 		.resolution = 16,
 		.data_mask = AD5754_DATA_MASK(0),
@@ -204,7 +186,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_2_CHANNELS],
 	},
 	[AD5724R] = {
-		.chip_type = AD5724R,
 		.name = "ad5724r",
 		.resolution = 12,
 		.data_mask = AD5754_DATA_MASK(4),
@@ -213,7 +194,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_4_CHANNELS],
 	},
 	[AD5734R] = {
-		.chip_type = AD5734R,
 		.name = "ad5734r",
 		.resolution = 14,
 		.data_mask = AD5754_DATA_MASK(2),
@@ -222,7 +202,6 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 		.channels = ad5754_channels[AD5754_4_CHANNELS],
 	},
 	[AD5754R] = {
-		.chip_type = AD5754R,
 		.name = "ad5754r",
 		.resolution = 16,
 		.data_mask = AD5754_DATA_MASK(0),
@@ -233,22 +212,24 @@ const struct ad5754_chip_info ad5754_chip_info_data[] = {
 };
 
 struct ad5754_state {
-	struct mutex lock;
-	
 	struct regmap *regmap;
 	struct spi_device *spi;
 	struct device *dev;
 
 	const struct ad5754_chip_info *chip_info;
 
-	bool bipolar[AD5754_MAX_CHANNELS];
 	u32 range_idx[AD5754_MAX_CHANNELS];
+	int offset[AD5754_MAX_CHANNELS];
 	u32 dac_max_code;
 	u32 data_mask;
 	u32 sub_lsb;
 	u32 vref;
 
-	u8 buff[AD5754_FRAME_SIZE] ____cacheline_aligned;
+	/*
+	 * DMA (thus cache coherency maintenance) may require the
+	 * transfer buffers to live in their own cache lines.
+	 */
+	u8 buff[AD5754_FRAME_SIZE] __aligned(IIO_DMA_MINALIGN);
 };
 
 /*
@@ -256,15 +237,17 @@ struct ad5754_state {
  *      A2 A1 A0 Channel
  *	0  0  0   DAC A
  *	0  1  0   DAC B
- * 
+ *
  * This is not the case for 4 channel chips:
- * 	A2 A1 A0 Channel
+ *	A2 A1 A0 Channel
  *	0  0  0   DAC A
  *	0  0  1   DAC B
  *	0  1  0   DAC C
  *	0  1  1   DAC D
  */
-static unsigned int ad5754_real_ch(struct ad5754_state *st, u32 channel, u32 *real_channel)
+static unsigned int ad5754_real_ch(struct ad5754_state *st,
+				   u32 channel,
+				   u32 *real_channel)
 {
 	switch (st->chip_info->num_channels) {
 	case 2:
@@ -283,14 +266,17 @@ static unsigned int ad5754_real_ch(struct ad5754_state *st, u32 channel, u32 *re
 	return 0;
 }
 
-static int ad5754_get_output_range(struct ad5754_state *st, struct fwnode_handle *channel_node, u32 ch_idx)
+static int ad5754_get_output_range(struct ad5754_state *st,
+				   struct fwnode_handle *channel_node,
+				   u32 ch_idx)
 {
 	u32 range[2];
 	int min, max;
 	int ret;
 	u32 i;
 
-	ret = fwnode_property_read_u32_array(channel_node, "output-range-microvolts",
+	ret = fwnode_property_read_u32_array(channel_node,
+					     "output-range-microvolts",
 					     range, 2);
 	if (ret)
 		return ret;
@@ -300,12 +286,12 @@ static int ad5754_get_output_range(struct ad5754_state *st, struct fwnode_handle
 
 	for (i = 0; i < ARRAY_SIZE(ad5754_range); i++) {
 		if (ad5754_range[i].min != min ||
-			ad5754_range[i].max != max)
+		    ad5754_range[i].max != max)
 			continue;
 
 		st->range_idx[ch_idx] = i;
 		if (min < 0)
-			st->bipolar[ch_idx] = true;
+			st->offset[ch_idx] = -BIT(st->chip_info->resolution - 1);
 
 		return 0;
 	}
@@ -365,19 +351,12 @@ static const struct regmap_config ad5754_regmap_config = {
 
 static int ad5754_set_dac_code(struct ad5754_state *st, u32 channel, u32 code)
 {
-	int ret;
+	struct reg_sequence xfer_seq[2] = {
+		{ AD5754_REG_ADDR(AD5754_DAC_REG, channel), code << st->sub_lsb },
+		{ AD5754_REG_ADDR(AD5754_CTRL_REG, AD5754_LOAD_FUNC), 0 },
+	};
 
-	mutex_lock(&st->lock);
-	ret = regmap_write_bits(st->regmap, AD5754_REG_ADDR(AD5754_DAC_REG, channel),
-				st->chip_info->data_mask, code << st->sub_lsb);
-	if (ret)
-		goto unlock;
-	ret = regmap_write_bits(st->regmap, AD5754_REG_ADDR(AD5754_CTRL_REG, AD5754_LOAD_FUNC),
-				st->chip_info->data_mask, 0);
-unlock:
-	mutex_unlock(&st->lock);
-
-	return ret;
+	return regmap_multi_reg_write(st->regmap, xfer_seq, 2);
 }
 
 static int ad5754_enable_channels(struct ad5754_state *st)
@@ -426,8 +405,8 @@ static int ad5754_enable_channels(struct ad5754_state *st)
 		if (ret)
 			goto free_node;
 
-		/* Power up delay */
-		udelay(10);
+		/* Channel power up delay */
+		fsleep(10);
 	}
 
 	return 0;
@@ -463,8 +442,8 @@ static int ad5754_write_raw(struct iio_dev *indio_dev,
 }
 
 static int ad5754_read_raw(struct iio_dev *indio_dev,
-			     struct iio_chan_spec const *chan,
-			     int *val, int *val2, long info)
+			   struct iio_chan_spec const *chan,
+			   int *val, int *val2, long info)
 {
 	struct ad5754_state *st = iio_priv(indio_dev);
 	const struct ad5754_span_tbl *range;
@@ -493,10 +472,7 @@ static int ad5754_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
-		if (st->bipolar[chan->channel])
-			*val = -BIT(st->chip_info->resolution - 1);
-		else
-			*val = 0;
+		*val = st->offset[chan->channel];
 
 		return IIO_VAL_INT;
 	default:
@@ -506,7 +482,8 @@ static int ad5754_read_raw(struct iio_dev *indio_dev,
 
 static int ad5754_int_vref_enable(struct ad5754_state *st)
 {
-	return regmap_update_bits(st->regmap, AD5754_REG_ADDR(AD5754_PWR_REG, AD5754_PU_ADDR),
+	return regmap_update_bits(st->regmap,
+				  AD5754_REG_ADDR(AD5754_PWR_REG, AD5754_PU_ADDR),
 				  AD5754_INT_REF_MASK,
 				  FIELD_PREP(AD5754_INT_REF_MASK, 1));
 }
@@ -542,8 +519,7 @@ static int ad5754_probe(struct spi_device *spi)
 	st->dev = dev;
 	st->chip_info = device_get_match_data(dev);
 	if (!st->chip_info)
-		dev_err(dev, "AD5754 probe err\n");
-	mutex_init(&st->lock);
+		st->chip_info = spi_get_device_id(spi)->driver_data;
 
 	st->regmap = devm_regmap_init(st->dev, NULL, st, &ad5754_regmap_config);
 	if (IS_ERR(st->regmap))
@@ -555,7 +531,7 @@ static int ad5754_probe(struct spi_device *spi)
 
 	vref_reg = devm_regulator_get_optional(st->dev, "vref");
 	if (IS_ERR(vref_reg)) {
-		if (st->chip_info->internal_vref == false)
+		if (!st->chip_info->internal_vref)
 			return dev_err_probe(st->dev, PTR_ERR(vref_reg),
 			       "Failed to get the vref regulator\n");
 
@@ -568,7 +544,7 @@ static int ad5754_probe(struct spi_device *spi)
 		if (ret)
 			return dev_err_probe(st->dev, PTR_ERR(vref_reg),
 				"Failed to enable the vref regulator\n");
-		
+
 		ret = devm_add_action_or_reset(dev, ad5754_disable_regulator, vref_reg);
 		if (ret)
 			return ret;
@@ -576,7 +552,7 @@ static int ad5754_probe(struct spi_device *spi)
 		ret = regulator_get_voltage(vref_reg);
 		if (ret < 0)
 			return dev_err_probe(dev, ret, "Failed to get vref\n");
-		
+
 		st->vref = ret / 1000;
 	}
 
@@ -604,6 +580,22 @@ static int ad5754_unregister_driver(struct spi_driver *spi)
 
 	return 0;
 }
+
+static const struct spi_device_id ad5754_id[] = {
+	{ "ad5722", (kernel_ulong_t)&ad5754_chip_info_data[AD5722], },
+	{ "ad5732", (kernel_ulong_t)&ad5754_chip_info_data[AD5732], },
+	{ "ad5752", (kernel_ulong_t)&ad5754_chip_info_data[AD5752], },
+	{ "ad5724", (kernel_ulong_t)&ad5754_chip_info_data[AD5724], },
+	{ "ad5734", (kernel_ulong_t)&ad5754_chip_info_data[AD5734], },
+	{ "ad5754", (kernel_ulong_t)&ad5754_chip_info_data[AD5754], },
+	{ "ad5722r", (kernel_ulong_t)&ad5754_chip_info_data[AD5722R], },
+	{ "ad5732r", (kernel_ulong_t)&ad5754_chip_info_data[AD5732R], },
+	{ "ad5752r", (kernel_ulong_t)&ad5754_chip_info_data[AD5752R], },
+	{ "ad5724r", (kernel_ulong_t)&ad5754_chip_info_data[AD5724R], },
+	{ "ad5734r", (kernel_ulong_t)&ad5754_chip_info_data[AD5734R], },
+	{ "ad5754r", (kernel_ulong_t)&ad5754_chip_info_data[AD5754R], },
+	{},
+};
 
 static const struct of_device_id ad5754_dt_id[] = {
 	{
@@ -672,4 +664,4 @@ module_driver(ad5754_driver,
 
 MODULE_AUTHOR("Ciprian Regus <ciprian.regus@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD5754 DAC");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
