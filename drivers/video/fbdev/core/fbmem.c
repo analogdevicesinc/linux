@@ -30,10 +30,10 @@ struct class *fb_class;
 
 DEFINE_MUTEX(registration_lock);
 struct fb_info *registered_fb[FB_MAX] __read_mostly;
+EXPORT_SYMBOL(registered_fb);
+
 int num_registered_fb __read_mostly;
-#define for_each_registered_fb(i)		\
-	for (i = 0; i < FB_MAX; i++)		\
-		if (!registered_fb[i]) {} else
+EXPORT_SYMBOL(num_registered_fb);
 
 struct fb_info *get_fb_info(unsigned int idx)
 {
