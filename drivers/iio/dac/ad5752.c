@@ -69,6 +69,11 @@ enum ad5752_num_channels {
 	AD5752_4_CHANNELS,
 };
 
+enum ad5752_encoding {
+	AD5752_TWOS_COMP,
+	AD5752_OFFSET_BIN,
+};
+
 struct ad5752_span_tbl {
 	int min;
 	int max;
@@ -244,6 +249,7 @@ struct ad5752_state {
 	u32 range_idx;
 	u32 vref;
 	bool bipolar;
+	enum ad5752_encoding encoding;
 	u32 data_mask;
 	u32 sub_lsb;
 
@@ -396,6 +402,12 @@ static int ad5752_enable_channels(struct ad5752_state *st)
 	u32 index;
 	int ret;
 
+	ret = fwnode_property_read_bool(dev_fwnode(st->dev), "adi,twos-comp");
+	if (ret)
+		st->encoding = AD5752_TWOS_COMP;
+	else
+		st->encoding = AD5752_OFFSET_BIN;
+
 	fwnode_for_each_available_child_node(dev_fwnode(st->dev), channel_node) {
 		ret = fwnode_property_read_u32(channel_node, "reg", &index);
 		if (ret) {
@@ -429,7 +441,7 @@ static int ad5752_enable_channels(struct ad5752_state *st)
 			goto free_node;
 		ret = regmap_read(st->regmap, AD5752_REG_ADDR(AD5752_PWR, AD5752_PU_ADDR), &power_reg);
 		if  (ret)
-			return ret;
+			goto free_node;
 		/* Power up a channel */
 		ret = regmap_update_bits(st->regmap, AD5752_REG_ADDR(AD5752_PWR, AD5752_PU_ADDR),
 					 AD5752_PU_MASK, AD5752_PU_CH(real_channel) |
@@ -460,10 +472,23 @@ static int ad5752_write_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
-		if (val < 0 || val > st->dac_max_code) {
-			dev_err(st->dev, "Invalid DAC code %d\n", val);
+		switch (st->encoding) {
+		case AD5752_OFFSET_BIN:
+			if (val < 0 || val > st->dac_max_code) {
+				dev_err(st->dev, "Invalid DAC code %d\n", val);
+				return -EINVAL;
+			}
+			break;
+		case AD5752_TWOS_COMP:
+			if (val < -((int)st->dac_max_code / 2 + 1) || val > ((int)st->dac_max_code / 2)) {
+				dev_err(st->dev, "Invalid DAC code %d\n", val);
+				return -EINVAL;
+			}
+			break;
+		default:
 			return -EINVAL;
 		}
+
 		ret = ad5752_real_ch(st, chan->channel, &real_channel);
 		if (ret)
 			return ret;
@@ -495,6 +520,8 @@ static int ad5752_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		*val >>= st->sub_lsb;
+		if (st->bipolar && st->encoding == AD5752_TWOS_COMP)
+			*val = sign_extend32(*val, st->chip_info->resolution - 1);
 		break;
 	case IIO_CHAN_INFO_SCALE:
 		range = &ad5752_range[st->range_idx];
@@ -504,8 +531,8 @@ static int ad5752_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
-		if (st->bipolar)
-			*val = -(st->chip_info->data_mask >> 1);
+		if (st->bipolar && st->encoding == AD5752_OFFSET_BIN)
+			*val = -(1 << (st->chip_info->resolution - 1));
 		else
 			*val = 0;
 		return IIO_VAL_INT;
@@ -565,8 +592,8 @@ static int ad5752_probe(struct spi_device *spi)
 	st->dac_max_code = (1 << st->chip_info->resolution) - 1;
 	st->sub_lsb = AD5752_MAX_RESOLUTION - st->chip_info->resolution;
 
-	/* Disable daisy-chain mode */
-	ret = regmap_write_bits(st->regmap, AD5752_REG_ADDR(AD5752_CTRL, 1), GENMASK(15, 0), 1);
+	/* Enable clamp mode and CLR select */
+	ret = regmap_write_bits(st->regmap, AD5752_REG_ADDR(AD5752_CTRL, 1), GENMASK(15, 0), 6);
 	if (ret)
 		return ret;
 
