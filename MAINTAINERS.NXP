@@ -223,6 +223,10 @@ M: G.n. Zhou <guoniu.zhou@nxp.com>
 F: drivers/media/platform/mxc/capture/mxc_mipi_csi.c
 F: drivers/staging/media/imx/imx8-mipi-csi2-sam.c
 
+capture/csi2-dwc
+M: G.n. Zhou <guoniu.zhou@nxp.com>
+F: drivers/staging/media/imx/dwc-mipi-csi2.c
+
 capture/hdp
 M: Sandor Yu <sandor.yu@nxp.com>
 
