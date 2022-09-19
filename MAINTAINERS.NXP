@@ -269,6 +269,10 @@ M: Robby Cai <robby.cai@nxp.com>
 F: drivers/media/i2c/ov5640.c
 F: drivers/media/platform/mxc/capture/ov5640*
 
+capture/ap1302
+M: G.n. Zhou <guoniu.zhou@nxp.com>
+F: drivers/media/i2c/ap1302.c
+
 capture/pi
 M: G.n. Zhou <guoniu.zhou@nxp.com>
 F: Documentation/devicetree/bindings/media/imx8-parallel-csi.txt
