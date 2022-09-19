@@ -196,6 +196,21 @@ _IdentifyHardwareByDatabase(
                   Hardware->customerID);
         gcmkONERROR(gcvSTATUS_NOT_FOUND);
     }
+#ifdef VSIMULATOR_DEBUG
+    /* vsimulator don't support SECURITY feature */
+    database->SECURITY = 0;
+    database->SECURITY_AHB = 0;
+    database->TP_LRN = 0;
+    database->NN_ZDP3 = 0;
+    database->NN_ZDP6 = 0;
+    database->NN_INTERLEVE8 = 0;
+    database->TP_REORDER = 0;
+    database->TP_ROI_POOLING = 0;
+    database->TP_MAX_POOLING_STRIDE1 = 0;
+    database->MCFE = 0;
+    database->NN_XYDP9 = 0;
+     database->NN_XYDP6 = 0;
+#endif
     /* Success. */
     gcmkFOOTER();
     return gcvSTATUS_OK;

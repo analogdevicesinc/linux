@@ -740,6 +740,7 @@ _InitializePPU_SetSource(
     gceSTATUS status = gcvSTATUS_OK;
 
     gcmkHEADER_ARG("Where=0x%x", Where);
+#if 1
     switch (Where)
     {
         case 0:
@@ -982,6 +983,15 @@ _InitializePPU_SetSource(
  30:28) - (0 ? 30:28) + 1))))) << (0 ? 30:28)));
             break;
     }
+#else
+    gctUINT config[][3] = {
+        {1, 2, 2},
+        {2, 2, 3},
+        {3, 3, 3},
+    };
+
+    HwFunc_SETSOURCE(Where, config[Where][0], config[Where][1], config[Where][2], Address, Swizzle, Type, Negate, Absolute, Relative, binary);
+#endif
     gcmkFOOTER();
     return status;
 }

@@ -900,6 +900,21 @@ typedef struct _gcsHAL_DEBUG_DUMP
 }
 gcsHAL_DEBUG_DUMP;
 
+#ifdef VSIMULATOR_DEBUG
+/* gcvHAL_UPDATE_DEBUG_CALLBACK. */
+typedef struct _gcsHAL_UPDATE_DEBUG_CALLBACK
+{
+    /* If gcvTRUE, update the simulator call back */
+    IN gctBOOL                  update;
+    IN VSIMULATOR_CALLBACK      Callback;
+}
+gcsHAL_UPDATE_DEBUG_CALLBACK;
+typedef struct _gcsHAL_SET_CTX_FRAMEWORK
+{
+    IN gctUINT32      frameWork;
+    IN gctINT32      cmSize;
+} gcsHAL_SET_CTX_FRAMEWORK;
+#endif
 
 /* gcvHAL_TIMESTAMP */
 typedef struct _gcsHAL_TIMESTAMP
@@ -1086,6 +1101,19 @@ typedef struct _gcsHAL_DEVICE_MUTEX
 }
 gcsHAL_DEVICE_MUTEX;
 
+#if gcdTEST_DEC200
+/* gcvHAL_DEC200_TEST. */
+struct _gcsHAL_DEC200_TEST
+{
+    gceDEC200_COMMAND_CODES     command;
+
+    IN gctUINT32                format;
+    IN gctUINT32                physBase;
+    IN gctUINT32                physTile;
+    IN OUT gctUINT32            flushDone;
+}
+Dec200Test;
+#endif
 
 #if gcdDEC_ENABLE_AHB
 /* gcvHAL_DEC300_READ. */
@@ -1215,6 +1243,10 @@ typedef struct _gcsHAL_INTERFACE
 
         gcsHAL_SET_DEBUG_LEVEL_ZONE         DebugLevelZone;
         gcsHAL_DEBUG_DUMP                   DebugDump;
+#ifdef VSIMULATOR_DEBUG
+        gcsHAL_UPDATE_DEBUG_CALLBACK        UpdateDebugCallback;
+        gcsHAL_SET_CTX_FRAMEWORK            ctxFrameWork;
+#endif
 
         gcsHAL_TIMESTAMP                    TimeStamp;
         gcsHAL_DATABASE                     Database;
@@ -1247,6 +1279,9 @@ typedef struct _gcsHAL_INTERFACE
         /* gcvHAL_DEVICE_MUTEX: */
         gcsHAL_DEVICE_MUTEX                 DeviceMutex;
 
+#if gcdTEST_DEC200
+        gcsHAL_DEC200_TEST                  Dec200Test;
+#endif
 
 #if gcdDEC_ENABLE_AHB
         gcsHAL_DEC300_READ                  DEC300Read;

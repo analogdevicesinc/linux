@@ -59,6 +59,30 @@
 #include "gc_hal.h"
 #include <linux/mutex.h>
 
+#if IS_ENABLED(CONFIG_PROVE_LOCKING)
+
+struct key_mutex {
+    struct mutex mut;
+    struct lock_class_key key;
+};
+
+
+#define gckOS_CreateMutex(Os, Mutex)                                               \
+({                                                                                 \
+    /* Allocate the mutex structure. */                                            \
+    struct key_mutex *key_mut;                                                     \
+    gceSTATUS _status = gckOS_Allocate(Os, gcmSIZEOF(struct key_mutex), &key_mut); \
+                                                                                   \
+    if (gcmIS_SUCCESS(_status)) {                                                   \
+        /* Initialize the mutex. */                                                \
+        lockdep_register_key(&key_mut->key);                                       \
+        __mutex_init((&key_mut->mut), #Mutex, (&key_mut->key));                    \
+    }                                                                              \
+    *(Mutex) = (gctPOINTER)key_mut;                                                \
+    _status;                                                                       \
+})
+#else
+
 /* Create a new mutex. */
 #define gckOS_CreateMutex(Os, Mutex)                                        \
 ({                                                                          \
@@ -73,6 +97,7 @@
                                                                             \
     _status;                                                                \
 })
+#endif
 
 #endif
 

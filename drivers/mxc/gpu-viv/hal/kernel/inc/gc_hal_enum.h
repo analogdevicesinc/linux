@@ -970,6 +970,17 @@ typedef enum _gceHAL_ARG_VERSION
 }
 gceHAL_ARG_VERSION;
 
+#if gcdPERFORMANCE_ANALYSIS
+typedef enum _gcePERFORMANCE_ANALYZE_INFO
+{
+    gcvPERFORMANCE_ANALYZE_INFO_FRAME_ID    = 0,
+    gcvPERFORMANCE_ANALYZE_INFO_VS_ID       = 3,
+    gcvPERFORMANCE_ANALYZE_INFO_PS_ID       = 4,
+    gcvPERFORMANCE_ANALYZE_INFO_TCS_ID      = 5,
+    gcvPERFORMANCE_ANALYZE_INFO_TES_ID      = 6,
+    gcvPERFORMANCE_ANALYZE_INFO_GS_ID       = 7,
+}gcePERFORMANCE_ANALYZE_INFO;
+#endif
 
 /** endian mode  for each 2Bytes
 * endian mode                          endian
