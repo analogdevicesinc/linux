@@ -12,6 +12,7 @@
  * for more details.
  */
 
+#include <drm/drm_blend.h>
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
@@ -212,17 +213,24 @@ void fetchunit_set_src_stride(struct dpu_fetchunit *fu,
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_src_stride);
 
-void fetchunit_set_pixel_blend_mode(struct dpu_fetchunit *fu, u32 fb_format)
+void fetchunit_set_pixel_blend_mode(struct dpu_fetchunit *fu,
+				    unsigned int pixel_blend_mode, u16 alpha,
+				    u32 fb_format)
 {
-	u32 val, mode = ALPHACONSTENABLE;
+	u32 mode = 0, val;
 
-	switch (fb_format) {
-	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_ABGR8888:
-	case DRM_FORMAT_RGBA8888:
-	case DRM_FORMAT_BGRA8888:
-		mode |= ALPHASRCENABLE;
-		break;
+	if (pixel_blend_mode == DRM_MODE_BLEND_PREMULTI ||
+	    pixel_blend_mode == DRM_MODE_BLEND_COVERAGE) {
+		mode = ALPHACONSTENABLE;
+
+		switch (fb_format) {
+		case DRM_FORMAT_ARGB8888:
+		case DRM_FORMAT_ABGR8888:
+		case DRM_FORMAT_RGBA8888:
+		case DRM_FORMAT_BGRA8888:
+			mode |= ALPHASRCENABLE;
+			break;
+		}
 	}
 
 	mutex_lock(&fu->mutex);
@@ -233,7 +241,7 @@ void fetchunit_set_pixel_blend_mode(struct dpu_fetchunit *fu, u32 fb_format)
 
 	val = dpu_fu_read(fu, CONSTANTCOLOR(fu->sub_id));
 	val &= ~CONSTANTALPHA_MASK;
-	val |= CONSTANTALPHA(0xff);
+	val |= CONSTANTALPHA(alpha >> 8);
 	dpu_fu_write(fu, CONSTANTCOLOR(fu->sub_id), val);
 	mutex_unlock(&fu->mutex);
 }

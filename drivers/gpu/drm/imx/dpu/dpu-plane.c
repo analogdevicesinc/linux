@@ -15,6 +15,7 @@
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_blend.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
@@ -85,9 +86,8 @@ static void dpu_plane_reset(struct drm_plane *plane)
 	if (!state)
 		return;
 
-	plane->state = &state->base;
-	plane->state->plane = plane;
-	plane->state->rotation = DRM_MODE_ROTATE_0;
+	__drm_atomic_helper_plane_reset(plane, &state->base);
+
 	plane->state->zpos = dpu_plane_get_default_zpos(plane->type);
 }
 
@@ -748,7 +748,8 @@ again:
 	fu->ops->set_src_stride(fu, src_w, src_w, mt_w, bpp, fb->pitches[0],
 				baseaddr, use_prefetch);
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
-	fu->ops->set_pixel_blend_mode(fu, fb->format->format);
+	fu->ops->set_pixel_blend_mode(fu, state->pixel_blend_mode,
+					state->alpha, fb->format->format);
 	fu->ops->set_fmt(fu, fb->format->format, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
 	fu->ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
@@ -893,7 +894,8 @@ again:
 	layerblend_pixengcfg_dynamic_prim_sel(lb, stage);
 	layerblend_pixengcfg_dynamic_sec_sel(lb, source);
 	layerblend_control(lb, LB_BLEND);
-	layerblend_blendcontrol(lb, state->normalized_zpos);
+	layerblend_blendcontrol(lb, state->normalized_zpos,
+				state->pixel_blend_mode, state->alpha);
 	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
 	layerblend_position(lb, crtc_x, state->crtc_y);
 
@@ -962,6 +964,17 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 
 	ret = drm_plane_create_zpos_property(plane,
 					     zpos, 0, grp->hw_plane_num - 1);
+	if (ret)
+		goto err;
+
+	ret = drm_plane_create_alpha_property(plane);
+	if (ret)
+		goto err;
+
+	ret = drm_plane_create_blend_mode_property(plane,
+					BIT(DRM_MODE_BLEND_PIXEL_NONE) |
+					BIT(DRM_MODE_BLEND_PREMULTI)   |
+					BIT(DRM_MODE_BLEND_COVERAGE));
 	if (ret)
 		goto err;
 

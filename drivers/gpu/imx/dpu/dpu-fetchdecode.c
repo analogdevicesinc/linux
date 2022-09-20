@@ -13,6 +13,7 @@
  * for more details.
  */
 
+#include <drm/drm_blend.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -303,17 +304,24 @@ void fetchdecode_clipoffset(struct dpu_fetchunit *fu, unsigned int x,
 EXPORT_SYMBOL_GPL(fetchdecode_clipoffset);
 
 static void
-fetchdecode_set_pixel_blend_mode(struct dpu_fetchunit *fu, u32 fb_format)
+fetchdecode_set_pixel_blend_mode(struct dpu_fetchunit *fu,
+				 unsigned int pixel_blend_mode, u16 alpha,
+				 u32 fb_format)
 {
-	u32 val, mode = ALPHACONSTENABLE;
+	u32 mode = 0, val;
 
-	switch (fb_format) {
-	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_ABGR8888:
-	case DRM_FORMAT_RGBA8888:
-	case DRM_FORMAT_BGRA8888:
-		mode |= ALPHASRCENABLE;
-		break;
+	if (pixel_blend_mode == DRM_MODE_BLEND_PREMULTI ||
+	    pixel_blend_mode == DRM_MODE_BLEND_COVERAGE) {
+		mode = ALPHACONSTENABLE;
+
+		switch (fb_format) {
+		case DRM_FORMAT_ARGB8888:
+		case DRM_FORMAT_ABGR8888:
+		case DRM_FORMAT_RGBA8888:
+		case DRM_FORMAT_BGRA8888:
+			mode |= ALPHASRCENABLE;
+			break;
+		}
 	}
 
 	mutex_lock(&fu->mutex);
@@ -324,7 +332,7 @@ fetchdecode_set_pixel_blend_mode(struct dpu_fetchunit *fu, u32 fb_format)
 
 	val = dpu_fu_read(fu, CONSTANTCOLOR0);
 	val &= ~CONSTANTALPHA_MASK;
-	val |= CONSTANTALPHA(0xff);
+	val |= CONSTANTALPHA(alpha >> 8);
 	dpu_fu_write(fu, CONSTANTCOLOR0, val);
 	mutex_unlock(&fu->mutex);
 }

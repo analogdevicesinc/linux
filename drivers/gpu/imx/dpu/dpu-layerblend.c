@@ -13,6 +13,7 @@
  * for more details.
  */
 
+#include <drm/drm_blend.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
@@ -53,9 +54,11 @@ static const lb_prim_sel_t prim_sels[] = {
 #define OPERATION_MODE_MASK			BIT(0)
 #define BLENDCONTROL				0x10
 #define ALPHA(a)				(((a) & 0xFF) << 16)
+#define PRIM_C_BLD_FUNC__ONE_MINUS_CONST_ALPHA	0x7
 #define PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA	0x5
 #define PRIM_C_BLD_FUNC__ZERO			0x0
 #define SEC_C_BLD_FUNC__CONST_ALPHA		(0x6 << 4)
+#define SEC_C_BLD_FUNC__SEC_ALPHA		(0x4 << 4)
 #define PRIM_A_BLD_FUNC__ZERO			(0x0 << 8)
 #define SEC_A_BLD_FUNC__ZERO			(0x0 << 12)
 #define POSITION				0x14
@@ -205,17 +208,34 @@ void layerblend_control(struct dpu_layerblend *lb, lb_mode_t mode)
 }
 EXPORT_SYMBOL_GPL(layerblend_control);
 
-void layerblend_blendcontrol(struct dpu_layerblend *lb, unsigned int zpos)
+void layerblend_blendcontrol(struct dpu_layerblend *lb, unsigned int zpos,
+			     unsigned int pixel_blend_mode, u16 alpha)
 {
-	u32 val;
+	u32 val = PRIM_A_BLD_FUNC__ZERO | SEC_A_BLD_FUNC__ZERO;
 
-	val = ALPHA(0xff) | PRIM_A_BLD_FUNC__ZERO | SEC_A_BLD_FUNC__ZERO |
-	      SEC_C_BLD_FUNC__CONST_ALPHA;
+	if (zpos == 0) {
+		val |= PRIM_C_BLD_FUNC__ZERO | SEC_C_BLD_FUNC__CONST_ALPHA;
+		alpha = DRM_BLEND_ALPHA_OPAQUE;
+	} else {
+		switch (pixel_blend_mode) {
+		case DRM_MODE_BLEND_PIXEL_NONE:
+			val |= PRIM_C_BLD_FUNC__ONE_MINUS_CONST_ALPHA |
+			       SEC_C_BLD_FUNC__CONST_ALPHA;
+			break;
+		case DRM_MODE_BLEND_PREMULTI:
+			val |= PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA |
+			       SEC_C_BLD_FUNC__CONST_ALPHA;
+			break;
+		case DRM_MODE_BLEND_COVERAGE:
+			val |= PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA |
+			       SEC_C_BLD_FUNC__SEC_ALPHA;
+			break;
+		default:
+			break;
+		}
+	}
 
-	if (zpos == 0)
-		val |= PRIM_C_BLD_FUNC__ZERO;
-	else
-		val |= PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA;
+	val |= ALPHA(alpha >> 8);
 
 	mutex_lock(&lb->mutex);
 	dpu_lb_write(lb, BLENDCONTROL, val);
