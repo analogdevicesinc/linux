@@ -454,6 +454,15 @@ _GFPAlloc(IN gckALLOCATOR  Allocator,
         size_t bytes = NumPages << PAGE_SHIFT;
         void *addr = NULL;
 
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
+        gfp &= ~__GFP_HIGHMEM;
+        gfp |= __GFP_DMA32;
+#else
+        gfp &= ~__GFP_HIGHMEM;
+        gfp |= __GFP_DMA;
+#endif
+
+Alloc:
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
         addr = alloc_pages_exact(bytes, (gfp & ~__GFP_HIGHMEM) | __GFP_NORETRY);
 
@@ -474,8 +483,23 @@ _GFPAlloc(IN gckALLOCATOR  Allocator,
             mdlPriv->contiguousPages = alloc_pages(gfp, order);
         }
 
-        if (mdlPriv->contiguousPages == gcvNULL)
-            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+        if (mdlPriv->contiguousPages == gcvNULL) {
+            if ((Flags & gcvALLOC_FLAG_4GB_ADDR) ||
+                (Allocator->os->device->platform->flagBits & gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS)) {
+                gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+            } else if (gfp & __GFP_HIGHMEM) {
+                gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+            } else {
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
+                gfp &= ~__GFP_DMA32;
+                gfp |= __GFP_HIGHMEM;
+#else
+                gfp &= ~__GFP_DMA;
+                gfp |= __GFP_HIGHMEM;
+#endif
+                goto Alloc;
+            }
+        }
 
         mdlPriv->dma_addr = dma_map_page(dev,
                                          mdlPriv->contiguousPages,
