@@ -348,7 +348,10 @@ struct dpu_fetchunit_ops {
 				       unsigned int w, unsigned int h, u32 fmt,
 				       bool deinterlace);
 
-	void (*set_fmt)(struct dpu_fetchunit *fu, u32 fmt, bool deinterlace);
+	void (*set_fmt)(struct dpu_fetchunit *fu, u32 fmt,
+			enum drm_color_encoding color_encoding,
+			enum drm_color_range color_range,
+			bool deinterlace);
 
 	void (*set_pixel_blend_mode)(struct dpu_fetchunit *fu,
 				     unsigned int pixel_blend_mode, u16 alpha,

@@ -63,7 +63,11 @@ fetchlayer_set_src_buf_dimensions(struct dpu_fetchunit *fu,
 	mutex_unlock(&fu->mutex);
 }
 
-static void fetchlayer_set_fmt(struct dpu_fetchunit *fu, u32 fmt, bool unused)
+static void fetchlayer_set_fmt(struct dpu_fetchunit *fu,
+			       u32 fmt,
+			       enum drm_color_encoding color_encoding,
+			       enum drm_color_range color_range,
+			       bool unused)
 {
 	u32 val, bits, shift;
 	int i, sub_id = fu->sub_id;

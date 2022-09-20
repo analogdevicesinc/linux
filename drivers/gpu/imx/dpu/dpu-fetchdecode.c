@@ -180,8 +180,11 @@ fetchdecode_set_src_buf_dimensions(struct dpu_fetchunit *fu,
 	mutex_unlock(&fu->mutex);
 }
 
-static void
-fetchdecode_set_fmt(struct dpu_fetchunit *fu, u32 fmt, bool deinterlace)
+static void fetchdecode_set_fmt(struct dpu_fetchunit *fu,
+				u32 fmt,
+				enum drm_color_encoding color_encoding,
+				enum drm_color_range color_range,
+				bool deinterlace)
 {
 	u32 val, bits, shift;
 	bool is_planar_yuv = false, is_rastermode_yuv422 = false;
@@ -242,17 +245,18 @@ fetchdecode_set_fmt(struct dpu_fetchunit *fu, u32 fmt, bool deinterlace)
 
 	val = dpu_fu_read(fu, LAYERPROPERTY0);
 	val &= ~YUVCONVERSIONMODE_MASK;
-	if (need_csc)
-		/*
-		 * assuming fetchdecode always ouputs RGB pixel formats
-		 *
-		 * FIXME:
-		 * determine correct standard here - ITU601 or ITU601_FR
-		 * or ITU709
-		 */
-		val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__ITU601_FR);
-	else
+	if (need_csc) {
+		/* assuming fetchdecode always ouputs RGB pixel formats */
+		if (color_encoding == DRM_COLOR_YCBCR_BT709)
+			val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__ITU709);
+		else if (color_encoding == DRM_COLOR_YCBCR_BT601 &&
+			 color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+			val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__ITU601_FR);
+		else
+			val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__ITU601);
+	} else {
 		val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__OFF);
+	}
 	dpu_fu_write(fu, LAYERPROPERTY0, val);
 	mutex_unlock(&fu->mutex);
 

@@ -79,7 +79,11 @@ fetcheco_set_src_buf_dimensions(struct dpu_fetchunit *fu,
 	mutex_unlock(&fu->mutex);
 }
 
-static void fetcheco_set_fmt(struct dpu_fetchunit *fu, u32 fmt, bool unused)
+static void fetcheco_set_fmt(struct dpu_fetchunit *fu,
+			     u32 fmt,
+			     enum drm_color_encoding unused1,
+			     enum drm_color_range unused2,
+			     bool unused3)
 {
 	u32 val, bits, shift;
 	int i, hsub, vsub;

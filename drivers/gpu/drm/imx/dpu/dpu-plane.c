@@ -16,6 +16,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_blend.h>
+#include <drm/drm_color_mgmt.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
@@ -89,6 +90,8 @@ static void dpu_plane_reset(struct drm_plane *plane)
 	__drm_atomic_helper_plane_reset(plane, &state->base);
 
 	plane->state->zpos = dpu_plane_get_default_zpos(plane->type);
+	plane->state->color_encoding = DRM_COLOR_YCBCR_BT601;
+	plane->state->color_range = DRM_COLOR_YCBCR_FULL_RANGE;
 }
 
 static struct drm_plane_state *
@@ -222,6 +225,12 @@ drm_plane_state_to_uvbaseaddr(struct drm_plane_state *state, bool aux_source)
 
 	return dma_obj->dma_addr + fb->offsets[1] + fb->pitches[1] * y +
 	       fb->format->cpp[1] * x;
+}
+
+static inline bool dpu_plane_fb_format_is_yuv(u32 fmt)
+{
+	return fmt == DRM_FORMAT_YUYV || fmt == DRM_FORMAT_UYVY ||
+	       fmt == DRM_FORMAT_NV12 || fmt == DRM_FORMAT_NV21;
 }
 
 static int dpu_plane_atomic_check(struct drm_plane *plane,
@@ -384,6 +393,12 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	default:
 		break;
 	}
+
+	/* do not support BT709 full range */
+	if (dpu_plane_fb_format_is_yuv(fb->format->format) &&
+	    state->color_encoding == DRM_COLOR_YCBCR_BT709 &&
+	    state->color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+		return -EINVAL;
 
 again:
 	fu = source_to_fu(res,
@@ -750,7 +765,8 @@ again:
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
 	fu->ops->set_pixel_blend_mode(fu, state->pixel_blend_mode,
 					state->alpha, fb->format->format);
-	fu->ops->set_fmt(fu, fb->format->format, fb_is_interlaced);
+	fu->ops->set_fmt(fu, fb->format->format, state->color_encoding,
+					state->color_range, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
 	fu->ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
 	fu->ops->set_baseaddress(fu, src_w, src_x, src_y, mt_w, mt_h, bpp,
@@ -781,7 +797,8 @@ again:
 		fe->ops->set_src_stride(fe, src_w, src_x, mt_w, bpp,
 					fb->pitches[1],
 					uv_baseaddr, use_prefetch);
-		fe->ops->set_fmt(fe, fb->format->format, fb_is_interlaced);
+		fe->ops->set_fmt(fe, fb->format->format, state->color_encoding,
+					state->color_range, fb_is_interlaced);
 		fe->ops->set_src_buf_dimensions(fe, src_w, src_h,
 						fb->format->format,
 						fb_is_interlaced);
@@ -975,6 +992,16 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 					BIT(DRM_MODE_BLEND_PIXEL_NONE) |
 					BIT(DRM_MODE_BLEND_PREMULTI)   |
 					BIT(DRM_MODE_BLEND_COVERAGE));
+	if (ret)
+		goto err;
+
+	ret = drm_plane_create_color_properties(plane,
+					BIT(DRM_COLOR_YCBCR_BT601) |
+					BIT(DRM_COLOR_YCBCR_BT709),
+					BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
+					BIT(DRM_COLOR_YCBCR_FULL_RANGE),
+					DRM_COLOR_YCBCR_BT601,
+					DRM_COLOR_YCBCR_FULL_RANGE);
 	if (ret)
 		goto err;
 
