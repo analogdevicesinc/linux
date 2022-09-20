@@ -1327,7 +1327,7 @@ static gceSTATUS _InitializeUSC_NNCmdBuffer(IN gckHARDWARE    Hardware,
  ~0U : (~(~0U << ((1 ?
  15:0) - (0 ?
  15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4E) & ((gctUINT32) ((((1 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
@@ -1359,7 +1359,7 @@ static gceSTATUS _InitializeUSC_NNCmdBuffer(IN gckHARDWARE    Hardware,
  ~0U : (~(~0U << ((1 ?
  15:0) - (0 ?
  15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4F) & ((gctUINT32) ((((1 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E50) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
@@ -1391,7 +1391,7 @@ static gceSTATUS _InitializeUSC_NNCmdBuffer(IN gckHARDWARE    Hardware,
  ~0U : (~(~0U << ((1 ?
  15:0) - (0 ?
  15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E50) & ((gctUINT32) ((((1 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E51) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
@@ -1464,7 +1464,7 @@ static gceSTATUS _InitializeUSC_NNCmdBuffer(IN gckHARDWARE    Hardware,
  ~0U : (~(~0U << ((1 ?
  15:0) - (0 ?
  15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4C) & ((gctUINT32) ((((1 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
@@ -1547,7 +1547,7 @@ static gceSTATUS _InitializeUSC_NNCmdBuffer(IN gckHARDWARE    Hardware,
  ~0U : (~(~0U << ((1 ?
  15:0) - (0 ?
  15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E54) & ((gctUINT32) ((((1 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E55) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
