@@ -234,13 +234,15 @@ static inline bool dpu_plane_fb_format_is_yuv(u32 fmt)
 }
 
 static int dpu_plane_atomic_check(struct drm_plane *plane,
-				  struct drm_plane_state *state)
+				  struct drm_atomic_state *state)
 {
 	struct dpu_plane *dplane = to_dpu_plane(plane);
-	struct dpu_plane_state *dpstate = to_dpu_plane_state(state);
+	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
+										 plane);
+	struct dpu_plane_state *dpstate = to_dpu_plane_state(new_plane_state);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct drm_crtc_state *crtc_state;
-	struct drm_framebuffer *fb = state->fb;
+	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct dpu_fetchunit *fu;
 	struct dprc *dprc;
 	dma_addr_t baseaddr, uv_baseaddr = 0;
@@ -273,16 +275,16 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		return 0;
 	}
 
-	if (!state->crtc) {
+	if (!new_plane_state->crtc) {
 		DRM_DEBUG_KMS("[PLANE:%d:%s] has no CRTC in plane state\n",
 				plane->base.id, plane->name);
 		return -EINVAL;
 	}
 
-	src_w = drm_rect_width(&state->src) >> 16;
-	src_h = drm_rect_height(&state->src) >> 16;
-	src_x = state->src.x1 >> 16;
-	src_y = state->src.y1 >> 16;
+	src_w = drm_rect_width(&new_plane_state->src) >> 16;
+	src_h = drm_rect_height(&new_plane_state->src) >> 16;
+	src_x = new_plane_state->src.x1 >> 16;
+	src_y = new_plane_state->src.y1 >> 16;
 
 	fb_is_interlaced = !!(fb->flags & DRM_MODE_FB_INTERLACED);
 
@@ -295,15 +297,15 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
-	crtc_state =
-		drm_atomic_get_existing_crtc_state(state->state, state->crtc);
+	crtc_state = drm_atomic_get_existing_crtc_state(state,
+							new_plane_state->crtc);
 	if (WARN_ON(!crtc_state))
 		return -EINVAL;
 
 	min_scale = dplane->grp->has_vproc ?
 				FRAC_16_16(min(src_w, src_h), 8192) :
 				DRM_PLANE_NO_SCALING;
-	ret = drm_atomic_helper_check_plane_state(state, crtc_state,
+	ret = drm_atomic_helper_check_plane_state(new_plane_state, crtc_state,
 						  min_scale,
 						  DRM_PLANE_NO_SCALING,
 						  true, false);
@@ -314,9 +316,9 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	}
 
 	/* no off screen */
-	if (state->dst.x1 < 0 || state->dst.y1 < 0 ||
-	    (state->dst.x2 > crtc_state->adjusted_mode.hdisplay) ||
-	    (state->dst.y2 > crtc_state->adjusted_mode.vdisplay)) {
+	if (new_plane_state->dst.x1 < 0 || new_plane_state->dst.y1 < 0 ||
+	    (new_plane_state->dst.x2 > crtc_state->adjusted_mode.hdisplay) ||
+	    (new_plane_state->dst.y2 > crtc_state->adjusted_mode.vdisplay)) {
 		DRM_DEBUG_KMS("[PLANE:%d:%s] no off screen\n",
 				plane->base.id, plane->name);
 		return -EINVAL;
@@ -396,8 +398,8 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 
 	/* do not support BT709 full range */
 	if (dpu_plane_fb_format_is_yuv(fb->format->format) &&
-	    state->color_encoding == DRM_COLOR_YCBCR_BT709 &&
-	    state->color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+	    new_plane_state->color_encoding == DRM_COLOR_YCBCR_BT709 &&
+	    new_plane_state->color_range == DRM_COLOR_YCBCR_FULL_RANGE)
 		return -EINVAL;
 
 again:
@@ -445,7 +447,8 @@ again:
 	}
 
 	/* base address alignment check */
-	baseaddr = drm_plane_state_to_baseaddr(state, check_aux_source);
+	baseaddr = drm_plane_state_to_baseaddr(new_plane_state,
+					       check_aux_source);
 	switch (fb->format->format) {
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_UYVY:
@@ -502,7 +505,7 @@ again:
 
 	/* UV base address alignment check, assuming 16bpp */
 	if (fb->format->num_planes > 1) {
-		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state,
+		uv_baseaddr = drm_plane_state_to_uvbaseaddr(new_plane_state,
 							check_aux_source);
 		if (fb->modifier) {
 			if (uv_baseaddr & 0x1) {
@@ -594,12 +597,13 @@ again:
 }
 
 static void dpu_plane_atomic_update(struct drm_plane *plane,
-				    struct drm_plane_state *old_state)
+				    struct drm_atomic_state *state)
 {
 	struct dpu_plane *dplane = to_dpu_plane(plane);
-	struct drm_plane_state *state = plane->state;
-	struct dpu_plane_state *dpstate = to_dpu_plane_state(state);
-	struct drm_framebuffer *fb = state->fb;
+	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
+										 plane);
+	struct dpu_plane_state *dpstate = to_dpu_plane_state(new_plane_state);
+	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_fetchunit *fu;
 	struct dpu_fetchunit *fe = NULL;
@@ -633,7 +637,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	if (!fb)
 		return;
 
-	need_modeset = drm_atomic_crtc_needs_modeset(state->crtc->state);
+	need_modeset =
+		drm_atomic_crtc_needs_modeset(new_plane_state->crtc->state);
 	fb_is_interlaced = !!(fb->flags & DRM_MODE_FB_INTERLACED);
 
 again:
@@ -658,7 +663,7 @@ again:
 		}
 	} else {
 		stream_id = dplane->stream_id;
-		crtc_x = state->crtc_x;
+		crtc_x = new_plane_state->crtc_x;
 	}
 
 	fg = res->fg[stream_id];
@@ -681,20 +686,21 @@ again:
 		else
 			src_w = dpstate->left_src_w;
 	} else {
-		src_w = drm_rect_width(&state->src) >> 16;
+		src_w = drm_rect_width(&new_plane_state->src) >> 16;
 	}
-	src_h = drm_rect_height(&state->src) >> 16;
+	src_h = drm_rect_height(&new_plane_state->src) >> 16;
 	if (crtc_use_pc && update_aux_source) {
 		if (fb->modifier)
-			src_x = (state->src_x >> 16) + dpstate->left_src_w;
+			src_x = (new_plane_state->src_x >> 16) +
+				dpstate->left_src_w;
 		else
 			src_x = 0;
 	} else {
-		src_x = fb->modifier ? (state->src_x >> 16) : 0;
+		src_x = fb->modifier ? (new_plane_state->src_x >> 16) : 0;
 	}
-	src_y = fb->modifier ? (state->src_y >> 16) : 0;
-	dst_w = drm_rect_width(&state->dst);
-	dst_h = drm_rect_height(&state->dst);
+	src_y = fb->modifier ? (new_plane_state->src_y >> 16) : 0;
+	dst_w = drm_rect_width(&new_plane_state->dst);
+	dst_h = drm_rect_height(&new_plane_state->dst);
 
 	if (fetchunit_is_fetchdecode(fu)) {
 		if (fetchdecode_need_fetcheco(fu, fb->format->format)) {
@@ -748,9 +754,10 @@ again:
 		break;
 	}
 
-	baseaddr = drm_plane_state_to_baseaddr(state, update_aux_source);
+	baseaddr = drm_plane_state_to_baseaddr(new_plane_state,
+					       update_aux_source);
 	if (need_fetcheco)
-		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state,
+		uv_baseaddr = drm_plane_state_to_uvbaseaddr(new_plane_state,
 							update_aux_source);
 
 	if (use_prefetch &&
@@ -763,10 +770,12 @@ again:
 	fu->ops->set_src_stride(fu, src_w, src_w, mt_w, bpp, fb->pitches[0],
 				baseaddr, use_prefetch);
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
-	fu->ops->set_pixel_blend_mode(fu, state->pixel_blend_mode,
-					state->alpha, fb->format->format);
-	fu->ops->set_fmt(fu, fb->format->format, state->color_encoding,
-					state->color_range, fb_is_interlaced);
+	fu->ops->set_pixel_blend_mode(fu, new_plane_state->pixel_blend_mode,
+				      new_plane_state->alpha,
+				      fb->format->format);
+	fu->ops->set_fmt(fu, fb->format->format,
+			 new_plane_state->color_encoding,
+			 new_plane_state->color_range, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
 	fu->ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
 	fu->ops->set_baseaddress(fu, src_w, src_x, src_y, mt_w, mt_h, bpp,
@@ -796,8 +805,10 @@ again:
 		fe->ops->set_src_stride(fe, src_w, src_x, mt_w, bpp,
 					fb->pitches[1],
 					uv_baseaddr, use_prefetch);
-		fe->ops->set_fmt(fe, fb->format->format, state->color_encoding,
-					state->color_range, fb_is_interlaced);
+		fe->ops->set_fmt(fe, fb->format->format,
+				 new_plane_state->color_encoding,
+				 new_plane_state->color_range,
+				 fb_is_interlaced);
 		fe->ops->set_src_buf_dimensions(fe, src_w, src_h,
 						fb->format->format,
 						fb_is_interlaced);
@@ -826,7 +837,8 @@ again:
 
 		vscaler_pixengcfg_dynamic_src_sel(vs, (vs_src_sel_t)source);
 		vscaler_pixengcfg_clken(vs, CLKEN__AUTOMATIC);
-		vscaler_setup1(vs, src_h, state->crtc_h, fb_is_interlaced);
+		vscaler_setup1(vs, src_h, new_plane_state->crtc_h,
+			       fb_is_interlaced);
 		vscaler_setup2(vs, fb_is_interlaced);
 		vscaler_setup3(vs, fb_is_interlaced);
 		vscaler_output_size(vs, dst_h);
@@ -885,7 +897,8 @@ again:
 		if (prefetch_start || uv_prefetch_start) {
 			dprc_first_frame_handle(dprc);
 
-			if (!need_modeset && state->normalized_zpos != 0)
+			if (!need_modeset &&
+			    new_plane_state->normalized_zpos != 0)
 				framegen_wait_for_frame_counter_moving(fg);
 		}
 
@@ -909,10 +922,11 @@ again:
 	layerblend_pixengcfg_dynamic_prim_sel(lb, stage);
 	layerblend_pixengcfg_dynamic_sec_sel(lb, source);
 	layerblend_control(lb, LB_BLEND);
-	layerblend_blendcontrol(lb, state->normalized_zpos,
-				state->pixel_blend_mode, state->alpha);
+	layerblend_blendcontrol(lb, new_plane_state->normalized_zpos,
+				new_plane_state->pixel_blend_mode,
+				new_plane_state->alpha);
 	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
-	layerblend_position(lb, crtc_x, state->crtc_y);
+	layerblend_position(lb, crtc_x, new_plane_state->crtc_y);
 
 	if (crtc_use_pc) {
 		if ((!stream_id && dpstate->is_left_top) ||
