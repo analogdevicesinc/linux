@@ -1738,12 +1738,14 @@ gcoOS_GetMemoryUsage(
     gctUINT32_PTR IsRSS
     );
 
+/* Delay a number of milliseconds. */
+gceSTATUS
+gcoOS_Delay(IN gcoOS Os, IN gctUINT32 Delay);
+
+
 /* Delay a number of microseconds. */
 gceSTATUS
-gcoOS_Delay(
-    IN gcoOS Os,
-    IN gctUINT32 Delay
-    );
+gcoOS_DelayUs(IN gcoOS Os, IN gctUINT32 Delay);
 
 /*----------------------------------------------------------------------------*/
 /*----- Threads --------------------------------------------------------------*/
