@@ -943,12 +943,12 @@ static bool vsi_dec_ctrl_equal(const struct v4l2_ctrl *ctrl, u32 idx,
 	return 0;
 }
 
-static void vsi_dec_ctrl_init(const struct v4l2_ctrl *ctrl, u32 idx,
-		     union v4l2_ctrl_ptr ptr)
+static void vsi_dec_ctrl_init(const struct v4l2_ctrl *ctrl, u32 from_idx,
+			u32 tot_elems, union v4l2_ctrl_ptr ptr)
 {
-	void *p = ptr.p + idx * ctrl->elem_size;
+	void *p = ptr.p + from_idx * ctrl->elem_size;
 
-	memset(p, 0, ctrl->elem_size);
+	memset(p, 0, (tot_elems - from_idx) * ctrl->elem_size);
 }
 
 static void vsi_dec_ctrl_log(const struct v4l2_ctrl *ctrl)
