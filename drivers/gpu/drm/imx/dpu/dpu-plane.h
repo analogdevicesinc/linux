@@ -39,15 +39,25 @@ struct dpu_plane_state {
 	lb_prim_sel_t		stage;
 	lb_sec_sel_t		source;
 	dpu_block_id_t		blend;
-	unsigned int		layer_x;
-	unsigned int		layer_y;
-	unsigned int		base_x;
-	unsigned int		base_y;
-	unsigned int		base_w;
-	unsigned int		base_h;
+	lb_prim_sel_t		aux_stage;
+	lb_sec_sel_t		aux_source;
+	dpu_block_id_t		aux_blend;
 
 	bool			is_top;
 	bool			use_prefetch;
+	bool			use_aux_prefetch;
+	bool			need_aux_source;
+
+	/* used when pixel combiner is needed */
+	unsigned int		left_src_w;
+	unsigned int		left_crtc_w;
+	unsigned int		left_crtc_x;
+	unsigned int		right_src_w;
+	unsigned int		right_crtc_w;
+	unsigned int		right_crtc_x;
+
+	bool			is_left_top;
+	bool			is_right_top;
 };
 
 /* TODO: Add source entries for subsidiary layers. */
