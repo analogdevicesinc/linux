@@ -4419,11 +4419,6 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 
 	memcpy(tbl->bin_table + off, buf, count);
 
-	if (!strnstr(tbl->bin_table, "</table>", off + count)) {
-		mutex_unlock(&phy->lock);
-		return count;
-	}
-
 	if (phy->fh.mode == ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP)
 		max_sz /= 2;
 
