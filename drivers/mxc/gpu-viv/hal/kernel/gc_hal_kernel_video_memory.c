@@ -778,6 +778,17 @@ gckVIDMEM_AllocateLinear(
 
     acquired = gcvTRUE;
 #if defined(__QNXNTO__)
+    if (Flag & gcvALLOC_FLAG_CMA_LIMIT)
+    {
+        if ((Memory->physicalBase > UINT32_MAX) ||
+            ((Memory->physicalBase + Memory->bytes) > UINT32_MAX))
+        {
+            /* Pool is allocated above 4G limit */
+            status = gcvSTATUS_OUT_OF_MEMORY;
+            goto OnError;
+        }
+    }
+
     if (slogUsageInterval > 0) {
         static gctSIZE_T lowwaterFPC = ~0;
         static time_t last_slog_time;
