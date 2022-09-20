@@ -98,7 +98,7 @@
 
 	adl5960-sync@0 {
 		compatible = "adi,one-bit-adc-dac";
-		out-gpios = <&gpio 113 0>, <&gpio 121 0>, <&gpio 112 1>, <&gpio 126 1>, <&gpio 128 0>, <&gpio 129 1>;
+		out-gpios = <&gpio 113 0>, <&gpio 121 0>, <&gpio 112 1>, <&gpio 128 0>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -116,20 +116,21 @@
 			reg = <2>;
 			label = "AD9528_REF_SEL";
 		};
-		channel@3 { /* Inverted */
+		channel@3 {
 			reg = <3>;
-			label = "SW_PG";
-		};
-
-		channel@4 {
-			reg = <4>;
 			label = "ADMV8818_SFL";
 		};
-		channel@5 {
-			reg = <5>;
-			label = "AD5732_CLR";
-		};
+	};
+};
 
+&gpio {
+	status = "okay";
+
+	sw_pg {
+		gpio-hog;
+		gpios = <126 0>;
+		output-high;
+		line-name = "SW_PG";
 	};
 };
 
@@ -182,12 +183,19 @@
 };
 
 &spi1 {
-
 	status = "okay";
 
-	adc1_ad4858: ad4858@0 {
+	ad4858: adc@0{
 		compatible = "adi,ad4858";
 		reg = <0>;
+		spi-max-frequency = <10000000>;
+		// clocks = <&ext_clk>;
+		clocks = <&zynqmp_clk PL0_REF>;
+		clock-names = "scki";
+		dmas = <&ad4858_rx_dma 0>;
+		dma-names = "rx";
+		pwms = <&axi_pwm_gen 0 0>;
+		pwm-names = "cnv";
 	};
 };
 
@@ -234,19 +242,21 @@
 
 		adi,twos-comp;
 
+		clr-gpios = <&gpio 129 0>;
+
 		#address-cells = <1>;
 		#size-cells = <0>;
 
 		channel@0 {
 			reg = <0>;
 			output-range-microvolts = <(-5000000) 5000000>;
-			adi,init-dac-code = <5000>;
+			adi,init-dac-code = <0>;
 		};
 
 		channel@1 {
 			reg = <1>;
 			output-range-microvolts = <(-5000000) 5000000>;
-			adi,init-dac-code = <5000>;
+			adi,init-dac-code = <0>;
 		};
 	};
 
