@@ -1834,7 +1834,7 @@ _Construct(
             gcmkONERROR(_FillFlatMapping(mmu, gpuAddress, physSize, gcvFALSE, gcvFALSE, gcvNULL));
         }
 
-#if !(defined(VSIMULATOR_DEBUG) || gcdCAPTURE_ONLY_MODE)
+#if !(0 || gcdCAPTURE_ONLY_MODE)
         if (!_ReadPageEntry(mmu->mtlbLogical + 0))
         {
             gctUINT32 mtlbEntry;

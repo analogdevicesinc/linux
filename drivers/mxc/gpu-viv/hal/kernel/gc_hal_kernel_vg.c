@@ -327,23 +327,19 @@ gceSTATUS gckVGKERNEL_Dispatch(
                                        Interface->u.UserSignal.manualReset,
                                        &Interface->u.UserSignal.id));
 
-#if 1
             gcmkVERIFY_OK(
                 gckKERNEL_AddProcessDB(Kernel,
                                        processID, gcvDB_SIGNAL,
                                        gcmINT2PTR(Interface->u.UserSignal.id),
                                        gcvNULL,
                                        0));
-#endif
             break;
 
         case gcvUSER_SIGNAL_DESTROY:
-#if 1
             gcmkVERIFY_OK(gckKERNEL_RemoveProcessDB(
                 Kernel,
                 processID, gcvDB_SIGNAL,
                 gcmINT2PTR(Interface->u.UserSignal.id)));
-#endif
 
             /* Destroy the signal. */
             gcmkERR_BREAK(

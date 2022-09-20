@@ -815,7 +815,6 @@ void viv_drm_postclose(struct drm_device *drm, struct drm_file *file)
     }
 }
 
-#if 1
 static const struct file_operations viv_drm_fops = {
     .owner              = THIS_MODULE,
     .open               = drm_open,
@@ -827,13 +826,7 @@ static const struct file_operations viv_drm_fops = {
     .poll               = drm_poll,
     .read               = drm_read,
     .llseek             = no_llseek,
-#if 0
-    .mmap               = viv_gem_mmap, /* Need? */
-#endif
 };
-#else
-DEFINE_DRM_GEM_FOPS(viv_drm_fops);
-#endif
 
 static struct drm_driver viv_drm_driver = {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)

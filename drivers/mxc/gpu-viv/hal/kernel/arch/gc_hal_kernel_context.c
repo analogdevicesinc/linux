@@ -184,7 +184,7 @@
 #define gcdSTATE_MASK \
     (gcmSETFIELDVALUE(0, AQ_COMMAND_NOP_COMMAND, OPCODE, NOP) | 0xC0FFEE)
 
-#if !gcdCMD_NO_2D_CONTEXT || gcdENABLE_3D
+#if gcdENABLE_3D
 static gctUINT32
 _TerminateStateBlock(
     IN gckCONTEXT Context,
@@ -217,38 +217,6 @@ _TerminateStateBlock(
 }
 #endif
 
-#if !gcdCMD_NO_2D_CONTEXT
-static gctUINT32
-_AddNOP(
-    IN gckCONTEXT Context,
-    IN gctUINT32 Index
-    )
-{
-    if (Context->buffer != gcvNULL)
-    {
-        gctUINT32_PTR buffer;
-
-        /* Address correct index. */
-        buffer = Context->buffer->logical + Index;
-
-        /* NOP. */
-        *buffer++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
-        *buffer++ = 0;
-    }
-
-    /* Flushing 3D pipe takes 6 slots. */
-    return 2;
-}
-#endif
 
 #if gcdENABLE_3D
 static gctUINT32
@@ -2441,7 +2409,7 @@ _SwitchPipe(
 }
 #endif
 
-#if !gcdCMD_NO_2D_CONTEXT || gcdENABLE_3D
+#if gcdENABLE_3D
 static gctUINT32
 _State(
     IN gckCONTEXT Context,
@@ -2918,131 +2886,6 @@ _InitializeNoShaderAndPixelEngine(
     /**************************************************************************/
     /* Build 2D states. *******************************************************/
 
-#if !gcdCMD_NO_2D_CONTEXT
-    if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_PIPE_2D))
-    {
-        /* Flush 3D pipe. */
-        index += _FlushPipe(Context, index, gcvPIPE_3D);
-
-        /* Switch to 2D pipe. */
-        index += _SwitchPipe(Context, index, gcvPIPE_2D);
-
-        index += _State(Context, index, 0x00670 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Source states. */
-        index += _State(Context, index, 0x01200 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-        index += _State(Context, index, 0x01204 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01208 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0120C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01210 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01214 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01218 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0121C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Stretch factor states. */
-        index += _State(Context, index, 0x01220 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01224 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Destination states. */
-        index += _State(Context, index, 0x01228 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-        index += _State(Context, index, 0x0122C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01230 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01234 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Pattern states. */
-        index += _State(Context, index, 0x01238 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-        index += _State(Context, index, 0x01240 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01244 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01248 >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0124C >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01250 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01254 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0123C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* FilterBlt states. */
-        index += _State(Context, index, 0x01258 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01800 >> 2, 0x00000000, 128, gcvFALSE, gcvFALSE);
-
-        /* Color lookup table. */
-        index += _State(Context, index, 0x01C00 >> 2, 0x00000000, 256, gcvFALSE, gcvFALSE);
-
-        /* 2D states. */
-        index += _State(Context, index, 0x0125C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01260 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01264 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01268 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01270 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01274 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0126C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01278 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Alpha states. */
-        index += _State(Context, index, 0x0127C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01280 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* YUV states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_YUV420_TILER))
-        {
-            index += _State(Context, index, 0x01284 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-            index += _State(Context, index, 0x01288 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x0128C >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-            index += _State(Context, index, 0x01290 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x01298 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x0129C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012A0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012A4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012A8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012AC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012E4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        }
-
-        /* 2D 2.0 states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_2DPE20))
-        {
-            index += _State(Context, index, 0x012B0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012B4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012B8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012BC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012C0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012C4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012C8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012CC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012D0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012D4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012D8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012DC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012E0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x03400 >> 2, 0x00000000, 256, gcvFALSE, gcvFALSE);
-        }
-
-        /* 2D Dither states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_DITHER_AND_FILTER_PLUS_ALPHA_2D))
-        {
-            index += _State(Context, index, 0x012E8 >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012EC >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-        }
-
-        /* One pass filter states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_ONE_PASS_2D_FILTER))
-        {
-            index += _State(Context, index, 0x02800 >> 2, 0x00000000, 128, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x02A00 >> 2, 0x00000000, 128, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012F0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012F4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012F8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012FC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x01300 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x01304 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        }
-
-        index += _CLOSE_RANGE();
-
-        /* NOP could be dynamically replaced by a LINK for 2D-only
-           command buffers. */
-        Context->linkIndex2D = index;
-        index += _AddNOP(Context, index);
-    }
-#endif
 
 #if gcdENABLE_3D
     /**************************************************************************/
@@ -3087,7 +2930,7 @@ _InitializeNoShaderAndPixelEngine(
     }
 
     /* Current context pointer. */
-#if gcdDEBUG && 1
+#if gcdDEBUG
     index += _State(Context, index, 0x03850 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 #endif
 
@@ -3327,131 +3170,6 @@ _InitializeContextBuffer(
     /**************************************************************************/
     /* Build 2D states. *******************************************************/
 
-#if !gcdCMD_NO_2D_CONTEXT
-    if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_PIPE_2D))
-    {
-        /* Flush 3D pipe. */
-        index += _FlushPipe(Context, index, gcvPIPE_3D);
-
-        /* Switch to 2D pipe. */
-        index += _SwitchPipe(Context, index, gcvPIPE_2D);
-
-        index += _State(Context, index, 0x00670 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Source states. */
-        index += _State(Context, index, 0x01200 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-        index += _State(Context, index, 0x01204 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01208 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0120C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01210 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01214 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01218 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0121C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Stretch factor states. */
-        index += _State(Context, index, 0x01220 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01224 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Destination states. */
-        index += _State(Context, index, 0x01228 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-        index += _State(Context, index, 0x0122C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01230 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01234 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Pattern states. */
-        index += _State(Context, index, 0x01238 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-        index += _State(Context, index, 0x01240 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01244 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01248 >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0124C >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01250 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01254 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0123C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* FilterBlt states. */
-        index += _State(Context, index, 0x01258 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01800 >> 2, 0x00000000, 128, gcvFALSE, gcvFALSE);
-
-        /* Color lookup table. */
-        index += _State(Context, index, 0x01C00 >> 2, 0x00000000, 256, gcvFALSE, gcvFALSE);
-
-        /* 2D states. */
-        index += _State(Context, index, 0x0125C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01260 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01264 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01268 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01270 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01274 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x0126C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01278 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* Alpha states. */
-        index += _State(Context, index, 0x0127C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        index += _State(Context, index, 0x01280 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-
-        /* YUV states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_YUV420_TILER))
-        {
-            index += _State(Context, index, 0x01284 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-            index += _State(Context, index, 0x01288 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x0128C >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
-            index += _State(Context, index, 0x01290 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x01298 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x0129C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012A0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012A4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012A8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012AC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012E4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        }
-
-        /* 2D 2.0 states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_2DPE20))
-        {
-            index += _State(Context, index, 0x012B0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012B4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012B8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012BC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012C0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012C4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012C8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012CC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012D0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012D4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012D8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012DC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012E0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x03400 >> 2, 0x00000000, 256, gcvFALSE, gcvFALSE);
-        }
-
-        /* 2D Dither states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_DITHER_AND_FILTER_PLUS_ALPHA_2D))
-        {
-            index += _State(Context, index, 0x012E8 >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012EC >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
-        }
-
-        /* One pass filter states. */
-        if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_ONE_PASS_2D_FILTER))
-        {
-            index += _State(Context, index, 0x02800 >> 2, 0x00000000, 128, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x02A00 >> 2, 0x00000000, 128, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012F0 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012F4 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012F8 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x012FC >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x01300 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-            index += _State(Context, index, 0x01304 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-        }
-
-        index += _CLOSE_RANGE();
-
-        /* NOP could be dynamically replaced by a LINK for 2D-only
-           command buffers. */
-        Context->linkIndex2D = index;
-        index += _AddNOP(Context, index);
-    }
-#endif
 
 #if gcdENABLE_3D
     /**************************************************************************/
@@ -3560,7 +3278,7 @@ _InitializeContextBuffer(
     }
 
     /* Current context pointer. */
-#if gcdDEBUG && 1
+#if gcdDEBUG
     index += _State(Context, index, 0x03850 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
 #endif
 
@@ -5338,21 +5056,7 @@ gckCONTEXT_Update(
                     /* Skip the state if not mapped. */
                     if (index == 0)
                     {
-#if !defined(gcdREMOVE_FROM_FINAL_RELEASE)
-                        /* Stuck here. */
-                        for (;;)
-                        {
-                            gcmkPRINT(
-                                "[galcore]: %s(%d): State 0x%04X (0x%04X) is not mapped.\n",
-                                __FUNCTION__, __LINE__,
-                                address, address << 2
-                                );
-
-                            gckOS_Delay(Context->os, 10 * 1000);
-                        }
-#else
                         continue;
-#endif
                     }
 
                     /* Get the data mask. */

@@ -2067,20 +2067,6 @@ static int threadRoutine(void *ctxt)
                    "Starting isr Thread with extension=%p",
                    device);
 
-#if 0
-    if (core != gcvCORE_VG)
-    {
-        gctUINT i;
-
-        /* Make kernel update page table of this thread to include entry related to command buffer.*/
-        for (i = 0; i < gcdCOMMAND_QUEUES; i++)
-        {
-            gctUINT32 data = *(gctUINT32_PTR)device->kernels[core]->command->queues[i].logical;
-
-            data = 0;
-        }
-    }
-#endif
 
     for (;;)
     {
@@ -2308,42 +2294,6 @@ gckGALDEVICE_Construct(
     /* Construct the gckOS object. */
     gcmkONERROR(gckOS_Construct(device, &device->os));
 
-#if 0
-    /* Set up the internal memory region. */
-    if (device->internalSize > 0)
-    {
-        gctPHYS_ADDR_T internalBaseAddress = 0;
-        gctUINT32 internalAlignment = 0;
-
-        status = gckVIDMEM_Construct(
-            device->os,
-            internalBaseAddress,
-            device->internalSize,
-            internalAlignment,
-            0,
-            &device->internalVidMem
-            );
-
-        if (gcmIS_ERROR(status))
-        {
-            /* Error, disable internal heap. */
-            device->internalSize = 0;
-        }
-        else
-        {
-            /* Map internal memory. */
-            gcmkONERROR(gckOS_RequestReservedMemory(
-                    device->os,
-                    device->internalBase, device->internalSize,
-                    "galcore internal memory",
-                    gcvTRUE,
-                    &device->internalPhysical
-                    ));
-
-            device->internalVidMem->physical = device->internalPhysical;
-        }
-    }
-#endif
 
     if (device->externalSize > 0)
     {

@@ -226,11 +226,7 @@ typedef gctUINT16 *             gctUINT16_PTR;
 typedef gctUINT32 *             gctUINT32_PTR;
 typedef gctUINT64 *             gctUINT64_PTR;
 
-#if 1
 typedef size_t                  gctSIZE_T;
-#else
-typedef unsigned long           gctSIZE_T;
-#endif
 typedef gctSIZE_T *             gctSIZE_T_PTR;
 typedef gctUINT32               gctTRACE;
 

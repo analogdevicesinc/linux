@@ -79,9 +79,7 @@ typedef struct _gcsCONTEXT * gcsCONTEXT_PTR;
 typedef struct _gcsCONTEXT
 {
     /* For debugging: the number of context buffer in the order of creation. */
-#if 1
     gctUINT                     num;
-#endif
 
     /* Pointer to gckEVENT object. */
     gckEVENT                    eventObj;

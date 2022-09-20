@@ -519,38 +519,6 @@ _QueryProcessPageTable(
     }
 }
 
-#if 0
-static inline gceSTATUS
-_AllowAccess(
-    IN gckOS Os,
-    IN gceCORE Core,
-    IN gctUINT32 Address
-    )
-{
-    gctUINT32 data;
-
-    /* Check external clock state. */
-    if (Os->clockStates[Core] == gcvFALSE)
-    {
-        return gcvSTATUS_NOT_SUPPORTED;
-    }
-
-    /* Check internal clock state. */
-    if (Address == 0)
-    {
-        return gcvSTATUS_OK;
-    }
-
-    data = readl((gctUINT8 *)Os->device->registerBases[Core] + 0x0);
-
-    if ((data & 0x3) == 0x3)
-    {
-        return gcvSTATUS_NOT_SUPPORTED;
-    }
-
-    return gcvSTATUS_OK;
-}
-#endif
 
 static gceSTATUS
 _ShrinkMemory(
@@ -914,13 +882,6 @@ gckOS_Destroy(
     /* Mark the gckOS object as unknown. */
     Os->object.type = gcvOBJ_UNKNOWN;
 
-#if !defined(gcdREMOVE_FROM_FINAL_RELEASE)
-    if (atomic_read(&Os->allocateCount) != 0)
-    {
-        gcmkPRINT("[galcore]: Memory leak detected, %d allocation not freed",
-                  atomic_read(&Os->allocateCount));
-    }
-#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 #if defined(CONFIG_TRACE_GPU_MEM)
@@ -2412,7 +2373,7 @@ OnError:
     gcmkFOOTER_ARG("*Logical=%p", *Logical);
     return status;
 }
-#endif
+
 /*******************************************************************************
 **
 **  gckOS_UnmapPhysical
@@ -4790,11 +4751,6 @@ gckOS_BroadcastHurry(
     gcmkHEADER_ARG("Os=%p Hardware=%p Urgency=%u", Os, Hardware, Urgency);
 
     /* Do whatever you need to do to speed up the GPU now. */
-#if 0
-    {
-        gcmkPRINT("Hurry! (%u)",Urgency);
-    }
-#endif
 
     /* Success. */
     gcmkFOOTER_NO();
@@ -4835,12 +4791,6 @@ gckOS_BroadcastCalibrateSpeed(
                    Os, Hardware, Idle, Time);
 
     /* Do whatever you need to do to callibrate the GPU speed. */
-#if 0
-    {
-        gctUINT percent = ((Time - Idle) * 100) / Time;
-        gcmkPRINT("Calibrate to %u%% (%u/%u).", percent, Idle, Time);
-    }
-#endif
 
     /* Success. */
     gcmkFOOTER_NO();
