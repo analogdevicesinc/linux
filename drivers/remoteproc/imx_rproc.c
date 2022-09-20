@@ -1038,7 +1038,7 @@ static int imx_rproc_clk_enable(struct imx_rproc *priv)
 	if (dcfg->method == IMX_RPROC_NONE)
 		return 0;
 
-	priv->clk = devm_clk_get(dev, NULL);
+	priv->clk = devm_clk_get_optional(dev, NULL);
 	if (IS_ERR(priv->clk)) {
 		dev_err(dev, "Failed to get clock\n");
 		return PTR_ERR(priv->clk);
