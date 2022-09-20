@@ -80,7 +80,7 @@ fi
 $V && echo "Arguments: $args"
 
 # customized options to get_maintainer.pl
-opts="--n --rolestats"
+opts="--n --rolestats --no-git-fallback"
 
 # filters for emails
 filter="/@/{/@[^@]*(nxp.com|nxp1.onmicrosoft.com)/I!d;}"
@@ -90,7 +90,7 @@ echo "$maillist"
 echo
 
 if $sendemail;then
-   opts="--no-n --no-rolestats"
+   opts="--no-n --no-rolestats --no-git-fallback"
    emails="`perl $pl_script $opts --mpath $mfile $args |sed -r "$filter"`"
    emails="`echo $emails |sed -r 's,^[ \t]*,,;s,[ \t]*$,,;s/[ \t]+/,/g'`"
    $V && echo "Maintainers: $emails"
