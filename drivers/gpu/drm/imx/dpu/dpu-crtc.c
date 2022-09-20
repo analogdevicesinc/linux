@@ -798,7 +798,7 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct completion *shdld_done;
 	struct completion *m_content_shdld_done = NULL;
 	struct completion *s_content_shdld_done = NULL;
-	unsigned long ret;
+	unsigned long ret, flags;
 	int i;
 	bool need_modeset = drm_atomic_crtc_needs_modeset(crtc->state);
 	bool need_wait4fgfcm = false, need_aux_wait4fgfcm = false;
@@ -848,15 +848,20 @@ again1:
 	}
 
 	/*
-	 * Sync with FrameGen frame counter moving so that
-	 * we may disable DPRC repeat_en correctly.
-	 * FIXME: to disable preemption and irq to make sure
-	 *        DPRC repeat_en will be disabled ASAP.
+	 * Sync with FrameGen frame counter moving so that we may disable
+	 * repeat_en of DPRC(s) and fetchunit(s) correctly.
 	 */
-	if (need_wait4fgfcm || need_aux_wait4fgfcm)
+	if (need_wait4fgfcm || need_aux_wait4fgfcm) {
+		/*
+		 * don't relinquish CPU until DPRC repeat_en is disabled and
+		 * ExtDst shadow load is initiated to disable fetchunit(s).
+		 */
+		local_irq_save(flags);
+		preempt_disable();
 		framegen_wait_for_frame_counter_moving(dcstate->use_pc ?
 						       dpu_crtc->m_fg :
 						       dpu_crtc->fg);
+	}
 
 	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
 		struct dpu_fetchunit *fe;
@@ -876,8 +881,13 @@ again2:
 					old_dpstate->use_aux_prefetch :
 					old_dpstate->use_prefetch;
 		fu = source_to_fu(res, source);
-		if (!fu)
+		if (!fu) {
+			if (need_wait4fgfcm || need_aux_wait4fgfcm) {
+				local_irq_restore(flags);
+				preempt_enable();
+			}
 			return;
+		}
 
 		if (!fu->ops->is_enabled(fu)) {
 			fu->ops->set_stream_id(fu, DPU_PLANE_SRC_DISABLED);
@@ -932,6 +942,11 @@ again2:
 			}
 		} else {
 			extdst_pixengcfg_sync_trigger(ed);
+		}
+
+		if (need_wait4fgfcm || need_aux_wait4fgfcm) {
+			local_irq_restore(flags);
+			preempt_enable();
 		}
 
 		if (dcstate->use_pc) {
