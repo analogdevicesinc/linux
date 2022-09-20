@@ -566,6 +566,7 @@ static int ad5752_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct ad5752_state *st;
 	struct device *dev;
+	struct gpio_desc *gpio;
 	int ret;
 
 	dev = &spi->dev;
@@ -596,6 +597,10 @@ static int ad5752_probe(struct spi_device *spi)
 	ret = regmap_write_bits(st->regmap, AD5752_REG_ADDR(AD5752_CTRL, 1), GENMASK(15, 0), 6);
 	if (ret)
 		return ret;
+
+	gpio = devm_gpiod_get_optional(&spi->dev, "clr", GPIOD_OUT_HIGH);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
 
 	vref_reg = devm_regulator_get_optional(st->dev, "vref");
 	if (IS_ERR(vref_reg)) {
