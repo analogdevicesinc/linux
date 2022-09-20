@@ -15,7 +15,6 @@
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_fbdev_dma.h>
 #include <drm/drm_gem_dma_helper.h>
-#include <drm/drm_irq.h>
 #include <drm/drm_modeset_helper.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
@@ -32,7 +31,6 @@ DEFINE_DRM_GEM_DMA_FOPS(dcnano_driver_fops);
 
 static struct drm_driver dcnano_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
-	.irq_handler		= dcnano_irq_handler,
 	DRM_GEM_DMA_DRIVER_OPS,
 	.fops			= &dcnano_driver_fops,
 	.name			= "imx-dcnano",
@@ -81,6 +79,21 @@ err:
 	return ret;
 }
 
+static int dcnano_irq_install(struct drm_device *dev, int irq)
+{
+	if (irq == IRQ_NOTCONNECTED)
+		return -ENOTCONN;
+
+	return request_irq(irq, dcnano_irq_handler, 0, dev->driver->name, dev);
+}
+
+static void dcnano_irq_uninstall(struct drm_device *dev)
+{
+	struct dcnano_dev *dcnano = to_dcnano_dev(dev);
+
+	free_irq(dcnano->irq, dev);
+}
+
 static int dcnano_check_chip_info(struct dcnano_dev *dcnano)
 {
 	struct drm_device *drm = &dcnano->base;
@@ -122,7 +135,7 @@ static int dcnano_probe(struct platform_device *pdev)
 {
 	struct dcnano_dev *dcnano;
 	struct drm_device *drm;
-	int irq, ret;
+	int ret;
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
@@ -139,9 +152,10 @@ static int dcnano_probe(struct platform_device *pdev)
 	if (IS_ERR(dcnano->mmio_base))
 		return PTR_ERR(dcnano->mmio_base);
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
+	ret = platform_get_irq(pdev, 0);
+	if (ret < 0)
+		return ret;
+	dcnano->irq = ret;
 
 	dcnano->axi_clk = devm_clk_get(drm->dev, "axi");
 	if (IS_ERR(dcnano->axi_clk)) {
@@ -193,7 +207,7 @@ static int dcnano_probe(struct platform_device *pdev)
 		goto err_dcnano_reset;
 
 	pm_runtime_get_sync(drm->dev);
-	ret = drm_irq_install(drm, irq);
+	ret = dcnano_irq_install(drm, dcnano->irq);
 	pm_runtime_put_sync(drm->dev);
 
 	if (ret < 0) {
@@ -232,7 +246,7 @@ err_register:
 err_kms_prepare:
 err_check_chip_info:
 	pm_runtime_get_sync(drm->dev);
-	drm_irq_uninstall(drm);
+	dcnano_irq_uninstall(drm);
 	pm_runtime_put_sync(drm->dev);
 err_irq_install:
 err_dcnano_reset:
@@ -253,7 +267,7 @@ static void dcnano_remove(struct platform_device *pdev)
 	drm_atomic_helper_shutdown(drm);
 
 	pm_runtime_get_sync(drm->dev);
-	drm_irq_uninstall(drm);
+	dcnano_irq_uninstall(drm);
 	pm_runtime_put_sync(drm->dev);
 
 	pm_runtime_disable(drm->dev);

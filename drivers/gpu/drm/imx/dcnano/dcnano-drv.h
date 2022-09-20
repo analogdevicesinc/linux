@@ -28,6 +28,8 @@ struct dcnano_dev {
 	struct drm_device base;
 	void __iomem *mmio_base;
 
+	unsigned int irq;
+
 	struct clk *axi_clk;
 	struct clk *ahb_clk;
 	struct clk *pixel_clk;
