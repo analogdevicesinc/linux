@@ -492,6 +492,17 @@ static int s10_probe(struct platform_device *pdev)
 		goto probe_err;
 	}
 
+	ret = wait_for_completion_timeout(
+		&priv->status_return_completion, S10_RECONFIG_TIMEOUT);
+	if (!ret) {
+		dev_err(dev, "timeout waiting for firmware version\n");
+		stratix10_svc_done(priv->chan);
+		ret = -ETIMEDOUT;
+		goto probe_err;
+	}
+
+	ret = 0;
+
 	stratix10_svc_done(priv->chan);
 	platform_set_drvdata(pdev, mgr);
 	return 0;
