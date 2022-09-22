@@ -90,6 +90,7 @@ config IIO_ALL_ADI_DRIVERS
 	select AD5592R_BASE
 	select AD5592R
 	select AD5593R
+	select AD5754
 	select AD5755
 	select AD5758
 	select AD5761
