@@ -14,6 +14,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/interrupt.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -409,25 +410,18 @@ static int adrv9002_chan_to_state_poll(struct adrv9002_rf_phy *phy,
 				       const adi_adrv9001_ChannelState_e state,
 				       const int n_tries)
 {
-	int ret;
+	int ret, tmp;
 	adi_adrv9001_ChannelState_e __state;
-	int try = 0;
 
-	do {
-		ret = adi_adrv9001_Radio_Channel_State_Get(phy->adrv9001, c->port, c->number,
-							   &__state);
-		if (ret)
-			return adrv9002_dev_err(phy);
+	tmp = read_poll_timeout(adi_adrv9001_Radio_Channel_State_Get, ret,
+				ret || (__state == state), 1000, n_tries * 1000, false,
+				phy->adrv9001, c->port, c->number, &__state);
 
-		if (__state == state)
-			break;
-		usleep_range(1000, 1005);
-	} while (++try < n_tries);
-
-	if (try == n_tries)
+	/* so that we keep the same behavior as before introducing read_poll_timeout() */
+	if (tmp == -ETIMEDOUT)
 		return -EBUSY;
 
-	return 0;
+	return ret ? adrv9002_dev_err(phy) : 0;
 }
 
 static bool adrv9002_orx_enabled(const struct adrv9002_rf_phy *phy, const struct adrv9002_chan *c)
