@@ -52,7 +52,7 @@ else:
    if "API_TOKEN" in os.environ:
       API_TOKEN = os.environ['API_TOKEN']
    else:
-      print('\nParameter "--token" is not set. This is Artifactory Authentication Token and can be set even using parameter "--token" on upload command, even by exporting API_TOKEN variable in terminal, before calling upload script.')
+      print('\nError:Parameter "--token" is not set. This is Artifactory Authentication Token and can be set even using parameter "--token" on upload command, even by exporting API_TOKEN variable in terminal, before calling upload script.')
       quit()
 
 if args.base_path:
@@ -61,7 +61,7 @@ else:
    if "UPLOAD_BASE_PATH" in os.environ:
       UPLOAD_BASE_PATH = os.environ['UPLOAD_BASE_PATH']
    else:
-      print('\nParameter "--base_path" is not set. This is ADI Internal Artifactory Server plus first level of folders. It can be set even using parameter "--base_path" on upload command, even by exporting UPLOAD_BASE_PATH variable in terminal, before calling upload script.')
+      print('\nError:Parameter "--base_path" is not set. This is ADI Internal Artifactory Server plus first level of folders. It can be set even using parameter "--base_path" on upload command, even by exporting UPLOAD_BASE_PATH variable in terminal, before calling upload script.')
       quit()
 
 
@@ -71,24 +71,27 @@ if args.server_path:
    SERVER_PATH = SERVER_PATH[1:] if SERVER_PATH.startswith('/') else SERVER_PATH
    SERVER_FOLDER = SERVER_PATH.split("/", 1)[0]
    if SERVER_FOLDER not in SERVER_FOLDERS_LIST:
-     print('\nParameter "--server_path" must contain an already existing folder, for example "hdl", "linux", "SD_card_image" etc.' +
+     print('\nError:Parameter "--server_path" must contain an already existing folder, for example "hdl", "linux", "SD_card_image" etc.' +
      'If you want to add new folders, please edit "upload_to_artifactory.py" or contact script owner.')
      quit()
 else:
-   print('\nParameter "--server_path" is required. It should be set to server location where the files/folder will be uploaded. Check help section.')
+   print('\nError:Parameter "--server_path" is required. It should be set to server location where the files/folder will be uploaded. Check help section.')
    quit()
 
 if args.local_path:
    LOCAL_PATH = os.path.abspath(args.local_path) if '../' in args.local_path else args.local_path
    # if there was given a dir as local_path parameter, get all the files inside it in a list
    if os.path.isdir(LOCAL_PATH):
+      print('IS DIR')
       for dpath, dnames, fnames in os.walk(LOCAL_PATH):
          for i, FILE_NAME in enumerate([os.path.join(dpath, fname) for fname in fnames]):
+            print(FILE_NAME)
             LOCAL_PATHS_LIST.append(str(FILE_NAME))
    elif os.path.isfile(LOCAL_PATH):
       LOCAL_PATHS_LIST = [LOCAL_PATH]
+      print('IS FILE' + LOCAL_PATHS_LIST)
    else:
-      print('\nIt looks that parameter "--LOCAL_PATH" is wrong defined/does not exists. Plese check: ' + local_path)
+      print('\nError:It looks that parameter "--local_path" is wrong defined/does not exists. Plese check: ' + LOCAL_PATH)
       quit()
 else:
    print('\nParameter "--local_path" is required. It should point to local file/folder to upload.')
@@ -118,7 +121,7 @@ for FILE in LOCAL_PATHS_LIST:
         ART_PATH = UPLOAD_BASE_PATH + "/" + SERVER_PATH + "/" + FILE_NAME
    else:
         ART_PATH = UPLOAD_BASE_PATH + "/" + SERVER_PATH + "/" + FILE
-   upload_cmd = "curl -H \"X-JFrog-Art-Api:" + API_TOKEN + "\" -X PUT \"" + ART_PATH + ";" + PROPS + "\" -T \"" + FILE + "\""
+   upload_cmd = "curl -v -s -H \"X-JFrog-Art-Api:" + API_TOKEN + "\" -X PUT \"" + ART_PATH + ";" + PROPS + "\" -T \"" + FILE + "\""
    os.system(upload_cmd)
 
 ########## Upload properties on folders #########
