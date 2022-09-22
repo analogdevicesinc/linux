@@ -3613,7 +3613,7 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 	if (ret)
 		goto of_en_delay_put;
 
-	if (chan->port == ADI_RX) {
+	if (chan->port == ADI_TX) {
 		ret = OF_ADRV9002_EN_DELAY("adi,fall-to-off-delay-ns", 0, max_delay_ns,
 					   delays->fallToOffDelay);
 		if (ret)
