@@ -6,7 +6,9 @@ timestamp=$(date +%Y_%m_%d-%H_%M)
 #prepare the structure of the folder containing artifacts
 artifacts_structure() {
 	cd ${SOURCE_DIRECTORY}
+	pwd
 	mkdir ${timestamp}
+	ls -al
 
 	GIT_SHA=$(git rev-parse --short HEAD)
 	GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
@@ -31,7 +33,8 @@ artifacts_structure() {
 
 #upload artifacts to Artifactory
 artifacts_artifactory() {
-	cd bin
+	cd ${SOURCE_DIRECTORY}
+	ls -al
 	python ../ci/travis/upload_to_artifactory.py --base_path="${ARTIFACTORY_PATH}" \
 		--server_path="linux_rpi/${BUILD_SOURCEBRANCHNAME}" --local_path="${timestamp}" --token="${ARTIFACTORY_TOKEN}"
 }

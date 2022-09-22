@@ -99,7 +99,7 @@ stages:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
   - job: Push_to_Artifactory
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
+    #condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
     pool:
       name: Default
       demands:
