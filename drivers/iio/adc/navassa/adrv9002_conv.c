@@ -240,15 +240,13 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 	axi_config = axiadc_read(st, ADI_REG_CONFIG);
 	if (!IS_CMOS(axi_config))
 		/*
-		 * FIXME: Update the current ssi type to LVDS (it will load the LVDS default
-		 * profile). This was set during adrv9002 probe() as we might need some profile
-		 * clock information when parsing the DT. This is ok since both default profiles
-		 * have the same clock settings but, obviously, this ping pong on the profile
-		 * is not nice. Furthermore this whole mechanism of doing the device setup() in this
+		 * This whole mechanism of doing the device setup() in this
 		 * post_setup() hook is ugly. We need to find a mechanism to find out the AXI
 		 * interface type when probing the transceiver...
 		 */
 		phy->ssi_type = ADI_ADRV9001_SSI_TYPE_LVDS;
+	else
+		phy->ssi_type = ADI_ADRV9001_SSI_TYPE_CMOS;
 
 	/*
 	 * Get tx core config to check if we support tx only profiles. 1 means that it's not
