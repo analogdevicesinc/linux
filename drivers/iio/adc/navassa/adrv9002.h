@@ -206,7 +206,6 @@ struct adrv9002_rf_phy {
 	struct adrv9002_clock		clk_priv[NUM_ADRV9002_CLKS];
 	struct clk_onecell_data		clk_data;
 	char				*bin_attr_buf;
-	size_t				bin_attr_sz;
 	u8				*stream_buf;
 	u16				stream_size;
 	struct adrv9002_fh_bin_table	fh_table_bin_attr[ADRV9002_FH_BIN_ATTRS_CNT];
