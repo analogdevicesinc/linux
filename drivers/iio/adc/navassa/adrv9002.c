@@ -2799,6 +2799,7 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 			return adrv9002_dev_err(phy);
 
 		adrv9002_en_delays_ns_to_arm(phy, &c->en_delays_ns, &en_delays);
+
 		ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, c->port,
 									   c->number, &en_delays);
 		if (ret)
@@ -3576,9 +3577,15 @@ of_put:
 	return ret;
 }
 
-/* as stated in adi_adrv9001_radio_types.h */
-#define EN_DELAY_MAX		(BIT(24) - 1ULL)
-
+/*
+ * We need to know the arm clock to validate some delays which means we
+ * would need to have a profile loaded at this point where we still don't know
+ * which one we should load. Hence we just validate the paremeters we can
+ * at this point (so we can fail early) and "blindly" read the others. This is
+ * not a problem since __all__ the parameters will be validated again when calling
+ * adi_adrv9001_Radio_ChannelEnablementDelays_Configure() (assuming parameter
+ * validations are enabled);
+ */
 static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 				    const struct device_node *node,
 				    struct adrv9002_chan *chan)
@@ -3586,8 +3593,6 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 	int ret;
 	struct device_node *en_delay;
 	struct adi_adrv9001_ChannelEnablementDelays *delays = &chan->en_delays_ns;
-	u32 arm_clk = adrv9002_get_arm_clk(phy);
-	u32 max_delay_ns = DIV_ROUND_CLOSEST_ULL(EN_DELAY_MAX * 1000000000, arm_clk);
 
 	en_delay = of_parse_phandle(node, "adi,en-delays", 0);
 	if (!en_delay)
@@ -3597,10 +3602,7 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 	ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, en_delay, key, 0, min, \
 				     max, val, false)
 
-	ret = OF_ADRV9002_EN_DELAY("adi,rise-to-on-delay-ns", 0, max_delay_ns,
-				   delays->riseToOnDelay);
-	if (ret)
-		goto of_en_delay_put;
+	of_property_read_u32(en_delay, "adi,rise-to-on-delay-ns", &delays->riseToOnDelay);
 
 	ret = OF_ADRV9002_EN_DELAY("adi,rise-to-analog-on-delay-ns", 0, delays->riseToOnDelay,
 				   delays->riseToAnalogOnDelay);
@@ -3608,19 +3610,14 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 		goto of_en_delay_put;
 
 	if (chan->port == ADI_TX) {
-		ret = OF_ADRV9002_EN_DELAY("adi,fall-to-off-delay-ns", 0, max_delay_ns,
-					   delays->fallToOffDelay);
-		if (ret)
-			goto of_en_delay_put;
+		of_property_read_u32(en_delay, "adi,fall-to-off-delay-ns", &delays->fallToOffDelay);
 
 		ret = OF_ADRV9002_EN_DELAY("adi,hold-delay-ns", 0, delays->fallToOffDelay,
 					   delays->holdDelay);
 		if (ret)
 			goto of_en_delay_put;
 	} else {
-		ret = OF_ADRV9002_EN_DELAY("adi,hold-delay-ns", 0, max_delay_ns, delays->holdDelay);
-		if (ret)
-			goto of_en_delay_put;
+		of_property_read_u32(en_delay, "adi,hold-delay-ns", &delays->holdDelay);
 
 		ret = OF_ADRV9002_EN_DELAY("adi,fall-to-off-delay-ns", 0, delays->holdDelay,
 					   delays->fallToOffDelay);
@@ -3628,9 +3625,7 @@ static int adrv9002_parse_en_delays(const struct adrv9002_rf_phy *phy,
 			goto of_en_delay_put;
 	}
 
-	ret = OF_ADRV9002_EN_DELAY("adi,guard-delay-ns", 0, max_delay_ns, delays->guardDelay);
-	if (ret)
-		goto of_en_delay_put;
+	of_property_read_u32(en_delay, "adi,guard-delay-ns", &delays->guardDelay);
 
 of_en_delay_put:
 	of_node_put(en_delay);
@@ -4470,11 +4465,17 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 	return ret ? ret : count;
 }
 
-static int adrv9002_profile_load(struct adrv9002_rf_phy *phy, const char *profile)
+static int adrv9002_profile_load(struct adrv9002_rf_phy *phy)
 {
 	int ret;
 	const struct firmware *fw;
+	const char *profile;
 	void *buf;
+
+	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
+		profile = phy->chip->cmos_profile;
+	else
+		profile = phy->chip->lvd_profile;
 
 	ret = request_firmware(&fw, profile, &phy->spi->dev);
 	if (ret)
@@ -4594,11 +4595,9 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		}
 	}
 
-	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS) {
-		ret = adrv9002_profile_load(phy, phy->chip->lvd_profile);
-		if (ret)
-			return ret;
-	}
+	ret = adrv9002_profile_load(phy);
+	if (ret)
+		return ret;
 
 	ret = adrv9002_init(phy, &phy->profile);
 	if (ret)
@@ -4746,14 +4745,6 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->adrv9001 = &phy->adrv9001_device;
 	phy->hal.spi = spi;
 	phy->adrv9001->common.devHalInfo = &phy->hal;
-
-	ret = adrv9002_profile_load(phy, phy->chip->cmos_profile);
-	if (ret)
-		return ret;
-
-	/* set current profile now as it's needed in @adrv9002_parse_dt() */
-	phy->curr_profile = &phy->profile;
-	phy->ssi_type = ADI_ADRV9001_SSI_TYPE_CMOS;
 
 	/* initialize channel numbers and ports here since these will never change */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
