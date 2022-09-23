@@ -539,6 +539,8 @@
 		adi,clock-output-divider = <4>;
 		adi,syncoutb-signal-type-lvds-enable;
 
+		adi,modulatior-switch-config = <0>; /* AD9172_MODULATOR_SWITCH_CONF_0 */
+
 		adi,standalone-probe; /* NO JESD204, NO TPL, just NCO TEST TONE */
 
 		/* jesd204-fsm support */

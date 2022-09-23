@@ -40,6 +40,8 @@
 #define AD9172_ATTR_MAIN_PHASE(x) (7 << 8 | (x))
 #define AD9172_ATTR_MAIN_NCO_EN(x) (8 << 8 | (x))
 
+#define AD9172_ATTR_MOD_SWITCH(x) (9 << 8 | (x))
+
 enum chip_id {
 	CHIPID_AD9171 = 0x71,
 	CHIPID_AD9172 = 0x72,
@@ -93,6 +95,10 @@ static const char * const clk_names[] = {
 	[CLK_DATA] = "jesd_dac_clk",	/* Not required with jesd204-fsm */
 	[CLK_DAC] = "dac_clk",		/* Always needed */
 	[CLK_REF] = "dac_sysref"	/* Not required with jesd204-fsm */
+};
+
+static const u8 mod_switch_config_lut[] = {
+	0x0, 0x1, 0x2, 0x3, 0x31, 0x33, /* Mode 0, 1, 2, 3, 3a, 3b */
 };
 
 static int ad9172_read(struct spi_device *spi, u32 reg)
@@ -176,14 +182,27 @@ static int ad9172_setup_modulator_config(struct ad9172_state *st)
 
 		ddsm_datapath_cfg &= ~AD917X_DDSM_MODE(~0) | AD917X_DDSM_EN_COMPLEX_MOD;
 
-		if (st->mod_switch_config)
-			ddsm_datapath_cfg &= ~AD917X_DDSM_NCO_EN;
 
-		if ((st->mod_switch_config & 0xF) == 3) {
-			if ((mask == AD917X_DAC1) && (st->mod_switch_config & BIT(5)))
-				ad917x_register_write(&st->dac_h, 0xFF, BIT(1));
-			else
+		switch (st->mod_switch_config) {
+		case 0:
+		case 3:
+		case 0x13:
+			ddsm_datapath_cfg |= AD917X_DDSM_NCO_EN;
+			ad917x_register_write(&st->dac_h, 0xFF, 0);
+			break;
+		case 1:
+		case 2:
+			ddsm_datapath_cfg &= ~AD917X_DDSM_NCO_EN;
+			ad917x_register_write(&st->dac_h, 0xFF, 0);
+			break;
+		case 0x33:
+			if (mask == AD917X_DAC0)
 				ddsm_datapath_cfg |= AD917X_DDSM_NCO_EN;
+			else
+				ddsm_datapath_cfg &= ~AD917X_DDSM_NCO_EN;
+
+			ad917x_register_write(&st->dac_h, 0xFF, BIT(1));
+			break;
 		}
 
 		ddsm_datapath_cfg |= AD917X_DDSM_MODE(st->mod_switch_config & 0xF) |
@@ -632,7 +651,14 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		ret = ad917x_nco_enable(ad917x_h, st->nco_main_enable,
 					st->nco_channel_enable);
 		break;
-
+	case AD9172_ATTR_MOD_SWITCH(0):
+		if (readin > ARRAY_SIZE(mod_switch_config_lut)) {
+			ret = -EINVAL;
+			break;
+		}
+		st->mod_switch_config = mod_switch_config_lut[readin];
+		ret = ad9172_setup_modulator_config(st);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -652,7 +678,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	u32 dest = (u32)this_attr->address & 0xFF;
-	int ret = 0;
+	int ret = 0, i;
 	s64 val64 = 0;
 	s16 val16_2, val16 = 0;
 	u8 ddsm_datapath_cfg;
@@ -687,6 +713,13 @@ static ssize_t ad9172_attr_show(struct device *dev,
 		ret = ad917x_register_read(ad917x_h,
 			AD917X_DDSM_DATAPATH_CFG_REG, &ddsm_datapath_cfg);
 		val64 = !!(ddsm_datapath_cfg & AD917X_DDSM_NCO_EN);
+		break;
+	case AD9172_ATTR_MOD_SWITCH(0):
+		for (i = 0; i < ARRAY_SIZE(mod_switch_config_lut); i++)
+			if (st->mod_switch_config == mod_switch_config_lut[i]) {
+				val64 = i;
+				break;
+			}
 		break;
 	default:
 		ret = -EINVAL;
@@ -1251,6 +1284,11 @@ static IIO_DEVICE_ATTR(out_altvoltage1_main_nco_phase, 0644,
 		       ad9172_attr_store,
 		       AD9172_ATTR_MAIN_PHASE(1));
 
+static IIO_DEVICE_ATTR(out_altvoltage_modulation_switch, 0644,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MOD_SWITCH(0));
+
 static struct attribute *ad9172_attributes_standalone[] = {
 	&iio_dev_attr_out_altvoltage0_channel_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage1_channel_nco_frequency.dev_attr.attr,
@@ -1264,6 +1302,7 @@ static struct attribute *ad9172_attributes_standalone[] = {
 	&iio_dev_attr_out_altvoltage1_channel_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage0_main_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage1_main_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_altvoltage_modulation_switch.dev_attr.attr,
 	NULL,
 };
 
