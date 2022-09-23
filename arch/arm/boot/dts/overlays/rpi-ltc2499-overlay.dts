@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	vref: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vref";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ltc2499: ltc2499@76 {
+		compatible = "lltc,ltc2499";
+		reg = <0x76>;
+
+		vref-supply = <&vref>;
+		clock-frequency = <400000>;
+	};
+};
