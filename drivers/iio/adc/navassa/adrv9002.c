@@ -93,6 +93,7 @@
 })
 
 #define ADRV9002_STREAM_BINARY_SZ	ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES
+#define ADRV9002_PROFILE_MAX_SZ		73728
 #define ADRV9002_HP_CLK_PLL_DAHZ	884736000
 
 /* Frequency hopping */
@@ -4285,11 +4286,11 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
-	if (off + count > phy->bin_attr_sz)
+	if (off + count > bin_attr->size)
 		return -EFBIG;
 
 	if (off == 0)
-		memset(phy->bin_attr_buf, 0, phy->bin_attr_sz);
+		memset(phy->bin_attr_buf, 0, bin_attr->size);
 
 	memcpy(phy->bin_attr_buf + off, buf, count);
 
@@ -4530,7 +4531,8 @@ ADRV9002_HOP_TABLE_BIN_ATTR(1, b, ADI_ADRV9001_FH_HOP_SIGNAL_1, ADI_ADRV9001_FHH
 ADRV9002_HOP_TABLE_BIN_ATTR(2, a, ADI_ADRV9001_FH_HOP_SIGNAL_2, ADI_ADRV9001_FHHOPTABLE_A);
 ADRV9002_HOP_TABLE_BIN_ATTR(2, b, ADI_ADRV9001_FH_HOP_SIGNAL_2, ADI_ADRV9001_FHHOPTABLE_B);
 static BIN_ATTR(stream_config, 0222, NULL, adrv9002_stream_bin_write, ADRV9002_STREAM_BINARY_SZ);
-static BIN_ATTR(profile_config, 0644, adrv9002_profile_bin_read, adrv9002_profile_bin_write, 0);
+static BIN_ATTR(profile_config, 0644, adrv9002_profile_bin_read, adrv9002_profile_bin_write,
+		ADRV9002_PROFILE_MAX_SZ);
 
 int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 {
@@ -4636,8 +4638,7 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
-	phy->bin_attr_sz = 73728;
-	phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev, phy->bin_attr_sz, GFP_KERNEL);
+	phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev, ADRV9002_PROFILE_MAX_SZ, GFP_KERNEL);
 	if (!phy->bin_attr_buf)
 		return -ENOMEM;
 
