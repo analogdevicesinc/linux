@@ -799,11 +799,24 @@ static int adrv9002_enablement_delays_show(struct seq_file *s, void *ignored)
 		return -ENODEV;
 	}
 
+	ret = adrv9002_channel_to_state(phy, chan, ADI_ADRV9001_CHANNEL_PRIMED, true);
+	if (ret) {
+		mutex_unlock(&phy->lock);
+		return ret;
+	}
+
+	/* Should guarantee the we are the correct state to get the delays!! */
 	ret = adi_adrv9001_Radio_ChannelEnablementDelays_Inspect(phy->adrv9001, chan->port,
 								 chan->number, &en_delays);
+	if (ret) {
+		mutex_unlock(&phy->lock);
+		return adrv9002_dev_err(phy);
+	}
+
+	ret = adrv9002_channel_to_state(phy, chan, chan->cached_state, true);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	adrv9002_en_delays_arm_to_ns(phy, &en_delays, &en_delays_ns);
 
