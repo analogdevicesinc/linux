@@ -306,7 +306,7 @@ static int __admv8818_read_hpf_freq(struct admv8818_dev *dev, unsigned int *hpf_
 		return ret;
 
 	hpf_band = FIELD_GET(ADMV8818_SW_IN_WR0_MSK, data);
-	if (!hpf_band) {
+	if (!hpf_band || hpf_band > 4) {
 		*hpf_freq = 0;
 		return ret;
 	}
@@ -344,7 +344,7 @@ static int __admv8818_read_lpf_freq(struct admv8818_dev *dev, unsigned int *lpf_
 		return ret;
 
 	lpf_band = FIELD_GET(ADMV8818_SW_OUT_WR0_MSK, data);
-	if (!lpf_band) {
+	if (!lpf_band || lpf_band > 4) {
 		*lpf_freq = 0;
 		return ret;
 	}
