@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-engine.h>
 #include <linux/timer.h>
 
 #define SPI_ENGINE_VERSION_MAJOR(x)	((x >> 16) & 0xff)
@@ -69,6 +70,8 @@
 
 #define SPI_ENGINE_TRANSFER_WRITE		0x1
 #define SPI_ENGINE_TRANSFER_READ		0x2
+
+#define SPI_ENGINE_ONE_SHOT_CMD			BIT(15)
 
 #define SPI_ENGINE_CMD(inst, arg1, arg2) \
 	(((inst) << 12) | ((arg1) << 8) | (arg2))
@@ -332,6 +335,7 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_master *master = spi->master;
 	struct spi_engine *spi_engine = spi_master_get_devdata(master);
 	struct spi_engine_program p_dry;
+	struct spi_engine_msg *eng_msg;
 	struct spi_engine_program *p;
 	struct spi_transfer *xfer;
 	void __iomem *cmd_addr;
@@ -340,6 +344,7 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	unsigned int i, j;
 	size_t size;
 
+	eng_msg = container_of(msg, struct spi_engine_msg, msg);
 	msg->spi = spi;
 
 	p_dry.length = 0;
@@ -368,8 +373,13 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 			writel(buf[i], sdo_addr);
 	}
 
-	for (i = 0; i < p->length; i++)
+	for (i = 0; i < p->length; i++) {
+		if(eng_msg->one_shot && (i < p->length-2)) {
+			p->instructions[i] |= SPI_ENGINE_ONE_SHOT_CMD;
+		}
 		writel(p->instructions[i], cmd_addr);
+		dev_info(&spi->dev,"instructions[%d] = 0x%x",i,p->instructions[i]);
+	}
 
 	kfree(p);
 
