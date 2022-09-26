@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9009 (via jesd204-fsm)
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ *
+ * hdl_project: <adrv9009/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+
+#include "zynq-zc706-adv7511-adrv9009-jesd204-fsm.dts"
+
+&fmc_spi {
+	trx0_adrv9009: adrv9009-phy@1 {
+		/* JESD204 */
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-m = <4>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x05>;
+	};
+};
