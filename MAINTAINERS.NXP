@@ -410,6 +410,12 @@ F: drivers/gpu/drm/imx/imx8mp-hdmi-pavi.c
 F: drivers/gpu/drm/imx/imx8mp-hdmi-pavi.h
 F: include/drm/bridge/dw_hdmi.h
 
+display/dw-mipi-dsi
+M: Ying Liu <victor.liu@nxp.com>
+F: drivers/gpu/drm/bridge/synopsys/dw-mipi-dsi.c
+F: drivers/gpu/drm/imx/dw_mipi_dsi-imx.c
+F: include/drm/bridge/dw_mipi_dsi.h
+
 display/fbdev
 M: Ying Liu <victor.liu@nxp.com>
 M: Sandor Yu <Sandor.yu@nxp.com>
