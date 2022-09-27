@@ -183,6 +183,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ONE_BIT_ADC_DAC
 	imply ADUX1020
 	imply IIO_GEN_MUX
+	imply AD74115
 	imply AD74413R
 	imply ADI_IIO_FAKEDEV
 	imply LTC2688
