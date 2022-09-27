@@ -238,7 +238,7 @@ build_checkpatch() {
 	fi
 
 	# install checkpatch dependencies
-	sudo pip install ply
+	sudo pip install ply GitPython
 
 	__update_git_ref "${ref_branch}" "${ref_branch}"
 
