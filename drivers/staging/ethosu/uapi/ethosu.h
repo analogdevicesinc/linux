@@ -44,7 +44,8 @@ namespace EthosU {
 
 #define ETHOSU_IOCTL_PING               ETHOSU_IO(0x00)
 #define ETHOSU_IOCTL_VERSION_REQ        ETHOSU_IO(0x01)
-#define ETHOSU_IOCTL_CAPABILITIES_REQ   ETHOSU_IO(0x02)
+#define ETHOSU_IOCTL_CAPABILITIES_REQ   ETHOSU_IOR(0x02, \
+						   struct ethosu_uapi_device_capabilities)
 #define ETHOSU_IOCTL_BUFFER_CREATE      ETHOSU_IOR(0x10, \
 						   struct ethosu_uapi_buffer_create)
 #define ETHOSU_IOCTL_BUFFER_SET         ETHOSU_IOR(0x11, \
@@ -162,7 +163,7 @@ struct ethosu_uapi_device_hw_cfg {
 };
 
 /**
- * struct ethosu_uapi_capabilities - Device capabilities
+ * struct ethosu_uapi_device_capabilities - Device capabilities
  * @hw_id:                     Hardware identification
  * @hw_cfg:                    Hardware configuration
  * @driver_patch_rev:          Driver version patch
