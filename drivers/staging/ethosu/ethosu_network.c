@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020,2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -67,7 +67,7 @@ static void ethosu_network_destroy(struct kref *kref)
 	struct ethosu_network *net =
 		container_of(kref, struct ethosu_network, kref);
 
-	dev_info(net->edev->dev, "Network destroy. handle=0x%pK\n", net);
+	dev_dbg(net->edev->dev, "Network destroy. net=0x%pK\n", net);
 
 	ethosu_buffer_put(net->buf);
 	devm_kfree(net->edev->dev, net);
@@ -78,7 +78,8 @@ static int ethosu_network_release(struct inode *inode,
 {
 	struct ethosu_network *net = file->private_data;
 
-	dev_info(net->edev->dev, "Network release. handle=0x%pK\n", net);
+	dev_dbg(net->edev->dev, "Network release. file=0x%pK, net=0x%pK\n",
+		file, net);
 
 	ethosu_network_put(net);
 
@@ -97,7 +98,9 @@ static long ethosu_network_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(net->edev->dev, "Ioctl: cmd=%u, arg=%lu\n", cmd, arg);
+	dev_dbg(net->edev->dev,
+		"Network ioctl: file=0x%pK, net=0x%pK, cmd=0x%x, arg=0x%lx\n",
+		file, net, cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_INFERENCE_CREATE: {
@@ -106,9 +109,9 @@ static long ethosu_network_ioctl(struct file *file,
 		if (copy_from_user(&uapi, udata, sizeof(uapi)))
 			break;
 
-		dev_info(net->edev->dev,
-			 "Ioctl: Inference. ifm_fd=%u, ofm_fd=%u\n",
-			 uapi.ifm_fd[0], uapi.ofm_fd[0]);
+		dev_dbg(net->edev->dev,
+			"Network ioctl: Inference. ifm_fd=%u, ofm_fd=%u\n",
+			uapi.ifm_fd[0], uapi.ofm_fd[0]);
 
 		ret = ethosu_inference_create(net->edev, net, &uapi);
 		break;
@@ -154,8 +157,9 @@ int ethosu_network_create(struct ethosu_device *edev,
 	net->file = fget(ret);
 	fput(net->file);
 
-	dev_info(edev->dev, "Network create. handle=0x%pK",
-		 net);
+	dev_dbg(edev->dev,
+		"Network create. file=0x%pK, fd=%d, net=0x%pK, buf=0x%pK",
+		net->file, ret, net, net->buf);
 
 	return ret;
 

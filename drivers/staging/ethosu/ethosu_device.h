@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -32,8 +32,6 @@
 #include <linux/cdev.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
-#include <linux/workqueue.h>
-#include <linux/completion.h>
 
 /****************************************************************************
  * Types
@@ -49,20 +47,7 @@ struct ethosu_device {
 	dev_t                 devt;
 	struct mutex          mutex;
 	struct ethosu_rpmsg   erp;
-	struct list_head      capabilities_list;
-	struct list_head      inference_list;
 	bool                  open;
-};
-
-/**
- * struct ethosu_capabilities - Capabilities internal struct
- */
-struct ethosu_capabilities {
-	struct ethosu_device                   *edev;
-	struct completion                      done;
-	struct kref                            refcount;
-	struct ethosu_uapi_device_capabilities *capabilities;
-	struct list_head                       list;
 };
 
 /****************************************************************************

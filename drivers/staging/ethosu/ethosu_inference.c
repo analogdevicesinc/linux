@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020,2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -71,6 +71,18 @@ static const char *status_to_string(const enum ethosu_uapi_status status)
 	case ETHOSU_UAPI_STATUS_ERROR: {
 		return "Error";
 	}
+	case ETHOSU_UAPI_STATUS_RUNNING: {
+		return "Running";
+	}
+	case ETHOSU_UAPI_STATUS_REJECTED: {
+		return "Rejected";
+	}
+	case ETHOSU_UAPI_STATUS_ABORTED: {
+		return "Aborted";
+	}
+	case ETHOSU_UAPI_STATUS_ABORTING: {
+		return "Aborting";
+	}
 	default: {
 		return "Unknown";
 	}
@@ -81,40 +93,82 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 {
 	int ret;
 
-	if (inf->pending)
-		return -EINVAL;
-
 	inf->status = ETHOSU_UAPI_STATUS_ERROR;
 
-	ret = ethosu_rpmsg_inference(&inf->edev->erp, inf,
-				       inf->ifm_count, inf->ifm,
-				       inf->ofm_count, inf->ofm,
-				       inf->net->buf,
-				       inf->pmu_event_config,
-				       ETHOSU_PMU_EVENT_MAX,
-				       inf->pmu_cycle_counter_enable,
-				       inf->inference_type);
-	if (ret)
-		return ret;
+	ret = ethosu_rpmsg_inference(&inf->edev->erp, &inf->msg,
+				     inf->ifm_count, inf->ifm,
+				     inf->ofm_count, inf->ofm,
+				     inf->net->buf,
+				     inf->pmu_event_config,
+				     ETHOSU_PMU_EVENT_MAX,
+				     inf->pmu_cycle_counter_enable,
+				     inf->inference_type);
+	if (ret) {
+		dev_warn(inf->edev->dev,
+			 "Failed to send inference request. inf=0x%pK, ret=%d",
+			 inf, ret);
 
-	inf->pending = true;
+		return ret;
+	}
+
+	inf->status = ETHOSU_UAPI_STATUS_RUNNING;
 
 	ethosu_inference_get(inf);
 
 	return 0;
 }
 
-static int ethosu_inference_find(struct ethosu_inference *inf,
-				 struct list_head *inference_list)
+static void ethosu_inference_fail(struct ethosu_rpmsg_msg *msg)
 {
-	struct ethosu_inference *cur;
+	struct ethosu_inference *inf =
+		container_of(msg, typeof(*inf), msg);
+	int ret;
 
-	list_for_each_entry(cur, inference_list, list) {
-		if (cur == inf)
-			return 0;
+	if (inf->done)
+		return;
+
+	/* Decrement reference count if inference was pending response */
+	ret = ethosu_inference_put(inf);
+	if (ret)
+		return;
+
+	/* Set status accordingly to the inference state */
+	inf->status = inf->status == ETHOSU_UAPI_STATUS_ABORTING ?
+		      ETHOSU_UAPI_STATUS_ABORTED :
+		      ETHOSU_UAPI_STATUS_ERROR;
+	/* Mark it done and wake up the waiting process */
+	inf->done = true;
+	wake_up_interruptible(&inf->waitq);
+}
+
+static int ethosu_inference_resend(struct ethosu_rpmsg_msg *msg)
+{
+	struct ethosu_inference *inf =
+		container_of(msg, typeof(*inf), msg);
+	int ret;
+
+	/* Don't resend request if response has already been received */
+	if (inf->done)
+		return 0;
+
+	/* If marked as ABORTING simply fail it and return */
+	if (inf->status == ETHOSU_UAPI_STATUS_ABORTING) {
+		ethosu_inference_fail(msg);
+
+		return 0;
 	}
 
-	return -EINVAL;
+	/* Decrement reference count for pending request */
+	ret = ethosu_inference_put(inf);
+	if (ret)
+		return 0;
+
+	/* Resend request */
+	ret = ethosu_inference_send(inf);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 static bool ethosu_inference_verify(struct file *file)
@@ -127,11 +181,11 @@ static void ethosu_inference_kref_destroy(struct kref *kref)
 	struct ethosu_inference *inf =
 		container_of(kref, struct ethosu_inference, kref);
 
-	dev_info(inf->edev->dev,
-		 "Inference destroy. handle=0x%pK, status=%d\n",
-		 inf, inf->status);
+	dev_dbg(inf->edev->dev,
+		"Inference destroy. inf=0x%pK, status=%d, ifm_count=%u, ofm_count=%u",
+		inf, inf->status, inf->ifm_count, inf->ofm_count);
 
-	list_del(&inf->list);
+	ethosu_rpmsg_deregister(&inf->edev->erp, &inf->msg);
 
 	while (inf->ifm_count-- > 0)
 		ethosu_buffer_put(inf->ifm[inf->ifm_count]);
@@ -148,9 +202,9 @@ static int ethosu_inference_release(struct inode *inode,
 {
 	struct ethosu_inference *inf = file->private_data;
 
-	dev_info(inf->edev->dev,
-		 "Inference release. handle=0x%pK, status=%d\n",
-		 inf, inf->status);
+	dev_dbg(inf->edev->dev,
+		"Inference release. file=0x%pK, inf=0x%pK",
+		file, inf);
 
 	ethosu_inference_put(inf);
 
@@ -165,7 +219,7 @@ static unsigned int ethosu_inference_poll(struct file *file,
 
 	poll_wait(file, &inf->waitq, wait);
 
-	if (!inf->pending)
+	if (inf->done)
 		ret |= POLLIN;
 
 	return ret;
@@ -183,7 +237,9 @@ static long ethosu_inference_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(inf->edev->dev, "Ioctl: cmd=%u, arg=%lu\n", cmd, arg);
+	dev_dbg(inf->edev->dev,
+		"Inference ioctl: file=0x%pK, inf=0x%pK, cmd=0x%x, arg=%lu",
+		file, inf, cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_INFERENCE_STATUS: {
@@ -202,16 +258,16 @@ static long ethosu_inference_ioctl(struct file *file,
 		uapi.pmu_config.cycle_count = inf->pmu_cycle_counter_enable;
 		uapi.pmu_count.cycle_count = inf->pmu_cycle_counter_count;
 
-		dev_info(inf->edev->dev,
-			 "Ioctl: Inference status. status=%s (%d)\n",
-			 status_to_string(uapi.status), uapi.status);
+		dev_dbg(inf->edev->dev,
+			"Inference ioctl: Inference status. status=%s (%d)\n",
+			status_to_string(uapi.status), uapi.status);
 
 		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
 
 		break;
 	}
 	default: {
-		dev_err(inf->edev->dev, "Invalid ioctl. cmd=%u, arg=%lu",
+		dev_err(inf->edev->dev, "Invalid ioctl. cmd=%u, arg=%lu\n",
 			cmd, arg);
 		break;
 	}
@@ -231,9 +287,19 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	int fd;
 	int ret = -ENOMEM;
 
+	if (uapi->ifm_count > ETHOSU_FD_MAX ||
+	    uapi->ofm_count > ETHOSU_FD_MAX) {
+		dev_warn(edev->dev,
+			 "Too many IFM and/or OFM buffers for inference. ifm_count=%u, ofm_count=%u",
+			 uapi->ifm_count, uapi->ofm_count);
+
+		return -EFAULT;
+	}
+
 	inf = devm_kzalloc(edev->dev, sizeof(*inf), GFP_KERNEL);
 	if (!inf)
 		return -ENOMEM;
+
 	switch (uapi->inference_type) {
 	case ETHOSU_UAPI_INFERENCE_MODEL:
 		inf->inference_type = ETHOSU_CORE_INFERENCE_MODEL;
@@ -248,10 +314,17 @@ int ethosu_inference_create(struct ethosu_device *edev,
 
 	inf->edev = edev;
 	inf->net = net;
-	inf->pending = false;
+	inf->done = false;
 	inf->status = ETHOSU_UAPI_STATUS_ERROR;
 	kref_init(&inf->kref);
 	init_waitqueue_head(&inf->waitq);
+	inf->msg.fail = ethosu_inference_fail;
+	inf->msg.resend = ethosu_inference_resend;
+
+	/* Add inference to pending list */
+	ret = ethosu_rpmsg_register(&edev->erp, &inf->msg);
+	if (ret < 0)
+		goto kfree;
 
 	/* Get pointer to IFM buffers */
 	for (i = 0; i < uapi->ifm_count; i++) {
@@ -276,10 +349,10 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	}
 
 	/* Configure PMU and cycle counter */
-	dev_info(inf->edev->dev,
-		 "Configuring events for PMU. events=[%u, %u, %u, %u]\n",
-		 uapi->pmu_config.events[0], uapi->pmu_config.events[1],
-		 uapi->pmu_config.events[2], uapi->pmu_config.events[3]);
+	dev_dbg(inf->edev->dev,
+		"Configuring events for PMU. events=[%u, %u, %u, %u]\n",
+		uapi->pmu_config.events[0], uapi->pmu_config.events[1],
+		uapi->pmu_config.events[2], uapi->pmu_config.events[3]);
 
 	/* Configure events and reset count for all events */
 	for (i = 0; i < ETHOSU_PMU_EVENT_MAX; i++) {
@@ -288,7 +361,7 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	}
 
 	if (uapi->pmu_config.cycle_count)
-		dev_info(inf->edev->dev, "Enabling cycle counter\n");
+		dev_dbg(inf->edev->dev, "Enabling cycle counter\n");
 
 	/* Configure cycle counter and reset any previous count */
 	inf->pmu_cycle_counter_enable = uapi->pmu_config.cycle_count;
@@ -296,6 +369,11 @@ int ethosu_inference_create(struct ethosu_device *edev,
 
 	/* Increment network reference count */
 	ethosu_network_get(net);
+
+	/* Send inference request to Arm Ethos-U subsystem */
+	ret = ethosu_inference_send(inf);
+	if (ret)
+		goto put_net;
 
 	/* Create file descriptor */
 	ret = fd = anon_inode_getfd("ethosu-inference", &ethosu_inference_fops,
@@ -307,14 +385,9 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	inf->file = fget(ret);
 	fput(inf->file);
 
-	/* Add inference to inference list */
-	list_add(&inf->list, &edev->inference_list);
-
-	/* Send inference request to Arm Ethos-U subsystem */
-	(void)ethosu_inference_send(inf);
-
-	dev_info(edev->dev, "Inference create. handle=0x%pK, fd=%d",
-		 inf, fd);
+	dev_dbg(edev->dev,
+		"Inference create. file=0x%pK, fd=%d, inf=0x%p, net=0x%pK, msg.id=0x%x",
+		 inf->file, fd, inf, inf->net, inf->msg.id);
 
 	return fd;
 
@@ -329,6 +402,7 @@ put_ifm:
 	while (inf->ifm_count-- > 0)
 		ethosu_buffer_put(inf->ifm[inf->ifm_count]);
 
+kfree:
 	devm_kfree(edev->dev, inf);
 
 	return ret;
@@ -361,29 +435,30 @@ void ethosu_inference_get(struct ethosu_inference *inf)
 	kref_get(&inf->kref);
 }
 
-void ethosu_inference_put(struct ethosu_inference *inf)
+int ethosu_inference_put(struct ethosu_inference *inf)
 {
-	kref_put(&inf->kref, &ethosu_inference_kref_destroy);
+	return kref_put(&inf->kref, &ethosu_inference_kref_destroy);
 }
 
 void ethosu_inference_rsp(struct ethosu_device *edev,
 			  struct ethosu_core_inference_rsp *rsp)
 {
-	struct ethosu_inference *inf =
-		(struct ethosu_inference *)rsp->user_arg;
+	int id = (int)rsp->user_arg;
+	struct ethosu_rpmsg_msg *msg;
+	struct ethosu_inference *inf;
 	int ret;
 	int i;
 
-	ret = ethosu_inference_find(inf, &edev->inference_list);
-	if (ret) {
+	msg = ethosu_rpmsg_find(&edev->erp, id);
+	if (IS_ERR(msg)) {
 		dev_warn(edev->dev,
-			 "Handle not found in inference list. handle=0x%p\n",
-			 rsp);
+			 "Id for inference msg not found. Id=%d\n",
+			 id);
 
 		return;
 	}
 
-	inf->pending = false;
+	inf = container_of(msg, typeof(*inf), msg);
 
 	if (rsp->status == ETHOSU_CORE_STATUS_OK &&
 	    inf->ofm_count <= ETHOSU_CORE_BUFFER_MAX) {
@@ -400,29 +475,37 @@ void ethosu_inference_rsp(struct ethosu_device *edev,
 			if (ret)
 				inf->status = ETHOSU_UAPI_STATUS_ERROR;
 		}
+	} else if (rsp->status == ETHOSU_CORE_STATUS_REJECTED) {
+		inf->status = ETHOSU_UAPI_STATUS_REJECTED;
+	} else if (rsp->status == ETHOSU_CORE_STATUS_ABORTED) {
+		inf->status = ETHOSU_UAPI_STATUS_ABORTED;
 	} else {
 		inf->status = ETHOSU_UAPI_STATUS_ERROR;
 	}
 
-	for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++) {
-		inf->pmu_event_config[i] = rsp->pmu_event_config[i];
-		inf->pmu_event_count[i] = rsp->pmu_event_count[i];
+	if (inf->status == ETHOSU_UAPI_STATUS_OK) {
+		for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++) {
+			inf->pmu_event_config[i] = rsp->pmu_event_config[i];
+			inf->pmu_event_count[i] = rsp->pmu_event_count[i];
+		}
+
+		inf->pmu_cycle_counter_enable = rsp->pmu_cycle_counter_enable;
+		inf->pmu_cycle_counter_count = rsp->pmu_cycle_counter_count;
+
+		dev_dbg(edev->dev,
+			"PMU events. config=[%u, %u, %u, %u], count=[%u, %u, %u, %u]\n",
+			inf->pmu_event_config[0], inf->pmu_event_config[1],
+			inf->pmu_event_config[2], inf->pmu_event_config[3],
+			inf->pmu_event_count[0], inf->pmu_event_count[1],
+			inf->pmu_event_count[2], inf->pmu_event_count[3]);
+
+		dev_dbg(edev->dev,
+			"PMU cycle counter. enable=%u, count=%llu\n",
+			inf->pmu_cycle_counter_enable,
+			inf->pmu_cycle_counter_count);
 	}
 
-	inf->pmu_cycle_counter_enable = rsp->pmu_cycle_counter_enable;
-	inf->pmu_cycle_counter_count = rsp->pmu_cycle_counter_count;
-
-	dev_info(edev->dev,
-		 "PMU events. config=[%u, %u, %u, %u], count=[%u, %u, %u, %u]\n",
-		 inf->pmu_event_config[0], inf->pmu_event_config[1],
-		 inf->pmu_event_config[2], inf->pmu_event_config[3],
-		 inf->pmu_event_count[0], inf->pmu_event_count[1],
-		 inf->pmu_event_count[2], inf->pmu_event_count[3]);
-
-	dev_info(edev->dev,
-		 "PMU cycle counter. enable=%u, count=%llu\n",
-		 inf->pmu_cycle_counter_enable,
-		 inf->pmu_cycle_counter_count);
+	inf->done = true;
 	wake_up_interruptible(&inf->waitq);
 
 	ethosu_inference_put(inf);

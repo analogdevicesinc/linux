@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  * Copyright 2020-2022 NXP
  *
  * This program is free software and is provided to you under the terms of the
@@ -60,7 +60,7 @@ static int ethosu_pdev_probe(struct platform_device *pdev)
 	int minor;
 	int ret;
 
-	dev_info(&pdev->dev, "Probe\n");
+	dev_dbg(&pdev->dev, "Probe\n");
 
 	minor = find_first_zero_bit(minors, MINOR_COUNT);
 	if (minor >= MINOR_COUNT) {

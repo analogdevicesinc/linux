@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  * Copyright 2020-2022 NXP
  *
  * This program is free software and is provided to you under the terms of the
@@ -27,11 +27,11 @@
 
 #include "ethosu_buffer.h"
 #include "ethosu_core_interface.h"
+#include "ethosu_capabilities.h"
 #include "ethosu_inference.h"
 #include "ethosu_network.h"
 #include "uapi/ethosu.h"
 
-#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -48,8 +48,6 @@
 
 #define DMA_ADDR_BITS 32 /* Number of address bits */
 
-#define CAPABILITIES_RESP_TIMEOUT_MS 2000
-
 #define ETHOSU_FIRMWARE_NAME "ethosu_firmware"
 
 /****************************************************************************
@@ -59,70 +57,6 @@
 /****************************************************************************
  * Functions
  ****************************************************************************/
-
-static void ethosu_capabilities_destroy(struct kref *kref)
-{
-	struct ethosu_capabilities *cap =
-		container_of(kref, struct ethosu_capabilities, refcount);
-
-	list_del(&cap->list);
-
-	devm_kfree(cap->edev->dev, cap);
-}
-
-static int ethosu_capabilities_find(struct ethosu_capabilities *cap,
-				    struct list_head *capabilties_list)
-{
-	struct ethosu_capabilities *cur;
-
-	list_for_each_entry(cur, capabilties_list, list) {
-		if (cur == cap)
-			return 0;
-	}
-
-	return -EINVAL;
-}
-
-static int ethosu_capability_rsp(struct ethosu_device *edev,
-				 struct ethosu_core_msg_capabilities_rsp *msg)
-{
-	struct ethosu_capabilities *cap;
-	struct ethosu_uapi_device_capabilities *capabilities;
-	int ret;
-
-	cap = (struct ethosu_capabilities *)msg->user_arg;
-	ret = ethosu_capabilities_find(cap, &edev->capabilities_list);
-	if (0 != ret) {
-		dev_warn(edev->dev,
-			 "Handle not found in capabilities list. handle=0x%p\n",
-			 cap);
-
-		/* NOTE: do not call complete or kref_put on invalid data! */
-		return ret;
-	}
-
-	capabilities = cap->capabilities;
-
-	capabilities->hw_id.version_status = msg->version_status;
-	capabilities->hw_id.version_minor = msg->version_minor;
-	capabilities->hw_id.version_major = msg->version_major;
-	capabilities->hw_id.product_major = msg->product_major;
-	capabilities->hw_id.arch_patch_rev = msg->arch_patch_rev;
-	capabilities->hw_id.arch_minor_rev = msg->arch_minor_rev;
-	capabilities->hw_id.arch_major_rev = msg->arch_major_rev;
-	capabilities->driver_patch_rev = msg->driver_patch_rev;
-	capabilities->driver_minor_rev = msg->driver_minor_rev;
-	capabilities->driver_major_rev = msg->driver_major_rev;
-	capabilities->hw_cfg.macs_per_cc = msg->macs_per_cc;
-	capabilities->hw_cfg.cmd_stream_version = msg->cmd_stream_version;
-	capabilities->hw_cfg.custom_dma = msg->custom_dma;
-
-	complete(&cap->done);
-
-	kref_put(&cap->refcount, ethosu_capabilities_destroy);
-
-	return 0;
-}
 
 /* Incoming messages */
 static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
@@ -158,14 +92,14 @@ static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
 		ret = -EBADMSG;
 		break;
 	case ETHOSU_CORE_MSG_PING:
-		dev_info(edev->dev, "Msg: Ping\n");
+		dev_dbg(edev->dev, "Msg: Ping\n");
 		ret = ethosu_rpmsg_pong(&edev->erp);
 		break;
 	case ETHOSU_CORE_MSG_PONG:
-		dev_info(edev->dev, "Msg: Pong\n");
+		dev_dbg(edev->dev, "Msg: Pong\n");
 		break;
 	case ETHOSU_CORE_MSG_POWER_RSP:
-		dev_info(edev->dev, "Msg: Power response\n");
+		dev_dbg(edev->dev, "Msg: Power response\n");
 		break;
 	case ETHOSU_CORE_MSG_INFERENCE_RSP:
 		if (header->length != sizeof(struct ethosu_core_inference_rsp)) {
@@ -176,10 +110,10 @@ static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
 			break;
 		}
 
-		dev_info(edev->dev,
-			 "Msg: Inference response. user_arg=0x%llx, ofm_count=%u, status=%u\n",
-			 rsp->user_arg, rsp->ofm_count,
-			 rsp->status);
+		dev_dbg(edev->dev,
+			"Msg: Inference response. user_arg=0x%llx, ofm_count=%u, status=%u\n",
+			rsp->user_arg, rsp->ofm_count,
+			rsp->status);
 		ethosu_inference_rsp(edev, rsp);
 		break;
 	case ETHOSU_CORE_MSG_VERSION_RSP:
@@ -191,9 +125,9 @@ static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
 			break;
 		}
 
-		dev_info(edev->dev, "Msg: Version response v%u.%u.%u\n",
-			 version->major, version->minor,
-			 version->patch);
+		dev_dbg(edev->dev, "Msg: Version response v%u.%u.%u\n",
+			version->major, version->minor,
+			version->patch);
 
 		/* Check major and minor version match, else return error */
 		if (version->major != ETHOSU_CORE_MSG_VERSION_MAJOR ||
@@ -215,24 +149,24 @@ static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
 			break;
 		}
 
-		dev_info(edev->dev,
-			 "Msg: Capabilities response ua%llx vs%hhu v%hhu.%hhu p%hhu av%hhu.%hhu.%hhu dv%hhu.%hhu.%hhu mcc%hhu csv%hhu cd%hhu\n",
-			 capabilities->user_arg,
-			 capabilities->version_status,
-			 capabilities->version_major,
-			 capabilities->version_minor,
-			 capabilities->product_major,
-			 capabilities->arch_major_rev,
-			 capabilities->arch_minor_rev,
-			 capabilities->arch_patch_rev,
-			 capabilities->driver_major_rev,
-			 capabilities->driver_minor_rev,
-			 capabilities->driver_patch_rev,
-			 capabilities->macs_per_cc,
-			 capabilities->cmd_stream_version,
-			 capabilities->custom_dma);
+		dev_dbg(edev->dev,
+			"Msg: Capabilities response ua%llx vs%hhu v%hhu.%hhu p%hhu av%hhu.%hhu.%hhu dv%hhu.%hhu.%hhu mcc%hhu csv%hhu cd%hhu\n",
+			capabilities->user_arg,
+			capabilities->version_status,
+			capabilities->version_major,
+			capabilities->version_minor,
+			capabilities->product_major,
+			capabilities->arch_major_rev,
+			capabilities->arch_minor_rev,
+			capabilities->arch_patch_rev,
+			capabilities->driver_major_rev,
+			capabilities->driver_minor_rev,
+			capabilities->driver_patch_rev,
+			capabilities->macs_per_cc,
+			capabilities->cmd_stream_version,
+			capabilities->custom_dma);
 
-		ret = ethosu_capability_rsp(edev, capabilities);
+		ethosu_capability_rsp(edev, capabilities);
 		break;
 	default:
 		/* This should not happen due to version checks */
@@ -255,7 +189,7 @@ static int ethosu_open(struct inode *inode,
 
 	file->private_data = edev;
 
-	dev_info(edev->dev, "Opening device node.\n");
+	dev_dbg(edev->dev, "Device open. file=0x%pK\n", file);
 
 	if (of_property_read_u32(edev->dev->of_node, "fsl,cm33-proc",
 				 &rproc_phandle)) {
@@ -287,64 +221,6 @@ static int ethosu_open(struct inode *inode,
 	return nonseekable_open(inode, file);
 }
 
-static int ethosu_send_capabilities_request(struct ethosu_device *edev,
-					    void __user *udata)
-{
-	struct ethosu_uapi_device_capabilities uapi;
-	struct ethosu_capabilities *cap;
-	int ret;
-	int timeout;
-
-	cap = devm_kzalloc(edev->dev, sizeof(struct ethosu_capabilities),
-			   GFP_KERNEL);
-	if (!cap)
-		return -ENOMEM;
-
-	cap->edev = edev;
-	cap->capabilities = &uapi;
-	kref_init(&cap->refcount);
-	init_completion(&cap->done);
-	list_add(&cap->list, &edev->capabilities_list);
-
-	ret = ethosu_rpmsg_capabilities_request(&edev->erp, cap);
-	if (0 != ret)
-		goto put_kref;
-
-	/*
-	 * Increase ref counter since we sent the pointer out to
-	 * response handler thread. That thread is responsible to
-	 * decrease the ref counter before exiting. So the memory
-	 * can be freed.
-	 *
-	 * NOTE: if no response is received back, the memory is leaked.
-	 */
-	kref_get(&cap->refcount);
-	/* Unlock the mutex before going to block on the condition */
-	mutex_unlock(&edev->mutex);
-	/* wait for response to arrive back */
-	timeout = wait_for_completion_timeout(&cap->done,
-					      msecs_to_jiffies(
-						      CAPABILITIES_RESP_TIMEOUT_MS));
-	/* take back the mutex before resuming to do anything */
-	ret = mutex_lock_interruptible(&edev->mutex);
-	if (0 != ret)
-		goto put_kref;
-
-	if (0 == timeout /* timed out*/) {
-		dev_warn(edev->dev,
-			 "Msg: Capabilities response lost - timeout\n");
-		ret = -EIO;
-		goto put_kref;
-	}
-
-	ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
-
-put_kref:
-	kref_put(&cap->refcount, ethosu_capabilities_destroy);
-
-	return ret;
-}
-
 static long ethosu_ioctl(struct file *file,
 			 unsigned int cmd,
 			 unsigned long arg)
@@ -357,32 +233,41 @@ static long ethosu_ioctl(struct file *file,
 	if (ret)
 		return ret;
 
-	dev_info(edev->dev, "Ioctl. cmd=%u, arg=%lu\n", cmd, arg);
+	dev_dbg(edev->dev, "Device ioctl. file=0x%pK, cmd=0x%x, arg=0x%lx\n",
+		file, cmd, arg);
 
 	switch (cmd) {
 	case ETHOSU_IOCTL_VERSION_REQ:
-		dev_info(edev->dev, "Ioctl: Send version request\n");
+		dev_dbg(edev->dev, "Device ioctl: Send version request\n");
 		ret = ethosu_rpmsg_version_request(&edev->erp);
 		break;
-	case ETHOSU_IOCTL_CAPABILITIES_REQ:
-		dev_info(edev->dev, "Ioctl: Send capabilities request\n");
-		ret = ethosu_send_capabilities_request(edev, udata);
+	case ETHOSU_IOCTL_CAPABILITIES_REQ: {
+		struct ethosu_uapi_device_capabilities uapi;
+
+		dev_dbg(edev->dev,
+			"Device ioctl: Send capabilities request\n");
+
+		ret = ethosu_capabilities_request(edev, &uapi);
+		if (ret)
+			break;
+
+		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
 		break;
+	}
 	case ETHOSU_IOCTL_PING: {
-		dev_info(edev->dev, "Ioctl: Send ping\n");
+		dev_dbg(edev->dev, "Device ioctl: Send ping\n");
 		ret = ethosu_rpmsg_ping(&edev->erp);
 		break;
 	}
 	case ETHOSU_IOCTL_BUFFER_CREATE: {
 		struct ethosu_uapi_buffer_create uapi;
 
-		dev_info(edev->dev, "Ioctl: Buffer create\n");
-
 		if (copy_from_user(&uapi, udata, sizeof(uapi)))
 			break;
 
-		dev_info(edev->dev, "Ioctl: Buffer. capacity=%u\n",
-			 uapi.capacity);
+		dev_dbg(edev->dev,
+			"Device ioctl: Buffer create. capacity=%u\n",
+			uapi.capacity);
 
 		ret = ethosu_buffer_create(edev, uapi.capacity);
 		break;
@@ -393,7 +278,9 @@ static long ethosu_ioctl(struct file *file,
 		if (copy_from_user(&uapi, udata, sizeof(uapi)))
 			break;
 
-		dev_info(edev->dev, "Ioctl: Network. fd=%u\n", uapi.fd);
+		dev_dbg(edev->dev,
+			"Device ioctl: Network create. fd=%u\n",
+			uapi.fd);
 
 		ret = ethosu_network_create(edev, &uapi);
 		break;
@@ -444,8 +331,6 @@ int ethosu_dev_init(struct ethosu_device *edev,
 	edev->class = class;
 	edev->devt = devt;
 	mutex_init(&edev->mutex);
-	INIT_LIST_HEAD(&edev->capabilities_list);
-	INIT_LIST_HEAD(&edev->inference_list);
 
 	ret = of_reserved_mem_device_init(edev->dev);
 	if (ret)
@@ -474,9 +359,9 @@ int ethosu_dev_init(struct ethosu_device *edev,
 		goto del_cdev;
 	}
 
-	dev_info(edev->dev,
-		 "Created Arm Ethos-U device. name=%s, major=%d, minor=%d\n",
-		 dev_name(sysdev), MAJOR(edev->devt), MINOR(edev->devt));
+	dev_dbg(edev->dev,
+		"Created Arm Ethos-U device. name=%s, major=%d, minor=%d\n",
+		dev_name(sysdev), MAJOR(edev->devt), MINOR(edev->devt));
 
 	return 0;
 
@@ -498,6 +383,4 @@ void ethosu_dev_deinit(struct ethosu_device *edev)
 	device_destroy(edev->class, edev->cdev.dev);
 	cdev_del(&edev->cdev);
 	of_reserved_mem_device_release(edev->dev);
-
-	dev_info(edev->dev, "%s\n", __FUNCTION__);
 }

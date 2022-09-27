@@ -1,5 +1,5 @@
 /*
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * Copyright (c) 2020-2022 Arm Limited.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -93,11 +93,24 @@ struct ethosu_core_queue {
 	uint8_t                         data[];
 };
 
+/**
+ * enum ethosu_core_status - Status
+ */
 enum ethosu_core_status {
 	ETHOSU_CORE_STATUS_OK,
-	ETHOSU_CORE_STATUS_ERROR
+	ETHOSU_CORE_STATUS_ERROR,
+	ETHOSU_CORE_STATUS_RUNNING,
+	ETHOSU_CORE_STATUS_REJECTED,
+	ETHOSU_CORE_STATUS_ABORTED,
+	ETHOSU_CORE_STATUS_ABORTING,
 };
 
+/**
+ * struct ethosu_core_buffer - Buffer descriptor
+ *
+ * Pointer and size to a buffer within the Ethos-U
+ * address space.
+ */
 struct ethosu_core_buffer {
 	uint32_t ptr;
 	uint32_t size;
@@ -115,6 +128,9 @@ struct ethosu_core_inference_req {
 	uint32_t                  inference_type;
 };
 
+/**
+ * struct ethosu_core_inference_rsp - Inference response
+ */
 struct ethosu_core_inference_rsp {
 	uint64_t user_arg;
 	uint32_t ofm_count;
