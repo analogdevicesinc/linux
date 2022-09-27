@@ -222,6 +222,9 @@ int ethosu_buffer_create(struct ethosu_device *edev,
 	struct ethosu_buffer *buf;
 	int ret = -ENOMEM;
 
+	if (!capacity)
+		return -EINVAL;
+
 	buf = devm_kzalloc(edev->dev, sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
