@@ -244,6 +244,12 @@ int vsi_dec_capture_on(struct vsi_v4l2_ctx *ctx)
 
 	if (!ctx->need_capture_on || !ctx->reschange_cnt)
 		return 0;
+
+	if (ctx->reschange_notified && !vb2_is_streaming(&ctx->input_que)) {
+		v4l2_klog(LOGLVL_BRIEF, "handle seek first, then source change\n");
+		return 0;
+	}
+
 	ret = vb2_streamon(&ctx->output_que, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 	if (ret)
 		return ret;
