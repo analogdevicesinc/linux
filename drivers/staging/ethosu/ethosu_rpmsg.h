@@ -84,11 +84,22 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 			   uint32_t ofm_count,
 			   struct ethosu_buffer **ofm,
 			   struct ethosu_buffer *network,
+			   u32 network_index,
 			   uint8_t *pmu_event_config,
 			   uint8_t pmu_event_config_count,
 			   uint8_t pmu_cycle_counter_enable,
 			   uint32_t inference_type
 			   );
+
+/**
+ * ethosu_rpmsg_network_info_request() - Send network info request
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_rpmsg_network_info_request(struct ethosu_rpmsg *erp,
+				      struct ethosu_rpmsg_msg *rpmsg,
+				      struct ethosu_buffer *network,
+				      uint32_t network_index);
 
 int ethosu_rpmsg_init(struct ethosu_rpmsg *erp,
 		      ethosu_rpmsg_cb callback, void *user_arg);

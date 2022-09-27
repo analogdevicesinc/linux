@@ -99,6 +99,7 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 				     inf->ifm_count, inf->ifm,
 				     inf->ofm_count, inf->ofm,
 				     inf->net->buf,
+				     inf->net->index,
 				     inf->pmu_event_config,
 				     ETHOSU_PMU_EVENT_MAX,
 				     inf->pmu_cycle_counter_enable,

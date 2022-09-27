@@ -60,6 +60,8 @@ enum ethosu_core_msg_type {
 	ETHOSU_CORE_MSG_VERSION_RSP,
 	ETHOSU_CORE_MSG_CAPABILITIES_REQ,
 	ETHOSU_CORE_MSG_CAPABILITIES_RSP,
+	ETHOSU_CORE_MSG_NETWORK_INFO_REQ,
+	ETHOSU_CORE_MSG_NETWORK_INFO_RSP,
 	ETHOSU_CORE_MSG_POWER_REQ,
 	ETHOSU_CORE_MSG_POWER_RSP,
 	ETHOSU_CORE_MSG_MAX
@@ -116,13 +118,35 @@ struct ethosu_core_buffer {
 	uint32_t size;
 };
 
+/**
+ * enum ethosu_core_network_type - Network buffer type
+ */
+enum ethosu_core_network_type {
+	ETHOSU_CORE_NETWORK_BUFFER = 1,
+	ETHOSU_CORE_NETWORK_INDEX
+};
+
+/**
+ * struct ethosu_core_network_buffer - Network buffer
+ */
+struct ethosu_core_network_buffer {
+	u32 type;
+	union {
+		struct ethosu_core_buffer buffer;
+		u32                       index;
+	};
+};
+
+/**
+ * struct ethosu_core_inference_req - Inference request
+ */
 struct ethosu_core_inference_req {
 	uint64_t                  user_arg;
 	uint32_t                  ifm_count;
 	struct ethosu_core_buffer ifm[ETHOSU_CORE_BUFFER_MAX];
 	uint32_t                  ofm_count;
 	struct ethosu_core_buffer ofm[ETHOSU_CORE_BUFFER_MAX];
-	struct ethosu_core_buffer network;
+	struct ethosu_core_network_buffer network;
 	uint8_t                   pmu_event_config[ETHOSU_CORE_PMU_MAX];
 	uint32_t                  pmu_cycle_counter_enable;
 	uint32_t                  inference_type;
@@ -143,7 +167,28 @@ struct ethosu_core_inference_rsp {
 };
 
 /**
- * struct ethosu_core_msg_verson - Message protocol version
+ * struct ethosu_core_network_info_req - Network information request
+ */
+struct ethosu_core_network_info_req {
+	u64                               user_arg;
+	struct ethosu_core_network_buffer network;
+};
+
+/**
+ * struct ethosu_core_network_info_rsp - Network information response
+ */
+struct ethosu_core_network_info_rsp {
+	u64      user_arg;
+	char     desc[32];
+	u32      ifm_count;
+	u32      ifm_size[ETHOSU_CORE_BUFFER_MAX];
+	u32      ofm_count;
+	u32      ofm_size[ETHOSU_CORE_BUFFER_MAX];
+	u32      status;
+};
+
+/**
+ * struct ethosu_core_msg_version - Message protocol version
  */
 struct ethosu_core_msg_version {
 	uint8_t major;

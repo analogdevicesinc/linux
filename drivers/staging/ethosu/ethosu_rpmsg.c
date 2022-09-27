@@ -190,6 +190,7 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 			   uint32_t ofm_count,
 			   struct ethosu_buffer **ofm,
 			   struct ethosu_buffer *network,
+			   u32 network_index,
 			   uint8_t *pmu_event_config,
 			   uint8_t pmu_event_config_count,
 			   uint8_t pmu_cycle_counter_enable,
@@ -229,7 +230,13 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 	for (i = 0; i < ETHOSU_CORE_PMU_MAX; i++)
 		req.pmu_event_config[i] = pmu_event_config[i];
 
-	ethosu_core_set_size(network, &req.network);
+	if (network) {
+		req.network.type = ETHOSU_CORE_NETWORK_BUFFER;
+		ethosu_core_set_size(network, &req.network.buffer);
+	} else {
+		req.network.type = ETHOSU_CORE_NETWORK_INDEX;
+		req.network.index = network_index;
+	}
 
 	memcpy(data, &msg, sizeof(struct ethosu_core_msg));
 	memcpy(data + sizeof(struct ethosu_core_msg), &req,
@@ -238,6 +245,47 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 	ret = rpmsg_send(rpdev->ept, (void *)&data,
 			 sizeof(struct ethosu_core_msg) +
 			 sizeof(struct ethosu_core_inference_req));
+	if (ret) {
+		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+int ethosu_rpmsg_network_info_request(struct ethosu_rpmsg *erp,
+				      struct ethosu_rpmsg_msg *rpmsg,
+				      struct ethosu_buffer *network,
+				      uint32_t network_index)
+{
+	struct ethosu_core_msg msg = {
+		.magic  = ETHOSU_CORE_MSG_MAGIC,
+		.type   = ETHOSU_CORE_MSG_NETWORK_INFO_REQ,
+		.length = sizeof(struct ethosu_core_network_info_req)
+	};
+	struct ethosu_core_network_info_req req;
+	struct rpmsg_device *rpdev = erp->rpdev;
+	u8 data[sizeof(struct ethosu_core_msg) +
+		sizeof(struct ethosu_core_network_info_req)];
+	int ret;
+
+	req.user_arg = rpmsg->id;
+
+	if (network) {
+		req.network.type = ETHOSU_CORE_NETWORK_BUFFER;
+		ethosu_core_set_size(network, &req.network.buffer);
+	} else {
+		req.network.type = ETHOSU_CORE_NETWORK_INDEX;
+		req.network.index = network_index;
+	}
+
+	memcpy(data, &msg, sizeof(struct ethosu_core_msg));
+	memcpy(data + sizeof(struct ethosu_core_msg), &req,
+	       sizeof(struct ethosu_core_network_info_req));
+
+	ret = rpmsg_send(rpdev->ept, (void *)&data,
+			 sizeof(struct ethosu_core_msg) +
+			 sizeof(struct ethosu_core_network_info_req));
 	if (ret) {
 		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
 		return ret;

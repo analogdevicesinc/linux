@@ -26,4 +26,5 @@ ethosu-objs := ethosu_driver.o \
                ethosu_inference.o \
                ethosu_rpmsg.o \
                ethosu_network.o \
+               ethosu_network_info.o \
                ethosu_capabilities.o

@@ -30,6 +30,7 @@
 #include "ethosu_capabilities.h"
 #include "ethosu_inference.h"
 #include "ethosu_network.h"
+#include "ethosu_network_info.h"
 #include "uapi/ethosu.h"
 
 #include <linux/dma-mapping.h>
@@ -74,6 +75,9 @@ static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
 			((char *)data + sizeof(struct ethosu_core_msg));
 	struct ethosu_core_msg_capabilities_rsp *capabilities =
 			(struct ethosu_core_msg_capabilities_rsp *)
+			((char *)data + sizeof(struct ethosu_core_msg));
+	struct ethosu_core_network_info_rsp *network_info =
+			(struct ethosu_core_network_info_rsp *)
 			((char *)data + sizeof(struct ethosu_core_msg));
 
 	switch (header->type) {
@@ -167,6 +171,22 @@ static int ethosu_handle_msg(struct ethosu_device *edev, void *data)
 			capabilities->custom_dma);
 
 		ethosu_capability_rsp(edev, capabilities);
+		break;
+	case ETHOSU_CORE_MSG_NETWORK_INFO_RSP:
+		if (header->length != sizeof(struct ethosu_core_network_info_rsp)) {
+			dev_warn(edev->dev,
+				 "Msg: Network info response of incorrect size. size=%u, expected=%zu\n",
+				 header->length, sizeof(struct ethosu_core_network_info_rsp));
+			ret = -EBADMSG;
+			break;
+		}
+
+		dev_dbg(edev->dev,
+			"Msg: Network info response. user_arg=0x%llx, status=%u",
+			network_info->user_arg,
+			network_info->status);
+
+		ethosu_network_info_rsp(edev, network_info);
 		break;
 	default:
 		/* This should not happen due to version checks */
@@ -279,8 +299,8 @@ static long ethosu_ioctl(struct file *file,
 			break;
 
 		dev_dbg(edev->dev,
-			"Device ioctl: Network create. fd=%u\n",
-			uapi.fd);
+			"Device ioctl: Network create. type=%u, fd/index=%u\n",
+			uapi.type, uapi.fd);
 
 		ret = ethosu_network_create(edev, &uapi);
 		break;
