@@ -13,6 +13,12 @@
 	/delete-property/ phy-handle;
 };
 
+&enetc_port2 {
+	fixed-link {
+		/delete-property/ pause;
+	};
+};
+
 /delete-node/ &enetc_mdio_pf3;
 
 /* l2switch ports */
@@ -32,10 +38,22 @@
 	/delete-property/ phy-handle;
 };
 
+&mscc_felix_port4 {
+	fixed-link {
+		/delete-property/ pause;
+	};
+};
+
 &mscc_felix_port5 {
 	status = "okay";
+	fixed-link {
+		/delete-property/ pause;
+	};
 };
 
 &enetc_port3 {
 	status = "okay";
+	fixed-link {
+		/delete-property/ pause;
+	};
 };
