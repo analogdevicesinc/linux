@@ -693,7 +693,6 @@ void mxc_isi_channel_enable(struct mxc_isi_dev *mxc_isi, bool m2m_enabled)
 	}
 
 	dump_isi_regs(mxc_isi);
-	msleep(300);
 }
 EXPORT_SYMBOL_GPL(mxc_isi_channel_enable);
 
