@@ -209,8 +209,8 @@ static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
 }
 
 static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
-	struct spi_engine *spi_engine, unsigned int clk_div,
-	struct spi_transfer *xfer)
+	struct spi_engine *spi_engine, struct spi_delay spi_delay,
+	unsigned int clk_div, struct spi_transfer *xfer)
 {
 	unsigned int spi_clk = clk_get_rate(spi_engine->ref_clk);
 	unsigned int t;
@@ -285,7 +285,8 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 
 		spi_engine_update_xfer_len(spi_engine, xfer);
 		spi_engine_gen_xfer(p, dry, xfer);
-		spi_engine_gen_sleep(p, dry, spi_engine, clk_div, xfer);
+		spi_engine_gen_sleep(p, dry, spi_engine, xfer->delay, clk_div,
+				     xfer);
 
 		cs_change = xfer->cs_change;
 		if (list_is_last(&xfer->transfer_list, &msg->transfers))
@@ -293,6 +294,10 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 
 		if (cs_change)
 			spi_engine_gen_cs(p, dry, spi, false);
+
+		if (xfer->word_delay.value)
+			spi_engine_gen_sleep(p, dry, spi_engine,
+					     xfer->word_delay, clk_div, xfer);
 	}
 
 	return 0;
