@@ -1,21 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020-2022 Arm Limited.
- *
- * This program is free software and is provided to you under the terms of the
- * GNU General Public License version 2 as published by the Free Software
- * Foundation, and any use by you of this program is subject to the terms
- * of such GNU licence.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0-only
+ * Copyright (c) 2022 Arm Limited.
  */
 
 #ifndef ETHOSU_CORE_INTERFACE_H
@@ -62,6 +47,8 @@ enum ethosu_core_msg_type {
 	ETHOSU_CORE_MSG_CAPABILITIES_RSP,
 	ETHOSU_CORE_MSG_NETWORK_INFO_REQ,
 	ETHOSU_CORE_MSG_NETWORK_INFO_RSP,
+	ETHOSU_CORE_MSG_CANCEL_INFERENCE_REQ,
+	ETHOSU_CORE_MSG_CANCEL_INFERENCE_RSP,
 	ETHOSU_CORE_MSG_POWER_REQ,
 	ETHOSU_CORE_MSG_POWER_RSP,
 	ETHOSU_CORE_MSG_MAX
@@ -222,6 +209,22 @@ struct ethosu_core_msg_capabilities_rsp {
 	uint32_t macs_per_cc;
 	uint32_t cmd_stream_version;
 	uint32_t custom_dma;
+};
+
+/**
+ * struct ethosu_core_cancel_inference_req - Message cancel inference request
+ */
+struct ethosu_core_cancel_inference_req {
+	u64 user_arg;
+	u64 inference_handle;
+};
+
+/**
+ * struct ethosu_core_cancel_inference_rsp - Message cancel inference response
+ */
+struct ethosu_core_cancel_inference_rsp {
+	u64 user_arg;
+	u32 status;
 };
 
 enum ethosu_core_power_req_type {

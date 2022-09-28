@@ -28,6 +28,7 @@
 #include "ethosu_core_interface.h"
 #include "ethosu_device.h"
 #include "ethosu_network.h"
+#include "ethosu_cancel_inference.h"
 #include "uapi/ethosu.h"
 
 #include <linux/anon_inodes.h>
@@ -262,6 +263,21 @@ static long ethosu_inference_ioctl(struct file *file,
 		dev_dbg(inf->edev->dev,
 			"Inference ioctl: Inference status. status=%s (%d)\n",
 			status_to_string(uapi.status), uapi.status);
+
+		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
+
+		break;
+	}
+	case ETHOSU_IOCTL_INFERENCE_CANCEL: {
+		struct ethosu_uapi_cancel_inference_status uapi;
+
+		dev_dbg(inf->edev->dev,
+			"Inference ioctl: Cancel Inference. Handle=%p\n",
+			inf);
+
+		ret = ethosu_cancel_inference_request(inf, &uapi);
+		if (ret)
+			break;
 
 		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
 

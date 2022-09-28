@@ -101,6 +101,15 @@ int ethosu_rpmsg_network_info_request(struct ethosu_rpmsg *erp,
 				      struct ethosu_buffer *network,
 				      uint32_t network_index);
 
+/**
+ * ethosu_rpmsg_cancel_inference() - Send inference cancellation
+ *
+ * Return: 0 on success, else error code.
+ */
+int ethosu_rpmsg_cancel_inference(struct ethosu_rpmsg *erp,
+				  struct ethosu_rpmsg_msg *rpmsg,
+				  int inference_handle);
+
 int ethosu_rpmsg_init(struct ethosu_rpmsg *erp,
 		      ethosu_rpmsg_cb callback, void *user_arg);
 

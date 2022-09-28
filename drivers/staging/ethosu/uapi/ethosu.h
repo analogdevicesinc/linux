@@ -60,9 +60,14 @@ namespace EthosU {
 						   struct ethosu_uapi_inference_create)
 #define ETHOSU_IOCTL_INFERENCE_STATUS   ETHOSU_IOR(0x31, \
 						   struct ethosu_uapi_result_status)
+#define ETHOSU_IOCTL_INFERENCE_CANCEL   ETHOSU_IOR(0x32, \
+						   struct ethosu_uapi_cancel_inference_status)
 
 /* Maximum number of IFM/OFM file descriptors per network */
 #define ETHOSU_FD_MAX                   16
+
+/* Maximum number of dimensions for input and output */
+#define ETHOSU_DIM_MAX                   8
 
 /* Maximum number of PMUs available */
 #define ETHOSU_PMU_EVENT_MAX             4
@@ -133,15 +138,31 @@ struct ethosu_uapi_network_create {
  * @desc:		Network description
  * @ifm_count:		Number of IFM buffers
  * @ifm_size:		IFM buffer sizes
+ * @ifm_types:          IFM data types
+ * @ifm_offset:         IFM data offset in arena
+ * @ifm_dims:           IFM buffer dimensions
+ * @ifm_shapes:         IFM buffer shapes
  * @ofm_count:		Number of OFM buffers
  * @ofm_size:		OFM buffer sizes
+ * @ofm_offset:         OFM data offset in arena
+ * @ofm_dims:           OFM buffer dimensions
+ * @ofm_shapes:         OFM buffer shapes
  */
 struct ethosu_uapi_network_info {
 	char  desc[32];
+	__u32 is_vela;
 	__u32 ifm_count;
 	__u32 ifm_size[ETHOSU_FD_MAX];
+	__u32 ifm_types[ETHOSU_FD_MAX];
+	__u32 ifm_offset[ETHOSU_FD_MAX];
+	__u32 ifm_dims[ETHOSU_FD_MAX];
+	__u32 ifm_shapes[ETHOSU_FD_MAX][ETHOSU_DIM_MAX];
 	__u32 ofm_count;
 	__u32 ofm_size[ETHOSU_FD_MAX];
+	__u32 ofm_types[ETHOSU_FD_MAX];
+	__u32 ofm_offset[ETHOSU_FD_MAX];
+	__u32 ofm_dims[ETHOSU_FD_MAX];
+	__u32 ofm_shapes[ETHOSU_FD_MAX][ETHOSU_DIM_MAX];
 };
 
 /**
@@ -248,6 +269,14 @@ struct ethosu_uapi_result_status {
 	enum ethosu_uapi_status       status;
 	struct ethosu_uapi_pmu_config pmu_config;
 	struct ethosu_uapi_pmu_counts pmu_count;
+};
+
+/**
+ * struct ethosu_uapi_cancel_status - Status of inference cancellation.
+ * @status	OK if inference cancellation was performed, ERROR otherwise.
+ */
+struct ethosu_uapi_cancel_inference_status {
+	enum ethosu_uapi_status status;
 };
 
 #ifdef __cplusplus

@@ -294,6 +294,39 @@ int ethosu_rpmsg_network_info_request(struct ethosu_rpmsg *erp,
 	return 0;
 }
 
+int ethosu_rpmsg_cancel_inference(struct ethosu_rpmsg *erp,
+				  struct ethosu_rpmsg_msg *rpmsg,
+				  int inference_handle)
+{
+	struct ethosu_core_msg msg = {
+		.magic  = ETHOSU_CORE_MSG_MAGIC,
+		.type   = ETHOSU_CORE_MSG_CAPABILITIES_REQ,
+		.length = sizeof(struct ethosu_core_cancel_inference_req)
+	};
+	struct ethosu_core_cancel_inference_req req;
+	struct rpmsg_device *rpdev = erp->rpdev;
+	u8 data[sizeof(struct ethosu_core_msg) +
+		sizeof(struct ethosu_core_capabilities_req)];
+	int ret;
+
+	req.user_arg = rpmsg->id;
+	req.inference_handle = inference_handle;
+
+	memcpy(data, &msg, sizeof(struct ethosu_core_msg));
+	memcpy(data + sizeof(struct ethosu_core_msg), &req,
+	       sizeof(struct ethosu_core_cancel_inference_req));
+
+	ret = rpmsg_send(rpdev->ept, (void *)&data,
+			 sizeof(struct ethosu_core_msg) +
+			 sizeof(struct ethosu_core_cancel_inference_req));
+	if (ret) {
+		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int rpmsg_ethosu_cb(struct rpmsg_device *rpdev,
 		void *data, int len, void *priv, u32 src)
 {
