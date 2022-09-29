@@ -215,22 +215,22 @@
 
 		adar1000_csb_1_1@0 {
 			reg = <0>;
-			label = "csb1_chip1";
+			label = "adar1000_csb_1_1";
 		};
 
 		adar1000_csb_1_2@1 {
 			reg = <1>;
-			label = "csb1_chip2";
+			label = "adar1000_csb_1_2";
 		};
 
 		adar1000_csb_1_3@2 {
 			reg = <2>;
-			label = "csb1_chip3";
+			label = "adar1000_csb_1_3";
 		};
 
 		adar1000_csb_1_4@3 {
 			reg = <3>;
-			label = "csb1_chip4";
+			label = "adar1000_csb_1_4";
 		};
 	};
 
@@ -244,22 +244,22 @@
 
 		adar1000_csb_2_1@0 {
 			reg = <0>;
-			label = "csb2_chip1";
+			label = "adar1000_csb_2_1";
 		};
 
 		adar1000_csb_2_2@1 {
 			reg = <1>;
-			label = "csb2_chip2";
+			label = "adar1000_csb_2_2";
 		};
 
 		adar1000_csb_2_3@2 {
 			reg = <2>;
-			label = "csb2_chip3";
+			label = "adar1000_csb_2_3";
 		};
 
 		adar1000_csb_2_4@3 {
 			reg = <3>;
-			label = "csb2_chip4";
+			label = "adar1000_csb_2_4";
 		};
 	};
 
@@ -273,22 +273,22 @@
 
 		adar1000_csb_3_1@0 {
 			reg = <0>;
-			label = "csb3_chip1";
+			label = "adar1000_csb_3_1";
 		};
 
 		adar1000_csb_3_2@1 {
 			reg = <1>;
-			label = "csb3_chip2";
+			label = "adar1000_csb_3_2";
 		};
 
 		adar1000_csb_3_3@2 {
 			reg = <2>;
-			label = "csb3_chip3";
+			label = "adar1000_csb_3_3";
 		};
 
 		adar1000_csb_3_4@3 {
 			reg = <3>;
-			label = "csb3_chip4";
+			label = "adar1000_csb_3_4";
 		};
 	};
 
@@ -302,22 +302,22 @@
 
 		adar1000_csb_4_1@0 {
 			reg = <0>;
-			label = "csb4_chip1";
+			label = "adar1000_csb_4_1";
 		};
 
 		adar1000_csb_4_2@1 {
 			reg = <1>;
-			label = "csb4_chip2";
+			label = "adar1000_csb_4_2";
 		};
 
 		adar1000_csb_4_3@2 {
 			reg = <2>;
-			label = "csb4_chip3";
+			label = "adar1000_csb_4_3";
 		};
 
 		adar1000_csb_4_4@3 {
 			reg = <3>;
-			label = "csb4_chip4";
+			label = "adar1000_csb_4_4";
 		};
 	};
 
