@@ -72,6 +72,7 @@
 #define SPI_ENGINE_TRANSFER_READ		0x2
 
 #define SPI_ENGINE_ONE_SHOT_CMD			BIT(15)
+#define SPI_ENGINE_DDR_BIT			BIT(3)
 
 #define SPI_ENGINE_CMD(inst, arg1, arg2) \
 	(((inst) << 12) | ((arg1) << 8) | (arg2))
@@ -338,6 +339,7 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_engine_msg *eng_msg;
 	struct spi_engine_program *p;
 	struct spi_transfer *xfer;
+	static uint16_t inst = 0;
 	void __iomem *cmd_addr;
 	void __iomem *sdo_addr;
 	const uint8_t *buf;
@@ -376,6 +378,14 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	for (i = 0; i < p->length; i++) {
 		if(eng_msg->one_shot && (i < p->length-2)) {
 			p->instructions[i] |= SPI_ENGINE_ONE_SHOT_CMD;
+		}
+		if(eng_msg->ddr && (i == p->length-2)) {
+			inst = SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CONFIG,
+					spi_engine_get_config(spi) | SPI_ENGINE_DDR_BIT);
+			if(eng_msg->one_shot)
+				inst |= SPI_ENGINE_ONE_SHOT_CMD;
+			writel(inst, cmd_addr);
+			dev_info(&spi->dev,"ddr inst = 0x%x",inst);
 		}
 		writel(p->instructions[i], cmd_addr);
 		dev_info(&spi->dev,"instructions[%d] = 0x%x",i,p->instructions[i]);

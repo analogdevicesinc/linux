@@ -12,6 +12,8 @@
 struct spi_engine_msg {
 	struct spi_message msg;
 	bool one_shot;
+	bool ddr;
+	bool stream;
 };
 
 #ifdef CONFIG_SPI_AXI_SPI_ENGINE

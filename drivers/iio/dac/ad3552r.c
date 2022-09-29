@@ -589,7 +589,6 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 		{
 			.len = 1,
 			.bits_per_word = 8,
-//			.cs_change = 1
 		},
 		{
 			.len = 2,
@@ -607,6 +606,7 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 
 	if (dac->spi_is_dma_mapped) {
 		dac->spi_engine_msg.one_shot = true;
+		dac->spi_engine_msg.ddr = true;
 		bitmap_to_arr32(&active_scans, indio_dev->active_scan_mask,
 				indio_dev->masklength);
 		switch (active_scans) {
@@ -641,6 +641,18 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 					byte_loop_count);
 		if (ret < 0) {
 			return ret;
+		}
+
+		if(dac->spi_engine_msg.ddr) {
+			ret = ad3552r_update_reg_field(dac,
+						       AD3552R_REG_ADDR_INTERFACE_CONFIG_D,
+						       AD3552R_MASK_SPI_CONFIG_DDR,
+						       0xFFFF);
+			if (ret < 0) {
+				return ret;
+			}
+			xfer[1].len /= 2;
+			xfer[1].bits_per_word /= 2;
 		}
 
 		xfer[0].tx_buf = &tx_data;
