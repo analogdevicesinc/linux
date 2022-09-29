@@ -337,7 +337,7 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_transfer *xfer;
 	void __iomem *cmd_addr;
 	void __iomem *sdo_addr;
-	const uint8_t *buf;
+	const uint32_t *buf;
 	unsigned int i, j;
 	size_t size;
 
