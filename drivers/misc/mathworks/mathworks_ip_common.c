@@ -12,30 +12,54 @@
 #include <linux/errno.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/time.h>
 
 #include <linux/mathworks/mathworks_ip.h>
 
 #define DRIVER_NAME "mathworks_ip"
 
+// DMA Read/Write for use with HDL Verifier BRAM 
+#define HDLV_BRAM_BASE_ADDR 262144
+
 /*Device structure for IPCore information*/
 static struct class *mathworks_ip_class = NULL;
 static struct mathworks_ip_dev_info dev_table[MATHWORKS_IP_MAX_DEVTYPE] = {{{0}}};
 
+/*
+ *   setup for creating sysfs directory
+ */
+static ssize_t show_fpga_irq(struct device *dev, struct device_attribute *attr, char *buf)
+{
+       return sprintf(buf, "status=0\n");
+}
+
+static ssize_t store_fpga_irq(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+       return len;
+}
+
+static DEVICE_ATTR(fpga_irq_0, S_IRWXU, show_fpga_irq, store_fpga_irq);
+
 static irqreturn_t mathworks_ip_intr_handler(int irq, void * theIpcore)
 {
-    struct mathworks_ip_info *thisIpcore = (struct mathworks_ip_info*) theIpcore;
-
-    dev_dbg(thisIpcore->dev, "IRQ %d Handled\n", irq);
-    return IRQ_HANDLED;
-
+       struct mathworks_ip_info *thisIpcore = (struct mathworks_ip_info*) theIpcore;
+       dev_dbg(thisIpcore->dev, "IRQ %d Handled\n", irq);
+       /* irq is current Linux INT number - not equal to INT pin on the processor */
+       /* thisIpcore->irq is starting Linux INT number for that DUT */
+       /* Difference irq - thisIpcore->irq is relattive INT number as described above */
+       /*relativeIntIndex = irq - thisIpcore->irq; currently supporting one Interrupt per DUT */
+       sysfs_notify_dirent(thisIpcore->irq_kn[0]);
+       return IRQ_HANDLED;
 }
 
 static int mathworks_ip_fasync_impl(int fd, struct file* fp, int mode)
 {
     struct mathworks_ip_info *thisIpcore = fp->private_data;
-    
     return fasync_helper(fd, fp, mode, &thisIpcore->asyncq);
-  
 }
 
 static int mathworks_ip_open(struct inode *inode, struct file *fp)
@@ -97,7 +121,7 @@ static int	mathworks_ip_dma_info(struct mathworks_ip_info *thisIpcore, void *arg
 
 }
 
-static int	mathworks_ip_reg_info(struct mathworks_ip_info *thisIpcore, void *arg)
+static int mathworks_ip_reg_info(struct mathworks_ip_info *thisIpcore, void *arg)
 {
 	struct mathworks_ip_reg_info rinfo;
 
@@ -251,8 +275,7 @@ static int mathworks_ip_mmap(struct file *fp, struct vm_area_struct *vma)
 			vma->vm_ops = &mathworks_ip_mmap_ops;
 			break;
 		default:
-			/* mmap the DMA region */
-			
+			/* mmap DMA region */
 			status = mathworks_ip_dma_alloc(thisIpcore, size);
 			if (status != 0)
 				return status;
@@ -261,8 +284,13 @@ static int mathworks_ip_mmap(struct file *fp, struct vm_area_struct *vma)
 				return -EINVAL;
 			/* We want to mmap the whole buffer */
 			vma->vm_pgoff = 0; 
-			status =  dma_mmap_coherent(thisIpcore->dev,vma,
+			if (HDLV_BRAM_BASE_ADDR == vma->vm_pgoff) {
+				status =  dma_mmap_coherent(thisIpcore->dev,vma,
+					thisIpcore->dma_info.virt, thisIpcore->mem->start, size);
+			} else {
+				status =  dma_mmap_coherent(thisIpcore->dev,vma,
 						thisIpcore->dma_info.virt, thisIpcore->dma_info.phys, size);
+			}
 			vma->vm_ops = &mathworks_ip_mmap_dma_ops;
 			break;
 	} 
@@ -312,6 +340,7 @@ static long mathworks_ip_ioctl(struct file *fp, unsigned int cmd, unsigned long 
 static void mathworks_ip_remove_cdev(void *opaque){
 	struct mathworks_ip_info *thisIpcore = opaque;
 
+	sysfs_remove_file(&thisIpcore->dev->kobj, &dev_attr_fpga_irq_0.attr);
 	if(&thisIpcore->cdev)
 	{
 		dev_info(thisIpcore->dev, "Destroy character dev\n");
@@ -474,6 +503,9 @@ EXPORT_SYMBOL_GPL(devm_mathworks_ip_of_init);
 
 int devm_mathworks_ip_register(struct mathworks_ip_info *thisIpcore){
 	int status;
+	char currentFileName[SYSFS_FILENAME_MAX_LENGTH];
+	int i;
+	int irq_idx;
 
 	status = mathworks_ip_setup_cdev(thisIpcore);
 	if(status)
@@ -485,7 +517,6 @@ int devm_mathworks_ip_register(struct mathworks_ip_info *thisIpcore){
 	/* It is possible that we have not required any interrupt */
 	if (thisIpcore->irq)
 	{
-		int irq_idx;
 		for (irq_idx = 0; irq_idx < thisIpcore->nirq; irq_idx++) {
 			status = devm_request_irq(thisIpcore->dev,
 					thisIpcore->irq+irq_idx,
@@ -511,8 +542,22 @@ int devm_mathworks_ip_register(struct mathworks_ip_info *thisIpcore){
 		return status;
 	}
 
+	status = sysfs_create_file(&thisIpcore->dev->kobj, &dev_attr_fpga_irq_0.attr);
+	if (status) {
+		printk(KERN_INFO "Error creating the sysfs device 0\n");
+		return status;
+	}
+
+	for(i=0; i <  MAX_INTERRUPT_NODES_PER_DUT ; i++) {
+		snprintf(currentFileName,SYSFS_FILENAME_MAX_LENGTH ,"fpga_irq_%d",i);
+		thisIpcore->irq_kn[i] = sysfs_get_dirent(thisIpcore->dev->kobj.sd, currentFileName);
+		if(!thisIpcore->irq_kn[i]){
+			printk(KERN_INFO "Error in file index %d\n", i);
+		}
+	}
 	return 0;
 }
+
 EXPORT_SYMBOL_GPL(devm_mathworks_ip_register);
 
 static int __init mathworks_ip_init(void)
