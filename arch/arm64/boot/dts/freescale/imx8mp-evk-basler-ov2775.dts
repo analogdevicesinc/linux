@@ -18,13 +18,13 @@
 &iomuxc {
 	pinctrl_csi1_pwn: csi1_pwn_grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_SAI1_RXC__GPIO4_IO01	0x19
+			MX8MP_IOMUXC_SAI1_RXC__GPIO4_IO01	0x10
 		>;
 	};
 
 	pinctrl_csi1_rst: csi1_rst_grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_SAI1_RXFS__GPIO4_IO00	0x19
+			MX8MP_IOMUXC_SAI1_RXFS__GPIO4_IO00	0x10
 		>;
 	};
 };
