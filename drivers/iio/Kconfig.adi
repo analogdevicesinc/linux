@@ -32,6 +32,7 @@ config IIO_ALL_ADI_DRIVERS
 	select ADXL372_I2C if I2C
 	select ADXL372_SPI if SPI
 	select AD400X
+	select AD4858
 	select AD6676
 	select AD7091R5
 	select AD7124
