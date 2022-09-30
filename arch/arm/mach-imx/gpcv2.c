@@ -593,7 +593,9 @@ void imx_gpcv2_post_resume(void)
 		writel_relaxed(readl_relaxed(gpc_base + GPC_LPCR_M4) |
 			BM_LPCR_M4_MASK_DSM_TRIGGER, gpc_base + GPC_LPCR_M4);
 	/* set mega/fast mix in A7 domain */
-	writel_relaxed(0x1, gpc_base + GPC_PGC_CPU_MAPPING);
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	val |= 0x1;
+	writel_relaxed(val, gpc_base + GPC_PGC_CPU_MAPPING);
 	/* set SCU timing */
 	writel_relaxed((0x59 << 10) | 0x5B | (0x2 << 20),
 		gpc_base + GPC_PGC_SCU_TIMING);
@@ -781,7 +783,10 @@ static int __init imx_gpcv2_init(struct device_node *node,
 		writel_relaxed(readl_relaxed(gpc_base + GPC_LPCR_M4) |
 			BM_LPCR_M4_MASK_DSM_TRIGGER, gpc_base + GPC_LPCR_M4);
 	/* set mega/fast mix in A7 domain */
-	writel_relaxed(0x1, gpc_base + GPC_PGC_CPU_MAPPING);
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	val |= 0x1;
+	writel_relaxed(val, gpc_base + GPC_PGC_CPU_MAPPING);
+
 	/* set SCU timing */
 	writel_relaxed((0x59 << 10) | 0x5B | (0x2 << 20),
 		gpc_base + GPC_PGC_SCU_TIMING);
