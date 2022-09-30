@@ -607,6 +607,7 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 	if (dac->spi_is_dma_mapped) {
 		dac->spi_engine_msg.one_shot = true;
 		dac->spi_engine_msg.ddr = true;
+		dac->spi_engine_msg.stream = true;
 		bitmap_to_arr32(&active_scans, indio_dev->active_scan_mask,
 				indio_dev->masklength);
 		switch (active_scans) {

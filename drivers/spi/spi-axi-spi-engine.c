@@ -73,6 +73,7 @@
 
 #define SPI_ENGINE_ONE_SHOT_CMD			BIT(15)
 #define SPI_ENGINE_DDR_BIT			BIT(3)
+#define SPI_ENGINE_STREAM_MOD			0xFF
 
 #define SPI_ENGINE_CMD(inst, arg1, arg2) \
 	(((inst) << 12) | ((arg1) << 8) | (arg2))
@@ -386,6 +387,12 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 				inst |= SPI_ENGINE_ONE_SHOT_CMD;
 			writel(inst, cmd_addr);
 			dev_info(&spi->dev,"ddr inst = 0x%x",inst);
+		}
+		if(eng_msg->stream && (i >= p->length-2)) {
+			if(p->instructions[i] == 0x100)
+				p->instructions[i] |= SPI_ENGINE_STREAM_MOD;
+			if(eng_msg->one_shot)
+				p->instructions[i] |= SPI_ENGINE_ONE_SHOT_CMD;
 		}
 		writel(p->instructions[i], cmd_addr);
 		dev_info(&spi->dev,"instructions[%d] = 0x%x",i,p->instructions[i]);
