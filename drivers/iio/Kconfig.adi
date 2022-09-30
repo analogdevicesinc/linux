@@ -37,6 +37,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD4630
 	imply AD4130
 	imply AD4134
+	imply AD4858
 	imply AD6676
 	imply AD7091R5
 	imply AD7124
