@@ -7,7 +7,7 @@
  * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
  * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
  *
- * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
+ * hdl_project: <adrv9009zu11eg/adrv2crr_xmicrowave>
  * board_revision: <B>
  *
  * Copyright (C) 2021 Analog Devices Inc.
