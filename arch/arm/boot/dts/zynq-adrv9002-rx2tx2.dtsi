@@ -26,7 +26,7 @@
 
 	tx_dma: dma@44A50000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x44A50000 0x10000>;
+		reg = <0x44A50000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 		clock-names = "s_axi_aclk", "m_src_axi_aclk", "m_axis_aclk";
