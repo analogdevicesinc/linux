@@ -216,7 +216,7 @@
 
 		rx_dma0: dma@7c440000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x7c440000 0x10000>;
+			reg = <0x7c440000 0x1000>;
 			#dma-cells = <1>;
 			interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 15>;
@@ -237,7 +237,7 @@
 	/*
 		rx_dma1: dma@7c440000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x7c460000 0x10000>;
+			reg = <0x7c460000 0x1000>;
 			#dma-cells = <1>;
 			interrupts = <0 36 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 15>;
@@ -250,7 +250,7 @@
 	*/
 		tx_dma0: dma@7c480000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x7c480000 0x10000>;
+			reg = <0x7c480000 0x1000>;
 			#dma-cells = <1>;
 			interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 15>;
@@ -271,7 +271,7 @@
 
 		tx_dma1: dma@7c460000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x7c460000 0x10000>;
+			reg = <0x7c460000 0x1000>;
 			#dma-cells = <1>;
 			interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 15>;
@@ -321,7 +321,7 @@
 
 		logic_analyzer_rx_dma: dma@7c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x7c400000 0x10000>;
+			reg = <0x7c400000 0x1000>;
 
 			#dma-cells = <1>;
 			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
@@ -343,7 +343,7 @@
 
 		logic_analyzer_tx_dma: dma@7c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x7c420000 0x10000>;
+			reg = <0x7c420000 0x1000>;
 
 			#dma-cells = <1>;
 			interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
@@ -380,4 +380,3 @@
 		};
 	};
 };
-

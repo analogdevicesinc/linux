@@ -25,7 +25,7 @@
 &fpga_axi {
 	rx_dma: rx-dmac@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x7c400000 0x10000>;
+		reg = <0x7c400000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
@@ -47,7 +47,7 @@
 
 	tx_dma: tx-dmac@7c420000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x7c420000 0x10000>;
+		reg = <0x7c420000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
