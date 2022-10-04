@@ -138,6 +138,9 @@ struct ad74413r_state {
 #define AD74413R_REG_ADC_RESULT_X(x)	(0x26 + (x))
 #define AD74413R_ADC_RESULT_MAX		GENMASK(15, 0)
 
+#define AD74413R_REG_LIVE_STATUS	0x2f
+#define AD74413R_ADC_DATA_RDY_MASK	BIT(14)
+
 #define AD74413R_REG_READ_SELECT	0x41
 
 #define AD74413R_REG_CMD_KEY		0x44
@@ -780,6 +783,18 @@ static int _ad74413r_get_single_adc_result(struct ad74413r_state *st,
 	if (ret)
 		return ret;
 
+	if (!st->spi->irq) {
+		unsigned int regval;
+
+		ret = regmap_read_poll_timeout(st->regmap, AD74413R_REG_LIVE_STATUS,
+					       regval, !(regval & AD74413R_ADC_DATA_RDY_MASK),
+					       1000, 100 * 1000);
+		if (ret)
+			return ret;
+
+		goto skip_irq;
+	}
+
 	ret = wait_for_completion_timeout(&st->adc_data_completion,
 					  msecs_to_jiffies(1000));
 	if (!ret) {
@@ -787,6 +802,7 @@ static int _ad74413r_get_single_adc_result(struct ad74413r_state *st,
 		return ret;
 	}
 
+skip_irq:
 	ret = regmap_read(st->regmap, AD74413R_REG_ADC_RESULT_X(channel),
 			  &uval);
 	if (ret)
@@ -1408,6 +1424,9 @@ static int ad74413r_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	if (!spi->irq)
+		goto skip_irq;
+
 	ret = devm_request_irq(st->dev, spi->irq, ad74413r_adc_data_interrupt,
 			       0, st->chip_info->name, indio_dev);
 	if (ret)
@@ -1420,6 +1439,7 @@ static int ad74413r_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+skip_irq:
 	return devm_iio_device_register(st->dev, indio_dev);
 }
 
