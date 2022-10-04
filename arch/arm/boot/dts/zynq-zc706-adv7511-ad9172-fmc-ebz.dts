@@ -32,14 +32,14 @@
 	tx_dma: tx-dmac@7c420000 {
 		#dma-cells = <1>;
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x7c420000 0x10000>;
+		reg = <0x7c420000 0x1000>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
 	};
 
 	axi_ad9172_core: axi-ad9172-hpc@44A04000 {
 		compatible = "adi,axi-ad9172-1.0";
-		reg = <0x44A04000 0x10000>;
+		reg = <0x44A04000 0x1000>;
 		dmas = <&tx_dma 0>;
 		dma-names = "tx";
 		spibus-connected = <&dac0_ad9172>;

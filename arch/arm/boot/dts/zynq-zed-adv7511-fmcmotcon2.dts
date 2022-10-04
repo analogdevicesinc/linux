@@ -65,7 +65,7 @@
 	};
 	ad_mc_speed_dma: dma@40510000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x40510000 0x10000>;
+		reg = <0x40510000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
@@ -92,7 +92,7 @@
 	};
 	ad_mc_adc_dma: dma@40520000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x40520000 0x10000>;
+		reg = <0x40520000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
@@ -124,7 +124,7 @@
 	};
 	ad_mc_speed_dma_m2: dma@40540000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x40540000 0x10000>;
+		reg = <0x40540000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
@@ -151,7 +151,7 @@
 	};
 	ad_mc_adc_dma_m2: dma@40550000 {
 		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x40550000 0x10000>;
+		reg = <0x40550000 0x1000>;
 		#dma-cells = <1>;
 		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;

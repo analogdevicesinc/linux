@@ -80,7 +80,7 @@
 
 		hdmi_dma: dma@43000000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x43000000 0x10000>;
+			reg = <0x43000000 0x1000>;
 			#dma-cells = <1>;
 			interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 16>;
