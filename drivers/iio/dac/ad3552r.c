@@ -289,8 +289,6 @@ struct ad3552r_desc {
 	struct pwm_device	*cnv;
 	struct clk		*ext_clk;
 	int			sampling_freq;
-
-	struct spi_engine_msg 	spi_engine_msg;
 };
 
 static const u16 addr_mask_map[][2] = {
@@ -585,35 +583,41 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad3552r_desc *dac = iio_priv(indio_dev);
 
-	struct spi_transfer xfer[] = {
+	struct spi_engine_transfer exfer[] = {
 		{
-			.len = 1,
-			.bits_per_word = 8,
+			.xfer = {
+				.len = 1,
+				.bits_per_word = 8,
+			},
+			.one_shot = true,
 		},
 		{
-			.len = 2,
-			.bits_per_word = 16,
-			.speed_hz = 60*MHz,
-			.cs_change = 1
+			.xfer = {
+				.len = 2,
+				.bits_per_word = 16,
+				.speed_hz = 60*MHz,
+				.cs_change = 1
+			},
+			.one_shot = true,
+			.ddr = true,
+			.stream = true,
 		}
 	};
 
-	struct spi_message *msg = &dac->spi_engine_msg.msg;
+	struct spi_message msg;
 	u16 byte_loop_count;
 	u32 active_scans;
 	u8 tx_data;
 	int ret;
 
 	if (dac->spi_is_dma_mapped) {
-		dac->spi_engine_msg.one_shot = true;
-		dac->spi_engine_msg.ddr = true;
-		dac->spi_engine_msg.stream = true;
+		//TODO move some of these in to DTS
 		bitmap_to_arr32(&active_scans, indio_dev->active_scan_mask,
 				indio_dev->masklength);
 		switch (active_scans) {
 		case AD3552R_MASK_CH(0) | AD3552R_MASK_CH(1):
-			xfer[1].len = 4;
-			xfer[1].bits_per_word = 32;
+			exfer[1].xfer.len = 4;
+			exfer[1].xfer.bits_per_word = 32;
 			tx_data = AD3552R_REG_ADDR_CH_DAC_16B(1);
 			byte_loop_count = 4;
 			break;
@@ -644,26 +648,14 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 			return ret;
 		}
 
-		if(dac->spi_engine_msg.ddr) {
-			ret = ad3552r_update_reg_field(dac,
-						       AD3552R_REG_ADDR_INTERFACE_CONFIG_D,
-						       AD3552R_MASK_SPI_CONFIG_DDR,
-						       0xFFFF);
-			if (ret < 0) {
-				return ret;
-			}
-			xfer[1].len /= 2;
-			xfer[1].bits_per_word /= 2;
-		}
+		exfer[0].xfer.tx_buf = &tx_data;
+		exfer[0].xfer.rx_buf = NULL;
+		exfer[1].xfer.tx_buf = (void *)-1;
+		exfer[1].xfer.rx_buf = NULL;
 
-		xfer[0].tx_buf = &tx_data;
-		xfer[0].rx_buf = NULL;
-		xfer[1].tx_buf = (void *)-1;
-		xfer[1].rx_buf = NULL;
-
-		spi_message_init_with_transfers(msg, xfer, 2);
+		spi_engine_message_init_with_transfers(&msg, exfer, 2);
 		spi_bus_lock(dac->spi->master);
-		ret = spi_engine_offload_load_msg(dac->spi, msg);
+		ret = spi_engine_offload_load_msg(dac->spi, &msg);
 		if (ret < 0)
 			return ret;
 		spi_engine_offload_enable(dac->spi, true);
@@ -1307,7 +1299,6 @@ static int ad3552r_probe(struct spi_device *spi)
 	dac->spi = spi;
 	dac->chip_id = id->driver_data;
 	dac->spi_is_dma_mapped = spi_engine_offload_supported(spi);
-	dac->spi_engine_msg.one_shot = false;
 
 	mutex_init(&dac->lock);
 
