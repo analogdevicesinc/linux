@@ -145,7 +145,8 @@ enum {
 
 enum adf4371_variant {
 	ADF4371,
-	ADF4372
+	ADF4372,
+	ADF4401,
 };
 
 enum adf4371_muxout {
@@ -793,6 +794,14 @@ static const struct iio_chan_spec_ext_info adf4371_ext_info[] = {
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE), \
 	}
 
+#define ADD4401_CHANNEL(index) { \
+		.type = IIO_ALTVOLTAGE, \
+		.output = 1, \
+		.channel = index, \
+		.ext_info = adf4371_ext_info, \
+		.indexed = 1, \
+	}
+
 static const struct iio_chan_spec_ext_info adf4371_ext_info_aux[] = {
 	/*
 	 * Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
@@ -824,6 +833,14 @@ static const struct iio_chan_spec_ext_info adf4371_ext_info_aux[] = {
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE), \
 	}
 
+#define ADF4401_AUX_CHANNEL(index) { \
+		.type = IIO_ALTVOLTAGE, \
+		.output = 1, \
+		.channel = index, \
+		.ext_info = adf4371_ext_info_aux, \
+		.indexed = 1, \
+	}
+
 static const struct iio_chan_spec adf4371_chan[] = {
 	{
 		.type = IIO_TEMP,
@@ -837,6 +854,17 @@ static const struct iio_chan_spec adf4371_chan[] = {
 	ADF4371_CHANNEL(ADF4371_CH_RF32),
 };
 
+static const struct iio_chan_spec adf4401_chan[] = {
+	{
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
+	ADD4401_CHANNEL(ADF4371_CH_RF8),
+	ADF4401_AUX_CHANNEL(ADF4371_CH_RFAUX8),
+};
+
 static const struct adf4371_chip_info adf4371_chip_info[] = {
 	[ADF4371] = {
 		.channels = adf4371_chan,
@@ -845,7 +873,11 @@ static const struct adf4371_chip_info adf4371_chip_info[] = {
 	[ADF4372] = {
 		.channels = adf4371_chan,
 		.num_channels = 3,
-	}
+	},
+	[ADF4401] = {
+		.channels = adf4401_chan,
+		.num_channels = 1,
+	},
 };
 
 static int adf4371_reg_access(struct iio_dev *indio_dev,
@@ -1325,6 +1357,7 @@ static int adf4371_probe(struct spi_device *spi)
 static const struct spi_device_id adf4371_id_table[] = {
 	{ "adf4371", ADF4371 },
 	{ "adf4372", ADF4372 },
+	{ "adf4401", ADF4401 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, adf4371_id_table);
@@ -1332,6 +1365,7 @@ MODULE_DEVICE_TABLE(spi, adf4371_id_table);
 static const struct of_device_id adf4371_of_match[] = {
 	{ .compatible = "adi,adf4371" },
 	{ .compatible = "adi,adf4372" },
+	{ .compatible = "adi,adf4401" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adf4371_of_match);
