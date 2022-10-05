@@ -9,12 +9,34 @@
 #ifndef _INCLUDE_LINUX_SPI_SPI_ENGINE_H_
 #define _INCLUDE_LINUX_SPI_SPI_ENGINE_H_
 
-struct spi_engine_msg {
-	struct spi_message msg;
+struct spi_engine_transfer {
+	struct spi_transfer xfer;
+	bool has_container;
 	bool one_shot;
 	bool ddr;
 	bool stream;
 };
+
+/**
+ * spi_engine_message_init_with_transfers - Initialize spi_message and append
+ * spi_engine transfers
+ * @m: spi_message to be initialized
+ * @exfers: An array of spi_engine transfers
+ * @num_xfers: Number of items in the xfer array
+ *
+ * This function initializes the given spi_message and adds each spi_transfer in
+ * the given array to the message.
+ */
+static inline void
+spi_engine_message_init_with_transfers(struct spi_message *m,
+struct spi_engine_transfer *exfers, unsigned int num_xfers)
+{
+	unsigned int i;
+
+	spi_message_init(m);
+	for (i = 0; i < num_xfers; ++i)
+		spi_message_add_tail(&exfers[i].xfer, m);
+}
 
 #ifdef CONFIG_SPI_AXI_SPI_ENGINE
 

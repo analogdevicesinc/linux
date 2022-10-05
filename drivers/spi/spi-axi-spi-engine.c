@@ -84,6 +84,8 @@
 	SPI_ENGINE_CMD(SPI_ENGINE_INST_ASSERT, (delay), (cs))
 #define SPI_ENGINE_CMD_WRITE(reg, val) \
 	SPI_ENGINE_CMD(SPI_ENGINE_INST_WRITE, (reg), (val))
+#define SPI_ENGINE_CMD_WRITE_ONESHOT(reg, val, shot) \
+	SPI_ENGINE_CMD_WRITE(reg, val) | (shot << 15)
 #define SPI_ENGINE_CMD_SLEEP(delay) \
 	SPI_ENGINE_CMD(SPI_ENGINE_INST_MISC, SPI_ENGINE_MISC_SLEEP, (delay))
 #define SPI_ENGINE_CMD_SYNC(id) \
@@ -197,6 +199,9 @@ static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
 	struct spi_transfer *xfer)
 {
 	unsigned int len = xfer->len;
+	struct spi_engine_transfer *exfer;
+
+	exfer = container_of(xfer, struct spi_engine_transfer, xfer);
 
 	while (len) {
 		unsigned int n = min(len, 256U);
@@ -206,9 +211,14 @@ static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
 			flags |= SPI_ENGINE_TRANSFER_WRITE;
 		if (xfer->rx_buf)
 			flags |= SPI_ENGINE_TRANSFER_READ;
+		if (exfer->one_shot && (xfer->tx_buf != (void *)-1) && (xfer->rx_buf != (void *)-1))
+			spi_engine_program_add_cmd(p, dry,
+					SPI_ENGINE_CMD_TRANSFER(flags, n - 1) |
+					SPI_ENGINE_ONE_SHOT_CMD);
+		else
+			spi_engine_program_add_cmd(p, dry,
+					SPI_ENGINE_CMD_TRANSFER(flags, n - 1));
 
-		spi_engine_program_add_cmd(p, dry,
-			SPI_ENGINE_CMD_TRANSFER(flags, n - 1));
 		len -= n;
 	}
 }
@@ -218,8 +228,11 @@ static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
 	struct spi_transfer *xfer)
 {
 	unsigned int spi_clk = clk_get_rate(spi_engine->ref_clk);
+	struct spi_engine_transfer *exfer;
 	unsigned int t;
 	int delay;
+
+	exfer = container_of(xfer, struct spi_engine_transfer, xfer);
 
 	if (xfer->delay_usecs) {
 		delay = xfer->delay_usecs;
@@ -239,26 +252,40 @@ static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
 	while (t) {
 		unsigned int n = min(t, 256U);
 
-		spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_SLEEP(n - 1));
+		if (exfer->one_shot)
+			spi_engine_program_add_cmd(p, dry,
+					SPI_ENGINE_CMD_SLEEP(n - 1) |
+					SPI_ENGINE_ONE_SHOT_CMD);
+		else
+			spi_engine_program_add_cmd(p, dry,
+					SPI_ENGINE_CMD_SLEEP(n - 1));
+
 		t -= n;
 	}
 }
 
 static void spi_engine_gen_cs(struct spi_engine_program *p, bool dry,
-		struct spi_device *spi, bool assert)
+		struct spi_device *spi, bool assert, bool one_shot)
 {
 	unsigned int mask = 0xff;
 
 	if (assert)
 		mask ^= BIT(spi->chip_select);
 
-	spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_ASSERT(1, mask));
+	if (one_shot)
+		spi_engine_program_add_cmd(p, dry,
+				SPI_ENGINE_CMD_ASSERT(1, mask) |
+				SPI_ENGINE_ONE_SHOT_CMD);
+	else
+		spi_engine_program_add_cmd(p, dry,
+				SPI_ENGINE_CMD_ASSERT(1, mask));
 }
 
 static int spi_engine_compile_message(struct spi_engine *spi_engine,
 	struct spi_message *msg, bool dry, struct spi_engine_program *p)
 {
 	struct spi_device *spi = msg->spi;
+	struct spi_engine_transfer *exfer;
 	struct spi_transfer *xfer;
 	int clk_div, new_clk_div;
 	int word_len, new_word_len;
@@ -267,17 +294,21 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 	clk_div = -1;
 	word_len = -1;
 
+	xfer = list_first_entry(&msg->transfers, struct spi_transfer, transfer_list);
+	exfer = container_of(xfer, struct spi_engine_transfer, xfer);
+
 	spi_engine_program_add_cmd(p, dry,
-		SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CONFIG,
-			spi_engine_get_config(spi)));
+			SPI_ENGINE_CMD_WRITE_ONESHOT(SPI_ENGINE_CMD_REG_CONFIG,
+			spi_engine_get_config(spi), exfer->one_shot));
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		exfer = container_of(xfer, struct spi_engine_transfer, xfer);
 		new_clk_div = spi_engine_get_clk_div(spi_engine, spi, xfer);
 		if (new_clk_div != clk_div) {
 			clk_div = new_clk_div;
 			spi_engine_program_add_cmd(p, dry,
-				SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CLK_DIV,
-					clk_div));
+				SPI_ENGINE_CMD_WRITE_ONESHOT(SPI_ENGINE_CMD_REG_CLK_DIV,
+					clk_div, exfer->one_shot));
 		}
 
 		new_word_len = spi_engine_get_word_length(spi_engine, spi, xfer);
@@ -285,12 +316,12 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 			word_len = new_word_len;
 			spi_engine->word_length = word_len;
 			spi_engine_program_add_cmd(p, dry,
-				SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_WORD_LENGTH,
-					word_len));
+				SPI_ENGINE_CMD_WRITE_ONESHOT(SPI_ENGINE_CMD_REG_WORD_LENGTH,
+					word_len, exfer->one_shot));
 		}
 
 		if (cs_change)
-			spi_engine_gen_cs(p, dry, spi, true);
+			spi_engine_gen_cs(p, dry, spi, true, exfer->one_shot);
 
 		spi_engine_update_xfer_len(spi_engine, xfer);
 		spi_engine_gen_xfer(p, dry, xfer);
@@ -301,7 +332,7 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 			cs_change = !cs_change;
 
 		if (cs_change)
-			spi_engine_gen_cs(p, dry, spi, false);
+			spi_engine_gen_cs(p, dry, spi, false, exfer->one_shot);
 	}
 
 	return 0;
@@ -337,17 +368,14 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_master *master = spi->master;
 	struct spi_engine *spi_engine = spi_master_get_devdata(master);
 	struct spi_engine_program p_dry;
-	struct spi_engine_msg *eng_msg;
 	struct spi_engine_program *p;
 	struct spi_transfer *xfer;
-	static uint16_t inst = 0;
 	void __iomem *cmd_addr;
 	void __iomem *sdo_addr;
 	const uint8_t *buf;
 	unsigned int i, j;
 	size_t size;
 
-	eng_msg = container_of(msg, struct spi_engine_msg, msg);
 	msg->spi = spi;
 
 	p_dry.length = 0;
@@ -377,23 +405,6 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	}
 
 	for (i = 0; i < p->length; i++) {
-		if(eng_msg->one_shot && (i < p->length-2)) {
-			p->instructions[i] |= SPI_ENGINE_ONE_SHOT_CMD;
-		}
-		if(eng_msg->ddr && (i == p->length-2)) {
-			inst = SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CONFIG,
-					spi_engine_get_config(spi) | SPI_ENGINE_DDR_BIT);
-			if(eng_msg->one_shot)
-				inst |= SPI_ENGINE_ONE_SHOT_CMD;
-			writel(inst, cmd_addr);
-			dev_info(&spi->dev,"ddr inst = 0x%x",inst);
-		}
-		if(eng_msg->stream && (i >= p->length-2)) {
-			if(p->instructions[i] == 0x100)
-				p->instructions[i] |= SPI_ENGINE_STREAM_MOD;
-			if(eng_msg->one_shot)
-				p->instructions[i] |= SPI_ENGINE_ONE_SHOT_CMD;
-		}
 		writel(p->instructions[i], cmd_addr);
 		dev_info(&spi->dev,"instructions[%d] = 0x%x",i,p->instructions[i]);
 	}
