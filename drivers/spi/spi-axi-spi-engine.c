@@ -320,6 +320,12 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 					word_len, exfer->one_shot));
 		}
 
+		if(exfer->ddr)
+			spi_engine_program_add_cmd(p, dry,
+					SPI_ENGINE_CMD_WRITE_ONESHOT(SPI_ENGINE_CMD_REG_CONFIG,
+					spi_engine_get_config(spi) | SPI_ENGINE_DDR_BIT,
+					exfer->one_shot));
+
 		if (cs_change)
 			spi_engine_gen_cs(p, dry, spi, true, exfer->one_shot);
 

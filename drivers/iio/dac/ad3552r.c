@@ -289,6 +289,7 @@ struct ad3552r_desc {
 	struct pwm_device	*cnv;
 	struct clk		*ext_clk;
 	int			sampling_freq;
+	u16			interface_config_d;
 };
 
 static const u16 addr_mask_map[][2] = {
@@ -579,6 +580,57 @@ static const struct iio_info ad3552r_iio_info = {
 	.debugfs_reg_access = ad3552r_reg_access
 };
 
+static int ad3552r_set_ddr(struct iio_dev *indio_dev)
+{
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+	int ret;
+
+	ret = ad3552r_read_reg(dac, AD3552R_REG_ADDR_INTERFACE_CONFIG_D,
+			       &dac->interface_config_d);
+	if (ret < 0) {
+		return ret;
+	}
+
+	ret = ad3552r_write_reg(dac, AD3552R_REG_ADDR_INTERFACE_CONFIG_D,
+				dac->interface_config_d |
+				AD3552R_MASK_SPI_CONFIG_DDR);
+	if (ret < 0) {
+		return ret;
+	}
+
+	return ret;
+}
+
+static int ad3552r_clear_ddr(struct iio_dev *indio_dev)
+{
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+	struct spi_engine_transfer exfer[] = {
+		{
+			.xfer = {
+				.len = 1,
+				.bits_per_word = 8,
+			},
+		},
+		{
+			.xfer = {
+				.len = 1,
+				.bits_per_word = 8,
+			},
+			.ddr = true,
+		}
+
+	};
+	u8 addr = AD3552R_REG_ADDR_INTERFACE_CONFIG_D;
+	u16 val = dac->interface_config_d & ~AD3552R_MASK_SPI_CONFIG_DDR;
+	struct spi_message msg;
+
+	exfer[0].xfer.tx_buf = &addr;
+	exfer[1].xfer.tx_buf = &val;
+
+	spi_engine_message_init_with_transfers(&msg, exfer, ARRAY_SIZE(exfer));
+	return spi_sync(dac->spi, &msg);
+}
+
 static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad3552r_desc *dac = iio_priv(indio_dev);
@@ -648,6 +700,17 @@ static int ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 			return ret;
 		}
 
+		if(exfer[1].ddr)
+		{
+			ret = ad3552r_set_ddr(indio_dev);
+			if (ret < 0) {
+				return ret;
+			}
+
+			exfer[1].xfer.len /= 2;
+			exfer[1].xfer.bits_per_word /= 2;
+		}
+
 		exfer[0].xfer.tx_buf = &tx_data;
 		exfer[0].xfer.rx_buf = NULL;
 		exfer[1].xfer.tx_buf = (void *)-1;
@@ -671,6 +734,13 @@ static int ad3552r_buffer_predisable(struct iio_dev *indio_dev)
 	if (dac->spi_is_dma_mapped) {
 		spi_engine_offload_enable(dac->spi, false);
 		spi_bus_unlock(dac->spi->master);
+		if (dac->interface_config_d) {
+			//TODO commented because of the OFFLOAD->FIFO HDL bug
+//			ret = ad3552r_clear_ddr(indio_dev);
+//			if (ret < 0)
+//				return ret;
+		}
+		dev_info(&dac->spi->dev,"Offload disable");
 	}
 
 	return 0;
@@ -1299,6 +1369,7 @@ static int ad3552r_probe(struct spi_device *spi)
 	dac->spi = spi;
 	dac->chip_id = id->driver_data;
 	dac->spi_is_dma_mapped = spi_engine_offload_supported(spi);
+	dac->interface_config_d = 0;
 
 	mutex_init(&dac->lock);
 
