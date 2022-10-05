@@ -6,180 +6,180 @@
 
 config IIO_ALL_ADI_DRIVERS
 	tristate "Build all Analog Devices IIO Drivers"
-	select IIO_BUFFER
-	select IIO_SW_DEVICE
-	select IIO_SW_TRIGGER
-	select IIO_TRIGGERED_EVENT
-	select IIO_HRTIMER_TRIGGER
-	select IIO_INTERRUPT_TRIGGER
-	select IIO_SYSFS_TRIGGER
-	select IIO_TIGHTLOOP_TRIGGER
-	select IIO_BUFFER_CB
-	select IIO_BUFFER_DMA
-	select IIO_BUFFER_DMAENGINE
-	select IIO_BUFFER_HW_CONSUMER
-	select IIO_KFIFO_BUF
-	select IIO_TRIGGERED_BUFFER
-	select ALTERA_ARRIA10_JESD204_PHY if ARCH_SOCFPGA
-	select ADIS16201
-	select ADIS16209
-	select ADXL313_I2C if I2C
-	select ADXL313_SPI if SPI
-	select ADXL345_I2C if I2C
-	select ADXL345_SPI if SPI
-	select ADXL355_I2C if I2C
-	select ADXL355_SPI if SPI
-	select ADXL367_I2C if I2C
-	select ADXL367_SPI if SPI
-	select ADXL372_I2C if I2C
-	select ADXL372_SPI if SPI
-	select AD400X
-	select AD6676
-	select AD7091R5
-	select AD7124
-	select AD7173
-	select AD7266
-	select AD7291
-	select AD7293
-	select AD7298
-	select AD738X
-	select AD7923
-	select AD7949
-	select AD7476
-	select AD7606_IFACE_PARALLEL
-	select AD7606_IFACE_SPI
-	select AD7766
-	select AD7768
-	select AD7768_1
-	select AD7791
-	select AD7793
-	select AD7887
-	select AD799X
-	select AD9963
-	select CF_AXI_ADC
-	select AD9208
-	select AD9081
-	select AD9083
-	select AD9361
-	select AD9361_EXT_BAND_CONTROL
-	select AD9371
-	select ADAR1000
-	select ADAR3000
-	select ADRV9009
-	select ADRV9001
-	select AD9467
-	select AD9680
-	select ADMC
-	select CF_AXI_TDD
-	select AXI_PULSE_CAPTURE
-	select AXI_FMCADC5_SYNC
-	select XILINX_XADC if (ARCH_ZYNQ || ARCH_ZYNQMP || MICROBLAZE)
-	select LTC2497
-	select LTC2308
-	select AD8366
-	select ADA4250
-	select HMC425
-	select AD5270
-	select AD5360
-	select AD5380
-	select AD5421
-	select AD5624R_SPI if SPI
-	select AD3552R
-	select AD5064
-	select AD5504
-	select AD5446
-	select AD5449
-	select AD5592R_BASE
-	select AD5592R
-	select AD5593R
-	select AD5755
-	select AD5758
-	select AD5761
-	select AD5764
-	select AD5766
-	select AD5770R
-	select AD5791
-	select AD5686
-	select AD5686_SPI if SPI
-	select AD5696_I2C if I2C
-	select AD7303
-	select AD8801
-	select AD9508
-	select AD9517
-	select AD9523
-	select AD9528
-	select AD9548
-	select ADF4159
-	select ADF4350
-	select ADF4360
-	select ADF4371
-	select ADF4377
-	select ADF5355
-	select ADL5960
-	select ADMV1013
-	select ADMV1014
-	select ADMV4420
-	select ADMV8818
-	select ADRF6780
-	select CF_AXI_DDS
-	select CF_AXI_DDS_AD9122
-	select CF_AXI_DDS_AD9144
-	select CF_AXI_DDS_AD9739A
-	select CF_AXI_DDS_AD9783
-	select HMC7044
-	select CF_AXI_DDS_AD9162
-	select CF_AXI_DDS_AD9172
-	select AD916X_AMP
-	select M2K_DAC
-	select ADIS16080
-	select ADIS16130
-	select ADIS16136
-	select ADIS16260
-	select ADIS16400
-	select ADIS16460
-	select ADIS16475
-	select ADIS16480
-	select M2K_LOGIC_ANALYZER
-	select AD5272
-	select IIO_REGMAP_I2C
-	select IIO_REGMAP_SPI
-	select AD2S1200
-	select LTC1660
-	select LTC2983
-	select ADIS16203
-	select ADIS16240
-	select AD7780
-	select AD7816
-	select AD7192
-	select AD7280
-	select AD7292
-	select ADT7316
-	select ADT7316_SPI if SPI
-	select ADT7316_I2C if I2C
-	select AD7150
-	select AD7152
-	select AD7746
-	select AD9832
-	select AD9834
-	select AD5933
-	select ADE7854
-	select ADE7854_I2C if I2C
-	select ADE7854_SPI if SPI
-	select AD2S90
-	select AD2S1210
-	select LTC6952
-	select LTC2471
-	select LTC2496
-	select LTC2632
-	select LTC2485
-	select ADXRS290
-	select ADXRS450
-	select AXI_JESD204_TX
-	select AXI_JESD204_RX
-	select AXI_ADXCVR
-	select ONE_BIT_ADC_DAC
-	select ADUX1020
-	select IIO_GEN_MUX
-	select AD74413R
-	select ADI_IIO_FAKEDEV
-	select LTC2688
+	imply IIO_BUFFER
+	imply IIO_SW_DEVICE
+	imply IIO_SW_TRIGGER
+	imply IIO_TRIGGERED_EVENT
+	imply IIO_HRTIMER_TRIGGER
+	imply IIO_INTERRUPT_TRIGGER
+	imply IIO_SYSFS_TRIGGER
+	imply IIO_TIGHTLOOP_TRIGGER
+	imply IIO_BUFFER_CB
+	imply IIO_BUFFER_DMA
+	imply IIO_BUFFER_DMAENGINE
+	imply IIO_BUFFER_HW_CONSUMER
+	imply IIO_KFIFO_BUF
+	imply IIO_TRIGGERED_BUFFER
+	imply ALTERA_ARRIA10_JESD204_PHY if ARCH_SOCFPGA
+	imply ADIS16201
+	imply ADIS16209
+	imply ADXL313_I2C if I2C
+	imply ADXL313_SPI if SPI
+	imply ADXL345_I2C if I2C
+	imply ADXL345_SPI if SPI
+	imply ADXL355_I2C if I2C
+	imply ADXL355_SPI if SPI
+	imply ADXL367_I2C if I2C
+	imply ADXL367_SPI if SPI
+	imply ADXL372_I2C if I2C
+	imply ADXL372_SPI if SPI
+	imply AD400X
+	imply AD6676
+	imply AD7091R5
+	imply AD7124
+	imply AD7173
+	imply AD7266
+	imply AD7291
+	imply AD7293
+	imply AD7298
+	imply AD738X
+	imply AD7923
+	imply AD7949
+	imply AD7476
+	imply AD7606_IFACE_PARALLEL
+	imply AD7606_IFACE_SPI
+	imply AD7766
+	imply AD7768
+	imply AD7768_1
+	imply AD7791
+	imply AD7793
+	imply AD7887
+	imply AD799X
+	imply AD9963
+	imply CF_AXI_ADC
+	imply AD9208
+	imply AD9081
+	imply AD9083
+	imply AD9361
+	imply AD9361_EXT_BAND_CONTROL
+	imply AD9371
+	imply ADAR1000
+	imply ADAR3000
+	imply ADRV9009
+	imply ADRV9001
+	imply AD9467
+	imply AD9680
+	imply ADMC
+	imply CF_AXI_TDD
+	imply AXI_PULSE_CAPTURE
+	imply AXI_FMCADC5_SYNC
+	imply XILINX_XADC if (ARCH_ZYNQ || ARCH_ZYNQMP || MICROBLAZE)
+	imply LTC2497
+	imply LTC2308
+	imply AD8366
+	imply ADA4250
+	imply HMC425
+	imply AD5270
+	imply AD5360
+	imply AD5380
+	imply AD5421
+	imply AD5624R_SPI if SPI
+	imply AD3552R
+	imply AD5064
+	imply AD5504
+	imply AD5446
+	imply AD5449
+	imply AD5592R_BASE
+	imply AD5592R
+	imply AD5593R
+	imply AD5755
+	imply AD5758
+	imply AD5761
+	imply AD5764
+	imply AD5766
+	imply AD5770R
+	imply AD5791
+	imply AD5686
+	imply AD5686_SPI if SPI
+	imply AD5696_I2C if I2C
+	imply AD7303
+	imply AD8801
+	imply AD9508
+	imply AD9517
+	imply AD9523
+	imply AD9528
+	imply AD9548
+	imply ADF4159
+	imply ADF4350
+	imply ADF4360
+	imply ADF4371
+	imply ADF4377
+	imply ADF5355
+	imply ADL5960
+	imply ADMV1013
+	imply ADMV1014
+	imply ADMV4420
+	imply ADMV8818
+	imply ADRF6780
+	imply CF_AXI_DDS
+	imply CF_AXI_DDS_AD9122
+	imply CF_AXI_DDS_AD9144
+	imply CF_AXI_DDS_AD9739A
+	imply CF_AXI_DDS_AD9783
+	imply HMC7044
+	imply CF_AXI_DDS_AD9162
+	imply CF_AXI_DDS_AD9172
+	imply AD916X_AMP
+	imply M2K_DAC
+	imply ADIS16080
+	imply ADIS16130
+	imply ADIS16136
+	imply ADIS16260
+	imply ADIS16400
+	imply ADIS16460
+	imply ADIS16475
+	imply ADIS16480
+	imply M2K_LOGIC_ANALYZER
+	imply AD5272
+	imply IIO_REGMAP_I2C
+	imply IIO_REGMAP_SPI
+	imply AD2S1200
+	imply LTC1660
+	imply LTC2983
+	imply ADIS16203
+	imply ADIS16240
+	imply AD7780
+	imply AD7816
+	imply AD7192
+	imply AD7280
+	imply AD7292
+	imply ADT7316
+	imply ADT7316_SPI if SPI
+	imply ADT7316_I2C if I2C
+	imply AD7150
+	imply AD7152
+	imply AD7746
+	imply AD9832
+	imply AD9834
+	imply AD5933
+	imply ADE7854
+	imply ADE7854_I2C if I2C
+	imply ADE7854_SPI if SPI
+	imply AD2S90
+	imply AD2S1210
+	imply LTC6952
+	imply LTC2471
+	imply LTC2496
+	imply LTC2632
+	imply LTC2485
+	imply ADXRS290
+	imply ADXRS450
+	imply AXI_JESD204_TX
+	imply AXI_JESD204_RX
+	imply AXI_ADXCVR
+	imply ONE_BIT_ADC_DAC
+	imply ADUX1020
+	imply IIO_GEN_MUX
+	imply AD74413R
+	imply ADI_IIO_FAKEDEV
+	imply LTC2688
