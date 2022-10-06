@@ -1,0 +1,203 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2022
+
+#include "imx8qm-mek-rpmsg.dts"
+
+/ {
+	reserved-memory {
+		/delete-node/ dsp_reserved;
+		/delete-node/ dsp_reserved_heap;
+		/delete-node/ dsp_vdev0vring0;
+		/delete-node/ dsp_vdev0vring1;
+		/delete-node/ dsp_vdev0buffer;
+
+		dsp_reserved: dsp@92400000 {
+			reg = <0 0x92400000 0 0x2000000>;
+			no-map;
+		};
+	};
+
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-wm8960 {
+		status = "disabled";
+	};
+
+	sof-audio {
+		compatible = "simple-audio-card";
+		label = "wm8960-audio";
+		simple-audio-card,widgets =
+			"Line", "Line Out Jack",
+			"Line", "Line In Jack",
+			"Headphone", "Headphones",
+			"Speaker", "Ext Spk",
+			"Microphone", "Mic Jack";
+		simple-audio-card,routing =
+			"Line Out Jack", "AOUT1L",
+			"Line Out Jack", "AOUT1R",
+			"Line Out Jack", "AOUT2L",
+			"Line Out Jack", "AOUT2R",
+			"Line Out Jack", "AOUT3L",
+			"Line Out Jack", "AOUT3R",
+			"Line Out Jack", "AOUT4L",
+			"Line Out Jack", "AOUT4R",
+			"AIN1L", "Line In Jack",
+			"AIN1R", "Line In Jack",
+			"AIN2L", "Line In Jack",
+			"AIN2R", "Line In Jack",
+			"Headphones", "HP_L",
+			"Headphones", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT1", "Mic Jack",
+			"Mic Jack", "MICB";
+		status = "okay";
+
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&dsp 0>;
+			};
+			codec {
+				sound-dai = <&cs42888>;
+			};
+		};
+
+		simple-audio-card,dai-link@1 {
+			format = "i2s";
+			bitclock-master=<&sndcodec>;
+			frame-master=<&sndcodec>;
+			hp-det-gpio = <&lsio_gpio0 31 GPIO_ACTIVE_HIGH>;
+			cpu {
+				sound-dai = <&dsp 1>;
+			};
+			sndcodec: codec {
+				sound-dai = <&wm8960>;
+			};
+		};
+
+	};
+};
+
+&edma0 {
+	compatible = "fsl,imx8qm-edma";
+	reg = <0x591f0000 0x10000>,
+		<0x59280000 0x10000>, /* spdif0 rx */
+		<0x59290000 0x10000>, /* spdif0 tx */
+		<0x592c0000 0x10000>, /* sai0 rx */
+		<0x592d0000 0x10000>, /* sai0 tx */
+		<0x59350000 0x10000>,
+		<0x59370000 0x10000>;
+	#dma-cells = <3>;
+	shared-interrupt;
+	dma-channels = <6>;
+	interrupts = <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+			<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "edma2-chan8-rx", "edma2-chan9-tx", /* spdif0 */
+			"edma2-chan12-rx", "edma2-chan13-tx", /* sai0 */
+			"edma2-chan21-tx",		/* gpt5 */
+			"edma2-chan23-rx";		/* gpt7 */
+	power-domains = <&pd IMX_SC_R_DMA_2_CH8>,
+			<&pd IMX_SC_R_DMA_2_CH9>,
+			<&pd IMX_SC_R_DMA_2_CH12>,
+			<&pd IMX_SC_R_DMA_2_CH13>,
+			<&pd IMX_SC_R_DMA_2_CH21>,
+			<&pd IMX_SC_R_DMA_2_CH23>;
+	power-domain-names = "edma2-chan8", "edma2-chan9",
+			"edma2-chan12", "edma2-chan13",
+			"edma2-chan21", "edma2-chan23";
+	status = "okay";
+};
+
+&dsp {
+	compatible = "fsl,imx8qm-dsp";
+	#sound-dai-cells = <1>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_esai0>, <&pinctrl_sai1>;
+
+
+	clocks = <&clk_dummy>, <&clk_dummy>, <&clk_dummy>,
+		<&esai0_lpcg 1>, <&esai0_lpcg 0>,  <&esai0_lpcg 1>, <&clk_dummy>,
+		<&sai1_lpcg 1>, <&clk_dummy>, <&sai1_lpcg 0>,
+		<&clk_dummy>, <&clk_dummy>;
+	clock-names = "ipg", "ocram", "core",
+		"esai0_core", "esai0_extal", "esai0_fsys", "esai0_spba",
+		"sai1_bus", "sai1_mclk0", "sai1_mclk1", "sai1_mclk2", "sai1_mclk3";
+	assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
+		<&acm IMX_ADMA_ACM_SAI1_MCLK_SEL>,
+		<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+		<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+		<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+		<&esai0_lpcg 0>, <&sai1_lpcg 0>;
+	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+	assigned-clock-rates = <0>, <0>, <786432000>, <49152000>, <12288000>, <49152000>,
+		 <49152000>;
+
+	power-domains = <&pd IMX_SC_R_MU_13A>,
+		<&pd IMX_SC_R_MU_13B>,
+		<&pd IMX_SC_R_DSP>,
+		<&pd IMX_SC_R_DSP_RAM>,
+		<&pd IMX_SC_R_IRQSTR_DSP>,
+		<&pd IMX_SC_R_SAI_1>,
+		<&pd IMX_SC_R_DMA_2_CH6>,
+		<&pd IMX_SC_R_DMA_2_CH7>,
+		<&pd IMX_SC_R_DMA_2_CH14>,
+		<&pd IMX_SC_R_DMA_2_CH15>,
+		<&pd IMX_SC_R_AUDIO_CLK_0>,
+		<&pd IMX_SC_R_AUDIO_CLK_1>,
+		<&pd IMX_SC_R_AUDIO_PLL_0>,
+		<&pd IMX_SC_R_AUDIO_PLL_1>;
+
+	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
+	mboxes = <&lsio_mu13 2 0>,
+		<&lsio_mu13 2 1>,
+		<&lsio_mu13 3 0>,
+		<&lsio_mu13 3 1>;
+	memory-region = <&dsp_reserved>;
+	/delete-property/ firmware-name;
+
+	tplg-name = "sof-imx8-wm8960-cs42888.tplg";
+	machine-drv-name = "asoc-simple-card";
+
+	status = "okay";
+};
+
+&amix {
+	status = "disabled";
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&asrc0 {
+	status = "disabled";
+};
+
+&sai1 {
+	status = "disabled";
+};
+
+&wm8960 {
+	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+&cs42888 {
+	#sound-dai-cells = <0>;
+	assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+			  <&mclkout0_lpcg 0>;
+	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+	status = "okay";
+};
