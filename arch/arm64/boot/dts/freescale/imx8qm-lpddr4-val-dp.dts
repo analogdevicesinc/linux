@@ -3,7 +3,7 @@
  * Copyright 2019 NXP
  */
 /*
- * DP only dts, disable ldb display.
+ * DisplayPort, LVDS1, and MIPI DSI1, disable LVDS0 and MIPI DSI0.
  */
 #include "imx8qm-lpddr4-val.dts"
 
@@ -33,6 +33,18 @@
 };
 
 &i2c1_lvds0 {
+	status = "disabled";
+};
+
+&mipi0_dsi_host {
+	status = "disabled";
+};
+
+&mipi0_dphy {
+	status = "disabled";
+};
+
+&i2c0_mipi0 {
 	status = "disabled";
 };
 
