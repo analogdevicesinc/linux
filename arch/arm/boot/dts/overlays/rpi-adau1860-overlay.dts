@@ -36,6 +36,8 @@
 			adau1860: audio-codec@64 {
 				#sound-dai-cells = <0>;
 				reg = <0x64>;
+				clocks = <adau1860_mclk>;
+				clock-names = "mclk";
 				compatible = "adi,adau1860";
 			};
 		};

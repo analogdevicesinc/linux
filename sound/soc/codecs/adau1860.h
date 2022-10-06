@@ -22,6 +22,8 @@
 #define ADAU1860_SAI_CLK_PWR		0x4000c007
 #define ADAU1860_CHIP_PWR		0x4000c00e
 
+#define ADAU1860_CLK_CTRL(x)		(0x4000c00f + (x))
+
 #define ADAU1860_ADC_CTRL1		0x4000c020
 #define ADAU1860_ADC_CTRL2		0x4000c021
 #define ADAU1860_ADC_CTRL3		0x4000c022
@@ -37,6 +39,7 @@
 #define ADAU1860_PGA2_CTRL2		0x4000c035
 #define ADAU1860_PGA_CTRL2		0x4000c037
 
+#define ADAU1860_DMIC_MUTES		0x4000c044
 #define ADAU1860_DMIC_VOL0		0x4000c045
 #define ADAU1860_DMIC_VOL1		0x4000c046
 #define ADAU1860_DMIC_VOL2		0x4000c047
@@ -46,6 +49,8 @@
 #define ADAU1860_DMIC_VOL6		0x4000c04e
 #define ADAU1860_DMIC_VOL7		0x4000c04f
 
+#define ADAU1860_DAC_CTRL1		0x4000c050
+#define ADAU1860_DAC_CTRL2		0x4000c051
 #define ADAU1860_DAC_VOL0		0x4000c052
 #define ADAU1860_DAC_ROUTE0		0x4000c053
 
@@ -54,12 +59,14 @@
 #define ADAU1860_PB_CTRL		0x4000c06c
 
 #define ADAU1860_SPT0_CTRL1		0x4000c0e0
-#define ADAU1860_SPT0_ROUTE(x)		(0x4000ce3 + (x))
+#define ADAU1860_SPT0_ROUTE(x)		(0x4000c0e3 + (x))
 
 #define ADAU1860_SPT1_CTRL1		0x4000c0f3
 #define ADAU1860_SPT1_ROUTE(x)		(0x4000c0f6 + (x))
 
 #define ADAU1860_MP_MCLKO_RATE		0x4000c12f
+
+#define ADAU1866_STATUS(x)		(0x4000c400 + (x))
 
 #define ADAU1860_SPT_CTRL1_OFFS		0x0
 #define ADAU1860_SPT_CTRL2_OFFS		0x1
@@ -73,6 +80,9 @@
 #define ADAU1860_DAI_LRCLK_SRC_MSK	GENMASK(3, 0)
 #define ADAU1860_DAI_BCLK_SRC_MSK	GENMASK(1, 0)
 
+#define ADAU1860_MASTER_BLOCK_EN_MSK	BIT(2)
+#define ADAU1860_PWR_MODE_MSK		GENMASK(1, 0)
+
 struct device;
 
 enum adau1860_type {
@@ -80,19 +90,11 @@ enum adau1860_type {
 	ADAU1860,
 };
 
-enum adau18x0_clk_src {
-	ADAU18X0_CLK_SRC_EXT_CLK,
-	ADAU18X0_CLK_SRC_FSYNC_0,
-	ADAU18X0_CLK_SRC_FSYNC_1,
-	ADAU18X0_CLK_SRC_BCLK_0,
-	ADAU18X0_CLK_SRC_BCLK_1,
-};
-
 enum adau18x0_pll_src {
 	ADAU18X0_PLL_SRC_MCLKIN,
 	ADAU18X0_PLL_SRC_FSYNC_0,
-	ADAU18X0_PLL_SRC_FSYNC_1,
 	ADAU18X0_PLL_SRC_BCLK_0,
+	ADAU18X0_PLL_SRC_FSYNC_1,
 	ADAU18X0_PLL_SRC_BCLK_1,
 };
 
@@ -102,13 +104,12 @@ struct adau18x0 {
 	struct clk *mclk;
 	bool enabled;
 
-	enum adau18x0_clk_src clk_src;
+	enum adau18x0_pll_src pll_src;
 	enum adau1860_type type;
 	void (*switch_mode)(struct device *dev);
 
 	unsigned int dai_fmt;
-
-	uint8_t pll_regs[6];
+	unsigned int sysclk_freq;
 
 	struct gpio_desc *pd_gpio;
 
