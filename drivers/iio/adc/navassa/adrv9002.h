@@ -11,6 +11,7 @@
 #define IIO_TRX_ADRV9002_H_
 
 #include <linux/clk-provider.h>
+#include <linux/clk/clkscale.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/types.h>
@@ -114,7 +115,7 @@ enum adrv9002_tx_ext_info {
 	container_of(c, struct adrv9002_rx_chan, channel)
 
 #define chan_to_phy(c) ({						\
-	struct adrv9002_chan *__c = (c);				\
+	const struct adrv9002_chan *__c = (c);				\
 	struct adrv9002_rf_phy *__phy;					\
 									\
 	if (__c->port == ADI_RX)					\
@@ -135,6 +136,7 @@ struct adrv9002_clock {
 
 struct adrv9002_chan {
 	struct clk *clk;
+	struct adrv9002_ext_lo *ext_lo;
 	/*
 	 * These values are in nanoseconds. They need to be converted with
 	 * @adrv9002_chan_ns_to_en_delay() before passing them to the API.
@@ -194,6 +196,12 @@ struct adrv9002_chip_info {
 	bool rx2tx2;
 };
 
+struct adrv9002_ext_lo {
+	struct clk *clk;
+	struct clock_scale scale;
+	u16 divider;
+};
+
 struct adrv9002_rf_phy {
 	const struct adrv9002_chip_info *chip;
 	struct spi_device		*spi;
@@ -205,6 +213,8 @@ struct adrv9002_rf_phy {
 	struct clk			*clks[NUM_ADRV9002_CLKS];
 	struct adrv9002_clock		clk_priv[NUM_ADRV9002_CLKS];
 	struct clk_onecell_data		clk_data;
+	/* each LO controls two ports (at least) */
+	struct adrv9002_ext_lo		ext_los[ADRV9002_CHANN_MAX];
 	char				*bin_attr_buf;
 	u8				*stream_buf;
 	u16				stream_size;

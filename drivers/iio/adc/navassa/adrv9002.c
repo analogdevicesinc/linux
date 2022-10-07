@@ -95,6 +95,9 @@
 #define ADRV9002_STREAM_BINARY_SZ	ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES
 #define ADRV9002_PROFILE_MAX_SZ		73728
 #define ADRV9002_HP_CLK_PLL_DAHZ	884736000
+#define ADRV9002_NO_EXT_LO		0xff
+#define ADRV9002_EXT_LO_FREQ_MIN	60000000
+#define ADRV9002_EXT_LO_FREQ_MAX	12000000000ULL
 
 /* Frequency hopping */
 #define ADRV9002_FH_TABLE_COL_SZ	7
@@ -639,6 +642,25 @@ static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *
 	return ret ? ret : len;
 }
 
+static int adrv9002_set_ext_lo(const struct adrv9002_chan *c, u64 freq)
+{
+	u64 lo_freq;
+
+	if (!c->ext_lo)
+		return 0;
+
+	lo_freq = freq * c->ext_lo->divider;
+	if (lo_freq < ADRV9002_EXT_LO_FREQ_MIN || lo_freq > ADRV9002_EXT_LO_FREQ_MAX) {
+		const struct adrv9002_rf_phy *phy = chan_to_phy(c);
+
+		dev_err(&phy->spi->dev, "Ext LO freq not in the [%d %llu] range\n",
+			ADRV9002_EXT_LO_FREQ_MIN, ADRV9002_EXT_LO_FREQ_MAX);
+		return -EINVAL;
+	}
+
+	return clk_set_rate_scaled(c->ext_lo->clk, freq, &c->ext_lo->scale);
+}
+
 static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 				     uintptr_t private,
 				     const struct iio_chan_spec *chan,
@@ -671,6 +693,10 @@ static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 			ret = adrv9002_dev_err(phy);
 			goto unlock;
 		}
+
+		ret = adrv9002_set_ext_lo(chann, freq);
+		if (ret)
+			goto unlock;
 
 		lo_freq.carrierFrequency_Hz = freq;
 		ret = adrv9002_channel_to_state(phy, chann, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
@@ -2460,6 +2486,53 @@ static void adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 		phy->init_cals.chanInitCalMask[1]);
 }
 
+static int adrv9002_ext_lo_validate(struct adrv9002_rf_phy *phy, int idx, bool tx)
+{
+	adi_adrv9001_ClockSettings_t *clocks = &phy->curr_profile->clocks;
+	adi_adrv9001_LoSel_e lo_selects[] = {
+		clocks->rx1LoSelect, clocks->tx1LoSelect, clocks->rx2LoSelect, clocks->tx2LoSelect
+	};
+	adi_adrv9001_PllLoMode_e modes[] = { clocks->rfPll1LoMode, clocks->rfPll2LoMode };
+	u16 dividers[] = { clocks->extLo1Divider, clocks->extLo2Divider };
+	/* -1 since the enums start at 1 */
+	unsigned int lo = lo_selects[idx * 2 + tx] - 1;
+	struct device *dev = &phy->spi->dev;
+
+	if (lo >= ARRAY_SIZE(modes)) {
+		/*
+		 * Anything other than ADI_ADRV9001_LOSEL_LO{1|2} should be wrong...
+		 */
+		dev_err(dev, "Unknown LO(%u) on %s%d\n", lo, tx ? "TX" : "RX", idx + 1);
+		return -EINVAL;
+	}
+
+	if (modes[lo] == ADI_ADRV9001_INT_LO1)
+		return ADRV9002_NO_EXT_LO;
+
+	/*
+	 * Alright, if external LO is being set on the profile for this port, we need to have
+	 * a matching clk to control.
+	 */
+	if (!phy->ext_los[lo].clk) {
+		dev_err(dev, "Ext LO%d set for %s%d but not controlling clk provided via dts\n",
+			lo + 1, tx ? "TX" : "RX", idx + 1);
+		return -EINVAL;
+	}
+
+	/* should never happen but we should also not blindly trust in the loaded profile... */
+	if (!dividers[lo]) {
+		dev_err(dev, "LO%d cannot have a divider of 0!\n", lo + 1);
+		return -EINVAL;
+	}
+
+	phy->ext_los[lo].divider = dividers[lo];
+
+	dev_dbg(dev, "EXT LO%d being used for %s%d with div(%u)\n", lo + 1, tx ? "TX" : "RX",
+		idx + 1, dividers[lo]);
+
+	return lo;
+}
+
 static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 {
 	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
@@ -2473,7 +2546,7 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 	const u32 orx_channels[ADRV9002_CHANN_MAX] = {
 		ADI_ADRV9001_ORX1, ADI_ADRV9001_ORX2
 	};
-	int i;
+	int i, lo;
 
 	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
 		struct adrv9002_chan *tx = &phy->tx_channels[i].channel;
@@ -2482,6 +2555,10 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		/* rx validations */
 		if (!ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask, rx_channels[i]))
 			goto tx;
+
+		lo = adrv9002_ext_lo_validate(phy, i, false);
+		if (lo < 0)
+			return lo;
 
 		if (phy->rx2tx2 && i &&
 		    rx_cfg[i].profile.rxOutputRate_Hz != phy->rx_channels[0].channel.rate) {
@@ -2520,6 +2597,8 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		rx->channel.enabled = true;
 		rx->channel.nco_freq = 0;
 		rx->channel.rate = rx_cfg[i].profile.rxOutputRate_Hz;
+		if (lo < ADI_ADRV9001_LOSEL_LO2)
+			rx->channel.ext_lo = &phy->ext_los[lo];
 tx:
 		/* tx validations*/
 		if (!ADRV9001_BF_EQUAL(phy->curr_profile->tx.txInitChannelMask, tx_channels[i]))
@@ -2529,6 +2608,10 @@ tx:
 			dev_err(&phy->spi->dev, "TX%d not supported for this device\n", i + 1);
 			return -EINVAL;
 		}
+
+		lo = adrv9002_ext_lo_validate(phy, i, true);
+		if (lo < 0)
+			return lo;
 
 		/* check @tx_only comments in adrv9002.h to better understand the next checks */
 		if (phy->ssi_type != tx_cfg[i].txSsiConfig.ssiType) {
@@ -2605,6 +2688,8 @@ tx:
 		tx->enabled = true;
 		tx->nco_freq = 0;
 		tx->rate = tx_cfg[i].txInputRate_Hz;
+		if (lo < ADI_ADRV9001_LOSEL_LO2)
+			tx->ext_lo = &phy->ext_los[lo];
 	}
 
 	return 0;
@@ -2739,6 +2824,22 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
+static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
+{
+	u64 lo_freq;
+
+	if (!c->ext_lo) {
+		/* If no external LO, keep the same values as before */
+		if (c->port == ADI_RX)
+			return 2400000000ULL;
+
+		return 2450000000ULL;
+	}
+
+	lo_freq = clk_get_rate_scaled(c->ext_lo->clk, &c->ext_lo->scale);
+	return DIV_ROUND_CLOSEST_ULL(lo_freq, c->ext_lo->divider);
+}
+
 /*
  * All of these structures are taken from TES when exporting the default profile to C code. Consider
  * about having all of these configurable through devicetree.
@@ -2789,11 +2890,7 @@ static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
 		if (ret)
 			return adrv9002_dev_err(phy);
 
-		if (c->port == ADI_RX)
-			carrier.carrierFrequency_Hz = 2400000000ULL;
-		else
-			carrier.carrierFrequency_Hz = 2450000000ULL;
-
+		carrier.carrierFrequency_Hz = adrv9002_get_init_carrier(c);
 		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, c->port, c->number,
 							   &carrier);
 		if (ret)
@@ -3137,7 +3234,9 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 		if (phy->rx_channels[i].orx_gpio)
 			gpiod_set_value_cansleep(phy->rx_channels[i].orx_gpio, 0);
 		phy->rx_channels[i].channel.enabled = 0;
+		phy->rx_channels[i].channel.ext_lo = NULL;
 		phy->tx_channels[i].channel.enabled = 0;
+		phy->tx_channels[i].channel.ext_lo = NULL;
 	}
 
 	memset(&phy->adrv9001->devStateInfo, 0,
@@ -4715,6 +4814,38 @@ static const struct adrv9002_chip_info adrv9002_info[] = {
 	},
 };
 
+static int adrv9002_get_external_los(struct adrv9002_rf_phy *phy)
+{
+	static const char *const ext_los[] = { "ext_lo1", "ext_lo2" };
+	struct device_node *np = phy->spi->dev.of_node;
+	struct device *dev = &phy->spi->dev;
+	int ret, lo;
+
+	for (lo = 0; lo < ARRAY_SIZE(phy->ext_los); lo++) {
+		phy->ext_los[lo].clk = devm_clk_get_optional(dev, ext_los[lo]);
+		if (IS_ERR(phy->ext_los[lo].clk))
+			return PTR_ERR(phy->ext_los[lo].clk);
+		if (!phy->ext_los[lo].clk)
+			continue;
+
+		ret = clk_prepare_enable(phy->ext_los[lo].clk);
+		if (ret)
+			return ret;
+
+		ret = devm_add_action_or_reset(dev, adrv9002_clk_disable, phy->ext_los[lo].clk);
+		if (ret)
+			return ret;
+
+		ret = of_clk_get_scale(np, ext_los[lo], &phy->ext_los[lo].scale);
+		if (ret) {
+			phy->ext_los[lo].scale.div = 10;
+			phy->ext_los[lo].scale.mult = 1;
+		}
+	}
+
+	return 0;
+}
+
 static int adrv9002_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -4768,6 +4899,10 @@ static int adrv9002_probe(struct spi_device *spi)
 		return ret;
 
 	ret = devm_add_action_or_reset(&spi->dev, adrv9002_clk_disable, clk);
+	if (ret)
+		return ret;
+
+	ret = adrv9002_get_external_los(phy);
 	if (ret)
 		return ret;
 
