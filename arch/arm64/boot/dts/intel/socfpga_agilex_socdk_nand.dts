@@ -114,3 +114,90 @@
 &watchdog0 {
 	status = "okay";
 };
+
+&temp_volt {
+	voltage {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		input@2 {
+			label = "0.8V VCC";
+			reg = <2>;
+		};
+
+		input@3 {
+			label = "1.8V VCCIO_SDM";
+			reg = <3>;
+		};
+
+		input@4 {
+			label = "1.8V VCCPT";
+			reg = <4>;
+		};
+
+		input@5 {
+			label = "1.2V VCCCRCORE";
+			reg = <5>;
+		};
+
+		input@6 {
+			label = "0.9V VCCH";
+			reg = <6>;
+		};
+
+		input@7 {
+			label = "0.8V VCCL";
+			reg = <7>;
+		};
+	};
+
+	temperature {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		input@0 {
+			label = "Main Die SDM";
+			reg = <0x0>;
+		};
+
+		input@10001 {
+			label = "Main Die corner bottom left 1";
+			reg = <0x10001>;
+		};
+
+		input@10002 {
+			label = "Main Die corner bottom left 1";
+			reg = <0x10002>;
+		};
+
+		input@20001 {
+			label = "Main Die corner top left 1";
+			reg = <0x20001>;
+		};
+
+		input@20002 {
+			label = "Main Die corner top left 2";
+			reg = <0x20002>;
+		};
+
+		input@30001 {
+			label = "Main Die corner bottom right 1";
+			reg = <0x30001>;
+		};
+
+		input@30002 {
+			label = "Main Die corner bottom right 2";
+			reg = <0x30002>;
+		};
+
+		input@40001 {
+			label = "Main Die corner top right HPS 1";
+			reg = <0x40001>;
+		};
+
+		input@40002 {
+			label = "Main Die corner bottom right";
+			reg = <0x40002>;
+		};
+	};
+};
+

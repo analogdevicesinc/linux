@@ -661,10 +661,6 @@
 		};
 
 		firmware {
-			temp_volt: hwmon {
-				compatible = "intel,soc64-hwmon";
-			};
-
 			svc {
 				compatible = "intel,agilex-svc";
 				method = "smc";
@@ -676,6 +672,10 @@
 
 				fcs: fcs {
 					compatible = "intel,agilex-soc-fcs";
+				};
+
+				temp_volt: hwmon {
+					compatible = "intel,soc64-hwmon";
 				};
 			};
 		};

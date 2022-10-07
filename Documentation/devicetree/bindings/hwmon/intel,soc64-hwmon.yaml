@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/intel,soc64-hwmon.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Intel Hardware monitor SOC FPGA
+
+maintainers:
+  - Ang Tien Sung <tien.sung.ang@intel.com>
+
+description: |
+  This is the Intel SoC FPGA hardware monitor unit provides you with
+  on-chip voltage and temperature sensors. You can use these sensors
+  to monitor external voltages and on-chip operation conditions such
+  as internal power rail and on-chip junction temperature.
+
+properties:
+  compatible: "intel,soc64-hwmon"
+  temperature:
+    description:
+      Specifies the possible mappings of temperature sensors
+      diodes on the SOC FPGA main die.
+  voltage:
+    description:
+      Specifies the possible mappings of the voltage sensors
+      on the SOC FPGA analog to digital converter of the secure device
+      manager (SDM).
+  input:
+    description:
+      Specifies each sensor.
+  reg:
+    description:
+      The sensor mapping address denoted by lower 16bits being
+      the channel mask location that defines the channel number.
+      The upper 16bits denotes the page number.
+      The bit mask of 0x1 represents channel 1. The supported
+      page and channel is dependent on the SOC FPGA variant.
+      Page number greater than 0 is only supported on the
+      temperature sensors.
+  label:
+    description:
+      A label to describe the sensors.
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    temp_volt {
+      compatible = "intel,soc64-hwmon";
+      voltage {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        input@2 {
+          label = "0.8V VCC";
+          reg = <2>;
+        };
+
+        input@3 {
+          label = "1.8V VCCIO_SDM";
+          reg = <3>;
+        };
+
+        input@4 {
+          label = "1.8V VCCPT";
+          reg = <4>;
+        };
+
+        input@5 {
+          label = "1.2V VCCCRCORE";
+          reg = <5>;
+        };
+
+        input@6 {
+          label = "0.9V VCCH";
+          reg = <6>;
+        };
+
+        input@7 {
+          label = "0.8V VCCL";
+          reg = <7>;
+        };
+      };
+
+      temperature {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        input@0 {
+          label = "Main Die SDM";
+          reg = <0x0>;
+        };
+
+        input@10001 {
+          label = "Main Die corner bottom left 1";
+          reg = <0x10001>;
+        };
+
+        input@10002 {
+          label = "Main Die corner bottom left 1";
+          reg = <0x10002>;
+        };
+
+        input@20001 {
+          label = "Main Die corner top left 1";
+          reg = <0x20001>;
+        };
+
+        input@20002 {
+          label = "Main Die corner top left 2";
+          reg = <0x20002>;
+        };
+
+        input@30001 {
+          label = "Main Die corner bottom right 1";
+          reg = <0x30001>;
+        };
+
+        input@30002 {
+          label = "Main Die corner bottom right 2";
+          reg = <0x30002>;
+        };
+
+        input@40001 {
+          label = "Main Die corner top right HPS 1";
+          reg = <0x40001>;
+        };
+
+        input@40002 {
+          label = "Main Die corner bottom right";
+          reg = <0x40002>;
+        };
+      };
+    };

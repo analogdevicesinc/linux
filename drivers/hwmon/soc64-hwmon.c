@@ -119,7 +119,9 @@ static int soc64_read(struct device *dev, enum hwmon_sensor_types type,
 		if (chan > 15)
 			return -EOPNOTSUPP;
 
-		msg.arg[0] = (u64) (1 << priv->soc64_temp_chan[chan]);
+		/* To support Page at upper word and channel at lower word */
+		msg.arg[0] = (u64) ((1 << (priv->soc64_temp_chan[chan]&0xFFFF))
+					+ (priv->soc64_temp_chan[chan]&0xFFF0000));
 		priv->client.receive_cb = soc64_readtemp_smc_callback;
 		msg.command = COMMAND_HWMON_READTEMP;
 
