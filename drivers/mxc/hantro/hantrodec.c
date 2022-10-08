@@ -193,6 +193,7 @@ static irqreturn_t hantrodec_isr(int irq, void *dev_id);
 static u32 dec_regs[HXDEC_MAX_CORES][DEC_IO_SIZE_MAX/4];
 struct semaphore dec_core_sem;
 struct semaphore pp_core_sem;
+struct semaphore core_suspend_sem[HXDEC_MAX_CORES];
 
 static int dec_irq;
 static int pp_irq;
@@ -735,6 +736,11 @@ long DecFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 			iowrite32(dec_regs[id][i], dev->hwregs[id] + i*4);
 	}
 
+	if (dec_regs[id][1] & 0x1) {
+		if (down_timeout(&core_suspend_sem[id], msecs_to_jiffies(10000)))
+			pr_err("core suspend sem down error id %d\n", id);
+	}
+
 	/* write the status register, which may start the decoder */
 	iowrite32(dec_regs[id][1], dev->hwregs[id] + 4);
 
@@ -804,6 +810,57 @@ long DecRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 		if (ret) {
 			pr_err("copy_to_user failed, returned %li\n", ret);
 			return -EFAULT;
+		}
+	}
+	return 0;
+}
+
+static long DecRestoreRegs(hantrodec_t *dev)
+{
+	long i;
+
+	//G1
+	if (dec_owner[0]) {
+		for (i = 1; i <= HANTRO_DEC_ORG_LAST_REG; i++)
+			iowrite32(dec_regs[0][i], dev->hwregs[0] + i * 4);
+	}
+	//G2
+	if (dec_owner[1]) {
+	/* write all regs to hardware */
+		for (i = 1; i <= HANTRO_G2_DEC_LAST_REG; i++)
+			iowrite32(dec_regs[1][i], dev->hwregs[1] + i * 4);
+	}
+
+	return 0;
+}
+
+static long DecStoreRegs(hantrodec_t *dev)
+{
+	long i;
+	//G1
+	if (dec_owner[0]) {
+		if (down_timeout(&core_suspend_sem[0], msecs_to_jiffies(10000))) {
+			pr_err("sem down error when store regs, id %d\n", 0);
+		} else {
+			/* read all registers from hardware */
+			/* both original and extended regs need to be read */
+			for (i = 0; i <= HANTRO_DEC_ORG_LAST_REG; i++)
+				dec_regs[0][i] = ioread32(dev->hwregs[0] + i * 4);
+
+			up(&core_suspend_sem[0]);
+		}
+	}
+
+	if (dec_owner[1]) {
+		//G2
+		if (down_timeout(&core_suspend_sem[1], msecs_to_jiffies(10000))) {
+			pr_err("sem down error when store regs, id %d\n", 1);
+		} else {
+			/* read all registers from hardware */
+			for (i = 0; i <= HANTRO_G2_DEC_LAST_REG; i++)
+				dec_regs[1][i] = ioread32(dev->hwregs[1] + i * 4);
+
+			up(&core_suspend_sem[1]);
 		}
 	}
 	return 0;
@@ -1484,6 +1541,8 @@ int hantrodec_init(struct platform_device *pdev)
 
 	sema_init(&dec_core_sem, hantrodec_data.cores-1);
 	sema_init(&pp_core_sem, 1);
+	sema_init(&core_suspend_sem[0], 1);
+	sema_init(&core_suspend_sem[1], 1);
 
 	/* read configuration fo all cores */
 	ReadCoreConfig(&hantrodec_data);
@@ -1701,6 +1760,8 @@ irqreturn_t hantrodec_isr(int irq, void *dev_id)
 
 			PDEBUG("decoder IRQ received! Core %d\n", i);
 
+			up(&core_suspend_sem[i]);
+
 			atomic_inc(&irq_rx);
 
 			dec_irq |= (1 << i);
@@ -1902,6 +1963,7 @@ static int hantro_dev_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int hantro_suspend(struct device *dev)
 {
+	DecStoreRegs(&hantrodec_data);
 	pm_runtime_put_sync_suspend(dev);   //power off
 	return 0;
 }
@@ -1909,6 +1971,7 @@ static int hantro_resume(struct device *dev)
 {
 	pm_runtime_get_sync(dev);     //power on
 	hantro_ctrlblk_reset(dev);
+	DecRestoreRegs(&hantrodec_data);
 	return 0;
 }
 static int hantro_runtime_suspend(struct device *dev)
