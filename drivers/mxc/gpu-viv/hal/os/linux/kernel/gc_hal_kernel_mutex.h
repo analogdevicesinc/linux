@@ -71,9 +71,9 @@ struct key_mutex {
 ({                                                                                 \
     /* Allocate the mutex structure. */                                            \
     struct key_mutex *key_mut;                                                     \
-    gceSTATUS _status = gckOS_Allocate(Os, gcmSIZEOF(struct key_mutex), &key_mut); \
+    gceSTATUS _status = gckOS_Allocate(Os, gcmSIZEOF(struct key_mutex), (gctPOINTER *)&key_mut); \
                                                                                    \
-    if (gcmIS_SUCCESS(_status)) {                                                   \
+    if (gcmIS_SUCCESS(_status)) {                                                  \
         /* Initialize the mutex. */                                                \
         lockdep_register_key(&key_mut->key);                                       \
         __mutex_init((&key_mut->mut), #Mutex, (&key_mut->key));                    \
