@@ -38,19 +38,19 @@
 };
 
 &usdhc0 {
-	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC0>;
-	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>;
-	assigned-clock-rates = <198000000>, <198000000>;
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC0>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV1>;
+	assigned-clock-rates = <194641920>, <194641920>;
 };
 
 &usdhc1 {
-	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC1>;
-	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>;
-	assigned-clock-rates = <198000000>, <198000000>;
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>, <&pcc4 IMX8ULP_CLK_USDHC1>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>;
+	assigned-clock-rates = <97320960>, <97320960>;
 };
 
 &usdhc2 {
-	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC2>;
-	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>;
-	assigned-clock-rates = <198000000>, <198000000>;
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>, <&pcc4 IMX8ULP_CLK_USDHC2>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>;
+	assigned-clock-rates = <97320960>, <97320960>;
 };
