@@ -314,9 +314,15 @@ int vsi_v4l2_handleerror(unsigned long ctxid, int error)
 	if (ctx == NULL)
 		return -1;
 
-	if (error == DAEMON_ERR_DEC_METADATA_ONLY)
+	if (error == DAEMON_ERR_DEC_METADATA_ONLY) {
+		struct vb2_queue *q = &ctx->output_que;
+
+		if (!q->last_buffer_dequeued) {
+			q->last_buffer_dequeued = true;
+			wake_up(&q->done_wq);
+		}
 		vsi_v4l2_sendeos(ctx);
-	else {
+	} else {
 		vsi_set_ctx_error(ctx, error > 0 ? -error:error);
 		wake_up_interruptible_all(&ctx->retbuf_queue);
 		wake_up_interruptible_all(&ctx->capoffdone_queue);
