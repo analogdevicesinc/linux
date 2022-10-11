@@ -280,7 +280,7 @@
 #define A2B_UPOFFSET 0x64
 #define A2B_UPOFFSET_VAL(X) ((X)&0x1f)
 
-#define A2B_DNMASK(X) (0x65 + ((X) % 3))
+#define A2B_DNMASK(X) (0x65 + ((X)&3))
 
 #define A2B_DNOFFSET 0x69
 #define A2B_DNOFFSET_VAL(X) ((X)&0x1f)
