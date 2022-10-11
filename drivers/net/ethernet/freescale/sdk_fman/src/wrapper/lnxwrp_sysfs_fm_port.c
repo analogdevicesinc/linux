@@ -1169,7 +1169,7 @@ int fm_port_dump_regs_bmi(void *h_dev, char *buf, int nn)
 		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rfbc);
 		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rlfc);
 		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rffc);
-		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rfcd);
+		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rfdc);
 		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rfldec);
 		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rodc);
 		FM_DMP_V32(buf, n, &p_bmi->rxPortBmiRegs, fmbm_rpc);

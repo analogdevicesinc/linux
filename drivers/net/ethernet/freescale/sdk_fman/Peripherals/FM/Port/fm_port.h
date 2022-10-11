@@ -288,7 +288,7 @@ typedef struct
     volatile uint32_t   fmbm_rfbc;      /**< Rx Bad Frames Counter*/
     volatile uint32_t   fmbm_rlfc;      /**< Rx Large Frames Counter*/
     volatile uint32_t   fmbm_rffc;      /**< Rx Filter Frames Counter*/
-    volatile uint32_t   fmbm_rfcd;      /**< Rx Frame Discard Counter*/
+    volatile uint32_t   fmbm_rfdc;      /**< Rx Frame Discard Counter*/
     volatile uint32_t   fmbm_rfldec;    /**< Rx Frames List DMA Error Counter*/
     volatile uint32_t   fmbm_rodc;      /**< Rx Out of Buffers Discard Counter-*/
     volatile uint32_t   fmbm_rbdc;      /**< Rx Buffers Deallocate Counter-*/
