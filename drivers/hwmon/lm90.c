@@ -1311,6 +1311,12 @@ static int lm90_temp_from_reg(u32 flags, u16 regval, u8 resolution)
 	return ((val >> (16 - resolution)) * 1000) >> (resolution - 8);
 }
 
+static int adjust_temp_diode(int temp)
+{
+	return (((((temp / 1000) - CONFIG_SERIES_DIODE_RESISTANCE_PARAM + 273) *
+				1008 / 1022) - 273) * 1000 + (temp % 1000));
+}
+
 static int lm90_get_temp(struct lm90_data *data, int index, int channel)
 {
 	int temp = lm90_temp_from_reg(data->flags, data->temp[index],
@@ -1319,6 +1325,9 @@ static int lm90_get_temp(struct lm90_data *data, int index, int channel)
 	/* +16 degrees offset for remote temperature on LM99 */
 	if (data->kind == lm99 && channel)
 		temp += 16000;
+
+	if (index == REMOTE_TEMP)
+		temp = adjust_temp_diode(temp);
 
 	return temp;
 }

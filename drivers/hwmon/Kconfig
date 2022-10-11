@@ -2551,6 +2551,13 @@ config SENSORS_INTEL_M10_BMC_HWMON
 	  sensors monitor various telemetry data of different components on the
 	  card, e.g. board temperature, FPGA core temperature/voltage/current.
 
+config SERIES_DIODE_RESISTANCE_PARAM
+	int "Adjust Series Diode Resistance"
+	default 3
+	help
+	  This is to adjust Series Diode resistance while reading
+	  remote temperature
+
 if ACPI
 
 comment "ACPI drivers"
