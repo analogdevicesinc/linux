@@ -2014,7 +2014,8 @@ static const struct of_device_id fman_port_match[] = {
 MODULE_DEVICE_TABLE(of, fman_port_match);
 
 static const struct acpi_device_id fman_port_acpi_match[] = {
-	{"NXP0026", 0}
+	{"NXP0026", 0},
+	{},
 };
 MODULE_DEVICE_TABLE(acpi, fman_port_acpi_match);
 

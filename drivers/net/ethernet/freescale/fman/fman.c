@@ -3065,7 +3065,8 @@ static const struct of_device_id fman_match[] = {
 MODULE_DEVICE_TABLE(of, fman_match);
 
 static const struct acpi_device_id acpi_fman_match[] = {
-	{"NXP0024", 0}
+	{"NXP0024", 0},
+	{},
 };
 MODULE_DEVICE_TABLE(acpi, acpi_fman_match);
 
