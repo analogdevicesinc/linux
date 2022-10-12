@@ -17,7 +17,9 @@ namespace EthosU {
 #endif
 
 /** Maximum number of IFM/OFM buffers per inference */
-#define ETHOSU_CORE_BUFFER_MAX 16
+#define ETHOSU_CORE_BUFFER_MAX 4
+/** Maximum number of dimensions for input and output */
+#define ETHOSU_CORE_DIM_MAX 4
 
 /** Maximum number of PMU counters to be returned for inference */
 #define ETHOSU_CORE_PMU_MAX 4
@@ -167,10 +169,19 @@ struct ethosu_core_network_info_req {
 struct ethosu_core_network_info_rsp {
 	u64      user_arg;
 	char     desc[32];
+	u32      is_vela;
 	u32      ifm_count;
 	u32      ifm_size[ETHOSU_CORE_BUFFER_MAX];
+	u32      ifm_types[ETHOSU_CORE_BUFFER_MAX];
+	u32      ifm_offset[ETHOSU_CORE_BUFFER_MAX];
+	u32      ifm_dims[ETHOSU_CORE_BUFFER_MAX];
+	u32      ifm_shapes[ETHOSU_CORE_BUFFER_MAX][ETHOSU_CORE_DIM_MAX];
 	u32      ofm_count;
 	u32      ofm_size[ETHOSU_CORE_BUFFER_MAX];
+	u32      ofm_types[ETHOSU_CORE_BUFFER_MAX];
+	u32      ofm_offset[ETHOSU_CORE_BUFFER_MAX];
+	u32      ofm_dims[ETHOSU_CORE_BUFFER_MAX];
+	u32      ofm_shapes[ETHOSU_CORE_BUFFER_MAX][ETHOSU_CORE_DIM_MAX];
 	u32      status;
 };
 

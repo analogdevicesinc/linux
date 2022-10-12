@@ -14,7 +14,7 @@
 #include "ethosu_rpmsg.h"
 #include "uapi/ethosu.h"
 
-#define NETWORK_INFO_RESP_TIMEOUT_MS 3000
+#define NETWORK_INFO_RESP_TIMEOUT_MS 30000
 
 static inline int ethosu_network_info_send(struct ethosu_network_info *info)
 {
@@ -124,7 +124,7 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 	int id = (int)rsp->user_arg;
 	struct ethosu_rpmsg_msg *msg;
 	struct ethosu_network_info *info;
-	u32 i;
+	u32 i, j;
 
 	msg = ethosu_rpmsg_find(&edev->erp, id);
 	if (IS_ERR(msg)) {
@@ -158,13 +158,26 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 		goto signal_complete;
 	}
 
+	info->uapi->is_vela = rsp->is_vela;
 	info->uapi->ifm_count = rsp->ifm_count;
-	for (i = 0; i < rsp->ifm_count; i++)
+	for (i = 0; i < rsp->ifm_count; i++) {
 		info->uapi->ifm_size[i] = rsp->ifm_size[i];
+		info->uapi->ifm_types[i] = rsp->ifm_types[i];
+		info->uapi->ifm_offset[i] = rsp->ifm_offset[i];
+		info->uapi->ifm_dims[i] = rsp->ifm_dims[i];
+		for (j = 0; j < rsp->ifm_dims[i]; j++)
+			info->uapi->ifm_shapes[i][j] = rsp->ifm_shapes[i][j];
+        }
 
 	info->uapi->ofm_count = rsp->ofm_count;
-	for (i = 0; i < rsp->ofm_count; i++)
+	for (i = 0; i < rsp->ofm_count; i++) {
 		info->uapi->ofm_size[i] = rsp->ofm_size[i];
+		info->uapi->ofm_types[i] = rsp->ofm_types[i];
+		info->uapi->ofm_offset[i] = rsp->ofm_offset[i];
+		info->uapi->ofm_dims[i] = rsp->ofm_dims[i];
+		for (j = 0; j < rsp->ofm_dims[i]; j++)
+			info->uapi->ofm_shapes[i][j] = rsp->ofm_shapes[i][j];
+	}
 
 signal_complete:
 	complete(&info->done);
