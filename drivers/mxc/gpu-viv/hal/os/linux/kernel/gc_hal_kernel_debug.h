@@ -101,7 +101,7 @@ typedef va_list gctARGUMENTS;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
 #    define gcmkGETPROCESSID()                          \
-        task_tgid_vnr(current)
+        task_tgid_nr(current)
 #else
 #    define gcmkGETPROCESSID()                          \
         current->tgid
@@ -109,7 +109,7 @@ typedef va_list gctARGUMENTS;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
 #    define gcmkGETTHREADID()                           \
-        task_pid_vnr(current)
+        task_pid_nr(current)
 #else
 #    define gcmkGETTHREADID()                           \
         current->pid
