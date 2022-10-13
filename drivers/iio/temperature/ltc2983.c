@@ -10,6 +10,7 @@
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/mod_devicetable.h>
@@ -225,6 +226,7 @@ struct ltc2983_data {
 	u16 custom_table_size;
 	u8 num_channels;
 	u8 iio_channels;
+	bool suspend;
 	/*
 	 * DMA (thus cache coherency maintenance) may require the
 	 * transfer buffers to live in their own cache lines.
@@ -1560,6 +1562,69 @@ static int ltc2983_setup(struct ltc2983_data *st, bool assign_iio)
 	return 0;
 }
 
+static ssize_t write_eeprom_store(struct device *dev, struct device_attribute *attr,
+				  const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct ltc2983_data *st = iio_priv(indio_dev);
+	int value;
+	int ret;
+
+	if (kstrtouint(buf, 0, &value) || !value)
+		return -EINVAL;
+
+	ret = ltc2983_eeprom_cmd(st, LTC2983_EEPROM_WRITE_CMD,
+				 LTC2983_EEPROM_WRITE_TIME_MS,
+				 LTC2986_EEPROM_STATUS_REG,
+				 LTC2983_EEPROM_STATUS_FAILURE_MASK);
+	if (ret)
+		return ret;
+
+	return len;
+}
+
+static int __maybe_unused ltc2983_suspend(struct device *dev);
+static int __maybe_unused ltc2983_resume(struct device *dev);
+
+static ssize_t test_suspend_show(struct device *dev, struct device_attribute *attr,
+				 char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct ltc2983_data *st = iio_priv(indio_dev);
+
+	return sysfs_emit(buf, "%u\n", st->suspend);
+}
+
+static ssize_t test_suspend_store(struct device *dev, struct device_attribute *attr,
+				  const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct ltc2983_data *st = iio_priv(indio_dev);
+	int value;
+	int ret;
+
+	if (kstrtouint(buf, 0, &value))
+		return -EINVAL;
+
+	if (value == st->suspend)
+		return len;
+
+	if (value)
+		ret = ltc2983_suspend(&st->spi->dev);
+	else
+		ret = ltc2983_resume(&st->spi->dev);
+
+	if (ret)
+		return ret;
+
+	st->suspend = value;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR_RW(test_suspend, 0);
+static IIO_DEVICE_ATTR_WO(write_eeprom, 0);
+
 static const struct regmap_range ltc2983_reg_ranges[] = {
 	regmap_reg_range(LTC2983_STATUS_REG, LTC2983_STATUS_REG),
 	regmap_reg_range(LTC2983_TEMP_RES_START_REG, LTC2983_TEMP_RES_END_REG),
@@ -1595,7 +1660,18 @@ static const struct regmap_config ltc2983_regmap_config = {
 	.write_flag_mask = BIT(1),
 };
 
+static struct attribute *sysfs_attrs[] = {
+	&iio_dev_attr_test_suspend.dev_attr.attr,
+	&iio_dev_attr_write_eeprom.dev_attr.attr,
+	NULL
+};
+
+static const struct attribute_group ltc2983_attribute_group = {
+	.attrs = sysfs_attrs,
+};
+
 static const struct  iio_info ltc2983_iio_info = {
+	.attrs = &ltc2983_attribute_group,
 	.read_raw = ltc2983_read_raw,
 	.debugfs_reg_access = ltc2983_reg_access,
 };
