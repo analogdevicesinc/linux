@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&spi0 {
+	cs-gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	ltm2985@0 {
+		compatible = "adi,ltm2985";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupts = <26 IRQ_TYPE_EDGE_RISING>;
+		interrupt-parent = <&gpio>;
+
+		temp@2 {
+			reg = <2>;
+			adi,sensor-type = <31>;
+
+			adi,custom-temp =
+				/bits/ 64 <0 0>,
+				/bits/ 64 <625000000 500000000>,
+				/bits/ 64 <1250000000 1000000000>;
+		};
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
