@@ -184,3 +184,4 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD74413R
 	imply ADI_IIO_FAKEDEV
 	imply LTC2688
+	imply MAX11410
