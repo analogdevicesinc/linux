@@ -49,4 +49,5 @@ config DRM_IMX_HDMI
 
 source "drivers/gpu/drm/imx/dcss/Kconfig"
 source "drivers/gpu/drm/imx/lcdif/Kconfig"
+source "drivers/gpu/drm/imx/lcdifv3/Kconfig"
 source "drivers/gpu/drm/imx/lcdc/Kconfig"

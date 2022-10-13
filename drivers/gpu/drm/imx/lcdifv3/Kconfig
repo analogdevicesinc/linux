@@ -1,0 +1,8 @@
+config DRM_IMX_LCDIFV3
+	tristate "i.MX LCDIFV3 controller DRM driver"
+	depends on DRM_IMX
+	depends on IMX_LCDIFV3_CORE
+	default y if DRM_IMX=y
+	default m if DRM_IMX=m
+	help
+	  enable i.MX LCDIFV3 controller DRM driver under DRM_IMX.
