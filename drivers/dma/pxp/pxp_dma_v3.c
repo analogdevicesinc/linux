@@ -1041,102 +1041,70 @@ static const struct pxp_devdata pxp_devdata[] = {
  */
 static void dump_pxp_reg(struct pxps *pxp)
 {
-	dev_dbg(pxp->dev, "PXP_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CTRL));
-	dev_dbg(pxp->dev, "PXP_STAT 0x%x",
-		__raw_readl(pxp->base + HW_PXP_STAT));
-	dev_dbg(pxp->dev, "PXP_OUT_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_CTRL));
-	dev_dbg(pxp->dev, "PXP_OUT_BUF 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_BUF));
-	dev_dbg(pxp->dev, "PXP_OUT_BUF2 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_BUF2));
-	dev_dbg(pxp->dev, "PXP_OUT_PITCH 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_PITCH));
-	dev_dbg(pxp->dev, "PXP_OUT_LRC 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_LRC));
-	dev_dbg(pxp->dev, "PXP_OUT_PS_ULC 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_PS_ULC));
-	dev_dbg(pxp->dev, "PXP_OUT_PS_LRC 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_PS_LRC));
-	dev_dbg(pxp->dev, "PXP_OUT_AS_ULC 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_AS_ULC));
-	dev_dbg(pxp->dev, "PXP_OUT_AS_LRC 0x%x",
-		__raw_readl(pxp->base + HW_PXP_OUT_AS_LRC));
-	dev_dbg(pxp->dev, "PXP_PS_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_CTRL));
-	dev_dbg(pxp->dev, "PXP_PS_BUF 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_BUF));
-	dev_dbg(pxp->dev, "PXP_PS_UBUF 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_UBUF));
-	dev_dbg(pxp->dev, "PXP_PS_VBUF 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_VBUF));
-	dev_dbg(pxp->dev, "PXP_PS_PITCH 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_PITCH));
-	dev_dbg(pxp->dev, "PXP_PS_BACKGROUND_0 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_BACKGROUND_0));
-	dev_dbg(pxp->dev, "PXP_PS_SCALE 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_SCALE));
-	dev_dbg(pxp->dev, "PXP_PS_OFFSET 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_OFFSET));
-	dev_dbg(pxp->dev, "PXP_PS_CLRKEYLOW_0 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_CLRKEYLOW_0));
-	dev_dbg(pxp->dev, "PXP_PS_CLRKEYHIGH 0x%x",
-		__raw_readl(pxp->base + HW_PXP_PS_CLRKEYHIGH_0));
-	dev_dbg(pxp->dev, "PXP_AS_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_AS_CTRL));
-	dev_dbg(pxp->dev, "PXP_AS_BUF 0x%x",
-		__raw_readl(pxp->base + HW_PXP_AS_BUF));
-	dev_dbg(pxp->dev, "PXP_AS_PITCH 0x%x",
-		__raw_readl(pxp->base + HW_PXP_AS_PITCH));
-	dev_dbg(pxp->dev, "PXP_AS_CLRKEYLOW 0x%x",
-		__raw_readl(pxp->base + HW_PXP_AS_CLRKEYLOW_0));
-	dev_dbg(pxp->dev, "PXP_AS_CLRKEYHIGH 0x%x",
-		__raw_readl(pxp->base + HW_PXP_AS_CLRKEYHIGH_0));
-	dev_dbg(pxp->dev, "PXP_CSC1_COEF0 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC1_COEF0));
-	dev_dbg(pxp->dev, "PXP_CSC1_COEF1 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC1_COEF1));
-	dev_dbg(pxp->dev, "PXP_CSC1_COEF2 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC1_COEF2));
-	dev_dbg(pxp->dev, "PXP_CSC2_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC2_CTRL));
-	dev_dbg(pxp->dev, "PXP_CSC2_COEF0 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC2_COEF0));
-	dev_dbg(pxp->dev, "PXP_CSC2_COEF1 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC2_COEF1));
-	dev_dbg(pxp->dev, "PXP_CSC2_COEF2 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC2_COEF2));
-	dev_dbg(pxp->dev, "PXP_CSC2_COEF3 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC2_COEF3));
-	dev_dbg(pxp->dev, "PXP_CSC2_COEF4 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC2_COEF4));
-	dev_dbg(pxp->dev, "PXP_CSC2_COEF5 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CSC2_COEF5));
-	dev_dbg(pxp->dev, "PXP_LUT_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_LUT_CTRL));
-	dev_dbg(pxp->dev, "PXP_LUT_ADDR 0x%x",
-		__raw_readl(pxp->base + HW_PXP_LUT_ADDR));
-	dev_dbg(pxp->dev, "PXP_LUT_DATA 0x%x",
-		__raw_readl(pxp->base + HW_PXP_LUT_DATA));
-	dev_dbg(pxp->dev, "PXP_LUT_EXTMEM 0x%x",
-		__raw_readl(pxp->base + HW_PXP_LUT_EXTMEM));
-	dev_dbg(pxp->dev, "PXP_CFA 0x%x",
-		__raw_readl(pxp->base + HW_PXP_CFA));
-	dev_dbg(pxp->dev, "PXP_ALPHA_A_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_ALPHA_A_CTRL));
-	dev_dbg(pxp->dev, "PXP_ALPHA_B_CTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_ALPHA_B_CTRL));
-	dev_dbg(pxp->dev, "PXP_POWER_REG0 0x%x",
-		__raw_readl(pxp->base + HW_PXP_POWER_REG0));
-	dev_dbg(pxp->dev, "PXP_NEXT 0x%x",
-		__raw_readl(pxp->base + HW_PXP_NEXT));
-	dev_dbg(pxp->dev, "PXP_DEBUGCTRL 0x%x",
-		__raw_readl(pxp->base + HW_PXP_DEBUGCTRL));
-	dev_dbg(pxp->dev, "PXP_DEBUG 0x%x",
-		__raw_readl(pxp->base + HW_PXP_DEBUG));
-	dev_dbg(pxp->dev, "PXP_VERSION 0x%x",
-		__raw_readl(pxp->base + HW_PXP_VERSION));
+	struct pxp_register {
+		u32 offset;
+		const char * const name;
+		bool opt;
+	} regs[] = {
+		{ 0x00, "HW_PXP_CTRL", false },
+		{ 0x10, "HW_PXP_STAT", false },
+		{ 0x20, "HW_PXP_OUT_CTRL", false },
+		{ 0x30, "HW_PXP_OUT_BUF", false },
+		{ 0x40, "HW_PXP_OUT_BUF2", false },
+		{ 0x50, "HW_PXP_OUT_PITCH", false },
+		{ 0x60, "HW_PXP_OUT_LRC", false },
+		{ 0x70, "HW_PXP_OUT_PS_ULC", false },
+		{ 0x80, "HW_PXP_OUT_PS_LRC", false },
+		{ 0x90, "HW_PXP_OUT_AS_ULC", false },
+		{ 0xa0, "HW_PXP_OUT_AS_LRC", false },
+		{ 0xb0, "HW_PXP_PS_CTRL", false },
+		{ 0xc0, "HW_PXP_PS_BUF", false },
+		{ 0xd0, "HW_PXP_PS_UBUF", false },
+		{ 0xe0, "HW_PXP_PS_VBUF", false },
+		{ 0xf0, "HW_PXP_PS_PITCH", false },
+		{ 0x100, "HW_PXP_PS_BACKGROUND_0", false },
+		{ 0x110, "HW_PXP_PS_SCALE", false },
+		{ 0x120, "HW_PXP_PS_OFFSET", false },
+		{ 0x130, "HW_PXP_PS_CLRKEYLOW_0", false },
+		{ 0x140, "HW_PXP_PS_CLRKEYHIGH_0", false },
+		{ 0x150, "HW_PXP_AS_CTRL", false },
+		{ 0x160, "HW_PXP_AS_BUF", false },
+		{ 0x170, "HW_PXP_AS_PITCH", false },
+		{ 0x180, "HW_PXP_AS_CLRKEYLOW_0", false },
+		{ 0x190, "HW_PXP_AS_CLRKEYHIGH_0", false },
+		{ 0x1A0, "HW_PXP_CSC1_COEF0", false },
+		{ 0x1B0, "HW_PXP_CSC1_COEF1", false },
+		{ 0x1C0, "HW_PXP_CSC1_COEF2", false },
+		{ 0x1D0, "HW_PXP_CSC2_CTRL", false },
+		{ 0x1E0, "HW_PXP_CSC2_COEF0", false },
+		{ 0x1F0, "HW_PXP_CSC2_COEF1", false },
+		{ 0x200, "HW_PXP_CSC2_COEF2", false },
+		{ 0x210, "HW_PXP_CSC2_COEF3", false },
+		{ 0x220, "HW_PXP_CSC2_COEF4", false },
+		{ 0x230, "HW_PXP_CSC2_COEF5", false },
+		{ 0x240, "HW_PXP_LUT_CTRL", true },
+		{ 0x250, "HW_PXP_LUT_ADDR", true },
+		{ 0x260, "HW_PXP_LUT_DATA", true },
+		{ 0x270, "HW_PXP_LUT_EXTMEM", true },
+		{ 0x280, "HW_PXP_CFA", true },
+		{ 0x290, "HW_PXP_ALPHA_A_CTRL", false },
+		{ 0x2a0, "HW_PXP_ALPHA_B_CTRL", false },
+		{ 0x320, "HW_PXP_POWER_REG0", false },
+		{ 0x400, "HW_PXP_NEXT", false },
+		{ 0x410, "HW_PXP_DEBUGCTRL", false },
+		{ 0x420, "HW_PXP_DEBUG", false },
+		{ 0x430, "HW_PXP_VERSION", false },
+	};
+	u32 val;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		if (pxp->devdata->version == PXP_V3_IMX93 && regs[i].opt)
+			continue;
+
+		val = __raw_readl(pxp->base + regs[i].offset);
+		dev_dbg(pxp->dev, "%20s[0x%x]: 0x%.8x\n", regs[i].name, regs[i].offset, val);
+	}
 }
 
 static void dump_pxp_reg2(struct pxps *pxp)
