@@ -549,6 +549,7 @@ _GFPAlloc(
     if (contiguous)
     {
         size_t bytes = NumPages << PAGE_SHIFT;
+        void *addr = NULL;
 
 #if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
         gfp &= ~__GFP_HIGHMEM;
@@ -560,8 +561,6 @@ _GFPAlloc(
 
 Alloc:
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
-        void *addr = NULL;
-
         addr = alloc_pages_exact(bytes, (gfp & ~__GFP_HIGHMEM) | __GFP_NORETRY);
 
         mdlPriv->contiguousPages = addr ? virt_to_page(addr) : gcvNULL;
