@@ -664,7 +664,14 @@ gckKERNEL_Construct(
             gckVGKERNEL_Construct(Os, Context, kernel, &kernel->vg));
 
         status = gckOS_QueryOption(Os, "gpuTimeout", &data);
-        gpuTimeout = (gctUINT)data;
+        if (gcmIS_SUCCESS(status))
+        {
+            gpuTimeout = (gctUINT)data;
+        }
+        else
+        {
+            gpuTimeout = gcdGPU_TIMEOUT;
+        }
         kernel->timeOut = gpuTimeout;
 
         status = gckOS_QueryOption(Os, "contiguousBase", &contiguousBase);
@@ -705,7 +712,14 @@ gckKERNEL_Construct(
         }
 
         status = gckOS_QueryOption(Os, "gpuTimeout", &data);
-        gpuTimeout = (gctUINT)data;
+        if (gcmIS_SUCCESS(status))
+        {
+            gpuTimeout = (gctUINT)data;
+        }
+        else
+        {
+            gpuTimeout = gcdGPU_TIMEOUT;
+        }
         kernel->timeOut = kernel->hardware->type == gcvHARDWARE_2D
                         ? gcdGPU_2D_TIMEOUT
                         : gpuTimeout
@@ -4077,7 +4091,14 @@ gckKERNEL_AttachProcessEx(
             gctUINT64 data;
 
             sta = gckOS_QueryOption(Kernel->os, "gpuTimeout", &data);
-            gpuTimeout = (gctUINT)data;
+            if (gcmIS_SUCCESS(sta))
+            {
+                gpuTimeout = (gctUINT)data;
+            }
+            else
+            {
+                gpuTimeout = gcdGPU_TIMEOUT;
+            }
             Kernel->timeOut = Kernel->hardware->type == gcvHARDWARE_2D
                             ? gcdGPU_2D_TIMEOUT
                             : gpuTimeout;
