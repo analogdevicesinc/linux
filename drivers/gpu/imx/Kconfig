@@ -1,2 +1,3 @@
 source "drivers/gpu/imx/ipu-v3/Kconfig"
 source "drivers/gpu/imx/lcdif/Kconfig"
+source "drivers/gpu/imx/lcdifv3/Kconfig"
