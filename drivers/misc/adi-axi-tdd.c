@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
 /*
- * TDD NG HDL CORE driver
+ * TDD HDL CORE driver
  *
  * Copyright 2022 Analog Devices Inc.
  *
@@ -94,7 +94,7 @@ enum adi_axi_tdd_attribute_id {
 	ADI_TDD_ATTR_CHANNEL_OFF_MS,
 };
 
-struct adi_axi_tdd_ng_clk {
+struct adi_axi_tdd_clk {
 	struct notifier_block nb;
 	struct clk *clk;
 	unsigned long rate;
@@ -110,7 +110,7 @@ struct adi_axi_tdd_attribute {
 #define to_tdd_attribute(x) container_of(x, struct adi_axi_tdd_attribute, attr)
 
 /**
- * struct adi_axi_tdd_ng_state - Driver state information for the TDD NG CORE
+ * struct adi_axi_tdd_state - Driver state information for the TDD CORE
  * @clk: Interface clock definition. Used to translate ms into cycle counts
  * @regs: Device register base address in memory
  * @sync_count_width: Bit width of the internal synchronization counter, <= 64
@@ -127,8 +127,8 @@ struct adi_axi_tdd_attribute {
  *	     Note: Most configuration registers cannot be changed while the TDD core is enabled.
  * @lock: Protects state fields and protects against unordered accesses to the registers
  */
-struct adi_axi_tdd_ng_state {
-	struct adi_axi_tdd_ng_clk clk;
+struct adi_axi_tdd_state {
+	struct adi_axi_tdd_clk clk;
 	void __iomem *regs;
 	u32 sync_count_width;
 	u64 sync_count_mask;
@@ -146,24 +146,24 @@ struct adi_axi_tdd_ng_state {
 	struct mutex lock;
 };
 
-static inline void _tdd_write(struct adi_axi_tdd_ng_state *st, const u32 reg, const u32 val)
+static inline void _tdd_write(struct adi_axi_tdd_state *st, const u32 reg, const u32 val)
 {
 	iowrite32(val, st->regs + reg);
 }
 
-static inline u32 _tdd_read(struct adi_axi_tdd_ng_state *st, const u32 reg)
+static inline u32 _tdd_read(struct adi_axi_tdd_state *st, const u32 reg)
 {
 	return ioread32(st->regs + reg);
 }
 
-static inline void tdd_write(struct adi_axi_tdd_ng_state *st, const u32 reg, const u32 val)
+static inline void tdd_write(struct adi_axi_tdd_state *st, const u32 reg, const u32 val)
 {
 	mutex_lock(&st->lock);
 	iowrite32(val, st->regs + reg);
 	mutex_unlock(&st->lock);
 }
 
-static inline void tdd_write64(struct adi_axi_tdd_ng_state *st, const u32 lreg, const u32 hreg,
+static inline void tdd_write64(struct adi_axi_tdd_state *st, const u32 lreg, const u32 hreg,
 			     const u64 val)
 {
 	mutex_lock(&st->lock);
@@ -174,7 +174,7 @@ static inline void tdd_write64(struct adi_axi_tdd_ng_state *st, const u32 lreg, 
 	mutex_unlock(&st->lock);
 }
 
-static inline u32 tdd_read(struct adi_axi_tdd_ng_state *st, const u32 reg)
+static inline u32 tdd_read(struct adi_axi_tdd_state *st, const u32 reg)
 {
 	u32 val;
 
@@ -185,7 +185,7 @@ static inline u32 tdd_read(struct adi_axi_tdd_ng_state *st, const u32 reg)
 	return val;
 }
 
-static inline u64 tdd_read64(struct adi_axi_tdd_ng_state *st, const u32 lreg, const u32 hreg)
+static inline u64 tdd_read64(struct adi_axi_tdd_state *st, const u32 lreg, const u32 hreg)
 {
 	u64 data;
 
@@ -199,7 +199,7 @@ static inline u64 tdd_read64(struct adi_axi_tdd_ng_state *st, const u32 lreg, co
 	return data;
 }
 
-static void _tdd_update_bits(struct adi_axi_tdd_ng_state *st, const u32 reg,
+static void _tdd_update_bits(struct adi_axi_tdd_state *st, const u32 reg,
 			     const u32 mask, const u32 val)
 {
 	u32 __val;
@@ -209,7 +209,7 @@ static void _tdd_update_bits(struct adi_axi_tdd_ng_state *st, const u32 reg,
 	_tdd_write(st, reg, __val);
 }
 
-static void tdd_update_bits(struct adi_axi_tdd_ng_state *st, const u32 reg,
+static void tdd_update_bits(struct adi_axi_tdd_state *st, const u32 reg,
 			    const u32 mask, const u32 val)
 {
 	mutex_lock(&st->lock);
@@ -217,11 +217,11 @@ static void tdd_update_bits(struct adi_axi_tdd_ng_state *st, const u32 reg,
 	mutex_unlock(&st->lock);
 }
 
-static int adi_axi_tdd_ng_rate_change(struct notifier_block *nb,
+static int adi_axi_tdd_rate_change(struct notifier_block *nb,
 				      unsigned long flags, void *data)
 {
-	struct adi_axi_tdd_ng_clk *clk =
-		container_of(nb, struct adi_axi_tdd_ng_clk, nb);
+	struct adi_axi_tdd_clk *clk =
+		container_of(nb, struct adi_axi_tdd_clk, nb);
 	struct clk_notifier_data *cnd = data;
 
 	/* cache the new rate */
@@ -230,22 +230,22 @@ static int adi_axi_tdd_ng_rate_change(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static void adi_axi_tdd_ng_clk_disable(void *clk)
+static void adi_axi_tdd_clk_disable(void *clk)
 {
 	clk_disable_unprepare(clk);
 }
 
-static void adi_axi_tdd_ng_clk_notifier_unreg(void *data)
+static void adi_axi_tdd_clk_notifier_unreg(void *data)
 {
-	struct adi_axi_tdd_ng_clk *clk = data;
+	struct adi_axi_tdd_clk *clk = data;
 
 	clk_notifier_unregister(clk->clk, &clk->nb);
 }
 
-static int adi_axi_tdd_ng_clk_setup(struct platform_device *pdev, struct adi_axi_tdd_ng_state *st)
+static int adi_axi_tdd_clk_setup(struct platform_device *pdev, struct adi_axi_tdd_state *st)
 {
 	int ret;
-	struct adi_axi_tdd_ng_clk *clk = &st->clk;
+	struct adi_axi_tdd_clk *clk = &st->clk;
 	struct clk *aclk;
 
 	aclk = devm_clk_get(&pdev->dev, "s_axi_aclk");
@@ -256,7 +256,7 @@ static int adi_axi_tdd_ng_clk_setup(struct platform_device *pdev, struct adi_axi
 	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_ng_clk_disable, aclk);
+	ret = devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_clk_disable, aclk);
 	if (ret)
 		return ret;
 
@@ -268,20 +268,20 @@ static int adi_axi_tdd_ng_clk_setup(struct platform_device *pdev, struct adi_axi
 	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_ng_clk_disable, clk->clk);
+	ret = devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_clk_disable, clk->clk);
 	if (ret)
 		return ret;
 
 	clk->rate = clk_get_rate(clk->clk);
-	clk->nb.notifier_call = adi_axi_tdd_ng_rate_change;
+	clk->nb.notifier_call = adi_axi_tdd_rate_change;
 	ret = clk_notifier_register(clk->clk, &clk->nb);
 	if (ret)
 		return ret;
 
-	return devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_ng_clk_notifier_unreg, clk);
+	return devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_clk_notifier_unreg, clk);
 }
 
-static int adi_axi_tdd_format_ms(struct adi_axi_tdd_ng_state *st, u64 x, char *buf)
+static int adi_axi_tdd_format_ms(struct adi_axi_tdd_state *st, u64 x, char *buf)
 {
 	u64 t_ns;
 	u32 vals[2];
@@ -294,7 +294,7 @@ static int adi_axi_tdd_format_ms(struct adi_axi_tdd_ng_state *st, u64 x, char *b
 static ssize_t adi_axi_tdd_show(struct device *dev,
 				struct device_attribute *dev_attr, char *buf)
 {
-	struct adi_axi_tdd_ng_state *st = dev_get_drvdata(dev);
+	struct adi_axi_tdd_state *st = dev_get_drvdata(dev);
 	const struct adi_axi_tdd_attribute *attr = to_tdd_attribute(dev_attr);
 	u32 data;
 	int ret = -ENODEV;
@@ -425,7 +425,7 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 	return ret;
 }
 
-static u64 adi_axi_tdd_parse_ms(struct adi_axi_tdd_ng_state *st, const char *buf)
+static u64 adi_axi_tdd_parse_ms(struct adi_axi_tdd_state *st, const char *buf)
 {
 	u64 clk_rate = READ_ONCE(st->clk.rate);
 	int ret;
@@ -440,7 +440,7 @@ static ssize_t adi_axi_tdd_store(struct device *dev,
 				 struct device_attribute *dev_attr,
 				 const char *buf, size_t count)
 {
-	struct adi_axi_tdd_ng_state *st = dev_get_drvdata(dev);
+	struct adi_axi_tdd_state *st = dev_get_drvdata(dev);
 	const struct adi_axi_tdd_attribute *attr = to_tdd_attribute(dev_attr);
 	int ret = count;
 	u32 data;
@@ -603,7 +603,7 @@ static ssize_t adi_axi_tdd_store(struct device *dev,
 }
 
 static int
-adi_axi_tdd_init_synthesis_parameters(struct adi_axi_tdd_ng_state *st)
+adi_axi_tdd_init_synthesis_parameters(struct adi_axi_tdd_state *st)
 {
 	u32 interface_config = _tdd_read(st, ADI_REG_TDD_INTERFACE_DESCRIPTION);
 
@@ -615,7 +615,7 @@ adi_axi_tdd_init_synthesis_parameters(struct adi_axi_tdd_ng_state *st)
 	st->sync_internal = ADI_TDD_SYNC_INTERNAL & interface_config;
 	st->channel_count = ADI_TDD_CHANNEL_COUNT_GET(interface_config) + 1;
 
-	if (!st->sync_count_width || !st->burst_count_width || !st->reg_width)
+	if (!st->burst_count_width || !st->reg_width)
 		return -EINVAL;
 
 	st->sync_count_mask = (u64)((1ULL << st->sync_count_width) - 1ULL);
@@ -626,11 +626,11 @@ adi_axi_tdd_init_synthesis_parameters(struct adi_axi_tdd_ng_state *st)
 }
 
 /* Match table for of_platform binding */
-static const struct of_device_id adi_axi_tdd_ng_of_match[] = {
-	{ .compatible = "adi,axi-tdd-ng-1.00.a" },
+static const struct of_device_id adi_axi_tdd_of_match[] = {
+	{ .compatible = "adi,axi-tdd-2.00.a" },
 	{}
 };
-MODULE_DEVICE_TABLE(of, adi_axi_tdd_ng_of_match);
+MODULE_DEVICE_TABLE(of, adi_axi_tdd_of_match);
 
 #define __TDD_ATTR(_name, _id, _channel, _mode)					\
 	{									\
@@ -690,7 +690,7 @@ static struct attribute *adi_axi_tdd_base_attributes[] = {
 	/* NOT TERMINATED */
 };
 
-static int adi_axi_tdd_init_sysfs(struct platform_device *pdev, struct adi_axi_tdd_ng_state *st)
+static int adi_axi_tdd_init_sysfs(struct platform_device *pdev, struct adi_axi_tdd_state *st)
 {
 	struct attribute **tdd_attrs;
 	struct adi_axi_tdd_attribute *channel_attributes;
@@ -758,10 +758,10 @@ static int adi_axi_tdd_init_sysfs(struct platform_device *pdev, struct adi_axi_t
 	return 0;
 }
 
-static int adi_axi_tdd_ng_probe(struct platform_device *pdev)
+static int adi_axi_tdd_probe(struct platform_device *pdev)
 {
 	unsigned int expected_version, version;
-	struct adi_axi_tdd_ng_state *st;
+	struct adi_axi_tdd_state *st;
 	int ret;
 
 	st = devm_kcalloc(&pdev->dev, 1, sizeof(*st), GFP_KERNEL);
@@ -772,7 +772,7 @@ static int adi_axi_tdd_ng_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, st);
 
-	ret = adi_axi_tdd_ng_clk_setup(pdev, st);
+	ret = adi_axi_tdd_clk_setup(pdev, st);
 	if (ret)
 		return ret;
 
@@ -781,7 +781,7 @@ static int adi_axi_tdd_ng_probe(struct platform_device *pdev)
 		return PTR_ERR(st->regs);
 
 	version = _tdd_read(st, ADI_AXI_REG_VERSION);
-	expected_version = ADI_AXI_PCORE_VER(1, 0, 'a');
+	expected_version = ADI_AXI_PCORE_VER(2, 0, 'a');
 
 	if (ADI_AXI_PCORE_VER_MAJOR(version) !=
 	    ADI_AXI_PCORE_VER_MAJOR(expected_version)) {
@@ -811,7 +811,7 @@ static int adi_axi_tdd_ng_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	dev_dbg(&pdev->dev, "Probed Analog Devices AXI TDD (NG) (%d.%.2d.%c)",
+	dev_dbg(&pdev->dev, "Probed Analog Devices AXI TDD (%d.%.2d.%c)",
 		ADI_AXI_PCORE_VER_MAJOR(version),
 		ADI_AXI_PCORE_VER_MINOR(version),
 		ADI_AXI_PCORE_VER_PATCH(version));
@@ -819,13 +819,13 @@ static int adi_axi_tdd_ng_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver adi_axi_tdd_ng_driver = {
-	.driver = { .name = "adi_axi_tdd_ng",
-		    .of_match_table = adi_axi_tdd_ng_of_match },
-	.probe = adi_axi_tdd_ng_probe,
+static struct platform_driver adi_axi_tdd_driver = {
+	.driver = { .name = "adi_axi_tdd",
+		    .of_match_table = adi_axi_tdd_of_match },
+	.probe = adi_axi_tdd_probe,
 };
-module_platform_driver(adi_axi_tdd_ng_driver);
+module_platform_driver(adi_axi_tdd_driver);
 
 MODULE_AUTHOR("David Winter <david.winter@analog.com>");
-MODULE_DESCRIPTION("Analog Devices TDD NG HDL CORE driver");
+MODULE_DESCRIPTION("Analog Devices TDD HDL CORE driver");
 MODULE_LICENSE("Dual BSD/GPL");
