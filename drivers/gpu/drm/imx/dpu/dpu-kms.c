@@ -232,6 +232,10 @@ again:
 				for (k = 0; k < ARRAY_SIZE(sources); k++)
 					if (current_source == sources[k])
 						break;
+
+				/* in case of overrunning array sources */
+				if (k == ARRAY_SIZE(sources))
+					return -EINVAL;
 			} else {
 				k = ffs(src_a_mask) - 1;
 				if (k < 0)
