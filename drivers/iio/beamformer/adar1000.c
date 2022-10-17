@@ -1625,17 +1625,31 @@ static const struct iio_info adar1000_info = {
 static int adar1000_beam_load(struct adar1000_state *st, u32 channel, bool tx,
 			      u32 profile)
 {
+	unsigned int val;
+	int ret;
+
 	if (profile < ADAR1000_RAM_BEAM_POS_MIN || profile > ADAR1000_RAM_BEAM_POS_MAX)
 		return -EINVAL;
 
 	st->load_beam_idx = profile;
 
+	/* Source the data from the RAM */
+        ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL,
+			   ADAR1000_BEAM_RAM_BYPASS, 0);
+	if (ret)
+		return ret;
+
 	if (tx)
-		return regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_CH_MEM(channel),
-				    CHX_RAM_FETCH | profile);
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_TX_CH_MEM(channel),
+				   CHX_RAM_FETCH | profile);
 	else
-		return regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_CH_MEM(channel),
-				    CHX_RAM_FETCH | profile);
+		ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_RX_CH_MEM(channel),
+				   CHX_RAM_FETCH | profile);
+	if (ret)
+		return ret;
+
+	/* Provide at least six additional clock cycles on SCLK */
+	return regmap_read(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL, &val);
 }
 
 static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
