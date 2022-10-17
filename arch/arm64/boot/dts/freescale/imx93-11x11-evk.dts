@@ -29,6 +29,12 @@
 			linux,cma-default;
 		};
 
+		ethosu_mem: ethosu_region@C0000000 {
+			compatible = "shared-dma-pool";
+			reusable;
+			reg = <0x0 0xC0000000 0x0 0x10000000>;
+		};
+
 		vdev0vring0: vdev0vring0@a4000000 {
 			reg = <0 0xa4000000 0 0x8000>;
 			no-map;
@@ -59,6 +65,13 @@
 			reg = <0 0xa4020000 0 0x100000>;
 			no-map;
 		};
+	};
+
+	ethosu {
+		compatible = "arm,ethosu";
+		fsl,cm33-proc = <&cm33>;
+		memory-region = <&ethosu_mem>;
+		power-domains = <&mlmix>;
 	};
 
 	reg_can2_stby: regulator-can2-stby {
