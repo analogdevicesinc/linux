@@ -177,21 +177,29 @@
 &i2c0 {
 	compatible = "fsl,imx8dxl-lpi2c", "fsl,imx7ulp-lpi2c";
 	interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
+	dma-names = "tx","rx";
+	dmas = <&edma3 1 0 0>, <&edma3 0 0 1>;
 };
 
 &i2c1 {
 	compatible = "fsl,imx8dxl-lpi2c", "fsl,imx7ulp-lpi2c";
 	interrupts = <GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+	dma-names = "tx","rx";
+	dmas = <&edma3 3 0 0>, <&edma3 2 0 1>;
 };
 
 &i2c2 {
 	compatible = "fsl,imx8dxl-lpi2c", "fsl,imx7ulp-lpi2c";
 	interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+	dma-names = "tx","rx";
+	dmas = <&edma3 5 0 0>, <&edma3 4 0 1>;
 };
 
 &i2c3 {
 	compatible = "fsl,imx8dxl-lpi2c", "fsl,imx7ulp-lpi2c";
 	interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
+	dma-names = "tx","rx";
+	dmas = <&edma3 7 0 0>, <&edma3 6 0 1>;
 };
 
 &lpuart0 {

@@ -259,6 +259,10 @@
 	status = "okay";
 };
 
+&edma3 {
+	status = "okay";
+};
+
 &eqos {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_eqos>;
