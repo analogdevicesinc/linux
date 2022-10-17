@@ -441,6 +441,10 @@ F: drivers/gpu/drm/imx/mhdp/
 F: drivers/gpu/drm/rockchip/
 F: include/drm/bridge/cdns-mhdp.h
 
+display/imx93-pdf
+M: Ying Liu <victor.liu@nxp.com>
+F: drivers/gpu/drm/imx/imx93-parallel-disp-fmt.c
+
 display/ipu
 M: Ying Liu <victor.liu@nxp.com>
 F: drivers/gpu/Makefile
