@@ -280,7 +280,8 @@
 &zynqmp_dpsub {
 	status = "okay";
 	phy-names = "dp-phy0";
-	phys = <&psgtr 1 PHY_TYPE_DP 0 1>;
+	phys = <&psgtr 3 PHY_TYPE_DP 0 1>,
+		<&psgtr 2 PHY_TYPE_DP 1 1>;
 };
 
 &zynqmp_dp_snd_codec0 {
@@ -314,7 +315,7 @@
 	ceva,p1-burst-params = /bits/ 8 <0x13 0x08 0x4A 0x06>;
 	ceva,p1-retry-params = /bits/ 16 <0x96A4 0x3FFC>;
 	phy-names = "sata-phy";
-	phys = <&psgtr 3 PHY_TYPE_SATA 1 2>;
+	phys = <&psgtr 1 PHY_TYPE_SATA 1 2>;
 };
 
 &usb0 {
