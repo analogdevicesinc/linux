@@ -292,6 +292,11 @@ struct ad3552r_desc {
 	u16			interface_config_d;
 };
 
+static const char * const ad3552r_offload_switch_pos[] = {
+	[SPI_ENGINE_OFFLOAD_SRC0] = "DMA",
+	[SPI_ENGINE_OFFLOAD_SRC1] = "ADC",
+};
+
 static const u16 addr_mask_map[][2] = {
 	[AD3552R_ADDR_ASCENSION] = {
 			AD3552R_REG_ADDR_INTERFACE_CONFIG_A,
@@ -438,6 +443,41 @@ static int ad3552r_set_ch_value(struct ad3552r_desc *dac,
 				       addr_mask_map_ch[attr][ch + 1], val);
 }
 
+static int ad3552r_set_offload_switch(struct iio_dev *indio_dev,
+		    const struct iio_chan_spec *chan,
+		    unsigned int mode)
+{
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+
+	spi_engine_offload_source_set(dac->spi, mode);
+
+	return 0;
+}
+
+static int ad3552r_get_offload_switch(struct iio_dev *indio_dev,
+		    const struct iio_chan_spec *chan)
+{
+	struct ad3552r_desc *dac = iio_priv(indio_dev);
+
+	return spi_engine_offload_source_get(dac->spi);
+}
+
+//TODO: write attributes
+static const struct iio_enum ad3552r_offload_switch = {
+		.items = ad3552r_offload_switch_pos,
+		.num_items = ARRAY_SIZE(ad3552r_offload_switch_pos),
+		.set = ad3552r_set_offload_switch,
+		.get = ad3552r_get_offload_switch,
+};
+
+static struct iio_chan_spec_ext_info ad3552r_offload_sw_ext_info[] = {
+	IIO_ENUM("offload_source", IIO_SHARED_BY_ALL,
+		 &ad3552r_offload_switch),
+	IIO_ENUM_AVAILABLE_SHARED("offload_source", IIO_SHARED_BY_ALL,
+			   	   &ad3552r_offload_switch),
+	{}
+};
+
 #define AD3552R_CH_DAC(_idx) ((struct iio_chan_spec) {		\
 	.type = IIO_VOLTAGE,					\
 	.output = true,						\
@@ -455,6 +495,7 @@ static int ad3552r_set_ch_value(struct ad3552r_desc *dac,
 				BIT(IIO_CHAN_INFO_ENABLE) |	\
 				BIT(IIO_CHAN_INFO_OFFSET),	\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+	.ext_info = ad3552r_offload_sw_ext_info,		\
 })
 
 static int ad3552r_set_sampling_freq(struct ad3552r_desc *dac, int freq)
