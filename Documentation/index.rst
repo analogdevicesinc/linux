@@ -138,6 +138,7 @@ needed).
    scheduler/index
    mhi/index
    peci/index
+   a2b/index
 
 Architecture-agnostic documentation
 -----------------------------------
