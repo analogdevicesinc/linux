@@ -17,6 +17,11 @@ struct spi_engine_transfer {
 	bool stream;
 };
 
+enum {
+	SPI_ENGINE_OFFLOAD_SRC0,
+	SPI_ENGINE_OFFLOAD_SRC1,
+};
+
 /**
  * spi_engine_message_init_with_transfers - Initialize spi_message and append
  * spi_engine transfers
@@ -44,6 +49,8 @@ bool spi_engine_offload_supported(struct spi_device *spi);
 void spi_engine_offload_enable(struct spi_device *spi, bool enable);
 int spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_message *msg);
+void spi_engine_offload_source_set(struct spi_device *spi, unsigned int val);
+unsigned int spi_engine_offload_source_get(struct spi_device *spi);
 
 #else
 

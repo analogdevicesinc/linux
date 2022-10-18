@@ -43,6 +43,7 @@
 #define SPI_ENGINE_REG_OFFLOAD_RESET(x)		(0x108 + (0x20 * x))
 #define SPI_ENGINE_REG_OFFLOAD_CMD_MEM(x)	(0x110 + (0x20 * x))
 #define SPI_ENGINE_REG_OFFLOAD_SDO_MEM(x)	(0x114 + (0x20 * x))
+#define SPI_ENGINE_REG_OFFLOAD_SRC_SWITCH	0x10C
 
 #define SPI_ENGINE_INT_CMD_ALMOST_EMPTY		BIT(0)
 #define SPI_ENGINE_INT_SDO_ALMOST_EMPTY		BIT(1)
@@ -51,6 +52,7 @@
 
 #define SPI_ENGINE_OFFLOAD_CTRL_ENABLE		BIT(0)
 #define SPI_ENGINE_OFFLOAD_STATUS_ENABLED	BIT(0)
+#define SPI_ENGINE_OFFLOAD_SRC_MASK		BIT(0)
 
 #define SPI_ENGINE_CONFIG_CPHA			BIT(0)
 #define SPI_ENGINE_CONFIG_CPOL			BIT(1)
@@ -126,6 +128,8 @@ struct spi_engine {
 
 	struct timer_list watchdog_timer;
 	unsigned int word_length;
+
+	unsigned int offload_src;
 };
 
 static void spi_engine_program_add_cmd(struct spi_engine_program *p,
@@ -343,6 +347,27 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 
 	return 0;
 }
+
+void spi_engine_offload_source_set(struct spi_device *spi, unsigned int val)
+{
+	struct spi_master *master = spi->master;
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+
+	val &= SPI_ENGINE_OFFLOAD_SRC_MASK;
+	spi_engine->offload_src = val;
+
+	writel(val, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_SRC_SWITCH);
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_source_set);
+
+unsigned int spi_engine_offload_source_get(struct spi_device *spi)
+{
+	struct spi_master *master = spi->master;
+	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+
+	return spi_engine->offload_src;
+}
+EXPORT_SYMBOL_GPL(spi_engine_offload_source_get);
 
 bool spi_engine_offload_supported(struct spi_device *spi)
 {
@@ -720,6 +745,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 
 	spi_master_set_devdata(master, spi_engine);
 	spi_engine->master = master;
+	spi_engine->offload_src = 0;
 
 	spin_lock_init(&spi_engine->lock);
 
