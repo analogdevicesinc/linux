@@ -23,18 +23,18 @@ Configuration for above schematic in the device tree looks like below (ex:a2b ma
 a2b@68 {
 	compatible = "adi,ad2428w";
 	reg = <0x68>;
-	/* main config */
+	.. Here main node configuration to be added
 	nodes {
 		node@0 {
-			/* sub0 config */
+			.. Here sub0 configuration to be added
 		}
 		node@1 {
-			/* sub1 config */
+			.. Here sub1 configuration to be added
 		}
 	}
 }
 
-For example, multi main node schematic will look like below with 2 main nodes & 2 sub nodes:
+For example, multi main node schematic will look like below with 2 main nodes & 2 sub nodes each:
 ::
 
    ---------          ---------          ---------          ---------
@@ -53,26 +53,26 @@ Configuration for above schematic in the device tree looks like below (ex:a2b ma
 a2b@68 {
 	compatible = "adi,ad2428w";
 	reg = <0x68>;
-	/* main0 config */
+	.. Here main0 configuration to be added
 	nodes {
 		node@0 {
-			/* sub0 config */
+			.. Here sub0 configuration to be added
 		}
 		node@1 {
-			/* sub1 config */
+			.. Here sub1 configuration to be added
 		}
 	}
 }
 a2b@6a {
 	compatible = "adi,ad2428w";
 	reg = <0x6a>;
-	/* main1 config */
+	.. Here main1 configuration to be added
 	nodes {
 		node@0 {
-			/* sub0 config */
+			.. Here sub0 configuration to be added
 		}
 		node@1 {
-			/* sub1 config */
+			.. Here sub1 configuration to be added
 		}
 	}
 }
