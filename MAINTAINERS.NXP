@@ -833,6 +833,10 @@ nfc
 M: Jun Li <jun.li@nxp.com>
 F: drivers/nfc/
 
+npu
+M: Alison Wang <alison.wang@nxp.com>
+F: drivers/staging/ethosu/
+
 pcie/core
 M: Richard Zhu <hongxing.zhu@nxp.com>
 F: arch/arm64/kernel/pci.c
