@@ -30,6 +30,7 @@
 
 #define LTC2380_FRAME_SIZE	3
 #define LTC2380_MAX_FREQ	2000000
+#define MHz 				1000000
 
 struct ltc2380_chip_info {
 	const char *name;
@@ -66,8 +67,8 @@ static const struct iio_chan_spec ltc2380_channel = {
 		.indexed = 1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 				      BIT(IIO_CHAN_INFO_SCALE) |
-				      BIT(IIO_CHAN_INFO_OFFSET),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_OFFSET) |
+					  BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.scan_type = {
 			.sign = 's',
 			.realbits = 24,
@@ -81,24 +82,25 @@ static const struct iio_trigger_ops ltc2380_trigger_ops = {
 
 static int ltc2380_set_sampling_freq(struct ltc2380_state *st, u32 freq)
 {
-	u64 target, ref_clk_period_ps;
+	u64 target, ref_clk_period_us;
 	struct pwm_state cnv_state;
 	int ret;
 
-	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
-	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000ULL, st->ref_clk_rate);
+	target = DIV_ROUND_CLOSEST_ULL(1000000000ULL, freq);
+	//ref_clk_period_us = DIV_ROUND_CLOSEST_ULL(1000000ULL, st->ref_clk_rate);
 
-	cnv_state.period = ref_clk_period_ps * target;
-	cnv_state.duty_cycle = ref_clk_period_ps;
-	cnv_state.phase = ref_clk_period_ps;
-	cnv_state.time_unit = PWM_UNIT_PSEC;
+	cnv_state.period = 1000000000;
+	cnv_state.duty_cycle = 1000000000 / 2;
+	cnv_state.phase = 0;
+	cnv_state.time_unit = PWM_UNIT_NSEC;
+	cnv_state.polarity = PWM_POLARITY_NORMAL;
 	cnv_state.enabled = 1;
-	
+
 	ret = pwm_apply_state(st->cnv, &cnv_state);
 	if (ret)
 		return ret;
 
-	st->sampling_freq = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, target);
+	st->sampling_freq = 100;
 
 	return 0;
 }
@@ -122,26 +124,27 @@ static int ltc2380_read_sample(struct ltc2380_state *st, u32 *val)
 
 static int ltc2380_single_conversion(struct ltc2380_state *st, u32 *val)
 {
-	struct iio_dev *indio_dev = spi_get_drvdata(st->spi);	
+	struct iio_dev *indio_dev = spi_get_drvdata(st->spi);
 	int ret;
 
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
-		return ret;
+	// ret = iio_device_claim_direct_mode(indio_dev);
+	// if (ret)
+	// 	return ret;
 
-	spi_bus_lock(st->spi->master);
+	// spi_bus_lock(st->spi->master);
 
 	/* Read the last result in order to start a new conversion */
 	ret = ltc2380_read_sample(st, val);
 	if (ret)
 		goto err;
 
-	udelay(1);
+	mdelay(100);
+	wait_for_completion_timeout(&st->adc_data_completion, msecs_to_jiffies(1000));
 	ret = ltc2380_read_sample(st, val);
-
+	mdelay(100);
 err:
-	spi_bus_unlock(st->spi->master);
-	iio_device_release_direct_mode(indio_dev);
+	// spi_bus_unlock(st->spi->master);
+	// iio_device_release_direct_mode(indio_dev);
 
 	return ret;
 }
@@ -261,6 +264,8 @@ static int ltc2380_probe(struct spi_device *spi)
 	struct ltc2380_state *st;
 	int ret;
 
+	printk("LTC2380 probing\n");
+
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(st));
 	if (!indio_dev)
 		return -ENOMEM;
@@ -273,11 +278,14 @@ static int ltc2380_probe(struct spi_device *spi)
 		return dev_err_probe(&spi->dev, PTR_ERR(st->vref),
 				     "Failed to get vref");
 
+	spi_set_drvdata(spi, indio_dev);
+	printk("LTC2380 vref\n");
+
 	ret = regulator_enable(st->vref);
 	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, ltc2380_regulator_disable, &st->vref);
+	ret = devm_add_action_or_reset(&spi->dev, ltc2380_regulator_disable, st->vref);
 	if (ret)
 		return ret;
 
@@ -285,31 +293,50 @@ static int ltc2380_probe(struct spi_device *spi)
 	if (!ddata)
 		ddata = (const struct ltc2380_chip_info *)spi_get_drvdata(spi);
 
-	st->ref_clk = devm_clk_get(&spi->dev, NULL);
-	if (IS_ERR(st->ref_clk))
-		return PTR_ERR(st->ref_clk);
+	st->chip_info = ddata;
+	printk("LTC2380 data\n");
 
-	ret = clk_prepare_enable(st->ref_clk);
-	if (ret)
-		return ret;
+	st->cnv = devm_pwm_get(&spi->dev, "pwm-trigger");
+	if (IS_ERR(st->cnv))
+		return PTR_ERR(st->cnv);
 
-	ret = devm_add_action_or_reset(&spi->dev, ltc2380_clk_disable, st->ref_clk);
-	if (ret)
-		return ret;
+	ret = ltc2380_set_sampling_freq(st, 1000000);
+	printk("LTC2380 pwm setup: %d\n", ret);
+	printk("LTC2380 pwm period: %lld\n", pwm_get_period(st->cnv));
+	// st->ref_clk = devm_clk_get(&spi->dev, NULL);
+	// if (IS_ERR(st->ref_clk))
+	// 	return PTR_ERR(st->ref_clk);
+
+	// printk("LTC2380 data\n");
+
+	// ret = clk_prepare_enable(st->ref_clk);
+	// if (ret)
+	// 	return ret;
+
+	// printk("LTC2380 clk enable\n");
+
+	// ret = devm_add_action_or_reset(&spi->dev, ltc2380_clk_disable, st->ref_clk);
+	// if (ret)
+	// 	return ret;
 
 	ret = devm_add_action_or_reset(&spi->dev, ltc2380_pwm_disable, st->cnv);
 	if (ret)
 		return ret;
 
-	ret = devm_request_irq(&spi->dev, spi->irq, ltc2380_adc_data_interrupt,
-			       0, st->chip_info->name, indio_dev);
-	if(ret)
-		return ret;
+	printk("LTC2380 pwm disable action\n");
 
 	st->trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d", st->chip_info->name,
 					  indio_dev->id);
 	if (!st->trig)
 		return -ENOMEM;
+
+	printk("LTC2380 trigger alloc\n");
+
+	ret = devm_request_threaded_irq(&spi->dev, spi->irq, ltc2380_adc_data_interrupt,
+			    		0, st->chip_info->name, st->trig);
+	if(ret)
+		return ret;
+	printk("LTC2380 request irq\n");
 
 	st->trig->ops = &ltc2380_trigger_ops;
 	st->trig->dev.parent = &spi->dev;
@@ -319,6 +346,8 @@ static int ltc2380_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	printk("LTC2380 trigger register\n");
+
 	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
 					      &iio_pollfunc_store_time,
 					      &ltc2380_trigger_handler,
@@ -326,9 +355,10 @@ static int ltc2380_probe(struct spi_device *spi)
 	if(ret)
 		return ret;
 
-	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
+	printk("LTC2380 trigger buffer setup\n");
+
+	indio_dev->name = st->chip_info->name;
+	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ltc2380_info;
 	indio_dev->channels = &ltc2380_channel;
 	indio_dev->num_channels = 1;

@@ -34,27 +34,28 @@
 #define	ADAR300x_REG_BEAM2_MAP			0x12
 #define	ADAR300x_REG_BEAM3_MAP			0x13
 #define ADAR300x_REG_BEAMFORMER_MODE		0x14
-#define ADAR300x_REG_BEAMSTATE_MODE		0x15
-#define ADAR300x_REG_BEAM_SLEEP			0x16
-#define ADAR300x_REG_MEM_SEQPTR(x)		(0x17 + x)
-#define ADAR300x_REG_MEM_SEQPTR0_START		0x17
-#define ADAR300x_REG_MEM_SEQPTR0_STOP		0x18
-#define ADAR300x_REG_MEM_SEQPTR1_START		0x19
-#define ADAR300x_REG_MEM_SEQPTR1_STOP		0x1A
-#define ADAR300x_REG_MEM_SEQPTR2_START		0x1B
-#define ADAR300x_REG_MEM_SEQPTR2_STOP		0x1C
-#define ADAR300x_REG_MEM_SEQPTR3_START		0x1D
-#define ADAR300x_REG_MEM_SEQPTR3_STOP		0x1E
+#define ADAR300x_REG_BEAMSTATE_MODE		0x12
+#define ADAR300x_REG_BEAM_SLEEP			0x13
+#define ADAR300x_REG_MEM_SEQPTR(x)		(0x15 + x)
+#define ADAR300x_REG_MEM_SEQPTR0_START		0x15
+#define ADAR300x_REG_MEM_SEQPTR0_STOP		0x16
+#define ADAR300x_REG_MEM_SEQPTR1_START		0x17
+#define ADAR300x_REG_MEM_SEQPTR1_STOP		0x18
+#define ADAR300x_REG_MEM_SEQPTR2_START		0x19
+#define ADAR300x_REG_MEM_SEQPTR2_STOP		0x1A
+#define ADAR300x_REG_MEM_SEQPTR3_START		0x1B
+#define ADAR300x_REG_MEM_SEQPTR3_STOP		0x1C
 #define ADAR300x_REG_ADC_CONTROL		0x20
 #define ADAR300x_REG_ADC_CONTROL2		0x21
 #define ADAR300x_REG_ADC_DATA_OUT		0x22
 #define ADAR300x_REG_DAC_DATA_MSB		0x23
 #define ADAR300x_REG_DAC_DATA_LSB		0x24
 #define ADAR300x_REG_DAC_CONTROL		0x25
-#define ADAR300x_REG_PIN_OR_SPI_CTL		0x30
-#define ADAR300x_REG_BEAMWISE_UPDATE_CODE	0x32
-#define ADAR300x_REG_BEAMWISE_UPDATE		0x33
+#define ADAR300x_REG_PIN_OR_SPI_CTL		0x40
+#define ADAR300x_REG_BEAMWISE_UPDATE_CODE	0x44
+#define ADAR300x_REG_BEAMWISE_UPDATE		0x45
 
+/** Match */
 #define ADAR300x_REG_FIFO_POINTER(x)		(0x50 + x)
 #define ADAR300x_REG_FIFO_WRITE_POINTER0	0x50
 #define ADAR300x_REG_FIFO_READ_POINTER0		0x51
@@ -65,9 +66,9 @@
 #define ADAR300x_REG_FIFO_WRITE_POINTER3	0x56
 #define ADAR300x_REG_FIFO_READ_POINTER3		0x57
 
-#define ADAR3002_REG_RESET(x)			(0x080 + x)
-#define ADAR3002_REG_MUTE(x)			(0x0A0 + x)
-#define ADAR300x_REG_AMP_BIAS(x)		(0xC0 + x)
+#define ADAR3002_REG_RESET(x)			(0x060 + x) /** RESET_DELAY_BM0_EL0 */
+#define ADAR3002_REG_MUTE(x)			(0x080 + x) /** MUTE_DELAY_BM0_EL0 */
+#define ADAR300x_REG_AMP_BIAS(x)		(0x0A0 + x) /** Reset_BM0_AMP */
 #define ADAR3002_REG_DRCT_CNTRL(x)		(0x100 + x)
 
 /* ADAR3002 direct control registers H/V BEAM0 to BEAM1 */
@@ -168,6 +169,7 @@
 #define ADAR300x_ADC_NUM_CLOCKS		7
 
 #define ADAR3000_PRODUCT_ID 0x01
+#define ADAR3002_PRODUCT_ID 0x03
 #define ADAR3003_PRODUCT_ID 0x00
 
 #define ADAR300x_BEAMS_PER_DEVICE	4
@@ -494,6 +496,8 @@ static int adar300x_get_mode_address(struct iio_dev *indio_dev,
 	else
 		chan_addr = chan->address;
 
+	printk("ADAR beam nr %d", beam);
+
 	switch (st->beam_load_mode[beam]) {
 	case ADAR300x_DIRECT_CTRL:
 	case ADAR300x_INST_DIRECT_CTRL:
@@ -702,6 +706,8 @@ static int adar300x_read_beamstate_elem(struct iio_dev *indio_dev,
 	int ret = 0;
 
 	beam = chan->address / st->chip_info->unpacked_beamst_len;
+	printk("ADAR read_beamstate_elem %d", beam);
+
 	if (st->beam_load_mode[beam] == ADAR300x_MEMORY_CTRL)
 		ret = adar300x_get_mem_value(indio_dev, chan, val);
 	else if (st->beam_load_mode[beam] == ADAR300x_FIFO_CTRL)
@@ -1489,6 +1495,8 @@ static int adar300x_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+	printk("ADAR3000 scratchpad 0xAD %x\n", val);
+
 	if (val != 0xAD) {
 		dev_err(indio_dev->dev.parent, "Failed to read/write scratchpad");
 		return -EIO;
@@ -1501,6 +1509,8 @@ static int adar300x_setup(struct iio_dev *indio_dev)
 	ret = regmap_read(st->regmap, ADAR300x_REG(st, ADAR300x_REG_SCRATCHPAD), &val);
 	if (ret < 0)
 		return ret;
+
+	printk("ADAR3000 scratchpad 0xEA %x\n", val);
 
 	if (val != 0xEA) {
 		dev_err(indio_dev->dev.parent, "Failed to read/write scratchpad");
@@ -1516,14 +1526,19 @@ static int adar300x_setup(struct iio_dev *indio_dev)
 		return -EIO;
 	}
 
+	printk("ADAR3000 chip type 1 %x\n", val);
+
 	ret = regmap_read(st->regmap, ADAR300x_REG(st, ADAR300x_REG_PRODUCT_ID_L), &val);
 	if (ret < 0)
 		return ret;
 
-	if (val != st->chip_info->product_id) {
-		dev_err(indio_dev->dev.parent, "Failed to read PRODUCT_ID_L %x", val);
-		return -EIO;
-	}
+	printk("ADAR3000 product id %d %x\n", val);
+
+	/** TODO update the product id */
+	// if (val != st->chip_info->product_id) {
+	// 	dev_err(indio_dev->dev.parent, "Failed to read PRODUCT_ID_L %x", val);
+	// 	return -EIO;
+	// }
 
 	return adar300x_adc_setup(st, ADAR300x_ADC_TEMPERATURE);
 }
@@ -1579,6 +1594,7 @@ static int adar300x_probe(struct spi_device *spi, const struct attribute_group *
 	if (gpio_reset && PTR_ERR(gpio_reset) != -EBUSY)
 		ad300x_reset(gpio_reset);
 
+	printk("ADAR3000 reset\n");
 	for_each_available_child_of_node(np, child) {
 		indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 		if (!indio_dev)
@@ -1625,6 +1641,9 @@ static int adar300x_probe(struct spi_device *spi, const struct attribute_group *
 		}
 		cnt++;
 	}
+
+	printk("ADAR channel addr packed: %d\n", st->chip_info->packed_beamst_len);
+	printk("ADAR channel addr unpacked: %d\n", st->chip_info->unpacked_beamst_len);
 
 	return 0;
 }

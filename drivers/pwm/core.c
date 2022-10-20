@@ -577,7 +577,7 @@ int pwm_apply_state(struct pwm_device *pwm, const struct pwm_state *state)
 
 	if (!pwm || !state || !state->period ||
 	    state->duty_cycle > state->period)
-		return -EINVAL;
+			return -EINVAL;
 
 	chip = pwm->chip;
 
