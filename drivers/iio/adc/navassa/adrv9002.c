@@ -3237,6 +3237,8 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 		phy->tx_channels[i].channel.ext_lo = NULL;
 	}
 
+	phy->profile_len = scnprintf(phy->profile_buf, sizeof(phy->profile_buf),
+				     "No profile loaded...\n");
 	memset(&phy->adrv9001->devStateInfo, 0,
 	       sizeof(phy->adrv9001->devStateInfo));
 }
@@ -4285,6 +4287,69 @@ static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 	return adrv9002_parse_fh_dt(phy, parent);
 }
 
+static const char *const lo_maps[] = {
+	"Unknown",
+	"L01",
+	"L02",
+	"AUX LO"
+};
+
+static const char *const duplex[] = {
+	"TDD",
+	"FDD"
+};
+
+static const char *const ssi[] = {
+	"Disabled",
+	"CMOS",
+	"LVDS"
+};
+
+static const char *const mcs[] = {
+	"Disabled",
+	"Enabled",
+	"Enabled RFPLL Phase"
+};
+
+static const char *const rx_gain_type[] = {
+	"Correction",
+	"Compensated"
+};
+
+static void adrv9002_fill_profile_read(struct adrv9002_rf_phy *phy)
+{
+	struct adi_adrv9001_DeviceSysConfig *sys = &phy->curr_profile->sysConfig;
+	struct adi_adrv9001_ClockSettings *clks = &phy->curr_profile->clocks;
+	struct adi_adrv9001_RxSettings *rx = &phy->curr_profile->rx;
+	struct adi_adrv9001_RxChannelCfg *rx_cfg = rx->rxChannelCfg;
+	struct adi_adrv9001_TxSettings *tx = &phy->curr_profile->tx;
+
+	phy->profile_len = scnprintf(phy->profile_buf, sizeof(phy->profile_buf),
+				     "Device clk(Hz): %d\n"
+				     "Clk PLL VCO(Hz): %lld\n"
+				     "ARM Power Saving Clk Divider: %d\n"
+				     "RX1 LO: %s\n"
+				     "RX2 LO: %s\n"
+				     "TX1 LO: %s\n"
+				     "TX2 LO: %s\n"
+				     "RX1 Gain Table Type: %s\n"
+				     "RX2 Gain Table Type: %s\n"
+				     "RX Channel Mask: 0x%x\n"
+				     "TX Channel Mask: 0x%x\n"
+				     "Duplex Mode: %s\n"
+				     "FH enable: %d\n"
+				     "MCS mode: %s\n"
+				     "SSI interface: %s\n", clks->deviceClock_kHz * 1000,
+				     clks->clkPllVcoFreq_daHz * 10ULL, clks->armPowerSavingClkDiv,
+				     lo_maps[clks->rx1LoSelect], lo_maps[clks->rx2LoSelect],
+				     lo_maps[clks->tx1LoSelect], lo_maps[clks->tx2LoSelect],
+				     rx_gain_type[rx_cfg[ADRV9002_CHANN_1].profile.gainTableType],
+				     rx_gain_type[rx_cfg[ADRV9002_CHANN_2].profile.gainTableType],
+				     rx->rxInitChannelMask, tx->txInitChannelMask,
+				     duplex[sys->duplexMode], sys->fhModeOn, mcs[sys->mcsMode],
+				     ssi[phy->ssi_type]);
+}
+
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
 	int ret, c;
@@ -4339,6 +4404,8 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 		dev_err(&phy->spi->dev, "Interface tuning failed: %d\n", ret);
 		goto error;
 	}
+
+	adrv9002_fill_profile_read(phy);
 
 	return 0;
 error:
@@ -4404,74 +4471,19 @@ out:
 	return (ret < 0) ? ret : count;
 }
 
-const char *const lo_maps[] = {
-	"Unknown",
-	"L01",
-	"L02",
-	"AUX LO"
-};
-
-const char *const duplex[] = {
-	"TDD",
-	"FDD"
-};
-
-const char *const ssi[] = {
-	"Disabled",
-	"CMOS",
-	"LVDS"
-};
-
-const char *const mcs[] = {
-	"Disabled",
-	"Enabled",
-	"Enabled RFPLL Phase"
-};
-
-const char *const rx_gain_type[] = {
-	"Correction",
-	"Compensated"
-};
-
 static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj,
 					 struct bin_attribute *bin_attr, char *buf, loff_t pos,
 					 size_t count)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
-	struct adi_adrv9001_ClockSettings *clks = &phy->curr_profile->clocks;
-	struct adi_adrv9001_RxSettings *rx = &phy->curr_profile->rx;
-	struct adi_adrv9001_TxSettings *tx = &phy->curr_profile->tx;
-	struct adi_adrv9001_DeviceSysConfig *sys = &phy->curr_profile->sysConfig;
-	char info[350];
-	size_t len;
+	ssize_t len;
 
 	mutex_lock(&phy->lock);
-	len = scnprintf(info, sizeof(info), "Device clk(Hz): %d\n"
-		       "Clk PLL VCO(Hz): %lld\n"
-		       "ARM Power Saving Clk Divider: %d\n"
-		       "RX1 LO: %s\n"
-		       "RX2 LO: %s\n"
-		       "TX1 LO: %s\n"
-		       "TX2 LO: %s\n"
-		       "RX1 Gain Table Type: %s\n"
-		       "RX2 Gain Table Type: %s\n"
-		       "RX Channel Mask: 0x%x\n"
-		       "TX Channel Mask: 0x%x\n"
-		       "Duplex Mode: %s\n"
-		       "FH enable: %d\n"
-		       "MCS mode: %s\n"
-		       "SSI interface: %s\n", clks->deviceClock_kHz * 1000,
-		       clks->clkPllVcoFreq_daHz * 10ULL, clks->armPowerSavingClkDiv,
-		       lo_maps[clks->rx1LoSelect], lo_maps[clks->rx2LoSelect],
-		       lo_maps[clks->tx1LoSelect], lo_maps[clks->tx2LoSelect],
-		       rx_gain_type[rx->rxChannelCfg[ADRV9002_CHANN_1].profile.gainTableType],
-		       rx_gain_type[rx->rxChannelCfg[ADRV9002_CHANN_2].profile.gainTableType],
-		       rx->rxInitChannelMask, tx->txInitChannelMask, duplex[sys->duplexMode],
-		       sys->fhModeOn, mcs[sys->mcsMode], ssi[phy->ssi_type]);
+	len = memory_read_from_buffer(buf, count, &pos, phy->profile_buf, phy->profile_len);
 	mutex_unlock(&phy->lock);
 
-	return memory_read_from_buffer(buf, count, &pos, info, len);
+	return len;
 }
 
 static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *buf, loff_t off,
