@@ -215,6 +215,8 @@ struct adrv9002_rf_phy {
 	struct clk_onecell_data		clk_data;
 	/* each LO controls two ports (at least) */
 	struct adrv9002_ext_lo		ext_los[ADRV9002_CHANN_MAX];
+	char				profile_buf[350];
+	size_t				profile_len;
 	char				*bin_attr_buf;
 	u8				*stream_buf;
 	u16				stream_size;
