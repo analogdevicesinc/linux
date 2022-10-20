@@ -1493,3 +1493,7 @@ static struct platform_driver hdmirx_driver = {
 };
 
 module_platform_driver(hdmirx_driver);
+
+MODULE_DESCRIPTION("Cadence HDMI RX driver");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:cdns-hdmirx");
