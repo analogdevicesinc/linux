@@ -4360,11 +4360,6 @@ static ssize_t adrv9002_stream_bin_write(struct file *filp, struct kobject *kobj
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 
-	if (off + count > bin_attr->size) {
-		dev_err(&phy->spi->dev, "Invalid stream image size:%lld!\n", count + off);
-		return -EINVAL;
-	}
-
 	mutex_lock(&phy->lock);
 	if (!off)
 		phy->stream_size = 0;
@@ -4382,9 +4377,6 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
-
-	if (off + count > bin_attr->size)
-		return -EFBIG;
 
 	if (off == 0)
 		memset(phy->bin_attr_buf, 0, bin_attr->size);
