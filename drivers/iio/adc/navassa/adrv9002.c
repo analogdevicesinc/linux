@@ -4486,6 +4486,7 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 					   size_t count, int hop, int table)
 {
 	struct adrv9002_fh_bin_table *tbl = &phy->fh_table_bin_attr[hop * 2 + table];
+	/* this is only static to avoid  -Wframe-larger-than on ARM */
 	static adi_adrv9001_FhHopFrame_t hop_tbl[ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE];
 	char *p, *line;
 	int entry = 0, ret, max_sz = ARRAY_SIZE(hop_tbl);
