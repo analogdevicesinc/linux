@@ -275,8 +275,8 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 			   u8 *clk_delay, u8 *data_delay);
 void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
 				   const bool en);
-int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
-						    const adi_adrv9001_SsiTestModeData_e data);
+int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
+				     const adi_adrv9001_SsiTestModeData_e data);
 int adrv9002_post_init(struct adrv9002_rf_phy *phy);
 int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
 			   const bool stop);
