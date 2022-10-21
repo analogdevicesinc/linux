@@ -126,6 +126,15 @@ enum adrv9002_tx_ext_info {
 	__phy;								\
 })
 
+#define api_call(phy, func, args...)	({				\
+	int __ret = func((phy)->adrv9001, ##args);			\
+									\
+	if (__ret)							\
+		__ret = __adrv9002_dev_err(phy, __func__, __LINE__);	\
+									\
+	__ret;								\
+})
+
 struct adrv9002_clock {
 	struct clk_hw		hw;
 	struct spi_device	*spi;
@@ -258,7 +267,6 @@ int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan 
 			      const adi_adrv9001_ChannelState_e state, const bool cache_state);
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile);
 int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line);
-#define adrv9002_dev_err(phy)	__adrv9002_dev_err(phy, __func__, __LINE__)
 
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy);
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,

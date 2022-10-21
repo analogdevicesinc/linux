@@ -44,11 +44,10 @@ static ssize_t adrv9002_rx_adc_type_get(struct file *file, char __user *userbuf,
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Rx_AdcType_Get(phy->adrv9001, rx->channel.number,
-					  &adc_type);
+	ret = api_call(phy, adi_adrv9001_Rx_AdcType_Get, rx->channel.number, &adc_type);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	len = snprintf(buf, sizeof(buf), "%s\n",
 		       adc_type == ADI_ADRV9001_ADC_HP ? "HP" : "LP");
@@ -79,12 +78,10 @@ static int adrv9002_rx_gain_control_pin_mode_show(struct seq_file *s,
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Rx_GainControl_PinMode_Inspect(phy->adrv9001,
-							  rx->channel.number,
-							  &cfg);
+	ret = api_call(phy, adi_adrv9001_Rx_GainControl_PinMode_Inspect, rx->channel.number, &cfg);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	seq_printf(s, "min_gain_index: %u\n", cfg.minGainIndex);
 	seq_printf(s, "max_gain_index: %u\n", cfg.maxGainIndex);
@@ -110,11 +107,10 @@ static int adrv9002_rx_agc_config_show(struct seq_file *s, void *ignored)
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Rx_GainControl_Inspect(phy->adrv9001,
-						  rx->channel.number, &agc);
+	ret = api_call(phy, adi_adrv9001_Rx_GainControl_Inspect, rx->channel.number, &agc);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 #define adrv9002_agc_seq_printf(member) \
 	adrv9002_seq_printf(s, &agc, member)
@@ -194,13 +190,10 @@ static ssize_t adrv9002_rx_agc_config_write(struct file *file, const char __user
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Rx_GainControl_Configure(phy->adrv9001, rx->channel.number,
-						    &rx->agc);
+	ret = api_call(phy, adi_adrv9001_Rx_GainControl_Configure, rx->channel.number, &rx->agc);
 	mutex_unlock(&phy->lock);
-	if (ret)
-		return adrv9002_dev_err(phy);
 
-	return count;
+	return ret ? ret : count;
 }
 
 static int adrv9002_rx_agc_config_open(struct inode *inode, struct file *file)
@@ -314,11 +307,10 @@ static int adrv9002_tx_dac_full_scale_get(void *arg, u64 *val)
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Tx_OutputPowerBoost_Get(phy->adrv9001,
-						   tx->channel.number, &enable);
+	ret = api_call(phy, adi_adrv9001_Tx_OutputPowerBoost_Get, tx->channel.number, &enable);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	*val = enable;
 
@@ -341,12 +333,11 @@ static int adrv9002_tx_pin_atten_control_show(struct seq_file *s, void *ignored)
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Tx_Attenuation_PinControl_Inspect(phy->adrv9001,
-							     tx->channel.number,
-							     &cfg);
+	ret = api_call(phy, adi_adrv9001_Tx_Attenuation_PinControl_Inspect,
+		       tx->channel.number, &cfg);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	seq_printf(s, "step_size_mdB: %u\n", cfg.stepSize_mdB);
 	seq_printf(s, "increment_pin: dgpio%d\n", cfg.incrementPin - 1);
@@ -363,27 +354,21 @@ static int adrv9002_pll_status_show(struct seq_file *s, void *ignored)
 	bool lo1, lo2, aux, clk, clk_lp;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-					       ADI_ADRV9001_PLL_LO1, &lo1);
+	ret = api_call(phy, adi_adrv9001_Radio_PllStatus_Get, ADI_ADRV9001_PLL_LO1, &lo1);
 
-	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-					       ADI_ADRV9001_PLL_LO2, &lo2);
+	ret = api_call(phy, adi_adrv9001_Radio_PllStatus_Get, ADI_ADRV9001_PLL_LO2, &lo2);
 	if (ret)
 		goto error;
 
-	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-					       ADI_ADRV9001_PLL_AUX, &aux);
+	ret = api_call(phy, adi_adrv9001_Radio_PllStatus_Get, ADI_ADRV9001_PLL_AUX, &aux);
 	if (ret)
 		goto error;
 
-	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-					       ADI_ADRV9001_PLL_CLK, &clk);
+	ret = api_call(phy, adi_adrv9001_Radio_PllStatus_Get, ADI_ADRV9001_PLL_CLK, &clk);
 	if (ret)
 		goto error;
 
-	ret = adi_adrv9001_Radio_PllStatus_Get(phy->adrv9001,
-					       ADI_ADRV9001_PLL_CLK_LP,
-					       &clk_lp);
+	ret = api_call(phy, adi_adrv9001_Radio_PllStatus_Get, ADI_ADRV9001_PLL_CLK_LP, &clk_lp);
 	if (ret)
 		goto error;
 	mutex_unlock(&phy->lock);
@@ -397,7 +382,7 @@ static int adrv9002_pll_status_show(struct seq_file *s, void *ignored)
 	return 0;
 error:
 	mutex_unlock(&phy->lock);
-	return adrv9002_dev_err(phy);
+	return ret;
 }
 DEFINE_SHOW_ATTRIBUTE(adrv9002_pll_status);
 
@@ -540,15 +525,11 @@ static int adrv9002_ssi_rx_test_mode_set(void *arg, const u64 val)
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Ssi_Rx_TestMode_Configure(phy->adrv9001, rx->channel.number,
-						     phy->ssi_type,
-						     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-						     &rx->ssi_test);
+	ret = api_call(phy, adi_adrv9001_Ssi_Rx_TestMode_Configure, rx->channel.number,
+		       phy->ssi_type, ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA, &rx->ssi_test);
 	mutex_unlock(&phy->lock);
-	if (ret)
-		return adrv9002_dev_err(phy);
 
-	return 0;
+	return ret;
 };
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_ssi_rx_test_mode_config_fops,
 			 NULL, adrv9002_ssi_rx_test_mode_set, "%llu");
@@ -652,13 +633,11 @@ static int adrv9002_tx_ssi_test_mode_loopback_set(void *arg, const u64 val)
 	}
 
 	tx->loopback = enable;
-	ret = adi_adrv9001_Ssi_Loopback_Set(phy->adrv9001, tx->channel.number, phy->ssi_type,
-					    enable);
+	ret = api_call(phy, adi_adrv9001_Ssi_Loopback_Set, tx->channel.number,
+		       phy->ssi_type, enable);
 	mutex_unlock(&phy->lock);
-	if (ret)
-		return adrv9002_dev_err(phy);
 
-	return 0;
+	return ret;
 };
 
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_ssi_test_mode_loopback_fops,
@@ -682,13 +661,8 @@ static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 	if (ret)
 		goto unlock;
 
-	ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, tx->channel.number,
-						     phy->ssi_type,
-						     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-						     &tx->ssi_test);
-	if (ret)
-		ret = adrv9002_dev_err(phy);
-
+	ret = api_call(phy, adi_adrv9001_Ssi_Tx_TestMode_Configure, tx->channel.number,
+		       phy->ssi_type, ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA, &tx->ssi_test);
 unlock:
 	mutex_unlock(&phy->lock);
 	return ret;
@@ -710,15 +684,12 @@ static int adrv9002_ssi_tx_test_mode_status_show(struct seq_file *s,
 		return -ENODEV;
 	}
 
-	ret = adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(phy->adrv9001,
-							  tx->channel.number,
-							  phy->ssi_type,
-							  ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
-							  &tx->ssi_test,
-							  &ssi_status);
+	ret = api_call(phy, adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect, tx->channel.number,
+		       phy->ssi_type, ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
+		       &tx->ssi_test, &ssi_status);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	seq_printf(s, "dataError: %u\n", ssi_status.dataError);
 	seq_printf(s, "fifoFull: %u\n", ssi_status.fifoFull);
@@ -736,10 +707,10 @@ static int adrv9002_ssi_delays_show(struct seq_file *s, void *ignored)
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_Ssi_Delay_Inspect(phy->adrv9001, phy->ssi_type, &delays);
+	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Inspect, phy->ssi_type, &delays);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
 		seq_printf(s, "rx%d_ClkDelay: %u\n", i, delays.rxClkDelay[i]);
@@ -764,12 +735,10 @@ static ssize_t adrv9002_ssi_delays_write(struct file *file, const char __user *u
 	int ret;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_Ssi_Delay_Configure(phy->adrv9001, phy->ssi_type, &phy->ssi_delays);
+	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &phy->ssi_delays);
 	mutex_unlock(&phy->lock);
-	if (ret)
-		return adrv9002_dev_err(phy);
 
-	return count;
+	return ret ? ret : count;
 }
 
 static int adrv9002_ssi_delays_open(struct inode *inode, struct file *file)
@@ -806,11 +775,11 @@ static int adrv9002_enablement_delays_show(struct seq_file *s, void *ignored)
 	}
 
 	/* Should guarantee the we are the correct state to get the delays!! */
-	ret = adi_adrv9001_Radio_ChannelEnablementDelays_Inspect(phy->adrv9001, chan->port,
-								 chan->number, &en_delays);
+	ret = api_call(phy, adi_adrv9001_Radio_ChannelEnablementDelays_Inspect,
+		       chan->port, chan->number, &en_delays);
 	if (ret) {
 		mutex_unlock(&phy->lock);
-		return adrv9002_dev_err(phy);
+		return ret;
 	}
 
 	ret = adrv9002_channel_to_state(phy, chan, chan->cached_state, true);
@@ -850,12 +819,10 @@ static ssize_t adrv9002_enablement_delays_write(struct file *file, const char __
 	if (ret)
 		goto unlock;
 
-	ret = adi_adrv9001_Radio_ChannelEnablementDelays_Configure(phy->adrv9001, chan->port,
-								   chan->number, &en_delays);
-	if (ret) {
-		ret = adrv9002_dev_err(phy);
+	ret = api_call(phy, adi_adrv9001_Radio_ChannelEnablementDelays_Configure,
+		       chan->port, chan->number, &en_delays);
+	if (ret)
 		goto unlock;
-	}
 
 	ret = adrv9002_channel_to_state(phy, chan, chan->cached_state, false);
 unlock:
@@ -943,10 +910,10 @@ static int adrv9002_fh_config_dump_show(struct seq_file *s, void *ignored)
 	int ret, p;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_fh_Configuration_Inspect(phy->adrv9001, &cfg);
+	ret = api_call(phy, adi_adrv9001_fh_Configuration_Inspect, &cfg);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	adrv9002_seq_printf(s, &cfg, mode);
 	seq_printf(s, "RX1 Hop Signal: %d\n", cfg.rxPortHopSignals[0]);
@@ -999,11 +966,11 @@ static int adrv9002_hop_table_dump_show(struct seq_file *s, int hop, int tbl_idx
 
 	mutex_lock(&phy->lock);
 	memset(&tbl, 0, sizeof(tbl));
-	ret = adi_adrv9001_fh_HopTable_Inspect(phy->adrv9001, hop, tbl_idx, tbl,
-					       ARRAY_SIZE(tbl), &read_back);
+	ret = api_call(phy, adi_adrv9001_fh_HopTable_Inspect, hop, tbl_idx, tbl,
+		       ARRAY_SIZE(tbl), &read_back);
 	if (ret) {
 		mutex_unlock(&phy->lock);
-		return adrv9002_dev_err(phy);
+		return ret;
 	}
 
 	if (read_back)
@@ -1098,21 +1065,21 @@ static int adrv9002_gpio_val_get(void *arg, u64 *val, int gpio)
 	int ret;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_gpio_PinDirection_Get(phy->adrv9001, gpio, &dir);
+	ret = api_call(phy, adi_adrv9001_gpio_PinDirection_Get, gpio, &dir);
 	if (ret)
 		goto unlock;
 
 	if (dir)
-		ret = adi_adrv9001_gpio_OutputPinLevel_Get(phy->adrv9001, gpio, &level);
+		ret = api_call(phy, adi_adrv9001_gpio_OutputPinLevel_Get, gpio, &level);
 	else
-		ret = adi_adrv9001_gpio_InputPinLevel_Get(phy->adrv9001, gpio, &level);
+		ret = api_call(phy, adi_adrv9001_gpio_InputPinLevel_Get, gpio, &level);
 	if (ret)
 		goto unlock;
 
 	*val = level;
 unlock:
 	mutex_unlock(&phy->lock);
-	return ret ? adrv9002_dev_err(phy) : 0;
+	return ret ? ret : 0;
 }
 
 static int adrv9002_gpio_val_set(void *arg, const u64 val, int gpio)
@@ -1122,10 +1089,10 @@ static int adrv9002_gpio_val_set(void *arg, const u64 val, int gpio)
 	int ret;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_gpio_PinDirection_Get(phy->adrv9001, gpio, &dir);
+	ret = api_call(phy, adi_adrv9001_gpio_PinDirection_Get, gpio, &dir);
 	if (ret) {
 		mutex_unlock(&phy->lock);
-		return adrv9002_dev_err(phy);
+		return ret;
 	}
 
 	if (dir == ADI_ADRV9001_GPIO_PIN_DIRECTION_INPUT) {
@@ -1133,12 +1100,10 @@ static int adrv9002_gpio_val_set(void *arg, const u64 val, int gpio)
 		return -EPERM;
 	}
 
-	ret = adi_adrv9001_gpio_OutputPinLevel_Set(phy->adrv9001, gpio, !!val);
+	ret = api_call(phy, adi_adrv9001_gpio_OutputPinLevel_Set, gpio, !!val);
 	mutex_unlock(&phy->lock);
-	if (ret)
-		return adrv9002_dev_err(phy);
 
-	return 0;
+	return ret;
 }
 
 static int adrv9002_gpio_dir_get(void *arg, u64 *val, int gpio)
@@ -1148,10 +1113,10 @@ static int adrv9002_gpio_dir_get(void *arg, u64 *val, int gpio)
 	int ret;
 
 	mutex_lock(&phy->lock);
-	ret = adi_adrv9001_gpio_PinDirection_Get(phy->adrv9001, gpio, &dir);
+	ret = api_call(phy, adi_adrv9001_gpio_PinDirection_Get, gpio, &dir);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	*val = dir;
 
@@ -1179,12 +1144,10 @@ static int adrv9002_gpio_dir_set(void *arg, const u64 val, int gpio)
 		gpio = (gpio - ADI_ADRV9001_GPIO_DIGITAL_00) / 2 + 1;
 
 	mutex_lock(&phy->lock);
-	ret = dir_set[2 * !!val + agpio](phy->adrv9001, gpio);
+	ret = api_call(phy, dir_set[2 * !!val + agpio], gpio);
 	mutex_unlock(&phy->lock);
-	if (ret)
-		return adrv9002_dev_err(phy);
 
-	return 0;
+	return ret;
 }
 
 #define gpio_idx(t, i)	\
