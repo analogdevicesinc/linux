@@ -1879,14 +1879,16 @@ static uint32_t pxp_fetch_shift_calc(uint32_t in_fmt, uint32_t out_fmt,
 
 static int pxp_start(struct pxps *pxp)
 {
+	struct pxp_proc_data *proc_data = &pxp->pxp_conf_state.proc_data;
 	u32 val;
 
-	val = (BM_PXP_CTRL_ENABLE_ROTATE1 |
-	       BM_PXP_CTRL_ENABLE |
-	       BM_PXP_CTRL_ENABLE_CSC2 |
-	       BM_PXP_CTRL_ENABLE_PS_AS_OUT |
-	       BM_PXP_CTRL_ENABLE_ROTATE0 |
-	       BM_PXP_CTRL_BLOCK_SIZE);
+	val = (BM_PXP_CTRL_ENABLE | BM_PXP_CTRL_BLOCK_SIZE);
+
+	if (proc_data->lut_transform && pxp_is_v3(pxp)) {
+		val |= (BM_PXP_CTRL_ENABLE_CSC2 |
+		        BM_PXP_CTRL_ENABLE_ROTATE0 |
+			BM_PXP_CTRL_ENABLE_ROTATE1);
+	}
 
 	if (pxp->devdata->version <= PXP_V3_8ULP) {
 		val |= BM_PXP_CTRL_ENABLE_LUT;
