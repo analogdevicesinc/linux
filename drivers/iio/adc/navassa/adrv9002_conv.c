@@ -556,8 +556,8 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
-int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
-						    const adi_adrv9001_SsiTestModeData_e data)
+int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
+				     const adi_adrv9001_SsiTestModeData_e data)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
