@@ -823,7 +823,7 @@ static int adrv9002_get_agc_mode(struct iio_dev *indio_dev,
 						   &gain_ctrl_mode);
 	mutex_unlock(&phy->lock);
 
-	return gain_ctrl_mode;
+	return ret ? ret : gain_ctrl_mode;
 }
 
 static const char * const adrv9002_agc_modes[] = {
