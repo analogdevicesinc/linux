@@ -2726,16 +2726,6 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 	int ret;
 	u8 tx_mask = 0;
 	int c;
-	/*
-	 * There's still no way of getting the gain table type from the profile. We
-	 * always get the correction one (which was the one we were using already).
-	 * There were some talks and this might change in future versions of the DDAPI so,
-	 * let's force this to correction for now and wait a few release cycles for
-	 * proper support. If we do not get it, we might just add a devicetree attribute
-	 * or some runtime sysfs attr. Not ideal but we won't have any choice if we can't
-	 * get this info from the profile.
-	 */
-	adi_adrv9001_RxGainTableType_e t_type = ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE;
 	adi_adrv9001_RxChannelCfg_t *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
 
 	ret = adi_adrv9001_arm_AhbSpiBridge_Enable(phy->adrv9001);
@@ -2777,7 +2767,16 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[c];
 		adi_adrv9001_RxProfile_t *p = &rx_cfg[c].profile;
+		adi_adrv9001_RxGainTableType_e t_type;
 		const char *rx_table;
+
+		if (p->gainTableType) {
+			rx_table = "RxGainTable_GainCompensated.csv";
+			t_type = ADI_ADRV9001_RX_GAIN_COMPENSATION_TABLE;
+		} else {
+			rx_table = "RxGainTable.csv";
+			t_type = ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE;
+		}
 
 		if (rx->orx_en || tx->channel.enabled) {
 			ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, ADI_ORX,
@@ -2794,7 +2793,6 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 		if (!rx->channel.enabled)
 			continue;
 
-		rx_table = p->gainTableType ? "RxGainTable_GainCompensated.csv" : "RxGainTable.csv";
 		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, ADI_RX, rx_table,
 							      rx->channel.number, &p->lnaConfig,
 							      t_type);
