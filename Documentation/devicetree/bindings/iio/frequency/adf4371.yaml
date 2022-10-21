@@ -19,6 +19,7 @@ properties:
     enum:
       - adi,adf4371
       - adi,adf4372
+      - adi,adf4401
 
   reg:
     maxItems: 1
