@@ -152,6 +152,15 @@
 	 ADRV9002_GP_MASK_TX_DP_TRANSMIT_ERROR |		\
 	 ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR)
 
+enum {
+	ADRV9002_RX1_BIT_NR,
+	ADRV9002_RX2_BIT_NR,
+	ADRV9002_TX1_BIT_NR,
+	ADRV9002_TX2_BIT_NR,
+	ADRV9002_ORX1_BIT_NR,
+	ADRV9002_ORX2_BIT_NR,
+};
+
 int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line)
 {
 	int ret;
@@ -2334,8 +2343,6 @@ static int adrv9002_dgpio_config(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
-#define ADRV9001_BF_EQUAL(mask, value) ((value) == ((value) & (mask)))
-
 static int adrv9001_rx_path_config(struct adrv9002_rf_phy *phy,
 				   const adi_adrv9001_ChannelState_e state)
 {
@@ -2537,14 +2544,11 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 {
 	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
 	const struct adi_adrv9001_TxProfile *tx_cfg = phy->curr_profile->tx.txProfile;
-	const u32 tx_channels[ADRV9002_CHANN_MAX] = {
-		ADI_ADRV9001_TX1, ADI_ADRV9001_TX2
-	};
-	const u32 rx_channels[ADRV9002_CHANN_MAX] = {
-		ADI_ADRV9001_RX1, ADI_ADRV9001_RX2
-	};
-	const u32 orx_channels[ADRV9002_CHANN_MAX] = {
-		ADI_ADRV9001_ORX1, ADI_ADRV9001_ORX2
+	unsigned long rx_mask = phy->curr_profile->rx.rxInitChannelMask;
+	unsigned long tx_mask = phy->curr_profile->tx.txInitChannelMask;
+	const u32 ports[ADRV9002_CHANN_MAX * 2 + ADI_ADRV9001_MAX_ORX_ONLY] = {
+		ADRV9002_RX1_BIT_NR, ADRV9002_TX1_BIT_NR, ADRV9002_RX2_BIT_NR,
+		ADRV9002_TX2_BIT_NR, ADRV9002_ORX1_BIT_NR, ADRV9002_ORX2_BIT_NR,
 	};
 	int i, lo;
 
@@ -2553,7 +2557,7 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[i];
 
 		/* rx validations */
-		if (!ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask, rx_channels[i]))
+		if (!test_bit(ports[i * 2], &rx_mask))
 			goto tx;
 
 		lo = adrv9002_ext_lo_validate(phy, i, false);
@@ -2601,7 +2605,7 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 			rx->channel.ext_lo = &phy->ext_los[lo];
 tx:
 		/* tx validations*/
-		if (!ADRV9001_BF_EQUAL(phy->curr_profile->tx.txInitChannelMask, tx_channels[i]))
+		if (!test_bit(ports[i * 2 + 1], &tx_mask))
 			continue;
 
 		if (i >= phy->chip->n_tx) {
@@ -2682,8 +2686,7 @@ tx:
 
 		dev_dbg(&phy->spi->dev, "TX%d enabled\n", i + 1);
 		/* orx actually depends on whether or not TX is enabled and not RX */
-		rx->orx_en = ADRV9001_BF_EQUAL(phy->curr_profile->rx.rxInitChannelMask,
-					       orx_channels[i]);
+		rx->orx_en = test_bit(ports[i + ADRV9002_CHANN_MAX * 2], &rx_mask);
 		tx->power = true;
 		tx->enabled = true;
 		tx->nco_freq = 0;
