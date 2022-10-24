@@ -656,6 +656,9 @@ Alloc:
                 gcmkONERROR(_NonContiguousAlloc(mdlPriv, NumPages, gfp));
             }
         }
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+        normal_gfp &= ~__GFP_DMA32;
+#endif
 #if gcdUSE_Linux_SG_TABLE_API
         result = sg_alloc_table_from_pages(&mdlPriv->sgt,
                     mdlPriv->nonContiguousPages, NumPages, 0,
