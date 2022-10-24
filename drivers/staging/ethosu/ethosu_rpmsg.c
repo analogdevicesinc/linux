@@ -306,7 +306,7 @@ int ethosu_rpmsg_cancel_inference(struct ethosu_rpmsg *erp,
 	struct ethosu_core_cancel_inference_req req;
 	struct rpmsg_device *rpdev = erp->rpdev;
 	u8 data[sizeof(struct ethosu_core_msg) +
-		sizeof(struct ethosu_core_capabilities_req)];
+		sizeof(struct ethosu_core_cancel_inference_req)];
 	int ret;
 
 	req.user_arg = rpmsg->id;
