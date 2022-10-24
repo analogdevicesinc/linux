@@ -552,7 +552,7 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 	struct iio_dev_attr *iio_attr = to_iio_dev_attr(attr);
 	adi_adrv9001_FhHopTable_e table;
 	adi_adrv9001_FhMode_e mode = phy->fh.mode;
-	int ret;
+	int ret = -ENOTSUPP;
 
 	switch (iio_attr->address) {
 	case ADRV9002_HOP_1_TABLE_SEL:
@@ -560,21 +560,19 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 		mutex_lock(&phy->lock);
 		if (!phy->curr_profile->sysConfig.fhModeOn) {
 			dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
-			mutex_unlock(&phy->lock);
-			return -ENOTSUPP;
+			goto out_unlock;
 		}
 
 		if (iio_attr->address &&
 		    mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
 			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
-			mutex_unlock(&phy->lock);
-			return -ENOTSUPP;
+			goto out_unlock;
 		}
 
 		ret = api_call(phy, adi_adrv9001_fh_HopTable_Get, iio_attr->address, &table);
-		mutex_unlock(&phy->lock);
 		if (ret)
-			return ret;
+			goto out_unlock;
+		mutex_unlock(&phy->lock);
 
 		if (table >= ADRV9002_FH_TABLES_NR)
 			table = ADRV9002_FH_TABLES_NR;
@@ -583,33 +581,17 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 	default:
 		return -EINVAL;
 	}
+
+out_unlock:
+	mutex_unlock(&phy->lock);
+	return ret;
 }
 
-static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *attr,
-				   const char *buf, size_t len)
+static int adrv9002_attr_do_store(const struct adrv9002_rf_phy *phy, const char *buf, u64 address)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
-	struct iio_dev_attr *iio_attr = to_iio_dev_attr(attr);
-	int ret, tbl;
+	int tbl;
 
-	mutex_lock(&phy->lock);
-	if (!phy->curr_profile->sysConfig.fhModeOn) {
-		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
-		mutex_unlock(&phy->lock);
-		return -ENOTSUPP;
-	}
-
-	if (iio_attr->address == ADRV9002_HOP_2_TABLE_SEL ||
-	    iio_attr->address == ADRV9002_HOP_2_TRIGGER) {
-		if (phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
-			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
-			mutex_unlock(&phy->lock);
-			return -ENOTSUPP;
-		}
-	}
-
-	switch (iio_attr->address) {
+	switch (address) {
 	case ADRV9002_HOP_1_TABLE_SEL:
 	case ADRV9002_HOP_2_TABLE_SEL:
 		for (tbl = 0; tbl < ARRAY_SIZE(adrv9002_hop_table) - 1; tbl++) {
@@ -619,23 +601,44 @@ static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *
 
 		if (tbl == ARRAY_SIZE(adrv9002_hop_table) - 1) {
 			dev_err(&phy->spi->dev, "Unknown table %s\n", buf);
-			mutex_unlock(&phy->lock);
 			return -EINVAL;
 		}
 
-		ret = api_call(phy, adi_adrv9001_fh_HopTable_Set, iio_attr->address, tbl);
-		break;
+		return api_call(phy, adi_adrv9001_fh_HopTable_Set, address, tbl);
 	case ADRV9002_HOP_1_TRIGGER:
-		ret = api_call(phy, adi_adrv9001_fh_Hop, ADI_ADRV9001_FH_HOP_SIGNAL_1);
-		break;
+		return api_call(phy, adi_adrv9001_fh_Hop, ADI_ADRV9001_FH_HOP_SIGNAL_1);
 	case ADRV9002_HOP_2_TRIGGER:
-		ret = api_call(phy, adi_adrv9001_fh_Hop, ADI_ADRV9001_FH_HOP_SIGNAL_2);
-		break;
+		return api_call(phy, adi_adrv9001_fh_Hop, ADI_ADRV9001_FH_HOP_SIGNAL_2);
 	default:
-		ret = -EINVAL;
-		break;
+		return  -EINVAL;
+	}
+}
+
+static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *attr,
+				   const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	struct iio_dev_attr *iio_attr = to_iio_dev_attr(attr);
+	int ret = -ENOTSUPP;
+
+	mutex_lock(&phy->lock);
+	if (!phy->curr_profile->sysConfig.fhModeOn) {
+		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
+		goto out_unlock;
 	}
 
+	if (iio_attr->address == ADRV9002_HOP_2_TABLE_SEL ||
+	    iio_attr->address == ADRV9002_HOP_2_TRIGGER) {
+		if (phy->fh.mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
+			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
+			goto out_unlock;
+		}
+	}
+
+	ret = adrv9002_attr_do_store(phy, buf, iio_attr->address);
+
+out_unlock:
 	mutex_unlock(&phy->lock);
 	return ret ? ret : len;
 }
@@ -667,20 +670,17 @@ static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
 	const int chan_nr = ADRV_ADDRESS_CHAN(chan->address);
-	int ret = 0;
+	int ret = -ENODEV;
 	struct adrv9002_chan *chann = adrv9002_get_channel(phy, port, chan_nr);
 	struct adi_adrv9001_Carrier lo_freq;
 	u64 freq;
 
-	mutex_lock(&phy->lock);
-
-	if (!chann->enabled) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
-	};
-
 	switch (private) {
 	case LOEXT_FREQ:
+		mutex_lock(&phy->lock);
+		if (!chann->enabled)
+			goto unlock;
+
 		ret = kstrtoull(buf, 10, &freq);
 		if (ret)
 			goto unlock;
@@ -705,14 +705,15 @@ static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 			goto unlock;
 
 		ret = adrv9002_channel_to_state(phy, chann, chann->cached_state, false);
-		break;
+		mutex_unlock(&phy->lock);
+		return ret ? ret : len;
 	default:
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 unlock:
 	mutex_unlock(&phy->lock);
-	return ret ? ret : len;
+	return ret;
 }
 
 static ssize_t adrv9002_phy_lo_read(struct iio_dev *indio_dev,
@@ -723,32 +724,28 @@ static ssize_t adrv9002_phy_lo_read(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
-	int ret;
+	int ret = -ENODEV;
 	struct adrv9002_chan *chann = adrv9002_get_channel(phy, port, channel);
 	struct adi_adrv9001_Carrier lo_freq;
 
-	mutex_lock(&phy->lock);
-
-	if (!chann->enabled) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
-	}
-
 	switch (private) {
 	case LOEXT_FREQ:
+		mutex_lock(&phy->lock);
+		if (!chann->enabled)
+			goto out_unlock;
+
 		ret = api_call(phy, adi_adrv9001_Radio_Carrier_Inspect, port,
 			       chann->number, &lo_freq);
-		if (ret) {
-			mutex_unlock(&phy->lock);
-			return ret;
-		}
+		if (ret)
+			goto out_unlock;
 
-		ret = sysfs_emit(buf, "%llu\n", lo_freq.carrierFrequency_Hz);
-		break;
+		mutex_unlock(&phy->lock);
+		return sysfs_emit(buf, "%llu\n", lo_freq.carrierFrequency_Hz);
 	default:
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
+out_unlock:
 	mutex_unlock(&phy->lock);
 	return ret;
 }
@@ -1116,6 +1113,91 @@ static const u32 rx_track_calls[] = {
 	[RX_RFDC] = ADI_ADRV9001_TRACKING_CAL_RX_RFDC
 };
 
+static int adrv9002_phy_rx_do_write(struct adrv9002_rf_phy *phy, struct adrv9002_rx_chan *rx,
+				    uintptr_t private, const char *buf)
+{
+	struct adi_adrv9001_RxSettings *rx_settings = &phy->curr_profile->rx;
+	struct adi_adrv9001_RxChannelCfg *rx_cfg = &rx_settings->rxChannelCfg[rx->channel.idx];
+	int ret, freq_offset_hz;
+	bool enable;
+	u32 val;
+
+	switch (private) {
+	case RX_QEC_FIC:
+	case RX_QEC_W_POLY:
+	case ORX_QEC_W_POLY:
+	case RX_HD2:
+	case RX_TRACK_BBDC:
+	case RX_AGC:
+	case RX_RSSI_CAL:
+	case RX_RFDC:
+		if (private == ORX_QEC_W_POLY && !rx->orx_en)
+			return -ENODEV;
+
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		return adrv9002_update_tracking_calls(phy, rx_track_calls[private],
+						      rx->channel.idx, enable);
+	case RX_NCO_FREQUENCY:
+		if (!rx_cfg->profile.rxDpProfile.rxNbDem.rxNbNco.rxNbNcoEn)
+			return -ENOTSUPP;
+
+		ret = kstrtoint(buf, 10, &freq_offset_hz);
+		if (ret)
+			return ret;
+
+		ret = api_call(phy, adi_adrv9001_Rx_FrequencyCorrection_Set, rx->channel.number,
+			       freq_offset_hz, true);
+		if (ret)
+			return ret;
+
+		rx->channel.nco_freq = freq_offset_hz;
+		return 0;
+	case RX_ADC_SWITCH:
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		/* we must be in calibrated state */
+		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
+						true);
+		if (ret)
+			return ret;
+
+		ret = api_call(phy, adi_adrv9001_Rx_AdcSwitchEnable_Set,
+			       rx->channel.number, enable);
+		if (ret)
+			return ret;
+
+		return adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state,
+						 false);
+	case RX_BBDC:
+		if (!rx->orx_en && rx->channel.port == ADI_ORX)
+			return -ENODEV;
+
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+		/*
+		 * Disabling the bbdc will completely disable the algorithm and set the correction
+		 * value to 0. The difference with the tracking cal is that disabling it, just
+		 * disables the algorithm but the last used correction value is still applied...
+		 */
+		return api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Set, rx->channel.port,
+				rx->channel.number, enable);
+	case RX_BBDC_LOOP_GAIN:
+		ret = kstrtou32(buf, 10, &val);
+		if (ret)
+			return ret;
+
+		return api_call(phy, adi_adrv9010_bbdc_LoopGain_Set, rx->channel.number, val);
+	default:
+		return -EINVAL;
+	}
+}
+
 static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 				     uintptr_t private,
 				     const struct iio_chan_spec *chan,
@@ -1124,17 +1206,32 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
 	const int port = ADRV_ADDRESS_PORT(chan->address);
-	int ret = 0, freq_offset_hz;
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
-	struct adi_adrv9001_RxChannelCfg *rx_cfg = &phy->curr_profile->rx.rxChannelCfg[channel];
-	bool enable;
-	u32 val;
+	int ret = -ENODEV;
 
 	mutex_lock(&phy->lock);
-	if (!rx->channel.enabled && port == ADI_RX) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
-	}
+	if (!rx->channel.enabled && port == ADI_RX)
+		goto out_unlock;
+
+	ret = adrv9002_phy_rx_do_write(phy, rx, private, buf);
+
+out_unlock:
+	mutex_unlock(&phy->lock);
+	return ret ? ret : len;
+}
+
+static int adrv9002_phy_rx_do_read(const struct adrv9002_rf_phy *phy,
+				   const struct adrv9002_rx_chan *rx, uintptr_t private, char *buf)
+{
+	struct adi_adrv9001_RxSettings *rx_settings = &phy->curr_profile->rx;
+	struct adi_adrv9001_RxChannelCfg *rx_cfg = &rx_settings->rxChannelCfg[rx->channel.idx];
+	struct adi_adrv9001_TrackingCals tracking_cals;
+	const u32 *calls_mask = tracking_cals.chanTrackingCalMask;
+	adi_adrv9001_BbdcRejectionStatus_e bbdc;
+	u32 rssi_pwr_mdb, val;
+	u16 dec_pwr_mdb;
+	bool enable;
+	int ret;
 
 	switch (private) {
 	case RX_QEC_FIC:
@@ -1145,83 +1242,62 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 	case RX_AGC:
 	case RX_RSSI_CAL:
 	case RX_RFDC:
-		if (private == ORX_QEC_W_POLY && !rx->orx_en) {
-			ret = -ENODEV;
-			goto unlock;
-		}
+		if (private == ORX_QEC_W_POLY && !rx->orx_en)
+			return -ENODEV;
 
-		ret = kstrtobool(buf, &enable);
+		ret = api_call(phy, adi_adrv9001_cals_Tracking_Get, &tracking_cals);
 		if (ret)
-			goto unlock;
+			return ret;
 
-		ret = adrv9002_update_tracking_calls(phy, rx_track_calls[private], channel, enable);
-		break;
+		return sysfs_emit(buf, "%d\n",
+				  !!(calls_mask[rx->channel.idx] & rx_track_calls[private]));
+	case RX_DECIMATION_POWER:
+		/* it might depend on proper AGC parameters */
+		ret = api_call(phy, adi_adrv9001_Rx_DecimatedPower_Get,
+			       rx->channel.number, &dec_pwr_mdb);
+		if (ret)
+			return ret;
+
+		return sysfs_emit(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000, dec_pwr_mdb % 1000);
+	case RX_RSSI:
+		ret = api_call(phy, adi_adrv9001_Rx_Rssi_Read, rx->channel.number, &rssi_pwr_mdb);
+		if (ret)
+			return ret;
+
+		return sysfs_emit(buf, "%u.%02u dB\n", rssi_pwr_mdb / 1000, rssi_pwr_mdb % 1000);
+	case RX_RF_BANDWIDTH:
+		return  sysfs_emit(buf, "%u\n", rx_cfg->profile.primarySigBandwidth_Hz);
 	case RX_NCO_FREQUENCY:
-		if (!rx_cfg->profile.rxDpProfile.rxNbDem.rxNbNco.rxNbNcoEn) {
-			ret = -ENOTSUPP;
-			goto unlock;
-		}
+		if (!rx_cfg->profile.rxDpProfile.rxNbDem.rxNbNco.rxNbNcoEn)
+			return -ENOTSUPP;
 
-		ret = kstrtoint(buf, 10, &freq_offset_hz);
-		if (ret)
-			goto unlock;
-
-		ret = api_call(phy, adi_adrv9001_Rx_FrequencyCorrection_Set, rx->channel.number,
-			       freq_offset_hz, true);
-		if (ret)
-			goto unlock;
-
-		rx->channel.nco_freq = freq_offset_hz;
-		break;
+		return sysfs_emit(buf, "%d\n", rx->channel.nco_freq);
 	case RX_ADC_SWITCH:
-		ret = kstrtobool(buf, &enable);
+		ret = api_call(phy, adi_adrv9001_Rx_AdcSwitchEnable_Get,
+			       rx->channel.number, &enable);
 		if (ret)
-			goto unlock;
+			return ret;
 
-		/* we must be in calibrated state */
-		ret = adrv9002_channel_to_state(phy, &rx->channel, ADI_ADRV9001_CHANNEL_CALIBRATED,
-						true);
-		if (ret)
-			goto unlock;
-
-		ret = api_call(phy, adi_adrv9001_Rx_AdcSwitchEnable_Set,
-			       rx->channel.number, enable);
-		if (ret)
-			goto unlock;
-
-		ret = adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state, false);
-		break;
+		return sysfs_emit(buf, "%d\n", enable);
 	case RX_BBDC:
-		if (!rx->orx_en && port == ADI_ORX) {
-			ret = -ENODEV;
-			goto unlock;
-		}
+		if (!rx->orx_en && rx->channel.port == ADI_ORX)
+			return -ENODEV;
 
-		ret = kstrtobool(buf, &enable);
+		ret = api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Get,
+			       rx->channel.port, rx->channel.number, &bbdc);
 		if (ret)
-			goto unlock;
-		/*
-		 * Disabling the bbdc will completely disable the algorithm and set the correction
-		 * value to 0. The difference with the tracking cal is that disabling it, just
-		 * disables the algorithm but the last used correction value is still applied...
-		 */
-		ret = api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Set, port,
-			       rx->channel.number, enable);
-		break;
+			return ret;
+
+		return sysfs_emit(buf, "%d\n", bbdc);
 	case RX_BBDC_LOOP_GAIN:
-		ret = kstrtou32(buf, 10, &val);
+		ret = api_call(phy, adi_adrv9010_bbdc_LoopGain_Get, rx->channel.number, &val);
 		if (ret)
-			goto unlock;
+			return ret;
 
-		ret = api_call(phy, adi_adrv9010_bbdc_LoopGain_Set, rx->channel.number, val);
-		break;
+		return sysfs_emit(buf, "%u\n", val);
 	default:
-		ret = -EINVAL;
+		return -EINVAL;
 	}
-
-unlock:
-	mutex_unlock(&phy->lock);
-	return ret ? ret : len;
 }
 
 static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
@@ -1230,117 +1306,18 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 				    char *buf)
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
-	int ret = 0;
-	u16 dec_pwr_mdb;
-	u32 rssi_pwr_mdb, val;
-	struct adi_adrv9001_TrackingCals tracking_cals;
-	const u32 *calls_mask = tracking_cals.chanTrackingCalMask;
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
 	const int port = ADRV_ADDRESS_PORT(chan->address);
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
-	struct adi_adrv9001_RxChannelCfg *rx_cfg = &phy->curr_profile->rx.rxChannelCfg[channel];
-	adi_adrv9001_BbdcRejectionStatus_e bbdc;
-	bool enable;
+	int ret = -ENODEV;
 
 	mutex_lock(&phy->lock);
-	if (!rx->channel.enabled && port == ADI_RX) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
-	}
+	if (!rx->channel.enabled && port == ADI_RX)
+		goto out_unlock;
 
-	switch (private) {
-	case RX_QEC_FIC:
-	case RX_QEC_W_POLY:
-	case ORX_QEC_W_POLY:
-	case RX_HD2:
-	case RX_TRACK_BBDC:
-	case RX_AGC:
-	case RX_RSSI_CAL:
-	case RX_RFDC:
-		if (private == ORX_QEC_W_POLY && !rx->orx_en) {
-			mutex_unlock(&phy->lock);
-			return -ENODEV;
-		}
+	ret = adrv9002_phy_rx_do_read(phy, rx, private, buf);
 
-		ret = api_call(phy, adi_adrv9001_cals_Tracking_Get, &tracking_cals);
-		if (ret) {
-			mutex_unlock(&phy->lock);
-			return ret;
-		}
-
-		ret = sysfs_emit(buf, "%d\n",
-				 calls_mask[channel] & rx_track_calls[private] ? 1 : 0);
-		break;
-	case RX_DECIMATION_POWER:
-		/* it might depend on proper AGC parameters */
-		ret = api_call(phy, adi_adrv9001_Rx_DecimatedPower_Get,
-			       rx->channel.number, &dec_pwr_mdb);
-		if (ret) {
-			mutex_unlock(&phy->lock);
-			return ret;
-		}
-
-		ret = sysfs_emit(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000, dec_pwr_mdb % 1000);
-		break;
-	case RX_RSSI:
-		ret = api_call(phy, adi_adrv9001_Rx_Rssi_Read, rx->channel.number, &rssi_pwr_mdb);
-		if (ret) {
-			mutex_unlock(&phy->lock);
-			return ret;
-		}
-
-		ret = sysfs_emit(buf, "%u.%02u dB\n", rssi_pwr_mdb / 1000, rssi_pwr_mdb % 1000);
-		break;
-	case RX_RF_BANDWIDTH:
-		rx_cfg = &phy->curr_profile->rx.rxChannelCfg[chan->channel];
-		ret = sysfs_emit(buf, "%u\n", rx_cfg->profile.primarySigBandwidth_Hz);
-		break;
-	case RX_NCO_FREQUENCY:
-		if (!rx_cfg->profile.rxDpProfile.rxNbDem.rxNbNco.rxNbNcoEn) {
-			mutex_unlock(&phy->lock);
-			return -ENOTSUPP;
-		}
-
-		ret = sysfs_emit(buf, "%d\n", rx->channel.nco_freq);
-		break;
-	case RX_ADC_SWITCH:
-		ret = api_call(phy, adi_adrv9001_Rx_AdcSwitchEnable_Get,
-			       rx->channel.number, &enable);
-		if (ret) {
-			mutex_unlock(&phy->lock);
-			return ret;
-		}
-
-		ret = sysfs_emit(buf, "%d\n", enable);
-		break;
-	case RX_BBDC:
-		if (!rx->orx_en && port == ADI_ORX) {
-			mutex_unlock(&phy->lock);
-			return -ENODEV;
-		}
-
-		ret = api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Get,
-			       port, rx->channel.number, &bbdc);
-		if (ret) {
-			mutex_unlock(&phy->lock);
-			return ret;
-		}
-
-		ret = sysfs_emit(buf, "%d\n", bbdc);
-		break;
-	case RX_BBDC_LOOP_GAIN:
-		ret = api_call(phy, adi_adrv9010_bbdc_LoopGain_Get, rx->channel.number, &val);
-		if (ret) {
-			mutex_unlock(&phy->lock);
-			return ret;
-		}
-
-		ret = sysfs_emit(buf, "%u\n", val);
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
+out_unlock:
 	mutex_unlock(&phy->lock);
 	return ret;
 }
@@ -1443,24 +1420,13 @@ static int adrv9002_get_atten_control_mode(struct iio_dev *indio_dev,
 	return mode;
 }
 
-static ssize_t adrv9002_phy_tx_read(struct iio_dev *indio_dev,
-				    uintptr_t private,
-				    const struct iio_chan_spec *chan,
-				    char *buf)
+static int adrv9002_phy_tx_do_read(const struct adrv9002_rf_phy *phy,
+				   const struct adrv9002_chan *tx, uintptr_t private, char *buf)
 {
-	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
-	const int channel = ADRV_ADDRESS_CHAN(chan->address);
-	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
-	struct adi_adrv9001_TxProfile *tx_cfg = &phy->curr_profile->tx.txProfile[channel];
+	struct adi_adrv9001_TxProfile *tx_cfg = &phy->curr_profile->tx.txProfile[tx->idx];
 	struct adi_adrv9001_TrackingCals tracking_cals;
 	const u32 *calls_mask = tracking_cals.chanTrackingCalMask;
-	int val = 0, ret = 0;
-
-	mutex_lock(&phy->lock);
-	if (!tx->channel.enabled) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
-	}
+	int ret;
 
 	switch (private) {
 	case TX_QEC:
@@ -1469,35 +1435,83 @@ static ssize_t adrv9002_phy_tx_read(struct iio_dev *indio_dev,
 	case TX_PAC:
 	case TX_CLGC:
 		ret = api_call(phy, adi_adrv9001_cals_Tracking_Get, &tracking_cals);
-		if (ret) {
-			mutex_unlock(&phy->lock);
+		if (ret)
 			return ret;
-		}
 
-		val = calls_mask[channel] & tx_track_calls[private] ? 1 : 0;
-		ret = sysfs_emit(buf, "%d\n", val);
-		break;
+		return sysfs_emit(buf, "%d\n", !!(calls_mask[tx->idx] & tx_track_calls[private]));
 	case TX_RF_BANDWIDTH:
-		ret = sysfs_emit(buf, "%d\n", tx_cfg->primarySigBandwidth_Hz);
-		break;
+		return sysfs_emit(buf, "%d\n", tx_cfg->primarySigBandwidth_Hz);
 	case TX_NCO_FREQUENCY:
 		/*
 		 * This field seems to be the only thing that changes on TX profiles when nco
 		 * is enabled.
 		 */
-		if (tx_cfg->txDpProfile.txIqdmDuc.iqdmDucMode != ADI_ADRV9001_TX_DP_IQDMDUC_MODE2) {
-			mutex_unlock(&phy->lock);
+		if (tx_cfg->txDpProfile.txIqdmDuc.iqdmDucMode != ADI_ADRV9001_TX_DP_IQDMDUC_MODE2)
 			return -ENOTSUPP;
-		}
 
-		ret = sysfs_emit(buf, "%d\n", tx->channel.nco_freq);
-		break;
+		return sysfs_emit(buf, "%d\n", tx->nco_freq);
 	default:
-		ret = -EINVAL;
+		return -EINVAL;
 	}
+}
 
+static ssize_t adrv9002_phy_tx_read(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan,
+				    char *buf)
+{
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	const int channel = ADRV_ADDRESS_CHAN(chan->address);
+	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
+	int ret = -ENODEV;
+
+	mutex_lock(&phy->lock);
+	if (!tx->channel.enabled)
+		goto out_unlock;
+
+	ret = adrv9002_phy_tx_do_read(phy, &tx->channel, private, buf);
+
+out_unlock:
 	mutex_unlock(&phy->lock);
 	return ret;
+}
+
+static int adrv9002_phy_tx_do_write(struct adrv9002_rf_phy *phy, struct adrv9002_chan *tx,
+				    uintptr_t private, const char *buf)
+{
+	struct adi_adrv9001_TxProfile *tx_cfg = &phy->curr_profile->tx.txProfile[tx->idx];
+	int ret, nco_freq_hz;
+	bool en;
+
+	switch (private) {
+	case TX_QEC:
+	case TX_LOL:
+	case TX_LB_PD:
+	case TX_PAC:
+	case TX_CLGC:
+		ret = kstrtobool(buf, &en);
+		if (ret)
+			return ret;
+
+		return adrv9002_update_tracking_calls(phy, tx_track_calls[private], tx->idx, en);
+	case TX_NCO_FREQUENCY:
+		if (tx_cfg->txDpProfile.txIqdmDuc.iqdmDucMode != ADI_ADRV9001_TX_DP_IQDMDUC_MODE2)
+			return -ENOTSUPP;
+
+		ret = kstrtoint(buf, 10, &nco_freq_hz);
+		if (ret)
+			return ret;
+
+		ret = api_call(phy, adi_adrv9001_Tx_FrequencyCorrection_Set,
+			       tx->number, nco_freq_hz, true);
+		if (ret)
+			return ret;
+
+		tx->nco_freq = nco_freq_hz;
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
 static ssize_t adrv9002_phy_tx_write(struct iio_dev *indio_dev,
@@ -1508,50 +1522,15 @@ static ssize_t adrv9002_phy_tx_write(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
 	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
-	struct adi_adrv9001_TxProfile *tx_cfg = &phy->curr_profile->tx.txProfile[channel];
-	bool enable;
-	int ret = 0, nco_freq_hz;
+	int ret = -ENODEV;
 
 	mutex_lock(&phy->lock);
-	if (!tx->channel.enabled) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
-	}
+	if (!tx->channel.enabled)
+		goto out_unlock;
 
-	switch (private) {
-	case TX_QEC:
-	case TX_LOL:
-	case TX_LB_PD:
-	case TX_PAC:
-	case TX_CLGC:
-		ret = kstrtobool(buf, &enable);
-		if (ret)
-			goto unlock;
+	ret = adrv9002_phy_tx_do_write(phy, &tx->channel, private, buf);
 
-		ret = adrv9002_update_tracking_calls(phy, tx_track_calls[private], channel, enable);
-		break;
-	case TX_NCO_FREQUENCY:
-		if (tx_cfg->txDpProfile.txIqdmDuc.iqdmDucMode != ADI_ADRV9001_TX_DP_IQDMDUC_MODE2) {
-			ret = -ENOTSUPP;
-			goto unlock;
-		}
-
-		ret = kstrtoint(buf, 10, &nco_freq_hz);
-		if (ret)
-			goto unlock;
-
-		ret = api_call(phy, adi_adrv9001_Tx_FrequencyCorrection_Set,
-			       tx->channel.number, nco_freq_hz, true);
-		if (ret)
-			goto unlock;
-
-		tx->channel.nco_freq = nco_freq_hz;
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-unlock:
+out_unlock:
 	mutex_unlock(&phy->lock);
 	return ret ? ret : len;
 }
@@ -1720,34 +1699,30 @@ static int adrv9002_phy_read_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
 
 	switch (m) {
 	case IIO_CHAN_INFO_ENABLE:
-		mutex_lock(&phy->lock);
 		if (chan->output)
 			ret = api_call(phy, adi_adrv9001_AuxDac_Inspect, chan->address, &en);
 		else
 			ret = api_call(phy, adi_adrv9001_AuxAdc_Inspect, chan->address, &en);
 		if (ret)
-			goto error;
-		mutex_unlock(&phy->lock);
+			return ret;
+
 		*val = en;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		switch (chan->type) {
 		case IIO_TEMP:
-			mutex_lock(&phy->lock);
 			ret = api_call(phy, adi_adrv9001_Temperature_Get, &temp);
 			if (ret)
-				goto error;
-			mutex_unlock(&phy->lock);
+				return ret;
+
 			*val = temp * 1000;
 			return IIO_VAL_INT;
 		case IIO_VOLTAGE:
-			mutex_lock(&phy->lock);
 			if (!chan->output) {
 				ret = api_call(phy, adi_adrv9001_AuxAdc_Voltage_Get,
 					       chan->address, &temp);
 				if (ret)
-					goto error;
-				mutex_unlock(&phy->lock);
+					return ret;
 
 				*val = temp;
 				return IIO_VAL_INT;
@@ -1755,8 +1730,7 @@ static int adrv9002_phy_read_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
 
 			ret = api_call(phy, adi_adrv9001_AuxDac_Code_Get, chan->address, &temp);
 			if (ret)
-				goto error;
-			mutex_unlock(&phy->lock);
+				return ret;
 
 			*val = 900 + DIV_ROUND_CLOSEST((temp - 2048) * 1700, 4096);
 			return IIO_VAL_INT;
@@ -1766,10 +1740,64 @@ static int adrv9002_phy_read_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
 	default:
 		return -EINVAL;
 	};
+}
 
-error:
-	mutex_unlock(&phy->lock);
-	return ret;
+static int adrv9002_phy_read_raw_rf_chan(const struct adrv9002_rf_phy *phy,
+					 const struct iio_chan_spec *chan,
+					 const struct adrv9002_chan *chann, int *val,
+					 int *val2, long m)
+{
+	int temp, ret;
+	u8 index;
+
+	switch (m) {
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		if (chan->output) {
+			u16 atten_mdb;
+
+			ret = api_call(phy, adi_adrv9001_Tx_Attenuation_Get,
+				       chann->number, &atten_mdb);
+			if (ret)
+				return ret;
+
+			*val = -1 * (atten_mdb / 1000);
+			*val2 = (atten_mdb % 1000) * 1000;
+			if (!*val)
+				*val2 *= -1;
+
+			return IIO_VAL_INT_PLUS_MICRO_DB;
+		}
+
+		if (chann->port == ADI_ORX)
+			ret = api_call(phy, adi_adrv9001_ORx_Gain_Get, chann->number, &index);
+		else
+			ret = api_call(phy, adi_adrv9001_Rx_Gain_Get, chann->number, &index);
+		if (ret)
+			return ret;
+
+		temp = adrv9002_gainidx_to_gain(index, chann->port);
+		*val = temp / 1000;
+		*val2 = temp % 1000 * 1000;
+		return IIO_VAL_INT_PLUS_MICRO_DB;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = clk_get_rate(chann->clk);
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_ENABLE:
+		if (chann->port == ADI_ORX) {
+			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
+
+			if (!rx->orx_gpio)
+				return -ENOTSUPP;
+
+			*val = gpiod_get_value_cansleep(rx->orx_gpio);
+			return IIO_VAL_INT;
+		}
+
+		*val = chann->power;
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
 }
 
 static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
@@ -1780,84 +1808,27 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 	struct adrv9002_chan *chann;
 	const int chan_nr = ADRV_ADDRESS_CHAN(chan->address);
 	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
-	u16 temp;
-	int ret;
-	u8 index;
+	int ret = -ENODEV;
 
-	if (chan->type != IIO_VOLTAGE || chan->channel > ADRV9002_CHANN_2)
-		return adrv9002_phy_read_raw_no_rf_chan(phy, chan, val, val2, m);
+	mutex_lock(&phy->lock);
+	if (chan->type != IIO_VOLTAGE || chan->channel > ADRV9002_CHANN_2) {
+		ret = adrv9002_phy_read_raw_no_rf_chan(phy, chan, val, val2, m);
+		goto out_unlock;
+	}
 
 	chann = adrv9002_get_channel(phy, port, chan_nr);
-	mutex_lock(&phy->lock);
 	if (port == ADI_ORX) {
 		struct adrv9002_rx_chan *rx = chan_to_rx(chann);
 
-		if (!rx->orx_en) {
-			mutex_unlock(&phy->lock);
-			return -ENODEV;
-		}
+		if (!rx->orx_en)
+			goto out_unlock;
 	} else if (!chann->enabled) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
+		goto out_unlock;
 	}
 
-	switch (m) {
-	case IIO_CHAN_INFO_HARDWAREGAIN:
-		if (chan->output) {
-			u16 atten_mdb;
+	ret = adrv9002_phy_read_raw_rf_chan(phy, chan, chann, val, val2, m);
 
-			ret = api_call(phy, adi_adrv9001_Tx_Attenuation_Get,
-				       chann->number, &atten_mdb);
-			if (ret) {
-				mutex_unlock(&phy->lock);
-				return ret;
-			}
-
-			*val = -1 * (atten_mdb / 1000);
-			*val2 = (atten_mdb % 1000) * 1000;
-			if (!*val)
-				*val2 *= -1;
-		} else {
-			if (port == ADI_ORX)
-				ret = api_call(phy, adi_adrv9001_ORx_Gain_Get,
-					       chann->number, &index);
-			else
-				ret = api_call(phy, adi_adrv9001_Rx_Gain_Get,
-					       chann->number, &index);
-			if (ret) {
-				mutex_unlock(&phy->lock);
-				return ret;
-			}
-
-			temp = adrv9002_gainidx_to_gain(index, port);
-			*val = temp / 1000;
-			*val2 = temp % 1000 * 1000;
-		}
-		ret = IIO_VAL_INT_PLUS_MICRO_DB;
-		break;
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = clk_get_rate(chann->clk);
-		ret = IIO_VAL_INT;
-		break;
-	case IIO_CHAN_INFO_ENABLE:
-		if (port == ADI_ORX) {
-			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
-
-			if (!rx->orx_gpio) {
-				mutex_unlock(&phy->lock);
-				return -ENOTSUPP;
-			}
-
-			*val = gpiod_get_value_cansleep(rx->orx_gpio);
-		} else {
-			*val = chann->power;
-		}
-		ret = IIO_VAL_INT;
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
+out_unlock:
 	mutex_unlock(&phy->lock);
 	return ret;
 };
@@ -1866,39 +1837,24 @@ static int adrv9002_phy_write_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
 					     struct iio_chan_spec const *chan, int val,
 					     int val2, long mask)
 {
-	int ret;
 	u16 code;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		mutex_lock(&phy->lock);
 		if (chan->output)
-			ret = api_call(phy, adi_adrv9001_AuxDac_Configure, chan->address, val);
-		else
-			ret = api_call(phy, adi_adrv9001_AuxAdc_Configure, chan->address, val);
-		if (ret)
-			goto error;
-		mutex_unlock(&phy->lock);
-		return 0;
+			return api_call(phy, adi_adrv9001_AuxDac_Configure, chan->address, val);
+
+		return api_call(phy, adi_adrv9001_AuxAdc_Configure, chan->address, val);
 	case IIO_CHAN_INFO_PROCESSED:
 		code = clamp_val(val, 50, 1750);
 		code = 2048 + DIV_ROUND_CLOSEST((code - 900) * 4096, 1700);
 		if (code == 4096)
 			code = 4095;
 
-		mutex_lock(&phy->lock);
-		ret = api_call(phy, adi_adrv9001_AuxDac_Code_Set, chan->address, code);
-		if (ret)
-			goto error;
-		mutex_unlock(&phy->lock);
-		return 0;
+		return api_call(phy, adi_adrv9001_AuxDac_Code_Set, chan->address, code);
 	default:
 		return -EINVAL;
 	}
-
-error:
-	mutex_unlock(&phy->lock);
-	return ret;
 }
 
 static bool adrv9002_orx_can_enable(const struct adrv9002_rf_phy *phy,
@@ -1935,6 +1891,52 @@ static bool adrv9002_orx_can_enable(const struct adrv9002_rf_phy *phy,
 	return true;
 }
 
+static int adrv9002_phy_write_raw_rf_chan(struct adrv9002_rf_phy *phy,
+					  const struct iio_chan_spec *chan,
+					  struct adrv9002_chan *chann, int val, int val2, long mask)
+{
+	int gain;
+	u32 code;
+	u8 idx;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		if (chan->output) {
+			if (val > 0 || (val == 0 && val2 > 0))
+				return -EINVAL;
+
+			code = ((abs(val) * 1000) + (abs(val2) / 1000));
+
+			return api_call(phy, adi_adrv9001_Tx_Attenuation_Set, chann->number, code);
+		}
+
+		gain = val * 1000 + val2 / 1000;
+		idx = adrv9002_gain_to_gainidx(gain, chann->port);
+
+		if (chann->port == ADI_RX)
+			return api_call(phy, adi_adrv9001_Rx_Gain_Set, chann->number, idx);
+
+		return api_call(phy, adi_adrv9001_ORx_Gain_Set, chann->number, idx);
+	case IIO_CHAN_INFO_ENABLE:
+		if (chann->port == ADI_ORX) {
+			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
+
+			if (!rx->orx_gpio)
+				return -ENOTSUPP;
+
+			if (val && !adrv9002_orx_can_enable(phy, chann))
+				return -EPERM;
+
+			gpiod_set_value_cansleep(rx->orx_gpio, !!val);
+			return 0;
+		}
+
+		return adrv9002_channel_power_set(phy, chann, val);
+	default:
+		return -EINVAL;
+	}
+}
+
 static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 				  struct iio_chan_spec const *chan, int val,
 				  int val2, long mask)
@@ -1943,71 +1945,27 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 	const int chan_nr = ADRV_ADDRESS_CHAN(chan->address);
 	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
 	struct adrv9002_chan *chann;
-	u32 code;
-	int ret = 0;
-
-	if (chan->type != IIO_VOLTAGE || chan->channel > ADRV9002_CHANN_2)
-		return adrv9002_phy_write_raw_no_rf_chan(phy, chan, val, val2, mask);
+	int ret = -ENODEV;
 
 	mutex_lock(&phy->lock);
+	if (chan->type != IIO_VOLTAGE || chan->channel > ADRV9002_CHANN_2) {
+		ret = adrv9002_phy_write_raw_no_rf_chan(phy, chan, val, val2, mask);
+		goto out_unlock;
+	}
+
 	chann = adrv9002_get_channel(phy, port, chan_nr);
 	if (port == ADI_ORX) {
 		struct adrv9002_rx_chan *rx = chan_to_rx(chann);
 
-		if (!rx->orx_en) {
-			mutex_unlock(&phy->lock);
-			return -ENODEV;
-		}
+		if (!rx->orx_en)
+			goto out_unlock;
 	} else if (!chann->enabled) {
-		mutex_unlock(&phy->lock);
-		return -ENODEV;
+		goto out_unlock;
 	}
 
-	switch (mask) {
-	case IIO_CHAN_INFO_HARDWAREGAIN:
-		if (chan->output) {
-			if (val > 0 || (val == 0 && val2 > 0)) {
-				mutex_unlock(&phy->lock);
-				return -EINVAL;
-			}
+	ret = adrv9002_phy_write_raw_rf_chan(phy, chan, chann, val, val2, mask);
 
-			code = ((abs(val) * 1000) + (abs(val2) / 1000));
-
-			ret = api_call(phy, adi_adrv9001_Tx_Attenuation_Set, chann->number, code);
-		} else {
-			u8 idx;
-			int gain;
-
-			gain = val * 1000 + val2 / 1000;
-			idx = adrv9002_gain_to_gainidx(gain, port);
-			if (port == ADI_RX)
-				ret = api_call(phy, adi_adrv9001_Rx_Gain_Set, chann->number, idx);
-			else
-				ret = api_call(phy, adi_adrv9001_ORx_Gain_Set, chann->number, idx);
-		}
-		break;
-	case IIO_CHAN_INFO_ENABLE:
-		if (port == ADI_ORX) {
-			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
-
-			if (!rx->orx_gpio) {
-				mutex_unlock(&phy->lock);
-				return -ENOTSUPP;
-			}
-
-			if (val && !adrv9002_orx_can_enable(phy, chann)) {
-				mutex_unlock(&phy->lock);
-				return -EPERM;
-			}
-			gpiod_set_value_cansleep(rx->orx_gpio, !!val);
-		} else {
-			ret = adrv9002_channel_power_set(phy, chann, val);
-		}
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
+out_unlock:
 	mutex_unlock(&phy->lock);
 	return ret;
 }
