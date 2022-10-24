@@ -194,7 +194,7 @@ int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, 
 	return ret;
 }
 
-static void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int chann,
+static void adrv9002_get_ssi_interface(const struct adrv9002_rf_phy *phy, const int chann,
 				       const bool tx, u8 *n_lanes, bool *cmos_ddr_en)
 {
 	if (tx) {
@@ -212,14 +212,14 @@ static void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int ch
 	}
 }
 
-static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
+static int adrv9002_ssi_configure(const struct adrv9002_rf_phy *phy)
 {
 	bool cmos_ddr;
 	u8 n_lanes;
 	int c, ret;
 
 	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
-		struct adrv9002_chan *chann = phy->channels[c];
+		const struct adrv9002_chan *chann = phy->channels[c];
 
 		/* RX2/TX2 can only be enabled if RX1/TX1 are also enabled */
 		if (phy->rx2tx2 && chann->idx > ADRV9002_CHANN_1)
@@ -243,7 +243,7 @@ static int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		 * tdd configuration if both TX/RX on the same channel are not enabled.
 		 */
 		if (chann->port == ADI_TX) {
-			struct adrv9002_rx_chan *rx = &phy->rx_channels[chann->idx];
+			const struct adrv9002_rx_chan *rx = &phy->rx_channels[chann->idx];
 			unsigned long rate;
 
 			if (!rx->channel.enabled)
@@ -280,7 +280,7 @@ static int adrv9002_phy_reg_access(struct iio_dev *indio_dev,
 
 #define ADRV9002_MAX_CLK_NAME 79
 
-static char *adrv9002_clk_set_dev_name(struct adrv9002_rf_phy *phy,
+static char *adrv9002_clk_set_dev_name(const struct adrv9002_rf_phy *phy,
 				       char *dest, const char *name)
 {
 	size_t len = 0;
@@ -416,8 +416,8 @@ static int adrv9002_gain_to_gainidx(int gain, int port)
 	return temp;
 }
 
-static int adrv9002_chan_to_state_poll(struct adrv9002_rf_phy *phy,
-				       struct adrv9002_chan *c,
+static int adrv9002_chan_to_state_poll(const struct adrv9002_rf_phy *phy,
+				       const struct adrv9002_chan *c,
 				       const adi_adrv9001_ChannelState_e state,
 				       const int n_tries)
 {
@@ -450,7 +450,7 @@ static bool adrv9002_orx_enabled(const struct adrv9002_rf_phy *phy, const struct
 	return !!gpiod_get_value_cansleep(rx->orx_gpio);
 }
 
-int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
+int adrv9002_channel_to_state(const struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
 			      const adi_adrv9001_ChannelState_e state, const bool cache_state)
 {
 	int ret;
@@ -1071,7 +1071,7 @@ static int adrv9002_set_port_en_mode(struct iio_dev *indio_dev,
 	return ret;
 }
 
-static int adrv9002_update_tracking_calls(struct adrv9002_rf_phy *phy,
+static int adrv9002_update_tracking_calls(const struct adrv9002_rf_phy *phy,
 					  const u32 mask, const int chann,
 					  const bool enable)
 {
@@ -1123,7 +1123,7 @@ static const u32 rx_track_calls[] = {
 	[RX_RFDC] = ADI_ADRV9001_TRACKING_CAL_RX_RFDC
 };
 
-static int adrv9002_phy_rx_do_write(struct adrv9002_rf_phy *phy, struct adrv9002_rx_chan *rx,
+static int adrv9002_phy_rx_do_write(const struct adrv9002_rf_phy *phy, struct adrv9002_rx_chan *rx,
 				    uintptr_t private, const char *buf)
 {
 	struct adi_adrv9001_RxSettings *rx_settings = &phy->curr_profile->rx;
@@ -1486,7 +1486,7 @@ out_unlock:
 	return ret;
 }
 
-static int adrv9002_phy_tx_do_write(struct adrv9002_rf_phy *phy, struct adrv9002_chan *tx,
+static int adrv9002_phy_tx_do_write(const struct adrv9002_rf_phy *phy, struct adrv9002_chan *tx,
 				    uintptr_t private, const char *buf)
 {
 	struct adi_adrv9001_TxProfile *tx_cfg = &phy->curr_profile->tx.txProfile[tx->idx];
@@ -1663,8 +1663,8 @@ static struct iio_chan_spec_ext_info adrv9002_phy_tx_ext_info[] = {
 	{ },
 };
 
-static int adrv9002_channel_power_set(struct adrv9002_rf_phy *phy, struct adrv9002_chan *channel,
-				      const int val)
+static int adrv9002_channel_power_set(const struct adrv9002_rf_phy *phy,
+				      struct adrv9002_chan *channel, const int val)
 {
 	int ret;
 
@@ -1699,8 +1699,8 @@ static int adrv9002_channel_power_set(struct adrv9002_rf_phy *phy, struct adrv90
 	return 0;
 }
 
-static int adrv9002_phy_read_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
-					    struct iio_chan_spec const *chan,
+static int adrv9002_phy_read_raw_no_rf_chan(const struct adrv9002_rf_phy *phy,
+					    const struct iio_chan_spec *chan,
 					    int *val, int *val2, long m)
 {
 	int ret;
@@ -1816,7 +1816,7 @@ static int adrv9002_phy_read_raw_rf_chan(const struct adrv9002_rf_phy *phy,
 }
 
 static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
-				 struct iio_chan_spec const *chan, int *val,
+				 const struct iio_chan_spec *chan, int *val,
 				 int *val2, long m)
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
@@ -1848,8 +1848,8 @@ out_unlock:
 	return ret;
 };
 
-static int adrv9002_phy_write_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
-					     struct iio_chan_spec const *chan, int val,
+static int adrv9002_phy_write_raw_no_rf_chan(const struct adrv9002_rf_phy *phy,
+					     const struct iio_chan_spec *chan, int val,
 					     int val2, long mask)
 {
 	u16 code;
@@ -1930,7 +1930,7 @@ static int adrv9002_hardware_gain_set(const struct adrv9002_rf_phy *phy,
 	return api_call(phy, adi_adrv9001_ORx_Gain_Set, c->number, idx);
 }
 
-static int adrv9002_phy_write_raw_rf_chan(struct adrv9002_rf_phy *phy,
+static int adrv9002_phy_write_raw_rf_chan(const struct adrv9002_rf_phy *phy,
 					  struct adrv9002_chan *chann, int val, int val2, long mask)
 {
 	switch (mask) {
@@ -1957,7 +1957,7 @@ static int adrv9002_phy_write_raw_rf_chan(struct adrv9002_rf_phy *phy,
 }
 
 static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
-				  struct iio_chan_spec const *chan, int val,
+				  const struct iio_chan_spec *chan, int val,
 				  int val2, long mask)
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
@@ -2213,7 +2213,7 @@ irq_done:
 	return IRQ_HANDLED;
 }
 
-static int adrv9002_dgpio_config(struct adrv9002_rf_phy *phy)
+static int adrv9002_dgpio_config(const struct adrv9002_rf_phy *phy)
 {
 	struct adrv9002_gpio *dgpio = phy->adrv9002_gpios;
 	int i, ret;
@@ -2265,12 +2265,12 @@ agc_cfg:
 	return 0;
 }
 
-static int adrv9002_tx_set_dac_full_scale(struct adrv9002_rf_phy *phy)
+static int adrv9002_tx_set_dac_full_scale(const struct adrv9002_rf_phy *phy)
 {
 	int i, ret = 0;
 
 	for (i = 0; i < ARRAY_SIZE(phy->tx_channels); i++) {
-		struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
+		const struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
 
 		if (!tx->channel.enabled || !tx->dac_boost_en)
 			continue;
@@ -2283,13 +2283,13 @@ static int adrv9002_tx_set_dac_full_scale(struct adrv9002_rf_phy *phy)
 	return ret;
 }
 
-static int adrv9002_tx_path_config(struct adrv9002_rf_phy *phy,
+static int adrv9002_tx_path_config(const struct adrv9002_rf_phy *phy,
 				   const adi_adrv9001_ChannelState_e state)
 {
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(phy->tx_channels); i++) {
-		struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
+		const struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
 
 		/* For each tx channel enabled */
 		if (!tx->channel.enabled)
@@ -2580,7 +2580,7 @@ tx:
 	return 0;
 }
 
-static int adrv9002_power_mgmt_config(struct adrv9002_rf_phy *phy)
+static int adrv9002_power_mgmt_config(const struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_PowerManagementSettings power_mgmt = {
 		.ldoPowerSavingModes = {
@@ -2600,7 +2600,7 @@ static int adrv9002_power_mgmt_config(struct adrv9002_rf_phy *phy)
 	return api_call(phy, adi_adrv9001_powermanagement_Configure, &power_mgmt);
 }
 
-static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
+static int adrv9002_digital_init(const struct adrv9002_rf_phy *phy)
 {
 	int spi_mode = ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252;
 	int ret;
@@ -2644,8 +2644,8 @@ static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
 
 	/* Load gain tables */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
-		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
-		struct adrv9002_tx_chan *tx = &phy->tx_channels[c];
+		const struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
+		const struct adrv9002_tx_chan *tx = &phy->tx_channels[c];
 		adi_adrv9001_RxProfile_t *p = &rx_cfg[c].profile;
 		adi_adrv9001_RxGainTableType_e t_type;
 		const char *rx_table;
@@ -2716,7 +2716,7 @@ static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
  * All of these structures are taken from TES when exporting the default profile to C code. Consider
  * about having all of these configurable through devicetree.
  */
-static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
+static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 {
 	int ret;
 	int chan;
@@ -2857,7 +2857,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 	return adrv9002_dgpio_config(phy);
 }
 
-int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
+int adrv9002_intf_change_delay(const struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
 			       u8 data_delay, const bool tx)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
@@ -2892,10 +2892,10 @@ int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u
 	return api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &delays);
 }
 
-int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
+int adrv9002_check_tx_test_pattern(const struct adrv9002_rf_phy *phy, const int chann)
 {
 	int ret;
-	struct adrv9002_chan *chan = &phy->tx_channels[chann].channel;
+	const struct adrv9002_chan *chan = &phy->tx_channels[chann].channel;
 	adi_adrv9001_SsiTestModeData_e test_data = phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
 						ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE :
 						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7;
@@ -2940,11 +2940,11 @@ int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann)
 	return 0;
 }
 
-int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
+int adrv9002_intf_test_cfg(const struct adrv9002_rf_phy *phy, const int chann, const bool tx,
 			   const bool stop)
 {
 	int ret;
-	struct adrv9002_chan *chan;
+	const struct adrv9002_chan *chan;
 	adi_adrv9001_SsiDataFormat_e data_fmt = ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA;
 
 	dev_dbg(&phy->spi->dev, "cfg test stop:%u, ssi:%d, c:%d, tx:%d\n", stop,
@@ -3023,7 +3023,7 @@ int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const b
 	return 0;
 }
 
-static int adrv9002_intf_tuning(struct adrv9002_rf_phy *phy)
+static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
 	int ret;
@@ -3594,7 +3594,7 @@ of_en_delay_put:
 	return ret;
 }
 
-static int adrv9002_parse_tx_pin_dt(struct adrv9002_rf_phy *phy,
+static int adrv9002_parse_tx_pin_dt(const struct adrv9002_rf_phy *phy,
 				    struct device_node *node,
 				    struct adrv9002_tx_chan *tx)
 {
@@ -3654,7 +3654,7 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 	return adrv9002_parse_tx_pin_dt(phy, node, tx);
 }
 
-static int adrv9002_parse_rx_pinctl_dt(struct adrv9002_rf_phy *phy,
+static int adrv9002_parse_rx_pinctl_dt(const struct adrv9002_rf_phy *phy,
 				       const struct device_node *node,
 				       struct adrv9002_rx_chan *rx)
 {
@@ -3836,7 +3836,7 @@ static void adrv9002_set_agc_defaults(struct adi_adrv9001_GainControlCfg *agc)
 	agc->peak.feedback_apd_high_hb_high = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
 }
 
-static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
+static int adrv9002_parse_rx_agc_dt(const struct adrv9002_rf_phy *phy,
 				    const struct device_node *node,
 				    struct adrv9002_rx_chan *rx)
 {

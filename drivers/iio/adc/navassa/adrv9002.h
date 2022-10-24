@@ -263,27 +263,27 @@ void adrv9002_en_delays_arm_to_ns(const struct adrv9002_rf_phy *phy,
 				  const struct adi_adrv9001_ChannelEnablementDelays *d,
 				  struct adi_adrv9001_ChannelEnablementDelays *d_ns);
 /* phy lock must be held before entering the API */
-int adrv9002_channel_to_state(struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
+int adrv9002_channel_to_state(const struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
 			      const adi_adrv9001_ChannelState_e state, const bool cache_state);
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile);
 int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, const int line);
 
 int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy);
-int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
+int adrv9002_axi_interface_set(const struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const bool cmos_ddr, const int channel, const bool tx);
-int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
+int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   u8 *clk_delay, u8 *data_delay);
 void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
 				   const bool en);
 int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 				     const adi_adrv9001_SsiTestModeData_e data);
 int adrv9002_post_init(struct adrv9002_rf_phy *phy);
-int adrv9002_intf_test_cfg(struct adrv9002_rf_phy *phy, const int chann, const bool tx,
+int adrv9002_intf_test_cfg(const struct adrv9002_rf_phy *phy, const int chann, const bool tx,
 			   const bool stop);
-int adrv9002_check_tx_test_pattern(struct adrv9002_rf_phy *phy, const int chann);
-int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
+int adrv9002_check_tx_test_pattern(const struct adrv9002_rf_phy *phy, const int chann);
+int adrv9002_intf_change_delay(const struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
 			       u8 data_delay, const bool tx);
-u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan);
+u32 adrv9002_axi_dds_rate_get(const struct adrv9002_rf_phy *phy, const int chan);
 void adrv9002_axi_hdl_loopback(struct adrv9002_rf_phy *phy, int channel, bool enable);
 
 static inline void adrv9002_sync_gpio_toggle(const struct adrv9002_rf_phy *phy)
