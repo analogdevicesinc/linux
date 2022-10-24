@@ -3,6 +3,7 @@
 adrv9002_drv-y = adrv9002.o
 adrv9002_drv-y += adrv9002_conv.o
 adrv9002_drv-$(CONFIG_DEBUG_FS) += adrv9002_debugfs.o
+adrv9002_drv-$(CONFIG_OF) += adrv9002_of.o
 adrv9002_drv-y += platforms/linux_platform.o
 adrv9002_drv-y += third_party/jsmn/jsmn.o
 adrv9002_drv-y += common/adi_common_log.o
