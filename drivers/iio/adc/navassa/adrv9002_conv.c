@@ -150,7 +150,7 @@ static int adrv9002_reg_access(struct iio_dev *indio_dev, u32 reg, u32 writeval,
 	return 0;
 }
 
-int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
+int adrv9002_axi_interface_set(const struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const bool cmos_ddr, const int channel, const bool tx)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
@@ -267,8 +267,8 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 }
 
 #ifdef DEBUG
-void adrv9002_axi_digital_tune_verbose(struct adrv9002_rf_phy *phy, u8 field[][8], const bool tx,
-				       const int channel)
+static void adrv9002_axi_digital_tune_verbose(const struct adrv9002_rf_phy *phy, u8 field[][8],
+					      const bool tx, const int channel)
 {
 	int i, j;
 	char c;
@@ -300,8 +300,8 @@ void adrv9002_axi_digital_tune_verbose(struct adrv9002_rf_phy *phy, u8 field[][8
 	}
 }
 #else
-void adrv9002_axi_digital_tune_verbose(struct adrv9002_rf_phy *phy, u8 field[][8], const bool tx,
-				       const int channel)
+static void adrv9002_axi_digital_tune_verbose(const struct adrv9002_rf_phy *phy, u8 field[][8],
+					      const bool tx, const int channel)
 {
 }
 #endif
@@ -438,7 +438,7 @@ static void adrv9002_axi_get_channel_range(struct axiadc_converter *conv, bool t
 		*end = conv->chip_info->num_channels;
 }
 
-int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
+int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   u8 *clk_delay, u8 *data_delay)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
@@ -635,7 +635,7 @@ void adrv9002_axi_hdl_loopback(struct adrv9002_rf_phy *phy, int channel, bool en
 	}
 }
 
-u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
+u32 adrv9002_axi_dds_rate_get(const struct adrv9002_rf_phy *phy, const int chan)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
@@ -647,18 +647,18 @@ u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
 
 #else  /* CONFIG_CF_AXI_ADC */
 
-u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
+u32 adrv9002_axi_dds_rate_get(const struct adrv9002_rf_phy *phy, const int chan)
 {
 	return -ENODEV;
 }
 
-int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
+int adrv9002_axi_interface_set(const struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const bool cmos_ddr, const int channel, const bool tx)
 {
 	return -ENODEV;
 }
 
-int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
+int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   u8 *clk_delay, u8 *data_delay)
 {
 	return -ENODEV;
