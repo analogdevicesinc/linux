@@ -545,46 +545,50 @@ static const char * const adrv9002_hop_table[ADRV9002_FH_TABLES_NR + 1] = {
 	"Unknown"
 };
 
+static int adrv9002_fh_table_show(struct adrv9002_rf_phy *phy, char *buf, u64 address)
+{
+	adi_adrv9001_FhMode_e mode = phy->fh.mode;
+	adi_adrv9001_FhHopTable_e table;
+	int ret = -ENOTSUPP;
+
+	mutex_lock(&phy->lock);
+	if (!phy->curr_profile->sysConfig.fhModeOn) {
+		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
+		goto out_unlock;
+	}
+
+	if (address && mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
+		dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
+		goto out_unlock;
+	}
+
+	ret = api_call(phy, adi_adrv9001_fh_HopTable_Get, address, &table);
+	if (ret)
+		goto out_unlock;
+	mutex_unlock(&phy->lock);
+
+	if (table >= ADRV9002_FH_TABLES_NR)
+		table = ADRV9002_FH_TABLES_NR;
+
+	return sysfs_emit(buf, "%s\n", adrv9002_hop_table[table]);
+out_unlock:
+	mutex_unlock(&phy->lock);
+	return ret;
+}
+
 static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	struct iio_dev_attr *iio_attr = to_iio_dev_attr(attr);
-	adi_adrv9001_FhHopTable_e table;
-	adi_adrv9001_FhMode_e mode = phy->fh.mode;
-	int ret = -ENOTSUPP;
 
 	switch (iio_attr->address) {
 	case ADRV9002_HOP_1_TABLE_SEL:
 	case ADRV9002_HOP_2_TABLE_SEL:
-		mutex_lock(&phy->lock);
-		if (!phy->curr_profile->sysConfig.fhModeOn) {
-			dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
-			goto out_unlock;
-		}
-
-		if (iio_attr->address &&
-		    mode != ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP) {
-			dev_err(&phy->spi->dev, "HOP2 not supported! FH mode not in dual hop.\n");
-			goto out_unlock;
-		}
-
-		ret = api_call(phy, adi_adrv9001_fh_HopTable_Get, iio_attr->address, &table);
-		if (ret)
-			goto out_unlock;
-		mutex_unlock(&phy->lock);
-
-		if (table >= ADRV9002_FH_TABLES_NR)
-			table = ADRV9002_FH_TABLES_NR;
-
-		return sysfs_emit(buf, "%s\n", adrv9002_hop_table[table]);
+		return adrv9002_fh_table_show(phy, buf, iio_attr->address);
 	default:
 		return -EINVAL;
 	}
-
-out_unlock:
-	mutex_unlock(&phy->lock);
-	return ret;
 }
 
 static int adrv9002_attr_do_store(const struct adrv9002_rf_phy *phy, const char *buf, u64 address)
