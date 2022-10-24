@@ -662,6 +662,48 @@ static int adrv9002_set_ext_lo(const struct adrv9002_chan *c, u64 freq)
 	return clk_set_rate_scaled(c->ext_lo->clk, freq, &c->ext_lo->scale);
 }
 
+static ssize_t adrv9002_phy_lo_do_write(struct adrv9002_rf_phy *phy, struct adrv9002_chan *c,
+					const char *buf, size_t len)
+{
+	struct adi_adrv9001_Carrier lo_freq;
+	u64 freq;
+	int ret;
+
+	ret = kstrtoull(buf, 10, &freq);
+	if (ret)
+		return ret;
+
+	mutex_lock(&phy->lock);
+
+	if (!c->enabled) {
+		ret = -ENODEV;
+		goto out_unlock;
+	}
+
+	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Inspect, c->port, c->number, &lo_freq);
+	if (ret)
+		goto out_unlock;
+
+	ret = adrv9002_set_ext_lo(c, freq);
+	if (ret)
+		goto out_unlock;
+
+	lo_freq.carrierFrequency_Hz = freq;
+	ret = adrv9002_channel_to_state(phy, c, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+	if (ret)
+		goto out_unlock;
+
+	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Configure, c->port, c->number, &lo_freq);
+	if (ret)
+		goto out_unlock;
+
+	ret = adrv9002_channel_to_state(phy, c, c->cached_state, false);
+
+out_unlock:
+	mutex_unlock(&phy->lock);
+	return ret ? ret : len;
+}
+
 static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 				     uintptr_t private,
 				     const struct iio_chan_spec *chan,
@@ -670,50 +712,14 @@ static ssize_t adrv9002_phy_lo_write(struct iio_dev *indio_dev,
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
 	const int chan_nr = ADRV_ADDRESS_CHAN(chan->address);
-	int ret = -ENODEV;
 	struct adrv9002_chan *chann = adrv9002_get_channel(phy, port, chan_nr);
-	struct adi_adrv9001_Carrier lo_freq;
-	u64 freq;
 
 	switch (private) {
 	case LOEXT_FREQ:
-		mutex_lock(&phy->lock);
-		if (!chann->enabled)
-			goto unlock;
-
-		ret = kstrtoull(buf, 10, &freq);
-		if (ret)
-			goto unlock;
-
-		ret = api_call(phy, adi_adrv9001_Radio_Carrier_Inspect, port,
-			       chann->number, &lo_freq);
-		if (ret)
-			goto unlock;
-
-		ret = adrv9002_set_ext_lo(chann, freq);
-		if (ret)
-			goto unlock;
-
-		lo_freq.carrierFrequency_Hz = freq;
-		ret = adrv9002_channel_to_state(phy, chann, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
-		if (ret)
-			goto unlock;
-
-		ret = api_call(phy, adi_adrv9001_Radio_Carrier_Configure, port,
-			       chann->number, &lo_freq);
-		if (ret)
-			goto unlock;
-
-		ret = adrv9002_channel_to_state(phy, chann, chann->cached_state, false);
-		mutex_unlock(&phy->lock);
-		return ret ? ret : len;
+		return adrv9002_phy_lo_do_write(phy, chann, buf, len);
 	default:
 		return -EINVAL;
 	}
-
-unlock:
-	mutex_unlock(&phy->lock);
-	return ret;
 }
 
 static ssize_t adrv9002_phy_lo_read(struct iio_dev *indio_dev,
