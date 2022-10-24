@@ -3723,6 +3723,8 @@ static int adrv9002_probe(struct spi_device *spi)
 
 	phy->chip = of_device_get_match_data(&spi->dev);
 	if (!phy->chip)
+		phy->chip = (const struct adrv9002_chip_info *)spi_get_device_id(spi)->driver_data;
+	if (!phy->chip)
 		return -EINVAL;
 
 	/* in the future we might want to get rid of 'phy->rx2tx2' and just use chip_info  */
@@ -3782,8 +3784,16 @@ static const struct of_device_id adrv9002_of_match[] = {
 	{.compatible = "adi,adrv9003-rx2tx2", .data = &adrv9002_info[ID_ADRV9003_RX2TX2]},
 	{}
 };
-
 MODULE_DEVICE_TABLE(of, adrv9002_of_match);
+
+static const struct spi_device_id adrv9002_ids[] = {
+	{"adrv9002", (kernel_ulong_t)&adrv9002_info[ID_ADRV9002]},
+	{"adrv9002-rx2tx2", (kernel_ulong_t)&adrv9002_info[ID_ADRV9002_RX2TX2]},
+	{"adrv9003", (kernel_ulong_t)&adrv9002_info[ID_ADRV9003]},
+	{"adrv9003-rx2tx2", (kernel_ulong_t)&adrv9002_info[ID_ADRV9003_RX2TX2]},
+	{}
+};
+MODULE_DEVICE_TABLE(spi, adrv9002_ids);
 
 static struct spi_driver adrv9002_driver = {
 	.driver = {
@@ -3791,6 +3801,7 @@ static struct spi_driver adrv9002_driver = {
 		.of_match_table = adrv9002_of_match,
 	},
 	.probe		= adrv9002_probe,
+	.id_table	= adrv9002_ids,
 };
 module_spi_driver(adrv9002_driver);
 
