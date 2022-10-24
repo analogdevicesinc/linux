@@ -1742,43 +1742,48 @@ static int adrv9002_phy_read_raw_no_rf_chan(struct adrv9002_rf_phy *phy,
 	};
 }
 
-static int adrv9002_phy_read_raw_rf_chan(const struct adrv9002_rf_phy *phy,
-					 const struct iio_chan_spec *chan,
-					 const struct adrv9002_chan *chann, int *val,
-					 int *val2, long m)
+static int adrv9002_hardware_gain_get(const struct adrv9002_rf_phy *phy,
+				      const struct adrv9002_chan *c, int *val, int *val2)
 {
 	int temp, ret;
 	u8 index;
 
-	switch (m) {
-	case IIO_CHAN_INFO_HARDWAREGAIN:
-		if (chan->output) {
-			u16 atten_mdb;
+	if (c->port == ADI_TX) {
+		u16 atten_mdb;
 
-			ret = api_call(phy, adi_adrv9001_Tx_Attenuation_Get,
-				       chann->number, &atten_mdb);
-			if (ret)
-				return ret;
-
-			*val = -1 * (atten_mdb / 1000);
-			*val2 = (atten_mdb % 1000) * 1000;
-			if (!*val)
-				*val2 *= -1;
-
-			return IIO_VAL_INT_PLUS_MICRO_DB;
-		}
-
-		if (chann->port == ADI_ORX)
-			ret = api_call(phy, adi_adrv9001_ORx_Gain_Get, chann->number, &index);
-		else
-			ret = api_call(phy, adi_adrv9001_Rx_Gain_Get, chann->number, &index);
+		ret = api_call(phy, adi_adrv9001_Tx_Attenuation_Get, c->number, &atten_mdb);
 		if (ret)
 			return ret;
 
-		temp = adrv9002_gainidx_to_gain(index, chann->port);
-		*val = temp / 1000;
-		*val2 = temp % 1000 * 1000;
+		*val = -1 * (atten_mdb / 1000);
+		*val2 = (atten_mdb % 1000) * 1000;
+		if (!*val)
+			*val2 *= -1;
+
 		return IIO_VAL_INT_PLUS_MICRO_DB;
+	}
+
+	if (c->port == ADI_ORX)
+		ret = api_call(phy, adi_adrv9001_ORx_Gain_Get, c->number, &index);
+	else
+		ret = api_call(phy, adi_adrv9001_Rx_Gain_Get, c->number, &index);
+	if (ret)
+		return ret;
+
+	temp = adrv9002_gainidx_to_gain(index, c->port);
+	*val = temp / 1000;
+	*val2 = temp % 1000 * 1000;
+
+	return IIO_VAL_INT_PLUS_MICRO_DB;
+}
+
+static int adrv9002_phy_read_raw_rf_chan(const struct adrv9002_rf_phy *phy,
+					 const struct adrv9002_chan *chann, int *val,
+					 int *val2, long m)
+{
+	switch (m) {
+	case IIO_CHAN_INFO_HARDWAREGAIN:
+		return adrv9002_hardware_gain_get(phy, chann, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = clk_get_rate(chann->clk);
 		return IIO_VAL_INT;
@@ -1826,7 +1831,7 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 		goto out_unlock;
 	}
 
-	ret = adrv9002_phy_read_raw_rf_chan(phy, chan, chann, val, val2, m);
+	ret = adrv9002_phy_read_raw_rf_chan(phy, chann, val, val2, m);
 
 out_unlock:
 	mutex_unlock(&phy->lock);
@@ -1891,32 +1896,36 @@ static bool adrv9002_orx_can_enable(const struct adrv9002_rf_phy *phy,
 	return true;
 }
 
-static int adrv9002_phy_write_raw_rf_chan(struct adrv9002_rf_phy *phy,
-					  const struct iio_chan_spec *chan,
-					  struct adrv9002_chan *chann, int val, int val2, long mask)
+static int adrv9002_hardware_gain_set(const struct adrv9002_rf_phy *phy,
+				      const struct adrv9002_chan *c, int val, int val2)
 {
 	int gain;
 	u32 code;
 	u8 idx;
 
+	if (c->port == ADI_TX) {
+		if (val > 0 || (val == 0 && val2 > 0))
+			return -EINVAL;
+
+		code = ((abs(val) * 1000) + (abs(val2) / 1000));
+		return api_call(phy, adi_adrv9001_Tx_Attenuation_Set, c->number, code);
+	}
+
+	gain = val * 1000 + val2 / 1000;
+	idx = adrv9002_gain_to_gainidx(gain, c->port);
+
+	if (c->port == ADI_RX)
+		return api_call(phy, adi_adrv9001_Rx_Gain_Set, c->number, idx);
+
+	return api_call(phy, adi_adrv9001_ORx_Gain_Set, c->number, idx);
+}
+
+static int adrv9002_phy_write_raw_rf_chan(struct adrv9002_rf_phy *phy,
+					  struct adrv9002_chan *chann, int val, int val2, long mask)
+{
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		if (chan->output) {
-			if (val > 0 || (val == 0 && val2 > 0))
-				return -EINVAL;
-
-			code = ((abs(val) * 1000) + (abs(val2) / 1000));
-
-			return api_call(phy, adi_adrv9001_Tx_Attenuation_Set, chann->number, code);
-		}
-
-		gain = val * 1000 + val2 / 1000;
-		idx = adrv9002_gain_to_gainidx(gain, chann->port);
-
-		if (chann->port == ADI_RX)
-			return api_call(phy, adi_adrv9001_Rx_Gain_Set, chann->number, idx);
-
-		return api_call(phy, adi_adrv9001_ORx_Gain_Set, chann->number, idx);
+		return adrv9002_hardware_gain_set(phy, chann, val, val2);
 	case IIO_CHAN_INFO_ENABLE:
 		if (chann->port == ADI_ORX) {
 			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
@@ -1963,7 +1972,7 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 		goto out_unlock;
 	}
 
-	ret = adrv9002_phy_write_raw_rf_chan(phy, chan, chann, val, val2, mask);
+	ret = adrv9002_phy_write_raw_rf_chan(phy, chann, val, val2, mask);
 
 out_unlock:
 	mutex_unlock(&phy->lock);
