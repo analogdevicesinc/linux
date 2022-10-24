@@ -3795,5 +3795,6 @@ static struct spi_driver adrv9002_driver = {
 module_spi_driver(adrv9002_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
+MODULE_AUTHOR("Nuno Sá <nuno.sa@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADRV9002 ADC");
 MODULE_LICENSE("GPL v2");
