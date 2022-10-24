@@ -34,6 +34,8 @@ struct iio_chan_spec;
 #define ADRV9002_FH_HOP_SIGNALS_NR	2
 #define ADRV9002_FH_TABLES_NR		2
 #define ADRV9002_FH_BIN_ATTRS_CNT	(ADRV9002_FH_HOP_SIGNALS_NR * ADRV9002_FH_TABLES_NR)
+#define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
+#define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
 
 enum {
 	ADRV9002_CHANN_1,
@@ -302,5 +304,15 @@ void adrv9002_axi_hdl_loopback(struct adrv9002_rf_phy *phy, int channel, bool en
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d);
 #else
 static inline void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d) {}
+#endif
+
+/* OF API's */
+#ifdef CONFIG_OF
+int adrv9002_parse_dt(struct adrv9002_rf_phy *phy);
+#else
+static inline int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
+{
+	return 0;
+}
 #endif
 #endif
