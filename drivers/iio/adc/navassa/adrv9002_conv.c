@@ -30,7 +30,6 @@
 #include "adi_adrv9001_rxSettings_types.h"
 #include "adi_adrv9001_ssi_types.h"
 
-#if IS_ENABLED(CONFIG_CF_AXI_ADC)
 #include "../cf_axi_adc.h"
 
 #define ADI_RX2_REG_OFF			0x1000
@@ -644,45 +643,3 @@ u32 adrv9002_axi_dds_rate_get(const struct adrv9002_rf_phy *phy, const int chan)
 	/* the rate is decremented by one when configured on the core */
 	return axiadc_read(st, AIM_AXI_REG(off, ADI_TX_REG_RATE)) + 1;
 }
-
-#else  /* CONFIG_CF_AXI_ADC */
-
-u32 adrv9002_axi_dds_rate_get(const struct adrv9002_rf_phy *phy, const int chan)
-{
-	return -ENODEV;
-}
-
-int adrv9002_axi_interface_set(const struct adrv9002_rf_phy *phy, const u8 n_lanes,
-			       const bool cmos_ddr, const int channel, const bool tx)
-{
-	return -ENODEV;
-}
-
-int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, const int chann,
-			   u8 *clk_delay, u8 *data_delay)
-{
-	return -ENODEV;
-}
-
-void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
-				   const bool en)
-{
-	return -ENODEV;
-}
-
-int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
-				     const adi_adrv9001_SsiTestModeData_e data)
-{
-	return -ENODEV;
-}
-
-int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
-{
-	struct spi_device *spi = phy->spi;
-
-	spi_set_drvdata(spi, phy); /* Take care here */
-
-	return 0;
-}
-
-#endif /* CONFIG_CF_AXI_ADC */
