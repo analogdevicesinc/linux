@@ -4454,6 +4454,7 @@ static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj
 	char info[350];
 	size_t len;
 
+	mutex_lock(&phy->lock);
 	len = scnprintf(info, sizeof(info), "Device clk(Hz): %d\n"
 		       "Clk PLL VCO(Hz): %lld\n"
 		       "ARM Power Saving Clk Divider: %d\n"
@@ -4476,6 +4477,7 @@ static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj
 		       rx_gain_type[rx->rxChannelCfg[ADRV9002_CHANN_2].profile.gainTableType],
 		       rx->rxInitChannelMask, tx->txInitChannelMask, duplex[sys->duplexMode],
 		       sys->fhModeOn, mcs[sys->mcsMode], ssi[phy->ssi_type]);
+	mutex_unlock(&phy->lock);
 
 	return memory_read_from_buffer(buf, count, &pos, info, len);
 }
