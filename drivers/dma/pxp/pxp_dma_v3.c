@@ -1790,8 +1790,13 @@ static uint32_t pxp_fetch_active_size_lrc(struct pxp_pixmap *in)
 
 	memset((void*)&size_lrc, 0x0, sizeof(size_lrc));
 
-	size_lrc.active_size_lrc_x = in->crop.width - 1;
-	size_lrc.active_size_lrc_y = in->crop.height - 1;
+	if (in->crop.width > 0 && in->crop.height > 0) {
+		size_lrc.active_size_lrc_x = in->crop.width - 1;
+		size_lrc.active_size_lrc_y = in->crop.height - 1;
+	} else {
+		size_lrc.active_size_lrc_x = in->width - 1;
+		size_lrc.active_size_lrc_y = in->height - 1;
+	}
 
 	return *(uint32_t *)&size_lrc;
 }
