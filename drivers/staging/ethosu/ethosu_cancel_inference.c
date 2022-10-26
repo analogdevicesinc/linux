@@ -87,7 +87,7 @@ int ethosu_cancel_inference_request(struct ethosu_inference *inf,
 	/* increase ref count on the inference we are referring to */
 	ethosu_inference_get(inf);
 	/* mark inference ABORTING to avoid resending the inference message */
-	inf->status = ETHOSU_CORE_STATUS_ABORTING;
+	inf->status = ETHOSU_UAPI_STATUS_ABORTING;
 
 	cancellation->edev = inf->edev;
 	cancellation->inf = inf;
