@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+    #address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+    adar300x: adar300x@0 {
+        compatible = "adi,adar3002";
+        reg = <0>;
+		spi-max-frequency = <1000000>;
+
+        #address-cells = <1>;
+		#size-cells = <0>;
+
+        reset-gpios = <&gpio 27 0>;
+
+        dev@0 {
+            reg = <0>;
+            label = "BEAM0";
+        };
+    };
+};
