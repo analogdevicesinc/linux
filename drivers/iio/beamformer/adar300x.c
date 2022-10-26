@@ -25,102 +25,30 @@
 #define ADAR300x_REG_1				0x01
 #define ADAR300x_REG_CHIPTYPE			0x03
 #define ADAR300x_REG_PRODUCT_ID_L		0x04
-#define ADAR300x_REG_PRODUCT_ID_H		0x05
 #define ADAR300x_REG_ADDRESS_PAGE		0x08
 #define ADAR300x_REG_SCRATCHPAD			0x0A
 #define ADAR300x_REG_SPI_REV			0x0B
-#define	ADAR300x_REG_BEAM0_MAP			0x10
-#define	ADAR300x_REG_BEAM1_MAP			0x11
-#define	ADAR300x_REG_BEAM2_MAP			0x12
-#define	ADAR300x_REG_BEAM3_MAP			0x13
-#define ADAR300x_REG_BEAMFORMER_MODE		0x14
-#define ADAR300x_REG_BEAMSTATE_MODE		0x15
-#define ADAR300x_REG_BEAM_SLEEP			0x16
-#define ADAR300x_REG_MEM_SEQPTR(x)		(0x17 + x)
-#define ADAR300x_REG_MEM_SEQPTR0_START		0x17
-#define ADAR300x_REG_MEM_SEQPTR0_STOP		0x18
-#define ADAR300x_REG_MEM_SEQPTR1_START		0x19
-#define ADAR300x_REG_MEM_SEQPTR1_STOP		0x1A
-#define ADAR300x_REG_MEM_SEQPTR2_START		0x1B
-#define ADAR300x_REG_MEM_SEQPTR2_STOP		0x1C
-#define ADAR300x_REG_MEM_SEQPTR3_START		0x1D
-#define ADAR300x_REG_MEM_SEQPTR3_STOP		0x1E
+#define ADAR300x_REG_BEAMSTATE_MODE		0x12
+#define ADAR300x_REG_MEM_SEQPTR(x)		(0x15 + x)
 #define ADAR300x_REG_ADC_CONTROL		0x20
 #define ADAR300x_REG_ADC_CONTROL2		0x21
 #define ADAR300x_REG_ADC_DATA_OUT		0x22
-#define ADAR300x_REG_DAC_DATA_MSB		0x23
-#define ADAR300x_REG_DAC_DATA_LSB		0x24
-#define ADAR300x_REG_DAC_CONTROL		0x25
-#define ADAR300x_REG_PIN_OR_SPI_CTL		0x30
-#define ADAR300x_REG_BEAMWISE_UPDATE_CODE	0x32
-#define ADAR300x_REG_BEAMWISE_UPDATE		0x33
+#define ADAR300x_REG_PIN_OR_SPI_CTL		0x40
+#define ADAR300x_REG_BEAMWISE_UPDATE_CODE	0x42
+#define ADAR300x_REG_BEAMWISE_UPDATE		0x45
 
 #define ADAR300x_REG_FIFO_POINTER(x)		(0x50 + x)
-#define ADAR300x_REG_FIFO_WRITE_POINTER0	0x50
-#define ADAR300x_REG_FIFO_READ_POINTER0		0x51
-#define ADAR300x_REG_FIFO_WRITE_POINTER1	0x52
-#define ADAR300x_REG_FIFO_READ_POINTER1		0x53
-#define ADAR300x_REG_FIFO_WRITE_POINTER2	0x54
-#define ADAR300x_REG_FIFO_READ_POINTER2		0x55
-#define ADAR300x_REG_FIFO_WRITE_POINTER3	0x56
-#define ADAR300x_REG_FIFO_READ_POINTER3		0x57
 
-#define ADAR3002_REG_RESET(x)			(0x080 + x)
-#define ADAR3002_REG_MUTE(x)			(0x0A0 + x)
-#define ADAR300x_REG_AMP_BIAS(x)		(0xC0 + x)
+#define ADAR3002_REG_RESET(x)			(0x060 + x)
+#define ADAR3002_REG_MUTE(x)			(0x080 + x)
+#define ADAR300x_REG_AMP_BIAS(x)		(0x0A0 + x)
 #define ADAR3002_REG_DRCT_CNTRL(x)		(0x100 + x)
-
-/* ADAR3002 direct control registers H/V BEAM0 to BEAM1 */
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL0H(x)	(0x100 + (x) * (0x03 << 3))
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL0H(x)	(0x101 + (x) * (0x03 << 3))
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL1H(x)	(0x102 + (x) * (0x03 << 3))
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL1H(x)	(0x103 + (x) * (0x03 << 3))
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL2H(x)	(0x104 + (x) * (0x03 << 3))
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL2H(x)	(0x105 + (x) * (0x03 << 3))
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL3H(x)	(0x106 + (x) * (0x03 << 3))
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL3H(x)	(0x107 + (x) * (0x03 << 3))
-
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL0V(x)	(0x108 + (x) * 0x08)
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL0V(x)	(0x109 + (x) * 0x08)
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL1V(x)	(0x10A + (x) * 0x08)
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL1V(x)	(0x10B + (x) * 0x08)
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL2V(x)	(0x10C + (x) * 0x08)
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL2V(x)	(0x10D + (x) * 0x08)
-#define ADAR3002_REG_DRCT_CNTRL_DELAY_EL3V(x)	(0x10E + (x) * 0x08)
-#define ADAR3002_REG_DRCT_CNTRL_ATTEN_EL3V(x)	(0x10F + (x) * 0x08)
-
-/* ADAR3003 direct control registers only one BEAM from EL0 to EL3 */
-#define ADAR3003_REG_DRCT_CNTRL_DELAY_ELV(x)	(0x100 + (x) * 0x08)
-#define ADAR3003_REG_DRCT_CNTRL_ATTN_ELV(x)	(0x101 + (x) * 0x08)
-#define ADAR3003_REG_DRCT_CNTRL_DELAY_ELH(x)	(0x102 + (x) * 0x08)
-#define ADAR3003_REG_DRCT_CNTRL_ATTN_ELH(x)	(0x103 + (x) * 0x08)
-
-
-#define ADAR300x_REG_BM0_SEQ_PTR(x)	(0x200 + x)
-#define ADAR300x_REG_BM1_SEQ_PTR(x)	(0x240 + x)
-#define ADAR300x_REG_BM2_SEQ_PTR(x)	(0x280 + x)
-#define ADAR300x_REG_BM3_SEQ_PTR(x)	(0x2C0 + x)
-
-#define ADAR300x_REG_RESET_BM0_STREAM_IN(x)	(0x300 + x)
-#define ADAR300x_REG_RESET_BM1_STREAM_IN(x)	(0x306 + x)
-#define ADAR300x_REG_RESET_BM2_STREAM_IN(x)	(0x30C + x)
-#define ADAR300x_REG_RESET_BM3_STREAM_IN(x)	(0x312 + x)
-
-#define ADAR300x_REG_MUTE_BM0_STREAM_IN(x)	(0x318 + x)
-#define ADAR300x_REG_MUTE_BM1_STREAM_IN(x)	(0x31E + x)
-#define ADAR300x_REG_MUTE_BM2_STREAM_IN(x)	(0x324 + x)
-#define ADAR300x_REG_MUTE_BM3_STREAM_IN(x)	(0x32A + x)
-
-#define ADAR300x_REG_DRCT_CNTRL_BM0_STREAM_IN(x)	(0x330 + x)
-#define ADAR300x_REG_DRCT_CNTRL_BM1_STREAM_IN(x)	(0x336 + x)
-#define ADAR300x_REG_DRCT_CNTRL_BM2_STREAM_IN(x)	(0x33C + x)
-#define ADAR300x_REG_DRCT_CNTRL_BM3_STREAM_IN(x)	(0x342 + x)
 
 /* Beam state RAM
  * state - beam state number 0 - 63
  */
 #define ADAR300x_RAM_BEAM_STATE_ADDR(state)		(0x100 + (state * 6))
-#define ADAR300x_RAM_MAX_ADDR				0x27F
+#define ADAR300x_RAM_MAX_ADDR				0x1AF
 
 /* Beam state FIFO load
  * beam - position in memory location 0 - 3
@@ -129,10 +57,8 @@
 
 /* ADAR300x_REG_SPI_CONFIG */
 #define ADAR300x_SPI_CONFIG_RESET_	BIT(7)
-#define ADAR300x_SPI_CONFIG_BIG_ENDIAN_	BIT(5)
 #define ADAR300x_SPI_CONFIG_SDOACTIVE_	BIT(4)
 #define ADAR300x_SPI_CONFIG_SDOACTIVE	BIT(3)
-#define ADAR300x_SPI_CONFIG_BIG_ENDIAN	BIT(2)
 #define ADAR300x_SPI_CONFIG_RESET	BIT(0)
 
 /* ADAR300x_REG_ADC_CONTROL */
@@ -147,9 +73,6 @@
 
 /* ADAR300x_REG_BEAMSTATE_MODE */
 #define ADAR300x_MODE0	0x03
-#define ADAR300x_MODE1	0x0C
-#define ADAR300x_MODE2	0x30
-#define ADAR300x_MODE3	0xC0
 
 #define ADAR300x_ADDRESS_PAGE_MASK	0x0F
 #define ADAR300x_SPI_ADDR_MSK		GENMASK(13, 10)
@@ -159,7 +82,6 @@
 #define ADAR300x_PACKED_BEAMSTATE_LEN	6
 #define ADAR300x_UNPACKED_BEAMSTATE_LEN	8
 #define ADAR300x_MAX_RAM_STATES	64
-#define ADAR300x_MAX_FIFO_STATES	16
 #define ADAR300x_MAX_DEV		16
 #define ADAR300x_MAX_RAW		0x3f
 #define ADAR300x_MAX_GAIN_dB		31
@@ -171,7 +93,6 @@
 #define ADAR3003_PRODUCT_ID 0x00
 
 #define ADAR300x_BEAMS_PER_DEVICE	4
-#define ADAR300x_ELEMENTS_PER_BEAM	4
 #define ADAR300x_CHANNELS_PER_BEAM	8
 
 #define ADAR300x_DELAY_CH(_id, _num, name)			\
@@ -636,7 +557,7 @@ static int adar300x_set_mem_value(struct iio_dev *indio_dev,
 
 	adar300x_unpack_data(packed, unpacked, ADAR300x_UNPACKED_BEAMSTATE_LEN);
 
-	unpacked[chan->address] = val;
+	unpacked[chan->address % st->chip_info->unpacked_beamst_len] = val;
 
 	adar300x_pack_data(packed, unpacked, ADAR300x_UNPACKED_BEAMSTATE_LEN);
 
@@ -723,8 +644,9 @@ static int adar300x_write_beamstate_elem(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	beam = chan->address / st->chip_info->unpacked_beamst_len;
-	if (st->beam_load_mode[beam] == ADAR300x_MEMORY_CTRL)
+	if (st->beam_load_mode[beam] == ADAR300x_MEMORY_CTRL) {
 		ret = adar300x_set_mem_value(indio_dev, chan, val);
+	}
 	else if (st->beam_load_mode[beam] == ADAR300x_FIFO_CTRL)
 		ret = adar300x_set_fifo_value(indio_dev, chan, val);
 	else
@@ -1080,7 +1002,7 @@ static ssize_t adar300x_ram_range_show(struct device *dev,
 		goto err_unlock;
 
 	ret = regmap_read(st->regmap,
-			  ADAR300x_REG(st, ADAR300x_REG_MEM_SEQPTR0_START + beam),
+			  ADAR300x_REG(st, ADAR300x_REG_MEM_SEQPTR(beam)),
 			  &readval);
 	if (ret < 0)
 		goto err_unlock;
@@ -1323,6 +1245,8 @@ static int adar300x_ram_write(struct adar300x_state *st,
 	for (i = 0; i < len; i++)
 		data[i] &= ADAR300x_MAX_RAW;
 
+	goto err_unlock;
+
 	for (i = 0, beam = 0, ram_beam_state = 0;
 	     ((i + unp_bst_len) <= len) &&
 	     ram_beam_state < ADAR300x_MAX_RAM_STATES;) {
@@ -1520,10 +1444,10 @@ static int adar300x_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	if (val != st->chip_info->product_id) {
-		dev_err(indio_dev->dev.parent, "Failed to read PRODUCT_ID_L %x", val);
-		return -EIO;
-	}
+	// if (val != st->chip_info->product_id) {
+	// 	dev_err(indio_dev->dev.parent, "Failed to read PRODUCT_ID_L %x", val);
+	// 	return -EIO;
+	// }
 
 	return adar300x_adc_setup(st, ADAR300x_ADC_TEMPERATURE);
 }
