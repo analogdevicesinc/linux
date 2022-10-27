@@ -10844,6 +10844,14 @@ F:	drivers/power/supply/max77650-charger.c
 F:	drivers/regulator/max77650-regulator.c
 F:	include/linux/mfd/max77650.h
 
+MAXIM MAX77659 PMIC MFD DRIVER
+M:	Nurettin Bolucu <Nurettin.Bolucu@analog.com>
+M:	Zeynep Arslanbenzer <Zeynep.Arslanbenzer@analog.com>
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
+F:	drivers/mfd/max77659.c
+F:	include/linux/mfd/max77659.h
+
 MAXIM MAX77802 PMIC REGULATOR DEVICE DRIVER
 M:	Javier Martinez Canillas <javier@dowhile0.org>
 L:	linux-kernel@vger.kernel.org

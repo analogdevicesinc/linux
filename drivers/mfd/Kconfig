@@ -830,6 +830,18 @@ config MFD_MAX77650
 	  the following functionalities of the device: GPIO, regulator,
 	  charger, LED, onkey.
 
+config MFD_MAX77659
+	tristate "Maxim Integrated MAX77659 PMIC Support"
+	depends on I2C
+	select MFD_CORE
+	select REGMAP_I2C
+	select REGMAP_IRQ
+	help
+	  Say yes here to add support for Maxim Integrated MAX77659.
+	  This driver provides common support for accessing the device,
+	  additional drivers must be enabled in order to use the functionality
+	  of the device.
+
 config MFD_MAX77686
 	tristate "Maxim Semiconductor MAX77686/802 PMIC Support"
 	depends on I2C

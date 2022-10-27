@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+#ifndef __MAX77659_MFD_H__
+#define __MAX77659_MFD_H__
+
+#include <linux/bits.h>
+
+#define MAX77659_NAME "max77659"
+
+#define MAX77659_REGULATOR_NAME MAX77659_NAME"-regulator"
+#define MAX77659_CHARGER_NAME MAX77659_NAME"-charger"
+
+#define MAX77659_REG_INT_GLBL0 0x00
+#define MAX77659_REG_INT_CHG 0x01
+#define MAX77659_REG_INT_GLBL1 0x04
+#define MAX77659_REG_INT_M_CHG 0x07
+#define MAX77659_REG_INTM_GLBL1 0x08
+#define MAX77659_REG_INTM_GLBL0 0x09
+
+#define MAX77659_INT_GLBL0_MASK 0xFF
+#define MAX77659_INT_GLBL1_MASK 0x33
+
+#define MAX77659_BIT_INT_GLBL0_GPIO0_F BIT(0)
+#define MAX77659_BIT_INT_GLBL0_GPIO0_R BIT(1)
+#define MAX77659_BIT_INT_GLBL0_EN_F BIT(2)
+#define MAX77659_BIT_INT_GLBL0_EN_R BIT(3)
+#define MAX77659_BIT_INT_GLBL0_TJAL1_R BIT(4)
+#define MAX77659_BIT_INT_GLBL0_TJAL2_R BIT(5)
+#define MAX77659_BIT_INT_GLBL0_DOD0_R BIT(7)
+
+#define MAX77659_BIT_INT_GLBL1_GPI1_F BIT(0)
+#define MAX77659_BIT_INT_GLBL1_GPI1_R BIT(1)
+#define MAX77659_BIT_INT_GLBL1_SBB_TO BIT(4)
+#define MAX77659_BIT_INT_GLBL1_LDO0_F BIT(5)
+
+#define MAX77659_BIT_INT_THM BIT(0)
+#define MAX77659_BIT_INT_CHG BIT(1)
+#define MAX77659_BIT_INT_CHGIN BIT(2)
+#define MAX77659_BIT_INT_TJ_REG BIT(3)
+#define MAX77659_BIT_INT_SYS_CTRL BIT(4)
+
+enum {
+	MAX77659_DEV_PMIC,
+	MAX77659_DEV_CHARGER,
+	MAX77659_DEV_REGULATOR,
+	MAX77659_NUM_DEVS,
+};
+
+struct max77659_dev {
+	void *pdata;
+	struct device *dev;
+
+	int irq;
+	struct regmap_irq_chip_data *irq_data;
+	struct regmap_irq_chip_data	*irqc_chg;
+
+	struct i2c_client *i2c;
+	struct regmap *regmap;
+};
+
+#endif /* __MAX77659_MFD_H__ */
