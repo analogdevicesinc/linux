@@ -77,11 +77,13 @@
 	adf4350: adf4350@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		#clock-cells = <0>;
 		compatible = "adi,adf4350";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&adf4350_clkin>;
 		clock-names = "clkin";
+		clock-output-names = "adf4350-out";
 		adi,channel-spacing = <100000>;
 		adi,power-up-frequency = <2500000000>;
 		adi,phase-detector-polarity-positive-enable;

@@ -142,11 +142,13 @@
 		lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
 			#address-cells = <1>;
 			#size-cells = <0>;
+			#clock-cells = <0>;
 			compatible = "adi,adf4351";
 			reg = <4>;
 			spi-max-frequency = <10000000>;
 			clocks = <&clk0_ad9523 9>;
 			clock-names = "clkin";
+			clock-output-names = "adf4351-rx-out";
 			adi,channel-spacing = <10000>;
 			adi,power-up-frequency = <2400000000>;
 			adi,phase-detector-polarity-positive-enable;
@@ -158,11 +160,13 @@
 		lo_pll0_tx_adf4351: adf4351-tx-lpc@5 {
 			#address-cells = <1>;
 			#size-cells = <0>;
+			#clock-cells = <0>;
 			compatible = "adi,adf4351";
 			reg = <5>;
 			spi-max-frequency = <10000000>;
 			clocks = <&clk0_ad9523 5>;
 			clock-names = "clkin";
+			clock-output-names = "adf4351-tx-out";
 			adi,channel-spacing = <10000>;
 			adi,power-up-frequency = <2400000000>;
 			adi,phase-detector-polarity-positive-enable;

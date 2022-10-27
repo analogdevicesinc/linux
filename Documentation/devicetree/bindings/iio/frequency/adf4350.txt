@@ -74,7 +74,9 @@ Example:
 		lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
 			compatible = "adi,adf4351";
 			reg = <4>;
+			#clock-cells = <0>;
 			spi-max-frequency = <10000000>;
+			clock-output-names = "adf4351-out";
 			clocks = <&clk0_ad9523 9>;
 			clock-names = "clkin";
 			adi,channel-spacing = <10000>;

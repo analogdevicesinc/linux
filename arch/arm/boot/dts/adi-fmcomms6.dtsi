@@ -47,8 +47,10 @@
 
 		spi-max-frequency = <10000000>;
 
+		#clock-cells = <0>;
 		clocks = <&ad9517_ref_clk>;
 		clock-names = "clkin";
+		clock-output-names = "adf4351-out";
 
 		adi,channel-spacing = <10000>;
 		adi,power-up-frequency = <1500000000>;
