@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -58,30 +58,26 @@
 #include <linux/pagemap.h>
 #include <linux/seq_file.h>
 #include <linux/mman.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
-#include <linux/anon_inodes.h>
+#    include <linux/anon_inodes.h>
 #endif
 #include <linux/file.h>
 
 #include "gc_hal_kernel_allocator_array.h"
 #include "gc_hal_kernel_platform.h"
 
-#define _GC_OBJ_ZONE    gcvZONE_OS
+#define _GC_OBJ_ZONE gcvZONE_OS
 
-
-/******************************************************************************\
-******************************** Debugfs Support *******************************
-\******************************************************************************/
-
+/*******************************************************************************
+ ******************************* Debugfs Support *******************************
+ *******************************************************************************/
 static gceSTATUS
-_AllocatorDebugfsInit(
-    IN gckOS Os
-    )
+_AllocatorDebugfsInit(IN gckOS Os)
 {
-    gceSTATUS status;
+    gceSTATUS    status;
     gckGALDEVICE device = Os->device;
 
     gckDEBUGFS_DIR dir = &Os->allocatorDebugfsDir;
@@ -95,62 +91,73 @@ OnError:
 }
 
 static void
-_AllocatorDebugfsCleanup(
-    IN gckOS Os
-    )
+_AllocatorDebugfsCleanup(IN gckOS Os)
 {
     gckDEBUGFS_DIR dir = &Os->allocatorDebugfsDir;
 
     gckDEBUGFS_DIR_Deinit(dir);
 }
 
-/***************************************************************************\
-************************ Allocator management *******************************
-\***************************************************************************/
+/****************************************************************************
+ *********************** Allocator management *******************************
+ ****************************************************************************/
+#if gcdANON_FILE_FOR_ALLOCATOR
+static int
+tmp_mmap(struct file *fp, struct vm_area_struct *vma)
+{
+    return 0;
+}
+
+static const struct file_operations tmp_fops = {
+    .mmap = tmp_mmap,
+};
+
+#endif
 
 gceSTATUS
-gckOS_ImportAllocators(
-    gckOS Os
-    )
+gckOS_ImportAllocators(gckOS Os)
 {
-    gceSTATUS status;
-    gctUINT i;
+    gceSTATUS    status;
+    gctUINT      i;
     gckALLOCATOR allocator;
+
+#if gcdANON_FILE_FOR_ALLOCATOR
+    struct file *anon_file = gcvNULL;
+    gctINT32     ufd       = 0;
+
+    ufd       = anon_inode_getfd("[galcore]", &tmp_fops, gcvNULL, O_RDWR);
+    anon_file = fget(ufd);
+#endif
 
     _AllocatorDebugfsInit(Os);
 
     INIT_LIST_HEAD(&Os->allocatorList);
 
-    for (i = 0; i < gcmCOUNTOF(allocatorArray); i++)
-    {
-        if (allocatorArray[i].construct)
-        {
+    for (i = 0; i < gcmCOUNTOF(allocatorArray); i++) {
+        if (allocatorArray[i].construct) {
             /* Construct allocator. */
             status = allocatorArray[i].construct(Os, &Os->allocatorDebugfsDir, &allocator);
 
-            if (gcmIS_ERROR(status))
-            {
-                gcmkPRINT("["DEVICE_NAME"]: Can't construct allocator(%s)",
+            if (gcmIS_ERROR(status)) {
+                gcmkPRINT("[" DEVICE_NAME "]: Can't construct allocator(%s)",
                           allocatorArray[i].name);
 
                 continue;
             }
 
             allocator->name = allocatorArray[i].name;
-
+#if gcdANON_FILE_FOR_ALLOCATOR
+            allocator->anon_file = anon_file;
+#endif
             list_add_tail(&allocator->link, &Os->allocatorList);
         }
     }
 
 #if gcdDEBUG
-    list_for_each_entry(allocator, &Os->allocatorList, link)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_WARNING, gcvZONE_OS,
-            "%s(%d) Allocator: %s",
-            __FUNCTION__, __LINE__,
-            allocator->name
-            );
+    list_for_each_entry(allocator, &Os->allocatorList, link) {
+        gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_OS,
+                       "%s(%d) Allocator: %s",
+                       __func__, __LINE__, allocator->name);
     }
 #endif
 
@@ -158,15 +165,12 @@ gckOS_ImportAllocators(
 }
 
 gceSTATUS
-gckOS_FreeAllocators(
-    gckOS Os
-    )
+gckOS_FreeAllocators(gckOS Os)
 {
     gckALLOCATOR allocator;
     gckALLOCATOR temp;
 
-    list_for_each_entry_safe(allocator, temp, &Os->allocatorList, link)
-    {
+    list_for_each_entry_safe(allocator, temp, &Os->allocatorList, link) {
         list_del(&allocator->link);
 
         /* Destroy allocator. */
@@ -178,76 +182,67 @@ gckOS_FreeAllocators(
     return gcvSTATUS_OK;
 }
 
-#if !gcdUSE_Linux_SG_TABLE_API
+#if !gcdUSE_LINUX_SG_TABLE_API
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
-static inline void sg_set_page(struct scatterlist *sg, struct page *page,
-                   unsigned int len, unsigned int offset)
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 23)
+static inline void
+sg_set_page(struct scatterlist *sg, struct page *page,
+            unsigned int len, unsigned int offset)
 {
-    sg->page = page;
+    sg->page   = page;
     sg->offset = offset;
     sg->length = len;
 }
 
-static inline void sg_mark_end(struct scatterlist *sg)
+static inline void
+sg_mark_end(struct scatterlist *sg)
 {
     (void)sg;
 }
-#  endif
+#    endif
 
 int
-alloc_sg_list_from_pages(
-    struct scatterlist **sgl,
-    struct page **pages,
-    unsigned int  n_pages,
-    unsigned long offset,
-    unsigned long size,
-    unsigned int  *nents
-    )
+alloc_sg_list_from_pages(struct scatterlist **sgl,
+                         struct page        **pages,
+                         unsigned int         n_pages,
+                         unsigned long        offset,
+                         unsigned long        size,
+                         unsigned int        *nents)
 {
-    unsigned int chunks;
-    unsigned int i;
-    unsigned int cur_page;
+    unsigned int        chunks;
+    unsigned int        i;
+    unsigned int        cur_page;
     struct scatterlist *s;
 
     chunks = 1;
 
-    for (i = 1; i < n_pages; ++i)
-    {
+    for (i = 1; i < n_pages; ++i) {
         if (page_to_pfn(pages[i]) != page_to_pfn(pages[i - 1]) + 1)
-        {
             ++chunks;
-        }
     }
 
-    s = kzalloc(sizeof(struct scatterlist) * chunks, GFP_KERNEL);
+    s = kzalloc(sizeof(*s) * chunks, GFP_KERNEL);
     if (unlikely(!s))
-    {
         return -ENOMEM;
-    }
 
-    *sgl = s;
+    *sgl   = s;
     *nents = chunks;
 
     cur_page = 0;
 
-    for (i = 0; i < chunks; i++, s++)
-    {
+    for (i = 0; i < chunks; i++, s++) {
         unsigned long chunk_size;
-        unsigned int j;
+        unsigned int  j;
 
-        for (j = cur_page + 1; j < n_pages; j++)
-        {
+        for (j = cur_page + 1; j < n_pages; j++) {
             if (page_to_pfn(pages[j]) != page_to_pfn(pages[j - 1]) + 1)
-            {
                 break;
-            }
         }
 
         chunk_size = ((j - cur_page) << PAGE_SHIFT) - offset;
         sg_set_page(s, pages[cur_page], min(size, chunk_size), offset);
-        size -= chunk_size;
-        offset = 0;
+        size    -= chunk_size;
+        offset   = 0;
         cur_page = j;
     }
 
@@ -256,4 +251,3 @@ alloc_sg_list_from_pages(
     return 0;
 }
 #endif
-

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -102,6 +102,8 @@
 #define gcdMMU_STLB_PRESENT         0x00000001
 #define gcdMMU_STLB_EXCEPTION       0x00000002
 #define gcdMMU_STLB_SECURITY        (1 << 4)
+
+#define gcdUSE_MMU_EXCEPTION        1
 
 #define gcdMMU_SECURE_AREA_START    ((gcdMMU_MTLB_ENTRY_NUM - gcdMMU_SECURE_AREA_SIZE) << gcdMMU_MTLB_SHIFT)
 
@@ -202,7 +204,6 @@ _AllocateStlb(
     gceSTATUS status;
     gcsMMU_STLB_PTR stlb;
     gctPOINTER pointer = gcvNULL;
-    gctUINT64 mmuException = 1;
 
     /* Allocate slave TLB record. */
     gcmkONERROR(gctaOS_Allocate(gcmSIZEOF(gcsMMU_STLB), &pointer));
@@ -220,15 +221,11 @@ _AllocateStlb(
 
     gcmkONERROR(gctaOS_GetPhysicalAddress(Os, stlb->logical, &stlb->physBase));
 
-    gctaOS_QueryOption(Os, "mmuException", &mmuException);
-    if (mmuException)
-    {
-        _FillPageTable(stlb->logical, (gctUINT32)stlb->size / 4, gcdMMU_STLB_EXCEPTION);
-    }
-    else
-    {
-        gctaOS_ZeroMemory((gctUINT8_PTR)stlb->logical, (gctUINT32)stlb->size);
-    }
+#if gcdUSE_MMU_EXCEPTION
+    _FillPageTable(stlb->logical, (gctUINT32)stlb->size / 4, gcdMMU_STLB_EXCEPTION);
+#else
+    gctaOS_ZeroMemory(stlb->logical, (gctUINT32)stlb->size);
+#endif
 
     *Stlb = stlb;
 
@@ -250,7 +247,6 @@ gctaMMU_Construct(
     gctSIZE_T bytes = 4096;
 
     gcTA_MMU mmu = gcvNULL;
-    gctUINT64 mmuException = 1;
 
     gcmkONERROR(gctaOS_Allocate(
         gcmSIZEOF(gcsTA_MMU),
@@ -275,16 +271,11 @@ gctaMMU_Construct(
         &mmu->mtlbPhysical
         ));
 
-    gctaOS_QueryOption(mmu->os, "mmuException", &mmuException);
-    mmu->mmuException = (gctUINT)mmuException;
-    if (mmu->mmuException)
-    {
-        _FillPageTable(mmu->mtlbLogical, (gctUINT32)mmu->mtlbBytes / 4, gcdMMU_STLB_EXCEPTION);
-    }
-    else
-    {
-        gctaOS_ZeroMemory((gctUINT8_PTR)mmu->mtlbLogical, (gctUINT32)mmu->mtlbBytes);
-    }
+#if gcdUSE_MMU_EXCEPTION
+    _FillPageTable(mmu->mtlbLogical, (gctUINT32)mmu->mtlbBytes / 4, gcdMMU_STLB_EXCEPTION);
+#else
+    gctaOS_ZeroMemory(mmu->mtlbLogical, (gctUINT32)mmu->mtlbBytes);
+#endif
 
     /* Allocate a array to store stlbs. */
     gcmkONERROR(gctaOS_Allocate((gctUINT32)mmu->mtlbBytes, &mmu->stlbs));
@@ -513,14 +504,11 @@ gctaMMU_FreePages(
     {
         gcmkONERROR(gctaMMU_GetPageEntry(Mmu, Address, gcvNULL, &entry, gcvNULL));
 
-        if (Mmu->mmuException)
-        {
-            *entry = gcdMMU_STLB_EXCEPTION;
-        }
-        else
-        {
-            *entry = 0;
-        }
+#if gcdUSE_MMU_EXCEPTION
+        *entry = gcdMMU_STLB_EXCEPTION;
+#else
+        *entry = 0;
+#endif
 
         Address += 4096;
     }

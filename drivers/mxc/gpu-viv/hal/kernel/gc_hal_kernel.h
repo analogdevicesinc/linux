@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -62,13 +62,18 @@
 #include "gc_hal_driver.h"
 #include "gc_hal_kernel_mutex.h"
 #include "gc_hal_metadata.h"
+#include "gc_hal_kernel_mmu.h"
+
+#if gcdENABLE_SW_PREEMPTION
+#    include "gc_hal_kernel_preemption.h"
+#endif
 
 #if gcdENABLE_VG
-#include "gc_hal_kernel_vg.h"
+#    include "gc_hal_kernel_vg.h"
 #endif
 
 #if gcdSECURITY || gcdENABLE_TRUST_APPLICATION
-#include "gc_hal_security_interface.h"
+#    include "gc_hal_security_interface.h"
 #endif
 
 #ifdef __cplusplus
@@ -78,152 +83,26 @@ extern "C" {
 #define gcdRECOVERY_FORCE_TIMEOUT 100
 
 /*******************************************************************************
-***** New MMU Defination *******************************************************/
-
-#if gcdENABLE_MMU_1KMODE
-/* 1k mode */
-#define gcdMMU_MTLB_SHIFT           24
-#define gcdMMU_STLB_4K_SHIFT        12
-#define gcdMMU_STLB_64K_SHIFT       16
-#define gcdMMU_STLB_1M_SHIFT        20
-#define gcdMMU_STLB_16M_SHIFT       24
-
-#define gcdMMU_MTLB_BITS            (32 - gcdMMU_MTLB_SHIFT)
-#define gcdMMU_PAGE_4K_BITS         gcdMMU_STLB_4K_SHIFT
-#define gcdMMU_STLB_4K_BITS         (32 - gcdMMU_MTLB_BITS - gcdMMU_PAGE_4K_BITS)
-#define gcdMMU_PAGE_64K_BITS        gcdMMU_STLB_64K_SHIFT
-#define gcdMMU_STLB_64K_BITS        (32 - gcdMMU_MTLB_BITS - gcdMMU_PAGE_64K_BITS)
-#define gcdMMU_PAGE_1M_BITS         gcdMMU_STLB_1M_SHIFT
-#define gcdMMU_STLB_1M_BITS        (32 - gcdMMU_MTLB_BITS - gcdMMU_PAGE_1M_BITS)
-#define gcdMMU_PAGE_16M_BITS        gcdMMU_STLB_16M_SHIFT
-#define gcdMMU_STLB_16M_BITS        4
-
-
-#define gcdMMU_MTLB_ENTRY_NUM       (1 << gcdMMU_MTLB_BITS)
-#define gcdMMU_MTLB_SIZE            (gcdMMU_MTLB_ENTRY_NUM << 2)
-#define gcdMMU_STLB_4K_ENTRY_NUM    (1 << gcdMMU_STLB_4K_BITS)
-#define gcdMMU_STLB_4K_SIZE         (gcdMMU_STLB_4K_ENTRY_NUM << 2)
-#define gcdMMU_PAGE_4K_SIZE         (1 << gcdMMU_STLB_4K_SHIFT)
-#define gcdMMU_STLB_64K_ENTRY_NUM   (1 << gcdMMU_STLB_64K_BITS)
-#define gcdMMU_STLB_64K_SIZE        (gcdMMU_STLB_64K_ENTRY_NUM << 2)
-#define gcdMMU_PAGE_64K_SIZE        (1 << gcdMMU_STLB_64K_SHIFT)
-#define gcdMMU_STLB_1M_ENTRY_NUM   (1 << gcdMMU_STLB_1M_BITS)
-#define gcdMMU_STLB_1M_SIZE        (gcdMMU_STLB_1M_ENTRY_NUM << 2)
-#define gcdMMU_PAGE_1M_SIZE        (1 << gcdMMU_STLB_1M_SHIFT)
-#define gcdMMU_STLB_16M_ENTRY_NUM   (1 << gcdMMU_STLB_16M_BITS)
-#define gcdMMU_STLB_16M_SIZE        (gcdMMU_STLB_16M_ENTRY_NUM << 2)
-#define gcdMMU_PAGE_16M_SIZE        (1 << gcdMMU_STLB_16M_SHIFT)
-
-
-#define gcdMMU_MTLB_MASK            (~((1U << gcdMMU_MTLB_SHIFT)-1))
-#define gcdMMU_STLB_4K_MASK         ((~0U << gcdMMU_STLB_4K_SHIFT) ^ gcdMMU_MTLB_MASK)
-#define gcdMMU_PAGE_4K_MASK         (gcdMMU_PAGE_4K_SIZE - 1)
-#define gcdMMU_STLB_64K_MASK        ((~((1U << gcdMMU_STLB_64K_SHIFT)-1)) ^ gcdMMU_MTLB_MASK)
-#define gcdMMU_PAGE_64K_MASK        (gcdMMU_PAGE_64K_SIZE - 1)
-#define gcdMMU_STLB_1M_MASK        ((~((1U << gcdMMU_STLB_1M_SHIFT)-1)) ^ gcdMMU_MTLB_MASK)
-#define gcdMMU_PAGE_1M_MASK        (gcdMMU_PAGE_1M_SIZE - 1)
-#define gcdMMU_STLB_16M_MASK        0x0F000000
-#define gcdMMU_PAGE_16M_MASK        (gcdMMU_PAGE_16M_SIZE - 1)
-
-
-/* Page offset definitions. */
-#define gcdMMU_OFFSET_4K_BITS       (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_4K_BITS)
-#define gcdMMU_OFFSET_4K_MASK       ((1U << gcdMMU_OFFSET_4K_BITS) - 1)
-#define gcdMMU_OFFSET_64K_BITS      (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_64K_BITS)
-#define gcdMMU_OFFSET_64K_MASK      ((1U << gcdMMU_OFFSET_64K_BITS) - 1)
-#define gcdMMU_OFFSET_1M_BITS      (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_1M_BITS)
-#define gcdMMU_OFFSET_1M_MASK      ((1U << gcdMMU_OFFSET_1M_BITS) - 1)
-#define gcdMMU_OFFSET_16M_BITS      (32 - gcdMMU_MTLB_BITS)
-#define gcdMMU_OFFSET_16M_MASK      ((1U << gcdMMU_OFFSET_16M_BITS) - 1)
-
-
-#define gcdMMU_MTLB_ENTRY_HINTS_BITS 6
-#define gcdMMU_MTLB_ENTRY_STLB_MASK  (~((1U << gcdMMU_MTLB_ENTRY_HINTS_BITS) - 1))
-
-#define gcdMMU_MTLB_PRESENT         0x00000001
-#define gcdMMU_MTLB_EXCEPTION       0x00000002
-#define gcdMMU_MTLB_4K_PAGE         (0 << 2)
-#define gcdMMU_MTLB_64K_PAGE        (1 << 2)
-#define gcdMMU_MTLB_1M_PAGE         (2 << 2)
-#define gcdMMU_MTBL_16M_PAGE        (3 << 2)
-
-#define gcdMMU_STLB_PRESENT         0x00000001
-#define gcdMMU_STLB_EXCEPTION       0x00000002
-#define gcdMMU_STBL_WRITEABLE       0x00000004
-
-#else /* 4K mode */
-
-#define gcdMMU_MTLB_SHIFT           22
-#define gcdMMU_STLB_4K_SHIFT        12
-#define gcdMMU_STLB_64K_SHIFT       16
-
-#define gcdMMU_MTLB_BITS            (32 - gcdMMU_MTLB_SHIFT)
-#define gcdMMU_PAGE_4K_BITS         gcdMMU_STLB_4K_SHIFT
-#define gcdMMU_STLB_4K_BITS         (32 - gcdMMU_MTLB_BITS - gcdMMU_PAGE_4K_BITS)
-#define gcdMMU_PAGE_64K_BITS        gcdMMU_STLB_64K_SHIFT
-#define gcdMMU_STLB_64K_BITS        (32 - gcdMMU_MTLB_BITS - gcdMMU_PAGE_64K_BITS)
-
-#define gcdMMU_MTLB_ENTRY_NUM       (1 << gcdMMU_MTLB_BITS)
-#define gcdMMU_MTLB_SIZE            (gcdMMU_MTLB_ENTRY_NUM << 2)
-#define gcdMMU_STLB_4K_ENTRY_NUM    (1 << gcdMMU_STLB_4K_BITS)
-#define gcdMMU_STLB_4K_SIZE         (gcdMMU_STLB_4K_ENTRY_NUM << 2)
-#define gcdMMU_PAGE_4K_SIZE         (1 << gcdMMU_STLB_4K_SHIFT)
-#define gcdMMU_STLB_64K_ENTRY_NUM   (1 << gcdMMU_STLB_64K_BITS)
-#define gcdMMU_STLB_64K_SIZE        (gcdMMU_STLB_64K_ENTRY_NUM << 2)
-#define gcdMMU_PAGE_64K_SIZE        (1 << gcdMMU_STLB_64K_SHIFT)
-
-#define gcdMMU_MTLB_MASK            (~((1U << gcdMMU_MTLB_SHIFT)-1))
-#define gcdMMU_STLB_4K_MASK         ((~0U << gcdMMU_STLB_4K_SHIFT) ^ gcdMMU_MTLB_MASK)
-#define gcdMMU_PAGE_4K_MASK         (gcdMMU_PAGE_4K_SIZE - 1)
-#define gcdMMU_STLB_64K_MASK        ((~((1U << gcdMMU_STLB_64K_SHIFT)-1)) ^ gcdMMU_MTLB_MASK)
-#define gcdMMU_PAGE_64K_MASK        (gcdMMU_PAGE_64K_SIZE - 1)
-
-/* Page offset definitions. */
-#define gcdMMU_OFFSET_4K_BITS       (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_4K_BITS)
-#define gcdMMU_OFFSET_4K_MASK       ((1U << gcdMMU_OFFSET_4K_BITS) - 1)
-#define gcdMMU_OFFSET_64K_BITS      (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_64K_BITS)
-#define gcdMMU_OFFSET_64K_MASK      ((1U << gcdMMU_OFFSET_64K_BITS) - 1)
-
-#define gcdMMU_MTLB_ENTRY_HINTS_BITS 6
-#define gcdMMU_MTLB_ENTRY_STLB_MASK  (~((1U << gcdMMU_MTLB_ENTRY_HINTS_BITS) - 1))
-
-#define gcdMMU_MTLB_PRESENT         0x00000001
-#define gcdMMU_MTLB_EXCEPTION       0x00000002
-#define gcdMMU_MTLB_4K_PAGE         (0 << 2)
-#define gcdMMU_MTLB_64K_PAGE        (1 << 2)
-
-
-#define gcdMMU_STLB_PRESENT         0x00000001
-#define gcdMMU_STLB_EXCEPTION       0x00000002
-#define gcdMMU_STLB_WRITEABLE       0x00000004
-
-#endif
-
-#define gcd1M_PAGE_SIZE (1 << 20)
-#define gcd1M_PAGE_SHIFT 20
-
-/*******************************************************************************
-***** Stuck Dump Level ********************************************************/
+ ***** Stuck Dump Level ********************************************************/
 
 /*
-  Stuck Dump Level
-
-  Level  1 ~  5 : NORMAL model, when recovery is enabled, stuck dump is invalid
-  Level 11 ~ 15 : FORCE model, whether recovery is enabled or not, driver will
-                  dump as level set
-
-  NONE : Dump nothing when stuck happens.
-
-  NEARBY_MEMORY : Dump GPU state and memory near stuck point.
-  USER_COMMAND  : Beside NEARBY_MEMORY, dump context buffer and user command
-                  buffer.
-  STALL_COMMAND : Beside USER_COMMAND, commit will be stall to make sure command
-                  causing stuck isn't missed.
-  ALL_COMMAND   : Beside USER_COMMAND, dump kernel command buffer.
-  ALL_CORE      : Dump all the cores with ALL_COMMAND level.
-*/
-typedef enum _gceSTUCK_DUMP_LEVEL
-{
+ * Stuck Dump Level
+ *
+ * Level  1 ~  5 : NORMAL model, when recovery is enabled, stuck dump is invalid
+ * Level 11 ~ 15 : FORCE model, whether recovery is enabled or not, driver will
+ *                 dump as level set
+ *
+ * NONE : Dump nothing when stuck happens.
+ *
+ * NEARBY_MEMORY : Dump GPU state and memory near stuck point.
+ * USER_COMMAND  : Beside NEARBY_MEMORY, dump context buffer and user command
+ *                 buffer.
+ * STALL_COMMAND : Beside USER_COMMAND, commit will be stall to make sure command
+ *                 causing stuck isn't missed.
+ * ALL_COMMAND   : Beside USER_COMMAND, dump kernel command buffer.
+ * ALL_CORE      : Dump all the cores with ALL_COMMAND level.
+ */
+typedef enum _gceSTUCK_DUMP_LEVEL {
     gcvSTUCK_DUMP_NONE = 0,
 
     gcvSTUCK_DUMP_NEARBY_MEMORY = 1,
@@ -237,35 +116,35 @@ typedef enum _gceSTUCK_DUMP_LEVEL
     gcvSTUCK_FORCE_DUMP_STALL_COMMAND,
     gcvSTUCK_FORCE_DUMP_ALL_COMMAND,
     gcvSTUCK_FORCE_DUMP_ALL_CORE,
-}
-gceSTUCK_DUMP_LEVEL;
+} gceSTUCK_DUMP_LEVEL;
 
-/*******************************************************************************
-***** Page table **************************************************************/
+/******************************************************************************
+ ***** Page table *************************************************************/
 
-#define gcvPAGE_TABLE_DIRTY_BIT_OTHER   (1 << 0)
-#define gcvPAGE_TABLE_DIRTY_BIT_FE      (1 << 1)
+#define gcvPAGE_TABLE_DIRTY_BIT_OTHER (1 << 0)
+#define gcvPAGE_TABLE_DIRTY_BIT_FE    (1 << 1)
 
-/*******************************************************************************
-***** Process Database Management *********************************************/
+/******************************************************************************
+ ***** Process Database Management ********************************************/
 
-typedef enum _gceDATABASE_TYPE
-{
-    gcvDB_VIDEO_MEMORY = 1,             /* Video memory created. */
-    gcvDB_COMMAND_BUFFER,               /* Command Buffer. */
-    gcvDB_NON_PAGED,                    /* Non paged memory. */
-    gcvDB_CONTIGUOUS,                   /* Contiguous memory. */
-    gcvDB_SIGNAL,                       /* Signal. */
-    gcvDB_VIDEO_MEMORY_LOCKED,          /* Video memory locked. */
-    gcvDB_CONTEXT,                      /* Context */
-    gcvDB_IDLE,                         /* GPU idle. */
-    gcvDB_MAP_MEMORY,                   /* Map memory */
-    gcvDB_MAP_USER_MEMORY,              /* Map user memory */
-    gcvDB_SHBUF,                        /* Shared buffer. */
+typedef enum _gceDATABASE_TYPE {
+    gcvDB_VIDEO_MEMORY = 1,    /* Video memory created. */
+    gcvDB_COMMAND_BUFFER,      /* Command Buffer. */
+    gcvDB_NON_PAGED,           /* Non paged memory. */
+    gcvDB_CONTIGUOUS,          /* Contiguous memory. */
+    gcvDB_SIGNAL,              /* Signal. */
+    gcvDB_VIDEO_MEMORY_LOCKED, /* Video memory locked. */
+    gcvDB_CONTEXT,             /* Context */
+    gcvDB_IDLE,                /* GPU idle. */
+    gcvDB_MAP_MEMORY,          /* Map memory */
+    gcvDB_MAP_USER_MEMORY,     /* Map user memory */
+    gcvDB_SHBUF,               /* Shared buffer. */
+#if gcdENABLE_SW_PREEMPTION
+    gcvDB_PRIORITY,
+#endif
 
     gcvDB_NUM_TYPES,
-}
-gceDATABASE_TYPE;
+} gceDATABASE_TYPE;
 
 #define gcdDATABASE_TYPE_MASK           0x000000FF
 #define gcdDB_VIDEO_MEMORY_TYPE_MASK    0x0000FF00
@@ -277,9 +156,8 @@ gceDATABASE_TYPE;
 #define gcdDB_VIDEO_MEMORY_DBTYPE_MASK  0xFF000000
 #define gcdDB_VIDEO_MEMORY_DBTYPE_SHIFT 24
 
-typedef struct _gcsDATABASE_RECORD *    gcsDATABASE_RECORD_PTR;
-typedef struct _gcsDATABASE_RECORD
-{
+typedef struct _gcsDATABASE_RECORD *gcsDATABASE_RECORD_PTR;
+typedef struct _gcsDATABASE_RECORD {
     /* Pointer to kernel. */
     gckKERNEL                           kernel;
 
@@ -293,12 +171,10 @@ typedef struct _gcsDATABASE_RECORD
     gctPOINTER                          data;
     gctPHYS_ADDR                        physical;
     gctSIZE_T                           bytes;
-}
-gcsDATABASE_RECORD;
+} gcsDATABASE_RECORD;
 
-typedef struct _gcsDATABASE *           gcsDATABASE_PTR;
-typedef struct _gcsDATABASE
-{
+typedef struct _gcsDATABASE            *gcsDATABASE_PTR;
+typedef struct _gcsDATABASE {
     /* Pointer to next entry is hash list. */
     gcsDATABASE_PTR                     next;
     gctSIZE_T                           slot;
@@ -333,205 +209,128 @@ typedef struct _gcsDATABASE
 
     gctPOINTER                          handleDatabase;
     gctPOINTER                          handleDatabaseMutex;
-}
-gcsDATABASE;
+} gcsDATABASE;
 
-typedef struct _gcsFDPRIVATE *          gcsFDPRIVATE_PTR;
-typedef struct _gcsFDPRIVATE
-{
-    gctINT                              (* release) (gcsFDPRIVATE_PTR Private);
-}
-gcsFDPRIVATE;
+typedef struct _gcsFDPRIVATE *gcsFDPRIVATE_PTR;
+typedef struct _gcsFDPRIVATE {
+    gctINT (*release)(gcsFDPRIVATE_PTR Private);
+} gcsFDPRIVATE;
 
-typedef struct _gcsRECORDER * gckRECORDER;
+typedef struct _gcsRECORDER *gckRECORDER;
 
-
-typedef enum _gceEVENT_FAULT
-{
+typedef enum _gceEVENT_FAULT {
     gcvEVENT_NO_FAULT,
     gcvEVENT_BUS_ERROR_FAULT,
-}
-gceEVENT_FAULT;
+} gceEVENT_FAULT;
 
 /* Create a process database that will contain all its allocations. */
 gceSTATUS
-gckKERNEL_CreateProcessDB(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID
-    );
+gckKERNEL_CreateProcessDB(IN gckKERNEL Kernel, IN gctUINT32 ProcessID);
 
 /* Add a record to the process database. */
 gceSTATUS
-gckKERNEL_AddProcessDB(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gceDATABASE_TYPE Type,
-    IN gctPOINTER Pointer,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Size
-    );
+gckKERNEL_AddProcessDB(IN gckKERNEL        Kernel,
+                       IN gctUINT32        ProcessID,
+                       IN gceDATABASE_TYPE Type,
+                       IN gctPOINTER       Pointer,
+                       IN gctPHYS_ADDR     Physical,
+                       IN gctSIZE_T        Size);
 
 /* Remove a record to the process database. */
 gceSTATUS
-gckKERNEL_RemoveProcessDB(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gceDATABASE_TYPE Type,
-    IN gctPOINTER Pointer
-    );
+gckKERNEL_RemoveProcessDB(IN gckKERNEL        Kernel,
+                          IN gctUINT32        ProcessID,
+                          IN gceDATABASE_TYPE Type,
+                          IN gctPOINTER       Pointer);
 
 /* Destroy the process database. */
 gceSTATUS
-gckKERNEL_DestroyProcessDB(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID
-    );
+gckKERNEL_DestroyProcessDB(IN gckKERNEL Kernel, IN gctUINT32 ProcessID);
 
 /* Find a record to the process database. */
 gceSTATUS
-gckKERNEL_FindProcessDB(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gctUINT32 ThreadID,
-    IN gceDATABASE_TYPE Type,
-    IN gctPOINTER Pointer,
-    OUT gcsDATABASE_RECORD_PTR Record
-    );
+gckKERNEL_FindProcessDB(IN gckKERNEL               Kernel,
+                        IN gctUINT32               ProcessID,
+                        IN gctUINT32               ThreadID,
+                        IN gceDATABASE_TYPE        Type,
+                        IN gctPOINTER              Pointer,
+                        OUT gcsDATABASE_RECORD_PTR Record);
 
 /* Query the process database. */
 gceSTATUS
-gckKERNEL_QueryProcessDB(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gctBOOL LastProcessID,
-    IN gceDATABASE_TYPE Type,
-    OUT gcuDATABASE_INFO * Info
-    );
+gckKERNEL_QueryProcessDB(IN gckKERNEL         Kernel,
+                         IN gctUINT32         ProcessID,
+                         IN gctBOOL           LastProcessID,
+                         IN gceDATABASE_TYPE  Type,
+                         OUT gcuDATABASE_INFO *Info);
 
 /* Dump the process database. */
 gceSTATUS
-gckKERNEL_DumpProcessDB(
-    IN gckKERNEL Kernel
-    );
+gckKERNEL_DumpProcessDB(IN gckKERNEL Kernel);
 
 /* Dump the video memory usage for process specified. */
 gceSTATUS
-gckKERNEL_DumpVidMemUsage(
-    IN gckKERNEL Kernel,
-    IN gctINT32 ProcessID
-    );
+gckKERNEL_DumpVidMemUsage(IN gckKERNEL Kernel, IN gctINT32 ProcessID);
 
 gceSTATUS
-gckKERNEL_FindDatabase(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gctBOOL LastProcessID,
-    OUT gcsDATABASE_PTR * Database
-    );
+gckKERNEL_FindDatabase(IN gckKERNEL        Kernel,
+                       IN gctUINT32        ProcessID,
+                       IN gctBOOL          LastProcessID,
+                       OUT gcsDATABASE_PTR *Database);
 
 gceSTATUS
-gckKERNEL_FindHandleDatbase(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    OUT gctPOINTER * HandleDatabase,
-    OUT gctPOINTER * HandleDatabaseMutex
-    );
+gckKERNEL_FindHandleDatbase(IN gckKERNEL   Kernel,
+                            IN gctUINT32   ProcessID,
+                            OUT gctPOINTER *HandleDatabase,
+                            OUT gctPOINTER *HandleDatabaseMutex);
 
 gceSTATUS
-gckMMU_GetPageEntry(
-    IN gckMMU Mmu,
-    IN gcePAGE_TYPE PageType,
-    IN gctUINT32 Address,
-    IN gctUINT32_PTR *PageTable
-    );
+gckKERNEL_CreateIntegerDatabase(IN gckKERNEL   Kernel,
+                                IN gctUINT32   Capacity,
+                                OUT gctPOINTER *Database);
 
 gceSTATUS
-gckMMU_SetupSRAM(
-    IN gckMMU Mmu,
-    IN gckHARDWARE Hardware,
-    IN gckDEVICE Device
-    );
+gckKERNEL_DestroyIntegerDatabase(IN gckKERNEL Kernel, IN gctPOINTER Database);
 
 gceSTATUS
-gckMMU_SetupDynamicSpace(
-    IN gckMMU Mmu
-    );
-
-void
-gckMMU_DumpRecentFreedAddress(
-    IN gckMMU Mmu
-    );
+gckKERNEL_AllocateIntegerId(IN gctPOINTER Database,
+                            IN gctPOINTER Pointer,
+                            OUT gctUINT32 *Id);
 
 gceSTATUS
-gckKERNEL_CreateIntegerDatabase(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Capacity,
-    OUT gctPOINTER * Database
-    );
+gckKERNEL_FreeIntegerId(IN gctPOINTER Database, IN gctUINT32 Id);
 
 gceSTATUS
-gckKERNEL_DestroyIntegerDatabase(
-    IN gckKERNEL Kernel,
-    IN gctPOINTER Database
-    );
-
-gceSTATUS
-gckKERNEL_AllocateIntegerId(
-    IN gctPOINTER Database,
-    IN gctPOINTER Pointer,
-    OUT gctUINT32 * Id
-    );
-
-gceSTATUS
-gckKERNEL_FreeIntegerId(
-    IN gctPOINTER Database,
-    IN gctUINT32 Id
-    );
-
-gceSTATUS
-gckKERNEL_QueryIntegerId(
-    IN gctPOINTER Database,
-    IN gctUINT32 Id,
-    OUT gctPOINTER * Pointer
-    );
+gckKERNEL_QueryIntegerId(IN gctPOINTER  Database,
+                         IN gctUINT32   Id,
+                         OUT gctPOINTER *Pointer);
 
 /* Pointer rename  */
 gctUINT32
-gckKERNEL_AllocateNameFromPointer(
-    IN gckKERNEL Kernel,
-    IN gctPOINTER Pointer
-    );
+gckKERNEL_AllocateNameFromPointer(IN gckKERNEL Kernel, IN gctPOINTER Pointer);
 
 gctPOINTER
-gckKERNEL_QueryPointerFromName(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Name
-    );
+gckKERNEL_QueryPointerFromName(IN gckKERNEL Kernel, IN gctUINT32 Name);
 
 gceSTATUS
-gckKERNEL_DeleteName(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Name
-    );
+gckKERNEL_DeleteName(IN gckKERNEL Kernel, IN gctUINT32 Name);
 
 /*******************************************************************************
-********* Timer Management ****************************************************/
-typedef struct _gcsTIMER *           gcsTIMER_PTR;
-typedef struct _gcsTIMER
-{
+ ********* Timer Management ****************************************************/
+typedef struct _gcsTIMER *gcsTIMER_PTR;
+typedef struct _gcsTIMER {
     /* Start and Stop time holders. */
     gctUINT64                           startTime;
     gctUINT64                           stopTime;
 }
 gcsTIMER;
 
-/******************************************************************************\
-********************************** Structures **********************************
-\******************************************************************************/
+/******************************************************************************
+ ********************************** Structures ********************************
+ ******************************************************************************/
 
 /* gckDB object. */
-struct _gckDB
-{
+struct _gckDB {
     /* Database management. */
     gcsDATABASE_PTR             db[16];
     gctPOINTER                  dbMutex;
@@ -553,13 +352,8 @@ struct _gckDB
     gctPOINTER                  videoMemListMutex;
 };
 
-typedef struct _gckCOMMAND *        gckCOMMAND;
-
-typedef struct _gckEVENT *      gckEVENT;
-
 /* gckKERNEL object. */
-struct _gckKERNEL
-{
+struct _gckKERNEL {
     /* Object. */
     gcsOBJECT                   object;
 
@@ -572,12 +366,19 @@ struct _gckKERNEL
     /* Pointer to gckHARDWARE object. */
     gckHARDWARE                 hardware;
 
+    /* Hardware type. */
+    gceHARDWARE_TYPE            type;
+
     /* Core */
     gceCORE                     core;
     gctUINT                     chipID;
 
+    /* Brothers */
+    gctPOINTER                  atomBroCoreMask;
+
     /* Main command module, event and context. */
     gckCOMMAND                  command;
+    gckCOMMAND                  sharedCommand;
     gckEVENT                    eventObj;
     gctPOINTER                  context;
 
@@ -641,74 +442,87 @@ struct _gckKERNEL
     gctBOOL                     monitoring;
     gctUINT32                   lastCommitStamp;
     gctUINT32                   timer;
-    gctUINT32                   restoreAddress;
+    gctADDRESS                  restoreAddress;
     gctINT32                    restoreMask;
 
     gckVIDMEM_BLOCK             vidMemBlock;
     gctPOINTER                  vidMemBlockMutex;
 
-    gctUINT32                   contiguousBaseAddress;
-    gctUINT32                   externalBaseAddress;
-    gctUINT32                   internalBaseAddress;
+    gctADDRESS                  contiguousBaseAddresses[gcdSYSTEM_RESERVE_COUNT];
+    gctADDRESS                  lowContiguousBaseAddress;
+    gctADDRESS                  externalBaseAddress;
+    gctADDRESS                  internalBaseAddress;
+    gctADDRESS                  exclusiveBaseAddress;
 
     /* External shared SRAM. */
-    gctUINT32                   extSRAMBaseAddresses[gcvSRAM_EXT_COUNT];
-    gctUINT32                   extSRAMIndex;
+    gctADDRESS                  extSRAMBaseAddresses[gcvSRAM_EXT_COUNT];
 
     /* Per core SRAM description. */
     gctUINT32                   sRAMIndex;
     gckVIDMEM                   sRAMVidMem[gcvSRAM_INTER_COUNT];
     gctPHYS_ADDR                sRAMPhysical[gcvSRAM_INTER_COUNT];
-    gctUINT32                   sRAMBaseAddresses[gcvSRAM_INTER_COUNT];
+    gctADDRESS                  sRAMBaseAddresses[gcvSRAM_INTER_COUNT];
     gctUINT32                   sRAMSizes[gcvSRAM_INTER_COUNT];
     gctBOOL                     sRAMPhysFaked[gcvSRAM_INTER_COUNT];
     gctUINT64                   sRAMLoopMode;
 
     gctUINT32                   timeoutPID;
     gctBOOL                     threadInitialized;
+    gctBOOL                     killThread;
     gctPOINTER                  resetStatus;
+    gctSEMAPHORE                sema;
+
+    /* Device ID. */
+    gctUINT32                   devID;
+
+    /* In multi-core context or not. */
+    gctBOOL                     inShared;
+
+#if gcdENABLE_SW_PREEMPTION
+    gctPOINTER                  priorityQueueMutex[gcdMAX_PRIORITY_QUEUE_NUM];
+    gcsPRIORITY_QUEUE_PTR       priorityQueues[gcdMAX_PRIORITY_QUEUE_NUM];
+    gctBOOL                     priorityDBCreated[gcdMAX_PRIORITY_QUEUE_NUM];
+    gctSEMAPHORE                preemptSema;
+    gcePREEMPTION_MODE          preemptionMode;
+    gctBOOL                     killPreemptThread;
+#endif
 };
 
-struct _FrequencyHistory
-{
-    gctUINT32                   frequency;
-    gctUINT32                   count;
+struct _FrequencyHistory {
+    gctUINT32 frequency;
+    gctUINT32 count;
 };
 
 /* gckDVFS object. */
-struct _gckDVFS
-{
-    gckOS                       os;
-    gckHARDWARE                 hardware;
-    gctPOINTER                  timer;
-    gctUINT32                   pollingTime;
-    gctBOOL                     stop;
-    gctUINT32                   totalConfig;
-    gctUINT32                   loads[8];
-    gctUINT8                    currentScale;
-    struct _FrequencyHistory    frequencyHistory[16];
+struct _gckDVFS {
+    gckOS                    os;
+    gckHARDWARE              hardware;
+    gctPOINTER               timer;
+    gctUINT32                pollingTime;
+    gctBOOL                  stop;
+    gctUINT32                totalConfig;
+    gctUINT32                loads[8];
+    gctUINT8                 currentScale;
+    struct _FrequencyHistory frequencyHistory[16];
 };
 
-typedef struct _gcsFENCE * gckFENCE;
-typedef struct _gcsFENCE
-{
+typedef struct _gcsFENCE *gckFENCE;
+typedef struct _gcsFENCE {
     /* Pointer to required object. */
     gckKERNEL                   kernel;
 
     /* Fence location. */
     gckVIDMEM_NODE              videoMem;
     gctPOINTER                  logical;
-    gctUINT32                   address;
+    gctADDRESS                  address;
 
     gcsLISTHEAD                 waitingList;
     gctPOINTER                  mutex;
-}
-gcsFENCE;
+} gcsFENCE;
 
 /* A sync point attached to fence. */
-typedef struct _gcsFENCE_SYNC * gckFENCE_SYNC;
-typedef struct _gcsFENCE_SYNC
-{
+typedef struct _gcsFENCE_SYNC *gckFENCE_SYNC;
+typedef struct _gcsFENCE_SYNC {
     /* Stamp of commit access this node. */
     gctUINT64                   commitStamp;
 
@@ -718,21 +532,17 @@ typedef struct _gcsFENCE_SYNC
     gctPOINTER                  signal;
 
     gctBOOL                     inList;
-}
-gcsFENCE_SYNC;
+} gcsFENCE_SYNC;
 
-typedef struct _gcsCOMMAND_QUEUE
-{
-    gctSIGNAL               signal;
-    gckVIDMEM_NODE          videoMem;
-    gctPOINTER              logical;
-    gctUINT32               address;
-}
-gcsCOMMAND_QUEUE;
+typedef struct _gcsCOMMAND_QUEUE {
+    gctSIGNAL      signal;
+    gckVIDMEM_NODE videoMem;
+    gctPOINTER     logical;
+    gctADDRESS     address;
+} gcsCOMMAND_QUEUE;
 
 /* gckCOMMAND object. */
-struct _gckCOMMAND
-{
+struct _gckCOMMAND {
     /* Object. */
     gcsOBJECT                   object;
 
@@ -773,7 +583,7 @@ struct _gckCOMMAND
     /* Current queue. */
     gckVIDMEM_NODE              videoMem;
     gctPOINTER                  logical;
-    gctUINT32                   address;
+    gctADDRESS                  address;
 
     gctUINT32                   offset;
     gctINT                      index;
@@ -790,12 +600,11 @@ struct _gckCOMMAND
 
     /* Pointer to last WAIT command. */
     /* Wait-Link FE only. */
-    struct
-    {
+    struct {
         gckVIDMEM_NODE          videoMem;
         gctUINT32               offset;
         gctPOINTER              logical;
-        gctUINT32               address;
+        gctADDRESS              address;
         gctUINT32               size;
     }
     waitPos;
@@ -834,7 +643,7 @@ struct _gckCOMMAND
      * Using the final free semaphore, means the ring is full of used ones.
      *
      * 'freeSemaId' + 1 = 'nextSemaId':
-     * Can use 'freeSema' + 1 to 'freeSema'(loop back), means empty ring,
+     * Can use 'freeSema' + 1 to 'nextSema'(loop back), means empty ring,
      * ie, no used one.
      */
 
@@ -845,18 +654,16 @@ struct _gckCOMMAND
     gctUINT32                   semaMinThreshhold;
 
     /* pending semaphore id tracking ring. */
-    struct
-    {
+    struct {
         gctUINT32               semaId;
         gctSIGNAL               signal;
-    }
-    pendingSema[8];
+    } pendingSema[8];
 
     gctUINT32                   nextPendingPos;
     gctUINT32                   freePendingPos;
 
     /* semaphore id (array index) to handle value map. */
-    gctUINT32 *                 semaHandleMap;
+    gctUINT32                  *semaHandleMap;
 
     /*
      * Dirty channels, ie channels ever submitted commands.
@@ -888,11 +695,10 @@ struct _gckCOMMAND
     gctBOOL                     dummyDraw;
 };
 
-typedef struct _gcsEVENT *      gcsEVENT_PTR;
+typedef struct _gcsEVENT       *gcsEVENT_PTR;
 
 /* Structure holding one event to be processed. */
-typedef struct _gcsEVENT
-{
+typedef struct _gcsEVENT {
     /* Pointer to next event in queue. */
     gcsEVENT_PTR                next;
 
@@ -908,13 +714,11 @@ typedef struct _gcsEVENT
 #endif
 
     gctBOOL                     fromKernel;
-}
-gcsEVENT;
+} gcsEVENT;
 
 /* Structure holding a list of events to be processed by an interrupt. */
-typedef struct _gcsEVENT_QUEUE * gcsEVENT_QUEUE_PTR;
-typedef struct _gcsEVENT_QUEUE
-{
+typedef struct _gcsEVENT_QUEUE *gcsEVENT_QUEUE_PTR;
+typedef struct _gcsEVENT_QUEUE {
     /* Time stamp. */
     gctUINT64                   stamp;
 
@@ -932,27 +736,26 @@ typedef struct _gcsEVENT_QUEUE
 
     /* Current commit stamp. */
     gctUINT64                   commitStamp;
-}
-gcsEVENT_QUEUE;
+} gcsEVENT_QUEUE;
 
 /*
-    gcdREPO_LIST_COUNT defines the maximum number of event queues with different
-    hardware module sources that may coexist at the same time. Only two sources
-    are supported - gcvKERNEL_COMMAND and gcvKERNEL_PIXEL. gcvKERNEL_COMMAND
-    source is used only for managing the kernel command queue and is only issued
-    when the current command queue gets full. Since we commit event queues every
-    time we commit command buffers, in the worst case we can have up to three
-    pending event queues:
-        - gcvKERNEL_PIXEL
-        - gcvKERNEL_COMMAND (queue overflow)
-        - gcvKERNEL_PIXEL
-*/
+ *   gcdREPO_LIST_COUNT defines the maximum number of event queues with different
+ *   hardware module sources that may coexist at the same time. Only two sources
+ *   are supported - gcvKERNEL_COMMAND and gcvKERNEL_PIXEL. gcvKERNEL_COMMAND
+ *   source is used only for managing the kernel command queue and is only issued
+ *   when the current command queue gets full. Since we commit event queues every
+ *   time we commit command buffers, in the worst case we can have up to three
+ *   pending event queues:
+ *       - gcvKERNEL_PIXEL
+ *       - gcvKERNEL_COMMAND (queue overflow)
+ *       - gcvKERNEL_PIXEL
+ */
 #define gcdREPO_LIST_COUNT      3
 
+#define gcdEVENT_QUEUE_COUNT    29
 
 /* gckEVENT object. */
-struct _gckEVENT
-{
+struct _gckEVENT {
     /* The object. */
     gcsOBJECT                   object;
 
@@ -964,7 +767,7 @@ struct _gckEVENT
     gckCOMMAND                  command;
 
     /* Submit function pointer, different for different command module. */
-    gceSTATUS                (* submitEvent)(gckEVENT, gctBOOL, gctBOOL);
+    gceSTATUS                   (*submitEvent)(gckEVENT, gctBOOL, gctBOOL);
 
     /* Time stamp. */
     gctUINT64                   stamp;
@@ -974,7 +777,8 @@ struct _gckEVENT
     gctPOINTER                  eventQueueMutex;
 
     /* Array of event queues. */
-    gcsEVENT_QUEUE              queues[29];
+    gcsEVENT_QUEUE              queues[gcdEVENT_QUEUE_COUNT];
+    gctINT32                    totalQueueCount;
     gctINT32                    freeQueueCount;
     gctUINT8                    lastID;
 
@@ -1002,117 +806,110 @@ struct _gckEVENT
     gctINT                      notifyState;
 };
 
+/* Event Attribute. */
+typedef struct _gckEVENT_ATTR *gckEVENT_ATTR;
+typedef struct _gckEVENT_ATTR {
+    /* Submit requires one vacant event or not. */
+    gctBOOL wait;
+    /* It is in multi-core programming or not. */
+    gctBOOL shared;
+    /* It is called by power management or not.*/
+    gctBOOL fromPower;
+    /* It is broadcast the new commit arrives or not.*/
+    gctBOOL broadcast;
+} gcsEVENT_ATTR;
+
 /* Construct a new gckEVENT object. */
 gceSTATUS
-gckEVENT_Construct(
-    IN gckKERNEL Kernel,
-    IN gckCOMMAND Command,
-    OUT gckEVENT * Event
-    );
+gckEVENT_Construct(IN gckKERNEL Kernel, IN gckCOMMAND Command, OUT gckEVENT *Event);
 
 /* Destroy an gckEVENT object. */
 gceSTATUS
-gckEVENT_Destroy(
-    IN gckEVENT Event
-    );
+gckEVENT_Destroy(IN gckEVENT Event);
 
 /* Reserve the next available hardware event. */
 gceSTATUS
-gckEVENT_GetEvent(
-    IN gckEVENT Event,
-    IN gctBOOL Wait,
-    OUT gctUINT8 * EventID,
-    IN gceKERNEL_WHERE Source
-   );
+gckEVENT_GetEvent(IN gckEVENT        Event,
+                  IN gctBOOL         Wait,
+                  OUT gctUINT8       *EventID,
+                  IN gceKERNEL_WHERE Source);
 
 /* Add a new event to the list of events. */
 gceSTATUS
-gckEVENT_AddList(
-    IN gckEVENT Event,
-    IN gcsHAL_INTERFACE_PTR Interface,
-    IN gceKERNEL_WHERE FromWhere,
-    IN gctBOOL AllocateAllowed,
-    IN gctBOOL FromKernel
-    );
+gckEVENT_AddListEx(IN gckEVENT             Event,
+                   IN gcsHAL_INTERFACE_PTR Interface,
+                   IN gceKERNEL_WHERE      FromWhere,
+                   IN gctBOOL              AllocateAllowed,
+                   IN gctBOOL              FromKernel,
+                   IN gctUINT32            ProcessID);
+
+/* Add a new event to the list of events. */
+gceSTATUS
+gckEVENT_AddList(IN gckEVENT             Event,
+                 IN gcsHAL_INTERFACE_PTR Interface,
+                 IN gceKERNEL_WHERE      FromWhere,
+                 IN gctBOOL              AllocateAllowed,
+                 IN gctBOOL              FromKernel);
 
 /* Schedule a FreeVideoMemory event. */
 gceSTATUS
-gckEVENT_FreeVideoMemory(
-    IN gckEVENT Event,
-    IN gcuVIDMEM_NODE_PTR VideoMemory,
-    IN gceKERNEL_WHERE FromWhere
-    );
+gckEVENT_FreeVideoMemory(IN gckEVENT           Event,
+                         IN gcuVIDMEM_NODE_PTR VideoMemory,
+                         IN gceKERNEL_WHERE    FromWhere);
 
 /* Schedule a signal event. */
 gceSTATUS
-gckEVENT_Signal(
-    IN gckEVENT Event,
-    IN gctSIGNAL Signal,
-    IN gceKERNEL_WHERE FromWhere
-    );
+gckEVENT_Signal(IN gckEVENT Event, IN gctSIGNAL Signal, IN gceKERNEL_WHERE FromWhere);
 
 /* Schedule an Unlock event. */
 gceSTATUS
-gckEVENT_Unlock(
-    IN gckEVENT Event,
-    IN gceKERNEL_WHERE FromWhere,
-    IN gctPOINTER Node
-    );
+gckEVENT_Unlock(IN gckEVENT Event, IN gceKERNEL_WHERE FromWhere, IN gctPOINTER Node);
 
 gceSTATUS
-gckEVENT_CommitDone(
-    IN gckEVENT Event,
-    IN gceKERNEL_WHERE FromWhere,
-    IN gckCONTEXT Context
-    );
+gckEVENT_CommitDone(IN gckEVENT        Event,
+                    IN gceKERNEL_WHERE FromWhere,
+                    IN gckCONTEXT      Context);
 
 gceSTATUS
-gckEVENT_Submit(
-    IN gckEVENT Event,
-    IN gctBOOL Wait,
-    IN gctBOOL FromPower
-    );
+gckEVENT_Submit(IN gckEVENT Event,
+                IN gckEVENT_ATTR EventAttr);
 
 gceSTATUS
-gckEVENT_Commit(
-    IN gckEVENT Event,
-    IN gcsQUEUE_PTR Queue,
-    IN gctBOOL Forced
-    );
+gckEVENT_Commit(IN gckEVENT     Event,
+                IN gcsQUEUE_PTR Queue,
+                IN gctBOOL      Forced,
+                IN gctBOOL      Submit,
+                IN gctBOOL      Shared);
 
 /* Event callback routine. */
 gceSTATUS
-gckEVENT_Notify(
-    IN gckEVENT Event,
-    IN gctUINT32 IDs,
-    OUT gceEVENT_FAULT *Fault
-    );
+gckEVENT_Notify(IN gckEVENT Event, IN gctUINT32 IDs, OUT gceEVENT_FAULT *Fault);
 
 /* Event callback routine. */
 gceSTATUS
-gckEVENT_Interrupt(
-    IN gckEVENT Event,
-    IN gctUINT32 IDs
-    );
+gckEVENT_Interrupt(IN gckEVENT Event, IN gctUINT32 IDs);
 
 gceSTATUS
-gckEVENT_Dump(
-    IN gckEVENT Event
-    );
+gckEVENT_Dump(IN gckEVENT Event);
 
 /* Free all events belonging to a process. */
 gceSTATUS
-gckEVENT_FreeProcess(
-    IN gckEVENT Event,
-    IN gctUINT32 ProcessID
-    );
+gckEVENT_FreeProcess(IN gckEVENT Event, IN gctUINT32 ProcessID);
+
+#if gcdENABLE_VIDEO_MEMORY_MIRROR
+typedef struct _gcsVIDMEM_NODE_MIRROR {
+    gceMIRROR_TYPE  type;
+    gckVIDMEM_NODE  mirrorNode;
+#if !gcdSTATIC_VIDEO_MEMORY_MIRROR
+    gctUINT32       refCount;
+#    endif
+} gcsVIDMEM_NODE_MIRROR;
+#endif
 
 /* gcuVIDMEM_NODE structure. */
-typedef union _gcuVIDMEM_NODE
-{
+typedef union _gcuVIDMEM_NODE {
     /* Allocated from gckVIDMEM. */
-    struct _gcsVIDMEM_NODE_VIDMEM
-    {
+    struct _gcsVIDMEM_NODE_VIDMEM {
         /* Owner of this node. */
         gckVIDMEM               parent;
 
@@ -1127,7 +924,7 @@ typedef union _gcuVIDMEM_NODE
         /* Information for this node. */
         gctSIZE_T               offset;
 
-        gctUINT32               address;
+        gctADDRESS              address;
         gctSIZE_T               bytes;
         gctUINT32               alignment;
 
@@ -1152,12 +949,10 @@ typedef union _gcuVIDMEM_NODE
 #if gcdENABLE_VG
         gctPOINTER              kernelVirtual;
 #endif
-    }
-    VidMem;
+    } VidMem;
 
     /* Allocated from gckOS. */
-    struct _gcsVIDMEM_NODE_VIRTUAL
-    {
+    struct _gcsVIDMEM_NODE_VIRTUAL {
         /* Pointer to gckKERNEL object. */
         gckKERNEL               kernel;
 
@@ -1191,13 +986,25 @@ typedef union _gcuVIDMEM_NODE
         /* Used only when node is not contiguous */
         gctSIZE_T               pageCount;
 
+#if gcdSHARED_PAGETABLE
         /* Used only when node is not contiguous */
         gctPOINTER              pageTables[gcvHARDWARE_NUM_TYPES];
-        /* Actual physical address */
-        gctUINT32               addresses[gcvHARDWARE_NUM_TYPES];
+
+        /* Virtual address. */
+        gctADDRESS              addresses[gcvHARDWARE_NUM_TYPES];
 
         /* Locked counter. */
         gctINT32                lockeds[gcvHARDWARE_NUM_TYPES];
+#else
+        /* Used only when node is not contiguous */
+        gctPOINTER              pageTables[gcvCORE_COUNT];
+
+        /* Virtual address. */
+        gctADDRESS              addresses[gcvCORE_COUNT];
+
+        /* Locked counter. */
+        gctINT32                lockeds[gcvCORE_COUNT];
+#endif
 
         /* MMU page size type */
         gcePAGE_TYPE            pageType;
@@ -1208,11 +1015,12 @@ typedef union _gcuVIDMEM_NODE
         gctBOOL                 secure;
 
         gctBOOL                 onFault;
-    }
-    Virtual;
 
-    struct _gcsVIDMEM_NODE_VIRTUAL_CHUNK
-    {
+        /* If the virtual address needs to be within 32 bit. */
+        gctBOOL                 lowVA;
+    } Virtual;
+
+    struct _gcsVIDMEM_NODE_VIRTUAL_CHUNK {
         /* Owner of this chunk */
         gckVIDMEM_BLOCK         parent;
 
@@ -1229,8 +1037,13 @@ typedef union _gcuVIDMEM_NODE
 
         /* Information for this chunk. */
         gctSIZE_T               offset;
-        gctUINT32               addresses[gcvHARDWARE_NUM_TYPES];
+#if gcdSHARED_PAGETABLE
+        gctADDRESS              addresses[gcvHARDWARE_NUM_TYPES];
         gctINT32                lockeds[gcvHARDWARE_NUM_TYPES];
+#else
+        gctADDRESS              addresses[gcvCORE_COUNT];
+        gctINT32                lockeds[gcvCORE_COUNT];
+#endif
         gctSIZE_T               bytes;
 
         /* Mapped user logical */
@@ -1242,15 +1055,12 @@ typedef union _gcuVIDMEM_NODE
         gctUINT32               processID;
 
         /* Locked counter. */
-    }
-    VirtualChunk;
+    } VirtualChunk;
 
-}
-gcuVIDMEM_NODE;
+} gcuVIDMEM_NODE;
 
 /* gckVIDMEM object. */
-struct _gckVIDMEM
-{
+struct _gckVIDMEM {
     /* Object. */
     gcsOBJECT                   object;
 
@@ -1283,8 +1093,7 @@ struct _gckVIDMEM
 };
 
 /* gckVIDMEM_BLOCK object. */
-typedef struct _gcsVIDMEM_BLOCK
-{
+typedef struct _gcsVIDMEM_BLOCK {
     /* Object. */
     gcsOBJECT                   object;
 
@@ -1312,8 +1121,13 @@ typedef struct _gcsVIDMEM_BLOCK
     gctUINT32                   fixedPageCount;
 
     /* Gpu virtual base of this video memory heap. */
-    gctUINT32                   addresses[gcvHARDWARE_NUM_TYPES];
+#if gcdSHARED_PAGETABLE
+    gctADDRESS                  addresses[gcvHARDWARE_NUM_TYPES];
     gctPOINTER                  pageTables[gcvHARDWARE_NUM_TYPES];
+#else
+    gctADDRESS                  addresses[gcvCORE_COUNT];
+    gctPOINTER                  pageTables[gcvCORE_COUNT];
+#endif
 
     gceVIDMEM_TYPE              type;
 
@@ -1324,12 +1138,21 @@ typedef struct _gcsVIDMEM_BLOCK
 
     gctBOOL                     secure;
     gctBOOL                     onFault;
-}
-gcsVIDMEM_BLOCK;
 
-typedef struct _gcsVIDMEM_NODE
-{
-    _VIV_VIDMEM_METADATA        metadata;
+    /* If the virtual address needs to be within 32 bit. */
+    gctBOOL                     lowVA;
+} gcsVIDMEM_BLOCK;
+
+typedef struct _gcsVIDMEM_PIDINFO {
+    gctUINT32 pid;
+    gctPOINTER ref;
+    struct _gcsVIDMEM_PIDINFO *next;
+} gcsVIDMEM_PIDINFO;
+
+typedef struct _gcsVIDMEM_PIDINFO *gckVIDMEM_PIDINFO;
+
+typedef struct _gcsVIDMEM_NODE {
+    _VIV_VIDMEM_METADATA metadata;
 
     /* Pointer to gcuVIDMEM_NODE. */
     gcuVIDMEM_NODE_PTR          node;
@@ -1352,6 +1175,9 @@ typedef struct _gcsVIDMEM_NODE
     /* dma_buf */
     gctPOINTER                  dmabuf;
 
+    /* fd */
+    gctINT                      fd;
+
     /* Video memory allocation type. */
     gceVIDMEM_TYPE              type;
 
@@ -1372,12 +1198,19 @@ typedef struct _gcsVIDMEM_NODE
     gctSIZE_T                   captureSize;
     gctPOINTER                  captureLogical;
 #endif
-}
-gcsVIDMEM_NODE;
 
-typedef struct _gcsVIDMEM_HANDLE * gckVIDMEM_HANDLE;
-typedef struct _gcsVIDMEM_HANDLE
-{
+    gckVIDMEM_PIDINFO           pidInfo;
+
+    /* Allocation flag */
+    gctUINT32                   flag;
+
+#if gcdENABLE_VIDEO_MEMORY_MIRROR
+    gcsVIDMEM_NODE_MIRROR       mirror;
+#endif
+} gcsVIDMEM_NODE;
+
+typedef struct _gcsVIDMEM_HANDLE *gckVIDMEM_HANDLE;
+typedef struct _gcsVIDMEM_HANDLE {
     /* Pointer to gckVIDMEM_NODE. */
     gckVIDMEM_NODE              node;
 
@@ -1386,12 +1219,10 @@ typedef struct _gcsVIDMEM_HANDLE
 
     /* Reference count for this handle. */
     gctPOINTER                  reference;
-}
-gcsVIDMEM_HANDLE;
+} gcsVIDMEM_HANDLE;
 
-typedef struct _gcsSHBUF * gcsSHBUF_PTR;
-typedef struct _gcsSHBUF
-{
+typedef struct _gcsSHBUF *gcsSHBUF_PTR;
+typedef struct _gcsSHBUF {
     /* ID. */
     gctUINT32                   id;
 
@@ -1403,28 +1234,27 @@ typedef struct _gcsSHBUF
 
     /* Data. */
     gctPOINTER                  data;
-}
-gcsSHBUF;
+} gcsSHBUF;
 
-typedef struct _gcsCORE_INFO
-{
-    gceHARDWARE_TYPE            type;
-    gceCORE                     core;
-    gckKERNEL                   kernel;
-    gctUINT                     chipID;
-}
-gcsCORE_INFO;
+typedef struct _gcsCORE_INFO {
+    gceHARDWARE_TYPE type;
+    gceCORE          core;
+    gckKERNEL        kernel;
+    gctUINT          chipID;
+} gcsCORE_INFO;
 
-typedef struct _gcsCORE_LIST
-{
-    gckKERNEL                   kernels[gcvCORE_COUNT];
-    gctUINT32                   num;
-}
-gcsCORE_LIST;
+typedef struct _gcsCORE_LIST {
+    gckKERNEL   kernels[gcvCORE_COUNT];
+    gctUINT32   num;
+} gcsCORE_LIST;
 
 /* A gckDEVICE is a group of cores (gckKERNEL in software). */
-typedef struct _gcsDEVICE
-{
+typedef struct _gcsDEVICE {
+    /* Global device id in all the platforms. */
+    gctUINT                     id;
+    /* Platform id that the device locate. */
+    gctUINT                     platformIndex;
+
     gcsCORE_INFO                coreInfoArray[gcvCORE_COUNT];
     gctUINT32                   coreNum;
     gcsCORE_LIST                map[gcvHARDWARE_NUM_TYPES];
@@ -1435,29 +1265,39 @@ typedef struct _gcsDEVICE
     /* Process resource database. */
     gckDB                       database;
 
-    /* Same hardware type shares one MMU. */
+#if gcdSHARED_PAGETABLE
+    /* Same hardware type of one platform device shares one MMU. */
     gckMMU                      mmus[gcvHARDWARE_NUM_TYPES];
+#endif
+
+    gckCOMMAND                  commands[gcvHARDWARE_NUM_TYPES];
+
+    gckKERNEL                   kernels[gcvCORE_COUNT];
+
+    gctUINT32                   extSRAMIndex;
 
     /* Physical address of internal SRAMs. */
-    gctUINT64                   sRAMBases[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+    gctPHYS_ADDR_T              sRAMBases[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
     /* Internal SRAMs' size. */
     gctUINT32                   sRAMSizes[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
     /* GPU/VIP virtual address of internal SRAMs. */
-    gctUINT32                   sRAMBaseAddresses[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+    gctADDRESS                  sRAMBaseAddresses[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
     gctBOOL                     sRAMPhysFaked[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
 
     /* CPU physical address of external SRAMs. */
-    gctUINT64                   extSRAMBases[gcvSRAM_EXT_COUNT];
+    gctPHYS_ADDR_T              extSRAMBases[gcvSRAM_EXT_COUNT];
     /* GPU physical address of external SRAMs. */
-    gctUINT64                   extSRAMGPUBases[gcvSRAM_EXT_COUNT];
+    gctPHYS_ADDR_T              extSRAMGPUBases[gcvSRAM_EXT_COUNT];
     /* External SRAMs' size. */
     gctUINT32                   extSRAMSizes[gcvSRAM_EXT_COUNT];
     /* GPU/VIP virtual address of external SRAMs. */
-    gctUINT32                   extSRAMBaseAddresses[gcvSRAM_EXT_COUNT];
+    gctADDRESS                  extSRAMBaseAddresses[gcvSRAM_EXT_COUNT];
     /* MDL. */
-    gctPHYS_ADDR                extSRAMPhysical[gcvSRAM_EXT_COUNT];
+    gctPHYS_ADDR                extSRAMPhysicals[gcvSRAM_EXT_COUNT];
     /* IntegerId. */
     gctUINT32                   extSRAMGPUPhysNames[gcvSRAM_EXT_COUNT];
+    /* Vidmem. */
+    gckVIDMEM                   extSRAMVidMems[gcvSRAM_EXT_COUNT];
 
     /* Show SRAM mapping info or not. */
     gctUINT                     showSRAMMapInfo;
@@ -1468,1012 +1308,786 @@ typedef struct _gcsDEVICE
     /* Mutex for multi-core combine mode command submission */
     gctPOINTER                  commitMutex;
 
+    /* Mutex for per-device power management. */
+    gctPOINTER                  powerMutex;
+
     /* Mutex for recovery all core */
     gctPOINTER                  recoveryMutex;
 
-}
-gcsDEVICE;
+    /* Which memory this core uses. */
+    gctUINT32                   memIndex;
+
+    gctPHYS_ADDR_T              contiguousBases[gcdSYSTEM_RESERVE_COUNT];
+    gctSIZE_T                   contiguousSizes[gcdSYSTEM_RESERVE_COUNT];
+    gctPHYS_ADDR                contiguousPhysicals[gcdSYSTEM_RESERVE_COUNT];
+    gctUINT32                   contiguousPhysNames[gcdSYSTEM_RESERVE_COUNT];
+    gckVIDMEM                   contiguousVidMems[gcdSYSTEM_RESERVE_COUNT];
+
+    gctPHYS_ADDR_T              lowContiguousBase;
+    gctSIZE_T                   lowContiguousSize;
+
+    gctPHYS_ADDR_T              exclusiveBase;
+    gctSIZE_T                   exclusiveSize;
+    gctPHYS_ADDR                exclusivePhysical;
+    gctUINT32                   exclusivePhysName;
+    gctPOINTER                  exclusiveLogical;
+    gckVIDMEM                   exclusiveVidMem;
+
+    gctPHYS_ADDR_T              externalBase;
+    gctSIZE_T                   externalSize;
+    gctPHYS_ADDR                externalPhysical;
+    gctUINT32                   externalPhysName;
+    gctPOINTER                  externalLogical;
+    gckVIDMEM                   externalVidMem;
+
+    /* IRQ management. */
+    gctINT                      irqLines[gcvCORE_COUNT];
+    gctBOOL                     isrInitializeds[gcvCORE_COUNT];
+    gctPOINTER                  isrThread[gcvCORE_COUNT];
+    gctBOOL                     killIsrThread;
+
+    /* Register memory. */
+    gctPOINTER                  registerBases[gcvCORE_COUNT];
+    gctSIZE_T                   registerSizes[gcvCORE_COUNT];
+    gctPOINTER                  registerBasesMapped[gcvCORE_COUNT];
+
+    /* By request_mem_region. */
+    gctUINT64                   requestedRegisterMemBases[gcvCORE_COUNT];
+    gctSIZE_T                   requestedRegisterMemSizes[gcvCORE_COUNT];
+
+    gctUINT32                   baseAddress;
+    gctUINT32                   physBase;
+    gctUINT32                   physSize;
+
+    /* Thread management. */
+    gctPOINTER                  threadCtxts[gcvCORE_COUNT];
+    gctBOOL                     threadInitializeds[gcvCORE_COUNT];
+
+    /* States before suspend. */
+    gceCHIPPOWERSTATE           statesStored[gcvCORE_COUNT];
+
+    /* Which video memory is for device. */
+    gctUINT32                   vidMemIndex;
+
+    /* Which SRAM is for device. */
+    gctUINT32                   sRAMIndex;
+
+    /* Core count configuration. */
+    gctUINT32                   configCoreCount;
+    gctUINT32                   config2DCoreCount;
+
+    /* Platform device structure. */
+    gctPOINTER                  dev;
+
+    /* Print the memory info or not. */
+    gctBOOL                     showMemInfo;
+
+#if gcdENABLE_SW_PREEMPTION
+    gctPOINTER                  atomPriorityID;
+    gctPOINTER                  preemptThread[gcvCORE_COUNT];
+    gctBOOL                     preemptThreadInits[gcvCORE_COUNT];
+#endif
+} gcsDEVICE;
 
 /* video memory pool functions. */
 /* Construct a new gckVIDMEM object. */
 gceSTATUS
-gckVIDMEM_Construct(
-    IN gckOS Os,
-    IN gctPHYS_ADDR_T PhysicalBase,
-    IN gctSIZE_T Bytes,
-    IN gctSIZE_T Threshold,
-    IN gctSIZE_T Banking,
-    OUT gckVIDMEM * Memory
-    );
+gckVIDMEM_Construct(IN gckOS          Os,
+                    IN gctPHYS_ADDR_T PhysicalBase,
+                    IN gctSIZE_T      Bytes,
+                    IN gctSIZE_T      Threshold,
+                    IN gctSIZE_T      Banking,
+                    OUT gckVIDMEM     *Memory);
 
 /* Destroy an gckVDIMEM object. */
 gceSTATUS
-gckVIDMEM_Destroy(
-    IN gckVIDMEM Memory
-    );
-
+gckVIDMEM_Destroy(IN gckVIDMEM Memory);
 
 gceSTATUS
-gckVIDMEM_HANDLE_Allocate(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE Node,
-    OUT gctUINT32 * Handle
-    );
+gckVIDMEM_HANDLE_Allocate(IN gckKERNEL Kernel, IN gckVIDMEM_NODE Node, OUT gctUINT32 *Handle);
 
 gceSTATUS
-gckVIDMEM_HANDLE_Reference(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gctUINT32 Handle
-    );
+gckVIDMEM_HANDLE_Reference(IN gckKERNEL Kernel, IN gctUINT32 ProcessID, IN gctUINT32 Handle);
 
 gceSTATUS
-gckVIDMEM_HANDLE_Dereference(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gctUINT32 Handle
-    );
+gckVIDMEM_HANDLE_Dereference(IN gckKERNEL Kernel, IN gctUINT32 ProcessID, IN gctUINT32 Handle);
 
 gceSTATUS
-gckVIDMEM_HANDLE_Lookup(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 ProcessID,
-    IN gctUINT32 Handle,
-    OUT gckVIDMEM_NODE * Node
-    );
+gckVIDMEM_HANDLE_Lookup(IN gckKERNEL       Kernel,
+                        IN gctUINT32       ProcessID,
+                        IN gctUINT32       Handle,
+                        OUT gckVIDMEM_NODE *Node);
 
 gceSTATUS
-gckVIDMEM_HANDLE_Lookup2(
-    IN gckKERNEL Kernel,
-    IN gcsDATABASE_PTR Database,
-    IN gctUINT32 Handle,
-    OUT gckVIDMEM_NODE * Node
-    );
+gckVIDMEM_HANDLE_Lookup2(IN gckKERNEL       Kernel,
+                         IN gcsDATABASE_PTR Database,
+                         IN gctUINT32       Handle,
+                         OUT gckVIDMEM_NODE *Node);
 
 /* video memory node functions. */
 gceSTATUS
-gckVIDMEM_NODE_AllocateLinear(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM VideoMemory,
-    IN gcePOOL Pool,
-    IN gceVIDMEM_TYPE Type,
-    IN gctUINT32 Flag,
-    IN gctUINT32 Alignment,
-    IN gctBOOL Specified,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gckVIDMEM_NODE * NodeObject
-    );
+gckVIDMEM_NODE_AllocateLinear(IN gckKERNEL       Kernel,
+                              IN gckVIDMEM       VideoMemory,
+                              IN gcePOOL         Pool,
+                              IN gceVIDMEM_TYPE  Type,
+                              IN gctUINT32       Flag,
+                              IN gctUINT32       Alignment,
+                              IN gctBOOL         Specified,
+                              IN OUT gctSIZE_T   *Bytes,
+                              OUT gckVIDMEM_NODE *NodeObject);
 
 gceSTATUS
-gckVIDMEM_NODE_AllocateVirtual(
-    IN gckKERNEL Kernel,
-    IN gcePOOL Pool,
-    IN gceVIDMEM_TYPE Type,
-    IN gctUINT32 Flag,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gckVIDMEM_NODE * NodeObject
-    );
+gckVIDMEM_NODE_AllocateVirtual(IN gckKERNEL       Kernel,
+                               IN gcePOOL         Pool,
+                               IN gceVIDMEM_TYPE  Type,
+                               IN gctUINT32       Flag,
+                               IN OUT gctSIZE_T   *Bytes,
+                               OUT gckVIDMEM_NODE *NodeObject);
 
 gceSTATUS
-gckVIDMEM_NODE_AllocateVirtualChunk(
-    IN gckKERNEL Kernel,
-    IN gcePOOL Pool,
-    IN gceVIDMEM_TYPE Type,
-    IN gctUINT32 Flag,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gckVIDMEM_NODE * NodeObject
-    );
+gckVIDMEM_NODE_AllocateVirtualChunk(IN gckKERNEL       Kernel,
+                                    IN gcePOOL         Pool,
+                                    IN gceVIDMEM_TYPE  Type,
+                                    IN gctUINT32       Flag,
+                                    IN OUT gctSIZE_T   *Bytes,
+                                    OUT gckVIDMEM_NODE *NodeObject);
 
 gceSTATUS
-gckVIDMEM_NODE_Reference(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE Node
-    );
+gckVIDMEM_NODE_Reference(IN gckKERNEL Kernel, IN gckVIDMEM_NODE Node);
 
 gceSTATUS
-gckVIDMEM_NODE_Dereference(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE Node
-    );
+gckVIDMEM_NODE_Dereference(IN gckKERNEL Kernel, IN gckVIDMEM_NODE Node);
 
 gceSTATUS
-gckVIDMEM_NODE_GetReference(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctINT32 * ReferenceCount
-    );
+gckVIDMEM_NODE_DereferenceEx(IN gckKERNEL Kernel,
+                             IN gckVIDMEM_NODE Node,
+                             IN gctUINT32 ProcessID);
 
 gceSTATUS
-gckVIDMEM_NODE_Lock(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctUINT32 *Address
-    );
+gckVIDMEM_NODE_GetReference(IN gckKERNEL      Kernel,
+                            IN gckVIDMEM_NODE NodeObject,
+                            OUT gctINT32      *ReferenceCount);
 
 gceSTATUS
-gckVIDMEM_NODE_Unlock(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctUINT32 ProcessID,
-    IN OUT gctBOOL * Asynchroneous
-    );
+gckVIDMEM_NODE_Lock(IN gckKERNEL      Kernel,
+                    IN gckVIDMEM_NODE NodeObject,
+                    OUT gctADDRESS    *Address);
 
 gceSTATUS
-gckVIDMEM_NODE_CleanCache(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctSIZE_T Offset,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes
-    );
+gckVIDMEM_NODE_Unlock(IN gckKERNEL      Kernel,
+                      IN gckVIDMEM_NODE NodeObject,
+                      IN gctUINT32      ProcessID,
+                      IN OUT gctBOOL    *Asynchroneous);
 
 gceSTATUS
-gckVIDMEM_NODE_InvalidateCache(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctSIZE_T Offset,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes
-    );
+gckVIDMEM_NODE_CleanCache(IN gckKERNEL      Kernel,
+                          IN gckVIDMEM_NODE NodeObject,
+                          IN gctSIZE_T      Offset,
+                          IN gctPOINTER     Logical,
+                          IN gctSIZE_T      Bytes);
 
 gceSTATUS
-gckVIDMEM_NODE_GetLockCount(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctINT32 * LockCount
-    );
+gckVIDMEM_NODE_InvalidateCache(IN gckKERNEL      Kernel,
+                               IN gckVIDMEM_NODE NodeObject,
+                               IN gctSIZE_T      Offset,
+                               IN gctPOINTER     Logical,
+                               IN gctSIZE_T      Bytes);
 
 gceSTATUS
-gckVIDMEM_NODE_LockCPU(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctBOOL Cacheable,
-    IN gctBOOL FromUser,
-    OUT gctPOINTER * Logical
-    );
+gckVIDMEM_NODE_GetLockCount(IN gckKERNEL      Kernel,
+                            IN gckVIDMEM_NODE NodeObject,
+                            OUT gctINT32      *LockCount);
 
 gceSTATUS
-gckVIDMEM_NODE_UnlockCPU(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctUINT32 ProcessID,
-    IN gctBOOL FromUser,
-    IN gctBOOL Defer
-    );
+gckVIDMEM_NODE_LockCPU(IN gckKERNEL      Kernel,
+                       IN gckVIDMEM_NODE NodeObject,
+                       IN gctBOOL        Cacheable,
+                       IN gctBOOL        FromUser,
+                       OUT gctPOINTER    *Logical);
 
 gceSTATUS
-gckVIDMEM_NODE_GetPhysical(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctUINT32 Offset,
-    OUT gctPHYS_ADDR_T * PhysicalAddress
-    );
+gckVIDMEM_NODE_UnlockCPU(IN gckKERNEL      Kernel,
+                         IN gckVIDMEM_NODE NodeObject,
+                         IN gctUINT32      ProcessID,
+                         IN gctBOOL        FromUser,
+                         IN gctBOOL        Defer);
 
 gceSTATUS
-gckVIDMEM_NODE_GetGid(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctUINT32 * Gid
-    );
+gckVIDMEM_NODE_GetCPUPhysical(IN gckKERNEL       Kernel,
+                              IN gckVIDMEM_NODE  NodeObject,
+                              IN gctSIZE_T       Offset,
+                              OUT gctPHYS_ADDR_T *PhysicalAddress);
 
 gceSTATUS
-gckVIDMEM_NODE_GetSize(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctSIZE_T * Size
-    );
+gckVIDMEM_NODE_GetGPUPhysical(IN gckKERNEL       Kernel,
+                              IN gckVIDMEM_NODE  NodeObject,
+                              IN gctUINT32       Offset,
+                              OUT gctPHYS_ADDR_T *PhysicalAddress);
 
 gceSTATUS
-gckVIDMEM_NODE_GetType(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gceVIDMEM_TYPE * Type,
-    OUT gcePOOL * Pool
-    );
+gckVIDMEM_NODE_GetGid(IN gckKERNEL      Kernel,
+                      IN gckVIDMEM_NODE NodeObject,
+                      OUT gctUINT32     *Gid);
 
 gceSTATUS
-gckVIDMEM_NODE_Export(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctINT32 Flags,
-    OUT gctPOINTER *DmaBuf,
-    OUT gctINT32 *FD
-    );
+gckVIDMEM_NODE_GetSize(IN gckKERNEL      Kernel,
+                       IN gckVIDMEM_NODE NodeObject,
+                       OUT gctSIZE_T     *Size);
 
 gceSTATUS
-gckVIDMEM_NODE_Name(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctUINT32 * Name
-    );
+gckVIDMEM_NODE_GetType(IN gckKERNEL       Kernel,
+                       IN gckVIDMEM_NODE  NodeObject,
+                       OUT gceVIDMEM_TYPE *Type,
+                       OUT gcePOOL        *Pool);
 
 gceSTATUS
-gckVIDMEM_NODE_Import(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Name,
-    OUT gckVIDMEM_NODE * NodeObject
-    );
+gckVIDMEM_NODE_Export(IN gckKERNEL      Kernel,
+                      IN gckVIDMEM_NODE NodeObject,
+                      IN gctINT32       Flags,
+                      OUT gctPOINTER    *DmaBuf,
+                      OUT gctINT32      *FD);
 
 gceSTATUS
-gckVIDMEM_NODE_GetFd(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctINT * Fd
-    );
+gckVIDMEM_NODE_Name(IN gckKERNEL      Kernel,
+                    IN gckVIDMEM_NODE NodeObject,
+                    OUT gctUINT32     *Name);
 
 gceSTATUS
-gckVIDMEM_NODE_WrapUserMemory(
-    IN gckKERNEL Kernel,
-    IN gcsUSER_MEMORY_DESC_PTR Desc,
-    IN gceVIDMEM_TYPE Type,
-    OUT gckVIDMEM_NODE * NodeObject,
-    OUT gctUINT64 * Bytes
-    );
+gckVIDMEM_NODE_Import(IN gckKERNEL       Kernel,
+                      IN gctUINT32       Name,
+                      OUT gckVIDMEM_NODE *NodeObject);
 
 gceSTATUS
-gckVIDMEM_NODE_SetCommitStamp(
-    IN gckKERNEL Kernel,
-    IN gceENGINE Engine,
-    IN gckVIDMEM_NODE NodeObject,
-    IN gctUINT64 CommitStamp
-    );
+gckVIDMEM_NODE_GetFd(IN gckKERNEL      Kernel,
+                     IN gckVIDMEM_NODE NodeObject,
+                     IN gctBOOL        Exported,
+                     OUT gctINT        *Fd);
 
 gceSTATUS
-gckVIDMEM_NODE_GetCommitStamp(
-    IN gckKERNEL Kernel,
-    IN gceENGINE Engine,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctUINT64_PTR CommitStamp
-    );
+gckVIDMEM_NODE_WrapUserMemory(IN gckKERNEL               Kernel,
+                              IN gcsUSER_MEMORY_DESC_PTR Desc,
+                              IN gceVIDMEM_TYPE          Type,
+                              OUT gckVIDMEM_NODE         *NodeObject,
+                              OUT gctUINT64              *Bytes);
 
 gceSTATUS
-gckVIDMEM_NODE_Find(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Address,
-    OUT gckVIDMEM_NODE * NodeObject,
-    OUT gctUINT32 * Offset
-    );
+gckVIDMEM_NODE_SetCommitStamp(IN gckKERNEL      Kernel,
+                              IN gceENGINE      Engine,
+                              IN gckVIDMEM_NODE NodeObject,
+                              IN gctUINT64      CommitStamp);
 
 gceSTATUS
-gckVIDMEM_NODE_IsContiguous(
-    IN gckKERNEL Kernel,
-    IN gckVIDMEM_NODE NodeObject,
-    OUT gctBOOL * Contiguous
-    );
-
-typedef struct _gcsADDRESS_AREA * gcsADDRESS_AREA_PTR;
-typedef struct _gcsADDRESS_AREA
-{
-    /* Page table / STLB table information. */
-    gctSIZE_T                   stlbSize;
-    gckVIDMEM_NODE              stlbVideoMem;
-    gctUINT32_PTR               stlbLogical;
-    gctUINT32                   stlbEntries;
-    /* stlb physical address. */
-    gctPHYS_ADDR_T              stlbPhysical;
-
-    /* Free entries. */
-    gctUINT32                   heapList;
-    gctBOOL                     freeNodes;
-
-    gceAREA_TYPE                areaType;
-
-    gctUINT32                   mappingStart;
-    gctUINT32                   mappingEnd;
-
-    gctUINT32_PTR               mapLogical;
-}
-gcsADDRESS_AREA;
-
-/* gckMMU object. */
-struct _gckMMU
-{
-    /* The object. */
-    gcsOBJECT                   object;
-
-    /* Pointer to gckOS object. */
-    gckOS                       os;
-
-    /* Pointer to gckHARDWARE object. */
-    gckHARDWARE                 hardware;
-
-    /* The page table mutex. */
-    gctPOINTER                  pageTableMutex;
-
-    /* Master TLB information. */
-    gctSIZE_T                   mtlbSize;
-    gckVIDMEM_NODE              mtlbVideoMem;
-    gctUINT32_PTR               mtlbLogical;
-    gctUINT32                   mtlbEntries;
-    /* mtlb physical address. */
-    gctPHYS_ADDR_T              mtlbPhysical;
-
-    /* memory pool used for page table */
-    gcePOOL                     pool;
-
-    gctPOINTER                  staticSTLB;
-    gctBOOL                     enabled;
-
-    gctSIZE_T                   safePageSize;
-    gckVIDMEM_NODE              safePageVideoMem;
-    gctPOINTER                  safePageLogical;
-    gctUINT32                   safeAddress;
-    /* Safe page physical address. */
-    gctPHYS_ADDR_T              safePagePhysical;
-
-    /* GPU physical address flat mapping area. */
-    gctUINT32                   gpuPhysicalRangeCount;
-    gcsFLAT_MAPPING_RANGE       gpuPhysicalRanges[gcdMAX_FLAT_MAPPING_COUNT];
-
-    /* GPU virtual address flat mapping area*/
-    gctUINT32                   gpuAddressRangeCount;
-    gcsFLAT_MAPPING_RANGE       gpuAddressRanges[gcdMAX_FLAT_MAPPING_COUNT];
-
-    /* List of hardware which uses this MMU. */
-    gcsLISTHEAD                 hardwareList;
-
-    struct _gckQUEUE            recentFreedAddresses;
-
-    gcsADDRESS_AREA             dynamicArea1M;
-    gcsADDRESS_AREA             dynamicArea4K;
-    gcsADDRESS_AREA             secureArea;
-
-    gctBOOL                     dynamicAreaSetuped;
-
-    gctBOOL                     sRAMMapped;
-
-    gctUINT32                   contiguousBaseAddress;
-    gctUINT32                   externalBaseAddress;
-    gctUINT32                   internalBaseAddress;
-    gctUINT                     mmuException;
-};
-
+gckVIDMEM_NODE_GetCommitStamp(IN gckKERNEL      Kernel,
+                              IN gceENGINE      Engine,
+                              IN gckVIDMEM_NODE NodeObject,
+                              OUT gctUINT64_PTR CommitStamp);
 
 gceSTATUS
-gckOS_CreateKernelMapping(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Offset,
-    IN gctSIZE_T Bytes,
-    OUT gctPOINTER * Logical
-    );
+gckVIDMEM_NODE_Find(IN gckKERNEL       Kernel,
+                    IN gctADDRESS      Address,
+                    OUT gckVIDMEM_NODE *NodeObject,
+                    OUT gctSIZE_T      *Offset);
 
 gceSTATUS
-gckOS_DestroyKernelMapping(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctPOINTER Logical
-    );
+gckVIDMEM_NODE_IsContiguous(IN gckKERNEL      Kernel,
+                            IN gckVIDMEM_NODE NodeObject,
+                            OUT gctBOOL       *Contiguous);
 
 gceSTATUS
-gckOS_GetFd(
-    IN gctSTRING Name,
-    IN gcsFDPRIVATE_PTR Private,
-    OUT gctINT *Fd
-    );
+gckVIDMEM_NODE_GetMemoryHandle(IN gckKERNEL      Kernel,
+                               IN gckVIDMEM_NODE NodeObject,
+                               OUT gctPOINTER    *MemoryHandle);
+
+gceSTATUS
+gckVIDMEM_NODE_GetMapKernel(IN gckKERNEL      Kernel,
+                            IN gckVIDMEM_NODE NodeObject,
+                            OUT gctPOINTER    *KernelMap);
+
+gceSTATUS
+gckVIDMEM_NODE_GetOffset(IN gckKERNEL      Kernel,
+                         IN gckVIDMEM_NODE NodeObject,
+                         OUT gctSIZE_T     *Offset);
+
+gceSTATUS
+gckOS_CreateKernelMapping(IN gckOS        Os,
+                          IN gctPHYS_ADDR Physical,
+                          IN gctSIZE_T    Offset,
+                          IN gctSIZE_T    Bytes,
+                          OUT gctPOINTER  *Logical);
+
+gceSTATUS
+gckOS_DestroyKernelMapping(IN gckOS Os, IN gctPHYS_ADDR Physical, IN gctPOINTER Logical);
+
+gceSTATUS
+gckOS_GetFd(IN gctSTRING Name, IN gcsFDPRIVATE_PTR Private, OUT gctINT *Fd);
 
 /*******************************************************************************
-**
-**  gckOS_ReadMappedPointer
-**
-**  Read pointer mapped from user pointer which returned by gckOS_MapUserPointer.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctPOINTER Address
-**          Pointer returned by gckOS_MapUserPointer.
-**
-**      gctUINT32_PTR Data
-**          Pointer to hold 32 bits data.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_ReadMappedPointer
+ **
+ **  Read pointer mapped from user pointer which returned by gckOS_MapUserPointer.
+ **
+ **  INPUT:
+ **
+ **      gckOS Os
+ **          Pointer to an gckOS object.
+ **
+ **      gctPOINTER Address
+ **          Pointer returned by gckOS_MapUserPointer.
+ **
+ **      gctUINT32_PTR Data
+ **          Pointer to hold 32 bits data.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 gceSTATUS
-gckOS_ReadMappedPointer(
-    IN gckOS Os,
-    IN gctPOINTER Address,
-    IN gctUINT32_PTR Data
-    );
+gckOS_ReadMappedPointer(IN gckOS Os, IN gctPOINTER Address, IN gctUINT32_PTR Data);
 
 gceSTATUS
-gckKERNEL_AttachProcess(
-    IN gckKERNEL Kernel,
-    IN gctBOOL Attach
-    );
+gckKERNEL_AttachProcess(IN gckKERNEL Kernel, IN gctBOOL Attach);
 
 gceSTATUS
-gckKERNEL_AttachProcessEx(
-    IN gckKERNEL Kernel,
-    IN gctBOOL Attach,
-    IN gctUINT32 PID
-    );
+gckKERNEL_AttachProcessEx(IN gckKERNEL Kernel, IN gctBOOL Attach, IN gctUINT32 PID);
 
 gceSTATUS
-gckKERNEL_AllocateVideoMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Alignment,
-    IN gceVIDMEM_TYPE Type,
-    IN gctUINT32 Flag,
-    IN OUT gctSIZE_T * Bytes,
-    IN OUT gcePOOL * Pool,
-    OUT gckVIDMEM_NODE * NodeObject
-    );
+gckKERNEL_AllocateVideoMemory(IN gckKERNEL       Kernel,
+                              IN gctUINT32       Alignment,
+                              IN gceVIDMEM_TYPE  Type,
+                              IN gctUINT32       Flag,
+                              IN OUT gctSIZE_T   *Bytes,
+                              IN OUT gcePOOL     *Pool,
+                              OUT gckVIDMEM_NODE *NodeObject);
 
 gceSTATUS
-gckHARDWARE_QueryIdle(
-    IN gckHARDWARE Hardware,
-    OUT gctBOOL_PTR IsIdle
-    );
+gckHARDWARE_QchannelPowerControl(IN gckHARDWARE Hardware,
+                                 IN gctBOOL     ClockState,
+                                 IN gctBOOL     PowerState);
 
 gceSTATUS
-gckHARDWARE_WaitFence(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT64 FenceData,
-    IN gctUINT32 FenceAddress,
-    OUT gctUINT32 *Bytes
-    );
+gckHARDWARE_QchannelBypass(IN gckHARDWARE Hardware, IN gctBOOL Enable);
 
 gceSTATUS
-gckHARDWARE_UpdateContextID(
-    IN gckHARDWARE Hardware
-    );
+gckHARDWARE_QueryIdle(IN gckHARDWARE Hardware, OUT gctBOOL_PTR IsIdle);
 
 gceSTATUS
-gckHARDWARE_QueryMcfe(
-    IN gckHARDWARE Hardware,
-    OUT const gceMCFE_CHANNEL_TYPE * Channels[],
-    OUT gctUINT32 * Count
-    );
+gckHARDWARE_WaitFence(IN gckHARDWARE Hardware,
+                      IN gctPOINTER  Logical,
+                      IN gctUINT64   FenceData,
+                      IN gctADDRESS  FenceAddress,
+                      OUT gctUINT32  *Bytes);
+
+gceSTATUS
+gckHARDWARE_UpdateContextID(IN gckHARDWARE Hardware);
+
+gceSTATUS
+gckHARDWARE_QueryMcfe(IN gckHARDWARE                 Hardware,
+                      OUT const gceMCFE_CHANNEL_TYPE *Channels[],
+                      OUT gctUINT32                  *Count);
 
 #if gcdSECURITY
 gceSTATUS
-gckKERNEL_SecurityOpen(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPU,
-    OUT gctUINT32 *Channel
-    );
+gckKERNEL_SecurityOpen(IN gckKERNEL Kernel, IN gctUINT32 GPU, OUT gctUINT32 *Channel);
 
 /*
-** Close a security service channel
-*/
+ ** Close a security service channel
+ */
 gceSTATUS
-gckKERNEL_SecurityClose(
-    IN gctUINT32 Channel
-    );
+gckKERNEL_SecurityClose(IN gctUINT32 Channel);
 
 /*
-** Security service interface.
-*/
+ ** Security service interface.
+ */
 gceSTATUS
-gckKERNEL_SecurityCallService(
-    IN gctUINT32 Channel,
-    IN OUT gcsTA_INTERFACE * Interface
-    );
+gckKERNEL_SecurityCallService(IN gctUINT32 Channel, IN OUT gcsTA_INTERFACE *Interface);
 
 gceSTATUS
-gckKERNEL_SecurityStartCommand(
-    IN gckKERNEL Kernel
-    );
+gckKERNEL_SecurityStartCommand(IN gckKERNEL Kernel);
 
 gceSTATUS
-gckKERNEL_SecurityAllocateSecurityMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Bytes,
-    OUT gctUINT32 * Handle
-    );
+gckKERNEL_SecurityAllocateSecurityMemory(IN gckKERNEL  Kernel,
+                                         IN gctUINT32  Bytes,
+                                         OUT gctUINT32 *Handle);
 
 gceSTATUS
-gckKERNEL_SecurityExecute(
-    IN gckKERNEL Kernel,
-    IN gctPOINTER Buffer,
-    IN gctUINT32 Bytes
-    );
+gckKERNEL_SecurityExecute(IN gckKERNEL Kernel, IN gctPOINTER Buffer, IN gctUINT32 Bytes);
 
 gceSTATUS
-gckKERNEL_SecurityMapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 *PhysicalArray,
-    IN gctUINT32 PageCount,
-    OUT gctUINT32 * GPUAddress
-    );
+gckKERNEL_SecurityMapMemory(IN gckKERNEL   Kernel,
+                            IN gctUINT32   *PhysicalArray,
+                            IN gctUINT32   PageCount,
+                            OUT gctADDRESS *GPUAddress);
 
 gceSTATUS
-gckKERNEL_SecurityUnmapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPUAddress,
-    IN gctUINT32 PageCount
-    );
+gckKERNEL_SecurityUnmapMemory(IN gckKERNEL  Kernel,
+                              IN gctADDRESS GPUAddress,
+                              IN gctUINT32  PageCount);
 
 #endif
 
 #if gcdENABLE_TRUST_APPLICATION
 gceSTATUS
-gckKERNEL_SecurityOpen(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPU,
-    OUT gctUINT32 *Channel
-    );
+gckKERNEL_SecurityOpen(IN gckKERNEL  Kernel,
+                       IN gctUINT32  GPU,
+                       OUT gctUINT32 *Channel);
 
 /*
-** Close a security service channel
-*/
+ ** Close a security service channel
+ */
 gceSTATUS
-gckKERNEL_SecurityClose(
-    IN gctUINT32 Channel
-    );
+gckKERNEL_SecurityClose(IN gctUINT32 Channel);
 
 /*
-** Security service interface.
-*/
+ ** Security service interface.
+ */
 gceSTATUS
-gckKERNEL_SecurityCallService(
-    IN gctUINT32 Channel,
-    IN OUT gcsTA_INTERFACE * Interface
-    );
+gckKERNEL_SecurityCallService(IN gctUINT32           Channel,
+                              IN OUT gcsTA_INTERFACE *Interface);
 
 gceSTATUS
-gckKERNEL_SecurityStartCommand(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Address,
-    IN gctUINT32 Bytes
-    );
+gckKERNEL_SecurityStartCommand(IN gckKERNEL  Kernel,
+                               IN gctADDRESS Address,
+                               IN gctUINT32  Bytes);
 
 gceSTATUS
-gckKERNEL_SecurityMapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 *PhysicalArray,
-    IN gctPHYS_ADDR_T Physical,
-    IN gctUINT32 PageCount,
-    OUT gctUINT32 * GPUAddress
-    );
+gckKERNEL_SecurityMapMemory(IN gckKERNEL      Kernel,
+                            IN gctUINT32      *PhysicalArray,
+                            IN gctPHYS_ADDR_T Physical,
+                            IN gctUINT32      PageCount,
+                            OUT gctADDRESS    *GPUAddress);
 
 gceSTATUS
-gckKERNEL_SecurityUnmapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPUAddress,
-    IN gctUINT32 PageCount
-    );
+gckKERNEL_SecurityUnmapMemory(IN gckKERNEL  Kernel,
+                              IN gctADDRESS GPUAddress,
+                              IN gctUINT32  PageCount);
 
 gceSTATUS
-gckKERNEL_SecurityDumpMMUException(
-    IN gckKERNEL Kernel
-    );
+gckKERNEL_SecurityDumpMMUException(IN gckKERNEL Kernel);
 
 gceSTATUS
-gckKERNEL_ReadMMUException(
-    IN gckKERNEL Kernel,
-    IN gctUINT32_PTR MMUStatus,
-    IN gctUINT32_PTR MMUException
-    );
+gckKERNEL_ReadMMUException(IN gckKERNEL     Kernel,
+                           IN gctUINT32_PTR MMUStatus,
+                           IN gctUINT32_PTR MMUException);
 
 gceSTATUS
-gckKERNEL_HandleMMUException(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 MMUStatus,
-    IN gctPHYS_ADDR_T Physical,
-    IN gctUINT32 GPUAddres
-    );
+gckKERNEL_HandleMMUException(IN gckKERNEL      Kernel,
+                             IN gctUINT32      MMUStatus,
+                             IN gctPHYS_ADDR_T Physical,
+                             IN gctADDRESS     GPUAddres);
 #endif
 
 gceSTATUS
-gckKERNEL_CreateShBuffer(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Size,
-    OUT gctSHBUF * ShBuf
-    );
+gckKERNEL_CreateShBuffer(IN gckKERNEL Kernel,
+                         IN gctUINT32 Size,
+                         OUT gctSHBUF *ShBuf);
 
 gceSTATUS
-gckKERNEL_DestroyShBuffer(
-    IN gckKERNEL Kernel,
-    IN gctSHBUF ShBuf
-    );
+gckKERNEL_DestroyShBuffer(IN gckKERNEL Kernel, IN gctSHBUF ShBuf);
 
 gceSTATUS
-gckKERNEL_MapShBuffer(
-    IN gckKERNEL Kernel,
-    IN gctSHBUF ShBuf
-    );
+gckKERNEL_MapShBuffer(IN gckKERNEL Kernel, IN gctSHBUF ShBuf);
 
 gceSTATUS
-gckKERNEL_WriteShBuffer(
-    IN gckKERNEL Kernel,
-    IN gctSHBUF ShBuf,
-    IN gctPOINTER UserData,
-    IN gctUINT32 ByteCount
-    );
+gckKERNEL_WriteShBuffer(IN gckKERNEL  Kernel,
+                        IN gctSHBUF   ShBuf,
+                        IN gctPOINTER UserData,
+                        IN gctUINT32  ByteCount);
 
 gceSTATUS
-gckKERNEL_ReadShBuffer(
-    IN gckKERNEL Kernel,
-    IN gctSHBUF ShBuf,
-    IN gctPOINTER UserData,
-    IN gctUINT32 ByteCount,
-    OUT gctUINT32 * BytesRead
-    );
+gckKERNEL_ReadShBuffer(IN gckKERNEL  Kernel,
+                       IN gctSHBUF   ShBuf,
+                       IN gctPOINTER UserData,
+                       IN gctUINT32  ByteCount,
+                       OUT gctUINT32 *BytesRead);
 
 gceSTATUS
-gckKERNEL_GetHardwareType(
-    IN gckKERNEL Kernel,
-    OUT gceHARDWARE_TYPE *Type
-    );
+gckKERNEL_GetHardwareType(IN gckKERNEL Kernel, OUT gceHARDWARE_TYPE *Type);
 
-/******************************************************************************\
-******************************* gckCONTEXT Object *******************************
-\******************************************************************************/
+#if gcdENABLE_MP_SWITCH
+gceSTATUS
+gckKERNEL_DetectMpModeSwitch(IN gckKERNEL               Kernel,
+                             IN gceMULTI_PROCESSOR_MODE Mode,
+                             OUT gctUINT32              *SwitchMpMode);
+#endif
 
 gceSTATUS
-gckCONTEXT_Construct(
-    IN gckOS Os,
-    IN gckHARDWARE Hardware,
-    IN gctUINT32 ProcessID,
-    OUT gckCONTEXT * Context
-    );
+gckKERNEL_CancelJob(gckKERNEL Kernel);
+
+/*******************************************************************************
+ ******************************* gckCONTEXT Object *****************************
+ ******************************************************************************/
 
 gceSTATUS
-gckCONTEXT_Destroy(
-    IN gckCONTEXT Context
-    );
+gckCONTEXT_Construct(IN gckOS       Os,
+                     IN gckHARDWARE Hardware,
+                     IN gctUINT32   ProcessID,
+                     IN gctBOOL     Shared,
+                     OUT gckCONTEXT *Context);
 
 gceSTATUS
-gckCONTEXT_Update(
-    IN gckCONTEXT Context,
-    IN gctUINT32 ProcessID,
-    IN gcsSTATE_DELTA_PTR StateDelta
-    );
+gckCONTEXT_Destroy(IN gckCONTEXT Context);
 
 gceSTATUS
-gckCONTEXT_MapBuffer(
-    IN gckCONTEXT Context,
-    OUT gctUINT64 *Logicals,
-    OUT gctUINT32 *Bytes
-    );
+gckCONTEXT_Update(IN gckCONTEXT         Context,
+                  IN gctUINT32          ProcessID,
+                  IN gcsSTATE_DELTA_PTR StateDelta);
+
+gceSTATUS
+gckCONTEXT_MapBuffer(IN gckCONTEXT Context,
+                     OUT gctUINT64 *Logicals,
+                     OUT gctUINT32 *Bytes);
 
 void
-gckQUEUE_Enqueue(
-    IN gckQUEUE LinkQueue,
-    IN gcuQUEUEDATA *Data
-    );
+gckQUEUE_Enqueue(IN gckQUEUE LinkQueue, IN gcuQUEUEDATA *Data);
 
 void
-gckQUEUE_GetData(
-    IN gckQUEUE LinkQueue,
-    IN gctUINT32 Index,
-    OUT gcuQUEUEDATA ** Data
-    );
+gckQUEUE_GetData(IN gckQUEUE      LinkQueue,
+                 IN gctUINT32     Index,
+                 OUT gcuQUEUEDATA **Data);
 
 gceSTATUS
-gckQUEUE_Allocate(
-    IN gckOS Os,
-    IN gckQUEUE Queue,
-    IN gctUINT32 Size
-    );
+gckQUEUE_Allocate(IN gckOS Os, IN gckQUEUE Queue, IN gctUINT32 Size);
 
 gceSTATUS
-gckQUEUE_Free(
-    IN gckOS Os,
-    IN gckQUEUE Queue
-    );
+gckQUEUE_Free(IN gckOS Os, IN gckQUEUE Queue);
 
-/******************************************************************************\
-****************************** gckRECORDER Object ******************************
-\******************************************************************************/
+/*******************************************************************************
+ ****************************** gckRECORDER Object *****************************
+ ******************************************************************************/
 gceSTATUS
-gckRECORDER_Construct(
-    IN gckOS Os,
-    IN gckHARDWARE Hardware,
-    OUT gckRECORDER * Recorder
-    );
+gckRECORDER_Construct(IN gckOS        Os,
+                      IN gckHARDWARE  Hardware,
+                      OUT gckRECORDER *Recorder);
 
 gceSTATUS
-gckRECORDER_Destory(
-    IN gckOS Os,
-    IN gckRECORDER Recorder
-    );
+gckRECORDER_Destory(IN gckOS Os, IN gckRECORDER Recorder);
 
 void
-gckRECORDER_AdvanceIndex(
-    gckRECORDER Recorder,
-    gctUINT64   CommitStamp
-    );
+gckRECORDER_AdvanceIndex(gckRECORDER Recorder, gctUINT64 CommitStamp);
 
 void
-gckRECORDER_Record(
-    gckRECORDER Recorder,
-    gctUINT8_PTR CommandBuffer,
-    gctUINT32 CommandBytes,
-    gctUINT8_PTR ContextBuffer,
-    gctUINT32 ContextBytes
-    );
+gckRECORDER_Record(gckRECORDER  Recorder,
+                   gctUINT8_PTR CommandBuffer,
+                   gctUINT32    CommandBytes,
+                   gctUINT8_PTR ContextBuffer,
+                   gctUINT32    ContextBytes);
 
 void
-gckRECORDER_Dump(
-    gckRECORDER Recorder
-    );
+gckRECORDER_Dump(gckRECORDER Recorder);
 
 gceSTATUS
-gckRECORDER_UpdateMirror(
-    gckRECORDER Recorder,
-    gctUINT32 State,
-    gctUINT32 Data
-    );
+gckRECORDER_UpdateMirror(gckRECORDER Recorder, gctUINT32 State, gctUINT32 Data);
 
-/******************************************************************************\
-****************************** gckCOMMAND Object *******************************
-\******************************************************************************/
+/******************************************************************************
+ ****************************** gckCOMMAND Object *****************************
+ ******************************************************************************/
 
 /* Construct a new gckCOMMAND object. */
 gceSTATUS
-gckCOMMAND_Construct(
-    IN gckKERNEL Kernel,
-    IN gceHW_FE_TYPE FeType,
-    OUT gckCOMMAND * Command
-    );
+gckCOMMAND_Construct(IN gckKERNEL     Kernel,
+                     IN gceHW_FE_TYPE FeType,
+                     OUT gckCOMMAND   *Command);
 
 /* Destroy an gckCOMMAND object. */
 gceSTATUS
-gckCOMMAND_Destroy(
-    IN gckCOMMAND Command
-    );
+gckCOMMAND_Destroy(IN gckCOMMAND Command);
 
 /* Acquire command queue synchronization objects. */
 gceSTATUS
-gckCOMMAND_EnterCommit(
-    IN gckCOMMAND Command,
-    IN gctBOOL FromPower
-    );
+gckCOMMAND_EnterCommit(IN gckCOMMAND Command, IN gctBOOL FromPower);
 
 /* Release command queue synchronization objects. */
 gceSTATUS
-gckCOMMAND_ExitCommit(
-    IN gckCOMMAND Command,
-    IN gctBOOL FromPower
-    );
+gckCOMMAND_ExitCommit(IN gckCOMMAND Command, IN gctBOOL FromPower);
 
 /* Start the command queue. */
 gceSTATUS
-gckCOMMAND_Start(
-    IN gckCOMMAND Command
-    );
+gckCOMMAND_Start(IN gckCOMMAND Command);
 
 /* Stop the command queue. */
 gceSTATUS
-gckCOMMAND_Stop(
-    IN gckCOMMAND Command
-    );
+gckCOMMAND_Stop(IN gckCOMMAND Command);
 
 /* Commit command buffers. */
 gceSTATUS
-gckCOMMAND_Commit(
-    IN gckCOMMAND Command,
-    IN gcsHAL_SUBCOMMIT * SubCommit,
-    IN gctUINT32 ProcessId,
-    IN gctBOOL Shared,
-    OUT gctUINT64_PTR CommitStamp,
-    INOUT gctBOOL *contextSwitched
-    );
+gckCOMMAND_Commit(IN gckCOMMAND        Command,
+                  IN gcsHAL_SUBCOMMIT  *SubCommit,
+                  IN gctUINT32         ProcessId,
+                  IN gctBOOL           Shared,
+                  OUT gctUINT64_PTR    CommitStamp,
+                  INOUT gctBOOL        *contextSwitched);
 
 /* Reserve space in the command buffer. */
 gceSTATUS
-gckCOMMAND_Reserve(
-    IN gckCOMMAND Command,
-    IN gctUINT32 RequestedBytes,
-    OUT gctPOINTER * Buffer,
-    OUT gctUINT32 * BufferSize
-    );
+gckCOMMAND_Reserve(IN gckCOMMAND  Command,
+                   IN gctUINT32   RequestedBytes,
+                   OUT gctPOINTER *Buffer,
+                   OUT gctUINT32  *BufferSize);
 
 /*
  * Execute reserved space in the command buffer.
  * Wait link FE version.
  */
 gceSTATUS
-gckCOMMAND_Execute(
-    IN gckCOMMAND Command,
-    IN gctUINT32 RequstedBytes
-    );
+gckCOMMAND_Execute(IN gckCOMMAND Command, IN gctUINT32 RequstedBytes);
+
+/*
+ * Execute reserved space in the command buffer.
+ * End command version.
+ */
+gceSTATUS
+gckCOMMAND_ExecuteEnd(IN gckCOMMAND Command, IN gctUINT32 RequstedBytes);
 
 /*
  * Execute reserved space in the command buffer.
  * Async FE version.
  */
 gceSTATUS
-gckCOMMAND_ExecuteAsync(
-    IN gckCOMMAND Command,
-    IN gctUINT32 RequestedBytes
-    );
+gckCOMMAND_ExecuteAsync(IN gckCOMMAND Command, IN gctUINT32 RequestedBytes);
 
 /*
  * Execute reserved space in the command buffer.
  * MC-FE version.
  */
 gceSTATUS
-gckCOMMAND_ExecuteMultiChannel(
-    IN gckCOMMAND Command,
-    IN gctBOOL Priority,
-    IN gctUINT32 ChannelId,
-    IN gctUINT32 RequstedBytes
-    );
+gckCOMMAND_ExecuteMultiChannel(IN gckCOMMAND Command,
+                               IN gctBOOL    Priority,
+                               IN gctUINT32  ChannelId,
+                               IN gctUINT32  RequstedBytes);
 
 /* Stall the command queue. */
 gceSTATUS
-gckCOMMAND_Stall(
-    IN gckCOMMAND Command,
-    IN gctBOOL FromPower
-    );
+gckCOMMAND_Stall(IN gckCOMMAND Command, IN gctBOOL FromPower);
 
 /* Attach user process. */
 gceSTATUS
-gckCOMMAND_Attach(
-    IN gckCOMMAND Command,
-    OUT gckCONTEXT * Context,
-    OUT gctSIZE_T * MaxState,
-    OUT gctUINT32 * NumStates,
-    IN gctUINT32 ProcessID
-    );
+gckCOMMAND_Attach(IN gckCOMMAND  Command,
+                  OUT gckCONTEXT *Context,
+                  OUT gctSIZE_T  *MaxState,
+                  OUT gctUINT32  *NumStates,
+                  IN gctUINT32   ProcessID,
+                  IN gctBOOL     Shared);
 
 /* Dump command buffer being executed by GPU. */
 gceSTATUS
-gckCOMMAND_DumpExecutingBuffer(
-    IN gckCOMMAND Command
-    );
+gckCOMMAND_DumpExecutingBuffer(IN gckCOMMAND Command);
 
 /* Detach user process. */
 gceSTATUS
-gckCOMMAND_Detach(
-    IN gckCOMMAND Command,
-    IN gckCONTEXT Context
-    );
+gckCOMMAND_Detach(IN gckCOMMAND Command, IN gckCONTEXT Context);
 
 void
-gcsLIST_Init(
-    gcsLISTHEAD_PTR Node
-    );
+gcsLIST_Init(gcsLISTHEAD_PTR Node);
 
 void
-gcsLIST_Add(
-    gcsLISTHEAD_PTR New,
-    gcsLISTHEAD_PTR Head
-    );
+gcsLIST_Add(gcsLISTHEAD_PTR New, gcsLISTHEAD_PTR Head);
 
 void
-gcsLIST_AddTail(
-    gcsLISTHEAD_PTR New,
-    gcsLISTHEAD_PTR Head
-    );
+gcsLIST_AddTail(gcsLISTHEAD_PTR New, gcsLISTHEAD_PTR Head);
 
 void
-gcsLIST_Del(
-    gcsLISTHEAD_PTR Node
-    );
+gcsLIST_Del(gcsLISTHEAD_PTR Node);
 
 gctBOOL
-gcsLIST_Empty(
-    gcsLISTHEAD_PTR Head
-    );
+gcsLIST_Empty(gcsLISTHEAD_PTR Head);
 
-#define gcmkLIST_FOR_EACH(pos, head) \
-    for (pos = (head)->next; pos != (head); pos = pos->next)
+#define gcmkLIST_FOR_EACH(pos, head) for (pos = (head)->next; pos != (head); pos = pos->next)
 
-#define gcmkLIST_FOR_EACH_SAFE(pos, n, head) \
-    for (pos = (head)->next, n = pos->next; pos != (head); \
-        pos = n, n = pos->next)
+#define gcmkLIST_FOR_EACH_SAFE(pos, n, head)                                                       \
+    for (pos = (head)->next, n = pos->next; pos != (head); pos = n, n = pos->next)
 
 gceSTATUS
-gckFENCE_Create(
-    IN gckOS Os,
-    IN gckKERNEL Kernel,
-    OUT gckFENCE * Fence
-    );
+gckFENCE_Create(IN gckOS Os, IN gckKERNEL Kernel, OUT gckFENCE *Fence);
 
 gceSTATUS
-gckFENCE_Destory(
-    IN gckOS Os,
-    OUT gckFENCE Fence
-    );
+gckFENCE_Destory(IN gckOS Os, OUT gckFENCE Fence);
 
 gceSTATUS
-gckFENCE_Signal(
-    IN gckOS Os,
-    IN gckFENCE Fence
-    );
+gckFENCE_Signal(IN gckOS Os, IN gckFENCE Fence);
 
 gceSTATUS
-gckDEVICE_Construct(
-    IN gckOS Os,
-    OUT gckDEVICE * Device
-    );
+gckDEVICE_Construct(IN gckOS Os, OUT gckDEVICE *Device);
 
 gceSTATUS
-gckDEVICE_AddCore(
-    IN gckDEVICE Device,
-    IN gceCORE Core,
-    IN gctUINT chipID,
-    IN gctPOINTER Context,
-    IN gckKERNEL * Kernel
-    );
+gckDEVICE_DestroyCores(IN gckDEVICE Device);
 
 gceSTATUS
-gckDEVICE_Destroy(
-    IN gckOS Os,
-    IN gckDEVICE Device
-    );
+gckDEVICE_AddCore(IN gckDEVICE  Device,
+                  IN gceCORE    Core,
+                  IN gctUINT    chipID,
+                  IN gctPOINTER Context,
+                  IN gckKERNEL  *Kernel);
 
 gceSTATUS
-gckDEVICE_Dispatch(
-    IN gckDEVICE Device,
-    IN gcsHAL_INTERFACE_PTR Interface
-    );
+gckDEVICE_Destroy(IN gckOS Os, IN gckDEVICE Device);
+
+gceSTATUS
+gckDEVICE_Dispatch(IN gckDEVICE            Device,
+                   IN gcsHAL_INTERFACE_PTR Interface);
+
+gceSTATUS
+gckDEVICE_ChipInfo(IN gckDEVICE            Device,
+                   IN gcsHAL_INTERFACE_PTR Interface,
+                   INOUT gctUINT32         *CoreCount);
 
 #if VIVANTE_PROFILER
 gceSTATUS
-gckDEVICE_Profiler_Dispatch(
-    IN gckDEVICE Device,
-    IN gcsHAL_PROFILER_INTERFACE_PTR Interface
-    );
+gckDEVICE_Profiler_Dispatch(IN gckDEVICE                     Device,
+                            IN gcsHAL_PROFILER_INTERFACE_PTR Interface);
 #endif
 
 gceSTATUS
-gckDEVICE_GetMMU(
-    IN gckDEVICE Device,
-    IN gceHARDWARE_TYPE Type,
-    IN gckMMU *Mmu
-    );
+gckDEVICE_GetMMU(IN gckDEVICE        Device,
+                 IN gceHARDWARE_TYPE Type,
+                 IN gckMMU           *Mmu);
 
 gceSTATUS
-gckDEVICE_SetMMU(
-    IN gckDEVICE Device,
-    IN gceHARDWARE_TYPE Type,
-    IN gckMMU Mmu
-    );
+gckDEVICE_SetMMU(IN gckDEVICE        Device,
+                 IN gceHARDWARE_TYPE Type,
+                 IN gckMMU           Mmu);
+
+gceSTATUS
+gckDEVICE_GetCommandQueue(IN gckDEVICE        Device,
+                          IN gceHARDWARE_TYPE Type,
+                          IN gckCOMMAND       *Command);
+
+gceSTATUS
+gckDEVICE_SetCommandQueue(IN gckDEVICE        Device,
+                          IN gceHARDWARE_TYPE Type,
+                          IN gckCOMMAND       Command);
 
 #if gcdENABLE_TRUST_APPLICATION
 gceSTATUS
-gckKERNEL_MapInTrustApplicaiton(
-    IN gckKERNEL Kernel,
-    IN gctPOINTER Logical,
-    IN gctPHYS_ADDR Physical,
-    IN gctUINT32 GPUAddress,
-    IN gctSIZE_T PageCount
-    );
+gckKERNEL_MapInTrustApplicaiton(IN gckKERNEL    Kernel,
+                                IN gctPOINTER   Logical,
+                                IN gctPHYS_ADDR Physical,
+                                IN gctADDRESS   GPUAddress,
+                                IN gctSIZE_T    PageCount);
 #endif
 
 #if gcdSECURITY || gcdENABLE_TRUST_APPLICATION
 gceSTATUS
-gckOS_OpenSecurityChannel(
-    IN gckOS Os,
-    IN gceCORE Core,
-    OUT gctUINT32 *Channel
-    );
+gckOS_OpenSecurityChannel(IN gckOS      Os,
+                          IN gceCORE    Core,
+                          OUT gctUINT32 *Channel);
 
 gceSTATUS
-gckOS_CloseSecurityChannel(
-    IN gctUINT32 Channel
-    );
+gckOS_CloseSecurityChannel(IN gctUINT32 Channel);
 
 gceSTATUS
-gckOS_CallSecurityService(
-    IN gctUINT32 Channel,
-    IN gcsTA_INTERFACE * Interface
-    );
+gckOS_CallSecurityService(IN gctUINT32       Channel,
+                          IN gcsTA_INTERFACE *Interface);
 
 gceSTATUS
-gckOS_InitSecurityChannel(
-    OUT gctUINT32 Channel
-    );
+gckOS_InitSecurityChannel(OUT gctUINT32 Channel);
 
 gceSTATUS
-gckOS_AllocatePageArray(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T PageCount,
-    OUT gctPOINTER * PageArrayLogical,
-    OUT gctPHYS_ADDR * PageArrayPhysical
-    );
+gckOS_AllocatePageArray(IN gckOS         Os,
+                        IN gctPHYS_ADDR  Physical,
+                        IN gctSIZE_T     PageCount,
+                        OUT gctPOINTER   *PageArrayLogical,
+                        OUT gctPHYS_ADDR *PageArrayPhysical);
 #endif
 
 #ifdef __cplusplus

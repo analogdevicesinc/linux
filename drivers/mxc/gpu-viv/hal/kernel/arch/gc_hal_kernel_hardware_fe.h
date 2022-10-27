@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -63,234 +63,178 @@
 
 /* Construct Wait-Link FE. */
 gceSTATUS
-gckWLFE_Construct(
-    IN gckHARDWARE Hardware,
-    OUT gckWLFE * FE
-    );
+gckWLFE_Construct(IN gckHARDWARE Hardware,
+                  OUT gckWLFE *FE);
 
 void
-gckWLFE_Destroy(
-    IN gckHARDWARE Hardware,
-    IN gckWLFE FE
-    );
+gckWLFE_Destroy(IN gckHARDWARE Hardware,
+                IN gckWLFE FE);
 
 /* Initialize Wait-Link FE, when hardware reset. */
 gceSTATUS
-gckWLFE_Initialize(
-    IN gckHARDWARE Hardware,
-    IN gckWLFE FE
-    );
-
+gckWLFE_Initialize(IN gckHARDWARE Hardware,
+                   IN gckWLFE FE);
 
 /* Add a WAIT/LINK pair in the command queue. */
 gceSTATUS
-gckWLFE_WaitLink(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT32 Address,
-    IN gctUINT32 Offset,
-    IN OUT gctUINT32 * Bytes,
-    OUT gctUINT32 * WaitOffset,
-    OUT gctUINT32 * WaitBytes
-    );
+gckWLFE_WaitLink(IN gckHARDWARE Hardware,
+                 IN gctPOINTER Logical,
+                 IN gctADDRESS Address,
+                 IN gctUINT32 Offset,
+                 IN OUT gctUINT32 *Bytes,
+                 OUT gctUINT32 *WaitOffset,
+                 OUT gctUINT32 *WaitBytes);
 
 /* Add a LINK command in the command queue. */
 gceSTATUS
-gckWLFE_Link(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT32 FetchAddress,
-    IN gctUINT32 FetchSize,
-    IN OUT gctUINT32 * Bytes,
-    OUT gctUINT32 * Low,
-    OUT gctUINT32 * High
-    );
+gckWLFE_Link(IN gckHARDWARE Hardware,
+             IN gctPOINTER Logical,
+             IN gctADDRESS FetchAddress,
+             IN gctUINT32 FetchSize,
+             IN OUT gctUINT32 *Bytes,
+             OUT gctUINT32 *Low,
+             OUT gctUINT32 *High);
 
 /* Add an END command in the command queue. */
 gceSTATUS
-gckWLFE_End(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT32 Address,
-    IN OUT gctUINT32 * Bytes
-    );
+gckWLFE_EndEx(IN gckHARDWARE Hardware,
+              IN gctPOINTER Logical,
+              IN gctADDRESS Address,
+              IN gctBOOL User,
+              IN OUT gctUINT32 *Bytes);
+
+gceSTATUS
+gckWLFE_End(IN gckHARDWARE Hardware,
+            IN gctPOINTER Logical,
+            IN gctADDRESS Address,
+            IN OUT gctUINT32 *Bytes);
 
 /* Add a NOP command in the command queue. */
 gceSTATUS
-gckWLFE_Nop(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN OUT gctSIZE_T * Bytes
-    );
+gckWLFE_Nop(IN gckHARDWARE Hardware,
+            IN gctPOINTER Logical,
+            IN OUT gctSIZE_T *Bytes);
 
 /* Add an EVENT command in the command queue. */
 gceSTATUS
-gckWLFE_Event(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT8 Event,
-    IN gceKERNEL_WHERE FromWhere,
-    IN OUT gctUINT32 * Bytes
-    );
+gckWLFE_Event(IN gckHARDWARE Hardware,
+              IN gctPOINTER Logical,
+              IN gctUINT8 Event,
+              IN gceKERNEL_WHERE FromWhere,
+              IN OUT gctUINT32 *Bytes);
 
 gceSTATUS
-gckWLFE_ChipEnable(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gceCORE_3D_MASK ChipEnable,
-    IN OUT gctSIZE_T * Bytes
-    );
+gckWLFE_ChipEnable(IN gckHARDWARE Hardware,
+                   IN gctPOINTER Logical,
+                   IN gceCORE_3D_MASK ChipEnable,
+                   IN OUT gctSIZE_T *Bytes);
 
 /* Kickstart the command processor. */
 gceSTATUS
-gckWLFE_Execute(
-    IN gckHARDWARE Hardware,
-    IN gctUINT32 Address,
-    IN gctUINT32 Bytes
-    );
-
-/* Atomic version or IRQ routine. */
-gceSTATUS
-gckWLFE_AtomicExecute(
-    IN gckHARDWARE Hardware,
-    IN gctUINT32 Address,
-    IN gctUINT32 Bytes
-    );
+gckWLFE_Execute(IN gckHARDWARE Hardware,
+                IN gctADDRESS Address,
+                IN gctUINT32 Bytes);
 
 /******************************************************************************/
 /* ASync FE commands. */
 
 gceSTATUS
-gckASYNC_FE_Construct(
-    IN gckHARDWARE Hardware,
-    OUT gckASYNC_FE * FE
-    );
+gckASYNC_FE_Construct(IN gckHARDWARE Hardware,
+                      OUT gckASYNC_FE *FE);
 
 void
-gckASYNC_FE_Destroy(
-    IN gckHARDWARE Hardware,
-    IN gckASYNC_FE FE
-    );
+gckASYNC_FE_Destroy(IN gckHARDWARE Hardware,
+                    IN gckASYNC_FE FE);
 
 /* Initialize Async FE, when hardware reset. */
 gceSTATUS
-gckASYNC_FE_Initialize(
-    IN gckHARDWARE Hardware,
-    IN gckASYNC_FE FE
-    );
+gckASYNC_FE_Initialize(IN gckHARDWARE Hardware,
+                       IN gckASYNC_FE FE);
 
 /* Add a NOP command in the command queue. */
 gceSTATUS
-gckASYNC_FE_Nop(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN OUT gctSIZE_T * Bytes
-    );
+gckASYNC_FE_Nop(IN gckHARDWARE Hardware,
+                IN gctPOINTER Logical,
+                IN OUT gctSIZE_T *Bytes);
 
 /* Add an EVENT command in the command queue. */
 gceSTATUS
-gckASYNC_FE_Event(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT8 Event,
-    IN gceKERNEL_WHERE FromWhere,
-    IN OUT gctUINT32 * Bytes
-    );
+gckASYNC_FE_Event(IN gckHARDWARE Hardware,
+                  IN gctPOINTER Logical,
+                  IN gctUINT8 Event,
+                  IN gceKERNEL_WHERE FromWhere,
+                  IN OUT gctUINT32 *Bytes);
 
 /* Kickstart the command processor. */
 gceSTATUS
-gckASYNC_FE_Execute(
-    IN gckHARDWARE Hardware,
-    IN gctUINT32 Address,
-    IN gctUINT32 Bytes
-    );
+gckASYNC_FE_Execute(IN gckHARDWARE Hardware,
+                    IN gctADDRESS Address,
+                    IN gctUINT32 Bytes);
 
 gceSTATUS
-gckASYNC_FE_ReserveSlot(
-    IN gckHARDWARE Hardware,
-    OUT gctBOOL * Available
-    );
+gckASYNC_FE_ReserveSlot(IN gckHARDWARE Hardware,
+                        OUT gctBOOL *Available);
 
 void
-gckASYNC_FE_UpdateAvaiable(
-    IN gckHARDWARE Hardware
-    );
+gckASYNC_FE_UpdateAvaiable(IN gckHARDWARE Hardware);
 
 /******************************************************************************/
 /* MC FE commands. */
 
 /* One MCFE includes max 64 engine, each engine contains 2 channels. */
 gceSTATUS
-gckMCFE_Construct(
-    IN gckHARDWARE Hardware,
-    OUT gckMCFE * FE
-    );
+gckMCFE_Construct(IN gckHARDWARE Hardware,
+                  OUT gckMCFE *FE);
 
 void
-gckMCFE_Destroy(
-    IN gckHARDWARE Hardware,
-    IN gckMCFE FE
-    );
+gckMCFE_Destroy(IN gckHARDWARE Hardware,
+                IN gckMCFE FE);
 
 /* Initialize MC FE, when hardware reset. */
 gceSTATUS
-gckMCFE_Initialize(
-    IN gckHARDWARE Hardware,
-    IN gctBOOL MMUEnabled,
-    IN gckMCFE FE
-    );
+gckMCFE_Initialize(IN gckHARDWARE Hardware,
+                   IN gctBOOL MMUEnabled,
+                   IN gckMCFE FE);
 
 /* Add a NOP command in the command queue. */
 gceSTATUS
-gckMCFE_Nop(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN OUT gctSIZE_T * Bytes
-    );
+gckMCFE_Nop(IN gckHARDWARE Hardware,
+            IN gctPOINTER Logical,
+            IN OUT gctSIZE_T *Bytes);
 
 /* Add an EVENT command in the command queue. */
 gceSTATUS
-gckMCFE_Event(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT8 Event,
-    IN gceKERNEL_WHERE FromWhere,
-    IN OUT gctUINT32 * Bytes
-    );
+gckMCFE_Event(IN gckHARDWARE Hardware,
+              IN gctPOINTER Logical,
+              IN gctUINT8 Event,
+              IN gceKERNEL_WHERE FromWhere,
+              IN OUT gctUINT32 *Bytes);
 
 /* Add a SendSemaphore command in the command queue. */
 gceSTATUS
-gckMCFE_SendSemaphore(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT32 SemaId,
-    IN OUT gctUINT32 * Bytes
-    );
+gckMCFE_SendSemaphore(IN gckHARDWARE Hardware,
+                      IN gctPOINTER Logical,
+                      IN gctUINT32 SemaId,
+                      IN OUT gctUINT32 *Bytes);
 
 /* Add a WaitSemaphore command in the command queue. */
 gceSTATUS
-gckMCFE_WaitSemaphore(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT32 SemaId,
-    IN OUT gctUINT32 * Bytes
-    );
+gckMCFE_WaitSemaphore(IN gckHARDWARE Hardware,
+                      IN gctPOINTER Logical,
+                      IN gctUINT32 SemaId,
+                      IN OUT gctUINT32 *Bytes);
 
 /* Kickstart the command processor. */
 gceSTATUS
-gckMCFE_Execute(
-    IN gckHARDWARE Hardware,
-    IN gctBOOL Priority,
-    IN gctUINT32 ChannelId,
-    IN gctUINT32 Address,
-    IN gctUINT32 Bytes
-    );
+gckMCFE_Execute(IN gckHARDWARE Hardware,
+                IN gctBOOL Priority,
+                IN gctUINT32 ChannelId,
+                IN gctADDRESS Address,
+                IN gctUINT32 Bytes);
 
 /* Query hardware module idle */
 gceSTATUS
-gckMCFE_HardwareIdle(
-    IN gckHARDWARE Hardware,
-    OUT gctBOOL_PTR IsIdle
-    );
+gckMCFE_HardwareIdle(IN gckHARDWARE Hardware,
+                     OUT gctBOOL_PTR IsIdle);
 #endif
 

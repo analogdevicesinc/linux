@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -56,11 +56,10 @@
 #include "gc_hal_kernel_linux.h"
 
 gctINT
-gckMATH_ModuloInt(
-    IN gctINT X,
-    IN gctINT Y
-    )
+gckMATH_ModuloInt(IN gctINT X, IN gctINT Y)
 {
-    if(Y ==0) {return 0;}
-    else {return X % Y;}
+    if (Y == 0)
+        return 0;
+    else
+        return X % Y;
 }

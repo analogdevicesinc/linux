@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -286,7 +286,7 @@ gcTA_Dispatch(
 
         gcmkONERROR(gcTA_StartCommand(
             TA,
-            Interface->u.StartCommand.address,
+            (gctUINT32)Interface->u.StartCommand.address,
             Interface->u.StartCommand.bytes
             ));
         break;
@@ -297,7 +297,7 @@ gcTA_Dispatch(
             Interface->u.MapMemory.physicals,
             Interface->u.MapMemory.physical,
             Interface->u.MapMemory.pageCount,
-            &Interface->u.MapMemory.gpuAddress
+            (gctUINT32 *)&Interface->u.MapMemory.gpuAddress
             ));
 
         break;
@@ -305,7 +305,7 @@ gcTA_Dispatch(
     case KERNEL_UNMAP_MEMORY:
         status = gcTA_UnmapMemory(
             TA,
-            Interface->u.UnmapMemory.gpuAddress,
+            (gctUINT32)Interface->u.UnmapMemory.gpuAddress,
             Interface->u.UnmapMemory.pageCount
             );
         break;
@@ -319,7 +319,7 @@ gcTA_Dispatch(
             TA->hardware,
             Interface->u.HandleMMUException.mmuStatus,
             Interface->u.HandleMMUException.physical,
-            Interface->u.HandleMMUException.gpuAddress
+            (gctUINT32)Interface->u.HandleMMUException.gpuAddress
             );
         break;
 

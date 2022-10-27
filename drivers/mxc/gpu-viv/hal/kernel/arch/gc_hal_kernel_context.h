@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -56,28 +56,23 @@
 #ifndef __gc_hal_kernel_context_h_
 #define __gc_hal_kernel_context_h_
 
-#include "gc_hal_kernel_buffer.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Maps state locations within the context buffer. */
-typedef struct _gcsSTATE_MAP * gcsSTATE_MAP_PTR;
-typedef struct _gcsSTATE_MAP
-{
+typedef struct _gcsSTATE_MAP *gcsSTATE_MAP_PTR;
+typedef struct _gcsSTATE_MAP {
     /* Index of the state in the context buffer. */
     gctUINT                     index;
 
     /* State mask. */
     gctUINT32                   mask;
-}
-gcsSTATE_MAP;
+} gcsSTATE_MAP;
 
 /* Context buffer. */
-typedef struct _gcsCONTEXT * gcsCONTEXT_PTR;
-typedef struct _gcsCONTEXT
-{
+typedef struct _gcsCONTEXT *gcsCONTEXT_PTR;
+typedef struct _gcsCONTEXT {
     /* For debugging: the number of context buffer in the order of creation. */
     gctUINT                     num;
 
@@ -98,20 +93,24 @@ typedef struct _gcsCONTEXT
     gctUINT32_PTR               logical;
 
     /* Hardware address of the context buffer. */
-    gctUINT32                   address;
+    gctADDRESS                  address;
 
     /* Pointer to the LINK commands. */
     gctPOINTER                  link2D;
     gctPOINTER                  link3D;
 
+#if gcdENABLE_SW_PREEMPTION
+    /* Kernel delta. */
+    gcsSTATE_DELTA_PTR          kDelta;
+    gctUINT                     kDeltaCount;
+#endif
+
     /* Next context buffer. */
     gcsCONTEXT_PTR              next;
-}
-gcsCONTEXT;
+} gcsCONTEXT;
 
-typedef struct _gcsRECORD_ARRAY_MAP * gcsRECORD_ARRAY_MAP_PTR;
-struct  _gcsRECORD_ARRAY_MAP
-{
+typedef struct _gcsRECORD_ARRAY_MAP *gcsRECORD_ARRAY_MAP_PTR;
+struct  _gcsRECORD_ARRAY_MAP {
     /* User pointer key. */
     gctUINT64                   key;
 
@@ -126,8 +125,7 @@ struct  _gcsRECORD_ARRAY_MAP
 #define USE_SW_RESET 1
 
 /* gckCONTEXT structure that hold the current context. */
-struct _gckCONTEXT
-{
+struct _gckCONTEXT {
     /* Object. */
     gcsOBJECT                   object;
 
@@ -164,19 +162,24 @@ struct _gckCONTEXT
     gcePIPE_SELECT              exitPipe;
 
     /* Variables used for building state buffer. */
-    gctUINT32                   lastAddress;
+    gctADDRESS                  lastAddress;
     gctSIZE_T                   lastSize;
     gctUINT32                   lastIndex;
     gctBOOL                     lastFixed;
 
     gctUINT32                   pipeSelectBytes;
 
-    gcsPROFILER_COUNTERS_PART1    latestProfiler_part1;
-    gcsPROFILER_COUNTERS_PART1    histroyProfiler_part1;
-    gcsPROFILER_COUNTERS_PART1    preProfiler_part1;
-    gcsPROFILER_COUNTERS_PART2    latestProfiler_part2;
-    gcsPROFILER_COUNTERS_PART2    histroyProfiler_part2;
-    gcsPROFILER_COUNTERS_PART2    preProfiler_part2;
+#if gcdENABLE_SW_PREEMPTION
+    /* Kernel delta. */
+    gcsSTATE_DELTA_PTR            delta;
+    gcsSTATE_DELTA_PTR            deltaHead;
+
+    gcsSTATE_DELTA                prevDelta;
+    gcsSTATE_DELTA_PTR            prevDeltaPtr;
+    gcsSTATE_DELTA_RECORD_PTR     prevRecordArray;
+    gctUINT32                    *prevMapEntryID;
+    gctUINT32                    *prevMapEntryIndex;
+#endif
 };
 
 #ifdef __cplusplus

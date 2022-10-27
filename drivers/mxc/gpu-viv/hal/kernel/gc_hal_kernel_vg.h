@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -60,60 +60,58 @@
 #include "gc_hal_driver.h"
 #include "gc_hal_kernel_hardware.h"
 
-/******************************************************************************\
-********************************** Structures **********************************
-\******************************************************************************/
+/******************************************************************************
+ ********************************** Structures ********************************
+ ******************************************************************************/
 
 /* gckKERNEL object. */
-struct _gckVGKERNEL
-{
+struct _gckVGKERNEL {
     /* Object. */
-    gcsOBJECT                   object;
+    gcsOBJECT      object;
 
     /* Pointer to gckOS object. */
-    gckOS                       os;
+    gckOS          os;
 
     /* Pointer to gckHARDWARE object. */
-    gckVGHARDWARE                   hardware;
+    gckVGHARDWARE  hardware;
 
     /* Pointer to gckINTERRUPT object. */
-    gckVGINTERRUPT              interrupt;
+    gckVGINTERRUPT interrupt;
 
     /* Pointer to gckCOMMAND object. */
-    gckVGCOMMAND                    command;
+    gckVGCOMMAND   command;
 
     /* Pointer to context. */
-    gctPOINTER                  context;
+    gctPOINTER     context;
 
     /* Pointer to gckMMU object. */
-    gckVGMMU                        mmu;
+    gckVGMMU       mmu;
 
-    gckKERNEL                   kernel;
+    gckKERNEL      kernel;
 };
 
 /* gckMMU object. */
-struct _gckVGMMU
-{
+struct _gckVGMMU {
     /* The object. */
-    gcsOBJECT                   object;
+    gcsOBJECT       object;
 
     /* Pointer to gckOS object. */
-    gckOS                       os;
+    gckOS           os;
 
     /* Pointer to gckHARDWARE object. */
-    gckVGHARDWARE                   hardware;
+    gckVGHARDWARE   hardware;
 
     /* The page table mutex. */
-    gctPOINTER                  mutex;
+    gctPOINTER      mutex;
 
     /* Page table information. */
-    gctSIZE_T                   pageTableSize;
-    gctPHYS_ADDR                pageTablePhysical;
-    gctPOINTER                  pageTableLogical;
+    gctSIZE_T       pageTableSize;
+    gctPHYS_ADDR    pageTablePhysical;
+    gctPOINTER      pageTableLogical;
 
     /* Allocation index. */
-    gctUINT32                   entryCount;
-    gctUINT32                   entry;
+    gctUINT32       entryCount;
+    gctUINT32       entry;
 };
 
 #endif /* __gc_hal_kernel_h_ */

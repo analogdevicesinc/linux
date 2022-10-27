@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -60,46 +60,33 @@
 #if gcdENABLE_TRUST_APPLICATION
 
 gceSTATUS
-gckOS_OpenSecurityChannel(
-    IN gckOS Os,
-    IN gceCORE Core,
-    OUT gctUINT32 *Channel
-    )
+gckOS_OpenSecurityChannel(IN gckOS Os, IN gceCORE Core, OUT gctUINT32 *Channel)
 {
     *Channel = Core + 1;
     return gcvSTATUS_OK;
 }
 
 gceSTATUS
-gckOS_InitSecurityChannel(
-    OUT gctUINT32 Channel
-    )
+gckOS_InitSecurityChannel(OUT gctUINT32 Channel)
 {
     return gcvSTATUS_OK;
 }
 
 gceSTATUS
-gckOS_CloseSecurityChannel(
-    IN gctUINT32 Channel
-    )
+gckOS_CloseSecurityChannel(IN gctUINT32 Channel)
 {
     return gcvSTATUS_OK;
 }
 
 extern gceSTATUS
-TAEmulator (
-    gceCORE,
-    void *
-    );
+TAEmulator(gceCORE, void *);
 
 gceSTATUS
-gckOS_CallSecurityService(
-    IN gctUINT32 Channel,
-    IN gcsTA_INTERFACE *Interface
-    )
+gckOS_CallSecurityService(IN gctUINT32 Channel, IN gcsTA_INTERFACE *Interface)
 {
-    gceCORE core;
+    gceCORE   core;
     gceSTATUS status;
+
     gcmkHEADER();
     gcmkVERIFY_ARGUMENT(Channel != 0);
 

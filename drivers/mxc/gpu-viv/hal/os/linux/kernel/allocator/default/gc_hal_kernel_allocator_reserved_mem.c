@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -58,196 +58,176 @@
 #include <linux/pagemap.h>
 #include <linux/seq_file.h>
 #include <linux/mman.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
 
-#define _GC_OBJ_ZONE    gcvZONE_OS
+#define _GC_OBJ_ZONE gcvZONE_OS
 
 /*
  * reserved_mem is for contiguous pool, internal pool and external pool, etc.
  */
 
 /* mdl private. */
-struct reserved_mem
-{
-    unsigned long start;
-    unsigned long size;
-    unsigned int offset_in_page;
-    char name[32];
-    int  release;
+struct reserved_mem {
+    unsigned long   start;
+    unsigned long   size;
+    unsigned int    offset_in_page;
+    char            name[32];
+    int             release;
 
     /* Link together. */
-    struct list_head link;
+    struct          list_head link;
+    /* the mdl is root or not */
+    gctBOOL         root;
 };
 
 /* allocator info. */
-struct reserved_mem_alloc
-{
+struct reserved_mem_alloc {
     /* Record allocated reserved memory regions. */
     struct list_head region;
-    struct mutex lock;
+    /* protect reserved memory */
+    struct mutex     lock;
 };
 
-static int reserved_mem_show(struct seq_file* m, void* data)
+static int reserved_mem_show(struct seq_file *m, void *data)
 {
-    struct list_head *pos;
-    gcsINFO_NODE *node = m->private;
-    gckALLOCATOR Allocator = node->device;
-    struct reserved_mem_alloc *alloc = Allocator->privateData;
+    struct list_head          *pos;
+    gcsINFO_NODE              *node      = m->private;
+    gckALLOCATOR               Allocator = node->device;
+    struct reserved_mem_alloc *alloc     = Allocator->privateData;
 
-    list_for_each(pos, &alloc->region)
-    {
-        struct reserved_mem * res= list_entry(pos, struct reserved_mem, link);
+    list_for_each(pos, &alloc->region) {
+        struct reserved_mem *res = list_entry(pos, struct reserved_mem, link);
 
         seq_printf(m, "0x%08lx-0x%08lx : %s\n",
-            res->start, res->start + res->size -1, res->name);
+                   res->start, res->start + res->size - 1, res->name);
     }
 
     return 0;
 }
 
-static gcsINFO info_list[] =
-{
-    {"reserved-mem", reserved_mem_show},
+static gcsINFO info_list[] = {
+    { "reserved-mem", reserved_mem_show },
 };
 
 static void
-reserved_mem_debugfs_init(
-    IN gckALLOCATOR Allocator,
-    IN gckDEBUGFS_DIR Root
-    )
+reserved_mem_debugfs_init(IN gckALLOCATOR Allocator, IN gckDEBUGFS_DIR Root)
 {
-    gcmkVERIFY_OK(
-        gckDEBUGFS_DIR_Init(&Allocator->debugfsDir, Root->root, "reserved-mem"));
+    gcmkVERIFY_OK(gckDEBUGFS_DIR_Init(&Allocator->debugfsDir,
+                                      Root->root, "reserved-mem"));
 
-    gcmkVERIFY_OK(gckDEBUGFS_DIR_CreateFiles(
-        &Allocator->debugfsDir,
-        info_list,
-        gcmCOUNTOF(info_list),
-        Allocator
-        ));
+    gcmkVERIFY_OK(gckDEBUGFS_DIR_CreateFiles(&Allocator->debugfsDir, info_list,
+                                             gcmCOUNTOF(info_list), Allocator));
 }
 
 static void
-reserved_mem_debugfs_cleanup(
-    IN gckALLOCATOR Allocator
-    )
+reserved_mem_debugfs_cleanup(IN gckALLOCATOR Allocator)
 {
-    gcmkVERIFY_OK(gckDEBUGFS_DIR_RemoveFiles(
-        &Allocator->debugfsDir,
-        info_list,
-        gcmCOUNTOF(info_list)
-        ));
+    gcmkVERIFY_OK(gckDEBUGFS_DIR_RemoveFiles(&Allocator->debugfsDir,
+                                             info_list, gcmCOUNTOF(info_list)));
 
     gckDEBUGFS_DIR_Deinit(&Allocator->debugfsDir);
 }
 
 static gceSTATUS
-reserved_mem_alloc(
-    IN gckALLOCATOR Allocator,
-    INOUT PLINUX_MDL Mdl,
-    IN gctSIZE_T NumPages,
-    IN gctUINT32 Flags
-    )
+reserved_mem_alloc(IN gckALLOCATOR  Allocator,
+                   INOUT PLINUX_MDL Mdl,
+                   IN gctSIZE_T     NumPages,
+                   IN gctUINT32     Flags)
 {
-    return gcvSTATUS_NOT_SUPPORTED;
+    return gcvSTATUS_OUT_OF_MEMORY;
 }
 
 static gceSTATUS
-reserved_mem_attach(
-    IN gckALLOCATOR Allocator,
-    IN gcsATTACH_DESC_PTR Desc,
-    IN PLINUX_MDL Mdl
-    )
+reserved_mem_attach(IN gckALLOCATOR       Allocator,
+                    IN gcsATTACH_DESC_PTR Desc,
+                    IN PLINUX_MDL         Mdl)
 {
     struct reserved_mem_alloc *alloc = Allocator->privateData;
-    struct reserved_mem *res;
-    struct resource *region = NULL;
+    struct reserved_mem       *res;
+    struct resource           *region  = NULL;
+    gctPHYS_ADDR_T             gpu_end = 0;
 
     if (Desc == gcvNULL)
-    {
         return gcvSTATUS_INVALID_ARGUMENT;
-    }
 
-    res = kzalloc(sizeof(struct reserved_mem), GFP_KERNEL | gcdNOWARN);
+    res = kzalloc(sizeof(*res), GFP_KERNEL | gcdNOWARN);
 
     if (!res)
         return gcvSTATUS_OUT_OF_MEMORY;
 
-    res->start = Desc->reservedMem.start;
-    res->size  = Desc->reservedMem.size;
+    res->start          = Desc->reservedMem.start;
+    res->size           = Desc->reservedMem.size;
     res->offset_in_page = Desc->reservedMem.start & (PAGE_SIZE - 1);
-    strncpy(res->name, Desc->reservedMem.name, sizeof(res->name)-1);
+    strncpy(res->name, Desc->reservedMem.name, sizeof(res->name) - 1);
     res->release = 0;
+    res->root    = Desc->reservedMem.root;
 
-    if (!Desc->reservedMem.requested)
-    {
-        region = request_mem_region(res->start, res->size, res->name);
+    /* the region requierd is handed by root MDL */
+    if (Desc->reservedMem.root) {
+        if (!Desc->reservedMem.requested) {
+            region = request_mem_region(res->start, res->size, res->name);
 
-        if (!region)
-        {
-            printk("request mem %s(0x%lx - 0x%lx) failed\n",
-                res->name, res->start, res->start + res->size - 1);
+            if (!region) {
+                pr_warn("request mem %s(0x%lx - 0x%lx) failed\n",
+                        res->name, res->start, res->start + res->size - 1);
 
-            kfree(res);
-            return gcvSTATUS_OUT_OF_RESOURCES;
+                kfree(res);
+                return gcvSTATUS_OUT_OF_RESOURCES;
+            }
+
+            res->release = 1;
         }
 
-        res->release = 1;
+        mutex_lock(&alloc->lock);
+        list_add(&res->link, &alloc->region);
+        mutex_unlock(&alloc->lock);
     }
-
-    mutex_lock(&alloc->lock);
-    list_add(&res->link, &alloc->region);
-    mutex_unlock(&alloc->lock);
 
     Mdl->priv = res;
 
-    if ((res->start + res->size) < 0xFFFFFFFF)
-    {
+    gckOS_CPUPhysicalToGPUPhysical(Allocator->os,
+                                   (res->start + res->size - 1),
+                                   &gpu_end);
+    if (gpu_end <= 0xFFFFFFFF)
         Allocator->capability |= gcvALLOC_FLAG_4GB_ADDR;
-    }
 
     return gcvSTATUS_OK;
 }
 
 static void
-reserved_mem_detach(
-    IN gckALLOCATOR Allocator,
-    IN OUT PLINUX_MDL Mdl
-    )
+reserved_mem_detach(IN gckALLOCATOR Allocator, IN OUT PLINUX_MDL Mdl)
 {
     struct reserved_mem_alloc *alloc = Allocator->privateData;
-    struct reserved_mem *res = Mdl->priv;
+    struct reserved_mem       *res   = Mdl->priv;
 
-    /* unlink from region list. */
-    mutex_lock(&alloc->lock);
-    list_del_init(&res->link);
-    mutex_unlock(&alloc->lock);
+    if (res->root) {
+        /* unlink from region list. */
+        mutex_lock(&alloc->lock);
+        list_del_init(&res->link);
+        mutex_unlock(&alloc->lock);
 
-    if (res->release)
-    {
-        release_mem_region(res->start, res->size);
+        if (res->release)
+            release_mem_region(res->start, res->size);
     }
 
     kfree(res);
 }
 
 static gceSTATUS
-reserved_mem_mmap(
-    IN gckALLOCATOR Allocator,
-    IN PLINUX_MDL Mdl,
-    IN gctBOOL Cacheable,
-    IN gctSIZE_T skipPages,
-    IN gctSIZE_T numPages,
-    IN struct vm_area_struct *vma
-    )
+reserved_mem_mmap(IN gckALLOCATOR           Allocator,
+                  IN PLINUX_MDL             Mdl,
+                  IN gctBOOL                Cacheable,
+                  IN gctSIZE_T              skipPages,
+                  IN gctSIZE_T              numPages,
+                  IN struct vm_area_struct *vma)
 {
-    struct reserved_mem *res = (struct reserved_mem*)Mdl->priv;
-    unsigned long pfn;
-    gceSTATUS status = gcvSTATUS_OK;
+    struct reserved_mem *res = (struct reserved_mem *)Mdl->priv;
+    unsigned long        pfn;
+    gceSTATUS            status = gcvSTATUS_OK;
 
     gcmkHEADER_ARG("Allocator=%p Mdl=%p vma=%p", Allocator, Mdl, vma);
 
@@ -257,20 +237,18 @@ reserved_mem_mmap(
 
     /* Make this mapping non-cached. */
     vma->vm_flags |= gcdVM_FLAGS;
+
 #if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
     vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 #else
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 #endif
 
-    if (remap_pfn_range(vma, vma->vm_start,
-            pfn, numPages << PAGE_SHIFT, vma->vm_page_prot) < 0)
-    {
-        gcmkTRACE(
-            gcvLEVEL_ERROR,
-            "%s(%d): remap_pfn_range error.",
-            __FUNCTION__, __LINE__
-            );
+    if (remap_pfn_range(vma, vma->vm_start, pfn,
+                        numPages << PAGE_SHIFT, vma->vm_page_prot) < 0) {
+        gcmkTRACE(gcvLEVEL_ERROR,
+                  "%s(%d): remap_pfn_range error.",
+                  __func__, __LINE__);
 
         status = gcvSTATUS_OUT_OF_MEMORY;
     }
@@ -280,151 +258,139 @@ reserved_mem_mmap(
 }
 
 static void
-reserved_mem_unmap_user(
-    IN gckALLOCATOR Allocator,
-    IN PLINUX_MDL Mdl,
-    IN PLINUX_MDL_MAP MdlMap,
-    IN gctUINT32 Size
-    )
+reserved_mem_unmap_user(IN gckALLOCATOR   Allocator,
+                        IN PLINUX_MDL     Mdl,
+                        IN PLINUX_MDL_MAP MdlMap,
+                        IN gctUINT32      Size)
 {
-    struct reserved_mem *res = (struct reserved_mem*)Mdl->priv;
+    struct reserved_mem *res = (struct reserved_mem *)Mdl->priv;
 
     if (unlikely(!current->mm))
         return;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
     if (vm_munmap((unsigned long)MdlMap->vmaAddr - res->offset_in_page, res->size) < 0)
-    {
-        printk("%s: vm_munmap failed\n", __func__);
-    }
+        pr_warn("%s: vm_munmap failed\n", __func__);
 #else
     down_write(&current_mm_mmap_sem);
-    if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr - res->offset_in_page, res->size) < 0)
-    {
-        printk("%s: do_munmap failed\n", __func__);
-    }
+    if (do_munmap(current->mm,
+                  (unsigned long)MdlMap->vmaAddr - res->offset_in_page,
+                  res->size) < 0)
+        pr_warn("%s: do_munmap failed\n", __func__);
+
     up_write(&current_mm_mmap_sem);
 #endif
+
+    MdlMap->vma     = NULL;
+    MdlMap->vmaAddr = NULL;
 }
 
 static gceSTATUS
-reserved_mem_map_user(
-    gckALLOCATOR Allocator,
-    PLINUX_MDL Mdl,
-    PLINUX_MDL_MAP MdlMap,
-    gctBOOL Cacheable
-    )
+reserved_mem_map_user(gckALLOCATOR   Allocator,
+                      PLINUX_MDL     Mdl,
+                      PLINUX_MDL_MAP MdlMap,
+                      gctBOOL        Cacheable)
 {
-    struct reserved_mem *res = (struct reserved_mem*)Mdl->priv;
-    gctPOINTER userLogical = gcvNULL;
-    gceSTATUS status = gcvSTATUS_OK;
+    struct reserved_mem *res         = (struct reserved_mem *)Mdl->priv;
+    gctPOINTER           userLogical = gcvNULL;
+    gceSTATUS            status      = gcvSTATUS_OK;
 
     gcmkHEADER_ARG("Allocator=%p Mdl=%p Cacheable=%d", Allocator, Mdl, Cacheable);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
+#if gcdANON_FILE_FOR_ALLOCATOR
+    userLogical = (gctPOINTER)vm_mmap(Allocator->anon_file, 0L, res->size,
+#    else
     userLogical = (gctPOINTER)vm_mmap(NULL, 0L, res->size,
-                PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, 0);
+#    endif
+                                      PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, 0);
 #else
     down_write(&current_mm_mmap_sem);
     userLogical = (gctPOINTER)do_mmap_pgoff(NULL, 0L, res->size,
-                PROT_READ | PROT_WRITE, MAP_SHARED, 0);
+                                            PROT_READ | PROT_WRITE, MAP_SHARED, 0);
     up_write(&current_mm_mmap_sem);
 #endif
 
-    gcmkTRACE_ZONE(
-        gcvLEVEL_INFO, gcvZONE_OS,
-        "%s(%d): vmaAddr->%p for phys_addr->%p",
-        __FUNCTION__, __LINE__, userLogical, Mdl
-        );
+    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS,
+                   "%s(%d): vmaAddr->%p for phys_addr->%p",
+                   __func__, __LINE__, userLogical, Mdl);
 
-    if (IS_ERR(userLogical))
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_INFO, gcvZONE_OS,
-            "%s(%d): do_mmap_pgoff error",
-            __FUNCTION__, __LINE__
-            );
+    if (IS_ERR(userLogical)) {
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS,
+                       "%s(%d): do_mmap_pgoff error",
+                       __func__, __LINE__);
+
+        userLogical = gcvNULL;
 
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
     down_write(&current_mm_mmap_sem);
 
-    do
-    {
+    do {
         struct vm_area_struct *vma = find_vma(current->mm, (unsigned long)userLogical);
-        if (vma == gcvNULL)
-        {
-            gcmkTRACE_ZONE(
-                gcvLEVEL_INFO, gcvZONE_OS,
-                "%s(%d): find_vma error",
-                __FUNCTION__, __LINE__
-                );
+
+        if (vma == gcvNULL) {
+            gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS,
+                           "%s(%d): find_vma error",
+                           __func__, __LINE__);
 
             gcmkERR_BREAK(gcvSTATUS_OUT_OF_RESOURCES);
         }
 
         gcmkERR_BREAK(reserved_mem_mmap(Allocator, Mdl, gcvFALSE, 0, Mdl->numPages, vma));
 
-        MdlMap->vmaAddr = userLogical + res->offset_in_page;
+        MdlMap->vmaAddr   = userLogical + res->offset_in_page;
         MdlMap->cacheable = gcvFALSE;
-        MdlMap->vma = vma;
-    }
-    while (gcvFALSE);
+        MdlMap->vma       = vma;
+    } while (gcvFALSE);
 
     up_write(&current_mm_mmap_sem);
 
 OnError:
-    if (gcmIS_ERROR(status) && userLogical)
-    {
-        reserved_mem_unmap_user(Allocator, Mdl, userLogical, res->size);
+    if (gcmIS_ERROR(status) && userLogical) {
+        MdlMap->vmaAddr = userLogical + res->offset_in_page;
+        reserved_mem_unmap_user(Allocator, Mdl, MdlMap, res->size);
     }
+
     gcmkFOOTER();
     return status;
 }
 
 static gceSTATUS
-reserved_mem_map_kernel(
-    IN gckALLOCATOR Allocator,
-    IN PLINUX_MDL Mdl,
-    IN gctSIZE_T Offset,
-    IN gctSIZE_T Bytes,
-    OUT gctPOINTER *Logical
-    )
+reserved_mem_map_kernel(IN gckALLOCATOR Allocator,
+                        IN PLINUX_MDL   Mdl,
+                        IN gctSIZE_T    Offset,
+                        IN gctSIZE_T    Bytes,
+                        OUT gctPOINTER *Logical)
 {
     struct reserved_mem *res = Mdl->priv;
-    void *vaddr;
+    void                *vaddr;
 
     if (Offset + Bytes > res->size)
-    {
         return gcvSTATUS_INVALID_ARGUMENT;
-    }
 
 #if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
     vaddr = ioremap_wc(res->start + Offset, Bytes);
 #else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
     vaddr = ioremap(res->start + Offset, Bytes);
-#else
+#    else
     vaddr = ioremap_nocache(res->start + Offset, Bytes);
-#endif
+#    endif
 #endif
 
     if (!vaddr)
-    {
         return gcvSTATUS_OUT_OF_MEMORY;
-    }
 
     *Logical = vaddr;
-    return gcvSTATUS_OK;;
+    return gcvSTATUS_OK;
 }
 
 static gceSTATUS
-reserved_mem_unmap_kernel(
-    IN gckALLOCATOR Allocator,
-    IN PLINUX_MDL Mdl,
-    IN gctPOINTER Logical
-    )
+reserved_mem_unmap_kernel(IN gckALLOCATOR Allocator,
+                          IN PLINUX_MDL   Mdl,
+                          IN gctPOINTER   Logical)
 {
     iounmap((void *)Logical);
 
@@ -432,18 +398,15 @@ reserved_mem_unmap_kernel(
 }
 
 static gceSTATUS
-reserved_mem_cache_op(
-    IN gckALLOCATOR Allocator,
-    IN PLINUX_MDL Mdl,
-    IN gctSIZE_T Offset,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes,
-    IN gceCACHEOPERATION Operation
-    )
+reserved_mem_cache_op(IN gckALLOCATOR      Allocator,
+                      IN PLINUX_MDL        Mdl,
+                      IN gctSIZE_T         Offset,
+                      IN gctPOINTER        Logical,
+                      IN gctSIZE_T         Bytes,
+                      IN gceCACHEOPERATION Operation)
 {
     /* Always WC or UC, safe to use mb. */
-    switch (Operation)
-    {
+    switch (Operation) {
     case gcvCACHE_CLEAN:
     case gcvCACHE_FLUSH:
         _MemoryBarrier();
@@ -458,135 +421,120 @@ reserved_mem_cache_op(
 }
 
 static gceSTATUS
-reserved_mem_get_physical(
-    IN gckALLOCATOR Allocator,
-    IN PLINUX_MDL Mdl,
-    IN gctUINT32 Offset,
-    OUT gctPHYS_ADDR_T * Physical
-    )
+reserved_mem_get_physical(IN gckALLOCATOR     Allocator,
+                          IN PLINUX_MDL       Mdl,
+                          IN gctUINT32        Offset,
+                          OUT gctPHYS_ADDR_T *Physical)
 {
     struct reserved_mem *res = Mdl->priv;
-    *Physical = res->start + Offset;
+    *Physical                = res->start + Offset;
 
     return gcvSTATUS_OK;
 }
 
 static gceSTATUS
-reserved_mem_GetSGT(
-    IN gckALLOCATOR Allocator,
-    IN PLINUX_MDL Mdl,
-    IN gctSIZE_T Offset,
-    IN gctSIZE_T Bytes,
-    OUT gctPOINTER *SGT
-    )
+reserved_mem_GetSGT(IN gckALLOCATOR Allocator,
+                    IN PLINUX_MDL   Mdl,
+                    IN gctSIZE_T    Offset,
+                    IN gctSIZE_T    Bytes,
+                    OUT gctPOINTER *SGT)
 {
-    struct page * page = gcvNULL;
-    struct sg_table *sgt = NULL;
-    struct reserved_mem *res = Mdl->priv;
-    gceSTATUS status = gcvSTATUS_OK;
+    struct page         *page   = gcvNULL;
+    struct sg_table     *sgt    = NULL;
+    struct reserved_mem *res    = Mdl->priv;
+    gceSTATUS            status = gcvSTATUS_OK;
 
     gcmkASSERT(Offset + Bytes <= Mdl->numPages << PAGE_SHIFT);
 
     sgt = kmalloc(sizeof(*sgt), GFP_KERNEL);
     if (!sgt)
-    {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
-    }
 
-    page = phys_to_page(res->start);
+    page = pfn_to_page(res->start >> PAGE_SHIFT);
 
-    if (sg_alloc_table(sgt, 1, GFP_KERNEL)){
+    if (sg_alloc_table(sgt, 1, GFP_KERNEL))
         gcmkONERROR(gcvSTATUS_GENERIC_IO);
-    }
+
     sg_set_page(sgt->sgl, page, PAGE_ALIGN(Bytes), Offset);
 
     *SGT = (gctPOINTER)sgt;
 
 OnError:
     if (gcmIS_ERROR(status) && sgt)
-    {
         kfree(sgt);
-    }
 
     return status;
 }
 
 static void
-reserved_mem_dtor(
-    gcsALLOCATOR *Allocator
-    )
+reserved_mem_dtor(gcsALLOCATOR *Allocator)
 {
     reserved_mem_debugfs_cleanup(Allocator);
 
-    if (Allocator->privateData)
-    {
-        kfree(Allocator->privateData);
-    }
+    kfree(Allocator->privateData);
 
     kfree(Allocator);
 }
 
 /* GFP allocator operations. */
 static gcsALLOCATOR_OPERATIONS reserved_mem_ops = {
-    .Alloc              = reserved_mem_alloc,
-    .Attach             = reserved_mem_attach,
-    .Free               = reserved_mem_detach,
-    .Mmap               = reserved_mem_mmap,
-    .MapUser            = reserved_mem_map_user,
-    .UnmapUser          = reserved_mem_unmap_user,
-    .MapKernel          = reserved_mem_map_kernel,
-    .UnmapKernel        = reserved_mem_unmap_kernel,
-    .Cache              = reserved_mem_cache_op,
-    .Physical           = reserved_mem_get_physical,
-    .GetSGT             = reserved_mem_GetSGT,
+    .Alloc       = reserved_mem_alloc,
+    .Attach      = reserved_mem_attach,
+    .Free        = reserved_mem_detach,
+    .Mmap        = reserved_mem_mmap,
+    .MapUser     = reserved_mem_map_user,
+    .UnmapUser   = reserved_mem_unmap_user,
+    .MapKernel   = reserved_mem_map_kernel,
+    .UnmapKernel = reserved_mem_unmap_kernel,
+    .Cache       = reserved_mem_cache_op,
+    .Physical    = reserved_mem_get_physical,
+    .GetSGT      = reserved_mem_GetSGT,
 };
 
 /* GFP allocator entry. */
 gceSTATUS
-_ReservedMemoryAllocatorInit(
-    IN gckOS Os,
-    IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
-    )
+_ReservedMemoryAllocatorInit(IN gckOS           Os,
+                             IN gcsDEBUGFS_DIR *Parent,
+                             OUT gckALLOCATOR  *Allocator)
 {
-    gceSTATUS status;
-    gckALLOCATOR allocator = gcvNULL;
-    struct reserved_mem_alloc *alloc = NULL;
+    gceSTATUS                  status;
+    gckALLOCATOR               allocator = gcvNULL;
+    struct reserved_mem_alloc *alloc     = NULL;
 
-    gcmkONERROR(
-        gckALLOCATOR_Construct(Os, &reserved_mem_ops, &allocator));
+    gcmkONERROR(gckALLOCATOR_Construct(Os, &reserved_mem_ops, &allocator));
 
     alloc = kzalloc(sizeof(*alloc), GFP_KERNEL | gcdNOWARN);
 
     if (!alloc)
-    {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
-    }
 
     INIT_LIST_HEAD(&alloc->region);
     mutex_init(&alloc->lock);
 
     /* Register private data. */
     allocator->privateData = alloc;
-    allocator->destructor = reserved_mem_dtor;
+    allocator->destructor  = reserved_mem_dtor;
 
     reserved_mem_debugfs_init(allocator, Parent);
 
     allocator->capability = gcvALLOC_FLAG_LINUX_RESERVED_MEM
                           | gcvALLOC_FLAG_CONTIGUOUS
                           | gcvALLOC_FLAG_MEMLIMIT
+                          | gcvALLOC_FLAG_CPU_ACCESS
                           | gcvALLOC_FLAG_DMABUF_EXPORTABLE
-                          | gcvALLOC_FLAG_CPU_ACCESS;
+                          | gcvALLOC_FLAG_NON_CPU_ACCESS
+#if gcdENABLE_VIDEO_MEMORY_MIRROR
+                          | gcvALLOC_FLAG_WITH_MIRROR
+#endif
+                          | gcvALLOC_FLAG_32BIT_VA
+                          | gcvALLOC_FLAG_PRIOR_32BIT_VA
+                          ;
 
     *Allocator = allocator;
 
     return gcvSTATUS_OK;
 
 OnError:
-    if (allocator)
-    {
-        kfree(allocator);
-    }
+    kfree(allocator);
     return status;
 }
-

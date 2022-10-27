@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -55,22 +55,16 @@
 
 #include "gc_hal_kernel_precomp.h"
 
-
-
-
-#define _GC_OBJ_ZONE    gcvZONE_KERNEL
+#define _GC_OBJ_ZONE gcvZONE_KERNEL
 
 #if gcdENABLE_TRUST_APPLICATION
 
 /*
-** Open a security service channel.
-*/
+ * Open a security service channel.
+ */
 gceSTATUS
-gckKERNEL_SecurityOpen(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPU,
-    OUT gctUINT32 *Channel
-    )
+gckKERNEL_SecurityOpen(IN gckKERNEL Kernel, IN gctUINT32 GPU,
+                       OUT gctUINT32 *Channel)
 {
     gceSTATUS status;
 
@@ -84,26 +78,22 @@ OnError:
 }
 
 /*
-** Close a security service channel
-*/
+ * Close a security service channel
+ */
 gceSTATUS
-gckKERNEL_SecurityClose(
-    IN gctUINT32 Channel
-    )
+gckKERNEL_SecurityClose(IN gctUINT32 Channel)
 {
     return gcvSTATUS_OK;
 }
 
 /*
-** Security service interface.
-*/
+ * Security service interface.
+ */
 gceSTATUS
-gckKERNEL_SecurityCallService(
-    IN gctUINT32 Channel,
-    IN OUT gcsTA_INTERFACE * Interface
-)
+gckKERNEL_SecurityCallService(IN gctUINT32 Channel, IN OUT gcsTA_INTERFACE *Interface)
 {
     gceSTATUS status;
+
     gcmkHEADER();
 
     gcmkVERIFY_ARGUMENT(Interface != gcvNULL);
@@ -123,21 +113,18 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityStartCommand(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Address,
-    IN gctUINT32 Bytes
-    )
+gckKERNEL_SecurityStartCommand(IN gckKERNEL Kernel, IN gctADDRESS Address,
+                               IN gctUINT32 Bytes)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
 
-    iface.command = KERNEL_START_COMMAND;
-    iface.u.StartCommand.gpu = Kernel->core;
+    iface.command                = KERNEL_START_COMMAND;
+    iface.u.StartCommand.gpu     = Kernel->core;
     iface.u.StartCommand.address = Address;
-    iface.u.StartCommand.bytes = Bytes;
+    iface.u.StartCommand.bytes   = Bytes;
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
 
@@ -150,18 +137,15 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityAllocateSecurityMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Bytes,
-    OUT gctUINT32 * Handle
-    )
+gckKERNEL_SecurityAllocateSecurityMemory(IN gckKERNEL Kernel, IN gctUINT32 Bytes,
+                                         OUT gctUINT32 *Handle)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
 
-    iface.command = KERNEL_ALLOCATE_SECRUE_MEMORY;
+    iface.command                        = KERNEL_ALLOCATE_SECRUE_MEMORY;
     iface.u.AllocateSecurityMemory.bytes = Bytes;
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
@@ -177,24 +161,20 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityMapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 *PhysicalArray,
-    IN gctPHYS_ADDR_T Physical,
-    IN gctUINT32 PageCount,
-    OUT gctUINT32 * GPUAddress
-    )
+gckKERNEL_SecurityMapMemory(IN gckKERNEL Kernel, IN gctUINT32 *PhysicalArray,
+                            IN gctPHYS_ADDR_T Physical, IN gctUINT32 PageCount,
+                            OUT gctADDRESS *GPUAddress)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
 
     iface.command = KERNEL_MAP_MEMORY;
 
-    iface.u.MapMemory.physicals = PhysicalArray;
-    iface.u.MapMemory.physical = Physical;
-    iface.u.MapMemory.pageCount = PageCount;
+    iface.u.MapMemory.physicals  = PhysicalArray;
+    iface.u.MapMemory.physical   = Physical;
+    iface.u.MapMemory.pageCount  = PageCount;
     iface.u.MapMemory.gpuAddress = *GPUAddress;
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
@@ -208,11 +188,9 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityDumpMMUException(
-    IN gckKERNEL Kernel
-    )
+gckKERNEL_SecurityDumpMMUException(IN gckKERNEL Kernel)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
@@ -229,16 +207,11 @@ OnError:
     return status;
 }
 
-
-
 gceSTATUS
-gckKERNEL_SecurityUnmapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPUAddress,
-    IN gctUINT32 PageCount
-    )
+gckKERNEL_SecurityUnmapMemory(IN gckKERNEL Kernel, IN gctADDRESS GPUAddress,
+                              IN gctUINT32 PageCount)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
@@ -259,13 +232,10 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_ReadMMUException(
-    IN gckKERNEL Kernel,
-    IN gctUINT32_PTR MMUStatus,
-    IN gctUINT32_PTR MMUException
-    )
+gckKERNEL_ReadMMUException(IN gckKERNEL Kernel, IN gctUINT32_PTR MMUStatus,
+                           IN gctUINT32_PTR MMUException)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
@@ -274,7 +244,7 @@ gckKERNEL_ReadMMUException(
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
 
-    *MMUStatus = iface.u.ReadMMUException.mmuStatus;
+    *MMUStatus    = iface.u.ReadMMUException.mmuStatus;
     *MMUException = iface.u.ReadMMUException.mmuException;
 
     gcmkFOOTER_NO();
@@ -286,22 +256,18 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_HandleMMUException(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 MMUStatus,
-    IN gctPHYS_ADDR_T Physical,
-    IN gctUINT32 GPUAddress
-    )
+gckKERNEL_HandleMMUException(IN gckKERNEL Kernel, IN gctUINT32 MMUStatus,
+                             IN gctPHYS_ADDR_T Physical, IN gctADDRESS GPUAddress)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
 
     iface.command = KERNEL_HANDLE_MMU_EXCEPTION;
 
-    iface.u.HandleMMUException.mmuStatus = MMUStatus;
-    iface.u.HandleMMUException.physical = Physical;
+    iface.u.HandleMMUException.mmuStatus  = MMUStatus;
+    iface.u.HandleMMUException.physical   = Physical;
     iface.u.HandleMMUException.gpuAddress = GPUAddress;
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
@@ -313,8 +279,5 @@ OnError:
     gcmkFOOTER();
     return status;
 }
-
-
-
 
 #endif

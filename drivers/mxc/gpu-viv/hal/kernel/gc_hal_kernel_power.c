@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -55,59 +55,41 @@
 
 #include "gc_hal_kernel_precomp.h"
 
-#define _GC_OBJ_ZONE    gcvZONE_POWER
+#define _GC_OBJ_ZONE gcvZONE_POWER
 
-/******************************************************************************\
-************************ Dynamic Voltage Frequency Setting *********************
-\******************************************************************************/
+/******************************************************************************
+ ************************ Dynamic Voltage Frequency Setting *******************
+ ******************************************************************************/
 #if gcdDVFS
 static gctUINT32
-_GetLoadHistory(
-    IN gckDVFS Dvfs,
-    IN gctUINT32 Select,
-    IN gctUINT32 Index
-)
+_GetLoadHistory(IN gckDVFS Dvfs, IN gctUINT32 Select, IN gctUINT32 Index)
 {
     return Dvfs->loads[Index];
 }
 
 static void
-_IncreaseScale(
-    IN gckDVFS Dvfs,
-    IN gctUINT32 Load,
-    OUT gctUINT8 *Scale
-    )
+_IncreaseScale(IN gckDVFS Dvfs, IN gctUINT32 Load, OUT gctUINT8 *Scale)
 {
-    if (Dvfs->currentScale < 32)
-    {
+    if (Dvfs->currentScale < 32) {
         *Scale = Dvfs->currentScale + 8;
-    }
-    else
-    {
+    } else {
         *Scale = Dvfs->currentScale + 8;
         *Scale = gcmMIN(64, *Scale);
     }
 }
 
 static void
-_RecordFrequencyHistory(
-    gckDVFS Dvfs,
-    gctUINT32 Frequency
-    )
+_RecordFrequencyHistory(gckDVFS Dvfs, gctUINT32 Frequency)
 {
     gctUINT32 i = 0;
 
     struct _FrequencyHistory *history = Dvfs->frequencyHistory;
 
-    for (i = 0; i < 16; i++)
-    {
+    for (i = 0; i < 16; i++) {
         if (history->frequency == Frequency)
-        {
             break;
-        }
 
-        if (history->frequency == 0)
-        {
+        if (history->frequency == 0) {
             history->frequency = Frequency;
             break;
         }
@@ -116,45 +98,31 @@ _RecordFrequencyHistory(
     }
 
     if (i < 16)
-    {
         history->count++;
-    }
 }
 
 static gctUINT32
-_GetFrequencyHistory(
-    gckDVFS Dvfs,
-    gctUINT32 Frequency
-    )
+_GetFrequencyHistory(gckDVFS Dvfs, gctUINT32 Frequency)
 {
     gctUINT32 i = 0;
 
-    struct _FrequencyHistory * history = Dvfs->frequencyHistory;
+    struct _FrequencyHistory *history = Dvfs->frequencyHistory;
 
-    for (i = 0; i < 16; i++)
-    {
+    for (i = 0; i < 16; i++) {
         if (history->frequency == Frequency)
-        {
             break;
-        }
 
         history++;
     }
 
     if (i < 16)
-    {
         return history->count;
-    }
 
     return 0;
 }
 
 static void
-_Policy(
-    IN gckDVFS Dvfs,
-    IN gctUINT32 Load,
-    OUT gctUINT8 *Scale
-    )
+_Policy(IN gckDVFS Dvfs, IN gctUINT32 Load, OUT gctUINT8 *Scale)
 {
     gctUINT8 load[4], nextLoad;
     gctUINT8 scale;
@@ -166,13 +134,10 @@ _Policy(
     load[3] = (Load & 0xFF000000) >> 24;
 
     /* Determine target scale. */
-    if (load[0] > 54)
-    {
+    if (load[0] > 54) {
         _IncreaseScale(Dvfs, Load, &scale);
-    }
-    else
-    {
-        nextLoad = (load[0] + load[1] + load[2] + load[3])/4;
+    } else {
+        nextLoad = (load[0] + load[1] + load[2] + load[3]) / 4;
 
         scale = Dvfs->currentScale * (nextLoad) / 54;
 
@@ -182,51 +147,47 @@ _Policy(
 
     Dvfs->totalConfig++;
 
-    Dvfs->loads[(load[0]-1)/8]++;
+    Dvfs->loads[(load[0] - 1) / 8]++;
 
     *Scale = scale;
 
-
-    if (Dvfs->totalConfig % 100 == 0)
-    {
+    if (Dvfs->totalConfig % 100 == 0) {
         gcmkPRINT("=======================================================");
         gcmkPRINT("GPU Load:       %-8d %-8d %-8d %-8d %-8d %-8d %-8d %-8d",
-                                   8, 16, 24, 32, 40, 48, 56, 64);
+                  8, 16, 24, 32, 40, 48, 56, 64);
         gcmkPRINT("                %-8d %-8d %-8d %-8d %-8d %-8d %-8d %-8d",
-                  _GetLoadHistory(Dvfs,2, 0),
-                  _GetLoadHistory(Dvfs,2, 1),
-                  _GetLoadHistory(Dvfs,2, 2),
-                  _GetLoadHistory(Dvfs,2, 3),
-                  _GetLoadHistory(Dvfs,2, 4),
-                  _GetLoadHistory(Dvfs,2, 5),
-                  _GetLoadHistory(Dvfs,2, 6),
-                  _GetLoadHistory(Dvfs,2, 7)
+                  _GetLoadHistory(Dvfs, 2, 0),
+                  _GetLoadHistory(Dvfs, 2, 1),
+                  _GetLoadHistory(Dvfs, 2, 2),
+                  _GetLoadHistory(Dvfs, 2, 3),
+                  _GetLoadHistory(Dvfs, 2, 4),
+                  _GetLoadHistory(Dvfs, 2, 5),
+                  _GetLoadHistory(Dvfs, 2, 6),
+                  _GetLoadHistory(Dvfs, 2, 7)
                   );
 
         gcmkPRINT("Frequency(MHz)  %-8d %-8d %-8d %-8d %-8d",
                   58, 120, 240, 360, 480);
         gcmkPRINT("                %-8d %-8d %-8d %-8d %-8d",
                   _GetFrequencyHistory(Dvfs, 58),
-                  _GetFrequencyHistory(Dvfs,120),
-                  _GetFrequencyHistory(Dvfs,240),
-                  _GetFrequencyHistory(Dvfs,360),
-                  _GetFrequencyHistory(Dvfs,480)
+                  _GetFrequencyHistory(Dvfs, 120),
+                  _GetFrequencyHistory(Dvfs, 240),
+                  _GetFrequencyHistory(Dvfs, 360),
+                  _GetFrequencyHistory(Dvfs, 480)
                   );
     }
 }
 
 static void
-_TimerFunction(
-    gctPOINTER Data
-    )
+_TimerFunction(gctPOINTER Data)
 {
-    gceSTATUS status;
-    gckDVFS dvfs = (gckDVFS) Data;
+    gceSTATUS   status;
+    gckDVFS     dvfs     = (gckDVFS)Data;
     gckHARDWARE hardware = dvfs->hardware;
-    gctUINT32 value;
-    gctUINT32 frequency;
-    gctUINT8 scale;
-    gctUINT32 t1, t2, consumed;
+    gctUINT32   value;
+    gctUINT32   frequency;
+    gctUINT8    scale;
+    gctUINT32   t1, t2, consumed;
 
     gckOS_GetTicks(&t1);
 
@@ -239,17 +200,12 @@ _TimerFunction(
     gcmkONERROR(gckOS_SetGPUFrequency(hardware->os, hardware->core, scale));
 
     /* Query real frequency. */
-    gcmkONERROR(
-        gckOS_QueryGPUFrequency(hardware->os,
-                                hardware->core,
-                                &frequency,
-                                &dvfs->currentScale));
+    gcmkONERROR(gckOS_QueryGPUFrequency(hardware->os, hardware->core,
+                                        &frequency, &dvfs->currentScale));
 
     _RecordFrequencyHistory(dvfs, frequency);
 
-    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_POWER,
-                   "Current frequency = %d",
-                   frequency);
+    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_POWER, "Current frequency = %d", frequency);
 
     /* Set period. */
     gcmkONERROR(gckHARDWARE_SetDVFSPeroid(hardware, frequency));
@@ -261,25 +217,19 @@ OnError:
     consumed = gcmMIN(((long)t2 - (long)t1), 5);
 
     if (dvfs->stop == gcvFALSE)
-    {
-        gcmkVERIFY_OK(gckOS_StartTimer(hardware->os,
-                                       dvfs->timer,
+        gcmkVERIFY_OK(gckOS_StartTimer(hardware->os, dvfs->timer,
                                        dvfs->pollingTime - consumed));
-    }
 
     return;
 }
 
 gceSTATUS
-gckDVFS_Construct(
-    IN gckHARDWARE Hardware,
-    OUT gckDVFS * Dvfs
-    )
+gckDVFS_Construct(IN gckHARDWARE Hardware, OUT gckDVFS *Dvfs)
 {
-    gceSTATUS status;
+    gceSTATUS  status;
     gctPOINTER pointer;
-    gckDVFS dvfs = gcvNULL;
-    gckOS os = Hardware->os;
+    gckDVFS    dvfs = gcvNULL;
+    gckOS      os   = Hardware->os;
 
     gcmkHEADER_ARG("Hardware=%p", Hardware);
 
@@ -294,9 +244,9 @@ gckDVFS_Construct(
     dvfs = pointer;
 
     /* Initialization. */
-    dvfs->hardware = Hardware;
-    dvfs->pollingTime = gcdDVFS_POLLING_TIME;
-    dvfs->os = Hardware->os;
+    dvfs->hardware     = Hardware;
+    dvfs->pollingTime  = gcdDVFS_POLLING_TIME;
+    dvfs->os           = Hardware->os;
     dvfs->currentScale = 64;
 
     /* Create a polling timer. */
@@ -313,12 +263,9 @@ gckDVFS_Construct(
 
 OnError:
     /* Roll back. */
-    if (dvfs)
-    {
+    if (dvfs) {
         if (dvfs->timer)
-        {
             gcmkVERIFY_OK(gckOS_DestroyTimer(os, dvfs->timer));
-        }
 
         gcmkOS_SAFE_FREE(os, dvfs);
     }
@@ -328,9 +275,7 @@ OnError:
 }
 
 gceSTATUS
-gckDVFS_Destroy(
-    IN gckDVFS Dvfs
-    )
+gckDVFS_Destroy(IN gckDVFS Dvfs)
 {
     gcmkHEADER_ARG("Dvfs=0x%X", Dvfs);
     gcmkVERIFY_ARGUMENT(Dvfs != gcvNULL);
@@ -348,9 +293,7 @@ gckDVFS_Destroy(
 }
 
 gceSTATUS
-gckDVFS_Start(
-    IN gckDVFS Dvfs
-    )
+gckDVFS_Start(IN gckDVFS Dvfs)
 {
     gcmkHEADER_ARG("Dvfs=0x%X", Dvfs);
     gcmkVERIFY_ARGUMENT(Dvfs != gcvNULL);
@@ -366,9 +309,7 @@ gckDVFS_Start(
 }
 
 gceSTATUS
-gckDVFS_Stop(
-    IN gckDVFS Dvfs
-    )
+gckDVFS_Stop(IN gckDVFS Dvfs)
 {
     gcmkHEADER_ARG("Dvfs=0x%X", Dvfs);
     gcmkVERIFY_ARGUMENT(Dvfs != gcvNULL);

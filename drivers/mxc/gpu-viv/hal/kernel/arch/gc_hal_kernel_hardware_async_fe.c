@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -57,23 +57,20 @@
 #include "gc_hal_kernel.h"
 #include "gc_hal_kernel_context.h"
 
-#define _GC_OBJ_ZONE    gcvZONE_HARDWARE
+#define _GC_OBJ_ZONE gcvZONE_HARDWARE
 
-struct _gckASYNC_FE
-{
+struct _gckASYNC_FE {
     /* Number of free descriptors. */
-    gctPOINTER                  freeDscriptors;
+    gctPOINTER freeDscriptors;
 };
 
 gceSTATUS
-gckASYNC_FE_Construct(
-    IN gckHARDWARE Hardware,
-    OUT gckASYNC_FE * FE
-    )
+gckASYNC_FE_Construct(IN gckHARDWARE Hardware, OUT gckASYNC_FE *FE)
 {
-    gceSTATUS status;
-    gctUINT32 data;
+    gceSTATUS   status;
+    gctUINT32   data;
     gckASYNC_FE fe;
+    gctUINT32   eventEnable = 0xFFFFFFFF;
 
     gcmkHEADER();
 
@@ -82,12 +79,8 @@ gckASYNC_FE_Construct(
                                (gctPOINTER *)&fe));
     gckOS_ZeroMemory(fe, gcmSIZEOF(struct _gckASYNC_FE));
 
-    gcmkVERIFY_OK(gckOS_ReadRegisterEx(
-        Hardware->os,
-        Hardware->core,
-        0x007E4,
-       &data
-        ));
+    gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
+                                       0x007E4, &data));
 
     gcmkONERROR(gckOS_AtomConstruct(Hardware->os, &fe->freeDscriptors));
 
@@ -98,7 +91,8 @@ gckASYNC_FE_Construct(
     gcmkONERROR(gckOS_AtomSet(Hardware->os, fe->freeDscriptors, data));
 
     /* Enable interrupts. */
-    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x000D8, ~0U));
+    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
+                                      0x000D8, eventEnable));
 
     *FE = fe;
 
@@ -106,12 +100,10 @@ gckASYNC_FE_Construct(
     return gcvSTATUS_OK;
 
 OnError:
-    if (fe)
-    {
+    if (fe) {
         if (fe->freeDscriptors)
-        {
             gckOS_AtomDestroy(Hardware->os, fe->freeDscriptors);
-        }
+
         gcmkOS_SAFE_FREE(Hardware->os, fe);
     }
 
@@ -120,13 +112,10 @@ OnError:
 }
 
 void
-gckASYNC_FE_Destroy(
-    IN gckHARDWARE Hardware,
-    IN gckASYNC_FE FE
-    )
+gckASYNC_FE_Destroy(IN gckHARDWARE Hardware, IN gckASYNC_FE FE)
 {
-    if (FE->freeDscriptors)
-    {
+    if (FE->freeDscriptors) {
+        /*Safe free memory to avoid dangling pointer*/
         gcmkOS_SAFE_FREE(Hardware->os, FE->freeDscriptors);
     }
 
@@ -134,23 +123,17 @@ gckASYNC_FE_Destroy(
 }
 
 gceSTATUS
-gckASYNC_FE_Initialize(
-    IN gckHARDWARE Hardware,
-    IN gckASYNC_FE FE
-    )
+gckASYNC_FE_Initialize(IN gckHARDWARE Hardware, IN gckASYNC_FE FE)
 {
     return gcvSTATUS_OK;
 }
 
 gceSTATUS
-gckASYNC_FE_Nop(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN OUT gctSIZE_T * Bytes
-    )
+gckASYNC_FE_Nop(IN gckHARDWARE Hardware, IN gctPOINTER Logical,
+                IN OUT gctSIZE_T *Bytes)
 {
-    gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
-    gceSTATUS status;
+    gctUINT32_PTR logical = (gctUINT32_PTR)Logical;
+    gceSTATUS     status;
 
     gcmkHEADER_ARG("Hardware=%p Logical=%p *Bytes=%lu",
                    Hardware, Logical, gcmOPT_VALUE(Bytes));
@@ -159,31 +142,21 @@ gckASYNC_FE_Nop(
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_ARGUMENT((Logical == gcvNULL) || (Bytes != gcvNULL));
 
-    if (Logical != gcvNULL)
-    {
-        if (*Bytes < 8)
-        {
+    if (Logical != gcvNULL) {
+        if (*Bytes < 8) {
             /* Command queue too small. */
             gcmkONERROR(gcvSTATUS_BUFFER_TOO_SMALL);
         }
 
         /* Append NOP. */
-        logical[0] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
+        logical[0] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: NOP", Logical);
     }
 
-    if (Bytes != gcvNULL)
-    {
+    if (Bytes != gcvNULL) {
         /* Return number of bytes required by the NOP command. */
         *Bytes = 8;
     }
@@ -199,21 +172,16 @@ OnError:
 }
 
 gceSTATUS
-gckASYNC_FE_Event(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctUINT8 Event,
-    IN gceKERNEL_WHERE FromWhere,
-    IN OUT gctUINT32 * Bytes
-    )
+gckASYNC_FE_Event(IN gckHARDWARE Hardware, IN gctPOINTER Logical, IN gctUINT8 Event,
+                  IN gceKERNEL_WHERE FromWhere, IN OUT gctUINT32 *Bytes)
 {
-    gctUINT size;
-    gctUINT32 destination = 0;
-    gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
-    gceSTATUS status;
-    gctBOOL blt;
-    gctBOOL extraEventStates;
-    gctBOOL multiCluster;
+    gctUINT       size;
+    gctUINT32     destination = 0;
+    gctUINT32_PTR logical     = (gctUINT32_PTR)Logical;
+    gceSTATUS     status;
+    gctBOOL       blt;
+    gctBOOL       extraEventStates;
+    gctBOOL       multiCluster;
 
     gcmkHEADER_ARG("Hardware=%p Logical=%p Event=%u FromWhere=%d *Bytes=%lu",
                    Hardware, Logical, Event, FromWhere, gcmOPT_VALUE(Bytes));
@@ -223,13 +191,10 @@ gckASYNC_FE_Event(
     gcmkVERIFY_ARGUMENT((Logical == gcvNULL) || (Bytes != gcvNULL));
     gcmkVERIFY_ARGUMENT(Event < 32);
 
-    if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_BLT_ENGINE))
-    {
+    if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_BLT_ENGINE)) {
         /* Send all event from blt. */
         if (FromWhere == gcvKERNEL_PIXEL)
-        {
             FromWhere = gcvKERNEL_BLT;
-        }
     }
 
     blt = FromWhere == gcvKERNEL_BLT ? gcvTRUE : gcvFALSE;
@@ -244,305 +209,136 @@ gckASYNC_FE_Event(
          ? gcmALIGN(8 + (1 + 5) * 4, 8) /* EVENT + 5 STATES */
          : 8;
 
-    if (blt)
-    {
+    if (blt) {
         size += 16;
         if (multiCluster)
             size += 8;
     }
 
-    if (Logical != gcvNULL)
-    {
-        if (*Bytes < size)
-        {
+    if (Logical != gcvNULL) {
+        if (*Bytes < size) {
             /* Command queue too small. */
             gcmkONERROR(gcvSTATUS_BUFFER_TOO_SMALL);
         }
 
-        switch (FromWhere)
-        {
+        switch (FromWhere) {
         case gcvKERNEL_COMMAND:
             /* From command processor. */
-            destination = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 5:5) - (0 ?
- 5:5) + 1))))))) << (0 ?
- 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 5:5) - (0 ?
- 5:5) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)));
+            destination = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 5:5) - (0 ? 5:5) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ? 5:5) - (0 ? 5:5) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)));
             break;
 
         case gcvKERNEL_PIXEL:
             /* From pixel engine. */
-            destination = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:6) - (0 ?
- 6:6) + 1))))))) << (0 ?
- 6:6))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 6:6) - (0 ?
- 6:6) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
+            destination = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 6:6) - (0 ? 6:6) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ? 6:6) - (0 ? 6:6) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
             break;
 
         case gcvKERNEL_BLT:
-            destination = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 7:7) - (0 ?
- 7:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 7:7) - (0 ?
- 7:7) + 1))))))) << (0 ?
- 7:7))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 7:7) - (0 ?
- 7:7) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 7:7) - (0 ? 7:7) + 1))))))) << (0 ? 7:7)));
+            destination = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 7:7) - (0 ? 7:7) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 7:7) - (0 ? 7:7) + 1))))))) << (0 ? 7:7))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ? 7:7) - (0 ? 7:7) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 7:7) - (0 ? 7:7) + 1))))))) << (0 ? 7:7)));
             break;
 
         default:
             gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
         }
 
-        if (blt)
-        {
-            *logical++
-                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
-                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
+        if (blt) {
+            *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) |
+                              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) |
+                              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
-            *logical++
-                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
+            *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
 
-            if (multiCluster)
-            {
-                *logical++
-                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
-                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
+            if (multiCluster) {
+                *logical++ =
+                    ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) |
+                         ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) |
+                         ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
-                *logical++
-                    = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 7:0) - (0 ?
- 7:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 7:0) - (0 ?
- 7:0) + 1))))))) << (0 ?
- 7:0))) | (((gctUINT32) ((gctUINT32) (Hardware->identity.clusterAvailMask & Hardware->options.userClusterMask) & ((gctUINT32) ((((1 ?
- 7:0) - (0 ?
- 7:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0)));
+                *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 7:0) - (0 ? 7:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0))) | (((gctUINT32) ((gctUINT32) (Hardware->identity.clusterAvailMask & Hardware->options.userClusterMask) & ((gctUINT32) ((((1 ? 7:0) - (0 ? 7:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0)));
             }
         }
 
         /* Append EVENT(Event, destination). */
-        *logical++
-            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E01) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+        *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) |
+                          ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E01) & ((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0))) |
+                          ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
-        *logical++
-            = ((((gctUINT32) (destination)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:0) - (0 ?
- 4:0) + 1))))))) << (0 ?
- 4:0))) | (((gctUINT32) ((gctUINT32) (Event) & ((gctUINT32) ((((1 ?
- 4:0) - (0 ?
- 4:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)));
+        *logical++ = ((((gctUINT32) (destination)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 4:0) - (0 ? 4:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0))) | (((gctUINT32) ((gctUINT32) (Event) & ((gctUINT32) ((((1 ? 4:0) - (0 ? 4:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)));
 
-        if (blt)
-        {
-            *logical++
-                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
-                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
+        if (blt) {
+            *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) |
+                              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) |
+                              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
 
-            *logical++
-                = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
+            *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
         }
 
-
         /* Make sure the event ID gets written out before GPU can access it. */
-        gcmkONERROR(
-            gckOS_MemoryBarrier(Hardware->os, logical + 1));
+        gcmkONERROR(gckOS_MemoryBarrier(Hardware->os, logical + 1));
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
         {
             gctPHYS_ADDR_T phys;
+
             gckOS_GetPhysicalAddress(Hardware->os, Logical, &phys);
             gckOS_CPUPhysicalToGPUPhysical(Hardware->os, phys, &phys);
-            gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
-                           "0x%08llx: EVENT %d", phys, Event);
+            gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%08llx: EVENT %d", phys, Event);
         }
 #endif
 
-        /* Append the extra states. These are needed for the chips that do not
-        ** support back-to-back events due to the async interface. The extra
-        ** states add the necessary delay to ensure that event IDs do not
-        ** collide. */
-        if (extraEventStates)
-        {
-            *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
-                       | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0100) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
-                       | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (5) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
+        /*
+         * Append the extra states. These are needed for the chips that do not
+         * support back-to-back events due to the async interface. The extra
+         * states add the necessary delay to ensure that event IDs do not
+         * collide.
+         */
+        if (extraEventStates) {
+            *logical++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) |
+                              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0))) | (((gctUINT32) ((gctUINT32) (0x0100) & ((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0))) |
+                              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16))) | (((gctUINT32) ((gctUINT32) (5) & ((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
             *logical++ = 0;
             *logical++ = 0;
             *logical++ = 0;
@@ -551,15 +347,12 @@ gckASYNC_FE_Event(
         }
 
 #if gcdINTERRUPT_STATISTIC
-        if (Event < gcmCOUNTOF(Hardware->kernel->eventObj->queues))
-        {
+        if (Event < (gctUINT8)Hardware->kernel->eventObj->totalQueueCount)
             gckOS_AtomSetMask(Hardware->pendingEvent, 1 << Event);
-        }
 #endif
     }
 
-    if (Bytes != gcvNULL)
-    {
+    if (Bytes != gcvNULL) {
         /* Return number of bytes required by the EVENT command. */
         *Bytes = size;
     }
@@ -574,53 +367,37 @@ OnError:
     return status;
 }
 
-
 void
-gckASYNC_FE_UpdateAvaiable(
-    IN gckHARDWARE Hardware
-    )
+gckASYNC_FE_UpdateAvaiable(IN gckHARDWARE Hardware)
 {
-    gceSTATUS status;
-    gctUINT32 data;
-    gctINT32 oldValue;
+    gceSTATUS   status;
+    gctUINT32   data;
+    gctINT32    oldValue;
     gckASYNC_FE fe = Hardware->asyncFE;
 
-    status = gckOS_ReadRegisterEx(
-        Hardware->os,
-        Hardware->core,
-        0x007E4,
-        &data
-        );
+    status = gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
+                                  0x007E4, &data);
 
-    if (gcmIS_SUCCESS(status))
-    {
+    if (gcmIS_SUCCESS(status)) {
         data = (((((gctUINT32) (data)) >> (0 ? 6:0)) & ((gctUINT32) ((((1 ? 6:0) - (0 ? 6:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 6:0) - (0 ? 6:0) + 1)))))) );
 
         while (data--)
-        {
             gckOS_AtomIncrement(Hardware->os, fe->freeDscriptors, &oldValue);
-        }
     }
 }
 
 gceSTATUS
-gckASYNC_FE_ReserveSlot(
-    IN gckHARDWARE Hardware,
-    OUT gctBOOL * Available
-    )
+gckASYNC_FE_ReserveSlot(IN gckHARDWARE Hardware, OUT gctBOOL *Available)
 {
-    gctINT32 oldValue;
+    gctINT32    oldValue;
     gckASYNC_FE fe = Hardware->asyncFE;
 
     gckOS_AtomDecrement(Hardware->os, fe->freeDscriptors, &oldValue);
 
-    if (oldValue > 0)
-    {
+    if (oldValue > 0) {
         /* Get one slot. */
         *Available = gcvTRUE;
-    }
-    else
-    {
+    } else {
         /* No available slot, restore decreased one.*/
         gckOS_AtomIncrement(Hardware->os, fe->freeDscriptors, &oldValue);
         *Available = gcvFALSE;
@@ -630,37 +407,27 @@ gckASYNC_FE_ReserveSlot(
 }
 
 gceSTATUS
-gckASYNC_FE_Execute(
-    IN gckHARDWARE Hardware,
-    IN gctUINT32 Address,
-    IN gctUINT32 Bytes
-    )
+gckASYNC_FE_Execute(IN gckHARDWARE Hardware, IN gctADDRESS Address, IN gctUINT32 Bytes)
 {
-    gceSTATUS status = gcvSTATUS_OK;
+    gceSTATUS status;
+    gctUINT32 address;
 
-    gcmkHEADER_ARG("Hardware=%p Address=%x Bytes=%lu", Hardware, Address, Bytes);
+    gcmkSAFECASTVA(address, Address);
 
-    gcmkONERROR(gckOS_WriteRegisterEx(
-        Hardware->os,
-        Hardware->core,
-        0x007DC,
-        Address
-        ));
+    status = gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
+                                   0x007DC,
+                                   address);
+    if (gcmIS_ERROR(status))
+        return status;
 
-    gcmkONERROR(gckOS_MemoryBarrier(
-        Hardware->os,
-        gcvNULL
-        ));
+    gckOS_MemoryBarrier(Hardware->os, gcvNULL);
 
-    gcmkONERROR(gckOS_WriteRegisterEx(
-        Hardware->os,
-        Hardware->core,
-        0x007E0,
-        Address + Bytes
-        ));
+    status = gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
+                                   0x007E0,
+                                   address + Bytes);
+    if (gcmIS_ERROR(status))
+        return status;
 
-OnError:
-    gcmkFOOTER();
-    return status;
+    return gcvSTATUS_OK;
 }
 

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -57,47 +57,26 @@
 #define __gc_hal_kernel_allocator_array_h_
 
 extern gceSTATUS
-_GFPAlloctorInit(
-    IN gckOS Os,
-    IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
-    );
+_GFPAlloctorInit(IN gckOS Os, IN gcsDEBUGFS_DIR *Parent, OUT gckALLOCATOR *Allocator);
 
 extern gceSTATUS
-_UserMemoryAlloctorInit(
-    IN gckOS Os,
-    IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
-    );
+_UserMemoryAlloctorInit(IN gckOS Os, IN gcsDEBUGFS_DIR *Parent, OUT gckALLOCATOR *Allocator);
 
 extern gceSTATUS
-_ReservedMemoryAllocatorInit(
-    IN gckOS Os,
-    IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
-    );
+_ReservedMemoryAllocatorInit(IN gckOS Os, IN gcsDEBUGFS_DIR *Parent, OUT gckALLOCATOR *Allocator);
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
 extern gceSTATUS
-_DmabufAlloctorInit(
-    IN gckOS Os,
-    IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
-    );
+_DmabufAlloctorInit(IN gckOS Os, IN gcsDEBUGFS_DIR *Parent, OUT gckALLOCATOR *Allocator);
 #endif
 
 #ifndef NO_DMA_COHERENT
 extern gceSTATUS
-_DmaAlloctorInit(
-    IN gckOS Os,
-    IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
-    );
+_DmaAlloctorInit(IN gckOS Os, IN gcsDEBUGFS_DIR *Parent, OUT gckALLOCATOR *Allocator);
 #endif
 
 /* Default allocator entry. */
-gcsALLOCATOR_DESC allocatorArray[] =
-{
+gcsALLOCATOR_DESC allocatorArray[] = {
     /* GFP allocator. */
     gcmkDEFINE_ALLOCATOR_DESC("gfp", _GFPAlloctorInit),
 

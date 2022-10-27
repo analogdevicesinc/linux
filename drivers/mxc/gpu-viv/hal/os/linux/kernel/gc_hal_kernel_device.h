@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -59,17 +59,17 @@
 #include "gc_hal_kernel_debugfs.h"
 #include "gc_hal_ta.h"
 
-/******************************************************************************\
-************************** gckGALDEVICE Structure ******************************
-\******************************************************************************/
+extern gcTA             globalTA[gcvCORE_COUNT];
 
-typedef struct _gckGALDEVICE
-{
+/*******************************************************************************
+ ************************* gckGALDEVICE Structure ******************************
+ *******************************************************************************/
+
+typedef struct _gckGALDEVICE {
     /* Objects. */
     gckOS               os;
-    gckKERNEL           kernels[gcdMAX_GPU_COUNT];
 
-    gcsPLATFORM*        platform;
+    gcsPLATFORM         *platform;
 
     /* Attributes. */
     gctPHYS_ADDR_T      internalBase;
@@ -79,78 +79,61 @@ typedef struct _gckGALDEVICE
     gctPOINTER          internalLogical;
     gckVIDMEM           internalVidMem;
 
-    gctPHYS_ADDR_T      externalBase;
-    gctSIZE_T           externalSize;
-    gctPHYS_ADDR        externalPhysical;
-    gctUINT32           externalPhysName;
-    gctPOINTER          externalLogical;
-    gckVIDMEM           externalVidMem;
+    gctPHYS_ADDR_T      externalBase[gcdDEVICE_COUNT];
+    gctSIZE_T           externalSize[gcdDEVICE_COUNT];
+    gctPHYS_ADDR        externalPhysical[gcdDEVICE_COUNT];
+    gctUINT32           externalPhysName[gcdDEVICE_COUNT];
+    gckVIDMEM           externalVidMem[gcdDEVICE_COUNT];
 
     /* Shared external SRAMs. */
     gctPHYS_ADDR_T      extSRAMBases[gcvSRAM_EXT_COUNT];
     gctSIZE_T           extSRAMSizes[gcvSRAM_EXT_COUNT];
-    gctPHYS_ADDR        extSRAMPhysical[gcvSRAM_EXT_COUNT];
-    gckVIDMEM           extSRAMVidMem[gcvSRAM_EXT_COUNT];
+    gctPHYS_ADDR        extSRAMPhysicals[gcvSRAM_EXT_COUNT];
+    gckVIDMEM           extSRAMVidMems[gcvSRAM_EXT_COUNT];
 
-    gctPHYS_ADDR_T      contiguousBase;
-    gctSIZE_T           contiguousSize;
-    gctPHYS_ADDR        contiguousPhysical;
-    gctUINT32           contiguousPhysName;
-    gctPOINTER          contiguousLogical;
-    gckVIDMEM           contiguousVidMem;
+    gctPHYS_ADDR_T      contiguousBases[gcdSYSTEM_RESERVE_COUNT];
+    gctSIZE_T           contiguousSizes[gcdSYSTEM_RESERVE_COUNT];
+    gctPHYS_ADDR        contiguousPhysicals[gcdSYSTEM_RESERVE_COUNT];
+    gctUINT32           contiguousPhysNames[gcdSYSTEM_RESERVE_COUNT];
+    gctPOINTER          contiguousLogicals[gcdSYSTEM_RESERVE_COUNT];
+    gckVIDMEM           contiguousVidMems[gcdSYSTEM_RESERVE_COUNT];
 
-    /* By request_mem_region. */
-    gctUINT64           requestedContiguousBase;
-    gctSIZE_T           requestedContiguousSize;
-
-    /* IRQ management. */
-    gctINT              irqLines[gcdMAX_GPU_COUNT];
-    gctBOOL             isrInitializeds[gcdMAX_GPU_COUNT];
-
-    /* Register memory. */
-    gctPOINTER          registerBases[gcdMAX_GPU_COUNT];
-    gctSIZE_T           registerSizes[gcdMAX_GPU_COUNT];
-
-    /* By request_mem_region. */
-    gctUINT64           requestedRegisterMemBases[gcdMAX_GPU_COUNT];
-    gctSIZE_T           requestedRegisterMemSizes[gcdMAX_GPU_COUNT];
-
-    gctUINT32           baseAddress;
-    gctUINT32           physBase;
-    gctUINT32           physSize;
+    gctPHYS_ADDR_T      requestedContiguousBases[gcdSYSTEM_RESERVE_COUNT];
+    gctSIZE_T           requestedContiguousSizes[gcdSYSTEM_RESERVE_COUNT];
 
 
-    /* PCIE Bar */
-    gctINT              bars[gcdMAX_GPU_COUNT];
+    gctPHYS_ADDR_T      lowContiguousBase;
+    gctSIZE_T           lowContiguousSize;
+    gctPHYS_ADDR        lowContiguousPhysical;
+    gctUINT32           lowContiguousPhysName;
+    gckVIDMEM           lowContiguousVidMem;
 
-    /* Thread management. */
-    struct task_struct *threadCtxts[gcdMAX_GPU_COUNT];
-    struct semaphore    semas[gcdMAX_GPU_COUNT];
-    gctBOOL             threadInitializeds[gcdMAX_GPU_COUNT];
-    gctBOOL             killThread;
-
-    /* States before suspend. */
-    gceCHIPPOWERSTATE   statesStored[gcdMAX_GPU_COUNT];
-    gctPOINTER          suspendSemaphore;
-    gctBOOL             suspendSemaphoreAcquired;
+    gctPHYS_ADDR_T      exclusiveBase[gcdDEVICE_COUNT];
+    gctSIZE_T           exclusiveSize[gcdDEVICE_COUNT];
+    gctPHYS_ADDR        exclusivePhysical[gcdDEVICE_COUNT];
+    gctUINT32           exclusivePhysName[gcdDEVICE_COUNT];
+    gctPOINTER          exclusiveLogical[gcdDEVICE_COUNT];
+    gckVIDMEM           exclusiveVidMem[gcdDEVICE_COUNT];
 
     gcsDEBUGFS_DIR      debugfsDir;
 
-    gckDEVICE           device;
+    gckDEVICE           devices[gcdDEVICE_COUNT];
+    gctUINT             devCount;
 
     gcsMODULE_PARAMETERS args;
 
     /* gctsOs object for trust application. */
     gctaOS              taos;
 
-#if gcdENABLE_DRM
-    void *              drm;
-#endif
-}
-* gckGALDEVICE;
+    /* If we are going to shut down. */
+    gctBOOL             gotoShutdown;
 
-typedef struct _gcsHAL_PRIVATE_DATA
-{
+#if gcdENABLE_DRM
+    void                *drm;
+#endif
+} *gckGALDEVICE;
+
+typedef struct _gcsHAL_PRIVATE_DATA {
     gckGALDEVICE        device;
     /*
      * 'fput' schedules actual work in '__fput' in a different thread.
@@ -159,61 +142,35 @@ typedef struct _gcsHAL_PRIVATE_DATA
      */
     gctUINT32           pidOpen;
     gctBOOL             isLocked;
-}
-gcsHAL_PRIVATE_DATA, * gcsHAL_PRIVATE_DATA_PTR;
+    gctUINT32           devIndex;
+} gcsHAL_PRIVATE_DATA, *gcsHAL_PRIVATE_DATA_PTR;
 
 gceSTATUS
-gckGALDEVICE_Suspend(
-    IN gckGALDEVICE Device,
-    IN gceCHIPPOWERSTATE State
-    );
+gckGALDEVICE_Start(IN gckGALDEVICE Device);
 
 gceSTATUS
-gckGALDEVICE_Resume(
-    IN gckGALDEVICE Device
-    );
+gckGALDEVICE_Stop(gckGALDEVICE Device);
 
 gceSTATUS
-gckGALDEVICE_Start(
-    IN gckGALDEVICE Device
-    );
+gckGALDEVICE_Construct(IN gcsPLATFORM                *Platform,
+                       IN const gcsMODULE_PARAMETERS *Args,
+                       OUT gckGALDEVICE              *Device);
 
 gceSTATUS
-gckGALDEVICE_Stop(
-    gckGALDEVICE Device
-    );
+gckGALDEVICE_Destroy(IN gckGALDEVICE Device);
 
-gceSTATUS
-gckGALDEVICE_Construct(
-    IN gcsPLATFORM * Platform,
-    IN const gcsMODULE_PARAMETERS * Args,
-    OUT gckGALDEVICE *Device
-    );
-
-gceSTATUS
-gckGALDEVICE_Destroy(
-    IN gckGALDEVICE Device
-    );
-
-static gcmINLINE gckKERNEL
-_GetValidKernel(
-    gckGALDEVICE Device
-    )
+static gcmkINLINE gckKERNEL
+_GetValidKernel(gckGALDEVICE Device)
 {
-    if (Device->kernels[gcvCORE_MAJOR])
-    {
-        return Device->kernels[gcvCORE_MAJOR];
-    }
-    else if (Device->kernels[gcvCORE_2D])
-    {
-        return Device->kernels[gcvCORE_2D];
-    }
-    else if (Device->kernels[gcvCORE_VG])
-    {
-        return Device->kernels[gcvCORE_VG];
-    }
-    else
-    {
+    gckDEVICE device = Device->devices[0];
+
+    if (device->kernels[gcvCORE_MAJOR]) {
+        return device->kernels[gcvCORE_MAJOR];
+    } else if (device->kernels[gcvCORE_2D]) {
+        return device->kernels[gcvCORE_2D];
+    } else if (device->kernels[gcvCORE_VG]) {
+        return device->kernels[gcvCORE_VG];
+    } else {
         gcmkASSERT(gcvFALSE);
         return gcvNULL;
     }

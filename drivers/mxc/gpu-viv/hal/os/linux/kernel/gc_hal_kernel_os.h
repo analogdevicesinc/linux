@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -59,28 +59,26 @@
 typedef struct _LINUX_MDL     LINUX_MDL,     *PLINUX_MDL;
 typedef struct _LINUX_MDL_MAP LINUX_MDL_MAP, *PLINUX_MDL_MAP;
 
-struct _LINUX_MDL_MAP
-{
+struct _LINUX_MDL_MAP {
     gctINT                  pid;
 
     /* map references. */
     gctUINT32               count;
 
-    struct vm_area_struct * vma;
+    struct vm_area_struct  *vma;
     gctPOINTER              vmaAddr;
     gctBOOL                 cacheable;
 
     struct list_head        link;
 };
 
-struct _LINUX_MDL
-{
+struct _LINUX_MDL {
     gckOS                   os;
 
     atomic_t                refs;
 
     /* Kernel address. */
-    char *                  addr;
+    char                   *addr;
 
     /* Size and covered page count. */
     size_t                  bytes;
@@ -90,35 +88,45 @@ struct _LINUX_MDL
     dma_addr_t              dmaHandle;
     gctBOOL                 cacheable;
 
+    /* maps mutex */
     struct mutex            mapsMutex;
     struct list_head        mapsHead;
 
     /* Pointer to allocator which allocates memory for this mdl. */
-    void *                  allocator;
+    void                   *allocator;
 
     /* Private data used by allocator. */
-    void *                  priv;
+    void                   *priv;
 
     uint                    gid;
 
     struct list_head        link;
 
     gctBOOL                 pageUnit1M;
+
+    /* list header for sub mdl for dynamic mapping */
+    struct list_head        rmaHead;
+
+    /* sub mdl list */
+    struct list_head        rmaLink;
+
+    /* If it is wrapped node from logical. */
+    gctBOOL                 wrapFromLogical;
+    /* If it is wrapped node from physical. */
+    gctBOOL                 wrapFromPhysical;
+
+    /* Platform device structure */
+    gctPOINTER              device;
 };
 
 extern PLINUX_MDL_MAP
-FindMdlMap(
-    IN PLINUX_MDL Mdl,
-    IN gctINT PID
-    );
+FindMdlMap(IN PLINUX_MDL Mdl, IN gctINT PID);
 
-typedef struct _DRIVER_ARGS
-{
+typedef struct _DRIVER_ARGS {
     gctUINT64               InputBuffer;
     gctUINT64               InputBufferSize;
     gctUINT64               OutputBuffer;
     gctUINT64               OutputBufferSize;
-}
-DRIVER_ARGS;
+} DRIVER_ARGS;
 
 #endif /* __gc_hal_kernel_os_h_ */

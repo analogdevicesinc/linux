@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -57,50 +57,42 @@
 
 #if gcdENABLE_VG
 
-#include "gc_hal_kernel_hardware_command_vg.h"
+#    include "gc_hal_kernel_hardware_command_vg.h"
 
-#define _GC_OBJ_ZONE            gcvZONE_COMMAND
+#    define _GC_OBJ_ZONE        gcvZONE_COMMAND
 
 #ifdef __QNXNTO__
 extern gceSTATUS
-drv_signal_mgr_add(
-    gctUINT32 Pid,
-    gctINT32 Rcvid,
-    const struct sigevent *Event,
-    gctUINT64 Signal,
-    gctPOINTER *Handle);
-#endif
+drv_signal_mgr_add(gctUINT32 Pid, gctINT32 Rcvid, const struct sigevent *Event,
+                   gctUINT64 Signal, gctPOINTER *Handle);
+#    endif
 
-/******************************************************************************\
-*********************************** Debugging **********************************
-\******************************************************************************/
+/******************************************************************************
+ *********************************** Debugging ********************************
+ ******************************************************************************/
 
-#define gcvDISABLE_TIMEOUT      1
-#define gcvDUMP_COMMAND_BUFFER  0
-#define gcvDUMP_COMMAND_LINES   0
-
+#    define gcvDISABLE_TIMEOUT     1
+#    define gcvDUMP_COMMAND_BUFFER 0
+#    define gcvDUMP_COMMAND_LINES  0
 
 #if gcvDEBUG || defined(EMULATOR) || gcvDISABLE_TIMEOUT
-#   define gcvQUEUE_TIMEOUT ~0
-#else
-#   define gcvQUEUE_TIMEOUT 10
-#endif
+#        define gcvQUEUE_TIMEOUT ~0
+#    else
+#        define gcvQUEUE_TIMEOUT 10
+#    endif
 
-
-/******************************************************************************\
-********************************** Definitions *********************************
-\******************************************************************************/
+/******************************************************************************
+ ********************************** Definitions *******************************
+ ******************************************************************************/
 
 /* Minimum buffer size. */
-#define gcvMINUMUM_BUFFER \
-    gcmSIZEOF(gcsKERNEL_QUEUE_HEADER) + \
-    gcmSIZEOF(gcsKERNEL_CMDQUEUE) * 2
+#    define gcvMINUMUM_BUFFER                                                           \
+        (gcmSIZEOF(gcsKERNEL_QUEUE_HEADER) +                                            \
+         gcmSIZEOF(gcsKERNEL_CMDQUEUE) * 2)
 
-#define gcmDECLARE_INTERRUPT_HANDLER(Block, Number) \
-    static gceSTATUS \
-    _EventHandler_##Block##_##Number( \
-        IN gckVGKERNEL Kernel \
-        )
+#    define gcmDECLARE_INTERRUPT_HANDLER(Block, Number)                                 \
+        static gceSTATUS                                                                \
+        _EventHandler_##Block##_##Number(IN gckVGKERNEL Kernel)
 
 #define gcmDEFINE_INTERRUPT_HANDLER(Block, Number) \
     gcmDECLARE_INTERRUPT_HANDLER(Block, Number) \
@@ -116,45 +108,34 @@ drv_signal_mgr_add(
     { gcvBLOCK_##Block, _EventHandler_##Block##_##Number }
 
 /* Block interrupt handling table entry. */
-typedef struct _gcsBLOCK_INTERRUPT_HANDLER * gcsBLOCK_INTERRUPT_HANDLER_PTR;
-typedef struct _gcsBLOCK_INTERRUPT_HANDLER
-{
-    gceBLOCK                block;
-    gctINTERRUPT_HANDLER    handler;
-}
-gcsBLOCK_INTERRUPT_HANDLER;
+typedef struct _gcsBLOCK_INTERRUPT_HANDLER *gcsBLOCK_INTERRUPT_HANDLER_PTR;
+typedef struct _gcsBLOCK_INTERRUPT_HANDLER {
+    gceBLOCK             block;
+    gctINTERRUPT_HANDLER handler;
+} gcsBLOCK_INTERRUPT_HANDLER;
 
 /* Queue control functions. */
-typedef struct _gcsQUEUE_UPDATE_CONTROL * gcsQUEUE_UPDATE_CONTROL_PTR;
-typedef struct _gcsQUEUE_UPDATE_CONTROL
-{
-    gctOBJECT_HANDLER       execute;
-    gctOBJECT_HANDLER       update;
-    gctOBJECT_HANDLER       lastExecute;
-    gctOBJECT_HANDLER       lastUpdate;
-}
-gcsQUEUE_UPDATE_CONTROL;
+typedef struct _gcsQUEUE_UPDATE_CONTROL *gcsQUEUE_UPDATE_CONTROL_PTR;
+typedef struct _gcsQUEUE_UPDATE_CONTROL {
+    gctOBJECT_HANDLER execute;
+    gctOBJECT_HANDLER update;
+    gctOBJECT_HANDLER lastExecute;
+    gctOBJECT_HANDLER lastUpdate;
+} gcsQUEUE_UPDATE_CONTROL;
 
-
-/******************************************************************************\
-********************************* Support Code *********************************
-\******************************************************************************/
+/******************************************************************************
+ ********************************* Support Code *******************************
+ ******************************************************************************/
 static gceSTATUS
-_FlushMMU(
-    IN gckVGCOMMAND Command
-    )
+_FlushMMU(IN gckVGCOMMAND Command)
 {
-    gceSTATUS status;
-    gctUINT32 oldValue;
+    gceSTATUS     status;
+    gctUINT32     oldValue;
     gckVGHARDWARE hardware = Command->hardware;
 
-    gcmkONERROR(gckOS_AtomicExchange(Command->os,
-                                     hardware->pageTableDirty,
-                                     0,
-                                     &oldValue));
+    gcmkONERROR(gckOS_AtomicExchange(Command->os, hardware->pageTableDirty, 0, &oldValue));
 
-    if (oldValue)
-    {
+    if (oldValue) {
         /* Page Table is upated, flush mmu before commit. */
         gcmkONERROR(gckVGHARDWARE_FlushMMU(hardware));
     }
@@ -165,21 +146,16 @@ OnError:
 }
 
 static gceSTATUS
-_WaitForIdle(
-    IN gckVGCOMMAND Command,
-    IN gcsKERNEL_QUEUE_HEADER_PTR Queue
-    )
+_WaitForIdle(IN gckVGCOMMAND Command, IN gcsKERNEL_QUEUE_HEADER_PTR Queue)
 {
     gceSTATUS status = gcvSTATUS_OK;
     gctUINT32 idle;
-    gctUINT timeout = 0;
+    gctUINT   timeout = 0;
 
     /* Loop while not idle. */
-    while (Queue->pending)
-    {
+    while (Queue->pending) {
         /* Did we reach the timeout limit? */
-        if (timeout == gcvQUEUE_TIMEOUT)
-        {
+        if (timeout == gcvQUEUE_TIMEOUT) {
             /* Hardware is probably dead... */
             return gcvSTATUS_TIMEOUT;
         }
@@ -188,16 +164,13 @@ _WaitForIdle(
         gcmkERR_BREAK(gckOS_Delay(Command->os, 100));
 
         /* Not the first loop? */
-        if (timeout > 0)
-        {
+        if (timeout > 0) {
             /* Read IDLE register. */
             gcmkVERIFY_OK(gckVGHARDWARE_GetIdle(Command->hardware, &idle));
 
-            gcmkTRACE_ZONE(
-                gcvLEVEL_ERROR, gcvZONE_COMMAND,
-                "%s: timeout, IDLE=%08X\n",
-                __FUNCTION__, idle
-                );
+            gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_COMMAND,
+                           "%s: timeout, IDLE=%08X\n",
+                           __FUNCTION__, idle);
         }
 
         /* Increment the timeout counter. */
@@ -209,14 +182,11 @@ _WaitForIdle(
 }
 
 static gctINT32
-_GetNextInterrupt(
-    IN gckVGCOMMAND Command,
-    IN gceBLOCK Block
-    )
+_GetNextInterrupt(IN gckVGCOMMAND Command, IN gceBLOCK Block)
 {
-    gctUINT index;
+    gctUINT                 index;
     gcsBLOCK_TASK_ENTRY_PTR entry;
-    gctINT32 interrupt;
+    gctINT32                interrupt;
 
     /* Get the block entry. */
     entry = &Command->taskTable[Block];
@@ -225,9 +195,7 @@ _GetNextInterrupt(
     gcmkASSERT(entry->interruptCount > 0);
 
     /* Decrement the interrupt usage semaphore. */
-    gcmkVERIFY_OK(gckOS_DecrementSemaphore(
-        Command->os, entry->interruptSemaphore
-        ));
+    gcmkVERIFY_OK(gckOS_DecrementSemaphore(Command->os, entry->interruptSemaphore));
 
     /* Get the value index. */
     index = entry->interruptIndex;
@@ -242,40 +210,27 @@ _GetNextInterrupt(
     index += 1;
 
     /* Set the new index. */
-    entry->interruptIndex = (index == entry->interruptCount)
-        ? 0
-        : index;
+    entry->interruptIndex = (index == entry->interruptCount) ? 0 : index;
 
     /* Return interrupt value. */
     return interrupt;
 }
 
-
-/******************************************************************************\
-***************************** Task Storage Management **************************
-\******************************************************************************/
+/******************************************************************************
+ ***************************** Task Storage Management ************************
+ ******************************************************************************/
 
 /* Minimum task buffer size. */
-#define gcvMIN_TASK_BUFFER \
-( \
-    gcmSIZEOF(gcsTASK_CONTAINER) + 128 \
-)
+#    define gcvMIN_TASK_BUFFER (gcmSIZEOF(gcsTASK_CONTAINER) + 128)
 
 /* Free list terminator. */
-#define gcvFREE_TASK_TERMINATOR \
-( \
-    (gcsTASK_CONTAINER_PTR) gcmINT2PTR(~0) \
-)
-
+#    define gcvFREE_TASK_TERMINATOR ((gcsTASK_CONTAINER_PTR)gcmINT2PTR(~0))
 
 /*----------------------------------------------------------------------------*/
 /*------------------- Allocated Task Buffer List Management ------------------*/
 
 static void
-_InsertTaskBuffer(
-    IN gcsTASK_CONTAINER_PTR AddAfter,
-    IN gcsTASK_CONTAINER_PTR Buffer
-    )
+_InsertTaskBuffer(IN gcsTASK_CONTAINER_PTR AddAfter, IN gcsTASK_CONTAINER_PTR Buffer)
 {
     gcsTASK_CONTAINER_PTR addBefore;
 
@@ -294,15 +249,11 @@ _InsertTaskBuffer(
 
     /* Link to the next buffer. */
     if (addBefore != gcvNULL)
-    {
         addBefore->allocPrev = Buffer;
-    }
 }
 
 static void
-_RemoveTaskBuffer(
-    IN gcsTASK_CONTAINER_PTR Buffer
-    )
+_RemoveTaskBuffer(IN gcsTASK_CONTAINER_PTR Buffer)
 {
     gcsTASK_CONTAINER_PTR prev;
     gcsTASK_CONTAINER_PTR next;
@@ -315,105 +266,78 @@ _RemoveTaskBuffer(
     next = Buffer->allocNext;
 
     /* Tail buffer? */
-    if (next == gcvNULL)
-    {
+    if (next == gcvNULL) {
         /* Remove from the list. */
         prev->allocNext = gcvNULL;
-    }
-
-    /* Buffer from the middle. */
-    else
-    {
+    } else { /* Buffer from the middle. */
         prev->allocNext = next;
         next->allocPrev = prev;
     }
 }
 
-
 /*----------------------------------------------------------------------------*/
 /*--------------------- Free Task Buffer List Management ---------------------*/
 
 static void
-_AppendToFreeList(
-    IN gckVGCOMMAND Command,
-    IN gcsTASK_CONTAINER_PTR Buffer
-    )
+_AppendToFreeList(IN gckVGCOMMAND Command, IN gcsTASK_CONTAINER_PTR Buffer)
 {
     /* Cannot be a part of the free list already. */
     gcmkASSERT(Buffer->freePrev == gcvNULL);
     gcmkASSERT(Buffer->freeNext == gcvNULL);
 
     /* First buffer to add? */
-    if (Command->taskFreeHead == gcvNULL)
-    {
+    if (Command->taskFreeHead == gcvNULL) {
         /* Terminate the links. */
         Buffer->freePrev = gcvFREE_TASK_TERMINATOR;
         Buffer->freeNext = gcvFREE_TASK_TERMINATOR;
 
         /* Initialize the list pointer. */
-        Command->taskFreeHead = Command->taskFreeTail = Buffer;
-    }
-
-    /* Not the first, add after the tail. */
-    else
-    {
+        Command->taskFreeHead = Buffer;
+        Command->taskFreeTail = Buffer;
+    } else { /* Not the first, add after the tail. */
         /* Initialize the new tail buffer. */
         Buffer->freePrev = Command->taskFreeTail;
         Buffer->freeNext = gcvFREE_TASK_TERMINATOR;
 
         /* Add after the tail. */
         Command->taskFreeTail->freeNext = Buffer;
-        Command->taskFreeTail = Buffer;
+        Command->taskFreeTail           = Buffer;
     }
 }
 
 static void
-_RemoveFromFreeList(
-    IN gckVGCOMMAND Command,
-    IN gcsTASK_CONTAINER_PTR Buffer
-    )
+_RemoveFromFreeList(IN gckVGCOMMAND Command, IN gcsTASK_CONTAINER_PTR Buffer)
 {
     /* Has to be a part of the free list. */
     gcmkASSERT(Buffer->freePrev != gcvNULL);
     gcmkASSERT(Buffer->freeNext != gcvNULL);
 
     /* Head buffer? */
-    if (Buffer->freePrev == gcvFREE_TASK_TERMINATOR)
-    {
+    if (Buffer->freePrev == gcvFREE_TASK_TERMINATOR) {
         /* Tail buffer as well? */
-        if (Buffer->freeNext == gcvFREE_TASK_TERMINATOR)
-        {
+        if (Buffer->freeNext == gcvFREE_TASK_TERMINATOR) {
             /* Reset the list pointer. */
-            Command->taskFreeHead = Command->taskFreeTail = gcvNULL;
+            Command->taskFreeHead = gcvNULL;
+            Command->taskFreeTail = gcvNULL;
         }
 
         /* No, just the head. */
-        else
-        {
+        else {
             /* Update the head. */
             Command->taskFreeHead = Buffer->freeNext;
 
             /* Terminate the next buffer. */
             Command->taskFreeHead->freePrev = gcvFREE_TASK_TERMINATOR;
         }
-    }
-
-    /* Not the head. */
-    else
-    {
+    } else { /* Not the head. */
         /* Tail buffer? */
-        if (Buffer->freeNext == gcvFREE_TASK_TERMINATOR)
-        {
+        if (Buffer->freeNext == gcvFREE_TASK_TERMINATOR) {
             /* Update the tail. */
             Command->taskFreeTail = Buffer->freePrev;
 
             /* Terminate the previous buffer. */
             Command->taskFreeTail->freeNext = gcvFREE_TASK_TERMINATOR;
-        }
-
-        /* A buffer in the middle. */
-        else
-        {
+        } else { /* A buffer in the middle. */
             /* Remove the buffer from the list. */
             Buffer->freePrev->freeNext = Buffer->freeNext;
             Buffer->freeNext->freePrev = Buffer->freePrev;
@@ -425,29 +349,21 @@ _RemoveFromFreeList(
     Buffer->freeNext = gcvNULL;
 }
 
-
 /*----------------------------------------------------------------------------*/
 /*-------------------------- Task Buffer Allocation --------------------------*/
 
 static void
-_SplitTaskBuffer(
-    IN gckVGCOMMAND Command,
-    IN gcsTASK_CONTAINER_PTR Buffer,
-    IN gctUINT Size
-    )
+_SplitTaskBuffer(IN gckVGCOMMAND Command, IN gcsTASK_CONTAINER_PTR Buffer, IN gctUINT Size)
 {
     /* Determine the size of the new buffer. */
     gctINT splitBufferSize = Buffer->size - Size;
+
     gcmkASSERT(splitBufferSize >= 0);
 
     /* Is the split buffer big enough to become a separate buffer? */
-    if (splitBufferSize >= gcvMIN_TASK_BUFFER)
-    {
+    if (splitBufferSize >= gcvMIN_TASK_BUFFER) {
         /* Place the new path data. */
-        gcsTASK_CONTAINER_PTR splitBuffer = (gcsTASK_CONTAINER_PTR)
-        (
-            (gctUINT8_PTR) Buffer + Size
-        );
+        gcsTASK_CONTAINER_PTR splitBuffer = (gcsTASK_CONTAINER_PTR)((gctUINT8_PTR)Buffer + Size);
 
         /* Set the trimmed buffer size. */
         Buffer->size = Size;
@@ -465,11 +381,7 @@ _SplitTaskBuffer(
 }
 
 static gceSTATUS
-_AllocateTaskContainer(
-    IN gckVGCOMMAND Command,
-    IN gctUINT Size,
-    OUT gcsTASK_CONTAINER_PTR * Buffer
-    )
+_AllocateTaskContainer(IN gckVGCOMMAND Command, IN gctUINT Size, OUT gcsTASK_CONTAINER_PTR *Buffer)
 {
     gceSTATUS status;
 
@@ -478,35 +390,29 @@ _AllocateTaskContainer(
     /* Verify arguments. */
     gcmkVERIFY_ARGUMENT(Buffer != gcvNULL);
 
-    do
-    {
-        gcsTASK_STORAGE_PTR storage;
+    do {
+        gcsTASK_STORAGE_PTR   storage;
         gcsTASK_CONTAINER_PTR buffer;
 
         /* Adjust the size. */
         Size += gcmSIZEOF(gcsTASK_CONTAINER);
 
         /* Adjust the allocation size if not big enough. */
-        if (Size > Command->taskStorageUsable)
-        {
-            Command->taskStorageGranularity
-                = gcmALIGN(Size + gcmSIZEOF(gcsTASK_STORAGE), 1024);
+        if (Size > Command->taskStorageUsable) {
+            Command->taskStorageGranularity = gcmALIGN(Size + gcmSIZEOF(gcsTASK_STORAGE), 1024);
 
-            Command->taskStorageUsable
-                = Command->taskStorageGranularity - gcmSIZEOF(gcsTASK_STORAGE);
+            Command->taskStorageUsable =
+                Command->taskStorageGranularity - gcmSIZEOF(gcsTASK_STORAGE);
         }
 
         /* Is there a free buffer available? */
-        else if (Command->taskFreeHead != gcvNULL)
-        {
+        else if (Command->taskFreeHead != gcvNULL) {
             /* Set the initial free buffer. */
             gcsTASK_CONTAINER_PTR buffer = Command->taskFreeHead;
 
-            do
-            {
+            do {
                 /* Is the buffer big enough? */
-                if (buffer->size >= Size)
-                {
+                if (buffer->size >= Size) {
                     /* Remove the buffer from the free list. */
                     _RemoveFromFreeList(Command, buffer);
 
@@ -514,37 +420,32 @@ _AllocateTaskContainer(
                     _SplitTaskBuffer(Command, buffer, Size);
 
                     /* Set the result. */
-                    * Buffer = buffer;
+                    *Buffer = buffer;
 
-                    gcmkFOOTER_ARG("*Buffer=0x%x",*Buffer);
+                    gcmkFOOTER_ARG("*Buffer=0x%x", *Buffer);
                     /* Success. */
                     return gcvSTATUS_OK;
                 }
 
                 /* Get the next free buffer. */
                 buffer = buffer->freeNext;
-            }
-            while (buffer != gcvFREE_TASK_TERMINATOR);
+            } while (buffer != gcvFREE_TASK_TERMINATOR);
         }
 
         /* Allocate a container. */
-        gcmkERR_BREAK(gckOS_Allocate(
-            Command->os,
-            Command->taskStorageGranularity,
-            (gctPOINTER *) &storage
-            ));
+        gcmkERR_BREAK(gckOS_Allocate(Command->os,
+                                     Command->taskStorageGranularity,
+                                     (gctPOINTER *)&storage));
 
         /* Link in the storage buffer. */
-        storage->next = Command->taskStorage;
+        storage->next        = Command->taskStorage;
         Command->taskStorage = storage;
 
         /* Place the task buffer. */
-        buffer = (gcsTASK_CONTAINER_PTR) (storage + 1);
+        buffer = (gcsTASK_CONTAINER_PTR)(storage + 1);
 
         /* Determine the size of the buffer. */
-        buffer->size
-            = Command->taskStorageGranularity
-            - gcmSIZEOF(gcsTASK_STORAGE);
+        buffer->size = Command->taskStorageGranularity - gcmSIZEOF(gcsTASK_STORAGE);
 
         /* Initialize the task buffer. */
         buffer->referenceCount = 0;
@@ -557,13 +458,12 @@ _AllocateTaskContainer(
         _SplitTaskBuffer(Command, buffer, Size);
 
         /* Set the result. */
-        * Buffer = buffer;
+        *Buffer = buffer;
 
-        gcmkFOOTER_ARG("*Buffer=%p",*Buffer);
+        gcmkFOOTER_ARG("*Buffer=%p", *Buffer);
         /* Success. */
         return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     gcmkFOOTER();
     /* Return status. */
@@ -571,10 +471,7 @@ _AllocateTaskContainer(
 }
 
 static void
-_FreeTaskContainer(
-    IN gckVGCOMMAND Command,
-    IN gcsTASK_CONTAINER_PTR Buffer
-    )
+_FreeTaskContainer(IN gckVGCOMMAND Command, IN gcsTASK_CONTAINER_PTR Buffer)
 {
     gcsTASK_CONTAINER_PTR prev;
     gcsTASK_CONTAINER_PTR next;
@@ -592,23 +489,19 @@ _FreeTaskContainer(
     next = Buffer->allocNext;
 
     /* Is the previous path data buffer already free? */
-    if (prev && prev->freeNext)
-    {
+    if (prev && prev->freeNext) {
         /* The previous path data buffer is the one that remains. */
         merged = prev;
 
         /* Is the next path data buffer already free? */
-        if (next && next->freeNext)
-        {
+        if (next && next->freeNext) {
             /* Merge all three path data buffers into the previous. */
             mergedSize = prev->size + Buffer->size + next->size;
 
             /* Remove the next path data buffer. */
             _RemoveFromFreeList(Command, next);
             _RemoveTaskBuffer(next);
-        }
-        else
-        {
+        } else {
             /* Merge the current path data buffer into the previous. */
             mergedSize = prev->size + Buffer->size;
         }
@@ -618,15 +511,12 @@ _FreeTaskContainer(
 
         /* Set new size. */
         merged->size = mergedSize;
-    }
-    else
-    {
+    } else {
         /* The current path data buffer is the one that remains. */
         merged = Buffer;
 
         /* Is the next buffer already free? */
-        if (next && next->freeNext)
-        {
+        if (next && next->freeNext) {
             /* Merge the next into the current. */
             mergedSize = Buffer->size + next->size;
 
@@ -644,62 +534,53 @@ _FreeTaskContainer(
 }
 
 gceSTATUS
-_RemoveRecordFromProcesDB(
-    IN gckVGCOMMAND Command,
-    IN gcsTASK_HEADER_PTR Task
-    )
+_RemoveRecordFromProcesDB(IN gckVGCOMMAND Command, IN gcsTASK_HEADER_PTR Task)
 {
-    gceSTATUS status;
-    gcsTASK_PTR task = (gcsTASK_PTR)((gctUINT8_PTR)Task - sizeof(gcsTASK));
-    gcsTASK_FREE_VIDEO_MEMORY_PTR freeVideoMemory;
+    gceSTATUS                       status;
+    gcsTASK_PTR                     task = (gcsTASK_PTR)((gctUINT8_PTR)Task - sizeof(gcsTASK));
+    gcsTASK_FREE_VIDEO_MEMORY_PTR   freeVideoMemory;
     gcsTASK_UNLOCK_VIDEO_MEMORY_PTR unlockVideoMemory;
-    gctINT pid;
-    gctUINT32 size,id;
-    gctUINT32 handle;
-    gckKERNEL kernel = Command->kernel->kernel;
-    gckVIDMEM_NODE unlockNode = gcvNULL;
-    gckVIDMEM_NODE nodeObject = gcvNULL;
-    gceDATABASE_TYPE type;
+    gctINT                          pid;
+    gctUINT32                       size, id;
+    gctUINT32                       handle;
+    gctUINT64                       node;
+    gckKERNEL                       kernel     = Command->kernel->kernel;
+    gckVIDMEM_NODE                  unlockNode = gcvNULL;
+    gckVIDMEM_NODE                  nodeObject = gcvNULL;
+    gceDATABASE_TYPE                type;
 
     /* Get the total size of all tasks. */
 
     gcmkVERIFY_OK(gckOS_GetProcessID((gctUINT32_PTR)&pid));
     gcmkVERIFY_OK(gckOS_ReadMappedPointer(Command->os, &task->size, &size));
 
-    do
-    {
+    do {
         gcmkVERIFY_OK(gckOS_ReadMappedPointer(Command->os, &Task->id, &id));
-        switch (id)
-        {
+        switch (id) {
         case gcvTASK_FREE_VIDEO_MEMORY:
             freeVideoMemory = (gcsTASK_FREE_VIDEO_MEMORY_PTR)Task;
 
             gcmkVERIFY_OK(gckOS_ReadMappedPointer(Command->os, &freeVideoMemory->node, &handle));
 
-            status = gckVIDMEM_HANDLE_Lookup(
-                Command->kernel->kernel,
-                pid,
-                handle,
-                &nodeObject);
+            status = gckVIDMEM_HANDLE_Lookup(Command->kernel->kernel, pid, handle, &nodeObject);
 
             if (gcmIS_ERROR(status))
-            {
                 return status;
-            }
 
             gckVIDMEM_HANDLE_Dereference(kernel, pid, handle);
-            gcmkVERIFY_OK(gckOS_WriteMemory(Command->os, &freeVideoMemory->node, gcmALL_TO_UINT32(nodeObject)));
 
-            type = gcvDB_VIDEO_MEMORY
-                | (nodeObject->type << gcdDB_VIDEO_MEMORY_TYPE_SHIFT)
-                | (nodeObject->pool << gcdDB_VIDEO_MEMORY_POOL_SHIFT);
+            node = gcmPTR_TO_UINT64(nodeObject);
+
+            gcmkVERIFY_OK(gckOS_CopyToUserData(Command->os, &node,
+                                               &freeVideoMemory->node,
+                                               gcmSIZEOF(gctUINT64)));
+
+            type = gcvDB_VIDEO_MEMORY | (nodeObject->type << gcdDB_VIDEO_MEMORY_TYPE_SHIFT) |
+                   (nodeObject->pool << gcdDB_VIDEO_MEMORY_POOL_SHIFT);
 
             /* Remove record from process db. */
-            gcmkVERIFY_OK(gckKERNEL_RemoveProcessDB(
-                Command->kernel->kernel,
-                pid,
-                type,
-                gcmINT2PTR(handle)));
+            gcmkVERIFY_OK(gckKERNEL_RemoveProcessDB(Command->kernel->kernel, pid,
+                                                    type, gcmINT2PTR(handle)));
 
             /* Advance to next task. */
             size -= sizeof(gcsTASK_FREE_VIDEO_MEMORY);
@@ -710,27 +591,24 @@ _RemoveRecordFromProcesDB(
             unlockVideoMemory = (gcsTASK_UNLOCK_VIDEO_MEMORY_PTR)Task;
 
             gcmkVERIFY_OK(gckOS_ReadMappedPointer(Command->os, &unlockVideoMemory->node, &handle));
-            /* Remove record from process db. */
-            gcmkVERIFY_OK(gckKERNEL_RemoveProcessDB(
-                Command->kernel->kernel,
-                pid,
-                gcvDB_VIDEO_MEMORY_LOCKED,
-                gcmUINT64_TO_PTR(handle)));
 
-
-            status = gckVIDMEM_HANDLE_Lookup(
-                Command->kernel->kernel,
-                pid,
-                handle,
-                &unlockNode);
+            status = gckVIDMEM_HANDLE_Lookup(Command->kernel->kernel, pid, handle, &unlockNode);
 
             if (gcmIS_ERROR(status))
-            {
                 return status;
-            }
 
             gckVIDMEM_HANDLE_Dereference(kernel, pid, handle);
-            gcmkVERIFY_OK(gckOS_WriteMemory(Command->os, &unlockVideoMemory->node, gcmALL_TO_UINT32(unlockNode)));
+
+            node = gcmPTR_TO_UINT64(unlockNode);
+
+            gcmkVERIFY_OK(gckOS_CopyToUserData(Command->os, &node,
+                                               &unlockVideoMemory->node,
+                                               gcmSIZEOF(gctUINT64)));
+
+            /* Remove record from process db. */
+            gcmkVERIFY_OK(gckKERNEL_RemoveProcessDB(Command->kernel->kernel, pid,
+                                                    gcvDB_VIDEO_MEMORY_LOCKED,
+                                                    gcmUINT64_TO_PTR(handle)));
 
             /* Advance to next task. */
             size -= sizeof(gcsTASK_UNLOCK_VIDEO_MEMORY);
@@ -742,223 +620,164 @@ _RemoveRecordFromProcesDB(
             size = 0;
             break;
         }
-    }
-    while(size);
+    } while (size);
 
     return gcvSTATUS_OK;
 }
 
-/******************************************************************************\
-********************************* Task Scheduling ******************************
-\******************************************************************************/
+/******************************************************************************
+ ********************************* Task Scheduling ****************************
+ ******************************************************************************/
 
 static gceSTATUS
-_ScheduleTasks(
-    IN gckVGCOMMAND Command,
-    IN gcsTASK_MASTER_TABLE_PTR TaskTable,
-    IN gctUINT8_PTR PreviousEnd
-    )
+_ScheduleTasks(IN gckVGCOMMAND Command, IN gcsTASK_MASTER_TABLE_PTR TaskTable,
+               IN gctUINT8_PTR PreviousEnd)
 {
     gceSTATUS status;
 
-    do
-    {
-        gctINT block;
-        gcsTASK_CONTAINER_PTR container;
+    do {
+        gctINT                   block;
+        gcsTASK_CONTAINER_PTR    container;
         gcsTASK_MASTER_ENTRY_PTR userTaskEntry;
-        gcsBLOCK_TASK_ENTRY_PTR kernelTaskEntry;
-        gcsTASK_PTR userTask;
-        gcsTASK userTaskObject;
-        gctUINT8_PTR kernelTask;
-        gctINT32 interrupt;
-        gctUINT8_PTR eventCommand;
-        gctBOOL needCopy = gcvFALSE;
-        gctINT pid;
+        gcsBLOCK_TASK_ENTRY_PTR  kernelTaskEntry;
+        gcsTASK_PTR              userTask;
+        gcsTASK                  userTaskObject;
+        gctUINT8_PTR             kernelTask;
+        gctINT32                 interrupt;
+        gctUINT8_PTR             eventCommand;
+        gctBOOL                  needCopy = gcvFALSE;
+        gctINT                   pid;
 #ifdef __QNXNTO__
         gcsTASK_PTR oldUserTask = gcvNULL;
-        gctPOINTER pointer;
-#endif
+        gctPOINTER  pointer;
+#    endif
 
         /* Nothing to schedule? */
-        if (TaskTable->size == 0)
-        {
+        if (TaskTable->size == 0) {
             status = gcvSTATUS_OK;
             break;
         }
 
         /* Acquire the mutex. */
-        gcmkERR_BREAK(gckOS_AcquireMutex(
-            Command->os,
-            Command->taskMutex,
-            gcvINFINITE
-            ));
+        gcmkERR_BREAK(gckOS_AcquireMutex(Command->os, Command->taskMutex, gcvINFINITE));
 
-        gcmkTRACE_ZONE(
-            gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-            "%s(%d)\n",
-            __FUNCTION__, __LINE__
-            );
+        gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                       "%s(%d)\n", __FUNCTION__, __LINE__);
 
         gcmkVERIFY_OK(gckOS_GetProcessID((gctUINT32_PTR)&pid));
         gcmkVERIFY_OK(gckOS_QueryNeedCopy(Command->os, pid, &needCopy));
-        do
-        {
-            gcmkTRACE_ZONE(
-                    gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-                "  number of tasks scheduled   = %d\n"
-                "  size of event data in bytes = %d\n",
-                TaskTable->count,
-                TaskTable->size
-                );
+        do {
+            gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                           "  number of tasks scheduled   = %d\n"
+                           "  size of event data in bytes = %d\n",
+                           TaskTable->count, TaskTable->size);
 
             /* Allocate task buffer. */
-            gcmkERR_BREAK(_AllocateTaskContainer(
-                Command,
-                TaskTable->size,
-                &container
-                ));
+            gcmkERR_BREAK(_AllocateTaskContainer(Command, TaskTable->size, &container));
 
             /* Determine the task data pointer. */
-            kernelTask = (gctUINT8_PTR) (container + 1);
+            kernelTask = (gctUINT8_PTR)(container + 1);
 
             /* Initialize the reference count. */
             container->referenceCount = TaskTable->count;
 
             /* Process tasks. */
-            for (block = gcvBLOCK_COUNT - 1; block >= 0; block -= 1)
-            {
+            for (block = gcvBLOCK_COUNT - 1; block >= 0; block -= 1) {
                 /* Get the current user table entry. */
                 userTaskEntry = &TaskTable->table[block];
 
                 /* Are there tasks scheduled? */
-                if (userTaskEntry->head == gcvNULL)
-                {
+                if (userTaskEntry->head == gcvNULL) {
                     /* No, skip to the next block. */
                     continue;
                 }
 
-                gcmkTRACE_ZONE(
-                        gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-                        "  processing tasks for block %d\n",
-                        block
-                    );
+                gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                               "  processing tasks for block %d\n", block);
 
                 /* Get the current kernel table entry. */
                 kernelTaskEntry = &Command->taskTable[block];
 
                 /* Are there tasks for the current block scheduled? */
-                if (kernelTaskEntry->container == gcvNULL)
-                {
-                    gcmkTRACE_ZONE(
-                        gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-                        "  first task container for the block %d added\n",
-                        block);
+                if (kernelTaskEntry->container == gcvNULL) {
+                    gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                                   "  first task container for the block %d added\n", block);
 
                     /* Nothing yet, set the container buffer pointer. */
                     kernelTaskEntry->container = container;
-                    kernelTaskEntry->task      = (gcsTASK_HEADER_PTR) kernelTask;
-                }
-
-                /* Yes, append to the end. */
-                else
-                {
+                    kernelTaskEntry->task      = (gcsTASK_HEADER_PTR)kernelTask;
+                } else { /* Yes, append to the end. */
                     kernelTaskEntry->link->cotainer = container;
-                    kernelTaskEntry->link->task     = (gcsTASK_HEADER_PTR) kernelTask;
+                    kernelTaskEntry->link->task     = (gcsTASK_HEADER_PTR)kernelTask;
                 }
 
                 /* Set initial task. */
                 userTask = userTaskEntry->head;
 
-                gcmkTRACE_ZONE(
-                    gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-                    "  copying user tasks over to the kernel\n"
-                    );
+                gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                               "  copying user tasks over to the kernel\n");
 
                 /* Copy tasks. */
-                do
-                {
+                do {
                     gcsTASK_HEADER_PTR taskHeader;
 #ifdef __QNXNTO__
                     oldUserTask = userTask;
 
-                    gcmkERR_BREAK(gckOS_MapUserPointer(
-                                Command->os,
-                                oldUserTask,
-                                0,
-                                &pointer));
+                    gcmkERR_BREAK(gckOS_MapUserPointer(Command->os, oldUserTask, 0, &pointer));
 
                     userTask = pointer;
-#endif
-                    taskHeader = (gcsTASK_HEADER_PTR) (userTask + 1);
-                    if(needCopy)
-                    {
-                        gcmkERR_BREAK(gckOS_CopyFromUserData(
-                                    Command->os,
-                                    &userTaskObject,
-                                    userTask,
-                                    gcmSIZEOF(gcsTASK)
-                                    ));
+#    endif
+                    taskHeader = (gcsTASK_HEADER_PTR)(userTask + 1);
+                    if (needCopy) {
+                        gcmkERR_BREAK(gckOS_CopyFromUserData(Command->os, &userTaskObject,
+                                                             userTask, gcmSIZEOF(gcsTASK)));
                         userTask = &userTaskObject;
                     }
 
                     gcmkVERIFY_OK(_RemoveRecordFromProcesDB(Command, taskHeader));
 
-                    /* Copy the task data. */
-                    if(needCopy)
-                    {
-                        gcmkERR_BREAK(gckOS_CopyFromUserData(
-                                    Command->os,
-                                    kernelTask,
-                                    taskHeader,
-                                    userTask->size
-                                    ));
-                    }
-                    else
-                    {
+                    gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                                   "    task ID = %d, size = %d\n",
+                                   ((gcsTASK_HEADER_PTR)(userTask + 1))->id, userTask->size);
 
-                        gcmkERR_BREAK(gckOS_MemCopy(
-                                    kernelTask, taskHeader, userTask->size
-                                    ));
+                    /* Copy the task data. */
+                    if (needCopy) {
+                        gcmkERR_BREAK(gckOS_CopyFromUserData(Command->os, kernelTask,
+                                                             taskHeader, userTask->size));
+                    } else {
+                        gcmkERR_BREAK(gckOS_MemCopy(kernelTask, taskHeader, userTask->size));
                     }
 #ifdef __QNXNTO__
-                    if (taskHeader->id == gcvTASK_SIGNAL)
-                    {
+                    if (taskHeader->id == gcvTASK_SIGNAL) {
                         gcsTASK_SIGNAL_PTR taskSignal = (gcsTASK_SIGNAL_PTR)kernelTask;
-                        gctPOINTER signal;
-                        gctUINT32 pid;
+                        gctPOINTER         signal;
+                        gctUINT32          pid;
 
                         gcmkVERIFY_OK(gckOS_GetProcessID(&pid));
 
                         taskSignal->rcvid = TaskTable->rcvid;
                         taskSignal->event = TaskTable->event;
 
-                        gcmkERR_BREAK(drv_signal_mgr_add(
-                                    pid,
-                                    taskSignal->rcvid,
-                                    &taskSignal->event,
-                                    gcmPTR_TO_UINT64(taskSignal->signal),
-                                    &signal));
+                        gcmkERR_BREAK(drv_signal_mgr_add(pid, taskSignal->rcvid,
+                                                         &taskSignal->event,
+                                                         gcmPTR_TO_UINT64(taskSignal->signal),
+                                                         &signal));
 
                         taskSignal->signal = signal;
                     }
-#endif
+#    endif
 
                     /* Advance to the next task. */
                     kernelTask += userTask->size;
-                    userTask    = userTask->next;
+                    userTask = userTask->next;
 
 #ifdef __QNXNTO__
-                    gcmkERR_BREAK(gckOS_UnmapUserPointer(
-                        Command->os,
-                        oldUserTask,
-                        0,
-                        pointer));
-#endif
-                }
-                while (userTask != gcvNULL);
+                    gcmkERR_BREAK(gckOS_UnmapUserPointer(Command->os, oldUserTask, 0, pointer));
+#    endif
+                } while (userTask != gcvNULL);
 
                 /* Update link pointer in the header. */
-                kernelTaskEntry->link = (gcsTASK_LINK_PTR) kernelTask;
+                kernelTaskEntry->link = (gcsTASK_LINK_PTR)kernelTask;
 
                 /* Initialize link task. */
                 kernelTaskEntry->link->id       = gcvTASK_LINK;
@@ -968,26 +787,20 @@ _ScheduleTasks(
                 /* Advance the task data pointer. */
                 kernelTask += gcmSIZEOF(gcsTASK_LINK);
             }
-        }
-        while (gcvFALSE);
+        } while (gcvFALSE);
 
         /* Release the mutex. */
-        gcmkERR_BREAK(gckOS_ReleaseMutex(
-                    Command->os,
-                    Command->taskMutex
-                    ));
+        gcmkERR_BREAK(gckOS_ReleaseMutex(Command->os, Command->taskMutex));
 
         /* Assign interrupts to the blocks. */
         eventCommand = PreviousEnd;
 
-        for (block = gcvBLOCK_COUNT - 1; block >= 0; block -= 1)
-        {
+        for (block = gcvBLOCK_COUNT - 1; block >= 0; block -= 1) {
             /* Get the current user table entry. */
             userTaskEntry = &TaskTable->table[block];
 
             /* Are there tasks scheduled? */
-            if (userTaskEntry->head == gcvNULL)
-            {
+            if (userTaskEntry->head == gcvNULL) {
                 /* No, skip to the next block. */
                 continue;
             }
@@ -995,77 +808,65 @@ _ScheduleTasks(
             /* Get the interrupt number. */
             interrupt = _GetNextInterrupt(Command, block);
 
-            gcmkTRACE_ZONE(
-                    gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-                    "%s(%d): block = %d interrupt = %d\n",
-                    __FUNCTION__, __LINE__,
-                    block, interrupt
-                );
+            gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                           "%s(%d): block = %d interrupt = %d\n",
+                           __FUNCTION__, __LINE__, block, interrupt);
 
             /* Determine the command position. */
             eventCommand -= Command->info.eventCommandSize;
 
             /* Append an EVENT command. */
-            gcmkERR_BREAK(gckVGCOMMAND_EventCommand(
-                Command, eventCommand, block, interrupt, gcvNULL
-                ));
+            gcmkERR_BREAK(gckVGCOMMAND_EventCommand(Command, eventCommand,
+                                                    block, interrupt, gcvNULL));
         }
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
-
-/******************************************************************************\
-******************************** Memory Management *****************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************** Memory Management ***************************
+ ******************************************************************************/
 
 static gceSTATUS
-_HardwareToKernel(
-    IN gckOS Os,
-    IN gcuVIDMEM_NODE_PTR Node,
-    IN gctUINT32 Address,
-    OUT gctPOINTER * KernelPointer
-    )
+_HardwareToKernel(IN gckOS Os,
+                  IN gcuVIDMEM_NODE_PTR Node,
+                  IN gctUINT32 Address,
+                  OUT gctPOINTER *KernelPointer)
 {
-    gceSTATUS status;
-    gckVIDMEM memory;
-    gctUINT32 offset;
-    gctUINT32 nodePhysical;
+    gceSTATUS   status;
+    gckVIDMEM   memory;
+    gctUINT32   offset;
+    gctUINT32   nodePhysical;
     gctPOINTER *logical;
-    gctSIZE_T bytes;
+    gctSIZE_T   bytes;
+
     status = gcvSTATUS_OK;
 
     memory = Node->VidMem.parent;
 
-    if (memory->object.type == gcvOBJ_VIDMEM)
-    {
-        nodePhysical = (gctUINT32)memory->physicalBase
-                     + (gctUINT32)Node->VidMem.offset
-                     + Node->VidMem.alignment;
-        bytes = Node->VidMem.bytes;
+    if (memory->object.type == gcvOBJ_VIDMEM) {
+        nodePhysical = (gctUINT32)memory->physicalBase +
+                       (gctUINT32)Node->VidMem.offset +
+                       Node->VidMem.alignment;
+
+        bytes   = Node->VidMem.bytes;
         logical = &Node->VidMem.kernelVirtual;
-    }
-    else
-    {
+    } else {
         gcmkSAFECASTPHYSADDRT(nodePhysical, Node->Virtual.physicalAddress);
-        bytes = Node->Virtual.bytes;
+        bytes   = Node->Virtual.bytes;
         logical = &Node->Virtual.kernelVirtual;
     }
 
-    if (*logical == gcvNULL)
-    {
+    if (*logical == gcvNULL) {
         status = gckOS_MapPhysical(Os, nodePhysical, bytes, logical);
 
         if (gcmkIS_ERROR(status))
-        {
             return status;
-        }
     }
 
-    offset = Address - nodePhysical;
+    offset         = Address - nodePhysical;
     *KernelPointer = (gctPOINTER)((gctUINT8_PTR)(*logical) + offset);
 
     /* Return status. */
@@ -1073,77 +874,51 @@ _HardwareToKernel(
 }
 
 static gceSTATUS
-_ConvertUserCommandBufferPointer(
-    IN gckVGCOMMAND Command,
-    IN gcsCMDBUFFER_PTR UserCommandBuffer,
-    OUT gcsCMDBUFFER_PTR * KernelCommandBuffer
-    )
+_ConvertUserCommandBufferPointer(IN gckVGCOMMAND Command,
+                                 IN gcsCMDBUFFER_PTR UserCommandBuffer,
+                                 OUT gcsCMDBUFFER_PTR *KernelCommandBuffer)
 {
-    gceSTATUS status, last;
+    gceSTATUS        status, last;
     gcsCMDBUFFER_PTR mappedUserCommandBuffer = gcvNULL;
-    gcsCMDBUFFER _CommandBufferObject;
-    gckKERNEL kernel = Command->kernel->kernel;
-    gctUINT32 pid;
-    gckVIDMEM_NODE node;
-    gctBOOL needCopy = gcvFALSE;
+    gcsCMDBUFFER     _CommandBufferObject;
+    gckKERNEL        kernel = Command->kernel->kernel;
+    gctUINT32        pid;
+    gckVIDMEM_NODE   node;
+    gctBOOL          needCopy = gcvFALSE;
 
     gckOS_GetProcessID(&pid);
 
-    do
-    {
+    do {
         gctUINT32 headerAddress;
 
         gcmkERR_BREAK(gckOS_QueryNeedCopy(Command->os, pid, &needCopy));
-        if(needCopy)
-        {
-            gcmkERR_BREAK(gckOS_CopyFromUserData(
-                        Command->os,
-                        &_CommandBufferObject,
-                        UserCommandBuffer,
-                        gcmSIZEOF(gcsCMDBUFFER)
-                        ));
+        if (needCopy) {
+            gcmkERR_BREAK(gckOS_CopyFromUserData(Command->os, &_CommandBufferObject,
+                                                 UserCommandBuffer, gcmSIZEOF(gcsCMDBUFFER)));
             mappedUserCommandBuffer = &_CommandBufferObject;
-        }
-        else
-        {
+        } else {
             /* Map the command buffer structure into the kernel space. */
-            gcmkERR_BREAK(gckOS_MapUserPointer(
-                        Command->os,
-                        UserCommandBuffer,
-                        gcmSIZEOF(gcsCMDBUFFER),
-                        (gctPOINTER *) &mappedUserCommandBuffer
-                        ));
+            gcmkERR_BREAK(gckOS_MapUserPointer(Command->os, UserCommandBuffer,
+                                               gcmSIZEOF(gcsCMDBUFFER),
+                                               (gctPOINTER *)&mappedUserCommandBuffer));
         }
         /* Determine the address of the header. */
-        headerAddress
-            = mappedUserCommandBuffer->address
-            - mappedUserCommandBuffer->bufferOffset;
+        headerAddress = mappedUserCommandBuffer->address - mappedUserCommandBuffer->bufferOffset;
 
-        gcmkERR_BREAK(gckVIDMEM_HANDLE_Lookup(
-                    kernel,
-                    pid,
-                    gcmPTR2INT32(mappedUserCommandBuffer->node),
-                    &node));
+        gcmkERR_BREAK(gckVIDMEM_HANDLE_Lookup(kernel, pid,
+                                              gcmPTR2INT32(mappedUserCommandBuffer->node),
+                                              &node));
 
         /* Translate the logical address to the kernel space. */
-        gcmkERR_BREAK(_HardwareToKernel(
-                    Command->os,
-                    node->node,
-                    headerAddress,
-                    (gctPOINTER *) KernelCommandBuffer
-            ));
-    }
-    while (gcvFALSE);
+        gcmkERR_BREAK(_HardwareToKernel(Command->os, node->node, headerAddress,
+                                        (gctPOINTER *)KernelCommandBuffer));
+    } while (gcvFALSE);
 
     /* Unmap the user command buffer. */
-    if (mappedUserCommandBuffer != gcvNULL && needCopy == gcvFALSE)
-    {
-        gcmkCHECK_STATUS(gckOS_UnmapUserPointer(
-                    Command->os,
-                    UserCommandBuffer,
-                    gcmSIZEOF(gcsCMDBUFFER),
-                    mappedUserCommandBuffer
-                    ));
+    if (mappedUserCommandBuffer != gcvNULL && needCopy == gcvFALSE) {
+        gcmkCHECK_STATUS(gckOS_UnmapUserPointer(Command->os, UserCommandBuffer,
+                                                gcmSIZEOF(gcsCMDBUFFER),
+                                                mappedUserCommandBuffer));
     }
 
     /* Return status. */
@@ -1151,32 +926,28 @@ _ConvertUserCommandBufferPointer(
 }
 
 static gceSTATUS
-_AllocateLinear(
-    IN gckVGCOMMAND Command,
-    IN gctUINT Size,
-    IN gctUINT Alignment,
-    OUT gcuVIDMEM_NODE_PTR * Node,
-    OUT gctUINT32 * Address,
-    OUT gctPOINTER * Logical
-    )
+_AllocateLinear(IN gckVGCOMMAND Command,
+                IN gctUINT Size,
+                IN gctUINT Alignment,
+                OUT gcuVIDMEM_NODE_PTR *Node,
+                OUT gctUINT32 *Address,
+                OUT gctPOINTER *Logical)
 {
-    gceSTATUS status, last;
-    gctPOINTER logical;
-    gctPHYS_ADDR physical;
-    gctUINT32 address;
-    gctSIZE_T size = Size;
+    gceSTATUS      status, last;
+    gctPOINTER     logical;
+    gctPHYS_ADDR   physical;
+    gctUINT32      address;
+    gctSIZE_T      size = Size;
     gctPHYS_ADDR_T paddr;
 
-    do
-    {
-        gcmkERR_BREAK(gckOS_AllocateNonPagedMemory(
-            Command->os,
-            gcvFALSE,
-            gcvALLOC_FLAG_CONTIGUOUS,
-            &size,
-            &physical,
-            &logical
-            ));
+    do {
+        gcmkERR_BREAK(gckOS_AllocateNonPagedMemory(Command->os,
+                                                   Command->kernel->kernel,
+                                                   gcvFALSE,
+                                                   gcvALLOC_FLAG_CONTIGUOUS | gcvALLOC_FLAG_4GB_ADDR,
+                                                   &size,
+                                                   &physical,
+                                                   &logical));
 
         gcmkERR_BREAK(gckOS_GetPhysicalFromHandle(Command->os, physical, 0, &paddr));
 
@@ -1185,18 +956,16 @@ _AllocateLinear(
         gcmkSAFECASTPHYSADDRT(address, paddr);
 
         /* Set return values. */
-        * Node    = physical;
-        * Address = address;
-        * Logical = logical;
+        *Node    = physical;
+        *Address = address;
+        *Logical = logical;
 
         /* Success. */
         return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Roll back. */
-    if (physical != gcvNULL)
-    {
+    if (physical != gcvNULL) {
         /* Free the command buffer. */
         gcmkCHECK_STATUS(gckOS_FreeNonPagedMemory(Command->os, physical, logical, size));
     }
@@ -1206,66 +975,48 @@ _AllocateLinear(
 }
 
 static gceSTATUS
-_FreeLinear(
-    IN gckVGKERNEL Kernel,
-    IN gcuVIDMEM_NODE_PTR Node,
-    IN gctPOINTER Logical
-    )
+_FreeLinear(IN gckVGKERNEL Kernel, IN gcuVIDMEM_NODE_PTR Node, IN gctPOINTER Logical)
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    do
-    {
+    do {
         gcmkERR_BREAK(gckOS_FreeNonPagedMemory(Kernel->os, Node, Logical, 1));
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 gceSTATUS
-_AllocateCommandBuffer(
-    IN gckVGCOMMAND Command,
-    IN gctSIZE_T Size,
-    OUT gcsCMDBUFFER_PTR * CommandBuffer
-    )
+_AllocateCommandBuffer(IN gckVGCOMMAND Command, IN gctSIZE_T Size,
+                       OUT gcsCMDBUFFER_PTR *CommandBuffer)
 {
-    gceSTATUS status, last;
-    gcuVIDMEM_NODE_PTR node = gcvNULL;
-    gcsCMDBUFFER_PTR commandBuffer = gcvNULL;
+    gceSTATUS          status, last;
+    gcuVIDMEM_NODE_PTR node          = gcvNULL;
+    gcsCMDBUFFER_PTR   commandBuffer = gcvNULL;
 
-    do
-    {
-        gctUINT alignedHeaderSize;
-        gctUINT requestedSize;
-        gctUINT allocationSize;
-        gctUINT32 address = 0;
+    do {
+        gctUINT      alignedHeaderSize;
+        gctUINT      requestedSize;
+        gctUINT      allocationSize;
+        gctUINT32    address = 0;
         gctUINT8_PTR endCommand;
 
         /* Determine the aligned header size. */
-        alignedHeaderSize
-            = (gctUINT32)gcmALIGN(gcmSIZEOF(gcsCMDBUFFER), Command->info.addressAlignment);
+        alignedHeaderSize =
+            (gctUINT32)gcmALIGN(gcmSIZEOF(gcsCMDBUFFER), Command->info.addressAlignment);
 
         /* Align the requested size. */
-        requestedSize
-            = (gctUINT32)gcmALIGN(Size, Command->info.commandAlignment);
+        requestedSize = (gctUINT32)gcmALIGN(Size, Command->info.commandAlignment);
 
         /* Determine the size of the buffer to allocate. */
-        allocationSize
-            = alignedHeaderSize
-            + requestedSize
-            + (gctUINT32)Command->info.staticTailSize;
+        allocationSize =
+            alignedHeaderSize + requestedSize + (gctUINT32)Command->info.staticTailSize;
 
         /* Allocate the command buffer. */
-        gcmkERR_BREAK(_AllocateLinear(
-            Command,
-            allocationSize,
-            Command->info.addressAlignment,
-            &node,
-            &address,
-            (gctPOINTER *) &commandBuffer
-            ));
+        gcmkERR_BREAK(_AllocateLinear(Command, allocationSize,
+                                      Command->info.addressAlignment,
+                                      &node, &address, (gctPOINTER *)&commandBuffer));
 
         /* Initialize the structure. */
         commandBuffer->completion    = gcvVACANT_BUFFER;
@@ -1278,35 +1029,25 @@ _AllocateCommandBuffer(
         commandBuffer->nextSubBuffer = gcvNULL;
 
         /* Determine the data count. */
-        commandBuffer->dataCount
-            = (requestedSize + Command->info.staticTailSize)
-            / Command->info.commandAlignment;
+        commandBuffer->dataCount =
+            (requestedSize + Command->info.staticTailSize) / Command->info.commandAlignment;
 
         /* Determine the location of the END command. */
-        endCommand
-            = (gctUINT8_PTR) commandBuffer
-            + alignedHeaderSize
-            + requestedSize;
+        endCommand = (gctUINT8_PTR)commandBuffer + alignedHeaderSize + requestedSize;
 
         /* Append an END command. */
-        gcmkERR_BREAK(gckVGCOMMAND_EndCommand(
-            Command,
-            endCommand,
-            Command->info.feBufferInt,
-            gcvNULL
-            ));
+        gcmkERR_BREAK(gckVGCOMMAND_EndCommand(Command, endCommand,
+                                              Command->info.feBufferInt, gcvNULL));
 
         /* Set the return pointer. */
-        * CommandBuffer = commandBuffer;
+        *CommandBuffer = commandBuffer;
 
         /* Success. */
         return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Roll back. */
-    if (node != gcvNULL)
-    {
+    if (node != gcvNULL) {
         /* Free the command buffer. */
         gcmkCHECK_STATUS(_FreeLinear(Command->kernel, node, commandBuffer));
     }
@@ -1316,10 +1057,7 @@ _AllocateCommandBuffer(
 }
 
 static gceSTATUS
-_FreeCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsCMDBUFFER_PTR CommandBuffer
-    )
+_FreeCommandBuffer(IN gckVGKERNEL Kernel, IN gcsCMDBUFFER_PTR CommandBuffer)
 {
     gceSTATUS status;
 
@@ -1330,158 +1068,105 @@ _FreeCommandBuffer(
     return status;
 }
 
-
-/******************************************************************************\
-****************************** TS Overflow Handler *****************************
-\******************************************************************************/
+/******************************************************************************
+ ****************************** TS Overflow Handler ***************************
+ ******************************************************************************/
 
 static gceSTATUS
-_EventHandler_TSOverflow(
-    IN gckVGKERNEL Kernel
-    )
+_EventHandler_TSOverflow(IN gckVGKERNEL Kernel)
 {
-    gcmkTRACE(
-        gcvLEVEL_ERROR,
-        "%s(%d): **** TS OVERFLOW ENCOUNTERED ****\n",
-        __FUNCTION__, __LINE__
-        );
+    gcmkTRACE(gcvLEVEL_ERROR, "%s(%d): **** TS OVERFLOW ENCOUNTERED ****\n",
+              __FUNCTION__, __LINE__);
 
     return gcvSTATUS_OK;
 }
 
-
-/******************************************************************************\
-****************************** Bus Error Handler *******************************
-\******************************************************************************/
+/******************************************************************************
+ ****************************** Bus Error Handler *****************************
+ ******************************************************************************/
 
 static gceSTATUS
-_EventHandler_BusError(
-    IN gckVGKERNEL Kernel
-    )
+_EventHandler_BusError(IN gckVGKERNEL Kernel)
 {
-    gcmkTRACE(
-        gcvLEVEL_ERROR,
-        "%s(%d): **** BUS ERROR ENCOUNTERED ****\n",
-        __FUNCTION__, __LINE__
-        );
+    gcmkTRACE(gcvLEVEL_ERROR, "%s(%d): **** BUS ERROR ENCOUNTERED ****\n",
+              __FUNCTION__, __LINE__);
 
     return gcvSTATUS_OK;
 }
 
-/******************************************************************************\
-****************************** Power Stall Handler *******************************
-\******************************************************************************/
+/******************************************************************************
+ ****************************** Power Stall Handler ***************************
+ ******************************************************************************/
 
 static gceSTATUS
-_EventHandler_PowerStall(
-    IN gckVGKERNEL Kernel
-    )
+_EventHandler_PowerStall(IN gckVGKERNEL Kernel)
 {
     /* Signal. */
-    return gckOS_Signal(
-        Kernel->os,
-        Kernel->command->powerStallSignal,
-        gcvTRUE);
+    return gckOS_Signal(Kernel->os, Kernel->command->powerStallSignal, gcvTRUE);
 }
 
-/******************************************************************************\
-******************************** Task Routines *********************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************** Task Routines *******************************
+ ******************************************************************************/
 
-typedef gceSTATUS (* gctTASKROUTINE) (
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+typedef gceSTATUS (*gctTASKROUTINE) (gckVGCOMMAND Command,
+                                     gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskLink(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskLink(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskCluster(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskCluster(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskIncrement(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskIncrement(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskDecrement(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskDecrement(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskSignal(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskSignal(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskLockdown(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskLockdown(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskUnlockVideoMemory(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskUnlockVideoMemory(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskFreeVideoMemory(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskFreeVideoMemory(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
 static gceSTATUS
-_TaskFreeContiguousMemory(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    );
+_TaskFreeContiguousMemory(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader);
 
-static gctTASKROUTINE _taskRoutine[] =
-{
-    _TaskLink,                  /* gcvTASK_LINK                   */
-    _TaskCluster,               /* gcvTASK_CLUSTER                */
-    _TaskIncrement,             /* gcvTASK_INCREMENT              */
-    _TaskDecrement,             /* gcvTASK_DECREMENT              */
-    _TaskSignal,                /* gcvTASK_SIGNAL                 */
-    _TaskLockdown,              /* gcvTASK_LOCKDOWN               */
-    _TaskUnlockVideoMemory,     /* gcvTASK_UNLOCK_VIDEO_MEMORY    */
-    _TaskFreeVideoMemory,       /* gcvTASK_FREE_VIDEO_MEMORY      */
-    _TaskFreeContiguousMemory,  /* gcvTASK_FREE_CONTIGUOUS_MEMORY */
+static gctTASKROUTINE _taskRoutine[] = {
+    _TaskLink,                 /* gcvTASK_LINK                   */
+    _TaskCluster,              /* gcvTASK_CLUSTER                */
+    _TaskIncrement,            /* gcvTASK_INCREMENT              */
+    _TaskDecrement,            /* gcvTASK_DECREMENT              */
+    _TaskSignal,               /* gcvTASK_SIGNAL                 */
+    _TaskLockdown,             /* gcvTASK_LOCKDOWN               */
+    _TaskUnlockVideoMemory,    /* gcvTASK_UNLOCK_VIDEO_MEMORY    */
+    _TaskFreeVideoMemory,      /* gcvTASK_FREE_VIDEO_MEMORY      */
+    _TaskFreeContiguousMemory, /* gcvTASK_FREE_CONTIGUOUS_MEMORY */
 };
 
 static gceSTATUS
-_TaskLink(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskLink(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     /* Cast the task pointer. */
-    gcsTASK_LINK_PTR task = (gcsTASK_LINK_PTR) TaskHeader->task;
+    gcsTASK_LINK_PTR task = (gcsTASK_LINK_PTR)TaskHeader->task;
 
     /* Save the pointer to the container. */
     gcsTASK_CONTAINER_PTR container = TaskHeader->container;
 
     /* No more tasks in the list? */
-    if (task->task == gcvNULL)
-    {
+    if (task->task == gcvNULL) {
         /* Reset the entry. */
         TaskHeader->container = gcvNULL;
         TaskHeader->task      = gcvNULL;
         TaskHeader->link      = gcvNULL;
-    }
-    else
-    {
+    } else {
         /* Update the entry. */
         TaskHeader->container = task->cotainer;
         TaskHeader->task      = task->task;
@@ -1489,8 +1174,7 @@ _TaskLink(
 
     /* Decrement the task buffer reference. */
     gcmkASSERT(container->referenceCount >= 0);
-    if (container->referenceCount == 0)
-    {
+    if (container->referenceCount == 0) {
         /* Free the container. */
         _FreeTaskContainer(Command, container);
     }
@@ -1500,30 +1184,23 @@ _TaskLink(
 }
 
 static gceSTATUS
-_TaskCluster(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskCluster(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     gceSTATUS status = gcvSTATUS_OK;
 
     /* Cast the task pointer. */
-    gcsTASK_CLUSTER_PTR cluster = (gcsTASK_CLUSTER_PTR) TaskHeader->task;
+    gcsTASK_CLUSTER_PTR cluster = (gcsTASK_CLUSTER_PTR)TaskHeader->task;
 
     /* Get the number of tasks. */
     gctUINT taskCount = cluster->taskCount;
 
     /* Advance to the next task. */
-    TaskHeader->task = (gcsTASK_HEADER_PTR) (cluster + 1);
+    TaskHeader->task = (gcsTASK_HEADER_PTR)(cluster + 1);
 
     /* Perform all tasks in the cluster. */
-    while (taskCount)
-    {
+    while (taskCount) {
         /* Perform the current task. */
-        gcmkERR_BREAK(_taskRoutine[TaskHeader->task->id](
-            Command,
-            TaskHeader
-            ));
+        gcmkERR_BREAK(_taskRoutine[TaskHeader->task->id](Command, TaskHeader));
 
         /* Update the task count. */
         taskCount -= 1;
@@ -1534,197 +1211,140 @@ _TaskCluster(
 }
 
 static gceSTATUS
-_TaskIncrement(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskIncrement(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the task pointer. */
-        gcsTASK_INCREMENT_PTR task = (gcsTASK_INCREMENT_PTR) TaskHeader->task;
+        gcsTASK_INCREMENT_PTR task = (gcsTASK_INCREMENT_PTR)TaskHeader->task;
 
         /* Convert physical into logical address. */
         gctUINT32_PTR logical = gcvNULL;
-        gcmkERR_BREAK(gckOS_MapPhysical(
-            Command->os,
-            task->address,
-            gcmSIZEOF(gctUINT32),
-            (gctPOINTER *) &logical
-            ));
+
+        gcmkERR_BREAK(gckOS_MapPhysical(Command->os, task->address,
+                                        gcmSIZEOF(gctUINT32),
+                                        (gctPOINTER *)&logical));
 
         /* Increment data. */
-        (* logical) += 1;
+        (*logical) += 1;
 
         /* Unmap the physical memory. */
-        gcmkERR_BREAK(gckOS_UnmapPhysical(
-            Command->os,
-            logical,
-            gcmSIZEOF(gctUINT32)
-            ));
+        gcmkERR_BREAK(gckOS_UnmapPhysical(Command->os, logical, gcmSIZEOF(gctUINT32)));
 
         /* Update the reference counter. */
         TaskHeader->container->referenceCount -= 1;
 
         /* Update the task pointer. */
-        TaskHeader->task = (gcsTASK_HEADER_PTR) (task + 1);
-    }
-    while (gcvFALSE);
+        TaskHeader->task = (gcsTASK_HEADER_PTR)(task + 1);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_TaskDecrement(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskDecrement(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the task pointer. */
-        gcsTASK_DECREMENT_PTR task = (gcsTASK_DECREMENT_PTR) TaskHeader->task;
+        gcsTASK_DECREMENT_PTR task = (gcsTASK_DECREMENT_PTR)TaskHeader->task;
 
         /* Convert physical into logical address. */
         gctUINT32_PTR logical = gcvNULL;
-        gcmkERR_BREAK(gckOS_MapPhysical(
-            Command->os,
-            task->address,
-            gcmSIZEOF(gctUINT32),
-            (gctPOINTER *) &logical
-            ));
+
+        gcmkERR_BREAK(gckOS_MapPhysical(Command->os, task->address,
+                                        gcmSIZEOF(gctUINT32),
+                                        (gctPOINTER *)&logical));
 
         /* Decrement data. */
-        (* logical) -= 1;
+        (*logical) -= 1;
 
         /* Unmap the physical memory. */
-        gcmkERR_BREAK(gckOS_UnmapPhysical(
-            Command->os,
-            logical,
-            gcmSIZEOF(gctUINT32)
-            ));
+        gcmkERR_BREAK(gckOS_UnmapPhysical(Command->os, logical, gcmSIZEOF(gctUINT32)));
 
         /* Update the reference counter. */
         TaskHeader->container->referenceCount -= 1;
 
         /* Update the task pointer. */
-        TaskHeader->task = (gcsTASK_HEADER_PTR) (task + 1);
-    }
-    while (gcvFALSE);
+        TaskHeader->task = (gcsTASK_HEADER_PTR)(task + 1);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_TaskSignal(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskSignal(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the task pointer. */
-        gcsTASK_SIGNAL_PTR task = (gcsTASK_SIGNAL_PTR) TaskHeader->task;
-
+        gcsTASK_SIGNAL_PTR task = (gcsTASK_SIGNAL_PTR)TaskHeader->task;
 
         /* Map the signal into kernel space. */
 #ifdef __QNXNTO__
-        status = gckOS_UserSignal(
-            Command->os, task->signal, task->rcvid, &task->event
-            );
-#else
-        status = gckOS_UserSignal(
-            Command->os, task->signal, task->process
-            );
-#endif /* __QNXNTO__ */
+        status = gckOS_UserSignal(Command->os, task->signal, task->rcvid, &task->event);
+#    else
+        status = gckOS_UserSignal(Command->os, task->signal, task->process);
+#    endif /* __QNXNTO__ */
 
-        if (gcmIS_ERROR(status))
-        {
+        if (gcmIS_ERROR(status)) {
             if (status == gcvSTATUS_NOT_FOUND)
-            {
                 status = gcvSTATUS_OK;
-            }
             else
-            {
                 break;
-            }
         }
 
         /* Update the reference counter. */
         TaskHeader->container->referenceCount -= 1;
 
         /* Update the task pointer. */
-        TaskHeader->task = (gcsTASK_HEADER_PTR) (task + 1);
-    }
-    while (gcvFALSE);
+        TaskHeader->task = (gcsTASK_HEADER_PTR)(task + 1);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_TaskLockdown(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskLockdown(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
-    gceSTATUS status;
+    gceSTATUS     status;
     gctUINT32_PTR userCounter   = gcvNULL;
     gctUINT32_PTR kernelCounter = gcvNULL;
-    gctSIGNAL signal            = gcvNULL;
+    gctSIGNAL     signal        = gcvNULL;
 
-    do
-    {
+    do {
         /* Cast the task pointer. */
-        gcsTASK_LOCKDOWN_PTR task = (gcsTASK_LOCKDOWN_PTR) TaskHeader->task;
+        gcsTASK_LOCKDOWN_PTR task = (gcsTASK_LOCKDOWN_PTR)TaskHeader->task;
 
         /* Convert physical addresses into logical. */
-        gcmkERR_BREAK(gckOS_MapPhysical(
-            Command->os,
-            task->userCounter,
-            gcmSIZEOF(gctUINT32),
-            (gctPOINTER *) &userCounter
-            ));
+        gcmkERR_BREAK(gckOS_MapPhysical(Command->os, task->userCounter,
+                                        gcmSIZEOF(gctUINT32),
+                                        (gctPOINTER *)&userCounter));
 
-        gcmkERR_BREAK(gckOS_MapPhysical(
-            Command->os,
-            task->kernelCounter,
-            gcmSIZEOF(gctUINT32),
-            (gctPOINTER *) &kernelCounter
-            ));
+        gcmkERR_BREAK(gckOS_MapPhysical(Command->os, task->kernelCounter,
+                                        gcmSIZEOF(gctUINT32),
+                                        (gctPOINTER *)&kernelCounter));
 
         /* Update the kernel counter. */
-        (* kernelCounter) += 1;
+        (*kernelCounter) += 1;
 
         /* Are the counters equal? */
-        if ((* userCounter) == (* kernelCounter))
-        {
+        if ((*userCounter) == (*kernelCounter)) {
             /* Map the signal into kernel space. */
-            gcmkERR_BREAK(gckOS_MapSignal(
-                Command->os, task->signal, task->process, &signal
-                ));
+            gcmkERR_BREAK(gckOS_MapSignal(Command->os, task->signal, task->process, &signal));
 
-            if (signal == gcvNULL)
-            {
+            if (signal == gcvNULL) {
                 /* Signal. */
-                gcmkERR_BREAK(gckOS_Signal(
-                    Command->os, task->signal, gcvTRUE
-                    ));
-            }
-            else
-            {
+                gcmkERR_BREAK(gckOS_Signal(Command->os, task->signal, gcvTRUE));
+            } else {
                 /* Signal. */
-                gcmkERR_BREAK(gckOS_Signal(
-                    Command->os, signal, gcvTRUE
-                    ));
+                gcmkERR_BREAK(gckOS_Signal(Command->os, signal, gcvTRUE));
             }
         }
 
@@ -1732,222 +1352,161 @@ _TaskLockdown(
         TaskHeader->container->referenceCount -= 1;
 
         /* Update the task pointer. */
-        TaskHeader->task = (gcsTASK_HEADER_PTR) (task + 1);
-    }
-    while (gcvFALSE);
+        TaskHeader->task = (gcsTASK_HEADER_PTR)(task + 1);
+    } while (gcvFALSE);
 
     /* Destroy the mapped signal. */
     if (signal != gcvNULL)
-    {
-        gcmkVERIFY_OK(gckOS_DestroySignal(
-            Command->os, signal
-            ));
-    }
+        gcmkVERIFY_OK(gckOS_DestroySignal(Command->os, signal));
 
     /* Unmap the physical memory. */
     if (kernelCounter != gcvNULL)
-    {
-        gcmkVERIFY_OK(gckOS_UnmapPhysical(
-            Command->os,
-            kernelCounter,
-            gcmSIZEOF(gctUINT32)
-            ));
-    }
+        gcmkVERIFY_OK(gckOS_UnmapPhysical(Command->os, kernelCounter, gcmSIZEOF(gctUINT32)));
 
     if (userCounter != gcvNULL)
-    {
-        gcmkVERIFY_OK(gckOS_UnmapPhysical(
-            Command->os,
-            userCounter,
-            gcmSIZEOF(gctUINT32)
-            ));
-    }
+        gcmkVERIFY_OK(gckOS_UnmapPhysical(Command->os, userCounter, gcmSIZEOF(gctUINT32)));
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_TaskUnlockVideoMemory(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskUnlockVideoMemory(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         gctUINT32 processID;
 
         /* Cast the task pointer. */
-        gcsTASK_UNLOCK_VIDEO_MEMORY_PTR task
-            = (gcsTASK_UNLOCK_VIDEO_MEMORY_PTR) TaskHeader->task;
+        gcsTASK_UNLOCK_VIDEO_MEMORY_PTR task = (gcsTASK_UNLOCK_VIDEO_MEMORY_PTR)TaskHeader->task;
 
         gckOS_GetProcessID(&processID);
 
         /* Unlock video memory. */
-        gcmkERR_BREAK(gckVIDMEM_NODE_Unlock(
-            Command->kernel->kernel,
-            (gckVIDMEM_NODE)gcmUINT64_TO_PTR(task->node),
-            processID,
-            gcvNULL));
+        gcmkERR_BREAK(gckVIDMEM_NODE_Unlock(Command->kernel->kernel,
+                                            (gckVIDMEM_NODE)gcmUINT64_TO_PTR(task->node),
+                                            processID, gcvNULL));
 
-        gcmkERR_BREAK(gckVIDMEM_NODE_Dereference(
-            Command->kernel->kernel,
-            gcmUINT64_TO_PTR(task->node)));
+        gcmkERR_BREAK(gckVIDMEM_NODE_Dereference(Command->kernel->kernel,
+                                                 gcmUINT64_TO_PTR(task->node)));
 
         /* Update the reference counter. */
         TaskHeader->container->referenceCount -= 1;
 
         /* Update the task pointer. */
-        TaskHeader->task = (gcsTASK_HEADER_PTR) (task + 1);
-    }
-    while (gcvFALSE);
+        TaskHeader->task = (gcsTASK_HEADER_PTR)(task + 1);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_TaskFreeVideoMemory(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskFreeVideoMemory(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the task pointer. */
-        gcsTASK_FREE_VIDEO_MEMORY_PTR task
-            = (gcsTASK_FREE_VIDEO_MEMORY_PTR) TaskHeader->task;
+        gcsTASK_FREE_VIDEO_MEMORY_PTR task = (gcsTASK_FREE_VIDEO_MEMORY_PTR)TaskHeader->task;
 
         /* Free video memory. */
-        gcmkERR_BREAK(gckVIDMEM_NODE_Dereference(
-            Command->kernel->kernel,
-            gcmINT2PTR(task->node)));
+        gcmkERR_BREAK(gckVIDMEM_NODE_Dereference(Command->kernel->kernel,
+                                                 gcmUINT64_TO_PTR(task->node)));
 
         /* Update the reference counter. */
         TaskHeader->container->referenceCount -= 1;
 
         /* Update the task pointer. */
-        TaskHeader->task = (gcsTASK_HEADER_PTR) (task + 1);
-    }
-    while (gcvFALSE);
+        TaskHeader->task = (gcsTASK_HEADER_PTR)(task + 1);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_TaskFreeContiguousMemory(
-    gckVGCOMMAND Command,
-    gcsBLOCK_TASK_ENTRY_PTR TaskHeader
-    )
+_TaskFreeContiguousMemory(gckVGCOMMAND Command, gcsBLOCK_TASK_ENTRY_PTR TaskHeader)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the task pointer. */
-        gcsTASK_FREE_CONTIGUOUS_MEMORY_PTR task
-            = (gcsTASK_FREE_CONTIGUOUS_MEMORY_PTR) TaskHeader->task;
+        gcsTASK_FREE_CONTIGUOUS_MEMORY_PTR task =
+            (gcsTASK_FREE_CONTIGUOUS_MEMORY_PTR)TaskHeader->task;
 
         /* Free contiguous memory. */
-        gcmkERR_BREAK(gckOS_FreeNonPagedMemory(
-            Command->os, task->physical, task->logical, task->bytes
-            ));
+        gcmkERR_BREAK(gckOS_FreeNonPagedMemory(Command->os, task->physical,
+                                               task->logical, task->bytes));
 
         /* Update the reference counter. */
         TaskHeader->container->referenceCount -= 1;
 
         /* Update the task pointer. */
-        TaskHeader->task = (gcsTASK_HEADER_PTR) (task + 1);
-    }
-    while (gcvFALSE);
+        TaskHeader->task = (gcsTASK_HEADER_PTR)(task + 1);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
-/******************************************************************************\
-************ Hardware Block Interrupt Handlers For Scheduled Events ************
-\******************************************************************************/
+/******************************************************************************
+ ************ Hardware Block Interrupt Handlers For Scheduled Events **********
+ ******************************************************************************/
 
 static gceSTATUS
-_EventHandler_Block(
-    IN gckVGKERNEL Kernel,
-    IN gcsBLOCK_TASK_ENTRY_PTR TaskHeader,
-    IN gctBOOL ProcessAll
-    )
+_EventHandler_Block(IN gckVGKERNEL Kernel,
+                    IN gcsBLOCK_TASK_ENTRY_PTR TaskHeader,
+                    IN gctBOOL ProcessAll)
 {
     gceSTATUS status = gcvSTATUS_OK, last;
 
-    gcmkHEADER_ARG("Kernel=%p TaskHeader=%p ProcessAll=0x%x", Kernel, TaskHeader, ProcessAll);
+    gcmkHEADER_ARG("Kernel=%p TaskHeader=%p ProcessAll=0x%x",
+                   Kernel, TaskHeader, ProcessAll);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
 
-    if (TaskHeader->task == gcvNULL)
-    {
+    if (TaskHeader->task == gcvNULL) {
         gcmkFOOTER();
         return gcvSTATUS_OK;
     }
 
-    do
-    {
+    do {
         gckVGCOMMAND command;
 
         /* Get the command buffer object. */
         command = Kernel->command;
 
         /* Increment the interrupt usage semaphore. */
-        gcmkERR_BREAK(gckOS_IncrementSemaphore(
-            command->os, TaskHeader->interruptSemaphore
-            ));
+        gcmkERR_BREAK(gckOS_IncrementSemaphore(command->os, TaskHeader->interruptSemaphore));
 
         /* Acquire the mutex. */
-        gcmkERR_BREAK(gckOS_AcquireMutex(
-            command->os,
-            command->taskMutex,
-            gcvINFINITE
-            ));
+        gcmkERR_BREAK(gckOS_AcquireMutex(command->os, command->taskMutex, gcvINFINITE));
 
         /* Verify inputs. */
-        gcmkASSERT(TaskHeader            != gcvNULL);
+        gcmkASSERT(TaskHeader != gcvNULL);
         gcmkASSERT(TaskHeader->container != gcvNULL);
-        gcmkASSERT(TaskHeader->task      != gcvNULL);
-        gcmkASSERT(TaskHeader->link      != gcvNULL);
+        gcmkASSERT(TaskHeader->task != gcvNULL);
+        gcmkASSERT(TaskHeader->link != gcvNULL);
 
         /* Process tasks. */
-        do
-        {
+        do {
             /* Process the current task. */
-            gcmkERR_BREAK(_taskRoutine[TaskHeader->task->id](
-                command,
-                TaskHeader
-                ));
+            gcmkERR_BREAK(_taskRoutine[TaskHeader->task->id](command, TaskHeader));
 
             /* Is the next task is LINK? */
-            if (TaskHeader->task->id == gcvTASK_LINK)
-            {
-                gcmkERR_BREAK(_taskRoutine[TaskHeader->task->id](
-                    command,
-                    TaskHeader
-                    ));
+            if (TaskHeader->task->id == gcvTASK_LINK) {
+                gcmkERR_BREAK(_taskRoutine[TaskHeader->task->id](command, TaskHeader));
 
                 /* Done. */
                 break;
             }
-        }
-        while (ProcessAll);
+        } while (ProcessAll);
 
         /* Release the mutex. */
-        gcmkCHECK_STATUS(gckOS_ReleaseMutex(
-            command->os,
-            command->taskMutex
-            ));
-    }
-    while (gcvFALSE);
+        gcmkCHECK_STATUS(gckOS_ReleaseMutex(command->os, command->taskMutex));
+    } while (gcvFALSE);
 
     gcmkFOOTER();
     /* Return status. */
@@ -1963,24 +1522,18 @@ gcmDECLARE_INTERRUPT_HANDLER(COMMAND, 0)
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
 
-
-    do
-    {
-        gckVGCOMMAND command;
+    do {
+        gckVGCOMMAND               command;
         gcsKERNEL_QUEUE_HEADER_PTR mergeQueue;
         gcsKERNEL_QUEUE_HEADER_PTR queueTail;
-        gcsKERNEL_CMDQUEUE_PTR entry;
-        gctUINT entryCount;
+        gcsKERNEL_CMDQUEUE_PTR     entry;
+        gctUINT                    entryCount;
 
         /* Get the command buffer object. */
         command = Kernel->command;
 
         /* Acquire the mutex. */
-        gcmkERR_BREAK(gckOS_AcquireMutex(
-            command->os,
-            command->queueMutex,
-            gcvINFINITE
-            ));
+        gcmkERR_BREAK(gckOS_AcquireMutex(command->os, command->queueMutex, gcvINFINITE));
 
         /* Get the current queue. */
         queueTail = command->queueTail;
@@ -1992,25 +1545,19 @@ gcmDECLARE_INTERRUPT_HANDLER(COMMAND, 0)
         entryCount = queueTail->pending;
 
         /* Process all entries. */
-        while (entryCount > 0)
-        {
+        while (entryCount > 0) {
             /* Call post-execution function. */
             status = entry->handler(Kernel, entry);
 
             /* Failed? */
-            if (gcmkIS_ERROR(status))
-            {
-                gcmkTRACE_ZONE(
-                    gcvLEVEL_ERROR,
-                    gcvZONE_COMMAND,
-                    "[%s] line %d: post action failed.\n",
-                    __FUNCTION__, __LINE__
-                    );
+            if (gcmkIS_ERROR(status)) {
+                gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_COMMAND,
+                               "[%s] line %d: post action failed.\n",
+                               __FUNCTION__, __LINE__);
             }
 
             /* Executed the next buffer? */
-            if (status == gcvSTATUS_EXECUTED)
-            {
+            if (status == gcvSTATUS_EXECUTED) {
                 /* Update the queue. */
                 queueTail->pending      = entryCount;
                 queueTail->currentEntry = entry;
@@ -2023,12 +1570,11 @@ gcmDECLARE_INTERRUPT_HANDLER(COMMAND, 0)
             }
 
             /* Advance to the next entry. */
-            entry      += 1;
+            entry += 1;
             entryCount -= 1;
 
             /* Last entry? */
-            if (entryCount == 0)
-            {
+            if (entryCount == 0) {
                 /* Reset the queue to idle. */
                 queueTail->pending = 0;
 
@@ -2036,14 +1582,11 @@ gcmDECLARE_INTERRUPT_HANDLER(COMMAND, 0)
                 mergeQueue = command->mergeQueue;
 
                 /* Merge the queues if necessary. */
-                if (mergeQueue != queueTail)
-                {
+                if (mergeQueue != queueTail) {
                     gcmkASSERT(mergeQueue < queueTail);
                     gcmkASSERT(mergeQueue->next == queueTail);
 
-                    mergeQueue->size
-                        += gcmSIZEOF(gcsKERNEL_QUEUE_HEADER)
-                        + queueTail->size;
+                    mergeQueue->size += gcmSIZEOF(gcsKERNEL_QUEUE_HEADER) + queueTail->size;
 
                     mergeQueue->next = queueTail->next;
                 }
@@ -2052,8 +1595,7 @@ gcmDECLARE_INTERRUPT_HANDLER(COMMAND, 0)
                 queueTail = queueTail->next;
 
                 /* Did it wrap around? */
-                if (command->queue == queueTail)
-                {
+                if (command->queue == queueTail) {
                     /* Reset merge queue. */
                     command->mergeQueue = queueTail;
                 }
@@ -2062,36 +1604,26 @@ gcmDECLARE_INTERRUPT_HANDLER(COMMAND, 0)
                 command->queueTail = queueTail;
 
                 /* Is the next queue scheduled? */
-                if (queueTail->pending > 0)
-                {
+                if (queueTail->pending > 0) {
                     gcsCMDBUFFER_PTR commandBuffer;
 
                     /* The first entry must be a command buffer. */
                     commandBuffer = queueTail->currentEntry->commandBuffer;
 
                     /* Start the command processor. */
-                    status = gckVGHARDWARE_Execute(
-                        command->hardware,
-                        commandBuffer->address,
-                        commandBuffer->dataCount
-                        );
+                    status = gckVGHARDWARE_Execute(command->hardware,
+                                                   commandBuffer->address,
+                                                   commandBuffer->dataCount);
 
                     /* Failed? */
-                    if (gcmkIS_ERROR(status))
-                    {
-                        gcmkTRACE_ZONE(
-                            gcvLEVEL_ERROR,
-                            gcvZONE_COMMAND,
-                            "[%s] line %d: failed to start the next queue.\n",
-                            __FUNCTION__, __LINE__
-                            );
+                    if (gcmkIS_ERROR(status)) {
+                        gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_COMMAND,
+                                       "[%s] line %d: failed to start the next queue.\n",
+                                       __FUNCTION__, __LINE__);
                     }
-                }
-                else
-                {
-                    status = gckVGHARDWARE_SetPowerState(
-                                Kernel->command->hardware, gcvPOWER_IDLE_BROADCAST
-                                );
+                } else {
+                    status = gckVGHARDWARE_SetPowerState(Kernel->command->hardware,
+                                                         gcvPOWER_IDLE_BROADCAST);
                 }
 
                 /* Break out of the loop. */
@@ -2100,13 +1632,8 @@ gcmDECLARE_INTERRUPT_HANDLER(COMMAND, 0)
         }
 
         /* Release the mutex. */
-        gcmkCHECK_STATUS(gckOS_ReleaseMutex(
-            command->os,
-            command->queueMutex
-            ));
-    }
-    while (gcvFALSE);
-
+        gcmkCHECK_STATUS(gckOS_ReleaseMutex(command->os, command->queueMutex));
+    } while (gcvFALSE);
 
     gcmkFOOTER();
     /* Return status. */
@@ -2127,9 +1654,8 @@ gcmDEFINE_INTERRUPT_HANDLER(PIXEL,       7)
 gcmDEFINE_INTERRUPT_HANDLER(PIXEL,       8)
 gcmDEFINE_INTERRUPT_HANDLER(PIXEL,       9)
 
-/* The entries in the array are arranged by event priority. */
-static gcsBLOCK_INTERRUPT_HANDLER _blockHandlers[] =
-{
+    /* The entries in the array are arranged by event priority. */
+static gcsBLOCK_INTERRUPT_HANDLER _blockHandlers[] = {
     gcmDEFINE_INTERRUPT_HANDLER_ENTRY(TESSELLATOR, 0),
     gcmDEFINE_INTERRUPT_HANDLER_ENTRY(VG,          0),
     gcmDEFINE_INTERRUPT_HANDLER_ENTRY(PIXEL,       0),
@@ -2145,37 +1671,26 @@ static gcsBLOCK_INTERRUPT_HANDLER _blockHandlers[] =
     gcmDEFINE_INTERRUPT_HANDLER_ENTRY(COMMAND,     0),
 };
 
-
-/******************************************************************************\
-************************* Static Command Buffer Handlers ***********************
-\******************************************************************************/
+/******************************************************************************
+ ************************* Static Command Buffer Handlers *********************
+ ******************************************************************************/
 
 static gceSTATUS
-_UpdateStaticCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_UpdateStaticCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
-    gcmkTRACE_ZONE(
-        gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-        "%s(%d)\n",
-        __FUNCTION__, __LINE__
-        );
+    gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                   "%s(%d)\n", __FUNCTION__, __LINE__);
 
     /* Success. */
     return gcvSTATUS_OK;
 }
 
 static gceSTATUS
-_ExecuteStaticCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_ExecuteStaticCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         gcsCMDBUFFER_PTR commandBuffer;
 
         /* Cast the command buffer header. */
@@ -2184,35 +1699,26 @@ _ExecuteStaticCommandBuffer(
         /* Set to update the command buffer next time. */
         Entry->handler = _UpdateStaticCommandBuffer;
 
-        gcmkTRACE_ZONE(
-            gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-            "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
-            __FUNCTION__, __LINE__,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            );
+        gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                       "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
+                       __FUNCTION__, __LINE__,
+                       commandBuffer->address, commandBuffer->dataCount);
 
         /* Start the command processor. */
-        gcmkERR_BREAK(gckVGHARDWARE_Execute(
-            Kernel->hardware,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            ));
+        gcmkERR_BREAK(gckVGHARDWARE_Execute(Kernel->hardware,
+                                            commandBuffer->address,
+                                            commandBuffer->dataCount));
 
         /* Success. */
         return gcvSTATUS_EXECUTED;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_UpdateLastStaticCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_UpdateLastStaticCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
 #if gcvDEBUG || gcdFORCE_MESSAGES
     /* Get the command buffer header. */
@@ -2222,128 +1728,94 @@ _UpdateLastStaticCommandBuffer(
     gcmkASSERT(commandBuffer->completion != gcvNULL);
     gcmkASSERT(commandBuffer->completion != gcvVACANT_BUFFER);
 
-#endif
+#    endif
 
-    gcmkTRACE_ZONE(
-        gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-        "%s(%d): processing all tasks scheduled for FE.\n",
-        __FUNCTION__, __LINE__
-        );
+    gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                   "%s(%d): processing all tasks scheduled for FE.\n",
+                   __FUNCTION__, __LINE__);
 
     /* Perform scheduled tasks. */
-    return _EventHandler_Block(
-        Kernel,
-        &Kernel->command->taskTable[gcvBLOCK_COMMAND],
-        gcvTRUE
-        );
+    return _EventHandler_Block(Kernel,
+                               &Kernel->command->taskTable[gcvBLOCK_COMMAND],
+                               gcvTRUE);
 }
 
 static gceSTATUS
-_ExecuteLastStaticCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_ExecuteLastStaticCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the command buffer header. */
         gcsCMDBUFFER_PTR commandBuffer = Entry->commandBuffer;
 
         /* Set to update the command buffer next time. */
         Entry->handler = _UpdateLastStaticCommandBuffer;
 
-        gcmkTRACE_ZONE(
-            gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-            "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
-            __FUNCTION__, __LINE__,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            );
+        gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                       "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
+                       __FUNCTION__, __LINE__,
+                       commandBuffer->address, commandBuffer->dataCount);
 
         /* Start the command processor. */
-        gcmkERR_BREAK(gckVGHARDWARE_Execute(
-            Kernel->hardware,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            ));
+        gcmkERR_BREAK(gckVGHARDWARE_Execute(Kernel->hardware,
+                                            commandBuffer->address,
+                                            commandBuffer->dataCount));
 
         /* Success. */
         return gcvSTATUS_EXECUTED;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
-
-/******************************************************************************\
-************************* Dynamic Command Buffer Handlers **********************
-\******************************************************************************/
+/******************************************************************************
+ ************************* Dynamic Command Buffer Handlers ********************
+ ******************************************************************************/
 
 static gceSTATUS
-_UpdateDynamicCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_UpdateDynamicCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
-    gcmkTRACE_ZONE(
-        gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-        "%s(%d)\n",
-        __FUNCTION__, __LINE__
-        );
+    gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                   "%s(%d)\n", __FUNCTION__, __LINE__);
 
     /* Success. */
     return gcvSTATUS_OK;
 }
 
 static gceSTATUS
-_ExecuteDynamicCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_ExecuteDynamicCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the command buffer header. */
         gcsCMDBUFFER_PTR commandBuffer = Entry->commandBuffer;
 
         /* Set to update the command buffer next time. */
         Entry->handler = _UpdateDynamicCommandBuffer;
 
-        gcmkTRACE_ZONE(
-            gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-            "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
-            __FUNCTION__, __LINE__,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            );
+        gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                       "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
+                       __FUNCTION__, __LINE__,
+                       commandBuffer->address, commandBuffer->dataCount);
 
         /* Start the command processor. */
-        gcmkERR_BREAK(gckVGHARDWARE_Execute(
-            Kernel->hardware,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            ));
+        gcmkERR_BREAK(gckVGHARDWARE_Execute(Kernel->hardware,
+                                            commandBuffer->address,
+                                            commandBuffer->dataCount));
 
         /* Success. */
         return gcvSTATUS_EXECUTED;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_UpdateLastDynamicCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_UpdateLastDynamicCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
 #if gcvDEBUG || gcdFORCE_MESSAGES
     /* Get the command buffer header. */
@@ -2353,72 +1825,54 @@ _UpdateLastDynamicCommandBuffer(
     gcmkASSERT(commandBuffer->completion != gcvNULL);
     gcmkASSERT(commandBuffer->completion != gcvVACANT_BUFFER);
 
-#endif
+#    endif
 
-    gcmkTRACE_ZONE(
-        gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-        "%s(%d): processing all tasks scheduled for FE.\n",
-        __FUNCTION__, __LINE__
-        );
+    gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                   "%s(%d): processing all tasks scheduled for FE.\n",
+                   __FUNCTION__, __LINE__);
 
     /* Perform scheduled tasks. */
-    return _EventHandler_Block(
-        Kernel,
-        &Kernel->command->taskTable[gcvBLOCK_COMMAND],
-        gcvTRUE
-        );
+    return _EventHandler_Block(Kernel,
+                               &Kernel->command->taskTable[gcvBLOCK_COMMAND],
+                               gcvTRUE);
 }
 
 static gceSTATUS
-_ExecuteLastDynamicCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_ExecuteLastDynamicCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         /* Cast the command buffer header. */
         gcsCMDBUFFER_PTR commandBuffer = Entry->commandBuffer;
 
         /* Set to update the command buffer next time. */
         Entry->handler = _UpdateLastDynamicCommandBuffer;
 
-        gcmkTRACE_ZONE(
-            gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
-            "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
-            __FUNCTION__, __LINE__,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            );
+        gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_COMMAND,
+                       "%s(%d): executing next buffer @ 0x%08X, data count = %d\n",
+                       __FUNCTION__, __LINE__,
+                       commandBuffer->address, commandBuffer->dataCount);
 
         /* Start the command processor. */
-        gcmkERR_BREAK(gckVGHARDWARE_Execute(
-            Kernel->hardware,
-            commandBuffer->address,
-            commandBuffer->dataCount
-            ));
+        gcmkERR_BREAK(gckVGHARDWARE_Execute(Kernel->hardware,
+                                            commandBuffer->address,
+                                            commandBuffer->dataCount));
 
         /* Success. */
         return gcvSTATUS_EXECUTED;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
-
-/******************************************************************************\
-********************************* Other Handlers *******************************
-\******************************************************************************/
+/******************************************************************************
+ ********************************* Other Handlers *****************************
+ ******************************************************************************/
 
 static gceSTATUS
-_FreeKernelCommandBuffer(
-    IN gckVGKERNEL Kernel,
-    IN gcsKERNEL_CMDQUEUE_PTR Entry
-    )
+_FreeKernelCommandBuffer(IN gckVGKERNEL Kernel, IN gcsKERNEL_CMDQUEUE_PTR Entry)
 {
     gceSTATUS status;
 
@@ -2429,62 +1883,51 @@ _FreeKernelCommandBuffer(
     return status;
 }
 
-
-/******************************************************************************\
-******************************* Queue Management *******************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************* Queue Management *****************************
+ ******************************************************************************/
 
 #if gcvDUMP_COMMAND_BUFFER
 static void
-_DumpCommandQueue(
-    IN gckVGCOMMAND Command,
-    IN gcsKERNEL_QUEUE_HEADER_PTR QueueHeader,
-    IN gctUINT EntryCount
-    )
+_DumpCommandQueue(IN gckVGCOMMAND Command,
+                  IN gcsKERNEL_QUEUE_HEADER_PTR QueueHeader,
+                  IN gctUINT EntryCount)
 {
     gcsKERNEL_CMDQUEUE_PTR entry;
-    gctUINT queueIndex;
+    gctUINT                queueIndex;
 
 #if defined(gcvCOMMAND_BUFFER_NAME)
-    static gctUINT arrayCount = 0;
-#endif
+    static gctUINT         arrayCount;
+#        endif
 
     /* Is dumpinng enabled? */
-    if (!Commad->enableDumping)
-    {
+    if (!Command->enableDumping)
         return;
-    }
 
 #if !defined(gcvCOMMAND_BUFFER_NAME)
-    gcmkTRACE_ZONE(
-        gcvLEVEL_INFO, gcvZONE_COMMAND,
-        "COMMAND QUEUE DUMP: %d entries\n", EntryCount
-        );
-#endif
+    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND,
+                   "COMMAND QUEUE DUMP: %d entries\n", EntryCount);
+#        endif
 
     /* Get the pointer to the first entry. */
     entry = QueueHeader->currentEntry;
 
     /* Iterate through the queue. */
-    for (queueIndex = 0; queueIndex < EntryCount; queueIndex += 1)
-    {
+    for (queueIndex = 0; queueIndex < EntryCount; queueIndex += 1) {
         gcsCMDBUFFER_PTR buffer;
-        gctUINT bufferCount;
-        gctUINT bufferIndex;
-        gctUINT i, count;
-        gctUINT size;
-        gctUINT32_PTR data;
+        gctUINT          bufferCount;
+        gctUINT          bufferIndex;
+        gctUINT          i, count;
+        gctUINT          size;
+        gctUINT32_PTR    data;
 
 #if gcvDUMP_COMMAND_LINES
         gctUINT lineNumber;
-#endif
+#        endif
 
 #if !defined(gcvCOMMAND_BUFFER_NAME)
-        gcmkTRACE_ZONE(
-            gcvLEVEL_INFO, gcvZONE_COMMAND,
-            "ENTRY %d\n", queueIndex
-            );
-#endif
+        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, "ENTRY %d\n", queueIndex);
+#        endif
 
         /* Reset the count. */
         bufferCount = 0;
@@ -2493,8 +1936,7 @@ _DumpCommandQueue(
         buffer = entry->commandBuffer;
 
         /* Loop through all subbuffers. */
-        while (buffer)
-        {
+        while (buffer) {
             /* Update the count. */
             bufferCount += 1;
 
@@ -2503,16 +1945,12 @@ _DumpCommandQueue(
         }
 
 #if !defined(gcvCOMMAND_BUFFER_NAME)
-        if (bufferCount > 1)
-        {
-            gcmkTRACE_ZONE(
-                gcvLEVEL_INFO,
-                gcvZONE_COMMAND,
-                "  COMMAND BUFFER SET: %d buffers.\n",
-                bufferCount
-                );
+        if (bufferCount > 1) {
+            gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND,
+                           "  COMMAND BUFFER SET: %d buffers.\n",
+                           bufferCount);
         }
-#endif
+#        endif
 
         /* Reset the buffer index. */
         bufferIndex = 0;
@@ -2521,127 +1959,87 @@ _DumpCommandQueue(
         buffer = entry->commandBuffer;
 
         /* Loop through all subbuffers. */
-        while (buffer)
-        {
+        while (buffer) {
             /* Determine the size of the buffer. */
             size = buffer->dataCount * Command->info.commandAlignment;
 
 #if !defined(gcvCOMMAND_BUFFER_NAME)
             /* A single buffer? */
-            if (bufferCount == 1)
-            {
-                gcmkTRACE_ZONE(
-                    gcvLEVEL_INFO,
-                    gcvZONE_COMMAND,
-                    "  COMMAND BUFFER: count=%d (0x%X), size=%d bytes @ %08X.\n",
-                    buffer->dataCount,
-                    buffer->dataCount,
-                    size,
-                    buffer->address
-                    );
+            if (bufferCount == 1) {
+                gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND,
+                               "  COMMAND BUFFER: count=%d (0x%X), size=%d bytes @ %08X.\n",
+                               buffer->dataCount, buffer->dataCount, size, buffer->address);
+            } else {
+                gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND,
+                               "  COMMAND BUFFER %d: count=%d (0x%X), size=%d bytes @ %08X\n",
+                               bufferIndex, buffer->dataCount, buffer->dataCount, size, buffer->address);
             }
-            else
-            {
-                gcmkTRACE_ZONE(
-                    gcvLEVEL_INFO,
-                    gcvZONE_COMMAND,
-                    "  COMMAND BUFFER %d: count=%d (0x%X), size=%d bytes @ %08X\n",
-                    bufferIndex,
-                    buffer->dataCount,
-                    buffer->dataCount,
-                    size,
-                    buffer->address
-                    );
-            }
-#endif
+#        endif
 
             /* Determine the number of double words to print. */
             count = size / 4;
 
             /* Determine the buffer location. */
-            data = (gctUINT32_PTR)
-            (
-                (gctUINT8_PTR) buffer + buffer->bufferOffset
-            );
+            data = (gctUINT32_PTR)((gctUINT8_PTR)buffer + buffer->bufferOffset);
 
 #if defined(gcvCOMMAND_BUFFER_NAME)
-            gcmkTRACE_ZONE(
-                gcvLEVEL_INFO,
-                gcvZONE_COMMAND,
-                "unsigned int _" gcvCOMMAND_BUFFER_NAME "_%d[] =\n",
-                arrayCount
-                );
+            gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND,
+                           "unsigned int _" gcvCOMMAND_BUFFER_NAME "_%d[] =\n", arrayCount);
 
-            gcmkTRACE_ZONE(
-                gcvLEVEL_INFO,
-                gcvZONE_COMMAND,
-                "{\n"
-                );
+            gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, "{\n");
 
             arrayCount += 1;
-#endif
+#        endif
 
 #if gcvDUMP_COMMAND_LINES
             /* Reset the line number. */
             lineNumber = 0;
-#endif
+#        endif
 
 #if defined(gcvCOMMAND_BUFFER_NAME)
             count -= 2;
-#endif
+#        endif
 
-            for (i = 0; i < count; i += 1)
-            {
-                if ((i % 8) == 0)
-                {
+            for (i = 0; i < count; i += 1) {
+                if ((i % 8) == 0) {
 #if defined(gcvCOMMAND_BUFFER_NAME)
                     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, "\t");
-#else
+#        else
                     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, "    ");
-#endif
+#        endif
                 }
 
 #if gcvDUMP_COMMAND_LINES
-                if (lineNumber == gcvDUMP_COMMAND_LINES)
-                {
-                    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, " . . . . . . . . .\n");
+                if (lineNumber == gcvDUMP_COMMAND_LINES) {
+                    gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND,
+                                   " . . . . . . . . .\n");
                     break;
                 }
-#endif
+#        endif
                 gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, "0x%08X", data[i]);
 
-                if (i + 1 == count)
-                {
+                if (i + 1 == count) {
                     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, "\n");
 
 #if gcvDUMP_COMMAND_LINES
                     lineNumber += 1;
-#endif
-                }
-                else
-                {
-                    if (((i + 1) % 8) == 0)
-                    {
+#        endif
+                } else {
+                    if (((i + 1) % 8) == 0) {
                         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, ",\n");
 
 #if gcvDUMP_COMMAND_LINES
                         lineNumber += 1;
-#endif
-                    }
-                    else
-                    {
+#        endif
+                    } else {
                         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, ", ");
                     }
                 }
             }
 
 #if defined(gcvCOMMAND_BUFFER_NAME)
-            gcmkTRACE_ZONE(
-                gcvLEVEL_INFO,
-                gcvZONE_COMMAND,
-                "};\n\n"
-                );
-#endif
+            gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_COMMAND, "};\n\n");
+#        endif
 
             /* Advance to the next subbuffer. */
             buffer = buffer->nextSubBuffer;
@@ -2652,27 +2050,23 @@ _DumpCommandQueue(
         entry += 1;
     }
 }
-#endif
+#    endif
 
 static gceSTATUS
-_LockCurrentQueue(
-    IN gckVGCOMMAND Command,
-    OUT gcsKERNEL_CMDQUEUE_PTR * Entries,
-    OUT gctUINT_PTR EntryCount
-    )
+_LockCurrentQueue(IN gckVGCOMMAND Command,
+                  OUT gcsKERNEL_CMDQUEUE_PTR *Entries,
+                  OUT gctUINT_PTR EntryCount)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
         gcsKERNEL_QUEUE_HEADER_PTR queueHead;
 
         /* Get a shortcut to the head of the queue. */
         queueHead = Command->queueHead;
 
         /* Is the head buffer still being worked on? */
-        if (queueHead->pending)
-        {
+        if (queueHead->pending) {
             /* Increment overflow count. */
             Command->queueOverflow += 1;
 
@@ -2681,50 +2075,39 @@ _LockCurrentQueue(
         }
 
         /* Acquire the mutex. */
-        gcmkERR_BREAK(gckOS_AcquireMutex(
-            Command->os,
-            Command->queueMutex,
-            gcvINFINITE
-            ));
+        gcmkERR_BREAK(gckOS_AcquireMutex(Command->os, Command->queueMutex, gcvINFINITE));
 
         /* Determine the first queue entry. */
-        queueHead->currentEntry = (gcsKERNEL_CMDQUEUE_PTR)
-        (
-            (gctUINT8_PTR) queueHead + gcmSIZEOF(gcsKERNEL_QUEUE_HEADER)
-        );
+        queueHead->currentEntry =
+            (gcsKERNEL_CMDQUEUE_PTR)((gctUINT8_PTR)queueHead + gcmSIZEOF(gcsKERNEL_QUEUE_HEADER));
 
         /* Set the pointer to the first entry. */
-        * Entries = queueHead->currentEntry;
+        *Entries = queueHead->currentEntry;
 
         /* Determine the number of available entries. */
-        * EntryCount = queueHead->size / gcmSIZEOF(gcsKERNEL_CMDQUEUE);
+        *EntryCount = queueHead->size / gcmSIZEOF(gcsKERNEL_CMDQUEUE);
 
         /* Success. */
         return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
 static gceSTATUS
-_UnlockCurrentQueue(
-    IN gckVGCOMMAND Command,
-    IN gctUINT EntryCount
-    )
+_UnlockCurrentQueue(IN gckVGCOMMAND Command, IN gctUINT EntryCount)
 {
     gceSTATUS status;
 
-    do
-    {
+    do {
 #if !gcdENABLE_INFINITE_SPEED_HW
         gcsKERNEL_QUEUE_HEADER_PTR queueTail;
         gcsKERNEL_QUEUE_HEADER_PTR queueHead;
         gcsKERNEL_QUEUE_HEADER_PTR queueNext;
-        gctUINT queueSize;
-        gctUINT newSize;
-        gctUINT unusedSize;
+        gctUINT                    queueSize;
+        gctUINT                    newSize;
+        gctUINT                    unusedSize;
 
         /* Get shortcut to the head and to the tail of the queue. */
         queueTail = Command->queueTail;
@@ -2733,7 +2116,7 @@ _UnlockCurrentQueue(
         /* Dump the command buffer. */
 #if gcvDUMP_COMMAND_BUFFER
         _DumpCommandQueue(Command, queueHead, EntryCount);
-#endif
+#        endif
 
         /* Get a shortcut to the current queue size. */
         queueSize = queueHead->size;
@@ -2746,17 +2129,12 @@ _UnlockCurrentQueue(
         unusedSize = queueSize - newSize;
 
         /* Is the unused area big enough to become a buffer? */
-        if (unusedSize >= gcvMINUMUM_BUFFER)
-        {
+        if (unusedSize >= gcvMINUMUM_BUFFER) {
             gcsKERNEL_QUEUE_HEADER_PTR nextHead;
 
             /* Place the new header. */
-            nextHead = (gcsKERNEL_QUEUE_HEADER_PTR)
-            (
-                (gctUINT8_PTR) queueHead
-                    + gcmSIZEOF(gcsKERNEL_QUEUE_HEADER)
-                    + newSize
-            );
+            nextHead = (gcsKERNEL_QUEUE_HEADER_PTR)((gctUINT8_PTR)queueHead +
+                                                    gcmSIZEOF(gcsKERNEL_QUEUE_HEADER) + newSize);
 
             /* Initialize the buffer. */
             nextHead->size    = unusedSize - gcmSIZEOF(gcsKERNEL_QUEUE_HEADER);
@@ -2769,11 +2147,7 @@ _UnlockCurrentQueue(
 
             /* Update the size of the current buffer. */
             queueHead->size = newSize;
-        }
-
-        /* Not big enough. */
-        else
-        {
+        } else { /* Not big enough. */
             /* Determine the next queue. */
             queueNext = queueHead->next;
         }
@@ -2785,92 +2159,72 @@ _UnlockCurrentQueue(
         Command->queueHead = queueNext;
 
         /* Start the command processor if the queue was empty. */
-        if (queueTail == queueHead)
-        {
+        if (queueTail == queueHead) {
             gcsCMDBUFFER_PTR commandBuffer;
 
             /* The first entry must be a command buffer. */
             commandBuffer = queueTail->currentEntry->commandBuffer;
 
             /* Start the command processor. */
-            gcmkERR_BREAK(gckVGHARDWARE_Execute(
-                Command->hardware,
-                commandBuffer->address,
-                commandBuffer->dataCount
-                ));
-        }
-
-        /* The queue was not empty. */
-        else
-        {
+            gcmkERR_BREAK(gckVGHARDWARE_Execute(Command->hardware,
+                                                commandBuffer->address,
+                                                commandBuffer->dataCount));
+        } else { /* The queue was not empty. */
             /* Advance the merge buffer if needed. */
             if (queueHead == Command->mergeQueue)
-            {
                 Command->mergeQueue = queueNext;
-            }
         }
-#endif
+#    endif
 
         /* Release the mutex. */
-        gcmkERR_BREAK(gckOS_ReleaseMutex(
-            Command->os,
-            Command->queueMutex
-            ));
+        gcmkERR_BREAK(gckOS_ReleaseMutex(Command->os, Command->queueMutex));
 
         /* Success. */
         return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Return status. */
     return status;
 }
 
-
-
-/******************************************************************************\
-****************************** gckVGCOMMAND API Code *****************************
-\******************************************************************************/
+/******************************************************************************
+ ****************************** gckVGCOMMAND API Code *************************
+ ******************************************************************************/
 gceSTATUS
-gckVGCOMMAND_Construct(
-    IN gckVGKERNEL Kernel,
-    IN gctUINT TaskGranularity,
-    IN gctUINT QueueSize,
-    OUT gckVGCOMMAND * Command
-    )
+gckVGCOMMAND_Construct(IN gckVGKERNEL Kernel,
+                       IN gctUINT TaskGranularity,
+                       IN gctUINT QueueSize,
+                       OUT gckVGCOMMAND *Command)
 {
-    gceSTATUS status, last;
-    gckVGCOMMAND command = gcvNULL;
+    gceSTATUS                  status, last;
+    gckVGCOMMAND               command = gcvNULL;
     gcsKERNEL_QUEUE_HEADER_PTR queue;
-    gctUINT i, j;
+    gctUINT                    i, j;
 
     gcmkHEADER_ARG("Kernel=%p TaskGranularity=0x%x QueueSize=0x%x Command=%p",
-        Kernel, TaskGranularity, QueueSize, Command);
+                   Kernel, TaskGranularity, QueueSize, Command);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
     gcmkVERIFY_ARGUMENT(QueueSize >= gcvMINUMUM_BUFFER);
     gcmkVERIFY_ARGUMENT(Command != gcvNULL);
 
-    do
-    {
+    do {
         /***********************************************************************
-        ** Generic object initialization.
-        */
+         * Generic object initialization.
+         */
 
         /* Allocate the gckVGCOMMAND structure. */
-        gcmkERR_BREAK(gckOS_Allocate(
-            Kernel->os,
-            gcmSIZEOF(struct _gckVGCOMMAND),
-            (gctPOINTER *) &command
-            ));
+        gcmkERR_BREAK(gckOS_Allocate(Kernel->os,
+                                     gcmSIZEOF(struct _gckVGCOMMAND),
+                                     (gctPOINTER *)&command));
 
         /* Initialize the object. */
         command->object.type = gcvOBJ_COMMAND;
 
         /* Set the object pointers. */
-        command->kernel      = Kernel;
-        command->os          = Kernel->os;
-        command->hardware    = Kernel->hardware;
+        command->kernel   = Kernel;
+        command->os       = Kernel->os;
+        command->hardware = Kernel->hardware;
 
         /* Reset pointers. */
         command->queue       = gcvNULL;
@@ -2878,9 +2232,9 @@ gckVGCOMMAND_Construct(
         command->taskMutex   = gcvNULL;
         command->commitMutex = gcvNULL;
 
-        command->powerStallBuffer   = gcvNULL;
-        command->powerStallSignal   = gcvNULL;
-        command->powerSemaphore     = gcvNULL;
+        command->powerStallBuffer = gcvNULL;
+        command->powerStallSignal = gcvNULL;
+        command->powerSemaphore   = gcvNULL;
 
         /* Reset context states. */
         command->contextCounter = 0;
@@ -2895,9 +2249,7 @@ gckVGCOMMAND_Construct(
         command->vg21 = Kernel->hardware->vg21;
 
         /* Reset task table .*/
-        gcmkVERIFY_OK(gckOS_ZeroMemory(
-            command->taskTable, gcmSIZEOF(command->taskTable)
-            ));
+        gcmkVERIFY_OK(gckOS_ZeroMemory(command->taskTable, gcmSIZEOF(command->taskTable)));
 
         /* Query command buffer attributes. */
         gcmkERR_BREAK(gckVGCOMMAND_InitializeInfo(command));
@@ -2908,22 +2260,16 @@ gckVGCOMMAND_Construct(
         gcmkERR_BREAK(gckOS_CreateMutex(Kernel->os, &command->commitMutex));
 
         /* Create the power management semaphore. */
-        gcmkERR_BREAK(gckOS_CreateSemaphore(Kernel->os,
-            &command->powerSemaphore));
+        gcmkERR_BREAK(gckOS_CreateSemaphore(Kernel->os, &command->powerSemaphore));
 
-        gcmkERR_BREAK(gckOS_CreateSignal(Kernel->os,
-            gcvFALSE, &command->powerStallSignal));
+        gcmkERR_BREAK(gckOS_CreateSignal(Kernel->os, gcvFALSE, &command->powerStallSignal));
 
         /***********************************************************************
-        ** Command queue initialization.
-        */
+         * Command queue initialization.
+         */
 
         /* Allocate the command queue. */
-        gcmkERR_BREAK(gckOS_Allocate(
-            Kernel->os,
-            QueueSize,
-            (gctPOINTER *) &command->queue
-            ));
+        gcmkERR_BREAK(gckOS_Allocate(Kernel->os, QueueSize, (gctPOINTER *)&command->queue));
 
         /* Initialize the command queue. */
         queue = command->queue;
@@ -2932,54 +2278,45 @@ gckVGCOMMAND_Construct(
         queue->pending = 0;
         queue->next    = queue;
 
-        command->queueHead  =
-        command->queueTail  =
+        command->queueHead  = command->queue;
+        command->queueTail  = command->queue;
         command->mergeQueue = command->queue;
 
         command->queueOverflow = 0;
 
-
         /***********************************************************************
-        ** Enable TS overflow interrupt.
-        */
+         * Enable TS overflow interrupt.
+         */
 
         command->info.tsOverflowInt = 0;
-        gcmkERR_BREAK(gckVGINTERRUPT_Enable(
-            Kernel->interrupt,
-            &command->info.tsOverflowInt,
-            _EventHandler_TSOverflow
-            ));
+        gcmkERR_BREAK(gckVGINTERRUPT_Enable(Kernel->interrupt,
+                                            &command->info.tsOverflowInt,
+                                            _EventHandler_TSOverflow));
 
         /* Mask out the interrupt. */
         /* Kernel->hardware->eventMask &= ~(1 << command->info.tsOverflowInt); */
 
-
         /***********************************************************************
-        ** Enable Bus Error interrupt.
-        */
+         * Enable Bus Error interrupt.
+         */
 
         /* Hardwired to bit 31. */
         command->busErrorInt = 31;
 
         /* Enable the interrupt. */
-        gcmkERR_BREAK(gckVGINTERRUPT_Enable(
-            Kernel->interrupt,
-            &command->busErrorInt,
-            _EventHandler_BusError
-            ));
-
+        gcmkERR_BREAK(gckVGINTERRUPT_Enable(Kernel->interrupt,
+                                            &command->busErrorInt,
+                                            _EventHandler_BusError));
 
         command->powerStallInt = 30;
         /* Enable the interrupt. */
-        gcmkERR_BREAK(gckVGINTERRUPT_Enable(
-            Kernel->interrupt,
-            &command->powerStallInt,
-            _EventHandler_PowerStall
-            ));
+        gcmkERR_BREAK(gckVGINTERRUPT_Enable(Kernel->interrupt,
+                                            &command->powerStallInt,
+                                            _EventHandler_PowerStall));
 
         /***********************************************************************
-        ** Task management initialization.
-        */
+         * Task management initialization.
+         */
 
         command->taskStorage            = gcvNULL;
         command->taskStorageGranularity = TaskGranularity;
@@ -2989,8 +2326,7 @@ gckVGCOMMAND_Construct(
         command->taskFreeTail = gcvNULL;
 
         /* Enable block handlers. */
-        for (i = 0; i < gcmCOUNTOF(_blockHandlers); i += 1)
-        {
+        for (i = 0; i < gcmCOUNTOF(_blockHandlers); i += 1) {
             /* Get the target hardware block. */
             gceBLOCK block = _blockHandlers[i].block;
 
@@ -3002,149 +2338,101 @@ gckVGCOMMAND_Construct(
 
             /* Create the block semaphore. */
             if (entry->interruptSemaphore == gcvNULL)
-            {
-                gcmkERR_BREAK(gckOS_CreateSemaphoreVG(
-                    command->os, &entry->interruptSemaphore
-                    ));
-            }
+                gcmkERR_BREAK(gckOS_CreateSemaphoreVG(command->os,
+                                                      &entry->interruptSemaphore));
 
             /* Enable auto-detection. */
             entry->interruptArray[index] = -1;
 
             /* Enable interrupt for the block. */
-            gcmkERR_BREAK(gckVGINTERRUPT_Enable(
-                Kernel->interrupt,
-                &entry->interruptArray[index],
-                _blockHandlers[i].handler
-                ));
+            gcmkERR_BREAK(gckVGINTERRUPT_Enable(Kernel->interrupt,
+                                                &entry->interruptArray[index],
+                                                _blockHandlers[i].handler));
 
             /* Update the number of registered interrupts. */
             entry->interruptCount += 1;
 
             /* Inrement the semaphore to allow the usage of the registered
-               interrupt. */
-            gcmkERR_BREAK(gckOS_IncrementSemaphore(
-                command->os, entry->interruptSemaphore
-                ));
-
+             * interrupt.
+             */
+            gcmkERR_BREAK(gckOS_IncrementSemaphore(command->os,
+                                                   entry->interruptSemaphore));
         }
 
         /* Error? */
         if (gcmkIS_ERROR(status))
-        {
             break;
-        }
 
         /* Get the FE interrupt. */
-        command->info.feBufferInt
-            = command->taskTable[gcvBLOCK_COMMAND].interruptArray[0];
+        command->info.feBufferInt = command->taskTable[gcvBLOCK_COMMAND].interruptArray[0];
 
         /* Return gckVGCOMMAND object pointer. */
         *Command = command;
 
-        gcmkFOOTER_ARG("*Command=%p",*Command);
+        gcmkFOOTER_ARG("*Command=%p", *Command);
         /* Success. */
         return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Roll back. */
-    if (command != gcvNULL)
-    {
+    if (command != gcvNULL) {
         /* Disable block handlers. */
-        for (i = 0; i < gcvBLOCK_COUNT; i += 1)
-        {
+        for (i = 0; i < gcvBLOCK_COUNT; i += 1) {
             /* Get the task table entry. */
             gcsBLOCK_TASK_ENTRY_PTR entry = &command->taskTable[i];
 
             /* Destroy the semaphore. */
             if (entry->interruptSemaphore != gcvNULL)
-            {
-                gcmkCHECK_STATUS(gckOS_DestroySemaphore(
-                    command->os, entry->interruptSemaphore
-                    ));
-            }
+                gcmkCHECK_STATUS(gckOS_DestroySemaphore(command->os,
+                                                        entry->interruptSemaphore));
 
             /* Disable all enabled interrupts. */
-            for (j = 0; j < entry->interruptCount; j += 1)
-            {
+            for (j = 0; j < entry->interruptCount; j += 1) {
                 /* Must be a valid value. */
                 gcmkASSERT(entry->interruptArray[j] >= 0);
                 gcmkASSERT(entry->interruptArray[j] <= 31);
 
                 /* Disable the interrupt. */
-                gcmkCHECK_STATUS(gckVGINTERRUPT_Disable(
-                    Kernel->interrupt,
-                    entry->interruptArray[j]
-                    ));
+                gcmkCHECK_STATUS(gckVGINTERRUPT_Disable(Kernel->interrupt,
+                                                        entry->interruptArray[j]));
             }
         }
 
         /* Disable the bus error interrupt. */
-        gcmkCHECK_STATUS(gckVGINTERRUPT_Disable(
-            Kernel->interrupt,
-            command->busErrorInt
-            ));
+        gcmkCHECK_STATUS(gckVGINTERRUPT_Disable(Kernel->interrupt, command->busErrorInt));
 
         /* Disable TS overflow interrupt. */
-        if (command->info.tsOverflowInt != -1)
-        {
-            gcmkCHECK_STATUS(gckVGINTERRUPT_Disable(
-                Kernel->interrupt,
-                command->info.tsOverflowInt
-                ));
+        if (command->info.tsOverflowInt != -1) {
+            gcmkCHECK_STATUS(gckVGINTERRUPT_Disable(Kernel->interrupt,
+                                                    command->info.tsOverflowInt));
         }
 
         /* Delete the commit mutex. */
         if (command->commitMutex != gcvNULL)
-        {
-            gcmkCHECK_STATUS(gckOS_DeleteMutex(
-                Kernel->os, command->commitMutex
-                ));
-        }
+            gcmkCHECK_STATUS(gckOS_DeleteMutex(Kernel->os, command->commitMutex));
 
         /* Delete the command queue mutex. */
         if (command->taskMutex != gcvNULL)
-        {
-            gcmkCHECK_STATUS(gckOS_DeleteMutex(
-                Kernel->os, command->taskMutex
-                ));
-        }
+            gcmkCHECK_STATUS(gckOS_DeleteMutex(Kernel->os, command->taskMutex));
 
         /* Delete the command queue mutex. */
         if (command->queueMutex != gcvNULL)
-        {
-            gcmkCHECK_STATUS(gckOS_DeleteMutex(
-                Kernel->os, command->queueMutex
-                ));
-        }
+            gcmkCHECK_STATUS(gckOS_DeleteMutex(Kernel->os, command->queueMutex));
 
         /* Delete the command queue. */
         if (command->queue != gcvNULL)
-        {
-            gcmkCHECK_STATUS(gckOS_Free(
-                Kernel->os, command->queue
-                ));
-        }
+            gcmkCHECK_STATUS(gckOS_Free(Kernel->os, command->queue));
 
         if (command->powerSemaphore != gcvNULL)
-        {
-            gcmkVERIFY_OK(gckOS_DestroySemaphore(
-                Kernel->os, command->powerSemaphore));
-        }
+            gcmkVERIFY_OK(gckOS_DestroySemaphore(Kernel->os, command->powerSemaphore));
 
-        if (command->powerStallSignal != gcvNULL)
-        {
+        if (command->powerStallSignal != gcvNULL) {
             /* Create the power management semaphore. */
-            gcmkVERIFY_OK(gckOS_DestroySignal(
-                Kernel->os,
-                command->powerStallSignal));
+            gcmkVERIFY_OK(gckOS_DestroySignal(Kernel->os, command->powerStallSignal));
         }
 
         /* Free the gckVGCOMMAND structure. */
-        gcmkCHECK_STATUS(gckOS_Free(
-            Kernel->os, command
-            ));
+        gcmkCHECK_STATUS(gckOS_Free(Kernel->os, command));
     }
 
     gcmkFOOTER();
@@ -3153,9 +2441,7 @@ gckVGCOMMAND_Construct(
 }
 
 gceSTATUS
-gckVGCOMMAND_Destroy(
-    OUT gckVGCOMMAND Command
-    )
+gckVGCOMMAND_Destroy(OUT gckVGCOMMAND Command)
 {
     gceSTATUS status = gcvSTATUS_OK;
 
@@ -3164,20 +2450,17 @@ gckVGCOMMAND_Destroy(
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
 
-    do
-    {
-        gctUINT i;
+    do {
+        gctUINT             i;
         gcsTASK_STORAGE_PTR nextStorage;
 
-        if (Command->queueHead != gcvNULL)
-        {
+        if (Command->queueHead != gcvNULL) {
             /* Wait until the head becomes idle. */
             gcmkERR_BREAK(_WaitForIdle(Command, Command->queueHead));
         }
 
         /* Disable block handlers. */
-        for (i = 0; i < gcvBLOCK_COUNT; i += 1)
-        {
+        for (i = 0; i < gcvBLOCK_COUNT; i += 1) {
             /* Get the interrupt array entry. */
             gcsBLOCK_TASK_ENTRY_PTR entry = &Command->taskTable[i];
 
@@ -3186,123 +2469,87 @@ gckVGCOMMAND_Destroy(
 
             /* Destroy the semaphore. */
             if (entry->interruptSemaphore != gcvNULL)
-            {
-                gcmkERR_BREAK(gckOS_DestroySemaphore(
-                    Command->os, entry->interruptSemaphore
-                    ));
-            }
+                gcmkERR_BREAK(gckOS_DestroySemaphore(Command->os, entry->interruptSemaphore));
 
             /* Disable all enabled interrupts. */
-            while (index >= 0)
-            {
+            while (index >= 0) {
                 /* Must be a valid value. */
                 gcmkASSERT(entry->interruptArray[index] >= 0);
                 gcmkASSERT(entry->interruptArray[index] <= 31);
 
                 /* Disable the interrupt. */
-                gcmkERR_BREAK(gckVGINTERRUPT_Disable(
-                    Command->kernel->interrupt,
-                    entry->interruptArray[index]
-                    ));
+                gcmkERR_BREAK(gckVGINTERRUPT_Disable(Command->kernel->interrupt,
+                                                     entry->interruptArray[index]));
 
                 /* Update to the next interrupt. */
-                index                 -= 1;
+                index -= 1;
                 entry->interruptCount -= 1;
             }
 
             /* Error? */
             if (gcmkIS_ERROR(status))
-            {
                 break;
-            }
         }
 
         /* Error? */
         if (gcmkIS_ERROR(status))
-        {
             break;
-        }
 
         /* Disable the bus error interrupt. */
-        gcmkERR_BREAK(gckVGINTERRUPT_Disable(
-            Command->kernel->interrupt,
-            Command->busErrorInt
-            ));
+        gcmkERR_BREAK(gckVGINTERRUPT_Disable(Command->kernel->interrupt,
+                                             Command->busErrorInt));
 
         /* Disable TS overflow interrupt. */
-        if (Command->info.tsOverflowInt != -1)
-        {
-            gcmkERR_BREAK(gckVGINTERRUPT_Disable(
-                Command->kernel->interrupt,
-                Command->info.tsOverflowInt
-                ));
+        if (Command->info.tsOverflowInt != -1) {
+            gcmkERR_BREAK(gckVGINTERRUPT_Disable(Command->kernel->interrupt,
+                                                 Command->info.tsOverflowInt));
 
             Command->info.tsOverflowInt = -1;
         }
 
         /* Delete the commit mutex. */
-        if (Command->commitMutex != gcvNULL)
-        {
-            gcmkERR_BREAK(gckOS_DeleteMutex(
-                Command->os, Command->commitMutex
-                ));
+        if (Command->commitMutex != gcvNULL) {
+            gcmkERR_BREAK(gckOS_DeleteMutex(Command->os, Command->commitMutex));
 
             Command->commitMutex = gcvNULL;
         }
 
         /* Delete the command queue mutex. */
-        if (Command->taskMutex != gcvNULL)
-        {
-            gcmkERR_BREAK(gckOS_DeleteMutex(
-                Command->os, Command->taskMutex
-                ));
+        if (Command->taskMutex != gcvNULL) {
+            gcmkERR_BREAK(gckOS_DeleteMutex(Command->os, Command->taskMutex));
 
             Command->taskMutex = gcvNULL;
         }
 
         /* Delete the command queue mutex. */
-        if (Command->queueMutex != gcvNULL)
-        {
-            gcmkERR_BREAK(gckOS_DeleteMutex(
-                Command->os, Command->queueMutex
-                ));
+        if (Command->queueMutex != gcvNULL) {
+            gcmkERR_BREAK(gckOS_DeleteMutex(Command->os, Command->queueMutex));
 
             Command->queueMutex = gcvNULL;
         }
 
-        if (Command->powerSemaphore != gcvNULL)
-        {
+        if (Command->powerSemaphore != gcvNULL) {
             /* Destroy the power management semaphore. */
-            gcmkERR_BREAK(gckOS_DestroySemaphore(
-                Command->os, Command->powerSemaphore));
+            gcmkERR_BREAK(gckOS_DestroySemaphore(Command->os, Command->powerSemaphore));
         }
 
-        if (Command->powerStallSignal != gcvNULL)
-        {
+        if (Command->powerStallSignal != gcvNULL) {
             /* Create the power management semaphore. */
-            gcmkERR_BREAK(gckOS_DestroySignal(
-                Command->os,
-                Command->powerStallSignal));
+            gcmkERR_BREAK(gckOS_DestroySignal(Command->os, Command->powerStallSignal));
         }
 
-        if (Command->queue != gcvNULL)
-        {
+        if (Command->queue != gcvNULL) {
             /* Delete the command queue. */
-            gcmkERR_BREAK(gckOS_Free(
-                Command->os, Command->queue
-                ));
+            gcmkERR_BREAK(gckOS_Free(Command->os, Command->queue));
         }
 
         /* Destroy all allocated buffers. */
-        while (Command->taskStorage)
-        {
+        while (Command->taskStorage) {
             /* Copy the buffer pointer. */
             nextStorage = Command->taskStorage->next;
 
             /* Free the current container. */
-            gcmkERR_BREAK(gckOS_Free(
-                Command->os, Command->taskStorage
-                ));
+            gcmkERR_BREAK(gckOS_Free(Command->os, Command->taskStorage));
 
             /* Advance to the next one. */
             Command->taskStorage = nextStorage;
@@ -3310,9 +2557,7 @@ gckVGCOMMAND_Destroy(
 
         /* Error? */
         if (gcmkIS_ERROR(status))
-        {
             break;
-        }
 
         /* Mark the object as unknown. */
         Command->object.type = gcvOBJ_UNKNOWN;
@@ -3323,8 +2568,7 @@ gckVGCOMMAND_Destroy(
         gcmkFOOTER_NO();
         /* Success. */
         return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
+    } while (gcvFALSE);
 
     /* Restore the object type if failed. */
     Command->object.type = gcvOBJ_COMMAND;
@@ -3335,10 +2579,8 @@ gckVGCOMMAND_Destroy(
 }
 
 gceSTATUS
-gckVGCOMMAND_QueryCommandBuffer(
-    IN gckVGCOMMAND Command,
-    OUT gcsCOMMAND_BUFFER_INFO_PTR Information
-    )
+gckVGCOMMAND_QueryCommandBuffer(IN gckVGCOMMAND Command,
+                                OUT gcsCOMMAND_BUFFER_INFO_PTR Information)
 {
     gcmkHEADER_ARG("Command=%p Information=%p", Command, Information);
     /* Verify the arguments. */
@@ -3346,9 +2588,8 @@ gckVGCOMMAND_QueryCommandBuffer(
     gcmkVERIFY_ARGUMENT(Information != gcvNULL);
 
     /* Copy the information. */
-    gcmkVERIFY_OK(gckOS_MemCopy(
-        Information, &Command->info, sizeof(gcsCOMMAND_BUFFER_INFO)
-        ));
+    gcmkVERIFY_OK(gckOS_MemCopy(Information, &Command->info,
+                                sizeof(gcsCOMMAND_BUFFER_INFO)));
 
     gcmkFOOTER_NO();
     /* Success. */
@@ -3356,31 +2597,25 @@ gckVGCOMMAND_QueryCommandBuffer(
 }
 
 gceSTATUS
-gckVGCOMMAND_Allocate(
-    IN gckVGCOMMAND Command,
-    IN gctSIZE_T Size,
-    OUT gcsCMDBUFFER_PTR * CommandBuffer,
-    OUT gctPOINTER * Data
-    )
+gckVGCOMMAND_Allocate(IN gckVGCOMMAND Command, IN gctSIZE_T Size,
+                      OUT gcsCMDBUFFER_PTR *CommandBuffer, OUT gctPOINTER *Data)
 {
     gceSTATUS status;
 
     gcmkHEADER_ARG("Command=%p Size=0x%x CommandBuffer=%p Data=%p",
-        Command, Size, CommandBuffer, Data);
+                   Command, Size, CommandBuffer, Data);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
     gcmkVERIFY_ARGUMENT(Data != gcvNULL);
 
-    do
-    {
+    do {
         /* Allocate the buffer. */
         gcmkERR_BREAK(_AllocateCommandBuffer(Command, Size, CommandBuffer));
 
         /* Determine the data pointer. */
-        * Data = (gctUINT8_PTR) (*CommandBuffer) + (* CommandBuffer)->bufferOffset;
-    }
-    while (gcvFALSE);
+        *Data = (gctUINT8_PTR)(*CommandBuffer) + (*CommandBuffer)->bufferOffset;
+    } while (gcvFALSE);
 
     gcmkFOOTER();
     /* Return status. */
@@ -3388,15 +2623,11 @@ gckVGCOMMAND_Allocate(
 }
 
 gceSTATUS
-gckVGCOMMAND_Free(
-    IN gckVGCOMMAND Command,
-    IN gcsCMDBUFFER_PTR CommandBuffer
-    )
+gckVGCOMMAND_Free(IN gckVGCOMMAND Command, IN gcsCMDBUFFER_PTR CommandBuffer)
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Command=%p CommandBuffer=%p",
-        Command, CommandBuffer);
+    gcmkHEADER_ARG("Command=%p CommandBuffer=%p", Command, CommandBuffer);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -3411,40 +2642,30 @@ gckVGCOMMAND_Free(
 }
 
 gceSTATUS
-gckVGCOMMAND_Execute(
-    IN gckVGCOMMAND Command,
-    IN gcsCMDBUFFER_PTR CommandBuffer
-    )
+gckVGCOMMAND_Execute(IN gckVGCOMMAND Command, IN gcsCMDBUFFER_PTR CommandBuffer)
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Command=%p CommandBuffer=%p",
-        Command, CommandBuffer);
+    gcmkHEADER_ARG("Command=%p CommandBuffer=%p", Command, CommandBuffer);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
     gcmkVERIFY_ARGUMENT(CommandBuffer != gcvNULL);
 
-    do
-    {
-        gctUINT queueLength;
+    do {
+        gctUINT                queueLength;
         gcsKERNEL_CMDQUEUE_PTR kernelEntry;
 
         /* Lock the current queue. */
-        gcmkERR_BREAK(_LockCurrentQueue(
-            Command, &kernelEntry, &queueLength
-            ));
+        gcmkERR_BREAK(_LockCurrentQueue(Command, &kernelEntry, &queueLength));
 
         /* Set the buffer. */
         kernelEntry->commandBuffer = CommandBuffer;
-        kernelEntry->handler = _FreeKernelCommandBuffer;
+        kernelEntry->handler       = _FreeKernelCommandBuffer;
 
         /* Lock the current queue. */
-        gcmkERR_BREAK(_UnlockCurrentQueue(
-            Command, 1
-            ));
-    }
-    while (gcvFALSE);
+        gcmkERR_BREAK(_UnlockCurrentQueue(Command, 1));
+    } while (gcvFALSE);
 
     gcmkFOOTER();
     /* Return status. */
@@ -3452,22 +2673,17 @@ gckVGCOMMAND_Execute(
 }
 
 gceSTATUS
-gckVGCOMMAND_Commit(
-        IN gckVGCOMMAND Command,
-        IN gcsVGCONTEXT_PTR Context,
-        IN gcsVGCMDQUEUE_PTR Queue,
-        IN gctUINT EntryCount,
-        IN gcsTASK_MASTER_TABLE_PTR TaskTable
-        )
+gckVGCOMMAND_Commit(IN gckVGCOMMAND Command, IN gcsVGCONTEXT_PTR Context,
+                    IN gcsVGCMDQUEUE_PTR Queue, IN gctUINT EntryCount,
+                    IN gcsTASK_MASTER_TABLE_PTR TaskTable)
 {
     /*
-       The first buffer is executed through a direct gckVGHARDWARE_Execute call,
-       therefore only an update is needed after the execution is over. All
-       consequent buffers need to be executed upon the first update call from
-       the FE interrupt handler.
-       */
-    static gcsQUEUE_UPDATE_CONTROL _dynamicBuffer[] =
-    {
+     *  The first buffer is executed through a direct gckVGHARDWARE_Execute call,
+     *  therefore only an update is needed after the execution is over. All
+     *  consequent buffers need to be executed upon the first update call from
+     *  the FE interrupt handler.
+     */
+    static gcsQUEUE_UPDATE_CONTROL _dynamicBuffer[] = {
         {
             _UpdateDynamicCommandBuffer,
             _UpdateDynamicCommandBuffer,
@@ -3482,57 +2698,45 @@ gckVGCOMMAND_Commit(
         }
     };
 
-    static gcsQUEUE_UPDATE_CONTROL _staticBuffer[] =
-    {
-        {
-            _UpdateStaticCommandBuffer,
-            _UpdateStaticCommandBuffer,
-            _UpdateLastStaticCommandBuffer,
-            _UpdateLastStaticCommandBuffer
-        },
-        {
-            _ExecuteStaticCommandBuffer,
-            _UpdateStaticCommandBuffer,
-            _ExecuteLastStaticCommandBuffer,
-            _UpdateLastStaticCommandBuffer
-        }
+    static gcsQUEUE_UPDATE_CONTROL _staticBuffer[] = {
+        { _UpdateStaticCommandBuffer, _UpdateStaticCommandBuffer, _UpdateLastStaticCommandBuffer,
+          _UpdateLastStaticCommandBuffer },
+        { _ExecuteStaticCommandBuffer, _UpdateStaticCommandBuffer, _ExecuteLastStaticCommandBuffer,
+          _UpdateLastStaticCommandBuffer }
     };
 
-    gceSTATUS status;
+    gceSTATUS                    status;
     struct _gcsTASK_MASTER_TABLE _TaskTable;
 #ifdef __QNXNTO__
-    gcsVGCONTEXT_PTR userContext = gcvNULL;
-    gctBOOL userContextMapped = gcvFALSE;
-    gcsTASK_MASTER_TABLE_PTR userTaskTable = gcvNULL;
-    gctBOOL userTaskTableMapped = gcvFALSE;
-    gctPOINTER pointer = gcvNULL;
-#endif
-    struct _gcsVGCONTEXT  _Context;
-    gctBOOL needCopy = gcvFALSE;
+    gcsVGCONTEXT_PTR         userContext         = gcvNULL;
+    gctBOOL                  userContextMapped   = gcvFALSE;
+    gcsTASK_MASTER_TABLE_PTR userTaskTable       = gcvNULL;
+    gctBOOL                  userTaskTableMapped = gcvFALSE;
+    gctPOINTER               pointer             = gcvNULL;
+#    endif
+    struct _gcsVGCONTEXT _Context;
+    gctBOOL              needCopy = gcvFALSE;
 
-
-    gctBOOL haveFETasks;
-    gctUINT queueSize = 0;
-    gcsVGCMDQUEUE_PTR mappedQueue = gcvNULL;
-    gcsVGCMDQUEUE_PTR userEntry = gcvNULL;
-    gcsKERNEL_CMDQUEUE_PTR kernelEntry;
+    gctBOOL                     haveFETasks;
+    gctUINT                     queueSize   = 0;
+    gcsVGCMDQUEUE_PTR           mappedQueue = gcvNULL;
+    gcsVGCMDQUEUE_PTR           userEntry   = gcvNULL;
+    gcsKERNEL_CMDQUEUE_PTR      kernelEntry;
     gcsQUEUE_UPDATE_CONTROL_PTR queueControl;
-    gctUINT currentLength;
-    gctUINT queueLength;
-    gctUINT entriesQueued;
-    gctUINT8_PTR previousEnd;
-    gctBOOL previousDynamic;
-    gctBOOL previousExecuted;
-    gctUINT controlIndex;
-    gctINT pid;
-    gctBOOL powerSemaphoreAcquired = gcvFALSE;
-    gctBOOL commitMutexAcquired = gcvFALSE;
-    gctBOOL queueMutexAcquired = gcvFALSE;
-
-
+    gctUINT                     currentLength;
+    gctUINT                     queueLength;
+    gctUINT                     entriesQueued;
+    gctUINT8_PTR                previousEnd;
+    gctBOOL                     previousDynamic;
+    gctBOOL                     previousExecuted;
+    gctUINT                     controlIndex;
+    gctINT                      pid;
+    gctBOOL                     powerSemaphoreAcquired = gcvFALSE;
+    gctBOOL                     commitMutexAcquired    = gcvFALSE;
+    gctBOOL                     queueMutexAcquired     = gcvFALSE;
 
     gcmkHEADER_ARG("Command=%p Context=%p Queue=%p EntryCount=0x%x TaskTable=%p",
-            Command, Context, Queue, EntryCount, TaskTable);
+                   Command, Context, Queue, EntryCount, TaskTable);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -3540,16 +2744,12 @@ gckVGCOMMAND_Commit(
     gcmkVERIFY_ARGUMENT(Queue != gcvNULL);
     gcmkVERIFY_ARGUMENT(EntryCount > 1);
 
-
 #ifdef __QNXNTO__
     /* Map the context into the kernel space. */
     userContext = Context;
 
-    gcmkONERROR(gckOS_MapUserPointer(
-                Command->os,
-                userContext,
-                gcmSIZEOF(*userContext),
-                &pointer));
+    gcmkONERROR(gckOS_MapUserPointer(Command->os, userContext,
+                                     gcmSIZEOF(*userContext), &pointer));
 
     Context = pointer;
 
@@ -3558,11 +2758,8 @@ gckVGCOMMAND_Commit(
     /* Map the taskTable into the kernel space. */
     userTaskTable = TaskTable;
 
-    gcmkONERROR(gckOS_MapUserPointer(
-                Command->os,
-                userTaskTable,
-                gcmSIZEOF(*userTaskTable),
-                &pointer));
+    gcmkONERROR(gckOS_MapUserPointer(Command->os, userTaskTable,
+                                     gcmSIZEOF(*userTaskTable), &pointer));
 
     TaskTable = pointer;
 
@@ -3571,89 +2768,61 @@ gckVGCOMMAND_Commit(
     /* Update the signal info. */
     TaskTable->rcvid = Context->rcvid;
     TaskTable->event = Context->event;
-#endif
+#    endif
 
     gcmkONERROR(gckOS_GetProcessID((gctUINT32_PTR)&pid));
     gcmkONERROR(gckOS_QueryNeedCopy(Command->os, pid, &needCopy));
-    if(needCopy)
-    {
-        gcmkONERROR(gckOS_CopyFromUserData(
-                    Command->os,
-                    &_TaskTable,
-                    TaskTable,
-                    gcmSIZEOF(struct _gcsTASK_MASTER_TABLE)
-                    ));
+    if (needCopy) {
+        gcmkONERROR(gckOS_CopyFromUserData(Command->os, &_TaskTable, TaskTable,
+                                           gcmSIZEOF(struct _gcsTASK_MASTER_TABLE)));
         TaskTable = &_TaskTable;
         /* Determine whether there are FE tasks to be performed. */
-        gcmkONERROR(gckOS_CopyFromUserData(
-                    Command->os,
-                    &_Context,
-                    Context,
-                    gcmSIZEOF(struct _gcsVGCONTEXT)
-                    ));
+        gcmkONERROR(gckOS_CopyFromUserData(Command->os, &_Context, Context,
+                                           gcmSIZEOF(struct _gcsVGCONTEXT)));
         Context = &_Context;
     }
 
-    gcmkONERROR(gckVGHARDWARE_SetPowerState(
-                Command->hardware, gcvPOWER_ON_AUTO
-                ));
+    gcmkONERROR(gckVGHARDWARE_SetPowerState(Command->hardware, gcvPOWER_ON_AUTO));
 
     /* Acquire the power semaphore. */
-    gcmkONERROR(gckOS_AcquireSemaphore(
-                Command->os, Command->powerSemaphore
-                ));
+    gcmkONERROR(gckOS_AcquireSemaphore(Command->os, Command->powerSemaphore));
     powerSemaphoreAcquired = gcvTRUE;
     /* Acquire the mutex. */
-    gcmkONERROR(gckOS_AcquireMutex(
-                Command->os,
-                Command->commitMutex,
-                gcvINFINITE
-                ));
+    gcmkONERROR(gckOS_AcquireMutex(Command->os, Command->commitMutex, gcvINFINITE));
     commitMutexAcquired = gcvTRUE;
-
 
     gcmkONERROR(_FlushMMU(Command));
 
     /* Assign a context ID if not yet assigned. */
-    if (Context->id == 0)
-    {
+    if (Context->id == 0) {
         /* Assign the next context number. */
-        Context->id = ++ Command->contextCounter;
+        Context->id = ++Command->contextCounter;
         /* See if we overflowed. */
-        if (Command->contextCounter == 0)
-        {
+        if (Command->contextCounter == 0) {
             /* We actually did overflow, wow... */
             gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
         }
     }
 
     /* The first entry in the queue is always the context buffer.
-       Verify whether the user context is the same as the current
-       context and if that's the case, skip the first entry. */
-    if (Context->id == Command->currentContext)
-    {
+     * Verify whether the user context is the same as the current
+     * context and if that's the case, skip the first entry.
+     */
+    if (Context->id == Command->currentContext) {
         /* Same context as before, skip the first entry. */
         EntryCount -= 1;
-        Queue      += 1;
+        Queue += 1;
 
         /* Set the signal to avoid user waiting. */
 #ifdef __QNXNTO__
-        gcmkONERROR(gckOS_UserSignal(
-                    Command->os,
-                    Context->userSignal,
-                    Context->rcvid,
-                    &Context->event
-                    ));
-#else
-        gcmkONERROR(gckOS_UserSignal(
-                    Command->os, Context->signal, Context->process
-                    ));
-#endif
-    }
-    else
-    {
+        gckOS_UserSignal(Command->os, Context->userSignal, Context->rcvid, &Context->event);
+#    else
+        gcmkONERROR(gckOS_UserSignal(Command->os, Context->signal, Context->process));
+#    endif
+    } else {
         /* Different user context - keep the first entry.
-           Set the user context as the current one. */
+         * Set the user context as the current one.
+         */
         Command->currentContext = Context->id;
     }
 
@@ -3665,49 +2834,29 @@ gckVGCOMMAND_Commit(
 
     /* Determine the size of the queue. */
     queueSize = EntryCount * gcmSIZEOF(gcsVGCMDQUEUE);
-    if(needCopy)
-    {
+    if (needCopy) {
         gctPOINTER pointer = gcvNULL;
-        gcmkONERROR(gckOS_Allocate(
-                    Command->os,
-                    queueSize,
-                    &pointer
-                    ));
-        userEntry = pointer;
+
+        gcmkONERROR(gckOS_Allocate(Command->os, queueSize, &pointer));
+        userEntry   = pointer;
         mappedQueue = pointer;
-        gcmkONERROR(gckOS_CopyFromUserData(
-                    Command->os,
-                    userEntry,
-                    Queue,
-                    queueSize
-                    ));
-    }
-    else
-    {
+        gcmkONERROR(gckOS_CopyFromUserData(Command->os, userEntry, Queue, queueSize));
+    } else {
         /* Map the command queue into the kernel space. */
-        gcmkONERROR(gckOS_MapUserPointer(
-                    Command->os,
-                    Queue,
-                    queueSize,
-                    (gctPOINTER *) &mappedQueue
-                    ));
+        gcmkONERROR(gckOS_MapUserPointer(Command->os, Queue, queueSize,
+                                         (gctPOINTER *)&mappedQueue));
         userEntry = mappedQueue;
     }
     /* Set the first entry. */
 
     /* Process the command queue. */
-    while (EntryCount)
-    {
+    while (EntryCount) {
         /* Lock the current queue. */
-        gcmkONERROR(_LockCurrentQueue(
-                    Command, &kernelEntry, &queueLength
-                    ));
+        gcmkONERROR(_LockCurrentQueue(Command, &kernelEntry, &queueLength));
         queueMutexAcquired = gcvTRUE;
 
         /* Determine the number of entries to process. */
-        currentLength = (queueLength < EntryCount)
-            ? queueLength
-            : EntryCount;
+        currentLength = (queueLength < EntryCount) ? queueLength : EntryCount;
 
         /* Update the number of the entries left to process. */
         EntryCount -= currentLength;
@@ -3720,26 +2869,19 @@ gckVGCOMMAND_Commit(
         controlIndex = 0;
 
         /* Process entries. */
-        for (entriesQueued = 0; entriesQueued < currentLength; entriesQueued += 1)
-        {
+        for (entriesQueued = 0; entriesQueued < currentLength; entriesQueued += 1) {
             /* Get the kernel pointer to the command buffer header. */
             gcsCMDBUFFER_PTR commandBuffer = gcvNULL;
-            gcmkONERROR(_ConvertUserCommandBufferPointer(
-                        Command,
-                        userEntry->commandBuffer,
-                        &commandBuffer
-                        ));
+
+            gcmkONERROR(_ConvertUserCommandBufferPointer(Command,
+                                                         userEntry->commandBuffer,
+                                                         &commandBuffer));
 
             /* Is it a dynamic command buffer? */
-            if (userEntry->dynamic)
-            {
+            if (userEntry->dynamic) {
                 /* Select dynamic buffer control functions. */
                 queueControl = &_dynamicBuffer[controlIndex];
-            }
-
-            /* No, a static command buffer. */
-            else
-            {
+            } else { /* No, a static command buffer. */
                 /* Select static buffer control functions. */
                 queueControl = &_staticBuffer[controlIndex];
             }
@@ -3748,26 +2890,21 @@ gckVGCOMMAND_Commit(
             kernelEntry->commandBuffer = commandBuffer;
 
             /* If the previous entry was a dynamic command buffer,
-               link it to the current. */
-            if (previousDynamic)
-            {
-                gcmkONERROR(gckVGCOMMAND_FetchCommand(
-                            Command,
-                            previousEnd,
-                            commandBuffer->address,
-                            commandBuffer->dataCount,
-                            gcvNULL
-                            ));
+             * link it to the current.
+             */
+            if (previousDynamic) {
+                gcmkONERROR(gckVGCOMMAND_FetchCommand(Command, previousEnd,
+                                                      commandBuffer->address,
+                                                      commandBuffer->dataCount, gcvNULL));
 
                 /* The buffer will be auto-executed, only need to
-                   update it after it has been executed. */
+                 * update it after it has been executed.
+                 */
                 kernelEntry->handler = queueControl->update;
 
                 /* The buffer is only being updated. */
                 previousExecuted = gcvFALSE;
-            }
-            else
-            {
+            } else {
                 /* Set the buffer up for execution. */
                 kernelEntry->handler = queueControl->execute;
 
@@ -3776,63 +2913,49 @@ gckVGCOMMAND_Commit(
             }
 
             /* The current buffer's END command becomes the last END. */
-            previousEnd
-                = ((gctUINT8_PTR) commandBuffer)
-                + commandBuffer->bufferOffset
-                + commandBuffer->dataCount * Command->info.commandAlignment
-                - Command->info.staticTailSize;
+            previousEnd = ((gctUINT8_PTR)commandBuffer) + commandBuffer->bufferOffset +
+                          commandBuffer->dataCount * Command->info.commandAlignment -
+                          Command->info.staticTailSize;
 
             /* Update the last entry info. */
             previousDynamic = userEntry->dynamic;
 
             /* Advance entries. */
-            userEntry   ++;
-            kernelEntry ++;
+            userEntry++;
+            kernelEntry++;
 
             /* Update the control index. */
             controlIndex = 1;
         }
 
         /* If the previous entry was a dynamic command buffer,
-           terminate it with an END. */
-        if (previousDynamic)
-        {
-            gcmkONERROR(gckVGCOMMAND_EndCommand(
-                        Command,
-                        previousEnd,
-                        Command->info.feBufferInt,
-                        gcvNULL
-                        ));
+         * terminate it with an END.
+         */
+        if (previousDynamic) {
+            gcmkONERROR(gckVGCOMMAND_EndCommand(Command, previousEnd,
+                                                Command->info.feBufferInt, gcvNULL));
         }
 
         /* Last buffer? */
-        if (EntryCount == 0)
-        {
-            /* Modify the last command buffer's routines to handle
-               tasks if any.*/
-            if (haveFETasks && controlIndex == 1)
-            {
+        if (EntryCount == 0) {
+            /*  Modify the last command buffer's routines to handle
+             *  tasks if any.
+             */
+            if (haveFETasks) {
                 if (previousExecuted)
-                {
                     kernelEntry[-1].handler = queueControl->lastExecute;
-                }
                 else
-                {
                     kernelEntry[-1].handler = queueControl->lastUpdate;
-                }
             }
 
             /* Release the mutex. */
-            gcmkONERROR(gckOS_ReleaseMutex(
-                        Command->os,
-                        Command->queueMutex
-                        ));
+            gcmkONERROR(gckOS_ReleaseMutex(Command->os, Command->queueMutex));
             queueMutexAcquired = gcvFALSE;
             /* Add a semaphore stall after PE EVENT (Before the END). */
             {
                 gctUINT32_PTR memory = (gctUINT32_PTR)(previousEnd - 0x10);
-                *memory++ = 0x10000007;
-                *memory++ = 0;
+                *memory++            = 0x10000007;
+                *memory++            = 0;
 
                 *memory++ = 0x20000007;
                 *memory++ = 0;
@@ -3841,80 +2964,47 @@ gckVGCOMMAND_Commit(
             gcmkONERROR(_ScheduleTasks(Command, TaskTable, previousEnd - 0x10));
 
             /* Acquire the mutex. */
-            gcmkONERROR(gckOS_AcquireMutex(
-                        Command->os,
-                        Command->queueMutex,
-                        gcvINFINITE
-                        ));
+            gcmkONERROR(gckOS_AcquireMutex(Command->os, Command->queueMutex, gcvINFINITE));
             queueMutexAcquired = gcvTRUE;
         }
 
         /* Unkock and schedule the current queue for execution. */
-        gcmkONERROR(_UnlockCurrentQueue(
-                    Command, currentLength
-                    ));
+        gcmkONERROR(_UnlockCurrentQueue(Command, currentLength));
         queueMutexAcquired = gcvFALSE;
     }
 
 OnError:
     if (queueMutexAcquired)
-    {
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(
-                    Command->os,
-                    Command->queueMutex
-                    ));
-    }
-    if (mappedQueue)
-    {
-        if(!needCopy)
-        {
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(Command->os, Command->queueMutex));
+
+    if (mappedQueue) {
+        if (!needCopy) {
             /* Unmap the user command buffer. */
-            gcmkVERIFY_OK(gckOS_UnmapUserPointer(
-                        Command->os,
-                        Queue,
-                        queueSize,
-                        mappedQueue
-                        ));
-        }
-        else
-        {
+            gcmkVERIFY_OK(gckOS_UnmapUserPointer(Command->os, Queue, queueSize, mappedQueue));
+        } else {
             gcmkVERIFY_OK(gckOS_Free(Command->os, mappedQueue));
         }
     }
     /* Release the mutex. */
     if (commitMutexAcquired)
-    {
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(
-                    Command->os,
-                    Command->commitMutex
-                    ));
-    }
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(Command->os, Command->commitMutex));
+
     if (powerSemaphoreAcquired)
-    {
-        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(
-                    Command->os, Command->powerSemaphore));
-    }
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Command->os, Command->powerSemaphore));
+
 #ifdef __QNXNTO__
-    if (userContextMapped)
-    {
+    if (userContextMapped) {
         /* Unmap the user context. */
-        gcmkVERIFY_OK(gckOS_UnmapUserPointer(
-                    Command->os,
-                    userContext,
-                    gcmSIZEOF(*userContext),
-                    Context));
+        gcmkVERIFY_OK(gckOS_UnmapUserPointer(Command->os, userContext,
+                                             gcmSIZEOF(*userContext), Context));
     }
 
-    if (userTaskTableMapped)
-    {
+    if (userTaskTableMapped) {
         /* Unmap the user taskTable. */
-        gcmkVERIFY_OK(gckOS_UnmapUserPointer(
-                    Command->os,
-                    userTaskTable,
-                    gcmSIZEOF(*userTaskTable),
-                    TaskTable));
+        gcmkVERIFY_OK(gckOS_UnmapUserPointer(Command->os, userTaskTable,
+                                             gcmSIZEOF(*userTaskTable), TaskTable));
     }
-#endif
+#    endif
 
     gcmkFOOTER();
     /* Return status. */

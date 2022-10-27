@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -54,66 +54,51 @@
 
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
-#include <linux/stdarg.h>
+#    include <linux/stdarg.h>
 #else
-#include <stdarg.h>
+#    include <stdarg.h>
 #endif
 
 #ifndef __gc_hal_kernel_debugfs_h_
-#define __gc_hal_kernel_debugfs_h_
+#    define __gc_hal_kernel_debugfs_h_
 
- #define MAX_LINE_SIZE 768           /* Max bytes for a line of debug info */
+#    define MAX_LINE_SIZE   768 /* Max bytes for a line of debug info */
 
 typedef struct _gcsDEBUGFS_DIR *gckDEBUGFS_DIR;
-typedef struct _gcsDEBUGFS_DIR
-{
-    struct dentry *     root;
+typedef struct _gcsDEBUGFS_DIR {
+    struct dentry       *root;
     struct list_head    nodeList;
-}
-gcsDEBUGFS_DIR;
+} gcsDEBUGFS_DIR;
 
-typedef struct _gcsINFO
-{
-    const char *        name;
-    int                 (*show)(struct seq_file*, void*);
-    int                 (*write)(const char __user *buf, size_t count, void*);
-}
-gcsINFO;
+typedef struct _gcsINFO {
+    const char          *name;
+    int                 (*show)(struct seq_file *m, void *data);
+    int                 (*write)(const char __user *buf, size_t count, void *data);
+} gcsINFO;
 
-typedef struct _gcsINFO_NODE
-{
-    gcsINFO *          info;
-    gctPOINTER         device;
-    struct dentry *    entry;
-    struct list_head   head;
-}
-gcsINFO_NODE;
+typedef struct _gcsINFO_NODE {
+    gcsINFO            *info;
+    gctPOINTER          device;
+    struct dentry      *entry;
+    struct list_head    head;
+} gcsINFO_NODE;
 
 gceSTATUS
-gckDEBUGFS_DIR_Init(
-    IN gckDEBUGFS_DIR Dir,
-    IN struct dentry *root,
-    IN gctCONST_STRING Name
-    );
+gckDEBUGFS_DIR_Init(IN gckDEBUGFS_DIR  Dir,
+                    IN struct dentry   *root,
+                    IN gctCONST_STRING Name);
 
 gceSTATUS
-gckDEBUGFS_DIR_CreateFiles(
-    IN gckDEBUGFS_DIR Dir,
-    IN gcsINFO * List,
-    IN int count,
-    IN gctPOINTER Data
-    );
+gckDEBUGFS_DIR_CreateFiles(IN gckDEBUGFS_DIR Dir,
+                           IN gcsINFO        *List,
+                           IN int            count,
+                           IN gctPOINTER     Data);
 
 gceSTATUS
-gckDEBUGFS_DIR_RemoveFiles(
-    IN gckDEBUGFS_DIR Dir,
-    IN gcsINFO * List,
-    IN int count
-    );
+gckDEBUGFS_DIR_RemoveFiles(IN gckDEBUGFS_DIR Dir,
+                           IN gcsINFO *List, IN int count);
 
 void
-gckDEBUGFS_DIR_Deinit(
-    IN gckDEBUGFS_DIR Dir
-    );
+gckDEBUGFS_DIR_Deinit(IN gckDEBUGFS_DIR Dir);
 
 #endif

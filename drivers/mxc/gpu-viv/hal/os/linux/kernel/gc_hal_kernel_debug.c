@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -56,193 +56,92 @@
 #include "gc_hal_kernel_precomp.h"
 #include <gc_hal_kernel_debug.h>
 
-/******************************************************************************\
-******************************** Debug Variables *******************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************* Debug Variables ******************************
+ ******************************************************************************/
 
 static gceSTATUS _lastError  = gcvSTATUS_OK;
 static gctUINT32 _debugLevel = gcvLEVEL_ERROR;
 /*
-_debugZones config value
-Please Reference define in gc_hal_base.h
-*/
+ * _debugZones config value
+ * Please Reference define in gc_hal_base.h
+ */
 static gctUINT32 _debugZones = gcdZONE_NONE;
 
-/******************************************************************************\
-********************************* Debug Switches *******************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************** Debug Switches ******************************
+ ******************************************************************************/
 
 /*
-    gcdTHREAD_BUFFERS
-
-    When greater then one, will accumulate messages from the specified number
-    of threads in separate output buffers.
-*/
-#define gcdTHREAD_BUFFERS   1
-
-/*
-    gcdSHOW_LINE_NUMBER
-
-    When enabledm each print statement will be preceeded with the current
-    line number.
-*/
-#define gcdSHOW_LINE_NUMBER 0
+ *   gcdTHREAD_BUFFERS
+ *
+ *   When greater then one, will accumulate messages from the specified number
+ *   of threads in separate output buffers.
+ */
+#define gcdTHREAD_BUFFERS       1
 
 /*
-    gcdSHOW_PROCESS_ID
-
-    When enabledm each print statement will be preceeded with the current
-    process ID.
-*/
-#define gcdSHOW_PROCESS_ID  0
-
-/*
-    gcdSHOW_THREAD_ID
-
-    When enabledm each print statement will be preceeded with the current
-    thread ID.
-*/
-#define gcdSHOW_THREAD_ID   0
+ *   gcdSHOW_LINE_NUMBER
+ *
+ *   When enabledm each print statement will be preceded with the current
+ *   line number.
+ */
+#define gcdSHOW_LINE_NUMBER     0
 
 /*
-    gcdSHOW_TIME
+ *   gcdSHOW_PROCESS_ID
+ *
+ *   When enabledm each print statement will be preceded with the current
+ *   process ID.
+ */
+#define gcdSHOW_PROCESS_ID      0
 
-    When enabled each print statement will be preceeded with the current
-    high-resolution time.
-*/
-#define gcdSHOW_TIME        0
+/*
+ *   gcdSHOW_THREAD_ID
+ *
+ *   When enabledm each print statement will be preceded with the current
+ *   thread ID.
+ */
+#define gcdSHOW_THREAD_ID       0
 
+/*
+ *   gcdSHOW_TIME
+ *
+ *   When enabled each print statement will be preceded with the current
+ *   high-resolution time.
+ */
+#define gcdSHOW_TIME            0
 
-/******************************************************************************\
-****************************** Miscellaneous Macros ****************************
-\******************************************************************************/
+/******************************************************************************
+ ***************************** Private Structures *****************************
+ ******************************************************************************/
 
-#if gcdSHOW_TIME || gcdSHOW_LINE_NUMBER || gcdSHOW_PROCESS_ID || gcdSHOW_THREAD_ID
-#  define gcdHAVEPREFIX     1
-#else
-#  define gcdHAVEPREFIX     0
-#endif
-
-/******************************************************************************\
-****************************** Private Structures ******************************
-\******************************************************************************/
-
-typedef struct _gcsBUFFERED_OUTPUT * gcsBUFFERED_OUTPUT_PTR;
-typedef struct _gcsBUFFERED_OUTPUT
-{
+typedef struct _gcsBUFFERED_OUTPUT *gcsBUFFERED_OUTPUT_PTR;
+typedef struct _gcsBUFFERED_OUTPUT {
 #if gcdTHREAD_BUFFERS > 1
-    gctUINT32               threadID;
+    gctUINT32 threadID;
 #endif
 
 #if gcdSHOW_LINE_NUMBER
-    gctUINT                 lineNumber;
+    gctUINT lineNumber;
 #endif
 
-    gctINT                  indent;
+    gctINT indent;
 
-    gcsBUFFERED_OUTPUT_PTR  prev;
-    gcsBUFFERED_OUTPUT_PTR  next;
-}
-gcsBUFFERED_OUTPUT;
+    gcsBUFFERED_OUTPUT_PTR prev;
+    gcsBUFFERED_OUTPUT_PTR next;
+} gcsBUFFERED_OUTPUT;
 
 static gcsBUFFERED_OUTPUT     _outputBuffer[gcdTHREAD_BUFFERS];
 static gcsBUFFERED_OUTPUT_PTR _outputBufferHead = gcvNULL;
 static gcsBUFFERED_OUTPUT_PTR _outputBufferTail = gcvNULL;
 
-/******************************************************************************\
-******************************* Printing Functions *****************************
-\******************************************************************************/
-
-#if gcdHAVEPREFIX
-
-#if gcdSHOW_TIME
-static gcmINLINE gctUINT64
-_GetTime(
-    void
-    )
-{
-    gctUINT64 time;
-    gckOS_GetProfileTick(&time);
-    return time;
-}
-#    define gcdPREFIX_LEADER        1
-#    define gcdTIMEFORMAT           "%18lld"
-#    define gcdTIMEVALUE            ,_GetTime()
-#  else
-#    define gcdTIMEFORMAT
-#    define gcdTIMEVALUE
-#  endif
-
-#if gcdSHOW_LINE_NUMBER
-#ifndef gcdPREFIX_LEADER
-#      define gcdPREFIX_LEADER      1
-#      define gcdNUMFORMAT          "%8u"
-#    else
-#      define gcdNUMFORMAT          ", %8u"
-#    endif
-#    define gcdNUMVALUE             ,OutputBuffer->lineNumber
-#  else
-#    define gcdNUMFORMAT
-#    define gcdNUMVALUE
-#  endif
-
-#if gcdSHOW_PROCESS_ID
-#ifndef gcdPREFIX_LEADER
-#      define gcdPREFIX_LEADER      1
-#      define gcdPIDFORMAT          "pid=%5u"
-#    else
-#      define gcdPIDFORMAT          ", pid=%5u"
-#    endif
-#    define gcdPIDVALUE             ,gcmkGETPROCESSID()
-#  else
-#    define gcdPIDFORMAT
-#    define gcdPIDVALUE
-#  endif
-
-#if gcdSHOW_THREAD_ID
-#ifndef gcdPREFIX_LEADER
-#      define gcdPREFIX_LEADER      1
-#      define gcdTIDFORMAT          "tid=%5u"
-#    else
-#      define gcdTIDFORMAT          ", tid=%5u"
-#    endif
-#    define gcdTIDVALUE             ,gcmkGETTHREADID()
-#  else
-#    define gcdTIDFORMAT
-#    define gcdTIDVALUE
-#  endif
-
-static gctUINT
-_PrintPrefix(
-    IN gcsBUFFERED_OUTPUT_PTR OutputBuffer,
-    IN char Buffer[],
-    IN gctUINT Size
-    )
-{
-    gctINT len;
-
-    /* Format the string. */
-    len = gcmkSPRINTF(Buffer,
-                      Size,
-                      "[" gcdTIMEFORMAT gcdNUMFORMAT gcdPIDFORMAT gcdTIDFORMAT "] "
-                      gcdTIMEVALUE gcdNUMVALUE gcdPIDVALUE gcdTIDVALUE);
-
-    if (len > 0)
-    {
-        Buffer[len] = '\0';
-        return (gctUINT)len;
-    }
-
-    return 0;
-}
-#endif
+/******************************************************************************
+ ****************************** Printing Functions ****************************
+ ******************************************************************************/
 
 static int
-_AppendIndent(
-    IN gctINT Indent,
-    IN char * Buffer,
-    IN int BufferSize
-    )
+_AppendIndent(IN gctINT Indent, IN char *Buffer, IN int BufferSize)
 {
     gctINT i;
 
@@ -250,15 +149,10 @@ _AppendIndent(
     gctINT indent = Indent % 40;
 
     for (i = 0; i < indent; i += 1)
-    {
         Buffer[len++] = ' ';
-    }
 
-    if (indent != Indent)
-    {
-        len += gcmkSPRINTF(
-            Buffer + len, BufferSize - len, " <%d> ", Indent
-            );
+    if (indent != Indent) {
+        len += gcmkSPRINTF(Buffer + len, BufferSize - len, " <%d> ", Indent);
 
         Buffer[len] = '\0';
     }
@@ -267,14 +161,12 @@ _AppendIndent(
 }
 
 static gctUINT
-_PrintString(
-    IN gcsBUFFERED_OUTPUT_PTR OutputBuffer,
-    IN gctINT Indent,
-    IN gctCONST_STRING Message,
-    IN gctPOINTER Data,
-    IN char Buffer[],
-    IN gctUINT Size
-    )
+_PrintString(IN gcsBUFFERED_OUTPUT_PTR OutputBuffer,
+             IN gctINT                 Indent,
+             IN gctCONST_STRING        Message,
+             IN gctPOINTER             Data,
+             IN char                   Buffer[],
+             IN gctUINT                Size)
 {
     gctINT len;
 
@@ -286,55 +178,44 @@ _PrintString(
     Buffer[len] = '\0';
 
     /* Add end-of-line if missing. */
-    if (Buffer[len - 1] != '\n')
-    {
+    if (Buffer[len - 1] != '\n') {
         Buffer[len++] = '\n';
-        Buffer[len] = '\0';
+        Buffer[len]   = '\0';
     }
 
     return (gctUINT)len;
 }
 
-/******************************************************************************\
-******************************* Private Functions ******************************
-\******************************************************************************/
+/******************************************************************************
+ ****************************** Private Functions *****************************
+ ******************************************************************************/
 
-static gcmINLINE void
-_InitBuffers(
-    void
-    )
+static gcmkINLINE void
+_InitBuffers(void)
 {
     int i;
 
-    if (_outputBufferHead == gcvNULL)
-    {
-        for (i = 0; i < gcdTHREAD_BUFFERS; i += 1)
-        {
+    if (_outputBufferHead == gcvNULL) {
+        for (i = 0; i < gcdTHREAD_BUFFERS; i += 1) {
             if (_outputBufferTail == gcvNULL)
-            {
                 _outputBufferHead = &_outputBuffer[i];
-            }
             else
-            {
                 _outputBufferTail->next = &_outputBuffer[i];
-            }
 
 #if gcdTHREAD_BUFFERS > 1
             _outputBuffer[i].threadID = ~0U;
 #endif
 
             _outputBuffer[i].prev = _outputBufferTail;
-            _outputBuffer[i].next =  gcvNULL;
+            _outputBuffer[i].next = gcvNULL;
 
             _outputBufferTail = &_outputBuffer[i];
         }
     }
 }
 
-static gcmINLINE gcsBUFFERED_OUTPUT_PTR
-_GetOutputBuffer(
-    void
-    )
+static gcmkINLINE gcsBUFFERED_OUTPUT_PTR
+_GetOutputBuffer(void)
 {
     gcsBUFFERED_OUTPUT_PTR outputBuffer;
 
@@ -345,19 +226,15 @@ _GetOutputBuffer(
     /* Locate the output buffer for the thread. */
     outputBuffer = _outputBufferHead;
 
-    while (outputBuffer != gcvNULL)
-    {
+    while (outputBuffer != gcvNULL) {
         if (outputBuffer->threadID == ThreadID)
-        {
             break;
-        }
 
         outputBuffer = outputBuffer->next;
     }
 
     /* No matching buffer found? */
-    if (outputBuffer == gcvNULL)
-    {
+    if (outputBuffer == gcvNULL) {
         /* Get the tail for the buffer. */
         outputBuffer = _outputBufferTail;
 
@@ -372,10 +249,10 @@ _GetOutputBuffer(
         _outputBufferHead       = outputBuffer;
 
         /* Reset the buffer. */
-        outputBuffer->threadID   = ThreadID;
+        outputBuffer->threadID = ThreadID;
 #if gcdSHOW_LINE_NUMBER
         outputBuffer->lineNumber = 0;
-#  endif
+#    endif
     }
 #else
     outputBuffer = _outputBufferHead;
@@ -385,15 +262,13 @@ _GetOutputBuffer(
 }
 
 static void
-_Print(
-    IN gctCONST_STRING Message,
-    IN gctARGUMENTS * Arguments
-    )
+_Print(IN gctCONST_STRING Message, IN gctARGUMENTS *Arguments)
 {
     gcsBUFFERED_OUTPUT_PTR outputBuffer;
-    char buffer[256];
-    char *ptr = buffer;
-    gctINT len = 0;
+    char                   buffer[256];
+    char                  *ptr = buffer;
+    gctINT                 len = 0;
+
     static gcmkDECLARE_MUTEX(printMutex);
 
     gcmkMUTEX_LOCK(printMutex);
@@ -404,236 +279,197 @@ _Print(
     /* Locate the proper output buffer. */
     outputBuffer = _GetOutputBuffer();
 
-    /* Print prefix. */
-#if gcdHAVEPREFIX
-#if gcdSHOW_LINE_NUMBER
-    /* Update the line number. */
-    outputBuffer->lineNumber += 1;
-#  endif
-
-    /* Print the prefix. */
-    len = _PrintPrefix(outputBuffer, buffer, gcmSIZEOF(buffer));
-    ptr += len;
-#endif
-
     /* Form the indent string. */
     if (Message[0] == '-' && Message[1] == '-')
-    {
         outputBuffer->indent -= 2;
-    }
 
     /* Print the message. */
-    len += _PrintString(
-        outputBuffer, outputBuffer->indent,
-        Message, ((gctPOINTER) Arguments),
-        ptr, gcmSIZEOF(buffer) - outputBuffer->indent - len
-        );
+    len += _PrintString(outputBuffer,
+                        outputBuffer->indent,
+                        Message, ((gctPOINTER)Arguments), ptr,
+                        gcmSIZEOF(buffer) - outputBuffer->indent - len);
 
     gcmkOUTPUT_STRING(buffer);
 
     /* Check increasing indent. */
     if (Message[0] == '+' && Message[1] == '+')
-    {
         outputBuffer->indent += 2;
-    }
 
     gcmkMUTEX_UNLOCK(printMutex);
 }
 
-
-/******************************************************************************\
-********************************* Debug Macros *********************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************** Debug Macros ********************************
+ ******************************************************************************/
 
 #ifdef __QNXNTO__
 
-extern volatile unsigned g_nQnxInIsrs;
+extern volatile unsigned int g_nQnxInIsrs;
 
-#define gcmDEBUGPRINT(Message) \
-{ \
-    if (atomic_add_value(&g_nQnxInIsrs, 1) == 0) \
-    { \
-        gctARGUMENTS __arguments__; \
-        gcmkARGUMENTS_START(__arguments__, Message); \
-        _Print(Message, &__arguments__); \
-        gcmkARGUMENTS_END(__arguments__); \
-    } \
-    atomic_sub(&g_nQnxInIsrs, 1); \
-}
+#    define gcmDEBUGPRINT(Message)                                \
+        {                                                         \
+            if (atomic_add_value(&g_nQnxInIsrs, 1) == 0) {        \
+                gctARGUMENTS __arguments__;                       \
+                gcmkARGUMENTS_START(__arguments__, Message);      \
+                _Print(Message, &__arguments__);                  \
+                gcmkARGUMENTS_END(__arguments__);                 \
+            }                                                     \
+            atomic_sub(&g_nQnxInIsrs, 1);                         \
+        }
 
 #elif defined(__VXWORKS__)
-#define gcmDEBUGPRINT(Message) \
-{ \
-    printf(Message); \
-}
+#    define gcmDEBUGPRINT(Message)                                \
+        {                                                         \
+            printf(Message);                                      \
+        }
 
 #else
 
-#define gcmDEBUGPRINT(Message) \
-{ \
-    gctARGUMENTS __arguments__; \
-    gcmkARGUMENTS_START(__arguments__, Message); \
-    _Print(Message, &__arguments__); \
-    gcmkARGUMENTS_END(__arguments__); \
-}
+#    define gcmDEBUGPRINT(Message)                                \
+        {                                                         \
+            gctARGUMENTS __arguments__;                           \
+            gcmkARGUMENTS_START(__arguments__, Message);          \
+            _Print(Message, &__arguments__);                      \
+            gcmkARGUMENTS_END(__arguments__);                     \
+        }
 
 #endif
 
-/******************************************************************************\
-********************************** Debug Code **********************************
-\******************************************************************************/
+/******************************************************************************
+ ********************************* Debug Code *********************************
+ ******************************************************************************/
 
 /*******************************************************************************
-**
-**  gckOS_Print
-**
-**  Send a message to the debugger.
-**
-**  INPUT:
-**
-**      gctCONST_STRING Message
-**          Pointer to message.
-**
-**      ...
-**          Optional arguments.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_Print
+ **
+ **  Send a message to the debugger.
+ **
+ **  INPUT:
+ **
+ **      gctCONST_STRING Message
+ **          Pointer to message.
+ **
+ **      ...
+ **          Optional arguments.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 
 void
-gckOS_Print(
-    IN gctCONST_STRING Message,
-    ...
-    )
+gckOS_Print(IN gctCONST_STRING Message, ...)
 {
     gcmDEBUGPRINT(Message);
 }
 
 /*******************************************************************************
-**
-**  gckOS_DebugTrace
-**
-**  Send a leveled message to the debugger.
-**
-**  INPUT:
-**
-**      gctUINT32 Level
-**          Debug level of message.
-**
-**      gctCONST_STRING Message
-**          Pointer to message.
-**
-**      ...
-**          Optional arguments.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_DebugTrace
+ **
+ **  Send a leveled message to the debugger.
+ **
+ **  INPUT:
+ **
+ **      gctUINT32 Level
+ **          Debug level of message.
+ **
+ **      gctCONST_STRING Message
+ **          Pointer to message.
+ **
+ **      ...
+ **          Optional arguments.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 
 void
-gckOS_DebugTrace(
-    IN gctUINT32 Level,
-    IN gctCONST_STRING Message,
-    ...
-    )
+gckOS_DebugTrace(IN gctUINT32 Level, IN gctCONST_STRING Message, ...)
 {
     if (Level > _debugLevel)
-    {
         return;
-    }
 
     gcmDEBUGPRINT(Message);
 }
 
 /*******************************************************************************
-**
-**  gckOS_DebugTraceZone
-**
-**  Send a leveled and zoned message to the debugger.
-**
-**  INPUT:
-**
-**      gctUINT32 Level
-**          Debug level for message.
-**
-**      gctUINT32 Zone
-**          Debug zone for message.
-**
-**      gctCONST_STRING Message
-**          Pointer to message.
-**
-**      ...
-**          Optional arguments.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_DebugTraceZone
+ **
+ **  Send a leveled and zoned message to the debugger.
+ **
+ **  INPUT:
+ **
+ **      gctUINT32 Level
+ **          Debug level for message.
+ **
+ **      gctUINT32 Zone
+ **          Debug zone for message.
+ **
+ **      gctCONST_STRING Message
+ **          Pointer to message.
+ **
+ **      ...
+ **          Optional arguments.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 
 void
-gckOS_DebugTraceZone(
-    IN gctUINT32 Level,
-    IN gctUINT32 Zone,
-    IN gctCONST_STRING Message,
-    ...
-    )
+gckOS_DebugTraceZone(IN gctUINT32 Level, IN gctUINT32 Zone,
+                     IN gctCONST_STRING Message, ...)
 {
-    if ((Level > _debugLevel) || !(Zone & _debugZones))
-    {
+    if (Level > _debugLevel || !(Zone & _debugZones))
         return;
-    }
 
     gcmDEBUGPRINT(Message);
 }
 
 /*******************************************************************************
-**
-**  gckOS_DebugBreak
-**
-**  Break into the debugger.
-**
-**  INPUT:
-**
-**      Nothing.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_DebugBreak
+ **
+ **  Break into the debugger.
+ **
+ **  INPUT:
+ **
+ **      Nothing.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 void
-gckOS_DebugBreak(
-    void
-    )
+gckOS_DebugBreak(void)
 {
-    gckOS_DebugTrace(gcvLEVEL_ERROR, "%s(%d)", __FUNCTION__, __LINE__);
+    gckOS_DebugTrace(gcvLEVEL_ERROR, "%s(%d)", __func__, __LINE__);
 }
 
 /*******************************************************************************
-**
-**  gckOS_DebugFatal
-**
-**  Send a message to the debugger and break into the debugger.
-**
-**  INPUT:
-**
-**      gctCONST_STRING Message
-**          Pointer to message.
-**
-**      ...
-**          Optional arguments.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_DebugFatal
+ **
+ **  Send a message to the debugger and break into the debugger.
+ **
+ **  INPUT:
+ **
+ **      gctCONST_STRING Message
+ **          Pointer to message.
+ **
+ **      ...
+ **          Optional arguments.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 void
-gckOS_DebugFatal(
-    IN gctCONST_STRING Message,
-    ...
-    )
+gckOS_DebugFatal(IN gctCONST_STRING Message, ...)
 {
     gcmkPRINT_VERSION();
     gcmDEBUGPRINT(Message);
@@ -643,150 +479,132 @@ gckOS_DebugFatal(
 }
 
 /*******************************************************************************
-**
-**  gckOS_SetDebugLevel
-**
-**  Set the debug level.
-**
-**  INPUT:
-**
-**      gctUINT32 Level
-**          New debug level.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_SetDebugLevel
+ **
+ **  Set the debug level.
+ **
+ **  INPUT:
+ **
+ **      gctUINT32 Level
+ **          New debug level.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 
 void
-gckOS_SetDebugLevel(
-    IN gctUINT32 Level
-    )
+gckOS_SetDebugLevel(IN gctUINT32 Level)
 {
     _debugLevel = Level;
 }
 
 /*******************************************************************************
-**
-**  gckOS_SetDebugZone
-**
-**  Set the debug zone.
-**
-**  INPUT:
-**
-**      gctUINT32 Zone
-**          New debug zone.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_SetDebugZone
+ **
+ **  Set the debug zone.
+ **
+ **  INPUT:
+ **
+ **      gctUINT32 Zone
+ **          New debug zone.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 void
-gckOS_SetDebugZone(
-    IN gctUINT32 Zone
-    )
+gckOS_SetDebugZone(IN gctUINT32 Zone)
 {
     _debugZones = Zone;
 }
 
 /*******************************************************************************
-**
-**  gckOS_SetDebugLevelZone
-**
-**  Set the debug level and zone.
-**
-**  INPUT:
-**
-**      gctUINT32 Level
-**          New debug level.
-**
-**      gctUINT32 Zone
-**          New debug zone.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_SetDebugLevelZone
+ **
+ **  Set the debug level and zone.
+ **
+ **  INPUT:
+ **
+ **      gctUINT32 Level
+ **          New debug level.
+ **
+ **      gctUINT32 Zone
+ **          New debug zone.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 
 void
-gckOS_SetDebugLevelZone(
-    IN gctUINT32 Level,
-    IN gctUINT32 Zone
-    )
+gckOS_SetDebugLevelZone(IN gctUINT32 Level, IN gctUINT32 Zone)
 {
     _debugLevel = Level;
     _debugZones = Zone;
 }
 
 /*******************************************************************************
-**
-**  gckOS_SetDebugZones
-**
-**  Enable or disable debug zones.
-**
-**  INPUT:
-**
-**      gctUINT32 Zones
-**          Debug zones to enable or disable.
-**
-**      gctBOOL Enable
-**          Set to gcvTRUE to enable the zones (or the Zones with the current
-**          zones) or gcvFALSE to disable the specified Zones.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_SetDebugZones
+ **
+ **  Enable or disable debug zones.
+ **
+ **  INPUT:
+ **
+ **      gctUINT32 Zones
+ **          Debug zones to enable or disable.
+ **
+ **      gctBOOL Enable
+ **          Set to gcvTRUE to enable the zones (or the Zones with the current
+ **          zones) or gcvFALSE to disable the specified Zones.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 
 void
-gckOS_SetDebugZones(
-    IN gctUINT32 Zones,
-    IN gctBOOL Enable
-    )
+gckOS_SetDebugZones(IN gctUINT32 Zones, IN gctBOOL Enable)
 {
-    if (Enable)
-    {
+    if (Enable) {
         /* Enable the zones. */
         _debugZones |= Zones;
-    }
-    else
-    {
+    } else {
         /* Disable the zones. */
         _debugZones &= ~Zones;
     }
 }
 
 /*******************************************************************************
-**
-**  gckOS_Verify
-**
-**  Called to verify the result of a function call.
-**
-**  INPUT:
-**
-**      gceSTATUS Status
-**          Function call result.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_Verify
+ **
+ **  Called to verify the result of a function call.
+ **
+ **  INPUT:
+ **
+ **      gceSTATUS Status
+ **          Function call result.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 
 void
-gckOS_Verify(
-    IN gceSTATUS status
-    )
+gckOS_Verify(IN gceSTATUS status)
 {
     _lastError = status;
 }
 
 gctCONST_STRING
-gckOS_DebugStatus2Name(
-    gceSTATUS status
-    )
+gckOS_DebugStatus2Name(gceSTATUS status)
 {
-    switch (status)
-    {
+    switch (status) {
     case gcvSTATUS_OK:
         return "gcvSTATUS_OK";
     case gcvSTATUS_TRUE:
@@ -949,52 +767,46 @@ gckOS_DebugStatus2Name(
     }
 }
 
-/*******************************************************************************
-***** Kernel Dump **************************************************************
-*******************************************************************************/
+/******************************************************************************
+ *******************************Kernel Dump************************************
+ ******************************************************************************/
 
 #ifndef gcmkDUMP_STRING
-#  define gcmkDUMP_STRING(os, s)    gcmkOUTPUT_STRING((s))
+#    define gcmkDUMP_STRING(os, s) gcmkOUTPUT_STRING((s))
 #endif
 
 static gcmkDECLARE_MUTEX(_dumpMutex);
 static gctCHAR _dumpStorage[512];
 
 /*******************************************************************************
-**
-**  gckOS_Dump
-**
-**  Formated print string to dump pool.
-**
-**  INPUT:
-**
-**      gctCONST_STRING Format
-**          String format.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_Dump
+ **
+ **  Formated print string to dump pool.
+ **
+ **  INPUT:
+ **
+ **      gctCONST_STRING Format
+ **          String format.
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 void
-gckOS_Dump(
-    IN gckOS Os,
-    IN gctCONST_STRING Format,
-    ...
-    )
+gckOS_Dump(IN gckOS Os, IN gctCONST_STRING Format, ...)
 {
-    char buffer[256];
-    gctINT len;
+    char         buffer[256];
+    gctINT       len;
     gctARGUMENTS args;
 
     gcmkARGUMENTS_START(args, Format);
     len = gcmkVSPRINTF(buffer, gcmSIZEOF(buffer) - 2, Format, &args);
     gcmkARGUMENTS_END(args);
 
-    if (len > 0)
-    {
-        if (buffer[len - 1] != '\n')
-        {
-            buffer[len] = '\n';
+    if (len > 0) {
+        if (buffer[len - 1] != '\n') {
+            buffer[len]     = '\n';
             buffer[len + 1] = '\0';
         }
 
@@ -1005,46 +817,28 @@ gckOS_Dump(
 }
 
 static void
-_DumpUserString(
-    IN gckOS Os,
-    IN gctPOINTER UserStr,
-    IN gctSIZE_T Size
-    )
+_DumpUserString(IN gckOS Os, IN gctPOINTER UserStr, IN gctSIZE_T Size)
 {
-    gceSTATUS status = gcvSTATUS_OK;
-    gctSIZE_T offset = 0;
-    gctSIZE_T length = 0;
-    gctBOOL needCopy = gcvTRUE;
+    gceSTATUS       status    = gcvSTATUS_OK;
+    gctSIZE_T       offset    = 0;
+    gctSIZE_T       length    = 0;
+    gctBOOL         needCopy  = gcvTRUE;
     const gctSIZE_T maxLength = gcmSIZEOF(_dumpStorage) - 1;
 
     gcmkVERIFY_OK(gckOS_QueryNeedCopy(Os, 0, &needCopy));
 
     gcmkMUTEX_LOCK(_dumpMutex);
 
-    while (offset < Size)
-    {
+    while (offset < Size) {
         length = maxLength < (Size - offset) ? maxLength : (Size - offset);
 
         /* Copy or map from user. */
-        if (needCopy)
-        {
-            gcmkONERROR(gckOS_CopyFromUserData(
-                Os,
-                _dumpStorage,
-                UserStr,
-                length
-                ));
-        }
-        else
-        {
+        if (needCopy) {
+            gcmkONERROR(gckOS_CopyFromUserData(Os, _dumpStorage, UserStr, length));
+        } else {
             gctPOINTER ptr = gcvNULL;
 
-            gcmkONERROR(gckOS_MapUserPointer(
-                Os,
-                UserStr,
-                length,
-                (gctPOINTER *)&ptr
-                ));
+            gcmkONERROR(gckOS_MapUserPointer(Os, UserStr, length, (gctPOINTER *)&ptr));
 
             gckOS_MemCopy(_dumpStorage, ptr, length);
             gckOS_UnmapUserPointer(Os, UserStr, length, ptr);
@@ -1064,24 +858,22 @@ OnError:
 }
 
 static void
-_DumpDataBuffer(
-    IN gckOS Os,
-    IN gceDUMP_BUFFER_TYPE Type,
-    IN gctPOINTER Data,
-    IN gctUINT64 Address,
-    IN gctSIZE_T Size
-    )
+_DumpDataBuffer(IN gckOS               Os,
+                IN gceDUMP_BUFFER_TYPE Type,
+                IN gctPOINTER          Data,
+                IN gctUINT64           Address,
+                IN gctSIZE_T           Size)
 {
-    gceSTATUS status = gcvSTATUS_OK;
-    gctSIZE_T offset = 0;
-    gctSIZE_T length = 0;
-    gctBOOL needCopy = gcvTRUE;
+    gceSTATUS       status   = gcvSTATUS_OK;
+    gctSIZE_T       offset   = 0;
+    gctSIZE_T       length   = 0;
+    gctBOOL         needCopy = gcvTRUE;
     gctCONST_STRING dumpTag;
-    char buffer[256];
+
+    char            buffer[256];
     const gctSIZE_T maxLength = gcmSIZEOF(_dumpStorage);
 
-    switch (Type)
-    {
+    switch (Type) {
     case gcvDUMP_BUFFER_VERIFY:
         dumpTag = "verify";
         break;
@@ -1094,83 +886,61 @@ _DumpDataBuffer(
     }
 
     if (Type <= gcvDUMP_BUFFER_USER_TYPE_LAST)
-    {
         gcmkVERIFY_OK(gckOS_QueryNeedCopy(Os, 0, &needCopy));
-    }
 
     gcmkMUTEX_LOCK(_dumpMutex);
 
     /* Form and print the opening string. */
-    if (Type == gcvDUMP_BUFFER_PHYSICAL_MEMORY)
-    {
+    if (Type == gcvDUMP_BUFFER_PHYSICAL_MEMORY) {
         gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
-                    "@[%s 0x%010llX 0x%08X\n",
-                    dumpTag, (unsigned long long)Address, (gctUINT32)Size);
-    }
-    else
-    {
+                    "@[%s 0x%llx 0x%08X\n",
+                    dumpTag, Address, (gctUINT32)Size);
+    } else {
         gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
-                    "@[%s 0x%08X 0x%08X\n",
-                    dumpTag, (gctUINT32)Address, (gctUINT32)Size);
+                    "@[%s 0x%llx 0x%08X\n",
+                    dumpTag, Address, (gctUINT32)Size);
     }
 
     gcmkDUMP_STRING(Os, buffer);
 
-
-    while (offset < Size)
-    {
-        gctPOINTER data = gcvNULL;
+    while (offset < Size) {
+        gctPOINTER    data = gcvNULL;
         gctUINT32_PTR ptr;
-        gctUINT8_PTR bytePtr;
-        gctSIZE_T count, tailByteCount;
+        gctUINT8_PTR  bytePtr;
+        gctSIZE_T     count, tailByteCount;
 
         length = maxLength < (Size - offset) ? maxLength : (Size - offset);
-        count = length / 4;
+
+        count         = length / 4;
         tailByteCount = length % 4;
 
         ptr = (gctUINT32_PTR)Data;
 
-        if (Type <= gcvDUMP_BUFFER_USER_TYPE_LAST)
-        {
+        if (Type <= gcvDUMP_BUFFER_USER_TYPE_LAST) {
             /* Copy or map from user. */
-            if (needCopy)
-            {
-                gcmkONERROR(gckOS_CopyFromUserData(
-                    Os,
-                    _dumpStorage,
-                    Data,
-                    length
-                    ));
+            if (needCopy) {
+                gcmkONERROR(gckOS_CopyFromUserData(Os, _dumpStorage, Data, length));
 
                 ptr = (gctUINT32_PTR)_dumpStorage;
-            }
-            else
-            {
-                gcmkONERROR(gckOS_MapUserPointer(
-                    Os,
-                    Data,
-                    length,
-                    (gctPOINTER *)&data
-                    ));
+            } else {
+                gcmkONERROR(gckOS_MapUserPointer(Os, Data, length, (gctPOINTER *)&data));
 
                 ptr = (gctUINT32_PTR)data;
             }
         }
 
-        while (count >= 4)
-        {
+        while (count >= 4) {
             gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
                         "  0x%08X 0x%08X 0x%08X 0x%08X\n",
                         ptr[0], ptr[1], ptr[2], ptr[3]);
 
-            ptr   += 4;
+            ptr += 4;
             count -= 4;
 
             gcmkDUMP_STRING(Os, buffer);
         }
 
-        switch (count)
-        {
+        switch (count) {
         case 3:
             gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
                         "  0x%08X 0x%08X 0x%08X",
@@ -1178,29 +948,25 @@ _DumpDataBuffer(
             break;
         case 2:
             gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
-                        "  0x%08X 0x%08X",
-                        ptr[0], ptr[1]);
+                        "  0x%08X 0x%08X", ptr[0], ptr[1]);
             break;
         case 1:
-            gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1, "  0x%08X", ptr[0]);
+            gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
+                        "  0x%08X", ptr[0]);
             break;
         }
 
         if (count > 0)
-        {
             gcmkDUMP_STRING(Os, buffer);
-        }
 
         bytePtr = (gctUINT8_PTR)(ptr + count);
 
-        if (!count && tailByteCount)
-        {
+        if (!count && tailByteCount) {
             /* There is an extra space for the new line. */
             gcmkDUMP_STRING(Os, " ");
         }
 
-        switch (tailByteCount)
-        {
+        switch (tailByteCount) {
         case 3:
             gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
                         " 0x00%02X%02X%02X",
@@ -1208,8 +974,7 @@ _DumpDataBuffer(
             break;
         case 2:
             gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
-                        " 0x0000%02X%02X",
-                        bytePtr[1], bytePtr[0]);
+                        " 0x0000%02X%02X", bytePtr[1], bytePtr[0]);
             break;
         case 1:
             gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
@@ -1218,21 +983,16 @@ _DumpDataBuffer(
         }
 
         if (tailByteCount)
-        {
             gcmkDUMP_STRING(Os, buffer);
-        }
 
         if (count || tailByteCount)
-        {
             gcmkDUMP_STRING(Os, "\n");
-        }
 
         if (Type <= gcvDUMP_BUFFER_USER_TYPE_LAST && !needCopy)
-        {
             gckOS_UnmapUserPointer(Os, Data, length, data);
-        }
+
         /* advance to next batch. */
-        Data    = (gctUINT8_PTR)Data + length;
+        Data = (gctUINT8_PTR)Data + length;
         offset += length;
     }
 
@@ -1244,60 +1004,51 @@ OnError:
 }
 
 /*******************************************************************************
-**
-**  gckOS_DumpBuffer
-**
-**  Print the contents of the specified buffer.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to gckOS object.
-**
-**      gceDUMP_BUFFER_TYPE Type
-**          Buffer type.
-**
-**      gctPOINTER Buffer
-**          Pointer to the buffer to print.
-**
-**      gctUINT64 Address
-**          Address.
-**
-**      gctUINT Size
-**          Size of the buffer.
-**
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
+ **
+ **  gckOS_DumpBuffer
+ **
+ **  Print the contents of the specified buffer.
+ **
+ **  INPUT:
+ **
+ **      gckOS Os
+ **          Pointer to gckOS object.
+ **
+ **      gceDUMP_BUFFER_TYPE Type
+ **          Buffer type.
+ **
+ **      gctPOINTER Buffer
+ **          Pointer to the buffer to print.
+ **
+ **      gctUINT64 Address
+ **          Address.
+ **
+ **      gctUINT Size
+ **          Size of the buffer.
+ **
+ **
+ **  OUTPUT:
+ **
+ **      Nothing.
+ */
 void
-gckOS_DumpBuffer(
-    IN gckOS Os,
-    IN gceDUMP_BUFFER_TYPE Type,
-    IN gctPOINTER Buffer,
-    IN gctUINT64 Address,
-    IN gctSIZE_T Size
-    )
+gckOS_DumpBuffer(IN gckOS               Os,
+                 IN gceDUMP_BUFFER_TYPE Type,
+                 IN gctPOINTER          Buffer,
+                 IN gctUINT64           Address,
+                 IN gctSIZE_T           Size)
 {
     if (!Buffer)
-    {
         return;
-    }
 
     /* memory dump below. */
-    if (Type >= gcvDUMP_BUFFER_TYPE_COUNT)
-    {
+    if (Type >= gcvDUMP_BUFFER_TYPE_COUNT) {
         gcmkPRINT("#[ERROR: invalid buffer type]\n");
         return;
     }
 
     if (Type == gcvDUMP_BUFFER_USER_STRING)
-    {
         _DumpUserString(Os, Buffer, Size);
-    }
     else
-    {
         _DumpDataBuffer(Os, Type, Buffer, Address, Size);
-    }
 }

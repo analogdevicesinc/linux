@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -60,46 +60,28 @@
 extern "C" {
 #endif
 
-#define gcdEXTERNAL_MEMORY_NAME_MAX 32
-#define gcdEXTERNAL_MEMORY_DATA_MAX 8
+#define gcdBINARY_TRACE_MESSAGE_SIZE    240
 
-typedef struct _gcsEXTERNAL_MEMORY_INFO
-{
-    /* Name of allocator used to attach this memory. */
-    gctCHAR                allocatorName[gcdEXTERNAL_MEMORY_NAME_MAX];
-
-    /* User defined data which will be passed to allocator. */
-    gctUINT32              userData[gcdEXTERNAL_MEMORY_DATA_MAX];
-}
-gcsEXTERNAL_MEMORY_INFO;
-
-#define gcdBINARY_TRACE_MESSAGE_SIZE 240
-
-typedef struct _gcsBINARY_TRACE_MESSAGE * gcsBINARY_TRACE_MESSAGE_PTR;
-typedef struct _gcsBINARY_TRACE_MESSAGE
-{
+typedef struct _gcsBINARY_TRACE_MESSAGE *gcsBINARY_TRACE_MESSAGE_PTR;
+typedef struct _gcsBINARY_TRACE_MESSAGE {
     gctUINT32   signature;
     gctUINT32   pid;
     gctUINT32   tid;
     gctUINT32   line;
     gctUINT32   numArguments;
     gctUINT8    payload;
-}
-gcsBINARY_TRACE_MESSAGE;
+} gcsBINARY_TRACE_MESSAGE;
 
 /* gcsOBJECT object defintinon. */
-typedef struct _gcsOBJECT
-{
+typedef struct _gcsOBJECT {
     /* Type of an object. */
-    gceOBJECT_TYPE              type;
-}
-gcsOBJECT;
+    gceOBJECT_TYPE      type;
+} gcsOBJECT;
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* __gc_hal_base_shared_h_ */
-
 
 

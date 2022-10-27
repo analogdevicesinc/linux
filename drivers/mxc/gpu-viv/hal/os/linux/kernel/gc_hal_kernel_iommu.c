@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -61,81 +61,17 @@
 
 #define _GC_OBJ_ZONE gcvZONE_OS
 
-typedef struct _gcsIOMMU
-{
-    struct iommu_domain * domain;
-    struct device *       device;
-}
-gcsIOMMU;
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-static int
-_IOMMU_Fault_Handler(
-    struct iommu_domain * Domain,
-    struct device * Dev,
-    unsigned long DomainAddress,
-    int flags,
-    void * args
-    )
-#else
-static int
-_IOMMU_Fault_Handler(
-    struct iommu_domain * Domain,
-    struct device * Dev,
-    unsigned long DomainAddress,
-    int flags
-    )
-#endif
-{
-    return 0;
-}
-
-static int
-_FlatMapping(
-    IN gckIOMMU Iommu
-    )
-{
-    gceSTATUS status = gcvSTATUS_OK;
-    gctUINT32 physical;
-
-    gcmkHEADER_ARG("Iommu=%p", Iommu);
-
-    for (physical = 0; physical < 0x80000000; physical += PAGE_SIZE)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_INFO, gcvZONE_OS,
-            "Map %x => %x bytes = %d",
-            physical, physical, PAGE_SIZE
-            );
-
-        gcmkONERROR(gckIOMMU_Map(Iommu, physical, physical, PAGE_SIZE));
-    }
-
-OnError:
-    gcmkFOOTER();
-    return status;
-}
-
 void
-gckIOMMU_Destory(
-    IN gckOS Os,
-    IN gckIOMMU Iommu
-    )
+gckIOMMU_Destory(IN gckOS Os, IN gckIOMMU Iommu)
 {
     gcmkHEADER_ARG("Os=%p Iommu=%p", Os, Iommu);
 
-    if (Iommu->domain && Iommu->device)
-    {
-        iommu_attach_device(Iommu->domain, Iommu->device);
-    }
+    if (Iommu) {
+        if (Iommu->paddingPageDmaHandle) {
+            dma_unmap_page(Iommu->device, Iommu->paddingPageDmaHandle,
+                           PAGE_SIZE, DMA_FROM_DEVICE);
+        }
 
-    if (Iommu->domain)
-    {
-        iommu_domain_free(Iommu->domain);
-    }
-
-    if (Iommu)
-    {
         gcmkOS_SAFE_FREE(Os, Iommu);
     }
 
@@ -143,94 +79,75 @@ gckIOMMU_Destory(
 }
 
 gceSTATUS
-gckIOMMU_Construct(
-    IN gckOS Os,
-    OUT gckIOMMU * Iommu
-    )
+gckIOMMU_Construct(IN gckOS Os, OUT gckIOMMU *Iommu)
 {
-    gceSTATUS status = gcvSTATUS_OK;
-    gckIOMMU iommu = gcvNULL;
-    struct device *dev;
+    gceSTATUS            status = gcvSTATUS_OK;
+    gckIOMMU             iommu  = gcvNULL;
+    struct device       *dev;
+    dma_addr_t           dmaHandle;
+    gctUINT64            phys;
+    struct iommu_domain *domain;
+    gctUINT32            gfp = GFP_KERNEL;
 
     gcmkHEADER_ARG("Os=%p", Os);
 
-    dev = &Os->device->platform->device->dev;
+    dev    = &Os->device->platform->device->dev;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
+    domain = iommu_get_domain_for_dev(dev);
+#else
+    domain = gcvNULL;
+#endif
+
+    if (domain) {
+        struct page *page;
+
+        page = alloc_page(gfp);
+        if (!page)
+            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+
+        phys = page_to_phys(page);
+
+        dmaHandle = dma_map_page(dev, page, 0, PAGE_SIZE, DMA_TO_DEVICE);
+
+        if (dmaHandle)
+            dma_unmap_page(dev, dmaHandle, PAGE_SIZE, DMA_FROM_DEVICE);
+
+        __free_page(page);
+
+        /* Iommu bypass */
+        if (phys == dmaHandle) {
+            *Iommu = gcvNULL;
+
+            gcmkFOOTER();
+            return status;
+        }
+    } else {
+        /* Don't enable iommu */
+        *Iommu = gcvNULL;
+
+        gcmkFOOTER();
+        return status;
+    }
 
     gcmkONERROR(gckOS_Allocate(Os, gcmSIZEOF(gcsIOMMU), (gctPOINTER *)&iommu));
 
     gckOS_ZeroMemory(iommu, gcmSIZEOF(gcsIOMMU));
 
-    iommu->domain = iommu_domain_alloc(&platform_bus_type);
-
-    if (!iommu->domain)
-    {
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS, "iommu_domain_alloc() fail");
-        gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
+    if (Os->paddingPage) {
+        iommu->paddingPageDmaHandle =
+            dma_map_page(dev, Os->paddingPage, 0, PAGE_SIZE, DMA_TO_DEVICE);
     }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-    iommu_set_fault_handler(iommu->domain, _IOMMU_Fault_Handler, dev);
-#else
-    iommu_set_fault_handler(iommu->domain, _IOMMU_Fault_Handler);
-#endif
-
-    if (iommu_attach_device(iommu->domain, dev))
-    {
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS, "iommu_attach_device() fail");
-        gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
-    }
-
+    iommu->domain = domain;
     iommu->device = dev;
-
-    _FlatMapping(iommu);
 
     *Iommu = iommu;
 
+    gcmkPRINT("[galcore]: Enable IOMMU\n");
 OnError:
     if (gcmIS_ERROR(status))
-    {
         gckIOMMU_Destory(Os, iommu);
-    }
 
     gcmkFOOTER();
     return status;
 }
-
-gceSTATUS
-gckIOMMU_Map(
-    IN gckIOMMU Iommu,
-    IN gctUINT32 DomainAddress,
-    IN gctUINT32 Physical,
-    IN gctUINT32 Bytes
-    )
-{
-    gceSTATUS status = gcvSTATUS_OK;
-
-    gcmkHEADER_ARG("DomainAddress=%#X, Physical=%#X, Bytes=%d",
-                   DomainAddress, Physical, Bytes);
-
-    if (iommu_map(Iommu->domain, DomainAddress, Physical, Bytes, 0))
-    {
-        gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
-    }
-
-OnError:
-    gcmkFOOTER();
-    return status;
-}
-
-gceSTATUS
-gckIOMMU_Unmap(
-    IN gckIOMMU Iommu,
-    IN gctUINT32 DomainAddress,
-    IN gctUINT32 Bytes
-    )
-{
-    gcmkHEADER();
-
-    iommu_unmap(Iommu->domain, DomainAddress, Bytes);
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-}
-

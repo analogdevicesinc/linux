@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -89,8 +89,7 @@ struct key_mutex {
     /* Allocate the mutex structure. */                                     \
     gceSTATUS _status = gckOS_Allocate(Os, gcmSIZEOF(struct mutex), Mutex); \
                                                                             \
-    if (gcmIS_SUCCESS(_status))                                             \
-    {                                                                       \
+    if (gcmIS_SUCCESS(_status)) {                                           \
         /* Initialize the mutex. */                                         \
         mutex_init(*(struct mutex **)Mutex);                                \
     }                                                                       \
@@ -100,6 +99,3 @@ struct key_mutex {
 #endif
 
 #endif
-
-
-

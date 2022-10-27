@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -58,39 +58,38 @@
 
 #if gcdLINUX_SYNC_FILE
 
-#include <linux/kernel.h>
-#include <linux/file.h>
-#include <linux/fs.h>
-#include <linux/miscdevice.h>
-#include <linux/module.h>
-#include <linux/syscalls.h>
-#include <linux/uaccess.h>
-#include <linux/slab.h>
+#    include <linux/kernel.h>
+#    include <linux/file.h>
+#    include <linux/fs.h>
+#    include <linux/miscdevice.h>
+#    include <linux/module.h>
+#    include <linux/syscalls.h>
+#    include <linux/uaccess.h>
+#    include <linux/slab.h>
 
-#include "gc_hal_kernel_sync.h"
-#include "gc_hal_kernel_linux.h"
+#    include "gc_hal_kernel_sync.h"
+#    include "gc_hal_kernel_linux.h"
 
 #ifndef CONFIG_SYNC_FILE
 
-static struct sync_pt * viv_sync_pt_dup(struct sync_pt *sync_pt)
+static struct sync_pt *viv_sync_pt_dup(struct sync_pt *sync_pt)
 {
-    gceSTATUS status;
-    struct viv_sync_pt *pt;
-    struct viv_sync_pt *src;
+    gceSTATUS                 status;
+    struct viv_sync_pt       *pt;
+    struct viv_sync_pt       *src;
     struct viv_sync_timeline *obj;
 
     src = (struct viv_sync_pt *)sync_pt;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
     obj = (struct viv_sync_timeline *)sync_pt_parent(sync_pt);
-#else
+#        else
     obj = (struct viv_sync_timeline *)sync_pt->parent;
-#endif
+#        endif
 
     /* Create the new sync_pt. */
-    pt = (struct viv_sync_pt *)
-        sync_pt_create(&obj->obj, sizeof(struct viv_sync_pt));
+    pt = (struct viv_sync_pt *)sync_pt_create(&obj->obj, sizeof(struct viv_sync_pt));
 
-    pt->stamp  = src->stamp;
+    pt->stamp = src->stamp;
 
     /* Reference signal. */
     status = gckOS_MapSignal(obj->os,
@@ -108,16 +107,16 @@ static struct sync_pt * viv_sync_pt_dup(struct sync_pt *sync_pt)
 
 static int viv_sync_pt_has_signaled(struct sync_pt *sync_pt)
 {
-    gceSTATUS status;
-    struct viv_sync_pt *pt;
+    gceSTATUS                 status;
+    struct viv_sync_pt       *pt;
     struct viv_sync_timeline *obj;
 
     pt  = (struct viv_sync_pt *)sync_pt;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
     obj = (struct viv_sync_timeline *)sync_pt_parent(sync_pt);
-#else
+#        else
     obj = (struct viv_sync_timeline *)sync_pt->parent;
-#endif
+#        endif
 
     status = _QuerySignal(obj->os, pt->signal);
 
@@ -126,39 +125,37 @@ static int viv_sync_pt_has_signaled(struct sync_pt *sync_pt)
         return -1;
     }
 
-    return (int) status;
+    return (int)status;
 }
 
 static int viv_sync_pt_compare(struct sync_pt *a, struct sync_pt *b)
 {
-    int ret;
+    int                 ret;
     struct viv_sync_pt *pt1 = (struct viv_sync_pt *)a;
     struct viv_sync_pt *pt2 = (struct viv_sync_pt *)b;
 
-    ret = (pt1->stamp <  pt2->stamp) ? -1
-        : (pt1->stamp == pt2->stamp) ?  0
-        : 1;
+    ret = (pt1->stamp < pt2->stamp) ?
+          -1 : (pt1->stamp == pt2->stamp) ? 0 : 1;
 
     return ret;
 }
 
 static void viv_sync_pt_free(struct sync_pt *sync_pt)
 {
-    struct viv_sync_pt *pt;
+    struct viv_sync_pt       *pt;
     struct viv_sync_timeline *obj;
 
-    pt  = (struct viv_sync_pt *)sync_pt;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+    pt = (struct viv_sync_pt *)sync_pt;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
     obj = (struct viv_sync_timeline *)sync_pt_parent(sync_pt);
-#else
+#        else
     obj = (struct viv_sync_timeline *)sync_pt->parent;
-#endif
+#        endif
 
     gckOS_DestroySignal(obj->os, pt->signal);
 }
 
-static void viv_timeline_value_str(struct sync_timeline *timeline,
-                    char *str, int size)
+static void viv_timeline_value_str(struct sync_timeline *timeline, char *str, int size)
 {
     struct viv_sync_timeline *obj;
 
@@ -171,27 +168,26 @@ static void viv_pt_value_str(struct sync_pt *sync_pt, char *str, int size)
     struct viv_sync_pt *pt;
 
     pt = (struct viv_sync_pt *)sync_pt;
-    snprintf(str, size, "signal_%lu@stamp_%llu",
-            (unsigned long)pt->signal, pt->stamp);
+    snprintf(str, size, "signal_%lu@stamp_%llu", (unsigned long)pt->signal, pt->stamp);
 }
 
-static struct sync_timeline_ops viv_timeline_ops =
-{
-    .driver_name = "viv_gpu_sync",
-    .dup = viv_sync_pt_dup,
-    .has_signaled = viv_sync_pt_has_signaled,
-    .compare = viv_sync_pt_compare,
-    .free_pt = viv_sync_pt_free,
+static struct sync_timeline_ops viv_timeline_ops = {
+    .driver_name        = "viv_gpu_sync",
+    .dup                = viv_sync_pt_dup,
+    .has_signaled       = viv_sync_pt_has_signaled,
+    .compare            = viv_sync_pt_compare,
+    .free_pt            = viv_sync_pt_free,
     .timeline_value_str = viv_timeline_value_str,
-    .pt_value_str = viv_pt_value_str,
+    .pt_value_str       = viv_pt_value_str,
 };
 
-struct viv_sync_timeline * viv_sync_timeline_create(const char *name, gckOS os)
+struct viv_sync_timeline *viv_sync_timeline_create(const char *name, gckOS os)
 {
-    struct viv_sync_timeline * obj;
+    struct viv_sync_timeline *obj;
 
-    obj = (struct viv_sync_timeline *)
-        sync_timeline_create(&viv_timeline_ops, sizeof(struct viv_sync_timeline), name);
+    obj = (struct viv_sync_timeline *)sync_timeline_create(&viv_timeline_ops,
+                                                           sizeof(struct viv_sync_timeline),
+                                                           name);
 
     obj->os    = os;
     obj->stamp = 0;
@@ -199,20 +195,17 @@ struct viv_sync_timeline * viv_sync_timeline_create(const char *name, gckOS os)
     return obj;
 }
 
-struct sync_pt * viv_sync_pt_create(struct viv_sync_timeline *obj,
-                        gctSIGNAL Signal)
+struct sync_pt *viv_sync_pt_create(struct viv_sync_timeline *obj, gctSIGNAL Signal)
 {
-    gceSTATUS status;
+    gceSTATUS           status;
     struct viv_sync_pt *pt;
 
-    pt = (struct viv_sync_pt *)
-        sync_pt_create(&obj->obj, sizeof(struct viv_sync_pt));
+    pt = (struct viv_sync_pt *)sync_pt_create(&obj->obj, sizeof(struct viv_sync_pt));
 
     pt->stamp = obj->stamp++;
 
     /* Dup signal. */
-    status = gckOS_MapSignal(obj->os,
-                             Signal,
+    status = gckOS_MapSignal(obj->os, Signal,
                              gcvNULL /* (gctHANDLE) _GetProcessID() */,
                              &pt->signal);
 
@@ -224,14 +217,13 @@ struct sync_pt * viv_sync_pt_create(struct viv_sync_timeline *obj,
     return (struct sync_pt *)pt;
 }
 
-#else
+#    else
 
-struct viv_sync_timeline * viv_sync_timeline_create(const char *name, gckOS Os)
+struct viv_sync_timeline *viv_sync_timeline_create(const char *name, gckOS Os)
 {
     struct viv_sync_timeline *timeline;
 
-    timeline = kmalloc(sizeof(struct viv_sync_timeline),
-                    gcdNOWARN | GFP_KERNEL);
+    timeline = kmalloc(sizeof(*timeline), gcdNOWARN | GFP_KERNEL);
 
     if (!timeline)
         return NULL;
@@ -249,23 +241,24 @@ void viv_sync_timeline_destroy(struct viv_sync_timeline *timeline)
     kfree(timeline);
 }
 
-static const char * viv_fence_get_driver_name(struct dma_fence *fence)
+static const char *viv_fence_get_driver_name(struct dma_fence *fence)
 {
     return "viv_gpu_sync";
 }
 
-static const char * viv_fence_get_timeline_name(struct dma_fence *fence)
+static const char *viv_fence_get_timeline_name(struct dma_fence *fence)
 {
     struct viv_fence *f = (struct viv_fence *)fence;
+
     return f->parent->name;
 }
 
 /* Same as fence_signaled. */
 static inline bool __viv_fence_signaled(struct dma_fence *fence)
 {
-    struct viv_fence *f = (struct viv_fence *)fence;
+    struct viv_fence         *f        = (struct viv_fence *)fence;
     struct viv_sync_timeline *timeline = f->parent;
-    gceSTATUS status;
+    gceSTATUS                 status;
 
     status = _QuerySignal(timeline->os, f->signal);
 
@@ -286,7 +279,7 @@ static bool viv_fence_signaled(struct dma_fence *fence)
 
 static void viv_fence_release(struct dma_fence *fence)
 {
-    struct viv_fence *f = (struct viv_fence *)fence;
+    struct viv_fence         *f        = (struct viv_fence *)fence;
     struct viv_sync_timeline *timeline = f->parent;
 
     if (f->signal)
@@ -295,32 +288,32 @@ static void viv_fence_release(struct dma_fence *fence)
     kfree(fence);
 }
 
-static struct dma_fence_ops viv_fence_ops =
-{
-    .get_driver_name = viv_fence_get_driver_name,
+static struct dma_fence_ops viv_fence_ops = {
+    .get_driver_name   = viv_fence_get_driver_name,
     .get_timeline_name = viv_fence_get_timeline_name,
-    .enable_signaling = viv_fence_enable_signaling,
-    .signaled = viv_fence_signaled,
-    .wait = dma_fence_default_wait,
-    .release = viv_fence_release,
+    .enable_signaling  = viv_fence_enable_signaling,
+    .signaled          = viv_fence_signaled,
+    .wait              = dma_fence_default_wait,
+    .release           = viv_fence_release,
 };
 
-struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
-                    gcsSIGNAL *signal)
+struct dma_fence *viv_fence_create(struct viv_sync_timeline *timeline, gcsSIGNAL *signal)
 {
-    gceSTATUS status;
+    gceSTATUS         status;
     struct viv_fence *fence;
     struct dma_fence *old_fence = NULL;
-    unsigned seqno;
+    unsigned int      seqno;
 
-    fence = kzalloc(sizeof(struct viv_fence), gcdNOWARN | GFP_KERNEL);
+    fence = kzalloc(sizeof(*fence), gcdNOWARN | GFP_KERNEL);
 
     if (!fence)
         return NULL;
 
     /* Reference signal in fence. */
-    status = gckOS_MapSignal(timeline->os, (gctSIGNAL)(uintptr_t)signal->id,
-                NULL, &fence->signal);
+    status = gckOS_MapSignal(timeline->os,
+                             (gctSIGNAL)(uintptr_t)signal->id,
+                             NULL,
+                             &fence->signal);
 
     if (gcmIS_ERROR(status)) {
         kfree(fence);
@@ -331,10 +324,13 @@ struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
 
     fence->parent = timeline;
 
-    seqno = (unsigned)atomic64_inc_return(&timeline->seqno);
+    seqno = (unsigned int)atomic64_inc_return(&timeline->seqno);
 
-    dma_fence_init((struct dma_fence *)fence, &viv_fence_ops,
-            &fence->lock, timeline->context, seqno);
+    dma_fence_init((struct dma_fence *)fence,
+                   &viv_fence_ops,
+                   &fence->lock,
+                   timeline->context,
+                   seqno);
 
     /*
      * Reference fence in signal.
@@ -343,16 +339,16 @@ struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
     spin_lock(&signal->lock);
 
     if (signal->fence) {
-        old_fence = signal->fence;
+        old_fence     = signal->fence;
         signal->fence = NULL;
     }
 
     if (!signal->done) {
-        signal->fence = (struct dma_fence*)fence;
+        signal->fence = (struct dma_fence *)fence;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,68)
-        dma_fence_get((struct dma_fence*)fence);
-#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 68)
+        dma_fence_get((struct dma_fence *)fence);
+#        endif
     }
 
     spin_unlock(&signal->lock);
@@ -365,14 +361,14 @@ struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
         gckOS_DestroySignal(timeline->os, fence->signal);
         fence->signal = NULL;
 
-        dma_fence_signal_locked((struct dma_fence*)fence);
+        dma_fence_signal_locked((struct dma_fence *)fence);
         dma_fence_put((struct dma_fence*)fence);
         fence = NULL;
     }
 
-    return (struct dma_fence*)fence;
+    return (struct dma_fence *)fence;
 }
 
-#endif
+#    endif /* CONFIG_SYNC_FILE */
 
-#endif
+#endif /* gcdLINUX_SYNC_FILE */

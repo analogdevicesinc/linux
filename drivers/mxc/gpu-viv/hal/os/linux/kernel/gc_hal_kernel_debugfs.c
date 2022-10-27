@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -54,13 +54,13 @@
 
 
 #ifdef MODULE
-#include <linux/module.h>
+#    include <linux/module.h>
 #endif
 #include <linux/init.h>
 #include <linux/debugfs.h>
 #include <linux/slab.h>
 #ifdef MODVERSIONS
-#include <linux/modversions.h>
+#    include <linux/modversions.h>
 #endif
 #include <linux/stddef.h>
 #include <linux/sched.h>
@@ -73,17 +73,17 @@
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/completion.h>
 #include <linux/seq_file.h>
 #include "gc_hal_kernel_linux.h"
 #include "gc_hal_kernel.h"
 #include "gc_hal_kernel_debug.h"
 
+#define _GC_OBJ_ZONE gcvZONE_KERNEL
 
-#define _GC_OBJ_ZONE    gcvZONE_KERNEL
-
-static int gc_debugfs_open(struct inode *inode, struct file *file)
+static int
+gc_debugfs_open(struct inode *inode, struct file *file)
 {
     gcsINFO_NODE *node = inode->i_private;
 
@@ -91,47 +91,36 @@ static int gc_debugfs_open(struct inode *inode, struct file *file)
 }
 
 static ssize_t
-gc_debugfs_write(
-    struct file *file,
-    const char __user *buf,
-    size_t count,
-    loff_t *pos
-    )
+gc_debugfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
-    struct seq_file *s = file->private_data;
-    gcsINFO_NODE *node = s->private;
-    gcsINFO *info = node->info;
+    struct seq_file *s    = file->private_data;
+    gcsINFO_NODE    *node = s->private;
+    gcsINFO         *info = node->info;
 
     if (info->write)
-    {
         info->write(buf, count, node);
-    }
 
     return count;
 }
 
 static const struct file_operations gc_debugfs_operations = {
-    .owner = THIS_MODULE,
-    .open = gc_debugfs_open,
-    .write = gc_debugfs_write,
-    .read = seq_read,
-    .llseek = seq_lseek,
+    .owner   = THIS_MODULE,
+    .open    = gc_debugfs_open,
+    .write   = gc_debugfs_write,
+    .read    = seq_read,
+    .llseek  = seq_lseek,
     .release = single_release,
 };
 
 gceSTATUS
-gckDEBUGFS_DIR_Init(
-    IN gckDEBUGFS_DIR Dir,
-    IN struct dentry *root,
-    IN gctCONST_STRING Name
-    )
+gckDEBUGFS_DIR_Init(IN gckDEBUGFS_DIR Dir,
+                    IN struct dentry *root,
+                    IN gctCONST_STRING Name)
 {
     Dir->root = debugfs_create_dir(Name, root);
 
     if (!Dir->root)
-    {
         return gcvSTATUS_NOT_SUPPORTED;
-    }
 
     INIT_LIST_HEAD(&Dir->nodeList);
 
@@ -139,71 +128,60 @@ gckDEBUGFS_DIR_Init(
 }
 
 gceSTATUS
-gckDEBUGFS_DIR_CreateFiles(
-    IN gckDEBUGFS_DIR Dir,
-    IN gcsINFO * List,
-    IN int count,
-    IN gctPOINTER Data
-    )
+gckDEBUGFS_DIR_CreateFiles(IN gckDEBUGFS_DIR Dir,
+                           IN gcsINFO *List,
+                           IN int count,
+                           IN gctPOINTER Data)
 {
-    int i;
-    gcsINFO_NODE * node;
-    gceSTATUS status = gcvSTATUS_OK;
+    int           i;
+    gcsINFO_NODE *node;
+    gceSTATUS     status = gcvSTATUS_OK;
 
     gcmkHEADER_ARG("Dir=%p List=%p count=%d Data=%p", Dir, List, count, Data);
 
-    for (i = 0; i < count; i++)
-    {
+    for (i = 0; i < count; i++) {
         umode_t mode = 0;
 
         /* Create a node. */
-        node = (gcsINFO_NODE *)kzalloc(sizeof(gcsINFO_NODE), GFP_KERNEL);
+        node = kzalloc(sizeof(gcsINFO_NODE), GFP_KERNEL);
 
         node->info   = &List[i];
         node->device = Data;
 
-        mode |= List[i].show  ? S_IRUGO : 0;
-        mode |= List[i].write ? S_IWUSR : 0;
+        mode |= List[i].show ? 0444 : 0;
+        mode |= List[i].write ? 0200 : 0;
 
-        node->entry = debugfs_create_file(
-            List[i].name, mode, Dir->root, node, &gc_debugfs_operations);
+        node->entry = debugfs_create_file(List[i].name, mode,
+                                          Dir->root, node, &gc_debugfs_operations);
 
         if (!node->entry)
-        {
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
-        }
 
-        list_add(&(node->head), &(Dir->nodeList));
+        list_add(&node->head, &Dir->nodeList);
     }
 
 OnError:
     if (gcmIS_ERROR(status))
-    {
         gcmkVERIFY_OK(gckDEBUGFS_DIR_RemoveFiles(Dir, List, count));
-    }
+
     gcmkFOOTER();
     return status;
 }
 
 gceSTATUS
-gckDEBUGFS_DIR_RemoveFiles(
-    IN gckDEBUGFS_DIR Dir,
-    IN gcsINFO * List,
-    IN int count
-    )
+gckDEBUGFS_DIR_RemoveFiles(IN gckDEBUGFS_DIR Dir,
+                           IN gcsINFO *List,
+                           IN int count)
 {
-    int i;
-    gcsINFO_NODE * node;
-    gcsINFO_NODE * temp;
+    int           i;
+    gcsINFO_NODE *node;
+    gcsINFO_NODE *temp;
 
     gcmkHEADER_ARG("Dir=%p List=%p count=%d", Dir, List, count);
 
-    for (i = 0; i < count; i++)
-    {
-        list_for_each_entry_safe(node, temp, &Dir->nodeList, head)
-        {
-            if (node->info == &List[i])
-            {
+    for (i = 0; i < count; i++) {
+        list_for_each_entry_safe(node, temp, &Dir->nodeList, head) {
+            if (node->info == &List[i]) {
                 debugfs_remove(node->entry);
                 list_del(&node->head);
                 kfree(node);
@@ -216,14 +194,8 @@ gckDEBUGFS_DIR_RemoveFiles(
 }
 
 void
-gckDEBUGFS_DIR_Deinit(
-    IN gckDEBUGFS_DIR Dir
-    )
+gckDEBUGFS_DIR_Deinit(IN gckDEBUGFS_DIR Dir)
 {
-    if (Dir->root != NULL)
-    {
-        debugfs_remove(Dir->root);
-        Dir->root = NULL;
-    }
+    debugfs_remove(Dir->root);
+    Dir->root = NULL;
 }
-

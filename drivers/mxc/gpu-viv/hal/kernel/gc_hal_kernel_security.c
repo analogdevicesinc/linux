@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -55,22 +55,15 @@
 
 #include "gc_hal_kernel_precomp.h"
 
-
-
-
-#define _GC_OBJ_ZONE    gcvZONE_KERNEL
+#define _GC_OBJ_ZONE gcvZONE_KERNEL
 
 #if gcdSECURITY
 
 /*
-** Open a security service channel.
-*/
+ * Open a security service channel.
+ */
 gceSTATUS
-gckKERNEL_SecurityOpen(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPU,
-    OUT gctUINT32 *Channel
-    )
+gckKERNEL_SecurityOpen(IN gckKERNEL Kernel, IN gctUINT32 GPU, OUT gctUINT32 *Channel)
 {
     gceSTATUS status;
 
@@ -84,26 +77,23 @@ OnError:
 }
 
 /*
-** Close a security service channel
-*/
+ * Close a security service channel
+ */
 gceSTATUS
-gckKERNEL_SecurityClose(
-    IN gctUINT32 Channel
-    )
+gckKERNEL_SecurityClose(IN gctUINT32 Channel)
 {
     return gcvSTATUS_OK;
 }
 
 /*
-** Security service interface.
-*/
+ * Security service interface.
+ */
 gceSTATUS
-gckKERNEL_SecurityCallService(
-    IN gctUINT32 Channel,
-    IN OUT gcsTA_INTERFACE * Interface
-)
+gckKERNEL_SecurityCallService(IN gctUINT32 Channel,
+                              IN OUT gcsTA_INTERFACE *Interface)
 {
     gceSTATUS status;
+
     gcmkHEADER();
 
     gcmkVERIFY_ARGUMENT(Interface != gcvNULL);
@@ -123,16 +113,14 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityStartCommand(
-    IN gckKERNEL Kernel
-    )
+gckKERNEL_SecurityStartCommand(IN gckKERNEL Kernel)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
 
-    iface.command = KERNEL_START_COMMAND;
+    iface.command            = KERNEL_START_COMMAND;
     iface.u.StartCommand.gpu = Kernel->core;
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
@@ -146,18 +134,16 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityAllocateSecurityMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 Bytes,
-    OUT gctUINT32 * Handle
-    )
+gckKERNEL_SecurityAllocateSecurityMemory(IN gckKERNEL Kernel,
+                                         IN gctUINT32 Bytes,
+                                         OUT gctUINT32 *Handle)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
 
-    iface.command = KERNEL_ALLOCATE_SECRUE_MEMORY;
+    iface.command                        = KERNEL_ALLOCATE_SECRUE_MEMORY;
     iface.u.AllocateSecurityMemory.bytes = Bytes;
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
@@ -173,24 +159,21 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityExecute(
-    IN gckKERNEL Kernel,
-    IN gctPOINTER Buffer,
-    IN gctUINT32 Bytes
-    )
+gckKERNEL_SecurityExecute(IN gckKERNEL Kernel,
+                          IN gctPOINTER Buffer, IN gctUINT32 Bytes)
 {
     gceSTATUS status;
 #if defined(LINUX)
     gctPHYS_ADDR_T physical;
-    gctUINT32 address;
-#endif
+    gctUINT32      address;
+#    endif
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();
 
-    iface.command = KERNEL_EXECUTE;
-    iface.u.Execute.command_buffer = (gctUINT32 *)Buffer;
-    iface.u.Execute.gpu = Kernel->core;
+    iface.command                         = KERNEL_EXECUTE;
+    iface.u.Execute.command_buffer        = (gctUINT32 *)Buffer;
+    iface.u.Execute.gpu                   = Kernel->core;
     iface.u.Execute.command_buffer_length = Bytes;
 
 #if defined(LINUX)
@@ -199,14 +182,12 @@ gckKERNEL_SecurityExecute(
     gcmkSAFECASTPHYSADDRT(address, physical);
 
     iface.u.Execute.command_buffer = (gctUINT32 *)address;
-#endif
+#    endif
 
     gcmkONERROR(gckKERNEL_SecurityCallService(Kernel->securityChannel, &iface));
 
     /* Update queue tail pointer. */
-    gcmkONERROR(gckHARDWARE_UpdateQueueTail(
-        Kernel->hardware, 0, 0
-        ));
+    gcmkONERROR(gckHARDWARE_UpdateQueueTail(Kernel->hardware, 0, 0));
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
@@ -217,19 +198,15 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityMapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 *PhysicalArray,
-    IN gctUINT32 PageCount,
-    OUT gctUINT32 * GPUAddress
-    )
+gckKERNEL_SecurityMapMemory(IN gckKERNEL Kernel, IN gctUINT32 *PhysicalArray,
+                            IN gctUINT32 PageCount, OUT gctUINT32 *GPUAddress)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 #if defined(LINUX)
     gctPHYS_ADDR_T physical;
-    gctUINT32 address;
-#endif
+    gctUINT32      address;
+#    endif
 
     gcmkHEADER();
 
@@ -240,7 +217,7 @@ gckKERNEL_SecurityMapMemory(
     gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, physical, &physical));
     gcmkSAFECASTPHYSADDRT(address, physical);
     iface.u.MapMemory.physicals = (gctUINT32 *)address;
-#endif
+#    endif
 
     iface.u.MapMemory.pageCount = PageCount;
 
@@ -257,13 +234,10 @@ OnError:
 }
 
 gceSTATUS
-gckKERNEL_SecurityUnmapMemory(
-    IN gckKERNEL Kernel,
-    IN gctUINT32 GPUAddress,
-    IN gctUINT32 PageCount
-    )
+gckKERNEL_SecurityUnmapMemory(IN gckKERNEL Kernel, IN gctUINT32 GPUAddress,
+                              IN gctUINT32 PageCount)
 {
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsTA_INTERFACE iface;
 
     gcmkHEADER();

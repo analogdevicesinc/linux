@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -59,100 +59,154 @@
 #include <linux/seq_file.h>
 #include <linux/mman.h>
 #include <linux/slab.h>
-#include <linux/io.h>
 #include <linux/sched.h>
+#include <linux/io.h>
 
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
 
-static gckGALDEVICE galDevice;
+static gckGALDEVICE     galDevice;
 
-extern gcTA globalTA[16];
-
-/******************************************************************************\
-******************************** Debugfs Support *******************************
-\******************************************************************************/
-
-/******************************************************************************\
-***************************** DEBUG SHOW FUNCTIONS *****************************
-\******************************************************************************/
-
-int gc_info_show(struct seq_file* m, void* data)
+#ifdef CONFIG_DEBUG_FS
+#if defined(CONFIG_CPU_CSKYV2) && LINUX_VERSION_CODE <= KERNEL_VERSION(3, 0, 8)
+static void
+seq_vprintf(struct seq_file *m, const char *f, va_list args)
 {
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    int i = 0;
-    gceCHIPMODEL chipModel = 0;
-    gctUINT32 chipRevision = 0;
-    gctUINT32 productID = 0;
-    gctUINT32 ecoID = 0;
+    int len;
 
-    if (!device)
-        return -ENXIO;
-
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (device->kernels[i])
-        {
-            if (i == gcvCORE_VG)
-            {
-#if gcdENABLE_VG
-                chipModel = device->kernels[i]->vg->hardware->chipModel;
-                chipRevision = device->kernels[i]->vg->hardware->chipRevision;
-#endif
-            }
-            else
-            {
-                chipModel = device->kernels[i]->hardware->identity.chipModel;
-                chipRevision = device->kernels[i]->hardware->identity.chipRevision;
-                productID = device->kernels[i]->hardware->identity.productID;
-                ecoID = device->kernels[i]->hardware->identity.ecoID;
-            }
-
-            seq_printf(m, "gpu      : %d\n", i);
-            seq_printf(m, "model    : %4x\n", chipModel);
-            seq_printf(m, "revision : %4x\n", chipRevision);
-            seq_printf(m, "product  : %4x\n", productID);
-            seq_printf(m, "eco      : %4x\n", ecoID);
-            seq_printf(m, "\n");
+    if (m->count < m->size) {
+        len = vsnprintf(m->buf + m->count, m->size - m->count, f, args);
+        if (m->count + len < m->size) {
+            m->count += len;
+            return;
         }
     }
+    m->count = m->size;
+}
+#    endif
+
+static int
+debugfs_printf(IN void *obj, IN const char *fmt, ...)
+{
+    va_list args;
+
+    va_start(args, fmt);
+    seq_vprintf((struct seq_file *)obj, fmt, args);
+    va_end(args);
 
     return 0;
 }
-
-int gc_clients_show(struct seq_file* m, void* data)
+#else
+static int
+sys_printf(IN void *obj, IN const char *fmt, ...)
 {
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
+    int     len = 0;
+    va_list args;
 
-    gckKERNEL kernel = _GetValidKernel(device);
+    va_start(args, fmt);
+    len = vsprintf((char *)obj, fmt, args);
+    va_end(args);
+
+    return len;
+}
+#endif
+
+#ifdef CONFIG_DEBUG_FS
+#    define fs_printf debugfs_printf
+#else
+#    define fs_printf sys_printf
+#endif
+
+/*******************************************************************************
+ ******************************* Debugfs Support *******************************
+ *******************************************************************************/
+
+/*******************************************************************************
+ **************************** DEBUG SHOW FUNCTIONS *****************************
+ *******************************************************************************/
+
+int
+gc_info_show(void *m, void *data)
+{
+    gckGALDEVICE gal_device = galDevice;
+    gckDEVICE    device     = gcvNULL;
+    int          i          = 0;
+    int          len        = 0;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
+    gceCHIPMODEL chipModel    = 0;
+    gctUINT32    chipRevision = 0;
+    gctUINT32    productID    = 0;
+    gctUINT32    ecoID        = 0;
+
+    if (!gal_device)
+        return -ENXIO;
+
+    device = gal_device->devices[0];
+
+    for (i = 0; i < gcdMAX_GPU_COUNT; i++) {
+        if (device->kernels[i]) {
+            if (i == gcvCORE_VG) {
+#if gcdENABLE_VG
+                chipModel    = device->kernels[i]->vg->hardware->chipModel;
+                chipRevision = device->kernels[i]->vg->hardware->chipRevision;
+#endif
+            } else {
+                chipModel    = device->kernels[i]->hardware->identity.chipModel;
+                chipRevision = device->kernels[i]->hardware->identity.chipRevision;
+                productID    = device->kernels[i]->hardware->identity.productID;
+                ecoID        = device->kernels[i]->hardware->identity.ecoID;
+            }
+
+            len = fs_printf(ptr, "gpu      : %d\n", i);
+            len += fs_printf(ptr + len, "model    : %4x\n", chipModel);
+            len += fs_printf(ptr + len, "revision : %4x\n", chipRevision);
+            len += fs_printf(ptr + len, "product  : %4x\n", productID);
+            len += fs_printf(ptr + len, "eco      : %4x\n", ecoID);
+            len += fs_printf(ptr + len, "\n");
+        }
+    }
+    return len;
+}
+
+int
+gc_clients_show(void *m, void *data)
+{
+    gckGALDEVICE    device = galDevice;
+
+    gckKERNEL       kernel = _GetValidKernel(device);
 
     gcsDATABASE_PTR database;
-    gctINT i, pid;
-    char name[24];
+    gctINT          i, pid;
+    char            name[24];
+    int             len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void            *ptr = m;
+#else
+    char            *ptr = (char *)m;
+#endif
 
     if (!kernel)
         return -ENXIO;
 
-    seq_printf(m, "%-8s%s\n", "PID", "NAME");
-    seq_printf(m, "------------------------\n");
+    len = fs_printf(ptr, "%-8s%s\n", "PID", "NAME");
+    len += fs_printf(ptr + len, "------------------------\n");
 
     /* Acquire the database mutex. */
-    gcmkVERIFY_OK(
-        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
+    gcmkVERIFY_OK(gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
 
     /* Walk the databases. */
-    for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i)
-    {
+    for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i) {
         for (database = kernel->db->db[i];
              database != gcvNULL;
-             database = database->next)
-        {
+             database = database->next) {
             pid = database->processID;
 
             gcmkVERIFY_OK(gckOS_GetProcessNameByPid(pid, gcmSIZEOF(name), name));
 
-            seq_printf(m, "%-8d%s\n", pid, name);
+            len += fs_printf(ptr + len, "%-8d%s\n", pid, name);
         }
     }
 
@@ -160,33 +214,37 @@ int gc_clients_show(struct seq_file* m, void* data)
     gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
 
     /* Success. */
-    return 0;
+    return len;
 }
 
-int gc_meminfo_show(struct seq_file* m, void* data)
+int
+gc_meminfo_show(void *m, void *data)
 {
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    gckKERNEL kernel = _GetValidKernel(device);
-    gckVIDMEM memory;
-    gceSTATUS status;
+    gckGALDEVICE    device = galDevice;
+    gckKERNEL       kernel = _GetValidKernel(device);
+    gckVIDMEM       memory;
+    gceSTATUS       status;
     gcsDATABASE_PTR database;
-    gctUINT32 i;
+    gctUINT32       i;
+    int             len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void            *ptr = m;
+#else
+    char            *ptr = (char *)m;
+#endif
 
-    gctUINT32 free = 0, used = 0, total = 0, minFree = 0, maxUsed = 0;
+    gctUINT64 free = 0, used = 0, total = 0, minFree = 0, maxUsed = 0;
 
-    gcsDATABASE_COUNTERS virtualCounter = {0, 0, 0};
-    gcsDATABASE_COUNTERS nonPagedCounter = {0, 0, 0};
+    gcsDATABASE_COUNTERS virtualCounter  = { 0, 0, 0 };
+    gcsDATABASE_COUNTERS nonPagedCounter = { 0, 0, 0 };
 
     if (!kernel)
         return -ENXIO;
 
     status = gckKERNEL_GetVideoMemoryPool(kernel, gcvPOOL_SYSTEM, &memory);
 
-    if (gcmIS_SUCCESS(status))
-    {
-        gcmkVERIFY_OK(
-            gckOS_AcquireMutex(memory->os, memory->mutex, gcvINFINITE));
+    if (gcmIS_SUCCESS(status)) {
+        gcmkVERIFY_OK(gckOS_AcquireMutex(memory->os, memory->mutex, gcvINFINITE));
 
         free    = memory->freeBytes;
         minFree = memory->minFreeBytes;
@@ -197,28 +255,40 @@ int gc_meminfo_show(struct seq_file* m, void* data)
         gcmkVERIFY_OK(gckOS_ReleaseMutex(memory->os, memory->mutex));
     }
 
-    seq_printf(m, "VIDEO MEMORY:\n");
-    seq_printf(m, "  POOL SYSTEM:\n");
-    seq_printf(m, "    Free :    %10u B\n", free);
-    seq_printf(m, "    Used :    %10u B\n", used);
-    seq_printf(m, "    MinFree : %10u B\n", minFree);
-    seq_printf(m, "    MaxUsed : %10u B\n", maxUsed);
-    seq_printf(m, "    Total :   %10u B\n", total);
+    status = gckKERNEL_GetVideoMemoryPool(kernel, gcvPOOL_SYSTEM_32BIT_VA, &memory);
+
+    if (gcmIS_SUCCESS(status)) {
+        gcmkVERIFY_OK(gckOS_AcquireMutex(memory->os, memory->mutex, gcvINFINITE));
+
+        free    += memory->freeBytes;
+        minFree += memory->minFreeBytes;
+        used    += memory->bytes - memory->freeBytes;
+        maxUsed += memory->bytes - memory->minFreeBytes;
+        total   += memory->bytes;
+
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(memory->os, memory->mutex));
+    }
+
+    len = fs_printf(ptr, "VIDEO MEMORY:\n");
+    len += fs_printf(ptr + len, "  POOL SYSTEM:\n");
+    len += fs_printf(ptr + len, "    Free :    %13llu B\n", free);
+    len += fs_printf(ptr + len, "    Used :    %13llu B\n", used);
+    len += fs_printf(ptr + len, "    MinFree : %13llu B\n", minFree);
+    len += fs_printf(ptr + len, "    MaxUsed : %13llu B\n", maxUsed);
+    len += fs_printf(ptr + len, "    Total :   %13llu B\n", total);
 
     /* Acquire the database mutex. */
-    gcmkVERIFY_OK(
-        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
+    gcmkVERIFY_OK(gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
 
     /* Walk the databases. */
-    for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i)
-    {
+    for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i) {
         for (database = kernel->db->db[i];
              database != gcvNULL;
-             database = database->next)
-        {
-            gcsDATABASE_COUNTERS * counter;
+             database = database->next) {
+            gcsDATABASE_COUNTERS *counter;
+
             counter = &database->vidMemPool[gcvPOOL_VIRTUAL];
-            virtualCounter.bytes += counter->bytes;
+            virtualCounter.bytes    += counter->bytes;
             virtualCounter.maxBytes += counter->maxBytes;
 
             counter = &database->nonPaged;
@@ -230,15 +300,132 @@ int gc_meminfo_show(struct seq_file* m, void* data)
     /* Release the database mutex. */
     gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
 
-    seq_printf(m, "  POOL VIRTUAL:\n");
-    seq_printf(m, "    Used :    %10llu B\n", virtualCounter.bytes);
-    seq_printf(m, "    MaxUsed : %10llu B\n", virtualCounter.bytes);
+    len += fs_printf(ptr + len, "  POOL VIRTUAL:\n");
+    len += fs_printf(ptr + len, "    Used :    %10llu B\n", virtualCounter.bytes);
+    len += fs_printf(ptr + len, "    MaxUsed : %10llu B\n", virtualCounter.bytes);
 
-    return 0;
+    return len;
 }
 
-static const char * vidmemTypeStr[gcvVIDMEM_TYPE_COUNT] =
+int
+gc_load_show(void *m, void *data)
 {
+    int               len        = 0;
+    gctUINT32         i          = 0;
+    gceSTATUS         status     = gcvSTATUS_OK;
+    gckGALDEVICE      gal_device = galDevice;
+    gckDEVICE         device     = gcvNULL;
+    gceCHIPPOWERSTATE statesStored, state;
+    gctUINT32         load[gcvCORE_3D_MAX + 1]                      = { 0 };
+    gctUINT32         hi_total_cycle_count[gcvCORE_3D_MAX + 1]      = { 0 };
+    gctUINT32         hi_total_idle_cycle_count[gcvCORE_3D_MAX + 1] = { 0 };
+    static gctBOOL    profilerEnable[gcvCORE_3D_MAX + 1]            = { gcvFALSE };
+
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
+
+    if (!gal_device)
+        return -ENXIO;
+
+    device = gal_device->devices[0];
+
+    for (i = 0; i <= gcvCORE_3D_MAX; i++) {
+        if (device->kernels[i]) {
+            if (device->kernels[i]->hardware) {
+                gckHARDWARE Hardware        = device->kernels[i]->hardware;
+                gctBOOL     powerManagement = Hardware->options.powerManagement;
+
+                if (powerManagement) {
+                    gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware,
+                                                                  gcvFALSE));
+                }
+
+                gcmkONERROR(gckHARDWARE_QueryPowerState(Hardware, &statesStored));
+
+                gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
+
+                if (!profilerEnable[i]) {
+                    gcmkONERROR(gckHARDWARE_SetGpuProfiler(Hardware, gcvTRUE));
+
+                    gcmkONERROR(gckHARDWARE_InitProfiler(Hardware));
+
+                    profilerEnable[i] = gcvTRUE;
+                }
+
+                Hardware->waitCount = 200 * 100;
+            }
+        }
+    }
+
+    for (i = 0; i <= gcvCORE_3D_MAX; i++) {
+        if (device->kernels[i]) {
+            if (device->kernels[i]->hardware)
+                gcmkONERROR(gckHARDWARE_CleanCycleCount(device->kernels[i]->hardware));
+        }
+    }
+
+    gckOS_Delay(gcvNULL, 100);
+
+    for (i = 0; i <= gcvCORE_3D_MAX; i++) {
+        if (device->kernels[i]) {
+            if (device->kernels[i]->hardware)
+                gcmkONERROR(gckHARDWARE_QueryCycleCount(device->kernels[i]->hardware,
+                                                        &hi_total_cycle_count[i],
+                                                        &hi_total_idle_cycle_count[i]));
+        }
+    }
+
+    for (i = 0; i <= gcvCORE_3D_MAX; i++) {
+        if (device->kernels[i]) {
+            if (device->kernels[i]->hardware) {
+                gckHARDWARE Hardware        = device->kernels[i]->hardware;
+                gctBOOL     powerManagement = Hardware->options.powerManagement;
+
+                switch (statesStored) {
+                case gcvPOWER_OFF:
+                    state = gcvPOWER_OFF_BROADCAST;
+                    break;
+                case gcvPOWER_IDLE:
+                    state = gcvPOWER_IDLE_BROADCAST;
+                    break;
+                case gcvPOWER_SUSPEND:
+                    state = gcvPOWER_SUSPEND_BROADCAST;
+                    break;
+                case gcvPOWER_ON:
+                    state = gcvPOWER_ON_AUTO;
+                    break;
+                default:
+                    state = statesStored;
+                    break;
+                }
+
+                Hardware->waitCount = 200;
+
+                if (powerManagement) {
+                    gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware,
+                                                                  gcvTRUE));
+                }
+
+                gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
+
+                load[i] = (hi_total_cycle_count[i] - hi_total_idle_cycle_count[i]) *
+                          100 / hi_total_cycle_count[i];
+
+                len += fs_printf(ptr, "core      : %d\n", i);
+                len += fs_printf(ptr + len, "load      : %d%%\n", load[i]);
+                len += fs_printf(ptr + len, "\n");
+            }
+        }
+    }
+
+OnError:
+    return len;
+}
+
+static const char *vidmemTypeStr[gcvVIDMEM_TYPE_COUNT] = {
     "Generic",
     "Index",
     "Vertex",
@@ -258,8 +445,7 @@ static const char * vidmemTypeStr[gcvVIDMEM_TYPE_COUNT] =
     "Command",
 };
 
-static const char * poolStr[gcvPOOL_NUMBER_OF_POOLS] =
-{
+static const char *poolStr[gcvPOOL_NUMBER_OF_POOLS] = {
     "Unknown",
     "Default",
     "Local",
@@ -272,399 +458,103 @@ static const char * poolStr[gcvPOOL_NUMBER_OF_POOLS] =
     "User",
     "Insram",
     "Exsram",
+    "Exclusive",
 };
 
-static void
-_ShowDummyRecord(
-    IN struct seq_file *File,
-    IN gcsDATABASE_PTR Database
-    )
+static int
+_ShowCounters(void *File, gcsDATABASE_PTR Database)
 {
-}
+    gctUINT i   = 0;
+    int     len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void    *ptr = File;
+#else
+    char    *ptr = (char *)File;
+#endif
 
-static void
-_ShowVideoMemoryRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i;
-    gctUINT32 handle;
-    gckVIDMEM_NODE nodeObject;
-    gctPHYS_ADDR_T physical;
-    gctINT32 refCount = 0;
-    gctINT32 lockCount = 0;
-    gceSTATUS status;
-
-    seq_printf(m, "Video Memory Node:\n");
-    seq_printf(m, "  handle         nodeObject       size         type     pool     physical  ref lock\n");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR r = Database->list[i];
-
-        while (r != NULL)
-        {
-            gcsDATABASE_RECORD_PTR record = r;
-            r = r->next;
-
-            if (record->type != gcvDB_VIDEO_MEMORY)
-            {
-                continue;
-            }
-
-            handle = gcmPTR2INT32(record->data);
-
-            status = gckVIDMEM_HANDLE_Lookup2(
-                record->kernel,
-                Database,
-                handle,
-                &nodeObject
-                );
-
-            if (gcmIS_ERROR(status))
-            {
-                seq_printf(m, "%6u Invalid Node\n", handle);
-                continue;
-            }
-
-            gcmkONERROR(gckVIDMEM_NODE_GetPhysical(record->kernel, nodeObject, 0, &physical));
-            gcmkONERROR(gckVIDMEM_NODE_GetReference(record->kernel, nodeObject, &refCount));
-            gcmkONERROR(gckVIDMEM_NODE_GetLockCount(record->kernel, nodeObject, &lockCount));
-
-            seq_printf(m, "%#8x %#18lx %10lu %12s %8s %#12llx %4d %4d\n",
-                handle,
-                (unsigned long)nodeObject,
-                (unsigned long)record->bytes,
-                vidmemTypeStr[nodeObject->type],
-                poolStr[nodeObject->pool],
-                physical,
-                refCount,
-                lockCount
-                );
-        }
-    }
-
-OnError:
-    return;
-}
-
-static void
-_ShowCommandBufferRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    return;
-}
-
-static void
-_ShowNonPagedRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i;
-
-    seq_printf(m, "NonPaged Memory:\n");
-    seq_printf(m, "  name              vaddr       size\n");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR r = Database->list[i];
-
-        while (r != NULL)
-        {
-            gcsDATABASE_RECORD_PTR record = r;
-            r = r->next;
-
-            if (record->type != gcvDB_NON_PAGED)
-            {
-                continue;
-            }
-
-            seq_printf(m, "%6u %#18lx %10lu\n",
-                gcmPTR2INT32(record->physical),
-                (unsigned long)record->data,
-                (unsigned long)record->bytes
-                );
-        }
-    }
-}
-
-static void
-_ShowContiguousRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    return;
-}
-
-static void
-_ShowSignalRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i;
-
-    seq_printf(m, "User signal:\n");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR r = Database->list[i];
-
-        while (r != NULL)
-        {
-            gcsDATABASE_RECORD_PTR record = r;
-            r = r->next;
-
-            if (record->type != gcvDB_SIGNAL)
-            {
-                continue;
-            }
-
-            seq_printf(m, "%#10x\n", gcmPTR2INT32(record->data));
-        }
-    }
-}
-
-static void
-_ShowLockRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i;
-    gceSTATUS status;
-    gctUINT32 handle;
-    gckVIDMEM_NODE nodeObject;
-
-    seq_printf(m, "Video Memory Lock:\n");
-    seq_printf(m, "  handle         nodeObject              vaddr\n");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR r = Database->list[i];
-
-        while (r != NULL)
-        {
-            gcsDATABASE_RECORD_PTR record = r;
-            r = r->next;
-
-            if (record->type != gcvDB_VIDEO_MEMORY_LOCKED)
-            {
-                continue;
-            }
-
-            handle = gcmPTR2INT32(record->data);
-
-            status = gckVIDMEM_HANDLE_Lookup2(
-                record->kernel,
-                Database,
-                handle,
-                &nodeObject
-                );
-
-            if (gcmIS_ERROR(status))
-            {
-                nodeObject = gcvNULL;
-            }
-
-            seq_printf(m, "%#8x %#18lx %#18lx\n",
-                handle,
-                (unsigned long)nodeObject,
-                (unsigned long)record->physical
-                );
-        }
-    }
-}
-
-static void
-_ShowContextRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i;
-
-    seq_printf(m, "Context:\n");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR r = Database->list[i];
-
-        while (r != NULL)
-        {
-            gcsDATABASE_RECORD_PTR record = r;
-            r = r->next;
-
-            if (record->type != gcvDB_CONTEXT)
-            {
-                continue;
-            }
-
-            seq_printf(m, "%6u\n", gcmPTR2INT32(record->data));
-        }
-    }
-}
-
-static void
-_ShowMapMemoryRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i;
-
-    seq_printf(m, "Map Memory:\n");
-    seq_printf(m, "  name              vaddr       size\n");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR r = Database->list[i];
-
-        while (r != NULL)
-        {
-            gcsDATABASE_RECORD_PTR record = r;
-            r = r->next;
-
-            if (record->type != gcvDB_MAP_MEMORY)
-            {
-                continue;
-            }
-
-            seq_printf(m, "%#6lx %#18lx %10lu\n",
-                (unsigned long)record->physical,
-                (unsigned long)record->data,
-                (unsigned long)record->bytes
-                );
-        }
-    }
-}
-
-static void
-_ShowMapUserMemoryRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    return;
-}
-
-static void
-_ShowShbufRecord(
-    IN struct seq_file *m,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i;
-
-    seq_printf(m, "ShBuf:\n");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR r = Database->list[i];
-
-        while (r != NULL)
-        {
-            gcsDATABASE_RECORD_PTR record = r;
-            r = r->next;
-
-            if (record->type != gcvDB_SHBUF)
-            {
-                continue;
-            }
-
-            seq_printf(m, "%#8x\n", gcmPTR2INT32(record->data));
-        }
-    }
-}
-
-static void
-_ShowCounters(
-    struct seq_file *File,
-    gcsDATABASE_PTR Database
-    )
-{
-    gctUINT i = 0;
-
-    static const char * otherCounterNames[] = {
+    static const char * const otherCounterNames[] = {
         "AllocNonPaged",
         "AllocContiguous",
         "MapUserMemory",
         "MapMemory",
     };
 
-    gcsDATABASE_COUNTERS * otherCounters[] = {
+    gcsDATABASE_COUNTERS *otherCounters[] = {
         &Database->nonPaged,
         &Database->contiguous,
         &Database->mapUserMemory,
         &Database->mapMemory,
     };
 
-    seq_printf(File, "%-16s %16s %16s %16s\n", "", "Current", "Maximum", "Total");
+    len = fs_printf(ptr, "%-16s %16s %16s %16s\n", "", "Current", "Maximum", "Total");
 
     /* Print surface type counters. */
-    seq_printf(File, "%-16s %16lld %16lld %16lld\n",
-               "All-Types",
-               Database->vidMem.bytes,
-               Database->vidMem.maxBytes,
-               Database->vidMem.totalBytes);
+    len += fs_printf(ptr + len,
+                     "%-16s %16lld %16lld %16lld\n",
+                     "All-Types",
+                     Database->vidMem.bytes,
+                     Database->vidMem.maxBytes,
+                     Database->vidMem.totalBytes);
 
-    for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++)
-    {
-        seq_printf(File, "%-16s %16lld %16lld %16lld\n",
-                   vidmemTypeStr[i],
-                   Database->vidMemType[i].bytes,
-                   Database->vidMemType[i].maxBytes,
-                   Database->vidMemType[i].totalBytes);
+    for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++) {
+        len += fs_printf(ptr + len,
+                         "%-16s %16lld %16lld %16lld\n",
+                         vidmemTypeStr[i],
+                         Database->vidMemType[i].bytes,
+                         Database->vidMemType[i].maxBytes,
+                         Database->vidMemType[i].totalBytes);
     }
-    seq_puts(File, "\n");
+    /*seq_puts(File, "\n");*/
+    len += fs_printf(ptr + len, "\n");
 
     /* Print surface pool counters. */
-    seq_printf(File, "%-16s %16lld %16lld %16lld\n",
-               "All-Pools",
-               Database->vidMem.bytes,
-               Database->vidMem.maxBytes,
-               Database->vidMem.totalBytes);
+    len += fs_printf(ptr + len,
+                     "%-16s %16lld %16lld %16lld\n",
+                     "All-Pools",
+                     Database->vidMem.bytes,
+                     Database->vidMem.maxBytes,
+                     Database->vidMem.totalBytes);
 
-    for (i = 1; i < gcvPOOL_NUMBER_OF_POOLS; i++)
-    {
-        seq_printf(File, "%-16s %16lld %16lld %16lld\n",
-                   poolStr[i],
-                   Database->vidMemPool[i].bytes,
-                   Database->vidMemPool[i].maxBytes,
-                   Database->vidMemPool[i].totalBytes);
+    for (i = 1; i < gcvPOOL_NUMBER_OF_POOLS; i++) {
+        len += fs_printf(ptr + len,
+                         "%-16s %16lld %16lld %16lld\n",
+                         poolStr[i],
+                         Database->vidMemPool[i].bytes,
+                         Database->vidMemPool[i].maxBytes,
+                         Database->vidMemPool[i].totalBytes);
     }
-    seq_puts(File, "\n");
+    /*seq_puts(File, "\n");*/
+    len += fs_printf(ptr + len, "\n");
 
     /* Print other counters. */
-    for (i = 0; i < gcmCOUNTOF(otherCounterNames); i++)
-    {
-        seq_printf(File, "%-16s %16lld %16lld %16lld\n",
-                   otherCounterNames[i],
-                   otherCounters[i]->bytes,
-                   otherCounters[i]->maxBytes,
-                   otherCounters[i]->totalBytes);
+    for (i = 0; i < gcmCOUNTOF(otherCounterNames); i++) {
+        len += fs_printf(ptr + len,
+                         "%-16s %16lld %16lld %16lld\n",
+                         otherCounterNames[i],
+                         otherCounters[i]->bytes,
+                         otherCounters[i]->maxBytes,
+                         otherCounters[i]->totalBytes);
     }
-    seq_puts(File, "\n");
+    /*seq_puts(File, "\n");*/
+    len += fs_printf(ptr + len, "\n");
+    return len;
 }
 
 static int
-_ShowRecord(
-    IN struct seq_file *File,
-    IN gcsDATABASE_PTR Database,
-    IN gcsDATABASE_RECORD_PTR Record
-    )
+_ShowRecord(IN void *File, IN gcsDATABASE_PTR Database, IN gcsDATABASE_RECORD_PTR Record)
 {
-    gctUINT32 handle;
+    gctUINT32      handle;
     gckVIDMEM_NODE nodeObject;
     gctPHYS_ADDR_T physical;
-    gceSTATUS status = gcvSTATUS_OK;
+    gceSTATUS      status = gcvSTATUS_OK;
+    int            len    = 0;
+#ifdef CONFIG_DEBUG_FS
+    void           *ptr = File;
+#else
+    char           *ptr = (char *)File;
+#endif
 
-    static const char * recordTypes[gcvDB_NUM_TYPES] = {
+    static const char *recordTypes[gcvDB_NUM_TYPES] = {
         "Unknown",
         "VideoMemory",
         "CommandBuffer",
@@ -681,227 +571,137 @@ _ShowRecord(
 
     handle = gcmPTR2INT32(Record->data);
 
-    if (Record->type == gcvDB_VIDEO_MEMORY || Record->type == gcvDB_VIDEO_MEMORY_LOCKED)
-    {
-        status = gckVIDMEM_HANDLE_Lookup2(
-            Record->kernel,
-            Database,
-            handle,
-            &nodeObject
-        );
+    if (Record->type == gcvDB_VIDEO_MEMORY ||
+        Record->type == gcvDB_VIDEO_MEMORY_LOCKED) {
+        status = gckVIDMEM_HANDLE_Lookup2(Record->kernel, Database,
+                                          handle, &nodeObject);
 
-        if (gcmIS_ERROR(status))
-        {
-            seq_printf(File, "%6u Invalid Node\n", handle);
+        if (gcmIS_ERROR(status)) {
+            len += fs_printf(ptr + len, "%6u Invalid Node\n", handle);
             gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
         }
-        gcmkONERROR(gckVIDMEM_NODE_GetPhysical(Record->kernel, nodeObject, 0, &physical));
-    }
-    else
-    {
+        gcmkONERROR(gckVIDMEM_NODE_GetCPUPhysical(Record->kernel, nodeObject, 0, &physical));
+    } else {
         physical = (gctUINT64)(gctUINTPTR_T)Record->physical;
     }
 
-    seq_printf(File, "%-14s %3d %16x %16zx %16zu\n",
-        recordTypes[Record->type],
-        Record->kernel->core,
-        gcmPTR2INT32(Record->data),
-        (size_t) physical,
-        Record->bytes
-        );
+    len += fs_printf(ptr + len,
+                     "%-14s %3d %16x %16zx %16zu\n",
+                     recordTypes[Record->type],
+                     Record->kernel->core,
+                     gcmPTR2INT32(Record->data),
+                     (size_t)physical,
+                     Record->bytes);
 
 OnError:
-    return status;
-}
-
-static void
-_ShowDataBaseOldFormat(
-    IN struct seq_file *File,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctINT pid;
-    gctUINT i;
-    char name[24];
-
-    /* Process ID and name */
-    pid = Database->processID;
-    gcmkVERIFY_OK(gckOS_GetProcessNameByPid(pid, gcmSIZEOF(name), name));
-
-    seq_printf(File, "--------------------------------------------------------------------------------\n");
-    seq_printf(File, "Process: %-8d %s\n", pid, name);
-
-    seq_printf(File, "Records:\n");
-
-    seq_printf(File, "%14s %3s %16s %16s %16s\n",
-               "Type", "GPU", "Data/Node", "Physical/Node", "Bytes");
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR record = Database->list[i];
-
-        while (record != NULL)
-        {
-            _ShowRecord(File, Database, record);
-            record = record->next;
-        }
-    }
-
-    seq_printf(File, "Counters:\n");
-
-    _ShowCounters(File, Database);
-}
-
-static void
-_ShowDatabase(
-    IN struct seq_file *File,
-    IN gcsDATABASE_PTR Database
-    )
-{
-    gctINT pid;
-    gctUINT i;
-    char name[24];
-    gctBOOL hasType[gcvDB_NUM_TYPES] = {0,};
-    void (* showFuncs[])(struct seq_file *, gcsDATABASE_PTR) =
-    {
-        _ShowDummyRecord,
-        _ShowVideoMemoryRecord,
-        _ShowCommandBufferRecord,
-        _ShowNonPagedRecord,
-        _ShowContiguousRecord,
-        _ShowSignalRecord,
-        _ShowLockRecord,
-        _ShowContextRecord,
-        _ShowDummyRecord,
-        _ShowMapMemoryRecord,
-        _ShowMapUserMemoryRecord,
-        _ShowShbufRecord,
-    };
-
-    gcmSTATIC_ASSERT(gcmCOUNTOF(showFuncs) == gcvDB_NUM_TYPES,
-                     "DB type mismatch");
-
-    /* Process ID and name */
-    pid = Database->processID;
-    gcmkVERIFY_OK(gckOS_GetProcessNameByPid(pid, gcmSIZEOF(name), name));
-
-    seq_printf(File, "--------------------------------------------------------------------------------\n");
-    seq_printf(File, "Process: %-8d %s\n", pid, name);
-
-    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
-    {
-        gcsDATABASE_RECORD_PTR record = Database->list[i];
-
-        while (record != NULL)
-        {
-            hasType[record->type] = gcvTRUE;
-            record = record->next;
-        }
-    }
-
-    for (i = 0; i < gcvDB_NUM_TYPES; i++)
-    {
-        if (hasType[i])
-        {
-            showFuncs[i](File, Database);
-        }
-    }
+    return len;
 }
 
 static int
-gc_db_show_old(struct seq_file *m, void *data)
+_ShowDataBaseOldFormat(IN void *File, IN gcsDATABASE_PTR Database)
 {
-    gcsDATABASE_PTR database;
-    gctINT i;
-    static gctUINT64 idleTime = 0;
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    gckKERNEL kernel = _GetValidKernel(device);
+    gctINT  pid;
+    gctUINT i;
+    char    name[24];
+    int     len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void    *ptr = File;
+#else
+    char    *ptr = (char *)File;
+#endif
+
+    /* Process ID and name */
+    pid = Database->processID;
+    gcmkVERIFY_OK(gckOS_GetProcessNameByPid(pid, gcmSIZEOF(name), name));
+
+    len = fs_printf(ptr, "--------------------------------------------------------------------------------\n");
+    len += fs_printf(ptr + len, "Process: %-8d %s\n", pid, name);
+
+    len += fs_printf(ptr + len, "Records:\n");
+
+    len += fs_printf(ptr + len,
+                     "%14s %3s %16s %16s %16s\n",
+                     "Type", "GPU", "Data/Node", "Physical/Node", "Bytes");
+
+    for (i = 0; i < gcmCOUNTOF(Database->list); i++) {
+        gcsDATABASE_RECORD_PTR record = Database->list[i];
+
+        while (record) {
+            len += _ShowRecord(ptr + len, Database, record);
+            record = record->next;
+        }
+    }
+
+    len += fs_printf(ptr + len, "Counters:\n");
+
+    len += _ShowCounters(ptr + len, Database);
+    return len;
+}
+
+static int
+gc_db_old_show(void *m, void *data, gctBOOL all)
+{
+    gcsDATABASE_PTR  database;
+    gctINT           i;
+
+    static gctUINT64 idleTime;
+    gckGALDEVICE     device = galDevice;
+    gckKERNEL        kernel = _GetValidKernel(device);
+    int              len    = 0;
+#ifdef CONFIG_DEBUG_FS
+    void             *ptr = m;
+#else
+    char             *ptr = (char *)m;
+#endif
 
     if (!kernel)
         return -ENXIO;
 
     /* Acquire the database mutex. */
-    gcmkVERIFY_OK(
-        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
+    gcmkVERIFY_OK(gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
 
-    if (kernel->db->idleTime)
-    {
+    if (kernel->db->idleTime) {
         /* Record idle time if DB upated. */
-        idleTime = kernel->db->idleTime;
+        idleTime             = kernel->db->idleTime;
         kernel->db->idleTime = 0;
     }
 
     /* Idle time since last call */
-    seq_printf(m, "GPU Idle: %llu ns\n",  idleTime);
+    len = fs_printf(ptr, "GPU Idle: %llu ns\n", idleTime);
 
-    /* Walk the databases. */
-    for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i)
-    {
-        for (database = kernel->db->db[i];
-             database != gcvNULL;
-             database = database->next)
-        {
-            _ShowDataBaseOldFormat(m, database);
+    if (all) {
+        /* Walk the databases. */
+        for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i) {
+            for (database = kernel->db->db[i];
+                 database != gcvNULL;
+                 database = database->next)
+                len += _ShowDataBaseOldFormat(ptr + len, database);
         }
     }
 
     /* Release the database mutex. */
     gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
 
-    return 0 ;
+    return len;
 }
 
 static int
-gc_db_show(struct seq_file *m, void *data)
+gc_db_show(void *m, void *data, gctBOOL all)
 {
-    gcsDATABASE_PTR database;
-    gctINT i;
-    static gctUINT64 idleTime = 0;
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    gckKERNEL kernel = _GetValidKernel(device);
-
-    if (!kernel)
-        return -ENXIO;
-
-    /* Acquire the database mutex. */
-    gcmkVERIFY_OK(
-        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
-
-    if (kernel->db->idleTime)
-    {
-        /* Record idle time if DB upated. */
-        idleTime = kernel->db->idleTime;
-        kernel->db->idleTime = 0;
-    }
-
-    /* Idle time since last call */
-    seq_printf(m, "GPU Idle: %llu ns\n",  idleTime);
-
-    /* Walk the databases. */
-    for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i)
-    {
-        for (database = kernel->db->db[i];
-             database != gcvNULL;
-             database = database->next)
-        {
-            _ShowDatabase(m, database);
-        }
-    }
-
-    /* Release the database mutex. */
-    gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
-
-    return 0 ;
+    return 0;
 }
 
 static int
-gc_version_show(struct seq_file *m, void *data)
+gc_version_show(void *m, void *data)
 {
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    gcsPLATFORM * platform = gcvNULL;
+    gckGALDEVICE device   = galDevice;
+    gcsPLATFORM *platform = gcvNULL;
+    int          len      = 0;
+#ifdef CONFIG_DEBUG_FS
+    void        *ptr = m;
+#else
+    char        *ptr = (char *)m;
+#endif
 
     if (!device)
         return -ENXIO;
@@ -910,71 +710,72 @@ gc_version_show(struct seq_file *m, void *data)
     if (!platform)
         return -ENXIO;
 
-    seq_printf(m, "%s built at %s\n",  gcvVERSION_STRING, HOST);
+#ifdef CONFIG_DEBUG_FS
+    len = fs_printf(ptr, "%s built at %s\n", gcvVERSION_STRING, HOST);
 
     if (platform->name)
-    {
-        seq_printf(m, "Platform path: %s\n", platform->name);
-    }
+        len += fs_printf(ptr + len, "Platform path: %s\n", platform->name);
     else
-    {
-        seq_printf(m, "Code path: %s\n", __FILE__);
-    }
+        len += fs_printf(ptr + len, "Code path: %s\n", __FILE__);
+#else
+    len = fs_printf(ptr, "%s\n", gcvVERSION_STRING);
+#endif
 
-    return 0 ;
+    return len;
 }
 
-static void print_ull(char dest[32], unsigned long long u)
+static void
+print_ull(char dest[32], unsigned long long u)
 {
-    unsigned t[7];
-    int i;
+    unsigned int t[7];
+    int          i;
 
-    if (u < 1000)
-    {
+    if (u < 1000) {
         sprintf(dest, "%27llu", u);
         return;
     }
 
     for (i = 0; i < 7 && u; i++)
-    {
         t[i] = do_div(u, 1000);
-    }
 
     dest += sprintf(dest, "%*s", (7 - i) * 4, "");
     dest += sprintf(dest, "%3u", t[--i]);
 
     for (i--; i >= 0; i--)
-    {
         dest += sprintf(dest, ",%03u", t[i]);
-    }
 }
 
 /*******************************************************************************
-**
-** Show PM state timer.
-**
-** Entry is called as 'idle' for compatible reason, it shows more information
-** than idle actually.
-**
-**  Start: Start time of this counting period.
-**  End: End time of this counting peroid.
-**  On: Time GPU stays in gcvPOWER_0N.
-**  Off: Time GPU stays in gcvPOWER_0FF.
-**  Idle: Time GPU stays in gcvPOWER_IDLE.
-**  Suspend: Time GPU stays in gcvPOWER_SUSPEND.
-*/
+ **
+ ** Show PM state timer.
+ **
+ ** Entry is called as 'idle' for compatible reason, it shows more information
+ ** than idle actually.
+ **
+ **  Start: Start time of this counting period.
+ **  End: End time of this counting period.
+ **  On: Time GPU stays in gcvPOWER_0N.
+ **  Off: Time GPU stays in gcvPOWER_0FF.
+ **  Idle: Time GPU stays in gcvPOWER_IDLE.
+ **  Suspend: Time GPU stays in gcvPOWER_SUSPEND.
+ */
 static int
-gc_idle_show(struct seq_file *m, void *data)
+gc_idle_show(void *m, void *data)
 {
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    gckKERNEL kernel = _GetValidKernel(device);
-    char str[32];
+    gckGALDEVICE device = galDevice;
+    gckKERNEL    kernel = _GetValidKernel(device);
+    char         str[32];
 
-    gctUINT64 on;
-    gctUINT64 off;
-    gctUINT64 idle;
-    gctUINT64 suspend;
+    gctUINT64    on;
+    gctUINT64    off;
+    gctUINT64    idle;
+    gctUINT64    suspend;
+    int          len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void         *ptr = m;
+#else
+    char         *ptr = (char *)m;
+#endif
 
     if (!kernel)
         return -ENXIO;
@@ -983,158 +784,68 @@ gc_idle_show(struct seq_file *m, void *data)
 
     /* Idle time since last call */
     print_ull(str, on);
-    seq_printf(m, "On:      %s ns\n",  str);
+    len = fs_printf(ptr, "On:      %s ns\n", str);
     print_ull(str, off);
-    seq_printf(m, "Off:     %s ns\n",  str);
+    len += fs_printf(ptr + len, "Off:     %s ns\n", str);
     print_ull(str, idle);
-    seq_printf(m, "Idle:    %s ns\n",  str);
+    len += fs_printf(ptr + len, "Idle:    %s ns\n", str);
     print_ull(str, suspend);
-    seq_printf(m, "Suspend: %s ns\n",  str);
+    len += fs_printf(ptr + len, "Suspend: %s ns\n", str);
 
-    return 0 ;
+    return len;
 }
 
 extern void
-_DumpState(
-    IN gckKERNEL Kernel
-    );
+_DumpState(IN gckKERNEL Kernel);
 
-/*******************************************************************************
-**
-** Show PM state timer.
-**
-** Entry is called as 'idle' for compatible reason, it shows more information
-** than idle actually.
-**
-**  Start: Start time of this counting period.
-**  End: End time of this counting peroid.
-**  On: Time GPU stays in gcvPOWER_0N.
-**  Off: Time GPU stays in gcvPOWER_0FF.
-**  Idle: Time GPU stays in gcvPOWER_IDLE.
-**  Suspend: Time GPU stays in gcvPOWER_SUSPEND.
-*/
-static int dumpCore = 0;
-static gctBOOL dumpAllCore = gcvFALSE;
+static gctUINT dumpDevice = 0;
+static gctUINT dumpCore   = 0;
 
 static int
-gc_dump_trigger_show(struct seq_file *m, void *data)
+gc_dump_trigger_show(void *m, void *data)
 {
+    int len = 0;
+
 #if gcdENABLE_3D || gcdENABLE_2D
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    gckKERNEL kernel = gcvNULL;
-    gckHARDWARE Hardware = gcvNULL;
-    gctBOOL powerManagement = gcvFALSE;
-    gceSTATUS status = gcvSTATUS_OK;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#    else
+    char *ptr = (char *)m;
+#    endif
+
+    gckGALDEVICE      gal_device      = galDevice;
+    gckDEVICE         device          = gcvNULL;
+    gckKERNEL         kernel          = gcvNULL;
+    gckHARDWARE       Hardware        = gcvNULL;
+    gctBOOL           powerManagement = gcvFALSE;
+    gceSTATUS         status          = gcvSTATUS_OK;
     gceCHIPPOWERSTATE statesStored, state;
 
-    if (((dumpCore < gcvCORE_MAJOR) || (dumpCore >= gcvCORE_COUNT)) && (!dumpAllCore))
-    {
-        return -ENXIO;
-    }
+    gctINT i = 0;
 
-    seq_printf(m, "Dump one core: For example, dump core 0: echo 0 > /sys/kernel/debug/gc/dump_trigger; cat /sys/kernel/debug/gc/dump_trigger\n");
-    seq_printf(m, "Dump all cores: echo all > /sys/kernel/debug/gc/dump_trigger; cat /sys/kernel/debug/gc/dump_trigger\n");
-    seq_printf(m, "The dump will be in [dmesg].\n");
+    len += fs_printf(ptr + len, "Dump one device: For example, dump cores on device 0: echo 0 > /sys/kernel/debug/gc/dump_trigger; cat /sys/kernel/debug/gc/dump_trigger\n");
+    len += fs_printf(ptr + len, "The dump will be in [dmesg].\n");
 
-    if (dumpAllCore)
-    {
-        gctINT8 i = 0;
+    device = gal_device->devices[dumpDevice];
 
-        for (i = 0; i < gcvCORE_COUNT; ++i)
-        {
-            if (!device->kernels[i])
-            {
-                continue;
-            }
+    for (i = 0; i < gcvCORE_COUNT; ++i) {
+        if (!device->kernels[i])
+            continue;
 
-            kernel = device->kernels[i];
-            Hardware = kernel->hardware;
-            powerManagement = Hardware->options.powerManagement;
-
-            if (powerManagement)
-            {
-                gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-                    Hardware, gcvFALSE
-                    ));
-            }
-
-            gcmkONERROR(gckHARDWARE_QueryPowerState(
-                Hardware, &statesStored
-                ));
-
-            gcmkONERROR(gckHARDWARE_SetPowerState(
-                Hardware, gcvPOWER_ON_AUTO
-                ));
-
-            _DumpState(kernel);
-
-            switch(statesStored)
-            {
-            case gcvPOWER_OFF:
-                state = gcvPOWER_OFF_BROADCAST;
-                break;
-            case gcvPOWER_IDLE:
-                state = gcvPOWER_IDLE_BROADCAST;
-                break;
-            case gcvPOWER_SUSPEND:
-                state = gcvPOWER_SUSPEND_BROADCAST;
-                break;
-            case gcvPOWER_ON:
-                state = gcvPOWER_ON_AUTO;
-                break;
-            default:
-                state = statesStored;
-                break;
-            }
-
-            if (powerManagement)
-            {
-                gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-                    Hardware, gcvTRUE
-                    ));
-            }
-
-            gcmkONERROR(gckHARDWARE_SetPowerState(
-                Hardware, state
-                ));
-
-        }
-    }
-    else
-    {
-        if (device->kernels[dumpCore])
-        {
-            kernel = device->kernels[dumpCore];
-        }
-        else
-        {
-            seq_printf(m, "Dump core from invalid coreid.\n");
-            goto OnError;
-        }
-
-        Hardware = kernel->hardware;
+        kernel          = device->kernels[i];
+        Hardware        = kernel->hardware;
         powerManagement = Hardware->options.powerManagement;
 
         if (powerManagement)
-        {
-            gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-                Hardware, gcvFALSE
-                ));
-        }
+            gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
 
-        gcmkONERROR(gckHARDWARE_QueryPowerState(
-            Hardware, &statesStored
-            ));
+        gcmkONERROR(gckHARDWARE_QueryPowerState(Hardware, &statesStored));
 
-        gcmkONERROR(gckHARDWARE_SetPowerState(
-            Hardware, gcvPOWER_ON_AUTO
-            ));
+        gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
 
         _DumpState(kernel);
 
-        switch(statesStored)
-        {
+        switch (statesStored) {
         case gcvPOWER_OFF:
             state = gcvPOWER_OFF_BROADCAST;
             break;
@@ -1153,278 +864,173 @@ gc_dump_trigger_show(struct seq_file *m, void *data)
         }
 
         if (powerManagement)
-        {
-            gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-                Hardware, gcvTRUE
-                ));
-        }
+            gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvTRUE));
 
-        gcmkONERROR(gckHARDWARE_SetPowerState(
-            Hardware, state
-            ));
+        gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
     }
 
 OnError:
 #endif
-    return 0;
+    return len;
 }
 
-static int dumpProcess = 0;
+static int dumpProcess;
 
-static void
-_ShowVideoMemoryOldFormat(
-    struct seq_file *File,
-    gcsDATABASE_PTR Database
-    )
+static int
+_ShowVideoMemoryOldFormat(void *File, gcsDATABASE_PTR Database, gctBOOL All)
 {
-    gctUINT i = 0;
+    gctUINT i   = 0;
+    int     len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void    *ptr = File;
+#else
+    char    *ptr = (char *)File;
+#endif
 
-    static const char * otherCounterNames[] = {
+    static const char * const otherCounterNames[] = {
         "AllocNonPaged",
         "AllocContiguous",
         "MapUserMemory",
         "MapMemory",
     };
 
-    gcsDATABASE_COUNTERS * otherCounters[] = {
+    gcsDATABASE_COUNTERS *otherCounters[] = {
         &Database->nonPaged,
         &Database->contiguous,
         &Database->mapUserMemory,
         &Database->mapMemory,
     };
 
-    seq_printf(File, "%-16s %16s %16s %16s\n", "", "Current", "Maximum", "Total");
+    len = fs_printf(ptr, "%-16s %16s %16s %16s\n", "", "Current", "Maximum", "Total");
 
     /* Print surface type counters. */
-    seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-               "All-Types",
-               Database->vidMem.bytes,
-               Database->vidMem.maxBytes,
-               Database->vidMem.totalBytes);
+    len += fs_printf(ptr + len,
+                     "%-16s %16llu %16llu %16llu\n",
+                     "All-Types",
+                     Database->vidMem.bytes,
+                     Database->vidMem.maxBytes,
+                     Database->vidMem.totalBytes);
 
-    for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++)
-    {
-        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-                   vidmemTypeStr[i],
-                   Database->vidMemType[i].bytes,
-                   Database->vidMemType[i].maxBytes,
-                   Database->vidMemType[i].totalBytes);
+    if (All) {
+        for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++) {
+            len += fs_printf(ptr + len,
+                             "%-16s %16llu %16llu %16llu\n",
+                             vidmemTypeStr[i],
+                             Database->vidMemType[i].bytes,
+                             Database->vidMemType[i].maxBytes,
+                             Database->vidMemType[i].totalBytes);
+        }
+        /*seq_puts(File, "\n");*/
+        len += fs_printf(ptr + len, "\n");
+
+        /* Print surface pool counters. */
+        len += fs_printf(ptr + len,
+                         "%-16s %16llu %16llu %16llu\n",
+                         "All-Pools",
+                         Database->vidMem.bytes,
+                         Database->vidMem.maxBytes,
+                         Database->vidMem.totalBytes);
+
+        for (i = 1; i < gcvPOOL_NUMBER_OF_POOLS; i++) {
+            len += fs_printf(ptr + len,
+                             "%-16s %16llu %16llu %16llu\n",
+                             poolStr[i],
+                             Database->vidMemPool[i].bytes,
+                             Database->vidMemPool[i].maxBytes,
+                             Database->vidMemPool[i].totalBytes);
+        }
+        /*seq_puts(File, "\n");*/
+        len += fs_printf(ptr + len, "\n");
+
+        /* Print other counters. */
+        for (i = 0; i < gcmCOUNTOF(otherCounterNames); i++) {
+            len += fs_printf(ptr + len,
+                             "%-16s %16llu %16llu %16llu\n",
+                             otherCounterNames[i],
+                             otherCounters[i]->bytes,
+                             otherCounters[i]->maxBytes,
+                             otherCounters[i]->totalBytes);
+        }
+        /*seq_puts(File, "\n");*/
+        len += fs_printf(ptr + len, "\n");
     }
-    seq_puts(File, "\n");
 
-    /* Print surface pool counters. */
-    seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-               "All-Pools",
-               Database->vidMem.bytes,
-               Database->vidMem.maxBytes,
-               Database->vidMem.totalBytes);
-
-    for (i = 1; i < gcvPOOL_NUMBER_OF_POOLS; i++)
-    {
-        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-                   poolStr[i],
-                   Database->vidMemPool[i].bytes,
-                   Database->vidMemPool[i].maxBytes,
-                   Database->vidMemPool[i].totalBytes);
-    }
-    seq_puts(File, "\n");
-
-    /* Print other counters. */
-    for (i = 0; i < gcmCOUNTOF(otherCounterNames); i++)
-    {
-        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-                   otherCounterNames[i],
-                   otherCounters[i]->bytes,
-                   otherCounters[i]->maxBytes,
-                   otherCounters[i]->totalBytes);
-    }
-    seq_puts(File, "\n");
+    return len;
 }
 
-static void
-_ShowVideoMemory(
-    struct seq_file *File,
-    gcsDATABASE_PTR Database
-    )
+static int
+gc_vidmem_old_show(void *m, void *unused, gctBOOL all)
 {
-    gctUINT i = 0;
-
-    static const char * otherCounterNames[] = {
-        "AllocNonPaged",
-        "MapMemory",
-    };
-
-    gcsDATABASE_COUNTERS * otherCounters[] = {
-        &Database->nonPaged,
-        &Database->mapMemory,
-    };
-
-    seq_printf(File, "%-16s %16s %16s %16s\n", "", "Current", "Maximum", "Total");
-
-    /* Print surface type counters. */
-    seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-               "All-Types",
-               Database->vidMem.bytes,
-               Database->vidMem.maxBytes,
-               Database->vidMem.totalBytes);
-
-    for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++)
-    {
-        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-                   vidmemTypeStr[i],
-                   Database->vidMemType[i].bytes,
-                   Database->vidMemType[i].maxBytes,
-                   Database->vidMemType[i].totalBytes);
-    }
-    seq_puts(File, "\n");
-
-    /* Print surface pool counters. */
-    seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-               "All-Pools",
-               Database->vidMem.bytes,
-               Database->vidMem.maxBytes,
-               Database->vidMem.totalBytes);
-
-    for (i = 1; i < gcvPOOL_NUMBER_OF_POOLS; i++)
-    {
-        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-                   poolStr[i],
-                   Database->vidMemPool[i].bytes,
-                   Database->vidMemPool[i].maxBytes,
-                   Database->vidMemPool[i].totalBytes);
-    }
-    seq_puts(File, "\n");
-
-    /* Print other counters. */
-    for (i = 0; i < gcmCOUNTOF(otherCounterNames); i++)
-    {
-        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
-                   otherCounterNames[i],
-                   otherCounters[i]->bytes,
-                   otherCounters[i]->maxBytes,
-                   otherCounters[i]->totalBytes);
-    }
-    seq_puts(File, "\n");
-}
-
-static int gc_vidmem_show_old(struct seq_file *m, void *unused)
-{
-    gceSTATUS status;
+    gceSTATUS       status;
     gcsDATABASE_PTR database;
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    char name[64];
-    int i;
+    gckGALDEVICE    gal_device = galDevice;
+    gckKERNEL       kernel     = gcvNULL;
+    char            name[64];
+    int             i;
+    int             len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void            *ptr = m;
+#else
+    char            *ptr = (char *)m;
+#endif
 
-    gckKERNEL kernel = _GetValidKernel(device);
+    kernel = _GetValidKernel(gal_device);
 
     if (!kernel)
         return -ENXIO;
 
-    if (dumpProcess == 0)
-    {
+    if (dumpProcess == 0) {
         /* Acquire the database mutex. */
-        gcmkVERIFY_OK(
-        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
+        gcmkVERIFY_OK(gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
 
-        for (i = 0; i < gcmCOUNTOF(kernel->db->db); i++)
-        {
+        for (i = 0; i < gcmCOUNTOF(kernel->db->db); i++) {
             for (database = kernel->db->db[i];
                  database != gcvNULL;
-                 database = database->next)
-            {
+                 database = database->next) {
                 gckOS_GetProcessNameByPid(database->processID, gcmSIZEOF(name), name);
-                seq_printf(m, "VidMem Usage (Process %u: %s):\n", database->processID, name);
-                _ShowVideoMemoryOldFormat(m, database);
-                seq_puts(m, "\n");
+                len += fs_printf(ptr + len,
+                                 "VidMem Usage (Process %u: %s):\n",
+                                 database->processID, name);
+                len += _ShowVideoMemoryOldFormat(ptr + len, database, all);
+                /*seq_puts(m, "\n");*/
+                len += fs_printf(ptr + len, "\n");
             }
         }
 
         /* Release the database mutex. */
         gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
-    }
-    else
-    {
+    } else {
         /* Find the database. */
         status = gckKERNEL_FindDatabase(kernel, dumpProcess, gcvFALSE, &database);
 
-        if (gcmIS_ERROR(status))
-        {
-            seq_printf(m, "ERROR: process %d not found\n", dumpProcess);
-            return 0;
+        if (gcmIS_ERROR(status)) {
+            len += fs_printf(ptr + len, "ERROR: process %d not found\n", dumpProcess);
+            return len;
         }
 
         gckOS_GetProcessNameByPid(dumpProcess, gcmSIZEOF(name), name);
-        seq_printf(m, "VidMem Usage (Process %d: %s):\n", dumpProcess, name);
-        _ShowVideoMemoryOldFormat(m, database);
+        len += fs_printf(ptr + len, "VidMem Usage (Process %d: %s):\n", dumpProcess, name);
+        len += _ShowVideoMemoryOldFormat(ptr + len, database, all);
     }
 
+    return len;
+}
+
+static int
+gc_vidmem_show(void *m, void *unused, gctBOOL all)
+{
     return 0;
 }
 
-static int gc_vidmem_show(struct seq_file *m, void *unused)
+#ifdef CONFIG_DEBUG_FS
+static inline int
+strtoint_from_user(const char __user *s, size_t count, int *res)
 {
-    gceSTATUS status;
-    gcsDATABASE_PTR database;
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    char name[64];
-    int i;
-
-    gckKERNEL kernel = _GetValidKernel(device);
-
-    if (!kernel)
-        return -ENXIO;
-
-    if (dumpProcess == 0)
-    {
-        /* Acquire the database mutex. */
-        gcmkVERIFY_OK(
-        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
-
-        for (i = 0; i < gcmCOUNTOF(kernel->db->db); i++)
-        {
-            for (database = kernel->db->db[i];
-                 database != gcvNULL;
-                 database = database->next)
-            {
-                gckOS_GetProcessNameByPid(database->processID, gcmSIZEOF(name), name);
-                seq_printf(m, "VidMem Usage (Process %u: %s):\n", database->processID, name);
-                _ShowVideoMemory(m, database);
-                seq_puts(m, "\n");
-            }
-        }
-
-        /* Release the database mutex. */
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
-    }
-    else
-    {
-        /* Find the database. */
-        status = gckKERNEL_FindDatabase(kernel, dumpProcess, gcvFALSE, &database);
-
-        if (gcmIS_ERROR(status))
-        {
-            seq_printf(m, "ERROR: process %d not found\n", dumpProcess);
-            return 0;
-        }
-
-        gckOS_GetProcessNameByPid(dumpProcess, gcmSIZEOF(name), name);
-        seq_printf(m, "VidMem Usage (Process %d: %s):\n", dumpProcess, name);
-        _ShowVideoMemory(m, database);
-    }
-
-    return 0;
-}
-
-static inline int strtoint_from_user(const char __user *s,
-                        size_t count, int *res)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
     int ret = kstrtoint_from_user(s, count, 10, res);
 
     return ret < 0 ? ret : count;
-#else
+#    else
     /* sign, base 2 representation, newline, terminator */
     char buf[1 + sizeof(long) * 8 + 1 + 1];
 
@@ -1434,385 +1040,786 @@ static inline int strtoint_from_user(const char __user *s,
         return -EFAULT;
     buf[len] = '\0';
 
-    *res = (int) simple_strtol(buf, NULL, 0);
+    if (kstrtol(buf, 0, res))
+        return gcvSTATUS_INVALID_DATA;
 
     return count;
-#endif
+#    endif
 }
 
-static int gc_vidmem_write(const char __user *buf, size_t count, void* data)
+static int
+gc_vidmem_write(const char __user *buf, size_t count, void *data)
 {
     return strtoint_from_user(buf, count, &dumpProcess);
 }
 
-static int gc_dump_trigger_write(const char __user *buf, size_t count, void* data)
+static int
+gc_dump_trigger_write(const char __user *buf, size_t count, void *data)
 {
-    char str[1 + sizeof(long) * 8 + 1 + 1];
-
-    size_t len = min(count, sizeof(str) - 1);
-
-    if (copy_from_user(str, buf, len))
-        return -EFAULT;
-
-    str[len] = '\0';
-
-    if (str[0] == 'a' && str[1] == 'l' && str[2] == 'l')
-    {
-        dumpAllCore = gcvTRUE;
-        return count;
-    }
-    else
-    {
-        dumpAllCore = gcvFALSE;
-        return strtoint_from_user(buf, count, &dumpCore);
-    }
+    return strtoint_from_user(buf, count, &dumpDevice);
 }
 
-static int gc_clk_show(struct seq_file* m, void* data)
+#if gcdENABLE_MP_SWITCH
+static int
+gc_switch_core_count(void *m, void *data)
 {
-    gcsINFO_NODE *node = m->private;
-    gckGALDEVICE device = node->device;
-    gctUINT i;
-    gceSTATUS status;
+    return 0;
+}
 
-    if (!device)
+static int
+gc_switch_core_count_write(const char __user *buf, size_t count, void *data)
+{
+    gckGALDEVICE device    = galDevice;
+    int          coreCount = 0;
+    int          ret;
+
+    ret = strtoint_from_user(buf, count, &coreCount);
+
+    if (ret && coreCount)
+        device->platform->coreCount = coreCount;
+
+    return ret;
+}
+#    endif
+#endif
+
+static int
+gc_clk_show(void *m, void *data)
+{
+    gckGALDEVICE gal_device = galDevice;
+    gckDEVICE    device     = gcvNULL;
+    gctUINT      i;
+    gceSTATUS    status;
+    int          len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void         *ptr = m;
+#else
+    char         *ptr = (char *)m;
+#endif
+
+    if (!gal_device)
         return -ENXIO;
 
-    for (i = gcvCORE_MAJOR; i < gcvCORE_COUNT; i++)
-    {
-        if (device->kernels[i])
-        {
+    device = gal_device->devices[0];
+
+    for (i = gcvCORE_MAJOR; i < gcvCORE_COUNT; i++) {
+        if (device->kernels[i]) {
             gckHARDWARE hardware = device->kernels[i]->hardware;
 
             if (i == gcvCORE_VG)
-            {
                 continue;
-            }
 
             status = gckHARDWARE_QueryFrequency(hardware);
-            if (gcmIS_ERROR(status))
-            {
-                seq_printf(m, "query gpu%d clock fail.\n", i);
+            if (gcmIS_ERROR(status)) {
+                len += fs_printf(ptr + len, "query gpu%d clock fail.\n", i);
                 continue;
             }
 
             if (hardware->mcClk)
-            {
-                seq_printf(m, "gpu%d mc clock: %d HZ.\n", i, hardware->mcClk);
-            }
+                len += fs_printf(ptr + len, "gpu%d mc clock: %d HZ.\n", i, hardware->mcClk);
 
             if (hardware->shClk)
-            {
-                seq_printf(m, "gpu%d sh clock: %d HZ.\n", i, hardware->shClk);
-            }
+                len += fs_printf(ptr + len, "gpu%d sh clock: %d HZ.\n", i, hardware->shClk);
         }
     }
 
-    return 0;
+    return len;
 }
 
-static gctUINT32 clkScale[2] = {0, 0};
+static gctINT clkScale[2] = { 0, 0 };
 
-static int _set_clk(const char* buf)
+static int
+set_clk(const char *buf)
 {
-    gckHARDWARE hardware;
-    gckGALDEVICE device = galDevice;
-    gctINT n, j, k;
-    gctBOOL isSpace = gcvFALSE;
-    char data[20];
+    gckHARDWARE  hardware;
+    gctINT       n, j, k;
+    gctBOOL      isSpace = gcvFALSE;
+    char         data[20];
+    gckGALDEVICE gal_device = galDevice;
+    gckDEVICE    device     = gcvNULL;
+    gctUINT32    devIndex   = 0;
+
+    if (!gal_device)
+        return -ENXIO;
 
     memset(data, 0, 20);
-    n = j = k = 0;
+    n = 0; j = 0; k = 0;
 
-    while (gcvTRUE)
-    {
-        if ((buf[k] >= '0') && (buf[k] <= '9'))
-        {
-            if (isSpace)
-            {
+    while (gcvTRUE) {
+        if ((buf[k] >= '0') && (buf[k] <= '9')) {
+            if (isSpace) {
                 data[n++] = ' ';
-                isSpace = gcvFALSE;
+                isSpace   = gcvFALSE;
             }
             data[n++] = buf[k];
-        }
-        else if (buf[k] == ' ')
-        {
+        } else if (buf[k] == ' ') {
             if (n > 0)
-            {
                 isSpace = gcvTRUE;
-            }
-        }
-        else if (buf[k] == '\n')
-        {
+        } else if (buf[k] == '\n') {
             break;
-        }
-        else
-        {
-            printk("Error: command format must be this: echo \"0 32 32\" > /sys/kernel/debug/gc/clk\n");
+        } else {
+            pr_err("Error: command format must be this: echo \"0 32 32\" > /sys/kernel/debug/gc/clk\n");
             return 0;
         }
 
         k++;
 
         if (k >= 20)
-        {
             break;
-        }
     }
 
-    if (3 == sscanf(data, "%d %d %d", &dumpCore, &clkScale[0], &clkScale[1])) {
-        printk("Change core:%d MC scale:%d SH scale:%d\n",
-                dumpCore, clkScale[0], clkScale[1]);
+    if (4 == sscanf(data, "%u %d %d", &dumpCore, &clkScale[0], &clkScale[1])) {
+        pr_warn("Change device:%d core:%d MC scale:%d SH scale:%d\n",
+                devIndex, dumpCore, clkScale[0], clkScale[1]);
     } else {
-        printk("usage: echo \"0 32 32\" > clk\n");
+        pr_warn("usage: echo \"0 0 32 32\" > clk\n");
         return 0;
     }
 
-    if (device->kernels[dumpCore])
-    {
+    /* Currently only support to scale one device. */
+    device = gal_device->devices[0];
+
+    if (device->kernels[dumpCore]) {
         hardware = device->kernels[dumpCore]->hardware;
 
-        gckHARDWARE_SetClock(hardware, dumpCore, clkScale[0], clkScale[1]);
-    }
-    else
-    {
-        printk("Error: invalid core\n");
+        gckHARDWARE_SetClock(hardware, clkScale[0], clkScale[1]);
+    } else {
+        pr_err("Error: invalid core\n");
     }
 
     return 0;
 }
 
-static int gc_clk_write(const char __user *buf, size_t count, void* data)
+static int
+gc_poweroff_timeout_show(void *m, void *data)
 {
-    size_t ret;
-    char _buf[100];
+    gckGALDEVICE gal_device = galDevice;
+    gckHARDWARE  hardware;
+    int          len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
 
-    count = min_t(size_t, count, (sizeof(_buf)-1));
+    if (!gal_device)
+        return -ENXIO;
 
-    ret = copy_from_user(_buf, buf, count);
-    if (ret != 0)
-    {
-        printk("Error: lost data: %d\n", (int)ret);
-        return -EFAULT;
+    hardware = gal_device->devices[0]->kernels[0]->hardware;
+
+#ifdef CONFIG_DEBUG_FS
+    len += fs_printf(ptr + len, "power off timeout: %d ms.\n", hardware->powerOffTimeout);
+#else
+    len += sprintf(ptr + len, "power off timeout: %d ms.\n", hardware->powerOffTimeout);
+#endif
+
+    return len;
+}
+
+static int
+poweroff_timeout_set(const char *buf)
+{
+    gckGALDEVICE gal_device = galDevice;
+    gctINT       i, ret;
+    gckDEVICE    device = gcvNULL;
+    gctUINT32    devIndex;
+
+    if (!gal_device)
+        return -ENXIO;
+
+    for (devIndex = 0; devIndex < gal_device->args.devCount; devIndex++) {
+        device = gal_device->devices[devIndex];
+
+        for (i = gcvCORE_MAJOR; i < gcvCORE_COUNT; i++) {
+            if (device->kernels[i]) {
+                gckHARDWARE hardware = device->kernels[i]->hardware;
+
+                if (i == gcvCORE_VG) {
+                    continue;
+                }
+
+                ret = kstrtouint(buf, 0, &hardware->powerOffTimeout);
+                if (ret < 0)
+                    return ret;
+            }
+        }
     }
 
-    _buf[count] = 0;
+    return 0;
+}
 
-    _set_clk(_buf);
+#ifdef CONFIG_DEBUG_FS
+static int
+debugfs_copy_from_user(char *k_buf, const char __user *buf, size_t count)
+{
+    int ret;
+
+    ret = copy_from_user(k_buf, buf, count);
+    if (ret != 0) {
+        pr_err("Error: lost data: %d\n", (int)ret);
+        return -1;
+    }
+
+    k_buf[count] = 0;
 
     return count;
 }
 
-static gcsINFO InfoList[] =
+static int
+gc_clk_write(const char __user *buf, size_t count, void *data)
 {
-    {"info", gc_info_show},
-    {"clients", gc_clients_show},
-    {"meminfo", gc_meminfo_show},
-    {"idle", gc_idle_show},
-    {"database", gc_db_show_old},
-    {"database64x", gc_db_show},
-    {"version", gc_version_show},
-    {"vidmem", gc_vidmem_show_old, gc_vidmem_write},
-    {"vidmem64x", gc_vidmem_show, gc_vidmem_write},
-    {"dump_trigger", gc_dump_trigger_show, gc_dump_trigger_write},
-    {"clk", gc_clk_show, gc_clk_write},
+    size_t ret, _count;
+    char   k_buf[30];
+
+    _count = min_t(size_t, count, (sizeof(k_buf) - 1));
+
+    ret = debugfs_copy_from_user(k_buf, buf, _count);
+    if (ret == -1)
+        return ret;
+
+    set_clk(k_buf);
+
+    return ret;
+}
+
+static int
+gc_poweroff_timeout_write(const char __user *buf, size_t count, void *data)
+{
+    size_t ret;
+    char   k_buf[30];
+
+    ret = debugfs_copy_from_user(k_buf, buf, count);
+    if (ret == -1)
+        return ret;
+
+    poweroff_timeout_set(k_buf);
+
+    return ret;
+}
+
+int
+gc_info_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_info_show((void *)m, data);
+}
+
+int
+gc_clients_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_clients_show((void *)m, data);
+}
+
+int
+gc_meminfo_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_meminfo_show((void *)m, data);
+}
+
+int
+gc_idle_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_idle_show((void *)m, data);
+}
+
+int
+gc_db_old_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_db_old_show((void *)m, data, gcvTRUE);
+}
+
+int
+gc_db_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_db_show((void *)m, data, gcvTRUE);
+}
+
+int
+gc_version_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_version_show((void *)m, data);
+}
+
+int
+gc_vidmem_old_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_vidmem_old_show((void *)m, data, gcvTRUE);
+}
+
+int
+gc_vidmem_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_vidmem_show((void *)m, data, gcvTRUE);
+}
+
+int
+gc_dump_trigger_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_dump_trigger_show((void *)m, data);
+}
+
+int
+gc_clk_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_clk_show((void *)m, data);
+}
+
+int
+gc_poweroff_timeout_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_poweroff_timeout_show((void *)m, data);
+}
+
+#if gcdENABLE_MP_SWITCH
+int
+gc_switch_core_count_debugfs(struct seq_file *m, void *data)
+{
+    return gc_switch_core_count((void *)m, data);
+}
+#    endif
+
+#if VIVANTE_PROFILER
+int
+gc_load_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_load_show((void *)m, data);
+}
+#    endif
+
+static gcsINFO InfoList[] = {
+    { "info", gc_info_show_debugfs },
+    { "clients", gc_clients_show_debugfs },
+    { "meminfo", gc_meminfo_show_debugfs },
+    { "idle", gc_idle_show_debugfs },
+    { "database", gc_db_old_show_debugfs },
+    { "database64x", gc_db_show_debugfs },
+    { "version", gc_version_show_debugfs },
+    { "vidmem", gc_vidmem_old_show_debugfs, gc_vidmem_write },
+    { "vidmem64x", gc_vidmem_show_debugfs, gc_vidmem_write },
+    { "dump_trigger", gc_dump_trigger_show_debugfs, gc_dump_trigger_write },
+    { "clk", gc_clk_show_debugfs, gc_clk_write },
+    { "poweroff_timeout", gc_poweroff_timeout_show_debugfs, gc_poweroff_timeout_write },
+#if gcdENABLE_MP_SWITCH
+    { "core_count", gc_switch_core_count_debugfs, gc_switch_core_count_write },
+#    endif
+#if VIVANTE_PROFILER
+    { "load", gc_load_show_debugfs },
+#    endif
 };
 
+#else
+static ssize_t
+info_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_info_show((void *)buf, NULL);
+}
+DEVICE_ATTR_RO(info);
+
+static ssize_t
+clients_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_clients_show((void *)buf, NULL);
+}
+DEVICE_ATTR_RO(clients);
+
+static ssize_t
+meminfo_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_meminfo_show((void *)buf, NULL);
+}
+DEVICE_ATTR_RO(meminfo);
+
+static ssize_t
+idle_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_idle_show((void *)buf, NULL);
+}
+DEVICE_ATTR_RO(idle);
+
+static ssize_t
+database_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_db_old_show((void *)buf, NULL, gcvFALSE);
+}
+DEVICE_ATTR_RO(database);
+
+static ssize_t
+database64x_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_db_show((void *)buf, NULL, gcvFALSE);
+}
+DEVICE_ATTR_RO(database64x);
+
+static ssize_t
+version_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_version_show((void *)buf, NULL);
+}
+DEVICE_ATTR_RO(version);
+
+static ssize_t
+load_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_load_show((void *)buf, NULL);
+}
+DEVICE_ATTR_RO(load);
+
+static ssize_t
+vidmem_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_vidmem_old_show((void *)buf, NULL, gcvFALSE);
+}
+
+static ssize_t
+vidmem_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    if (kstrtoint(buf, 0, &dumpProcess))
+        return gcvSTATUS_INVALID_DATA;
+    return count;
+}
+DEVICE_ATTR_RW(vidmem);
+
+static ssize_t
+vidmem64x_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_vidmem_show((void *)buf, NULL, gcvFALSE);
+}
+
+static ssize_t
+vidmem64x_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    if (kstrtoint(buf, 0, &dumpProcess))
+        return gcvSTATUS_INVALID_DATA;
+    return count;
+}
+DEVICE_ATTR_RW(vidmem64x);
+
+static ssize_t
+dump_trigger_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_dump_trigger_show((void *)buf, NULL);
+}
+
+static ssize_t
+dump_trigger_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    if (kstrtoint(buf, 0, &dumpDevice))
+        return gcvSTATUS_INVALID_DATA;
+    return count;
+}
+DEVICE_ATTR_RW(dump_trigger);
+
+static ssize_t
+clk_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_clk_show((void *)buf, NULL);
+}
+
+static ssize_t
+clk_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    set_clk(buf);
+    return count;
+}
+DEVICE_ATTR_RW(clk);
+
+static ssize_t
+poweroff_timeout_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return gc_poweroff_timeout_show((void *)buf, NULL);
+}
+
+static ssize_t
+poweroff_timeout_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    poweroff_timeout_set(buf);
+    return count;
+}
+DEVICE_ATTR_RW(poweroff_timeout);
+
+static struct attribute *Info_attrs[] = {
+    &dev_attr_info.attr,
+    &dev_attr_clients.attr,
+    &dev_attr_meminfo.attr,
+    &dev_attr_idle.attr,
+    &dev_attr_database.attr,
+    &dev_attr_database64x.attr,
+    &dev_attr_version.attr,
+    &dev_attr_vidmem.attr,
+    &dev_attr_vidmem64x.attr,
+    &dev_attr_dump_trigger.attr,
+    &dev_attr_clk.attr,
+    &dev_attr_poweroff_timeout.attr,
+    NULL,
+};
+ATTRIBUTE_GROUPS(Info);
+#endif
+
 static gceSTATUS
-_DebugfsInit(
-    IN gckGALDEVICE Device
-    )
+_DebugfsInit(IN gckGALDEVICE Device)
 {
     gceSTATUS status = gcvSTATUS_OK;
+
+#ifdef CONFIG_DEBUG_FS
     gckDEBUGFS_DIR dir = &Device->debugfsDir;
 
     gcmkONERROR(gckDEBUGFS_DIR_Init(dir, gcvNULL, "gc"));
     gcmkONERROR(gckDEBUGFS_DIR_CreateFiles(dir, InfoList, gcmCOUNTOF(InfoList), Device));
+#else
+    int ret;
+    /* TODO. */
+    struct device *dev = (struct device *)Device->devices[0]->dev;
+
+    ret = sysfs_create_groups(&dev->kobj, Info_groups);
+    if (ret < 0)
+        gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
+#endif
+    galDevice = Device;
 
 OnError:
     return status;
 }
 
 static void
-_DebugfsCleanup(
-    IN gckGALDEVICE Device
-    )
+_DebugfsCleanup(IN gckGALDEVICE Device)
 {
+#ifdef CONFIG_DEBUG_FS
     gckDEBUGFS_DIR dir = &Device->debugfsDir;
 
-    if (Device->debugfsDir.root)
-    {
+    if (Device->debugfsDir.root) {
         gcmkVERIFY_OK(gckDEBUGFS_DIR_RemoveFiles(dir, InfoList, gcmCOUNTOF(InfoList)));
 
         gckDEBUGFS_DIR_Deinit(dir);
     }
+#else
+    /* TODO. */
+    struct device *dev = (struct device *)Device->devices[0]->dev;
+
+    sysfs_remove_groups(&dev->kobj, Info_groups);
+#endif
 }
 
-
-/******************************************************************************\
-*************************** Memory Allocation Wrappers *************************
-\******************************************************************************/
+/*******************************************************************************
+ ************************** Memory Allocation Wrappers *************************
+ *******************************************************************************/
 
 static gceSTATUS
-_AllocateMemory(
-    IN gckGALDEVICE Device,
-    IN gctSIZE_T Bytes,
-    OUT gctPOINTER *Logical,
-    OUT gctPHYS_ADDR *Physical,
-    OUT gctUINT64 *PhysAddr
-    )
+_AllocateMemory(IN gckGALDEVICE  Device,
+                IN gctSIZE_T     Bytes,
+                OUT gctPOINTER   *Logical,
+                OUT gctPHYS_ADDR *Physical,
+                OUT gctUINT64    *PhysAddr)
 {
-    gceSTATUS status = gcvSTATUS_OK;
+    gceSTATUS      status = gcvSTATUS_OK;
     gctPHYS_ADDR_T physAddr;
 
     gcmkHEADER_ARG("Device=%p Bytes=0x%zx", Device, Bytes);
 
-    gcmkVERIFY_ARGUMENT(Device != NULL);
-    gcmkVERIFY_ARGUMENT(Logical != NULL);
-    gcmkVERIFY_ARGUMENT(Physical != NULL);
-    gcmkVERIFY_ARGUMENT(PhysAddr != NULL);
+    gcmkVERIFY_ARGUMENT(Device);
+    gcmkVERIFY_ARGUMENT(Logical);
+    gcmkVERIFY_ARGUMENT(Physical);
+    gcmkVERIFY_ARGUMENT(PhysAddr);
 
-    gcmkONERROR(gckOS_AllocateNonPagedMemory(
-        Device->os, gcvFALSE, gcvALLOC_FLAG_CONTIGUOUS, &Bytes, Physical, Logical
-        ));
+    gcmkONERROR(gckOS_AllocateNonPagedMemory(Device->os,
+                                             Device->devices[0]->kernels[0],
+                                             gcvFALSE,
+                                             gcvALLOC_FLAG_CONTIGUOUS,
+                                             &Bytes, Physical, Logical));
 
-    gcmkONERROR(gckOS_GetPhysicalFromHandle(
-        Device->os, *Physical, 0, &physAddr
-        ));
+    gcmkONERROR(gckOS_GetPhysicalFromHandle(Device->os, *Physical, 0, &physAddr));
 
     *PhysAddr = physAddr;
 
 OnError:
-    gcmkFOOTER_ARG(
-        "*Logical=%p *Physical=%p *PhysAddr=0x%llx",
-        gcmOPT_POINTER(Logical), gcmOPT_POINTER(Physical), gcmOPT_VALUE(PhysAddr)
-        );
+    gcmkFOOTER_ARG("*Logical=%p *Physical=%p *PhysAddr=0x%llx",
+                   gcmOPT_POINTER(Logical), gcmOPT_POINTER(Physical), gcmOPT_VALUE(PhysAddr));
 
     return status;
 }
 
 static gceSTATUS
-_FreeMemory(
-    IN gckGALDEVICE Device,
-    IN gctPOINTER Logical,
-    IN gctPHYS_ADDR Physical
-    )
+_FreeMemory(IN gckGALDEVICE Device,
+            IN gctPOINTER   Logical,
+            IN gctPHYS_ADDR Physical)
 {
     gceSTATUS status;
 
     gcmkHEADER_ARG("Device=%p Logical=%p Physical=%p",
                    Device, Logical, Physical);
 
-    gcmkVERIFY_ARGUMENT(Device != NULL);
+    gcmkVERIFY_ARGUMENT(Device);
 
-    status = gckOS_FreeNonPagedMemory(
-        Device->os, Physical, Logical,
-        ((PLINUX_MDL) Physical)->numPages * PAGE_SIZE
-        );
+    status = gckOS_FreeNonPagedMemory(Device->os, Physical, Logical,
+                                      ((PLINUX_MDL)Physical)->numPages * PAGE_SIZE);
 
     gcmkFOOTER();
     return status;
 }
 
 static gceSTATUS
-_SetupContiguousVidMem(
-    IN gckGALDEVICE Device,
-    IN const gcsMODULE_PARAMETERS * Args
-    )
+_SetupContiguousVidMem(IN gckGALDEVICE Device, IN gctUINT Index, IN const gcsMODULE_PARAMETERS *Args)
 {
-    gceSTATUS status = gcvSTATUS_OK;
-    gctUINT64 physAddr = ~0ULL;
-    gckGALDEVICE device = Device;
+    gceSTATUS    status   = gcvSTATUS_OK;
+    gctUINT64    physAddr = ~0ULL;
+    gckGALDEVICE device   = Device;
+    gctUINT      i        = Index;
 
     gcmkHEADER_ARG("Device=%p Args=%p", Device, Args);
 
-    /* set up the contiguous memory */
-    device->contiguousBase = Args->contiguousBase;
-    device->contiguousSize = Args->contiguousSize;
+    if (i >= gcdSYSTEM_RESERVE_COUNT)
+        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
 
-    if (Args->contiguousSize == 0)
-    {
+    /* set up the contiguous memory */
+    device->contiguousBases[i] = Args->contiguousBases[i];
+    device->contiguousSizes[i] = Args->contiguousSizes[i];
+    device->requestedContiguousBases[i] = 0;
+    device->requestedContiguousSizes[i] = 0;
+
+    if (!device->contiguousSizes[i]) {
         gcmkFOOTER_NO();
         return gcvSTATUS_OK;
     }
 
-    if (Args->contiguousBase == 0)
-    {
-        while (device->contiguousSize > 0)
-        {
+    if (!device->contiguousBases[i]) {
+        while (device->contiguousSizes[i] > 0) {
             /* Allocate contiguous memory. */
-            status = _AllocateMemory(
-                device,
-                device->contiguousSize,
-                &device->contiguousLogical,
-                &device->contiguousPhysical,
-                &physAddr
-                );
+            status = _AllocateMemory(device,
+                                     device->contiguousSizes[i],
+                                     &device->contiguousLogicals[i],
+                                     &device->contiguousPhysicals[i],
+                                     &physAddr);
 
-            if (gcmIS_SUCCESS(status))
-            {
-                status = gckVIDMEM_Construct(
-                    device->os,
-                    physAddr,
-                    device->contiguousSize,
-                    64,
-                    Args->bankSize,
-                    &device->contiguousVidMem
-                    );
+            if (gcmIS_SUCCESS(status)) {
+                status = gckVIDMEM_Construct(device->os,
+                                             physAddr,
+                                             device->contiguousSizes[i],
+                                             64,
+                                             Args->bankSize,
+                                             &device->contiguousVidMems[i]);
 
-                if (gcmIS_SUCCESS(status))
-                {
-                    gckALLOCATOR allocator = ((PLINUX_MDL)device->contiguousPhysical)->allocator;
-                    device->contiguousVidMem->capability = allocator->capability | gcvALLOC_FLAG_MEMLIMIT;
-                    device->contiguousVidMem->physical = device->contiguousPhysical;
-                    device->contiguousBase = physAddr;
-                    if (device->contiguousBase > 0xFFFFFFFFULL)
-                    {
-                        device->contiguousVidMem->capability &= ~gcvALLOC_FLAG_4GB_ADDR;
-                    }
+                if (gcmIS_SUCCESS(status)) {
+                    gckALLOCATOR allocator = ((PLINUX_MDL)device->contiguousPhysicals[i])->allocator;
+                    device->contiguousVidMems[i]->capability = allocator->capability | gcvALLOC_FLAG_MEMLIMIT;
+                    device->contiguousVidMems[i]->physical = device->contiguousPhysicals[i];
+                    device->contiguousBases[i] = physAddr;
+                    if (device->contiguousBases[i] > 0xFFFFFFFFULL)
+                        device->contiguousVidMems[i]->capability &= ~gcvALLOC_FLAG_4GB_ADDR;
                     break;
                 }
 
-                gcmkONERROR(_FreeMemory(
-                    device,
-                    device->contiguousLogical,
-                    device->contiguousPhysical
-                    ));
+                gcmkONERROR(_FreeMemory(device,
+                                        device->contiguousLogicals[i],
+                                        device->contiguousPhysicals[i]));
 
-                device->contiguousLogical  = gcvNULL;
-                device->contiguousPhysical = gcvNULL;
+                device->contiguousLogicals[i]  = gcvNULL;
+                device->contiguousPhysicals[i] = gcvNULL;
             }
 
-            if (device->contiguousSize <= (4 << 20))
-            {
-                device->contiguousSize = 0;
-            }
+            if (device->contiguousSizes[i] <= (4 << 20))
+                device->contiguousSizes[i] = 0;
             else
+                device->contiguousSizes[i] -= (4 << 20);
+        }
+    } else if (device->os->iommu) {
+        /* Disable contiguous memory pool. */
+        device->contiguousVidMems[i] = gcvNULL;
+        device->contiguousSizes[i] = 0;
+    } else {
+        gctPHYS_ADDR_T contiguousBases = device->contiguousBases[i];
+        gctSIZE_T      contiguousSizes = device->contiguousSizes[i];
+
+#if gcdENABLE_40BIT_VA
+        if (!device->lowContiguousSize) {
+            gctPHYS_ADDR_T gpuBase;
+            gctPHYS_ADDR_T lowContiguousBase = contiguousBases;
+            gctSIZE_T      lowContiguousSize = contiguousSizes;
+
+            gckOS_CPUPhysicalToGPUPhysical(device->os, contiguousBases, &gpuBase);
+
+            if (gpuBase < gcd4G_SIZE) {
+                if (gpuBase + contiguousSizes > gcd4G_SIZE) {
+                    gckOS_GPUPhysicalToCPUPhysical(device->os, gcd4G_SIZE, &contiguousBases);
+
+                    /* Adjust low VA range. */
+                    if (gpuBase < gcdVA_RESERVED_SIZE)
+                        contiguousBases -= gcdVA_RESERVED_SIZE;
+                    else if (gpuBase > gcd4G_SIZE - gcd4G_VA_FM_SIZE)
+                        contiguousBases += gpuBase - (gcd4G_SIZE - gcd4G_VA_FM_SIZE);
+
+                    lowContiguousSize = contiguousBases - lowContiguousBase;
+                    contiguousSizes = (lowContiguousSize >= gcd4G_VA_FM_SIZE) ? (contiguousSizes - lowContiguousSize) : 0;
+                } else {
+                    contiguousSizes = 0;
+                }
+            } else {
+                if (contiguousSizes > gcd4G_VA_FM_SIZE) {
+                    /* At least reserve gcd4G_VA_FM_SIZE. */
+                    lowContiguousSize = gcd4G_VA_FM_SIZE;
+                    contiguousBases += gcd4G_VA_FM_SIZE;
+                    contiguousSizes -= gcd4G_VA_FM_SIZE;
+                } else {
+                    contiguousSizes = 0;
+                }
+            }
+
+            /* Construct reserve memory pool below 4G. */
             {
-                device->contiguousSize -= (4 << 20);
+                /* Create the contiguous memory heap. */
+                status = gckVIDMEM_Construct(device->os,
+                                             lowContiguousBase,
+                                             lowContiguousSize,
+                                             64,
+                                             Args->bankSize,
+                                             &device->lowContiguousVidMem);
+
+                if (gcmIS_ERROR(status)) {
+                    /* Error, disable contiguous memory pool. */
+                    device->lowContiguousVidMem = gcvNULL;
+                    device->lowContiguousSize   = 0;
+                } else {
+                    gckALLOCATOR allocator;
+                    gctBOOL contiguousRequested = Args->contiguousRequested;
+
+#if gcdCAPTURE_ONLY_MODE
+                    contiguousRequested = gcvTRUE;
+#endif
+
+                    gcmkONERROR(gckOS_RequestReservedMemory(device->os,
+                                                            lowContiguousBase,
+                                                            lowContiguousSize,
+                                                            "gcLowContMem",
+                                                            contiguousRequested,
+                                                            &device->lowContiguousPhysical));
+
+                    allocator = ((PLINUX_MDL)device->lowContiguousPhysical)->allocator;
+
+                    device->lowContiguousVidMem->capability = allocator->capability | gcvALLOC_FLAG_MEMLIMIT;
+                    device->lowContiguousVidMem->physical = device->lowContiguousPhysical;
+                    device->lowContiguousBase = lowContiguousBase;
+                    device->lowContiguousSize = lowContiguousSize;
+                }
+            }
+
+            if (contiguousSizes == 0) {
+                device->contiguousVidMems[i] = gcvNULL;
+                device->contiguousSizes[i] = 0;
+
+                return gcvSTATUS_OK;
             }
         }
-    }
-    else
-    {
+#endif
         /* Create the contiguous memory heap. */
-        status = gckVIDMEM_Construct(
-            device->os,
-            Args->contiguousBase,
-            Args->contiguousSize,
-            64,
-            Args->bankSize,
-            &device->contiguousVidMem
-            );
+        status = gckVIDMEM_Construct(device->os,
+                                     contiguousBases,
+                                     contiguousSizes,
+                                     64,
+                                     Args->bankSize,
+                                     &device->contiguousVidMems[i]);
 
-        if (gcmIS_ERROR(status))
-        {
+        if (gcmIS_ERROR(status)) {
             /* Error, disable contiguous memory pool. */
-            device->contiguousVidMem = gcvNULL;
-            device->contiguousSize   = 0;
-        }
-        else
-        {
+            device->contiguousVidMems[i] = gcvNULL;
+            device->contiguousSizes[i] = 0;
+        } else {
             gckALLOCATOR allocator;
             gctBOOL contiguousRequested = Args->contiguousRequested;
 
@@ -1820,28 +1827,27 @@ _SetupContiguousVidMem(
             contiguousRequested = gcvTRUE;
 #endif
 
-            gcmkONERROR(gckOS_RequestReservedMemory(
-                device->os, Args->contiguousBase, Args->contiguousSize,
-                "galcore contiguous memory",
-                contiguousRequested,
-                &device->contiguousPhysical
-                ));
+            gcmkONERROR(gckOS_RequestReservedMemory(device->os,
+                                                    contiguousBases,
+                                                    contiguousSizes,
+                                                    "gcContMem",
+                                                    contiguousRequested,
+                                                    &device->contiguousPhysicals[i]));
 
-            allocator = ((PLINUX_MDL)device->contiguousPhysical)->allocator;
+            allocator = ((PLINUX_MDL)device->contiguousPhysicals[i])->allocator;
 
-            device->contiguousVidMem->capability = allocator->capability | gcvALLOC_FLAG_MEMLIMIT;
-            device->contiguousVidMem->physical = device->contiguousPhysical;
-            device->requestedContiguousBase = Args->contiguousBase;
-            device->requestedContiguousSize = Args->contiguousSize;
-
-            device->contiguousPhysName = 0;
-            device->contiguousSize = Args->contiguousSize;
+            device->contiguousVidMems[i]->capability = allocator->capability | gcvALLOC_FLAG_MEMLIMIT;
+            device->contiguousVidMems[i]->physical = device->contiguousPhysicals[i];
+            device->requestedContiguousBases[i] = contiguousBases;
+            device->requestedContiguousSizes[i] = contiguousSizes;
+            device->contiguousBases[i] = contiguousBases;
+            device->contiguousSizes[i] = contiguousSizes;
         }
     }
 
-    if (Args->showArgs)
-    {
-        gcmkPRINT("Galcore Info: ContiguousBase=0x%llx ContiguousSize=0x%zx\n", device->contiguousBase, device->contiguousSize);
+    if (Args->showArgs) {
+        gcmkPRINT("Galcore Info: ContiguousBase=0x%llx ContiguousSize=0x%zx\n",
+                  device->contiguousBases[i], device->contiguousSizes[i]);
     }
 
 OnError:
@@ -1850,69 +1856,70 @@ OnError:
 }
 
 static gceSTATUS
-_SetupExternalSRAMVidMem(
-    IN gckGALDEVICE Device
-    )
+_SetupExternalSRAMVidMem(IN gckGALDEVICE galDevice, IN const gcsMODULE_PARAMETERS *Args)
 {
     gceSTATUS status = gcvSTATUS_OK;
-    gckGALDEVICE device = Device;
-    gctINT32 i, j = 0;
+    gckDEVICE device;
+    gctUINT32 i, j, index, devIndex;
 
-    gcmkHEADER_ARG("Device=%p", Device);
+    gcmkHEADER_ARG("Device=%p", galDevice);
 
     /* Setup external SRAM memory region. */
-    for (i = 0; i < gcvSRAM_EXT_COUNT; i++)
-    {
-        if (!device->extSRAMSizes[i])
-        {
-            /* Keep this path for internal test, read from feature database. */
-            device->extSRAMSizes[i] = device->device->extSRAMSizes[i];
-        }
+    for (i = 0; i < gcvSRAM_EXT_COUNT; i++) {
+        if (!galDevice->extSRAMSizes[i])
+            galDevice->extSRAMSizes[i] = galDevice->devices[0]->extSRAMSizes[0];
 
-        if (device->extSRAMSizes[i] > 0)
-        {
+        if (galDevice->extSRAMSizes[i] > 0) {
             /* create the external SRAM memory heap */
-            status = gckVIDMEM_Construct(
-                device->os,
-                device->extSRAMBases[i],
-                device->extSRAMSizes[i],
-                64,
-                0,
-                &device->extSRAMVidMem[i]
-                );
+            status = gckVIDMEM_Construct(galDevice->os,
+                                         galDevice->extSRAMBases[i],
+                                         galDevice->extSRAMSizes[i],
+                                         64,
+                                         0,
+                                         &galDevice->extSRAMVidMems[i]);
 
-            if (gcmIS_ERROR(status))
-            {
+            if (gcmIS_ERROR(status)) {
                 /* Error, disable external SRAM heap. */
-                device->extSRAMSizes[i] = 0;
-            }
-            else
-            {
+                galDevice->extSRAMSizes[i] = 0;
+            } else {
                 char sRAMName[40];
                 snprintf(sRAMName, gcmSIZEOF(sRAMName) - 1, "Galcore external sram%d", i);
 
 #if gcdCAPTURE_ONLY_MODE
-                device->args.sRAMRequested = gcvTRUE;
+                galDevice->args.sRAMRequested = gcvTRUE;
 #endif
                 /* Map external SRAM memory. */
-                gcmkONERROR(gckOS_RequestReservedMemory(
-                        device->os,
-                        device->extSRAMBases[i], device->extSRAMSizes[i],
-                        sRAMName,
-                        device->args.sRAMRequested,
-                        &device->extSRAMPhysical[i]
-                        ));
+                gcmkONERROR(gckOS_RequestReservedMemory(galDevice->os,
+                                                        galDevice->extSRAMBases[i],
+                                                        galDevice->extSRAMSizes[i],
+                                                        sRAMName,
+                                                        galDevice->args.sRAMRequested,
+                                                        &galDevice->extSRAMPhysicals[i]));
 
-                device->extSRAMVidMem[i]->physical = device->extSRAMPhysical[i];
-                device->device->extSRAMPhysical[i] = device->extSRAMPhysical[i];
+                galDevice->extSRAMVidMems[i]->physical = galDevice->extSRAMPhysicals[i];
+            }
+        }
+    }
 
-                for (j = 0; j < gcdMAX_GPU_COUNT; j++)
-                {
-                    if (device->irqLines[j] != -1 && device->kernels[j])
-                    {
-                        device->kernels[j]->hardware->options.extSRAMGPUPhysNames[i] = gckKERNEL_AllocateNameFromPointer(device->kernels[j], device->extSRAMPhysical[i]);
+    for (devIndex = 0; devIndex < galDevice->args.devCount; devIndex++) {
+        device = galDevice->devices[devIndex];
+        index = 0;
+
+        for (i = 0; i < gcvSRAM_EXT_COUNT; i++) {
+            if (Args->devSRAMIDs[devIndex] & (1 << i)) {
+                device->extSRAMVidMems[index] = galDevice->extSRAMVidMems[i];
+                device->extSRAMPhysicals[index] = galDevice->extSRAMPhysicals[i];
+
+                for (j = 0; j < gcvCORE_COUNT; j++) {
+                    if (device->irqLines[j] != -1 &&
+                        device->kernels[j] &&
+                        device->extSRAMPhysicals[index]) {
+                        device->kernels[j]->hardware->options.extSRAMGPUPhysNames[index]
+                            = gckKERNEL_AllocateNameFromPointer(device->kernels[j], device->extSRAMPhysicals[index]);
                     }
                 }
+
+                index++;
             }
         }
     }
@@ -1922,51 +1929,45 @@ OnError:
     return status;
 }
 
-/******************************************************************************\
-******************************* Interrupt Handler ******************************
-\******************************************************************************/
-static irqreturn_t isrRoutine(int irq, void *ctxt)
+/*******************************************************************************
+ ****************************** Interrupt Handler ******************************
+ *******************************************************************************/
+
+static irqreturn_t
+isrRoutine(int irq, void *ctxt)
 {
     gceSTATUS status;
-    gckGALDEVICE device;
-    gceCORE core = (gceCORE)gcmPTR2INT32(ctxt) - 1;
-
-    device = galDevice;
+    gckKERNEL kernel = (gckKERNEL)ctxt;
 
     /* Call kernel interrupt notification. */
-    status = gckHARDWARE_Interrupt(device->kernels[core]->hardware);
+    status = gckHARDWARE_Interrupt(kernel->hardware);
 
-    if (gcmIS_SUCCESS(status))
-    {
-        up(&device->semas[core]);
+    if (gcmIS_SUCCESS(status)) {
+        up(kernel->sema);
         return IRQ_HANDLED;
     }
 
     return IRQ_NONE;
 }
 
-static irqreturn_t isrRoutineVG(int irq, void *ctxt)
+static irqreturn_t
+isrRoutineVG(int irq, void *ctxt)
 {
 #if gcdENABLE_VG
     gceSTATUS status;
-    gckGALDEVICE device;
-
-    device = galDevice;
+    gckKERNEL kernel = (gckKERNEL)ctxt;
 
     /* Serve the interrupt. */
-    status = gckVGINTERRUPT_Enque(device->kernels[gcvCORE_VG]->vg->interrupt);
+    status = gckVGINTERRUPT_Enque(kernel->vg->interrupt);
 
     /* Determine the return value. */
-    return (status == gcvSTATUS_NOT_OUR_INTERRUPT)
-        ? IRQ_RETVAL(0)
-        : IRQ_RETVAL(1);
+    return (status == gcvSTATUS_NOT_OUR_INTERRUPT) ? IRQ_RETVAL(0) : IRQ_RETVAL(1);
 #else
     return IRQ_NONE;
 #endif
 }
 
-static const char *isrNames[] =
-{
+static const char * const isrNames[] = {
     "galcore:0",
     "galcore:3d-1",
     "galcore:3d-2",
@@ -1975,34 +1976,101 @@ static const char *isrNames[] =
     "galcore:3d-5",
     "galcore:3d-6",
     "galcore:3d-7",
+    "galcore:3d-8",
+    "galcore:3d-9",
+    "galcore:3d-10",
+    "galcore:3d-11",
+    "galcore:3d-12",
+    "galcore:3d-13",
+    "galcore:3d-14",
+    "galcore:3d-15",
     "galcore:2d",
+    "galcore:2d1",
+    "galcore:2d2",
+    "galcore:2d3",
     "galcore:vg",
 #if gcdDEC_ENABLE_AHB
     "galcore:dec"
 #endif
 };
 
-static gceSTATUS
-_SetupIsr(
-    IN gceCORE Core
-    )
+static int
+isrRoutinePoll(void *ctxt)
 {
-    gctINT ret = 0;
-    gceSTATUS status = gcvSTATUS_OK;
-    gckGALDEVICE Device = galDevice;
+    gckKERNEL kernel = (gckKERNEL)ctxt;
+
+    while (1) {
+        if (unlikely(kernel->killThread)) {
+            /* The daemon exits. */
+            while (!kthread_should_stop())
+                gckOS_Delay(kernel->os, 1);
+
+            return 0;
+        }
+
+#if gcdENABLE_VG
+        if (kernel->core == gcvCORE_VG)
+            isrRoutineVG(-1, gcvNULL);
+        else
+#endif
+            isrRoutine(-1, kernel);
+
+        gckOS_Delay(kernel->os, 10);
+    }
+
+    return 0;
+}
+
+static gceSTATUS
+_SetupIsr(IN gckDEVICE Device, IN gceCORE Core)
+{
+    gctINT        ret    = 0;
+    gceSTATUS     status = gcvSTATUS_OK;
     irq_handler_t handler;
 
     gcmkHEADER_ARG("Device=%p Core=%d", Device, Core);
 
-    gcmkVERIFY_ARGUMENT(Device != NULL);
-
-    if (Device->irqLines[Core] < 0)
-    {
-        gcmkONERROR(gcvSTATUS_GENERIC_IO);
-    }
+    gcmkVERIFY_ARGUMENT(Device);
 
     gcmSTATIC_ASSERT(gcvCORE_COUNT == gcmCOUNTOF(isrNames),
                      "isrNames array does not match core types");
+
+    if (Device->irqLines[Core] == -1) {
+        gctUINT64 isrPolling = -1;
+
+        if (Device->isrThread[Core])
+            return status;
+
+        gckOS_QueryOption(Device->os, "isrPoll", &isrPolling);
+
+        /* use kthread to poll int stat */
+        if (gcmBITTEST(isrPolling, Core) != 0) {
+            struct task_struct *task;
+
+            Device->killIsrThread = gcvFALSE;
+
+            task = kthread_run(isrRoutinePoll,
+                               (gctPOINTER)Device->kernels[Core],
+                               "%s_poll", isrNames[Core]);
+
+            if (IS_ERR(task)) {
+                gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                               "%s(%d): Could not start the intr poll thread.\n",
+                               __func__, __LINE__);
+
+                gcmkONERROR(gcvSTATUS_GENERIC_IO);
+            }
+
+            gcmkPRINT("galcore: polling core%d int state\n", Core);
+
+            Device->isrThread[Core]       = task;
+            Device->isrInitializeds[Core] = gcvTRUE;
+
+            return status;
+        }
+        /* it should not run to here */
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
 
     handler = (Core == gcvCORE_VG) ? isrRoutineVG : isrRoutine;
 
@@ -2011,19 +2079,13 @@ _SetupIsr(
      * For shared irq, device-id can not be 0, but CORE_MAJOR value is.
      * Add by 1 here and subtract by 1 in isr to fix the issue.
      */
-    ret = request_irq(
-        Device->irqLines[Core], handler, gcdIRQF_FLAG,
-        isrNames[Core], (void *)(uintptr_t)(Core + 1)
-        );
+    ret = request_irq(Device->irqLines[Core], handler, gcdIRQF_FLAG,
+                      isrNames[Core], (void *)Device->kernels[Core]);
 
-    if (ret != 0)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): Could not register irq line %d (error=%d)\n",
-            __FUNCTION__, __LINE__,
-            Device->irqLines[Core], ret
-            );
+    if (ret != 0) {
+        gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                       "%s(%d): Could not register irq line %d (error=%d)\n",
+                       __func__, __LINE__, Device->irqLines[Core], ret);
 
         gcmkONERROR(gcvSTATUS_GENERIC_IO);
     }
@@ -2037,20 +2099,22 @@ OnError:
 }
 
 static gceSTATUS
-_ReleaseIsr(
-    IN gceCORE Core
-    )
+_ReleaseIsr(gckDEVICE Device, IN gceCORE Core)
 {
-    gckGALDEVICE Device = galDevice;
-
     gcmkHEADER_ARG("Device=%p Core=%d", Device, Core);
 
-    gcmkVERIFY_ARGUMENT(Device != NULL);
+    gcmkVERIFY_ARGUMENT(Device);
 
     /* release the irq */
-    if (Device->isrInitializeds[Core])
-    {
-        free_irq(Device->irqLines[Core], (void *)(uintptr_t)(Core + 1));
+    if (Device->isrInitializeds[Core]) {
+        if (Device->isrThread[Core]) {
+            Device->killIsrThread = gcvTRUE;
+            kthread_stop(Device->isrThread[Core]);
+            Device->isrThread[Core] = gcvNULL;
+        } else {
+            free_irq(Device->irqLines[Core], (void *)(Device->kernels[Core]));
+        }
+
         Device->isrInitializeds[Core] = gcvFALSE;
     }
 
@@ -2058,75 +2122,59 @@ _ReleaseIsr(
     return gcvSTATUS_OK;
 }
 
-static int threadRoutine(void *ctxt)
+static int
+threadRoutine(void *ctxt)
 {
-    gckGALDEVICE device = galDevice;
-    gceCORE core = (gceCORE) gcmPTR2INT32(ctxt);
+    gckKERNEL kernel = (gckKERNEL)ctxt;
 
     gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_DRIVER,
-                   "Starting isr Thread with extension=%p",
-                   device);
+                   "Starting isr Thread with extension=%p", kernel);
 
-
-    for (;;)
-    {
+    for (;;) {
         int down;
 
-        down = down_interruptible(&device->semas[core]);
+        down = down_interruptible(kernel->sema);
         if (down && down != -EINTR)
-        {
             return down;
-        }
 
-        if (unlikely(device->killThread))
-        {
+        if (unlikely(kernel->killThread)) {
             /* The daemon exits. */
             while (!kthread_should_stop())
-            {
-                gckOS_Delay(device->os, 1);
-            }
+                gckOS_Delay(kernel->os, 1);
 
             return 0;
         }
 
-        gckKERNEL_Notify(device->kernels[core], gcvNOTIFY_INTERRUPT);
+        gckKERNEL_Notify(kernel, gcvNOTIFY_INTERRUPT);
     }
 }
 
 static gceSTATUS
-_StartThread(
-    IN gckGALDEVICE Device,
-    IN gceCORE Core
-    )
+_StartThread(IN gckDEVICE Device, IN gceCORE Core)
 {
-    gceSTATUS status = gcvSTATUS_OK;
-    gckGALDEVICE device = galDevice;
-    struct task_struct * task;
+    gceSTATUS           status = gcvSTATUS_OK;
+    gckDEVICE           device = Device;
+    struct task_struct *task;
 
-    if (device->kernels[Core] != gcvNULL)
-    {
+    if (device->kernels[Core] != gcvNULL) {
         /* Start the kernel thread. */
-        task = kthread_run(threadRoutine, (void *)Core,
-                "galcore_deamon/%d", Core);
+        task = kthread_run(threadRoutine, (void *)device->kernels[Core],
+                           "galcore_deamon/%d-%d", Device->id, Core);
 
-        if (IS_ERR(task))
-        {
-            gcmkTRACE_ZONE(
-                gcvLEVEL_ERROR, gcvZONE_DRIVER,
-                "%s(%d): Could not start the kernel thread.\n",
-                __FUNCTION__, __LINE__
-                );
+        if (IS_ERR(task)) {
+            gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                           "%s(%d): Could not start the kernel thread.\n",
+                           __func__, __LINE__);
 
             gcmkONERROR(gcvSTATUS_GENERIC_IO);
         }
 
-        device->threadCtxts[Core]         = task;
-        device->threadInitializeds[Core] = device->kernels[Core]->threadInitialized = gcvTRUE;
+        device->threadCtxts[Core]                = task;
+        device->threadInitializeds[Core]         = gcvTRUE;
+        device->kernels[Core]->threadInitialized = gcvTRUE;
 
         set_user_nice(task, -20);
-    }
-    else
-    {
+    } else {
         device->threadInitializeds[Core] = gcvFALSE;
     }
 
@@ -2135,15 +2183,11 @@ OnError:
 }
 
 static void
-_StopThread(
-    gckGALDEVICE Device,
-    gceCORE Core
-    )
+_StopThread(gckDEVICE Device, gceCORE Core)
 {
-    if (Device->threadInitializeds[Core])
-    {
-        Device->killThread = gcvTRUE;
-        up(&Device->semas[Core]);
+    if (Device->threadInitializeds[Core]) {
+        Device->kernels[Core]->killThread = gcvTRUE;
+        up(Device->kernels[Core]->sema);
 
         kthread_stop(Device->threadCtxts[Core]);
         Device->threadCtxts[Core]        = gcvNULL;
@@ -2151,374 +2195,495 @@ _StopThread(
     }
 }
 
-/*******************************************************************************
-**
-**  gckGALDEVICE_Construct
-**
-**  Constructor.
-**
-**  INPUT:
-**
-**  OUTPUT:
-**
-**      gckGALDEVICE * Device
-**          Pointer to a variable receiving the gckGALDEVICE object pointer on
-**          success.
-*/
-gceSTATUS
-gckGALDEVICE_Construct(
-    IN gcsPLATFORM * Platform,
-    IN const gcsMODULE_PARAMETERS * Args,
-    OUT gckGALDEVICE *Device
-    )
-{
-    gckKERNEL kernel = gcvNULL;
-    gckGALDEVICE device;
-    gctINT32 i;
+#if gcdENABLE_SW_PREEMPTION
 
-#if !gcdCAPTURE_ONLY_MODE
-    gceHARDWARE_TYPE type;
+static int
+_ThreadPreempt(void *ctxt)
+{
+    gckKERNEL kernel = (gckKERNEL)ctxt;
+
+    for (;;) {
+        int down;
+
+        down = down_interruptible(kernel->preemptSema);
+        if (down && down != -EINTR)
+            return down;
+
+        if (unlikely(kernel->killPreemptThread)) {
+            while (!kthread_should_stop())
+                gckOS_Delay(kernel->os, 1);
+
+            return 0;
+        }
+
+        gckKERNEL_PreemptionThread(kernel);
+    }
+}
+
+static gceSTATUS
+_StartPreemptThread(IN gckDEVICE Device, IN gceCORE Core)
+{
+    gceSTATUS           status = gcvSTATUS_OK;
+    gckDEVICE           device = Device;
+    struct task_struct *task;
+
+    if (device->kernels[Core] != gcvNULL) {
+        /* Start the kernel thread. */
+        task = kthread_run(_ThreadPreempt, (void *)device->kernels[Core],
+                           "galcore_preempt/%d-%d", device->id, Core);
+
+        if (IS_ERR(task)) {
+            gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                           "%s(%d): Could not start the kernel preempt thread.\n",
+                           __func__, __LINE__);
+
+            gcmkONERROR(gcvSTATUS_GENERIC_IO);
+        }
+
+        device->preemptThread[Core]      = task;
+        device->preemptThreadInits[Core] = gcvTRUE;
+    } else {
+        device->preemptThreadInits[Core] = gcvFALSE;
+    }
+
+OnError:
+    return status;
+}
+
+static void
+_StopPreemptThread(gckDEVICE Device, gceCORE Core)
+{
+    if (Device->preemptThreadInits[Core]) {
+        Device->kernels[Core]->killPreemptThread = gcvTRUE;
+        up(Device->kernels[Core]->preemptSema);
+
+        kthread_stop((struct task_struct *)Device->preemptThread[Core]);
+        Device->preemptThread[Core]      = gcvNULL;
+        Device->preemptThreadInits[Core] = gcvFALSE;
+    }
+}
 #endif
 
-    gceSTATUS status = gcvSTATUS_OK;
+/*******************************************************************************
+ *
+ *  gckGALDEVICE_Construct
+ *
+ *  Constructor.
+ *
+ *  INPUT:
+ *
+ *  OUTPUT:
+ *
+ *      gckGALDEVICE *Device
+ *          Pointer to a variable receiving the gckGALDEVICE object pointer on
+ *          success.
+ */
+gceSTATUS
+gckGALDEVICE_Construct(IN gcsPLATFORM                *Platform,
+                       IN const gcsMODULE_PARAMETERS *Args,
+                       OUT gckGALDEVICE              *Device)
+{
+    gckKERNEL    kernel = gcvNULL;
+    gckGALDEVICE gal_device;
+    gckDEVICE    device;
+    gceSTATUS    status = gcvSTATUS_OK;
+    gctUINT64    isrPolling = -1;
+    gctINT32     i = 0;
+    gctUINT32    devIndex, globalIndex = 0;
+    gctUINT32    global2DIndex = 0;
+    gctUINT32    index = 0;
+    gctUINT32    sysReserveBits;
 
     gcmkHEADER_ARG("Platform=%p Args=%p", Platform, Args);
 
     /* Allocate device structure. */
-    device = kmalloc(sizeof(struct _gckGALDEVICE), GFP_KERNEL | __GFP_NOWARN);
+    gal_device = kmalloc(sizeof(struct _gckGALDEVICE), GFP_KERNEL | __GFP_NOWARN);
 
-    if (!device)
-    {
+    if (!gal_device)
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
-    }
 
-    memset(device, 0, sizeof(struct _gckGALDEVICE));
+    memset(gal_device, 0, sizeof(struct _gckGALDEVICE));
 
-    device->platform = Platform;
-    device->platform->dev = gcvNULL;
+    gal_device->platform      = Platform;
+    gal_device->platform->dev = gcvNULL;
 
-    device->args = *Args;
+    gal_device->args = *Args;
 
-    /* Clear irq lines. */
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        device->irqLines[i] = -1;
-#if USE_LINUX_PCIE
-        device->bars[i] = -1;
-#endif
-    }
+    if (gal_device->args.devCount > gcdDEVICE_COUNT)
+        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
 
-    for (i = 0; i < gcvCORE_COUNT; i++)
-    {
-        device->irqLines[i]                  = Args->irqs[i];
-        device->requestedRegisterMemBases[i] = Args->registerBases[i];
-        device->requestedRegisterMemSizes[i] = Args->registerSizes[i];
-#if USE_LINUX_PCIE
-        device->bars[i]                      = Args->bars[i];
-#endif
-        gcmkTRACE_ZONE(gcvLEVEL_INFO, _GC_OBJ_ZONE,
-                       "Get register base %llx of core %d",
-                       Args->registerBases[i], i);
-    }
-
-    device->requestedContiguousBase  = 0;
-    device->requestedContiguousSize  = 0;
-
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        unsigned long physical;
-        physical = (unsigned long)device->requestedRegisterMemBases[i];
-
-        /* Set up register memory region. */
-        if (physical != 0)
-        {
-            if (Args->registerBasesMapped[i])
-            {
-                device->registerBases[i] = Args->registerBasesMapped[i];
-                device->requestedRegisterMemBases[i] = 0;
-            }
-            else
-            {
-#if USE_LINUX_PCIE
-                gcmkPRINT("register should be mapped in platform layer");
-#endif
-                if (!request_mem_region(physical,
-                        device->requestedRegisterMemSizes[i],
-                        "galcore register region"))
-                {
-                    gcmkTRACE_ZONE(
-                            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-                            "%s(%d): Failed to claim %lu bytes @ 0x%lx\n",
-                            __FUNCTION__, __LINE__,
-                            device->requestedRegisterMemSizes[i], physical
-                            );
-
-                    gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
-                }
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
-                device->registerBases[i] = (gctPOINTER)ioremap(physical, device->requestedRegisterMemSizes[i]);
-#else
-                device->registerBases[i] = (gctPOINTER)ioremap_nocache(physical, device->requestedRegisterMemSizes[i]);
-#endif
-
-                if (device->registerBases[i] == gcvNULL)
-                {
-                    gcmkTRACE_ZONE(
-                            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-                            "%s(%d): Unable to map %ld bytes @ 0x%zx\n",
-                            __FUNCTION__, __LINE__,
-                            physical, device->requestedRegisterMemSizes[i]
-                            );
-
-                    gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
-                }
-            }
-        }
-    }
-
-    /* Set the base address */
-    device->baseAddress = device->physBase = Args->baseAddress;
-    device->physSize = Args->physSize;
-
-    /* Set the external base address */
-    device->externalBase = Args->externalBase;
-    device->externalSize = Args->externalSize;
-
-    for (i = 0; i < gcvSRAM_EXT_COUNT; i++)
-    {
-        device->extSRAMBases[i] = Args->extSRAMBases[i];
-        device->extSRAMSizes[i] = Args->extSRAMSizes[i];
-    }
+    isrPolling = Args->isrPoll;
 
     /* Construct the gckOS object. */
-    gcmkONERROR(gckOS_Construct(device, &device->os));
+    gcmkONERROR(gckOS_Construct(gal_device, &gal_device->os));
 
+    /* Loop all the hardware devices. */
+    for (devIndex = 0; devIndex < gal_device->args.devCount; devIndex++) {
+        /* Construct the gckDEVICE object for os independent core management. */
+        gcmkONERROR(gckDEVICE_Construct(gal_device->os, &gal_device->devices[devIndex]));
 
-    if (device->externalSize > 0)
-    {
-        /* create the external memory heap */
-        status = gckVIDMEM_Construct(
-            device->os,
-            device->externalBase,
-            device->externalSize,
-            64,
-            0,
-            &device->externalVidMem
-            );
+        device = gal_device->devices[devIndex];
 
-        if (gcmIS_ERROR(status))
-        {
-            /* Error, disable external heap. */
-            device->externalSize = 0;
+        device->id                = devIndex;
+        device->vidMemIndex       = Args->devMemIDs[devIndex];
+        device->configCoreCount   = Args->devCoreCounts[devIndex];
+        device->config2DCoreCount = Args->dev2DCoreCounts[devIndex];
+        device->showSRAMMapInfo   = Args->showArgs;
+        device->showMemInfo       = Args->showArgs;
+        device->platformIndex     = Args->platformIDs[devIndex];
+        device->dev               = Args->devices[device->platformIndex];
+
+        /* Set the base address */
+        device->baseAddress = Args->baseAddress;
+        device->physBase    = Args->baseAddress;
+        device->physSize    = Args->physSize;
+
+        /* Loop all the cores in one deivce. */
+        for (i = 0; i < device->configCoreCount; i++) {
+            /* Get arguments from global core index. */
+            device->irqLines[i]                  = Args->irqs[globalIndex];
+            device->requestedRegisterMemBases[i] = Args->registerBases[globalIndex];
+            device->requestedRegisterMemSizes[i] = Args->registerSizes[globalIndex];
+            device->registerBasesMapped[i]       = Args->registerBasesMapped[globalIndex];
+
+            globalIndex++;
         }
-        else
-        {
-            /* Map external memory. */
-            gcmkONERROR(gckOS_RequestReservedMemory(
-                    device->os,
-                    device->externalBase, device->externalSize,
-                    "galcore external memory",
-                    gcvTRUE,
-                    &device->externalPhysical
-                    ));
 
-            device->externalVidMem->physical = device->externalPhysical;
+        for (i = 0; i < device->config2DCoreCount; i++) {
+            /* Get arguments from global core index. */
+            device->irqLines[gcvCORE_2D + i]                  = Args->irq2Ds[global2DIndex];
+            device->requestedRegisterMemBases[gcvCORE_2D + i] = Args->register2DBases[global2DIndex];
+            device->requestedRegisterMemSizes[gcvCORE_2D + i] = Args->register2DSizes[global2DIndex];
+            device->registerBasesMapped[gcvCORE_2D + i]       = Args->register2DBasesMapped[global2DIndex];
+
+            global2DIndex++;
+        }
+
+        if (Args->irqVG != -1) {
+            /* Get arguments from global core index. */
+            device->irqLines[gcvCORE_VG]                  = Args->irqVG;
+            device->requestedRegisterMemBases[gcvCORE_VG] = Args->registerVGBase;
+            device->requestedRegisterMemSizes[gcvCORE_VG] = Args->registerVGSize;
+            device->registerBasesMapped[gcvCORE_VG]       = Args->registerVGBaseMapped;
+        }
+
+        for (i = 0; i < gcvCORE_COUNT; i++) {
+            unsigned long physical = (unsigned long)device->requestedRegisterMemBases[i];
+
+            /* Set up register memory region. */
+            if (physical) {
+                if (device->registerBasesMapped[i]) {
+                    device->registerBases[i]             = device->registerBasesMapped[i];
+                    device->registerSizes[i]             = device->requestedRegisterMemSizes[i];
+                    device->requestedRegisterMemBases[i] = 0;
+                } else {
+#if USE_LINUX_PCIE
+                    gcmkPRINT("register should be mapped in platform layer");
+#endif
+                    if (!request_mem_region(physical,
+                                            device->requestedRegisterMemSizes[i],
+                                            "galcore register region")) {
+                        gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                                       "%s(%d): Failed to claim %lu bytes @ 0x%llx\n",
+                                       __func__, __LINE__,
+                                       device->requestedRegisterMemSizes[i], physical);
+
+                        gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
+                    }
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+                    device->registerBases[i] =
+                        (gctPOINTER)ioremap(physical, device->requestedRegisterMemSizes[i]);
+#else
+                    device->registerBases[i] =
+                        (gctPOINTER)ioremap_nocache(physical, device->requestedRegisterMemSizes[i]);
+#endif
+                    device->registerSizes[i] = device->requestedRegisterMemSizes[i];
+
+                    if (!device->registerBases[i]) {
+                        gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                                       "%s(%d): Unable to map %ld bytes @ 0x%zx\n",
+                                       __func__, __LINE__,
+                                       physical, device->requestedRegisterMemSizes[i]);
+
+                        gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
+                    }
+                }
+            }
         }
     }
 
-    /* Construct the gckDEVICE object for os independent core management. */
-    gcmkONERROR(gckDEVICE_Construct(device->os, &device->device));
-
-    device->device->showSRAMMapInfo = Args->showArgs;
-
-    device->platform->dev = device->device;
-
-    if (device->irqLines[gcvCORE_MAJOR] != -1)
-    {
-        gcmkONERROR(gctaOS_ConstructOS(device->os, &device->taos));
+    if (gal_device->devices[0]->irqLines[gcvCORE_MAJOR] != -1 ||
+        gcmBITTEST(isrPolling, gcvCORE_MAJOR)!= 0) {
+        gcmkONERROR(gctaOS_ConstructOS(gal_device->os, &gal_device->taos));
     }
 
-    /* Setup contiguous video memory pool. */
-    gcmkONERROR(_SetupContiguousVidMem(device, Args));
+    gal_device->platform->dev = gal_device->devices[0];
 
-#if gcdEXTERNAL_SRAM_DEFAULT_POOL
+    for (i = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
+        /* Setup contiguous video memory pool. */
+        gcmkONERROR(_SetupContiguousVidMem(gal_device, i, Args));
+    }
+
+    /* Set the external SRAM base address. */
+    for (i = 0; i < gcvSRAM_EXT_COUNT; i++) {
+        gal_device->extSRAMBases[i] = Args->extSRAMBases[i];
+        gal_device->extSRAMSizes[i] = Args->extSRAMSizes[i];
+    }
+
+    /* Setup all the local memory for GAL device. */
+    for (i = 0; i < gcdLOCAL_MEMORY_COUNT; i++) {
+        char name[20];
+
+        gal_device->externalBase[i]  = Args->externalBase[i];
+        gal_device->externalSize[i]  = Args->externalSize[i];
+        gal_device->exclusiveBase[i] = Args->exclusiveBase[i];
+        gal_device->exclusiveSize[i] = Args->exclusiveSize[i];
+
+        if (gal_device->externalSize[i] > 0) {
+            /* create the external memory heap */
+            status = gckVIDMEM_Construct(gal_device->os,
+                                         gal_device->externalBase[i],
+                                         gal_device->externalSize[i],
+                                         64,
+                                         0,
+                                         &gal_device->externalVidMem[i]);
+
+            if (gcmIS_ERROR(status)) {
+                /* Error, disable external heap. */
+                gal_device->externalSize[i] = 0;
+            } else {
+                sprintf(name, "gcExtMem%d", i);
+                /* Map external memory. */
+                gcmkONERROR(gckOS_RequestReservedMemory(gal_device->os,
+                                                        gal_device->externalBase[i],
+                                                        gal_device->externalSize[i],
+                                                        name,
+                                                        gcvTRUE,
+                                                        &gal_device->externalPhysical[i]));
+
+                gal_device->externalVidMem[i]->physical = gal_device->externalPhysical[i];
+            }
+        }
+
+        if (gal_device->exclusiveSize[i] > 0) {
+            /* create the exclusive memory heap */
+            status = gckVIDMEM_Construct(gal_device->os,
+                                         gal_device->exclusiveBase[i],
+                                         gal_device->exclusiveSize[i],
+                                         64,
+                                         0,
+                                         &gal_device->exclusiveVidMem[i]);
+
+            if (gcmIS_ERROR(status)) {
+                /* Error, disable exclusive heap. */
+                gal_device->exclusiveSize[i] = 0;
+            } else {
+                gckALLOCATOR allocator;
+
+                sprintf(name, "gcExtMem%d", i);
+
+                /* Map exclusive memory. */
+                gcmkONERROR(gckOS_RequestReservedMemory(gal_device->os,
+                                                        gal_device->exclusiveBase[i],
+                                                        gal_device->exclusiveSize[i],
+                                                        name,
+                                                        gcvTRUE,
+                                                        &gal_device->exclusivePhysical[i]));
+
+                allocator = ((PLINUX_MDL)gal_device->exclusivePhysical[i])->allocator;
+                gal_device->exclusiveVidMem[i]->physical    = gal_device->exclusivePhysical[i];
+                gal_device->exclusiveVidMem[i]->capability |= allocator->capability;
+            }
+        }
+    }
+
+#if gcdEXTERNAL_SRAM_USAGE
     /* Setup external SRAM video memory pool. */
-    gcmkONERROR(_SetupExternalSRAMVidMem(device));
+    gcmkONERROR(_SetupExternalSRAMVidMem(gal_device, Args));
 #endif
 
-    /* Add core for all available major cores. */
-    for (i = gcvCORE_MAJOR; i <= gcvCORE_3D_MAX; i++)
-    {
-        if (device->irqLines[i] != -1)
-        {
-            gcmkONERROR(gcTA_Construct(
-                device->taos,
-                (gceCORE)i,
-                &globalTA[i]
-                ));
+    for (devIndex = 0; devIndex < gal_device->args.devCount; devIndex++) {
+        device = gal_device->devices[devIndex];
 
-            gcmkONERROR(gckDEVICE_AddCore(
-                device->device,
-                (gceCORE)i,
-                Args->chipIDs[i],
-                device,
-                &device->kernels[i]
-                ));
+        /* Query device memory configuration. */
+        device->externalBase     = gal_device->externalBase[device->vidMemIndex];
+        device->externalSize     = gal_device->externalSize[device->vidMemIndex];
+        device->externalPhysical = gal_device->externalPhysical[device->vidMemIndex];
+        device->externalVidMem   = gal_device->externalVidMem[device->vidMemIndex];
 
-            gcmkONERROR(gckHARDWARE_SetFastClear(
-                device->kernels[i]->hardware,
-                Args->fastClear,
-                Args->compression
-                ));
+        device->exclusiveBase     = gal_device->exclusiveBase[device->vidMemIndex];
+        device->exclusiveSize     = gal_device->exclusiveSize[device->vidMemIndex];
+        device->exclusivePhysical = gal_device->exclusivePhysical[device->vidMemIndex];
+        device->exclusiveVidMem   = gal_device->exclusiveVidMem[device->vidMemIndex];
 
-            gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-                device->kernels[i]->hardware,
-                Args->powerManagement
-                ));
+        sysReserveBits = Args->devSysMemIDs[devIndex];
+        index = 0;
+
+        for (i = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
+            if (sysReserveBits & (1 << i)) {
+                device->contiguousBases[index]     = gal_device->contiguousBases[i];
+                device->contiguousSizes[index]     = gal_device->contiguousSizes[i];
+                device->contiguousPhysicals[index] = gal_device->contiguousPhysicals[i];
+                device->contiguousVidMems[index]   = gal_device->contiguousVidMems[i];
+                index++;
+            }
+        }
+
+        device->lowContiguousBase = gal_device->lowContiguousBase;
+        device->lowContiguousSize = gal_device->lowContiguousSize;
+
+        index = 0;
+
+        for (i = 0; i < gcvSRAM_EXT_COUNT; i++) {
+            if (Args->devSRAMIDs[devIndex] & (1 << i)) {
+                device->extSRAMBases[index] = gal_device->extSRAMBases[i];
+                device->extSRAMSizes[index] = gal_device->extSRAMSizes[i];
+                index++;
+            }
+        }
+
+        /* Add core for all available major cores. */
+        for (i = gcvCORE_MAJOR; i <= gcvCORE_3D_MAX; i++) {
+            if (device->irqLines[i] != -1 || gcmBITTEST(isrPolling, i) != 0) {
+                gcmkONERROR(gckDEVICE_AddCore(device,
+                                              (gceCORE)i,
+                                              Args->chipIDs[i],
+                                              gal_device,
+                                              &device->kernels[i]));
+
+                if (!kernel)
+                    kernel = device->kernels[i];
+
+                if (device->kernels[i]->hardware->options.secureMode == gcvSECURE_IN_TA &&
+                    devIndex == 0) {
+                    gcmkONERROR(gcTA_Construct(gal_device->taos,
+                                               (gceCORE)i,
+                                               &globalTA[i]));
+                }
+
+                gcmkONERROR(gckHARDWARE_SetFastClear(device->kernels[i]->hardware,
+                                                     Args->fastClear,
+                                                     Args->compression));
+
+                gcmkONERROR(gckHARDWARE_EnablePowerManagement(device->kernels[i]->hardware,
+                                                              Args->powerManagement));
 
 #if gcdENABLE_FSCALE_VAL_ADJUST
-            gcmkONERROR(gckHARDWARE_SetMinFscaleValue(
-                device->kernels[i]->hardware,
-                Args->gpu3DMinClock
-                ));
+                gcmkONERROR(gckHARDWARE_SetMinFscaleValue(device->kernels[i]->hardware,
+                                                          Args->gpu3DMinClock));
+
+#endif
+            } else {
+                device->kernels[i] = gcvNULL;
+            }
+        }
+
+        for (i = gcvCORE_2D; i <= gcvCORE_2D_MAX; i++) {
+#if !gcdCAPTURE_ONLY_MODE
+            if (device->irqLines[i] != -1 || gcmBITTEST(isrPolling, i)!= 0) {
+                gcmkONERROR(gckDEVICE_AddCore(device,
+                                              (gceCORE)i,
+                                              Args->chipIDs[i],
+                                              gal_device,
+                                              &device->kernels[i]));
+
+                if (!kernel)
+                    kernel = device->kernels[i];
+
+                gcmkONERROR(gckHARDWARE_EnablePowerManagement(device->kernels[i]->hardware,
+                                                              Args->powerManagement));
+
+#if gcdENABLE_FSCALE_VAL_ADJUST
+                gcmkONERROR(gckHARDWARE_SetMinFscaleValue(device->kernels[i]->hardware, 1));
+#endif
+            } else {
+                device->kernels[i] = gcvNULL;
+            }
+#else
+            device->kernels[i] = gcvNULL;
 #endif
         }
-        else
-        {
-            device->kernels[i] = gcvNULL;
-        }
-    }
 
 #if !gcdCAPTURE_ONLY_MODE
-    if (device->irqLines[gcvCORE_2D] != -1)
-    {
-        gcmkONERROR(gckDEVICE_AddCore(
-            device->device,
-            gcvCORE_2D,
-            gcvCHIP_ID_DEFAULT,
-            device,
-            &device->kernels[gcvCORE_2D]
-            ));
-
-        /* Verify the hardware type */
-        gcmkONERROR(gckHARDWARE_GetType(
-            device->kernels[gcvCORE_2D]->hardware,
-            &type
-            ));
-
-        if (type != gcvHARDWARE_2D)
-        {
-            gcmkTRACE_ZONE(
-                gcvLEVEL_ERROR, gcvZONE_DRIVER,
-                "%s(%d): Unexpected hardware type: %d\n",
-                __FUNCTION__, __LINE__,
-                type
-                );
-
-            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-        }
-
-        gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-            device->kernels[gcvCORE_2D]->hardware,
-            Args->powerManagement
-            ));
-
-#if gcdENABLE_FSCALE_VAL_ADJUST
-        gcmkONERROR(gckHARDWARE_SetMinFscaleValue(
-            device->kernels[gcvCORE_2D]->hardware, 1
-            ));
-#endif
-    }
-    else
-    {
-        device->kernels[gcvCORE_2D] = gcvNULL;
-    }
-
-    if (device->irqLines[gcvCORE_VG] != -1)
-    {
+        if (device->irqLines[gcvCORE_VG] != -1 || gcmBITTEST(isrPolling, gcvCORE_VG)!= 0) {
 #if gcdENABLE_VG
-        gcmkONERROR(gckDEVICE_AddCore(
-            device->device,
-            gcvCORE_VG,
-            gcvCHIP_ID_DEFAULT,
-            device,
-            &device->kernels[gcvCORE_VG]
-            ));
+             gcmkONERROR(gckDEVICE_AddCore(device,
+                                           gcvCORE_VG,
+                                           gcvCHIP_ID_DEFAULT,
+                                           gal_device,
+                                           &device->kernels[gcvCORE_VG]));
 
-        gcmkONERROR(gckVGHARDWARE_EnablePowerManagement(
-            device->kernels[gcvCORE_VG]->vg->hardware,
-            Args->powerManagement
-            ));
+            if (!kernel)
+                kernel = device->kernels[i];
+
+            gcmkONERROR(gckVGHARDWARE_EnablePowerManagement(device->kernels[gcvCORE_VG]->vg->hardware,
+                                                            Args->powerManagement));
 #endif
-    }
-    else
-    {
-        device->kernels[gcvCORE_VG] = gcvNULL;
-    }
+        } else {
+            device->kernels[gcvCORE_VG] = gcvNULL;
+        }
 #else
-    device->kernels[gcvCORE_2D] = gcvNULL;
-
-    device->kernels[gcvCORE_VG] = gcvNULL;
+        device->kernels[gcvCORE_VG] = gcvNULL;
 #endif
+    }
 
-#if !gcdEXTERNAL_SRAM_DEFAULT_POOL
+#if !gcdEXTERNAL_SRAM_USAGE
     /* Setup external SRAM video memory pool. */
-    gcmkONERROR(_SetupExternalSRAMVidMem(device));
+    gcmkONERROR(_SetupExternalSRAMVidMem(gal_device, Args));
 #endif
-
-    /* Create the suspend semaphore. */
-    gcmkONERROR(gckOS_CreateSemaphore(device->os, &device->suspendSemaphore));
-
-    /* Initialize the kernel thread semaphores. */
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (device->irqLines[i] != -1 && device->kernels[i])
-        {
-            sema_init(&device->semas[i], 0);
-        }
-    }
-
-    /* Grab the first valid kernel. */
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (device->kernels[i] != gcvNULL)
-        {
-            kernel = device->kernels[i];
-            break;
-        }
-    }
 
     if (!kernel)
-    {
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+
+    if (gal_device->internalPhysical)
+        gal_device->internalPhysName = gcmPTR_TO_NAME(gal_device->internalPhysical);
+
+#if gcdENABLE_40BIT_VA
+    if (gal_device->lowContiguousPhysical)
+        gal_device->lowContiguousPhysName = gcmPTR_TO_NAME(gal_device->lowContiguousPhysical);
+#endif
+
+    for (i = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
+        if (gal_device->contiguousPhysicals[i])
+            gal_device->contiguousPhysNames[i] = gcmPTR_TO_NAME(gal_device->contiguousPhysicals[i]);
     }
 
-    if (device->internalPhysical)
-    {
-        device->internalPhysName = gcmPTR_TO_NAME(device->internalPhysical);
+    for (i = 0; i < gcdLOCAL_MEMORY_COUNT; i++) {
+        if (gal_device->externalPhysical[i])
+            gal_device->externalPhysName[i] = gcmPTR_TO_NAME(gal_device->externalPhysical[i]);
+
+        if (gal_device->exclusivePhysical[i])
+            gal_device->exclusivePhysName[i] = gcmPTR_TO_NAME(gal_device->exclusivePhysical[i]);
     }
 
-    if (device->externalPhysical)
-    {
-        device->externalPhysName = gcmPTR_TO_NAME(device->externalPhysical);
+    for (devIndex = 0; devIndex < gal_device->args.devCount; devIndex++) {
+        device = gal_device->devices[devIndex];
+
+        /* Query device memory configuration. */
+        device->externalPhysName = gal_device->externalPhysName[device->vidMemIndex];
+        device->exclusivePhysName = gal_device->exclusivePhysName[device->vidMemIndex];
+
+        sysReserveBits = Args->devSysMemIDs[devIndex];
+
+        for (i = 0, index = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
+            if (sysReserveBits & (1 << i)) {
+                device->contiguousPhysNames[index] = gal_device->contiguousPhysNames[i];
+                index++;
+            }
+        }
     }
 
-    if (device->contiguousPhysical)
-    {
-        device->contiguousPhysName = gcmPTR_TO_NAME(device->contiguousPhysical);
-    }
-
-    gcmkONERROR(_DebugfsInit(device));
+    gcmkONERROR(_DebugfsInit(gal_device));
 
     /* Return pointer to the device. */
-    *Device = galDevice = device;
+    galDevice = gal_device;
+    *Device   = gal_device;
 
 OnError:
-    if (gcmIS_ERROR(status))
-    {
+    if (gcmIS_ERROR(status)) {
         /* Roll back. */
-        gcmkVERIFY_OK(gckGALDEVICE_Destroy(device));
+        gcmkVERIFY_OK(gckGALDEVICE_Destroy(gal_device));
     }
 
     gcmkFOOTER();
@@ -2526,325 +2691,409 @@ OnError:
 }
 
 /*******************************************************************************
-**
-**  gckGALDEVICE_Destroy
-**
-**  Class destructor.
-**
-**  INPUT:
-**
-**      Nothing.
-**
-**  OUTPUT:
-**
-**      Nothing.
-**
-**  RETURNS:
-**
-**      Nothing.
-*/
+ *
+ *  gckGALDEVICE_Destroy
+ *
+ *  Class destructor.
+ *
+ *  INPUT:
+ *
+ *      Nothing.
+ *
+ *  OUTPUT:
+ *
+ *      Nothing.
+ *
+ *  RETURNS:
+ *
+ *      Nothing.
+ */
 gceSTATUS
-gckGALDEVICE_Destroy(
-    gckGALDEVICE Device)
+gckGALDEVICE_Destroy(gckGALDEVICE gal_device)
 {
-    gctINT i, j = 0;
+    gctINT    i, j = 0;
     gckKERNEL kernel = gcvNULL;
+    gctUINT32 devIndex;
+    gckDEVICE device;
 
-    gcmkHEADER_ARG("Device=%p", Device);
+    gcmkHEADER_ARG("gal_device=%p", gal_device);
 
-    if (Device != gcvNULL)
-    {
-        /* Grab the first available kernel */
-        for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-        {
-            if (Device->kernels[i])
-            {
-                kernel = Device->kernels[i];
-                break;
+    if (gal_device) {
+        kernel = gal_device->devices[0]->kernels[0];
+
+        if (!kernel) {
+            gcmkFOOTER_NO();
+            return gcvSTATUS_INVALID_ARGUMENT;
+        }
+
+        gcmkASSERT(kernel);
+
+        /* Free all the local memories. */
+        for (i = 0; i < gcdLOCAL_MEMORY_COUNT; i++) {
+            if (gal_device->externalPhysName[i]) {
+                gcmRELEASE_NAME(gal_device->externalPhysName[i]);
+                gal_device->externalPhysName[i] = 0;
+            }
+
+            if (gal_device->exclusivePhysName[i]) {
+                gcmRELEASE_NAME(gal_device->exclusivePhysName[i]);
+                gal_device->exclusivePhysName[i] = 0;
             }
         }
 
-        if (kernel)
-        {
-            if (Device->internalPhysName != 0)
-            {
-                gcmRELEASE_NAME(Device->internalPhysName);
-                Device->internalPhysName = 0;
-            }
-            if (Device->externalPhysName != 0)
-            {
-                gcmRELEASE_NAME(Device->externalPhysName);
-                Device->externalPhysName = 0;
-            }
-            if (Device->contiguousPhysName != 0)
-            {
-                gcmRELEASE_NAME(Device->contiguousPhysName);
-                Device->contiguousPhysName = 0;
+        for (i = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
+            if (gal_device->contiguousPhysNames[i]) {
+                gcmRELEASE_NAME(gal_device->contiguousPhysNames[i]);
+                gal_device->contiguousPhysNames[i] = 0;
             }
         }
 
-        /* Destroy per-core SRAM heap. */
-        for (i = 0; i < gcvCORE_COUNT; i++)
-        {
-            if (Device->kernels[i])
-            {
-                kernel = Device->kernels[i];
+#if gcdENABLE_40BIT_VA
+        if (gal_device->lowContiguousPhysName) {
+            gcmRELEASE_NAME(gal_device->lowContiguousPhysName);
+            gal_device->lowContiguousPhysName = 0;
+        }
+#endif
 
-                for (j = gcvSRAM_INTERNAL0; j < gcvSRAM_INTER_COUNT; j++)
-                {
-                    if (kernel->sRAMPhysical[j] != gcvNULL)
-                    {
-                        /* Release reserved SRAM memory. */
-                        gckOS_ReleaseReservedMemory(
-                            Device->os,
-                            kernel->sRAMPhysical[j]
-                            );
+        for (devIndex = 0; devIndex < gal_device->args.devCount; devIndex++) {
+            device = gal_device->devices[devIndex];
 
-                        kernel->sRAMPhysical[j] = gcvNULL;
+            if (!device)
+                continue;
+
+            for (i = 0; i < gcvCORE_COUNT; i++) {
+                if (device->kernels[i]) {
+                    kernel = device->kernels[i];
+#if gcdENABLE_VG
+                    if (kernel->core == gcvCORE_VG) {
+                        if (kernel->vg->hardware->options.secureMode == gcvSECURE_IN_TA &&
+                            globalTA[i] && !devIndex) {
+                            gcTA_Destroy(globalTA[i]);
+                            globalTA[i] = gcvNULL;
+                        }
+                    } else {
+                        if (kernel->hardware->options.secureMode == gcvSECURE_IN_TA &&
+                            globalTA[i] && !devIndex) {
+                            gcTA_Destroy(globalTA[i]);
+                            globalTA[i] = gcvNULL;
+                        }
                     }
+#else
+                    if (kernel->hardware->options.secureMode == gcvSECURE_IN_TA &&
+                        globalTA[i] && !devIndex) {
+                        gcTA_Destroy(globalTA[i]);
+                        globalTA[i] = gcvNULL;
+                    }
+#endif
 
-                    if (kernel->sRAMVidMem[j] != gcvNULL)
-                    {
-                        /* Destroy the SRAM contiguous heap. */
-                        gcmkVERIFY_OK(gckVIDMEM_Destroy(kernel->sRAMVidMem[j]));
-                        kernel->sRAMVidMem[j] = gcvNULL;
+                    if (gal_device->gotoShutdown)
+                        kernel->dbCreated = gcvFALSE;
+
+                    for (j = gcvSRAM_INTERNAL0; j < gcvSRAM_INTER_COUNT; j++) {
+                        if (kernel->sRAMPhysical[j] != gcvNULL) {
+                            /* Release reserved SRAM memory. */
+                            gckOS_ReleaseReservedMemory(device->os,
+                                                        kernel->sRAMPhysical[j]);
+
+                            kernel->sRAMPhysical[j] = gcvNULL;
+                        }
+
+                        if (kernel->sRAMVidMem[j] != gcvNULL) {
+                            /* Destroy the SRAM contiguous heap. */
+                            gcmkVERIFY_OK(gckVIDMEM_Destroy(kernel->sRAMVidMem[j]));
+                            kernel->sRAMVidMem[j] = gcvNULL;
+                        }
                     }
                 }
             }
-        }
 
-        if (Device->device)
-        {
-            gcmkVERIFY_OK(gckDEVICE_Destroy(Device->os, Device->device));
+            gcmkVERIFY_OK(gckDEVICE_DestroyCores(device));
 
-            for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-            {
-                if (globalTA[i])
-                {
-                    gcTA_Destroy(globalTA[i]);
-                    globalTA[i] = gcvNULL;
+            for (i = 0; i < gcvCORE_COUNT; i++) {
+                if (device->registerBases[i]) {
+                    /* Unmap register memory. */
+                    if (device->requestedRegisterMemBases[i] != 0) {
+                        iounmap(device->registerBases[i]);
+
+                        release_mem_region(device->requestedRegisterMemBases[i],
+                                           device->requestedRegisterMemSizes[i]);
+                    }
+
+                    device->registerBases[i] = gcvNULL;
+                    device->requestedRegisterMemBases[i] = 0;
+                    device->requestedRegisterMemSizes[i] = 0;
                 }
             }
 
-            Device->device = gcvNULL;
+            gcmkVERIFY_OK(gckDEVICE_Destroy(device->os, device));
+
+            device = gcvNULL;
         }
 
-        for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-        {
-            if (Device->kernels[i] != gcvNULL)
-            {
-                Device->kernels[i] = gcvNULL;
+        for (i = 0; i < gcvSRAM_EXT_COUNT; i++) {
+            if (gal_device->extSRAMPhysicals[i]) {
+                gckOS_ReleaseReservedMemory(gal_device->os,
+                                            gal_device->extSRAMPhysicals[i]);
+
+                gal_device->extSRAMPhysicals[i] = gcvNULL;
+            }
+
+            if (gal_device->extSRAMVidMems[i]) {
+                gcmkVERIFY_OK(gckVIDMEM_Destroy(gal_device->extSRAMVidMems[i]));
+                gal_device->extSRAMVidMems[i] = gcvNULL;
             }
         }
 
-        if (Device->internalLogical != gcvNULL)
-        {
-            /* Unmap the internal memory. */
-            iounmap(Device->internalLogical);
-            Device->internalLogical = gcvNULL;
-        }
+        /* Free all the local memories. */
+        for (i = 0; i < gcdLOCAL_MEMORY_COUNT; i++) {
+            if (gal_device->externalPhysical[i]) {
+                gckOS_ReleaseReservedMemory(gal_device->os,
+                                            gal_device->externalPhysical[i]);
 
-        if (Device->internalVidMem != gcvNULL)
-        {
-            /* Destroy the internal heap. */
-            gcmkVERIFY_OK(gckVIDMEM_Destroy(Device->internalVidMem));
-            Device->internalVidMem = gcvNULL;
-        }
-
-        for (i = 0; i < gcvSRAM_EXT_COUNT; i++)
-        {
-            if (Device->extSRAMPhysical[i] != gcvNULL)
-            {
-                gckOS_ReleaseReservedMemory(
-                    Device->os,
-                    Device->extSRAMPhysical[i]
-                    );
-                Device->extSRAMPhysical[i] = gcvNULL;
+                gal_device->externalPhysical[i] = gcvNULL;
             }
 
-            if (Device->extSRAMVidMem[i] != gcvNULL)
-            {
-                gcmkVERIFY_OK(gckVIDMEM_Destroy(Device->extSRAMVidMem[i]));
-                Device->extSRAMVidMem[i] = gcvNULL;
+            if (gal_device->externalVidMem[i]) {
+                /* destroy the external heap */
+                gcmkVERIFY_OK(gckVIDMEM_Destroy(gal_device->externalVidMem[i]));
+                gal_device->externalVidMem[i] = gcvNULL;
+            }
+
+            if (gal_device->exclusivePhysical[i]) {
+                gckOS_ReleaseReservedMemory(gal_device->os,
+                                            gal_device->exclusivePhysical[i]);
+
+                gal_device->exclusivePhysical[i] = gcvNULL;
+            }
+
+            if (gal_device->exclusiveLogical[i])
+                gal_device->exclusiveLogical[i] = gcvNULL;
+
+            if (gal_device->exclusiveVidMem[i]) {
+                /* destroy the external heap */
+                gcmkVERIFY_OK(gckVIDMEM_Destroy(gal_device->exclusiveVidMem[i]));
+                gal_device->exclusiveVidMem[i] = gcvNULL;
             }
         }
 
-        if (Device->externalPhysical != gcvNULL)
-        {
-            gckOS_ReleaseReservedMemory(
-                Device->os,
-                Device->externalPhysical
-                );
-            Device->externalPhysical = gcvNULL;
-        }
+         /*
+          * Destroy contiguous memory pool after gckDEVICE destroyed. gckDEVICE
+          * may allocates GPU memory types from SYSTEM pool.
+          */
+        for (i = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
+            if (gal_device->contiguousPhysicals[i]) {
+                if (!gal_device->requestedContiguousBases[i]) {
+                    gcmkVERIFY_OK(_FreeMemory(gal_device,
+                                              gal_device->contiguousLogicals[i],
+                                              gal_device->contiguousPhysicals[i]));
+                } else {
+                    gckOS_ReleaseReservedMemory(gal_device->os,
+                                                gal_device->contiguousPhysicals[i]);
 
-        if (Device->externalLogical != gcvNULL)
-        {
-            Device->externalLogical = gcvNULL;
-        }
-
-        if (Device->externalVidMem != gcvNULL)
-        {
-            /* destroy the external heap */
-            gcmkVERIFY_OK(gckVIDMEM_Destroy(Device->externalVidMem));
-            Device->externalVidMem = gcvNULL;
-        }
-
-        /*
-         * Destroy contiguous memory pool after gckDEVICE destroyed. gckDEVICE
-         * may allocates GPU memory types from SYSTEM pool.
-         */
-        if (Device->contiguousPhysical != gcvNULL)
-        {
-            if (Device->requestedContiguousBase == 0)
-            {
-                gcmkVERIFY_OK(_FreeMemory(
-                    Device,
-                    Device->contiguousLogical,
-                    Device->contiguousPhysical
-                    ));
-            }
-            else
-            {
-                gckOS_ReleaseReservedMemory(
-                    Device->os,
-                    Device->contiguousPhysical
-                    );
-                Device->contiguousPhysical = gcvNULL;
-                Device->requestedContiguousBase = 0;
-                Device->requestedContiguousSize = 0;
+                    gal_device->contiguousPhysicals[i]      = gcvNULL;
+                    gal_device->requestedContiguousBases[i] = 0;
+                    gal_device->requestedContiguousSizes[i] = 0;
+                    gal_device->contiguousLogicals[i]       = gcvNULL;
+                    gal_device->contiguousPhysicals[i]      = gcvNULL;
+                }
             }
 
-            Device->contiguousLogical  = gcvNULL;
-            Device->contiguousPhysical = gcvNULL;
+            if (gal_device->contiguousVidMems[i]) {
+                /* Destroy the contiguous heap. */
+                gcmkVERIFY_OK(gckVIDMEM_Destroy(gal_device->contiguousVidMems[i]));
+                gal_device->contiguousVidMems[i] = gcvNULL;
+            }
         }
 
-        if (Device->contiguousVidMem != gcvNULL)
-        {
+#if gcdENABLE_40BIT_VA
+        if (gal_device->lowContiguousPhysical != gcvNULL) {
+            gckOS_ReleaseReservedMemory(gal_device->os,
+                                        gal_device->lowContiguousPhysical);
+
+            gal_device->lowContiguousPhysical = gcvNULL;
+        }
+
+        if (gal_device->lowContiguousVidMem != gcvNULL) {
             /* Destroy the contiguous heap. */
-            gcmkVERIFY_OK(gckVIDMEM_Destroy(Device->contiguousVidMem));
-            Device->contiguousVidMem = gcvNULL;
+            gcmkVERIFY_OK(gckVIDMEM_Destroy(gal_device->lowContiguousVidMem));
+            gal_device->lowContiguousVidMem = gcvNULL;
         }
+#endif
 
-        for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-        {
-            if (Device->registerBases[i])
-            {
-                /* Unmap register memory. */
-                if (Device->requestedRegisterMemBases[i] != 0)
-                {
-                    iounmap(Device->registerBases[i]);
-
-                    release_mem_region(Device->requestedRegisterMemBases[i],
-                            Device->requestedRegisterMemSizes[i]);
-                }
-
-                Device->registerBases[i] = gcvNULL;
-                Device->requestedRegisterMemBases[i] = 0;
-                Device->requestedRegisterMemSizes[i] = 0;
-            }
-        }
-
-        /* Destroy the suspend semaphore. */
-        if (Device->suspendSemaphore)
-        {
-            gcmkVERIFY_OK(gckOS_DestroySemaphore(Device->os, Device->suspendSemaphore));
-        }
-
-        if (Device->taos)
-        {
-            gcmkVERIFY_OK(gctaOS_DestroyOS(Device->taos));
-            Device->taos = gcvNULL;
+        if (gal_device->taos) {
+            gcmkVERIFY_OK(gctaOS_DestroyOS(gal_device->taos));
+            gal_device->taos = gcvNULL;
         }
 
         /* Destroy the gckOS object. */
-        if (Device->os != gcvNULL)
-        {
-            gcmkVERIFY_OK(gckOS_Destroy(Device->os));
-            Device->os = gcvNULL;
+        if (gal_device->os != gcvNULL) {
+            gcmkVERIFY_OK(gckOS_Destroy(gal_device->os));
+            gal_device->os = gcvNULL;
         }
 
-        _DebugfsCleanup(Device);
+        _DebugfsCleanup(gal_device);
 
         /* Free the device. */
-        kfree(Device);
+        kfree(gal_device);
     }
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
 }
 
-/*******************************************************************************
-**
-**  gckGALDEVICE_Start
-**
-**  Start the gal device, including the following actions: setup the isr routine
-**  and start the daemoni thread.
-**
-**  INPUT:
-**
-**      gckGALDEVICE Device
-**          Pointer to an gckGALDEVICE object.
-**
-**  OUTPUT:
-**
-**      Nothing.
-**
-**  RETURNS:
-**
-**      gcvSTATUS_OK
-**          Start successfully.
-*/
-gceSTATUS
-gckGALDEVICE_Start(
-    IN gckGALDEVICE Device
-    )
+#if gcdENABLE_DEVFREQ
+#include <linux/devfreq.h>
+unsigned int cur_freq = 64;
+static int gc_df_target(struct device *dev, unsigned long *freq, u32 flags)
 {
-    gctUINT i;
+    int          i = 0;
+    gctUINT32    _freq = 1;
+    gckHARDWARE  hardware;
+    gckGALDEVICE device = galDevice;
+
+    if (*freq > 64)
+        _freq = 64;
+    if (*freq < 1)
+        _freq = 1;
+
+    for (i = 0; i < gcvCORE_3D_MAX; i++) {
+        if (device->kernels[i]) {
+            hardware = device->kernels[i]->hardware;
+            gckHARDWARE_SetClock(hardware, i, _freq, _freq);
+        }
+    }
+
+    *freq = _freq;
+    cur_freq = _freq;
+
+    return 0;
+}
+
+static int gc_df_status(struct device *dev, struct devfreq_dev_status *stat)
+{
+    gckGALDEVICE device = galDevice;
+    gckKERNEL    kernel = _GetValidKernel(device);
+    gctUINT32    load   = 0;
+
+    gckHARDWARE_QueryCoreLoad(kernel->hardware, 100, &load);
+    stat->current_frequency = (unsigned long)cur_freq;
+    stat->busy_time         = (unsigned long)load;
+    stat->total_time        = (unsigned long)100;
+
+    return 0;
+}
+
+static int gc_df_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+    *freq = cur_freq;
+    return 0;
+}
+
+struct devfreq_simple_ondemand_data galcore_gov_data;
+
+static struct devfreq_dev_profile gc_df_profile = {
+    .polling_ms     = 500,
+    .target         = gc_df_target,
+    .get_dev_status = gc_df_status,
+    .get_cur_freq   = gc_df_get_cur_freq,
+};
+
+gceSTATUS
+_EnableDevfreq(IN gckGALDEVICE Device)
+{
     gceSTATUS status = gcvSTATUS_OK;
+    struct devfreq *df;
+
+    dev_pm_opp_add(galcore_device, 1, 0);
+    dev_pm_opp_add(galcore_device, 16, 0);
+    dev_pm_opp_add(galcore_device, 32, 0);
+    dev_pm_opp_add(galcore_device, 48, 0);
+    dev_pm_opp_add(galcore_device, 64, 0);
+
+    galcore_gov_data.upthreshold = 64;
+    galcore_gov_data.downdifferential = 1;
+
+    df = devm_devfreq_add_device(galcore_device, &gc_df_profile,
+                                 DEVFREQ_GOV_SIMPLE_ONDEMAND, &galcore_gov_data);
+    if (IS_ERR(df)) {
+        gcmkPRINT("Error: init devfreq %lx\n", (unsigned long)galcore_device);
+        status = gcvSTATUS_NOT_SUPPORTED;
+    }
+
+    return status;
+}
+#endif
+
+/*******************************************************************************
+ *
+ *  gckGALDEVICE_Start
+ *
+ *  Start the gal device, including the following actions: setup the isr routine
+ *  and start the daemoni thread.
+ *
+ *  INPUT:
+ *
+ *      gckGALDEVICE Device
+ *          Pointer to an gckGALDEVICE object.
+ *
+ *  OUTPUT:
+ *
+ *      Nothing.
+ *
+ *  RETURNS:
+ *
+ *      gcvSTATUS_OK
+ *          Start successfully.
+ */
+gceSTATUS
+gckGALDEVICE_Start(IN gckGALDEVICE Device)
+{
+    gctUINT   i, devIndex;
+    gceSTATUS status = gcvSTATUS_OK;
+    gckDEVICE device = gcvNULL;
 
     gcmkHEADER_ARG("Device=%p", Device);
 
-    /* Start the kernel threads. */
-    for (i = 0; i < gcvCORE_COUNT; ++i)
-    {
-        if (i == gcvCORE_VG)
-        {
-            continue;
-        }
+    for (devIndex = 0; devIndex < Device->args.devCount; devIndex++) {
+        device = Device->devices[devIndex];
 
-        gcmkONERROR(_StartThread(Device, i));
-    }
+        /* Start the kernel threads. */
+        for (i = 0; i < gcvCORE_COUNT; ++i) {
+            if (i == gcvCORE_VG)
+                continue;
 
-    for (i = 0; i < gcvCORE_COUNT; i++)
-    {
-        if (Device->kernels[i] == gcvNULL)
-        {
-            continue;
-        }
+            gcmkONERROR(_StartThread(device, i));
 
-        /* Setup the ISR routine. */
-        gcmkONERROR(_SetupIsr(i));
-
-        if (i == gcvCORE_VG)
-        {
-#if gcdENABLE_VG
-            /* Switch to SUSPEND power state. */
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(
-                Device->kernels[gcvCORE_VG]->vg->hardware, gcvPOWER_OFF_BROADCAST
-                ));
+#if gcdENABLE_SW_PREEMPTION
+            gcmkONERROR(_StartPreemptThread(device, i));
 #endif
         }
-        else
-        {
-            /* Switch to SUSPEND power state. */
-            gcmkONERROR(gckHARDWARE_SetPowerState(
-                Device->kernels[i]->hardware, gcvPOWER_OFF_BROADCAST
-                ));
 
-            gcmkONERROR(gckHARDWARE_StartTimerReset(Device->kernels[i]->hardware));
+        /* Power off needs to be after all the command start. */
+        for (i = 0; i < gcvCORE_COUNT; i++) {
+            if (device->kernels[i] == gcvNULL)
+                continue;
+
+            /* Setup the ISR routine. */
+            gcmkONERROR(_SetupIsr(device, i));
+
+            if (i == gcvCORE_VG) {
+#if gcdENABLE_VG
+                /* Switch to SUSPEND power state. */
+                gcmkONERROR(gckVGHARDWARE_SetPowerState(device->kernels[gcvCORE_VG]->vg->hardware,
+                                                        gcvPOWER_OFF_BROADCAST));
+#endif
+            } else {
+                /* Switch to SUSPEND power state. */
+                gcmkONERROR(gckHARDWARE_SetPowerState(device->kernels[i]->hardware,
+                                                      gcvPOWER_OFF_BROADCAST));
+            }
         }
     }
+
+#if gcdENABLE_DEVFREQ
+    gcmkONERROR(_EnableDevfreq(Device));
+#endif
 
 OnError:
     gcmkFOOTER();
@@ -2852,309 +3101,76 @@ OnError:
 }
 
 /*******************************************************************************
-**
-**  gckGALDEVICE_Stop
-**
-**  Stop the gal device, including the following actions: stop the daemon
-**  thread, release the irq.
-**
-**  INPUT:
-**
-**      gckGALDEVICE Device
-**          Pointer to an gckGALDEVICE object.
-**
-**  OUTPUT:
-**
-**      Nothing.
-**
-**  RETURNS:
-**
-**      Nothing.
-*/
+ *
+ *  gckGALDEVICE_Stop
+ *
+ *  Stop the gal device, including the following actions: stop the daemon
+ *  thread, release the irq.
+ *
+ *  INPUT:
+ *
+ *      gckGALDEVICE Device
+ *          Pointer to an gckGALDEVICE object.
+ *
+ *  OUTPUT:
+ *
+ *      Nothing.
+ *
+ *  RETURNS:
+ *
+ *      Nothing.
+ */
 gceSTATUS
-gckGALDEVICE_Stop(
-    gckGALDEVICE Device
-    )
+gckGALDEVICE_Stop(gckGALDEVICE Device)
 {
-    gctUINT i;
+    gctUINT   i, devIndex;
     gceSTATUS status = gcvSTATUS_OK;
+    gckDEVICE device = gcvNULL;
 
     gcmkHEADER_ARG("Device=%p", Device);
 
     gcmkVERIFY_ARGUMENT(Device != NULL);
 
-    for (i = 0; i < gcvCORE_COUNT; i++)
-    {
-        if (Device->kernels[i] == gcvNULL)
-        {
-            continue;
-        }
+    for (devIndex = 0; devIndex < Device->args.devCount; devIndex++) {
+        device = Device->devices[devIndex];
 
-        if (Device->isrInitializeds[i] == gcvFALSE)
-        {
-            continue;
-        }
+        for (i = 0; i < gcvCORE_COUNT; i++) {
+            if (device->kernels[i] == gcvNULL)
+                continue;
 
-        if (i == gcvCORE_VG)
-        {
+            if (device->isrInitializeds[i] == gcvFALSE)
+            {
+                continue;
+            }
+
+            if (!Device->gotoShutdown) {
+                if (i == gcvCORE_VG) {
 #if gcdENABLE_VG
-            /* Switch to OFF power state. */
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(
-                Device->kernels[i]->vg->hardware, gcvPOWER_OFF
-                ));
+                    /* Switch to OFF power state. */
+                    gcmkONERROR(gckVGHARDWARE_SetPowerState(device->kernels[i]->vg->hardware,
+                                                            gcvPOWER_OFF));
+#endif
+                } else {
+                    gcmkONERROR(gckHARDWARE_EnablePowerManagement(device->kernels[i]->hardware,
+                                                                  gcvTRUE));
+
+                    /* Switch to OFF power state. */
+                    gcmkONERROR(gckHARDWARE_SetPowerState(device->kernels[i]->hardware,
+                                                          gcvPOWER_OFF));
+                }
+            }
+
+            /* Stop the ISR routine. */
+            gcmkONERROR(_ReleaseIsr(device, i));
+
+            _StopThread(device, i);
+#if gcdENABLE_SW_PREEMPTION
+            _StopPreemptThread(device, i);
 #endif
         }
-        else
-        {
-            gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-                Device->kernels[i]->hardware, gcvTRUE
-                ));
-
-            /* Switch to OFF power state. */
-            gcmkONERROR(gckHARDWARE_SetPowerState(
-                Device->kernels[i]->hardware, gcvPOWER_OFF
-                ));
-
-            gckHARDWARE_StartTimerReset(Device->kernels[i]->hardware);
-        }
-
-        /* Stop the ISR routine. */
-        gcmkONERROR(_ReleaseIsr(i));
-
-    }
-
-    /* Stop the kernel thread. */
-    for (i = 0; i < gcvCORE_COUNT; i++)
-    {
-        _StopThread(Device, i);
     }
 
 OnError:
-    gcmkFOOTER();
-    return status;
-}
-
-/*******************************************************************************
-**
-**  gckGALDEVICE_Suspend
-**
-**  Suspend the gal device to specific state.
-**
-**  INPUT:
-**
-**      gckGALDEVICE Device
-**          Pointer to an gckGALDEVICE object.
-**
-**      gceCHIPPOWERSTATE State
-**          State to suspend.
-**
-**  OUTPUT:
-**
-**      Nothing.
-**
-**  RETURNS:
-**
-**      gcvSTATUS_OK
-**          Suspend successfully.
-*/
-gceSTATUS
-gckGALDEVICE_Suspend(
-    IN gckGALDEVICE Device,
-    IN gceCHIPPOWERSTATE State
-    )
-{
-    gctUINT i;
-    gceSTATUS status = gcvSTATUS_OK;
-    gckHARDWARE hardware;
-#if gcdENABLE_VG
-    gckVGHARDWARE vgHardware;
-#endif
-    gceCHIPPOWERSTATE currentState = gcvPOWER_INVALID;
-
-    gcmkHEADER_ARG("Device=%p", Device);
-
-    /* Acquire the suspend semaphore. */
-    gcmkONERROR(gckOS_AcquireSemaphore(Device->os, Device->suspendSemaphore));
-    Device->suspendSemaphoreAcquired = gcvTRUE;
-
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (Device->kernels[i] == gcvNULL)
-        {
-            continue;
-        }
-
-        Device->statesStored[i] = gcvPOWER_INVALID;
-
-        /* Query previous state and set specific state. */
-#if gcdENABLE_VG
-        if (i == gcvCORE_VG)
-        {
-            vgHardware = Device->kernels[i]->vg->hardware;
-
-            gcmkONERROR(gckVGHARDWARE_QueryPowerManagementState(vgHardware,
-                    &currentState));
-
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, State));
-        }
-        else
-#endif
-        {
-            hardware = Device->kernels[i]->hardware;
-
-            gcmkONERROR(gckHARDWARE_QueryPowerState(hardware, &currentState));
-
-            gcmkONERROR(gckHARDWARE_SetPowerState(hardware, State));
-        }
-
-        /* Store state. */
-        Device->statesStored[i] = currentState;
-    }
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Roll back the state for touched cores. */
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (Device->kernels[i] == gcvNULL)
-        {
-            continue;
-        }
-
-        if (Device->statesStored[i] == gcvPOWER_INVALID)
-        {
-            continue;
-        }
-
-        /* Reset stored state. */
-        Device->statesStored[i] = gcvPOWER_INVALID;
-    }
-
-    /* Release the suspend semaphore. */
-    if (Device->suspendSemaphoreAcquired)
-    {
-        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Device->os,
-                Device->suspendSemaphore));
-        Device->suspendSemaphoreAcquired = gcvFALSE;
-    }
-
-    gcmkFOOTER();
-    return status;
-}
-
-/*******************************************************************************
-**
-**  gckGALDEVICE_Resume
-**
-**  Resume the gal device.
-**
-**  INPUT:
-**
-**      gckGALDEVICE Device
-**          Pointer to an gckGALDEVICE object.
-**
-**  OUTPUT:
-**
-**      Nothing.
-**
-**  RETURNS:
-**
-**      gcvSTATUS_OK
-**          Resume successfully.
-*/
-gceSTATUS
-gckGALDEVICE_Resume(
-    IN gckGALDEVICE Device
-    )
-{
-    gctUINT i;
-    gceSTATUS status = gcvSTATUS_OK;
-    gckHARDWARE hardware;
-#if gcdENABLE_VG
-    gckVGHARDWARE vgHardware;
-#endif
-    gceCHIPPOWERSTATE state;
-
-    gcmkHEADER_ARG("Device=%p", Device);
-
-    for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-    {
-        if (Device->kernels[i] == gcvNULL)
-        {
-            continue;
-        }
-
-        if (Device->statesStored[i] == gcvPOWER_INVALID)
-        {
-            continue;
-        }
-
-#if gcdENABLE_VG
-        if (i == gcvCORE_VG)
-        {
-            vgHardware = Device->kernels[i]->vg->hardware;
-
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, gcvPOWER_ON));
-        }
-        else
-#endif
-        {
-            hardware = Device->kernels[i]->hardware;
-
-            gcmkONERROR(gckHARDWARE_SetPowerState(hardware, gcvPOWER_ON));
-        }
-
-        /* Convert global state to corresponding internal state. */
-        switch (Device->statesStored[i])
-        {
-        case gcvPOWER_ON:
-            state = gcvPOWER_ON_AUTO;
-            break;
-        case gcvPOWER_IDLE:
-            state = gcvPOWER_IDLE_BROADCAST;
-            break;
-        case gcvPOWER_SUSPEND:
-            state = gcvPOWER_SUSPEND_BROADCAST;
-            break;
-        case gcvPOWER_OFF:
-            state = gcvPOWER_OFF_BROADCAST;
-            break;
-        default:
-            state = Device->statesStored[i];
-            break;
-        }
-
-        /* Restore state. */
-#if gcdENABLE_VG
-        if (i == gcvCORE_VG)
-        {
-            vgHardware = Device->kernels[i]->vg->hardware;
-
-            gcmkONERROR(gckVGHARDWARE_SetPowerState(vgHardware, state));
-        }
-        else
-#endif
-        {
-            hardware = Device->kernels[i]->hardware;
-
-            gcmkONERROR(gckHARDWARE_SetPowerState(hardware, state));
-        }
-
-        /* Reset stored state. */
-        Device->statesStored[i] = gcvPOWER_INVALID;
-    }
-
-OnError:
-    /* Release the suspend semaphore. */
-    if (Device->suspendSemaphoreAcquired)
-    {
-        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Device->os,
-                Device->suspendSemaphore));
-        Device->suspendSemaphoreAcquired = gcvFALSE;
-    }
-
     gcmkFOOTER();
     return status;
 }

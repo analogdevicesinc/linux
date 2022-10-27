@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -61,8 +61,7 @@ extern "C" {
 #endif
 
 /* Chip models. */
-typedef enum _gceCHIPMODEL
-{
+typedef enum _gceCHIPMODEL {
     gcv200  = 0x0200,
     gcv300  = 0x0300,
     gcv320  = 0x0320,
@@ -81,6 +80,7 @@ typedef enum _gceCHIPMODEL
     gcv620  = 0x0620,
     gcv700  = 0x0700,
     gcv800  = 0x0800,
+    gcv820  = 0x0820,
     gcv860  = 0x0860,
     gcv880  = 0x0880,
     gcv900  = 0x0900,
@@ -98,12 +98,13 @@ typedef enum _gceCHIPMODEL
     gcv7000 = 0x7000,
     gcv7400 = 0x7400,
     gcv8000 = 0x8000,
-}
-gceCHIPMODEL;
+    gcv8400 = 0x8400,
+    gcv9100 = 0x9100,
+    gcv9200 = 0x9200,
+} gceCHIPMODEL;
 
 /* Chip features. */
-typedef enum _gceFEATURE
-{
+typedef enum _gceFEATURE {
     gcvFEATURE_PIPE_2D = 0,
     gcvFEATURE_PIPE_3D,
     gcvFEATURE_PIPE_VG,
@@ -131,6 +132,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_422_TEXTURE_COMPRESSION,
     gcvFEATURE_DXT_TEXTURE_COMPRESSION,
     gcvFEATURE_ETC1_TEXTURE_COMPRESSION,
+    gcvFEATURE_TX_ETC2_COMPRESSION,
     gcvFEATURE_CORRECT_TEXTURE_CONVERTER,
     gcvFEATURE_TEXTURE_8K,
     gcvFEATURE_SCALER,
@@ -141,6 +143,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_SHADER_HAS_CEIL,
     gcvFEATURE_SHADER_HAS_SQRT,
     gcvFEATURE_SHADER_HAS_TRIG,
+    gcvFEATURE_SH_SUPERSCALAR_ARCH,
     gcvFEATURE_HZ,
     gcvFEATURE_CORRECT_STENCIL,
     gcvFEATURE_VG20,
@@ -199,7 +202,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_PRIMITIVE_RESTART,
     gcvFEATURE_TEXTURE_LINEAR,
     gcvFEATURE_TEXTURE_YUV_ASSEMBLER,
-    gcvFEATURE_BIT_PE_64BPP_LINEAR_FORMAT,
+    gcvFEATURE_LINEAR_RENDER_TARGET,
     gcvFEATURE_SHADER_HAS_ATOMIC,
     gcvFEATURE_SHADER_HAS_INSTRUCTION_CACHE,
     gcvFEATURE_SHADER_ENHANCEMENTS2,
@@ -259,6 +262,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_2D_10BIT_OUTPUT_LINEAR,
     gcvFEATURE_2D_YUV420_OUTPUT_LINEAR,
     gcvFEATURE_ACE,
+    gcvFEATURE_NO_YUV420_SOURCE,/* unsupported source with three planes */
     gcvFEATURE_COLOR_COMPRESSION,
     gcvFEATURE_32BPP_COMPONENT_TEXTURE_CHANNEL_SWIZZLE,
     gcvFEATURE_64BPP_HW_CLEAR_SUPPORT,
@@ -331,7 +335,18 @@ typedef enum _gceFEATURE
     gcvFEATURE_IMG_INSTRUCTION,
     gcvFEATURE_HELPER_INVOCATION,
     gcvFEATURE_NO_USER_CSC,
-    gcvFEATURE_ANDROID_ONLY,
+    /* ANDROID_ONLY_REMOVED,remove some non-android features from gc520c:
+     *     (1)Monochrome expansion.
+     *     (2)Remove 3D compression and keep read tile status and tile input.
+     *     (3)ROP2, ROP3, ROP4. Android only needs one solid color as source. Transparency by monochrome mask, pattern mask, src/dst color key, chroma key.
+     *     (4)2x2 minor tile.
+     *     (5)7 & 9 tap OPF.
+     *     (6)User-defined CSC.
+     *     (7)MultiSrc walker v1.5.
+     *     (8)SuperTile V1.
+     *     (9)Big endian.
+     */
+    gcvFEATURE_ANDROID_ONLY_REMOVED,
     gcvFEATURE_V2_MSAA_COHERENCY_FIX,
     gcvFEATURE_BLOCK_SIZE_16x16,
     gcvFEATURE_TX_SUPPORT_DEC,
@@ -366,6 +381,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_FE_ALLOW_STALL_PREFETCH_ENG,
     gcvFEATURE_TX_8BPP_TS_FIX,
     gcvFEATURE_HW_TFB,
+    gcvFEATURE_HW_TFB_PERF_FIX,
     gcvFEATURE_COMPRESSION_V4,
     gcvFEATURE_FENCE_32BIT,
     gcvFEATURE_FENCE_64BIT,
@@ -400,12 +416,12 @@ typedef enum _gceFEATURE
     gcvFEATURE_USE_GL_Z,
     gcvFEATURE_SUPPORT_INTEGER,
     /* PARTLY_SUPPORT_INTEGER_BRANCH:
-    **      chips can support all integer types for compare instructions, e.g, CMP, SELECT.
-    ** FULLLY_SUPPORT_INTEGER_BRANCH:
-    **      chips can support all integer types for JMP instruction.
-    ** If PARTLY_SUPPORT_INTEGER_BRANCH is TRUE but FULLLY_SUPPORT_INTEGER_BRANCH is FALSE,
-    ** then this chip can only support INT32/UINT32 JMP instruction.
-    */
+     *      chips can support all integer types for compare instructions, e.g, CMP, SELECT.
+     * FULLLY_SUPPORT_INTEGER_BRANCH:
+     *      chips can support all integer types for JMP instruction.
+     * If PARTLY_SUPPORT_INTEGER_BRANCH is TRUE but FULLLY_SUPPORT_INTEGER_BRANCH is FALSE,
+     * then this chip can only support INT32/UINT32 JMP instruction.
+     */
     gcvFEATURE_PARTLY_SUPPORT_INTEGER_BRANCH,
     gcvFEATURE_FULLLY_SUPPORT_INTEGER_BRANCH,
     gcvFEATURE_SUPPORT_INTEGER_ATTRIBUTE,
@@ -571,7 +587,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_DR_JD_DIFF_CONDITION_FOR_CACHELINE_MODE_PRE_FIX,
     gcvFEATURE_USC_BOTTLENECK_FIX,
     gcvFEATURE_OCB_REMAP_PHYSICAL_ADDRESS,
-    gcFEATURE_BIT_NN_HW_LIMITATION_NATIVE_KER_1x2_2x1,
+    gcvFEATURE_BIT_NN_HW_LIMITATION_NATIVE_KER_1x2_2x1,
     gcvFEATURE_NN_SLICE_PADDING_TO_64BYTE_ALIGN,
     gcvFEATURE_NN_DW_1x1_CONV_MERGE,
     gcvFEATURE_TP_REORDER_LAYER_SUSPEND_FIX,
@@ -648,6 +664,24 @@ typedef enum _gceFEATURE
     gcvFEATURE_PE_A8B8G8R8, /* For PE support A8B8G8R8 format feature*/
     gcvFEATURE_DEPTHWISE_NEIGHBOR_IMG_DATA_TRANSFER_NOT_EFFICIENT_FIX,
 
+    /* FP16 enhancement-related features. */
+    gcvFEATURE_DST_TEX_I2F_F2I_INST_DEPRECATE,
+    gcvFEATURE_ALU_FP16_INST_SUPPORT,
+    gcvFEATURE_DUAL16_14BIT_PC_SUPPORT,
+    gcvFEATURE_LDST_CONV_4ROUNDING_MODES,
+    gcvFEATURE_FULL_PACK_MODE_SUPPORT,
+    gcvFEATURE_FP32_TO_FP16_CONV_FIX,
+
+    gcvFEATURE_SH_HAS_IMGLD_COMP_COUNT_FIX,
+    gcvFEATURE_SH_SUPPORT_FP32_FMA,
+
+    gcvFEATURE_SH_SUPPORT_VEC2_INT_MULMAD,
+    gcvFEATURE_SH_SUPPORT_VEC4_INT_MULMAD,
+
+    gcvFEATURE_SH_SUPPORT_HIGHPVEC_FORMAT,
+    gcvFEATURE_SH_HAS_32BIT_NEG_OFFSET_FIX_FOR_40BIT_VA,
+    gcvFEATURE_SH_SUPPORT_AIGM,
+
     /* AIGPU feature. */
     gcvFEATURE_AI_GPU,
     gcvFEATURE_NN_FAST_FIRST_PIXEL_POOLING,
@@ -655,60 +689,203 @@ typedef enum _gceFEATURE
     gcvFEATURE_NN_ASYMMETRIC_INT8,
 
     gcvFEATURE_FORMAT_YUV_I010, /*support YUVI010 & P010_LSB format*/
+    gcvFEATURE_FORMAT_YUV420_101010, /*support YUV420_101010 format*/
+    gcvFEATURE_FORMAT_FLOATPOINT, /*support FloatPoint format,also include packed-RGB888*/
 
-    gcFEATURE_BIT_NN_COMPRESSION_BYPASSS,
-    gcFEATURE_BIT_BFLOAT_COEF_COMPRESSION_ZERO_COEFBIT14_INVERSE,
-    gcFEATURE_BIT_TP_KERNEL_1BYTE_ALGIN,
-    gcFEATURE_PREPROCESS_IMG_BUF_640BYTE_LIMIT,
-    gcFEATURE_BIT_TPLITE_BFLOAT16,
+    gcvFEATURE_BIT_NN_COMPRESSION_BYPASSS,
+    gcvFEATURE_BIT_BFLOAT_COEF_COMPRESSION_ZERO_COEFBIT14_INVERSE,
+    gcvFEATURE_BIT_TP_KERNEL_1BYTE_ALGIN,
+    gcvFEATURE_PREPROCESS_IMG_BUF_640BYTE_LIMIT,
+    gcvFEATURE_BIT_TPLITE_BFLOAT16,
     gcvFEATURE_VIP_HW_FINAL_RELEASE,
     gcvFEATURE_OUTPUT_CONVERT_UINT8_INT8_TO_UINT16_INT16_FIX,
     gcvFEATURE_IMG_ADDR_NOT_WRAP_IF_OVER_OCB_ADDR_FIX, /* 2089 */
-    gcFEATURE_BIT_V8_SINGLE_PORT_ACCUMULATION_BUFFER_RW_CONFICT_ZERO_SKIP_PERF_FIX, /* 2043 */
-    gcFEATURE_BIT_BURST_COLLECT_DUMMY_DATA_WASTE_CYCLES_FIX, /* 2111 */
-    gcFEATURE_BIT_TP_ACCESS_VIPSRAM_OT_IS_ONE_FIX, /* 2050 */
+    gcvFEATURE_BIT_V8_SINGLE_PORT_ACCUMULATION_BUFFER_RW_CONFICT_ZERO_SKIP_PERF_FIX, /* 2043 */
+    gcvFEATURE_BIT_BURST_COLLECT_DUMMY_DATA_WASTE_CYCLES_FIX, /* 2111 */
+    gcvFEATURE_BIT_TP_ACCESS_VIPSRAM_OT_IS_ONE_FIX, /* 2050 */
 
-
-    gcFEATURE_BIT_USE_SINGLE_PORT_VIPSRAM,
-    gcFEATURE_VALUE_DDR_KERNEL_BURST_SIZE,
-    gcFEATURE_BIT_TILE_ACCESS_CAPABILITY,
-    gcFEATURE_BIT_FAST_DP3_PREPROCESSOR,
+    gcvFEATURE_BIT_USE_SINGLE_PORT_VIPSRAM,
+    gcvFEATURE_VALUE_DDR_KERNEL_BURST_SIZE,
+    gcvFEATURE_BIT_TILE_ACCESS_CAPABILITY,
+    gcvFEATURE_BIT_FAST_DP3_PREPROCESSOR,
 
     gcvFEATURE_BIT_INIMG_NOT_64BYTE_ALIGN_CACHELINE_MODE_FIX, /* 2112 */
-    gcFEATURE_BIT_DEPTHWISE_16BIT_FORMAT,
+    gcvFEATURE_BIT_DEPTHWISE_16BIT_FORMAT,
 
-    gcvFEATURE_2D_TILESTATUS_ROTATION,/*Fix fastclear feature with rotation*/
-    gcFEATURE_BIT_TP_FC_FLOAT_LAST_PIXEL_NEGATIVE_0_FIX,
+    gcvFEATURE_2D_TILESTATUS_ROTATION, /*Fix fastclear feature with rotation*/
+    gcvFEATURE_BIT_TP_FC_FLOAT_LAST_PIXEL_NEGATIVE_0_FIX,
     gcvFEATURE_TS_FC_VULKAN_SUPPORT,
-    gcFEATURE_BIT_V8_ACCUMLATION_READ_OUT_HAS_BUBBLES_PERF_FIX, /* 2044 */
-    gcFEATURE_BIT_MAX_TILE_SIZE,
+    gcvFEATURE_BIT_V8_ACCUMLATION_READ_OUT_HAS_BUBBLES_PERF_FIX, /* 2044 */
+    gcvFEATURE_BIT_MAX_TILE_SIZE,
     gcvFEATURE_2D_TARGET_MAJOR_SUPER_TILE, /*target support supertile Y major*/
-    gcFEATURE_BIT_INIMAGE_2DTILE_NOT_LESS_160PIXEL_FIX,
-    gcFEATURE_BIT_NN_IN_TILE_DATA_IS_ALL_PAD_FIX, /* 2131 */
+    gcvFEATURE_BIT_INIMAGE_2DTILE_NOT_LESS_160PIXEL_FIX,
+    gcvFEATURE_BIT_NN_IN_TILE_DATA_IS_ALL_PAD_FIX, /* 2131 */
+    gcvFEATURE_BIT_US_SRAM_READ_INTF_FIFO_OVERFLOW_FIX, /* 2280 */
 
     /* TP reorder the int tile x should be less than 512 */
-    gcFEATURE_TP_REORDER_INTILE_X_SIZE_512_FIX,
-    gcFEATURE_NN_WASTE_COEF_READ_WRITE_BANDWIDTH_128BYTE_VIPSRAM_IN_FULL_PATIAL_CACHE_MODE_FIX,
-    gcFEATURE_BIT_BFP_COEF_AUTO_PAD_INCOMPLETE_ZERO_IN_KZ_PLANE,
+    gcvFEATURE_TP_REORDER_INTILE_X_SIZE_512_FIX,
+    gcvFEATURE_NN_WASTE_COEF_READ_WRITE_BANDWIDTH_128BYTE_VIPSRAM_IN_FULL_PATIAL_CACHE_MODE_FIX,
+    gcvFEATURE_BIT_BFP_COEF_AUTO_PAD_INCOMPLETE_ZERO_IN_KZ_PLANE,
     gcvFEATURE_NN_FLOAT32_IO,
     gcvFEATURE_TP_FLOAT32_IO,
+    /* add for support INT16x(U)INT8 */
+    gcvFEATURE_BIT_NN_23BITS_POST_MULTIPLIER_VIP_V7,
+    gcvFEATURE_BIT_TP_23BITS_POST_MULTIPLIER_VIP_V7,
+    gcvFEATURE_CONV_INT16X8BIT_VIP_V7,
+
+    /* Q channel support. */
+    gcvFEATURE_Q_CHANNEL_SUPPORT,
+
+    /* MMU descriptor new refinement. */
+    gcvFEATURE_MMU_PAGE_DESCRIPTOR,
+
+    gcvFEATURE_BIT_NN_TILE_NUM_BIGGER_THAN_1024_FIX,
+
+    gcvFEATURE_BIT_HI1_L2_CACHE,
+
+    gcvFEATURE_BIT_NN_SUPPORT_CONV_1D,
+
+    gcvFEATURE_BIT_NN_DEPTHWISE_AFTER_16BIT_LAYER_LIMIT_FIX,
+
+    /* only support gcvSURF_B8G8R8_PLANAR & gcvSURF_AYUV format as target */
+    gcvFEATURE_BIT_BGR_PLANAR,
 
     gcvFEATURE_BIT_USC_INDIVIDUAL_PORT_WRT_EARLY_EVICT_DATA_CORRUPT_FIX,
     gcvFEATURE_BIT_NN_TP_INSTR_COMPLETE_IN_SAME_CYCLE_WITH_WAIT_EVENT_FIX,
 
+    gcvFEATURE_BIT_TP_SOFTMAX,
+    gcvFEATURE_TP_TENSOR_ADD_MUL,
+
+    gcvFEATURE_NN_REMOVE_POOLING,
+    gcvFEATURE_BIT_NN_DEPTHWISE_INT16XINT8,
+    gcvFEATURE_BIT_NN_DEPTHWISE_8BIT_VIP_V7,
+    gcvFEATURE_BIT_NN_ZDP_TRANSPOSE_CH9_ONLY,
+    gcvFEATURE_BIT_NN_SUPPORT_DUMMY_TILE,
+    gcvFEATURE_BIT_USE_VIPSRAM_FOR_KERNEL_STREAMING,
+    gcvFEATURE_BIT_NN_SUPPORT_KERNEL_1BYTE_ALIGN,
+    gcvFEATURE_BIT_NN_SMALL_BATCH_PHASE2,
+    gcvFEATURE_SH_MOVAI_MOVAR_UNUSED_COMPONENTS_WRITE_DIRTY_DATA_FIX,
+    gcvFEATURE_BIT_NN_ENHANCED_MAX_POOLING,
+    gcvFEATURE_NN_1x1_NON_POOLING_PACKING,
+    gcvFEATURE_BIT_NN_SUPPORT_BOTH_CONV_NATIVE_STRIDE2_AND_POOLING,
+    gcvFEATURE_BIT_NN_SUPPORT_ALU,
+    gcvFEATURE_BIT_NN_TRANSPOSE_PHASE2,
+    gcvFEATURE_BIT_NN_FC_ENHANCEMENT,
+    gcvFEATURE_BIT_NN_2ND_IMG_BASE_ADDR_FIX,
+    gcvFEATURE_BIT_NN_TENSOR_ADD_FIELD_MOVE_TO_EXT_CMD,
+
     gcvFEATURE_IMGLD_WIDTH_LT16_FIX,
+    gcvFEATURE_BIT_GPU_INSPECTOR_COUNTERS,
 
-    gcFEATURE_BIT_IMGLD_COMP_COUNT_FIX,
+    gcvFEATURE_VIP_REMOVE_MMU,
+    gcvFEATURE_BIT_TPLITE_SUPPORT_TP_DATA_TRANSPOSE,
+    gcvFEATURE_BIT_NN_JD_DIRECT_MODE_FIX,
+    gcvFEATURE_BIT_NN_CONV_CORE_BYPASS,
+    gcvFEATURE_BIT_TP_REMOVE_FC,
 
-    gcvFEATURE_LINEAR_RENDER_TARGET,
+    gcvFEATURE_BIT_HI_DEFAULT_ENABLE_REORDER_FIX,
+    gcvFEATURE_BIT_NN_TENSOR_ADD_RELU,
+    gcvFEATURE_BIT_NN_VIPSRAM_DOUBLE_BUFFER_FIX,
+
+    gcvFEATURE_BIT_NN_POST_OUT_SUPPORT_FP16,
+    gcvFEATURE_BIT_NN_POST_OUT_SUPPORT_BF16,
+    gcvFEATURE_BIT_NN_POST_OUT_SUPPORT_FP32,
+    gcvFEATURE_BIT_DEPTHWISE_FLOAT_FIX,
+
+    /*
+     * Using event 28 as frame done interrupt, set by End command with bit 28
+     * interrupt enabled by AHB 0x14 register and clear by 0x10 register.
+     */
+    gcvFEATURE_2D_FRAME_DONE_INTR,
+    gcvFEATURE_BIT_NN_BURST_COLLECTER_LAST_FLAG_FIX,
+    gcvFEATURE_BIT_NN_POST_MULT_SUPPORT_FP_CONV,
+
+    /*
+     * support AXI Front-End hardware moudle for IP (subsystem) directly interfacing
+     * to SOC through AXI port.
+     */
+    gcvFEATURE_BIT_AXI_FE,
+    gcvFEATURE_BIT_V83_1ST_CACHE_MODE_VIPSRAM_RD_UPDATE_FIX,
+    gcvFEATURE_BIT_NN_KERNEL_MSS_SBP2_DIRECT_STEAM_STEAM_FIX,
+    gcvFEATURE_BIT_NN_RD_IMG_NEED_EXTRA_SPACE,
+    gcvFEATURE_BIT_V83_NUMOFPENDINGTILES_FOR_2NDIMAGE_FIX,
+    gcvFEATURE_BIT_CORE_NUM_OF_KID_FOR_MULTI_LAYER_FIX,
+    gcvFEATURE_BIT_USC_RW_SAME_CACHELINE_UPDATE_FIX,
+    gcvFEATURE_BIT_V83_1ST_KERNEL_STREAM_BUFFER_UPDATE_FIX,
+    gcvFEATURE_BIT_NN_CMD_SUPPORT_SLICE,
+    gcvFEATURE_BIT_NN_HW_V83,
+
+    /* ANDROID_ONLY_RESERVED,reserve some non-android features:
+     *     (1)Line drawing,
+     *     (2)8x8 pattern,
+     *     (3)Index8 format,
+     *     (4)Demultiply,
+     *     (5)Alpha blending:(ONE,ONE_MINUS_SRC_ALPHA),(SRC_ALPHA,ONE_MINUS_SRC_ALPHA),global alpha and pre-multiply,
+     *     (6)Rectangle clear and fill,
+     *     (7)Rotation.Android uses'90 deg','H flip','V flip'three bits to describe 8 transformations.
+     */
+    gcvFEATURE_ANDROID_ONLY_RESERVED,
+    gcvFEATURE_2D_MULTISOURCE_PIPE, /* move bitblit/stretchblit pipe line to multisource blit */
+    gcvFEATURE_2D_MASK_AND_COLORKEY, /* maskblit and src/dst color key */
+
+    gcvFEATURE_BIT_V83_INTILESIZE_1X1_10BITS_FIX,
+    gcvFEATURE_BIT_NN_CIRCULAR_BUF_WRAP_ADDRESS_OVERFLOW_FIX,
+    gcvFEATURE_BIT_TP_CIRCULAR_BUF_WRAP_ADDRESS_OVERFLOW_FIX,
+    gcvFEATURE_BIT_TP_CIRCULAR_BUF_WRAP_ADDRESS_LESS_FIX,
+    gcvFEATURE_BIT_USC_PAUSE_TP_WR_REQ_MORE_THAN_256_CYCLES_FIX,
+
+    gcvFEATURE_BIT_TP_SPECIAL_LIST_PARSER_FIX, /* 2365 */
+
+    gcvFEATURE_2D_STRETCH_MULTISOURCE_PIPE, /* move stretchblit pipe line to multisource blit */
+
+    gcvFEATURE_BIT_PA_ZEROAREA_LINE_FIX, /* HW 2380 */
+    gcvFEATURE_BIT_NN_JOB_CANCELATION,
+
+    gcvFEATURE_BIT_V8_DIRECT_MODE_START_ADDR_BIAS_FOR_NEGATIVE_OFFSET_FIX,
+
+    /* only support gcvSURF_B8G8R8_PLANAR & gcvSURF_AYUV format as source */
+    gcvFEATURE_BIT_BGR_PLANAR_SOURCE,
+
+    gcvFEATURE_2D_FC_IN_DEC400EX,/* 2D Fast Clear support in DEC400EX */
+    gcvFEATURE_BIT_DIRECT_INIMAGE_XSTIDE_LE_13BIT_FIX,
+    gcvFEATURE_BIT_PE_64BPP_LINEAR_FORMAT,
+    gcvFEATURE_BIT_NN_SUPPORT_MULTI_AXI_ID,
+    gcvFEATURE_BIT_NN_STREAM_PROCESSOR,
+    gcvFEATURE_BIT_TRSPB2_ENDADDR_EQUAL_SRAMEND_FIX,
+
+    /* Feature about normalization */
+    gcvFEATURE_2D_NORMALIZATION,
+    gcvFEATURE_2D_NORMALIZATION_QUANTIZATION,
+
+    gcvFEATURE_BIT_NN_SUPPORT_16_8_QUANTIZATION,
+    gcvFEATURE_BIT_SPECIAL_8BIT_SIGN_ABS_CONV,
+    gcvFEATURE_BIT_VIP_SUPPORT_TENSOR_TRANSFER,
+    gcvFEATURE_BIT_NN_SUPPORT_CMD_LOOP,
+
+    gcvFEATURE_BIT_NN_1ST_AND_2ND_INIMAGE_RAISE_VIPSRAM_RD_UPDATE_AT_SAME_TIME_FIX,
+    gcvFEATURE_BIT_NN_1ST_AND_2ND_INIMAGE_RAISE_VIPSRAM_RD_UPDATE_AT_SAME_TIME_PHASE1_FIX,
+    gcvFEATURE_BIT_NN_1ST_AND_2ND_INIMAGE_RAISE_VIPSRAM_RD_UPDATE_AT_SAME_TIME_PHASE2_FIX,
+    gcvFEATURE_BIT_SECONDIMG_TILE_SIDEBANFIFO_FIX,
+
+    gcvFEATURE_BIT_NN_4BIT_PHASE1,
+    gcvFEATURE_BIT_NN_SUPPORT_DECONVNxN_S_LESS_THAN_16,
+    gcvFEATURE_BIT_NN_PICOCORE_DEPTHWISE,
+    gcvFEATURE_BIT_NN_SINGLE_POSTMULT_FIELDS_IN_BITSTREAM,
+    gcvFEATURE_VALUE_NN_SMALL_ACCUM_BITS,
+    gcvFEATURE_VALUE_NN_SMALL_ACCUM,
+    gcvFEATURE_BIT_VIP_SUPPORT_X_FRAME_COMPRESSION,
+    gcvFEATURE_NN_SUPPORT_EFUSE,
+    gcvFEATURE_BIT_NN_WRITE_WITHOUT_USC,
+    gcvFEATURE_BIT_NN_SUPPORT_CONFIGURABLE_FASTXDP3,
+    gcvFEATURE_BIT_SH_SUPPORT_VEC2,
+    gcvFEATURE_BIT_KERNEL_WR_RD_LUTLOAD_DIRECTMODE_ADDR_FIX,
+
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */
-}
-gceFEATURE;
+} gceFEATURE;
 
 /* Chip Power Status. */
-typedef enum _gceCHIPPOWERSTATE
-{
+typedef enum _gceCHIPPOWERSTATE {
     gcvPOWER_INVALID = -1,
 
     /* Global/base states. */
@@ -726,29 +903,24 @@ typedef enum _gceCHIPPOWERSTATE
     gcvPOWER_SUSPEND_BROADCAST = gcvPOWER_SUSPEND | gcvPOWER_FLAG_BROADCAST,
     gcvPOWER_OFF_BROADCAST     = gcvPOWER_OFF     | gcvPOWER_FLAG_BROADCAST,
 
-
     /* Timeout states. */
     gcvPOWER_FLAG_TIMEOUT      = 0x20,
     gcvPOWER_IDLE_TIMEOUT      = gcvPOWER_IDLE    | gcvPOWER_FLAG_TIMEOUT,
     gcvPOWER_SUSPEND_TIMEOUT   = gcvPOWER_SUSPEND | gcvPOWER_FLAG_TIMEOUT,
     gcvPOWER_OFF_TIMEOUT       = gcvPOWER_OFF     | gcvPOWER_FLAG_TIMEOUT,
 
-}
-gceCHIPPOWERSTATE;
+} gceCHIPPOWERSTATE;
 
 /* CPU cache operations */
-typedef enum _gceCACHEOPERATION
-{
+typedef enum _gceCACHEOPERATION {
     gcvCACHE_CLEAN      = 0x01, /* Flush CPU cache to mem */
     gcvCACHE_INVALIDATE = 0x02, /* Invalidte CPU cache */
     gcvCACHE_FLUSH      = gcvCACHE_CLEAN  | gcvCACHE_INVALIDATE, /* Both flush & invalidate */
     gcvCACHE_MEMORY_BARRIER = 0x04
-}
-gceCACHEOPERATION;
+} gceCACHEOPERATION;
 
 /* Surface types. */
-typedef enum _gceSURF_TYPE
-{
+typedef enum _gceSURF_TYPE {
     gcvSURF_TYPE_UNKNOWN = 0,
     gcvSURF_INDEX,
     gcvSURF_VERTEX,
@@ -767,11 +939,12 @@ typedef enum _gceSURF_TYPE
     gcvSURF_TFBHEADER,
     gcvSURF_NUM_TYPES, /* Make sure this is the last one! */
 
-    /* Combinations. */
     gcvSURF_CMA_LIMIT               = 0x80000000,
+    /* Combinations. */
     gcvSURF_NO_TILE_STATUS          = 0x100,
     gcvSURF_NO_VIDMEM               = 0x200, /* Used to allocate surfaces with no underlying vidmem node.
-                                                   In Android, vidmem node is allocated by another process. */
+                                                  * In Android, vidmem node is allocated by another process.
+                                                  */
     gcvSURF_CACHEABLE               = 0x400, /* Used to allocate a cacheable surface */
     gcvSURF_TILE_RLV_FENCE          = 0x800, /* create texture fence as tile */
     gcvSURF_TILE_STATUS_DIRTY       = 0x1000, /* Init tile status to all dirty */
@@ -787,7 +960,8 @@ typedef enum _gceSURF_TYPE
     gcvSURF_DMABUF_EXPORTABLE       = 0x400000, /* master node can be exported as dma-buf fd */
     gcvSURF_CACHE_MODE_128          = 0x800000,
     gcvSURF_TILED                   = 0x1000000, /* force create tile buffer, as we will convert it to supertile according to related hardware feature by default */
-    gcvSURF_LINEAR_NO_ALIGNMENT     = 0x2000000, /* only for linear render target buffer */
+    gcvSURF_FORCE_32BIT_VA          = 0x2000000, /* force allocate 32bit VA */
+    gcvSURF_LINEAR_NO_ALIGNMENT     = 0x4000000, /* only for linear render target buffer */
 
     gcvSURF_TEXTURE_LINEAR               = gcvSURF_TEXTURE
                                          | gcvSURF_LINEAR,
@@ -826,16 +1000,18 @@ typedef enum _gceSURF_TYPE
 
     gcvSURF_TEXTURE_3D                  = gcvSURF_TEXTURE
                                          | gcvSURF_3D
-}
-gceSURF_TYPE;
+} gceSURF_TYPE;
 
-/* Surface formats.
-** Name rules is from MSB->LSB.
-*/
-typedef enum _gceSURF_FORMAT
-{
+/*
+ * Surface formats.
+ * Name rules is from MSB->LSB.
+ */
+typedef enum _gceSURF_FORMAT {
     /* Unknown format. */
     gcvSURF_UNKNOWN             = 0,
+
+    /* Format test */
+    gcvSURF_TEST                = 1,
 
     /* Palettized formats. */
     gcvSURF_INDEX1              = 100,
@@ -877,6 +1053,12 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_A16R16G16B16_2_A8R8G8B8,
     gcvSURF_A32R32G32B32_2_G32R32F,
     gcvSURF_A32R32G32B32_4_A8R8G8B8,
+    gcvSURF_R8G8B8_PLANAR,
+    gcvSURF_R8G8B8I,
+    gcvSURF_R8G8B8I_PLANAR,
+    gcvSURF_R16G16B16I,
+    gcvSURF_R16G16B16I_PLANAR,
+
     /* BGR formats. */
     gcvSURF_A4B4G4R4            = 300,
     gcvSURF_A1B5G5R5,
@@ -905,6 +1087,7 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_X8B8G8R8_SNORM,
     gcvSURF_A8B8G8R8_SNORM,
     gcvSURF_A8B12G12R12_2_A8R8G8B8,
+    gcvSURF_B8G8R8_PLANAR,
 
     /* Compressed formats. */
     gcvSURF_DXT1                = 400,
@@ -924,6 +1107,9 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2,
     gcvSURF_RGBA8_ETC2_EAC,
     gcvSURF_SRGB8_ALPHA8_ETC2_EAC,
+    gcvSURF_SDXT1,
+    gcvSURF_SDXT3,
+    gcvSURF_SDXT5,
 
     /* YUV formats. */
     gcvSURF_YUY2                = 500,
@@ -947,6 +1133,9 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_P010,
     gcvSURF_P010_LSB,
     gcvSURF_I010,
+    gcvSURF_I010_LSB,
+    gcvSURF_YUV420_101010,
+    gcvSURF_GRAY8,
 #if gcdVG_ONLY
     gcvSURF_AYUY2,
     gcvSURF_ANV12,
@@ -1055,6 +1244,13 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_A32R32F,
     gcvSURF_E5B9G9R9,
     gcvSURF_B10G11R11F,
+    gcvSURF_B16G16R16F_PLANAR,
+    gcvSURF_B32G32R32F_PLANAR,
+    gcvSURF_R16G16B16F,
+    gcvSURF_R32G32B32F,
+
+    gcvSURF_GRAY16F,
+    gcvSURF_GRAY32F,
 
     gcvSURF_X16B16G16R16F_2_A8R8G8B8,
     gcvSURF_A16B16G16R16F_2_A8R8G8B8,
@@ -1077,7 +1273,8 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_L32F_1_R32F,
     gcvSURF_A32L32F_1_G32R32F,
 
-
+    gcvSURF_R16G16B16F_PLANAR,
+    gcvSURF_R32G32B32F_PLANAR,
 
     /* sRGB format. */
     gcvSURF_SBGR8               = 1400,
@@ -1219,7 +1416,7 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_ASTC12x12_SRGB,
 
     /* Recompile format*/
-    gcvSURF_L16_1_A4R4G4B4 = 1700,
+    gcvSURF_L16_1_A4R4G4B4      = 1700,
     gcvSURF_V16U16_1_A8R8G8B8,
     gcvSURF_Q8W8V8U8_1_A8R8G8B8,
     gcvSURF_X8L8V8U8_1_A8R8G8B8,
@@ -1244,7 +1441,7 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_A16B16G16R16_1_A8R8G8B8,
 
     /* Integer formats (2)) */
-    gcvSURF_R10G10B10A2UI   = 1800,
+    gcvSURF_R10G10B10A2UI       = 1800,
     gcvSURF_R5G6B5UI,
     gcvSURF_B5G6R5UI,
     gcvSURF_R3G3B2UI,
@@ -1256,31 +1453,27 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_R8G8B8A8UI,
 
     /* GL4 formats */
-    gcvSURF_G8              = 1900,
+    gcvSURF_G8                  = 1900,
     gcvSURF_B8,
     gcvSURF_G32F,
     gcvSURF_B32F,
 
     /* Intensity formats */
-    gcvSURF_I4              = 2000,
+    gcvSURF_I4                  = 2000,
     gcvSURF_I8,
     gcvSURF_I12,
     gcvSURF_I16,
-}
-gceSURF_FORMAT;
+} gceSURF_FORMAT;
 
 /* Pipes. */
-typedef enum _gcePIPE_SELECT
-{
+typedef enum _gcePIPE_SELECT {
     gcvPIPE_INVALID = ~0,
     gcvPIPE_3D      =  0,
     gcvPIPE_2D
-}
-gcePIPE_SELECT;
+} gcePIPE_SELECT;
 
 /* Hardware type. */
-typedef enum _gceHARDWARE_TYPE
-{
+typedef enum _gceHARDWARE_TYPE {
     gcvHARDWARE_INVALID,
     gcvHARDWARE_3D2D,
     gcvHARDWARE_3D,
@@ -1288,46 +1481,38 @@ typedef enum _gceHARDWARE_TYPE
     gcvHARDWARE_VIP,
     gcvHARDWARE_VG,
     gcvHARDWARE_NUM_TYPES,
-}
-gceHARDWARE_TYPE;
+} gceHARDWARE_TYPE;
 
 /* User signal command codes. */
-typedef enum _gceUSER_SIGNAL_COMMAND_CODES
-{
+typedef enum _gceUSER_SIGNAL_COMMAND_CODES {
     gcvUSER_SIGNAL_CREATE,
     gcvUSER_SIGNAL_DESTROY,
     gcvUSER_SIGNAL_SIGNAL,
     gcvUSER_SIGNAL_WAIT,
     gcvUSER_SIGNAL_MAP,
     gcvUSER_SIGNAL_UNMAP,
-}
-gceUSER_SIGNAL_COMMAND_CODES;
+} gceUSER_SIGNAL_COMMAND_CODES;
 
 /* Shared buffer command codes. */
-typedef enum _gceSHBUF_COMMAND_CODES
-{
+typedef enum _gceSHBUF_COMMAND_CODES {
     gcvSHBUF_CREATE,
     gcvSHBUF_DESTROY,
     gcvSHBUF_MAP,
     gcvSHBUF_WRITE,
     gcvSHBUF_READ,
-}
-gceSHBUF_COMMAND_CODES;
+} gceSHBUF_COMMAND_CODES;
 
 /* Event locations. */
-typedef enum _gceKERNEL_WHERE
-{
+typedef enum _gceKERNEL_WHERE {
     gcvKERNEL_COMMAND,
     gcvKERNEL_VERTEX,
     gcvKERNEL_TRIANGLE,
     gcvKERNEL_TEXTURE,
     gcvKERNEL_PIXEL,
     gcvKERNEL_BLT,
-}
-gceKERNEL_WHERE;
+} gceKERNEL_WHERE;
 
-typedef enum _gceBLOCK
-{
+typedef enum _gceBLOCK {
     gcvBLOCK_COMMAND,
     gcvBLOCK_TESSELLATOR,
     gcvBLOCK_TESSELLATOR2,
@@ -1340,53 +1525,59 @@ typedef enum _gceBLOCK
 
     /* Number of defined blocks. */
     gcvBLOCK_COUNT
-}
-gceBLOCK;
+} gceBLOCK;
 
-typedef enum _gceCORE_3D_MASK
-{
+typedef enum _gceCORE_3D_MASK {
     gcvCORE_3D_0_MASK   = (1 << 0),
     gcvCORE_3D_1_MASK   = (1 << 1),
 
     gcvCORE_3D_ALL_MASK = (0xFFFF)
-}
-gceCORE_3D_MASK;
+} gceCORE_3D_MASK;
 
-typedef enum _gceCORE_3D_ID
-{
+typedef enum _gceCORE_3D_ID {
     gcvCORE_3D_0_ID       = 0,
     gcvCORE_3D_1_ID       = 1,
 
     gcvCORE_3D_ID_INVALID = ~0UL
-}
-gceCORE_3D_ID;
+} gceCORE_3D_ID;
+
+typedef enum _gceCORE_2D_MASK {
+    gcvCORE_2D_0_MASK   = (1 << 0),
+    gcvCORE_2D_1_MASK   = (1 << 1),
+    gcvCORE_2D_2_MASK   = (1 << 2),
+    gcvCORE_2D_3_MASK   = (1 << 3),
+
+    gcvCORE_2D_ALL_MASK = (0xFFFF)
+} gceCORE_2D_MASK;
+
+typedef enum _gceCORE_2D_ID {
+    gcvCORE_2D_0_ID       = 0,
+    gcvCORE_2D_1_ID       = 1,
+
+    gcvCORE_2D_ID_INVALID = ~0UL
+} gceCORE_2D_ID;
 
 
-typedef enum _gceCHIP_FLAG
-{
+typedef enum _gceCHIP_FLAG {
     gcvCHIP_FLAG_MSAA_COHERENCEY_ECO_FIX = 1 << 0,
     gcvCHIP_FLAG_GC2000_R2               = 1 << 1,
     gcvCHIP_AXI_BUS128_BITS              = 1 << 2,
-}
-gceCHIP_FLAG;
+} gceCHIP_FLAG;
 
 /* If different, choose render engine */
-#define PRIORITY_ENGINE(a, b) gcmMIN(a,b)
+#define PRIORITY_ENGINE(a, b) gcmMIN(a, b)
 
-typedef enum
-{
+typedef enum {
     gcvENGINE_RENDER            = 0,
     gcvENGINE_BLT               = 1,
     gcvENGINE_GPU_ENGINE_COUNT  = 2,
     gcvENGINE_CPU               = gcvENGINE_GPU_ENGINE_COUNT,
     gcvENGINE_ALL_COUNT         = gcvENGINE_CPU + 1,
     gcvENGINE_INVALID           = gcvENGINE_ALL_COUNT + 0x100
-}
-gceENGINE;
+} gceENGINE;
 
 /* CORE enum. */
-typedef enum _gceCORE
-{
+typedef enum _gceCORE {
     gcvCORE_MAJOR,
     gcvCORE_3D1,
     gcvCORE_3D2,
@@ -1395,39 +1586,79 @@ typedef enum _gceCORE
     gcvCORE_3D5,
     gcvCORE_3D6,
     gcvCORE_3D7,
-    gcvCORE_3D_MAX = gcvCORE_3D7,
+    gcvCORE_3D8,
+    gcvCORE_3D9,
+    gcvCORE_3D10,
+    gcvCORE_3D11,
+    gcvCORE_3D12,
+    gcvCORE_3D13,
+    gcvCORE_3D14,
+    gcvCORE_3D15,
+    gcvCORE_3D_MAX = gcvCORE_3D15,
     gcvCORE_2D,
+    gcvCORE_2D1,
+    gcvCORE_2D2,
+    gcvCORE_2D3,
+    gcvCORE_2D_MAX = gcvCORE_2D3,
     gcvCORE_VG,
 #if gcdDEC_ENABLE_AHB
     gcvCORE_DEC,
 #endif
     gcvCORE_COUNT
-}
-gceCORE;
+} gceCORE;
 
-#define gcdCHIP_COUNT               gcvCORE_COUNT
+#define gcdCHIP_COUNT                   gcvCORE_COUNT
+#define gcdCORE_3D_COUNT                (gcvCORE_3D_MAX + 1)
+#define gcdCORE_2D_COUNT                4
 
-typedef enum _gceSECURE_MODE
-{
+#define gcdMAX_MAJOR_CORE_COUNT         (gcvCORE_2D_MAX + 1)
+
+#ifndef gcdDEVICE_COUNT
+#    define gcdDEVICE_COUNT             2
+#endif
+
+#ifndef gcdPLATFORM_COUNT
+#    define gcdPLATFORM_COUNT           gcdDEVICE_COUNT
+#endif
+
+#ifndef gcvSRAM_EXT_COUNT
+#    define gcvSRAM_EXT_COUNT           gcdDEVICE_COUNT
+#endif
+
+#ifndef gcdSYSTEM_RESERVE_COUNT
+#    define gcdSYSTEM_RESERVE_COUNT     gcdDEVICE_COUNT
+#endif
+
+#ifndef gcdLOCAL_MEMORY_COUNT
+#    define gcdLOCAL_MEMORY_COUNT       gcdDEVICE_COUNT
+#endif
+
+#ifndef gcdGLOBAL_CORE_COUNT
+#    define gcdGLOBAL_CORE_COUNT        (gcdDEVICE_COUNT * gcdCORE_3D_COUNT)
+#endif
+
+#ifndef gcdGLOBAL_2D_COUNT
+#    define gcdGLOBAL_2D_COUNT          gcdCORE_2D_COUNT
+#endif
+
+typedef enum _gceSECURE_MODE {
     /* For cores without gcvFEATURE_SECURITY. */
     gcvSECURE_NONE,
 
     /* Use registers added in gcvFEATURE_SECURITY in normal driver,
-    ** In this mode, GPU always works under non secure mode and
-    ** should not touch secure buffer. It is used to test basic function.
-    */
+     * In this mode, GPU always works under non secure mode and
+     * should not touch secure buffer. It is used to test basic function.
+     */
     gcvSECURE_IN_NORMAL,
 
     /* Make use of gcvFEATURE_SECURITY in trust application. */
     gcvSECURE_IN_TA
-}
-gceSECURE_MODE;
+} gceSECURE_MODE;
 
 /* kernel driver compression option, as it's a system global option,
-** it means kernel driver allows the options, NOT necessarily means it must be on.
-*/
-typedef enum _gceCOMPRESSION_OPTION
-{
+ * it means kernel driver allows the options, NOT necessarily means it must be on.
+ */
+typedef enum _gceCOMPRESSION_OPTION {
     gcvCOMPRESSION_OPTION_NONE       = 0x0, /* No any compression */
     gcvCOMPRESSION_OPTION_COLOR      = 0x1, /* Compression for non-msaa color format */
     gcvCOMPRESSION_OPTION_DEPTH      = 0x2, /* Compression for non-msaa depth format */
@@ -1439,37 +1670,22 @@ typedef enum _gceCOMPRESSION_OPTION
                                        gcvCOMPRESSION_OPTION_COLOR      |
                                        gcvCOMPRESSION_OPTION_MSAA_COLOR |
                                        gcvCOMPRESSION_OPTION_MSAA_DEPTH,
-}
-gceCOMPRESSION_OPTION;
+} gceCOMPRESSION_OPTION;
 
-typedef enum _gceSRAM_INTERNAL
-{
+typedef enum _gceSRAM_INTERNAL {
     gcvSRAM_INTERNAL0 = 0,
     gcvSRAM_INTERNAL1,
 
     gcvSRAM_INTER_COUNT
-}
-gceSRAM_INTERNAL;
+} gceSRAM_INTERNAL;
 
-typedef enum _gceSRAM_EXTERNAL
-{
-    gcvSRAM_EXTERNAL0 = 0,
-    gcvSRAM_EXTERNAL1,
-
-    gcvSRAM_EXT_COUNT
-}
-gceSRAM_EXTERNAL;
-
-typedef enum _gceFLATMAP_FLAG
-{
+typedef enum _gceFLATMAP_FLAG {
     gcvFLATMAP_DIRECT,
     gcvFLATMAP_SHIFT,
-}
-gceFLATMAP_FLAG;
+} gceFLATMAP_FLAG;
 
 /* Video memory alloation type. */
-typedef enum _gceVIDMEM_TYPE
-{
+typedef enum _gceVIDMEM_TYPE {
     gcvVIDMEM_TYPE_GENERIC          = gcvSURF_TYPE_UNKNOWN,
     gcvVIDMEM_TYPE_INDEX_BUFFER     = gcvSURF_INDEX,
     gcvVIDMEM_TYPE_VERTEX_BUFFER    = gcvSURF_VERTEX,
@@ -1488,11 +1704,9 @@ typedef enum _gceVIDMEM_TYPE
     gcvVIDMEM_TYPE_TFBHEADER        = gcvSURF_TFBHEADER,
     gcvVIDMEM_TYPE_COMMAND,
     gcvVIDMEM_TYPE_COUNT
-}
-gceVIDMEM_TYPE;
+} gceVIDMEM_TYPE;
 
-typedef enum _gceTASK
-{
+typedef enum _gceTASK {
     gcvTASK_LINK,
     gcvTASK_CLUSTER,
     gcvTASK_INCREMENT,
@@ -1502,15 +1716,13 @@ typedef enum _gceTASK
     gcvTASK_UNLOCK_VIDEO_MEMORY,
     gcvTASK_FREE_VIDEO_MEMORY,
     gcvTASK_FREE_CONTIGUOUS_MEMORY,
-}
-gceTASK;
+} gceTASK;
 
-/******************************************************************************\
-********************************* Status Codes *********************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************** Status Codes ********************************
+ ******************************************************************************/
 
-typedef enum _gceSTATUS
-{
+typedef enum _gceSTATUS {
     gcvSTATUS_OK                    =   0,
     gcvSTATUS_FALSE                 =   0,
     gcvSTATUS_TRUE                  =   1,
@@ -1562,6 +1774,10 @@ typedef enum _gceSTATUS
     gcvSTATUS_DEVICE                =   -27,
     gcvSTATUS_NOT_MULTI_PIPE_ALIGNED =   -28,
     gcvSTATUS_OUT_OF_SAMPLER         =   -29,
+    gcvSTATUS_PROBE_LATER           =   -30,
+    gcvSTATUS_RESLUT_OVERFLOW       =   -31,
+    gcvSTATUS_RECOVERY              =   -32,
+    gcvSTATUS_CANCEL_JOB            =   -33,
 
     /* Linker errors. */
     gcvSTATUS_GLOBAL_TYPE_MISMATCH              =   -1000,
@@ -1604,12 +1820,10 @@ typedef enum _gceSTATUS
 
     /* Recompilation Errors */
     gcvSTATUS_RECOMPILER_CONVERT_UNIMPLEMENTED  =   -3000,
-}
-gceSTATUS;
+} gceSTATUS;
 
 /* The patch types. */
-enum _gceHAL_PATCH_TYPE
-{
+enum _gceHAL_PATCH_TYPE {
     gcvHAL_PATCH_VIDMEM_ADDRESS = 1,
     gcvHAL_PATCH_MCFE_SEMAPHORE,
     gcvHAL_PATCH_VIDMEM_TIMESTAMP,
@@ -1618,12 +1832,11 @@ enum _gceHAL_PATCH_TYPE
     gcvHAL_PATCH_TYPE_COUNT,
 };
 
-/******************************************************************************\
-********************************* Command Codes ********************************
-\******************************************************************************/
+/******************************************************************************
+ ******************************** Command Codes *******************************
+ ******************************************************************************/
 
-typedef enum _gceHAL_COMMAND_CODES
-{
+typedef enum _gceHAL_COMMAND_CODES {
     /*************** Common ***************/
 
     /* Chip info: count, type and so on. */
@@ -1683,7 +1896,7 @@ typedef enum _gceHAL_COMMAND_CODES
     /* Query process database info when debug trace and proflie. */
     gcvHAL_DATABASE,
 
-    /* Power managment enable/disable. */
+    /* Power management enable/disable. */
     gcvHAL_CONFIG_POWER_MANAGEMENT,
 
     /* Debug/dump feature. */
@@ -1763,10 +1976,13 @@ typedef enum _gceHAL_COMMAND_CODES
     /*************** OS specific end ***************/
 
     /*************** Reserved ***************/
-    gcvHAL_SET_IDLE,
+    /* Access APB register. */
+    gcvHAL_APB_AXIFE_ACCESS,
+
+    /* Trigger a software reset. */
     gcvHAL_RESET,
 
-    /* Command commit done, kernel event only. */
+    /* Command commit done, preemption only. */
     gcvHAL_COMMIT_DONE,
 
     /* Get video memory file description. */
@@ -1779,17 +1995,21 @@ typedef enum _gceHAL_COMMAND_CODES
     gcvHAL_READ_REGISTER_EX,
     gcvHAL_WRITE_REGISTER_EX,
 
-    /* Power managment state. */
+    /* Power management state. */
     gcvHAL_SET_POWER_MANAGEMENT_STATE,
     gcvHAL_QUERY_POWER_MANAGEMENT_STATE,
 
-    /* Set debug level. */
-    gcvHAL_SET_DEBUG_LEVEL_ZONE,
+    /* Query CPU frequency. */
+    gcvHAL_QUERY_CPU_FREQUENCY,
 
-    /* Dump info. */
+    /* Dump HW register state. */
     gcvHAL_DUMP_GPU_STATE,
-    gcvHAL_DUMP_EVENT,
-    gcvHAL_DUMP_GPU_PROFILE,
+
+    /* Sync video memory for special memory pool */
+    gcvHAL_SYNC_VIDEO_MEMORY,
+
+    /* Cancel Job. */
+    gcvHAL_CANCEL_JOB,
 
     /* Timer. */
     gcvHAL_TIMESTAMP,
@@ -1798,83 +2018,77 @@ typedef enum _gceHAL_COMMAND_CODES
     gcvHAL_SET_FSCALE_VALUE,
     gcvHAL_GET_FSCALE_VALUE,
 
-    /* Destory MMU. */
+    /* Destroy MMU. */
     gcvHAL_DESTROY_MMU,
-    /*************** Reserved end ***************/
-}
-gceHAL_COMMAND_CODES;
 
-/******************************************************************************\
-******************************** gcsOBJECT Object *******************************
-\******************************************************************************/
+    /*************** Reserved end ***************/
+} gceHAL_COMMAND_CODES;
+
+/******************************************************************************
+ ******************************* gcsOBJECT Object *****************************
+ ******************************************************************************/
 
 /* Macro to combine four characters into a Charcater Code. */
 #define gcmCC(c1, c2, c3, c4) \
 (\
-    (char) (c1) \
-    | \
-    ((char) (c2) <<  8) \
-    | \
-    ((char) (c3) << 16) \
-    | \
-    ((char) (c4) << 24) \
+     (char)(c1)        |      \
+    ((char)(c2) <<  8) |      \
+    ((char)(c3) << 16) |      \
+    ((char)(c4) << 24)        \
 )
 
 /* Type of objects. */
-typedef enum _gceOBJECT_TYPE
-{
+typedef enum _gceOBJECT_TYPE {
     gcvOBJ_UNKNOWN              = 0,
-    gcvOBJ_2D                   = gcmCC('2','D',' ',' '),
-    gcvOBJ_3D                   = gcmCC('3','D',' ',' '),
-    gcvOBJ_ATTRIBUTE            = gcmCC('A','T','T','R'),
-    gcvOBJ_BRUSHCACHE           = gcmCC('B','R','U','$'),
-    gcvOBJ_BRUSHNODE            = gcmCC('B','R','U','n'),
-    gcvOBJ_BRUSH                = gcmCC('B','R','U','o'),
-    gcvOBJ_BUFFER               = gcmCC('B','U','F','R'),
-    gcvOBJ_COMMAND              = gcmCC('C','M','D',' '),
-    gcvOBJ_COMMANDBUFFER        = gcmCC('C','M','D','B'),
-    gcvOBJ_CONTEXT              = gcmCC('C','T','X','T'),
-    gcvOBJ_DEVICE               = gcmCC('D','E','V',' '),
-    gcvOBJ_DUMP                 = gcmCC('D','U','M','P'),
-    gcvOBJ_EVENT                = gcmCC('E','V','N','T'),
-    gcvOBJ_FUNCTION             = gcmCC('F','U','N','C'),
-    gcvOBJ_HAL                  = gcmCC('H','A','L',' '),
-    gcvOBJ_HARDWARE             = gcmCC('H','A','R','D'),
-    gcvOBJ_HEAP                 = gcmCC('H','E','A','P'),
-    gcvOBJ_INDEX                = gcmCC('I','N','D','X'),
-    gcvOBJ_INTERRUPT            = gcmCC('I','N','T','R'),
-    gcvOBJ_KERNEL               = gcmCC('K','E','R','N'),
-    gcvOBJ_KERNEL_FUNCTION      = gcmCC('K','F','C','N'),
-    gcvOBJ_MEMORYBUFFER         = gcmCC('M','E','M','B'),
-    gcvOBJ_MMU                  = gcmCC('M','M','U',' '),
-    gcvOBJ_OS                   = gcmCC('O','S',' ',' '),
-    gcvOBJ_OUTPUT               = gcmCC('O','U','T','P'),
-    gcvOBJ_PAINT                = gcmCC('P','N','T',' '),
-    gcvOBJ_PATH                 = gcmCC('P','A','T','H'),
-    gcvOBJ_QUEUE                = gcmCC('Q','U','E',' '),
-    gcvOBJ_SAMPLER              = gcmCC('S','A','M','P'),
-    gcvOBJ_SHADER               = gcmCC('S','H','D','R'),
-    gcvOBJ_VIR_SHADER           = gcmCC('V','S','D','R'),
-    gcvOBJ_STREAM               = gcmCC('S','T','R','M'),
-    gcvOBJ_SURF                 = gcmCC('S','U','R','F'),
-    gcvOBJ_TEXTURE              = gcmCC('T','X','T','R'),
-    gcvOBJ_UNIFORM              = gcmCC('U','N','I','F'),
-    gcvOBJ_VARIABLE             = gcmCC('V','A','R','I'),
-    gcvOBJ_VERTEX               = gcmCC('V','R','T','X'),
-    gcvOBJ_VIDMEM               = gcmCC('V','M','E','M'),
-    gcvOBJ_VIDMEM_BLOCK         = gcmCC('V','M','B','K'),
-    gcvOBJ_VG                   = gcmCC('V','G',' ',' '),
-    gcvOBJ_BUFOBJ               = gcmCC('B','U','F','O'),
-    gcvOBJ_UNIFORM_BLOCK        = gcmCC('U','B','L','K'),
-    gcvOBJ_CL                   = gcmCC('C','L',' ',' '),
-    gcvOBJ_STORAGE_BLOCK        = gcmCC('S','B','L','K'),
-    gcvOBJ_IO_BLOCK             = gcmCC('I','O','B','K'),
-}
-gceOBJECT_TYPE;
+    gcvOBJ_2D                   = gcmCC('2', 'D', ' ', ' '),
+    gcvOBJ_3D                   = gcmCC('3', 'D', ' ', ' '),
+    gcvOBJ_ATTRIBUTE            = gcmCC('A', 'T', 'T', 'R'),
+    gcvOBJ_BRUSHCACHE           = gcmCC('B', 'R', 'U', '$'),
+    gcvOBJ_BRUSHNODE            = gcmCC('B', 'R', 'U', 'n'),
+    gcvOBJ_BRUSH                = gcmCC('B', 'R', 'U', 'o'),
+    gcvOBJ_BUFFER               = gcmCC('B', 'U', 'F', 'R'),
+    gcvOBJ_COMMAND              = gcmCC('C', 'M', 'D', ' '),
+    gcvOBJ_COMMANDBUFFER        = gcmCC('C', 'M', 'D', 'B'),
+    gcvOBJ_CONTEXT              = gcmCC('C', 'T', 'X', 'T'),
+    gcvOBJ_DEVICE               = gcmCC('D', 'E', 'V', ' '),
+    gcvOBJ_DUMP                 = gcmCC('D', 'U', 'M', 'P'),
+    gcvOBJ_EVENT                = gcmCC('E', 'V', 'N', 'T'),
+    gcvOBJ_FUNCTION             = gcmCC('F', 'U', 'N', 'C'),
+    gcvOBJ_HAL                  = gcmCC('H', 'A', 'L', ' '),
+    gcvOBJ_HARDWARE             = gcmCC('H', 'A', 'R', 'D'),
+    gcvOBJ_HEAP                 = gcmCC('H', 'E', 'A', 'P'),
+    gcvOBJ_INDEX                = gcmCC('I', 'N', 'D', 'X'),
+    gcvOBJ_INTERRUPT            = gcmCC('I', 'N', 'T', 'R'),
+    gcvOBJ_KERNEL               = gcmCC('K', 'E', 'R', 'N'),
+    gcvOBJ_KERNEL_FUNCTION      = gcmCC('K', 'F', 'C', 'N'),
+    gcvOBJ_MEMORYBUFFER         = gcmCC('M', 'E', 'M', 'B'),
+    gcvOBJ_MMU                  = gcmCC('M', 'M', 'U', ' '),
+    gcvOBJ_OS                   = gcmCC('O', 'S', ' ', ' '),
+    gcvOBJ_OUTPUT               = gcmCC('O', 'U', 'T', 'P'),
+    gcvOBJ_PAINT                = gcmCC('P', 'N', 'T', ' '),
+    gcvOBJ_PATH                 = gcmCC('P', 'A', 'T', 'H'),
+    gcvOBJ_QUEUE                = gcmCC('Q', 'U', 'E', ' '),
+    gcvOBJ_SAMPLER              = gcmCC('S', 'A', 'M', 'P'),
+    gcvOBJ_SHADER               = gcmCC('S', 'H', 'D', 'R'),
+    gcvOBJ_VIR_SHADER           = gcmCC('V', 'S', 'D', 'R'),
+    gcvOBJ_STREAM               = gcmCC('S', 'T', 'R', 'M'),
+    gcvOBJ_SURF                 = gcmCC('S', 'U', 'R', 'F'),
+    gcvOBJ_TEXTURE              = gcmCC('T', 'X', 'T', 'R'),
+    gcvOBJ_UNIFORM              = gcmCC('U', 'N', 'I', 'F'),
+    gcvOBJ_VARIABLE             = gcmCC('V', 'A', 'R', 'I'),
+    gcvOBJ_VERTEX               = gcmCC('V', 'R', 'T', 'X'),
+    gcvOBJ_VIDMEM               = gcmCC('V', 'M', 'E', 'M'),
+    gcvOBJ_VIDMEM_BLOCK         = gcmCC('V', 'M', 'B', 'K'),
+    gcvOBJ_VG                   = gcmCC('V', 'G', ' ', ' '),
+    gcvOBJ_BUFOBJ               = gcmCC('B', 'U', 'F', 'O'),
+    gcvOBJ_UNIFORM_BLOCK        = gcmCC('U', 'B', 'L', 'K'),
+    gcvOBJ_CL                   = gcmCC('C', 'L', ' ', ' '),
+    gcvOBJ_STORAGE_BLOCK        = gcmCC('S', 'B', 'L', 'K'),
+    gcvOBJ_IO_BLOCK             = gcmCC('I', 'O', 'B', 'K'),
+} gceOBJECT_TYPE;
 
 /* Video memory pool type. */
-typedef enum _gcePOOL
-{
+typedef enum _gcePOOL {
     gcvPOOL_UNKNOWN = 0,
     gcvPOOL_DEFAULT,
     gcvPOOL_LOCAL,
@@ -1882,18 +2096,17 @@ typedef enum _gcePOOL
     gcvPOOL_LOCAL_EXTERNAL,
     gcvPOOL_UNIFIED,
     gcvPOOL_SYSTEM,
-    gcvPOOL_SRAM,
     gcvPOOL_VIRTUAL,
     gcvPOOL_USER,
     gcvPOOL_INTERNAL_SRAM,
     gcvPOOL_EXTERNAL_SRAM,
+    gcvPOOL_LOCAL_EXCLUSIVE,
+    gcvPOOL_SYSTEM_32BIT_VA,
 
     gcvPOOL_NUMBER_OF_POOLS
-}
-gcePOOL;
+} gcePOOL;
 
-typedef enum _gceDUMP_BUFFER_TYPE
-{
+typedef enum _gceDUMP_BUFFER_TYPE {
     gcvDUMP_BUFFER_USER_STRING,
     gcvDUMP_BUFFER_VERIFY,
 
@@ -1916,21 +2129,63 @@ typedef enum _gceDUMP_BUFFER_TYPE
     gcvDUMP_BUFFER_PHYSICAL_MEMORY,
 
     gcvDUMP_BUFFER_TYPE_COUNT,
-}
-gceDUMP_BUFFER_TYPE;
+} gceDUMP_BUFFER_TYPE;
 
-typedef enum _gceProfilerMode
-{
-    gcvPROFILER_PROBE_MODE = 0,
-    gcvPROFILER_AHB_MODE   = 1,
-}
-gceProfilerMode;
+typedef enum _gceLOCK_VIDEO_MEMORY_OP {
+    gcvLOCK_VIDEO_MEMORY_OP_NONE   = 0x00,
+    gcvLOCK_VIDEO_MEMORY_OP_LOCK   = 0x01,
+    gcvLOCK_VIDEO_MEMORY_OP_MAP    = 0x02,
+    gcvLOCK_VIDEO_MEMORY_OP_UNLOCK = 0x04,
+    gcvLOCK_VIDEO_MEMORY_OP_UNMAP  = 0x08,
+} gceLOCK_VIDEO_MEMORY_OP;
+
+typedef enum _gceSIGNAL_STATUS {
+    gcvSIGNAL_OK = 0,
+    gcvSIGNAL_RECOVERY,
+    gcvSIGNAL_CANCEL,
+} gceSIGNAL_STATUS;
+
+#if gcdENABLE_VIDEO_MEMORY_MIRROR
+typedef enum _gceSYNC_MEMORY_DIRECTION {
+    gcvSYNC_MEMORY_DIRECTION_NONE = 0,
+    gcvSYNC_MEMORY_DIRECTION_LOCAL_TO_SYSTEM,
+    gcvSYNC_MEMORY_DIRECTION_SYSTEM_TO_LOCAL,
+} gceSYNC_MEMORY_DIRECTION;
+
+typedef enum _gceMIRROR_TYPE {
+    gcvMIRROR_TYPE_NONE = 0,
+    gcvMIRROR_TYPE_LOCAL_MEMORY_MIRROR,
+    gcvMIRROR_TYPE_SYSTEM_MEMORY_MIRROR,
+} gceMIRROR_TYPE;
+#endif
+
+typedef enum _gceProfilerMode {
+    gcvPROFILER_UNKNOWN_MODE = 0,
+    gcvPROFILER_PROBE_MODE,
+    gcvPROFILER_AHB_MODE,
+} gceProfilerMode;
+
+typedef enum _gceProbeMode {
+    gcvPROFILER_UNKNOWN_PROBE = 0,
+    gcvPROFILER_GPU_PROBE,
+    gcvPROFILER_VIP_PROBE,
+} gceProbeMode;
+
+typedef enum _gceMULTI_PROCESSOR_MODE {
+    gcvMP_MODE_COMBINED    = 0,
+    gcvMP_MODE_INDEPENDENT = 1
+} gceMULTI_PROCESSOR_MODE;
+
+typedef enum _gceSwitchMpMode {
+    gcvMP_MODE_NO_SWITCH = 0,
+    gcvMP_MODE_SWITCH_TO_SINGLE,
+    gcvMP_MODE_SWITCH_TO_MULTI,
+} gceSwitchMpMode;
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* __gc_hal_enum_shared_h_ */
-
 
 

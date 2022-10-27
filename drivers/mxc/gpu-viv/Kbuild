@@ -2,7 +2,7 @@
 #
 #    The MIT License (MIT)
 #
-#    Copyright (c) 2014 - 2020 Vivante Corporation
+#    Copyright (c) 2014 - 2022 Vivante Corporation
 #
 #    Permission is hereby granted, free of charge, to any person obtaining a
 #    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 #
 #    The GPL License (GPL)
 #
-#    Copyright (C) 2014 - 2020 Vivante Corporation
+#    Copyright (C) 2014 - 2022 Vivante Corporation
 #
 #    This program is free software; you can redistribute it and/or
 #    modify it under the terms of the GNU General Public License
@@ -88,12 +88,14 @@ SOC_PLATFORM_OBJS ?= $(SOC_PLATFORM_LOCATION)/gc_hal_kernel_platform_$(soc_board
 
 ifeq ($(CONFIG_KASAN),)
 EXTRA_CFLAGS += -Werror -Wno-implicit-fallthrough
+ccflags-$(CONFIG_WERROR) += -Werror
 endif
 
 OBJS := $(OS_KERNEL_DIR)/gc_hal_kernel_device.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_linux.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_math.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_os.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_iommu.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_debug.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_debugfs.o \
         $(OS_KERNEL_DIR)/gc_hal_kernel_allocator.o \
@@ -110,10 +112,6 @@ ifneq ($(CONFIG_DMA_SHARED_BUFFER),)
 OBJS += $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_dmabuf.o
 endif
 
-ifneq ($(CONFIG_IOMMU_SUPPORT),)
-OBJS += $(OS_KERNEL_DIR)/gc_hal_kernel_iommu.o
-endif
-
 ifneq ($(CONFIG_DRM),)
 OBJS += $(OS_KERNEL_DIR)/gc_hal_kernel_drm.o
 endif
@@ -126,7 +124,8 @@ OBJS += $(HAL_KERNEL_DIR)/gc_hal_kernel.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_mmu.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_video_memory.o \
         $(HAL_KERNEL_DIR)/gc_hal_kernel_power.o \
-        $(HAL_KERNEL_DIR)/gc_hal_kernel_security_v1.o
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_security_v1.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_preemption.o
 
 OBJS += $(ARCH_KERNEL_DIR)/gc_hal_kernel_context.o \
         $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware.o \
@@ -195,6 +194,7 @@ clean:
 	@rm -rf $(OBJS)
 	@rm -rf modules.order Module.symvers .tmp_versions
 	@find $(AQROOT) -name ".gc_*.cmd" | xargs rm -f
+	@rm -f $(MODULE_NAME).ko $(MODULE_NAME).o $(MODULE_NAME).mod.[co] .galcore.*.cmd
 
 install: all
 	@mkdir -p $(SDK_DIR)/drivers
@@ -212,7 +212,7 @@ endif
 #EXTRA_CFLAGS += -DgcdSYSTRACE=1 -DgcdDEBUG=gcdDEBUG_TRACE
 
 ifeq ($(DEBUG), 1)
-EXTRA_CFLAGS += -DDBG=1 -DDEBUG -D_DEBUG
+EXTRA_CFLAGS += -DDBG=1 -DDEBUG -D_DEBUG -g
 else
 EXTRA_CFLAGS += -DDBG=0
 endif
@@ -326,6 +326,10 @@ endif
 EXTRA_CFLAGS += -DHOST=\"$(HOST)\"
 
 EXTRA_CFLAGS += -DgcdENABLE_TRUST_APPLICATION=1
+
+ifeq ($(ENABLE_VIDEO_MEMORY_MIRROR), 1)
+EXTRA_CFLAGS += -DgcdENABLE_VIDEO_MEMORY_MIRROR=1
+endif
 
 obj-$(CONFIG_MXC_GPU_VIV) = $(MODULE_NAME).o
 

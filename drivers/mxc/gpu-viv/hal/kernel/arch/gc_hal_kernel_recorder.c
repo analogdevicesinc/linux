@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -71,29 +71,29 @@
  * 2) Parse those buffers to estimate the state changed.
  * 3) Stores result to a mirror buffer.
  *
- * == Commit 0 ====================================================================
+ * == Commit 0 =================================================================
  *
- *      Context Buffer 0
+ *    Context Buffer 0
  *
- *      Command Buffer 0
+ *    Command Buffer 0
  *
- *      Mirror Buffer  0  <- Context Buffer 0 + Command Buffer 0
+ *    Mirror Buffer  0  <- Context Buffer 0 + Command Buffer 0
  *
- * == Commit 1 ====================================================================
+ * == Commit 1 =================================================================
  *
- *      Command Buffer 1
+ *    Command Buffer 1
  *
- *      Mirror Buffer  1  <- Command buffer 1 + Mirror Buffer 0
+ *    Mirror Buffer  1  <- Command buffer 1 + Mirror Buffer 0
  *
- * == Commit 2 ====================================================================
+ * == Commit 2 =================================================================
  *
- *      Context Buffer 2 (optional)
+ *    Context Buffer 2 (optional)
  *
- *      Command Buffer 2
+ *    Command Buffer 2
  *
- *      Mirror  Buffer 2  <- Command buffer 2 + Context Buffer 2 + Mirror Buffer 1
+ *    Mirror  Buffer 2  <- Command buffer 2 + Context Buffer 2 + Mirror Buffer 1
  *
- * == Commit N ====================================================================
+ * == Commit N =================================================================
  *
  * For Commit N, these buffers are needed to reproduce hardware's behavior in
  * this commit.
@@ -103,124 +103,106 @@
  *  Context Buffer [N]     :
  *  Command Buffer [N]     : Command buffer executed by hardware in this commit.
  *
- *  If sequence of states programming matters, hardware's behavior can't be reproduced,
- *  but the state values stored in mirror buffer are assuring.
+ *  If sequence of states programming matters, hardware's behavior can't be
+ *  reproduced, but the state values stored in mirror buffer are assuring.
  */
 
 /* Queue size. */
-#define gcdNUM_RECORDS  6
+#define gcdNUM_RECORDS 6
 
-typedef struct _gcsPARSER_HANDLER * gckPARSER_HANDLER;
+typedef struct _gcsPARSER_HANDLER *gckPARSER_HANDLER;
 
-typedef void
-(*HandlerFunction)(
-    IN gckPARSER_HANDLER Handler,
-    IN gctUINT32 Addr,
-    IN gctUINT32 Data
-    );
+typedef void (*HandlerFunction)(IN gckPARSER_HANDLER Handler,
+                                IN gctUINT32 Addr,
+                                IN gctUINT32 Data);
 
-typedef struct _gcsPARSER_HANDLER
-{
-    gctUINT32           type;
-    gctUINT32           cmd;
-    gctPOINTER          private;
-    HandlerFunction     function;
-}
-gcsPARSER_HANDLER;
+typedef struct _gcsPARSER_HANDLER {
+    gctUINT32 type;
+    gctUINT32 cmd;
+    gctPOINTER private;
+    HandlerFunction function;
+} gcsPARSER_HANDLER;
 
-typedef struct _gcsPARSER * gckPARSER;
-typedef struct _gcsPARSER
-{
-    gctUINT8_PTR        currentCmdBufferAddr;
+typedef struct _gcsPARSER *gckPARSER;
+typedef struct _gcsPARSER {
+    gctUINT8_PTR      currentCmdBufferAddr;
 
     /* Current command. */
-    gctUINT32           lo;
-    gctUINT32           hi;
+    gctUINT32         lo;
+    gctUINT32         hi;
 
-    gctUINT8            cmdOpcode;
-    gctUINT16           cmdAddr;
-    gctUINT32           cmdSize;
-    gctUINT32           cmdRectCount;
-    gctUINT8            skip;
-    gctUINT32           skipCount;
+    gctUINT8          cmdOpcode;
+    gctUINT16         cmdAddr;
+    gctUINT32         cmdSize;
+    gctUINT32         cmdRectCount;
+    gctUINT8          skip;
+    gctUINT32         skipCount;
 
-    gctBOOL             allow;
-    gctBOOL             stop;
+    gctBOOL           allow;
+    gctBOOL           stop;
 
     /* Callback used by parser to handle a command. */
-    gckPARSER_HANDLER   commandHandler;
-}
-gcsPARSER;
+    gckPARSER_HANDLER commandHandler;
+} gcsPARSER;
 
-typedef struct _gcsMIRROR
-{
-    gctUINT32_PTR       logical[gcdNUM_RECORDS];
-    gctUINT32           bytes;
-    gcsSTATE_MAP_PTR    map;
-    gctSIZE_T           maxState;
-}
-gcsMIRROR;
+typedef struct _gcsMIRROR {
+    gctUINT32_PTR    logical[gcdNUM_RECORDS];
+    gctUINT32        bytes;
+    gcsSTATE_MAP_PTR map;
+    gctSIZE_T        maxState;
+} gcsMIRROR;
 
-typedef struct _gcsDELTA
-{
-    gctUINT64           commitStamp;
-    gctUINT32_PTR       command;
-    gctUINT32           commandBytes;
-    gctUINT32_PTR       context;
-    gctUINT32           contextBytes;
-}
-gcsDELTA;
+typedef struct _gcsDELTA {
+    gctUINT64     commitStamp;
+    gctUINT32_PTR command;
+    gctUINT32     commandBytes;
+    gctUINT32_PTR context;
+    gctUINT32     contextBytes;
+} gcsDELTA;
 
-typedef struct _gcsRECORDER
-{
-    gckOS               os;
-    gcsMIRROR           mirror;
-    gcsDELTA            deltas[gcdNUM_RECORDS];
+typedef struct _gcsRECORDER {
+    gckOS             os;
+    gcsMIRROR         mirror;
+    gcsDELTA          deltas[gcdNUM_RECORDS];
 
     /* Index of current record. */
-    gctUINT             index;
+    gctUINT           index;
 
     /* Number of records. */
-    gctUINT             num;
+    gctUINT           num;
 
     /* Plugin used by gckPARSER. */
-    gcsPARSER_HANDLER   recorderHandler;
-    gckPARSER           parser;
-}
-gcsRECORDER;
+    gcsPARSER_HANDLER recorderHandler;
+    gckPARSER         parser;
+} gcsRECORDER;
 
-
-/******************************************************************************\
-***************************** Command Buffer Parser ****************************
-\******************************************************************************/
+/*****************************************************************************
+ **************************** Command Buffer Parser **************************
+ *****************************************************************************
+ */
 
 /*
-** Command buffer parser checks command buffer in FE's view to make sure there
-** is no format error.
-**
-** Parser provide a callback mechnisam, so plug-in can be added to implement
-** other functions.
-*/
+ * Command buffer parser checks command buffer in FE's view to make sure there
+ * is no format error.
+ *
+ * Parser provide a callback mechnisam, so plug-in can be added to implement
+ * other functions.
+ */
 
 static void
-_HandleLoadState(
-    IN OUT gckPARSER Parser
-    )
+_HandleLoadState(IN OUT gckPARSER Parser)
 {
-    gctUINT i;
-    gctUINT32_PTR data = (gctUINT32_PTR)Parser->currentCmdBufferAddr;
-    gctUINT32 cmdAddr = Parser->cmdAddr;
+    gctUINT       i;
+    gctUINT32_PTR data    = (gctUINT32_PTR)Parser->currentCmdBufferAddr;
+    gctUINT32     cmdAddr = Parser->cmdAddr;
 
-    if (Parser->commandHandler == gcvNULL
-     || Parser->commandHandler->cmd != 0x01
-    )
-    {
+    if (Parser->commandHandler == gcvNULL ||
+        Parser->commandHandler->cmd != 0x01) {
         /* No handler for this command. */
         return;
     }
 
-    for (i = 0; i < Parser->cmdSize; i++)
-    {
+    for (i = 0; i < Parser->cmdSize; i++) {
         Parser->commandHandler->function(Parser->commandHandler, cmdAddr, *data);
 
         /* Advance to next state. */
@@ -230,11 +212,9 @@ _HandleLoadState(
 }
 
 static void
-_GetCommand(
-    IN OUT gckPARSER Parser
-    )
+_GetCommand(IN OUT gckPARSER Parser)
 {
-    gctUINT32 * buffer = (gctUINT32 *)Parser->currentCmdBufferAddr;
+    gctUINT32 *buffer = (gctUINT32 *)Parser->currentCmdBufferAddr;
 
     gctUINT16 cmdRectCount;
     gctUINT16 cmdDataCount;
@@ -242,16 +222,14 @@ _GetCommand(
     Parser->hi = buffer[0];
     Parser->lo = buffer[1];
 
-    Parser->cmdOpcode = (((((gctUINT32) (Parser->hi)) >> (0 ? 31:27)) & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1)))))) );
+    Parser->cmdOpcode    = (((((gctUINT32) (Parser->hi)) >> (0 ? 31:27)) & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1)))))) );
     Parser->cmdRectCount = 1;
 
-    switch (Parser->cmdOpcode)
-    {
+    switch (Parser->cmdOpcode) {
     case 0x01:
         /* Extract count. */
         Parser->cmdSize = (((((gctUINT32) (Parser->hi)) >> (0 ? 25:16)) & ((gctUINT32) ((((1 ? 25:16) - (0 ? 25:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1)))))) );
-        if (Parser->cmdSize == 0)
-        {
+        if (Parser->cmdSize == 0) {
             /* 0 means 1024. */
             Parser->cmdSize = 1024;
         }
@@ -261,10 +239,10 @@ _GetCommand(
         Parser->cmdAddr = (((((gctUINT32) (Parser->hi)) >> (0 ? 15:0)) & ((gctUINT32) ((((1 ? 15:0) - (0 ? 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1)))))) );
 
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 4;
-        Parser->skipCount = Parser->cmdSize + Parser->skip;
+        Parser->skipCount            = Parser->cmdSize + Parser->skip;
         break;
 
-     case 0x05:
+    case 0x05:
         Parser->cmdSize   = 4;
         Parser->skipCount = gcmALIGN(Parser->cmdSize, 2);
         break;
@@ -285,33 +263,33 @@ _GetCommand(
         Parser->skipCount = gcmALIGN(Parser->cmdSize, 2);
         break;
 
-     case 0x04:
+    case 0x04:
         Parser->cmdSize = 1;
         Parser->cmdAddr = 0x0F06;
 
         cmdRectCount = (((((gctUINT32) (Parser->hi)) >> (0 ? 15:8)) & ((gctUINT32) ((((1 ? 15:8) - (0 ? 15:8) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:8) - (0 ? 15:8) + 1)))))) );
         cmdDataCount = (((((gctUINT32) (Parser->hi)) >> (0 ? 26:16)) & ((gctUINT32) ((((1 ? 26:16) - (0 ? 26:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 26:16) - (0 ? 26:16) + 1)))))) );
 
-        Parser->skipCount = gcmALIGN(Parser->cmdSize, 2)
-                          + cmdRectCount * 2
-                          + gcmALIGN(cmdDataCount, 2);
+        Parser->skipCount = gcmALIGN(Parser->cmdSize, 2) +
+                            cmdRectCount * 2 +
+                            gcmALIGN(cmdDataCount, 2);
 
         Parser->cmdRectCount = cmdRectCount;
         break;
 
     case 0x03:
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 8;
-        Parser->skipCount = 0;
+        Parser->skipCount            = 0;
         break;
 
     case 0x02:
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 8;
-        Parser->skipCount = 0;
+        Parser->skipCount            = 0;
         break;
 
     case 0x07:
         Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr + 8;
-        Parser->skipCount = 0;
+        Parser->skipCount            = 0;
         break;
 
     case 0x08:
@@ -327,12 +305,9 @@ _GetCommand(
 }
 
 static void
-_ParseCommand(
-    IN OUT gckPARSER Parser
-    )
+_ParseCommand(IN OUT gckPARSER Parser)
 {
-    switch(Parser->cmdOpcode)
-    {
+    switch (Parser->cmdOpcode) {
     case 0x01:
         _HandleLoadState(Parser);
         break;
@@ -347,41 +322,36 @@ _ParseCommand(
     }
 
     /* Advance to next command. */
-    Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr
-                                 + (Parser->skipCount << 2);
+    Parser->currentCmdBufferAddr = Parser->currentCmdBufferAddr +
+                                   (Parser->skipCount << 2);
 }
 
 gceSTATUS
-gckPARSER_Parse(
-    IN gckPARSER Parser,
-    IN gctUINT8_PTR Buffer,
-    IN gctUINT32 Bytes
-    )
+gckPARSER_Parse(IN gckPARSER Parser,
+                IN gctUINT8_PTR Buffer,
+                IN gctUINT32 Bytes)
 {
-    gckPARSER parser = Parser;
-    gctUINT8_PTR end = (gctUINT8_PTR)Buffer + Bytes;
+    gckPARSER    parser = Parser;
+    gctUINT8_PTR end    = (gctUINT8_PTR)Buffer + Bytes;
 
     /* Initialize parser. */
     parser->currentCmdBufferAddr = (gctUINT8_PTR)Buffer;
-    parser->skip = 0;
-    parser->allow = gcvTRUE;
-    parser->stop  = gcvFALSE;
+    parser->skip                 = 0;
+    parser->allow                = gcvTRUE;
+    parser->stop                 = gcvFALSE;
 
-    /* Go through command buffer until reaching the end
-    ** or meeting an error. */
-    do
-    {
+    /*  Go through command buffer until reaching the end
+     *  or meeting an error.
+     */
+    do {
         _GetCommand(parser);
 
         _ParseCommand(parser);
-    }
-    while ((parser->currentCmdBufferAddr < end)
-        && (parser->allow == gcvTRUE)
-        && (parser->stop == gcvFALSE)
-        );
+    } while ((parser->currentCmdBufferAddr < end) &&
+             (parser->allow == gcvTRUE) &&
+             (parser->stop == gcvFALSE));
 
-    if (parser->allow == gcvFALSE)
-    {
+    if (parser->allow == gcvFALSE) {
         /* Error detected. */
         return gcvSTATUS_NOT_SUPPORTED;
     }
@@ -390,17 +360,15 @@ gckPARSER_Parse(
 }
 
 /*******************************************************************************
-**
-**  gckPARSER_RegisterCommandHandler
-**
-**  Register a command handler which will be called when parser get a command.
-**
-*/
+ *
+ *  gckPARSER_RegisterCommandHandler
+ *
+ *  Register a command handler which will be called when parser get a command.
+ *
+ */
 gceSTATUS
-gckPARSER_RegisterCommandHandler(
-    IN gckPARSER Parser,
-    IN gckPARSER_HANDLER Handler
-    )
+gckPARSER_RegisterCommandHandler(IN gckPARSER Parser,
+                                 IN gckPARSER_HANDLER Handler)
 {
     Parser->commandHandler = Handler;
 
@@ -408,16 +376,15 @@ gckPARSER_RegisterCommandHandler(
 }
 
 gceSTATUS
-gckPARSER_Construct(
-    IN gckOS Os,
-    IN gckPARSER_HANDLER Handler,
-    OUT gckPARSER * Parser
-    )
+gckPARSER_Construct(IN gckOS Os,
+                    IN gckPARSER_HANDLER Handler,
+                    OUT gckPARSER *Parser)
 {
     gceSTATUS status;
     gckPARSER pointer;
 
-    gcmkONERROR(gckOS_Allocate(Os, gcmSIZEOF(gcsPARSER), (gctPOINTER *)&pointer));
+    gcmkONERROR(gckOS_Allocate(Os, gcmSIZEOF(gcsPARSER),
+                               (gctPOINTER *)&pointer));
 
     /* Put it here temp, should have a more general plug-in mechnisam. */
     pointer->commandHandler = Handler;
@@ -431,65 +398,52 @@ OnError:
 }
 
 void
-gckPARSER_Destroy(
-    IN gckOS Os,
-    IN gckPARSER Parser
-    )
+gckPARSER_Destroy(IN gckOS Os, IN gckPARSER Parser)
 {
     gcmkOS_SAFE_FREE(Os, Parser);
 }
 
-/******************************************************************************\
-**************************** Hardware States Recorder **************************
-\******************************************************************************/
+/*******************************************************************************
+ *************************** Hardware States Recorder **************************
+ *******************************************************************************
+ */
 
 static void
-_RecodeState(
-    IN gckPARSER_HANDLER Handler,
-    IN gctUINT32 Addr,
-    IN gctUINT32 Data
-    )
+_RecodeState(IN gckPARSER_HANDLER Handler, IN gctUINT32 Addr, IN gctUINT32 Data)
 {
     gcmkVERIFY_OK(gckRECORDER_UpdateMirror(Handler->private, Addr, Data));
 }
 
 static gctUINT
-_Previous(
-    IN gctUINT Index
-    )
+_Previous(IN gctUINT Index)
 {
     if (Index == 0)
-    {
         return gcdNUM_RECORDS - 1;
-    }
 
     return Index - 1;
 }
 
 static gctUINT
-_Next(
-    IN gctUINT Index
-    )
+_Next(IN gctUINT Index)
 {
     return (Index + 1) % gcdNUM_RECORDS;
 }
 
 gceSTATUS
-gckRECORDER_Construct(
-    IN gckOS Os,
-    IN gckHARDWARE Hardware,
-    OUT gckRECORDER * Recorder
-    )
+gckRECORDER_Construct(IN gckOS Os,
+                      IN gckHARDWARE Hardware,
+                      OUT gckRECORDER *Recorder)
 {
-    gceSTATUS status;
-    gckCONTEXT context = gcvNULL;
+    gceSTATUS   status;
+    gckCONTEXT  context  = gcvNULL;
     gckRECORDER recorder = gcvNULL;
-    gctSIZE_T mapSize;
-    gctUINT i;
+    gctSIZE_T   mapSize;
+    gctUINT     i;
 
-    gcmkONERROR(gckCONTEXT_Construct(Os, Hardware, 0, &context));
+    gcmkONERROR(gckCONTEXT_Construct(Os, Hardware, 0, gcvFALSE, &context));
 
-    gcmkONERROR(gckOS_Allocate(Os, gcmSIZEOF(gcsRECORDER), (gctPOINTER *)&recorder));
+    gcmkONERROR(gckOS_Allocate(Os, gcmSIZEOF(gcsRECORDER),
+                               (gctPOINTER *)&recorder));
 
     gckOS_ZeroMemory(recorder, gcmSIZEOF(gcsRECORDER));
 
@@ -498,34 +452,40 @@ gckRECORDER_Construct(
 
     mapSize = context->maxState * gcmSIZEOF(gcsSTATE_MAP);
 
-    gcmkONERROR(gckOS_Allocate(Os, mapSize, (gctPOINTER *)&recorder->mirror.map));
+    gcmkONERROR(gckOS_Allocate(Os, mapSize,
+                               (gctPOINTER *)&recorder->mirror.map));
 
     gckOS_MemCopy(recorder->mirror.map, context->map, mapSize);
 
     /* Copy context buffer. */
     recorder->mirror.bytes = context->totalSize;
 
-    for (i = 0; i < gcdNUM_RECORDS; i++)
-    {
-        gcmkONERROR(gckOS_Allocate(Os, context->totalSize, (gctPOINTER *)&recorder->mirror.logical[i]));
-        gckOS_MemCopy(recorder->mirror.logical[i], context->buffer->logical, context->totalSize);
+    for (i = 0; i < gcdNUM_RECORDS; i++) {
+        gcmkONERROR(gckOS_Allocate(Os, context->totalSize,
+                                   (gctPOINTER *)&recorder->mirror.logical[i]));
+        gckOS_MemCopy(recorder->mirror.logical[i],
+                      context->buffer->logical,
+                      context->totalSize);
     }
 
-    for (i = 0; i < gcdNUM_RECORDS; i++)
-    {
-        gcmkONERROR(gckOS_Allocate(Os, gcdCMD_BUFFER_SIZE, (gctPOINTER *)&recorder->deltas[i].command));
-        gcmkONERROR(gckOS_Allocate(Os, context->totalSize, (gctPOINTER *)&recorder->deltas[i].context));
+    for (i = 0; i < gcdNUM_RECORDS; i++) {
+        gcmkONERROR(gckOS_Allocate(Os, gcdCMD_BUFFER_SIZE,
+                                   (gctPOINTER *)&recorder->deltas[i].command));
+        gcmkONERROR(gckOS_Allocate(Os, context->totalSize,
+                                   (gctPOINTER *)&recorder->deltas[i].context));
     }
 
     recorder->index = 0;
     recorder->num   = 0;
 
     /* Initialize Parser plugin. */
-    recorder->recorderHandler.cmd = 0x01;
-    recorder->recorderHandler.private = recorder;
+    recorder->recorderHandler.cmd      = 0x01;
+    recorder->recorderHandler.private  = recorder;
     recorder->recorderHandler.function = _RecodeState;
 
-    gcmkONERROR(gckPARSER_Construct(Os, &recorder->recorderHandler, &recorder->parser));
+    gcmkONERROR(gckPARSER_Construct(Os,
+                                    &recorder->recorderHandler,
+                                    &recorder->parser));
 
     recorder->os = Os;
 
@@ -536,56 +496,45 @@ gckRECORDER_Construct(
 
 OnError:
     if (context)
-    {
         gckCONTEXT_Destroy(context);
-    }
 
     if (recorder)
-    {
         gckRECORDER_Destory(Os, recorder);
-    }
 
     return status;
 }
 
 gceSTATUS
-gckRECORDER_Destory(
-    IN gckOS Os,
-    IN gckRECORDER Recorder
-    )
+gckRECORDER_Destory(IN gckOS Os, IN gckRECORDER Recorder)
 {
     gctUINT i;
 
-    if (Recorder->mirror.map)
-    {
+    if (Recorder->mirror.map) {
+        /* Safe free memory to avoid dangling pointer */
         gcmkOS_SAFE_FREE(Os, Recorder->mirror.map);
     }
 
-    for (i = 0; i < gcdNUM_RECORDS; i++)
-    {
-        if (Recorder->mirror.logical[i])
-        {
+    for (i = 0; i < gcdNUM_RECORDS; i++) {
+        if (Recorder->mirror.logical[i]) {
+            /* Safe free memory to avoid dangling pointer */
             gcmkOS_SAFE_FREE(Os, Recorder->mirror.logical[i]);
         }
     }
 
-    for (i = 0; i < gcdNUM_RECORDS; i++)
-    {
-        if (Recorder->deltas[i].command)
-        {
+    for (i = 0; i < gcdNUM_RECORDS; i++) {
+        if (Recorder->deltas[i].command) {
+            /* Safe free memory to avoid dangling pointer */
             gcmkOS_SAFE_FREE(Os, Recorder->deltas[i].command);
         }
 
-        if (Recorder->deltas[i].context)
-        {
+        if (Recorder->deltas[i].context) {
+            /* Safe free memory to avoid dangling pointer */
             gcmkOS_SAFE_FREE(Os, Recorder->deltas[i].context);
         }
     }
 
     if (Recorder->parser)
-    {
         gckPARSER_Destroy(Os, Recorder->parser);
-    }
 
     gcmkOS_SAFE_FREE(Os, Recorder);
 
@@ -593,18 +542,15 @@ gckRECORDER_Destory(
 }
 
 gceSTATUS
-gckRECORDER_UpdateMirror(
-    IN gckRECORDER Recorder,
-    IN gctUINT32 State,
-    IN gctUINT32 Data
-    )
+gckRECORDER_UpdateMirror(IN gckRECORDER Recorder,
+                         IN gctUINT32 State,
+                         IN gctUINT32 Data)
 {
-    gctUINT32 index;
-    gcsSTATE_MAP_PTR map = Recorder->mirror.map;
-    gctUINT32_PTR buffer = Recorder->mirror.logical[Recorder->index];
+    gctUINT32        index;
+    gcsSTATE_MAP_PTR map    = Recorder->mirror.map;
+    gctUINT32_PTR    buffer = Recorder->mirror.logical[Recorder->index];
 
-    if (State >= Recorder->mirror.maxState)
-    {
+    if (State >= Recorder->mirror.maxState) {
         /* Ignore them just like HW does. */
         return gcvSTATUS_OK;
     }
@@ -612,18 +558,13 @@ gckRECORDER_UpdateMirror(
     index = map[State].index;
 
     if (index)
-    {
         buffer[index] = Data;
-    }
 
     return gcvSTATUS_OK;
 }
 
 void
-gckRECORDER_AdvanceIndex(
-    IN gckRECORDER Recorder,
-    IN gctUINT64 CommitStamp
-    )
+gckRECORDER_AdvanceIndex(IN gckRECORDER Recorder, IN gctUINT64 CommitStamp)
 {
     /* Get next record. */
     gctUINT next = (Recorder->index + 1) % gcdNUM_RECORDS;
@@ -631,15 +572,17 @@ gckRECORDER_AdvanceIndex(
     /* Record stamp of this commit. */
     Recorder->deltas[Recorder->index].commitStamp = CommitStamp;
 
-    /* Mirror of next record is mirror of this record and delta in next record. */
+    /* Mirror of next record is mirror of this record and
+     * delta in next record.
+     */
     gckOS_MemCopy(Recorder->mirror.logical[next],
-        Recorder->mirror.logical[Recorder->index], Recorder->mirror.bytes);
+                  Recorder->mirror.logical[Recorder->index],
+                  Recorder->mirror.bytes);
 
     /* Advance to next record. */
     Recorder->index = next;
 
     Recorder->num = gcmMIN(Recorder->num + 1, gcdNUM_RECORDS - 1);
-
 
     /* Reset delta. */
     Recorder->deltas[Recorder->index].commandBytes = 0;
@@ -647,25 +590,19 @@ gckRECORDER_AdvanceIndex(
 }
 
 void
-gckRECORDER_Record(
-    IN gckRECORDER Recorder,
-    IN gctUINT8_PTR CommandBuffer,
-    IN gctUINT32 CommandBytes,
-    IN gctUINT8_PTR ContextBuffer,
-    IN gctUINT32 ContextBytes
-    )
+gckRECORDER_Record(IN gckRECORDER Recorder, IN gctUINT8_PTR CommandBuffer,
+                   IN gctUINT32 CommandBytes, IN gctUINT8_PTR ContextBuffer,
+                   IN gctUINT32 ContextBytes)
 {
-    gcsDELTA * delta = &Recorder->deltas[Recorder->index];
+    gcsDELTA *delta = &Recorder->deltas[Recorder->index];
 
-    if (CommandBytes != 0xFFFFFFFF)
-    {
+    if (CommandBytes != 0xFFFFFFFF) {
         gckPARSER_Parse(Recorder->parser, CommandBuffer, CommandBytes);
         gckOS_MemCopy(delta->command, CommandBuffer, CommandBytes);
         delta->commandBytes = CommandBytes;
     }
 
-    if (ContextBytes != 0xFFFFFFFF)
-    {
+    if (ContextBytes != 0xFFFFFFFF) {
         gckPARSER_Parse(Recorder->parser, ContextBuffer, ContextBytes);
         gckOS_MemCopy(delta->context, ContextBuffer, ContextBytes);
         delta->contextBytes = ContextBytes;
@@ -673,49 +610,47 @@ gckRECORDER_Record(
 }
 
 void
-gckRECORDER_Dump(
-    IN gckRECORDER Recorder
-    )
+gckRECORDER_Dump(IN gckRECORDER Recorder)
 {
-    gctUINT last = Recorder->index;
-    gctUINT previous;
-    gctUINT i;
+    gctUINT    last   = Recorder->index;
+    gctUINT    previous;
+    gctUINT    i;
     gcsMIRROR *mirror = &Recorder->mirror;
-    gcsDELTA *delta;
-    gckOS os = Recorder->os;
+    gcsDELTA  *delta;
+    gckOS      os     = Recorder->os;
 
     for (i = 0; i < Recorder->num; i++)
-    {
         last = _Previous(last);
-    }
 
-    for (i = 0; i < Recorder->num; i++)
-    {
+    for (i = 0; i < Recorder->num; i++) {
         delta = &Recorder->deltas[last];
 
         /* Dump record */
         gcmkPRINT("#[commit %llu]", delta->commitStamp);
 
-        if (delta->commitStamp)
-        {
+        if (delta->commitStamp) {
             previous = _Previous(last);
 
             gcmkPRINT("#[mirror]");
-            gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_CONTEXT, mirror->logical[previous], ~0U, mirror->bytes);
+            gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_CONTEXT,
+                             mirror->logical[previous], ~0U,
+                             mirror->bytes);
             gcmkPRINT("#[kernel.execute]");
         }
 
-        if (delta->contextBytes)
-        {
-            gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_CONTEXT, delta->context, ~0U, delta->contextBytes);
+        if (delta->contextBytes) {
+            gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_CONTEXT,
+                             delta->context, ~0U,
+                             delta->contextBytes);
             gcmkPRINT("#[kernel.execute]");
         }
 
-        gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_COMMAND, delta->command, ~0U, delta->commandBytes);
+        gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_COMMAND,
+                         delta->command, ~0U,
+                         delta->commandBytes);
         gcmkPRINT("#[kernel.execute]");
 
         last = _Next(last);
     }
 }
-
 

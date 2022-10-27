@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2020 Vivante Corporation
+*    Copyright (c) 2014 - 2022 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2020 Vivante Corporation
+*    Copyright (C) 2014 - 2022 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -53,6 +53,9 @@
 *****************************************************************************/
 
 
+ *                                                                            *
+ ******************************************************************************/
+
 #ifndef __gc_hal_eglplatform_type_h_
 #define __gc_hal_eglplatform_type_h_
 
@@ -61,28 +64,23 @@ extern "C" {
 #endif
 
 /* Structure that defined keyboard mapping. */
-typedef struct _halKeyMap
-{
+typedef struct _halKeyMap {
     /* Normal key. */
     halKeys normal;
 
     /* Extended key. */
     halKeys extended;
-}
-halKeyMap;
+} halKeyMap;
 
 /* Event structure. */
-typedef struct _halEvent
-{
+typedef struct _halEvent {
     /* Event type. */
     halEventType type;
 
     /* Event data union. */
-    union _halEventData
-    {
+    union _halEventData {
         /* Event data for keyboard. */
-        struct _halKeyboard
-        {
+        struct _halKeyboard {
             /* Scancode. */
             halKeys scancode;
 
@@ -91,21 +89,17 @@ typedef struct _halEvent
 
             /* Flag whether the key was pressed (1) or released (0). */
             char    pressed;
-        }
-        keyboard;
+        } keyboard;
 
         /* Event data for pointer. */
-        struct _halPointer
-        {
+        struct _halPointer {
             /* Current pointer coordinate. */
             int     x;
             int     y;
-        }
-        pointer;
+        } pointer;
 
         /* Event data for mouse buttons. */
-        struct _halButton
-        {
+        struct _halButton {
             /* Left button state. */
             int     left;
 
@@ -118,62 +112,61 @@ typedef struct _halEvent
             /* Current pointer coordinate. */
             int     x;
             int     y;
-        }
-        button;
-    }
-    data;
-}
-halEvent;
+        } button;
+    } data;
+} halEvent;
 
 /* VFK_DISPLAY_INFO structure defining information returned by
-   vdkGetDisplayInfoEx. */
-typedef struct _halDISPLAY_INFO
-{
+ * vdkGetDisplayInfoEx.
+ */
+typedef struct _halDISPLAY_INFO {
     /* The size of the display in pixels. */
-    int                         width;
-    int                         height;
+    int                 width;
+    int                 height;
 
     /* The stride of the dispay. -1 is returned if the stride is not known
-    ** for the specified display.*/
-    int                         stride;
+     * for the specified display.
+     */
+    int                 stride;
 
     /* The color depth of the display in bits per pixel. */
-    int                         bitsPerPixel;
+    int                 bitsPerPixel;
 
     /* The logical pointer to the display memory buffer. NULL is returned
-    ** if the pointer is not known for the specified display. */
-    void *                      logical;
+     * if the pointer is not known for the specified display.
+     */
+    void                *logical;
 
     /* The physical address of the display memory buffer. ~0 is returned
-    ** if the address is not known for the specified display. */
-    unsigned long               physical;
+     * if the address is not known for the specified display.
+     */
+    unsigned long       physical;
 
     /* Can be wraped as surface. */
-    int                         wrapFB;
+    int                 wrapFB;
 
     /* FB_MULTI_BUFFER support */
-    int                         multiBuffer;
-    int                         backBufferY;
+    int                 multiBuffer;
+    int                 backBufferY;
 
     /* Tiled buffer / tile status support. */
-    int                         tiledBuffer;
-    int                         tileStatus;
-    int                         compression;
+    int                 tiledBuffer;
+    int                 tileStatus;
+    int                 compression;
 
     /* The color info of the display. */
-    unsigned int                alphaLength;
-    unsigned int                alphaOffset;
-    unsigned int                redLength;
-    unsigned int                redOffset;
-    unsigned int                greenLength;
-    unsigned int                greenOffset;
-    unsigned int                blueLength;
-    unsigned int                blueOffset;
+    unsigned int        alphaLength;
+    unsigned int        alphaOffset;
+    unsigned int        redLength;
+    unsigned int        redOffset;
+    unsigned int        greenLength;
+    unsigned int        greenOffset;
+    unsigned int        blueLength;
+    unsigned int        blueOffset;
 
     /* Display flip support. */
-    int                         flip;
-}
-halDISPLAY_INFO;
+    int flip;
+} halDISPLAY_INFO;
 
 #ifdef __cplusplus
 }
