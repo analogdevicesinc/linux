@@ -10850,6 +10850,7 @@ M:	Zeynep Arslanbenzer <Zeynep.Arslanbenzer@analog.com>
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/mfd/max77659.yaml
+F:	Documentation/devicetree/bindings/power/supply/max77659-charger.yaml
 F:	drivers/mfd/max77659.c
 F:	drivers/regulator/max77659-regulator.c
 F:	drivers/power/supply/max77650-charger.c

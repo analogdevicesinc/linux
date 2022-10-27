@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/supply/max77659-charger.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Battery charger driver for MAX77659 PMIC from Maxim Integrated.
+
+maintainers:
+  - Nurettin Bolucu <Nurettin.Bolucu@analog.com>
+  - Zeynep Arslanbenzer <Zeynep.Arslanbenzer@analog.com>
+
+description: |
+  This module is part of the MAX77659 MFD device. For more details
+  see Documentation/devicetree/bindings/mfd/max77659.yaml.
+
+  The charger is represented as a sub-node of the PMIC node on the device tree.
+
+properties:
+  compatible:
+    const: adi,max77659-charger
+
+  fast-charge-timer:
+    description:
+      Fast-charge safety timer value (in hours).
+
+  fast-charge-current:
+    description:
+      Fast-charge constant current value (in microamps).
+
+  topoff-timer:
+    description:
+      Top-Off timer value (in minutes).
+
+required:
+  - compatible
+
+additionalProperties: false
+
+...
