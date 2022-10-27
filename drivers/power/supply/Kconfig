@@ -537,6 +537,15 @@ config CHARGER_MAX77650
 	  Say Y to enable support for the battery charger control of MAX77650
 	  PMICs.
 
+config POWER_MAX77659
+	tristate "Maxim Integrated MAX77659 Charger"
+	depends on MFD_MAX77659
+	help
+	  Say Y to enable support for Maxim Integrated MAX77659.
+	  This driver provides common support for accessing the device,
+	  additional drivers must be enabled in order to use the functionality
+	  of the device.
+
 config CHARGER_MAX77693
 	tristate "Maxim MAX77693 battery charger driver"
 	depends on MFD_MAX77693
