@@ -10853,6 +10853,7 @@ MAXIM MAX77541 PMIC MFD DRIVER
 M:	Okan Sahin <okan.sahin@analog.com>
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
+F:	drivers/iio/adc/max77541-adc.c
 F:	drivers/mfd/max77541.c
 F:	drivers/regulator/max77541-regulator.c
 F:	include/linux/mfd/max77541.h
