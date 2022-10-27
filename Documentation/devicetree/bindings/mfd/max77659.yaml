@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/max77659.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MAX77659 SIMO PMIC from Maxim Integrated.
+
+maintainers:
+  - Nurettin Bolucu <Nurettin.Bolucu@analog.com>
+  - Zeynep Arslanbenzer <Zeynep.Arslanbenzer@analog.com>
+
+description: |
+  MAX77659 is an PMIC providing battery charging and power
+  supply solutions for low-power applications.
+
+  For device-tree bindings of other sub-modules (regulator, power supply
+  refer to the binding documents under the respective
+  sub-system directories.
+properties:
+  compatible:
+    const: adi,max77659
+
+  reg:
+    description:
+      I2C device address.
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  "#interrupt-cells":
+    const: 2
+    description:
+      The first cell is the IRQ number, the second cell is the trigger type.
+
+  charger:
+    $ref: ../power/supply/max77659-charger.yaml
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - interrupt-controller
+  - "#interrupt-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        pmic@40 {
+            compatible = "adi,max77659";
+            reg = <0x40>;
+            interrupt-controller;
+            interrupt-parent = <&gpio>;
+            #interrupt-cells = <2>;
+            interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+            regulator {
+                regulator-boot-on;
+                regulator-always-on;
+            };
+            charger {
+                compatible = "adi,max77659-charger";
+                fast-charge-timer   = <5>;
+                fast-charge-current = <15000>;
+                topoff-timer  =  <30>;
+            };
+        };
+    };
