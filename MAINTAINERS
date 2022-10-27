@@ -10850,6 +10850,7 @@ M:	Zeynep Arslanbenzer <Zeynep.Arslanbenzer@analog.com>
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
 F:	drivers/mfd/max77659.c
+F:	drivers/regulator/max77659-regulator.c
 F:	include/linux/mfd/max77659.h
 
 MAXIM MAX77802 PMIC REGULATOR DEVICE DRIVER
