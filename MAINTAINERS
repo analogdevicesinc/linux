@@ -10854,6 +10854,7 @@ M:	Okan Sahin <okan.sahin@analog.com>
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
 F:	drivers/mfd/max77541.c
+F:	drivers/regulator/max77541-regulator.c
 F:	include/linux/mfd/max77541.h
 
 MAXIM MAX77650 PMIC MFD DRIVER
