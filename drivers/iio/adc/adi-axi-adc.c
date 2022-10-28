@@ -10,6 +10,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/dmaengine.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -18,6 +19,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 
 #include <linux/fpga/adi-axi-common.h>
@@ -101,6 +103,17 @@ static unsigned int adi_axi_adc_read(struct adi_axi_adc_state *st,
 	return ioread32(st->regs + reg);
 }
 
+static int adi_axi_adc_buffer_submit_block(struct iio_dma_buffer_queue *queue,
+					   struct iio_dma_buffer_block *block)
+{
+	return iio_dmaengine_buffer_submit_block(queue, block, DMA_MEM_TO_DEV);
+}
+
+static const struct iio_dma_buffer_ops adi_axi_adc_dma_buffer_ops = {
+	.submit = adi_axi_adc_buffer_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
+};
+
 static int adi_axi_adc_config_dma_buffer(struct device *dev,
 					 struct iio_dev *indio_dev)
 {
@@ -114,7 +127,7 @@ static int adi_axi_adc_config_dma_buffer(struct device *dev,
 		dma_name = "rx";
 
 	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-						 dma_name);
+						 dma_name, &adi_axi_adc_dma_buffer_ops, NULL);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
