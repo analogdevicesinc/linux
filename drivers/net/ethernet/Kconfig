@@ -17,6 +17,7 @@ config MDIO
 config SUNGEM_PHY
 	tristate
 
+source "drivers/net/ethernet/adi/Kconfig"
 source "drivers/net/ethernet/3com/Kconfig"
 source "drivers/net/ethernet/adaptec/Kconfig"
 source "drivers/net/ethernet/aeroflex/Kconfig"
