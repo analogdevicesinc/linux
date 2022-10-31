@@ -146,6 +146,33 @@ static int get_total_asrc_num(unsigned long src_a_mask)
 	return num;
 }
 
+static inline bool dpu_atomic_source_pos_is_available(int pos, u32 src_a_mask)
+{
+	return !!((1 << pos) & src_a_mask);
+}
+
+static int dpu_atomic_get_source_pos(lb_sec_sel_t *current_source,
+				     u32 src_a_mask)
+{
+	int pos = -1;
+
+	if (*current_source != LB_SEC_SEL__DISABLE) {
+		for (pos = 0; pos < ARRAY_SIZE(sources); pos++)
+			if (*current_source == sources[pos] &&
+			    dpu_atomic_source_pos_is_available(pos, src_a_mask))
+				break;
+
+		if (pos == ARRAY_SIZE(sources))
+			*current_source = LB_SEC_SEL__DISABLE;
+	}
+
+	/* current_source not found, or already used */
+	if (pos == -1 || pos == ARRAY_SIZE(sources))
+		pos = ffs(src_a_mask) - 1;
+
+	return pos;
+}
+
 static int
 dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states,
 					int n, bool use_pc)
@@ -217,30 +244,15 @@ again:
 
 		total_asrc_num = get_total_asrc_num(src_a_mask);
 
+		current_source = alloc_aux_source ?
+				 dpstate->aux_source : dpstate->source;
+
 		/* assign source */
 		mutex_lock(&grp->mutex);
 		for (j = 0; j < total_asrc_num; j++) {
-			/*
-			 * When going through the available plane sources, let's
-			 * try the current source first, if it exists. That would
-			 * avoid switching the source for planes that are not
-			 * actually included in the userspace commit.
-			 */
-			current_source = alloc_aux_source ?
-					 dpstate->aux_source : dpstate->source;
-			if (j == 0 && current_source) {
-				for (k = 0; k < ARRAY_SIZE(sources); k++)
-					if (current_source == sources[k])
-						break;
-
-				/* in case of overrunning array sources */
-				if (k == ARRAY_SIZE(sources))
-					return -EINVAL;
-			} else {
-				k = ffs(src_a_mask) - 1;
-				if (k < 0)
-					return -EINVAL;
-			}
+			k = dpu_atomic_get_source_pos(&current_source, src_a_mask);
+			if (k < 0)
+				return -EINVAL;
 
 			fu = source_to_fu(&grp->res, sources[k]);
 			if (!fu)
