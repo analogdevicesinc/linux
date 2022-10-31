@@ -1181,7 +1181,7 @@ static int patch_param_imx6(struct platform_device *pdev,
         args->registerSizes[gcvCORE_MAJOR] = res->end - res->start + 1;
     }
 
-	irqLine = platform_get_irq_byname(pdev, "irq_2d");
+	irqLine = platform_get_irq_byname_optional(pdev, "irq_2d");
 
 	if (irqLine > 0)
 		args->irqs[gcvCORE_2D] = irqLine;
@@ -1195,7 +1195,7 @@ static int patch_param_imx6(struct platform_device *pdev,
         args->registerSizes[gcvCORE_2D] = res->end - res->start + 1;
     }
 
-	irqLine = platform_get_irq_byname(pdev, "irq_vg");
+	irqLine = platform_get_irq_byname_optional(pdev, "irq_vg");
 
 	if (irqLine > 0)
 		args->irqs[gcvCORE_VG] = irqLine;
