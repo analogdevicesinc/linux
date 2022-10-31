@@ -264,6 +264,13 @@ config MARVELL_PHY
 	---help---
 	  Currently has a driver for the 88E1011S
 
+config ADIN1100_PHY
+	tristate "Analog Devices Industrial Ethernet T1L PHYs"
+	help
+	  Adds support for the Analog Devices Industrial T1L Ethernet PHYs.
+	  Currently supports the:
+	  - ADIN1100 - Robust,Industrial, Low Power 10BASE-T1L Ethernet PHY
+
 config MICREL_PHY
 	tristate "Micrel PHYs"
 	---help---
