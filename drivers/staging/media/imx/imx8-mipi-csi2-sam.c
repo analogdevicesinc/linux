@@ -1881,7 +1881,8 @@ csi_phy_initial_cfg:
 write_regmap:
 	state->val |= ISP_DEWARP_CTRL_ID_MODE(ISP_DEWARP_CTRL_ID_MODE_012);
 	mipi_csis_imx8mp_dewarp_ctl_left_just_mode(state);
-	regmap_update_bits(state->mix_gpr, ISP_DEWARP_CTRL,
+	if (state->mix_gpr)
+		regmap_update_bits(state->mix_gpr, ISP_DEWARP_CTRL,
 			state->val, state->val);
 
 	return;
