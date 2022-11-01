@@ -16,7 +16,6 @@
 
 #define AXI_SYSID_WORD_SIZE	 	sizeof(u32)
 #define AXI_SYSID_REG_ROM_ADDR_WIDTH	0x40
-#define AXI_SYSID_ROM_OFFSET		0x800
 
 enum {
 	AXI_SYSID_HEADER_V1 = 1,
@@ -78,12 +77,19 @@ static int axi_sysid_read(void *context, unsigned int offset,
 	u32 index = offset >> 2;
 	u32 *buf = val;
 	int i;
+	/*
+	 * Reading the ROM memory requires an address of length (address_bits + 2)
+	 * that has the two most significat bits set to "01".
+	 * Because the size of the memory is calculated as (1 << address_bits) * 4
+	 * we can use the size as an offset to generate correct addresses.
+	 */
+	u32 rom_offset = st->size;
 
 	if (count > (st->size - index))
 		count = st->size - index;
 
 	for (i = index; i < (index + count); i++)
-		*buf++ = axi_sysid_ioread(st, AXI_SYSID_ROM_OFFSET + i *
+		*buf++ = axi_sysid_ioread(st, rom_offset + i *
 					  AXI_SYSID_WORD_SIZE);
 
 	return 0;
@@ -116,12 +122,12 @@ static int axi_sysid_validate_v1_1(struct platform_device *pdev,
 				   struct build_info_header_v1_1 *build)
 {
 	struct sysid_header_v1 *header;
-	char custom_info[128];
+	char custom_info[516];
 	struct tm tm;
 	time64_t t = 0;
 
 	if (axi_sysid_checksum((u8 *)build, sizeof(struct build_info_header_v1_1))) {
-		dev_err(&pdev->dev, "verfify build header checksum failed\n");
+		dev_err(&pdev->dev, "verify build header checksum failed\n");
 		return -EFAULT;
 	}
 
@@ -155,14 +161,14 @@ static int axi_sysid_validate_v1(struct platform_device *pdev,
 				 struct build_info_header_v1 *build)
 {
 	struct sysid_header_v1 *header;
-	char custom_info[128];
+	char custom_info[516];
 	struct tm tm;
 	time64_t t = 0;
 
 	header = (struct sysid_header_v1 *) st->mem;
 	if (axi_sysid_checksum((u8 *)build,
 		sizeof(struct build_info_header_v1))) {
-		dev_err(&pdev->dev, "verfify build header checksum failed\n");
+		dev_err(&pdev->dev, "verify build header checksum failed\n");
 		return -EFAULT;
 	}
 
@@ -204,7 +210,7 @@ static int axi_sysid_validate(struct platform_device *pdev,
 	header = (struct sysid_header_v1 *) st->mem;
 
 	if (axi_sysid_checksum((u8 *)st->mem, sizeof(struct sysid_header_v1))) {
-		dev_err(&pdev->dev, "verfify header checksum failed\n");
+		dev_err(&pdev->dev, "verify header checksum failed\n");
 		return -EFAULT;
 	}
 
