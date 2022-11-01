@@ -1392,10 +1392,20 @@
 			#index-cells = <1>;
 		};
 
-		ddr-pmu@4e300dc0 {
-			compatible = "fsl,imx93-ddr-pmu";
-			reg = <0x4e300dc0 0x200>;
-			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+		ddr: memory-controller@4e300000 {
+			compatible = "nxp,imx9-memory-controller", "simple-mfd";
+			reg = <0x4e300000 0x2000>;
+			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
+			little-endian;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			ddr-pmu@4e300dc0 {
+				compatible = "fsl,imx93-ddr-pmu";
+				reg = <0x4e300dc0 0x200>;
+				interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+			};
 		};
 
 		ldb: ldb@4ac10020 {
