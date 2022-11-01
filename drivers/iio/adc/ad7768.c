@@ -533,6 +533,8 @@ static const struct axiadc_chip_info conv_chip_info = {
 	.channel[7] = AD7768_CHAN(7),
 };
 
+static const unsigned long ad7768_available_scan_masks[]  = { 0xFF, 0x00 };
+
 static int hw_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
@@ -593,6 +595,7 @@ static int ad7768_register(struct ad7768_state *st, struct iio_dev *indio_dev)
 	indio_dev->channels = ad7768_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad7768_channels);
 	indio_dev->info = &ad7768_info;
+	indio_dev->available_scan_masks = ad7768_available_scan_masks;
 
 	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
 						&dma_buffer_ops, indio_dev);
