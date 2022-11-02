@@ -802,7 +802,7 @@ config MFD_MAX14577
 
 config MFD_MAX77541
 	tristate "Analog Devices MAX77541/77540 PMIC Support"
-	depends on I2C=y
+	depends on I2C
 	select MFD_CORE
 	select REGMAP_I2C
 	select REGMAP_IRQ
