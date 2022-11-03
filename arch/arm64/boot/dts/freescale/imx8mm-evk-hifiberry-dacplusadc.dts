@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP.
+ */
+
+#include "imx8mm-evk-hifiberry-dacplus.dts"
+
+/ {
+	sound-pcm512x {
+		audio-widgets =
+			"Line", "Left Line Out Jack",
+			"Line", "Right Line Out Jack",
+			"Line", "ADC1",
+			"Line", "ADC2";
+		audio-routing =
+			"Left Line Out Jack", "OUTL",
+			"Right Line Out Jack", "OUTR",
+			"VINL1", "ADC1",
+			"VINR1", "ADC2";
+		adc,pluspro;
+
+		pri-dai-link {
+			sndcodec: codec {
+				sound-dai = <&pcm512x>, <&pcm186x>;
+			};
+		};
+	};
+};
+
+&i2c3 {
+	pcm186x: pcm186x@4a {
+		compatible = "ti,pcm1863";
+		reg = <0x4a>;
+		iovdd-supply = <&reg_3v3_vext>;
+		avdd-supply  = <&reg_3v3_vext>;
+		dvdd-supply = <&reg_3v3_vext>;
+		#sound-dai-cells = <0>;
+	};
+};
