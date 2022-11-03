@@ -1068,8 +1068,7 @@ static int nwl_dsi_bridge_attach(struct drm_bridge *bridge,
 
 	phy_parent = devm_clk_get(dsi->dev, "phy_parent");
 	if (!IS_ERR_OR_NULL(phy_parent)) {
-		ret = clk_set_parent(dsi->phy_ref_clk, phy_parent);
-		ret |= clk_set_parent(dsi->tx_esc_clk, phy_parent);
+		ret = clk_set_parent(dsi->tx_esc_clk, phy_parent);
 		ret |= clk_set_parent(dsi->rx_esc_clk, phy_parent);
 
 		if (ret) {
