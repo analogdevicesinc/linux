@@ -1322,6 +1322,7 @@ M:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
 L:	linux-iio@vger.kernel.org
 S:	Supported
 W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/devicetree/bindings/iio/adc/adi,pulsar.yaml
 F:	drivers/iio/adc/ad_pulsar.c
 
 ANALOG DEVICES INC ASOC CODEC DRIVERS
