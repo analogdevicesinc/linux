@@ -157,6 +157,10 @@
 				      "tx_esc",
 				      "rx_esc",
 				      "phy_parent";
+			assigned-clocks = <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_PHY>,
+					  <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_PER>;
+			assigned-clock-parents = <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_BYPASS>,
+						 <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_BYPASS>;
 			interrupts = <16>;
 			interrupt-parent = <&irqsteer_mipi0>;
 			power-domains = <&pd IMX_SC_R_MIPI_0>;
@@ -322,6 +326,10 @@
 				      "tx_esc",
 				      "rx_esc",
 				      "phy_parent";
+			assigned-clocks = <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_PHY>,
+					  <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_PER>;
+			assigned-clock-parents = <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_BYPASS>,
+						 <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_BYPASS>;
 			interrupts = <16>;
 			interrupt-parent = <&irqsteer_mipi1>;
 			power-domains = <&pd IMX_SC_R_MIPI_1>;
