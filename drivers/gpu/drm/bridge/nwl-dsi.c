@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/mux/consumer.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -95,6 +96,11 @@ struct nwl_dsi_transfer {
 	size_t rx_len; /* in bytes */
 };
 
+struct valid_mode {
+	int clock;
+	struct list_head list;
+};
+
 struct nwl_dsi_platform_data;
 
 struct nwl_dsi {
@@ -152,6 +158,7 @@ struct nwl_dsi {
 	int error;
 
 	struct nwl_dsi_transfer *xfer;
+	struct list_head valid_modes;
 	bool use_dcss;
 };
 
@@ -333,6 +340,10 @@ static int nwl_dsi_config_dpi(struct nwl_dsi *dsi)
 	bool burst_mode;
 	int hfront_porch, hback_porch, vfront_porch, vback_porch;
 	int hsync_len, vsync_len;
+	int hfp, hbp, hsa;
+	unsigned long long pclk_period;
+	unsigned long long hs_period;
+	int h_blank, pkt_hdr_len, pkt_len;
 
 	hfront_porch = dsi->mode.hsync_start - dsi->mode.hdisplay;
 	hsync_len = dsi->mode.hsync_end - dsi->mode.hsync_start;
@@ -386,9 +397,65 @@ static int nwl_dsi_config_dpi(struct nwl_dsi *dsi)
 			      dsi->mode.hdisplay);
 	}
 
-	nwl_dsi_write(dsi, NWL_DSI_HFP, hfront_porch);
-	nwl_dsi_write(dsi, NWL_DSI_HBP, hback_porch);
-	nwl_dsi_write(dsi, NWL_DSI_HSA, hsync_len);
+	pclk_period = ALIGN(PSEC_PER_SEC, dsi->mode.clock * 1000);
+	do_div(pclk_period, dsi->mode.clock * 1000);
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "pclk_period: %llu\n", pclk_period);
+
+	hs_period = ALIGN(PSEC_PER_SEC, dsi->phy_cfg.mipi_dphy.hs_clk_rate);
+	do_div(hs_period, dsi->phy_cfg.mipi_dphy.hs_clk_rate);
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "hs_period: %llu\n", hs_period);
+
+	/*
+	 * Calculate the bytes needed, according to the RM formula:
+	 * Time of DPI event = time to transmit x number of bytes on the DSI
+	 * interface
+	 * dpi_event_size * dpi_pclk_period = dsi_bytes * 8 * hs_bit_period /
+	 * num_lanes
+	 * ===>
+	 * dsi_bytes = dpi_event_size * dpi_pclk_period * num_lanes /
+	 * (8 * hs_bit_period)
+	 */
+	hfp = hfront_porch * pclk_period * dsi->lanes / (8 * hs_period);
+	hbp = hback_porch * pclk_period * dsi->lanes / (8 * hs_period);
+	hsa = hsync_len * pclk_period * dsi->lanes / (8 * hs_period);
+
+	/* Make sure horizontal blankins are even numbers */
+	hfp = roundup(hfp, 2);
+	hbp = roundup(hbp, 2);
+	hsa = roundup(hsa, 2);
+
+	/*
+	 * We need to subtract the packet header length: 32
+	 * In order to make sure we don't get negative values,
+	 * subtract a proportional value to the total length of the
+	 * horizontal blanking duration.
+	 */
+	h_blank = hfp + hbp + hsa;
+
+	pkt_len = roundup(((hfp * 100 / h_blank) * 32) / 100, 2);
+	pkt_hdr_len = pkt_len;
+	hfp -= pkt_len;
+
+	pkt_len = roundup(((hbp * 100 / h_blank) * 32) / 100, 2);
+	pkt_hdr_len += pkt_len;
+	hbp -= pkt_len;
+
+	hsa -= (32 - pkt_hdr_len);
+
+	if (dsi->dsi_mode_flags & MIPI_DSI_MODE_VIDEO_NO_HFP)
+		hfp = hfront_porch;
+	if (dsi->dsi_mode_flags & MIPI_DSI_MODE_VIDEO_NO_HBP)
+		hbp = hback_porch;
+	if (dsi->dsi_mode_flags & MIPI_DSI_MODE_VIDEO_NO_HSA)
+		hsa = hsync_len;
+
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "Actual hfp: %d\n", hfp);
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "Actual hbp: %d\n", hbp);
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "Actual hsa: %d\n", hsa);
+
+	nwl_dsi_write(dsi, NWL_DSI_HFP, hfp);
+	nwl_dsi_write(dsi, NWL_DSI_HBP, hbp);
+	nwl_dsi_write(dsi, NWL_DSI_HSA, hsa);
 
 	nwl_dsi_write(dsi, NWL_DSI_ENABLE_MULT_PKTS, 0x0);
 	nwl_dsi_write(dsi, NWL_DSI_BLLP_MODE, 0x1);
@@ -905,6 +972,17 @@ nwl_dsi_bridge_mode_valid(struct drm_bridge *bridge,
 {
 	struct nwl_dsi *dsi = bridge_to_dsi(bridge);
 	int bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
+	union phy_configure_opts phy_opts;
+	struct valid_mode *vmode;
+	unsigned long clock = mode->clock * 1000;
+	enum drm_mode_status ret = MODE_OK;
+
+	list_for_each_entry(vmode, &dsi->valid_modes, list)
+		if (vmode->clock == clock)
+			return ret;
+
+	DRM_DEV_DEBUG_DRIVER(dsi->dev, "Validating mode:");
+	drm_mode_debug_printmodeline(mode);
 
 	if (mode->clock * bpp > 15000000 * dsi->lanes)
 		return MODE_CLOCK_HIGH;
@@ -912,7 +990,43 @@ nwl_dsi_bridge_mode_valid(struct drm_bridge *bridge,
 	if (mode->clock * bpp < 80000 * dsi->lanes)
 		return MODE_CLOCK_LOW;
 
-	return MODE_OK;
+	/*
+	 * We need to enable bypass & phy_ref clocks so that the DPHY can
+	 * validate the mode using the correct phy_ref clock rate
+	 */
+	if (dsi->bypass_clk && clk_prepare_enable(dsi->bypass_clk) < 0) {
+		ret = MODE_ERROR;
+		goto clk_err;
+	}
+	if (dsi->pixel_clk && clk_prepare_enable(dsi->pixel_clk) < 0) {
+		ret = MODE_ERROR;
+		goto clk_err;
+	}
+
+	phy_mipi_dphy_get_default_config(clock,
+		mipi_dsi_pixel_format_to_bpp(dsi->format),
+		dsi->lanes, &phy_opts.mipi_dphy);
+	phy_opts.mipi_dphy.lp_clk_rate = clk_get_rate(dsi->tx_esc_clk);
+
+	clk_set_rate(dsi->bypass_clk, clock);
+	clk_set_rate(dsi->pixel_clk, clock);
+
+	if (phy_validate(dsi->phy, PHY_MODE_MIPI_DPHY, 0, &phy_opts)) {
+		DRM_DEV_DEBUG_DRIVER(dsi->dev, "Failed validating: %dx%d\n",
+			mode->hdisplay, mode->vdisplay);
+		ret = MODE_BAD;
+		goto clk_err;
+	}
+
+	vmode = devm_kzalloc(dsi->dev, sizeof(struct valid_mode), GFP_KERNEL);
+	vmode->clock = clock;
+	list_add(&vmode->list, &dsi->valid_modes);
+
+clk_err:
+	clk_disable_unprepare(dsi->pixel_clk);
+	clk_disable_unprepare(dsi->bypass_clk);
+
+	return ret;
 }
 
 static int nwl_dsi_bridge_atomic_check(struct drm_bridge *bridge,
@@ -1754,6 +1868,8 @@ static int nwl_dsi_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, dsi);
 	pm_runtime_enable(dev);
 
+	INIT_LIST_HEAD(&dsi->valid_modes);
+
 	ret = nwl_dsi_select_input(dsi);
 	if (ret < 0) {
 		pm_runtime_disable(dev);
@@ -1778,6 +1894,14 @@ static int nwl_dsi_probe(struct platform_device *pdev)
 static void nwl_dsi_remove(struct platform_device *pdev)
 {
 	struct nwl_dsi *dsi = platform_get_drvdata(pdev);
+	struct valid_mode *mode;
+	struct list_head *pos, *tmp;
+
+	list_for_each_safe(pos, tmp, &dsi->valid_modes) {
+		mode = list_entry(pos, struct valid_mode, list);
+		list_del(pos);
+		devm_kfree(dsi->dev, mode);
+	}
 
 	nwl_dsi_deselect_input(dsi);
 	mipi_dsi_host_unregister(&dsi->dsi_host);
