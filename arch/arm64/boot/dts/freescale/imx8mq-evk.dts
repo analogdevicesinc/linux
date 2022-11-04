@@ -81,6 +81,7 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio5 10 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	reg_usdhc2_vmmc: regulator-vsd-3v3 {
