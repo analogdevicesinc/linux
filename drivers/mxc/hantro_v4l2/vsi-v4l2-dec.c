@@ -309,6 +309,7 @@ static int vsi_dec_streamon(struct file *filp, void *priv, enum v4l2_buf_type ty
 		return -EBUSY;
 	v4l2_klog(LOGLVL_BRIEF, "%lx %s:%d in status %d", ctx->ctxid, __func__, type, ctx->status);
 	if (!binputqueue(type)) {
+		vb2_clear_last_buffer_dequeued(&ctx->output_que);
 		ctx->need_capture_on = true;
 		ret = vsi_dec_capture_on(ctx);
 		printbufinfo(&ctx->output_que);
@@ -394,6 +395,7 @@ static int vsi_dec_streamoff(
 	if (mutex_lock_interruptible(&ctx->ctxlock))
 		return -EBUSY;
 	if (!binputqueue(type)) {
+		vb2_clear_last_buffer_dequeued(q);
 		ctx->need_capture_on = false;
 		if (!vb2_is_streaming(q)) {
 			vsi_dec_return_queued_buffers(q);
