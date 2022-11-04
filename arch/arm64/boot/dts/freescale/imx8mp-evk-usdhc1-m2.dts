@@ -50,6 +50,10 @@
 	};
 };
 
+&reg_pcie0 {
+	status = "disabled";
+};
+
 &pcie {
 	status = "disabled";
 	/delete-node/ wifi_wake_host;
