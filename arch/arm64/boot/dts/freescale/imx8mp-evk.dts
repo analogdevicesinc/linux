@@ -1133,6 +1133,7 @@
 		fsl,pins = <
 			MX8MP_IOMUXC_I2C4_SCL__PCIE_CLKREQ_B	0x60 /* open drain, pull up */
 			MX8MP_IOMUXC_SD1_DATA5__GPIO2_IO07	0x40
+			MX8MP_IOMUXC_I2C4_SDA__GPIO5_IO21	0x1c4
 		>;
 	};
 
