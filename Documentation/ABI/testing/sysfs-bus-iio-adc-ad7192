@@ -19,6 +19,24 @@ Description:
 		the bridge can be disconnected (when it is not being used
 		using the bridge_switch_en attribute.
 
+What:		/sys/bus/iio/devices/iio:deviceX/fast_settling_average_factor
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute, if available, is used to activate or deactivate
+		fast settling mode and set the value of the average factor to
+		1, 2, 8 or 16. If the average factor is set to 1, the fast
+		settling mode is disabled. The data from the sinc filter is
+		averaged by chosen value. The averaging reduces the output data
+		rate for a given FS word, however, the rms noise improves.
+
+What:		/sys/bus/iio/devices/iio:deviceX/fast_settling_average_factor_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading returns a list with the possible values for the fast
+		settling average factor: 1, 2, 8, 16.
+
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltagex_sys_calibration
 KernelVersion:
 Contact:	linux-iio@vger.kernel.org
