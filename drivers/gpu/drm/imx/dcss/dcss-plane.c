@@ -492,15 +492,15 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 			(((fb->pitches[1] >> 1) * (y1 >> 1)) << 1) +
 			format->char_per_block[1] * (x1 >> 2);
 
-	dcss_dpr_addr_set(dcss->dpr, dcss_plane->ch_num, p1_ba, p2_ba,
-			  fb->pitches[0]);
-
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 		dcss_plane_set_primary_base(dcss_plane, p1_ba);
 	else
 		dcss_plane_set_dtrc_base(dcss_plane,
 					 dma_obj->dma_addr + fb->offsets[0],
 					 dma_obj->dma_addr + fb->offsets[1]);
+
+	dcss_dpr_addr_set(dcss->dpr, dcss_plane->ch_num, p1_ba, p2_ba,
+			  fb->pitches[0]);
 }
 
 static bool dcss_plane_needs_setup(struct drm_plane_state *state,
