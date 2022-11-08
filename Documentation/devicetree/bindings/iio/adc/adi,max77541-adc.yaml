@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,max77541-adc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADC driver for MAX77541
+
+maintainers:
+  - Okan Sahin <okan.sahin@analog.com>
+
+description: |
+  This is a part of device tree bindings for Analog Devices MAX77541
+
+  The adc is represented as a sub-node of the PMIC node on the device tree.
+
+  The device has an adc. Family of ADCs with i2c inteface, internal references and threshold
+  monitoring.
+
+  See also Documentation/devicetree/bindings/mfd/adi,max77541.yaml for
+  additional information and example.
+
+properties:
+  compatible:
+    const: adi,max77541-adc
+
+required:
+  - compatible
+
+additionalProperties: false
