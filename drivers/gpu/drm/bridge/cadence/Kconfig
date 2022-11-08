@@ -50,7 +50,8 @@ endif
 
 config DRM_CDNS_MHDP
 	tristate "Cadence MHDP COMMON API driver"
-	select DRM_DP_HELPER
+	select DRM_DISPLAY_DP_HELPER
+	select DRM_DISPLAY_HELPER
 	select DRM_DISPLAY_HDCP_HELPER
 	select DRM_KMS_HELPER
 	select DRM_PANEL_BRIDGE
