@@ -1,0 +1,225 @@
+What:		/sys/bus/iio/devices/iio:deviceX/alt_bit_pol_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to enable/disable the Alternate
+		Bit Polarity Mode, forcing the Output Format to be Offset Binary.
+
+What:		/sys/bus/iio/devices/iio:deviceX/alt_bit_pol_en_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		alt_bit_pol_en attribute.
+		* alternate_bit_polarity_off
+		* alternate_bit_polarity_on
+
+What:		/sys/bus/iio/devices/iio:deviceX/clk_dc_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to enable/disable the Clock Duty
+		Cycle Stabilizer.
+
+What:		/sys/bus/iio/devices/iio:deviceX/clk_dc_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		clk_dc_mode attribute.
+		* clk_dc_stabilizer_off
+		* clk_dc_stabilizer_on
+
+What:		/sys/bus/iio/devices/iio:deviceX/clk_phase_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the Output Clock Phase
+		Delay.
+
+What:		/sys/bus/iio/devices/iio:deviceX/clk_phase_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		clk_phase_mode attribute.
+		* clk_phase_no_delay
+		* clk_phase_45deg
+		* clk_phase_90deg
+		* clk_phase_180deg
+
+What:		/sys/bus/iio/devices/iio:deviceX/clk_pol_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to enable/disable the Output
+		Clock Invert.
+
+What:		/sys/bus/iio/devices/iio:deviceX/clk_pol_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		clk_pol_mode attribute.
+		* clk_pol_normal
+		* clk_pol_inverted
+
+What:		/sys/bus/iio/devices/iio:deviceX/data_rand_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to enable/disable the Data
+		Output Randomizer.
+
+What:		/sys/bus/iio/devices/iio:deviceX/data_rand_en_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		data_rand_en attribute.
+		* data_randomizer_off
+		* data_randomizer_on
+
+What:		/sys/bus/iio/devices/iio:deviceX/dout_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to enable/disable the Data
+		Output.
+
+What:		/sys/bus/iio/devices/iio:deviceX/dout_en_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		dout_en attribute.
+		* digital_output_on
+		* digital_output_off
+
+What:		/sys/bus/iio/devices/iio:deviceX/dout_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the Data Output Mode.
+
+What:		/sys/bus/iio/devices/iio:deviceX/dout_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		dout_mode attribute.
+		* full_rate_cmos_output
+		* double_data_rate_lvds_output
+		* double_data_rate_cmos_output
+
+What:		/sys/bus/iio/devices/iio:deviceX/lvds_cur_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the LVDS Output Current.
+
+What:		/sys/bus/iio/devices/iio:deviceX/lvds_cur_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		lvds_cur_mode attribute.
+		* lvds_current_3m5A
+		* lvds_current_4mA
+		* lvds_current_4m5A
+		* lvds_current_3mA
+		* lvds_current_2m5A
+		* lvds_current_3m1A
+		* lvds_current_1m75A
+
+What:		/sys/bus/iio/devices/iio:deviceX/lvds_term_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to enable/disable the LVDS
+		Internal Termination.
+
+What:		/sys/bus/iio/devices/iio:deviceX/lvds_term_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		lvds_term_mode attribute.
+		* lvds_internal_termination_off
+		* lvds_internal_termination_on
+
+What:		/sys/bus/iio/devices/iio:deviceX/par_ser_gpio
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to read the parallel/serial
+		configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/pd_gpio
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the Powerdown GPIOS.
+
+What:		/sys/bus/iio/devices/iio:deviceX/pd_gpio_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		pd_gpio attribute.
+		* pd1_on_pd2_on
+		* pd1_off_pd2_on
+		* pd1_on_pd2_off
+		* pd1_off_pd2_off
+
+What:		/sys/bus/iio/devices/iio:deviceX/pd_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the Powerdown Control.
+
+What:		/sys/bus/iio/devices/iio:deviceX/pd_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		pd_mode attribute.
+		* normal
+		* ch2_nap
+		* ch1_ch2_nap
+		* sleep
+
+What:		/sys/bus/iio/devices/iio:deviceX/test_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the Digital Output Test
+		Pattern.
+
+What:		/sys/bus/iio/devices/iio:deviceX/test_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		test_mode attribute.
+		* test_pattern_off
+		* test_all_digital_zero
+		* test_all_digital_one
+		* test_checkerboard
+		* test_alternating
+
+What:		/sys/bus/iio/devices/iio:deviceX/twos_complement
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows the user to set the Digital Output Test
+		Pattern.
+
+What:		/sys/bus/iio/devices/iio:deviceX/twos_complement_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		twos_complement attribute.
+		* offset_binary
+		* twos_complement
