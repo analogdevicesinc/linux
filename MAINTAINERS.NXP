@@ -336,6 +336,7 @@ M: Bogdan Folea <bogdan.folea@nxp.com>
 crypto/dcp
 M: Gaurav Jain <gaurav.jain@nxp.com>
 M: Pankaj Gupta <pankaj.gupta@nxp.com>
+M: Kshitiz Varshney <kshitiz.varshney@nxp.com>
 F: drivers/crypto/mxs-dcp.c
 
 crypto/hse
