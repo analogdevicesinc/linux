@@ -713,6 +713,7 @@
 						<&clk IMX8MN_CLK_AUDIO_AHB>,
 						<&clk IMX8MN_CLK_IPG_AUDIO_ROOT>,
 						<&clk IMX8MN_SYS_PLL3>,
+						<&clk IMX8MN_VIDEO_PLL1>,
 						<&clk IMX8MN_AUDIO_PLL1>,
 						<&clk IMX8MN_AUDIO_PLL2>;
 				assigned-clock-parents = <&clk IMX8MN_SYS_PLL1_800M>,
@@ -723,6 +724,7 @@
 							<400000000>,
 							<400000000>,
 							<600000000>,
+							<1039500000>,
 							<393216000>,
 							<361267200>;
 			};
