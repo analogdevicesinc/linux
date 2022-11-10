@@ -1125,7 +1125,7 @@ static int imx_shm_net_probe(struct platform_device *pdev)
 	ndev->features = ndev->hw_features;
 
 	netif_carrier_off(ndev);
-	netif_napi_add(ndev, &in->napi, imx_shm_net_poll, NAPI_POLL_WEIGHT);
+	netif_napi_add(ndev, &in->napi, imx_shm_net_poll);
 
 	ret = register_netdev(ndev);
 	if (ret)
