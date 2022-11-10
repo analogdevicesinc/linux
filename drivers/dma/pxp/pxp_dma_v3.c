@@ -1767,6 +1767,7 @@ static uint32_t pxp_fetch_ctrl_config(struct pxp_pixmap *in,
 	if (in->rotate || in->flip)
 		ctrl.block_en = 1;
 
+	ctrl.block_16 = 1;
 	ctrl.ch_en = 1;
 
 	return *(uint32_t *)&ctrl;
