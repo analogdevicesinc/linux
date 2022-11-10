@@ -18,6 +18,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/sizes.h>
+#include <soc/imx/gpcv2.h>
 #include <dt-bindings/power/imx7-power.h>
 #include <dt-bindings/power/imx8mq-power.h>
 #include <dt-bindings/power/imx8mm-power.h>
@@ -407,6 +408,8 @@ static int imx_pgc_power_up(struct generic_pm_domain *genpd)
 	udelay(5);
 
 	reset_control_deassert(domain->reset);
+
+	raw_notifier_call_chain(&genpd->power_notifiers, IMX_GPCV2_NOTIFY_ON_ADB400, NULL);
 
 	/* request the ADB400 to power up */
 	if (domain->bits.hskreq) {
