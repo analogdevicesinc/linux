@@ -495,7 +495,7 @@ static int mxc_streamoff(cam_data *cam)
 	 * 3. disable idmac
 	 * 4. disable smfc (CSI--MEM channel)
 	 */
-	if (mxc_capture_inputs[cam->current_input].name != NULL) {
+	if (mxc_capture_inputs[cam->current_input].name[0] != '\0') {
 		if (cam->enc_disable_csi) {
 			err = cam->enc_disable_csi(cam);
 			if (err != 0)
