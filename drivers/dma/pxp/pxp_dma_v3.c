@@ -1983,6 +1983,7 @@ static bool fmt_out_support(uint32_t format)
 {
 	switch (format) {
 	case PXP_PIX_FMT_ARGB32:
+	case PXP_PIX_FMT_ABGR32:
 	case PXP_PIX_FMT_XRGB32:
 	case PXP_PIX_FMT_BGRA32:
 	case PXP_PIX_FMT_RGB24:
@@ -2162,6 +2163,36 @@ static void filter_possible_outputs(struct pxp_pixmap *output,
 
 		position++;
 	} while (1);
+}
+
+/*
+ * PXP support PS/AS -> OUT, INPUT FETCH -> STORE data path
+ * don't support cross them, such as PS/AS -> STORE and ROTATION2
+ * (or ROTATION1 in some IMX platform reference manul)
+ * engine only can be used to rotate data from input fetch engine.
+ * So replace ROTATION1 with ROTATION0 when AS/PS engine are used
+ */
+static void filter_nodes_by_inputs_outputs(size_t *nodes_in_path,
+					   size_t *nodes_used)
+{
+	bool ps_as_engine_used;
+
+	ps_as_engine_used = (((*nodes_in_path) & (1 << PXP_2D_PS)) |
+			     ((*nodes_in_path) & (1 << PXP_2D_AS)) |
+			     ((*nodes_used) & (1 << PXP_2D_PS)) |
+			     ((*nodes_used) & (1 << PXP_2D_AS))) ? true : false;
+
+	if (ps_as_engine_used) {
+		if (*nodes_in_path & (1 << PXP_2D_ROTATION1)) {
+			clear_bit(PXP_2D_ROTATION1, (unsigned long *)nodes_in_path);
+			set_bit(PXP_2D_ROTATION0, (unsigned long *)nodes_in_path);
+		}
+
+		if (*nodes_used & (1 << PXP_2D_ROTATION1)) {
+			clear_bit(PXP_2D_ROTATION1, (unsigned long *)nodes_used);
+			set_bit(PXP_2D_ROTATION0, (unsigned long *)nodes_used);
+		}
+	}
 }
 
 static uint32_t calc_shortest_path(size_t *nodes_used)
@@ -3321,15 +3352,7 @@ reparse:
 					       possible_outputs,
 					       input, &nodes_used);
 
-		if (nodes_in_path & (1 << PXP_2D_ROTATION1)) {
-			clear_bit(PXP_2D_ROTATION1, (unsigned long *)&nodes_in_path);
-			set_bit(PXP_2D_ROTATION0, (unsigned long *)&nodes_in_path);
-		}
-
-		if (nodes_used & (1 << PXP_2D_ROTATION1)) {
-			clear_bit(PXP_2D_ROTATION1, (unsigned long *)&nodes_used);
-			set_bit(PXP_2D_ROTATION0, (unsigned long *)&nodes_used);
-		}
+		filter_nodes_by_inputs_outputs(&nodes_in_path, &nodes_used);
 
 		pr_debug("%s: nodes_in_path = 0x%x, nodes_used = 0x%x\n",
 			  __func__, (u32)nodes_in_path, (u32)nodes_used);
