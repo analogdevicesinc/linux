@@ -1313,7 +1313,6 @@
 			clock-names = "apb", "axi", "nic", "disp", "cam",
 				      "pxp", "lcdif", "isi", "csi", "dsi";
 			#power-domain-cells = <1>;
-			status = "disabled";
 
 			dphy: dphy {
 				compatible = "fsl,imx93-mipi-dphy";
