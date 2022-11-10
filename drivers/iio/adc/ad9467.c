@@ -693,12 +693,10 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "test_mode_available",
 	 .read = ad9467_testmode_mode_available,
-	 .shared = true,
 	 },
 	{
 	 .name = "scale_available",
 	 .read = ad9467_show_scale_available,
-	 .shared = true,
 	 },
 	{},
 };
@@ -743,8 +741,8 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{ .type = IIO_VOLTAGE,						\
 	  .indexed = 1,							\
 	  .channel = _chan,						\
-	  .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	  .info_mask_separate = BIT(IIO_CHAN_INFO_SCALE) |		\
+				BIT(IIO_CHAN_INFO_SAMP_FREQ),		\
 	  .ext_info = axiadc_ext_info,			\
 	  .scan_index = _si,						\
 	  .scan_type = {						\
