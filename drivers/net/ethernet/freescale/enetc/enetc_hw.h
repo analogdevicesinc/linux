@@ -832,14 +832,14 @@ struct sfi_conf {
  * Stream Filter Instance Query Statistics Response data
  */
 struct sfi_counter_data {
-	u32 matchl;
-	u32 matchh;
-	u32 msdu_dropl;
-	u32 msdu_droph;
-	u32 stream_gate_dropl;
-	u32 stream_gate_droph;
-	u32 flow_meter_dropl;
-	u32 flow_meter_droph;
+	__le32 matchl;
+	__le32 matchh;
+	__le32 msdu_dropl;
+	__le32 msdu_droph;
+	__le32 stream_gate_dropl;
+	__le32 stream_gate_droph;
+	__le32 flow_meter_dropl;
+	__le32 flow_meter_droph;
 };
 
 #define ENETC_CBDR_SGI_OIPV_MASK 0x7
@@ -897,17 +897,17 @@ struct sgcl_conf {
 #define ENETC_CBDR_SGL_IPV_MASK 0xe
 /* Stream Gate Control List Entry */
 struct sgce {
-	u32	interval;
+	__le32	interval;
 	u8	msdu[3];
 	u8	multi;
 };
 
 /* stream control list class 9 , cmd 1 data buffer */
 struct sgcl_data {
-	u32		btl;
-	u32		bth;
-	u32		ct;
-	u32		cte;
+	__le32		btl;
+	__le32		bth;
+	__le32		ct;
+	__le32		cte;
 	struct sgce	sgcl[];
 };
 
