@@ -33,20 +33,36 @@ u32 axi_ad3552r_read(struct axi_ad3552r_priv *priv, u32 reg)
 	return ioread32(priv->regs + reg);
 }
 
-void axi_ad3552r_spi_write_8b(struct axi_ad3552r_priv *priv, u32 reg, u32 val)
+void axi_ad3552r_spi_write_8b(struct axi_ad3552r_priv *priv, u32 reg, u32 val, bool ddr_sdr_n)
 {
     axi_ad3552r_write(priv, 0x64, (reg << 24) | (val << 16));
     //pr_err("%s: 0x%x\n", __FUNCTION__, axi_ad3552r_read(priv, 0x64));
-    axi_ad3552r_write(priv, 0x6c, 0x4);
+    if( ddr_sdr_n ){
+    axi_ad3552r_write(priv, 0x6c, 0x5);
+     mdelay(100);
     axi_ad3552r_write(priv, 0x6c, 0x0);
-}
+    }
+    else{
+    axi_ad3552r_write(priv, 0x6c, 0x4);
+     mdelay(100);
+    axi_ad3552r_write(priv, 0x6c, 0x0);
+    }
+    }
 
-void axi_ad3552r_spi_write_16b(struct axi_ad3552r_priv *priv, u32 reg, u32 val)
+void axi_ad3552r_spi_write_16b(struct axi_ad3552r_priv *priv, u32 reg, u32 val, bool ddr_sdr_n)
 {
     axi_ad3552r_write(priv, 0x64, (reg << 24) | (val << 8));
     //pr_err("%s: 0x%x\n", __FUNCTION__, axi_ad3552r_read(priv, 0x64));
-    axi_ad3552r_write(priv, 0x6c, 0x6);	// 16b_8bn
+    if( ddr_sdr_n ){
+    axi_ad3552r_write(priv, 0x6c, 0x7);
+    mdelay(100);
     axi_ad3552r_write(priv, 0x6c, 0x0);
+    }
+    else{
+    axi_ad3552r_write(priv, 0x6c, 0x6);
+    mdelay(100);
+    axi_ad3552r_write(priv, 0x6c, 0x0);
+    }
 }
 
 static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
@@ -84,14 +100,19 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_ENABLE:
 		priv->enable = val;
 		if (val) {
+
 			// Start transfer ddr
-			axi_ad3552r_spi_write_8b(priv, 0x14, 05);
+			axi_ad3552r_spi_write_8b(priv, 0x14, 0x05,0);
 			mdelay(100);
 
 			axi_ad3552r_write(priv, 0x64, 0x2c000000);
 			axi_ad3552r_write(priv, 0x6c, 0x0d);
+			mdelay(100);
+
 		} else {
 			axi_ad3552r_write(priv, 0x6c, 0x00);
+			axi_ad3552r_spi_write_8b(priv, 0x14, 0x04,1);
+			mdelay(100);
 		}
 		return 0;
 	}
@@ -160,6 +181,7 @@ static int axi_ad3552r_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 
+	axi_ad3552r_write(priv, 0x048, 0x10);
 	axi_ad3552r_write(priv, 0x418, 0x02);
 	axi_ad3552r_write(priv, 0x458, 0x02);
 
@@ -214,24 +236,25 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->regs))
 		return PTR_ERR(priv->regs);
 
+    
 	axi_ad3552r_write(priv, 0x40, 0x00);
 	axi_ad3552r_write(priv, 0x40, 0x03);
 
 	// External Vref + Idump
-    	axi_ad3552r_spi_write_8b(priv, 0x15, 0x00);
+    	axi_ad3552r_spi_write_8b(priv, 0x15, 0x00,0);
 	mdelay(100);
 	// Stream mode enable
-    	axi_ad3552r_spi_write_8b(priv, 0x0f, 0x84);
+    	axi_ad3552r_spi_write_8b(priv, 0x0f, 0x84,0);
 	mdelay(100);
 	// Stream length
-    	axi_ad3552r_spi_write_8b(priv, 0x0e, 0x04);
+    	axi_ad3552r_spi_write_8b(priv, 0x0e, 0x04,0);
 	mdelay(100);
     	// Enable +-10V range
-    	axi_ad3552r_spi_write_8b(priv, 0x19, 0x44);
+    	axi_ad3552r_spi_write_8b(priv, 0x19, 0x44,0);
 	mdelay(100);
-
 	axi_ad3552r_write(priv, 0x418, 0x0b);
 	axi_ad3552r_write(priv, 0x458, 0x0b);
+
 
 	priv->enable = false;
 
