@@ -538,6 +538,17 @@ config HW_RANDOM_ARM_SMCCC_TRNG
 	  To compile this driver as a module, choose M here: the
 	  module will be called arm_smccc_trng.
 
+config HW_RANDOM_ADI
+	tristate "ADI TRNG Support"
+	depends on HW_RANDOM && (ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64)
+	help
+	  This driver provides TRNG support for ADI SC5xx processors
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called adi-rng.
+
+	  If unsure, say Y.
+
 endif # HW_RANDOM
 
 config UML_RANDOM
