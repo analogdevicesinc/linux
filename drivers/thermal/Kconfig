@@ -239,6 +239,14 @@ config HISI_THERMAL
 	  thermal framework. cpufreq is used as the cooling device to throttle
 	  CPUs when the passive trip is crossed.
 
+config ADI_SC59X_THERMAL
+	bool "Thermal Management Unit for Analog Devices SC59X SoCs"
+	default ARCH_SC59X_64 || ARCH_SC59X
+	depends on OF && (ARCH_SC59X_64 || ARCH_SC59X || COMPILE_TEST)
+	help
+	  Enable this to enable the Thermal Management Unit found on Analog Devices
+	  SC59x SoCs. it supports one critical trip point and one passive trip point.
+
 config IMX_THERMAL
 	tristate "Temperature sensor driver for Freescale i.MX SoCs"
 	depends on ARCH_MXC || COMPILE_TEST
