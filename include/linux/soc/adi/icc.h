@@ -102,7 +102,7 @@ struct rcu_reg {
 #endif
 
 #define ADI_RESOURCE_TABLE_TAG "AD-RESOURCE-TBL"
-#define ADI_RESOURCE_TABLE_INIT_MAGIC (0xADE0AD0E)
+#define ADI_RSC_TABLE_INIT_MAGIC (0xADE0AD0E)
 #define ADI_RESOURCE_TABLE_VERSION (1)
 struct adi_resource_table_hdr {
 	u8 tag[16];

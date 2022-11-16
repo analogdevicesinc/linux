@@ -73,4 +73,15 @@ config RPMSG_VIRTIO
 	select RPMSG_NS
 	select VIRTIO
 
+config RPMSG_ADI
+	tristate "Analog Devices RPMSG driver"
+	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	select RPMSG_VIRTIO
+	help
+	  Say y here to enable support for the Analog Devices Rpmsg driver
+	  providing communication between processors on AMP SOCs.
+	  E.g. SC584 with ARM cortext-A5 and two SHARC DSP cores.
+
+	  This is to be used when a core isn't started by remoteproc.
+
 endmenu
