@@ -95,6 +95,15 @@ config CAN_AT91
 	  This is a driver for the SoC CAN controller in Atmel's AT91SAM9263
 	  and AT91SAM9X5 processors.
 
+config CAN_SC5XX
+	depends on ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	tristate "Analog Devices SC5xx on-chip CAN"
+	help
+	  Driver for the Analog Devices SC5xx on-chip CAN controllers
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called sc5xx_can.
+
 config CAN_FLEXCAN
 	tristate "Support for Freescale FLEXCAN based chips"
 	depends on OF || COLDFIRE || COMPILE_TEST
