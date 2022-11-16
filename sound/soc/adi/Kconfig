@@ -28,3 +28,12 @@ config SND_SC5XX_PCM
 	  the SC5XX SPORT (synchronous serial ports) interface in I2S
 	  or TDM mode.
 	  You will also need to select the audio interfaces to support below.
+
+config SND_SOC_ADI_SC5XX_I2S
+	tristate
+	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	help
+	Describes the Digital Audio Interface format, which is physcally
+	built on the SPORT
+	Most audio devices on SC5xx requires this
+	Say Y or M if you want to enable this
