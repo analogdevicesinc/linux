@@ -427,6 +427,7 @@ config PINCTRL_KEEMBAY
 	  called as pinctrl-keembay.
 
 source "drivers/pinctrl/actions/Kconfig"
+source "drivers/pinctrl/adi/Kconfig"
 source "drivers/pinctrl/aspeed/Kconfig"
 source "drivers/pinctrl/bcm/Kconfig"
 source "drivers/pinctrl/berlin/Kconfig"
