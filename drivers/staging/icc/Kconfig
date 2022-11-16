@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)-or-later
+
+#
+# Intercore communication protocol and impelementation
+#
+
+menuconfig ICC
+	bool "icc driver"
+	default y
+	depends on !SMP
+	help
+	  the icc driver is a device driver that control the DSP devices,
+	  and bridges the program running on DSPs and linux user applications
+if ICC
+config CORE_CONTROL
+	bool "icc core control"
+	default y
+	help
+	   ICC core control, control the DSP devices at the side of ARM Core, which
+	   provides some commands e.g. Start, Stop, and Set the vector value
+config	ICC_PROTOCOL
+	bool "icc protocol"
+	default y
+	help
+	  ICC protocol, a shared memory based protocol for communication between
+	  linux core and DSP core
+config ICC_DEBUG
+	bool "icc debug"
+	default n
+	help
+	  ICC verbose debug messages
+endif
