@@ -35,6 +35,7 @@
 	pinctrl-0 = <&pinctrl_gpmi_nand>;
 	status = "okay";
 	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
 };
 
 &gpu_2d {
