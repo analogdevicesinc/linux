@@ -976,8 +976,13 @@ int adau1372_probe(struct device *dev, struct regmap *regmap,
 	 * No pinctrl support yet, put the multi-purpose pins in the most
 	 * sensible mode for general purpose CODEC operation.
 	 */
-	regmap_write(regmap, ADAU1372_REG_MODE_MP(1), 0x00); /* SDATA OUT */
-	regmap_write(regmap, ADAU1372_REG_MODE_MP(6), 0x12); /* CLOCKOUT */
+	regmap_write(regmap, ADAU1372_REG_MODE_MP(0), 0x00);
+	regmap_write(regmap, ADAU1372_REG_MODE_MP(1), 0x00);
+	regmap_write(regmap, ADAU1372_REG_MODE_MP(2), 0x00);
+	regmap_write(regmap, ADAU1372_REG_MODE_MP(3), 0x00);
+	regmap_write(regmap, ADAU1372_REG_MODE_MP(4), 0x00);
+	regmap_write(regmap, ADAU1372_REG_MODE_MP(5), 0x00);
+	regmap_write(regmap, ADAU1372_REG_MODE_MP(6), 0x00);
 
 	regmap_write(regmap, ADAU1372_REG_OP_STAGE_MUTE, 0x0);
 
@@ -995,30 +1000,30 @@ static const struct reg_default adau1372_reg_defaults[] = {
 	{ ADAU1372_REG_PLL(3),			0x00 },
 	{ ADAU1372_REG_PLL(4),			0x00 },
 	{ ADAU1372_REG_PLL(5),			0x00 },
-	{ ADAU1372_REG_DAC_SOURCE,		0x10 },
+	{ ADAU1372_REG_DAC_SOURCE,		0xDC },
 	{ ADAU1372_REG_SOUT_SOURCE_0_1,		0x54 },
 	{ ADAU1372_REG_SOUT_SOURCE_2_3,		0x76 },
 	{ ADAU1372_REG_SOUT_SOURCE_4_5,		0x54 },
 	{ ADAU1372_REG_SOUT_SOURCE_6_7,		0x76 },
 	{ ADAU1372_REG_ADC_SDATA_CH,		0x04 },
-	{ ADAU1372_REG_ASRCO_SOURCE_0_1,	0x10 },
-	{ ADAU1372_REG_ASRCO_SOURCE_2_3,	0x32 },
+	{ ADAU1372_REG_ASRCO_SOURCE_0_1,	0x54 },
+	{ ADAU1372_REG_ASRCO_SOURCE_2_3,	0x76 },
 	{ ADAU1372_REG_ASRC_MODE,		0x00 },
-	{ ADAU1372_REG_ADC_CTRL0,		0x19 },
-	{ ADAU1372_REG_ADC_CTRL1,		0x19 },
-	{ ADAU1372_REG_ADC_CTRL2,		0x00 },
-	{ ADAU1372_REG_ADC_CTRL3,		0x00 },
+	{ ADAU1372_REG_ADC_CTRL0,		0x00 },
+	{ ADAU1372_REG_ADC_CTRL1,		0x00 },
+	{ ADAU1372_REG_ADC_CTRL2,		0x03 },
+	{ ADAU1372_REG_ADC_CTRL3,		0x03 },
 	{ ADAU1372_REG_ADC_VOL(0),		0x00 },
 	{ ADAU1372_REG_ADC_VOL(1),		0x00 },
 	{ ADAU1372_REG_ADC_VOL(2),		0x00 },
 	{ ADAU1372_REG_ADC_VOL(3),		0x00 },
-	{ ADAU1372_REG_PGA_CTRL(0),		0x40 },
-	{ ADAU1372_REG_PGA_CTRL(1),		0x40 },
-	{ ADAU1372_REG_PGA_CTRL(2),		0x40 },
-	{ ADAU1372_REG_PGA_CTRL(3),		0x40 },
+	{ ADAU1372_REG_PGA_CTRL(0),		0x20 },
+	{ ADAU1372_REG_PGA_CTRL(1),		0x20 },
+	{ ADAU1372_REG_PGA_CTRL(2),		0x20 },
+	{ ADAU1372_REG_PGA_CTRL(3),		0x20 },
 	{ ADAU1372_REG_PGA_BOOST,		0x00 },
 	{ ADAU1372_REG_MICBIAS,			0x00 },
-	{ ADAU1372_REG_DAC_CTRL,		0x18 },
+	{ ADAU1372_REG_DAC_CTRL,		0x03 },
 	{ ADAU1372_REG_DAC_VOL(0),		0x00 },
 	{ ADAU1372_REG_DAC_VOL(1),		0x00 },
 	{ ADAU1372_REG_OP_STAGE_MUTE,		0x0f },
@@ -1026,12 +1031,12 @@ static const struct reg_default adau1372_reg_defaults[] = {
 	{ ADAU1372_REG_SAI1,			0x00 },
 	{ ADAU1372_REG_SOUT_CTRL,		0x00 },
 	{ ADAU1372_REG_MODE_MP(0),		0x00 },
-	{ ADAU1372_REG_MODE_MP(1),		0x10 },
+	{ ADAU1372_REG_MODE_MP(1),		0x00 },
 	{ ADAU1372_REG_MODE_MP(4),		0x00 },
 	{ ADAU1372_REG_MODE_MP(5),		0x00 },
-	{ ADAU1372_REG_MODE_MP(6),		0x11 },
+	{ ADAU1372_REG_MODE_MP(6),		0x00 },
 	{ ADAU1372_REG_OP_STAGE_CTRL,		0x0f },
-	{ ADAU1372_REG_DECIM_PWR,		0x00 },
+	{ ADAU1372_REG_DECIM_PWR,		0xFF },
 	{ ADAU1372_REG_INTERP_PWR,		0x00 },
 	{ ADAU1372_REG_BIAS_CTRL0,		0x00 },
 	{ ADAU1372_REG_BIAS_CTRL1,		0x00 },
