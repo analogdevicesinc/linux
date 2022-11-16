@@ -28,6 +28,8 @@
 
 				spi-max-frequency = <1000000>;
 				spi-cpol;
+				#gpio-cells = <2>;
+				gpio-controller;
 
 				channel@0 {
 					reg = <0>;
@@ -69,6 +71,33 @@
 			};
 		};
 	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			one-bit-adc-dac@0 {
+				compatible = "adi,one-bit-adc-dac";
+				label = "gpios";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				in-gpios = <&ad5592r 5 0>, <&ad5592r 6 0>, <&ad5592r 7 0>;
+				status = "okay";
+				channel@0 {
+					reg = <0>;
+					label = "AD5592R_GPIO_CH_5";
+				};
+				channel@1 {
+					reg = <1>;
+					label = "AD5592R_GPIO_CH_6";
+				};
+				channel@2 {
+					reg = <2>;
+					label = "AD5592R_GPIO_CH_7";
+				};
+			};
+		};
+	};
+
 	__overrides__ {
 		cs_pin = <&ad5592r>,"reg:0";
 	};

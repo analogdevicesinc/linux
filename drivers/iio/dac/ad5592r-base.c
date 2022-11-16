@@ -125,6 +125,17 @@ static int ad5592r_gpio_request(struct gpio_chip *chip, unsigned offset)
 	return 0;
 }
 
+static const char * const ad5592r_gpio_names[] = {
+       "GPIO0",
+       "GPIO1",
+       "GPIO2",
+       "GPIO3",
+       "GPIO4",
+       "GPIO5",
+       "GPIO6",
+       "GPIO7",
+};
+
 static int ad5592r_gpio_init(struct ad5592r_state *st)
 {
 	if (!st->gpio_map)
@@ -141,6 +152,7 @@ static int ad5592r_gpio_init(struct ad5592r_state *st)
 	st->gpiochip.set = ad5592r_gpio_set;
 	st->gpiochip.request = ad5592r_gpio_request;
 	st->gpiochip.owner = THIS_MODULE;
+	st->gpiochip.names = ad5592r_gpio_names;
 
 	mutex_init(&st->gpio_lock);
 
@@ -646,7 +658,7 @@ int ad5592r_probe(struct device *dev, const char *name,
 	ret = ad5592r_gpio_init(st);
 	if (ret)
 		goto error_dev_unregister;
-
+	
 	return 0;
 
 error_dev_unregister:
