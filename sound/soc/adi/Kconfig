@@ -37,3 +37,15 @@ config SND_SOC_ADI_SC5XX_I2S
 	built on the SPORT
 	Most audio devices on SC5xx requires this
 	Say Y or M if you want to enable this
+
+choice
+	prompt "SPORT data feed"
+	depends on SND_SC5XX_PCM
+	default SND_SC5XX_SPORT
+
+	config SND_SC5XX_SPORT
+		bool "Regular SPORT operation"
+		help
+		SPORT interface driver for SC5XX audio, audio data are sent and
+		received through the SPORT DMA buffers
+endchoice
