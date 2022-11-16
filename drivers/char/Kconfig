@@ -312,6 +312,17 @@ config NSC_GPIO
 	  pc8736x_gpio drivers.  If those drivers are built as
 	  modules, this one will be too, named nsc_gpio
 
+config BUTTON_LED
+	tristate "Button interrupt trigger LED driver"
+	depends on (ARCH_SC59X || ARCH_SC58X || ARCH_SC57X)
+	default n
+	help
+	  This is a hardware driver for SC5XX. It is added to trigger LED
+	  when press a specified button.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called button_led.
+
 config DEVMEM
 	bool "/dev/mem virtual device support"
 	default y
