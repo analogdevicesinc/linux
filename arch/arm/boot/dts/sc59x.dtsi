@@ -406,7 +406,7 @@
 		};
 
 		watchdog@0x31008000 {
-			compatible = "arm,adi-watchdog";
+			compatible = "adi,watchdog";
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
 			clocks = <&clk ADSP_SC594_CLK_CGU0_SCLK0>;
