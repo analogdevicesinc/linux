@@ -673,6 +673,16 @@ config INPUT_DM355EVM
 	  To compile this driver as a module, choose M here: the
 	  module will be called dm355evm_keys.
 
+config INPUT_ADI_ROTARY
+	tristate "ADI Rotary support"
+	depends on ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	default n
+	help
+	  Say Y here if you want to use the ADI Rotary.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-rotary.
+
 config INPUT_WM831X_ON
 	tristate "WM831X ON pin"
 	depends on MFD_WM831X
