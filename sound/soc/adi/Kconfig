@@ -48,6 +48,15 @@ choice
 		help
 		SPORT interface driver for SC5XX audio, audio data are sent and
 		received through the SPORT DMA buffers
+
+	config SND_SC5XX_SPORT_SHARC
+		bool "SHARC process SPORT data"
+		help
+		  Say Y if you want to process audio data in SHARC core,
+		  requires firmware with ICAP (Inter Core Audio Protocol)
+		  running on a SHARC core.
+		  SPORT DMA is configured and controlled by linux,
+		  DMA interrupt handed over to SHARC firmware.
 endchoice
 
 config SND_SC5XX_MACHINE
@@ -97,3 +106,13 @@ config SND_SC5XX_ADAU1372
 	help
 	Say Y if you want to add support for the Analog Devices ADAU1962
         machine driver on the SC5XX ezkit board.
+
+config SND_SC5XX_SHARC_ALSA_CARD
+	tristate "SHARC-ALSA SoC Audio card for the ADI SC5XX chip"
+	depends on ADI_REMOTEPROC && RPMSG && (ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64)
+	help
+	  Virtual SHARC ASoC card driver. Creates a sound card for each "sharc-audio"
+	  rpmsg endpoint announced on a rpmsg channel. The driver is just
+	  a communication bridge between ASoC and SHARC firmware which controls
+	  I2S/SPORT, DMA, codecs and amplifiers. Supported number of channels,
+	  sample rates, and formats depends on features reported by SHARC firmware.
