@@ -160,4 +160,5 @@
 		<&clk_266m>;
 	status = "okay";
 	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
 };

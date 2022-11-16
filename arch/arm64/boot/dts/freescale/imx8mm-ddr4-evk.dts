@@ -147,6 +147,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpmi_nand>;
 	status = "okay";
+	fsl,use-minimum-ecc;
 };
 
 &usdhc1 {
