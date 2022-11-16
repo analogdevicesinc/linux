@@ -19,3 +19,12 @@ config SND_SOC_ADI_AXI_SPDIF
 	select REGMAP_MMIO
 	help
 	  ASoC driver for the Analog Devices AXI-SPDIF softcore peripheral.
+
+config SND_SC5XX_PCM
+	tristate "SoC Audio for the ADI SC5XX chip"
+	depends on ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the SC5XX SPORT (synchronous serial ports) interface in I2S
+	  or TDM mode.
+	  You will also need to select the audio interfaces to support below.
