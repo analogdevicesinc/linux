@@ -283,6 +283,17 @@ config ADI_AXI_ADC
 	  To compile this driver as a module, choose M here: the
 	  module will be called adi-axi-adc.
 
+config ADI_HADC
+	tristate "Analog Devices Housekeeping ADC"
+	depends on ARCH_SC59X || ARCH_SC59X_64
+	depends on OF
+	select IIO_BUFFER
+	select IIO_KFIFO_BUF
+	help
+	  Say yes to build support for the ADI Housekeeping ADC on SC5xx
+	  SoCs. Provides direct access via sysfs and to other drivers via
+	  via device tree and iio API
+
 config ASPEED_ADC
 	tristate "Aspeed ADC"
 	depends on ARCH_ASPEED || COMPILE_TEST
