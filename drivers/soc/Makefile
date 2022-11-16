@@ -4,6 +4,10 @@
 #
 
 obj-$(CONFIG_ARCH_ACTIONS)	+= actions/
+obj-$(CONFIG_ARCH_SC59X_64)	+= adi/ adi/mach-sc5xx/ adi/mach-sc59x/
+obj-$(CONFIG_ARCH_SC59X)	+= adi/ adi/mach-sc5xx/
+obj-$(CONFIG_ARCH_SC58X)	+= adi/ adi/mach-sc5xx/
+obj-$(CONFIG_ARCH_SC57X)	+= adi/ adi/mach-sc5xx/
 obj-y				+= aspeed/
 obj-$(CONFIG_ARCH_AT91)		+= atmel/
 obj-y				+= bcm/
