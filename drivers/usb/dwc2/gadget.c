@@ -3438,6 +3438,8 @@ void dwc2_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 		break;
 	default:
 		dcfg |= DCFG_DEVSPD_HS;
+		if (hsotg->params.g_xcvrdly)
+			dcfg |= DCFG_XCVRDLY;
 	}
 
 	if (hsotg->params.ipg_isoc_en)

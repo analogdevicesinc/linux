@@ -473,6 +473,9 @@ static void dwc2_get_device_properties(struct dwc2_hsotg *hsotg)
 						       &p->g_tx_fifo_size[1],
 						       num);
 		}
+
+		if (of_find_property(hsotg->dev->of_node, "enable-xcvrdly", NULL))
+			p->g_xcvrdly = true;
 	}
 
 	if (of_find_property(hsotg->dev->of_node, "disable-over-current", NULL))

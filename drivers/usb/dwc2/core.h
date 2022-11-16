@@ -523,6 +523,7 @@ struct dwc2_core_params {
 	u32 g_rx_fifo_size;
 	u32 g_np_tx_fifo_size;
 	u32 g_tx_fifo_size[MAX_EPS_CHANNELS];
+	bool g_xcvrdly;
 
 	bool change_speed_quirk;
 };
