@@ -20,6 +20,7 @@
 #include "stmmac.h"
 #include "stmmac_pcs.h"
 #include "dwmac1000.h"
+#include "dwmac_dma.h"
 
 static void dwmac1000_core_init(struct mac_device_info *hw,
 				struct net_device *dev)
@@ -92,6 +93,41 @@ static int dwmac1000_rx_ipc_enable(struct mac_device_info *hw)
 	value = readl(ioaddr + GMAC_CONTROL);
 
 	return !!(value & GMAC_CONTROL_IPC);
+}
+
+static void dwmac1000_config_cbs(struct mac_device_info *hw,
+				 u32 send_slope, u32 idle_slope,
+			      u32 high_credit, u32 low_credit, u32 queue)
+{
+	void __iomem *ioaddr = hw->pcsr;
+
+	/* note that tc_setup_cbs has already validated queue but we need to further
+	 * restrict the CBS parameters
+	 */
+
+	if (idle_slope > DWMAC1000_CBS_MAX_IDLESLOPE)
+		idle_slope = DWMAC1000_CBS_MAX_IDLESLOPE;
+
+	if (send_slope > DWMAC1000_CBS_MAX_SENDSLOPE)
+		send_slope = DWMAC1000_CBS_MAX_SENDSLOPE;
+
+	if (high_credit > DWMAC1000_CBS_MAX_HICREDIT)
+		high_credit = DWMAC1000_CBS_MAX_HICREDIT;
+
+	if (low_credit < DWMAC1000_CBS_MAX_LOCREDIT)
+		low_credit = DWMAC1000_CBS_MAX_LOCREDIT;
+
+	pr_info("Queue %d configured as AVB. Parameters:\n", queue);
+	pr_info("\tsend_slope: 0x%08x\n", send_slope);
+	pr_info("\tidle_slope: 0x%08x\n", idle_slope);
+	pr_info("\thigh_credit: 0x%08x\n", high_credit);
+	pr_info("\tlow_credit: 0x%08x\n", low_credit);
+
+	/* qmode configuration has already enabled CBS so configure credits only */
+	writel(idle_slope, dwmac_dma_chan_addr(ioaddr, queue, DMA_CBS_IDLESLOPE));
+	writel(send_slope, dwmac_dma_chan_addr(ioaddr, queue, DMA_CBS_SENDSLOPE));
+	writel(high_credit, dwmac_dma_chan_addr(ioaddr, queue, DMA_CBS_HICREDIT));
+	writel(low_credit, dwmac_dma_chan_addr(ioaddr, queue, DMA_CBS_LOCREDIT));
 }
 
 static void dwmac1000_dump_regs(struct mac_device_info *hw, u32 *reg_space)
@@ -514,6 +550,7 @@ const struct stmmac_ops dwmac1000_ops = {
 	.core_init = dwmac1000_core_init,
 	.set_mac = stmmac_set_mac,
 	.rx_ipc = dwmac1000_rx_ipc_enable,
+	.config_cbs = dwmac1000_config_cbs,
 	.dump_regs = dwmac1000_dump_regs,
 	.host_irq_status = dwmac1000_irq_status,
 	.set_filter = dwmac1000_set_filter,

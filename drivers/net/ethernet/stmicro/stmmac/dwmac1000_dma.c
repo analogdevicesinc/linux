@@ -269,6 +269,25 @@ static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt,
 	writel(riwt, ioaddr + DMA_RX_WATCHDOG);
 }
 
+static void dwmac1000_qmode(void __iomem *ioaddr, u32 channel, u8 qmode)
+{
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, channel, DMA_CBS_CONTROL);
+	u32 value;
+
+	/* no qmode settings for non-AV channel */
+	if (channel < 1)
+		return;
+
+	value = readl(addr);
+
+	if (qmode == MTL_QUEUE_AVB)
+		value &= ~DMA_CBS_CONTROL_CBSD;
+	else
+		value |= DMA_CBS_CONTROL_CBSD;
+
+	writel(value, addr);
+}
+
 const struct stmmac_dma_ops dwmac1000_dma_ops = {
 	.reset = dwmac_dma_reset,
 	.init = dwmac1000_dma_init,
@@ -288,4 +307,5 @@ const struct stmmac_dma_ops dwmac1000_dma_ops = {
 	.dma_interrupt = dwmac_dma_interrupt,
 	.get_hw_feature = dwmac1000_get_hw_feature,
 	.rx_watchdog = dwmac1000_rx_watchdog,
+	.qmode = dwmac1000_qmode,
 };

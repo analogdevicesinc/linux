@@ -64,6 +64,12 @@
 #define DMA_CUR_TX_BUF_ADDR	0x00001050	/* Current Host Tx Buffer */
 #define DMA_CUR_RX_BUF_ADDR	0x00001054	/* Current Host Rx Buffer */
 #define DMA_HW_FEATURE		0x00001058	/* HW Feature Register */
+#define DMA_CBS_CONTROL		0x00001060	/* CBS Control Register */
+#define DMA_CBS_STATUS		0x00001064	/* CBS Status Register */
+#define DMA_CBS_IDLESLOPE	0x00001068	/* CBS Idle Slope Credit Register */
+#define DMA_CBS_SENDSLOPE	0x0000106C	/* CBS Send Slope Credit Register */
+#define DMA_CBS_HICREDIT	0x00001070	/* CBS hi credit value Register */
+#define DMA_CBS_LOCREDIT	0x00001074	/* CBS lo credit value Register */
 
 /* DMA Control register defines */
 #define DMA_CONTROL_ST		0x00002000	/* Start/Stop Transmission */
@@ -147,6 +153,15 @@
 					 DMA_STATUS_TPS | \
 					 DMA_STATUS_TI | \
 					 DMA_STATUS_MSK_COMMON)
+
+/* CBS Control register defines */
+#define DMA_CBS_CONTROL_CBSD	0x00000001
+
+/* Maximum values for dwmac 3.72 credit based shaper algorithm parameters */
+#define DWMAC1000_CBS_MAX_IDLESLOPE	0x00002000
+#define DWMAC1000_CBS_MAX_SENDSLOPE	0x00002000
+#define DWMAC1000_CBS_MAX_HICREDIT	0x08000000
+#define DWMAC1000_CBS_MAX_LOCREDIT	0xF8000000
 
 #define NUM_DWMAC100_DMA_REGS	9
 #define NUM_DWMAC1000_DMA_REGS	23
