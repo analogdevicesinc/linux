@@ -60,7 +60,7 @@ static struct usb_phy *__usb_find_phy(struct list_head *list,
 		return phy;
 	}
 
-	return ERR_PTR(-ENODEV);
+	return ERR_PTR(-EPROBE_DEFER);
 }
 
 static struct usb_phy *__of_usb_find_phy(struct device_node *node)
