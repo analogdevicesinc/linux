@@ -1273,6 +1273,13 @@ choice
 		help
 		  Say Y here if you want kernel low-level debugging support
 		  on Tegra based platforms.
+	config DEBUG_ADI_SC5XX_UART0
+		bool "Kernel low-level debugging messages via ADI SC5XX UART0"
+		depends on ARCH_SC57X || ARCH_SC58X || ARCH_SC59X
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the uart0 port on ADI SC5XX devices.
+
 
 	config TEGRA_DEBUG_UARTB
 		bool "Kernel low-level debugging messages via Tegra UART B"
@@ -1567,6 +1574,7 @@ config DEBUG_LL_INCLUDE
 	default "debug/renesas-scif.S" if DEBUG_RMOBILE_SCIFA1
 	default "debug/renesas-scif.S" if DEBUG_RMOBILE_SCIFA4
 	default "debug/s3c24xx.S" if DEBUG_S3C24XX_UART || DEBUG_S3C64XX_UART
+	default "debug/sc5xx.S" if DEBUG_ADI_SC5XX_UART0
 	default "debug/s5pv210.S" if DEBUG_S5PV210_UART
 	default "debug/sti.S" if DEBUG_STIH41X_ASC2
 	default "debug/sti.S" if DEBUG_STIH41X_SBC_ASC1
@@ -1892,6 +1900,8 @@ config UNCOMPRESS_INCLUDE
 	string
 	default "debug/uncompress.h" if ARCH_MULTIPLATFORM || ARCH_MSM || \
 					PLAT_SAMSUNG || ARM_SINGLE_ARMV7M
+	default "linux/soc/adi/uncompress.h" if ARCH_SC57X || ARCH_SC58X || \
+					ARCH_SC59X
 	default "mach/uncompress.h"
 
 config EARLY_PRINTK

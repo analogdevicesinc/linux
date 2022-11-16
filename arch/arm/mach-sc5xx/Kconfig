@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)-or-later
+
+config ARCH_SC57X
+	bool "ADI SC57x SoCs"
+	depends on ARCH_SC5XX
+	select COMMON_CLK_ADI_SC57X
+	help
+		This enables support for ADI ADSP SC-57x SoCs
+
+config ARCH_SC58X
+	bool "ADI SC58x SoCs"
+	depends on ARCH_SC5XX
+	select COMMON_CLK_ADI_SC58X
+	help
+		This enables support for ADI ADSP SC-58X SoCs
+
+config ARCH_SC59X
+	bool "ADI SC59x SoCs (Cortex-A5-based)"
+	depends on ARCH_SC5XX
+	select COMMON_CLK_ADI_SC594
+	help
+		This enables support for 32-bit Cortex-A5-based ADI ADSP SC-59X
+		SoCs, like the SC594. It does not include the 64-bit Cortex-A55-based
+		SoCs (see ARCH_SC59X_64 for those).
+
+config	MACH_SC573_EZKIT
+	bool "ADI SC573 EZKIT board"
+	depends on ARCH_SC57X
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC573-EZKIT board.
+
+config	MACH_SC589_MINI
+	bool "ADI sc589-mini board"
+	depends on ARCH_SC58X
+	select MIGHT_HAVE_PCI
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC589-MINI board.
+
+config	MACH_SC589_EZKIT
+	bool "ADI sc589-ezkit board"
+	depends on ARCH_SC58X
+	select MIGHT_HAVE_PCI
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC589-EZKIT board.
+
+config	MACH_SC584_EZKIT
+	bool "ADI sc584-ezkit board"
+	depends on ARCH_SC58X
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC584-EZKIT board.
+
+config  MACH_SC594_SOM
+	bool "ADI SC594-SOM board"
+	depends on ARCH_SC59X
+	select MIGHT_HAVE_PCI
+	select HIGHMEM
+	select HIGHPTE
+	help
+		Say 'Y' here if you want your kernel to run on the ADI
+		SC594-SOM-EZKIT or SC594-SOM-EZLITE board.
