@@ -102,6 +102,7 @@
 	.indexed = true,					\
 	.channel = (_num),					\
 	.address = (_id),					\
+	.extend_name = (name),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
 			      BIT(IIO_CHAN_INFO_SCALE),		\
 	.scan_index = (_id),					\
@@ -120,6 +121,7 @@
 	.output = true,						\
 	.channel = (_num),					\
 	.address = (_id),					\
+	.extend_name = (name),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
 			      BIT(IIO_CHAN_INFO_SCALE),		\
 	.scan_index = (_id),					\
