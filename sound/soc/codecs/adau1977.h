@@ -22,6 +22,8 @@ enum adau1977_type {
 int adau1977_probe(struct device *dev, struct regmap *regmap,
 	enum adau1977_type type, void (*switch_mode)(struct device *dev));
 
+void adau1977_remove(struct device *dev);
+
 extern const struct regmap_config adau1977_regmap_config;
 
 enum adau1977_clk_id {

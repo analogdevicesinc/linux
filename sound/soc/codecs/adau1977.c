@@ -113,7 +113,10 @@ struct adau1977 {
 	bool right_j;
 	unsigned int sysclk;
 	enum adau1977_sysclk_src sysclk_src;
+
+	struct gpio_desc *enable_gpio;
 	struct gpio_desc *reset_gpio;
+
 	enum adau1977_type type;
 
 	struct regulator *avdd_reg;
@@ -386,8 +389,6 @@ static int adau1977_power_disable(struct adau1977 *adau1977)
 
 	regcache_mark_dirty(adau1977->regmap);
 
-	gpiod_set_value_cansleep(adau1977->reset_gpio, 0);
-
 	regcache_cache_only(adau1977->regmap, true);
 
 	regulator_disable(adau1977->avdd_reg);
@@ -416,8 +417,6 @@ static int adau1977_power_enable(struct adau1977 *adau1977)
 		if (ret)
 			goto err_disable_avdd;
 	}
-
-	gpiod_set_value_cansleep(adau1977->reset_gpio, 1);
 
 	regcache_cache_only(adau1977->regmap, false);
 
@@ -505,6 +504,20 @@ static int adau1977_set_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
 		/* 0 = No fixed slot width */
 		adau1977->slot_width = 0;
 		adau1977->max_master_fs = 192000;
+
+		/*  Reset TDM registers to default value for I2S mode */
+		ret = regmap_write(adau1977->regmap, ADAU1977_REG_CMAP12, 0x10);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(adau1977->regmap, ADAU1977_REG_CMAP34, 0x32);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(adau1977->regmap, ADAU1977_REG_SAI_OVERTEMP, 0xf0);
+		if (ret)
+			return ret;
+
 		return regmap_update_bits(adau1977->regmap,
 			ADAU1977_REG_SAI_CTRL0, ADAU1977_SAI_CTRL0_SAI_MASK,
 			ADAU1977_SAI_CTRL0_SAI_I2S);
@@ -718,10 +731,6 @@ static int adau1977_startup(struct snd_pcm_substream *substream,
 		snd_pcm_hw_constraint_minmax(substream->runtime,
 			SNDRV_PCM_HW_PARAM_RATE, 8000, adau1977->max_master_fs);
 
-	if (formats != 0)
-		snd_pcm_hw_constraint_mask64(substream->runtime,
-			SNDRV_PCM_HW_PARAM_FORMAT, formats);
-
 	return 0;
 }
 
@@ -929,15 +938,25 @@ int adau1977_probe(struct device *dev, struct regmap *regmap,
 		adau1977->dvdd_reg = NULL;
 	}
 
-	adau1977->reset_gpio = devm_gpiod_get_optional(dev, "reset",
-						       GPIOD_OUT_LOW);
-	if (IS_ERR(adau1977->reset_gpio))
-		return PTR_ERR(adau1977->reset_gpio);
+#ifndef CONFIG_ARCH_SC59X //Reset currently controlled by gpio hog
+	adau1977->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	//Do not check for errors here, as the ADAU1962 may have already claimed this
+#endif
 
 	dev_set_drvdata(dev, adau1977);
 
-	if (adau1977->reset_gpio)
-		ndelay(100);
+#ifndef CONFIG_ARCH_SC59X //Reset currently controlled by gpio hog
+	if (!IS_ERR(adau1977->reset_gpio)) {
+		/* Hardware power-on reset */
+		gpiod_set_value_cansleep(adau1977->reset_gpio, 1);
+		msleep(38);
+		gpiod_set_value_cansleep(adau1977->reset_gpio, 0);
+		/* After asserting the PU/RST pin high, ADAU1977
+		 * requires 300ms to stabilize
+		 */
+		msleep(300);
+	}
+#endif
 
 	ret = adau1977_power_enable(adau1977);
 	if (ret)
@@ -972,6 +991,11 @@ err_poweroff:
 
 }
 EXPORT_SYMBOL_GPL(adau1977_probe);
+
+void adau1977_remove(struct device *dev)
+{
+}
+EXPORT_SYMBOL_GPL(adau1977_remove);
 
 static bool adau1977_register_volatile(struct device *dev, unsigned int reg)
 {
