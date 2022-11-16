@@ -201,21 +201,27 @@
 		};
 	};
 
-	 axi_ad3552r_0: axi-ad3552r-0@44d04000 {
-                 compatible = "adi,axi-ad3552r";
-                 reg = <0x44d04000 0x1000>;
-                 reset-gpios = <&gpio0 90 GPIO_ACTIVE_LOW>;
-                 dmas = <&dac0_tx_dma 0>;
-                 dma-names = "tx";
-	 };
+	axi_ad3552r_0: axi-ad3552r-0@44d04000 {
+		compatible = "adi,axi-ad3552r";
+		reg = <0x44d04000 0x1000>;
 
-	  axi_ad3552r_1: axi-ad3552r-1@44e04000 {
-                  compatible = "adi,axi-ad3552r";
-                  reg = <0x44e04000 0x1000>;
-                  
-                  dmas = <&dac1_tx_dma 0>;
-                  dma-names = "tx";
-	  };
+		reset-gpios = <&gpio0 90 GPIO_ACTIVE_LOW>;
+
+		clocks = <&ref_clk>;
+
+		dmas = <&dac0_tx_dma 0>;
+		dma-names = "tx";
+	};
+
+	axi_ad3552r_1: axi-ad3552r-1@44e04000 {
+		compatible = "adi,axi-ad3552r";
+		reg = <0x44e04000 0x1000>;
+
+		clocks = <&ref_clk>;
+
+		dmas = <&dac1_tx_dma 0>;
+		dma-names = "tx";
+	};
 
 	i2c@41620000 {
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";

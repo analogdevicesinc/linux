@@ -15,16 +15,18 @@
 #include <linux/iio/buffer-dmaengine.h>
 #include <linux/gpio/consumer.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
 
 struct axi_ad3552r_priv {
 	struct gpio_desc	*reset_gpio;
-	void __iomem	*regs;
+	void __iomem		*regs;
+	struct clk		*ref_clk;
+	bool			ddr;
 	bool enable;
 };
 
 void axi_ad3552r_write(struct axi_ad3552r_priv *priv, u32 reg, u32 val)
 {
-	//pr_err("%s: 0x%x = 0x%x\n", __FUNCTION__, reg, val);
 	iowrite32(val, priv->regs + reg);
 }
 
@@ -35,34 +37,30 @@ u32 axi_ad3552r_read(struct axi_ad3552r_priv *priv, u32 reg)
 
 void axi_ad3552r_spi_write_8b(struct axi_ad3552r_priv *priv, u32 reg, u32 val, bool ddr_sdr_n)
 {
-    axi_ad3552r_write(priv, 0x64, (reg << 24) | (val << 16));
-    //pr_err("%s: 0x%x\n", __FUNCTION__, axi_ad3552r_read(priv, 0x64));
-    if( ddr_sdr_n ){
-    axi_ad3552r_write(priv, 0x6c, 0x5);
-     mdelay(100);
-    axi_ad3552r_write(priv, 0x6c, 0x0);
-    }
-    else{
-    axi_ad3552r_write(priv, 0x6c, 0x4);
-     mdelay(100);
-    axi_ad3552r_write(priv, 0x6c, 0x0);
-    }
-    }
+	axi_ad3552r_write(priv, 0x64, (reg << 24) | (val << 16));
+	if (ddr_sdr_n) {
+		axi_ad3552r_write(priv, 0x6c, 0x5);
+		mdelay(100);
+		axi_ad3552r_write(priv, 0x6c, 0x0);
+	} else {
+		axi_ad3552r_write(priv, 0x6c, 0x4);
+		mdelay(100);
+		axi_ad3552r_write(priv, 0x6c, 0x0);
+	}
+}
 
 void axi_ad3552r_spi_write_16b(struct axi_ad3552r_priv *priv, u32 reg, u32 val, bool ddr_sdr_n)
 {
-    axi_ad3552r_write(priv, 0x64, (reg << 24) | (val << 8));
-    //pr_err("%s: 0x%x\n", __FUNCTION__, axi_ad3552r_read(priv, 0x64));
-    if( ddr_sdr_n ){
-    axi_ad3552r_write(priv, 0x6c, 0x7);
-    mdelay(100);
-    axi_ad3552r_write(priv, 0x6c, 0x0);
-    }
-    else{
-    axi_ad3552r_write(priv, 0x6c, 0x6);
-    mdelay(100);
-    axi_ad3552r_write(priv, 0x6c, 0x0);
-    }
+	axi_ad3552r_write(priv, 0x64, (reg << 24) | (val << 8));
+	if (ddr_sdr_n) {
+		axi_ad3552r_write(priv, 0x6c, 0x7);
+		mdelay(100);
+		axi_ad3552r_write(priv, 0x6c, 0x0);
+	} else {
+		axi_ad3552r_write(priv, 0x6c, 0x6);
+		mdelay(100);
+		axi_ad3552r_write(priv, 0x6c, 0x0);
+	}
 }
 
 static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
@@ -74,6 +72,12 @@ static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 
 	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (priv->ddr)
+			*val = clk_get_rate(priv->ref_clk) / 8;
+		else
+			*val = clk_get_rate(priv->ref_clk) / 4;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_ENABLE:
 		*val = priv->enable;
 		return IIO_VAL_INT;
@@ -97,12 +101,15 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 
 	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return 0;
 	case IIO_CHAN_INFO_ENABLE:
 		priv->enable = val;
 		if (val) {
 
 			// Start transfer ddr
 			axi_ad3552r_spi_write_8b(priv, 0x14, 0x05,0);
+			priv->ddr = true;
 			mdelay(100);
 
 			axi_ad3552r_write(priv, 0x64, 0x2c000000);
@@ -112,6 +119,7 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 		} else {
 			axi_ad3552r_write(priv, 0x6c, 0x00);
 			axi_ad3552r_spi_write_8b(priv, 0x14, 0x04,1);
+			priv->ddr = false;
 			mdelay(100);
 		}
 		return 0;
@@ -147,7 +155,8 @@ static const struct iio_chan_spec axi_ad3552r_channels[] = {
 	{
 		.type = IIO_VOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_ENABLE) |
+					   BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.output = 1,
 		.indexed = 1,
 		.channel = 0,
@@ -215,6 +224,7 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct iio_buffer *buffer;
 	struct resource *mem;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*priv));
 	if (!indio_dev)
@@ -236,7 +246,14 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->regs))
 		return PTR_ERR(priv->regs);
 
-    
+	priv->ref_clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(priv->ref_clk))
+		return PTR_ERR(priv->ref_clk);
+
+	ret = clk_prepare_enable(priv->ref_clk);
+	if (ret < 0)
+		return ret;
+
 	axi_ad3552r_write(priv, 0x40, 0x00);
 	axi_ad3552r_write(priv, 0x40, 0x03);
 
