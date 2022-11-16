@@ -315,6 +315,13 @@ config TI_K3_R5_REMOTEPROC
 	  It's safe to say N here if you're not interested in utilizing
 	  a slave processor.
 
+config ADI_REMOTEPROC
+	tristate "ADI remoteproc support"
+	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	help
+	Say y here to support ADI's remote processors (SHARC DSP Core on
+	SC5XX) via the remote processor framework.
+
 endif # REMOTEPROC
 
 endmenu
