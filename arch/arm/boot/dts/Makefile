@@ -1500,3 +1500,12 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-portwell-neptune.dtb \
 	aspeed-bmc-quanta-q71l.dtb \
 	aspeed-bmc-supermicro-x11spi.dtb
+dtb-$(CONFIG_ARCH_SC59X) += \
+	sc594-som-ezkit.dtb \
+	sc594-som-ezlite.dtb
+dtb-$(CONFIG_ARCH_SC58X) += \
+	sc589-mini.dtb \
+	sc589-ezkit.dtb \
+	sc584-ezkit.dtb
+dtb-$(CONFIG_ARCH_SC57X) += \
+	sc573-ezkit.dtb

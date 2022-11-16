@@ -1,0 +1,621 @@
+/*
+ * Device tree for ADI sc584-ezkit board
+ *
+ * Copyright 2014 - 2018 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2 or later.
+ *
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/pinctrl/adi-adsp-sru.h>
+#include "sc58x.dtsi"
+
+/ {
+	model = "ADI sc584-ezkit";
+	compatible = "adi,sc584-ezkit", "adi,sc58x";
+
+	aliases {
+	};
+
+	memory@89000000 {
+		device_type = "memory";
+		reg = <0x89000000 0x7000000>;
+	};
+
+	reserved-memory {
+		vdev0vrings: vdev0vring0@200A0000 {
+			reg = <0x200A0000 0x4000>;
+			no-map;
+		};
+
+		vdev0buffer: vdev0buffer@200A4000 {
+			compatible = "shared-dma-pool";
+			reg = <0x200A4000 0xC000>;
+			no-map;
+		};
+
+		vdev1vrings: vdev0vring0@200B0000 {
+			reg = <0x200B0000 0x4000>;
+			no-map;
+		};
+
+		vdev1buffer: vdev0buffer@200B4000 {
+			compatible = "shared-dma-pool";
+			reg = <0x200B4000 0xC000>;
+			no-map;
+		};
+	};
+
+	scb {
+		button0: button@0 {
+			compatible = "adi,button-led";
+			en-pins = <&ssw1 2 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON1_EN */
+				  <&ssw1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
+			button_gpio = <15>;
+			led_gpio = <65>;
+		};
+		button1: button@1 {
+			compatible = "adi,button-led";
+			en-pins = <&ssw1 1 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON2_EN */
+				  <&ssw1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
+			button_gpio = <16>;
+			led_gpio = <66>;
+		};
+		button2: button@2 {
+			compatible = "adi,button-led";
+			en-pins = <&ssw1 0 GPIO_ACTIVE_LOW>,	/* PUSHBUTTON3_EN */
+				  <&ssw1 3 GPIO_ACTIVE_LOW>;	/* LEDS_EN */
+			button_gpio = <47>;
+			led_gpio = <67>;
+		};
+
+		core1-rproc@0x28240000 {
+			compatible = "adi,remoteproc";
+			reg = <0x28240000 0x160000>,
+					<0x20080000 0x40000>;
+			core-id = <1>;
+			core-irq = <76>;
+			firmware-name = "adi_adsp_core1_fw.ldr";
+			interrupts = <GIC_SPI 251 IRQ_TYPE_EDGE_RISING>;
+			adi,rcu = <&rcu>;
+			adi,l1-da = <0x240000 0x3a0000>;
+			adi,l2-da = <0x20080000 0x200C0000>;
+			adi,rsc-table = <&rsc_tbl0>;
+			adi,tru = <&tru>;
+			adi,tru-master-id = <97>; /* trigger master SOFT4 */
+		};
+
+		core2-rproc@0x28a40000 {
+			compatible = "adi,remoteproc";
+			reg = <0x28a40000 0x160000>,
+					<0x20080000 0x40000>;
+			core-id = <2>;
+			core-irq = <77>;
+			firmware-name = "adi_adsp_core2_fw.ldr";
+			interrupts = <GIC_SPI 251 IRQ_TYPE_EDGE_RISING>;
+			adi,rcu = <&rcu>;
+			adi,l1-da = <0x240000 0x3a0000>;
+			adi,l2-da = <0x20080000 0x200C0000>;
+			adi,rsc-table = <&rsc_tbl1>;
+			adi,tru = <&tru>;
+			adi,tru-master-id = <98>; /* trigger master SOFT5 */
+		};
+
+		sound {
+			compatible = "adi,sc5xx-asoc-card";
+			adi,cpu-dai = <&i2s0>;
+			adi,codec = <&adau1962>, /*<&adau1977>,*/ <&adau1979>;
+		};
+
+	};
+};
+
+&tru {
+	rpmsg_to_a5: channel@0 {
+		adi,tru-master-id = <96>; /* trigger master SOFT3 */
+		adi,tru-slave-id = <87>; /* TRU0_IRQ3 */
+	};
+	rpmsg_to_sharc0: channel@1 {
+		adi,tru-master-id = <97>; /* trigger master SOFT4 */
+		adi,tru-slave-id = <91>; /* TRU0_IRQ7 */
+	};
+	rpmsg_to_sharc1: channel@2 {
+		adi,tru-master-id = <98>; /* trigger master SOFT5 */
+		adi,tru-slave-id = <95>; /* TRU0_IRQ11 */
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_default>;
+	status = "okay";
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_default>;
+	status = "okay";
+
+	cs-gpios = <&gpc 12 GPIO_ACTIVE_LOW>,
+				<&gpc 0 GPIO_ACTIVE_LOW>;
+
+	spidev {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <5000000>;
+		reg = <0>;
+	};
+
+	ad7879_touchscreen {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "adi,ad7879";
+		spi-max-frequency = <5000000>;
+		reg = <1>;
+		gpio = <49>;
+		gpio-controller;
+		spi-cpha;
+		spi-cpol;
+		touchscreen-max-pressure = <10000>;
+		adi,resistance-plate-x = <620>;
+		adi,first-conversion-delay = /bits/ 8 <3>;
+		adi,acquisition-time = /bits/ 8 <1>;
+		adi,median-filter-size = /bits/ 8 <2>;
+		adi,averaging = /bits/ 8 <1>;
+		adi,conversion-interval = /bits/ 8 <255>;
+	};
+};
+
+&spi2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi2_quad>;
+	status = "okay";
+
+	cs-gpios = <&gpc 6 GPIO_ACTIVE_LOW>;
+
+	flash: w25q32@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q32", "jedec,spi-nor";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <5000000>;
+		spi-rx-bus-width = <4>;
+		adi,enable-dma;
+
+		partition@0 {
+			label = "uboot (spi)";
+			reg = <0x0 0x80000>;
+		};
+		partition@1 {
+			label = "kernel (spi)";
+			reg = <0x80000 0x580000>;
+		};
+		partition@2 {
+			label = "root file system (spi)";
+			reg = <0x600000 0xa00000>;
+		};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	ssw0: gpio@0x21 {
+		compatible = "microchip,mcp23017";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x21>;
+
+		eeprom {
+			gpio-hog;
+			gpios = <0 0x0>;
+			output-high;
+			line-name = "~eeprom-en";
+		};
+
+		uart0-flow-en {
+			gpio-hog;
+			gpios = <1 0x0>;
+			output-high;
+			line-name = "~uart0-flow-en";
+		};
+
+		uart0-en {
+			gpio-hog;
+			gpios = <2 0x0>;
+			output-low;
+			line-name = "~uart0-en";
+		};
+
+		mlb {
+			gpio-hog;
+			gpios = <5 0x0>;
+			output-high;
+			line-name = "~mlb-en";
+		};
+
+		can0 {
+			gpio-hog;
+			gpios = <6 0x0>;
+			output-high;
+			line-name = "~can0-en";
+		};
+
+		can1 {
+			gpio-hog;
+			gpios = <7 0x0>;
+			output-high;
+			line-name = "~can1-en";
+		};
+
+		adau1962 {
+			gpio-hog;
+			gpios = <8 0x0>;
+			output-low;
+			line-name = "~adau1962-en";
+		};
+
+		adau1979 {
+			gpio-hog;
+			gpios = <9 0x0>;
+			output-low;
+			line-name = "~adau1979-en";
+		};
+
+		audio_jack_sel {
+			gpio-hog;
+			gpios = <10 0x0>;
+			output-low;
+			line-name = "audio_jack_sel";
+		};
+
+		spi2d2-d3 {
+			gpio-hog;
+			gpios = <12 0x0>;
+			output-low;
+			line-name = "~spi2d2-d3-en";
+		};
+
+		spi2flash-cs {
+			gpio-hog;
+			gpios = <13 0x0>;
+			output-low;
+			line-name = "~spi2flash-cs";
+		};
+
+		spdif-opt {
+			gpio-hog;
+			gpios = <14 0x0>;
+			output-high;
+			line-name = "~spdif-optical-en";
+		};
+
+		spdif-dig {
+			gpio-hog;
+			gpios = <15 0x0>;
+			output-high;
+			line-name = "~spdif-digital-en";
+		};
+	};
+
+	ssw1: gpio@0x22 {
+		compatible = "microchip,mcp23017";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x22>;
+
+		pushbutton3 {
+			gpio-hog;
+			gpios = <0 0x0>;
+			output-low;
+			line-name = "~pushbutton3-en";
+		};
+
+		pushbutton2 {
+			gpio-hog;
+			gpios = <1 0x0>;
+			output-low;
+			line-name = "~pushbutton2-en";
+		};
+
+		pushbutton1 {
+			gpio-hog;
+			gpios = <2 0x0>;
+			output-low;
+			line-name = "~pushbutton1-en";
+		};
+
+		leds {
+			gpio-hog;
+			gpios = <3 0x0>;
+			output-low;
+			line-name = "~leds-en";
+		};
+
+		flg0 {
+			gpio-hog;
+			gpios = <4 0x0>;
+			output-low;
+			line-name = "~flg0_loop";
+		};
+
+		flg1 {
+			gpio-hog;
+			gpios = <5 0x0>;
+			output-low;
+			line-name = "~flg1_loop";
+		};
+
+		flg2 {
+			gpio-hog;
+			gpios = <6 0x0>;
+			output-low;
+			line-name = "~flg2_loop";
+		};
+
+		flg3 {
+			gpio-hog;
+			gpios = <7 0x0>;
+			output-low;
+			line-name = "~flg3_loop";
+		};
+
+		adau1977 {
+			gpio-hog;
+			gpios = <8 0x0>;
+			output-low;
+			line-name = "~adau1977_en";
+		};
+
+		adau1977_fault_rst {
+			gpio-hog;
+			gpios = <9 0x0>;
+			output-high;
+			line-name = "~adau1977_fault_rst_en";
+		};
+
+		thumbwheel {
+			gpio-hog;
+			gpios = <10 0x0>;
+			output-low;
+			line-name = "~thumbwheel_oe";
+		};
+
+
+		engine_rpm {
+			gpio-hog;
+			gpios = <11 0x0>;
+			output-low;
+			line-name = "~engine_rpm_oe";
+		};
+	};
+
+	adau1962: adau1962@0x4 {
+		compatible = "adi,adau1962";
+		reg = <0x4>;
+		reset-gpios = <&gpa 14 1>;
+	};
+/*
+	adau1977: adau1977@0x62 {
+		compatible = "adi,adau1977";
+		reg = <0x62>;
+	};
+*/
+	adau1979: adau1979@0x62 {
+		compatible = "adi,adau1979";
+		reg = <0x11>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2s0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sru_dai1>;
+	status = "okay";
+};
+
+&crc0 {
+	status = "okay";
+};
+
+&crc1 {
+	status = "okay";
+};
+
+/*
+&can0 {
+	enable-pin = <&ssw0 6 GPIO_ACTIVE_LOW>;	//CAN0_EN
+	pinctrl-names = "default";
+	pinctrl-0 = <&can0_default>;
+	phy-name = "tja1055";
+	phy-gpios = <&gpb 8 0>, //en PB8
+		    <&gpb 2 0x1>; //stb PB2, GPIO_ACTIVE_LOW
+	status = "okay";
+};
+
+&can1 {
+	enable-pin = <&ssw0 7 GPIO_ACTIVE_LOW>;	//CAN1_EN
+	pinctrl-names = "default";
+	pinctrl-0 = <&can1_default>;
+	phy-name = "tja1145";
+	phy-spibus = /bits/ 16 <0>;
+	phy-spiclk = <1000000>;
+	phy-spics = /bits/ 16 <44>;	//GPIO_PC12
+	status = "okay";
+};
+*/
+
+&emac0 {
+	snps,reset-gpio = <&gpb 14 0>;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 200 500>;
+	phy-handle = <&dp83867>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth0_default>;
+	status = "okay";
+	mdio0 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dp83867: ethernet-phy@0 {
+			reg = <0>;
+			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
+			ti,dp83867-rxctrl-strap-quirk;
+		};
+	};
+};
+
+&usb0_phy {
+	status = "okay";
+};
+
+&usb0 {
+	/* mode = <2>; Place OTG port into Device Mode */
+	/* mode = <1>; Place OTG port into Host Mode */
+	mode = <1>;
+	status = "okay";
+};
+
+/*
+&gp_counter {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cnt0_default>;
+	enable-pin = <&ssw1 10 GPIO_ACTIVE_LOW>;
+	status = "okay";
+	rotary_abs_code = <ABS_WHEEL>;		// ABS_WHEEL
+	rotary_button_key = <KEY_ENTER>;	// KEY_ENTER
+	debounce = /bits/ 16 <10>;			// Debounce Prescale 0-17
+	debounce_en = /bits/ 16 <1>;		// Debounce Enable
+	cnt_mode = /bits/ 16 <QUAD_ENC>;	// Counter Operating Mode: QUADENC
+	boundary_mode = /bits/ 16 <BD_COMP>;// Boundary Register Mod: COMP
+	boundary_ranges =  <(-256) 256>;	// Boundary upper/lower ranges
+	czm_zero_cnt_en = /bits/ 16 <1>;	// CZM Pin Zeroes Counter Enable
+	invert_czm = /bits/ 16 <1>;			// Default value of CZM Pin Polarity
+	invert_cud = /bits/ 16 <0>;			// Default value of CUD Pin Polarity
+	invert_cdg = /bits/ 16 <0>;			// Default value of CDG Pin Polarity
+};
+*/
+
+/*
+&lp0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&lp0_default>;
+	status = "okay";
+};
+
+&lp1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&lp1_default>;
+	status = "okay";
+};
+*/
+
+&sram_mmap {
+	status = "okay";
+};
+
+&pinctrl0 {
+	uart0_default: uart0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 13, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	uart0_hwflow: uart0_hwflow_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 13, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('D', 0, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi0_default: spi0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 10, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('C', 11, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi1_default: spi1_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('E', 13, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 14, ADI_ADSP_PINFUNC_ALT0)>,
+					 <ADI_ADSP_PINMUX('E', 15, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi2_quad: spi2_quad_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 5, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	eth0_default: eth0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('A', 0, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 5, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 8, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 9, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 13, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+};
+
+&sru_ctrl_dai0 {
+	status = "okay";
+};
+
+&sru_ctrl_dai1 {
+	status = "okay";
+
+	sru_dai1: sru_dai1_mux {
+		route {
+			sru-routing =
+				<DAI1_LOW_F          DAI1_PBEN02_I>,  /* set DAI1_PIN02 to input */
+				<DAI1_PB02_O_ABCDE   SPT4_ACLK_I>,    /* route DAI1_PIN02 to SPT4_ACLK */
+				<DAI1_LOW_F          DAI1_PBEN04_I>,  /* set DAI1_PIN04 to input */
+				<DAI1_PB04_O_ABCDE   SPT4_AFS_I>,     /* route DAI1_PIN04 to SPT4_AFS */
+				<DAI1_HIGH_F         DAI1_PBEN01_I>,  /* set DAI1_PIN01 to output */
+				<SPT4_AD0_O_BD       DAI1_PB01_I>,    /* route SPT4_AD0 to DAI1_PIN01 */
+				<DAI1_HIGH_F         DAI1_PBEN05_I>,  /* set DAI1_PIN05 to output */
+				<SPT4_AD1_O_BD       DAI1_PB05_I>,    /* route SPT4_AD1 to DAI1_PIN05 */
+				<DAI1_LOW_F          DAI1_PBEN12_I>,  /* set DAI1_PIN12 to input */
+				<DAI1_PB12_O_ABCDE   SPT4_BCLK_I>,    /* route DAI1_PIN12 to SPT4_BCLK */
+				<DAI1_LOW_F          DAI1_PBEN20_I>,  /* set DAI1_PIN20 to input */
+				<DAI1_PB20_O_ABCDE   SPT4_BFS_I>,     /* route DAI1_PIN20 to SPT4_BFS */
+				<DAI1_LOW_F          DAI1_PBEN06_I>,  /* set DAI1_PIN06 to input */
+				<DAI1_PB06_O_ABCDE   SPT4_BD0_I>,     /* route DAI1_PIN06 to SPT4_BD0 */
+				<DAI1_LOW_F          DAI1_PBEN07_I>,  /* set DAI1_PIN07 to input */
+				<DAI1_PB07_O_ABCDE   SPT4_BD1_I>;     /* route DAI1_PIN07 to SPT4_BD1 */
+		};
+	};
+};
