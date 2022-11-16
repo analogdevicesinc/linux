@@ -13,6 +13,16 @@
 
 #define GMAC_HI_REG_AE		0x80000000
 
+/**
+ * According to the dwmac 3.72a databook, each channel has 0x100 addresses
+ * reserved. this may change in future revisions and would require more substantial
+ * reorganization of the stmmac driver to support
+ */
+void __iomem *dwmac_dma_chan_addr(void __iomem *ioaddr, u32 chan, u32 reg)
+{
+	return ioaddr + (chan * 0x100) + reg;
+}
+
 int dwmac_dma_reset(void __iomem *ioaddr)
 {
 	u32 value = readl(ioaddr + DMA_BUS_MODE);
@@ -27,9 +37,9 @@ int dwmac_dma_reset(void __iomem *ioaddr)
 }
 
 /* CSR1 enables the transmit DMA to check for new descriptor */
-void dwmac_enable_dma_transmission(void __iomem *ioaddr)
+void dwmac_enable_dma_transmission(void __iomem *ioaddr, u32 chan)
 {
-	writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
+	writel(1, dwmac_dma_chan_addr(ioaddr, chan, DMA_XMT_POLL_DEMAND));
 }
 
 void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
@@ -41,7 +51,7 @@ void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 	if (tx)
 		value |= DMA_INTR_DEFAULT_TX;
 
-	writel(value, ioaddr + DMA_INTR_ENA);
+	writel(value, dwmac_dma_chan_addr(ioaddr, chan, DMA_INTR_ENA));
 }
 
 void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
@@ -53,35 +63,39 @@ void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 	if (tx)
 		value &= ~DMA_INTR_DEFAULT_TX;
 
-	writel(value, ioaddr + DMA_INTR_ENA);
+	writel(value, dwmac_dma_chan_addr(ioaddr, chan, DMA_INTR_ENA));
 }
 
 void dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, chan, DMA_CONTROL);
+	u32 value = readl(addr);
 	value |= DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CONTROL);
+	writel(value, addr);
 }
 
 void dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, chan, DMA_CONTROL);
+	u32 value = readl(addr);
 	value &= ~DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CONTROL);
+	writel(value, addr);
 }
 
 void dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, chan, DMA_CONTROL);
+	u32 value = readl(addr);
 	value |= DMA_CONTROL_SR;
-	writel(value, ioaddr + DMA_CONTROL);
+	writel(value, addr);
 }
 
 void dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, chan, DMA_CONTROL);
+	u32 value = readl(addr);
 	value &= ~DMA_CONTROL_SR;
-	writel(value, ioaddr + DMA_CONTROL);
+	writel(value, addr);
 }
 
 #ifdef DWMAC_DMA_DEBUG
@@ -157,9 +171,10 @@ static void show_rx_process_state(unsigned int status)
 int dwmac_dma_interrupt(void __iomem *ioaddr,
 			struct stmmac_extra_stats *x, u32 chan, u32 dir)
 {
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, chan, DMA_STATUS);
 	int ret = 0;
 	/* read the status register (CSR5) */
-	u32 intr_status = readl(ioaddr + DMA_STATUS);
+	u32 intr_status = readl(addr);
 
 #ifdef DWMAC_DMA_DEBUG
 	/* Enable it to monitor DMA rx/tx status in case of critical problems */
@@ -226,11 +241,14 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 		pr_warn("%s: unexpected status %08x\n", __func__, intr_status);
 
 	/* Clear the interrupt by writing a logic 1 to the CSR5[15-0] */
-	writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
+	writel((intr_status & 0x1ffff), addr);
 
 	return ret;
 }
 
+/**
+ * @todo add channel support
+ */
 void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr)
 {
 	u32 csr6 = readl(ioaddr + DMA_CONTROL);

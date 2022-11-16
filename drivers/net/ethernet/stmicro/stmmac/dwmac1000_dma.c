@@ -70,10 +70,13 @@ static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 	writel(value, ioaddr + DMA_AXI_BUS_MODE);
 }
 
+/* This initializes channel 0 only, the other channels are picked up in channel init
+ */
 static void dwmac1000_dma_init(void __iomem *ioaddr,
 			       struct stmmac_dma_cfg *dma_cfg, int atds)
 {
-	u32 value = readl(ioaddr + DMA_BUS_MODE);
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, 0, DMA_BUS_MODE);
+	u32 value = readl(addr);
 	int txpbl = dma_cfg->txpbl ?: dma_cfg->pbl;
 	int rxpbl = dma_cfg->rxpbl ?: dma_cfg->pbl;
 
@@ -104,10 +107,21 @@ static void dwmac1000_dma_init(void __iomem *ioaddr,
 	if (dma_cfg->aal)
 		value |= DMA_BUS_MODE_AAL;
 
-	writel(value, ioaddr + DMA_BUS_MODE);
+	writel(value, addr);
 
 	/* Mask interrupts by writing to CSR7 */
-	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+	writel(DMA_INTR_DEFAULT_MASK, dwmac_dma_chan_addr(ioaddr, 0, DMA_INTR_ENA));
+}
+
+static void dwmac1000_dma_init_chan(void __iomem *ioaddr,
+				    struct stmmac_dma_cfg *dma_cfg, u32 chan)
+{
+	if (chan > 0) {
+		u32 val = readl(dwmac_dma_chan_addr(ioaddr, 0, DMA_BUS_MODE));
+
+		writel(val, dwmac_dma_chan_addr(ioaddr, chan, DMA_BUS_MODE));
+		writel(DMA_INTR_DEFAULT_MASK, dwmac_dma_chan_addr(ioaddr, chan, DMA_INTR_ENA));
+	}
 }
 
 static void dwmac1000_dma_init_rx(void __iomem *ioaddr,
@@ -115,7 +129,8 @@ static void dwmac1000_dma_init_rx(void __iomem *ioaddr,
 				  dma_addr_t dma_rx_phy, u32 chan)
 {
 	/* RX descriptor base address list must be written into DMA CSR3 */
-	writel(lower_32_bits(dma_rx_phy), ioaddr + DMA_RCV_BASE_ADDR);
+	writel(lower_32_bits(dma_rx_phy),
+	       dwmac_dma_chan_addr(ioaddr, chan, DMA_RCV_BASE_ADDR));
 }
 
 static void dwmac1000_dma_init_tx(void __iomem *ioaddr,
@@ -123,7 +138,8 @@ static void dwmac1000_dma_init_tx(void __iomem *ioaddr,
 				  dma_addr_t dma_tx_phy, u32 chan)
 {
 	/* TX descriptor base address list must be written into DMA CSR4 */
-	writel(lower_32_bits(dma_tx_phy), ioaddr + DMA_TX_BASE_ADDR);
+	writel(lower_32_bits(dma_tx_phy),
+	       dwmac_dma_chan_addr(ioaddr, chan, DMA_TX_BASE_ADDR));
 }
 
 static u32 dwmac1000_configure_fc(u32 csr6, int rxfifosz)
@@ -150,7 +166,8 @@ static u32 dwmac1000_configure_fc(u32 csr6, int rxfifosz)
 static void dwmac1000_dma_operation_mode_rx(void __iomem *ioaddr, int mode,
 					    u32 channel, int fifosz, u8 qmode)
 {
-	u32 csr6 = readl(ioaddr + DMA_CONTROL);
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, channel, DMA_CONTROL);
+	u32 csr6 = readl(addr);
 
 	if (mode == SF_DMA_MODE) {
 		pr_debug("GMAC: enable RX store and forward mode\n");
@@ -172,13 +189,14 @@ static void dwmac1000_dma_operation_mode_rx(void __iomem *ioaddr, int mode,
 	/* Configure flow control based on rx fifo size */
 	csr6 = dwmac1000_configure_fc(csr6, fifosz);
 
-	writel(csr6, ioaddr + DMA_CONTROL);
+	writel(csr6, addr);
 }
 
 static void dwmac1000_dma_operation_mode_tx(void __iomem *ioaddr, int mode,
 					    u32 channel, int fifosz, u8 qmode)
 {
-	u32 csr6 = readl(ioaddr + DMA_CONTROL);
+	void __iomem *addr = dwmac_dma_chan_addr(ioaddr, channel, DMA_CONTROL);
+	u32 csr6 = readl(addr);
 
 	if (mode == SF_DMA_MODE) {
 		pr_debug("GMAC: enable TX store and forward mode\n");
@@ -205,9 +223,12 @@ static void dwmac1000_dma_operation_mode_tx(void __iomem *ioaddr, int mode,
 			csr6 |= DMA_CONTROL_TTC_256;
 	}
 
-	writel(csr6, ioaddr + DMA_CONTROL);
+	writel(csr6, addr);
 }
 
+/**
+ * @todo this doesn't account for multiple channels in AV mode
+ */
 static void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
 {
 	int i;
@@ -291,6 +312,7 @@ static void dwmac1000_qmode(void __iomem *ioaddr, u32 channel, u8 qmode)
 const struct stmmac_dma_ops dwmac1000_dma_ops = {
 	.reset = dwmac_dma_reset,
 	.init = dwmac1000_dma_init,
+	.init_chan = dwmac1000_dma_init_chan,
 	.init_rx_chan = dwmac1000_dma_init_rx,
 	.init_tx_chan = dwmac1000_dma_init_tx,
 	.axi = dwmac1000_dma_axi,

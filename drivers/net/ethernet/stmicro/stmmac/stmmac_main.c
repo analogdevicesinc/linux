@@ -2466,7 +2466,7 @@ static bool stmmac_xdp_xmit_zc(struct stmmac_priv *priv, u32 queue, u32 budget)
 				       true, priv->mode, true, true,
 				       xdp_desc.len);
 
-		stmmac_enable_dma_transmission(priv, priv->ioaddr);
+		stmmac_enable_dma_transmission(priv, priv->ioaddr, queue);
 
 		tx_q->cur_tx = STMMAC_GET_ENTRY(tx_q->cur_tx, priv->dma_tx_size);
 		entry = tx_q->cur_tx;
@@ -4292,6 +4292,15 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	csum_insertion = (skb->ip_summed == CHECKSUM_PARTIAL);
 
+	/* AV channels > 0 do not support TX COE even though HW Features Register
+	 * reports that COE is supported. Also if checksumming should fail for
+	 * some reason, we can't do anything about that here anyway
+	 */
+	if (csum_insertion && priv->channel[queue].index > 0) {
+		skb_csum_hwoffload_help(skb, 0);
+		csum_insertion = 0;
+	}
+
 	if (likely(priv->extend_desc))
 		desc = (struct dma_desc *)(tx_q->dma_etx + entry);
 	else if (tx_q->tbs & STMMAC_TBS_AVAIL)
@@ -4462,7 +4471,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
 
-	stmmac_enable_dma_transmission(priv, priv->ioaddr);
+	stmmac_enable_dma_transmission(priv, priv->ioaddr, queue);
 
 	stmmac_flush_tx_descriptors(priv, queue);
 	stmmac_tx_timer_arm(priv, queue);
@@ -4677,7 +4686,7 @@ static int stmmac_xdp_xmit_xdpf(struct stmmac_priv *priv, int queue,
 		priv->xstats.tx_set_ic_bit++;
 	}
 
-	stmmac_enable_dma_transmission(priv, priv->ioaddr);
+	stmmac_enable_dma_transmission(priv, priv->ioaddr, queue);
 
 	entry = STMMAC_GET_ENTRY(entry, priv->dma_tx_size);
 	tx_q->cur_tx = entry;
@@ -5914,15 +5923,29 @@ static int stmmac_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
 
 static int stmmac_tc_setup_mqprio(struct net_device *ndev, void *type_data)
 {
+	struct stmmac_priv *priv = netdev_priv(ndev);
 	struct tc_mqprio_qopt *mqprio = type_data;
 	u8 num_tc = mqprio->num_tc;
 	int i;
+	int count, offset;
+	int ret;
 
-	netif_set_real_num_tx_queues(ndev, num_tc);
-	//netdev_reset_tc(ndev);
-	netdev_set_num_tc(ndev, num_tc);
-	for (i = 0; i < num_tc; i++)
-		netdev_set_tc_queue(ndev, i, 1, i);
+	if (num_tc > priv->plat->tx_queues_to_use)
+		return -EINVAL;
+
+	ret = netif_set_real_num_tx_queues(ndev, num_tc);
+	if (ret)
+		return ret;
+
+	ret = netdev_set_num_tc(ndev, num_tc);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < num_tc; i++) {
+		count = mqprio->count[i];
+		offset = mqprio->offset[i];
+		netdev_set_tc_queue(ndev, i, count, offset);
+	}
 
 	return 0;
 }
@@ -5954,8 +5977,11 @@ static int stmmac_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 }
 
 static u16 stmmac_select_queue(struct net_device *dev, struct sk_buff *skb,
-			       struct net_device *sb_dev)
+		struct net_device *sb_dev)
 {
+	u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
+	u16 txq;
+
 	int gso = skb_shinfo(skb)->gso_type;
 
 	if (gso & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6 | SKB_GSO_UDP_L4)) {
@@ -5968,7 +5994,15 @@ static u16 stmmac_select_queue(struct net_device *dev, struct sk_buff *skb,
 		return 0;
 	}
 
-	return netdev_pick_tx(dev, skb, NULL) % dev->real_num_tx_queues;
+	txq = dev->tc_to_txq[tc].offset;
+
+	/* distribute evenly into all queues allocated to this
+	 * traffic class, if there's more than one
+	 */
+	if (dev->tc_to_txq[tc].count > 1)
+		txq += skb_get_hash(skb) % dev->tc_to_txq[tc].count;
+
+	return txq % dev->real_num_tx_queues;
 }
 
 static int stmmac_set_mac_address(struct net_device *ndev, void *addr)
@@ -6789,6 +6823,21 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
 			priv->plat->rx_coe = STMMAC_RX_COE_TYPE2;
 		else if (priv->dma_cap.rx_coe_type1)
 			priv->plat->rx_coe = STMMAC_RX_COE_TYPE1;
+
+		/* Check for more channels requested than HW supports */
+		if (priv->plat->rx_queues_to_use > priv->dma_cap.number_rx_channel + 1) {
+			dev_err(priv->device,
+				"Requested more RX channels than HW supports, capped to %d\n",
+				priv->dma_cap.number_rx_channel + 1);
+			priv->plat->rx_queues_to_use = priv->dma_cap.number_rx_channel + 1;
+		}
+
+		if (priv->plat->tx_queues_to_use > priv->dma_cap.number_tx_channel + 1) {
+			dev_err(priv->device,
+				"Requested more TX channels than HW supports, capped to %d\n",
+				priv->dma_cap.number_tx_channel + 1);
+			priv->plat->tx_queues_to_use = priv->dma_cap.number_tx_channel + 1;
+		}
 
 	} else {
 		dev_info(priv->device, "No HW DMA feature register supported\n");
