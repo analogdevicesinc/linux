@@ -1,0 +1,7 @@
+config CRYPTO_DEV_ADI_CRC
+	tristate "Support for ADI SC5XX CRC hardware"
+	depends on (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X)
+	help
+	  ADI SC5XX processors have CRC hardware. Select this if you
+	  want to use the ADI SC5XX CRC module.
+
