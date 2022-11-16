@@ -13,6 +13,7 @@ obj-$(CONFIG_UV_MMTIMER)	+= uv_mmtimer.o
 obj-$(CONFIG_IBM_BSR)		+= bsr.o
 obj-$(CONFIG_SGI_MBCS)		+= mbcs.o
 obj-$(CONFIG_BUTTON_LED)	+= button_led.o
+obj-$(CONFIG_ADI_LINKPORT)	+= adi_lp.o
 
 obj-$(CONFIG_PRINTER)		+= lp.o
 

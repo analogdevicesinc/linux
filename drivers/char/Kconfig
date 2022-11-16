@@ -323,6 +323,17 @@ config BUTTON_LED
 	  To compile this driver as a module, choose M here: the module
 	  will be called button_led.
 
+config ADI_LINKPORT
+	tristate "ADI LINKPORT driver"
+	default n
+	help
+	  This is a generic character interface to the LINKPORT peripheral that
+	  exists on SC5xx EZKIT boards and above. It is a standalone driver that
+	  is only used for direct userspace access to the device and is not used
+	  in conjunction with any other driver.
+
+	  If unsure, then say N.
+
 config DEVMEM
 	bool "/dev/mem virtual device support"
 	default y
