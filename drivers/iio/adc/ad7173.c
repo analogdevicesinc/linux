@@ -49,7 +49,8 @@
 #define AD7173_CH_ADDRESS(pos, neg) \
 	(AD7173_CH_SETUP_AINPOS(pos) | AD7173_CH_SETUP_AINNEG(neg))
 
-#define AD7172_ID			0x00d0
+#define AD7172_2_ID			0x00d0
+#define AD7172_4_ID			0x2050
 #define AD7173_ID			0x30d0
 #define AD7175_ID			0x0cd0
 #define AD7176_ID			0x0c90
@@ -90,6 +91,7 @@
 
 enum ad7173_ids {
 	ID_AD7172_2,
+	ID_AD7172_4,
 	ID_AD7173_8,
 	ID_AD7175_2,
 	ID_AD7176_2,
@@ -176,12 +178,23 @@ static unsigned int ad7175_sinc5_data_rates[] = {
 
 static struct ad7173_device_info ad7173_device_info[] = {
 	[ID_AD7172_2] = {
-		.id = AD7172_ID,
+		.id = AD7172_2_ID,
 		.num_inputs = 5,
 		.num_channels = 4,
 		.num_configs = 4,
 		.has_gp23 = false,
 		.has_temp = true,
+		.clock = 2000000,
+		.sinc5_data_rates = ad7173_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad7173_sinc5_data_rates),
+	},
+	[ID_AD7172_4] = {
+		.id = AD7172_4_ID,
+		.num_inputs = 9,
+		.num_channels = 8,
+		.num_configs = 8,
+		.has_gp23 = true,
+		.has_temp = false,
 		.clock = 2000000,
 		.sinc5_data_rates = ad7173_sinc5_data_rates,
 		.num_sinc5_data_rates = ARRAY_SIZE(ad7173_sinc5_data_rates),
@@ -504,7 +517,10 @@ static int ad7173_setup(struct iio_dev *indio_dev)
 		return -ENODEV;
 	}
 
-	st->adc_mode |= AD7173_ADC_MODE_REF_EN | AD7173_ADC_MODE_SING_CYC;
+	st->adc_mode |= AD7173_ADC_MODE_SING_CYC;
+
+	if (st->info->id != AD7172_4_ID)
+		st->adc_mode |= AD7173_ADC_MODE_REF_EN;
 
 	return 0;
 }
@@ -805,6 +821,10 @@ static int ad7173_probe(struct spi_device *spi)
 			return PTR_ERR(st->reg);
 
 		st->reg = NULL;
+
+		if (st->info->id == AD7172_4_ID)
+			dev_err(&indio_dev->dev,
+				"AD7172-4 requires an external vref");
 	} else {
 		ret = regulator_enable(st->reg);
 		if (ret)
@@ -850,6 +870,7 @@ static int ad7173_remove(struct spi_device *spi)
 
 static const struct spi_device_id ad7173_id_table[] = {
 	{ "ad7172-2", ID_AD7172_2 },
+	{ "ad7172-4", ID_AD7172_4 },
 	{ "ad7173-8", ID_AD7173_8 },
 	{ "ad7175-2", ID_AD7175_2 },
 	{ "ad7176-2", ID_AD7176_2 },
