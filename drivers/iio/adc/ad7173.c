@@ -52,7 +52,8 @@
 #define AD7172_2_ID			0x00d0
 #define AD7172_4_ID			0x2050
 #define AD7173_ID			0x30d0
-#define AD7175_ID			0x0cd0
+#define AD7175_2_ID			0x0cd0
+#define AD7175_8_ID			0x3cd0
 #define AD7176_ID			0x0c90
 #define AD7173_ID_MASK			0xfff0
 
@@ -94,6 +95,7 @@ enum ad7173_ids {
 	ID_AD7172_4,
 	ID_AD7173_8,
 	ID_AD7175_2,
+	ID_AD7175_8,
 	ID_AD7176_2,
 };
 
@@ -211,11 +213,22 @@ static struct ad7173_device_info ad7173_device_info[] = {
 		.num_sinc5_data_rates = ARRAY_SIZE(ad7173_sinc5_data_rates),
 	},
 	[ID_AD7175_2] = {
-		.id = AD7175_ID,
+		.id = AD7175_2_ID,
 		.num_inputs = 5,
 		.num_channels = 4,
 		.num_configs = 4,
 		.has_gp23 = false,
+		.has_temp = true,
+		.clock = 16000000,
+		.sinc5_data_rates = ad7175_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad7175_sinc5_data_rates),
+	},
+	[ID_AD7175_8] = {
+		.id = AD7175_8_ID,
+		.num_inputs = 17,
+		.num_channels = 16,
+		.num_configs = 8,
+		.has_gp23 = true,
 		.has_temp = true,
 		.clock = 16000000,
 		.sinc5_data_rates = ad7175_sinc5_data_rates,
@@ -873,6 +886,7 @@ static const struct spi_device_id ad7173_id_table[] = {
 	{ "ad7172-4", ID_AD7172_4 },
 	{ "ad7173-8", ID_AD7173_8 },
 	{ "ad7175-2", ID_AD7175_2 },
+	{ "ad7175-8", ID_AD7175_8 },
 	{ "ad7176-2", ID_AD7176_2 },
 	{}
 };
