@@ -49,6 +49,33 @@ jobs:
       ./ci/travis/run-build.sh
     displayName: 'Checkpatch Script'
 
+- job: dt_binding_check
+  condition: eq(variables['Build.Reason'], 'PullRequest')
+  variables:
+    BUILD_TYPE: dt_binding_check
+    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
+    COMMIT: $[ variables['Build.SourceVersion'] ]
+    REPO_URL: $[ variables['Build.Repository.Uri'] ]
+    UPSTREAM_REPO_URL: https://git.kernel.org/pub/scm/linux/kernel/git/robh/linux.git
+    UPSTREAM_REPO_BRANCH: dt/next
+  steps:
+  - checkout: none
+  - script: |
+      set -ex
+
+      git init
+      git remote add origin ${REPO_URL}
+      git fetch  --progress --filter=tree:0 --no-tags origin ${COMMIT}
+
+      git remote add upstream ${UPSTREAM_REPO_URL}
+      git fetch --progress --depth=1 upstream ${UPSTREAM_REPO_BRANCH}
+      git checkout --progress --force FETCH_HEAD
+
+      git checkout ${COMMIT} -- ci/travis/
+
+      ./ci/travis/run-build.sh
+    displayName: 'Bindings Check Script'
+
 - job: check_is_new_adi_driver_dual_licensed
   condition: eq(variables['Build.Reason'], 'PullRequest')
   variables:
