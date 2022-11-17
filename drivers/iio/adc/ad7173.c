@@ -55,6 +55,7 @@
 #define AD7175_2_ID			0x0cd0
 #define AD7175_8_ID			0x3cd0
 #define AD7176_ID			0x0c90
+#define AD7177_ID			0x4fd0
 #define AD7173_ID_MASK			0xfff0
 
 #define AD7173_ADC_MODE_REF_EN		BIT(15)
@@ -87,6 +88,7 @@
 #define AD7173_SETUP_REF_SEL_INT_REF	0x20
 #define AD7173_SETUP_REF_SEL_EXT_REF2	0x10
 #define AD7173_SETUP_REF_SEL_EXT_REF	0x00
+#define AD7177_ODR_START_VALUE		0x07
 
 #define AD7173_FILTER_ODR0_MASK		0x1f
 
@@ -97,6 +99,7 @@ enum ad7173_ids {
 	ID_AD7175_2,
 	ID_AD7175_8,
 	ID_AD7176_2,
+	ID_AD7177_2,
 };
 
 struct ad7173_device_info {
@@ -241,6 +244,17 @@ static struct ad7173_device_info ad7173_device_info[] = {
 		.num_configs = 4,
 		.has_gp23 = false,
 		.has_temp = false,
+		.clock = 16000000,
+		.sinc5_data_rates = ad7175_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad7175_sinc5_data_rates),
+	},
+	[ID_AD7177_2] = {
+		.id = AD7177_ID,
+		.num_inputs = 5,
+		.num_channels = 4,
+		.num_configs = 4,
+		.has_gp23 = false,
+		.has_temp = true,
 		.clock = 16000000,
 		.sinc5_data_rates = ad7175_sinc5_data_rates,
 		.num_sinc5_data_rates = ARRAY_SIZE(ad7175_sinc5_data_rates),
@@ -627,7 +641,9 @@ static int ad7173_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		freq = val * 1000 + val2 / 1000;
 
-		for (i = 0; i < st->info->num_sinc5_data_rates - 1; i++) {
+		//AD7177-2 has the filter values 000->110 marked as reserved
+		i = (st->info->id == AD7177_ID) ? AD7177_ODR_START_VALUE : 0;
+		for (; i < st->info->num_sinc5_data_rates - 1; i++) {
 			if (freq >= st->info->sinc5_data_rates[i])
 				break;
 		}
@@ -888,6 +904,7 @@ static const struct spi_device_id ad7173_id_table[] = {
 	{ "ad7175-2", ID_AD7175_2 },
 	{ "ad7175-8", ID_AD7175_8 },
 	{ "ad7176-2", ID_AD7176_2 },
+	{ "ad7177-2", ID_AD7177_2 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7173_id_table);
