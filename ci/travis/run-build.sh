@@ -253,6 +253,52 @@ build_checkpatch() {
 		--ignore UNDOCUMENTED_DT_STRING
 }
 
+build_dt_binding_check() {
+	local ref_branch="$(get_ref_branch)"
+	local commit="$COMMIT"
+	local err=0
+
+	echo_green "Running dt_binding_check for commit range '$ref_branch..'"
+
+	if [ -z "$ref_branch" ] ; then
+		echo_red "Could not get a base_ref for checkpatch"
+		exit 1
+	fi
+
+	# install dt_binding_check dependencies
+	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
+
+	__update_git_ref "${ref_branch}" "${ref_branch}"
+
+	local files=$(git diff --name-only "$ref_branch..$commit")
+
+	while read file; do
+		case "$file" in
+		*.yaml)
+			local relative_yaml=${file#Documentation/devicetree/bindings/}
+
+			if [[ "$relative_yaml" = "$file" ]]; then
+				echo "$file not a devicetree binding, skip check..."
+			else
+				echo "Testing devicetree binding $file"
+
+				git checkout -q "$commit" "$file"
+
+				error_txt=$(make dt_binding_check DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1)
+				echo "$error_txt"
+
+				# file name appears in output if it contains errors
+				if echo "$error_txt" | grep -qF "$file"; then
+					err=1
+				fi
+			fi
+			;;
+		esac
+	done <<< "$files"
+
+	return $err
+}
+
 build_dtb_build_test() {
 	local exceptions_file="ci/travis/dtb_build_test_exceptions"
 	local err=0
