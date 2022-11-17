@@ -421,7 +421,10 @@ static int ad7173_prepare_channel(struct ad_sigma_delta *sd, unsigned int slot,
 {
 	unsigned int config;
 
-	config = AD7173_SETUP_REF_SEL_INT_REF;
+	if (st->reg)
+		config = AD7173_SETUP_REF_SEL_EXT_REF;
+	else
+		config = AD7173_SETUP_REF_SEL_INT_REF;
 
 	if (chan->differential)
 		config |= AD7173_SETUP_BIPOLAR;
@@ -502,12 +505,27 @@ static int ad7173_setup(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int ad7173_get_vref(struct ad7173_state *st)
+{
+	int ret;
+
+	if (st->reg) {
+		ret = regulator_get_voltage(st->reg);
+		if (ret < 0)
+			return ret;
+
+		return ret / 1000;
+	} else {
+		return 2500;
+	}
+}
+
 static int ad7173_read_raw(struct iio_dev *indio_dev,
 	struct iio_chan_spec const *chan, int *val, int *val2, long info)
 {
 	struct ad7173_state *st = iio_priv(indio_dev);
 	unsigned int reg;
-	int ret;
+	int ret, vref;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -517,12 +535,13 @@ static int ad7173_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
+		vref = ad7173r_get_vref(st);
 		if (chan->type == IIO_TEMP) {
-			*val = 250000000;
+			*val = vref * 100000;
 			*val2 = 800273203; /* (2**24 * 477) / 10 */
 			return IIO_VAL_FRACTIONAL;
 		} else {
-			*val = 2500;
+			*val = vref;
 			if (chan->differential)
 				*val2 = 23;
 			else
@@ -775,6 +794,18 @@ static int ad7173_probe(struct spi_device *spi)
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad7173_info;
+
+	st->reg = devm_regulator_get_optional(&spi->dev, "vref");
+	if (IS_ERR(st->reg)) {
+		if ((PTR_ERR(st->reg) != -ENODEV) && spi->dev.of_node)
+			return PTR_ERR(st->reg);
+
+		st->reg = NULL;
+	} else {
+		ret = regulator_enable(st->reg);
+		if (ret)
+			return ret;
+	}
 
 	ret = ad7173_of_parse_channel_config(indio_dev, spi->dev.of_node);
 	if (ret)
