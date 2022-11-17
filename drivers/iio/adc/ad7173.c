@@ -52,6 +52,8 @@
 	(AD7173_CH_SETUP_AINPOS(pos) | AD7173_CH_SETUP_AINNEG(neg))
 
 #define AD411X_ID			0x30d0
+#define AD4115_ID			0x38d0
+#define AD4116_ID			0x34d0
 #define AD7172_2_ID			0x00d0
 #define AD7172_4_ID			0x2050
 #define AD7173_ID			0x30d0
@@ -108,6 +110,8 @@ enum ad7173_ids {
 	ID_AD4111,
 	ID_AD4112,
 	ID_AD4114,
+	ID_AD4115,
+	ID_AD4116,
 };
 
 struct ad7173_device_info {
@@ -139,6 +143,58 @@ struct ad7173_state {
 	unsigned int gpio_reg;
 	unsigned int gpio_23_mask;
 #endif
+};
+
+static unsigned int ad4115_sinc5_data_rates[] = {
+	24845000,
+	24845000,
+	20725000,
+	20725000,
+	15564000,
+	13841000,
+	10390000,
+	10390000,
+	 4994000,
+	 2499000,
+	 1000000,
+	  500000,
+	  395500,
+	  200000,
+	  100000,
+	   59890,
+	   49920,
+	   20000,
+	   16660,
+	   10000,
+	    5000,
+	    2500,
+	    2500,
+};
+
+static unsigned int ad4116_sinc5_data_rates[] = {
+	12422360,
+	12422360,
+	12422360,
+	12422360,
+	10362690,
+	10362690,
+	 7782100,
+	 6290530,
+	 5194800,
+	 2496900,
+	 1007600,
+	  499900,
+	  390600,
+	  200300,
+	  100000,
+	   59750,
+	   49840,
+	   20000,
+	   16650,
+	   10000,
+	    5000,
+	    2500,
+	    1250,
 };
 
 static unsigned int ad7173_sinc5_data_rates[] = {
@@ -318,6 +374,30 @@ static struct ad7173_device_info ad7173_device_info[] = {
 		.clock = 2000000,
 		.sinc5_data_rates = ad7173_sinc5_data_rates,
 		.num_sinc5_data_rates = ARRAY_SIZE(ad7173_sinc5_data_rates),
+	},
+	[ID_AD4115] = {
+		.id = AD4115_ID,
+		.num_voltage_inputs = 16,
+		.num_channels = 16,
+		.num_configs = 8,
+		.has_gp23 = true,
+		.has_temp = true,
+		.has_current_inputs = false,
+		.clock = 8000000,
+		.sinc5_data_rates = ad4115_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad4115_sinc5_data_rates),
+	},
+	[ID_AD4116] = {
+		.id = AD4116_ID,
+		.num_voltage_inputs = 16,
+		.num_channels = 16,
+		.num_configs = 8,
+		.has_gp23 = true,
+		.has_temp = true,
+		.has_current_inputs = false,
+		.clock = 4000000,
+		.sinc5_data_rates = ad4116_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad4116_sinc5_data_rates),
 	},
 };
 
@@ -652,7 +732,9 @@ static int ad7173_read_raw(struct iio_dev *indio_dev,
 			*val = vref;
 
 			//AD411X have a 10 to 1 voltage divider on inputs
-			if (st->is_ad411x)
+			//AD4116 only has divider on inputs VIN0-VIN10
+			if (st->is_ad411x &&
+				!(st->info->id == AD4116_ID && chan->channel > 10))
 				*val = vref * 10;
 
 			if (chan->differential)
@@ -1047,6 +1129,8 @@ static const struct spi_device_id ad7173_id_table[] = {
 	{ "ad4111", ID_AD4111},
 	{ "ad4112", ID_AD4112},
 	{ "ad4114", ID_AD4114},
+	{ "ad4115", ID_AD4115},
+	{ "ad4116", ID_AD4116},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7173_id_table);
