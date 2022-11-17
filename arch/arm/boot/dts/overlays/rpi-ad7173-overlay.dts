@@ -2,6 +2,8 @@
 /plugin/;
 
 / {
+	#include <dt-bindings/iio/adc/adi,ad7173.h>
+
 	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
 
 	fragment@0 {

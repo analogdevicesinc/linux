@@ -28,6 +28,8 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
 
+#include <dt-bindings/iio/adc/adi,ad7173.h>
+
 #define AD7173_REG_COMMS		0x00
 #define AD7173_REG_ADC_MODE		0x01
 #define AD7173_REG_INTERFACE_MODE	0x02
@@ -49,6 +51,7 @@
 #define AD7173_CH_ADDRESS(pos, neg) \
 	(AD7173_CH_SETUP_AINPOS(pos) | AD7173_CH_SETUP_AINNEG(neg))
 
+#define AD411X_ID			0x30d0
 #define AD7172_2_ID			0x00d0
 #define AD7172_4_ID			0x2050
 #define AD7173_ID			0x30d0
@@ -100,6 +103,9 @@ enum ad7173_ids {
 	ID_AD7175_8,
 	ID_AD7176_2,
 	ID_AD7177_2,
+	ID_AD4111,
+	ID_AD4112,
+	ID_AD4114,
 };
 
 struct ad7173_device_info {
@@ -119,6 +125,7 @@ struct ad7173_state {
 	struct regulator *reg;
 	unsigned int adc_mode;
 	unsigned int interface_mode;
+	bool is_ad411x;
 
 	struct ad_sigma_delta sd;
 
@@ -258,6 +265,39 @@ static struct ad7173_device_info ad7173_device_info[] = {
 		.clock = 16000000,
 		.sinc5_data_rates = ad7175_sinc5_data_rates,
 		.num_sinc5_data_rates = ARRAY_SIZE(ad7175_sinc5_data_rates),
+	},
+		[ID_AD4111] = {
+		.id = AD411X_ID,
+		.num_inputs = 8,
+		.num_channels = 16,
+		.num_configs = 8,
+		.has_gp23 = false,
+		.has_temp = true,
+		.clock = 2000000,
+		.sinc5_data_rates = ad7173_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad7173_sinc5_data_rates),
+	},
+	[ID_AD4112] = {
+		.id = AD411X_ID,
+		.num_inputs = 8,
+		.num_channels = 16,
+		.num_configs = 8,
+		.has_gp23 = false,
+		.has_temp = true,
+		.clock = 2000000,
+		.sinc5_data_rates = ad7173_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad7173_sinc5_data_rates),
+	},
+	[ID_AD4114] = {
+		.id = AD411X_ID,
+		.num_inputs = 16,
+		.num_channels = 16,
+		.num_configs = 8,
+		.has_gp23 = true,
+		.has_temp = true,
+		.clock = 2000000,
+		.sinc5_data_rates = ad7173_sinc5_data_rates,
+		.num_sinc5_data_rates = ARRAY_SIZE(ad7173_sinc5_data_rates),
 	},
 };
 
@@ -589,6 +629,11 @@ static int ad7173_read_raw(struct iio_dev *indio_dev,
 			return IIO_VAL_FRACTIONAL;
 		} else {
 			*val = vref;
+
+			//AD411X have a 10 to 1 voltage divider on inputs
+			if (st->is_ad411x)
+				*val = vref * 10;
+
 			if (chan->differential)
 				*val2 = 23;
 			else
@@ -775,6 +820,7 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 
 	for_each_available_child_of_node(chan_node, child) {
 		uint32_t ain[2];
+		bool ad411x_vcom = false;
 		int ret;
 
 		ret = of_property_read_u32_array(child, "reg", ain, 2);
@@ -784,8 +830,10 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 			return ret;
 		}
 
+		if (st->is_ad411x && ain[1] == AD411X_VCOM_CHANNEL)
+			ad411x_vcom = true;
 		if (ain[0] >= st->info->num_inputs ||
-		    ain[1] >= st->info->num_inputs) {
+		    (ain[1] >= st->info->num_inputs && !ad411x_vcom)) {
 			dev_err(indio_dev->dev.parent,
 				"Input pin number out of range.\n");
 			of_node_put(chan_node);
@@ -832,6 +880,7 @@ static int ad7173_probe(struct spi_device *spi)
 
 	id = spi_get_device_id(spi);
 	st->info = &ad7173_device_info[id->driver_data];
+	st->is_ad411x = (st->info->id >= ID_AD4111) ? true : false;
 
 	ad_sd_init(&st->sd, indio_dev, spi, &ad7173_sigma_delta_info);
 
@@ -905,6 +954,9 @@ static const struct spi_device_id ad7173_id_table[] = {
 	{ "ad7175-8", ID_AD7175_8 },
 	{ "ad7176-2", ID_AD7176_2 },
 	{ "ad7177-2", ID_AD7177_2 },
+	{ "ad4111", ID_AD4111},
+	{ "ad4112", ID_AD4112},
+	{ "ad4114", ID_AD4114},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7173_id_table);
