@@ -602,11 +602,32 @@ static int ad7173_write_raw_get_fmt(struct iio_dev *indio_dev,
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
+static int ad7173_debug(struct iio_dev *indio_dev,
+				  unsigned int reg, unsigned int writeval,
+				  unsigned int *readval)
+{
+	struct ad7173_state *st = iio_priv(indio_dev);
+	u8 reg_size = 2;
+
+	if (reg == 0)
+		reg_size = 1;
+	else if (reg == AD7173_REG_CRC || reg == AD7173_REG_DATA ||
+					reg >= AD7173_REG_OFFSET(0))
+		reg_size = 3;
+
+	if (readval)
+		return ad_sd_read_reg(&st->sd, reg, reg_size, readval);
+	else
+		return ad_sd_write_reg(&st->sd, reg, reg_size, writeval);
+
+}
+
 static const struct iio_info ad7173_info = {
 	.read_raw = &ad7173_read_raw,
 	.write_raw = &ad7173_write_raw,
 	.write_raw_get_fmt = &ad7173_write_raw_get_fmt,
 	.validate_trigger = ad_sd_validate_trigger,
+	.debugfs_reg_access = &ad7173_debug,
 };
 
 static const struct iio_chan_spec ad7173_channel_template = {
