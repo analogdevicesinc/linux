@@ -93,6 +93,8 @@
 #define AD7173_SETUP_REF_SEL_EXT_REF	0x00
 #define AD7177_ODR_START_VALUE		0x07
 
+#define AD4111_SHUNT_RESISTOR_VALUE	50
+
 #define AD7173_FILTER_ODR0_MASK		0x1f
 
 enum ad7173_ids {
@@ -110,9 +112,10 @@ enum ad7173_ids {
 
 struct ad7173_device_info {
 	unsigned int id;
-	unsigned int num_inputs;
 	unsigned int num_channels;
 	unsigned int num_configs;
+	unsigned int num_voltage_inputs;
+	bool has_current_inputs;
 	bool has_gp23;
 	bool has_temp;
 	unsigned int clock;
@@ -188,12 +191,20 @@ static unsigned int ad7175_sinc5_data_rates[] = {
 	   5000,
 };
 
+static unsigned int ad4111_current_channel_config[] = {
+	[AD4111_CURRENT_IN0P_IN0N] = 0x1E8,
+	[AD4111_CURRENT_IN1P_IN1N] = 0x1C9,
+	[AD4111_CURRENT_IN2P_IN2N] = 0x1AA,
+	[AD4111_CURRENT_IN3P_IN3N] = 0x18B,
+};
+
 static struct ad7173_device_info ad7173_device_info[] = {
 	[ID_AD7172_2] = {
 		.id = AD7172_2_ID,
-		.num_inputs = 5,
 		.num_channels = 4,
 		.num_configs = 4,
+		.num_voltage_inputs = 5,
+		.has_current_inputs = false,
 		.has_gp23 = false,
 		.has_temp = true,
 		.clock = 2000000,
@@ -202,9 +213,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD7172_4] = {
 		.id = AD7172_4_ID,
-		.num_inputs = 9,
 		.num_channels = 8,
 		.num_configs = 8,
+		.num_voltage_inputs = 9,
+		.has_current_inputs = false,
 		.has_gp23 = true,
 		.has_temp = false,
 		.clock = 2000000,
@@ -213,9 +225,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD7173_8] = {
 		.id = AD7173_ID,
-		.num_inputs = 17,
 		.num_channels = 16,
 		.num_configs = 8,
+		.num_voltage_inputs = 17,
+		.has_current_inputs = false,
 		.has_gp23 = true,
 		.has_temp = true,
 		.clock = 2000000,
@@ -224,9 +237,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD7175_2] = {
 		.id = AD7175_2_ID,
-		.num_inputs = 5,
 		.num_channels = 4,
 		.num_configs = 4,
+		.num_voltage_inputs = 5,
+		.has_current_inputs = false,
 		.has_gp23 = false,
 		.has_temp = true,
 		.clock = 16000000,
@@ -235,9 +249,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD7175_8] = {
 		.id = AD7175_8_ID,
-		.num_inputs = 17,
 		.num_channels = 16,
 		.num_configs = 8,
+		.num_voltage_inputs = 17,
+		.has_current_inputs = false,
 		.has_gp23 = true,
 		.has_temp = true,
 		.clock = 16000000,
@@ -246,9 +261,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD7176_2] = {
 		.id = AD7176_ID,
-		.num_inputs = 5,
 		.num_channels = 4,
 		.num_configs = 4,
+		.num_voltage_inputs = 5,
+		.has_current_inputs = false,
 		.has_gp23 = false,
 		.has_temp = false,
 		.clock = 16000000,
@@ -257,9 +273,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD7177_2] = {
 		.id = AD7177_ID,
-		.num_inputs = 5,
 		.num_channels = 4,
 		.num_configs = 4,
+		.num_voltage_inputs = 5,
+		.has_current_inputs = false,
 		.has_gp23 = false,
 		.has_temp = true,
 		.clock = 16000000,
@@ -268,9 +285,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 		[ID_AD4111] = {
 		.id = AD411X_ID,
-		.num_inputs = 8,
 		.num_channels = 16,
 		.num_configs = 8,
+		.num_voltage_inputs = 8,
+		.has_current_inputs = true,
 		.has_gp23 = false,
 		.has_temp = true,
 		.clock = 2000000,
@@ -279,9 +297,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD4112] = {
 		.id = AD411X_ID,
-		.num_inputs = 8,
 		.num_channels = 16,
 		.num_configs = 8,
+		.num_voltage_inputs = 8,
+		.has_current_inputs = true,
 		.has_gp23 = false,
 		.has_temp = true,
 		.clock = 2000000,
@@ -290,9 +309,10 @@ static struct ad7173_device_info ad7173_device_info[] = {
 	},
 	[ID_AD4114] = {
 		.id = AD411X_ID,
-		.num_inputs = 16,
 		.num_channels = 16,
 		.num_configs = 8,
+		.num_voltage_inputs = 16,
+		.has_current_inputs = false,
 		.has_gp23 = true,
 		.has_temp = true,
 		.clock = 2000000,
@@ -510,7 +530,7 @@ static int ad7173_prepare_channel(struct ad_sigma_delta *sd, unsigned int slot,
 	if (chan->differential)
 		config |= AD7173_SETUP_BIPOLAR;
 
-	if (st->info->id != AD7176_ID)
+	if (chan->type != IIO_CURRENT && st->info->id != AD7176_ID)
 		config |= AD7173_SETUP_AIN_BUF;
 
 	return ad_sd_write_reg(sd, AD7173_REG_SETUP(slot), 2, config);
@@ -623,17 +643,25 @@ static int ad7173_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		vref = ad7173r_get_vref(st);
-		if (chan->type == IIO_TEMP) {
+		switch (chan->type) {
+		case IIO_TEMP:
 			*val = vref * 100000;
 			*val2 = 800273203; /* (2**24 * 477) / 10 */
 			return IIO_VAL_FRACTIONAL;
-		} else {
+		case IIO_VOLTAGE:
 			*val = vref;
 
 			//AD411X have a 10 to 1 voltage divider on inputs
 			if (st->is_ad411x)
 				*val = vref * 10;
 
+			if (chan->differential)
+				*val2 = 23;
+			else
+				*val2 = 24;
+			return IIO_VAL_FRACTIONAL_LOG2;
+		case IIO_CURRENT:
+			*val = vref/AD4111_SHUNT_RESISTOR_VALUE;
 			if (chan->differential)
 				*val2 = 23;
 			else
@@ -761,6 +789,24 @@ static const struct iio_chan_spec ad7173_channel_template = {
 	},
 };
 
+static const struct iio_chan_spec ad7173_current_channel_template = {
+	.type = IIO_CURRENT,
+	.indexed = 1,
+	.channel = 0,
+	.address = AD7173_CH_ADDRESS(15, 8),
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE),
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.scan_index = 0,
+	.scan_type = {
+		.sign = 'u',
+		.realbits = 24,
+		.storagebits = 32,
+		.shift = 0,
+		.endianness = IIO_BE,
+	},
+};
+
 static const struct iio_chan_spec ad7173_temp_channel_template = {
 	.type = IIO_TEMP,
 	.indexed = 1,
@@ -783,16 +829,25 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 	struct device_node *np)
 {
 	struct ad7173_state *st = iio_priv(indio_dev);
-	struct device_node *chan_node, *child;
+	struct device_node *chan_node, *chan_current_node = NULL, *child;
 	struct iio_chan_spec *chan;
 	unsigned int num_ext_channels = 0;
 	unsigned int num_channels = 0;
+	unsigned int num_current_channels = 0;
 	unsigned int scan_index = 0;
 	unsigned int chan_index = 0;
 
 	chan_node = of_get_child_by_name(np, "adi,channels");
 	if (chan_node)
 		num_ext_channels = of_get_available_child_count(chan_node);
+
+	if (st->info->has_current_inputs) {
+		chan_current_node = of_get_child_by_name(np,
+							"adi,current-channels");
+		if (chan_current_node)
+			num_ext_channels +=
+				of_get_child_count(chan_current_node);
+	}
 
 	num_channels = num_ext_channels;
 	if (st->info->has_temp)
@@ -832,8 +887,8 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 
 		if (st->is_ad411x && ain[1] == AD411X_VCOM_CHANNEL)
 			ad411x_vcom = true;
-		if (ain[0] >= st->info->num_inputs ||
-		    (ain[1] >= st->info->num_inputs && !ad411x_vcom)) {
+		if (ain[0] >= st->info->num_voltage_inputs ||
+		    (ain[1] >= st->info->num_voltage_inputs && !ad411x_vcom)) {
 			dev_err(indio_dev->dev.parent,
 				"Input pin number out of range.\n");
 			of_node_put(chan_node);
@@ -856,6 +911,41 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 		chan++;
 	}
 	of_node_put(chan_node);
+
+	if (!chan_current_node)
+		return 0;
+
+	for_each_available_child_of_node(chan_current_node, child) {
+		u32 ain;
+		int ret;
+
+		ret = of_property_read_u32_array(child, "reg", &ain, 1);
+		if (ret) {
+			of_node_put(chan_current_node);
+			of_node_put(child);
+			return ret;
+		}
+
+		if (ain >= ARRAY_SIZE(ad4111_current_channel_config)) {
+			dev_err(indio_dev->dev.parent,
+				"Invalid current inputs configuration.\n");
+			of_node_put(chan_current_node);
+			of_node_put(child);
+			return -EINVAL;
+		}
+
+		*chan = ad7173_current_channel_template;
+		chan->scan_index = scan_index;
+		chan->channel = ain;
+		chan->differential = of_property_read_bool(child, "adi,bipolar");
+		if (chan->differential)
+			chan->info_mask_separate |= BIT(IIO_CHAN_INFO_OFFSET);
+		chan->address = ad4111_current_channel_config[ain];
+		chan_index++;
+		scan_index++;
+		chan++;
+	}
+	of_node_put(chan_current_node);
 
 	return 0;
 }

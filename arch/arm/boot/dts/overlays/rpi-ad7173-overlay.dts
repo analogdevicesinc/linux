@@ -60,6 +60,16 @@
 						adi,bipolar;
 					};
 				};
+
+				adi,current-channels {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					channel@AD4111_CURRENT_IN0P_IN0N{
+						reg = <AD4111_CURRENT_IN0P_IN0N>;
+						adi,bipolar;
+					};
+				};
 			};
 		};
 	};
