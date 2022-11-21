@@ -1575,6 +1575,27 @@ static inline int get_power(struct device *pdev)
     return 0;
 }
 
+static inline int get_power_ls(struct device *pdev)
+{
+    int ret;
+
+#if gcdENABLE_FSCALE_VAL_ADJUST && (defined(CONFIG_DEVICE_THERMAL) || defined(CONFIG_DEVICE_THERMAL_MODULE))
+    REG_THERMAL_NOTIFIER(&thermal_hot_pm_notifier);
+
+    ret = driver_create_file(pdev->driver, &driver_attr_gpu3DMinClock);
+
+    if (ret)
+        dev_err(pdev, "create gpu3DMinClock attr failed (%d)\n", ret);
+
+    ret = driver_create_file(pdev->driver, &driver_attr_gpu3DClockScale);
+
+    if (ret)
+        dev_err(pdev, "create gpu3DClockScale attr failed (%d)\n", ret);
+#endif
+
+    return 0;
+}
+
 static inline void put_power(void)
 {
     int core = 0;
@@ -1641,6 +1662,17 @@ static inline void put_power(void)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)) && defined(IMX8_SCU_CONTROL)
     if (gpu_ipcHandle)
         sc_ipc_close(gpu_ipcHandle);
+#endif
+}
+
+static inline void put_power_ls(void)
+{
+#if gcdENABLE_FSCALE_VAL_ADJUST && (defined(CONFIG_DEVICE_THERMAL) || defined(CONFIG_DEVICE_THERMAL_MODULE))
+    UNREG_THERMAL_NOTIFIER(&thermal_hot_pm_notifier);
+
+    driver_remove_file(pdevice->dev.driver, &driver_attr_gpu3DMinClock);
+
+    driver_remove_file(pdevice->dev.driver, &driver_attr_gpu3DClockScale);
 #endif
 }
 
@@ -1916,7 +1948,16 @@ _GetPower(
     gcsPLATFORM * Platform
     )
 {
-    int ret = get_power(&Platform->device->dev);
+    int ret;
+
+    if (is_layerscape)
+    {
+        ret = get_power_ls(&Platform->device->dev);
+    }
+    else
+    {
+        ret = get_power(&Platform->device->dev);
+    }
 
     if (ret)
         return gcvSTATUS_GENERIC_IO;
@@ -1929,7 +1970,15 @@ _PutPower(
     gcsPLATFORM * Platform
     )
 {
-    put_power();
+    if (is_layerscape)
+    {
+        put_power_ls();
+    }
+    else
+    {
+        put_power();
+    }
+
     return gcvSTATUS_OK;
 }
 
@@ -2003,6 +2052,8 @@ static const struct of_device_id gpu_match[] = {
 
 struct _gcsPLATFORM_OPERATIONS ls_platform_ops = {
     .adjustParam  = _AdjustParam,
+    .getPower     = _GetPower,
+    .putPower     = _PutPower,
 };
 
 static struct _gcsPLATFORM ls_platform = {
