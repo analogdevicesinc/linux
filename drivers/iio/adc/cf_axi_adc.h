@@ -33,6 +33,7 @@
 #define ADI_MMCM_RSTN 			(1 << 1)
 
 #define ADI_REG_CNTRL			0x0044
+#define ADI_NUM_LANES(x)                (((x) & 0x1F) << 8)
 #define ADI_SYNC			(1 << 3)
 #define ADI_R1_MODE			(1 << 2)
 #define ADI_DDR_EDGESEL			(1 << 1)
@@ -42,6 +43,9 @@
 #define ADI_EXT_SYNC_ARM		(1 << 1)
 #define ADI_EXT_SYNC_DISARM		(1 << 2)
 #define ADI_MANUAL_SYNC_REQUEST		(1 << 8)
+
+#define ADI_REG_CNTRL_3			0x004c
+#define ADI_CRC_EN			(1 << 8)
 
 #define ADI_REG_CLK_FREQ			0x0054
 #define ADI_CLK_FREQ(x)			(((x) & 0xFFFFFFFF) << 0)
