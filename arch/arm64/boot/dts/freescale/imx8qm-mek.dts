@@ -32,14 +32,6 @@
 		reg = <0x00000000 0x80000000 0 0x40000000>;
 	};
 
-	brcmfmac: brcmfmac {
-		compatible = "cypress,brcmfmac";
-		pinctrl-names = "init", "idle", "default";
-		pinctrl-0 = <&pinctrl_wifi_init>;
-		pinctrl-1 = <&pinctrl_wifi_init>;
-		pinctrl-2 = <&pinctrl_wifi>;
-	};
-
 	lvds_backlight0: lvds_backlight@0 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_lvds0 0 100000 0>;
@@ -167,18 +159,6 @@
 			linux,cma-default;
 		};
 
-	};
-
-	epdev_on: fixedregulator@100 {
-		compatible = "regulator-fixed";
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&pinctrl_wlreg_on>;
-		pinctrl-1 = <&pinctrl_wlreg_on_sleep>;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-name = "epdev_on";
-		gpio = <&lsio_gpio1 13 0>;
-		enable-active-high;
 	};
 
 	reg_fec2_supply: fec2_nvcc {
@@ -1044,7 +1024,6 @@
 	pinctrl-0 = <&pinctrl_pciea>;
 	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
-	epdev_on-supply = <&epdev_on>;
 	vpcie-supply = <&reg_pciea>;
 	status = "okay";
 };
@@ -1779,30 +1758,6 @@
 		fsl,pins = <
 			IMX8QM_LVDS1_I2C1_SCL_LVDS1_I2C1_SCL	0xc600004c
 			IMX8QM_LVDS1_I2C1_SDA_LVDS1_I2C1_SDA	0xc600004c
-		>;
-	};
-
-	pinctrl_wifi: wifigrp{
-		fsl,pins = <
-			IMX8QM_SCU_GPIO0_07_SCU_DSC_RTC_CLOCK_OUTPUT_32K	0x20
-		>;
-	};
-
-	pinctrl_wifi_init: wifi_initgrp{
-		fsl,pins = <
-			/* reserve pin init/idle_state to support multiple wlan cards */
-		>;
-	};
-
-	pinctrl_wlreg_on: wlregongrp{
-		fsl,pins = <
-			IMX8QM_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x06000000
-		>;
-	};
-
-	pinctrl_wlreg_on_sleep: wlregon_sleepgrp{
-		fsl,pins = <
-			IMX8QM_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x07800000
 		>;
 	};
 
