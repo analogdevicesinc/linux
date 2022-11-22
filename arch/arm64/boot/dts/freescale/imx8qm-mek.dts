@@ -177,8 +177,9 @@
 		regulator-name = "mpcie_3v3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&lsio_gpio4 9 GPIO_ACTIVE_HIGH>;
+		gpio = <&lsio_gpio1 13 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	reg_usb_otg1_vbus: regulator-usbotg1-vbus {
@@ -1628,7 +1629,7 @@
 
 	pinctrl_pciea_reg: pcieareggrp {
 		fsl,pins = <
-			IMX8QM_USDHC2_RESET_B_LSIO_GPIO4_IO09			0x06000021
+			IMX8QM_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13			0x06000021
 		>;
 	};
 
