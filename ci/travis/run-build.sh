@@ -284,7 +284,23 @@ build_dt_binding_check() {
 
 				git checkout -q "$commit" "$file"
 
+				# The dt_binding_check rule won't exit with an error
+				# for schema errors, but will exit with an error for
+				# dts example errors.
+				#
+				# All schema files must be validated before exiting,
+				# so the script should not exit on error.
+				#
+				# Disable exit-on-error flag, check the exit code
+				# manually, and set err if the exit-code is non-zero,
+				# before enabling exit-on-error back.
+				set +e
 				error_txt=$(make dt_binding_check DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1)
+				if [[ $? -ne 0 ]]; then
+					err=1
+				fi
+				set -e
+
 				echo "$error_txt"
 
 				# file name appears in output if it contains errors
