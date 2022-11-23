@@ -1574,6 +1574,208 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
         INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_CRYPTION_EXT)
 
 /**
+ * Request INTEL_SIP_SMC_FCS_GET_DIGEST_SMMU_UPDATE
+ * Sync call to request the SHA-2 hash digest on a blob
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_GET_DIGEST_SMMU_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_SMMU_UPDATE 145
+#define INTEL_SIP_SMC_FCS_GET_DIGEST_SMMU_UPDATE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_SMMU_UPDATE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_GET_DIGEST_SMMU_FINALIZE
+ * Sync call to request the SHA-2 hash digest on a blob
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_GET_DIGEST_SMMU_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destation
+ * a6 size of destation
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_SMMU_FINALIZE 146
+#define INTEL_SIP_SMC_FCS_GET_DIGEST_SMMU_FINALIZE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_GET_DIGEST_SMMU_FINALIZE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_MAC_VERIFY_SMMU_UPDATE
+ * Sync call to check the integrity and authenticity of a blob by comparing
+ * the calculated MAC with tagged MAC
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_MAC_VERIFY_SMMU_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_SMMU_UPDATE 147
+#define INTEL_SIP_SMC_FCS_MAC_VERIFY_SMMU_UPDATE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_SMMU_UPDATE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_MAC_VERIFY_SMMU_FINALIZE
+ * Sync call to check the integrity and authenticity of a blob by comparing
+ * the calculated MAC with tagged MAC
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_MAC_VERIFY_SMMU_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destation
+ * a6 size of destation
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_SMMU_FINALIZE 148
+#define INTEL_SIP_SMC_FCS_MAC_VERIFY_SMMU_FINALIZE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_MAC_VERIFY_SMMU_FINALIZE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_SMMU_UPDATE
+ * Sync call to digital signature signing request on a data blob
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_SMMU_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_ECDSA_SHA2_DATA_SIGNING_SMMU_UPDATE 149
+#define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_SMMU_UPDATE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_ECDSA_SHA2_DATA_SIGNING_SMMU_UPDATE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_SMMU_FINALIZE
+ * Sync call to digital signature signing request on a data blob
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_SMMU_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destation
+ * a6 size of destation
+ * a7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_ECDSA_SHA2_DATA_SIGNING_SMMU_FINALIZE 150
+#define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNING_SMMU_FINALIZE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_ECDSA_SHA2_DATA_SIGNING_SMMU_FINALIZE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_UPDATE
+ * Sync call to send digital signature verify request
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_UPDATE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source (contain user data)
+ * a4 size of source
+ * a5 physical address of destination
+ * a6 size of destination
+ * a7 size of user data
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_UPDATE 151
+#define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_UPDATE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_UPDATE)
+
+/**
+ * Request INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_FINALIZE
+ * Sync call to send digital signature verify request
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_FINALIZE
+ * a1 session ID
+ * a2 context ID
+ * a3 physical address of source
+ * a4 size of source
+ * a5 physical address of destation
+ * a6 size of destation
+ * a7 size of user data
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 mailbox errors if a0 is INTEL_SIP_SMC_STATUS_ERROR
+ * a2 physical address of response data
+ * a3 size of response data
+ */
+#define INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_FINALIZE 152
+#define INTEL_SIP_SMC_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_FINALIZE \
+	INTEL_SIP_SMC_STD_CALL_VAL(INTEL_SIP_SMC_FUNCID_FCS_ECDSA_SHA2_DATA_SIGNATURE_VERIFY_SMMU_FINALIZE)
+
+/**
  * Request INTEL_SIP_SMC_SVC_VERSION
  *
  * Sync call used to query the SIP SMC API Version
