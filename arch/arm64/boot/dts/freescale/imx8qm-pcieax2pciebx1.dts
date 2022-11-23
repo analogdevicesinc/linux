@@ -19,7 +19,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
 	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
-	epdev_on-supply = <&epdev_on>;
 	num-lanes = <2>;
 	clocks = <&pciea_lpcg 0>,
 		 <&pciea_lpcg 1>,
