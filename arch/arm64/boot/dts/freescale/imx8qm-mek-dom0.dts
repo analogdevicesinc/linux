@@ -723,10 +723,6 @@
        xen,passthrough;
 };
 
-&epdev_on {
-	status = "disabled";
-};
-
 &lpuart1 {
 	xen,passthrough;
 };
