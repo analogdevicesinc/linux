@@ -53,6 +53,11 @@
 #define CRYPTO_ECC_DIGEST_SZ_OFFSET 4
 
 #define AES_CRYPT_CMD_MAX_SZ	SZ_4M /* set 4 Mb for now */
+#define AES_CRYPT_MODE_ECB	0
+#define AES_CRYPT_MODE_CBC	1
+#define AES_CRYPT_MODE_CTR	2
+#define AES_CRYPT_PARAM_SIZE_ECB	12
+#define AES_CRYPT_PARAM_SIZE_CBC_CTR	28
 
 #define SIGMA_SESSION_ID_ONE	0x1
 #define SIGMA_UNKNOWN_SESSION	0xffffffff
@@ -1581,6 +1586,28 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			 mutex_unlock(&priv->lock);
 			 return -EFAULT;
 		 }
+
+		if ((data->com_paras.a_crypt.cpara.bmode == AES_CRYPT_MODE_ECB) &&
+		   (data->com_paras.a_crypt.cpara_size != AES_CRYPT_PARAM_SIZE_ECB)) {
+			dev_err(dev, "AES param size incorrect. Block mode=%d, size=%d\n",
+				data->com_paras.a_crypt.cpara.bmode,
+				data->com_paras.a_crypt.cpara_size);
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		} else if (((data->com_paras.a_crypt.cpara.bmode == AES_CRYPT_MODE_CBC) ||
+			  (data->com_paras.a_crypt.cpara.bmode == AES_CRYPT_MODE_CTR)) &&
+			  (data->com_paras.a_crypt.cpara_size != AES_CRYPT_PARAM_SIZE_CBC_CTR)) {
+			dev_err(dev, "AES param size incorrect. Block mode=%d, size=%d\n",
+				data->com_paras.a_crypt.cpara.bmode,
+				data->com_paras.a_crypt.cpara_size);
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		} else if (data->com_paras.a_crypt.cpara.bmode > AES_CRYPT_MODE_CTR) {
+			dev_err(dev, "Unknown AES block mode. Block mode=%d\n",
+				data->com_paras.a_crypt.cpara.bmode);
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
 
 		 iv_field_buf = stratix10_svc_allocate_memory(priv->chan, 28);
 		 if (!iv_field_buf) {
