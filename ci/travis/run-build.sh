@@ -56,7 +56,7 @@ adjust_kcflags_against_gcc() {
 	export KCFLAGS
 }
 
-APT_LIST="make bc u-boot-tools flex bison libssl-dev tar kmod"
+APT_LIST="make bc u-boot-tools flex bison libssl-dev tar kmod rsync"
 
 if [ "$ARCH" = "arm64" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
@@ -200,6 +200,13 @@ build_default() {
 		echo "Rpi build"
     		make -j$NUM_JOBS zImage modules dtbs
 		make INSTALL_MOD_PATH="${PWD}/modules" modules_install
+		#echo "Make headers"
+		#make -j$NUM_JOBS headers
+		echo "Headers install"
+		make headers_install
+		sudo cp -r ./usr/src ${PWD}
+		sudo cp -r ./lib/modules ${PWD}
+		ls -al ./
 	else
     		echo "Normal build"
     		make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000

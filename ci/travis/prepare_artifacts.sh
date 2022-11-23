@@ -6,7 +6,7 @@ timestamp=$(date +%Y_%m_%d-%H_%M)
 #prepare the structure of the folder containing artifacts
 artifacts_structure() {
 	cd ${SOURCE_DIRECTORY}
-	mkdir ${timestamp}
+	mkdir ${timestamp} headers
 
 	GIT_SHA=$(git rev-parse --short HEAD)
 	GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
@@ -15,18 +15,23 @@ artifacts_structure() {
 
 	typeBCM=( "bcm2709" "bcm2711" "bcmrpi" )
 	typeKERNEL=( "kernel7" "kernel7l" "kernel" )
+	typeVERSION=( "5.10.63-v7+" "5.10.63-v7l+" "5.10.63+" )
 	for index in "${!typeBCM[@]}"; do
 		cd adi_"${typeBCM[$index]}"_defconfig
-		mkdir overlays modules
+		mkdir overlays modules "${typeVERSION[$index]}"
 		mv ./*.dtbo ./overlays
 		tar -xf rpi_modules.tar.gz -C modules
-		rm rpi_modules.tar.gz
+		tar -xf rpi_headers.tar.gz -C "${typeVERSION[$index]}"
+	        cp -r ./"${typeVERSION[$index]}" ../headers
+		rm rpi_modules.tar.gz rpi_headers.tar.gz "5.*"
 		mv ./zImage ./"${typeKERNEL[$index]}".img
 		cd ../
 		cp -r ./adi_"${typeBCM[$index]}"_defconfig/* ./${timestamp}
 	done
 	tar -C ${SOURCE_DIRECTORY}/${timestamp}/modules -czvf ${SOURCE_DIRECTORY}/${timestamp}/rpi_modules.tar.gz .
-	rm -r ${SOURCE_DIRECTORY}/${timestamp}/modules
+	tar -C ${SOURCE_DIRECTORY}/headers/ -czvf ${SOURCE_DIRECTORY}/${timestamp}/rpi_headers.tar.gz .
+	rm -r ${SOURCE_DIRECTORY}/${timestamp}/modules ${SOURCE_DIRECTORY}/headers
+
 }
 
 #upload artifacts to Artifactory
