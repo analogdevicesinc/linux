@@ -58,7 +58,8 @@ static const struct flash_info issi_parts[] = {
 			    SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
 			    SPI_NOR_4B_OPCODES)
 		.fixups = &is25lp256_fixups },
-
+	{ "is25lx256",  INFO(0x9d5a19, 0, 128 * 1024, 256,
+			    SECT_4K | SPI_NOR_4B_OPCODES | SPI_NOR_OCTAL_READ_1_8_8) },
 	/* PMC */
 	{ "pm25lv512",   INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
 	{ "pm25lv010",   INFO(0,        0, 32 * 1024,    4, SECT_4K_PMC) },
