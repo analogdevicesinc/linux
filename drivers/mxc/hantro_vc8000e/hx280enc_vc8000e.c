@@ -1218,7 +1218,10 @@ static int hantro_vc8000e_probe(struct platform_device *pdev)
 		pr_err("hantro vc8000e: not get power-domains\n");
 		return -ENODEV;
 	}
-	hantro_skip_blkctrl = !strcmp(node->name, "blk-ctrl");
+	if (!strcmp(node->name, "blk-ctl") || !strcmp(node->name, "blk-ctrl"))
+		hantro_skip_blkctrl = 1;
+	else
+		hantro_skip_blkctrl = 0;
 	of_node_put(node);
 
 	hantro_vc8000e_clk_enable(&pdev->dev);

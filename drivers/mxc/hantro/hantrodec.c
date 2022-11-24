@@ -1876,7 +1876,10 @@ static int hantro_dev_probe(struct platform_device *pdev)
 		pr_err("hantro: not get power-domains\n");
 		return -ENODEV;
 	}
-	hantrodec_data.skip_blkctrl = !strcmp(node->name, "blk-ctrl");
+	if (!strcmp(node->name, "blk-ctl") || !strcmp(node->name, "blk-ctrl"))
+		hantrodec_data.skip_blkctrl = 1;
+	else
+		hantrodec_data.skip_blkctrl = 0;
 	of_node_put(node);
 
 	hantro_regulator = devm_regulator_get(&pdev->dev, "vpu");

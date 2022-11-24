@@ -1968,7 +1968,10 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	 * need handle it again.
 	 */
 	node = of_parse_phandle(pdev->dev.of_node, "power-domains", 0);
-	hantrodec_data[id].skip_blkctrl = !strcmp(node->name, "blk-ctrl");
+	if (!strcmp(node->name, "blk-ctl") || !strcmp(node->name, "blk-ctrl"))
+		hantrodec_data[id].skip_blkctrl = 1;
+	else
+		hantrodec_data[id].skip_blkctrl = 0;
 	of_node_put(node);
 
 	pm_runtime_enable(&pdev->dev);
