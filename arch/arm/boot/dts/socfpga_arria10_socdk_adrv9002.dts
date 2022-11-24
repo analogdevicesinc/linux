@@ -150,7 +150,7 @@
 				};
 			};
 
-			axi_adrv9002_core_rx1: axi-adrv9002-rx1-lpc@20000 {
+			axi_adrv9002_core_rx1: axi-adrv9002-rx-lpc@20000 {
 				compatible = "adi,axi-adrv9002-rx-1.0";
 				reg = <0x00020000 0x6000>;
 				clocks = <&adc0_adrv9002 0>;
@@ -159,7 +159,7 @@
 				spibus-connected = <&adc0_adrv9002>;
 			};
 
-			axi_adrv9002_core_tx1: axi-adrv9002-tx1-lpc@2A000 {
+			axi_adrv9002_core_tx1: axi-adrv9002-tx-lpc@2A000 {
 				compatible = "adi,axi-adrv9002-tx-1.0";
 				reg = <0x0002A000 0x2000>;
 				clocks = <&adc0_adrv9002 1>;
