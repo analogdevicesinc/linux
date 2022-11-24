@@ -25,6 +25,8 @@
 #define BLK_SFT_RSTN	0x0
 #define BLK_CLK_EN	0x4
 #define BLK_MIPI_RESET_DIV	0x8 /* Mini/Nano/Plus DISPLAY_BLK_CTRL only */
+#define BLK_LCDIF_ARCACHE_CTRL	0x4C
+#define BLK_ISI_CACHE_CTRL	0x50
 
 struct imx8m_blk_ctrl_domain;
 
@@ -45,7 +47,12 @@ struct imx8m_blk_ctrl_noc_data {
 	u32 extctrl;
 };
 
-#define DOMAIN_MAX_NOC	4
+struct imx8m_blk_ctrl_hurry_data {
+	u32 off;
+	u32 hurry_mask;
+};
+
+#define DOMAIN_MAX_NOC		4
 struct imx8m_blk_ctrl_domain_data {
 	const char *name;
 	const char * const *clk_names;
@@ -63,6 +70,7 @@ struct imx8m_blk_ctrl_domain_data {
 	 */
 	u32 mipi_phy_rst_mask;
 	notifier_fn_t power_notifier_fn;
+	const struct imx8m_blk_ctrl_hurry_data *hurry_data;
 	const struct imx8m_blk_ctrl_noc_data *noc_data[DOMAIN_MAX_NOC];
 };
 
@@ -91,14 +99,20 @@ to_imx8m_blk_ctrl_domain(struct generic_pm_domain *genpd)
 	return container_of(genpd, struct imx8m_blk_ctrl_domain, genpd);
 }
 
-static int imx8m_blk_ctrl_noc_set(struct imx8m_blk_ctrl_domain *domain)
+static int imx8m_blk_ctrl_qos_set(struct imx8m_blk_ctrl_domain *domain)
 {
 	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
 	struct imx8m_blk_ctrl *bc = domain->bc;
 	struct regmap *regmap = bc->noc_regmap;
 	int i;
 
-	if (!data || !regmap)
+	if (!data)
+		return 0;
+
+	if (data->hurry_data)
+		regmap_set_bits(bc->regmap, data->hurry_data->off, data->hurry_data->hurry_mask);
+
+	if (!regmap)
 		return 0;
 
 	for (i = 0; i < DOMAIN_MAX_NOC; i++) {
@@ -155,7 +169,7 @@ static int imx8m_blk_ctrl_power_on(struct generic_pm_domain *genpd)
 	if (data->mipi_phy_rst_mask)
 		regmap_set_bits(bc->regmap, BLK_MIPI_RESET_DIV, data->mipi_phy_rst_mask);
 
-	imx8m_blk_ctrl_noc_set(domain);
+	imx8m_blk_ctrl_qos_set(domain);
 
 	/* disable upstream clocks */
 	clk_bulk_disable_unprepare(data->num_clks, domain->clks);
@@ -810,6 +824,25 @@ static const struct imx8m_blk_ctrl_noc_data imx8mp_media_noc_data[] = {
 	},
 };
 
+#define IMX8MP_MEDIABLK_LCDIF1	0
+#define IMX8MP_MEDIABLK_ISI	1
+#define IMX8MP_MEDIABLK_LCDIF2	2
+
+static const struct imx8m_blk_ctrl_hurry_data imx8mp_media_hurry_data[] = {
+	[IMX8MP_MEDIABLK_LCDIF1] = {
+		.off = BLK_LCDIF_ARCACHE_CTRL,
+		.hurry_mask = GENMASK(12, 10),
+	},
+	[IMX8MP_MEDIABLK_ISI] = {
+		.off = BLK_ISI_CACHE_CTRL,
+		.hurry_mask = GENMASK(28, 20),
+	},
+	[IMX8MP_MEDIABLK_LCDIF2] = {
+		.off = BLK_LCDIF_ARCACHE_CTRL,
+		.hurry_mask = GENMASK(15, 13),
+	}
+};
+
 /*
  * From i.MX 8M Plus Applications Processor Reference Manual, Rev. 1,
  * section 13.2.2, 13.2.3
@@ -841,6 +874,7 @@ static const struct imx8m_blk_ctrl_domain_data imx8mp_media_blk_ctl_domain_data[
 		.gpc_name = "lcdif1",
 		.rst_mask = BIT(4) | BIT(5) | BIT(23),
 		.clk_mask = BIT(4) | BIT(5) | BIT(23),
+		.hurry_data = &imx8mp_media_hurry_data[IMX8MP_MEDIABLK_LCDIF1],
 		.noc_data = {
 			&imx8mp_media_noc_data[IMX8MP_MEDIABLK_LCDIF_RD],
 			&imx8mp_media_noc_data[IMX8MP_MEDIABLK_LCDIF_WR],
@@ -853,6 +887,7 @@ static const struct imx8m_blk_ctrl_domain_data imx8mp_media_blk_ctl_domain_data[
 		.gpc_name = "isi",
 		.rst_mask = BIT(6) | BIT(7),
 		.clk_mask = BIT(6) | BIT(7),
+		.hurry_data = &imx8mp_media_hurry_data[IMX8MP_MEDIABLK_ISI],
 		.noc_data = {
 			&imx8mp_media_noc_data[IMX8MP_MEDIABLK_ISI0],
 			&imx8mp_media_noc_data[IMX8MP_MEDIABLK_ISI1],
@@ -875,6 +910,7 @@ static const struct imx8m_blk_ctrl_domain_data imx8mp_media_blk_ctl_domain_data[
 		.gpc_name = "lcdif2",
 		.rst_mask = BIT(11) | BIT(12) | BIT(24),
 		.clk_mask = BIT(11) | BIT(12) | BIT(24),
+		.hurry_data = &imx8mp_media_hurry_data[IMX8MP_MEDIABLK_LCDIF2],
 		.noc_data = {
 			&imx8mp_media_noc_data[IMX8MP_MEDIABLK_LCDIF_RD],
 			&imx8mp_media_noc_data[IMX8MP_MEDIABLK_LCDIF_WR],

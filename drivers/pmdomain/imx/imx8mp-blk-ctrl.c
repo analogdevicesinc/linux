@@ -47,6 +47,11 @@ struct imx8mp_blk_ctrl {
 	void (*power_on) (struct imx8mp_blk_ctrl *bc, struct imx8mp_blk_ctrl_domain *domain);
 };
 
+struct imx8m_blk_ctrl_hurry_data {
+	u32 off;
+	u32 hurry_mask;
+};
+
 struct imx8mp_blk_ctrl_noc_data {
 	u32 off;
 	u32 priority;
@@ -61,6 +66,7 @@ struct imx8mp_blk_ctrl_domain_data {
 	const char * const *clk_names;
 	int num_clks;
 	const char *gpc_name;
+	const struct imx8m_blk_ctrl_hurry_data *hurry_data;
 	const struct imx8mp_blk_ctrl_noc_data *noc_data[DOMAIN_MAX_NOC];
 };
 
@@ -177,14 +183,20 @@ static int imx8mp_hsio_blk_ctrl_probe(struct imx8mp_blk_ctrl *bc)
 	return devm_of_clk_add_hw_provider(bc->dev, of_clk_hw_simple_get, hw);
 }
 
-static int imx8mp_noc_set(struct imx8mp_blk_ctrl_domain *domain)
+static int imx8mp_qos_set(struct imx8mp_blk_ctrl_domain *domain)
 {
 	const struct imx8mp_blk_ctrl_domain_data *data = domain->data;
 	struct imx8mp_blk_ctrl *bc = domain->bc;
 	struct regmap *regmap = bc->noc_regmap;
 	int i;
 
-	if (!data || !regmap)
+	if (!data)
+		return 0;
+
+	if (data->hurry_data)
+		regmap_set_bits(bc->regmap, data->hurry_data->off, data->hurry_data->hurry_mask);
+
+	if (!regmap)
 		return 0;
 
 	for (i = 0; i < DOMAIN_MAX_NOC; i++) {
@@ -414,7 +426,7 @@ static void imx8mp_hdmi_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 		break;
 	}
 
-	imx8mp_noc_set(domain);
+	imx8mp_qos_set(domain);
 
 }
 
@@ -527,6 +539,20 @@ static const struct imx8mp_blk_ctrl_noc_data imx8mp_hdmi_noc_data[] = {
 	}
 };
 
+#define IMX8MP_HDMIBLK_LCDIF	0
+#define IMX8MP_HDMIBLK_HRV	1
+
+static const struct imx8m_blk_ctrl_hurry_data imx8mp_hdmi_hurry_data[] = {
+	[IMX8MP_HDMIBLK_LCDIF] = {
+		.off = HDMI_TX_CONTROL0,
+		.hurry_mask = GENMASK(14, 12),
+	},
+	[IMX8MP_HDMIBLK_HRV] = {
+		.off = HDMI_TX_CONTROL0,
+		.hurry_mask = GENMASK(18, 16),
+	}
+};
+
 static const struct imx8mp_blk_ctrl_domain_data imx8mp_hdmi_domain_data[] = {
 	[IMX8MP_HDMIBLK_PD_IRQSTEER] = {
 		.name = "hdmiblk-irqsteer",
@@ -539,6 +565,7 @@ static const struct imx8mp_blk_ctrl_domain_data imx8mp_hdmi_domain_data[] = {
 		.clk_names = (const char *[]){ "axi", "apb", "fdcc" },
 		.num_clks = 3,
 		.gpc_name = "lcdif",
+		.hurry_data = &imx8mp_hdmi_hurry_data[IMX8MP_HDMIBLK_LCDIF],
 		.noc_data = {
 			&imx8mp_hdmi_noc_data[IMX8MP_HDMIBLK_NOC_LCDIFHDMI],
 		},
@@ -578,6 +605,7 @@ static const struct imx8mp_blk_ctrl_domain_data imx8mp_hdmi_domain_data[] = {
 		.clk_names = (const char *[]){ "axi", "apb" },
 		.num_clks = 2,
 		.gpc_name = "hrv",
+		.hurry_data = &imx8mp_hdmi_hurry_data[IMX8MP_HDMIBLK_HRV],
 		.noc_data = {
 			&imx8mp_hdmi_noc_data[IMX8MP_HDMIBLK_NOC_HRV],
 		},
