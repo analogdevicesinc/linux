@@ -315,11 +315,13 @@ gc_load_show(void *m, void *data)
     gceSTATUS         status     = gcvSTATUS_OK;
     gckGALDEVICE      gal_device = galDevice;
     gckDEVICE         device     = gcvNULL;
-    gceCHIPPOWERSTATE statesStored, state;
+    gceCHIPPOWERSTATE statesStored = gcvPOWER_INVALID;
+    gceCHIPPOWERSTATE state      = gcvPOWER_INVALID;
     gctUINT32         load[gcvCORE_3D_MAX + 1]                      = { 0 };
     gctUINT32         hi_total_cycle_count[gcvCORE_3D_MAX + 1]      = { 0 };
     gctUINT32         hi_total_idle_cycle_count[gcvCORE_3D_MAX + 1] = { 0 };
     static gctBOOL    profilerEnable[gcvCORE_3D_MAX + 1]            = { gcvFALSE };
+    gctBOOL powerManagement[gcvCORE_3D_MAX];
 
 #ifdef CONFIG_DEBUG_FS
     void *ptr = m;
@@ -336,12 +338,10 @@ gc_load_show(void *m, void *data)
         if (device->kernels[i]) {
             if (device->kernels[i]->hardware) {
                 gckHARDWARE Hardware        = device->kernels[i]->hardware;
-                gctBOOL     powerManagement = Hardware->options.powerManagement;
+                powerManagement[i]          = Hardware->options.powerManagement;
 
-                if (powerManagement) {
-                    gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware,
-                                                                  gcvFALSE));
-                }
+                if (powerManagement[i])
+                    gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
 
                 gcmkONERROR(gckHARDWARE_QueryPowerState(Hardware, &statesStored));
 
@@ -381,8 +381,7 @@ gc_load_show(void *m, void *data)
     for (i = 0; i <= gcvCORE_3D_MAX; i++) {
         if (device->kernels[i]) {
             if (device->kernels[i]->hardware) {
-                gckHARDWARE Hardware        = device->kernels[i]->hardware;
-                gctBOOL     powerManagement = Hardware->options.powerManagement;
+                gckHARDWARE Hardware = device->kernels[i]->hardware;
 
                 switch (statesStored) {
                 case gcvPOWER_OFF:
@@ -404,10 +403,8 @@ gc_load_show(void *m, void *data)
 
                 Hardware->waitCount = 200;
 
-                if (powerManagement) {
-                    gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware,
-                                                                  gcvTRUE));
-                }
+                if (powerManagement[i])
+                    gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvTRUE));
 
                 gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
 
