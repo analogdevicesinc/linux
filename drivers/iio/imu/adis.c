@@ -306,7 +306,7 @@ int __adis_enable_irq(struct adis *adis, bool enable)
 
 	return __adis_write_reg_16(adis, adis->data->msc_ctrl_reg, msc);
 }
-EXPORT_SYMBOL_NS(__adis_enable_irq, IIO_ADISLIB);
+EXPORT_SYMBOL(__adis_enable_irq);
 
 /**
  * __adis_check_status() - Check the device for error conditions (unlocked)
