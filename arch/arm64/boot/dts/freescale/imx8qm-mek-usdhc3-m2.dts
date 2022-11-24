@@ -14,10 +14,6 @@
 	};
 };
 
-&epdev_on {
-	regulator-always-on;
-};
-
 &iomuxc {
 	pinctrl_usdhc3_gpio: usdhc3grpgpio {
 		fsl,pins = <
