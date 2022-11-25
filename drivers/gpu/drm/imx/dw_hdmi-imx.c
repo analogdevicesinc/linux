@@ -178,15 +178,37 @@ imx6dl_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 	return MODE_OK;
 }
 
+static bool imx8mp_hdmi_check_clk_rate(struct imx_hdmi *hdmi, int rate_khz)
+{
+	struct clk *clk_pix;
+	int rate = rate_khz * 1000;
+
+	clk_pix = devm_clk_get(hdmi->dev, "pix");
+
+	/* skip check rate if no pix clk got */
+	if (IS_ERR(clk_pix))
+		return true;
+
+	/* Check hdmi phy pixel clock support rate */
+	if (rate != clk_round_rate(clk_pix, rate))
+		return false;
+	return true;
+}
+
 static enum drm_mode_status
 imx8mp_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 		       const struct drm_display_info *info,
 		       const struct drm_display_mode *mode)
 {
+	struct imx_hdmi *imx_hdmi = (struct imx_hdmi *)data;
+
 	if (mode->clock < 13500)
 		return MODE_CLOCK_LOW;
 	if (mode->clock > 297000)
 		return MODE_CLOCK_HIGH;
+
+	if (!imx8mp_hdmi_check_clk_rate(imx_hdmi, mode->clock))
+		return MODE_CLOCK_RANGE;
 
 	/* We don't support double-clocked and Interlaced modes */
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK ||
@@ -358,6 +380,9 @@ static int dw_hdmi_imx_probe(struct platform_device *pdev)
 
 	hdmi->chip_data = plat_data->phy_data;
 	plat_data->phy_data = hdmi;
+
+	/* priv_data for mode_valid */
+	plat_data->priv_data = hdmi;
 
 	if (of_device_is_compatible(pdev->dev.of_node, "fsl,imx8mp-hdmi")) {
 		ret = imx8mp_hdmimix_setup(hdmi);
