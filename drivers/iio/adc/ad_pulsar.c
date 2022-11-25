@@ -59,7 +59,6 @@
 #define AD7682_BW_SEL(x)		FIELD_PREP(AD7682_FILTER_MSK, x)
 #define AD7682_SEL_CH(x)		FIELD_PREP(AD7682_SEL_MSK, x)
 #define AD7682_GET_FILTER(x)		FIELD_GET(AD7682_FILTER_MSK, x)
-#define AD7682_SET_FILTER(x)		FIELD_PREP(AD7682_FILTER_MSK, x)
 
 #define AD7862_SET_TYPE(reg, type)	(reg = (reg & ~AD7682_PAIR_MSK) |      \
 					AD7682_CH_TYPE(type))
@@ -461,16 +460,24 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 }
 
 static int ad_pulsar_set_lpf(struct ad_pulsar_adc *adc, int index,
-			     enum ad_pulsar_filter_bw filter)
+			     unsigned int val)
 {
+	enum ad_pulsar_filter_bw filter;
+
+	if (val == ad_pulsar_filter_freq[QUARTER_BW])
+		filter  = QUARTER_BW;
+	else if (val == ad_pulsar_filter_freq[FULL_BW])
+		filter  = FULL_BW;
+	else
+		return -EINVAL;
+
 	switch (adc->device_id) {
 	case ID_AD7949:
 	case ID_AD7699:
 	case ID_AD7682:
 	case ID_AD7689:
 		adc->seq_buf[index] &= ~AD7682_FILTER_MSK;
-		adc->seq_buf[index] |= AD7682_SET_FILTER(filter);
-
+		adc->seq_buf[index] |= AD7682_BW_SEL(filter);
 		return 0;
 	default:
 		return -EINVAL;
@@ -540,7 +547,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		ret = ad_pulsar_get_lpf(adc, chan->address, val);
+		ret = ad_pulsar_get_lpf(adc, chan->scan_index, val);
 		if (ret < 0)
 			return ret;
 		return IIO_VAL_INT;
@@ -554,12 +561,17 @@ static int ad_pulsar_write_raw(struct iio_dev *indio_dev,
 			       int val, int val2, long info)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
+	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad_pulsar_set_samp_freq(adc, val);
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		return ad_pulsar_set_lpf(adc, chan->scan_index, val);
+		ret = ad_pulsar_set_lpf(adc, chan->scan_index, val);
+		if (ret)
+			return ret;
+		return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
+					   adc->seq_buf[chan->scan_index]);
 	default:
 		return -EINVAL;
 	}
