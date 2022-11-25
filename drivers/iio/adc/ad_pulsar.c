@@ -841,6 +841,7 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	unsigned int dummy;
 	unsigned int in[2];
 	int num_ch, ret, i;
+	u32 chan_index;
 
 	num_ch = device_get_child_node_count(dev);
 	if (num_ch > adc->info->num_channels)
@@ -879,10 +880,14 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 		adc->seq_xfer[i].speed_hz = adc->info->sclk_rate;
 	}
 
-	i = 0;
 	device_for_each_child_node(dev, child) {
 		in[0] = 0;
 		in[1] = 0;
+
+		ret = fwnode_property_read_u32(child, "reg", &chan_index);
+		if (ret < 0)
+			return ret;
+
 		if (fwnode_property_present(child, "diff-channels")) {
 			ret = fwnode_property_read_u32_array(child,
 							     "diff-channels",
@@ -894,37 +899,36 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 			    (in[0] % 2 == 0 && in[1] != in[0] + 1))
 				return -EINVAL;
 
-			adc->seq_buf[i] = AD7682_SEQ_EN_CHANNEL(in[0]);
-			AD7862_SET_TYPE(adc->seq_buf[i], DIFFERENTIAL);
-			adc->channels[i].differential = 1;
-			adc->channels[i].channel2 = in[1];
-		} else if (fwnode_property_read_bool(child, "temp-sensor")) {
-			adc->seq_buf[i] = AD7682_CH_TEMP_SENSOR;
-			adc->channels[i].type = IIO_TEMP;
-			adc->channels[i].indexed = 0;
+			adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
+			AD7862_SET_TYPE(adc->seq_buf[chan_index], DIFFERENTIAL);
+			adc->channels[chan_index].differential = 1;
+			adc->channels[chan_index].channel2 = in[1];
+		} else if (fwnode_property_read_bool(child, "adi,temp-sensor")) {
+			adc->seq_buf[chan_index] = AD7682_CH_TEMP_SENSOR;
+			adc->channels[chan_index].type = IIO_TEMP;
+			adc->channels[chan_index].indexed = 0;
 		} else {
-			ret = fwnode_property_read_u32(child, "reg", &in[0]);
+			ret = fwnode_property_read_u32(child,
+						       "adi,single-channel",
+						       &in[0]);
 			if (ret < 0)
 				return ret;
 
-			adc->seq_buf[i] = AD7682_SEQ_EN_CHANNEL(in[0]);
+			adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
 			if (in[0] > adc->info->num_channels)
 				return -EINVAL;
 		}
 
 		if (fwnode_property_read_bool(child, "bipolar")) {
-			adc->channels[i].scan_type.sign = 's';
-			AD7682_SET_POLARITY(adc->seq_buf[i], BIPOLAR);
+			adc->channels[chan_index].scan_type.sign = 's';
+			AD7682_SET_POLARITY(adc->seq_buf[chan_index], BIPOLAR);
 		}
-		adc->channels[i].channel = in[0];
-		adc->channels[i].scan_index = i;
-		adc->channels[i].address = adc->seq_buf[i];
-		i++;
-	}
-	for (i = 0; i < num_ch; i++)
-		adc->seq_buf[i] = adc->seq_buf[i] << 2;
 
-	indio_dev->num_channels = i;
+		adc->channels[chan_index].channel = in[0];
+		adc->channels[chan_index].scan_index = chan_index;
+		adc->channels[chan_index].address = adc->seq_buf[chan_index];
+		adc->seq_buf[chan_index] = adc->seq_buf[chan_index] << 2;
+	}
 
 	return 0;
 }
