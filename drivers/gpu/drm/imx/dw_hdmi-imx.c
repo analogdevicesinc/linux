@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2011-2013 Freescale Semiconductor, Inc.
+ * Copyright 2020-2022 NXP
  *
  * derived from imx-hdmi.c(renamed to bridge/dw_hdmi.c now)
  */
@@ -11,7 +12,6 @@
 #include <linux/platform_device.h>
 #include <linux/phy/phy.h>
 #include <linux/regmap.h>
-#include <linux/reset.h>
 
 #include <video/imx-ipu-v3.h>
 
@@ -54,19 +54,6 @@ static inline struct imx_hdmi *enc_to_imx_hdmi(struct drm_encoder *e)
 {
 	return container_of(e, struct imx_hdmi_encoder, encoder)->hdmi;
 }
-
-struct clk_bulk_data imx8mp_clocks[] = {
-	{ .id = "pix_clk"  },
-	{ .id = "phy_int"  },
-	{ .id = "prep_clk" },
-	{ .id = "skp_clk"  },
-	{ .id = "sfr_clk"  },
-	{ .id = "cec_clk"  },
-	{ .id = "apb_clk"  },
-	{ .id = "hpi_clk"  },
-	{ .id = "fdcc_ref" },
-	{ .id = "pipe_clk" },
-};
 
 static const struct dw_hdmi_mpll_config imx_mpll_cfg[] = {
 	{
@@ -191,19 +178,6 @@ imx6dl_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 	return MODE_OK;
 }
 
-static bool imx8mp_hdmi_check_clk_rate(int rate_khz)
-{
-	int rate = rate_khz * 1000;
-
-	if (!imx8mp_clocks[0].clk)
-		return true;
-
-	/* Check hdmi phy pixel clock support rate */
-	if (rate != clk_round_rate(imx8mp_clocks[0].clk, rate))
-		return  false;
-	return true;
-}
-
 static enum drm_mode_status
 imx8mp_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 		       const struct drm_display_info *info,
@@ -213,9 +187,6 @@ imx8mp_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 		return MODE_CLOCK_LOW;
 	if (mode->clock > 297000)
 		return MODE_CLOCK_HIGH;
-
-	if (!imx8mp_hdmi_check_clk_rate(mode->clock))
-		return MODE_CLOCK_RANGE;
 
 	/* We don't support double-clocked and Interlaced modes */
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK ||
@@ -252,30 +223,13 @@ static int imx8mp_hdmi_phy_init(struct dw_hdmi *dw_hdmi, void *data,
 				const struct drm_display_mode *mode)
 {
 	struct imx_hdmi *hdmi = (struct imx_hdmi *)data;
-	int val;
 
 	dev_dbg(hdmi->dev, "%s\n", __func__);
 
 	dw_hdmi_phy_gen1_reset(dw_hdmi);
 
 	/* enable PVI */
-	imx8mp_hdmi_pavi_powerup();
 	imx8mp_hdmi_pvi_enable(mode);
-
-	regmap_read(hdmi->regmap, 0x200, &val);
-	/* HDMI PHY power off */
-	val |= 0x8;
-	regmap_write(hdmi->regmap, 0x200, val);
-	/* HDMI PHY power on */
-	val &= ~0x8;
-	/* Enable CEC */
-	val |= 0x2;
-	regmap_write(hdmi->regmap, 0x200, val);
-
-	if (!hdmi->phy)
-		return 0;
-
-	phy_power_on(hdmi->phy);
 
 	return 0;
 }
@@ -283,47 +237,21 @@ static int imx8mp_hdmi_phy_init(struct dw_hdmi *dw_hdmi, void *data,
 static void imx8mp_hdmi_phy_disable(struct dw_hdmi *dw_hdmi, void *data)
 {
 	struct imx_hdmi *hdmi = (struct imx_hdmi *)data;
-	int val;
 
 	dev_dbg(hdmi->dev, "%s\n", __func__);
-	if (!hdmi->phy)
-		return;
 
 	/* disable PVI */
 	imx8mp_hdmi_pvi_disable();
-	imx8mp_hdmi_pavi_powerdown();
-
-	/* TODO */
-	regmap_read(hdmi->regmap, 0x200, &val);
-	/* Disable CEC */
-	val &= ~0x2;
-	/* Power down HDMI PHY
-	 * TODO move PHY power off to hdmi phy driver
-	 * val |= 0x8;
-	 * regmap_write(hdmi->regmap, 0x200, val);
-	*/
 }
 
 static int imx8mp_hdmimix_setup(struct imx_hdmi *hdmi)
 {
-	int ret;
-
 	if (NULL == imx8mp_hdmi_pavi_init()) {
 		dev_err(hdmi->dev, "No pavi info found\n");
 		return -EPROBE_DEFER;
 	}
 
-	ret = device_reset(hdmi->dev);
-	if (ret == -EPROBE_DEFER)
-		return ret;
-
-	ret = devm_clk_bulk_get_optional(hdmi->dev, ARRAY_SIZE(imx8mp_clocks), imx8mp_clocks);
-	if (ret < 0) {
-		dev_err(hdmi->dev, "No hdmimix bulk clk got\n");
-		return -EPROBE_DEFER;
-	}
-
-	return clk_bulk_prepare_enable(ARRAY_SIZE(imx8mp_clocks), imx8mp_clocks);
+	return 0;
 }
 
 void imx8mp_hdmi_enable_audio(struct dw_hdmi *dw_hdmi, int channel,
@@ -417,18 +345,10 @@ static int dw_hdmi_imx_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, hdmi);
 	hdmi->dev = &pdev->dev;
 
-	hdmi->regmap = syscon_regmap_lookup_by_phandle(np, "gpr");
+	hdmi->regmap = syscon_regmap_lookup_by_phandle_optional(np, "gpr");
 	if (IS_ERR(hdmi->regmap)) {
 		dev_err(hdmi->dev, "Unable to get gpr\n");
 		return PTR_ERR(hdmi->regmap);
-	}
-
-	hdmi->phy = devm_phy_optional_get(hdmi->dev, "hdmi");
-	if (IS_ERR(hdmi->phy)) {
-		ret = PTR_ERR(hdmi->phy);
-		if (ret != -EPROBE_DEFER)
-			dev_err(hdmi->dev, "failed to get phy\n");
-		return ret;
 	}
 
 	plat_data = devm_kmemdup(&pdev->dev, match->data,
