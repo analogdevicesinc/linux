@@ -760,8 +760,10 @@ static const struct of_device_id ad_pulsar_of_match[] = {
 	{ .compatible = "adi,pulsar,ad7983", .data = (void *)ID_AD7983   },
 	{ .compatible = "adi,pulsar,ad7982", .data = (void *)ID_AD7982   },
 	{ .compatible = "adi,pulsar,ad7980", .data = (void *)ID_AD7980   },
+	{ .compatible = "adi,pulsar,ad7949", .data = (void *)ID_AD7949   },
 	{ .compatible = "adi,pulsar,ad7946", .data = (void *)ID_AD7946   },
 	{ .compatible = "adi,pulsar,ad7942", .data = (void *)ID_AD7942   },
+	{ .compatible = "adi,pulsar,ad7699", .data = (void *)ID_AD7699   },
 	{ .compatible = "adi,pulsar,ad7693", .data = (void *)ID_AD7693   },
 	{ .compatible = "adi,pulsar,ad7691", .data = (void *)ID_AD7691   },
 	{ .compatible = "adi,pulsar,ad7690", .data = (void *)ID_AD7690   },
@@ -770,6 +772,7 @@ static const struct of_device_id ad_pulsar_of_match[] = {
 	{ .compatible = "adi,pulsar,ad7687", .data = (void *)ID_AD7687   },
 	{ .compatible = "adi,pulsar,ad7686", .data = (void *)ID_AD7686   },
 	{ .compatible = "adi,pulsar,ad7685", .data = (void *)ID_AD7685   },
+	{ .compatible = "adi,pulsar,ad7682", .data = (void *)ID_AD7682   },
 	{ .compatible = "adi,pulsar,ad4022", .data = (void *)ID_AD4022   },
 	{ .compatible = "adi,pulsar,ad4021", .data = (void *)ID_AD4021   },
 	{ .compatible = "adi,pulsar,ad4020", .data = (void *)ID_AD4020   },
@@ -788,8 +791,10 @@ static const struct spi_device_id ad_pulsar_spi_id[] = {
 	{ "adi,pulsar,ad7983", ID_AD7983 },
 	{ "adi,pulsar,ad7982", ID_AD7982 },
 	{ "adi,pulsar,ad7980", ID_AD7980 },
+	{ "adi,pulsar,ad7949", ID_AD7949 },
 	{ "adi,pulsar,ad7946", ID_AD7946 },
 	{ "adi,pulsar,ad7942", ID_AD7942 },
+	{ "adi,pulsar,ad7699", ID_AD7699 },
 	{ "adi,pulsar,ad7693", ID_AD7693 },
 	{ "adi,pulsar,ad7691", ID_AD7691 },
 	{ "adi,pulsar,ad7690", ID_AD7690 },
@@ -798,6 +803,7 @@ static const struct spi_device_id ad_pulsar_spi_id[] = {
 	{ "adi,pulsar,ad7687", ID_AD7687 },
 	{ "adi,pulsar,ad7686", ID_AD7686 },
 	{ "adi,pulsar,ad7685", ID_AD7685 },
+	{ "adi,pulsar,ad7682", ID_AD7682 },
 	{ "adi,pulsar,ad4022", ID_AD4022 },
 	{ "adi,pulsar,ad4021", ID_AD4021 },
 	{ "adi,pulsar,ad4020", ID_AD4020 },
@@ -951,8 +957,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	int i, tmp;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev,
-					  sizeof(struct ad_pulsar_adc));
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*adc));
 	if (!indio_dev)
 		return -ENOMEM;
 
