@@ -3,7 +3,7 @@
  * SNVS Security Violation Handler
  *
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2019, 2023 NXP
  */
 
 #include "compat.h"
@@ -54,6 +54,24 @@ static const u8 *snvs_ssm_state_name[] = {
 	"secure",
 };
 
+static DEFINE_STATIC_KEY_TRUE(snvs_little_end);
+
+static inline u32 secvio_read(void __iomem *reg)
+{
+	if (static_branch_likely(&snvs_little_end))
+		return ioread32(reg);
+	else
+		return ioread32be(reg);
+}
+
+static inline void secvio_write(void __iomem *reg, u32 data)
+{
+	if (static_branch_likely(&snvs_little_end))
+		iowrite32(data, reg);
+	else
+		iowrite32be(data, reg);
+}
+
 /* Top-level security violation interrupt */
 static irqreturn_t snvs_secvio_interrupt(int irq, void *snvsdev)
 {
@@ -62,8 +80,8 @@ static irqreturn_t snvs_secvio_interrupt(int irq, void *snvsdev)
 
 	clk_enable(svpriv->clk);
 	/* Check the HP secvio status register */
-	svpriv->irqcause = rd_reg32(&svpriv->svregs->hp.secvio_status) &
-				    HP_SECVIOST_SECVIOMASK;
+	svpriv->irqcause = secvio_read(&svpriv->svregs->hp.secvio_status) &
+				       HP_SECVIOST_SECVIOMASK;
 
 	if (!svpriv->irqcause) {
 		clk_disable(svpriv->clk);
@@ -192,7 +210,7 @@ static int snvs_secvio_remove(struct platform_device *pdev)
 
 	clk_enable(svpriv->clk);
 	/* Set all sources to nonfatal */
-	wr_reg32(&svpriv->svregs->hp.secvio_intcfg, 0);
+	secvio_write(&svpriv->svregs->hp.secvio_intcfg, 0);
 
 	/* Remove tasklets and release interrupt */
 	for_each_possible_cpu(i)
@@ -216,6 +234,7 @@ static int snvs_secvio_probe(struct platform_device *pdev)
 	u32 hpstate;
 	const void *jtd, *wtd, *itd, *etd;
 	u32 td_en;
+	u32 ipidr, ipid;
 
 	svpriv = kzalloc(sizeof(struct snvs_secvio_drv_private), GFP_KERNEL);
 	if (!svpriv)
@@ -281,9 +300,36 @@ static int snvs_secvio_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(svpriv->clk);
 
+	/*
+	 * Reading SNVS version ID register HPVIDR1 to identify the endianness
+	 * of the device which contain non-zero constants including 16-bit field
+	 * called IP_ID[Bit 31-16] having one of the four values 0x003A, 0x003C,
+	 * 0x003E, 0x003F.
+	 */
+	ipidr = secvio_read(&svpriv->svregs->vid);
+	ipid = ipidr >> SNVS_HPVIDR_BLOCK_ID;
+	if (ipid == SNVS_ID1 || ipid == SNVS_ID2 || ipid == SNVS_ID3 || ipid == SNVS_ID4) {
+		dev_info(svdev, "ipid matched - 0x%x\n", ipid);
+	} else {
+		/*
+		 * Device endianness is not LE.Reading again SNVS version ID
+		 * register value to identify the endianness of device is BE.
+		 */
+		ipid = (ipidr & (u32)0x0000FF00) >> 8;
+		if (ipid == SNVS_ID1 || ipid == SNVS_ID2 || ipid == SNVS_ID3 || ipid == SNVS_ID4) {
+			dev_info(svdev, "ipid matched - 0x%x\n", ipid);
+			static_branch_disable(&snvs_little_end);
+		} else {
+			dev_err(svdev, "unable to identify secvio endianness\n");
+			iounmap(svpriv->svregs);
+			kfree(svpriv);
+			return -EINVAL;
+		}
+	}
+
 	/* Write the Secvio Enable Config the SVCR */
-	wr_reg32(&svpriv->svregs->hp.secvio_ctl, td_en);
-	wr_reg32(&svpriv->svregs->hp.secvio_intcfg, td_en);
+	secvio_write(&svpriv->svregs->hp.secvio_ctl, td_en);
+	secvio_write(&svpriv->svregs->hp.secvio_intcfg, td_en);
 
 	 /* Device data set up. Now init interrupt source descriptions */
 	for (i = 0; i < MAX_SECVIO_SOURCES; i++) {
@@ -306,8 +352,8 @@ static int snvs_secvio_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	hpstate = (rd_reg32(&svpriv->svregs->hp.status) &
-			    HP_STATUS_SSM_ST_MASK) >> HP_STATUS_SSM_ST_SHIFT;
+	hpstate = (secvio_read(&svpriv->svregs->hp.status) &
+			       HP_STATUS_SSM_ST_MASK) >> HP_STATUS_SSM_ST_SHIFT;
 	dev_info(svdev, "violation handlers armed - %s state\n",
 		 snvs_ssm_state_name[hpstate]);
 

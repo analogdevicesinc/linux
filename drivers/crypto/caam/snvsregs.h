@@ -236,4 +236,10 @@ struct snvs_full {
 	u32 opt_rev;		/* 0xbfc HP Options / Revision (VID 2) */
 };
 
+#define SNVS_HPVIDR_BLOCK_ID	16	/* SNVS Block ID 31-16 bit */
+#define SNVS_ID1		58	/* SNVS Block ID 0x3A */
+#define SNVS_ID2		60	/* SNVS Block ID 0x3C */
+#define SNVS_ID3		62	/* SNVS Block ID 0x3E */
+#define SNVS_ID4		63	/* SNVS Block ID 0x3F */
+
 #endif /* SNVSREGS_H */
