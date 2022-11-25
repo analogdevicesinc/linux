@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2022 NXP
  *
  * Programe Video/Audio Interface between LCDIF and HDMI Ctrl in HDMIMIX
  *
@@ -37,7 +37,6 @@
 #define HTX_PAI_FIELD_CTRL  0x808
 
 #define HTX_PAI_CTRL_ENABLE 1
-
 
 static struct imx8mp_hdmi_pavi *gpavi;
 
@@ -102,36 +101,6 @@ void imx8mp_hdmi_pvi_disable(void)
 }
 EXPORT_SYMBOL(imx8mp_hdmi_pvi_disable);
 
-void imx8mp_hdmi_pavi_powerup(void)
-{
-	clk_prepare_enable(gpavi->clk_pvi);
-	clk_prepare_enable(gpavi->clk_pai);
-
-	/* deassert pai reset */
-	if (!gpavi->reset_pai)
-		reset_control_deassert(gpavi->reset_pai);
-
-	/* deassert pvi reset */
-	if (!gpavi->reset_pvi)
-		reset_control_deassert(gpavi->reset_pvi);
-}
-EXPORT_SYMBOL(imx8mp_hdmi_pavi_powerup);
-
-void imx8mp_hdmi_pavi_powerdown(void)
-{
-	/* set pvi reset */
-	if (!gpavi->reset_pvi)
-		reset_control_assert(gpavi->reset_pvi);
-
-	/* set pai reset */
-	if (!gpavi->reset_pai)
-		reset_control_assert(gpavi->reset_pai);
-
-	clk_disable_unprepare(gpavi->clk_pai);
-	clk_disable_unprepare(gpavi->clk_pvi);
-}
-EXPORT_SYMBOL(imx8mp_hdmi_pavi_powerdown);
-
 struct imx8mp_hdmi_pavi *imx8mp_hdmi_pavi_init(void)
 {
 	return gpavi;
@@ -160,33 +129,17 @@ static int imx8mp_hdmi_pavi_probe(struct platform_device *pdev)
 	if (IS_ERR(pavi->base))
 		return PTR_ERR(pavi->base);
 
-	pavi->clk_pvi = devm_clk_get(dev, "pvi_clk");
-	if (IS_ERR(pavi->clk_pvi)) {
-		dev_err(dev, "No pvi clock get\n");
-		return -EPROBE_DEFER;
-	}
-
-	pavi->clk_pai = devm_clk_get(dev, "pai_clk");
-	if (IS_ERR(pavi->clk_pai)) {
+	pavi->clk_apb = devm_clk_get(dev, NULL);
+	if (IS_ERR(pavi->clk_apb)) {
 		dev_err(dev, "No pai clock get\n");
-		return -EPROBE_DEFER;
-	}
-
-	pavi->reset_pai = devm_reset_control_get_optional(dev, "pai_rst");
-	if (IS_ERR(pavi->reset_pai)) {
-		dev_err(pavi->dev, "No PAI reset\n");
-		return -EPROBE_DEFER;
-	}
-
-	pavi->reset_pvi = devm_reset_control_get_optional(dev, "pvi_rst");
-	if (IS_ERR(pavi->reset_pvi)) {
-		dev_err(pavi->dev, "No PVI reset\n");
 		return -EPROBE_DEFER;
 	}
 
 	platform_set_drvdata(pdev, pavi);
 
 	gpavi = pavi;
+
+	clk_prepare_enable(gpavi->clk_apb);
 
 	dev_dbg(dev, "%s: probe success\n", __func__);
 	return 0;
@@ -195,6 +148,8 @@ static int imx8mp_hdmi_pavi_probe(struct platform_device *pdev)
 static int imx8mp_hdmi_pavi_remove(struct platform_device *pdev)
 {
 	gpavi = NULL;
+	clk_disable_unprepare(gpavi->clk_apb);
+
 	return 0;
 }
 
