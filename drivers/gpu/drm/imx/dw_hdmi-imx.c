@@ -449,6 +449,10 @@ static int dw_hdmi_imx_probe(struct platform_device *pdev)
 	if (IS_ERR(hdmi->hdmi))
 		return PTR_ERR(hdmi->hdmi);
 
+	/* reset imx8mp hdmi external phy */
+	if (of_device_is_compatible(pdev->dev.of_node, "fsl,imx8mp-hdmi"))
+		dw_hdmi_phy_gen1_reset(hdmi->hdmi);
+
 	hdmi->bridge = of_drm_find_bridge(np);
 	if (!hdmi->bridge) {
 		dev_err(hdmi->dev, "Unable to find bridge\n");
