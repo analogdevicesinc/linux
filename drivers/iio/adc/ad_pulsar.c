@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Analog Devices PulSAR ADC family driver
  *
@@ -520,7 +520,6 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = adc->samp_freq;
-
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
@@ -544,9 +543,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		ret = ad_pulsar_get_lpf(adc, chan->address, val);
 		if (ret < 0)
 			return ret;
-
 		return IIO_VAL_INT;
-
 	default:
 		return -EINVAL;
 	}
@@ -1041,4 +1038,4 @@ module_spi_driver(ad_pulsar_driver);
 
 MODULE_AUTHOR("Sergiu Cuciurean <sergiu.cuciurean@analog.com>");
 MODULE_DESCRIPTION("Analog Devices PulSAR ADC family driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
