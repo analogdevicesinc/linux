@@ -849,8 +849,7 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	if (!num_ch)
 		num_ch = adc->info->num_channels;
 
-	adc->channels = devm_kzalloc(dev,
-				     num_ch * sizeof(struct iio_chan_spec),
+	adc->channels = devm_kcalloc(dev, num_ch, sizeof(struct iio_chan_spec),
 				     GFP_KERNEL);
 	if (!adc->channels)
 		return -ENOMEM;
@@ -864,14 +863,12 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	if (!adc->info->sequencer)
 		return 0;
 
-	adc->seq_buf = devm_kzalloc(dev,
-				    num_ch * sizeof(unsigned short),
+	adc->seq_buf = devm_kcalloc(dev, num_ch, sizeof(unsigned short),
 				    GFP_KERNEL);
 	if (!adc->seq_buf)
 		return -ENOMEM;
 
-	adc->seq_xfer = devm_kzalloc(dev,
-				     num_ch * sizeof(struct spi_transfer),
+	adc->seq_xfer = devm_kcalloc(dev, num_ch, sizeof(struct spi_transfer),
 				     GFP_KERNEL);
 
 	for (i = 0; i < num_ch; i++) {
