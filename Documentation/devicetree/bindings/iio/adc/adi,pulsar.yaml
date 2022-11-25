@@ -17,8 +17,10 @@ description: |
     https://www.analog.com/en/products/ad7983.html
     https://www.analog.com/en/products/ad7982.html
     https://www.analog.com/en/products/ad7980.html
+    https://www.analog.com/en/products/ad7949.html
     https://www.analog.com/en/products/ad7946.html
     https://www.analog.com/en/products/ad7942.html
+    https://www.analog.com/en/products/ad7699.html
     https://www.analog.com/en/products/ad7693.html
     https://www.analog.com/en/products/ad7691.html
     https://www.analog.com/en/products/ad7690.html
@@ -27,6 +29,7 @@ description: |
     https://www.analog.com/en/products/ad7687.html
     https://www.analog.com/en/products/ad7686.html
     https://www.analog.com/en/products/ad7685.html
+    https://www.analog.com/en/products/ad7682.html
     https://www.analog.com/en/products/ad4022.html
     https://www.analog.com/en/products/ad4021.html
     https://www.analog.com/en/products/ad4020.html
@@ -35,80 +38,59 @@ description: |
     https://www.analog.com/en/products/ad4003.html
     https://www.analog.com/en/products/adaq4003.html
 
+$ref: /schemas/spi/spi-peripheral-props.yaml#
+
 properties:
   compatible:
-    oneOf:
-      - items:
-          - const: adi,pulsar,ad7988-5
-          - const: adi,pulsar,ad7988-1
-          - const: adi,pulsar,ad7984
-          - const: adi,pulsar,ad7983
-          - const: adi,pulsar,ad7982
-          - const: adi,pulsar,ad7980
-          - const: adi,pulsar,ad7946
-          - const: adi,pulsar,ad7942
-          - const: adi,pulsar,ad7693
-          - const: adi,pulsar,ad7691
-          - const: adi,pulsar,ad7690
-          - const: adi,pulsar,ad7689
-          - const: adi,pulsar,ad7688
-          - const: adi,pulsar,ad7687
-          - const: adi,pulsar,ad7686
-          - const: adi,pulsar,ad7685
-          - const: adi,pulsar,ad4022
-          - const: adi,pulsar,ad4021
-          - const: adi,pulsar,ad4020
-          - const: adi,pulsar,ad4011
-          - const: adi,pulsar,ad4007
-          - const: adi,pulsar,ad4003
-          - const: adi,pulsar,adaq4003
-      - enum:
-          - adi,pulsar,ad7988-5
-          - adi,pulsar,ad7988-1
-          - adi,pulsar,ad7984
-          - adi,pulsar,ad7983
-          - adi,pulsar,ad7982
-          - adi,pulsar,ad7980
-          - adi,pulsar,ad7946
-          - adi,pulsar,ad7942
-          - adi,pulsar,ad7693
-          - adi,pulsar,ad7691
-          - adi,pulsar,ad7690
-          - adi,pulsar,ad7689
-          - adi,pulsar,ad7688
-          - adi,pulsar,ad7687
-          - adi,pulsar,ad7686
-          - adi,pulsar,ad7685
-          - adi,pulsar,ad4022
-          - adi,pulsar,ad4021
-          - adi,pulsar,ad4020
-          - adi,pulsar,ad4011
-          - adi,pulsar,ad4007
-          - adi,pulsar,ad4003
-          - adi,pulsar,adaq4003
+    enum:
+      - adi,pulsar,ad7988-5
+      - adi,pulsar,ad7988-1
+      - adi,pulsar,ad7984
+      - adi,pulsar,ad7983
+      - adi,pulsar,ad7982
+      - adi,pulsar,ad7980
+      - adi,pulsar,ad7949
+      - adi,pulsar,ad7946
+      - adi,pulsar,ad7942
+      - adi,pulsar,ad7699
+      - adi,pulsar,ad7693
+      - adi,pulsar,ad7691
+      - adi,pulsar,ad7690
+      - adi,pulsar,ad7689
+      - adi,pulsar,ad7688
+      - adi,pulsar,ad7687
+      - adi,pulsar,ad7686
+      - adi,pulsar,ad7685
+      - adi,pulsar,ad7682
+      - adi,pulsar,ad4022
+      - adi,pulsar,ad4021
+      - adi,pulsar,ad4020
+      - adi,pulsar,ad4011
+      - adi,pulsar,ad4007
+      - adi,pulsar,ad4003
+      - adi,pulsar,adaq4003
 
-  reg:
-    maxItems: 1
+  '#address-cells':
+    const: 1
 
-  spi-max-frequency:
-    description: |
-      Maximum SPI frequency, depends on the chosen ADC.
-    maximum: 80000000
+  '#size-cells':
+    const: 0
+
+  reg: true
+  spi-max-frequency: true
 
   clocks:
     maxItems: 1
 
   clock-names:
-    const: "ref_clk"
-    description: |
-      PulSAR reference clock name.
+    const: ref_clk
+    description: PulSAR reference clock name.
 
   dmas:
     maxItems: 1
 
   dma-names:
-    items:
-      - const: rx
+    const: rx
 
   pwms:
     description: |
@@ -117,51 +99,76 @@ properties:
     maxItems: 1
 
   pwm-names:
-    items:
-      - const: cnv
+    const: cnv
 
   vref-supply:
-    description: |
-      Voltage regulator for the reference voltage.
+    description: Voltage regulator for the reference voltage.
 
 patternProperties:
   "^channel@([0-8])$":
     type: object
     description: Configurations of the ADC Channels
 
-    additionalProperties: false
+    unevaluatedProperties: false
 
     properties:
-      reg:
-        description: |
-          The channel number representing the ADC input channel.
-        maximum: 8
+      reg: true
+
+      adi,temp-sensor:
+        description: Sets the channel to be configured as a temperature sensor.
+        type: boolean
 
       diff-channels:
-        description: |
-          Sets two adjacent intupts as a differential channel, depends on the
-          chosen ADC.
+        description: see Documentation/devicetree/bindings/iio/adc/adc.yaml
         maxItems: 1
 
-      temp-sensor: true
+      adi,single-channel:
+        description: The channel number representing the ADC input channel.
+        $ref: /schemas/types.yaml#/definitions/uint32
 
-      bipolar: true
+      bipolar:
+        description: see Documentation/devicetree/bindings/iio/adc/adc.yaml
+        type: boolean
 
-    oneOf:
-      # Only one preoperty can be used at a time per channel
-      - required:
-          - reg
+    required:
+      - reg
 
-      - required:
-          - diff-channels
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            # const: adi,pulsar,ad7689
+            enum:
+              - adi,pulsar,ad7949
+              - adi,pulsar,ad7699
+              - adi,pulsar,ad7689
+              - adi,pulsar,ad7682
 
-      - required:
-          - temp-sensor
+    then:
+      patternProperties:
+        "^channel@([0-8])$":
+
+          oneOf:
+            # Only one property can be used at a time per channel
+            - required:
+                - adi,single-channel
+
+            - required:
+                - diff-channels
+
+            - required:
+                - adi,temp-sensor
+
+    else:
+      patternProperties:
+        "^channel@([0-8])$":
+          required:
+            - adi,single-channel
 
 required:
   - compatible
   - reg
-  - spi-max-frequency
   - clocks
   - clock-names
   - dmas
@@ -175,41 +182,49 @@ additionalProperties: false
 examples:
   - |
     spi {
-      #address-cells = <1>;
-      #size-cells = <0>;
-      adc@0 {
-              #address-cells = <1>;
-              #size-cells = <0>;
-              compatible = "adi,pulsar,ad7689";
-              reg = <0>;
-              spi-max-frequency = <80000000>;
-              clocks = <&spi_clk>;
-              clock-names = "ref_clk";
-              dmas = <&rx_dma 0>;
-              dma-names = "rx";
-              pwms = <&adc_trigger 0 0>;
-              pwm-names = "cnv";
-              vref-supply = <&vref>;
-              channel@0 {
-                      diff-channels = <0 1>;
-              };
-              channel@1 {
-                      diff-channels = <2 3>;
-              };
-              channel@2 {
-                      reg = <4>;
-              };
-              channel@3 {
-                      reg = <5>;
-              };
-              channel@4 {
-                      reg = <6>;
-              };
-              channel@5 {
-                      reg = <7>;
-              };
-              channel@6 {
-                      temp-sensor;
-              };
-      };
+        #address-cells = <1>;
+        #size-cells = <0>;
+        adc@0 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                compatible = "adi,pulsar,ad7689";
+                reg = <0>;
+                spi-max-frequency = <80000000>;
+                clocks = <&spi_clk>;
+                clock-names = "ref_clk";
+                dmas = <&rx_dma 0>;
+                dma-names = "rx";
+                pwms = <&adc_trigger 0 0>;
+                pwm-names = "cnv";
+                vref-supply = <&vref>;
+                channel@0 {
+                        reg = <0>;
+                        diff-channels = <0 1>;
+                };
+                channel@1 {
+                        reg = <1>;
+                        diff-channels = <2 3>;
+                };
+                channel@2 {
+                        reg = <2>;
+                        adi,single-channel = <4>;
+                };
+                channel@3 {
+                        reg = <3>;
+                        adi,single-channel = <5>;
+                };
+                channel@4 {
+                        reg = <4>;
+                        adi,single-channel = <6>;
+                };
+                channel@5 {
+                        reg = <5>;
+                        adi,single-channel = <7>;
+                };
+                channel@6 {
+                        reg = <6>;
+                        adi,temp-sensor;
+                };
+        };
+    };
 ...
