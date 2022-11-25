@@ -543,8 +543,13 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 	if (of_device_is_compatible(np, "snps,dwxgmac")) {
 		plat->has_xgmac = 1;
 		plat->pmt = 1;
-		if (of_property_read_bool(np, "snps,tso"))
-			plat->flags |= STMMAC_FLAG_TSO_EN;
+		plat->tso_en = of_property_read_bool(np, "snps,tso");
+
+		/* Rx VLAN HW Stripping */
+		if (of_property_read_bool(np, "snps,rx-vlan-offload")) {
+			dev_info(&pdev->dev, "RX VLAN HW Stripping\n");
+			plat->use_hw_vlan = true;
+		}
 	}
 
 	dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
