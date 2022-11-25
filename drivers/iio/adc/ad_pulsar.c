@@ -498,16 +498,11 @@ static int ad_pulsar_read_channel(struct iio_dev *indio_dev,
 				  const struct iio_chan_spec *chan, int *val)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-	unsigned int temp;
-	int ret, i;
+	int ret;
 
-	temp = chan->address;
-
-	for (i = 0; i < 4; i++) {
-		ret = ad_pulsar_reg_read(adc, temp, val);
-		if (ret < 0)
-			return ret;
-	}
+	ret = ad_pulsar_reg_read(adc, chan->address, val);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -953,6 +948,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct clk *ref_clk;
 	const void *id;
+	int i, tmp;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev,
@@ -1034,6 +1030,12 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	ret = ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
 	if (ret < 0)
 		return ret;
+	//TODO
+	for (i = 0; i < 3; i++) {
+		ret = ad_pulsar_reg_read(adc, adc->seq_buf[0], &tmp);
+		if (ret < 0)
+			return ret;
+	}
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
