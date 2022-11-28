@@ -109,44 +109,24 @@
 			reg = <0x0>;
 		};
 
-		input@10001 {
-			label = "Main Die corner bottom left 1";
-			reg = <0x10001>;
+		input@10000 {
+			label = "Main Die corner bottom left max";
+			reg = <0x10000>;
 		};
 
-		input@10002 {
-			label = "Main Die corner bottom left 1";
-			reg = <0x10002>;
+		input@20000 {
+			label = "Main Die corner top left max";
+			reg = <0x20000>;
 		};
 
-		input@20001 {
-			label = "Main Die corner top left 1";
-			reg = <0x20001>;
+		input@30000 {
+			label = "Main Die corner bottom right max";
+			reg = <0x30000>;
 		};
 
-		input@20002 {
-			label = "Main Die corner top left 2";
-			reg = <0x20002>;
-		};
-
-		input@30001 {
-			label = "Main Die corner bottom right 1";
-			reg = <0x30001>;
-		};
-
-		input@30002 {
-			label = "Main Die corner bottom right 2";
-			reg = <0x30002>;
-		};
-
-		input@40001 {
-			label = "Main Die corner top right HPS 1";
-			reg = <0x40001>;
-		};
-
-		input@40002 {
-			label = "Main Die corner bottom right";
-			reg = <0x40002>;
+		input@40000 {
+			label = "Main Die corner top right max";
+			reg = <0x40000>;
 		};
 	};
 };
