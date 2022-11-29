@@ -16,6 +16,9 @@
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
 #include <linux/regmap.h>
+#include <linux/gcd.h>
+#include <linux/math64.h>
+
 
 /* ADF4382 REG0000 Map */
 #define ADF4382_SOFT_RESET_R_MSK	BIT(7)
@@ -84,10 +87,10 @@
 #define ADF4382_FRAC1WORD_LSB_MSK	GENMASK(7, 0)
 
 /* ADF4382 REG0013 Map */
-#define ADF4382_FRAC1WORD_MID1_MSK	GENMASK(7, 0)
+#define ADF4382_FRAC1WORD_MID_MSK	GENMASK(7, 0)
 
 /* ADF4382 REG0014 Map */
-#define ADF4382_FRAC1WORD_MID2_MSK	GENMASK(7, 0)
+#define ADF4382_FRAC1WORD_MSB_MSK	GENMASK(7, 0)
 
 /* ADF4382 REG0015 Map */
 #define ADF4382_M_VCO_BAND_LSB_MSK	BIT(7)
@@ -110,7 +113,7 @@
 #define ADF4382_FRAC2WORD_MSB_MSK	GENMASK(7, 0)
 
 /* ADF4382 REG001A Map */
-#define ADF4382_MOD2WORD_MSB_MSK	GENMASK(7, 0)
+#define ADF4382_MOD2WORD_LSB_MSK	GENMASK(7, 0)
 
 /* ADF4382 REG001B Map */
 #define ADF4382_MOD2WORD_MID_MSK	GENMASK(7, 0)
@@ -397,6 +400,20 @@
 /* ADF4382 REG0054 Map */
 #define ADF4382_ADC_ST_CNV_MSK		BIT(0)
 
+#define ADI_ADF4382_REF_MIN                   10000000U    // 10MHz
+#define ADI_ADF4382_REF_MAX                   5000000000U  // 5GHz
+#define ADI_ADF4382_VCO_FREQ_MIN              11000000000U // 11GHz
+#define ADI_ADF4382_VCO_FREQ_MAX              22000000000U // 22GHz
+#define ADI_ADF4382_RFOUT_MIN                 687500000U   // 687.50MHz
+#define ADI_ADF4382_RFOUT_MAX                 (ADI_ADF4382_VCO_FREQ_MAX)
+#define ADI_ADF4382_MOD1WORD                  0x2000000U   // 2^25
+#define ADI_ADF4382_MOD2WORD_MAX              0xFFFFFFU    // 2^24 - 1
+#define ADI_ADF4382_PHASE_RESYNC_MOD2WORD_MAX 0x1FFFFU     // 2^17 - 1
+#define ADI_ADF4382_CHANNEL_SPACING_MAX       78125U
+#define ADI_ADF4382_DCLK_DIV1_0_MAX           160000000U   // 160MHz
+#define ADI_ADF4382_DCLK_DIV1_1_MAX           320000000U   // 320MHz
+#define ADI_ADF4382_M_VCO_BIAS_POST_CAL_FIX   0x3F
+
 enum {
 	ADF4382_FREQ,
 };
@@ -408,13 +425,94 @@ struct adf4382_state {
 	/* Protect against concurrent accesses to the device and data content */
 	struct mutex		lock;
 	struct notifier_block	nb;
+	unsigned int		pfd_freq_hz;
+	unsigned int		ref_freq_hz;
+	unsigned int		rfout_freq_hz;
+};
+
+//TODO Rewrite using defines
+static const struct reg_sequence adf4382_reg_default[] = {
+	{ 0x000, 0x18 },
+	{ 0x00A, 0x0A },
+	{ 0x200, 0x00 },
+	{ 0x201, 0x00 },
+	{ 0x202, 0x00 },
+	{ 0x203, 0x00 },
+	{ 0x054, 0x00 },
+	{ 0x053, 0x45 },
+	{ 0x052, 0x00 },
+	{ 0x051, 0x00 },
+	{ 0x050, 0x00 },
+	{ 0x04F, 0x08 },
+	{ 0x04E, 0x06 },
+	{ 0x04D, 0x04 },
+	{ 0x04C, 0x2B },
+	{ 0x04B, 0x5D },
+	{ 0x04A, 0x00 },
+	{ 0x048, 0x00 },
+	{ 0x047, 0x00 },
+	{ 0x046, 0x00 },
+	{ 0x045, 0x06 },
+	{ 0x044, 0x1B },
+	{ 0x043, 0xB8 },
+	{ 0x042, 0x01 },
+	{ 0x041, 0x00 },
+	{ 0x040, 0x00 },
+	{ 0x03F, 0x82 },
+	{ 0x03E, 0x27 },
+	{ 0x03D, 0x00 },
+	{ 0x03C, 0x00 },
+	{ 0x03B, 0x00 },
+	{ 0x03A, 0xFA },
+	{ 0x039, 0x00 },
+	{ 0x038, 0x7C },
+	{ 0x037, 0xCA },
+	{ 0x036, 0xC0 },
+	{ 0x035, 0x01 },
+	{ 0x034, 0x36 },
+	{ 0x033, 0x00 },
+	{ 0x032, 0x40 },
+	{ 0x031, 0x63 },
+	{ 0x030, 0x0F },
+	{ 0x02F, 0x3F },
+	{ 0x02E, 0x00 },
+	{ 0x02D, 0xF1 },
+	{ 0x02C, 0x0E },
+	{ 0x02B, 0x01 },
+	{ 0x02A, 0x30 },
+	{ 0x029, 0x09 },
+	{ 0x028, 0x00 },
+	{ 0x027, 0xF0 },
+	{ 0x026, 0x00 },
+	{ 0x025, 0x01 },
+	{ 0x024, 0x01 },
+	{ 0x023, 0x00 },
+	{ 0x022, 0x00 },
+	{ 0x021, 0x00 },
+	{ 0x020, 0xC1 },
+	{ 0x01F, 0x0F },
+	{ 0x01E, 0x20 },
+	{ 0x01D, 0x00 },
+	{ 0x01C, 0x00 },
+	{ 0x01B, 0x00 },
+	{ 0x01A, 0x00 },
+	{ 0x019, 0x00 },
+	{ 0x018, 0x00 },
+	{ 0x017, 0x00 },
+	{ 0x016, 0x00 },
+	{ 0x015, 0x06 },
+	{ 0x014, 0x00 },
+	{ 0x013, 0x00 },
+	{ 0x012, 0x00 },
+	{ 0x011, 0x00 },
+	{ 0x010, 0x50 },
 };
 
 static const struct regmap_config adf4382_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
-	.max_register = 0x54,
+//	.max_register = 0x54,
 };
 
 static int adf4382_reg_access(struct iio_dev *indio_dev,
@@ -436,6 +534,233 @@ static const struct iio_info adf4382_info = {
 
 int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 {
+	u32 channel_spacing = 1;
+	u64 ref_pfd_ratio;
+	u32 frac2_word = 0;
+	u8 en_phase_resync;
+	u32 mod2_word = 0;
+	u8 dclk_div1 = 2;
+	u64 residue;
+	u32 frac1_word;
+	u8 doubler = 1;
+	u8 clkout_div;
+	u32 mod2_max;
+	u32 mod2_tmp;
+	u8 div1 = 8;
+	u8 ref_div;
+	u16 n_int;
+	u64 n;
+	u64 tmp;
+	u64 vco;
+	int ret;
+	u8 var;
+
+	ref_pfd_ratio = DIV_ROUND_UP(st->ref_freq_hz, st->pfd_freq_hz);
+
+	do {
+		ref_div = doubler * ref_pfd_ratio;
+	}while (ref_div > 63 && ++doubler <= 2);
+	if (ref_div > 63) {
+		dev_err(&st->spi->dev, "Divider exceeds max value");
+		return -EINVAL;
+	}
+
+	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_RDBLR_MSK,
+				 doubler);
+	if (ret)
+		return ret;
+
+	for (clkout_div = 0; clkout_div < 4; clkout_div++)
+	{
+		tmp = (1 << clkout_div) * freq;
+		if (tmp < ADI_ADF4382_VCO_FREQ_MIN || tmp > ADI_ADF4382_VCO_FREQ_MAX)
+		{
+			continue;
+		}
+
+		vco = tmp;
+		break;
+	}
+
+	if (vco == 0) {
+		dev_err(&st->spi->dev, "VCO is 0");
+		return -EINVAL;
+	}
+
+	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_CLKOUT_DIV_MSK,
+				 FIELD_PREP(ADF4382_CLKOUT_DIV_MSK, clkout_div));
+	if (ret)
+		return ret;
+
+	n = div_u64(freq, st->pfd_freq_hz);
+	n_int = (u16)n;
+	residue = (n - n_int) * ADI_ADF4382_MOD1WORD;
+	frac1_word = (u32)residue;
+	residue -= frac1_word;
+
+	if (residue > 0)
+	{
+		mod2_word = 1;
+
+		en_phase_resync = regmap_test_bits(st->regmap, 0x1E,
+						   ADF4382_EN_PHASE_RESYNC_MSK);
+		if (en_phase_resync)
+			mod2_max = ADI_ADF4382_PHASE_RESYNC_MOD2WORD_MAX;
+		else
+			mod2_max = ADI_ADF4382_MOD2WORD_MAX;
+		do
+		{
+			mod2_tmp = DIV_ROUND_UP(st->pfd_freq_hz,
+						 gcd(channel_spacing *
+						     ADI_ADF4382_MOD1WORD,
+						     st->pfd_freq_hz));
+			if (mod2_tmp > mod2_max)
+			{
+				channel_spacing *= 5;
+			}
+			else {
+				mod2_word = mod2_tmp;
+			}
+
+		} while (channel_spacing < ADI_ADF4382_CHANNEL_SPACING_MAX);
+
+	        if (!en_phase_resync)
+	        {
+	            mod2_word *= DIV_ROUND_DOWN_ULL(mod2_max, mod2_word);
+	        }
+
+	        frac2_word = (u32)(residue * mod2_word);
+	}
+
+	if (frac1_word == 0 && frac2_word == 0) {
+		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
+				 	 0xff);
+		if (ret)
+			return ret;
+		ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_EN_BLEED_MSK,
+				 	 0);
+		if (ret)
+			return ret;
+	} else {
+		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
+				 	 0);
+		if (ret)
+			return ret;
+		ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_EN_BLEED_MSK,
+				 	 0xff);
+		if (ret)
+			return ret;
+	}
+
+	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
+				 frac2_word != 0 ? 0xff : 0);
+	if (ret)
+		return ret;
+
+	var = mod2_word & ADF4382_MOD2WORD_LSB_MSK;
+	ret = regmap_write(st->regmap, 0x1A, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(8, mod2_word) & ADF4382_MOD2WORD_MID_MSK;
+	ret = regmap_write(st->regmap, 0x1B, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(16, mod2_word) & ADF4382_MOD2WORD_MSB_MSK;
+	ret = regmap_write(st->regmap, 0x1C, var);
+	if (ret)
+		return ret;
+
+	var = frac1_word  & ADF4382_FRAC1WORD_LSB_MSK;
+	ret = regmap_write(st->regmap, 0x12, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(8, frac1_word)  & ADF4382_FRAC1WORD_MID_MSK;
+	ret = regmap_write(st->regmap, 0x13, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(16, frac1_word) & ADF4382_FRAC1WORD_MSB_MSK;
+	ret = regmap_write(st->regmap, 0x14, var);
+	if (ret)
+		return ret;
+
+	var = frac2_word  & ADF4382_FRAC2WORD_LSB_MSK;
+	ret = regmap_write(st->regmap, 0x17, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(8, frac2_word)  & ADF4382_FRAC2WORD_MID_MSK;
+	ret = regmap_write(st->regmap, 0x18, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(16, frac2_word) & ADF4382_FRAC2WORD_MSB_MSK;
+	ret = regmap_write(st->regmap, 0x19, var);
+	if (ret)
+		return ret;
+
+	if (st->pfd_freq_hz <= ADI_ADF4382_DCLK_DIV1_0_MAX) {
+		dclk_div1 = 0;
+		div1 = 1;
+	} else if (st->pfd_freq_hz <= ADI_ADF4382_DCLK_DIV1_1_MAX) {
+		dclk_div1 = 1;
+		div1 = 2;
+	}
+
+	ret = regmap_update_bits(st->regmap, 0x24, ADF4382_DCLK_DIV1_MSK,
+				 FIELD_PREP(ADF4382_DCLK_DIV1_MSK, dclk_div1));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK, 0xff);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_CAL_CT_SEL_MSK, 0xff);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, 0x38, 124);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, 0x3a, 250);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, 0x37, 202);
+	if (ret)
+		return ret;
+
+	var = div_u64(div_u64(st->pfd_freq_hz, div1), 1600000 - 0.5);
+	ret = regmap_write(st->regmap, 0x3e, var);
+	if (ret)
+		return ret;
+
+	// Set LD COUNT
+	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
+				 0x1);
+	if (ret)
+		return ret;
+
+	// Set output power ch1 = 0x7 ch2 =0xf
+	ret = regmap_write(st->regmap, 0x29, 0xf7);
+	if (ret)
+		return ret;
+
+	// Need to set N_INT last to trigger an auto-calibration
+	var = n_int & ADF4382_N_INT_LSB_MSK;
+	ret = regmap_write(st->regmap, 0x10, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(8, n_int) & ADF4382_N_INT_MSB_MSK;
+	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
+	if (ret)
+		return ret;
+
+	// Work-around to reduce frequency gaps.
+	ret = regmap_update_bits(st->regmap, 0x35, ADF4382_M_VCO_BIAS_MSK,
+				 ADI_ADF4382_M_VCO_BIAS_POST_CAL_FIX);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
@@ -521,7 +846,17 @@ static const struct iio_chan_spec adf4382_channels[] = {
 
 static int adf4382_init(struct adf4382_state *st)
 {
-	return 0;
+	int ret;
+
+	ret = regmap_multi_reg_write(st->regmap, adf4382_reg_default,
+				     ARRAY_SIZE(adf4382_reg_default));
+	if (ret)
+		return ret;
+
+	st->ref_freq_hz = clk_get_rate(st->clkin);
+	st->pfd_freq_hz = st->ref_freq_hz;
+
+	return adf4382_set_freq(st, 1000000000);
 }
 
 static int adf4382_freq_change(struct notifier_block *nb, unsigned long action, void *data)
