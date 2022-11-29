@@ -1555,6 +1555,15 @@ static int cqspi_probe(struct platform_device *pdev)
 			cqspi->wr_completion = false;
 	}
 
+#if defined(CONFIG_ARCH_SC59X_64) || defined(CONFIG_ARCH_SC59X)
+	//TODO: Clean this up
+	// -- Set up direct mode io remapping
+	#define SCB5_SPI2_OSPI_REMAP 0x30400000
+	uint8_t *remap = ioremap(SCB5_SPI2_OSPI_REMAP, 4);
+	*(uint32_t *)remap = 0x1U;
+	iounmap(remap);
+#endif
+
 	ret = devm_request_irq(dev, irq, cqspi_irq_handler, 0,
 			       pdev->name, cqspi);
 	if (ret) {
