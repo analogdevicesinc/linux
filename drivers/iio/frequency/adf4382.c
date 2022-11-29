@@ -848,6 +848,11 @@ static int adf4382_init(struct adf4382_state *st)
 {
 	int ret;
 
+	ret = regmap_write(st->regmap, 0x00, ADF4382_SOFT_RESET_R_MSK |
+			   ADF4382_SOFT_RESET_MSK);
+	if (ret)
+		return ret;
+
 	ret = regmap_multi_reg_write(st->regmap, adf4382_reg_default,
 				     ARRAY_SIZE(adf4382_reg_default));
 	if (ret)
@@ -856,7 +861,7 @@ static int adf4382_init(struct adf4382_state *st)
 	st->ref_freq_hz = clk_get_rate(st->clkin);
 	st->pfd_freq_hz = st->ref_freq_hz;
 
-	return adf4382_set_freq(st, 1000000000);
+	return adf4382_set_freq(st, 1500000000);
 }
 
 static int adf4382_freq_change(struct notifier_block *nb, unsigned long action, void *data)
