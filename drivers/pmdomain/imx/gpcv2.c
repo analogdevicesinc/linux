@@ -377,6 +377,8 @@ static int imx_pgc_power_up(struct generic_pm_domain *genpd)
 		goto out_regulator_disable;
 	}
 
+	raw_notifier_call_chain(&genpd->power_notifiers, IMX_GPCV2_NOTIFY_ON_CLK_ENABLED, NULL);
+
 	/* delays for reset to propagate */
 	udelay(5);
 

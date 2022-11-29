@@ -15,6 +15,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
+#include <soc/imx/gpcv2.h>
 
 #include <dt-bindings/power/imx8mp-power.h>
 
@@ -491,6 +492,27 @@ static int imx8mp_hdmi_power_notifier(struct notifier_block *nb,
 {
 	struct imx8mp_blk_ctrl *bc = container_of(nb, struct imx8mp_blk_ctrl,
 						 power_nb);
+
+	if (action == IMX_GPCV2_NOTIFY_ON_CLK_ENABLED) {
+		regmap_write(bc->regmap, HDMI_RTX_RESET_CTL0, 0x0);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0xFFFFFFFF);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0x7ffff87e);
+
+		return NOTIFY_OK;
+	}
+
+	if (action == IMX_GPCV2_NOTIFY_ON_ADB400) {
+		/* wait for memory repair done */
+		udelay(20);
+
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0);
+		regmap_write(bc->regmap, HDMI_RTX_RESET_CTL0, 0xffffffff);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0xFFFFFFFF);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0x7ffff87e);
+
+		return NOTIFY_OK;
+	}
 
 	if (action != GENPD_NOTIFY_ON)
 		return NOTIFY_OK;

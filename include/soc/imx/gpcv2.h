@@ -4,5 +4,6 @@
 
 /* Avoid conflict with GENPD_NOTIFY_XX */
 #define IMX_GPCV2_NOTIFY_ON_ADB400	0x80000000
+#define IMX_GPCV2_NOTIFY_ON_CLK_ENABLED	0x80000001
 
 #endif /* __SOC_IMX_GPC_H */
