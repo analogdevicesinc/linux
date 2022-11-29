@@ -225,22 +225,18 @@
 	flash0: is25lx256@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "is25lx256";
+		compatible = "is25lx256", "jedec,spi-nor";
 		reg = <0>;
 
-		/* Adjust as needed, depends on board signal integrity
-		    -- I was seeing issues with data writes at faster speeds */
-		spi-max-frequency = <36000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		spi-max-frequency = <125000000>;
 
-		/*m25p,fast-read;*/
-
-		cdns,page-size = <256>;
-		cdns,block-size = <16>;
 		cdns,read-delay = <4>;
 		cdns,tshsl-ns = <50>;
-		cdns,tsd2d-ns = <50>;
-		cdns,tchsh-ns = <4>;
-		cdns,tslch-ns = <4>;
+		cdns,tsd2d-ns = <255>;
+		cdns,tchsh-ns = <8>;
+		cdns,tslch-ns = <8>;
 
 		partitions {
 			compatible = "fixed-partitions";
