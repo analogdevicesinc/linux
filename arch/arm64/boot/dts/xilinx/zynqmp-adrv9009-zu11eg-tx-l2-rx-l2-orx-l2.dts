@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm.dts"
+
+&spi0 {
+	trx0_adrv9009: adrv9009-phy@0 {
+		/* JESD204 */
+
+		/* JESD204 RX */
+		adi,jesd204-framer-a-m = <4>;
+		adi,jesd204-framer-a-f = <8>;
+		adi,jesd204-framer-a-serializer-lanes-enabled = <0x01>;
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-serializer-lanes-enabled = <0x04>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-m = <2>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x01>;
+
+		/* RX */
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(0) (0) (2) (4) (4) (-10)     \
+		(-46) (-88) (-68) (78) (280) (278) (-154) (-772) (-792) (344) (1880)   \
+		(1844) (-932) (-4528) (-4408) (2592) (14186) (23192) (23192) (14186)   \
+		(2592) (-4408) (-4528) (-932) (1844) (1880) (344) (-792) (-772) (-154) \
+		(278) (280) (78) (-68) (-88) (-46) (-10) (4) (4) (2) (0) (0)>;
+
+		adi,rx-profile-rhb1-decimation = <2>;
+		adi,rx-profile-rx-output-rate_khz = <122880>;
+		adi,rx-profile-rf-bandwidth_hz = <60000000>;
+		adi,rx-profile-rx-bbf3d-bcorner_khz = <60000>;
+		adi,rx-profile-rx-adc-profile = /bits/ 16 <265 146 181 90 1280 366 \
+		1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 \
+		25 27 0 0 25 27 0 0 165 44 31 905>;
+
+		/* ORX */
+		adi,orx-profile-rx-fir-decimation = <1>;
+		adi,orx-settings-obs-rx-channels-enable = <1>;
+
+		/* TX */
+		adi,tx-settings-tx-channels = <1>;
+
+		/* Clocks */
+		adi,dig-clocks-device-clock_khz = <122880>;
+	};
+	trx1_adrv9009: adrv9009-phy-b@1 {
+				/* JESD204 */
+
+		/* JESD204 RX */
+		adi,jesd204-framer-a-m = <4>;
+		adi,jesd204-framer-a-f = <8>;
+		adi,jesd204-framer-a-serializer-lanes-enabled = <0x01>;
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-serializer-lanes-enabled = <0x04>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-m = <2>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x01>;
+
+		/* RX */
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(0) (0) (2) (4) (4) (-10)     \
+		(-46) (-88) (-68) (78) (280) (278) (-154) (-772) (-792) (344) (1880)   \
+		(1844) (-932) (-4528) (-4408) (2592) (14186) (23192) (23192) (14186)   \
+		(2592) (-4408) (-4528) (-932) (1844) (1880) (344) (-792) (-772) (-154) \
+		(278) (280) (78) (-68) (-88) (-46) (-10) (4) (4) (2) (0) (0)>;
+
+		adi,rx-profile-rhb1-decimation = <2>;
+		adi,rx-profile-rx-output-rate_khz = <122880>;
+		adi,rx-profile-rf-bandwidth_hz = <60000000>;
+		adi,rx-profile-rx-bbf3d-bcorner_khz = <60000>;
+		adi,rx-profile-rx-adc-profile = /bits/ 16 <265 146 181 90 1280 366 \
+		1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 \
+		25 27 0 0 25 27 0 0 165 44 31 905>;
+
+		/* ORX */
+		adi,orx-profile-rx-fir-decimation = <1>;
+		adi,orx-settings-obs-rx-channels-enable = <1>;
+
+		/* TX */
+		adi,tx-settings-tx-channels = <1>;
+
+		/* Clocks */
+		adi,dig-clocks-device-clock_khz = <122880>;
+		};
+	};
+/ {
+	fpga_axi: fpga-axi@0 {
+
+		rx_dma: dma@9c420000 {
+			adi,channels {
+				dma-channel@0 {
+					adi,source-bus-width = <128>;
+					adi,destination-bus-width = <128>;
+				};
+			};
+		};
+
+		rx_obs_dma: dma@9c440000 {
+			adi,channels {
+					dma-channel@0 {
+						adi,source-bus-width = <64>;
+						adi,destination-bus-width = <128>;
+					};
+				};
+			};
+
+		tx_dma: dma@9c400000  {
+			adi,channels {
+				dma-channel@0 {
+					adi,source-bus-width = <128>;
+					adi,destination-bus-width = <64>;
+				};
+			};
+		};
+
+		axi_adrv9009_rx_jesd: axi-jesd204-rx@84a50000 {
+			clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 1>, <&axi_adrv9009_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+
+			adi,octets-per-frame = <8>;
+		};
+
+		axi_adrv9009_tx_jesd: axi-jesd204-tx@84a30000 {
+			adi,converters-per-device = <2>;
+		};
+	};
+};
