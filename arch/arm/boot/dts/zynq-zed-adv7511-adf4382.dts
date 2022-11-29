@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	clocks {
+		adf4382_clkin: clock@0 {
+		     #clock-cells = <0>;
+		     compatible = "fixed-clock";
+		     clock-frequency = <125000000>; // 125MHz
+		};
+	};
+};
+
+
+&spi0 {
+	status = "okay";
+	adf4382@0 {
+		compatible = "adi,adf4382";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		clocks = <&adf4382_clkin>;
+		clock-names = "ref_clk";
+		/* spi-cpha; */
+		/* spi-cpol; */
+		/* #address-cells = <1>;
+		#size-cells = <0>; */
+	};
+};
