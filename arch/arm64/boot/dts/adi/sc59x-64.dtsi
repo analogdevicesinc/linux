@@ -541,7 +541,7 @@
 		};
 
 		ospi: spi@31027000 {
-			compatible = "cdns,qspi-nor";
+			compatible = "adi,sc5xx-qspi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x31027000 0x1000>,

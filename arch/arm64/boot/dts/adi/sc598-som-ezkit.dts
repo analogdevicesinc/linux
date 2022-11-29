@@ -29,14 +29,12 @@
 	flash0: mx66lm1g45@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "mx66lm1g45";
+		compatible = "mx66lm1g45", "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <83333334>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
 
-		/*m25p,fast-read;*/
-
-		cdns,page-size = <256>;
-		cdns,block-size = <16>;
 		cdns,read-delay = <4>;
 		cdns,tshsl-ns = <50>;
 		cdns,tsd2d-ns = <50>;
