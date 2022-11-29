@@ -578,6 +578,11 @@ static int adf4382_probe(struct spi_device *spi)
 
 	mutex_init(&st->lock);
 
+
+	st->clkin = devm_clk_get(&spi->dev, "ref_clk");
+	if (IS_ERR(st->clkin))
+		return PTR_ERR(st->clkin);
+
 	ret = clk_prepare_enable(st->clkin);
 	if (ret)
 		return ret;
