@@ -201,13 +201,23 @@
 		#size-cells = <1>;
 		ranges;
 
-		rsc_tbl0: rsc_tbl0@84000000 {
-			reg = <0x84000000 0x400>; /*1KiB*/
+		rsc_tbl0: rsc_tbl0@20000000 {
+			reg = <0x20000000 0x400>; /*1KiB*/
 			no-map;
 		};
 
-		rsc_tbl1: rsc_tbl0@84000400 {
-			reg = <0x84000400 0x400>; /*1KiB*/
+		rsc_tbl1: rsc_tbl0@20000400 {
+			reg = <0x20000400 0x400>; /*1KiB*/
+			no-map;
+		};
+
+		sram_B1_unused@20000800 {
+			reg = <0x20000800 0x4800>; /*18KiB*/
+			no-map;
+		};
+
+		sharc_internal_icc@20005000 {
+			reg = <0x20005000 0x20000>; /*128KiB*/
 			no-map;
 		};
 	};
