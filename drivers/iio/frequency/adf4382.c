@@ -428,6 +428,7 @@ struct adf4382_state {
 	unsigned int		pfd_freq_hz;
 	unsigned int		ref_freq_hz;
 	unsigned int		rfout_freq_hz;
+	u64			freq;
 };
 
 //TODO Rewrite using defines
@@ -741,7 +742,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		return ret;
 
 	// Set output power ch1 = 0x7 ch2 =0xf
-	ret = regmap_write(st->regmap, 0x29, 0xf7);
+	ret = regmap_write(st->regmap, 0x29, 0xbb);
 	if (ret)
 		return ret;
 
@@ -861,7 +862,7 @@ static int adf4382_init(struct adf4382_state *st)
 	st->ref_freq_hz = clk_get_rate(st->clkin);
 	st->pfd_freq_hz = st->ref_freq_hz;
 
-	return adf4382_set_freq(st, 1500000000);
+	return adf4382_set_freq(st, st->freq);
 }
 
 static int adf4382_freq_change(struct notifier_block *nb, unsigned long action, void *data)
@@ -918,6 +919,8 @@ static int adf4382_probe(struct spi_device *spi)
 
 	mutex_init(&st->lock);
 
+	st->freq = 20000000000ULL;
+	of_property_read_u64(spi->dev.of_node, "adi,power-up-frequency", &st->freq);
 
 	st->clkin = devm_clk_get(&spi->dev, "ref_clk");
 	if (IS_ERR(st->clkin))
