@@ -1040,8 +1040,14 @@ static int ad9172_jesd204_post_running_stage(struct jesd204_dev *jdev,
 {
 	struct ad9172_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9172_state *st = priv->st;
+	int ret;
 
-	return ad9172_finalize_setup(st);
+	ret = ad9172_finalize_setup(st);
+
+	if (ret < 0)
+		return ret;
+
+	return JESD204_STATE_CHANGE_DONE;
 }
 
 static const struct jesd204_dev_data jesd204_ad9172_init = {
