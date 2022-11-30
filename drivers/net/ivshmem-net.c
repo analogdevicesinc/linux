@@ -558,7 +558,9 @@ static void ivshm_net_run(struct net_device *ndev)
 
 	netif_start_queue(ndev);
 	napi_enable(&in->napi);
+	local_bh_disable();
 	napi_schedule(&in->napi);
+	local_bh_enable();
 	ivshm_net_set_state(in, IVSHM_NET_STATE_RUN);
 }
 
