@@ -677,7 +677,7 @@ static int __init hx280enc_init(void)
 					SA_INTERRUPT | SA_SHIRQ,
 #else
 				//IRQF_DISABLED | IRQF_SHARED,
-				IRQF_SHARED,
+				0,
 #endif
 					"hx280enc", (void *) &hx280enc_data);
 		if (result == -EINVAL) {

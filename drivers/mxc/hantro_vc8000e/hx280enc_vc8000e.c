@@ -930,7 +930,7 @@ static int __init hantroenc_init(void)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18))
 				SA_INTERRUPT | SA_SHIRQ,
 #else
-				IRQF_SHARED,
+				0,
 #endif
 				"hx280enc", (void *) &hantroenc_data[i]);
 			if (result == -EINVAL) {

@@ -1554,7 +1554,7 @@ int hantrodec_init(struct platform_device *pdev)
 	irq_0 = platform_get_irq_byname(pdev, "irq_hantro_g1");
 	if (irq_0 > 0) {
 		hantrodec_data.irq[0] = irq_0;
-		result = request_irq(irq_0, hantrodec_isr, IRQF_SHARED,
+		result = request_irq(irq_0, hantrodec_isr, 0,
 				"hantrodec", (void *) &hantrodec_data);
 
 		if (result != 0) {
@@ -1575,7 +1575,7 @@ int hantrodec_init(struct platform_device *pdev)
 	irq_1 = platform_get_irq_byname(pdev, "irq_hantro_g2");
 	if (irq_1 > 0) {
 		hantrodec_data.irq[1] = irq_1;
-		result = request_irq(irq_1, hantrodec_isr, IRQF_SHARED,
+		result = request_irq(irq_1, hantrodec_isr, 0,
 				"hantrodec", (void *) &hantrodec_data);
 
 		if (result != 0) {
