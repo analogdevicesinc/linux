@@ -252,6 +252,7 @@ struct spi_nor_otp {
  *                      Table.
  * @otp_info:		describes the OTP regions.
  * @octal_dtr_enable:	enables SPI NOR octal DTR mode.
+ * @octal_str_enable:	enables SPI NOR octal STR mode.
  * @quad_enable:	enables SPI NOR quad mode.
  * @set_4byte_addr_mode: puts the SPI NOR in 4 byte addressing mode.
  * @convert_addr:	converts an absolute address into something the flash
@@ -279,6 +280,7 @@ struct spi_nor_flash_parameter {
 	struct spi_nor_otp		otp;
 
 	int (*octal_dtr_enable)(struct spi_nor *nor, bool enable);
+	int (*octal_str_enable)(struct spi_nor *nor, bool enable);
 	int (*quad_enable)(struct spi_nor *nor);
 	int (*set_4byte_addr_mode)(struct spi_nor *nor, bool enable);
 	u32 (*convert_addr)(struct spi_nor *nor, u32 addr);
@@ -358,6 +360,7 @@ struct flash_info {
 #define USE_CLSR		BIT(14)	/* use CLSR command */
 #define SPI_NOR_OCTAL_READ	BIT(15)	/* Flash supports Octal Read */
 #define SPI_NOR_OCTAL_READ_1_8_8	BIT(16)	/* Flash supports Octal Read */
+#define SPI_NOR_OCTAL_READ_8_8_8	BIT(17)	/* Flash supports Octal Read */
 #define SPI_NOR_TB_SR_BIT6	BIT(18)	/*
 					 * Top/Bottom (TB) is bit 6 of
 					 * status register. Must be used with
@@ -373,6 +376,7 @@ struct flash_info {
 					 */
 #define SPI_NOR_OCTAL_DTR_READ	BIT(21) /* Flash supports Octal DTR Read. */
 #define SPI_NOR_OCTAL_DTR_PP	BIT(22) /* Flash supports Octal DTR Page Program */
+#define SPI_NOR_OCTAL_PP_8_8_8	BIT(23) /* Flash supports Octal STR Read. */
 #define SPI_NOR_IO_MODE_EN_VOLATILE	BIT(24) /*
 						 * Flash enables the best
 						 * available I/O mode via a

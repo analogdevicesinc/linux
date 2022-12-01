@@ -2196,9 +2196,6 @@ spi_nor_spimem_adjust_hwcaps(struct spi_nor *nor, u32 *hwcaps)
 	struct spi_nor_flash_parameter *params = nor->params;
 	unsigned int cap;
 
-	/* X-X-X modes are not supported yet, mask them all. */
-	*hwcaps &= ~SNOR_HWCAPS_X_X_X;
-
 	/*
 	 * If the reset line is broken, we do not want to enter a stateful
 	 * mode.
@@ -2613,6 +2610,13 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 					  SNOR_PROTO_1_8_8);
 	}
 
+	if (info->flags & SPI_NOR_OCTAL_READ_8_8_8) {
+		params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8;
+		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_8_8_8],
+					  0, 20, SPINOR_OP_READ_FAST,
+					  SNOR_PROTO_8_8_8);
+	}
+
 	if (info->flags & SPI_NOR_OCTAL_DTR_READ) {
 		params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
 		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
@@ -2624,6 +2628,12 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 	params->hwcaps.mask |= SNOR_HWCAPS_PP;
 	spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP],
 				SPINOR_OP_PP, SNOR_PROTO_1_1_1);
+
+	if (info->flags & SPI_NOR_OCTAL_PP_8_8_8) {
+		params->hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8;
+		spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP_8_8_8],
+					SPINOR_OP_PP, SNOR_PROTO_8_8_8);
+	}
 
 	if (info->flags & SPI_NOR_OCTAL_DTR_PP) {
 		params->hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8_DTR;
@@ -2787,6 +2797,39 @@ static int spi_nor_octal_dtr_enable(struct spi_nor *nor, bool enable)
 	return 0;
 }
 
+/** spi_nor_octal_str_enable() - enable Octal STR I/O if needed
+ * @nor:                 pointer to a 'struct spi_nor'
+ * @enable:              whether to enable or disable Octal STR
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_octal_str_enable(struct spi_nor *nor, bool enable)
+{
+	int ret;
+
+	if (!nor->params->octal_str_enable)
+		return 0;
+
+	if (!(nor->read_proto == SNOR_PROTO_8_8_8 &&
+	      nor->write_proto == SNOR_PROTO_8_8_8))
+		return 0;
+
+	if (!(nor->flags & SNOR_F_IO_MODE_EN_VOLATILE))
+		return 0;
+
+	ret = nor->params->octal_str_enable(nor, enable);
+	if (ret)
+		return ret;
+
+	if (enable)
+		nor->reg_proto = SNOR_PROTO_8_8_8;
+	else
+		nor->reg_proto = SNOR_PROTO_1_1_1;
+
+	return 0;
+}
+
+
 /**
  * spi_nor_quad_enable() - enable Quad I/O if needed.
  * @nor:                pointer to a 'struct spi_nor'
@@ -2815,6 +2858,12 @@ static int spi_nor_init(struct spi_nor *nor)
 		return err;
 	}
 
+	err = spi_nor_octal_str_enable(nor, true);
+	if (err) {
+		dev_dbg(nor->dev, "octal STR mode not supported\n");
+		return err;
+	}
+
 	err = spi_nor_quad_enable(nor);
 	if (err) {
 		dev_dbg(nor->dev, "quad mode not supported\n");
@@ -2838,6 +2887,7 @@ static int spi_nor_init(struct spi_nor *nor)
 
 	if (nor->addr_width == 4 &&
 	    nor->read_proto != SNOR_PROTO_8_8_8_DTR &&
+	    nor->read_proto != SNOR_PROTO_8_8_8 &&
 	    !(nor->flags & SNOR_F_4B_OPCODES)) {
 		/*
 		 * If the RESET# pin isn't hooked up properly, or the system
@@ -2999,7 +3049,8 @@ static int spi_nor_set_addr_width(struct spi_nor *nor)
 {
 	if (nor->addr_width) {
 		/* already configured from SFDP */
-	} else if (nor->read_proto == SNOR_PROTO_8_8_8_DTR) {
+	} else if (nor->read_proto == SNOR_PROTO_8_8_8_DTR ||
+		   nor->read_proto == SNOR_PROTO_8_8_8) {
 		/*
 		 * In 8D-8D-8D mode, one byte takes half a cycle to transfer. So
 		 * in this protocol an odd address width cannot be used because
