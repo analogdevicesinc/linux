@@ -146,7 +146,6 @@ typedef struct {
 	struct fasync_struct *async_queue;
 	unsigned int mirror_regs[512];
 	struct device *dev;
-	struct mutex dev_mutex;
 	bool skip_blkctrl;
 } hx280enc_t;
 
@@ -221,11 +220,9 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
 static int hantro_h1_power_on_disirq(hx280enc_t *hx280enc)
 {
 	//spin_lock_irq(&owner_lock);
-	mutex_lock(&hx280enc->dev_mutex);
 	disable_irq(hx280enc->irq);
 	pm_runtime_get_sync(hx280enc->dev);
 	enable_irq(hx280enc->irq);
-	mutex_unlock(&hx280enc->dev_mutex);
 	//spin_unlock_irq(&owner_lock);
 	return 0;
 }
@@ -934,7 +931,6 @@ static int hantro_h1_probe(struct platform_device *pdev)
 	}
 	hx280enc_data.dev = &pdev->dev;
 	platform_set_drvdata(pdev, &hx280enc_data);
-	mutex_init(&hx280enc_data.dev_mutex);
 
 	goto out;
 

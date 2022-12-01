@@ -179,7 +179,6 @@ typedef struct {
 	atomic_t irq_rx;
 	atomic_t irq_tx;
 	struct device *dev;
-	struct mutex dev_mutex;
 	int thermal_cur;
 	int thermal_event;
 	struct thermal_cooling_device *cooling;
@@ -308,11 +307,9 @@ static int hantro_ctrlblk_reset(hantrodec_t *dev)
 static int hantro_power_on_disirq(hantrodec_t *hantrodev)
 {
 	//spin_lock_irq(&owner_lock);
-	mutex_lock(&hantrodev->dev_mutex);
 	disable_irq(hantrodev->irq);
 	pm_runtime_get_sync(hantrodev->dev);
 	enable_irq(hantrodev->irq);
-	mutex_unlock(&hantrodev->dev_mutex);
 	//spin_unlock_irq(&owner_lock);
 	return 0;
 }
@@ -1993,7 +1990,6 @@ static int hantro_dev_probe(struct platform_device *pdev)
 	hantrodec_data[id].thermal_cur = 0;
 #endif
 	hantrodec_data[id].timeout = 0;
-	mutex_init(&hantrodec_data[id].dev_mutex);
 	instance_mask = 0;
 	cores += 1;
 

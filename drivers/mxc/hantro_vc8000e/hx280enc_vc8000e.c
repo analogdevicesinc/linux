@@ -71,7 +71,6 @@ static bool hantro_skip_blkctrl;
 #define BLK_CTL_BASE        0x38330000
 #endif
 
-
 /********variables declaration related with race condition**********/
 
 struct semaphore enc_core_sem;
@@ -122,7 +121,6 @@ typedef struct {
 	struct fasync_struct *async_queue;
 #ifndef VSI
 	struct device *dev;
-	struct mutex dev_mutex;
 #endif
 } hantroenc_t;
 
@@ -212,11 +210,9 @@ static int hantro_vc8000e_ctrlblk_reset(struct device *dev)
 static int hantro_vc8000e_power_on_disirq(hantroenc_t *hx280enc)
 {
 	//spin_lock_irq(&owner_lock);
-	mutex_lock(&hx280enc->dev_mutex);
 	//disable_irq(hx280enc->irq);
 	pm_runtime_get_sync(hx280enc->dev);
 	//enable_irq(hx280enc->irq);
-	mutex_unlock(&hx280enc->dev_mutex);
 	//spin_unlock_irq(&owner_lock);
 	return 0;
 }
@@ -1237,7 +1233,6 @@ static int hantro_vc8000e_probe(struct platform_device *pdev)
 
 	hantroenc_data->dev = &pdev->dev;
 	platform_set_drvdata(pdev, hantroenc_data);
-	mutex_init(&hantroenc_data->dev_mutex);
 
 	goto out;
 
