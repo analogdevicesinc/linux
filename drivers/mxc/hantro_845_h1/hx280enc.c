@@ -219,11 +219,7 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
 
 static int hantro_h1_power_on_disirq(hx280enc_t *hx280enc)
 {
-	//spin_lock_irq(&owner_lock);
-	disable_irq(hx280enc->irq);
 	pm_runtime_get_sync(hx280enc->dev);
-	enable_irq(hx280enc->irq);
-	//spin_unlock_irq(&owner_lock);
 	return 0;
 }
 

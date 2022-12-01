@@ -306,11 +306,7 @@ static int hantro_ctrlblk_reset(hantrodec_t *dev)
 
 static int hantro_power_on_disirq(hantrodec_t *hantrodev)
 {
-	//spin_lock_irq(&owner_lock);
-	disable_irq(hantrodev->irq);
 	pm_runtime_get_sync(hantrodev->dev);
-	enable_irq(hantrodev->irq);
-	//spin_unlock_irq(&owner_lock);
 	return 0;
 }
 
