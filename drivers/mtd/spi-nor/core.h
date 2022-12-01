@@ -357,27 +357,28 @@ struct flash_info {
 #define SPI_NOR_SKIP_SFDP	BIT(13)	/* Skip parsing of SFDP tables */
 #define USE_CLSR		BIT(14)	/* use CLSR command */
 #define SPI_NOR_OCTAL_READ	BIT(15)	/* Flash supports Octal Read */
-#define SPI_NOR_TB_SR_BIT6	BIT(16)	/*
+#define SPI_NOR_OCTAL_READ_1_8_8	BIT(16)	/* Flash supports Octal Read */
+#define SPI_NOR_TB_SR_BIT6	BIT(18)	/*
 					 * Top/Bottom (TB) is bit 6 of
 					 * status register. Must be used with
 					 * SPI_NOR_HAS_TB.
 					 */
-#define SPI_NOR_4BIT_BP		BIT(17) /*
+#define SPI_NOR_4BIT_BP		BIT(19) /*
 					 * Flash SR has 4 bit fields (BP0-3)
 					 * for block protection.
 					 */
-#define SPI_NOR_BP3_SR_BIT6	BIT(18) /*
+#define SPI_NOR_BP3_SR_BIT6	BIT(20) /*
 					 * BP3 is bit 6 of status register.
 					 * Must be used with SPI_NOR_4BIT_BP.
 					 */
-#define SPI_NOR_OCTAL_DTR_READ	BIT(19) /* Flash supports octal DTR Read. */
-#define SPI_NOR_OCTAL_DTR_PP	BIT(20) /* Flash supports Octal DTR Page Program */
-#define SPI_NOR_IO_MODE_EN_VOLATILE	BIT(21) /*
+#define SPI_NOR_OCTAL_DTR_READ	BIT(21) /* Flash supports Octal DTR Read. */
+#define SPI_NOR_OCTAL_DTR_PP	BIT(22) /* Flash supports Octal DTR Page Program */
+#define SPI_NOR_IO_MODE_EN_VOLATILE	BIT(24) /*
 						 * Flash enables the best
 						 * available I/O mode via a
 						 * volatile bit.
 						 */
-#define SPI_NOR_SWP_IS_VOLATILE	BIT(22)	/*
+#define SPI_NOR_SWP_IS_VOLATILE	BIT(25)	/*
 					 * Flash has volatile software write
 					 * protection bits. Usually these will
 					 * power-up in a write-protected state.
