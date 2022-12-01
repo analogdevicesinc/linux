@@ -1355,15 +1355,9 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 			return -EFAULT;
 		if (ctx->core_id == HANTRO_CORE_ID_INVALID) {
 			ctx->core_id = id;
-			if (id == 0 && cores > 1) {
-				/*power off g2*/
-				pm_runtime_put_sync(hantrodec_data[1].dev);
-				hantro_clk_disable(&hantrodec_data[1].clk);
-			} else if (id == 1) {
-				/*power off g1*/
-				pm_runtime_put_sync(hantrodec_data[0].dev);
-				hantro_clk_disable(&hantrodec_data[0].clk);
-			}
+			/*power on decoder core*/
+			hantro_clk_enable(&hantrodec_data[id].clk);
+			hantro_power_on_disirq(&hantrodec_data[id]);
 		}
 		return id;
 	}
@@ -1491,7 +1485,6 @@ static long hantrodec_ioctl32(struct file *filp, unsigned int cmd, unsigned long
  */
 static int hantrodec_open(struct inode *inode, struct file *filp)
 {
-	int i;
 	int idx;
 
 	idx = hantro_new_instance();
@@ -1503,11 +1496,6 @@ static int hantrodec_open(struct inode *inode, struct file *filp)
 	hantrodec_ctx[idx].inst_id = idx;
 	filp->private_data = (void *)(&hantrodec_ctx[idx]);
 
-	/*not yet know which core id, so power on both g1 and g2 firstly*/
-	for (i = 0; i < cores; i++) {
-		hantro_clk_enable(&hantrodec_data[i].clk);
-		hantro_power_on_disirq(&hantrodec_data[i]);
-	}
 	return 0;
 }
 
@@ -1537,12 +1525,7 @@ static int hantrodec_release(struct inode *inode, struct file *filp)
 		}
 	}
 
-	if (ctx->core_id == HANTRO_CORE_ID_INVALID) {
-		for (n = 0; n < cores; n++) {
-			pm_runtime_put_sync(hantrodec_data[n].dev);
-			hantro_clk_disable(&hantrodec_data[n].clk);
-		}
-	} else if (ctx->core_id < HXDEC_MAX_CORES) {
+	if (ctx->core_id != HANTRO_CORE_ID_INVALID && ctx->core_id < HXDEC_MAX_CORES) {
 		pm_runtime_put_sync(hantrodec_data[ctx->core_id].dev);
 		hantro_clk_disable(&hantrodec_data[ctx->core_id].clk);
 	}
