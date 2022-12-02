@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/iio/adi,ad5592r.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spidev0>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#size-cells = <0>;
+			#address-cells = <1>;
+			status = "okay";
+
+			ad5592r: ad5592r@0 {
+				compatible = "adi,ad5592r";
+				reg = <0>;
+
+				spi-max-frequency = <1000000>;
+				spi-cpol;
+				#gpio-cells = <2>;
+				gpio-controller;
+
+				channel@0 {
+					reg = <0>;
+					adi,mode = <CH_MODE_DAC_AND_ADC>;
+				};
+				channel@1 {
+					reg = <1>;
+					adi,mode = <CH_MODE_DAC_AND_ADC>;
+				};
+				channel@2 {
+					reg = <2>;
+					adi,mode = <CH_MODE_GPIO>;
+					adi,off-state = <CH_OFFSTATE_OUT_LOW>;
+				};
+				channel@3 {
+					reg = <3>;
+					adi,mode = <CH_MODE_GPIO>;
+					adi,off-state = <CH_OFFSTATE_OUT_LOW>;
+				};
+				channel@4 {
+					reg = <4>;
+					adi,mode = <CH_MODE_GPIO>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+				channel@5 {
+					reg = <5>;
+					adi,mode = <CH_MODE_GPIO>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+				channel@6 {
+					reg = <6>;
+					adi,mode = <CH_MODE_GPIO>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+				channel@7 {
+					reg = <7>;
+					adi,mode = <CH_MODE_GPIO>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			one-bit-adc-dac@0 {
+				compatible = "adi,one-bit-adc-dac";
+				label = "gpios";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				in-gpios = <&ad5592r 5 0>, <&ad5592r 6 0>, <&ad5592r 7 0>;
+				out-gpios = <&ad5592r 2 0>, <&ad5592r 3 0>;
+				status = "okay";
+				channel@0 {
+					reg = <0>;
+					label = "AD5592R_GPIO_CH_5";
+				};
+				channel@1 {
+					reg = <1>;
+					label = "AD5592R_GPIO_CH_6";
+				};
+				channel@2 {
+					reg = <2>;
+					label = "AD5592R_GPIO_CH_7";
+				};
+				channel@3 {
+					reg = <3>;
+					label = "AD5592R_GPIO_CH_2";
+				};
+				channel@4 {
+					reg = <4>;
+					label = "AD5592R_GPIO_CH_3";
+				};
+			};
+		};
+	};
+
+	__overrides__ {
+		cs_pin = <&ad5592r>,"reg:0";
+	};
+};
