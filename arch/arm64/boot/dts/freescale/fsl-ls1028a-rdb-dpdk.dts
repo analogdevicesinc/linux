@@ -2,7 +2,7 @@
 /*
  * NXP LS1028A RDB Board device tree file for DPDK
  *
- * Copyright 2018-2020 NXP
+ * Copyright 2018-2022 NXP
  */
 
 /dts-v1/;
@@ -45,14 +45,13 @@
 };
 
 &mscc_felix_port5 {
-	status = "okay";
+	/delete-property/ ethernet;
 	fixed-link {
 		/delete-property/ pause;
 	};
 };
 
 &enetc_port3 {
-	status = "okay";
 	fixed-link {
 		/delete-property/ pause;
 	};
