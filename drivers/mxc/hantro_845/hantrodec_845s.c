@@ -1818,17 +1818,17 @@ static irqreturn_t hantrodec_isr(int irq, void *dev_id)
 
 	spin_lock_irqsave(&owner_lock, flags);
 
-	//for (i = 0; i < cores; i++) {
-		hwregs = dev->hwregs;
+	hwregs = dev->hwregs;
 
-		/* interrupt status register read */
-		irq_status_dec = ioread32(hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
+	/* interrupt status register read */
+	irq_status_dec = ioread32(hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
 
-		if (irq_status_dec & HANTRODEC_DEC_IRQ) {
-			/* clear dec IRQ */
-			irq_status_dec &= (~HANTRODEC_DEC_IRQ);
-			iowrite32(irq_status_dec, hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
+	if (irq_status_dec & HANTRODEC_DEC_IRQ) {
+		/* clear dec IRQ */
+		irq_status_dec &= (~HANTRODEC_DEC_IRQ);
+		iowrite32(irq_status_dec, hwregs + HANTRODEC_IRQ_STAT_DEC_OFF);
 
+		if (irq_status_dec & HANTRODEC_DEC_DONE) {
 			PDEBUG("decoder IRQ received! Core %d\n", dev->core_id);
 			dev->hw_active = 0;
 
@@ -1838,9 +1838,9 @@ static irqreturn_t hantrodec_isr(int irq, void *dev_id)
 
 			//wake_up_interruptible_all(&dec_wait_queue);
 			wake_up_all(&dec_wait_queue);
-			handled++;
 		}
-	//}
+		handled++;
+	}
 
 	spin_unlock_irqrestore(&owner_lock, flags);
 

@@ -69,6 +69,7 @@
 #define HANTRODEC_DEC_ABORT 0x20
 #define HANTRODEC_DEC_IRQ_DISABLE 0x10
 #define HANTRODEC_DEC_IRQ 0x100
+#define HANTRODEC_DEC_DONE 0x1000
 
 /* Legacy from G1 */
 #define HANTRO_IRQ_STAT_DEC          1
