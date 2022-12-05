@@ -69,8 +69,8 @@ struct cqspi_st {
 	resource_size_t		ahb_size;
 	struct completion	transfer_complete;
 
-	struct dma_chan		*rx_chan;
-	struct completion	rx_dma_complete;
+	struct dma_chan		*dma_chan;
+	struct completion	dma_complete;
 	dma_addr_t		mmap_phys_base;
 
 	int			current_cs;
@@ -1066,6 +1066,77 @@ static void cqspi_configure(struct cqspi_flash_pdata *f_pdata,
 		cqspi_controller_enable(cqspi, 1);
 }
 
+static void cqspi_dma_callback(void *param)
+{
+	struct cqspi_st *cqspi = param;
+
+	complete(&cqspi->dma_complete);
+}
+
+static int cqspi_perform_dma(struct cqspi_st *cqspi,
+			     u_char *buf, loff_t offset, size_t len, bool read)
+{
+	struct device *dev = &cqspi->pdev->dev;
+	enum dma_ctrl_flags flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
+	dma_addr_t dma_src;
+	int ret = 0;
+	struct dma_async_tx_descriptor *tx;
+	dma_cookie_t cookie;
+	dma_addr_t dma_dst;
+	struct device *ddev;
+
+	ddev = cqspi->dma_chan->device->dev;
+
+	if (read) {
+		dma_src = (dma_addr_t)cqspi->mmap_phys_base + offset;
+		dma_dst = dma_map_single(ddev, buf, len, DMA_FROM_DEVICE);
+	} else {
+		dma_dst = (dma_addr_t)cqspi->mmap_phys_base + offset;
+		dma_src = dma_map_single(ddev, buf, len, DMA_TO_DEVICE);
+	}
+
+	if (dma_mapping_error(ddev, dma_dst)) {
+		dev_err(dev, "dma mapping failed\n");
+		return -ENOMEM;
+	}
+	tx = dmaengine_prep_dma_memcpy(cqspi->dma_chan, dma_dst, dma_src,
+				       len, flags);
+	if (!tx) {
+		dev_err(dev, "device_prep_dma_memcpy error\n");
+		ret = -EIO;
+		goto err_unmap;
+	}
+
+	tx->callback = cqspi_dma_callback;
+	tx->callback_param = cqspi;
+	cookie = tx->tx_submit(tx);
+	reinit_completion(&cqspi->dma_complete);
+
+	ret = dma_submit_error(cookie);
+	if (ret) {
+		dev_err(dev, "dma_submit_error %d\n", cookie);
+		ret = -EIO;
+		goto err_unmap;
+	}
+
+	dma_async_issue_pending(cqspi->dma_chan);
+	if (!wait_for_completion_timeout(&cqspi->dma_complete,
+					 msecs_to_jiffies(max_t(size_t, len, 500)))) {
+		dmaengine_terminate_sync(cqspi->dma_chan);
+		dev_err(dev, "DMA wait_for_completion_timeout\n");
+		ret = -ETIMEDOUT;
+		goto err_unmap;
+	}
+
+err_unmap:
+	if (read)
+		dma_unmap_single(ddev, dma_dst, len, DMA_FROM_DEVICE);
+	else
+		dma_unmap_single(ddev, dma_dst, len, DMA_TO_DEVICE);
+
+	return ret;
+}
+
 static ssize_t cqspi_write(struct cqspi_flash_pdata *f_pdata,
 			   const struct spi_mem_op *op)
 {
@@ -1093,77 +1164,33 @@ static ssize_t cqspi_write(struct cqspi_flash_pdata *f_pdata,
 	 */
 	if (!f_pdata->dtr && cqspi->use_direct_mode &&
 	    ((to + len) <= cqspi->ahb_size)) {
-		memcpy_toio(cqspi->ahb_base + to, buf, len);
+
+		if (!cqspi->dma_chan || !virt_addr_valid(buf)) {
+			memcpy_toio(cqspi->ahb_base + to, buf, len);
+			return 0;
+		}
+
+		ret = cqspi_perform_dma(cqspi, buf, to, len, 0);
+		if (ret)
+			return ret;
+
 		return cqspi_wait_idle(cqspi);
 	}
 
 	return cqspi_indirect_write_execute(f_pdata, to, buf, len);
 }
 
-static void cqspi_rx_dma_callback(void *param)
-{
-	struct cqspi_st *cqspi = param;
-
-	complete(&cqspi->rx_dma_complete);
-}
-
 static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
 				     u_char *buf, loff_t from, size_t len)
 {
 	struct cqspi_st *cqspi = f_pdata->cqspi;
-	struct device *dev = &cqspi->pdev->dev;
-	enum dma_ctrl_flags flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
-	dma_addr_t dma_src = (dma_addr_t)cqspi->mmap_phys_base + from;
-	int ret = 0;
-	struct dma_async_tx_descriptor *tx;
-	dma_cookie_t cookie;
-	dma_addr_t dma_dst;
-	struct device *ddev;
 
-	if (!cqspi->rx_chan || !virt_addr_valid(buf)) {
+	if (!cqspi->dma_chan || !virt_addr_valid(buf)) {
 		memcpy_fromio(buf, cqspi->ahb_base + from, len);
 		return 0;
 	}
 
-	ddev = cqspi->rx_chan->device->dev;
-	dma_dst = dma_map_single(ddev, buf, len, DMA_FROM_DEVICE);
-	if (dma_mapping_error(ddev, dma_dst)) {
-		dev_err(dev, "dma mapping failed\n");
-		return -ENOMEM;
-	}
-	tx = dmaengine_prep_dma_memcpy(cqspi->rx_chan, dma_dst, dma_src,
-				       len, flags);
-	if (!tx) {
-		dev_err(dev, "device_prep_dma_memcpy error\n");
-		ret = -EIO;
-		goto err_unmap;
-	}
-
-	tx->callback = cqspi_rx_dma_callback;
-	tx->callback_param = cqspi;
-	cookie = tx->tx_submit(tx);
-	reinit_completion(&cqspi->rx_dma_complete);
-
-	ret = dma_submit_error(cookie);
-	if (ret) {
-		dev_err(dev, "dma_submit_error %d\n", cookie);
-		ret = -EIO;
-		goto err_unmap;
-	}
-
-	dma_async_issue_pending(cqspi->rx_chan);
-	if (!wait_for_completion_timeout(&cqspi->rx_dma_complete,
-					 msecs_to_jiffies(max_t(size_t, len, 500)))) {
-		dmaengine_terminate_sync(cqspi->rx_chan);
-		dev_err(dev, "DMA wait_for_completion_timeout\n");
-		ret = -ETIMEDOUT;
-		goto err_unmap;
-	}
-
-err_unmap:
-	dma_unmap_single(ddev, dma_dst, len, DMA_FROM_DEVICE);
-
-	return ret;
+	return cqspi_perform_dma(cqspi, buf, from, len, 1);
 }
 
 static ssize_t cqspi_read(struct cqspi_flash_pdata *f_pdata,
@@ -1368,13 +1395,14 @@ static int cqspi_request_mmap_dma(struct cqspi_st *cqspi)
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);
 
-	cqspi->rx_chan = dma_request_chan_by_mask(&mask);
-	if (IS_ERR(cqspi->rx_chan)) {
-		int ret = PTR_ERR(cqspi->rx_chan);
-		cqspi->rx_chan = NULL;
+	cqspi->dma_chan = dma_request_chan_by_mask(&mask);
+	if (IS_ERR(cqspi->dma_chan)) {
+		int ret = PTR_ERR(cqspi->dma_chan);
+
+		cqspi->dma_chan = NULL;
 		return dev_err_probe(&cqspi->pdev->dev, ret, "No Rx DMA available\n");
 	}
-	init_completion(&cqspi->rx_dma_complete);
+	init_completion(&cqspi->dma_complete);
 
 	return 0;
 }
@@ -1615,8 +1643,8 @@ static int cqspi_remove(struct platform_device *pdev)
 
 	cqspi_controller_enable(cqspi, 0);
 
-	if (cqspi->rx_chan)
-		dma_release_channel(cqspi->rx_chan);
+	if (cqspi->dma_chan)
+		dma_release_channel(cqspi->dma_chan);
 
 	clk_disable_unprepare(cqspi->clk);
 
