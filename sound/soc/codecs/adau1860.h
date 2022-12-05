@@ -72,13 +72,18 @@
 #define ADAU1860_SPT_CTRL2_OFFS		0x1
 #define ADAU1860_SPT_CTRL3_OFFS		0x2
 
+#define ADAU1860_SPT_SLOT_WIDTH_16	0x2
+#define ADAU1860_SPT_SLOT_WIDTH_24	0x1
+#define ADAU1860_SPT_SLOT_WIDTH_32	0x0
+#define ADAU1860_SPT_SLOT_WIDTH_MSK	GENMASK(5, 4)
 #define ADAU1860_SPT_BCLK_POL		BIT(3)
 #define ADAU1860_SPT_LRCLK_POL		BIT(4)
-#define ADAU1860_DAI_FORMAT_LEFT_J	0x2
-#define ADAU1860_DAI_FORMAT_I2S		0x0
-#define ADAU1860_DAI_DATA_FMT_MSK	GENMASK(3, 1)
-#define ADAU1860_DAI_LRCLK_SRC_MSK	GENMASK(3, 0)
-#define ADAU1860_DAI_BCLK_SRC_MSK	GENMASK(1, 0)
+#define ADAU1860_SPT_TRI_STATE		BIT(6)
+#define ADAU1860_SPT_FORMAT_LEFT_J	BIT(1)
+#define ADAU1860_SPT_FORMAT_TDM		BIT(0)
+#define ADAU1860_SPT_DATA_FMT_MSK	GENMASK(3, 0)
+#define ADAU1860_SPT_LRCLK_SRC_MSK	GENMASK(3, 0)
+#define ADAU1860_SPT_BCLK_SRC_MSK	GENMASK(2, 0)
 
 #define ADAU1860_MASTER_BLOCK_EN_MSK	BIT(2)
 #define ADAU1860_PWR_MODE_MSK		GENMASK(1, 0)
@@ -109,6 +114,7 @@ struct adau18x0 {
 	void (*switch_mode)(struct device *dev);
 
 	unsigned int dai_fmt;
+	unsigned int dai_master;
 	unsigned int sysclk_freq;
 
 	struct gpio_desc *pd_gpio;
@@ -120,7 +126,8 @@ struct adau18x0 {
 };
 
 int adau1860_probe(struct device *dev, struct regmap *regmap,
-	enum adau1860_type type, void (*switch_mode)(struct device *dev));
+		   enum adau1860_type type,
+		   void (*switch_mode)(struct device *dev));
 
 extern const struct regmap_config adau1860_regmap_config;
 

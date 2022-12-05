@@ -38,26 +38,25 @@ static int adau1860_spi_probe(struct spi_device *spi)
 	config = adau1860_regmap_config;
 	config.read_flag_mask = 0x1;
 
-	return adau1860_probe(&spi->dev,
-		devm_regmap_init_spi(spi, &config),
-		id->driver_data, adau1860_spi_switch_mode);
+	return adau1860_probe(&spi->dev, devm_regmap_init_spi(spi, &config),
+			      id->driver_data, adau1860_spi_switch_mode);
 }
 
-static void adau1860_spi_remove(struct spi_device *spi)
+static int adau1860_spi_remove(struct spi_device *spi)
 {
-	return;
+	return 0;
 }
 
-static const struct spi_device_id adau1860_spi_id[] = {
+static const struct spi_device_id adau1860_spi_id[] = { 
 	{ "adau1860", ADAU1860 },
-	{ }
+	{} 
 };
 MODULE_DEVICE_TABLE(spi, adau1860_spi_id);
 
 #if defined(CONFIG_OF)
 static const struct of_device_id adau1860_spi_dt_ids[] = {
 	{ .compatible = "adi,adau1860", },
-	{ },
+	{},
 };
 MODULE_DEVICE_TABLE(of, adau1860_spi_dt_ids);
 #endif

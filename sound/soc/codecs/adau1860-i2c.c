@@ -27,8 +27,8 @@ static int adau1860_i2c_probe(struct i2c_client *client)
 	config = adau1860_regmap_config;
 
 	return adau1860_probe(&client->dev,
-		devm_regmap_init_i2c(client, &config),
-		id->driver_data, NULL);
+			      devm_regmap_init_i2c(client, &config),
+			      id->driver_data, NULL);
 }
 
 static int adau1860_i2c_remove(struct i2c_client *client)
@@ -36,16 +36,16 @@ static int adau1860_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-static const struct i2c_device_id adau1860_i2c_ids[] = {
+static const struct i2c_device_id adau1860_i2c_ids[] = { 
 	{ "adau1860", ADAU1860 },
-	{ }
+	{}
 };
 MODULE_DEVICE_TABLE(i2c, adau1860_i2c_ids);
 
 #if defined(CONFIG_OF)
 static const struct of_device_id adau1860_i2c_dt_ids[] = {
 	{ .compatible = "adi,adau1860", },
-	{ },
+	{},
 };
 MODULE_DEVICE_TABLE(of, adau1860_i2c_dt_ids);
 #endif
