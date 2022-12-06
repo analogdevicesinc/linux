@@ -149,6 +149,7 @@ void pm_shutdown_notify_m4(void)
 	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = PM_RPMSG_SHUTDOWN;
 	/* No ACK from M4 */
+	local_irq_enable();
 	pm_send_message(&msg, &pm_rpmsg, false);
 	imx7ulp_poweroff();
 }
@@ -165,7 +166,7 @@ void pm_reboot_notify_m4(void)
 	msg.header.cmd = PM_RPMSG_MODE;
 	msg.data = PM_RPMSG_REBOOT;
 
-	pm_send_message(&msg, &pm_rpmsg, true);
+	pm_send_message(&msg, &pm_rpmsg, false);
 
 }
 
