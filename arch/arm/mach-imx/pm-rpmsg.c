@@ -13,6 +13,7 @@
  *
  */
 
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/imx_rpmsg.h>
@@ -167,7 +168,8 @@ void pm_reboot_notify_m4(void)
 	msg.data = PM_RPMSG_REBOOT;
 
 	pm_send_message(&msg, &pm_rpmsg, false);
-
+	/* Give a grace period for failure to restart of 1s */
+	mdelay(1000);
 }
 
 void  pm_heartbeat_off_notify_m4(bool enter)
@@ -216,6 +218,8 @@ static void pm_heart_beat_work_handler(struct work_struct *work)
 static void pm_poweroff_rpmsg(void)
 {
 	pm_shutdown_notify_m4();
+	/* Wait 5s to let M4 power off A7 */
+	mdelay(5000);
 	pr_emerg("Unable to poweroff system\n");
 }
 
