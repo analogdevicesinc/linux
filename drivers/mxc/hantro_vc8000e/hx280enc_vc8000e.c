@@ -271,6 +271,7 @@ static int WaitEncReady(hantroenc_t *dev, u32 *core_info, u32 *irq_status)
 	if (wait_event_timeout(enc_wait_queue,
 		CheckEncIrq(dev, core_info, irq_status), msecs_to_jiffies(200)) == 0)	{
 		pr_err("%s: wait interrupt timeout !\n", __func__);
+		up(&hantroenc_data[dev->core_id].core_suspend_sem);
 		return -1;
 	}
 

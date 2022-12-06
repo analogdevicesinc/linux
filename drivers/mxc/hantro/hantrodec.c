@@ -901,6 +901,7 @@ long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 	} else if (ret == 0) {
 		pr_err("DEC[%d]  wait_event timeout\n", id);
 		timeout = 1;
+		up(&core_suspend_sem[id]);
 	}
 
 	atomic_inc(&irq_tx);

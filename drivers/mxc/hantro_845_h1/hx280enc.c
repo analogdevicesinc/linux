@@ -284,6 +284,7 @@ unsigned int WaitEncReady(hx280enc_t *dev)
 
 		pr_err("%s: wait_event_timeout() timeout !\n", __func__);
 		writel(reg14 & (~1), dev->hwregs + 14*4);
+		up(&hx280enc_data.core_suspend_sem);
 	}
 
 	/* read register to mirror */
