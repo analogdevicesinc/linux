@@ -155,219 +155,269 @@ struct ad_pulsar_chip_info {
 	enum ad_pulsar_input_type input_type;
 	const char *name;
 	int num_channels;
+	bool has_turbo:1;
+	bool has_reset:1;
+	bool has_filter:1;
 	int resolution;
 	bool sequencer;
 	int sclk_rate;
 	int max_rate;
 };
 
-static const struct ad_pulsar_chip_info ad_pulsar_chip_infos[] = {
-	[ID_AD7988_5] = {
-		.name = "ad7988-5",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 500000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 80000000
-	},
-	[ID_AD7988_1] = {
-		.name = "ad7988-1",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 100000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 80000000
-	},
-	[ID_AD7984] = {
-		.name = "ad7984",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 1333333,
-		.resolution = 18,
-		.num_channels = 1,
-		.sclk_rate = 80000000
-	},
-	[ID_AD7983] = {
-		.name = "ad7983",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 1333333,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 80000000
-	},
-	[ID_AD7982] = {
-		.name = "ad7982",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 1000000,
-		.resolution = 18,
-		.num_channels = 1,
-		.sclk_rate = 80000000
-	},
-	[ID_AD7980] = {
-		.name = "ad7980",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 1000000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 80000000
-	},
-	[ID_AD7949] = {
-		.name = "ad7949",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 250000,
-		.resolution = 14,
-		.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
-		.sclk_rate = 40000000,
-		.sequencer = true,
-	},
-	[ID_AD7946] = {
-		.name = "ad7946",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 500000,
-		.resolution = 14,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7942] = {
-		.name = "ad7942",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 250000,
-		.resolution = 14,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7699] = {
-		.name = "ad7699",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 500000,
-		.resolution = 16,
-		.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
-		.sclk_rate = 40000000,
-		.sequencer = true,
-	},
-	[ID_AD7693] = {
-		.name = "ad7693",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 500000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7691] = {
-		.name = "ad7691",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 250000,
-		.resolution = 18,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7690] = {
-		.name = "ad7690",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 400000,
-		.resolution = 18,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7689] = {
-		.name = "ad7689",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 250000,
-		.resolution = 16,
-		.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
-		.sclk_rate = 40000000,
-		.sequencer = true,
-	},
-	[ID_AD7688] = {
-		.name = "ad7688",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 500000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7687] = {
-		.name = "ad7687",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 250000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7686] = {
-		.name = "ad7686",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 500000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7685] = {
-		.name = "ad7685",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 250000,
-		.resolution = 16,
-		.num_channels = 1,
-		.sclk_rate = 40000000
-	},
-	[ID_AD7682] = {
-		.name = "ad7682",
-		.input_type = SINGLE_ENDED,
-		.max_rate = 250000,
-		.resolution = 16,
-		.num_channels = 4 + AD7682_NUM_TEMP_CHANNELS,
-		.sclk_rate = 40000000,
-		.sequencer = true,
-	},
-	[ID_AD4022] = {
-		.name = "ad4022",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 500000,
-		.resolution = 20,
-		.num_channels = 1,
-		.sclk_rate = 80000000,
-	},
-	[ID_AD4021] = {
-		.name = "ad4021",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 1000000,
-		.resolution = 20,
-		.num_channels = 1,
-		.sclk_rate = 80000000,
-	},
-	[ID_AD4020] = {
-		.name = "ad4020",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 1800000,
-		.resolution = 20,
-		.num_channels = 1,
-		.sclk_rate = 80000000,
-	},
-	[ID_AD4011] = {
-		.name = "ad4011",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 500000,
-		.resolution = 18,
-		.num_channels = 1,
-		.sclk_rate = 80000000,
-	},
-	[ID_AD4007] = {
-		.name = "ad4007",
-		.input_type = DIFFERENTIAL,
-		.max_rate = 1000000,
-		.resolution = 18,
-		.num_channels = 1,
-		.sclk_rate = 80000000,
-	},
-	[ID_AD4003] = {
-		.name = "ad4003",
-		.input_type = DIFFERENTIAL,
-		// .max_rate = 2000000,
-		// HDL does not support maximum rate
-		.max_rate = 1839080,
-		.resolution = 18,
-		.num_channels = 1,
-		.sclk_rate = 80000000,
-	}
+static const struct ad_pulsar_chip_info ad7988_5_chip_info = {
+	.name = "ad7988-5",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 500000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 80000000
+};
+
+static const struct ad_pulsar_chip_info ad7988_1_chip_info = {
+	.name = "ad7988-1",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 100000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 80000000
+};
+
+static const struct ad_pulsar_chip_info ad7984_chip_info = {
+	.name = "ad7984",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 1333333,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 80000000
+};
+
+static const struct ad_pulsar_chip_info ad7983_chip_info = {
+	.name = "ad7983",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 1333333,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 80000000
+};
+
+static const struct ad_pulsar_chip_info ad7982_chip_info= {
+	.name = "ad7982",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 1000000,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 80000000
+};
+
+static const struct ad_pulsar_chip_info ad7980_chip_info= {
+	.name = "ad7980",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 1000000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 80000000
+};
+
+static const struct ad_pulsar_chip_info ad7949_chip_info = {
+	.name = "ad7949",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 250000,
+	.resolution = 14,
+	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
+	.sclk_rate = 40000000,
+	.has_filter = true,
+	.has_reset = true,
+	.sequencer = true
+};
+
+static const struct ad_pulsar_chip_info ad7946_chip_info = {
+	.name = "ad7946",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 500000,
+	.resolution = 14,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7942_chip_info = {
+	.name = "ad7942",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 250000,
+	.resolution = 14,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7699_chip_info = {
+	.name = "ad7699",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 500000,
+	.resolution = 16,
+	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
+	.sclk_rate = 40000000,
+	.has_filter = true,
+	.has_reset = true,
+	.sequencer = true
+};
+
+static const struct ad_pulsar_chip_info ad7693_chip_info = {
+	.name = "ad7693",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 500000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7691_chip_info = {
+	.name = "ad7691",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 250000,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7690_chip_info = {
+	.name = "ad7690",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 400000,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7689_chip_info = {
+	.name = "ad7689",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 250000,
+	.resolution = 16,
+	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
+	.sclk_rate = 40000000,
+	.has_filter = true,
+	.has_reset = true,
+	.sequencer = true
+};
+
+static const struct ad_pulsar_chip_info ad7688_chip_info = {
+	.name = "ad7688",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 500000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7687_chip_info = {
+	.name = "ad7687",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 250000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7686_chip_info = {
+	.name = "ad7686",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 500000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7685_chip_info = {
+	.name = "ad7685",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 250000,
+	.resolution = 16,
+	.num_channels = 1,
+	.sclk_rate = 40000000
+};
+
+static const struct ad_pulsar_chip_info ad7682_chip_info = {
+	.name = "ad7682",
+	.input_type = SINGLE_ENDED,
+	.max_rate = 250000,
+	.resolution = 16,
+	.num_channels = 4 + AD7682_NUM_TEMP_CHANNELS,
+	.sclk_rate = 40000000,
+	.has_filter = true,
+	.has_reset = true,
+	.sequencer = true
+};
+
+static const struct ad_pulsar_chip_info ad4022_chip_info = {
+	.name = "ad4022",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 500000,
+	.resolution = 20,
+	.num_channels = 1,
+	.sclk_rate = 80000000,
+	.has_turbo = true
+};
+
+static const struct ad_pulsar_chip_info ad4021_chip_info = {
+	.name = "ad4021",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 1000000,
+	.resolution = 20,
+	.num_channels = 1,
+	.sclk_rate = 80000000,
+	.has_turbo = true
+};
+
+static const struct ad_pulsar_chip_info ad4020_chip_info = {
+	.name = "ad4020",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 1800000,
+	.resolution = 20,
+	.num_channels = 1,
+	.sclk_rate = 80000000,
+	.has_turbo = true
+};
+
+static const struct ad_pulsar_chip_info ad4011_chip_info = {
+	.name = "ad4011",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 500000,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 80000000,
+	.has_turbo = true
+};
+static const struct ad_pulsar_chip_info ad4007_chip_info = {
+	.name = "ad4007",
+	.input_type = DIFFERENTIAL,
+	.max_rate = 1000000,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 80000000,
+	.has_turbo = true
+};
+
+static const struct ad_pulsar_chip_info ad4003_chip_info = {
+	.name = "ad4003",
+	.input_type = DIFFERENTIAL,
+	// .max_rate = 2000000,
+	// HDL does not support maximum rate
+	.max_rate = 1839080,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 80000000,
+	.has_turbo = true
+};
+
+//TODO this is not the right config, sergiu forgot to add it
+static const struct ad_pulsar_chip_info adaq4003_chip_info = {
+	.name = "ad4003",
+	.input_type = DIFFERENTIAL,
+	// .max_rate = 2000000,
+	// HDL does not support maximum rate
+	.max_rate = 1839080,
+	.resolution = 18,
+	.num_channels = 1,
+	.sclk_rate = 80000000,
 };
 
 struct ad_pulsar_adc {
@@ -471,17 +521,12 @@ static int ad_pulsar_set_lpf(struct ad_pulsar_adc *adc, int index,
 	else
 		return -EINVAL;
 
-	switch (adc->device_id) {
-	case ID_AD7949:
-	case ID_AD7699:
-	case ID_AD7682:
-	case ID_AD7689:
+	if (adc->info->has_filter) {
 		adc->seq_buf[index] &= ~AD7682_FILTER_MSK;
 		adc->seq_buf[index] |= AD7682_BW_SEL(filter);
-		return 0;
-	default:
-		return -EINVAL;
 	}
+
+	return 0;
 }
 
 static int ad_pulsar_get_lpf(struct ad_pulsar_adc *adc, int index, int *val)
@@ -704,113 +749,64 @@ static const struct iio_info ad_pulsar_iio_info = {
 	.debugfs_reg_access = &ad_pulsar_reg_access,
 };
 
-static int ad_pulsar_spi_init(struct ad_pulsar_adc *adc)
-{
-	int ret = 0;
-
-	switch (adc->device_id) {
-	case ID_AD4022:
-	case ID_AD4021:
-	case ID_AD4020:
-	case ID_AD4011:
-	case ID_AD4007:
-	case ID_AD4003:
-		ret = ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
-					  AD4003_TURBO_MODE);
-		break;
-	case ID_AD7949:
-	case ID_AD7699:
-	case ID_AD7682:
-	case ID_AD7689:
-		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-					  AD7682_CONFIG_RESET);
-		if (ret < 0)
-			return ret;
-
-		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-					  AD7682_CONFIG_RESET);
-		break;
-	case ID_AD7988_5:
-	case ID_AD7988_1:
-	case ID_AD7984:
-	case ID_AD7983:
-	case ID_AD7982:
-	case ID_AD7980:
-	case ID_AD7946:
-	case ID_AD7942:
-	case ID_AD7693:
-	case ID_AD7691:
-	case ID_AD7690:
-	case ID_AD7688:
-	case ID_AD7687:
-	case ID_AD7686:
-	case ID_AD7685:
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return ret;
-}
-
 static const struct of_device_id ad_pulsar_of_match[] = {
-	{ .compatible = "adi,pulsar,ad7988-5", .data = (void *)ID_AD7988_5 },
-	{ .compatible = "adi,pulsar,ad7988-1", .data = (void *)ID_AD7988_1 },
-	{ .compatible = "adi,pulsar,ad7984", .data = (void *)ID_AD7984   },
-	{ .compatible = "adi,pulsar,ad7983", .data = (void *)ID_AD7983   },
-	{ .compatible = "adi,pulsar,ad7982", .data = (void *)ID_AD7982   },
-	{ .compatible = "adi,pulsar,ad7980", .data = (void *)ID_AD7980   },
-	{ .compatible = "adi,pulsar,ad7949", .data = (void *)ID_AD7949   },
-	{ .compatible = "adi,pulsar,ad7946", .data = (void *)ID_AD7946   },
-	{ .compatible = "adi,pulsar,ad7942", .data = (void *)ID_AD7942   },
-	{ .compatible = "adi,pulsar,ad7699", .data = (void *)ID_AD7699   },
-	{ .compatible = "adi,pulsar,ad7693", .data = (void *)ID_AD7693   },
-	{ .compatible = "adi,pulsar,ad7691", .data = (void *)ID_AD7691   },
-	{ .compatible = "adi,pulsar,ad7690", .data = (void *)ID_AD7690   },
-	{ .compatible = "adi,pulsar,ad7689", .data = (void *)ID_AD7689   },
-	{ .compatible = "adi,pulsar,ad7688", .data = (void *)ID_AD7688   },
-	{ .compatible = "adi,pulsar,ad7687", .data = (void *)ID_AD7687   },
-	{ .compatible = "adi,pulsar,ad7686", .data = (void *)ID_AD7686   },
-	{ .compatible = "adi,pulsar,ad7685", .data = (void *)ID_AD7685   },
-	{ .compatible = "adi,pulsar,ad7682", .data = (void *)ID_AD7682   },
-	{ .compatible = "adi,pulsar,ad4022", .data = (void *)ID_AD4022   },
-	{ .compatible = "adi,pulsar,ad4021", .data = (void *)ID_AD4021   },
-	{ .compatible = "adi,pulsar,ad4020", .data = (void *)ID_AD4020   },
-	{ .compatible = "adi,pulsar,ad4011", .data = (void *)ID_AD4011   },
-	{ .compatible = "adi,pulsar,ad4007", .data = (void *)ID_AD4007   },
-	{ .compatible = "adi,pulsar,ad4003", .data = (void *)ID_AD4003   },
-	{ .compatible = "adi,pulsar,adaq4003", .data = (void *)ID_AD4003   },
+	{ .compatible = "adi,pulsar,ad7988-5", .data = &ad7988_5_chip_info },
+	{ .compatible = "adi,pulsar,ad7988-1", .data = &ad7988_1_chip_info },
+	{ .compatible = "adi,pulsar,ad7984", .data = &ad7984_chip_info },
+	{ .compatible = "adi,pulsar,ad7983", .data = &ad7983_chip_info },
+	{ .compatible = "adi,pulsar,ad7982", .data = &ad7982_chip_info },
+	{ .compatible = "adi,pulsar,ad7980", .data = &ad7980_chip_info },
+	{ .compatible = "adi,pulsar,ad7949", .data = &ad7949_chip_info },
+	{ .compatible = "adi,pulsar,ad7946", .data = &ad7946_chip_info },
+	{ .compatible = "adi,pulsar,ad7942", .data = &ad7942_chip_info },
+	{ .compatible = "adi,pulsar,ad7699", .data = &ad7699_chip_info },
+	{ .compatible = "adi,pulsar,ad7693", .data = &ad7693_chip_info },
+	{ .compatible = "adi,pulsar,ad7691", .data = &ad7691_chip_info },
+	{ .compatible = "adi,pulsar,ad7690", .data = &ad7690_chip_info },
+	{ .compatible = "adi,pulsar,ad7689", .data = &ad7689_chip_info },
+	{ .compatible = "adi,pulsar,ad7688", .data = &ad7688_chip_info },
+	{ .compatible = "adi,pulsar,ad7687", .data = &ad7687_chip_info },
+	{ .compatible = "adi,pulsar,ad7686", .data = &ad7686_chip_info },
+	{ .compatible = "adi,pulsar,ad7685", .data = &ad7685_chip_info },
+	{ .compatible = "adi,pulsar,ad7682", .data = &ad7682_chip_info },
+	{ .compatible = "adi,pulsar,ad4022", .data = &ad4022_chip_info },
+	{ .compatible = "adi,pulsar,ad4021", .data = &ad4021_chip_info },
+	{ .compatible = "adi,pulsar,ad4020", .data = &ad4020_chip_info },
+	{ .compatible = "adi,pulsar,ad4011", .data = &ad4011_chip_info },
+	{ .compatible = "adi,pulsar,ad4007", .data = &ad4007_chip_info },
+	{ .compatible = "adi,pulsar,ad4003", .data = &ad4003_chip_info },
+	{ .compatible = "adi,pulsar,adaq4003", .data = &adaq4003_chip_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad_pulsar_of_match);
 
 static const struct spi_device_id ad_pulsar_spi_id[] = {
-	{ "adi,pulsar,ad7988-5", ID_AD7988_5 },
-	{ "adi,pulsar,ad7988-1", ID_AD7988_1 },
-	{ "adi,pulsar,ad7984", ID_AD7984 },
-	{ "adi,pulsar,ad7983", ID_AD7983 },
-	{ "adi,pulsar,ad7982", ID_AD7982 },
-	{ "adi,pulsar,ad7980", ID_AD7980 },
-	{ "adi,pulsar,ad7949", ID_AD7949 },
-	{ "adi,pulsar,ad7946", ID_AD7946 },
-	{ "adi,pulsar,ad7942", ID_AD7942 },
-	{ "adi,pulsar,ad7699", ID_AD7699 },
-	{ "adi,pulsar,ad7693", ID_AD7693 },
-	{ "adi,pulsar,ad7691", ID_AD7691 },
-	{ "adi,pulsar,ad7690", ID_AD7690 },
-	{ "adi,pulsar,ad7689", ID_AD7689 },
-	{ "adi,pulsar,ad7688", ID_AD7688 },
-	{ "adi,pulsar,ad7687", ID_AD7687 },
-	{ "adi,pulsar,ad7686", ID_AD7686 },
-	{ "adi,pulsar,ad7685", ID_AD7685 },
-	{ "adi,pulsar,ad7682", ID_AD7682 },
-	{ "adi,pulsar,ad4022", ID_AD4022 },
-	{ "adi,pulsar,ad4021", ID_AD4021 },
-	{ "adi,pulsar,ad4020", ID_AD4020 },
-	{ "adi,pulsar,ad4011", ID_AD4011 },
-	{ "adi,pulsar,ad4007", ID_AD4007 },
-	{ "adi,pulsar,ad4003", ID_AD4003 },
-	{ "adi,pulsar,adaq4003", ID_AD4003 },
+	{ "adi,pulsar,ad7988-5", (kernel_ulong_t)&ad7988_5_chip_info },
+	{ "adi,pulsar,ad7988-1", (kernel_ulong_t)&ad7988_1_chip_info },
+	{ "adi,pulsar,ad7984", (kernel_ulong_t)&ad7984_chip_info },
+	{ "adi,pulsar,ad7983", (kernel_ulong_t)&ad7983_chip_info },
+	{ "adi,pulsar,ad7982", (kernel_ulong_t)&ad7982_chip_info },
+	{ "adi,pulsar,ad7980", (kernel_ulong_t)&ad7980_chip_info },
+	{ "adi,pulsar,ad7949", (kernel_ulong_t)&ad7949_chip_info },
+	{ "adi,pulsar,ad7946", (kernel_ulong_t)&ad7946_chip_info },
+	{ "adi,pulsar,ad7942", (kernel_ulong_t)&ad7942_chip_info },
+	{ "adi,pulsar,ad7699", (kernel_ulong_t)&ad7699_chip_info },
+	{ "adi,pulsar,ad7693", (kernel_ulong_t)&ad7693_chip_info },
+	{ "adi,pulsar,ad7691", (kernel_ulong_t)&ad7691_chip_info },
+	{ "adi,pulsar,ad7690", (kernel_ulong_t)&ad7690_chip_info },
+	{ "adi,pulsar,ad7689", (kernel_ulong_t)&ad7689_chip_info },
+	{ "adi,pulsar,ad7688", (kernel_ulong_t)&ad7688_chip_info },
+	{ "adi,pulsar,ad7687", (kernel_ulong_t)&ad7687_chip_info },
+	{ "adi,pulsar,ad7686", (kernel_ulong_t)&ad7686_chip_info },
+	{ "adi,pulsar,ad7685", (kernel_ulong_t)&ad7685_chip_info },
+	{ "adi,pulsar,ad7682", (kernel_ulong_t)&ad7682_chip_info },
+	{ "adi,pulsar,ad4022", (kernel_ulong_t)&ad4022_chip_info },
+	{ "adi,pulsar,ad4021", (kernel_ulong_t)&ad4021_chip_info },
+	{ "adi,pulsar,ad4020", (kernel_ulong_t)&ad4020_chip_info },
+	{ "adi,pulsar,ad4011", (kernel_ulong_t)&ad4011_chip_info },
+	{ "adi,pulsar,ad4007", (kernel_ulong_t)&ad4007_chip_info },
+	{ "adi,pulsar,ad4003", (kernel_ulong_t)&ad4003_chip_info },
+	{ "adi,pulsar,adaq4003", (kernel_ulong_t)&adaq4003_chip_info },
 	{ }
 
 };
@@ -954,7 +950,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	struct iio_buffer *buffer;
 	struct iio_dev *indio_dev;
 	struct clk *ref_clk;
-	const void *id;
 	int i, tmp;
 	int ret;
 
@@ -1004,20 +999,32 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	id = device_get_match_data(&spi->dev);
-	if (!id)
+	adc->info = device_get_match_data(&spi->dev);
+	if (!adc->info)
 		return -EINVAL;
-	adc->device_id = (int)id;
-
-	adc->info = &ad_pulsar_chip_infos[adc->device_id];
 
 	ret = ad_pulsar_parse_channels(indio_dev);
 	if (ret < 0)
 		return ret;
 
-	ret = ad_pulsar_spi_init(adc);
-	if (ret < 0)
-		return ret;
+	if (adc->info->has_turbo) {
+		ret =  ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
+					  AD4003_TURBO_MODE);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (adc->info->has_reset) {
+		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
+					  AD7682_CONFIG_RESET);
+		if (ret < 0)
+			return ret;
+
+		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
+					  AD7682_CONFIG_RESET);
+		if (ret < 0)
+			return ret;
+	}
 
 	indio_dev->name = adc->info->name;
 	indio_dev->info = &ad_pulsar_iio_info;
