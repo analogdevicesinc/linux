@@ -3261,6 +3261,32 @@ static void pxp_2d_calc_mux(size_t nodes, struct mux_config *path_ctrl)
 	} while (1);
 }
 
+/*
+ * Workaround to support RGB with alpha channel of PS engine
+ */
+static void pxp_config_alpha(struct pxp_pixmap *input)
+{
+	struct pxp_alpha_ctrl alpha_ctrl;
+
+	memset((void*)&alpha_ctrl, 0x0, sizeof(alpha_ctrl));
+
+	switch (input->format) {
+	case PXP_PIX_FMT_ARGB32:
+	case PXP_PIX_FMT_ARGB555:
+	case PXP_PIX_FMT_ARGB444:
+	case PXP_PIX_FMT_RGBA32:
+	case PXP_PIX_FMT_RGBA555:
+	case PXP_PIX_FMT_RGBA444:
+		alpha_ctrl.poter_duff_enable = 1;
+		alpha_ctrl.s0_s1_factor_mode = 1;
+		alpha_ctrl.s0_global_alpha_mode = 1;
+		break;
+	default:
+		break;
+	}
+	pxp_writel(*(uint32_t *)&alpha_ctrl, HW_PXP_ALPHA_A_CTRL);
+}
+
 static int pxp_2d_op_handler(struct pxps *pxp)
 {
 	struct mux_config path_ctrl0;
@@ -3399,6 +3425,9 @@ reparse:
 			task->input_num = 2;
 			goto reparse;
 		}
+
+		if (nodes_used & (1 << PXP_2D_PS))
+			pxp_config_alpha(input);
 
 		pxp_2d_calc_mux(nodes_in_path, &path_ctrl0);
 		pr_debug("%s: path_ctrl0 = 0x%x\n",
