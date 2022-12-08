@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9009 (via jesd204-fsm)
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ *
+ * hdl_project: <adrv9009/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+
+#include "zynq-zc706-adv7511-adrv9009-jesd204-fsm.dts"
+
+&fmc_spi {
+	trx0_adrv9009: adrv9009-phy@1 {
+		/* JESD204 */
+
+		/* JESD204 RX */
+		adi,jesd204-framer-a-m = <4>;
+		adi,jesd204-framer-a-f = <8>;
+		adi,jesd204-framer-a-serializer-lanes-enabled = <0x01>;
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-serializer-lanes-enabled = <0x04>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x05>;
+
+		/* RX */
+		adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(0) (0) (2) (4) (4) (-10)     \
+		(-46) (-88) (-68) (78) (280) (278) (-154) (-772) (-792) (344) (1880)   \
+		(1844) (-932) (-4528) (-4408) (2592) (14186) (23192) (23192) (14186)   \
+		(2592) (-4408) (-4528) (-932) (1844) (1880) (344) (-792) (-772) (-154) \
+		(278) (280) (78) (-68) (-88) (-46) (-10) (4) (4) (2) (0) (0)>;
+
+		adi,rx-profile-rhb1-decimation = <2>;
+		adi,rx-profile-rx-output-rate_khz = <122880>;
+		adi,rx-profile-rf-bandwidth_hz = <60000000>;
+		adi,rx-profile-rx-bbf3d-bcorner_khz = <60000>;
+		adi,rx-profile-rx-adc-profile = /bits/ 16 <265 146 181 90 1280 366 \
+		1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 \
+		25 27 0 0 25 27 0 0 165 44 31 905>;
+
+		/* ORX */
+		adi,orx-profile-rx-fir-gain_db = <6>;
+		adi,orx-profile-rx-fir-num-fir-coefs = <24>;
+		adi,orx-profile-rx-fir-coefs = /bits/ 16 <(-10) (7) (-10) (-12) (6) \
+		(-12) (16) (-16) (1) (63) (-431) (17235) (-431) (63) (1) (-16) (16) \
+		(-12) (6) (-12) (-10) (7) (-10) (0)>;
+
+		adi,orx-profile-rx-fir-decimation = <1>;
+		adi,orx-profile-orx-output-rate_khz = <245760>;
+		adi,orx-profile-rf-bandwidth_hz = <200000000>;
+		adi,orx-settings-obs-rx-channels-enable = <1>;
+
+		/* TX */
+		adi,tx-profile-tx-fir-num-fir-coefs = <40>;
+		adi,tx-profile-tx-fir-coefs = /bits/ 16 <(-14) (5) (-9) (6) (-4) (19)  \
+		(-29) (27) (-30) (46) (-63) (77) (-103) (150) (-218) (337) (-599)      \
+		(1266) (-2718) (19537) (-2718) (1266) (-599) (337) (-218) (150) (-103) \
+		(77) (-63) (46) (-30) (27) (-29) (19) (-4) (6) (-9) (5) (-14) (0)>;
+
+		adi,tx-profile-tx-fir-interpolation = <1>;
+		adi,tx-profile-tx-input-rate_khz = <245760>;
+		adi,tx-profile-primary-sig-bandwidth_hz = <100000000>;
+		adi,tx-profile-rf-bandwidth_hz = <225000000>;
+		adi,tx-profile-tx-dac3d-bcorner_khz = <225000>;
+		adi,tx-profile-tx-bbf3d-bcorner_khz = <113000>;
+
+		/* Clocks */
+		adi,dig-clocks-device-clock_khz = <122880>;
+		adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
+		};
+	};
+/ {
+	clocks {
+		rx_fixed_device_clk: clock@1{
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <122880000>;
+			clock-output-names = "rx_device_clk";
+		};
+	};
+	fpga_axi: fpga-axi@0 {
+
+		rx_dma: rx-dmac@7c400000 {
+			adi,channels {
+				dma-channel@0 {
+					adi,source-bus-width = <64>;
+					adi,destination-bus-width = <128>;
+				};
+			};
+		};
+
+		rx_obs_dma: rx-obs-dmac@7c440000 {
+			adi,channels {
+				dma-channel@0 {
+					adi,source-bus-width = <32>;
+					adi,destination-bus-width = <128>;
+				};
+			};
+		};
+
+		tx_dma: tx-dmac@7c420000  {
+			adi,channels {
+				dma-channel@0 {
+					adi,source-bus-width = <128>;
+					adi,destination-bus-width = <64>;
+				};
+			};
+		};
+
+		axi_adrv9009_rx_jesd: axi-jesd204-rx@44aa0000 {
+			clocks = <&clkc 16>, <&axi_rx_clkgen>, <&rx_fixed_device_clk>, <&axi_adrv9009_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <8>;
+		};
+
+		axi_adrv9009_adxcvr_rx: axi-adxcvr-rx@44a60000 {
+			adi,sys-clk-select = <XCVR_QPLL>;
+		};
+
+		axi_adrv9009_adxcvr_rx_os: axi-adxcvr-rx-os@44a50000 {
+			adi,sys-clk-select = <XCVR_QPLL>;
+		};
+
+		axi_adrv9009_tx_jesd: axi-jesd204-tx@44a90000 {
+			adi,converters-per-device = <2>;
+		};
+	};
+};
+
