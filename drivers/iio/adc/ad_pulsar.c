@@ -749,69 +749,6 @@ static const struct iio_info ad_pulsar_iio_info = {
 	.debugfs_reg_access = &ad_pulsar_reg_access,
 };
 
-static const struct of_device_id ad_pulsar_of_match[] = {
-	{ .compatible = "adi,pulsar,ad7988-5", .data = &ad7988_5_chip_info },
-	{ .compatible = "adi,pulsar,ad7988-1", .data = &ad7988_1_chip_info },
-	{ .compatible = "adi,pulsar,ad7984", .data = &ad7984_chip_info },
-	{ .compatible = "adi,pulsar,ad7983", .data = &ad7983_chip_info },
-	{ .compatible = "adi,pulsar,ad7982", .data = &ad7982_chip_info },
-	{ .compatible = "adi,pulsar,ad7980", .data = &ad7980_chip_info },
-	{ .compatible = "adi,pulsar,ad7949", .data = &ad7949_chip_info },
-	{ .compatible = "adi,pulsar,ad7946", .data = &ad7946_chip_info },
-	{ .compatible = "adi,pulsar,ad7942", .data = &ad7942_chip_info },
-	{ .compatible = "adi,pulsar,ad7699", .data = &ad7699_chip_info },
-	{ .compatible = "adi,pulsar,ad7693", .data = &ad7693_chip_info },
-	{ .compatible = "adi,pulsar,ad7691", .data = &ad7691_chip_info },
-	{ .compatible = "adi,pulsar,ad7690", .data = &ad7690_chip_info },
-	{ .compatible = "adi,pulsar,ad7689", .data = &ad7689_chip_info },
-	{ .compatible = "adi,pulsar,ad7688", .data = &ad7688_chip_info },
-	{ .compatible = "adi,pulsar,ad7687", .data = &ad7687_chip_info },
-	{ .compatible = "adi,pulsar,ad7686", .data = &ad7686_chip_info },
-	{ .compatible = "adi,pulsar,ad7685", .data = &ad7685_chip_info },
-	{ .compatible = "adi,pulsar,ad7682", .data = &ad7682_chip_info },
-	{ .compatible = "adi,pulsar,ad4022", .data = &ad4022_chip_info },
-	{ .compatible = "adi,pulsar,ad4021", .data = &ad4021_chip_info },
-	{ .compatible = "adi,pulsar,ad4020", .data = &ad4020_chip_info },
-	{ .compatible = "adi,pulsar,ad4011", .data = &ad4011_chip_info },
-	{ .compatible = "adi,pulsar,ad4007", .data = &ad4007_chip_info },
-	{ .compatible = "adi,pulsar,ad4003", .data = &ad4003_chip_info },
-	{ .compatible = "adi,pulsar,adaq4003", .data = &adaq4003_chip_info },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, ad_pulsar_of_match);
-
-static const struct spi_device_id ad_pulsar_spi_id[] = {
-	{ "adi,pulsar,ad7988-5", (kernel_ulong_t)&ad7988_5_chip_info },
-	{ "adi,pulsar,ad7988-1", (kernel_ulong_t)&ad7988_1_chip_info },
-	{ "adi,pulsar,ad7984", (kernel_ulong_t)&ad7984_chip_info },
-	{ "adi,pulsar,ad7983", (kernel_ulong_t)&ad7983_chip_info },
-	{ "adi,pulsar,ad7982", (kernel_ulong_t)&ad7982_chip_info },
-	{ "adi,pulsar,ad7980", (kernel_ulong_t)&ad7980_chip_info },
-	{ "adi,pulsar,ad7949", (kernel_ulong_t)&ad7949_chip_info },
-	{ "adi,pulsar,ad7946", (kernel_ulong_t)&ad7946_chip_info },
-	{ "adi,pulsar,ad7942", (kernel_ulong_t)&ad7942_chip_info },
-	{ "adi,pulsar,ad7699", (kernel_ulong_t)&ad7699_chip_info },
-	{ "adi,pulsar,ad7693", (kernel_ulong_t)&ad7693_chip_info },
-	{ "adi,pulsar,ad7691", (kernel_ulong_t)&ad7691_chip_info },
-	{ "adi,pulsar,ad7690", (kernel_ulong_t)&ad7690_chip_info },
-	{ "adi,pulsar,ad7689", (kernel_ulong_t)&ad7689_chip_info },
-	{ "adi,pulsar,ad7688", (kernel_ulong_t)&ad7688_chip_info },
-	{ "adi,pulsar,ad7687", (kernel_ulong_t)&ad7687_chip_info },
-	{ "adi,pulsar,ad7686", (kernel_ulong_t)&ad7686_chip_info },
-	{ "adi,pulsar,ad7685", (kernel_ulong_t)&ad7685_chip_info },
-	{ "adi,pulsar,ad7682", (kernel_ulong_t)&ad7682_chip_info },
-	{ "adi,pulsar,ad4022", (kernel_ulong_t)&ad4022_chip_info },
-	{ "adi,pulsar,ad4021", (kernel_ulong_t)&ad4021_chip_info },
-	{ "adi,pulsar,ad4020", (kernel_ulong_t)&ad4020_chip_info },
-	{ "adi,pulsar,ad4011", (kernel_ulong_t)&ad4011_chip_info },
-	{ "adi,pulsar,ad4007", (kernel_ulong_t)&ad4007_chip_info },
-	{ "adi,pulsar,ad4003", (kernel_ulong_t)&ad4003_chip_info },
-	{ "adi,pulsar,adaq4003", (kernel_ulong_t)&adaq4003_chip_info },
-	{ }
-
-};
-MODULE_DEVICE_TABLE(spi, ad_pulsar_spi_id);
-
 static void ad_pulsar_set_channel(struct iio_chan_spec *ch, int i, int num_ch,
 				  const struct ad_pulsar_chip_info *info)
 {
@@ -1056,6 +993,69 @@ static int ad_pulsar_probe(struct spi_device *spi)
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
+
+static const struct of_device_id ad_pulsar_of_match[] = {
+	{ .compatible = "adi,pulsar,ad7988-5", .data = &ad7988_5_chip_info },
+	{ .compatible = "adi,pulsar,ad7988-1", .data = &ad7988_1_chip_info },
+	{ .compatible = "adi,pulsar,ad7984", .data = &ad7984_chip_info },
+	{ .compatible = "adi,pulsar,ad7983", .data = &ad7983_chip_info },
+	{ .compatible = "adi,pulsar,ad7982", .data = &ad7982_chip_info },
+	{ .compatible = "adi,pulsar,ad7980", .data = &ad7980_chip_info },
+	{ .compatible = "adi,pulsar,ad7949", .data = &ad7949_chip_info },
+	{ .compatible = "adi,pulsar,ad7946", .data = &ad7946_chip_info },
+	{ .compatible = "adi,pulsar,ad7942", .data = &ad7942_chip_info },
+	{ .compatible = "adi,pulsar,ad7699", .data = &ad7699_chip_info },
+	{ .compatible = "adi,pulsar,ad7693", .data = &ad7693_chip_info },
+	{ .compatible = "adi,pulsar,ad7691", .data = &ad7691_chip_info },
+	{ .compatible = "adi,pulsar,ad7690", .data = &ad7690_chip_info },
+	{ .compatible = "adi,pulsar,ad7689", .data = &ad7689_chip_info },
+	{ .compatible = "adi,pulsar,ad7688", .data = &ad7688_chip_info },
+	{ .compatible = "adi,pulsar,ad7687", .data = &ad7687_chip_info },
+	{ .compatible = "adi,pulsar,ad7686", .data = &ad7686_chip_info },
+	{ .compatible = "adi,pulsar,ad7685", .data = &ad7685_chip_info },
+	{ .compatible = "adi,pulsar,ad7682", .data = &ad7682_chip_info },
+	{ .compatible = "adi,pulsar,ad4022", .data = &ad4022_chip_info },
+	{ .compatible = "adi,pulsar,ad4021", .data = &ad4021_chip_info },
+	{ .compatible = "adi,pulsar,ad4020", .data = &ad4020_chip_info },
+	{ .compatible = "adi,pulsar,ad4011", .data = &ad4011_chip_info },
+	{ .compatible = "adi,pulsar,ad4007", .data = &ad4007_chip_info },
+	{ .compatible = "adi,pulsar,ad4003", .data = &ad4003_chip_info },
+	{ .compatible = "adi,pulsar,adaq4003", .data = &adaq4003_chip_info },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, ad_pulsar_of_match);
+
+static const struct spi_device_id ad_pulsar_spi_id[] = {
+	{ "adi,pulsar,ad7988-5", (kernel_ulong_t)&ad7988_5_chip_info },
+	{ "adi,pulsar,ad7988-1", (kernel_ulong_t)&ad7988_1_chip_info },
+	{ "adi,pulsar,ad7984", (kernel_ulong_t)&ad7984_chip_info },
+	{ "adi,pulsar,ad7983", (kernel_ulong_t)&ad7983_chip_info },
+	{ "adi,pulsar,ad7982", (kernel_ulong_t)&ad7982_chip_info },
+	{ "adi,pulsar,ad7980", (kernel_ulong_t)&ad7980_chip_info },
+	{ "adi,pulsar,ad7949", (kernel_ulong_t)&ad7949_chip_info },
+	{ "adi,pulsar,ad7946", (kernel_ulong_t)&ad7946_chip_info },
+	{ "adi,pulsar,ad7942", (kernel_ulong_t)&ad7942_chip_info },
+	{ "adi,pulsar,ad7699", (kernel_ulong_t)&ad7699_chip_info },
+	{ "adi,pulsar,ad7693", (kernel_ulong_t)&ad7693_chip_info },
+	{ "adi,pulsar,ad7691", (kernel_ulong_t)&ad7691_chip_info },
+	{ "adi,pulsar,ad7690", (kernel_ulong_t)&ad7690_chip_info },
+	{ "adi,pulsar,ad7689", (kernel_ulong_t)&ad7689_chip_info },
+	{ "adi,pulsar,ad7688", (kernel_ulong_t)&ad7688_chip_info },
+	{ "adi,pulsar,ad7687", (kernel_ulong_t)&ad7687_chip_info },
+	{ "adi,pulsar,ad7686", (kernel_ulong_t)&ad7686_chip_info },
+	{ "adi,pulsar,ad7685", (kernel_ulong_t)&ad7685_chip_info },
+	{ "adi,pulsar,ad7682", (kernel_ulong_t)&ad7682_chip_info },
+	{ "adi,pulsar,ad4022", (kernel_ulong_t)&ad4022_chip_info },
+	{ "adi,pulsar,ad4021", (kernel_ulong_t)&ad4021_chip_info },
+	{ "adi,pulsar,ad4020", (kernel_ulong_t)&ad4020_chip_info },
+	{ "adi,pulsar,ad4011", (kernel_ulong_t)&ad4011_chip_info },
+	{ "adi,pulsar,ad4007", (kernel_ulong_t)&ad4007_chip_info },
+	{ "adi,pulsar,ad4003", (kernel_ulong_t)&ad4003_chip_info },
+	{ "adi,pulsar,adaq4003", (kernel_ulong_t)&adaq4003_chip_info },
+	{ }
+
+};
+MODULE_DEVICE_TABLE(spi, ad_pulsar_spi_id);
 
 static struct spi_driver ad_pulsar_driver = {
 	.driver = {
