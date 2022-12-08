@@ -1000,8 +1000,12 @@ static int ad_pulsar_probe(struct spi_device *spi)
 		return ret;
 
 	adc->info = device_get_match_data(&spi->dev);
-	if (!adc->info)
-		return -EINVAL;
+	if (!adc->info) {
+		adc->info = (struct ad_pulsar_chip_info *)
+				spi_get_device_id(spi)->driver_data;
+		if (!adc->info)
+			return -EINVAL;
+	}
 
 	ret = ad_pulsar_parse_channels(indio_dev);
 	if (ret < 0)
