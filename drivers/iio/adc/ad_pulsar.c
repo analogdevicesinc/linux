@@ -432,6 +432,8 @@ struct ad_pulsar_adc {
 	int spi_speed_hz;
 	int samp_freq;
 	int device_id;
+	unsigned int spi_rx_data ____cacheline_aligned;
+	unsigned int spi_tx_data;
 };
 
 static int ad_pulsar_reg_write(struct ad_pulsar_adc *adc, unsigned int reg,
@@ -636,13 +638,11 @@ static int ad_pulsar_read_avail(struct iio_dev *indio_dev,
 static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-	unsigned int spi_tx_data = 0xFFFFFFFF;
 	int ret, ch, first, second, last, max_freq;
 	unsigned int freq, num_en_ch;
-	unsigned int spi_rx_data;
 	struct spi_transfer xfer = {
-		.tx_buf = &spi_tx_data,
-		.rx_buf = &spi_rx_data,
+		.tx_buf = &adc->spi_tx_data,
+		.rx_buf = &adc->spi_rx_data,
 		.len = 3,
 		.bits_per_word = adc->info->resolution,
 		.speed_hz = adc->info->sclk_rate,
@@ -663,7 +663,7 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 		}
 		spi_message_init(&msg);
 
-		spi_tx_data = 0;
+		adc->spi_tx_data = 0;
 		for_each_set_bit(ch, indio_dev->active_scan_mask,
 				 indio_dev->masklength) {
 			adc->seq_xfer[ch].cs_change = 1;
