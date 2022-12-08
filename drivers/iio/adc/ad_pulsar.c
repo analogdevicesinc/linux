@@ -683,11 +683,18 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 			spi_message_add_tail(&adc->seq_xfer[first], &msg);
 			spi_message_add_tail(&adc->seq_xfer[second], &msg);
 		}
+
 		max_freq = adc->info->max_rate / num_en_ch;
 		freq = clamp(adc->samp_freq, 0, max_freq);
-		ad_pulsar_set_samp_freq(adc, freq);
-		ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
+		ret = ad_pulsar_set_samp_freq(adc, freq);
+		if (ret)
+			return ret;
+
+		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 				    adc->seq_buf[first]);
+		if (ret)
+			return ret;
+
 		if (num_en_ch > 1) {
 			ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 						  adc->seq_buf[second]);
