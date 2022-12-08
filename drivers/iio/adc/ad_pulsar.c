@@ -408,9 +408,8 @@ static const struct ad_pulsar_chip_info ad4003_chip_info = {
 	.has_turbo = true
 };
 
-//TODO this is not the right config, sergiu forgot to add it
 static const struct ad_pulsar_chip_info adaq4003_chip_info = {
-	.name = "ad4003",
+	.name = "adaq4003",
 	.input_type = DIFFERENTIAL,
 	// .max_rate = 2000000,
 	// HDL does not support maximum rate
@@ -418,6 +417,7 @@ static const struct ad_pulsar_chip_info adaq4003_chip_info = {
 	.resolution = 18,
 	.num_channels = 1,
 	.sclk_rate = 80000000,
+	.has_turbo = true
 };
 
 struct ad_pulsar_adc {
