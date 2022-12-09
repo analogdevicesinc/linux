@@ -153,11 +153,12 @@ unsigned int ad_pulsar_filter_freq[] = {
 
 struct ad_pulsar_chip_info {
 	enum ad_pulsar_input_type input_type;
+	bool has_power_up_seq:1;
+	bool has_filter:1;
 	const char *name;
 	int num_channels;
 	bool has_turbo:1;
 	bool has_reset:1;
-	bool has_filter:1;
 	int resolution;
 	bool sequencer;
 	int sclk_rate;
@@ -294,6 +295,7 @@ static const struct ad_pulsar_chip_info ad7689_chip_info = {
 	.resolution = 16,
 	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
+	.has_power_up_seq = true,
 	.has_filter = true,
 	.has_reset = true,
 	.sequencer = true
@@ -342,6 +344,7 @@ static const struct ad_pulsar_chip_info ad7682_chip_info = {
 	.resolution = 16,
 	.num_channels = 4 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
+	.has_power_up_seq = true,
 	.has_filter = true,
 	.has_reset = true,
 	.sequencer = true
@@ -955,13 +958,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	if (adc->info->has_turbo) {
-		ret =  ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
-					  AD4003_TURBO_MODE);
-		if (ret < 0)
-			return ret;
-	}
-
 	if (adc->info->has_reset) {
 		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 					  AD7682_CONFIG_RESET);
@@ -972,6 +968,21 @@ static int ad_pulsar_probe(struct spi_device *spi)
 					  AD7682_CONFIG_RESET);
 		if (ret < 0)
 			return ret;
+	}
+
+	if (adc->info->has_turbo) {
+		ret =  ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
+					  AD4003_TURBO_MODE);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (adc->info->has_power_up_seq) {
+		for (i = 0; i < 3; i++) {
+			ret = ad_pulsar_reg_read(adc, adc->seq_buf[0], &tmp);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	indio_dev->name = adc->info->name;
@@ -991,12 +1002,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	ret = ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
 	if (ret < 0)
 		return ret;
-	//TODO
-	for (i = 0; i < 3; i++) {
-		ret = ad_pulsar_reg_read(adc, adc->seq_buf[0], &tmp);
-		if (ret < 0)
-			return ret;
-	}
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
