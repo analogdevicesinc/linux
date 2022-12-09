@@ -106,16 +106,17 @@
 			enable-active-high;
 		};
 
-		epdev_on: fixedregulator@100 {
+		reg_pcieb: fixedregulator@100 {
 			compatible = "regulator-fixed";
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&pinctrl_wlreg_on>;
 			pinctrl-1 = <&pinctrl_wlreg_on_sleep>;
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
-			regulator-name = "epdev_on";
+			regulator-name = "reg_pcieb";
 			gpio = <&lsio_gpio3 3 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
+			regulator-always-on;
 		};
 
 		reg_usb_otg1_vbus: regulator@0 {
@@ -664,7 +665,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
-	epdev_on-supply = <&epdev_on>;
+	vpcie-supply = <&reg_pcieb>;
 	ext_osc = <1>;
 	status = "okay";
 };
