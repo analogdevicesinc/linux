@@ -90,13 +90,14 @@
 		#reset-cells = <0>;
 	};
 
-	epdev_on: fixedregulator@100 {
+	reg_pcieb: fixedregulator@100 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		regulator-name = "epdev_on";
+		regulator-name = "reg_pcieb";
 		gpio = <&pca6416_1 13 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	m2_uart1_sel: fixedregulator@101 {
@@ -597,7 +598,7 @@
 	clkreq-gpio = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
 	ext_osc = <0>;
-	epdev_on-supply = <&epdev_on>;
+	vpcie-supply = <&reg_pcieb>;
 	status = "okay";
 };
 
