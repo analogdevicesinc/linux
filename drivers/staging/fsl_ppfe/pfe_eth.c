@@ -2452,7 +2452,7 @@ static int pfe_eth_init_one(struct pfe *pfe,
 	}
 
 phy_init:
-	device_init_wakeup(&ndev->dev, WAKE_MAGIC);
+	device_init_wakeup(&ndev->dev, true);
 
 	err = pfe_phy_init(ndev);
 	if (err) {
