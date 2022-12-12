@@ -15,6 +15,7 @@ description: |
     https://www.nxp.com/docs/en/data-sheet/FXLS8962AF.pdf
     https://www.nxp.com/docs/en/data-sheet/FXLS8964AF.pdf
     https://www.nxp.com/docs/en/data-sheet/FXLS8967AF.pdf
+    https://www.nxp.com/docs/en/data-sheet/FXLS8974CF.pdf
 
 properties:
   compatible:
@@ -24,6 +25,7 @@ properties:
       - nxp,fxls8962af
       - nxp,fxls8964af
       - nxp,fxls8967af
+      - nxp,fxls8974cf
 
   reg:
     maxItems: 1
