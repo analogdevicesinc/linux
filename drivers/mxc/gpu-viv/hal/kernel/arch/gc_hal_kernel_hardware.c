@@ -1688,7 +1688,7 @@ _SetHardwareOptions(IN gckHARDWARE Hardware)
     options->vidMemCount = 0;
 
     if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_NN_SUPPORT_EFUSE)) {
-        gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel, 0x0009C, &value);
+        gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel, 0x0009C, &value));
         options->activeNNCoreCount = (((((gctUINT32) (value)) >> (0 ? 22:17)) & ((gctUINT32) ((((1 ? 22:17) - (0 ? 22:17) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 22:17) - (0 ? 22:17) + 1)))))) );
     } else {
         options->activeNNCoreCount = database->NN_ACTIVE_CORE_COUNT;
