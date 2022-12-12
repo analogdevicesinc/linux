@@ -499,8 +499,9 @@
 				#clock-cells = <1>;
 				clocks = <&osc_32k>, <&osc_24m>, <&clk_ext1>;
 				clock-names = "osc_32k", "osc_24m", "clk_ext1";
-				assigned-clocks = <&clk IMX93_CLK_AUDIO_PLL>;
-				assigned-clock-rates = <393216000>;
+				assigned-clocks = <&clk IMX93_CLK_AUDIO_PLL>, <&clk IMX93_CLK_A55>;
+				assigned-clock-parents = <0>, <&clk IMX93_CLK_SYS_PLL_PFD0>;
+				assigned-clock-rates = <393216000>, <500000000>;
 				status = "okay";
 			};
 
