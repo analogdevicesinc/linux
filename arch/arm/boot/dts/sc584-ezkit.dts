@@ -410,9 +410,22 @@
 		};
 	};
 
+	/*
+	 * ADAU1962 and ADAU1977 race to use gpa_14, as it is shared.
+	 * Whoever probes first will claim the GPIO and perform the
+	 * reset.  The respective drivers have duplicated logic for
+	 * reset_gpio -- so that whichever starts first can reset the
+	 * devices
+	*/
 	adau1962: adau1962@0x4 {
 		compatible = "adi,adau1962";
 		reg = <0x4>;
+		reset-gpios = <&gpa 14 1>;
+	};
+
+	adau1979: adau1979@0x11 {
+		compatible = "adi,adau1977";
+		reg = <0x11>;
 		reset-gpios = <&gpa 14 1>;
 	};
 /*
@@ -421,10 +434,6 @@
 		reg = <0x62>;
 	};
 */
-	adau1979: adau1979@0x62 {
-		compatible = "adi,adau1979";
-		reg = <0x11>;
-	};
 };
 
 &i2c1 {
