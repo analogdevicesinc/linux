@@ -3077,9 +3077,6 @@ void intel_fcs_smmu_init(struct intel_fcs_priv *priv)
 	//S2CR8
 	smmu_program_reg(priv, S2CR8_REG_ADDR, S2CR8_VAL);
 
-	//CB8_SCTLR
-	smmu_program_reg(priv, CB8_SCTRLR_REG_ADDR, CB8_SCTLR_VAL);
-
 	//CBAR8
 	smmu_program_reg(priv, CBAR8_REG_ADDR, CBAR8_VAL);
 
