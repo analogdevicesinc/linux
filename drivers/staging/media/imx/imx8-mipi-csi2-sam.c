@@ -733,9 +733,6 @@ static void __mipi_csis_set_format(struct csi_state *state)
 			MIPI_CSIS_ISPCONFIG_CH0_PIXEL_MODE_SHIFT);
 	mipi_csis_write(state, MIPI_CSIS_ISPCONFIG_CH0, val);
 
-	/* clean 32bit , with normal mode */
-	val &= ~MIPI_CSIS_ISPCFG_ALIGN_32BIT;
-
 	/* Pixel resolution */
 	val = mf->width | (mf->height << 16);
 	mipi_csis_write(state, MIPI_CSIS_ISPRESOL_CH0, val);
