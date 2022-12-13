@@ -5554,6 +5554,11 @@ gckOS_UserSignal(IN gckOS Os, IN gctSIGNAL Signal, IN gctHANDLE Handle)
                                  (gctUINT32)(gctUINTPTR_T)Signal,
                                  (gctPOINTER)&signal);
 
+        if (gcmIS_ERROR(status)) {
+            gcmkFOOTER();
+            return status;
+        }
+
         if (!Handle)
             signal->status = gcvSIGNAL_RECOVERY;
         else
