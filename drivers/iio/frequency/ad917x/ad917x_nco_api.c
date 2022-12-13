@@ -778,6 +778,7 @@ int ad917x_nco_set(ad917x_handle_t *h,
 {
 	uint64_t tmp_freq;
 	uint8_t ddsc_datapath_cfg;
+	uint8_t ddsm_datapath_cfg;
 	uint8_t is_pow2 = 0;
 	uint8_t tmp_reg;
 	int err;
@@ -821,9 +822,13 @@ int ad917x_nco_set(ad917x_handle_t *h,
 			err = ad917x_register_write(h, AD917X_SPI_PAGEINDX_REG, tmp_reg);
 			if (err != API_ERROR_OK)
 				return err;
+
+			err = ad917x_register_read(h, AD917X_DDSM_DATAPATH_CFG_REG, &ddsm_datapath_cfg);
+			if (err != API_ERROR_OK)
+				return err;
+
 			err = ad917x_register_write(h, AD917X_DDSM_DATAPATH_CFG_REG,
-						    AD917X_DDSM_MODE(h->mod_switch_config) |
-						    AD917X_DDSM_NCO_EN);
+						    ddsm_datapath_cfg | AD917X_DDSM_NCO_EN);
 			if (err != API_ERROR_OK)
 				return err;
 			/*DDSM CAL EN */
@@ -915,8 +920,12 @@ int ad917x_nco_set(ad917x_handle_t *h,
 			if (err != API_ERROR_OK)
 				return err;
 
+			err = ad917x_register_read(h, AD917X_DDSM_DATAPATH_CFG_REG, &ddsm_datapath_cfg);
+			if (err != API_ERROR_OK)
+				return err;
+
 			err = ad917x_register_write(h, AD917X_DDSM_DATAPATH_CFG_REG,
-						    AD917X_DDSM_MODE(h->mod_switch_config) |
+						    ddsm_datapath_cfg |
 						    AD917X_DDSM_NCO_EN | AD917X_DDSM_MODULUS_EN);
 			if (err != API_ERROR_OK)
 				return err;

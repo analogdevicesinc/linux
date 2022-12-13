@@ -20,6 +20,7 @@
 #include <linux/clk/clkscale.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/debugfs.h>
 
 #define JESD204_OF_PREFIX	"adi,"
 #include <linux/jesd204/jesd204.h>
@@ -205,6 +206,8 @@ static int ad9172_setup_modulator_config(struct ad9172_state *st)
 			break;
 		}
 
+		/* FIXME: return EINVAL in case a complex mode is set on 72/73 */
+
 		ddsm_datapath_cfg |= AD917X_DDSM_MODE(st->mod_switch_config & 0xF) |
 			(st->mod_switch_config & BIT(4) ? AD917X_DDSM_EN_COMPLEX_MOD : 0);
 
@@ -280,6 +283,8 @@ static int ad9172_setup(struct ad9172_state *st)
 		dev_err(dev, "ad917x_reset failed (%d)\n", ret);
 		return ret;
 	}
+
+	ad917x_register_write(ad917x_h, AD917X_IF_CFG_A_REG, 0x3C);
 
 	ret = ad917x_get_chip_id(ad917x_h, &dac_chip_id);
 	if (ret != 0) {
@@ -488,6 +493,7 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
 	ad917x_handle_t *ad917x_h = &st->dac_h;
+	u8 cached_page_mask;
 	u16 val16 = 0;
 	int ret;
 
@@ -497,6 +503,8 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		if (chan->type == IIO_VOLTAGE) {
+			ad917x_register_read(&st->dac_h,
+					AD917X_SPI_PAGEINDX_REG, &cached_page_mask);
 			ret = ad917x_set_page_idx(ad917x_h,
 						AD917X_DAC_NONE, BIT(chan->channel));
 			if (ret < 0)
@@ -504,6 +512,9 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 			ret = ad917x_get_channel_gain(ad917x_h, &val16);
 			if (ret < 0)
 				return ret;
+
+			ad917x_register_write(&st->dac_h,
+				AD917X_SPI_PAGEINDX_REG, cached_page_mask);
 
 			*val = val16;
 			*val2 = 11;
@@ -1324,6 +1335,60 @@ static const struct iio_info ad9172_iio_info = {
 	.attrs = &ad9172_attribute_group_standalone,
 };
 
+static ssize_t ad9172_debugfs_write(struct file *file,
+		     const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	struct iio_dev *indio_dev = file->private_data;
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
+	u32 reg, len;
+	u64 val;
+	char buf[80];
+	u8 vals[8];
+	int ret, i;
+
+	count = min_t(size_t, count, (sizeof(buf)-1));
+	if (copy_from_user(buf, userbuf, count))
+		return -EFAULT;
+
+	buf[count] = 0;
+
+	ret = sscanf(buf, "%i %i %lli", &reg, &len, &val);
+
+	if (ret != 3)
+		return -EINVAL;
+
+	for (i = 0; i < ARRAY_SIZE(vals); i++) {
+		vals[i] = val & 0xFF;
+		val >>= 8;
+	}
+
+	ret = regmap_bulk_write(st->map, reg, vals, len);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+static const struct file_operations ad9172_debugfs_reg_fops = {
+	.open = simple_open,
+	.write = ad9172_debugfs_write,
+};
+
+static int ad9172_register_debugfs(struct iio_dev *indio_dev)
+{
+	struct dentry *d;
+
+	if (iio_get_debugfs_dentry(indio_dev)) {
+		d = debugfs_create_file(
+			"reg_write_mult", 0200,
+			iio_get_debugfs_dentry(indio_dev),
+			indio_dev,
+			&ad9172_debugfs_reg_fops);
+	}
+	return 0;
+}
+
 static int ad9172_standalone_probe(struct ad9172_state *st)
 {
 	struct iio_dev *indio_dev = NULL;
@@ -1356,6 +1421,8 @@ static int ad9172_standalone_probe(struct ad9172_state *st)
 		dev_err(dev, "Failed to register iio dev\n");
 		return ret;
 	}
+
+	ad9172_register_debugfs(indio_dev);
 
 	iio_device_set_drvdata(indio_dev, &st->conv);
 
