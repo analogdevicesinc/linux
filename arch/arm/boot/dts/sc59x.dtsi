@@ -388,7 +388,6 @@
 			interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&sport4_dma_cluster 10>, <&sport4_dma_cluster 11>;
 			dma-names = "tx", "rx";
-			iram = <&sram1>;
 		};
 
 		i2s0: i2s0@0 {
@@ -402,7 +401,6 @@
 			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&sport0_dma_cluster 0>, <&sport0_dma_cluster 1>;
 			dma-names = "tx", "rx";
-			iram = <&sram1>;
 		};
 
 		watchdog@0x31008000 {
