@@ -124,7 +124,7 @@ _CreateSubCmdList(IN gckOS Os,
     gctINT        i, j, count;
     gctUINT32_PTR data = Buffer;
     gctUINT32     kData;
-    gckSubCmdNode node;
+    gckSubCmdNode node = gcvNULL;
     gceSTATUS     status = gcvSTATUS_OK;
 
     count = (gctINT)(Size / 4);
@@ -134,7 +134,7 @@ _CreateSubCmdList(IN gckOS Os,
             gcmkONERROR(gckOS_ReadMappedPointer(Os, data + i, &kData));
 
             if (kData == SubCommand[j].reg) {
-                _CreateSubCmdNode(Os, &node);
+                gcmkONERROR(_CreateSubCmdNode(Os, &node));
 
                 node->type = j;
 
@@ -145,11 +145,18 @@ _CreateSubCmdList(IN gckOS Os,
 
                 node->next     = ListHead->next;
                 ListHead->next = node;
+                node = gcvNULL;
             }
         }
     }
 
+    return gcvSTATUS_OK;
+
 OnError:
+    if (node != gcvNULL)
+        gcmkVERIFY_OK(gckOS_Free(Os, (gctPOINTER)node));
+
+    _DestroySubCmdList(Os, ListHead);
     return status;
 }
 #endif
