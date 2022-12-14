@@ -271,16 +271,15 @@
 
 /*============= D E F I N E S ==============*/
 #define AD9081_ID 0x9081
-#define AD9081_DAC_CLK_FREQ_HZ_MIN 2850000000ULL
-#define AD9081_DAC_CLK_FREQ_HZ_MAX 12600000000ULL
-#define AD9081_ADC_CLK_FREQ_HZ_MIN 1425000000ULL
-#define AD9081_ADC_CLK_FREQ_HZ_MAX 4200000000ULL
-#define AD9081_REF_CLK_FREQ_HZ_MIN 100000000ULL
-#define AD9081_REF_CLK_FREQ_HZ_MAX 2000000000ULL
 
 #define AD9082_ID 0x9082
 #define AD9082_ADC_CLK_FREQ_HZ_MAX 6300000000ULL
-
+#define AD9081_DAC_CLK_FREQ_HZ_MIN 2900000000ULL
+#define AD9081_DAC_CLK_FREQ_HZ_MAX 12000000000ULL
+#define AD9081_ADC_CLK_FREQ_HZ_MIN 1450000000ULL
+#define AD9081_ADC_CLK_FREQ_HZ_MAX 4000000000ULL
+#define AD9081_REF_CLK_FREQ_HZ_MIN 25000000ULL
+#define AD9081_REF_CLK_FREQ_HZ_MAX 3000000000ULL
 #define AD9081_JESDRX_204C_CAL_THRESH 16000000000ULL
 #define AD9081_JESD_SER_COUNT 8
 #define AD9081_JESD_DESER_COUNT 8
@@ -602,6 +601,15 @@ typedef enum {
 	AD9081_ADC_PFIR_GAIN_P6DB = 0x1, /*!<   6dB */
 	AD9081_ADC_PFIR_GAIN_P12DB = 0x2 /*!<  12dB */
 } adi_ad9081_adc_pfir_gain_e;
+
+/*!
+ *@brief Enumerates ADC Bypass mode
+ */
+typedef enum {
+	AD9081_ADC_MAIN_DP_MODE = 0x0, /*!< Main receive datapath */
+	AD9081_ADC_FBW_MODE = 0x1, /*!< Full bandwidth mode bypass datapath */
+	AD9081_ADC_TEST_MODE = 0x2 /*!< Test mode bypass datapath */
+} adi_ad9081_adc_bypass_mode_e;
 
 /*!
  * @brief Enumerates Link Select
@@ -2004,7 +2012,7 @@ int32_t adi_ad9081_adc_xbar_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup rx_setup
- * @brief  System Top Level API. \n Configure cross bar between coarse DDC and fine DDC
+ * @brief  Configure cross bar between coarse DDC and fine DDC
  *         Call after adi_ad9081_device_startup_rx().
  *
  * @param  device          Pointer to the device structure
@@ -2021,6 +2029,22 @@ int32_t adi_ad9081_adc_xbar_set(adi_ad9081_device_t *device,
 int32_t adi_ad9081_jesd_tx_fbw_sel_set(adi_ad9081_device_t *device,
 				       adi_ad9081_jesd_link_select_e links,
 				       uint16_t converters);
+/**
+ * @ingroup rx_setup
+ * @brief  Block Top Level API. \n Configure bypass mux3 to choose FBW path
+ *         Call after adi_ad9081_device_startup_rx().
+ *
+ * @param  device          Pointer to the device structure
+ * @param  links           Target link select
+ * @param  jesd_m          jesd_m[0] - Number of used virtual converters for AD9081_LINK_0.
+ *                         jesd_m[1] - Number of used virtual converters for AD9081_LINK_1.
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_tx_fbw_config_set(adi_ad9081_device_t *device,
+					  adi_ad9081_jesd_link_select_e links,
+					  uint8_t jesd_m[2]);
 
 /**
  * @ingroup rx_setup
@@ -2161,6 +2185,18 @@ int32_t adi_ad9081_adc_config(adi_ad9081_device_t *device, uint8_t cddcs,
 			      int64_t fddc_shift[8], uint8_t cddc_dcm[4],
 			      uint8_t fddc_dcm[8], uint8_t cc2r_en[4],
 			      uint8_t fc2r_en[8]);
+
+/**
+ * @ingroup rx_dp_setup
+ * @brief  Block Top Level API. \n Configure Bypass Rx digital datapath
+ *         Call after adi_ad9081_device_startup_rx_bypass_mode().
+ *
+ * @param  device       Pointer to the device structure
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_bypass_config(adi_ad9081_device_t *device);
 
 /*===== 3 . 2   R E C E I V E  F A S T  D E T E C T =====*/
 /**
@@ -3942,6 +3978,28 @@ int32_t adi_ad9081_adc_nco_master_slave_sync(adi_ad9081_device_t *device,
 					     uint8_t gpio_index,
 					     uint8_t extra_lmfc_num);
 
+/**
+ * @ingroup link setup
+ * @brief Pause background calibration and check for idle state.
+ *
+ * @param device                Pointer to the device reference handle.
+ *
+ * @return API_CMS_ERROR_OK      API Completed Successfully
+ * @return <0                    Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_cal_bg_cal_pause(adi_ad9081_device_t *device);
+
+/**
+ * @ingroup link setup
+ * @brief Start background calibration.
+ *
+ * @param device                Pointer to the device reference handle.
+ *
+ * @return API_CMS_ERROR_OK      API Completed Successfully
+ * @return <0                    Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_cal_bg_cal_start(adi_ad9081_device_t *device);
+
 /*===== 4 . 1   S E R D E S  R E C E I V E R  L I N K  =====*/
 /**
 * @ingroup dac_link_setup
@@ -4756,6 +4814,36 @@ int32_t adi_ad9081_jesd_rx_spo_sweep(adi_ad9081_device_t *device, uint8_t lane,
 				     uint32_t prbs_delay_sec, uint8_t *left_spo,
 				     uint8_t *right_spo);
 
+/**
+ * @ingroup appdx_serdes_jrx_tm
+ * @brief Run vertical eye scan for JESD Receiver quarter rate
+ *
+ * @param device            Pointer to the device reference handle.
+ * @param direction         Direction of SPO sweep
+ * @param lane              Lane index, 0 ~ 7
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_qr_vertical_eye_scan(adi_ad9081_device_t *device,
+						uint8_t direction,
+						uint8_t lane);
+
+/**
+ * @ingroup appdx_serdes_jrx_tm
+ * @brief Run 2D eye scan for JESD Receiver quarter rate
+ *
+ * @param device            Pointer to the device reference handle.
+ * @param lane              Lane index, 0 ~ 7
+ * @param eye_scan_data     Save eye scan data to vector
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_qr_two_dim_eye_scan(adi_ad9081_device_t *device,
+					       uint8_t lane,
+					       uint8_t eye_scan_data[96]);
+
 /*===== A 1 . 2   J T X  S E R D E S  L I N K  T E S T  M O D E S   =====*/
 /**
  * @ingroup appdx_serdes_jtx_tm
@@ -5140,7 +5228,7 @@ int32_t adi_ad9081_jesd_sysref_enable_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup appdx_mcs
- * @brief  Block Top Level API. \n Set sysref input receiver mode
+ * @brief  Block Top Level API. \n Enable SYSREF receiver circuit and set input signal coupling
  *
  * @param  device                                   Pointer to the device structure
  * @param  enable_receiver                          1:Enable, 0:Disable
@@ -5154,6 +5242,36 @@ int32_t adi_ad9081_jesd_sysref_enable_set(adi_ad9081_device_t *device,
 int32_t adi_ad9081_jesd_sysref_input_mode_set(
 	adi_ad9081_device_t *device, uint8_t enable_receiver,
 	uint8_t enable_capture, adi_cms_signal_coupling_e input_mode);
+
+/**
+ * @ingroup appdx_mcs
+ * @brief Block Top Level API. \n Configure SYSREF receiver circuit based on signal coupling and input type
+ *
+ * @param device                                    Pointer to the device structure
+ * @param coupling_mode                             Parameter of type adi_cms_signal_coupling_e to indicate the desired sysref signal coupling type
+ *                                                  COUPLING_AC or COUPLING_DC
+ * @param signal_type                               Parameter of type adi_cms_signal_type_e to indicate the desired input signal type
+ *                                                  SIGNAL_CML, SIGNAL_LVDS, SIGNAL_LVPECL, SIGNAL_CMOS
+ * @param sysref_single_end_p                       Parameter ranging 0-15 setting the positive internal termination range for single ended signal
+ *                                                  code -> termination value
+ *                                                  0000: 7.9kΩ     0100: 6.3kΩ     1000: 6.7kΩ     1100: 5.7kΩ
+ *                                                  0001: 6.3kΩ     0101: 5.5kΩ     1001: 5.7kΩ     1101: 5.2kΩ
+ *                                                  0010: 5.5kΩ     0110: 5.0kΩ     1010: 5.2kΩ     1110: 4.8kΩ
+ *                                                  0011: 5.0kΩ     0111: 4.7kΩ     1011: 4.8kΩ     1111: 4.6kΩ
+ * @param sysref_single_end_n                       Parameter ranging 0-15 setting the negative internal termination range for single ended signal
+ *                                                  code -> termination value
+ *                                                  0000: open       0100: 11.8kΩ     1000: 18.9kΩ     1100: 9.4kΩ
+ *                                                  0001: 9.4kΩ      0101: 7.5kΩ      1001: 8.2kΩ      1101: 7.1kΩ
+ *                                                  0010: 10.6kΩ     0110: 7.9kΩ      1010: 8.9kΩ      1110: 7.3kΩ
+ *                                                  0011: 7.3kΩ      0111: 6.6kΩ      1011: 6.9kΩ      1111: 6.4kΩ
+ *
+ * @return API_CMS_ERROR_OK                         API Completed Successfully
+ * @return <0                                       Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_sync_sysref_input_config_set(
+	adi_ad9081_device_t *device, adi_cms_signal_coupling_e coupling_mode,
+	adi_cms_signal_type_e signal_type, uint8_t sysref_single_end_p,
+	uint8_t sysref_single_end_n);
 
 /**
  * @ingroup appdx_mcs
