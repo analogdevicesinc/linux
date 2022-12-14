@@ -1,0 +1,62 @@
+.. SPDX-License-Identifier: GPL-2.0-or-later
+
+Kernel driver max31732
+======================
+
+Supported chips:
+
+  * Analog Devices MAX31732
+
+    Prefix: 'max31732'
+
+    Addresses scanned: none
+
+Author: Sinan Divarci <Sinan.Divarci@analog.com>
+
+
+Description
+-----------
+
+This driver implements support for Maxim MAX31732.
+
+The MAX31732 is a multi-channel temperature sensor that monitors its
+own temperature and the temperatures of up to four external diodeconnected
+transistors. The device operates with 3.0V to 3.6V supply range
+and consume TBDμA of current in standby mode of operation. Resistance
+cancellation feature compensates for high series resistance between
+circuit-board traces and the external thermal diode, while beta
+compensation corrects for temperature-measurement errors due to lowbeta
+sensing transistors.
+
+The MAX31732 offers two open-drain, active-low alarm outputs,
+ALARM1 and ALARM2. When the measured temperature of a channel
+crosses the respective primary over/under temperature threshold levels
+ALARM1 asserts low and a status bit is set in the corresponding thermal
+status registers. When the measured temperature of a channel crosses the
+secondary over/under temperature threshold levels, ALARM2 asserts low
+and a status bit is set in the corresponding thermal status registers.
+
+Temperature measurement range: from -64°C to 150°C
+
+Temperature Resolution: 12 Bits, ±0.0625°C
+
+Sysfs entries
+-------------
+
+===================== == =======================================================
+temp[1-5]_enable      RW Temperature enable/disable
+                         Set to 1 to enable channel, 0 to disable
+temp[1-5]_input       RO Temperature input
+temp[2-5]_fault       RO Fault indicator for remote channels
+temp[1-5]_max         RW Temperature max value. Asserts "ALARM1" pin when exceeded
+temp[1-5]_max_alarm   RO Temperature max alarm status
+temp[1-5]_crit        RW Temperature critical value. Asserts "ALARM2" pin when exceeded
+temp[1-5]_crit_alarm  RO Temperature critical alarm status
+temp[1-5]_min         RW Temperature min value. Common for all channels.
+                         Only temp1_min is writeable. Asserts "ALARM1" pin when exceeded
+temp[1-5]_min_alarm   RO Temperature min alarm status
+temp[1-5]_lcrit       RW Temperature critical low value. Common for all channels.
+                         Only temp1_min is writeable. Asserts "ALARM2" pin when exceeded
+temp[1-5]_lcrit_alarm RO Temperature critical low alarm status
+temp[2-5]_offset      RW Temperature offset for remote channels
+===================== == =======================================================
