@@ -60,10 +60,16 @@
 #define AD7682_SEL_CH(x)		FIELD_PREP(AD7682_SEL_MSK, x)
 #define AD7682_GET_FILTER(x)		FIELD_GET(AD7682_FILTER_MSK, x)
 
-#define AD7862_SET_TYPE(reg, type)	(reg = (reg & ~AD7682_PAIR_MSK) |      \
-					AD7682_CH_TYPE(type))
-#define AD7682_SET_POLARITY(reg, pol)	(reg = (reg & ~AD7682_POLARITY_MSK) |  \
-					AD7682_CH_POLARITY(pol))
+#define AD7862_SET_TYPE(_reg, type)	({				       \
+					typeof(_reg) (reg) = (_reg);	       \
+					reg = (reg & ~AD7682_PAIR_MSK) |       \
+					AD7682_CH_TYPE(type);		       \
+})
+#define AD7682_SET_POLARITY(_reg, pol)	({				       \
+					typeof(_reg) (reg) = (_reg);	       \
+					reg = (reg & ~AD7682_POLARITY_MSK) |   \
+					AD7682_CH_POLARITY(pol);	       \
+})
 
 #define AD7682_CH_TEMP_SENSOR		(AD7682_REFBUF_SEL(INT_REF_4096) |     \
 	AD7682_UPDATE_CFG | AD7682_CH_TYPE(SINGLE_ENDED) | AD7682_CH_REF(GND) |\
@@ -201,7 +207,7 @@ static const struct ad_pulsar_chip_info ad7983_chip_info = {
 	.sclk_rate = 80000000
 };
 
-static const struct ad_pulsar_chip_info ad7982_chip_info= {
+static const struct ad_pulsar_chip_info ad7982_chip_info = {
 	.name = "ad7982",
 	.input_type = DIFFERENTIAL,
 	.max_rate = 1000000,
@@ -210,7 +216,7 @@ static const struct ad_pulsar_chip_info ad7982_chip_info= {
 	.sclk_rate = 80000000
 };
 
-static const struct ad_pulsar_chip_info ad7980_chip_info= {
+static const struct ad_pulsar_chip_info ad7980_chip_info = {
 	.name = "ad7980",
 	.input_type = SINGLE_ENDED,
 	.max_rate = 1000000,
@@ -389,6 +395,7 @@ static const struct ad_pulsar_chip_info ad4011_chip_info = {
 	.sclk_rate = 80000000,
 	.has_turbo = true
 };
+
 static const struct ad_pulsar_chip_info ad4007_chip_info = {
 	.name = "ad4007",
 	.input_type = DIFFERENTIAL,
@@ -435,6 +442,7 @@ struct ad_pulsar_adc {
 	int spi_speed_hz;
 	int samp_freq;
 	int device_id;
+
 	unsigned int spi_rx_data ____cacheline_aligned;
 	unsigned int spi_tx_data;
 };
@@ -694,7 +702,7 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 			return ret;
 
 		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-				    adc->seq_buf[first]);
+					  adc->seq_buf[first]);
 		if (ret)
 			return ret;
 
@@ -972,7 +980,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 
 	if (adc->info->has_turbo) {
 		ret =  ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
-					  AD4003_TURBO_MODE);
+					   AD4003_TURBO_MODE);
 		if (ret < 0)
 			return ret;
 	}
