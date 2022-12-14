@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019 NXP
+ * Copyright 2019-2022 Variscite Ltd.
+ */
+
+#include "imx8mm-var-dart-dt8mcustomboard.dts"
+
+/ {
+	model = "Variscite DART-MX8M-MINI on DT8MCustomBoard 1.x";
+
+	gpio-keys {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_keys>;
+
+		up {
+			gpios = <&gpio4 18 GPIO_ACTIVE_LOW>;
+		};
+
+		down {
+			gpios = <&gpio4 15 GPIO_ACTIVE_LOW>;
+		};
+
+		home {
+			gpios = <&gpio4 13 GPIO_ACTIVE_LOW>;
+		};
+
+		back {
+			gpios = <&gpio4 6 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	gpio-leds {
+		emmc {
+			gpios = <&gpio4 17 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	can0_osc: can0_osc {
+		clock-frequency = <20000000>;
+	};
+
+	adau1860_mclk: oscillator {
+				compatible = "fixed-clock";
+				status = "okay";
+				#clock-cells=<0>;
+				clock-frequency = <24576000>;
+				clock-output-names = "adau1860_mclk";
+	};
+
+	simple_card {
+		status = "okay";
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "adau1860-audio";
+		simple-audio-card,widgets =
+				"Headphone", "Headphone Out",
+				"Speaker", "Speaker External";
+		simple-audio-card,routing =
+				"Headphone Out", "HPOUTP",
+				"Headphone Out", "HPOUTN",
+				"Speaker External", "BE_OUT";
+		simple-audio-card,dai-link@0 {
+			format = "dsp_a";
+			cpu {
+				sound-dai = <&sai2>;
+				dai-tdm-slot-num = <4>;
+				dai-tdm-slot-width = <32>;
+			};
+			codec {
+				sound-dai = <&adau1860 0>;
+				dai-tdm-slot-num = <4>;
+				dai-tdm-slot-width = <32>;
+				frame-master;
+				bitclock-master;
+			};
+		};
+		simple-audio-card,dai-link@1 {
+			format = "dsp_a";
+			cpu {
+				sound-dai = <&adau1860 1>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <16>;
+			};
+			codec {
+				sound-dai = <&max98390>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <16>;
+				frame-master;
+				bitclock-master;
+			};
+		};
+	};
+
+	/delete-node/ extcon_usb1;
+};
+
+&can0 {
+	spi-max-frequency = <10000000>;
+	/delete-property/ microchip,rx-interrupt;
+};
+
+&i2c2 {
+	status = "okay";
+	max98390: amplifier@38 {
+			#sound-dai-cells = <0>;
+			compatible = "maxim,max98390";
+			reg = <0x38>;
+			maxim,temperature_calib = <1024>;
+			maxim,r0_calib = <100232>;
+	};
+};
+
+&i2c3 {
+	adau1860: audio-codec@64 {
+			#sound-dai-cells = <1>;
+			reg = <0x64>;
+			clocks = <&adau1860_mclk>;
+			clock-names = "mclk";
+			compatible = "adi,adau1860";
+	};
+};
+
+&sai2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai2>;
+	assigned-clocks = <&clk IMX8MM_CLK_SAI2>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	status = "okay";
+};
+
+&usbotg1 {
+	/delete-property/ extcon;
+};
+
+&iomuxc {
+	/delete-node/ pca6408grp;
+
+	/delete-node/ extcongrp;
+
+	pinctrl_can: cangrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6		0x16
+		>;
+	};
+
+	pinctrl_captouch: captouchgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_RXD3_GPIO4_IO5		0x16
+			MX8MM_IOMUXC_GPIO1_IO14_GPIO1_IO14		0x16
+		>;
+	};
+
+	pinctrl_gpio_keys: keygrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_TXD3_GPIO4_IO15		0x1c6
+			MX8MM_IOMUXC_SAI1_TXD6_GPIO4_IO18		0x1c6
+			MX8MM_IOMUXC_SAI1_TXD1_GPIO4_IO13		0x1c6
+			MX8MM_IOMUXC_SAI1_RXD4_GPIO4_IO6		0x1c6
+		>;
+	};
+
+	pinctrl_leds: ledgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_RXD1_GPIO4_IO3		0x1c6
+			MX8MM_IOMUXC_SAI1_TXD2_GPIO4_IO14		0x1c6
+			MX8MM_IOMUXC_SAI1_RXD2_GPIO4_IO4		0x1c6
+			MX8MM_IOMUXC_SAI1_TXD5_GPIO4_IO17		0x1c6
+		>;
+	};
+
+	pinctrl_pcie0: pcie0grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_RXD5_GPIO4_IO7		0x41
+		>;
+	};
+
+	pinctrl_csi1: csi1grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_RXD6_GPIO4_IO8		0x19
+			MX8MM_IOMUXC_UART4_RXD_GPIO5_IO28		0x19
+		>;
+	};
+
+	pinctrl_sai2: sai2grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI2_RXD0_SAI2_RX_DATA0		0xd6
+			MX8MM_IOMUXC_SAI2_TXFS_SAI2_TX_SYNC		0xd6
+			MX8MM_IOMUXC_SAI2_TXC_SAI2_TX_BCLK		0xd6
+			MX8MM_IOMUXC_SAI2_TXD0_SAI2_TX_DATA0		0xd6
+			MX8MM_IOMUXC_SAI2_MCLK_SAI2_MCLK		0xd6
+		>;
+	};
+};
