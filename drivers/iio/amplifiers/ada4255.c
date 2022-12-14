@@ -17,6 +17,11 @@
 
 #include <linux/iio/iio.h>
 
+/* 5.10 compatibility */
+#include <linux/slab.h>
+#define IIO_DMA_MINALIGN ARCH_KMALLOC_MINALIGN
+/* end 5.10 compatibility */
+
 #define ADA4255_READ_FLAG_MASK			BIT(7)
 
 #define ADA4255_GAIN_MUX_REG			0x00
