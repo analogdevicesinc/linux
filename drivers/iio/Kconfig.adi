@@ -83,6 +83,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply LTC2387
 	imply AD8366
 	imply ADA4250
+	imply ADA4255
 	imply HMC425
 	imply AD5270
 	imply AD5360
