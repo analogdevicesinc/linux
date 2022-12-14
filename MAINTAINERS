@@ -1153,6 +1153,7 @@ L:	linux-iio@vger.kernel.org
 S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/devicetree/bindings/iio/amplifiers/adi,ada4255.yaml
+F:	drivers/iio/amplifiers/ada4255.c
 
 ANALOG DEVICES INC ADAR100 DRIVER
 M:	Mircea Caprioru <mircea.caprioru@analog.com>

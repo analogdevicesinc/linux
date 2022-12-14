@@ -46,6 +46,17 @@ config ADA4250
 	  To compile this driver as a module, choose M here: the
 	  module will be called ada4250.
 
+config ADA4255
+	tristate "Analog Devices ADA4255 Instrumentation Amplifier"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD4254 and
+	  ADA4255 SPI Instrumentation Amplifiers. The driver provides
+	  direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ada4255.
+
 config HMC425
 	tristate "Analog Devices HMC425A and similar GPIO Gain Amplifiers"
 	depends on GPIOLIB
