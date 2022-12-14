@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
+ * Analog Devices ADAQ4003
+ * https://www.analog.com/en/products/adaq4003.html
+ *
+ * hdl_project: <pulsar_adc_pmdz/coraz7s>
  * board_revision: <A>
  *
  * Copyright (C) 2022 Analog Devices Inc.
@@ -54,6 +58,10 @@
 			pwms = <&adc_trigger 0 0>;
 			pwm-names = "cnv";
 			vref-supply = <&vref>;
+			channel@0 {
+				reg = <0>;
+				diff-channels = <0 1>;
+			};
 		};
 	};
 
