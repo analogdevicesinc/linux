@@ -59,7 +59,8 @@ int32_t adi_ad9081_jesd_sysref_input_mode_set(
 		return API_CMS_ERROR_INVALID_PARAM;
 	}
 
-	adi_ad9081_jesd_sysref_d2acenter_enable_set(device, 1);
+	err = adi_ad9081_jesd_sysref_d2acenter_enable_set(device, 1);
+	AD9081_ERROR_RETURN(err);
 
 	/* 1: AC couple, 0: DC couple */
 	err = adi_ad9081_hal_bf_set(
@@ -79,7 +80,73 @@ int32_t adi_ad9081_jesd_sysref_input_mode_set(
 		enable_capture); /* not paged, spi_sysref_en@sysref_control */
 	AD9081_ERROR_RETURN(err);
 
-	adi_ad9081_jesd_sysref_d2acenter_enable_set(device, 0);
+	err = adi_ad9081_jesd_sysref_d2acenter_enable_set(device, 0);
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_sync_sysref_input_config_set(
+	adi_ad9081_device_t *device, adi_cms_signal_coupling_e coupling_mode,
+	adi_cms_signal_type_e signal_type, uint8_t sysref_single_end_p,
+	uint8_t sysref_single_end_n)
+{
+	int32_t err;
+	AD9081_LOG_FUNC();
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_INVALID_PARAM_RETURN(sysref_single_end_n > 15 ||
+				    sysref_single_end_n < 0);
+	AD9081_INVALID_PARAM_RETURN(sysref_single_end_p > 15 ||
+				    sysref_single_end_p < 0);
+	AD9081_INVALID_PARAM_RETURN(coupling_mode != COUPLING_AC &&
+				    coupling_mode != COUPLING_DC);
+	AD9081_INVALID_PARAM_RETURN(signal_type == SIGNAL_UNKNOWN);
+
+	if ((coupling_mode == COUPLING_AC &&
+	     (signal_type == SIGNAL_LVDS || signal_type == SIGNAL_CML ||
+	      signal_type == SIGNAL_LVPECL)) ||
+	    coupling_mode == COUPLING_DC) {
+		err = adi_ad9081_jesd_sysref_input_mode_set(
+			device, 1, 1,
+			(signal_type == SIGNAL_LVDS ||
+			 signal_type == SIGNAL_CML ||
+			 signal_type == SIGNAL_LVPECL) ?
+				0 :
+				1);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_jesd_sysref_d2acenter_enable_set(device, 1);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x0fb9, 0x100,
+			(coupling_mode == COUPLING_AC) ?
+				0 :
+				1); /* not paged, sysref_dc_mode_sel */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x0fb9, 0x104,
+			(signal_type == SIGNAL_CMOS) ?
+				1 :
+				0); /* not paged, sysref_single_end_mode_sel */
+		AD9081_ERROR_RETURN(err);
+
+		/* for 1.8V CMOS or higher, set ground ref resistor to 6.3 kohm. For 1.5V CMOS, set to 7.9 kohm.*/
+		if (signal_type == SIGNAL_CMOS) {
+			err = adi_ad9081_hal_bf_set(
+				device, 0x0fba, 0x400,
+				sysref_single_end_p); /* not paged, sysref_single_end_p */
+			AD9081_ERROR_RETURN(err);
+			err = adi_ad9081_hal_bf_set(
+				device, 0x0fba, 0x404,
+				sysref_single_end_n); /* not paged, sysref_single_end_n */
+			AD9081_ERROR_RETURN(err);
+		}
+		err = adi_ad9081_jesd_sysref_d2acenter_enable_set(device, 0);
+		AD9081_ERROR_RETURN(err);
+	} else {
+		AD9081_LOG_ERR(
+			"The SYSREF receiver input buffer cannot be configured in the mode specified.");
+		return API_CMS_ERROR_INVALID_PARAM;
+	}
 
 	return API_CMS_ERROR_OK;
 }

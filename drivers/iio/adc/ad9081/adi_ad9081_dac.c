@@ -461,7 +461,9 @@ int32_t adi_ad9081_dac_duc_nco_ftw_set(adi_ad9081_device_t *device,
 #endif
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
-
+	if (acc_modulus + acc_delta >= (1ULL << 48)) {
+		return API_CMS_ERROR_INVALID_PARAM;
+	}
 	for (i = 0; i < 4; i++) {
 		dac = dacs & (AD9081_DAC_0 << i);
 		if (dac > 0) {

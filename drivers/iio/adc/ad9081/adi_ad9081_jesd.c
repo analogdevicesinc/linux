@@ -640,6 +640,72 @@ int32_t adi_ad9081_jesd_cal_fg_cal_wait(adi_ad9081_device_t *device)
 	return API_CMS_ERROR_OK;
 }
 
+int32_t adi_ad9081_jesd_cal_bg_cal_pause(adi_ad9081_device_t *device)
+{
+	int32_t err;
+	uint8_t i, jrx_at_idle;
+	uint16_t rx_set_state1_addr;
+	const uint8_t max_wait = 50;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	/* set rx_set_state1 reg addr */
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		rx_set_state1_addr = 0x21d9;
+	}
+	if (device->dev_info.dev_rev == 2 ||
+	    device->dev_info.dev_rev == 3) { /* r1r/r2 */
+		rx_set_state1_addr = 0x21c1;
+	}
+
+	err = adi_ad9081_hal_bf_set(device, rx_set_state1_addr, 0x0103,
+				    0x0); /* rx_bg_cal_run = 0 */
+	AD9081_ERROR_RETURN(err);
+
+	for (i = 0; i < max_wait; i++) {
+		err = adi_ad9081_hal_bf_get(device, 0x21dd, 0x0100,
+					    &jrx_at_idle,
+					    1); /* rx_at_idle@rx_state_status */
+		AD9081_ERROR_RETURN(err);
+		if (jrx_at_idle == 1)
+			break;
+		err = adi_ad9081_hal_delay_us(device,
+					      AD9081_JESD_RX_204C_CAL_WAIT);
+		AD9081_ERROR_RETURN(err);
+	}
+	if (i == max_wait) {
+		err = adi_ad9081_hal_log_write(device, ADI_CMS_LOG_ERR,
+					       "bg cal pause timed out");
+		AD9081_ERROR_RETURN(err);
+		return API_CMS_ERROR_ERROR;
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_jesd_cal_bg_cal_start(adi_ad9081_device_t *device)
+{
+	int32_t err;
+	uint16_t rx_set_state1_addr;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	/* set rx_set_state1 reg addr */
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		rx_set_state1_addr = 0x21d9;
+	}
+	if (device->dev_info.dev_rev == 2 ||
+	    device->dev_info.dev_rev == 3) { /* r1r/r2 */
+		rx_set_state1_addr = 0x21c1;
+	}
+
+	err = adi_ad9081_hal_bf_set(device, rx_set_state1_addr, 0x0103,
+				    0x1); /* rx_bg_cal_run = 1 */
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
 int32_t adi_ad9081_jesd_rx_calibrate_204c(adi_ad9081_device_t *device,
 					  uint8_t force_cal_reset,
 					  uint8_t boost_mask,
@@ -848,7 +914,10 @@ int32_t adi_ad9081_jesd_rx_ctle_filter_set(adi_ad9081_device_t *device,
 	int32_t err;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
-	AD9081_INVALID_PARAM_RETURN(ctle_filter > 4) /*Range 0-4*/
+	AD9081_INVALID_PARAM_RETURN(
+		ctle_filter < 1 ||
+		ctle_filter >
+			4) /*Range 1-4 corresponding CTLE cutoff frequency to channel insertion loss*/
 
 	err = adi_ad9081_hal_cbusjrx_reg_set(
 		device, 0xfd, (1 << ctle_filter) - 1,
@@ -2296,6 +2365,14 @@ int32_t adi_ad9081_jesd_tx_link_config_set(adi_ad9081_device_t *device,
 		chip_mode = TX_RX_ONLY;
 	}
 
+	/* Set jrx subclass mode for Rx only cases */
+	if (chip_mode == RX_ONLY) {
+		err = adi_ad9081_hal_bf_set(device, REG_JRX_L0_8_ADDR,
+					    BF_JRX_SUBCLASSV_CFG_INFO,
+					    jesd_param[i].jesd_subclass);
+		AD9081_ERROR_RETURN(err);
+	}
+
 	/* power down all physical lanes, setupJtx()@ad9081_rx_r1.py, _enableJtxPhyLanes()@ad9081_rx_r1.py */
 	err = adi_ad9081_jesd_tx_link_select_set(device, AD9081_LINK_0);
 	AD9081_ERROR_RETURN(err);
@@ -3164,6 +3241,57 @@ int32_t adi_ad9081_jesd_tx_fractional_delay_converter_selection_set(
 	return API_CMS_ERROR_OK;
 }
 
+int32_t adi_ad9081_jesd_tx_fbw_config_set(adi_ad9081_device_t *device,
+					  adi_ad9081_jesd_link_select_e links,
+					  uint8_t jesd_m[2])
+{
+	int32_t err;
+	uint16_t adcs = 0x00, converters = 0x00;
+	uint8_t die_id, dual_adc;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_device_die_id_get(device, &die_id);
+	AD9081_ERROR_RETURN(err);
+
+	dual_adc = ((die_id & 0x80) == 0) ? 1 : 0;
+
+	if ((links & AD9081_LINK_0) > 0) {
+		if (dual_adc) {
+			adcs = (jesd_m[0] < 2) ? ((1 << jesd_m[0]) - 1) :
+						 ((1 << 2) - 1);
+		} else {
+			adcs = (jesd_m[0] < 4) ? ((1 << jesd_m[0]) - 1) :
+						 ((1 << 4) - 1);
+		}
+		adcs &= 0x0F;
+		converters = (uint16_t)(adcs | (adcs << 4) | (adcs << 8) |
+					(adcs << 12));
+		err = adi_ad9081_jesd_tx_fbw_sel_set(device, AD9081_LINK_0,
+						     converters);
+		AD9081_ERROR_RETURN(err);
+	}
+	if ((links & AD9081_LINK_1) > 0) {
+		if (dual_adc) {
+			adcs = ((jesd_m[1] < 2) ? ((1 << jesd_m[1]) - 1) :
+						  ((1 << 2) - 1))
+			       << jesd_m[0];
+		} else {
+			adcs = ((jesd_m[1] < 4) ? ((1 << jesd_m[1]) - 1) :
+						  ((1 << 4) - 1))
+			       << jesd_m[0];
+		}
+		adcs &= 0x0F;
+		converters = (uint16_t)(adcs | (adcs << 4) | (adcs << 8) |
+					(adcs << 12));
+		err = adi_ad9081_jesd_tx_fbw_sel_set(device, AD9081_LINK_1,
+						     converters);
+		AD9081_ERROR_RETURN(err);
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
 int32_t adi_ad9081_jesd_tx_fbw_sel_set(adi_ad9081_device_t *device,
 				       adi_ad9081_jesd_link_select_e links,
 				       uint16_t converters)
@@ -3732,6 +3860,171 @@ int32_t adi_ad9081_jesd_rx_spo_sweep(adi_ad9081_device_t *device, uint8_t lane,
 	}
 	*left_spo = good_left_spo;
 	*right_spo = good_right_spo;
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_jesd_rx_qr_vertical_eye_scan(adi_ad9081_device_t *device,
+						uint8_t direction, uint8_t lane)
+{
+	int32_t err;
+	uint8_t data, state_go, jrx_at_idle, i;
+	const uint8_t max_wait = 50;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_device_spi_register_get(device, 0x21D1, &data);
+	AD9081_ERROR_RETURN(err);
+
+	data = ((data & 0xB0) | lane) | (direction << 6);
+	err = adi_ad9081_device_spi_register_set(device, 0x21D1, data);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_device_spi_register_set(device, 0x21C0, 0x14);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_device_spi_register_get(device, 0x21C1, &data);
+	AD9081_ERROR_RETURN(err);
+
+	data |= 0x01;
+	err = adi_ad9081_device_spi_register_set(device, 0x21C1, data);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_hal_delay_us(device, 500);
+	AD9081_ERROR_RETURN(err);
+
+	for (i = 0; i < max_wait; i++) {
+		err = adi_ad9081_hal_bf_get(device, 0x21dd, 0x100, &jrx_at_idle,
+					    1); /* rx_at_idle@rx_state_status */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_get(device, 0x21c1, 0x100, &state_go,
+					    1);
+		AD9081_ERROR_RETURN(err);
+
+		if (((state_go & 0x01) == 0) && (jrx_at_idle & 0x01)) {
+			break;
+		}
+		err = adi_ad9081_hal_delay_us(device, 10000);
+		AD9081_ERROR_RETURN(err);
+	}
+	if (i == max_wait) {
+		err = adi_ad9081_hal_log_write(
+			device, ADI_CMS_LOG_ERR,
+			"vertical eye scan call timed out");
+		AD9081_ERROR_RETURN(err);
+		return API_CMS_ERROR_ERROR;
+	}
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_jesd_rx_qr_two_dim_eye_scan(adi_ad9081_device_t *device,
+					       uint8_t lane,
+					       uint8_t eye_scan_data[96])
+{
+	int32_t err;
+	uint8_t en_flash_src_des_rc, comp_setting, data, spo, quad1, quad2,
+		quad3, quad4, i = 0;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_device_cbusjrx_register_get(
+		device, 0xFA, &en_flash_src_des_rc, lane);
+	AD9081_ERROR_RETURN(err);
+
+	en_flash_src_des_rc &= 0x0F;
+
+	err = adi_ad9081_device_cbusjrx_register_get(device, 0xCA,
+						     &comp_setting, lane);
+	AD9081_ERROR_RETURN(err);
+
+	comp_setting &= 0x03F;
+
+	err = adi_ad9081_device_cbusjrx_register_get(device, 0xFA, &data, lane);
+	AD9081_ERROR_RETURN(err);
+
+	data = (data & 0x0F) | 0xA0;
+
+	err = adi_ad9081_device_cbusjrx_register_set(device, 0xFA, data,
+						     1 << lane);
+	AD9081_ERROR_RETURN(err);
+
+	/* Sweeping SPO from -1 to -16 */
+	for (spo = 127; spo > 111; spo--) {
+		err = adi_ad9081_jesd_rx_spo_set(device, lane, spo);
+		AD9081_ERROR_RETURN(err);
+
+		/* Step up vertical scan */
+		err = adi_ad9081_jesd_rx_qr_vertical_eye_scan(device, 1, lane);
+		AD9081_ERROR_RETURN(err);
+
+		err = adi_ad9081_device_spi_register_get(device, 0x21D6,
+							 &quad2);
+		AD9081_ERROR_RETURN(err);
+
+		/* Step down vertical scan */
+		err = adi_ad9081_jesd_rx_qr_vertical_eye_scan(device, 0, lane);
+		AD9081_ERROR_RETURN(err);
+
+		err = adi_ad9081_device_spi_register_get(device, 0x21D5,
+							 &quad3);
+		AD9081_ERROR_RETURN(err);
+
+		eye_scan_data[i] = -(128 - spo);
+		eye_scan_data[i + 1] = quad2;
+		eye_scan_data[i + 2] = -quad3;
+		i += 3;
+	}
+	for (spo = 113; spo < 128; spo++) {
+		err = adi_ad9081_jesd_rx_spo_set(device, lane, spo);
+		AD9081_ERROR_RETURN(err);
+	}
+	/* Set spo to 0 */
+	err = adi_ad9081_jesd_rx_spo_set(device, lane, 0);
+	AD9081_ERROR_RETURN(err);
+
+	/* Sweeping SPO from 1 to 16 */
+	for (spo = 1; spo < 17; spo++) {
+		err = adi_ad9081_jesd_rx_spo_set(device, lane, spo);
+		AD9081_ERROR_RETURN(err);
+
+		/* Step up vertical scan */
+		err = adi_ad9081_jesd_rx_qr_vertical_eye_scan(device, 1, lane);
+		AD9081_ERROR_RETURN(err);
+
+		err = adi_ad9081_device_spi_register_get(device, 0x21D5,
+							 &quad1);
+		AD9081_ERROR_RETURN(err);
+
+		/* Step down vertical scan */
+		err = adi_ad9081_jesd_rx_qr_vertical_eye_scan(device, 0, lane);
+		AD9081_ERROR_RETURN(err);
+
+		err = adi_ad9081_device_spi_register_get(device, 0x21D6,
+							 &quad4);
+		AD9081_ERROR_RETURN(err);
+
+		eye_scan_data[i] = spo;
+		eye_scan_data[i + 1] = quad1;
+		eye_scan_data[i + 2] = -quad4;
+		i += 3;
+	}
+
+	/* Move SPO back to the center, 0, one step at a time */
+	for (spo = 15; spo > 0; spo--) {
+		err = adi_ad9081_jesd_rx_spo_set(device, lane, spo);
+		AD9081_ERROR_RETURN(err);
+	}
+
+	/* Set spo to 0 */
+	err = adi_ad9081_jesd_rx_spo_set(device, lane, 0);
+	AD9081_ERROR_RETURN(err);
+
+	/* Restore the value stored in step 1 to it corresponding register */
+	err = adi_ad9081_device_cbusjrx_register_get(device, 0xFA, &data, lane);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_device_cbusjrx_register_set(
+		device, 0xFA, ((data & 0x0F) | en_flash_src_des_rc), lane);
+	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
 }
