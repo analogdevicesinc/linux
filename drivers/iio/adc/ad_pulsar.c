@@ -47,7 +47,7 @@
 #define AD7682_PAIR_MSK			BIT(11)
 #define AD7682_REF_MSK			BIT(10)
 #define AD7682_SEL_MSK			GENMASK(9, 7)
-#define AD7682_FILTER_MSK		BIT(6)
+#define AD7682_BW_MSK			BIT(6)
 #define AD7682_REFBUF_MSK		GENMASK(5, 3)
 #define AD7682_SEQ_MSK			GENMASK(2, 1)
 #define AD7682_READBACK_MSK		BIT(0)
@@ -58,9 +58,9 @@
 #define AD7682_CH_REF(x)		FIELD_PREP(AD7682_REF_MSK, x)
 #define AD7682_SEQ_SCAN(x)		FIELD_PREP(AD7682_SEQ_MSK, x)
 #define AD7682_REFBUF_SEL(x)		FIELD_PREP(AD7682_REFBUF_MSK, x)
-#define AD7682_BW_SEL(x)		FIELD_PREP(AD7682_FILTER_MSK, x)
+#define AD7682_BW_SEL(x)		FIELD_PREP(AD7682_BW_MSK, x)
 #define AD7682_SEL_CH(x)		FIELD_PREP(AD7682_SEL_MSK, x)
-#define AD7682_GET_FILTER(x)		FIELD_GET(AD7682_FILTER_MSK, x)
+#define AD7682_GET_BW(x)		FIELD_GET(AD7682_BW_MSK, x)
 
 #define AD7862_SET_TYPE(_reg, type)	({				       \
 					typeof(_reg) (reg) = (_reg);	       \
@@ -537,7 +537,7 @@ static int ad_pulsar_set_lpf(struct ad_pulsar_adc *adc, int index,
 		return -EINVAL;
 
 	if (adc->info->has_filter) {
-		adc->seq_buf[index] &= ~AD7682_FILTER_MSK;
+		adc->seq_buf[index] &= ~AD7682_BW_MSK;
 		adc->seq_buf[index] |= AD7682_BW_SEL(filter);
 	}
 
@@ -549,7 +549,7 @@ static int ad_pulsar_get_lpf(struct ad_pulsar_adc *adc, int index, int *val)
 	if (!adc->info->sequencer)
 		return -EINVAL;
 
-	*val = ad_pulsar_filter_freq[AD7682_GET_FILTER(adc->seq_buf[index])];
+	*val = ad_pulsar_filter_freq[AD7682_GET_BW(adc->seq_buf[index])];
 
 	return 0;
 }
