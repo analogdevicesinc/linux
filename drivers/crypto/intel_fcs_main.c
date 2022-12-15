@@ -79,6 +79,9 @@
 #define AGILEX_PLATFORM			"agilex"
 #define AGILEX_PLATFORM_STR_LEN		6
 
+#define SDOS_DECRYPTION_ERROR_102	0x102
+#define SDOS_DECRYPTION_ERROR_103	0x103
+
 /*SDM required minimun 8 bytes of data for crypto service*/
 #define CRYPTO_SERVICE_MIN_DATA_SIZE	8
 
@@ -898,7 +901,10 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			ret = fcs_request_service(priv, (void *)msg,
 						  FCS_COMPLETED_TIMEOUT);
 			dev_dbg(dev, "request service ret=%d\n", ret);
-			if (!ret && !priv->status) {
+			if (!ret &&
+			    (!priv->status ||
+			    priv->status == SDOS_DECRYPTION_ERROR_102 ||
+			    priv->status == SDOS_DECRYPTION_ERROR_103)) {
 				if (!priv->kbuf) {
 					dev_err(dev, "failure on kbuf\n");
 					fcs_free_memory(priv, ps_buf, s_buf, d_buf);
@@ -2787,7 +2793,10 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 		ret = fcs_request_service(priv, (void *)msg,
 					  10 * FCS_REQUEST_TIMEOUT);
-		if (!ret && !priv->status) {
+		if (!ret &&
+		    (!priv->status ||
+		    priv->status == SDOS_DECRYPTION_ERROR_102 ||
+		    priv->status == SDOS_DECRYPTION_ERROR_103)) {
 			if (priv->size > AES_CRYPT_CMD_MAX_SZ) {
 				dev_err(dev, "returned size %d is incorrect\n",
 					priv->size);
