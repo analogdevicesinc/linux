@@ -429,6 +429,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_POLL_SERVICE_STATUS:
 	case COMMAND_POLL_SERVICE_STATUS_ASYNC:
 	case COMMAND_FCS_GET_ROM_PATCH_SHA384:
+	case COMMAND_FCS_SDOS_DATA_EXT:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr1 = &res.a1;
 		cb_data->kaddr2 = svc_pa_to_va(res.a2);
@@ -466,7 +467,6 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_FCS_CRYPTO_ECDSA_GET_PUBLIC_KEY_FINALIZE:
 	case COMMAND_FCS_CRYPTO_ECDH_REQUEST_FINALIZE:
 	case COMMAND_FCS_RANDOM_NUMBER_GEN_EXT:
-	case COMMAND_FCS_SDOS_DATA_EXT:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr2 = svc_pa_to_va(res.a2);
 		cb_data->kaddr3 = &res.a3;
