@@ -278,6 +278,56 @@ static void fcs_mbox_send_cmd_callback(struct stratix10_svc_client *client,
 	complete(&priv->completion);
 }
 
+static void fcs_sdos_data_poll_callback(struct stratix10_svc_client *client,
+			      struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	if ((data->status == BIT(SVC_STATUS_OK)) ||
+	    (data->status == BIT(SVC_STATUS_COMPLETED))) {
+		priv->status = (data->kaddr1) ?
+			*((unsigned int *)data->kaddr1) : 0;
+		priv->kbuf = data->kaddr2;
+		priv->size = *((unsigned int *)data->kaddr3);
+	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		dev_err(client->dev, "error, mbox_error=0x%x\n", priv->status);
+		priv->kbuf = data->kaddr2;
+		priv->size = (data->kaddr3) ?
+			*((unsigned int *)data->kaddr3) : 0;
+	} else if ((data->status == BIT(SVC_STATUS_BUSY)) ||
+		   (data->status == BIT(SVC_STATUS_NO_RESPONSE))) {
+		priv->status = 0;
+		priv->kbuf = NULL;
+		priv->size = 0;
+	} else {
+		dev_err(client->dev, "rejected, invalid param\n");
+		priv->status = -EINVAL;
+		priv->kbuf = NULL;
+		priv->size = 0;
+	}
+
+	complete(&priv->completion);
+}
+
+static void fcs_sdos_data_callback(struct stratix10_svc_client *client,
+				      struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	priv->status = data->status;
+	if (data->status == BIT(SVC_STATUS_OK)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		priv->kbuf = data->kaddr2;
+		priv->size = *((unsigned int *)data->kaddr3);
+	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
+	}
+
+	complete(&priv->completion);
+}
+
 static int fcs_request_service(struct intel_fcs_priv *priv,
 			       void *msg, unsigned long timeout)
 {
@@ -897,7 +947,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			msg->command = COMMAND_POLL_SERVICE_STATUS;
 			msg->payload = ps_buf;
 			msg->payload_length = PS_BUF_SIZE;
-			priv->client.receive_cb = fcs_data_callback;
+			priv->client.receive_cb = fcs_sdos_data_poll_callback;
 			ret = fcs_request_service(priv, (void *)msg,
 						  FCS_COMPLETED_TIMEOUT);
 			dev_dbg(dev, "request service ret=%d\n", ret);
@@ -913,7 +963,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				}
 				buf_sz = *((unsigned int *)priv->kbuf);
 				data->com_paras.d_decryption.dst_size = buf_sz;
-				data->status = 0;
+				data->status = priv->status;
 				ret = copy_to_user(data->com_paras.d_decryption.dst,
 						   d_buf, buf_sz);
 				if (ret) {
@@ -2789,7 +2839,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		msg->payload_length = in_sz;
 		msg->payload_output = d_buf;
 		msg->payload_length_output = AES_CRYPT_CMD_MAX_SZ;
-		priv->client.receive_cb = fcs_attestation_callback;
+		priv->client.receive_cb = fcs_sdos_data_callback;
 
 		ret = fcs_request_service(priv, (void *)msg,
 					  10 * FCS_REQUEST_TIMEOUT);
