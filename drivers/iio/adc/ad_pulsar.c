@@ -13,11 +13,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/err.h>
-#include <linux/iio/buffer.h>
-#include <linux/iio/buffer-dma.h>
-#include <linux/iio/buffer-dmaengine.h>
-#include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -27,14 +22,21 @@
 #include <linux/spi/spi-engine.h>
 #include <linux/regulator/consumer.h>
 
+
+#include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
+
 #define AD_PULSAR_REG_CONFIG		0x00
 
 #define AD4003_READ_COMMAND		0x54
 #define AD4003_WRITE_COMMAND		0x14
 #define AD4003_RESERVED_MSK		0xE0
 #define AD4003_REG_CONFIG		AD_PULSAR_REG_CONFIG
-#define  AD4003_TURBO_MODE		BIT(1)
-#define  AD4003_HIGH_Z_MODE		BIT(2)
+#define AD4003_TURBO_MODE		BIT(1)
+#define AD4003_HIGH_Z_MODE		BIT(2)
 
 #define AD7682_NUM_TEMP_CHANNELS	0x01
 
