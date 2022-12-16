@@ -411,8 +411,8 @@ static const struct ad_pulsar_chip_info ad4007_chip_info = {
 static const struct ad_pulsar_chip_info ad4003_chip_info = {
 	.name = "ad4003",
 	.input_type = DIFFERENTIAL,
-	// .max_rate = 2000000,
-	// HDL does not support maximum rate
+	/*.max_rate = 2000000,
+	  HDL does not support maximum rate*/
 	.max_rate = 1839080,
 	.resolution = 18,
 	.num_channels = 1,
@@ -423,8 +423,8 @@ static const struct ad_pulsar_chip_info ad4003_chip_info = {
 static const struct ad_pulsar_chip_info adaq4003_chip_info = {
 	.name = "adaq4003",
 	.input_type = DIFFERENTIAL,
-	// .max_rate = 2000000,
-	// HDL does not support maximum rate
+	/*.max_rate = 2000000,
+	  HDL does not support maximum rate*/
 	.max_rate = 1839080,
 	.resolution = 18,
 	.num_channels = 1,
