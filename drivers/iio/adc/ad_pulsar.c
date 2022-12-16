@@ -166,16 +166,16 @@ unsigned int ad_pulsar_filter_freq[] = {
 
 struct ad_pulsar_chip_info {
 	enum ad_pulsar_input_type input_type;
-	bool has_power_up_seq:1;
-	bool has_filter:1;
 	const char *name;
 	int num_channels;
-	bool has_turbo:1;
-	bool has_reset:1;
 	int resolution;
-	bool sequencer;
 	int sclk_rate;
 	int max_rate;
+	bool has_power_up_seq:1;
+	bool has_filter:1;
+	bool has_turbo:1;
+	bool has_reset:1;
+	bool sequencer;
 };
 
 static const struct ad_pulsar_chip_info ad7988_5_chip_info = {
