@@ -561,19 +561,6 @@ static int ad_pulsar_get_lpf(struct ad_pulsar_adc *adc, int index, int *val)
 	return 0;
 }
 
-static int ad_pulsar_read_channel(struct iio_dev *indio_dev,
-				  const struct iio_chan_spec *chan, int *val)
-{
-	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-	int ret;
-
-	ret = ad_pulsar_reg_read(adc, chan->address, val);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 			      const struct iio_chan_spec *chan,
 			      int *val, int *val2, long info)
@@ -583,7 +570,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
-		ret = ad_pulsar_read_channel(indio_dev, chan, val);
+		ret = ad_pulsar_reg_read(adc, chan->address, val);
 		if (ret)
 			return ret;
 		return IIO_VAL_INT;
