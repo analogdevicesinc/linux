@@ -29,6 +29,11 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+/* 5.10 compatibility */
+#include <linux/slab.h>
+#define IIO_DMA_MINALIGN ARCH_KMALLOC_MINALIGN
+/* end 5.10 compatibility */
+
 #define AD_PULSAR_REG_CONFIG		0x00
 
 #define AD4003_READ_COMMAND		0x54
@@ -445,7 +450,11 @@ struct ad_pulsar_adc {
 	int samp_freq;
 	int device_id;
 
-	unsigned int spi_rx_data ____cacheline_aligned;
+	/*
+	 * DMA (thus cache coherency maintenance) requires the
+	 * transfer buffers to live in their own cache lines.
+	 */
+	unsigned int spi_rx_data __aligned(IIO_DMA_MINALIGN);
 	unsigned int spi_tx_data;
 };
 
@@ -457,10 +466,9 @@ static int ad_pulsar_reg_write(struct ad_pulsar_adc *adc, unsigned int reg,
 		.speed_hz = adc->info->sclk_rate,
 		.len = 4,
 	};
-	unsigned int tx;
 
-	tx = val << 2;
-	xfer.tx_buf = &tx;
+	adc->spi_tx_data = val << 2;
+	xfer.tx_buf = &adc->spi_tx_data;
 
 	return spi_sync_transfer(adc->spi, &xfer, 1);
 }
@@ -473,18 +481,17 @@ static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
 		.speed_hz = adc->info->sclk_rate,
 		.len = 4,
 	};
-	unsigned int rx, tx;
 	int ret;
 
-	tx = reg << 2;
-	xfer.tx_buf = &tx;
-	xfer.rx_buf = &rx;
+	adc->spi_tx_data = reg << 2;
+	xfer.tx_buf = &adc->spi_tx_data;
+	xfer.rx_buf = &adc->spi_rx_data;
 
 	ret = spi_sync_transfer(adc->spi, &xfer, 1);
 	if (ret)
 		return ret;
 
-	*val = rx & GENMASK(15, 0);
+	*val = adc->spi_rx_data & GENMASK(15, 0);
 
 	return ret;
 }
