@@ -333,8 +333,7 @@ void lcdifv3_set_fb_addr(struct lcdifv3_soc *lcdifv3, int id, u32 addr)
 }
 EXPORT_SYMBOL(lcdifv3_set_fb_addr);
 
-void lcdifv3_set_fb_hcrop(struct lcdifv3_soc *lcdifv3, u32 src_w,
-			u32 pitch, bool crop)
+void lcdifv3_set_pitch(struct lcdifv3_soc *lcdifv3, unsigned int pitch)
 {
 	uint32_t ctrldescl0_3 = 0;
 
@@ -359,7 +358,7 @@ void lcdifv3_set_fb_hcrop(struct lcdifv3_soc *lcdifv3, u32 src_w,
 
 	writel(ctrldescl0_3, lcdifv3->base + LCDIFV3_CTRLDESCL0_3);
 }
-EXPORT_SYMBOL(lcdifv3_set_fb_hcrop);
+EXPORT_SYMBOL(lcdifv3_set_pitch);
 
 
 void lcdifv3_set_mode(struct lcdifv3_soc *lcdifv3, struct videomode *vmode)

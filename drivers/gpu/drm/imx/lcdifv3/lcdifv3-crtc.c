@@ -13,6 +13,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_edid.h>
+#include <drm/drm_framebuffer.h>
 #include <drm/drm_vblank.h>
 #include <video/imx-lcdifv3.h>
 #include <video/videomode.h>
@@ -152,6 +153,7 @@ static void lcdifv3_crtc_atomic_enable(struct drm_crtc *crtc,
 	struct lcdifv3_soc *lcdifv3 = dev_get_drvdata(lcdifv3_crtc->dev->parent);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
+	struct drm_plane_state *plane_state = drm_atomic_get_new_plane_state(state, crtc->primary);
 	struct videomode vm;
 
 	drm_display_mode_to_videomode(mode, &vm);
@@ -172,6 +174,11 @@ static void lcdifv3_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	/* config LCDIF output bus format */
 	lcdifv3_set_bus_fmt(lcdifv3, imx_crtc_state->bus_format);
+
+	/* update primary plane to avoid an initial corrupt frame */
+	lcdifv3_set_pitch(lcdifv3, plane_state->fb->pitches[0]);
+	lcdifv3_plane_atomic_update(crtc->primary, state);
+	lcdifv3_en_shadow_load(lcdifv3);
 
 	/* run LCDIFv3 */
 	lcdifv3_enable_controller(lcdifv3);

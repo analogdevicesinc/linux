@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2019,2020 NXP
+ * Copyright 2019,2020,2022 NXP
  */
 
 #include <linux/module.h>
@@ -77,8 +77,8 @@ static int lcdifv3_plane_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
-static void lcdifv3_plane_atomic_update(struct drm_plane *plane,
-					struct drm_atomic_state *state)
+void lcdifv3_plane_atomic_update(struct drm_plane *plane,
+				 struct drm_atomic_state *state)
 {
 	struct lcdifv3_plane *lcdifv3_plane = to_lcdifv3_plane(plane);
 	struct lcdifv3_soc *lcdifv3 = lcdifv3_plane->lcdifv3;
@@ -86,8 +86,7 @@ static void lcdifv3_plane_atomic_update(struct drm_plane *plane,
 										 plane);
 	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct drm_gem_dma_object *gem_obj = NULL;
-	u32 fb_addr, src_off, src_w, fb_idx, cpp, stride;
-	bool crop;
+	u32 fb_addr, src_off, fb_idx;
 
 	/* plane and crtc is disabling */
 	if (!fb)
@@ -115,18 +114,6 @@ static void lcdifv3_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	lcdifv3_set_fb_addr(lcdifv3, fb_idx, fb_addr);
-
-	/* config horizontal cropping if crtc needs modeset */
-	if (unlikely(drm_atomic_crtc_needs_modeset(new_plane_state->crtc->state))) {
-		cpp = fb->format->cpp[0];
-		stride = DIV_ROUND_UP(fb->pitches[0], cpp);
-
-		src_w = new_plane_state->src_w >> 16;
-		WARN_ON(src_w > fb->width);
-
-		crop  = src_w != stride ? true : false;
-		lcdifv3_set_fb_hcrop(lcdifv3, src_w, fb->pitches[0], crop);
-	}
 }
 
 static void lcdifv3_plane_atomic_disable(struct drm_plane *plane,
