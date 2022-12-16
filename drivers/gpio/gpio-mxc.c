@@ -70,6 +70,7 @@ struct mxc_gpio_port {
 	struct mxc_gpio_reg_saved gpio_saved_reg;
 	bool power_off;
 	u32 wakeup_pads;
+	u32 wakeup_pads_save;
 	bool is_pad_wakeup;
 	u32 pad_type[32];
 	const struct mxc_gpio_hwdata *hwdata;
@@ -648,16 +649,33 @@ static int mxc_gpio_noirq_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mxc_gpio_port *port = platform_get_drvdata(pdev);
 
-	if (port->wakeup_pads > 0)
+	if (port->wakeup_pads > 0) {
 		mxc_gpio_set_pad_wakeup(port, false);
+		port->wakeup_pads_save = port->wakeup_pads;
+	}
 	port->is_pad_wakeup = false;
 
 	return 0;
 }
 
+static void mxc_gpio_complete(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mxc_gpio_port *port = platform_get_drvdata(pdev);
+	struct irq_desc *desc = irq_to_desc(port->irq);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	if (port->wakeup_pads_save > 0) {
+		chained_irq_enter(chip, desc);
+		chained_irq_exit(chip, desc);
+		port->wakeup_pads_save = 0;
+	}
+}
+
 static const struct dev_pm_ops mxc_gpio_dev_pm_ops = {
 	NOIRQ_SYSTEM_SLEEP_PM_OPS(mxc_gpio_noirq_suspend, mxc_gpio_noirq_resume)
 	RUNTIME_PM_OPS(mxc_gpio_runtime_suspend, mxc_gpio_runtime_resume, NULL)
+	.complete = mxc_gpio_complete,
 };
 
 static int mxc_gpio_syscore_suspend(void)
