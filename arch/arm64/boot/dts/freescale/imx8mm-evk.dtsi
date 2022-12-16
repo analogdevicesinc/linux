@@ -304,6 +304,9 @@
 			reg = <0>;
 			reset-gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
 			reset-assert-us = <10000>;
+			reset-deassert-us = <80000>;
+			realtek,aldps-enable;
+			realtek,clkout-disable;
 			qca,disable-smarteee;
 			vddio-supply = <&vddio>;
 
