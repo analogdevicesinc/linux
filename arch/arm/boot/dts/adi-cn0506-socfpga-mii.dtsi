@@ -9,31 +9,35 @@
 &gmac1 {
 	status = "okay";
 	phy-mode = "mii";
-	phy-handle = <&ethernet_gmac1_phy1>;
+	mac-mode = "rgmii";
+	max-speed = <100>;
 
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "snps,dwmac-mdio";
+	#address-cells = <1>;
+	#size-cells = <0>;
 
-		ethernet_gmac1_phy1: ethernet-phy@1 {
-			reg = <1>;
-		};
+	ethernet_gmac1_phy1: phy@1 {
+		reg = <0x1>;
+
+		/* stmmac relies on the PHY to generate 25 MHz clock. */
+		adi,phy-output-reference-clock;
+		adi,phy-output-clock = "25mhz-reference";
 	};
 };
 
 &gmac2 {
 	status = "okay";
 	phy-mode = "mii";
-	phy-handle = <&ethernet_gmac2_phy2>;
+	mac-mode = "rgmii";
+	max-speed = <100>;
 
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "snps,dwmac-mdio";
+	#address-cells = <1>;
+	#size-cells = <0>;
 
-		ethernet_gmac2_phy2: ethernet-phy@2 {
-			reg = <2>;
-		};
+	ethernet_gmac2_phy2: phy@2 {
+		reg = <0x2>;
+
+		/* stmmac relies on the PHY to generate 25 MHz clock. */
+		adi,phy-output-reference-clock;
+		adi,phy-output-clock = "25mhz-reference";
 	};
 };
