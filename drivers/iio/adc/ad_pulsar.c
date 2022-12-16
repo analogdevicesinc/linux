@@ -663,7 +663,8 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 	struct spi_message msg;
 
 	if (adc->info->sequencer) {
-		num_en_ch = hweight_long(*indio_dev->active_scan_mask);
+		num_en_ch = bitmap_weight(indio_dev->active_scan_mask,
+					  adc->info->num_channels);
 
 		last = find_last_bit(indio_dev->active_scan_mask,
 				     indio_dev->masklength);
