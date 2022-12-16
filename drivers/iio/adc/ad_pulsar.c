@@ -481,7 +481,7 @@ static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
 	xfer.rx_buf = &rx;
 
 	ret = spi_sync_transfer(adc->spi, &xfer, 1);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*val = rx & GENMASK(15, 0);
@@ -516,7 +516,7 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	cnv_state.time_unit = PWM_UNIT_PSEC;
 	cnv_state.enabled = true;
 	ret = pwm_apply_state(adc->cnv, &cnv_state);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	adc->samp_freq = DIV_ROUND_CLOSEST_ULL(adc->ref_clk_rate, target);
@@ -561,7 +561,7 @@ static int ad_pulsar_read_channel(struct iio_dev *indio_dev,
 	int ret;
 
 	ret = ad_pulsar_reg_read(adc, chan->address, val);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	return 0;
@@ -577,7 +577,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		ret = ad_pulsar_read_channel(indio_dev, chan, val);
-		if (ret < 0)
+		if (ret)
 			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -587,7 +587,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		switch (chan->type) {
 		case IIO_VOLTAGE:
 			ret = regulator_get_voltage(adc->vref);
-			if (ret < 0)
+			if (ret)
 				return ret;
 			*val = ret / 1000;
 			*val2 = adc->info->resolution;
@@ -603,7 +603,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		}
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
 		ret = ad_pulsar_get_lpf(adc, chan->scan_index, val);
-		if (ret < 0)
+		if (ret)
 			return ret;
 		return IIO_VAL_INT;
 	default:
@@ -724,7 +724,7 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 	}
 
 	ret = spi_engine_offload_load_msg(adc->spi, &msg);
-	if (ret < 0)
+	if (ret)
 		return ret;
 	spi_engine_offload_enable(adc->spi, true);
 
@@ -838,14 +838,14 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 		in[1] = 0;
 
 		ret = fwnode_property_read_u32(child, "reg", &chan_index);
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		if (fwnode_property_present(child, "diff-channels")) {
 			ret = fwnode_property_read_u32_array(child,
 							     "diff-channels",
 							     in, 2);
-			if (ret < 0)
+			if (ret)
 				return ret;
 
 			if (in[0] > 7 || in[1] > 7 || in[0] % 2 != 0 ||
@@ -864,7 +864,7 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 			ret = fwnode_property_read_u32(child,
 						       "adi,single-channel",
 						       &in[0]);
-			if (ret < 0)
+			if (ret)
 				return ret;
 
 			adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
@@ -937,12 +937,12 @@ static int ad_pulsar_probe(struct spi_device *spi)
 		return PTR_ERR(ref_clk);
 
 	ret = clk_prepare_enable(ref_clk);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_clk_disable,
 				       ref_clk);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	adc->ref_clk_rate = clk_get_rate(ref_clk);
@@ -953,7 +953,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 
 	ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_pwm_diasble,
 				       adc->cnv);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	adc->info = device_get_match_data(&spi->dev);
@@ -965,32 +965,32 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	}
 
 	ret = ad_pulsar_parse_channels(indio_dev);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	if (adc->info->has_reset) {
 		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 					  AD7682_CONFIG_RESET);
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 					  AD7682_CONFIG_RESET);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	}
 
 	if (adc->info->has_turbo) {
 		ret =  ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
 					   AD4003_TURBO_MODE);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	}
 
 	if (adc->info->has_power_up_seq) {
 		for (i = 0; i < 3; i++) {
 			ret = ad_pulsar_reg_read(adc, adc->seq_buf[0], &tmp);
-			if (ret < 0)
+			if (ret)
 				return ret;
 		}
 	}
@@ -1010,7 +1010,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	iio_device_attach_buffer(indio_dev, buffer);
 
 	ret = ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
