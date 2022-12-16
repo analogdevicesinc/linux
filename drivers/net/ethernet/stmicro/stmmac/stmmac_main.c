@@ -937,6 +937,14 @@ static void stmmac_validate(struct phylink_config *config,
 
 	/* Cut down 1G if asked to */
 	if ((max_speed > 0) && (max_speed < 1000)) {
+		/* Need to remove use of 1000baseT_Half also when asked
+		 * to go lower than 1000 Mbps otherwise wrong clock selection
+		 * will break incoming data form MAC to PHY on MII or RMII.
+		 *
+		 * Remove this patch after 5.18,
+		 * (It is fixed in the phy abstraction layer)
+		 */
+		phylink_set(mask, 1000baseT_Half);
 		phylink_set(mask, 1000baseT_Full);
 		phylink_set(mask, 1000baseX_Full);
 	} else if (priv->plat->has_gmac4) {
