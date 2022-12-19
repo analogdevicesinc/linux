@@ -458,6 +458,18 @@ struct ad_pulsar_adc {
 	unsigned int spi_tx_data;
 };
 
+static const struct iio_chan_spec ad_pulsar_chan_template = {
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+			   BIT(IIO_CHAN_INFO_SCALE) |
+			   BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
+	.info_mask_shared_by_all_available = BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
+	.scan_type.sign = 'u',
+	.scan_type.storagebits = 32,
+};
+
 static int ad_pulsar_reg_write(struct ad_pulsar_adc *adc, unsigned int reg,
 			       unsigned int val)
 {
@@ -764,21 +776,70 @@ static const struct iio_info ad_pulsar_iio_info = {
 	.debugfs_reg_access = &ad_pulsar_reg_access,
 };
 
-static void ad_pulsar_set_channel(struct iio_chan_spec *ch, int i, int num_ch,
-				  const struct ad_pulsar_chip_info *info)
+static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
+				   struct fwnode_handle *child)
 {
-	ch[i].type = IIO_VOLTAGE;
-	ch[i].indexed = 1;
-	ch[i].channel = i;
-	ch[i].scan_index = i;
-	ch[i].info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ);
-	ch[i].info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				   BIT(IIO_CHAN_INFO_SCALE) |
-				   BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY);
-	ch[i].info_mask_shared_by_all_available = BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY);
-	ch[i].scan_type.sign = 'u';
-	ch[i].scan_type.storagebits = 32;
-	ch[i].scan_type.realbits = info->resolution;
+	unsigned int dummy;
+	unsigned int in[2];
+	u32 chan_index;
+	int ret;
+
+	in[0] = 0;
+	in[1] = 0;
+
+	ret = fwnode_property_read_u32(child, "reg", &chan_index);
+	if (ret)
+		return ret;
+
+	if (fwnode_property_present(child, "diff-channels")) {
+		ret = fwnode_property_read_u32_array(child,
+						     "diff-channels",
+						     in, 2);
+		if (ret)
+			return ret;
+
+		if (in[0] > 7 || in[1] > 7 || in[0] % 2 != 0 ||
+		    (in[0] % 2 == 0 && in[1] != in[0] + 1))
+			return -EINVAL;
+
+		adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
+		AD7862_SET_TYPE(adc->seq_buf[chan_index], DIFFERENTIAL);
+		adc->channels[chan_index].differential = 1;
+		adc->channels[chan_index].channel2 = in[1];
+	} else if (fwnode_property_read_bool(child, "adi,temp-sensor")) {
+		adc->seq_buf[chan_index] = AD7682_CH_TEMP_SENSOR;
+		adc->channels[chan_index].type = IIO_TEMP;
+		adc->channels[chan_index].indexed = 0;
+	} else {
+		ret = fwnode_property_read_u32(child,
+					       "adi,single-channel",
+					       &in[0]);
+		if (ret)
+			return ret;
+
+		adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
+		if (in[0] > adc->info->num_channels)
+			return -EINVAL;
+	}
+
+	if (fwnode_property_read_bool(child, "bipolar")) {
+		adc->channels[chan_index].scan_type.sign = 's';
+		AD7682_SET_POLARITY(adc->seq_buf[chan_index], BIPOLAR);
+	}
+
+	adc->channels[chan_index].channel = in[0];
+	adc->channels[chan_index].scan_index = chan_index;
+	adc->channels[chan_index].address = adc->seq_buf[chan_index];
+
+	adc->seq_buf[chan_index] = adc->seq_buf[chan_index] << 2;
+
+	adc->seq_xfer[chan_index].tx_buf = &adc->seq_buf[chan_index];
+	adc->seq_xfer[chan_index].rx_buf = &dummy;
+	adc->seq_xfer[chan_index].len = 1;
+	adc->seq_xfer[chan_index].bits_per_word = adc->info->resolution;
+	adc->seq_xfer[chan_index].speed_hz = adc->info->sclk_rate;
+
+	return 0;
 }
 
 static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
@@ -786,10 +847,7 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
 	struct device *dev = indio_dev->dev.parent;
 	struct fwnode_handle *child;
-	unsigned int dummy;
-	unsigned int in[2];
 	int num_ch, ret, i;
-	u32 chan_index;
 
 	num_ch = device_get_child_node_count(dev);
 	if (num_ch > adc->info->num_channels)
@@ -803,8 +861,12 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	if (!adc->channels)
 		return -ENOMEM;
 
-	for (i = 0; i < num_ch; i++)
-		ad_pulsar_set_channel(adc->channels, i, num_ch, adc->info);
+	for (i = 0; i < num_ch; i++) {
+		adc->channels[i] = ad_pulsar_chan_template;
+		adc->channels[i].channel = i;
+		adc->channels[i].scan_index = i;
+		adc->channels[i].scan_type.realbits = adc->info->resolution;
+	}
 
 	indio_dev->channels = adc->channels;
 	indio_dev->num_channels = num_ch;
@@ -819,63 +881,13 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 
 	adc->seq_xfer = devm_kcalloc(dev, num_ch, sizeof(struct spi_transfer),
 				     GFP_KERNEL);
-
-	for (i = 0; i < num_ch; i++) {
-		adc->seq_xfer[i].tx_buf = &adc->seq_buf[i];
-		adc->seq_xfer[i].rx_buf = &dummy;
-		adc->seq_xfer[i].len = 1;
-		adc->seq_xfer[i].bits_per_word = adc->info->resolution;
-		adc->seq_xfer[i].speed_hz = adc->info->sclk_rate;
-	}
+	if (!adc->seq_xfer)
+		return -ENOMEM;
 
 	device_for_each_child_node(dev, child) {
-		in[0] = 0;
-		in[1] = 0;
-
-		ret = fwnode_property_read_u32(child, "reg", &chan_index);
+		ret = ad_pulsar_setup_channel(adc, child);
 		if (ret)
 			return ret;
-
-		if (fwnode_property_present(child, "diff-channels")) {
-			ret = fwnode_property_read_u32_array(child,
-							     "diff-channels",
-							     in, 2);
-			if (ret)
-				return ret;
-
-			if (in[0] > 7 || in[1] > 7 || in[0] % 2 != 0 ||
-			    (in[0] % 2 == 0 && in[1] != in[0] + 1))
-				return -EINVAL;
-
-			adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
-			AD7862_SET_TYPE(adc->seq_buf[chan_index], DIFFERENTIAL);
-			adc->channels[chan_index].differential = 1;
-			adc->channels[chan_index].channel2 = in[1];
-		} else if (fwnode_property_read_bool(child, "adi,temp-sensor")) {
-			adc->seq_buf[chan_index] = AD7682_CH_TEMP_SENSOR;
-			adc->channels[chan_index].type = IIO_TEMP;
-			adc->channels[chan_index].indexed = 0;
-		} else {
-			ret = fwnode_property_read_u32(child,
-						       "adi,single-channel",
-						       &in[0]);
-			if (ret)
-				return ret;
-
-			adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
-			if (in[0] > adc->info->num_channels)
-				return -EINVAL;
-		}
-
-		if (fwnode_property_read_bool(child, "bipolar")) {
-			adc->channels[chan_index].scan_type.sign = 's';
-			AD7682_SET_POLARITY(adc->seq_buf[chan_index], BIPOLAR);
-		}
-
-		adc->channels[chan_index].channel = in[0];
-		adc->channels[chan_index].scan_index = chan_index;
-		adc->channels[chan_index].address = adc->seq_buf[chan_index];
-		adc->seq_buf[chan_index] = adc->seq_buf[chan_index] << 2;
 	}
 
 	return 0;
