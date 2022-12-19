@@ -423,6 +423,39 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ulz-14x14-evk-emmc.dtb \
 	imx6ulz-14x14-evk-gpmi-weim.dtb \
 	imx6ulz-bsh-smm-m2.dtb
+
+imx6ul-14x14-evk-revd-dtbs := imx6ul-14x14-evk.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ul-14x14-evk-revd-csi-dtbs := imx6ul-14x14-evk-csi.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ul-14x14-evk-revd-emmc-dtbs := imx6ul-14x14-evk-emmc.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ul-14x14-evk-revd-btwifi-dtbs := imx6ul-14x14-evk-btwifi.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ul-14x14-evk-revd-ecspi-slave-dtbs := imx6ul-14x14-evk-ecspi-slave.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ul-14x14-evk-revd-ecspi-dtbs := imx6ul-14x14-evk-ecspi.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ul-14x14-evk-revd-gpmi-weim-dtbs := imx6ul-14x14-evk-gpmi-weim.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ull-14x14-evk-revd-dtbs := imx6ull-14x14-evk.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ull-14x14-evk-revd-emmc-dtbs := imx6ull-14x14-evk-emmc.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ull-14x14-evk-revd-btwifi-dtbs := imx6ull-14x14-evk-btwifi.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ull-14x14-evk-revd-gpmi-weim-dtbs := imx6ull-14x14-evk-gpmi-weim.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ulz-14x14-evk-revd-dtbs := imx6ulz-14x14-evk.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ulz-14x14-evk-revd-btwifi-dtbs := imx6ulz-14x14-evk-btwifi.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ulz-14x14-evk-revd-emmc-dtbs := imx6ulz-14x14-evk-emmc.dtb imx6ul-14x14-evk-revd.dtbo
+imx6ulz-14x14-evk-revd-gpmi-weim-dtbs := imx6ulz-14x14-evk-gpmi-weim.dtb imx6ul-14x14-evk-revd.dtbo
+dtb-$(CONFIG_SOC_IMX6UL) += \
+	imx6ul-14x14-evk-revd.dtb \
+	imx6ul-14x14-evk-revd-csi.dtb \
+	imx6ul-14x14-evk-revd-emmc.dtb \
+	imx6ul-14x14-evk-revd-btwifi.dtb \
+	imx6ul-14x14-evk-revd-ecspi-slave.dtb \
+	imx6ul-14x14-evk-revd-ecspi.dtb \
+	imx6ul-14x14-evk-revd-gpmi-weim.dtb \
+	imx6ull-14x14-evk-revd.dtb \
+	imx6ull-14x14-evk-revd-emmc.dtb \
+	imx6ull-14x14-evk-revd-btwifi.dtb \
+	imx6ull-14x14-evk-revd-gpmi-weim.dtb \
+	imx6ulz-14x14-evk-revd.dtb \
+	imx6ulz-14x14-evk-revd-btwifi.dtb \
+	imx6ulz-14x14-evk-revd-emmc.dtb \
+	imx6ulz-14x14-evk-revd-gpmi-weim.dtb
+
 dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-cl-som-imx7.dtb \
 	imx7d-colibri-aster.dtb \
