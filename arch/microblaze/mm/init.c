@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/mm.h> /* mem_init */
 #include <linux/initrd.h>
+#include <linux/of_fdt.h>
 #include <linux/pagemap.h>
 #include <linux/pfn.h>
 #include <linux/slab.h>
@@ -45,19 +46,14 @@ EXPORT_SYMBOL(min_low_pfn);
 EXPORT_SYMBOL(max_low_pfn);
 
 #ifdef CONFIG_HIGHMEM
-pte_t *kmap_pte;
-EXPORT_SYMBOL(kmap_pte);
-
 static void __init highmem_init(void)
 {
 	pr_debug("%x\n", (u32)PKMAP_BASE);
 	map_page(PKMAP_BASE, 0, 0);	/* XXX gross */
 	pkmap_page_table = virt_to_kpte(PKMAP_BASE);
-
-	kmap_pte = virt_to_kpte(__fix_to_virt(FIX_KMAP_BEGIN));
 }
 
-static void highmem_setup(void)
+static void __meminit highmem_setup(void)
 {
 	unsigned long pfn;
 
@@ -136,7 +132,6 @@ void __init mem_init(void)
 	highmem_setup();
 #endif
 
-	mem_init_print_info(NULL);
 	mem_init_done = 1;
 }
 
@@ -272,21 +267,12 @@ asmlinkage void __init mmu_init(void)
 
 	parse_early_param();
 
+	early_init_fdt_scan_reserved_mem();
+
 	/* CMA initialization */
 	dma_contiguous_reserve(memory_start + lowmem_size - 1);
-}
 
-/* This is only called until mem_init is done. */
-void __init *early_get_page(void)
-{
-	/*
-	 * Mem start + kernel_tlb -> here is limit
-	 * because of mem mapping from head.S
-	 */
-	return memblock_alloc_try_nid_raw(PAGE_SIZE, PAGE_SIZE,
-				memory_start,
-				(phys_addr_t)__virt_to_phys(_end_tlb_mapping),
-				NUMA_NO_NODE);
+	memblock_dump_all();
 }
 
 void * __ref zalloc_maybe_bootmem(size_t size, gfp_t mask)

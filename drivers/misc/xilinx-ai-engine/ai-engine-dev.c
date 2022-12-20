@@ -11,7 +11,6 @@
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/file.h>
-#include <linux/firmware/xlnx-zynqmp.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
 #include <linux/interrupt.h>
@@ -29,7 +28,6 @@
 #include "ai-engine-internal.h"
 
 #define AIE_DEV_MAX			(MINORMASK + 1)
-#define VERSAL_SILICON_REV_MASK		GENMASK(31, 28)
 
 static dev_t aie_major;
 struct class *aie_class;
@@ -72,80 +70,98 @@ static int aie_partition_fd(struct aie_partition *apart)
 static int aie_enquire_partitions(struct aie_device *adev,
 				  struct aie_partition_query *query)
 {
-	struct aie_partition *apart;
-	u32 partition_cnt, i = 0;
+	struct aie_aperture *aperture;
+	struct aie_range_args *query_parts;
+	u32 part_cnt, parts_filled;
 	int ret;
 
 	if (!query->partitions) {
+		part_cnt = 0;
+
 		/*
 		 * If partitions information buffer is NULL.
 		 * It is to get the number of partitions.
 		 */
-		query->partition_cnt = 0;
-		list_for_each_entry(apart, &adev->partitions, node)
-			query->partition_cnt++;
+		ret = mutex_lock_interruptible(&adev->mlock);
+		if (ret)
+			return ret;
+
+		list_for_each_entry(aperture, &adev->apertures, node) {
+			part_cnt += aie_aperture_get_num_parts(aperture);
+		}
+		mutex_unlock(&adev->mlock);
+
+		query->partition_cnt = part_cnt;
+
 		return 0;
 	}
 
-	partition_cnt = query->partition_cnt;
-	if (!partition_cnt)
+	part_cnt = query->partition_cnt;
+	if (!part_cnt)
 		return 0;
+	parts_filled = 0;
+	query_parts = query->partitions;
 
 	ret = mutex_lock_interruptible(&adev->mlock);
 	if (ret)
 		return ret;
 
-	list_for_each_entry(apart, &adev->partitions, node) {
-		struct aie_range_args part;
+	list_for_each_entry(aperture, &adev->apertures, node) {
+		int lparts_filled, num_parts_left;
 
-		if (i >= partition_cnt)
-			break;
-		part.partition_id = apart->partition_id;
-		/*
-		 * TBD: check with PLM that if the partition is programmed
-		 * and get the UID of the image which is loaded on the AI
-		 * engine partition.
-		 */
-		part.uid = 0;
-		part.range.start.col = apart->range.start.col;
-		part.range.start.row = apart->range.start.row;
-		part.range.size.col = apart->range.size.col;
-		part.range.size.row = apart->range.size.row;
-		/* Check if partition is in use */
-		part.status = apart->status;
-		if (copy_to_user((void __user *)&query->partitions[i], &part,
-				 sizeof(part))) {
+		lparts_filled = aie_aperture_enquire_parts(aperture,
+							   part_cnt,
+							   query_parts,
+							   &num_parts_left,
+							   true);
+		if (lparts_filled < 0) {
+			dev_err(&adev->dev,
+				"failed to enquire partitions.\n");
 			mutex_unlock(&adev->mlock);
-			return -EFAULT;
+			return lparts_filled;
 		}
-		i++;
+		parts_filled += lparts_filled;
+		query_parts += lparts_filled;
+		/*
+		 * input partitions enquires buffers are less than the number
+		 * of partitions.
+		 * TODO: ioctl arguments can be updated to include how many
+		 * number of partitions information not yet filled.
+		 */
+		if (num_parts_left)
+			break;
 	}
 	mutex_unlock(&adev->mlock);
-	query->partition_cnt = i;
+	query->partition_cnt = parts_filled;
 
 	return 0;
 }
 
 /**
- * aie_get_partition_from_id() - get AI engine partition from id
+ * aie_request_part_from_id() - request AI engine partition from id
  * @adev: AI engine device
  * @partition_id: partition id to check
- * @return: partition pointer if partition exists, otherwise, NULL.
+ * @return: partition pointer for success, and NULL for failure
  *
- * This function checks defined partitions with partition id.
+ * The partition ID contains the start column and number of columns
+ * information for the partition.
  * This function expect the caller to lock mlock of @adev.
  */
-struct aie_partition *aie_get_partition_from_id(struct aie_device *adev,
-						u32 partition_id)
+static struct aie_partition *aie_request_part_from_id(struct aie_device *adev,
+						      u32 partition_id)
 {
-	struct aie_partition *apart;
+	struct aie_aperture *aperture;
 
-	list_for_each_entry(apart, &adev->partitions, node) {
-		if (apart->partition_id == partition_id)
+	list_for_each_entry(aperture, &adev->apertures, node) {
+		struct aie_partition *apart;
+
+		apart = aie_aperture_request_part_from_id(aperture,
+							  partition_id);
+		if (apart)
 			return apart;
 	}
 
-	return NULL;
+	return ERR_PTR(-EINVAL);
 }
 
 /**
@@ -172,7 +188,7 @@ static int aie_partition_get(struct aie_partition *apart,
 
 	(void)req;
 
-	if (apart->status & XAIE_PART_STATUS_INUSE) {
+	if (apart->status == XAIE_PART_STATUS_INUSE) {
 		dev_err(&apart->dev,
 			"request partition %u failed, partition in use.\n",
 			apart->partition_id);
@@ -198,7 +214,6 @@ static int aie_partition_get(struct aie_partition *apart,
 	filep->f_mode |= (FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 	apart->filep = filep;
 
-	apart->status = XAIE_PART_STATUS_INUSE;
 	apart->cntrflag = req->flag;
 
 	/* open AI engine partition instance to get it ready for use */
@@ -237,8 +252,8 @@ aie_partition_request_from_adev(struct aie_device *adev,
 	if (ret)
 		return ERR_PTR(ret);
 
-	apart = aie_get_partition_from_id(adev, req->partition_id);
-	if (!apart) {
+	apart = aie_request_part_from_id(adev, req->partition_id);
+	if (IS_ERR(apart)) {
 		dev_err(&adev->dev,
 			"request partition %u failed, not exist.\n",
 			req->partition_id);
@@ -247,13 +262,7 @@ aie_partition_request_from_adev(struct aie_device *adev,
 	}
 	mutex_unlock(&adev->mlock);
 
-	ret = mutex_lock_interruptible(&apart->mlock);
-	if (ret)
-		return ERR_PTR(ret);
-
 	ret = aie_partition_get(apart, req);
-
-	mutex_unlock(&apart->mlock);
 
 	if (ret)
 		apart = ERR_PTR(ret);
@@ -326,62 +335,169 @@ static void xilinx_ai_engine_release_device(struct device *dev)
 	ida_simple_remove(&aie_device_ida, dev->id);
 	ida_simple_remove(&aie_minor_ida, MINOR(dev->devt));
 	cdev_del(&adev->cdev);
-	aie_resource_uninitialize(&adev->cols_res);
 }
 
 /**
- * of_xilinx_ai_engine_part_probe() - probes for AI engine partition nodes
+ * of_xilinx_ai_engine_aperture_probe() - probes AI engine aperture nodes
  * @adev: AI engine device
  *
- * This function will probe for children AI engine partition nodes and create
- * an AI engine partition instance for each node.
+ * This function will probe children AI engine apertures nodes and create
+ * an AI engine aperture instance for each node.
  */
-static void of_xilinx_ai_engine_part_probe(struct aie_device *adev)
+void of_xilinx_ai_engine_aperture_probe(struct aie_device *adev)
 {
 	struct device_node *nc;
 
 	for_each_available_child_of_node(adev->dev.of_node, nc) {
-		struct aie_partition *apart;
+		struct aie_aperture *aperture;
+		int ret;
 
 		if (of_node_test_and_set_flag(nc, OF_POPULATED))
 			continue;
-		apart = of_aie_part_probe(adev, nc);
-		if (IS_ERR(apart)) {
+
+		ret = mutex_lock_interruptible(&adev->mlock);
+		if (ret)
+			return;
+
+		aperture = of_aie_aperture_probe(adev, nc);
+		if (IS_ERR(aperture)) {
 			dev_err(&adev->dev,
-				"Failed to probe AI engine part for %pOF\n",
+				"Failed to probe AI engine aperture for %pOF\n",
 				nc);
-			of_node_clear_flag(nc, OF_POPULATED);
+			/* try to probe the next node */
+			continue;
 		}
+		list_add_tail(&aperture->node, &adev->apertures);
+
+		mutex_unlock(&adev->mlock);
 	}
+}
+
+/**
+ * xilinx_ai_engine_add_dev() - initialize and add AI engine device
+ * @adev: AI engine device
+ * @pdev: AI engine platform device
+ * @return: 0 for success, negative value for failure
+ *
+ * This function will initialize and add AI engine device to Linux kernel
+ * device framework.
+ * TODO: This function should be moved back to xilinx_ai_engine_probe()
+ * implementation once v1.0 device node support is removed.
+ */
+int xilinx_ai_engine_add_dev(struct aie_device *adev,
+			     struct platform_device *pdev)
+{
+	struct device *dev;
+	int ret;
+
+	dev = &adev->dev;
+	device_initialize(dev);
+	dev->class = aie_class;
+	dev->parent = &pdev->dev;
+	dev->of_node = pdev->dev.of_node;
+
+	ret = ida_simple_get(&aie_minor_ida, 0, AIE_DEV_MAX, GFP_KERNEL);
+	if (ret < 0)
+		return ret;
+	dev->devt = MKDEV(MAJOR(aie_major), ret);
+	ret = ida_simple_get(&aie_device_ida, 0, 0, GFP_KERNEL);
+	if (ret < 0) {
+		ida_simple_remove(&aie_minor_ida, MINOR(dev->devt));
+		return ret;
+	}
+	dev->id = ret;
+	dev_set_name(&adev->dev, "aie%d", dev->id);
+
+	cdev_init(&adev->cdev, &aie_device_fops);
+	adev->cdev.owner = THIS_MODULE;
+	ret = cdev_add(&adev->cdev, dev->devt, 1);
+	if (ret) {
+		ida_simple_remove(&aie_device_ida, dev->id);
+		ida_simple_remove(&aie_minor_ida, MINOR(dev->devt));
+		return ret;
+	}
+	/* We can now rely on the release function for cleanup */
+	dev->release = xilinx_ai_engine_release_device;
+
+	ret = device_add(dev);
+	if (ret) {
+		dev_err(&pdev->dev, "device_add failed: %d\n", ret);
+		put_device(dev);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int xilinx_ai_engine_probe(struct platform_device *pdev)
 {
 	struct aie_device *adev;
-	struct device *dev;
-	u32 idcode, version, pm_reg[2];
+	u32 pm_reg[2];
 	int ret;
+	u8 regs_u8[2];
+	u8 aie_gen;
 
 	adev = devm_kzalloc(&pdev->dev, sizeof(*adev), GFP_KERNEL);
 	if (!adev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, adev);
-	INIT_LIST_HEAD(&adev->partitions);
+	INIT_LIST_HEAD(&adev->apertures);
 	mutex_init(&adev->mlock);
 
-	adev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!adev->res) {
-		dev_err(&pdev->dev, "No memory resource.\n");
-		return -EINVAL;
-	}
-	adev->base = devm_ioremap_resource(&pdev->dev, adev->res);
-	if (IS_ERR(adev->base)) {
-		dev_err(&pdev->dev, "no io memory resource.\n");
-		return PTR_ERR(adev->base);
+	/* check if device node is v1.0 or not */
+	ret = of_device_is_compatible(pdev->dev.of_node, "xlnx,ai-engine-v1.0");
+	if (ret)
+		return xilinx_ai_engine_probe_v1(pdev);
+
+	ret = of_property_read_u8(pdev->dev.of_node, "xlnx,aie-gen", &aie_gen);
+	if (ret < 0) {
+		dev_warn(&pdev->dev,
+			 "no aie dev generation information in device tree\n");
+		return ret;
 	}
 
-	/* Initialize AIE device specific instance. */
-	ret = aie_device_init(adev);
+	ret = of_property_read_u8_array(pdev->dev.of_node, "xlnx,shim-rows",
+					regs_u8, ARRAY_SIZE(regs_u8));
+	if (ret < 0) {
+		dev_warn(&pdev->dev,
+			 "no SHIM rows information in device tree\n");
+		return ret;
+	}
+	adev->ttype_attr[AIE_TILE_TYPE_SHIMPL].start_row = regs_u8[0];
+	adev->ttype_attr[AIE_TILE_TYPE_SHIMPL].num_rows = regs_u8[1];
+	adev->ttype_attr[AIE_TILE_TYPE_SHIMNOC].start_row = regs_u8[0];
+	adev->ttype_attr[AIE_TILE_TYPE_SHIMNOC].num_rows = regs_u8[1];
+
+	ret = of_property_read_u8_array(pdev->dev.of_node, "xlnx,core-rows",
+					regs_u8, ARRAY_SIZE(regs_u8));
+	if (ret < 0) {
+		dev_err(&pdev->dev,
+			"Failed to read core rows information\n");
+		return ret;
+	}
+	adev->ttype_attr[AIE_TILE_TYPE_TILE].start_row = regs_u8[0];
+	adev->ttype_attr[AIE_TILE_TYPE_TILE].num_rows = regs_u8[1];
+
+	ret = of_property_read_u8_array(pdev->dev.of_node, "xlnx,mem-rows",
+					regs_u8, ARRAY_SIZE(regs_u8));
+	if (ret < 0) {
+		dev_err(&pdev->dev,
+			"Failed to read mem rows information\n");
+		return ret;
+	}
+
+	adev->ttype_attr[AIE_TILE_TYPE_MEMORY].start_row = regs_u8[0];
+	adev->ttype_attr[AIE_TILE_TYPE_MEMORY].num_rows = regs_u8[1];
+
+	adev->dev_gen = aie_gen;
+	if (aie_gen == AIE_DEVICE_GEN_AIE) {
+		ret = aie_device_init(adev);
+	} else if (aie_gen == AIE_DEVICE_GEN_AIEML) {
+		ret = aieml_device_init(adev);
+	} else {
+		dev_err(&pdev->dev, "Invalid device generation\n");
+		return -EINVAL;
+	}
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to initialize device instance.\n");
 		return ret;
@@ -400,77 +516,24 @@ static int xilinx_ai_engine_probe(struct platform_device *pdev)
 	}
 	adev->pm_node_id = pm_reg[1];
 
-	ret = zynqmp_pm_get_chipid(&idcode, &version);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed to get chip ID\n");
-		return ret;
-	}
-	adev->version = FIELD_GET(VERSAL_SILICON_REV_MASK, idcode);
-
-	dev = &adev->dev;
-	device_initialize(dev);
-	dev->class = aie_class;
-	dev->parent = &pdev->dev;
-	dev->of_node = pdev->dev.of_node;
-
-	ret = ida_simple_get(&aie_minor_ida, 0, AIE_DEV_MAX, GFP_KERNEL);
-	if (ret < 0)
-		goto free_dev;
-	dev->devt = MKDEV(MAJOR(aie_major), ret);
-	ret = ida_simple_get(&aie_device_ida, 0, 0, GFP_KERNEL);
-	if (ret < 0)
-		goto free_minor_ida;
-	dev->id = ret;
-	dev_set_name(&adev->dev, "aie%d", dev->id);
-
-	cdev_init(&adev->cdev, &aie_device_fops);
-	adev->cdev.owner = THIS_MODULE;
-	ret = cdev_add(&adev->cdev, dev->devt, 1);
-	if (ret)
-		goto free_ida;
-	/* We can now rely on the release function for cleanup */
-	dev->release = xilinx_ai_engine_release_device;
-
-	ret = device_add(dev);
-	if (ret) {
-		dev_err(&pdev->dev, "device_add failed: %d\n", ret);
-		put_device(dev);
-		return ret;
-	}
-
-	of_xilinx_ai_engine_part_probe(adev);
-	dev_info(&pdev->dev, "Xilinx AI Engine device(cols=%u) probed\n",
-		 adev->cols_res.total);
-
-	INIT_WORK(&adev->backtrack, aie_array_backtrack);
-
-	adev->irq = platform_get_irq_byname(pdev, "interrupt1");
-	if (adev->irq < 0)
-		goto free_ida;
-
-	ret = devm_request_threaded_irq(dev, adev->irq, NULL, aie_interrupt,
-					IRQF_ONESHOT, dev_name(dev), adev);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to request AIE IRQ.\n");
-		goto free_ida;
-	}
-
-	adev->clk = devm_clk_get(&pdev->dev, NULL);
+	adev->clk = devm_clk_get(&pdev->dev, "aclk0");
 	if (!adev->clk) {
 		dev_err(&pdev->dev, "Failed to get device clock.\n");
-		goto free_ida;
+		return -EINVAL;
 	}
 
+	ret = xilinx_ai_engine_add_dev(adev, pdev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to add ai engine device.\n");
+		return ret;
+	}
+
+	of_xilinx_ai_engine_aperture_probe(adev);
+	dev_info(&pdev->dev,
+		 "Xilinx AI Engine device %s probed. Device generation: %u. Clock frequency: %ldHz.\n",
+		 dev_name(&pdev->dev), aie_gen, clk_get_rate(adev->clk));
+
 	return 0;
-
-free_ida:
-	ida_simple_remove(&aie_device_ida, dev->id);
-free_minor_ida:
-	ida_simple_remove(&aie_minor_ida, MINOR(dev->devt));
-free_dev:
-	put_device(dev);
-
-	return ret;
 }
 
 static int xilinx_ai_engine_remove(struct platform_device *pdev)
@@ -478,11 +541,14 @@ static int xilinx_ai_engine_remove(struct platform_device *pdev)
 	struct aie_device *adev = platform_get_drvdata(pdev);
 	struct list_head *node, *pos;
 
-	list_for_each_safe(pos, node, &adev->partitions) {
-		struct aie_partition *apart;
+	list_for_each_safe(pos, node, &adev->apertures) {
+		struct aie_aperture *aperture;
+		int ret;
 
-		apart = list_entry(pos, struct aie_partition, node);
-		aie_part_remove(apart);
+		aperture = list_entry(pos, struct aie_aperture, node);
+		ret = aie_aperture_remove(aperture);
+		if (ret)
+			return ret;
 	}
 
 	device_del(&adev->dev);
@@ -492,6 +558,7 @@ static int xilinx_ai_engine_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id xilinx_ai_engine_of_match[] = {
+	{ .compatible = "xlnx,ai-engine-v2.0", },
 	{ .compatible = "xlnx,ai-engine-v1.0", },
 	{ /* end of table */ },
 };
@@ -507,46 +574,22 @@ static struct platform_driver xilinx_ai_engine_driver = {
 };
 
 /**
- * aie_partition_dev_match() - check if AI engine partition matches partition ID
+ * of_ai_engine_class_find() - find AI engine device with device node
+ * @np: device node
+ * @return: AI engine device pointer if found, NULL if it is not found
  *
- * @dev: pointer to the AI engine partition device
- * @data: partition_id
- * @return: 1 if partition matches, otherwise 0.
+ * This function checks every AI engine device of the aie_class, returns the
+ * one whose of_node matches the input of node.
  */
-static int aie_partition_dev_match(struct device *dev, const void *data)
-{
-	struct aie_partition *apart;
-	u32 partition_id = (u32)(uintptr_t)data;
-
-	if (strncmp(dev_name(dev), "aiepart", strlen("aiepart")))
-		return 0;
-
-	apart = dev_to_aiepart(dev);
-	if (apart->partition_id == partition_id)
-		return 1;
-	return 0;
-}
-
-/**
- * aie_class_find_partition_from_id() - Find the AI engine partition whose ID
- *					matches.
- * @partition_id: AI engine partition ID
- * @return: pointer to the AI engine partition if partition is found, otherwise
- *	    NULL.
- *
- * This function looks up all the devices of the AI engine class to check if
- * the device is AI engine partition device if the partition ID matches.
- */
-static struct aie_partition *aie_class_find_partition_from_id(u32 partition_id)
+struct aie_device *of_ai_engine_class_find(struct device_node *np)
 {
 	struct device *dev;
 
-	dev = class_find_device(aie_class, NULL,
-				(void *)(uintptr_t)partition_id,
-				aie_partition_dev_match);
+	dev = class_find_device(aie_class, NULL, np, device_match_of_node);
 	if (!dev)
 		return NULL;
-	return dev_to_aiepart(dev);
+
+	return dev_to_aiedev(dev);
 }
 
 /**
@@ -571,27 +614,36 @@ static struct aie_partition *aie_class_find_partition_from_id(u32 partition_id)
  */
 bool aie_partition_is_available(struct aie_partition_req *req)
 {
-	struct aie_partition *apart;
-	int ret;
+	struct device *dev;
+	struct class_dev_iter iter;
 
 	if (!req)
 		return false;
 
-	apart = aie_class_find_partition_from_id(req->partition_id);
-	if (!apart)
-		return false;
+	class_dev_iter_init(&iter, aie_class, NULL, NULL);
+	while ((dev = class_dev_iter_next(&iter))) {
+		struct aie_aperture *aperture;
+		int ret;
 
-	ret = mutex_lock_interruptible(&apart->mlock);
-	if (ret)
-		return false;
+		if (strncmp(dev_name(dev), "aieaperture",
+			    strlen("aieaperture")))
+			continue;
 
-	if (apart->status & XAIE_PART_STATUS_INUSE) {
-		mutex_unlock(&apart->mlock);
-		return false;
+		aperture = dev_get_drvdata(dev);
+		ret = aie_aperture_check_part_avail(aperture, req);
+		if (ret == XAIE_PART_STATUS_INUSE) {
+			class_dev_iter_exit(&iter);
+			return false;
+		} else if (ret == XAIE_PART_STATUS_IDLE) {
+			class_dev_iter_exit(&iter);
+			return true;
+		}
+
+		continue;
 	}
+	class_dev_iter_exit(&iter);
 
-	mutex_unlock(&apart->mlock);
-	return true;
+	return false;
 }
 EXPORT_SYMBOL_GPL(aie_partition_is_available);
 
@@ -608,28 +660,59 @@ EXPORT_SYMBOL_GPL(aie_partition_is_available);
  */
 struct device *aie_partition_request(struct aie_partition_req *req)
 {
-	struct aie_partition *apart;
+	struct aie_partition *apart = NULL;
+	struct device *dev;
+	struct class_dev_iter iter;
 	int ret;
 
 	if (!req)
 		return ERR_PTR(-EINVAL);
 
-	apart = aie_class_find_partition_from_id(req->partition_id);
-	if (!apart)
-		return ERR_PTR(-ENODEV);
+	class_dev_iter_init(&iter, aie_class, NULL, NULL);
+	while ((dev = class_dev_iter_next(&iter))) {
+		struct aie_aperture *aperture;
+		int ret;
 
-	ret = mutex_lock_interruptible(&apart->mlock);
-	if (ret)
-		return ERR_PTR(ret);
+		if (strncmp(dev_name(dev), "aieaperture",
+			    strlen("aieaperture")))
+			continue;
+
+		aperture = dev_get_drvdata(dev);
+		ret = aie_aperture_check_part_avail(aperture, req);
+		if (ret == XAIE_PART_STATUS_INVALID) {
+			continue;
+		} else if (ret == XAIE_PART_STATUS_INUSE) {
+			class_dev_iter_exit(&iter);
+			dev_err(&aperture->dev,
+				"failed to request partition %u: in use.\n",
+				req->partition_id);
+			return ERR_PTR(-EBUSY);
+		}
+
+		class_dev_iter_exit(&iter);
+
+		apart = aie_aperture_request_part_from_id(aperture,
+							  req->partition_id);
+		if (IS_ERR(apart))
+			return ERR_PTR(PTR_ERR(apart));
+		break;
+	}
+
+	if (!apart) {
+		pr_err("failed to request partition %u: invalid partition.\n",
+		       req->partition_id);
+		return ERR_PTR(-EINVAL);
+	}
 
 	ret = aie_partition_get(apart, req);
+	if (ret) {
+		if (mutex_lock_interruptible(&apart->aperture->mlock))
+			return ERR_PTR(ret);
 
-	mutex_unlock(&apart->mlock);
-	if (ret)
-		return ERR_PTR(ret);
-
-	if (apart->error_to_report)
-		schedule_work(&apart->adev->backtrack);
+		list_del(&apart->node);
+		aie_part_remove(apart);
+		mutex_unlock(&apart->aperture->mlock);
+	}
 
 	return &apart->dev;
 }
@@ -735,6 +818,12 @@ static int __init xilinx_ai_engine_init(void)
 		return PTR_ERR(aie_class);
 	}
 
+	ret = aie_overlay_register_notifier();
+	if (ret) {
+		pr_err("aie: failed to register device tree overlay notifier.\n");
+		return ret;
+	}
+
 	platform_driver_register(&xilinx_ai_engine_driver);
 
 	return 0;
@@ -743,6 +832,7 @@ postcore_initcall(xilinx_ai_engine_init);
 
 static void __exit xilinx_ai_engine_exit(void)
 {
+	aie_overlay_unregister_notifier();
 	platform_driver_unregister(&xilinx_ai_engine_driver);
 	class_destroy(aie_class);
 	unregister_chrdev_region(aie_major, AIE_DEV_MAX);

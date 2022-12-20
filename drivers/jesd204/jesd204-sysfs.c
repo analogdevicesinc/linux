@@ -459,7 +459,7 @@ static ssize_t jesd204_link_show_store(struct device *dev,
 		break;
 	case JESD204_ATTR_TYPE_INT:
 		is_signed = true;
-		/* fall-through */
+		fallthrough;
 	case JESD204_ATTR_TYPE_UINT:
 		ret = jesd204_show_store_int(field, jattr->size, wbuf, rbuf,
 					     count, store, is_signed);

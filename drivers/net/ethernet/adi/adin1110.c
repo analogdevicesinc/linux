@@ -1302,9 +1302,9 @@ static int adin1110_port_attr_stp_state_set(struct adin1110_port_priv *port_priv
 	}
 }
 
-static int adin1110_port_attr_set(struct net_device *dev,
+static int adin1110_port_attr_set(struct net_device *dev, const void *ctx,
 				  const struct switchdev_attr *attr,
-				  struct switchdev_trans *trans)
+				  struct netlink_ext_ack *extack)
 {
 	struct adin1110_port_priv *port_priv = netdev_priv(dev);
 

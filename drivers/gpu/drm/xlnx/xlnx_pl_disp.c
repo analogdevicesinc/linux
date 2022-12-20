@@ -30,6 +30,7 @@
 #include "xlnx_drv.h"
 
 #define XLNX_PL_DISP_MAX_NUM_PLANES	3
+#define XLNX_PL_DISP_VFMT_SIZE		4
 /*
  * Overview
  * --------
@@ -234,7 +235,7 @@ static void xlnx_pl_disp_plane_enable(struct drm_plane *plane)
 }
 
 static void xlnx_pl_disp_plane_atomic_disable(struct drm_plane *plane,
-					      struct drm_plane_state *old_state)
+					      struct drm_atomic_state *state)
 {
 	xlnx_pl_disp_plane_disable(plane);
 }
@@ -295,7 +296,7 @@ static int xlnx_pl_disp_plane_mode_set(struct drm_plane *plane,
 }
 
 static void xlnx_pl_disp_plane_atomic_update(struct drm_plane *plane,
-					     struct drm_plane_state *old_state)
+					     struct drm_atomic_state *state)
 {
 	int ret;
 	struct xlnx_pl_disp *xlnx_pl_disp = plane_to_dma(plane);
@@ -323,9 +324,9 @@ static void xlnx_pl_disp_plane_atomic_update(struct drm_plane *plane,
 
 static int
 xlnx_pl_disp_plane_atomic_check(struct drm_plane *plane,
-				struct drm_plane_state *new_plane_state)
+				struct drm_atomic_state *state)
 {
-	struct drm_atomic_state *state = new_plane_state->state;
+	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state, plane);
 	const struct drm_plane_state *old_plane_state =
 		drm_atomic_get_old_plane_state(state, plane);
 	struct drm_crtc *crtc = new_plane_state->crtc ?: old_plane_state->crtc;
@@ -394,7 +395,7 @@ static inline struct xlnx_pl_disp *drm_crtc_to_dma(struct drm_crtc *crtc)
 }
 
 static void xlnx_pl_disp_crtc_atomic_begin(struct drm_crtc *crtc,
-					   struct drm_crtc_state *old_state)
+					   struct drm_atomic_state *state)
 {
 	drm_crtc_vblank_on(crtc);
 	spin_lock_irq(&crtc->dev->event_lock);
@@ -417,7 +418,7 @@ static void xlnx_pl_disp_clear_event(struct drm_crtc *crtc)
 }
 
 static void xlnx_pl_disp_crtc_atomic_enable(struct drm_crtc *crtc,
-					    struct drm_crtc_state *old_state)
+					    struct drm_atomic_state *state)
 {
 	struct drm_display_mode *adjusted_mode = &crtc->state->adjusted_mode;
 	int vrefresh;
@@ -441,7 +442,7 @@ static void xlnx_pl_disp_crtc_atomic_enable(struct drm_crtc *crtc,
 }
 
 static void xlnx_pl_disp_crtc_atomic_disable(struct drm_crtc *crtc,
-					     struct drm_crtc_state *old_state)
+					     struct drm_atomic_state *state)
 {
 	struct xlnx_crtc *xlnx_crtc = to_xlnx_crtc(crtc);
 	struct xlnx_pl_disp *xlnx_pl_disp = crtc_to_dma(xlnx_crtc);
@@ -449,13 +450,14 @@ static void xlnx_pl_disp_crtc_atomic_disable(struct drm_crtc *crtc,
 	xlnx_pl_disp_plane_disable(crtc->primary);
 	xlnx_pl_disp_clear_event(crtc);
 	drm_crtc_vblank_off(crtc);
-	xlnx_bridge_disable(xlnx_pl_disp->vtc_bridge);
+	if (xlnx_pl_disp->vtc_bridge)
+		xlnx_bridge_disable(xlnx_pl_disp->vtc_bridge);
 }
 
 static int xlnx_pl_disp_crtc_atomic_check(struct drm_crtc *crtc,
-					  struct drm_crtc_state *state)
+					  struct drm_atomic_state *state)
 {
-	return drm_atomic_add_affected_planes(state->state, crtc);
+	return drm_atomic_add_affected_planes(state, crtc);
 }
 
 static struct drm_crtc_helper_funcs xlnx_pl_disp_crtc_helper_funcs = {
@@ -583,6 +585,7 @@ static int xlnx_pl_disp_probe(struct platform_device *pdev)
 	const char *vformat;
 	struct dma_chan *dma_chan;
 	struct xlnx_dma_chan *xlnx_dma_chan;
+	const struct drm_format_info *info;
 
 	xlnx_pl_disp = devm_kzalloc(dev, sizeof(*xlnx_pl_disp), GFP_KERNEL);
 	if (!xlnx_pl_disp)
@@ -606,7 +609,13 @@ static int xlnx_pl_disp_probe(struct platform_device *pdev)
 		goto err_dma;
 	}
 
-	strcpy((char *)&xlnx_pl_disp->fmt, vformat);
+	strncpy((char *)&xlnx_pl_disp->fmt, vformat, XLNX_PL_DISP_VFMT_SIZE);
+	info = drm_format_info(xlnx_pl_disp->fmt);
+	if (!info) {
+		dev_err(dev, "Invalid video format in dts\n");
+		ret = -EINVAL;
+		goto err_dma;
+	}
 
 	/* VTC Bridge support */
 	vtc_node = of_parse_phandle(dev->of_node, "xlnx,bridge", 0);
@@ -652,7 +661,8 @@ static int xlnx_pl_disp_remove(struct platform_device *pdev)
 	struct xlnx_pl_disp *xlnx_pl_disp = platform_get_drvdata(pdev);
 	struct xlnx_dma_chan *xlnx_dma_chan = xlnx_pl_disp->chan;
 
-	of_xlnx_bridge_put(xlnx_pl_disp->vtc_bridge);
+	if (xlnx_pl_disp->vtc_bridge)
+		of_xlnx_bridge_put(xlnx_pl_disp->vtc_bridge);
 	xlnx_drm_pipeline_exit(xlnx_pl_disp->master);
 	component_del(&pdev->dev, &xlnx_pl_disp_component_ops);
 

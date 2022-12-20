@@ -97,7 +97,7 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 }
 
 static void axi_hdmi_plane_atomic_update(struct drm_plane *plane,
-	struct drm_plane_state *old_state)
+	struct drm_atomic_state *old_state)
 {
 	struct axi_hdmi_crtc *axi_hdmi_crtc = plane_to_axi_hdmi_crtc(plane);
 	struct dma_async_tx_descriptor *desc;
@@ -118,12 +118,12 @@ static void axi_hdmi_plane_atomic_update(struct drm_plane *plane,
 }
 
 static void axi_hdmi_crtc_enable(struct drm_crtc *crtc,
-				 struct drm_crtc_state *old_state)
+				 struct drm_atomic_state *old_state)
 {
 }
 
 static void axi_hdmi_crtc_disable(struct drm_crtc *crtc,
-				  struct drm_crtc_state *old_state)
+				  struct drm_atomic_state *old_state)
 {
 	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
 
@@ -131,7 +131,7 @@ static void axi_hdmi_crtc_disable(struct drm_crtc *crtc,
 }
 
 static void axi_hdmi_crtc_atomic_begin(struct drm_crtc *crtc,
-	struct drm_crtc_state *state)
+	struct drm_atomic_state *state)
 {
 	struct drm_pending_vblank_event *event = crtc->state->event;
 

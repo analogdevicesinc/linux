@@ -1964,7 +1964,6 @@ static int ad4130_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
-	struct iio_buffer *buffer;
 	struct ad4130_state *st;
 	int ret;
 
@@ -1992,7 +1991,7 @@ static int ad4130_probe(struct spi_device *spi)
 					ARRAY_SIZE(st->fifo_xfer));
 
 	indio_dev->name = AD4130_NAME;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
+	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad4130_info;
 
 	st->regmap = devm_regmap_init(dev, NULL, st, &ad4130_regmap_config);
@@ -2050,15 +2049,12 @@ static int ad4130_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	buffer = devm_iio_kfifo_allocate(dev);
-	if (!buffer)
-		return -ENOMEM;
-
-	iio_device_attach_buffer(indio_dev, buffer);
-
-	indio_dev->setup_ops = &ad4130_buffer_ops;
-	/* devm_iio_kfifo_buffer_setup_ext is not available before 5.13 */
-	iio_buffer_set_attrs(indio_dev->buffer, ad4130_fifo_attributes);
+	ret = devm_iio_kfifo_buffer_setup_ext(dev, indio_dev,
+					      INDIO_BUFFER_SOFTWARE,
+					      &ad4130_buffer_ops,
+					      ad4130_fifo_attributes);
+	if (ret)
+		return ret;
 
 	ret = devm_request_threaded_irq(dev, spi->irq, NULL,
 					ad4130_irq_handler, IRQF_ONESHOT,

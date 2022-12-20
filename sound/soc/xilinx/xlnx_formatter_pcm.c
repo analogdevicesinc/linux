@@ -73,22 +73,12 @@
 #define PERIOD_BYTES_MAX	(50 * 1024)
 #define XLNX_PARAM_UNKNOWN	0
 
-static const struct snd_pcm_hardware xlnx_pcm_hardware = {
-	.info = SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
-		SNDRV_PCM_INFO_BATCH | SNDRV_PCM_INFO_PAUSE |
-		SNDRV_PCM_INFO_RESUME,
-	.formats = SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE |
-		   SNDRV_PCM_FMTBIT_S24_LE,
-	.channels_min = 2,
-	.channels_max = 2,
-	.rates = SNDRV_PCM_RATE_8000_192000,
-	.rate_min = 8000,
-	.rate_max = 192000,
-	.buffer_bytes_max = PERIODS_MAX * PERIOD_BYTES_MAX,
-	.period_bytes_min = PERIOD_BYTES_MIN,
-	.period_bytes_max = PERIOD_BYTES_MAX,
-	.periods_min = PERIODS_MIN,
-	.periods_max = PERIODS_MAX,
+enum bit_depth {
+	BIT_DEPTH_8,
+	BIT_DEPTH_16,
+	BIT_DEPTH_20,
+	BIT_DEPTH_24,
+	BIT_DEPTH_32,
 };
 
 struct xlnx_pcm_drv_data {
@@ -123,12 +113,22 @@ struct xlnx_pcm_stream_param {
 	u64 buffer_size;
 };
 
-enum bit_depth {
-	BIT_DEPTH_8,
-	BIT_DEPTH_16,
-	BIT_DEPTH_20,
-	BIT_DEPTH_24,
-	BIT_DEPTH_32,
+static const struct snd_pcm_hardware xlnx_pcm_hardware = {
+	.info = SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
+		SNDRV_PCM_INFO_BATCH | SNDRV_PCM_INFO_PAUSE |
+		SNDRV_PCM_INFO_RESUME,
+	.formats = SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE |
+		   SNDRV_PCM_FMTBIT_S24_LE,
+	.channels_min = 2,
+	.channels_max = 8,
+	.rates = SNDRV_PCM_RATE_8000_192000,
+	.rate_min = 8000,
+	.rate_max = 192000,
+	.buffer_bytes_max = PERIODS_MAX * PERIOD_BYTES_MAX,
+	.period_bytes_min = PERIOD_BYTES_MIN,
+	.period_bytes_max = PERIOD_BYTES_MAX,
+	.periods_min = PERIODS_MIN,
+	.periods_max = PERIODS_MAX,
 };
 
 enum {
@@ -326,7 +326,7 @@ static irqreturn_t xlnx_s2mm_irq_handler(int irq, void *arg)
 }
 
 static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
-			       struct snd_pcm_substream *substream)
+				   struct snd_pcm_substream *substream)
 {
 	int err;
 	u32 val, data_format_mode;
@@ -396,6 +396,7 @@ static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
 			"Unable to set constraint on period bytes\n");
 		return err;
 	}
+
 	/* Resize the buffer bytes as divisible by 64 */
 	err = snd_pcm_hw_constraint_step(runtime, 0,
 					 SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
@@ -405,6 +406,7 @@ static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
 			"Unable to set constraint on buffer bytes\n");
 		return err;
 	}
+
 	/* Set periods as integer multiple */
 	err = snd_pcm_hw_constraint_integer(runtime,
 					    SNDRV_PCM_HW_PARAM_PERIODS);
@@ -423,7 +425,7 @@ static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
 }
 
 static int xlnx_formatter_pcm_close(struct snd_soc_component *component,
-			       struct snd_pcm_substream *substream)
+				    struct snd_pcm_substream *substream)
 {
 	int ret;
 	struct xlnx_pcm_stream_param *stream_data =
@@ -446,7 +448,7 @@ err_reset:
 
 static snd_pcm_uframes_t
 xlnx_formatter_pcm_pointer(struct snd_soc_component *component,
-					struct snd_pcm_substream *substream)
+			   struct snd_pcm_substream *substream)
 {
 	u32 pos;
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -511,8 +513,8 @@ static int xlnx_formatter_pcm_hw_params(struct snd_soc_component *component,
 
 	stream_data->buffer_size = size;
 
-	low = lower_32_bits(substream->dma_buffer.addr);
-	high = upper_32_bits(substream->dma_buffer.addr);
+	low = lower_32_bits(runtime->dma_addr);
+	high = upper_32_bits(runtime->dma_addr);
 	iowrite32(low, stream_data->mmio + XLNX_AUD_BUFF_ADDR_LSB);
 	iowrite32(high, stream_data->mmio + XLNX_AUD_BUFF_ADDR_MSB);
 
@@ -557,13 +559,13 @@ static int xlnx_formatter_pcm_hw_params(struct snd_soc_component *component,
 }
 
 static int xlnx_formatter_pcm_hw_free(struct snd_soc_component *component,
-					struct snd_pcm_substream *substream)
+				      struct snd_pcm_substream *substream)
 {
 	return snd_pcm_lib_free_pages(substream);
 }
 
 static int xlnx_formatter_pcm_trigger(struct snd_soc_component *component,
-					struct snd_pcm_substream *substream, int cmd)
+				      struct snd_pcm_substream *substream, int cmd)
 {
 	u32 val;
 	struct xlnx_pcm_stream_param *stream_data =
@@ -590,27 +592,28 @@ static int xlnx_formatter_pcm_trigger(struct snd_soc_component *component,
 }
 
 static int xlnx_formatter_pcm_new(struct snd_soc_component *component,
-					struct snd_soc_pcm_runtime *rtd)
+				  struct snd_soc_pcm_runtime *rtd)
 {
 	if (!component)
 		return -ENODEV;
 
 	snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
-			SNDRV_DMA_TYPE_DEV, component->dev,
-			xlnx_pcm_hardware.buffer_bytes_max,
-			xlnx_pcm_hardware.buffer_bytes_max);
+					      SNDRV_DMA_TYPE_DEV,
+					      component->dev,
+					      xlnx_pcm_hardware.buffer_bytes_max,
+					      xlnx_pcm_hardware.buffer_bytes_max);
 	return 0;
 }
 
-static struct snd_soc_component_driver xlnx_asoc_component = {
-	.name = DRV_NAME,
-	.open = xlnx_formatter_pcm_open,
-	.close = xlnx_formatter_pcm_close,
-	.hw_params = xlnx_formatter_pcm_hw_params,
-	.hw_free = xlnx_formatter_pcm_hw_free,
-	.trigger = xlnx_formatter_pcm_trigger,
-	.pointer = xlnx_formatter_pcm_pointer,
-	.pcm_construct = xlnx_formatter_pcm_new,
+static const struct snd_soc_component_driver xlnx_asoc_component = {
+	.name		= DRV_NAME,
+	.open		= xlnx_formatter_pcm_open,
+	.close		= xlnx_formatter_pcm_close,
+	.hw_params	= xlnx_formatter_pcm_hw_params,
+	.hw_free	= xlnx_formatter_pcm_hw_free,
+	.trigger	= xlnx_formatter_pcm_trigger,
+	.pointer	= xlnx_formatter_pcm_pointer,
+	.pcm_construct	= xlnx_formatter_pcm_new,
 };
 
 static int configure_mm2s(struct xlnx_pcm_drv_data *aud_drv_data,
@@ -651,8 +654,7 @@ static int configure_mm2s(struct xlnx_pcm_drv_data *aud_drv_data,
 	}
 	ret = devm_request_irq(dev, aud_drv_data->mm2s_irq,
 			       xlnx_mm2s_irq_handler, 0,
-			       "xlnx_formatter_pcm_mm2s_irq",
-			       dev);
+			       "xlnx_formatter_pcm_mm2s_irq", dev);
 	if (ret) {
 		dev_err(dev, "xlnx audio mm2s irq request failed\n");
 		goto mm2s_err;
@@ -706,7 +708,8 @@ static int configure_s2mm(struct xlnx_pcm_drv_data *aud_drv_data,
 		return ret;
 	}
 
-	aud_drv_data->s2mm_irq = platform_get_irq_byname(pdev, "irq_s2mm");
+	aud_drv_data->s2mm_irq = platform_get_irq_byname(pdev,
+							 "irq_s2mm");
 	if (aud_drv_data->s2mm_irq < 0) {
 		ret = aud_drv_data->s2mm_irq;
 		goto s2mm_err;
@@ -862,5 +865,5 @@ static struct platform_driver xlnx_formatter_pcm_driver = {
 };
 
 module_platform_driver(xlnx_formatter_pcm_driver);
-MODULE_AUTHOR("Maruthi Srinivas Bayyavarapu");
+MODULE_AUTHOR("Maruthi Srinivas Bayyavarapu <maruthis@xilinx.com>");
 MODULE_LICENSE("GPL v2");

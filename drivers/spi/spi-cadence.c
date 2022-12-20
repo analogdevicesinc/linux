@@ -69,7 +69,7 @@
 #define CDNS_SPI_BAUD_DIV_SHIFT		3 /* Baud rate divisor shift in CR */
 #define CDNS_SPI_SS_SHIFT		10 /* Slave Select field shift in CR */
 #define CDNS_SPI_SS0			0x1 /* Slave Select zero */
-#define CDNS_SPI_NOSS			0x3C /* No Slave select */
+#define CDNS_SPI_NOSS			0xF /* No Slave select */
 
 /*
  * SPI Interrupt Registers bit Masks
@@ -482,7 +482,7 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	int ret = 0, irq;
 	struct spi_master *master;
 	struct cdns_spi *xspi;
-	u32 num_cs = 0;
+	u32 num_cs;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*xspi));
 	if (!master)
@@ -524,6 +524,12 @@ static int cdns_spi_probe(struct platform_device *pdev)
 		goto clk_dis_apb;
 	}
 
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, SPI_AUTOSUSPEND_TIMEOUT);
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
 	ret = of_property_read_u32(pdev->dev.of_node, "num-cs", &num_cs);
 	if (ret < 0)
 		master->num_chipselect = CDNS_SPI_DEFAULT_NUM_CS;
@@ -537,11 +543,6 @@ static int cdns_spi_probe(struct platform_device *pdev)
 
 	/* SPI controller initializations */
 	cdns_spi_init_hw(xspi);
-
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_autosuspend_delay(&pdev->dev, SPI_AUTOSUSPEND_TIMEOUT);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq <= 0) {
@@ -567,10 +568,14 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_CS_HIGH;
 
 	xspi->clk_rate = clk_get_rate(xspi->ref_clk);
+	/* Set to default valid value */
 	master->max_speed_hz = xspi->clk_rate / 4;
 	xspi->speed_hz = master->max_speed_hz;
 
 	master->bits_per_word_mask = SPI_BPW_MASK(8);
+
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
 
 	ret = spi_register_master(master);
 	if (ret) {

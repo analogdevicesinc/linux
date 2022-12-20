@@ -304,7 +304,7 @@ static void dummy_scsi_done(struct scsi_cmnd *cmnd)
 	struct uas_dev_info *devinfo = (void *)cmnd->device->hostdata;
 
 	devinfo->cmnd[cmdinfo->uas_tag - 1] = NULL;
-	kfree(cmnd->request);
+	kfree(scsi_cmd_to_rq(cmnd));
 	kfree(cmnd);
 }
 
@@ -511,7 +511,6 @@ static int uas_workaround(struct urb *urb)
 	temp_cmnd->sdb.length = 0x10;
 	temp_cmnd->scsi_done = dummy_scsi_done;
 	temp_request->tag = idx;
-	temp_cmnd->request = temp_request;
 
 	temp_cmdinfo = (struct uas_cmd_info *)&temp_cmnd->SCp;
 	memset(temp_cmdinfo, 0, sizeof(struct uas_cmd_info));
@@ -992,6 +991,7 @@ static int uas_queuecommand_lck(struct scsi_cmnd *cmnd,
 		fallthrough;
 	case DMA_TO_DEVICE:
 		cmdinfo->state |= ALLOC_DATA_OUT_URB | SUBMIT_DATA_OUT_URB;
+		break;
 	case DMA_NONE:
 		break;
 	}
@@ -1169,6 +1169,9 @@ static int uas_slave_configure(struct scsi_device *sdev)
 	if (devinfo->flags & US_FL_NO_READ_CAPACITY_16)
 		sdev->no_read_capacity_16 = 1;
 
+	/* Some disks cannot handle WRITE_SAME */
+	if (devinfo->flags & US_FL_NO_SAME)
+		sdev->no_write_same = 1;
 	/*
 	 * Some disks return the total number of blocks in response
 	 * to READ CAPACITY rather than the highest block number.

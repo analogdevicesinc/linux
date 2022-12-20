@@ -1448,7 +1448,7 @@ static int ad300x_setup_trigger_buffer(struct device *dev,
 
 	hwtrig = devm_iio_trigger_alloc(dev, "%s-ldac-dev%d",
 					indio_dev->name,
-					indio_dev->id);
+					iio_device_id(indio_dev));
 	if (!hwtrig)
 		return -ENOMEM;
 

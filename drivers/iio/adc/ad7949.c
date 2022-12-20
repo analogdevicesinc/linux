@@ -97,6 +97,16 @@ static int ad7949_spi_read_channel(struct ad7949_adc_chip *ad7949_adc, int *val,
 {
 	int ret;
 	int i;
+	int bits_per_word = ad7949_adc->resolution;
+	int mask = GENMASK(ad7949_adc->resolution - 1, 0);
+	struct spi_message msg;
+	struct spi_transfer tx[] = {
+		{
+			.rx_buf = &ad7949_adc->buffer,
+			.len = 2,
+			.bits_per_word = bits_per_word,
+		},
+	};
 
 	/*
 	 * 1: write CFG for sample N and read old data (sample N-2)

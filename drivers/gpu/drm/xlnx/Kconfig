@@ -3,9 +3,12 @@ config DRM_ZYNQMP_DPSUB
 	depends on ARCH_ZYNQMP || COMPILE_TEST
 	depends on COMMON_CLK && DRM && OF
 	depends on DMADEVICES
+	depends on DRM_XLNX
+	select VIDEOMODE_HELPERS
 	select XILINX_DMA_ENGINES
 	select PHY_XILINX_ZYNQMP
 	select XILINX_ZYNQMP_DPDMA
+	select MFD_SYSCON
 	help
 	  This is a DRM/KMS driver for ZynqMP DisplayPort controller. Choose
 	  this option if you have a Xilinx ZynqMP SoC with DisplayPort
@@ -17,6 +20,7 @@ config DRM_XLNX
 	select DRM_KMS_HELPER
 	select DRM_KMS_CMA_HELPER
 	select DRM_GEM_CMA_HELPER
+	select SND_PCM_ELD
 	help
 	  Xilinx DRM KMS driver. Choose this option if you have
 	  a Xilinx SoCs with hardened display pipeline or soft
@@ -59,7 +63,6 @@ config DRM_XLNX_DSI
 	select DRM_PANEL
 	select BACKLIGHT_LCD_SUPPORT
 	select BACKLIGHT_CLASS_DEVICE
-	select DRM_PANEL_SIMPLE
 	help
 	  DRM driver for Xilinx MIPI-DSI.
 
@@ -81,7 +84,7 @@ config DRM_XLNX_MIXER
 
 config DRM_XLNX_PL_DISP
 	tristate "Xilinx DRM PL display driver"
-	depends on DRM_XLNX
+	depends on DRM_XLNX && XILINX_FRMBUF
 	select VIDEOMODE_HELPERS
 	help
 	  DRM driver for Xilinx PL display driver, provides drm

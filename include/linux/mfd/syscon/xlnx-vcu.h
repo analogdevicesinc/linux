@@ -44,7 +44,9 @@
  * @aclk: axi clock source
  * @logicore_reg_ba: logicore reg base address
  * @vcu_slcr_ba: vcu_slcr Register base address
- * @coreclk: core clock frequency
+ * @pll: handle for the VCU PLL
+ * @pll_post: handle for the VCU PLL post divider
+ * @clk_data: clocks provided by the vcu clock provider
  */
 struct xvcu_device {
 	struct device *dev;
@@ -53,12 +55,13 @@ struct xvcu_device {
 	struct gpio_desc *reset_gpio;
 	struct regmap *logicore_reg_ba;
 	void __iomem *vcu_slcr_ba;
-	u32 coreclk;
+	struct clk_hw *pll;
+	struct clk_hw *pll_post;
+	struct clk_hw_onecell_data *clk_data;
 };
 
 u32 xvcu_get_color_depth(struct xvcu_device *xvcu);
 u32 xvcu_get_memory_depth(struct xvcu_device *xvcu);
 u32 xvcu_get_clock_frequency(struct xvcu_device *xvcu);
 u32 xvcu_get_num_cores(struct xvcu_device *xvcu);
-
 #endif /* __XLNX_VCU_H */

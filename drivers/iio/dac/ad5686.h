@@ -53,6 +53,7 @@
 enum ad5686_supported_device_ids {
 	ID_AD5310R,
 	ID_AD5311R,
+	ID_AD5338R,
 	ID_AD5671R,
 	ID_AD5672R,
 	ID_AD5673R,

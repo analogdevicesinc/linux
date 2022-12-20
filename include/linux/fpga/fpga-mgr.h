@@ -90,7 +90,7 @@ enum fpga_mgr_states {
 #define FPGA_MGR_CONFIG_DMA_BUF			BIT(8)
 
 /**
- * struct fpga_image_info - information specific to a FPGA image
+ * struct fpga_image_info - information specific to an FPGA image
  * @flags: boolean flags as defined above
  * @enable_timeout_us: maximum time to enable traffic through bridge (uSec)
  * @disable_timeout_us: maximum time to disable traffic through bridge (uSec)
@@ -127,7 +127,7 @@ struct fpga_image_info {
  * @initial_header_size: Maximum number of bytes that should be passed into write_init
  * @state: returns an enum value of the FPGA's state
  * @status: returns status of the FPGA, including reconfiguration error code
- * @write_init: prepare the FPGA to receive confuration data
+ * @write_init: prepare the FPGA to receive configuration data
  * @write: write count bytes of configuration data to the FPGA
  * @write_sg: write the scatter list of configuration data to the FPGA
  * @write_complete: set FPGA to operating state after writing is done
@@ -185,11 +185,14 @@ struct fpga_compat_id {
  * @flags: flags determines the type of Bitstream
  * @key: key value useful for Encrypted Bitstream loading to read the userkey
  * @dev: fpga manager device
+ * @miscdev: information about character device node
+ * @dmabuf: shared dma buffer
  * @ref_mutex: only allows one reference to fpga manager
  * @state: state of fpga manager
  * @compat_id: FPGA manager id for compatibility check.
  * @mops: pointer to struct of fpga manager ops
  * @priv: low level driver private date
+ * @err: low level driver error code
  * @dir: debugfs image directory
  */
 struct fpga_manager {
@@ -204,6 +207,7 @@ struct fpga_manager {
 	struct fpga_compat_id *compat_id;
 	const struct fpga_manager_ops *mops;
 	void *priv;
+	int err;
 #ifdef CONFIG_FPGA_MGR_DEBUG_FS
 	struct dentry *dir;
 #endif
@@ -232,6 +236,8 @@ struct fpga_manager *fpga_mgr_create(struct device *dev, const char *name,
 void fpga_mgr_free(struct fpga_manager *mgr);
 int fpga_mgr_register(struct fpga_manager *mgr);
 void fpga_mgr_unregister(struct fpga_manager *mgr);
+
+int devm_fpga_mgr_register(struct device *dev, struct fpga_manager *mgr);
 
 struct fpga_manager *devm_fpga_mgr_create(struct device *dev, const char *name,
 					  const struct fpga_manager_ops *mops,

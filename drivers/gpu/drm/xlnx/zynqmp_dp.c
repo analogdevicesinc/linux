@@ -418,10 +418,6 @@ static int zynqmp_dp_phy_init(struct zynqmp_dp *dp)
 	int ret;
 	int i;
 
-	ret = zynqmp_dp_reset(dp, true);
-	if (ret < 0)
-		return ret;
-
 	for (i = 0; i < dp->num_lanes; i++) {
 		ret = phy_init(dp->phy[i]);
 		if (ret) {
@@ -429,10 +425,6 @@ static int zynqmp_dp_phy_init(struct zynqmp_dp *dp)
 			return ret;
 		}
 	}
-
-	ret = zynqmp_dp_reset(dp, false);
-	if (ret < 0)
-		return ret;
 
 	zynqmp_dp_write(dp->iomem, ZYNQMP_DP_SUB_TX_INTR_DS, ZYNQMP_DP_TX_INTR_ALL);
 	zynqmp_dp_clr(dp->iomem, ZYNQMP_DP_TX_PHY_CONFIG, ZYNQMP_DP_TX_PHY_CONFIG_ALL_RESET);
@@ -844,7 +836,7 @@ static int zynqmp_dp_link_train_cr(struct zynqmp_dp *dp)
 		if (ret)
 			return ret;
 
-		drm_dp_link_train_clock_recovery_delay(dp->dpcd);
+		drm_dp_link_train_clock_recovery_delay(&dp->aux, dp->dpcd);
 		ret = drm_dp_dpcd_read_link_status(&dp->aux, link_status);
 		if (ret < 0)
 			return ret;
@@ -909,7 +901,7 @@ static int zynqmp_dp_link_train_ce(struct zynqmp_dp *dp)
 		if (ret)
 			return ret;
 
-		drm_dp_link_train_channel_eq_delay(dp->dpcd);
+		drm_dp_link_train_channel_eq_delay(&dp->aux, dp->dpcd);
 		ret = drm_dp_dpcd_read_link_status(&dp->aux, link_status);
 		if (ret < 0)
 			return ret;
@@ -1657,15 +1649,20 @@ static void zynqmp_dp_encoder_disable(struct drm_encoder *encoder)
 	struct zynqmp_dp *dp = encoder_to_dp(encoder);
 	void __iomem *iomem = dp->iomem;
 	int ret;
+	u8 pwr;
 
 	dp->enabled = false;
 	cancel_delayed_work(&dp->hpd_work);
 	zynqmp_dp_write(iomem, ZYNQMP_DP_TX_ENABLE_MAIN_STREAM, 0);
-	ret = drm_dp_dpcd_writeb(&dp->aux, DP_SET_POWER, DP_SET_POWER_D3);
-	if (ret < 0) {
-		dev_err(dp->dev, "failed to write a byte to the DPCD: %d\n",
-			ret);
-		return;
+	ret = drm_dp_dpcd_readb(&dp->aux, DP_SET_POWER, &pwr);
+	/* Do write only if read succeeds */
+	if (ret >= 0) {
+		ret = drm_dp_dpcd_writeb(&dp->aux, DP_SET_POWER, DP_SET_POWER_D3);
+		if (ret < 0) {
+			dev_err(dp->dev, "failed to write a byte to the DPCD: %d\n",
+				ret);
+			return;
+		}
 	}
 	zynqmp_dp_write(iomem, ZYNQMP_DP_TX_PHY_POWER_DOWN,
 			ZYNQMP_DP_TX_PHY_POWER_DOWN_ALL);
@@ -1797,6 +1794,7 @@ int zynqmp_dp_bind(struct device *dev, struct device *master, void *data)
 	connector->dpms = DRM_MODE_DPMS_OFF;
 
 	dp->drm = drm;
+	dp->aux.drm_dev = drm;
 	dp->sync_prop = drm_property_create_bool(drm, 0, "sync");
 	dp->bpc_prop = drm_property_create_enum(drm, 0, "bpc",
 						zynqmp_dp_bpc_enum,
@@ -1919,6 +1917,15 @@ int zynqmp_dp_probe(struct platform_device *pdev)
 	if (IS_ERR(dp->iomem))
 		return PTR_ERR(dp->iomem);
 
+	dp->reset = devm_reset_control_get(dp->dev, NULL);
+	if (IS_ERR(dp->reset))
+		return dev_err_probe(dp->dev, PTR_ERR(dp->reset),
+			"failed to get reset: %ld\n", PTR_ERR(dp->reset));
+
+	ret = zynqmp_dp_reset(dp, false);
+	if (ret < 0)
+		return ret;
+
 	zynqmp_dp_write(dp->iomem, ZYNQMP_DP_TX_PHY_POWER_DOWN,
 			ZYNQMP_DP_TX_PHY_POWER_DOWN_ALL);
 	zynqmp_dp_set(dp->iomem, ZYNQMP_DP_TX_PHY_CONFIG,
@@ -1926,14 +1933,9 @@ int zynqmp_dp_probe(struct platform_device *pdev)
 	zynqmp_dp_write(dp->iomem, ZYNQMP_DP_TX_FORCE_SCRAMBLER_RESET, 1);
 	zynqmp_dp_write(dp->iomem, ZYNQMP_DP_TX_ENABLE, 0);
 
-	dp->reset = devm_reset_control_get(dp->dev, NULL);
-	if (IS_ERR(dp->reset))
-		return dev_err_probe(dp->dev, PTR_ERR(dp->reset),
-			"failed to get reset: %ld\n", PTR_ERR(dp->reset));
-
 	ret = zynqmp_dp_phy_probe(dp);
 	if (ret)
-		return ret;
+		goto err_reset;
 
 	ret = zynqmp_dp_phy_init(dp);
 	if (ret)
@@ -1964,6 +1966,7 @@ int zynqmp_dp_probe(struct platform_device *pdev)
 	dpsub = platform_get_drvdata(pdev);
 	dpsub->dp = dp;
 	dp->dpsub = dpsub;
+	pdev->dev.platform_data = dp->iomem;
 
 	for_each_child_of_node(pdev->dev.of_node, port) {
 		if (!port->name || of_node_cmp(port->name, "port"))
@@ -1983,6 +1986,9 @@ error:
 	drm_dp_aux_unregister(&dp->aux);
 error_phy:
 	zynqmp_dp_phy_exit(dp);
+err_reset:
+	zynqmp_dp_reset(dp, true);
+
 	return ret;
 }
 
@@ -1994,6 +2000,7 @@ int zynqmp_dp_remove(struct platform_device *pdev)
 	zynqmp_dp_write(dp->iomem, ZYNQMP_DP_TX_ENABLE, 0);
 	drm_dp_aux_unregister(&dp->aux);
 	zynqmp_dp_phy_exit(dp);
+	zynqmp_dp_reset(dp, true);
 	dpsub->dp = NULL;
 
 	return 0;

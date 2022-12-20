@@ -42,6 +42,7 @@
 #define XSDI_TX_ST352_DATA_DS2		0x70
 
 /* MODULE_CTRL register masks */
+#define XSDI_TX_CTRL_HFR		BIT(3)
 #define XSDI_TX_CTRL_M			BIT(7)
 #define XSDI_TX_CTRL_INS_CRC		BIT(12)
 #define XSDI_TX_CTRL_INS_ST352		BIT(13)
@@ -57,6 +58,7 @@
 #define XSDI_TX_CTRL_MUX_SHIFT		8
 #define XSDI_TX_CTRL_ST352_F2_EN_SHIFT	15
 #define XSDI_TX_CTRL_420_BIT		BIT(21)
+#define XSDI_TX_CTRL_444_BIT		BIT(22)
 #define XSDI_TX_CTRL_INS_ST352_CHROMA	BIT(23)
 #define XSDI_TX_CTRL_USE_DS2_3GA	BIT(24)
 
@@ -96,6 +98,7 @@
 #define XST352_PROG_PIC			BIT(6)
 #define XST352_PROG_TRANS		BIT(7)
 #define XST352_2048_SHIFT		BIT(6)
+#define XST352_YUV444_MASK		0x01
 #define XST352_YUV420_MASK		0x03
 #define ST352_BYTE3			0x00
 
@@ -120,6 +123,8 @@
 
 #define SDI_TIMING_PARAMS_SIZE		48
 #define CLK_RATE			148500000UL
+
+#define XSDI_HFR_MIN_FPS		90
 
 /**
  * enum payload_line_1 - Payload Ids Line 1 number
@@ -172,6 +177,8 @@ enum payload_line_2 {
  * @sdi_420_in_val: 1 for yuv420 and 0 for yuv422
  * @sdi_420_out: configurable SDI out color format parameter
  * @sdi_420_out_val: 1 for yuv420 and 0 for yuv422
+ * @sdi_444_out: configurable SDI out color format parameter
+ * @sdi_444_out_val: 1 for yuv444 and 0 for yuv422
  * @is_frac_prop: configurable SDI fractional fps parameter
  * @is_frac_prop_val: configurable SDI fractional fps parameter value
  * @bridge: bridge structure
@@ -196,6 +203,7 @@ enum payload_line_2 {
  * @qpll1_enabled: indicates qpll1 presence
  * @picxo_enabled: indicates picxo core presence
  * @prev_eotf: previous end of transfer function
+ * @is_hfr: Indicates HFR video streaming
  */
 struct xlnx_sdi {
 	struct drm_encoder encoder;
@@ -216,6 +224,8 @@ struct xlnx_sdi {
 	bool sdi_420_in_val;
 	struct drm_property *sdi_420_out;
 	bool sdi_420_out_val;
+	struct drm_property *sdi_444_out;
+	bool sdi_444_out_val;
 	struct drm_property *is_frac_prop;
 	bool is_frac_prop_val;
 	struct xlnx_bridge *bridge;
@@ -240,6 +250,7 @@ struct xlnx_sdi {
 	bool qpll1_enabled;
 	bool picxo_enabled;
 	u8 prev_eotf;
+	u8 is_hfr;
 };
 
 #define connector_to_sdi(c) container_of(c, struct xlnx_sdi, connector)
@@ -393,7 +404,8 @@ static irqreturn_t xlnx_sdi_irq_handler(int irq, void *data)
 			reg & ~(XSDI_AXI4S_VID_LOCK_INTR));
 
 	reg = xlnx_sdi_readl(sdi->base, XSDI_TX_STS_SB_TDATA);
-	if (reg & XSDI_TX_TDATA_GT_RESETDONE) {
+	if (reg & XSDI_TX_TDATA_GT_RESETDONE ||
+	    !sdi->gt_rst_gpio) {
 		sdi->event_received = true;
 		wake_up_interruptible(&sdi->wait_event);
 	}
@@ -505,7 +517,7 @@ static void xlnx_sdi_payload_config(struct xlnx_sdi *sdi, u32 mode)
  * @sdi:	pointer Xilinx SDI Tx structure
  * @mode:	SDI Tx display mode
  * @is_frac:	0 - integer 1 - fractional
- * @mux_ptrn:	specifiy the data stream interleaving pattern to be used
+ * @mux_ptrn:	specify the data stream interleaving pattern to be used
  * This function config the SDI st352 payload parameter.
  */
 static void xlnx_sdi_set_mode(struct xlnx_sdi *sdi, u32 mode,
@@ -522,11 +534,21 @@ static void xlnx_sdi_set_mode(struct xlnx_sdi *sdi, u32 mode,
 	data &= ~XSDI_TX_CTRL_420_BIT;
 
 	data |= (((mode & XSDI_TX_CTRL_MODE) << XSDI_TX_CTRL_MODE_SHIFT) |
-		(is_frac  << XSDI_TX_CTRL_M_SHIFT) |
+		(is_frac << XSDI_TX_CTRL_M_SHIFT) |
 		((mux_ptrn & XSDI_TX_CTRL_MUX) << XSDI_TX_CTRL_MUX_SHIFT));
 
+	dev_dbg(sdi->dev, "sdi_420_out_val = %d\n sdi_444_out_val = %d\n\r",
+		sdi->sdi_420_out_val, sdi->sdi_444_out_val);
 	if (sdi->sdi_420_out_val)
 		data |= XSDI_TX_CTRL_420_BIT;
+	else if (sdi->sdi_444_out_val)
+		data |= XSDI_TX_CTRL_444_BIT;
+
+	if (sdi->is_hfr) {
+		data |= XSDI_TX_CTRL_HFR;
+		dev_dbg(sdi->dev, "HFR enabled\n\r");
+	}
+
 	xlnx_sdi_writel(sdi->base, XSDI_TX_MDL_CTRL, data);
 }
 
@@ -602,6 +624,8 @@ xlnx_sdi_atomic_set_property(struct drm_connector *connector,
 		sdi->sdi_420_in_val = val;
 	else if (property == sdi->sdi_420_out)
 		sdi->sdi_420_out_val = val;
+	else if (property == sdi->sdi_444_out)
+		sdi->sdi_444_out_val = val;
 	else if (property == sdi->is_frac_prop)
 		sdi->is_frac_prop_val = !!val;
 	else if (property == sdi->height_out)
@@ -638,6 +662,8 @@ xlnx_sdi_atomic_get_property(struct drm_connector *connector,
 		*val = sdi->sdi_420_in_val;
 	else if (property == sdi->sdi_420_out)
 		*val = sdi->sdi_420_out_val;
+	else if (property == sdi->sdi_444_out)
+		*val = sdi->sdi_444_out_val;
 	else if (property == sdi->is_frac_prop)
 		*val =  sdi->is_frac_prop_val;
 	else if (property == sdi->height_out)
@@ -778,6 +804,7 @@ xlnx_sdi_drm_connector_create_property(struct drm_connector *base_connector)
 						       "sdi_data_stream", 2, 8);
 	sdi->sdi_420_in = drm_property_create_bool(dev, 0, "sdi_420_in");
 	sdi->sdi_420_out = drm_property_create_bool(dev, 0, "sdi_420_out");
+	sdi->sdi_444_out = drm_property_create_bool(dev, 0, "sdi_444_out");
 	sdi->height_out = drm_property_create_range(dev, 0,
 						    "height_out", 2, 4096);
 	sdi->width_out = drm_property_create_range(dev, 0,
@@ -818,6 +845,9 @@ xlnx_sdi_drm_connector_attach_property(struct drm_connector *base_connector)
 
 	if (sdi->sdi_420_out)
 		drm_object_attach_property(obj, sdi->sdi_420_out, 0);
+
+	if (sdi->sdi_444_out)
+		drm_object_attach_property(obj, sdi->sdi_444_out, 0);
 
 	if (sdi->is_frac_prop)
 		drm_object_attach_property(obj, sdi->is_frac_prop, 0);
@@ -922,6 +952,8 @@ static u32 xlnx_sdi_calc_st352_payld(struct xlnx_sdi *sdi,
 		byt3 |= XST352_2048_SHIFT;
 	if (sdi->sdi_420_in_val)
 		byt3 |= XST352_YUV420_MASK;
+	else if (sdi->sdi_444_out_val)
+		byt3 |= XST352_YUV444_MASK;
 
 	/* byte 2 calculation */
 	is_p = !(mode->flags & DRM_MODE_FLAG_INTERLACE);
@@ -1017,7 +1049,8 @@ static void xlnx_sdi_encoder_atomic_mode_set(struct drm_encoder *encoder,
 		 * datasheet
 		 */
 		mdelay(50);
-		xlnx_sdi_gt_reset(sdi);
+		if (sdi->gt_rst_gpio)
+			xlnx_sdi_gt_reset(sdi);
 	}
 
 	/* Set timing parameters as per bridge output parameters */
@@ -1033,6 +1066,7 @@ static void xlnx_sdi_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			    sdi->width_out_prop_val &&
 			    xlnx_sdi_modes[i].mode.vdisplay ==
 			    sdi->height_out_prop_val &&
+			    adjusted_mode->flags == xlnx_sdi_modes[i].mode.flags &&
 			    drm_mode_vrefresh(&xlnx_sdi_modes[i].mode) ==
 			    drm_mode_vrefresh(adjusted_mode)) {
 				memcpy((char *)adjusted_mode +
@@ -1044,6 +1078,10 @@ static void xlnx_sdi_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			}
 		}
 	}
+
+	/* If HFR video is streaming */
+	if (drm_mode_vrefresh(adjusted_mode) >= XSDI_HFR_MIN_FPS)
+		sdi->is_hfr = 1;
 
 	xlnx_sdi_setup(sdi);
 	xlnx_sdi_set_config_parameters(sdi);

@@ -1,11 +1,21 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- *  Copyright (C) 2019 - 2020 Xilinx, Inc.
+ *  Copyright (C) 2019 - 2022 Xilinx, Inc.
  */
 
 #ifndef _DT_BINDINGS_VERSAL_POWER_H
 #define _DT_BINDINGS_VERSAL_POWER_H
 
+#define PM_DEV_RPU0_0				(0x18110005U)
+#define PM_DEV_RPU0_1				(0x18110006U)
+#define PM_DEV_OCM_0				(0x18314007U)
+#define PM_DEV_OCM_1				(0x18314008U)
+#define PM_DEV_OCM_2				(0x18314009U)
+#define PM_DEV_OCM_3				(0x1831400aU)
+#define PM_DEV_TCM_0_A				(0x1831800bU)
+#define PM_DEV_TCM_0_B				(0x1831800cU)
+#define PM_DEV_TCM_1_A				(0x1831800dU)
+#define PM_DEV_TCM_1_B				(0x1831800eU)
 #define PM_DEV_USB_0				(0x18224018U)
 #define PM_DEV_GEM_0				(0x18224019U)
 #define PM_DEV_GEM_1				(0x1822401aU)
@@ -26,6 +36,7 @@
 #define PM_DEV_OSPI				(0x1822402aU)
 #define PM_DEV_QSPI				(0x1822402bU)
 #define PM_DEV_GPIO_PMC				(0x1822402cU)
+#define PM_DEV_I2C_PMC				(0x1822402dU)
 #define PM_DEV_SDIO_0				(0x1822402eU)
 #define PM_DEV_SDIO_1				(0x1822402fU)
 #define PM_DEV_RTC				(0x18224034U)

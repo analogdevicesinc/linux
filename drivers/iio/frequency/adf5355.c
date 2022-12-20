@@ -909,7 +909,7 @@ static int adf5355_probe(struct spi_device *spi)
 	switch (spi_get_device_id(spi)->driver_data) {
 	case ADF5356:
 		st->is_5356 = true;
-		/* fall-through */
+		fallthrough;
 	case ADF5355:
 		st->is_5355 = true;
 		st->max_out_freq = ADF5355_MAX_OUT_FREQ;

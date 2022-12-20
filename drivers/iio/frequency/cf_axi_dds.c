@@ -732,7 +732,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT_64;
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
-		/* fall-through */
+		fallthrough;
 	case IIO_CHAN_INFO_CALIBSCALE:
 		channel = cf_axi_dds_reg_index(chan);
 
@@ -898,7 +898,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
-		/* fall-through */
+		fallthrough;
 	case IIO_CHAN_INFO_CALIBSCALE:
 		channel = cf_axi_dds_reg_index(chan);
 

@@ -79,10 +79,18 @@ enum aie_rsc_type {
 	AIE_RSCTYPE_MAX
 };
 
-/* AI engine partition is in use */
-#define XAIE_PART_STATUS_INUSE		(1U << 0)
-/* AI engine partition bridge is enabled */
-#define XAIE_PART_STATUS_BRIDGE_ENABLED	(1U << 1)
+/**
+ * enum aie_part_status - defines AI engine partition status
+ * @XAIE_PART_STATUS_IDLE: partition is idle
+ * @XAIE_PART_STATUS_INUSE: partition is in use
+ * @XAIE_PART_STATUS_INVALID: partition is invalid to the system
+ *			      that is system cannot see the partition
+ */
+enum aie_part_status {
+	XAIE_PART_STATUS_IDLE,
+	XAIE_PART_STATUS_INUSE,
+	XAIE_PART_STATUS_INVALID,
+};
 
 /*
  * AI engine partition control flags
@@ -209,10 +217,23 @@ struct aie_partition_query {
 	__u32 partition_cnt;
 };
 
+#define AIE_PART_ID_START_COL_SHIFT	0U
+#define AIE_PART_ID_NUM_COLS_SHIFT	8U
+#define AIE_PART_ID_START_COL_MASK	GENMASK(7, 0)
+#define AIE_PART_ID_NUM_COLS_MASK	GENMASK(15, 8)
+
+#define aie_part_id_get_val(part_id, F) \
+	(((part_id) & AIE_PART_ID_##F ##_MASK) >> AIE_PART_ID_##F ##_SHIFT)
+#define aie_part_id_get_start_col(part_id) \
+	aie_part_id_get_val((part_id), START_COL)
+#define aie_part_id_get_num_cols(part_id) \
+	aie_part_id_get_val((part_id), NUM_COLS)
+
 /**
  * struct aie_partition_req - AIE request partition arguments
  * @partition_id: partition node id. It is used to identify the AI engine
- *		  partition in the system.
+ *		  partition. Its format is:
+ *		  Reserved_16bits | start_col_8bits | num_cols_8bits
  * @uid: image identifier loaded on the AI engine partition
  * @meta_data: meta data to indicate which resources used by application.
  * @flag: used for application to indicate particular driver requirements
@@ -464,30 +485,6 @@ struct aie_rsc_user_stat_array {
  */
 #define AIE_TRANSACTION_IOCTL		_IOWR(AIE_IOCTL_BASE, 0x11, \
 					     struct aie_txn_inst)
-
-/**
- * DOC: AIE_SET_FREQUENCY_IOCTL - set AI engine partition clock frequency
- *
- * This ioctl is used to set AI engine partition clock frequency.
- * AI engine partition driver converts the required clock frequency to QoS
- * based on the full frequency. And then it sends the set QoS request to
- * firmware. As AI engine device can have multiple users but there is only
- * one clock for the whole device, the firmware will check all the QoS
- * requirements from all users, and set the AI engine device to run on the
- * max required frequency.
- */
-#define AIE_SET_FREQUENCY_IOCTL	_IOW(AIE_IOCTL_BASE, 0x12, __u64)
-
-/**
- * DOC: AIE_GET_FREQUENCY_IOCTL - get AI engine partition running clock
- *				  frequency
- *
- * This ioctl is used to get AI engine partition running clock frequency.
- * AI engine partition driver sends get divider requests to the firmware.
- * And then the driver calculates the running frequency with the full frequency
- * and the divider, and returns the running clock frequency.
- */
-#define AIE_GET_FREQUENCY_IOCTL	_IOR(AIE_IOCTL_BASE, 0x13, __u64)
 
 /**
  * DOC: AIE_RSC_REQ_IOCTL - request a type of resources of a tile

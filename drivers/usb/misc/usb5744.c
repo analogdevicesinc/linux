@@ -14,6 +14,11 @@
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 
+/* chip address - usb5744 */
+#define I2C_ADDR		0x2d
+/* chip type and driver name */
+#define DRIVER_NAME		"usb5744"
+
 struct usb5744 {
 	struct gpio_desc *reset_gpio;
 };
@@ -24,25 +29,23 @@ static int usb5744_init_hw(struct device *dev, struct usb5744 *data)
 	if (!data)
 		return -ENOMEM;
 
-	data->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+	data->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(data->reset_gpio)) {
-		dev_err(dev, "Failed to bind reset gpio");
-		return -ENODEV;
+		return dev_err_probe(dev, PTR_ERR(data->reset_gpio),
+				     "Failed to request reset GPIO\n");
 	}
 
-	if (data->reset_gpio) {
-		/* Toggle RESET_N to reset the hub. */
-		gpiod_set_value(data->reset_gpio, 0);
-		usleep_range(5, 20);
-		gpiod_set_value(data->reset_gpio, 1);
-		msleep(5);
-	}
+	/* Toggle RESET_N to reset the hub. */
+	gpiod_set_value_cansleep(data->reset_gpio, 1);
+	/* Delay - Sleep for an approximate time 5 to 20 usecs */
+	usleep_range(5, 20);
+	gpiod_set_value_cansleep(data->reset_gpio, 0);
+	msleep(5);
 
 	return 0;
 }
 
-static int usb5744_i2c_probe(struct i2c_client *client,
-			const struct i2c_device_id *id)
+static int usb5744_i2c_dev_init(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct usb5744 *data = NULL;
@@ -63,23 +66,49 @@ static int usb5744_i2c_probe(struct i2c_client *client,
 	return ret;
 }
 
+static int usb5744_i2c_probe(struct i2c_client *client,
+			     const struct i2c_device_id *id)
+{
+	/* I2C device init and gpio reset to the hub. */
+	return usb5744_i2c_dev_init(client);
+}
+
 static int usb5744_platform_probe(struct platform_device *pdev)
 {
 	struct usb5744 *data = NULL;
+	struct device_node *i2c_node;
+	struct i2c_adapter *adapter;
+	struct i2c_client *client;
+	struct i2c_board_info info = {
+		.type = DRIVER_NAME,
+		.addr = I2C_ADDR,
+	};
+
+	i2c_node = of_parse_phandle(pdev->dev.of_node, "i2c-bus", 0);
+	if (i2c_node) {
+		adapter = of_find_i2c_adapter_by_node(i2c_node);
+		of_node_put(i2c_node);
+
+		if (!adapter)
+			return -EPROBE_DEFER;
+
+		client = i2c_new_client_device(adapter, &info);
+		return usb5744_i2c_dev_init(client);
+	}
 
 	/* Trigger gpio reset to the hub. */
 	return usb5744_init_hw(&pdev->dev, data);
 }
 
 static const struct i2c_device_id usb5744_id[] = {
-	{ "usb5744", 0 },
+	{ DRIVER_NAME, 0 },
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, usb5744_id);
 
 static struct i2c_driver usb5744_i2c_driver = {
 	.driver = {
-		.name = "usb5744",
+		.name = DRIVER_NAME,
 	},
 	.probe = usb5744_i2c_probe,
 	.id_table = usb5744_id,

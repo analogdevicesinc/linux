@@ -728,7 +728,7 @@ static int adxl355_probe_trigger(struct iio_dev *indio_dev, int irq)
 
 	data->dready_trig = devm_iio_trigger_alloc(data->dev, "%s-dev%d",
 						   indio_dev->name,
-						   indio_dev->id);
+						   iio_device_id(indio_dev));
 	if (!data->dready_trig)
 		return -ENOMEM;
 

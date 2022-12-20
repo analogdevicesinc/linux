@@ -242,6 +242,14 @@ config USB_HUB_USB251XB
 	  parameters may be set in devicetree or platform data.
 	  Say Y or M here if you need to configure such a device via SMBus.
 
+config USB_USB2244
+	tristate "Microchip USB2244 Ultra Fast USB 2.0 SD driver"
+	depends on GPIOLIB
+	help
+	  This option enables support for Microchip USB2244 Ultra Fast USB 2.0
+	  SD controller. This driver reset the gpio pin makes controller out of
+	  reset.
+
 config USB_USB5744
 	tristate "Microchip USB5744 Hub driver"
 	depends on I2C
@@ -283,3 +291,12 @@ config USB_CHAOSKEY
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called chaoskey.
+
+config BRCM_USB_PINMAP
+	tristate "Broadcom pinmap driver support"
+	depends on (ARCH_BRCMSTB && PHY_BRCM_USB) || COMPILE_TEST
+	default ARCH_BRCMSTB && PHY_BRCM_USB
+	help
+	  This option enables support for remapping some USB external
+	  signals, which are typically on dedicated pins on the chip,
+	  to any gpio.

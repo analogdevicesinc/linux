@@ -16,6 +16,10 @@
 
 #include "edac_module.h"
 
+static bool disable_event; /* No support for notification. Default: 0 (Off) */
+module_param(disable_event, bool, 0444);
+MODULE_PARM_DESC(disable_event, "No error notification support. Default: 0 (Off)");
+
 /* Granularity of reported error in bytes */
 #define XDDR_EDAC_ERR_GRAIN			1
 
@@ -619,7 +623,7 @@ static void xddr_err_callback(const u32 *payload, void *data)
 }
 
 /**
- * xddr_get_dtype - Return the controller memory width.
+ * xddr_get_dwidth - Return the controller memory width.
  * @base:	DDR memory controller base address.
  *
  * Get the EDAC device type width appropriate for the controller
@@ -834,7 +838,7 @@ static int xddr_setup_irq(struct mem_ctl_info *mci,
 #define to_mci(k) container_of(k, struct mem_ctl_info, dev)
 
 /**
- * ddr_poison_setup - Update poison registers.
+ * xddr_poison_setup - Update poison registers.
  * @priv:	DDR memory controller private instance data.
  *
  * Update poison registers as per DDR mapping.
@@ -1189,20 +1193,26 @@ static int xddr_mc_probe(struct platform_device *pdev)
 
 	xddr_setup_address_map(priv);
 #endif
-
-	rc = xlnx_register_event(PM_NOTIFY_CB, XPM_NODETYPE_EVENT_ERROR_PMC_ERR1,
-				 XPM_EVENT_ERROR_MASK_DDRMC_CR | XPM_EVENT_ERROR_MASK_DDRMC_NCR,
-				 false, xddr_err_callback, mci);
-	if (rc == -ENODEV) {
+	if (disable_event) {
 		rc = xddr_setup_irq(mci, pdev);
 		if (rc)
 			goto del_edac_mc;
-	}
-	if (rc) {
-		if (rc == -EACCES)
-			rc = -EPROBE_DEFER;
+	} else {
+		rc = xlnx_register_event(PM_NOTIFY_CB, XPM_NODETYPE_EVENT_ERROR_PMC_ERR1,
+					 XPM_EVENT_ERROR_MASK_DDRMC_CR |
+					 XPM_EVENT_ERROR_MASK_DDRMC_NCR,
+					 false, xddr_err_callback, mci);
+		if (rc == -ENODEV) {
+			rc = xddr_setup_irq(mci, pdev);
+			if (rc)
+				goto del_edac_mc;
+		}
+		if (rc) {
+			if (rc == -EACCES)
+				rc = -EPROBE_DEFER;
 
-		goto del_edac_mc;
+			goto del_edac_mc;
+		}
 	}
 
 	xddr_enable_intr(priv);
@@ -1234,9 +1244,10 @@ static int xddr_mc_remove(struct platform_device *pdev)
 	edac_remove_sysfs_attributes(mci);
 #endif
 
-	xlnx_unregister_event(PM_NOTIFY_CB, XPM_NODETYPE_EVENT_ERROR_PMC_ERR1,
-			      XPM_EVENT_ERROR_MASK_DDRMC_CR | XPM_EVENT_ERROR_MASK_DDRMC_NCR,
-			      xddr_err_callback);
+	if (!disable_event)
+		xlnx_unregister_event(PM_NOTIFY_CB, XPM_NODETYPE_EVENT_ERROR_PMC_ERR1,
+				      XPM_EVENT_ERROR_MASK_DDRMC_CR |
+				      XPM_EVENT_ERROR_MASK_DDRMC_NCR, xddr_err_callback, mci);
 	edac_mc_del_mc(&pdev->dev);
 	edac_mc_free(mci);
 

@@ -303,7 +303,7 @@ static unsigned int xilinx_xcvr_qpll_sel(struct xilinx_xcvr *xcvr,
 	case XILINX_XCVR_TYPE_US_GTY4:
 		if (sys_clk_sel == GTH34_SYSCLK_QPLL1)
 			return 1;
-		/* fall-through */
+		fallthrough;
 	default:
 		return 0;
 	}
@@ -780,7 +780,7 @@ static int xilinx_xcvr_gtx2_cpll_write_config(struct xilinx_xcvr *xcvr,
 	switch (conf->fb_div_N2) {
 	case 1:
 		val |= 0x10;
-		/* fall-through */
+		fallthrough;
 	case 2:
 		val |= 0x00;
 		break;
