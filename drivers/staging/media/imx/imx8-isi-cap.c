@@ -854,13 +854,11 @@ static int mxc_isi_cap_g_fmt_mplane(struct file *file, void *fh,
 	return 0;
 }
 
-static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
-				      struct v4l2_format *f)
+static struct mxc_isi_fmt *
+mxc_isi_cap_fmt_try(struct mxc_isi_cap_dev *isi_cap,
+		    struct v4l2_pix_format_mplane *pix)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
-	struct mxc_isi_fmt *fmt;
-	int bpl;
+	struct mxc_isi_fmt *fmt = NULL;
 	int i;
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
@@ -895,22 +893,23 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 	pix->quantization = V4L2_QUANTIZATION_FULL_RANGE;
 	memset(pix->reserved, 0x00, sizeof(pix->reserved));
 
-	for (i = 0; i < pix->num_planes; i++) {
-		bpl = pix->plane_fmt[i].bytesperline;
+	for (i = 0; i < fmt->colplanes; i++) {
+		struct v4l2_plane_pix_format *plane = &pix->plane_fmt[i];
+		unsigned int bpl;
 
-		if ((bpl == 0) || (bpl / (fmt->depth[i] >> 3)) < pix->width)
-			pix->plane_fmt[i].bytesperline =
-					(pix->width * fmt->depth[i]) >> 3;
+		if (i == 0)
+			bpl = clamp(plane->bytesperline,
+				    pix->width * fmt->depth[0] / 8,
+				    65535U);
+		else
+			bpl = pix->plane_fmt[0].bytesperline;
 
-		if (pix->plane_fmt[i].sizeimage == 0) {
-			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12 ||
-					 pix->pixelformat == V4L2_PIX_FMT_NV12M))
-				pix->plane_fmt[i].sizeimage =
-				  (pix->width * (pix->height >> 1) * fmt->depth[i] >> 3);
-			else
-				pix->plane_fmt[i].sizeimage =
-					(pix->width * pix->height * fmt->depth[i] >> 3);
-		}
+		plane->bytesperline = bpl;
+		plane->sizeimage = plane->bytesperline * pix->height;
+
+		if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12 ||
+				 pix->pixelformat == V4L2_PIX_FMT_NV12M))
+			plane->sizeimage /= 2;
 	}
 
 	if (fmt->colplanes != fmt->memplanes) {
@@ -923,6 +922,16 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 		}
 	}
 
+	return fmt;
+}
+
+static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
+				      struct v4l2_format *f)
+{
+	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
+
+	mxc_isi_cap_fmt_try(isi_cap, pix);
 	return 0;
 }
 
@@ -991,8 +1000,7 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct mxc_isi_frame *dst_f = &isi_cap->dst_f;
 	struct mxc_isi_fmt *fmt;
-	int bpl;
-	int i, ret;
+	int i;
 
 	/* Step1: Check format with output support format list.
 	 * Step2: Update output frame information.
@@ -1007,54 +1015,13 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	if (vb2_is_busy(&isi_cap->vb2_q))
 		return -EBUSY;
 
-	for (i = 0; i < mxc_isi_out_formats_size; i++) {
-		fmt = &mxc_isi_out_formats[i];
-		if (fmt->fourcc == pix->pixelformat)
-			break;
-	}
-
-	if (i >= mxc_isi_out_formats_size) {
+	fmt = mxc_isi_cap_fmt_try(isi_cap, pix);
+	if (!fmt)
 		fmt = &mxc_isi_out_formats[0];
-		v4l2_warn(&isi_cap->sd, "Not match format, set default\n");
-	}
-
-	ret = mxc_isi_cap_try_fmt_mplane(file, priv, f);
-	if (ret)
-		return ret;
 
 	dst_f->fmt = fmt;
-	dst_f->height = pix->height;
 	dst_f->width = pix->width;
-
-	pix->num_planes = fmt->memplanes;
-
-	for (i = 0; i < fmt->colplanes; i++) {
-		bpl = pix->plane_fmt[i].bytesperline;
-
-		if ((bpl == 0) || (bpl / (fmt->depth[i] >> 3)) < pix->width)
-			pix->plane_fmt[i].bytesperline =
-					(pix->width * fmt->depth[i]) >> 3;
-
-		if (pix->plane_fmt[i].sizeimage == 0) {
-			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12 ||
-					 pix->pixelformat == V4L2_PIX_FMT_NV12M))
-				pix->plane_fmt[i].sizeimage =
-				  (pix->width * (pix->height >> 1) * fmt->depth[i] >> 3);
-			else
-				pix->plane_fmt[i].sizeimage =
-					(pix->width * pix->height * fmt->depth[i] >> 3);
-		}
-	}
-
-	if (fmt->colplanes != fmt->memplanes) {
-		for (i = 1; i < fmt->colplanes; ++i) {
-			struct v4l2_plane_pix_format *plane = &pix->plane_fmt[i];
-
-			pix->plane_fmt[0].sizeimage += plane->sizeimage;
-			plane->bytesperline = 0;
-			plane->sizeimage = 0;
-		}
-	}
+	dst_f->height = pix->height;
 
 	for (i = 0; i < pix->num_planes; i++) {
 		dst_f->bytesperline[i] = pix->plane_fmt[i].bytesperline;
