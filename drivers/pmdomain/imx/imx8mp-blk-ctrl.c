@@ -69,6 +69,7 @@ struct imx8mp_blk_ctrl_domain_data {
 	const char *gpc_name;
 	const struct imx8m_blk_ctrl_hurry_data *hurry_data;
 	const struct imx8mp_blk_ctrl_noc_data *noc_data[DOMAIN_MAX_NOC];
+	const unsigned int flags;
 };
 
 #define DOMAIN_MAX_CLKS 3
@@ -330,10 +331,12 @@ static const struct imx8mp_blk_ctrl_domain_data imx8mp_hsio_domain_data[] = {
 	[IMX8MP_HSIOBLK_PD_USB_PHY1] = {
 		.name = "hsioblk-usb-phy1",
 		.gpc_name = "usb-phy1",
+		.flags = GENPD_FLAG_ACTIVE_WAKEUP,
 	},
 	[IMX8MP_HSIOBLK_PD_USB_PHY2] = {
 		.name = "hsioblk-usb-phy2",
 		.gpc_name = "usb-phy2",
+		.flags = GENPD_FLAG_ACTIVE_WAKEUP,
 	},
 	[IMX8MP_HSIOBLK_PD_PCIE] = {
 		.name = "hsioblk-pcie",
@@ -816,6 +819,7 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 		domain->genpd.name = data->name;
 		domain->genpd.power_on = imx8mp_blk_ctrl_power_on;
 		domain->genpd.power_off = imx8mp_blk_ctrl_power_off;
+		domain->genpd.flags = data->flags;
 		domain->bc = bc;
 		domain->id = i;
 
@@ -840,6 +844,9 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 				  &blk_ctrl_genpd_lock_class);
 
 		bc->onecell_data.domains[i] = &domain->genpd;
+
+		if (data->flags & GENPD_FLAG_ACTIVE_WAKEUP)
+			device_set_wakeup_capable(domain->power_dev, true);
 	}
 
 	ret = of_genpd_add_provider_onecell(dev->of_node, &bc->onecell_data);
