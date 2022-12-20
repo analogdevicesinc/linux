@@ -897,6 +897,8 @@ static int imx8mq_usb_phy_probe(struct platform_device *pdev)
 
 	debug_create_files(imx_phy);
 
+	device_set_wakeup_capable(dev, true);
+
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
 
 	return PTR_ERR_OR_ZERO(phy_provider);
