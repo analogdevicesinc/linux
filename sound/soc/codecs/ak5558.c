@@ -424,7 +424,7 @@ static int ak5558_i2c_probe(struct i2c_client *i2c)
 	struct ak5558_priv *ak5558;
 	int ret = 0;
 	int dev_id;
-	int i;
+	int i, reg;
 
 	ak5558 = devm_kzalloc(&i2c->dev, sizeof(*ak5558), GFP_KERNEL);
 	if (!ak5558)
@@ -472,6 +472,15 @@ static int ak5558_i2c_probe(struct i2c_client *i2c)
 		dev_err(&i2c->dev, "failed to register component: %d\n", ret);
 		return ret;
 	}
+
+	/* tog the reset gpio */
+	ak5558_reset(ak5558, true);
+	ak5558_reset(ak5558, false);
+
+	/* Check if first register can be read or not */
+	ret = regmap_read_bypassed(ak5558->regmap, AK5558_02_CONTROL1, &reg);
+	if (ret < 0)
+		return -ENODEV;
 
 	pm_runtime_enable(&i2c->dev);
 	regcache_cache_only(ak5558->regmap, true);
