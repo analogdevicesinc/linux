@@ -736,6 +736,7 @@ static int ak4458_i2c_probe(struct i2c_client *i2c)
 {
 	struct ak4458_priv *ak4458;
 	int ret, i;
+	int reg;
 
 	ak4458 = devm_kzalloc(&i2c->dev, sizeof(*ak4458), GFP_KERNEL);
 	if (!ak4458)
@@ -783,6 +784,14 @@ static int ak4458_i2c_probe(struct i2c_client *i2c)
 	pm_runtime_enable(&i2c->dev);
 	regcache_cache_only(ak4458->regmap, true);
 	ak4458_reset(ak4458, false);
+
+	/* Check if first register can be read or not */
+	ret = regmap_read_bypassed(ak4458->regmap, AK4458_00_CONTROL1, &reg);
+	if (ret < 0) {
+		ak4458_reset(ak4458, true);
+		pm_runtime_disable(&i2c->dev);
+		return -ENODEV;
+	}
 
 	return 0;
 }
