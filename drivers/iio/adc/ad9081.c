@@ -187,6 +187,9 @@ struct ad9081_phy {
 	u32 sysref_average_cnt_exp;
 	bool sysref_continuous_dis;
 	bool sysref_coupling_ac_en;
+	bool sysref_cmos_input_en;
+	u8 sysref_cmos_single_end_term_pos;
+	u8 sysref_cmos_single_end_term_neg;
 
 	bool config_sync_01_swapped;
 	bool config_sync_0a_cmos_en;
@@ -2343,9 +2346,12 @@ static int ad9081_setup(struct spi_device *spi)
 	if (ret != 0)
 		return ret;
 
-	/* DC couple SYSREF */
-	ret = adi_ad9081_jesd_sysref_input_mode_set(&phy->ad9081, 1, 1,
-		phy->sysref_coupling_ac_en ? COUPLING_AC : COUPLING_DC);
+	/* Configure SYSREF */
+	ret = adi_ad9081_sync_sysref_input_config_set(&phy->ad9081,
+		phy->sysref_coupling_ac_en ? COUPLING_AC : COUPLING_DC,
+		phy->sysref_cmos_input_en ? SIGNAL_CMOS : SIGNAL_LVDS,
+		phy->sysref_cmos_single_end_term_pos,
+		phy->sysref_cmos_single_end_term_neg);
 	if (ret != 0)
 		return ret;
 
@@ -4274,6 +4280,17 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 
 	phy->sysref_coupling_ac_en = of_property_read_bool(np,
 		"adi,sysref-ac-coupling-enable");
+
+	phy->sysref_cmos_input_en = of_property_read_bool(np,
+		"adi,sysref-cmos-input-enable");
+
+	phy->sysref_cmos_single_end_term_pos = 1; /* 6.3k */
+	of_property_read_u8(np, "adi,sysref-single-end-pos-termination",
+			&phy->sysref_cmos_single_end_term_pos);
+
+	phy->sysref_cmos_single_end_term_neg = 15; /* 6.4k */
+	of_property_read_u8(np, "adi,sysref-single-end-pos-termination",
+			&phy->sysref_cmos_single_end_term_neg);
 
 	phy->sysref_continuous_dis =
 		of_property_read_bool(np,
