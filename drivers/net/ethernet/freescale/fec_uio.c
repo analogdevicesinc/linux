@@ -584,7 +584,7 @@ fec_enet_uio_probe(struct platform_device *pdev)
 	fec_dev->dev = &pdev->dev;
 
 	fec_dev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	fep->hwp = ioremap(fec_dev->res->start, 0x1000);
+	fep->hwp = devm_ioremap_resource(&pdev->dev, fec_dev->res);
 	if (IS_ERR(fep->hwp)) {
 		ret = PTR_ERR(fep->hwp);
 		goto failed_ioremap;
