@@ -222,6 +222,17 @@ config AD7606_IFACE_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7606_spi.
 
+config AD7606_SI
+	tristate "Analog Devices AD7606 ADC driver with spi engine support"
+	depends on SPI
+	select IIO_BUFFER
+	help
+	  Say yes here to build spi interface support for Analog Devices:
+	  ad7606c-18 analog to digital converters (ADC).
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad7606_si.
+
 config AD7766
 	tristate "Analog Devices AD7766/AD7767 ADC driver"
 	depends on SPI_MASTER
