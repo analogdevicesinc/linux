@@ -138,7 +138,7 @@ static void TgecErrException(t_Handle h_Tgec)
 
 /* ......................................................................... */
 
-static void TgecException(t_Handle h_Tgec)
+static t_Error TgecException(t_Handle h_Tgec)
 {
      t_Tgec             *p_Tgec = (t_Tgec *)h_Tgec;
      uint32_t           event;
@@ -154,6 +154,8 @@ static void TgecException(t_Handle h_Tgec)
          p_Tgec->f_Event(p_Tgec->h_App, e_FM_MAC_EX_10G_MDIO_SCAN_EVENTMDIO);
      if (event & TGEC_IMASK_MDIO_CMD_CMPL)
          p_Tgec->f_Event(p_Tgec->h_App, e_FM_MAC_EX_10G_MDIO_CMD_CMPL);
+
+     return E_OK;
 }
 
 /* ......................................................................... */

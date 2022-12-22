@@ -1566,7 +1566,7 @@ t_Error FM_ErrorIsr(t_Handle h_Fm);
                 This routine should NOT be called from guest-partition
                 (i.e. guestId != NCSW_MASTER_ID)
 *//***************************************************************************/
-void FM_EventIsr(t_Handle h_Fm);
+t_Error FM_EventIsr(t_Handle h_Fm);
 
 /**************************************************************************//**
  @Function      FM_GetSpecialOperationCoding

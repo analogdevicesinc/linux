@@ -288,7 +288,7 @@ typedef uint32_t    t_Error;
 
  @Return        None
  *//***************************************************************************/
-typedef void (t_Isr)(t_Handle handle);
+typedef t_Error (t_Isr)(t_Handle handle);
 
 /**************************************************************************//**
  @Anchor        mem_attr

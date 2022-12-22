@@ -3688,7 +3688,7 @@ t_Error FM_Init(t_Handle h_Fm)
 
     if (p_Fm->p_FmStateStruct->errIrq != NO_IRQ)
     {
-        XX_SetIntr(p_Fm->p_FmStateStruct->errIrq, (void (*) (t_Handle))FM_ErrorIsr, p_Fm);
+        XX_SetIntr(p_Fm->p_FmStateStruct->errIrq, FM_ErrorIsr, p_Fm);
         XX_EnableIntr(p_Fm->p_FmStateStruct->errIrq);
     }
 
@@ -4276,7 +4276,7 @@ t_Error FmGetSetParams(t_Handle h_Fm, t_FmGetSetParams *p_Params)
 /****************************************************/
 /*       API Run-time Control uint functions        */
 /****************************************************/
-void FM_EventIsr(t_Handle h_Fm)
+t_Error FM_EventIsr(t_Handle h_Fm)
 {
 #define FM_M_CALL_1G_MAC_ISR(_id)    \
     {                                \
@@ -4296,16 +4296,17 @@ void FM_EventIsr(t_Handle h_Fm)
     uint32_t                pending, event;
     struct fman_fpm_regs *fpm_rg;
 
-    SANITY_CHECK_RETURN(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN(!p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
+    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
+    SANITY_CHECK_RETURN_ERROR(!p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
+    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
 
     fpm_rg = p_Fm->p_FmFpmRegs;
 
     /* normal interrupts */
     pending = fman_get_normal_pending(fpm_rg);
     if (!pending)
-        return;
+        return E_OK;
+
     if (pending & INTR_EN_WAKEUP) // this is a wake up from sleep interrupt
     {
         t_FmGetSetParams fmGetSetParams;
@@ -4398,6 +4399,8 @@ void FM_EventIsr(t_Handle h_Fm)
             p_Fm->intrMng[e_FM_EV_MACSEC_MAC0].f_Isr(p_Fm->intrMng[e_FM_EV_MACSEC_MAC0].h_SrcHandle);
     }
 #endif /* FM_MACSEC_SUPPORT */
+
+    return E_OK;;
 }
 
 t_Error FM_ErrorIsr(t_Handle h_Fm)
