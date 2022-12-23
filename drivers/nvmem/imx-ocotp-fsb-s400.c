@@ -139,6 +139,29 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 				if (err)
 					goto ret;
 				break;
+			case 25:
+			case 26:
+			case 27:
+				err = read_words_via_s400_api(&buf[200], 200, 24);
+				if (err)
+					goto ret;
+				break;
+			case 32:
+			case 33:
+			case 34:
+			case 35:
+			case 36:
+				err = read_words_via_s400_api(&buf[256], 256, 40);
+				if (err)
+					goto ret;
+				break;
+			case 49:
+			case 50:
+			case 51:
+				err = read_words_via_s400_api(&buf[392], 392, 24);
+				if (err)
+					goto ret;
+				break;
 			default:
 				err = read_words_via_fsb(priv, bank, &buf[bank * 8]);
 				break;
