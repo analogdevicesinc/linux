@@ -325,6 +325,7 @@ gckKERNEL_DestroyProcessReservedUserMap(IN gckKERNEL Kernel, IN gctUINT32 Pid)
         gckOS_UnmapMemoryEx(Kernel->os, physHandle, bytes, Logical, Pid);
     }
 
+#if !gcdCAPTURE_ONLY_MODE
     /* System memory. */
     for (i = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
         physHandle = (PLINUX_MDL)device->contiguousPhysicals[i];
@@ -333,6 +334,7 @@ gckKERNEL_DestroyProcessReservedUserMap(IN gckKERNEL Kernel, IN gctUINT32 Pid)
             gckOS_UnmapMemoryEx(Kernel->os, physHandle, bytes, Logical, Pid);
         }
     }
+#endif
 
     /* External shared SRAM memory. */
     for (i = 0; i < gcvSRAM_EXT_COUNT; i++) {

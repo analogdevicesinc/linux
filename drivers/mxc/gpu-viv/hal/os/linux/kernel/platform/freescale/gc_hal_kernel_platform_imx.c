@@ -1172,7 +1172,11 @@ static int patch_param_imx6(struct platform_device *pdev,
         args->registerSizes[gcvCORE_MAJOR] = res->end - res->start + 1;
     }
 
-	irqLine = platform_get_irq_byname_optional(pdev, "irq_2d");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+    irqLine = platform_get_irq_byname_optional(pdev, "irq_2d");
+#else
+    irqLine = platform_get_irq_byname(pdev, "irq_2d");
+#endif
 
     if (irqLine > 0)
         args->irq2Ds[0] = irqLine;
@@ -1186,7 +1190,11 @@ static int patch_param_imx6(struct platform_device *pdev,
         args->register2DSizes[0] = res->end - res->start + 1;
     }
 
-	irqLine = platform_get_irq_byname_optional(pdev, "irq_vg");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+    irqLine = platform_get_irq_byname_optional(pdev, "irq_vg");
+#else
+    irqLine = platform_get_irq_byname(pdev, "irq_vg");
+#endif
 
     if (irqLine > 0)
         args->irqVG = irqLine;
@@ -1577,9 +1585,9 @@ static inline int get_power(struct device *pdev)
 
 static inline int get_power_ls(struct device *pdev)
 {
+#if gcdENABLE_FSCALE_VAL_ADJUST && (defined(CONFIG_DEVICE_THERMAL) || defined(CONFIG_DEVICE_THERMAL_MODULE))
     int ret;
 
-#if gcdENABLE_FSCALE_VAL_ADJUST && (defined(CONFIG_DEVICE_THERMAL) || defined(CONFIG_DEVICE_THERMAL_MODULE))
     REG_THERMAL_NOTIFIER(&thermal_hot_pm_notifier);
 
     ret = driver_create_file(pdev->driver, &driver_attr_gpu3DMinClock);
@@ -1951,13 +1959,9 @@ _GetPower(
     int ret;
 
     if (is_layerscape)
-    {
         ret = get_power_ls(&Platform->device->dev);
-    }
     else
-    {
         ret = get_power(&Platform->device->dev);
-    }
 
     if (ret)
         return gcvSTATUS_GENERIC_IO;
@@ -1971,13 +1975,9 @@ _PutPower(
     )
 {
     if (is_layerscape)
-    {
         put_power_ls();
-    }
     else
-    {
         put_power();
-    }
 
     return gcvSTATUS_OK;
 }

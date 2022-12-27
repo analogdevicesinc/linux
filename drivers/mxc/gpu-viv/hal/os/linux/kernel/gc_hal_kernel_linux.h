@@ -226,6 +226,13 @@ struct _gckOS {
     struct mutex                mdlMutex;
     struct list_head            mdlHead;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#if defined(CONFIG_TRACE_GPU_MEM)
+    /* Memory trace */
+    struct mutex                traceMutex;
+#endif
+#endif
+
     /* Kernel process ID. */
     gctUINT32                   kernelProcessID;
 

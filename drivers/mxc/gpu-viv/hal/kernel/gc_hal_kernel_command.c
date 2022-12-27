@@ -154,7 +154,7 @@ _CreateSubCmdList(IN gckOS Os,
 
 OnError:
     if (node != gcvNULL)
-        gcmkVERIFY_OK(gckOS_Free(Os, (gctPOINTER)node));
+       gcmkVERIFY_OK(gckOS_Free(Os, (gctPOINTER)node));
 
     _DestroySubCmdList(Os, ListHead);
     return status;
@@ -2147,14 +2147,16 @@ _CommitWaitLinkOnce(IN gckCOMMAND Command,
                                  &linkBytes, &commandLinkLow, &commandLinkHigh));
 
 #if gcdCAPTURE_ONLY_MODE
-        for (i = 0; i < gcdCONTEXT_BUFFER_COUNT; ++i) {
-            gcsCONTEXT_PTR buffer = contextBuffer;
+        if (Command->kernel->core == 0) {
+            for (i = 0; i < gcdCONTEXT_BUFFER_COUNT; ++i) {
+                gcsCONTEXT_PTR buffer = contextBuffer;
 
-            gckOS_CopyToUserData(Command->os, buffer->logical,
-                                 CommandBuffer->contextLogical[i],
-                                 Context->bufferSize);
+                gckOS_CopyToUserData(Command->os, buffer->logical,
+                                     CommandBuffer->contextLogical[i],
+                                     Context->bufferSize);
 
-            buffer = buffer->next;
+                buffer = buffer->next;
+            }
         }
 #endif
 
@@ -2525,7 +2527,9 @@ _CommitEndOnce(IN gckCOMMAND Command, IN gckCONTEXT Context,
     gckVIDMEM_NODE commandBufferVideoMem = gcvNULL;
     gctUINT8_PTR   commandBufferTail     = gcvNULL;
     gctUINT        commandBufferSize;
+#if gcdDUMP_IN_KERNEL
     gctUINT32      offset = 0;
+#endif
     gctADDRESS     endAddress;
     gctUINT32      endBytes;
 
@@ -2581,7 +2585,9 @@ _CommitEndOnce(IN gckCOMMAND Command, IN gckCONTEXT Context,
         /* See if we have to switch pipes for the command buffer. */
         if (CommandBuffer->entryPipe == (gctUINT32)(Command->pipeSelect)) {
             /* Skip reserved head bytes. */
+#if gcdDUMP_IN_KERNEL
             offset = CommandBuffer->reservedHead;
+#endif
         } else {
             gctUINT32 pipeBytes = CommandBuffer->reservedHead;
 
@@ -2591,8 +2597,10 @@ _CommitEndOnce(IN gckCOMMAND Command, IN gckCONTEXT Context,
             gcmkONERROR(gckHARDWARE_PipeSelect(Command->kernel->hardware, commandBufferLogical,
                                                CommandBuffer->entryPipe, &pipeBytes));
 
+#if gcdDUMP_IN_KERNEL
             /* Do not skip pipe switching sequence. */
             offset = 0;
+#endif
 
             /* Reserved bytes in userspace must be exact for a pipeSelect. */
             gcmkASSERT(pipeBytes == CommandBuffer->reservedHead);

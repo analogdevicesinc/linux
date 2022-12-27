@@ -149,7 +149,7 @@ struct drm_gem_object *viv_gem_prime_import(struct drm_device *drm, struct dma_b
                                         &nodeObject));
 
     /* ioctl output */
-    gem_obj = kzalloc(sizeof(*gem_obj), GFP_KERNEL);
+    gem_obj = kzalloc(sizeof(*viv_obj), GFP_KERNEL);
     drm_gem_private_object_init(drm, gem_obj, dmabuf->size);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
     gem_obj->funcs = &viv_gem_object_funcs;
@@ -234,7 +234,7 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data, struct drm_f
                                         &nodeObject));
 
     /* ioctl output */
-    gem_obj = kzalloc(sizeof(*gem_obj), GFP_KERNEL);
+    gem_obj = kzalloc(sizeof(*viv_obj), GFP_KERNEL);
     drm_gem_private_object_init(drm, gem_obj, (size_t)alignSize);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
     gem_obj->funcs = &viv_gem_object_funcs;

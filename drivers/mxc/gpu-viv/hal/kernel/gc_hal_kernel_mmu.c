@@ -521,6 +521,7 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
 #if gcdENABLE_40BIT_VA
     gctUINT64 start       = PhysBase & ~gcdMMU_PAGE_16M_MASK;
     gctUINT64 end         = (PhysBase + flatSize - 1) & ~gcdMMU_PAGE_16M_MASK;
+    gctUINT32 sEnd   = (gctUINT32)((end & gcdMMU_STLB_16M_MASK) >> gcdMMU_STLB_16M_SHIFT);
 #else
     gctUINT32 physBase    = (gctUINT32)PhysBase;
     gctUINT64 start       = physBase & ~gcdMMU_PAGE_16M_MASK;
@@ -529,7 +530,6 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
     gctUINT32      mStart = (gctUINT32)(start >> gcdMMU_MTLB_SHIFT);
     gctUINT32      mEnd   = (gctUINT32)(end >> gcdMMU_MTLB_SHIFT);
     gctUINT32      sStart = (gctUINT32)((start & gcdMMU_STLB_16M_MASK) >> gcdMMU_STLB_16M_SHIFT);
-    gctUINT32      sEnd   = (gctUINT32)((end & gcdMMU_STLB_16M_MASK) >> gcdMMU_STLB_16M_SHIFT);
     gctPHYS_ADDR_T physical;
     gcsMMU_STLB_CHUNK_PTR newStlbChunk    = gcvNULL;
     gctUINT32             stlbIndex       = 0;
@@ -572,6 +572,7 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
         sEntries = (gctUINT32)((flatSize + gcdMMU_PAGE_16M_SIZE - 1) / gcdMMU_PAGE_16M_SIZE);
 
         gcmkONERROR(_GetMtlbFreeSpace(Mmu, mEntries, &mStart, &mEnd));
+        sEnd = (sStart + sEntries - 1) % gcdMMU_STLB_16M_ENTRY_NUM;
 #else
         mEntries = (gctUINT32)(((physBase + flatSize + gcdMMU_PAGE_16M_SIZE - 1) >> gcdMMU_STLB_16M_SHIFT) -
                                (physBase >> gcdMMU_STLB_16M_SHIFT));
@@ -581,8 +582,6 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
         sStart = mStart % gcdMMU_STLB_16M_ENTRY_NUM;
         sEntries = mEntries;
 #endif
-
-        sEnd = (sStart + sEntries - 1) % gcdMMU_STLB_16M_ENTRY_NUM;
     }
 
     if (specificFlatMapping) {
@@ -592,7 +591,9 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
         mStart             = (gctUINT32)(reqStart >> gcdMMU_MTLB_SHIFT);
         mEnd               = (gctUINT32)(reqEnd >> gcdMMU_MTLB_SHIFT);
         sStart             = (gctUINT32)((reqStart & gcdMMU_STLB_16M_MASK) >> gcdMMU_STLB_16M_SHIFT);
+#if gcdENABLE_40BIT_VA
         sEnd               = (gctUINT32)((reqEnd & gcdMMU_STLB_16M_MASK) >> gcdMMU_STLB_16M_SHIFT);
+#endif
     }
 
     /* No matter direct mapping or shift mapping or specific mapping, store gpu virtual ranges */
@@ -2383,16 +2384,10 @@ _Construct(IN gckKERNEL Kernel, IN gctSIZE_T MmuSize, OUT gckMMU *Mmu)
 
         mmu->mtlbSize = gcdMMU_MTLB_SIZE;
 
-        if (device->externalSize) {
+        if (device->externalSize)
             gcmkONERROR(gckOS_CPUPhysicalToGPUPhysical(mmu->os,
                                                        device->externalBase,
                                                        &gpuExternalBase));
-
-            if (gpuExternalBase >= gcvMAXUINT32) {
-                mmu->pageTableOver4G = gcvTRUE;
-                mmu->pool = gcvPOOL_DEFAULT;
-            }
-        }
 
         contiguousBase = device->contiguousBases[0];
         contiguousSize = device->contiguousSizes[0];
@@ -2422,15 +2417,9 @@ _Construct(IN gckKERNEL Kernel, IN gctSIZE_T MmuSize, OUT gckMMU *Mmu)
             contiguousBase = device->lowContiguousBase;
         }
 
-        if (contiguousSize) {
+        if (contiguousSize)
             gcmkONERROR(gckOS_CPUPhysicalToGPUPhysical(mmu->os, contiguousBase,
                                                        &gpuContiguousBase));
-
-            if (gpuContiguousBase > gcvMAXUINT32) {
-                mmu->pageTableOver4G = gcvTRUE;
-                mmu->pool            = gcvPOOL_DEFAULT;
-            }
-        }
 
         pool = mmu->pool;
 

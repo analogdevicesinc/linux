@@ -1141,6 +1141,8 @@ typedef struct _gcsVIDMEM_BLOCK {
 
     /* If the virtual address needs to be within 32 bit. */
     gctBOOL                     lowVA;
+
+    gctBOOL                     cacheable;
 } gcsVIDMEM_BLOCK;
 
 typedef struct _gcsVIDMEM_PIDINFO {
@@ -1162,6 +1164,11 @@ typedef struct _gcsVIDMEM_NODE {
 
     /* Mutex to protect node. */
     gctPOINTER                  mutex;
+
+#if gcdENABLE_VIDEO_MEMORY_TRACE
+    /* Mutex to protect pid info node */
+    gctPOINTER                  infoMutex;
+#endif
 
     /* Reference count. */
     gctPOINTER                  reference;

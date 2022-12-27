@@ -3452,6 +3452,16 @@ gckKERNEL_Dispatch(IN gckKERNEL Kernel, IN gckDEVICE Device,
                                                     context->buffer->handle, &nodeObject));
 
                 Interface->u.Attach.captureSize = nodeObject->captureSize;
+
+                if (Kernel->core != 0) {
+                    gcmkVERIFY_OK(
+                        gckKERNEL_AddProcessDB(Kernel,
+                                               processID, gcvDB_CONTEXT,
+                                               gcmINT2PTR(Interface->u.Attach.context),
+                                               gcvNULL,
+                                               0));
+                }
+
                 break;
             } else {
                 gctUINT i = 0;
@@ -3939,7 +3949,7 @@ gckKERNEL_AttachProcessEx(IN gckKERNEL Kernel, IN gctBOOL Attach, IN gctUINT32 P
             gctUINT64 data;
 
             sta = gckOS_QueryOption(Kernel->os, "gpuTimeout", &data);
-            if (gcmIS_SUCCESS(status))
+            if (gcmIS_SUCCESS(sta))
                 gpuTimeout = (gctUINT)data;
             else
                 gpuTimeout = gcdGPU_TIMEOUT;
@@ -5389,12 +5399,9 @@ gckDEVICE_SetTimeOut(IN gckDEVICE Device, IN gcsHAL_INTERFACE_PTR Interface)
 #if gcdGPU_TIMEOUT
     gckKERNEL        kernel;
     gctUINT          i;
-    gceHARDWARE_TYPE type = Interface->hardwareType;
-    gcsCORE_LIST    *coreList;
     gctUINT32        processID = 0;
     gcsCORE_INFO    *info      = Device->coreInfoArray;
-
-    coreList = &Device->map[type];
+    gceHARDWARE_TYPE type      = Interface->hardwareType;
 
     /* Get the current process ID. */
     gckOS_GetProcessID(&processID);

@@ -225,6 +225,7 @@ _TraceGpuMem(IN gckOS Os, IN gctINT32 ProcessID, IN gcuVIDMEM_NODE_PTR Node)
 #define PIDINFO_LIST_NODE_Const 0x01
 #define PIDINFO_LIST_NODE_Ref 0x02
 #define PIDINFO_LIST_NODE_Deref 0x03
+#define PIDINFO_LIST_NODE_Clean 0x04
 
 static gceSTATUS
 _UpdatePIDInfoListNode(gckOS Os, gckVIDMEM_NODE Node,
@@ -249,12 +250,15 @@ _UpdatePIDInfoListNode(gckOS Os, gckVIDMEM_NODE Node,
 
         gcmkVERIFY_OK(gckOS_AtomConstruct(Os, &Node->pidInfo->ref));
         gckOS_AtomSet(Os, Node->pidInfo->ref, 1);
+        gckOS_CreateMutex(Os, &Node->infoMutex);
 
         Node->pidInfo->next = gcvNULL;
 
         _TraceGpuMem(Os, Node->pidInfo->pid, VideoNode);
         break;
     case PIDINFO_LIST_NODE_Ref:
+        gcmkVERIFY_OK(gckOS_AcquireMutex(Os, Node->infoMutex, gcvINFINITE));
+
         pid_info = Node->pidInfo;
 
         gckOS_GetProcessID(&pid);
@@ -265,7 +269,6 @@ _UpdatePIDInfoListNode(gckOS Os, gckVIDMEM_NODE Node,
                 break;
             if (pid_info->pid == pid) {
                 gckOS_AtomIncrement(Os, pid_info->ref, &oldValue);
-                _TraceGpuMem(Os, pid, VideoNode);
                 break;
             }
             pid_info = pid_info->next;
@@ -287,6 +290,7 @@ _UpdatePIDInfoListNode(gckOS Os, gckVIDMEM_NODE Node,
             Node->pidInfo = t_info;
             _TraceGpuMem(Os, pid, VideoNode);
         }
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(Os, Node->infoMutex));
         break;
     case PIDINFO_LIST_NODE_Deref:
         if (ProcessID == 0)
@@ -294,7 +298,7 @@ _UpdatePIDInfoListNode(gckOS Os, gckVIDMEM_NODE Node,
         else
             pid = ProcessID;
 
-        gcmkVERIFY_OK(gckOS_AcquireMutex(Os, Node->mutex, gcvINFINITE));
+        gcmkVERIFY_OK(gckOS_AcquireMutex(Os, Node->infoMutex, gcvINFINITE));
         pid_info = Node->pidInfo;
         pre_pid_info = Node->pidInfo;
 
@@ -305,13 +309,12 @@ _UpdatePIDInfoListNode(gckOS Os, gckVIDMEM_NODE Node,
             if (pid_info->pid == pid) {
                 gctINT t_oldValue = 0;
 
-                _TraceGpuMem(Os, -(gctINT32)pid, VideoNode);
-
                 if (pid_info->ref)
                     gcmkVERIFY_OK(gckOS_AtomDecrement(Os, pid_info->ref, &t_oldValue));
 
                 if (t_oldValue == 1) {
                     /* release unused pid info node */
+                    _TraceGpuMem(Os, -(gctINT32)pid, VideoNode);
                     if (pid_info == Node->pidInfo)
                         Node->pidInfo = pid_info->next;
                     else
@@ -325,7 +328,21 @@ _UpdatePIDInfoListNode(gckOS Os, gckVIDMEM_NODE Node,
             pid_info = pid_info->next;
         }
 
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(Os, Node->mutex));
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(Os, Node->infoMutex));
+        break;
+    case PIDINFO_LIST_NODE_Clean:
+        while (Node->pidInfo) {
+            gctINT32 ref = 0;
+
+            pid_info = Node->pidInfo;
+            gckOS_AtomGet(Os, pid_info->ref, &ref);
+            if (ref)
+                _TraceGpuMem(Os, -(gctINT32)pid_info->pid, VideoNode);
+            Node->pidInfo = pid_info->next;
+            gcmkOS_SAFE_FREE(Os, pid_info->ref);
+            gcmkOS_SAFE_FREE(Os, pid_info);
+        }
+        gckOS_DeleteMutex(Os, Node->infoMutex);
         break;
     }
 #endif
@@ -1161,18 +1178,15 @@ _RemoveFromBlockList(IN gckKERNEL Kernel, IN gckVIDMEM_BLOCK VidMemBlock)
 }
 
 static gckVIDMEM_BLOCK
-_FindFreeBlock(
-    IN gckKERNEL Kernel,
-    IN gctBOOL Contiguous,
-    IN gctSIZE_T Bytes
-    )
+_FindFreeBlock(IN gckKERNEL Kernel, IN gctSIZE_T Bytes, IN gctUINT32 Flag)
 {
-    gckVIDMEM_BLOCK vidMemBlock;
+    gckVIDMEM_BLOCK vidMemBlock = gcvNULL;
+    gctBOOL cacheable = (Flag & gcvALLOC_FLAG_CACHEABLE) != 0;
 
-    for (vidMemBlock = Kernel->vidMemBlock; vidMemBlock != gcvNULL; vidMemBlock = vidMemBlock->next)
-    {
-        if ((vidMemBlock->freeBytes >= Bytes) && (Contiguous == vidMemBlock->contiguous))
-        {
+    for (vidMemBlock = Kernel->vidMemBlock;
+         vidMemBlock != gcvNULL;
+         vidMemBlock = vidMemBlock->next) {
+        if (vidMemBlock->freeBytes >= Bytes && vidMemBlock->cacheable == cacheable) {
             /* Found the block */
             break;
         }
@@ -1580,6 +1594,7 @@ gckVIDMEM_BLOCK_Construct(IN gckKERNEL Kernel,
     vidMemBlock->secure      = (Flag & gcvALLOC_FLAG_SECURITY) != 0;
     vidMemBlock->onFault     = (Flag & gcvALLOC_FLAG_ALLOC_ON_FAULT) != 0;
     vidMemBlock->lowVA       = (Flag & (gcvALLOC_FLAG_32BIT_VA | gcvALLOC_FLAG_PRIOR_32BIT_VA)) != 0;
+    vidMemBlock->cacheable   = (Flag & gcvALLOC_FLAG_CACHEABLE) != 0;
     vidMemBlock->mutex       = gcvNULL;
     vidMemBlock->physical    = gcvNULL;
 
@@ -1786,9 +1801,8 @@ gckVIDMEM_AllocateVirtualChunk(IN gckKERNEL Kernel, IN gceVIDMEM_TYPE Type,
     acquired = gcvTRUE;
 
     /* Find the free vidmem block. */
-    vidMemBlock = _FindFreeBlock(Kernel, Bytes, Flag & gcvALLOC_FLAG_CONTIGUOUS);
-    if (!vidMemBlock)
-    {
+    vidMemBlock = _FindFreeBlock(Kernel, Bytes, Flag);
+    if (!vidMemBlock) {
         /* Not found, construct new block. */
         blockSize = gcmALIGN(Bytes, gcd1M_PAGE_SIZE);
 
@@ -3284,10 +3298,10 @@ gckVIDMEM_NODE_DereferenceEx(IN gckKERNEL Kernel, IN gckVIDMEM_NODE NodeObject,
         gcmkVERIFY_OK(gckKERNEL_FreeIntegerId(database, NodeObject->name));
     }
 
-    gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, mutex));
-
     _UpdatePIDInfoListNode(Kernel->os, NodeObject, NodeObject->node,
                            ProcessID, PIDINFO_LIST_NODE_Deref);
+
+    gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, mutex));
 
     if (oldValue == 1) {
         gcmkVERIFY_OK(gckOS_AcquireMutex(Kernel->os,
@@ -3296,6 +3310,9 @@ gckVIDMEM_NODE_DereferenceEx(IN gckKERNEL Kernel, IN gckVIDMEM_NODE NodeObject,
 
         /* Remove from video memory node list. */
         gcsLIST_Del(&NodeObject->link);
+
+        _UpdatePIDInfoListNode(Kernel->os, NodeObject, NodeObject->node,
+                               ProcessID, PIDINFO_LIST_NODE_Clean);
 
         gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os,
                                          Kernel->db->videoMemListMutex));

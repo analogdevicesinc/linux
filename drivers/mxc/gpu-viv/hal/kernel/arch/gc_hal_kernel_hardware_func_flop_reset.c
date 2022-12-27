@@ -2152,7 +2152,6 @@ _ProgramNNInstruction(IN gckHARDWARE Hardware, IN gctUINT8 DataType,
     gctADDRESS     bufferAddress  = 0;
     gctSIZE_T      bufferBytes, bytes;
     gctUINT32     *command        = gcvNULL;
-    gctSIZE_T      outbufferBytes = 0;
     gctUINT32      kernelAddress, inImageAddress, outImageAddress;
 
     bufferBytes = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_BIT_NN_TENSOR_ADD_FIELD_MOVE_TO_EXT_CMD) ?
@@ -2169,7 +2168,6 @@ _ProgramNNInstruction(IN gckHARDWARE Hardware, IN gctUINT8 DataType,
                                      &bufferLogical, &bufferAddress));
 
     gcmkONERROR(_GetNNDataSize(DataType, &itemBytes));
-    outbufferBytes = (gctSIZE_T)(OutImageXSize * OutImageYSize * OutImageZSize * itemBytes);
     command        = (gctUINT32_PTR)bufferLogical;
     gckOS_MemCopy(command, cd->NNIns, bytes);
 
@@ -2464,7 +2462,6 @@ _ProgramTPKernel(IN gckHARDWARE Hardware, IN gctUINT8 DataType,
     gctADDRESS     bufferAddress = 0;
     gctSIZE_T      bufferBytes   = 0;
     gctSIZE_T      bytes;
-    gctUINT32     *buffer = gcvNULL;
 
     bytes       = cd->TPkerLen;
     bufferBytes = cd->TPkerLen;
@@ -2473,8 +2470,6 @@ _ProgramTPKernel(IN gckHARDWARE Hardware, IN gctUINT8 DataType,
                                      gcvVIDMEM_TYPE_BITMAP, AllocFlag, Pool,
                                      &bufferBytes, &bufferNode,
                                      &bufferLogical, &bufferAddress));
-
-    buffer = (gctUINT32_PTR)bufferLogical;
 
     /* Fill the data. */
     gckOS_MemCopy(bufferLogical, cd->TPKer, bytes);

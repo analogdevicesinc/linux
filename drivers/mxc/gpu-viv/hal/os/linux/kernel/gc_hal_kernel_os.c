@@ -99,6 +99,7 @@ typedef struct trace_mem {
 } traceMem;
 
 traceMem *memTraceList;
+gctBOOL memTraceFlag = 1;
 #endif
 #endif
 
@@ -680,6 +681,12 @@ gckOS_Construct(IN gctPOINTER Context, OUT gckOS *Os)
     /* Initialize the memory lock. */
     mutex_init(&os->mdlMutex);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+#if defined(CONFIG_TRACE_GPU_MEM)
+    mutex_init(&os->traceMutex);
+#endif
+#endif
+
     INIT_LIST_HEAD(&os->mdlHead);
 
     /* Get the kernel process ID. */
@@ -1150,6 +1157,7 @@ gckOS_UnmapMemory(IN gckOS        Os,
                   IN gctSIZE_T    Bytes,
                   IN gctPOINTER   Logical)
 {
+    gceSTATUS status = gcvSTATUS_OK;
     gcmkHEADER_ARG("Os=%p Physical=0%p Bytes=0x%zx Logical=%p",
                    Os, Physical, Bytes, Logical);
 
@@ -1159,11 +1167,11 @@ gckOS_UnmapMemory(IN gckOS        Os,
     gcmkVERIFY_ARGUMENT(Bytes > 0);
     gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
 
-    gckOS_UnmapMemoryEx(Os, Physical, Bytes, Logical, _GetProcessID());
+    gcmkONERROR(gckOS_UnmapMemoryEx(Os, Physical, Bytes, Logical, _GetProcessID()));
 
-    /* Success. */
+OnError:
     gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
+    return status;
 }
 
 /******************************************************************************
@@ -7293,6 +7301,8 @@ gckOS_TraceGpuMemory(IN gckOS Os, IN gctINT32 ProcessID, IN gctINT64 Delta)
     traceMem *traceList = gcvNULL;
     gctBOOL addNodeFlag = gcvTRUE;
 
+    mutex_lock(&Os->traceMutex);
+
     /* if first node is null, create it. */
     if (!memTraceList) {
         gctPOINTER pointer = gcvNULL;
@@ -7367,6 +7377,21 @@ gckOS_TraceGpuMemory(IN gckOS Os, IN gctINT32 ProcessID, IN gctINT64 Delta)
             break;
         }
     }
+
+    if (memTraceFlag && trace_gpu_mem_total_enabled()) {
+       traceMem *t_node = memTraceList;
+
+        while (gcvTRUE) {
+           if (t_node)
+               trace_gpu_mem_total(0, t_node->pid, (gctUINT64)atomic64_read(&t_node->total));
+           else
+               break;
+           t_node = t_node->next;
+       }
+       memTraceFlag = 0;
+    }
+
+    mutex_unlock(&Os->traceMutex);
 #endif
 #endif
     return gcvSTATUS_OK;

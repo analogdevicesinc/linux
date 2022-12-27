@@ -321,7 +321,7 @@ gc_load_show(void *m, void *data)
     gctUINT32         hi_total_cycle_count[gcvCORE_3D_MAX + 1]      = { 0 };
     gctUINT32         hi_total_idle_cycle_count[gcvCORE_3D_MAX + 1] = { 0 };
     static gctBOOL    profilerEnable[gcvCORE_3D_MAX + 1]            = { gcvFALSE };
-    gctBOOL powerManagement[gcvCORE_3D_MAX + 1]                     = { gcvFALSE };
+    gctBOOL powerManagement[gcvCORE_3D_MAX + 1] = { gcvFALSE };
 
 #ifdef CONFIG_DEBUG_FS
     void *ptr = m;

@@ -497,11 +497,11 @@ _ConfigureModuleLevelClockGating(gckHARDWARE Hardware)
                                        Hardware->powerBaseAddress + 0x00104,
                                        &data));
 
-    gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->core,
+    gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                        Hardware->powerBaseAddress + 0x00154,
                                        &sh_control0));
 
-    gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->core,
+    gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                        Hardware->powerBaseAddress + 0x00158,
                                        &sh_control1));
 
@@ -647,11 +647,11 @@ _ConfigureModuleLevelClockGating(gckHARDWARE Hardware)
                                         Hardware->powerBaseAddress + 0x00104,
                                         data));
 
-    gcmkVERIFY_OK(gckOS_WriteRegisterEx(Hardware->os, Hardware->core,
+    gcmkVERIFY_OK(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
                                         Hardware->powerBaseAddress + 0x00154,
                                         sh_control0));
 
-    gcmkVERIFY_OK(gckOS_WriteRegisterEx(Hardware->os, Hardware->core,
+    gcmkVERIFY_OK(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
                                         Hardware->powerBaseAddress + 0x00158,
                                         sh_control1));
 
@@ -11266,6 +11266,9 @@ gckHARDWARE_CancelJob(IN gckHARDWARE Hardware)
                                      Hardware->kernel->device->commitMutex));
 
 OnError:
+    if (globalAcquired)
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Hardware->os, Hardware->globalSemaphore));
+
     gcmkFOOTER();
     return status;
 }

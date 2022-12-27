@@ -1584,6 +1584,9 @@ gceSTATUS
 gcoTEXTURE_SetEndianHint(IN gcoTEXTURE Texture, IN gceENDIAN_HINT EndianHint);
 
 gceSTATUS
+gcoTEXTURE_SetSurfType(IN gcoTEXTURE Texture, IN gceSURF_TYPE type);
+
+gceSTATUS
 gcoTEXTURE_Disable(IN gcoHAL Hal, IN gctINT Sampler, IN gctBOOL DefaultInteger);
 
 gceSTATUS
