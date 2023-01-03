@@ -479,6 +479,158 @@ static void dwxgmac2_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
 	writel(value, ioaddr + XGMAC_LPI_TIMER_CTRL);
 }
 
+static void dwxgmac2_write_single_vlan(struct net_device *dev, u16 vid)
+{
+	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
+	u32 val;
+
+	val = readl(ioaddr + XGMAC_VLAN_TAG);
+	val &= ~XGMAC_VLAN_VID;
+	val |= XGMAC_VLAN_ETV | vid;
+
+	writel(val, ioaddr + XGMAC_VLAN_TAG);
+}
+
+static int dwxgmac2_write_vlan_filter(struct net_device *dev,
+				      struct mac_device_info *hw,
+				      u8 index, u32 data)
+{
+	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
+	int i, timeout = 10;
+	u32 val;
+
+	if (index >= hw->num_vlan)
+		return -EINVAL;
+
+	writel(data, ioaddr + XGMAC_VLAN_TAG_DATA);
+
+	val = readl(ioaddr + XGMAC_VLAN_TAG);
+	val &= ~(XGMAC_VLAN_TAG_CTRL_OFS_MASK |
+		XGMAC_VLAN_CT |
+		XGMAC_VLAN_OB);
+
+	val |= (index << XGMAC_VLAN_OFS_SHIFT | XGMAC_VLAN_OB);
+
+	writel(val, ioaddr + XGMAC_VLAN_TAG);
+
+	for (i = 0; i < timeout; i++) {
+		val = readl(ioaddr + XGMAC_VLAN_TAG);
+		if(!(val & XGMAC_VLAN_OB))
+			return 0;
+		udelay(1);
+
+	}
+
+	netdev_err(dev, "Timeout accesing MAC_VLAN_TAG_FILTER\n");
+
+	return -EBUSY;
+}
+
+static int dwxgmac2_add_hw_vlan_rx_fltr(struct net_device *dev,
+					struct mac_device_info *hw,
+					__be16 proto, u16 vid)
+{
+	int index = -1;
+	u32 val = 0;
+	int i, ret;
+
+	if (vid > 4095)
+		return -EINVAL;
+
+	/* Single Rx VLAN Filter */
+	if (hw->num_vlan == 1) {
+		/* For single VLAN filter, VID 0 means VLAN promiscuous */
+		if (vid == 0) {
+			netdev_warn(dev, "Adding VLAN ID 0 is not supported\n");
+			return -EPERM;
+		}
+
+		if (hw->vlan_filter[0] & XGMAC_VLAN_VID) {
+			netdev_err(dev, "Only single VLAN ID supported\n");
+			return -EPERM;
+		}
+
+		hw->vlan_filter[0] = vid;
+		dwxgmac2_write_single_vlan(dev, vid);
+
+		return 0;
+	}
+
+	/* Extended Rx VLAN Filter Enable */
+	val |= XGMAC_VLAN_TAG_DATA_ETV | XGMAC_VLAN_TAG_DATA_VEN | vid;
+
+	for (i = 0; i < hw->num_vlan; i++) {
+		if (hw->vlan_filter[i] == val)
+			return 0;
+
+		else if(!(hw->vlan_filter[i] & XGMAC_VLAN_TAG_DATA_VEN))
+			index = i;
+	}
+
+	if (index == -1){
+		netdev_err(dev, "MAC_VLAN_TAG_FILTER full (size: %0u)\n",
+				hw->num_vlan);
+		return -EPERM;
+	}
+
+	ret = dwxgmac2_write_vlan_filter(dev, hw, index, val);
+
+	if (!ret)
+		hw->vlan_filter[index] = val;
+
+	return ret;
+}
+
+static int dwxgmac2_del_hw_vlan_rx_fltr(struct net_device *dev,
+					struct mac_device_info *hw,
+					__be16 proto, u16 vid)
+{
+	int i, ret = 0;
+
+	/* Single Rx VLAN Filter */
+	if (hw->num_vlan == 1) {
+		if ((hw->vlan_filter[0] & XGMAC_VLAN_VID) == vid) {
+			hw->vlan_filter[0] = 0;
+			dwxgmac2_write_single_vlan(dev, 0);
+		}
+		return 0;
+	}
+
+	/* Extended Rx VLAN Filter Enable */
+	for (i = 0; i < hw->num_vlan; i++) {
+		if((hw->vlan_filter[i] & XGMAC_VLAN_TAG_DATA_VID) == vid) {
+			ret = dwxgmac2_write_vlan_filter(dev, hw, i, 0);
+
+			if (!ret)
+				hw->vlan_filter[i] = 0;
+			else
+				return ret;
+		}
+	}
+	return ret;
+}
+
+static void dwxgmac2_restore_hw_vlan_rx_fltr(struct net_device *dev,
+						struct mac_device_info *hw)
+{
+	u32 val;
+	int i;
+
+	/* Single Rx VLAN Filter */
+	if (hw->num_vlan == 1) {
+		dwxgmac2_write_single_vlan(dev, hw->vlan_filter[0]);
+		return;
+	}
+
+	/* Extended Rx VLAN Filter Enable */
+	for (i = 0; i < hw->num_vlan; i++) {
+		if (hw->vlan_filter[i] & XGMAC_VLAN_TAG_DATA_VEN) {
+			val = hw->vlan_filter[i];
+			dwxgmac2_write_vlan_filter(dev, hw, i, val);
+		}
+	}
+}
+
 static void dwxgmac2_set_mchash(void __iomem *ioaddr, u32 *mcfilterbits,
 				int mcbitslog2)
 {
@@ -556,6 +708,10 @@ static void dwxgmac2_set_filter(struct mac_device_info *hw,
 			writel(0, ioaddr + XGMAC_ADDRx_LOW(reg));
 		}
 	}
+
+	/* VLAN Filtering */
+	if (dev->features & NETIF_F_HW_VLAN_CTAG_FILTER)
+		value |= XGMAC_FILTER_VTFE;
 
 	writel(value, ioaddr + XGMAC_PACKET_FILTER);
 }
@@ -1667,6 +1823,9 @@ const struct stmmac_ops dwxgmac210_ops = {
 	.enable_vlan = dwxgmac2_enable_vlan,
 	.config_l3_filter = dwxgmac2_config_l3_filter,
 	.config_l4_filter = dwxgmac2_config_l4_filter,
+	.add_hw_vlan_rx_fltr = dwxgmac2_add_hw_vlan_rx_fltr,
+	.del_hw_vlan_rx_fltr = dwxgmac2_del_hw_vlan_rx_fltr,
+	.restore_hw_vlan_rx_fltr = dwxgmac2_restore_hw_vlan_rx_fltr,
 	.set_arp_offload = dwxgmac2_set_arp_offload,
 	.est_configure = dwxgmac3_est_configure,
 	.fpe_configure = dwxgmac3_fpe_configure,
@@ -1737,6 +1896,37 @@ const struct stmmac_ops dwxlgmac2_ops = {
 	.set_hw_vlan_mode = dwxgmac2_set_hw_vlan_mode,
 };
 
+static u32 dwxgmac2_get_num_vlan(void __iomem *ioaddr)
+{
+	u32 val, num_vlan;
+
+	val = readl(ioaddr + XGMAC_HW_FEATURE3);
+	switch (val & XGMAC_HWFEAT_NRVF) {
+	case 0:
+		num_vlan = 1;
+		break;
+	case 1:
+		num_vlan = 4;
+		break;
+	case 2:
+		num_vlan = 8;
+		break;
+	case 3:
+		num_vlan = 16;
+		break;
+	case 4:
+		num_vlan = 24;
+		break;
+	case 5:
+		num_vlan = 32;
+		break;
+	default:
+		num_vlan = 1;
+	}
+
+	return num_vlan;
+}
+
 int dwxgmac2_setup(struct stmmac_priv *priv)
 {
 	struct mac_device_info *mac = priv->hw;
@@ -1773,7 +1963,7 @@ int dwxgmac2_setup(struct stmmac_priv *priv)
 	mac->mii.reg_mask = GENMASK(15, 0);
 	mac->mii.clk_csr_shift = 19;
 	mac->mii.clk_csr_mask = GENMASK(21, 19);
-
+	mac->num_vlan = dwxgmac2_get_num_vlan(priv->ioaddr);
 	return 0;
 }
 
