@@ -228,10 +228,8 @@ static int ethosu_open(struct inode *inode,
 	if (!ret && atomic_read(&rproc->power) == 0) {
 		init_completion(&edev->erp.rpmsg_ready);
 		ret = rproc_boot(rproc);
-		if (ret)
+		if (ret || wait_for_completion_interruptible(&edev->erp.rpmsg_ready))
 			dev_err(edev->dev, "could not boot a remote processor\n");
-		else
-			wait_for_completion_interruptible(&edev->erp.rpmsg_ready);
 	} else {
 		dev_err(edev->dev, "can't change firmware or remote processor is running\n");
 	}

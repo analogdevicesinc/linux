@@ -147,7 +147,7 @@ void ethosu_network_info_rsp(struct ethosu_device *edev,
 		goto signal_complete;
 	}
 
-	if (rsp->ifm_count > ETHOSU_FD_MAX || rsp->ofm_count > ETHOSU_FD_MAX) {
+	if (rsp->ifm_count > ETHOSU_CORE_BUFFER_MAX || rsp->ofm_count > ETHOSU_CORE_BUFFER_MAX) {
 		info->errno = -ENFILE;
 		goto signal_complete;
 	}
