@@ -371,9 +371,10 @@ config SND_SOC_IMX_CARD
 	  It also support DPCM of single CPU multi Codec ststem.
 
 config SND_SOC_IMX_PCM512X
-	tristate "SoC Audio support for i.MX boards with PCM512x and headphone amp"
+	tristate "SoC Audio support for i.MX boards with PCM512x, PCM186x ADC and headphone amp"
 	depends on OF && I2C
 	select SND_SOC_PCM512x_I2C
+	select SND_SOC_PCM186X_I2C
 	select SND_SOC_TPA6130A2
 	select SND_SOC_IMX_PCM_DMA
 	select SND_SOC_FSL_SAI
