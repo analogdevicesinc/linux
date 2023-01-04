@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2021 NXP
- * Author: Alice Guo <alice.guo@nxp.com>
  */
 
 #include <linux/dev_printk.h>
@@ -286,6 +285,6 @@ static struct platform_driver imx_fsb_s400_fuse_driver = {
 MODULE_DEVICE_TABLE(of, imx_fsb_s400_fuse_match);
 module_platform_driver(imx_fsb_s400_fuse_driver);
 
-MODULE_AUTHOR("Alice Guo <alice.guo@nxp.com>");
+MODULE_AUTHOR("NXP");
 MODULE_DESCRIPTION("i.MX FSB/S400-API ocotp fuse box driver");
 MODULE_LICENSE("GPL v2");
