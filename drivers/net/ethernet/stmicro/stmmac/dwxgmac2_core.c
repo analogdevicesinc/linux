@@ -502,6 +502,15 @@ static int dwxgmac2_write_vlan_filter(struct net_device *dev,
 	if (index >= hw->num_vlan)
 		return -EINVAL;
 
+	if (hw->double_vlan) {
+		data |= XGMAC_VLAN_TAG_DATA_DOVLTC;
+		data |= XGMAC_VLAN_TAG_DATA_ERIVLT;
+		data &= ~XGMAC_VLAN_TAG_DATA_ERSVLM;
+	} else {
+		data &= ~XGMAC_VLAN_TAG_DATA_DOVLTC;
+		data &= ~XGMAC_VLAN_TAG_DATA_ERIVLT;
+	}
+
 	writel(data, ioaddr + XGMAC_VLAN_TAG_DATA);
 
 	val = readl(ioaddr + XGMAC_VLAN_TAG);
@@ -1994,6 +2003,13 @@ static u32 dwxgmac2_get_num_vlan(void __iomem *ioaddr)
 	return num_vlan;
 }
 
+static u32 dwxgmac2_is_double_vlan(void __iomem *ioaddr)
+{
+	u32 val;
+	val = readl(ioaddr + XGMAC_HW_FEATURE3);
+	return (val & XGMAC_HWFEAT_DVLAN);
+}
+
 int dwxgmac2_setup(struct stmmac_priv *priv)
 {
 	struct mac_device_info *mac = priv->hw;
@@ -2031,6 +2047,7 @@ int dwxgmac2_setup(struct stmmac_priv *priv)
 	mac->mii.clk_csr_shift = 19;
 	mac->mii.clk_csr_mask = GENMASK(21, 19);
 	mac->num_vlan = dwxgmac2_get_num_vlan(priv->ioaddr);
+	mac->double_vlan = dwxgmac2_is_double_vlan(priv->ioaddr);
 	return 0;
 }
 
