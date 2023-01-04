@@ -108,6 +108,10 @@
 	status = "disabled";
 };
 
+&uart3 {
+	status = "disabled";
+};
+
 &micfil {
 	status = "disabled";
 };
