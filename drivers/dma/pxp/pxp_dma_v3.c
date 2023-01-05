@@ -1909,7 +1909,7 @@ static int pxp_start(struct pxps *pxp)
 			BM_PXP_CTRL_ENABLE_ROTATE1);
 	}
 
-	if (pxp->devdata->version <= PXP_V3_8ULP) {
+	if (pxp->devdata && pxp->devdata->version <= PXP_V3_8ULP) {
 		val |= BM_PXP_CTRL_ENABLE_LUT;
 		val &= ~(BM_PXP_CTRL_BLOCK_SIZE);
 	}
