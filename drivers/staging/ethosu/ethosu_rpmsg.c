@@ -97,8 +97,8 @@ static int ethosu_rpmsg_send(struct ethosu_rpmsg *erp, uint32_t type)
 	msg.type = type;
 	msg.length = 0;
 
-	print_hex_dump(KERN_DEBUG, __func__, DUMP_PREFIX_NONE, 16, 1,
-			(void *)&msg, sizeof(msg),  true);
+	print_hex_dump_debug(__func__, DUMP_PREFIX_NONE, 16, 1, (void *)&msg,
+			     sizeof(msg), true);
 
 	ret = rpmsg_send(rpdev->ept, (void *)&msg, sizeof(msg));
 	if (ret) {
@@ -337,8 +337,8 @@ static int rpmsg_ethosu_cb(struct rpmsg_device *rpdev,
 
 	dev_dbg(&rpdev->dev, "msg(<- src 0x%x) len %d\n", src, len);
 
-	print_hex_dump(KERN_DEBUG, __func__, DUMP_PREFIX_NONE, 16, 1,
-			data, len,  true);
+	print_hex_dump_debug(__func__, DUMP_PREFIX_NONE, 16, 1, data,
+			     len, true);
 
 	rpmsg->callback(rpmsg->user_arg, data);
 
