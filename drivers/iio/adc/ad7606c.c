@@ -77,7 +77,8 @@ static const unsigned int ad7606c_scale_avail[5] = {
 
 enum {
     ID_INVALID,
-    ID_AD7606C,
+    ID_AD7606C_16,
+    ID_AD7606C_18,
 };
 
 struct ad7606_chip_info {
@@ -93,8 +94,19 @@ struct ad7606_chip_info {
 };
 
 struct ad7606_chip_info ad7606_chip_infos[] = {
-    [ID_AD7606C] = {
-        .name = "ad7606c",
+    [ID_AD7606C_16] = {
+        .name = "ad7606c-16",
+        .resolution = 16,
+        .num_channels = 8,
+        .sclk_rate = 60000000,
+        .bits_per_word = 16,
+        .oversampling_avail = ad7606c_oversampling_avail,
+        .num_oversamplings = ARRAY_SIZE(ad7606c_oversampling_avail),
+        .scale_avail = ad7606c_scale_avail,
+        .num_scales = ARRAY_SIZE(ad7606c_scale_avail),
+    },
+    [ID_AD7606C_18] = {
+        .name = "ad7606c-18",
         .resolution = 18,
         .num_channels = 8,
         .sclk_rate = 60000000,
@@ -131,7 +143,7 @@ struct ad7606_state {
     uint32_t data[8] ____cacheline_aligned;
 };
 
-#define AD7606_CHANNEL(_name, _idx, _storagebits, _realbits) \
+#define AD7606_CHANNEL(_name, _idx) \
 {  \
     .type = IIO_VOLTAGE,  \
     .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |  \
@@ -148,32 +160,30 @@ struct ad7606_state {
     .address = _idx, \
     .scan_type = {  \
         .sign = 's',  \
-        .storagebits = _storagebits,  \
-        .realbits = _realbits,  \
         .endianness = IIO_LE,  \
     },  \
     .extend_name = _name, \
 }
 
-static const struct iio_chan_spec ad7606c_channels[] = {
-    AD7606_CHANNEL("v1", 0, 32, 18),
-    AD7606_CHANNEL("v2", 1, 32, 18),
-    AD7606_CHANNEL("v3", 2, 32, 18),
-    AD7606_CHANNEL("v4", 3, 32, 18),
-    AD7606_CHANNEL("v5", 4, 32, 18),
-    AD7606_CHANNEL("v6", 5, 32, 18),
-    AD7606_CHANNEL("v7", 6, 32, 18),
-    AD7606_CHANNEL("v8", 7, 32, 18),
+static struct iio_chan_spec ad7606c_base_channels[] = {
+    AD7606_CHANNEL("v1", 0),
+    AD7606_CHANNEL("v2", 1),
+    AD7606_CHANNEL("v3", 2),
+    AD7606_CHANNEL("v4", 3),
+    AD7606_CHANNEL("v5", 4),
+    AD7606_CHANNEL("v6", 5),
+    AD7606_CHANNEL("v7", 6),
+    AD7606_CHANNEL("v8", 7),
 };
 
 static const struct of_device_id ad7606_of_match[] = {
-    { .compatible = "adi,ad7606c", .data = (void*)ID_AD7606C },
+    { .compatible = "adi,ad7606c-18", .data = (void*)ID_AD7606C_18 },
     { },
 }
 MODULE_DEVICE_TABLE(of, ad7606_of_match);
 
 static const struct spi_device_id ad7606_spi_id[] = {
-    { "adi,ad7606c", ID_AD7606C },
+    { "adi,ad7606c", ID_AD7606C_18 },
     { },
 }
 MODULE_DEVICE_TABLE(spi, ad7606_spi_id);
@@ -571,7 +581,8 @@ static int ad7606_spi_init(struct ad7606_state *adc) {
     int ret;
 
     switch (adc->device_id) {
-    case ID_AD7606C:
+    case ID_AD7606C_16:
+    case ID_AD7606C_18:
         ret = ad7606_reg_write(adc, REG_CONFIG, AD7606_8_DOUT_LINES);
         if (ret) {
             goto end;
@@ -663,6 +674,34 @@ static const struct iio_buffer_setup_ops ad7606_buffer_ops = {
     .postdisable = &ad7606_buffer_postdisable,
 };
 
+static int ad7606_init_channels(struct iio_dev *indio_dev) {
+    struct ad7606_state *state = iio_priv(indio_dev);
+    int storagebits, realbits;
+    int i;
+    
+    switch (state->device_id) {
+        case ID_AD7606C_16:
+            storagebits = 16;
+            realbits = 16;
+            break;
+        case ID_AD7606C_18:
+            storagebits = 32;
+            realbits = 18;
+            break;
+        default:
+            return -EINVAL;
+    }
+
+    for(i=0; i < ARRAY_SIZE(ad7606c_base_channels); i++) {
+        ad7606c_base_channels[i].scan_type.storagebits = storagebits;
+        ad7606c_base_channels[i].scan_type.realbits = realbits;
+    }
+    indio_dev->channels = ad7606c_base_channels;
+    indio_dev->num_channels = ARRAY_SIZE(ad7606c_base_channels);
+
+    return 0;
+}
+
 static int ad7606_probe(struct spi_device *spi) {
     struct ad7606_state *adc;
     struct iio_dev *indio_dev;
@@ -733,9 +772,12 @@ static int ad7606_probe(struct spi_device *spi) {
     indio_dev->info = &ad7606_iio_info;
     indio_dev->modes = INDIO_BUFFER_HARDWARE;
     indio_dev->setup_ops = &ad7606_buffer_ops;
-    indio_dev->channels = ad7606c_channels;
-    indio_dev->num_channels = ARRAY_SIZE(ad7606c_channels);
     indio_dev->available_scan_masks = ad7606c_available_scan_masks;
+    ret = ad7606_init_channels(indio_dev);
+    if (ret) {
+        dev_err(&adc->spi->dev, "Failed to init channels");
+        return ret;
+    }
 
     ret = ad7606_request_gpios(adc); 
     if (ret) {
