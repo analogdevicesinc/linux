@@ -106,6 +106,7 @@ struct imx_rproc {
 	const struct imx_rproc_dcfg	*dcfg;
 	struct imx_rproc_mem		mem[IMX_RPROC_MEM_MAX];
 	struct clk			*clk;
+	struct clk			*clk_audio;
 	struct mbox_client		cl;
 	struct mbox_chan		*tx_ch;
 	struct mbox_chan		*rx_ch;
@@ -392,6 +393,9 @@ static int imx_rproc_start(struct rproc *rproc)
 		}
 		break;
 	case IMX_RPROC_SMC:
+		ret = clk_prepare_enable(priv->clk_audio);
+		if (ret)
+			dev_err(dev, "Failed to enable audio clk!\n");
 		arm_smccc_smc(IMX_SIP_RPROC, IMX_SIP_RPROC_START, rproc->bootaddr,
 			      0, 0, 0, 0, 0, &res);
 		ret = res.a0;
@@ -440,6 +444,7 @@ static int imx_rproc_stop(struct rproc *rproc)
 		ret = res.a0;
 		if (res.a1)
 			dev_info(dev, "Not in wfi, force stopped\n");
+		clk_disable_unprepare(priv->clk_audio);
 		break;
 	case IMX_RPROC_SCU_API:
 		ret = imx_sc_pm_cpu_start(priv->ipc_handle, priv->rsrc_id, false, priv->entry);
@@ -1078,6 +1083,16 @@ static int imx_rproc_clk_enable(struct imx_rproc *priv)
 	/* Remote core is not under control of Linux */
 	if (dcfg->method == IMX_RPROC_NONE)
 		return 0;
+
+	if (priv->rproc->state != RPROC_DETACHED) {
+		priv->clk_audio = devm_clk_get_optional(dev, "audio");
+		if (IS_ERR(priv->clk_audio)) {
+			dev_err(dev, "Failed to get audio clock\n");
+			return PTR_ERR(priv->clk_audio);
+		}
+	} else {
+		priv->clk_audio = NULL;
+	}
 
 	priv->clk = devm_clk_get_optional(dev, NULL);
 	if (IS_ERR(priv->clk)) {
