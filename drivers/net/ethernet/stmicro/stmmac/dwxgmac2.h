@@ -99,6 +99,11 @@
 #define XGMAC_RXQ_CTRL3			0x000000ac
 #define XGMAC_PSRQ(x)			GENMASK((x) * 8 + 7, (x) * 8)
 #define XGMAC_PSRQ_SHIFT(x)		((x) * 8)
+#define XGMAC_RXQ_CTRL4			0x00000094
+/* VFFQ mask might vary and depending on how many RX Q enabled */
+#define XGMAC_RXQCTRL_VFFQ_MASK		GENMASK(19, 17);
+#define XGMAC_RXQCTRL_VFFQ_SHIFT	17
+#define XGMAC_RXQCTRL_VFFQE		BIT(16)
 #define XGMAC_INT_STATUS		0x000000b0
 #define XGMAC_LPIIS			BIT(5)
 #define XGMAC_PMTIS			BIT(4)
