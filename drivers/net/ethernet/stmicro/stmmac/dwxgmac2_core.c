@@ -723,6 +723,7 @@ static void dwxgmac2_set_filter(struct mac_device_info *hw,
 {
 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
 	u32 value = readl(ioaddr + XGMAC_PACKET_FILTER);
+	u32 value_ctrl = 0;
 	int mcbitslog2 = hw->mcast_bits_log2;
 	u32 mc_filter[8];
 	int i;
@@ -733,8 +734,17 @@ static void dwxgmac2_set_filter(struct mac_device_info *hw,
 	memset(mc_filter, 0, sizeof(mc_filter));
 
 	if (dev->flags & IFF_PROMISC) {
-		value |= XGMAC_FILTER_PR;
-		value |= XGMAC_FILTER_PCF;
+		if (hw->vlan_fail_q_en) {
+			value_ctrl = readl(ioaddr + XGMAC_RXQ_CTRL4);
+			value_ctrl &= ~XGMAC_RXQCTRL_VFFQ_MASK;
+			value_ctrl |= XGMAC_RXQCTRL_VFFQE |
+				(hw->vlan_fail_q << XGMAC_RXQCTRL_VFFQ_SHIFT);
+			writel(value_ctrl, ioaddr + XGMAC_RXQ_CTRL4);
+			value |= XGMAC_FILTER_PR | XGMAC_FILTER_RA;
+		} else {
+			value |= XGMAC_FILTER_PR | XGMAC_FILTER_PCF;
+		}
+
 	} else if ((dev->flags & IFF_ALLMULTI) ||
 		   (netdev_mc_count(dev) > hw->multicast_filter_bins)) {
 		value |= XGMAC_FILTER_PM;
@@ -779,7 +789,7 @@ static void dwxgmac2_set_filter(struct mac_device_info *hw,
 
 	writel(value, ioaddr + XGMAC_PACKET_FILTER);
 
-	if (dev->flags & IFF_PROMISC) {
+	if (dev->flags & IFF_PROMISC && !hw->vlan_fail_q_en) {
 		if (!hw->promisc) {
 			hw->promisc = 1;
 			dwxgmac2_vlan_promisc_enable(dev, hw);
