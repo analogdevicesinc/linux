@@ -114,16 +114,15 @@ static uint32_t axi_clkgen_lookup_lock(unsigned int m)
 }
 
 #ifdef ARCH_ZYNQMP
-static unsigned int fpfd_min = 10000;
 static unsigned int fpfd_max = 450000;
 static unsigned int fvco_min = 800000;
 static unsigned int fvco_max = 1600000;
 #else
-static unsigned int fpfd_min = 10000;
 static unsigned int fpfd_max = 300000;
 static unsigned int fvco_min = 600000;
 static unsigned int fvco_max = 1200000;
 #endif
+
 static const struct axi_clkgen_limits axi_clkgen_zynqmp_default_limits = {
 	.fpfd_min = 10000,
 	.fpfd_max = 450000,
@@ -258,7 +257,7 @@ static void axi_clkgen_read(struct axi_clkgen *axi_clkgen,
 
 /*
  * !FIXME: This API is storing the limits in static global variables that are then
- * not used (the limits structure is) so this functions needs to be adaped properly.
+ * not used (the limits structure is) so this functions needs to be adapted properly.
  * I do not want to hide the fix in a merge commit so I'm leaving this note in here
  * so that I'll eventually stumble against it...
  */

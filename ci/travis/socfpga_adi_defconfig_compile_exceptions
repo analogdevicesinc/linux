@@ -31,8 +31,8 @@ drivers/usb/gadget/function/f_uac1_legacy.o
 drivers/usb/gadget/function/u_uac1_legacy.o
 drivers/usb/gadget/legacy/audio.o
 drivers/usb/gadget/udc/net2272.o
-drivers/staging/comedi/drivers/rti800.o
-drivers/staging/comedi/drivers/rti802.o
+drivers/comedi/drivers/rti800.o
+drivers/comedi/drivers/rti802.o
 drivers/mtd/maps/gpio-addr-flash.o
 drivers/mtd/maps/latch-addr-flash.o
 drivers/iio/adc/ti-ads7950.o

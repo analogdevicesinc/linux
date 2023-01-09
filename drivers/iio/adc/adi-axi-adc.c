@@ -117,6 +117,7 @@ static const struct iio_dma_buffer_ops adi_axi_adc_dma_buffer_ops = {
 static int adi_axi_adc_config_dma_buffer(struct device *dev,
 					 struct iio_dev *indio_dev)
 {
+	struct iio_buffer *buffer;
 	const char *dma_name;
 
 	if (!device_property_present(dev, "dmas"))
