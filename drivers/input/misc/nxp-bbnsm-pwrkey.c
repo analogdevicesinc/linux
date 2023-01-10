@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
-// Copyright 2022 NXP.
+// Copyright 2022-2023 NXP.
 
 #include <linux/device.h>
 #include <linux/err.h>
@@ -94,6 +94,16 @@ static irqreturn_t bbnsm_pwrkey_interrupt(int irq, void *dev_id)
 
 	mod_timer(&bbnsm->check_timer,
 		   jiffies + msecs_to_jiffies(DEBOUNCE_TIME));
+
+	/*
+	 * Directly report key event after resume to make no key press
+	 * event is missed.
+	 */
+	if (bbnsm->suspended) {
+		bbnsm->keystate = 1;
+		input_event(input, EV_KEY, bbnsm->keycode, 1);
+		input_sync(input);
+	}
 
 	/* clear PWR OFF */
 	regmap_write(bbnsm->regmap, BBNSM_EVENTS, BBNSM_BTN_OFF);
