@@ -2,7 +2,7 @@
 /*
  * Analog Devices AD4630-24
  *
- * hdl_project: <ad463x_fmc/zed>
+ * hdl_project: <ad4630_fmc/zed>
  * board_revision: <B>
  *
  * Copyright (C) 2022 Analog Devices Inc.
