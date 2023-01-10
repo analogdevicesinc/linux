@@ -290,6 +290,8 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 7 IRQ_TYPE_EDGE_RISING>,
 						 <GIC_SPI 8 IRQ_TYPE_EDGE_RISING>;
+			adi,gain = <0x4>; /* 10-bit two's complement */
+			adi,offset = <0x7D40>; /* Q9.7 fixed point */
 			status = "disabled";
 		};
 

@@ -119,8 +119,6 @@
 
 &thermal {
 	status = "okay";
-	adi,gain = <0x4>; /* 10-bit two's complement */
-	adi,offset = <0x7D40>; /* Q9.7 fixed point */
 	adi,trip-alert = <60>;
 	adi,trip-fault = <85>;
 	/* adi,average; */
