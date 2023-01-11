@@ -709,8 +709,8 @@ static long drv_ioctl(struct file *filp, unsigned int ioctlCode, unsigned long a
         }
 
         /* Now bring in the gcsHAL_INTERFACE structure. */
-        if (drvArgs.InputBufferSize != sizeof(gcsHAL_INTERFACE) ||
-            drvArgs.OutputBufferSize != sizeof(gcsHAL_INTERFACE)) {
+        if (drvArgs.InputBufferSize > sizeof(gcsHAL_INTERFACE) ||
+            drvArgs.OutputBufferSize > sizeof(gcsHAL_INTERFACE)) {
             gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
                            "%s(%d): input or/and output structures are invalid.\n",
                            __func__, __LINE__);
@@ -720,7 +720,7 @@ static long drv_ioctl(struct file *filp, unsigned int ioctlCode, unsigned long a
 
         copyLen = copy_from_user(&iface,
                                  gcmUINT64_TO_PTR(drvArgs.InputBuffer),
-                                 sizeof(gcsHAL_INTERFACE));
+                                 drvArgs.InputBufferSize);
 
         if (copyLen != 0) {
             gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
@@ -763,7 +763,7 @@ static long drv_ioctl(struct file *filp, unsigned int ioctlCode, unsigned long a
         /* Copy data back to the user. */
         copyLen = copy_to_user(gcmUINT64_TO_PTR(drvArgs.OutputBuffer),
                                &iface,
-                               sizeof(gcsHAL_INTERFACE));
+                               drvArgs.OutputBufferSize);
 
         if (copyLen != 0) {
             gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
