@@ -11,10 +11,11 @@ img_ipg_clk: clock-img-ipg {
 };
 
 img_subsys: bus@58000000 {
-	compatible = "simple-bus";
+	compatible = "simple-pm-bus", "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0x58000000 0x0 0x58000000 0x1000000>;
+	power-domains = <&pd IMX_SC_R_ISI_CH0>;
 
 	img_axi_clk: clock-img-axi {
 		compatible = "fixed-clock";
@@ -243,8 +244,8 @@ img_subsys: bus@58000000 {
 		clock-names = "ipg";
 		fsl,channel = <0>;
 		fsl,num-irqs = <32>;
-		power-domains = <&pd IMX_SC_R_CSI_0>, <&pd IMX_SC_R_ISI_CH0>;
-		power-domain-names = "pd_csi", "pd_isi_ch0";
+		power-domains = <&pd IMX_SC_R_CSI_0>;
+		power-domain-names = "pd_csi";
 		status = "disabled";
 	};
 
@@ -259,8 +260,8 @@ img_subsys: bus@58000000 {
 		clock-names = "ipg";
 		fsl,channel = <0>;
 		fsl,num-irqs = <32>;
-		power-domains = <&pd IMX_SC_R_CSI_1>, <&pd IMX_SC_R_ISI_CH0>;
-		power-domain-names = "pd_csi", "pd_isi_ch0";
+		power-domains = <&pd IMX_SC_R_CSI_1>;
+		power-domain-names = "pd_csi";
 		status = "disabled";
 	};
 
@@ -275,8 +276,8 @@ img_subsys: bus@58000000 {
 		clock-names = "ipg";
 		fsl,channel = <0>;
 		fsl,num-irqs = <32>;
-		power-domains = <&pd IMX_SC_R_PI_0>, <&pd IMX_SC_R_ISI_CH0>;
-		power-domain-names = "pd_pi", "pd_isi_ch0";
+		power-domains = <&pd IMX_SC_R_PI_0>;
+		power-domain-names = "pd_pi";
 		status = "disabled";
 	};
 
