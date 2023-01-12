@@ -565,9 +565,27 @@ static int ad4630_out_mode_update(struct ad4630_state *st, bool test_pattern)
 	if (test_pattern) {
 		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, AD4630_32_PATTERN);
 		bits_per_w = st->pattern_bits_per_word;
+		/*
+		 * If the previous mode is averaging, we need to update the
+		 * fetch PWM signal as there's no averaging in the test pattern
+		 * mode and the user might have already configured some
+		 * averaging.
+		 */
+		if (st->out_data == AD4630_30_AVERAGED_DIFF)
+			ad4630_update_sample_fetch_trigger(st, 0);
 	} else {
 		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, st->out_data);
 		bits_per_w = st->bits_per_word;
+		/* Restore the fetch PWM signal */
+		if (st->out_data == AD4630_30_AVERAGED_DIFF) {
+			u32 avg;
+
+			ret = regmap_read(st->regmap, AD4630_REG_AVG, &avg);
+			if (ret)
+				return ret;
+
+			ad4630_update_sample_fetch_trigger(st, avg);
+		}
 	}
 
 	ret = regmap_update_bits(st->regmap, AD4630_REG_MODES,
