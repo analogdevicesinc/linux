@@ -15,6 +15,7 @@
 #include <linux/usb/chipidea.h>
 #include <linux/usb/hcd.h>
 #include <linux/usb/ulpi.h>
+#include <linux/usb/usb_phy_generic.h>
 
 #include "ci.h"
 
@@ -80,6 +81,8 @@ static int ci_hdrc_usb2_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to enable the clock: %d\n", ret);
 		return ret;
 	}
+
+	usb_phy_generic_register();
 
 	ci_pdata->name = dev_name(dev);
 
