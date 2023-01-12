@@ -711,24 +711,28 @@ static const struct ad4630_out_mode ad4030_24_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 24, 0, NULL),
+			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 16, 8, NULL),
+			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 24, 8, NULL),
+			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 30, 2, ad4630_ext_info),
+			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 32,
 	}
@@ -747,6 +751,7 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 16, 8, NULL),
 			AD4630_CHAN(1, 32, 16, 8, NULL),
+			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 24,
 	},
@@ -754,6 +759,7 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 30, 2, ad4630_ext_info),
 			AD4630_CHAN(1, 32, 30, 2, ad4630_ext_info),
+			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 32,
 	}
@@ -764,6 +770,7 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 24, 0, NULL),
 			AD4630_CHAN(1, 32, 24, 0, NULL),
+			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 24,
 	},
@@ -771,6 +778,7 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 16, 8, NULL),
 			AD4630_CHAN(1, 32, 16, 8, NULL),
+			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 24,
 	},
@@ -778,6 +786,7 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 24, 8, NULL),
 			AD4630_CHAN(1, 32, 24, 8, NULL),
+			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 32,
 	},
@@ -785,6 +794,7 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 30, 2, ad4630_ext_info),
 			AD4630_CHAN(1, 32, 30, 2, ad4630_ext_info),
+			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 32,
 	}
