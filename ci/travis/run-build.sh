@@ -69,11 +69,11 @@ fi
 
 if [ "$ARCH" = "arm" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
-		CROSS_COMPILE=arm-linux-gnueabihf-
+		CROSS_COMPILE=arm-linux-gnueabi-
 		export CROSS_COMPILE
 	fi
 
-	APT_LIST="$APT_LIST gcc-arm-linux-gnueabihf"
+	APT_LIST="$APT_LIST gcc-arm-linux-gnueabi"
 fi
 
 apt_update_install() {
@@ -471,7 +471,7 @@ __handle_sync_with_main() {
 
 build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
-	BRANCHES="adi-5.10.0 rpi-5.10.y"
+	BRANCHES="adi-5.15.0 rpi-5.15.y"
 
 	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
 		echo_red "Could not fetch branch '$MAIN_BRANCH'"
