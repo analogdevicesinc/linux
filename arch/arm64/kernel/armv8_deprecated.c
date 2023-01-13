@@ -498,8 +498,10 @@ static int cp15barrier_handler(struct pt_regs *regs, u32 instr)
 	}
 
 ret:
+#if 0
 	pr_warn_ratelimited("\"%s\" (%ld) uses deprecated CP15 Barrier instruction at 0x%llx\n",
 			current->comm, (unsigned long)current->pid, regs->pc);
+#endif
 
 	arm64_skip_faulting_instruction(regs, 4);
 	return 0;
