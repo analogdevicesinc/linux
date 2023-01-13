@@ -69,11 +69,11 @@ fi
 
 if [ "$ARCH" = "arm" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
-		CROSS_COMPILE=arm-linux-gnueabihf-
+		CROSS_COMPILE=arm-linux-gnueabi-
 		export CROSS_COMPILE
 	fi
 
-	APT_LIST="$APT_LIST gcc-arm-linux-gnueabihf"
+	APT_LIST="$APT_LIST gcc-arm-linux-gnueabi"
 fi
 
 apt_update_install() {
