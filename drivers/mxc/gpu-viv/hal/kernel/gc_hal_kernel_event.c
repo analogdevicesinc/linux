@@ -61,7 +61,7 @@
 
 #define _GC_OBJ_ZONE gcvZONE_EVENT
 
-#define gcdEVENT_ALLOCATION_COUNT (4096 / gcmSIZEOF(gcsHAL_INTERFACE))
+#define gcdEVENT_ALLOCATION_COUNT (1024 / gcmSIZEOF(gcsEVENT_INTERFACE))
 #define gcdEVENT_MIN_THRESHOLD    4
 
 /******************************************************************************
@@ -387,7 +387,7 @@ __RemoveRecordFromProcessDB(IN gckEVENT Event, IN gcsEVENT_PTR Record)
 
 static gceSTATUS
 _ReleaseVideoMemoryHandle(IN gckKERNEL Kernel, IN OUT gcsEVENT_PTR Record,
-                          IN OUT gcsHAL_INTERFACE *Interface)
+                          IN OUT gcsEVENT_INTERFACE *Interface)
 {
     gceSTATUS      status;
     gckVIDMEM_NODE nodeObject;
@@ -948,7 +948,7 @@ OnError:
  **      Nothing.
  */
 gceSTATUS
-gckEVENT_AddListEx(IN gckEVENT Event, IN gcsHAL_INTERFACE_PTR Interface,
+gckEVENT_AddListEx(IN gckEVENT Event, IN gcsEVENT_INTERFACE_PTR Interface,
                    IN gceKERNEL_WHERE FromWhere, IN gctBOOL AllocateAllowed,
                    IN gctBOOL FromKernel, IN gctUINT32 ProcessID)
 {
@@ -1074,7 +1074,7 @@ OnError:
 }
 
 gceSTATUS
-gckEVENT_AddList(IN gckEVENT Event, IN gcsHAL_INTERFACE_PTR Interface,
+gckEVENT_AddList(IN gckEVENT Event, IN gcsEVENT_INTERFACE_PTR Interface,
                  IN gceKERNEL_WHERE FromWhere, IN gctBOOL AllocateAllowed,
                  IN gctBOOL FromKernel)
 {
@@ -1110,7 +1110,7 @@ gceSTATUS
 gckEVENT_Unlock(IN gckEVENT Event, IN gceKERNEL_WHERE FromWhere, IN gctPOINTER Node)
 {
     gceSTATUS        status;
-    gcsHAL_INTERFACE iface;
+    gcsEVENT_INTERFACE iface;
 
     gcmkHEADER_ARG("Event=0x%x FromWhere=%d Node=0x%x",
                    Event, FromWhere, Node);
@@ -1162,7 +1162,7 @@ gceSTATUS
 gckEVENT_Signal(IN gckEVENT Event, IN gctSIGNAL Signal, IN gceKERNEL_WHERE FromWhere)
 {
     gceSTATUS        status;
-    gcsHAL_INTERFACE iface;
+    gcsEVENT_INTERFACE iface;
 
     gcmkHEADER_ARG("Event=0x%x Signal=0x%x FromWhere=%d",
                    Event, Signal, FromWhere);
@@ -1595,7 +1595,7 @@ gckEVENT_Commit(IN gckEVENT Event, IN gcsQUEUE_PTR Queue,
     }
 
     if (Forced && Event->queueHead == gcvNULL) {
-        gcsHAL_INTERFACE iface;
+        gcsEVENT_INTERFACE iface;
 
         iface.command = gcvHAL_COMMIT_DONE;
 

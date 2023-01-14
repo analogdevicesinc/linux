@@ -703,7 +703,7 @@ typedef struct _gcsEVENT {
     gcsEVENT_PTR                next;
 
     /* Event information. */
-    gcsHAL_INTERFACE            info;
+    gcsEVENT_INTERFACE          info;
 
     /* Process ID owning the event. */
     gctUINT32                   processID;
@@ -837,7 +837,7 @@ gckEVENT_GetEvent(IN gckEVENT        Event,
 /* Add a new event to the list of events. */
 gceSTATUS
 gckEVENT_AddListEx(IN gckEVENT             Event,
-                   IN gcsHAL_INTERFACE_PTR Interface,
+                   IN gcsEVENT_INTERFACE_PTR Interface,
                    IN gceKERNEL_WHERE      FromWhere,
                    IN gctBOOL              AllocateAllowed,
                    IN gctBOOL              FromKernel,
@@ -846,7 +846,7 @@ gckEVENT_AddListEx(IN gckEVENT             Event,
 /* Add a new event to the list of events. */
 gceSTATUS
 gckEVENT_AddList(IN gckEVENT             Event,
-                 IN gcsHAL_INTERFACE_PTR Interface,
+                 IN gcsEVENT_INTERFACE_PTR Interface,
                  IN gceKERNEL_WHERE      FromWhere,
                  IN gctBOOL              AllocateAllowed,
                  IN gctBOOL              FromKernel);

@@ -2058,6 +2058,7 @@ typedef struct _gcsSTATE_DELTA        *gcsSTATE_DELTA_PTR;
 typedef struct _gcsQUEUE              *gcsQUEUE_PTR;
 typedef struct _gcoQUEUE              *gcoQUEUE;
 typedef struct _gcsHAL_INTERFACE      *gcsHAL_INTERFACE_PTR;
+typedef struct _gcsEVENT_INTERFACE    *gcsEVENT_INTERFACE_PTR;
 #if VIVANTE_PROFILER
 typedef struct _gcsHAL_PROFILER_INTERFACE   *gcsHAL_PROFILER_INTERFACE_PTR;
 #endif

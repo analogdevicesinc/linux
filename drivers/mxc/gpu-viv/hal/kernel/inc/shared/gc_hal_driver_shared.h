@@ -1267,6 +1267,21 @@ typedef struct _gcsHAL_INTERFACE {
     } u;
 } gcsHAL_INTERFACE;
 
+typedef struct _gcsEVENT_INTERFACE {
+    /* Command code. */
+    gceHAL_COMMAND_CODES        command;
+
+    /* Union of command structures. */
+    union _evtu {
+        gcsHAL_UNLOCK_VIDEO_MEMORY          UnlockVideoMemory;
+        gcsHAL_COMMIT_DONE                  CommitDone;
+        gcsHAL_SIGNAL                       Signal;
+        gcsHAL_WRITE_DATA                   WriteData;
+        gcsHAL_TIMESTAMP                    TimeStamp;
+        gcsHAL_DESTROY_MMU                  DestroyMmu;
+    } u;
+}gcsEVENT_INTERFACE;
+
 #if VIVANTE_PROFILER
 typedef struct _gcsHAL_PROFILER_INTERFACE {
     /* Command code. */
@@ -1368,7 +1383,7 @@ typedef struct _gcsQUEUE {
     gctUINT64                   next;
 
     /* Event information. */
-    gcsHAL_INTERFACE            iface;
+    gcsEVENT_INTERFACE          iface;
 } gcsQUEUE;
 
 /* A record chunk include multiple records to save allocation. */
