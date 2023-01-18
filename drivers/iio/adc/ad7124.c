@@ -22,7 +22,7 @@
 #include <linux/iio/adc/ad_sigma_delta.h>
 #include <linux/iio/sysfs.h>
 
-#define AD7124_SEQUENCER_SLOTS		16
+#define AD7124_SEQUENCER_SLOTS		8
 
 /* AD7124 registers */
 #define AD7124_COMMS			0x00
