@@ -631,6 +631,12 @@ static int mx51_ecspi_prepare_message(struct spi_imx_data *spi_imx,
 		testreg &= ~MX51_ECSPI_TESTREG_LBC;
 	writel(testreg, spi_imx->base + MX51_ECSPI_TESTREG);
 
+	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		if (spi_imx->target_mode &&
+		    spi_imx_can_dma(spi_imx->controller, spi, xfer))
+			spi_imx_target_dma_convert(xfer, DMA_TO_DEVICE);
+	};
+
 	/*
 	 * eCSPI burst completion by Chip Select signal in Target mode
 	 * is not functional for imx53 Soc, config SPI burst completed when
@@ -682,10 +688,6 @@ static int mx51_ecspi_prepare_message(struct spi_imx_data *spi_imx,
 	 * min_speed_hz is ~0 and the resulting delay is zero.
 	 */
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-		if (spi_imx->target_mode &&
-		    spi_imx_can_dma(spi_imx->controller, spi, xfer))
-			spi_imx_target_dma_convert(xfer, DMA_TO_DEVICE);
-
 		if (!xfer->speed_hz)
 			continue;
 		min_speed_hz = min(xfer->speed_hz, min_speed_hz);
