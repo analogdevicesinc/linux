@@ -698,6 +698,9 @@ static void adau1860_set_power(struct snd_soc_component *component, bool enable)
 		if (adau1860->pd_gpio)
 			gpiod_set_value(adau1860->pd_gpio, 1);
 
+		if (adau1860->switch_mode)
+			adau1860->switch_mode(component->dev);
+
 		regcache_cache_only(adau1860->regmap, false);
 		regcache_sync(adau1860->regmap);
 	} else {
@@ -1144,14 +1147,17 @@ int adau1860_probe(struct device *dev, struct regmap *regmap,
 	adau->switch_mode = switch_mode;
 	adau->type = type;
 
+	dev_set_drvdata(dev, adau);
+
+	if (adau->switch_mode)
+		adau->switch_mode(dev);
+
 	ret = regmap_bulk_read(adau->regmap, ADAU1860_DEVICE_ID1, &val, 2);
 	dev_dbg(dev, "Read Device ID: %x", val);
 	if (val != 0x1860) {
 		dev_err(dev, "Wrong Device ID: %x", val);
 		return 0;
 	}
-
-	dev_set_drvdata(dev, adau);
 
 	return devm_snd_soc_register_component(dev, &adau1860_component_driver,
 					       adau1860_dai,
