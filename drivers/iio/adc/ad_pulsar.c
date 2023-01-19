@@ -586,6 +586,15 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
+		if (adc->info->sequencer) {
+			ret = ad_pulsar_reg_read(adc, chan->address, val);
+			if (ret)
+				return ret;
+			ret = ad_pulsar_reg_read(adc, chan->address, val);
+			if (ret)
+				return ret;
+		}
+
 		ret = ad_pulsar_reg_read(adc, chan->address, val);
 		if (ret)
 			return ret;
