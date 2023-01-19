@@ -8,6 +8,7 @@
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/cache.h>
+#include <linux/clocksource.h>
 #include <linux/crc8.h>
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
@@ -15,6 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/iopoll.h>
 #include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/mii.h>
 #include <linux/module.h>
@@ -22,7 +24,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/phy.h>
 #include <linux/property.h>
+#include <linux/ptp_clock_kernel.h>
 #include <linux/spi/spi.h>
+#include <linux/timekeeping.h>
 
 #include <net/switchdev.h>
 
@@ -35,6 +39,8 @@
 
 #define ADIN1110_CONFIG1			0x04
 #define   ADIN1110_CONFIG1_SYNC			BIT(15)
+#define   ADIN1110_CONFIG1_FTSE			BIT(7)
+#define   ADIN1110_CONFIG1_FTSS			BIT(6)
 
 #define ADIN1110_CONFIG2			0x06
 #define   ADIN2111_P2_FWD_UNK2HOST		BIT(12)
@@ -78,6 +84,20 @@
 #define ADIN1110_MAC_ADDR_MASK_UPR		0x70
 #define ADIN1110_MAC_ADDR_MASK_LWR		0x71
 
+#define ADIN1110_MAC_TS_ADDEND			0x80
+#define ADIN1110_MAC_TS_SEC_CNT			0x82
+#define ADIN1110_MAC_TS_NS_CNT			0x83
+#define ADIN1110_MAC_TS_CFG			0x84
+#define   ADIN1110_MAC_TS_CFG_EN		BIT(0)
+#define   ADIN1110_MAC_TS_CFG_CLR		BIT(1)
+#define   ADIN1110_MAC_TS_CFG_TIMER_STOP	BIT(3)
+#define   ADIN1110_MAC_TS_CFG_CAPT_CNT		BIT(4)
+#define ADIN1110_MAC_TS_TIMER_HI		0x85
+#define ADIN1110_MAC_TS_TIMER_LO		0x86
+#define ADIN1110_MAC_TS_TIMER_START		0x88
+#define ADIN1110_MAC_TS_CAPT0			0x89
+#define ADIN1110_MAC_TS_CAPT1			0x8A
+
 #define ADIN1110_RX_FSIZE			0x90
 #define ADIN1110_RX				0x91
 
@@ -89,6 +109,19 @@
 /* MDIO_OP codes */
 #define ADIN1110_MDIO_OP_WR			0x1
 #define ADIN1110_MDIO_OP_RD			0x3
+
+/* ADIN2111 PHY PINMUX Controls */
+#define ADIN2111_PINMUX_CFG1			0x8C56
+#define   ADIN2111_PINMUX_CFG1_DIGIO_TSCAPT	GENMASK(5, 4)
+
+#define   ADIN2111_PINMUX_CFG1_TSCAPT_TEST_1	BIT(5)
+#define   ADIN2111_PINMUX_CFG1_NOT_ASSIGNED	GENMASK(5, 4)
+
+/* ADIN2111 PHY LEDs Controls */
+#define ADIN2111_LED_CNTRL			0x8C82
+#define   ADIN2111_LED_CNTRL_LED0_FUNCTION	GENMASK(4, 0)
+
+#define   ADIN2111_LED_CNTRL_TS_TIMER		0x17
 
 #define ADIN1110_CD				BIT(7)
 #define ADIN1110_WRITE				BIT(5)
@@ -113,6 +146,11 @@
 #define ADIN_MAC_P1_ADDR_SLOT			2
 #define ADIN_MAC_P2_ADDR_SLOT			3
 #define ADIN_MAC_FDB_ADDR_SLOT			4
+
+#define ADIN_MAC_MAX_PTP_PINS			2
+#define ADIN_MAC_MAX_TS_SLOTS			3
+
+#define adin1110_ptp_to_priv(x) container_of(x, struct adin1110_priv, ptp)
 
 DECLARE_CRC8_TABLE(adin1110_crc_table);
 
@@ -150,6 +188,11 @@ struct adin1110_port_priv {
 struct adin1110_priv {
 	struct mutex			lock; /* protect spi */
 	spinlock_t			state_lock; /* protect RX mode */
+	bool				ts_rx_append;
+	struct ptp_clock_info		ptp;
+	struct ptp_clock		*ptp_clock;
+	struct gpio_desc		*ts_capt;
+	struct ptp_pin_desc		ptp_pins[ADIN_MAC_MAX_PTP_PINS];
 	struct mii_bus			*mii_bus;
 	struct spi_device		*spidev;
 	bool				append_crc;
@@ -1633,6 +1676,370 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 	return 0;
 }
 
+/* ADIN1110 has a syntonized counter driven by an internal 120 MHz clock, a 64-bit
+ * counter in which the lower 32 bits represent nanoseconds with 1 LSB = 1 ns.
+ * Frequency is adjusted by modifying the addend register.
+ */
+static int adin1110_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
+{
+	struct adin1110_priv *priv = adin1110_ptp_to_priv(ptp);
+	bool negative = false;
+	u64 ts_addend;
+	u64 diff;
+	u32 val;
+	int ret;
+
+	mutex_lock(&priv->lock);
+
+	ret = adin1110_read_reg(priv, ADIN1110_MAC_TS_ADDEND, &val);
+	if (ret < 0)
+		goto out;
+
+	ts_addend = val;
+
+	if (scaled_ppm < 0) {
+		negative = true;
+		scaled_ppm = -scaled_ppm;
+	}
+
+	diff = mul_u64_u64_div_u64(ts_addend, (u64)scaled_ppm, 1000000ULL << 16);
+	if (negative)
+		val = ts_addend - diff;
+	else
+		val = ts_addend + diff;
+
+	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_ADDEND, val);
+out:
+	mutex_unlock(&priv->lock);
+	return ret;
+}
+
+static int adin1110_ptp_read_ts_capt(struct adin1110_priv *priv,
+				     struct timespec64 *ts,
+				     struct ptp_system_timestamp *sts,
+				     struct ktime_timestamps *snap)
+{
+	u32 val;
+	int ret;
+
+	mutex_lock(&priv->lock);
+
+	if (sts)
+		ptp_read_system_prets(sts);
+
+	if (snap) {
+		snap->mono = ktime_get_mono_fast_ns();
+		snap->real = ktime_get_real_fast_ns();
+	}
+
+	gpiod_set_value(priv->ts_capt, 1);
+	fsleep(1);
+	gpiod_set_value(priv->ts_capt, 0);
+
+	ret = adin1110_read_reg(priv, ADIN1110_MAC_TS_CAPT0, &val);
+	if (ret < 0)
+		goto out;
+	/* No TS captured when nsecs == 0 */
+	if (!val) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ts->tv_nsec = val;
+
+	ret = adin1110_read_reg(priv, ADIN1110_MAC_TS_CAPT1, &val);
+	if (ret < 0)
+		goto out;
+	if (sts)
+		ptp_read_system_postts(sts);
+
+	ts->tv_sec = val;
+out:
+	mutex_unlock(&priv->lock);
+
+	return ret;
+}
+
+static int adin1110_ptp_settime64(struct ptp_clock_info *ptp,
+				  const struct timespec64 *ts)
+{
+	struct adin1110_priv *priv = adin1110_ptp_to_priv(ptp);
+	u32 addend;
+	int ret;
+
+	mutex_lock(&priv->lock);
+
+	ret = adin1110_read_reg(priv, ADIN1110_MAC_TS_ADDEND, &addend);
+	if (ret < 0)
+		goto out;
+
+	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_ADDEND, 0);
+	if (ret < 0)
+		goto out;
+
+	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_NS_CNT,
+				 ALIGN(ts->tv_nsec, 16));
+	if (ret < 0)
+		goto out;
+
+	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_SEC_CNT,
+				 ts->tv_sec);
+	if (ret < 0)
+		goto out;
+
+	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_ADDEND, addend);
+out:
+	mutex_unlock(&priv->lock);
+
+	return ret;
+}
+
+static int adin1110_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+{
+	struct adin1110_priv *priv = adin1110_ptp_to_priv(ptp);
+	struct timespec64 ts;
+	u64 dev_time;
+	int ret;
+
+	ret = adin1110_ptp_read_ts_capt(priv, &ts, NULL, NULL);
+	if (ret < 0)
+		return ret;
+
+	dev_time = timespec64_to_ns(&ts);
+	dev_time += delta;
+
+	ts = ns_to_timespec64(dev_time);
+
+	return adin1110_ptp_settime64(ptp, &ts);
+}
+
+static int adin1110_ptp_gettimex64(struct ptp_clock_info *ptp,
+				   struct timespec64 *ts,
+				   struct ptp_system_timestamp *sts)
+{
+	struct adin1110_priv *priv = adin1110_ptp_to_priv(ptp);
+
+	return adin1110_ptp_read_ts_capt(priv, ts, sts, NULL);
+}
+
+static int adin1110_ptp_getcrosststamp(struct ptp_clock_info *ptp,
+				       struct system_device_crosststamp *cts)
+{
+	struct adin1110_priv *priv = adin1110_ptp_to_priv(ptp);
+	struct ktime_timestamps snap;
+	struct timespec64 ts;
+	int ret;
+
+	ret = adin1110_ptp_read_ts_capt(priv, &ts, NULL, &snap);
+	if (ret < 0)
+		return ret;
+
+	cts->device = timespec64_to_ktime(ts);
+	cts->sys_realtime = snap.real;
+	cts->sys_monoraw = snap.mono;
+
+	return 0;
+}
+
+static int adin2111_enable_ts_timer(struct adin1110_priv *priv, int on)
+{
+	struct phy_device *phydev = priv->ports[0]->phydev;
+	int ret;
+
+	mutex_lock(&phydev->lock);
+
+	ret = phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1,
+				 ADIN2111_LED_CNTRL,
+				 ADIN2111_LED_CNTRL_LED0_FUNCTION);
+	if (ret < 0)
+		goto out;
+
+	ret = phy_set_bits_mmd(phydev, MDIO_MMD_VEND1,
+			       ADIN2111_LED_CNTRL,
+			       on ? ADIN2111_LED_CNTRL_TS_TIMER : 0);
+out:
+	mutex_unlock(&phydev->lock);
+	return ret;
+}
+
+static int adin1110_enable_perout(struct adin1110_priv *priv,
+				  struct ptp_perout_request perout,
+				  int on)
+{
+	u32 on_nsec;
+	u32 phase;
+	u32 mask;
+	int ret;
+
+	if (priv->cfg->id == ADIN2111_MAC) {
+		ret = adin2111_enable_ts_timer(priv, on);
+		if (ret < 0)
+			return ret;
+	}
+
+	mutex_lock(&priv->lock);
+
+	ret = adin1110_set_bits(priv, ADIN1110_MAC_TS_CFG,
+				ADIN1110_MAC_TS_CFG_CLR,
+				ADIN1110_MAC_TS_CFG_CLR);
+	if (ret < 0)
+		goto out;
+
+	if (perout.flags & PTP_PEROUT_DUTY_CYCLE)
+		on_nsec = perout.on.nsec;
+	else
+		on_nsec = perout.period.nsec / 2;
+
+	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_TIMER_HI,
+				 ALIGN(on_nsec, 16));
+	if (ret < 0)
+		goto out;
+
+	ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_TIMER_LO,
+				 ALIGN((perout.period.nsec - on_nsec), 16));
+	if (ret < 0)
+		goto out;
+
+	if (perout.flags & PTP_PEROUT_PHASE)
+		phase = ALIGN(perout.phase.nsec, 16);
+	else
+		phase = 0;
+
+	/* TS_TIMER_START reg must be written to a value >= 16 because of how
+	 * the syntonized counter was implemented.
+	 */
+	if (phase < 16)
+		phase = 16;
+
+	if (on) {
+		ret = adin1110_write_reg(priv, ADIN1110_MAC_TS_TIMER_START,
+					 phase);
+		if (ret < 0)
+			goto out;
+	}
+
+	mask = ADIN1110_MAC_TS_CFG_EN | ADIN1110_MAC_TS_CFG_TIMER_STOP;
+	ret = adin1110_set_bits(priv, ADIN1110_MAC_TS_CFG, mask,
+				on ? ADIN1110_MAC_TS_CFG_EN : ADIN1110_MAC_TS_CFG_TIMER_STOP);
+	if (ret < 0)
+		goto out;
+
+	ret = adin1110_set_bits(priv, ADIN1110_CONFIG1, ADIN1110_CONFIG1_SYNC,
+				ADIN1110_CONFIG1_SYNC);
+out:
+	mutex_unlock(&priv->lock);
+	return ret;
+}
+
+static int adin2111_enable_extts(struct adin1110_priv *priv, int on)
+{
+	struct phy_device *phydev = priv->ports[0]->phydev;
+	u32 val;
+	int ret;
+
+	mutex_lock(&phydev->lock);
+
+	ret = phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1, ADIN2111_PINMUX_CFG1,
+				 ADIN2111_PINMUX_CFG1_DIGIO_TSCAPT);
+	if (ret < 0)
+		goto out;
+
+	val = on ? ADIN2111_PINMUX_CFG1_TSCAPT_TEST_1 : ADIN2111_PINMUX_CFG1_NOT_ASSIGNED;
+	ret = phy_set_bits_mmd(phydev, MDIO_MMD_VEND1,
+			       ADIN2111_PINMUX_CFG1_DIGIO_TSCAPT, val);
+out:
+	mutex_unlock(&phydev->lock);
+	return ret;
+}
+
+static int adin1110_enable_extts(struct adin1110_priv *priv,
+				 struct ptp_extts_request extts,
+				 int on)
+{
+	int ret;
+
+	if (extts.index >= priv->ptp.n_ext_ts)
+		return -EINVAL;
+
+	if (priv->cfg->id == ADIN2111_MAC) {
+		ret = adin2111_enable_extts(priv, on);
+		if (ret < 0)
+			return ret;
+	}
+
+	mutex_lock(&priv->lock);
+	ret = adin1110_set_bits(priv, ADIN1110_MAC_TS_CFG,
+				ADIN1110_MAC_TS_CFG_EN,
+				on ? ADIN1110_MAC_TS_CFG_EN : 0);
+	if (ret < 0)
+		goto out;
+
+	ret = adin1110_set_bits(priv, ADIN1110_CONFIG1,
+				ADIN1110_CONFIG1_SYNC,
+				ADIN1110_CONFIG1_SYNC);
+out:
+	mutex_unlock(&priv->lock);
+	return ret;
+}
+
+static int adin1110_ptp_enable(struct ptp_clock_info *ptp,
+			       struct ptp_clock_request *request, int on)
+{
+	struct adin1110_priv *priv = adin1110_ptp_to_priv(ptp);
+
+	switch (request->type) {
+	case PTP_CLK_REQ_EXTTS:
+		return adin1110_enable_extts(priv, request->extts, on);
+	case PTP_CLK_REQ_PEROUT:
+		return adin1110_enable_perout(priv, request->perout, on);
+	case PTP_CLK_REQ_PPS:
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int adin1110_setup_ptp(struct adin1110_priv *priv)
+{
+	priv->ts_capt = devm_gpiod_get_optional(&priv->spidev->dev, "ts-capt",
+						GPIOD_OUT_LOW);
+	if (!priv->ts_capt)
+		return 0;
+
+	snprintf(priv->ptp_pins[0].name, 64, "%s-%u-ptp-per-out",
+		 priv->cfg->name, priv->spidev->chip_select);
+	priv->ptp_pins[0].index = 0;
+	priv->ptp_pins[0].func = PTP_PF_PEROUT;
+	priv->ptp_pins[0].chan = 0;
+
+	snprintf(priv->ptp_pins[1].name, 64, "%s-%u-ptp-ext-ts",
+		 priv->cfg->name, priv->spidev->chip_select);
+	priv->ptp_pins[1].index = 1;
+	priv->ptp_pins[1].func = PTP_PF_EXTTS;
+	priv->ptp_pins[1].chan = 0;
+
+	priv->ptp.owner = THIS_MODULE;
+	snprintf(priv->ptp.name, 32, "%s-%u-ptp",
+		 priv->cfg->name, priv->spidev->chip_select);
+
+	priv->ptp.max_adj = 512000;
+	priv->ptp.n_ext_ts = 1;
+	priv->ptp.n_per_out = 1;
+	priv->ptp.n_pins = ADIN_MAC_MAX_PTP_PINS;
+	priv->ptp.pin_config = priv->ptp_pins;
+	priv->ptp.adjfine = adin1110_ptp_adjfine;
+	priv->ptp.adjtime = adin1110_ptp_adjtime;
+	priv->ptp.gettimex64 = adin1110_ptp_gettimex64;
+	priv->ptp.getcrosststamp = adin1110_ptp_getcrosststamp;
+	priv->ptp.settime64 = adin1110_ptp_settime64;
+	priv->ptp.enable = adin1110_ptp_enable;
+
+	priv->ptp_clock = ptp_clock_register(&priv->ptp, &priv->spidev->dev);
+	if (IS_ERR(priv->ptp_clock))
+		return PTR_ERR(priv->ptp_clock);
+
+	return 0;
+}
+
 static int adin1110_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
@@ -1670,6 +2077,12 @@ static int adin1110_probe(struct spi_device *spi)
 	ret = adin1110_register_mdiobus(priv, dev);
 	if (ret < 0) {
 		dev_err(dev, "Could not register MDIO bus %d\n", ret);
+		return ret;
+	}
+
+	ret = adin1110_setup_ptp(priv);
+	if (ret < 0) {
+		dev_err(dev, "Could not register PTP clock %d\n", ret);
 		return ret;
 	}
 
