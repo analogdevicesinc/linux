@@ -82,10 +82,11 @@
 	AD7682_UPDATE_CFG | AD7682_CH_TYPE(SINGLE_ENDED) | AD7682_CH_REF(GND) |\
 	AD7682_CH_POLARITY(BIPOLAR))
 
-#define AD7682_SEQ_EN_CHANNEL(i)	(AD7682_UPDATE_CFG | AD7682_SEL_CH(i) |\
-	AD7682_NO_READBACK | AD7682_CH_REF(COM) | AD7682_SEQ_SCAN(DISABLED) |  \
+#define AD7682_SEQ_EN_CHANNEL(i)	(AD7682_UPDATE_CFG | 		       \
 	AD7682_CH_POLARITY(UNIPOLAR) | AD7682_CH_TYPE(SINGLE_ENDED) |	       \
-	AD7682_REFBUF_SEL(INT_REF_4096) | AD7682_BW_SEL(FULL_BW))
+	AD7682_CH_REF(COM) | AD7682_SEL_CH(i) | AD7682_BW_SEL(FULL_BW) |       \
+	AD7682_REFBUF_SEL(INT_REF_4096) | AD7682_SEQ_SCAN(DISABLED) |	       \
+	AD7682_NO_READBACK)
 
 #define AD7682_DISABLE_SEQ		(AD7682_UPDATE_CFG |		       \
 	AD7682_CH_POLARITY(UNIPOLAR) | AD7682_CH_TYPE(SINGLE_ENDED) |	       \
@@ -657,8 +658,8 @@ static int ad_pulsar_read_avail(struct iio_dev *indio_dev,
 static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-	int ret, ch, first, second, last, max_freq;
-	unsigned int freq, num_en_ch;
+	int ret, ch, first, last;
+	unsigned int num_en_ch;
 	struct spi_transfer xfer = {
 		.tx_buf = &adc->spi_tx_data,
 		.rx_buf = &adc->spi_rx_data,
@@ -674,58 +675,32 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 
 		last = find_last_bit(indio_dev->active_scan_mask,
 				     indio_dev->masklength);
-		if (num_en_ch > 2) {
-			first = find_first_bit(indio_dev->active_scan_mask,
-					       indio_dev->masklength);
-			second = find_next_bit(indio_dev->active_scan_mask,
-					       indio_dev->masklength,
-					       first + 1);
-		}
+		first = find_first_bit(indio_dev->active_scan_mask,
+				       indio_dev->masklength);
 		spi_message_init(&msg);
 
-		adc->spi_tx_data = 0;
 		for_each_set_bit(ch, indio_dev->active_scan_mask,
 				 indio_dev->masklength) {
 			adc->seq_xfer[ch].cs_change = 1;
 			adc->seq_xfer[ch].word_delay.value = 2;
 			adc->seq_xfer[ch].word_delay.unit = SPI_DELAY_UNIT_USECS;
-			if (num_en_ch > 2 && (ch == first || ch == second))
-				continue;
-			if (ch == last && num_en_ch <= 2) {
+
+			if (ch == last) {
 				adc->seq_xfer[ch].cs_change = 0;
 				adc->seq_xfer[ch].word_delay.value = 0;
 			}
+
 			spi_message_add_tail(&adc->seq_xfer[ch], &msg);
 		}
-		if (num_en_ch > 2) {
-			adc->seq_xfer[second].cs_change = 0;
-			adc->seq_xfer[second].word_delay.value = 0;
-			spi_message_add_tail(&adc->seq_xfer[first], &msg);
-			spi_message_add_tail(&adc->seq_xfer[second], &msg);
-		}
-
-		max_freq = adc->info->max_rate / num_en_ch;
-		freq = clamp(adc->samp_freq, 0, max_freq);
-		ret = ad_pulsar_set_samp_freq(adc, freq);
-		if (ret)
-			return ret;
 
 		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 					  adc->seq_buf[first]);
 		if (ret)
 			return ret;
-
-		if (num_en_ch > 1) {
-			ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-						  adc->seq_buf[second]);
-			if (ret)
-				return ret;
-		} else {
-			ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-						  adc->seq_buf[first]);
-			if (ret)
-				return ret;
-		}
+		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
+					  adc->seq_buf[first]);
+		if (ret)
+			return ret;
 	} else {
 		spi_message_init_with_transfers(&msg, &xfer, 1);
 	}
