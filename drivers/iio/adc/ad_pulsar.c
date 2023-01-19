@@ -22,7 +22,6 @@
 #include <linux/spi/spi-engine.h>
 #include <linux/regulator/consumer.h>
 
-
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
@@ -31,7 +30,7 @@
 
 /* 5.10 compatibility */
 #include <linux/slab.h>
-#define IIO_DMA_MINALIGN ARCH_KMALLOC_MINALIGN
+#define IIO_DMA_MINALIGN		ARCH_KMALLOC_MINALIGN
 /* end 5.10 compatibility */
 
 #define AD_PULSAR_REG_CONFIG		0x00
@@ -82,7 +81,7 @@
 	AD7682_UPDATE_CFG | AD7682_CH_TYPE(SINGLE_ENDED) | AD7682_CH_REF(GND) |\
 	AD7682_CH_POLARITY(BIPOLAR))
 
-#define AD7682_SEQ_EN_CHANNEL(i)	(AD7682_UPDATE_CFG | 		       \
+#define AD7682_SEQ_EN_CHANNEL(i)	(AD7682_UPDATE_CFG |		       \
 	AD7682_CH_POLARITY(UNIPOLAR) | AD7682_CH_TYPE(SINGLE_ENDED) |	       \
 	AD7682_CH_REF(COM) | AD7682_SEL_CH(i) | AD7682_BW_SEL(FULL_BW) |       \
 	AD7682_REFBUF_SEL(INT_REF_4096) | AD7682_SEQ_SCAN(DISABLED) |	       \
@@ -417,8 +416,10 @@ static const struct ad_pulsar_chip_info ad4007_chip_info = {
 static const struct ad_pulsar_chip_info ad4003_chip_info = {
 	.name = "ad4003",
 	.input_type = DIFFERENTIAL,
-	/*.max_rate = 2000000,
-	  HDL does not support maximum rate*/
+	/*
+	 * .max_rate = 2000000,
+	 * HDL does not support maximum rate
+	 */
 	.max_rate = 1839080,
 	.resolution = 18,
 	.num_channels = 1,
@@ -429,8 +430,10 @@ static const struct ad_pulsar_chip_info ad4003_chip_info = {
 static const struct ad_pulsar_chip_info adaq4003_chip_info = {
 	.name = "adaq4003",
 	.input_type = DIFFERENTIAL,
-	/*.max_rate = 2000000,
-	  HDL does not support maximum rate*/
+	/*
+	 * .max_rate = 2000000,
+	 * HDL does not support maximum rate
+	 */
 	.max_rate = 1839080,
 	.resolution = 18,
 	.num_channels = 1,
@@ -455,8 +458,8 @@ struct ad_pulsar_adc {
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	unsigned int spi_rx_data __aligned(IIO_DMA_MINALIGN);
-	unsigned int spi_tx_data;
+	unsigned int spi_rx_data[1] __aligned(IIO_DMA_MINALIGN);
+	unsigned int spi_tx_data[1];
 };
 
 static const struct iio_chan_spec ad_pulsar_chan_template = {
@@ -480,8 +483,8 @@ static int ad_pulsar_reg_write(struct ad_pulsar_adc *adc, unsigned int reg,
 		.len = 4,
 	};
 
-	adc->spi_tx_data = val << 2;
-	xfer.tx_buf = &adc->spi_tx_data;
+	*adc->spi_tx_data = val << 2;
+	xfer.tx_buf = adc->spi_tx_data;
 
 	return spi_sync_transfer(adc->spi, &xfer, 1);
 }
@@ -496,15 +499,15 @@ static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
 	};
 	int ret;
 
-	adc->spi_tx_data = reg << 2;
-	xfer.tx_buf = &adc->spi_tx_data;
-	xfer.rx_buf = &adc->spi_rx_data;
+	*adc->spi_tx_data = reg << 2;
+	xfer.tx_buf = adc->spi_tx_data;
+	xfer.rx_buf = adc->spi_rx_data;
 
 	ret = spi_sync_transfer(adc->spi, &xfer, 1);
 	if (ret)
 		return ret;
 
-	*val = adc->spi_rx_data & GENMASK(15, 0);
+	*val = GENMASK(15, 0) & *adc->spi_rx_data;
 
 	return ret;
 }
@@ -661,8 +664,8 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 	int ret, ch, first, last;
 	unsigned int num_en_ch;
 	struct spi_transfer xfer = {
-		.tx_buf = &adc->spi_tx_data,
-		.rx_buf = &adc->spi_rx_data,
+		.tx_buf = adc->spi_tx_data,
+		.rx_buf = adc->spi_rx_data,
 		.len = 3,
 		.bits_per_word = adc->info->resolution,
 		.speed_hz = adc->info->sclk_rate,
