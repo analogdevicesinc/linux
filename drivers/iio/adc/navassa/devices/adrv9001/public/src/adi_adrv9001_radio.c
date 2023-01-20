@@ -217,7 +217,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Pll_Configure_Va
                 ADI_API_RETURN(adrv9001)
             }
         }
-    }   
+    }
 
     ADI_API_RETURN(adrv9001);
 }
@@ -229,14 +229,14 @@ int32_t adi_adrv9001_Radio_Pll_Configure(adi_adrv9001_Device_t *adrv9001,
     uint8_t armData[7] = { 0 };
     uint8_t extData[5] = { 0 };
     uint32_t offset = 0;
-    
+
     ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_Pll_Configure_Validate, adrv9001, pllId, pllConfig);
 
     adrv9001_LoadFourBytes(&offset, armData, sizeof(armData) - sizeof(uint32_t));
     armData[offset++] = pllId;
     armData[offset++] = pllConfig->pllCalibration;
     armData[offset++] = pllConfig->pllPower;
-    
+
     extData[0] = 0;
     extData[1] = OBJID_GS_CONFIG;
     extData[2] = OBJID_CFG_PLL_CONFIG;
@@ -270,10 +270,10 @@ int32_t adi_adrv9001_Radio_Pll_Inspect(adi_adrv9001_Device_t *adrv9001,
     extendedData[0] = pllId;
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ADRV9001_ADDR_ARM_MAILBOX_GET + 4u, &extendedData[0], 1, ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_4);
     ADI_EXPECT(adi_adrv9001_arm_Config_Read, adrv9001, OBJID_CFG_PLL_CONFIG, channelMask, offset, armReadBack, sizeof(armReadBack))
-    
+
     /* Skip pll id */
     offset++;
-    
+
     pllConfig->pllCalibration    = (adi_adrv9001_PllCalibration_e) armReadBack[offset++];
     pllConfig->pllPower          = (adi_adrv9001_PllPower_e) armReadBack[offset++];
     ADI_API_RETURN(adrv9001);
@@ -405,10 +405,10 @@ int32_t adi_adrv9001_Radio_State_Get(adi_adrv9001_Device_t *adrv9001, adi_adrv90
 	static const uint8_t ARM_CMD_STATUS_8_BROADCAST_MODE = 0x11;
 	static const uint8_t ARM_CMD_STATUS_9_BROADCAST_MODE = 0x00;
 #endif
-    
+
     /* Range checks */
     ADI_ENTRY_PTR_EXPECT(adrv9001, radioState);
-    
+
 #if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
 	ADRV9001_SPIREADBYTE(adrv9001, "arm_cmd_status_8", ADRV9001_ADDR_ARM_CMD_STATUS_8, &regValue);
 #else
@@ -429,7 +429,7 @@ int32_t adi_adrv9001_Radio_State_Get(adi_adrv9001_Device_t *adrv9001, adi_adrv90
 		ADRV9001_SPIREADBYTE(adrv9001, "arm_cmd_status_8", ADRV9001_ADDR_ARM_CMD_STATUS_8, &regValue);
 	}
 #endif
-    
+
     radioState->systemState         = regValue & 0x03;
     /* The same parts of the register are stored twice for monitor mode state and MCS substate.
        These bits have different definitions depending on systemState.
@@ -450,7 +450,7 @@ int32_t adi_adrv9001_Radio_State_Get(adi_adrv9001_Device_t *adrv9001, adi_adrv90
         ADRV9001_SPIREADBYTE(adrv9001, "arm_cmd_status_9", ADRV9001_ADDR_ARM_CMD_STATUS_9, &regValue);
     }
 #endif
-    
+
     radioState->channelStates[0][0] = (regValue >> 0) & 0x03;   /* Rx1 */
     radioState->channelStates[0][1] = (regValue >> 2) & 0x03;   /* Rx2 */
     radioState->channelStates[1][0] = (regValue >> 4) & 0x03;   /* Tx1 */
@@ -483,7 +483,7 @@ int32_t adi_adrv9001_Radio_Channel_State_Get(adi_adrv9001_Device_t *adrv9001,
 #endif
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_Channel_State_Get_Validate, adrv9001, port, channel, channelState);
-    
+
 #if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
 	ADRV9001_SPIREADBYTE(adrv9001, "arm_cmd_status_9", ADRV9001_ADDR_ARM_CMD_STATUS_9, &regValue);
 #else
@@ -712,7 +712,7 @@ static __maybe_unused int32_t adi_adrv9001_Channel_DisableRF_Wait(adi_adrv9001_D
     adi_common_channel_to_index(channel, &chan_index);
 
     ADI_EXPECT(adi_adrv9001_Radio_Channel_EnableRf, adrv9001, port, channel, false);
-    
+
     waitInterval_us = (waitInterval_us > timeout_us) ? timeout_us : waitInterval_us;
     numEventChecks = (waitInterval_us == 0) ? 1 : (timeout_us / waitInterval_us);
 
@@ -1413,7 +1413,7 @@ int32_t adi_adrv9001_Radio_ToMcsReady (adi_adrv9001_Device_t *adrv9001)
                                         ADRV9001_ARM_OBJECTID_MCS,
                                         ADI_ADRV9001_WRITEARMCFG_TIMEOUT_US,
                                         ADI_ADRV9001_WRITEARMCFG_INTERVAL_US);
-    ADI_API_RETURN(adrv9001);      
+    ADI_API_RETURN(adrv9001);
 }
 
 static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_RfLogenDivider_Get_Validate(adi_adrv9001_Device_t *adrv9001,
@@ -1463,12 +1463,12 @@ int32_t adi_adrv9001_Radio_RfLogenDivider_Get(adi_adrv9001_Device_t *adrv9001, a
 {
 	uint8_t RfLogenDivMode = 0;
 	uint16_t RfLogenDivRatio = 0;
-	*RfLogenDivider = 0;
-
 	static const adrv9001_BfNvsPllMemMap_e instances[] = {
 		ADRV9001_BF_RF1_PLL,
 		ADRV9001_BF_RF2_PLL
 	};
+
+	*RfLogenDivider = 0;
 
 	ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_RfLogenDivider_Get_Validate, adrv9001, pll, RfLogenDivider);
 
