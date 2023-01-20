@@ -55,6 +55,13 @@ properties:
     maxItems: 1
     description: GPIO connected to active low reset
 
+  ts-capt-gpios:
+    maxItems: 1
+    description: |
+      Optional active high GPIO. Connected to the TS_TIMER pin of ADIN1110.
+      When pulled up device will save a timestamp containing both the
+      seconds and nanoseconds part simultaneously.
+
 patternProperties:
   "^phy@[0-1]$":
     description: |
