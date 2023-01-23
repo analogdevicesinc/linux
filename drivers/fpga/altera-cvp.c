@@ -703,6 +703,7 @@ static int altera_cvp_probe(struct pci_dev *pdev,
 	conf->send_buf = devm_kzalloc(&pdev->dev, conf->priv->block_size, GFP_KERNEL);
 	if (!conf->send_buf) {
 		ret = -ENOMEM;
+		fpga_mgr_unregister(mgr);
 		goto err_unmap;
 	}
 	return 0;
