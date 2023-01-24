@@ -5,6 +5,7 @@
  * Copyright 2022 Analog Devices Inc.
  */
 
+#include <asm/unaligned.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -458,8 +459,8 @@ struct ad_pulsar_adc {
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	unsigned int spi_rx_data[1] __aligned(IIO_DMA_MINALIGN);
-	unsigned int spi_tx_data[1];
+	u8 spi_rx_data[4] __aligned(IIO_DMA_MINALIGN);
+	u8 spi_tx_data[4];
 };
 
 static const struct iio_chan_spec ad_pulsar_chan_template = {
@@ -483,7 +484,7 @@ static int ad_pulsar_reg_write(struct ad_pulsar_adc *adc, unsigned int reg,
 		.len = 4,
 	};
 
-	*adc->spi_tx_data = val << 2;
+	put_unaligned_be16(val << 2, adc->spi_tx_data);
 	xfer.tx_buf = adc->spi_tx_data;
 
 	return spi_sync_transfer(adc->spi, &xfer, 1);
@@ -499,7 +500,7 @@ static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
 	};
 	int ret;
 
-	*adc->spi_tx_data = reg << 2;
+	put_unaligned_be16(reg << 2, adc->spi_tx_data);
 	xfer.tx_buf = adc->spi_tx_data;
 	xfer.rx_buf = adc->spi_rx_data;
 
@@ -507,7 +508,7 @@ static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
 	if (ret)
 		return ret;
 
-	*val = GENMASK(15, 0) & *adc->spi_rx_data;
+	*val = get_unaligned_le32(adc->spi_rx_data);
 
 	return ret;
 }
