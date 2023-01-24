@@ -1314,6 +1314,16 @@ S:	Supported
 F:	drivers/iio/gyro/adxrs290.c
 F:	Documentation/devicetree/bindings/iio/gyroscope/adi,adxrs290.yaml
 
+ANALOG DEVICES INC AD_PULSAR DRIVER
+M:	Marcelo Schmitt <marcelo.schmitt@analog.com>
+M:	Jorge Marques <jorge.marques@analog.com>
+M:	Ciprian Hegbeli <ciprian.hegbeli@analog.com>
+M:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	drivers/iio/adc/ad_pulsar.c
+
 ANALOG DEVICES INC ASOC CODEC DRIVERS
 M:	Lars-Peter Clausen <lars@metafoo.de>
 M:	Nuno Sá <nuno.sa@analog.com>
