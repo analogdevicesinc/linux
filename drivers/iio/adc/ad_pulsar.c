@@ -175,8 +175,7 @@ struct ad_pulsar_chip_info {
 	bool has_power_up_seq:1;
 	bool has_filter:1;
 	bool has_turbo:1;
-	bool has_reset:1;
-	bool sequencer;
+	bool sequencer:1;
 };
 
 static const struct ad_pulsar_chip_info ad7988_5_chip_info = {
@@ -241,7 +240,6 @@ static const struct ad_pulsar_chip_info ad7949_chip_info = {
 	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
 	.has_filter = true,
-	.has_reset = true,
 	.sequencer = true
 };
 
@@ -271,7 +269,6 @@ static const struct ad_pulsar_chip_info ad7699_chip_info = {
 	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
 	.has_filter = true,
-	.has_reset = true,
 	.sequencer = true
 };
 
@@ -311,7 +308,6 @@ static const struct ad_pulsar_chip_info ad7689_chip_info = {
 	.sclk_rate = 40000000,
 	.has_power_up_seq = true,
 	.has_filter = true,
-	.has_reset = true,
 	.sequencer = true
 };
 
@@ -360,7 +356,6 @@ static const struct ad_pulsar_chip_info ad7682_chip_info = {
 	.sclk_rate = 40000000,
 	.has_power_up_seq = true,
 	.has_filter = true,
-	.has_reset = true,
 	.sequencer = true
 };
 
@@ -587,6 +582,10 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
+		/*
+		 * Conversion requires 2 acquisitions for some ADCs (AD7682
+		 * Datasheet page 31).
+		 */
 		if (adc->info->sequencer) {
 			ret = ad_pulsar_reg_read(adc, chan->address, val);
 			if (ret)
@@ -975,18 +974,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	ret = ad_pulsar_parse_channels(indio_dev);
 	if (ret)
 		return ret;
-
-	if (adc->info->has_reset) {
-		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-					  AD7682_CONFIG_RESET);
-		if (ret)
-			return ret;
-
-		ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-					  AD7682_CONFIG_RESET);
-		if (ret)
-			return ret;
-	}
 
 	if (adc->info->has_turbo) {
 		ret =  ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
