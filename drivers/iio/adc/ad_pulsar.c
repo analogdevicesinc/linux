@@ -671,21 +671,51 @@ static int ad_pulsar_buffer_with_seq(struct iio_dev *indio_dev,
 				     struct spi_message *msg)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-	int ret, ch, first, last;
+	u8 ch, next_active_ch, first, second, last, active_ch[8];
 	unsigned int num_en_ch;
+	u8 next_in_sequ = 2;
+	u8 i = 0;
+	int ret;
 
 	num_en_ch = bitmap_weight(indio_dev->active_scan_mask,
 				  adc->info->num_channels);
 
 	last = find_last_bit(indio_dev->active_scan_mask,
 			     indio_dev->masklength);
+
 	first = find_first_bit(indio_dev->active_scan_mask,
 			       indio_dev->masklength);
+	if (num_en_ch >= 2) {
+		second = find_next_bit(indio_dev->active_scan_mask,
+				       indio_dev->masklength,
+				       first + 1);
+	}
 
 	spi_message_init(msg);
 
 	for_each_set_bit(ch, indio_dev->active_scan_mask,
 			 indio_dev->masklength) {
+		active_ch[i] = ch;
+		i++;
+	}
+
+	/*
+	 * Conversion requires 2 acquisitions for some ADCs (AD7682
+	 * Datasheet page 31)
+	 */
+	for (i = 0; i < num_en_ch; i++) {
+		ch = active_ch[i];
+		/*
+		 * Configurations need to be sent prior to the acquisition.
+		 */
+		if (num_en_ch > 2) {
+			if (next_in_sequ >= num_en_ch)
+				next_in_sequ = 0;
+			next_active_ch = active_ch[next_in_sequ];
+			adc->seq_xfer[ch].tx_buf = &adc->seq_buf[next_active_ch];
+			next_in_sequ++;
+		}
+
 		adc->seq_xfer[ch].cs_change = 1;
 		adc->seq_xfer[ch].word_delay.value = 2;
 		adc->seq_xfer[ch].word_delay.unit = SPI_DELAY_UNIT_USECS;
@@ -698,15 +728,20 @@ static int ad_pulsar_buffer_with_seq(struct iio_dev *indio_dev,
 		spi_message_add_tail(&adc->seq_xfer[ch], msg);
 	}
 	/*
-	 *
-	*/
+	 * The first two configurations need to be sent before populating the
+	 * buffer.
+	 */
 	ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 				  adc->seq_buf[first]);
 	if (ret)
 		return ret;
 
+	if (num_en_ch > 1)
+		return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
+					  adc->seq_buf[second]);
+
 	return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-				  adc->seq_buf[first]);
+				   adc->seq_buf[first]);
 }
 
 static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
