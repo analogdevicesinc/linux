@@ -25,4 +25,11 @@ config ADIN1110
 	  Say yes here to build support for Analog Devices ADIN1110
 	  Low Power 10BASE-T1L Ethernet MAC-PHY.
 
+config ADIN3310
+	tristate "Analog Devices ADIN3310 3-Port Switch"
+	depends on NET_SWITCHDEV
+	help
+	  Say yes here to build support for Analog Devices ADIN3310
+	  Low Power 3 Port Switch.
+
 endif # NET_VENDOR_ADI
