@@ -2,16 +2,18 @@
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 
+struct max31827_data {
+}
+
 static int adi_emu_read_raw(struct iio_dev *indio_dev,
                 struct iio_chan_spec const *chan,
                 int *val,
                 int *val2,
                 long mask)
 {
+    struct max31827_data *data = iio_priv(indio_dev);
+
     switch (mask) {
-    case IIO_CHAN_INFO_ENABLE:
-        *val = 0;
-        return IIO_VAL_INT;
     case IIO_CHAN_INFO_RAW:
         if (chan->channel)
             *val = 1;
@@ -29,8 +31,10 @@ static int adi_emu_write_raw(struct iio_dev *indio_dev,
                  int val2,
                  long mask)
 {
+    struct max31827_data *data = iio_priv(indio_dev);
+
     switch (mask) {
-    case IIO_CHAN_INFO_ENABLE:
+    case IIO_CHAN_INFO_HYSTERESIS:
         return 0;
     }
  
@@ -47,8 +51,7 @@ static const struct iio_chan_spec max31827_channels[] = {
     {
         .type = IIO_TEMP,
         .info_mask_shared_by_all = 
-            BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_RAW), /*I might need additional stuff here*/
-        .output = 0,
+            BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_HYSTERESIS), 
     }, 
 };
 
@@ -56,13 +59,17 @@ static int max31827_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
     struct iio_dev *indio_dev;
+    struct max31827_data *data;
 
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_WORD_DATA))
 		return -EOPNOTSUPP;
  
-    indio_dev = devm_iio_device_alloc(&client->dev, 0);
+    indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
     if (!indio_dev)
         return -ENOMEM;
+    
+    data = iio_priv(indio_dev);
+    data->enable = false;
  
     indio_dev->name = "iio-max31827";
     indio_dev->info = &max31827_info;
