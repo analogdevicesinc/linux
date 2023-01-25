@@ -1,6 +1,20 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
+#include <linux/regmap.h>
+ 
+/* The MAX31827 registers */
+#define MAX31827_T_MSB          0x00
+#define MAX31827_T_LSB          0x01
+#define MAX31827_CONFIGURATION  0x02
+#define MAX31827_TH_MSB         0x04
+#define MAX31827_TH_LSB         0x05
+#define MAX31827_TL_MSB         0x06
+#define MAX31827_TL_LSB         0x07
+#define MAX31827_TH_HYST_MSB    0x08
+#define MAX31827_TH_HYST_LSB    0x09
+#define MAX31827_TL_HYST_MSB    0x0A
+#define MAX31827_TL_HYST_LSB    0x0B
 
 struct max31827_data {
 }
