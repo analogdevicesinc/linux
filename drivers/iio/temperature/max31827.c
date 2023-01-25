@@ -2,19 +2,33 @@
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 #include <linux/regmap.h>
+
+#define MAX31827_CONFIGURATION_1SHOT        BIT(0)
+#define MAX31827_CONFIGURATION_CNV_RATE     GENMASK(3,1)
+#define MAX31827_CONFIGURATION_PEC          BIT(4)
+#define MAX31827_CONFIGURATION_TIMEOUT      BIT(5)
+#define MAX31827_CONFIGURATION_RESOL        GENMASK(7,6)
+#define MAX31827_CONFIGURATION_ALRM_POL     BIT(8)
+#define MAX31827_CONFIGURATION_COMP         BIT(9)
+#define MAX31827_CONFIGURATION_FLT_Q        GENMASK(11,10)
+#define MAX31827_CONFIGURATION_PEC_ERR      BIT(13)
+#define MAX31827_CONFIGURATION_U_TEMP_STAT  BIT(14)
+#define MAX31827_CONFIGURATION_O_TEMP_STAT  BIT(15)
+
+
  
 /* The MAX31827 registers */
-#define MAX31827_T_MSB          0x00
-#define MAX31827_T_LSB          0x01
-#define MAX31827_CONFIGURATION  0x02
-#define MAX31827_TH_MSB         0x04
-#define MAX31827_TH_LSB         0x05
-#define MAX31827_TL_MSB         0x06
-#define MAX31827_TL_LSB         0x07
-#define MAX31827_TH_HYST_MSB    0x08
-#define MAX31827_TH_HYST_LSB    0x09
-#define MAX31827_TL_HYST_MSB    0x0A
-#define MAX31827_TL_HYST_LSB    0x0B
+#define MAX31827_T_MSB                      0x00
+#define MAX31827_T_LSB                      0x01
+#define MAX31827_CONFIGURATION              0x02
+#define MAX31827_TH_MSB                     0x04
+#define MAX31827_TH_LSB                     0x05
+#define MAX31827_TL_MSB                     0x06
+#define MAX31827_TL_LSB                     0x07
+#define MAX31827_TH_HYST_MSB                0x08
+#define MAX31827_TH_HYST_LSB                0x09
+#define MAX31827_TL_HYST_MSB                0x0A
+#define MAX31827_TL_HYST_LSB                0x0B
 
 struct max31827_data {
 }
