@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/* Overlay for EVAL-ADIN1110EBZ Rev. B
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+
+/* ADIN3310 stuff below. Probing it as a platform device in the mean time.
+ * Will need here to hook to an ethernet interface.
+ */
+&{/} {
+	adin3310_dev: adin3310_switch@0 {
+		compatible = "adi,adin3310";
+
+		/* TOOD: Not sure about this one, see dsa.yaml: */
+		dsa,member = < 1 0 >;
+		status = "okay";
+		reg = <0>;
+
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ethernet-port@0 {
+				reg = <0>;
+				label = "cpu";
+				ethernet = <&adin_port>;
+			};
+
+			ethernet-port@1 {
+				reg = <1>;
+				label = "port";
+			};
+
+			ethernet-port@2 {
+				reg = <2>;
+				label = "port";
+			};
+		};
+	};
+};
+
+/* ADIN1110 stuff below. Kept these as we could use the adin interface
+ * as test interface.
+ */
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adin_port: ethernet@0 {
+		compatible = "adi,adin1110";
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+
+		adi,spi-crc;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+		mac-address = [ CA 2F B7 10 23 63 ];
+
+		phy@0 {
+			compatible = "ethernet-phy-id0283.bc91";
+			reg = <0x0>;
+		};
+	};
+};
+
+&gpio {
+	gpio_overrides: gpio_overrides {
+		pin-13-reset-high {
+			pins = "gpio27";
+			function = "gpio_out";
+			bias-pull-up;
+			output-high;
+			export;
+		};
+	};
+};
+
