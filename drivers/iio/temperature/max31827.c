@@ -3,6 +3,7 @@
 #include <linux/iio/iio.h>
 #include <linux/regmap.h>
 
+/* The CONFIGURATION register's bitmasks*/
 #define MAX31827_CONFIGURATION_1SHOT        BIT(0)
 #define MAX31827_CONFIGURATION_CNV_RATE     GENMASK(3,1)
 #define MAX31827_CONFIGURATION_PEC          BIT(4)
@@ -14,24 +15,26 @@
 #define MAX31827_CONFIGURATION_PEC_ERR      BIT(13)
 #define MAX31827_CONFIGURATION_U_TEMP_STAT  BIT(14)
 #define MAX31827_CONFIGURATION_O_TEMP_STAT  BIT(15)
-
-
  
 /* The MAX31827 registers */
-#define MAX31827_T_MSB                      0x00
-#define MAX31827_T_LSB                      0x01
+#define MAX31827_T                          0x00
 #define MAX31827_CONFIGURATION              0x02
-#define MAX31827_TH_MSB                     0x04
-#define MAX31827_TH_LSB                     0x05
-#define MAX31827_TL_MSB                     0x06
-#define MAX31827_TL_LSB                     0x07
-#define MAX31827_TH_HYST_MSB                0x08
-#define MAX31827_TH_HYST_LSB                0x09
-#define MAX31827_TL_HYST_MSB                0x0A
-#define MAX31827_TL_HYST_LSB                0x0B
+#define MAX31827_TH                         0x04
+#define MAX31827_TL                         0x06
+#define MAX31827_TH_HYST                    0x08
+#define MAX31827_TL_HYST                    0x0A
 
 struct max31827_data {
+    struct regmap *regmap;
 }
+
+// check this
+// might have to change the endian 
+static const struct regmap_config max31827_regmap = {           
+        .reg_bits = 16,
+        .val_bits = 16,
+        .max_register = 0xA,
+};
 
 static int adi_emu_read_raw(struct iio_dev *indio_dev,
                 struct iio_chan_spec const *chan,
@@ -88,7 +91,10 @@ static int max31827_probe(struct i2c_client *client,
 {
     struct iio_dev *indio_dev;
     struct max31827_data *data;
+    struct regmap *regmap;
 
+    // check this
+    // how to use this shit?
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_WORD_DATA))
 		return -EOPNOTSUPP;
  
@@ -96,9 +102,14 @@ static int max31827_probe(struct i2c_client *client,
     if (!indio_dev)
         return -ENOMEM;
     
+    regmap = devm_regmap_init_i2c(client, &max31827_regmap);
+    if (IS_ERR(regmap)) {
+		dev_err(&client->dev, "Failed to allocate regmap: %d\n", PTR_ERR(regmap));
+		return PTR_ERR(regmap);
+	}
+
     data = iio_priv(indio_dev);
-    data->enable = false;
- 
+    data->regmap = regmap;
     indio_dev->name = "iio-max31827";
     indio_dev->info = &max31827_info;
 
