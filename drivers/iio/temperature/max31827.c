@@ -3,7 +3,7 @@
 #include <linux/iio/iio.h>
 #include <linux/regmap.h>
 
-/* The CONFIGURATION register's bitmasks*/
+/* The CONFIGURATION register's bitmasks */
 #define MAX31827_CONFIGURATION_1SHOT        BIT(0)
 #define MAX31827_CONFIGURATION_CNV_RATE     GENMASK(3,1)
 #define MAX31827_CONFIGURATION_PEC_EN       BIT(4)
@@ -43,13 +43,13 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
                 long mask)
 {
     struct max31827_data *data = iio_priv(indio_dev);
+    int ret;
 
     switch (mask) {
     case IIO_CHAN_INFO_RAW:
-        if (chan->channel)
-            *val = 1;
-        else
-            *val = 0;
+        ret = regmap_read(data->regmap, MAX31827_T, &val);
+        if (ret)
+            return ret;
         return IIO_VAL_INT;
     }
  
@@ -102,6 +102,7 @@ static int max31827_probe(struct i2c_client *client,
     struct iio_dev *indio_dev;
     struct max31827_data *data;
     struct regmap *regmap;
+    int ret;
 
     // check this
     // what is this shit?
@@ -112,14 +113,16 @@ static int max31827_probe(struct i2c_client *client,
     if (!indio_dev)
         return -ENOMEM;
     
+    data = iio_priv(indio_dev);
     regmap = devm_regmap_init_i2c(client, &max31827_regmap);
     if (IS_ERR(regmap)) {
-		dev_err(&client->dev, "Failed to allocate regmap: %d\n", PTR_ERR(regmap));
-		return PTR_ERR(regmap);
+        ret = PTR_ERR(regmap)
+		dev_err(&client->dev, "Failed to allocate regmap: %d\n", ret);
+		return ret;
 	}
 
-    data = iio_priv(indio_dev);
     data->regmap = regmap;
+
     indio_dev->name = "iio-max31827";
     indio_dev->info = &max31827_info;
 
