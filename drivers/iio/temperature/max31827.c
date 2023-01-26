@@ -81,9 +81,22 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
     return -EINVAL;
 }
 
+static int max31827_reg_access(struct iio_dev *indio_dev,
+                        unsigned reg, unsigned writeval,
+                        unsigned *readval)
+{
+    struct max31827_data *data = iio_priv(indio_dev);
+
+    if (readval)
+        return regmap_read(data->regmap, reg, readval);
+
+    return regmap_write(data->regmap, reg, writeval);
+}
+
 static const struct iio_info max31827_info = {
     .read_raw = &max31827_read_raw,
     .write_raw = &max31827_write_raw,
+    .debugfs_reg_access = &max31827_reg_access;
 };
 
 // check this
