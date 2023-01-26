@@ -36,7 +36,7 @@ static const struct regmap_config max31827_regmap = {
         .max_register = 0xA,
 };
 
-static int adi_emu_read_raw(struct iio_dev *indio_dev,
+static int max31827_read_raw(struct iio_dev *indio_dev,
                 struct iio_chan_spec const *chan,
                 int *val,
                 int *val2,
@@ -56,15 +56,24 @@ static int adi_emu_read_raw(struct iio_dev *indio_dev,
     return -EINVAL;
 }
 
-static int adi_emu_write_raw(struct iio_dev *indio_dev,
+static int max31827_write_raw(struct iio_dev *indio_dev,
                  struct iio_chan_spec const *chan,
                  int val,
                  int val2,
                  long mask)
 {
     struct max31827_data *data = iio_priv(indio_dev);
+    int ret;
 
     switch (mask) {
+    /* One-shot = return a single conversion */
+    case IIO_CHAN_INFO_ENABLE:
+        ret = regmap_write(data->regmap, MAX31827_CONFIGURATION,
+            val ? MAX31827_CONFIGURATION_1SHOT : 0);
+        if (ret)
+            return ret;
+        return 0;
+   
     case IIO_CHAN_INFO_HYSTERESIS:
         return 0;
     }
