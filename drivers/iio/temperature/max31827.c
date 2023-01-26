@@ -6,11 +6,11 @@
 /* The CONFIGURATION register's bitmasks*/
 #define MAX31827_CONFIGURATION_1SHOT        BIT(0)
 #define MAX31827_CONFIGURATION_CNV_RATE     GENMASK(3,1)
-#define MAX31827_CONFIGURATION_PEC          BIT(4)
+#define MAX31827_CONFIGURATION_PEC_EN       BIT(4)
 #define MAX31827_CONFIGURATION_TIMEOUT      BIT(5)
 #define MAX31827_CONFIGURATION_RESOL        GENMASK(7,6)
 #define MAX31827_CONFIGURATION_ALRM_POL     BIT(8)
-#define MAX31827_CONFIGURATION_COMP         BIT(9)
+#define MAX31827_CONFIGURATION_COMP_INT     BIT(9)
 #define MAX31827_CONFIGURATION_FLT_Q        GENMASK(11,10)
 #define MAX31827_CONFIGURATION_PEC_ERR      BIT(13)
 #define MAX31827_CONFIGURATION_U_TEMP_STAT  BIT(14)
@@ -82,7 +82,8 @@ static const struct iio_chan_spec max31827_channels[] = {
     {
         .type = IIO_TEMP,
         .info_mask_shared_by_all = 
-            BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_HYSTERESIS), 
+            BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_HYSTERESIS) |
+            BIT(IIO_CHAN_INFO_ENABLE), 
     }, 
 };
 
@@ -94,7 +95,7 @@ static int max31827_probe(struct i2c_client *client,
     struct regmap *regmap;
 
     // check this
-    // how to use this shit?
+    // what is this shit?
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_WORD_DATA))
 		return -EOPNOTSUPP;
  
