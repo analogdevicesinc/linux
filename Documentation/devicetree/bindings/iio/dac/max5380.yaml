@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2023 Analog Devices Inc.
+%YAML 1.2
+---
+
+title: Analog Devices MAX5380 DAC device driver
+
+description: |
+
+  The MAX5380 are low-cost, 8-bit digital-to-analog converters (DACs) 
+  in miniature 5-pin SOT23 packages, with a simple 2-wire serial interface that allows 
+  communication with multiple devices.
+
+maintainers:
+  - Marc Paolo Sosa <marcpaolo.sosa@analog.com>
+
+description: |
+  Bindings for the Analog Devices MAX5380 current DAC device. Datasheet can be found here:
+  https://www.analog.com/media/en/technical-documentation/data-sheets/MAX5380-MAX5382.pdf
+
+properties:
+  compatible:
+    Must be "maxim,max5380"
+
+  reg:
+    Should contain the DAC I2C address
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+required:
+  - compatible
+  - reg
+
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        max5380: max5380@31 {
+                compatible = "maxim,max5380";
+                reg = <0x31>;
+                status = "okay";
+        };
+    };
+...
