@@ -835,7 +835,6 @@ static int axiadc_channel_setup(struct iio_dev *indio_dev,
 
 	indio_dev->channels = st->channels;
 	indio_dev->num_channels = cnt;
-	indio_dev->masklength = cnt;
 
 	return 0;
 }
