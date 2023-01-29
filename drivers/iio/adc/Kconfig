@@ -849,6 +849,17 @@ config LTC2308
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc2308.
 
+config LTC2358
+	tristate "Linear Technology LTC2358 ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Linear Technology LTC2358
+	  CMOS Mode, 350ksps/Ch Differential ±10.24V ADC with 30VP-P
+	  Common Mode Range.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called ltc2358.
+
 config LTC2387
 	tristate "Linear Technology LTC2387 ADC driver"
 	depends on PWM
