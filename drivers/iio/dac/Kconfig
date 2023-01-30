@@ -370,6 +370,16 @@ config MAX517
 	  This driver can also be built as a module.  If so, the module
 	  will be called max517.
 
+config MAX538X
+	tristate "Maxim MAX5380/1/2 DAC driver"
+	depends on I2C
+	help
+	  Say yes here if you want to build a driver for the Analog Devices
+	  MAX5380/1/2 8-bit digital-to-analog converter (DAC) with I2C interface.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called max538x.
+
 config MAX5821
 	tristate "Maxim MAX5821 DAC driver"
 	depends on I2C
