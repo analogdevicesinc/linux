@@ -640,7 +640,6 @@ _GFPGetSGT(IN gckALLOCATOR Allocator,
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
     struct page        **pages    = gcvNULL;
-    struct page        **tmpPages = gcvNULL;
     struct sg_table     *sgt      = NULL;
     struct gfp_mdl_priv *mdlPriv  = (struct gfp_mdl_priv *)Mdl->priv;
 
@@ -654,7 +653,6 @@ _GFPGetSGT(IN gckALLOCATOR Allocator,
 
     if (mdlPriv->contiguous) {
         pages    = kmalloc_array(numPages, sizeof(struct page *), GFP_KERNEL | gcdNOWARN);
-        tmpPages = kmalloc_array(numPages, sizeof(struct page *), GFP_KERNEL | gcdNOWARN);
         if (!pages)
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
 
@@ -674,7 +672,8 @@ _GFPGetSGT(IN gckALLOCATOR Allocator,
     *SGT = (gctPOINTER)sgt;
 
 OnError:
-    kfree(tmpPages);
+    if (mdlPriv->contiguous && pages)
+        kfree(pages);
 
     if (gcmIS_ERROR(status) && sgt)
         kfree(sgt);
