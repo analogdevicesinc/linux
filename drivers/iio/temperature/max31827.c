@@ -26,7 +26,7 @@
 
 struct max31827_data {
     struct regmap *regmap;
-}
+};
 
 // check this
 // might have to change the endian 
@@ -47,7 +47,7 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
 
     switch (mask) {
     case IIO_CHAN_INFO_RAW:
-        ret = regmap_read(data->regmap, MAX31827_T, &val);
+        ret = regmap_read(data->regmap, MAX31827_T, val);
         if (ret)
             return ret;
         return IIO_VAL_INT;
@@ -96,7 +96,7 @@ static int max31827_reg_access(struct iio_dev *indio_dev,
 static const struct iio_info max31827_info = {
     .read_raw = &max31827_read_raw,
     .write_raw = &max31827_write_raw,
-    .debugfs_reg_access = &max31827_reg_access;
+    .debugfs_reg_access = &max31827_reg_access,
 };
 
 // check this
@@ -129,7 +129,7 @@ static int max31827_probe(struct i2c_client *client,
     data = iio_priv(indio_dev);
     regmap = devm_regmap_init_i2c(client, &max31827_regmap);
     if (IS_ERR(regmap)) {
-        ret = PTR_ERR(regmap)
+        ret = PTR_ERR(regmap);
 		dev_err(&client->dev, "Failed to allocate regmap: %d\n", ret);
 		return ret;
 	}
