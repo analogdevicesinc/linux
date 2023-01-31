@@ -928,7 +928,8 @@ static struct dma_async_tx_descriptor *adi_prep_memset(struct dma_chan *chan,
 	desc->memset = dmam_alloc_coherent(dma->dev, ADI_MEMSET_SIZE, &desc->src,
 		GFP_NOWAIT);
 	if (!desc->memset) {
-		adi_dma_desc_free(&desc->tx);
+		dev_err(dma->dev, "%s, dmam_alloc_coherent failed\n", __func__);
+		devm_kfree(dma->dev, desc);
 		return NULL;
 	}
 
