@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Overlay for max5380
+ *
+ *Copyright 2023 Analog Devices Inc.
+ */
+ 
+/dts-v1/;
+/plugin/;
+  
+&i2c1 {
+        status = "okay";
+
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        max5380: max5380@31 {
+                compatible = "maxim,max5380";
+                reg=<0x31>;
+
+        };
+};
