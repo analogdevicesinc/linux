@@ -437,57 +437,6 @@ static void imx8mp_hdmi_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 static void imx8mp_hdmi_blk_ctrl_power_off(struct imx8mp_blk_ctrl *bc,
 					   struct imx8mp_blk_ctrl_domain *domain)
 {
-	switch (domain->id) {
-	case IMX8MP_HDMIBLK_PD_IRQSTEER:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0, BIT(9));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(16));
-		break;
-	case IMX8MP_HDMIBLK_PD_LCDIF:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0,
-				  BIT(4) | BIT(5) | BIT(6));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(11));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0,
-				  BIT(16) | BIT(17) | BIT(18) |
-				  BIT(19) | BIT(20));
-		break;
-	case IMX8MP_HDMIBLK_PD_PVI:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(22));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(28));
-		fallthrough;
-	case IMX8MP_HDMIBLK_PD_PAI:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
-		break;
-	case IMX8MP_HDMIBLK_PD_TRNG:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(20));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(27) | BIT(30));
-		break;
-	case IMX8MP_HDMIBLK_PD_HDMI_TX:
-		regmap_clear_bits(bc->regmap, HDMI_TX_CONTROL0, BIT(1));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0,
-				  BIT(7) | BIT(10) | BIT(11));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1,
-				  BIT(12) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
-				  BIT(18) | BIT(19) | BIT(20) | BIT(21));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0,
-				  BIT(2) | BIT(4) | BIT(5));
-		break;
-	case IMX8MP_HDMIBLK_PD_HDMI_TX_PHY:
-		regmap_set_bits(bc->regmap, HDMI_TX_CONTROL0, BIT(3));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(12));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0, BIT(7));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(22) | BIT(24));
-		break;
-	case IMX8MP_HDMIBLK_PD_HDCP:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0, BIT(11));
-		break;
-	case IMX8MP_HDMIBLK_PD_HRV:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(15));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(3) | BIT(4) | BIT(5));
-		break;
-	default:
-		break;
-	}
 }
 
 static int imx8mp_hdmi_power_notifier(struct notifier_block *nb,
@@ -517,21 +466,13 @@ static int imx8mp_hdmi_power_notifier(struct notifier_block *nb,
 		return NOTIFY_OK;
 	}
 
+	if (action == IMX_GPCV2_NOTIFY_OFF_ADB400) {
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0);
+	}
+
 	if (action != GENPD_NOTIFY_ON)
 		return NOTIFY_OK;
-
-	/*
-	 * Contrary to other blk-ctrls the reset and clock don't clear when the
-	 * power domain is powered down. To ensure the proper reset pulsing,
-	 * first clear them all to asserted state, then enable the bus clocks
-	 * and then release the ADB reset.
-	 */
-	regmap_write(bc->regmap, HDMI_RTX_RESET_CTL0, 0x0);
-	regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0x0);
-	regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0x0);
-	regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL0,
-			BIT(0) | BIT(1) | BIT(10));
-	regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(0));
 
 	/*
 	 * On power up we have no software backchannel to the GPC to

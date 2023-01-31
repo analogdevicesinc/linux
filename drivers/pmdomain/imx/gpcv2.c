@@ -492,6 +492,8 @@ static int imx_pgc_power_down(struct generic_pm_domain *genpd)
 		}
 	}
 
+	raw_notifier_call_chain(&genpd->power_notifiers, IMX_GPCV2_NOTIFY_OFF_ADB400, NULL);
+
 	if (domain->bits.pxx) {
 		/* enable power control */
 		for_each_set_bit(pgc, &domain->pgc, 32) {
