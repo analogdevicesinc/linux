@@ -225,15 +225,15 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualAnalogInput
 }
 
 static __maybe_unused int32_t adi_adrv9001_gpio_PinDirection_Get_Validate(adi_adrv9001_Device_t *device,
-									  adi_adrv9001_GpioPin_e pin)
+                                                                         adi_adrv9001_GpioPin_e pin)
 {
     ADI_API_RETURN(device);
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_DIGITAL_00, ADI_ADRV9001_GPIO_ANALOG_11);
 }
 
 int32_t adi_adrv9001_gpio_PinDirection_Get(adi_adrv9001_Device_t *device,
-					   adi_adrv9001_GpioPin_e pin,
-					   adi_adrv9001_GpioPinDirection_e *direction)
+                                          adi_adrv9001_GpioPin_e pin,
+                                          adi_adrv9001_GpioPinDirection_e *direction)
 {
     uint16_t gpioOutEn = 0;
 
@@ -241,12 +241,12 @@ int32_t adi_adrv9001_gpio_PinDirection_Get(adi_adrv9001_Device_t *device,
     if (ADI_ADRV9001_GPIO_DIGITAL_00 <= pin && pin <= ADI_ADRV9001_GPIO_DIGITAL_15)
     {
         ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Get, device, &gpioOutEn);
-	*direction = (gpioOutEn & (1 << (pin - 1))) >> (pin - 1);
+       *direction = (gpioOutEn & (1 << (pin - 1))) >> (pin - 1);
     }
     else if (ADI_ADRV9001_GPIO_ANALOG_00 <= pin && pin <= ADI_ADRV9001_GPIO_ANALOG_11)
     {
         ADI_EXPECT(adrv9001_NvsRegmapCore1_NvsGpioAnalogDirectionControlOe_Get, device, &gpioOutEn);
-	*direction = (gpioOutEn & (1 << (pin - ADI_ADRV9001_GPIO_ANALOG_00))) >> (pin - ADI_ADRV9001_GPIO_ANALOG_00);
+       *direction = (gpioOutEn & (1 << (pin - ADI_ADRV9001_GPIO_ANALOG_00))) >> (pin - ADI_ADRV9001_GPIO_ANALOG_00);
     }
     else
     {
@@ -369,6 +369,14 @@ int32_t adi_adrv9001_gpio_ControlInit_Configure(adi_adrv9001_Device_t *adrv9001,
 	{
 		ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_FH_HOP2_NCO_ASYNC_CHANGE, &initCfg->fh_update_rx_nco[1]);
 	}
+    if (ADI_ADRV9001_GPIO_UNASSIGNED != initCfg->rx_interfaceGain_seed_save[0].pin)
+    {
+        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_RX1_INTERFACEGAIN_SEED_SAVE, &initCfg->rx_interfaceGain_seed_save[0]);
+    }
+    if (ADI_ADRV9001_GPIO_UNASSIGNED != initCfg->rx_interfaceGain_seed_save[1].pin)
+    {
+        ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_RX2_INTERFACEGAIN_SEED_SAVE, &initCfg->rx_interfaceGain_seed_save[1]);
+    }
 
     ADI_API_RETURN(adrv9001);
 }
@@ -435,7 +443,9 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
     static const uint8_t GPIO_ENABLE = 0x04;
 
     uint8_t extData[5] = { 0 };
+#if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
     uint8_t cmdStatusByte = 0;
+#endif
 
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 
@@ -450,24 +460,37 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
 
     recoveryAction = adi_adrv9001_arm_Cmd_Write(device, ADRV9001_ARM_SET_OPCODE, &extData[0], sizeof(extData));
     ADI_ERROR_RETURN(device->common.error.newAction);
-
+    
+#if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
     /* Wait for command to finish executing */
     recoveryAction = adi_adrv9001_arm_CmdStatus_Wait(device,
                                                      ADRV9001_ARM_SET_OPCODE,
                                                      &cmdStatusByte,
                                                      ADI_ADRV9001_SETARMGPIO_TIMEOUT_US,
                                                      ADI_ADRV9001_SETARMGPIO_INTERVAL_US);
-
-    if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
-    {
-        /* If cmdStatusByte is non-zero then flag an ARM error and release the acquired shared resource */
-        if ((cmdStatusByte >> 1) > 0)
-        {
-            ADI_EXPECT(adrv9001_ArmCmdErrorHandler,
-                        device,
-                        ADRV9001_ARMCMD_ERRCODE(ADRV9001_ARM_SET_OPCODE, extData[0], cmdStatusByte));
-        }
-    }
+	if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
+	{
+		/* If cmdStatusByte is non-zero then flag an ARM error and release the acquired shared resource */
+		if ((cmdStatusByte >> 1) > 0)
+		{
+			ADI_EXPECT(adrv9001_ArmCmdErrorHandler,
+				device,
+				ADRV9001_ARMCMD_ERRCODE(ADRV9001_ARM_SET_OPCODE, extData[0], cmdStatusByte));
+		}
+	}
+#else
+	recoveryAction = adi_common_hal_Wait_us(&device->common, ADI_ADRV9001_ARM_SET_OPCODE_WAIT_INTERVAL_US);
+	if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
+	{
+		ADI_ERROR_REPORT(&device->common,
+			ADI_COMMON_ERRSRC_ADI_HAL,
+			recoveryAction,
+			ADI_COMMON_ACT_ERR_CHECK_TIMER,
+			device,
+			"Timer not working");
+		ADI_ERROR_RETURN(device->common.error.newAction);
+	}
+#endif
 
     ADI_API_RETURN(device);
 }
