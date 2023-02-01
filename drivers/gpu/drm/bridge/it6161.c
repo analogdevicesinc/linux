@@ -1048,7 +1048,9 @@ static int it6161_attach_dsi(struct it6161 *it6161)
 	dsi->lanes = MIPI_RX_LANE_COUNT;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
-	    MIPI_DSI_MODE_NO_EOT_PACKET | MIPI_DSI_MODE_VIDEO_HSE;
+	    MIPI_DSI_MODE_NO_EOT_PACKET | MIPI_DSI_MODE_VIDEO_HSE |
+	    MIPI_DSI_MODE_VIDEO_NO_HFP | MIPI_DSI_MODE_VIDEO_NO_HBP |
+	    MIPI_DSI_MODE_VIDEO_NO_HSA;
 
 	ret = mipi_dsi_attach(dsi);
 	if (ret < 0) {
