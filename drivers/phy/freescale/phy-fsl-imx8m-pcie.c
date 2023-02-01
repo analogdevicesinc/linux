@@ -46,6 +46,42 @@
 #define IMX8MM_GPR_PCIE_SSC_EN		BIT(16)
 #define IMX8MM_GPR_PCIE_AUX_EN_OVERRIDE	BIT(9)
 
+#define IMX8MP_PCIE_PHY_TRSV_REG001	0x404
+#define  LN0_OVRD_TX_DRV_LVL_G1		0x3F
+#define IMX8MP_PCIE_PHY_TRSV_REG002	0x408
+#define  LN0_OVRD_TX_DRV_LVL_G2		0x1F
+#define IMX8MP_PCIE_PHY_TRSV_REG003	0x40C
+#define  LN0_OVRD_TX_DRV_LVL_G3		0x1F
+#define IMX8MP_PCIE_PHY_TRSV_REG005	0x414
+#define  LN0_OVRD_TX_DRV_PST_LVL_G1	0x2B
+#define IMX8MP_PCIE_PHY_TRSV_REG006	0x418
+#define  LN0_OVRD_TX_DRV_PST_LVL_G2	0xB
+#define IMX8MP_PCIE_PHY_TRSV_REG007	0x41C
+#define  LN0_OVRD_TX_DRV_PST_LVL_G3	0xB
+#define IMX8MP_PCIE_PHY_TRSV_REG009	0x424
+#define  LN0_OVRD_TX_DRV_PRE_LVL_G1	0x15
+#define IMX8MP_PCIE_PHY_TRSV_REG00A	0x428
+#define  LN0_OVRD_TX_DRV_PRE_LVL_G23	0x55
+#define IMX8MP_PCIE_PHY_TRSV_REG059	0x4EC
+#define  LN0_OVRD_RX_CTLE_RS1_G1	0x13
+#define IMX8MP_PCIE_PHY_TRSV_REG060	0x4F0
+#define  LN0_OVRD_RX_CTLE_RS1_G2_G3	0x25
+#define IMX8MP_PCIE_PHY_TRSV_REG069	0x514
+#define  LN0_ANA_RX_CTLE_IBLEED		0x7
+#define IMX8MP_PCIE_PHY_TRSV_REG107	0x5AC
+#define  LN0_OVRD_RX_RTERM_VCM_EN	0xB8
+#define IMX8MP_PCIE_PHY_TRSV_REG109	0x5B4
+#define  LN0_ANA_OVRD_RX_SQHS_DIFN_OC	0xD4
+#define IMX8MP_PCIE_PHY_TRSV_REG110	0x5B8
+#define  LN0_ANA_OVRD_RX_SQHS_DIFP_OC	0x6A
+#define IMX8MP_PCIE_PHY_TRSV_REG158	0x678
+#define  LN0_RX_CDR_FBB_FINE_G1_G2	0x55
+#define IMX8MP_PCIE_PHY_TRSV_REG159	0x67C
+#define  LN0_RX_CDR_FBB_FINE_G3_G4	0x53
+#define IMX8MP_PCIE_PHY_TRSV_REG206	0x738
+#define  LN0_TG_RX_SIGVAL_LBF_DELAY	0x4
+
+static int imx8_pcie_phy_tuned;
 enum imx8_pcie_phy_type {
 	IMX8MM,
 	IMX8MP,
@@ -141,6 +177,47 @@ static int imx8_pcie_phy_power_on(struct phy *phy)
 			   IMX8MM_GPR_PCIE_REF_CLK_PLL);
 	usleep_range(100, 200);
 
+	/*
+	 * Fine tune the parameters of the PHY, let PCIe link up to Gen3
+	 * between two i.MX8MP EVK boards in the EP/RC validation system.
+	 */
+	if (imx8_pcie_phy_tuned && (imx8_phy->drvdata->variant == IMX8MP)) {
+		writel(LN0_OVRD_TX_DRV_LVL_G1,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG001);
+		writel(LN0_OVRD_TX_DRV_LVL_G2,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG002);
+		writel(LN0_OVRD_TX_DRV_LVL_G3,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG003);
+		writel(LN0_OVRD_TX_DRV_PST_LVL_G1,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG005);
+		writel(LN0_OVRD_TX_DRV_PST_LVL_G2,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG006);
+		writel(LN0_OVRD_TX_DRV_PST_LVL_G3,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG007);
+		writel(LN0_OVRD_TX_DRV_PRE_LVL_G1,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG009);
+		writel(LN0_OVRD_TX_DRV_PRE_LVL_G23,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG00A);
+		writel(LN0_OVRD_RX_CTLE_RS1_G1,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG059);
+		writel(LN0_OVRD_RX_CTLE_RS1_G2_G3,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG060);
+		writel(LN0_ANA_RX_CTLE_IBLEED,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG069);
+		writel(LN0_OVRD_RX_RTERM_VCM_EN,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG107);
+		writel(LN0_ANA_OVRD_RX_SQHS_DIFN_OC,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG109);
+		writel(LN0_ANA_OVRD_RX_SQHS_DIFP_OC,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG110);
+		writel(LN0_RX_CDR_FBB_FINE_G1_G2,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG158);
+		writel(LN0_RX_CDR_FBB_FINE_G3_G4,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG159);
+		writel(LN0_TG_RX_SIGVAL_LBF_DELAY,
+		       imx8_phy->base + IMX8MP_PCIE_PHY_TRSV_REG206);
+	}
+
 	switch (imx8_phy->drvdata->variant) {
 	case IMX8MP:
 		reset_control_deassert(imx8_phy->perst);
@@ -201,6 +278,17 @@ static const struct of_device_id imx8_pcie_phy_of_match[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, imx8_pcie_phy_of_match);
+
+static int __init imx8_pcie_phy_fine_tune(char *str)
+{
+	if (!strcmp(str, "yes")) {
+		pr_info("i.MX PCIe PHY is fine tuned in EP/RC SYS.\n");
+		imx8_pcie_phy_tuned = 1;
+	}
+	return 1;
+}
+
+__setup("pcie_phy_tuned=", imx8_pcie_phy_fine_tune);
 
 static int imx8_pcie_phy_probe(struct platform_device *pdev)
 {
