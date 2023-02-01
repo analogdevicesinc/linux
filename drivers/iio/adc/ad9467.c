@@ -684,6 +684,36 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 }
 
+static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	int ret;
+	mutex_lock(&indio_dev->mlock);
+
+	ret = ad9467_spi_write(conv->spi, 0x15, 0xA0);
+	if (ret)
+		return ret;
+
+	axiadc_write(st, ADI_REG_CNTRL, 0x108);
+
+	while (1) {
+		if (axiadc_read(st, ADI_REG_SYNC_STATUS) != 0)
+			break;
+		dev_info(&conv->spi->dev, "Not Locked: Running Bit Slip\n");
+	}
+
+	dev_info(&conv->spi->dev, "Success: Pattern correct and Locked!\n");
+
+	ret = ad9467_spi_write(conv->spi, 0x15, 0x80);
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret ? ret : len;
+}
+
 static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "test_mode",
@@ -697,6 +727,10 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "scale_available",
 	 .read = ad9467_show_scale_available,
+	 },
+	{
+	 .name = "lvds_sync",
+	 .write = ad9467_lvds_sync_write,
 	 },
 	{},
 };
