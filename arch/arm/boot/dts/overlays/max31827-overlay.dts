@@ -1,0 +1,17 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "bcrm, bcm2711";
+};
+
+&i2c_arm {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    status = "ok";
+
+    max31827: max3127@0 {
+        compatible = "max3127";
+        reg = <0x0>;
+    };
+};
