@@ -31,7 +31,8 @@ struct bufdesc *cbd_base;
 #define ENABLE_ENET		BIT(8)
 #define ETHER_EN		0x2
 #define FEC_MAX_Q		3
-
+#define RING_SIZE_TX		512
+#define RING_SIZE_RX		512
 
 /* FEC MII MMFR bits definition */
 #define FEC_MMFR_ST             BIT(30)
@@ -515,14 +516,13 @@ static int fec_enet_uio_init(struct net_device *ndev)
 		return ret;
 	}
 
-	tx_ring_size = TX_RING_SIZE;
-	rx_ring_size = RX_RING_SIZE;
+	tx_ring_size = RING_SIZE_TX;
+	rx_ring_size = RING_SIZE_RX;
 
-	for (i = 0; i < FEC_ENET_MAX_TX_QS; i++)
+	for (i = 0; i < FEC_MAX_Q; i++) {
 		total_tx_ring_size += tx_ring_size;
-	for (i = 0; i < FEC_ENET_MAX_RX_QS; i++)
 		total_rx_ring_size += rx_ring_size;
-
+	}
 	bd_size = (total_tx_ring_size + total_rx_ring_size) * dsize;
 
 	/* Allocate memory for buffer descriptors. */
