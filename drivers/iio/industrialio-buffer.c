@@ -1520,6 +1520,7 @@ static int iio_buffer_chrdev_release(struct inode *inode, struct file *filep)
 
 	kfree(ib);
 	clear_bit(IIO_BUSY_BIT_POS, &buffer->flags);
+	iio_buffer_free_blocks(buffer);
 	iio_device_put(indio_dev);
 
 	return 0;
@@ -1666,7 +1667,34 @@ static int iio_buffer_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 	}
 }
 
-int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma)
+static long iio_buffer_ioctl_wrapper(struct file *filp, unsigned int cmd,
+				     unsigned long arg)
+{
+	struct iio_dev_buffer_pair *ib = filp->private_data;
+	struct iio_dev *indio_dev = ib->indio_dev;
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	int ret;
+
+	mutex_lock(&iio_dev_opaque->info_exist_lock);
+
+	/*
+	 * The NULL check here is required to prevent crashing when a device
+	 * is being removed while userspace would still have open file handles
+	 * to try to access this device.
+	 */
+	if (!indio_dev->info)
+		goto out_unlock;
+
+	ret = iio_buffer_ioctl(filp, cmd, arg);
+	if (ret == IIO_IOCTL_UNHANDLED)
+		ret = -ENODEV;
+out_unlock:
+	mutex_unlock(&iio_dev_opaque->info_exist_lock);
+
+	return ret;
+}
+
+static int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma)
 {
 	struct iio_dev_buffer_pair *ib = filep->private_data;
 	struct iio_dev *indio_dev = ib->indio_dev;
@@ -1692,13 +1720,28 @@ int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma)
 	return rb->access->mmap(rb, vma);
 }
 
+int iio_buffer_mmap_wrapper(struct file *filep, struct vm_area_struct *vma)
+{
+	struct iio_dev_buffer_pair *ib = filep->private_data;
+	struct iio_buffer *rb = ib->buffer;
+
+	/* check if buffer was opened through new API */
+	if (test_bit(IIO_BUSY_BIT_POS, &rb->flags))
+		return -EBUSY;
+
+	return iio_buffer_mmap(filep, vma);
+}
+
 static const struct file_operations iio_buffer_chrdev_fileops = {
 	.owner = THIS_MODULE,
 	.llseek = noop_llseek,
 	.read = iio_buffer_read,
 	.write = iio_buffer_write,
 	.poll = iio_buffer_poll,
+	.unlocked_ioctl = iio_buffer_ioctl_wrapper,
+	.compat_ioctl = compat_ptr_ioctl,
 	.release = iio_buffer_chrdev_release,
+	.mmap = iio_buffer_mmap,
 };
 
 static long iio_device_buffer_getfd(struct iio_dev *indio_dev, unsigned long arg)

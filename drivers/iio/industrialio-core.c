@@ -1846,7 +1846,7 @@ static const struct file_operations iio_buffer_fileops = {
 	.compat_ioctl = compat_ptr_ioctl,
 	.open = iio_chrdev_open,
 	.release = iio_chrdev_release,
-	.mmap = iio_buffer_mmap,
+	.mmap = iio_buffer_mmap_addr,
 };
 
 static const struct file_operations iio_event_fileops = {
