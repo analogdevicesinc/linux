@@ -92,13 +92,13 @@
 		compatible = "adi,gen_mux";
 		mux-controls = <&mux3>;
 		mux-state-names =
-			"j1_in", "rf_dac1_direct", "main", "main_after_splitter";
-		label = "mux-rfin-freq-src-sel";
+			"d1", "d2", "d3", "d4";
+		label = "mux-rfin-low";
 	};
 
 	adl5960-sync@0 {
 		compatible = "adi,one-bit-adc-dac";
-		out-gpios = <&gpio 113 0>, <&gpio 121 0>, <&gpio 112 1>, <&gpio 128 0>;
+		out-gpios = <&gpio 113 0>, <&gpio 121 0>, <&gpio 112 1>, <&gpio 128 0>, <&gpio 127 0>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -119,6 +119,10 @@
 		channel@3 {
 			reg = <3>;
 			label = "ADMV8818_SFL";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "HI_LOW_SEL";
 		};
 	};
 };
@@ -204,18 +208,18 @@
 	status = "okay";
 
 	adf4371: adf4371@0 {
-		compatible = "adi,adf4371";
+		compatible = "adi,adf4372";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 		#address-cells = <1>;
 		#clock-cells = <1>;
 		#size-cells = <0>;
-		clocks = <&ad9528 2>;
+		clocks = <&ad9528 2>; /* 125 MHz */
 		clock-names = "clkin";
 		clock-scales = <1 10>;
 		label = "adf4371";
 		clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
-			"pll0-clk-rf16", "pll0-clk-rf32";
+			"pll0-clk-rf16";
 		channel@0 {
 			reg = <0>;
 			adi,power-up-frequency = /bits/ 64 <1000000000>;
@@ -347,7 +351,7 @@
 			adi,extended-name = "AD4371_XREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <40>; /* 25 MHz */
+			adi,channel-divider = <8>; /* 125 MHz */
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -444,7 +448,6 @@
 			adi,signal-source = <SOURCE_VCO>;
 		};
 	};
-
 };
 
 &axi_spi_bus1 {
@@ -459,7 +462,7 @@
 		compatible = "adi,adrf5720";
 		reg = <0>;
 		spi-max-frequency = <100000>;
-		label = "adrf5720-lo";
+		label = "adrf5720-rfin2";
 	};
 };
 
