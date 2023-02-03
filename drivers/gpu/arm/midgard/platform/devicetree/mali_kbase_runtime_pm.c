@@ -79,8 +79,16 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	int ret = 1; /* Assume GPU has been powered off */
 	int error;
 	unsigned long flags;
+	struct imx_platform_ctx *ictx = kbdev->platform_context;
 
 	dev_dbg(kbdev->dev, "%s %pK\n", __func__, (void *)kbdev->dev->pm_domain);
+
+	if (ictx && (ictx->init_blk_ctrl == 0)
+	    && !IS_ERR_OR_NULL(ictx->reg_blk_ctrl)) {
+		ictx->init_blk_ctrl = 1;
+		writel(0x1, ictx->reg_blk_ctrl + 0x8);
+		dev_info(kbdev->dev, "gpumix reset release finish");
+	}
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	WARN_ON(kbdev->pm.backend.gpu_powered);

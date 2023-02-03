@@ -19,9 +19,12 @@
  *
  */
 
+#include <linux/of_address.h>
 #include <mali_kbase.h>
 #include <mali_kbase_config.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
+
+#include "mali_kbase_config_platform.h"
 
 static struct kbase_platform_config dummy_platform_config;
 
@@ -52,3 +55,31 @@ int kbase_platform_dvfs_event(struct kbase_device *kbdev, u32 utilisation, u32 u
 	return 1;
 }
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
+
+static int platform_init_func(struct kbase_device *kbdev)
+{
+	struct imx_platform_ctx *ictx;
+	struct platform_device *pdev;
+
+	pdev = to_platform_device(kbdev->dev);
+
+	ictx = devm_kzalloc(kbdev->dev, sizeof(struct imx_platform_ctx), GFP_KERNEL);
+	ictx->reg_blk_ctrl = devm_platform_ioremap_resource(pdev, 1);
+	if (!IS_ERR_OR_NULL(ictx->reg_blk_ctrl))
+		dev_info(kbdev->dev, "blk ctrl reg = %pK\n", ictx->reg_blk_ctrl);
+
+	ictx->kbdev = kbdev;
+	kbdev->platform_context = ictx;
+
+	return 0;
+}
+static void platform_term_func(struct kbase_device *kbdev)
+{
+	struct imx_platform_ctx *ictx = kbdev->platform_context;
+
+	devm_kfree(kbdev->dev, ictx);
+}
+struct kbase_platform_funcs_conf platform_funcs = {
+	.platform_init_func = &platform_init_func,
+	.platform_term_func = &platform_term_func,
+};
