@@ -9,6 +9,7 @@ title: Analog Devices AD7192 ADC device driver
 
 maintainers:
   - Michael Hennerich <michael.hennerich@analog.com>
+  - Alisa Roman <alisa.roman@analog.com>
 
 description: |
   Bindings for the Analog Devices AD7192 ADC device. Datasheet can be
@@ -21,6 +22,7 @@ properties:
       - adi,ad7190
       - adi,ad7192
       - adi,ad7193
+      - adi,ad7194
       - adi,ad7195
 
   reg:
@@ -42,6 +44,12 @@ properties:
 
   interrupts:
     maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
 
   dvdd-supply:
     description: DVdd voltage supply
@@ -94,30 +102,89 @@ required:
   - spi-cpol
   - spi-cpha
 
+patternProperties:
+  "^channel@([0-9a-f])$":
+    type: object
+    $ref: adc.yaml
+    unevaluatedProperties: false
+
+    properties:
+      reg:
+        description: The channel number.
+        minimum: 0
+        maximum: 7
+
+      diff-channels:
+        description: Definition for a differrential channel of AD7194.
+        items:
+          minimum: 1
+          maximum: 16
+
+    required:
+      - diff-channels
+
 additionalProperties: false
 
 examples:
   - |
     spi0 {
-      #address-cells = <1>;
-      #size-cells = <0>;
+        #address-cells = <1>;
+        #size-cells = <0>;
 
-      adc@0 {
-        compatible = "adi,ad7192";
-        reg = <0>;
-        spi-max-frequency = <1000000>;
-        spi-cpol;
-        spi-cpha;
-        clocks = <&ad7192_mclk>;
-        clock-names = "mclk";
-        interrupts = <25 0x2>;
-        interrupt-parent = <&gpio>;
-        dvdd-supply = <&dvdd>;
-        avdd-supply = <&avdd>;
+        adc@0 {
+            compatible = "adi,ad7192";
+            reg = <0>;
+            spi-max-frequency = <1000000>;
+            spi-cpol;
+            spi-cpha;
+            clocks = <&ad7192_mclk>;
+            clock-names = "mclk";
+            interrupts = <25 0x2>;
+            interrupt-parent = <&gpio>;
+            dvdd-supply = <&dvdd>;
+            avdd-supply = <&avdd>;
 
-        adi,refin2-pins-enable;
-        adi,rejection-60-Hz-enable;
-        adi,buffer-enable;
-        adi,burnout-currents-enable;
+            adi,refin2-pins-enable;
+            adi,rejection-60-Hz-enable;
+            adi,buffer-enable;
+            adi,burnout-currents-enable;
+        };
+    };
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        status = "okay";
+        adc@0 {
+            compatible = "adi,ad7194";
+            reg = <0>;
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            spi-max-frequency = <1000000>;
+            spi-cpol;
+            spi-cpha;
+            clocks = <&ad7192_mclk>;
+            clock-names = "mclk";
+            interrupts = <86 0x2>;
+            interrupt-parent = <&gpio0>;
+            dvdd-supply = <&dvdd>;
+            avdd-supply = <&avdd>;
+
+            adi,refin2-pins-enable;
+            adi,rejection-60-Hz-enable;
+            adi,buffer-enable;
+            adi,burnout-currents-enable;
+
+            channel@0 {
+                reg = <0>;
+                diff-channels = <8 9>;
+            };
+
+            channel@1 {
+                reg = <1>;
+                diff-channels = <10 11>;
+            };
         };
     };
