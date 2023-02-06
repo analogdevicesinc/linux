@@ -3114,14 +3114,19 @@ _FuncInit_MMU(IN gcsFUNCTION_EXECUTION_PTR Execution)
     if (hardware->largeVA)
         mode = gcvMMU_MODE_4K;
 
-#if defined(CONFIG_ZONE_DMA32) || defined(CONFIG_ZONE_DMA)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
     if (!gckHARDWARE_IsFeatureAvailable(hardware,
                                         gcvFEATURE_MMU_PAGE_DESCRIPTOR)) {
+#ifdef __linux__
+#if defined(CONFIG_ZONE_DMA32) || defined(CONFIG_ZONE_DMA)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
         flags |= gcvALLOC_FLAG_4GB_ADDR | gcvALLOC_FLAG_4K_PAGES;
-    }
 #    endif
 #endif
+#else
+        flags |= gcvALLOC_FLAG_4GB_ADDR;
+#endif
+    }
+
 
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
     flags |= gcvALLOC_FLAG_CACHEABLE;
