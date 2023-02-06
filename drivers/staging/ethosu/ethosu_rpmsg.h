@@ -21,6 +21,7 @@ struct ethosu_core_msg;
 typedef void (*ethosu_rpmsg_cb)(void *user_arg, void *data);
 
 struct ethosu_rpmsg {
+	rwlock_t		lock;
 	struct rpmsg_device	*rpdev;
 	ethosu_rpmsg_cb		callback;
 	void			*user_arg;

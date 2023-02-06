@@ -35,7 +35,9 @@ static void ethosu_core_set_capacity(struct ethosu_buffer *buf,
 int ethosu_rpmsg_register(struct ethosu_rpmsg *erp,
 			  struct ethosu_rpmsg_msg *msg)
 {
+	write_lock(&erp->lock);
 	msg->id = idr_alloc_cyclic(&erp->msg_idr, msg, 0, INT_MAX, GFP_KERNEL);
+	write_unlock(&erp->lock);
 	if (msg->id < 0)
 		return msg->id;
 
@@ -45,14 +47,19 @@ int ethosu_rpmsg_register(struct ethosu_rpmsg *erp,
 void ethosu_rpmsg_deregister(struct ethosu_rpmsg *erp,
 			     struct ethosu_rpmsg_msg *msg)
 {
+	write_lock(&erp->lock);
 	idr_remove(&erp->msg_idr, msg->id);
+	write_unlock(&erp->lock);
 }
 
 struct ethosu_rpmsg_msg *ethosu_rpmsg_find(struct ethosu_rpmsg *erp,
 					   int msg_id)
 {
-	struct ethosu_rpmsg_msg *ptr =
-		(struct ethosu_rpmsg_msg *)idr_find(&erp->msg_idr, msg_id);
+	struct ethosu_rpmsg_msg *ptr;
+
+	read_lock(&erp->lock);
+	ptr = (struct ethosu_rpmsg_msg *)idr_find(&erp->msg_idr, msg_id);
+	read_unlock(&erp->lock);
 
 	if (!ptr)
 		return ERR_PTR(-EINVAL);
@@ -391,6 +398,7 @@ int ethosu_rpmsg_init(struct ethosu_rpmsg *erp,
 	erp->user_arg = user_arg;
 	erp->ping_count = 0;
 	idr_init(&erp->msg_idr);
+        rwlock_init(&erp->lock);
 
 	return register_rpmsg_driver(&ethosu_rpmsg_driver);
 }
