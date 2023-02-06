@@ -412,7 +412,7 @@ struct qm_eqcr_entry {
 	u32 tag;
 	struct qm_fd fd;
 	u8 __reserved3[32];
-} __packed;
+} __packed __aligned(8);
 #define QM_EQCR_VERB_VBIT		0x80
 #define QM_EQCR_VERB_CMD_MASK		0x61	/* but only one value; */
 #define QM_EQCR_VERB_CMD_ENQUEUE	0x01
@@ -456,9 +456,13 @@ struct qm_dqrr_entry {
 /* See 1.5.8.3: "ERN Message Response" */
 /* See 1.5.8.4: "FQ State Change Notification" */
 struct qm_mr_entry {
-	u8 verb;
 	union {
 		struct {
+			u8 verb;
+			u8 __reserved[31];
+		};
+		struct {
+			u8 verb;
 			u8 dca;
 			u16 seqnum;
 			u8 rc;		/* Rejection Code */
@@ -466,8 +470,9 @@ struct qm_mr_entry {
 			u32 fqid;	/* 24-bit */
 			u32 tag;
 			struct qm_fd fd;
-		} __packed ern;
+		} __packed __aligned(64) ern;
 		struct {
+			u8 verb;
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 			u8 colour:2;	/* See QM_MR_DCERN_COLOUR_* */
 			u8 __reserved1:3;
@@ -483,8 +488,9 @@ struct qm_mr_entry {
 			u32 fqid;	/* 24-bit */
 			u32 tag;
 			struct qm_fd fd;
-		} __packed dcern;
+		} __packed __aligned(64) dcern;
 		struct {
+			u8 verb;
 			u8 fqs;		/* Frame Queue Status */
 			u8 __reserved1[6];
 			u32 fqid;	/* 24-bit */
@@ -1251,14 +1257,20 @@ struct qm_mc_command {
 /* See 1.5.8.6.3: "Query CGR" */
 /* See 1.5.8.6.4: "Query Congestion Group State" */
 struct qm_mcr_initfq {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[62];
 } __packed;
 struct qm_mcr_queryfq {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[8];
 	struct qm_fqd fqd;	/* the FQD fields are here */
 	u8 __reserved2[30];
 } __packed;
 struct qm_mcr_queryfq_np {
+	u8 verb;
+	u8 result;
 	u8 __reserved1;
 	u8 state;	/* QM_MCR_NP_STATE_*** */
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -1341,13 +1353,19 @@ struct qm_mcr_queryfq_np {
 
 
 struct qm_mcr_alterfq {
+	u8 verb;
+	u8 result;
 	u8 fqs;		/* Frame Queue Status */
 	u8 __reserved1[61];
 } __packed;
 struct qm_mcr_initcgr {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[62];
 } __packed;
 struct qm_mcr_cgrtestwrite {
+	u8 verb;
+	u8 result;
 	u16 __reserved1;
 	struct __qm_mc_cgr cgr; /* CGR fields */
 	u8 __reserved2[3];
@@ -1364,6 +1382,8 @@ struct qm_mcr_cgrtestwrite {
 	u8 __reserved5[8];
 } __packed;
 struct qm_mcr_querycgr {
+	u8 verb;
+	u8 result;
 	u16 __reserved1;
 	struct __qm_mc_cgr cgr; /* CGR fields */
 	u8 __reserved2[3];
@@ -1435,11 +1455,15 @@ struct __qm_mcr_querycongestion {
 	u32 __state[8];
 };
 struct qm_mcr_querycongestion {
+	u8 verb;
+	u8 result;
 	u8 __reserved[30];
 	/* Access this struct using QM_MCR_QUERYCONGESTION() */
 	struct __qm_mcr_querycongestion state;
 } __packed;
 struct qm_mcr_querywq {
+	u8 verb;
+	u8 result;
 	union {
 		u16 channel_wq; /* ignores wq (3 lsbits) */
 		struct {
@@ -1458,9 +1482,13 @@ struct qm_mcr_querywq {
 
 /* QMAN CEETM Management Command Response */
 struct qm_mcr_ceetm_lfqmt_config {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[62];
 } __packed;
 struct qm_mcr_ceetm_lfqmt_query {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[8];
 	u16 cqid;
 	u8 __reserved2[2];
@@ -1471,10 +1499,14 @@ struct qm_mcr_ceetm_lfqmt_query {
 } __packed;
 
 struct qm_mcr_ceetm_cq_config {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[62];
 } __packed;
 
 struct qm_mcr_ceetm_cq_query {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[4];
 	u16 ccgid;
 	u16 state;
@@ -1494,10 +1526,14 @@ struct qm_mcr_ceetm_cq_query {
 } __packed;
 
 struct qm_mcr_ceetm_dct_config {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[62];
 } __packed;
 
 struct qm_mcr_ceetm_dct_query {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[18];
 	u32 context_b;
 	u64 context_a;
@@ -1505,10 +1541,14 @@ struct qm_mcr_ceetm_dct_query {
 } __packed;
 
 struct qm_mcr_ceetm_class_scheduler_config {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[62];
 } __packed;
 
 struct qm_mcr_ceetm_class_scheduler_query {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[9];
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	u8 gpc_reserved:1;
@@ -1537,11 +1577,15 @@ struct qm_mcr_ceetm_class_scheduler_query {
 } __packed;
 
 struct qm_mcr_ceetm_mapping_shaper_tcfc_config {
+	u8 verb;
+	u8 result;
 	u16 cid;
 	u8 __reserved2[60];
 } __packed;
 
 struct qm_mcr_ceetm_mapping_shaper_tcfc_query {
+	u8 verb;
+	u8 result;
 	u16 cid;
 	u8 __reserved1;
 	union {
@@ -1596,6 +1640,8 @@ struct qm_mcr_ceetm_mapping_shaper_tcfc_query {
 } __packed;
 
 struct qm_mcr_ceetm_ccgr_config {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[46];
 	union {
 		u8 __reserved2[8];
@@ -1610,6 +1656,8 @@ struct qm_mcr_ceetm_ccgr_config {
 } __packed;
 
 struct qm_mcr_ceetm_ccgr_query {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[6];
 	union {
 		struct {
@@ -1673,14 +1721,18 @@ struct qm_mcr_ceetm_ccgr_query {
 } __packed;
 
 struct qm_mcr_ceetm_cq_peek_pop_xsfdrread {
+	u8 verb;
+	u8 result;
 	u8 stat;
 	u8 __reserved1[11];
 	u16 dctidx;
 	struct qm_fd fd;
 	u8 __reserved2[32];
-} __packed;
+} __packed __aligned(8);
 
 struct qm_mcr_ceetm_statistics_query {
+	u8 verb;
+	u8 result;
 	u8 __reserved1[17];
 	u64 frm_cnt:40;
 	u8 __reserved2[2];
@@ -1689,9 +1741,12 @@ struct qm_mcr_ceetm_statistics_query {
 } __packed;
 
 struct qm_mc_result {
-	u8 verb;
-	u8 result;
 	union {
+		struct {
+			u8 verb;
+			u8 result;
+			u8 __reserved1[62];
+		};
 		struct qm_mcr_initfq initfq;
 		struct qm_mcr_queryfq queryfq;
 		struct qm_mcr_queryfq_np queryfq_np;
