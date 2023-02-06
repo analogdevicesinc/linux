@@ -479,7 +479,7 @@ static int qman_pfdr(struct reserved_mem *rmem)
 }
 RESERVEDMEM_OF_DECLARE(qman_fbpr, "fsl,qman-pfdr", qman_pfdr);
 
-size_t get_qman_fqd_size()
+size_t get_qman_fqd_size(void)
 {
 	return fqd_sz;
 }

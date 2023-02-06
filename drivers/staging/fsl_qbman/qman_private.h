@@ -372,6 +372,7 @@ int qman_have_ccsr(void);
 
 __init int qman_init(void);
 __init int qman_resource_init(void);
+__init int qman_init_early(void);
 
 /* CEETM related */
 #define QMAN_CEETM_MAX	2

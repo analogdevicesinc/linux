@@ -153,6 +153,7 @@ u32 bm_pool_free_buffers(u32 bpid);
 
 __init int bman_init(void);
 __init int bman_resource_init(void);
+__init int bman_init_early(void);
 
 const struct bm_portal_config *bman_get_bm_portal_config(
 						struct bman_portal *portal);

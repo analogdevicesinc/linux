@@ -5599,8 +5599,9 @@ int qman_ceetm_cscn_dcp_get(struct qm_ceetm_ccg *ccg,
 }
 EXPORT_SYMBOL(qman_ceetm_cscn_dcp_get);
 
-int qman_ceetm_querycongestion(struct __qm_mcr_querycongestion *ccg_state,
-							unsigned int dcp_idx)
+static int __maybe_unused qman_ceetm_querycongestion
+				(struct __qm_mcr_querycongestion *ccg_state,
+				 unsigned int dcp_idx)
 {
 	struct qm_mc_command *mcc;
 	struct qm_mc_result *mcr;
