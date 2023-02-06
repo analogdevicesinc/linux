@@ -494,11 +494,6 @@
 	bic	r7, r7, #0x1
 	str	r7, [r10, #0x200]
 
-	/* disable LDO 1P0D */
-	ldr	r7, [r10, #0x210]
-	bic	r7, r7, #0x1
-	str	r7, [r10, #0x210]
-
 	/* disable LDO 1P2 */
 	ldr	r7, [r10, #0x220]
 	bic	r7, r7, #0x1
@@ -536,15 +531,6 @@
 	ldr	r7, [r10, #0x220]
 	ands	r7, #0x20000
 	beq	7b
-
-	/* enable LDO 1P0D */
-	ldr	r7, [r10, #0x210]
-	orr	r7, r7, #0x1
-	str	r7, [r10, #0x210]
-8:
-	ldr	r7, [r10, #0x210]
-	ands	r7, #0x20000
-	beq	8b
 
 	/* enable LDO 1P0A */
 	ldr	r7, [r10, #0x200]
