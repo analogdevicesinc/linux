@@ -39,7 +39,6 @@
 #define ADA4255_GPIO_DATA_REG			0x05
 
 #define ADA4255_INPUT_MUX_REG			0x06
-#define ADA4255_INPUT_MUX_SW_MASK		GENMASK(6, 1)
 
 #define ADA4255_GPIO_DIR_REG			0x08
 
@@ -181,7 +180,7 @@ static const unsigned int ada4255_gain_reg_tbl[ADA4255_GAINS_NUM][3] = {
 };
 
 static const unsigned int ada4255_ch_input_mux_tbl[] = {
-	0b110000, 0b001100
+	0b01100000, 0b00011000
 };
 
 static const unsigned int ada4255_excitation_current_ua_tbl[] = {
@@ -374,7 +373,6 @@ static int ada4255_get_ch_en(struct ada4255_state *st, unsigned int ch, int *val
 	if (ret)
 		return ret;
 
-	ch_val = FIELD_GET(ADA4255_INPUT_MUX_SW_MASK, ch_val);
 	*val = ch_val == ada4255_ch_input_mux_tbl[ch];
 
 	return IIO_VAL_INT;
@@ -397,9 +395,7 @@ static int ada4255_set_ch_en(struct ada4255_state *st, unsigned int ch, int val)
 		goto out;
 	}
 
-	ret = regmap_update_bits(st->regmap, ADA4255_INPUT_MUX_REG,
-				 ADA4255_INPUT_MUX_SW_MASK,
-				 FIELD_PREP(ADA4255_INPUT_MUX_SW_MASK, ch_val));
+	ret = regmap_write(st->regmap, ADA4255_INPUT_MUX_REG, ch_val);
 
 out:
 	mutex_unlock(&st->lock);
