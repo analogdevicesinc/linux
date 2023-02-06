@@ -412,7 +412,7 @@ static int usdpaa_open(struct inode *inode, struct file *filp)
 
 
 /* Invalidate a portal */
-void dbci_portal(void *addr)
+static void dbci_portal(void *addr)
 {
 	int i;
 
@@ -1181,8 +1181,8 @@ do_map:
 	if (i->did_create) {
 		size_t name_len = 0;
 		start_frag->flags = i->flags;
-		memset(start_frag->name, '\0', USDPAA_DMA_NAME_MAX);
-		strncpy(start_frag->name, i->name, USDPAA_DMA_NAME_MAX - 1);
+		strncpy(start_frag->name, i->name, USDPAA_DMA_NAME_MAX);
+		start_frag->name[USDPAA_DMA_NAME_MAX - 1] = '\0';
 		name_len = strnlen(start_frag->name, USDPAA_DMA_NAME_MAX);
 		if (name_len >= USDPAA_DMA_NAME_MAX) {
 			ret = -EFAULT;
@@ -2354,7 +2354,8 @@ static long usdpaa_ioctl_compat(struct file *fp, unsigned int cmd,
 		converted.len = input.len;
 		converted.flags = input.flags;
 		memset(converted.name, '\0', USDPAA_DMA_NAME_MAX);
-		strncpy(converted.name, input.name, USDPAA_DMA_NAME_MAX - 1);
+		strncpy(converted.name, input.name, USDPAA_DMA_NAME_MAX);
+		converted.name[USDPAA_DMA_NAME_MAX - 1] = '\0';
 		converted.has_locking = input.has_locking;
 		converted.did_create = input.did_create;
 
@@ -2364,7 +2365,8 @@ static long usdpaa_ioctl_compat(struct file *fp, unsigned int cmd,
 		input.len = converted.len;
 		input.flags = converted.flags;
 		memset(input.name, '\0', USDPAA_DMA_NAME_MAX);
-		strncpy(input.name, converted.name, USDPAA_DMA_NAME_MAX - 1);
+		strncpy(input.name, converted.name, USDPAA_DMA_NAME_MAX);
+		input.name[USDPAA_DMA_NAME_MAX - 1] = '\0';
 		input.has_locking = converted.has_locking;
 		input.did_create = converted.did_create;
 		if (copy_to_user(a, &input, sizeof(input)))
