@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/amplifiers/adi,ada4255.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADA4255 Programmable Gain Instrumentation Amplifier
+
+maintainers:
+- Cosmin Tanislav <cosmin.tanislav@analog.com>
+
+description: |
+  Zero Drift, High Voltage, Programmable Gain Instrumentation Amplifier
+  with Charge Pump
+
+properties:
+  compatible:
+    enum:
+      - adi,ada4255
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: mclk
+
+  clock-output-names:
+    maxItems: 1
+
+  '#clock-cells':
+    const: 1
+
+  avdd-supply: true
+  dvdd-supply: true
+  vddcp-supply: true
+  vocm-supply: true
+
+  adi,excitation-current-microamp:
+    description: Excitation current to apply to IOUT.
+    enum: [0, 100, 200, 300, 400, 500, 600, 700, 800,
+           900, 1000, 1100, 1200, 1300, 1400, 1500]
+    default: 0
+
+  adi,charge-pump-freq-hz:
+    description: Frequency at which to run the charge pumps.
+    enum: [8000000, 16000000]
+    default: 16000000
+
+required:
+- compatible
+- reg
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+- |
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      status = "okay";
+
+      amplifier@0{
+        compatible = "adi,ada4255";
+        reg = <0>;
+      };
+    };
