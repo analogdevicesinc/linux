@@ -1320,8 +1320,10 @@ static void verifyPlanesize(u32 psize[], int braw, int pixelformat, int width, i
 	//for coded format we support 1 plane only
 	//except certain header the CR data can be any small
 	//so just make it page aligned.
-	if (!braw)
-		psize[0] = max_t(int, basesize, psize[0]);
+	if (!braw && psize[0])
+		psize[0] = clamp_val(psize[0], SZ_128K, SZ_8M);
+	else if (!braw)
+		psize[0] = clamp_val(basesize, SZ_128K, SZ_8M);
 	else
 		psize[0] = basesize;
 	psize[1] = chromausize;
