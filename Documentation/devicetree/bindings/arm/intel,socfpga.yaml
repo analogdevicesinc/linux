@@ -20,6 +20,7 @@ properties:
               - intel,n5x-socdk
               - intel,socfpga-agilex-n6000
               - intel,socfpga-agilex-socdk
+              - intel,socfpga-agilex5-socdk
           - const: intel,socfpga-agilex
       - description: Agilex5 boards
         items:
