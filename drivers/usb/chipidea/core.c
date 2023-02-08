@@ -615,32 +615,49 @@ static int ci_usb_role_switch_set(struct usb_role_switch *sw,
 				  enum usb_role role)
 {
 	struct ci_hdrc *ci = usb_role_switch_get_drvdata(sw);
-	struct ci_hdrc_cable *cable;
+	struct ci_hdrc_cable *cable = NULL;
+	enum usb_role current_role = ci_role_to_usb_role(ci);
+	enum ci_role ci_role = usb_role_to_ci_role(role);
+	unsigned long flags;
 
-	if (role == USB_ROLE_HOST) {
-		cable = &ci->platdata->id_extcon;
-		cable->changed = true;
-		cable->connected = true;
+	if ((ci_role != CI_ROLE_END && !ci->roles[ci_role]) ||
+	    (current_role == role))
+		return 0;
+
+	pm_runtime_get_sync(ci->dev);
+	/* Stop current role */
+	spin_lock_irqsave(&ci->lock, flags);
+	if (current_role == USB_ROLE_DEVICE)
 		cable = &ci->platdata->vbus_extcon;
-		cable->changed = true;
-		cable->connected = false;
-	} else if (role == USB_ROLE_DEVICE) {
+	else if (current_role == USB_ROLE_HOST)
 		cable = &ci->platdata->id_extcon;
+
+	if (cable) {
 		cable->changed = true;
 		cable->connected = false;
-		cable = &ci->platdata->vbus_extcon;
-		cable->changed = true;
-		cable->connected = true;
-	} else {
-		cable = &ci->platdata->id_extcon;
-		cable->changed = true;
-		cable->connected = false;
-		cable = &ci->platdata->vbus_extcon;
-		cable->changed = true;
-		cable->connected = false;
+		ci_irq(ci);
+		spin_unlock_irqrestore(&ci->lock, flags);
+		if (ci->wq && role != USB_ROLE_NONE)
+			flush_workqueue(ci->wq);
+		spin_lock_irqsave(&ci->lock, flags);
 	}
 
-	ci_irq(ci);
+	cable = NULL;
+
+	/* Start target role */
+	if (role == USB_ROLE_DEVICE)
+		cable = &ci->platdata->vbus_extcon;
+	else if (role == USB_ROLE_HOST)
+		cable = &ci->platdata->id_extcon;
+
+	if (cable) {
+		cable->changed = true;
+		cable->connected = true;
+		ci_irq(ci);
+	}
+	spin_unlock_irqrestore(&ci->lock, flags);
+	pm_runtime_put_sync(ci->dev);
+
 	return 0;
 }
 
