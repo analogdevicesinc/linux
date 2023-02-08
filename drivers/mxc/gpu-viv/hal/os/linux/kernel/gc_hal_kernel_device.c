@@ -408,8 +408,10 @@ gc_load_show(void *m, void *data)
 
                 gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
 
-                load[i] = (hi_total_cycle_count[i] - hi_total_idle_cycle_count[i]) *
-                          100 / hi_total_cycle_count[i];
+                if (hi_total_cycle_count[i] == 0)
+                    load[i] = 0;
+                else
+                    load[i] = (hi_total_cycle_count[i] - hi_total_idle_cycle_count[i]) * 100 / hi_total_cycle_count[i];
 
                 len += fs_printf(ptr, "core      : %d\n", i);
                 len += fs_printf(ptr + len, "load      : %d%%\n", load[i]);
