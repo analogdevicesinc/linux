@@ -13,6 +13,7 @@
 #include <drm/drm_vblank.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_encoder_slave.h>
+#include <drm/drm_modeset_helper_vtables.h>
 
 #include "cdns-mhdp-imx.h"
 #include "cdns-mhdp-phy.h"
