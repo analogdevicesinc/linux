@@ -43,6 +43,9 @@
 
 #include "i2c-core.h"
 
+#undef dev_info
+#define dev_info dev_err
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/i2c.h>
 

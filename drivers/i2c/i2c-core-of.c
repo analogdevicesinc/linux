@@ -19,6 +19,9 @@
 
 #include "i2c-core.h"
 
+#undef dev_info
+#define dev_info dev_err
+
 int of_i2c_get_board_info(struct device *dev, struct device_node *node,
 			  struct i2c_board_info *info)
 {
