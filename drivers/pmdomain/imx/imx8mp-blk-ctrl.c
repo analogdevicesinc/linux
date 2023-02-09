@@ -437,6 +437,16 @@ static void imx8mp_hdmi_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 static void imx8mp_hdmi_blk_ctrl_power_off(struct imx8mp_blk_ctrl *bc,
 					   struct imx8mp_blk_ctrl_domain *domain)
 {
+	switch (domain->id) {
+	case IMX8MP_HDMIBLK_PD_HDMI_TX:
+		regmap_clear_bits(bc->regmap, HDMI_TX_CONTROL0, BIT(1));
+		break;
+	case IMX8MP_HDMIBLK_PD_HDMI_TX_PHY:
+		regmap_set_bits(bc->regmap, HDMI_TX_CONTROL0, BIT(3));
+		break;
+	default:
+		break;
+	}
 }
 
 static int imx8mp_hdmi_power_notifier(struct notifier_block *nb,
