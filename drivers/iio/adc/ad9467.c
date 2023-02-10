@@ -691,7 +691,9 @@ static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct axiadc_state *st = iio_priv(indio_dev);
+	unsigned timeout = 100;
 	int ret;
+
 	mutex_lock(&indio_dev->mlock);
 
 	ret = ad9467_spi_write(conv->spi, 0x15, 0xA0);
@@ -700,15 +702,21 @@ static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 
 	axiadc_write(st, ADI_REG_CNTRL, 0x108);
 
-	while (1) {
-		if (axiadc_read(st, ADI_REG_SYNC_STATUS) != 0)
+	do {
+		if (axiadc_read(st, ADI_REG_SYNC_STATUS) == 0)
+			dev_info(&conv->spi->dev, "Not Locked: Running Bit Slip\n");
+		else
 			break;
-		dev_info(&conv->spi->dev, "Not Locked: Running Bit Slip\n");
+	} while (--timeout);
+
+	if (timeout) {
+		dev_info(&conv->spi->dev, "Success: Pattern correct and Locked!\n");
+		ret = ad9467_spi_write(conv->spi, 0x15, 0x80);
+	} else {
+		dev_info(&conv->spi->dev, "LVDS Sync Timeout.\n");
+		ret = -ETIME;
 	}
 
-	dev_info(&conv->spi->dev, "Success: Pattern correct and Locked!\n");
-
-	ret = ad9467_spi_write(conv->spi, 0x15, 0x80);
 	mutex_unlock(&indio_dev->mlock);
 
 	return ret ? ret : len;
@@ -1294,6 +1302,7 @@ static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
 		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
 		return 0;
 	case CHIPID_MACH1:
+		ad9467_spi_write(spi, 0x16, 0x60);
 		return 0;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", chip_id);
