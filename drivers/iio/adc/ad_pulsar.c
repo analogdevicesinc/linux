@@ -762,6 +762,7 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 		spi_message_init_with_transfers(&msg, &xfer, 1);
 	}
 
+	spi_bus_lock(adc->spi->master);
 	ret = spi_engine_offload_load_msg(adc->spi, &msg);
 	if (ret)
 		return ret;
