@@ -8,7 +8,9 @@
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/clk.h>
+#include <linux/clk/clkscale.h>
 #include <linux/clkdev.h>
+#include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
@@ -98,7 +100,7 @@
 #define ADF4382_BIAS_DEC_MODE_MSK	GENMASK(5, 3)
 #define ADF4382_INT_MODE_MSK		BIT(2)
 #define ADF4382_PFD_POL_MSK		BIT(1)
-#define ADF4382_FRAC1WORD_MSB_MSK	BIT(0)
+#define ADF4382_FRAC1WORD_BIT25_MSK	BIT(0)
 
 /* ADF4382 REG0016 Map */
 #define ADF4382_M_VCO_BAND_MSB_MSK	GENMASK(7, 0)
@@ -181,7 +183,7 @@
 
 /* ADF4382 REG002A Map */
 #define ADF4382_FN_DBL_MSK		BIT(7)
-#define ADF4382_PD_NDIV_MSK		BIT(6)
+#define ADF4382_PD_NDIV_TL_MSK	BIT(6)
 #define ADF4382_CLKOUT_BST_MSK		BIT(5)
 #define ADF4382_PD_SYNC_MSK		BIT(4)
 #define ADF4382_PD_CLK_MSK		BIT(3)
@@ -373,9 +375,8 @@
 #define ADF4382_O_VCO_CORE_MSK		BIT(0)
 
 /* ADF4382 REG004E Map */
-#define ADF4382_VCO_FSM_TEST_MUX_MSK	GENMASK(7, 5)
-#define ADF4382_O_VCO_BIAS_MSK		BIT(4)
-#define ADF4382_SPARE_4D_MSK		GENMASK(3, 0)
+#define ADF4382_EN_TWO_PASS_CALL_MSK	BIT(4)
+#define ADF4382_TWO_PASS_BAND_START_MSK	GENMASK(3, 0)
 
 /* ADF4382 REG004F Map */
 #define ADF4382_LUT_SCALE_MSK		GENMASK(7, 0)
@@ -391,7 +392,6 @@
 #define ADF4382_SYNC_MON_DEL_MSK	GENMASK(3, 0)
 
 /* ADF4382 REG0053 Map */
-#define ADF4382_SPARE_35_MSK		BIT(7)
 #define ADF4382_PD_SYNC_MON_MSK		BIT(6)
 #define ADF4382_SYNC_SEL_MSK		BIT(5)
 #define ADF4382_RST_SYNC_MON_MSK	BIT(4)
@@ -422,6 +422,8 @@ struct adf4382_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct clk		*clkin;
+	struct clk_hw	clk_hw;
+	struct clock_scale scale;
 	/* Protect against concurrent accesses to the device and data content */
 	struct mutex		lock;
 	struct notifier_block	nb;
@@ -560,7 +562,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 
 	do {
 		ref_div = doubler * ref_pfd_ratio;
-	}while (ref_div > 63 && ++doubler <= 2);
+	} while (ref_div > 63 && ++doubler <= 2);
 	if (ref_div > 63) {
 		dev_err(&st->spi->dev, "Divider exceeds max value");
 		return -EINVAL;
@@ -635,20 +637,20 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 
 	if (frac1_word == 0 && frac2_word == 0) {
 		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
-				 	 0xff);
+					 0xff);
 		if (ret)
 			return ret;
 		ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_EN_BLEED_MSK,
-				 	 0);
+					 0);
 		if (ret)
 			return ret;
 	} else {
 		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
-				 	 0);
+					 0);
 		if (ret)
 			return ret;
 		ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_EN_BLEED_MSK,
-				 	 0xff);
+					 0xff);
 		if (ret)
 			return ret;
 	}
@@ -681,6 +683,10 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		return ret;
 	var = FIELD_PREP(16, frac1_word) & ADF4382_FRAC1WORD_MSB_MSK;
 	ret = regmap_write(st->regmap, 0x14, var);
+	if (ret)
+		return ret;
+	var = FIELD_PREP(24, frac1_word) & ADF4382_FRAC1WORD_BIT25_MSK;
+	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_BIT25_MSK, var);
 	if (ret)
 		return ret;
 
@@ -762,12 +768,14 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	if (ret)
 		return ret;
 
+	st->freq = freq;
+
 	return 0;
 }
 
 int adf4382_get_freq(struct adf4382_state *st, u64 *freq)
 {
-	return 0;
+	return st->freq;
 }
 
 static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
@@ -892,6 +900,70 @@ static void adf4382_clk_notifier_unreg(void *data)
 	clk_notifier_unregister(st->clkin, &st->nb);
 }
 
+static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
+				     unsigned long *parent_rate)
+{
+	return rate;
+}
+
+static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
+					       unsigned long parent_rate)
+{
+	struct adf4382_state *st = container_of(hw, struct adf4382_state, clk_hw);
+
+	return to_ccf_scaled(st->freq, &st->scale);
+}
+
+static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long parent_rate)
+{
+	struct adf4382_state *st = container_of(hw, struct adf4382_state, clk_hw);
+	unsigned long long scaled_rate;
+
+	scaled_rate = from_ccf_scaled(rate, &st->scale);
+
+	st->ref_freq_hz = parent_rate;
+	st->pfd_freq_hz = parent_rate;
+
+	return adf4382_set_freq(st, scaled_rate);
+}
+
+static const struct clk_ops adf4382_clock_ops = {
+	.set_rate = adf4382_clock_set_rate,
+	.recalc_rate = adf4382_clock_recalc_rate,
+	.round_rate = adf4382_clock_round_rate,
+};
+
+static int adf4382_setup_clk(struct adf4382_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct device_node *of_node = dev_of_node(dev);
+	struct clk_init_data init;
+	const char *clk_name;
+	struct clk *clk;
+	const char *parent_name;
+
+	if (!of_node)
+		return 0;
+
+	parent_name = __clk_get_name(st->clkin);
+
+	clk_name = of_node->name;
+	of_property_read_string(of_node, "clock-output-names", &clk_name);
+
+	init.name = clk_name;
+	init.ops = &adf4382_clock_ops;
+	init.parent_names = (parent_name ? &parent_name : NULL);
+	init.num_parents = (parent_name ? 1 : 0);
+
+	st->clk_hw.init = &init;
+	clk = devm_clk_register(dev, &st->clk_hw);
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	return of_clk_add_provider(of_node, of_clk_src_simple_get, clk);
+}
+
 static int adf4382_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -918,6 +990,12 @@ static int adf4382_probe(struct spi_device *spi)
 	st->spi = spi;
 
 	mutex_init(&st->lock);
+
+	ret = of_clk_get_scale(st->spi->dev.of_node, NULL, &st->scale);
+	if (ret < 0) {
+		st->scale.mult = 1;
+		st->scale.div = 10;
+	}
 
 	st->freq = 20000000000ULL;
 	of_property_read_u64(spi->dev.of_node, "adi,power-up-frequency", &st->freq);
@@ -948,6 +1026,10 @@ static int adf4382_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "adf4382 init failed\n");
 		return ret;
 	}
+
+	adf4382_setup_clk(st);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
