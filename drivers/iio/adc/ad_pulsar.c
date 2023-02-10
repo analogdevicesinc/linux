@@ -172,7 +172,6 @@ struct ad_pulsar_chip_info {
 	int resolution;
 	int sclk_rate;
 	int max_rate;
-	bool has_power_up_seq:1;
 	bool has_filter:1;
 	bool has_turbo:1;
 	bool sequencer:1;
@@ -306,7 +305,6 @@ static const struct ad_pulsar_chip_info ad7689_chip_info = {
 	.resolution = 16,
 	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
-	.has_power_up_seq = true,
 	.has_filter = true,
 	.sequencer = true
 };
@@ -354,7 +352,6 @@ static const struct ad_pulsar_chip_info ad7682_chip_info = {
 	.resolution = 16,
 	.num_channels = 4 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
-	.has_power_up_seq = true,
 	.has_filter = true,
 	.sequencer = true
 };
@@ -1015,14 +1012,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 					   AD4003_TURBO_MODE);
 		if (ret)
 			return ret;
-	}
-
-	if (adc->info->has_power_up_seq) {
-		for (i = 0; i < 3; i++) {
-			ret = ad_pulsar_reg_read(adc, adc->seq_buf[0], &tmp);
-			if (ret)
-				return ret;
-		}
 	}
 
 	indio_dev->name = adc->info->name;
