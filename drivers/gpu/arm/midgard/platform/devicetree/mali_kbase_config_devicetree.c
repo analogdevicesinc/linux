@@ -68,8 +68,13 @@ static int platform_init_func(struct kbase_device *kbdev)
 	if (!IS_ERR_OR_NULL(ictx->reg_blk_ctrl))
 		dev_info(kbdev->dev, "blk ctrl reg = %pK\n", ictx->reg_blk_ctrl);
 
+	ictx->reg_tcm = devm_platform_ioremap_resource(pdev, 2);
+	if (!IS_ERR_OR_NULL(ictx->reg_tcm))
+		dev_info(kbdev->dev, "wave dump reg = %pK\n", ictx->reg_tcm);
+
 	ictx->kbdev = kbdev;
 	kbdev->platform_context = ictx;
+	imx_waveform_start(kbdev);
 
 	return 0;
 }
@@ -83,3 +88,37 @@ struct kbase_platform_funcs_conf platform_funcs = {
 	.platform_init_func = &platform_init_func,
 	.platform_term_func = &platform_term_func,
 };
+
+int imx_waveform_start(struct kbase_device *kbdev)
+{
+	struct imx_platform_ctx *ictx = kbdev->platform_context;
+
+	if (IS_ERR_OR_NULL(ictx->reg_tcm))
+		return -EINVAL;
+
+	if (ictx->dumpStarted == 1) {
+		dev_info(kbdev->dev, "waveform dump already started\n");
+		return 0;
+	}
+	ictx->dumpStarted = 1;
+
+	dev_info(kbdev->dev, "start wave dump\n");
+	writel(0xc1, ictx->reg_tcm);
+	return 0;
+}
+
+int imx_waveform_stop(struct kbase_device *kbdev)
+{
+	struct imx_platform_ctx *ictx = kbdev->platform_context;
+
+	if (IS_ERR_OR_NULL(ictx->reg_tcm))
+		return -EINVAL;
+
+	if (ictx->dumpStarted == 0) {
+		dev_info(kbdev->dev, "waveform dump not start\n");
+		return 0;
+	}
+	writel(0xc2, ictx->reg_tcm);
+	dev_info(kbdev->dev, "stop wave dump\n");
+	return 0;
+}

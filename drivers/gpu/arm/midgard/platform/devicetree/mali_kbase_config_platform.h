@@ -51,4 +51,9 @@ struct imx_platform_ctx {
 	struct kbase_device *kbdev;
 	void __iomem *reg_blk_ctrl;
 	int init_blk_ctrl;
+	void __iomem *reg_tcm;
+	int dumpStarted;
 };
+
+int imx_waveform_start(struct kbase_device *kbdev);
+int imx_waveform_stop(struct kbase_device *kbdev);
