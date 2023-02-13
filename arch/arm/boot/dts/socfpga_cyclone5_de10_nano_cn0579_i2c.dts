@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+/*
+ * Analog Devices CN0579
+ * https://www.analog.com/en/products/ad7768.html
+ *
+ * hdl_project: <cn0579/de10nano>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+#include "socfpga_cyclone5_de10_nano.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		ad7768_mclk: clock@0 {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <32768000>;
+		};
+	};
+
+};
+
+&i2c1 {
+	status = "okay";
+
+	ad5696: dac@c {
+		compatible = "adi,ad5696";
+		reg = <0x0c>;
+		vref-supply = <&vref>;
+	   };
+};
+
+&fpga_axi {
+	rx_dma: dma@28000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x00028000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&h2f_user0_clk>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <128>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_adc_ad7768: cf_axi_adc@30000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x00030000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&ad7768>;
+	};
+
+	spi@108000 {
+
+		compatible = "altr,spi-18.1", "altr,spi-1.0";
+		reg = <0x00108000 0x00000020>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 41 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad7768: adc@0 {
+			compatible = "adi,ad7768-4";
+			reg = <0>;
+			spi-max-frequency = <1000000>;
+			reset-gpios = <&gpio_out 0 GPIO_ACTIVE_LOW>;
+			vref-supply = <&vref>;
+			clocks = <&ad7768_mclk>;
+			clock-names = "mclk";
+			adi,data-lines = <4>;
+		};
+	};
+};
