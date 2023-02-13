@@ -54,6 +54,10 @@
 #define AD7768_INTERFACE_CFG_DCLK_DIV_MSK	GENMASK(1, 0)
 #define AD7768_INTERFACE_CFG_DCLK_DIV_MODE(x)	(((x) & 0x3) << 0)
 
+#define AD7768_INTERFACE_CFG_CRC_SELECT_MSK	GENMASK(3, 2)
+/* only 4 samples CRC calculation support exists */
+#define AD7768_INTERFACE_CFG_CRC_SELECT		0x01
+
 #define AD7768_MAX_SAMP_FREQ	256000
 #define AD7768_WR_FLAG_MSK(x)	(0x80 | ((x) & 0x7F))
 
@@ -561,6 +565,15 @@ static void ad7768_clk_disable(void *data)
 	clk_disable_unprepare(clk);
 }
 
+static int ad7768_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *axiadc_st = iio_priv(indio_dev);
+
+	axiadc_write(axiadc_st, ADI_REG_CNTRL_3, ADI_CRC_EN);
+
+	return 0;
+}
+
 static int ad7768_register_axi_adc(struct ad7768_state *st)
 {
 	struct axiadc_converter	*conv;
@@ -576,6 +589,7 @@ static int ad7768_register_axi_adc(struct ad7768_state *st)
 	conv->reg_access = &ad7768_reg_access;
 	conv->write_raw = &ad7768_write_raw;
 	conv->read_raw = &ad7768_read_raw;
+	conv->post_setup = &ad7768_post_setup;
 	conv->attrs = &ad7768_group;
 	conv->phy = st;
 	/* Without this, the axi_adc won't find the converter data */
@@ -662,6 +676,12 @@ static int ad7768_probe(struct spi_device *spi)
 	}
 
 	ret = ad7768_set_sampling_freq(indio_dev, AD7768_MAX_SAMP_FREQ);
+	if (ret < 0)
+		return ret;
+
+	ret =  ad7768_spi_write_mask(st, AD7768_INTERFACE_CFG,
+				     AD7768_INTERFACE_CFG_CRC_SELECT_MSK,
+				     AD7768_INTERFACE_CFG_CRC_SELECT);
 	if (ret < 0)
 		return ret;
 
