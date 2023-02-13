@@ -78,6 +78,7 @@ struct ad7768_state {
 	struct mutex lock;
 	struct regulator *vref;
 	struct clk *mclk;
+	unsigned int datalines;
 	unsigned int sampling_freq;
 	enum ad7768_power_modes power_mode;
 	const struct axiadc_chip_info *chip_info;
@@ -109,6 +110,13 @@ static const int ad7768_dec_rate[6] = {
 	32, 64, 128, 256, 512, 1024
 };
 
+static const unsigned int ad7768_available_datalines[] = {
+	1, 2, 8
+};
+
+static const unsigned int ad7768_4_available_datalines[] = {
+	1, 4
+};
 
 static bool ad7768_has_axi_adc(struct device *dev)
 {
@@ -413,10 +421,15 @@ static ssize_t ad7768_attr_sampl_freq_avail(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7768_state *st;
-	int i, len = 0;
+	int i, len = 0, size;
 
 	st = ad7768_get_data(indio_dev);
-	for (i = 0; i < ARRAY_SIZE(ad7768_sampl_freq_avail); i++)
+	size = ARRAY_SIZE(ad7768_sampl_freq_avail);
+
+	if (st->datalines == 1)
+		size--;
+
+	for (i = 0; i < size; i++)
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%d ",
 			ad7768_sampl_freq_avail[i]);
 	buf[len - 1] = '\n';
@@ -565,11 +578,47 @@ static void ad7768_clk_disable(void *data)
 	clk_disable_unprepare(clk);
 }
 
+static int ad7768_datalines_from_dt(struct ad7768_state *st)
+{
+	const unsigned int *available_datalines;
+	unsigned int i, len;
+	int ret;
+
+	st->datalines = 1;
+	ret = device_property_read_u32(&st->spi->dev, "adi,data-lines",
+				       &st->datalines);
+	if (ret < 0)
+		return (ret != -EINVAL) ? ret : 0;
+
+	switch (st->chip_info->id) {
+	case ID_AD7768:
+		available_datalines = ad7768_available_datalines;
+		len = ARRAY_SIZE(ad7768_available_datalines);
+		break;
+	case ID_AD7768_4:
+		available_datalines = ad7768_4_available_datalines;
+		len = ARRAY_SIZE(ad7768_4_available_datalines);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	for (i = 0; i < len; i++) {
+		if (available_datalines[i] == st->datalines)
+			return 0;
+	}
+
+	return -EINVAL;
+}
+
 static int ad7768_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *axiadc_st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad7768_state *st = conv->phy;
 
 	axiadc_write(axiadc_st, ADI_REG_CNTRL_3, ADI_CRC_EN);
+	axiadc_write(axiadc_st, ADI_REG_CNTRL, ADI_NUM_LANES(st->datalines));
 
 	return 0;
 }
@@ -625,6 +674,7 @@ static int ad7768_probe(struct spi_device *spi)
 	struct gpio_desc *gpio_reset;
 	struct ad7768_state *st;
 	struct iio_dev *indio_dev;
+	int max_samp_freq;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -675,7 +725,15 @@ static int ad7768_probe(struct spi_device *spi)
 		fsleep(1660);
 	}
 
-	ret = ad7768_set_sampling_freq(indio_dev, AD7768_MAX_SAMP_FREQ);
+	ret = ad7768_datalines_from_dt(st);
+	if (ret < 0)
+		return ret;
+
+	/* The max frequency is not supported in one data line configuration */
+	if (st->datalines == 1)
+		max_samp_freq /= 2;
+
+	ret = ad7768_set_sampling_freq(indio_dev, max_samp_freq);
 	if (ret < 0)
 		return ret;
 
