@@ -47,5 +47,6 @@ config DRM_IMX_HDMI
 	help
 	  Choose this if you want to use HDMI on i.MX6.
 
+source "drivers/gpu/drm/imx/dpu95/Kconfig"
 source "drivers/gpu/drm/imx/dcss/Kconfig"
 source "drivers/gpu/drm/imx/lcdc/Kconfig"
