@@ -17,6 +17,7 @@
 
 #define FSL_SIP_DDR_DVFS                0xc2000004
 #define DDR_DFS_GET_FSP_COUNT		0x10
+#define DDR_DFS_GET_FSP_INFO		0x11
 #define DDR_FSP_HIGH			0
 #define DDR_FSP_MID			1
 #define DDR_FSP_LOW			2
@@ -26,6 +27,7 @@
 #define HWFFC_ACG_FORCE_B		BIT(17)
 #define AUTO_CG_EN			BIT(16)
 
+#define VDD_SOC_LD_VOLTAGE		800000
 #define VDD_SOC_ND_VOLTAGE		850000
 #define VDD_SOC_OD_VOLTAGE		900000
 
@@ -93,7 +95,7 @@ static struct operating_mode system_run_mode = {
 		CLK_PATH(ml_axi, 1000000000, 800000000, 500000000),
 		CLK_PATH(nic_axi, 500000000, 400000000, 250000000),
 		CLK_PATH(a55_periph, 400000000, 333000000, 200000000),
-		CLK_PATH(a55_core, 1700000000, 1400000000, 90000000),
+		CLK_PATH(a55_core, 1700000000, 1400000000, 900000000),
 	},
 };
 
@@ -106,7 +108,9 @@ static struct clk_bulk_data clks[] = {
 	{ .id = "sys_pll_pfd2_div2" },
 };
 
+static bool ld_mode_enabled;
 static unsigned int num_fsp;
+static unsigned int fsp_table[3];
 static struct regulator *soc_reg;
 static struct regmap *regmap;
 DEFINE_MUTEX(mode_mutex);
@@ -145,26 +149,7 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		return;
 	}
 
-	if (new_mode == ND_MODE || new_mode == SWFFC_MODE) {
-		for (i = 0; i < CLK_PATH_END; i++) {
-			if (i == M33_ROOT) {
-				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1_DIV2].clk);
-			} else if (i == MEDIA_AXI || i == A55_PERIPH) {
-				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
-			} else if (i == ML_AXI || i == NIC_AXI) {
-				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
-			}
-
-			clk_set_rate(path[i].clk, path[i].mode_rate[ND_MODE]);
-		}
-
-		/* Scaling down the ddr frequency. */
-		scaling_dram_freq(new_mode == ND_MODE ? 0x1 : 0x2);
-
-		regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
-
-		pr_info("System switching to ND/SWFFC mode...\n");
-	} else if (new_mode == OD_MODE) {
+	if (new_mode == OD_MODE) {
 		/* increase the voltage first */
 		regulator_set_voltage_tol(soc_reg, VDD_SOC_OD_VOLTAGE, 0);
 
@@ -175,6 +160,9 @@ static void sys_freq_scaling(enum mode_type new_mode)
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
 			} else if (i == ML_AXI || i == NIC_AXI) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
+			} else if (i == WAKEUP_AXI) {
+				clk_set_parent(path[i].clk, path[i].initial_rate > 312500000 ?
+						clks[SYS_PLL_PFD1].clk : clks[SYS_PLL_PFD2].clk);
 			}
 
 			clk_set_rate(path[i].clk, path[i].mode_rate[OD_MODE]);
@@ -183,6 +171,48 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		/* Scaling up the DDR frequency */
 		scaling_dram_freq(0x0);
 		pr_info("System switching to OD mode...\n");
+	} else if (new_mode == ND_MODE) {
+		for (i = 0; i < CLK_PATH_END; i++) {
+			if (i == M33_ROOT) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1_DIV2].clk);
+			} else if (i == MEDIA_AXI || i == A55_PERIPH) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
+			} else if (i == ML_AXI || i == NIC_AXI) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
+			} else if (i == WAKEUP_AXI) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD2].clk);
+			}
+
+				clk_set_rate(path[i].clk, path[i].mode_rate[ND_MODE]);
+		}
+
+		/* Scaling down the ddr frequency. */
+		scaling_dram_freq(0x1);
+
+		regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
+
+		pr_info("System switching to ND mode...\n");
+	} else if (new_mode == LD_MODE || new_mode == SWFFC_MODE) {
+		for (i = 0; i < CLK_PATH_END; i++) {
+			if (i == M33_ROOT) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1_DIV2].clk);
+			} else if (i == MEDIA_AXI || i == A55_PERIPH) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
+			} else if (i == ML_AXI || i == NIC_AXI) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
+			} else if (i == WAKEUP_AXI) {
+				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
+			}
+
+			clk_set_rate(path[i].clk, path[i].mode_rate[LD_MODE]);
+		}
+
+		/* Scaling down the ddr frequency. */
+		scaling_dram_freq(new_mode == LD_MODE ? 0x1 : 0x2);
+
+		regulator_set_voltage_tol(soc_reg, VDD_SOC_LD_VOLTAGE, 0);
+
+		pr_info("System switching to LD/SWFFC mode...\n");
 	}
 
 	system_run_mode.current_mode = new_mode;
@@ -206,16 +236,39 @@ static ssize_t lpm_enable_store(struct device *dev,
 			        struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	if (!strncmp(buf, "nd", 2)) {
-		sys_freq_scaling(ND_MODE);
-	} else if (!strncmp(buf, "od", 2)) {
+	u16 new_mode;
+
+	if (kstrtou16(buf, 10, &new_mode))
+		return -EINVAL;
+
+	if (new_mode >= MODE_END)
+		return -EINVAL;
+
+	/* if only two ddr frequency setpoint, LD+SWFFC can not be supported */
+	if (num_fsp <= 2 && new_mode == SWFFC_MODE)
+		return -EINVAL;
+
+	/* if LD mode is not enabled in dts, only OD & ND mode can be supported */
+	if (!ld_mode_enabled && new_mode >= LD_MODE)
+		return -EINVAL;
+
+	/* make sure auto clock gating is disabled before DDR frequency scaling */
+	regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
+
+	if ((system_run_mode.current_mode != OD_MODE && new_mode == SWFFC_MODE) ||
+	    (system_run_mode.current_mode == SWFFC_MODE && new_mode != OD_MODE)) 
 		sys_freq_scaling(OD_MODE);
-	}
+
+	sys_freq_scaling(new_mode);
+
+	if (system_run_mode.auto_gate_enabled ||
+	    (system_run_mode.current_mode == OD_MODE && fsp_table[0] >= 3733))
+		regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, AUTO_CG_EN);
 
 	return count;
 }
 
-static ssize_t auto_gate_enable_show(struct device *dev,
+static ssize_t auto_clk_gating_show(struct device *dev,
 			      struct device_attribute *attr,
 			      char *buf)
 {
@@ -223,20 +276,28 @@ static ssize_t auto_gate_enable_show(struct device *dev,
 
 	regmap_read(regmap, AUTO_CG_CTRL, &val);
 	if (val & AUTO_CG_EN)
-		return sprintf(buf, "DDR auto clock gating enabled!\n");
+		return sprintf(buf, "DDR auto clock gating enabled with idle strap: %x!\n", val & 0xffff);
 	else
 		return sprintf(buf, "DDR auto clock gating disabled!\n");
 }
 
-static ssize_t auto_gate_enable_store(struct device *dev,
+static ssize_t auto_clk_gating_store(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t count)
 {
-	if (!strncmp(buf, "1", 1)) {
+	u16 ssi_idle_strap;
+	if (kstrtou16(buf, 10, &ssi_idle_strap))
+		return -EINVAL;
+
+	if (ssi_idle_strap) {
+		/* idle strap should be set to a value >= 256 */
+		regmap_update_bits(regmap, AUTO_CG_CTRL, 0xFFFF, ssi_idle_strap > 256 ?
+			ssi_idle_strap : 0x100);
 		regmap_update_bits(regmap, AUTO_CG_CTRL, HWFFC_ACG_FORCE_B | AUTO_CG_EN,
-				 HWFFC_ACG_FORCE_B | AUTO_CG_EN);
+				   HWFFC_ACG_FORCE_B | AUTO_CG_EN);
+		system_run_mode.ssi_strap = ssi_idle_strap;
 		system_run_mode.auto_gate_enabled = true;
-	} else if (!strncmp(buf, "0", 1)) {
+	} else {
 		regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
 		system_run_mode.auto_gate_enabled = false;
 	}
@@ -244,64 +305,12 @@ static ssize_t auto_gate_enable_store(struct device *dev,
 	return count;
 }
 
-static ssize_t idle_delay_show(struct device *dev,
-			       struct device_attribute *attr,
-			       char *buf)
-{
-	unsigned int ssi_idle_strap;
-
-	regmap_read(regmap, AUTO_CG_CTRL, &ssi_idle_strap);
-	ssi_idle_strap &= 0xFFFF;
-
-	return sprintf(buf, "ddr idle delay is %d\n", ssi_idle_strap);
-}
-
-static ssize_t idle_delay_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	u16 ssi_idle_strap;
-
-	if (kstrtou16(buf, 10, &ssi_idle_strap))
-		return -EINVAL;
-	regmap_update_bits(regmap, 0x10, 0xFFFF, ssi_idle_strap);
-
-	return count;
-}
-
-static ssize_t swffc_show(struct device *dev,
-			       struct device_attribute *attr,
-			       char *buf)
-{
-	if (system_run_mode.current_mode == SWFFC_MODE)
-		return sprintf(buf, "DDR SWFFC is enabled\n");
-	 else
-		return sprintf(buf, "DDR SWFFC is not enabled\n");
-}
-
-static ssize_t swffc_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	if (!strncmp(buf, "1", 1)) {
-		sys_freq_scaling(SWFFC_MODE);
-	} else if (!strncmp(buf, "0", 1)) {
-		sys_freq_scaling(OD_MODE);
-	}
-
-	return count;
-}
-
 static DEVICE_ATTR(mode, 0644, lpm_enable_show, lpm_enable_store);
-static DEVICE_ATTR(auto_clk_gating, 0644, auto_gate_enable_show, auto_gate_enable_store);
-static DEVICE_ATTR(idle_delay, 0644, idle_delay_show, idle_delay_store);
-static DEVICE_ATTR(swffc, 0644, swffc_show, swffc_store);
+static DEVICE_ATTR(auto_clk_gating, 0644, auto_clk_gating_show, auto_clk_gating_store);
 
 static const struct attribute *imx93_lpm_attrs[] = {
 	&dev_attr_mode.attr,
 	&dev_attr_auto_clk_gating.attr,
-	&dev_attr_idle_delay.attr,
-	&dev_attr_swffc.attr,
 	NULL
 };
 
@@ -310,20 +319,19 @@ static int imx93_lpm_pm_notify(struct notifier_block *nb, unsigned long event,
 {
 	if (event == PM_SUSPEND_PREPARE) {
 		system_run_mode.resume_mode = system_run_mode.current_mode;
+		/* make sure auto clock gating is disabled */
+		regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
 		sys_freq_scaling(OD_MODE);
 
 		/* save the ssi idle strap */
 		regmap_read(regmap, AUTO_CG_CTRL, &system_run_mode.ssi_strap);
-		if (system_run_mode.auto_gate_enabled) {
-			/* disable the auto clock gating */
-			regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
-		}
 	} else if (event == PM_POST_SUSPEND) {
 		sys_freq_scaling(system_run_mode.resume_mode);
 
 		/* restore the ssi idle strap */
 		regmap_update_bits(regmap, AUTO_CG_CTRL, 0xFFFF, system_run_mode.ssi_strap);
-		if (system_run_mode.auto_gate_enabled) {
+		if (system_run_mode.auto_gate_enabled ||
+		    (system_run_mode.current_mode == OD_MODE && fsp_table[0] >= 3733)) {
 			/* enable the auto clock gating */
 			regmap_update_bits(regmap, AUTO_CG_CTRL, HWFFC_ACG_FORCE_B | AUTO_CG_EN,
 				 HWFFC_ACG_FORCE_B | AUTO_CG_EN);
@@ -346,7 +354,9 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 
 	/*
 	 * get the supported frequency number, if only
-	 * one setpoint, then no mode switching can be supported
+	 * one setpoint, then no mode switching can be supported.
+	 * if three setpoints(f0,f1,f2) available, we asuming fsp2
+	 * is used for DDR SWFFC in LD mode 
 	 */
 	arm_smccc_smc(FSL_SIP_DDR_DVFS, DDR_DFS_GET_FSP_COUNT, 0,
 		0, 0, 0, 0, 0, &res);
@@ -355,6 +365,19 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 		pr_info("no ddr frequency scaling can be supported");
 		return -EINVAL;
 	}
+
+	/* get the available ddr fsp info */
+	for (i = 0; i <num_fsp; i++) {
+		arm_smccc_smc(FSL_SIP_DDR_DVFS, DDR_DFS_GET_FSP_INFO, i,
+			0, 0, 0, 0, 0, &res);
+		err = res.a0;
+		if (err < 0)
+			return -EINVAL;
+		fsp_table[i] = res.a0;
+	}
+
+	/* ld mode can only be used when it is enabled explictly */
+	ld_mode_enabled = of_property_read_bool(pdev->dev.of_node, "ld-mode-enabled");
 
 	regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "regmap");
 	if (IS_ERR(regmap)) {
@@ -366,8 +389,20 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 	if (IS_ERR(soc_reg))
 		return PTR_ERR(soc_reg);
 
-	/* initial auto clock gating ssi strap */
+	/*
+	 * initial auto clock gating ssi strap, set to 0x100 by default,
+	 * too small value will impact the ddr performance significantly.
+	 */
 	regmap_update_bits(regmap, 0x10, 0xffff, 0x100);
+
+	/*
+	 * enable the ddr auto clock gating if highest ddr frequeency is 3733mts
+	 * as it can provide a better balance between performance & power.
+	 * Normally we assuming system boot from the highest frequency by default.
+	 */
+	if (fsp_table[0] >= 3733)
+		regmap_update_bits(regmap, AUTO_CG_CTRL, HWFFC_ACG_FORCE_B | AUTO_CG_EN,
+				   HWFFC_ACG_FORCE_B | AUTO_CG_EN);
 
 	/* Get all the critical path's clock */
 	for (i = 0; i < CLK_PATH_END; i++) {
