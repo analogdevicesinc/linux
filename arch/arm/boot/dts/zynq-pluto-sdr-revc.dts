@@ -51,6 +51,29 @@
 		clocks = <&clkc 15>, <&adc0_ad9364 20>;
 		clock-names = "s_axi_aclk", "intf_clk";
 	};
+
+
+	iio_axi_tdd_0@0 {
+		compatible = "adi,iio-fake-platform-device";
+		adi,faked-dev = <&axi_tdd_0>;
+		adi,attribute-names =
+                        "version", "core_id", "scratch", "magic",
+                        "sync_soft", "sync_external", "sync_internal", "sync_reset",
+                        "enable", "startup_delay_raw", "startup_delay_ms",
+                        "burst_count", "frame_length_raw", "frame_length_ms",
+                        "state", "internal_sync_period_raw", "internal_sync_period_ms",
+                        "out_channel0_enable", "out_channel0_polarity",
+                        "out_channel0_on_raw", "out_channel0_on_ms",
+                        "out_channel0_off_raw", "out_channel0_off_ms",
+                        "out_channel1_enable", "out_channel1_polarity",
+                        "out_channel1_on_raw", "out_channel1_on_ms",
+                        "out_channel1_off_raw", "out_channel1_off_ms",
+                        "out_channel2_enable", "out_channel2_polarity",
+                        "out_channel2_on_raw", "out_channel2_on_ms",
+                        "out_channel2_off_raw", "out_channel2_off_ms";
+		label = "iio-axi-tdd-0";
+	};
+
 	axi_spi: spi@7C430000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
