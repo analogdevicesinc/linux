@@ -73,6 +73,17 @@ config AD4630
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad4630.
 
+config AD4696
+	tristate "Analog Devices AD4696 ADC Driver"
+	help
+	  Say yes here to build support for Analog Devices AD4696 compact,
+	  high accuracy, low power, 16-channel, 16-bit, multiplexed input
+	  precision, successive approximation register (SAR) analog-to-digital
+	  converter (ADC).
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad4696.
+
 config AD4858
 	tristate "Analog Device AD4858 DAQ Driver"
 	select IIO_BUFFER
