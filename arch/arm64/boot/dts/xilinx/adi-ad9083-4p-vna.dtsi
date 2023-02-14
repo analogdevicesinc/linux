@@ -125,6 +125,14 @@
 			label = "HI_LOW_SEL";
 		};
 	};
+
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
 };
 
 &gpio {
@@ -200,6 +208,16 @@
 		dma-names = "rx";
 		pwms = <&axi_pwm_gen 0 0>;
 		pwm-names = "cnv";
+	};
+
+	ad4696: adc@1{
+		compatible = "adi,ad4696";
+		reg = <1>;
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <10000000>;
+		reset-gpios = <&gpio 129 0>;
+		vref-supply = <&vref>;
 	};
 };
 
