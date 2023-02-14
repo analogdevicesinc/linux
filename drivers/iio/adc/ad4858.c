@@ -333,21 +333,7 @@ static int ad4858_setup(struct ad4858_dev *adc)
 	ad4858_spi_reg_write(adc, AD4858_REG_PACKET,
 			     1);
 
-	unsigned char tx_data[3], rx_data[3];
-	struct spi_transfer xfer = {
-		.rx_buf = rx_data,
-		.tx_buf = tx_data,
-		.len = 3,
-		.bits_per_word = 8,
-		.cs_change = 1,
-	};
-
-	tx_data[0] = 0x0;
-	tx_data[1] = 0xA;
-	tx_data[2] = 0x0;
-
-	/* Do a dummy spi transfer and change the cs low after */
-	return spi_sync_transfer(adc->spi, &xfer, 1);
+	return 0;
 }
 
 static int ad4858_read_raw(struct iio_dev *indio_dev,
@@ -438,8 +424,26 @@ static int ad7768_buffer_preenable(struct iio_dev *indio_dev)
 	return spi_sync_transfer(adc->spi, &xfer, 1);
 }
 
+static int ad7768_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned char tx_data[3] = {BIT(7), 0, 0} , rx_data[3];
+	struct spi_transfer xfer = {
+		.rx_buf = rx_data,
+		.tx_buf = tx_data,
+		.len = 3,
+		.bits_per_word = 8,
+		.cs_change = 0,
+	};
+
+	/* Do a dummy spi transfer and change the cs high after */
+	return spi_sync_transfer(adc->spi, &xfer, 1);
+}
+
 static const struct iio_buffer_setup_ops ad4858_buffer_ops = {
 	.preenable = &ad7768_buffer_preenable,
+	.postdisable = &ad7768_buffer_postdisable,
 };
 
 static int ad4858_axi_adc_post_setup(struct iio_dev *indio_dev)
