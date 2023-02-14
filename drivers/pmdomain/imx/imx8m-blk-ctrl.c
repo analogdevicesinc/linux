@@ -820,7 +820,7 @@ static const struct imx8m_blk_ctrl_noc_data imx8mp_media_noc_data[] = {
 	},
 	[IMX8MP_MEDIABLK_DWE] = {
 		.off = 0xd00,
-		.priority = 0x80000707,
+		.priority = 0x80000303,
 	},
 };
 
