@@ -909,6 +909,11 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_interrupt)(
 		struct dma_chan *chan, unsigned long flags);
 
+	struct dma_async_tx_descriptor *(*device_prep_slave_dma_array)(
+		struct dma_chan *chan, dma_addr_t *addrs,
+		size_t *lengths, size_t nb,
+		enum dma_transfer_direction direction,
+		unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_slave_sg)(
 		struct dma_chan *chan, struct scatterlist *sgl,
 		unsigned int sg_len, enum dma_transfer_direction direction,
@@ -971,6 +976,17 @@ static inline struct dma_async_tx_descriptor *dmaengine_prep_slave_single(
 
 	return chan->device->device_prep_slave_sg(chan, &sg, 1,
 						  dir, flags, NULL);
+}
+
+static inline struct dma_async_tx_descriptor *dmaengine_prep_slave_dma_array(
+	struct dma_chan *chan, dma_addr_t *addrs, size_t *lengths,
+	size_t nb, enum dma_transfer_direction dir, unsigned long flags)
+{
+	if (!chan || !chan->device || !chan->device->device_prep_slave_dma_array)
+		return NULL;
+
+	return chan->device->device_prep_slave_dma_array(chan, addrs, lengths,
+							 nb, dir, flags);
 }
 
 static inline struct dma_async_tx_descriptor *dmaengine_prep_slave_sg(
