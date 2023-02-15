@@ -2466,10 +2466,13 @@ static int pxp_ps_config(struct pxp_pixmap *input,
 		U = (input->paddr_u) ? input->paddr_u :
 				       input->paddr + input->width * input->height;
 		if ((input->format == PXP_PIX_FMT_NV16) ||
-		    (input->format == PXP_PIX_FMT_NV61))
+		    (input->format == PXP_PIX_FMT_NV61)) {
 			pxp_writel(U + offset, HW_PXP_PS_UBUF);
-		else
-			pxp_writel(U + (offset >> 1), HW_PXP_PS_UBUF);
+		} else {
+			offset = input->crop.y * input->pitch >> 1;
+			offset += input->crop.x;
+			pxp_writel(U + offset, HW_PXP_PS_UBUF);
+		}
 		break;
 	case 3:		/* YUV422P, YUV420P */
 		U = (input->paddr_u) ? input->paddr_u :
@@ -2480,15 +2483,19 @@ static int pxp_ps_config(struct pxp_pixmap *input,
 					       U + (input->width * input->height >> 1);
 			pxp_writel(V + (offset >> 1), HW_PXP_PS_VBUF);
 		} else if (input->format == PXP_PIX_FMT_YUV420P) {
-			pxp_writel(U + (offset >> 2), HW_PXP_PS_UBUF);
+			offset = input->crop.y * input->pitch >> 2;
+			offset += input->crop.x >> 1;
+			pxp_writel(U + offset, HW_PXP_PS_UBUF);
 			V = (input->paddr_v) ? input->paddr_v :
 					       U + (input->width * input->height >> 2);
-			pxp_writel(V + (offset >> 2), HW_PXP_PS_VBUF);
+			pxp_writel(V + offset, HW_PXP_PS_VBUF);
 		} else if (input->format == PXP_PIX_FMT_YVU420P) {
 			V = (input->paddr_v) ? input->paddr_v :
 					       U + (input->width * input->height >> 2);
-			pxp_writel(U + (offset >> 2), HW_PXP_PS_VBUF);
-			pxp_writel(V + (offset >> 2), HW_PXP_PS_UBUF);
+			offset = input->crop.y * input->pitch >> 2;
+			offset += input->crop.x >> 1;
+			pxp_writel(U + offset, HW_PXP_PS_VBUF);
+			pxp_writel(V + offset, HW_PXP_PS_UBUF);
 		}
 
 		break;
