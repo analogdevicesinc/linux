@@ -138,7 +138,7 @@
                 #address-cells = <1>;
                 #size-cells = <0>;
                 reg = <0x44B20000 0x1000>;
-                num-cs = <0x1>;
+                num-cs = <0x2>;
                 compatible = "xlnx,xps-spi-2.00.a";
                 bits-per-word = <16>;
                 fifo-size = <16>;
