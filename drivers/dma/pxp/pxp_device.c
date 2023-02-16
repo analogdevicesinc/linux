@@ -663,15 +663,11 @@ static struct sg_table *pxp_dmabuf_ops_map(
 	struct dma_buf_attachment *db_attach, enum dma_data_direction dma_dir)
 {
 	struct pxp_attachment *attach = db_attach->priv;
-	struct mutex *lock = &db_attach->dmabuf->lock;
 	struct sg_table *sgt;
-
-	mutex_lock(lock);
 
 	sgt = &attach->sgt;
 	/* return previously mapped sg table */
 	if (attach->dma_dir == dma_dir) {
-		mutex_unlock(lock);
 		return sgt;
 	}
 
@@ -689,13 +685,10 @@ static struct sg_table *pxp_dmabuf_ops_map(
 	if (dma_map_sgtable(db_attach->dev, sgt, dma_dir,
 			    DMA_ATTR_SKIP_CPU_SYNC)) {
 		pr_err("failed to map scatterlist\n");
-		mutex_unlock(lock);
 		return ERR_PTR(-EIO);
 	}
 
 	attach->dma_dir = dma_dir;
-
-	mutex_unlock(lock);
 
 	return sgt;
 }
