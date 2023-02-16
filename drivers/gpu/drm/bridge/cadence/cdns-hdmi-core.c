@@ -509,8 +509,14 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 	/* for all other platforms, other than imx8mq */
 	if (strncmp("imx8mq-hdmi", mhdp->plat_data->plat_name, 11)) {
-		if (di->bpc == 10 || di->bpc == 6)
-			video->color_depth = di->bpc;
+		/* In color depth mode,
+		 * if the character clock rate exceed max_tmds_clock
+		 * video should default work in bpc = 8.
+		 */
+		if ((mode->clock * di->bpc / 8) > di->max_tmds_clock)
+			return true;
+
+		video->color_depth = di->bpc;
 
 		return true;
 	}
