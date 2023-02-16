@@ -65,6 +65,25 @@
 		},							\
 	}
 
+#define AXI_LTC2387_BASE_ADDR           0x44A00000
+#define AXI_PWMGEN_BASE_ADDR            0x44A60000
+#define AXI_PWMGEN_REG_CORE_VERSION	0x00
+#define AXI_PWMGEN_REG_ID		0x04
+#define AXI_PWMGEN_REG_SCRATCHPAD	0x08
+#define AXI_PWMGEN_REG_CORE_MAGIC	0x0C
+#define AXI_PWMGEN_REG_CONFIG		0x10
+#define AXI_PWMGEN_REG_NB_PULSES	0x14
+#define AXI_PWMGEN_REG_PULSE_0_PERIOD	0x40
+#define AXI_PWMGEN_REG_PULSE_0_WIDTH	0x44
+#define AXI_PWMGEN_REG_PULSE_0_OFFSET	0x48
+#define AXI_PWMGEN_REG_PULSE_1_PERIOD	0x4C
+#define AXI_PWMGEN_REG_PULSE_1_WIDTH	0x50
+#define AXI_PWMGEN_REG_PULSE_1_OFFSET	0x54
+
+#define AXI_PWMGEN_TEST_DATA		0x5A0F0081
+#define AXI_PWMGEN_LOAD_CONIG		BIT(1)
+#define AXI_PWMGEN_RESET		BIT(0)
+
 enum ltc2387_lane_modes {
 	ONE_LANE = 0,
 	TWO_LANES = 1
@@ -222,10 +241,14 @@ static int ltc2387_setup(struct iio_dev *indio_dev)
 	struct ltc2387_dev *ltc = iio_priv(indio_dev);
 	struct device *dev = indio_dev->dev.parent;
 
-	if (device_property_present(dev, "adi,use-two-lanes"))
+	if (device_property_present(dev, "adi,use-two-lanes")) {
 		ltc->lane_mode = TWO_LANES;
-
-	return ltc2387_set_sampling_freq(ltc, 15 * MHz);
+		return ltc2387_set_sampling_freq(ltc, 15 * MHz);
+	}
+	else { // if "adi,use-one-lane"
+		ltc->lane_mode = ONE_LANE;
+		return ltc2387_set_sampling_freq(ltc, 7.5 * MHz);
+	}
 }
 
 static int ltc2387_read_raw(struct iio_dev *indio_dev,
@@ -389,6 +412,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	indio_dev->num_channels = ltc->device_info->num_channels;
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = pdev->dev.of_node->name;
+	printk("\n\n%s\n\n", indio_dev->name);
 	indio_dev->info = &ltc2387_info;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
@@ -398,6 +422,18 @@ static int ltc2387_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = ltc2387_setup(indio_dev);
+	//axi_pwmgen *pwm;
+	//axi_pwmgen_write(pwm,
+
+	// get the device out of reset
+	writel(0x1, 0x44A00040);
+	// set the SIGN_EXTENSION, FORMAT_TYPE and FORMAT_ENABLE
+	writel(0x50, 0x44A00400);
+	// change the PULSE_OFFSET for PWM_1 to 8
+	writel(0x8, AXI_PWMGEN_BASE_ADDR + AXI_PWMGEN_REG_PULSE_1_OFFSET);
+	// load the new configuration for axi_pwm_gen
+	writel(0x2, AXI_PWMGEN_BASE_ADDR + AXI_PWMGEN_LOAD_CONIG);
+
 	if (ret < 0) {
 		dev_err(&pdev->dev, "\nltc2387 setup failed\n");
 		return ret;
