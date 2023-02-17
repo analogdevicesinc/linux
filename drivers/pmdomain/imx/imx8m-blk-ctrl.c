@@ -4,7 +4,6 @@
  * Copyright 2021 Pengutronix, Lucas Stach <kernel@pengutronix.de>
  */
 
-#include <linux/bitfield.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -753,10 +752,6 @@ static const struct imx8m_blk_ctrl_data imx8mn_disp_blk_ctl_dev_data = {
 	.num_domains = ARRAY_SIZE(imx8mn_disp_blk_ctl_domain_data),
 };
 
-#define LCDIF_ARCACHE_CTRL	0x4c
-#define  LCDIF_1_RD_HURRY	GENMASK(15, 13)
-#define  LCDIF_0_RD_HURRY	GENMASK(12, 10)
-
 static int imx8mp_media_power_notifier(struct notifier_block *nb,
 				unsigned long action, void *data)
 {
@@ -770,23 +765,13 @@ static int imx8mp_media_power_notifier(struct notifier_block *nb,
 	regmap_set_bits(bc->regmap, BLK_CLK_EN, BIT(8));
 	regmap_set_bits(bc->regmap, BLK_SFT_RSTN, BIT(8));
 
-	if (action == GENPD_NOTIFY_ON) {
-		/*
-		 * On power up we have no software backchannel to the GPC to
-		 * wait for the ADB handshake to happen, so we just delay for a
-		 * bit. On power down the GPC driver waits for the handshake.
-		 */
+	/*
+	 * On power up we have no software backchannel to the GPC to
+	 * wait for the ADB handshake to happen, so we just delay for a
+	 * bit. On power down the GPC driver waits for the handshake.
+	 */
+	if (action == GENPD_NOTIFY_ON)
 		udelay(5);
-
-		/*
-		 * Set panic read hurry level for both LCDIF interfaces to
-		 * maximum priority to minimize chances of display FIFO
-		 * underflow.
-		 */
-		regmap_set_bits(bc->regmap, LCDIF_ARCACHE_CTRL,
-				FIELD_PREP(LCDIF_1_RD_HURRY, 7) |
-				FIELD_PREP(LCDIF_0_RD_HURRY, 7));
-	}
 
 	return NOTIFY_OK;
 }
