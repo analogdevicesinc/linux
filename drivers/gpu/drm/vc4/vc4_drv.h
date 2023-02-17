@@ -325,6 +325,7 @@ struct vc4_hvs {
 	unsigned int dlist_mem_size;
 
 	struct clk *core_clk;
+	struct clk *disp_clk;
 
 	unsigned long max_core_rate;
 
@@ -334,6 +335,11 @@ struct vc4_hvs {
 	struct drm_mm dlist_mm;
 	/* Memory manager for the LBM memory used by HVS scaling. */
 	struct drm_mm lbm_mm;
+
+	/* Memory manager for the UPM memory used for prefetching. */
+	struct drm_mm upm_mm;
+	struct ida upm_handles;
+
 	spinlock_t mm_lock;
 
 	struct drm_mm_node mitchell_netravali_filter;
@@ -356,6 +362,7 @@ struct vc4_hvs {
 };
 
 #define HVS_NUM_CHANNELS 3
+#define HVS_UBM_WORD_SIZE 256
 
 struct vc4_hvs_state {
 	struct drm_private_state base;
@@ -424,6 +431,15 @@ struct vc4_plane_state {
 
 	/* Our allocation in LBM for temporary storage during scaling. */
 	struct drm_mm_node lbm;
+
+	/* Our allocation in UPM for prefetching. */
+	struct drm_mm_node upm[DRM_FORMAT_MAX_PLANES];
+
+	/* The Unified Pre-Fetcher Handle */
+	unsigned int upm_handle[DRM_FORMAT_MAX_PLANES];
+
+	/* Number of lines to pre-fetch */
+	unsigned int upm_buffer_lines;
 
 	/* Set when the plane has per-pixel alpha content or does not cover
 	 * the entire screen. This is a hint to the CRTC that it might need
