@@ -603,7 +603,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		switch (chan->type) {
 		case IIO_VOLTAGE:
 			ret = regulator_get_voltage(adc->vref);
-			if (ret)
+			if (ret < 0)
 				return ret;
 			*val = ret / 1000;
 			*val2 = adc->info->resolution;
