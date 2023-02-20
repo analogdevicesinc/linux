@@ -916,8 +916,10 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 
 	device_for_each_child_node(dev, child) {
 		ret = ad_pulsar_setup_channel(adc, child);
-		if (ret)
+		if (ret) {
+			fwnode_handle_put(child);
 			return ret;
+		}
 	}
 
 	return 0;
