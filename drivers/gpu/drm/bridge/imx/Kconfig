@@ -55,4 +55,13 @@ config DRM_IMX93_MIPI_DSI
 	  Choose this to enable MIPI DSI controller found in Freescale i.MX93
 	  processor.
 
+config DRM_IMX95_PIXEL_INTERLEAVER
+	tristate "NXP i.MX95 pixel interleaver"
+	depends on OF && MFD_SYSCON && COMMON_CLK
+	select DRM_KMS_HELPER
+	select REGMAP_MMIO
+	help
+	  Choose this to enable pixel interleaver found in NXP i.MX95
+	  processors.
+
 endif # ARCH_MXC || COMPILE_TEST
