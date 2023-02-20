@@ -2,7 +2,6 @@
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 #include <linux/regmap.h>
-#include <linux/bitops.h>
 
 /* The CONFIGURATION register's bitmasks */
 #define MAX31827_CONFIGURATION_1SHOT        BIT(0)
@@ -18,14 +17,15 @@
 #define MAX31827_CONFIGURATION_O_TEMP_STAT  BIT(15)
 
 /* The MAX31827 registers */
-#define MAX31827_T                          0x00
-#define MAX31827_CONFIGURATION              0x02
-#define MAX31827_TH                         0x04
-#define MAX31827_TL                         0x06
-#define MAX31827_TH_HYST                    0x08
-#define MAX31827_TL_HYST                    0x0A
+#define MAX31827_T                          0x0
+#define MAX31827_CONFIGURATION              0x2
+#define MAX31827_TH                         0x4
+#define MAX31827_TL                         0x6
+#define MAX31827_TH_HYST                    0x8
+#define MAX31827_TL_HYST                    0xA
 
-/* Macros */
+/* Masks */
+#define WRITEABLE_CONFIG_MASK               0x0FFF
 
 struct max31827_data {
     struct regmap *regmap;
@@ -34,7 +34,7 @@ struct max31827_data {
 // check this
 // might have to change the endian 
 static const struct regmap_config max31827_regmap = {           
-        .reg_bits = 16,
+        .reg_bits = 8,
         .val_bits = 16,
         .max_register = 0xA,
 };
@@ -47,9 +47,16 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
 {
     struct max31827_data *data = iio_priv(indio_dev);
     int ret;
-    int *cfg;
+    int cfg;
 
     switch (mask) {
+    case IIO_CHAN_INFO_ENABLE:
+        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, val);
+        if (ret < 0)
+            return ret;
+
+        *val = *val & MAX31827_CONFIGURATION_1SHOT;
+        return IIO_VAL_INT;
     case IIO_CHAN_INFO_RAW:
         ret = regmap_read(data->regmap, MAX31827_T, val);
         if (ret < 0)
@@ -58,26 +65,69 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
         return IIO_VAL_INT;
 
     case IIO_CHAN_INFO_SCALE:
-        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, cfg);
+        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, &cfg);
         if (ret < 0)
             return ret;
 
         *val = 1;
-        *cfg = (*cfg & MAX31827_CONFIGURATION_RESOL) >> 6;
-        
-        printk("Cfg variable value: %d\n", *cfg);
-        switch(*cfg) {
-        case 0b00:
-            *val2 = 1;
+        *val2 = 16;
+        // cfg = (cfg & MAX31827_CONFIGURATION_RESOL) >> 6;
+        // switch(cfg) {
+        // case 0b00:
+        //     *val2 = 1;
+        //     break;
+        // case 0b01:
+        //     *val2 = 2;
+        //     break;
+        // case 0b10:
+        //     *val2 = 4;
+        //     break;
+        // case 0b11:
+        //     *val2 = 16;
+        //     break;
+        // default:
+        //     return -EINVAL;
+        // }
+
+        return IIO_VAL_FRACTIONAL;
+
+    case IIO_CHAN_INFO_SAMP_FREQ:
+        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, &cfg);
+        if (ret < 0)
+            return ret;
+
+        cfg = (cfg & MAX31827_CONFIGURATION_CNV_RATE) >> 1;
+        switch(cfg) {
+        case 0b000:
+            *val = 0;
             break;
-        case 0b01:
-            *val2 = 2;
+        case 0b001:
+            *val = 1;
+            *val2 = 64;
             break;
-        case 0b10:
+        case 0b010:
+            *val = 1;
+            *val2 = 32;
+            break;
+        case 0b011:
+            *val = 1;
+            *val2 = 16;
+            break;
+        case 0b100:
+            *val = 1;
             *val2 = 4;
             break;
-        case 0b11:
-            *val2 = 16;
+        case 0b101:
+            *val = 1;
+            *val2 = 1;
+            break;
+        case 0b110:
+            *val = 4;
+            *val2 = 1;
+            break;
+        case 0b111:
+            *val = 8;
+            *val2 = 1;
             break;
         default:
             return -EINVAL;
@@ -97,30 +147,30 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
 {
     struct max31827_data *data = iio_priv(indio_dev);
     int ret;
-    uint32_t cfg;
-    int value;
+    unsigned int value;
 
     switch (mask) {
     /* One-shot = return a single conversion */
     case IIO_CHAN_INFO_ENABLE:
-        ret = regmap_write(data->regmap, MAX31827_CONFIGURATION,
-            val ? MAX31827_CONFIGURATION_1SHOT : 0);
-        if (ret)
-            return ret;
+        if(val) {
+            ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_1SHOT |
+                        MAX31827_CONFIGURATION_CNV_RATE, 0b0001);
+            if (ret < 0)
+                return ret;
+        }
         return 0;
    
-    case IIO_CHAN_INFO_HYSTERESIS:
-        return 0;
+    case IIO_CHAN_INFO_SAMP_FREQ:
+        val <<= 1;
 
-    case IIO_CHAN_INFO_SCALE:
-        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, &cfg);
+        ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_CNV_RATE, val);
         if (ret < 0)
             return ret;
 
-        /* Clear resolution bits */
-        cfg &= ~MAX31827_CONFIGURATION_RESOL; 
+        return 0;
 
-        switch(val2) {
+    case IIO_CHAN_INFO_SCALE:
+        switch(val) {
         case 1:
             value = 0b00;
             break;
@@ -136,10 +186,9 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
         default:
             return -EINVAL;
         }
+        value <<= 6;
 
-        cfg |= (value << 5);
-
-        ret = regmap_write(data->regmap, MAX31827_CONFIGURATION, cfg);
+        ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_RESOL, value);
         if (ret < 0)
             return ret;
 
@@ -172,7 +221,7 @@ static const struct iio_chan_spec max31827_channels[] = {
     {
         .type = IIO_TEMP,
         .info_mask_shared_by_all = 
-            BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_HYSTERESIS) |
+            BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SAMP_FREQ) |
             BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_SCALE), 
         .output = 0,
     }, 
