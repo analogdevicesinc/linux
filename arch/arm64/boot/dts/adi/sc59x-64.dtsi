@@ -841,6 +841,13 @@
 			status = "disabled";
 		};
 
+		pkte1: pkte@310CD000 {
+			compatible = "adi,pkte";
+			reg = <0x310CD000 0x400>;
+			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
 //		dma0: dma@0 {
 //			compatible = "adi,dma2";
 //			reg = <0x31022000 0x7F>;

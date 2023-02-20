@@ -304,3 +304,10 @@
 		};
 	};
 };
+
+&pkte1 {
+	status = "okay";
+	mode = "arm";        /* autonomous ring mode */
+	/* mode = "tcm"; */  /* target command mode  */
+	/* mode = "dhm"; */  /* direct host mode     */
+};
