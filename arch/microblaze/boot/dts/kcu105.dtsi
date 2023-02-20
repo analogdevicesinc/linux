@@ -282,7 +282,7 @@
 			#size-cells = <0>;
 			clock-frequency = <100000000>;
 			clocks = <&clk_bus_0>;
-			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+			compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
 			interrupt-names = "iic2intc_irpt";
 			interrupt-parent = <&axi_intc>;
 			interrupts = <9 2>;
