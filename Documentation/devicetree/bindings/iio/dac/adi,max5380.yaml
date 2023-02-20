@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2023 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/dac/adi,max5380.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX5380 8-bit DAC Device Driver
+
+description: |
+   The MAX5380 are low-cost, 8-bit digital-to-analog converters (DACs)
+   in miniature 5-pin SOT23 packages, with a simple 2-wire serial
+   interface that allows communication with multiple devices.
+
+   More details here:
+   https://www.analog.com/media/en/technical-documentation/data-sheets/MAX5380-MAX5382.pdf
+
+maintainers:
+  - Marc Paolo Sosa <marcpaolo.sosa@analog.com>
+
+properties:
+  compatible:
+    enum:
+      - maxim,max5380
+
+  reg:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+
+    &i2c1 {
+         #address-cells = <1>;
+         #size-cells = <0>;
+
+        max5380: dac@0 {
+                compatible = "maxim,max5380";
+                reg=<0x31>;
+          };
+    };
+...
