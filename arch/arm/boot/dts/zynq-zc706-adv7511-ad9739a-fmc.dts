@@ -64,7 +64,7 @@
 		};
 	};
 
-	axi_ad9739a_core: axi-ad9739a-hpc@74204000 {
+	axi_ad9739a_core: axi-ad9739a-lpc@74204000 {
 		compatible = "adi,axi-ad9739a-8.00.b";
 		reg = < 0x74204000 0x4000 >;
 		dmas = <&tx_dma 0>;
