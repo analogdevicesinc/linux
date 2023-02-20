@@ -64,4 +64,13 @@ config DRM_IMX95_PIXEL_INTERLEAVER
 	  Choose this to enable pixel interleaver found in NXP i.MX95
 	  processors.
 
+config DRM_IMX95_PIXEL_LINK
+	tristate "NXP i.MX95 display pixel link"
+	depends on OF && MFD_SYSCON
+	select DRM_KMS_HELPER
+	select REGMAP_MMIO
+	help
+	  Choose this to enable display pixel link found in NXP i.MX95
+	  processors.
+
 endif # ARCH_MXC || COMPILE_TEST
