@@ -904,9 +904,6 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	indio_dev->channels = adc->channels;
 	indio_dev->num_channels = num_ch;
 
-	if (!adc->info->sequencer)
-		return 0;
-
 	adc->seq_buf = devm_kcalloc(dev, num_ch, sizeof(unsigned short),
 				    GFP_KERNEL);
 	if (!adc->seq_buf)
