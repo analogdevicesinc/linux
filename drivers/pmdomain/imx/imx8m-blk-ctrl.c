@@ -133,6 +133,9 @@ static int imx8m_blk_ctrl_power_on(struct generic_pm_domain *genpd)
 	struct imx8m_blk_ctrl *bc = domain->bc;
 	int ret;
 
+	if (!domain->power_dev)
+		return -ENODEV;
+
 	/* make sure bus domain is awake */
 	ret = pm_runtime_get_sync(bc->bus_power_dev);
 	if (ret < 0) {
@@ -189,6 +192,9 @@ static int imx8m_blk_ctrl_power_off(struct generic_pm_domain *genpd)
 	struct imx8m_blk_ctrl_domain *domain = to_imx8m_blk_ctrl_domain(genpd);
 	const struct imx8m_blk_ctrl_domain_data *data = domain->data;
 	struct imx8m_blk_ctrl *bc = domain->bc;
+
+	if (!domain->power_dev)
+		return -ENODEV;
 
 	/* put devices into reset and disable clocks */
 	if (data->mipi_phy_rst_mask)
@@ -279,12 +285,6 @@ static int imx8m_blk_ctrl_probe(struct platform_device *pdev)
 		for (j = 0; j < data->num_clks; j++)
 			domain->clks[j].id = data->clk_names[j];
 
-		ret = devm_clk_bulk_get(dev, data->num_clks, domain->clks);
-		if (ret) {
-			dev_err_probe(dev, ret, "failed to get clock\n");
-			goto cleanup_pds;
-		}
-
 		domain->power_dev =
 			dev_pm_domain_attach_by_name(dev, data->gpc_name);
 		if (IS_ERR_OR_NULL(domain->power_dev)) {
@@ -295,6 +295,15 @@ static int imx8m_blk_ctrl_probe(struct platform_device *pdev)
 			dev_err_probe(dev, ret,
 				      "failed to attach power domain \"%s\"\n",
 				      data->gpc_name);
+			goto cleanup_pds;
+		}
+
+		if (!domain->power_dev)
+			continue;
+
+		ret = devm_clk_bulk_get(dev, data->num_clks, domain->clks);
+		if (ret) {
+			dev_err_probe(dev, ret, "failed to get clock\n");
 			goto cleanup_pds;
 		}
 
@@ -413,6 +422,9 @@ static int imx8m_blk_ctrl_suspend(struct device *dev)
 	for (i = 0; i < bc->onecell_data.num_domains; i++) {
 		struct imx8m_blk_ctrl_domain *domain = &bc->domains[i];
 
+		if (!domain->power_dev)
+			continue;
+
 		ret = pm_runtime_get_sync(domain->power_dev);
 		if (ret < 0) {
 			pm_runtime_put_noidle(domain->power_dev);
@@ -436,8 +448,12 @@ static int imx8m_blk_ctrl_resume(struct device *dev)
 	struct imx8m_blk_ctrl *bc = dev_get_drvdata(dev);
 	int i;
 
-	for (i = 0; i < bc->onecell_data.num_domains; i++)
+	for (i = 0; i < bc->onecell_data.num_domains; i++) {
+		if (!bc->domains[i].power_dev)
+			continue;
+
 		pm_runtime_put(bc->domains[i].power_dev);
+	}
 
 	pm_runtime_put(bc->bus_power_dev);
 
