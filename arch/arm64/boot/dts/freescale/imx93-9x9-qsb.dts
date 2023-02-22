@@ -8,6 +8,10 @@
 #include <dt-bindings/usb/pd.h>
 #include "imx93.dtsi"
 
+&ele_mu {
+	memory-region = <&ele_reserved>;
+};
+
 / {
 	model = "NXP i.MX93 9x9 Quick Start Board";
 	compatible = "fsl,imx93-9x9-qsb", "fsl,imx93";
@@ -62,6 +66,12 @@
 		vdevbuffer: vdevbuffer@a4020000 {
 			compatible = "shared-dma-pool";
 			reg = <0 0xa4020000 0 0x100000>;
+			no-map;
+		};
+
+		ele_reserved: ele-reserved@a4120000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0xa4120000 0 0x100000>;
 			no-map;
 		};
 	};
