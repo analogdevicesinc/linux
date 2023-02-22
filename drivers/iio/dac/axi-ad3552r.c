@@ -17,6 +17,41 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 
+#define AXI_REG_CNTRL_2 				0x48
+#define   AXI_MSK_SYMB_8_16B				BIT(14)
+#define   AXI_MSK_SDR_DDR_N				BIT(16)
+#define AXI_REG_CNTRL_DATA_RD				0x80
+#define   AXI_MSK_DATA_RD_8				GENMASK(7,0)
+#define   AXI_MSK_DATA_RD_16				GENMASK(15,0)
+#define AXI_REG_CNTRL_DATA_WR 				0x84
+//TODO: determine if fieldprep would be better
+#define   AXI_MSK_DATA_WR_8				GENMASK(23,16)
+#define   AXI_MSK_DATA_WR_16				GENMASK(23,8)
+#define AXI_REG_UI_STATUS 				0x88
+#define   AXI_MSK_BUSY					BIT(4)
+#define AXI_REG_CNTRL_CSTM 				0x8C
+#define   AXI_MSK_TRANSFER_DATA				BIT(0)
+#define   AXI_MSK_STREAM				BIT(1)
+#define   AXI_MSK_ADDRESS				GENMASK(31,24)
+#define AXI_REG_CHAN_CNTRL_7_CH0			0x0418
+#define AXI_REG_CHAN_CNTRL_7_CH1			0x0458
+#define   AXI_MSK_DAC_DDS_SEL				GENMASK(3,0)
+
+#define AD3552R_REG_STREAM_MODE				0x0E
+#define   AD3552R_MASK_LENGTH				GENMASK(7, 0)
+#define AD3552R_REG_INTERFACE_CONFIG_D			0x14
+#define   AD3552R_MASK_ALERT_ENABLE_PULLUP		BIT(6)
+#define   AD3552R_MASK_MEM_CRC_EN			BIT(4)
+#define   AD3552R_MASK_SDO_DRIVE_STRENGTH		GENMASK(3, 2)
+#define   AD3552R_MASK_DUAL_SPI_SYNCHROUNOUS_EN		BIT(1)
+#define   AD3552R_MASK_SPI_CONFIG_DDR			BIT(0)
+#define AD3552R_REG_CH0_CH1_OUTPUT_RANGE		0x19
+//TODO:check if it should be 0x2A or 0x29
+#define AD3552R_REG_CH0_DAC_16B				0x2A
+//TODO:check if it should be 0x2C or 0x2B
+#define AD3552R_REG_CH1_DAC_16B				0x2C
+
+
 enum ad35525_source {
 	AD3552R_ADC,
 	AD3552R_DMA,
@@ -66,54 +101,57 @@ u32 axi_ad3552r_read(struct axi_ad3552r_priv *priv, u32 reg)
 	return ioread32(priv->regs + reg);
 }
 
+//TODO: replace delay with polling
 void axi_ad3552r_spi_write_8b(struct axi_ad3552r_priv *priv, u32 reg, u32 val,
 			      bool sdr_ddr_n)
 {
 	u32 read_val;
-	read_val = axi_ad3552r_read(priv, 0x8c);
-	axi_ad3552r_write(priv, 0x84, val << 16);
-	axi_ad3552r_write(priv, 0x8c, (reg << 24) | (read_val & 0x0000ffff));
+	read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+	axi_ad3552r_write(priv, AXI_REG_CNTRL_DATA_WR, val << 16);
+	axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, (reg << 24) | (read_val & 0x0000ffff));
 
 	if (sdr_ddr_n) {
 		priv->ddr = false;
-		read_val = axi_ad3552r_read(priv, 0x8c);
-		axi_ad3552r_write(priv, 0x48, 0x14000);
-		axi_ad3552r_write(priv, 0x8c, read_val | 0x00000001);
+		read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_2, 0x14000);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val | 0x00000001);
+		//TODO: replace with polling
 		mdelay(100);
-		read_val = axi_ad3552r_read(priv, 0x8c);
-		axi_ad3552r_write(priv, 0x8c, read_val & 0xfffffffe);
+		read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val & 0xfffffffe);
 	} else {
 		priv->ddr = true;
-		read_val = axi_ad3552r_read(priv, 0x8c);
-		axi_ad3552r_write(priv, 0x48, 0x04000);
-		axi_ad3552r_write(priv, 0x8c, read_val | 0x00000001);
+		read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_2, 0x04000);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val | 0x00000001);
 		mdelay(100);
-		read_val = axi_ad3552r_read(priv, 0x8c);
-		axi_ad3552r_write(priv, 0x8c, read_val & 0xfffffffe);
+		read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val & 0xfffffffe);
 	}
 }
 
+//TODO: replace delay with polling
 void axi_ad3552r_spi_write_16b(struct axi_ad3552r_priv *priv, u32 reg, u32 val,
 			       bool sdr_ddr_n)
 {
 	u32 read_val;
 
-	axi_ad3552r_write(priv, 0x84, val << 8);
-	axi_ad3552r_write(priv, 0x8c, reg << 24);
-	read_val = axi_ad3552r_read(priv, 0x8c);
+	axi_ad3552r_write(priv, AXI_REG_CNTRL_DATA_WR, val << 8);
+	axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, reg << 24);
+	read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
 
 	if (sdr_ddr_n) {
 		priv->ddr = false;
-		axi_ad3552r_write(priv, 0x48, 0x10000);
-		axi_ad3552r_write(priv, 0x8c, read_val | 0x00000001);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_2, 0x10000);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val | 0x00000001);
 		mdelay(100);
-		axi_ad3552r_write(priv, 0x8c, read_val & 0xffff0000);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val & 0xffff0000);
 	} else {
 		priv->ddr = true;
-		axi_ad3552r_write(priv, 0x48, 0x00000);
-		axi_ad3552r_write(priv, 0x8c, read_val | 0x00000001);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_2, 0x00000);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val | 0x00000001);
 		mdelay(100);
-		axi_ad3552r_write(priv, 0x8c, read_val & 0xffff0000);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val & 0xffff0000);
 	}
 }
 
@@ -143,11 +181,13 @@ static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel) {
+			//FIXME:0xac is read from 0x2c
 			axi_ad3552r_spi_write_16b(priv, 0xac, 0x00, 1);
-			*val = axi_ad3552r_read(priv, 0x80);
+			*val = axi_ad3552r_read(priv, AXI_REG_CNTRL_DATA_RD);
 		} else {
+			//FIXME:0xaa is read from 0x2a
 			axi_ad3552r_spi_write_16b(priv, 0xaa, 0x00, 1);
-			*val = axi_ad3552r_read(priv, 0x80);
+			*val = axi_ad3552r_read(priv, AXI_REG_CNTRL_DATA_RD);
 		}
 		return IIO_VAL_INT;
 	}
@@ -168,9 +208,9 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 		return 0;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel)
-			axi_ad3552r_spi_write_16b(priv, 0x2c, (u32)val, 1);
+			axi_ad3552r_spi_write_16b(priv, AD3552R_REG_CH1_DAC_16B, (u32)val, 1);
 		else
-			axi_ad3552r_spi_write_16b(priv, 0x2a, (u32)val, 1);
+			axi_ad3552r_spi_write_16b(priv, AD3552R_REG_CH0_DAC_16B, (u32)val, 1);
 	}
 
 	return -EINVAL;
@@ -204,32 +244,32 @@ static int ad3552r_set_output_range(struct iio_dev *indio_dev,
 	switch (mode) {
 	case 0:
 		// Enable 0/2.5V range
-		axi_ad3552r_spi_write_8b(priv, 0x19, 0x00, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x00, 1);
 		mdelay(100);
 		break;
 	case 1:
 		// Enable 0/5V range
-		axi_ad3552r_spi_write_8b(priv, 0x19, 0x11, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x11, 1);
 		mdelay(100);
 		break;
 	case 2:
 		// Enable 0/10V range
-		axi_ad3552r_spi_write_8b(priv, 0x19, 0x22, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x22, 1);
 		mdelay(100);
 		break;
 	case 3:
 		// Enable +-5V range
-		axi_ad3552r_spi_write_8b(priv, 0x19, 0x33, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x33, 1);
 		mdelay(100);
 		break;
 	case 4:
 		// Enable +-10V range
-		axi_ad3552r_spi_write_8b(priv, 0x19, 0x44, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x44, 1);
 		mdelay(100);
 		break;
 	default:
 		// Enable +-10V range
-		axi_ad3552r_spi_write_8b(priv, 0x19, 0x44, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x44, 1);
 		mdelay(100);
 		break;
 	}
@@ -243,9 +283,10 @@ static int ad3552r_get_output_range(struct iio_dev *indio_dev,
 	u32 val;
 	int ret;
 
+	//FIXME: read from addr 0x19
 	axi_ad3552r_spi_write_8b(priv, 0x99, 0x00, 1);
 	mdelay(100);
-	val = axi_ad3552r_read(priv, 0x80);
+	val = axi_ad3552r_read(priv, AXI_REG_CNTRL_DATA_RD);
 
 	switch (val) {
 	case 0x44:
@@ -399,41 +440,41 @@ static int axi_ad3552r_update_scan_mode(struct iio_dev *indio_dev,
 
 	if (!test_bit(0, active_scan_mask) && test_bit(1, active_scan_mask)) {
 		priv->single_channel = true;
-		read_val = axi_ad3552r_read(priv, 0x8c);
+		read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
 		// Stream length
-		axi_ad3552r_spi_write_8b(priv, 0x0e, 0x02, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_STREAM_MODE, 0x02, 1);
 		mdelay(100);
 		// DDR configure
-		axi_ad3552r_spi_write_8b(priv, 0x14, 0x05, 1);
+		axi_ad3552r_spi_write_8b(priv, AD3552R_REG_INTERFACE_CONFIG_D, 0x05, 1);
 
-		read_val = axi_ad3552r_read(priv, 0x8c);
-		axi_ad3552r_write(priv, 0x8c, (read_val & 0x0000ffff) |
+		read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+		axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, (read_val & 0x0000ffff) |
 					      0x2c000000);
 
 	} else {
 		if (test_bit(0, active_scan_mask) && !test_bit(1, active_scan_mask)) {
 			priv->single_channel = true;
-			read_val = axi_ad3552r_read(priv, 0x8c);
+			read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
 			// Stream length
-			axi_ad3552r_spi_write_8b(priv, 0x0e, 0x02, 1);
+			axi_ad3552r_spi_write_8b(priv, AD3552R_REG_STREAM_MODE, 0x02, 1);
 			mdelay(100);
 			// DDR configure
-			axi_ad3552r_spi_write_8b(priv, 0x14, 0x05, 1);
+			axi_ad3552r_spi_write_8b(priv, AD3552R_REG_INTERFACE_CONFIG_D, 0x05, 1);
 
-			read_val = axi_ad3552r_read(priv, 0x8c);
-			axi_ad3552r_write(priv, 0x8c, (read_val & 0x0000ffff) |
+			read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+			axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, (read_val & 0x0000ffff) |
 						      0x2a000000);
 		} else {
 			priv->single_channel = false;
-			read_val = axi_ad3552r_read(priv, 0x8c);
+			read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
 			// Stream length
-			axi_ad3552r_spi_write_8b(priv, 0x0e, 0x04, 1);
+			axi_ad3552r_spi_write_8b(priv, AD3552R_REG_STREAM_MODE, 0x04, 1);
 			mdelay(100);
 			// DDR configure
-			axi_ad3552r_spi_write_8b(priv, 0x14, 0x05, 1);
+			axi_ad3552r_spi_write_8b(priv, AD3552R_REG_INTERFACE_CONFIG_D, 0x05, 1);
 
-			read_val = axi_ad3552r_read(priv, 0x8c);
-			axi_ad3552r_write(priv, 0x8c, (read_val & 0x0000ffff) |
+			read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+			axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, (read_val & 0x0000ffff) |
 						      0x2c000000);
 		}
 	}
@@ -455,10 +496,10 @@ static int axi_ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 
 	priv->ddr = true;
-	axi_ad3552r_write(priv, 0x48, 0x00010);
+	axi_ad3552r_write(priv, AXI_REG_CNTRL_2, 0x00010);
 	// Start stream transfer ddr
-	read_val = axi_ad3552r_read(priv, 0x8c);
-	axi_ad3552r_write(priv, 0x8c, read_val | 0x00000003);
+	read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+	axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val | 0x00000003);
 	return 0;
 }
 
@@ -467,9 +508,9 @@ static int axi_ad3552r_buffer_postdisable(struct iio_dev *indio_dev)
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 	u32 read_val;
 
-	read_val = axi_ad3552r_read(priv, 0x8c);
-	axi_ad3552r_write(priv, 0x8c, read_val & 0xfffffffc);
-	axi_ad3552r_spi_write_8b(priv, 0x14, 0x04, 0);
+	read_val = axi_ad3552r_read(priv, AXI_REG_CNTRL_CSTM);
+	axi_ad3552r_write(priv, AXI_REG_CNTRL_CSTM, read_val & 0xfffffffc);
+	axi_ad3552r_spi_write_8b(priv, AD3552R_REG_INTERFACE_CONFIG_D, 0x04, 0);
 
 	return 0;
 }
