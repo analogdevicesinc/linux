@@ -3287,6 +3287,22 @@ static void pxp_config_alpha(struct pxp_pixmap *input)
 	pxp_writel(*(uint32_t *)&alpha_ctrl, HW_PXP_ALPHA_A_CTRL);
 }
 
+/*
+ * Workaround to support data copy when only use AS engine
+ * It will use MERGEAS raster operation and only remain pixel
+ * data from As engine
+ */
+static void pxp_as_alpha_config(struct pxp_pixmap *input)
+{
+	if (alpha_blending_version != PXP_ALPHA_BLENDING_NONE)
+		return;
+
+	if (input->g_alpha.global_alpha_enable)
+		return;
+
+	alpha_blending_version = PXP_ALPHA_BLENDING_V1;
+}
+
 static int pxp_2d_op_handler(struct pxps *pxp)
 {
 	struct mux_config path_ctrl0;
@@ -3428,6 +3444,12 @@ reparse:
 
 		if (nodes_used & (1 << PXP_2D_PS))
 			pxp_config_alpha(input);
+
+		if (nodes_used & (1 << PXP_2D_AS)) {
+			/* Need to select mux3 port 0 when use AS engine */
+			path_ctrl0.mux3_sel = 0;
+			pxp_as_alpha_config(input);
+		}
 
 		pxp_2d_calc_mux(nodes_in_path, &path_ctrl0);
 		pr_debug("%s: path_ctrl0 = 0x%x\n",
