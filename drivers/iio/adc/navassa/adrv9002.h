@@ -89,6 +89,7 @@ enum adrv9002_rx_ext_info {
 	RX_ADC_SWITCH,
 	RX_BBDC,
 	RX_BBDC_LOOP_GAIN,
+	RX_INTERFACE_GAIN_AVAIL,
 };
 
 enum adrv9002_tx_ext_info {

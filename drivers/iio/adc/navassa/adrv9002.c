@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/sysfs.h>
+#include <linux/units.h>
 
 #include "adrv9002.h"
 #include "adi_adrv9001.h"
@@ -1227,6 +1228,47 @@ out_unlock:
 	return ret ? ret : len;
 }
 
+static const char * const adrv9002_intf_gain[] = {
+	"18dB", "12dB", "6dB", "0dB", "-6dB", "-12dB", "-18dB",
+	"-24dB", "-30dB", "-36dB"
+};
+
+static int adrv9002_intf_gain_avail(const struct adrv9002_rf_phy *phy,
+				    const struct adrv9002_rx_chan *rx, char *buf)
+{
+	adi_adrv9001_RxChannelCfg_t *rx_cfg = &phy->curr_profile->rx.rxChannelCfg[rx->channel.idx];
+	/* typical case: only 0db allowed for correction table (rate >= 1Mhz) */
+	u32 off = 3, nelem = 1, i;
+	int sz = 0;
+
+	/*
+	 * Yes, this could be done at setup time just once
+	 * (calculating the offset and number of elements) but this is also not
+	 * a fastpath and like this there's no need to add more elements to
+	 * struct adrv9002_rx_chan and simplifies the changes.
+	 */
+	if (rx_cfg->profile.gainTableType) {
+		if (rx->channel.rate >= MEGA) {
+			nelem = 7;
+		} else {
+			off = 0;
+			nelem = ARRAY_SIZE(adrv9002_intf_gain);
+		}
+	} else {
+		if (rx->channel.rate < MEGA) {
+			off = 0;
+			nelem = 4;
+		}
+	}
+
+	for (i = off; i < off + nelem; i++)
+		sz += sysfs_emit_at(buf, sz, "%s ", adrv9002_intf_gain[i]);
+
+	buf[sz - 1] = '\n';
+
+	return sz;
+}
+
 static int adrv9002_phy_rx_do_read(const struct adrv9002_rf_phy *phy,
 				   const struct adrv9002_rx_chan *rx, uintptr_t private, char *buf)
 {
@@ -1302,6 +1344,8 @@ static int adrv9002_phy_rx_do_read(const struct adrv9002_rf_phy *phy,
 			return ret;
 
 		return sysfs_emit(buf, "%u\n", val);
+	case RX_INTERFACE_GAIN_AVAIL:
+		return adrv9002_intf_gain_avail(phy, rx, buf);
 	default:
 		return -EINVAL;
 	}
@@ -1319,7 +1363,11 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 	int ret = -ENODEV;
 
 	mutex_lock(&phy->lock);
-	if (!rx->channel.enabled && port == ADI_RX)
+	/*
+	 * We still want to be able to get the available interface gain values to keep
+	 * the same behavior as with IIO_ENUMS.
+	 */
+	if (!rx->channel.enabled && port == ADI_RX && private != RX_INTERFACE_GAIN_AVAIL)
 		goto out_unlock;
 
 	ret = adrv9002_phy_rx_do_read(phy, rx, private, buf);
@@ -1560,11 +1608,6 @@ static const struct iio_enum adrv9002_digital_gain_ctl_modes_available = {
 	.set = adrv9002_set_digital_gain_ctl_mode,
 };
 
-static const char * const adrv9002_intf_gain[] = {
-	"18dB", "12dB", "6dB", "0dB", "-6dB", "-12dB", "-18dB",
-	"-24dB", "-30dB", "-36dB"
-};
-
 static const struct iio_enum adrv9002_intf_gain_available = {
 	.items = adrv9002_intf_gain,
 	.num_items = ARRAY_SIZE(adrv9002_intf_gain),
@@ -1609,8 +1652,7 @@ static const struct iio_chan_spec_ext_info adrv9002_phy_rx_ext_info[] = {
 				  &adrv9002_digital_gain_ctl_modes_available),
 	IIO_ENUM("digital_gain_control_mode", 0,
 		 &adrv9002_digital_gain_ctl_modes_available),
-	IIO_ENUM_AVAILABLE_SHARED("interface_gain", 0,
-				  &adrv9002_intf_gain_available),
+	_ADRV9002_EXT_RX_INFO("interface_gain_available", RX_INTERFACE_GAIN_AVAIL),
 	IIO_ENUM("interface_gain", 0,
 		 &adrv9002_intf_gain_available),
 	IIO_ENUM_AVAILABLE_SHARED("port_en_mode", 0,
