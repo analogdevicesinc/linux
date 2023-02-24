@@ -2512,7 +2512,17 @@ static int pxp_ps_config(struct pxp_pixmap *input,
 
 	switch (is_yuv(input->format)) {
 	case 0:		/* RGB */
-	case 1:		/* 1 Plane YUV */
+	case 1:
+		/*
+		 * 1 Plane YUV.
+		 * Refer to PXP manual, in monochrome modes Y8 and Y4,
+		 * the low 16 bits of PS_VBUF register are used as the
+		 * U/V data in the datapath instead of sourcing U/V data
+		 * from external buffers.
+		 */
+		if (input->format == PXP_PIX_FMT_GY04 ||
+		    input->format == PXP_PIX_FMT_GREY)
+			pxp_writel(0x8080, HW_PXP_PS_VBUF);
 		break;
 	case 2:		/* NV16,NV61,NV12,NV21 */
 		U = (input->paddr_u) ? input->paddr_u :
