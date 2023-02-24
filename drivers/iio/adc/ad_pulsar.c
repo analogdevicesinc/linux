@@ -147,7 +147,7 @@ enum ad_pulsar_filter_bw {
 	FULL_BW
 };
 
-unsigned int ad_pulsar_filter_freq[] = {
+static unsigned int ad_pulsar_filter_freq[] = {
 	[QUARTER_BW] = 425000,
 	[FULL_BW] = 1700000
 };
