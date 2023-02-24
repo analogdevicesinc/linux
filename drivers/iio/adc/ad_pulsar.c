@@ -36,13 +36,6 @@
 
 #define AD_PULSAR_REG_CONFIG		0x00
 
-#define AD4003_READ_COMMAND		0x54
-#define AD4003_WRITE_COMMAND		0x14
-#define AD4003_RESERVED_MSK		0xE0
-#define AD4003_REG_CONFIG		AD_PULSAR_REG_CONFIG
-#define AD4003_TURBO_MODE		BIT(1)
-#define AD4003_HIGH_Z_MODE		BIT(2)
-
 #define AD7682_NUM_TEMP_CHANNELS	0x01
 
 #define AD7682_REG_CONFIG		AD_PULSAR_REG_CONFIG
@@ -114,12 +107,6 @@ enum {
 	ID_AD7686,
 	ID_AD7685,
 	ID_AD7682,
-	ID_AD4022,
-	ID_AD4021,
-	ID_AD4020,
-	ID_AD4011,
-	ID_AD4007,
-	ID_AD4003,
 };
 
 enum ad_pulsar_input_type {
@@ -354,84 +341,6 @@ static const struct ad_pulsar_chip_info ad7682_chip_info = {
 	.sclk_rate = 40000000,
 	.has_filter = true,
 	.sequencer = true
-};
-
-static const struct ad_pulsar_chip_info ad4022_chip_info = {
-	.name = "ad4022",
-	.input_type = DIFFERENTIAL,
-	.max_rate = 500000,
-	.resolution = 20,
-	.num_channels = 1,
-	.sclk_rate = 80000000,
-	.has_turbo = true
-};
-
-static const struct ad_pulsar_chip_info ad4021_chip_info = {
-	.name = "ad4021",
-	.input_type = DIFFERENTIAL,
-	.max_rate = 1000000,
-	.resolution = 20,
-	.num_channels = 1,
-	.sclk_rate = 80000000,
-	.has_turbo = true
-};
-
-static const struct ad_pulsar_chip_info ad4020_chip_info = {
-	.name = "ad4020",
-	.input_type = DIFFERENTIAL,
-	.max_rate = 1800000,
-	.resolution = 20,
-	.num_channels = 1,
-	.sclk_rate = 80000000,
-	.has_turbo = true
-};
-
-static const struct ad_pulsar_chip_info ad4011_chip_info = {
-	.name = "ad4011",
-	.input_type = DIFFERENTIAL,
-	.max_rate = 500000,
-	.resolution = 18,
-	.num_channels = 1,
-	.sclk_rate = 80000000,
-	.has_turbo = true
-};
-
-static const struct ad_pulsar_chip_info ad4007_chip_info = {
-	.name = "ad4007",
-	.input_type = DIFFERENTIAL,
-	.max_rate = 1000000,
-	.resolution = 18,
-	.num_channels = 1,
-	.sclk_rate = 80000000,
-	.has_turbo = true
-};
-
-static const struct ad_pulsar_chip_info ad4003_chip_info = {
-	.name = "ad4003",
-	.input_type = DIFFERENTIAL,
-	/*
-	 * .max_rate = 2000000,
-	 * HDL does not support maximum rate
-	 */
-	.max_rate = 1839080,
-	.resolution = 18,
-	.num_channels = 1,
-	.sclk_rate = 80000000,
-	.has_turbo = true
-};
-
-static const struct ad_pulsar_chip_info adaq4003_chip_info = {
-	.name = "adaq4003",
-	.input_type = DIFFERENTIAL,
-	/*
-	 * .max_rate = 2000000,
-	 * HDL does not support maximum rate
-	 */
-	.max_rate = 1839080,
-	.resolution = 18,
-	.num_channels = 1,
-	.sclk_rate = 80000000,
-	.has_turbo = true
 };
 
 struct ad_pulsar_adc {
@@ -1008,8 +917,8 @@ static int ad_pulsar_probe(struct spi_device *spi)
 		return ret;
 
 	if (adc->info->has_turbo) {
-		ret =  ad_pulsar_reg_write(adc, AD4003_REG_CONFIG,
-					   AD4003_TURBO_MODE);
+		ret =  ad_pulsar_reg_write(adc, AD_PULSAR_REG_CONFIG,
+					   BIT(1));
 		if (ret)
 			return ret;
 	}
@@ -1055,13 +964,6 @@ static const struct of_device_id ad_pulsar_of_match[] = {
 	{ .compatible = "adi,pulsar,ad7686", .data = &ad7686_chip_info },
 	{ .compatible = "adi,pulsar,ad7685", .data = &ad7685_chip_info },
 	{ .compatible = "adi,pulsar,ad7682", .data = &ad7682_chip_info },
-	{ .compatible = "adi,pulsar,ad4022", .data = &ad4022_chip_info },
-	{ .compatible = "adi,pulsar,ad4021", .data = &ad4021_chip_info },
-	{ .compatible = "adi,pulsar,ad4020", .data = &ad4020_chip_info },
-	{ .compatible = "adi,pulsar,ad4011", .data = &ad4011_chip_info },
-	{ .compatible = "adi,pulsar,ad4007", .data = &ad4007_chip_info },
-	{ .compatible = "adi,pulsar,ad4003", .data = &ad4003_chip_info },
-	{ .compatible = "adi,pulsar,adaq4003", .data = &adaq4003_chip_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad_pulsar_of_match);
@@ -1086,13 +988,6 @@ static const struct spi_device_id ad_pulsar_spi_id[] = {
 	{ "adi,pulsar,ad7686", (kernel_ulong_t)&ad7686_chip_info },
 	{ "adi,pulsar,ad7685", (kernel_ulong_t)&ad7685_chip_info },
 	{ "adi,pulsar,ad7682", (kernel_ulong_t)&ad7682_chip_info },
-	{ "adi,pulsar,ad4022", (kernel_ulong_t)&ad4022_chip_info },
-	{ "adi,pulsar,ad4021", (kernel_ulong_t)&ad4021_chip_info },
-	{ "adi,pulsar,ad4020", (kernel_ulong_t)&ad4020_chip_info },
-	{ "adi,pulsar,ad4011", (kernel_ulong_t)&ad4011_chip_info },
-	{ "adi,pulsar,ad4007", (kernel_ulong_t)&ad4007_chip_info },
-	{ "adi,pulsar,ad4003", (kernel_ulong_t)&ad4003_chip_info },
-	{ "adi,pulsar,adaq4003", (kernel_ulong_t)&adaq4003_chip_info },
 	{ }
 
 };
