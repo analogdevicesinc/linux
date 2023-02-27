@@ -393,8 +393,8 @@ static int ad_pulsar_reg_write(struct ad_pulsar_adc *adc, unsigned int reg,
 	return spi_sync_transfer(adc->spi, &xfer, 1);
 }
 
-static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
-			      unsigned int *val)
+static int ad_pulsar_read_channel(struct ad_pulsar_adc *adc, unsigned int reg,
+				  unsigned int *val)
 {
 	struct spi_transfer xfer = {
 		.bits_per_word = adc->info->resolution,
@@ -497,15 +497,15 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		 * Datasheet page 31).
 		 */
 		if (adc->info->sequencer) {
-			ret = ad_pulsar_reg_read(adc, chan->address, val);
+			ret = ad_pulsar_read_channel(adc, chan->address, val);
 			if (ret)
 				return ret;
-			ret = ad_pulsar_reg_read(adc, chan->address, val);
+			ret = ad_pulsar_read_channel(adc, chan->address, val);
 			if (ret)
 				return ret;
 		}
 
-		ret = ad_pulsar_reg_read(adc, chan->address, val);
+		ret = ad_pulsar_read_channel(adc, chan->address, val);
 		if (ret)
 			return ret;
 		return IIO_VAL_INT;
