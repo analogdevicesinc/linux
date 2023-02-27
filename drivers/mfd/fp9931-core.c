@@ -147,7 +147,7 @@ static int __init fp9931_init(void)
 	return i2c_add_driver(&fp9931_driver);
 }
 
-static void __init fp9931_exit(void)
+static void fp9931_exit(void)
 {
 	i2c_del_driver(&fp9931_driver);
 }
