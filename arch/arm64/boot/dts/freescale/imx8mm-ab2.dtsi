@@ -7,6 +7,7 @@
 	/delete-node/ ir-receiver;
 	/delete-node/ audio-codec;
 	/delete-node/ regulator-audio-board;
+	/delete-node/ regulator-pcie;
 	/delete-node/ sound-wm8524;
 	/delete-node/ sound-ak5558;
 	/delete-node/ sound-ak4497;
@@ -103,6 +104,10 @@
 		vin-supply = <&reg_cph_3v3>;
 	};
 
+	reg_pcie0: regulator-pcie {
+		status = "disabled";
+	};
+
 	sound-ak4458 {
 		compatible = "fsl,imx-audio-card";
 		model = "ak4458-audio";
@@ -144,13 +149,19 @@
 &fec1 {
 	phy-reset-gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
 	phy-reset-post-delay = <150>;
-	phy-reset-duration = <10>;
+	phy-reset-duration = <15>;
 
 	mdio {
 		ethphy0: ethernet-phy@0 {
-			/delete-property/ at803x,eee-disabled;
-			/delete-property/ at803x,vddio-1p8v;
+			reset-gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
+			reset-deassert-us = <150000>;
+			reset-assert-us = <15000>;
 			max-speed = <100>;
+		};
+
+		fixed-link {
+			speed = <100>;
+			full-duplex;
 		};
 	};
 };
@@ -254,6 +265,7 @@
 &iomuxc {
 	/delete-node/ csi_pwn_grp;
 	/delete-node/ csi_rst_grp;
+	/delete-node/ pcie0reggrp;
 
 	pinctrl_fec1: fec1grp {
 		fsl,pins = <
@@ -382,12 +394,17 @@
 	/delete-node/ port@1;
 };
 
+&pcie_phy {
+	status = "disabled";
+};
+
 &pcie0 {
 	status = "disabled";
 	/delete-property/ pinctrl-0;
 };
 
 &pcie0_ep {
+	status = "disabled";
 	/delete-property/ pinctrl-0;
 };
 
