@@ -508,6 +508,9 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		ret = ad_pulsar_read_channel(adc, chan->address, val);
 		if (ret)
 			return ret;
+
+		if (chan->differential)
+			*val = sign_extend32(*val, adc->info->resolution - 1);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = adc->samp_freq;
