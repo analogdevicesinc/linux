@@ -347,6 +347,7 @@ struct ad_pulsar_adc {
 	const struct ad_pulsar_chip_info *info;
 	struct iio_chan_spec *channels;
 	struct spi_transfer *seq_xfer;
+	unsigned int cfg;
 	unsigned long ref_clk_rate;
 	struct pwm_device *cnv;
 	struct spi_device *spi;
@@ -385,6 +386,7 @@ static int ad_pulsar_reg_write(struct ad_pulsar_adc *adc, unsigned int reg,
 		.len = 4,
 	};
 
+	adc->cfg = val;
 	put_unaligned_be16(val << 2, adc->spi_tx_data);
 	xfer.tx_buf = adc->spi_tx_data;
 
@@ -401,6 +403,7 @@ static int ad_pulsar_reg_read(struct ad_pulsar_adc *adc, unsigned int reg,
 	};
 	int ret;
 
+	adc->cfg = reg;
 	put_unaligned_be16(reg << 2, adc->spi_tx_data);
 	xfer.tx_buf = adc->spi_tx_data;
 	xfer.rx_buf = adc->spi_rx_data;
@@ -419,9 +422,10 @@ static int ad_pulsar_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
 
-	if (readval)
-		return ad_pulsar_reg_read(adc, reg, readval);
-
+	if (readval) {
+		*readval = adc->cfg;
+		return 0;
+	}
 	return ad_pulsar_reg_write(adc, reg, writeval);
 }
 
