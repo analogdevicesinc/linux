@@ -55,6 +55,17 @@ config DRM_IMX93_MIPI_DSI
 	  Choose this to enable MIPI DSI controller found in Freescale i.MX93
 	  processor.
 
+config DRM_IMX95_MIPI_DSI
+	tristate "NXP i.MX95 specific extensions for Synopsys DW MIPI DSI"
+	depends on OF && MFD_SYSCON && COMMON_CLK
+	select DRM_DW_MIPI_DSI
+	select DRM_KMS_HELPER
+	select MULTIPLEXER
+	select REGMAP_MMIO
+	help
+	  Choose this to enable Synopsys DesignWare MIPI DSI found in NXP
+	  i.MX95 processor.
+
 config DRM_IMX95_PIXEL_INTERLEAVER
 	tristate "NXP i.MX95 pixel interleaver"
 	depends on OF && MFD_SYSCON && COMMON_CLK
