@@ -470,7 +470,7 @@ struct qm_mr_entry {
 			u32 fqid;	/* 24-bit */
 			u32 tag;
 			struct qm_fd fd;
-		} __packed __aligned(64) ern;
+		} __packed __aligned(32) ern;
 		struct {
 			u8 verb;
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -488,7 +488,7 @@ struct qm_mr_entry {
 			u32 fqid;	/* 24-bit */
 			u32 tag;
 			struct qm_fd fd;
-		} __packed __aligned(64) dcern;
+		} __packed __aligned(32) dcern;
 		struct {
 			u8 verb;
 			u8 fqs;		/* Frame Queue Status */
