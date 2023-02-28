@@ -23,7 +23,7 @@ static void adau1860_spi_switch_mode(struct device *dev)
 	 * times.  Do this by issuing three dummy reads.
 	 */
 	regcache_cache_bypass(adau->regmap, true);
-	for (i = 0; i < 5; i++) {
+	for (i=0; i<5; i++) {
 		regmap_read(adau->regmap, ADAU1860_VENDOR_ID, &val);
 		if (val == 0x41) {
 			dev_dbg(dev, "SPI mode engaged: %x", val);
@@ -37,8 +37,8 @@ static int adau1860_spi_write(void *context, const void *data, size_t count)
 {
 	struct device *dev = context;
 	struct spi_device *spi = to_spi_device(dev);
-	struct spi_message message;
-	struct spi_transfer t[2];
+	struct spi_message	message;
+	struct spi_transfer	t[2];
 	uint8_t rw_byte = 0x0;
 
 	spi_message_init(&message);
@@ -56,13 +56,13 @@ static int adau1860_spi_write(void *context, const void *data, size_t count)
 	return spi_sync(spi, &message);
 }
 
-static int adau1860_spi_read(void *context, const void *reg_buf,
-			     size_t reg_size, void *val_buf, size_t val_size)
+static int adau1860_spi_read(void *context, const void *reg_buf, size_t reg_size,
+							  void *val_buf, size_t val_size)
 {
 	struct device *dev = context;
 	struct spi_device *spi = to_spi_device(dev);
-	struct spi_message message;
-	struct spi_transfer t[3];
+	struct spi_message	message;
+	struct spi_transfer	t[3];
 	uint8_t rw_byte = 0x1;
 
 	spi_message_init(&message);
@@ -101,10 +101,7 @@ static int adau1860_spi_probe(struct spi_device *spi)
 
 	config = adau1860_regmap_config;
 	config.pad_bits = 8;
-	return adau1860_probe(&spi->dev,
-			      devm_regmap_init(&spi->dev,
-					       &adau1860_spi_bus_config,
-					       &spi->dev, &config),
+	return adau1860_probe(&spi->dev, devm_regmap_init(&spi->dev, &adau1860_spi_bus_config, &spi->dev, &config),
 			      id->driver_data, adau1860_spi_switch_mode);
 }
 

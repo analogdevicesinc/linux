@@ -11,6 +11,9 @@
 
 #include <linux/regmap.h>
 
+#define ADAU1860_SOC_ERR_STATUS		0x40002024
+#define ADAU1860_SOC_PFAULT_INFO	0x40002028
+
 #define ADAU1860_VENDOR_ID		0x4000c000
 #define ADAU1860_DEVICE_ID1		0x4000c001
 #define ADAU1860_DEVICE_ID2		0x4000c002
@@ -18,9 +21,9 @@
 
 #define ADAU1860_ADC_DAC_HP_PWR		0x4000c004
 #define ADAU1860_PLL_PGA_PWR		0x4000c005
-#define ADAU1860_DMIC_PWR		0x4000c006
+#define ADAU1860_DMIC_PWR			0x4000c006
 #define ADAU1860_SAI_CLK_PWR		0x4000c007
-#define ADAU1860_CHIP_PWR		0x4000c00e
+#define ADAU1860_CHIP_PWR			0x4000c00e
 
 #define ADAU1860_CLK_CTRL(x)		(0x4000c00f + (x))
 
@@ -58,15 +61,25 @@
 #define ADAU1860_HPLDO_CTRL		0x4000c066
 #define ADAU1860_PB_CTRL		0x4000c06c
 
-#define ADAU1860_SPT0_CTRL1		0x4000c0e0
+#define ADAU1860_FDSP_RUN		0x4000c0b0
+#define ADAU1860_FDSP_CTRL(x)	(0x4000c0b0 + (x))
+
+#define ADAU1860_EQ_CFG			0x4000c0d2
+
+#define ADAU1860_TDSP_SOFT_RESET	0x4000c0d4
+#define ADAU1860_TDSP_ALTVEC_EN		0x4000c0d5
+#define ADAU1860_TDSP_ALTVEC_ADDR0	0x4000c0d8
+#define ADAU1860_TDSP_RUN			0x4000c0dc
+
+#define ADAU1860_SPT0_CTRL1			0x4000c0e0
 #define ADAU1860_SPT0_ROUTE(x)		(0x4000c0e3 + (x))
 
-#define ADAU1860_SPT1_CTRL1		0x4000c0f3
+#define ADAU1860_SPT1_CTRL1			0x4000c0f3
 #define ADAU1860_SPT1_ROUTE(x)		(0x4000c0f6 + (x))
 
 #define ADAU1860_MP_MCLKO_RATE		0x4000c12f
 
-#define ADAU1866_STATUS(x)		(0x4000c400 + (x))
+#define ADAU1860_STATUS(x)		(0x4000c400 + (x))
 
 #define ADAU1860_SPT_CTRL1_OFFS		0x0
 #define ADAU1860_SPT_CTRL2_OFFS		0x1
@@ -88,6 +101,20 @@
 #define ADAU1860_MASTER_BLOCK_EN_MSK	BIT(2)
 #define ADAU1860_PWR_MODE_MSK		GENMASK(1, 0)
 
+#define ADAU1860_CLK_CTRL_FREQ_MULT_EN_MSK	BIT(0)
+#define ADAU1860_CLK_CTRL_PLL_FM_BYPASS_MSK	BIT(7)
+#define ADAU1860_CLK_CTRL_MCLK_FREQ_MSK 	GENMASK(1, 0)
+#define ADAU1860_CLK_CTRL_MCLK_FREQ_X1		0x0
+#define ADAU1860_CLK_CTRL_MCLK_FREQ_X2		0x1
+#define ADAU1860_CLK_CTRL_MCLK_FREQ_X3		0x2
+#define ADAU1860_CLK_CTRL_MCLK_FREQ_X4		0x3
+#define ADAU1860_CLK_CTRL_PLL_SRC_MSK		GENMASK(2, 0)
+#define ADAU1860_CLK_CTRL_PLL_SRC_MCLKIN	0x0
+#define ADAU1860_CLK_CTRL_PLL_SRC_FSYNC0	0x1
+#define ADAU1860_CLK_CTRL_PLL_SRC_BCLK0		0x2
+#define ADAU1860_CLK_CTRL_PLL_SRC_FSYNC1	0x3
+#define ADAU1860_CLK_CTRL_PLL_SRC_BCLK1		0x4
+
 struct device;
 
 enum adau1860_type {
@@ -103,6 +130,12 @@ enum adau18x0_pll_src {
 	ADAU18X0_PLL_SRC_BCLK_1,
 };
 
+enum adau18x0_sysclk_src {
+	ADAU18X0_PLL_BYPASS,
+	ADAU18X0_PLL_FM,
+	ADAU18X0_PLL,
+};
+
 struct adau18x0 {
 	unsigned int sysclk;
 	unsigned int pll_freq;
@@ -110,11 +143,11 @@ struct adau18x0 {
 	bool enabled;
 
 	enum adau18x0_pll_src pll_src;
+	enum adau18x0_sysclk_src sysclk_src;
 	enum adau1860_type type;
 	void (*switch_mode)(struct device *dev);
 
-	unsigned int dai_fmt;
-	unsigned int dai_master;
+	unsigned int dai_fmt[2];
 	unsigned int sysclk_freq;
 
 	struct gpio_desc *pd_gpio;
@@ -123,6 +156,8 @@ struct adau18x0 {
 	bool dsp_bypass[2];
 
 	struct regmap *regmap;
+
+	const struct firmware *fw[3];
 };
 
 int adau1860_probe(struct device *dev, struct regmap *regmap,

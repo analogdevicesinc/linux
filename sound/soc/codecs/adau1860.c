@@ -9,6 +9,7 @@
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
+#include <linux/firmware.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
@@ -25,7 +26,12 @@
 
 #define DRV_NAME "adau1860-codec"
 
-#define ADAU1860_FIRMWARE "adau1860.bin"
+#define ADAU1860_TDSP_FW    0
+#define ADAU1860_FDSP_FW    1
+#define ADAU1860_EQ_FW      2
+#define ADAU1860_FW_NUM     3
+
+static const char *adau1860_fw_text[ADAU1860_FW_NUM];
 
 static const DECLARE_TLV_DB_MINMAX_MUTE(adau1860_adc_tlv, -7125, 2400);
 static const DECLARE_TLV_DB_MINMAX_MUTE(adau1860_dac_tlv, -7125, 2400);
@@ -371,6 +377,16 @@ static const struct snd_kcontrol_new adau1860_input_mux_controls[] = {
 	SOC_DAPM_ENUM("ADC2 Input Select", adau1860_input_mux_enums[2]),
 };
 
+static const struct snd_kcontrol_new adau1860_dsp_run_controls[] = {
+	SOC_DAPM_SINGLE("TDSP Run", ADAU1860_TDSP_RUN, 0, 1, 0),
+	SOC_DAPM_SINGLE("FDSP Run", ADAU1860_FDSP_RUN, 0, 1, 0),
+	SOC_DAPM_SINGLE("EQ Run", ADAU1860_EQ_CFG, 0, 1, 0),
+};
+
+static const struct snd_kcontrol_new adau1860_dsp_reset_controls[] = {
+	SOC_SINGLE("TDSP Reset", ADAU1860_TDSP_SOFT_RESET, 0, 1, 0),
+};
+
 static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 	SND_SOC_DAPM_REGULATOR_SUPPLY("HPVDD", 0, 0),
 	SND_SOC_DAPM_REGULATOR_SUPPLY("IOVDD", 0, 0),
@@ -383,7 +399,7 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY("ADP", ADAU1860_CHIP_PWR, 0, 0, NULL,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY("SOC", ADAU1860_CHIP_PWR, 1, 0, NULL,
+	SND_SOC_DAPM_SUPPLY("SOC", ADAU1860_CHIP_PWR, 1, 1, NULL,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY("PLL", ADAU1860_PLL_PGA_PWR, 0, 0, NULL,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
@@ -507,6 +523,15 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("HPOUTN"),
 };
 
+static const struct snd_soc_dapm_widget adau1860_dapm_dsp_widgets[] = {
+		SND_SOC_DAPM_SWITCH("TDSP", SND_SOC_NOPM, 0, 0,
+			    &adau1860_dsp_run_controls[0]),
+		SND_SOC_DAPM_SWITCH("FDSP", SND_SOC_NOPM, 0, 0,
+			    &adau1860_dsp_run_controls[1]),
+		SND_SOC_DAPM_SWITCH("EQ", SND_SOC_NOPM, 0, 0,
+			    &adau1860_dsp_run_controls[2]),
+};
+
 static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 				      struct snd_soc_dapm_widget *sink);
 
@@ -543,13 +568,28 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 	{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },                \
 	{ name, "DMIC7", "DMIC7" }
 
+#define ADAU1860_TDSP_ROUTES(name)                                         \
+	{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                        \
+	{ name, NULL, "ADC2" }, { name, NULL, "DMIC0" },                       \
+	{ name, NULL, "DMIC1" }, { name, NULL, "DMIC2" },                      \
+	{ name, NULL, "DMIC3" }, { name, NULL, "DMIC4" },                      \
+	{ name, NULL, "DMIC5" }, { name, NULL, "DMIC6" },                      \
+	{ name, NULL, "DMIC7" }, { name, NULL, "SPT0_IN" },                    \
+	{ name, NULL, "SPT1_IN" }, { "SPT0_OUT", NULL, name },                 \
+	{ "SPT1_OUT", NULL, name }, { "DAC", NULL, name }
+
+static const struct snd_soc_dapm_route adau1860_dsp_routes[] = {
+	ADAU1860_TDSP_ROUTES("TDSP"),
+};
+
 static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
 	/* Clock Paths */
 	{ "SYSCLK", NULL, "PLL", adau1860_dapm_sysclk_check },
-	{ "SYSCLK", NULL, "MASTER_BLOCK_EN" },
+	{ "ADP", NULL, "MASTER_BLOCK_EN" },
 	{ "DMIC_CLK", NULL, "SYSCLK" },
 	{ "DMIC_CLK1", NULL, "SYSCLK" },
 	{ "ADP", NULL, "SYSCLK" },
+	{ "SOC", NULL, "SYSCLK" },
 	{ "DMIC0", NULL, "DMIC_CLK" },
 	{ "DMIC1", NULL, "DMIC_CLK" },
 	{ "DMIC2", NULL, "DMIC_CLK" },
@@ -673,8 +713,12 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
 	const char *clk;
 
-	switch (adau->pll_src) {
-	case ADAU18X0_PLL_SRC_MCLKIN:
+	switch (adau->sysclk_src) {
+	case ADAU18X0_PLL:
+		clk = "PLL";
+		break;
+	case ADAU18X0_PLL_BYPASS:
+	case ADAU18X0_PLL_FM:
 		clk = "XTAL";
 		break;
 	default:
@@ -745,6 +789,77 @@ static int adau1860_set_bias_level(struct snd_soc_component *component,
 	return 0;
 }
 
+static const char *adi_dir = "adi/";
+static void adau1860_release_firmware_file(const struct firmware *firmware, char *filename)
+{
+	if (filename)
+		release_firmware(firmware);
+	kfree(filename);
+}
+
+static int adau1860_request_firmware_file(struct device *dev,
+					 const struct firmware **firmware, char **filename, const char *fw_name)
+{
+	int ret = 0;
+
+	*filename = kasprintf(GFP_KERNEL, "%s%s.bin", adi_dir, fw_name);
+
+	if (*filename == NULL)
+		return -ENOMEM;
+
+	ret = firmware_request_nowarn(firmware, *filename, dev);
+	if (ret != 0) {
+		dev_err(dev, "Failed to load '%s'\n", *filename);
+		kfree(*filename);
+		*filename = NULL;
+	}
+
+	return ret;
+}
+
+static int adau1860_request_firmware_files(struct snd_soc_component *component)
+{
+	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
+	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
+	const struct firmware *fw;
+	char *fwfile[3];
+	int i, ret = 0;
+	uint32_t val, write = 0x60000400;
+
+	for (i = ADAU1860_TDSP_FW; i < ADAU1860_FW_NUM; i++) {
+		adau1860_request_firmware_file(component->dev, &adau->fw[i], &fwfile[i], adau1860_fw_text[i]);
+		if (fwfile[i]) {
+			fw = *(adau->fw);
+			dev_dbg(component->dev, "Loaded FW %s with size %ld\n", fwfile[i], fw->size);
+			regmap_raw_write(adau->regmap, 0x60000000, fw->data, fw->size);
+			dev_dbg(component->dev, "Done writing\n");
+
+			/* get tdsp error status */
+			regmap_bulk_read(adau->regmap, ADAU1860_SOC_ERR_STATUS, &val, 4);
+			dev_dbg(component->dev, "Read err status: %d\n", val);
+			regmap_bulk_read(adau->regmap, ADAU1860_SOC_PFAULT_INFO, &val, 4);
+			dev_dbg(component->dev, "Read pfault status: %d\n", val);
+
+			/* reset tdsp */
+			regmap_write(adau->regmap, ADAU1860_TDSP_ALTVEC_EN, 0x1);
+			regmap_bulk_write(adau->regmap, ADAU1860_TDSP_ALTVEC_ADDR0, &write, sizeof(uint32_t));
+
+			ret = snd_soc_dapm_new_controls(dapm, &adau1860_dapm_dsp_widgets[i], 1);
+			if (ret)
+				return ret;
+
+			ret = snd_soc_dapm_add_routes(dapm, adau1860_dsp_routes, ARRAY_SIZE(adau1860_dsp_routes));
+			if (ret)
+				return ret;
+		}
+		adau1860_release_firmware_file(adau->fw[i], fwfile[i]);
+	}
+
+	ret = snd_soc_add_component_controls(component, adau1860_dsp_reset_controls,
+			ARRAY_SIZE(adau1860_dsp_reset_controls));
+	return ret;
+}
+
 static int adau1860_component_probe(struct snd_soc_component *component)
 {
 	struct adau1860_pdata *pdata = component->dev->platform_data;
@@ -769,11 +884,16 @@ static int adau1860_component_probe(struct snd_soc_component *component)
 	/* ADAU1860 -> load TDSP FW */
 	if (adau->type == ADAU1860) {
 		dev_dbg(component->dev, "Full LARK device. Loading TDSP FW");
+		adau1860_fw_text[ADAU1860_TDSP_FW] = "adau1860_tdsp_fw";
 	}
 
 	dev_dbg(component->dev, "LARK device. Loading FDSP FW");
+	adau1860_fw_text[ADAU1860_FDSP_FW] = "adau1860_fdsp_fw";
 
 	dev_dbg(component->dev, "LARK device. Loading EQ FW");
+	adau1860_fw_text[ADAU1860_EQ_FW] = "adau1860_eq_fw";
+
+	adau1860_request_firmware_files(component);
 
 	return 0;
 }
@@ -804,8 +924,8 @@ static int adau1860_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_component *component = dai->component;
 	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
-	int dai_fmt = adau->dai_fmt & SND_SOC_DAIFMT_FORMAT_MASK;
-	int dai_master = adau->dai_fmt & SND_SOC_DAIFMT_MASTER_MASK;
+	int dai_fmt = adau->dai_fmt[dai->id] & SND_SOC_DAIFMT_FORMAT_MASK;
+	int dai_master = adau->dai_fmt[dai->id] & SND_SOC_DAIFMT_MASTER_MASK;
 	int base = dai->driver->base;
 	int bclk_target = snd_soc_params_to_bclk(params);
 	unsigned int channels = params_channels(params);
@@ -852,11 +972,12 @@ static int adau1860_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
+	dev_dbg(dai->dev, "De scris %d %d\n", bclk, lrclk);
+
 	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL2_OFFS,
 			   ADAU1860_SPT_BCLK_SRC_MSK, bclk);
 	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL3_OFFS,
 			   ADAU1860_SPT_LRCLK_SRC_MSK, lrclk);
-	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(13), 0x90);
 
 	return 0;
 }
@@ -883,8 +1004,83 @@ static int adau1860_set_component_sysclk(struct snd_soc_component *component,
 					 int clk_id, int source, unsigned int freq,
 					 int dir)
 {
+	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
+	uint8_t clk_ctrl12 = 0, clk_ctrl13 = 0;
+
 	dev_dbg(component->dev, "Set component SYSCLK clk_id: %d, freq : %d, dir : %d", clk_id, 
 		freq, dir);
+
+	switch (clk_id) {
+	case ADAU18X0_PLL_BYPASS:
+		clk_ctrl13 |= ADAU1860_CLK_CTRL_PLL_FM_BYPASS_MSK;
+		break;
+	case ADAU18X0_PLL_FM:
+		clk_ctrl12 |= ADAU1860_CLK_CTRL_FREQ_MULT_EN_MSK;
+		break;
+	case ADAU18X0_PLL:
+		break;
+	default:
+		dev_err(component->dev, "Invalid CLK Config\n");
+		return -EINVAL;
+	}
+	adau->sysclk_src = clk_id;
+
+	if (clk_id == ADAU18X0_PLL_FM) {
+		if (clk_get_rate(adau->mclk) != 24576000) {
+			dev_err(component->dev, "MCLK should be 24.576MHz when FM is selected\n");
+			return -1;
+		}
+		clk_ctrl13 |= ADAU1860_CLK_CTRL_MCLK_FREQ_X2;
+	}
+
+	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(12), clk_ctrl12);
+	regmap_update_bits(adau->regmap, ADAU1860_CLK_CTRL(13),
+					   ADAU1860_CLK_CTRL_PLL_FM_BYPASS_MSK | ADAU1860_CLK_CTRL_MCLK_FREQ_MSK, clk_ctrl13);
+
+	return 0;
+}
+
+static int adau1860_set_component_pll(struct snd_soc_component *component,
+					 int pll_id, int source, unsigned int freq_in,
+					 unsigned int freq_out)
+{
+	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
+	uint8_t clk_ctrl1 = 0;
+
+	dev_dbg(component->dev, "Set component PLL pll_id: %d, freq_in : %d, freq_out : %d", pll_id, 
+		freq_in, freq_out);
+
+	if (freq_in < 8000000 || freq_in > 27000000)
+		return -EINVAL;
+
+	if (freq_out != 24576000 && freq_out != 49152000 &&
+	    freq_out != 73728000 && freq_out != 98304000)
+		return -EINVAL;
+
+	switch (pll_id) {
+	case ADAU18X0_PLL_SRC_MCLKIN:
+		clk_ctrl1 |= ADAU1860_CLK_CTRL_PLL_SRC_MCLKIN;
+		break;
+	case ADAU18X0_PLL_SRC_FSYNC_0:
+		clk_ctrl1 |= ADAU1860_CLK_CTRL_PLL_SRC_FSYNC0;
+		break;
+	case ADAU18X0_PLL_SRC_BCLK_0:
+		clk_ctrl1 |= ADAU1860_CLK_CTRL_PLL_SRC_BCLK0;
+		break;
+	case ADAU18X0_PLL_SRC_FSYNC_1:
+		clk_ctrl1 |= ADAU1860_CLK_CTRL_PLL_SRC_FSYNC1;
+		break;
+	case ADAU18X0_PLL_SRC_BCLK_1:
+		clk_ctrl1 |= ADAU1860_CLK_CTRL_PLL_SRC_BCLK1;
+		break;
+	default:
+		dev_err(component->dev, "Invalid CLK Config\n");
+		return -EINVAL;
+	}
+
+	regmap_update_bits(adau->regmap, ADAU1860_CLK_CTRL(1),
+					   ADAU1860_CLK_CTRL_PLL_SRC_MSK, clk_ctrl1);
+
 	return 0;
 }
 
@@ -916,7 +1112,7 @@ static int adau1860_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	uint8_t lrclk = 0, bclk = 0, ctrl1 = 0;
 	int base = dai->driver->base;
 
-	dev_dbg(dai->dev, "%s: Format: %d DAI id: %d", __func__, fmt, dai->id);
+	dev_dbg(dai->dev, "%s: Format: 0x%x DAI id: %d", __func__, fmt, dai->id);
 
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
@@ -935,11 +1131,11 @@ static int adau1860_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		dev_dbg(dai->dev, "%s: Codec is frame & bit clk slave",
+		dev_dbg(dai->dev, "%s: ADAU is frame & bit clk slave",
 			__func__);
 		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		dev_dbg(dai->dev, "%s: Codec is frame & bit clk master",
+		dev_dbg(dai->dev, "%s: ADAU is frame & bit clk master",
 			__func__);
 		break;
 	default:
@@ -967,31 +1163,14 @@ static int adau1860_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
-	adau->dai_fmt = fmt;
+	adau->dai_fmt[dai->id] = fmt;
 
 	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL1_OFFS,
 			   ADAU1860_SPT_DATA_FMT_MSK, ctrl1);
 	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL2_OFFS,
-			   ADAU1860_SPT_BCLK_POL | ADAU1860_SPT_BCLK_SRC_MSK,
-			   bclk);
+			   ADAU1860_SPT_BCLK_POL, bclk);
 	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL3_OFFS,
-			   ADAU1860_SPT_LRCLK_POL | ADAU1860_SPT_LRCLK_SRC_MSK,
-			   lrclk);
-
-	return 0;
-}
-
-static int adau1860_set_dai_pll(struct snd_soc_dai *dai, int pll_id, int source,
-				unsigned int freq_in, unsigned int freq_out)
-{
-	dev_dbg(dai->dev, "Set PLL source: %d, freq_in : %d, freq_out : %d",
-		source, freq_in, freq_out);
-	if (freq_in < 8000000 || freq_in > 27000000)
-		return -EINVAL;
-
-	if (freq_out != 24576000 && freq_out != 49152000 &&
-	    freq_out != 73728000 && freq_out != 98304000)
-		return -EINVAL;
+			   ADAU1860_SPT_LRCLK_POL, lrclk);
 
 	return 0;
 }
@@ -1008,6 +1187,9 @@ static int adau1860_set_dai_tdm_slot(struct snd_soc_dai *dai,
 	dev_dbg(dai->dev,
 		"DAI id: %d, tx_mask: %d, rx_mask: %d, slots: %d, slot_width: %d",
 		dai->id, tx_mask, rx_mask, slots, slot_width);
+
+	if (!slots)
+		return 0;
 
 	switch (slot_width) {
 	case 32:
@@ -1043,6 +1225,7 @@ static const struct snd_soc_component_driver adau1860_component_driver = {
 	.name = DRV_NAME,
 	.set_bias_level = adau1860_set_bias_level,
 	.set_sysclk = adau1860_set_component_sysclk,
+	.set_pll = adau1860_set_component_pll,
 	.controls = adau1860_controls,
 	.num_controls = ARRAY_SIZE(adau1860_controls),
 	.dapm_widgets = adau1860_dapm_widgets,
@@ -1058,10 +1241,9 @@ static const struct snd_soc_component_driver adau1860_component_driver = {
 const struct snd_soc_dai_ops adau1860_dai_ops = {
 	.hw_params = adau1860_hw_params,
 	.set_channel_map = adau1860_set_channel_map,
-	.set_sysclk = adau1860_set_dai_sysclk,
 	.set_tristate = adau1860_set_tristate,
 	.set_fmt = adau1860_set_dai_fmt,
-	.set_pll = adau1860_set_dai_pll,
+	.set_sysclk = adau1860_set_dai_sysclk,
 	.set_tdm_slot = adau1860_set_dai_tdm_slot,
 	.startup = adau1860_startup,
 };
@@ -1158,6 +1340,10 @@ int adau1860_probe(struct device *dev, struct regmap *regmap,
 		dev_err(dev, "Wrong Device ID: %x", val);
 		return 0;
 	}
+//noi
+	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(13), 0x90);
+	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(1), 0xC0);
+	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(10), 0x00);
 
 	return devm_snd_soc_register_component(dev, &adau1860_component_driver,
 					       adau1860_dai,
@@ -1167,15 +1353,17 @@ EXPORT_SYMBOL_GPL(adau1860_probe);
 
 static const struct regmap_range adau1860_rd_ranges[] = {
 	regmap_reg_range(ADAU1860_VENDOR_ID, ADAU1860_MP_MCLKO_RATE),
-	regmap_reg_range(ADAU1866_STATUS(1), ADAU1866_STATUS(9)),
+	regmap_reg_range(ADAU1860_STATUS(1), ADAU1860_STATUS(9)),
 };
 
 static const struct regmap_range adau1860_wr_ranges[] = {
 	regmap_reg_range(ADAU1860_ADC_DAC_HP_PWR, ADAU1860_MP_MCLKO_RATE),
+	regmap_reg_range(0x5fff0000, 0x60037fff),
 };
 
 static const struct regmap_range adau1860_no_ranges[] = {
-	regmap_reg_range(0, 0x4000bfff),
+	regmap_reg_range(0, 0x40002023),
+	regmap_reg_range(0x40002029, 0x4000bfff),
 	regmap_reg_range(0x4000c176, 0x4000c1ff),
 	regmap_reg_range(0x4000c201, 0x4000c3ff),
 	regmap_reg_range(0x4000c439, 0x4000cc03),
@@ -1198,6 +1386,10 @@ static const struct regmap_access_table adau1860_rd_table = {
 
 static const struct regmap_range adau1860_volatile_ranges[] = {
 	regmap_reg_range(ADAU1860_CHIP_PWR, ADAU1860_CLK_CTRL(15)),
+	regmap_reg_range(0x40008000, 0x400093ff), /* FDSP */
+	regmap_reg_range(0x4000a000, 0x4000a5ff), /* EQ */
+	regmap_reg_range(0x5fff0000, 0x60037fff), /* TDSP */
+	regmap_reg_range(ADAU1860_TDSP_SOFT_RESET, ADAU1860_TDSP_RUN),
 };
 
 static const struct regmap_access_table adau1860_volatile_table = {
@@ -1210,7 +1402,7 @@ const struct regmap_config adau1860_regmap_config = {
 	.reg_bits = 32,
 	.rd_table = &adau1860_rd_table,
 	.wr_table = &adau1860_wr_table,
-	.max_register = 0x4000cc12,
+	.max_register = 0x60037fff,
 	.volatile_table = &adau1860_volatile_table,
 	.cache_type = REGCACHE_RBTREE,
 };
