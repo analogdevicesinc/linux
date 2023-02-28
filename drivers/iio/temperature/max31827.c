@@ -12,12 +12,13 @@
  */
 
 #include <linux/i2c.h>
-#include <linux/iio/events.h>
-#include <linux/iio/iio.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
+
+#include <linux/iio/events.h>
+#include <linux/iio/iio.h>
 
 /* The CONFIGURATION register's bitmasks */
 #define MAX31827_CONFIGURATION_1SHOT        BIT(0)
