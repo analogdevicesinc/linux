@@ -370,6 +370,16 @@ static const struct iio_chan_spec ad_pulsar_chan_template = {
 	.indexed = 1,
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+			   BIT(IIO_CHAN_INFO_SCALE),
+	.scan_type.sign = 'u',
+	.scan_type.storagebits = 32,
+};
+
+static const struct iio_chan_spec ad_pulsar_chan_template_bw = {
+	.type = IIO_VOLTAGE,
+	.indexed = 1,
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			   BIT(IIO_CHAN_INFO_SCALE) |
 			   BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
 	.info_mask_shared_by_all_available = BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
@@ -811,7 +821,10 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 		return -ENOMEM;
 
 	for (i = 0; i < num_ch; i++) {
-		adc->channels[i] = ad_pulsar_chan_template;
+		if (adc->info->has_filter)
+			adc->channels[i] = ad_pulsar_chan_template_bw;
+		else
+			adc->channels[i] = ad_pulsar_chan_template;
 		adc->channels[i].channel = i;
 		adc->channels[i].scan_index = i;
 		adc->channels[i].scan_type.realbits = adc->info->resolution;
