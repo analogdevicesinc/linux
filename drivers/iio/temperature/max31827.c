@@ -2,6 +2,10 @@
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 #include <linux/regmap.h>
+#include <linux/iio/events.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
+
 
 /* The CONFIGURATION register's bitmasks */
 #define MAX31827_CONFIGURATION_1SHOT        BIT(0)
@@ -25,10 +29,13 @@
 #define MAX31827_TL_HYST                    0xA
 
 /* Masks */
-#define WRITEABLE_CONFIG_MASK               0x0FFF
+#define TEMP_DATA(x)                        (x & 0xFFFF)
 
 struct max31827_data {
     struct regmap *regmap;
+    struct i2c_client *client;
+    int event_val;
+    struct mutex lock;
 };
 
 // check this
@@ -38,6 +45,141 @@ static const struct regmap_config max31827_regmap = {
         .val_bits = 16,
         .max_register = 0xA,
 };
+
+static irqreturn_t max31827_event_handler(int irq, void *private)
+{
+    struct iio_dev *indio_dev = private;
+    struct max31827_data *data = iio_priv(indio_dev);
+    int ret;
+    int cfg;
+
+    ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, &cfg);
+    if((ret < 0) || !(cfg & (MAX31827_CONFIGURATION_U_TEMP_STAT | MAX31827_CONFIGURATION_O_TEMP_STAT)))
+        return IRQ_NONE;
+
+    if (cfg & MAX31827_CONFIGURATION_U_TEMP_STAT)
+		iio_push_event(indio_dev,
+				IIO_MOD_EVENT_CODE(IIO_TEMP, 0,
+					IIO_MOD_TEMP_OBJECT,
+					IIO_EV_TYPE_THRESH,
+					IIO_EV_DIR_FALLING),
+				iio_get_time_ns(indio_dev));
+
+    if (cfg & MAX31827_CONFIGURATION_O_TEMP_STAT)
+		iio_push_event(indio_dev,
+				IIO_MOD_EVENT_CODE(IIO_TEMP, 0,
+					IIO_MOD_TEMP_OBJECT,
+					IIO_EV_TYPE_THRESH,
+					IIO_EV_DIR_RISING),
+				iio_get_time_ns(indio_dev));
+
+    return IRQ_HANDLED;
+}
+
+static int max31827_read_event_value(struct iio_dev *indio_dev,
+		const struct iio_chan_spec *chan, enum iio_event_type type,
+		enum iio_event_direction dir, enum iio_event_info info,
+		int *val, int *val2)
+{
+    struct max31827_data *data = iio_priv(indio_dev);
+    int ret;
+    
+    switch(info) {
+    case IIO_EV_INFO_VALUE:
+        switch(dir) {
+        case IIO_EV_DIR_FALLING:
+            ret = regmap_read(data->regmap, MAX31827_TL, val);
+            if (ret < 0)
+                return ret;
+            
+            return IIO_VAL_INT;
+
+        case IIO_EV_DIR_RISING:
+            ret = regmap_read(data->regmap, MAX31827_TH, val);
+            if (ret < 0)
+                return ret;
+            
+            return IIO_VAL_INT;
+
+        default:
+            return -EINVAL;
+        }
+
+    case IIO_EV_INFO_HYSTERESIS:
+        switch(dir) {
+        case IIO_EV_DIR_FALLING:
+            ret = regmap_read(data->regmap, MAX31827_TL_HYST, val);
+            if (ret < 0)
+                return ret;
+            
+            return IIO_VAL_INT;
+            
+        case IIO_EV_DIR_RISING:
+            ret = regmap_read(data->regmap, MAX31827_TH_HYST, val);
+            if (ret < 0)
+                return ret;
+            
+            return IIO_VAL_INT;
+
+        default:
+            return -EINVAL;
+        }
+    }
+    return -EINVAL;
+}
+
+static int max31827_write_event_value(struct iio_dev *indio_dev,
+		const struct iio_chan_spec *chan, enum iio_event_type type,
+		enum iio_event_direction dir, enum iio_event_info info,
+		int val, int val2)
+{
+    struct max31827_data *data = iio_priv(indio_dev);
+    int ret;
+
+    ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_1SHOT |
+                        MAX31827_CONFIGURATION_CNV_RATE, 0b0000);
+    if (ret < 0)
+        return ret;
+    
+    switch(info) {
+    case IIO_EV_INFO_VALUE:
+        switch(dir) {
+        case IIO_EV_DIR_FALLING:
+            ret = regmap_write(data->regmap, MAX31827_TL, val);
+            if(ret < 0)
+                return ret;
+            return 0;
+
+        case IIO_EV_DIR_RISING:
+            ret = regmap_write(data->regmap, MAX31827_TH, val);
+            if(ret < 0)
+                return ret;
+            return 0;
+        
+        case IIO_EV_DIR_EITHER:
+            return -EINVAL;
+        }
+    
+    case IIO_EV_INFO_HYSTERESIS:
+        switch(dir) {
+        case IIO_EV_DIR_FALLING:
+            ret = regmap_write(data->regmap, MAX31827_TL_HYST, val);
+            if(ret < 0)
+                return ret;
+            return 0;
+
+        case IIO_EV_DIR_RISING:
+            ret = regmap_write(data->regmap, MAX31827_TH_HYST, val);
+            if(ret < 0)
+                return ret;
+            return 0;
+        
+        case IIO_EV_DIR_EITHER:
+            return -EINVAL;
+        }
+    }
+    return -EINVAL;
+}
 
 static int max31827_read_raw(struct iio_dev *indio_dev,
                 struct iio_chan_spec const *chan,
@@ -112,7 +254,7 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
         case 0b011:
             *val = 1;
             *val2 = 16;
-            break;
+            break;        
         case 0b100:
             *val = 1;
             *val2 = 4;
@@ -214,8 +356,23 @@ static const struct iio_info max31827_info = {
     .read_raw = &max31827_read_raw,
     .write_raw = &max31827_write_raw,
     .debugfs_reg_access = &max31827_reg_access,
+	.read_event_value = &max31827_read_event_value,
+	.write_event_value = &max31827_write_event_value,
 };
 
+static const struct iio_event_spec max31827_events[] = {
+    {
+        .type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_RISING,
+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
+			BIT(IIO_EV_INFO_HYSTERESIS),
+    }, {
+        .type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_FALLING,
+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
+			BIT(IIO_EV_INFO_HYSTERESIS),
+    },
+};
 // check this
 static const struct iio_chan_spec max31827_channels[] = {
     {
@@ -224,6 +381,8 @@ static const struct iio_chan_spec max31827_channels[] = {
             BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SAMP_FREQ) |
             BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_SCALE), 
         .output = 0,
+        .event_spec = max31827_events,
+        .num_event_specs = ARRAY_SIZE(max31827_events),
     }, 
 };
 
@@ -257,22 +416,38 @@ static int max31827_probe(struct i2c_client *client,
         return -ENOMEM;
     
     data = iio_priv(indio_dev);
+    i2c_set_clientdata(client, indio_dev);
+	data->client = client;
+	mutex_init(&data->lock);
+
     regmap = devm_regmap_init_i2c(client, &max31827_regmap);
     if (IS_ERR(regmap)) {
         ret = PTR_ERR(regmap);
 		dev_err(&client->dev, "Failed to allocate regmap: %d\n", ret);
 		return ret;
 	}
-
     data->regmap = regmap;
 
     indio_dev->name = "max31827";
+    indio_dev->modes = INDIO_DIRECT_MODE;
     indio_dev->info = &max31827_info;
 
     indio_dev->channels = max31827_channels;
     indio_dev->num_channels = ARRAY_SIZE(max31827_channels);
  
-    return iio_device_register(indio_dev);
+    if (client->irq > 0) {
+		ret = devm_request_threaded_irq(&client->dev, client->irq,
+						NULL,
+						&max31827_event_handler,
+						IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+						id->name,
+						indio_dev);
+		if (ret)
+			return ret;
+	}
+
+
+    return devm_iio_device_register(&client->dev, indio_dev);
 }
 
 static struct i2c_driver max31827_driver = {

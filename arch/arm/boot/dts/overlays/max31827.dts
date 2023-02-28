@@ -1,0 +1,23 @@
+/* SPDX-License-Identifier: GPL-2.0
+ * Overlay for MAX31827
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "bcrm, bcm2711";
+};
+
+&i2c1 {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    status = "ok";
+
+    max31827: max31827@42 {
+        compatible = "max31827";
+        reg = <0x42>;
+    };
+};
