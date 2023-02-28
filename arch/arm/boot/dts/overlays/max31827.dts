@@ -1,5 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0
- * Overlay for MAX31827
+// SPDX-License-Identifier: GPL-2.0
+/* Overlay for MAX31827
  *
  * Copyright 2022 Analog Devices Inc.
  */
