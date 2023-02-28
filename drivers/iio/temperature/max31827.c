@@ -1,3 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * tmp006.c - Support for TI TMP006 IR thermopile sensor
+ *
+ * Copyright (c) 2013 Peter Meerwald <pmeerw@pmeerw.net>
+ *
+ * Driver for the Texas Instruments I2C 16-bit IR thermopile sensor
+ *
+ * (7-bit I2C slave address 0x40, changeable via ADR pins)
+ *
+ * TODO: data ready irq
+ */
+
 #include <linux/i2c.h>
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
@@ -5,7 +18,6 @@
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
-
 
 /* The CONFIGURATION register's bitmasks */
 #define MAX31827_CONFIGURATION_1SHOT        BIT(0)
