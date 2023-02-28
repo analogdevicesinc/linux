@@ -5,6 +5,7 @@
  * Copyright (c) 2023 Daniel Matyas <daniel.matyas@analog.com>
  */
 
+#include <linux/bitfield.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -22,38 +23,39 @@
 #define MAX31827_TL_HYST_REG                     0xA
 
 #define MAX31827_CONFIGURATION_1SHOT_MASK        BIT(0)
-#define MAX31827_CONFIGURATION_CNV_RATE_MASK     GENMASK(3,1)
-#define MAX31827_CONFIGURATION_RESOL_MASK        GENMASK(7,6)
+#define MAX31827_CONFIGURATION_CNV_RATE_MASK     GENMASK(3, 1)
+#define MAX31827_CONFIGURATION_RESOL_MASK        GENMASK(7, 6)
 #define MAX31827_CONFIGURATION_U_TEMP_STAT_MASK  BIT(14)
 #define MAX31827_CONFIGURATION_O_TEMP_STAT_MASK  BIT(15)
 
 struct max31827_data {
-    struct regmap *regmap;
-    struct i2c_client *client;
-    int event_val;
-    struct mutex lock;
+struct regmap *regmap;
+struct i2c_client *client;
 };
 
-// check this
-// might have to change the endian 
-static const struct regmap_config max31827_regmap = {           
-        .reg_bits = 8,
-        .val_bits = 16,
-        .max_register = 0xA,
+static const struct regmap_config max31827_regmap = {
+.reg_bits = 8,
+.val_bits = 16,
+.max_register = 0xA,
 };
 
-static irqreturn_t max31827_event_handler(int irq, void *private)
-{
-    struct iio_dev *indio_dev = private;
-    struct max31827_data *data = iio_priv(indio_dev);
-    int ret;
-    int cfg;
+static irqreturn_t max31827_event_handler(int irq, void *private) {
+struct iio_dev *indio_dev = private;
+struct max31827_data *data = iio_priv(indio_dev);
+int ret;
+int reg;
+int u_temp_stat, o_temp_stat;
 
-    ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, &cfg);
-    if((ret < 0) || !(cfg & (MAX31827_CONFIGURATION_U_TEMP_STAT | MAX31827_CONFIGURATION_O_TEMP_STAT)))
+    ret = regmap_read(data->regmap, MAX31827_CONFIGURATION_REG, &reg);
+    if(ret < 0)
         return IRQ_NONE;
 
-    if (cfg & MAX31827_CONFIGURATION_U_TEMP_STAT)
+    u_temp_stat = FIELD_GET(MAX31827_CONFIGURATION_U_TEMP_STAT_MASK, reg);
+    o_temp_stat = FIELD_GET(MAX31827_CONFIGURATION_O_TEMP_STAT_MASK, reg);
+    if(!(u_temp_stat | o_temp_stat))
+        return IRQ_NONE;
+
+    if (u_temp_stat)
 		iio_push_event(indio_dev,
 				IIO_MOD_EVENT_CODE(IIO_TEMP, 0,
 					IIO_MOD_TEMP_OBJECT,
@@ -61,7 +63,7 @@ static irqreturn_t max31827_event_handler(int irq, void *private)
 					IIO_EV_DIR_FALLING),
 				iio_get_time_ns(indio_dev));
 
-    if (cfg & MAX31827_CONFIGURATION_O_TEMP_STAT)
+    if (o_temp_stat)
 		iio_push_event(indio_dev,
 				IIO_MOD_EVENT_CODE(IIO_TEMP, 0,
 					IIO_MOD_TEMP_OBJECT,
@@ -84,44 +86,36 @@ static int max31827_read_event_value(struct iio_dev *indio_dev,
     case IIO_EV_INFO_VALUE:
         switch(dir) {
         case IIO_EV_DIR_FALLING:
-            ret = regmap_read(data->regmap, MAX31827_TL, val);
-            if (ret < 0)
-                return ret;
-            
-            return IIO_VAL_INT;
-
+            ret = regmap_read(data->regmap, MAX31827_TL_REG, val);
+            break;
         case IIO_EV_DIR_RISING:
-            ret = regmap_read(data->regmap, MAX31827_TH, val);
-            if (ret < 0)
-                return ret;
-            
-            return IIO_VAL_INT;
-
+            ret = regmap_read(data->regmap, MAX31827_TH_REG, val);
+            break;
         default:
             return -EINVAL;
         }
+        break;
 
     case IIO_EV_INFO_HYSTERESIS:
         switch(dir) {
         case IIO_EV_DIR_FALLING:
-            ret = regmap_read(data->regmap, MAX31827_TL_HYST, val);
-            if (ret < 0)
-                return ret;
-            
-            return IIO_VAL_INT;
-            
+            ret = regmap_read(data->regmap, MAX31827_TL_HYST_REG, val);
+            break;
         case IIO_EV_DIR_RISING:
-            ret = regmap_read(data->regmap, MAX31827_TH_HYST, val);
-            if (ret < 0)
-                return ret;
-            
-            return IIO_VAL_INT;
-
+            ret = regmap_read(data->regmap, MAX31827_TH_HYST_REG, val);
+            break;
         default:
             return -EINVAL;
         }
+        break;
+
+    default:
+        return -EINVAL;
     }
-    return -EINVAL;
+
+    if (ret < 0)
+        return ret;    
+    return IIO_VAL_INT;
 }
 
 static int max31827_write_event_value(struct iio_dev *indio_dev,
@@ -132,8 +126,8 @@ static int max31827_write_event_value(struct iio_dev *indio_dev,
     struct max31827_data *data = iio_priv(indio_dev);
     int ret;
 
-    ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_1SHOT |
-                        MAX31827_CONFIGURATION_CNV_RATE, 0b0000);
+    ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION_REG, MAX31827_CONFIGURATION_1SHOT_MASK |
+                        MAX31827_CONFIGURATION_CNV_RATE_MASK, 0b0000);
     if (ret < 0)
         return ret;
     
@@ -141,40 +135,36 @@ static int max31827_write_event_value(struct iio_dev *indio_dev,
     case IIO_EV_INFO_VALUE:
         switch(dir) {
         case IIO_EV_DIR_FALLING:
-            ret = regmap_write(data->regmap, MAX31827_TL, val);
-            if(ret < 0)
-                return ret;
-            return 0;
-
+            ret = regmap_write(data->regmap, MAX31827_TL_REG, val);
+            break;
         case IIO_EV_DIR_RISING:
-            ret = regmap_write(data->regmap, MAX31827_TH, val);
-            if(ret < 0)
-                return ret;
-            return 0;
-        
-        case IIO_EV_DIR_EITHER:
+            ret = regmap_write(data->regmap, MAX31827_TH_REG, val);
+            break;
+        default:
             return -EINVAL;
         }
+        break;
     
     case IIO_EV_INFO_HYSTERESIS:
         switch(dir) {
         case IIO_EV_DIR_FALLING:
-            ret = regmap_write(data->regmap, MAX31827_TL_HYST, val);
-            if(ret < 0)
-                return ret;
-            return 0;
-
+            ret = regmap_write(data->regmap, MAX31827_TL_HYST_REG, val);
+            break;
         case IIO_EV_DIR_RISING:
-            ret = regmap_write(data->regmap, MAX31827_TH_HYST, val);
-            if(ret < 0)
-                return ret;
-            return 0;
-        
-        case IIO_EV_DIR_EITHER:
+            ret = regmap_write(data->regmap, MAX31827_TH_HYST_REG, val);
+            break;
+        default:
             return -EINVAL;
         }
+        break;
+
+    default:
+        return -EINVAL;
     }
-    return -EINVAL;
+
+    if(ret < 0)
+        return ret;
+    return 0;
 }
 
 static int max31827_read_raw(struct iio_dev *indio_dev,
@@ -189,27 +179,27 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
 
     switch (mask) {
     case IIO_CHAN_INFO_ENABLE:
-        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, val);
+        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION_REG, val);
         if (ret < 0)
             return ret;
 
-        *val = *val & MAX31827_CONFIGURATION_1SHOT;
+        *val = FIELD_GET(MAX31827_CONFIGURATION_1SHOT_MASK, *val);
         return IIO_VAL_INT;
     case IIO_CHAN_INFO_RAW:
-        ret = regmap_read(data->regmap, MAX31827_T, val);
+        ret = regmap_read(data->regmap, MAX31827_T_REG, val);
         if (ret < 0)
             return ret;
         
         return IIO_VAL_INT;
 
     case IIO_CHAN_INFO_SCALE:
-        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, &cfg);
+        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION_REG, &cfg);
         if (ret < 0)
             return ret;
 
         *val = 1;
         *val2 = 16;
-        // cfg = (cfg & MAX31827_CONFIGURATION_RESOL) >> 6;
+        // cfg = (cfg & MAX31827_CONFIGURATION_RESOL_MASK) >> 6;
         // switch(cfg) {
         // case 0b00:
         //     *val2 = 1;
@@ -230,11 +220,11 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
         return IIO_VAL_FRACTIONAL;
 
     case IIO_CHAN_INFO_SAMP_FREQ:
-        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION, &cfg);
+        ret = regmap_read(data->regmap, MAX31827_CONFIGURATION_REG, &cfg);
         if (ret < 0)
             return ret;
 
-        cfg = (cfg & MAX31827_CONFIGURATION_CNV_RATE) >> 1;
+        cfg = FIELD_GET(MAX31827_CONFIGURATION_CNV_RATE_MASK, cfg);
         switch(cfg) {
         case 0b000:
             *val = 0;
@@ -291,8 +281,7 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
     /* One-shot = return a single conversion */
     case IIO_CHAN_INFO_ENABLE:
         if(val) {
-            ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_1SHOT |
-                        MAX31827_CONFIGURATION_CNV_RATE, 0b0001);
+            ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION_REG, MAX31827_CONFIGURATION_1SHOT_MASK | MAX31827_CONFIGURATION_CNV_RATE_MASK, 0b0001);
             if (ret < 0)
                 return ret;
         }
@@ -301,7 +290,7 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
     case IIO_CHAN_INFO_SAMP_FREQ:
         val <<= 1;
 
-        ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_CNV_RATE, val);
+        ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION_REG, MAX31827_CONFIGURATION_CNV_RATE_MASK, val);
         if (ret < 0)
             return ret;
 
@@ -326,7 +315,7 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
         }
         value <<= 6;
 
-        ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION, MAX31827_CONFIGURATION_RESOL, value);
+        ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION_REG, MAX31827_CONFIGURATION_RESOL_MASK, value);
         if (ret < 0)
             return ret;
 
@@ -414,7 +403,6 @@ static int max31827_probe(struct i2c_client *client,
     data = iio_priv(indio_dev);
     i2c_set_clientdata(client, indio_dev);
 	data->client = client;
-	mutex_init(&data->lock);
 
     regmap = devm_regmap_init_i2c(client, &max31827_regmap);
     if (IS_ERR(regmap)) {
