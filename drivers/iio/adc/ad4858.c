@@ -416,6 +416,7 @@ static int ad7768_buffer_preenable(struct iio_dev *indio_dev)
 		.cs_change = 1,
 	};
 
+	axiadc_write(st, 0x4c, 0x1);
 	axiadc_write(st, 0x40, 0x2);
 	usleep_range(5000,6000);
 	axiadc_write(st, 0x40, 0x3);
