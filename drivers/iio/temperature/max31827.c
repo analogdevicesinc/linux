@@ -1,14 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
- * tmp006.c - Support for TI TMP006 IR thermopile sensor
+ * max31827.c - Support for Maxim Low-Power Switch
  *
- * Copyright (c) 2013 Peter Meerwald <pmeerw@pmeerw.net>
- *
- * Driver for the Texas Instruments I2C 16-bit IR thermopile sensor
- *
- * (7-bit I2C slave address 0x40, changeable via ADR pins)
- *
- * TODO: data ready irq
+ * Copyright (c) 2023 Daniel Matyas <daniel.matyas@analog.com>
  */
 
 #include <linux/i2c.h>
@@ -20,29 +14,18 @@
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 
-/* The CONFIGURATION register's bitmasks */
-#define MAX31827_CONFIGURATION_1SHOT        BIT(0)
-#define MAX31827_CONFIGURATION_CNV_RATE     GENMASK(3,1)
-#define MAX31827_CONFIGURATION_PEC_EN       BIT(4)
-#define MAX31827_CONFIGURATION_TIMEOUT      BIT(5)
-#define MAX31827_CONFIGURATION_RESOL        GENMASK(7,6)
-#define MAX31827_CONFIGURATION_ALRM_POL     BIT(8)
-#define MAX31827_CONFIGURATION_COMP_INT     BIT(9)
-#define MAX31827_CONFIGURATION_FLT_Q        GENMASK(11,10)
-#define MAX31827_CONFIGURATION_PEC_ERR      BIT(13)
-#define MAX31827_CONFIGURATION_U_TEMP_STAT  BIT(14)
-#define MAX31827_CONFIGURATION_O_TEMP_STAT  BIT(15)
+#define MAX31827_T_REG                           0x0
+#define MAX31827_CONFIGURATION_REG               0x2
+#define MAX31827_TH_REG                          0x4
+#define MAX31827_TL_REG                          0x6
+#define MAX31827_TH_HYST_REG                     0x8
+#define MAX31827_TL_HYST_REG                     0xA
 
-/* The MAX31827 registers */
-#define MAX31827_T                          0x0
-#define MAX31827_CONFIGURATION              0x2
-#define MAX31827_TH                         0x4
-#define MAX31827_TL                         0x6
-#define MAX31827_TH_HYST                    0x8
-#define MAX31827_TL_HYST                    0xA
-
-/* Masks */
-#define TEMP_DATA(x)                        (x & 0xFFFF)
+#define MAX31827_CONFIGURATION_1SHOT_MASK        BIT(0)
+#define MAX31827_CONFIGURATION_CNV_RATE_MASK     GENMASK(3,1)
+#define MAX31827_CONFIGURATION_RESOL_MASK        GENMASK(7,6)
+#define MAX31827_CONFIGURATION_U_TEMP_STAT_MASK  BIT(14)
+#define MAX31827_CONFIGURATION_O_TEMP_STAT_MASK  BIT(15)
 
 struct max31827_data {
     struct regmap *regmap;
