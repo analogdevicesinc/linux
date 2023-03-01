@@ -875,7 +875,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	struct iio_buffer *buffer;
 	struct iio_dev *indio_dev;
 	struct clk *ref_clk;
-	int i, tmp;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*adc));
