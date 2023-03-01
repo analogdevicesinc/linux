@@ -26,6 +26,13 @@
 
 / {
 	fpga_axi: fpga-axi@0 {
+#ifdef RX_ONLY
+	/delete-node/ dma@bc430000;
+	/delete-node/ axi-ad9081-tx-hpc@a4b10000;
+	/delete-node/ axi-jesd204-tx@a4b90000;
+	/delete-node/ axi-data-offload-0@bc440000;
+	/delete-node/ axi_ad9081_core_tx@0;
+#endif
 		clocks {
 			rx_fixed_linerate: clock@0 {
 				#clock-cells = <0>;
@@ -125,7 +132,7 @@
 		hmc7044_c2: channel@2 {
 			reg = <2>;
 			adi,extended-name = "DEV_REFCLK";
-			adi,divider = <16>; /* 187.5 MHz */
+			adi,divider = <8>; /* 375 MHz */
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 		};
 
@@ -164,7 +171,7 @@
 		hmc7044_c12: channel@12 {
 			reg = <12>;
 			adi,extended-name = "FPGA_REFCLK2";
-			adi,divider = <16>; /* 187.5 MHz */
+			adi,divider = <8>; /* 375 MHz */
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 		};
 
@@ -197,7 +204,7 @@
 		clocks = <&hmc7044 2>;
 		clock-names = "dev_clk";
 
-#ifdef RX_ONLY
+#ifndef RX_ONLY
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 #else
 		clock-output-names = "rx_sampl_clk";
