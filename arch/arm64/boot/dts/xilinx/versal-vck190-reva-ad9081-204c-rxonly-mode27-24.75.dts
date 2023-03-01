@@ -18,6 +18,8 @@
  *   Rx I/Q Rate: 4000 MSPS (Decimation of 1x1)
  *   ADC JESD204C: Mode 27.00, L=8, M=4, N=N'=12
  *   ADC-Side JESD204C Lane Rate: 24.75 Gbps
+ *
+ * HDL build: make JESD_MODE=64B66B RX_LANE_RATE=24.75 RX_JESD_M=4 RX_JESD_L=8 RX_JESD_S=4 RX_JESD_NP=12 REF_CLK_RATE=375 VERSAL_PHY_MODE=1
  */
 
 #include "versal-vck190-reva-ad9081.dts"
