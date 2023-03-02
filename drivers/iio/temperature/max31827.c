@@ -142,26 +142,26 @@ static int max31827_write_event_value(struct iio_dev *indio_dev,
 	case IIO_EV_INFO_VALUE:
 		switch (dir) {
 		case IIO_EV_DIR_FALLING:
-		ret = regmap_write(data->regmap, MAX31827_TL_REG, val);
-		break;
+			ret = regmap_write(data->regmap, MAX31827_TL_REG, val);
+			break;
 		case IIO_EV_DIR_RISING:
-		ret = regmap_write(data->regmap, MAX31827_TH_REG, val);
-		break;
+			ret = regmap_write(data->regmap, MAX31827_TH_REG, val);
+			break;
 		default:
-		return -EINVAL;
+			return -EINVAL;
 		}
 		break;
 
 	case IIO_EV_INFO_HYSTERESIS:
 		switch (dir) {
 		case IIO_EV_DIR_FALLING:
-		ret = regmap_write(data->regmap, MAX31827_TL_HYST_REG, val);
-		break;
+			ret = regmap_write(data->regmap, MAX31827_TL_HYST_REG, val);
+			break;
 		case IIO_EV_DIR_RISING:
-		ret = regmap_write(data->regmap, MAX31827_TH_HYST_REG, val);
-		break;
+			ret = regmap_write(data->regmap, MAX31827_TH_HYST_REG, val);
+			break;
 		default:
-		return -EINVAL;
+			return -EINVAL;
 		}
 		break;
 
