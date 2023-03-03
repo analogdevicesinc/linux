@@ -18,49 +18,48 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 
-#define AXI_REG_CNTRL_2 			0x48
+#define AXI_REG_CNTRL_2			0x48
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
 #define AXI_REG_CNTRL_DATA_RD			0x80
-#define   AXI_MSK_DATA_RD_8			GENMASK(7,0)
-#define   AXI_MSK_DATA_RD_16			GENMASK(15,0)
-#define AXI_REG_CNTRL_DATA_WR 			0x84
-#define   AXI_MSK_DATA_WR_8			GENMASK(23,16)
-#define   AXI_MSK_DATA_WR_16			GENMASK(23,8)
-#define AXI_REG_UI_STATUS 			0x88
+#define   AXI_MSK_DATA_RD_8			GENMASK(7, 0)
+#define   AXI_MSK_DATA_RD_16			GENMASK(15, 0)
+#define AXI_REG_CNTRL_DATA_WR			0x84
+#define   AXI_MSK_DATA_WR_8			GENMASK(23, 16)
+#define   AXI_MSK_DATA_WR_16			GENMASK(23, 8)
+#define AXI_REG_UI_STATUS			0x88
 #define   AXI_MSK_BUSY				BIT(4)
-#define AXI_REG_CNTRL_CSTM 			0x8C
+#define AXI_REG_CNTRL_CSTM			0x8C
 #define   AXI_MSK_TRANSFER_DATA			BIT(0)
 #define   AXI_MSK_STREAM			BIT(1)
 #define   AXI_MSK_SYNCED_TRANSFER		BIT(2)
-#define   AXI_MSK_ADDRESS			GENMASK(31,24)
+#define   AXI_MSK_ADDRESS			GENMASK(31, 24)
 #define AXI_REG_CHAN_CNTRL_7_CH0		0x418
 #define AXI_REG_CHAN_CNTRL_7_CH1		0x458
-#define   AXI_MSK_DAC_DDS_SEL			GENMASK(3,0)
+#define   AXI_MSK_DAC_DDS_SEL			GENMASK(3, 0)
 #define AD3552R_REG_STREAM_MODE			0x0E
 #define   AD3552R_MASK_LENGTH			GENMASK(7, 0)
 #define AD3552R_REG_INTERFACE_CONFIG_D		0x14
 #define   AD3552R_MASK_ALERT_ENABLE_PULLUP	BIT(6)
 #define   AD3552R_MASK_MEM_CRC_EN		BIT(4)
 #define   AD3552R_MASK_SDO_DRIVE_STRENGTH	GENMASK(3, 2)
-#define   AD3552R_MASK_DUAL_SPI_SYNC_EN		BIT(1)
 #define   AD3552R_MASK_SPI_CONFIG_DDR		BIT(0)
-#define AD3552R_REG_CH0_CH1_OUTPUT_RANGE	0x19
+#define   AD3552R_MASK_DUAL_SPI_SYNC_EN		BIT(1)
+#define AD3552R_REG_OUTPUT_RANGE		0x19
 #define AD3552R_REG_CH0_DAC_16B			0x2A
 #define AD3552R_REG_CH1_DAC_16B			0x2C
 
-#define TFER_8BIT_SDR				AXI_MSK_SYMB_8B | \
-						AXI_MSK_SDR_DDR_N
+#define TFER_8BIT_SDR				(AXI_MSK_SYMB_8B | \
+						AXI_MSK_SDR_DDR_N)
 #define TFER_8BIT_DDR				AXI_MSK_SYMB_8B
 #define TFER_16BIT_SDR				AXI_MSK_SDR_DDR_N
 #define TFER_16BIT_DDR				0x00
 
-#define CNTRL_CSTM_ADDR(x) 			FIELD_PREP(AXI_MSK_ADDRESS, x)
+#define CNTRL_CSTM_ADDR(x)			FIELD_PREP(AXI_MSK_ADDRESS, x)
 #define CNTRL_DATA_WR_8(x)			FIELD_PREP(AXI_MSK_DATA_WR_8, x)
 #define CNTRL_DATA_WR_16(x)			FIELD_PREP(AXI_MSK_DATA_WR_16, x)
 
-#define RD_ADDR(x)				(BIT(7) | x)
-
+#define RD_ADDR(x)				(BIT(7) | (x))
 
 enum ad35525_source {
 	AD3552R_ADC,
@@ -121,8 +120,6 @@ void axi_ad3552r_update_bits(struct axi_ad3552r_priv *priv, u32 reg, u32 mask,
 
 	if (tmp != orig)
 		axi_ad3552r_write(priv, reg, tmp);
-
-	return;
 }
 
 void axi_ad3552r_spi_write(struct axi_ad3552r_priv *priv, u32 reg, u32 val,
@@ -140,7 +137,6 @@ void axi_ad3552r_spi_write(struct axi_ad3552r_priv *priv, u32 reg, u32 val,
 		axi_ad3552r_write(priv, AXI_REG_CNTRL_DATA_WR,
 				  CNTRL_DATA_WR_16(val));
 
-
 	axi_ad3552r_write(priv, AXI_REG_CNTRL_2, transfer_params);
 
 	axi_ad3552r_update_bits(priv, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
@@ -152,7 +148,6 @@ void axi_ad3552r_spi_write(struct axi_ad3552r_priv *priv, u32 reg, u32 val,
 	mdelay(100);
 	axi_ad3552r_update_bits(priv, AXI_REG_CNTRL_CSTM,
 				AXI_MSK_TRANSFER_DATA, 0);
-
 }
 
 u32 axi_ad3552r_spi_read(struct axi_ad3552r_priv *priv, u32 reg,
@@ -215,9 +210,11 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 		return 0;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel)
-			axi_ad3552r_spi_write(priv, AD3552R_REG_CH1_DAC_16B, (u32)val, TFER_16BIT_SDR);
+			axi_ad3552r_spi_write(priv, AD3552R_REG_CH1_DAC_16B,
+					      (u32)val, TFER_16BIT_SDR);
 		else
-			axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_DAC_16B, (u32)val, TFER_16BIT_SDR);
+			axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_DAC_16B,
+					      (u32)val, TFER_16BIT_SDR);
 	}
 
 	return -EINVAL;
