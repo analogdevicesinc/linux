@@ -99,6 +99,11 @@
 		reg = <0x5f130000 0x18>;
 	};
 
+	sata_csr: csr@5f150000 {
+		compatible = "syscon";
+		reg = <0x5f150000 0x8>;
+	};
+
 	phyx2_0: pcie-phy@5f180000 {
 		compatible = "fsl,imx8qm-pcie-phy";
 		reg = <0x5f180000 0x10000>;
@@ -126,6 +131,22 @@
 		clock-names = "apb_pclk", "pipe_pclk", "ctrl_ips_clk",
 			      "phy_ips_clk", "misc_ips_clk";
 		power-domains = <&pd IMX_SC_R_SERDES_0>;
+		#phy-cells = <0>;
+		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
+		status = "disabled";
+	};
+
+	phyx1: pcie-phy@5f1a0000 {
+		compatible = "fsl,imx8qm-pcie-phy";
+		reg = <0x5f1a0000 0x10000>;
+		ctrl-csr = <&sata_csr>;
+		phy-csr = <&phyx1_csr>;
+		misc-csr = <&misc_csr>;
+		clocks = <&phyx1_lpcg 0>, <&sata_crr4_lpcg 0>,
+			 <&phyx1_crr1_lpcg 0>, <&misc_crr5_lpcg 0>;
+		clock-names = "pipe_pclk", "ctrl_ips_clk",
+			      "phy_ips_clk", "misc_ips_clk";
+		power-domains = <&pd IMX_SC_R_SERDES_1>;
 		#phy-cells = <0>;
 		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
 		status = "disabled";
@@ -244,35 +265,29 @@
 	sata: sata@5f020000 {
 		compatible = "fsl,imx8qm-ahci";
 		reg = <0x5f020000 0x10000>, /* Controller reg */
-		      <0x5f1a0000 0x10000>, /* PHY reg */
-		      <0x5f080000 0xf0000>; /* lpcg, csr, msic, gpio */
-		reg-names = "ctl", "phy", "hsio";
+		      <0x5f1a0000 0x10000>; /* PHY reg */
+		reg-names = "ctl", "phy";
 		interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&sata_lpcg 0>,
-			 <&phyx1_lpcg 0>,
 			 <&phyx1_lpcg 1>,
 			 <&phyx1_lpcg 2>,
-			 <&phyx2_crr0_lpcg 0>,
-			 <&phyx1_crr1_lpcg 0>,
-			 <&pciea_crr2_lpcg 0>,
-			 <&pcieb_crr3_lpcg 0>,
-			 <&sata_crr4_lpcg 0>,
-			 <&misc_crr5_lpcg 0>,
-			 <&phyx2_lpcg 0>,
-			 <&phyx2_lpcg 1>,
-			 <&phyx1_lpcg 3>;
-		clock-names = "sata", "sata_ref", "epcs_tx", "epcs_rx",
-				"per_clk0", "per_clk1", "per_clk2",
-				"per_clk3", "per_clk4", "per_clk5",
-				"phy_pclk0", "phy_pclk1", "phy_apbclk";
-		power-domains = <&pd IMX_SC_R_SATA_0>,
-				<&pd IMX_SC_R_PCIE_A>,
-				<&pd IMX_SC_R_PCIE_B>,
-				<&pd IMX_SC_R_SERDES_0>,
-				<&pd IMX_SC_R_SERDES_1>,
-				<&pd IMX_SC_R_HSIO_GPIO>;
+			 <&sata_crr4_lpcg 0>;
+		clock-names = "sata", "epcs_tx", "epcs_rx", "sata_ref";
+		power-domains = <&pd IMX_SC_R_SATA_0>;
 		fsl,sc_rsrc_id = <IMX_SC_R_SATA_0>;
 		iommus = <&smmu 0x13 0x7f80>;
+		ctrl-csr = <&sata_csr>;
+		/*
+		 * Since "REXT" pin is only present for "lane 0" of
+		 * "PHY Instance 0", and its calibration result will be
+		 * stored, and shared with "lane 1" of "PHY Instance 0"
+		 * and "lane0" of "PHY Instance 1".
+		 *
+		 * Add the "lane 0" of "PHY Instance 0" here, although
+		 * only "lane 0" of "PHY Instance 1" is used by SATA.
+		 */
+		phys = <&phyx1>, <&phyx2_0>, <&phyx2_1>;
+		phy-names = "sata-phy", "cali-phy0", "cali-phy1";
 		status = "disabled";
 	};
 };
