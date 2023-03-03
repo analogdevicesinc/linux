@@ -3,7 +3,7 @@
  * Copyright 2018 NXP
  *	Richard Zhu <hongxing.zhu@nxp.com>
  */
-#include <dt-bindings/soc/imx8_hsio.h>
+#include <dt-bindings/phy/phy-imx8-pcie.h>
 
 hsio_subsys: bus@5f000000 {
 	compatible = "simple-bus";
@@ -90,12 +90,42 @@ hsio_subsys: bus@5f000000 {
 		power-domains = <&pd IMX_SC_R_HSIO_GPIO>;
 	};
 
+	phyx1_csr: csr@5f120000 {
+		compatible = "syscon";
+		reg = <0x5f120000 0x8>;
+	};
+
+	pcieb_csr: csr@5f140000 {
+		compatible = "syscon";
+		reg = <0x5f140000 0x18>;
+	};
+
+	misc_csr: csr@5f160000 {
+		compatible = "syscon";
+		reg = <0x5f160000 0x8>;
+	};
+
+	phyx1: pcie-phy@5f1a0000 {
+		compatible = "fsl,imx8qm-pcie-phy";
+		reg = <0x5f1a0000 0x10000>;
+		ctrl-csr = <&pcieb_csr>;
+		phy-csr = <&phyx1_csr>;
+		misc-csr = <&misc_csr>;
+		clocks = <&phyx1_lpcg 3>, <&phyx1_lpcg 0>, <&pcieb_crr3_lpcg 0>,
+			 <&phyx1_crr1_lpcg 0>, <&misc_crr5_lpcg 0>;
+		clock-names = "apb_pclk", "pipe_pclk", "ctrl_ips_clk",
+			      "phy_ips_clk", "misc_ips_clk";
+		power-domains = <&pd IMX_SC_R_SERDES_1>;
+		#phy-cells = <0>;
+		hsio-cfg = <PCIEAX2PCIEBX1>;
+		status = "disabled";
+	};
+
 	pcieb: pcie@5f010000 {
-		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
+		compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
 		reg = <0x5f010000 0x10000>, /* Controller reg */
-		      <0x7ff00000 0x80000>, /* PCI cfg space */
-		      <0x5f080000 0xf0000>; /* lpcg, csr, msic, gpio */
-		reg-names = "dbi", "config", "hsio";
+		      <0x7ff00000 0x80000>; /* PCI cfg space */
+		reg-names = "dbi", "config";
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
@@ -115,48 +145,37 @@ hsio_subsys: bus@5f000000 {
 				 <0 0 0 4 &gic 0 108 4>;
 		clocks = <&pcieb_lpcg 0>,
 			 <&pcieb_lpcg 1>,
-			 <&pcieb_lpcg 2>,
-			 <&phyx1_lpcg 0>,
-			 <&phyx1_crr1_lpcg 0>,
-			 <&pcieb_crr3_lpcg 0>,
-			 <&misc_crr5_lpcg 0>;
-		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
-			      "pcie_phy", "phy_per", "pcie_per", "misc_per";
-		power-domains = <&pd IMX_SC_R_PCIE_B>,
-				<&pd IMX_SC_R_SERDES_1>,
-				<&pd IMX_SC_R_HSIO_GPIO>;
-		power-domain-names = "pcie", "pcie_phy", "hsio_gpio";
+			 <&pcieb_lpcg 2>;
+		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
 		fsl,max-link-speed = <3>;
 		hsio-cfg = <PCIEAX2PCIEBX1>;
 		local-addr = <0x80000000>;
+		ctrl-csr = <&pcieb_csr>;
+		phys = <&phyx1>;
+		phy-names = "pcie-phy";
 		status = "disabled";
 	};
 
 	pcieb_ep: pcie_ep@5f010000 {
 		compatible = "fsl,imx8qxp-pcie-ep";
 		reg = <0x5f010000 0x00010000>,
-		      <0x5f080000 0xf0000>, /* lpcg, csr, msic, gpio */
 		      <0x70000000 0x10000000>;
-		reg-names = "regs", "hsio", "addr_space";
+		reg-names = "regs", "addr_space";
 		num-lanes = <1>;
 		interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
 		interrupt-names = "dma";
 		clocks = <&pcieb_lpcg 0>,
 			 <&pcieb_lpcg 1>,
-			 <&pcieb_lpcg 2>,
-			 <&phyx1_lpcg 0>,
-			 <&phyx1_crr1_lpcg 0>,
-			 <&pcieb_crr3_lpcg 0>,
-			 <&misc_crr5_lpcg 0>;
-		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
-			      "pcie_phy", "phy_per", "pcie_per", "misc_per";
-		power-domains = <&pd IMX_SC_R_PCIE_B>,
-				<&pd IMX_SC_R_SERDES_1>,
-				<&pd IMX_SC_R_HSIO_GPIO>;
-		power-domain-names = "pcie", "pcie_phy", "hsio_gpio";
+			 <&pcieb_lpcg 2>;
+		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
 		fsl,max-link-speed = <3>;
 		hsio-cfg = <PCIEAX2PCIEBX1>;
 		local-addr = <0x80000000>;
+		ctrl-csr = <&pcieb_csr>;
+		phys = <&phyx1>;
+		phy-names = "pcie-phy";
 		num-ib-windows = <6>;
 		num-ob-windows = <6>;
 		status = "disabled";
