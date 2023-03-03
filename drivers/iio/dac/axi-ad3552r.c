@@ -46,6 +46,8 @@
 #define   AD3552R_MASK_SPI_CONFIG_DDR		BIT(0)
 #define   AD3552R_MASK_DUAL_SPI_SYNC_EN		BIT(1)
 #define AD3552R_REG_OUTPUT_RANGE		0x19
+#define   AD3552R_MASK_CH0_RANGE		GENMASK(2, 0)
+#define   AD3552R_MASK_CH1_RANGE		GENMASK(6, 4)
 #define AD3552R_REG_CH0_DAC_16B			0x2A
 #define AD3552R_REG_CH1_DAC_16B			0x2C
 
@@ -60,6 +62,11 @@
 #define CNTRL_DATA_WR_16(x)			FIELD_PREP(AXI_MSK_DATA_WR_16, x)
 
 #define RD_ADDR(x)				(BIT(7) | (x))
+
+#define SET_CH0_RANGE(x)			FIELD_PREP(AD3552R_MASK_CH0_RANGE, x)
+#define SET_CH1_RANGE(x)			FIELD_PREP(AD3552R_MASK_CH1_RANGE, x)
+#define GET_CH0_RANGE(x)			FIELD_GET(AD3552R_MASK_CH0_RANGE, x)
+#define GET_CH1_RANGE(x)			FIELD_GET(AD3552R_MASK_CH1_RANGE, x)
 
 enum ad35525_source {
 	AD3552R_ADC,
@@ -157,6 +164,19 @@ u32 axi_ad3552r_spi_read(struct axi_ad3552r_priv *priv, u32 reg,
 	return axi_ad3552r_read(priv, AXI_REG_CNTRL_DATA_RD);
 }
 
+void axi_ad3552r_spi_update_bits(struct axi_ad3552r_priv *priv, u32 reg,
+				 u32 mask, u32 val, u32 transfer_params)
+{
+	u32 tmp, orig;
+
+	orig = axi_ad3552r_spi_read(priv, reg, transfer_params);
+	tmp = orig & ~mask;
+	tmp |= val & mask;
+
+	if (tmp != orig)
+		axi_ad3552r_spi_write(priv, reg, tmp, transfer_params);
+}
+
 static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 				struct iio_chan_spec const *chan,
 				int *val,
@@ -241,38 +261,18 @@ static int ad3552r_set_output_range(struct iio_dev *indio_dev,
 {
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 
-	switch (mode) {
-	case 0:
-		// Enable 0/2.5V range
-		axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x00, TFER_8BIT_SDR);
-		mdelay(100);
-		break;
-	case 1:
-		// Enable 0/5V range
-		axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x11, TFER_8BIT_SDR);
-		mdelay(100);
-		break;
-	case 2:
-		// Enable 0/10V range
-		axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x22, TFER_8BIT_SDR);
-		mdelay(100);
-		break;
-	case 3:
-		// Enable +-5V range
-		axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x33, TFER_8BIT_SDR);
-		mdelay(100);
-		break;
-	case 4:
-		// Enable +-10V range
-		axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x44, TFER_8BIT_SDR);
-		mdelay(100);
-		break;
-	default:
-		// Enable +-10V range
-		axi_ad3552r_spi_write(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE, 0x44, TFER_8BIT_SDR);
-		mdelay(100);
-		break;
-	}
+	if (chan->channel)
+		axi_ad3552r_spi_update_bits(priv, AD3552R_REG_OUTPUT_RANGE,
+					    AD3552R_MASK_CH1_RANGE,
+					    SET_CH1_RANGE(mode),
+					    TFER_8BIT_SDR);
+	else
+		axi_ad3552r_spi_update_bits(priv, AD3552R_REG_OUTPUT_RANGE,
+					    AD3552R_MASK_CH0_RANGE,
+					    SET_CH0_RANGE(mode),
+					    TFER_8BIT_SDR);
+	mdelay(100);
+
 	return 0;
 }
 
@@ -281,31 +281,13 @@ static int ad3552r_get_output_range(struct iio_dev *indio_dev,
 {
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 	u32 val;
-	int ret;
 
-	val = axi_ad3552r_spi_read(priv, AD3552R_REG_CH0_CH1_OUTPUT_RANGE,
+	val = axi_ad3552r_spi_read(priv, AD3552R_REG_OUTPUT_RANGE,
 				   TFER_8BIT_SDR);
-	switch (val) {
-	case 0x44:
-		ret = 4;
-		break;
-	case 0x33:
-		ret = 3;
-		break;
-	case 0x22:
-		ret = 2;
-		break;
-	case 0x11:
-		ret = 1;
-		break;
-	case 0x00:
-		ret = 0;
-		break;
-	default:
-		ret = 4;
-		break;
-	}
-	return ret;
+	if (chan->channel)
+		return GET_CH1_RANGE(val);
+	else
+		return GET_CH0_RANGE(val);
 }
 
 static int ad3552r_set_input_source(struct iio_dev *indio_dev,
@@ -381,9 +363,9 @@ static const struct iio_chan_spec_ext_info ad3552r_ext_info[] = {
 	IIO_ENUM_AVAILABLE_SHARED("input_source",
 				  IIO_SHARED_BY_ALL,
 				  &ad35525_source_enum),
-	IIO_ENUM("output_range", IIO_SHARED_BY_ALL, &ad35525_output_enum),
+	IIO_ENUM("output_range", IIO_SEPARATE, &ad35525_output_enum),
 	IIO_ENUM_AVAILABLE_SHARED("output_range",
-				  IIO_SHARED_BY_ALL,
+				  IIO_SEPARATE,
 				  &ad35525_output_enum),
 	{},
 };
