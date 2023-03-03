@@ -83,8 +83,6 @@ struct axi_ad3552r_priv {
 	struct device *dev;
 	bool ddr;
 	bool single_channel;
-	enum ad35525_source input_source;
-	enum ad35525_out_range output_range;
 	bool enable;
 };
 
@@ -233,12 +231,10 @@ static int axi_ad3552r_reg_access(struct iio_dev *indio_dev,
 
 	if (readval) {
 		*readval = ioread32(priv->regs + reg);
-
 		return 0;
 	}
 
 	iowrite32(writeval, priv->regs + reg);
-
 	return 0;
 }
 
@@ -247,8 +243,6 @@ static int ad3552r_set_output_range(struct iio_dev *indio_dev,
 				    unsigned int mode)
 {
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
-
-	priv->output_range = mode;
 
 	switch (mode) {
 	case 0:
@@ -322,8 +316,6 @@ static int ad3552r_set_input_source(struct iio_dev *indio_dev,
 				    unsigned int mode)
 {
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
-
-	priv->input_source = mode;
 
 	switch (mode) {
 	case 0:
