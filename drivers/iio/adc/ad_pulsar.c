@@ -36,7 +36,7 @@
 
 #define AD_PULSAR_REG_CONFIG		0x00
 
-#define AD7682_NUM_TEMP_CHANNELS	0x01
+#define AD7682_NUM_TEMP_CHANNELS	1
 
 #define AD7682_REG_CONFIG		AD_PULSAR_REG_CONFIG
 #define AD7682_CONFIG_RESET		GENMASK(15, 0)
@@ -86,28 +86,6 @@
 	AD7682_CH_REF(GND) | AD7682_SEL_CH(7) | AD7682_BW_SEL(FULL_BW) |       \
 	AD7682_REFBUF_SEL(EXT_REF_4) | AD7682_SEQ_SCAN(DISABLED) |	       \
 	AD7682_NO_READBACK)
-
-enum {
-	ID_AD7988_5,
-	ID_AD7988_1,
-	ID_AD7984,
-	ID_AD7983,
-	ID_AD7982,
-	ID_AD7980,
-	ID_AD7949,
-	ID_AD7946,
-	ID_AD7942,
-	ID_AD7699,
-	ID_AD7693,
-	ID_AD7691,
-	ID_AD7690,
-	ID_AD7689,
-	ID_AD7688,
-	ID_AD7687,
-	ID_AD7686,
-	ID_AD7685,
-	ID_AD7682,
-};
 
 enum ad_pulsar_input_type {
 	DIFFERENTIAL,
@@ -370,7 +348,7 @@ static const struct iio_chan_spec ad_pulsar_chan_template = {
 	.indexed = 1,
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-			   BIT(IIO_CHAN_INFO_SCALE),
+			      BIT(IIO_CHAN_INFO_SCALE),
 	.scan_type.sign = 'u',
 	.scan_type.storagebits = 32,
 };
@@ -380,8 +358,8 @@ static const struct iio_chan_spec ad_pulsar_chan_template_bw = {
 	.indexed = 1,
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-			   BIT(IIO_CHAN_INFO_SCALE) |
-			   BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
+			      BIT(IIO_CHAN_INFO_SCALE) |
+			      BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
 	.info_mask_shared_by_all_available = BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
 	.scan_type.sign = 'u',
 	.scan_type.storagebits = 32,
@@ -436,6 +414,7 @@ static int ad_pulsar_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 		*readval = adc->cfg;
 		return 0;
 	}
+
 	return ad_pulsar_reg_write(adc, reg, writeval);
 }
 
@@ -510,6 +489,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 			ret = ad_pulsar_read_channel(adc, chan->address, val);
 			if (ret)
 				return ret;
+
 			ret = ad_pulsar_read_channel(adc, chan->address, val);
 			if (ret)
 				return ret;
@@ -521,10 +501,12 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 
 		if (chan->differential)
 			*val = sign_extend32(*val, adc->info->resolution - 1);
+
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = adc->samp_freq;
 		return IIO_VAL_INT;
+
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_VOLTAGE:
@@ -548,6 +530,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		return IIO_VAL_INT;
+
 	default:
 		return -EINVAL;
 	}
@@ -567,8 +550,10 @@ static int ad_pulsar_write_raw(struct iio_dev *indio_dev,
 		ret = ad_pulsar_set_lpf(adc, chan->scan_index, val);
 		if (ret)
 			return ret;
+
 		return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
 					   adc->seq_buf[chan->scan_index]);
+
 	default:
 		return -EINVAL;
 	}
@@ -585,6 +570,7 @@ static int ad_pulsar_read_avail(struct iio_dev *indio_dev,
 		*length = ARRAY_SIZE(ad_pulsar_filter_freq);
 		*type = IIO_VAL_INT;
 		return IIO_AVAIL_LIST;
+
 	default:
 		return -EINVAL;
 	}
@@ -680,21 +666,22 @@ static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 	struct spi_message msg;
 	int ret;
 
-	if (adc->info->sequencer) {
+	if (adc->info->sequencer)
 		ret = ad_pulsar_buffer_with_seq(indio_dev, &msg);
-		if (ret)
-			return ret;
-	} else {
+	else
 		spi_message_init_with_transfers(&msg, &xfer, 1);
-	}
+
+	if (ret)
+		return ret;
 
 	spi_bus_lock(adc->spi->master);
 	ret = spi_engine_offload_load_msg(adc->spi, &msg);
 	if (ret)
 		return ret;
+
 	spi_engine_offload_enable(adc->spi, true);
 
-	return ret;
+	return 0;
 }
 
 static int ad_pulsar_buffer_postdisable(struct iio_dev *indio_dev)
@@ -738,13 +725,9 @@ static const struct iio_info ad_pulsar_iio_info = {
 static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 				   struct fwnode_handle *child)
 {
-	unsigned int dummy;
-	unsigned int in[2];
+	unsigned int dummy, in[2] = {};
 	u32 chan_index;
 	int ret;
-
-	in[0] = 0;
-	in[1] = 0;
 
 	ret = fwnode_property_read_u32(child, "reg", &chan_index);
 	if (ret)
@@ -936,8 +919,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 		return ret;
 
 	if (adc->info->has_turbo) {
-		ret =  ad_pulsar_reg_write(adc, AD_PULSAR_REG_CONFIG,
-					   BIT(1));
+		ret =  ad_pulsar_reg_write(adc, AD_PULSAR_REG_CONFIG, BIT(1));
 		if (ret)
 			return ret;
 	}
@@ -947,8 +929,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_BUFFER_HARDWARE | INDIO_DIRECT_MODE;
 	indio_dev->setup_ops = &ad_pulsar_buffer_ops;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-						 "rx",
+	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
 						 &ad_pulsar_dma_buffer_ops,
 						 indio_dev);
 	if (IS_ERR(buffer))
