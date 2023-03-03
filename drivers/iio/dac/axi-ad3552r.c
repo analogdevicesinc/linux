@@ -36,7 +36,10 @@
 #define   AXI_MSK_ADDRESS			GENMASK(31, 24)
 #define AXI_REG_CHAN_CNTRL_7_CH0		0x418
 #define AXI_REG_CHAN_CNTRL_7_CH1		0x458
-#define   AXI_MSK_DAC_DDS_SEL			GENMASK(3, 0)
+#define   AXI_SEL_SRC_DMA			0x02
+#define   AXI_SEL_SRC_ADC			0x08
+#define   AXI_SEL_SRC_DDS			0x0b
+
 #define AD3552R_REG_STREAM_MODE			0x0E
 #define   AD3552R_MASK_LENGTH			GENMASK(7, 0)
 #define AD3552R_REG_INTERFACE_CONFIG_D		0x14
@@ -69,9 +72,9 @@
 #define GET_CH1_RANGE(x)			FIELD_GET(AD3552R_MASK_CH1_RANGE, x)
 
 enum ad35525_source {
-	AD3552R_ADC,
-	AD3552R_DMA,
-	AD3552R_RAMP
+	AD3552R_ADC	= AXI_SEL_SRC_ADC,
+	AD3552R_DMA	= AXI_SEL_SRC_DMA,
+	AD3552R_RAMP	= AXI_SEL_SRC_DDS
 };
 
 enum ad35525_out_range {
@@ -93,17 +96,17 @@ struct axi_ad3552r_priv {
 };
 
 static const char * const input_source[] = {
-	[AD3552R_ADC]   = "adc_input",
-	[AD3552R_DMA]   = "dma_input",
-	[AD3552R_RAMP]  = "ramp_input"
+	[AD3552R_ADC]	= "adc_input",
+	[AD3552R_DMA]	= "dma_input",
+	[AD3552R_RAMP]	= "ramp_input"
 };
 
 static const char * const output_range[] = {
-	[AD3552R_0_2_5] = "0/2.5V",
-	[AD3552R_0_5]   = "0/5V",
-	[AD3552R_0_10]  = "0/10V",
-	[AD3552R_5_5]   = "-5/+5V",
-	[AD3552R_10_10] = "-10/+10V"
+	[AD3552R_0_2_5]	= "0/2.5V",
+	[AD3552R_0_5]	= "0/5V",
+	[AD3552R_0_10]	= "0/10V",
+	[AD3552R_5_5]	= "-5/+5V",
+	[AD3552R_10_10]	= "-10/+10V"
 };
 
 void axi_ad3552r_write(struct axi_ad3552r_priv *priv, u32 reg, u32 val)
@@ -296,24 +299,8 @@ static int ad3552r_set_input_source(struct iio_dev *indio_dev,
 {
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
 
-	switch (mode) {
-	case 0:
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH0, 0x08);
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH1, 0x08);
-		break;
-	case 1:
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH0, 0x02);
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH1, 0x02);
-		break;
-	case 2:
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH0, 0x0b);
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH1, 0x0b);
-		break;
-	default:
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH0, 0x02);
-		axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH1, 0x02);
-		break;
-	}
+	axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH0, mode);
+	axi_ad3552r_write(priv, AXI_REG_CHAN_CNTRL_7_CH1, mode);
 
 	return 0;
 }
@@ -322,26 +309,8 @@ static int ad3552r_get_input_source(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan)
 {
 	struct axi_ad3552r_priv *priv = iio_priv(indio_dev);
-	u32 val;
-	int ret;
 
-	val = axi_ad3552r_read(priv, AXI_REG_CHAN_CNTRL_7_CH0);
-	switch (val) {
-	case 0x8:
-		ret = 0;
-		break;
-	case 0x2:
-		ret = 1;
-		break;
-	case 0xb:
-		ret = 2;
-		break;
-	default:
-		ret = 0;
-		break;
-	}
-
-	return ret;
+	return axi_ad3552r_read(priv, AXI_REG_CHAN_CNTRL_7_CH0);
 }
 
 static const struct iio_enum ad35525_source_enum = {
