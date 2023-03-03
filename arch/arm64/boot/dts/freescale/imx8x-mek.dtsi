@@ -1026,12 +1026,15 @@
 	};
 };
 
-&pcieb{
-	compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
+&phyx1 {
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_INPUT>;
+	status = "okay";
+};
+
+&pcieb {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
-	ext_osc = <1>;
 	vpcie-supply = <&reg_pcieb>;
 	status = "okay";
 };
@@ -1425,7 +1428,7 @@
 	pinctrl_pcieb: pcieagrp {
 		fsl,pins = <
 			IMX8QXP_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO00		0x06000021
-			IMX8QXP_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO01		0x06000021
+			IMX8QXP_PCIE_CTRL0_CLKREQ_B_HSIO_PCIE0_CLKREQ_B 	0x06000021
 			IMX8QXP_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO02		0x04000021
 		>;
 	};
