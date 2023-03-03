@@ -103,21 +103,12 @@ enum ad_pulsar_ch_ref {
 };
 
 enum ad_pulsar_refbuf {
-	INT_REF_2500,
 	INT_REF_4096,
-	EXT_REF_1,
-	EXT_REF_2,
-	RESERVED1,
-	RESERVED2,
-	EXT_REF_3,
 	EXT_REF_4
 };
 
 enum ad_pulsar_sequencer_scan {
 	DISABLED,
-	UPDATE,
-	ALL_CHANNELS_AND_TEMP,
-	ALL_CHANNELS
 };
 
 enum ad_pulsar_filter_bw {
