@@ -2583,6 +2583,8 @@ static int ad9081_set_power_state(struct ad9081_phy *phy, bool on)
 			return ret;
 		}
 
+		phy->jrx_link_tx[0].lane_cal_rate_kbps = 0;
+
 		ret = ad9081_setup(phy->spi);
 		if (ret < 0) {
 			dev_err(&phy->spi->dev, "%s: setup failed (%d)\n",
@@ -2598,6 +2600,8 @@ static int ad9081_set_power_state(struct ad9081_phy *phy, bool on)
 			return 0;
 
 		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+
+		phy->jrx_link_tx[0].lane_cal_rate_kbps = 0;
 
 		ret = adi_ad9081_device_reset(&phy->ad9081,
 			conv->reset_gpio ? AD9081_HARD_RESET_AND_INIT :
@@ -2730,6 +2734,8 @@ static ssize_t ad9081_phy_store(struct device *dev,
 			break;
 
 		if (enable) {
+			if (!phy->is_initialized)
+				phy->jrx_link_tx[0].lane_cal_rate_kbps = 0;
 			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
 			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
 			ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
