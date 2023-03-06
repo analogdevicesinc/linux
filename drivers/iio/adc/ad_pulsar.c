@@ -66,17 +66,6 @@
 #define AD7682_SEL_CH(x)		FIELD_PREP(AD7682_SEL_MSK, x)
 #define AD7682_GET_BW(x)		FIELD_GET(AD7682_BW_MSK, x)
 
-#define AD7862_SET_TYPE(_reg, type)	({				       \
-					typeof(_reg) (reg) = (_reg);	       \
-					reg = (reg & ~AD7682_PAIR_MSK) |       \
-					AD7682_CH_TYPE(type);		       \
-})
-#define AD7682_SET_POLARITY(_reg, pol)	({				       \
-					typeof(_reg) (reg) = (_reg);	       \
-					reg = (reg & ~AD7682_POLARITY_MSK) |   \
-					AD7682_CH_POLARITY(pol);	       \
-})
-
 #define AD7682_CH_TEMP_SENSOR		(AD7682_REFBUF_SEL(AD7682_REF_INT_4V) |\
 	AD7682_UPDATE_CFG | AD7682_CH_TYPE(SINGLE_ENDED) | AD7682_CH_REF(GND) |\
 	AD7682_CH_POLARITY(BIPOLAR))
@@ -736,7 +725,8 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 			return -EINVAL;
 
 		adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
-		AD7862_SET_TYPE(adc->seq_buf[chan_index], DIFFERENTIAL);
+		adc->seq_buf[chan_index] &= ~AD7682_PAIR_MSK;
+		adc->seq_buf[chan_index] |= AD7682_CH_TYPE(DIFFERENTIAL);
 		adc->channels[chan_index].differential = 1;
 		adc->channels[chan_index].channel2 = in[1];
 	} else if (fwnode_property_read_bool(child, "adi,temp-sensor")) {
@@ -757,7 +747,8 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 
 	if (fwnode_property_read_bool(child, "bipolar")) {
 		adc->channels[chan_index].scan_type.sign = 's';
-		AD7682_SET_POLARITY(adc->seq_buf[chan_index], BIPOLAR);
+		adc->seq_buf[chan_index] &= ~AD7682_POLARITY_MSK;
+		adc->seq_buf[chan_index] |= AD7682_CH_POLARITY(BIPOLAR);
 	}
 
 	adc->channels[chan_index].channel = in[0];
