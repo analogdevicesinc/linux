@@ -3695,10 +3695,17 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 			val3 = 1; /* 1 second */
 
 		mutex_lock(&indio_dev->mlock);
+		ret = adi_ad9081_jesd_cal_bg_cal_pause(&phy->ad9081);
+		if (ret) {
+			mutex_unlock(&indio_dev->mlock);
+			return ret;
+		}
 		ret = adi_ad9081_jesd_rx_spo_sweep(&phy->ad9081, val & 0x7,
 				ad9081_val_to_prbs(val2),
 				ad9081_deserializer_mode_get(&phy->jrx_link_tx[0]),
 				val3, &lv, &rv);
+
+		adi_ad9081_jesd_cal_bg_cal_start(&phy->ad9081);
 		if (ret) {
 			mutex_unlock(&indio_dev->mlock);
 			return ret;
