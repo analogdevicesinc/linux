@@ -129,7 +129,6 @@ struct ad_pulsar_chip_info {
 	int sclk_rate;
 	int max_rate;
 	bool has_filter:1;
-	bool has_turbo:1;
 	bool sequencer:1;
 };
 
@@ -908,12 +907,6 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	ret = ad_pulsar_parse_channels(indio_dev);
 	if (ret)
 		return ret;
-
-	if (adc->info->has_turbo) {
-		ret =  ad_pulsar_reg_write(adc, AD_PULSAR_REG_CONFIG, BIT(1));
-		if (ret)
-			return ret;
-	}
 
 	indio_dev->name = adc->info->name;
 	indio_dev->info = &ad_pulsar_iio_info;
