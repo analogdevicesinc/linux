@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9136-FMC-EBZ
+ * https://wiki.analog.com/resources/eval/dpg/eval-ad9136
+ *
+ * hdl_project: <dac_fmc_ebz/a10soc>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2022 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#define fmc_gpio sys_gpio_out
+#define fmc_gpio_base 0
+#define fpga_device_clk ad9516 9
+
+#include "socfpga_arria10_socdk_dac_fmc_ebz.dtsi"
+#include "adi-ad9136-fmc-ebz.dtsi"

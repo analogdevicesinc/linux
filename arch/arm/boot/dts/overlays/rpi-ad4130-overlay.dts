@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&spi0 {
+	cs-gpios = <&gpio 17 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	ad4130@0 {
+		compatible = "adi,ad4130";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		spi-max-frequency = <5000000>;
+		interrupts = <27 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-parent = <&gpio>;
+
+		channel@0 {
+			reg = <0>;
+
+			adi,reference-select = <2>;
+
+			/* AIN8, AIN9 */
+			diff-channels = <8 9>;
+		};
+
+		channel@1 {
+			reg = <1>;
+
+			adi,reference-select = <2>;
+
+			/* AIN10, AIN11 */
+			diff-channels = <10 11>;
+		};
+
+		channel@2 {
+			reg = <2>;
+
+			adi,reference-select = <2>;
+
+			/* Temperature Sensor, DGND */
+			diff-channels = <16 19>;
+		};
+
+		channel@3 {
+			reg = <3>;
+
+			adi,reference-select = <2>;
+
+			/* Internal reference, DGND */
+			diff-channels = <18 19>;
+		};
+
+		channel@4 {
+			reg = <4>;
+
+			adi,reference-select = <2>;
+
+			/* DGND, DGND */
+			diff-channels = <19 19>;
+		};
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};

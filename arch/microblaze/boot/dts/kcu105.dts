@@ -1,0 +1,2 @@
+/dts-v1/;
+#include "kcu105.dtsi"

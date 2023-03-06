@@ -1,0 +1,471 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9081-m8-l4.dts"
+
+/ {
+	dac_vss: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+
+	dac_vdd: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+
+	long_peak_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		// 78 offset
+		out-gpios = <&gpio 138 0>, <&gpio 140 0>, <&gpio 141 0>;
+		label = "long_peak_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "MUTE";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "UPDATE";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "RESET";
+		};
+	};
+};
+
+&fpga_axi {
+	axi_spi_pmod: spi@84000000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bits-per-word = <8>;
+		compatible = "xlnx,xps-spi-2.00.a";
+		fifo-size = <16>;
+		// 3 + 121 - 32
+		interrupts = <0 92 IRQ_TYPE_LEVEL_HIGH>;
+		num-cs = <0x8>;
+		reg = <0x84000000 0x10000>;
+		xlnx,num-ss-bits = <0x8>;
+		xlnx,spi-mode = <0>;
+	};
+	axi_i2c_pmod: i2c@84500000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "s_axi_aclk";
+		clocks = <&zynqmp_clk 71>;
+		compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+		interrupt-names = "iic2intc_irpt";
+		interrupts = <0 93 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x84500000 0x1000>;
+	};
+};
+
+&axi_i2c_pmod {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	i2c_to_spi_1: spi@28 {
+		compatible = "nxp,sc18is602b";
+		reg = <0x28>;
+	};
+
+	i2c_to_spi_2: spi@29 {
+		compatible = "nxp,sc18is602b";
+		reg = <0x29>;
+	};
+};
+
+&i2c_to_spi_2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	ad5760@0 {
+		compatible = "adi,ad5760";
+		label = "ad5760_SYNC1";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+		vss-supply = <&dac_vss>;
+		vdd-supply = <&dac_vdd>;
+	};
+	ad5760@1 {
+		compatible = "adi,ad5760";
+		label = "ad5760_SYNC2";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+		vss-supply = <&dac_vss>;
+		vdd-supply = <&dac_vdd>;
+	};
+
+	admv4420_CSB1@2 {
+		compatible = "adi,admv4420";
+		reg = <2>;
+		spi-max-frequency = <500000>;
+		label = "admv4420_CSB1";
+		adi,lo-freq-khz = <16750000>;
+	};
+
+	admv4420_CSB2@3 {
+		compatible = "adi,admv4420";
+		reg = <3>;
+		spi-max-frequency = <500000>;
+		label = "admv4420_CSB2";
+		adi,lo-freq-khz = <16750000>;
+	};
+};
+
+&i2c_to_spi_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	adrf5720@0 {
+		compatible = "adi,adrf5720";
+		label = "adrf5720_LE2";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
+	adrf5720@1 {
+		compatible = "adi,adrf5720";
+		label = "adrf5720_LE1";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+	};
+	adl5240@2 {
+		compatible = "adi,adl5240";
+		label = "adl5240_LE1";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+	};
+	adl5240@3 {
+		compatible = "adi,adl5240";
+		label = "adl5240_LE2";
+		reg = <3>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&axi_spi_pmod {
+	adar3002_csb_0@0 {
+		compatible = "adi,adar3002";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T0";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 139 0>;
+
+		adar3002_csb_0_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_csb_0_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_csb_0_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_csb_0_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_csb_0_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_csb_0_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_csb_0_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_csb_0_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_csb_0_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_csb_0_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_csb_0_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_csb_0_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_csb_0_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_csb_0_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_csb_0_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_csb_0_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+
+	adar3002_csb_1@1 {
+		compatible = "adi,adar3002";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T1";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 139 0>;
+
+		adar3002_csb_1_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_csb_1_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_csb_1_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_csb_1_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_csb_1_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_csb_1_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_csb_1_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_csb_1_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_csb_1_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_csb_1_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_csb_1_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_csb_1_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_csb_1_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_csb_1_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_csb_1_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_csb_1_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+
+	adar3002_csb_2@2 {
+		compatible = "adi,adar3002";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 139 0>;
+
+		adar3002_csb_2_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_csb_2_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_csb_2_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_csb_2_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_csb_2_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_csb_2_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_csb_2_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_csb_2_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_csb_2_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_csb_2_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_csb_2_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_csb_2_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_csb_2_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_csb_2_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_csb_2_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_csb_2_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+
+	adar3002_csb_3@3 {
+		compatible = "adi,adar3002";
+		reg = <3>;
+		spi-max-frequency = <1000000>;
+		label = "adar3002_T3";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 139 0>;
+
+		adar3002_csb_3_0@0 {
+			reg = <0>;
+			label = "adar3002_U1E";
+		};
+		adar3002_csb_3_1@1 {
+			reg = <1>;
+			label = "adar3002_U2E";
+		};
+		adar3002_csb_3_2@2 {
+			reg = <2>;
+			label = "adar3002_U3E";
+		};
+		adar3002_csb_3_3@3 {
+			reg = <3>;
+			label = "adar3002_U4E";
+		};
+
+		adar3002_csb_3_4@4 {
+			reg = <4>;
+			label = "adar3002_U1F";
+		};
+		adar3002_csb_3_5@5 {
+			reg = <5>;
+			label = "adar3002_U2F";
+		};
+		adar3002_csb_3_6@6 {
+			reg = <6>;
+			label = "adar3002_U3F";
+		};
+		adar3002_csb_3_7@7 {
+			reg = <7>;
+			label = "adar3002_U4F";
+		};
+
+		adar3002_csb_3_8@8 {
+			reg = <8>;
+			label = "adar3002_U1G";
+		};
+		adar3002_csb_3_9@9 {
+			reg = <9>;
+			label = "adar3002_U2G";
+		};
+		adar3002_csb_3_10@10 {
+			reg = <10>;
+			label = "adar3002_U3G";
+		};
+		adar3002_csb_3_11@11 {
+			reg = <11>;
+			label = "adar3002_U4G";
+		};
+
+		adar3002_csb_3_12@12 {
+			reg = <12>;
+			label = "adar3002_U1H";
+		};
+		adar3002_csb_3_13@13 {
+			reg = <13>;
+			label = "adar3002_U2H";
+		};
+		adar3002_csb_3_14@14 {
+			reg = <14>;
+			label = "adar3002_U3H";
+		};
+		adar3002_csb_3_15@15 {
+			reg = <15>;
+			label = "adar3002_U4H";
+		};
+	};
+};
+

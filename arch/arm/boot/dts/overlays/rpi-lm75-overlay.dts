@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			lm75: lm75@4c{
+				compatible = "lm75";
+				reg = <0x4c>;
+				label = "my_lm75";
+			};
+
+		};
+	};
+
+	__overrides__ {
+		addr = <&lm75>,"reg:0";
+	};
+};

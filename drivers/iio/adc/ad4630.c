@@ -1,0 +1,1337 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4630 SPI ADC driver
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+#include <linux/bitfield.h>
+#include <linux/clk.h>
+#include <linux/debugfs.h>
+#include <linux/delay.h>
+#include <linux/device.h>
+#include <linux/dmaengine.h>
+#include <linux/err.h>
+#include <linux/gpio/consumer.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/pm_runtime.h>
+#include <linux/property.h>
+#include <linux/regulator/consumer.h>
+#include <linux/pwm.h>
+#include <linux/regmap.h>
+#include <linux/sysfs.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/spi-engine.h>
+
+#define AD4630_REG_INTERFACE_CONFIG_A	0x00
+#define AD4630_REG_INTERFACE_CONFIG_B	0x01
+#define AD4630_REG_DEVICE_CONFIG	0x02
+#define AD4630_REG_CHIP_TYPE		0x03
+#define AD4630_REG_PRODUCT_ID_L		0x04
+#define AD4630_REG_PRODUCT_ID_H		0x05
+#define AD4630_REG_CHIP_GRADE		0x06
+#define AD4630_REG_SCRATCH_PAD		0x0A
+#define AD4630_REG_SPI_REVISION		0x0B
+#define AD4630_REG_VENDOR_L		0x0C
+#define AD4630_REG_VENDOR_H		0x0D
+#define AD4630_REG_STREAM_MODE		0x0E
+#define AD4630_REG_EXIT_CFG_MODE	0x14
+#define AD4630_REG_AVG			0x15
+#define AD4630_REG_OFFSET_X0_0		0x16
+#define AD4630_REG_OFFSET_X0_1		0x17
+#define AD4630_REG_OFFSET_X0_2		0x18
+#define AD4630_REG_OFFSET_X1_0		0x19
+#define AD4630_REG_OFFSET_X1_1		0x1A
+#define AD4630_REG_OFFSET_X1_2		0x1B
+#define AD4630_REG_GAIN_X0_LSB		0x1C
+#define AD4630_REG_GAIN_X0_MSB		0x1D
+#define AD4630_REG_GAIN_X1_LSB		0x1E
+#define AD4630_REG_GAIN_X1_MSB		0x1F
+#define AD4630_REG_MODES		0x20
+#define AD4630_REG_OSCILATOR		0x21
+#define AD4630_REG_IO			0x22
+#define AD4630_REG_PAT0			0x23
+#define AD4630_REG_PAT1			0x24
+#define AD4630_REG_PAT2			0x25
+#define AD4630_REG_PAT3			0x26
+#define AD4630_REG_DIG_DIAG		0x34
+#define AD4630_REG_DIG_ERR		0x35
+/* INTERFACE_CONFIG_A */
+#define AD4630_SW_RESET			(BIT(0) | BIT(7))
+/* CHIP GRADE */
+#define AD4630_MSK_CHIP_GRADE		GENMASK(7, 3)
+#define AD4630_CHIP_GRADE(grade)	FIELD_GET(AD4630_MSK_CHIP_GRADE, grade)
+/* MODES */
+#define AD4630_LANE_MODE_MSK		GENMASK(7, 6)
+#define AD4630_CLK_MODE_MSK		GENMASK(5, 4)
+#define AD4630_DATA_RATE_MODE_MSK	BIT(3)
+#define AD4630_OUT_DATA_MODE_MSK	GENMASK(2, 0)
+/* EXIT_CFG_MD */
+#define AD4630_EXIT_CFG_MODE		BIT(0)
+/* AVG */
+#define AD4630_AVG_FILTER_RESET		BIT(7)
+/* OFFSET */
+#define AD4630_REG_CHAN_OFFSET(ch)	(AD4630_REG_OFFSET_X0_2 + 3 * (ch))
+/* HARDWARE_GAIN */
+#define AD4630_REG_CHAN_GAIN(ch)	(AD4630_REG_GAIN_X0_MSB + 2 * (ch))
+#define AD4630_GAIN_MAX			1999970
+/* POWER MODE*/
+#define AD4630_POWER_MODE_MSK		GENMASK(1, 0)
+#define AD4630_LOW_POWER_MODE		3
+/* SPI transfer */
+#define AD4630_SPI_REG_ACCESS_SPEED	40000000UL
+#define AD4630_SPI_SAMPLING_SPEED	80000000UL
+/* sequence starting with "1 0 1" to enable reg access */
+#define AD4630_REG_ACCESS		0x2000
+/* Sampling timing */
+#define AD4630_MAX_RATE_1_LANE		1750000
+#define AD4630_MAX_RATE			2000000
+
+#define AD4630_MAX_CHANNEL_NR		3
+#define AD4630_VREF_MIN			(4096 * 1000)
+#define AD4630_VREF_MAX			(5000 * 1000)
+
+enum {
+	AD4630_ONE_LANE_PER_CH,
+	AD4630_TWO_LANES_PER_CH,
+	AD4630_FOUR_LANES_PER_CH,
+	AD4630_SHARED_TWO_CH,
+};
+
+enum {
+	AD4630_16_DIFF = 0x00,
+	AD4630_24_DIFF = 0x00,
+	AD4630_16_DIFF_8_COM = 0x01,
+	AD4630_24_DIFF_8_COM = 0x02,
+	AD4630_30_AVERAGED_DIFF = 0x03,
+	AD4630_32_PATTERN = 0x04
+};
+
+enum {
+	AD4630_SPI_COMPATIBLE_MODE,
+	AD4630_ECHO_CLOCK_MODE,
+	AD4630_CLOCK_HOST_MODE,
+};
+
+enum {
+	ID_AD4030_24,
+	ID_AD4630_16,
+	ID_AD4630_24,
+};
+
+struct ad4630_out_mode {
+	const struct iio_chan_spec channels[AD4630_MAX_CHANNEL_NR];
+	u32 data_width;
+};
+
+struct ad4630_chip_info {
+	const unsigned long *available_masks;
+	const struct ad4630_out_mode *modes;
+	const char *name;
+	unsigned long out_modes_mask;
+	int min_offset;
+	int max_offset;
+	u16 base_word_len;
+	u8 grade;
+	u8 n_channels;
+};
+
+struct ad4630_state {
+	const struct ad4630_chip_info *chip;
+	struct regulator_bulk_data regulators[3];
+	struct pwm_device *conv_trigger;
+	struct pwm_device *fetch_trigger;
+	struct spi_device *spi;
+	struct regmap *regmap;
+
+	int vref;
+	int vio;
+	unsigned int out_data;
+	unsigned int max_rate;
+
+	/* offload sampling spi message */
+	struct spi_transfer offload_xfer;
+	struct spi_message offload_msg;
+
+	bool use_spi_trigger;
+	u8 bits_per_word;
+	u8 pattern_bits_per_word;
+
+	u8 tx_data[6] __aligned(ARCH_KMALLOC_MINALIGN);
+	u8 rx_data[6];
+};
+
+static int ad4630_spi_read(void *context, const void *reg, size_t reg_size,
+			   void *val, size_t val_size)
+{
+	struct ad4630_state *st = context;
+	struct spi_transfer xfer = {
+		.speed_hz = AD4630_SPI_REG_ACCESS_SPEED,
+		.tx_buf = st->tx_data,
+		.rx_buf = st->rx_data,
+		.len = reg_size + val_size,
+	};
+	int ret;
+
+	memcpy(st->tx_data, reg, reg_size);
+
+	ret = spi_sync_transfer(st->spi, &xfer, 1);
+	if (ret)
+		return ret;
+
+	memcpy(val, &st->rx_data[2], val_size);
+
+	return ret;
+}
+
+static int ad4630_spi_write(void *context, const void *data, size_t count)
+{
+	const struct ad4630_state *st = context;
+
+	return spi_write(st->spi, data, count);
+}
+
+static int ad4630_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			     unsigned int writeval, unsigned int *readval)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+
+	if (readval)
+		return regmap_read(st->regmap, reg, readval);
+
+	return regmap_write(st->regmap, reg, writeval);
+}
+
+static void ad4630_get_sampling_freq(const struct ad4630_state *st, int *freq)
+{
+	struct pwm_state conversion_state;
+
+	pwm_get_state(st->conv_trigger, &conversion_state);
+	*freq = DIV_ROUND_CLOSEST_ULL(1000000000000, conversion_state.period);
+}
+
+static int ad4630_get_chan_gain(struct iio_dev *indio_dev, int ch, int *val)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+	__be16 gain;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(st->regmap, AD4630_REG_CHAN_GAIN(ch), &gain, 2);
+	if (ret)
+		goto out_error;
+
+	*val = DIV_ROUND_CLOSEST_ULL(be16_to_cpu(gain) * 1000000ULL, 0x8000);
+
+out_error:
+	iio_device_release_direct_mode(indio_dev);
+	return ret;
+}
+
+static int ad4630_get_chan_offset(struct iio_dev *indio_dev, int ch, int *val)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+	__be32 offset;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(st->regmap, AD4630_REG_CHAN_OFFSET(ch),
+			       &offset, 3);
+	if (ret)
+		goto out_error;
+
+	*val = be32_to_cpu(offset) >> 8;
+
+	/* For 16bit chips, the third byte is RESERVED. We can read it but it's a don't care...*/
+	if (st->chip->base_word_len == 16)
+		*val = *val >> 8;
+
+	*val = sign_extend32(*val, st->chip->base_word_len - 1);
+out_error:
+	iio_device_release_direct_mode(indio_dev);
+	return ret;
+}
+
+static int ad4630_read_raw(struct iio_dev *indio_dev,
+			   struct iio_chan_spec const *chan, int *val,
+			   int *val2, long info)
+{
+	struct ad4630_state *st = iio_priv(indio_dev);
+	unsigned int temp;
+	int ret;
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		ad4630_get_sampling_freq(st, val);
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SCALE:
+		*val = (st->vref * 2) / 1000;
+		*val2 = chan->scan_type.realbits;
+		return IIO_VAL_FRACTIONAL_LOG2;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		ret = ad4630_get_chan_gain(indio_dev, chan->channel, &temp);
+		if (ret)
+			return ret;
+
+		*val = temp / 1000000;
+		*val2 = temp % 1000000;
+		return IIO_VAL_INT_PLUS_MICRO;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		ret = ad4630_get_chan_offset(indio_dev, chan->channel, val);
+		if (ret)
+			return ret;
+
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned int freq)
+{
+	struct pwm_state conv_state = {
+		.duty_cycle = 10000,
+		.time_unit = PWM_UNIT_PSEC,
+	}, fetch_state = {
+		.duty_cycle = 10000,
+		.time_unit = PWM_UNIT_PSEC,
+	};
+	int ret;
+
+	conv_state.period =  DIV_ROUND_CLOSEST_ULL(1000000000000, freq);
+	ret = pwm_apply_state(st->conv_trigger, &conv_state);
+	if (ret)
+		return ret;
+
+	if (!st->fetch_trigger)
+		return 0;
+
+	fetch_state.period = conv_state.period;
+
+	if (st->out_data == AD4630_30_AVERAGED_DIFF) {
+		u32 avg;
+
+		ret = regmap_read(st->regmap, AD4630_REG_AVG, &avg);
+		if (ret)
+			return ret;
+
+		fetch_state.period *= 1 << avg;
+	}
+
+	/*
+	 * The hardware does the capture on zone 2 (when spi trigger PWM
+	 * is used). This means that the spi trigger signal should happen at
+	 * tsync + tquiet_con_delay being tsync the conversion signal period
+	 * and tquiet_con_delay 9.8ns. Hence set the PWM phase accordingly.
+	 */
+	fetch_state.phase = fetch_state.period + 9800;
+
+	return pwm_apply_state(st->fetch_trigger, &fetch_state);
+}
+
+static int ad4630_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!freq || freq > st->max_rate)
+		return -EINVAL;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = __ad4630_set_sampling_freq(st, freq);
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
+static int ad4630_set_chan_offset(struct iio_dev *indio_dev, int ch, int offset)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+	__be32 val;
+	int ret;
+
+	if (offset < st->chip->min_offset || offset > st->chip->max_offset)
+		return -EINVAL;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	if (st->chip->base_word_len == 16)
+		val = cpu_to_be32(offset << 16);
+	else
+		val = cpu_to_be32(offset << 8);
+
+	ret = regmap_bulk_write(st->regmap, AD4630_REG_CHAN_OFFSET(ch),
+				&val, 3);
+
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
+static int ad4630_set_chan_gain(struct iio_dev *indio_dev, int ch,
+				int gain_int, int gain_frac)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+	__be16 val;
+	u64 gain;
+	int ret;
+
+	gain = gain_int * 1000000 + gain_frac;
+
+	if (gain < 0 || gain > AD4630_GAIN_MAX)
+		return -EINVAL;
+
+	gain = DIV_ROUND_CLOSEST_ULL(gain * 0x8000, 1000000);
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	val = cpu_to_be16(gain);
+	ret = regmap_bulk_write(st->regmap, AD4630_REG_CHAN_GAIN(ch), &val, 2);
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
+static int ad4630_write_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan, int val,
+			    int val2, long info)
+{
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad4630_set_sampling_freq(indio_dev, val);
+	case IIO_CHAN_INFO_CALIBSCALE:
+		return ad4630_set_chan_gain(indio_dev, chan->channel, val,
+					    val2);
+	case IIO_CHAN_INFO_CALIBBIAS:
+		return ad4630_set_chan_offset(indio_dev, chan->channel, val);
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ad4630_update_sample_fetch_trigger(const struct ad4630_state *st, u32 avg)
+{
+	struct pwm_state fetch_state, conv_state;
+
+	if (!st->fetch_trigger)
+		return 0;
+
+	pwm_get_state(st->conv_trigger, &conv_state);
+	pwm_get_state(st->fetch_trigger, &fetch_state);
+	fetch_state.period = conv_state.period * 1 << avg;
+	fetch_state.phase = fetch_state.period + 9800;
+
+	return pwm_apply_state(st->fetch_trigger, &fetch_state);
+}
+
+static int ad4630_set_avg_frame_len(struct iio_dev *dev,
+				    const struct iio_chan_spec *chan,
+				    unsigned int avg_len)
+{
+	const struct ad4630_state *st = iio_priv(dev);
+	int ret;
+
+	ret = iio_device_claim_direct_mode(dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, AD4630_REG_AVG, avg_len);
+	if (ret)
+		goto out_error;
+
+	ret = ad4630_update_sample_fetch_trigger(st, avg_len);
+out_error:
+	iio_device_release_direct_mode(dev);
+
+	return ret;
+}
+
+static int ad4630_get_avg_frame_len(struct iio_dev *dev,
+				    const struct iio_chan_spec *chan)
+{
+	const struct ad4630_state *st = iio_priv(dev);
+	unsigned int avg_len;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(st->regmap, AD4630_REG_AVG, &avg_len);
+	iio_device_release_direct_mode(dev);
+	if (ret)
+		return ret;
+
+	return avg_len;
+}
+
+static ssize_t ad4630_test_pattern_set(struct iio_dev *indio_dev,
+				       uintptr_t private,
+				       const struct iio_chan_spec *chan,
+				       const char *buf, size_t len)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+	u32 pattern;
+	__be32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 16, &pattern);
+	if (ret)
+		return ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	val = cpu_to_be32(pattern);
+	ret = regmap_bulk_write(st->regmap, AD4630_REG_PAT3, &val, 4);
+	iio_device_release_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	return len;
+}
+
+static ssize_t ad4630_test_pattern_get(struct iio_dev *indio_dev,
+				       uintptr_t private,
+				       const struct iio_chan_spec *chan,
+				       char *buf)
+{
+	const struct ad4630_state *st = iio_priv(indio_dev);
+	__be32 pattern;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(st->regmap, AD4630_REG_PAT3, &pattern, 4);
+	iio_device_release_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	return sysfs_emit(buf, "0x%x\n", __be32_to_cpu(pattern));
+}
+
+static int ad4630_dma_buffer_submit_block(struct iio_dma_buffer_queue *queue,
+					  struct iio_dma_buffer_block *block)
+{
+	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
+}
+
+static int ad4630_sampling_enable(const struct ad4630_state *st, bool enable)
+{
+	struct pwm_state conv_state, fetch_state;
+	int ret;
+
+	pwm_get_state(st->conv_trigger, &conv_state);
+	conv_state.enabled = enable;
+
+	ret = pwm_apply_state(st->conv_trigger, &conv_state);
+	if (ret)
+		return ret;
+	if (!st->fetch_trigger)
+		return 0;
+
+	pwm_get_state(st->fetch_trigger, &fetch_state);
+	fetch_state.enabled = enable;
+	return pwm_apply_state(st->fetch_trigger, &fetch_state);
+}
+
+static int ad4630_out_mode_update(struct ad4630_state *st, bool test_pattern)
+{
+	u8 bits_per_w;
+	u32 mode;
+	int ret;
+
+	if (test_pattern) {
+		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, AD4630_32_PATTERN);
+		bits_per_w = st->pattern_bits_per_word;
+		/*
+		 * If the previous mode is averaging, we need to update the
+		 * fetch PWM signal as there's no averaging in the test pattern
+		 * mode and the user might have already configured some
+		 * averaging.
+		 */
+		if (st->out_data == AD4630_30_AVERAGED_DIFF)
+			ad4630_update_sample_fetch_trigger(st, 0);
+	} else {
+		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, st->out_data);
+		bits_per_w = st->bits_per_word;
+		/* Restore the fetch PWM signal */
+		if (st->out_data == AD4630_30_AVERAGED_DIFF) {
+			u32 avg;
+
+			ret = regmap_read(st->regmap, AD4630_REG_AVG, &avg);
+			if (ret)
+				return ret;
+
+			ad4630_update_sample_fetch_trigger(st, avg);
+		}
+	}
+
+	ret = regmap_update_bits(st->regmap, AD4630_REG_MODES,
+				 AD4630_OUT_DATA_MODE_MSK, mode);
+	if (ret)
+		return ret;
+
+	st->offload_xfer.bits_per_word = bits_per_w;
+
+	return 0;
+}
+
+static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
+{
+	struct ad4630_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = pm_runtime_get_sync(&st->spi->dev);
+	if (ret < 0)
+		return ret;
+
+	if (test_bit(st->chip->n_channels - 1, indio_dev->active_scan_mask)) {
+		/* enable test pattern mode */
+		ret = ad4630_out_mode_update(st, true);
+		if (ret)
+			goto out_error;
+	}
+
+	ret = regmap_write(st->regmap, AD4630_REG_EXIT_CFG_MODE, BIT(0));
+	if (ret)
+		goto out_error;
+
+	spi_bus_lock(st->spi->master);
+	spi_engine_offload_load_msg(st->spi, &st->offload_msg);
+	spi_engine_offload_enable(st->spi, true);
+	ad4630_sampling_enable(st, true);
+
+	return 0;
+out_error:
+	pm_runtime_mark_last_busy(&st->spi->dev);
+	pm_runtime_put_autosuspend(&st->spi->dev);
+	return ret;
+}
+
+static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct ad4630_state *st = iio_priv(indio_dev);
+	u32 dummy;
+	int ret;
+
+	ret = ad4630_sampling_enable(st, false);
+	if (ret)
+		goto out_error;
+
+	spi_engine_offload_enable(st->spi, false);
+	spi_bus_unlock(st->spi->master);
+
+	ret = regmap_read(st->regmap, AD4630_REG_ACCESS, &dummy);
+	if (ret)
+		goto out_error;
+
+	if (test_bit(st->chip->n_channels - 1, indio_dev->active_scan_mask))
+		ret = ad4630_out_mode_update(st, false);
+
+out_error:
+	pm_runtime_mark_last_busy(&st->spi->dev);
+	pm_runtime_put_autosuspend(&st->spi->dev);
+	return ret;
+}
+
+static const char *const ad4630_average_modes[] = {
+	"0", "2", "4", "8", "16", "32",	"64", "128", "256", "512", "1024",
+	"2048", "4096", "8192", "16384", "32768", "65536"
+};
+
+static const struct iio_enum ad4630_avg_frame_len_enum = {
+	.items = ad4630_average_modes,
+	.num_items = ARRAY_SIZE(ad4630_average_modes),
+	.set = ad4630_set_avg_frame_len,
+	.get = ad4630_get_avg_frame_len,
+};
+
+static const struct iio_chan_spec_ext_info ad4630_ext_info[] = {
+	IIO_ENUM("sample_averaging", IIO_SHARED_BY_TYPE,
+		 &ad4630_avg_frame_len_enum),
+	IIO_ENUM_AVAILABLE_SHARED("sample_averaging", IIO_SHARED_BY_TYPE,
+				  &ad4630_avg_frame_len_enum),
+	{}
+};
+
+static const struct iio_chan_spec_ext_info ad4630_test_pattern[] = {
+	{
+		.name = "test_pattern",
+		.read = ad4630_test_pattern_get,
+		.write = ad4630_test_pattern_set,
+		.shared = IIO_SHARED_BY_TYPE,
+	},
+	{}
+};
+
+#define AD4630_CHAN(_idx, _storage, _real, _shift, _info) {		\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
+			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.info_mask_shared_by_type =  BIT(IIO_CHAN_INFO_SCALE),		\
+	.type = IIO_VOLTAGE,						\
+	.indexed = 1,							\
+	.channel = _idx,						\
+	.scan_index = _idx,						\
+	.ext_info = _info,						\
+	.scan_type = {							\
+		.sign = 's',						\
+		.storagebits = _storage,				\
+		.realbits = _real,					\
+		.shift = _shift,					\
+	},								\
+}
+
+#define AD4630_CHAN_PATTERN(_idx) {		\
+	.type = IIO_VOLTAGE,			\
+	.indexed = 1,				\
+	.channel = _idx,			\
+	.scan_index = _idx,			\
+	.ext_info = ad4630_test_pattern,	\
+	.scan_type = {				\
+		.sign = 's',			\
+		.storagebits = 32,		\
+		.realbits = 32,			\
+	},					\
+}
+
+/*
+ * We need the sample size to be 64 bytes when both channels are enabled as the
+ * HW will always fill in the DMA bus which is 64bits. If we had just 16 bits
+ * of storage (for example on the AD4630_16_DIFF mode for ad4630-16 ), we would
+ * have a sample  size of 32bits having the 16MSb set to 0 (in theory channel_2
+ * data) as the HW fills in the channel_1 sample to get the 32bits per channel
+ * storage.
+ */
+static const struct ad4630_out_mode ad4030_24_modes[] = {
+	[AD4630_24_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, 64, 24, 0, NULL),
+			AD4630_CHAN_PATTERN(1),
+		},
+		.data_width = 24,
+	},
+	[AD4630_16_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, 64, 16, 8, NULL),
+			AD4630_CHAN_PATTERN(1),
+		},
+		.data_width = 24,
+	},
+	[AD4630_24_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, 64, 24, 8, NULL),
+			AD4630_CHAN_PATTERN(1),
+		},
+		.data_width = 32,
+	},
+	[AD4630_30_AVERAGED_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, 64, 30, 2, ad4630_ext_info),
+			AD4630_CHAN_PATTERN(1),
+		},
+		.data_width = 32,
+	}
+};
+
+static const struct ad4630_out_mode ad4630_16_modes[] = {
+	[AD4630_16_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, 32, 16, 0, NULL),
+			AD4630_CHAN(1, 32, 16, 0, NULL),
+			AD4630_CHAN_PATTERN(2),
+		},
+		.data_width = 16,
+	},
+	[AD4630_16_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, 32, 16, 8, NULL),
+			AD4630_CHAN(1, 32, 16, 8, NULL),
+			AD4630_CHAN_PATTERN(2),
+		},
+		.data_width = 24,
+	},
+	[AD4630_30_AVERAGED_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, 32, 30, 2, ad4630_ext_info),
+			AD4630_CHAN(1, 32, 30, 2, ad4630_ext_info),
+			AD4630_CHAN_PATTERN(2),
+		},
+		.data_width = 32,
+	}
+};
+
+static const struct ad4630_out_mode ad4630_24_modes[] = {
+	[AD4630_24_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, 32, 24, 0, NULL),
+			AD4630_CHAN(1, 32, 24, 0, NULL),
+			AD4630_CHAN_PATTERN(2),
+		},
+		.data_width = 24,
+	},
+	[AD4630_16_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, 32, 16, 8, NULL),
+			AD4630_CHAN(1, 32, 16, 8, NULL),
+			AD4630_CHAN_PATTERN(2),
+		},
+		.data_width = 24,
+	},
+	[AD4630_24_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, 32, 24, 8, NULL),
+			AD4630_CHAN(1, 32, 24, 8, NULL),
+			AD4630_CHAN_PATTERN(2),
+		},
+		.data_width = 32,
+	},
+	[AD4630_30_AVERAGED_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, 32, 30, 2, ad4630_ext_info),
+			AD4630_CHAN(1, 32, 30, 2, ad4630_ext_info),
+			AD4630_CHAN_PATTERN(2),
+		},
+		.data_width = 32,
+	}
+};
+
+/* either both channels are enabled or test_pattern */
+static const unsigned long ad4630_channel_masks[] = {
+	GENMASK(1, 0),
+	BIT(2),
+	0,
+};
+
+static const unsigned long ad4030_channel_masks[] = {
+	BIT(0),
+	BIT(1),
+	0,
+};
+
+/* test pattern is treated as an additional channel */
+static const struct ad4630_chip_info ad4630_chip_info[] = {
+	[ID_AD4030_24] = {
+		.available_masks = ad4030_channel_masks,
+		.modes = ad4030_24_modes,
+		.out_modes_mask = GENMASK(3, 0),
+		.name = "ad4030-24",
+		.grade = 0x10,
+		.min_offset = (int)BIT(23) * -1,
+		.max_offset = BIT(23) - 1,
+		.base_word_len = 24,
+		.n_channels = 2,
+	},
+	[ID_AD4630_16] = {
+		.available_masks = ad4630_channel_masks,
+		.modes = ad4630_16_modes,
+		.out_modes_mask = BIT(3) | GENMASK(1, 0),
+		.name = "ad4630-16",
+		.grade = 0x03,
+		.min_offset = (int)BIT(15) * -1,
+		.max_offset = BIT(15) - 1,
+		.base_word_len = 16,
+		.n_channels = 3,
+	},
+	[ID_AD4630_24] = {
+		.available_masks = ad4630_channel_masks,
+		.modes = ad4630_24_modes,
+		.out_modes_mask = GENMASK(3, 0),
+		.name = "ad4630-24",
+		.min_offset = (int)BIT(23) * -1,
+		.max_offset = BIT(23) - 1,
+		.base_word_len = 24,
+		.n_channels = 3,
+	}
+};
+
+static const struct ad4630_chip_info ad463x_chip_info = {
+	.name = "ad463x"
+};
+
+static int ad4630_detect_chip_info(struct ad4630_state *st)
+{
+	int ret, c;
+	u32 grade;
+
+	ret = regmap_read(st->regmap, AD4630_REG_CHIP_GRADE, &grade);
+	if (ret)
+		return ret;
+
+	grade = FIELD_GET(AD4630_MSK_CHIP_GRADE, grade);
+
+	for (c = 0; c < ARRAY_SIZE(ad4630_chip_info); c++) {
+		if (ad4630_chip_info[c].grade == grade)
+			break;
+	}
+
+	if (c == ARRAY_SIZE(ad4630_chip_info))
+		return dev_err_probe(&st->spi->dev, -EINVAL,
+				     "Unknown grade(%u)\n", grade);
+
+	st->chip = &ad4630_chip_info[c];
+
+	return 0;
+}
+
+static void ad4630_clk_disable(void *data)
+{
+	clk_disable_unprepare(data);
+}
+
+static void ad4630_regulator_disable(void *data)
+{
+	regulator_disable(data);
+}
+
+static void ad4630_pm_disable(void *data)
+{
+	/* based in upstream pm_runtime_disable_action() */
+	pm_runtime_dont_use_autosuspend(data);
+	pm_runtime_disable(data);
+}
+
+static void ad4630_disable_regulators(void *data)
+{
+	struct ad4630_state *st = data;
+
+	regulator_bulk_disable(ARRAY_SIZE(st->regulators), st->regulators);
+}
+
+static int ad4630_regulators_get(struct ad4630_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct regulator *ref;
+	int ret;
+
+	st->regulators[0].supply = "vdd";
+	st->regulators[1].supply = "vdd_1_8";
+	st->regulators[2].supply = "vio";
+	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(st->regulators),
+				      st->regulators);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to get regulators\n");
+
+	ret = regulator_bulk_enable(ARRAY_SIZE(st->regulators), st->regulators);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to enable regulators\n");
+
+	ret = devm_add_action_or_reset(dev, ad4630_disable_regulators, st);
+	if (ret)
+		return ret;
+
+	st->vio = regulator_get_voltage(st->regulators[2].consumer);
+
+	ref = devm_regulator_get_optional(dev, "vref");
+	if (IS_ERR(ref)) {
+		if (PTR_ERR(ref) != -ENODEV)
+			return dev_err_probe(dev, PTR_ERR(ref),
+					     "Failed to get vref regulator");
+
+		/* if not using optional REF, the internal REFIN must be used */
+		ref = devm_regulator_get(dev, "vrefin");
+		if (IS_ERR(ref))
+			return dev_err_probe(dev, PTR_ERR(ref),
+					     "Failed to get vrefin regulator");
+	}
+
+	ret = regulator_enable(ref);
+	if (ret) {
+		dev_err_probe(dev, ret, "Failed to enable specified ref supply\n");
+		return ret;
+	}
+
+	ret = devm_add_action_or_reset(dev, ad4630_regulator_disable, ref);
+	if (ret)
+		return ret;
+
+	st->vref = regulator_get_voltage(ref);
+	if (st->vref < AD4630_VREF_MIN || st->vref > AD4630_VREF_MAX)
+		return dev_err_probe(dev, -EINVAL, "vref(%d) must be under [%u %u]\n",
+				     st->vref, AD4630_VREF_MIN, AD4630_VREF_MAX);
+
+	return 0;
+}
+
+static int ad4630_reset(const struct ad4630_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct gpio_desc *reset;
+	u32 dummy;
+	int ret;
+
+	reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(reset))
+		return dev_err_probe(dev, PTR_ERR(reset), "Failed to get reset gpio");
+
+	if (reset) {
+		gpiod_set_value_cansleep(reset, 0);
+	} else {
+		/* Guarantee that we can access the registers */
+		ret = regmap_read(st->regmap, AD4630_REG_ACCESS, &dummy);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, AD4630_REG_INTERFACE_CONFIG_A,
+				   AD4630_SW_RESET);
+		if (ret)
+			return ret;
+	}
+
+	fsleep(750);
+
+	/* after reset, default is conversion mode... change to reg access */
+	return regmap_read(st->regmap, AD4630_REG_ACCESS, &dummy);
+}
+
+static int ad4630_pwm_get(struct ad4630_state *st)
+{
+	struct device *dev = &st->spi->dev;
+
+	st->conv_trigger = devm_pwm_get(dev, "cnv");
+	if (IS_ERR(st->conv_trigger))
+		return dev_err_probe(dev, PTR_ERR(st->conv_trigger),
+				     "Failed to get cnv pwm\n");
+
+	/*
+	 * the trigger is optional... We can have the device BUSY pin
+	 * acting as trigger.
+	 */
+	if (!st->use_spi_trigger)
+		goto out_sampling_freq;
+
+	st->fetch_trigger = devm_pwm_get(dev, "spi_trigger");
+	if (IS_ERR(st->fetch_trigger))
+		return dev_err_probe(dev, PTR_ERR(st->fetch_trigger),
+				     "Failed to get spi engine pwm\n");
+
+out_sampling_freq:
+	return __ad4630_set_sampling_freq(st, st->max_rate);
+}
+
+static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
+					    u32 clk_mode, u32 lane_mode,
+					    bool data_rate)
+{
+	const struct ad4630_out_mode *out_mode = &st->chip->modes[st->out_data];
+	int data_width = out_mode->data_width;
+	/*
+	 * Receive buffer needs to be non-zero for the SPI engine controller
+	 * to mark the transfer as a read.
+	 */
+	st->offload_xfer.speed_hz = AD4630_SPI_SAMPLING_SPEED;
+	st->offload_xfer.rx_buf = (void *)-1;
+	st->offload_xfer.len = 1;
+
+	/*
+	 * In host mode, for a 16-bit data-word, the device adds an additional
+	 * eight clock pulses for a total of 24 clock pulses.
+	 */
+	if (clk_mode == AD4630_CLOCK_HOST_MODE && data_width == 16)
+		data_width = 24;
+
+	if (lane_mode == AD4630_SHARED_TWO_CH) {
+		/*
+		 * This means all channels (minus the test_pattern one as it's
+		 * not a real channel) on 1 lane.
+		 */
+		st->bits_per_word = data_width * (st->chip->n_channels - 1);
+		st->pattern_bits_per_word = 32 * (st->chip->n_channels - 1);
+	} else {
+		st->bits_per_word  = data_width / (1 << lane_mode);
+		st->pattern_bits_per_word  = 32 / (1 << lane_mode);
+	}
+
+	if (data_rate) {
+		st->bits_per_word  /= 2;
+		st->pattern_bits_per_word  /= 2;
+	}
+
+	st->offload_xfer.bits_per_word = st->bits_per_word;
+	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+}
+
+static int ad4630_config(struct ad4630_state *st)
+{
+	u32 clock_mode = 0, lane_mode = 0, reg_modes = 0;
+	bool data_rate;
+	struct device *dev = &st->spi->dev;
+	int ret;
+
+	/*
+	 * !FIXME: This looks very hacky... We need to check with the BU
+	 * what's the usecase for this and how can we handle it before removing
+	 * this code. If there's a valid usecase for it, we need to check upstream
+	 * how can this be handled.
+	 */
+	if (!strcmp(st->chip->name, "ad463x")) {
+		ret = ad4630_detect_chip_info(st);
+		if (ret)
+			return ret;
+	}
+
+	ret = device_property_read_u32(dev, "adi,lane-mode", &lane_mode);
+	if (!ret) {
+		if (lane_mode > AD4630_SHARED_TWO_CH)
+			return dev_err_probe(dev, -EINVAL, "Invalid lane mode(%u)\n", lane_mode);
+		if (lane_mode == AD4630_SHARED_TWO_CH &&
+		    (st->chip->n_channels - 1) == 1)
+			return dev_err_probe(dev, -EINVAL,
+					     "Interleaved lanes not valid for devices with one channel\n");
+
+		reg_modes = FIELD_PREP(AD4630_LANE_MODE_MSK, lane_mode);
+	}
+
+	ret = device_property_read_u32(dev, "adi,clock-mode", &clock_mode);
+	if (!ret) {
+		if (clock_mode > AD4630_CLOCK_HOST_MODE)
+			return dev_err_probe(dev, -EINVAL, "Invalid clock mode(%u)\n",
+					     clock_mode);
+
+		reg_modes |= FIELD_PREP(AD4630_CLK_MODE_MSK, clock_mode);
+	}
+
+	data_rate = device_property_read_bool(dev, "adi,dual-data-rate");
+	if (data_rate && clock_mode == AD4630_SPI_COMPATIBLE_MODE)
+		return dev_err_probe(dev, -EINVAL, "DDR not allowed when using SPI clock mode");
+
+	reg_modes |= FIELD_PREP(AD4630_DATA_RATE_MODE_MSK, data_rate);
+
+	ret = device_property_read_u32(dev, "adi,out-data-mode", &st->out_data);
+	if (!ret) {
+		if (st->out_data > AD4630_30_AVERAGED_DIFF ||
+		    !test_bit(st->out_data, &st->chip->out_modes_mask))
+			return dev_err_probe(dev, -EINVAL, "Invalid out data mode(%u)\n",
+					     st->out_data);
+
+		reg_modes |= FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, st->out_data);
+	}
+
+	st->use_spi_trigger = device_property_read_bool(dev, "adi,spi-trigger");
+
+	if (st->vio < 1400000) {
+		/*
+		 * for VIO levels below 1.4 V, the IO2X bit in the output driver
+		 * register must be set to 1.
+		 */
+		ret = regmap_set_bits(st->regmap, AD4630_REG_IO, BIT(0));
+		if (ret)
+			return ret;
+	}
+
+	ret = regmap_write(st->regmap, AD4630_REG_MODES, reg_modes);
+	if (ret)
+		return ret;
+
+	if (lane_mode == AD4630_ONE_LANE_PER_CH && data_rate &&
+	    st->chip->modes[st->out_data].data_width == 32)
+		st->max_rate = AD4630_MAX_RATE_1_LANE;
+	else
+		st->max_rate = AD4630_MAX_RATE;
+
+	ad4630_prepare_spi_sampling_msg(st, clock_mode, lane_mode, data_rate);
+
+	return 0;
+}
+
+static const struct iio_dma_buffer_ops ad4630_dma_buffer_ops = {
+	.submit = ad4630_dma_buffer_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
+};
+
+static const struct iio_buffer_setup_ops ad4630_buffer_setup_ops = {
+	.preenable = &ad4630_buffer_preenable,
+	.postdisable = &ad4630_buffer_postdisable,
+};
+
+static const struct iio_info ad4630_info = {
+	.read_raw = &ad4630_read_raw,
+	.write_raw = &ad4630_write_raw,
+	.debugfs_reg_access = &ad4630_reg_access,
+};
+
+static const struct regmap_bus ad4630_regmap_bus = {
+	.read = ad4630_spi_read,
+	.write = ad4630_spi_write,
+	.reg_format_endian_default = REGMAP_ENDIAN_BIG,
+};
+
+static const struct regmap_config ad4630_regmap_config = {
+	.reg_bits = 16,
+	.val_bits = 8,
+	.read_flag_mask = BIT(7),
+};
+
+static int ad4630_probe(struct spi_device *spi)
+{
+	struct device *dev = &spi->dev;
+	struct iio_dev *indio_dev;
+	struct iio_buffer *buffer;
+	struct clk *trigger_clock;
+	struct ad4630_state *st;
+	int ret;
+
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	if (!indio_dev)
+		return -ENOMEM;
+
+	st = iio_priv(indio_dev);
+	st->spi = spi;
+	spi_set_drvdata(spi, indio_dev);
+
+	st->chip = device_get_match_data(dev);
+	if (!st->chip) {
+		st->chip = (void *)spi_get_device_id(spi)->driver_data;
+		if (!st->chip)
+			return dev_err_probe(dev, -ENODEV,
+					     "Could not find chip info data\n");
+	}
+
+	st->regmap = devm_regmap_init(&spi->dev, &ad4630_regmap_bus, st,
+				      &ad4630_regmap_config);
+	if (IS_ERR(st->regmap))
+		dev_err_probe(&spi->dev,  PTR_ERR(st->regmap),
+			      "Failed to initialize regmap\n");
+
+	trigger_clock = devm_clk_get(dev, "trigger_clock");
+	if (IS_ERR(trigger_clock))
+		return dev_err_probe(dev, PTR_ERR(trigger_clock),
+				     "Failed to get trigger clk\n");
+
+	ret = clk_prepare_enable(trigger_clock);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "failed to enable trigger clk\n");
+
+	ret = devm_add_action_or_reset(dev, ad4630_clk_disable, trigger_clock);
+	if (ret)
+		return ret;
+
+	ret = ad4630_regulators_get(st);
+	if (ret)
+		return ret;
+
+	ret = ad4630_reset(st);
+	if (ret)
+		return ret;
+
+	ret = ad4630_config(st);
+	if (ret)
+		return ret;
+
+	ret = ad4630_pwm_get(st);
+	if (ret)
+		return ret;
+
+	indio_dev->name = st->chip->name;
+	indio_dev->info = &ad4630_info;
+	indio_dev->channels = st->chip->modes[st->out_data].channels;
+	indio_dev->num_channels = st->chip->n_channels;
+	indio_dev->modes = INDIO_BUFFER_HARDWARE;
+	indio_dev->available_scan_masks = st->chip->available_masks;
+	indio_dev->setup_ops = &ad4630_buffer_setup_ops;
+
+	buffer = devm_iio_dmaengine_buffer_alloc(dev, "rx",
+						 &ad4630_dma_buffer_ops, NULL);
+	if (IS_ERR(buffer))
+		return dev_err_probe(dev, PTR_ERR(buffer),
+				     "Failed to get DMA buffer\n");
+
+	iio_device_attach_buffer(indio_dev, buffer);
+
+	pm_runtime_set_autosuspend_delay(dev, 1000);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	ret = devm_add_action_or_reset(dev, ad4630_pm_disable, &spi->dev);
+	if (ret)
+		return ret;
+
+	return devm_iio_device_register(dev, indio_dev);
+}
+
+static int __maybe_unused ad4630_runtime_suspend(struct device *dev)
+{
+	u32 val = FIELD_PREP(AD4630_POWER_MODE_MSK, AD4630_LOW_POWER_MODE);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ad4630_state *st = iio_priv(indio_dev);
+
+	return regmap_write(st->regmap, AD4630_REG_DEVICE_CONFIG, val);
+}
+
+static int __maybe_unused ad4630_runtime_resume(struct device *dev)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ad4630_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = regmap_write(st->regmap, AD4630_REG_DEVICE_CONFIG,
+			   FIELD_PREP(AD4630_POWER_MODE_MSK, 0));
+	if (ret)
+		return ret;
+
+	fsleep(30);
+
+	return 0;
+}
+
+static const struct dev_pm_ops ad4630_pm_ops = {
+	SET_RUNTIME_PM_OPS(ad4630_runtime_suspend, ad4630_runtime_resume, NULL)
+};
+
+static const struct spi_device_id ad4630_id_table[] = {
+	{ "ad4030-24", (kernel_ulong_t)&ad4630_chip_info[ID_AD4030_24] },
+	{ "ad4630-16", (kernel_ulong_t)&ad4630_chip_info[ID_AD4630_16] },
+	{ "ad4630-24", (kernel_ulong_t)&ad4630_chip_info[ID_AD4630_24] },
+	{ "ad463x", (kernel_ulong_t)&ad463x_chip_info },
+	{}
+};
+MODULE_DEVICE_TABLE(spi, ad4630_id_table);
+
+static const struct of_device_id ad4630_of_match[] = {
+	{ .compatible = "adi,ad4630-24", .data = &ad4630_chip_info[ID_AD4030_24] },
+	{ .compatible = "adi,ad4630-16", .data = &ad4630_chip_info[ID_AD4630_16] },
+	{ .compatible = "adi,ad4030-24", .data = &ad4630_chip_info[ID_AD4630_24] },
+	{ .compatible = "adi,ad463x", .data = &ad463x_chip_info},
+	{}
+};
+MODULE_DEVICE_TABLE(of, ad4630_of_match);
+
+static struct spi_driver ad4630_driver = {
+	.driver = {
+		.name = "ad4630",
+		.of_match_table = ad4630_of_match,
+		.pm = &ad4630_pm_ops,
+	},
+	.probe = ad4630_probe,
+	.id_table = ad4630_id_table,
+};
+module_spi_driver(ad4630_driver);
+
+MODULE_AUTHOR("Sergiu Cuciurean <sergiu.cuciurean@analog.com>");
+MODULE_AUTHOR("Nuno Sa <nuno.sa@analog.com>");
+MODULE_DESCRIPTION("Analog Devices AD4630 ADC family driver");
+MODULE_LICENSE("GPL v2");

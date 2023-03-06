@@ -1,0 +1,194 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/frequency/adf4371.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADF4371/ADF4372 Wideband Synthesizers
+
+maintainers:
+  - Popa Stefan <stefan.popa@analog.com>
+
+description: |
+  Analog Devices ADF4371/ADF4372 SPI Wideband Synthesizers
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adf4371.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adf4372.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,adf4371
+      - adi,adf4372
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    description:
+      Definition of the external clock (see clock/clock-bindings.txt)
+    maxItems: 1
+
+  clock-names:
+    description:
+      Must be "clkin"
+    maxItems: 1
+
+  clock-output-names:
+    maxItems: 1
+
+  clock-scales:
+    description:
+      The Common Clock Framework max rate is limited by MAX of unsigned long.
+      For ADF4371/ADF4372 devices this is a deficiency. If specified, this
+      property allows arbitrary scales. The first element in the array should
+      be the multiplier and the second element should be the divider.
+    allOf:
+      $ref: /schemas/types.yaml#/definitions/uint32-array
+      minimum: 1
+
+  adi,spi-3wire-enable:
+    description:
+      This attribute needs to be set in case the 4-wire SPI controller is
+      used, and the 4 to 3 wire conversion is done with some external logic
+      in between.
+
+  adi,muxout-level-1v8-enable:
+    description:
+      When set the output level of the mux out pin is set to 1.8V.
+      (default is 3.3V)
+
+  adi,differential-ref-clock:
+    description: Choose differential reference clock.
+    type: boolean
+
+  adi,muxout-select:
+    description: |
+      Select the mux out signal source. Valid values are:
+      0: tristate, high impedance output
+      1: digital lock detect
+      2: charge pump up
+      3: charge pump down
+      4: RDIV2
+      5: N divider output
+      6: VCO test modes
+      8: high
+      9: VCO calibration R band/2
+      10: VCO calibration N band/2
+      If this field is left empty, tristate is selected.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - enum: [0, 1, 3, 4, 5, 6, 8, 9, 10]
+
+  adi,mute-till-lock-en:
+    type: boolean
+    description:
+      If this property is present, then the supply current to RF8P and RF8N
+      output stage will shut down until the ADF4371/ADF4372 achieves lock as
+      measured by the digital lock detect circuitry.
+
+  adi,charge-pump-microamp:
+    description:
+      Sets the charge pump current. If this property is not specified, then the
+      charge pump current is set to the default 1750uA. The valid values are
+      listed below. However, if the set value is not supported, the driver will
+      look for the closest valid charge pump current.
+    enum: [ 350, 700, 1050, 1400, 1750, 2100, 2450, 2800, 3150, 3500, 3850, 4200, 4550, 4900, 5250, 5600 ]
+
+  adi,loop-filter-inverting:
+    description:
+      If this property is present, then the phase detector polarity will be set
+      to negative because of the positive tuning of the VCO.
+
+  spi-max-frequency: true
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  '#clock-cells':
+    const: 1
+
+patternProperties:
+  "^channel@[01]$":
+    type: object
+    description: Represents the external channels which are connected to the device.
+
+    properties:
+      reg:
+        description: |
+          The channel number. It can have up to 3 channels on adf4372
+          and 4 channels on adf4371, numbered from 0 to 3.
+        maxItems: 1
+
+      adi,output-enable:
+        description: |
+          If this property is specified, the output channel will be enabled.
+          If left empty, the driver will initialize the defaults (RF8x, channel 0
+          will be the only one enabled).
+        maxItems: 1
+
+      adi,power-up-frequency:
+        description: |
+          Set the frequency after power up for the channel. If this property is
+          specified, it has to be in sync with the power up frequency set on the
+          other channels. This limitation is due to the fact that all the channel
+          frequencies are derived from the VCO fundamental frequency.
+        maxItems: 1
+
+    required:
+      - reg
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    spi0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        frequency@0 {
+                compatible = "adi,adf4371";
+                reg = <0>;
+
+                #address-cells = <1>;
+                #size-cells = <0>;
+                #clock-cells = <1>;
+
+                spi-max-frequency = <1000000>;
+                clocks = <&adf4371_clkin>;
+                clock-names = "clkin";
+                clock-scales = <1 10>;
+
+                channel@0 {
+                        reg = <0>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <8000000000>;
+                };
+
+                channel@1 {
+                        reg = <1>;
+                        adi,output-enable;
+                };
+
+                channel@2 {
+                        reg = <2>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <16000000000>;
+                };
+
+                channel@3 {
+                        reg = <3>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <32000000000>;
+                };
+        };
+    };
+...

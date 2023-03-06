@@ -1,0 +1,95 @@
+
+# This file exists solely to be include in the main Kconfig
+
+config KERNEL_ALL_ADI_DRIVERS
+	tristate "Build all Analog Devices Kernel Drivers"
+	imply SPI
+	imply I2C
+	imply IIO
+	imply PWM
+	imply JESD204
+	imply JESD204_TOP_DEVICE
+	imply STAGING
+	imply FB_TFT
+	imply HWMON
+	imply POWER_RESET
+	imply POWER_SUPPLY
+	imply SOUND
+	imply SND
+	imply SND_SOC
+	imply I2C_MUX
+	imply LEDS_CLASS_FLASH
+	imply PHYLIB
+	imply MULTIPLEXER
+	imply MEDIA_SUPPORT
+	imply MEDIA_CONTROLLER
+	imply MEDIA_CAMERA_SUPPORT
+	imply VIDEO_V4L2
+	imply VIDEO_V4L2_SUBDEV_API
+	imply V4L_PLATFORM_DRIVERS
+	imply BACKLIGHT_LCD_SUPPORT
+	imply BACKLIGHT_CLASS_DEVICE
+	imply CLK_ALL_ADI_DRIVERS
+	imply HWMON_ALL_ADI_DRIVERS
+	imply IIO_ALL_ADI_DRIVERS
+	imply INPUT_ALL_ADI_DRIVERS
+	imply MEDIA_ALL_ADI_DRIVERS
+	imply SND_SOC_ALL_ADI_CODECS
+	imply USB_ALL_ADI_DRIVERS
+	imply POWER_RESET_LTC2952
+	imply CHARGER_ADP5061
+	imply I2C_MUX_LTC4306
+	imply CHARGER_LT3651
+	imply BATTERY_GAUGE_LTC2941
+	imply MUX_ADG792A
+	imply MUX_ADGS1408
+	imply AD525X_DPOT
+	imply AD525X_DPOT_I2C
+	imply AD525X_DPOT_SPI
+	imply ADIN_PHY
+	imply ADIN1100_PHY
+	imply ADIN1110
+	imply IPV6
+	imply BRIDGE
+	imply MEDIA_USB_SUPPORT
+	imply NET_DSA
+	imply MICROCHIP_KSZ
+	imply MICROCHIP_KSZ_SPI_DRIVER
+	imply GPIO_ADP5588
+	imply GPIO_ADP5588_IRQ
+	imply GPIO_ADP5520
+	imply GPIO_ADI_DAQ1
+	imply SPI_AD9250FMC
+	imply SPI_AXI_SPI_ENGINE
+	imply MAC802154
+	imply IEEE802154
+	imply IEEE802154_DRIVERS
+	imply IEEE802154_ADF7242
+	imply PMIC_ADP5520
+	imply PWM_AXI_PWMGEN
+	imply LEDS_ADP5520
+	imply BACKLIGHT_ADP5520
+	imply BACKLIGHT_ADP8860
+	imply BACKLIGHT_ADP8870
+	imply REGULATOR_AD5398
+	imply REGULATOR_LTC3589
+	imply REGULATOR_LTC3676
+	imply DRM
+	imply DRM_ADI_AXI_HDMI
+	imply DRM_I2C_ADV7511
+	imply DRM_I2C_ADV7511_AUDIO
+	imply DRM_I2C_ADV7533
+	imply NVMEM_AXI_SYSID if (ARCH_ZYNQMP || ARCH_ZYNQ || MICROBLAZE || ARCH_SOCFPGA || NIOS2)
+	imply ADI_AXI_DATA_OFFLOAD
+	imply INPUT_PCF8574
+	imply AXI_INTR_MONITOR
+	imply FB_TFT_SEPS525
+	imply LEDS_AS3645A
+
+source "drivers/clk/Kconfig.adi"
+source "drivers/hwmon/Kconfig.adi"
+source "drivers/iio/Kconfig.adi"
+source "drivers/input/Kconfig.adi"
+source "drivers/media/Kconfig.adi"
+source "drivers/usb/Kconfig.adi"
+source "sound/soc/codecs/Kconfig.adi"

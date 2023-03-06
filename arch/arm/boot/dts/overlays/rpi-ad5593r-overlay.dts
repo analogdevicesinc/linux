@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/iio/adi,ad5592r.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@1 {
+		target = <&i2c1>;
+		__overlay__ {
+			#size-cells = <0>;
+			#address-cells = <1>;
+			status = "okay";
+
+			clock-frequency = <400000>;
+
+			ad5593r: ad5593r@10 {
+				compatible = "adi,ad5593r";
+				reg = <0x10>;
+
+				channel@0 {
+					reg = <0>;
+					adi,mode = <CH_MODE_DAC>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+				channel@1 {
+					reg = <1>;
+					adi,mode = <CH_MODE_ADC>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+				channel@2 {
+					reg = <2>;
+					adi,mode = <CH_MODE_DAC_AND_ADC>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+				channel@6 {
+					reg = <6>;
+					adi,mode = <CH_MODE_GPIO>;
+					adi,off-state = <CH_OFFSTATE_PULLDOWN>;
+				};
+			};
+		};
+	};
+	__overrides__ {
+		addr = <&ad5593r>,"reg:0";
+	};
+};

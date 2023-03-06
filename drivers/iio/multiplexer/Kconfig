@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Multiplexer drivers
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "Multiplexers"
+
+config IIO_MUX
+	tristate "IIO multiplexer driver"
+	select MULTIPLEXER
+	depends on OF || COMPILE_TEST
+	help
+	  Say yes here to build support for the IIO multiplexer.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called iio-mux.
+
+config IIO_GEN_MUX
+	tristate "IIO generic multiplexer driver"
+	select MULTIPLEXER
+	depends on OF
+	help
+	  Say yes here to build support for the IIO generic multiplexer.
+	  This driver allows to control MUX devices via IIO device attributes.
+	  Optionally this driver may also register a clock mux.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called iio-gen-mux.
+
+endmenu

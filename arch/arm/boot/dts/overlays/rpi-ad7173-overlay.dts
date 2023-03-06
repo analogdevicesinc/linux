@@ -1,0 +1,78 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7173@0 {
+				compatible = "adi,ad7173-8";
+				reg = <0>;
+				interrupts = <25 2>;
+				interrupt-parent = <&gpio>;
+				spi-max-frequency = <100000>;
+				spi-cpol;
+				spi-cpha;
+
+				adi,channels {
+					#address-cells = <2>;
+					#size-cells = <0>;
+
+					channel@0,1 {
+						reg = <0 1>;
+						adi,bipolar;
+					};
+
+					channel@2,3 {
+						reg = <2 3>;
+						adi,bipolar;
+					};
+					channel@4,5 {
+						reg = <4 5>;
+						adi,bipolar;
+					};
+					channel@6,7 {
+						reg = <6 7>;
+						adi,bipolar;
+					};
+					channel@8,9 {
+						reg = <8 9>;
+						adi,bipolar;
+					};
+					channel@10,11 {
+						reg = <10 11>;
+						adi,bipolar;
+					};
+					channel@12,13 {
+						reg = <12 13>;
+						adi,bipolar;
+					};
+					channel@14,15 {
+						reg = <14 15>;
+						adi,bipolar;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@4 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

@@ -1,0 +1,45 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			vcc: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+			};
+
+			osc: oscillator {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <25000000>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad9833@0{
+				#clock-cells = <0>;
+				compatible = "ad9833";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpol;
+				clocks = <&osc>;
+				vcc-supply = <&vcc>;
+			};
+		};
+	};
+};
+

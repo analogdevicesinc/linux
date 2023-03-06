@@ -1,0 +1,237 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2021 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,ad9083.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD9083 device driver
+
+maintainers:
+  - Cristian Pop <cristian.pop@analog.com>
+
+description: |
+  Bindings for the Analog Devices AD9083 ADC device. Datasheet can be found
+  here:
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ad9083.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ad9083
+
+  reg:
+    maxItems: 1
+
+  jesd204-device:
+    description: Device is added to the jesd204-fsm framework
+    type: boolean
+
+  '#jesd204-cells':
+    const: 2
+
+  jesd204-top-device:
+    const: 0
+
+  jesd204-link-ids:
+    const: 0
+
+  jesd204-inputs:
+    description: JESD204-fsm devices phandles and specifiers (used to build the link topology)
+    $ref: "/schemas/types.yaml#/definitions/phandle"
+
+  spi-max-frequency:
+    const: 1000000
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: "adc_ref_clk"
+    description: AD9083 reference clock name
+
+  adi,adc-frequency-hz:
+    description: ADC Sampling frequency of the device
+    minimum: 1000000000
+    maximum: 2000000000
+
+  adi,vmax-microvolt:
+    description: Full scale voltage
+    minimum: 500
+    maximum: 2000
+
+  adi,fc-hz:
+    description: Cut-off frequency of low-pass filter
+
+  adi,rterm-ohms:
+    description: ADC front end termination resistor. If property is not specified, would mean no
+      resistor
+    enum: [100, 200]
+
+  adi,hp-en:
+    description: Enable/disable high performance
+    type: boolean
+
+  adi,backoff:
+    description: The backoff in terms of noise terms of noise, 100 * dB
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 18000
+
+  adi,finmax-hz:
+    description: Maximum input frequency, should be set to fADC/20
+
+  adi,nco0_freq-hz:
+    description: NCO0 frequency
+
+  adi,nco1_freq-hz:
+    description: NCO0 frequency
+
+  adi,nco2_freq-hz:
+    description: NCO0 frequency
+
+  adi,cic_decimation:
+    description: CIC decimation config
+      0 - Decimation by 4
+      1 - Decimation by 8
+      2 - Decimation by 16
+    $ref: /schemas/types.yaml#/definitions/uint8
+    minimum: 0
+    maximum: 2
+
+  adi,j_decimation:
+    description: J decimation config
+      0 - Bypass
+      1 - Decimation by 4
+      2 - Decimation by 8
+      3 - Decimation by 16
+      6 - Decimation by 12
+      7 - Decimation by 24
+      9 - Decimation by 10
+      10 - Decimation by 20
+      11 - Decimation by 40
+      14 - Decimation by 30
+      15 - Decimation by 60
+    $ref: /schemas/types.yaml#/definitions/uint8
+    enum: [0, 1, 2, 3, 6, 7, 9, 10, 11, 14, 15]
+
+  adi,g_decimation:
+    description: G value for decimation in burst mode
+    $ref: /schemas/types.yaml#/definitions/uint8
+    minimum: 0
+    maximum: 255
+
+  adi,h_decimation:
+    description: H value for decimation in burst mode
+    $ref: /schemas/types.yaml#/definitions/uint8
+    minimum: 0
+    maximum: 255
+
+  adi,nco0_datapath_mode:
+    description: NCO data path
+      1 - ADC -> CIC -> output
+      2 - ADC -> CIC -> NCO -> J -> output
+      3 - ADC -> CIC -> J -> output
+      4 - ADC -> J -> output
+      5 - ADC -> CIC -> NCO -> G -> output
+      6 - ADC -> CIC -> NCO -> G -> H output
+    $ref: /schemas/types.yaml#/definitions/uint8
+    minimum: 1
+    maximum: 6
+
+  adi,octets-per-frame:
+    description: Number of octets per frame (F)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,frames-per-multiframe:
+    description: Number of frames per multi-frame (K)
+    $ref: /schemas/types.yaml#/definitions/uint16
+
+  adi,converter-resolution:
+    description: Converter resolution (N)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,bits-per-sample:
+    description: Number of bits per sample (N')
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,converters-per-device:
+    description: Number of converter per device (M)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,control-bits-per-sample:
+    description: Number of control bits per conversion sample (CS)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,lanes-per-device:
+    description: Number of lanes per link (L)
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+  adi,subclass:
+    description: The JESD204B sublcass
+    $ref: /schemas/types.yaml#/definitions/uint8
+
+required:
+  - compatible
+  - reg
+  - jesd204-device
+  - '#jesd-cells'
+  - jesd204-top-device
+  - jesd204-link-ids
+  - jesd204-inputs
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/iio/adc/adi,ad9083.h>
+
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      adc0_ad9083: ad9083@0 {
+        compatible = "adi,ad9083";
+        reg = <0>;
+        jesd204-device;
+        #jesd204-cells = <2>;
+        jesd204-top-device = <0>;
+        jesd204-link-ids = <0>;
+        jesd204-inputs = <&axi_ad9083_core_rx 0 0>;
+
+        spi-max-frequency = <1000000>;
+        clocks = <&ad9528 13>;
+        clock-names = "adc_ref_clk";
+        adi,sampling-frequency-hz = /bits/ 64 <125000000>;
+
+        /* adi_ad9083 config */
+
+        adi,vmax-microvolt = <1800>;
+        adi,fc-hz =  /bits/ 64 <800000000>;
+        adi,rterm-ohms = <100>;
+        adi,hp-en;
+        adi,backoff = <0>;
+        adi,finmax-hz = /bits/ 64 <100000000>;
+        adi,nco0_freq-hz = /bits/ 64 <0>;
+        adi,nco1_freq-hz = /bits/ 64 <0>;
+        adi,nco2_freq-hz = /bits/ 64 <0>;
+        adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC_4>;
+        adi,j_decimation = /bits/ 8 <AD9083_J_DEC_4>;
+        adi,g_decimation = /bits/ 8 <0>;
+        adi,h_decimation = /bits/ 8 <0>;
+        adi,nco0_datapath_mode = /bits/ 8 <AD9083_DATAPATH_ADC_CIC_J>;
+
+        /* JESD204 parameters */
+
+        adi,octets-per-frame = <8>;
+        adi,frames-per-multiframe = <32>;
+        adi,converter-resolution = <16>;
+        adi,bits-per-sample = <16>;
+        adi,converters-per-device = <16>;
+        adi,control-bits-per-sample = <0>;
+        adi,lanes-per-device = <4>;
+        adi,subclass = <0>;
+      };
+    };
