@@ -310,7 +310,7 @@ struct ad_pulsar_adc {
 	struct pwm_device *cnv;
 	struct spi_device *spi;
 	struct regulator *vref;
-	unsigned int *seq_buf;
+	unsigned int *cfg_reg;
 	int spi_speed_hz;
 	int samp_freq;
 	int device_id;
@@ -435,8 +435,8 @@ static int ad_pulsar_set_lpf(struct ad_pulsar_adc *adc, int index,
 		return -EINVAL;
 
 	if (adc->info->has_filter) {
-		adc->seq_buf[index] &= ~AD7682_BW_MSK;
-		adc->seq_buf[index] |= AD7682_BW_SEL(filter);
+		adc->cfg_reg[index] &= ~AD7682_BW_MSK;
+		adc->cfg_reg[index] |= AD7682_BW_SEL(filter);
 	}
 
 	return 0;
@@ -447,7 +447,7 @@ static int ad_pulsar_get_lpf(struct ad_pulsar_adc *adc, int index, int *val)
 	if (!adc->info->sequencer)
 		return -EINVAL;
 
-	*val = ad_pulsar_filter_freq[AD7682_GET_BW(adc->seq_buf[index])];
+	*val = ad_pulsar_filter_freq[AD7682_GET_BW(adc->cfg_reg[index])];
 
 	return 0;
 }
@@ -532,7 +532,7 @@ static int ad_pulsar_write_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-					   adc->seq_buf[chan->scan_index]);
+					   adc->cfg_reg[chan->scan_index]);
 
 	default:
 		return -EINVAL;
@@ -601,7 +601,7 @@ static int ad_pulsar_buffer_with_seq(struct iio_dev *indio_dev,
 			if (next_in_sequ >= num_en_ch)
 				next_in_sequ = 0;
 			next_active_ch = active_ch[next_in_sequ];
-			adc->seq_xfer[ch].tx_buf = &adc->seq_buf[next_active_ch];
+			adc->seq_xfer[ch].tx_buf = &adc->cfg_reg[next_active_ch];
 			next_in_sequ++;
 		}
 
@@ -621,16 +621,16 @@ static int ad_pulsar_buffer_with_seq(struct iio_dev *indio_dev,
 	 * buffer.
 	 */
 	ret = ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-				  adc->seq_buf[first]);
+				  adc->cfg_reg[first]);
 	if (ret)
 		return ret;
 
 	if (num_en_ch > 1)
 		return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-					  adc->seq_buf[second]);
+					  adc->cfg_reg[second]);
 
 	return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG,
-				   adc->seq_buf[first]);
+				   adc->cfg_reg[first]);
 }
 
 static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
@@ -724,13 +724,13 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 		    (in[0] % 2 == 0 && in[1] != in[0] + 1))
 			return -EINVAL;
 
-		adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
-		adc->seq_buf[chan_index] &= ~AD7682_PAIR_MSK;
-		adc->seq_buf[chan_index] |= AD7682_CH_TYPE(DIFFERENTIAL);
+		adc->cfg_reg[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
+		adc->cfg_reg[chan_index] &= ~AD7682_PAIR_MSK;
+		adc->cfg_reg[chan_index] |= AD7682_CH_TYPE(DIFFERENTIAL);
 		adc->channels[chan_index].differential = 1;
 		adc->channels[chan_index].channel2 = in[1];
 	} else if (fwnode_property_read_bool(child, "adi,temp-sensor")) {
-		adc->seq_buf[chan_index] = AD7682_CH_TEMP_SENSOR;
+		adc->cfg_reg[chan_index] = AD7682_CH_TEMP_SENSOR;
 		adc->channels[chan_index].type = IIO_TEMP;
 		adc->channels[chan_index].indexed = 0;
 	} else {
@@ -740,22 +740,22 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 		if (ret)
 			return ret;
 
-		adc->seq_buf[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
+		adc->cfg_reg[chan_index] = AD7682_SEQ_EN_CHANNEL(in[0]);
 		if (in[0] > adc->info->num_channels)
 			return -EINVAL;
 	}
 
 	if (fwnode_property_read_bool(child, "bipolar")) {
 		adc->channels[chan_index].scan_type.sign = 's';
-		adc->seq_buf[chan_index] &= ~AD7682_POLARITY_MSK;
-		adc->seq_buf[chan_index] |= AD7682_CH_POLARITY(BIPOLAR);
+		adc->cfg_reg[chan_index] &= ~AD7682_POLARITY_MSK;
+		adc->cfg_reg[chan_index] |= AD7682_CH_POLARITY(BIPOLAR);
 	}
 
 	adc->channels[chan_index].channel = in[0];
 	adc->channels[chan_index].scan_index = chan_index;
-	adc->channels[chan_index].address = adc->seq_buf[chan_index];
+	adc->channels[chan_index].address = adc->cfg_reg[chan_index];
 
-	adc->seq_xfer[chan_index].tx_buf = &adc->seq_buf[chan_index];
+	adc->seq_xfer[chan_index].tx_buf = &adc->cfg_reg[chan_index];
 	adc->seq_xfer[chan_index].rx_buf = &dummy;
 	adc->seq_xfer[chan_index].len = 1;
 	adc->seq_xfer[chan_index].bits_per_word = adc->info->resolution;
@@ -796,9 +796,9 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	indio_dev->channels = adc->channels;
 	indio_dev->num_channels = num_ch;
 
-	adc->seq_buf = devm_kcalloc(dev, num_ch, sizeof(unsigned short),
+	adc->cfg_reg = devm_kcalloc(dev, num_ch, sizeof(unsigned short),
 				    GFP_KERNEL);
-	if (!adc->seq_buf)
+	if (!adc->cfg_reg)
 		return -ENOMEM;
 
 	adc->seq_xfer = devm_kcalloc(dev, num_ch, sizeof(struct spi_transfer),
