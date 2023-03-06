@@ -28,6 +28,11 @@
 #define MAX31827_CONFIGURATION_U_TEMP_STAT_MASK BIT(14)
 #define MAX31827_CONFIGURATION_O_TEMP_STAT_MASK BIT(15)
 
+//TODO:continue
+#define MAX31827_CNV_1_DIV_64_HZ
+#define MAX31827_CNV_4_HZ
+
+//TODO:rename to state and use st
 struct max31827_data {
 	struct regmap *regmap;
 	struct i2c_client *client;
@@ -43,9 +48,9 @@ static irqreturn_t max31827_event_handler(int irq, void *private)
 {
 	struct iio_dev *indio_dev = private;
 	struct max31827_data *data = iio_priv(indio_dev);
+	int u_temp_stat, o_temp_stat;
 	int ret;
 	int reg;
-	int u_temp_stat, o_temp_stat;
 
 	ret = regmap_read(data->regmap, MAX31827_CONFIGURATION_REG, &reg);
 	if (ret < 0)
@@ -134,7 +139,7 @@ static int max31827_write_event_value(struct iio_dev *indio_dev,
 	ret = regmap_update_bits(data->regmap,
 				 MAX31827_CONFIGURATION_REG,
 				 MAX31827_CONFIGURATION_1SHOT_MASK |
-				 MAX31827_CONFIGURATION_CNV_RATE_MASK, 0b0000);
+				 MAX31827_CONFIGURATION_CNV_RATE_MASK, 0x0);
 	if (ret < 0)
 		return ret;
 
@@ -198,30 +203,8 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
-		ret = regmap_read(data->regmap, MAX31827_CONFIGURATION_REG, &cfg);
-		if (ret < 0)
-			return ret;
-
 		*val = 1;
 		*val2 = 16;
-		// cfg = (cfg & MAX31827_CONFIGURATION_RESOL_MASK) >> 6;
-		// switch(cfg) {
-		// case 0b00:
-		//     *val2 = 1;
-		//     break;
-		// case 0b01:
-		//     *val2 = 2;
-		//     break;
-		// case 0b10:
-		//     *val2 = 4;
-		//     break;
-		// case 0b11:
-		//     *val2 = 16;
-		//     break;
-		// default:
-		//     return -EINVAL;
-		// }
-
 		return IIO_VAL_FRACTIONAL;
 
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -229,8 +212,12 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
+		//TODO: check if shift right or shift left is needed us
+		//FIELD_PREP for left shift
 		cfg = FIELD_GET(MAX31827_CONFIGURATION_CNV_RATE_MASK, cfg);
 		switch (cfg) {
+		//TODO: always use hex
+		// Define what each value means
 		case 0b000:
 			*val = 0;
 			break;
@@ -281,6 +268,7 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
+		//TODO: make a macro for val sellection
 		ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION_REG,
 					 MAX31827_CONFIGURATION_1SHOT_MASK |
 					 MAX31827_CONFIGURATION_CNV_RATE_MASK,
@@ -292,13 +280,17 @@ static int max31827_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		val = FIELD_PREP(MAX31827_CONFIGURATION_CNV_RATE_MASK, val);
 
-		ret = regmap_update_bits(data->regmap, MAX31827_CONFIGURATION_REG,
-					 MAX31827_CONFIGURATION_CNV_RATE_MASK, val);
+		ret = regmap_update_bits(data->regmap,
+					 MAX31827_CONFIGURATION_REG,
+					 MAX31827_CONFIGURATION_CNV_RATE_MASK,
+					 val);
 		if (ret < 0)
 			return ret;
 
 		return 0;
 
+	//TODO: scale is only for scale not for resolution
+	//use max resolution
 	case IIO_CHAN_INFO_SCALE:
 		val = FIELD_PREP(MAX31827_CONFIGURATION_RESOL_MASK, val);
 
@@ -337,28 +329,30 @@ static const struct iio_event_spec max31827_events[] = {
 		.type = IIO_EV_TYPE_THRESH,
 			.dir = IIO_EV_DIR_RISING,
 			.mask_separate = BIT(IIO_EV_INFO_VALUE) |
-				BIT(IIO_EV_INFO_HYSTERESIS),
+					 BIT(IIO_EV_INFO_HYSTERESIS),
 	},
 	{
 		.type = IIO_EV_TYPE_THRESH,
 			.dir = IIO_EV_DIR_FALLING,
 			.mask_separate = BIT(IIO_EV_INFO_VALUE) |
-				BIT(IIO_EV_INFO_HYSTERESIS),
+					 BIT(IIO_EV_INFO_HYSTERESIS),
 	},
 };
 
 static const struct iio_chan_spec max31827_channels[] = {
 	{
 		.type = IIO_TEMP,
-		.info_mask_shared_by_all =
-			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SAMP_FREQ) |
-			BIT(IIO_CHAN_INFO_ENABLE) | BIT(IIO_CHAN_INFO_SCALE),
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_RAW) |
+					   BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+					   BIT(IIO_CHAN_INFO_ENABLE) |
+					   BIT(IIO_CHAN_INFO_SCALE),
 		.output = 0,
 		.event_spec = max31827_events,
 		.num_event_specs = ARRAY_SIZE(max31827_events),
 	},
 };
 
+//TODO: at the end of the file
 static const struct i2c_device_id max31827_i2c_ids[] = {
 	{ .name = "max31827", },
 	{}
