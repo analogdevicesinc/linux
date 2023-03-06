@@ -373,7 +373,8 @@ static int ad_pulsar_read_channel(struct ad_pulsar_adc *adc, unsigned int reg,
 
 	adc->cfg = reg;
 	put_unaligned_be16(reg << 2, adc->spi_tx_data);
-	xfer.tx_buf = adc->spi_tx_data;
+	if (adc->info->sequencer)
+		xfer.tx_buf = adc->spi_tx_data;
 	xfer.rx_buf = adc->spi_rx_data;
 
 	ret = spi_sync_transfer(adc->spi, &xfer, 1);
@@ -444,7 +445,7 @@ static int ad_pulsar_set_lpf(struct ad_pulsar_adc *adc, int index,
 
 static int ad_pulsar_get_lpf(struct ad_pulsar_adc *adc, int index, int *val)
 {
-	if (!adc->info->sequencer)
+	if (!adc->info->has_filter)
 		return -EINVAL;
 
 	*val = ad_pulsar_filter_freq[AD7682_GET_BW(adc->cfg_reg[index])];
@@ -556,7 +557,7 @@ static int ad_pulsar_read_avail(struct iio_dev *indio_dev,
 	}
 }
 
-static int ad_pulsar_buffer_with_seq(struct iio_dev *indio_dev,
+static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 				     struct spi_message *msg)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
@@ -636,20 +637,10 @@ static int ad_pulsar_buffer_with_seq(struct iio_dev *indio_dev,
 static int ad_pulsar_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
-	struct spi_transfer xfer = {
-		.tx_buf = adc->spi_tx_data,
-		.rx_buf = adc->spi_rx_data,
-		.len = 3,
-		.bits_per_word = adc->info->resolution,
-		.speed_hz = adc->info->sclk_rate,
-	};
 	struct spi_message msg;
 	int ret;
 
-	if (adc->info->sequencer)
-		ret = ad_pulsar_buffer_with_seq(indio_dev, &msg);
-	else
-		spi_message_init_with_transfers(&msg, &xfer, 1);
+	ret = ad_pulsar_buffer(indio_dev, &msg);
 
 	if (ret)
 		return ret;
@@ -755,7 +746,8 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 	adc->channels[chan_index].scan_index = chan_index;
 	adc->channels[chan_index].address = adc->cfg_reg[chan_index];
 
-	adc->seq_xfer[chan_index].tx_buf = &adc->cfg_reg[chan_index];
+	if (adc->info->sequencer)
+		adc->seq_xfer[chan_index].tx_buf = &adc->cfg_reg[chan_index];
 	adc->seq_xfer[chan_index].rx_buf = &dummy;
 	adc->seq_xfer[chan_index].len = 1;
 	adc->seq_xfer[chan_index].bits_per_word = adc->info->resolution;
