@@ -763,8 +763,6 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 	adc->channels[chan_index].scan_index = chan_index;
 	adc->channels[chan_index].address = adc->seq_buf[chan_index];
 
-	adc->seq_buf[chan_index] = adc->seq_buf[chan_index] << 2;
-
 	adc->seq_xfer[chan_index].tx_buf = &adc->seq_buf[chan_index];
 	adc->seq_xfer[chan_index].rx_buf = &dummy;
 	adc->seq_xfer[chan_index].len = 1;
