@@ -321,7 +321,9 @@ static int rsu_send_msg(struct stratix10_rsu_priv *priv,
 	struct stratix10_svc_client_msg msg;
 	int ret;
 
-	mutex_lock(&priv->lock);
+	if (!mutex_trylock(&priv->lock))
+		return -EAGAIN;
+
 	reinit_completion(&priv->completion);
 	priv->client.receive_cb = callback;
 
@@ -573,7 +575,9 @@ static ssize_t reboot_image_store(struct device *dev,
 
 	ret = rsu_send_msg(priv, COMMAND_RSU_UPDATE,
 			   address, rsu_command_callback);
-	if (ret) {
+	if (ret == -EAGAIN)
+		return 0;
+	else if (ret) {
 		dev_err(dev, "Error, RSU update returned %i\n", ret);
 		return ret;
 	}
