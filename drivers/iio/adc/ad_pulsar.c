@@ -119,7 +119,7 @@ struct ad_pulsar_chip_info {
 	int sclk_rate;
 	int max_rate;
 	bool has_filter:1;
-	bool sequencer:1;
+	bool cfg_register:1;
 };
 
 static const struct ad_pulsar_chip_info ad7988_5_chip_info = {
@@ -184,7 +184,7 @@ static const struct ad_pulsar_chip_info ad7949_chip_info = {
 	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
 	.has_filter = true,
-	.sequencer = true
+	.cfg_register = true
 };
 
 static const struct ad_pulsar_chip_info ad7946_chip_info = {
@@ -213,7 +213,7 @@ static const struct ad_pulsar_chip_info ad7699_chip_info = {
 	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
 	.has_filter = true,
-	.sequencer = true
+	.cfg_register = true
 };
 
 static const struct ad_pulsar_chip_info ad7693_chip_info = {
@@ -251,7 +251,7 @@ static const struct ad_pulsar_chip_info ad7689_chip_info = {
 	.num_channels = 8 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
 	.has_filter = true,
-	.sequencer = true
+	.cfg_register = true
 };
 
 static const struct ad_pulsar_chip_info ad7688_chip_info = {
@@ -298,7 +298,7 @@ static const struct ad_pulsar_chip_info ad7682_chip_info = {
 	.num_channels = 4 + AD7682_NUM_TEMP_CHANNELS,
 	.sclk_rate = 40000000,
 	.has_filter = true,
-	.sequencer = true
+	.cfg_register = true
 };
 
 struct ad_pulsar_adc {
@@ -373,7 +373,7 @@ static int ad_pulsar_read_channel(struct ad_pulsar_adc *adc, unsigned int reg,
 
 	adc->cfg = reg;
 	put_unaligned_be16(reg << 2, adc->spi_tx_data);
-	if (adc->info->sequencer)
+	if (adc->info->cfg_register)
 		xfer.tx_buf = adc->spi_tx_data;
 	xfer.rx_buf = adc->spi_rx_data;
 
@@ -466,7 +466,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		 * Conversion requires 2 acquisitions for some ADCs (AD7682
 		 * Datasheet page 31).
 		 */
-		if (adc->info->sequencer) {
+		if (adc->info->cfg_register) {
 			ret = ad_pulsar_read_channel(adc, chan->address, val);
 			if (ret)
 				return ret;
@@ -746,7 +746,7 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 	adc->channels[chan_index].scan_index = chan_index;
 	adc->channels[chan_index].address = adc->cfg_reg[chan_index];
 
-	if (adc->info->sequencer)
+	if (adc->info->cfg_register)
 		adc->seq_xfer[chan_index].tx_buf = &adc->cfg_reg[chan_index];
 	adc->seq_xfer[chan_index].rx_buf = &dummy;
 	adc->seq_xfer[chan_index].len = 1;
