@@ -32,6 +32,18 @@
 #define ADF4382_LSB_FIRST_MSK		BIT(1)
 #define ADF4382_SOFT_RESET_MSK		BIT(0)
 
+
+/* ADF4382_REG0 */
+#define ADF4382_ADDR_ASC_MSK		BIT(2)
+#define ADF4382_ADDR_ASC(x)		FIELD_PREP(ADF4382_ADDR_ASC_MSK, x)
+#define ADF4382_ADDR_ASC_R_MSK		BIT(5)
+#define ADF4382_ADDR_ASC_R(x)		FIELD_PREP(ADF4382_ADDR_ASC_R_MSK, x)
+#define ADF4382_SDO_ACT_MSK		BIT(3)
+#define ADF4382_SDO_ACT(x)		FIELD_PREP(ADF4382_SDO_ACT_MSK, x)
+#define ADF4382_SDO_ACT_R_MSK		BIT(4)
+#define ADF4382_SDO_ACT_R(x)		FIELD_PREP(ADF4382_SDO_ACT_R_MSK, x)
+#define ADF4382_RESET_CMD		0x81
+
 /* ADF4382 REG0000 Bit Definition */
 #define ADF4382_SDO_ACTIVE_SPI_3W	0x0
 #define ADF4382_SDO_ACTIVE_SPI_4W	0x1
@@ -431,11 +443,11 @@ struct adf4382_state {
 	unsigned int		ref_freq_hz;
 	unsigned int		rfout_freq_hz;
 	u64			freq;
+	bool		spi_3wire_en;
 };
 
 //TODO Rewrite using defines
 static const struct reg_sequence adf4382_reg_default[] = {
-	{ 0x000, 0x18 },
 	{ 0x00A, 0x0A },
 	{ 0x200, 0x00 },
 	{ 0x201, 0x00 },
@@ -856,10 +868,19 @@ static const struct iio_chan_spec adf4382_channels[] = {
 static int adf4382_init(struct adf4382_state *st)
 {
 	int ret;
+	bool en = true;
 
-	ret = regmap_write(st->regmap, 0x00, ADF4382_SOFT_RESET_R_MSK |
-			   ADF4382_SOFT_RESET_MSK);
+	ret = regmap_write(st->regmap, 0x00, ADF4382_RESET_CMD);
 	if (ret)
+		return ret;
+
+	if (st->spi->mode & SPI_3WIRE || st->spi_3wire_en)
+		en = false;
+
+	ret = regmap_update_bits(st->regmap, 0x00,
+				 ADF4382_SDO_ACT_MSK | ADF4382_SDO_ACT_R_MSK,
+				 ADF4382_SDO_ACT(en) | ADF4382_SDO_ACT_R(en));
+	if (ret < 0)
 		return ret;
 
 	ret = regmap_multi_reg_write(st->regmap, adf4382_reg_default,
@@ -998,7 +1019,9 @@ static int adf4382_probe(struct spi_device *spi)
 	}
 
 	st->freq = 20000000000ULL;
-	of_property_read_u64(spi->dev.of_node, "adi,power-up-frequency", &st->freq);
+	device_property_read_u64(&st->spi->dev, "adi,power-up-frequency", &st->freq);
+
+	st->spi_3wire_en = device_property_read_bool(&st->spi->dev, "adi,spi-3wire-enable");
 
 	st->clkin = devm_clk_get(&spi->dev, "ref_clk");
 	if (IS_ERR(st->clkin))
