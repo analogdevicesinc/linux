@@ -738,7 +738,8 @@
 &lpspi1 {
 	fsl,spi-num-chipselects = <1>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpspi1>;
+	pinctrl-0 = <&pinctrl_lpspi1 &pinctrl_lpspi1_cs>;
+	cs-gpios = <&lsio_gpio3 3 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	spidev@0 {
@@ -1089,7 +1090,12 @@
 			IMX8DXL_SPI1_SCK_ADMA_SPI1_SCK          0x6000040
 			IMX8DXL_SPI1_SDO_ADMA_SPI1_SDO          0x6000040
 			IMX8DXL_SPI1_SDI_ADMA_SPI1_SDI          0x6000040
-			IMX8DXL_SPI1_CS0_ADMA_SPI1_CS0          0x6000040
+		>;
+	};
+
+	pinctrl_lpspi1_cs: lpspi1cs {
+		fsl,pins = <
+			IMX8DXL_SPI1_CS0_LSIO_GPIO3_IO03        0x21
 		>;
 	};
 
