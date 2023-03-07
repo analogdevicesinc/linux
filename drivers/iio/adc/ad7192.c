@@ -445,7 +445,7 @@ static ssize_t ad7192_show_ac_excitation(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7192_state *st = iio_priv(indio_dev);
 
-	return sprintf(buf, "%d\n", !!FIELD_GET(AD7192_CONF_ACX, st->conf));
+	return sysfs_emit(buf, "%d\n", !!FIELD_GET(AD7192_CONF_ACX, st->conf));
 }
 
 static ssize_t ad7192_show_bridge_switch(struct device *dev,
@@ -455,7 +455,7 @@ static ssize_t ad7192_show_bridge_switch(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7192_state *st = iio_priv(indio_dev);
 
-	return sprintf(buf, "%d\n", !!FIELD_GET(AD7192_GPOCON_BPDSW, st->gpocon));
+	return sysfs_emit(buf, "%d\n", !!FIELD_GET(AD7192_GPOCON_BPDSW, st->gpocon));
 }
 
 static ssize_t ad7192_set(struct device *dev,
@@ -534,9 +534,8 @@ static ssize_t ad7192_show_filter_avail(struct device *dev,
 	ad7192_get_available_filter_freq(st, freq_avail);
 
 	for (i = 0; i < ARRAY_SIZE(freq_avail); i++)
-		len += scnprintf(buf + len, PAGE_SIZE - len,
-				 "%d.%d ", freq_avail[i] / 1000,
-				 freq_avail[i] % 1000);
+		len += sysfs_emit_at(buf, len, "%d.%03d ",
+				 freq_avail[i] / 1000, freq_avail[i] % 1000);
 
 	buf[len - 1] = '\n';
 
