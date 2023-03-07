@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mq-evk.dts"
+
+/ {
+	modem_reset: modem-reset {
+		reset-gpios = <&gpio3 5 GPIO_ACTIVE_HIGH>;
+	};
+
+	reg_pcie0: regulator-pcie0 {
+		compatible = "regulator-fixed";
+		regulator-name = "MPCIE_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca6416 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+};
+
+&iomuxc {
+	pinctrl_pca6416_rst: pca6416grp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_GPIO1_IO14_GPIO1_IO14	0x19
+		>;
+	};
+};
+
+&pinctrl_pcie0 {
+	fsl,pins = <
+		MX8MQ_IOMUXC_I2C4_SCL_PCIE1_CLKREQ_B		0x76
+		MX8MQ_IOMUXC_UART4_RXD_GPIO5_IO28		0x16
+		MX8MQ_IOMUXC_NAND_DQS_GPIO3_IO14		0x41
+	>;
+};
+
+&i2c3 {
+	pca6416: gpio@20 {
+		compatible = "nxp,pca6416";
+		reg = <0x20>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pca6416_rst>;
+		reset-gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&gpio5 {
+	/delete-node/ wl-reg-on-hog; /* This pin is not used on wevk board */
+};
+
+&uart3 { /* BT */
+	pinctrl-assert-gpios = <&pca6416 5 GPIO_ACTIVE_LOW>;
+};
+
+&pcie0 {
+	vpcie-supply = <&reg_pcie0>;
+
+	wifi_wake_host {
+		compatible = "nxp,wifi-wake-host";
+		interrupt-parent = <&gpio3>;
+		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "host-wake";
+	};
+};
+
+&pcie1 {
+	/delete-node/ wifi_wake_host;
+};
