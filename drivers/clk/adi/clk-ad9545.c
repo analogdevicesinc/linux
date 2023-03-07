@@ -2351,6 +2351,10 @@ static int ad9545_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	 * When setting a PLL rate, precalculate params for all enabled profiles.
 	 * At this point there may or may not be a valid reference.
 	 */
+
+	if (!rate)
+		return -EINVAL;
+
 	for (i = 0; i < clk->num_parents; i++) {
 		parent_rate = clk_hw_get_rate(clk->parents[i]);
 
