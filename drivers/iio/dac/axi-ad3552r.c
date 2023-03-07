@@ -18,7 +18,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 
-#define AXI_REG_CNTRL_2			0x48
+#define AXI_REG_CNTRL_2				0x48
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
 #define AXI_REG_CNTRL_DATA_RD			0x80
@@ -41,13 +41,12 @@
 #define   AXI_SEL_SRC_DDS			0x0b
 
 #define AD3552R_REG_STREAM_MODE			0x0E
-#define   AD3552R_MASK_LENGTH			GENMASK(7, 0)
 #define AD3552R_REG_INTERFACE_CONFIG_D		0x14
-#define   AD3552R_MASK_ALERT_ENABLE_PULLUP	BIT(6)
-#define   AD3552R_MASK_MEM_CRC_EN		BIT(4)
-#define   AD3552R_MASK_SDO_DRIVE_STRENGTH	GENMASK(3, 2)
 #define   AD3552R_MASK_SPI_CONFIG_DDR		BIT(0)
 #define   AD3552R_MASK_DUAL_SPI_SYNC_EN		BIT(1)
+#define   AD3552R_MASK_SDO_DRIVE_STRENGTH	GENMASK(3, 2)
+#define   AD3552R_MASK_MEM_CRC_EN		BIT(4)
+#define   AD3552R_MASK_ALERT_ENABLE_PULLUP	BIT(6)
 #define AD3552R_REG_OUTPUT_RANGE		0x19
 #define   AD3552R_MASK_CH0_RANGE		GENMASK(2, 0)
 #define   AD3552R_MASK_CH1_RANGE		GENMASK(6, 4)
@@ -59,6 +58,14 @@
 #define AD3552R_TFER_8BIT_DDR			AXI_MSK_SYMB_8B
 #define AD3552R_TFER_16BIT_SDR			AXI_MSK_SDR_DDR_N
 #define AD3552R_TFER_16BIT_DDR			0x00
+
+#define AD3552R_STREAM_2BYTE_LOOP		0x02
+#define AD3552R_STREAM_4BYTE_LOOP		0x04
+
+#define AD3552R_CH0_ACTIVE			BIT(0)
+#define AD3552R_CH1_ACTIVE			BIT(1)
+#define AD3552R_CH0_CH1_ACTIVE			(AD3552R_CH0_ACTIVE | \
+						 AD3552R_CH1_ACTIVE)
 
 #define CNTRL_CSTM_ADDR(x)			FIELD_PREP(AXI_MSK_ADDRESS, x)
 #define CNTRL_DATA_WR_8(x)			FIELD_PREP(AXI_MSK_DATA_WR_8, x)
@@ -367,58 +374,45 @@ static const struct iio_chan_spec axi_ad3552r_channels[] = {
 	}
 };
 
-/*
- * ad7298_update_scan_mode() setup the spi transfer buffer for the new scan mask
- */
 static int axi_ad3552r_update_scan_mode(struct iio_dev *indio_dev,
 					const unsigned long *active_scan_mask)
 {
 	struct axi_ad3552r_state *st = iio_priv(indio_dev);
-	u32 read_val;
-
-	if (!test_bit(0, active_scan_mask) && test_bit(1, active_scan_mask)) {
-		st->single_channel = true;
-		read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-		// Stream length
-		axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE, 0x02, AD3552R_TFER_8BIT_SDR);
-		mdelay(100);
-		// DDR configure
-		axi_ad3552r_spi_write(st, AD3552R_REG_INTERFACE_CONFIG_D, 0x05, AD3552R_TFER_8BIT_SDR);
-
-		read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-		axi_ad3552r_write(st, AXI_REG_CNTRL_CSTM, (read_val & 0x0000ffff) |
-					      0x2c000000);
-
-	} else {
-		if (test_bit(0, active_scan_mask) && !test_bit(1, active_scan_mask)) {
-			st->single_channel = true;
-			read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-			// Stream length
-			axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE, 0x02, AD3552R_TFER_8BIT_SDR);
-			mdelay(100);
-			// DDR configure
-			axi_ad3552r_spi_write(st, AD3552R_REG_INTERFACE_CONFIG_D, 0x05, AD3552R_TFER_8BIT_SDR);
-
-			read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-			axi_ad3552r_write(st, AXI_REG_CNTRL_CSTM, (read_val & 0x0000ffff) |
-						      0x2a000000);
-		} else {
-			st->single_channel = false;
-			read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-			// Stream length
-			axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE, 0x04, AD3552R_TFER_8BIT_SDR);
-			mdelay(100);
-			// DDR configure
-			axi_ad3552r_spi_write(st, AD3552R_REG_INTERFACE_CONFIG_D, 0x05, AD3552R_TFER_8BIT_SDR);
-
-			read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-			axi_ad3552r_write(st, AXI_REG_CNTRL_CSTM, (read_val & 0x0000ffff) |
-						      0x2c000000);
-		}
-	}
 
 	st->ddr = true;
-	return 0;
+	axi_ad3552r_spi_update_bits(st, AD3552R_REG_INTERFACE_CONFIG_D,
+				    AD3552R_MASK_SPI_CONFIG_DDR,
+				    AD3552R_MASK_SPI_CONFIG_DDR,
+				    AD3552R_TFER_8BIT_SDR);
+
+	switch (*active_scan_mask) {
+	case AD3552R_CH0_ACTIVE:
+		st->single_channel = true;
+		axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE,
+				      AD3552R_STREAM_2BYTE_LOOP,
+				      AD3552R_TFER_8BIT_DDR);
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
+					CNTRL_CSTM_ADDR(AD3552R_REG_CH0_DAC_16B));
+		return 0;
+	case AD3552R_CH1_ACTIVE:
+		st->single_channel = true;
+		axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE,
+				      AD3552R_STREAM_2BYTE_LOOP,
+				      AD3552R_TFER_8BIT_DDR);
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
+					CNTRL_CSTM_ADDR(AD3552R_REG_CH1_DAC_16B));
+		return 0;
+	case AD3552R_CH0_CH1_ACTIVE:
+		st->single_channel = false;
+		axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE,
+				      AD3552R_STREAM_4BYTE_LOOP,
+				      AD3552R_TFER_8BIT_DDR);
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
+					CNTRL_CSTM_ADDR(AD3552R_REG_CH1_DAC_16B));
+		return 0;
+	}
+
+	return -EINVAL;
 }
 
 static const struct iio_info axi_ad3552r_info = {
