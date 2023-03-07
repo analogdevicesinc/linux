@@ -764,11 +764,8 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	int num_ch, ret, i;
 
 	num_ch = device_get_child_node_count(dev);
-	if (num_ch > adc->info->num_channels)
+	if (!num_ch || num_ch > adc->info->num_channels)
 		return -EINVAL;
-
-	if (!num_ch)
-		num_ch = adc->info->num_channels;
 
 	adc->channels = devm_kcalloc(dev, num_ch, sizeof(struct iio_chan_spec),
 				     GFP_KERNEL);
