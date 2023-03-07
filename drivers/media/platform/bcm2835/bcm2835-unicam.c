@@ -1227,7 +1227,6 @@ static int unicam_try_fmt_vid_cap(struct file *file, void *priv,
 	struct unicam_device *dev = node->dev;
 	struct v4l2_subdev_format sd_fmt = {
 		.which = V4L2_SUBDEV_FORMAT_TRY,
-		.pad = IMAGE_PAD
 	};
 	struct v4l2_mbus_framefmt *mbus_fmt = &sd_fmt.format;
 	const struct unicam_fmt *fmt;
@@ -1235,6 +1234,8 @@ static int unicam_try_fmt_vid_cap(struct file *file, void *priv,
 
 	if (node->pad_id != IMAGE_PAD)
 		return -EINVAL;
+
+	sd_fmt.pad = node->src_pad_id;
 
 	fmt = find_format_by_pix(dev, f->fmt.pix.pixelformat);
 	if (!fmt) {
