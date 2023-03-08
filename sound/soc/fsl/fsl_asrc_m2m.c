@@ -267,7 +267,6 @@ static int fsl_asrc_prepare_io_buffer(struct fsl_asrc_pair *pair,
 {
 	struct fsl_asrc_m2m *m2m = pair->private_m2m;
 	struct fsl_asrc *asrc = pair->asrc;
-	struct fsl_asrc_priv *asrc_priv = asrc->private;
 	unsigned int *dma_len = &m2m->dma_block[dir].length;
 	void *dma_vaddr = m2m->dma_block[dir].dma_vaddr;
 	struct dma_chan *dma_chan = pair->dma_chan[dir];
@@ -308,9 +307,6 @@ static int fsl_asrc_prepare_io_buffer(struct fsl_asrc_pair *pair,
 		*dma_len -= last_period_size * word_size * pair->channels;
 		*dma_len = *dma_len / (word_size * pair->channels) *
 				(word_size * pair->channels);
-		if (asrc_priv->soc->use_edma)
-			*dma_len = *dma_len / (word_size * pair->channels * m2m->watermark[OUT])
-					* (word_size * pair->channels * m2m->watermark[OUT]);
 	}
 
 	*sg_nodes = *dma_len / ASRC_MAX_BUFFER_SIZE;
@@ -663,14 +659,11 @@ static long fsl_asrc_calc_last_period_size(struct fsl_asrc_pair *pair,
 					struct asrc_convert_buffer *pbuf)
 {
 	struct fsl_asrc_m2m *m2m = pair->private_m2m;
-	struct fsl_asrc *asrc = pair->asrc;
-	struct fsl_asrc_priv *asrc_priv = asrc->private;
 	unsigned int out_length;
 	unsigned int in_width, out_width;
 	unsigned int channels = pair->channels;
 	unsigned int in_samples, out_samples;
 	unsigned int last_period_size;
-	unsigned int remain;
 
 	in_width = snd_pcm_format_physical_width(m2m->word_format[IN]) / 8;
 	out_width = snd_pcm_format_physical_width(m2m->word_format[OUT]) / 8;
@@ -685,12 +678,6 @@ static long fsl_asrc_calc_last_period_size(struct fsl_asrc_pair *pair,
 					- out_samples;
 
 	m2m->last_period_size = last_period_size + 1 + ASRC_OUTPUT_LAST_SAMPLE;
-
-	if (asrc_priv->soc->use_edma) {
-		remain = pbuf->output_buffer_length % (out_width * channels * m2m->watermark[OUT]);
-		if (remain)
-			m2m->last_period_size += remain / (out_width * channels);
-	}
 
 	return 0;
 }
