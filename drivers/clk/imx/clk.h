@@ -191,9 +191,6 @@ extern struct imx_fracn_gppll_clk imx_fracn_gppll_integer;
 #define imx_clk_hw_gate2_shared2(name, parent, reg, shift, shared_count) \
 	__imx_clk_hw_gate2(NULL, name, parent, reg, shift, 0x3, CLK_OPS_PARENT_ENABLE, shared_count)
 
-#define imx_clk_hw_gate3(name, parent, reg, shift) \
-	imx_clk_hw_gate3_flags(name, parent, reg, shift, 0)
-
 #define imx_clk_hw_gate3_flags(name, parent, reg, shift, flags) \
 	__imx_clk_hw_gate(name, parent, reg, shift, flags | CLK_OPS_PARENT_ENABLE, 0)
 
@@ -439,6 +436,24 @@ static inline struct clk_hw *__imx_clk_hw_mux(const char *name, void __iomem *re
 	return clk_hw_register_mux(NULL, name, parents, num_parents,
 			flags | CLK_SET_RATE_NO_REPARENT, reg, shift,
 			width, clk_mux_flags, &imx_ccm_lock);
+}
+
+static inline struct clk_hw *imx_clk_hw_gate3(const char *name, const char *parent,
+		void __iomem *reg, u8 shift)
+{
+	/*
+	 * per design team's suggestion, clk root is NOT consuming
+	 * much power, and clk root enable/disable does NOT have domain
+	 * control, so they suggest to leave clk root always on when
+	 * M4 is enabled.
+	 */
+	if (imx_src_is_m4_enabled())
+		return clk_hw_register_fixed_factor(NULL, name, parent,
+						 CLK_SET_RATE_PARENT, 1, 1);
+	else
+		return clk_hw_register_gate(NULL, name, parent,
+			CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
+			reg, shift, 0, &imx_ccm_lock);
 }
 
 struct clk_hw *imx_clk_hw_cpu(const char *name, const char *parent_name,
