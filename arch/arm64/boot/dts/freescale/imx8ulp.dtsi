@@ -205,6 +205,11 @@
 			#mbox-cells = <2>;
 		};
 
+		caam_sm: caam-sm@26000000 {
+			compatible = "fsl,imx6q-caam-sm";
+			reg = <0x26000000 0x8000>;
+		};
+
 		per_bridge3: bus@29000000 {
 			compatible = "simple-bus";
 			reg = <0x29000000 0x800000>;
