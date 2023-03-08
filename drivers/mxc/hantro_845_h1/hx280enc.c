@@ -239,7 +239,7 @@ static int hx280enc_mmap(struct file *filp, struct vm_area_struct *vm)
 	return result;
 #else
 	if (vm->vm_pgoff == (hx280enc_data.iobaseaddr >> PAGE_SHIFT)) {
-		vm->vm_flags |= VM_IO;
+		vm_flags_set(vm, VM_IO);
 		vm->vm_page_prot = pgprot_noncached(vm->vm_page_prot);
 		PDEBUG("hx280enc mmap: size=0x%lX, page off=0x%lX\n", (vm->vm_end - vm->vm_start), vm->vm_pgoff);
 		return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff, vm->vm_end - vm->vm_start,

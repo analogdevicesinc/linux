@@ -1545,7 +1545,7 @@ static int hantrodec_release(struct inode *inode, struct file *filp)
 static int hantro_mmap(struct file *fp, struct vm_area_struct *vm)
 {
 	if (vm->vm_pgoff == (multicorebase[0] >> PAGE_SHIFT) || vm->vm_pgoff == (multicorebase[1] >> PAGE_SHIFT)) {
-		vm->vm_flags |= VM_IO;
+		vm_flags_set(vm, VM_IO);
 		vm->vm_page_prot = pgprot_noncached(vm->vm_page_prot);
 		PDEBUG("hantro mmap: size=0x%lX, page off=0x%lX\n", (vm->vm_end - vm->vm_start), vm->vm_pgoff);
 		return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff, vm->vm_end - vm->vm_start,

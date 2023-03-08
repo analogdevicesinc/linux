@@ -216,7 +216,7 @@ static int hantro_vc8000e_power_on_disirq(hantroenc_t *hx280enc)
 static int hantroenc_mmap(struct file *filp, struct vm_area_struct *vm)
 {
 	if (vm->vm_pgoff == (hantroenc_data[0].core_cfg.base_addr >> PAGE_SHIFT)) {
-		vm->vm_flags |= VM_IO;
+		vm_flags_set(vm, VM_IO);
 		vm->vm_page_prot = pgprot_noncached(vm->vm_page_prot);
 		PDEBUG("hx280enc mmap: size=0x%lX, page off=0x%lX\n", (vm->vm_end - vm->vm_start), vm->vm_pgoff);
 		return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff, vm->vm_end - vm->vm_start,
