@@ -771,7 +771,7 @@ _GFPMmap(IN gckALLOCATOR           Allocator,
 
     gcmkHEADER_ARG("Allocator=%p Mdl=%p vma=%p", Allocator, Mdl, vma);
 
-    vma->vm_flags |= gcdVM_FLAGS;
+    vm_flags_set(vma, gcdVM_FLAGS);
 
     if (Cacheable == gcvFALSE) {
         /* Make this mapping non-cached. */
