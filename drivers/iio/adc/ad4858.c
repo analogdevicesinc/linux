@@ -81,51 +81,51 @@
 #define AD4858_INT_REF_VOLTAGE_MV	4096
 #define AD4858_T_CNVH_NS		40
 
-#define AD4858_STATUS_ADDRESS_INVALID 		BIT(0)
-#define AD4858_STATUS_WR_TO_RD_ONLY		BIT(2)
-#define AD4858_STATUS_CRC_ERR			BIT(3)
-#define AD4858_STATUS_CLK_COUNT_ERR		BIT(4)
-#define AD4858_STATUS_NOT_READY			BIT(7)
+#define AD4858_STATUS_ADDRESS_INVALID	BIT(0)
+#define AD4858_STATUS_WR_TO_RD_ONLY	BIT(2)
+#define AD4858_STATUS_CRC_ERR		BIT(3)
+#define AD4858_STATUS_CLK_COUNT_ERR	BIT(4)
+#define AD4858_STATUS_NOT_READY		BIT(7)
 
-#define AD4858_STATUS_SLEEP			BIT(0)
-#define AD4858_STATUS_POWERDOWN			BIT(1)
-#define AD4858_STATUS_CH_OR_UR			BIT(2)
-#define AD4858_STATUS_SPI			BIT(3)
-#define AD4858_STATUS_REGMAP_CRC		BIT(4)
-#define AD4858_STATUS_FUSE_CRC			BIT(5)
-#define AD4858_STATUS_RESET			BIT(6)
-#define AD4858_STATUS_READY			BIT(7)
+#define AD4858_STATUS_SLEEP		BIT(0)
+#define AD4858_STATUS_POWERDOWN		BIT(1)
+#define AD4858_STATUS_CH_OR_UR		BIT(2)
+#define AD4858_STATUS_SPI		BIT(3)
+#define AD4858_STATUS_REGMAP_CRC	BIT(4)
+#define AD4858_STATUS_FUSE_CRC		BIT(5)
+#define AD4858_STATUS_RESET		BIT(6)
+#define AD4858_STATUS_READY		BIT(7)
 
 
 #define AD4858_AXI_ADC_TWOS_COMPLEMENT	0x01
 
-#define AD4858_IIO_CHANNEL(index)                                       \
-{									\
-        .type = IIO_VOLTAGE,                                            \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_OFFSET)		|	\
-			BIT(IIO_CHAN_INFO_HARDWAREGAIN)		|	\
-			BIT(IIO_CHAN_INFO_PHASE),			\
-        .info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),           \
-	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
-	.ext_info = ad4858_ext_info,					\
-	.address = index,						\
-	.indexed = 1,							\
-	.channel = index,						\
-	.scan_index = index,						\
-	.scan_type = {							\
-		.sign = 's',						\
-		.realbits = 20,						\
-		.storagebits = 32,					\
-	},				                        	\
+#define AD4858_IIO_CHANNEL(index)				\
+{								\
+	.type = IIO_VOLTAGE,					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_OFFSET)	|	\
+			BIT(IIO_CHAN_INFO_HARDWAREGAIN)	|	\
+			BIT(IIO_CHAN_INFO_PHASE),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+	.ext_info = ad4858_ext_info,				\
+	.address = index,					\
+	.indexed = 1,						\
+	.channel = index,					\
+	.scan_index = index,					\
+	.scan_type = {						\
+		.sign = 's',					\
+		.realbits = 20,					\
+		.storagebits = 32,				\
+	},							\
 }
 
 struct ad4858_dev {
-	unsigned int sampling_freq;
-        struct regulator *refin;
-	struct spi_device *spi;
-        struct pwm_device *cnv;
-	struct clk *sampl_clk;
-        unsigned int vref_mv;
+	unsigned int		sampling_freq;
+	struct regulator	*refin;
+	struct spi_device	*spi;
+	struct pwm_device	*cnv;
+	struct clk		*sampl_clk;
+	unsigned int		vref_mv;
 };
 
 static const char *const ad4858_os_ratios[] = {
@@ -300,12 +300,14 @@ static int ad4858_get_gain(struct ad4858_dev *adc, int addr, int *val)
 	int readval;
 	int ret;
 
-	ret = ad4858_spi_reg_read(adc, AD4858_REG_CHX_GAIN_MSB(addr), &readval);
+	ret = ad4858_spi_reg_read(adc,
+		AD4858_REG_CHX_GAIN_MSB(addr), &readval);
 	if (ret < 0)
 		return ret;
 
 	*val = readval << 8;
-	ret = ad4858_spi_reg_read(adc, AD4858_REG_CHX_GAIN_LSB(addr), &readval);
+	ret = ad4858_spi_reg_read(adc,
+		AD4858_REG_CHX_GAIN_LSB(addr), &readval);
 	if (ret < 0)
 		return ret;
 
@@ -332,12 +334,14 @@ static int ad4858_get_phase(struct ad4858_dev *adc, int addr, int *val)
 	int readval;
 	int ret;
 
-	ret = ad4858_spi_reg_read(adc, AD4858_REG_CHX_PHASE_MSB(addr), &readval);
+	ret = ad4858_spi_reg_read(adc,
+		AD4858_REG_CHX_PHASE_MSB(addr), &readval);
 	if (ret < 0)
 		return ret;
 
 	*val = readval << 8;
-	ret = ad4858_spi_reg_read(adc, AD4858_REG_CHX_PHASE_LSB(addr), &readval);
+	ret = ad4858_spi_reg_read(adc,
+		AD4858_REG_CHX_PHASE_LSB(addr), &readval);
 	if (ret < 0)
 		return ret;
 
@@ -579,29 +583,29 @@ static int ad4858_probe(struct spi_device *spi)
 {
 	struct axiadc_converter	*conv;
 	struct iio_dev *indio_dev;
-        struct ad4858_dev *adc;
-        int ret;
+	struct ad4858_dev *adc;
+	int ret;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (!conv)
 		return -ENOMEM;
 
-        indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*adc));
-        if (!indio_dev)
-                return -ENOMEM;
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*adc));
+	if (!indio_dev)
+		return -ENOMEM;
 
-        adc = iio_priv(indio_dev);
+	adc = iio_priv(indio_dev);
 	spi_set_drvdata(spi, conv);
 	adc->spi = spi;
 
-        adc->refin = devm_regulator_get(&spi->dev, "refin");
-        if (!IS_ERR(adc->refin)) {
-                ret = regulator_enable(adc->refin);
-                if (ret) {
-                        dev_err(&spi->dev, "Can't enable refin\n");
-                        return ret;
-                }
-                ret = regulator_get_voltage(adc->refin);
+	adc->refin = devm_regulator_get(&spi->dev, "refin");
+	if (!IS_ERR(adc->refin)) {
+		ret = regulator_enable(adc->refin);
+		if (ret) {
+			dev_err(&spi->dev, "Can't enable refin\n");
+			return ret;
+		}
+		ret = regulator_get_voltage(adc->refin);
 		if (ret < 0)
 			return ret;
 
@@ -611,13 +615,13 @@ static int ad4858_probe(struct spi_device *spi)
 					       adc->refin);
 		if (ret)
 			return ret;
-        } else {
+	} else {
 		if (PTR_ERR(adc->refin) != -ENODEV)
 			return PTR_ERR(adc->refin);
 
-                /* Use internal 4.096V reference */
+		/* Use internal 4.096V reference */
 		adc->vref_mv = AD4858_INT_REF_VOLTAGE_MV;
-        }
+	}
 
 	adc->sampl_clk = devm_clk_get(&spi->dev, "scki");
 	if (IS_ERR(adc->sampl_clk))
@@ -662,13 +666,13 @@ static int ad4858_probe(struct spi_device *spi)
 }
 
 static const struct of_device_id ad4858_of_match[] = {
-        { .compatible = "adi,ad4858" },
-        {}
+	{ .compatible = "adi,ad4858" },
+	{}
 };
 
 static struct spi_driver ad4858_driver = {
-	.probe          = ad4858_probe,
-	.driver         = {
+	.probe = ad4858_probe,
+	.driver = {
 		.name   = "ad4858",
 		.of_match_table = ad4858_of_match,
 	},
