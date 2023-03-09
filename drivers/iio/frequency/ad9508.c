@@ -454,6 +454,48 @@ static struct clk *ad9508_clk_register(struct iio_dev *indio_dev, unsigned num,
 	return clk;
 }
 
+
+static ssize_t ad9508_lvds_cmos_read(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     char *buf)
+{
+	int ret;
+
+	ret = ad9508_read(indio_dev,
+			   AD9508_CHANNEL_OUT_DIV(chan->channel));
+
+	return ret < 0 ? ret : sysfs_emit(buf, "%u\n", ret);
+}
+
+static ssize_t ad9508_lvds_cmos_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	unsigned long int data;
+	int ret;
+
+	ret = kstrtoul(buf, 10, &data);
+	if (ret)
+		return ret;
+
+	ret = ad9508_write(indio_dev,
+			   AD9508_CHANNEL_OUT_DIV(chan->channel),
+			   data);
+
+	return ret ? ret : len;
+}
+
+static struct iio_chan_spec_ext_info ad9508_ext_info[] = {
+	{
+	 .name = "divider_mode",
+	 .read = ad9508_lvds_cmos_read,
+	 .write = ad9508_lvds_cmos_write,
+	},
+	{},
+};
+
 static int ad9508_setup(struct iio_dev *indio_dev)
 {
 	struct ad9508_state *st = iio_priv(indio_dev);
@@ -522,6 +564,7 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 			st->ad9508_channels[i].channel = chan->channel_num;
 			st->ad9508_channels[i].extend_name =
 				chan->extended_name;
+			st->ad9508_channels[i].ext_info = ad9508_ext_info;
 			st->ad9508_channels[i].info_mask_separate =
 				BIT(IIO_CHAN_INFO_RAW) |
 				BIT(IIO_CHAN_INFO_PHASE) |
