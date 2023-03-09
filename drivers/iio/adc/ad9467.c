@@ -722,6 +722,53 @@ static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 }
 
+static ssize_t ad9467_lvds_cnv_en_read(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     char *buf)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+
+	ret = ad9467_spi_read(conv->spi, 0x15);
+	if (ret < 0)
+		return ret;
+
+	ret &= BIT(0);
+
+	return ret < 0 ? ret : sysfs_emit(buf, "%u\n", ret);
+}
+
+static ssize_t ad9467_lvds_cnv_en_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	bool en;
+	int ret;
+
+	ret = kstrtobool(buf, &en);
+	if (ret)
+		return ret;
+
+	mutex_lock(&indio_dev->mlock);
+
+	ret = ad9467_spi_read(conv->spi, 0x15);
+	if (ret < 0)
+		goto mutex_unlock;
+
+	ret &= ~BIT(0);
+	ret |= en;
+
+	ret = ad9467_spi_write(conv->spi, 0x15, ret);
+
+mutex_unlock:
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret ? ret : len;
+}
+
 static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "test_mode",
@@ -740,6 +787,11 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	 .name = "lvds_sync",
 	 .write = ad9467_lvds_sync_write,
 	 },
+	{
+	 .name = "lvds_cnv",
+	 .read = ad9467_lvds_cnv_en_read,
+	 .write = ad9467_lvds_cnv_en_write,
+	},
 	{},
 };
 
