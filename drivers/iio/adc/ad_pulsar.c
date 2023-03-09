@@ -612,7 +612,6 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 
 		if (ch == last) {
 			adc->seq_xfer[ch].cs_change = 0;
-			adc->seq_xfer[ch].word_delay.value = 0;
 		}
 
 		spi_message_add_tail(&adc->seq_xfer[ch], msg);
