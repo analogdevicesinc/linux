@@ -719,6 +719,7 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 		adc->cfg_reg[chan_index] &= ~AD7682_PAIR_MSK;
 		adc->cfg_reg[chan_index] |= AD7682_CH_TYPE(DIFFERENTIAL);
 		adc->channels[chan_index].differential = 1;
+		adc->channels[chan_index].scan_type.sign = 's';
 		adc->channels[chan_index].channel2 = in[1];
 	} else if (fwnode_property_read_bool(child, "adi,temp-sensor")) {
 		adc->cfg_reg[chan_index] = AD7682_CH_TEMP_SENSOR;
