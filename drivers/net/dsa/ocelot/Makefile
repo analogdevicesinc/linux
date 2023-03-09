@@ -8,3 +8,7 @@ mscc_felix_dsa_lib-objs := felix.o
 mscc_felix-objs := felix_vsc9959.o
 mscc_ocelot_ext-objs := ocelot_ext.o
 mscc_seville-objs := seville_vsc9953.o
+
+ifdef CONFIG_TSN
+mscc_felix-objs += felix_tsn.o
+endif

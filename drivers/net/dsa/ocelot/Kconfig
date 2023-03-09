@@ -37,6 +37,7 @@ config NET_DSA_MSCC_FELIX
 	depends on HAS_IOMEM
 	depends on PTP_1588_CLOCK_OPTIONAL
 	depends on NET_SCH_TAPRIO || NET_SCH_TAPRIO=n
+	depends on TSN || TSN=n
 	select MSCC_OCELOT_SWITCH_LIB
 	select NET_DSA_MSCC_FELIX_DSA_LIB
 	select NET_DSA_TAG_OCELOT_8021Q

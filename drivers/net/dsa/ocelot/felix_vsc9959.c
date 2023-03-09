@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/pci.h>
 #include <linux/time.h>
+#include "felix_tsn.h"
 #include "felix.h"
 
 #define VSC9959_NUM_PORTS		6
@@ -1379,11 +1380,12 @@ static void vsc9959_sched_speed_set(struct ocelot *ocelot, int port,
 		vsc9959_tas_guard_bands_update(ocelot, port);
 
 	mutex_unlock(&ocelot->fwd_domain_lock);
+
+	felix_cbs_reset(ocelot, port, speed);
 }
 
-static void vsc9959_new_base_time(struct ocelot *ocelot, ktime_t base_time,
-				  u64 cycle_time,
-				  struct timespec64 *new_base_ts)
+void vsc9959_new_base_time(struct ocelot *ocelot, ktime_t base_time,
+			   u64 cycle_time, struct timespec64 *new_base_ts)
 {
 	struct timespec64 ts;
 	ktime_t new_base_time;
@@ -2591,7 +2593,7 @@ static void vsc9959_cut_through_fwd(struct ocelot *ocelot)
 		 * reason, if sent as cut-through.
 		 */
 		if (ocelot_port->speed == min_speed) {
-			val = GENMASK(7, 0) & ~mm->active_preemptible_tcs;
+			val = ocelot_port->cut_thru & ~mm->active_preemptible_tcs;
 
 			for (tc = 0; tc < OCELOT_NUM_TC; tc++)
 				if (vsc9959_port_qmaxsdu_get(ocelot, port, tc))
@@ -2681,6 +2683,7 @@ static int felix_pci_probe(struct pci_dev *pdev,
 {
 	struct device *dev = &pdev->dev;
 	resource_size_t switch_base;
+	struct felix *felix;
 	int err;
 
 	err = pci_enable_device(pdev);
@@ -2699,8 +2702,16 @@ static int felix_pci_probe(struct pci_dev *pdev,
 	if (err)
 		goto out_disable;
 
+	felix = pci_get_drvdata(pdev);
+
+	err = felix_tsn_init(felix->ds);
+	if (err)
+		goto out_unregister;
+
 	return 0;
 
+out_unregister:
+	dsa_unregister_switch(felix->ds);
 out_disable:
 	pci_disable_device(pdev);
 	return err;
@@ -2712,6 +2723,8 @@ static void felix_pci_remove(struct pci_dev *pdev)
 
 	if (!felix)
 		return;
+
+	felix_tsn_teardown(felix->ds);
 
 	dsa_unregister_switch(felix->ds);
 
