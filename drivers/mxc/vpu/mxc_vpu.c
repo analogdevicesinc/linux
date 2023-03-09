@@ -806,7 +806,7 @@ static int vpu_map_hwregs(struct file *fp, struct vm_area_struct *vm)
 {
 	unsigned long pfn;
 
-	vm->vm_flags |= VM_IO | VM_RESERVED;
+	vm_flags_set(vm, VM_IO | VM_RESERVED);
 	/*
 	 * Since vpu registers have been mapped with ioremap() at probe
 	 * which L_PTE_XN is 1, and the same physical address must be
@@ -834,7 +834,7 @@ static int vpu_map_dma_mem(struct file *fp, struct vm_area_struct *vm)
 		 (unsigned int)(vm->vm_start), (unsigned int)(vm->vm_pgoff),
 		 request_size);
 
-	vm->vm_flags |= VM_IO | VM_RESERVED;
+	vm_flags_set(vm, VM_IO | VM_RESERVED);
 	vm->vm_page_prot = pgprot_writecombine(vm->vm_page_prot);
 
 	return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff,
@@ -851,7 +851,7 @@ static int vpu_map_vshare_mem(struct file *fp, struct vm_area_struct *vm)
 	int ret = -EINVAL;
 
 	ret = remap_vmalloc_range(vm, (void *)(vm->vm_pgoff << PAGE_SHIFT), 0);
-	vm->vm_flags |= VM_IO;
+	vm_flags_set(vm, VM_IO);
 
 	return ret;
 }
