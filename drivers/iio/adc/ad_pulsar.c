@@ -563,7 +563,7 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
 	u8 ch, next_active_ch, first, second, last, active_ch[8];
 	unsigned int num_en_ch;
-	u8 next_in_sequ = 2;
+	u8 next_in_sequ = 1;
 	u8 i = 0;
 	int ret;
 
@@ -575,7 +575,7 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 
 	first = find_first_bit(indio_dev->active_scan_mask,
 			       indio_dev->masklength);
-	if (num_en_ch >= 2) {
+	if (num_en_ch > 1) {
 		second = find_next_bit(indio_dev->active_scan_mask,
 				       indio_dev->masklength,
 				       first + 1);
@@ -598,7 +598,7 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 		/*
 		 * Configurations need to be sent prior to the acquisition.
 		 */
-		if (num_en_ch > 2) {
+		if (num_en_ch > 1) {
 			if (next_in_sequ >= num_en_ch)
 				next_in_sequ = 0;
 			next_active_ch = active_ch[next_in_sequ];
