@@ -8,16 +8,16 @@
 /plugin/;
 
 / {
-    compatible = "bcrm, bcm2711";
+	compatible = "bcrm, bcm2711";
 };
 
 &i2c1 {
-    #address-cells = <1>;
-    #size-cells = <0>;
-    status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "ok";
 
-    max31827: max31827@42 {
-        compatible = "max31827";
-        reg = <0x42>;
-    };
+	max31827: max31827@42 {
+		compatible = "max31827";
+		reg = <0x42>;
+	};
 };

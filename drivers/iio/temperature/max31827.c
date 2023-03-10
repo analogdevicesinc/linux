@@ -217,7 +217,7 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
 		ret = regmap_read(st->regmap, MAX31827_CONFIGURATION_REG, &cfg);
 		if (ret < 0)
 			return ret;
-		
+
 		cfg = FIELD_GET(MAX31827_CONFIGURATION_CNV_RATE_MASK, cfg);
 		switch (cfg) {
 		case MAX31827_CNV_SHUTDOWN:
