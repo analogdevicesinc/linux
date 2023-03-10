@@ -1,0 +1,269 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	clocks {
+		ext_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <120000000>;
+		};
+	};
+
+	one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		in-gpios =  <&gpio_mux 4 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 5 GPIO_ACTIVE_HIGH>;
+		out-gpios = <&gpio_mux 3 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 2 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 1 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 0 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 6 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 7 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 11 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 12 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 13 GPIO_ACTIVE_HIGH>,
+				<&gpio_mux 14 GPIO_ACTIVE_HIGH>;
+
+		channel@0 {
+			reg = <0>;
+			label = "GPIO4_VIO";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "GPIO5_VIO";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "GPIO0_VIO";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "GPIO1_VIO";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "GPIO2_VIO";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "GPIO3_VIO";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "GPIO6_VIO";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "GPIO7_VIO";
+		};
+		channel@8 {
+			reg = <8>;
+			label = "PAD_ADC0";
+		};
+		channel@9 {
+			reg = <9>;
+			label = "PAD_ADC1";
+		};
+		channel@10 {
+			reg = <10>;
+			label = "PAD_ADC2";
+		};
+		channel@11 {
+			reg = <11>;
+			label = "PAD_ADC3";
+		};
+	};
+};
+
+&fpga_axi {
+	axi_pwm_gen: pwm@44B10000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44B10000 0x1000>;
+		label = "ltc2387_if";
+		#pwm-cells = <2>;
+		clocks = <&ext_clk>;
+	};
+
+	ref_clk: clk@44B00000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44B00000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "ref_clk";
+	};
+
+	rx_dma: dmac@44A40000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44A40000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ltc2387@0{
+		compatible = "ltc2387-16-x4";
+		pwms = <&axi_pwm_gen 0 0
+			&axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		clocks = <&ref_clk>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		adi,use-two-lanes;
+	};
+
+        qspi0: spi@0x44B20000 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg = <0x44B20000 0x1000>;
+                num-cs = <0x2>;
+                compatible = "xlnx,xps-spi-2.00.a";
+                bits-per-word = <16>;
+                fifo-size = <16>;
+                clock-names = "ext_spi_clk", "s_axi_aclk";
+                clocks = <&clkc 15>, <&clkc 15>;
+                interrupt-names = "ip2intc_irpt";
+                interrupt-parent = <&intc>;
+                interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+
+                gpio_mux: max7301@0 {
+                        compatible = "max7301";
+                        reg = <0>;
+                        spi-max-frequency = <20000000>;
+                        #gpio-cells = <2>;
+                        gpio-controller;
+                };
+        };
+
+	dac0_tx_dma: tx-dmac@0x44D30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44D30000 0x10000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 34 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	dac1_tx_dma: tx-dmac@0x44E30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44E30000 0x10000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 33 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	axi_ad3552r_0: axi-ad3552r-0@44d04000 {
+		compatible = "adi,axi-ad3552r";
+		reg = <0x44d04000 0x1000>;
+
+		reset-gpios = <&gpio0 90 GPIO_ACTIVE_LOW>;
+
+		clocks = <&ref_clk>;
+
+		dmas = <&dac0_tx_dma 0>;
+		dma-names = "tx";
+	};
+
+	axi_ad3552r_1: axi-ad3552r-1@44e04000 {
+		compatible = "adi,axi-ad3552r";
+		reg = <0x44e04000 0x1000>;
+
+		clocks = <&ref_clk>;
+
+		dmas = <&dac1_tx_dma 0>;
+		dma-names = "tx";
+	};
+	
+	mwipcore@43c00000 {
+		compatible = "mathworks,mwipcore-v3.00";
+		reg = <0x43C00000 0xfffff>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mmwr-channel@0{
+				reg = <0x0>;
+				compatible = "mathworks,mm-write-channel-v1.00";
+		};
+		mmrd-channel@1{
+				reg = <0x1>;
+				compatible = "mathworks,mm-read-channel-v1.00";
+		};
+	
+		
+	};
+
+	i2c@41620000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		reg = <0x41620000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "pclk";
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+		eeprom2@54 {
+			compatible = "at24,24c02";
+			reg = <0x54>;
+		};
+		ad7291_1@20 {
+			label = "ADC_I2C_1";
+			compatible = "adi,ad7291";
+			reg = <0x20>;
+		};
+
+	};
+};
