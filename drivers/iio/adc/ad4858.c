@@ -96,6 +96,8 @@
 #define AD4858_STATUS_RESET		BIT(6)
 #define AD4858_STATUS_READY		BIT(7)
 
+#define AD4858_AXI_REG_CNTRL_3		0x4C
+#define AD4858_AXI_OVERSAMPLE_EN	BIT(2)
 
 #define AD4858_AXI_ADC_TWOS_COMPLEMENT	0x01
 
@@ -198,13 +200,22 @@ static int ad4858_set_oversampling_ratio(struct iio_dev *indio_dev,
 					 unsigned int ratio)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
 	struct ad4858_dev *adc = conv->phy;
-	unsigned int reg = 0;
+	unsigned int spi_reg = 0;
+	unsigned int axi_reg;
 
-	if (ratio)
-		reg = AD4858_OS_EN | (ratio - 1);
+	axi_reg = axiadc_read(st, AD4858_AXI_REG_CNTRL_3);
+	axi_reg &= ~AD4858_AXI_OVERSAMPLE_EN;
 
-	return ad4858_spi_reg_write(adc, AD4858_REG_OVERSAMPLE, reg);
+	if (ratio) {
+		axi_reg |= AD4858_AXI_OVERSAMPLE_EN;
+		spi_reg = AD4858_OS_EN | (ratio - 1);
+	}
+
+	axiadc_write(st, AD4858_AXI_REG_CNTRL_3, axi_reg);
+
+	return ad4858_spi_reg_write(adc, AD4858_REG_OVERSAMPLE, spi_reg);
 }
 
 static int ad4858_get_oversampling_ratio(struct iio_dev *indio_dev,
