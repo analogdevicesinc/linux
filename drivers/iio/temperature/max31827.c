@@ -29,13 +29,13 @@
 #define MAX31827_CONFIGURATION_O_TEMP_STAT_MASK BIT(15)
 
 #define MAX31827_CNV_SHUTDOWN			0x0
-#define MAX31827_CNV_1_DIV_64_HZ		0x2
-#define MAX31827_CNV_1_DIV_32_HZ		0x4
-#define MAX31827_CNV_1_DIV_16_HZ		0x6
-#define MAX31827_CNV_1_DIV_4_HZ			0x8
-#define MAX31827_CNV_1_HZ			0xA
-#define MAX31827_CNV_4_HZ			0xC
-#define MAX31827_CNV_8_HZ			0xE
+#define MAX31827_CNV_1_DIV_64_HZ		0x1
+#define MAX31827_CNV_1_DIV_32_HZ		0x2
+#define MAX31827_CNV_1_DIV_16_HZ		0x3
+#define MAX31827_CNV_1_DIV_4_HZ			0x4
+#define MAX31827_CNV_1_HZ			0x5
+#define MAX31827_CNV_4_HZ			0x6
+#define MAX31827_CNV_8_HZ			0x7
 
 #define MAX31827_1SHOT_EN(x)			((x) ? BIT(0) : 0)
 
@@ -217,8 +217,8 @@ static int max31827_read_raw(struct iio_dev *indio_dev,
 		ret = regmap_read(st->regmap, MAX31827_CONFIGURATION_REG, &cfg);
 		if (ret < 0)
 			return ret;
-
-		cfg &= MAX31827_CONFIGURATION_CNV_RATE_MASK;
+		
+		cfg = FIELD_GET(MAX31827_CONFIGURATION_CNV_RATE_MASK, cfg);
 		switch (cfg) {
 		case MAX31827_CNV_SHUTDOWN:
 			*val = 0;
