@@ -563,6 +563,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 	dma_cfg->fixed_burst = of_property_read_bool(np, "snps,fixed-burst");
 	dma_cfg->mixed_burst = of_property_read_bool(np, "snps,mixed-burst");
 
+	dma_cfg->multi_irq_en = of_property_read_bool(np, "snps,multi-irq-en");
+
 	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
 	if (plat->force_thresh_dma_mode && plat->force_sf_dma_mode) {
 		plat->force_sf_dma_mode = 0;
@@ -706,6 +708,8 @@ EXPORT_SYMBOL_GPL(stmmac_remove_config_dt);
 int stmmac_get_platform_resources(struct platform_device *pdev,
 				  struct stmmac_resources *stmmac_res)
 {
+	char irq_name[11];
+	int i;
 	memset(stmmac_res, 0, sizeof(*stmmac_res));
 
 	/* Get IRQ information early to have an ability to ask for deferred
@@ -714,6 +718,22 @@ int stmmac_get_platform_resources(struct platform_device *pdev,
 	stmmac_res->irq = platform_get_irq_byname(pdev, "macirq");
 	if (stmmac_res->irq < 0)
 		return stmmac_res->irq;
+
+	/* For RX Channel */
+	for (i = 0; i < MTL_MAX_RX_QUEUES; i++) {
+		sprintf(irq_name, "%s%d", "macirq_rx", i);
+		stmmac_res->rx_irq[i] = platform_get_irq_byname(pdev, irq_name);
+		if (stmmac_res->rx_irq[i] < 0)
+			break;
+	}
+
+	/* For TX Channel */
+	for (i = 0; i < MTL_MAX_TX_QUEUES; i++) {
+		sprintf(irq_name, "%s%d", "macirq_tx", i);
+		stmmac_res->tx_irq[i] = platform_get_irq_byname(pdev, irq_name);
+			if (stmmac_res->tx_irq[i] < 0)
+				break;
+	}
 
 	/* On some platforms e.g. SPEAr the wake up irq differs from the mac irq
 	 * The external wake up irq can be passed through the platform code
