@@ -14,14 +14,6 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
-
-	clocks {
-		ext_clk: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <100000000>;
-		};
-	};
 };
 
 &fpga_axi {
@@ -47,12 +39,21 @@
 		};
 	};
 
+	ref_clk: clk@0x44000000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44000000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 16>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "ref_clk";
+	};
+
 	axi_pwm_gen: pwm@0x43d00000 {
 		compatible = "adi,axi-pwmgen";
 		reg = <0x43d00000 0x1000>;
 		label = "cnv";
 		#pwm-cells = <2>;
-		clocks = <&ext_clk>;
+		clocks = <&ref_clk>;
 	};
 
 	ad4858@0x43c00000 {
@@ -72,7 +73,7 @@
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		refin-supply = <&refin>;
-		clocks = <&ext_clk>;
+		clocks = <&ref_clk>;
 		clock-names = "scki";
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
