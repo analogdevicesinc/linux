@@ -810,7 +810,7 @@ static void ad_pulsar_reg_disable(void *data)
 	regulator_disable(data);
 }
 
-static void ad_pulsar_pwm_diasble(void *data)
+static void ad_pulsar_pwm_disable(void *data)
 {
 	pwm_disable(data);
 }
@@ -869,7 +869,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	if (IS_ERR(adc->cnv))
 		return PTR_ERR(adc->cnv);
 
-	ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_pwm_diasble,
+	ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_pwm_disable,
 				       adc->cnv);
 	if (ret)
 		return ret;
