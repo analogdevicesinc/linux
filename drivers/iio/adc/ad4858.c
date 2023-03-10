@@ -74,8 +74,10 @@
 #define AD4858_SDO_ENABLE		BIT(4)
 #define AD4858_SINGLE_INSTRUCTION	BIT(7)
 #define AD4858_ECHO_CLOCK_MODE		BIT(0)
+
 #define AD4858_PACKET_FORMAT_0		0
 #define AD4858_PACKET_FORMAT_1		1
+#define AD4858_PACKET_FORMAT		GENMASK(1, 0)
 #define AD4858_OS_EN			BIT(7)
 
 #define AD4858_INT_REF_VOLTAGE_MV	4096
@@ -97,6 +99,7 @@
 #define AD4858_STATUS_READY		BIT(7)
 
 #define AD4858_AXI_REG_CNTRL_3		0x4C
+#define AD4858_AXI_PACKET_CONFIG	GENMASK(1, 0)
 #define AD4858_AXI_OVERSAMPLE_EN	BIT(2)
 
 #define AD4858_AXI_ADC_TWOS_COMPLEMENT	0x01
@@ -133,6 +136,10 @@ struct ad4858_dev {
 static const char *const ad4858_os_ratios[] = {
 	"DISABLED", "2", "4", "8", "16", "32", "64", "128", "256", "512",
 	"1024", "2048", "4096", "8192", "16384", "32786", "65536"
+};
+
+static const char *const ad4858_packet_fmts[] = {
+	"20-bit", "24-bit", "32-bit"
 };
 
 static int ad4858_spi_reg_write(struct ad4858_dev *adc, unsigned int addr,
@@ -233,17 +240,72 @@ static int ad4858_get_oversampling_ratio(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int ad4858_set_packet_format(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    unsigned int format)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int axi_reg;
+	unsigned int spi_reg;
+	int ret;
+
+	axi_reg = axiadc_read(st, AD4858_AXI_REG_CNTRL_3);
+	axi_reg &= ~AD4858_AXI_PACKET_CONFIG;
+	axi_reg |= FIELD_PREP(AD4858_AXI_PACKET_CONFIG, format);
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_PACKET, &spi_reg);
+	if (ret < 0)
+		return ret;
+	spi_reg &= ~AD4858_PACKET_FORMAT;
+	spi_reg |= FIELD_PREP(AD4858_PACKET_FORMAT, format);
+
+	axiadc_write(st, AD4858_AXI_REG_CNTRL_3, axi_reg);
+
+	return ad4858_spi_reg_write(adc, AD4858_REG_PACKET, spi_reg);
+}
+
+static int ad4858_get_packet_format(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int format;
+	int ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_PACKET, &format);
+	if (ret < 0)
+		return ret;
+
+	format &= AD4858_PACKET_FORMAT;
+
+	return format;
+}
+
 static const struct iio_enum ad4858_os_ratio = {
 	.items = ad4858_os_ratios,
 	.num_items = ARRAY_SIZE(ad4858_os_ratios),
 	.set = ad4858_set_oversampling_ratio,
 	.get = ad4858_get_oversampling_ratio,
 };
+
+static const struct iio_enum ad4858_packet_fmt = {
+	.items = ad4858_packet_fmts,
+	.num_items = ARRAY_SIZE(ad4858_packet_fmts),
+	.set = ad4858_set_packet_format,
+	.get = ad4858_get_packet_format,
+};
+
 static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
 	IIO_ENUM("oversampling_ratio", IIO_SHARED_BY_ALL,
 		 &ad4858_os_ratio),
 	IIO_ENUM_AVAILABLE_SHARED("oversampling_ratio", IIO_SHARED_BY_ALL,
 				  &ad4858_os_ratio),
+	IIO_ENUM("packet_format", IIO_SHARED_BY_ALL,
+		 &ad4858_packet_fmt),
+	IIO_ENUM_AVAILABLE_SHARED("packet_format", IIO_SHARED_BY_ALL,
+				  &ad4858_packet_fmt),
 	{},
 };
 
@@ -444,7 +506,6 @@ static DEVICE_ATTR(device_status, 0444, ad4858_device_status_read, NULL);
 
 static int ad4858_setup(struct ad4858_dev *adc)
 {
-
 	unsigned char tx_data[3], rx_data[3];
 	struct spi_transfer xfer = {
 		.rx_buf = rx_data,
@@ -480,7 +541,9 @@ static int ad4858_setup(struct ad4858_dev *adc)
 	if (ret < 0)
 		return ret;
 
-	ad4858_spi_reg_write(adc, AD4858_REG_PACKET, AD4858_PACKET_FORMAT_1);
+	ret = ad4858_spi_reg_write(adc, AD4858_REG_PACKET, 0);
+	if (ret < 0)
+		return ret;
 
 	tx_data[0] = 0x0;
 	tx_data[1] = 0xA;
