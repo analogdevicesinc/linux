@@ -504,6 +504,8 @@ static const char * const adrv9009_ilas_mismatch_table[] = {
 	"checksum"
 };
 
+static int adrv9009_gt_fw_load(struct adrv9009_rf_phy *phy);
+
 static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 {
 	uint8_t mcsStatus = 0;
@@ -1029,6 +1031,11 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		if (ret != TALACT_NO_ACTION) {
 			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
+		ret = adrv9009_gt_fw_load(phy);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 			goto out_disable_tx_clk;
 		}
 	}
@@ -2703,68 +2710,70 @@ static struct iio_chan_spec_ext_info adrv9009_phy_tx_ext_info[] = {
 static int adrv9009_gainindex_to_gain(struct adrv9009_rf_phy *phy, int channel,
 				      unsigned index, int *val, int *val2)
 {
+	taliseGainIndex_t *gainIndexes = &phy->talDevice->devStateInfo.gainIndexes;
 	int code;
+	u8 entry;
 
 	switch (channel) {
 	case CHAN_RX1:
+		entry = gainIndexes->rx1MaxGainIndex - index;
+
 		if (phy->gt_info[RX1_RX2_GT].abs_gain_tbl) {
-			code = phy->gt_info[RX1_RX2_GT].abs_gain_tbl[index];
+			code = phy->gt_info[RX1_RX2_GT].abs_gain_tbl[entry];
 			break;
 		}
 
 		if (phy->gt_info[RX1_GT].abs_gain_tbl) {
-			code = phy->gt_info[RX1_GT].abs_gain_tbl[index];
+			code = phy->gt_info[RX1_GT].abs_gain_tbl[entry];
 			break;
 		}
 
-		code = MAX_RX_GAIN_mdB -
-		       (phy->talDevice->devStateInfo.gainIndexes.rx1MaxGainIndex - index) *
-		       RX_GAIN_STEP_mdB;
+		code = MAX_RX_GAIN_mdB - entry * RX_GAIN_STEP_mdB;
 		break;
 	case CHAN_RX2:
+		entry = gainIndexes->rx2MaxGainIndex - index;
+
 		if (phy->gt_info[RX1_RX2_GT].abs_gain_tbl) {
-			code = phy->gt_info[RX1_RX2_GT].abs_gain_tbl[index];
+			code = phy->gt_info[RX1_RX2_GT].abs_gain_tbl[entry];
 			break;
 		}
 
 		if (phy->gt_info[RX2_GT].abs_gain_tbl) {
-			code = phy->gt_info[RX2_GT].abs_gain_tbl[index];
+			code = phy->gt_info[RX2_GT].abs_gain_tbl[entry];
 			break;
 		}
 
-		code = MAX_RX_GAIN_mdB -
-		       (phy->talDevice->devStateInfo.gainIndexes.rx2MaxGainIndex - index) *
-		       RX_GAIN_STEP_mdB;
+		code = MAX_RX_GAIN_mdB - entry * RX_GAIN_STEP_mdB;
 		break;
 	case CHAN_OBS_RX1:
+		entry = gainIndexes->orx1MaxGainIndex - index;
+
 		if (phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl) {
-			code = phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl[index];
+			code = phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl[entry];
 			break;
 		}
 
 		if (phy->gt_info[ORX_RX1_GT].abs_gain_tbl) {
-			code = phy->gt_info[ORX_RX1_GT].abs_gain_tbl[index];
+			code = phy->gt_info[ORX_RX1_GT].abs_gain_tbl[entry];
 			break;
 		}
 
-		code = MAX_OBS_RX_GAIN_mdB -
-		       (phy->talDevice->devStateInfo.gainIndexes.orx1MaxGainIndex - index) *
-		       RX_GAIN_STEP_mdB;
+		code = MAX_OBS_RX_GAIN_mdB - entry * RX_GAIN_STEP_mdB;
 		break;
 	case CHAN_OBS_RX2:
+		entry = gainIndexes->orx2MaxGainIndex - index;
+
 		if (phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl) {
-			code = phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl[index];
+			code = phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl[entry];
 			break;
 		}
 
 		if (phy->gt_info[RX2_GT].abs_gain_tbl) {
-			code = phy->gt_info[ORX_RX2_GT].abs_gain_tbl[index];
+			code = phy->gt_info[ORX_RX2_GT].abs_gain_tbl[entry];
 			break;
 		}
 
-		code = MAX_OBS_RX_GAIN_mdB -
-		       (phy->talDevice->devStateInfo.gainIndexes.orx2MaxGainIndex - index) *
-		       RX_GAIN_STEP_mdB;
+		code = MAX_OBS_RX_GAIN_mdB - entry * RX_GAIN_STEP_mdB;
 		break;
 	default:
 		return -EINVAL;
@@ -2785,9 +2794,9 @@ static int find_table_index(struct adrv9009_rf_phy *phy,
 	u32 i, nm1, n;
 
 	for (i = 0; i < phy->gt_info[table].max_index; i++) {
-		if (phy->gt_info[table].abs_gain_tbl[i] > gain) {
+		if (phy->gt_info[table].abs_gain_tbl[i] <= gain) {
 			nm1 = abs(phy->gt_info[table].abs_gain_tbl[
-					  (i > 0) ? i - 1 : i] - gain);
+				(i > 0) ? i - 1 : i] - gain);
 			n = abs(phy->gt_info[table].abs_gain_tbl[i]
 				- gain);
 			if (nm1 < n)
@@ -2803,6 +2812,7 @@ static int find_table_index(struct adrv9009_rf_phy *phy,
 static int adrv9009_gain_to_gainindex(struct adrv9009_rf_phy *phy, int channel,
 				      int val, int val2, unsigned *index)
 {
+	taliseGainIndex_t *gainIndexes = &phy->talDevice->devStateInfo.gainIndexes;
 	int ret, gain = ((abs(val) * 1000) + (abs(val2) / 1000));
 
 	switch (channel) {
@@ -2810,7 +2820,7 @@ static int adrv9009_gain_to_gainindex(struct adrv9009_rf_phy *phy, int channel,
 		if (phy->gt_info[RX1_RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_RX2_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->rx1MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -2818,21 +2828,21 @@ static int adrv9009_gain_to_gainindex(struct adrv9009_rf_phy *phy, int channel,
 		if (phy->gt_info[RX1_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->rx1MaxGainIndex - ret;
 				break;
 			}
 		}
 
 		gain = clamp(gain, MIN_GAIN_mdB, MAX_RX_GAIN_mdB);
 		*index = (gain - MAX_RX_GAIN_mdB) / RX_GAIN_STEP_mdB +
-			 phy->talDevice->devStateInfo.gainIndexes.rx1MaxGainIndex;
+			 gainIndexes->rx1MaxGainIndex;
 		break;
 
 	case CHAN_RX2:
 		if (phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, ORX_RX1_RX2_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->rx2MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -2840,20 +2850,20 @@ static int adrv9009_gain_to_gainindex(struct adrv9009_rf_phy *phy, int channel,
 		if (phy->gt_info[RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->rx2MaxGainIndex - ret;
 				break;
 			}
 		}
 
 		gain = clamp(gain, MIN_GAIN_mdB, MAX_RX_GAIN_mdB);
 		*index = (gain - MAX_RX_GAIN_mdB) / RX_GAIN_STEP_mdB +
-			 phy->talDevice->devStateInfo.gainIndexes.rx2MaxGainIndex;
+			 gainIndexes->rx2MaxGainIndex;
 		break;
 	case CHAN_OBS_RX1:
 		if (phy->gt_info[ORX_RX1_RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, ORX_RX1_RX2_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->orx1MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -2861,21 +2871,21 @@ static int adrv9009_gain_to_gainindex(struct adrv9009_rf_phy *phy, int channel,
 		if (phy->gt_info[ORX_RX1_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, ORX_RX1_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->orx1MaxGainIndex - ret;
 				break;
 			}
 		}
 
 		gain = clamp(gain, MIN_GAIN_mdB, MAX_OBS_RX_GAIN_mdB);
 		*index = (gain - MAX_OBS_RX_GAIN_mdB) / RX_GAIN_STEP_mdB +
-			 phy->talDevice->devStateInfo.gainIndexes.orx1MaxGainIndex;
+			 gainIndexes->orx1MaxGainIndex;
 		break;
 
 	case CHAN_OBS_RX2:
 		if (phy->gt_info[RX1_RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, RX1_RX2_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->orx2MaxGainIndex - ret;
 				break;
 			}
 		}
@@ -2883,14 +2893,14 @@ static int adrv9009_gain_to_gainindex(struct adrv9009_rf_phy *phy, int channel,
 		if (phy->gt_info[ORX_RX2_GT].abs_gain_tbl) {
 			ret = find_table_index(phy, ORX_RX2_GT, gain);
 			if (ret >= 0) {
-				*index = ret;
+				*index = gainIndexes->orx2MaxGainIndex - ret;
 				break;
 			}
 		}
 
 		gain = clamp(gain, MIN_GAIN_mdB, MAX_OBS_RX_GAIN_mdB);
 		*index = (gain - MAX_OBS_RX_GAIN_mdB) / RX_GAIN_STEP_mdB +
-			 phy->talDevice->devStateInfo.gainIndexes.orx2MaxGainIndex;
+			 gainIndexes->orx2MaxGainIndex;
 		break;
 	default:
 		return -EINVAL;
@@ -5121,6 +5131,8 @@ static struct gain_table_info *adrv9009_parse_gt(struct adrv9009_rf_phy *phy,
 	char *line, *ptr = data;
 	u8 *p;
 	taliseOrxGainTable_t *gainTablePtr;
+	const u8 table_dest_lut[NUM_GT] =  {TAL_RX1, TAL_RX2, TAL_RX1RX2,
+		TAL_ORX1, TAL_ORX2, TAL_ORX1ORX2};
 
 	header_found = false;
 
@@ -5140,8 +5152,9 @@ static struct gain_table_info *adrv9009_parse_gt(struct adrv9009_rf_phy *phy,
 			u64 start;
 			u64 end;
 
-			ret = sscanf(line, " <gaintable AD%i type=%s dest=%i start=%lli end=%lli>",
-				     &model , type, &dest, &start, &end);
+			ret = sscanf(line,
+				" <gaintable ADRV%i type=%s dest=%i start=%lli end=%lli>",
+				&model, type, &dest, &start, &end);
 
 			if (ret == 5) {
 				if (!(model == 9009 || model == 9008)) {
@@ -5167,7 +5180,7 @@ static struct gain_table_info *adrv9009_parse_gt(struct adrv9009_rf_phy *phy,
 					goto out;
 				}
 
-				table[dest].dest = dest;
+				table[dest].dest = table_dest_lut[dest];
 				table[dest].abs_gain_tbl = (s32 *) p;
 				table[dest].gainTablePtr = (taliseRxGainTable_t *)(p +
 							   sizeof(s32[MAX_GAIN_TABLE_INDEX]));
@@ -5282,6 +5295,50 @@ adrv9009_gt_bin_write(struct file *filp, struct kobject *kobj,
 	mutex_unlock(&phy->indio_dev->mlock);
 
 	return (ret < 0) ? ret : count;
+}
+
+
+static int adrv9009_gt_fw_load(struct adrv9009_rf_phy *phy)
+{
+	const struct firmware *fw;
+	struct gain_table_info *table;
+	const char *name;
+	char *cpy;
+	int ret;
+
+	ret = of_property_read_string(phy->spi->dev.of_node,
+		"adi,gaintable-name", &name);
+	if (ret)
+		return 0;
+
+	dev_dbg(&phy->spi->dev, "request gaintable: %s\n", name);
+
+	ret = request_firmware(&fw, name, &phy->spi->dev);
+	if (ret) {
+		dev_err(&phy->spi->dev,
+			"request_firmware(%s) failed with %i\n", name, ret);
+		return ret;
+	}
+
+	cpy = kzalloc(fw->size, GFP_KERNEL);
+	if (!cpy)
+		goto out;
+
+	memcpy(cpy, fw->data, fw->size);
+
+	table = adrv9009_parse_gt(phy, cpy, fw->size);
+	if (IS_ERR_OR_NULL(table)) {
+		ret = PTR_ERR(table);
+		goto out_free;
+	}
+
+	ret = adrv9009_load_all_gt(phy, table);
+out_free:
+	kfree(cpy);
+out:
+	release_firmware(fw);
+
+	return ret;
 }
 
 #define ADRV9009_MAX_CLK_NAME 79
@@ -6160,6 +6217,12 @@ static int adrv9009_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	if (has_rx_and_en(phy)) {
 		ret = TALISE_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
 		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev,
+				"%s:%d (ret %d)", __func__, __LINE__, ret);
+			return -EFAULT;
+		}
+		ret = adrv9009_gt_fw_load(phy);
+		if (ret < 0) {
 			dev_err(&phy->spi->dev,
 				"%s:%d (ret %d)", __func__, __LINE__, ret);
 			return -EFAULT;
