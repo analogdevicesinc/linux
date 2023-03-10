@@ -558,7 +558,7 @@ static int ad_pulsar_read_avail(struct iio_dev *indio_dev,
 }
 
 static int ad_pulsar_buffer(struct iio_dev *indio_dev,
-				     struct spi_message *msg)
+			    struct spi_message *msg)
 {
 	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
 	u8 ch, next_active_ch, first, second, last, active_ch[8];
@@ -610,9 +610,8 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 		adc->seq_xfer[ch].word_delay.value = 2;
 		adc->seq_xfer[ch].word_delay.unit = SPI_DELAY_UNIT_USECS;
 
-		if (ch == last) {
+		if (ch == last)
 			adc->seq_xfer[ch].cs_change = 0;
-		}
 
 		spi_message_add_tail(&adc->seq_xfer[ch], msg);
 	}
