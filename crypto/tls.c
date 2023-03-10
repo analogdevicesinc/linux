@@ -1,6 +1,6 @@
 /*
  * Copyright 2013 Freescale
- * Copyright 2017 NXP
+ * Copyright 2017, 2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -50,9 +50,9 @@ struct async_op {
 	int err;
 };
 
-static void tls_async_op_done(struct crypto_async_request *req, int err)
+static void tls_async_op_done(void *data, int err)
 {
-	struct async_op *areq = req->data;
+	struct async_op *areq = data;
 
 	if (err == -EINPROGRESS)
 		return;
