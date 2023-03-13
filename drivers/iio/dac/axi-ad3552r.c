@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 
 #define AXI_REG_CNTRL_2				0x48
+#define   AXI_MSK_USIGN_DATA			BIT(4)
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
 #define AXI_REG_CNTRL_DATA_RD			0x80
@@ -61,6 +62,8 @@
 
 #define AD3552R_STREAM_2BYTE_LOOP		0x02
 #define AD3552R_STREAM_4BYTE_LOOP		0x04
+#define AD3552R_STREAM_SATRT			(AXI_MSK_TRANSFER_DATA | \
+						AXI_MSK_STREAM)
 
 #define AD3552R_CH0_ACTIVE			BIT(0)
 #define AD3552R_CH1_ACTIVE			BIT(1)
@@ -424,14 +427,13 @@ static const struct iio_info axi_ad3552r_info = {
 
 static int axi_ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 {
-	u32 read_val;
 	struct axi_ad3552r_state *st = iio_priv(indio_dev);
 
 	st->ddr = true;
-	axi_ad3552r_write(st, AXI_REG_CNTRL_2, 0x00010);
-	// Start stream transfer ddr
-	read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-	axi_ad3552r_write(st, AXI_REG_CNTRL_CSTM, read_val | 0x00000003);
+	axi_ad3552r_write(st, AXI_REG_CNTRL_2, AXI_MSK_USIGN_DATA |
+			  ~AXI_MSK_SDR_DDR_N);
+	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AD3552R_STREAM_SATRT,
+				AD3552R_STREAM_SATRT);
 	return 0;
 }
 
@@ -440,9 +442,11 @@ static int axi_ad3552r_buffer_postdisable(struct iio_dev *indio_dev)
 	struct axi_ad3552r_state *st = iio_priv(indio_dev);
 	u32 read_val;
 
-	read_val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
-	axi_ad3552r_write(st, AXI_REG_CNTRL_CSTM, read_val & 0xfffffffc);
-	axi_ad3552r_spi_write(st, AD3552R_REG_INTERFACE_CONFIG_D, 0x04, AD3552R_TFER_8BIT_DDR);
+	st->ddr = false;
+	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AD3552R_STREAM_SATRT, 0);
+	axi_ad3552r_spi_update_bits(st, AD3552R_REG_INTERFACE_CONFIG_D,
+				    AD3552R_MASK_SPI_CONFIG_DDR, 0,
+				    AD3552R_TFER_8BIT_DDR);
 
 	return 0;
 }
