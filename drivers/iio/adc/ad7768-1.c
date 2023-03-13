@@ -162,6 +162,46 @@ static const struct ad7768_clk_configuration ad7768_clk_config[] = {
 	{ AD7768_MCLK_DIV_16, AD7768_DEC_RATE_1024, 16384, AD7768_ECO_MODE },
 };
 
+static int ad7768_get_vcm(struct iio_dev *dev, const struct iio_chan_spec *chan);
+static int ad7768_set_vcm(struct iio_dev *dev, const struct iio_chan_spec *chan,
+			  unsigned int mode);
+
+static const struct iio_enum ad7768_vcm_mode_enum = {
+	.items = ad7768_vcm_modes,
+	.num_items = ARRAY_SIZE(ad7768_vcm_modes),
+	.set = ad7768_set_vcm,
+	.get = ad7768_get_vcm,
+};
+
+static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
+	IIO_ENUM("common_mode_voltage",
+		 IIO_SHARED_BY_ALL,
+		 &ad7768_vcm_mode_enum),
+	IIO_ENUM_AVAILABLE_SHARED("common_mode_voltage",
+				  IIO_SHARED_BY_ALL,
+				  &ad7768_vcm_mode_enum),
+	{ },
+};
+
+static const struct iio_chan_spec ad7768_channels[] = {
+	{
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = ad7768_ext_info,
+		.indexed = 1,
+		.channel = 0,
+		.scan_index = 0,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 24,
+			.storagebits = 32,
+			.shift = 8,
+		},
+	},
+};
+
 struct ad7768_state {
 	struct spi_device *spi;
 	struct regulator *vref;
@@ -175,6 +215,7 @@ struct ad7768_state {
 	struct completion completion;
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
+	const char *labels[ARRAY_SIZE(ad7768_channels)];
 	struct gpio_desc *gpio_reset;
 	bool spi_is_dma_mapped;
 	int irq;
@@ -188,6 +229,10 @@ struct ad7768_state {
 			__be32 word;
 			unsigned char status[2];
 		};
+		struct {
+			__be32 chan;
+			s64 timestamp;
+		} scan;
 	} data ____cacheline_aligned;
 };
 
@@ -228,6 +273,7 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 	xfer.tx_buf = tx_data;
 	return spi_sync_transfer(st->spi, &xfer, 1);
 }
+
 static int ad7768_spi_reg_write_masked(struct ad7768_state *st,
 				       unsigned int addr,
 				       unsigned int mask,
@@ -513,13 +559,6 @@ static int ad7768_set_vcm(struct iio_dev *dev,
 	return ret;
 }
 
-static const struct iio_enum ad7768_vcm_mode_enum = {
-	.items = ad7768_vcm_modes,
-	.num_items = ARRAY_SIZE(ad7768_vcm_modes),
-	.set = ad7768_set_vcm,
-	.get = ad7768_get_vcm,
-};
-
 static ssize_t ad7768_sampling_freq_avail(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf)
@@ -598,15 +637,13 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
-	IIO_ENUM("common_mode_voltage",
-		 IIO_SHARED_BY_ALL,
-		 &ad7768_vcm_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("common_mode_voltage",
-				  IIO_SHARED_BY_ALL,
-				  &ad7768_vcm_mode_enum),
-	{ },
-};
+static int ad7768_read_label(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, char *label)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+
+	return sprintf(label, "%s\n", st->labels[chan->channel]);
+}
 
 static struct attribute *ad7768_attributes[] = {
 	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
@@ -621,6 +658,7 @@ static const struct iio_info ad7768_info = {
 	.attrs = &ad7768_group,
 	.read_raw = &ad7768_read_raw,
 	.write_raw = &ad7768_write_raw,
+	.read_label = ad7768_read_label,
 	.debugfs_reg_access = &ad7768_reg_access,
 };
 
@@ -679,11 +717,11 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 
 	mutex_lock(&st->lock);
 
-	ret = spi_read(st->spi, &st->data.word, 3);
+	ret = spi_read(st->spi, &st->data.scan.chan, 3);
 	if (ret < 0)
 		goto err_unlock;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &st->data.word,
+	iio_push_to_buffers_with_timestamp(indio_dev, &st->data.scan,
 					   iio_get_time_ns(indio_dev));
 
 	iio_trigger_notify_done(indio_dev->trig);
@@ -804,7 +842,7 @@ static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
 	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
 
 	st->trig = devm_iio_trigger_alloc(indio_dev->dev.parent, "%s-dev%d",
-					  indio_dev->name, indio_dev->id);
+					  indio_dev->name, iio_device_id(indio_dev));
 	if (!st->trig)
 		return -ENOMEM;
 
@@ -849,24 +887,32 @@ static int ad7768_hardware_buffer_alloc(struct iio_dev *indio_dev)
 	return 0;
 }
 
-static const struct iio_chan_spec ad7768_channels[] = {
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = ad7768_ext_info,
-		.indexed = 1,
-		.channel = 0,
-		.scan_index = 0,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 24,
-			.storagebits = 32,
-			.shift = 8,
-		},
-	},
-};
+static int ad7768_set_channel_label(struct iio_dev *indio_dev,
+						int num_channels)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	struct device *device = indio_dev->dev.parent;
+	struct fwnode_handle *fwnode;
+	struct fwnode_handle *child;
+	const char *label;
+	int crt_ch = 0;
+
+	fwnode = dev_fwnode(device);
+	fwnode_for_each_child_node(fwnode, child) {
+		if (fwnode_property_read_u32(child, "reg", &crt_ch))
+			continue;
+
+		if (crt_ch >= num_channels)
+			continue;
+
+		if (fwnode_property_read_string(child, "label", &label))
+			continue;
+
+		st->labels[crt_ch] = label;
+	}
+
+	return 0;
+}
 
 static int ad7768_probe(struct spi_device *spi)
 {
@@ -911,7 +957,6 @@ static int ad7768_probe(struct spi_device *spi)
 	st->spi_is_dma_mapped = spi_engine_offload_supported(spi);
 	st->irq = spi->irq;
 
-	spi_set_drvdata(spi, indio_dev);
 	mutex_init(&st->lock);
 
 	indio_dev->channels = ad7768_channels;
@@ -925,6 +970,10 @@ static int ad7768_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "AD7768 setup failed\n");
 		return ret;
 	}
+
+	ret = ad7768_set_channel_label(indio_dev, ARRAY_SIZE(ad7768_channels));
+	if (ret)
+		return ret;
 
 	if (st->spi_is_dma_mapped)
 		ret = ad7768_hardware_buffer_alloc(indio_dev);

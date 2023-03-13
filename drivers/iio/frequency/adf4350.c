@@ -538,8 +538,10 @@ static int adf4350_probe(struct spi_device *spi)
 
 	st->lock_detect_gpiod = devm_gpiod_get_optional(&spi->dev, NULL,
 							GPIOD_IN);
-	if (IS_ERR(st->lock_detect_gpiod))
-		return PTR_ERR(st->lock_detect_gpiod);
+	if (IS_ERR(st->lock_detect_gpiod)) {
+		ret = PTR_ERR(st->lock_detect_gpiod);
+		goto error_disable_reg;
+	}
 
 	if (st->lock_detect_gpiod) {
 		int i;
@@ -604,8 +606,7 @@ error_disable_reg:
 	if (!IS_ERR(st->reg))
 		regulator_disable(st->reg);
 error_disable_clk:
-	if (clk)
-		clk_disable_unprepare(clk);
+	clk_disable_unprepare(clk);
 
 	return ret;
 }
@@ -621,8 +622,7 @@ static int adf4350_remove(struct spi_device *spi)
 
 	iio_device_unregister(indio_dev);
 
-	if (st->clk)
-		clk_disable_unprepare(st->clk);
+	clk_disable_unprepare(st->clk);
 
 	if (!IS_ERR(reg))
 		regulator_disable(reg);

@@ -93,7 +93,7 @@ static const char * const ad5766_dither_scales[] = {
 /**
  * struct ad5766_state - driver instance specific data
  * @spi:		SPI device
- * @lock:		Lock used to restrict concurent access to SPI device
+ * @lock:		Lock used to restrict concurrent access to SPI device
  * @chip_info:		Chip model specific constants
  * @gpio_reset:		Reset GPIO, used to reset the device
  * @crt_range:		Current selected output range
@@ -631,8 +631,6 @@ static int ad5766_probe(struct spi_device *spi)
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->info = &ad5766_info;
-	indio_dev->dev.parent = &spi->dev;
-	indio_dev->dev.of_node = spi->dev.of_node;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;

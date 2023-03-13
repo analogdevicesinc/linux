@@ -1512,7 +1512,6 @@ static void adxl367_disable_regulators(void *data)
 int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 		  void *context, struct regmap *regmap, int irq)
 {
-	struct iio_buffer *buffer;
 	struct iio_dev *indio_dev;
 	struct adxl367_state *st;
 	int ret;
@@ -1534,7 +1533,7 @@ int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 	indio_dev->available_scan_masks = adxl367_channel_masks;
 	indio_dev->name = "adxl367";
 	indio_dev->info = &adxl367_info;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
+	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	st->regulators[0].supply = "vdd";
 	st->regulators[1].supply = "vddio";
@@ -1567,15 +1566,12 @@ int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 	if (ret)
 		return ret;
 
-	buffer = devm_iio_kfifo_allocate(st->dev);
-	if (!buffer)
-		return -ENOMEM;
-
-	iio_device_attach_buffer(indio_dev, buffer);
-
-	indio_dev->setup_ops = &adxl367_buffer_ops;
-	/* devm_iio_kfifo_buffer_setup_ext is not available before 5.13 */
-	iio_buffer_set_attrs(indio_dev->buffer, adxl367_fifo_attributes);
+	ret = devm_iio_kfifo_buffer_setup_ext(st->dev, indio_dev,
+					      INDIO_BUFFER_SOFTWARE,
+					      &adxl367_buffer_ops,
+					      adxl367_fifo_attributes);
+	if (ret)
+		return ret;
 
 	ret = devm_request_threaded_irq(st->dev, irq, NULL,
 					adxl367_irq_handler, IRQF_ONESHOT,

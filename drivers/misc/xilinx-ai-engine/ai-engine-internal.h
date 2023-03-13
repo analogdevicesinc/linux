@@ -16,7 +16,6 @@
 #include <linux/device.h>
 #include <linux/dma-buf.h>
 #include <linux/file.h>
-#include <linux/fpga/fpga-bridge.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
@@ -26,6 +25,9 @@
 #include <linux/slab.h>
 #include <uapi/linux/xlnx-ai-engine.h>
 
+#define AIE_DEVICE_GEN_AIE	1U
+#define AIE_DEVICE_GEN_AIEML	2U
+
 /*
  * Macros for AI engine tile type bitmasks
  */
@@ -33,6 +35,7 @@ enum aie_tile_type {
 	AIE_TILE_TYPE_TILE,
 	AIE_TILE_TYPE_SHIMPL,
 	AIE_TILE_TYPE_SHIMNOC,
+	AIE_TILE_TYPE_MEMORY,
 	AIE_TILE_TYPE_MAX
 };
 
@@ -40,6 +43,7 @@ enum aie_tile_type {
 #define AIE_TILE_TYPE_MASK_SHIMPL	BIT(AIE_TILE_TYPE_SHIMPL)
 /* SHIM NOC tile includes SHIM PL and SHIM NOC modules */
 #define AIE_TILE_TYPE_MASK_SHIMNOC	BIT(AIE_TILE_TYPE_SHIMNOC)
+#define AIE_TILE_TYPE_MASK_MEMORY	BIT(AIE_TILE_TYPE_MEMORY)
 
 /*
  * Macros for attribute property of AI engine registers accessed by kernel
@@ -53,16 +57,12 @@ enum aie_tile_type {
 #define AIE_REGS_ATTR_PERM_MASK		GENMASK(15, \
 						AIE_REGS_ATTR_PERM_SHIFT)
 
-#define AIE_PART_STATUS_BRIDGE_DISABLED	0x1U
-
-/* Silicon Engineering Sample(ES) revision ID */
-#define VERSAL_ES1_REV_ID		0x0
-#define VERSAL_ES2_REV_ID		0x1
+#define KBYTES(n)	((n) * 1024)
 
 #define AIE_NPI_ERROR_ID		BIT(1)
 
 /* Macros relevant to interrupts */
-#define AIE_INTR_L2_CTRL_MASK_WIDTH	32
+#define AIE_INTR_L2_CTRL_MASK_WIDTH	32U
 
 /* Max number of modules per tile */
 #define AIE_MAX_MODS_PER_TILE		2U
@@ -89,17 +89,6 @@ enum aie_tile_type {
 #define DELIMITER_LEVEL0 "|"
 #define DELIMITER_LEVEL1 ", "
 #define DELIMITER_LEVEL2 "; "
-
-/* Macros to define size of temporary string buffers */
-#define AIE_SYSFS_CORE_STS_SIZE		100U
-#define AIE_SYSFS_CHAN_STS_SIZE		150U
-#define AIE_SYSFS_QUEUE_SIZE_SIZE	40U
-#define AIE_SYSFS_QUEUE_STS_SIZE	60U
-#define AIE_SYSFS_BD_SIZE		40U
-#define AIE_SYSFS_ERROR_SIZE		300U
-#define AIE_SYSFS_ERROR_CATEGORY_SIZE	500U
-#define AIE_SYSFS_LOCK_STS_SIZE		400U
-#define AIE_SYSFS_EVENT_STS_SIZE	550U
 
 /* Helper macros to dynamically create sysfs device attribute */
 #define AIE_PART_DEV_ATTR_RO(_name) {				\
@@ -264,9 +253,11 @@ struct aie_part_mem {
  * @qsize: queue size field attributes
  * @curbd: current buffer descriptor field attributes
  * @qsts: queue status field attributes
+ * @fifo_cnt: FIFO counter field attributes
  * @bd_regoff: SHIM DMA buffer descriptors register offset
  * @mm2s_sts_regoff: MM2S status register offset
  * @s2mm_sts_regoff: S2MM status register offset
+ * @fifo_cnt_regoff: FIFO counter register offset
  * @num_mm2s_chan: number of MM2S channels
  * @num_s2mm_chan: number of S2MM channels
  * @num_bds: number of buffer descriptors
@@ -281,9 +272,11 @@ struct aie_dma_attr {
 	struct aie_single_reg_field qsize;
 	struct aie_single_reg_field curbd;
 	struct aie_single_reg_field qsts;
+	struct aie_single_reg_field fifo_cnt;
 	u32 bd_regoff;
 	u32 mm2s_sts_regoff;
 	u32 s2mm_sts_regoff;
+	u32 fifo_cnt_regoff;
 	u32 num_mm2s_chan;
 	u32 num_s2mm_chan;
 	u32 num_bds;
@@ -300,6 +293,7 @@ struct aie_core_regs_attr {
 	u32 width;
 };
 
+struct aie_aperture;
 /**
  * struct aie_tile_operations - AI engine device operations
  * @get_tile_type: get type of tile based on tile operation
@@ -322,20 +316,24 @@ struct aie_core_regs_attr {
  *		     caller to apply partition lock before calling this
  *		     function. The caller function will need to set the bitmap
  *		     on which tiles are required to be clocked on.
+ * @mem_clear: clear data memory banks of the partition.
  *
  * Different AI engine device version has its own device
  * operation.
  */
 struct aie_tile_operations {
-	u32 (*get_tile_type)(struct aie_location *loc);
-	unsigned int (*get_mem_info)(struct aie_range *range,
+	u32 (*get_tile_type)(struct aie_device *adev, struct aie_location *loc);
+	unsigned int (*get_mem_info)(struct aie_device *adev,
+				     struct aie_range *range,
 				     struct aie_part_mem *pmem);
 	u32 (*get_core_status)(struct aie_partition *apart,
 			       struct aie_location *loc);
-	int (*reset_shim)(struct aie_device *adev, struct aie_range *range);
+	int (*reset_shim)(struct aie_aperture *aperture,
+			  struct aie_range *range);
 	int (*init_part_clk_state)(struct aie_partition *apart);
 	int (*scan_part_clocks)(struct aie_partition *apart);
 	int (*set_part_clocks)(struct aie_partition *apart);
+	int (*mem_clear)(struct aie_partition *apart);
 };
 
 /**
@@ -640,13 +638,11 @@ struct aie_tile {
 
 /**
  * struct aie_device - AI engine device structure
- * @partitions: list of partitions requested
+ * @apertures: list of apertures
  * @cdev: cdev for the AI engine
  * @dev: device for the AI engine device
  * @mlock: protection for AI engine device operations
- * @base: AI engine device base virtual address
  * @clk: AI enigne device clock
- * @res: memory resource of AI engine device
  * @kernel_regs: array of kernel only registers
  * @core_regs: array of core registers
  * @ops: tile operations
@@ -662,17 +658,14 @@ struct aie_tile {
  * @core_errors: core module error attribute
  * @mem_errors: memory module error attribute
  * @shim_errors: shim tile error attribute
- * @size: size of the AI engine address space
  * @array_shift: array address shift
  * @col_shift: column address shift
  * @row_shift: row address shift
+ * @dev_gen: aie hardware device generation
  * @cols_res: AI engine columns resources to indicate
  *	      while columns are occupied by partitions.
  * @num_kernel_regs: number of kernel only registers range
  * @num_core_regs: number of core registers range
- * @irq: Linux IRQ number
- * @backtrack: workqueue to backtrack interrupt
- * @version: AI engine device version
  * @pm_node_id: AI Engine platform management node ID
  * @clock_id: AI Engine clock ID
  * @ttype_attr: tile type attributes
@@ -689,13 +682,11 @@ struct aie_tile {
  * @lock_status_str: lock status in string format
  */
 struct aie_device {
-	struct list_head partitions;
+	struct list_head apertures;
 	struct cdev cdev;
 	struct device dev;
-	struct mutex mlock; /* protection for AI engine partitions */
-	void __iomem *base;
+	struct mutex mlock; /* protection for AI engine apertures */
 	struct clk *clk;
-	struct resource *res;
 	const struct aie_tile_regs *kernel_regs;
 	const struct aie_core_regs_attr *core_regs;
 	const struct aie_tile_operations *ops;
@@ -711,16 +702,12 @@ struct aie_device {
 	const struct aie_error_attr *core_errors;
 	const struct aie_error_attr *mem_errors;
 	const struct aie_error_attr *shim_errors;
-	size_t size;
-	struct aie_resource cols_res;
 	u32 array_shift;
 	u32 col_shift;
 	u32 row_shift;
+	u32 dev_gen;
 	u32 num_kernel_regs;
 	u32 num_core_regs;
-	int irq;
-	struct work_struct backtrack;
-	int version;
 	u32 pm_node_id;
 	u32 clock_id;
 	struct aie_tile_attr ttype_attr[AIE_TILE_TYPE_MAX];
@@ -738,26 +725,50 @@ struct aie_device {
 };
 
 /**
- * struct aie_part_bridge - AI engine FPGA bridge
- * @name: name of the FPGA bridge
- * @br: pointer to FPGA bridge
+ * struct aie_aperture - AI engine aperture structure
+ * @node: list node
+ * @partitions: list of partitions of this aperture
+ * @adev: pointer to AI device instance
+ * @mlock: protection for AI engine aperture operations
+ * @base: AI engine aperture base virtual address
+ * @res: memory resource of AI engine aperture
+ * @dev: device of aperture
+ * @cols_res: AI engine columns resources to indicate
+ *	      while columns are occupied by partitions.
+ * @node_id: AI engine aperture node id which is to identify
+ *	     the aperture in the system in firmware
+ * @irq: Linux IRQ number
+ * @range: range of aperture
+ * @backtrack: workqueue to backtrack interrupt
+ * @l2_mask: level 2 interrupt controller mask bitmap
  */
-struct aie_part_bridge {
-	char name[32];
-	struct fpga_bridge *br;
+struct aie_aperture {
+	struct list_head node;
+	struct list_head partitions;
+	struct aie_device *adev;
+	struct mutex mlock; /* protection for AI engine aperture operations */
+	void __iomem *base;
+	struct resource res;
+	struct device dev;
+	struct aie_resource cols_res;
+	u32 node_id;
+	int irq;
+	struct aie_range range;
+	struct work_struct backtrack;
+	struct aie_resource l2_mask;
 };
 
 /**
  * struct aie_partition - AI engine partition structure
  * @node: list node
  * @dbufs: dmabufs list
+ * @aperture: pointer to AI engine aperture
  * @adev: pointer to AI device instance
  * @filep: pointer to file for refcount on the users of the partition
  * @pmems: pointer to partition memories types
  * @dbufs_cache: memory management object for preallocated dmabuf descriptors
  * @trscs: resources bitmaps for each tile
  * @freq_req: required frequency
- * @br: AI engine FPGA bridge
  * @range: range of partition
  * @mlock: protection for AI engine partition operations
  * @dev: device for the AI engine partition
@@ -768,7 +779,6 @@ struct aie_part_bridge {
  * @core_event_status: core module event bitmap
  * @mem_event_status: memory module event bitmap
  * @pl_event_status: pl module event bitmap
- * @l2_mask: level 2 interrupt controller mask bitmap
  * @attr_grp: attribute group
  * @partition_id: partition id. Partition ID is the identifier
  *		  of the AI engine partition in the system.
@@ -783,7 +793,7 @@ struct aie_part_bridge {
 struct aie_partition {
 	struct list_head node;
 	struct list_head dbufs;
-	struct aie_part_bridge br;
+	struct aie_aperture *aperture;
 	struct aie_device *adev;
 	struct file *filep;
 	struct aie_part_mem *pmems;
@@ -800,7 +810,6 @@ struct aie_partition {
 	struct aie_resource core_event_status;
 	struct aie_resource mem_event_status;
 	struct aie_resource pl_event_status;
-	struct aie_resource l2_mask;
 	struct attribute_group *attr_grp;
 	u32 partition_id;
 	u32 status;
@@ -900,10 +909,28 @@ static inline u32 aie_cal_regoff(struct aie_device *adev,
 }
 
 /**
+ * aie_aperture_cal_regoff() - calculate register offset to the whole AI engine
+ *                             device start address
+ * @aperture: AI aperture
+ * @loc: AI engine tile location
+ * @regoff_intile: register offset within a tile
+ * @return: register offset to the whole AI engine device start address
+ */
+static inline u32 aie_aperture_cal_regoff(struct aie_aperture *aperture,
+					  struct aie_location loc,
+					  u32 regoff_intile)
+{
+	struct aie_device *adev = aperture->adev;
+
+	return regoff_intile + ((loc.col - aperture->range.start.col) <<
+				adev->col_shift) + (loc.row << adev->row_shift);
+}
+
+/**
  * aie_validate_location() - validate tile location within an AI engine
  *			     partition
  * @apart: AI engine partition
- * @loc: AI engine tile location
+ * @loc: AI engine tile location relative in partition
  * @return: return 0 if it is valid, negative value for errors.
  *
  * This function checks if the AI engine location is within the AI engine
@@ -912,10 +939,8 @@ static inline u32 aie_cal_regoff(struct aie_device *adev,
 static inline int aie_validate_location(struct aie_partition *apart,
 					struct aie_location loc)
 {
-	if (loc.col < apart->range.start.col ||
-	    loc.col >= apart->range.start.col + apart->range.size.col ||
-	    loc.row < apart->range.start.row ||
-	    loc.row >= apart->range.start.row + apart->range.size.row)
+	if (loc.col >= apart->range.size.col ||
+	    loc.row >= apart->range.size.row)
 		return -EINVAL;
 
 	return 0;
@@ -983,14 +1008,15 @@ const struct file_operations *aie_part_get_fops(void);
 u8 aie_part_in_use(struct aie_partition *apart);
 struct aie_partition *aie_get_partition_from_id(struct aie_device *adev,
 						u32 partition_id);
-struct aie_partition *of_aie_part_probe(struct aie_device *adev,
-					struct device_node *nc);
+void of_xilinx_ai_engine_aperture_probe(struct aie_device *adev);
+struct aie_device *of_ai_engine_class_find(struct device_node *np);
+int xilinx_ai_engine_add_dev(struct aie_device *adev,
+			     struct platform_device *pdev);
+int xilinx_ai_engine_probe_v1(struct platform_device *pdev);
+
 void aie_part_remove(struct aie_partition *apart);
 int aie_part_clean(struct aie_partition *apart);
 int aie_part_open(struct aie_partition *apart, void *rsc_metadata);
-
-int aie_fpga_create_bridge(struct aie_partition *apart);
-void aie_fpga_free_bridge(struct aie_partition *apart);
 
 int aie_mem_get_info(struct aie_partition *apart, unsigned long arg);
 
@@ -1008,18 +1034,14 @@ int aie_part_scan_clk_state(struct aie_partition *apart);
 bool aie_part_check_clk_enable_loc(struct aie_partition *apart,
 				   struct aie_location *loc);
 int aie_part_set_freq(struct aie_partition *apart, u64 freq);
-int aie_part_get_running_freq(struct aie_partition *apart, u64 *freq);
+int aie_part_get_freq(struct aie_partition *apart, u64 *freq);
 
 int aie_part_request_tiles_from_user(struct aie_partition *apart,
 				     void __user *user_args);
 int aie_part_release_tiles_from_user(struct aie_partition *apart,
 				     void __user *user_args);
 int aie_device_init(struct aie_device *adev);
-
-void aie_array_backtrack(struct work_struct *work);
-irqreturn_t aie_interrupt(int irq, void *data);
-void aie_part_clear_cached_events(struct aie_partition *apart);
-int aie_part_set_intr_rscs(struct aie_partition *apart);
+int aieml_device_init(struct aie_device *adev);
 
 bool aie_part_has_mem_mmapped(struct aie_partition *apart);
 bool aie_part_has_regs_mmapped(struct aie_partition *apart);
@@ -1029,6 +1051,31 @@ int aie_part_get_tile_rows(struct aie_partition *apart,
 
 int aie_part_reset(struct aie_partition *apart);
 int aie_part_post_reinit(struct aie_partition *apart);
+struct aie_partition *aie_create_partition(struct aie_aperture *aperture,
+					   u32 partition_id);
+
+void aie_aperture_backtrack(struct work_struct *work);
+irqreturn_t aie_interrupt(int irq, void *data);
+int aie_aperture_create_l2_bitmap(struct aie_aperture *aperture);
+bool aie_part_has_error(struct aie_partition *apart);
+void aie_part_clear_cached_events(struct aie_partition *apart);
+int aie_part_set_intr_rscs(struct aie_partition *apart);
+
+struct aie_aperture *
+of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc);
+int aie_aperture_remove(struct aie_aperture *aperture);
+int aie_aperture_check_part_avail(struct aie_aperture *aperture,
+				  struct aie_partition_req *req);
+struct aie_partition *
+aie_aperture_request_part_from_id(struct aie_aperture *aperture,
+				  u32 partition_id);
+int aie_aperture_enquire_parts(struct aie_aperture *aperture,
+			       unsigned int num_queries,
+			       struct aie_range_args  *queries,
+			       int *num_parts_left, bool to_user);
+unsigned int aie_aperture_get_num_parts(struct aie_aperture *aperture);
+int aie_aperture_add_dev(struct aie_aperture *aperture,
+			 struct device_node *nc);
 
 int aie_part_rscmgr_init(struct aie_partition *apart);
 void aie_part_rscmgr_finish(struct aie_partition *apart);
@@ -1080,6 +1127,7 @@ u32 aie_get_module_error_count(struct aie_partition *apart,
 			       struct aie_location loc,
 			       enum aie_module_type module,
 			       const struct aie_error_attr *err_attr);
+bool aie_check_tile_error(struct aie_partition *apart, struct aie_location loc);
 bool aie_check_error_bitmap(struct aie_partition *apart,
 			    struct aie_location loc,
 			    enum aie_module_type module, u8 event);
@@ -1091,6 +1139,8 @@ ssize_t aie_tile_show_error(struct device *dev, struct device_attribute *attr,
 			    char *buffer);
 ssize_t aie_part_show_error_stat(struct device *dev,
 				 struct device_attribute *attr, char *buffer);
+ssize_t aie_part_show_current_freq(struct device *dev,
+				   struct device_attribute *attr, char *buffer);
 ssize_t aie_part_read_cb_error(struct kobject *kobj, char *buffer,
 			       ssize_t size);
 ssize_t aie_tile_show_event(struct device *dev, struct device_attribute *attr,
@@ -1103,4 +1153,6 @@ ssize_t aie_part_read_cb_status(struct kobject *kobj, char *buffer,
 long aie_part_rscmgr_get_statistics(struct aie_partition *apart,
 				    void __user *user_args);
 
+int aie_overlay_register_notifier(void);
+void aie_overlay_unregister_notifier(void);
 #endif /* AIE_INTERNAL_H */

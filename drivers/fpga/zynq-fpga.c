@@ -192,7 +192,7 @@ static void zynq_step_dma(struct zynq_fpga_priv *priv)
 
 	/* Once the first transfer is queued we can turn on the ISR, future
 	 * calls to zynq_step_dma will happen from the ISR context. The
-	 * dma_lock spinlock guarentees this handover is done coherently, the
+	 * dma_lock spinlock guarantees this handover is done coherently, the
 	 * ISR enable is put at the end to avoid another CPU spinning in the
 	 * ISR on this lock.
 	 */
@@ -267,7 +267,7 @@ static int zynq_fpga_ops_write_init(struct fpga_manager *mgr,
 		ctrl = zynq_fpga_read(priv, CTRL_OFFSET);
 		if (!(ctrl & CTRL_SEC_EN_MASK)) {
 			dev_err(&mgr->dev,
-				"System not secure, can't use crypted bitstreams\n");
+				"System not secure, can't use encrypted bitstreams\n");
 			err = -EINVAL;
 			goto out_err;
 		}
@@ -344,7 +344,7 @@ static int zynq_fpga_ops_write_init(struct fpga_manager *mgr,
 
 	/* set configuration register with following options:
 	 * - enable PCAP interface
-	 * - set throughput for maximum speed (if bistream not crypted)
+	 * - set throughput for maximum speed (if bistream not encrypted)
 	 * - set CPU in user mode
 	 */
 	ctrl = zynq_fpga_read(priv, CTRL_OFFSET);
@@ -493,14 +493,15 @@ static int zynq_fpga_ops_write_complete(struct fpga_manager *mgr,
 	if (err)
 		return err;
 
-	/* Release 'PR' control back to the ICAP */
-	zynq_fpga_write(priv, CTRL_OFFSET,
-		zynq_fpga_read(priv, CTRL_OFFSET) & ~CTRL_PCAP_PR_MASK);
-
 	err = zynq_fpga_poll_timeout(priv, INT_STS_OFFSET, intr_status,
 				     intr_status & IXR_PCFG_DONE_MASK,
 				     INIT_POLL_DELAY,
 				     INIT_POLL_TIMEOUT);
+
+	/* Release 'PR' control back to the ICAP */
+	zynq_fpga_write(priv, CTRL_OFFSET,
+			zynq_fpga_read(priv, CTRL_OFFSET)
+			& ~CTRL_PCAP_PR_MASK);
 
 	clk_disable(priv->clk);
 

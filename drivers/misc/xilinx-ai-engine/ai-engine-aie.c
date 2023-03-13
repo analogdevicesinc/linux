@@ -13,8 +13,6 @@
 
 #include "ai-engine-internal.h"
 
-#define KBYTES(n)	((n) * 1024)
-
 #define AIE_ARRAY_SHIFT		30U
 #define AIE_COL_SHIFT		23U
 #define AIE_ROW_SHIFT		18U
@@ -62,6 +60,7 @@
 #define AIE_SHIMNOC_DMA_BD0_ADDRLOW_REGOFF	0x0001d000U
 #define AIE_SHIMNOC_DMA_BD15_PACKET_REGOFF	0x0001d13cU
 #define AIE_SHIMNOC_AXIMM_REGOFF		0x0001e020U
+#define AIE_SHIMPL_BISR_CACHE_CTRL_REGOFF	0x00036000U
 #define AIE_SHIMPL_L1INTR_MASK_A_REGOFF		0x00035000U
 #define AIE_SHIMPL_L1INTR_BLOCK_NORTH_B_REGOFF	0x00035050U
 #define AIE_SHIMPL_CLKCNTR_REGOFF		0x00036040U
@@ -140,6 +139,12 @@ static const struct aie_tile_regs aie_kernel_regs[] = {
 		      AIE_REGS_ATTR_TILE_TYPE_SHIFT,
 	 .soff = AIE_SHIMPL_CLKCNTR_REGOFF,
 	 .eoff = AIE_SHIMPL_CLKCNTR_REGOFF,
+	},
+	/* SHIM BISR cache control */
+	{.attribute = (AIE_TILE_TYPE_MASK_SHIMPL | AIE_TILE_TYPE_MASK_SHIMNOC) <<
+		      AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	 .soff = AIE_SHIMPL_BISR_CACHE_CTRL_REGOFF,
+	 .eoff = AIE_SHIMPL_BISR_CACHE_CTRL_REGOFF,
 	},
 	/* SHIM group error enable */
 	{.attribute = (AIE_TILE_TYPE_MASK_SHIMPL | AIE_TILE_TYPE_MASK_SHIMNOC) <<
@@ -228,9 +233,14 @@ static const struct aie_dma_attr aie_shimdma = {
 		.mask = BIT(28),
 		.regoff = 1U,
 	},
-	.bd_regoff = 0x0001d000U,
+	.fifo_cnt = {
+		.mask = GENMASK(12, 0),
+		.regoff = 16U,
+	},
+	.bd_regoff = AIE_SHIMNOC_DMA_BD0_ADDRLOW_REGOFF,
 	.mm2s_sts_regoff = 0x1d164U,
 	.s2mm_sts_regoff = 0x1d160U,
+	.fifo_cnt_regoff = 0x1DF20U,
 	.num_bds = 16,
 	.num_mm2s_chan = 2U,
 	.num_s2mm_chan = 2U,
@@ -868,6 +878,7 @@ static const struct aie_dev_attr aie_tile_dev_attr[] = {
 
 static const struct aie_dev_attr aie_part_dev_attr[] = {
 	AIE_PART_DEV_ATTR_RO(error_stat),
+	AIE_PART_DEV_ATTR_RO(current_freq),
 };
 
 static const struct aie_bin_attr aie_part_bin_attr[] = {
@@ -892,7 +903,7 @@ static const struct aie_sysfs_attr aie_tile_sysfs_attr = {
 	.num_bin_attrs = 0U,
 };
 
-static u32 aie_get_tile_type(struct aie_location *loc)
+static u32 aie_get_tile_type(struct aie_device *adev, struct aie_location *loc)
 {
 	if (loc->row)
 		return AIE_TILE_TYPE_TILE;
@@ -903,10 +914,12 @@ static u32 aie_get_tile_type(struct aie_location *loc)
 	return AIE_TILE_TYPE_SHIMNOC;
 }
 
-static unsigned int aie_get_mem_info(struct aie_range *range,
+static unsigned int aie_get_mem_info(struct aie_device *adev,
+				     struct aie_range *range,
 				     struct aie_part_mem *pmem)
 {
 	unsigned int i;
+	u8 start_row, num_rows;
 
 	if (range->start.row + range->size.row <= 1) {
 		/* SHIM row only, no memories in this range */
@@ -919,28 +932,31 @@ static unsigned int aie_get_mem_info(struct aie_range *range,
 		struct aie_mem *mem = &pmem[i].mem;
 
 		memcpy(&mem->range, range, sizeof(*range));
-		if (!mem->range.start.row) {
-			mem->range.start.row = 1;
-			mem->range.size.row--;
-		}
 	}
+
+	start_row = adev->ttype_attr[AIE_TILE_TYPE_TILE].start_row;
+	num_rows = adev->ttype_attr[AIE_TILE_TYPE_TILE].num_rows;
 	/* Setup tile data memory information */
 	pmem[0].mem.offset = 0;
 	pmem[0].mem.size = KBYTES(32);
+	pmem[0].mem.range.start.row = start_row;
+	pmem[0].mem.range.size.row = num_rows;
 	/* Setup program memory information */
 	pmem[1].mem.offset = 0x20000;
 	pmem[1].mem.size = KBYTES(16);
+	pmem[1].mem.range.start.row = start_row;
+	pmem[1].mem.range.size.row = num_rows;
 
 	return NUM_MEMS_PER_TILE;
 }
 
 /**
  * aie_set_shim_reset() - Set AI engine SHIM reset
- * @adev: AI engine device
+ * @aperture: AI engine aperture
  * @range: range of AI engine tiles
  * @assert: true to set reset, false to unset reset
  */
-static void aie_set_shim_reset(struct aie_device *adev,
+static void aie_set_shim_reset(struct aie_aperture *aperture,
 			       struct aie_range *range, bool assert)
 {
 	u32 c;
@@ -954,23 +970,25 @@ static void aie_set_shim_reset(struct aie_device *adev,
 		u32 regoff;
 
 		loc.col = c;
-		regoff = aie_cal_regoff(adev, loc, AIE_SHIMPL_RESET_REGOFF);
-		iowrite32(val, adev->base + regoff);
+		regoff = aie_cal_regoff(aperture->adev, loc,
+					AIE_SHIMPL_RESET_REGOFF);
+		iowrite32(val, aperture->base + regoff);
 	}
 }
 
-static int aie_reset_shim(struct aie_device *adev, struct aie_range *range)
+static int aie_reset_shim(struct aie_aperture *aperture,
+			  struct aie_range *range)
 {
 	int ret;
 
 	/* Enable shim reset of each column */
-	aie_set_shim_reset(adev, range, true);
+	aie_set_shim_reset(aperture, range, true);
 
 	/* Assert shim reset of AI engine array */
 	ret = zynqmp_pm_reset_assert(VERSAL_PM_RST_AIE_SHIM_ID,
 				     PM_RESET_ACTION_ASSERT);
 	if (ret < 0) {
-		dev_err(&adev->dev, "failed to assert SHIM reset.\n");
+		dev_err(&aperture->dev, "failed to assert SHIM reset.\n");
 		return ret;
 	}
 
@@ -978,12 +996,12 @@ static int aie_reset_shim(struct aie_device *adev, struct aie_range *range)
 	ret = zynqmp_pm_reset_assert(VERSAL_PM_RST_AIE_SHIM_ID,
 				     PM_RESET_ACTION_RELEASE);
 	if (ret < 0) {
-		dev_err(&adev->dev, "failed to release SHIM reset.\n");
+		dev_err(&aperture->dev, "failed to release SHIM reset.\n");
 		return ret;
 	}
 
 	/* Disable shim reset of each column */
-	aie_set_shim_reset(adev, range, false);
+	aie_set_shim_reset(aperture, range, false);
 
 	return 0;
 }
@@ -1014,6 +1032,7 @@ static int aie_init_part_clk_state(struct aie_partition *apart)
 static int aie_scan_part_clocks(struct aie_partition *apart)
 {
 	struct aie_device *adev = apart->adev;
+	struct aie_aperture *aperture = apart->aperture;
 	struct aie_range *range = &apart->range;
 	struct aie_location loc;
 
@@ -1036,9 +1055,10 @@ static int aie_scan_part_clocks(struct aie_partition *apart)
 			 */
 			nbitpos = loc.col * (range->size.row - 1) + loc.row;
 
-			if (aie_get_tile_type(&loc) != AIE_TILE_TYPE_TILE) {
+			if (aie_get_tile_type(adev, &loc) !=
+					AIE_TILE_TYPE_TILE) {
 				/* Checks shim tile for next core tile */
-				va = adev->base +
+				va = aperture->base +
 				     aie_cal_regoff(adev, loc,
 						    AIE_SHIMPL_CLKCNTR_REGOFF);
 				val = ioread32(va);
@@ -1059,7 +1079,7 @@ static int aie_scan_part_clocks(struct aie_partition *apart)
 			}
 
 			/* Checks core tile for next tile */
-			va = adev->base +
+			va = aperture->base +
 			     aie_cal_regoff(adev, loc,
 					    AIE_TILE_CORE_CLKCNTR_REGOFF);
 			val = ioread32(va);
@@ -1110,6 +1130,7 @@ static int aie_set_col_clocks(struct aie_partition *apart,
 	     ploc.row < range->start.row + range->size.row - 1;
 	     ploc.row++) {
 		struct aie_device *adev = apart->adev;
+		struct aie_aperture *aperture = apart->aperture;
 
 		if (!ploc.row) {
 			void __iomem *va;
@@ -1122,7 +1143,7 @@ static int aie_set_col_clocks(struct aie_partition *apart,
 			if (enable)
 				val = AIE_SHIMPL_CLKCNTR_COLBUF_MASK |
 				      AIE_SHIMPL_CLKCNTR_NEXTCLK_MASK;
-			va = adev->base +
+			va = aperture->base +
 			     aie_cal_regoff(adev, ploc,
 					    AIE_SHIMPL_CLKCNTR_REGOFF);
 			iowrite32(val, va);
@@ -1137,7 +1158,7 @@ static int aie_set_col_clocks(struct aie_partition *apart,
 			if (enable)
 				val = AIE_TILE_CLKCNTR_COLBUF_MASK |
 				      AIE_TILE_CLKCNTR_NEXTCLK_MASK;
-			va = adev->base +
+			va = aperture->base +
 			     aie_cal_regoff(adev, ploc,
 					    AIE_TILE_CORE_CLKCNTR_REGOFF);
 			iowrite32(val, va);
@@ -1149,8 +1170,8 @@ static int aie_set_col_clocks(struct aie_partition *apart,
 	}
 
 	/* Update clock state bitmap */
-	startbit = range->start.col * (apart->range.size.row - 1) +
-		   range->start.row - 1;
+	startbit = (range->start.col - apart->range.start.col) *
+		   (apart->range.size.row - 1) + range->start.row - 1;
 	if (enable)
 		aie_resource_set(&apart->cores_clk_state, startbit,
 				 range->size.row);
@@ -1164,7 +1185,7 @@ static int aie_set_col_clocks(struct aie_partition *apart,
 static int aie_set_part_clocks(struct aie_partition *apart)
 {
 	struct aie_range *range = &apart->range, lrange;
-	struct aie_location loc;
+	struct aie_location rloc;
 
 	/*
 	 * The tiles below the highest tile whose clock is on, need to have the
@@ -1172,26 +1193,24 @@ static int aie_set_part_clocks(struct aie_partition *apart)
 	 * see which tiles are required to be clocked on, and update the bitmap
 	 * to make sure the tiles below are also required to be clocked on.
 	 */
-	for (loc.col = range->start.col;
-	     loc.col < range->start.col + range->size.col;
-	     loc.col++) {
+	for (rloc.col = 0; rloc.col < range->size.col; rloc.col++) {
 		u32 startbit, inuse_toprow = 0, clk_toprow = 0;
 
-		startbit = loc.col * (range->size.row - 1);
+		startbit = rloc.col * (range->size.row - 1);
 
-		for (loc.row = range->start.row + 1;
-		     loc.row < range->start.row + range->size.row;
-		     loc.row++) {
-			u32 bit = startbit + loc.row - 1;
+		for (rloc.row = range->start.row + 1;
+		     rloc.row < range->start.row + range->size.row;
+		     rloc.row++) {
+			u32 bit = startbit + rloc.row - 1;
 
 			if (aie_resource_testbit(&apart->tiles_inuse, bit))
-				inuse_toprow = loc.row;
+				inuse_toprow = rloc.row;
 			if (aie_resource_testbit(&apart->cores_clk_state, bit))
-				clk_toprow = loc.row;
+				clk_toprow = rloc.row;
 		}
 
 		/* Update clock states of a column */
-		lrange.start.col = loc.col;
+		lrange.start.col = rloc.col + range->start.col;
 		lrange.size.col = 1;
 		if (inuse_toprow < clk_toprow) {
 			lrange.start.row = inuse_toprow + 1;
@@ -1219,18 +1238,59 @@ static u32 aie_get_core_status(struct aie_partition *apart,
 	u32 regoff, regvalue, eventval;
 
 	regoff = aie_cal_regoff(apart->adev, *loc, aie_core_sts.regoff);
-	regvalue = ioread32(apart->adev->base + regoff);
+	regvalue = ioread32(apart->aperture->base + regoff);
 
 	/* Apply core done workaround */
 	if (!FIELD_GET(aie_core_done.mask, regvalue)) {
 		regoff = aie_cal_regoff(apart->adev, *loc,
 					aie_core_disable_event_sts.regoff);
-		eventval = ioread32(apart->adev->base + regoff);
+		eventval = ioread32(apart->aperture->base + regoff);
 
 		if (FIELD_GET(aie_core_disable_event_sts.mask, eventval))
 			regvalue |= aie_core_done.mask;
 	}
 	return regvalue;
+}
+
+/**
+ * aie_part_clear_mems() - clear memories of every tile in a partition
+ * @apart: AI engine partition
+ * @return: return 0 always.
+ */
+static int aie_part_clear_mems(struct aie_partition *apart)
+{
+	struct aie_device *adev = apart->adev;
+	struct aie_part_mem *pmems = apart->pmems;
+	u32 i, num_mems;
+
+	/* Get the number of different types of memories */
+	num_mems = adev->ops->get_mem_info(adev, &apart->range, NULL);
+	if (!num_mems)
+		return 0;
+
+	/* Clear each type of memories in the partition */
+	for (i = 0; i < num_mems; i++) {
+		struct aie_mem *mem = &pmems[i].mem;
+		struct aie_range *range = &mem->range;
+		u32 c, r;
+
+		for (c = range->start.col;
+		     c < range->start.col + range->size.col; c++) {
+			for (r = range->start.row;
+			     r < range->start.row + range->size.row; r++) {
+				struct aie_location loc;
+				u32 memoff;
+
+				loc.col = c;
+				loc.row = r;
+				memoff = aie_cal_regoff(adev, loc, mem->offset);
+				memset_io(apart->aperture->base + memoff, 0,
+					  mem->size);
+			}
+		}
+	}
+
+	return 0;
 }
 
 static const struct aie_tile_operations aie_ops = {
@@ -1241,6 +1301,7 @@ static const struct aie_tile_operations aie_ops = {
 	.init_part_clk_state = aie_init_part_clk_state,
 	.scan_part_clocks = aie_scan_part_clocks,
 	.set_part_clocks = aie_set_part_clocks,
+	.mem_clear = aie_part_clear_mems,
 };
 
 /**
@@ -1253,19 +1314,11 @@ static void aie_device_init_rscs_attr(struct aie_device *adev)
 	struct aie_tile_attr *tattr;
 
 	tattr = &adev->ttype_attr[AIE_TILE_TYPE_TILE];
-	tattr->start_row = 1;
-	/*
-	 * TODO: number of rows information of the AI engine device should get
-	 * from device tree.
-	 */
-	tattr->num_rows = 0xFF;
 	tattr->num_mods = 2;
 	tattr->rscs_attr = aie_core_tile_rscs_attr;
 	tattr->mods = aie_core_tile_module_types;
 
 	tattr = &adev->ttype_attr[AIE_TILE_TYPE_SHIMPL];
-	tattr->start_row = 0;
-	tattr->num_rows = 1;
 	tattr->num_mods = 1;
 	tattr->rscs_attr = aie_shimpl_tile_rscs_attr;
 	tattr->mods = aie_shimpl_tile_module_types;
@@ -1276,8 +1329,6 @@ static void aie_device_init_rscs_attr(struct aie_device *adev)
 	 * driver yet.
 	 */
 	tattr = &adev->ttype_attr[AIE_TILE_TYPE_SHIMNOC];
-	tattr->start_row = 0;
-	tattr->num_rows = 1;
 	tattr->num_mods = 1;
 	tattr->rscs_attr = aie_shimpl_tile_rscs_attr;
 	tattr->mods = aie_shimpl_tile_module_types;
@@ -1295,8 +1346,6 @@ static void aie_device_init_rscs_attr(struct aie_device *adev)
  */
 int aie_device_init(struct aie_device *adev)
 {
-	int ret;
-
 	adev->array_shift = AIE_ARRAY_SHIFT;
 	adev->col_shift = AIE_COL_SHIFT;
 	adev->row_shift = AIE_ROW_SHIFT;
@@ -1331,11 +1380,5 @@ int aie_device_init(struct aie_device *adev)
 
 	aie_device_init_rscs_attr(adev);
 
-	/* Get the columns resource */
-	/* Get number of columns from AI engine memory resource */
-	ret = aie_resource_initialize(&adev->cols_res, 50);
-	if (ret)
-		dev_err(&adev->dev, "failed to initialize columns resource.\n");
-
-	return ret;
+	return 0;
 }

@@ -51,10 +51,7 @@ static ssize_t aie_get_errors_str(struct aie_partition *apart,
 
 	for (i = 0; i < err_attr->num_err_categories; i++) {
 		const struct aie_err_category *category;
-		char errstr[AIE_SYSFS_ERROR_SIZE];
-		bool is_delimit_req = false;
-		bool err = false;
-		ssize_t l = 0;
+		bool is_delimit_req = false, preamble = true;
 		u8 index;
 
 		category = &err_attr->err_category[i];
@@ -66,22 +63,29 @@ static ssize_t aie_get_errors_str(struct aie_partition *apart,
 			if (!aie_check_error_bitmap(apart, loc, module, event))
 				continue;
 
-			if (is_delimit_req) {
-				l += scnprintf(&errstr[l],
-					       max(0L, AIE_SYSFS_ERROR_SIZE - l),
-					       DELIMITER_LEVEL0);
+			if (preamble) {
+				len += scnprintf(&buffer[len],
+						 max(0L, size - len),
+						 "%s: %s: ", mod,
+						 aie_error_category_str[index]);
+				preamble = false;
 			}
 
-			l += scnprintf(&errstr[l],
-				       max(0L, AIE_SYSFS_ERROR_SIZE - l), str);
-			err = true;
+			if (is_delimit_req) {
+				len += scnprintf(&buffer[len],
+						 max(0L, size - len),
+						 DELIMITER_LEVEL0);
+			}
+
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 str);
+
 			is_delimit_req = true;
 		}
 
-		if (err) {
+		if (!preamble) {
 			len += scnprintf(&buffer[len], max(0L, size - len),
-					 "%s: %s: %s\n", mod,
-					 aie_error_category_str[index], errstr);
+					 "\n");
 		}
 	}
 	return len;
@@ -157,7 +161,7 @@ ssize_t aie_tile_show_error(struct device *dev, struct device_attribute *attr,
 		return len;
 	}
 
-	ttype = apart->adev->ops->get_tile_type(&atile->loc);
+	ttype = apart->adev->ops->get_tile_type(apart->adev, &atile->loc);
 	if (ttype == AIE_TILE_TYPE_TILE) {
 		core_attr = apart->adev->core_errors;
 		mem_attr = apart->adev->mem_errors;
@@ -221,7 +225,8 @@ ssize_t aie_part_show_error_stat(struct device *dev,
 
 	for (index = 0; index < apart->range.size.col * apart->range.size.row;
 	     index++, atile++) {
-		u32 ttype = apart->adev->ops->get_tile_type(&atile->loc);
+		u32 ttype = apart->adev->ops->get_tile_type(apart->adev,
+							    &atile->loc);
 
 		if (ttype == AIE_TILE_TYPE_TILE) {
 			core_attr = apart->adev->core_errors;
@@ -266,7 +271,7 @@ ssize_t aie_sysfs_get_errors(struct aie_partition *apart,
 	const struct aie_error_attr *core_attr, *mem_attr, *pl_attr;
 	ssize_t len = 0;
 
-	ttype = apart->adev->ops->get_tile_type(loc);
+	ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
 	if (ttype == AIE_TILE_TYPE_TILE) {
 		core_attr = apart->adev->core_errors;
 		mem_attr = apart->adev->mem_errors;
@@ -283,6 +288,9 @@ ssize_t aie_sysfs_get_errors(struct aie_partition *apart,
 
 	if (!(core_count || mem_count || pl_count))
 		return len;
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "%d_%d: ", loc->col,
+			 loc->row);
 
 	if (core_count) {
 		len += scnprintf(&buffer[len], max(0L, size - len), "core: ");
@@ -305,6 +313,8 @@ ssize_t aie_sysfs_get_errors(struct aie_partition *apart,
 						  pl_attr, &buffer[len],
 						  size - len);
 	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "\n");
 	return len;
 }
 
@@ -337,11 +347,8 @@ ssize_t aie_part_read_cb_error(struct kobject *kobj, char *buffer, ssize_t size)
 
 	for (index = 0; index < apart->range.size.col * apart->range.size.row;
 	     index++, atile++) {
-		len += scnprintf(&buffer[len], max(0L, size - len), "%d_%d: ",
-				 atile->loc.col, atile->loc.row);
 		len += aie_sysfs_get_errors(apart, &atile->loc, &buffer[len],
 					    size - len);
-		len += scnprintf(&buffer[len], max(0L, size - len), "\n");
 	}
 
 	mutex_unlock(&apart->mlock);

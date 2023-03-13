@@ -37,10 +37,6 @@ static int fwnode_irq_get_byname(struct fwnode_handle *fwnode, const char *name)
 
 	return fwnode_irq_get(fwnode, index);
 }
-static int iio_device_id(struct iio_dev *indio_dev)
-{
-	return indio_dev->id;
-}
 /* end of v5.10 patch */
 
 #define MAX11410_REG_CONV_START	0x01

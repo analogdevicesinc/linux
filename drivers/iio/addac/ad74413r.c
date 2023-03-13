@@ -1315,6 +1315,7 @@ static int ad74413r_probe(struct spi_device *spi)
 	st->chip_info = device_get_match_data(&spi->dev);
 	if (!st->chip_info) {
 		const struct spi_device_id *id = spi_get_device_id(spi);
+
 		if (id)
 			st->chip_info =
 				(struct ad74413r_chip_info *)id->driver_data;
@@ -1353,15 +1354,12 @@ static int ad74413r_probe(struct spi_device *spi)
 				 &st->sense_resistor_ohms);
 	st->sense_resistor_ohms /= 1000000;
 
-	/* iio_device_id(indio_dev) -> indio_dev->id to compile against 5.10 */
 	st->trig = devm_iio_trigger_alloc(st->dev, "%s-dev%d",
-					  st->chip_info->name, indio_dev->id);
+					  st->chip_info->name, iio_device_id(indio_dev));
 	if (!st->trig)
 		return -ENOMEM;
 
 	st->trig->ops = &ad74413r_trigger_ops;
-	/* dev.parent is already assigned by devm_iio_trigger_alloc on 5.12+ */
-	st->trig->dev.parent = st->dev;
 	iio_trigger_set_drvdata(st->trig, st);
 
 	ret = devm_iio_trigger_register(st->dev, st->trig);

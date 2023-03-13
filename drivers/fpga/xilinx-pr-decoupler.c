@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017, National Instruments Corp.
- * Copyright (c) 2017, Xilix Inc
+ * Copyright (c) 2017, Xilinx Inc
  *
  * FPGA Bridge Driver for the Xilinx LogiCORE Partial Reconfiguration
  * Decoupler IP Core.
@@ -18,14 +18,14 @@
 #define CTRL_CMD_COUPLE		0
 #define CTRL_OFFSET		0
 
+struct xlnx_config_data {
+	const char *name;
+};
+
 struct xlnx_pr_decoupler_data {
 	const struct xlnx_config_data *ipconfig;
 	void __iomem *io_base;
 	struct clk *clk;
-};
-
-struct xlnx_config_data {
-	char *name;
 };
 
 static inline void xlnx_pr_decoupler_write(struct xlnx_pr_decoupler_data *d,
@@ -81,12 +81,13 @@ static const struct fpga_bridge_ops xlnx_pr_decoupler_br_ops = {
 	.enable_show = xlnx_pr_decoupler_enable_show,
 };
 
+#ifdef CONFIG_OF
 static const struct xlnx_config_data decoupler_config = {
 	.name = "Xilinx PR Decoupler",
 };
 
 static const struct xlnx_config_data shutdown_config = {
-	.name = "Xilinx DFX AXI shutdown mgr",
+	.name = "Xilinx DFX AXI Shutdown Manager",
 };
 
 static const struct of_device_id xlnx_pr_decoupler_of_match[] = {
@@ -99,6 +100,7 @@ static const struct of_device_id xlnx_pr_decoupler_of_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, xlnx_pr_decoupler_of_match);
+#endif
 
 static int xlnx_pr_decoupler_probe(struct platform_device *pdev)
 {
@@ -126,11 +128,9 @@ static int xlnx_pr_decoupler_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->io_base);
 
 	priv->clk = devm_clk_get(&pdev->dev, "aclk");
-	if (IS_ERR(priv->clk)) {
-		if (PTR_ERR(priv->clk) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "input clock not found\n");
-		return PTR_ERR(priv->clk);
-	}
+	if (IS_ERR(priv->clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(priv->clk),
+				     "input clock not found\n");
 
 	err = clk_prepare_enable(priv->clk);
 	if (err) {

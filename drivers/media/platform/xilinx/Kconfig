@@ -61,6 +61,14 @@ config VIDEO_XILINX_GAMMA
 
 	  Say M to modularize. Say N if unsure.
 
+config VIDEO_XILINX_HDCP1X_RX
+	bool
+	select XLNX_HDCP1X_CIPHER
+	help
+	  Functionality of HDCP1X Rx for DP and HDMI. It handles the hdcp1x rx
+	  authentication. Choose this config in a platform where the DP/HDMI Rx
+	  subsystem enabled with HDCP1X.
+
 config VIDEO_XILINX_HDMI21RXSS
 	tristate "Xilinx HDMI 2.1 Rx Subsystem"
 	depends on VIDEO_XILINX
@@ -84,10 +92,10 @@ config VIDEO_XILINX_REMAPPER
 	  Driver for the Xilinx Video Remapper
 
 config VIDEO_XILINX_RGB2YUV
-	tristate "Xilinx Video RGB to YUV Convertor"
+	tristate "Xilinx Video RGB to YUV Converter"
 	depends on VIDEO_XILINX
 	help
-	  Driver for the Xilinx Video RGB to YUV Convertor
+	  Driver for the Xilinx Video RGB to YUV Converter
 
 config VIDEO_XILINX_SCALER
 	tristate "Xilinx Video Scaler"
@@ -153,6 +161,7 @@ config VIDEO_XILINX_VTC
 config VIDEO_XILINX_DPRXSS
 	tristate "Xilinx DP Rx Subsystem"
 	depends on VIDEO_XILINX
+	select VIDEO_XILINX_HDCP1X_RX
 	help
 	  Driver for Xilinx DisplayPort Rx Subsystem. This is a V4L sub-device
 	  based driver for the DisplayPort receiver subsystem IP. It captures
@@ -184,5 +193,17 @@ config VIDEO_XILINX_AXI4S_BROADCASTER
 	  V4L sub device based driver. It replicates a single input AXI4-Stream
 	  into multiple output AXI4-Stream.
 	  Say M to modularize. Say N if unsure.
+
+config VIDEO_XILINX_AXI4S_SUBSETCONV
+	tristate "Xilinx AXI4-Stream Subset Converter"
+	depends on VIDEO_XILINX
+	help
+	  This subset converter driver is for configuring the Xilinx
+	  subset converter IP which is a non-memory mapped IP used for
+	  converting formats. The format conversion of source pad and
+	  sink pad in the pipeline done by subset conveter IP will be
+	  mapped in this driver.
+	  To compile this driver as a module, choose M here.
+	  If unsure, choose N
 
 endif #VIDEO_XILINX

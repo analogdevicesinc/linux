@@ -66,7 +66,8 @@ static int spi_ad9250_transfer_one(struct spi_master *master,
 
 	x[0].len = 1;
 	x[0].tx_buf = spi_ad9250->data;
-	x[0].delay_usecs = 10;
+	x[0].delay.unit = SPI_DELAY_UNIT_USECS,
+	x[0].delay.value = 10;
 	spi_ad9250->data[0] = cs_to_cpld(spi->chip_select, spi_ad9250->id);
 	spi_message_add_tail(&x[0], &m);
 

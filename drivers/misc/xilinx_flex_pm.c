@@ -39,6 +39,12 @@
 #define FPM_WRREQ_L			0x60000
 #define FPM_RDRSP_L			0x50000
 #define FPM_RDREQ_L			0x40000
+
+#define FPM_WRRSP_FPD			0x30000
+#define FPM_WRREQ_FPD			0x20000
+#define FPM_RDRSP_FPD			0x10000
+#define FPM_RDREQ_FPD			0x0
+
 #define FPM_PROBE_SHIFT			16
 #define FPM_COUNTER_OFFSET		0x14
 #define FPM_GLOBALEN			BIT(0)
@@ -201,7 +207,7 @@ static int xflex_sysfs_cmd(struct device *dev, const char *buf,
 
 		flexpm->counterid_lpd = val;
 		reset_default(dev, val, FPM_LPD);
-		break;
+		goto exit_unlock;
 
 	case XFLEX_SET_PORT_COUNTER_FPD:
 		ret = kstrtou32(buf, 0, &val);
@@ -211,7 +217,7 @@ static int xflex_sysfs_cmd(struct device *dev, const char *buf,
 		counter = flexpm->counterid_fpd * FPM_COUNTER_OFFSET;
 		offset = FPM_PORT_SEL_OFFSET + counter * FPM_COUNTER_OFFSET;
 		fpm_reg(flexpm->basefpd, val, offset);
-		break;
+		goto exit_unlock;
 
 	case XFLEX_SET_PORT_COUNTER_LPD:
 		ret = kstrtou32(buf, 0, &val);
@@ -221,7 +227,7 @@ static int xflex_sysfs_cmd(struct device *dev, const char *buf,
 		counter = flexpm->counterid_lpd * FPM_COUNTER_OFFSET;
 		offset = FPM_PORT_SEL_OFFSET + counter * FPM_COUNTER_OFFSET;
 		fpm_reg(flexpm->baselpd, val, offset);
-		break;
+		goto exit_unlock;
 
 	case XFLEX_SET_SRC_COUNTER_LPD:
 		reg = flexpm->counterid_lpd;
@@ -264,45 +270,44 @@ static int xflex_sysfs_cmd(struct device *dev, const char *buf,
 
 		flexpm->counterid_fpd = val;
 		reset_default(dev, val, FPM_FPD);
-		break;
+		goto exit_unlock;
 
 	case XFLEX_GET_COUNTER_FPD_WRRSP:
-		reg = flexpm->counterid_fpd | FPM_WRRSP_L | FPM_VAL;
+		reg = flexpm->counterid_fpd | FPM_WRRSP_FPD | FPM_VAL;
 		domain = FPM_FPD;
 
 		break;
 
 	case XFLEX_GET_COUNTER_FPD_WRREQ:
-		reg = flexpm->counterid_fpd | FPM_WRREQ_L | FPM_VAL;
+		reg = flexpm->counterid_fpd | FPM_WRREQ_FPD | FPM_VAL;
 		domain = FPM_FPD;
 
 		break;
 
 	case XFLEX_GET_COUNTER_FPD_RDRSP:
-		reg = flexpm->counterid_fpd | FPM_RDRSP_L | FPM_VAL;
+		reg = flexpm->counterid_fpd | FPM_RDRSP_FPD | FPM_VAL;
 		domain = FPM_FPD;
 
 		break;
 
 	case XFLEX_GET_COUNTER_FPD_RDREQ:
-		reg = flexpm->counterid_fpd | FPM_RDREQ_L | FPM_VAL;
+		reg = flexpm->counterid_fpd | FPM_RDREQ_FPD | FPM_VAL;
 		domain = FPM_FPD;
 
 		break;
 
 	default:
 		dev_err(dev, "Invalid option\n");
-		break;
+		ret = -EINVAL;
+		goto exit_unlock;
 	}
 
 	ret = zynqmp_pm_probe_counter_read(domain, reg, &pm_api_ret[0]);
 
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(dev, "Counter read error %d\n", ret);
-		return ret;
-	}
-	mutex_unlock(&flexpm->mutex);
-	return pm_api_ret[1];
+	else
+		ret = pm_api_ret[1];
 
 exit_unlock:
 	mutex_unlock(&flexpm->mutex);
@@ -565,6 +570,9 @@ static int xflex_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(dev, flexpm);
+
+	/* Let the users know they are using deprecated driver */
+	dev_notice(dev, "xilinx flex pm driver is deprecated\n");
 
 	return 0;
 }

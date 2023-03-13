@@ -48,7 +48,37 @@ arch/arm/boot/dts/zynq-zybo.dts
 arch/arm/boot/dts/zynq-zybo-z7.dts
 arch/arm/boot/dts/zynq-zc702.dts
 arch/arm/boot/dts/zynq-zturn-v5.dts
-
+arch/arm/boot/dts/zynq-ebaz4205.dts
+arch/arm64/boot/dts/xilinx/zynqmp-a2197-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-dlc21-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-e-a2197-00-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-e-a2197-00-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-g-a2197-00-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-m-a2197-01-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-m-a2197-02-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-m-a2197-03-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-p-a2197-00-revA-x-prc-01-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-p-a2197-00-revA-x-prc-02-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-p-a2197-00-revA-x-prc-03-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-p-a2197-00-revA-x-prc-04-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-p-a2197-00-revA-x-prc-05-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-p-a2197-00-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-vek280-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-vhk158-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-vpk120-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-vpk180-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sck-kr-g-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sck-kr-g-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sck-kv-g-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sck-kv-g-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sm-k26-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-smk-k26-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-vp-x-a2785-00-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-vpk120-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev1.1.dts
+arch/arm64/boot/dts/xilinx/zynqmp-zcu670-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-zcu670-revB.dts
 
 # Anything belonging to ADI, goes here
 

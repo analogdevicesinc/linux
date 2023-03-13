@@ -9,6 +9,7 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-map-ops.h>
 #include <linux/fs.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -46,7 +47,7 @@ static void aie_cal_loc(struct aie_device *adev,
 /**
  * aie_part_reg_validation() - validate AI engine partition register access
  * @apart: AI engine partition
- * @offset: AI engine register offset
+ * @offset: AI engine register offset relative in partition.
  * @len: len of data to write/read
  * @is_write: is the access to write to register
  * @return: 0 for success, or negative value for failure.
@@ -60,7 +61,7 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 	struct aie_device *adev;
 	u32 regend32, ttype;
 	u64 regoff, regend64;
-	struct aie_location loc;
+	struct aie_location loc, aloc;
 	unsigned int i;
 
 	adev = apart->adev;
@@ -87,9 +88,8 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 	aie_cal_loc(adev, &loc, offset);
 	if (aie_validate_location(apart, loc)) {
 		dev_err(&apart->dev,
-			"Invalid (%d,%d) out of part(%d,%d),(%d,%d)\n",
+			"Invalid (%d,%d) out of part(%d,%d)\n",
 			loc.col, loc.row,
-			apart->range.start.col, apart->range.start.row,
 			apart->range.size.col, apart->range.size.row);
 		return -EINVAL;
 	}
@@ -109,7 +109,9 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 	 * TODO: To solve this, we need to either request EEMI to configure
 	 * AXI MM or split the mmapped space into tiles based lists.
 	 */
-	if (!aie_part_check_clk_enable_loc(apart, &loc)) {
+	aloc.col = loc.col + apart->range.start.col;
+	aloc.row = loc.row;
+	if (!aie_part_check_clk_enable_loc(apart, &aloc)) {
 		dev_err(&apart->dev,
 			"Tile(%u,%d) is gated.\n", loc.col, loc.row);
 		return -EINVAL;
@@ -119,7 +121,7 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 		return 0;
 
 	regend32 = lower_32_bits(regend64);
-	ttype = adev->ops->get_tile_type(&loc);
+	ttype = adev->ops->get_tile_type(adev, &loc);
 	for (i = 0; i < adev->num_kernel_regs; i++) {
 		const struct aie_tile_regs *regs;
 		u32 rttype, writable;
@@ -160,6 +162,7 @@ static int aie_part_reg_validation(struct aie_partition *apart, size_t offset,
 static int aie_part_write_register(struct aie_partition *apart, size_t offset,
 				   size_t len, void *data, u32 mask)
 {
+	struct aie_aperture *aperture = apart->aperture;
 	u32 i;
 	int ret;
 	void __iomem *va;
@@ -172,7 +175,6 @@ static int aie_part_write_register(struct aie_partition *apart, size_t offset,
 	}
 
 	/* offset is expected to be relative to the start of the partition */
-	offset += aie_cal_regoff(apart->adev, apart->range.start, 0);
 	ret = aie_part_reg_validation(apart, offset, len, 1);
 	if (ret < 0) {
 		dev_err(&apart->dev, "failed to write to 0x%zx,0x%zx.\n",
@@ -180,7 +182,8 @@ static int aie_part_write_register(struct aie_partition *apart, size_t offset,
 		return ret;
 	}
 
-	va = apart->adev->base + offset;
+	offset += aie_aperture_cal_regoff(aperture, apart->range.start, 0);
+	va = aperture->base + offset;
 	if (!mask) {
 		/*
 		 * TODO: use the burst mode to improve performance when len
@@ -214,11 +217,11 @@ static int aie_part_write_register(struct aie_partition *apart, size_t offset,
 static int aie_part_read_register(struct aie_partition *apart, size_t offset,
 				  size_t len, void *data)
 {
+	struct aie_aperture *aperture = apart->aperture;
 	void __iomem *va;
 	int ret;
 
 	/* offset is expected to be relative to the start of the partition */
-	offset += aie_cal_regoff(apart->adev, apart->range.start, 0);
 	ret = aie_part_reg_validation(apart, offset, len, 0);
 	if (ret) {
 		dev_err(&apart->dev, "Invalid read request 0x%zx,0x%zx.\n",
@@ -226,7 +229,8 @@ static int aie_part_read_register(struct aie_partition *apart, size_t offset,
 		return -EINVAL;
 	}
 
-	va = apart->adev->base + offset;
+	offset += aie_aperture_cal_regoff(aperture, apart->range.start, 0);
+	va = aperture->base + offset;
 	if (len == 4)
 		*((u32 *)data) = ioread32(va);
 	else
@@ -436,6 +440,14 @@ static int aie_part_create_event_bitmap(struct aie_partition *apart)
 	u32 num_aie_module = range.size.col * (range.size.row - 1);
 	int ret;
 
+	/*
+	 * TODO: resource manager, events is not supported for AIEML device and
+	 * the users are not expected to call any function as of now.
+	 */
+	if (apart->adev->dev_gen == AIE_DEVICE_GEN_AIEML) {
+		dev_dbg(&apart->dev, "Skipping event bitmap allocation.\n");
+		return 0;
+	}
 	bitmap_sz = num_aie_module * apart->adev->core_events->num_events;
 	ret = aie_resource_initialize(&apart->core_event_status, bitmap_sz);
 	if (ret) {
@@ -463,39 +475,6 @@ static int aie_part_create_event_bitmap(struct aie_partition *apart)
 }
 
 /**
- * aie_part_create_l2_bitmap() - create bitmaps to record mask and status
- *				 values for level 2 interrupt controllers.
- * @apart: AI engine partition
- * @return: 0 for success, and negative value for failure.
- */
-static int aie_part_create_l2_bitmap(struct aie_partition *apart)
-{
-	struct aie_location loc;
-	u8 num_l2_ctrls = 0;
-	int ret;
-
-	loc.row = 0;
-	for (loc.col = apart->range.start.col;
-	     loc.col < apart->range.start.col + apart->range.size.col;
-	     loc.col++) {
-		u32 ttype = apart->adev->ops->get_tile_type(&loc);
-
-		if (ttype == AIE_TILE_TYPE_SHIMNOC)
-			num_l2_ctrls++;
-	}
-
-	ret = aie_resource_initialize(&apart->l2_mask, num_l2_ctrls *
-				      AIE_INTR_L2_CTRL_MASK_WIDTH);
-	if (ret) {
-		dev_err(&apart->dev,
-			"failed to initialize l2 mask resource.\n");
-		return ret;
-	}
-
-	return 0;
-}
-
-/**
  * aie_part_release_event_bitmap() - Deallocates event bitmap for all modules
  *				     in a given partition.
  * @apart: AI engine partition
@@ -503,6 +482,10 @@ static int aie_part_create_l2_bitmap(struct aie_partition *apart)
  */
 static void aie_part_release_event_bitmap(struct aie_partition *apart)
 {
+	/* TODO: remove check once resource manager is enabled for AIEML. */
+	if (apart->adev->dev_gen == AIE_DEVICE_GEN_AIEML)
+		return;
+
 	aie_resource_uninitialize(&apart->core_event_status);
 	aie_resource_uninitialize(&apart->mem_event_status);
 	aie_resource_uninitialize(&apart->pl_event_status);
@@ -513,12 +496,19 @@ static int aie_part_release(struct inode *inode, struct file *filp)
 	struct aie_partition *apart = filp->private_data;
 	int ret;
 
+	/* some reset bits in NPI are global, we need to lock adev */
+	ret = mutex_lock_interruptible(&apart->adev->mlock);
+	if (ret)
+		return ret;
+
 	ret = mutex_lock_interruptible(&apart->mlock);
 	if (ret)
 		return ret;
 
 	aie_part_release_dmabufs(apart);
+	/* aie_part_clean() will do hardware reset */
 	aie_part_clean(apart);
+	mutex_unlock(&apart->adev->mlock);
 
 	apart->error_cb.cb = NULL;
 	apart->error_cb.priv = NULL;
@@ -526,11 +516,11 @@ static int aie_part_release(struct inode *inode, struct file *filp)
 	apart->error_to_report = 0;
 
 	aie_part_clear_cached_events(apart);
-	aie_resource_clear_all(&apart->l2_mask);
 
 	aie_part_rscmgr_reset(apart);
 
 	mutex_unlock(&apart->mlock);
+	aie_part_remove(apart);
 
 	return 0;
 }
@@ -629,7 +619,7 @@ static int aie_part_mmap(struct file *fp, struct vm_area_struct *vma)
 	}
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	/* Calculate the partition address */
-	addr = adev->res->start;
+	addr = apart->aperture->res.start;
 	addr += (phys_addr_t)apart->range.start.col << adev->col_shift;
 	addr += (phys_addr_t)apart->range.start.row << adev->row_shift;
 	addr += offset;
@@ -678,36 +668,6 @@ static long aie_part_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		return aie_part_release_tiles_from_user(apart, argp);
 	case AIE_TRANSACTION_IOCTL:
 		return aie_part_execute_transaction_from_user(apart, argp);
-	case AIE_SET_FREQUENCY_IOCTL:
-	{
-		u64 freq;
-
-		if (copy_from_user(&freq, argp, sizeof(freq)))
-			return -EFAULT;
-
-		ret = mutex_lock_interruptible(&apart->mlock);
-		if (ret)
-			return ret;
-		ret = aie_part_set_freq(apart, freq);
-		mutex_unlock(&apart->mlock);
-		return ret;
-	}
-	case AIE_GET_FREQUENCY_IOCTL:
-	{
-		u64 freq;
-
-		ret = mutex_lock_interruptible(&apart->mlock);
-		if (ret)
-			return ret;
-		ret = aie_part_get_running_freq(apart, &freq);
-		mutex_unlock(&apart->mlock);
-
-		if (!ret) {
-			if (copy_to_user(argp, &freq, sizeof(freq)))
-				return -EFAULT;
-		}
-		return ret;
-	}
 	case AIE_RSC_REQ_IOCTL:
 		return aie_part_rscmgr_rsc_req(apart, argp);
 	case AIE_RSC_REQ_SPECIFIC_IOCTL:
@@ -723,7 +683,8 @@ static long aie_part_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case AIE_RSC_GET_STAT_IOCTL:
 		return aie_part_rscmgr_get_statistics(apart, argp);
 	default:
-		dev_err(&apart->dev, "Invalid ioctl command %u.\n", cmd);
+		dev_err(&apart->dev, "Invalid/Unsupported ioctl command %u.\n",
+			cmd);
 		ret = -EINVAL;
 		break;
 	}
@@ -768,7 +729,17 @@ int aie_part_open(struct aie_partition *apart, void *rsc_metadata)
 	}
 
 	/* preallocate memory pool for storing dmabuf descriptors */
-	return aie_part_prealloc_dbufs_cache(apart);
+	ret =  aie_part_prealloc_dbufs_cache(apart);
+	if (ret)
+		return ret;
+
+	/* check if there is any errors reported for the partition */
+	if (aie_part_has_error(apart))
+		schedule_work(&apart->aperture->backtrack);
+
+	apart->status = XAIE_PART_STATUS_INUSE;
+
+	return 0;
 }
 
 /**
@@ -793,23 +764,25 @@ static void aie_tile_release_device(struct device *dev)
 static void aie_part_release_device(struct device *dev)
 {
 	struct aie_partition *apart = dev_to_aiepart(dev);
-	struct aie_device *adev = apart->adev;
+	struct aie_aperture *aperture = apart->aperture;
 	int ret;
 
-	ret = mutex_lock_interruptible(&adev->mlock);
+	ret = mutex_lock_interruptible(&aperture->mlock);
 	if (ret) {
 		dev_warn(&apart->dev,
 			 "getting adev->mlock is interrupted by signal\n");
 	}
 
-	aie_resource_put_region(&adev->cols_res, apart->range.start.col,
+	aie_resource_put_region(&aperture->cols_res, apart->range.start.col,
 				apart->range.size.col);
 	aie_part_release_event_bitmap(apart);
-	aie_resource_uninitialize(&apart->l2_mask);
 	list_del(&apart->node);
-	mutex_unlock(&adev->mlock);
+	mutex_unlock(&aperture->mlock);
 	aie_resource_uninitialize(&apart->cores_clk_state);
+	aie_resource_uninitialize(&apart->tiles_inuse);
 	aie_part_rscmgr_finish(apart);
+	/* Check and set frequency requirement for aperture */
+	aie_part_set_freq(apart, 0);
 }
 
 /**
@@ -825,7 +798,8 @@ static int aie_part_create_mems_info(struct aie_partition *apart)
 {
 	unsigned int i, num_mems;
 
-	num_mems = apart->adev->ops->get_mem_info(&apart->range, NULL);
+	num_mems = apart->adev->ops->get_mem_info(apart->adev, &apart->range,
+						  NULL);
 	if (!num_mems)
 		return 0;
 
@@ -835,7 +809,8 @@ static int aie_part_create_mems_info(struct aie_partition *apart)
 	if (!apart->pmems)
 		return -ENOMEM;
 
-	apart->adev->ops->get_mem_info(&apart->range, apart->pmems);
+	apart->adev->ops->get_mem_info(apart->adev, &apart->range,
+				       apart->pmems);
 	for (i = 0; i < num_mems; i++) {
 		struct aie_mem *mem = &apart->pmems[i].mem;
 
@@ -859,6 +834,15 @@ static int aie_create_tiles(struct aie_partition *apart)
 	struct aie_tile *atile;
 	u32 row, col, numtiles;
 	int ret = 0;
+
+	/*
+	 * NOTE: sysfs is supported for AIE only. Remove the below check once
+	 * it is supported.
+	 */
+	if (apart->adev->dev_gen == AIE_DEVICE_GEN_AIEML) {
+		dev_dbg(&apart->dev, "Skipping sysfs partition\n");
+		return 0;
+	}
 
 	numtiles = apart->range.size.col * apart->range.size.row;
 	atile = devm_kzalloc(&apart->dev, numtiles * sizeof(struct aie_tile),
@@ -906,9 +890,9 @@ static int aie_create_tiles(struct aie_partition *apart)
 
 /**
  * aie_create_partition() - create AI engine partition instance
- * @adev: AI engine device
- * @range: AI engine partition range to check. A range describes a group
- *	   of AI engine tiles.
+ * @aperture: AI engine aperture
+ * @partition_id: AI engine partition ID which contains partition range
+ *		  information such as start column and number of columns
  * @return: created AI engine partition pointer for success, and PTR_ERR
  *	    for failure.
  *
@@ -916,59 +900,37 @@ static int aie_create_tiles(struct aie_partition *apart)
  * It creates AI engine partition, the AI engine partition device and
  * the AI engine partition character device.
  */
-static struct aie_partition *aie_create_partition(struct aie_device *adev,
-						  struct aie_range *range)
+struct aie_partition *aie_create_partition(struct aie_aperture *aperture,
+					   u32 partition_id)
 {
 	struct aie_partition *apart;
 	struct device *dev;
-	char devname[32];
 	int ret;
 
-	ret = mutex_lock_interruptible(&adev->mlock);
-	if (ret)
-		return ERR_PTR(ret);
-
-	ret = aie_resource_check_region(&adev->cols_res, range->start.col,
-					range->size.col);
-	if (ret != range->start.col) {
-		dev_err(&adev->dev, "invalid partition (%u,%u)(%u,%u).\n",
-			range->start.col, range->start.row,
-			range->size.col, range->size.row);
-		mutex_unlock(&adev->mlock);
-		return ERR_PTR(-EINVAL);
-	}
-	ret = aie_resource_get_region(&adev->cols_res, range->start.col,
-				      range->size.col);
-	if (ret != range->start.col) {
-		dev_err(&adev->dev, "failed to get partition (%u,%u)(%u,%u).\n",
-			range->start.col, range->start.row,
-			range->size.col, range->size.row);
-		mutex_unlock(&adev->mlock);
-		return ERR_PTR(-EFAULT);
-	}
-	mutex_unlock(&adev->mlock);
-
-	apart = devm_kzalloc(&adev->dev, sizeof(*apart), GFP_KERNEL);
+	apart = devm_kzalloc(&aperture->dev, sizeof(*apart), GFP_KERNEL);
 	if (!apart)
 		return ERR_PTR(-ENOMEM);
 
-	apart->adev = adev;
+	apart->aperture = aperture;
+	apart->adev = aperture->adev;
+	apart->partition_id = partition_id;
 	INIT_LIST_HEAD(&apart->dbufs);
-	memcpy(&apart->range, range, sizeof(*range));
 	mutex_init(&apart->mlock);
+	apart->range.start.col = aie_part_id_get_start_col(partition_id);
+	apart->range.size.col = aie_part_id_get_num_cols(partition_id);
+	apart->range.start.row = aperture->range.start.row;
+	apart->range.size.row = aperture->range.size.row;
 
 	/* Create AI engine partition device */
 	dev = &apart->dev;
-	device_initialize(dev);
-	dev->parent = &adev->dev;
+	dev->parent = &aperture->dev;
 	dev->class = aie_class;
 	dev_set_drvdata(dev, apart);
-	snprintf(devname, sizeof(devname) - 1, "aiepart_%d_%d",
-		 apart->range.start.col, apart->range.size.col);
-	dev_set_name(dev, devname);
+	dev_set_name(dev, "aiepart_%d_%d", apart->range.start.col,
+		     apart->range.size.col);
 	/* We can now rely on the release function for cleanup */
 	dev->release = aie_part_release_device;
-	ret = device_add(dev);
+	ret = device_register(dev);
 	if (ret) {
 		dev_err(dev, "device_add failed: %d\n", ret);
 		put_device(dev);
@@ -976,8 +938,13 @@ static struct aie_partition *aie_create_partition(struct aie_device *adev,
 	}
 
 	/* Set up the DMA mask */
-	dev->coherent_dma_mask = DMA_BIT_MASK(48);
-	dev->dma_mask = &dev->coherent_dma_mask;
+	set_dma_ops(dev, get_dma_ops(&aperture->dev));
+	ret = dma_coerce_mask_and_coherent(dev, dma_get_mask(&aperture->dev));
+	if (ret) {
+		dev_warn(dev,
+			 "Failed to set DMA mask %llx. Trying to continue... %x\n",
+			 dma_get_mask(&aperture->dev), ret);
+	}
 
 	/* Create AI Engine tile devices */
 	ret = aie_create_tiles(apart);
@@ -997,7 +964,7 @@ static struct aie_partition *aie_create_partition(struct aie_device *adev,
 		return ERR_PTR(ret);
 	}
 
-	ret = adev->ops->init_part_clk_state(apart);
+	ret = apart->adev->ops->init_part_clk_state(apart);
 	if (ret) {
 		put_device(dev);
 		return ERR_PTR(ret);
@@ -1010,13 +977,6 @@ static struct aie_partition *aie_create_partition(struct aie_device *adev,
 	ret = aie_part_create_event_bitmap(apart);
 	if (ret < 0) {
 		dev_err(&apart->dev, "Failed to allocate event bitmap.\n");
-		put_device(dev);
-		return ERR_PTR(ret);
-	}
-
-	ret = aie_part_create_l2_bitmap(apart);
-	if (ret < 0) {
-		dev_err(&apart->dev, "Failed to allocate l2 bitmap.\n");
 		put_device(dev);
 		return ERR_PTR(ret);
 	}
@@ -1036,89 +996,7 @@ static struct aie_partition *aie_create_partition(struct aie_device *adev,
 		return ERR_PTR(ret);
 	}
 
-	ret = mutex_lock_interruptible(&adev->mlock);
-	if (ret) {
-		put_device(dev);
-		return ERR_PTR(ret);
-	}
-	list_add_tail(&apart->node, &adev->partitions);
-	mutex_unlock(&adev->mlock);
 	dev_dbg(dev, "created AIE partition device.\n");
-
-	return apart;
-}
-
-struct aie_partition *
-of_aie_part_probe(struct aie_device *adev, struct device_node *nc)
-{
-	struct aie_partition *apart;
-	struct aie_range range;
-	u32 partition_id, regs[4];
-	int ret;
-
-	/* Select device driver */
-	ret = of_property_read_u32_array(nc, "reg", regs, ARRAY_SIZE(regs));
-	if (ret < 0) {
-		dev_err(&adev->dev,
-			"probe %pOF failed, no tiles range information.\n",
-			nc);
-		return ERR_PTR(ret);
-	}
-	range.start.col = regs[0];
-	range.start.row = regs[1];
-	range.size.col = regs[2];
-	range.size.row = regs[3];
-
-	ret = of_property_read_u32_index(nc, "xlnx,partition-id", 0,
-					 &partition_id);
-	if (ret < 0) {
-		dev_err(&adev->dev,
-			"probe %pOF failed, no partition id.\n", nc);
-		return ERR_PTR(ret);
-	}
-
-	ret = mutex_lock_interruptible(&adev->mlock);
-	if (ret)
-		return ERR_PTR(ret);
-
-	apart = aie_get_partition_from_id(adev, partition_id);
-	mutex_unlock(&adev->mlock);
-	if (apart) {
-		dev_err(&adev->dev,
-			"probe failed: partition %u exists.\n",
-			partition_id);
-		return ERR_PTR(-EINVAL);
-	}
-
-	apart = aie_create_partition(adev, &range);
-	if (IS_ERR(apart)) {
-		dev_err(&adev->dev,
-			"%s: failed to create part(%u,%u),(%u,%u).\n",
-			__func__, range.start.col, range.start.row,
-			range.size.col, range.size.row);
-		return apart;
-	}
-
-	of_node_get(nc);
-	apart->dev.of_node = nc;
-	apart->dev.driver = adev->dev.parent->driver;
-	apart->partition_id = partition_id;
-	apart->error_cb.cb = NULL;
-	apart->error_cb.priv = NULL;
-
-	ret = of_dma_configure(&apart->dev, nc, true);
-	if (ret)
-		dev_warn(&apart->dev, "Failed to configure DMA.\n");
-
-	/* Create FPGA bridge for AI engine partition */
-	ret = aie_fpga_create_bridge(apart);
-	if (ret < 0)
-		dev_warn(&apart->dev, "failed to create fpga region.\n");
-
-	dev_info(&adev->dev,
-		 "AI engine part(%u,%u),(%u,%u), id %u is probed successfully.\n",
-		 range.start.col, range.start.row,
-		 range.size.col, range.size.row, apart->partition_id);
 
 	return apart;
 }
@@ -1147,13 +1025,16 @@ void aie_part_remove(struct aie_partition *apart)
 	struct aie_tile *atile = apart->atiles;
 	u32 index;
 
+	if (apart->adev->dev_gen == AIE_DEVICE_GEN_AIEML) {
+		dev_dbg(&apart->dev, "Skipping sysfs pattition\n");
+		goto delete;
+	}
 	for (index = 0; index < apart->range.size.col * apart->range.size.row;
 	     index++, atile++)
 		aie_tile_remove(atile);
 
-	aie_fpga_free_bridge(apart);
 	aie_part_sysfs_remove_entries(apart);
-	of_node_clear_flag(apart->dev.of_node, OF_POPULATED);
+delete:
 	device_del(&apart->dev);
 	put_device(&apart->dev);
 }

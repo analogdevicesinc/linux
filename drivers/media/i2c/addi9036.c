@@ -303,7 +303,7 @@ static const struct v4l2_ctrl_config addi9036_ctrl_reg_read = {
 };
 
 static int addi9036_enum_mbus_code(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_pad_config *cfg,
+				   struct  v4l2_subdev_state *sd_state,
 				   struct v4l2_subdev_mbus_code_enum *code)
 {
 	if (code->index > 0)
@@ -315,7 +315,7 @@ static int addi9036_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int addi9036_enum_frame_size(struct v4l2_subdev *subdev,
-				    struct v4l2_subdev_pad_config *cfg,
+				    struct  v4l2_subdev_state *sd_state,
 				    struct v4l2_subdev_frame_size_enum *fse)
 {
 	if (fse->code != MEDIA_BUS_FMT_SBGGR12_1X12)
@@ -334,13 +334,13 @@ static int addi9036_enum_frame_size(struct v4l2_subdev *subdev,
 
 static struct v4l2_mbus_framefmt *
 addi9036_get_pad_format(struct addi9036 *addi9036,
-			struct v4l2_subdev_pad_config *cfg,
+			struct v4l2_subdev_state *sd_state,
 			unsigned int pad,
 			enum v4l2_subdev_format_whence which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&addi9036->sd, cfg, pad);
+		return v4l2_subdev_get_try_format(&addi9036->sd, sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &addi9036->fmt;
 	default:
@@ -349,13 +349,13 @@ addi9036_get_pad_format(struct addi9036 *addi9036,
 }
 
 static int addi9036_get_format(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *format)
 {
 	struct addi9036 *addi9036 = to_addi9036(sd);
 	struct v4l2_mbus_framefmt *pad_format;
 
-	pad_format = addi9036_get_pad_format(addi9036, cfg, format->pad,
+	pad_format = addi9036_get_pad_format(addi9036, sd_state, format->pad,
 					     format->which);
 
 	if (!pad_format)
@@ -368,12 +368,12 @@ static int addi9036_get_format(struct v4l2_subdev *sd,
 
 static struct v4l2_rect *
 addi9036_get_pad_crop(struct addi9036 *addi9036,
-		      struct v4l2_subdev_pad_config *cfg,
+		      struct v4l2_subdev_state *sd_state,
 		      unsigned int pad, enum v4l2_subdev_format_whence which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_crop(&addi9036->sd, cfg, pad);
+		return v4l2_subdev_get_try_crop(&addi9036->sd, sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &addi9036->crop;
 	default:
@@ -396,7 +396,7 @@ addi9036_find_nearest_mode(unsigned int width, unsigned int height)
 }
 
 static int addi9036_set_format(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *format)
 {
 	struct addi9036 *addi9036 = to_addi9036(sd);
@@ -409,7 +409,7 @@ static int addi9036_set_format(struct v4l2_subdev *sd,
 		format->format.code, format->format.width,
 		format->format.height);
 
-	crop = addi9036_get_pad_crop(addi9036, cfg, format->pad,
+	crop = addi9036_get_pad_crop(addi9036, sd_state, format->pad,
 				     format->which);
 
 	if (!crop)
@@ -434,7 +434,7 @@ static int addi9036_set_format(struct v4l2_subdev *sd,
 		addi9036->current_mode = new_mode;
 	}
 
-	framefmt = addi9036_get_pad_format(addi9036, cfg, format->pad,
+	framefmt = addi9036_get_pad_format(addi9036, sd_state, format->pad,
 					   format->which);
 
 	if (!framefmt)
@@ -452,11 +452,11 @@ static int addi9036_set_format(struct v4l2_subdev *sd,
 }
 
 static int addi9036_entity_init_cfg(struct v4l2_subdev *subdev,
-				    struct v4l2_subdev_pad_config *cfg)
+				    struct v4l2_subdev_state *sd_state)
 {
 	struct v4l2_subdev_format fmt = { 0 };
 
-	if (cfg)
+	if (sd_state)
 		fmt.which = V4L2_SUBDEV_FORMAT_TRY;
 	else
 		fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
@@ -464,13 +464,13 @@ static int addi9036_entity_init_cfg(struct v4l2_subdev *subdev,
 	fmt.format.width = 640;
 	fmt.format.height = 960;
 
-	addi9036_set_format(subdev, cfg, &fmt);
+	addi9036_set_format(subdev, sd_state, &fmt);
 
 	return 0;
 }
 
 static int addi9036_get_selection(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_selection *sel)
 {
 	struct addi9036 *addi9036 = to_addi9036(sd);
@@ -478,7 +478,7 @@ static int addi9036_get_selection(struct v4l2_subdev *sd,
 	if (sel->target != V4L2_SEL_TGT_CROP)
 		return -EINVAL;
 
-	sel->r = *addi9036_get_pad_crop(addi9036, cfg, sel->pad, sel->which);
+	sel->r = *addi9036_get_pad_crop(addi9036, sd_state, sel->pad, sel->which);
 
 	return 0;
 }

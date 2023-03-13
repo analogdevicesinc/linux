@@ -60,7 +60,7 @@ out:
 
 int dwc3_host_init(struct dwc3 *dwc)
 {
-	struct property_entry	props[5];
+	struct property_entry	props[6];
 	struct platform_device	*xhci;
 	int			ret, irq;
 	struct resource		*res;
@@ -115,6 +115,10 @@ int dwc3_host_init(struct dwc3 *dwc)
 					"snps,xhci-stream-quirk"))
 		props[prop_idx++] = PROPERTY_ENTRY_BOOL("xhci-stream-quirk");
 
+	if (device_property_read_bool(&dwc3_pdev->dev,
+				      "snps,xhci-reset-on-resume"))
+		props[prop_idx++] = PROPERTY_ENTRY_BOOL("xhci-reset-on-resume");
+
 	/**
 	 * WORKAROUND: dwc3 revisions <=3.00a have a limitation
 	 * where Port Disable command doesn't work.
@@ -128,7 +132,7 @@ int dwc3_host_init(struct dwc3 *dwc)
 		props[prop_idx++] = PROPERTY_ENTRY_BOOL("quirk-broken-port-ped");
 
 	if (prop_idx) {
-		ret = platform_device_add_properties(xhci, props);
+		ret = device_create_managed_software_node(&xhci->dev, props, NULL);
 		if (ret) {
 			dev_err(dwc->dev, "failed to add properties to xHCI\n");
 			goto err;

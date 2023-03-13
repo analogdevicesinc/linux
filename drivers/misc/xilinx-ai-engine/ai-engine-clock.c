@@ -6,9 +6,11 @@
  */
 
 #include "ai-engine-internal.h"
+#include <linux/export.h>
 #include <linux/firmware/xlnx-zynqmp.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/xlnx-ai-engine.h>
 
 /**
  * aie_part_get_clk_state_bit() - return bit position of the clock state of a
@@ -20,10 +22,12 @@
 static int aie_part_get_clk_state_bit(struct aie_partition *apart,
 				      struct aie_location *loc)
 {
-	if (apart->adev->ops->get_tile_type(loc) != AIE_TILE_TYPE_TILE)
+	if (apart->adev->ops->get_tile_type(apart->adev, loc) !=
+			AIE_TILE_TYPE_TILE)
 		return -EINVAL;
 
-	return loc->col * (apart->range.size.row - 1) + loc->row - 1;
+	return (loc->col - apart->range.start.col) *
+	       (apart->range.size.row - 1) + loc->row - 1;
 }
 
 /**
@@ -51,7 +55,8 @@ bool aie_part_check_clk_enable_loc(struct aie_partition *apart,
 {
 	int bit;
 
-	if (apart->adev->ops->get_tile_type(loc) != AIE_TILE_TYPE_TILE)
+	if (apart->adev->ops->get_tile_type(apart->adev, loc) !=
+			AIE_TILE_TYPE_TILE)
 		return true;
 
 	bit = aie_part_get_clk_state_bit(apart, loc);
@@ -245,6 +250,34 @@ int aie_part_release_tiles_from_user(struct aie_partition *apart,
 }
 
 /**
+ * aie_aperture_get_freq_req() - get current required frequency of aperture
+ * @aperture: AI engine aperture
+ * @return: required clock frequency of the aperture which is the largest
+ *	    required clock frequency of all partitions of the aperture. If
+ *	    return value is 0, it means no partition has specific frequency
+ *	    requirement.
+ */
+static unsigned long aie_aperture_get_freq_req(struct aie_aperture *aperture)
+{
+	struct aie_partition *apart;
+	unsigned long freq_req = 0;
+	int ret;
+
+	ret = mutex_lock_interruptible(&aperture->mlock);
+	if (ret)
+		return freq_req;
+
+	list_for_each_entry(apart, &aperture->partitions, node) {
+		if (apart->freq_req > freq_req)
+			freq_req = apart->freq_req;
+	}
+
+	mutex_unlock(&aperture->mlock);
+
+	return freq_req;
+}
+
+/**
  * aie_part_set_freq() - set frequency requirement of an AI engine partition
  *
  * @apart: AI engine partition
@@ -259,8 +292,10 @@ int aie_part_release_tiles_from_user(struct aie_partition *apart,
 int aie_part_set_freq(struct aie_partition *apart, u64 freq)
 {
 	struct aie_device *adev = apart->adev;
+	struct aie_aperture *aperture = apart->aperture;
 	unsigned long clk_rate;
-	u32 qos;
+	u64 temp_freq;
+	u32 boot_qos, current_qos, target_qos;
 	int ret;
 
 	clk_rate = clk_get_rate(adev->clk);
@@ -271,19 +306,69 @@ int aie_part_set_freq(struct aie_partition *apart, u64 freq)
 		return -EINVAL;
 	}
 
+	temp_freq = apart->freq_req;
 	apart->freq_req = freq;
-	/* TODO: qos calculation is not defined by PLM yet */
-	qos = clk_rate / (unsigned long)freq;
-	ret = zynqmp_pm_set_requirement(apart->partition_id,
-					ZYNQMP_PM_CAPABILITY_ACCESS, qos,
+
+	freq = aie_aperture_get_freq_req(aperture);
+	if (!freq)
+		return 0;
+
+	ret = zynqmp_pm_get_qos(aperture->node_id, &boot_qos, &current_qos);
+	if (ret < 0) {
+		dev_err(&apart->dev, "Failed to get clock divider value.\n");
+		return -EINVAL;
+	}
+
+	target_qos = (boot_qos * clk_rate) / freq;
+
+	/* The clock divisor value (QoS) is a 10-bit value */
+	if (target_qos > (BIT(10) - 1)) {
+		/*
+		 * Reset the logged partition frequency requirement to its
+		 * pervious value.
+		 */
+		apart->freq_req = temp_freq;
+		dev_err(&apart->dev, "Failed to set frequency requirement. Frequency value out-of bound.\n");
+		return -EINVAL;
+	}
+
+	ret = zynqmp_pm_set_requirement(aperture->node_id,
+					ZYNQMP_PM_CAPABILITY_ACCESS, target_qos,
 					ZYNQMP_PM_REQUEST_ACK_BLOCKING);
-	if (ret < 0)
-		dev_err(&apart->dev, "failed to set frequency requirement.\n");
+	if (ret < 0) {
+		apart->freq_req = temp_freq;
+		dev_err(&apart->dev, "Failed to set frequency requirement.\n");
+	}
+
 	return ret;
 }
 
 /**
- * aie_part_get_running_freq() - get running frequency of AI engine device.
+ * aie_partition_set_freq_req() - set partition frequency requirement
+ *
+ * @dev: AI engine partition device
+ * @freq: required frequency
+ * @return: 0 for success, negative value for failure
+ *
+ * This function sets the minimum required frequency for the AI engine
+ * partition. If there are other partitions requiring a higher frequency in the
+ * system, AI engine device will be clocked at that value to satisfy frequency
+ * requirements of all partitions.
+ */
+int aie_partition_set_freq_req(struct device *dev, u64 freq)
+{
+	struct aie_partition *apart;
+
+	if (!dev)
+		return -EINVAL;
+
+	apart = dev_to_aiepart(dev);
+	return aie_part_set_freq(apart, freq);
+}
+EXPORT_SYMBOL_GPL(aie_partition_set_freq_req);
+
+/**
+ * aie_part_get_freq() - get running frequency of AI engine device.
  *
  * @apart: AI engine partition
  * @freq: return running frequency
@@ -293,24 +378,65 @@ int aie_part_set_freq(struct aie_partition *apart, u64 freq)
  * full clock frequency from common clock framework. And then it divides the
  * full clock frequency by the divider value and returns the result.
  */
-int aie_part_get_running_freq(struct aie_partition *apart, u64 *freq)
+int aie_part_get_freq(struct aie_partition *apart, u64 *freq)
 {
 	unsigned long clk_rate;
 	struct aie_device *adev = apart->adev;
-	u32 divider;
+	u32 boot_qos, current_qos;
 	int ret;
 
 	if (!freq)
 		return -EINVAL;
 
 	clk_rate = clk_get_rate(adev->clk);
-	/* TODO: AIE clock id is not defined yet */
-	ret = zynqmp_pm_clock_getdivider(adev->clock_id, &divider);
+	ret = zynqmp_pm_get_qos(apart->aperture->node_id, &boot_qos,
+				&current_qos);
 	if (ret < 0) {
-		dev_err(&apart->dev, "failed to get clock divider.\n");
+		dev_err(&apart->dev, "Failed to get clock divider value.\n");
 		return ret;
 	}
 
-	*freq = (u64)clk_rate / (u64)(divider & 0xFFFFFFFF);
+	*freq = (clk_rate * boot_qos) / current_qos;
 	return 0;
 }
+
+/**
+ * aie_partition_get_freq() - get partition running frequency
+ *
+ * @dev: AI engine partition device
+ * @freq: return running frequency
+ * @return: 0 for success, negative value for failure
+ */
+int aie_partition_get_freq(struct device *dev, u64 *freq)
+{
+	struct aie_partition *apart;
+
+	if (!dev)
+		return -EINVAL;
+
+	apart = dev_to_aiepart(dev);
+	return aie_part_get_freq(apart, freq);
+}
+EXPORT_SYMBOL_GPL(aie_partition_get_freq);
+
+/**
+ * aie_partition_get_freq_req() - get partition required frequency
+ *
+ * @dev: AI engine partition device
+ * @freq: return partition required frequency. 0 means partition doesn't
+ *	  have frequency requirement.
+ * @return: 0 for success, negative value for failure
+ */
+int aie_partition_get_freq_req(struct device *dev, u64 *freq)
+{
+	struct aie_partition *apart;
+
+	if (!dev)
+		return -EINVAL;
+
+	apart = dev_to_aiepart(dev);
+	*freq = apart->freq_req;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(aie_partition_get_freq_req);

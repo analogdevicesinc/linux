@@ -10,6 +10,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply JESD204
 	imply JESD204_TOP_DEVICE
 	imply STAGING
+	imply FB
 	imply FB_TFT
 	imply HWMON
 	imply POWER_RESET
@@ -79,12 +80,13 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply DRM_I2C_ADV7511
 	imply DRM_I2C_ADV7511_AUDIO
 	imply DRM_I2C_ADV7533
-	imply NVMEM_AXI_SYSID if (ARCH_ZYNQMP || ARCH_ZYNQ || MICROBLAZE || ARCH_SOCFPGA || NIOS2)
+	imply NVMEM_AXI_SYSID
 	imply ADI_AXI_DATA_OFFLOAD
 	imply INPUT_PCF8574
 	imply AXI_INTR_MONITOR
 	imply FB_TFT_SEPS525
 	imply LEDS_AS3645A
+	imply CHARGER_LTC4162L
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"

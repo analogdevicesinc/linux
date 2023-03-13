@@ -69,8 +69,6 @@ struct axi_hdmi_rx {
 	void __iomem *base;
 
 	struct v4l2_async_notifier notifier;
-	struct v4l2_async_subdev asd;
-	struct v4l2_async_subdev *asds[1];
 
 	u8 bus_width;
 	u8 config_flags;
@@ -557,7 +555,7 @@ static int axi_hdmi_rx_try_fmt_vid_cap(struct file *file, void *priv_fh,
 		break;
 	default:
 		pix->pixelformat = V4L2_PIX_FMT_RGB24;
-		/* fall-through */
+		fallthrough;
 	case V4L2_PIX_FMT_RGB24:
 	case V4L2_PIX_FMT_BGR24:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
@@ -867,6 +865,7 @@ static int axi_hdmi_rx_load_edid(struct platform_device *pdev,
 static int axi_hdmi_rx_probe(struct platform_device *pdev)
 {
 	struct device_node *ep_node;
+	struct v4l2_async_subdev *asd;
 	struct axi_hdmi_rx *hdmi_rx;
 	struct resource *res;
 	struct v4l2_fwnode_endpoint bus_cfg = { .bus_type = V4L2_MBUS_UNKNOWN };
@@ -922,14 +921,15 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	else
 		hdmi_rx->bus_width = 16;
 
-	hdmi_rx->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-	hdmi_rx->asd.match.fwnode = of_fwnode_handle(of_graph_get_remote_port_parent(ep_node));
-
 	v4l2_async_notifier_init(&hdmi_rx->notifier);
-	ret = v4l2_async_notifier_add_subdev(&hdmi_rx->notifier,
-					     &hdmi_rx->asd);
-	if (ret < 0)
+	asd = v4l2_async_notifier_add_fwnode_remote_subdev(&hdmi_rx->notifier,
+							   of_fwnode_handle(ep_node),
+							   struct v4l2_async_subdev);
+	of_node_put(ep_node);
+	if (IS_ERR(asd)) {
+		ret = PTR_ERR(asd);
 		goto err_device_unregister;
+	}
 
 	hdmi_rx->notifier.ops = &axi_hdmi_rx_async_ops;
 

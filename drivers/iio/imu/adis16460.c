@@ -5,7 +5,6 @@
  * Copyright 2019 Analog Devices Inc.
  */
 
-#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 
@@ -374,8 +373,6 @@ static int adis16460_probe(struct spi_device *spi)
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
-	spi_set_drvdata(spi, indio_dev);
-
 	st = iio_priv(indio_dev);
 
 	st->chip_info = &adis16460_chip_info;
@@ -389,17 +386,11 @@ static int adis16460_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	/* We cannot mask the interrupt, so ensure it isn't auto enabled */
+	st->adis.irq_flag |= IRQF_NO_AUTOEN;
 	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev, NULL);
 	if (ret)
 		return ret;
-	/*
-	 * Note that this is not needed in upstream but we still need to have
-	 * it in our tree because the 'IRQF_NO_AUTOEN' flag is still not
-	 * present. With it, the IRQ is automatically disabled when requesting
-	 * it. As soon as we move to a kernel supporting we can drop this call
-	 * and update @adis_validate_irq_flag() accordingly.
-	 */
-	adis_enable_irq(&st->adis, false);
 
 	ret = __adis_initial_startup(&st->adis);
 	if (ret)

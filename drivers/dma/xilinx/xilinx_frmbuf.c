@@ -100,6 +100,7 @@
 #define XILINX_FRMBUF_FMT_RGBX12		30
 #define XILINX_FRMBUF_FMT_RGB16			35
 #define XILINX_FRMBUF_FMT_Y_U_V8		42
+#define XILINX_FRMBUF_FMT_Y_U_V10		43
 
 /* FID Register */
 #define XILINX_FRMBUF_FID_MASK			BIT(0)
@@ -489,6 +490,26 @@ static const struct xilinx_frmbuf_format_desc xilinx_frmbuf_formats[] = {
 		.drm_fmt = DRM_FORMAT_YUV444,
 		.fmt_bitmask = BIT(24),
 	},
+	{
+		.dts_name = "y_u_v8",
+		.id = XILINX_FRMBUF_FMT_Y_U_V8,
+		.bpw = 32,
+		.ppw = 4,
+		.num_planes = 3,
+		.v4l2_fmt = V4L2_PIX_FMT_YUV444P,
+		.drm_fmt = DRM_FORMAT_YUV444,
+		.fmt_bitmask = BIT(24),
+	},
+	{
+		.dts_name = "y_u_v10",
+		.id = XILINX_FRMBUF_FMT_Y_U_V10,
+		.bpw = 32,
+		.ppw = 3,
+		.num_planes = 3,
+		.v4l2_fmt = V4L2_PIX_FMT_X403,
+		.drm_fmt = DRM_FORMAT_X403,
+		.fmt_bitmask = BIT(25),
+	},
 };
 
 /**
@@ -762,7 +783,8 @@ static void xilinx_xdma_set_config(struct dma_chan *chan, u32 fourcc, u32 type)
 	}
 
 	if ((!(xdev->cfg->flags & XILINX_THREE_PLANES_PROP)) &&
-	    xil_chan->vid_fmt->id == XILINX_FRMBUF_FMT_Y_U_V8) {
+	    (xil_chan->vid_fmt->id == XILINX_FRMBUF_FMT_Y_U_V8 ||
+	     xil_chan->vid_fmt->id == XILINX_FRMBUF_FMT_Y_U_V10)) {
 		dev_err(chan->device->dev, "doesn't support %s format\n",
 			xil_chan->vid_fmt->dts_name);
 		/* Restore to old video format */
@@ -891,7 +913,7 @@ int xilinx_xdma_get_fid_err_flag(struct dma_chan *chan,
 	if (IS_ERR(xdev))
 		return PTR_ERR(xdev);
 
-	if (xdev->chan.direction != DMA_DEV_TO_MEM || !xdev->chan.idle)
+	if (xdev->chan.direction != DMA_MEM_TO_DEV || xdev->chan.idle)
 		return -EINVAL;
 
 	*fid_err_flag = xdev->chan.fid_err_flag;
@@ -909,7 +931,7 @@ int xilinx_xdma_get_fid_out(struct dma_chan *chan,
 	if (IS_ERR(xdev))
 		return PTR_ERR(xdev);
 
-	if (xdev->chan.direction != DMA_DEV_TO_MEM || !xdev->chan.idle)
+	if (xdev->chan.direction != DMA_MEM_TO_DEV || xdev->chan.idle)
 		return -EINVAL;
 
 	*fid_out_val = xdev->chan.fid_out_val;

@@ -20,9 +20,10 @@
 	(_loc->row << _adev->row_shift) + (regoff); \
 	})
 
-#define aie_cal_reg_pa(adev, loc, regoff) ({ \
-	struct aie_device *__adev = (adev); \
-	__adev->res->start + aie_cal_reg_goffset(__adev, loc, regoff); \
+#define aie_cal_reg_pa(aperture, rloc, regoff) ({ \
+	struct aie_aperture *__aperture = (aperture); \
+	__aperture->res.start + aie_cal_reg_goffset(__aperture->adev, rloc, \
+						    regoff); \
 	})
 
 static struct sg_table *
@@ -62,21 +63,23 @@ static int aie_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	struct aie_part_mem *pmem = dmabuf->priv;
 	struct aie_mem *mem = &pmem->mem;
 	struct aie_partition *apart = pmem->apart;
-	struct aie_location loc;
+	struct aie_aperture *aperture = apart->aperture;
+	struct aie_location rloc;
 	unsigned long addr = vma->vm_start;
 	unsigned long offset = vma->vm_pgoff * PAGE_SIZE, moffset = 0;
 	unsigned long remainder = vma->vm_end - addr;
 	size_t msize = mem->size;
+	u32 rstart_col = mem->range.start.col - aperture->range.start.col;
 
 	if (remainder + offset > pmem->size)
 		return -EINVAL;
 
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	for (loc.col = mem->range.start.col;
-	     loc.col < mem->range.start.col + mem->range.size.col; loc.col++) {
-		for (loc.row = mem->range.start.row;
-		     loc.row < mem->range.start.row + mem->range.size.row;
-		     loc.row++) {
+	for (rloc.col = rstart_col;
+	     rloc.col < rstart_col + mem->range.size.col; rloc.col++) {
+		for (rloc.row = mem->range.start.row;
+		     rloc.row < mem->range.start.row + mem->range.size.row;
+		     rloc.row++) {
 			unsigned long toffset, len;
 			phys_addr_t mempa;
 			int ret;
@@ -99,7 +102,7 @@ static int aie_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 			len = msize - toffset;
 			if (len > remainder)
 				len = remainder;
-			mempa = aie_cal_reg_pa(apart->adev, loc,
+			mempa = aie_cal_reg_pa(apart->aperture, rloc,
 					       toffset + mem->offset);
 
 			ret = remap_pfn_range(vma, addr, mempa >> PAGE_SHIFT,
@@ -107,7 +110,8 @@ static int aie_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 			if (ret) {
 				dev_err(&apart->dev,
 					"failed to mmap (%u,%u)memory, remap failed, 0x%pa, 0x%lx.\n",
-					loc.col, loc.row, &mempa, len);
+					(rloc.col + aperture->range.start.col),
+					rloc.row, &mempa, len);
 				return ret;
 			}
 			addr += len;
@@ -217,7 +221,8 @@ int aie_mem_get_info(struct aie_partition *apart, unsigned long arg)
 	if (copy_from_user(&margs, (void __user *)arg, sizeof(margs)))
 		return -EFAULT;
 
-	num_mems = apart->adev->ops->get_mem_info(&apart->range, NULL);
+	num_mems = apart->adev->ops->get_mem_info(apart->adev, &apart->range,
+						  NULL);
 	if (num_mems <= 0)
 		return -EINVAL;
 
@@ -285,7 +290,8 @@ bool aie_part_has_mem_mmapped(struct aie_partition *apart)
 {
 	unsigned int num_mems, i;
 
-	num_mems = apart->adev->ops->get_mem_info(&apart->range, NULL);
+	num_mems = apart->adev->ops->get_mem_info(apart->adev, &apart->range,
+			NULL);
 	if (!num_mems)
 		return false;
 

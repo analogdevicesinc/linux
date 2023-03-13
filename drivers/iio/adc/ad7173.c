@@ -759,24 +759,19 @@ static int ad7173_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ad_sd_setup_buffer_and_trigger(indio_dev);
+	ret = devm_ad_sd_setup_buffer_and_trigger(&spi->dev, indio_dev);
 	if (ret)
-		goto error_disable_reg;
+		return ret;
 
 	ret = ad7173_setup(indio_dev);
 	if (ret)
-		goto error_remove_trigger;
+		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto error_remove_trigger;
+		return ret;
 
 	return ad7173_gpio_init(st);
-
-error_remove_trigger:
-	ad_sd_cleanup_buffer_and_trigger(indio_dev);
-error_disable_reg:
-	return ret;
 }
 
 static int ad7173_remove(struct spi_device *spi)
@@ -787,7 +782,6 @@ static int ad7173_remove(struct spi_device *spi)
 	ad7173_gpio_cleanup(st);
 
 	iio_device_unregister(indio_dev);
-	ad_sd_cleanup_buffer_and_trigger(indio_dev);
 
 	return 0;
 }

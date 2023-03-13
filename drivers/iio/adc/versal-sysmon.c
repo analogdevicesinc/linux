@@ -2,7 +2,7 @@
 /*
  * Xilinx SYSMON for Versal
  *
- * Copyright (C) 2019 - 2021 Xilinx, Inc.
+ * Copyright (C) 2019 - 2022 Xilinx, Inc.
  *
  * Description:
  * This driver is developed for SYSMON on Versal. The driver supports INDIO Mode
@@ -10,7 +10,19 @@
  * in kernel event monitoring for some modules.
  */
 
+#include <linux/bits.h>
+#include <dt-bindings/power/xlnx-versal-regnode.h>
+#include <linux/firmware/xlnx-zynqmp.h>
+#include <linux/moduleparam.h>
 #include "versal-sysmon.h"
+
+#define SYSMON_EVENT_WORK_DELAY_MS	1000
+#define SYSMON_UNMASK_WORK_DELAY_MS	500
+
+static bool secure_mode;
+module_param(secure_mode, bool, 0444);
+MODULE_PARM_DESC(secure_mode,
+		 "Allow sysmon to access register space using EEMI, when direct register access is restricted (default: Direct Access mode)");
 
 /* This structure describes temperature events */
 static const struct iio_event_spec sysmon_temp_events[] = {
@@ -65,23 +77,70 @@ static const struct iio_chan_spec temp_events[] = {
 	SYSMON_CHAN_TEMP_EVENT(OT_EVENT, "ot", sysmon_temp_events),
 };
 
-static inline void sysmon_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
+static inline void sysmon_direct_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
 {
 	*data = readl(sysmon->base + offset);
 }
 
-static inline void sysmon_write_reg(struct sysmon *sysmon, u32 offset, u32 data)
+static inline void sysmon_direct_write_reg(struct sysmon *sysmon, u32 offset, u32 data)
 {
 	writel(data, sysmon->base + offset);
 }
 
-static inline void sysmon_update_reg(struct sysmon *sysmon, u32 offset,
-				     u32 mask, u32 data)
+static inline void sysmon_direct_update_reg(struct sysmon *sysmon, u32 offset,
+					    u32 mask, u32 data)
 {
 	u32 val;
 
-	sysmon_read_reg(sysmon, offset, &val);
-	sysmon_write_reg(sysmon, offset, (val & ~mask) | (mask & data));
+	sysmon_direct_read_reg(sysmon, offset, &val);
+	sysmon_direct_write_reg(sysmon, offset, (val & ~mask) | (mask & data));
+}
+
+static struct sysmon_ops direct_access = {
+	.read_reg = sysmon_direct_read_reg,
+	.write_reg = sysmon_direct_write_reg,
+	.update_reg = sysmon_direct_update_reg,
+};
+
+static inline void sysmon_secure_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
+{
+	zynqmp_pm_sec_read_reg(sysmon->pm_info, offset, data);
+}
+
+static inline void sysmon_secure_write_reg(struct sysmon *sysmon, u32 offset, u32 data)
+{
+	zynqmp_pm_sec_mask_write_reg(sysmon->pm_info, offset, GENMASK(31, 0), data);
+}
+
+static inline void sysmon_secure_update_reg(struct sysmon *sysmon, u32 offset,
+					    u32 mask, u32 data)
+{
+	u32 val;
+
+	zynqmp_pm_sec_read_reg(sysmon->pm_info, offset, &val);
+	zynqmp_pm_sec_mask_write_reg(sysmon->pm_info, offset, GENMASK(31, 0),
+				     (val & ~mask) | (mask & data));
+}
+
+static struct sysmon_ops secure_access = {
+	.read_reg = sysmon_secure_read_reg,
+	.write_reg = sysmon_secure_write_reg,
+	.update_reg = sysmon_secure_update_reg,
+};
+
+static void sysmon_read_reg(struct sysmon *sysmon, u32 offset, u32 *data)
+{
+	sysmon->ops->read_reg(sysmon, offset, data);
+}
+
+static void sysmon_write_reg(struct sysmon *sysmon, u32 offset, u32 data)
+{
+	sysmon->ops->write_reg(sysmon, offset, data);
+}
+
+static void sysmon_update_reg(struct sysmon *sysmon, u32 offset, u32 mask, u32 data)
+{
+	sysmon->ops->update_reg(sysmon, offset, mask, data);
 }
 
 static u32 sysmon_temp_offset(int address)
@@ -340,6 +399,7 @@ static int sysmon_write_event_config(struct iio_dev *indio_dev,
 	struct sysmon *sysmon = iio_priv(indio_dev);
 	u32 alarm_reg_num = ALARM_REG(chan->address);
 	u32 offset = SYSMON_ALARM_REG + (4 * alarm_reg_num);
+	u32 shift = ALARM_SHIFT(chan->address);
 	u32 ier = sysmon_get_event_mask(chan->address);
 	u32 alarm_config;
 	unsigned long flags;
@@ -352,11 +412,11 @@ static int sysmon_write_event_config(struct iio_dev *indio_dev,
 
 		sysmon_read_reg(sysmon, offset, &alarm_config);
 
-		if (alarm_config)
+		if (alarm_config & BIT(shift))
 			sysmon_write_reg(sysmon, SYSMON_IER, ier);
 		else
 			sysmon_write_reg(sysmon, SYSMON_IDR, ier);
-	} else {
+	} else if (chan->type == IIO_TEMP) {
 		if (state) {
 			sysmon_write_reg(sysmon, SYSMON_IER, ier);
 			sysmon->temp_mask &= ~ier;
@@ -750,7 +810,7 @@ static void sysmon_unmask_worker(struct work_struct *work)
 	/* if still pending some alarm re-trigger the timer */
 	if (sysmon->masked_temp)
 		schedule_delayed_work(&sysmon->sysmon_unmask_work,
-				      msecs_to_jiffies(500));
+				      msecs_to_jiffies(SYSMON_UNMASK_WORK_DELAY_MS));
 	else
 		/*
 		 * Reset the temp_max_max and temp_min_min values to reset the
@@ -782,12 +842,40 @@ static irqreturn_t sysmon_iio_irq(int irq, void *data)
 		sysmon_handle_events(indio_dev, isr);
 
 		schedule_delayed_work(&sysmon->sysmon_unmask_work,
-				      msecs_to_jiffies(500));
+				      msecs_to_jiffies(SYSMON_UNMASK_WORK_DELAY_MS));
 	}
 
 	spin_unlock(&sysmon->lock);
 
 	return IRQ_HANDLED;
+}
+
+static void sysmon_events_worker(struct work_struct *work)
+{
+	u32 isr, imr;
+	struct sysmon *sysmon = container_of(work, struct sysmon,
+					     sysmon_events_work.work);
+
+	spin_lock(&sysmon->lock);
+
+	sysmon_read_reg(sysmon, SYSMON_ISR, &isr);
+	sysmon_read_reg(sysmon, SYSMON_IMR, &imr);
+
+	/* only process alarm that are not masked */
+	isr &= ~imr;
+
+	/* clear interrupt */
+	sysmon_write_reg(sysmon, SYSMON_ISR, isr);
+
+	if (isr) {
+		sysmon_handle_events(sysmon->indio_dev, isr);
+		schedule_delayed_work(&sysmon->sysmon_unmask_work,
+				      msecs_to_jiffies(SYSMON_UNMASK_WORK_DELAY_MS));
+	}
+	spin_unlock(&sysmon->lock);
+
+	schedule_delayed_work(&sysmon->sysmon_events_work,
+			      msecs_to_jiffies(SYSMON_EVENT_WORK_DELAY_MS));
 }
 
 static int get_hw_node_properties(struct platform_device *pdev,
@@ -863,9 +951,7 @@ static int sysmon_parse_dt(struct iio_dev *indio_dev,
 		get_hw_node_properties(pdev, &sysmon->region_list);
 
 	/* Initialize buffer for channel specification */
-	temp_chan_size = (sysmon->irq > 0) ? (sizeof(temp_channels) +
-					      sizeof(temp_events)) :
-		sizeof(temp_channels);
+	temp_chan_size = (sizeof(temp_channels) + sizeof(temp_events));
 
 	num_temp_chan = ARRAY_SIZE(temp_channels);
 
@@ -875,12 +961,16 @@ static int sysmon_parse_dt(struct iio_dev *indio_dev,
 
 	for_each_child_of_node(np, child_node) {
 		ret = of_property_read_u32(child_node, "reg", &reg);
-		if (ret < 0)
+		if (ret < 0) {
+			of_node_put(child_node);
 			return ret;
+		}
 
 		ret = of_property_read_string(child_node, "xlnx,name", &name);
-		if (ret < 0)
+		if (ret < 0) {
+			of_node_put(child_node);
 			return ret;
+		}
 
 		sysmon_channels[i].type = IIO_VOLTAGE;
 		sysmon_channels[i].indexed = 1;
@@ -889,11 +979,8 @@ static int sysmon_parse_dt(struct iio_dev *indio_dev,
 		sysmon_channels[i].info_mask_separate =
 			BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_PROCESSED);
 
-		if (sysmon->irq > 0) {
-			sysmon_channels[i].event_spec = sysmon_supply_events;
-			sysmon_channels[i].num_event_specs =
-				ARRAY_SIZE(sysmon_supply_events);
-		}
+		sysmon_channels[i].event_spec = sysmon_supply_events;
+		sysmon_channels[i].num_event_specs = ARRAY_SIZE(sysmon_supply_events);
 
 		sysmon_channels[i].scan_index = i;
 		sysmon_channels[i].scan_type.realbits = 19;
@@ -915,11 +1002,9 @@ static int sysmon_parse_dt(struct iio_dev *indio_dev,
 	       sizeof(temp_channels));
 	indio_dev->num_channels = num_supply_chan + ARRAY_SIZE(temp_channels);
 
-	if (sysmon->irq > 0) {
-		memcpy(sysmon_channels + num_supply_chan + num_temp_chan,
-		       temp_events, sizeof(temp_events));
-		indio_dev->num_channels += ARRAY_SIZE(temp_events);
-	}
+	memcpy(sysmon_channels + num_supply_chan + num_temp_chan,
+	       temp_events, sizeof(temp_events));
+	indio_dev->num_channels += ARRAY_SIZE(temp_events);
 
 	indio_dev->channels = sysmon_channels;
 
@@ -949,6 +1034,7 @@ static int sysmon_probe(struct platform_device *pdev)
 	sysmon = iio_priv(indio_dev);
 
 	sysmon->dev = &pdev->dev;
+	sysmon->indio_dev = indio_dev;
 
 	mutex_init(&sysmon->mutex);
 	spin_lock_init(&sysmon->lock);
@@ -964,7 +1050,32 @@ static int sysmon_probe(struct platform_device *pdev)
 	if (IS_ERR(sysmon->base))
 		return PTR_ERR(sysmon->base);
 
+	if (secure_mode) {
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "xlnx,nodeid", &sysmon->pm_info);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Failed to read SLR node id\n");
+			return ret;
+		}
+
+		ret = zynqmp_pm_feature(PM_IOCTL);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Feature check failed with %d\n", ret);
+			return ret;
+		}
+		if ((ret & FIRMWARE_VERSION_MASK) < PM_API_VERSION_2) {
+			dev_err(&pdev->dev, "IOCTL firmware version error. Expected: v%d - Found: v%d\n",
+				PM_API_VERSION_2, ret & FIRMWARE_VERSION_MASK);
+			return -EOPNOTSUPP;
+		}
+		sysmon->ops = &secure_access;
+	} else {
+		sysmon->ops = &direct_access;
+	}
+
 	sysmon_write_reg(sysmon, SYSMON_NPI_LOCK, NPI_UNLOCK);
+	sysmon_write_reg(sysmon, SYSMON_IDR, 0xffffffff);
+	sysmon_write_reg(sysmon, SYSMON_ISR, 0xffffffff);
 
 	sysmon->irq = platform_get_irq_optional(pdev, 0);
 
@@ -972,17 +1083,22 @@ static int sysmon_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	INIT_DELAYED_WORK(&sysmon->sysmon_unmask_work,
+			  sysmon_unmask_worker);
+	sysmon_init_interrupt(sysmon);
 	if (sysmon->irq > 0) {
 		g_sysmon = sysmon;
-		INIT_DELAYED_WORK(&sysmon->sysmon_unmask_work,
-				  sysmon_unmask_worker);
-		sysmon_init_interrupt(sysmon);
 		ret = devm_request_irq(&pdev->dev, sysmon->irq, &sysmon_iio_irq,
 				       0, "sysmon-irq", indio_dev);
 		if (ret < 0)
 			return ret;
 	} else if (sysmon->irq == -EPROBE_DEFER) {
 		return -EPROBE_DEFER;
+	} else {
+		INIT_DELAYED_WORK(&sysmon->sysmon_events_work,
+				  sysmon_events_worker);
+		schedule_delayed_work(&sysmon->sysmon_events_work,
+				      msecs_to_jiffies(SYSMON_EVENT_WORK_DELAY_MS));
 	}
 
 	platform_set_drvdata(pdev, indio_dev);
@@ -999,6 +1115,13 @@ static int sysmon_probe(struct platform_device *pdev)
 static int sysmon_remove(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
+	struct sysmon *sysmon = iio_priv(indio_dev);
+
+	/* cancel SSIT based events */
+	if (sysmon->irq < 0)
+		cancel_delayed_work_sync(&sysmon->sysmon_events_work);
+
+	cancel_delayed_work_sync(&sysmon->sysmon_unmask_work);
 
 	/* Unregister the device */
 	iio_device_unregister(indio_dev);

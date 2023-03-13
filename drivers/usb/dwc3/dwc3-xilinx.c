@@ -64,8 +64,7 @@
 #define PIPE_CLK_DESELECT			1
 #define PIPE_CLK_SELECT				0
 #define XLNX_USB_FPD_POWER_PRSNT		0x80
-#define PIPE_POWER_ON				1
-#define PIPE_POWER_OFF				0
+#define FPD_POWER_PRSNT_OPTION			BIT(0)
 
 enum dwc3_xlnx_core_state {
 	UNKNOWN_STATE = 0,
@@ -79,6 +78,7 @@ struct dwc3_xlnx {
 	struct device			*dev;
 	void __iomem			*regs;
 	int				(*pltfm_init)(struct dwc3_xlnx *data);
+	struct phy			*usb3_phy;
 	struct regulator		*dwc3_pmu;
 	struct regulator_dev		*dwc3_xlnx_reg_rdev;
 	enum dwc3_xlnx_core_state	pmu_state;
@@ -216,7 +216,7 @@ static int dwc3_versal_power_req(struct device *dev, bool on)
 
 	if (on) {
 		dev_dbg(dev, "%s:Trying to set power state to D0....\n",
-			 __func__);
+			__func__);
 
 		if (priv_data->pmu_state == D0_STATE)
 			return 0;
@@ -294,7 +294,7 @@ static int dwc3_xlnx_reg_is_enabled(struct regulator_dev *rdev)
 	return !!(priv_data->pmu_state == D0_STATE);
 }
 
-static struct regulator_ops dwc3_xlnx_reg_ops = {
+static const struct regulator_ops dwc3_xlnx_reg_ops = {
 	.enable			= dwc3_xlnx_reg_enable,
 	.disable		= dwc3_xlnx_reg_disable,
 	.is_enabled		= dwc3_xlnx_reg_is_enabled,
@@ -380,7 +380,6 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 {
 	struct device		*dev = priv_data->dev;
 	struct reset_control	*crst, *hibrst, *apbrst;
-	struct phy		*usb3_phy;
 	int			ret;
 	u32			reg;
 	struct gpio_desc	*reset_gpio = NULL;
@@ -410,11 +409,21 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 		goto err;
 	}
 
-	usb3_phy = devm_phy_get(dev, "usb3-phy");
-	if (PTR_ERR(usb3_phy) == -EPROBE_DEFER) {
-		ret = -EPROBE_DEFER;
+	priv_data->usb3_phy = devm_phy_optional_get(dev, "usb3-phy");
+	if (IS_ERR(priv_data->usb3_phy)) {
+		ret = PTR_ERR(priv_data->usb3_phy);
+		dev_err_probe(dev, ret,
+			      "failed to get USB3 PHY\n");
 		goto err;
-	} else if (IS_ERR(usb3_phy)) {
+	}
+
+	/*
+	 * When no USB3 PHY 'usb3-phy' property is specified in the
+	 * device-tree, then zynqmp board work as a USB2.0 mode only.
+	 * USB2.0 mode only design is non-SerDes based, so we are
+	 * skipping phy initialization.
+	 */
+	if (!priv_data->usb3_phy) {
 		ret = 0;
 		goto skip_usb3_phy;
 	}
@@ -437,9 +446,9 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 		goto err;
 	}
 
-	ret = phy_init(usb3_phy);
+	ret = phy_init(priv_data->usb3_phy);
 	if (ret < 0) {
-		phy_exit(usb3_phy);
+		phy_exit(priv_data->usb3_phy);
 		goto err;
 	}
 
@@ -450,7 +459,7 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 	}
 
 	/* Set PIPE Power Present signal in FPD Power Present Register*/
-	writel(PIPE_POWER_ON, priv_data->regs + XLNX_USB_FPD_POWER_PRSNT);
+	writel(FPD_POWER_PRSNT_OPTION, priv_data->regs + XLNX_USB_FPD_POWER_PRSNT);
 
 	/* Set the PIPE Clock Select bit in FPD PIPE Clock register */
 	writel(PIPE_CLK_SELECT, priv_data->regs + XLNX_USB_FPD_PIPE_CLK);
@@ -467,26 +476,27 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 		goto err;
 	}
 
-	ret = phy_power_on(usb3_phy);
+	ret = phy_power_on(priv_data->usb3_phy);
 	if (ret < 0) {
-		phy_exit(usb3_phy);
+		phy_exit(priv_data->usb3_phy);
 		goto err;
 	}
 
 skip_usb3_phy:
 	/* ulpi reset via gpio-modepin or gpio-framework driver */
-	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(reset_gpio)) {
-		dev_err_probe(dev, PTR_ERR(reset_gpio),
-			      "Failed to bind reset gpio\n");
+		ret = PTR_ERR(reset_gpio);
+		dev_err_probe(dev, ret,
+			      "Failed to bind reset gpio %d,errcode\n", ret);
 		goto err;
 	}
 
 	if (reset_gpio) {
 		/* Toggle ulpi to reset the phy. */
-		gpiod_set_value(reset_gpio, 0);
+		gpiod_set_value_cansleep(reset_gpio, 1);
 		usleep_range(5000, 10000); /* delay */
-		gpiod_set_value(reset_gpio, 1);
+		gpiod_set_value_cansleep(reset_gpio, 0);
 		usleep_range(5000, 10000); /* delay */
 	}
 
@@ -506,7 +516,7 @@ err:
 }
 
 /* xilinx feature support functions */
-void dwc3_xilinx_wakeup_capable(struct device *dev, bool wakeup)
+static void dwc3_xilinx_wakeup_capable(struct device *dev, bool wakeup)
 {
 	struct device_node *node = of_node_get(dev->parent->of_node);
 
@@ -632,7 +642,6 @@ static int dwc3_xlnx_probe(struct platform_device *pdev)
 
 err_clk_put:
 	clk_bulk_disable_unprepare(priv_data->num_clocks, priv_data->clks);
-	clk_bulk_put_all(priv_data->num_clocks, priv_data->clks);
 
 	return ret;
 }
@@ -647,7 +656,6 @@ static int dwc3_xlnx_remove(struct platform_device *pdev)
 	/* Unregister the dwc3-xilinx wakeup function from dwc3 host */
 	dwc3_host_wakeup_register(NULL);
 	clk_bulk_disable_unprepare(priv_data->num_clocks, priv_data->clks);
-	clk_bulk_put_all(priv_data->num_clocks, priv_data->clks);
 	priv_data->num_clocks = 0;
 
 	pm_runtime_disable(dev);
@@ -691,6 +699,8 @@ static int __maybe_unused dwc3_xlnx_suspend(struct device *dev)
 			/* Put the core into D3 */
 			dwc3_set_usb_core_power(dev, false);
 #endif
+		phy_exit(priv_data->usb3_phy);
+
 		/* Disable the clocks */
 		clk_bulk_disable(priv_data->num_clocks, priv_data->clks);
 	}
@@ -711,9 +721,20 @@ static int __maybe_unused dwc3_xlnx_resume(struct device *dev)
 		dwc3_set_usb_core_power(dev, true);
 #endif
 
+	/* Enabled the clocks */
 	ret = clk_bulk_enable(priv_data->num_clocks, priv_data->clks);
 	if (ret)
 		return ret;
+
+	ret = phy_init(priv_data->usb3_phy);
+	if (ret < 0)
+		return ret;
+
+	ret = phy_power_on(priv_data->usb3_phy);
+	if (ret < 0) {
+		phy_exit(priv_data->usb3_phy);
+		return ret;
+	}
 
 	return 0;
 }
@@ -721,7 +742,7 @@ static int __maybe_unused dwc3_xlnx_resume(struct device *dev)
 static const struct dev_pm_ops dwc3_xlnx_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_xlnx_suspend, dwc3_xlnx_resume)
 	SET_RUNTIME_PM_OPS(dwc3_xlnx_runtime_suspend,
-			dwc3_xlnx_runtime_resume, dwc3_xlnx_runtime_idle)
+			   dwc3_xlnx_runtime_resume, dwc3_xlnx_runtime_idle)
 };
 
 static struct platform_driver dwc3_xlnx_driver = {

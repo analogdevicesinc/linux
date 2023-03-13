@@ -748,7 +748,7 @@ static int xhdmi_frlddcwritefield(struct xhdmirx_state *xhdmi,
 				  u8 value)
 {
 	/* 256 byte FIFO but doubling to 512 tries for safety */
-	u32 data = 0xFFFFFFFF, retrycount = 2 * MAX_FRL_RETRY;
+	u32 data = 0, retrycount = 2 * MAX_FRL_RETRY;
 
 	if (frlscdcfield[field].mask != 0xFF)
 		data = xhdmi_frlddcreadfield(xhdmi, field);
@@ -1284,6 +1284,14 @@ static void phy_rxready_cb(void *param)
 	}
 
 	xhdmi->stream.refclk = opts.hdmi.rx_refclk_hz;
+
+	/*
+	 * In case the TMDS Clock ratio is 1/40, the reference clock must be
+	 * compensated.
+	 */
+	if (xhdmirx1_gettmdsclkratio(xhdmi))
+		xhdmi->stream.refclk *= 4;
+
 	dev_dbg(xhdmi->dev, "Phy RxReadyCallback refclk = %u Hz\n", xhdmi->stream.refclk);
 }
 
@@ -1431,10 +1439,17 @@ static void rxstreamup(struct xhdmirx_state *xhdmi)
 	xhdmi->mbus_fmt.width = stream->timing.hact;
 	xhdmi->mbus_fmt.height = stream->timing.vact;
 
-	if ((stream->timing.hact == 1440 &&
-	     ((stream->timing.vact == 240 && stream->framerate == 60) ||
-	      (stream->timing.vact == 288 && stream->framerate == 50))) &&
-	    !!stream->isinterlaced)
+	/*
+	 * For pixel repetition cases 1440x240@60,120,240 or
+	 * 1440x288@50,100,200, make width as half.
+	 */
+	if (stream->timing.hact == 1440 &&
+	    ((stream->timing.vact == 240 && (stream->framerate == 60 ||
+					     stream->framerate == 120 ||
+					     stream->framerate == 240)) ||
+	     (stream->timing.vact == 288 && (stream->framerate == 50 ||
+					     stream->framerate == 100 ||
+					     stream->framerate == 200))))
 		xhdmi->mbus_fmt.width /= 2;
 
 	if (stream->isinterlaced)
@@ -1453,26 +1468,30 @@ static void rxstreamup(struct xhdmirx_state *xhdmi)
 	xhdmi->dv_timings.bt.width	= stream->timing.hact;
 	xhdmi->dv_timings.bt.height	= stream->timing.vact;
 	xhdmi->dv_timings.bt.interlaced = !!stream->isinterlaced;
+	if (xhdmi->dv_timings.bt.interlaced)
+		xhdmi->dv_timings.bt.height *= 2;
+
 	xhdmi->dv_timings.bt.polarities = stream->timing.vsyncpol ?
 					  V4L2_DV_VSYNC_POS_POL : 0;
 	xhdmi->dv_timings.bt.polarities |= stream->timing.hsyncpol ?
 					   V4L2_DV_HSYNC_POS_POL : 0;
 	/* determine pixel clock */
-	if (stream->isinterlaced) {
-		xhdmi->dv_timings.bt.pixelclock = stream->timing.vtot[0] +
-						stream->timing.vtot[1];
-		xhdmi->dv_timings.bt.pixelclock *= stream->framerate / 2;
-	} else {
-		xhdmi->dv_timings.bt.pixelclock = stream->timing.vtot[0] *
-						  stream->framerate;
-	}
-	xhdmi->dv_timings.bt.pixelclock *= stream->timing.htot;
+	xhdmi->dv_timings.bt.pixelclock = xhdmi->stream.pixelclk;
 
-	if ((stream->timing.hact == 1440 &&
-	     ((stream->timing.vact == 240 && stream->framerate == 60) ||
-	      (stream->timing.vact == 288 && stream->framerate == 50))) &&
-	    !!stream->isinterlaced) {
-		xhdmi->dv_timings.bt.width /= 2;
+	/*
+	 * Double pixel clock for YUV 420 TMDS / Tri-band packing
+	 * as per Sec 7.1 of HDMI 2.1 spec.
+	 */
+	if (xhdmi->stream.video.colorspace == XCS_YUV420)
+		xhdmi->dv_timings.bt.pixelclock *= 2;
+
+	if (stream->timing.hact == 1440 &&
+	    ((stream->timing.vact == 240 && (stream->framerate == 60 ||
+					     stream->framerate == 120 ||
+					     stream->framerate == 240)) ||
+	     (stream->timing.vact == 288 && (stream->framerate == 50 ||
+					     stream->framerate == 100 ||
+					     stream->framerate == 200)))) {
 		xhdmirx1_bridgeyuv420(xhdmi, false);
 		xhdmirx1_bridgepixeldrop(xhdmi, true);
 	}
@@ -2942,8 +2961,8 @@ static void xhdmirx_init(struct xhdmirx_state *xhdmi)
 	xhdmirx_pio_disable(xhdmi);
 	xhdmirx_tmr1_disable(xhdmi);
 	xhdmirx_tmr2_disable(xhdmi);
-	xhdmirx_tmr2_disable(xhdmi);
-	xhdmirx_tmr2_disable(xhdmi);
+	xhdmirx_tmr3_disable(xhdmi);
+	xhdmirx_tmr4_disable(xhdmi);
 	xhdmirx_vtd_disable(xhdmi);
 	xhdmirx_ddc_disable(xhdmi);
 	xhdmirx_aux_disable(xhdmi);
@@ -3387,13 +3406,13 @@ static int xhdmirx_query_dv_timings(struct v4l2_subdev *subdev,
 
 static struct v4l2_mbus_framefmt *
 __xhdmirx_get_pad_format_ptr(struct xhdmirx_state *xhdmi,
-			     struct v4l2_subdev_pad_config *cfg,
+			     struct v4l2_subdev_state *sd_state,
 			     unsigned int pad, u32 which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		dev_dbg(xhdmi->dev, "%s V4L2_SUBDEV_FORMAT_TRY\n", __func__);
-		return v4l2_subdev_get_try_format(&xhdmi->sd, cfg, pad);
+		return v4l2_subdev_get_try_format(&xhdmi->sd, sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		dev_dbg(xhdmi->dev, "%s V4L2_SUBDEV_FORMAT_ACTIVE\n", __func__);
 		return &xhdmi->mbus_fmt;
@@ -3406,7 +3425,7 @@ __xhdmirx_get_pad_format_ptr(struct xhdmirx_state *xhdmi,
  * xhdmirx_set_format - Set the format to the pad
  *
  * @subdev: pointer to the v4l2 subdev struct
- * @cfg: pointer to pad configuration to be set
+ * @sd_state: pointer to subdev state
  * @fmt: pointer to format structure
  *
  * This function will update the fmt structure passed to
@@ -3415,7 +3434,7 @@ __xhdmirx_get_pad_format_ptr(struct xhdmirx_state *xhdmi,
  * Returns: 0 on success else -EINVAL
  */
 static int xhdmirx_set_format(struct v4l2_subdev *subdev,
-			      struct v4l2_subdev_pad_config *cfg,
+			      struct v4l2_subdev_state *sd_state,
 			      struct v4l2_subdev_format *fmt)
 {
 	struct xhdmirx_state *xhdmi = to_xhdmirx_state(subdev);
@@ -3431,7 +3450,7 @@ static int xhdmirx_set_format(struct v4l2_subdev *subdev,
  * xhdmirx_get_format - Function to get pad format
  *
  * @subdev: pointer to v4l2 subdev struct
- * @cfg: pointer to the pad configuration
+ * @sd_state: pointer to subdev state
  * @fmt: pointer to the subdev format structure
  *
  * The fmt structure is updated based on incoming stream format.
@@ -3439,7 +3458,7 @@ static int xhdmirx_set_format(struct v4l2_subdev *subdev,
  * Returns: 0 on success else -EINVAL
  */
 static int xhdmirx_get_format(struct v4l2_subdev *subdev,
-			      struct v4l2_subdev_pad_config *cfg,
+			      struct v4l2_subdev_state *sd_state,
 			      struct v4l2_subdev_format *fmt)
 {
 	struct xhdmirx_state *xhdmi = to_xhdmirx_state(subdev);
@@ -3449,7 +3468,8 @@ static int xhdmirx_get_format(struct v4l2_subdev *subdev,
 		return -EINVAL;
 
 	/* copy either try or currently-active (i.e. detected) format to caller */
-	gfmt = __xhdmirx_get_pad_format_ptr(xhdmi, cfg, fmt->pad, fmt->which);
+	gfmt = __xhdmirx_get_pad_format_ptr(xhdmi, sd_state, fmt->pad,
+					    fmt->which);
 	if (!gfmt)
 		return -EINVAL;
 
@@ -3733,6 +3753,7 @@ static int xhdmirx_remove(struct platform_device *pdev)
 
 static const struct of_device_id xhdmirx_of_id_table[] = {
 	{ .compatible = "xlnx,v-hdmi-rxss1-1.1" },
+	{ .compatible = "xlnx,v-hdmi-rxss1-1.2" },
 	{ }
 };
 

@@ -298,7 +298,7 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 		switch (lnk->jesd_encoder) {
 		case JESD204_ENCODER_64B66B:
 			bkw = 66; /* JESD 204C */
-			/* fall-through */
+			fallthrough;
 		case JESD204_ENCODER_64B80B:
 			if (lnk->jesd_encoder == JESD204_ENCODER_64B80B)
 				bkw = 80; /* JESD 204C */

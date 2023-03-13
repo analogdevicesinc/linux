@@ -80,6 +80,7 @@
 
 #define XSDIRX_MDL_CTRL_FRM_EN_MASK		BIT(4)
 #define XSDIRX_MDL_CTRL_MODE_DET_EN_MASK	BIT(5)
+#define XSDIRX_MDL_CTRL_VPID_MASK		BIT(6)
 #define XSDIRX_MDL_CTRL_MODE_HD_EN_MASK		BIT(8)
 #define XSDIRX_MDL_CTRL_MODE_SD_EN_MASK		BIT(9)
 #define XSDIRX_MDL_CTRL_MODE_3G_EN_MASK		BIT(10)
@@ -216,6 +217,7 @@
 #define XST352_BYTE1_ST2081_10_2_1080L_6G	0xC1
 #define XST352_BYTE1_ST2081_10_DL_2160L_6G	0xC2
 #define XST352_BYTE1_ST2082_10_2160L_12G	0xCE
+#define XST352_BYTE1_ST2082_10_2_1080L_12G	0xCF
 
 #define XST352_BYTE2_TS_TYPE_MASK		BIT(15)
 #define XST352_BYTE2_TS_TYPE_OFFSET		15
@@ -340,6 +342,7 @@ struct xsdirxss_core {
  * @edhmask: EDH mask set by control
  * @searchmask: Search mask set by control
  * @streaming: Flag for storing streaming state
+ * @s_stream: Flag for storing streaming state
  * @vidlocked: Flag indicating SDI Rx has locked onto video stream
  * @ts_is_interlaced: Flag indicating Transport Stream is interlaced.
  * @framer_enable: Flag for framer enabled or not set by control
@@ -362,6 +365,7 @@ struct xsdirxss_state {
 	u32 edhmask;
 	u16 searchmask;
 	bool streaming;
+	bool s_stream;
 	bool vidlocked;
 	bool ts_is_interlaced;
 	bool framer_enable;
@@ -743,11 +747,15 @@ static inline void xsdirxss_set(struct xsdirxss_core *xsdirxss, u32 addr,
 
 static inline void xsdirx_core_disable(struct xsdirxss_core *core)
 {
+	/* Set VPID bit to its default */
+	xsdirxss_set(core, XSDIRX_MDL_CTRL_REG, XSDIRX_MDL_CTRL_VPID_MASK);
 	xsdirxss_clr(core, XSDIRX_RST_CTRL_REG, XSDIRX_RST_CTRL_SS_EN_MASK);
 }
 
 static inline void xsdirx_core_enable(struct xsdirxss_core *core)
 {
+	/* Ignore VPID / ST352 payload to generate Video lock interrupt */
+	xsdirxss_clr(core, XSDIRX_MDL_CTRL_REG, XSDIRX_MDL_CTRL_VPID_MASK);
 	xsdirxss_set(core, XSDIRX_RST_CTRL_REG, XSDIRX_RST_CTRL_SS_EN_MASK);
 }
 
@@ -1082,14 +1090,15 @@ static int xsdirx_get_stream_properties(struct xsdirxss_state *state)
 	u8 sampling = XST352_BYTE3_COLOR_FORMAT_422;
 	struct v4l2_mbus_framefmt *format = &state->format;
 	u32 bpc = XST352_BYTE4_BIT_DEPTH_10;
+	u8 is_3GB;
 
 	mode = xsdirxss_read(core, XSDIRX_MODE_DET_STAT_REG);
 	mode &= XSDIRX_MODE_DET_STAT_RX_MODE_MASK;
 
 	valid = xsdirxss_read(core, XSDIRX_ST352_VALID_REG);
 
-	if (mode >= XSDIRX_MODE_3G_MASK && !valid) {
-		dev_err_ratelimited(core->dev, "No valid ST352 payload present even for 3G mode and above\n");
+	if (mode >= XSDIRX_MODE_6G_MASK && !valid) {
+		dev_err_ratelimited(core->dev, "No valid ST352 payload present even for 6G mode and above\n");
 		return -EINVAL;
 	}
 
@@ -1231,29 +1240,82 @@ static int xsdirx_get_stream_properties(struct xsdirxss_state *state)
 		}
 		break;
 	case XSDIRX_MODE_3G_MASK:
-		switch (byte1) {
-		case XST352_BYTE1_ST425_2008_750L_3GB:
-			/* Sec 4.1.6.1 SMPTE 425-2008 */
-		case XST352_BYTE1_ST372_2x720L_3GB:
-			/* Table 13 SMPTE 425-2008 */
-			format->width = 1280;
-			format->height = 720;
-			break;
-		case XST352_BYTE1_ST425_2008_1125L_3GA:
-			/* ST352 Table SMPTE 425-1 */
-		case XST352_BYTE1_ST372_DL_3GB:
-			/* Table 13 SMPTE 425-2008 */
-		case XST352_BYTE1_ST372_2x1080L_3GB:
-			/* Table 13 SMPTE 425-2008 */
-			format->height = 1080;
-			if (active_luma)
-				format->width = 2048;
-			else
-				format->width = 1920;
-			break;
-		default:
-			dev_dbg(core->dev, "Unknown 3G Mode SMPTE standard\n");
-			return -EINVAL;
+		is_3GB = xsdirxss_read(core, XSDIRX_MODE_DET_STAT_REG);
+		is_3GB &= XSDIRX_MODE_DET_STAT_LVLB_3G_MASK;
+
+		if (!valid) {
+			/* No payload obtained */
+			dev_warn(core->dev, "No ST352 valid payload available for 3G modes, source is not 3G compliant\n\r");
+			if (is_3GB) {
+				switch (framerate) {
+				case XSDIRX_TS_DET_STAT_RATE_96HZ:
+				case XSDIRX_TS_DET_STAT_RATE_100HZ:
+				case XSDIRX_TS_DET_STAT_RATE_120HZ:
+					if (family == XSDIRX_SMPTE_ST_2048_2) {
+						format->width = 2048;
+						format->height = 1080;
+						format->field = V4L2_FIELD_ALTERNATE;
+					} else {
+						format->width = 1920;
+						format->height = 1080;
+						format->field = V4L2_FIELD_ALTERNATE;
+					}
+					break;
+				default:
+					format->width = 1920;
+					format->height = 1080;
+					format->field = V4L2_FIELD_ALTERNATE;
+					break;
+				}
+			} else {
+				/* 3GA */
+				switch (framerate) {
+				case XSDIRX_TS_DET_STAT_RATE_48HZ:
+				case XSDIRX_TS_DET_STAT_RATE_50HZ:
+				case XSDIRX_TS_DET_STAT_RATE_60HZ:
+					if (family == XSDIRX_SMPTE_ST_2048_2) {
+						format->width = 2048;
+						format->height = 1080;
+						format->field = V4L2_FIELD_NONE;
+					} else {
+						format->width = 1920;
+						format->height = 1080;
+						format->field = V4L2_FIELD_NONE;
+					}
+					break;
+				default:
+					format->width = 1920;
+					format->height = 1080;
+					format->field = V4L2_FIELD_NONE;
+					break;
+				}
+			}
+		} else {
+			dev_dbg(core->dev, "Got the payload\n");
+			switch (byte1) {
+			case XST352_BYTE1_ST425_2008_750L_3GB:
+				/* Sec 4.1.6.1 SMPTE 425-2008 */
+			case XST352_BYTE1_ST372_2x720L_3GB:
+				/* Table 13 SMPTE 425-2008 */
+				format->width = 1280;
+				format->height = 720;
+				break;
+			case XST352_BYTE1_ST425_2008_1125L_3GA:
+				/* ST352 Table SMPTE 425-1 */
+			case XST352_BYTE1_ST372_DL_3GB:
+				/* Table 13 SMPTE 425-2008 */
+			case XST352_BYTE1_ST372_2x1080L_3GB:
+				/* Table 13 SMPTE 425-2008 */
+				format->height = 1080;
+				if (active_luma)
+					format->width = 2048;
+				else
+					format->width = 1920;
+				break;
+			default:
+				dev_dbg(core->dev, "Unknown 3G Mode SMPTE standard\n");
+				return -EINVAL;
+			}
 		}
 		break;
 	case XSDIRX_MODE_6G_MASK:
@@ -1290,6 +1352,14 @@ static int xsdirx_get_stream_properties(struct xsdirxss_state *state)
 				format->width = 4096;
 			else
 				format->width = 3840;
+			break;
+		case XST352_BYTE1_ST2082_10_2_1080L_12G:
+			/* Section 5.8.1 SMPTE ST 2082-10 */
+			format->height = 1080;
+			if (active_luma)
+				format->width = 2048;
+			else
+				format->width = 1920;
 			break;
 		default:
 			dev_dbg(core->dev, "Unknown 12G Mode SMPTE standard\n");
@@ -1498,6 +1568,8 @@ static irqreturn_t xsdirxss_irq_handler(int irq, void *dev_id)
 			u32 mask = XSDIRX_RST_CTRL_RST_CRC_ERRCNT_MASK |
 				   XSDIRX_RST_CTRL_RST_EDH_ERRCNT_MASK;
 
+			u32 prev_payload = state->prev_payload;
+
 			dev_dbg(core->dev, "video lock interrupt\n");
 
 			xsdirxss_set(core, XSDIRX_RST_CTRL_REG, mask);
@@ -1511,9 +1583,25 @@ static irqreturn_t xsdirxss_irq_handler(int irq, void *dev_id)
 
 			if (state->vidlocked) {
 				gen_event = false;
+				/* If it was came here due to interrupt of
+				 * setting gtclk, re-enabling stream control
+				 */
+				if (state->s_stream) {
+					xsdirx_streamflow_control(core, true);
+					state->streaming = true;
+				}
 			} else if (!xsdirx_get_stream_properties(state)) {
 				state->vidlocked = true;
 				xsdirxss_set_gtclk(state);
+				/* If previous payload and current payload are
+				 * same then start streaming. This is not a
+				 * correct way but a workaround
+				 */
+				if (val2 == prev_payload && state->s_stream) {
+					dev_dbg(core->dev, "Resuming as payload is same\n");
+					xsdirx_streamflow_control(core, true);
+					state->streaming = true;
+				}
 			} else {
 				dev_err_ratelimited(core->dev, "Unable to get stream properties!\n");
 				state->vidlocked = false;
@@ -1908,8 +1996,10 @@ static int xsdirxss_s_stream(struct v4l2_subdev *sd, int enable)
 
 		xsdirx_streamflow_control(core, true);
 		xsdirxss->streaming = true;
+		xsdirxss->s_stream = true;
 		dev_dbg(core->dev, "Streaming started\n");
 	} else {
+		xsdirxss->s_stream = false;
 		if (!xsdirxss->streaming) {
 			dev_dbg(core->dev, "Stopped streaming already\n");
 			return 0;
@@ -1949,14 +2039,15 @@ static int xsdirxss_g_input_status(struct v4l2_subdev *sd, u32 *status)
 
 static struct v4l2_mbus_framefmt *
 __xsdirxss_get_pad_format(struct xsdirxss_state *xsdirxss,
-			  struct v4l2_subdev_pad_config *cfg,
+			  struct v4l2_subdev_state *sd_state,
 			  unsigned int pad, u32 which)
 {
 	struct v4l2_mbus_framefmt *format;
 
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		format = v4l2_subdev_get_try_format(&xsdirxss->subdev, cfg,
+		format = v4l2_subdev_get_try_format(&xsdirxss->subdev,
+						    sd_state,
 						    pad);
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
@@ -1973,7 +2064,7 @@ __xsdirxss_get_pad_format(struct xsdirxss_state *xsdirxss,
 /**
  * xsdirxss_get_format - Get the pad format
  * @sd: Pointer to V4L2 Sub device structure
- * @cfg: Pointer to sub device pad information structure
+ * @sd_state: Pointer to v4l2_subdev_state structure
  * @fmt: Pointer to pad level media bus format
  *
  * This function is used to get the pad format information.
@@ -1981,7 +2072,7 @@ __xsdirxss_get_pad_format(struct xsdirxss_state *xsdirxss,
  * Return: 0 on success
  */
 static int xsdirxss_get_format(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *fmt)
 {
 	struct xsdirxss_state *xsdirxss = to_xsdirxssstate(sd);
@@ -1993,7 +2084,7 @@ static int xsdirxss_get_format(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	format = __xsdirxss_get_pad_format(xsdirxss, cfg,
+	format = __xsdirxss_get_pad_format(xsdirxss, sd_state,
 					   fmt->pad, fmt->which);
 	if (!format)
 		return -EINVAL;
@@ -2009,7 +2100,7 @@ static int xsdirxss_get_format(struct v4l2_subdev *sd,
 /**
  * xsdirxss_set_format - This is used to set the pad format
  * @sd: Pointer to V4L2 Sub device structure
- * @cfg: Pointer to sub device pad information structure
+ * @sd_state: Pointer to v4l2_subdev_state structure
  * @fmt: Pointer to pad level media bus format
  *
  * This function is used to set the pad format.
@@ -2019,7 +2110,7 @@ static int xsdirxss_get_format(struct v4l2_subdev *sd,
  * Return: 0 on success
  */
 static int xsdirxss_set_format(struct v4l2_subdev *sd,
-			       struct v4l2_subdev_pad_config *cfg,
+			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *fmt)
 {
 	struct v4l2_mbus_framefmt *__format;
@@ -2031,7 +2122,7 @@ static int xsdirxss_set_format(struct v4l2_subdev *sd,
 		fmt->format.code, fmt->format.field,
 		fmt->format.colorspace);
 
-	__format = __xsdirxss_get_pad_format(xsdirxss, cfg,
+	__format = __xsdirxss_get_pad_format(xsdirxss, sd_state,
 					     fmt->pad, fmt->which);
 	if (!__format)
 		return -EINVAL;
@@ -2046,13 +2137,13 @@ static int xsdirxss_set_format(struct v4l2_subdev *sd,
 /**
  * xsdirxss_enum_mbus_code - Handle pixel format enumeration
  * @sd: pointer to v4l2 subdev structure
- * @cfg: V4L2 subdev pad configuration
+ * @sd_state: Pointer to v4l2_subdev_state structure
  * @code: pointer to v4l2_subdev_mbus_code_enum structure
  *
  * Return: -EINVAL or zero on success
  */
 static int xsdirxss_enum_mbus_code(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_pad_config *cfg,
+				   struct v4l2_subdev_state *sd_state,
 				   struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct xsdirxss_state *xsdirxss = to_xsdirxssstate(sd);
@@ -2134,7 +2225,7 @@ static int xsdirxss_open(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *format;
 	struct xsdirxss_state *xsdirxss = to_xsdirxssstate(sd);
 
-	format = v4l2_subdev_get_try_format(sd, fh->pad, 0);
+	format = v4l2_subdev_get_try_format(sd, fh->state, 0);
 	*format = xsdirxss->default_format;
 
 	return 0;
@@ -2608,6 +2699,7 @@ static int xsdirxss_probe(struct platform_device *pdev)
 	}
 
 	xsdirxss->streaming = false;
+	xsdirxss->s_stream = false;
 
 	xsdirx_core_enable(core);
 

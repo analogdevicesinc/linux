@@ -1286,7 +1286,7 @@ static void xm2msc_device_run(void *priv)
 		 * channel while streaming is going on
 		 */
 		if (xm2msc->out_streamed_chan || xm2msc->cap_streamed_chan)
-			dev_err(xm2msc->dev,
+			dev_dbg(xm2msc->dev,
 				"Buffer not available, streaming chan 0x%x\n",
 				xm2msc->cap_streamed_chan);
 
@@ -2285,6 +2285,13 @@ static int xm2msc_parse_of(struct platform_device *pdev,
 	dev_dbg(dev, "taps Supported = %d\n", xm2msc->taps);
 	/* read supported video formats and update internal table */
 	hw_vid_fmt_cnt = of_property_count_strings(node, "xlnx,vid-formats");
+
+	/* Validate the number of strings returned */
+	if (hw_vid_fmt_cnt < 0)
+		return hw_vid_fmt_cnt;
+
+	if (hw_vid_fmt_cnt > ARRAY_SIZE(formats))
+		return -EINVAL;
 
 	ret = of_property_read_string_array(node, "xlnx,vid-formats",
 					    vid_fmts, hw_vid_fmt_cnt);

@@ -119,7 +119,8 @@ static int aie_tile_sysfs_create(struct aie_tile *atile)
 	u32 index, i = 0, j = 0;
 
 	attr = atile->apart->adev->tile_sysfs_attr;
-	ttype = atile->apart->adev->ops->get_tile_type(&atile->loc);
+	ttype = atile->apart->adev->ops->get_tile_type(atile->apart->adev,
+						       &atile->loc);
 
 	if (attr->num_dev_attrs) {
 		dev_attrs = devm_kzalloc(&atile->dev, sizeof(*dev_attrs) *
@@ -289,6 +290,15 @@ static int aie_part_sysfs_create(struct aie_partition *apart)
 int aie_part_sysfs_create_entries(struct aie_partition *apart)
 {
 	int ret;
+
+	/*
+	 * TODO: hardware monitoring and dump using sysfs is not supported for
+	 * AIEML as of now.
+	 */
+	if (apart->adev->dev_gen == AIE_DEVICE_GEN_AIEML) {
+		dev_dbg(&apart->dev, "Not creating sysfs entries..\n");
+		return 0;
+	}
 
 	ret = aie_part_sysfs_create(apart);
 	if (ret < 0) {

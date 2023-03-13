@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Xilinx V4L2 mem2mem driver
  *
@@ -1667,6 +1667,8 @@ static int xvip_m2m_dma_alloc_init(struct xvip_m2m_dev *xdev)
 	ret = xvip_m2m_dma_init(xdev->dma);
 	if (ret) {
 		dev_err(xdev->dev, "DMA initialization failed\n");
+		devm_kfree(xdev->dev, dma);
+		xdev->dma = NULL;
 		return ret;
 	}
 
@@ -2072,6 +2074,8 @@ static void xvip_graph_cleanup(struct xvip_m2m_dev *xdev)
 	struct xvip_graph_entity *entityp;
 	struct xvip_graph_entity *entity;
 
+	if (xdev->dma)
+		xvip_m2m_dma_deinit(xdev->dma);
 	v4l2_async_notifier_cleanup(&xdev->notifier);
 	v4l2_async_notifier_unregister(&xdev->notifier);
 
@@ -2108,8 +2112,8 @@ static int xvip_graph_init(struct xvip_m2m_dev *xdev)
 
 	/* Register the subdevices notifier. */
 	list_for_each_entry(entity, &xdev->entities, list) {
-		ret = v4l2_async_notifier_add_subdev(&xdev->notifier,
-						     &entity->asd);
+		ret = __v4l2_async_notifier_add_subdev(&xdev->notifier,
+						       &entity->asd);
 		if (ret)
 			goto done;
 	}

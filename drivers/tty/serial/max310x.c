@@ -285,7 +285,7 @@ struct max310x_port {
 #ifdef CONFIG_GPIOLIB
 	struct gpio_chip	gpio;
 #endif
-	struct max310x_one	p[0];
+	struct max310x_one	p[];
 };
 
 static struct uart_driver max310x_uart = {
@@ -402,7 +402,7 @@ static int max14830_detect(struct device *dev)
 	ret = s->if_cfg->extended_reg_enable(dev, true);
 	if (ret)
 		return ret;
-	
+
 	regmap_read(s->regmap, s->if_cfg->rev_id_reg, &val);
 	s->if_cfg->extended_reg_enable(dev, false);
 	if (((val & MAX310x_REV_MASK) != MAX14830_REV_ID)) {
@@ -578,7 +578,7 @@ static int max310x_update_best_err(unsigned long f, long *besterr)
 	return 1;
 }
 
-static int max310x_set_ref_clk(struct device *dev, struct max310x_port *s,
+static u32 max310x_set_ref_clk(struct device *dev, struct max310x_port *s,
 			       unsigned long freq, bool xtal)
 {
 	unsigned int div, clksrc, pllcfg = 0;
@@ -644,7 +644,7 @@ static int max310x_set_ref_clk(struct device *dev, struct max310x_port *s,
 		}
 	}
 
-	return (int)bestfreq;
+	return bestfreq;
 }
 
 static void max310x_batch_write(struct uart_port *port, u8 *txbuf, unsigned int len)
@@ -1264,10 +1264,10 @@ static int max310x_probe(struct device *dev, const struct max310x_devtype *devty
 			 const struct max310x_if_cfg *if_cfg,
 			 struct regmap *regmaps[], int irq)
 {
-	int i, ret, fmin, fmax, freq, uartclk;
-	struct clk *clk_osc, *clk_xtal;
+	int i, ret, fmin, fmax, freq;
 	struct max310x_port *s;
-	bool xtal = false;
+	u32 uartclk = 0;
+	bool xtal;
 
 	for (i = 0; i < devtype->nr; i++)
 		if (IS_ERR(regmaps[i]))
@@ -1280,30 +1280,38 @@ static int max310x_probe(struct device *dev, const struct max310x_devtype *devty
 		return -ENOMEM;
 	}
 
-	clk_osc = devm_clk_get(dev, "osc");
-	clk_xtal = devm_clk_get(dev, "xtal");
-	if (!IS_ERR(clk_osc)) {
-		s->clk = clk_osc;
-		fmin = 500000;
-		fmax = 35000000;
-	} else if (!IS_ERR(clk_xtal)) {
-		s->clk = clk_xtal;
-		fmin = 1000000;
-		fmax = 4000000;
-		xtal = true;
-	} else if (PTR_ERR(clk_osc) == -EPROBE_DEFER ||
-		   PTR_ERR(clk_xtal) == -EPROBE_DEFER) {
-		return -EPROBE_DEFER;
-	} else {
-		dev_err(dev, "Cannot get clock\n");
-		return -EINVAL;
-	}
+	/* Always ask for fixed clock rate from a property. */
+	device_property_read_u32(dev, "clock-frequency", &uartclk);
+
+	xtal = device_property_match_string(dev, "clock-names", "osc") < 0;
+	if (xtal)
+		s->clk = devm_clk_get_optional(dev, "xtal");
+	else
+		s->clk = devm_clk_get_optional(dev, "osc");
+	if (IS_ERR(s->clk))
+		return PTR_ERR(s->clk);
 
 	ret = clk_prepare_enable(s->clk);
 	if (ret)
 		return ret;
 
 	freq = clk_get_rate(s->clk);
+	if (freq == 0)
+		freq = uartclk;
+	if (freq == 0) {
+		dev_err(dev, "Cannot get clock rate\n");
+		ret = -EINVAL;
+		goto out_clk;
+	}
+
+	if (xtal) {
+		fmin = 1000000;
+		fmax = 4000000;
+	} else {
+		fmin = 500000;
+		fmax = 35000000;
+	}
+
 	/* Check frequency limits */
 	if (freq < fmin || freq > fmax) {
 		ret = -ERANGE;
