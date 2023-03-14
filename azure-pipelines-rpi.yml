@@ -2,12 +2,14 @@ trigger:
 - rpi-4.19.y
 - rpi-5.4.y
 - rpi-5.10.y
+- rpi-5.15.y
 - staging-rpi/*
 
 pr:
 - rpi-4.19.y
 - rpi-5.4.y
 - rpi-5.10.y
+- rpi-5.15.y
 
 stages:
 - stage: Builds
