@@ -73,3 +73,13 @@
 &pcie1 {
 	/delete-node/ wifi_wake_host;
 };
+
+&ethphy0 {
+	/delete-property/ qca,disable-smarteee;
+	/delete-property/ vddio-supply;
+	reset-deassert-us = <80000>;
+	realtek,aldps-enable;
+	realtek,clkout-disable;
+
+	/delete-node/ vddh-regulator;
+};
