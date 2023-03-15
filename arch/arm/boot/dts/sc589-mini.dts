@@ -264,10 +264,14 @@
 				<DAI0_LOW_F          DAI0_PBEN02_I>,  /* set DAI0_PIN02 for ADAU1761 ADC data as an input */
 				<DAI0_LOW_F          DAI0_PBEN03_I>,  /* set DAI0_PIN03 for ADAU1761 CLK as an input */
 				<DAI0_LOW_F          DAI0_PBEN04_I>,  /* set DAI0_PIN04 for ADAU1761 FS as an input */
-				<DAI0_PB01_O_ABCDE   SPT0_AD0_I>,     /* route SPT0A AD0 output to 1761 DAC pin */
-				<DAI0_PB02_O_ABCDE   SPT0_BD0_I>,     /* route ADAU1761 ADC pin to SPT0 BD0 input */
-				<DAI0_PB03_O_ABCDE   SPT0_ACLK_I>,    /* route ADAU1761 BCLK pin to SPORT0A clock input */
-				<DAI0_PB04_O_ABCDE   SPT0_AFS_I>;     /* route ADAU1761 BCLK pin to SPORT0B clock input */
+
+				<DAI0_PB01_O_ABCDE   SPT0_AD0_I>,  /* DAI0_PIN01 to SPT0_AD0 */
+				<DAI0_PB03_O_ABCDE   SPT0_ACLK_I>, /* DAI0_PIN03 to SPT0_ACLK */
+				<DAI0_PB04_O_ABCDE   SPT0_AFS_I>,  /* DAI0_PIN04 to SPT0_AFS */
+
+				<DAI0_PB02_O_ABCDE   SPT0_BD0_I>,  /* DAI0_PIN02 to SPT0_BD0 */
+				<DAI0_PB03_O_ABCDE   SPT0_BCLK_I>, /* DAI0_PIN03 to SPT0_BCLK */
+				<DAI0_PB04_O_ABCDE   SPT0_BFS_I>;  /* DAI0_PIN04 to SPT0_BFS */
 		};
 	};
 };
