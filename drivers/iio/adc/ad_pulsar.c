@@ -311,6 +311,7 @@ struct ad_pulsar_adc {
 	struct spi_device *spi;
 	struct regulator *vref;
 	unsigned int *cfg_reg;
+	unsigned int *spi_tx;
 	int spi_speed_hz;
 	int samp_freq;
 	int device_id;
@@ -372,9 +373,10 @@ static int ad_pulsar_read_channel(struct ad_pulsar_adc *adc, unsigned int reg,
 	int ret;
 
 	adc->cfg = reg;
-	put_unaligned_be16(reg << 2, adc->spi_tx_data);
-	if (adc->info->cfg_register)
+	if (adc->info->cfg_register){
+		put_unaligned_be16(reg << 2, adc->spi_tx_data);
 		xfer.tx_buf = adc->spi_tx_data;
+	}
 	xfer.rx_buf = adc->spi_rx_data;
 
 	ret = spi_sync_transfer(adc->spi, &xfer, 1);
@@ -602,7 +604,8 @@ static int ad_pulsar_buffer(struct iio_dev *indio_dev,
 			if (next_in_sequ >= num_en_ch)
 				next_in_sequ = 0;
 			next_active_ch = active_ch[next_in_sequ];
-			adc->seq_xfer[ch].tx_buf = &adc->cfg_reg[next_active_ch];
+			adc->spi_tx[next_active_ch] = adc->cfg_reg[next_active_ch] << 2;
+			adc->seq_xfer[ch].tx_buf = &adc->spi_tx[next_active_ch];
 			next_in_sequ++;
 		}
 
@@ -745,8 +748,10 @@ static int ad_pulsar_setup_channel(struct ad_pulsar_adc *adc,
 	adc->channels[chan_index].scan_index = chan_index;
 	adc->channels[chan_index].address = adc->cfg_reg[chan_index];
 
-	if (adc->info->cfg_register)
-		adc->seq_xfer[chan_index].tx_buf = &adc->cfg_reg[chan_index];
+	if (adc->info->cfg_register){
+		adc->spi_tx[chan_index] = adc->cfg_reg[chan_index] << 2;
+		adc->seq_xfer[chan_index].tx_buf = &adc->spi_tx[chan_index];
+	}
 	adc->seq_xfer[chan_index].rx_buf = &dummy;
 	adc->seq_xfer[chan_index].len = 1;
 	adc->seq_xfer[chan_index].bits_per_word = adc->info->resolution;
@@ -787,6 +792,11 @@ static int ad_pulsar_parse_channels(struct iio_dev *indio_dev)
 	adc->cfg_reg = devm_kcalloc(dev, num_ch, sizeof(unsigned short),
 				    GFP_KERNEL);
 	if (!adc->cfg_reg)
+		return -ENOMEM;
+
+	adc->spi_tx = devm_kcalloc(dev, num_ch, sizeof(unsigned short),
+				    GFP_KERNEL);
+	if (!adc->spi_tx)
 		return -ENOMEM;
 
 	adc->seq_xfer = devm_kcalloc(dev, num_ch, sizeof(struct spi_transfer),
