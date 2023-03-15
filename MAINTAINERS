@@ -19729,11 +19729,3 @@ Q:	http://patchwork.kernel.org/project/LKML/list/
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 F:	*
 F:	*/
-
-MAX31827 IIO TEMPERATURE DRIVER
-M:	Daniel Matyas <daniel.matyas@analog.com>
-L:	linux-iio@vger.kernel.org
-S:	Supported
-W:	http://ez.analog.com/community/linux-device-drivers
-F:	Documentation/devicetree/bindings/iio/temperature/adi,max31827.yaml
-F:	drivers/iio/temperature/max31827.c

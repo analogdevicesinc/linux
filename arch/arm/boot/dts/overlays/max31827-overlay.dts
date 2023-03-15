@@ -8,7 +8,7 @@
 /plugin/;
 
 / {
-	compatible = "bcrm,bcm2711";
+	compatible = "bcrm, bcm2711";
 };
 
 &i2c1 {
@@ -17,7 +17,7 @@
 	status = "ok";
 
 	max31827: max31827@42 {
-		compatible = "adi,max31827";
+		compatible = "max31827";
 		reg = <0x42>;
 	};
 };
