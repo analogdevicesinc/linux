@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Analog Devices AD719x
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7192
+ *
+ * hdl_project: <ad719x_asdz/coraz7s>
+ *
+ * Copyright (C) 2023 Analog Devices, Inc.
+ */
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
+
+/ {
+	avdd: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+
+	dvdd: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply1";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+	};
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	ad7194: adc@0 {
+		compatible = "adi,ad7194";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		spi-cpha;
+		interrupts = <86 0x2>;
+		interrupt-parent = <&gpio0>;
+		dvdd-supply = <&dvdd>;
+		avdd-supply = <&avdd>;
+
+		adi,refin2-pins-enable;
+		adi,rejection-60-Hz-enable;
+		adi,buffer-enable;
+		adi,burnout-currents-enable;
+
+		channel@0 {
+			reg = <0>;
+			diff-channels = <8 9>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			diff-channels = <10 11>;
+		};
+	};
+};
