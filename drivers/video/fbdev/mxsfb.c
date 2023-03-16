@@ -1358,10 +1358,20 @@ static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
 
 	ret = of_property_read_string(np, "disp-dev", &disp_dev);
 	if (!ret) {
+		if (strlen(disp_dev) > NAME_LEN) {
+			dev_err(dev, "disp-dev string overflowed.\n");
+			ret = -EINVAL;
+			goto put_display_node;
+		}
 		memcpy(host->disp_dev, disp_dev, strlen(disp_dev));
 
 		if (!of_property_read_string(np, "disp-videomode",
 					    &disp_videomode)) {
+			if (strlen(disp_videomode) > NAME_LEN) {
+				dev_err(dev, "disp-videomode string overflowed.\n");
+				ret = -EINVAL;
+				goto put_display_node;
+			}
 			memcpy(host->disp_videomode, disp_videomode,
 			       strlen(disp_videomode));
 		}
