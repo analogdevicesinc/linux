@@ -1352,6 +1352,8 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 	if (err)
 		goto err_reg_netdev;
 
+	enetc_tsn_pf_init(ndev, pdev);
+
 	return 0;
 
 err_reg_netdev:
@@ -1386,6 +1388,8 @@ static void enetc_pf_remove(struct pci_dev *pdev)
 
 	if (pf->num_vfs)
 		enetc_sriov_configure(pdev, 0);
+
+	enetc_tsn_pf_deinit(si->ndev);
 
 	unregister_netdev(si->ndev);
 

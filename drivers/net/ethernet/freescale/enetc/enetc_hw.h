@@ -753,10 +753,16 @@ enum bdcr_cmd_class {
 struct tgs_gcl_conf {
 	u8	atc;	/* init gate value */
 	u8	res[7];
-	struct {
-		u8	res1[4];
-		__le16	acl_len;
-		u8	res2[2];
+	union {
+		struct {
+			u8	res1[4];
+			__le16	acl_len;
+			u8	res2[2];
+		};
+		struct {
+			__le32 cctl;
+			__le32 ccth;
+		};
 	};
 };
 
@@ -789,6 +795,42 @@ struct streamid_conf {
 #define ENETC_CBDR_SID_VID_MASK 0xfff
 #define ENETC_CBDR_SID_VIDM BIT(12)
 #define ENETC_CBDR_SID_TG_MASK 0xc000
+/* streamid_conf address point to this data space */
+struct null_streamid_data {
+	u8	dmac[6];
+	__le16	vid_vidm_tg;
+};
+
+struct smac_streamid_data {
+	u8	smac[6];
+	__le16	vid_vidm_tg;
+};
+
+/*  Stream ID Query Response Data Buffer */
+struct streamid_query_resp {
+	__le32	stream_handle;
+	__le32	input_ports;
+	u8	id_type;
+	u8	oui[3];
+	u8	mac[6];
+	__le16	vid_vidm_tg;
+	u8	res[3];
+	u8  en;
+};
+
+/* class 7, command 2, qeury status count, Stream ID query long format */
+struct streamid_stat_query {
+	u8	res[12];
+	__le32 input_ports;
+};
+
+/* Stream Identity Statistics Query */
+struct streamid_stat_query_resp {
+	u32	psinl;
+	u32	psinh;
+	u64	pspi[32];
+};
+
 /* streamid_conf address point to this data space */
 struct streamid_data {
 	union {
@@ -911,6 +953,55 @@ struct sgcl_data {
 	struct sgce	sgcl[];
 };
 
+/* class 9, command 2, stream gate instant table enery query, short format
+ * write back see struct sgi_table. Do not need define.
+ * class 9, command 3 Stream Gate Control List Query Descriptor - Long Format
+ * ocl_len or acl_len to be 0, oper or admin would not show in the data space
+ * true len will be write back in the space.
+ */
+struct sgcl_query {
+	u8 res[12];
+	u8 oacl_len;
+	u8 res1[3];
+};
+
+/* define for 'stat' */
+#define ENETC_CBDR_SGIQ_AIPV_MASK 0x7
+#define ENETC_CBDR_SGIQ_AIPV_EN	BIT(3)
+#define ENETC_CBDR_SGIQ_AGTST	BIT(4)
+#define ENETC_CBDR_SGIQ_ACL_LEN_MASK 0x60
+#define ENETC_CBDR_SGIQ_OIPV_MASK 0x380
+#define ENETC_CBDR_SGIQ_OIPV_EN	BIT(10)
+#define ENETC_CBDR_SGIQ_OGTST	BIT(11)
+#define ENETC_CBDR_SGIQ_OCL_LEN_MASK 0x3000
+/* class 9, command 3 data space */
+struct sgcl_query_resp {
+	__le16 stat;
+	__le16 res;
+	__le32 abtl;
+	__le32 abth;
+	__le32 act;
+	__le32 acte;
+	__le32 cctl;
+	__le32 ccth;
+	__le32 obtl;
+	__le32 obth;
+	__le32 oct;
+	__le32 octe;
+};
+
+/* class 9, command 4 Stream Gate Instance Table Query Statistics Response
+ * short command, write back, no command define
+ */
+struct sgi_query_stat_resp {
+	u32	pgcl;
+	u32 pgch;
+	u32 dgcl;
+	u32 dgch;
+	u16	msdu_avail;
+	u8 res[6];
+};
+
 #define ENETC_CBDR_FMI_MR	BIT(0)
 #define ENETC_CBDR_FMI_MREN	BIT(1)
 #define ENETC_CBDR_FMI_DOY	BIT(2)
@@ -933,18 +1024,78 @@ struct fmi_conf {
 		u8	en;
 };
 
+/* class:10, command:2, Flow Meter Instance Statistics Query Response */
+struct fmi_query_stat_resp {
+	u32	bcl;
+	u32 bch;
+	u32 dfl;
+	u32 dfh;
+	u32 d0gfl;
+	u32 d0gfh;
+	u32 d1gfl;
+	u32 d1gfh;
+	u32 dyfl;
+	u32 dyfh;
+	u32 ryfl;
+	u32 ryfh;
+	u32 drfl;
+	u32 drfh;
+	u32 rrfl;
+	u32 rrfh;
+	u32 lts;
+	u32 bci;
+	u32 bcf;
+	u32 bei;
+	u32 bef;
+};
+
+/* class 5, command 1 */
+struct tgs_gcl_query {
+	u8	res[12];
+	union {
+		struct {
+			__le16	acl_len; /* admin list length */
+			__le16	ocl_len; /* operation list length */
+		};
+		struct {
+			__le16 admin_list_len;
+			__le16 oper_list_len;
+		};
+	};
+};
+
+/* tgs_gcl_query command response data format */
+struct tgs_gcl_resp {
+	__le32 abtl;	/* base time */
+	__le32 abth;
+	__le32 act;	/* cycle time */
+	__le32 acte;	/* cycle time extend */
+	__le32 cctl;	/* config change time */
+	__le32 ccth;
+	__le32 obtl;	/* operation base time */
+	__le32 obth;
+	__le32 oct;	/* operation cycle time */
+	__le32 octe;	/* operation cycle time extend */
+	__le32 ccel;	/* config change error */
+	__le32 cceh;
+};
+
 struct enetc_cbd {
 	union{
 		struct sfi_conf sfi_conf;
 		struct sgi_table sgi_table;
+		struct sgi_query_stat_resp sgi_query_stat_resp;
 		struct fmi_conf fmi_conf;
 		struct {
 			__le32	addr[2];
 			union {
 				__le32	opt[4];
 				struct tgs_gcl_conf	gcl_conf;
+				struct tgs_gcl_query	gcl_query;
 				struct streamid_conf	sid_set;
+				struct streamid_stat_query	sid_stat;
 				struct sgcl_conf	sgcl_conf;
+				struct sgcl_query		sgcl_query;
 			};
 		};	/* Long format */
 		__le32 data[6];
@@ -984,6 +1135,11 @@ static inline u32 enetc_usecs_to_cycles(u32 usecs)
 /* Port time specific departure */
 #define ENETC_PTCTSDR(n)	(0x1210 + 4 * (n))
 #define ENETC_TSDE		BIT(31)
+
+/* Port time gating admin gate list status register */
+#define ENETC_QBV_PTGAGLSR_OFFSET 0x11a10
+
+#define ENETC_QBV_CFG_PEND_MASK 0x00000002
 
 /* PSFP setting */
 #define ENETC_PPSFPMR 0x11b00

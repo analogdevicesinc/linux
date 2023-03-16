@@ -12,6 +12,7 @@
 #include <linux/phylink.h>
 #include <linux/dim.h>
 #include <net/xdp.h>
+#include <net/tsn.h>
 
 #include "enetc_hw.h"
 
@@ -221,6 +222,26 @@ struct enetc_msg_swbd {
 	int size;
 };
 
+/* Credit-Based Shaper parameters */
+struct enetc_cbs_tc_cfg {
+	u8 tc;
+	bool enable;
+	u8 bw;
+	u32 hi_credit;
+	u32 lo_credit;
+	u32 idle_slope;
+	u32 send_slope;
+	u32 tc_max_sized_frame;
+	u32 max_interference_size;
+};
+
+struct enetc_cbs {
+	u32 port_transmit_rate;
+	u32 port_max_size_frame;
+	u8 tc_nums;
+	struct enetc_cbs_tc_cfg tc_cfg[0];
+};
+
 #define ENETC_REV1	0x1
 enum enetc_errata {
 	ENETC_ERR_VLAN_ISOL	= BIT(0),
@@ -247,6 +268,7 @@ struct enetc_si {
 	int num_rss; /* number of RSS buckets */
 	unsigned short pad;
 	int hw_features;
+	struct enetc_cbs *ecbs;
 };
 
 #define ENETC_SI_ALIGN	32
@@ -432,6 +454,8 @@ void enetc_reset_tc_mqprio(struct net_device *ndev);
 int enetc_setup_bpf(struct net_device *ndev, struct netdev_bpf *bpf);
 int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 		   struct xdp_frame **frames, u32 flags);
+void enetc_change_preemptible_tcs(struct enetc_ndev_priv *priv,
+				  u8 preemptible_tcs);
 
 /* ethtool */
 void enetc_set_ethtool_ops(struct net_device *ndev);
@@ -585,4 +609,21 @@ static inline int enetc_set_psfp(struct net_device *ndev, bool en)
 {
 	return 0;
 }
+#endif
+
+#if IS_ENABLED(CONFIG_TSN)
+
+void enetc_tsn_pf_init(struct net_device *netdev, struct pci_dev *pdev);
+void enetc_tsn_pf_deinit(struct net_device *netdev);
+
+#else
+
+static inline void enetc_tsn_pf_init(struct net_device *netdev, struct pci_dev *pdev)
+{
+}
+
+static inline void enetc_tsn_pf_deinit(struct net_device *netdev)
+{
+}
+
 #endif
