@@ -14,7 +14,7 @@
 /* define macro to be used to fix the size of struct intel_fcs_dev_ioctl */
 #define INTEL_FCS_IOCTL_MAX_SZ		256U
 /* the header include the 8 bytes stucture padding and 4 bytes status */
-#define INTEL_FCS_IOCTL_HEADER_SZ	12U
+#define INTEL_FCS_IOCTL_HEADER_SZ	16U
 #define INTEL_FCS_IOCTL_PLACEHOLDER_SZ	(INTEL_FCS_IOCTL_MAX_SZ - \
 					 INTEL_FCS_IOCTL_HEADER_SZ) / 4
 
@@ -476,6 +476,8 @@ struct intel_fcs_dev_ioctl {
 		struct fcs_random_number_gen_ext	rn_gen_ext;
 		struct fcs_sdos_data_ext	data_sdos_ext;
 	} com_paras;
+
+	int mbox_status;
 };
 
 /**
