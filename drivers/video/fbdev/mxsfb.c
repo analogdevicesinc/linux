@@ -1392,6 +1392,7 @@ static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
 		ret = videomode_from_timings(timings, &vm, i);
 		if (ret < 0)
 			goto put_timings_node;
+		memset(&fb_vm, 0, sizeof(fb_vm));
 		ret = fb_videomode_from_videomode(&vm, &fb_vm);
 		if (ret < 0)
 			goto put_timings_node;
