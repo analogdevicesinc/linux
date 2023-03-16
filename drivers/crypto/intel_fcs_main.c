@@ -559,13 +559,16 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			ret = fcs_request_service(priv, (void *)msg,
 						  FCS_COMPLETED_TIMEOUT);
 			dev_dbg(dev, "request service ret=%d\n", ret);
-			if (!ret && !priv->status)
+			if (!ret && !priv->status) {
 				data->status = 0;
-			else {
-				if (priv->kbuf)
+				data->mbox_status = 0;
+			} else {
+				if (priv->kbuf) {
 					data->com_paras.c_request.c_status =
 						(*(u32 *)priv->kbuf);
-				else
+					data->mbox_status = priv->status;
+					pr_info("data->mbox_status:0x%x\n", data->mbox_status);
+				} else
 					data->com_paras.c_request.c_status =
 						INVALID_STATUS;
 			}
