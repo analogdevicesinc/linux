@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9082-FMC-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9082_fmca_ebz/zc706> Special Synthesis parameters required
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#include "zynq-zc706-adv7511-ad9081.dts"
+
+&trx0_ad9081 {
+	compatible = "adi,ad9082";
+};
