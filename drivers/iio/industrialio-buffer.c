@@ -1949,6 +1949,8 @@ static void __iio_buffer_free_sysfs_and_mask(struct iio_buffer *buffer,
 					     struct iio_dev *indio_dev,
 					     int index)
 {
+	if (index == 0)
+		iio_buffer_unregister_legacy_sysfs_groups(indio_dev);
 	bitmap_free(buffer->channel_mask);
 	bitmap_free(buffer->scan_mask);
 	kfree(buffer->buffer_group.name);
