@@ -2,7 +2,7 @@
 /*
  * Driver for ADAU1860 codec
  *
- * Copyright 2022 Analog Devices Inc.
+ * Copyright 2023 Analog Devices Inc.
  * Author: Bogdan Togorean <bogdan.togorean@analog.com>
  */
 

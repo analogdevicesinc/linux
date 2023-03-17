@@ -2,7 +2,7 @@
 /*
  * Driver for ADAU1860 codec
  *
- * Copyright 2022 Analog Devices Inc.
+ * Copyright 2023 Analog Devices Inc.
  * Author: Bogdan Togorean <bogdan.togorean@analog.com>
  */
 
@@ -26,10 +26,10 @@
 
 #define DRV_NAME "adau1860-codec"
 
-#define ADAU1860_TDSP_FW    0
-#define ADAU1860_FDSP_FW    1
-#define ADAU1860_EQ_FW      2
-#define ADAU1860_FW_NUM     3
+#define ADAU1860_TDSP_FW 0
+#define ADAU1860_FDSP_FW 1
+#define ADAU1860_EQ_FW 2
+#define ADAU1860_FW_NUM 3
 
 static const char *adau1860_fw_text[ADAU1860_FW_NUM];
 
@@ -133,6 +133,97 @@ static const struct snd_kcontrol_new adau1860_single_mode_controls[] = {
 	SOC_ENUM("ADC2 HPF Capture Switch", adau1860_adc_hpf_enum[2]),
 };
 
+static const char *const adau1860_asrci_mux_text[] = {
+	"SPT Ch0",  "SPT Ch1",	"SPT Ch2",  "SPT Ch3",	"SPT Ch4",  "SPT Ch5",
+	"SPT Ch6",  "SPT Ch7",	"SPT Ch8",  "SPT Ch9",	"SPT Ch10", "SPT Ch11",
+	"SPT Ch12", "SPT Ch13", "SPT Ch14", "SPT Ch15",
+};
+
+const struct soc_enum adau1860_asrci_mux_enums[] = {
+	SOC_ENUM_SINGLE(ADAU1860_ASRCI_ROUTE01, 0,
+			ARRAY_SIZE(adau1860_asrci_mux_text),
+			adau1860_asrci_mux_text),
+	SOC_ENUM_SINGLE(ADAU1860_ASRCI_ROUTE01, 4,
+			ARRAY_SIZE(adau1860_asrci_mux_text),
+			adau1860_asrci_mux_text),
+	SOC_ENUM_SINGLE(ADAU1860_ASRCI_ROUTE23, 0,
+			ARRAY_SIZE(adau1860_asrci_mux_text),
+			adau1860_asrci_mux_text),
+	SOC_ENUM_SINGLE(ADAU1860_ASRCI_ROUTE23, 4,
+			ARRAY_SIZE(adau1860_asrci_mux_text),
+			adau1860_asrci_mux_text),
+};
+
+static const char *const adau1860_asrc_fs_select_text[] = {
+	"12kHz", "24kHz", "48kHz", "96kHz", "192kHz",
+};
+
+static const char *const adau1860_asrc_sai_select_text[] = {
+	"SPT0",
+	"SPT1",
+};
+
+static SOC_ENUM_SINGLE_DECL(adau1860_asrci_out_fs_enum, ADAU1860_ASRCI_CTRL, 0,
+			    adau1860_asrc_fs_select_text);
+
+static SOC_ENUM_SINGLE_DECL(adau1860_asrci_in_sai_enum, ADAU1860_ASRCI_CTRL, 4,
+			    adau1860_asrc_sai_select_text);
+
+static const struct snd_kcontrol_new adau1860_asrci_controls[] = {
+	SOC_DAPM_ENUM("ASRC IN 0", adau1860_asrci_mux_enums[0]),
+	SOC_DAPM_ENUM("ASRC IN 1", adau1860_asrci_mux_enums[1]),
+	SOC_DAPM_ENUM("ASRC IN 2", adau1860_asrci_mux_enums[2]),
+	SOC_DAPM_ENUM("ASRC IN 3", adau1860_asrci_mux_enums[3]),
+};
+
+static const unsigned int adau1860_asrco_mux_val[] = {
+	0,  1,	2,  3,	4,  5,	6,  7,	8,  9,	10, 11, 12, 13, 14, 15, 16, 17,
+	18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
+	36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 51, 52, 53, 54
+};
+
+static const char *const adau1860_asrco_mux_text[] = {
+	"FDSP Ch0",  "FDSP Ch1",  "FDSP Ch2",  "FDSP Ch3",  "FDSP Ch4",
+	"FDSP Ch5",  "FDSP Ch6",  "FDSP Ch7",  "FDSP Ch8",  "FDSP Ch9",
+	"FDSP Ch10", "FDSP Ch11", "FDSP Ch12", "FDSP Ch13", "FDSP Ch14",
+	"FDSP Ch15", "TDSP Ch0",  "TDSP Ch1",  "TDSP Ch2",  "TDSP Ch3",
+	"TDSP Ch4",  "TDSP Ch5",  "TDSP Ch6",  "TDSP Ch7",  "TDSP Ch8",
+	"TDSP Ch9",  "TDSP Ch10", "TDSP Ch11", "TDSP Ch12", "TDSP Ch13",
+	"TDSP Ch14", "TDSP Ch15", "ADC0",      "ADC1",	    "ADC2",
+	"DMIC0",     "DMIC1",	  "DMIC2",     "DMIC3",	    "FDEC Ch0",
+	"FDEC Ch1",  "FDEC Ch2",  "FDEC Ch3",  "FDEC Ch4",  "FDEC Ch5",
+	"FDEC Ch6",  "FDEC Ch7",  "EQ0",       "DMIC4",	    "DMIC5",
+	"DMIC6",     "DMIC7",
+};
+
+const struct soc_enum adau1860_asrco_mux_enums[] = {
+	SOC_VALUE_ENUM_SINGLE(ADAU1860_ASRCO_ROUTE(0), 0, 0x3f,
+			      ARRAY_SIZE(adau1860_asrco_mux_text),
+			      adau1860_asrco_mux_text, adau1860_asrco_mux_val),
+	SOC_VALUE_ENUM_SINGLE(ADAU1860_ASRCO_ROUTE(1), 0, 0x3f,
+			      ARRAY_SIZE(adau1860_asrco_mux_text),
+			      adau1860_asrco_mux_text, adau1860_asrco_mux_val),
+	SOC_VALUE_ENUM_SINGLE(ADAU1860_ASRCO_ROUTE(2), 0, 0x3f,
+			      ARRAY_SIZE(adau1860_asrco_mux_text),
+			      adau1860_asrco_mux_text, adau1860_asrco_mux_val),
+	SOC_VALUE_ENUM_SINGLE(ADAU1860_ASRCO_ROUTE(3), 0, 0x3f,
+			      ARRAY_SIZE(adau1860_asrco_mux_text),
+			      adau1860_asrco_mux_text, adau1860_asrco_mux_val),
+};
+
+static SOC_ENUM_SINGLE_DECL(adau1860_asrco_in_fs_enum, ADAU1860_ASRCO_CTRL, 0,
+			    adau1860_asrc_fs_select_text);
+
+static SOC_ENUM_SINGLE_DECL(adau1860_asrco_out_sai_enum, ADAU1860_ASRCO_CTRL, 4,
+			    adau1860_asrc_sai_select_text);
+
+static const struct snd_kcontrol_new adau1860_asrco_controls[] = {
+	SOC_DAPM_ENUM("ASRC OUT 0", adau1860_asrco_mux_enums[0]),
+	SOC_DAPM_ENUM("ASRC OUT 1", adau1860_asrco_mux_enums[1]),
+	SOC_DAPM_ENUM("ASRC OUT 2", adau1860_asrco_mux_enums[2]),
+	SOC_DAPM_ENUM("ASRC OUT 3", adau1860_asrco_mux_enums[3]),
+};
+
 static const struct snd_kcontrol_new adau1860_controls[] = {
 	SOC_SINGLE_TLV("DMIC0 Capture Volume", ADAU1860_DMIC_VOL0, 0, 0xff, 1,
 		       adau1860_adc_tlv),
@@ -161,6 +252,10 @@ static const struct snd_kcontrol_new adau1860_controls[] = {
 	SOC_SINGLE_TLV("DAC0 Playback Volume", ADAU1860_DAC_VOL0, 0, 0xff, 1,
 		       adau1860_dac_tlv),
 	SOC_SINGLE("DAC0 Playback Switch", ADAU1860_DAC_CTRL2, 6, 1, 1),
+	SOC_ENUM("ASRCO SAI SEL", adau1860_asrco_out_sai_enum),
+	SOC_ENUM("ASRCO IN FS", adau1860_asrco_in_fs_enum),
+	SOC_ENUM("ASRCI SAI SEL", adau1860_asrci_in_sai_enum),
+	SOC_ENUM("ASRCI OUT FS", adau1860_asrci_out_fs_enum),
 };
 
 static const unsigned int adau1860_spt_mux_val[] = {
@@ -421,6 +516,24 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("DAC MUX", SND_SOC_NOPM, 0, 0,
 			 &adau1860_dac_mux_control),
 
+	SND_SOC_DAPM_MUX("ASRCI 0 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrci_controls[0]),
+	SND_SOC_DAPM_MUX("ASRCI 1 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrci_controls[1]),
+	SND_SOC_DAPM_MUX("ASRCI 2 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrci_controls[2]),
+	SND_SOC_DAPM_MUX("ASRCI 3 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrci_controls[3]),
+
+	SND_SOC_DAPM_MUX("ASRCO 0 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrco_controls[0]),
+	SND_SOC_DAPM_MUX("ASRCO 1 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrco_controls[1]),
+	SND_SOC_DAPM_MUX("ASRCO 2 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrco_controls[2]),
+	SND_SOC_DAPM_MUX("ASRCO 3 MUX", SND_SOC_NOPM, 0, 0,
+			 &adau1860_asrco_controls[3]),
+
 	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT0 DATA MUX", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[0]),
 	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT1 DATA MUX", SND_SOC_NOPM, 0, 0,
@@ -506,6 +619,15 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("PGA1", ADAU1860_PLL_PGA_PWR, 5, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("PGA2", ADAU1860_PLL_PGA_PWR, 6, 0, NULL, 0),
 
+	SND_SOC_DAPM_PGA("ASRCO0", ADAU1860_ASRC_PWR, 4, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ASRCO1", ADAU1860_ASRC_PWR, 5, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ASRCO2", ADAU1860_ASRC_PWR, 6, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ASRCO3", ADAU1860_ASRC_PWR, 7, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ASRCI0", ADAU1860_ASRC_PWR, 0, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ASRCI1", ADAU1860_ASRC_PWR, 1, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ASRCI2", ADAU1860_ASRC_PWR, 2, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ASRCI3", ADAU1860_ASRC_PWR, 3, 0, NULL, 0),
+
 	SND_SOC_DAPM_ADC("ADC0", NULL, ADAU1860_ADC_DAC_HP_PWR, 0, 0),
 	SND_SOC_DAPM_ADC("ADC1", NULL, ADAU1860_ADC_DAC_HP_PWR, 1, 0),
 	SND_SOC_DAPM_ADC("ADC2", NULL, ADAU1860_ADC_DAC_HP_PWR, 2, 0),
@@ -524,62 +646,98 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_widget adau1860_dapm_dsp_widgets[] = {
-		SND_SOC_DAPM_SWITCH("TDSP", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_SWITCH("TDSP", SND_SOC_NOPM, 0, 0,
 			    &adau1860_dsp_run_controls[0]),
-		SND_SOC_DAPM_SWITCH("FDSP", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_SWITCH("FDSP", SND_SOC_NOPM, 0, 0,
 			    &adau1860_dsp_run_controls[1]),
-		SND_SOC_DAPM_SWITCH("EQ", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_SWITCH("EQ", SND_SOC_NOPM, 0, 0,
 			    &adau1860_dsp_run_controls[2]),
 };
 
 static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 				      struct snd_soc_dapm_widget *sink);
 
-#define ADAU1860_SPT_OUT_ROUTES(name)                                          \
-	{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },                    \
-	{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },                  \
-	{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },                \
-	{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },                \
-	{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },                \
-	{ name, "DMIC7", "DMIC7" }
+#define ADAU1860_SPT_OUT_ROUTES(name)                                  \
+	{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },                \
+		{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },          \
+		{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },        \
+		{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },        \
+		{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },        \
+		{ name, "DMIC7", "DMIC7" },                                    \
+		{ name, "OUT ASRC Ch0", "ASRCO0" },                            \
+		{ name, "OUT ASRC Ch1", "ASRCO1" },                            \
+		{ name, "OUT ASRC Ch2", "ASRCO2" },                            \
+		{ name, "OUT ASRC Ch3", "ASRCO3" }
 
-#define ADAU1860_DAC_ROUTES(name)                                              \
-	{ name, "SPT0 Ch0", "SPT0_IN" }, { name, "SPT0 Ch1", "SPT0_IN" },      \
-	{ name, "SPT0 Ch2", "SPT0_IN" }, { name, "SPT0 Ch3", "SPT0_IN" },      \
-	{ name, "SPT0 Ch4", "SPT0_IN" }, { name, "SPT0 Ch5", "SPT0_IN" },      \
-	{ name, "SPT0 Ch6", "SPT0_IN" }, { name, "SPT0 Ch7", "SPT0_IN" },      \
-	{ name, "SPT0 Ch8", "SPT0_IN" }, { name, "SPT0 Ch9", "SPT0_IN" },      \
-	{ name, "SPT0 Ch10", "SPT0_IN" }, { name, "SPT0 Ch11", "SPT0_IN" },    \
-	{ name, "SPT0 Ch12", "SPT0_IN" }, { name, "SPT0 Ch12", "SPT0_IN" },    \
-	{ name, "SPT0 Ch13", "SPT0_IN" }, { name, "SPT0 Ch14", "SPT0_IN" },    \
-	{ name, "SPT0 Ch15", "SPT0_IN" }, { name, "SPT1 Ch0", "SPT1_IN" },     \
-	{ name, "SPT1 Ch1", "SPT1_IN" }, { name, "SPT1 Ch2", "SPT1_IN" },      \
-	{ name, "SPT1 Ch3", "SPT1_IN" }, { name, "SPT1 Ch4", "SPT1_IN" },      \
-	{ name, "SPT1 Ch5", "SPT1_IN" }, { name, "SPT1 Ch6", "SPT1_IN" },      \
-	{ name, "SPT1 Ch7", "SPT1_IN" }, { name, "SPT1 Ch8", "SPT1_IN" },      \
-	{ name, "SPT1 Ch9", "SPT1_IN" }, { name, "SPT1 Ch10", "SPT1_IN" },     \
-	{ name, "SPT1 Ch11", "SPT1_IN" }, { name, "SPT1 Ch12", "SPT1_IN" },    \
-	{ name, "SPT1 Ch12", "SPT1_IN" }, { name, "SPT1 Ch13", "SPT1_IN" },    \
-	{ name, "SPT1 Ch14", "SPT1_IN" }, { name, "SPT1 Ch15", "SPT1_IN" },    \
-	{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },                    \
-	{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },                  \
-	{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },                \
-	{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },                \
-	{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },                \
-	{ name, "DMIC7", "DMIC7" }
+#define ADAU1860_DAC_ROUTES(name)                                      \
+	{ name, "SPT0 Ch0", "SPT0_IN" }, { name, "SPT0 Ch1", "SPT0_IN" },  \
+		{ name, "SPT0 Ch2", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch3", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch4", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch5", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch6", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch7", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch8", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch9", "SPT0_IN" },                               \
+		{ name, "SPT0 Ch10", "SPT0_IN" },                              \
+		{ name, "SPT0 Ch11", "SPT0_IN" },                              \
+		{ name, "SPT0 Ch12", "SPT0_IN" },                              \
+		{ name, "SPT0 Ch12", "SPT0_IN" },                              \
+		{ name, "SPT0 Ch13", "SPT0_IN" },                              \
+		{ name, "SPT0 Ch14", "SPT0_IN" },                              \
+		{ name, "SPT0 Ch15", "SPT0_IN" },                              \
+		{ name, "SPT1 Ch0", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch1", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch2", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch3", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch4", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch5", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch6", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch7", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch8", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch9", "SPT1_IN" },                               \
+		{ name, "SPT1 Ch10", "SPT1_IN" },                              \
+		{ name, "SPT1 Ch11", "SPT1_IN" },                              \
+		{ name, "SPT1 Ch12", "SPT1_IN" },                              \
+		{ name, "SPT1 Ch12", "SPT1_IN" },                              \
+		{ name, "SPT1 Ch13", "SPT1_IN" },                              \
+		{ name, "SPT1 Ch14", "SPT1_IN" },                              \
+		{ name, "SPT1 Ch15", "SPT1_IN" }, { name, "ADC0", "ADC0" },    \
+		{ name, "ADC1", "ADC1" }, { name, "ADC2", "ADC2" },            \
+		{ name, "DMIC0", "DMIC0" }, { name, "DMIC1", "DMIC1" },        \
+		{ name, "DMIC2", "DMIC2" }, { name, "DMIC3", "DMIC3" },        \
+		{ name, "DMIC4", "DMIC4" }, { name, "DMIC5", "DMIC5" },        \
+		{ name, "DMIC6", "DMIC6" },                                    \
+		{ name, "DMIC7", "DMIC7" }
 
-#define ADAU1860_TDSP_ROUTES(name)                                         \
-	{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                        \
-	{ name, NULL, "ADC2" }, { name, NULL, "DMIC0" },                       \
-	{ name, NULL, "DMIC1" }, { name, NULL, "DMIC2" },                      \
-	{ name, NULL, "DMIC3" }, { name, NULL, "DMIC4" },                      \
-	{ name, NULL, "DMIC5" }, { name, NULL, "DMIC6" },                      \
-	{ name, NULL, "DMIC7" }, { name, NULL, "SPT0_IN" },                    \
-	{ name, NULL, "SPT1_IN" }, { "SPT0_OUT", NULL, name },                 \
-	{ "SPT1_OUT", NULL, name }, { "DAC", NULL, name }
+#define ADAU1860_TDSP_ROUTES(name)                                     \
+		{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                \
+		{ name, NULL, "ADC2" }, { name, NULL, "DMIC0" },               \
+		{ name, NULL, "DMIC1" }, { name, NULL, "DMIC2" },              \
+		{ name, NULL, "DMIC3" }, { name, NULL, "DMIC4" },              \
+		{ name, NULL, "DMIC5" }, { name, NULL, "DMIC6" },              \
+		{ name, NULL, "DMIC7" }, { name, NULL, "SPT0_IN" },            \
+		{ name, NULL, "SPT1_IN" }, { "SPT0_OUT", NULL, name },         \
+		{ "SPT1_OUT", NULL, name }, { "DAC", NULL, name },
+
+#define ADAU1860_ASRC_OUT_ROUTES(name)                                 \
+	{ name, "TDSP Ch0", "TDSP" }, { name, "TDSP Ch1", "TDSP" },        \
+		{ name, "TDSP Ch2", "TDSP" }, { name, "TDSP Ch3", "TDSP" },    \
+		{ name, "TDSP Ch4", "TDSP" }, { name, "TDSP Ch5", "TDSP" },    \
+		{ name, "TDSP Ch6", "TDSP" }, { name, "TDSP Ch7", "TDSP" },    \
+		{ name, "TDSP Ch8", "TDSP" }, { name, "TDSP Ch9", "TDSP" },    \
+		{ name, "TDSP Ch10", "TDSP" }, { name, "TDSP Ch11", "TDSP" },  \
+		{ name, "TDSP Ch12", "TDSP" }, { name, "TDSP Ch13", "TDSP" },  \
+		{ name, "TDSP Ch14", "TDSP" }, { name, "TDSP Ch15", "TDSP" },  \
+		{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },            \
+		{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },          \
+		{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },        \
+		{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },        \
+		{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },        \
+		{ name, "DMIC7", "DMIC7" }
 
 static const struct snd_soc_dapm_route adau1860_dsp_routes[] = {
-	ADAU1860_TDSP_ROUTES("TDSP"),
+	ADAU1860_TDSP_ROUTES("TDSP")
 };
 
 static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
@@ -690,6 +848,20 @@ static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
 	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT14 DATA MUX" },
 	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT15 DATA MUX" },
 
+	/* ASRC Paths */
+	{ "ASRCO 0 MUX", NULL, "ASRCO0" },
+	{ "ASRCO 1 MUX", NULL, "ASRCO1" },
+	{ "ASRCO 2 MUX", NULL, "ASRCO2" },
+	{ "ASRCO 3 MUX", NULL, "ASRCO3" },
+	{ "ASRCI0", NULL, "ASRCI 0 MUX" },
+	{ "ASRCI1", NULL, "ASRCI 1 MUX" },
+	{ "ASRCI2", NULL, "ASRCI 2 MUX" },
+	{ "ASRCI3", NULL, "ASRCI 3 MUX" },
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 0 MUX"),
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 1 MUX"),
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 2 MUX"),
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 3 MUX"),
+
 	/* Audio Data Paths */
 	{ "ADC0", NULL, "ADP" },
 	{ "ADC1", NULL, "ADP" },
@@ -728,6 +900,93 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 	return strcmp(source->name, clk) == 0;
 }
 
+static const char *adi_dir = "adi/";
+static void adau1860_release_firmware_file(const struct firmware *firmware,
+					   char *filename)
+{
+	if (filename)
+		release_firmware(firmware);
+	kfree(filename);
+}
+
+static int adau1860_request_firmware_file(struct device *dev,
+					  const struct firmware **firmware,
+					  char **filename, const char *fw_name)
+{
+	int ret = 0;
+
+	*filename = kasprintf(GFP_KERNEL, "%s%s.bin", adi_dir, fw_name);
+
+	if (*filename == NULL)
+		return -ENOMEM;
+
+	ret = firmware_request_nowarn(firmware, *filename, dev);
+	if (ret != 0) {
+		dev_err(dev, "Failed to load '%s'\n", *filename);
+		kfree(*filename);
+		*filename = NULL;
+	}
+
+	return ret;
+}
+
+static int adau1860_request_firmware_files(struct snd_soc_component *component)
+{
+	struct snd_soc_dapm_context *dapm =
+		snd_soc_component_get_dapm(component);
+	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
+	const struct firmware *fw;
+	char *fwfile[3];
+	int i, ret = 0;
+	uint32_t val, write = 0x60000400;
+
+	for (i = ADAU1860_TDSP_FW; i < ADAU1860_FW_NUM; i++) {
+		adau1860_request_firmware_file(component->dev, &adau->fw[i],
+					       &fwfile[i], adau1860_fw_text[i]);
+		if (fwfile[i]) {
+			fw = *(adau->fw);
+			dev_dbg(component->dev, "Loaded FW %s with size %ld\n",
+				fwfile[i], fw->size);
+			regmap_raw_write(adau->regmap, 0x60000000, fw->data,
+					 fw->size);
+			dev_dbg(component->dev, "Done writing\n");
+
+			/* get tdsp error status */
+			regmap_bulk_read(adau->regmap, ADAU1860_SOC_ERR_STATUS,
+					 &val, 4);
+			dev_dbg(component->dev, "Read err status: %d\n", val);
+			regmap_bulk_read(adau->regmap, ADAU1860_SOC_PFAULT_INFO,
+					 &val, 4);
+			dev_dbg(component->dev, "Read pfault status: %d\n",
+				val);
+
+			/* reset tdsp */
+			regmap_write(adau->regmap, ADAU1860_TDSP_ALTVEC_EN,
+				     0x1);
+			regmap_bulk_write(adau->regmap,
+					  ADAU1860_TDSP_ALTVEC_ADDR0, &write,
+					  sizeof(uint32_t));
+
+			ret = snd_soc_dapm_new_controls(
+				dapm, &adau1860_dapm_dsp_widgets[i], 1);
+			if (ret)
+				return ret;
+
+			ret = snd_soc_dapm_add_routes(
+				dapm, adau1860_dsp_routes,
+				ARRAY_SIZE(adau1860_dsp_routes));
+			if (ret)
+				return ret;
+		}
+		adau1860_release_firmware_file(adau->fw[i], fwfile[i]);
+	}
+
+	ret = snd_soc_add_component_controls(
+		component, adau1860_dsp_reset_controls,
+		ARRAY_SIZE(adau1860_dsp_reset_controls));
+	return ret;
+}
+
 static void adau1860_set_power(struct snd_soc_component *component, bool enable)
 {
 	struct adau18x0 *adau1860 = snd_soc_component_get_drvdata(component);
@@ -735,16 +994,7 @@ static void adau1860_set_power(struct snd_soc_component *component, bool enable)
 	if (adau1860->enabled == enable)
 		return;
 
-	dev_dbg(component->dev, "%s param: %d", __func__, enable);
-
 	if (enable) {
-		clk_prepare_enable(adau1860->mclk);
-		if (adau1860->pd_gpio)
-			gpiod_set_value(adau1860->pd_gpio, 1);
-
-		if (adau1860->switch_mode)
-			adau1860->switch_mode(component->dev);
-
 		regcache_cache_only(adau1860->regmap, false);
 		regcache_sync(adau1860->regmap);
 	} else {
@@ -778,92 +1028,20 @@ static int adau1860_set_bias_level(struct snd_soc_component *component,
 	case SND_SOC_BIAS_PREPARE:
 		break;
 	case SND_SOC_BIAS_STANDBY:
-		dev_dbg(component->dev, "%s: SND_SOC_BIAS_STANDBY", __func__);
 		adau1860_set_power(component, true);
 		break;
 	case SND_SOC_BIAS_OFF:
-		dev_dbg(component->dev, "%s: SND_SOC_BIAS_OFF", __func__);
 		adau1860_set_power(component, false);
 		break;
 	}
 	return 0;
 }
 
-static const char *adi_dir = "adi/";
-static void adau1860_release_firmware_file(const struct firmware *firmware, char *filename)
-{
-	if (filename)
-		release_firmware(firmware);
-	kfree(filename);
-}
-
-static int adau1860_request_firmware_file(struct device *dev,
-					 const struct firmware **firmware, char **filename, const char *fw_name)
-{
-	int ret = 0;
-
-	*filename = kasprintf(GFP_KERNEL, "%s%s.bin", adi_dir, fw_name);
-
-	if (*filename == NULL)
-		return -ENOMEM;
-
-	ret = firmware_request_nowarn(firmware, *filename, dev);
-	if (ret != 0) {
-		dev_err(dev, "Failed to load '%s'\n", *filename);
-		kfree(*filename);
-		*filename = NULL;
-	}
-
-	return ret;
-}
-
-static int adau1860_request_firmware_files(struct snd_soc_component *component)
-{
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
-	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
-	const struct firmware *fw;
-	char *fwfile[3];
-	int i, ret = 0;
-	uint32_t val, write = 0x60000400;
-
-	for (i = ADAU1860_TDSP_FW; i < ADAU1860_FW_NUM; i++) {
-		adau1860_request_firmware_file(component->dev, &adau->fw[i], &fwfile[i], adau1860_fw_text[i]);
-		if (fwfile[i]) {
-			fw = *(adau->fw);
-			dev_dbg(component->dev, "Loaded FW %s with size %ld\n", fwfile[i], fw->size);
-			regmap_raw_write(adau->regmap, 0x60000000, fw->data, fw->size);
-			dev_dbg(component->dev, "Done writing\n");
-
-			/* get tdsp error status */
-			regmap_bulk_read(adau->regmap, ADAU1860_SOC_ERR_STATUS, &val, 4);
-			dev_dbg(component->dev, "Read err status: %d\n", val);
-			regmap_bulk_read(adau->regmap, ADAU1860_SOC_PFAULT_INFO, &val, 4);
-			dev_dbg(component->dev, "Read pfault status: %d\n", val);
-
-			/* reset tdsp */
-			regmap_write(adau->regmap, ADAU1860_TDSP_ALTVEC_EN, 0x1);
-			regmap_bulk_write(adau->regmap, ADAU1860_TDSP_ALTVEC_ADDR0, &write, sizeof(uint32_t));
-
-			ret = snd_soc_dapm_new_controls(dapm, &adau1860_dapm_dsp_widgets[i], 1);
-			if (ret)
-				return ret;
-
-			ret = snd_soc_dapm_add_routes(dapm, adau1860_dsp_routes, ARRAY_SIZE(adau1860_dsp_routes));
-			if (ret)
-				return ret;
-		}
-		adau1860_release_firmware_file(adau->fw[i], fwfile[i]);
-	}
-
-	ret = snd_soc_add_component_controls(component, adau1860_dsp_reset_controls,
-			ARRAY_SIZE(adau1860_dsp_reset_controls));
-	return ret;
-}
-
 static int adau1860_component_probe(struct snd_soc_component *component)
 {
 	struct adau1860_pdata *pdata = component->dev->platform_data;
 	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
+	unsigned int val;
 
 	int ret;
 
@@ -892,6 +1070,15 @@ static int adau1860_component_probe(struct snd_soc_component *component)
 
 	dev_dbg(component->dev, "LARK device. Loading EQ FW");
 	adau1860_fw_text[ADAU1860_EQ_FW] = "adau1860_eq_fw";
+
+	/* Check if selfboot pin LOW */
+	regmap_read(adau->regmap, ADAU1860_STATUS(3), &val);
+	if (!(val & ADAU1860_SELFBOOT_ACTIVE)) {
+		/* Sleep needed according to datasheet */
+		msleep(35);
+		regmap_update_bits(adau->regmap, ADAU1860_PMU_CTRL(2),
+				   ADAU1860_STARTUP_DLYCNT_BYP, 1);
+	}
 
 	adau1860_request_firmware_files(component);
 
@@ -972,8 +1159,6 @@ static int adau1860_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
-	dev_dbg(dai->dev, "De scris %d %d\n", bclk, lrclk);
-
 	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL2_OFFS,
 			   ADAU1860_SPT_BCLK_SRC_MSK, bclk);
 	regmap_update_bits(adau->regmap, base + ADAU1860_SPT_CTRL3_OFFS,
@@ -995,19 +1180,20 @@ static int adau1860_set_channel_map(struct snd_soc_dai *dai,
 static int adau1860_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 				   unsigned int freq, int dir)
 {
-	dev_dbg(dai->dev, "Set SYSCLK DAI id: %d clk_id: %d freq : %d dir : %d", dai->id, clk_id,
-		freq, dir);
+	dev_dbg(dai->dev, "Set SYSCLK DAI id: %d clk_id: %d freq : %d dir : %d",
+		dai->id, clk_id, freq, dir);
 	return 0;
 }
 
 static int adau1860_set_component_sysclk(struct snd_soc_component *component,
-					 int clk_id, int source, unsigned int freq,
-					 int dir)
+					 int clk_id, int source,
+					 unsigned int freq, int dir)
 {
 	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
 	uint8_t clk_ctrl12 = 0, clk_ctrl13 = 0;
 
-	dev_dbg(component->dev, "Set component SYSCLK clk_id: %d, freq : %d, dir : %d", clk_id, 
+	dev_dbg(component->dev,
+		"Set component SYSCLK clk_id: %d, freq : %d, dir : %d", clk_id,
 		freq, dir);
 
 	switch (clk_id) {
@@ -1027,7 +1213,8 @@ static int adau1860_set_component_sysclk(struct snd_soc_component *component,
 
 	if (clk_id == ADAU18X0_PLL_FM) {
 		if (clk_get_rate(adau->mclk) != 24576000) {
-			dev_err(component->dev, "MCLK should be 24.576MHz when FM is selected\n");
+			dev_err(component->dev,
+				"MCLK should be 24.576MHz when FM is selected\n");
 			return -1;
 		}
 		clk_ctrl13 |= ADAU1860_CLK_CTRL_MCLK_FREQ_X2;
@@ -1035,20 +1222,24 @@ static int adau1860_set_component_sysclk(struct snd_soc_component *component,
 
 	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(12), clk_ctrl12);
 	regmap_update_bits(adau->regmap, ADAU1860_CLK_CTRL(13),
-					   ADAU1860_CLK_CTRL_PLL_FM_BYPASS_MSK | ADAU1860_CLK_CTRL_MCLK_FREQ_MSK, clk_ctrl13);
+			   ADAU1860_CLK_CTRL_PLL_FM_BYPASS_MSK |
+				   ADAU1860_CLK_CTRL_MCLK_FREQ_MSK,
+			   clk_ctrl13);
 
 	return 0;
 }
 
 static int adau1860_set_component_pll(struct snd_soc_component *component,
-					 int pll_id, int source, unsigned int freq_in,
-					 unsigned int freq_out)
+				      int pll_id, int source,
+				      unsigned int freq_in,
+				      unsigned int freq_out)
 {
 	struct adau18x0 *adau = snd_soc_component_get_drvdata(component);
 	uint8_t clk_ctrl1 = 0;
 
-	dev_dbg(component->dev, "Set component PLL pll_id: %d, freq_in : %d, freq_out : %d", pll_id, 
-		freq_in, freq_out);
+	dev_dbg(component->dev,
+		"Set component PLL pll_id: %d, freq_in : %d, freq_out : %d",
+		pll_id, freq_in, freq_out);
 
 	if (freq_in < 8000000 || freq_in > 27000000)
 		return -EINVAL;
@@ -1079,7 +1270,7 @@ static int adau1860_set_component_pll(struct snd_soc_component *component,
 	}
 
 	regmap_update_bits(adau->regmap, ADAU1860_CLK_CTRL(1),
-					   ADAU1860_CLK_CTRL_PLL_SRC_MSK, clk_ctrl1);
+			   ADAU1860_CLK_CTRL_PLL_SRC_MSK, clk_ctrl1);
 
 	return 0;
 }
@@ -1112,7 +1303,8 @@ static int adau1860_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	uint8_t lrclk = 0, bclk = 0, ctrl1 = 0;
 	int base = dai->driver->base;
 
-	dev_dbg(dai->dev, "%s: Format: 0x%x DAI id: %d", __func__, fmt, dai->id);
+	dev_dbg(dai->dev, "%s: Format: 0x%x DAI id: %d", __func__, fmt,
+		dai->id);
 
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
@@ -1331,6 +1523,10 @@ int adau1860_probe(struct device *dev, struct regmap *regmap,
 
 	dev_set_drvdata(dev, adau);
 
+	clk_prepare_enable(adau->mclk);
+	if (adau->pd_gpio)
+		gpiod_set_value(adau->pd_gpio, 1);
+
 	if (adau->switch_mode)
 		adau->switch_mode(dev);
 
@@ -1340,10 +1536,11 @@ int adau1860_probe(struct device *dev, struct regmap *regmap,
 		dev_err(dev, "Wrong Device ID: %x", val);
 		return 0;
 	}
-//noi
+
 	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(13), 0x90);
-	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(1), 0xC0);
+	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(1), 0xC8);
 	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(10), 0x00);
+	regmap_write(adau->regmap, 0x4000c128, 0x40);
 
 	return devm_snd_soc_register_component(dev, &adau1860_component_driver,
 					       adau1860_dai,
