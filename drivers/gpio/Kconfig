@@ -1872,6 +1872,16 @@ config GPIO_LATCH
 	  Say yes here to enable a driver for GPIO multiplexers based on latches
 	  connected to other GPIOs.
 
+config GPIO_QIXIS_CPLD
+	tristate "NXP QIXIS CPLD GPIO support"
+	depends on MFD_SIMPLE_MFD_I2C || COMPILE_TEST
+	select GPIO_REGMAP
+	help
+	  This enables support for the GPIOs found on the QIXIS CPLD which is
+	  integrated on some NXP Layerscape boards such as LX2160ARDB. The
+	  driver can be build as a module as well which will be names
+	  gpio-qixis-cpld.
+
 config GPIO_MOCKUP
 	tristate "GPIO Testing Driver (DEPRECATED)"
 	select IRQ_SIM
