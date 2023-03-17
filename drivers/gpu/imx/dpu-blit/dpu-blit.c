@@ -301,6 +301,8 @@ int dpu_be_get_fence(struct dpu_bliteng *dpu_be)
 		goto failed;
 	}
 
+	dma_fence_put(&fence->base);
+
 	/* Get the unused file descriptor */
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {
@@ -369,9 +371,8 @@ int dpu_be_set_fence(struct dpu_bliteng *dpu_be, int fd)
 	/* Setup the fence and active it asynchronously */
 	dpu_be_emit_fence(dpu_be, fence, false);
 
-	/* Increase fence and base reference */
+	/* Increase fence reference */
 	atomic_inc(&fence->refcnt);
-	dma_fence_get(&fence->base);
 
 	return 0;
 }
