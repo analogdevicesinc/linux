@@ -18,6 +18,9 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 
+#define AXI_REG_RSTN				0x40
+#define   AXI_MSK_RSTN				BIT(0)
+#define   AXI_MSK_MMCM_RSTN			BIT(1)
 #define AXI_REG_CNTRL_2				0x48
 #define   AXI_MSK_USIGN_DATA			BIT(4)
 #define   AXI_MSK_SYMB_8B			BIT(14)
@@ -41,13 +44,22 @@
 #define   AXI_SEL_SRC_ADC			0x08
 #define   AXI_SEL_SRC_DDS			0x0b
 
+#define AD3552R_REG_INTERFACE_CONFIG_A		0x00
+#define   AD3552R_MASK_SW_RST			(BIT(7) | BIT(0))
+#define AD3552R_REG_PRODUCT_ID_L		0x04
+#define AD3552R_REG_PRODUCT_ID_H		0x05
+#define AD3552R_REG_SCRATCH_PAD			0x0A
 #define AD3552R_REG_STREAM_MODE			0x0E
+#define AD3552R_REG_TRANSFER			0x0F
+#define   AD3552R_MASK_STREAM_LENGTH_KEEP	BIT(2)
+#define   AD3552R_MASK_MULTI_IO_MODE		GENMASK(7, 6)
 #define AD3552R_REG_INTERFACE_CONFIG_D		0x14
 #define   AD3552R_MASK_SPI_CONFIG_DDR		BIT(0)
 #define   AD3552R_MASK_DUAL_SPI_SYNC_EN		BIT(1)
 #define   AD3552R_MASK_SDO_DRIVE_STRENGTH	GENMASK(3, 2)
 #define   AD3552R_MASK_MEM_CRC_EN		BIT(4)
 #define   AD3552R_MASK_ALERT_ENABLE_PULLUP	BIT(6)
+#define	AD3552R_REG_REF_CONFIG			0x15
 #define AD3552R_REG_OUTPUT_RANGE		0x19
 #define   AD3552R_MASK_CH0_RANGE		GENMASK(2, 0)
 #define   AD3552R_MASK_CH1_RANGE		GENMASK(6, 4)
@@ -60,6 +72,18 @@
 #define AD3552R_TFER_16BIT_SDR			AXI_MSK_SDR_DDR_N
 #define AD3552R_TFER_16BIT_DDR			0x00
 
+#define AD3552R_SINGLE_SPI			0x00
+#define AD3552R_DUAL_SPI			0x01
+#define AD3552R_QUAD_SPI			0x02
+
+#define AD3552R_SCRATCH_PAD_TEST_VAL		0x5A
+#define AD3552R_ID				0x4008
+
+#define AD3552R_REF_INIT			0x00
+#define AD3552R_TRANSFER_INIT			(FIELD_PREP(AD3552R_MASK_MULTI_IO_MODE,\
+							    AD3552R_QUAD_SPI) |\
+						AD3552R_MASK_STREAM_LENGTH_KEEP)
+
 #define AD3552R_STREAM_2BYTE_LOOP		0x02
 #define AD3552R_STREAM_4BYTE_LOOP		0x04
 #define AD3552R_STREAM_SATRT			(AXI_MSK_TRANSFER_DATA | \
@@ -69,6 +93,8 @@
 #define AD3552R_CH1_ACTIVE			BIT(1)
 #define AD3552R_CH0_CH1_ACTIVE			(AD3552R_CH0_ACTIVE | \
 						 AD3552R_CH1_ACTIVE)
+
+#define AXI_RST					(AXI_MSK_RSTN | AXI_MSK_MMCM_RSTN)
 
 #define CNTRL_CSTM_ADDR(x)			FIELD_PREP(AXI_MSK_ADDRESS, x)
 #define CNTRL_DATA_WR_8(x)			FIELD_PREP(AXI_MSK_DATA_WR_8, x)
@@ -440,7 +466,6 @@ static int axi_ad3552r_buffer_postenable(struct iio_dev *indio_dev)
 static int axi_ad3552r_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct axi_ad3552r_state *st = iio_priv(indio_dev);
-	u32 read_val;
 
 	st->ddr = false;
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AD3552R_STREAM_SATRT, 0);
@@ -467,6 +492,68 @@ static const struct iio_dma_buffer_ops axi_ad3552r_dma_buffer_ops = {
 	.abort = iio_dmaengine_buffer_abort,
 };
 
+static int axi_ad3552r_reset(struct axi_ad3552r_state *st)
+{
+	axi_ad3552r_update_bits(st, AXI_REG_RSTN, AXI_RST, 0x00);
+	axi_ad3552r_update_bits(st, AXI_REG_RSTN, AXI_RST, AXI_RST);
+
+	st->reset_gpio = devm_gpiod_get_optional(st->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(st->reset_gpio))
+		return PTR_ERR(st->reset_gpio);
+
+	if (st->reset_gpio) {
+		gpiod_set_value_cansleep(st->reset_gpio, 1);
+		usleep_range(1, 10);
+		gpiod_set_value_cansleep(st->reset_gpio, 0);
+	} else {
+		axi_ad3552r_spi_update_bits(st, AD3552R_REG_INTERFACE_CONFIG_A,
+					    AD3552R_MASK_SW_RST,
+					    AD3552R_MASK_SW_RST,
+					    AD3552R_TFER_8BIT_SDR);
+	}
+	msleep_interruptible(100);
+
+	return 0;
+}
+
+static int axi_ad3552r_setup(struct axi_ad3552r_state *st)
+{
+	u8 val;
+	u16 id;
+	int ret;
+
+	ret = axi_ad3552r_reset(st);
+	if (ret)
+		return ret;
+
+	axi_ad3552r_spi_write(st, AD3552R_REG_SCRATCH_PAD,
+			      AD3552R_SCRATCH_PAD_TEST_VAL,
+			      AD3552R_TFER_8BIT_SDR);
+	val = axi_ad3552r_spi_read(st, AD3552R_REG_SCRATCH_PAD,
+				   AD3552R_TFER_8BIT_SDR);
+
+	if (val != AD3552R_SCRATCH_PAD_TEST_VAL)
+		return -EINVAL;
+
+	val = axi_ad3552r_spi_read(st, AD3552R_REG_PRODUCT_ID_L,
+				   AD3552R_TFER_8BIT_SDR);
+
+	id = val;
+	val = axi_ad3552r_spi_read(st, AD3552R_REG_PRODUCT_ID_H,
+				   AD3552R_TFER_8BIT_SDR);
+
+	id |= val << 8;
+	if (id != AD3552R_ID)
+		return -ENODEV;
+
+	axi_ad3552r_spi_write(st, AD3552R_REG_REF_CONFIG, AD3552R_REF_INIT,
+			      AD3552R_TFER_8BIT_SDR);
+	axi_ad3552r_spi_write(st, AD3552R_REG_TRANSFER, AD3552R_TRANSFER_INIT,
+			      AD3552R_TFER_8BIT_SDR);
+
+	return 0;
+}
+
 static int axi_ad3552r_probe(struct platform_device *pdev)
 {
 	struct axi_ad3552r_state *st;
@@ -480,16 +567,6 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
-
-	st->reset_gpio = devm_gpiod_get_optional(&pdev->dev, "reset",
-						   GPIOD_OUT_LOW);
-	if (IS_ERR(st->reset_gpio))
-		return PTR_ERR(st->reset_gpio);
-
-	gpiod_set_value_cansleep(st->reset_gpio, 1);
-	mdelay(100);
-	gpiod_set_value_cansleep(st->reset_gpio, 0);
-	mdelay(100);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
@@ -506,15 +583,7 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 
 	st->dev = &pdev->dev;
 
-	axi_ad3552r_write(st, 0x40, 0x00);
-	axi_ad3552r_write(st, 0x40, 0x03);
-
-	// External Vref + Idump
-	axi_ad3552r_spi_write(st, 0x15, 0x00, AD3552R_TFER_8BIT_SDR);
-	mdelay(100);
-	// Stream mode enable
-	axi_ad3552r_spi_write(st, 0x0f, 0x84, AD3552R_TFER_8BIT_SDR);
-	mdelay(100);
+	//TODO:check what enable does
 	st->enable = false;
 
 	indio_dev->name = pdev->dev.of_node->name;
@@ -532,6 +601,10 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 		return PTR_ERR(buffer);
 
 	iio_device_attach_buffer(indio_dev, buffer);
+
+	ret = axi_ad3552r_setup(st);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(&pdev->dev, indio_dev);
 }
