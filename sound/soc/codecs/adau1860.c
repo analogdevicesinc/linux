@@ -159,15 +159,14 @@ static const char *const adau1860_asrc_fs_select_text[] = {
 };
 
 static const char *const adau1860_asrc_sai_select_text[] = {
-	"SPT0",
-	"SPT1",
+	"SPT0", "SPT1",
 };
 
-static SOC_ENUM_SINGLE_DECL(adau1860_asrci_out_fs_enum, ADAU1860_ASRCI_CTRL, 0,
-			    adau1860_asrc_fs_select_text);
+static SOC_ENUM_SINGLE_DECL(adau1860_asrci_out_fs_enum, ADAU1860_ASRCI_CTRL,
+			    0, adau1860_asrc_fs_select_text);
 
-static SOC_ENUM_SINGLE_DECL(adau1860_asrci_in_sai_enum, ADAU1860_ASRCI_CTRL, 4,
-			    adau1860_asrc_sai_select_text);
+static SOC_ENUM_SINGLE_DECL(adau1860_asrci_in_sai_enum, ADAU1860_ASRCI_CTRL,
+			    4, adau1860_asrc_sai_select_text);
 
 static const struct snd_kcontrol_new adau1860_asrci_controls[] = {
 	SOC_DAPM_ENUM("ASRC IN 0", adau1860_asrci_mux_enums[0]),
@@ -211,11 +210,11 @@ const struct soc_enum adau1860_asrco_mux_enums[] = {
 			      adau1860_asrco_mux_text, adau1860_asrco_mux_val),
 };
 
-static SOC_ENUM_SINGLE_DECL(adau1860_asrco_in_fs_enum, ADAU1860_ASRCO_CTRL, 0,
-			    adau1860_asrc_fs_select_text);
+static SOC_ENUM_SINGLE_DECL(adau1860_asrco_in_fs_enum, ADAU1860_ASRCO_CTRL,
+			    0, adau1860_asrc_fs_select_text);
 
-static SOC_ENUM_SINGLE_DECL(adau1860_asrco_out_sai_enum, ADAU1860_ASRCO_CTRL, 4,
-			    adau1860_asrc_sai_select_text);
+static SOC_ENUM_SINGLE_DECL(adau1860_asrco_out_sai_enum, ADAU1860_ASRCO_CTRL,
+			    4, adau1860_asrc_sai_select_text);
 
 static const struct snd_kcontrol_new adau1860_asrco_controls[] = {
 	SOC_DAPM_ENUM("ASRC OUT 0", adau1860_asrco_mux_enums[0]),
@@ -249,9 +248,9 @@ static const struct snd_kcontrol_new adau1860_controls[] = {
 	SOC_SINGLE_TLV("DMIC7 Capture Volume", ADAU1860_DMIC_VOL7, 0, 0xff, 1,
 		       adau1860_adc_tlv),
 	SOC_SINGLE("DMIC7 Capture Switch", ADAU1860_DMIC_MUTES, 7, 1, 1),
-	SOC_SINGLE_TLV("DAC0 Playback Volume", ADAU1860_DAC_VOL0, 0, 0xff, 1,
+	SOC_SINGLE_TLV("DAC Playback Volume", ADAU1860_DAC_VOL0, 0, 0xff, 1,
 		       adau1860_dac_tlv),
-	SOC_SINGLE("DAC0 Playback Switch", ADAU1860_DAC_CTRL2, 6, 1, 1),
+	SOC_SINGLE("DAC Playback Switch", ADAU1860_DAC_CTRL2, 6, 1, 1),
 	SOC_ENUM("ASRCO SAI SEL", adau1860_asrco_out_sai_enum),
 	SOC_ENUM("ASRCO IN FS", adau1860_asrco_in_fs_enum),
 	SOC_ENUM("ASRCI SAI SEL", adau1860_asrci_in_sai_enum),
@@ -512,92 +511,108 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY("SPT1_IN_CLK", ADAU1860_SAI_CLK_PWR, 2, 0, NULL,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCO0", ADAU1860_ASRC_PWR, 4, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCO1", ADAU1860_ASRC_PWR, 5, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCO2", ADAU1860_ASRC_PWR, 6, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCO3", ADAU1860_ASRC_PWR, 7, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCI0", ADAU1860_ASRC_PWR, 0, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCI1", ADAU1860_ASRC_PWR, 1, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCI2", ADAU1860_ASRC_PWR, 2, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("ASRCI3", ADAU1860_ASRC_PWR, 3, 0, NULL,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MUX("DAC MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("DAC Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_dac_mux_control),
 
-	SND_SOC_DAPM_MUX("ASRCI 0 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCI 0 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrci_controls[0]),
-	SND_SOC_DAPM_MUX("ASRCI 1 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCI 1 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrci_controls[1]),
-	SND_SOC_DAPM_MUX("ASRCI 2 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCI 2 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrci_controls[2]),
-	SND_SOC_DAPM_MUX("ASRCI 3 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCI 3 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrci_controls[3]),
 
-	SND_SOC_DAPM_MUX("ASRCO 0 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCO 0 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrco_controls[0]),
-	SND_SOC_DAPM_MUX("ASRCO 1 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCO 1 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrco_controls[1]),
-	SND_SOC_DAPM_MUX("ASRCO 2 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCO 2 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrco_controls[2]),
-	SND_SOC_DAPM_MUX("ASRCO 3 MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("ASRCO 3 Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_asrco_controls[3]),
 
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT0 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT0 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[0]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT1 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT1 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[1]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT2 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT2 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[2]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT3 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT3 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[3]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT4 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT4 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[4]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT5 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT5 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[5]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT6 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT6 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[6]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT7 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT7 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[7]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT8 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT8 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[8]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT9 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT9 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[9]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT10 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT10 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[10]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT11 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT11 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[11]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT12 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT12 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[12]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT13 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT13 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[13]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT14 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT14 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[14]),
-	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT15 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT0_OUT_SLOT15 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt0_out_controls[15]),
 
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT0 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT0 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[0]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT1 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT1 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[1]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT2 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT2 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[2]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT3 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT3 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[3]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT4 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT4 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[4]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT5 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT5 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[5]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT6 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT6 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[6]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT7 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT7 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[7]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT8 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT8 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[8]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT9 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT9 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[9]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT10 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT10 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[10]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT11 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT11 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[11]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT12 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT12 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[12]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT13 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT13 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[13]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT14 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT14 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[14]),
-	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT15 DATA MUX", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPT1_OUT_SLOT15 Data Mux", SND_SOC_NOPM, 0, 0,
 			 &adau1860_spt1_out_controls[15]),
 
 	SND_SOC_DAPM_AIF_OUT("SPT0_OUT", "SAI0 Capture", 0, SND_SOC_NOPM, 0, 0),
@@ -618,15 +633,6 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("PGA0", ADAU1860_PLL_PGA_PWR, 4, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("PGA1", ADAU1860_PLL_PGA_PWR, 5, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("PGA2", ADAU1860_PLL_PGA_PWR, 6, 0, NULL, 0),
-
-	SND_SOC_DAPM_PGA("ASRCO0", ADAU1860_ASRC_PWR, 4, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ASRCO1", ADAU1860_ASRC_PWR, 5, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ASRCO2", ADAU1860_ASRC_PWR, 6, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ASRCO3", ADAU1860_ASRC_PWR, 7, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ASRCI0", ADAU1860_ASRC_PWR, 0, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ASRCI1", ADAU1860_ASRC_PWR, 1, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ASRCI2", ADAU1860_ASRC_PWR, 2, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ASRCI3", ADAU1860_ASRC_PWR, 3, 0, NULL, 0),
 
 	SND_SOC_DAPM_ADC("ADC0", NULL, ADAU1860_ADC_DAC_HP_PWR, 0, 0),
 	SND_SOC_DAPM_ADC("ADC1", NULL, ADAU1860_ADC_DAC_HP_PWR, 1, 0),
@@ -658,60 +664,48 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 				      struct snd_soc_dapm_widget *sink);
 
 #define ADAU1860_SPT_OUT_ROUTES(name)                                  \
-	{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },                \
+		{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },            \
 		{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },          \
 		{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },        \
 		{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },        \
 		{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },        \
 		{ name, "DMIC7", "DMIC7" },                                    \
-		{ name, "OUT ASRC Ch0", "ASRCO0" },                            \
-		{ name, "OUT ASRC Ch1", "ASRCO1" },                            \
-		{ name, "OUT ASRC Ch2", "ASRCO2" },                            \
-		{ name, "OUT ASRC Ch3", "ASRCO3" }
+		{ name, "OUT ASRC Ch0", "ASRCO 0 Mux" },                       \
+		{ name, "OUT ASRC Ch1", "ASRCO 1 Mux" },                       \
+		{ name, "OUT ASRC Ch2", "ASRCO 2 Mux" },                       \
+		{ name, "OUT ASRC Ch3", "ASRCO 3 Mux" }
 
-#define ADAU1860_DAC_ROUTES(name)                                      \
-	{ name, "SPT0 Ch0", "SPT0_IN" }, { name, "SPT0 Ch1", "SPT0_IN" },  \
-		{ name, "SPT0 Ch2", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch3", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch4", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch5", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch6", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch7", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch8", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch9", "SPT0_IN" },                               \
-		{ name, "SPT0 Ch10", "SPT0_IN" },                              \
-		{ name, "SPT0 Ch11", "SPT0_IN" },                              \
-		{ name, "SPT0 Ch12", "SPT0_IN" },                              \
-		{ name, "SPT0 Ch12", "SPT0_IN" },                              \
-		{ name, "SPT0 Ch13", "SPT0_IN" },                              \
-		{ name, "SPT0 Ch14", "SPT0_IN" },                              \
-		{ name, "SPT0 Ch15", "SPT0_IN" },                              \
-		{ name, "SPT1 Ch0", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch1", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch2", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch3", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch4", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch5", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch6", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch7", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch8", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch9", "SPT1_IN" },                               \
-		{ name, "SPT1 Ch10", "SPT1_IN" },                              \
-		{ name, "SPT1 Ch11", "SPT1_IN" },                              \
-		{ name, "SPT1 Ch12", "SPT1_IN" },                              \
-		{ name, "SPT1 Ch12", "SPT1_IN" },                              \
-		{ name, "SPT1 Ch13", "SPT1_IN" },                              \
-		{ name, "SPT1 Ch14", "SPT1_IN" },                              \
-		{ name, "SPT1 Ch15", "SPT1_IN" }, { name, "ADC0", "ADC0" },    \
-		{ name, "ADC1", "ADC1" }, { name, "ADC2", "ADC2" },            \
-		{ name, "DMIC0", "DMIC0" }, { name, "DMIC1", "DMIC1" },        \
-		{ name, "DMIC2", "DMIC2" }, { name, "DMIC3", "DMIC3" },        \
-		{ name, "DMIC4", "DMIC4" }, { name, "DMIC5", "DMIC5" },        \
-		{ name, "DMIC6", "DMIC6" },                                    \
+#define ADAU1860_DAC_ROUTES(name)                                             \
+		{ name, "SPT0 Ch0", "SPT0_IN" }, { name, "SPT0 Ch1", "SPT0_IN" },     \
+		{ name, "SPT0 Ch2", "SPT0_IN" }, { name, "SPT0 Ch3", "SPT0_IN" },     \
+		{ name, "SPT0 Ch4", "SPT0_IN" }, { name, "SPT0 Ch5", "SPT0_IN" },     \
+		{ name, "SPT0 Ch6", "SPT0_IN" }, { name, "SPT0 Ch7", "SPT0_IN" },     \
+		{ name, "SPT0 Ch8", "SPT0_IN" }, { name, "SPT0 Ch9", "SPT0_IN" },     \
+		{ name, "SPT0 Ch10", "SPT0_IN" }, { name, "SPT0 Ch11", "SPT0_IN" },   \
+		{ name, "SPT0 Ch12", "SPT0_IN" }, { name, "SPT0 Ch12", "SPT0_IN" },   \
+		{ name, "SPT0 Ch13", "SPT0_IN" }, { name, "SPT0 Ch14", "SPT0_IN" },   \
+		{ name, "SPT0 Ch15", "SPT0_IN" }, { name, "SPT1 Ch0", "SPT1_IN" },    \
+		{ name, "SPT1 Ch1", "SPT1_IN" }, { name, "SPT1 Ch2", "SPT1_IN" },     \
+		{ name, "SPT1 Ch3", "SPT1_IN" }, { name, "SPT1 Ch4", "SPT1_IN" },     \
+		{ name, "SPT1 Ch5", "SPT1_IN" }, { name, "SPT1 Ch6", "SPT1_IN" },     \
+		{ name, "SPT1 Ch7", "SPT1_IN" }, { name, "SPT1 Ch8", "SPT1_IN" },     \
+		{ name, "SPT1 Ch9", "SPT1_IN" }, { name, "SPT1 Ch10", "SPT1_IN" },    \
+		{ name, "SPT1 Ch11", "SPT1_IN" }, { name, "SPT1 Ch12", "SPT1_IN" },   \
+		{ name, "SPT1 Ch12", "SPT1_IN" }, { name, "SPT1 Ch13", "SPT1_IN" },   \
+		{ name, "SPT1 Ch14", "SPT1_IN" }, { name, "SPT1 Ch15", "SPT1_IN" },   \
+		{ name, "IN ASRC Ch0", "ASRCI 0 Mux" },                               \
+		{ name, "IN ASRC Ch1", "ASRCI 1 Mux" },                               \
+		{ name, "IN ASRC Ch2", "ASRCI 2 Mux" },                               \
+		{ name, "IN ASRC Ch3", "ASRCI 3 Mux" },                               \
+		{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },                   \
+		{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },                 \
+		{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },               \
+		{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },               \
+		{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },               \
 		{ name, "DMIC7", "DMIC7" }
 
 #define ADAU1860_TDSP_ROUTES(name)                                     \
-		{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                \
+	{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                    \
 		{ name, NULL, "ADC2" }, { name, NULL, "DMIC0" },               \
 		{ name, NULL, "DMIC1" }, { name, NULL, "DMIC2" },              \
 		{ name, NULL, "DMIC3" }, { name, NULL, "DMIC4" },              \
@@ -721,20 +715,31 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 		{ "SPT1_OUT", NULL, name }, { "DAC", NULL, name },
 
 #define ADAU1860_ASRC_OUT_ROUTES(name)                                 \
-	{ name, "TDSP Ch0", "TDSP" }, { name, "TDSP Ch1", "TDSP" },        \
+		{ name, "TDSP Ch0", "TDSP" }, { name, "TDSP Ch1", "TDSP" },    \
 		{ name, "TDSP Ch2", "TDSP" }, { name, "TDSP Ch3", "TDSP" },    \
 		{ name, "TDSP Ch4", "TDSP" }, { name, "TDSP Ch5", "TDSP" },    \
 		{ name, "TDSP Ch6", "TDSP" }, { name, "TDSP Ch7", "TDSP" },    \
 		{ name, "TDSP Ch8", "TDSP" }, { name, "TDSP Ch9", "TDSP" },    \
-		{ name, "TDSP Ch10", "TDSP" }, { name, "TDSP Ch11", "TDSP" },  \
-		{ name, "TDSP Ch12", "TDSP" }, { name, "TDSP Ch13", "TDSP" },  \
-		{ name, "TDSP Ch14", "TDSP" }, { name, "TDSP Ch15", "TDSP" },  \
-		{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },            \
-		{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },          \
-		{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },        \
-		{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },        \
-		{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },        \
+		{ name, "TDSP Ch10", "TDSP" },                                 \
+		{ name, "TDSP Ch11", "TDSP" },                                 \
+		{ name, "TDSP Ch12", "TDSP" },                                 \
+		{ name, "TDSP Ch13", "TDSP" },                                 \
+		{ name, "TDSP Ch14", "TDSP" },                                 \
+		{ name, "TDSP Ch15", "TDSP" },                                 \
+		{ name, "ADC0", "ADC0" },                                      \
+		{ name, "ADC1", "ADC1" },                                      \
+		{ name, "ADC2", "ADC2" },                                      \
+		{ name, "DMIC0", "DMIC0" },                                    \
+		{ name, "DMIC1", "DMIC1" },                                    \
+		{ name, "DMIC2", "DMIC2" },                                    \
+		{ name, "DMIC3", "DMIC3" },                                    \
+		{ name, "DMIC4", "DMIC4" },                                    \
+		{ name, "DMIC5", "DMIC5" },                                    \
+		{ name, "DMIC6", "DMIC6" },                                    \
 		{ name, "DMIC7", "DMIC7" }
+
+#define ADAU1860_ASRC_IN_ROUTES(name)                                  \
+		{ name, NULL, "SPT0_IN" }, { name, NULL, "SPT1_IN" }
 
 static const struct snd_soc_dapm_route adau1860_dsp_routes[] = {
 	ADAU1860_TDSP_ROUTES("TDSP")
@@ -782,85 +787,89 @@ static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
 	{ "PGA2", NULL, "AINN2" },
 
 	/* Digital Paths */
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT0 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT1 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT2 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT3 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT4 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT5 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT6 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT7 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT8 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT9 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT10 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT11 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT12 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT13 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT14 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT15 DATA MUX"),
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT0 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT1 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT2 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT3 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT4 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT5 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT6 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT7 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT8 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT9 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT10 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT11 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT12 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT13 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT14 DATA MUX" },
-	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT15 DATA MUX" },
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT0 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT1 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT2 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT3 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT4 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT5 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT6 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT7 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT8 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT9 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT10 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT11 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT12 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT13 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT14 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT0_OUT_SLOT15 Data Mux"),
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT0 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT1 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT2 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT3 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT4 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT5 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT6 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT7 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT8 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT9 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT10 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT11 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT12 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT13 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT14 Data Mux" },
+	{ "SPT0_OUT", NULL, "SPT0_OUT_SLOT15 Data Mux" },
 
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT0 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT1 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT2 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT3 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT4 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT5 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT6 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT7 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT8 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT9 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT10 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT11 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT12 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT13 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT14 DATA MUX"),
-	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT15 DATA MUX"),
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT0 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT1 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT2 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT3 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT4 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT5 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT6 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT7 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT8 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT9 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT10 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT11 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT12 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT13 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT14 DATA MUX" },
-	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT15 DATA MUX" },
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT0 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT1 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT2 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT3 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT4 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT5 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT6 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT7 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT8 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT9 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT10 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT11 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT12 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT13 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT14 Data Mux"),
+	ADAU1860_SPT_OUT_ROUTES("SPT1_OUT_SLOT15 Data Mux"),
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT0 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT1 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT2 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT3 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT4 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT5 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT6 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT7 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT8 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT9 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT10 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT11 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT12 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT13 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT14 Data Mux" },
+	{ "SPT1_OUT", NULL, "SPT1_OUT_SLOT15 Data Mux" },
 
 	/* ASRC Paths */
-	{ "ASRCO 0 MUX", NULL, "ASRCO0" },
-	{ "ASRCO 1 MUX", NULL, "ASRCO1" },
-	{ "ASRCO 2 MUX", NULL, "ASRCO2" },
-	{ "ASRCO 3 MUX", NULL, "ASRCO3" },
-	{ "ASRCI0", NULL, "ASRCI 0 MUX" },
-	{ "ASRCI1", NULL, "ASRCI 1 MUX" },
-	{ "ASRCI2", NULL, "ASRCI 2 MUX" },
-	{ "ASRCI3", NULL, "ASRCI 3 MUX" },
-	ADAU1860_ASRC_OUT_ROUTES("ASRCO 0 MUX"),
-	ADAU1860_ASRC_OUT_ROUTES("ASRCO 1 MUX"),
-	ADAU1860_ASRC_OUT_ROUTES("ASRCO 2 MUX"),
-	ADAU1860_ASRC_OUT_ROUTES("ASRCO 3 MUX"),
+	{ "ASRCO 0 Mux", NULL, "ASRCO0" },
+	{ "ASRCO 1 Mux", NULL, "ASRCO1" },
+	{ "ASRCO 2 Mux", NULL, "ASRCO2" },
+	{ "ASRCO 3 Mux", NULL, "ASRCO3" },
+	{ "ASRCI 0 Mux", NULL, "ASRCI0" },
+	{ "ASRCI 1 Mux", NULL, "ASRCI1" },
+	{ "ASRCI 2 Mux", NULL, "ASRCI2" },
+	{ "ASRCI 3 Mux", NULL, "ASRCI3" },
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 0 Mux"),
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 1 Mux"),
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 2 Mux"),
+	ADAU1860_ASRC_OUT_ROUTES("ASRCO 3 Mux"),
+	ADAU1860_ASRC_IN_ROUTES("ASRCI 0 Mux"),
+	ADAU1860_ASRC_IN_ROUTES("ASRCI 1 Mux"),
+	ADAU1860_ASRC_IN_ROUTES("ASRCI 2 Mux"),
+	ADAU1860_ASRC_IN_ROUTES("ASRCI 3 Mux"),
 
 	/* Audio Data Paths */
 	{ "ADC0", NULL, "ADP" },
@@ -871,8 +880,8 @@ static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
 	{ "DAC", NULL, "ADP" },
 
 	/* Playback Paths */
-	ADAU1860_DAC_ROUTES("DAC MUX"),
-	{ "DAC", NULL, "DAC MUX" },
+	ADAU1860_DAC_ROUTES("DAC Mux"),
+	{ "DAC", NULL, "DAC Mux" },
 	{ "HPOUTP", NULL, "DAC" },
 	{ "HPOUTN", NULL, "DAC" },
 };
@@ -1077,7 +1086,7 @@ static int adau1860_component_probe(struct snd_soc_component *component)
 		/* Sleep needed according to datasheet */
 		msleep(35);
 		regmap_update_bits(adau->regmap, ADAU1860_PMU_CTRL(2),
-				   ADAU1860_STARTUP_DLYCNT_BYP, 1);
+						   ADAU1860_STARTUP_DLYCNT_BYP, 1);
 	}
 
 	adau1860_request_firmware_files(component);
