@@ -170,11 +170,6 @@ void axi_ad3552r_update_bits(struct axi_ad3552r_state *st, u32 reg, u32 mask,
 void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val,
 			   u32 transfer_params)
 {
-	if (transfer_params & AXI_MSK_SDR_DDR_N)
-		st->ddr = false;
-	else
-		st->ddr = true;
-
 	if (transfer_params & AXI_MSK_SYMB_8B)
 		axi_ad3552r_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
 	else
@@ -255,8 +250,6 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 	struct axi_ad3552r_state *st = iio_priv(indio_dev);
 
 	switch (mask) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		return 0;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel)
 			axi_ad3552r_spi_write(st, AD3552R_REG_CH1_DAC_16B,
