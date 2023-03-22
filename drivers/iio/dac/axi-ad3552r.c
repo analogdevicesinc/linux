@@ -142,7 +142,6 @@ struct axi_ad3552r_state {
 	struct device *dev;
 	bool ddr;
 	bool single_channel;
-	bool enable;
 };
 
 void axi_ad3552r_write(struct axi_ad3552r_state *st, u32 reg, u32 val)
@@ -233,9 +232,6 @@ static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 			else
 				*val = clk_get_rate(st->ref_clk) / (8 * 2);
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_ENABLE:
-		*val = st->enable;
-		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel) {
 			*val = axi_ad3552r_spi_read(st, AD3552R_REG_CH1_DAC_16B,
@@ -268,6 +264,7 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 		else
 			axi_ad3552r_spi_write(st, AD3552R_REG_CH0_DAC_16B,
 					      (u32)val, AD3552R_TFER_16BIT_SDR);
+		return 0;
 	}
 
 	return -EINVAL;
@@ -582,9 +579,6 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 		return ret;
 
 	st->dev = &pdev->dev;
-
-	//TODO:check what enable does
-	st->enable = false;
 
 	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
