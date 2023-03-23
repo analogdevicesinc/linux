@@ -83,3 +83,20 @@
 
 	/delete-node/ vddh-regulator;
 };
+
+&qspi0 {
+	assigned-clocks = <&clk IMX8MQ_CLK_QSPI>;
+	assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_266M>;
+	assigned-clock-rates = <266000000>;
+	pinctrl-assert-gpios = <&pca6416 4 GPIO_ACTIVE_HIGH>;	/* QSPIA_RESET */
+
+	w25q256jv: flash@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <33250000>;   /* driver will x4 = 133MHz */
+	};
+};
