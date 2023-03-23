@@ -43,6 +43,8 @@ properties:
           - adi,adp5589
             # +/-1C TDM Extended Temp Range I.C
           - adi,adt7461
+            # MAX31827 Low-Power Temperature Switch with I2C interface
+          - adi,max31827
             # +/-1C TDM Extended Temp Range I.C
           - adt7461
             # AMS iAQ-Core VOC Sensor
