@@ -77,7 +77,7 @@
 		clocks = <&ext_clk>;
 	};
 
-	ltc2387@0{
+	ltc2387_0: ltc2387@0{
 		compatible = "ltc2387-18";
 		clocks = <&ext_clk>;
 		dmas = <&rx_dma 0>;

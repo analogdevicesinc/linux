@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices LTC2387 in ONE LANE mode
+ *
+ * hdl_project: <cn0577/zed> with make TWOLANES=0
+ * board_revision: <A>
+ *
+ * Copyright (C) 2023-2024 Analog Devices Inc.
+ */
+
+#include "zynq-zed-adv7511-cn0577.dts"
+
+
+&ltc2387_0 {
+	// enable ONELANE mode (parameter TWOLANES=0)
+	/delete-property/ adi,use-two-lanes;
+	adi,use-one-lane;
+};
