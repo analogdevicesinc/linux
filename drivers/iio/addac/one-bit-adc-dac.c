@@ -192,7 +192,7 @@ static int one_bit_adc_dac_probe(struct platform_device *pdev)
 	st = iio_priv(indio_dev);
 	st->pdev = pdev;
 	indio_dev->dev.parent = &pdev->dev;
-	indio_dev->name = "one-bit-adc-dac";
+	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &one_bit_adc_dac_info;
 
