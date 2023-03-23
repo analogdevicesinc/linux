@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/* Overlay for MAX31827EVKIT
+ *
+ * Copyright 2023 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "bcrm, bcm2711";
+
+	reg_vdd: regulator {
+		regulator-name = "vdd";
+		regulator-min-microvolt = <1600000>;
+		regulator-max-microvolt = <3600000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+};
+
+&i2c_arm {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	max31827: max31827@42 {
+		compatible = "max31827";
+		reg = <0x42>;
+		vref-supply = <&reg_vdd>;
+	};
+};
