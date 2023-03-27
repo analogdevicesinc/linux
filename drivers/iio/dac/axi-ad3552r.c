@@ -7,6 +7,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/iio/iio.h>
@@ -144,18 +145,28 @@ struct axi_ad3552r_state {
 	bool single_channel;
 };
 
-void axi_ad3552r_write(struct axi_ad3552r_state *st, u32 reg, u32 val)
+struct reg_addr_poll {
+	struct axi_ad3552r_state *st;
+	u8 reg;
+};
+
+static void axi_ad3552r_write(struct axi_ad3552r_state *st, u32 reg, u32 val)
 {
 	iowrite32(val, st->regs + reg);
 }
 
-u32 axi_ad3552r_read(struct axi_ad3552r_state *st, u32 reg)
+static u32 axi_ad3552r_read(struct axi_ad3552r_state *st, u32 reg)
 {
 	return ioread32(st->regs + reg);
 }
 
-void axi_ad3552r_update_bits(struct axi_ad3552r_state *st, u32 reg, u32 mask,
-			     u32 val)
+static u32 axi_ad3552r_read_wrapper(struct reg_addr_poll *addr)
+{
+	return axi_ad3552r_read(addr->st, addr->reg);
+}
+
+static void axi_ad3552r_update_bits(struct axi_ad3552r_state *st, u32 reg,
+				    u32 mask, u32 val)
 {
 	u32 tmp, orig;
 
@@ -167,9 +178,12 @@ void axi_ad3552r_update_bits(struct axi_ad3552r_state *st, u32 reg, u32 mask,
 		axi_ad3552r_write(st, reg, tmp);
 }
 
-void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val,
-			   u32 transfer_params)
+static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val,
+				  u32 transfer_params)
 {
+	struct reg_addr_poll addr;
+	u32 check;
+
 	if (transfer_params & AXI_MSK_SYMB_8B)
 		axi_ad3552r_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
 	else
@@ -181,20 +195,23 @@ void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val,
 				CNTRL_CSTM_ADDR(reg));
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
 				AXI_MSK_TRANSFER_DATA);
-	//TODO: replace with polling
-	mdelay(100);
+	addr.st = st;
+	addr.reg = AXI_REG_UI_STATUS;
+	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
+			   check == AXI_MSK_BUSY, 10, 100);
+
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
 }
 
-u32 axi_ad3552r_spi_read(struct axi_ad3552r_state *st, u32 reg,
-			 u32 transfer_params)
+static u32 axi_ad3552r_spi_read(struct axi_ad3552r_state *st, u32 reg,
+				u32 transfer_params)
 {
 	axi_ad3552r_spi_write(st, RD_ADDR(reg), 0x00, transfer_params);
 	return axi_ad3552r_read(st, AXI_REG_CNTRL_DATA_RD);
 }
 
-void axi_ad3552r_spi_update_bits(struct axi_ad3552r_state *st, u32 reg,
-				 u32 mask, u32 val, u32 transfer_params)
+static void axi_ad3552r_spi_update_bits(struct axi_ad3552r_state *st, u32 reg,
+					u32 mask, u32 val, u32 transfer_params)
 {
 	u32 tmp, orig;
 
