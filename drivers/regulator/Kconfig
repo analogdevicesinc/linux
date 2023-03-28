@@ -672,6 +672,16 @@ config REGULATOR_MAX77826
 	  It includes support for control of output voltage. This
 	  regulator is found on the Samsung Galaxy S5 (klte) smartphone.
 
+config REGULATOR_MAX77857
+	tristate "Analog Devices MAX77857 regulator"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  This driver controls Analog Devices MAX77831/57/59 regulator via
+	  I2C bus. It includes support for control of output voltage.
+	  Range and default value of output voltage can be changed by external
+	  feedback resistors.
+
 config REGULATOR_MC13XXX_CORE
 	tristate
 
