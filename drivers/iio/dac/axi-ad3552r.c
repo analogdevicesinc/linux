@@ -6,18 +6,19 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/clk.h>
+#include <linux/delay.h>
+#include <linux/dma-mapping.h>
+#include <linux/gpio/consumer.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+
 #include <linux/iio/iio.h>
-#include <linux/dma-mapping.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
-#include <linux/gpio/consumer.h>
-#include <linux/delay.h>
-#include <linux/clk.h>
 
 #define AXI_REG_RSTN				0x40
 #define   AXI_MSK_RSTN				BIT(0)
