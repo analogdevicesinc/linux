@@ -1011,6 +1011,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible =	"xlnx,axi-ad9434-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad7606-1.0", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-ad9680-1.0", .data = &axi_adc_10_0_a_info },
