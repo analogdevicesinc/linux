@@ -9,6 +9,7 @@
 #ifndef IIO_FREQUENCY_AD9361_H_
 #define IIO_FREQUENCY_AD9361_H_
 
+#include <linux/mutex.h>
 #include "ad9361_regs.h"
 
 enum ad9361_clocks {
@@ -146,6 +147,8 @@ struct ad9361_rf_phy {
 	struct work_struct 	work;
 	struct completion       complete;
 	struct gain_table_info  *gt_info;
+	/* protect against device accesses */
+	struct mutex		lock;
 	char			*bin_attr_buf;
 	u32 			ad9361_debugfs_entry_index;
 
