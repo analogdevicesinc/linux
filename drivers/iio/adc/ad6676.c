@@ -7,6 +7,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -705,9 +706,9 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 		}
 	}
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = ad6676_testmode_set(indio_dev, chan->channel, mode);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -730,7 +731,7 @@ static ssize_t ad6676_extinfo_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	switch ((u32)private) {
 	case AD6676_ATTR_FADC:
 		if (pdata->base.fadc_fixed) {
@@ -768,7 +769,7 @@ static ssize_t ad6676_extinfo_write(struct iio_dev *indio_dev,
 	if (update)
 		ret = ad6676_update(conv, pdata);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -785,7 +786,7 @@ static ssize_t ad6676_extinfo_read(struct iio_dev *indio_dev,
 	int val;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	switch ((u32)private) {
 	case AD6676_ATTR_FADC:
@@ -805,7 +806,7 @@ static ssize_t ad6676_extinfo_read(struct iio_dev *indio_dev,
 		break;
 	case AD6676_ATTR_MRGN_IF:
 		val = pdata->base.bw_margin_if_mhz;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return sprintf(buf, "%d\n", val);
 	case AD6676_ATTR_SHUF_TH:
 		val = pdata->shuffler.shuffle_thresh;
@@ -814,7 +815,7 @@ static ssize_t ad6676_extinfo_read(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret < 0 ? ret : sprintf(buf, "%u\n", val);
 }
