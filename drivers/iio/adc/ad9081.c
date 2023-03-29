@@ -687,12 +687,12 @@ static int ad9081_read_thresh(struct iio_dev *indio_dev,
 	struct spi_device *spi = conv->spi;
 	u16 low, high;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	low = (ad9081_spi_read(spi, AD9081_FD_LT_MSB_REG) << 8) |
 		ad9081_spi_read(spi, AD9081_FD_LT_LSB_REG);
 	high = (ad9081_spi_read(spi, AD9081_FD_UT_MSB_REG) << 8) |
 		ad9081_spi_read(spi, AD9081_FD_UT_LSB_REG);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	switch (info) {
 	case IIO_EV_INFO_HYSTERESIS:
@@ -733,7 +733,7 @@ static int ad9081_write_thresh(struct iio_dev *indio_dev,
 	int ret = 0;
 	int low, high;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	high = (ad9081_spi_read(spi, AD9081_FD_UT_MSB_REG) << 8) |
 		ad9081_spi_read(spi, AD9081_FD_UT_LSB_REG);
 
@@ -774,7 +774,7 @@ static int ad9081_write_thresh(struct iio_dev *indio_dev,
 	ad9081_spi_write(spi, AD9081_FD_LT_LSB_REG, low & 0xFF);
 
 unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 	return ret;
 }
 
@@ -786,7 +786,7 @@ static int ad9081_write_thresh_en(struct iio_dev *indio_dev,
 	struct spi_device *spi = conv->spi;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	ret = ad9081_spi_read(spi, AD9081_CHIP_PIN_CTRL1_REG);
 	if (ret < 0)
@@ -799,7 +799,7 @@ static int ad9081_write_thresh_en(struct iio_dev *indio_dev,
 
 	ret = ad9081_spi_write(spi, AD9081_CHIP_PIN_CTRL1_REG, ret);
 err_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 	return ret;
 }
 #endif
@@ -843,12 +843,12 @@ static int ad9081_testmode_write(struct iio_dev *indio_dev,
 	struct ad9081_phy *phy = conv->phy;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = adi_ad9081_adc_test_mode_config_set(&phy->ad9081, item, item,
 						  AD9081_LINK_ALL);
 	if (!ret)
 		conv->testmode[chan->channel] = item;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
@@ -990,11 +990,11 @@ static int ad9081_nyquist_zone_write(struct iio_dev *indio_dev,
 	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
 		&fddc_mask, &cddc_num, &cddc_mask);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = adi_ad9081_adc_nyquist_zone_set(&phy->ad9081, cddc_mask, item);
 	if (!ret)
 		phy->rx_nyquist_zone[cddc_num] = item;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
@@ -1039,7 +1039,7 @@ static int ad9081_main_ffh_mode_write(struct iio_dev *indio_dev,
 	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
 		&fddc_mask, &cddc_num, &cddc_mask);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	if (chan->output) {
 		ret = adi_ad9081_dac_duc_main_nco_hopf_mode_set(&phy->ad9081,
 						  cddc_mask, item);
@@ -1058,7 +1058,7 @@ static int ad9081_main_ffh_mode_write(struct iio_dev *indio_dev,
 		if (!ret)
 			phy->rx_main_ffh_mode[cddc_num] = item;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
@@ -1100,7 +1100,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
 	int i, ret = -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
 		&fddc_mask, &cddc_num, &cddc_mask);
@@ -1142,7 +1142,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 
 		}
 
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return sprintf(buf, "[%lld 1 %lld]\n", -1 * range, range);
 	case FDDC_NCO_FREQ_AVAIL:
 		if (chan->output) {
@@ -1161,7 +1161,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 
 		}
 
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return sprintf(buf, "[%lld 1 %lld]\n", -1 * range, range);
 	case CDDC_NCO_PHASE:
 		if (chan->output) {
@@ -1186,7 +1186,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		break;
 	case FDDC_NCO_GAIN:
 		val = phy->dac_cache.chan_gain[fddc_num];
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return ad9081_iio_val_to_str(buf, 0xFFF, val);
 	case CDDC_6DB_GAIN:
 		val = phy->rx_cddc_gain_6db_en[cddc_num];
@@ -1206,11 +1206,11 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 		break;
 	case DAC_MAIN_TEST_TONE_OFFSET:
 		val = phy->dac_cache.main_test_tone_offset[fddc_num];
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return ad9081_iio_val_to_str(buf, 0x7FFF, val);
 	case DAC_CHAN_TEST_TONE_OFFSET:
 		val = phy->dac_cache.chan_test_tone_offset[fddc_num];
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return ad9081_iio_val_to_str(buf, 0x7FFF, val);
 	case TRX_CONVERTER_RATE:
 		if (chan->output)
@@ -1286,7 +1286,7 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 	}
 
 out_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	if (ret == 0)
 		ret = sprintf(buf, "%lld\n", val);
@@ -1309,7 +1309,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 	s64 val64;
 	u64 ftw;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num,
 		&fddc_mask, &cddc_num, &cddc_mask);
@@ -1640,7 +1640,7 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 	}
 
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -2639,7 +2639,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 	bool enable;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	switch ((u32)this_attr->address & 0xFF) {
 	case AD9081_LOOPBACK_MODE:
@@ -2756,7 +2756,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -2775,7 +2775,7 @@ static ssize_t ad9081_phy_show(struct device *dev,
 	bool paused;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	switch ((u32)this_attr->address & 0xFF) {
 	case AD9081_LOOPBACK_MODE:
 		if (phy->tx_disable || phy->rx_disable) {
@@ -2883,7 +2883,7 @@ static ssize_t ad9081_phy_show(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
@@ -3103,9 +3103,9 @@ static int ad9081_fsc_set(void *arg, const u64 val)
 	if (!val)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = adi_ad9081_dac_fsc_set(&phy->ad9081, AD9081_DAC_ALL, val, 1);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
@@ -3512,7 +3512,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 	} else if (entry->cmd) {
 		switch (entry->cmd) {
 		case DBGFS_BIST_PRBS_JRX_ERR:
-			mutex_lock(&indio_dev->mlock);
+			mutex_lock(&conv->lock);
 			for (i = 0; i < phy->jrx_link_tx[0].jesd_param.jesd_l; i++) {
 				adi_ad9081_prbs_test_t prbs_rx_result;
 
@@ -3544,7 +3544,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 				}
 			}
 
-			mutex_unlock(&indio_dev->mlock);
+			mutex_unlock(&conv->lock);
 			len += snprintf(buf + len, sizeof(buf), "\n");
 			break;
 		case DBGFS_BIST_JRX_SPO_SWEEP:
@@ -3642,21 +3642,21 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		if (ret == 1)
 			val2 = 1; /* 1 second */
 
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&conv->lock);
 		if (val == 0)
 			adi_ad9081_jesd_rx_phy_prbs_test_disable_set(&phy->ad9081);
 		else
 			adi_ad9081_jesd_rx_phy_prbs_test(&phy->ad9081,
 				ad9081_val_to_prbs(val), val2);
 		entry->val = val;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 
 		return count;
 	case DBGFS_BIST_PRBS_JTX:
 		if (ret < 1)
 			return -EINVAL;
 
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&conv->lock);
 		if (val == 0)
 			adi_ad9081_jesd_tx_gen_test(&phy->ad9081,
 				ad9081_link_sel(phy->jtx_link_rx),
@@ -3666,7 +3666,7 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 			adi_ad9081_jesd_tx_phy_prbs_test(&phy->ad9081,
 				ad9081_link_sel(phy->jtx_link_rx), ad9081_val_to_prbs(val));
 		entry->val = val;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 
 		return count;
 	case DBGFS_BIST_JRX_SPO_SET:
@@ -3677,15 +3677,15 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 						     &val_u8);
 		if (ret)
 			return ret;
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&conv->lock);
 		ret = adi_ad9081_jesd_rx_spo_set(&phy->ad9081, val & 0x7, val_u8);
 		if (ret) {
-			mutex_unlock(&indio_dev->mlock);
+			mutex_unlock(&conv->lock);
 			return ret;
 		}
 
 		entry->val = val2;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 
 		return count;
 	case DBGFS_BIST_JRX_SPO_SWEEP:
@@ -3694,10 +3694,10 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		if (ret == 2)
 			val3 = 1; /* 1 second */
 
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&conv->lock);
 		ret = adi_ad9081_jesd_cal_bg_cal_pause(&phy->ad9081);
 		if (ret) {
-			mutex_unlock(&indio_dev->mlock);
+			mutex_unlock(&conv->lock);
 			return ret;
 		}
 		ret = adi_ad9081_jesd_rx_spo_sweep(&phy->ad9081, val & 0x7,
@@ -3707,12 +3707,12 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 
 		adi_ad9081_jesd_cal_bg_cal_start(&phy->ad9081);
 		if (ret) {
-			mutex_unlock(&indio_dev->mlock);
+			mutex_unlock(&conv->lock);
 			return ret;
 		}
 
 		entry->val = lv << 16 | rv;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 
 		return count;
 	default:
@@ -4491,6 +4491,7 @@ static int ad9081_register_iiodev(struct axiadc_converter *conv)
 	else
 		indio_dev->name = spi_get_device_id(spi)->name;
 
+	mutex_init(&conv->lock);
 	indio_dev->info = &ad9081_iio_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = phy->chip_info.channel;
