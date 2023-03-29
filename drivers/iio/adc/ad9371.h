@@ -9,6 +9,7 @@
 #ifndef IIO_TRX_AD9371_H_
 #define IIO_TRX_AD9371_H_
 
+#include <linux/mutex.h>
 #include "mykonos/t_mykonos.h"
 
 #define MIN_GAIN_mdB		0
@@ -203,6 +204,8 @@ struct ad9371_rf_phy {
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
 	struct jesd204_dev	*jdev;
+	/* protect against device accesses */
+	struct mutex		lock;
 
 	struct gpio_desc	*reset_gpio;
 	struct gpio_desc	*test_gpio;
