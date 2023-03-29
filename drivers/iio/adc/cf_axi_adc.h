@@ -184,6 +184,7 @@ enum adc_data_sel {
 
 #define AXIADC_MAX_CHANNEL		128
 
+#include <linux/mutex.h>
 #include <linux/spi/spi.h>
 #include <linux/clk/clkscale.h>
 
@@ -230,6 +231,12 @@ struct axiadc_converter {
 	int				num_channels;
 	const struct attribute_group	*attrs;
 	struct iio_dev 	*indio_dev;
+	/*
+	 * shared lock between the converter and axi_adc to sync
+	 * accesses/configurations to/with the IP core. The axi_adc driver is
+	 * responsible to initialize this lock.
+	 */
+	struct mutex lock;
 	int (*read_raw)(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
 			int *val,
