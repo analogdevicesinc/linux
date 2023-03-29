@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,axi-ad7606.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD7606 Simultaneous Sampling ADC - Parallel Interface
+
+maintainers:
+  - Alin-Tudor Sferle <alin-tudor.sferle@analog.com>
+  - Marcelo Schmitt <marcelo.schmitt@analog.com>
+
+description: |
+  Analog Devices AD7606x Simultaneous Sampling ADC - Parallel Interface
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ad7606c-16.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ad7606c-18.pdf
+
+properties:
+
+  compatible:
+    enum:
+      - axi-ad7606c-16
+      - axi-ad7606c-18
+
+  clocks:
+    maxItems: 1
+    description:
+      Sampling clock
+
+  clock-names:
+    maxItems: 1
+    description:
+      Names of used clock in tree
+
+  pwms:
+    maxItems: 1
+    description:
+      PWM signal used to start the sampling procedure
+
+  pwm-names:
+    items:
+      - const: cnvst_n
+
+  reset-gpios:
+    maxItems: 1
+
+required:
+  - compatible
+  - clocks
+  - clock-names
+  - pwms
+  - pwm-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/pwm/pwm.h>
+
+    axi_ad7606: axi-ad7606 {
+        compatible = "axi-ad7606c-16";
+
+        pwms = <&axi_pwm_gen 0 0>;
+        pwm-names = "cnvst_n";
+
+        clocks = <&ext_clk>;
+        clock-names = "ad7606_conv_clk";
+
+        reset-gpios = <&gpio0 95 GPIO_ACTIVE_HIGH>;
+    };
+
+    fpga_axi {
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        rx_dma: dmac@44a30000 {
+            compatible = "adi,axi-dmac-1.00.a";
+            reg = <0x44a30000 0x1000>;
+            #dma-cells = <1>;
+            interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+            clocks = <&ext_clk>;
+
+            adi,channels {
+                #size-cells = <0>;
+                #address-cells = <1>;
+
+                dma-channel@0 {
+                    reg = <0>;
+                    adi,source-bus-width = <128>;
+                    adi,source-bus-type = <2>;
+                    adi,destination-bus-width = <64>;
+                    adi,destination-bus-type = <0>;
+                };
+            };
+        };
+
+        cf_axi_adc@44a00000 {
+            compatible = "adi,axi-ad7606-1.0";
+            reg = <0x44a00000 0x20000>;
+            dmas = <&rx_dma 0>;
+            dma-names = "rx";
+            platformbus-connected = <&axi_ad7606>;
+        };
+    };
+...
