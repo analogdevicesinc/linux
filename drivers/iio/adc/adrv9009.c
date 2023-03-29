@@ -1472,12 +1472,12 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 	int ret = 0;
 	u32 val;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch ((u32)this_attr->address & 0xFF) {
 	case ADRV9009_ENSM_MODE:
 		if (!phy->is_initialized) {
-			mutex_unlock(&indio_dev->mlock);
+			mutex_unlock(&phy->lock);
 			return -EBUSY;
 		}
 
@@ -1492,7 +1492,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 		break;
 	case ADRV9009_INIT_CAL:
 		if (!phy->is_initialized) {
-			mutex_unlock(&indio_dev->mlock);
+			mutex_unlock(&phy->lock);
 			return -EBUSY;
 		}
 
@@ -1578,7 +1578,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -1597,7 +1597,7 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 	bool paused;
 	u32 val;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch ((u32)this_attr->address & 0xFF) {
 	case ADRV9009_ENSM_MODE:
 		ret = sprintf(buf, "%s\n",
@@ -1696,7 +1696,7 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -1842,14 +1842,14 @@ static int adrv9009_phy_reg_access(struct iio_dev *indio_dev,
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	if (readval == NULL)
 		ret = adrv9009_spi_write(phy->spi, reg, writeval);
 	else {
 		*readval = adrv9009_spi_read(phy->spi, reg);
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -1882,7 +1882,7 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&phy->lock);
 
 		adrv9009_set_radio_state(phy, RADIO_FORCE_OFF);
 
@@ -1916,7 +1916,7 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		adrv9009_set_radio_state(phy, RADIO_FORCE_OFF);
 
 		phy->fhm_mode.fhmEnable = enable;
@@ -1939,7 +1939,7 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		mutex_lock(&indio_dev->mlock);
+		mutex_lock(&phy->lock);
 
 		ret = TALISE_setFhmHop(phy->talDevice, readin);
 		break;
@@ -1949,7 +1949,7 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -1967,7 +1967,7 @@ static ssize_t adrv9009_phy_lo_read(struct iio_dev *indio_dev,
 	if (!phy->is_initialized)
 		return -EBUSY;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (private) {
 	case LOEXT_FREQ:
 		ret = TALISE_getRfPllFrequency(phy->talDevice, TAL_RF_PLL + chan->channel,
@@ -1983,7 +1983,7 @@ static ssize_t adrv9009_phy_lo_read(struct iio_dev *indio_dev,
 	default:
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : sprintf(buf, "%llu\n", val);
 }
@@ -2123,7 +2123,7 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch (private) {
 		case RSSI:
@@ -2283,7 +2283,7 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 	}
 
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -2308,7 +2308,7 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 	if (!phy->is_initialized)
 		return -EBUSY;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch (private) {
 	case RSSI:
@@ -2464,7 +2464,7 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 	}
 
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -2499,7 +2499,7 @@ static ssize_t adrv9009_phy_tx_read(struct iio_dev *indio_dev,
 	if (chan->channel > CHAN_TX2)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (private) {
 	case TX_QEC:
 	case TX_LOL:
@@ -2558,7 +2558,7 @@ static ssize_t adrv9009_phy_tx_read(struct iio_dev *indio_dev,
 	if (ret == 0)
 		ret = sprintf(buf, "%d\n", val);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -2585,7 +2585,7 @@ static ssize_t adrv9009_phy_tx_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch (private) {
 	case TX_QEC:
@@ -2655,7 +2655,7 @@ static ssize_t adrv9009_phy_tx_write(struct iio_dev *indio_dev,
 
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -2924,7 +2924,7 @@ static int adrv9009_phy_read_raw(struct iio_dev *indio_dev,
 	if (!phy->is_initialized)
 		return -EBUSY;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
@@ -3070,7 +3070,7 @@ static int adrv9009_phy_read_raw(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 };
@@ -3088,7 +3088,7 @@ static int adrv9009_phy_write_raw(struct iio_dev *indio_dev,
 	if (!phy->is_initialized)
 		return -EBUSY;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
@@ -3144,7 +3144,7 @@ static int adrv9009_phy_write_raw(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -3731,19 +3731,19 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 	case DBGFS_INIT:
 		if (!(ret == 1 && val == 1))
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 
 		ret = adrv9009_restart(phy);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 
 		return count;
 	case DBGFS_BIST_FRAMER_A_PRBS:
 	case DBGFS_BIST_FRAMER_B_PRBS:
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = TALISE_enableFramerTestData(phy->talDevice,
 						  entry->cmd == DBGFS_BIST_FRAMER_A_PRBS ? TAL_FRAMER_A : TAL_FRAMER_B,
 						  val, TAL_FTD_FRAMERINPUT);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret)
 			return ret;
 
@@ -3751,11 +3751,11 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 		return count;
 	case DBGFS_BIST_FRAMER_A_LOOPBACK:
 	case DBGFS_BIST_FRAMER_B_LOOPBACK:
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = adrv9009_spi_write(phy->spi, TALISE_ADDR_JESD_FRAMER_CFG4_0 +
 			(entry->cmd == DBGFS_BIST_FRAMER_B_LOOPBACK ? 0x40 : 0),
 			val ? BIT(7) : 0);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret)
 			return ret;
 
@@ -3769,20 +3769,20 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 		nco_config.tx1ToneFreq_kHz = val2;
 		nco_config.tx2ToneFreq_kHz = val3;
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = TALISE_enableTxNco(phy->talDevice, &nco_config);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
 		entry->val = val;
 		return count;
 	case DBGFS_GPIO3V3:
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		if (ret == 1) {
 			ret = TALISE_getGpio3v3PinLevel(phy->talDevice, &level);
 			if (ret < 0) {
-				mutex_unlock(&phy->indio_dev->mlock);
+				mutex_unlock(&phy->lock);
 				return ret;
 			}
 			if (val == 0xFFF)
@@ -3799,7 +3799,7 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 			} else if (val >= 0 && val < 12) {
 				ret = TALISE_getGpio3v3SetLevel(phy->talDevice, &level);
 				if (ret < 0) {
-					mutex_unlock(&phy->indio_dev->mlock);
+					mutex_unlock(&phy->lock);
 					return ret;
 				}
 
@@ -3817,7 +3817,7 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 		} else {
 			ret = -EINVAL;
 		}
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		break;
 	default:
 		break;
@@ -5056,14 +5056,14 @@ adrv9009_profile_bin_write(struct file *filp, struct kobject *kobj,
 		return ret;
 
 
-	mutex_lock(&phy->indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	ret = adrv9009_restart(phy);
 
 	if (ret == -ENOTSUPP)
 		ret = 0;
 
-	mutex_unlock(&phy->indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return (ret < 0) ? ret : count;
 }
@@ -5288,11 +5288,11 @@ adrv9009_gt_bin_write(struct file *filp, struct kobject *kobj,
 	if (IS_ERR_OR_NULL(table))
 		return PTR_ERR(table);
 
-	mutex_lock(&phy->indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	ret = adrv9009_load_all_gt(phy, table);
 
-	mutex_unlock(&phy->indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return (ret < 0) ? ret : count;
 }
@@ -6522,6 +6522,7 @@ static int adrv9009_probe(struct spi_device *spi)
 	phy->spi = spi;
 	phy->spi_device_id = id;
 	phy->jdev = jdev;
+	mutex_init(&phy->lock);
 
 	ret = adrv9009_phy_parse_dt(indio_dev, &spi->dev);
 	if (ret < 0)

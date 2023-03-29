@@ -26,6 +26,7 @@
 #include "talise/talise_gpio.h"
 
 #include <linux/jesd204/jesd204.h>
+#include <linux/mutex.h>
 
 #define MIN_GAIN_mdB		0
 #define MAX_RX_GAIN_mdB		30000
@@ -218,6 +219,8 @@ struct adrv9009_rf_phy {
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
 	struct jesd204_dev	*jdev;
+	/* protect against device accesses */
+	struct mutex		lock;
 
 	struct gpio_desc	*sysref_req_gpio;
 	struct gain_table_info  gt_info[NUM_GT];
