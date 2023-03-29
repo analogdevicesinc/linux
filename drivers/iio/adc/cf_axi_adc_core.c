@@ -240,7 +240,7 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	else
 		mode = ADC_PN_OFF;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	for (i = 0; i < axiadc_num_phys_channels(st); i++) {
 		if (conv->set_pnsel)
@@ -255,7 +255,7 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 	for (i = 0; i < axiadc_num_phys_channels(st); i++)
 		axiadc_write(st, ADI_REG_CHAN_STATUS(i), ~0);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return count;
 }
@@ -271,6 +271,7 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 			      unsigned *readval)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	int ret;
 
 	/* Check that the register is in range and aligned */
@@ -278,7 +279,7 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 	    ((reg & 0xffff) >= st->regs_size || (reg & 0x3)))
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	if (!(reg & DEBUGFS_DRA_PCORE_REG_MAGIC)) {
 		struct axiadc_converter *conv = to_converter(st->dev_spi);
@@ -295,7 +296,7 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 			*readval = axiadc_read(st, reg & 0xFFFF);
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return 0;
 }
@@ -372,16 +373,17 @@ static ssize_t axiadc_sampling_frequency_available(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	unsigned long freq;
 	int i, ret;
 
 	if (!st->decimation_factor)
 		return -ENODEV;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = axiadc_get_parent_sampling_frequency(st, &freq);
 	if (ret < 0) {
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return ret;
 	}
 
@@ -391,7 +393,7 @@ static ssize_t axiadc_sampling_frequency_available(struct device *dev,
 
 	ret += snprintf(&buf[ret], PAGE_SIZE - ret, "\n");
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
@@ -406,13 +408,14 @@ static ssize_t axiadc_sync_start_store(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	int ret;
 
 	ret = sysfs_match_string(axiadc_sync_ctrls, buf);
 	if (ret < 0)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	if (st->ext_sync_avail) {
 		switch (ret) {
 		case 0:
@@ -433,7 +436,7 @@ static ssize_t axiadc_sync_start_store(struct device *dev,
 		reg = axiadc_read(st, ADI_REG_CNTRL);
 		axiadc_write(st, ADI_REG_CNTRL, reg | ADI_SYNC);
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret < 0 ? ret : len;
 }
@@ -1147,6 +1150,7 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	iio_device_set_drvdata(indio_dev, conv);
 	conv->indio_dev = indio_dev;
+	mutex_init(&conv->lock);
 
 	if (conv->chip_info->num_shadow_slave_channels) {
 		u32 regs[2];
