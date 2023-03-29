@@ -43,7 +43,8 @@ enum ad400x_ids {
 struct ad400x_state {
 	struct spi_device *spi;
 	struct regulator *vref;
-
+	/* protect device accesses */
+	struct mutex lock;
 	bool bus_locked;
 
 	struct spi_message spi_msg;
@@ -250,7 +251,7 @@ static int ad400x_reg_access(struct iio_dev *indio_dev,
 	struct ad400x_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	spi_bus_lock(st->spi->master);
 	st->bus_locked = true;
 
@@ -261,7 +262,7 @@ static int ad400x_reg_access(struct iio_dev *indio_dev,
 
 	st->bus_locked = false;
 	spi_bus_unlock(st->spi->master);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -351,6 +352,7 @@ static int ad400x_probe(struct spi_device *spi)
 	dev_id = spi_get_device_id(spi)->driver_data;
 	st = iio_priv(indio_dev);
 	st->spi = spi;
+	mutex_init(&st->lock);
 
 	st->vref = devm_regulator_get(&spi->dev, "vref");
 	if (IS_ERR(st->vref))
