@@ -17,6 +17,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/dmaengine.h>
 #include <linux/platform_device.h>
@@ -90,6 +91,8 @@ struct axiadc_state {
 	void __iomem			*slave_regs;
 	struct iio_hw_consumer		*frontend;
 	struct clk 			*clk;
+	/* protect against device accesses */
+	struct mutex			lock;
 	unsigned int                    oversampling_ratio;
 	unsigned int			adc_def_output_mode;
 	unsigned int			max_usr_channel;
@@ -580,7 +583,7 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (st->slave_regs && (reg & 0x80000000)) {
 		if (readval == NULL)
 			axiadc_slave_write(st, (reg & 0xffff), writeval);
@@ -592,7 +595,7 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 		else
 			*readval = axiadc_read(st, reg & 0xFFFF);
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return 0;
 }
@@ -693,6 +696,7 @@ static int adc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+	mutex_init(&st->lock);
 
 	st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
 	if (IS_ERR(st->clk)) {
