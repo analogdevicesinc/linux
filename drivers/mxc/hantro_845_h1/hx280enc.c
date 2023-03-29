@@ -147,6 +147,7 @@ typedef struct {
 	unsigned int mirror_regs[512];
 	struct device *dev;
 	bool skip_blkctrl;
+	u32 statusShowReg;
 } hx280enc_t;
 
 /* dynamic allocation? */
@@ -291,6 +292,8 @@ unsigned int WaitEncReady(hx280enc_t *dev)
 	for (i = 0; i < dev->iosize; i += 4)
 		dev->mirror_regs[i/4] = readl(dev->hwregs + i);
 
+	dev->mirror_regs[1] = dev->statusShowReg;
+
 	/* clear the status bits */
 	is_write1_clr = (dev->mirror_regs[0x4a0/4] & 0x00800000);
 	irq_status = dev->mirror_regs[1];
@@ -298,6 +301,7 @@ unsigned int WaitEncReady(hx280enc_t *dev)
 		writel(irq_status, dev->hwregs + 0x04);
 	else
 		writel(irq_status & (~0xf7d), dev->hwregs + 0x04);
+	dev->statusShowReg = readl(dev->hwregs + 0x04);
 
 	return 0;
 }
@@ -392,8 +396,11 @@ static int hx280enc_write_regs(unsigned long arg)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < regs.size / 4; i++)
+	for (i = 0; i < regs.size / 4; i++) {
 		iowrite32(reg_buf[i], (dev->hwregs + regs.offset) + i * 4);
+		if ((regs.offset + i * 4) == 4)
+			dev->statusShowReg = readl(dev->hwregs + 0x04);
+	}
 
 	return ret;
 }
@@ -506,8 +513,10 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			return -EAGAIN;
 		}
 
-		if (down_interruptible(&hx280enc_data.core_suspend_sem))
+		if (down_timeout(&hx280enc_data.core_suspend_sem, msecs_to_jiffies(10000))) {
+			pr_err("en core suspend sem down error id\n");
 			return -ERESTARTSYS;
+		}
 
 		reg_value = readl(hx280enc_data.hwregs + 14 * 4);
 		reg_value |= 0x01;
@@ -798,6 +807,8 @@ irqreturn_t hx280enc_isr(int irq, void *dev_id)
 		else
 			writel(irq_status & (~0x101), dev->hwregs + 0x04);
 
+		dev->statusShowReg = readl(dev->hwregs + 0x04);
+
 		/* Handle slice ready interrupts. The reference implementation
 		* doesn't signal slice ready interrupts to EWL.
 		* The EWL will poll the slices ready register value. */
@@ -974,9 +985,11 @@ static int hx280enc_suspend(struct device *dev)
 	if (hx280enc_data.is_reserved == 0)
 		return ret;
 
-	ret = down_interruptible(&hx280enc_data.core_suspend_sem);
-	if (ret)
+	ret = down_timeout(&hx280enc_data.core_suspend_sem, msecs_to_jiffies(10000));
+	if (ret) {
+		pr_err("h280xenc sem down error when store regs\n");
 		return ret;
+	}
 	hx280enc_data.reg_corrupt = 1;
 	if (hx280enc_data.irq_status & 0x04) {
 		for (i = 0; i < hx280enc_data.iosize; i += 4)
