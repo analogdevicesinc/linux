@@ -6757,7 +6757,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		this_attr->address != AD9361_ENSM_MODE)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch ((u32)this_attr->address) {
 	case AD9361_RF_RX_BANDWIDTH:
@@ -7018,7 +7018,7 @@ static ssize_t ad9361_phy_store(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -7035,7 +7035,7 @@ static ssize_t ad9361_phy_show(struct device *dev,
 	unsigned long clk[6];
 	u64 delta;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch ((u32)this_attr->address) {
 	case AD9361_RF_RX_BANDWIDTH:
 		ret = sprintf(buf, "%u\n", st->current_rx_bw_Hz);
@@ -7153,7 +7153,7 @@ static ssize_t ad9361_phy_show(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -7324,14 +7324,14 @@ static int ad9361_phy_reg_access(struct iio_dev *indio_dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	if (readval == NULL) {
 		ret = ad9361_spi_write(phy->spi, reg, writeval);
 	} else {
 		*readval =  ad9361_spi_read(phy->spi, reg);
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -7384,7 +7384,7 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 			break;
 	}
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (private) {
 	case LOEXT_FREQ:
 		switch (chan->channel) {
@@ -7480,7 +7480,7 @@ static ssize_t ad9361_phy_lo_write(struct iio_dev *indio_dev,
 
 		break;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -7496,7 +7496,7 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 	size_t len;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (private) {
 	case LOEXT_FREQ:
 		val = ad9361_from_clk(clk_get_rate(phy->clks[chan->channel ?
@@ -7513,7 +7513,7 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 			len += sprintf(buf + len, "%u%c", faslock_vals[i],
 				       i == 15 ? '\n' : ',');
 
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		return len;
 		}
 	case LOEXT_RECALL:
@@ -7553,14 +7553,14 @@ static ssize_t ad9361_phy_lo_read(struct iio_dev *indio_dev,
 		}
 
 		len = sprintf(buf, "[%llu 1 %llu]\n", min, max);
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		return len;
 		}
 	default:
 		ret = 0;
 
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret < 0 ? ret : sprintf(buf, "%llu\n", val);
 }
@@ -7690,7 +7690,7 @@ static ssize_t ad9361_phy_rx_write(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan,
 				    const char *buf, size_t len)
 {
-//	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	u64 readin;
 	int ret = 0;
 
@@ -7698,7 +7698,7 @@ static ssize_t ad9361_phy_rx_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (chan->channel) {
 	case 0:
 
@@ -7712,7 +7712,7 @@ static ssize_t ad9361_phy_rx_write(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -7727,14 +7727,14 @@ static ssize_t ad9361_phy_rx_read(struct iio_dev *indio_dev,
 	int val;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	rssi.ant = ad9361_1rx1tx_channel_map(phy, false, chan->channel + 1);
 	rssi.duration = 1;
 	ret = ad9361_read_rssi(phy, &rssi);
 	val = rssi.symbol;
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret < 0 ? ret : sprintf(buf, "%u.%02u dB\n",
 			val / rssi.multiplier, val % rssi.multiplier);
@@ -7757,7 +7757,7 @@ static ssize_t ad9361_phy_tx_read(struct iio_dev *indio_dev,
 	u32 val;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	ret = ad9361_spi_readm(phy->spi, REG_TX_RSSI_LSB,
 			reg_val_buf, ARRAY_SIZE(reg_val_buf));
 
@@ -7771,7 +7771,7 @@ static ssize_t ad9361_phy_tx_read(struct iio_dev *indio_dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	val *= RSSI_RESOLUTION;
 
@@ -7814,7 +7814,7 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
@@ -7892,7 +7892,7 @@ static int ad9361_phy_read_raw(struct iio_dev *indio_dev,
 	}
 
 out_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 };
@@ -7911,7 +7911,7 @@ static int ad9361_phy_write_raw(struct iio_dev *indio_dev,
 	if (st->curr_ensm_state == ENSM_STATE_SLEEP)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
@@ -7966,7 +7966,7 @@ static int ad9361_phy_write_raw(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -8162,10 +8162,10 @@ static ssize_t ad9361_debugfs_read(struct file *file, char __user *userbuf,
 
 	} else if (entry->cmd == DBGFS_RXGAIN_1 || entry->cmd == DBGFS_RXGAIN_2) {
 		struct rf_rx_gain rx_gain = {0};
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = ad9361_get_rx_gain(phy, (entry->cmd == DBGFS_RXGAIN_1) ?
 				1 : 2, &rx_gain);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -8221,7 +8221,7 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_INIT:
 		if (!(ret == 1 && val == 1))
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		clk_set_rate(phy->clks[TX_SAMPL_CLK], 1);
 		clk_set_parent(phy->clks[RX_RFPLL], phy->clk_ext_lo_rx);
 		clk_set_parent(phy->clks[TX_RFPLL], phy->clk_ext_lo_tx);
@@ -8230,7 +8230,7 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		ad9361_clks_disable(phy);
 		ad9361_clear_state(phy);
 		ret = ad9361_setup(phy);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -8238,9 +8238,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_LOOPBACK:
 		if (ret != 1)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = ad9361_bist_loopback(phy, val);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -8249,9 +8249,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_BIST_PRBS:
 		if (ret != 1)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = ad9361_bist_prbs(phy, val);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -8260,9 +8260,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_BIST_TONE:
 		if (ret != 4)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = ad9361_bist_tone(phy, val, val2, val3, val4);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -8271,9 +8271,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_MCS:
 		if (ret != 1)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = ad9361_mcs(phy, val);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -8285,10 +8285,10 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 
 		if (phy->pdata->cal_sw1_gpio &&
 			phy->pdata->cal_sw2_gpio) {
-			mutex_lock(&phy->indio_dev->mlock);
+			mutex_lock(&phy->lock);
 			gpiod_set_value(phy->pdata->cal_sw1_gpio, !!(val & BIT(0)));
 			gpiod_set_value(phy->pdata->cal_sw2_gpio, !!(val & BIT(1)));
-			mutex_unlock(&phy->indio_dev->mlock);
+			mutex_unlock(&phy->lock);
 		} else {
 			return -ENODEV;
 		}
@@ -8298,9 +8298,9 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_DIGITAL_TUNE:
 		if (ret != 2)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = ad9361_dig_tune(phy, val, val2);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -8337,7 +8337,7 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 			return -EINVAL;
 		}
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ctrl->gpo_manual_mode_enable_mask &= ~mask;
 		ctrl->gpo_manual_mode_enable_mask |= val3;
 
@@ -8357,7 +8357,7 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 		if (!(val3 & GPO_MANUAL_SELECT))
 			ad9361_spi_write(phy->spi, REG_EXTERNAL_LNA_CTRL,
 					 val3 | GPO_MANUAL_SELECT);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -9346,7 +9346,7 @@ ad9361_gt_bin_write(struct file *filp, struct kobject *kobj,
 	if (IS_ERR_OR_NULL(table))
 		return PTR_ERR(table);
 
-	mutex_lock(&phy->indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	ad9361_free_gt(phy, phy->gt_info);
 
 	st->current_table = -1;
@@ -9356,7 +9356,7 @@ ad9361_gt_bin_write(struct file *filp, struct kobject *kobj,
 		clk_get_rate(phy->clks[RX_RFPLL])),
 		GT_RX1 + GT_RX2);
 
-	mutex_unlock(&phy->indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return count;
 }
@@ -9459,6 +9459,7 @@ static int ad9361_probe(struct spi_device *spi)
 	phy->indio_dev = indio_dev;
 	phy->spi = spi;
 	phy->clk_refin = clk;
+	mutex_init(&phy->lock);
 
 	ad9361_init_state(phy);
 
