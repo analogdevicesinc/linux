@@ -8,7 +8,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
-	model = "Freescale i.MX8MN EVK";
+	model = "NXP i.MX8MNano EVK board";
 	compatible = "fsl,imx8mn-evk", "fsl,imx8mm";
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
