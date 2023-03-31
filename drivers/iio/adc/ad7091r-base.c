@@ -6,6 +6,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/bitfield.h>
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 #include <linux/interrupt.h>
@@ -16,7 +17,8 @@
 #include "ad7091r-base.h"
 
 /* AD7091R_REG_RESULT */
-#define AD7091R_REG_RESULT_CH_ID(x)	    (((x) >> 13) & 0x3)
+#define AD7091R5_REG_RESULT_CH_ID(x)	    (((x) >> 13) & 0x3)
+#define AD7091R8_REG_RESULT_CH_ID(x)	    (((x) >> 13) & 0x7)
 #define AD7091R_REG_RESULT_CONV_RESULT(x)   ((x) & 0xfff)
 
 /* AD7091R_REG_CONF */
@@ -44,10 +46,14 @@ static int ad7091r_set_mode(struct ad7091r_state *st, enum ad7091r_mode mode)
 		return -EINVAL;
 	}
 
-	ret = regmap_update_bits(st->map, AD7091R_REG_CONF,
-				 AD7091R_REG_CONF_MODE_MASK, conf);
-	if (ret)
-		return ret;
+	/* AD7091R-2/4/8 don't set normal, command, autocycle modes in conf reg */
+	if (st->chip_info->type == AD7091R5) {
+		return 0;
+		ret = regmap_update_bits(st->map, AD7091R_REG_CONF,
+					 AD7091R_REG_CONF_MODE_MASK, conf);
+		if (ret)
+			return ret;
+	}
 
 	st->mode = mode;
 
@@ -87,8 +93,13 @@ static int ad7091r_read_one(struct iio_dev *iio_dev,
 	if (ret < 0)
 		return ret;
 
-	if (AD7091R_REG_RESULT_CH_ID(val) != channel)
-		return -EIO;
+	if (st->chip_info->type == AD7091R5) {
+		if (AD7091R5_REG_RESULT_CH_ID(val) != channel)
+			return -EIO;
+	} else {
+		if (AD7091R8_REG_RESULT_CH_ID(val) != channel)
+			return -EIO;
+	}
 
 	*read_val = AD7091R_REG_RESULT_CONV_RESULT(val);
 
@@ -145,8 +156,42 @@ unlock:
 	return ret;
 }
 
+static int ad7091r_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			      unsigned int writeval, unsigned int *readval)
+{
+	struct ad7091r_state *st  = iio_priv(indio_dev);
+	int ret;
+
+	if (readval) {
+		ret = regmap_read(st->map, reg, readval);
+		if (ret < 0)
+			return ret;
+
+		if (reg == AD7091R_REG_CHANNEL) {
+			switch (st->chip_info->num_channels) {
+			case AD7091R2_NUM_CHANNELS:
+				*readval = FIELD_GET(AD7091R2_REG_CHANNEL_MSK,
+						     *readval);
+				break;
+			case AD7091R4_NUM_CHANNELS:
+				*readval = FIELD_GET(AD7091R4_REG_CHANNEL_MSK,
+						     *readval);
+				break;
+			case AD7091R8_NUM_CHANNELS:
+				*readval = FIELD_GET(AD7091R8_REG_CHANNEL_MSK,
+						     *readval);
+				break;
+			}
+		}
+		return 0;
+	}
+
+	return regmap_write(st->map, reg, writeval);
+}
+
 static const struct iio_info ad7091r_info = {
 	.read_raw = ad7091r_read_raw,
+	.debugfs_reg_access = &ad7091r_reg_access,
 };
 
 static irqreturn_t ad7091r_event_handler(int irq, void *private)
