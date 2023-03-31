@@ -16,12 +16,12 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 /* RX path */
-#define AD9081_RX_LANERATE_KHZ	24750000
-#define AD9081_RX_LINK_CLK	375000000
+#define AD9081_RX_LANERATE_KHZ	12375000
+#define AD9081_RX_LINK_CLK	187500000
 
 /* TX path */
-#define AD9081_TX_LANERATE_KHZ	24750000
-#define AD9081_TX_LINK_CLK	375000000
+#define AD9081_TX_LANERATE_KHZ	12375000
+#define AD9081_TX_LINK_CLK	187500000
 
 &gic {
 	num_cpus = <2>;
@@ -329,7 +329,7 @@
 	hmc7044_c2: channel@2 {
 		reg = <2>;
 		adi,extended-name = "DEV_REFCLK";
-		adi,divider = <12>;	// 250
+		adi,divider = <8>;	// 375
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 	};
 
@@ -344,14 +344,14 @@
 	hmc7044_c6: channel@6 {
 		reg = <6>;
 		adi,extended-name = "CORE_CLK_TX";
-		adi,divider = <12>;	// 250 = LR/66*4/6
+		adi,divider = <24>;	// 125 = LR/66*4/6
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 	};
 
 	hmc7044_c10: channel@10 {
 		reg = <10>;
 		adi,extended-name = "CORE_CLK_RX";
-		adi,divider = <12>;	// 250 = LR/66*4/6
+		adi,divider = <24>;	// 125 = LR/66*4/6
 		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 	};
 
@@ -375,7 +375,7 @@
 	adi,tx-dacs {
 		#size-cells = <0>;
 		#address-cells = <1>;
-		adi,dac-frequency-hz = /bits/ 64 <12000000000>;
+		adi,dac-frequency-hz = /bits/ 64 <6000000000>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -437,7 +437,7 @@
 	adi,rx-adcs {
 		#size-cells = <0>;
 		#address-cells = <1>;
-		adi,adc-frequency-hz = /bits/ 64 <4000000000>;
+		adi,adc-frequency-hz = /bits/ 64 <2000000000>;
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
