@@ -690,8 +690,12 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		if (chan->type == IIO_VOLTAGE) {
 			if (!st->standalone) {
 				conv = to_converter(st->dev_spi);
-				ret = conv->read_raw(indio_dev,
-						     chan, val, val2, m);
+				if (!conv->read_raw) {
+					ret = -ENODEV;
+				} else {
+					ret = conv->read_raw(indio_dev, chan,
+							     val, val2, m);
+				}
 				mutex_unlock(&indio_dev->mlock);
 				return ret;
 			}
@@ -749,7 +753,12 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	default:
 		if (!st->standalone) {
 			conv = to_converter(st->dev_spi);
-			ret = conv->read_raw(indio_dev, chan, val, val2, m);
+			if (!conv->read_raw) {
+				ret = -ENODEV;
+			} else {
+				ret = conv->read_raw(indio_dev, chan,
+						     val, val2, m);
+			}
 		} else {
 			ret = -EINVAL;
 		}
@@ -795,9 +804,14 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		if (chan->type == IIO_VOLTAGE) {
 			if (!st->standalone) {
-				if (!IS_ERR(conv))
+				if (IS_ERR(conv)) {
+					ret = PTR_ERR(conv);
+				} else if (!conv->write_raw) {
+					ret = -ENODEV;
+				} else {
 					ret = conv->write_raw(indio_dev,
 						chan, val, val2, mask);
+				}
 				mutex_unlock(&indio_dev->mlock);
 				return ret;
 			}
@@ -923,11 +937,12 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			  ADI_IQCOR_ENB);
 		break;
 	default:
-		if (!IS_ERR(conv))
-			ret = conv->write_raw(indio_dev, chan, val, val2, mask);
+		if (IS_ERR(conv))
+			ret = PTR_ERR(conv);
+		else if (!conv->write_raw)
+			ret = -ENODEV;
 		else
-			ret = -EINVAL;
-
+			ret = conv->write_raw(indio_dev, chan, val, val2, mask);
 	}
 
 err_unlock:
@@ -964,6 +979,8 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 		} else {
 			if (IS_ERR(conv))
 				ret  = PTR_ERR(conv);
+			else if (!conv->write)
+				ret = -ENODEV;
 			else
 				ret = conv->write(conv->spi,
 						  reg, writeval & 0xFF);
@@ -975,6 +992,8 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 		} else {
 			if (IS_ERR(conv))
 				ret  = PTR_ERR(conv);
+			else if (!conv->read)
+				ret = -ENODEV;
 			else
 				ret = conv->read(conv->spi, reg);
 			if (ret < 0)
