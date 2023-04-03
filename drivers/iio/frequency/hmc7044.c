@@ -320,6 +320,7 @@ struct hmc7044 {
 	u32				jdev_lmfc_lemc_gcd;
 	u32				jdev_max_sysref_freq;
 	u32				jdev_desired_sysref_freq;
+	bool				jdev_skip_sysref_freq_calc;
 	bool				is_sysref_provider;
 	bool				hmc_two_level_tree_sync_en;
 	bool				read_write_confirmed;
@@ -1647,6 +1648,9 @@ static int hmc7044_parse_dt(struct device *dev,
 	of_property_read_u32(np, "adi,jesd204-desired-sysref-frequency-hz",
 			     &hmc->jdev_desired_sysref_freq);
 
+	hmc->jdev_skip_sysref_freq_calc =
+		of_property_read_bool(np, "adi,jesd204-skip-sysref-frequency-calc");
+
 	hmc->rf_reseeder_en =
 		!of_property_read_bool(np, "adi,rf-reseeder-disable");
 
@@ -1925,9 +1929,20 @@ static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
-	ret = jesd204_link_get_lmfc_lemc_rate(lnk, &rate);
-	if (ret < 0)
-		return ret;
+	if (hmc->jdev_skip_sysref_freq_calc) {
+		if (!hmc->jdev_desired_sysref_freq) {
+			dev_err(dev,
+				"%s:%d Error: requires adi,jesd204-desired-sysref-frequency-hz set\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+
+		rate = hmc->jdev_desired_sysref_freq;
+	} else {
+		ret = jesd204_link_get_lmfc_lemc_rate(lnk, &rate);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (hmc->jdev_lmfc_lemc_rate) {
 		hmc->jdev_lmfc_lemc_rate = min(hmc->jdev_lmfc_lemc_rate, (u32)rate);
