@@ -78,6 +78,10 @@
 	/* for DTE mode, add below change */
 	/* fsl,dte-mode; */
 	/* pinctrl-0 = <&pinctrl_uart5dte_1>; */
+
+	bluetooth {
+		compatible = "nxp,88w8987-bt";
+	};
 };
 
 &usdhc2 {

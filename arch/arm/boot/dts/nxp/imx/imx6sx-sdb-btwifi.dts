@@ -63,6 +63,10 @@
 &uart5 { /* for bluetooth */
 	pinctrl-0 = <&pinctrl_uart5 &pinctrl_bt>;
 	resets = <&modem_reset>;
+
+	bluetooth {
+		compatible = "nxp,88w8987-bt";
+	};
 };
 
 
