@@ -16,12 +16,35 @@
  * Mode: Tx_BW160_IR204p80_Rx_BW160_OR204p80_ORx_BW160_OR204p80
  */
 
-#define HMC7044_PLL2_OUTPUT_FREQUENCY	2457600000
-
 #include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts"
 
 &axi_adrv9009_adxcvr_tx {
 	adi,sys-clk-select = <XCVR_QPLL1>; /* Switch to QPLL1 */
+};
+
+/* For a device clock of 204.8 MHz we need to alter the HMC7044 PLL2/VCO
+ * frequency. So 2457.6 MHz divides nicely with 204.8 MHz, while we can
+ * still derive this from a 122.88 MHz VCXO.
+ */
+
+&hmc7044 {
+	adi,pll2-output-frequency = <2457600000>;
+};
+
+&hmc7044_fmc {
+	adi,pll2-output-frequency = <2457600000>;
+};
+
+/* There is a HMC7044 multichip sync requirement.
+ * The SYNC pulse frequency through PLL1 must be a submultiple of the VCXO frequency.
+ * So far we used the SYSREF frequency for this, however in this setup the SYSREF
+ * frequency is 3.2MHz which no longer divides nicely with the
+ * VCXO. To work around this. We force a value that works for clock tree synchronisation
+ */
+
+&hmc7044_car {
+	adi,jesd204-skip-sysref-frequency-calc;
+	adi,jesd204-desired-sysref-frequency-hz = <3840000>;
 };
 
 &trx0_adrv9009 {
