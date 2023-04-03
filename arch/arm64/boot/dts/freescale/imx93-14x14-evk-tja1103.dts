@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+#include "imx93-14x14-evk.dts"
+
+&eqos {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_eqos_rmii>;
+	phy-mode = "rmii";
+	phy-handle = <&eqosphy>;
+
+	assigned-clocks = <&clk IMX93_CLK_ENET_TIMER2>,
+			<&clk IMX93_CLK_ENET>;
+	assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD1_DIV2>,
+				<&clk IMX93_CLK_SYS_PLL_PFD1_DIV2>;
+	assigned-clock-rates = <100000000>, <50000000>;
+
+	clk_csr = <5>;
+	status = "okay";
+
+	mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-frequency = <2500000>;
+		reset-delay-us = <100000>;
+		reset-post-delay-us = <500000>;
+		reset-gpios = <&pcal6524 15 GPIO_ACTIVE_LOW>;
+
+		eqosphy: ethernet-phy@2 {
+			reg = <2>;
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl_eqos_rmii: eqosrmiigrp {
+		fsl,pins = <
+			MX93_PAD_ENET1_TD2__CCM_ENET_QOS_CLOCK_GENERATE_REF_CLK         0x4000057e
+			MX93_PAD_ENET1_MDC__ENET_QOS_MDC				0x57e
+			MX93_PAD_ENET1_MDIO__ENET_QOS_MDIO				0x57e
+			MX93_PAD_ENET1_RD0__ENET_QOS_RGMII_RD0				0x57e
+			MX93_PAD_ENET1_RD1__ENET_QOS_RGMII_RD1				0x57e
+			MX93_PAD_ENET1_RXC__ENET_QOS_RX_ER				0x57e
+			MX93_PAD_ENET1_RX_CTL__ENET_QOS_RGMII_RX_CTL			0x57e
+			MX93_PAD_ENET1_TX_CTL__ENET_QOS_RGMII_TX_CTL			0x57e
+			MX93_PAD_ENET1_TD1__ENET_QOS_RGMII_TD1				0x57e
+			MX93_PAD_ENET1_TD0__ENET_QOS_RGMII_TD0				0x57e
+		>;
+	};
+};
