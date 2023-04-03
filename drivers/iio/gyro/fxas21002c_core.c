@@ -727,11 +727,23 @@ static irqreturn_t fxas21002c_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct fxas21002c_data *data = iio_priv(indio_dev);
+	struct device *dev = regmap_get_device(data->regmap);
 	int ret;
 
 	mutex_lock(&data->lock);
+	ret = fxas21002c_pm_get(data);
+	if (ret < 0)
+		goto out_unlock;
+
 	ret = regmap_bulk_read(data->regmap, FXAS21002C_REG_OUT_X_MSB,
 			       data->buffer, CHANNEL_SCAN_MAX * sizeof(s16));
+	if (ret < 0) {
+		dev_err(dev, "failed to read data into buffer %d\n", ret);
+		fxas21002c_pm_put(data);
+		goto out_unlock;
+	}
+
+	ret = fxas21002c_pm_put(data);
 	if (ret < 0)
 		goto out_unlock;
 
