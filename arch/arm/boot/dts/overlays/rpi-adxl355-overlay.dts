@@ -21,7 +21,7 @@
 		target = <&gpio>;
 		__overlay__ {
 			adxl355_pins: adxl355_pins {
-				brcm,pins = <25>; // interrupt
+				brcm,pins = <19>; // interrupt, Default to PMD-RPI-INTZ P1
 				brcm,function = <0>; // in
 			};
 		};
@@ -34,16 +34,21 @@
 			status = "okay";
 			#size-cells = <0>;
 
-			adxl355@0 {
+			adxl355: adxl355@0 {
 				compatible = "adi,adxl355";
-				reg = <0>;
+				reg = <0>; //CS0 default
 				pinctrl-names = "default";
 				pinctrl-0 = <&adxl355_pins>;
 				spi-max-frequency = <1000000>;
 				interrupt-parent = <&gpio>;
-				interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+				interrupts = <19 IRQ_TYPE_EDGE_RISING>; //Default to PMD-RPI-INTZ P1
 				interrupt-names = "DRDY";
 			};
 		};
+	};
+
+	__overrides__ {
+			cs_pin	= <&adxl355>,"reg:0";
+			irq_gpio = <&adxl355>,"interrupts:0", <&adxl355_pins>,"brcm,pins:0";
 	};
 };
