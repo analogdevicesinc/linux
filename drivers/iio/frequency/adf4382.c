@@ -448,6 +448,7 @@ struct adf4382_state {
 
 //TODO Rewrite using defines
 static const struct reg_sequence adf4382_reg_default[] = {
+	{ 0x03D, 0x20 },
 	{ 0x00A, 0x0A },
 	{ 0x200, 0x00 },
 	{ 0x201, 0x00 },
@@ -475,7 +476,7 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x040, 0x00 },
 	{ 0x03F, 0x82 },
 	{ 0x03E, 0x27 },
-	{ 0x03D, 0x00 },
+//	{ 0x03D, 0x00 },
 	{ 0x03C, 0x00 },
 	{ 0x03B, 0x00 },
 	{ 0x03A, 0xFA },
@@ -495,7 +496,7 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x02C, 0x0E },
 	{ 0x02B, 0x01 },
 	{ 0x02A, 0x30 },
-	{ 0x029, 0x09 },
+	{ 0x029, 0x09 }, /* CLKx_OPWR */
 	{ 0x028, 0x00 },
 	{ 0x027, 0xF0 },
 	{ 0x026, 0x00 },
@@ -760,7 +761,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		return ret;
 
 	// Set output power ch1 = 0x7 ch2 =0xf
-	ret = regmap_write(st->regmap, 0x29, 0xbb);
+	ret = regmap_write(st->regmap, 0x29, 0x0b);
 	if (ret)
 		return ret;
 
@@ -877,8 +878,7 @@ static int adf4382_init(struct adf4382_state *st)
 	if (st->spi->mode & SPI_3WIRE || st->spi_3wire_en)
 		en = false;
 
-	ret = regmap_update_bits(st->regmap, 0x00,
-				 ADF4382_SDO_ACT_MSK | ADF4382_SDO_ACT_R_MSK,
+	ret = regmap_write(st->regmap, 0x00,
 				 ADF4382_SDO_ACT(en) | ADF4382_SDO_ACT_R(en));
 	if (ret < 0)
 		return ret;
