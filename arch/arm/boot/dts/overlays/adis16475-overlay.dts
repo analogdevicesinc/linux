@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	 fragment@3 {
+		target = <&gpio>;
+		__overlay__ {
+			adis16475_pins: adis16475_pins {
+				brcm,pins = <4 12>; // interrupt and reset
+				brcm,function = <0 1>; // in out
+			};
+		};
+	};
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			/* needed to avoid dtc warning */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adis16475: adis16475@0 {
+				reg = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&adis16475_pins>;
+				spi-cpha;
+				spi-cpol;
+				reset-gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
+				spi-max-frequency = <2000000>;
+				interrupts = <4 IRQ_TYPE_EDGE_RISING>;
+				interrupt-parent = <&gpio>;
+			};
+		};
+	};
+
+	__overrides__ {
+		/*
+		 * This gives an option to use the gpio25 as the data ready pin. This
+		 * must be used for the adis16465/7 families as these devices use the
+		 * 14 pin connector where DR is using gpio25. Note that this should
+		 * not be used for the other devices as the gpio25 is both connected to
+		 * the sync selector and to the sync pin (because the sync and DR pins
+		 * are swapped in the 16 pin connector).
+		 */
+		drdy_gpio25 = <&adis16475_pins>,"brcm,pins:0=25",
+				<&adis16475>,"interrupts:0=25";
+		device = <&adis16475>,"compatible";
+	};
+};

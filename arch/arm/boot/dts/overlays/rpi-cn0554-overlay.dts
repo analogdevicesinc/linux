@@ -1,0 +1,216 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the CN0554 Mixed Signal Hat
+ *
+ * Copyright 2023 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&{/} {
+	vref: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-boot-on;
+	};
+	vcc: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+};
+
+&{/clocks} {
+	ad7124_mclk: clock@0 {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <614400>;
+	};
+
+	ltc2688_tgp1: clock@1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <262144>;
+		clock-output-names = "TGP1";
+	};
+
+	ltc2688_tgp2: clock@2 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <131072>;
+		clock-output-names = "TGP2";
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adc7214: ad7124@0 {
+		compatible = "adi,ad7124-8";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clocks = <&ad7124_mclk>;
+		clock-names = "mclk";
+
+		interrupts = <25 2>;
+		interrupt-parent = <&gpio>;
+
+		refin1-supply = <&vref>;
+
+		channel@0 {
+			reg = <0>;
+			diff-channels = <0 1>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			diff-channels = <2 3>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			diff-channels = <4 5>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			diff-channels = <6 7>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			diff-channels = <8 9>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			diff-channels = <10 11>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			diff-channels = <12 13>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			diff-channels = <14 15>;
+		};
+	};
+
+	ltc2688: ltc2688@1 {
+		compatible = "adi,ltc2688";
+		reg = <1>;
+		spi-max-frequency = <5000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vcc-supply = <&vcc>;
+		iovcc-supply = <&vcc>;
+
+		channel@0 {
+			reg = <0>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@8 {
+			reg = <8>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@9 {
+			reg = <9>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@10 {
+			reg = <10>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@11 {
+			reg = <11>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@12 {
+			reg = <12>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@13 {
+			reg = <13>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@14 {
+			reg = <14>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+
+		channel@15 {
+			reg = <15>;
+			adi,output-range-microvolt = <(-15000000) 15000000>;
+		};
+	};
+};

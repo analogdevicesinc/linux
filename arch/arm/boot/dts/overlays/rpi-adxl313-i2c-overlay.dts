@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Overlay for ADXL312, ADXL313, ADXL314
+ *
+ * Copyright 2022 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&gpio {
+	adxl313_pins: adxl313_pins {
+		brcm,pins = <25>; // interrupt
+		brcm,function = <0>; // in
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	adxl313_i2c: adxl313@1d {
+		compatible = "adi,adxl313";
+		reg = <0x1d>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&adxl313_pins>;
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "DRDY";
+	};
+};
+
+/ {
+	__overrides__ {
+		addr = <&adxl313_i2c>,"reg:0";
+	};
+};

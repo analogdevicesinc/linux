@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: (GPL-2.0+)
+/* Overlay for MAX31827EVKIT
+ *
+ * Copyright 2023 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "bcrm, bcm2711";
+
+	reg_vdd: regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+};
+
+&i2c_arm {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	temperature-sensor@42 {
+		compatible = "adi,max31827";
+		reg = <0x42>;
+		vref-supply = <&reg_vdd>;
+	};
+};
