@@ -311,3 +311,7 @@
 	/* mode = "tcm"; */  /* target command mode  */
 	/* mode = "dhm"; */  /* direct host mode     */
 };
+
+&crc0 {
+	status = "okay";
+};
