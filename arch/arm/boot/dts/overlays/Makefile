@@ -8,6 +8,9 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	adafruit18.dtbo \
 	adau1977-adc.dtbo \
 	adau7002-simple.dtbo \
+	adau7118-simple.dtbo \
+	adis16475.dtbo \
+	adis16480.dtbo \
 	ads1015.dtbo \
 	ads1115.dtbo \
 	ads7846.dtbo \
@@ -193,12 +196,70 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	ramoops.dtbo \
 	ramoops-pi4.dtbo \
 	rotary-encoder.dtbo \
+	rpi-ada4250.dtbo \
+	rpi-adin1110.dtbo \
+	rpi-adin2111.dtbo \
+	rpi-adau1761.dtbo \
+	rpi-adau1472.dtbo \
+	rpi-addi9036.dtbo \
+	rpi-adf4159.dtbo \
+	rpi-adf4371.dtbo \
+	rpi-admv1013.dtbo \
+	rpi-admv1014.dtbo \
+	rpi-admv8818.dtbo \
+	rpi-adrf6780.dtbo \
+	rpi-ad4130.dtbo \
+	rpi-ad5592r.dtbo \
+	rpi-ad5593r.dtbo \
+	rpi-ad5677r.dtbo \
+	rpi-ad5686.dtbo \
+	rpi-ad5679r.dtbo \
+	rpi-ad5766.dtbo \
+	rpi-ad7124.dtbo \
+	rpi-ad7124-8-all-diff-cs0-int25.dtbo \
+	rpi-ad7173.dtbo \
+	rpi-ad7190.dtbo \
+	rpi-ad7293.dtbo \
+	rpi-ad738x.dtbo \
+	rpi-ad7746.dtbo \
+	rpi-ad7768-1.dtbo \
+	rpi-ad74115.dtbo \
+	rpi-ad74413r.dtbo \
+	rpi-ad9545-hmc7044.dtbo \
+	rpi-ad9834.dtbo \
+	rpi-adar1000.dtbo \
+	rpi-adgs1408.dtbo \
+	rpi-adxl313-spi.dtbo \
+	rpi-adxl313-i2c.dtbo \
+	rpi-adxl345.dtbo \
+	rpi-adxl355.dtbo \
+	rpi-adxl367.dtbo \
+	rpi-adxl372.dtbo \
+	rpi-adxl375.dtbo \
+	rpi-adxrs290.dtbo \
+	rpi-ad5770r.dtbo \
+	rpi-ad5791.dtbo \
+	rpi-adt7420.dtbo \
 	rpi-backlight.dtbo \
 	rpi-codeczero.dtbo \
+	rpi-cn0504.dtbo \
+	rpi-cn0508.dtbo \
+	rpi-cn0511.dtbo \
+	rpi-cn0552.dtbo \
+	rpi-cn0554.dtbo \
+	rpi-cn0566.dtbo \
+	rpi-cn0575.dtbo \
 	rpi-dacplus.dtbo \
 	rpi-dacpro.dtbo \
+	rpi-dc1962c.dtbo \
 	rpi-digiampplus.dtbo \
 	rpi-ft5406.dtbo \
+	rpi-lm75.dtbo \
+	rpi-ltc2497.dtbo \
+	rpi-ltc2688.dtbo \
+	rpi-ltc6952.dtbo \
+	rpi-max14830-i2c.dtbo \
+	rpi-max14830-spi.dtbo \
 	rpi-poe.dtbo \
 	rpi-poe-plus.dtbo \
 	rpi-sense.dtbo \

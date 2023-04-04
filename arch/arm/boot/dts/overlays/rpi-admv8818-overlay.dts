@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spidev0>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			clocks {
+				admv8818_rfin: clock@0 {
+					compatible = "fixed-clock";
+
+					clock-frequency = <100000000>;
+					clock-output-names = "rf_in";
+					#clock-cells = <0>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+
+		__overlay__{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			admv8818@0{
+				compatible = "adi,admv8818";
+				reg = <0>;
+				spi-max-frequency = <10000000>;
+				clocks = <&admv8818_rfin>;
+				clock-scales = <1 50>;
+				clock-names = "rf_in";
+				adi,bw-hz = /bits/ 64 <600000000>;
+			};
+		};
+	};
+};
