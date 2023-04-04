@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			clk0_ltc6952: ltc6952@0 {
+				compatible = "adi,ltc6952";
+				reg = <0>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				spi-max-frequency = <10000000>;
+
+				clock-output-names = "ltc6952_out0", "ltc6952_out1", "ltc6952_out2",
+					"ltc6952_out3", "ltc6952_out4", "ltc6952_out5", "ltc6952_out6",
+					"ltc6952_out7", "ltc6952_out8", "ltc6952_out9", "ltc6952_out10",
+					"ltc6952_out11";
+				#clock-cells = <1>;
+
+				adi,vco-frequency-hz = <4000000000>;
+				adi,ref-frequency-hz = <100000000>;
+
+				ltc6952_0_c0: channel@0 {
+					reg = <0>;
+					adi,extended-name = "REF_CLK";
+					adi,divider = <10>;
+					adi,digital-delay = <0>;
+					adi,analog-delay = <0>;
+				};
+
+				ltc6952_0_c1: channel@1 {
+					reg = <1>;
+					adi,extended-name = "TEST_CLK";
+					adi,divider = <10>;
+					adi,digital-delay = <0>;
+					adi,analog-delay = <0>;
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

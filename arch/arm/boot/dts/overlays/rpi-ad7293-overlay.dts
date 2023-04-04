@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spidev0>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			avdd: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "avdd";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
+				regulator-boot-on;
+			};
+			vdrive: fixedregulator@1 {
+				compatible = "regulator-fixed";
+				regulator-name = "vdrive";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+
+		__overlay__{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7293@0{
+				compatible = "adi,ad7293";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				avdd-supply = <&avdd>;
+				vdrive-supply = <&vdrive>;
+			};
+		};
+	};
+};
