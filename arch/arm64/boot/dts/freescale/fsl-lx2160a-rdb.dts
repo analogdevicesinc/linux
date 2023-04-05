@@ -72,13 +72,15 @@
 &dpmac5 {
 	sfp = <&sfp2>;
 	managed = "in-band-status";
-	phys = <&serdes_1 5>;
+	phys = <&serdes_1 5>, <&inphi_retimer 0>;
+	phy-names = "serdes", "retimer";
 };
 
 &dpmac6 {
 	sfp = <&sfp3>;
 	managed = "in-band-status";
-	phys = <&serdes_1 4>;
+	phys = <&serdes_1 4>, <&inphi_retimer 1>;
+	phy-names = "serdes", "retimer";
 };
 
 &dpmac17 {
@@ -144,9 +146,10 @@
 &emdio2 {
 	status = "okay";
 
-	inphi_phy: ethernet-phy@0 {
-		compatible = "ethernet-phy-id0210.7440";
+	inphi_retimer: retimer@0 {
+		compatible = "inphi,in112525";
 		reg = <0x0>;
+		#phy-cells = <1>;
 	};
 };
 
