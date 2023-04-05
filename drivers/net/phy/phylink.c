@@ -3867,7 +3867,10 @@ void phylink_mii_c45_pcs_get_state(struct mdio_device *pcs,
 		state->speed = SPEED_10000;
 		state->duplex = DUPLEX_FULL;
 		break;
-
+	case PHY_INTERFACE_MODE_25GBASER:
+		state->speed = SPEED_25000;
+		state->duplex = DUPLEX_FULL;
+		break;
 	default:
 		break;
 	}
