@@ -94,7 +94,11 @@
 #define LYNX_28G_LNaRECR1(lane)			(0x800 + (lane) * 0x100 + 0x54)
 #define LYNX_28G_LNaRECR2(lane)			(0x800 + (lane) * 0x100 + 0x58)
 
+#define LYNX_28G_LNaRCCR0(lane)			(0x800 + (lane) * 0x100 + 0x68)
+
 #define LYNX_28G_LNaRSCCR0(lane)		(0x800 + (lane) * 0x100 + 0x74)
+
+#define LYNX_28G_LNaTTLCR0(lane)		(0x800 + (lane) * 0x100 + 0x80)
 
 #define LYNX_28G_LNaPSS(lane)			(0x1000 + (lane) * 0x4)
 #define LYNX_28G_LNaPSS_TYPE(pss)		(((pss) & GENMASK(30, 24)) >> 24)
@@ -329,6 +333,8 @@ static void lynx_28g_lane_set_10gbaser(struct lynx_28g_lane *lane)
 	iowrite32(0x001f0000, priv->base + LYNX_28G_LNaRECR1(lane->id));
 	iowrite32(0x81000020, priv->base + LYNX_28G_LNaRECR2(lane->id));
 	iowrite32(0x00002000, priv->base + LYNX_28G_LNaRSCCR0(lane->id));
+	iowrite32(0x80000000, priv->base + LYNX_28G_LNaRCCR0(lane->id));
+	iowrite32(0x00408000, priv->base + LYNX_28G_LNaTTLCR0(lane->id));
 }
 
 static int lynx_28g_power_off(struct phy *phy)
