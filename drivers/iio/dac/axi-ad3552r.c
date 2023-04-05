@@ -236,14 +236,14 @@ static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (st->ddr)
 			if (st->single_channel)
-				*val = clk_get_rate(st->ref_clk) / 4;
+				*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk),4);
 			else
-				*val = clk_get_rate(st->ref_clk) / (4 * 2);
+				*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk),8);
 		else
 			if (st->single_channel)
-				*val = clk_get_rate(st->ref_clk) / 8;
+				*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk),8);
 			else
-				*val = clk_get_rate(st->ref_clk) / (8 * 2);
+				*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk),16);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel) {
