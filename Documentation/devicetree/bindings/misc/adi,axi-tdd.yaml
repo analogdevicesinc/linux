@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2023 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/adi,axi-tdd.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AXI TDD Core
+
+maintainers:
+  - Eliza Balas <eliza.balas@analog.com>
+
+description: |
+  The TDD controller is a waveform generator capable of addressing RF
+  applications which require Time Division Duplexing, as well as controlling
+  other modules of general applications through its dedicated 32 channel
+  outputs. It solves the synchronization issue when transmitting and receiving
+  multiple frames of data through multiple buffers.
+  The TDD IP core is part of the Analog Devices hdl reference designs and has
+  the following features:
+    * Up to 32 independent output channels
+    * Start/stop time values per channel
+    * Enable and polarity bit values per channel
+    * 32 bit-max internal reference counter
+    * Initial startup delay before waveform generation
+    * Configurable frame length and number of frames per burst
+    * 3 sources of synchronization: external, internal and software generated
+  For more information see the wiki:
+  https://wiki.analog.com/resources/fpga/docs/axi_tdd
+
+properties:
+  compatible:
+    enum:
+      - adi,axi-tdd
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: System clock
+      - description: TDD Core clock
+
+  clock-names:
+    items:
+      - const: s_axi_aclk
+      - const: intf_clk
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    tdd@84a00000 {
+        compatible = "adi,axi-tdd";
+        reg = <0x84a00000 0x10000>;
+        clocks = <&zynqmp_clk_PL0_REF>, <&zynqmp_clk_PL1_REF>;
+        clock-names = "s_axi_aclk", "intf_clk";
+    };
+...
