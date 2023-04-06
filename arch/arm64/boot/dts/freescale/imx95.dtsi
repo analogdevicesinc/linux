@@ -1710,6 +1710,12 @@
 			assigned-clock-rates = <800000000>, <133333333>;
 		};
 
+		display_stream_csr: syscon@4ad00000 {
+			compatible = "nxp,imx95-display-stream-csr", "syscon", "simple-mfd";
+			reg = <0x0 0x4ad00000 0x0 0x10000>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+		};
+
 		display_master_csr: syscon@4ad10000 {
 			compatible = "nxp,imx95-display-master-csr", "syscon";
 			reg = <0x0 0x4ad10000 0x0 0x10000>;
