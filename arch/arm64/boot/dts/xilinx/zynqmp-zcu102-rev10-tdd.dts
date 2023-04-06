@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices TDD Test Device Tree
+ *
+ * hdl_project: <tdd/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 { /* HPC0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		tdd: tdd@84a00000 {
+			compatible = "adi,axi-tdd";
+			reg = <0x84a00000 0x10000>;
+			clocks = <&zynqmp_clk PL1_REF>, <&zynqmp_clk PL0_REF>;
+			clock-names = "intf_clk", "s_axi_aclk";
+		};
+
+	};
+};
