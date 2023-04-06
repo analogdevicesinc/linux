@@ -357,6 +357,15 @@
 		reg = <0x21>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		gpio-line-names =
+			"V2X_CARD_PRSNT_B",
+			"MDM_CARD_PRSNT_B",
+			"MDM_CARD_TYPE0",
+			"MDM_CARD_TYPE1",
+			"MDM_CARD_TYPE2",
+			"MDM_CARD_REV0",
+			"MDM_CARD_REV1",
+			"MERCURY_CARD_PRSNT_B";
 	};
 
 	pcal6524_i2c0_x22: gpio@22 {
@@ -370,6 +379,30 @@
 		#interrupt-cells = <2>;
 		interrupt-parent = <&lsio_gpio2>;
 		interrupts = <9 IRQ_TYPE_EDGE_BOTH>;
+		gpio-line-names =
+			"INTB_MERCURY",
+			"SXF1800_GPIO0",
+			"SXF1800_GPIO1",
+			"M2_WIFI_WAKE_B",
+			"MDM_PWRKEY",
+			"",
+			"V2X_PMIC_STANBY",
+			"SDHC1_CD_B",
+			"RST_SXF1800_B",
+			"M2_WIFI_EN",
+			"M2_DEV_WLAN_WAKE",
+			"M2_DEV_BT_WAKE",
+			"MDM_GPIO131",
+			"MDM_GPIO132",
+			"MDM_GPIO133",
+			"MDM_GPIO27",
+			"GPIO_MDM_RST_B",
+			"GPIO_ESW_RST_CORE_B",
+			"GPIO_GNSS_RST_B",
+			"GPIO_ENET0_PHY_RST_B",
+			"GPIO_S32K_RST_B",
+			"MDM_GPIO134",
+			"MDM_GPIO135";
 
 		epon_hog: epon-select-hog {
 			gpio-hog;
@@ -390,6 +423,31 @@
 		#interrupt-cells = <2>;
 		interrupt-parent = <&lsio_gpio2>;
 		interrupts = <8 IRQ_TYPE_EDGE_BOTH>;
+		gpio-line-names =
+			"BATT_CHGOK_B",
+			"IMX_CAN1_EN",
+			"M2_BT_UART_WAKE_B",
+			"ESW_INT_B",
+			"IMX_GNSS_GEOFENCE_STAT",
+			"IMX_GNSS_RTK_STAT",
+			"ENET0_PHY_INT_B",
+			"BRD_THERM_FLT_B",
+			"IMX_CAN0_STB_B",
+			"IMX_CAN1_STB_B",
+			"IMX_CAN0_EN",
+			"IMX_CAN1_EN",
+			"CFG_MUX_MERCURY_I2S_SEL",
+			"CFG_MUX_RGMII0_SDHC_SEL",
+			"CFG_MUX_USB1_SEL0",
+			"CFG_MUX_USB1_SEL1",
+			"IMX_GNSS_EXT_INT",
+			"SDHC1_VSELECT",
+			"M2_WIFI_DIS_B",
+			"M2_BT_DIS_B",
+			"CFG_MUX_IMX_MDM_M2_SEL",
+			"PWR_EN_SXF1800",
+			"SDHC1_RST_B",
+			"CFG_MUX_GNSS_1PPS_SEL";
 
 		cfg_mux_mercury_i2s_sel {
 			gpio-hog;
@@ -500,6 +558,54 @@
 			};
 		};
 	};
+};
+
+&lsio_gpio0 {
+	gpio-line-names =
+		"", "", "", "", /* 0-3 */
+		"", "", "", "", /* 4-7 */
+		"", "", "", "", /* 8-11 */
+		"",
+		"IMX_SPI3_SCK", /* 13 */
+		"IMX_SPI3_MOSI",
+		"IMX_SPI3_MISO",
+		"IMX_SPI3_CS0_B",
+		"", "",
+		"TP67", /* 16 */
+		"TP68",
+		"IMX_UART1_TXD",
+		"IMX_UART1_RXD",
+		"IMX_UART1_RTS",
+		"IMX_UART1_CTS";
+
+	status = "okay";
+};
+
+&lsio_gpio1 {
+	gpio-line-names =
+		"", "", "", "", /* 0 -3 */
+		"IMX_SAI0_TXC", /* 4 */
+		"IMX_SAI0_TXD",
+		"IMX_SAI0_TXFS",
+		"IMX_V2X_RST_B",
+		"IMX_SAI0_RXD", /* 8 */
+		"IMX_I2C0_1V8_SDA",
+		"IMX_I2C0_1V8_SCL",
+		"IMX_M40_UART0_1V8_TX",
+		"IMX_M40_UART0_1V8_RX", /* 12 */
+		"IMX_PAD_AG35",
+		"",
+		"IMX_CAN0_3V3_RX",
+		"IMX_CAN0_3V3_TX", /* 16 */
+		"IMX_CAN1_3V3_RX",
+		"IMX_CAN1_3V3_TX",
+		"IMX_UART3_3V3_RX",
+		"IMX_UART3_3V3_TX", /* 20 */
+		"IMX_UART0_3V3_RX",
+		"IMX_UART0_3V3_TX",
+		"IMX_UART2_3V3_TX",
+		"IMX_UART2_3V3_RX"; /* 24 */
+	status = "okay";
 };
 
 &lsio_gpio2 {
