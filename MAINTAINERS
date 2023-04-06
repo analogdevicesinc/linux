@@ -1404,6 +1404,7 @@ S:	Supported
 W:	http://wiki.analog.com/resources/fpga/docs/axi_tdd
 W:	http://ez.analog.com/linux-software-drivers/
 F:	Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml
+F:	drivers/misc/adi-axi-tdd.c
 
 ANALOG DEVICES INC IIO DRIVERS
 M:	Lars-Peter Clausen <lars@metafoo.de>
