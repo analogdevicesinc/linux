@@ -469,6 +469,13 @@
 			output-low;
 			line-name = "m.2_wifi_dis_b";
 		};
+
+		pwr_en_sxf1800 {
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "SXF1800 Power enable";
+		};
 	};
 
 	pca9548_1: pca9548@70 {
