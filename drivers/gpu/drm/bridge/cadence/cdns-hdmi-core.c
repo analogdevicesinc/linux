@@ -34,18 +34,20 @@
 
 static void hdmi_sink_config(struct cdns_mhdp_device *mhdp)
 {
-	struct drm_scdc *scdc = &mhdp->connector.base.display_info.hdmi.scdc;
+	struct drm_display_info *display = &mhdp->connector.base.display_info;
 	u8 buff = 0;
 
-	/* return if hdmi work in DVI mode */
-	if (mhdp->hdmi.hdmi_type == MODE_DVI)
-		return;
-
-	/* check sink support SCDC or not */
-	if (scdc->supported != true) {
-		DRM_INFO("Sink Not Support SCDC\n");
+	/* check sink type (HDMI or DVI) */
+	if (!display->is_hdmi) {
+		mhdp->hdmi.hdmi_type = MODE_DVI;
 		return;
 	}
+
+	mhdp->hdmi.hdmi_type = MODE_HDMI_1_4;
+
+	/* check HDMI2.0 sink */
+	if (!display->hdmi.scdc.supported)
+		return;
 
 	if (mhdp->hdmi.char_rate > 340000) {
 		/*
@@ -54,7 +56,7 @@ static void hdmi_sink_config(struct cdns_mhdp_device *mhdp)
 		 */
 		buff = SCDC_TMDS_BIT_CLOCK_RATIO_BY_40 | SCDC_SCRAMBLING_ENABLE;
 		mhdp->hdmi.hdmi_type = MODE_HDMI_2_0;
-	} else  if (scdc->scrambling.low_rates) {
+	} else  if (display->hdmi.scdc.scrambling.low_rates) {
 		/*
 		 * Enable scrambling and HDMI2.0 when scrambling capability of sink
 		 * be indicated in the HF-VSDB LTE_340Mcsc_scramble bit
@@ -304,8 +306,6 @@ static int cdns_hdmi_connector_get_modes(struct drm_connector *connector)
 			 edid->header[6], edid->header[7]);
 		drm_connector_update_edid_property(connector, edid);
 		num_modes = drm_add_edid_modes(connector, edid);
-		mhdp->hdmi.hdmi_type = drm_detect_hdmi_monitor(edid) ?
-						MODE_HDMI_1_4 : MODE_DVI;
 		kfree(edid);
 	}
 
