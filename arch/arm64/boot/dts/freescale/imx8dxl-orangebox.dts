@@ -750,6 +750,7 @@
 
 &lpspi3 {
 	num-cs = <2>;
+	cs-gpios = <&lsio_gpio0 16 GPIO_ACTIVE_LOW>, <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpspi3>;
 	status = "okay";
@@ -800,6 +801,7 @@
 		fsl,pins = <
 			IMX8DXL_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD	0x000514a0
 			IMX8DXL_COMP_CTL_GPIO_1V8_3V3_GPIORHK_PAD	0x000014a0
+			IMX8DXL_SPI0_CS1_LSIO_GPIO1_IO07                0x000014a0
 		>;
 	};
 
@@ -1098,7 +1100,7 @@
 			IMX8DXL_SPI3_SCK_ADMA_SPI3_SCK          0x6000040
 			IMX8DXL_SPI3_SDO_ADMA_SPI3_SDO          0x6000040
 			IMX8DXL_SPI3_SDI_ADMA_SPI3_SDI          0x6000040
-			IMX8DXL_SPI3_CS0_ADMA_SPI3_CS0          0x6000040
+			IMX8DXL_SPI3_CS0_LSIO_GPIO0_IO16          0x6000040
 			IMX8DXL_SPI3_CS1_ADMA_SPI3_CS1          0x6000040
 		>;
 	};
