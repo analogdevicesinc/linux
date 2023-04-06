@@ -559,6 +559,9 @@ static int axi_ad3552r_setup(struct axi_ad3552r_state *st)
 	axi_ad3552r_spi_write(st, AD3552R_REG_TRANSFER, AD3552R_TRANSFER_INIT,
 			      AD3552R_TFER_8BIT_SDR);
 
+	axi_ad3552r_write(st, AXI_REG_CHAN_CNTRL_7_CH0, AXI_SEL_SRC_ADC);
+	axi_ad3552r_write(st, AXI_REG_CHAN_CNTRL_7_CH1, AXI_SEL_SRC_ADC);
+
 	return 0;
 }
 
