@@ -1710,6 +1710,49 @@
 			assigned-clock-rates = <800000000>, <133333333>;
 		};
 
+		mipi_dsi: dsi@4acf0000 {
+			compatible = "nxp,imx95-mipi-dsi";
+			reg = <0x0 0x4acf0000 0x0 0x10000>;
+			interrupt-parent = <&displaymix_irqsteer>;
+			interrupts = <48>;
+			clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>,
+				 <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>,
+				 <&osc_24m>,
+				 <&scmi_clk IMX95_CLK_CAMAPB>,
+				 <&scmi_clk IMX95_CLK_DISP1PIX>;
+			clock-names = "cfg", "bypass", "ref", "pclk", "pix";
+			assigned-clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>,
+					  <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>;
+			assigned-clock-parents = <&osc_24m>,
+						 <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+			mux-controls = <&mux 0>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			nxp,disp-master-csr = <&display_master_csr>;
+			nxp,disp-stream-csr = <&display_stream_csr>;
+			nxp,mipi-combo-phy-csr = <&mipi_tx_phy_csr>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+
+					mipi_dsi_to_display_pixel_link0: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&display_pixel_link0_to_mipi_dsi>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+				};
+			};
+		};
+
 		display_stream_csr: syscon@4ad00000 {
 			compatible = "nxp,imx95-display-stream-csr", "syscon", "simple-mfd";
 			reg = <0x0 0x4ad00000 0x0 0x10000>;
@@ -1778,7 +1821,14 @@
 					};
 
 					port@2 {
+						#address-cells = <1>;
+						#size-cells = <0>;
 						reg = <2>;
+
+						display_pixel_link0_to_mipi_dsi: endpoint@0 {
+							reg = <0>;
+							remote-endpoint = <&mipi_dsi_to_display_pixel_link0>;
+						};
 					};
 
 					port@3 {
