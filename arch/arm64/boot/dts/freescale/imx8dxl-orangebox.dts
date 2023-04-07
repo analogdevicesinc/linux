@@ -183,7 +183,8 @@
 
 	mercury_i2s_codec: audio-codec-2 {
 		#sound-dai-cells = <0>;
-		compatible = "nxp,mercury-i2s";
+		compatible = "dmic-codec";
+		num-channels = <2>;
 	};
 
 	sound-mercury {
