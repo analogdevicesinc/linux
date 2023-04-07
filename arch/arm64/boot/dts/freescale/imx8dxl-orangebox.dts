@@ -150,7 +150,7 @@
 		vin-supply = <&epdev_on>;
 	};
 
-	bt_sco_codec: bt_sco_codec {
+	bt_sco_codec: audio-codec-1 {
 		#sound-dai-cells = <1>;
 		compatible = "linux,bt-sco";
 	};
@@ -181,7 +181,7 @@
 		#clock-cells = <0>;
 	};
 
-	mercury_i2s_codec: mercury_i2s_codec {
+	mercury_i2s_codec: audio-codec-2 {
 		#sound-dai-cells = <0>;
 		compatible = "nxp,mercury-i2s";
 	};
