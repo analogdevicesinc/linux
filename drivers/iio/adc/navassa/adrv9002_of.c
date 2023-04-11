@@ -799,6 +799,7 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 				struct device_node *node,
 				const int channel)
 {
+	const char *gpio_label = channel ? "orx2" : "orx1";
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	int ret;
 	u32 min_gain, max_gain;
@@ -840,9 +841,8 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	}
 
 	/* there's no optional variant for this, so we need to check for -ENOENT */
-	rx->orx_gpio = devm_fwnode_get_index_gpiod_from_child(&phy->spi->dev, "orx", 0,
-							      of_fwnode_handle(node),
-							      GPIOD_OUT_LOW, NULL);
+	rx->orx_gpio = devm_fwnode_gpiod_get(&phy->spi->dev, of_fwnode_handle(node),
+					     "orx", GPIOD_OUT_LOW, gpio_label);
 	if (IS_ERR(rx->orx_gpio)) {
 		if (PTR_ERR(rx->orx_gpio) != -ENOENT)
 			return PTR_ERR(rx->orx_gpio);
