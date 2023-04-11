@@ -1213,6 +1213,7 @@ out:
 					 USDPAA_DMA_FLAG_RDONLY ? 0
 					 : PROT_WRITE),
 					MAP_SHARED,
+					0,
 					start_frag->pfn_base,
 					&populate,
 					NULL);
@@ -1399,7 +1400,7 @@ static int portal_mmap(struct file *fp, struct resource *res, void **ptr)
 	if (len != (unsigned long)len)
 		return -EINVAL;
 	longret = do_mmap(fp, PAGE_SIZE, (unsigned long)len,
-				PROT_READ | PROT_WRITE, MAP_SHARED,
+				PROT_READ | PROT_WRITE, MAP_SHARED, 0,
 				res->start >> PAGE_SHIFT, &populate, NULL);
 	up_write(&current->mm->mmap_lock);
 
