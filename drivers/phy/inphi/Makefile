@@ -1,0 +1,1 @@
+obj-$(CONFIG_PHY_INPHI_IN112525_RETIMER)	+= phy-inphi-in112525.o
