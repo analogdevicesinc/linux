@@ -38,6 +38,7 @@ enum ad400x_ids {
 	ID_AD4007,
 	ID_AD4011,
 	ID_AD4020,
+	ID_ADAQ4003,
 };
 
 struct ad400x_state {
@@ -277,6 +278,7 @@ static const struct spi_device_id ad400x_id[] = {
 	{"ad4007", ID_AD4007},
 	{"ad4011", ID_AD4011},
 	{"ad4020", ID_AD4020},
+	{"adaq4003", ID_ADAQ4003},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad400x_id);
@@ -401,6 +403,7 @@ static const struct of_device_id ad400x_of_match[] = {
 	{ .compatible = "adi,ad4007" },
 	{ .compatible = "adi,ad4011" },
 	{ .compatible = "adi,ad4020" },
+	{ .compatible = "adi,adaq4003" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad400x_of_match);
