@@ -462,6 +462,21 @@ of_en_delay_put:
 	return ret;
 }
 
+/* there's no optional variant for this, so we need to check for -ENOENT */
+static struct gpio_desc *devm_fwnode_gpiod_get_optional(struct device *dev,
+							struct device_node *node,
+							const char *con_id,
+							enum gpiod_flags flags, const char *label)
+{
+	struct gpio_desc *desc;
+
+	desc = devm_fwnode_gpiod_get(dev, of_fwnode_handle(node), con_id, flags, label);
+	if (IS_ERR(desc) && PTR_ERR(desc) == -ENOENT)
+		return NULL;
+
+	return desc;
+}
+
 static int adrv9002_parse_tx_pin_dt(const struct adrv9002_rf_phy *phy,
 				    struct device_node *node,
 				    struct adrv9002_tx_chan *tx)
@@ -841,14 +856,10 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	}
 
 	/* there's no optional variant for this, so we need to check for -ENOENT */
-	rx->orx_gpio = devm_fwnode_gpiod_get(&phy->spi->dev, of_fwnode_handle(node),
-					     "orx", GPIOD_OUT_LOW, gpio_label);
-	if (IS_ERR(rx->orx_gpio)) {
-		if (PTR_ERR(rx->orx_gpio) != -ENOENT)
-			return PTR_ERR(rx->orx_gpio);
-
-		rx->orx_gpio = NULL;
-	}
+	rx->orx_gpio = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "orx", GPIOD_OUT_LOW,
+						      gpio_label);
+	if (IS_ERR(rx->orx_gpio))
+		return PTR_ERR(rx->orx_gpio);
 
 	return 0;
 }
