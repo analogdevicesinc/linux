@@ -2,14 +2,14 @@
 #!/bin/bash -e
 
 timestamp=$(date +%Y_%m_%d-%H_%M)
+GIT_SHA=$(git rev-parse --short HEAD)
+GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
 
 #prepare the structure of the folder containing artifacts
 artifacts_structure() {
 	cd ${SOURCE_DIRECTORY}
 	mkdir ${timestamp}
 
-	GIT_SHA=$(git rev-parse --short HEAD)
-	GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${GIT_SHA} | sed -e "s/ \|\:/-/g")
 	echo "git_sha=${GIT_SHA}" >> ${timestamp}/rpi_git_properties.txt
 	echo "git_sha_date=${GIT_SHA_DATE}" >> ${timestamp}/rpi_git_properties.txt
 
@@ -55,6 +55,8 @@ artifacts_swdownloads() {
 	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_latest_boot.tar.gz" >> rpi_archives_properties.txt
 	echo "checksum_modules=${md5_modules}" >> rpi_archives_properties.txt
 	echo "checksum_boot_files=${md5_boot}" >> rpi_archives_properties.txt
+	echo "git_sha=${GIT_SHA}" >> rpi_archives_properties.txt
+        echo "git_sha_date=${GIT_SHA_DATE}" >> rpi_archives_properties.txt
 
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
                 -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}
