@@ -345,13 +345,20 @@ static int ad400x_probe(struct spi_device *spi)
 	struct ad400x_state *st;
 	struct iio_dev *indio_dev;
 	struct iio_buffer *buffer;
-	int ret, dev_id;
+	enum ad400x_ids dev_id;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
-	dev_id = spi_get_device_id(spi)->driver_data;
+	dev_id = (enum ad400x_ids)device_get_match_data(&spi->dev);
+	if (!dev_id) {
+		dev_id = (enum ad400x_ids)spi_get_device_id(spi)->driver_data;
+		if (!dev_id)
+			return -EINVAL;
+	}
+
 	st = iio_priv(indio_dev);
 	st->spi = spi;
 	mutex_init(&st->lock);
@@ -399,11 +406,11 @@ static int ad400x_probe(struct spi_device *spi)
 }
 
 static const struct of_device_id ad400x_of_match[] = {
-	{ .compatible = "adi,ad4003" },
-	{ .compatible = "adi,ad4007" },
-	{ .compatible = "adi,ad4011" },
-	{ .compatible = "adi,ad4020" },
-	{ .compatible = "adi,adaq4003" },
+	{ .compatible = "adi,ad4003", .data = (const void *)ID_AD4003 },
+	{ .compatible = "adi,ad4007", .data = (const void *)ID_AD4007 },
+	{ .compatible = "adi,ad4011", .data = (const void *)ID_AD4011 },
+	{ .compatible = "adi,ad4020", .data = (const void *)ID_AD4020 },
+	{ .compatible = "adi,adaq4003", .data = (const void *)ID_ADAQ4003 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad400x_of_match);
