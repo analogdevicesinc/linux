@@ -329,13 +329,20 @@ static int ad400x_probe(struct spi_device *spi)
 {
 	struct ad400x_state *st;
 	struct iio_dev *indio_dev;
-	int ret, dev_id;
+	enum ad400x_ids dev_id;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
-	dev_id = spi_get_device_id(spi)->driver_data;
+	dev_id = (enum ad400x_ids)device_get_match_data(&spi->dev);
+	if (!dev_id) {
+		dev_id = (enum ad400x_ids)spi_get_device_id(spi)->driver_data;
+		if (!dev_id)
+			return -EINVAL;
+	}
+
 	st = iio_priv(indio_dev);
 	st->spi = spi;
 	mutex_init(&st->lock);
