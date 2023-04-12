@@ -1,0 +1,164 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,ad400x.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD400X ADC device driver
+
+maintainers:
+  - Marcelo Schmitt <marcelo.schmitt@analog.com>
+
+description: |
+  Analog Devices AD400X family Analog to Digital Converters with SPI support.
+  Specifications can be found at:
+    https://www.analog.com/en/products/ad4003.html
+    https://www.analog.com/en/products/ad4007.html
+    https://www.analog.com/en/products/ad4011.html
+    https://www.analog.com/en/products/ad4020.html
+    https://www.analog.com/en/products/adaq4003.html
+
+properties:
+  compatible:
+    enum:
+      - adi,ad4003
+      - adi,ad4007
+      - adi,ad4011
+      - adi,ad4020
+      - adi,adaq4003
+
+  reg: true
+  spi-max-frequency: true
+
+  dmas:
+    description: |
+      DMA specifier, consisting of a phandle to DMA controller node.
+    maxItems: 1
+
+  dma-names:
+    const: rx
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: ref_clk
+    description: AD400X reference clock name.
+
+  pwms:
+    description: |
+      PWM used as trigger source for the SPI engine, also represents the
+      acquisition rate for the samples.
+    maxItems: 1
+
+  pwm-names:
+    const: cnv
+
+  vref-supply:
+    description: Phandle to the regulator for ADC reference voltage.
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+patternProperties:
+  "^channel@([0-1])$":
+    $ref: adc.yaml
+    type: object
+    description: Represents the external channel connected to the ADC.
+
+    properties:
+      reg:
+        maxItems: 1
+
+      diff-channels: true
+
+    required:
+      - reg
+
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - dmas
+  - dma-names
+  - vref-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,adaq4003
+
+    then:
+      required:
+        - compatible
+        - reg
+        - dmas
+        - dma-names
+        - clocks
+        - clock-names
+        - pwms
+        - pwm-names
+        - vref-supply
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        /* Example for a AD400X devices */
+        adc@0 {
+            compatible = "adi,ad4020";
+            reg = <0>;
+            spi-max-frequency = <71000000>;
+            vref-supply = <&vref>;
+
+            dmas = <&rx_dma 0>;
+            dma-names = "rx";
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            channel@0 {
+                reg = <0>;
+                diff-channels = <0 1>;
+            };
+        };
+    };
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        /* Example for a ADAQ400X devices */
+        adc@0 {
+            compatible = "adi,adaq4003";
+            reg = <0>;
+            spi-max-frequency = <80000000>;
+            dmas = <&rx_dma 0>;
+            dma-names = "rx";
+            clocks = <&spi_clk>;
+            clock-names = "ref_clk";
+            pwms = <&adc_trigger 0 0>;
+            pwm-names = "cnv";
+            vref-supply = <&vref>;
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            channel@0 {
+                reg = <0>;
+                diff-channels = <0 1>;
+            };
+        };
+    };
