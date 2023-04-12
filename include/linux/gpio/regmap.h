@@ -37,6 +37,8 @@ struct regmap;
  *			offset to a register/bitmask pair. If not
  *			given the default gpio_regmap_simple_xlate()
  *			is used.
+ * @get_direction:	(Optional) Callback to the user driver to return the
+ *			fixed direction of the GPIO line
  * @drvdata:		(Optional) Pointer to driver specific data which is
  *			not used by gpio-remap but is provided "as is" to the
  *			driver callback(s).
@@ -81,6 +83,7 @@ struct gpio_regmap_config {
 	int (*reg_mask_xlate)(struct gpio_regmap *gpio, unsigned int base,
 			      unsigned int offset, unsigned int *reg,
 			      unsigned int *mask);
+	int (*get_direction)(struct gpio_regmap *gpio, unsigned int offset);
 
 	void *drvdata;
 };
