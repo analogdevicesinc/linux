@@ -1108,8 +1108,8 @@ M:	Mircea Caprioru <mircea.caprior@analog.com>
 L:	linux-iio@vger.kernel.org
 W:	http://ez.analog.com/community/linux-device-drivers
 S:	Supported
+F:	Documentation/devicetree/bindings/iio/adc/adi,ad400x.yaml
 F:	drivers/iio/dac/ad400x.c
-F:	Documentation/devicetree/bindings/iio/adc/ad400x.txt
 
 AMD SENSOR FUSION HUB DRIVER
 M:	Basavaraj Natikar <basavaraj.natikar@amd.com>
