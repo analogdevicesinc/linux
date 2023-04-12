@@ -5,6 +5,7 @@
  * Copyright 2018 Analog Devices Inc.
  */
 #include <linux/bitfield.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
@@ -13,6 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/pwm.h>
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
@@ -29,6 +31,8 @@
 #define AD400X_READ_COMMAND	0x54
 #define AD400X_WRITE_COMMAND	0x14
 #define AD400X_RESERVED_MSK	0xE0
+
+#define ADAQ4003_MAX_FREQ	1839080
 
 #define AD400X_TURBO_MODE(x)	FIELD_PREP(BIT_MASK(1), x)
 #define AD400X_HIGH_Z_MODE(x)	FIELD_PREP(BIT_MASK(2), x)
@@ -47,6 +51,10 @@ struct ad400x_state {
 	/* protect device accesses */
 	struct mutex lock;
 	bool bus_locked;
+
+	unsigned long ref_clk_rate;
+	struct pwm_device *cnv;
+	int samp_freq;
 
 	struct spi_message spi_msg;
 	struct spi_transfer spi_transfer;
@@ -230,7 +238,7 @@ static int ad400x_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = 1800000;
+		*val = st->samp_freq;
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_OFFSET:
@@ -267,6 +275,52 @@ static int ad400x_reg_access(struct iio_dev *indio_dev,
 
 	return ret;
 }
+
+static int ad400x_set_samp_freq(struct ad400x_state *st, int freq)
+{
+	unsigned long long target, ref_clk_period_ps;
+	struct pwm_state cnv_state;
+	int ret;
+
+	freq = clamp(freq, 0, ADAQ4003_MAX_FREQ);
+	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
+	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
+						  st->ref_clk_rate);
+	cnv_state.period = ref_clk_period_ps * target;
+	cnv_state.duty_cycle = ref_clk_period_ps;
+	cnv_state.phase = ref_clk_period_ps;
+	cnv_state.time_unit = PWM_UNIT_PSEC;
+	cnv_state.enabled = true;
+	ret = pwm_apply_state(st->cnv, &cnv_state);
+	if (ret)
+		return ret;
+
+	st->samp_freq = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, target);
+
+	return ret;
+}
+
+static int ad400x_write_raw(struct iio_dev *indio_dev,
+			    const struct iio_chan_spec *chan,
+			    int val, int val2, long info)
+{
+	struct ad400x_state *st = iio_priv(indio_dev);
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!st->cnv)
+			return -EINVAL;
+		return ad400x_set_samp_freq(st, val);
+	default:
+		return -EINVAL;
+	}
+}
+
+static const struct iio_info adaq4003_info = {
+	.read_raw = &ad400x_read_raw,
+	.write_raw = &ad400x_write_raw,
+	.debugfs_reg_access = &ad400x_reg_access,
+};
 
 static const struct iio_info ad400x_info = {
 	.read_raw = &ad400x_read_raw,
@@ -340,8 +394,50 @@ static void ad400x_regulator_disable(void *reg)
 	regulator_disable(reg);
 }
 
+static void ad400x_clk_disable(void *data)
+{
+	clk_disable_unprepare(data);
+}
+
+static void ad400x_pwm_diasble(void *data)
+{
+	pwm_disable(data);
+}
+
+static int pwm_gen_setup(struct spi_device *spi, struct ad400x_state *st)
+{
+	struct clk *ref_clk;
+	int ret;
+
+	ref_clk = devm_clk_get(&spi->dev, "ref_clk");
+	if (IS_ERR(ref_clk))
+		return PTR_ERR(ref_clk);
+
+	ret = clk_prepare_enable(ref_clk);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, ad400x_clk_disable, ref_clk);
+	if (ret)
+		return ret;
+
+	st->ref_clk_rate = clk_get_rate(ref_clk);
+
+	st->cnv = devm_pwm_get(&spi->dev, "cnv");
+	if (IS_ERR(st->cnv))
+		return PTR_ERR(st->cnv);
+
+	ret = devm_add_action_or_reset(&spi->dev, ad400x_pwm_diasble,
+				       st->cnv);
+	if (ret)
+		return ret;
+
+	return ad400x_set_samp_freq(st, ADAQ4003_MAX_FREQ);
+}
+
 static int ad400x_probe(struct spi_device *spi)
 {
+	struct fwnode_handle *fwnode;
 	struct ad400x_state *st;
 	struct iio_dev *indio_dev;
 	struct iio_buffer *buffer;
@@ -379,7 +475,11 @@ static int ad400x_probe(struct spi_device *spi)
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad400x_buffer_setup_ops;
-	indio_dev->info = &ad400x_info;
+
+	if (dev_id == ID_ADAQ4003)
+		indio_dev->info = &adaq4003_info;
+	else
+		indio_dev->info = &ad400x_info;
 
 	if (dev_id == ID_AD4020)
 		indio_dev->channels = ad4020_channel;
@@ -388,6 +488,7 @@ static int ad400x_probe(struct spi_device *spi)
 
 	indio_dev->num_channels = 1;
 	st->num_bits = indio_dev->channels->scan_type.realbits;
+	st->samp_freq = 1800000;
 
 	/* Set turbo mode */
 	st->turbo_mode = true;
@@ -401,6 +502,10 @@ static int ad400x_probe(struct spi_device *spi)
 		return PTR_ERR(buffer);
 
 	iio_device_attach_buffer(indio_dev, buffer);
+
+	fwnode = dev_fwnode(&spi->dev);
+	if (fwnode_property_present(fwnode, "pwms"))
+		pwm_gen_setup(spi, st);
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
