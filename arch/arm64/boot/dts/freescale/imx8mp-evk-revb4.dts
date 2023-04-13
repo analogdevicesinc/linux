@@ -3,18 +3,24 @@
  * Copyright 2023 NXP
  */
 
-#include "imx8mp-evk-revA3-8mic-revE.dts"
+#include <dt-bindings/clock/imx8mp-clock.h>
 
-/delete-node/ &codec;
+/dts-v1/;
+/plugin/;
 
-/ {
-	/delete-node/ sound-wm8960;
+&{/} {
+
+	sound-wm8960 {
+		status = "disabled";
+	};
 
 	sound-wm8962 {
 		compatible = "fsl,imx-audio-wm8962";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_hpdet>;
 		model = "wm8962-audio";
 		audio-cpu = <&sai3>;
-		audio-codec = <&codec>;
+		audio-codec = <&wm8962>;
 		audio-asrc = <&easrc>;
 		hp-det-gpio = <&gpio4 28 0>;
 		audio-routing =
@@ -28,8 +34,15 @@
 	};
 };
 
+&wm8960 {
+	status = "disabled";
+};
+
 &i2c3 {
-	codec: wm8962@1a {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	wm8962: wm8962@1a {
 		compatible = "wlf,wm8962";
 		reg = <0x1a>;
 		clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>;
