@@ -359,55 +359,6 @@
 		output-high;
 		line-name = "adrv9002-clksrc";
 	};
-
-	rf_rx1a_mux_ctl {
-		gpio-hog;
-		gpios = <86 0>;
-		output-high;
-		line-name = "rf_rx1a_mux_ctl";
-	};
-	rf_rx1b_mux_ctl {
-		gpio-hog;
-		gpios = <87 0>;
-		output-high;
-		line-name = "rf_rx1b_mux_ctl";
-	};
-	rf_rx2a_mux_ctl {
-		gpio-hog;
-		gpios = <88 0>;
-		output-high;
-		line-name = "rf_rx2a_mux_ctl";
-	};
-	rf_rx2b_mux_ctl {
-		gpio-hog;
-		gpios = <89 0>;
-		output-high;
-		line-name = "rf_rx2b_mux_ctl";
-	};
-	rf_tx1_mux_ctl1 {
-		gpio-hog;
-		gpios = <90 0>;
-		output-high;
-		line-name = "rf_tx1_mux_ctl1";
-	};
-	rf_tx1_mux_ctl2 {
-		gpio-hog;
-		gpios = <91 0>;
-		output-low;
-		line-name = "rf_tx1_mux_ctl2";
-	};
-	rf_tx2_mux_ctl1 {
-		gpio-hog;
-		gpios = <92 0>;
-		output-low;
-		line-name = "rf_tx2_mux_ctl1";
-	};
-	rf_tx2_mux_ctl2 {
-		gpio-hog;
-		gpios = <93 0>;
-		output-high;
-		line-name = "rf_tx2_mux_ctl2";
-	};
 };
 
 &spi0 {
@@ -594,4 +545,26 @@
 &adc0_adrv9002 {
 	reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
 	interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+
+	adi,channels {
+		rx@0 {
+			mux-ctl-gpios = <&gpio 86 GPIO_ACTIVE_HIGH>;
+			mux-ctl2-gpios = <&gpio 87 GPIO_ACTIVE_LOW>;
+		};
+
+		rx@1 {
+			mux-ctl-gpios = <&gpio 88 GPIO_ACTIVE_HIGH>;
+			mux-ctl2-gpios = <&gpio 89 GPIO_ACTIVE_LOW>;
+		};
+
+		tx@0 {
+			mux-ctl-gpios = <&gpio 90 GPIO_ACTIVE_HIGH>;
+			mux-ctl2-gpios = <&gpio 91 GPIO_ACTIVE_LOW>;
+		};
+
+		tx@1 {
+			mux-ctl-gpios = <&gpio 92 GPIO_ACTIVE_LOW>;
+			mux-ctl2-gpios = <&gpio 93 GPIO_ACTIVE_HIGH>;
+		};
+	};
 };
