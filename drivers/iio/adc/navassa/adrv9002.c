@@ -3255,16 +3255,25 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 
 	adrv9002_cleanup(phy);
 	/*
-	 * Disable all the cores as it might interfere with init calibrations.
+	 * Disable all the cores as it might interfere with init calibrations
+	 * and mux all ports to 50ohms (when aplicable).
 	 */
 	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
 		chan = phy->channels[c];
 
-		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
-			break;
 		/* nothing else to do if there's no TX2 */
 		if (chan->port == ADI_TX && chan->idx >= phy->chip->n_tx)
 			break;
+
+		if (chan->mux_ctl)
+			gpiod_set_value_cansleep(chan->mux_ctl, 0);
+
+		if (chan->mux_ctl_2)
+			gpiod_set_value_cansleep(chan->mux_ctl_2, 0);
+
+		/* we still need to disable the muxes if the cores are set for rx2tx2 */
+		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
+			continue;
 
 		adrv9002_axi_interface_enable(phy, chan->idx, chan->port == ADI_TX, false);
 	}
@@ -3284,12 +3293,19 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 	if (ret)
 		goto error;
 
-	/* re-enable the cores */
+	/* re-enable the cores and port muxes */
 	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
 		chan = phy->channels[c];
 
+		if (chan->mux_ctl)
+			gpiod_set_value_cansleep(chan->mux_ctl, 1);
+
+		if (chan->mux_ctl_2)
+			gpiod_set_value_cansleep(chan->mux_ctl_2, 1);
+
+		/* We still need to go through the whole loop to potentially re-enable the muxes */
 		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
-			break;
+			continue;
 
 		if (!chan->enabled)
 			continue;

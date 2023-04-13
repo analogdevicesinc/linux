@@ -148,6 +148,8 @@ struct adrv9002_clock {
 
 struct adrv9002_chan {
 	struct clk *clk;
+	struct gpio_desc *mux_ctl;
+	struct gpio_desc *mux_ctl_2;
 	struct adrv9002_ext_lo *ext_lo;
 	/*
 	 * These values are in nanoseconds. They need to be converted with
