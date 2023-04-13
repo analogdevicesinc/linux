@@ -105,7 +105,6 @@ enum {
 
 /*codec format*/
 #define V4L2_PIX_FMT_AV1			v4l2_fourcc('A', 'V', '1', '0')	/* av1 */
-#define V4L2_PIX_FMT_RV				v4l2_fourcc('R', 'V', '0', '0')	/* rv */
 #define V4L2_PIX_FMT_AVS			v4l2_fourcc('A', 'V', 'S', '0')	/* avs */
 /*codec formats*/
 #endif	//#ifndef _UAPI__LINUX_IMX_VPU_H
