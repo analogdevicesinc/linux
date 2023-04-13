@@ -519,6 +519,8 @@ of_pinctrl_put:
 static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 				struct device_node *node, const int channel)
 {
+	const char *mux_label_2 = channel ? "tx2-mux-ctl2" : "tx1-mux-ctl2";
+	const char *mux_label = channel ? "tx2-mux-ctl" : "tx1-mux-ctl";
 	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
 	int ret;
 
@@ -533,6 +535,16 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 	ret = adrv9002_parse_en_delays(phy, node, &tx->channel);
 	if (ret)
 		return ret;
+
+	tx->channel.mux_ctl = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl",
+							     GPIOD_OUT_HIGH, mux_label);
+	if (IS_ERR(tx->channel.mux_ctl))
+		return PTR_ERR(tx->channel.mux_ctl);
+
+	tx->channel.mux_ctl_2 = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl2",
+							       GPIOD_OUT_HIGH, mux_label_2);
+	if (IS_ERR(tx->channel.mux_ctl_2))
+		return PTR_ERR(tx->channel.mux_ctl_2);
 
 	return adrv9002_parse_tx_pin_dt(phy, node, tx);
 }
@@ -814,6 +826,8 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 				struct device_node *node,
 				const int channel)
 {
+	const char *rxb_mux_label = channel ? "rx2b-mux-ctl" : "rx1b-mux-ctl";
+	const char *mux_label = channel ? "rx2a-mux-ctl" : "rx1a-mux-ctl";
 	const char *gpio_label = channel ? "orx2" : "orx1";
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	int ret;
@@ -860,6 +874,16 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 						      gpio_label);
 	if (IS_ERR(rx->orx_gpio))
 		return PTR_ERR(rx->orx_gpio);
+
+	rx->channel.mux_ctl = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl",
+							     GPIOD_OUT_HIGH, mux_label);
+	if (IS_ERR(rx->channel.mux_ctl))
+		return PTR_ERR(rx->channel.mux_ctl);
+
+	rx->channel.mux_ctl_2 = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl2",
+							       GPIOD_OUT_HIGH, rxb_mux_label);
+	if (IS_ERR(rx->channel.mux_ctl_2))
+		return PTR_ERR(rx->channel.mux_ctl_2);
 
 	return 0;
 }
