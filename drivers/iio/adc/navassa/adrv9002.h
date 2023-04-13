@@ -222,6 +222,7 @@ struct adrv9002_rf_phy {
 	struct iio_dev			*indio_dev;
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*ssi_sync;
+	struct iio_chan_spec		*iio_chan;
 	/* Protect against concurrent accesses to the device */
 	struct mutex			lock;
 	struct clk			*clks[NUM_ADRV9002_CLKS];
