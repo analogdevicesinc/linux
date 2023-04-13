@@ -172,6 +172,12 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		scaling_dram_freq(0x0);
 		pr_info("System switching to OD mode...\n");
 	} else if (new_mode == ND_MODE) {
+		/*
+		 * if switch from LD mode to ND mode, voltage should be increase firstly.
+		 */
+		if (system_run_mode.current_mode == LD_MODE)
+			regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
+
 		for (i = 0; i < CLK_PATH_END; i++) {
 			if (i == M33_ROOT) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1_DIV2].clk);
@@ -189,16 +195,25 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		/* Scaling down the ddr frequency. */
 		scaling_dram_freq(0x1);
 
-		regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
+		if (system_run_mode.current_mode != LD_MODE)
+			regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
 
 		pr_info("System switching to ND mode...\n");
 	} else if (new_mode == LD_MODE || new_mode == SWFFC_MODE) {
 		for (i = 0; i < CLK_PATH_END; i++) {
+			/*
+			 * NIC AXI frequency should be changed after all other clock
+			 * has been slow down. Especially NIC AXI should be reduced
+			 * after A55 related clocks.
+			 */
+			if (i == NIC_AXI)
+				continue;
+
 			if (i == M33_ROOT) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1_DIV2].clk);
 			} else if (i == MEDIA_AXI || i == A55_PERIPH) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
-			} else if (i == ML_AXI || i == NIC_AXI) {
+			} else if (i == ML_AXI) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
 			} else if (i == WAKEUP_AXI) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
@@ -206,6 +221,9 @@ static void sys_freq_scaling(enum mode_type new_mode)
 
 			clk_set_rate(path[i].clk, path[i].mode_rate[LD_MODE]);
 		}
+
+		clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD0].clk);
+		clk_set_rate(path[NIC_AXI].clk, path[NIC_AXI].mode_rate[OD_MODE]);
 
 		/* Scaling down the ddr frequency. */
 		scaling_dram_freq(new_mode == LD_MODE ? 0x1 : 0x2);
