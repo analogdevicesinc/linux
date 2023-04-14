@@ -866,8 +866,10 @@ typedef enum _gceMACHINECODE {
     gcvMACHINECODE_GLB25_RELEASE_0,
     gcvMACHINECODE_GLB25_RELEASE_1,
 
-    /* keep it as the last enum */
-    gcvMACHINECODE_COUNT
+    gcvMACHINECODE_COUNT,
+
+    /* flag as dynamic allocation for shader partial replace */
+    gcvSHADER_SRC_PARTIAL_REPLACE,
 } gceMACHINECODE;
 
 typedef enum _gceUNIFORMCVT {
