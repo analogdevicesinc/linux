@@ -1012,7 +1012,7 @@ enum gceVPG {
 #define NumOfPerDrawBuf         128
 
 struct _gcsAppInfoCounter {
-    gctUINT32                   count[4];
+    gctUINT32                   count[gcvCOUNTER_OP_NONE];
 };
 
 typedef struct _gcsAppInfoCounter gcsAppInfoCounter;
