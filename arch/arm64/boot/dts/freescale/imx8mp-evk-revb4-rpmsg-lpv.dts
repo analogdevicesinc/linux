@@ -9,4 +9,5 @@
 
 &rpmsg_audio {
 	/delete-property/ fsl,enable-lpa;
+	/delete-property/ fsl,rpmsg-in;
 };

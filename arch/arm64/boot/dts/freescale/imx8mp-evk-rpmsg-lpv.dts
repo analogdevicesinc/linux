@@ -6,5 +6,6 @@
 #include "imx8mp-evk-rpmsg.dts"
 
 &rpmsg_audio {
-    /delete-property/ fsl,enable-lpa;
+	/delete-property/ fsl,enable-lpa;
+	/delete-property/ fsl,rpmsg-in;
 };
