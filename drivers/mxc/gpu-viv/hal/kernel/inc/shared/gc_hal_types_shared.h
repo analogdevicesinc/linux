@@ -149,6 +149,17 @@ extern "C" {
 /* kernel layer keyword. */
 #define gcmkINLINE            inline
 
+/* kernel fall-through keyword. */
+#if defined __has_attribute
+#if __has_attribute(__fallthrough__)
+#  define gcmkFALLTHRU                   __attribute__((__fallthrough__))
+# else
+#  define gcmkFALLTHRU                   do {} while (0)  /* fallthrough */
+# endif
+#else
+# define gcmkFALLTHRU                    do {} while (0)  /* fallthrough */
+#endif
+
 /* Possible debug flags. */
 #define gcdDEBUG_NONE           0
 #define gcdDEBUG_ALL            (1 << 0)

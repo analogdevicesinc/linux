@@ -354,6 +354,7 @@ static int devfreq_cooling_handle_event_change(unsigned long event)
                 break;
             }
 #endif
+        gcmkFALLTHRU;
         case 2:
             FscaleVal = minFscale;
             printk("System is too hot. GPU3D will work at %d/64 clock.\n", minFscale);
