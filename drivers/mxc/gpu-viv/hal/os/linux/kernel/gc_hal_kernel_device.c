@@ -408,8 +408,10 @@ gc_load_show(void *m, void *data)
 
                 gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
 
-                if (hi_total_cycle_count[i] == 0)
-                    load[i] = 0;
+                if (hi_total_cycle_count[i] == 0) {
+                    len += fs_printf(ptr, "The current HW doesn't support use AHB register to read cycle counter.\n");
+                    goto OnError;
+                }
                 else
                     load[i] = (hi_total_cycle_count[i] - hi_total_idle_cycle_count[i]) * 100 / hi_total_cycle_count[i];
 
