@@ -555,9 +555,10 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
 
     if (needShiftMapping) {
         gctUINT32 mEntries;
-        gctUINT32 sEntries;
 
 #if gcdENABLE_40BIT_VA
+        gctUINT32 sEntries;
+
         if (!PhysBase) {
             mEntries =
                 (gctUINT32)((flatSize + Mmu->reserveRangeSize + (1ULL << gcdMMU_MTLB_SHIFT) - 1) /
@@ -580,7 +581,6 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
         gcmkONERROR(_GetMtlbFreeSpace(Mmu, mEntries, &mStart, &mEnd));
 
         sStart = mStart % gcdMMU_STLB_16M_ENTRY_NUM;
-        sEntries = mEntries;
 #endif
     }
 
