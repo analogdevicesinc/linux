@@ -1084,6 +1084,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	unsigned int config, skip = 1;
 	int ret;
 
+    udelay(100);
 	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
 		 pdev->dev.of_node->name);
 
@@ -1105,7 +1106,10 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	ret = bus_for_each_dev(&spi_bus_type, NULL, &axiadc_spidev,
 			       axiadc_attach_spi_client);
-	if (ret == 0)
+    
+    of_node_put(axiadc_spidev.of_nspi);
+    
+    if (ret == 0)
 		return -EPROBE_DEFER;
 
 	if (!try_module_get(axiadc_spidev.dev_spi->driver->owner))
@@ -1233,7 +1237,7 @@ static int axiadc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = iio_device_register(indio_dev);
+	ret = devm_iio_device_register(&pdev->dev,indio_dev);
 	if (ret)
 		return ret;
 

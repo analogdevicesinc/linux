@@ -9607,6 +9607,7 @@ static int ad9361_remove(struct spi_device *spi)
 	clk_notifier_unregister(phy->clks[RX_RFPLL], &phy->clk_nb_rx);
 	clk_notifier_unregister(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
 	ad9361_clks_disable(phy);
+    udelay(100);
 
 	return 0;
 }
