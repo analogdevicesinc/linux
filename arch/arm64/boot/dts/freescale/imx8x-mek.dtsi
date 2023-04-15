@@ -967,6 +967,10 @@
 	pinctrl-0 = <&pinctrl_lpuart1>;
 	resets = <&modem_reset>;
 	status = "okay";
+
+	bluetooth {
+		compatible = "nxp,88w8987-bt";
+	};
 };
 
 &lpuart2 {
