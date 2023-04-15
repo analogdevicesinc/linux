@@ -673,6 +673,10 @@
 	fsl,uart-has-rtscts;
 	resets = <&modem_reset>;
 	status = "okay";
+
+	bluetooth {
+		compatible = "nxp,88w8997-bt";
+	};
 };
 
 &usb3_phy0 {
