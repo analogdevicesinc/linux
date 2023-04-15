@@ -398,6 +398,10 @@
 	pinctrl-0 = <&pinctrl_uart5>;
 	pinctrl-assert-gpios = <&pcal6524 19 GPIO_ACTIVE_HIGH>;
 	status = "okay";
+
+	bluetooth {
+		compatible = "nxp,88w8987-bt";
+	};
 };
 
 &micfil {
