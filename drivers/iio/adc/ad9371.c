@@ -2537,6 +2537,7 @@ static int ad9371_phy_write_raw(struct iio_dev *indio_dev,
 			} else {
 				ret = -ENODEV;
 			}
+			break;
 		}
 
 		ret = -ENOTSUPP;
