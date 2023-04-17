@@ -1324,6 +1324,9 @@ static IIO_DEVICE_ATTR(large_lo_step_calibration_en, S_IRUGO | S_IWUSR,
 		       ad9371_phy_store,
 		       AD9371_LARGE_LO_STEP_CAL);
 
+static IIO_CONST_ATTR(out_voltage_scale_available,
+		      "0.783951 0.798128 0.810932 0.822608 1.560671 1.590157 1.613612 1.637490");
+
 static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
@@ -1336,6 +1339,7 @@ static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_calibrate_loopback_rx_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_lo_delay_en.dev_attr.attr,
 	&iio_dev_attr_large_lo_step_calibration_en.dev_attr.attr,
+	&iio_const_attr_out_voltage_scale_available.dev_attr.attr,
 	NULL,
 };
 
@@ -1358,6 +1362,7 @@ static struct attribute *ad9375_phy_attributes[] = {
 	&iio_dev_attr_calibrate_loopback_rx_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_lo_delay_en.dev_attr.attr,
 	&iio_dev_attr_large_lo_step_calibration_en.dev_attr.attr,
+	&iio_const_attr_out_voltage_scale_available.dev_attr.attr,
 	NULL,
 };
 
@@ -2482,8 +2487,8 @@ static int ad9371_phy_write_raw(struct iio_dev *indio_dev,
 				long mask)
 {
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
-	u32 code;
-	int ret;
+	u32 code, slope;
+	int ret, i;
 
 	mutex_lock(&phy->lock);
 	switch (mask) {
@@ -2542,6 +2547,38 @@ static int ad9371_phy_write_raw(struct iio_dev *indio_dev,
 
 		ret = -ENOTSUPP;
 		break;
+	case IIO_CHAN_INFO_SCALE:
+	if (chan->output) {
+		switch (val) {
+		case 0:
+			slope = 1;
+			break;
+		case 1:
+			slope = 0;
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = -EINVAL;
+
+		for (i = 0; i < ARRAY_SIZE(ad9371_auxdac_scale_val2_lut[0]); i++) {
+			if (val2 == ad9371_auxdac_scale_val2_lut[slope][i]) {
+				phy->mykDevice->auxIo->auxDacSlope[chan->channel - CHAN_AUXDAC0] =
+					slope;
+				phy->mykDevice->auxIo->auxDacVref[chan->channel - CHAN_AUXDAC0] = i;
+				ret = MYKONOS_setupAuxDacs(phy->mykDevice);
+				if (ret) {
+					dev_err(&phy->spi->dev, "%s (%d)",
+						getMykonosErrorMessage(ret), ret);
+						ret = -EFAULT;
+				}
+				break;
+			}
+		}
+	}
+	break;
 	default:
 		ret = -EINVAL;
 	}
