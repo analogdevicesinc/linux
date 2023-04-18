@@ -19,12 +19,17 @@
 	model = "ADI sc594-som-ezkit";
 	compatible = "adi,sc594-som-ezkit", "adi,sc59x";
 
+	chosen {
+		stdout-path = &uart1;
+		bootargs = "root=/dev/mtdblock4 rw rootfstype=jffs2 earlyprintk=serial,uart0,115200 console=ttySC0,115200 vmalloc=512M";
+	};
+
 	aliases {
 	};
 
-	memory@C3000000 {
+	memory@80000000 { /*8 Gbit DDR*/
 		device_type = "memory";
-		reg = <0xC3000000 0xF000000>;
+		reg = <0x80000000 0x40000000>;
 	};
 
 	reserved-memory {
