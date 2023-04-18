@@ -47,28 +47,28 @@
 			#size-cells = <1>;
 
 			ospi_0: partition@0 {
-				label = "U-Boot";
-				reg = <0x0 0xC0000>;
+				label = "U-Boot SPL";
+				reg = <0x0 0x40000>;
 			};
 
 			ospi_1: partition@1 {
-				label = "U-Boot Environment";
-				reg = <0xC0000 0x20000>;
+				label = "U-Boot Proper";
+				reg = <0x40000 0xC0000>;
 			};
 
 			ospi_2: partition@2 {
-				label = "Device Tree Blob";
-				reg = <0xE0000 0x20000>;
+				label = "U-Boot Environment";
+				reg = <0x100000 0x20000>;
 			};
 
 			ospi_3: partition@3 {
-				label = "Kernel zImage";
-				reg = <0x100000 0xF00000>;
+				label = "FIT Image";
+				reg = <0x120000 0xF00000>;
 			};
 
 			ospi_4: partition@4 {
 				label = "JFFS2 Formatted RFS";
-				reg = <0x1000000 0x3000000>;
+				reg = <0x1020000 0xFE0000>;
 			};
 		};
 	};
