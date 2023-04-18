@@ -187,29 +187,29 @@
 		spi-rx-bus-width = <4>;
 		/*adi,enable-dma;*/
 
-		spi2_0: partition@0 {
-			label = "U-boot SPL (spi2)";
-			reg = <0x0 0x20000>;
+		qspi_0: partition@0 {
+			label = "U-Boot SPL";
+			reg = <0x0 0x40000>;
 		};
 
-		spi2_1: partition@1 {
-			label = "U-boot proper (spi2)";
-			reg = <0x20000 0xc0000>;
+		qspi_1: partition@1 {
+			label = "U-Boot Proper";
+			reg = <0x40000 0xC0000>;
 		};
 
-		spi2_2: partition@2 {
-			label = "U-boot env (spi2)";
-			reg = <0xe0000 0x20000>;
+		qspi_2: partition@2 {
+			label = "U-Boot Environment";
+			reg = <0x100000 0x20000>;
 		};
 
-		spi2_3: partition@3 {
-			label = "Kernel FIT (spi2)";
-			reg = <0x100000 0x800000>;
+		qspi_3: partition@3 {
+			label = "FIT Image";
+			reg = <0x120000 0xF00000>;
 		};
 
-		spi2_4: partition@4 {
-			label = "JFFS2 Formatted RFS (spi2)";
-			reg = <0x0900000 0x3700000>;
+		qspi_4: partition@4 {
+			label = "JFFS2 Formatted RFS";
+			reg = <0x1020000 0x2FE0000>;
 		};
 
 	};
@@ -220,7 +220,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&ospi_default>;
 
-	status = "okay";
+	status = "disabled";
 
 	flash0: is25lx256@0 {
 		#address-cells = <1>;
@@ -244,28 +244,28 @@
 			#size-cells = <1>;
 
 			ospi_0: partition@0 {
-				label = "U-Boot";
-				reg = <0x0 0x80000>;
+				label = "U-Boot SPL";
+				reg = <0x0 0x40000>;
 			};
 
 			ospi_1: partition@1 {
-				label = "U-Boot Environment";
-				reg = <0x80000 0x20000>;
+				label = "U-Boot Proper";
+				reg = <0x40000 0xC0000>;
 			};
 
 			ospi_2: partition@2 {
-				label = "Device Tree Blob";
-				reg = <0xA0000 0x20000>;
+				label = "U-Boot Environment";
+				reg = <0x100000 0x20000>;
 			};
 
 			ospi_3: partition@3 {
-				label = "Kernel zImage";
-				reg = <0xC0000 0x600000>;
+				label = "FIT Image";
+				reg = <0x120000 0xF00000>;
 			};
 
 			ospi_4: partition@4 {
 				label = "JFFS2 Formatted RFS";
-				reg = <0x0900000 0x1700000>;
+				reg = <0x1020000 0xFE0000>;
 			};
 		};
 	};
