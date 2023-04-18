@@ -1739,6 +1739,41 @@
 						 <&scmi_clk IMX95_CLK_SYSPLL1_PFD1>,
 						 <&scmi_clk IMX95_CLK_SYSPLL1_PFD1_DIV2>;
 			assigned-clock-rates = <400000000>, <400000000>, <133333333>;
+
+			display_pixel_link: bridge@8 {
+				compatible = "nxp,imx95-dc-pixel-link";
+				reg = <0x8 0x4>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+
+						display_pixel_link0_to_pixel_interleaver_disp0: endpoint {
+							remote-endpoint = <&pixel_interleaver_disp0_to_display_pixel_link0>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+
+						display_pixel_link1_to_pixel_interleaver_disp1: endpoint {
+							remote-endpoint = <&pixel_interleaver_disp1_to_display_pixel_link1>;
+						};
+					};
+
+					port@2 {
+						reg = <2>;
+					};
+
+					port@3 {
+						reg = <3>;
+					};
+				};
+			};
 		};
 
 		displaymix_irqsteer: interrupt-controller@4b0b0000 {
@@ -1786,6 +1821,14 @@
 						remote-endpoint = <&dpu_disp0_to_pixel_interleaver_disp0>;
 					};
 				};
+
+				port@1 {
+					reg = <1>;
+
+					pixel_interleaver_disp0_to_display_pixel_link0: endpoint {
+						remote-endpoint = <&display_pixel_link0_to_pixel_interleaver_disp0>;
+					};
+				};
 			};
 
 			channel@1 {
@@ -1799,6 +1842,14 @@
 
 					pixel_interleaver_disp1_to_dpu_disp1: endpoint {
 						remote-endpoint = <&dpu_disp1_to_pixel_interleaver_disp1>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					pixel_interleaver_disp1_to_display_pixel_link1: endpoint {
+						remote-endpoint = <&display_pixel_link1_to_pixel_interleaver_disp1>;
 					};
 				};
 			};
