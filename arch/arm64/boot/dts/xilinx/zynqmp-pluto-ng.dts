@@ -348,16 +348,30 @@
 
 	usb_reset {
 		gpio-hog;
-		gpios = <13 0>;
+		gpios = <13 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "usb-reset";
 	};
 
 	adrv9002_clksrc {
 		gpio-hog;
-		gpios = <79 0>;
+		gpios = <79 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "adrv9002-clksrc";
+	};
+
+	fan_en {
+		gpio-hog;
+		gpios = <144 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "fan-en";
+	};
+
+	fan_ctl {
+		gpio-hog;
+		gpios = <145 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "fan-ctl";
 	};
 };
 
