@@ -278,6 +278,9 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 
 		plat->tx_queues_cfg[queue].coe_unsupported =
 			of_property_read_bool(q_node, "snps,coe-unsupported");
+		/* Enable TBS for selected queues */
+		plat->tx_queues_cfg[queue].tbs_en =
+			of_property_read_bool(q_node, "snps,tbs-enable");
 
 		queue++;
 	}
