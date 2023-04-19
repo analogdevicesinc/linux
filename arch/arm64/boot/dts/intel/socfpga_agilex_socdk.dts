@@ -126,14 +126,19 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qspi_boot: partition@0 {
-				label = "Boot and fpga data";
-				reg = <0x0 0x04200000>;
+			qspi_fw: partition@0 {
+				label = "fw";
+				reg = <0x0 0x02000000>;
 			};
 
-			root: partition@4200000 {
-				label = "Root Filesystem - UBIFS";
-				reg = <0x04200000 0x0BE00000>;
+			qspi_uboot: partition@2000000 {
+				label = "uboot";
+				reg = <0x02000000 0x00200000>;
+			};
+
+			qspi_rootfs: partition@2200000 {
+				label = "root";
+				reg = <0x02200000 0x0DC00000>;
 			};
 		};
 	};
