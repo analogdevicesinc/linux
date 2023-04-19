@@ -7,7 +7,9 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/suspend.h>
 
@@ -17,6 +19,20 @@
 #define DDR_FSP_LOW		1
 #define DDR_DFS_FSP_NUM_MIN	3
 #define DDR_BYPASS_DRATE	400
+
+#define DENALI_CTL_64	0x100
+#define DENALI_CTL_66	0x108
+#define DENALI_CTL_68	0x110
+#define DENALI_CTL_70	0x118
+#define DENALI_CTL_167	0x29C
+#define DENALI_CTL_260	0x410
+#define DENALI_CTL_266	0x428
+#define DENALI_CTL_273	0x444
+#define DENALI_CTL_280	0x460
+
+static bool is_tref_normal = true;
+static void *__iomem ddrc_base;
+static u32 tref_normal_f0, tref_normal_f1, tref_normal_f2;
 
 static struct clk *dram_sel;
 static struct clk *dram_div;
@@ -203,11 +219,118 @@ static struct notifier_block imx8ulp_lpm_pm_notifier = {
 	.notifier_call = imx8ulp_lpm_pm_notify,
 };
 
+static irqreturn_t refresh_adjust_isr(int irq, void *dev)
+{
+	u32 val;
+	u32 nibble0, nibble1, nibble2, nibble3, max_nibble;
+
+	/* determine which nibble returns highest MR4 refresh rate */
+	val = readl_relaxed(ddrc_base + DENALI_CTL_167);
+	nibble0 = (val >> 8) & 0x7;
+	nibble1 = (val >> 12) & 0x7;
+	nibble2 = (val >> 16) & 0x7;
+	nibble3 = (val >> 20) & 0x7;
+
+	/* find the max nibble */
+	max_nibble = nibble0;
+	if (nibble1 > max_nibble)
+		max_nibble = nibble1;
+	if (nibble2 > max_nibble)
+		max_nibble = nibble2;
+	if (nibble3 > max_nibble)
+		max_nibble = nibble3;
+
+	/* Based on the highest refresh rate, adjust the refresh rate accordingly */
+	if (max_nibble > 0x3) {
+		/*high temp detected, decrease the tref to x0.5(double rate) */
+		if (is_tref_normal) {
+			pr_debug("DDR high temp detected\n");
+			writel((tref_normal_f2 / 2) - 4, ddrc_base + DENALI_CTL_70); /* EDNALI_CTL_70 */
+			writel((tref_normal_f1 / 2) - 4, ddrc_base + DENALI_CTL_68); /* EDNALI_CTL_68 */
+			writel((tref_normal_f0 / 2) - 4, ddrc_base + DENALI_CTL_66); /* EDNALI_CTL_66 */
+
+			/* Initiate auto-refresh command at the end of the current burst boundary */
+			/* and ensure CTL_64.TREF_ENABLE =1 after updating TREF fields */
+			writel(BIT(24) | BIT(8), ddrc_base + DENALI_CTL_64);
+			is_tref_normal = false;
+		}
+	} else { /* set refresh rate to normal */
+		if (!is_tref_normal) {
+			pr_debug("DDR temp return to normal\n");
+			/* Clear CTL_64.TREF_ENABLE BIT24=0 before update the TREF fields */
+			writel(tref_normal_f2, ddrc_base + DENALI_CTL_70); /* EDNALI_CTL_70 */
+			writel(tref_normal_f1, ddrc_base + DENALI_CTL_68); /* EDNALI_CTL_68 */
+			writel(tref_normal_f0, ddrc_base + DENALI_CTL_66); /* EDNALI_CTL_66 */
+
+			/* Initiate auto-refresh command at the end of the current burst boundary */
+			/* and ensure CTL_64.TREF_ENABLE =1 after updating TREF fields */
+			writel(BIT(24) | BIT(8), ddrc_base + DENALI_CTL_64);
+			is_tref_normal = true;
+		}
+	}
+
+	/* clear the interrrupt DENALI_CTL_273, set bit[21] */
+	writel(BIT(21), ddrc_base + DENALI_CTL_273);
+
+	return IRQ_HANDLED;
+}
+
+static int ddr_refresh_rate_adjust_init(void)
+{
+	/* get the ddr controller init */
+	struct device_node *np;
+	unsigned int irq;
+	int err;
+
+	np = of_find_compatible_node(NULL, NULL, "nxp,imx8ulp-ddrc");
+
+	if (!np) {
+		pr_err("No ddrc node found\n");
+		return -ENODEV;
+	}
+
+	ddrc_base = of_iomap(np, 0);
+	if (!ddrc_base) {
+		pr_err("Failed to map the ddrc register\n");
+		of_node_put(np);
+		return -EINVAL;
+	}
+	of_node_put(np);
+
+	/* get the default refresh rate setting */
+	tref_normal_f0 = readl(ddrc_base + DENALI_CTL_66) & 0xfffff;
+	tref_normal_f1 = readl(ddrc_base + DENALI_CTL_68) & 0xfffff;
+	tref_normal_f2 = readl(ddrc_base + DENALI_CTL_70) & 0xfffff;
+	is_tref_normal = true;
+
+	/* make sure all the pending interrupt cleared */
+	writel(0xffffffff, ddrc_base + DENALI_CTL_273);
+	/* only enable the interrupt for device temp or refresh rate change */
+	writel(~(1 << 31 | 1 << 13), ddrc_base + DENALI_CTL_260);
+	writel(~(1 << 21), ddrc_base + DENALI_CTL_280);
+
+	irq = of_irq_get(np, 0);
+	err = request_irq(irq, refresh_adjust_isr, 0, "ddrc_irq", NULL);
+	if (err) {
+		pr_err("failed to request the ddrc irq\n");
+		iounmap(ddrc_base);
+		return err;
+	}
+
+	return 0;
+}
+
 /* sysfs for user control */
 static int imx8ulp_lpm_probe(struct platform_device *pdev)
 {
 	int err;
 	struct arm_smccc_res res;
+
+	err = ddr_refresh_rate_adjust_init();
+	if (err) {
+		pr_err("ddr refresh rate adjust init failed: %d\n", err);
+		return err;
+	}
 
 	imx8ulp_lpm_dev = &pdev->dev;
 
@@ -221,7 +344,6 @@ static int imx8ulp_lpm_probe(struct platform_device *pdev)
 	/* only support DFS for F1 & F2 both enabled */
 	if (num_fsp != DDR_DFS_FSP_NUM_MIN)
 		return -ENODEV;
-
 	/*
 	 * check if system level dvfs is enabled, only when this is enabled,
 	 * we can do system level frequency scaling and voltage change dynamically
