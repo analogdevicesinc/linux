@@ -939,28 +939,70 @@ static long pxp_device_ioctl(struct file *filp,
 			if (ret)
 				return -EACCES;
 
-			obj = pxp_buffer_object_lookup(file_priv, flush.handle);
-			if (!obj)
-				return -EINVAL;
+			if (flush.handle) {
+				obj = pxp_buffer_object_lookup(file_priv, flush.handle);
+				if (!obj)
+					return -EINVAL;
 
-			switch (flush.type) {
-			case CACHE_CLEAN:
-				dma_sync_single_for_device(pxp_dev, obj->offset,
-						obj->size, DMA_TO_DEVICE);
-				break;
-			case CACHE_INVALIDATE:
-				dma_sync_single_for_device(pxp_dev, obj->offset,
-						obj->size, DMA_FROM_DEVICE);
-				break;
-			case CACHE_FLUSH:
-				dma_sync_single_for_device(pxp_dev, obj->offset,
-						obj->size, DMA_TO_DEVICE);
-				dma_sync_single_for_device(pxp_dev, obj->offset,
-						obj->size, DMA_FROM_DEVICE);
-				break;
-			default:
-				pr_err("%s: invalid cache flush type\n", __func__);
-				return -EINVAL;
+				switch (flush.type) {
+				case CACHE_CLEAN:
+					dma_sync_single_for_device(pxp_dev, obj->offset,
+								   obj->size, DMA_TO_DEVICE);
+					break;
+				case CACHE_INVALIDATE:
+					dma_sync_single_for_device(pxp_dev, obj->offset,
+								   obj->size, DMA_FROM_DEVICE);
+					break;
+				case CACHE_FLUSH:
+					dma_sync_single_for_device(pxp_dev, obj->offset,
+								   obj->size, DMA_TO_DEVICE);
+					dma_sync_single_for_device(pxp_dev, obj->offset,
+								   obj->size, DMA_FROM_DEVICE);
+					break;
+				default:
+					pr_err("%s: invalid cache flush type\n", __func__);
+					return -EINVAL;
+				}
+			} else {
+				struct dma_buf *dmabuf;
+				struct dma_buf_attachment *attachment;
+				struct sg_table *sgt;
+				int direction;
+
+				if (flush.type == CACHE_CLEAN)
+					direction = DMA_TO_DEVICE;
+				else if (flush.type == CACHE_INVALIDATE)
+					direction = DMA_FROM_DEVICE;
+				else if (flush.type == CACHE_FLUSH)
+					direction = DMA_BIDIRECTIONAL;
+				else
+					direction = DMA_NONE;
+
+				ret = 0;
+				dmabuf = dma_buf_get(flush.dmabuf_fd);
+				if (IS_ERR(dmabuf)) {
+					dev_err(pxp_dev, "failed to get dmabuf\n");
+					return PTR_ERR(dmabuf);
+				}
+				attachment = dma_buf_attach(dmabuf, pxp_dev);
+				if (IS_ERR(attachment)) {
+					ret = PTR_ERR(attachment);
+					dev_err(pxp_dev, "failed to attach dmabuf\n");
+					goto err_put;
+				}
+				sgt = dma_buf_map_attachment(attachment, direction);
+				if (IS_ERR(sgt)) {
+					ret = PTR_ERR(sgt);
+					dev_err(pxp_dev, "failed to get dmabuf sg_table\n");
+					goto err_detach;
+				}
+				dma_buf_unmap_attachment(attachment, sgt, direction);
+err_detach:
+				dma_buf_detach(dmabuf, attachment);
+err_put:
+				dma_buf_put(dmabuf);
+				if (ret)
+					return ret;
 			}
 
 			break;
