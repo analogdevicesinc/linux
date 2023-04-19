@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/fsl,qixis-cpld.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP's QIXIS CPLD board management controller
+
+maintainers:
+  - Ioana Ciornei <ioana.ciornei@nxp.com>
+
+description: |
+  The board management controller found on some Layerscape boards contains
+  different IP blocks like GPIO controllers, interrupt controllers, reg-muxes
+  etc.
+
+properties:
+  compatible:
+    enum:
+      - fsl,lx2160a-qds-qixis-cpld
+      - fsl,lx2160a-rdb-qixis-cpld
+
+  reg:
+    description:
+      I2C device address.
+    maxItems: 1
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+patternProperties:
+  "^gpio(@[0-9a-f]+)?$":
+    $ref: ../gpio/fsl,qixis-cpld-gpio.yaml
+
+required:
+  - "#address-cells"
+  - "#size-cells"
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    qixis@66 {
+        compatible = "fsl,lx2160a-rdb-qixis-cpld";
+        reg = <0x66>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        sfp2_csr: gpio@19 {
+            compatible = "fsl,lx2160a-rdb-qixis-cpld-gpio";
+            reg = <0x19>;
+            gpio-controller;
+            #gpio-cells = <2>;
+            gpio-line-names =
+                "SFP2_TX_EN", "",
+                "", "",
+                "SFP2_RX_LOS", "SFP2_TX_FAULT",
+                "", "SFP2_MOD_ABS";
+        };
+    };

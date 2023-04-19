@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpio/fsl,qixis-cpld-gpio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: GPIO controller embedded in the NXP LX2160A-RDB QIXIS CPLD
+
+maintainers:
+  - Ioana Ciornei <ioana.ciornei@nxp.com>
+
+description: |
+  This module is part of the QIXIS CPLD found on some Layerscape boards such as LX2160ARDB.
+  For more details see ../mfd/fsl,qixis-cpld.yaml.
+
+  Each controller supports a maximum of 8 GPIO lines and each line has fixed
+  direction which cannot be changed using a direction register.
+
+properties:
+  compatible:
+    enum:
+      - fsl,lx2160a-rdb-qixis-cpld-gpio
+
+  reg:
+    maxItems: 1
+
+  "#gpio-cells":
+    const: 2
+
+  gpio-controller: true
+
+  gpio-line-names:
+    minItems: 1
+    maxItems: 8
+
+required:
+  - compatible
+  - "#gpio-cells"
+  - gpio-controller
+
+additionalProperties: false
