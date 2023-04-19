@@ -1235,6 +1235,12 @@
 			};
 		};
 
+		ddrc: memory-controller@2e060000 {
+			compatible = "nxp,imx8ulp-ddrc";
+			reg = <0x2e060000 0x10000>;
+			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		gpiod: gpio@2e200000 {
 			compatible = "fsl,imx8ulp-gpio";
 			reg = <0x2e200000 0x1000>;
