@@ -107,7 +107,9 @@ imx93_ldb_encoder_atomic_check(struct drm_encoder *encoder,
 	struct ldb_channel *ldb_ch = &imx93_ldb_ch->base;
 	struct drm_display_info *di = &conn_state->connector->display_info;
 
-	ldb_ch->bus_format = di->bus_formats[0];
+	if (!ldb_ch->bus_format)
+		ldb_ch->bus_format = di->bus_formats[0];
+
 	imx_crtc_state->bus_flags = di->bus_flags;
 
 	switch (ldb_ch->bus_format) {
