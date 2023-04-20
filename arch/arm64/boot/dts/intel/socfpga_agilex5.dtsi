@@ -147,6 +147,65 @@
 			#clock-cells = <1>;
 		};
 
+		gmac0: ethernet@10810000 {
+			compatible = "altr,socfpga-stmmac-a10-s10",
+						"snps,dwxgmac-2.10",
+						"snps,dwxgmac";
+			reg = <0x10810000 0x3500>;
+			interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>,
+						<GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq",
+							"macirq_tx0",
+							"macirq_tx1",
+							"macirq_tx2",
+							"macirq_tx3",
+							"macirq_tx4",
+							"macirq_tx5",
+							"macirq_tx6",
+							"macirq_tx7",
+							"macirq_rx0",
+							"macirq_rx1",
+							"macirq_rx2",
+							"macirq_rx3",
+							"macirq_rx4",
+							"macirq_rx5",
+							"macirq_rx6",
+							"macirq_rx7";
+			mac-address = [00 00 00 00 00 00];
+			resets = <&rst EMAC0_RESET>, <&rst EMAC0_OCP_RESET>;
+			reset-names = "stmmaceth", "stmmaceth-ocp";
+			tx-fifo-depth = <32768>;
+			rx-fifo-depth = <16384>;
+			snps,multicast-filter-bins = <64>;
+			snps,perfect-filter-entries = <64>;
+			snps,axi-config = <&stmmac_axi_setup>;
+			snps,mtl-rx-config = <&mtl_rx_setup>;
+			snps,mtl-tx-config = <&mtl_tx_setup>;
+			snps,pbl = <32>;
+			snps,pblx8;
+			snps,multi-irq-en;
+			snps,tso;
+			altr,sysmgr-syscon = <&sysmgr 0x44 0>;
+			snps,rx-vlan-offload;
+			clocks = <&clkmgr AGILEX5_EMAC0_CLK>, <&clkmgr AGILEX5_EMAC_PTP_CLK>;
+			clock-names = "stmmaceth", "ptp_ref";
+		};
+
 		i2c0: i2c@10c02800 {
 			compatible = "snps,designware-i2c";
 			reg = <0x10c02800 0x100>;
