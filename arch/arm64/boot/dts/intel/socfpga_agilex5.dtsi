@@ -419,6 +419,28 @@
 			clocks = <&clkmgr AGILEX5_USB2OTG_HCLK>;
 			clock-names = "otg";
 			status = "disabled";
+
+		usb31: usb3@11000000 {
+			compatible = "intel,agilex5-dwc3";
+			reg = <0x11000000 0x100000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			clocks = <&clkmgr AGILEX5_USB31_SUSPEND_CLK>;
+			resets = <&rst USB1_RESET>, <&rst USB1_OCP_RESET>;
+			reset-names = "dwc3", "dwc3-ecc";
+			ranges;
+			status = "disabled";
+
+			usb0@11000000{
+				compatible = "snps,dwc3";
+				reg = <0x11000000 0x100000>;
+				interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
+				phys = <&usbphy0>, <&usbphy0>;
+				phy-names = "usb2-phy", "usb3-phy";
+				dr_mode = "host";
+				maximum-speed = "super-speed";
+				snps,dis_u2_sysphy-quirk;
+			};
 		};
 
 		watchdog0: watchdog@10d00200 {
