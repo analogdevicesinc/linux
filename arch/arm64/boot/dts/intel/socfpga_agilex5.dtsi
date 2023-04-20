@@ -419,6 +419,7 @@
 			clocks = <&clkmgr AGILEX5_USB2OTG_HCLK>;
 			clock-names = "otg";
 			status = "disabled";
+		};
 
 		usb31: usb3@11000000 {
 			compatible = "intel,agilex5-dwc3";
