@@ -552,6 +552,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 {
 	u32 channel_spacing = 1;
 	u64 ref_pfd_ratio;
+	u32 tmp_r;
 	u32 frac2_word = 0;
 	u8 en_phase_resync;
 	u32 mod2_word = 0;
@@ -565,11 +566,11 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	u8 div1 = 8;
 	u8 ref_div;
 	u16 n_int;
-	u64 n;
 	u64 tmp;
 	u64 vco;
 	int ret;
 	u8 var;
+	u8 ldwin_pw;
 
 	ref_pfd_ratio = DIV_ROUND_UP(st->ref_freq_hz, st->pfd_freq_hz);
 
@@ -608,11 +609,11 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	if (ret)
 		return ret;
 
-	n = div_u64(freq, st->pfd_freq_hz);
-	n_int = (u16)n;
-	residue = (n - n_int) * ADI_ADF4382_MOD1WORD;
-	frac1_word = (u32)residue;
-	residue -= frac1_word;
+
+	n_int = div_u64_rem(freq, st->pfd_freq_hz, &tmp_r);
+	residue = (u64)tmp_r * ADI_ADF4382_MOD1WORD;
+	frac1_word = (u32)div_u64_rem(residue, st->pfd_freq_hz, &tmp_r);
+	residue = tmp_r;
 
 	if (residue > 0)
 	{
@@ -636,6 +637,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 			}
 			else {
 				mod2_word = mod2_tmp;
+				break;
 			}
 
 		} while (channel_spacing < ADI_ADF4382_CHANNEL_SPACING_MAX);
@@ -645,10 +647,27 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	            mod2_word *= DIV_ROUND_DOWN_ULL(mod2_max, mod2_word);
 	        }
 
-	        frac2_word = (u32)(residue * mod2_word);
+	        frac2_word = DIV_ROUND_CLOSEST_ULL(residue * mod2_word, st->pfd_freq_hz);
 	}
 
+
+	dev_info(&st->spi->dev,"n_int %u frac1_word %u frac2_word %u mod1_word %u mod2_word %u\n",
+		n_int, frac1_word, frac2_word, ADI_ADF4382_MOD1WORD, mod2_word);
+
 	if (frac1_word == 0 && frac2_word == 0) {
+		// uint16_t bleed_i;
+		// uint8_t cp_i;
+		// u8 tmpval;
+
+		// regmap_read(st->regmap, 0x1f, tmpval);
+		// cp_i = tmpval & ADF4382_CP_I_MSK;
+		// regmap_read(st->regmap, 0x1d, tmpval);
+		// bleed_i = tmpval;
+		// regmap_read(st->regmap, 0x1e, tmpval);
+		// bleed_i |= (tmpval & ADF4382_BLEED_I_MSB_MSK) << 8;
+
+		ldwin_pw = 0;
+
 		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
 					 0xff);
 		if (ret)
@@ -658,6 +677,21 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		if (ret)
 			return ret;
 	} else {
+		if (st->pfd_freq_hz <= 40000000) {
+			ldwin_pw = 7;
+		} else if (st->pfd_freq_hz <= 50000000) {
+			ldwin_pw = 6;
+		} else if (st->pfd_freq_hz <= 100000000) {
+			ldwin_pw = 5;
+		} else if (st->pfd_freq_hz <= 200000000) {
+			ldwin_pw = 4;
+		} else if (st->pfd_freq_hz <= 250000000) {
+			if (freq >= 5000000000 && freq< 6400000000) {
+				ldwin_pw = 3;
+			} else {
+				ldwin_pw = 2;
+			}
+		}
 		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
 					 0);
 		if (ret)
@@ -677,11 +711,11 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	ret = regmap_write(st->regmap, 0x1A, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(8, mod2_word) & ADF4382_MOD2WORD_MID_MSK;
+	var = (mod2_word >> 8) & ADF4382_MOD2WORD_MID_MSK;
 	ret = regmap_write(st->regmap, 0x1B, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(16, mod2_word) & ADF4382_MOD2WORD_MSB_MSK;
+	var = (mod2_word >> 16) & ADF4382_MOD2WORD_MSB_MSK;
 	ret = regmap_write(st->regmap, 0x1C, var);
 	if (ret)
 		return ret;
@@ -690,15 +724,15 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	ret = regmap_write(st->regmap, 0x12, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(8, frac1_word)  & ADF4382_FRAC1WORD_MID_MSK;
+	var = (frac1_word >> 8)  & ADF4382_FRAC1WORD_MID_MSK;
 	ret = regmap_write(st->regmap, 0x13, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(16, frac1_word) & ADF4382_FRAC1WORD_MSB_MSK;
+	var =  (frac1_word >> 16)  & ADF4382_FRAC1WORD_MSB_MSK;
 	ret = regmap_write(st->regmap, 0x14, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(24, frac1_word) & ADF4382_FRAC1WORD_BIT25_MSK;
+	var =  (frac1_word >> 24)  & ADF4382_FRAC1WORD_BIT25_MSK;
 	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_BIT25_MSK, var);
 	if (ret)
 		return ret;
@@ -707,11 +741,11 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	ret = regmap_write(st->regmap, 0x17, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(8, frac2_word)  & ADF4382_FRAC2WORD_MID_MSK;
+	var = (frac2_word >> 8)  & ADF4382_FRAC2WORD_MID_MSK;
 	ret = regmap_write(st->regmap, 0x18, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(16, frac2_word) & ADF4382_FRAC2WORD_MSB_MSK;
+	var = (frac2_word >> 16) & ADF4382_FRAC2WORD_MSB_MSK;
 	ret = regmap_write(st->regmap, 0x19, var);
 	if (ret)
 		return ret;
@@ -749,14 +783,22 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	if (ret)
 		return ret;
 
-	var = div_u64(div_u64(st->pfd_freq_hz, div1), 1600000 - 0.5);
+
+	var = DIV_ROUND_UP(div_u64(st->pfd_freq_hz, div1 * 400000) - 2, 4);
+	var = clamp_t(u8, var, 0U, 255U);
 	ret = regmap_write(st->regmap, 0x3e, var);
 	if (ret)
 		return ret;
 
 	// Set LD COUNT
 	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
-				 0x1);
+				 14);
+	if (ret)
+		return ret;
+
+	// Set LD COUNT
+	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LDWIN_PW_MSK,
+				 ldwin_pw);
 	if (ret)
 		return ret;
 
@@ -766,12 +808,14 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		return ret;
 
 	// Need to set N_INT last to trigger an auto-calibration
-	var = n_int & ADF4382_N_INT_LSB_MSK;
-	ret = regmap_write(st->regmap, 0x10, var);
+
+	var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
+	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
 	if (ret)
 		return ret;
-	var = FIELD_PREP(8, n_int) & ADF4382_N_INT_MSB_MSK;
-	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
+
+	var = n_int & ADF4382_N_INT_LSB_MSK;
+	ret = regmap_write(st->regmap, 0x10, var);
 	if (ret)
 		return ret;
 
