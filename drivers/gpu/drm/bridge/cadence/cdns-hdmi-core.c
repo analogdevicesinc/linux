@@ -767,6 +767,7 @@ static void __cdns_hdmi_remove(struct cdns_mhdp_device *mhdp)
 	cdns_mhdp_unregister_cec_driver(&mhdp->hdmi.cec);
 #endif
 	cdns_mhdp_unregister_audio_driver(mhdp->dev);
+	cnds_hdcp_remove_device_files(mhdp);
 }
 
 /* -----------------------------------------------------------------------------

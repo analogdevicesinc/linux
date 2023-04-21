@@ -19,5 +19,6 @@ void cdns_hdcp_atomic_check(struct drm_connector *connector,
 				 struct drm_connector_state *old_state,
 				 struct drm_connector_state *new_state);
 void cnds_hdcp_create_device_files(struct cdns_mhdp_device *mhdp);
+void cnds_hdcp_remove_device_files(struct cdns_mhdp_device *mhdp);
 
 #endif /* CDNS_HDCP_COMMON_H */

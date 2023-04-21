@@ -986,6 +986,14 @@ void cnds_hdcp_create_device_files(struct cdns_mhdp_device *mhdp)
 }
 EXPORT_SYMBOL(cnds_hdcp_create_device_files);
 
+void cnds_hdcp_remove_device_files(struct cdns_mhdp_device *mhdp)
+{
+	device_remove_file(mhdp->dev, &HDCPTX_Status);
+	device_remove_file(mhdp->dev, &HDCPTX_Version);
+	device_remove_file(mhdp->dev, &HDCPTX_do_reauth);
+}
+EXPORT_SYMBOL(cnds_hdcp_remove_device_files);
+
 #ifdef DEBUG
 void cdns_hdcp_show_pairing(struct cdns_mhdp_device *mhdp, struct hdcp_trans_pairing_data *p)
 {

@@ -814,6 +814,7 @@ static void __cdns_dp_remove(struct cdns_mhdp_device *mhdp)
 {
 	dp_aux_destroy(mhdp);
 	cdns_mhdp_unregister_audio_driver(mhdp->dev);
+	cnds_hdcp_remove_device_files(mhdp);
 }
 
 /* -----------------------------------------------------------------------------
