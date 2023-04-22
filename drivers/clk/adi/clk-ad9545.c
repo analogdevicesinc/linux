@@ -2,7 +2,7 @@
 /*
  * AD9545 Network Clock Generator/Synchronizer
  *
- * Copyright 2020 Analog Devices Inc.
+ * Copyright (C) 2020-2023 Analog Devices Inc.
  */
 
 #include <linux/bitfield.h>
@@ -1654,7 +1654,7 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 
 		if (st->out_clks[i * 2].output_used)
 			out_i = i * 2;
-		else if (st->out_clks[i * 2].output_used)
+		else if (st->out_clks[i * 2 + 1].output_used)
 			out_i = i * 2 + 1;
 		else
 			continue;
