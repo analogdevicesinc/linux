@@ -885,6 +885,8 @@ static bool vdec_check_source_change(struct vpu_inst *inst)
 		return true;
 	if (inst->crop.height != vdec->codec_info.height)
 		return true;
+	if (!vdec->codec_info.progressive)
+		return true;
 
 	return false;
 }
