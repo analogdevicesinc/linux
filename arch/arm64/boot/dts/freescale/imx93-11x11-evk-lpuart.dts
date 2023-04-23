@@ -5,6 +5,11 @@
 
 #include "imx93-11x11-evk.dts"
 
+/* Unbind lpuart5 from Bluetooth, use it for lpuart test. */
+&lpuart5 {
+	/delete-node/ bluetooth;
+};
+
 &lpuart6 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart6>;
