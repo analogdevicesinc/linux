@@ -956,7 +956,7 @@ static int vpu_dev_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	vpu_class = class_create(THIS_MODULE, "mxc_vpu");
+	vpu_class = class_create("mxc_vpu");
 	if (IS_ERR(vpu_class)) {
 		err = PTR_ERR(vpu_class);
 		goto err_out_chrdev;
