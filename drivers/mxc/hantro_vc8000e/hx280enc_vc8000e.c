@@ -896,7 +896,7 @@ static int __init hantroenc_init(void)
 		hantroenc_major = result;
 
 
-	hantro_enc_class = class_create(THIS_MODULE, DEVICE_NAME);
+	hantro_enc_class = class_create(DEVICE_NAME);
 	if (IS_ERR(hantro_enc_class)) {
 		pr_err("can't register device hx280 class\n");
 		goto err2;

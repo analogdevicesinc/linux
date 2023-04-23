@@ -1903,7 +1903,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	hantro_class = class_create(THIS_MODULE, "mxc_hantro");
+	hantro_class = class_create("mxc_hantro");
 	if (IS_ERR(hantro_class)) {
 		err = PTR_ERR(hantro_class);
 		goto error;

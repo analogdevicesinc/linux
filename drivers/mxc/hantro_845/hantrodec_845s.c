@@ -1608,7 +1608,7 @@ static int hantrodec_init(struct platform_device *pdev, int id)
 			hantrodec_major = result;
 		}
 
-		hantro_class = class_create(THIS_MODULE, "mxc_hantro_845");
+		hantro_class = class_create("mxc_hantro_845");
 		if (IS_ERR(hantro_class)) {
 			result = -1;
 			goto err;

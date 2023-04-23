@@ -690,7 +690,7 @@ static int v4l2_probe(struct platform_device *pdev)
 		goto err;
 
 	vsidaemondev = kzalloc(sizeof(struct device), GFP_KERNEL);
-	vsidaemondev->class = class_create(THIS_MODULE, "vsi_class");
+	vsidaemondev->class = class_create("vsi_class");
 	vsidaemondev->parent = NULL;
 	vsidaemondev->devt = MKDEV(VSI_DAEMON_DEVMAJOR, 0);
 	dev_set_name(vsidaemondev, "%s", VSI_DAEMON_FNAME);
