@@ -185,6 +185,7 @@ struct vsi_video_fmt {
 	u32 flag;
 	u32 num_planes;
 	u32 comp_planes;
+	u32 mask;
 };
 
 struct vsi_v4l2_mediacfg {
