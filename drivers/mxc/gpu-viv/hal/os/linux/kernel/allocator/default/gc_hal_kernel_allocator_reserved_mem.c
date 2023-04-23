@@ -236,7 +236,11 @@ reserved_mem_mmap(IN gckALLOCATOR           Allocator,
     pfn = (res->start >> PAGE_SHIFT) + skipPages;
 
     /* Make this mapping non-cached. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
     vm_flags_set(vma, gcdVM_FLAGS);
+#else
+    vma->vm_flags |= gcdVM_FLAGS;
+#endif
 
 #if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
     vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);

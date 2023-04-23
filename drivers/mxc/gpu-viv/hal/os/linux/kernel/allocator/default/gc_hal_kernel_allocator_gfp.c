@@ -771,7 +771,11 @@ _GFPMmap(IN gckALLOCATOR           Allocator,
 
     gcmkHEADER_ARG("Allocator=%p Mdl=%p vma=%p", Allocator, Mdl, vma);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
     vm_flags_set(vma, gcdVM_FLAGS);
+#else
+    vma->vm_flags |= gcdVM_FLAGS;
+#endif
 
     if (Cacheable == gcvFALSE) {
         /* Make this mapping non-cached. */
