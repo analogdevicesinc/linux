@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084-FMC-EBZ
+ *
+ * board_revision: <>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "vcu128.dtsi"
+
+/ {
+	aliases {
+		/delete-property/ i2c0;
+	};
+	chosen {
+		bootargs = "earlycon uio_pdrv_genirq.of_id=generic-uio";
+	};
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reserved: buffer@0xFC000000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0xFC000000 0x04000000>;
+		};
+	};
+	reserved-driver@0 {
+		compatible = "xlnx,reserved-memory";
+		memory-region = <&reserved>;
+	};
+	amba_pl {
+                uio_fpga_registers@20000000 {
+                        compatible = "generic-uio";
+                        reg = <0x20000000 0x10000>;
+                };
+
+                uio_fpga_scratch_mem@44A80000 {
+                        compatible = "generic-uio";
+                        reg = <0x44a80000 0x8000>;
+                };
+
+                uio_spi_controller@44C00000 {
+                        compatible = "generic-uio";
+                        reg = <0x44c00000 0x30000>;
+                };
+
+                uio_i2c_controller@44A10000 {
+                        compatible = "generic-uio";
+                        reg = <0x44a10000 0x10000>;
+                };
+
+                uio_hsci_controller@44D00000 {
+                        compatible = "generic-uio";
+                        reg = <0x44d00000 0x40000>;
+                };
+
+                uio_data_fifo_mem@30060000 {
+                        compatible = "generic-uio";
+                        reg = <0x80060000 0x20000>;
+                };
+
+                uio_fmc_spi0@41000000 {
+                        compatible = "generic-uio";
+                        reg = <0x41000000 0x1000>;
+                };
+		uio_platform_id@60002000 {
+			compatible = "generic-uio";
+			reg = <0x60002000 0x1000>;
+		};
+	};
+};
+
+&axi_spi {
+	status = "disabled";
+};
+
+/delete-node/ &axi_iic_main;
+/delete-node/ &axi_gpio;
+
