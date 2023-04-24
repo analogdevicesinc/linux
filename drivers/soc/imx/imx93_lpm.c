@@ -241,12 +241,17 @@ static void sys_freq_scaling(enum mode_type new_mode)
 static ssize_t lpm_enable_show(struct device *dev, struct device_attribute *attr,
 				char *buf)
 {
-	if(system_run_mode.current_mode == ND_MODE) {
-		return sprintf(buf, "System is in ND mode!\n");
-	} else if(system_run_mode.current_mode == OD_MODE) {
-		return sprintf(buf, "System is in OD mode!\n");
-	} else {
-		return sprintf(buf, "System is in SWFFC mode!\n");
+	switch (system_run_mode.current_mode) {
+	case OD_MODE:
+		return sprintf(buf, "System is in OD mode with DDR %d MTS!\n", fsp_table[0]);
+	case ND_MODE:
+		return sprintf(buf, "System is in ND mode with DDR %d MTS!\n", fsp_table[1]);
+	case LD_MODE:
+		return sprintf(buf, "System is in LD mode with DDR %d MTS!\n", fsp_table[1]);
+	case SWFFC_MODE:
+		return sprintf(buf, "System is in LD mode with DDR %d MTS!\n", fsp_table[2]);
+	default:
+		return sprintf(buf, "Unknown system mode\n");
 	}
 }
 
