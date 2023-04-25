@@ -197,7 +197,7 @@ int pfe_cdev_init(void)
 	pr_debug("PFE CDEV assigned major number: %d\n", pfe_majno);
 
 	/* Register the class for the device */
-	pfe_char_class = class_create(THIS_MODULE, PFE_CLASS_NAME);
+	pfe_char_class = class_create(PFE_CLASS_NAME);
 	if (IS_ERR(pfe_char_class)) {
 		pr_err(
 		"Failed to init class for PFE CDEV. PFE CDEV not available.\n");
