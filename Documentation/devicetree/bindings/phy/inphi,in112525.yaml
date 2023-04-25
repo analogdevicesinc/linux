@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/phy/inphi,in112525.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Inphi IN112525 Retimer PHY binding
+
+maintainers:
+  - Ioana Ciornei <ioana.ciornei@nxp.com>
+
+properties:
+  compatible:
+    enum:
+      - inphi,in112525
+
+  reg:
+    maxItems: 1
+
+  "#phy-cells":
+    const: 1
+
+required:
+  - compatible
+  - reg
+  - "#phy-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+
+    &emdio2 {
+      status = "okay";
+
+      inphi_retimer: retimer@0 {
+        compatible = "inphi,in112525";
+        reg = <0x0>;
+        #phy-cells = <1>;
+      };
+    };
