@@ -931,7 +931,11 @@ static int drv_init(void)
             major = result;
 
         /* Create the device class. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+        device_class = class_create(CLASS_NAME);
+#else
         device_class = class_create(THIS_MODULE, CLASS_NAME);
+#endif
 
         if (IS_ERR(device_class)) {
             gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
