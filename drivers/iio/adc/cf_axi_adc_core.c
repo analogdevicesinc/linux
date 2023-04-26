@@ -1105,6 +1105,7 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	ret = bus_for_each_dev(&spi_bus_type, NULL, &axiadc_spidev,
 			       axiadc_attach_spi_client);
+	of_node_put(axiadc_spidev->of_nspi);
 	if (ret == 0)
 		return -EPROBE_DEFER;
 
