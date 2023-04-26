@@ -227,6 +227,11 @@
 	};
 };
 
+&lpm {
+	soc-supply = <&buck1>;
+	status = "okay";
+};
+
 &lpi2c1 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
