@@ -857,6 +857,7 @@ static const struct iio_info axiadc_info = {
 struct axiadc_spidev {
 	struct device_node *of_nspi;
 	struct device *dev_spi;
+	struct module *owner;
 };
 
 static int axiadc_attach_spi_client(struct device *dev, void *data)
@@ -867,6 +868,7 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 	device_lock(dev);
 	if ((axiadc_spidev->of_nspi == dev->of_node) && dev->driver) {
 		axiadc_spidev->dev_spi = dev;
+		axiadc_spidev->owner = dev->driver->owner;
 		ret = 1;
 	}
 	device_unlock(dev);
@@ -1056,10 +1058,10 @@ int axiadc_append_attrs(struct iio_dev *indio_dev,
 
 static void axiadc_release_converter(void *conv)
 {
-	struct device *dev = conv;
+	struct axiadc_spidev *axiadc_spidev = conv;
 
-	put_device(dev);
-	module_put(dev->driver->owner);
+	put_device(axiadc_spidev->dev_spi);
+	module_put(axiadc_spidev->owner);
 }
 
 /**
@@ -1079,7 +1081,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct axiadc_state *st;
 	struct resource *mem;
-	struct axiadc_spidev axiadc_spidev;
+	struct axiadc_spidev *axiadc_spidev;
 	struct axiadc_converter *conv;
 	unsigned int config, skip = 1;
 	int ret;
@@ -1093,28 +1095,32 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	info = id->data;
 
+	axiadc_spidev = devm_kzalloc(&pdev->dev, sizeof(*axiadc_spidev), GFP_KERNEL);
+	if (!axiadc_spidev)
+		return -ENOMEM;
+
 	/* Defer driver probe until matching spi
 	 * converter driver is registered
 	 */
-	axiadc_spidev.of_nspi = of_parse_phandle(pdev->dev.of_node,
-						 "spibus-connected", 0);
-	if (!axiadc_spidev.of_nspi) {
+	axiadc_spidev->of_nspi = of_parse_phandle(pdev->dev.of_node,
+						  "spibus-connected", 0);
+	if (!axiadc_spidev->of_nspi) {
 		dev_err(&pdev->dev, "could not find spi node\n");
 		return -ENODEV;
 	}
 
-	ret = bus_for_each_dev(&spi_bus_type, NULL, &axiadc_spidev,
+	ret = bus_for_each_dev(&spi_bus_type, NULL, axiadc_spidev,
 			       axiadc_attach_spi_client);
 	of_node_put(axiadc_spidev->of_nspi);
 	if (ret == 0)
 		return -EPROBE_DEFER;
 
-	if (!try_module_get(axiadc_spidev.dev_spi->driver->owner))
+	if (!try_module_get(axiadc_spidev->owner))
 		return -ENODEV;
 
-	get_device(axiadc_spidev.dev_spi);
+	get_device(axiadc_spidev->dev_spi);
 
-	ret = devm_add_action_or_reset(&pdev->dev, axiadc_release_converter, axiadc_spidev.dev_spi);
+	ret = devm_add_action_or_reset(&pdev->dev, axiadc_release_converter, axiadc_spidev);
 	if (ret)
 		return ret;
 
@@ -1134,7 +1140,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (IS_ERR(st->regs))
 		return PTR_ERR(st->regs);
 
-	st->dev_spi = axiadc_spidev.dev_spi;
+	st->dev_spi = axiadc_spidev->dev_spi;
 
 	platform_set_drvdata(pdev, indio_dev);
 
