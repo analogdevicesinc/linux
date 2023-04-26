@@ -46,6 +46,7 @@ static struct clk *nic_old_parent;
 static struct clk *a35_old_parent;
 static struct clk *lpav_old_parent;
 static struct clk *pll4;
+static unsigned long spll2_old_rate;
 
 static bool lpm_enabled = false;
 static bool bypass_enabled = false;
@@ -88,10 +89,20 @@ static void sys_freq_scaling(bool enter)
 			nic_old_parent = clk_get_parent(nic_sel);
 			lpav_old_parent = clk_get_parent(lpav_axi_sel);
 			a35_old_parent = clk_get_parent(a35_sel);
+			spll2_old_rate = clk_get_rate(spll2);
 
 			ret = clk_set_parent(nic_sel, frosc);
 			if (ret)
 				pr_err("failed to change nic clock parent:%d\n", ret);
+
+			/* Change NIC source PLL3 PFD0 to 324Mhz */
+			ret = clk_set_rate(nic_old_parent, 328000000);
+			if (ret)
+				pr_err("failed to set NIC parent frequency:%d\n", ret);
+
+			ret = clk_set_parent(nic_sel, nic_old_parent);
+			if (ret)
+				pr_err("failed to change nic clock old parent:%d\n", ret);
 
 			ret = clk_set_parent(lpav_axi_sel, frosc);
 			if (ret)
@@ -99,14 +110,14 @@ static void sys_freq_scaling(bool enter)
 
 			/*
 			 * scaling down the A35 core frequency, switch to fro 192MHz,
-			 * then, change SPLL2 frequency to 500MHz.
+			 * then, change SPLL2 frequency to 650MHz.
 			 */
 			ret = clk_set_parent(a35_sel, frosc);
 			if (ret)
 				pr_err("failed to change a35 clock parent:%d\n", ret);
 
-			/* change SPLL2 to UD 500MHz */
-			ret = clk_set_rate(spll2, 500000000);
+			/* change SPLL2 to ND 650MHz */
+			ret = clk_set_rate(spll2, 650000000);
 			if (ret)
 				pr_err("failed to set spll2 frequency:%d\n", ret);
 
@@ -137,8 +148,11 @@ static void sys_freq_scaling(bool enter)
 			if (ret)
 				pr_err("failed to change a35 clock parent:%d\n", ret);
 
-			/* change SPLL2 to OD 960MHz */
-			ret = clk_set_rate(spll2, 960000000);
+			/* change SPLL2 to OD 800MHz at least */
+			if (spll2_old_rate < 800000000)
+				spll2_old_rate = 800000000;
+
+			ret = clk_set_rate(spll2, spll2_old_rate);
 			if (ret)
 				pr_err("failed to set spll2 frequency:%d\n", ret);
 
@@ -146,6 +160,15 @@ static void sys_freq_scaling(bool enter)
 			ret = clk_set_parent(a35_sel, a35_old_parent);
 			if (ret)
 				pr_err("failed to change a35 clock parent back:%d\n", ret);
+
+			ret = clk_set_parent(nic_sel, frosc);
+			if (ret)
+				pr_err("failed to change nic clock parent:%d\n", ret);
+
+			/* Change NIC source PLL3 PFD0 to 442Mhz */
+			ret = clk_set_rate(nic_old_parent, 452000000);
+			if (ret)
+				pr_err("failed to set NIC parent frequency:%d\n", ret);
 
 			/* scaling up the NIC frequency */
 			ret = clk_set_parent(nic_sel, nic_old_parent);
