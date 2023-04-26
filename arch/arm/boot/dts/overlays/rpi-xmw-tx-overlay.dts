@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+
+/ {
+    compatible = "brcm,bcm2711";
+
+    fragment@0 {
+		target = <&spidev0>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+    fragment@1 {
+		target = <&spidev1>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+    fragment@2 {
+        target-path = "/";
+
+        __overlay__ {
+            clocks {
+				admv8818_rfin: clock@0 {
+					#clock-cells = <0>;
+                    compatible = "fixed-clock";
+					clock-frequency = <100000000>;          // 100MHz
+					clock-output-names = "rf_in";					
+				};
+                adf4371_clkin: clock@1 {
+					     #clock-cells = <0>;
+					     compatible = "fixed-clock";
+					     clock-frequency = <100000000>;     // 100MHz 
+                         clock-output-names = "clkin";
+			    }; 
+			};
+
+            adrf5020_control@0 {
+                label = "adrf5020_control";
+                compatible = "adi,one-bit-adc-dac";         // 1-bit switch controlled with GPIO pin 4 on the RPI
+                #address-cells = <1>;
+                #size-cells = <0>;
+                out-gpios = <&gpio  0x04 0>;    
+
+                channel@0 {
+                    reg = <0>;
+                    label = "SW1_CTL_IN";
+                };
+            };
+
+            adrf5730_control@0 {
+                label = "adrf5730_control";                 // 6-bit DSA controlled with GPIO pins 14, 15, 27, 22, 23, 24 on the RPI
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                out-gpios = <&gpio  0x0e 0>, <&gpio  0x0f 0>, <&gpio  0x1b 0>, <&gpio  0x16 0>, <&gpio  0x17 0>, <&gpio  0x18 0>;
+
+                channel@0 {
+                    reg = <0>;
+                    label = "DSA1_D0";
+                };
+                channel@1 {
+                    reg = <1>;
+                    label = "DSA1_D1";
+                };
+                channel@2 {
+                    reg = <2>;
+                    label = "DSA1_D2";
+                };
+                channel@3 {
+                    reg = <3>;
+                    label = "DSA1_D3";
+                };
+                channel@4 {
+                    reg = <4>;
+                    label = "DSA1_D4";
+                };
+                channel@5 {
+                    reg = <5>;
+                    label = "DSA1_D5";
+                };
+            };
+        };
+    };
+
+    fragment@3 {
+        target = <&spi0>;         // SPI1 on Platform
+
+		__overlay__{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			admv8818@0{
+				compatible = "adi,admv8818";
+				reg = <0>;        // CS0 on SPI1
+				spi-max-frequency = <10000000>;
+				clocks = <&admv8818_rfin>;
+				clock-scales = <1 50>;
+				clock-names = "rf_in";
+				adi,bw-hz = /bits/ 64 <600000000>;
+			};            
+		};
+    };
+
+    fragment@4 {
+        target = <&spi1>;         // SPI2 on Platform    
+
+        __overlay__{
+            #address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+            adf4371@6 {
+				label = "adf4371_fixed_PLL";
+                compatible = "adi,adf4371";
+				reg = <6>;        // CS6 on SPI2
+				spi-max-frequency = <1000000>;
+				clocks = <&adf4371_clkin>;
+				clock-names = "clkin";
+			};
+
+            adf4371@7 {
+				label = "adf4371_tunable_PLL";
+                compatible = "adi,adf4371";
+				reg = <7>;        // CS7 on SPI2
+				spi-max-frequency = <1000000>;
+				clocks = <&adf4371_clkin>;
+				clock-names = "clkin";
+			};
+        };
+    };
+
+};
