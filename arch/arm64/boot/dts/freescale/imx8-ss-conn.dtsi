@@ -163,11 +163,11 @@ conn_subsys: bus@5b000000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		clocks = <&usb3_lpcg IMX_LPCG_CLK_1>,
-			 <&usb3_lpcg IMX_LPCG_CLK_0>,
-			 <&usb3_lpcg IMX_LPCG_CLK_7>,
-			 <&usb3_lpcg IMX_LPCG_CLK_4>,
-			 <&usb3_lpcg IMX_LPCG_CLK_5>;
+		clocks = <&usb3_lpcg 1>,
+			 <&usb3_lpcg 0>,
+			 <&usb3_lpcg 5>,
+			 <&usb3_lpcg 2>,
+			 <&usb3_lpcg 3>;
 		clock-names = "lpm", "bus", "aclk", "ipg", "core";
 		assigned-clocks = <&clk IMX_SC_R_USB_2 IMX_SC_PM_CLK_MST_BUS>;
 		assigned-clock-rates = <250000000>;
@@ -196,7 +196,7 @@ conn_subsys: bus@5b000000 {
 	usb3_phy: usb-phy@5b160000 {
 		compatible = "nxp,salvo-phy";
 		reg = <0x5b160000 0x40000>;
-		clocks = <&usb3_lpcg IMX_LPCG_CLK_6>;
+		clocks = <&usb3_lpcg 4>;
 		clock-names = "salvo_phy_clk";
 		power-domains = <&pd IMX_SC_R_USB_2_PHY>;
 		#phy-cells = <0>;
