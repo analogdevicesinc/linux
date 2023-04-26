@@ -5113,6 +5113,10 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
+	ret = devm_add_action_or_reset(dev, ad9361_clk_disable, phy->clks[RX_RFPLL]);
+	if (ret)
+		return ret;
+
 	/* Skip quad cal here we do it later again */
 	st->last_tx_quad_cal_freq = pd->tx_synth_freq;
 	ret = clk_set_rate(phy->clks[TX_RFPLL], ad9361_to_clk(pd->tx_synth_freq));
@@ -5124,6 +5128,10 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 	ret = clk_prepare_enable(phy->clks[TX_RFPLL]);
 	if (ret < 0)
+		return ret;
+
+	ret = devm_add_action_or_reset(dev, ad9361_clk_disable, phy->clks[TX_RFPLL]);
+	if (ret)
 		return ret;
 
 	clk_set_parent(phy->clks[RX_RFPLL],
@@ -6607,6 +6615,20 @@ static int ad9361_clks_resync(struct ad9361_rf_phy *phy)
 	return 0;
 }
 
+static void ad9361_unregister_rx_notifier(void *data)
+{
+	struct ad9361_rf_phy *phy = data;
+
+	clk_notifier_unregister(phy->clks[RX_RFPLL], &phy->clk_nb_rx);
+}
+
+static void ad9361_unregister_tx_notifier(void *data)
+{
+	struct ad9361_rf_phy *phy = data;
+
+	clk_notifier_unregister(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
+}
+
 static int register_clocks(struct ad9361_rf_phy *phy)
 {
 	const char *parent_name;
@@ -6714,9 +6736,17 @@ static int register_clocks(struct ad9361_rf_phy *phy)
 	if (ret < 0)
 		return ret;
 
+	ret = devm_add_action_or_reset(&phy->spi->dev, ad9361_unregister_rx_notifier, phy);
+	if (ret)
+		return ret;
+
 	phy->clk_nb_tx.notifier_call = ad9361_tx_rfpll_rate_change;
 	ret = clk_notifier_register(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
 	if (ret < 0)
+		return ret;
+
+	ret = devm_add_action_or_reset(&phy->spi->dev, ad9361_unregister_tx_notifier, phy);
+	if (ret)
 		return ret;
 
 	return 0;
@@ -9439,6 +9469,16 @@ static int ad9361_spi_check(struct spi_device *spi)
 	return t.effective_speed_hz;
 }
 
+static void ad9361_remove_ext_band_control(void *phy)
+{
+	ad9361_unregister_ext_band_control(phy);
+}
+
+static void ad9361_clk_del_provider(void *of_node)
+{
+	of_clk_del_provider(of_node);
+}
+
 static int ad9361_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -9503,6 +9543,10 @@ static int ad9361_probe(struct spi_device *spi)
 			 "%s: failed to initialize ext band control\n",
 			 __func__);
 
+	ret = devm_add_action_or_reset(&spi->dev, ad9361_remove_ext_band_control, phy);
+	if (ret)
+		return ret;
+
 	phy->gt_info = ad9361_adi_gt_info;
 
 	ad9361_request_gt(phy, NULL);
@@ -9530,12 +9574,16 @@ static int ad9361_probe(struct spi_device *spi)
 
 	ret = ad9361_setup(phy);
 	if (ret < 0)
-		goto out_unregister_notifier;
+		return ret;
 
 	ret = of_clk_add_provider(spi->dev.of_node,
 			    of_clk_src_onecell_get, &phy->clk_data);
 	if (ret)
-		goto out_disable_clocks;
+		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, ad9361_clk_del_provider, spi->dev.of_node);
+	if (ret)
+		return ret;
 
 	sysfs_bin_attr_init(&phy->bin);
 	phy->bin.attr.name = "filter_fir_config";
@@ -9564,19 +9612,18 @@ static int ad9361_probe(struct spi_device *spi)
 	indio_dev->num_channels = ARRAY_SIZE(ad9361_phy_chan) -
 		(phy->pdata->rx2tx2 ? 0 : 2);
 
-	ret = iio_device_register(indio_dev);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret < 0)
-		goto out_clk_del_provider;
+		return ret;
 	ret = ad9361_register_axi_converter(phy);
 	if (ret < 0)
-		goto out_iio_device_unregister;
+		return ret;
 	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
 	if (ret < 0)
-		goto out_iio_device_unregister;
+		return ret;
 	ret = sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin_gt);
 	if (ret < 0)
-		goto out_iio_device_unregister;
-
+		return ret;
 
 	ret = ad9361_register_debugfs(indio_dev);
 	if (ret < 0)
@@ -9588,34 +9635,6 @@ static int ad9361_probe(struct spi_device *spi)
 	else
 		dev_info(&spi->dev, "%s : AD936x Rev %d successfully initialized",
 				__func__, rev);
-
-	return 0;
-
-out_iio_device_unregister:
-	iio_device_unregister(indio_dev);
-out_clk_del_provider:
-	of_clk_del_provider(spi->dev.of_node);
-out_disable_clocks:
-	ad9361_clks_disable(phy);
-out_unregister_notifier:
-	clk_notifier_unregister(phy->clks[RX_RFPLL], &phy->clk_nb_rx);
-	clk_notifier_unregister(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
-
-	return ret;
-}
-
-static int ad9361_remove(struct spi_device *spi)
-{
-	struct ad9361_rf_phy *phy = ad9361_spi_to_phy(spi);
-
-	ad9361_unregister_ext_band_control(phy);
-	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin_gt);
-	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin);
-	iio_device_unregister(phy->indio_dev);
-	of_clk_del_provider(spi->dev.of_node);
-	clk_notifier_unregister(phy->clks[RX_RFPLL], &phy->clk_nb_rx);
-	clk_notifier_unregister(phy->clks[TX_RFPLL], &phy->clk_nb_tx);
-	ad9361_clks_disable(phy);
 
 	return 0;
 }
@@ -9635,7 +9654,6 @@ static struct spi_driver ad9361_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ad9361_probe,
-	.remove		= ad9361_remove,
 	.id_table	= ad9361_id,
 };
 module_spi_driver(ad9361_driver);
