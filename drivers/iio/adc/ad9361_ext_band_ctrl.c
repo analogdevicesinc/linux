@@ -365,18 +365,22 @@ static int ad9361_populate_settings(struct device *dev,
 			break;
 
 		new = devm_kzalloc(dev, sizeof(*new), GFP_KERNEL);
-		if (!new)
+		if (!new) {
+			of_node_put(child);
 			return -ENOMEM;
+		}
 
 		dev_dbg(dev, "Found '%s'\n", child->name);
 		ret = ad9361_parse_setting_with_freq_range(dev, child,
 						ctl, new);
 		if (ret < 0) {
+			of_node_put(child);
 			dev_err(dev, "Error while parsing '%s': %d\n",
 				child->name, ret);
 			return ret;
 		}
 		list_add_tail(&new->list, lst);
+		of_node_put(child);
 	}
 
 	return cnt;
@@ -400,12 +404,18 @@ static int ad9361_populate_hooks(struct device *dev,
 
 		ctl->hooks[i] = devm_kzalloc(dev, sizeof(*ctl->hooks[i]),
 					     GFP_KERNEL);
-		if (!ctl->hooks[i])
+		if (!ctl->hooks[i]) {
+			of_node_put(child);
 			return -ENOMEM;
+		}
 
 		ret = ad9361_parse_setting(dev, child, ctl, ctl->hooks[i], NULL);
-		if (ret < 0)
+		if (ret < 0) {
+			of_node_put(child);
 			return ret;
+		}
+
+		of_node_put(child);
 	}
 	return 0;
 }
