@@ -136,7 +136,7 @@
 
 	sound-micfil {
 		compatible = "fsl,imx-audio-card";
-		model = "imx-audio-micfil";
+		model = "micfil-audio";
 		pri-dai-link {
 			link-name = "micfil hifi";
 			format = "i2s";
