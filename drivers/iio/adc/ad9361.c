@@ -4939,6 +4939,11 @@ static unsigned long ad9361_ref_div_sel(unsigned long refin_Hz, unsigned long ma
 		return 0;
 }
 
+static void ad9361_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
 static int ad9361_setup(struct ad9361_rf_phy *phy)
 {
 	struct ad9361_rf_phy_state *st = phy->state;
@@ -5003,6 +5008,10 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 
 	ret = clk_prepare_enable(phy->clk_refin);
 	if (ret < 0)
+		return ret;
+
+	ret = devm_add_action_or_reset(dev, ad9361_clk_disable, phy->clk_refin);
+	if (ret)
 		return ret;
 
 	ret = clk_set_rate(phy->clks[BB_REFCLK], ref_freq);
