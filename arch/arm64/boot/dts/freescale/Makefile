@@ -257,7 +257,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-9x9-qsb.dtb \
 			  imx93-9x9-qsb-ontat-wvga-panel.dtb \
 			  imx93-9x9-qsb-i3c.dtb \
 			  imx93-9x9-qsb-lpspi.dtb imx93-9x9-qsb-lpspi-slave.dtb \
-			  imx93-9x9-qsb-aud-hat.dtb
+			  imx93-9x9-qsb-aud-hat.dtb \
+			  imx93-9x9-qsb-ld.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-tqma9352-mba93xxca.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-tqma9352-mba93xxla.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-var-som-symphony.dtb
