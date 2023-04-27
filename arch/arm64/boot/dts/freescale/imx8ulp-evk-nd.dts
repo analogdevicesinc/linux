@@ -12,11 +12,11 @@
 };
 
 &gpu3d {
-	assigned-clock-rates = <200000000>, <200000000>, <200000000>;
+	assigned-clock-rates = <396000000>, <198000000>, <198000000>;
 };
 
 &gpu2d {
-	assigned-clock-rates = <200000000>, <200000000>, <200000000>;
+	assigned-clock-rates = <396000000>, <198000000>, <198000000>;
 };
 
 &dcnano {
@@ -30,7 +30,17 @@
 &dsp {
 	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>;
 	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0>;
-	assigned-clock-rates = <0>, <260000000>;
+	assigned-clock-rates = <0>, <264000000>;
+};
+
+&flexspi2 {
+	assigned-clocks = <&pcc4 IMX8ULP_CLK_FLEXSPI2>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV2>;
+	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV2>;
+	assigned-clock-rates = <0>, <96000000>;
+};
+
+&mx25uw51345gxdi00 {
+	spi-max-frequency = <96000000>;
 };
 
 &i3c2 {
@@ -44,13 +54,13 @@
 };
 
 &usdhc1 {
-	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>, <&pcc4 IMX8ULP_CLK_USDHC1>;
-	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>;
-	assigned-clock-rates = <97320960>, <97320960>;
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC1>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>;
+	assigned-clock-rates = <96000000>, <96000000>;
 };
 
 &usdhc2 {
-	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>, <&pcc4 IMX8ULP_CLK_USDHC2>;
-	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV2>;
-	assigned-clock-rates = <97320960>, <97320960>;
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC2>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>;
+	assigned-clock-rates = <96000000>, <96000000>;
 };
