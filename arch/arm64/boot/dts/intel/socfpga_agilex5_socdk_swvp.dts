@@ -73,6 +73,8 @@
 	status = "okay";
 	bus-width = <4>;
 	sd-uhs-sdr50;
+	sdhci-caps = <0x00000000 0x0000c800>;
+	sdhci-caps-mask = <0x00002000 0x0000ff00>;
 	no-sdio;
 	cdns,phy-use-ext-lpbk-dqs = <1>;
 	cdns,phy-use-lpbk-dqs = <1>;
