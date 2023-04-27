@@ -113,6 +113,373 @@ properties:
     minimum: 0
     maximum: 0x7f
 
+  # COMBOPHY value generated from Cadence script:
+  # They are used to program the PHY based on different SD speed selected.
+
+  cdns,phy-use-ext-lpbk-dqs:
+    description: |
+      Bit to choose lpbk_dqs to capture data for reads. It is valid
+      when 'use_phony_dqs' and 'use_lpbk_dqs' fields are set high.
+      0 - use internal lpbk_dqs (mem_rebar_ipad) for data
+      capture.
+      1 - use external lpbk_dqs (lpbk_dqs connected to the
+      lpbk_dqs_IO PAD) for data capture.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 1
+
+  cdns,phy-use-lpbk-dqs:
+    description: |
+      Bit to choose lpbk_dqs to capture data for reads. It is valid
+      when 'use_phony_dqs' is set high.
+      0 - Use phony DQS for data capture.
+      1 - Use lpbk_dqs for data capture. Recommended setting
+      for SD/eMMC controller.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 1
+
+  cdns,phy-use-phony-dqs:
+    description: |
+      Bit to choose lpbk_dqs or phony DQS (generated in the control
+      slice logic) or DQS from the device to capture data for reads.
+      0 - Use DQS from device for data capture.
+      1 - Use phony DQS or lpbk_dqs for data capture. Bit 21
+      of the phy_dqs_timing_reg is used the choose the source
+      signal.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 1
+
+  cdns,phy-use-phony-dqs-cmd:
+    description: |
+      Bit to choose phony DQS (or lpbk_dqs) from the control slice
+      logic or DQS from the device to capture command data for
+      reads.
+      0 - Use DQS from device for command data capture.
+      1 - Use phony DQS or lpbk_dqs for command data capture.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 1
+
+  cdns,phy-io-mask-always-on:
+    description: |
+      Defines if the IO mask for DATA/CMD is always enabled.
+      0 = disable ie. start/end defines the IO mask functionality.
+      Recommended setting for SD/eMMC controller.
+      1 = IO mask is always ON
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 1
+
+  cdns,phy-io-mask-end:
+    description: |
+      Adjusts the ending point of the DQ/CMD pad input mask
+      enable. Defines the delay after dfi_wrdata_en/dfi_wrcmd_en
+      goes high when the mask is disabled (data/cmd are blocked
+      and 1'b1 are passed to PHY)
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x7
+
+  cdns,phy-io-mask-start:
+    description: |
+      Adjusts the starting point of the DQ/CMD pad input mask
+      enable. Defines the delay after dfi_wrdata_en/dfi_wrcmd_en
+      goes low when the mask is enabled (data/cmd are passed to
+      PHY).
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x7
+
+  cdns,phy-data-select-oe-end:
+    description: |
+      Adjusts the ending point of the DQ pad output enable window.
+      Lower numbers pull the falling edge earlier in time and larger
+      numbers cause the falling edge to be delayed. Each bit changes
+      the output enable time by a 1/2 cycle resolution.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x7
+
+  cdns,phy-sync-method:
+    description: |
+      Adjusts the ending point of the DQ pad output enable window.
+      Lower numbers pull the falling edge earlier in time and larger
+      numbers cause the falling edge to be delayed. Each bit changes
+      the output enable time by a 1/2 cycle resolution.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+  cdns,phy-sw-half-cycle-shift:
+    description: |
+      1'b0 - No effect.
+      1'b1 - Adds a half clock delay to the write data path
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+  cdns,phy-rd-del-sel:
+    description: |
+      Defines the read data delay. Holds the number of cycles
+      to delay the dfi_rddata_en signal prior to enabling the read
+      FIFO. After this delay, the read pointers begin incrementing
+      the read FIFO. If 'sync_method' is set high the value of this
+      field must take into account the synchronization time of the
+      pointers in the entry FIFO (adding three clock cycles should
+      be sufficient)
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x40
+
+  cdns,phy-underrun-suppress:
+    description: |
+      This field turns off the generation of the underrun signal when
+      'sync_method' is set high. Recommended value is zero with
+      an expetion for Cadence SD/eMMC controller for which this
+      field need to be set high.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+  cdns,phy-gate-cfg-always-on:
+    description: |
+      This parameter cause the gate to be always on. Recommended
+      setting for SD/eMMC controller is 1.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+  cdns,phy-param-dll-bypass-mode:
+    description: |
+      DLL bypass mode control. Controls the bypass mode of
+      the master and slave DLLs. The param_dll_bypass_mode is
+      intended to be used only for debug.
+      0 - Normal operational mode. DLL functioning in normal
+      mode of operation where the slave delay line settings are
+      used as fractional delay of the master delay line encoder
+      reading of the number of delays in one cycle.
+      1 - Bypass mode on. Delays are defined in
+      phy_dll_slave_ctrl_reg. Master DLL is disabled with only
+      1 delay element in its delay line. The slave delay
+      lines decode delays in absolute delay elements rather than
+      as fractional delays. The dll_lock field (bit [0]) of the
+      phy_dll_obs_reg_0 parameter will be forced high.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+  cdns,phy-param-phase-detect-sel:
+    description: |
+      Selects the number of delay elements to be inserted between
+      the phase detect flip-flops. Defaults to 0x0 although the
+      recommended value is 2 elements but if a lock condition is
+      not detected, the user should increase the number of delay
+      elements.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x7
+
+  cdns,phy-param-dll-start-point:
+    description: |
+      This value is the initial delay value for the DLL. This value
+      is also used as the increment value if the initial value is less
+      than a half-clock cycle. This field should be set such that it
+      is not greater than 7/8ths of a clock period given the worst
+      case element delay. For example, if the frequency is 200MHz
+      (5ns cycle time) with a worst case element 80ps delay, this
+      field should be set to = 5 * (7/8) / .080 = 54 elements. This
+      calculation helps determine the start point which achieves the
+      fastest lock. However, a small value such as 0x04 may be used
+      instead to ensure that the DLL does not lock on a harmonic.
+      Note that with a small value like this, the initial lock time will
+      be longer. Value smaller than 0x04 may cause no lock by DLL.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x7
+
+  cdns,phy-read-dqs-cmd-delay:
+    description: |
+      Controls the read command DQS delay which adjusts the
+      timing in 1/256th of the clock period when in normal DLL
+      locked mode. In bypass mode, this field directly programs the
+      number of delay elements.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x100
+
+  cdns,phy-clk-wrdqs-delay:
+    description: |
+      Controls the clk_wrdqs delay line which adjusts the write DQS
+      timing in 1/256th steps of the clock period in normal DLL
+      locked mode. In bypass mode, this field directly programs the
+      number of delay elements. clk_wrdqs delay line is used to
+      adjust the write CMD bit timing.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x100
+
+  cdns,phy-clk-wr-delay:
+    description: |
+      Controls the clk_wr delay line which adjusts the write DQ bit
+      timing in 1/256th steps of the clock period in normal DLL
+      locked mode. In bypass mode, this field directly programs the
+      number of delay elements.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x100
+
+  cdns,phy-read-dqs-delay:
+    description: |
+      Controls the read DQS delay which adjusts the timing in
+      1/256th of the clock period when in normal DLL locked mode.
+      In bypass mode, this field directly programs the number of
+      delay elements.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x100
+
+  cdns,phy-phony-dqs-timing:
+    description: |
+      The timing of assertion of phony DQS to the data slices. If
+      the extended_read_mode is disabled the value should be zero.
+      If the extended_read_mode is enabled the value should match
+      the width of the rebar pulse in terms of clock PHY clock cycles
+      reduced by 1. e.g. if rebar pulse width is 4 clock cycles the
+      value of this field should be 3.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x40
+
+  cdns,hrs09-rddata-en:
+    description: |
+      If 1, dfi_rddata_en is forced to 1, else host logic controls the signal.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs09-rdcmd-en:
+    description: |
+      If 1, dfi_rdcmd_en is forced to 1, else host logic controls the signal.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs09-extended-wr-mode:
+    description: |
+      Controls sdphy_param_extended_wr_mode port. Non of software resets clear this register.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs09-extended-rd-mode:
+    description: |
+      Controls sdphy_param_extended_rd_mode port.
+      Non of software resets clear this register.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs10-hcsdclkadj:
+    description: |
+      This field allows to adjust flow control mechanism which disables SDCLK.
+      With value 0, the clock (dfi_webar/dfi_webar_high) will be disabled
+      right after end bit of the data block. Increasing this value will
+      cause that clock signal is to be disabled earlier with SDCLK period step.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0xf
+
+   cdns,hrs16-wrdata1-sdclk-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrdata[15:8] signal.
+      The delay is equal value * t_SDCLK/2.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs16-wrdata0-sdclk-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrdata[7:0] signal.
+      The delay is equal value * t_SDCLK/2.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs16-wrcmd1-sdclk-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrcmd signal.
+      The delay is equal value * t_SDCLK/2.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs16-wrcmd0-sdclk-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrcmd signal.
+      The delay is equal value * t_SDCLK/2.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs16-wrdata1-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrdata[15:8] signal.
+      The delay is equal value * t_SDMCLK.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs16-wrdata0-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrdata[7:0] signal.
+      The delay is equal value * t_SDMCLK.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs16-wrcmd1-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrcmd[1] signal.
+      The delay is equal value * t_SDMCLK.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs16-wrcmd0-dly:
+    description: |
+      Value in this field defines a delay of the dfi_wrcmd[0] signal.
+      The delay is equal value * t_SDMCLK.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs07-rw-compensate:
+    description: |
+      According to delays between PAD and dfi_rddata, dfi_wrdata and PAD
+      and to Read Wait timing requirements, the signal dat[2] should be set
+      to 0 earlier than controller read the end bit of read data.
+      Designer should update this register with delay of data path count
+      in sdmclk clock cycles. If the value is greater than 10 and value of field
+      SDCLK Frequency Select (concatenation of SRS11.SDCFSH, SRS11.SDCFSL)
+      is equal 0, then io_mask_start parameter in PHY register
+      phy_dq_timing_reg should be set with value equal (RW_COMPENSATE-10)*2.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
+   cdns,hrs07-idelay-val:
+    description: |
+      Designer should update this register with delay value of IO with
+      appriopriate input delay. Delay is count in half of period of sdmclk.
+      If sdmclk is working at 200MHz frequency, then 1 is 2,5 ns.
+      This value will be used to compensate delay of DAT line when controller
+      is reading Card Interrupt.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    minimum: 0
+    maximum: 0x1
+
 required:
   - compatible
   - reg
