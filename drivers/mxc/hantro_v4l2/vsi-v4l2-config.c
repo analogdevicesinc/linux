@@ -2009,19 +2009,18 @@ static int vsiv4l2_getfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 {
 	struct vsi_v4l2_mediacfg *pcfg = &ctx->mediacfg;
 	struct v4l2_pix_format *pix = &fmt->fmt.pix;
-	int braw = brawfmt(ctx->flag, fmt->type);
 	int *psize = (binputqueue(fmt->type) ? pcfg->sizeimagesrc : pcfg->sizeimagedst);
 
 	if (binputqueue(fmt->type)) {
 		pix->width = pcfg->decparams.dec_info.io_buffer.srcwidth;
 		pix->height = pcfg->decparams.dec_info.io_buffer.srcheight;
-		pix->pixelformat = find_local_dec_format(pcfg->decparams.dec_info.io_buffer.inputFormat, braw);
+		pix->pixelformat = pcfg->infmt_fourcc;
 		pix->bytesperline = pix->width;
 	} else {
 		pix->width = pcfg->decparams.dec_info.io_buffer.output_width;
 		pix->height = pcfg->decparams.dec_info.io_buffer.output_height;
 		pix->bytesperline = pcfg->bytesperline;
-		pix->pixelformat = find_local_dec_format(pcfg->decparams.dec_info.io_buffer.outBufFormat, braw);
+		pix->pixelformat = pcfg->outfmt_fourcc;
 	}
 	pix->field = pcfg->field;
 	pix->sizeimage = get_plane_size(psize, 0, 1);
