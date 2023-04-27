@@ -272,12 +272,6 @@ static int vsi_enc_qbuf(struct file *filp, void *priv, struct v4l2_buffer *buf)
 	if (!isvalidtype(buf->type, ctx->flag))
 		return -EINVAL;
 
-	//ignore input buf in spec's STOP state
-	if (binputqueue(buf->type) &&
-		(ctx->status == ENC_STATUS_STOPPED) &&
-		!vb2_is_streaming(&ctx->input_que))
-		return 0;
-
 	if (mutex_lock_interruptible(&ctx->ctxlock))
 		return -EBUSY;
 
