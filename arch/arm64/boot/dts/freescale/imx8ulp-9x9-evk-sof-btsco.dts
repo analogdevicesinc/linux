@@ -76,8 +76,9 @@
 	pinctrl-0 = <&pinctrl_sai6>;
 	pinctrl-1 = <&pinctrl_sai6>;
 
-	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc2 IMX8ULP_CLK_SAI6_SEL>;
-	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4>,  <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
+	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc2 IMX8ULP_CLK_SAI6_SEL>, <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>;
+	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0>,  <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
+	assigned-clock-rates = <0>, <0>, <475200000>;
 
 	clocks = <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>,
 			<&cgc2 IMX8ULP_CLK_LPAV_BUS_DIV>,

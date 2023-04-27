@@ -239,8 +239,9 @@
 };
 
 &dsp {
-	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>;
-	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4>;
+	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>;
+	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0>;
+	assigned-clock-rates = <0>, <475200000>;
 	memory-region = <&dsp_vdev0buffer>, <&dsp_vdev0vring0>,
 			<&dsp_vdev0vring1>, <&dsp_reserved>;
 	status = "okay";
