@@ -2101,8 +2101,16 @@ static int ad9081_setup_tx(struct spi_device *spi)
 	u64 sample_rate, status64;
 	int ret, i;
 
-	if (phy->tx_disable)
+	if (phy->tx_disable) {
+		/* Disable DAC core clock domain and reduce power consumption */
+		adi_ad9081_dac_tx_enable_set(&phy->ad9081, AD9081_DAC_ALL, 0);
+		adi_ad9081_hal_reg_set(&phy->ad9081,
+			REG_ENABLE_TIMING_CTRL_DAC0_ADDR, 0x0);
+		adi_ad9081_hal_reg_set(&phy->ad9081,
+			REG_ENABLE_TIMING_CTRL_DAC1_ADDR, 0x0);
+
 		return 0;
+	}
 
 	memcpy(phy->ad9081.serdes_info.des_settings.lane_mapping[0],
 		phy->jrx_link_tx[0].logiclane_mapping,
