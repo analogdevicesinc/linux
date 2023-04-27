@@ -1075,7 +1075,7 @@
 				clock-names = "core", "rx_esc", "tx_esc", "phy_ref";
 				power-domains = <&scmi_devpd IMX8ULP_PD_MIPI_DSI>;
 				assigned-clocks = <&pcc5 IMX8ULP_CLK_DSI>;
-				assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD3_DIV2>;
+				assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD1_DIV2>;
 				assigned-clock-rates = <79200000>;
 				interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
 				mux-controls = <&mux 0>;
@@ -1126,8 +1126,8 @@
 					 <&pcc5 IMX8ULP_CLK_EPDC>,
 					 <&cgc2 IMX8ULP_CLK_LPAV_AHB_DIV>;
 				clock-names = "epdc_axi", "epdc_pix", "epdc_ahb";
-				assigned-clocks = <&pcc5 IMX8ULP_CLK_EPDC>, <&cgc2 IMX8ULP_CLK_PLL4_PFD0_DIV2>;
-				assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0_DIV2>;
+				assigned-clocks = <&pcc5 IMX8ULP_CLK_EPDC>, <&cgc2 IMX8ULP_CLK_PLL4_PFD3_DIV2>;
+				assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD3_DIV2>;
 				assigned-clock-rates = <0>, <40000000>;
 				power-domains = <&scmi_devpd IMX8ULP_PD_PXP>;
 				interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
@@ -1162,9 +1162,9 @@
 			assigned-clock-parents = <0>,
 				<0>,
 				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>;
-			assigned-clock-rates = <316800000>,
-				<316800000>,
-				<316800000>;
+			assigned-clock-rates = <288000000>,
+				<288000000>,
+				<288000000>;
 		};
 
 		gpu2d: gpu2d@2e010000 {
@@ -1182,9 +1182,9 @@
 			assigned-clock-parents = <0>,
 				<0>,
 				<&cgc2 IMX8ULP_CLK_PLL4_PFD2_DIV2>;
-			assigned-clock-rates = <316800000>,
-				<316800000>,
-				<316800000>;
+			assigned-clock-rates = <288000000>,
+				<288000000>,
+				<288000000>;
 		};
 
 		dcnano: display-controller@2e050000 {
@@ -1198,7 +1198,7 @@
 			resets = <&pcc5 PCC5_DC_NANO_SWRST>;
 			power-domains = <&scmi_devpd IMX8ULP_PD_DCNANO>;
 			assigned-clocks = <&pcc5 IMX8ULP_CLK_DC_NANO>;
-			assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0_DIV1>;
+			assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD3_DIV2>;
 			status = "disabled";
 
 			ports {
