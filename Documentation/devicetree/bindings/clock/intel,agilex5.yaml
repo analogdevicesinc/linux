@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/intel,agilex5.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Intel SoCFPGA Agilex5 platform clock controller binding
+
+maintainers:
+  - Teh Wen Ping <wen.ping.teh@intel.com>
+
+description:
+  The Intel Agilex5 Clock controller is an integrated clock controller, which
+  generates and supplies to all modules.
+
+properties:
+  compatible:
+    const: intel,agilex5-clkmgr
+
+  '#clock-cells':
+    const: 1
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - '#clock-cells'
+
+additionalProperties: false
+
+examples:
+  # Clock controller node:
+  - |
+    clkmgr: clock-controller@10d10000 {
+      compatible = "intel,agilex5-clkmgr";
+      reg = <0x10d10000 0x1000>;
+      #clock-cells = <1>;
+    };
+...
