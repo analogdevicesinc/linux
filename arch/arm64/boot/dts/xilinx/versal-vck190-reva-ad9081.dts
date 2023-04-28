@@ -89,12 +89,6 @@
 	status = "okay";
 };
 
-&sysmon {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	xlnx,numchannels = /bits/8 <0>;
-};
-
 &serial0 {
 	cts-override ;
 	device_type = "serial";
