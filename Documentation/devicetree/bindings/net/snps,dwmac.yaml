@@ -514,6 +514,11 @@ properties:
     description:
       Enable hardware-accelerated RX VLAN stripping.
 
+  altr,smtg-hub:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Enable Synchronized Multidrop Timestamp Gathering(SMTG).
+
   mdio:
     $ref: mdio.yaml#
     unevaluatedProperties: false
