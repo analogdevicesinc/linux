@@ -854,6 +854,24 @@ static const struct pca9450_regulator_desc pca9451a_regulators[] = {
 	},
 	{
 		.desc = {
+			.name = "ldo3",
+			.of_match = of_match_ptr("LDO3"),
+			.regulators_node = of_match_ptr("regulators"),
+			.id = PCA9450_LDO3,
+			.ops = &pca9450_ldo_regulator_ops,
+			.type = REGULATOR_VOLTAGE,
+			.n_voltages = PCA9450_LDO3_VOLTAGE_NUM,
+			.linear_ranges = pca9450_ldo34_volts,
+			.n_linear_ranges = ARRAY_SIZE(pca9450_ldo34_volts),
+			.vsel_reg = PCA9450_REG_LDO3CTRL,
+			.vsel_mask = LDO3OUT_MASK,
+			.enable_reg = PCA9450_REG_LDO3CTRL,
+			.enable_mask = LDO3_EN_MASK,
+			.owner = THIS_MODULE,
+		},
+	},
+	{
+		.desc = {
 			.name = "ldo4",
 			.of_match = of_match_ptr("LDO4"),
 			.regulators_node = of_match_ptr("regulators"),
@@ -970,6 +988,7 @@ static int pca9450_i2c_probe(struct i2c_client *i2c)
 		pca9450->rcnt = ARRAY_SIZE(pca9450bc_regulators);
 		break;
 	case PCA9450_TYPE_PCA9451A:
+	case PCA9450_TYPE_PCA9452:
 		regulator_desc = pca9451a_regulators;
 		pca9450->rcnt = ARRAY_SIZE(pca9451a_regulators);
 		break;
@@ -993,7 +1012,8 @@ static int pca9450_i2c_probe(struct i2c_client *i2c)
 	/* Check your board and dts for match the right pmic */
 	if (((device_id >> 4) != 0x1 && type == PCA9450_TYPE_PCA9450A) ||
 	    ((device_id >> 4) != 0x3 && type == PCA9450_TYPE_PCA9450BC) ||
-	    ((device_id >> 4) != 0x9 && type == PCA9450_TYPE_PCA9451A)) {
+	    ((device_id >> 4) != 0x9 && type == PCA9450_TYPE_PCA9451A) ||
+	    ((device_id >> 4) != 0x9 && type == PCA9450_TYPE_PCA9452)) {
 		dev_err(&i2c->dev, "Device id(%x) mismatched\n",
 			device_id >> 4);
 		return -EINVAL;
@@ -1004,16 +1024,20 @@ static int pca9450_i2c_probe(struct i2c_client *i2c)
 		struct regulator_dev *rdev;
 		const struct pca9450_regulator_desc *r;
 
-		if (type == PCA9450_TYPE_PCA9451A &&
+		if ((type == PCA9450_TYPE_PCA9451A || type == PCA9450_TYPE_PCA9452) &&
 		    !strcmp((&regulator_desc[i])->desc.name, "buck1") && pmic_trim) {
 			r = &regulator_desc[i + 1];
 			i = i + 1;
-		} else if (type == PCA9450_TYPE_PCA9451A &&
+		} else if ((type == PCA9450_TYPE_PCA9451A || type == PCA9450_TYPE_PCA9452) &&
 			   !strcmp((&regulator_desc[i])->desc.name, "buck1")) {
 			r = &regulator_desc[i];
 			i = i + 1;
-		} else
+		} else if (type == PCA9450_TYPE_PCA9451A &&
+			 !strcmp((&regulator_desc[i])->desc.name, "ldo3"))
+			continue;
+		else
 			r = &regulator_desc[i];
+
 		desc = &r->desc;
 
 		config.regmap = pca9450->regmap;
@@ -1117,6 +1141,10 @@ static const struct of_device_id pca9450_of_match[] = {
 	{
 		.compatible = "nxp,pca9451a",
 		.data = (void *)PCA9450_TYPE_PCA9451A,
+	},
+	{
+		.compatible = "nxp,pca9452",
+		.data = (void *)PCA9450_TYPE_PCA9452,
 	},
 	{ }
 };
