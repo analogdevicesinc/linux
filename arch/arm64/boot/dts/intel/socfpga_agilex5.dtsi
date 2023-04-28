@@ -201,6 +201,7 @@
 			snps,multi-irq-en;
 			snps,tso;
 			altr,sysmgr-syscon = <&sysmgr 0x44 0>;
+			altr,smtg-hub;
 			snps,rx-vlan-offload;
 			clocks = <&clkmgr AGILEX5_EMAC0_CLK>, <&clkmgr AGILEX5_EMAC_PTP_CLK>;
 			clock-names = "stmmaceth", "ptp_ref";
