@@ -94,6 +94,7 @@ jobs:
     DTS_FILES: "arch/arm/boot/dts/zynq-*.dts
                 arch/arm/boot/dts/socfpga_*.dts
                 arch/arm64/boot/dts/xilinx/zynqmp-*.dts
+                arch/arm64/boot/dts/xilinx/versal-*.dts
                 arch/microblaze/boot/dts/*.dts
                 arch/nios2/boot/dts/*.dts"
   steps:
