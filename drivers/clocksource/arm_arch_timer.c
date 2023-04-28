@@ -266,6 +266,12 @@ struct ate_acpi_oem_info {
 	u32 oem_revision;
 };
 
+struct clocksource * get_clocksource()
+{
+	return &clocksource_counter;
+}
+EXPORT_SYMBOL_GPL(get_clocksource);
+
 #ifdef CONFIG_FSL_ERRATUM_A008585
 /*
  * The number of retries is an arbitrary value well beyond the highest number
