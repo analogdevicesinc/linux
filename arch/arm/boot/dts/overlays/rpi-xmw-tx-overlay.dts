@@ -1,0 +1,224 @@
+//////////////////////////////////////////////////////////////////////////
+// SPDX-License-Identifier: GPL-2.0
+//
+// Edit config.txt in the boot partition of your SD card as follows to 
+// enable spi0 and spi1 (SPI1 and SPI2 on XMW Bridge Board) with 1 and 2 
+// CS pins respectively.
+// 
+// Uncomment this line to turn on the SPI interface:
+// dtparam=spi=on
+//
+// Add these lines under [all] at the end of the file to enable overlays:
+//
+// [all]
+// dtoverlay=rpi-xmw-tx
+// dtoverlay=spi0-1cs
+// dtoverlay=spi1-2cs 
+//
+//////////////////////////////////////////////////////////////////////////
+
+/dts-v1/;
+/plugin/;
+
+
+/ {
+    compatible = "brcm,bcm2711";
+
+    fragment@0 {
+		target = <&spidev0>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+    fragment@1 {
+		target = <&spidev1>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+    fragment@2 {
+        target = <&spi0_cs_pins>;                           // Defining GPIO pin 8 as CS0 pin for spi0 (SPI1 on XMW Bridge Board)  
+
+        __overlay__ {
+            brcm,pins = <8>;
+            brcm,function = <1>; //output
+        };
+    };
+    
+    fragment@3 {
+        target = <&spi1_cs_pins>;                           // Defining GPIO pins 18, 17 as CS0 and CS1 pins for spi1 (SPI2 on XMW Bridge Board)  
+
+        __overlay__ {
+            brcm,pins = <18 17>;
+            brcm,function = <1>; //output
+        };
+    };
+
+    fragment@4 {
+        target-path = "/";
+
+        __overlay__ {
+            clocks {
+				admv8818_rfin: clock@0 {
+					#clock-cells = <0>;
+                    compatible = "fixed-clock";
+					clock-frequency = <100000000>;          // 100MHz
+					clock-output-names = "rf_in";					
+				};
+                adf4371_clkin: clock@1 {
+					     #clock-cells = <0>;
+					     compatible = "fixed-clock";
+					     clock-frequency = <100000000>;     // 100MHz 
+                         clock-output-names = "clkin";
+			    }; 
+			};
+
+            adrf5020_control@0 {
+                label = "adrf5020_control";
+                compatible = "adi,one-bit-adc-dac";         // 1-bit switch controlled with GPIO pin 4 on the RPI
+                #address-cells = <1>;
+                #size-cells = <0>;
+                out-gpios = <&gpio  0x04 0>;    
+
+                channel@0 {
+                    reg = <0>;
+                    label = "SW1_CTL_IN";
+                };
+            };
+
+            adrf5730_control@0 {
+                label = "adrf5730_control";                 // 6-bit DSA controlled with GPIO pins 14, 15, 27, 22, 23, 24 on the RPI
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                out-gpios = <&gpio  0x0e 0>, <&gpio  0x0f 0>, <&gpio  0x1b 0>, <&gpio  0x16 0>, <&gpio  0x17 0>, <&gpio  0x18 0>;
+
+                channel@0 {
+                    reg = <0>;
+                    label = "DSA1_D0";
+                };
+                channel@1 {
+                    reg = <1>;
+                    label = "DSA1_D1";
+                };
+                channel@2 {
+                    reg = <2>;
+                    label = "DSA1_D2";
+                };
+                channel@3 {
+                    reg = <3>;
+                    label = "DSA1_D3";
+                };
+                channel@4 {
+                    reg = <4>;
+                    label = "DSA1_D4";
+                };
+                channel@5 {
+                    reg = <5>;
+                    label = "DSA1_D5";
+                };
+            };
+        };
+    };
+
+    fragment@5 {
+        target = <&spi0>;         // SPI1 on XMW Bridge Board
+
+		__overlay__{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+            cs-gpios = <&gpio 8 1>;
+            status = "okay";
+
+			admv8818@0{
+				compatible = "adi,admv8818";
+				reg = <0>;        // CS0 on SPI1
+				spi-max-frequency = <10000000>;
+				clocks = <&admv8818_rfin>;
+				clock-scales = <1 50>;
+				clock-names = "rf_in";
+				adi,bw-hz = /bits/ 64 <600000000>;
+			};            
+		};
+    };
+
+    fragment@6 {
+        target = <&spi1>;         // SPI2 on XMW Bridge Board    
+
+        __overlay__{
+            #address-cells = <1>;
+			#size-cells = <0>;
+			
+            cs-gpios = <&gpio 18 1>, <&gpio 17 1>;
+            status = "okay";
+
+            adf4371@0 {
+				label = "adf4371_fixed_PLL";
+                compatible = "adi,adf4371";
+				reg = <0>;        // CS0 on SPI2
+				adi,spi-3wire-enable;
+                spi-max-frequency = <1000000>;
+				clocks = <&adf4371_clkin>;
+				clock-names = "clkin";
+                clock-scales = <1 10>;
+                
+                channel@0 {
+                        reg = <0>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <8000000000>;
+                };
+                channel@1 {
+                        reg = <1>;
+                        adi,output-enable;
+                };
+                channel@2 {
+                        reg = <2>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <16000000000>;
+                };
+                channel@3 {
+                        reg = <3>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <32000000000>;
+                };
+			};
+
+            adf4371@1 {
+				label = "adf4371_tunable_PLL";
+                compatible = "adi,adf4371";
+				reg = <1>;        // CS1 on SPI2
+				adi,spi-3wire-enable;
+                spi-max-frequency = <1000000>;
+				clocks = <&adf4371_clkin>;
+				clock-names = "clkin";
+                clock-scales = <1 10>;
+                
+                channel@0 {
+                        reg = <0>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <8000000000>;
+                };
+                channel@1 {
+                        reg = <1>;
+                        adi,output-enable;
+                };
+                channel@2 {
+                        reg = <2>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <16000000000>;
+                };
+                channel@3 {
+                        reg = <3>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <32000000000>;
+                };
+			};
+        };
+    };
+
+};
