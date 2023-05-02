@@ -1,0 +1,33 @@
+
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/timer/adi,gptimer-counter.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: General Purpose Timers for Analog Devices SC5XX Processors
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+    GPTimer driver for providing system clock source, clock event source,
+    and generic counters for use in userspace (used alongside adi,sc5xx-gptimers)
+
+properties:
+  compatible:
+    enum:
+      - adi,gptimer-counter
+
+required:
+  - compatible
+
+additionalProperties: false
+
+examples:
+  - |
+    gptimer_counter: gptimer-counters@0 {
+      compatible = "adi,gptimer-counter";
+      status = "okay";
+    };
