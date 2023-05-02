@@ -62,8 +62,18 @@ static int ad7091r5_i2c_probe(struct i2c_client *i2c,
 		const struct i2c_device_id *id)
 {
 	const struct ad7091r_chip_info *chip_info;
-	struct regmap *map = devm_regmap_init_i2c(i2c, &ad7091r_regmap_config);
+	struct ad7091r_state *st;
+	struct iio_dev *iio_dev;
+	struct regmap *map;
 
+	iio_dev = devm_iio_device_alloc(&i2c->dev, sizeof(*st));
+	if (!iio_dev)
+		return -ENOMEM;
+
+	st = iio_priv(iio_dev);
+	st->dev = &i2c->dev;
+
+	map = devm_regmap_init_i2c(i2c, &ad7091r_regmap_config);
 	if (IS_ERR(map))
 		return PTR_ERR(map);
 
@@ -72,7 +82,7 @@ static int ad7091r5_i2c_probe(struct i2c_client *i2c,
 	else
 		chip_info = &ad7091r5_chip_info_noirq;
 
-	return ad7091r_probe(&i2c->dev, id->name, chip_info, map, i2c->irq);
+	return ad7091r_probe(iio_dev, id->name, chip_info, map, i2c->irq);
 }
 
 static const struct of_device_id ad7091r5_dt_ids[] = {

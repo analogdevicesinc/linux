@@ -30,7 +30,21 @@
 }
 
 struct device;
-struct ad7091r_state;
+
+enum ad7091r_mode {
+	AD7091R_MODE_SAMPLE,
+	AD7091R_MODE_COMMAND,
+	AD7091R_MODE_AUTOCYCLE,
+};
+
+struct ad7091r_state {
+	struct device *dev;
+	struct regmap *map;
+	struct regulator *vref;
+	const struct ad7091r_chip_info *chip_info;
+	enum ad7091r_mode mode;
+	struct mutex lock; /*lock to prevent concurent reads */
+};
 
 struct ad7091r_chip_info {
 	unsigned int num_channels;
@@ -40,8 +54,8 @@ struct ad7091r_chip_info {
 
 extern const struct regmap_config ad7091r_regmap_config;
 
-int ad7091r_probe(struct device *dev, const char *name,
-		const struct ad7091r_chip_info *chip_info,
-		struct regmap *map, int irq);
+int ad7091r_probe(struct iio_dev *iio_dev, const char *name,
+		  const struct ad7091r_chip_info *chip_info,
+		  struct regmap *map, int irq);
 
 #endif /* __DRIVERS_IIO_ADC_AD7091R_BASE_H__ */

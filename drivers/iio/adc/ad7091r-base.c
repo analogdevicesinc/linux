@@ -26,21 +26,6 @@
 #define AD7091R_REG_CONF_MODE_MASK  \
 	(AD7091R_REG_CONF_AUTO | AD7091R_REG_CONF_CMD)
 
-enum ad7091r_mode {
-	AD7091R_MODE_SAMPLE,
-	AD7091R_MODE_COMMAND,
-	AD7091R_MODE_AUTOCYCLE,
-};
-
-struct ad7091r_state {
-	struct device *dev;
-	struct regmap *map;
-	struct regulator *vref;
-	const struct ad7091r_chip_info *chip_info;
-	enum ad7091r_mode mode;
-	struct mutex lock; /*lock to prevent concurent reads */
-};
-
 static int ad7091r_set_mode(struct ad7091r_state *st, enum ad7091r_mode mode)
 {
 	int ret, conf;
@@ -199,20 +184,14 @@ static void ad7091r_remove(void *data)
 	regulator_disable(st->vref);
 }
 
-int ad7091r_probe(struct device *dev, const char *name,
-		const struct ad7091r_chip_info *chip_info,
-		struct regmap *map, int irq)
+int ad7091r_probe(struct iio_dev *iio_dev, const char *name,
+		  const struct ad7091r_chip_info *chip_info,
+		  struct regmap *map, int irq)
 {
-	struct iio_dev *iio_dev;
 	struct ad7091r_state *st;
 	int ret;
 
-	iio_dev = devm_iio_device_alloc(dev, sizeof(*st));
-	if (!iio_dev)
-		return -ENOMEM;
-
 	st = iio_priv(iio_dev);
-	st->dev = dev;
 	st->chip_info = chip_info;
 	st->map = map;
 
@@ -224,14 +203,15 @@ int ad7091r_probe(struct device *dev, const char *name,
 	iio_dev->channels = chip_info->channels;
 
 	if (irq) {
-		ret = devm_request_threaded_irq(dev, irq, NULL,
-				ad7091r_event_handler,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT, name, st);
+		ret = devm_request_threaded_irq(st->dev, irq, NULL,
+						ad7091r_event_handler,
+						IRQF_TRIGGER_FALLING |
+						IRQF_ONESHOT, name, st);
 		if (ret)
 			return ret;
 	}
 
-	st->vref = devm_regulator_get_optional(dev, "vref");
+	st->vref = devm_regulator_get_optional(st->dev, "vref");
 	if (IS_ERR(st->vref)) {
 		if (PTR_ERR(st->vref) == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
@@ -240,7 +220,7 @@ int ad7091r_probe(struct device *dev, const char *name,
 		ret = regulator_enable(st->vref);
 		if (ret)
 			return ret;
-		ret = devm_add_action_or_reset(dev, ad7091r_remove, st);
+		ret = devm_add_action_or_reset(st->dev, ad7091r_remove, st);
 		if (ret)
 			return ret;
 	}
@@ -250,7 +230,7 @@ int ad7091r_probe(struct device *dev, const char *name,
 	if (ret)
 		return ret;
 
-	return devm_iio_device_register(dev, iio_dev);
+	return devm_iio_device_register(st->dev, iio_dev);
 }
 EXPORT_SYMBOL_NS_GPL(ad7091r_probe, IIO_AD7091R);
 
