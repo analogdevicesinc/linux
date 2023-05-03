@@ -756,11 +756,55 @@ static int it6263_bridge_attach(struct drm_bridge *bridge,
 	return ret;
 }
 
+static int it6263_bridge_atomic_check(struct drm_bridge *bridge,
+				      struct drm_bridge_state *bridge_state,
+				      struct drm_crtc_state *crtc_state,
+				      struct drm_connector_state *conn_state)
+{
+	struct drm_display_info *di = &conn_state->connector->display_info;
+	u32 flags = di->bus_flags;
+
+	flags &= ~DRM_BUS_FLAG_DE_LOW;
+
+	bridge_state->input_bus_cfg.flags = flags | DRM_BUS_FLAG_DE_HIGH;
+	bridge_state->output_bus_cfg.flags = flags | DRM_BUS_FLAG_DE_HIGH;
+
+	return 0;
+}
+
+static u32
+*it6263_bridge_atomic_get_input_bus_fmts(struct drm_bridge *bridge,
+					 struct drm_bridge_state *bridge_state,
+					 struct drm_crtc_state *crtc_state,
+					 struct drm_connector_state *conn_state,
+					 u32 output_fmt,
+					 unsigned int *num_input_fmts)
+{
+	u32 *input_fmts;
+
+	*num_input_fmts = 0;
+
+	input_fmts = kcalloc(1, sizeof(*input_fmts), GFP_KERNEL);
+	if (!input_fmts)
+		return NULL;
+
+	/* we only accept Jeida 1x7x4 inputs currently */
+	input_fmts[0] = MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA;
+	*num_input_fmts = 1;
+
+	return input_fmts;
+}
+
 static const struct drm_bridge_funcs it6263_bridge_funcs = {
 	.attach = it6263_bridge_attach,
+	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
+	.atomic_reset = drm_atomic_helper_bridge_reset,
 	.mode_set = it6263_bridge_mode_set,
 	.disable = it6263_bridge_disable,
 	.enable = it6263_bridge_enable,
+	.atomic_check = it6263_bridge_atomic_check,
+	.atomic_get_input_bus_fmts = it6263_bridge_atomic_get_input_bus_fmts,
 };
 
 static int it6263_check_chipid(struct it6263 *it6263)
