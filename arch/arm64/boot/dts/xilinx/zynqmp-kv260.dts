@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Xilinx Kria KV260
+ *
+ * (C) Copyright 2023, Analog Devices, Inc.
+ *
+ */
+
+#include "zynqmp-smk-k26-revA.dts"
+
+&sdhci1 {
+	status = "okay";
+	disable-wp;
+};
