@@ -11,6 +11,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <drm/bridge/fsl_imx_ldb.h>
+#include <drm/drm_atomic_state_helper.h>
 #include <drm/drm_of.h>
 #include <drm/drm_panel.h>
 
@@ -161,11 +162,66 @@ static int ldb_bridge_attach(struct drm_bridge *bridge,
 				ldb_ch->next_bridge, &ldb_ch->bridge, flags);
 }
 
+static int ldb_bridge_atomic_check(struct drm_bridge *bridge,
+				   struct drm_bridge_state *bridge_state,
+				   struct drm_crtc_state *crtc_state,
+				   struct drm_connector_state *conn_state)
+{
+	struct drm_display_info *di = &conn_state->connector->display_info;
+	struct drm_bridge_state *next_bridge_state = NULL;
+	struct drm_bridge *next_bridge;
+	u32 bus_flags = 0;
+
+	next_bridge = drm_bridge_get_next_bridge(bridge);
+	if (next_bridge)
+		next_bridge_state = drm_atomic_get_new_bridge_state(crtc_state->state,
+								    next_bridge);
+
+	if (next_bridge_state)
+		bus_flags = next_bridge_state->input_bus_cfg.flags;
+	else if (di->num_bus_formats)
+		bus_flags = di->bus_flags;
+
+	bridge_state->output_bus_cfg.flags = bus_flags;
+	bridge_state->input_bus_cfg.flags = bus_flags;
+
+	return 0;
+}
+
+static u32 *ldb_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
+						  struct drm_bridge_state *bridge_state,
+						  struct drm_crtc_state *crtc_state,
+						  struct drm_connector_state *conn_state,
+						  unsigned int *num_output_fmts)
+{
+	u32 *output_fmts;
+	int i;
+
+	*num_output_fmts = 0;
+
+	output_fmts = kcalloc(ARRAY_SIZE(ldb_bit_mappings),
+			      sizeof(*output_fmts), GFP_KERNEL);
+	if (!output_fmts)
+		return NULL;
+
+	for (i = 0; i < ARRAY_SIZE(ldb_bit_mappings); i++)
+		output_fmts[i] = ldb_bit_mappings[i].bus_format;
+
+	*num_output_fmts = ARRAY_SIZE(ldb_bit_mappings);
+
+	return output_fmts;
+}
+
 static const struct drm_bridge_funcs ldb_bridge_funcs = {
-	.mode_set   = ldb_bridge_mode_set,
-	.enable	    = ldb_bridge_enable,
-	.disable    = ldb_bridge_disable,
-	.attach	    = ldb_bridge_attach,
+	.mode_set		    = ldb_bridge_mode_set,
+	.atomic_duplicate_state     = drm_atomic_helper_bridge_duplicate_state,
+	.atomic_destroy_state	    = drm_atomic_helper_bridge_destroy_state,
+	.atomic_reset		    = drm_atomic_helper_bridge_reset,
+	.enable			    = ldb_bridge_enable,
+	.disable		    = ldb_bridge_disable,
+	.attach			    = ldb_bridge_attach,
+	.atomic_check		    = ldb_bridge_atomic_check,
+	.atomic_get_output_bus_fmts = ldb_bridge_atomic_get_output_bus_fmts,
 };
 
 int ldb_bind(struct ldb *ldb, struct drm_encoder **encoder)
