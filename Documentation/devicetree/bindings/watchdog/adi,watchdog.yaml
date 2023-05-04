@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/watchdog/adi,watchdog.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Watchdog Peripheral on SC5XX Series Processors
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description:
+  This is a basic watchdog timer peripheral which will trigger
+  a processor reset through the RCU when timeout-sec expires
+
+properties:
+  compatible:
+    enum:
+      - adi,watchdog
+
+  reg:
+    maxItems: 1
+
+  timeout-sec :
+    maxItems: 1
+    description: "Timeout value in seconds"
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - timeout-sec
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    watchdog@0x31008000 {
+      compatible = "adi,watchdog";
+      reg = <0x31008000 0x10>;
+      timeout-sec = <30>;
+      clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+      clock-names = "adi-watchdog";
+    };
