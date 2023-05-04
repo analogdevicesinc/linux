@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/adi/adi,system-event-controller.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Trigger Routing Unit for SC5XX processor family
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Used for ICC between SHARC and ARM cores.
+
+  The TRU provides system-level sequence control without core intervention.
+  The TRU maps trigger masters (generators of triggers) to trigger slaves
+  (receivers of triggers). Slave endpoints can be configured to respond to
+  triggers in various ways. Multiple TRUs may be provided in a
+  multiprocessor system to create a trigger network. Common applications
+  enabled by the TRU include
+
+properties:
+  compatible:
+    enum:
+      - adi,trigger-routing-unit
+
+  reg:
+    maxItems: 1
+
+  "adi,max-master-id":
+    maxItems: 1
+    description: "Max Trigger Master ID"
+
+  "adi,max-slave-id":
+    maxItems: 1
+    description: "Max Trigger Slave ID"
+
+    child-node:
+      description: Trigger Routing Channel to Map Master/Slave
+      type: object
+      properties:
+        "adi,tru-master-id":
+          description: Trigger Routing Master ID
+          minItems: 1
+          maxItems: 1
+        "adi,tru-slave-id":
+          description: Trigger Routing Slave ID
+          minItems: 1
+          maxItems: 1
+      required:
+        - "adi,tru-master-id"
+        - "adi,tru-slave-id"
+
+required:
+  - compatible
+  - reg
+  - adi,max-master-id
+  - adi,max-slave-id
+
+additionalProperties: false
+
+examples:
+  - |
+    tru: tru@0x3108a000 {
+      compatible = "adi,trigger-routing-unit";
+      reg = <0x3108a000 0x1000>;
+      adi,max-master-id = <182>;
+      adi,max-slave-id = <187>;
+      status = "okay";
+    };
+
+    &tru {
+      rpmsg_to_a55: channel@0 {
+        adi,tru-master-id = <134>; /* trigger master SOFT3 */
+        adi,tru-slave-id = <160>; /* TRU0_IRQ3 */
+      };
+      rpmsg_to_sharc0: channel@1 {
+        adi,tru-master-id = <135>; /* trigger master SOFT4 */
+        adi,tru-slave-id = <164>; /* TRU0_IRQ7 */
+      };
+      rpmsg_to_sharc1: channel@2 {
+        adi,tru-master-id = <136>; /* trigger master SOFT5 */
+        adi,tru-slave-id = <168>; /* TRU0_IRQ11 */
+      };
+    };
