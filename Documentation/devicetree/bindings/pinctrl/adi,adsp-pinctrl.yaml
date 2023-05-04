@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/adi,adsp-pinctrl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Pinmuxing Control for SC5XX Processor Family
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Pinmuxing Control Driver for Configuring Processor Pins/Pads
+
+properties:
+  compatible:
+    enum:
+      - adi,adsp-pinctrl
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 1
+
+  reg:
+    maxItems: 1
+
+  "adi,port-sizes":
+    maxItems: 1
+    description: "Space delimited integer list denoting number of pins per port"
+
+  "adi,no-drive-strength":
+    type: boolean
+
+  "adi,no-pull-up-down":
+    type: boolean
+
+required:
+  - compatible
+  - "#address-cells"
+  - "#size-cells"
+  - reg
+  - "adi,port-sizes"
+
+optional:
+  - "adi,no-drive-strength"
+  - "adi,no-pull-up-down"
+
+additionalProperties: false
+
+examples:
+  - |
+    pinctrl0: pinctrl@0x31004600 {
+      compatible = "adi,adsp-pinctrl";
+      #address-cells = <1>;
+      #size-cells = <1>;
+      reg = <0x31004600 0x400>;
+      adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
+    };
