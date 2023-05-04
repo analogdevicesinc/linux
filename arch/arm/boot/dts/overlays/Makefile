@@ -197,6 +197,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	ramoops-pi4.dtbo \
 	rotary-encoder.dtbo \
 	rpi-ada4250.dtbo \
+	rpi-adaq4003.dtbo \
 	rpi-adin1110.dtbo \
 	rpi-adin2111.dtbo \
 	rpi-adau1761.dtbo \
