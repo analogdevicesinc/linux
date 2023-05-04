@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/adi,sc5xx-i2s-dai.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: I2S + Digital Audio Interface (DAI) Driver for ADI SC5xx based boards
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description:
+  This is the SC5xx process family I2S+DAI driver
+
+properties:
+  compatible:
+    enum:
+      - adi,sc5xx-i2s-dai
+
+  reg:
+    minItems: 2
+    maxItems: 2
+    description: "Sport A and Sport B addresses"
+
+  "sport-channel":
+    description: The serial port channel to use for I2S
+
+  "interrupt-names":
+    description: Interrupt names (tx_status and rx_status)
+
+  "interrupts":
+    description: GIC interrupt numbers
+
+  "dmas":
+    description: TX and RX DMA cluster numbers
+
+  "dma-names"
+    description: DMA channel names (tx and rx)
+
+  "clocks"
+    description: Clock being used for sport
+
+  "clock-names"
+    description: Clock name (sclk)
+
+required:
+  - compatible
+  - reg
+  - "sport-channel"
+  - "interrupt-names"
+  - "interrupts"
+  - "dmas"
+  - "dma-names"
+  - "clocks"
+  - "clock-names"
+
+additionalProperties: false
+
+examples:
+  - |
+  i2s0: i2s0@0 {
+    compatible = "adi,sc5xx-i2s-dai";
+    status = "disabled";
+    reg = <0x31002000 0x80>, <0x31002080 0x80>;
+    sport-channel = <0>;
+    interrupt-names = "tx_status", "rx_status";
+    interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
+    dmas = <&sport0_dma_cluster 0>, <&sport0_dma_cluster 1>;
+    dma-names = "tx", "rx";
+    clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK1>;
+    clock-names = "sclk";
+  };
