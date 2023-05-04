@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/adi/adi,reset-controller.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices DWMAC Glue Driver for SC5XX processor family
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Glue Driver to setup and instantiate underlying Synopsys DWMAC driver
+  Most properties are interited from snps,dwmac.yaml
+
+properties:
+  compatible:
+    enum:
+      - adi,dwmac
+
+  "adi,system-config":
+    maxItems: 1
+    description: "PADS configuration node for setting endian/PHY mode"
+
+  "adi,skip-phyconfig":
+    maxItems: 1
+    description: "Skip PHY configuration altogether"
+
+
+required:
+  - compatible
+  - adi,system-config
+
+optional:
+  - adi,skip-phyconfig
+
+additionalProperties: false
+
+examples:
+  - |
+    emac0: ethernet@0x31040000 {
+      compatible = "adi,dwmac", "snps,dwmac-4.20a", "snps,dwmac-5.20a";
+      reg = <0x31040000 0x2000>;
+      interrupt-parent = <&gic>;
+      interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "macirq";
+      snps,mixed-burst;
+      snps,pbl = <8>;
+      snps,force_sf_dma_mode;
+      snps,perfect-filter-entries = <32>;
+      snps,tso = <1>;
+      clocks = <&clk ADSP_SC598_CLK_GIGE>;
+      clock-names = "stmmaceth";
+      adi,system-config = <&pads_system_config>;
+      status = "disabled";
+    };
