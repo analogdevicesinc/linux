@@ -100,12 +100,16 @@ imx93_ldb_encoder_atomic_check(struct drm_encoder *encoder,
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 	struct imx93_ldb_channel *imx93_ldb_ch = enc_to_imx93_ldb_ch(encoder);
 	struct ldb_channel *ldb_ch = &imx93_ldb_ch->base;
-	struct drm_display_info *di = &conn_state->connector->display_info;
+	struct drm_bridge_state *bridge_state = NULL;
+	struct drm_bridge *bridge;
+
+	bridge = drm_bridge_chain_get_first_bridge(encoder);
+	bridge_state = drm_atomic_get_new_bridge_state(crtc_state->state, bridge);
 
 	if (!ldb_ch->bus_format)
-		ldb_ch->bus_format = di->bus_formats[0];
+		ldb_ch->bus_format = bridge_state->output_bus_cfg.format;
 
-	imx_crtc_state->bus_flags = di->bus_flags;
+	imx_crtc_state->bus_flags = bridge_state->input_bus_cfg.flags;
 
 	switch (ldb_ch->bus_format) {
 	case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:
