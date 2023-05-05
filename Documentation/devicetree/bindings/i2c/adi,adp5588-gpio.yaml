@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/i2c/adi,adp5588-gpio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADP5588 GPIO Expander
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Basic I2C-based GPIO expander
+
+properties:
+  compatible:
+    enum:
+      - adi,adp5588-gpio
+
+  reg:
+    maxItems: 1
+
+  gpio-controller: true
+
+  "#gpio-cells":
+    const: 2
+
+required:
+  - compatible
+  - reg
+  - gpio-controller
+  - "#gpio-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    &i2c2 {
+      gpio_expander: adp5588@30 {
+        compatible = "adi,adp5588-gpio";
+        gpio-controller;
+        #gpio-cells = <2>;
+        reg = <0x30>;
+        status = "okay";
+      };
+    };
