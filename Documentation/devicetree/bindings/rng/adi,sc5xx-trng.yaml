@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/rng/adi,sc5xx-trng.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices True Random Number Generator on SC5XX Family Processors
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Analog Devices True Random Number Generator on SC5XX Family Processors
+
+properties:
+  compatible:
+    enum:
+      - adi,sc5xx-trng
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  interrupt-names:
+    maxItems: 1
+
+  startup-cycles:
+    maxItems: 1
+    description: "Number of samples taken to gather entropy from the FROs during startup"
+
+  minref-cycles:
+    maxItems: 1
+    description: "Min samples taken to re-generate entropy from the FROs after reading"
+
+  maxref-cycles:
+    maxItems: 1
+    description: "Max samples taken to re-generate entropy from the FROs after reading"
+
+  alarm-thresh:
+    maxItems: 1
+    description: "Alarm detection threshold for repeating pattern detector"
+
+  shdn-thresh:
+    maxItems: 1
+    description: "Generates shutdown overflow interrupt if shutdown count value is exceeded"
+
+  poll-data:
+    maxItems: 1
+    description: "Poll for TRNG data (1) or use interrupts (0)"
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - interrupt-names
+  - startup-cycles
+  - minref-cycles
+  - maxref-cycles
+  - alarm-thresh
+  - shdn-thresh
+  - poll-data
+
+additionalProperties: false
+
+examples:
+  - |
+    trng: rng@0x310D0000 {
+      compatible = "adi,sc5xx-trng";
+      reg = <0x310D0000 0x74>, <0x310D8000 0x14>;
+      interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "pkic0_irq";
+      startup-cycles = <0xff>;
+      minref-cycles = <0x21>;
+      maxref-cycles = <0x22>;
+      alarm-thresh  = <0xff>;
+      shdn-thresh = <0x04>;
+      poll-data = <0>; /* Use IRQ for data */
+      status = "okay";
+    };
