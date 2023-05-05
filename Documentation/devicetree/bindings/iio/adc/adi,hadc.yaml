@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/thermal/adi,sc59x-thermal.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Housekeeping ADC for SC59x 64-bit Family Processors
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  The HADC provides the analog to digital conversion capability
+  for general-purpose housekeeping tasks, such as
+  voltage and temperature monitoring. The core of HADC is a 12-bit
+  SAR ADC, providing multiple analog input channels.
+
+properties:
+  compatible:
+    enum:
+      - adi,hadc
+
+  reg:
+    maxItems: 1
+
+  "#iio-cells":
+    const: 1
+
+  interrupt-parent:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    minItems: 1
+
+required:
+  - compatible
+  - reg
+  - "#iio-cells"
+  - interrupt-parent
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    hadc: hadc@0x31016000 {
+      compatible = "adi,hadc";
+      reg = <0x31016000 0x100>;
+      interrupt-parent = <&gic>;
+      interrupts = <GIC_SPI 186 IRQ_TYPE_EDGE_RISING>;
+      #iio-cells = <1>;
+      status = "okay";
+    };
