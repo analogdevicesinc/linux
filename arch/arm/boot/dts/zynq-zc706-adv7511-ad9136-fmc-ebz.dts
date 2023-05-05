@@ -26,3 +26,16 @@
 
 #include "adi-xilinx-dac-fmc-ebz.dtsi"
 #include "adi-ad9136-fmc-ebz.dtsi"
+
+&dac {
+	adi,subclass = <1>;
+	adi,interpolation = <2>;
+	adi,sysref-mode = <1>;
+	adi,jesd-link-mode = <11>;
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = <0>;
+	jesd204-inputs = <&jesd204_transport 0 0>;
+};
