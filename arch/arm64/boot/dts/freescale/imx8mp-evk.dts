@@ -740,8 +740,6 @@
 	status = "okay";
 
 	lvds-channel@0 {
-		fsl,data-mapping = "jeida";
-		fsl,data-width = <24>;
 		status = "okay";
 
 		port@1 {
