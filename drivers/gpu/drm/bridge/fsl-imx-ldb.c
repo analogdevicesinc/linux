@@ -292,10 +292,8 @@ int ldb_bind(struct ldb *ldb, struct drm_encoder **encoder)
 				bus_format = 0;
 		}
 		if (bus_format < 0) {
-			dev_err(dev, "could not determine data mapping: %d\n",
-				bus_format);
-			ret = bus_format;
-			goto free_child;
+			dev_warn(dev, "No data-mapping in DT, will use negotiated bus format.\n");
+			bus_format = 0;
 		}
 		ldb_ch->bus_format = bus_format;
 		ldb_ch->child = child;
