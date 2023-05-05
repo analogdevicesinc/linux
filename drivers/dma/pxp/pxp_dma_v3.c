@@ -1565,10 +1565,9 @@ static uint32_t pxp_store_ctrl_config(struct pxp_pixmap *out, uint8_t mode,
 			ctrl.store_memory_en = 1;
 		}
 	} else {
-		if (fill_en) {
+		if (fill_en)
 			ctrl.fill_data_en = 1;
-			ctrl.wr_num_bytes = 3;
-		}
+
 		ctrl.store_memory_en = 1;
 	}
 
@@ -1577,6 +1576,7 @@ static uint32_t pxp_store_ctrl_config(struct pxp_pixmap *out, uint8_t mode,
 
 	ctrl.ch_en = 1;
 	ctrl.block_16 = 1;
+	ctrl.wr_num_bytes = 3;
 
 	return *(uint32_t *)&ctrl;
 }
@@ -1769,6 +1769,7 @@ static uint32_t pxp_fetch_ctrl_config(struct pxp_pixmap *in,
 
 	ctrl.block_16 = 1;
 	ctrl.ch_en = 1;
+	ctrl.rd_num_bytes = 3;
 
 	return *(uint32_t *)&ctrl;
 }
