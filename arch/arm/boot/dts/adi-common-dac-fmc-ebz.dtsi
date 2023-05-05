@@ -25,16 +25,15 @@
 
 	spibus-connected = <&dac>;
 	adi,axi-pl-fifo-enable;
+
+	/* jesd204-fsm support */
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&jesd204_link 0 0>;
 };
 
 &jesd204_link {
 	compatible = "adi,axi-jesd204-tx-1.0";
-
-	adi,octets-per-frame = <1>;
-	adi,frames-per-multiframe = <32>;
-	adi,converter-resolution = <16>;
-	adi,bits-per-sample = <16>;
-	adi,converters-per-device = <2>;
 
 	#clock-cells = <0>;
 	clock-output-names = "jesd_dac_lane_clk";
