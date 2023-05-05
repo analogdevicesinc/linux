@@ -406,7 +406,7 @@
 		compatible = "nxp,pca9452", "nxp,pca9451a";
 		reg = <0x25>;
 		interrupt-parent = <&pcal6524>;
-		interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
 
 		regulators {
 			buck1: BUCK1 {
