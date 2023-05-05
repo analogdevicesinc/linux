@@ -72,6 +72,7 @@ struct axi_jesd204_tx {
 	struct clk *device_clk;
 	struct clk *link_clk;
 	struct clk *conv2_clk;
+	struct clk *sysref_clk;
 
 	struct jesd204_dev *jdev;
 
@@ -686,12 +687,16 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 	case JESD204_STATE_OP_REASON_UNINIT:
 		if (__clk_is_enabled(jesd->lane_clk)) /* REVIST */
 			clk_disable_unprepare(jesd->lane_clk);
-		if (__clk_is_enabled(jesd->device_clk))
-			clk_disable_unprepare(jesd->device_clk);
 		if (!IS_ERR_OR_NULL(jesd->link_clk)) {
 			if (__clk_is_enabled(jesd->link_clk))
 				clk_disable_unprepare(jesd->link_clk);
 		}
+		if (!IS_ERR_OR_NULL(jesd->sysref_clk)) {
+			if (__clk_is_enabled(jesd->sysref_clk))
+				clk_disable_unprepare(jesd->sysref_clk);
+		}
+		if (__clk_is_enabled(jesd->device_clk))
+			clk_disable_unprepare(jesd->device_clk);
 		return JESD204_STATE_CHANGE_DONE;
 	default:
 		return JESD204_STATE_CHANGE_DONE;
@@ -717,6 +722,15 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 		dev_err(dev, "%s: Link%u enable device clock failed (%d)\n",
 			__func__, lnk->link_id, ret);
 		return ret;
+	}
+
+	if (!IS_ERR_OR_NULL(jesd->sysref_clk)) {
+		ret = clk_prepare_enable(jesd->sysref_clk);
+		if (ret) {
+			dev_err(dev, "%s: Link%u enable sysref clock failed (%d)\n",
+				__func__, lnk->link_id, ret);
+			return ret;
+		}
 	}
 
 	if (!IS_ERR_OR_NULL(jesd->link_clk)) {
@@ -923,6 +937,10 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 	jesd->link_clk = devm_clk_get_optional(&pdev->dev, "link_clk");
 	if (IS_ERR(jesd->link_clk))
 		return PTR_ERR(jesd->link_clk);
+
+	jesd->sysref_clk = devm_clk_get_optional(&pdev->dev, "sysref_clk");
+	if (IS_ERR(jesd->sysref_clk))
+		return PTR_ERR(jesd->sysref_clk);
 
 	ret = clk_prepare_enable(jesd->axi_clk);
 	if (ret)
