@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/crypto/adi,hmac-crc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Hardware CRC for SC5XX Processor Family
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Hardware-accelerated CRC driver for SC5XX-processor family.
+  The HMAC key portion of this is used for the IV of the CRC calculation
+
+properties:
+  compatible:
+    enum:
+      - adi,hmac-crc
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: "GIC interrupt numbers"
+
+  dmas:
+    maxItems: 1
+    description: "Associated DMA hannel"
+
+  dma-names:
+    maxItems: 1
+    description: "DMA Channel name"
+
+  dma-names:
+    maxItems: 1
+    description: "Forward polynomial used in CRC calculation"
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - dmas
+  - dma-names
+  - crypto_crc_poly
+
+additionalProperties: false
+
+examples:
+  - |
+    crc0: crc@0x310a5000 {
+      compatible = "adi,hmac-crc";
+      reg = <0x310a5000 0xFF>;
+      interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>;
+      dmas = <&crc_cluster 8>;
+      dma-names = "mdma_chan";
+      crypto_crc_poly = <0x04C11DB7>;
+      status = "disabled";
+    };
