@@ -277,8 +277,8 @@ static long vsi_v4l2_daemon_ioctl(
 	int error = 0;
 	struct vsi_v4l2_dev_info hwinfo;
 
-	switch (cmd) {
-	case VSI_IOCTL_CMD_INITDEV:
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(VSI_IOCTL_CMD_INITDEV):
 		if (copy_from_user((void *)&hwinfo, (void __user *)arg, sizeof(hwinfo)) != 0) {
 			v4l2_klog(LOGLVL_ERROR, "%s fail to get data", __func__);
 			return -EINVAL;
@@ -771,6 +771,9 @@ static const struct file_operations daemon_fops = {
 	.open = v4l2_daemon_open,
 	.release = v4l2_daemon_release,
 	.unlocked_ioctl = vsi_v4l2_daemon_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = compat_ptr_ioctl,
+#endif
 	.read = v4l2_msg_read,
 	.write = v4l2_msg_write,
 	.mmap = vsi_v4l2_mmap,

@@ -53,8 +53,8 @@ struct vsi_v4l2_dev_info {
 	s32 enc_corenum;
 	s32 enc_isH1;
 	u32 max_dec_resolution;
-	ulong decformat;		//hw_dec_formats
-	ulong encformat;		//hw_enc_formats
+	u64 decformat;		//hw_dec_formats
+	u64 encformat;		//hw_enc_formats
 };
 
 /* daemon ioctl id definitions */

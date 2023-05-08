@@ -2113,7 +2113,7 @@ void vsiv4l2_set_hwinfo(struct vsi_v4l2_dev_info *hwinfo)
 	int i, j;
 
 	vsi_v4l2_hwconfig = *hwinfo;
-	v4l2_klog(LOGLVL_BRIEF, "%s::%d:%d:%lx:%lx", __func__,
+	v4l2_klog(LOGLVL_BRIEF, "%s::%d:%d:%llx:%llx", __func__,
 		hwinfo->enc_isH1, hwinfo->max_dec_resolution, hwinfo->encformat, hwinfo->decformat);
 	for (i = 0; i < ARRAY_SIZE(vsi_coded_fmt); i++) {
 		if ((vsi_coded_fmt[i].mask & hwinfo->encformat) == 0)
