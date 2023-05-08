@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/adi,button-led.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Button Led Example for SC5XX-family processors
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  This is an example for SC5XX-family processors.  It will
+  wait for a GPIO to be pressed and toggle a corresponding LED
+  on each press
+
+properties:
+  compatible:
+    enum:
+      - adi,button-led
+
+  button_gpio:
+    maxItems: 1
+
+  led_gpio:
+    maxItems: 1
+
+required:
+  - compatible
+  - button_gpio
+  - led_gpio
+
+additionalProperties: false
+
+examples:
+  - |
+    button0: button@0 {
+      compatible = "adi,button-led";
+      button_gpio = <80>;
+      led_gpio = <77>;
+    };
+
+    button1: button@1 {
+      compatible = "adi,button-led";
+      button_gpio = <81>;
+      led_gpio = <78>;
+    };
+...
