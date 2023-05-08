@@ -41,7 +41,7 @@
 
 /* PPI */
 #define EnContCK		TRUE
-#define HSSetNum		1
+#define HSSetNum		3
 #define EnDeSkew		TRUE
 #define PPIDbgSel		12
 #define RegIgnrNull		1
