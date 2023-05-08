@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/crypto/adi,hmac-crc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Packet Engine for SC5XX Processor Family
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Packet Engine driver for SC5XX-processor family.
+
+  Adds in hashing support for:
+  sha256, sha224, sha1, md5
+  hmac(sha256), hmac(sha224), hmac(sha1), hmac(md5)
+
+  Adds in skcipher support for:
+  cbc(aes), cbc(des), cbc(des3_ede), ecb(des3_ede), ecb(des), and ecb(aes)
+
+  Note on HMAC operations:
+
+  The PKTE peripheral has a limitation that it cannot split HMAC operations
+  into multiple crypto packets.
+
+  Instead of using the PKTE to calculate the HMAC directly, let's use the
+  PKTE's hash engine and manually combined together the two operations in
+  RFC2104 to produce the HMAC result:
+
+  HASH(Key XOR opad, HASH(Key XOR ipad, text))
+
+  So, this means the two HASH algorithms above are being calculated via
+  the PKTE, but everything else is being performed in software:
+
+  1) Calculate [Key XOR ipad] in software
+  2) Send [Key XOR ipad] to the PKTE and start hashing
+  3) Continue hashing for the entirety of [text] and set the final/hash
+     completion flag
+  4) Store the hash result from 3
+  5) Calculate [Key XOR opad] in software
+  6) Append 4 to 5 and send the data to the PKTE for hashing again
+  7) Store the final result from 6.  This is your HMAC result.
+
+properties:
+  compatible:
+    enum:
+      - adi,pkte
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: "GIC interrupt numbers"
+
+  mode:
+    maxItems: 1
+    description: "Select between autonomous ring, target command, or direct host modes"
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - mode
+
+additionalProperties: false
+
+examples:
+  - |
+    pkte1: pkte@310CD000 {
+      compatible = "adi,pkte";
+      reg = <0x310CD000 0x400>;
+      interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
+      mode = "arm";        /* autonomous ring mode */
+      /* mode = "tcm"; */  /* target command mode  */
+      /* mode = "dhm"; */  /* direct host mode     */
+      status = "okay";
+    };
