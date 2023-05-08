@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/adi,adsp-pinctrl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices SPI Driver for SC5XX Processor Family
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  SPI Peripheral Control
+
+properties:
+  compatible:
+    enum:
+      - adi,spi3
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    description: GIC interrupt numbers
+
+  dmas:
+    description: TX and RX DMA cluster numbers
+
+  dma-names:
+    description: DMA channel names (tx and rx)
+
+required:
+  - compatible
+  - "#address-cells"
+  - "#size-cells"
+  - reg
+  - interrupts
+  - dmas
+  - dma-names
+
+additionalProperties: false
+
+examples:
+  - |
+    spi0: spi@0x3102e000 {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      compatible = "adi,spi3";
+      reg = <0x3102e000 0xFF>;
+      interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
+      dmas = <&spi_cluster 22>, <&spi_cluster 23>;
+      dma-names = "tx", "rx";
+      status = "disabled";
+    };
