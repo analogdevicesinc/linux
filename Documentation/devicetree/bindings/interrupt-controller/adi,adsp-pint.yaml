@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpio/adi,adsp-pint.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Port Pin Interrupt for SC5XX-family processors
+
+maintainers:
+  - Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+  - Greg Malysa <greg.malysa@timesys.com>
+
+description: |
+  Analog Devices Port Pin Interrupt driver for SC5XX-family processors
+
+properties:
+  compatible:
+    enum:
+      - adi,adsp-pint
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    pint0: pint@0x31005000 {
+      compatible = "adi,adsp-pint";
+      reg = <0x31005000 0xFF>;
+      interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+    };
+
+    pint1: pint@0x31005100 {
+      compatible = "adi,adsp-pint";
+      reg = <0x31005100 0xFF>;
+      interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+    };
+...
