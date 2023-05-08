@@ -206,23 +206,24 @@ enum {
 	WARN_LEVEL,				//current level cant't work with media setting and be updated by enc
 };
 
+typedef u64 kaddr_t;	//kernel pointer in vsi_v4l2_msg, shouldn't use
 struct v4l2_daemon_enc_buffers {
 	/*IO*/
 	s32 inbufidx;	 //from v4l2 driver, don't modify it
 	s32 outbufidx;	 //-1:invalid, other:valid.
 
-	dma_addr_t busLuma;
+	u64 busLuma;
 	s32 busLumaSize;
-	dma_addr_t busChromaU;
+	u64 busChromaU;
 	s32 busChromaUSize;
-	dma_addr_t busChromaV;
+	u64 busChromaV;
 	s32 busChromaVSize;
 
-	dma_addr_t busLumaOrig;
-	dma_addr_t busChromaUOrig;
-	dma_addr_t busChromaVOrig;
+	u64 busLumaOrig;
+	u64 busChromaUOrig;
+	u64 busChromaVOrig;
 
-	dma_addr_t busOutBuf;
+	u64 busOutBuf;
 	u32 outBufSize;
 
 	u32 bytesused;	//valid bytes in buffer from user app.
@@ -293,11 +294,11 @@ struct v4l2_daemon_enc_h26x_cmd {
 	s32 ipcmAreaRight[VSI_V4L2_MAX_IPCM_REGIONS];
 
 	s32 ipcmMapEnable;    //ipcm map
-	u8 *ipcmMapBuf;
+	kaddr_t ipcmMapBuf;       //should not use
 
 	s32 skipMapEnable;      //skip map
 	s32 skipMapBlockUnit;
-	u8 *skipMapBuf;
+	kaddr_t skipMapBuf;       //should not use
 
 	s32 roiAreaEnable[VSI_V4L2_MAX_ROI_REGIONS]; //8 roi for H2, 2 roi for H1
 	s32 roiAreaTop[VSI_V4L2_MAX_ROI_REGIONS];
@@ -311,8 +312,8 @@ struct v4l2_daemon_enc_h26x_cmd {
 	u32 roiMapDeltaQpEnable;
 	u32 RoiCuCtrlVer;
 	u32 RoiQpDeltaVer;
-	u8 *roiMapDeltaQpBuf;
-	u8 *cuCtrlInfoBuf;
+	kaddr_t roiMapDeltaQpBuf; //should not use
+	kaddr_t cuCtrlInfoBuf;    //should not use
 
 	/* Rate control parameters */
 	s32 hrdConformance;
@@ -372,10 +373,10 @@ struct v4l2_daemon_enc_h26x_cmd {
 	s32 ssim;
 
 	s32 sei;      //sei
-	s8 *userData;
+	kaddr_t userData; //should not use
 
 	u32 gopSize;      //gop
-	s8 *gopCfg;
+	kaddr_t gopCfg;   //should not use
 	u32 gopLowdelay;
 	s32 outReconFrame;
 
@@ -504,16 +505,16 @@ struct v4l2_daemon_dec_buffers {
 	s32 inbufidx;	 //from v4l2 driver, don't modify it
 	s32 outbufidx;	 //-1:invalid, other:valid.
 
-	dma_addr_t busInBuf;
+	u64 busInBuf;
 	u32 inBufSize;
 	s32 inputFormat;  //input format
 	s32 srcwidth;      //encode width
 	s32 srcheight;      //encode height
 //infer output
-	dma_addr_t busOutBuf;	//for Y or YUV
-	s32    OutBufSize;
-	dma_addr_t busOutBufUV;
-	s32    OutUVBufSize;
+	u64 busOutBuf;	//for Y or YUV
+	s32 OutBufSize;
+	u64 busOutBufUV;
+	s32 OutUVBufSize;
 	s32 outBufFormat;
 	s32 output_width;
 	s32 output_height;
@@ -521,8 +522,8 @@ struct v4l2_daemon_dec_buffers {
 	s32 output_hstride;
 	s32 outputPixelDepth;
 
-	dma_addr_t rfc_luma_offset;
-	dma_addr_t rfc_chroma_offset;
+	u64 rfc_luma_offset;
+	u64 rfc_chroma_offset;
 
 	u32 bytesused;	//valid bytes in buffer from user app.
 	s64 timestamp;
@@ -606,8 +607,8 @@ struct v4l2_daemon_dec_params {
 struct vsi_v4l2_msg_hdr {
 	s32 size;
 	s32 error;
-	ulong seq_id;
-	ulong inst_id;
+	u64 seq_id;
+	u64 inst_id;
 	enum v4l2_daemon_cmd_id cmd_id;
 	enum v4l2_daemon_codec_fmt codec_fmt;
 	s32 param_type;
@@ -616,8 +617,8 @@ struct vsi_v4l2_msg_hdr {
 struct vsi_v4l2_msg {
 	s32 size;
 	s32 error;
-	ulong seq_id;
-	ulong inst_id;
+	u64 seq_id;
+	u64 inst_id;
 	enum v4l2_daemon_cmd_id cmd_id;
 	enum v4l2_daemon_codec_fmt codec_fmt;
 	u32 param_type;

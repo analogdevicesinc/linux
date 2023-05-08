@@ -170,13 +170,6 @@ enum CTX_STATUS {
 	DEC_STATUS_ENDSTREAM,
 };
 
-struct vsi_v4l2_mem_info_internal {
-	ulong size;
-	dma_addr_t  busaddr;
-	void *vaddr;
-	struct page *pageaddr;
-};
-
 struct vsi_video_fmt {
 	char *name;
 	u32 fourcc;	//V4L2 video format defines
@@ -309,7 +302,7 @@ enum {
 struct vsi_v4l2_ctx {
 	struct v4l2_fh fh;
 	struct vsi_v4l2_device *dev;
-	ulong ctxid;
+	u64 ctxid;
 	struct mutex ctxlock;
 	atomic_t refcnt;
 

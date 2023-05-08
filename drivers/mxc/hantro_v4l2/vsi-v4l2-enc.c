@@ -86,7 +86,7 @@ static int vsi_enc_reqbufs(
 	ret = vb2_reqbufs(q, p);
 	if (!binputqueue(p->type) && p->count == 0)
 		set_bit(CTX_FLAG_ENC_FLUSHBUF, &ctx->flag);
-	v4l2_klog(LOGLVL_BRIEF, "%lx:%s:%d ask for %d buffer, got %d:%d:%d",
+	v4l2_klog(LOGLVL_BRIEF, "%llx:%s:%d ask for %d buffer, got %d:%d:%d",
 		ctx->ctxid, __func__, p->type, p->count, q->num_buffers, ret, ctx->status);
 	return ret;
 }
@@ -112,7 +112,7 @@ static int vsi_enc_create_bufs(struct file *filp, void *priv,
 
 	if (!binputqueue(create->format.type) && create->count == 0)
 		set_bit(CTX_FLAG_ENC_FLUSHBUF, &ctx->flag);
-	v4l2_klog(LOGLVL_BRIEF, "%lx:%s:%d create for %d buffer, got %d:%d:%d\n",
+	v4l2_klog(LOGLVL_BRIEF, "%llx:%s:%d create for %d buffer, got %d:%d:%d\n",
 		ctx->ctxid, __func__, create->format.type, create->count,
 		q->num_buffers, ret, ctx->status);
 	return ret;
@@ -153,7 +153,7 @@ static int vsi_enc_s_parm(struct file *filp, void *priv, struct v4l2_streamparm 
 	set_bit(CTX_FLAG_CONFIGUPDATE_BIT, &ctx->flag);
 	mutex_unlock(&ctx->ctxlock);
 
-	v4l2_klog(LOGLVL_BRIEF, "%lx:%s set fps number %d,denom %d\n",
+	v4l2_klog(LOGLVL_BRIEF, "%llx:%s set fps number %d,denom %d\n",
 		ctx->ctxid, __func__,  ctx->mediacfg.encparams.general.inputRateNumer, ctx->mediacfg.encparams.general.inputRateDenom);
 	return 0;
 }
@@ -283,7 +283,7 @@ static int vsi_enc_qbuf(struct file *filp, void *priv, struct v4l2_buffer *buf)
 
 		ret = vb2_qbuf(&ctx->input_que, vdev->v4l2_dev->mdev, buf);
 	}
-	v4l2_klog(LOGLVL_FLOW, "%lx:%s:%d:%d:%d, %d:%d, %d:%d",
+	v4l2_klog(LOGLVL_FLOW, "%llx:%s:%d:%d:%d, %d:%d, %d:%d",
 		ctx->ctxid, __func__, buf->type, buf->index, buf->bytesused,
 		buf->m.planes[0].bytesused, buf->m.planes[0].length,
 		buf->m.planes[1].bytesused, buf->m.planes[1].length);
@@ -364,7 +364,7 @@ static int vsi_enc_streamoff(
 	else
 		ret = wait_event_interruptible(ctx->capoffdone_queue, vsi_checkctx_capoffdone(ctx));
 	if (ret != 0)
-		v4l2_klog(LOGLVL_WARNING, "%lx binput:%d, enc wait strmoff done fail\n",
+		v4l2_klog(LOGLVL_WARNING, "%llx binput:%d, enc wait strmoff done fail\n",
 			  ctx->ctxid, binput);
 
 	if (mutex_lock_interruptible(&ctx->ctxlock))
@@ -558,7 +558,7 @@ static int vsi_enc_set_selection(struct file *file, void *prv, struct v4l2_selec
 		set_bit(CTX_FLAG_CONFIGUPDATE_BIT, &ctx->flag);
 		mutex_unlock(&ctx->ctxlock);
 	}
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d,%d",
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d,%d,%d,%d",
 		ctx->ctxid, __func__, s->r.left, s->r.top, s->r.width, s->r.height);
 
 	return ret;
@@ -592,7 +592,7 @@ static int vsi_enc_get_selection(struct file *file, void *prv, struct v4l2_selec
 	default:
 		return -EINVAL;
 	}
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d,%d",
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d,%d,%d,%d",
 		ctx->ctxid, __func__, s->r.left, s->r.top, s->r.width, s->r.height);
 
 	return 0;
@@ -759,7 +759,7 @@ static int vsi_enc_queue_setup(
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(vq->drv_priv);
 	int i, ret;
 
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d\n", ctx->ctxid, __func__, *nbuffers, *nplanes, sizes[0]);
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d,%d,%d\n", ctx->ctxid, __func__, *nbuffers, *nplanes, sizes[0]);
 	ret = vsiv4l2_buffer_config(ctx, vq, nbuffers, nplanes, sizes);
 	if (ret == 0) {
 		for (i = 0; i < *nplanes; i++)

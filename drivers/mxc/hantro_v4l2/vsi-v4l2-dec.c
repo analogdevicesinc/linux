@@ -83,7 +83,7 @@ static int vsi_dec_reqbufs(
 	else
 		q = &ctx->output_que;
 	ret = vb2_reqbufs(q, p);
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d ask for %d buffer, got %d:%d",
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d ask for %d buffer, got %d:%d",
 		ctx->ctxid, __func__, p->type, p->count, q->num_buffers, ret);
 	if (ret == 0) {
 		print_queinfo(q);
@@ -99,7 +99,7 @@ static int vsi_dec_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d", ctx->ctxid, __func__, f->type);
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d", ctx->ctxid, __func__, f->type);
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
 	if (!isvalidtype(f->type, ctx->flag))
@@ -172,7 +172,7 @@ static int vsi_dec_qbuf(struct file *filp, void *priv, struct v4l2_buffer *buf)
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(filp->private_data);
 	struct video_device *vdev = ctx->dev->vdec;
 
-	v4l2_klog(LOGLVL_FLOW, "%lx:%s:%d:%d:%d", ctx->ctxid, __func__, buf->type, buf->index, buf->bytesused);
+	v4l2_klog(LOGLVL_FLOW, "%llx:%s:%d:%d:%d", ctx->ctxid, __func__, buf->type, buf->index, buf->bytesused);
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
 	if (!isvalidtype(buf->type, ctx->flag))
@@ -228,7 +228,7 @@ int vsi_dec_output_on(struct vsi_v4l2_ctx *ctx)
 	if (ctx->input_que.queued_count < ctx->input_que.min_buffers_needed)
 		return 0;
 
-	v4l2_klog(LOGLVL_FLOW, "%lx:%s start streaming", ctx->ctxid, __func__);
+	v4l2_klog(LOGLVL_FLOW, "%llx:%s start streaming", ctx->ctxid, __func__);
 	ctx->status = DEC_STATUS_DECODING;
 	ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMON_OUTPUT, NULL);
 	if (ret == 0)
@@ -286,7 +286,7 @@ int vsi_dec_capture_off(struct vsi_v4l2_ctx *ctx)
 
 	mutex_unlock(&ctx->ctxlock);
 	if (wait_event_interruptible(ctx->capoffdone_queue, vsi_checkctx_capoffdone(ctx) != 0))
-		v4l2_klog(LOGLVL_WARNING, "%lx wait capture streamoff done timeout\n", ctx->ctxid);
+		v4l2_klog(LOGLVL_WARNING, "%llx wait capture streamoff done timeout\n", ctx->ctxid);
 	if (mutex_lock_interruptible(&ctx->ctxlock))
 		return -EBUSY;
 	ctx->buffed_capnum = 0;
@@ -307,7 +307,7 @@ static int vsi_dec_streamon(struct file *filp, void *priv, enum v4l2_buf_type ty
 
 	if (mutex_lock_interruptible(&ctx->ctxlock))
 		return -EBUSY;
-	v4l2_klog(LOGLVL_BRIEF, "%lx %s:%d in status %d", ctx->ctxid, __func__, type, ctx->status);
+	v4l2_klog(LOGLVL_BRIEF, "%llx %s:%d in status %d", ctx->ctxid, __func__, type, ctx->status);
 	if (!binputqueue(type)) {
 		vb2_clear_last_buffer_dequeued(&ctx->output_que);
 		ctx->need_capture_on = true;
@@ -403,7 +403,7 @@ static int vsi_dec_streamoff(
 			return 0;
 		}
 	}
-	v4l2_klog(LOGLVL_BRIEF, "%lx %s:%d:%d:%d\n", ctx->ctxid, __func__, type, ctx->status, ctx->queued_srcnum);
+	v4l2_klog(LOGLVL_BRIEF, "%llx %s:%d:%d:%d\n", ctx->ctxid, __func__, type, ctx->status, ctx->queued_srcnum);
 	if (!vb2_is_streaming(q) && ctx->status == VSI_STATUS_INIT) {
 		mutex_unlock(&ctx->ctxlock);
 		return 0;
@@ -429,7 +429,7 @@ static int vsi_dec_streamoff(
 			mutex_unlock(&ctx->ctxlock);
 			if (wait_event_interruptible(ctx->retbuf_queue,
 				vsi_dec_checkctx_srcbuf(ctx) != 0))
-				v4l2_klog(LOGLVL_WARNING, "%lx wait output buffer return timeout\n", ctx->ctxid);
+				v4l2_klog(LOGLVL_WARNING, "%llx wait output buffer return timeout\n", ctx->ctxid);
 			if (mutex_lock_interruptible(&ctx->ctxlock))
 				return -EBUSY;
 		}
@@ -439,13 +439,13 @@ static int vsi_dec_streamoff(
 		if (test_and_clear_bit(CTX_FLAG_DELAY_SRCCHANGED_BIT, &ctx->flag)) {
 			vsi_dec_update_reso(ctx);
 			vsi_v4l2_send_reschange(ctx);
-			v4l2_klog(LOGLVL_BRIEF, "%lx send delayed src change in streamoff", ctx->ctxid);
+			v4l2_klog(LOGLVL_BRIEF, "%llx send delayed src change in streamoff", ctx->ctxid);
 		}
 	} else {
 		mutex_unlock(&ctx->ctxlock);
 		if (wait_event_interruptible(ctx->capoffdone_queue,
 			vsi_checkctx_capoffdone(ctx) != 0))
-			v4l2_klog(LOGLVL_WARNING, "%lx wait capture streamoff done timeout\n", ctx->ctxid);
+			v4l2_klog(LOGLVL_WARNING, "%llx wait capture streamoff done timeout\n", ctx->ctxid);
 		if (mutex_lock_interruptible(&ctx->ctxlock))
 			return -EBUSY;
 		ctx->buffed_capnum = 0;
@@ -511,7 +511,7 @@ static int vsi_dec_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			vsi_dec_update_reso(ctx);
 			vsi_v4l2_send_reschange(ctx);
 			clear_bit(CTX_FLAG_DELAY_SRCCHANGED_BIT, &ctx->flag);
-			v4l2_klog(LOGLVL_BRIEF, "%lx send delayed src change", ctx->ctxid);
+			v4l2_klog(LOGLVL_BRIEF, "%llx send delayed src change", ctx->ctxid);
 		} else if (test_and_clear_bit(BUF_FLAG_CROPCHANGE, &ctx->vbufflag[p->index])) {
 			struct v4l2_event event;
 
@@ -524,7 +524,7 @@ static int vsi_dec_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		}
 		p->field = V4L2_FIELD_NONE;
 	}
-	v4l2_klog(LOGLVL_FLOW, "%lx:%s:%d:%d:%x:%d", ctx->ctxid, __func__, p->type, p->index, p->flags, p->bytesused);
+	v4l2_klog(LOGLVL_FLOW, "%llx:%s:%d:%d:%x:%d", ctx->ctxid, __func__, p->type, p->index, p->flags, p->bytesused);
 	mutex_unlock(&ctx->ctxlock);
 	return ret;
 }
@@ -635,7 +635,7 @@ static int vsi_dec_get_selection(struct file *file, void *prv, struct v4l2_selec
 	default:
 		return -EINVAL;
 	}
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d,%d",
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d,%d,%d,%d",
 		ctx->ctxid, __func__, s->r.left, s->r.top, s->r.width, s->r.height);
 
 	return 0;
@@ -693,7 +693,7 @@ static int vsi_dec_start_cmd(struct vsi_v4l2_ctx *ctx)
 			ret = vsi_dec_capture_off(ctx);
 			if (ret < 0) {
 				v4l2_klog(LOGLVL_ERROR,
-					  "ctx[%ld] capture off in start cmd fail\n",
+					  "ctx[%lld] capture off in start cmd fail\n",
 					  ctx->ctxid & 0xffff);
 				return ret;
 			}
@@ -734,7 +734,7 @@ int vsi_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cm
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 	int ret = 0;
 
-	v4l2_klog(LOGLVL_BRIEF, "%lx:%s:%d in state %d:%d", ctx->ctxid, __func__,
+	v4l2_klog(LOGLVL_BRIEF, "%llx:%s:%d in state %d:%d", ctx->ctxid, __func__,
 		cmd->cmd, ctx->status, vb2_is_streaming(&ctx->output_que));
 	if (!vsi_v4l2_daemonalive())
 		return -ENODEV;
@@ -817,7 +817,7 @@ static int vsi_dec_queue_setup(
 	int i;
 
 	vsiv4l2_buffer_config(ctx, vq, nbuffers, nplanes, sizes);
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s:%d,%d,%d", ctx->ctxid, __func__, *nbuffers, *nplanes, sizes[0]);
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d,%d,%d", ctx->ctxid, __func__, *nbuffers, *nplanes, sizes[0]);
 
 	for (i = 0; i < *nplanes; i++)
 		alloc_devs[i] = ctx->dev->dev;

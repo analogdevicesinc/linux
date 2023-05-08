@@ -54,7 +54,7 @@ module_param(invoke_vsidaemon, bool, 0644);
 static int loglevel;
 module_param(loglevel, int, 0644);
 
-static ulong g_seqid;
+static u64 g_seqid;
 static struct idr *cmdarray, *retarray;
 static atomic_t daemon_fn = ATOMIC_INIT(0);
 
@@ -136,7 +136,7 @@ int vsi_clear_daemonmsg(int instid)
 		if (obj) {
 			msg = (struct vsi_v4l2_msg *)obj;
 			if (msg->inst_id == instid) {
-				v4l2_klog(LOGLVL_WARNING, "clear unused cmd %x:%ld:%d", instid, msg->seq_id, msg->cmd_id);
+				v4l2_klog(LOGLVL_WARNING, "clear unused cmd %x:%lld:%d", instid, msg->seq_id, msg->cmd_id);
 				idr_remove(cmdarray, id);
 				kfree(obj);
 			}
@@ -149,7 +149,7 @@ int vsi_clear_daemonmsg(int instid)
 		if (obj) {
 			msg = (struct vsi_v4l2_msg *)obj;
 			if (msg->inst_id == instid) {
-				v4l2_klog(LOGLVL_WARNING, "clear unused msg %x:%ld:%d", instid, msg->seq_id, msg->cmd_id);
+				v4l2_klog(LOGLVL_WARNING, "clear unused msg %x:%lld:%d", instid, msg->seq_id, msg->cmd_id);
 				idr_remove(retarray, id);
 				kfree(obj);
 			}
@@ -172,7 +172,7 @@ static int getMsg(struct file *fh, char __user *buf, size_t size)
 		if (obj) {
 			if (copy_to_user((void __user *)buf + offset, (void *)obj, sizeof(struct vsi_v4l2_msg_hdr) + obj->size) != 0)
 				break;
-			v4l2_klog(LOGLVL_VERBOSE, "%lx send msg  id = %d", obj->inst_id, obj->cmd_id);
+			v4l2_klog(LOGLVL_VERBOSE, "%llx send msg  id = %d", obj->inst_id, obj->cmd_id);
 			offset += sizeof(struct vsi_v4l2_msg_hdr) + obj->size;
 			accubytes += sizeof(struct vsi_v4l2_msg_hdr) + obj->size;
 			idr_remove(cmdarray, id);
@@ -198,7 +198,7 @@ static int getRet(unsigned long seqid, int *error, s32 *retflag)
 	idr_for_each_entry(retarray, obj, id) {
 		if (obj) {
 			if (obj->seq_id == seqid) {
-				v4l2_klog(LOGLVL_VERBOSE, "%lx get ack %d", obj->inst_id, obj->cmd_id);
+				v4l2_klog(LOGLVL_VERBOSE, "%llx get ack %d", obj->inst_id, obj->cmd_id);
 				*error = obj->error;
 				*retflag = obj->param_type;
 				idr_remove(retarray, id);
@@ -516,7 +516,7 @@ tail:
 	if (ctx) {
 		if (ret < 0) {
 			vsi_set_ctx_error(ctx, ret);
-			v4l2_klog(LOGLVL_ERROR, "%lx fail to communicate with daemon, error=%d, cmd=%d", ctx->ctxid, ret, id);
+			v4l2_klog(LOGLVL_ERROR, "%llx fail to communicate with daemon, error=%d, cmd=%d", ctx->ctxid, ret, id);
 		} else
 			set_bit(CTX_FLAG_DAEMONLIVE_BIT, &ctx->flag);
 	}
@@ -667,7 +667,7 @@ static ssize_t v4l2_msg_write(struct file *fh, const char __user *buf, size_t si
 		return size;
 	if (size < sizeof(struct vsi_v4l2_msg_hdr))
 		return size;
-	if (!access_ok((void *) buf, size)) {
+	if (!access_ok((void __user *) buf, size)) {
 		v4l2_klog(LOGLVL_ERROR, "input data unaccessable");
 		return size;
 	}
@@ -689,11 +689,11 @@ static ssize_t v4l2_msg_write(struct file *fh, const char __user *buf, size_t si
 			goto error;
 		}
 	}
-	v4l2_klog(LOGLVL_VERBOSE, "get msg  id = %d, flag = %x, seqid = %lx, err = %d",
+	v4l2_klog(LOGLVL_VERBOSE, "get msg  id = %d, flag = %x, seqid = %llx, err = %d",
 		pmsg->cmd_id, pmsg->param_type, pmsg->seq_id, pmsg->error);
 	accubytes += sizeof(struct vsi_v4l2_msg_hdr) + msgsize;
 
-	if (pmsg->seq_id == NO_RESPONSE_SEQID) {
+	if (pmsg->seq_id == (u64)NO_RESPONSE_SEQID) {
 		vsi_handle_daemonmsg(pmsg);
 		kfree(pmsg);
 		return size;

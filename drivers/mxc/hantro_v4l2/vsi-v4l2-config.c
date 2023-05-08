@@ -1104,9 +1104,9 @@ static void vsi_set_default_parameter_enc(
 	enc_params->specific.enc_h26x_cmd.tc_Offset = -2;
 	enc_params->specific.enc_h26x_cmd.beta_Offset = 5;
 	enc_params->specific.enc_h26x_cmd.ssim = 1;
-	enc_params->specific.enc_h26x_cmd.userData = NULL;
+	enc_params->specific.enc_h26x_cmd.userData = (kaddr_t)NULL;
 	enc_params->specific.enc_h26x_cmd.gopSize = DEFAULT_GOP_SIZE;
-	enc_params->specific.enc_h26x_cmd.gopCfg = NULL;
+	enc_params->specific.enc_h26x_cmd.gopCfg = (kaddr_t)NULL;
 	enc_params->specific.enc_h26x_cmd.outReconFrame = 1;
 	enc_params->specific.enc_h26x_cmd.ltrInterval = -1;
 	enc_params->specific.enc_h26x_cmd.bitDepthLuma = 8;
@@ -1184,7 +1184,7 @@ void vsiv4l2_initcfg(struct vsi_v4l2_ctx *ctxp)
 	u32 enc_fmt_fourcc = 0;
 	u32 dec_fmt_fourcc = 0;
 
-	v4l2_klog(LOGLVL_CONFIG, "%lx:%s default enc_fmt:%d, dec_fmt:%d\n",
+	v4l2_klog(LOGLVL_CONFIG, "%llx:%s default enc_fmt:%d, dec_fmt:%d\n",
 		  ctxp->ctxid, __func__, enc_fmt, dec_fmt);
 
 	if (isencoder(ctxp)) {
@@ -2103,7 +2103,7 @@ int vsiv4l2_buffer_config(
 			*nbuffers = ctx->mediacfg.minbuf_4capture - vq->num_buffers;
 	}
 
-	v4l2_klog(LOGLVL_BRIEF, "%lx:%d::%s:%d:%d:%d:%d:%d", ctx->ctxid, vq->type, __func__,
+	v4l2_klog(LOGLVL_BRIEF, "%llx:%d::%s:%d:%d:%d:%d:%d", ctx->ctxid, vq->type, __func__,
 		*nbuffers, *nplanes, sizes[0], sizes[1], sizes[2]);
 	return 0;
 }
