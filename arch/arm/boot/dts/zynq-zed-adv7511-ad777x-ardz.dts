@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7771
+ *
+ * hdl_project: <ad7771evb/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <3600000>;
+		regulator-max-microvolt = <3600000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		ad7771_mclk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <4096000>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@0x7c480000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c480000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ad7771: adc@0 {
+		compatible = "adi,ad7771";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+
+		vref-supply = <&vref>;
+
+		start-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio0 93 GPIO_ACTIVE_LOW>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&ad7771_mclk>;
+		clock-names = "mclk";
+	};
+};
