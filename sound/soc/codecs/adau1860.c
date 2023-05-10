@@ -76,6 +76,21 @@ const struct soc_enum adau1860_adc_hpf_enum[] = {
 			adau1860_adc_hpf_select_text),
 };
 
+const struct soc_enum adau1860_dmic_hpf_enum[] = {
+	SOC_ENUM_SINGLE(ADAU1860_DMIC_CTRL2, 4,
+			ARRAY_SIZE(adau1860_adc_hpf_select_text),
+			adau1860_adc_hpf_select_text),
+	SOC_ENUM_SINGLE(ADAU1860_DMIC_CTRL3, 4,
+			ARRAY_SIZE(adau1860_adc_hpf_select_text),
+			adau1860_adc_hpf_select_text),
+	SOC_ENUM_SINGLE(ADAU1860_DMIC_CTRL5, 4,
+			ARRAY_SIZE(adau1860_adc_hpf_select_text),
+			adau1860_adc_hpf_select_text),
+	SOC_ENUM_SINGLE(ADAU1860_DMIC_CTRL6, 4,
+			ARRAY_SIZE(adau1860_adc_hpf_select_text),
+			adau1860_adc_hpf_select_text),
+};
+
 const struct soc_enum adau1860_adc_bias_enum[] = {
 	SOC_VALUE_ENUM_SINGLE(ADAU1860_ADC_CTRL2, 0, 0x7,
 			      ARRAY_SIZE(adau1860_bias_select_extreme_text),
@@ -131,6 +146,10 @@ static const struct snd_kcontrol_new adau1860_single_mode_controls[] = {
 	SOC_ENUM("ADC0 HPF Capture Switch", adau1860_adc_hpf_enum[0]),
 	SOC_ENUM("ADC1 HPF Capture Switch", adau1860_adc_hpf_enum[1]),
 	SOC_ENUM("ADC2 HPF Capture Switch", adau1860_adc_hpf_enum[2]),
+	SOC_ENUM("DMIC01 HPF Capture Switch", adau1860_dmic_hpf_enum[0]),
+	SOC_ENUM("DMIC23 HPF Capture Switch", adau1860_dmic_hpf_enum[1]),
+	SOC_ENUM("DMIC45 HPF Capture Switch", adau1860_dmic_hpf_enum[2]),
+	SOC_ENUM("DMIC67 HPF Capture Switch", adau1860_dmic_hpf_enum[3]),
 };
 
 static const char *const adau1860_asrci_mux_text[] = {
@@ -629,6 +648,8 @@ static const struct snd_soc_dapm_widget adau1860_dapm_widgets[] = {
 
 	SND_SOC_DAPM_INPUT("DMIC01"),
 	SND_SOC_DAPM_INPUT("DMIC23"),
+	SND_SOC_DAPM_INPUT("DMIC45"),
+	SND_SOC_DAPM_INPUT("DMIC67"),
 
 	SND_SOC_DAPM_PGA("PGA0", ADAU1860_PLL_PGA_PWR, 4, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("PGA1", ADAU1860_PLL_PGA_PWR, 5, 0, NULL, 0),
@@ -757,6 +778,14 @@ static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
 	{ "DMIC1", NULL, "DMIC_CLK" },
 	{ "DMIC2", NULL, "DMIC_CLK" },
 	{ "DMIC3", NULL, "DMIC_CLK" },
+	{ "DMIC4", NULL, "DMIC_CLK" },
+	{ "DMIC5", NULL, "DMIC_CLK" },
+	{ "DMIC6", NULL, "DMIC_CLK" },
+	{ "DMIC7", NULL, "DMIC_CLK" },
+	{ "DMIC0", NULL, "DMIC_CLK1" },
+	{ "DMIC1", NULL, "DMIC_CLK1" },
+	{ "DMIC2", NULL, "DMIC_CLK1" },
+	{ "DMIC3", NULL, "DMIC_CLK1" },
 	{ "DMIC4", NULL, "DMIC_CLK1" },
 	{ "DMIC5", NULL, "DMIC_CLK1" },
 	{ "DMIC6", NULL, "DMIC_CLK1" },
@@ -771,6 +800,10 @@ static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
 	{ "DMIC1", NULL, "DMIC01" },
 	{ "DMIC2", NULL, "DMIC23" },
 	{ "DMIC3", NULL, "DMIC23" },
+	{ "DMIC4", NULL, "DMIC45" },
+	{ "DMIC5", NULL, "DMIC45" },
+	{ "DMIC6", NULL, "DMIC67" },
+	{ "DMIC7", NULL, "DMIC67" },
 
 	/* ADC Input Paths */
 	{ "ADC0", NULL, "AINP0" },
@@ -1549,7 +1582,6 @@ int adau1860_probe(struct device *dev, struct regmap *regmap,
 	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(13), 0x90);
 	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(1), 0xC8);
 	regmap_write(adau->regmap, ADAU1860_CLK_CTRL(10), 0x00);
-	regmap_write(adau->regmap, 0x4000c128, 0x40);
 
 	return devm_snd_soc_register_component(dev, &adau1860_component_driver,
 					       adau1860_dai,
