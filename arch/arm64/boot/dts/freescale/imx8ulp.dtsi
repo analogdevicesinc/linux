@@ -94,6 +94,7 @@
 		reg = <0x0 0x80000000 0x0 0x80000000>,
 			<0x0 0x0 0x0 0x08000000>;
 		reg-names = "phys_baseaddr", "contiguous_mem";
+		timeout-scale = <10>;
 	};
 
 	pmu {
