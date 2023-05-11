@@ -435,14 +435,30 @@ static int rdacm20_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int rdacm20_enum_frame_size(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_state *state,
+				   struct v4l2_subdev_frame_size_enum *fse)
+{
+	if (fse->index)
+		return -EINVAL;
+
+	fse->max_width = OV10635_WIDTH;
+	fse->min_width = OV10635_WIDTH;
+	fse->max_height = OV10635_HEIGHT;
+	fse->min_height = OV10635_HEIGHT;
+
+	return 0;
+}
+
 static const struct v4l2_subdev_video_ops rdacm20_video_ops = {
 	.s_stream	= rdacm20_s_stream,
 };
 
 static const struct v4l2_subdev_pad_ops rdacm20_subdev_pad_ops = {
-	.enum_mbus_code = rdacm20_enum_mbus_code,
-	.get_fmt	= rdacm20_get_fmt,
-	.set_fmt	= rdacm20_get_fmt,
+	.enum_mbus_code		= rdacm20_enum_mbus_code,
+	.get_fmt		= rdacm20_get_fmt,
+	.set_fmt		= rdacm20_get_fmt,
+	.enum_frame_size	= rdacm20_enum_frame_size,
 };
 
 static const struct v4l2_subdev_ops rdacm20_subdev_ops = {
