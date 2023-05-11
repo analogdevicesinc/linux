@@ -299,7 +299,7 @@ static ssize_t auto_clk_gating_show(struct device *dev,
 
 	regmap_read(regmap, AUTO_CG_CTRL, &val);
 	if (val & AUTO_CG_EN)
-		return sprintf(buf, "DDR auto clock gating enabled with idle strap: %x!\n", val & 0xffff);
+		return sprintf(buf, "DDR auto clock gating enabled with idle strap: %u!\n", val & 0xffff);
 	else
 		return sprintf(buf, "DDR auto clock gating disabled!\n");
 }
