@@ -223,7 +223,7 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		}
 
 		clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD0].clk);
-		clk_set_rate(path[NIC_AXI].clk, path[NIC_AXI].mode_rate[OD_MODE]);
+		clk_set_rate(path[NIC_AXI].clk, path[NIC_AXI].mode_rate[LD_MODE]);
 
 		/* Scaling down the ddr frequency. */
 		scaling_dram_freq(new_mode == LD_MODE ? 0x1 : 0x2);
