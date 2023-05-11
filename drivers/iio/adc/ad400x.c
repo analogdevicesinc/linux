@@ -437,11 +437,11 @@ static int pwm_gen_setup(struct spi_device *spi, struct ad400x_state *st)
 
 static int ad400x_probe(struct spi_device *spi)
 {
-	struct fwnode_handle *fwnode;
 	struct ad400x_state *st;
 	struct iio_dev *indio_dev;
 	struct iio_buffer *buffer;
 	enum ad400x_ids dev_id;
+	const char *p_compat;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -474,7 +474,6 @@ static int ad400x_probe(struct spi_device *spi)
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
-	indio_dev->setup_ops = &ad400x_buffer_setup_ops;
 
 	if (dev_id == ID_ADAQ4003)
 		indio_dev->info = &adaq4003_info;
@@ -496,15 +495,30 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
-						 &dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
+	/* We support DMA with the SPI engine, otherwise we actually don't */
+	ret = device_property_read_string(spi->dev.parent, "compatible", &p_compat);
+	if (ret < 0)
+		return ret;
 
-	iio_device_attach_buffer(indio_dev, buffer);
+	if (strcmp(p_compat, "adi,axi-spi-engine-1.00.a") == 0) {
+		buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
+							 "rx", &dma_buffer_ops,
+							 indio_dev);
+		if (IS_ERR(buffer))
+			return dev_err_probe(&spi->dev, PTR_ERR(buffer),
+					     "Error initializing buffer: %ld\n",
+					     PTR_ERR(buffer));
 
-	fwnode = dev_fwnode(&spi->dev);
-	if (fwnode_property_present(fwnode, "pwms"))
+		ret = iio_device_attach_buffer(indio_dev, buffer);
+		if (ret < 0)
+			return dev_err_probe(&spi->dev, ret,
+					     "Error attaching buffer: %d\n",
+					     ret);
+
+		indio_dev->setup_ops = &ad400x_buffer_setup_ops;
+	}
+
+	if (device_property_present(&spi->dev, "pwms"))
 		pwm_gen_setup(spi, st);
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
