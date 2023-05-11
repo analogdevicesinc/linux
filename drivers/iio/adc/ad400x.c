@@ -556,7 +556,6 @@ static int ad400x_probe(struct spi_device *spi)
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
-	indio_dev->setup_ops = &ad400x_buffer_setup_ops;
 	indio_dev->info = &ad400x_info;
 	indio_dev->channels = &st->chip->chan_spec;
 	indio_dev->num_channels = 1;
@@ -569,10 +568,15 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent, indio_dev,
-					      "rx", IIO_BUFFER_DIRECTION_IN);
-	if (ret)
-		return ret;
+	if (spi_engine_offload_supported(spi)) {
+		ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+						      indio_dev, "rx",
+						      IIO_BUFFER_DIRECTION_IN);
+		if (ret)
+			return ret;
+
+		indio_dev->setup_ops = &ad400x_buffer_setup_ops;
+	}
 
 	if (device_property_present(&spi->dev, "pwms"))
 		ad400x_pwm_setup(spi, st);
