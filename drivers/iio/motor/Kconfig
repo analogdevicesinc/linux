@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Motor drivers and controllers
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "Motor drivers and controllers"
+
+config TMC5271
+	tristate "TMC5271 Stepper Driver and Controller"
+	depends on SPI
+	select REGMAP_SPI
+	help
+	  Say yes here to enable support for the TMC5271 Stepper
+	  Driver and Controller.
+endmenu
