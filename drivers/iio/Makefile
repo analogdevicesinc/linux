@@ -34,6 +34,7 @@ obj-y += jesd204/
 obj-y += light/
 obj-y += logic/
 obj-y += magnetometer/
+obj-y += motor/
 obj-y += multiplexer/
 obj-y += regmap/
 obj-y += orientation/

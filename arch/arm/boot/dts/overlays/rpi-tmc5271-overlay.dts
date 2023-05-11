@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Overlay for TMC5271
+ *
+ * Copyright 2023 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	status = "okay";
+
+	tmc5271@0{
+		compatible = "adi,tmc5271";
+		reg = <0>;
+		spi-max-frequency = <1600000>;
+		spi-cpol;
+		spi-cpha;
+	};
+};
