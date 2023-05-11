@@ -355,7 +355,7 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, ad400x_regulator_disable, &st->vref);
+	ret = devm_add_action_or_reset(&spi->dev, ad400x_regulator_disable, st->vref);
 	if (ret)
 		return ret;
 
