@@ -8,9 +8,14 @@
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
+#include <linux/regmap.h>
+
+#define ADI_EMU_REG_DEVICE_CONFIG	0x02
+#define  ADI_EMU_MASK_POWER_DOWN	BIT(5)
 
 struct adi_emu_state {
-	bool enable;
+	bool		enable;
+	struct regmap	*regmap;
 };
 
 static int adi_emu_read_raw(struct iio_dev *indio_dev,
@@ -43,11 +48,19 @@ static int adi_emu_write_raw(struct iio_dev *indio_dev,
 			     long mask)
 {
 	struct adi_emu_state *st = iio_priv(indio_dev);
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
+		if (val)
+			ret = regmap_write(st->regmap, ADI_EMU_REG_DEVICE_CONFIG,
+					   0);
+		else
+			ret = regmap_write(st->regmap, ADI_EMU_REG_DEVICE_CONFIG,
+					   ADI_EMU_MASK_POWER_DOWN);
+
 		st->enable = val;
-		return 0;
+		return ret;
 	}
 
 	return -EINVAL;
@@ -77,6 +90,12 @@ static const struct iio_chan_spec adi_emu_channels[] = {
 	}
 };
 
+static const struct regmap_config adi_emu_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.max_register = 0x8,
+};
+
 static int adi_emu_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -88,6 +107,9 @@ static int adi_emu_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->enable = false;
+	st->regmap = devm_regmap_init_spi(spi, &adi_emu_regmap_config);
+	if (IS_ERR(st->regmap))
+		return PTR_ERR(st->regmap);
 
 	indio_dev->name = "iio-adi-emu";
 	indio_dev->channels = adi_emu_channels;
