@@ -16,6 +16,7 @@ adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_arm.o
 adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_bf_hal.o
 adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_init.o
 adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_gpio.o
+adrv9002_drv-y += devices/adrv9001/private/src/adrv9001_radio.o
 adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_common.o
 adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_tx.o
 adrv9002_drv-y += devices/adrv9001/public/src/adi_adrv9001_arm.o
