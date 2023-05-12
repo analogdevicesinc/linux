@@ -144,4 +144,15 @@ typedef struct adi_adrv9001_ChannelEnablementDelays
     uint32_t holdDelay;             /*!< Delay from falling edge until the Tx/Rx interface is disabled */
 } adi_adrv9001_ChannelEnablementDelays_t;
 
+/**
+ *  \brief Enumerations to determine PFIR type
+ */
+typedef enum adi_adrv9001_PfirTypeId
+{
+	ADI_ADRV9001_PFIR_TYPE_RX_WB_NB_COMP = 0u, /*!< RX WB/NB compensation PFIR */
+	ADI_ADRV9001_PFIR_TYPE_RX_NB_PULSE = 1u,   /*!< RX NB pulse shaping PFIR */
+	ADI_ADRV9001_PFIR_TYPE_TX_WB_NB_COMP = 2u, /*!< TX WB/NB compensation PFIR */
+	ADI_ADRV9001_PFIR_TYPE_MAG_COMP = 3u,      /*!< TX/RX magnitude compensation PFIR */
+} adi_adrv9001_PfirTypeId_e;
+
 #endif /* _ADI_ADRV9001_RADIO_TYPES_H_ */
