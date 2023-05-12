@@ -49,21 +49,11 @@
 #define MW_DBG_text(txt)
 #endif
 
-enum mw_stream_mode {
-	MWSTREAM_MODE_LEGACY,
-	MWSTREAM_MODE_SUBDEV,
-	MWSTREAM_MODE_NONE,
-};
-
-struct mw_dev_info {
-	enum mw_stream_mode	stream_mode;
-};
-
 struct mathworks_ipcore_dev {
-    struct mathworks_ip_info 		*mw_ip_info;
-    u32								rst_reg;
-    const struct mw_dev_info		*info;
-    void							*private;
+    struct mathworks_ip_info *mw_ip_info;
+    u32 rst_reg;
+    u32 timestamp_reg;
+    void *private;
 };
 
 /*********************************************************
