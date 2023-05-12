@@ -97,9 +97,23 @@ static int adi_emu_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+static int adi_emu_reg_access(struct iio_dev *indio_dev,
+			      unsigned int reg,
+			      unsigned int writeval,
+			      unsigned int *readval)
+{
+	struct adi_emu_state *st = iio_priv(indio_dev);
+
+	if (readval)
+		return regmap_read(st->regmap, reg, readval);
+
+	return regmap_write(st->regmap, reg, writeval);
+}
+
 static const struct iio_info adi_emu_info = {
 	.read_raw = &adi_emu_read_raw,
 	.write_raw = &adi_emu_write_raw,
+	.debugfs_reg_access = &adi_emu_reg_access,
 };
 
 static const struct iio_chan_spec adi_emu_channels[] = {
@@ -161,3 +175,4 @@ module_spi_driver(adi_emu_driver);
 MODULE_AUTHOR("Dragos Bogdan <dragos.bogdan@analog.com>");
 MODULE_DESCRIPTION("IIO ADI Emulator Driver");
 MODULE_LICENSE("GPL v2");
+
