@@ -96,6 +96,19 @@ int cdns_mhdp_power_on_ls1028a(struct cdns_mhdp_device *mhdp)
 	return 0;
 }
 
+int cdns_mhdp_power_off_ls1028a(struct cdns_mhdp_device *mhdp)
+{
+	struct imx_mhdp_device *imx_mhdp = container_of
+				(mhdp, struct imx_mhdp_device, mhdp);
+
+	ls1028a_phy_reset(0);
+
+	/* disable pixel clock */
+	ls1028a_pixel_clk_disable(imx_mhdp);
+
+	return 0;
+}
+
 void cdns_mhdp_pclk_rate_ls1028a(struct cdns_mhdp_device *mhdp)
 {
 	struct imx_mhdp_device *imx_mhdp = container_of

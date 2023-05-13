@@ -70,7 +70,9 @@ int cdns_mhdp_firmware_init_imx8qm(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_resume_imx8qm(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_suspend_imx8qm(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_power_on_imx8qm(struct cdns_mhdp_device *mhdp);
+int cdns_mhdp_power_off_imx8qm(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_power_on_ls1028a(struct cdns_mhdp_device *mhdp);
+int cdns_mhdp_power_off_ls1028a(struct cdns_mhdp_device *mhdp);
 void cdns_mhdp_pclk_rate_ls1028a(struct cdns_mhdp_device *mhdp);
 void imx8qm_phy_reset(u8 reset);
 #endif /* CDNS_MHDP_IMX_H_ */

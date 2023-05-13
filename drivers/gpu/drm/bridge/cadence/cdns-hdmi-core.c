@@ -768,6 +768,8 @@ static void __cdns_hdmi_remove(struct cdns_mhdp_device *mhdp)
 #endif
 	cdns_mhdp_unregister_audio_driver(mhdp->dev);
 	cnds_hdcp_remove_device_files(mhdp);
+
+	cdns_mhdp_plat_call(mhdp, power_off);
 }
 
 /* -----------------------------------------------------------------------------

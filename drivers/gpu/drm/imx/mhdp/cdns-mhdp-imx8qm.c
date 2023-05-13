@@ -373,6 +373,22 @@ static int imx8qm_ipg_clk_enable(struct imx_mhdp_device *imx_mhdp)
 	return ret;
 }
 
+static void imx8qm_ipg_clk_disable(struct imx_mhdp_device *imx_mhdp)
+{
+	struct imx_hdp_clks *clks = &imx_mhdp->clks;
+
+	clk_disable_unprepare(clks->clk_i2s_bypass);
+	clk_disable_unprepare(clks->lpcg_i2s);
+	clk_disable_unprepare(clks->lpcg_apb_ctrl);
+	clk_disable_unprepare(clks->lpcg_apb_csr);
+	clk_disable_unprepare(clks->lpcg_msi);
+	clk_disable_unprepare(clks->lpcg_lis);
+	clk_disable_unprepare(clks->lpcg_apb);
+	clk_disable_unprepare(clks->clk_core);
+	clk_disable_unprepare(clks->clk_ipg);
+	clk_disable_unprepare(clks->dig_pll);
+}
+
 static void imx8qm_ipg_clk_set_rate(struct imx_mhdp_device *imx_mhdp)
 {
 	struct imx_hdp_clks *clks = &imx_mhdp->clks;
@@ -484,6 +500,21 @@ int cdns_mhdp_power_on_imx8qm(struct cdns_mhdp_device *mhdp)
 
 	imx8qm_phy_reset(1);
 
+	return 0;
+}
+
+int cdns_mhdp_power_off_imx8qm(struct cdns_mhdp_device *mhdp)
+{
+	struct imx_mhdp_device *imx_mhdp =
+				container_of(mhdp, struct imx_mhdp_device, mhdp);
+
+	imx8qm_phy_reset(0);
+
+	/* disable pixel and ipg clock */
+	imx8qm_pixel_clk_disable(imx_mhdp);
+	imx8qm_ipg_clk_disable(imx_mhdp);
+
+	imx8qm_detach_pm_domains(imx_mhdp);
 	return 0;
 }
 
