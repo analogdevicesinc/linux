@@ -619,6 +619,14 @@ static int rdacm20_probe(struct i2c_client *client)
 	v4l2_ctrl_new_std(&dev->ctrls, NULL, V4L2_CID_PIXEL_RATE,
 			  OV10635_PIXEL_RATE, OV10635_PIXEL_RATE, 1,
 			  OV10635_PIXEL_RATE);
+	v4l2_ctrl_new_std(&dev->ctrls, NULL, V4L2_CID_HBLANK,
+			  OV10635_HTS - OV10635_WIDTH,
+			  OV10635_HTS - OV10635_WIDTH,
+			  1, OV10635_HTS - OV10635_WIDTH);
+	v4l2_ctrl_new_std(&dev->ctrls, NULL, V4L2_CID_VBLANK,
+			  OV10635_VTS - OV10635_HEIGHT,
+			  OV10635_VTS - OV10635_HEIGHT,
+			  1, OV10635_VTS - OV10635_HEIGHT);
 	dev->sd.ctrl_handler = &dev->ctrls;
 
 	ret = dev->ctrls.error;
