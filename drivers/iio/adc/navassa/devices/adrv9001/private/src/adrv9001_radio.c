@@ -71,7 +71,6 @@ int32_t adrv9001_Radio_Pfir_Write(adi_adrv9001_Device_t *device,
 	                              adi_common_Port_e port,
 	                              adi_common_ChannelNumber_e channel)
 {
-	uint8_t coeffWrite = 0;
 	uint8_t	readval = 0;
 	int32_t value = 0;	
 	uint32_t i = 0; 
