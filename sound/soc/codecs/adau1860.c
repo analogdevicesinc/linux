@@ -726,14 +726,26 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 		{ name, "DMIC7", "DMIC7" }
 
 #define ADAU1860_TDSP_ROUTES(name)                                     \
-	{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                    \
+		{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                \
 		{ name, NULL, "ADC2" }, { name, NULL, "DMIC0" },               \
 		{ name, NULL, "DMIC1" }, { name, NULL, "DMIC2" },              \
 		{ name, NULL, "DMIC3" }, { name, NULL, "DMIC4" },              \
 		{ name, NULL, "DMIC5" }, { name, NULL, "DMIC6" },              \
 		{ name, NULL, "DMIC7" }, { name, NULL, "SPT0_IN" },            \
 		{ name, NULL, "SPT1_IN" }, { "SPT0_OUT", NULL, name },         \
-		{ "SPT1_OUT", NULL, name }, { "DAC", NULL, name },
+		{ "SPT1_OUT", NULL, name }, { "DAC", NULL, name }
+
+#define ADAU1860_FDSP_ROUTES(name)                                     \
+		{ name, NULL, "ADC0" }, { name, NULL, "ADC1" },                \
+		{ name, NULL, "ADC2" }, { name, NULL, "DMIC0" },               \
+		{ name, NULL, "DMIC1" }, { name, NULL, "DMIC2" },              \
+		{ name, NULL, "DMIC3" }, { name, NULL, "DMIC4" },              \
+		{ name, NULL, "DMIC5" }, { name, NULL, "DMIC6" },              \
+		{ name, NULL, "DMIC7" }, { name, NULL, "SPT0_IN" },            \
+		{ name, NULL, "SPT1_IN" }, { name, NULL, "ASRCI 0 Mux" },      \
+		{ name, NULL, "ASRCI 1 Mux" }, { name, NULL, "ASRCI 2 Mux" },  \
+		{ name, NULL, "ASRCI 3 Mux" }, { "DAC", NULL, name },          \
+		{ "SPT0_OUT", NULL, name }, { "SPT1_OUT", NULL, name }
 
 #define ADAU1860_ASRC_OUT_ROUTES(name)                                 \
 		{ name, "TDSP Ch0", "TDSP" }, { name, "TDSP Ch1", "TDSP" },    \
@@ -741,29 +753,45 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 		{ name, "TDSP Ch4", "TDSP" }, { name, "TDSP Ch5", "TDSP" },    \
 		{ name, "TDSP Ch6", "TDSP" }, { name, "TDSP Ch7", "TDSP" },    \
 		{ name, "TDSP Ch8", "TDSP" }, { name, "TDSP Ch9", "TDSP" },    \
-		{ name, "TDSP Ch10", "TDSP" },                                 \
-		{ name, "TDSP Ch11", "TDSP" },                                 \
-		{ name, "TDSP Ch12", "TDSP" },                                 \
-		{ name, "TDSP Ch13", "TDSP" },                                 \
-		{ name, "TDSP Ch14", "TDSP" },                                 \
-		{ name, "TDSP Ch15", "TDSP" },                                 \
-		{ name, "ADC0", "ADC0" },                                      \
-		{ name, "ADC1", "ADC1" },                                      \
-		{ name, "ADC2", "ADC2" },                                      \
-		{ name, "DMIC0", "DMIC0" },                                    \
-		{ name, "DMIC1", "DMIC1" },                                    \
-		{ name, "DMIC2", "DMIC2" },                                    \
-		{ name, "DMIC3", "DMIC3" },                                    \
-		{ name, "DMIC4", "DMIC4" },                                    \
-		{ name, "DMIC5", "DMIC5" },                                    \
-		{ name, "DMIC6", "DMIC6" },                                    \
+		{ name, "TDSP Ch10", "TDSP" }, { name, "TDSP Ch11", "TDSP" },  \
+		{ name, "TDSP Ch12", "TDSP" }, { name, "TDSP Ch13", "TDSP" },  \
+		{ name, "TDSP Ch14", "TDSP" }, { name, "TDSP Ch15", "TDSP" },  \
+		{ name, "FDSP Ch0", "FDSP" }, { name, "FDSP Ch1", "FDSP" },    \
+		{ name, "FDSP Ch2", "FDSP" }, { name, "FDSP Ch3", "FDSP" },    \
+		{ name, "FDSP Ch4", "FDSP" }, { name, "FDSP Ch5", "FDSP" },    \
+		{ name, "FDSP Ch6", "FDSP" }, { name, "FDSP Ch7", "FDSP" },    \
+		{ name, "FDSP Ch8", "FDSP" }, { name, "FDSP Ch9", "FDSP" },    \
+		{ name, "FDSP Ch10", "FDSP" }, { name, "FDSP Ch11", "FDSP" },  \
+		{ name, "FDSP Ch12", "FDSP" }, { name, "FDSP Ch13", "FDSP" },  \
+		{ name, "FDSP Ch14", "FDSP" }, { name, "FDSP Ch15", "FDSP" },  \
+		{ name, "ADC0", "ADC0" }, { name, "ADC1", "ADC1" },            \
+		{ name, "ADC2", "ADC2" }, { name, "DMIC0", "DMIC0" },          \
+		{ name, "DMIC1", "DMIC1" }, { name, "DMIC2", "DMIC2" },        \
+		{ name, "DMIC3", "DMIC3" }, { name, "DMIC4", "DMIC4" },        \
+		{ name, "DMIC5", "DMIC5" }, { name, "DMIC6", "DMIC6" },        \
 		{ name, "DMIC7", "DMIC7" }
 
-#define ADAU1860_ASRC_IN_ROUTES(name)                                  \
-		{ name, NULL, "SPT0_IN" }, { name, NULL, "SPT1_IN" }
+#define ADAU1860_ASRC_IN_ROUTES(name)                                       \
+		{ name, "SPT Ch0", "SPT0_IN" }, { name, "SPT Ch1", "SPT0_IN" },     \
+		{ name, "SPT Ch2", "SPT0_IN" }, { name, "SPT Ch3", "SPT0_IN" },     \
+		{ name, "SPT Ch4", "SPT0_IN" }, { name, "SPT Ch5", "SPT0_IN" },     \
+		{ name, "SPT Ch6", "SPT0_IN" }, { name, "SPT Ch7", "SPT0_IN" },     \
+		{ name, "SPT Ch8", "SPT0_IN" }, { name, "SPT Ch9", "SPT0_IN" },     \
+		{ name, "SPT Ch10", "SPT0_IN" }, { name, "SPT Ch11", "SPT0_IN" },   \
+		{ name, "SPT Ch12", "SPT0_IN" }, { name, "SPT Ch13", "SPT0_IN" },   \
+		{ name, "SPT Ch14", "SPT0_IN" }, { name, "SPT Ch15", "SPT0_IN" },   \
+		{ name, "SPT Ch0", "SPT1_IN" }, { name, "SPT Ch1", "SPT1_IN" },     \
+		{ name, "SPT Ch2", "SPT1_IN" }, { name, "SPT Ch3", "SPT1_IN" },     \
+		{ name, "SPT Ch4", "SPT1_IN" }, { name, "SPT Ch5", "SPT1_IN" },     \
+		{ name, "SPT Ch6", "SPT1_IN" }, { name, "SPT Ch7", "SPT1_IN" },     \
+		{ name, "SPT Ch8", "SPT1_IN" }, { name, "SPT Ch9", "SPT1_IN" },     \
+		{ name, "SPT Ch10", "SPT1_IN" }, { name, "SPT Ch11", "SPT1_IN" },   \
+		{ name, "SPT Ch12", "SPT1_IN" }, { name, "SPT Ch13", "SPT1_IN" },   \
+		{ name, "SPT Ch14", "SPT1_IN" }, { name, "SPT Ch15", "SPT1_IN" }
 
 static const struct snd_soc_dapm_route adau1860_dsp_routes[] = {
-	ADAU1860_TDSP_ROUTES("TDSP")
+	ADAU1860_TDSP_ROUTES("TDSP"),
+	ADAU1860_FDSP_ROUTES("FDSP"),
 };
 
 static const struct snd_soc_dapm_route adau1860_dapm_routes[] = {
@@ -1010,7 +1038,7 @@ static int adau1860_request_firmware_files(struct snd_soc_component *component)
 					  sizeof(uint32_t));
 
 			ret = snd_soc_dapm_new_controls(
-				dapm, &adau1860_dapm_dsp_widgets[i], 1);
+				dapm, adau1860_dapm_dsp_widgets, 2);
 			if (ret)
 				return ret;
 
