@@ -13,6 +13,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 
 #define JESD204_OF_PREFIX	"adi,"
 #include <linux/jesd204/jesd204.h>
@@ -107,10 +108,19 @@ struct ad9213 {
 	struct clk		*jesd_clk;
 	struct clk		*core_clk;
 	bool			syncinb_cmos_en;
-	u32			lmfc_offset;
+	u32				lmfc_offset;
+	bool 			is_initialized;
 	struct jesd204_dev	*jdev;
 	struct jesd204_link	jesd204_link;
 	struct mutex		lock;
+};
+
+enum {
+	AD9213_JESD204_FSM_ERROR,
+	AD9213_JESD204_FSM_PAUSED,
+	AD9213_JESD204_FSM_STATE,
+	AD9213_JESD204_FSM_RESUME,
+	AD9213_JESD204_FSM_CTRL,
 };
 
 struct ad9213_jesd204_priv {
@@ -239,6 +249,167 @@ static int ad9213_multi_chip_sync(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static ssize_t ad9213_phy_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct ad9213 *adc = iio_priv(indio_dev);
+	unsigned long res;
+	bool bres;
+	bool enable;
+	int ret = 0;
+
+	mutex_lock(&adc->lock);
+	dev_info(&adc->spi->dev, "is_initialized in phy_store: %d", adc->is_initialized);
+	switch ((u32)this_attr->address & 0xFF)
+	{
+	case AD9213_JESD204_FSM_RESUME:
+		if (!adc->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+		ret = jesd204_fsm_resume(adc->jdev, JESD204_LINKS_ALL);
+		break;
+
+	case AD9213_JESD204_FSM_CTRL:
+		if (!adc->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+		ret = strtobool(buf, &enable);
+		if (ret) {
+			break;
+		}
+		if (jesd204_dev_is_top(adc->jdev)) {
+			if (enable) {
+				jesd204_fsm_stop(adc->jdev, JESD204_LINKS_ALL);
+				jesd204_fsm_clear_errors(adc->jdev, JESD204_LINKS_ALL);
+				ret = jesd204_fsm_start(adc->jdev, JESD204_LINKS_ALL);
+			} else {
+				jesd204_fsm_stop(adc->jdev, JESD204_LINKS_ALL);
+				jesd204_fsm_clear_errors(adc->jdev, JESD204_LINKS_ALL);
+				ret = 0;
+			}
+		}
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&adc->lock);
+
+	return ret ? ret : len;
+}
+
+static ssize_t ad9213_phy_show(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct ad9213 *adc = iio_priv(indio_dev);
+	int ret = 0;
+	int i, err, num_links;
+	bool paused;
+	struct jesd204_link *links[8];
+
+	switch ((u32)this_attr->address & 0xFF) {
+	case AD9213_JESD204_FSM_ERROR:
+		if (!adc->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+		num_links = jesd204_get_active_links_num(adc->jdev);
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
+
+		ret = jesd204_get_links_data(adc->jdev, links, num_links);
+		if (ret)
+			break;
+		err = 0;
+		for (i = 0; i < num_links; i++) {
+			if (links[i]->error) {
+				err = links[i]->error;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", err);
+		break;
+
+	case AD9213_JESD204_FSM_PAUSED:
+		if (!adc->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+		num_links = jesd204_get_active_links_num(adc->jdev);
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
+		ret = jesd204_get_links_data(adc->jdev, links, num_links);
+		if (ret)
+			break;
+		/*
+		 * Take the slowest link; if there are N links and one is
+		 * paused, all are paused. Not sure if this can happen yet,
+		 * but best design it like this here.
+		 */
+		paused = false;
+		for (i = 0; i < num_links; i++) {
+			if (jesd204_link_get_paused(links[i])) {
+				paused = true;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", paused);
+		break;
+
+	case AD9213_JESD204_FSM_STATE:
+		if (!adc->jdev) {
+			ret = -ENOTSUPP;
+		}
+		num_links = jesd204_get_active_links_num(adc->jdev);
+		if (num_links < 0) {
+			ret = num_links;
+			break;
+		}
+		ret = jesd204_get_links_data(adc->jdev, links, num_links);
+		if (ret) {
+			break;
+		}
+		/*
+		 * just get the first link state; we're assuming that all 3
+		 * are in sync and that AD9081_JESD204_FSM_PAUSED
+		 * was called before
+		 */
+		ret = sprintf(buf, "%s\n",
+			jesd204_link_get_state_str(links[0]));
+		break;
+
+	case AD9213_JESD204_FSM_CTRL:
+		if (!adc->jdev) {
+			ret = -ENOTSUPP;
+			break;
+		}
+
+		ret = sprintf(buf, "%d\n", adc->is_initialized);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&adc->lock);
+	return ret;
+}
+
 
 static int ad9213_setup(struct iio_dev *indio_dev)
 {
@@ -362,6 +533,7 @@ static int ad9213_setup(struct iio_dev *indio_dev)
 		if (status < 0) {
 			dev_err(&adc->spi->dev,
 				"Failed to enable JESD204 link: %d\n", status);
+				adc->is_initialized = false;
 			return status;
 		}
 	}
@@ -464,6 +636,27 @@ ad9213_multi_chip_sync(indio_dev);
 	return JESD204_STATE_CHANGE_DONE;
 }
 
+static int ad9213_jesd204_link_running(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct ad9213_jesd204_priv *priv = jesd204_dev_priv(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ad9213 *adc = priv->adc;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		adc->is_initialized = false;
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	adc->is_initialized = true;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
 
 static const struct jesd204_dev_data jesd204_ad9213_init = {
 	.state_ops = {
@@ -474,6 +667,9 @@ static const struct jesd204_dev_data jesd204_ad9213_init = {
 			.per_device = ad9213_jesd204_clks_sync2,
 			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
 		},
+		[JESD204_OP_LINK_RUNNING] = {
+			.per_link = ad9213_jesd204_link_running,
+		},
 	},
 
 	.max_num_links = 1,
@@ -481,8 +677,47 @@ static const struct jesd204_dev_data jesd204_ad9213_init = {
 	.sizeof_priv = sizeof(struct ad9213_jesd204_priv),
 };
 
+static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
+		       ad9213_phy_show,
+		       NULL,
+		       AD9213_JESD204_FSM_ERROR);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_paused, 0444,
+		       ad9213_phy_show,
+		       NULL,
+		       AD9213_JESD204_FSM_PAUSED);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_state, 0444,
+		       ad9213_phy_show,
+		       NULL,
+		       AD9213_JESD204_FSM_STATE);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_resume, 0200,
+		       NULL,
+		       ad9213_phy_store,
+		       AD9213_JESD204_FSM_RESUME);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
+		       ad9213_phy_show,
+		       ad9213_phy_store,
+		       AD9213_JESD204_FSM_CTRL);
+
+static struct attribute *ad9213_phy_attributes[] = {
+	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad9213_phy_attribute_group = {
+	.attrs = ad9213_phy_attributes,
+};
+
 static const struct iio_info ad9213_iio_info = {
 	.debugfs_reg_access = &ad9213_reg_access,
+	.attrs = &ad9213_phy_attribute_group,
 };
 
 static int ad9213_probe(struct spi_device *spi)
@@ -508,6 +743,7 @@ static int ad9213_probe(struct spi_device *spi)
 	adc = iio_priv(indio_dev);
 
 	adc->spi = spi;
+	adc->is_initialized = false;
 
 	adc->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
 		GPIOD_OUT_HIGH);
