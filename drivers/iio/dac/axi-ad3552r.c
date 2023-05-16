@@ -158,6 +158,9 @@ struct axi_ad3552r_state {
 	void __iomem *regs;
 	struct clk *ref_clk;
 	struct device *dev;
+	/* protect device accesses */
+	struct mutex lock;
+	bool has_lock;
 	bool ddr;
 	bool single_channel;
 	bool synced_transfer;
@@ -202,6 +205,9 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 	struct reg_addr_poll addr;
 	u32 check;
 
+	if (!st->has_lock)
+		mutex_lock(&st->lock);
+
 	if (transfer_params & AXI_MSK_SYMB_8B)
 		axi_ad3552r_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
 	else
@@ -219,13 +225,26 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 			   check == AXI_MSK_BUSY, 10, 100);
 
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
+
+	if (!st->has_lock)
+		mutex_unlock(&st->lock);
 }
 
 static u32 axi_ad3552r_spi_read(struct axi_ad3552r_state *st, u32 reg,
 				u32 transfer_params)
 {
+	u32 val;
+
+	mutex_lock(&st->lock);
+	st->has_lock = true;
+
 	axi_ad3552r_spi_write(st, RD_ADDR(reg), 0x00, transfer_params);
-	return axi_ad3552r_read(st, AXI_REG_CNTRL_DATA_RD);
+	val = axi_ad3552r_read(st, AXI_REG_CNTRL_DATA_RD);
+
+	st->has_lock = false;
+	mutex_unlock(&st->lock);
+
+	return val;
 }
 
 static void axi_ad3552r_spi_update_bits(struct axi_ad3552r_state *st, u32 reg,
@@ -639,6 +658,9 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 		return ret;
 
 	st->dev = &pdev->dev;
+
+	mutex_init(&st->lock);
+	st->has_lock = false;
 
 	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
