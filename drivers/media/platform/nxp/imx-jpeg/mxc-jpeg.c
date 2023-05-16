@@ -275,6 +275,14 @@ static const struct of_device_id mxc_jpeg_match[] = {
 		.compatible = "nxp,imx8qxp-jpgenc",
 		.data       = &mxc_encode_mode,
 	},
+	{
+		.compatible = "fsl,imx9-jpgdec",
+		.data       = &mxc_decode_mode,
+	},
+	{
+		.compatible = "fsl,imx9-jpgenc",
+		.data       = &mxc_encode_mode,
+	},
 	{ },
 };
 
