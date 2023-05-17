@@ -126,7 +126,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qspi_fw: partition@0 {
+			qspi_boot: partition@0 {
 				label = "fw";
 				reg = <0x0 0x02000000>;
 			};
