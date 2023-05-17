@@ -191,3 +191,4 @@ config IIO_ALL_ADI_DRIVERS
 	imply LTC2688
 	imply MAX11410
 	imply MAX31865
+	imply TMC5271
