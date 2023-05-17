@@ -1,5 +1,5 @@
 /*
- * Copyright 2017,2021-2022 NXP
+ * Copyright 2017,2021-2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,6 +19,7 @@
 #include <drm/imx_drm.h>
 #include <linux/component.h>
 #include <linux/device.h>
+#include <linux/dma-buf.h>
 #include <linux/errno.h>
 #include <linux/export.h>
 #include <linux/module.h>
@@ -215,12 +216,59 @@ static int imx_drm_dpu_get_param_ioctl(struct drm_device *drm_dev, void *data,
 	return ret;
 }
 
-const struct drm_ioctl_desc imx_drm_dpu_ioctls[3] = {
+static int imx_drm_dpu_sync_dmabuf_ioctl(struct drm_device *drm_dev, void *data,
+					  struct drm_file *file)
+{
+	struct drm_imx_dpu_sync_dmabuf *flush = data;
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attachment;
+	struct sg_table *sgt;
+	int direction;
+	int ret = 0;
+
+	if (flush->direction == IMX_DPU_SYNC_TO_BOTH)
+		direction = DMA_BIDIRECTIONAL;
+	else if (flush->direction == IMX_DPU_SYNC_TO_DEVICE)
+		direction = DMA_TO_DEVICE;
+	else if (flush->direction == IMX_DPU_SYNC_TO_CPU)
+		direction = DMA_FROM_DEVICE;
+	else
+		direction = DMA_NONE;
+
+	dmabuf = dma_buf_get(flush->dmabuf_fd);
+	if (IS_ERR(dmabuf)) {
+		drm_err(drm_dev, "failed to get dmabuf\n");
+		return PTR_ERR(dmabuf);
+	}
+	attachment = dma_buf_attach(dmabuf, drm_dev->dev);
+	if (IS_ERR(attachment)) {
+		ret = PTR_ERR(attachment);
+		drm_err(drm_dev, "failed to attach dmabuf\n");
+		goto err_put;
+	}
+	sgt = dma_buf_map_attachment(attachment, direction);
+	if (IS_ERR(sgt)) {
+		ret = PTR_ERR(sgt);
+		drm_err(drm_dev, "failed to get dmabuf sg_table\n");
+		goto err_detach;
+	}
+	dma_buf_unmap_attachment(attachment, sgt, direction);
+err_detach:
+	dma_buf_detach(dmabuf, attachment);
+err_put:
+	dma_buf_put(dmabuf);
+
+	return ret;
+}
+
+const struct drm_ioctl_desc imx_drm_dpu_ioctls[4] = {
 	DRM_IOCTL_DEF_DRV(IMX_DPU_SET_CMDLIST, imx_drm_dpu_set_cmdlist_ioctl,
 			DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(IMX_DPU_WAIT, imx_drm_dpu_wait_ioctl,
 			DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(IMX_DPU_GET_PARAM, imx_drm_dpu_get_param_ioctl,
+			DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(IMX_DPU_SYNC_DMABUF, imx_drm_dpu_sync_dmabuf_ioctl,
 			DRM_RENDER_ALLOW),
 };
 EXPORT_SYMBOL_GPL(imx_drm_dpu_ioctls);

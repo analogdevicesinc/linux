@@ -1,5 +1,5 @@
 /*
- * Copyright 2017,2022 NXP
+ * Copyright 2017,2022-2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -43,6 +43,7 @@ struct drm_imx_dpu_frame_info {
 #define DRM_IMX_DPU_SET_CMDLIST                 0x00
 #define DRM_IMX_DPU_WAIT                        0x01
 #define DRM_IMX_DPU_GET_PARAM                   0x02
+#define DRM_IMX_DPU_SYNC_DMABUF                 0x03
 
 #define DRM_IOCTL_IMX_DPU_SET_CMDLIST   DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_IMX_DPU_SET_CMDLIST, struct drm_imx_dpu_set_cmdlist)
@@ -50,6 +51,8 @@ struct drm_imx_dpu_frame_info {
 		DRM_IMX_DPU_WAIT, struct drm_imx_dpu_wait)
 #define DRM_IOCTL_IMX_DPU_GET_PARAM     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_IMX_DPU_GET_PARAM, enum drm_imx_dpu_param)
+#define DRM_IOCTL_IMX_DPU_SYNC_DMABUF   DRM_IOW(DRM_COMMAND_BASE + \
+		DRM_IMX_DPU_SYNC_DMABUF, struct drm_imx_dpu_sync_dmabuf)
 
 /**
  * struct drm_imx_dpu_set_cmdlist - ioctl argument for
@@ -71,6 +74,22 @@ struct drm_imx_dpu_set_cmdlist {
 struct drm_imx_dpu_wait {
 	/* reserved */
 	__u64   user_data;
+};
+
+enum drm_imx_dpu_sync_direction {
+	IMX_DPU_SYNC_TO_CPU = 0,
+	IMX_DPU_SYNC_TO_DEVICE = 1,
+	IMX_DPU_SYNC_TO_BOTH = 2,
+};
+
+/**
+ * struct drm_imx_dpu_sync_dmabuf - ioctl argument for
+ * DRM_IMX_DPU_SYNC_DMABUF.
+ *
+ */
+struct drm_imx_dpu_sync_dmabuf {
+	__u32   dmabuf_fd;
+	__u32   direction;
 };
 
 /**
