@@ -118,7 +118,11 @@
 	ldr	r7, =0x0
 	str	r7, [r4, #DDRC_SWCTL]
 
+	ldr	r7, [r4, #DDRC_MSTR]
+	and	r6, r7, #0x400
 	ldr	r7, =0x03048001
+	/* Set 10th bit in new value to be same as old */
+	orr	r7, r7, r6
 	str	r7, [r4, #DDRC_MSTR]
 
 	ldr	r7, =0x1
@@ -285,7 +289,11 @@
 	cmp	r7, r6
 	bne	13b
 
+	ldr	r7, [r4, #DDRC_MSTR]
+	and	r6, r7, #0x400
 	ldr	r7, =0x03040001
+	/* Set 10th bit in new value to be same as old */
+	orr	r7, r7, r6
 	str	r7, [r4, #DDRC_MSTR]
 
 	ldr	r7, =0x40800020
