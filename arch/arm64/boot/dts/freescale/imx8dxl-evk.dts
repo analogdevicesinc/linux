@@ -635,22 +635,23 @@
 	status = "okay";
 };
 
+&phyx1 {
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+        status = "okay";
+};
+
 &pcieb{
-	compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	clkreq-gpio = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
-	ext_osc = <0>;
 	vpcie-supply = <&reg_pcieb>;
 	status = "okay";
 };
 
 &pcieb_ep{
-	compatible = "fsl,imx8qxp-pcie-ep";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
-	ext_osc = <0>;
 	status = "disabled";
 };
 
