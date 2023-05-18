@@ -595,9 +595,9 @@ static int axi_ad3552r_setup(struct axi_ad3552r_state *st)
 
 	id |= val << 8;
 	if (id != AD3552R_ID)
-		dev_err(st->dev,
-				"Chip ID mismatch. Expected 0x%x, Reported 0x%x\n",
-				AD3552R_ID, id);
+		dev_warn(st->dev,
+			 "Chip ID mismatch. Expected 0x%x, Reported 0x%x\n",
+			 AD3552R_ID, id);
 
 	axi_ad3552r_spi_write(st, AD3552R_REG_REF_CONFIG, AD3552R_REF_INIT,
 			      AD3552R_TFER_8BIT_SDR);
