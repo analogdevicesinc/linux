@@ -531,31 +531,11 @@ static const struct iio_info axi_ad3552r_info = {
 	.update_scan_mode = axi_ad3552r_update_scan_mode,
 };
 
-static int axi_ad3552r_buffer_postenable(struct iio_dev *indio_dev)
-{
-	struct axi_ad3552r_state *st = iio_priv(indio_dev);
-
-	return 0;
-}
-
-static int axi_ad3552r_buffer_postdisable(struct iio_dev *indio_dev)
-{
-	struct axi_ad3552r_state *st = iio_priv(indio_dev);
-
-
-	return 0;
-}
-
 static int axi_ad3552r_dma_buffer_submit(struct iio_dma_buffer_queue *queue,
 					 struct iio_dma_buffer_block *block)
 {
 	return iio_dmaengine_buffer_submit_block(queue, block, DMA_TO_DEVICE);
 }
-
-static const struct iio_buffer_setup_ops axi_ad3552r_buffer_setup_ops = {
-	.postenable = axi_ad3552r_buffer_postenable,
-	.postdisable = axi_ad3552r_buffer_postdisable,
-};
 
 static const struct iio_dma_buffer_ops axi_ad3552r_dma_buffer_ops = {
 	.submit = axi_ad3552r_dma_buffer_submit,
@@ -665,7 +645,6 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
-	indio_dev->setup_ops = &axi_ad3552r_buffer_setup_ops;
 	indio_dev->channels = axi_ad3552r_channels;
 	indio_dev->num_channels = ARRAY_SIZE(axi_ad3552r_channels);
 	indio_dev->info = &axi_ad3552r_info;
