@@ -126,9 +126,8 @@ enum ad35525_source {
 	AD3552R_RAMP	= AXI_SEL_SRC_DDS
 };
 
-
-enum ad35525_stream_status
-{   AD3552R_STOP_STREAM,
+enum ad35525_stream_status {
+	AD3552R_STOP_STREAM,
 	AD3552R_START_STREAM,
 	AD3552R_START_STREAM_SYNCED,
 };
@@ -271,9 +270,9 @@ static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (st->single_channel)
-			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk),4);
+			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk), 4);
 		else
-			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk),8);
+			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk), 8);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel) {
@@ -373,44 +372,49 @@ static int ad3552r_get_input_source(struct iio_dev *indio_dev,
 }
 
 static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
-									const struct iio_chan_spec *chan,
-									unsigned int mode)
+				    const struct iio_chan_spec *chan,
+				    unsigned int mode)
 {
 	struct axi_ad3552r_state *st = iio_priv(indio_dev);
-	if (mode == 2)
-	{   st->synced_transfer = true;
-	    axi_ad3552r_write(st, AXI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
-		axi_ad3552r_write(st, AXI_REG_CNTRL_2, AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N);
-		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AD3552R_STREAM_SATRT,
-								AD3552R_STREAM_SATRT);
-	} else if (mode == 1) { 
+
+	if (mode == 2) {
+		st->synced_transfer = true;
+		axi_ad3552r_write(st, AXI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
+		axi_ad3552r_write(st, AXI_REG_CNTRL_2, AXI_MSK_USIGN_DATA |
+						       ~AXI_MSK_SDR_DDR_N);
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT,
+					AD3552R_STREAM_SATRT);
+	} else if (mode == 1) {
 		st->synced_transfer = false;
-		axi_ad3552r_write(st, AXI_REG_CNTRL_2, AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N);
-		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AD3552R_STREAM_SATRT,
-								AD3552R_STREAM_SATRT);
+		axi_ad3552r_write(st, AXI_REG_CNTRL_2, AXI_MSK_USIGN_DATA |
+						       ~AXI_MSK_SDR_DDR_N);
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT,
+					AD3552R_STREAM_SATRT);
 	} else  {
 		st->synced_transfer = false;
-		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AD3552R_STREAM_SATRT, 0);
-
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT, 0);
 	}
 
 	return 0;
 }
 
 static int ad3552r_get_stream_state(struct iio_dev *indio_dev,
-									const struct iio_chan_spec *chan)
+				    const struct iio_chan_spec *chan)
 {
 	struct axi_ad3552r_state *st = iio_priv(indio_dev);
-    u32 val;
+	u32 val;
 
 	val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
 
-	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer )
+	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer)
 		return 2;
-	else if ((val & AXI_MSK_STREAM) == 2 )
+	else if ((val & AXI_MSK_STREAM) == 2)
 		return 1;
-	else 
-	    return 0;
+	else
+		return 0;
 }
 
 static const struct iio_enum ad35525_source_enum = {
@@ -430,7 +434,7 @@ static const struct iio_enum ad35525_output_enum = {
 static const struct iio_enum ad35525_stream_enum = {
 	.items = stream_status,
 	.num_items = ARRAY_SIZE(stream_status),
-	.get = ad3552r_get_stream_state, 
+	.get = ad3552r_get_stream_state,
 	.set = ad3552r_set_stream_state,
 };
 
@@ -438,12 +442,12 @@ static const struct iio_chan_spec_ext_info ad3552r_ext_info[] = {
 	IIO_ENUM("input_source", IIO_SHARED_BY_ALL, &ad35525_source_enum),
 	IIO_ENUM_AVAILABLE_SHARED("input_source", IIO_SHARED_BY_ALL,
 				  &ad35525_source_enum),
-    IIO_ENUM("stream_status", IIO_SHARED_BY_ALL, &ad35525_stream_enum),
+	IIO_ENUM("stream_status", IIO_SHARED_BY_ALL, &ad35525_stream_enum),
 	IIO_ENUM_AVAILABLE_SHARED("stream_status", IIO_SHARED_BY_ALL,
 				  &ad35525_stream_enum),
 	IIO_ENUM("output_range", IIO_SHARED_BY_ALL, &ad35525_output_enum),
 	IIO_ENUM_AVAILABLE_SHARED("output_range", IIO_SHARED_BY_ALL,
-			  &ad35525_output_enum),
+				  &ad35525_output_enum),
 	{},
 };
 
