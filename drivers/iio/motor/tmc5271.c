@@ -6,6 +6,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/delay.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
 
@@ -469,6 +470,7 @@
 
 struct tmc5271_priv {
 	struct spi_device	*spi;
+	struct gpio_desc	*gpio_sleep;
 	bool			enable;
 	s32			velocity;
 	u32			acceleration;
@@ -689,6 +691,18 @@ static int tmc5271_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	priv = iio_priv(indio_dev);
+
+	priv->gpio_sleep = devm_gpiod_get_optional(&spi->dev, "sleep",
+		GPIOD_OUT_LOW);
+	if (IS_ERR(priv->gpio_sleep))
+		return PTR_ERR(priv->gpio_sleep);
+
+	if (priv->gpio_sleep) {
+		gpiod_set_value_cansleep(priv->gpio_sleep, 1);
+		mdelay(1);
+		gpiod_set_value_cansleep(priv->gpio_sleep, 0);
+		mdelay(1);
+	}
 
 	priv->spi = spi;
 	priv->enable = true;

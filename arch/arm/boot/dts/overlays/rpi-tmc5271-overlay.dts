@@ -7,6 +7,8 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/gpio/gpio.h>
+
 &spidev0 {
 	status = "disabled";
 };
@@ -24,5 +26,6 @@
 		spi-max-frequency = <1600000>;
 		spi-cpol;
 		spi-cpha;
+		sleep-gpios = <&gpio 25 GPIO_ACTIVE_HIGH>;
 	};
 };
