@@ -163,7 +163,6 @@ typedef struct {
 	volatile u8 *hwregs;
 	int irq;
 	int hw_id;
-	int hw_active;
 	int core_id;
 	//int cores;
 	//struct fasync_struct *async_queue_dec;
@@ -172,6 +171,7 @@ typedef struct {
 	u32 dec_regs[DEC_IO_SIZE_MAX/4];
 	struct semaphore dec_core_sem;
 	struct semaphore pp_core_sem;
+	struct semaphore core_suspend_sem;
 	struct file *dec_owner;
 	struct file *pp_owner;
 	u32 cfg;
@@ -780,8 +780,10 @@ static long DecFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 			iowrite32(dev->dec_regs[i], dev->hwregs + i*4);
 	}
 
-	if (dev->dec_regs[1] & 0x1)
-		dev->hw_active = 1;
+	if (dev->dec_regs[1] & 0x1) {
+		if (down_timeout(&dev->core_suspend_sem, msecs_to_jiffies(10000)))
+			pr_err("core suspend sem down error id %d\n", dev->core_id);
+	}
 	/* write the status register, which may start the decoder */
 	iowrite32(dev->dec_regs[1], dev->hwregs + 4);
 
@@ -934,6 +936,7 @@ static long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 	} else if (ret == 0) {
 		pr_err("DEC[%d]  wait_event_interruptible timeout\n", dev->core_id);
 		dev->timeout = 1;
+		up(&dev->core_suspend_sem);
 	}
 
 	atomic_inc(&dev->irq_tx);
@@ -1629,6 +1632,7 @@ static int hantrodec_init(struct platform_device *pdev, int id)
 
 	sema_init(&hantrodec_data[id].dec_core_sem, 1);
 	sema_init(&hantrodec_data[id].pp_core_sem, 1);
+	sema_init(&hantrodec_data[id].core_suspend_sem, 1);
 
 	/* read configuration fo all cores */
 	ReadCoreConfig(&hantrodec_data[id]);
@@ -1830,7 +1834,7 @@ static irqreturn_t hantrodec_isr(int irq, void *dev_id)
 
 		if (irq_status_dec & HANTRODEC_DEC_DONE) {
 			PDEBUG("decoder IRQ received! Core %d\n", dev->core_id);
-			dev->hw_active = 0;
+			up(&dev->core_suspend_sem);
 
 			atomic_inc(&hantrodec_data[dev->core_id].irq_rx);
 
@@ -2014,12 +2018,13 @@ static int __maybe_unused hantro_suspend(struct device *dev)
 
 	if (hantrodev->dec_owner) {
 		/* polling until hw is idle */
-		while (hantrodev->hw_active) {
-			pr_info("DEC[%d] is still in active when suspend !\n", hantrodev->core_id);
-			usleep_range(5000, 10000);
+		if (down_timeout(&hantrodev->core_suspend_sem, msecs_to_jiffies(10000))) {
+			pr_err("sem down error when store regs, id %d\n", hantrodev->core_id);
+		} else {
+			/*let's backup all registers from HW to shadow register to support suspend*/
+			DecStoreRegs(hantrodev);
+			up(&hantrodev->core_suspend_sem);
 		}
-		/* let's backup all registers from H/W to shadow register to support suspend */
-		DecStoreRegs(hantrodev);
 	}
 
 	pm_runtime_put_sync_suspend(dev);   //power off
