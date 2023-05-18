@@ -90,6 +90,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD5421
 	imply AD5624R_SPI if SPI
 	imply AD3552R
+	imply AXI_AD3552R
 	imply AD5064
 	imply AD5504
 	imply AD5446
