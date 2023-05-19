@@ -380,15 +380,15 @@ static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 	if (mode == 2) {
 		st->synced_transfer = true;
 		axi_ad3552r_write(st, AXI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
-		axi_ad3552r_write(st, AXI_REG_CNTRL_2, AXI_MSK_USIGN_DATA |
-						       ~AXI_MSK_SDR_DDR_N);
+		axi_ad3552r_write(st, AXI_REG_CNTRL_2, (u32)(AXI_MSK_USIGN_DATA |
+							     ~AXI_MSK_SDR_DDR_N));
 		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
 					AD3552R_STREAM_SATRT,
 					AD3552R_STREAM_SATRT);
 	} else if (mode == 1) {
 		st->synced_transfer = false;
-		axi_ad3552r_write(st, AXI_REG_CNTRL_2, AXI_MSK_USIGN_DATA |
-						       ~AXI_MSK_SDR_DDR_N);
+		axi_ad3552r_write(st, AXI_REG_CNTRL_2, (u32)(AXI_MSK_USIGN_DATA |
+							     ~AXI_MSK_SDR_DDR_N));
 		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
 					AD3552R_STREAM_SATRT,
 					AD3552R_STREAM_SATRT);
