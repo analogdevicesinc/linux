@@ -1045,6 +1045,13 @@ S:	Supported
 F:	drivers/iio/dac/ad400x.c
 F:	Documentation/devicetree/bindings/iio/adc/ad400x.txt
 
+ANALOG DEVICES INC AXI-AD3552R DRIVER
+M:	Marcelo Schmitt <marcelo.schmitt@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	https://ez.analog.com/linux-software-drivers
+F:	Documentation/devicetree/bindings/iio/dac/adi,axi-ad3552r.yaml
+
 ANALOG DEVICES INC AD4134 DRIVER
 M:	Cosmin Tanislav <cosmin.tanislav@analog.com>
 L:	linux-iio@vger.kernel.org
