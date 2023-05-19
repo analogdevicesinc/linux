@@ -3,6 +3,9 @@
  * Analog Devices AXI-AD3552R
  * https://www.analog.com/en/products/ad3552r.html
  *
+ * hdl_project: <ad3552r_evb>
+ * board_revision: <A>
+ *
  * Copyright (C) 2023 Analog Devices Inc.
  */
 /dts-v1/;
