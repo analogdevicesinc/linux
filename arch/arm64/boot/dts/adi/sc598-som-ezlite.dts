@@ -209,3 +209,4 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&sru_dai0>;
 	status = "okay";
+};
