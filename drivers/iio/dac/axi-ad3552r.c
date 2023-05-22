@@ -575,6 +575,7 @@ static int axi_ad3552r_setup(struct axi_ad3552r_state *st)
 	u8 val;
 	u16 id;
 	int ret;
+	const char *node_name;
 
 	ret = axi_ad3552r_reset(st);
 	if (ret)
@@ -588,6 +589,12 @@ static int axi_ad3552r_setup(struct axi_ad3552r_state *st)
 
 	if (val != AD3552R_SCRATCH_PAD_TEST_VAL)
 		return -EINVAL;
+
+	ret = device_property_read_string(st->dev, "name", &node_name);
+	if (!ret && strcmp(node_name, "axi-ad3552r-1") == 0) {
+		dev_info(st->dev, "Adding more delay to axi-ad3552r-1\n");
+		mdelay(500);
+	}
 
 	val = axi_ad3552r_spi_read(st, AD3552R_REG_PRODUCT_ID_L,
 				   AD3552R_TFER_8BIT_SDR);
