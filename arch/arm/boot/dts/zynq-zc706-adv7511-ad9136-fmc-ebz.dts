@@ -33,7 +33,7 @@
 #define axi_clk clkc 16
 #define fpga_device_clk ad9516 9
 
-#define fmc_gpio_base 86
+#define fmc_gpio_base 75
 #define fmc_gpio gpio0
 
 #include "adi-xilinx-dac-fmc-ebz.dtsi"
