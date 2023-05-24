@@ -10,7 +10,7 @@
  * Copyright (C) 2019-2023 Analog Devices Inc.
  */
 
-#include "versal-vck190-reva.dts"
+#include "versal-vck190-revA.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include <dt-bindings/jesd204/adxcvr.h>
@@ -23,103 +23,14 @@
 #define AD9081_TX_LANERATE_KHZ	24750000
 #define AD9081_TX_LINK_CLK	375000000
 
-&gic {
-	num_cpus = <2>;
-	num_interrupts = <96>;
-};
-
-&lpd_dma_chan0 {
-	status = "okay";
-};
-
-&lpd_dma_chan1 {
-	status = "okay";
-};
-
-&lpd_dma_chan2 {
-	status = "okay";
-};
-
-&lpd_dma_chan3 {
-	status = "okay";
-};
-
-&lpd_dma_chan4 {
-	status = "okay";
-};
-
-&lpd_dma_chan5 {
-	status = "okay";
-};
-
-&lpd_dma_chan6 {
-	status = "okay";
-};
-
-&lpd_dma_chan7 {
-	status = "okay";
-};
-
-&cci {
-	status = "okay";
-};
-
-&smmu {
-	status = "okay";
-};
-
-&i2c1 {
-	status = "disabled";
-};
-
-&gpio1 {
-	status = "okay";
-};
-
-&qspi {
-	is-dual = <1>;
-	num-cs = <1>;
-	spi-rx-bus-width = <4>;
-	spi-tx-bus-width = <4>;
-	status = "okay";
-};
-
-&sdhci1 {
-	clock-frequency = <199999985>;
-	status = "okay";
-};
-
-&serial0 {
-	cts-override ;
-	device_type = "serial";
-	port-number = <0>;
-};
-
-&spi0 {
-	is-decoded-cs = <0>;
-	num-cs = <3>;
-	status = "okay";
-};
-
-&spi1 {
-	is-decoded-cs = <0>;
-	num-cs = <3>;
-	status = "okay";
-};
-
-&ttc0 {
-	status = "okay";
-};
-
-&ref_clk {
-	clock-frequency = <33333333>;
-};
-
-&gem0 {
-	local-mac-address = [00 0a 35 ad 90 81];
-};
-
 / {
+	model = "Analog Devices AD9081-FMC-EBZ-VCK190 Rev.A";
+
+	chosen {
+		bootargs = "console=ttyAMA0 earlycon=pl011,mmio32,0xFF000000,115200n8 clk_ignore_unused root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait";
+		stdout-path = "serial0:115200";
+	};
+
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
@@ -288,6 +199,102 @@
 			reg = <0xa5000000 0x10000>;
 		};
 	};
+};
+
+&gic {
+	num_cpus = <2>;
+	num_interrupts = <96>;
+};
+
+&lpd_dma_chan0 {
+	status = "okay";
+};
+
+&lpd_dma_chan1 {
+	status = "okay";
+};
+
+&lpd_dma_chan2 {
+	status = "okay";
+};
+
+&lpd_dma_chan3 {
+	status = "okay";
+};
+
+&lpd_dma_chan4 {
+	status = "okay";
+};
+
+&lpd_dma_chan5 {
+	status = "okay";
+};
+
+&lpd_dma_chan6 {
+	status = "okay";
+};
+
+&lpd_dma_chan7 {
+	status = "okay";
+};
+
+&cci {
+	status = "okay";
+};
+
+&smmu {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "disabled";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&qspi {
+	is-dual = <1>;
+	num-cs = <1>;
+	spi-rx-bus-width = <4>;
+	spi-tx-bus-width = <4>;
+	status = "okay";
+};
+
+&sdhci1 {
+	clock-frequency = <199999985>;
+	status = "okay";
+};
+
+&serial0 {
+	cts-override ;
+	device_type = "serial";
+	port-number = <0>;
+};
+
+&spi0 {
+	is-decoded-cs = <0>;
+	num-cs = <3>;
+	status = "okay";
+};
+
+&spi1 {
+	is-decoded-cs = <0>;
+	num-cs = <3>;
+	status = "okay";
+};
+
+&ttc0 {
+	status = "okay";
+};
+
+&ref_clk {
+	clock-frequency = <33333333>;
+};
+
+&gem0 {
+	local-mac-address = [00 0a 35 ad 90 81];
 };
 
 &fpga_axi {
