@@ -27,9 +27,12 @@
 #define HWFFC_ACG_FORCE_B		BIT(17)
 #define AUTO_CG_EN			BIT(16)
 
+#define DEFAULT_IDLE_STRAP		32768
+
 #define VDD_SOC_LD_VOLTAGE		800000
 #define VDD_SOC_ND_VOLTAGE		850000
 #define VDD_SOC_OD_VOLTAGE		900000
+
 
 enum SYS_PLL_CLKS {
 	SYS_PLL_PFD0,
@@ -413,10 +416,10 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 		return PTR_ERR(soc_reg);
 
 	/*
-	 * initial auto clock gating ssi strap, set to 0x100 by default,
+	 * initial auto clock gating ssi strap, set to 32768 by default,
 	 * too small value will impact the ddr performance significantly.
 	 */
-	regmap_update_bits(regmap, 0x10, 0xffff, 0x100);
+	regmap_update_bits(regmap, 0x10, 0xffff, DEFAULT_IDLE_STRAP);
 
 	/*
 	 * enable the ddr auto clock gating if highest ddr frequeency is 3733mts
