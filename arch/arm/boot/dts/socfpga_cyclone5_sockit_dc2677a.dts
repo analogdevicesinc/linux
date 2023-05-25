@@ -1,0 +1,236 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DC2677A HSMC board
+ *
+ * hdl_project: <dc2677a/c5soc>
+ * board_revision: <>
+ *
+ * Copyright 2023 Analog Devices Inc.
+ */
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+#include "socfpga_cyclone5.dtsi"
+
+/ {
+	model = "Terasic SoCkit";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>;
+	};
+
+	aliases {
+		ethernet0 = &gmac1;
+	};
+
+	sys_clk: sys_clk {
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>;
+		clock-output-names = "sys_clk";
+	};
+
+	soc {
+		clkmgr@ffd04000 {
+			clocks {
+				osc1 {
+					clock-frequency = <25000000>;
+				};
+			};
+		};
+
+		gmac1: ethernet@ff702000 {
+			phy-mode = "rgmii";
+			phy-addr = <0xffffffff>; /* probe for phy addr */
+			status = "okay";
+
+			rxd0-skew-ps = <0>;
+			rxd1-skew-ps = <0>;
+			rxd2-skew-ps = <0>;
+			rxd3-skew-ps = <0>;
+			txen-skew-ps = <0>;
+			txc-skew-ps = <2600>;
+			rxdv-skew-ps = <0>;
+			rxc-skew-ps = <2000>;
+		};
+
+		timer0: timer0@ffc08000 {
+			clock-frequency = <100000000>;
+		};
+
+		timer1: timer1@ffc09000 {
+			clock-frequency = <100000000>;
+		};
+
+		timer2: timer2@ffd00000 {
+			clock-frequency = <25000000>;
+		};
+
+		timer3: timer3@ffd01000 {
+			clock-frequency = <25000000>;
+		};
+
+		uart0: serial0@ffc02000 {
+			clock-frequency = <100000000>;
+		};
+
+		uart1: serial1@ffc03000 {
+			clock-frequency = <100000000>;
+		};
+
+		mmc: dwmmc0@ff704000 {
+			status = "okay";
+			supports-highspeed;
+			altr,dw-mshc-ciu-div = <0x3>;
+			altr,dw-mshc-sdr-timing = <0x0 0x3>;
+			slot@0 {
+				reg = <0x0>;
+				bus-width = <0x4>;
+			};
+		};
+
+		usb1: usb@ffb40000 {
+			status = "okay";
+			enable-dynamic-fifo = <1>;
+			host-rx-fifo-size = <0xa00>;
+			host-perio-tx-fifo-size = <0xa00>;
+			host-nperio-tx-fifo-size = <0xa00>;
+			dma-desc-enable = <0>;
+			dr_mode = "host";
+		};
+
+		sys_hps_bridges: bridge@c0000000 {
+			compatible = "simple-bus";
+			reg = <0xc0000000 0x20000000>,
+				<0xff200000 0x00200000>;
+			reg-names = "axi_h2f", "axi_h2f_lw";
+			#address-cells = <2>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0x00000000 0xc0000000 0x00010000>,
+				<0x00000001 0x00100000 0xff300000 0x00100000>;
+
+			c5soc_sys_cpu_interconnect: bridge@100100000 {
+				compatible = "simple-bus";
+				reg = <0x00000001 0x00100000 0x00100000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0x00020000 0x00000001 0x00120000 0x00010000>,
+					<0x00000000 0x00000001 0x00100000 0x00004000>,
+					<0x00040000 0x00000001 0x00140000 0x00001000>,
+					<0x00009000 0x00000001 0x00109000 0x00000010>;
+
+				rx_dma: dma@0 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x00000000 0x00004000>;
+					interrupt-parent = <&intc>;
+					interrupts = <0 42 4>;
+					#dma-cells = <1>;
+					clocks = <&sys_clk>;
+
+					adi,channels {
+						#size-cells = <0>;
+						#address-cells = <1>;
+
+						dma-channel@0 {
+							reg = <0>;
+							adi,source-bus-width = <256>;
+							adi,source-bus-type = <2>;
+							adi,destination-bus-width = <64>;
+							adi,destination-bus-type = <0>;
+						};
+					};
+				};
+
+				axi_pwm_gen: axi-pwm-gen@40000 {
+					compatible = "adi,axi-pwmgen";
+					reg = <0x00040000 0x1000>;
+					#pwm-cells = <2>;
+					clocks = <&sys_clk>;
+				};
+
+				gpio: gpio@9000 {
+					compatible = "altr,pio-1.0";
+					reg = <0x00020000 0x00010000>;
+					altr,gpio-bank-width = <5>;
+					resetvalue = <0>;
+					#gpio-cells = <2>;
+					gpio-controller;
+				};
+
+				axi_ltc235x_adc_core: axi-ltc235x@20000 {
+					compatible = "adi,axi-adc-10.0.a";
+					reg = <0x00020000 0x00010000>;
+					dmas = <&rx_dma 0>;
+					dma-names = "rx";
+					spibus-connected = <&ltc2358>;
+				};
+			};
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ltc2358: adc@0 {
+		compatible = "adi,ltc2358-18";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clocks = <&sys_clk>;
+		clock-names = "clkin";
+
+		pwms = <&axi_pwm_gen 0 0>;
+		pwm-names = "cnv";
+
+		channel@0 {
+			reg = <0>;
+			adi,softspan-code = <1>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,softspan-code = <3>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,softspan-code = <2>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,softspan-code = <4>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			adi,softspan-code = <5>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			adi,softspan-code = <7>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			adi,softspan-code = <6>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			adi,softspan-code = <2>;
+		};
+	};
+};
