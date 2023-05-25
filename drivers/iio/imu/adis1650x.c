@@ -103,7 +103,7 @@ static const struct iio_chan_spec adis1650x_channels[] = {
 	ADIS_EXTD_DELTA_VEL_CHAN(adis1650x_def.x_deltvel.reg_addr, X,  32, 32),
 	ADIS_EXTD_DELTA_VEL_CHAN(adis1650x_def.y_deltvel.reg_addr, Y,  32, 32),
 	ADIS_EXTD_DELTA_VEL_CHAN(adis1650x_def.z_deltvel.reg_addr, Z,  32, 32),
-	ADIS_EXTD_DATA_COUNTER_CHAN(ADIS_EXTD_DATA_COUNTER,            32, 32)
+	IIO_CHAN_SOFT_TIMESTAMP(13)
 };
 
 static const struct adis_extd_clk_freq_limit adis1650x_sync_mode[] = {
@@ -266,7 +266,7 @@ static const struct adis_extd_chip_info adis1650x_chip_info[] = {
 		.sampling_clk_limits	= adis1650x_sampling_clk_limits,
 		.burst32_extra_bytes = 12,
 	},
-		[ADIS16507_1] = {
+	[ADIS16507_1] = {
 		.name = "adis16507-1",
 		.num_channels = ARRAY_SIZE(adis1650x_channels),
 		.channels = adis1650x_channels,

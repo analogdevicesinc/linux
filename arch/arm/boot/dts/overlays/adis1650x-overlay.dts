@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	 fragment@3 {
+		target = <&gpio>;
+		__overlay__ {
+			adis1650x_pins: adis1650x_pins {
+				brcm,pins = <4 12>; // interrupt and reset
+				brcm,function = <0 1>; // in out
+			};
+		};
+	};
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			/* needed to avoid dtc warning */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adis1650x: adis1650x@0 {
+				compatible = "adi,adis16505-2_extd";
+				adi,sync-mode = <3>;
+				reg = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&adis1650x_pins>;
+				spi-cpha;
+				spi-cpol;
+				reset-gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
+				spi-max-frequency = <2000000>;
+				interrupts = <4 IRQ_TYPE_EDGE_RISING>;
+				interrupt-parent = <&gpio>;
+			};
+		};
+	};
+
+	__overrides__ {
+		/*
+		 * This gives an option to use the gpio25 as the data ready pin. This
+		 * configuration must be used if the 14 pin connector is used,
+		 * where DR is using gpio25.
+		 */
+		drdy_gpio25 = <&adis1650x_pins>,"brcm,pins:0=25",
+				<&adis1650x>,"interrupts:0=25";
+	};
+};
