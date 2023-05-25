@@ -229,7 +229,11 @@ import_page_map(gckOS           Os,
 #else
                             (flags & VM_WRITE) ? 1 : 0, 0,
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+                            pages);
+#else
                             pages, NULL);
+#endif
 
     up_read(&current_mm_mmap_sem);
 
