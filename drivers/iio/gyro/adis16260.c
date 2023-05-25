@@ -390,7 +390,7 @@ static int adis16260_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_adis_setup_buffer_and_trigger(&adis16260->adis, indio_dev, NULL);
+	ret = devm_adis_setup_buffer_and_trigger(&adis16260->adis, indio_dev, NULL, NULL);
 	if (ret)
 		return ret;
 

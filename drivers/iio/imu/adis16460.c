@@ -388,7 +388,7 @@ static int adis16460_probe(struct spi_device *spi)
 
 	/* We cannot mask the interrupt, so ensure it isn't auto enabled */
 	st->adis.irq_flag |= IRQF_NO_AUTOEN;
-	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev, NULL);
+	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev, NULL, NULL);
 	if (ret)
 		return ret;
 

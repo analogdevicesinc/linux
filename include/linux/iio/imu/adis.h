@@ -534,7 +534,7 @@ int adis_single_conversion(struct iio_dev *indio_dev,
 
 int
 devm_adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
-				   irq_handler_t trigger_handler);
+				   irq_handler_t trigger_handler, const struct iio_buffer_setup_ops *op);
 
 int devm_adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev);
 
@@ -545,7 +545,7 @@ int adis_update_scan_mode(struct iio_dev *indio_dev,
 
 static inline int
 devm_adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
-				   irq_handler_t trigger_handler)
+				   irq_handler_t trigger_handler, const struct iio_buffer_setup_ops *op)
 {
 	return 0;
 }

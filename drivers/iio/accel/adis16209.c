@@ -287,7 +287,7 @@ static int adis16209_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_adis_setup_buffer_and_trigger(st, indio_dev, NULL);
+	ret = devm_adis_setup_buffer_and_trigger(st, indio_dev, NULL, NULL);
 	if (ret)
 		return ret;
 

@@ -1343,7 +1343,7 @@ static int adis16475_probe(struct spi_device *spi)
 		return ret;
 
 	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev,
-						 adis16475_trigger_handler);
+						 adis16475_trigger_handler, NULL);
 	if (ret)
 		return ret;
 
