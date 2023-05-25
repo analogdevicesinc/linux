@@ -81,6 +81,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply XILINX_XADC if (ARCH_ZYNQ || ARCH_ZYNQMP || MICROBLAZE)
 	imply LTC2497
 	imply LTC2308
+	imply LTC2358
 	imply LTC2387
 	imply AD8366
 	imply ADA4250
