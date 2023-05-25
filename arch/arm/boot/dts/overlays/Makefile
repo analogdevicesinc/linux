@@ -12,6 +12,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	adis16475.dtbo \
 	adis16480.dtbo \
 	adis16505.dtbo \
+	adis1657x.dtbo \
 	ads1015.dtbo \
 	ads1115.dtbo \
 	ads7846.dtbo \
