@@ -15,12 +15,27 @@
 / {
 	model = "LS1088A RDB Board";
 	compatible = "fsl,ls1088a-rdb", "fsl,ls1088a";
+
+	sfp_cage: sfp {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp_i2c_bus>;
+	};
+};
+
+&dpmac1 {
+	sfp = <&sfp_cage>;
+	managed = "in-band-status";
+	phys = <&serdes1 2>;
+	phy-names = "serdes";
+	pcs-handle = <&pcs1>;
 };
 
 &dpmac2 {
 	phy-handle = <&mdio2_aquantia_phy>;
 	phy-connection-type = "10gbase-r";
 	pcs-handle = <&pcs2>;
+	phys = <&serdes1 3>;
+	phy-names = "serdes";
 };
 
 &dpmac3 {
@@ -28,6 +43,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs3_0>;
+	phys = <&serdes1 0>;
+	phy-names = "serdes";
 };
 
 &dpmac4 {
@@ -35,6 +52,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs3_1>;
+	phys = <&serdes1 0>;
+	phy-names = "serdes";
 };
 
 &dpmac5 {
@@ -42,6 +61,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs3_2>;
+	phys = <&serdes1 0>;
+	phy-names = "serdes";
 };
 
 &dpmac6 {
@@ -49,6 +70,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs3_3>;
+	phys = <&serdes1 0>;
+	phy-names = "serdes";
 };
 
 &dpmac7 {
@@ -56,6 +79,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs7_0>;
+	phys = <&serdes1 1>;
+	phy-names = "serdes";
 };
 
 &dpmac8 {
@@ -63,6 +88,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs7_1>;
+	phys = <&serdes1 1>;
+	phy-names = "serdes";
 };
 
 &dpmac9 {
@@ -70,6 +97,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs7_2>;
+	phys = <&serdes1 1>;
+	phy-names = "serdes";
 };
 
 &dpmac10 {
@@ -77,6 +106,8 @@
 	phy-connection-type = "qsgmii";
 	managed = "in-band-status";
 	pcs-handle = <&pcs7_3>;
+	phys = <&serdes1 1>;
+	phy-names = "serdes";
 };
 
 &emdio1 {
@@ -178,6 +209,12 @@
 				interrupts-extended = <&extirq 0 IRQ_TYPE_LEVEL_LOW>;
 			};
 		};
+
+		sfp_i2c_bus: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+		};
 	};
 };
 
@@ -207,6 +244,10 @@
 
 &esdhc {
 	mmc-hs200-1_8v;
+	status = "okay";
+};
+
+&pcs_mdio1 {
 	status = "okay";
 };
 
