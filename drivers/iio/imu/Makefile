@@ -9,6 +9,11 @@ obj-$(CONFIG_ADIS16460) += adis16460.o
 obj-$(CONFIG_ADIS16475) += adis16475.o
 obj-$(CONFIG_ADIS16480) += adis16480.o
 
+adis_extd_lib-y += adis_extd.o
+obj-$(CONFIG_IIO_ADIS_EXTD_LIB) += adis_extd_lib.o
+
+obj-$(CONFIG_DEBUG_FS) += adis_extd_debugfs.o
+
 adis_lib-y += adis.o
 adis_lib-$(CONFIG_IIO_ADIS_LIB_BUFFER) += adis_trigger.o
 adis_lib-$(CONFIG_IIO_ADIS_LIB_BUFFER) += adis_buffer.o
