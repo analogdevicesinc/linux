@@ -87,6 +87,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply FB_TFT_SEPS525
 	imply LEDS_AS3645A
 	imply CHARGER_LTC4162L
+	imply RTC_DRV_MAX31335
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
