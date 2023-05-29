@@ -4066,6 +4066,10 @@ gckCOMMAND_DumpExecutingBuffer(IN gckCOMMAND Command)
     return gcvSTATUS_OK;
 
 OnError:
+#if gcdDUMP_HW_SUBCOMMAND
+    if (subCommandList.count > 0)
+        _DestroySubCmdList(kernel->os, &subCommandList);
+#endif
     return status;
 }
 
