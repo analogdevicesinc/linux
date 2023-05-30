@@ -1155,6 +1155,7 @@ M:	Marcelo Schmitt <marcelo.schmitt@analog.com>
 L:	linux-iio@vger.kernel.org
 S:	Supported
 W:	http://ez.analog.com/community/linux-device-drivers
+F:	arch/arm/boot/dts/zynq-coraz7s-ad7091r8.dts
 F:	Documentation/devicetree/bindings/iio/adc/adi,ad7091r5.yaml
 F:	Documentation/devicetree/bindings/iio/adc/adi,ad7091r8.yaml
 F:	drivers/iio/adc/drivers/iio/adc/ad7091r-base.c
