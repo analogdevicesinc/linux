@@ -132,6 +132,7 @@ struct axi_dmac_chan {
 	unsigned int src_type;
 	unsigned int dest_type;
 
+	unsigned int max_length;
 	unsigned int address_align_mask;
 	unsigned int length_align_mask;
 
@@ -497,14 +498,12 @@ static struct axi_dmac_sg *axi_dmac_fill_linear_sg(struct axi_dmac_chan *chan,
 	unsigned int num_periods, unsigned int period_len,
 	struct axi_dmac_sg *sg)
 {
-	struct device *dev = &chan->vchan.chan.dev->device;
-	unsigned int max_length = dma_get_max_seg_size(dev);
 	unsigned int num_segments, i;
 	unsigned int segment_size;
 	unsigned int len;
 
 	/* Split into multiple equally sized segments if necessary */
-	num_segments = DIV_ROUND_UP(period_len, max_length);
+	num_segments = DIV_ROUND_UP(period_len, chan->max_length);
 	segment_size = DIV_ROUND_UP(period_len, num_segments);
 	/* Take care of alignment */
 	segment_size = ((segment_size - 1) | chan->length_align_mask) + 1;
@@ -582,7 +581,6 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 	unsigned int sg_len, enum dma_transfer_direction direction,
 	unsigned long flags, void *context)
 {
-	unsigned int max_length = dma_get_max_seg_size(&c->dev->device);
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
 	struct axi_dmac_sg *dsg;
@@ -595,7 +593,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 
 	num_sgs = 0;
 	for_each_sg(sgl, sg, sg_len, i)
-		num_sgs += DIV_ROUND_UP(sg_dma_len(sg), max_length);
+		num_sgs += DIV_ROUND_UP(sg_dma_len(sg), chan->max_length);
 
 	desc = axi_dmac_alloc_desc(num_sgs);
 	if (!desc)
@@ -624,7 +622,6 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 	size_t period_len, enum dma_transfer_direction direction,
 	unsigned long flags)
 {
-	unsigned int max_length = dma_get_max_seg_size(&c->dev->device);
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
 	unsigned int num_periods, num_segments;
@@ -640,7 +637,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 		return NULL;
 
 	num_periods = buf_len / period_len;
-	num_segments = DIV_ROUND_UP(period_len, max_length);
+	num_segments = DIV_ROUND_UP(period_len, chan->max_length);
 
 	desc = axi_dmac_alloc_desc(num_periods * num_segments);
 	if (!desc)
@@ -658,7 +655,6 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 	struct dma_chan *c, struct dma_interleaved_template *xt,
 	unsigned long flags)
 {
-	unsigned int max_length = dma_get_max_seg_size(&c->dev->device);
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
 	size_t dst_icg, src_icg;
@@ -686,13 +682,13 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_interleaved(
 		if (!axi_dmac_check_len(chan, xt->sgl[0].size) ||
 		    xt->numf == 0)
 			return NULL;
-		if (xt->sgl[0].size + dst_icg > max_length ||
-		    xt->sgl[0].size + src_icg > max_length)
+		if (xt->sgl[0].size + dst_icg > chan->max_length ||
+		    xt->sgl[0].size + src_icg > chan->max_length)
 			return NULL;
 	} else {
 		if (dst_icg != 0 || src_icg != 0)
 			return NULL;
-		if (max_length / xt->sgl[0].size < xt->numf)
+		if (chan->max_length / xt->sgl[0].size < xt->numf)
 			return NULL;
 		if (!axi_dmac_check_len(chan, xt->sgl[0].size * xt->numf))
 			return NULL;
@@ -906,8 +902,6 @@ static int axi_dmac_read_chan_config(struct device *dev, struct axi_dmac *dmac)
 static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 {
 	struct axi_dmac_chan *chan = &dmac->chan;
-	struct device *dev = dmac->dma_dev.dev;
-	unsigned int max_length;
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, AXI_DMAC_FLAG_CYCLIC);
 	if (axi_dmac_read(dmac, AXI_DMAC_REG_FLAGS) == AXI_DMAC_FLAG_CYCLIC)
@@ -918,21 +912,23 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 		chan->hw_2d = true;
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, 0xffffffff);
-	max_length = axi_dmac_read(dmac, AXI_DMAC_REG_X_LENGTH);
-	if (max_length != UINT_MAX)
-		max_length++;
+	chan->max_length = axi_dmac_read(dmac, AXI_DMAC_REG_X_LENGTH);
+	if (chan->max_length != UINT_MAX)
+		chan->max_length++;
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_DEST_ADDRESS, 0xffffffff);
 	if (axi_dmac_read(dmac, AXI_DMAC_REG_DEST_ADDRESS) == 0 &&
 	    chan->dest_type == AXI_DMAC_BUS_TYPE_AXI_MM) {
-		dev_err(dev, "Destination memory-mapped interface not supported.");
+		dev_err(dmac->dma_dev.dev,
+			"Destination memory-mapped interface not supported.");
 		return -ENODEV;
 	}
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_SRC_ADDRESS, 0xffffffff);
 	if (axi_dmac_read(dmac, AXI_DMAC_REG_SRC_ADDRESS) == 0 &&
 	    chan->src_type == AXI_DMAC_BUS_TYPE_AXI_MM) {
-		dev_err(dev, "Source memory-mapped interface not supported.");
+		dev_err(dmac->dma_dev.dev,
+			"Source memory-mapped interface not supported.");
 		return -ENODEV;
 	}
 
@@ -946,8 +942,6 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 	} else {
 		chan->length_align_mask = chan->address_align_mask;
 	}
-
-	dma_set_max_seg_size(dev, max_length);
 
 	return 0;
 }
@@ -993,6 +987,8 @@ static int axi_dmac_probe(struct platform_device *pdev)
 		goto err_clk_disable;
 
 	INIT_LIST_HEAD(&dmac->chan.active_descs);
+
+	dma_set_max_seg_size(&pdev->dev, UINT_MAX);
 
 	dma_dev = &dmac->dma_dev;
 	dma_cap_set(DMA_SLAVE, dma_dev->cap_mask);
