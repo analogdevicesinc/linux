@@ -1078,6 +1078,10 @@ wifi
 M: Sherry Sun <sherry.sun@nxp.com>
 F: drivers/net/wireless/
 
+bluetooth
+M: Sherry Sun <sherry.sun@nxp.com>
+F: drivers/bluetooth/btnxpuart.c
+
 nvmem
 M: Peng Fan <peng.fan@nxp.com>
 F: drivers/nvmem/
