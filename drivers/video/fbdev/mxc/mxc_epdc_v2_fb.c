@@ -4767,7 +4767,7 @@ static void mxc_epdc_fb_fw_handler(const struct firmware *fw,
 	struct mxcfb_waveform_data_file *wv_file;
 	int wv_data_offs;
 	int i;
-	struct mxcfb_update_data update;
+	struct mxcfb_update_data update = { 0 };
 	struct mxcfb_update_marker_data upd_marker_data;
 	struct fb_var_screeninfo *screeninfo = &fb_data->epdc_fb_var;
 	u32 xres, yres;
@@ -4921,6 +4921,7 @@ static void mxc_epdc_fb_fw_handler(const struct firmware *fw,
 	update.temp = TEMP_USE_AMBIENT;
 	update.flags = 0;
 	update.dither_mode = 0;
+	update.quant_bit = 0;
 
 	upd_marker_data.update_marker = update.update_marker;
 
