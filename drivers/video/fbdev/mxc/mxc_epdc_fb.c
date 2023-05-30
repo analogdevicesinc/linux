@@ -4447,7 +4447,7 @@ static ssize_t store_update(struct device *device,
 			     struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
-	struct mxcfb_update_data update;
+	struct mxcfb_update_data update = { 0 };
 	struct fb_info *info = dev_get_drvdata(device);
 	struct mxc_epdc_fb_data *fb_data = (struct mxc_epdc_fb_data *)info;
 
@@ -4457,6 +4457,8 @@ static ssize_t store_update(struct device *device,
 		update.waveform_mode = fb_data->wv_modes.mode_gc16;
 	else if (strncmp(buf, "gc4", 3) == 0)
 		update.waveform_mode = fb_data->wv_modes.mode_gc4;
+	else
+		update.waveform_mode = fb_data->wv_modes.mode_du;
 
 	/* Now, request full screen update */
 	update.update_region.left = 0;
