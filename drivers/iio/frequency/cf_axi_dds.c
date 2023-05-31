@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
+#include <linux/mutex.h>
 #include <linux/spi/spi.h>
 #include <linux/clk.h>
 #include <linux/debugfs.h>
@@ -106,6 +107,7 @@ struct cf_axi_dds_state {
 	struct gpio_desc		*plddrbypass_gpio;
 	struct gpio_desc		*interpolation_gpio;
 	struct jesd204_dev 		*jdev;
+	struct mutex			lock;
 
 	bool				standalone;
 	bool				dp_disable;
@@ -535,10 +537,10 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 	if (!st->interpolation_factor)
 		return -ENODEV;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	ret = cf_axi_get_parent_sampling_frequency(st, &freq);
 	if (ret < 0) {
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return ret;
 	}
 
@@ -548,7 +550,7 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 
 	ret += snprintf(&buf[ret], PAGE_SIZE - ret, "\n");
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -570,7 +572,7 @@ static ssize_t axidds_sync_start_store(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (st->ext_sync_avail) {
 		switch (ret) {
 		case 0:
@@ -588,7 +590,7 @@ static ssize_t axidds_sync_start_store(struct device *dev,
 	} else if (ret == 0) {
 		cf_axi_dds_start_sync(st, 0);
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret < 0 ? ret : len;
 }
@@ -674,7 +676,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	unsigned int reg, channel, phase = 0;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 
 	switch (m) {
 	case 0:
@@ -684,7 +686,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		}
 		*val = st->enable;
 
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		if (chan->type == IIO_VOLTAGE) {
@@ -696,7 +698,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 					ret = conv->read_raw(indio_dev, chan,
 							     val, val2, m);
 				}
-				mutex_unlock(&indio_dev->mlock);
+				mutex_unlock(&st->lock);
 				return ret;
 			}
 		}
@@ -704,21 +706,21 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		reg = ADI_TO_DDS_SCALE(dds_read(st,
 			ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan->channel)));
 		cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return IIO_VAL_INT_PLUS_MICRO;
 	case IIO_CHAN_INFO_FREQUENCY:
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		val64 = (u64)ADI_TO_DDS_INCR(reg) * (u64)st->dac_clk;
 		do_div(val64, 0xFFFF);
 		*val = val64;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		val64 = (u64)ADI_TO_DDS_INIT(reg) * 360000ULL + (0x10000 / 2);
 		do_div(val64, 0x10000);
 		*val = val64;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		ret = cf_axi_get_parent_sampling_frequency(st, &freq);
@@ -730,7 +732,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 
 		*val = freq;
 
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return IIO_VAL_INT;
 #if 0
 	case IIO_CHAN_INFO_CALIBPHASE:
@@ -748,7 +750,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		else
 			reg = ADI_TO_IQCOR_COEFF_2(reg);
 
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 	default:
 		if (!st->standalone) {
@@ -764,7 +766,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		}
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -786,7 +788,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	else
 		conv = ERR_PTR(-ENODEV);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
@@ -812,7 +814,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 					ret = conv->write_raw(indio_dev,
 						chan, val, val2, mask);
 				}
-				mutex_unlock(&indio_dev->mlock);
+				mutex_unlock(&st->lock);
 				return ret;
 			}
 		}
@@ -946,7 +948,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	}
 
 err_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -970,7 +972,7 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 	if (st->dev_spi)
 		conv = to_converter(st->dev_spi);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (readval == NULL) {
 		if ((reg & DEBUGFS_DRA_PCORE_REG_MAGIC) ||
 			st->standalone) {
@@ -1005,7 +1007,7 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 	}
 
 out_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -1711,7 +1713,7 @@ static ssize_t cf_axi_dds_ext_info_read(struct iio_dev *indio_dev,
 	unsigned int index;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 
 	switch (private) {
 	case CHANNEL_XBAR:
@@ -1727,7 +1729,7 @@ static ssize_t cf_axi_dds_ext_info_read(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	if (ret == 0)
 		ret = sprintf(buf, "%lld\n", val);
@@ -1745,7 +1747,7 @@ static ssize_t cf_axi_dds_ext_info_write(struct iio_dev *indio_dev,
 	unsigned int index, val;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 
 	switch (private) {
 	case CHANNEL_XBAR:
@@ -1776,7 +1778,7 @@ static ssize_t cf_axi_dds_ext_info_write(struct iio_dev *indio_dev,
 	}
 
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
 }
@@ -1963,7 +1965,7 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 
 			st->chip_info_generated.channel[c].ext_info =
 				cf_axi_dds_ext_info;
-			if (info->complex_modified) {
+			if (complex) {
 				if (i < ARRAY_SIZE(dds_extend_names_complex))
 					st->chip_info_generated.channel[c].extend_name =
 						dds_extend_names_complex[i];
@@ -2231,6 +2233,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	st = iio_priv(indio_dev);
 	st->indio_dev = indio_dev;
+	mutex_init(&st->lock);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs_size = resource_size(res);
