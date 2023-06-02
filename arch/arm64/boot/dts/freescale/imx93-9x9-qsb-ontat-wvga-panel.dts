@@ -8,7 +8,7 @@
 / {
 	panel {
 		compatible = "ontat,kd50g21-40nt-a1";
-		power-supply = <&reg_vdd_3v3>;
+		power-supply = <&reg_rpi_3v3>;
 		enable-gpios = <&pcal6524 22 GPIO_ACTIVE_HIGH>;
 
 		port {
