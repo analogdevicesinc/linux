@@ -519,7 +519,7 @@ static ssize_t ad9172_attr_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	switch ((u32)this_attr->address & ~0xFF) {
 	case AD9172_ATTR_CHAN_NCO(0):
@@ -565,7 +565,7 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -584,7 +584,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	s64 val64 = 0;
 	s16 val16_2, val16 = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	switch ((u32)this_attr->address & ~0xFF) {
 	case AD9172_ATTR_CHAN_NCO(0):
 		ret = ad917x_nco_channel_freq_get(ad917x_h, BIT(dest),
@@ -616,7 +616,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	if (ret >= 0)
 		ret = sprintf(buf, "%lld\n", val64);
