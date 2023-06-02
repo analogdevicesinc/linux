@@ -4998,7 +4998,7 @@ static ssize_t store_update(struct device *device,
 }
 
 static struct device_attribute fb_attrs[] = {
-	__ATTR(update, S_IRUGO|S_IWUSR, NULL, store_update),
+	__ATTR(update, S_IWUSR, NULL, store_update),
 };
 
 static const struct of_device_id imx_epdc_dt_ids[] = {
