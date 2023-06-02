@@ -603,7 +603,7 @@ static ssize_t ad9122_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	switch ((u32)this_attr->address) {
 	case AD9122_REG_I_DAC_OFFSET_MSB:
@@ -637,7 +637,7 @@ static ssize_t ad9122_store(struct device *dev,
 		goto out;
 
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -652,7 +652,7 @@ static ssize_t ad9122_show(struct device *dev,
 	int ret = 0;
 	unsigned val;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = ad9122_read(conv->spi, (u32)this_attr->address);
 	if (ret < 0)
 		goto out;
@@ -676,7 +676,7 @@ static ssize_t ad9122_show(struct device *dev,
 
 	ret = sprintf(buf, "%d\n", val);
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
@@ -695,7 +695,7 @@ static ssize_t ad9122_interpolation_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	switch ((u32)this_attr->address) {
 	case 0:
@@ -711,7 +711,7 @@ static ssize_t ad9122_interpolation_store(struct device *dev,
 	if (!ret && conv->pcore_sync)
 		ret = conv->pcore_sync(indio_dev);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -726,7 +726,7 @@ static ssize_t ad9122_interpolation_show(struct device *dev,
 	int i, ret = 0;
 
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	switch ((u32)this_attr->address) {
 	case 0:
 		ret = sprintf(buf, "%lu\n", ad9122_get_interpol_freq(conv));
@@ -749,7 +749,7 @@ static ssize_t ad9122_interpolation_show(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }
