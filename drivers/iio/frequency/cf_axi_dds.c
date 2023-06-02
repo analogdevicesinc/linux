@@ -107,7 +107,10 @@ struct cf_axi_dds_state {
 	struct gpio_desc		*plddrbypass_gpio;
 	struct gpio_desc		*interpolation_gpio;
 	struct jesd204_dev 		*jdev;
-
+	/*
+	 * Lock used when in standalone mode.
+	 */
+	struct mutex			lock;
 	bool				standalone;
 	bool				dp_disable;
 	bool				enable;
@@ -132,6 +135,30 @@ struct cf_axi_dds_state {
 	struct notifier_block		clk_nb;
 	struct cf_axi_dds_chip_info	chip_info_generated;
 };
+
+#define cf_axi_dds_lock(st) {							\
+	struct cf_axi_dds_state *__st = st;					\
+										\
+	if (__st->standalone) {							\
+		mutex_lock(&__st->lock);					\
+	} else {								\
+		struct cf_axi_converter *conv = to_converter(__st->dev_spi);	\
+										\
+		mutex_lock(&conv->lock);					\
+	}									\
+}
+
+#define cf_axi_dds_unlock(st) {								\
+	struct cf_axi_dds_state *__st = st;					\
+										\
+	if (__st->standalone) {							\
+		mutex_unlock(&__st->lock);					\
+	} else {								\
+		struct cf_axi_converter *conv = to_converter(__st->dev_spi);	\
+										\
+		mutex_unlock(&conv->lock);					\
+	}									\
+}
 
 bool cf_axi_dds_dma_fifo_en(struct cf_axi_dds_state *st)
 {
@@ -537,10 +564,10 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 	if (!st->interpolation_factor)
 		return -ENODEV;
 
-	mutex_lock(&indio_dev->mlock);
+	cf_axi_dds_lock(st);
 	ret = cf_axi_get_parent_sampling_frequency(st, &freq);
 	if (ret < 0) {
-		mutex_unlock(&indio_dev->mlock);
+		cf_axi_dds_unlock(st);
 		return ret;
 	}
 
@@ -550,7 +577,7 @@ static ssize_t cf_axi_sampling_frequency_available(struct device *dev,
 
 	ret += snprintf(&buf[ret], PAGE_SIZE - ret, "\n");
 
-	mutex_unlock(&indio_dev->mlock);
+	cf_axi_dds_unlock(st);
 
 	return ret;
 }
@@ -572,7 +599,7 @@ static ssize_t axidds_sync_start_store(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	cf_axi_dds_lock(st);
 	if (st->ext_sync_avail) {
 		switch (ret) {
 		case 0:
@@ -590,7 +617,7 @@ static ssize_t axidds_sync_start_store(struct device *dev,
 	} else if (ret == 0) {
 		cf_axi_dds_start_sync(st, 0);
 	}
-	mutex_unlock(&indio_dev->mlock);
+	cf_axi_dds_unlock(st);
 
 	return ret < 0 ? ret : len;
 }
@@ -675,7 +702,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	unsigned int reg, channel, phase = 0;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	cf_axi_dds_lock(st);
 
 	switch (m) {
 	case 0:
@@ -685,7 +712,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		}
 		*val = st->enable;
 
-		mutex_unlock(&indio_dev->mlock);
+		cf_axi_dds_unlock(st);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		if (chan->type == IIO_VOLTAGE) {
@@ -697,7 +724,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 					ret = conv->read_raw(indio_dev, chan,
 							     val, val2, m);
 				}
-				mutex_unlock(&indio_dev->mlock);
+				cf_axi_dds_unlock(st);
 				return ret;
 			}
 		}
@@ -705,21 +732,21 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		reg = ADI_TO_DDS_SCALE(dds_read(st,
 			ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan->channel)));
 		cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
-		mutex_unlock(&indio_dev->mlock);
+		cf_axi_dds_unlock(st);
 		return IIO_VAL_INT_PLUS_MICRO;
 	case IIO_CHAN_INFO_FREQUENCY:
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		val64 = (u64)ADI_TO_DDS_INCR(reg) * (u64)st->dac_clk;
 		do_div(val64, 0xFFFF);
 		*val = val64;
-		mutex_unlock(&indio_dev->mlock);
+		cf_axi_dds_unlock(st);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		val64 = (u64)ADI_TO_DDS_INIT(reg) * 360000ULL + (0x10000 / 2);
 		do_div(val64, 0x10000);
 		*val = val64;
-		mutex_unlock(&indio_dev->mlock);
+		cf_axi_dds_unlock(st);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		ret = cf_axi_get_parent_sampling_frequency(st, &freq);
@@ -732,7 +759,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		*val = lower_32_bits(freq);
 		*val2 = upper_32_bits(freq);
 
-		mutex_unlock(&indio_dev->mlock);
+		cf_axi_dds_unlock(st);
 		return IIO_VAL_INT_64;
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
@@ -748,7 +775,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		else
 			reg = ADI_TO_IQCOR_COEFF_2(reg);
 
-		mutex_unlock(&indio_dev->mlock);
+		cf_axi_dds_unlock(st);
 		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 	default:
 		if (!st->standalone) {
@@ -764,7 +791,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		}
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	cf_axi_dds_unlock(st);
 
 	return ret;
 }
@@ -786,7 +813,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	else
 		conv = ERR_PTR(-ENODEV);
 
-	mutex_lock(&indio_dev->mlock);
+	cf_axi_dds_lock(st);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
@@ -812,7 +839,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 					ret = conv->write_raw(indio_dev,
 						chan, val, val2, mask);
 				}
-				mutex_unlock(&indio_dev->mlock);
+				cf_axi_dds_unlock(st);
 				return ret;
 			}
 		}
@@ -944,7 +971,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	}
 
 err_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	cf_axi_dds_unlock(st);
 
 	return ret;
 }
@@ -968,7 +995,7 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 	if (st->dev_spi)
 		conv = to_converter(st->dev_spi);
 
-	mutex_lock(&indio_dev->mlock);
+	cf_axi_dds_lock(st);
 	if (readval == NULL) {
 		if ((reg & DEBUGFS_DRA_PCORE_REG_MAGIC) ||
 			st->standalone) {
@@ -1003,7 +1030,7 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 	}
 
 out_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	cf_axi_dds_unlock(st);
 
 	return ret;
 }
@@ -1657,7 +1684,7 @@ static ssize_t cf_axi_dds_ext_info_read(struct iio_dev *indio_dev,
 	unsigned int index;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	cf_axi_dds_lock(st);
 
 	switch (private) {
 	case CHANNEL_XBAR:
@@ -1673,7 +1700,7 @@ static ssize_t cf_axi_dds_ext_info_read(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	cf_axi_dds_unlock(st);
 
 	if (ret == 0)
 		ret = sprintf(buf, "%lld\n", val);
@@ -1691,7 +1718,7 @@ static ssize_t cf_axi_dds_ext_info_write(struct iio_dev *indio_dev,
 	unsigned int index, val;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	cf_axi_dds_lock(st);
 
 	switch (private) {
 	case CHANNEL_XBAR:
@@ -1722,7 +1749,7 @@ static ssize_t cf_axi_dds_ext_info_write(struct iio_dev *indio_dev,
 	}
 
 out:
-	mutex_unlock(&indio_dev->mlock);
+	cf_axi_dds_unlock(st);
 
 	return ret ? ret : len;
 }
@@ -2292,6 +2319,8 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 			st->chip_info = &st->chip_info_generated;
 		}
+
+		mutex_init(&st->lock);
 	} else {
 		st->dev_spi = dds_converter_find(&pdev->dev);
 		if (IS_ERR(st->dev_spi))
@@ -2309,6 +2338,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		conv->indio_dev = indio_dev;
 		conv->pcore_sync = cf_axi_dds_sync_frame;
 		conv->pcore_set_sed_pattern = cf_axi_dds_set_sed_pattern;
+		mutex_init(&conv->lock);
 
 		st->dac_clk = conv->get_data_clk(conv);
 
