@@ -208,6 +208,8 @@ struct adf5355_state {
 	struct regulator		*reg;
 	struct adf5355_platform_data	*pdata;
 	struct clk		*clk;
+	/* protect against device accesses */
+	struct mutex		lock;
 	unsigned long long	freq_req;
 	unsigned long		clkin;
 	unsigned long		fpfd; /* Phase Frequency Detector */
@@ -309,7 +311,7 @@ static int adf5355_reg_access(struct iio_dev *indio_dev,
 	if (reg > ADF5355_REG12)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (readval == NULL) {
 		st->regs[reg] = writeval & ~(BIT(0) | BIT(1) | BIT(2) | BIT(3));
 		ret = adf5355_sync_config(st, true);
@@ -317,7 +319,7 @@ static int adf5355_reg_access(struct iio_dev *indio_dev,
 		*readval =  st->regs[reg];
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -560,7 +562,7 @@ static ssize_t adf5355_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)private) {
 	case ADF5355_FREQ:
 		ret = adf5355_set_freq(st, readin, chan->channel);
@@ -603,7 +605,7 @@ break;
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
 }
@@ -617,7 +619,7 @@ static ssize_t adf5355_read(struct iio_dev *indio_dev,
 	unsigned long long val;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)private) {
 	case ADF5355_FREQ:
 		val = adf5355_pll_fract_n_get_rate(st, chan->channel);
@@ -652,7 +654,7 @@ static ssize_t adf5355_read(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 		val = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret < 0 ? ret : sprintf(buf, "%llu\n", val);
 }
@@ -967,6 +969,8 @@ static int adf5355_probe(struct spi_device *spi)
 		if (ret)
 			goto error_disable_reg;
 	}
+
+	mutex_init(&st->lock);
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
