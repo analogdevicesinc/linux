@@ -6,8 +6,14 @@
 #include "imx93-9x9-qsb.dts"
 
 / {
+	backlight: backlight {
+		compatible = "gpio-backlight";
+		gpios = <&pcal6524 2 GPIO_ACTIVE_HIGH>;
+	};
+
 	panel {
 		compatible = "ontat,kd50g21-40nt-a1";
+		backlight = <&backlight>;
 		power-supply = <&reg_rpi_3v3>;
 		enable-gpios = <&pcal6524 22 GPIO_ACTIVE_HIGH>;
 
