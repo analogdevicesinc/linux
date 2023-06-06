@@ -225,6 +225,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
 
+	nvmem-cells = <&eth0_addr>;
+	nvmem-cell-names = "mac-address";
+
 	phy0: phy@f {
 		reg = <0xf>;
 	};
@@ -246,6 +249,18 @@
 	ltc2945@6a {
 		compatible = "adi,ltc2945";
 		reg = <0x6a>;
+	};
+
+	eeprom_i2c: eeprom@50 {
+		compatible = "atmel,24c16";
+		pagesize = <16>;
+		reg = <0x50>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		eth0_addr: eth-mac-addr@B {
+			reg = <0xB 0x06>;
+		};
 	};
 
 	typec_pd: usb-pd@38 {
