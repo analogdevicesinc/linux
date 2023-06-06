@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices Sharkbyte
+ * Analog Devices Sharkbyte - 8-bit Single Channel Mode
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
  *
  * hdl_project: <projects/sharkbyte>
@@ -15,7 +15,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	model = "Analog Devices Sharkbyte";
+	model = "Analog Devices Sharkbyte 8-bit 1-channel";
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x20000000>;
@@ -255,9 +255,9 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 9 GPIO_ACTIVE_LOW>;
 		pd-gpios = <&gpio_exp 10 GPIO_ACTIVE_HIGH>;
-        adi,num-channels = <4>;
-		adi,resolution= <14>;
-        adi,pol-mask =<239>;
+        adi,num-channels = <1>;
+        adi,resolution = <8>;
+        adi,pol-mask = <239>;
     };
 
     hmcad15xx_2: hmcad15xx_2@1 {
@@ -267,9 +267,9 @@
         clock-names = "clk";
         reset-gpios = <&gpio_exp 8 GPIO_ACTIVE_LOW>;
         pd-gpios = <&gpio_exp 11 GPIO_ACTIVE_HIGH>;
-        adi,num-channels = <4>;
-		adi,resolution= <14>;
-        adi,pol-mask =<32>;
+        adi,num-channels = <1>;
+        adi,resolution = <8>;
+        adi,pol-mask = <32>;
     };
 
     adf4355_clk: adf4355@2 {

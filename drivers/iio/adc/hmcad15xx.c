@@ -40,13 +40,18 @@
 #define HMCAD15XX_STARTUP_CTRL       0x56
 
 
-#define HMCAD15XX_OUTPUT_MODE_RESOLUTION_MSK		GENMASK(2, 0)
+/*HMCAD15XX_LVDS_OUTPUT_MODE (0x53)*/
+#define HMCAD15XX_LVDS_OUTPUT_MODE_MSK			GENMASK(2, 0)
+#define HMCAD15XX_LVDS_OUTPUT_12BIT			0x0
+#define HMCAD15XX_LVDS_OUTPUT_14BIT			0x1
+#define HMCAD15XX_LVDS_OUTPUT_16BIT			0x2
+#define HMCAD15XX_LVDS_OUTPUT_DUAL_8BIT			0x4
 
-/*HMCAD15XX_OPERATION_MODE*/
+/*HMCAD15XX_OPERATION_MODE (0x31)*/
 #define HMCAD15XX_OPERATION_MODE_PRECISION_MSK		BIT(3)
 #define HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK		GENMASK(2, 0)
 #define HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK		GENMASK(9, 8)
-#define HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(x)     ((x & 0x3) << 8)
+#define HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(x)	(((x) & 0x3) << 8)
 #define HMCAD15XX_CLK_DIVIDE_GET_CLK_DIVIDE(x)		   (((x) >> 8) & 0x3)
 
 /*HMCAD15XX_INP_SEL*/
@@ -90,6 +95,12 @@ enum hmcad15xx_input_select {
 	IP3_IN3,
 	IP4_IN4
 };
+
+enum hmcad15xx_resolution {
+	RES_8BIT  = 0,
+	RES_12BIT = 2,
+	RES_14BIT = 3
+};
 static const int hmcad15xx_clk_div_value[] = {
 	[CLK_DIV_1]    = 1,
 	[CLK_DIV_2]    = 2,
@@ -108,6 +119,7 @@ struct hmcad15xx_state {
 	enum hmcad15xx_clk_div		clk_div;
 	unsigned int en_channels;
 	unsigned int pol_mask;
+	enum hmcad15xx_resolution resolution;
 
 	const struct axiadc_chip_info *chip_info;
 	__be32 d32;
@@ -136,7 +148,7 @@ static int hmcad15xx_spi_reg_read(struct hmcad15xx_state *st, unsigned int addr,
 {
 
 	*val = st->regs_hw[addr];
-	dev_info(&st->spi->dev,"Adress %x : value:%x , saved value: %x ",addr,val,st->regs_hw[addr]);
+	dev_info(&st->spi->dev, "Read addr 0x%02x: value 0x%04x", addr, *val);
 	return 0;
 }
 
@@ -145,8 +157,8 @@ static int hmcad15xx_spi_reg_write(struct hmcad15xx_state *st,
 				unsigned int val)
 {
 	st->d32 = cpu_to_be32(((addr & 0xFF) << 24) | ((val & 0xFFFF) << 8));
-    st->regs_hw[addr] = val;
-	dev_info(&st->spi->dev,"Adress %x : value:%x , saved value: %x ",addr,val,st->regs_hw[addr]);
+	st->regs_hw[addr] = val;
+	dev_info(&st->spi->dev, "Write addr 0x%02x: value 0x%04x", addr, val);
 	return spi_write(st->spi, &st->d32, sizeof(st->d32));
 }
 
@@ -355,7 +367,7 @@ static const struct iio_info hmcad15xx_info = {
 	.debugfs_reg_access = &hmcad15xx_reg_access,
 };
 
-#define HMCAD15XX_CHAN(index)						\
+#define HMCAD15XX_CHAN(index, bits, storage)				\
 	{								\
 		.type = IIO_VOLTAGE,					\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
@@ -366,21 +378,102 @@ static const struct iio_info hmcad15xx_info = {
 		.ext_info = hmcad15xx_ext_info,				\
 		.scan_type = {						\
 			.sign = 's',					\
-			.realbits = 8,					\
-			.storagebits = 8,				\
+			.realbits = bits,				\
+			.storagebits = storage,				\
 		},							\
 	}
 
-static const struct axiadc_chip_info hmcad15xx_conv_chip_info = {
+/* 8-bit mode: supports 1, 2, or 4 channels */
+static const struct axiadc_chip_info hmcad15xx_chip_info_8bit_1ch = {
+	.id = 0,
+	.name = "hmcad15xx_axi_adc",
+	.num_channels = 1,
+	.channel[0] = HMCAD15XX_CHAN(0, 8, 8),
+};
+
+static const struct axiadc_chip_info hmcad15xx_chip_info_8bit_2ch = {
+	.id = 0,
+	.name = "hmcad15xx_axi_adc",
+	.num_channels = 2,
+	.channel[0] = HMCAD15XX_CHAN(0, 8, 8),
+	.channel[1] = HMCAD15XX_CHAN(1, 8, 8),
+};
+
+static const struct axiadc_chip_info hmcad15xx_chip_info_8bit_4ch = {
 	.id = 0,
 	.name = "hmcad15xx_axi_adc",
 	.num_channels = 4,
-	.channel[0] = HMCAD15XX_CHAN(0),
-	.channel[1] = HMCAD15XX_CHAN(1),
-	.channel[2] = HMCAD15XX_CHAN(2),
-	.channel[3] = HMCAD15XX_CHAN(3),
+	.channel[0] = HMCAD15XX_CHAN(0, 8, 8),
+	.channel[1] = HMCAD15XX_CHAN(1, 8, 8),
+	.channel[2] = HMCAD15XX_CHAN(2, 8, 8),
+	.channel[3] = HMCAD15XX_CHAN(3, 8, 8),
 };
 
+/* 12-bit mode: supports 1, 2, or 4 channels */
+static const struct axiadc_chip_info hmcad15xx_chip_info_12bit_1ch = {
+	.id = 0,
+	.name = "hmcad15xx_axi_adc",
+	.num_channels = 1,
+	.channel[0] = HMCAD15XX_CHAN(0, 12, 16),
+};
+
+static const struct axiadc_chip_info hmcad15xx_chip_info_12bit_2ch = {
+	.id = 0,
+	.name = "hmcad15xx_axi_adc",
+	.num_channels = 2,
+	.channel[0] = HMCAD15XX_CHAN(0, 12, 16),
+	.channel[1] = HMCAD15XX_CHAN(1, 12, 16),
+};
+
+static const struct axiadc_chip_info hmcad15xx_chip_info_12bit_4ch = {
+	.id = 0,
+	.name = "hmcad15xx_axi_adc",
+	.num_channels = 4,
+	.channel[0] = HMCAD15XX_CHAN(0, 12, 16),
+	.channel[1] = HMCAD15XX_CHAN(1, 12, 16),
+	.channel[2] = HMCAD15XX_CHAN(2, 12, 16),
+	.channel[3] = HMCAD15XX_CHAN(3, 12, 16),
+};
+
+/* 14-bit mode: supports 4 channels only (precision mode) */
+static const struct axiadc_chip_info hmcad15xx_chip_info_14bit_4ch = {
+	.id = 0,
+	.name = "hmcad15xx_axi_adc",
+	.num_channels = 4,
+	.channel[0] = HMCAD15XX_CHAN(0, 14, 16),
+	.channel[1] = HMCAD15XX_CHAN(1, 14, 16),
+	.channel[2] = HMCAD15XX_CHAN(2, 14, 16),
+	.channel[3] = HMCAD15XX_CHAN(3, 14, 16),
+};
+
+static const struct axiadc_chip_info *hmcad15xx_get_chip_info(
+	enum hmcad15xx_resolution resolution, unsigned int num_channels)
+{
+	switch (resolution) {
+	case RES_14BIT:
+		if (num_channels == 4)
+			return &hmcad15xx_chip_info_14bit_4ch;
+		break;
+	case RES_12BIT:
+		if (num_channels == 1)
+			return &hmcad15xx_chip_info_12bit_1ch;
+		else if (num_channels == 2)
+			return &hmcad15xx_chip_info_12bit_2ch;
+		else if (num_channels == 4)
+			return &hmcad15xx_chip_info_12bit_4ch;
+		break;
+	case RES_8BIT:
+	default:
+		if (num_channels == 1)
+			return &hmcad15xx_chip_info_8bit_1ch;
+		else if (num_channels == 2)
+			return &hmcad15xx_chip_info_8bit_2ch;
+		else if (num_channels == 4)
+			return &hmcad15xx_chip_info_8bit_4ch;
+		break;
+	}
+	return NULL;
+}
 
 static const unsigned long hmcad15xx_available_scan_masks[]  = { 0xFF, 0x00 };
 
@@ -389,14 +482,31 @@ static int hmcad15xx_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *axiadc_st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct hmcad15xx_state *st = conv->phy;
+	unsigned int hdl_mode;
+	unsigned int cntrl_val;
 
-	// 0 - single channel  1- dual  4-quad - HDL
-	// 1 - single channel  2- dual  4-quad - adc
+	// HDL mode encoding: 001=single, 010=dual, 100=quad
+	switch (st->en_channels) {
+	case 4:
+		hdl_mode = 4; // 3'b100
+		break;
+	case 2:
+		hdl_mode = 2; // 3'b010
+		break;
+	case 1:
+	default:
+		hdl_mode = 1; // 3'b001
+		break;
+	}
 
-	axiadc_write(axiadc_st, ADI_REG_CNTRL_3,st->en_channels<<2);
+	// ADI_REG_CNTRL_3 format: [4:2]=mode, [1:0]=resolution
+	cntrl_val = (hdl_mode << 2) | st->resolution;
+
+	axiadc_write(axiadc_st, ADI_REG_CNTRL_3, cntrl_val);
 	axiadc_write(axiadc_st, 0x0080, st->pol_mask);
-	dev_info(&st->spi->dev,"hmcad15xx_post_setup number of st->en_channels: %d ",st->en_channels<<2);
-	dev_info(&st->spi->dev,"hmcad15xx_post_setup number of pol-mask: %d ",st->pol_mask);
+	dev_info(&st->spi->dev, "hmcad15xx_post_setup: resolution=%d, mode=%d, cntrl=0x%x",
+		 st->resolution, hdl_mode, cntrl_val);
+	dev_info(&st->spi->dev, "hmcad15xx_post_setup: pol-mask=%d", st->pol_mask);
 	return 0;
 }
 
@@ -426,12 +536,11 @@ static int hmcad15xx_register_axi_adc(struct hmcad15xx_state *st)
 
 static int hmcad15xx_probe(struct spi_device *spi)
 {
-
-
 	struct hmcad15xx_state *st;
 	struct iio_dev *indio_dev;
 	int ret;
 	unsigned int regval, clk_div;
+	unsigned int resolution_bits;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -441,31 +550,60 @@ static int hmcad15xx_probe(struct spi_device *spi)
 
 	memset(st->regs_hw, 0x00, sizeof(st->regs_hw));
 
-	st->chip_info = spi_get_device_match_data(spi);
-	if (!st->chip_info)
-		return -ENODEV;
-
 	st->clk = devm_clk_get_enabled(&spi->dev, "clk");
-		if (IS_ERR(st->clk))
-			return PTR_ERR(st->clk);
-
+	if (IS_ERR(st->clk))
+		return PTR_ERR(st->clk);
 
 	st->spi = spi;
 
+	/* Read number of channels (default: 1) */
 	st->en_channels = 1;
-
 	ret = device_property_read_u32(&spi->dev, "adi,num-channels",
 				       &st->en_channels);
-	if (ret < 0)
-		return (ret != -EINVAL) ? ret : 0;
+	if (ret < 0 && ret != -EINVAL)
+		return ret;
 
+	/* Read resolution (default: 8-bit) */
+	resolution_bits = 8;
+	ret = device_property_read_u32(&spi->dev, "adi,resolution",
+				       &resolution_bits);
+	if (ret < 0 && ret != -EINVAL)
+		return ret;
+
+	/* Convert resolution bits to enum */
+	switch (resolution_bits) {
+	case 8:
+		st->resolution = RES_8BIT;
+		break;
+	case 12:
+		st->resolution = RES_12BIT;
+		break;
+	case 14:
+		st->resolution = RES_14BIT;
+		break;
+	default:
+		dev_err(&spi->dev, "Invalid resolution %u (must be 8, 12, or 14)\n",
+			resolution_bits);
+		return -EINVAL;
+	}
+
+	/* Get chip_info based on resolution and channel count */
+	st->chip_info = hmcad15xx_get_chip_info(st->resolution, st->en_channels);
+	if (!st->chip_info) {
+		dev_err(&spi->dev,
+			"Invalid resolution/channel combination: %u-bit with %u channels\n",
+			resolution_bits, st->en_channels);
+		return -EINVAL;
+	}
+
+	/* Read polarity mask */
 	ret = device_property_read_u32(&spi->dev, "adi,pol-mask",
 		&st->pol_mask);
-	if (ret < 0)
-	return (ret != -EINVAL) ? ret : 0;
+	if (ret < 0 && ret != -EINVAL)
+		return ret;
 
-	dev_info(&st->spi->dev,"number of enabled channels: %d ",st->en_channels);
-	dev_info(&st->spi->dev,"number of pol-mask: %d ",st->pol_mask);
+	dev_info(&st->spi->dev, "resolution: %u-bit, channels: %u, pol-mask: %u",
+		 resolution_bits, st->en_channels, st->pol_mask);
 
     st->gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
 				     GPIOD_OUT_HIGH);
@@ -496,28 +634,89 @@ static int hmcad15xx_probe(struct spi_device *spi)
 		hmcad15xx_spi_reg_write(st,0x0F,0x0200);
 	}
 
-	ret =  hmcad15xx_spi_reg_write(st, HMCAD15XX_PHASE_DDR,0x00);
+	ret = hmcad15xx_spi_reg_write(st, HMCAD15XX_PHASE_DDR, 0x00);
 
-	 ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
-	 			                 HMCAD15XX_OUTPUT_MODE_RESOLUTION_MSK,
-	 			                 0X0);
-
-	//CLK_DIV_1=0, CLK_DIV_2=1, CLK_DIV_4=2, CLK_DIV_8=3
-
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-			          HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
-			        HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(st->en_channels>>1));
-
-	ret =  hmcad15xx_spi_reg_read(st, HMCAD15XX_OPERATION_MODE, &regval);
+	/*
+	 * Configure LVDS output mode based on resolution:
+	 * - 8-bit: 12-bit LVDS output (data is 8-bit, LVDS format is 12-bit)
+	 * - 12-bit: 12-bit LVDS output (default)
+	 * - 14-bit: 14-bit LVDS output (HDL sample_assembly expects this mode)
+	 *
+	 * Note: Datasheet page 10 suggests dual 8-bit mode (0x4) for precision mode,
+	 * but the HDL/sample_assembly is designed for 14-bit LVDS mode where each
+	 * ADC uses a single lane. Using dual 8-bit would require HDL changes.
+	 */
+	switch (st->resolution) {
+	case RES_14BIT:
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
+					       HMCAD15XX_LVDS_OUTPUT_MODE_MSK,
+					       HMCAD15XX_LVDS_OUTPUT_14BIT);
+		break;
+	case RES_12BIT:
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
+					       HMCAD15XX_LVDS_OUTPUT_MODE_MSK,
+					       HMCAD15XX_LVDS_OUTPUT_12BIT);
+		break;
+	case RES_8BIT:
+	default:
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_LVDS_OUTPUT_MODE,
+					       HMCAD15XX_LVDS_OUTPUT_MODE_MSK,
+					       HMCAD15XX_LVDS_OUTPUT_12BIT);
+		break;
+	}
 	if (ret < 0)
 		return ret;
 
-	clk_div = HMCAD15XX_CLK_DIVIDE_GET_CLK_DIVIDE(regval);
-	st-> clk_div = clk_div;
+	/*
+	 * Configure operation mode:
+	 * - 14-bit: Set precision_mode bit, clock divide = 1
+	 * - 12-bit/8-bit: Clear precision_mode, set high_speed_mode and clock divide
+	 */
+	if (st->resolution == RES_14BIT) {
+		/* Precision mode: set bit 3, clear high_speed_mode, clk_divide = 0 (divide by 1)
+		 * Per datasheet page 10: Register 0x31 = 0x0008 for precision mode
+		 */
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+					       HMCAD15XX_OPERATION_MODE_PRECISION_MSK,
+					       HMCAD15XX_OPERATION_MODE_PRECISION_MSK);
+		if (ret < 0)
+			return ret;
 
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
-		HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
-		st->en_channels);
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+					       HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
+					       0);
+		if (ret < 0)
+			return ret;
+
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
+					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(0));
+		st->clk_div = CLK_DIV_1;
+	} else {
+		/* High speed mode: clear precision_mode, set channel mode and clock divide */
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+					       HMCAD15XX_OPERATION_MODE_PRECISION_MSK,
+					       0);
+		if (ret < 0)
+			return ret;
+
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_MSK,
+					       HMCAD15XX_OPERATION_MODE_CLK_DIVIDE_SET(st->en_channels >> 1));
+		if (ret < 0)
+			return ret;
+
+		ret = hmcad15xx_spi_reg_read(st, HMCAD15XX_OPERATION_MODE, &regval);
+		if (ret < 0)
+			return ret;
+
+		clk_div = HMCAD15XX_CLK_DIVIDE_GET_CLK_DIVIDE(regval);
+		st->clk_div = clk_div;
+
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_OPERATION_MODE,
+					       HMCAD15XX_OPERATION_MODE_HIGH_SPEED_MSK,
+					       st->en_channels);
+	}
 
 	if (st->gpio_pd) {
 		fsleep(2);
@@ -527,22 +726,36 @@ static int hmcad15xx_probe(struct spi_device *spi)
 		hmcad15xx_spi_reg_write(st,0x0F,0x0000);
 	}
 
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
-			                HMCAD15XX_INP_SEL_ADC1_MSK,
-			                HMCAD15XX_INP_1_3_SEL(3));
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
-		                 	HMCAD15XX_INP_SEL_ADC2_MSK,
-		                 	HMCAD15XX_INP_2_4_SEL(3));
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC3_ADC4,
-			                 HMCAD15XX_INP_SEL_ADC1_MSK,
-			                 HMCAD15XX_INP_1_3_SEL(3));
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC3_ADC4,
-		                 	HMCAD15XX_INP_SEL_ADC2_MSK,
-		                 	HMCAD15XX_INP_2_4_SEL(3));
+	/* Configure input selection: default all ADCs to input 4 (IP4/IN4) */
+	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
+				       HMCAD15XX_INP_SEL_ADC1_MSK,
+				       HMCAD15XX_INP_1_3_SEL(3));
+	if (ret < 0)
+		return ret;
 
-	ret =  hmcad15xx_spi_write_mask(st, HMCAD15XX_BTC_MODE,
-	                 	HMCAD15XX_INP_SEL_ADC2_MSK,
-	                 	HMCAD15XX_BTC_SEL(1));
+	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC1_ADC2,
+				       HMCAD15XX_INP_SEL_ADC2_MSK,
+				       HMCAD15XX_INP_2_4_SEL(3));
+	if (ret < 0)
+		return ret;
+
+	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC3_ADC4,
+				       HMCAD15XX_INP_SEL_ADC1_MSK,
+				       HMCAD15XX_INP_1_3_SEL(3));
+	if (ret < 0)
+		return ret;
+
+	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_INP_SEL_ADC3_ADC4,
+				       HMCAD15XX_INP_SEL_ADC2_MSK,
+				       HMCAD15XX_INP_2_4_SEL(3));
+	if (ret < 0)
+		return ret;
+
+	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_BTC_MODE,
+				       HMCAD15XX_BTC_MODE_MSK,
+				       HMCAD15XX_BTC_SEL(1));
+	if (ret < 0)
+		return ret;
 
 	mutex_init(&st->lock);
 
@@ -553,13 +766,13 @@ static int hmcad15xx_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id hmcad15xx_id[] = {
-	{"hmcad15xx", (kernel_ulong_t)&hmcad15xx_conv_chip_info},
+	{"hmcad15xx", 0},
 	{},
 };
 MODULE_DEVICE_TABLE(spi, hmcad15xx_id);
 
-static const struct of_device_id hmcad15xx_of_match[]  = {
-	{ .compatible = "adi,hmcad15xx", .data = &hmcad15xx_conv_chip_info },
+static const struct of_device_id hmcad15xx_of_match[] = {
+	{ .compatible = "adi,hmcad15xx" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, hmcad15xx_of_match);
