@@ -199,6 +199,7 @@
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			rsu-handle = <&qspi_boot>;
 
 			qspi_boot: partition@0 {
 				label = "u-boot";
