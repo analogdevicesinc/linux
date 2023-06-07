@@ -1,0 +1,282 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7768-1
+ * https://wiki.analog.com/resources/eval/user-guides/ad7768-1
+ *
+ * hdl_project: <ad77681evb/zed>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+*/
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+	clocks {
+		mclk_ref: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32786000>;
+		};
+	};
+	
+	evp_pmb0005_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&gpio0 98 GPIO_ACTIVE_HIGH>,
+				<&gpio0 97 GPIO_ACTIVE_HIGH>,
+				<&gpio0 96 GPIO_ACTIVE_HIGH>,
+				<&gpio0 95 GPIO_ACTIVE_HIGH>,
+				<&gpio0 94 GPIO_ACTIVE_HIGH>,
+				<&gpio0 93 GPIO_ACTIVE_HIGH>,
+				<&gpio0 92 GPIO_ACTIVE_HIGH>,
+				<&gpio0 91 GPIO_ACTIVE_HIGH>,
+				<&gpio0 90 GPIO_ACTIVE_HIGH>,
+				<&gpio0 89 GPIO_ACTIVE_HIGH>,
+				<&gpio0 88 GPIO_ACTIVE_HIGH>,
+				<&gpio0 87 GPIO_ACTIVE_HIGH>;
+		label = "evp_pmb0005_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "QADC_PWRG_0";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "QADC_PWRG_1";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "QADC_PWRG_2";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "QADC_PWRG_3";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "QADC_MUXA_1";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "QADC_MUXA_0";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "QADC_MUXB_1";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "QADC_MUXB_0";
+		};
+		channel@8 {
+			reg = <8>;
+			label = "QADC_MUXC_1";
+		};
+		channel@9 {
+			reg = <9>;
+			label = "QADC_MUXC_0";
+		};
+		channel@10 {
+			reg = <10>;
+			label = "QADC_MUXD_1";
+		};
+		channel@11 {
+			reg = <11>;
+			label = "QADC_MUXD_0";
+		};
+	};
+
+	ad7768-1_gain_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&ad7768_1_0 0 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_0 1 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_0 2 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_1 0 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_1 1 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_1 2 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_2 0 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_2 1 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_2 2 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_3 0 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_3 1 GPIO_ACTIVE_HIGH>,
+				<&ad7768_1_3 2 GPIO_ACTIVE_HIGH>;
+
+		label = "ad7768-1_gain_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "AD7768-1_0_GAIN_0";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "AD7768-1_0_GAIN_1";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "AD7768-1_0_GAIN_2";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "AD7768-1_1_GAIN_0";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "AD7768-1_1_GAIN_1";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "AD7768-1_1_GAIN_2";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "AD7768-1_2_GAIN_0";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "AD7768-1_2_GAIN_1";
+		};
+		channel@8 {
+			reg = <8>;
+			label = "AD7768-1_2_GAIN_2";
+		};
+		channel@9 {
+			reg = <9>;
+			label = "AD7768-1_3_GAIN_0";
+		};
+		channel@10 {
+			reg = <10>;
+			label = "AD7768-1_3_GAIN_1";
+		};
+		channel@11 {
+			reg = <11>;
+			label = "AD7768-1_3_GAIN_2";
+		};
+	};
+
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@0x44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <128>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+
+	ad7768_1_mclk: mclk-axi-clkgen@44b00000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44b00000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&mclk_ref>;
+		clock-names = "s_axi_aclk", "clkin1";
+	};
+
+	axi_spi_engine_0: spi@0x44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15 &ad7768_1_mclk>;
+		clock-names = "s_axi_aclk", "ad7768_1_mclk";
+		num-cs = <4>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad7768_1_0: adc@0 {
+			compatible = "adi,ad7768-1";
+			reg = <0>;
+			spi-max-frequency = <20000000>;
+			spi-cpol;
+			spi-cpha;
+			vref-supply = <&vref>;
+			adi,sync-in-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+			clocks = <&ad7768_1_mclk>;
+			clock-names = "mclk";
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			#io-channel-cells = <1>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+		ad7768_1_1: adc@1 {
+			compatible = "adi,ad7768-1";
+			reg = <1>;
+			spi-max-frequency = <20000000>;
+			spi-cpol;
+			spi-cpha;
+			vref-supply = <&vref>;
+			clocks = <&ad7768_1_mclk>;
+			clock-names = "mclk";
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			#io-channel-cells = <1>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		ad7768_1_2: adc@2 {
+			compatible = "adi,ad7768-1";
+			reg = <2>;
+			spi-max-frequency = <20000000>;
+			spi-cpol;
+			spi-cpha;
+			vref-supply = <&vref>;
+			clocks = <&ad7768_1_mclk>;
+			clock-names = "mclk";
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			#io-channel-cells = <1>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		ad7768_1_3: adc@3 {
+			compatible = "adi,ad7768-1";
+			reg = <3>;
+			spi-max-frequency = <20000000>;
+			spi-cpol;
+			spi-cpha;
+			vref-supply = <&vref>;
+			clocks = <&ad7768_1_mclk>;
+			clock-names = "mclk";
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			#io-channel-cells = <1>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+	};
+};
