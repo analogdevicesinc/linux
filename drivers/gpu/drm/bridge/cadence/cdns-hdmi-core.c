@@ -516,7 +516,9 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 		if ((mode->clock * di->bpc / 8) > di->max_tmds_clock)
 			return true;
 
-		video->color_depth = di->bpc;
+		/* only bpc less than 12 is supported */
+		if (di->bpc == 10 || di->bpc == 6)
+			video->color_depth = di->bpc;
 
 		return true;
 	}
