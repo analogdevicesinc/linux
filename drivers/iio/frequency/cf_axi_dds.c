@@ -15,6 +15,7 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
@@ -106,6 +107,7 @@ struct cf_axi_dds_state {
 	struct cf_axi_dds_chip_info	*chip_info;
 	struct gpio_desc		*plddrbypass_gpio;
 	struct gpio_desc		*interpolation_gpio;
+	struct gpio_desc		*reset_gpio;
 	struct jesd204_dev 		*jdev;
 
 	bool				standalone;
@@ -116,6 +118,7 @@ struct cf_axi_dds_state {
 	bool				dma_fifo_ctrl_oneshot;
 	bool				issue_sync_en;
 	bool				ext_sync_avail;
+	bool				synced_transfer;
 
 	struct iio_info			iio_info;
 	struct iio_dev			*indio_dev;
@@ -1107,15 +1110,16 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	} \
 }
 
-#define CF_AXI_DDS_CHAN_BUF_NO_CALIB(_chan) { \
+#define CF_AXI_DDS_CHAN_BUF_NO_CALIB(_chan, _ext_info, _sign) { \
 	.type = IIO_VOLTAGE, \
 	.indexed = 1, \
 	.channel = _chan, \
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 	.output = 1, \
 	.scan_index = _chan, \
+	.ext_info = _ext_info, \
 	.scan_type = { \
-		.sign = 's', \
+		.sign = _sign, \
 		.storagebits = 16, \
 		.realbits = 16, \
 		.shift = 0, \
@@ -1174,7 +1178,233 @@ static const unsigned long adrv9002_available_scan_masks[] = {
 	0x01, 0x02, 0x03, 0x00
 };
 
+struct reg_addr_poll {
+	struct cf_axi_dds_state *st;
+	u8 reg;
+};
+
+static void axi_ad3552r_write(struct cf_axi_dds_state *st, u32 reg, u32 val)
+{
+	iowrite32(val, st->regs + reg);
+}
+
+static u32 axi_ad3552r_read(struct cf_axi_dds_state *st, u32 reg)
+{
+	return ioread32(st->regs + reg);
+}
+
+static u32 axi_ad3552r_read_wrapper(struct reg_addr_poll *addr)
+{
+	return axi_ad3552r_read(addr->st, addr->reg);
+}
+
+static void axi_ad3552r_update_bits(struct cf_axi_dds_state *st, u32 reg,
+				    u32 mask, u32 val)
+{
+	u32 tmp, orig;
+
+	orig = axi_ad3552r_read(st, reg);
+	tmp = orig & ~mask;
+	tmp |= val & mask;
+
+	if (tmp != orig)
+		axi_ad3552r_write(st, reg, tmp);
+}
+
+static void axi_ad3552r_spi_write(struct cf_axi_dds_state *st, u32 reg, u32 val,
+				  u32 transfer_params)
+{
+	struct reg_addr_poll addr;
+	u32 check;
+
+	if (transfer_params & AXI_MSK_SYMB_8B)
+		axi_ad3552r_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
+	else
+		axi_ad3552r_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_16(val));
+
+	axi_ad3552r_write(st, AXI_REG_CNTRL_2, transfer_params);
+
+	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
+				CNTRL_CSTM_ADDR(reg));
+	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
+				AXI_MSK_TRANSFER_DATA);
+	addr.st = st;
+	addr.reg = AXI_REG_UI_STATUS;
+	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
+			   check == AXI_MSK_BUSY, 10, 100);
+
+	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
+
+}
+
+static u32 axi_ad3552r_spi_read(struct cf_axi_dds_state *st, u32 reg,
+				u32 transfer_params)
+{
+	u32 val;
+
+	axi_ad3552r_spi_write(st, RD_ADDR(reg), 0x00, transfer_params);
+	val = axi_ad3552r_read(st, AXI_REG_CNTRL_DATA_RD);
+
+	return val;
+}
+
+static void axi_ad3552r_spi_update_bits(struct cf_axi_dds_state *st, u32 reg,
+					u32 mask, u32 val, u32 transfer_params)
+{
+	u32 tmp, orig;
+
+	orig = axi_ad3552r_spi_read(st, reg, transfer_params);
+	tmp = orig & ~mask;
+	tmp |= val & mask;
+
+	if (tmp != orig)
+		axi_ad3552r_spi_write(st, reg, tmp, transfer_params);
+}
+
+
+
+static int ad3552r_set_output_range(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    unsigned int mode)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+
+		axi_ad3552r_spi_update_bits(st, AD3552R_REG_OUTPUT_RANGE,
+					    AD3552R_MASK_OUT_RANGE,
+					    SET_CH1_RANGE(mode) | SET_CH0_RANGE(mode),
+					    AD3552R_TFER_8BIT_SDR);
+	mdelay(100);
+
+	return 0;
+}
+
+static int ad3552r_get_output_range(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	u32 val;
+
+	val = axi_ad3552r_spi_read(st, AD3552R_REG_OUTPUT_RANGE,
+				   AD3552R_TFER_8BIT_SDR);
+	return GET_CH0_RANGE(val);
+}
+
+static int ad3552r_set_input_source(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    unsigned int mode)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+
+	axi_ad3552r_write(st, AXI_REG_CHAN_CNTRL_7_CH0, mode);
+	axi_ad3552r_write(st, AXI_REG_CHAN_CNTRL_7_CH1, mode);
+
+	return 0;
+}
+
+static int ad3552r_get_input_source(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+
+	return axi_ad3552r_read(st, AXI_REG_CHAN_CNTRL_7_CH0);
+}
+
+static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    unsigned int mode)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+
+	if (mode == 2) {
+		st->synced_transfer = true;
+		axi_ad3552r_write(st, AXI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
+		axi_ad3552r_write(st, AXI_REG_CNTRL_2, (u32)(AXI_MSK_USIGN_DATA |
+							     ~AXI_MSK_SDR_DDR_N));
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT,
+					AD3552R_STREAM_SATRT);
+	} else if (mode == 1) {
+		st->synced_transfer = false;
+		axi_ad3552r_write(st, AXI_REG_CNTRL_2, (u32)(AXI_MSK_USIGN_DATA |
+							     ~AXI_MSK_SDR_DDR_N));
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT,
+					AD3552R_STREAM_SATRT);
+	} else  {
+		st->synced_transfer = false;
+		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT, 0);
+	}
+
+	return 0;
+}
+
+static int ad3552r_get_stream_state(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	u32 val;
+
+	val = axi_ad3552r_read(st, AXI_REG_CNTRL_CSTM);
+
+	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer)
+		return 2;
+	else if ((val & AXI_MSK_STREAM) == 2)
+		return 1;
+
+	return 0;
+}
+
+static const struct iio_enum ad35525_source_enum = {
+	.items = input_source,
+	.num_items = ARRAY_SIZE(input_source),
+	.get = ad3552r_get_input_source,
+	.set = ad3552r_set_input_source,
+};
+
+static const struct iio_enum ad35525_output_enum = {
+	.items = output_range,
+	.num_items = ARRAY_SIZE(output_range),
+	.get = ad3552r_get_output_range,
+	.set = ad3552r_set_output_range,
+};
+
+static const struct iio_enum ad35525_stream_enum = {
+	.items = stream_status,
+	.num_items = ARRAY_SIZE(stream_status),
+	.get = ad3552r_get_stream_state,
+	.set = ad3552r_set_stream_state,
+};
+
+static const struct iio_chan_spec_ext_info ad3552r_ext_info[] = {
+	IIO_ENUM("input_source", IIO_SHARED_BY_ALL, &ad35525_source_enum),
+	IIO_ENUM_AVAILABLE_SHARED("input_source", IIO_SHARED_BY_ALL,
+				  &ad35525_source_enum),
+	IIO_ENUM("stream_status", IIO_SHARED_BY_ALL, &ad35525_stream_enum),
+	IIO_ENUM_AVAILABLE_SHARED("stream_status", IIO_SHARED_BY_ALL,
+				  &ad35525_stream_enum),
+	IIO_ENUM("output_range", IIO_SHARED_BY_ALL, &ad35525_output_enum),
+	IIO_ENUM_AVAILABLE_SHARED("output_range", IIO_SHARED_BY_ALL,
+				  &ad35525_output_enum),
+	{},
+};
+
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
+	[ID_AD3552R] = {
+		.name = "AD3552R",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, ad3552r_ext_info, 'u'),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, ad3552r_ext_info, 'u'),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+			CF_AXI_DDS_CHAN(2, 0, "2A"),
+			CF_AXI_DDS_CHAN(3, 0, "2B"),
+		},
+		.num_channels = 7,
+		.num_dp_disable_channels = 3,
+		.num_dds_channels = 4,
+		.num_buf_channels = 2,
+	},
 	[ID_AD9122] = {
 		.name = "AD9122",
 		.channel = {
@@ -1187,8 +1417,8 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 					BIT(IIO_CHAN_INFO_PROCESSED) |
 					BIT(IIO_CHAN_INFO_CALIBBIAS),
 			},
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0),
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, NULL, 's'),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, NULL, 's'),
 			CF_AXI_DDS_CHAN(0, 0, "1A"),
 			CF_AXI_DDS_CHAN(1, 0, "1B"),
 			CF_AXI_DDS_CHAN(2, 0, "2A"),
@@ -1958,6 +2188,14 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 	return 0;
 }
 
+//TODO set correct info
+static const struct axidds_core_info ad3552r_6_00_a_info = {
+	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
+	.rate = 1,
+	.data_format = ADI_DATA_FORMAT,
+	.issue_sync_en = 1,
+};
+
 static const struct axidds_core_info ad9122_6_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
 	.rate = 1,
@@ -2089,6 +2327,7 @@ static const struct axidds_core_info adrv9002_rx2tx2_9_01_b_info = {
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
+	{ .compatible = "adi,axi-ad3552r", .data = &ad3552r_6_00_a_info },
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
 	{ .compatible = "adi,axi-ad9136-1.0", .data = &ad9144_7_00_a_info },
 	{ .compatible = "adi,axi-ad9144-1.0", .data = &ad9144_7_00_a_info, },
