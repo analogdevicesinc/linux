@@ -3840,9 +3840,16 @@ static int fcs_driver_probe(struct platform_device *pdev)
 		priv->client.receive_cb = fcs_atf_version_smmu_check_callback;
 
 		ret = stratix10_svc_send(priv->chan, &msg);
+		if (ret)
+			return -EINVAL;
 
 		ret = wait_for_completion_timeout(&priv->completion,
 							FCS_REQUEST_TIMEOUT);
+		if (!ret) {
+			dev_err(priv->client.dev, "timeout waiting for SMC call\n");
+			ret = -ETIMEDOUT;
+			return ret;
+		}
 
 		/* Program registers only if ATF support programming
 		 * SMMU secure register addresses
