@@ -186,8 +186,6 @@ enum dds_data_select {
 #define ADI_TO_USR_INTERPOLATION_N(x)	(((x) >> 0) & 0xFFFF)
 
 
-#define AXI_REG_CNTRL_1             0x44
-#define AXI_REG_CNTRL_2				0x48
 #define   AXI_MSK_USIGN_DATA			BIT(4)
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
