@@ -107,10 +107,11 @@
 #define AD4858_IIO_CHANNEL(index)				\
 {								\
 	.type = IIO_VOLTAGE,					\
-	.info_mask_separate = BIT(IIO_CHAN_INFO_OFFSET)	|	\
-			BIT(IIO_CHAN_INFO_HARDWAREGAIN)	|	\
-			BIT(IIO_CHAN_INFO_PHASE),		\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |	\
+		BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
+		BIT(IIO_CHAN_INFO_CALIBPHASE),			\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET) |	\
+		BIT(IIO_CHAN_INFO_SCALE),			\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 	.ext_info = ad4858_ext_info,				\
 	.address = index,					\
@@ -564,18 +565,20 @@ static int ad4858_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = adc->sampling_freq;
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_SCALE:
-		*val = adc->vref_mv / 1000;
-		*val2 = chan->scan_type.realbits;
-
-		return IIO_VAL_FRACTIONAL_LOG2;
-	case IIO_CHAN_INFO_OFFSET:
-		ad4858_get_offset(adc, chan->channel, val);
-		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		ad4858_get_gain(adc, chan->channel, val);
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_PHASE:
+	case IIO_CHAN_INFO_OFFSET:
+		*val = 0;
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SCALE:
+		*val = adc->vref_mv / 1000;
+		*val2 = chan->scan_type.realbits;
+		return IIO_VAL_FRACTIONAL_LOG2;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		ad4858_get_offset(adc, chan->channel, val);
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_CALIBPHASE:
 		ad4858_get_phase(adc, chan->channel, val);
 		return IIO_VAL_INT;
 	default:
@@ -593,11 +596,13 @@ static int ad4858_write_raw(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad4858_set_sampling_freq(adc, val);
-	case IIO_CHAN_INFO_OFFSET:
-		return ad4858_set_offset(adc, chan->channel, val);
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		return ad4858_set_gain(adc, chan->channel, val);
-	case IIO_CHAN_INFO_PHASE:
+	case IIO_CHAN_INFO_OFFSET:
+		return 0;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		return ad4858_set_offset(adc, chan->channel, val);
+	case IIO_CHAN_INFO_CALIBPHASE:
 		return ad4858_set_phase(adc, chan->channel, val);
 	default:
 		return -EINVAL;
