@@ -244,7 +244,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek.dtb imx8qm-mek-ov5640.dtb \
 			  imx8qm-mek-dsi-rm67191.dtb imx8qm-mek-dsi-rm67199.dtb \
 			  imx8qm-lpddr4-val-dp.dtb\
 			  imx8qp-lpddr4-val.dtb imx8dm-lpddr4-val.dtb imx8qm-pcieax2pciebx1.dtb \
-			  imx8qm-mek-cockpit-a53.dtb imx8qm-mek-cockpit-a72.dtb
+			  imx8qm-mek-cockpit-a53.dtb imx8qm-mek-cockpit-a72.dtb \
+			  imx8qm-mek-dsi-serdes-rpmsg.dtb \
+			  imx8qm-mek-dsi-serdes.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-dom0.dtb imx8qm-mek-domu.dtb \
 			  imx8qm-mek-root.dtb imx8qm-mek-inmate.dtb
 
