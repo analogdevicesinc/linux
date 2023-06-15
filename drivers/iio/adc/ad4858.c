@@ -109,9 +109,9 @@
 	.type = IIO_VOLTAGE,					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |	\
 		BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
-		BIT(IIO_CHAN_INFO_CALIBPHASE),			\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET) |	\
+		BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
 		BIT(IIO_CHAN_INFO_SCALE),			\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET),	\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 	.ext_info = ad4858_ext_info,				\
 	.address = index,					\
@@ -620,6 +620,8 @@ static int ad4858_read_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad4858_dev *adc = conv->phy;
+	unsigned int softspan;
+	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -632,7 +634,11 @@ static int ad4858_read_raw(struct iio_dev *indio_dev,
 		*val = 0;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		*val = adc->vref_mv / 1000;
+		ret = ad4858_spi_reg_read(adc,
+			AD4858_REG_CHX_SOFTSPAN(chan->channel), &softspan);
+		if (ret)
+			return ret;
+		*val = (softspan % 2 ? 2 : 1) * adc->vref_mv / 1000;
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_CALIBBIAS:
