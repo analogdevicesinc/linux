@@ -132,6 +132,7 @@ struct ad4858_dev {
 	struct pwm_device	*cnv;
 	struct clk		*sampl_clk;
 	unsigned int		vref_mv;
+	unsigned int		softspan[8];
 };
 
 static const char *const ad4858_os_ratios[] = {
@@ -284,6 +285,55 @@ static int ad4858_get_packet_format(struct iio_dev *indio_dev,
 	return format;
 }
 
+static const char * const ad4858_softspan[] = {
+	[0] = "0-0.625",
+	[1] = "M0.625-0.625",
+	[2] = "0-1.25",
+	[3] = "M1.25-1.25",
+	[4] = "0-1.5625",
+	[5] = "M1.5625-1.5625",
+	[6] = "0-2.5",
+	[7] = "M2.5-2.5",
+	[8] = "0-3.125",
+	[9] = "M3.125-3.125",
+	[10] = "0-5",
+	[11] = "M5-5",
+	[12] = "0-6.25",
+	[13] = "M6.25-6.25",
+	[14] = "0-10",
+	[15] = "M10-10",
+};
+
+static int ad4858_softspan_write(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	int ret;
+
+	ret = ad4858_spi_reg_write(adc, AD4858_REG_CHX_SOFTSPAN(chan->channel), item);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int ad4858_softspan_read(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int softspan;
+	int ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_CHX_SOFTSPAN(chan->channel),
+		&softspan);
+	if (ret)
+		return ret;
+
+	return softspan;
+}
+
 static const struct iio_enum ad4858_os_ratio = {
 	.items = ad4858_os_ratios,
 	.num_items = ARRAY_SIZE(ad4858_os_ratios),
@@ -298,6 +348,13 @@ static const struct iio_enum ad4858_packet_fmt = {
 	.get = ad4858_get_packet_format,
 };
 
+static const struct iio_enum ad4858_softspan_enum = {
+	.items = ad4858_softspan,
+	.num_items = ARRAY_SIZE(ad4858_softspan),
+	.set = ad4858_softspan_write,
+	.get = ad4858_softspan_read,
+};
+
 static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
 	IIO_ENUM("oversampling_ratio", IIO_SHARED_BY_ALL,
 		 &ad4858_os_ratio),
@@ -307,6 +364,9 @@ static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
 		 &ad4858_packet_fmt),
 	IIO_ENUM_AVAILABLE_SHARED("packet_format", IIO_SHARED_BY_ALL,
 				  &ad4858_packet_fmt),
+	IIO_ENUM("softspan", IIO_SEPARATE, &ad4858_softspan_enum),
+	IIO_ENUM_AVAILABLE_SHARED("softspan", IIO_SHARED_BY_ALL,
+				  &ad4858_softspan_enum),
 	{},
 };
 
