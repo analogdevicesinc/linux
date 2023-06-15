@@ -1067,7 +1067,7 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	return 0;
 }
 
-static int mxc_isi_config_parm(struct mxc_isi_cap_dev *isi_cap)
+int mxc_isi_config_parm(struct mxc_isi_cap_dev *isi_cap)
 {
 	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
 	int ret;
@@ -1081,6 +1081,7 @@ static int mxc_isi_config_parm(struct mxc_isi_cap_dev *isi_cap)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mxc_isi_config_parm);
 
 static int mxc_isi_cap_g_parm(struct file *file, void *fh,
 			      struct v4l2_streamparm *a)
@@ -1781,6 +1782,7 @@ static const struct v4l2_subdev_internal_ops mxc_isi_capture_sd_internal_ops = {
 static int isi_cap_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
 	struct mxc_isi_dev *mxc_isi;
 	struct mxc_isi_cap_dev *isi_cap;
 	struct v4l2_subdev *sd;
@@ -1801,6 +1803,8 @@ static int isi_cap_probe(struct platform_device *pdev)
 		dev_info(dev, "deferring %s device registration\n", dev_name(dev));
 		return -EPROBE_DEFER;
 	}
+
+	isi_cap->runtime_suspend = of_property_read_bool(node, "runtime_suspend");
 
 	isi_cap->pdev = pdev;
 	isi_cap->id = mxc_isi->id;
@@ -1862,6 +1866,73 @@ static int isi_cap_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int mxc_isi_cap_pm_suspend(struct device *dev)
+{
+	struct mxc_isi_cap_dev *isi_cap = dev_get_drvdata(dev);
+	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
+
+	if (!isi_cap->runtime_suspend) {
+		if (mxc_isi->is_streaming) {
+			dev_warn(dev, "running, prevent entering suspend.\n");
+			return -EAGAIN;
+		}
+	}
+
+	return pm_runtime_force_suspend(dev);
+}
+
+static int mxc_isi_cap_pm_resume(struct device *dev)
+{
+	return pm_runtime_force_resume(dev);
+}
+
+static int mxc_isi_cap_runtime_suspend(struct device *dev)
+{
+	struct mxc_isi_cap_dev *isi_cap = dev_get_drvdata(dev);
+	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
+
+	if (isi_cap->runtime_suspend) {
+		if (isi_cap->is_streaming[isi_cap->id]) {
+			disp_mix_clks_enable(mxc_isi, false);
+			mxc_isi_channel_disable(mxc_isi);
+		}
+	}
+
+	mxc_isi_clk_disable(mxc_isi);
+
+	return 0;
+}
+
+static int mxc_isi_cap_runtime_resume(struct device *dev)
+{
+	struct mxc_isi_cap_dev *isi_cap = dev_get_drvdata(dev);
+	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_cap->pdev);
+	int ret;
+
+	ret = mxc_isi_clk_enable(mxc_isi);
+	if (ret) {
+		dev_err(dev, "%s clk enable fail\n", __func__);
+		return ret;
+	}
+
+	if (isi_cap->runtime_suspend) {
+		if (isi_cap->is_streaming[isi_cap->id]) {
+			disp_mix_sft_rstn(mxc_isi, false);
+			disp_mix_clks_enable(mxc_isi, true);
+			mxc_isi_clean_registers(mxc_isi);
+			mxc_isi_config_parm(mxc_isi->isi_cap);
+			mxc_isi_channel_enable(mxc_isi, mxc_isi->m2m_enabled);
+		}
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops mxc_isi_cap_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(mxc_isi_cap_pm_suspend, mxc_isi_cap_pm_resume)
+	SET_RUNTIME_PM_OPS(mxc_isi_cap_runtime_suspend, mxc_isi_cap_runtime_resume, NULL)
+};
+
 static const struct of_device_id isi_cap_of_match[] = {
 	{.compatible = "imx-isi-capture",},
 	{ /* sentinel */ },
@@ -1874,6 +1945,7 @@ static struct platform_driver isi_cap_driver = {
 	.driver = {
 		.of_match_table = isi_cap_of_match,
 		.name		= "isi-capture",
+		.pm		= &mxc_isi_cap_pm_ops,
 	},
 };
 module_platform_driver(isi_cap_driver);
