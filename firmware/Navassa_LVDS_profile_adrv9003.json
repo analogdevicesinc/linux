@@ -1188,7 +1188,7 @@
       "modulus": [ 8388593, 8388593, 8388593, 8388593, 8388593 ],
       "dmModulus": [ 8388593, 8388593 ]
     },
-    "warmBootEnable": false
+    "warmBootEnable": true
   },
   "pfirBuffer": {
     "pfirRxWbNbChFilterCoeff_A": {
