@@ -1,8 +1,5 @@
 if ARCH_MXC || COMPILE_TEST
 
-config DRM_IMX_LDB_HELPER
-	tristate
-
 config DRM_IMX8MP_DW_HDMI_BRIDGE
 	tristate "Freescale i.MX8MP HDMI-TX bridge support"
 	depends on OF
@@ -25,7 +22,6 @@ config DRM_IMX8QM_LDB
 	tristate "Freescale i.MX8QM LVDS display bridge"
 	depends on OF
 	depends on COMMON_CLK
-	select DRM_IMX_LDB_HELPER
 	select DRM_KMS_HELPER
 	help
 	  Choose this to enable the internal LVDS Display Bridge(LDB) found in
@@ -35,7 +31,6 @@ config DRM_IMX8QXP_LDB
 	tristate "Freescale i.MX8QXP LVDS display bridge"
 	depends on OF
 	depends on COMMON_CLK
-	select DRM_IMX_LDB_HELPER
 	select DRM_KMS_HELPER
 	help
 	  Choose this to enable the internal LVDS Display Bridge(LDB) found in
