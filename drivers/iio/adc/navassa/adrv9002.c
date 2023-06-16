@@ -17,10 +17,12 @@
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/sysfs.h>
+#include <linux/string.h>
 #include <linux/units.h>
 
 #include "adrv9002.h"
@@ -551,6 +553,7 @@ enum {
 	ADRV9002_HOP_1_TRIGGER,
 	ADRV9002_HOP_2_TRIGGER,
 	ADRV9002_INIT_CALS_RUN,
+	ADRV9002_WARMBOOT_SEL,
 };
 
 static const char * const adrv9002_hop_table[ADRV9002_FH_TABLES_NR + 1] = {
@@ -607,6 +610,9 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 		break;
 	case ADRV9002_INIT_CALS_RUN:
 		ret = sysfs_emit(buf, "%s\n", adrv9002_init_cals_modes[phy->run_cals]);
+		break;
+	case ADRV9002_WARMBOOT_SEL:
+		ret = sysfs_emit(buf, "%s\n", phy->warm_boot.coeffs_name);
 		break;
 	default:
 		ret = -EINVAL;
@@ -714,6 +720,23 @@ static int adrv9002_init_cals_set(struct adrv9002_rf_phy *phy, const char *buf)
 	return adrv9002_phy_rerun_cals(phy, &cals, 0);
 }
 
+static int adrv9002_warm_boot_name_save(struct adrv9002_rf_phy *phy, const char *buf)
+{
+	int ret;
+	char *p;
+
+	ret = strscpy(phy->warm_boot.coeffs_name, buf, sizeof(phy->warm_boot.coeffs_name));
+	if (ret < 0)
+		return ret;
+
+	/* Strip trailing newline */
+	p = phy->warm_boot.coeffs_name + strlen(phy->warm_boot.coeffs_name);
+	if (*--p == '\n')
+		*p = '\0';
+
+	return 0;
+}
+
 static int adrv9002_fh_set(const struct adrv9002_rf_phy *phy, const char *buf, u64 address)
 {
 	int ret;
@@ -762,6 +785,9 @@ static ssize_t adrv9002_attr_store(struct device *dev, struct device_attribute *
 	switch (iio_attr->address) {
 	case ADRV9002_INIT_CALS_RUN:
 		ret = adrv9002_init_cals_set(phy, buf);
+		break;
+	case ADRV9002_WARMBOOT_SEL:
+		ret = adrv9002_warm_boot_name_save(phy, buf);
 		break;
 	default:
 		ret = adrv9002_fh_set(phy, buf, iio_attr->address);
@@ -2494,6 +2520,8 @@ static IIO_DEVICE_ATTR(frequency_hopping_hop2_signal_trigger, 0200, NULL, adrv90
 		       ADRV9002_HOP_2_TRIGGER);
 static IIO_DEVICE_ATTR(initial_calibrations, 0600, adrv9002_attr_show, adrv9002_attr_store,
 		       ADRV9002_INIT_CALS_RUN);
+static IIO_DEVICE_ATTR(warmboot_coefficients_file, 0600, adrv9002_attr_show, adrv9002_attr_store,
+		       ADRV9002_WARMBOOT_SEL);
 
 static struct attribute *adrv9002_sysfs_attrs[] = {
 	&iio_const_attr_initial_calibrations_available.dev_attr.attr,
@@ -2503,6 +2531,7 @@ static struct attribute *adrv9002_sysfs_attrs[] = {
 	&iio_dev_attr_frequency_hopping_hop1_signal_trigger.dev_attr.attr,
 	&iio_dev_attr_frequency_hopping_hop2_signal_trigger.dev_attr.attr,
 	&iio_dev_attr_initial_calibrations.dev_attr.attr,
+	&iio_dev_attr_warmboot_coefficients_file.dev_attr.attr,
 	NULL
 };
 
@@ -2613,6 +2642,33 @@ static int adrv9002_dgpio_config(const struct adrv9002_rf_phy *phy)
 	}
 
 	return 0;
+}
+
+static int adrv9002_init_cals_handle(struct adrv9002_rf_phy *phy)
+{
+	const struct firmware *fw;
+	int ret;
+	u8 errors;
+
+	if (!phy->curr_profile->sysConfig.warmBootEnable || phy->warm_boot.coeffs_name[0] == '\0')
+		goto run_cals;
+
+	dev_dbg(&phy->spi->dev, "Requesting warmboot coefficients: \"%s\"n",
+		phy->warm_boot.coeffs_name);
+
+	ret = request_firmware(&fw, phy->warm_boot.coeffs_name, &phy->spi->dev);
+	if (ret)
+		return ret;
+
+	ret = api_call(phy, adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Set,
+		       fw->data, phy->init_cals.chanInitCalMask[0],
+		       phy->init_cals.chanInitCalMask[1]);
+	release_firmware(fw);
+	if (ret)
+		return ret;
+
+run_cals:
+	return api_call(phy, adi_adrv9001_cals_InitCals_Run, &phy->init_cals, 60000, &errors);
 }
 
 static int adrv9001_rx_path_config(struct adrv9002_rf_phy *phy,
@@ -3231,7 +3287,6 @@ static struct adi_adrv9001_SpiSettings adrv9002_spi = {
 
 static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 {
-	u8 init_cals_error = 0;
 	int ret;
 	adi_adrv9001_ChannelState_e init_state;
 
@@ -3278,8 +3333,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 			return ret;
 	}
 
-	ret = api_call(phy, adi_adrv9001_cals_InitCals_Run, &phy->init_cals,
-		       60000, &init_cals_error);
+	ret = adrv9002_init_cals_handle(phy);
 	if (ret)
 		return ret;
 
@@ -3631,6 +3685,11 @@ static const char *const rx_gain_type[] = {
 	"Compensated"
 };
 
+static const char *const warm_boot[] = {
+	"Disabled",
+	"Enabled"
+};
+
 static void adrv9002_fill_profile_read(struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_DeviceSysConfig *sys = &phy->curr_profile->sysConfig;
@@ -3656,6 +3715,7 @@ static void adrv9002_fill_profile_read(struct adrv9002_rf_phy *phy)
 				     "Duplex Mode: %s\n"
 				     "FH enable: %d\n"
 				     "MCS mode: %s\n"
+				     "WarmBoot: %s\n"
 				     "SSI interface: %s\n", clks->deviceClock_kHz * 1000,
 				     clks->clkPllVcoFreq_daHz * 10ULL, clks->armPowerSavingClkDiv,
 				     lo_maps[clks->rx1LoSelect], lo_maps[clks->rx2LoSelect],
@@ -3667,7 +3727,7 @@ static void adrv9002_fill_profile_read(struct adrv9002_rf_phy *phy)
 				     rx_gain_type[rx_cfg[ADRV9002_CHANN_2].profile.gainTableType],
 				     rx->rxInitChannelMask, tx->txInitChannelMask,
 				     duplex[sys->duplexMode], sys->fhModeOn, mcs[sys->mcsMode],
-				     ssi[phy->ssi_type]);
+				     warm_boot[sys->warmBootEnable], ssi[phy->ssi_type]);
 }
 
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
@@ -4132,6 +4192,70 @@ out_unlock:
 	return ret ? ret : count;
 }
 
+static ssize_t adrv9002_init_cals_bin_read(struct file *filp, struct kobject *kobj,
+					   struct bin_attribute *bin_attr, char *buf, loff_t off,
+					   size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	off_t curr_off = off;
+	int ret = 0, len;
+
+	mutex_lock(&phy->lock);
+	if (!off) {
+		struct adi_adrv9001_Warmboot_CalNumbers cals;
+
+		if (phy->warm_boot.cals) {
+			/*
+			 * Someone stop reading the coefficients in the middle of it or we have
+			 * concurrent cals! As we cannot know which one is it just error out...
+			 */
+			ret = -EBUSY;
+			goto out_unlock;
+		}
+
+		ret = api_call(phy, adi_adrv9001_cals_InitCals_WarmBoot_UniqueEnabledCals_Get,
+			       &cals, phy->init_cals.chanInitCalMask[0],
+			       phy->init_cals.chanInitCalMask[1]);
+		if (ret)
+			goto out_unlock;
+
+		/*
+		 * These coefficients buffers are huge and adrv9002_rf_phy is already quite big.
+		 * That's why we are going with this trouble to allocate + free the memory every
+		 * time one wants to save the current coefficients.
+		 */
+		phy->warm_boot.cals = devm_kzalloc(&phy->spi->dev, cals.warmbootMemoryNumBytes,
+						   GFP_KERNEL);
+		if (!phy->warm_boot.cals)
+			return -ENOMEM;
+
+		ret = api_call(phy,
+			       adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Get,
+			       phy->warm_boot.cals, phy->init_cals.chanInitCalMask[0],
+			       phy->init_cals.chanInitCalMask[1]);
+		if (ret)
+			goto out_unlock;
+
+		phy->warm_boot.size = cals.warmbootMemoryNumBytes;
+	}
+
+	len = memory_read_from_buffer(buf, count, &off, phy->warm_boot.cals, phy->warm_boot.size);
+	if (curr_off + count >= phy->warm_boot.size && phy->warm_boot.cals) {
+		/*
+		 * We are done with it. Even if userspace tries to read more,
+		 * @memory_read_from_buffer() will return 0 (EOF) without trying to copy into the
+		 * buffer.
+		 */
+		dev_dbg(&phy->spi->dev, "Freeing memory(%u)...\n", phy->warm_boot.size);
+		devm_kfree(&phy->spi->dev, phy->warm_boot.cals);
+		phy->warm_boot.cals = NULL;
+	}
+out_unlock:
+	mutex_unlock(&phy->lock);
+	return ret ? ret : len;
+}
+
 static int adrv9002_profile_load(struct adrv9002_rf_phy *phy)
 {
 	int ret;
@@ -4160,6 +4284,22 @@ static int adrv9002_profile_load(struct adrv9002_rf_phy *phy)
 	kfree(buf);
 
 	return ret;
+}
+
+static int adrv9002_init_cals_coeffs_name_get(struct adrv9002_rf_phy *phy)
+{
+	const char *init_cals;
+
+	/* Ignore if the profile has no warmboot */
+	if (!phy->profile.sysConfig.warmBootEnable)
+		return 0;
+
+	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
+		init_cals = phy->chip->cmos_cals;
+	else
+		init_cals = phy->chip->lvds_cals;
+
+	return strscpy(phy->warm_boot.coeffs_name, init_cals, sizeof(phy->warm_boot.coeffs_name));
 }
 
 static void adrv9002_clk_disable(void *data)
@@ -4266,6 +4406,8 @@ ADRV9002_DPD_COEFICCIENTS(1, 7);
 static BIN_ATTR(stream_config, 0222, NULL, adrv9002_stream_bin_write, ADRV9002_STREAM_BINARY_SZ);
 static BIN_ATTR(profile_config, 0644, adrv9002_profile_bin_read, adrv9002_profile_bin_write,
 		ADRV9002_PROFILE_MAX_SZ);
+static BIN_ATTR(warmboot_coefficients, 0400, adrv9002_init_cals_bin_read, NULL,
+		ADRV9002_INIT_CALS_COEFFS_MAX);
 
 static int adrv9002_iio_channels_get(struct adrv9002_rf_phy *phy)
 {
@@ -4389,6 +4531,10 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
+	ret = adrv9002_init_cals_coeffs_name_get(phy);
+	if (ret < 0)
+		return ret;
+
 	ret = adrv9002_init(phy, &phy->profile);
 	if (ret)
 		return ret;
@@ -4469,6 +4615,10 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		}
 	}
 
+	ret = device_create_bin_file(&indio_dev->dev, &bin_attr_warmboot_coefficients);
+	if (ret)
+		return ret;
+
 	api_call(phy, adi_adrv9001_ApiVersion_Get, &api_version);
 	api_call(phy, adi_adrv9001_arm_Version, &arm_version);
 	api_call(phy, adi_adrv9001_SiliconVersion_Get, &silicon_version);
@@ -4493,6 +4643,8 @@ static const struct adrv9002_chip_info adrv9002_info[] = {
 		.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
 		.cmos_profile = "Navassa_CMOS_profile.json",
 		.lvd_profile = "Navassa_LVDS_profile.json",
+		.cmos_cals = "Navassa_CMOS_init_cals.bin",
+		.lvds_cals = "Navassa_LVDS_init_cals.bin",
 		.name = "adrv9002-phy",
 		.n_tx = ADRV9002_CHANN_MAX,
 	},
@@ -4501,6 +4653,8 @@ static const struct adrv9002_chip_info adrv9002_info[] = {
 		.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
 		.cmos_profile = "Navassa_CMOS_profile.json",
 		.lvd_profile = "Navassa_LVDS_profile.json",
+		.cmos_cals = "Navassa_CMOS_init_cals.bin",
+		.lvds_cals = "Navassa_LVDS_init_cals.bin",
 		.name = "adrv9002-phy",
 		.n_tx = ADRV9002_CHANN_MAX,
 		.rx2tx2 = true,
@@ -4510,6 +4664,8 @@ static const struct adrv9002_chip_info adrv9002_info[] = {
 		.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
 		.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
 		.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
+		.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
+		.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
 		.name = "adrv9003-phy",
 		.n_tx = 1,
 	},
@@ -4518,6 +4674,8 @@ static const struct adrv9002_chip_info adrv9002_info[] = {
 		.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
 		.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
 		.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
+		.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
+		.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
 		.name = "adrv9003-phy",
 		.n_tx = 1,
 		.rx2tx2 = true,

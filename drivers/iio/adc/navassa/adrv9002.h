@@ -10,6 +10,7 @@
 #ifndef IIO_TRX_ADRV9002_H_
 #define IIO_TRX_ADRV9002_H_
 
+#include <linux/limits.h>
 #include <linux/clk-provider.h>
 #include <linux/clk/clkscale.h>
 #include <linux/delay.h>
@@ -25,6 +26,7 @@
 #include "adi_adrv9001_rx_gaincontrol_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
 #include "adi_adrv9001_ssi_types.h"
+#include "adi_adrv9001_types.h"
 #include "linux_platform.h"
 
 struct iio_chan_spec;
@@ -38,6 +40,8 @@ struct iio_chan_spec;
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
 #define ADRV9002_DPD_MAX_REGIONS	8
 #define ADRV9002_DPD_FH_MAX_REGIONS	(ADRV9002_DPD_MAX_REGIONS - 1)
+#define ADRV9002_INIT_CALS_COEFFS_MAX	\
+	(ADI_ADRV9001_WB_MAX_NUM_UNIQUE_CALS * ADI_ADRV9001_WB_MAX_NUM_COEFF)
 
 enum {
 	ADRV9002_CHANN_1,
@@ -217,6 +221,8 @@ struct adrv9002_chip_info {
 	const struct iio_chan_spec *channels;
 	const char *cmos_profile;
 	const char *lvd_profile;
+	const char *cmos_cals;
+	const char *lvds_cals;
 	const char *name;
 	u32 num_channels;
 	u32 n_tx;
@@ -229,6 +235,12 @@ struct adrv9002_ext_lo {
 	u16 divider;
 };
 
+struct adrv9002_warm_boot {
+	char coeffs_name[NAME_MAX];
+	u32 size;
+	u8 *cals;
+};
+
 struct adrv9002_rf_phy {
 	const struct adrv9002_chip_info *chip;
 	struct spi_device		*spi;
@@ -236,6 +248,7 @@ struct adrv9002_rf_phy {
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*ssi_sync;
 	struct iio_chan_spec		*iio_chan;
+	struct adrv9002_warm_boot	warm_boot;
 	/* Protect against concurrent accesses to the device */
 	struct mutex			lock;
 	struct clk			*clks[NUM_ADRV9002_CLKS];
@@ -243,7 +256,7 @@ struct adrv9002_rf_phy {
 	struct clk_onecell_data		clk_data;
 	/* each LO controls two ports (at least) */
 	struct adrv9002_ext_lo		ext_los[ADRV9002_CHANN_MAX];
-	char				profile_buf[350];
+	char				profile_buf[400];
 	size_t				profile_len;
 	char				*bin_attr_buf;
 	u8				*stream_buf;
