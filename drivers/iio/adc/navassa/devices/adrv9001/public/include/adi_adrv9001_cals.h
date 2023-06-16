@@ -96,7 +96,7 @@ int32_t adi_adrv9001_cals_InitCalsBuildDefault(adi_adrv9001_InitCals_t *initCals
  * \ref adi_adrv9001_TrackingCalibrations_e
  *
  * \param[in] adrv9001	     Context variable - Pointer to the ADRV9001 device settings data structure
- * \param[in] trackingCals   Tracking calibrations to enable. 
+ * \param[in] trackingCals   Tracking calibrations to enable.
  *                           Each mask is an OR'd combination of 'adi_adrv9001_TrackingCalibrations_e' enum values
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
@@ -159,7 +159,7 @@ int32_t adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure(adi_adrv9001_De
                                                                  uint32_t *externalPathDelay_ps);
 
 /**
- * \brief Runs the ADRV9001 external path delay calibrations and gets the measurement result of the difference 
+ * \brief Runs the ADRV9001 external path delay calibrations and gets the measurement result of the difference
  *        in path delays between ILB and ELB
  *
  * \note Message type: \ref timing_mailbox "Mailbox command"
@@ -217,9 +217,9 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
 
 /**
  * \brief Get the internal path delay calculated for the given port and channel
- * 
+ *
  * \note Message type: \ref timing_mailbox "Mailbox command"
- * 
+ *
  * \param[in]  adrv9001                 Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[in]  port                     The port that the channel refers to
  * \param[in]  channel                  The channel of the specified port
@@ -227,7 +227,7 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
  *                                      internalPathDelays_ns[0] contains the value for the main profile
  *                                      internalPathDelays_ns[1:5] will return as 0x0 until Dynamic Profile Switching is supported
  * \param[in]  length                   Length of the array with '6 'is the maximum (1 main profile and 5 dynamic profile)
- * 
+ *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_cals_InternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
@@ -238,15 +238,15 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get(adi_adrv9001_Device_t *adrv9001,
 
 /**
  * \brief Get the carrier frequencies of all channels used in the previous successful call to the init cal
- * 
+ *
  * \note Message type: \ref timing_mailbox "Mailbox command"
- * 
+ *
  * \pre Channel state any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED
- * 
+ *
  * \param[in]  adrv9001                 Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[out] carrierFrequencies_Hz    An array of carrier frequencies of all channels used in the previous successful call to the init cal in Hertz.
  * \param[in]  length                   Length of the array with '4 'is the maximum (In this specific order: Rx1, Rx2, Tx1, Tx2)
- * 
+ *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t *adrv9001,
@@ -255,11 +255,11 @@ int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t
 
 /**
  * \brief Runs the ADRV9001 dynamic profiles calibrations
- * 
+ *
  * \note Message type: \ref timing_mailbox "Mailbox command"
- * 
+ *
  * \pre Channel state is either STANDBY or CALIBRATED only
- * 
+ *
  * \param[in]  adrv9001          Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[in]  initCals          Pointer to the InitCals structure which calibrations to run;
  *                               'calMode' must not be ADI_ADRV9001_INIT_CAL_MODE_ELB_ONLY
@@ -268,7 +268,7 @@ int32_t adi_adrv9001_cals_LastInitCal_CarrierFrequency_Get(adi_adrv9001_Device_t
  *                               '0' indicates that there was no error.
  * \param[in]  dynamicProfile    An array of dynamic profile parameters.
  * \param[in]  length            Length of the array with '6 'is the maximum
- * 
+ *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv9001,
@@ -280,16 +280,16 @@ int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv
 
  /**
  * \brief Return the unique initCals enabled for this device configuration
- * 
+ *
  * \note Message type: \ref timing_mailbox "Mailbox command"
- * 
+ *
  * \pre Channel state is CALIBRATED
- * 
+ *
  * \param[in]  device                   Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[out] calNumbers               Number of unique initCals enabled and array containing calNumber for each for this device configuration
  * \param[in]  maskChannel1             Calibration bit mask for channel 1
  * \param[in]  maskChannel2             Calibration bit mask for channel 2
- * 
+ *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 	int32_t adi_adrv9001_cals_InitCals_WarmBoot_UniqueEnabledCals_Get(adi_adrv9001_Device_t *device,
@@ -298,35 +298,35 @@ int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv
 																uint32_t maskChannel2);
 /**
  * \brief Read the InitCal coefficients needed for Warmboot, savedCals has size ADI_ADRV9001_WB_MAX_NUM_UNIQUE_CALS x ADI_ADRV9001_WB_MAX_NUM_COEFF
- * 
+ *
  * \note Message type: \ref timing_mailbox "Mailbox command"
- * 
+ *
  * \pre Channel state is CALIBRATED
- * 
+ *
  * \param[in]  device          Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[out] savedCals       Coefficients for enabled cals
  * \param[in]  maskChannel1    Calibration bit mask for channel 1
  * \param[in]  maskChannel2    Calibration bit mask for channel 2
- * 
+ *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
  int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_MaxArray_Get(adi_adrv9001_Device_t *device,
 		adi_adrv9001_Warmboot_Coeff_t *savedCals,
 		uint32_t maskChannel1,
 		uint32_t maskChannel2);
-	
+
 /**
  * \brief Read the InitCal coefficients needed for Warmboot and place in allocated memory
- * 
+ *
  * \note Message type: \ref timing_mailbox "Mailbox command"
- * 
+ *
  * \pre Channel state is CALIBRATED
- * 
+ *
  * \param[in]  device           Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[in,out]  memStartAddress  Pointer to start address of memory block that has been allocated to hold warmbootMemoryNumBytes
  * \param[in]  maskChannel1     Calibration bit mask for channel 1
  * \param[in]  maskChannel2     Calibration bit mask for channel 2
- * 
+ *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 	int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Get(adi_adrv9001_Device_t *device,
@@ -336,16 +336,16 @@ int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv
 
  /**
  * \brief Write the InitCal coefficients needed for Warmboot, savedCals has size ADI_ADRV9001_WB_MAX_NUM_UNIQUE_CALS x ADI_ADRV9001_WB_MAX_NUM_COEFF
- * 
+ *
  * \note Message type: \ref timing_mailbox "Mailbox command"
- * 
+ *
  * \pre Channel state is STANDBY
- * 
+ *
  * \param[in]  device          Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[in] savedCals        Coefficients for enabled cals
  * \param[in]  maskChannel1    Calibration bit mask for channel 1
  * \param[in]  maskChannel2    Calibration bit mask for channel 2
- * 
+ *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 	int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_MaxArray_Set(adi_adrv9001_Device_t *device,
@@ -354,20 +354,20 @@ int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv
 																uint32_t maskChannel2);
 /**
 * \brief Write the InitCal coefficients needed for Warmboot from allocated memory
-* 
+*
 * \note Message type: \ref timing_mailbox "Mailbox command"
-* 
+*
 * \pre Channel state is STANDBY
-* 
+*
 * \param[in]  device            Context variable - Pointer to the ADRV9001 device settings data structure
 * \param[in,out]  memStartAddress   Pointer to start address of memory block that has been allocated and contains warmbootMemoryNumBytes
 * \param[in]  maskChannel1      Calibration bit mask for channel 1
 * \param[in]  maskChannel2      Calibration bit mask for channel 2
-* 
+*
 * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
 */
 	int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Set(adi_adrv9001_Device_t *device,
-		uint8_t *memStartAddress,
+		const uint8_t *memStartAddress,
 		uint32_t maskChannel1,
 		uint32_t maskChannel2);
 #ifdef __cplusplus

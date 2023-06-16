@@ -84,7 +84,7 @@ int32_t adi_adrv9001_cals_InitCals_Run(adi_adrv9001_Device_t *adrv9001,
 
     /* Mode to select the Init calibration algorithms to run */
     payload[1] = (uint8_t)(initCals->calMode);
-    
+
     /* A value of true will force all enabled calibrations to re-run */
     payload[2] = (uint8_t)(initCals->force);
 
@@ -596,7 +596,7 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get_Validate(adi_adrv9001_Device_t *
 {
     static uint8_t MAX_NUM_PROFILE = 6;
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
-    
+
     ADI_RANGE_CHECK(adrv9001, port, ADI_RX, ADI_TX);
     ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&adrv9001->common, internalPathDelays_ns);
@@ -604,7 +604,7 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get_Validate(adi_adrv9001_Device_t *
     ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, adrv9001, port, channel, &state);
     if (ADI_ADRV9001_CHANNEL_STANDBY == state)
     {
-        ADI_ERROR_REPORT(&adrv9001->common, 
+        ADI_ERROR_REPORT(&adrv9001->common,
             ADI_COMMON_ERRSRC_API,
             ADI_COMMON_ERR_INV_PARAM,
             ADI_COMMON_ACT_ERR_CHECK_PARAM,
@@ -736,7 +736,7 @@ int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate_Validate(adi_adrv9001_Devic
     ADI_ENTRY_PTR_EXPECT(adrv9001, initCals);
     ADI_NULL_PTR_RETURN(&adrv9001->common, errorFlag);
 
-    ADI_NULL_PTR_RETURN(&adrv9001->common, dynamicProfile); 
+    ADI_NULL_PTR_RETURN(&adrv9001->common, dynamicProfile);
     ADI_RANGE_CHECK(adrv9001, length, 1, MAX_NUM_PROFILE);
 
     for (port = ADI_RX; port <= ADI_TX; port++)
@@ -774,7 +774,7 @@ int32_t adi_adrv9001_cals_Dynamic_profiles_calibrate(adi_adrv9001_Device_t *adrv
 {
     int8_t i = 0;
     ADI_EXPECT(adi_adrv9001_cals_Dynamic_profiles_calibrate_Validate, adrv9001, initCals, errorFlag, dynamicProfile, length);
-    
+
     for (i = 0; i <= (length - 1); i++)
     {
         ADI_EXPECT(adi_adrv9001_arm_NextDynamicProfile_Set, adrv9001, &dynamicProfile[i]);
@@ -803,7 +803,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_UniqueEnabledCals_Get(adi_adrv9001_D
 
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020000, tblSize, sizeof(tblSize), 0);
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020004, vecTbl, tblSize[0] * 16, 1);
-	
+
 	for (calNo = 0; calNo < tblSize[0]; calNo++)
 	{
 		uint32_t initMask = vecTbl[(4*calNo) + 2];
@@ -811,7 +811,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_UniqueEnabledCals_Get(adi_adrv9001_D
 		adi_common_ChannelNumber_e channel;
 		for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
 		{
-			uint32_t chInitMask = maskChannel1;
+			uint32_t chInitMask = channel == ADI_CHANNEL_1 ? maskChannel1 : maskChannel2;
 			profMask = profMask >> (8 * (channel - 1));
 			if (profMask == 0)
 				continue;
@@ -845,7 +845,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_MaxArray_Get(adi_adrv90
 
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020000, tblSize, sizeof(tblSize), 0);
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020004, vecTbl, tblSize[0] * 16, 1);
-	
+
 	for (calNo = 0; calNo < tblSize[0]; calNo++)
 	{
 		uint32_t addr = vecTbl[4*calNo];
@@ -855,7 +855,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_MaxArray_Get(adi_adrv90
 		adi_common_ChannelNumber_e channel;
 		for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
 		{
-			uint32_t chInitMask = maskChannel1;
+			uint32_t chInitMask = channel == ADI_CHANNEL_1 ? maskChannel1 : maskChannel2;
 			profMask = profMask >> (8 * (channel - 1));
 			if (profMask == 0)
 				continue;
@@ -890,7 +890,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Get(adi_adr
 	int calNo;
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020000, tblSize, sizeof(tblSize), 0);
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, device, 0x20020004, vecTbl, tblSize[0] * 16, 1);
-	
+
 	for (calNo = 0; calNo < tblSize[0]; calNo++)
 	{
 		uint32_t addr = vecTbl[4*calNo];
@@ -900,7 +900,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Get(adi_adr
 		adi_common_ChannelNumber_e channel;
 		for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
 		{
-			uint32_t chInitMask = maskChannel1;
+			uint32_t chInitMask = channel == ADI_CHANNEL_1 ? maskChannel1 : maskChannel2;
 			profMask = profMask >> (8 * (channel - 1));
 			if (profMask == 0)
 				continue;
@@ -943,7 +943,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_MaxArray_Set(adi_adrv90
 		adi_common_ChannelNumber_e channel;
 		for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
 		{
-			uint32_t chInitMask = maskChannel1;
+			uint32_t chInitMask = channel == ADI_CHANNEL_1 ? maskChannel1 : maskChannel2;
 			profMask = profMask >> (8 * (channel - 1));
 			if (profMask == 0)
 				continue;
@@ -962,7 +962,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_MaxArray_Set(adi_adrv90
 	ADI_API_RETURN(device);
 }
 int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Set(adi_adrv9001_Device_t *device,
-	uint8_t *memStartAddress,
+	const uint8_t *memStartAddress,
 	uint32_t maskChannel1,
 	uint32_t maskChannel2)
 {
@@ -989,7 +989,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Set(adi_adr
 		adi_common_ChannelNumber_e channel;
 		for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
 		{
-			uint32_t chInitMask = maskChannel1;
+			uint32_t chInitMask = channel == ADI_CHANNEL_1 ? maskChannel1 : maskChannel2;
 			profMask = profMask >> (8 * (channel - 1));
 			if (profMask == 0)
 				continue;
