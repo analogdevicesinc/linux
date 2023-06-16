@@ -13,6 +13,7 @@ obj-$(CONFIG_DRM_LONTIUM_LT9611) += lontium-lt9611.o
 obj-$(CONFIG_DRM_LONTIUM_LT9611UXC) += lontium-lt9611uxc.o
 obj-$(CONFIG_DRM_FSL_IMX_LVDS_BRIDGE) += fsl-imx-ldb.o
 obj-$(CONFIG_DRM_LVDS_CODEC) += lvds-codec.o
+obj-$(CONFIG_DRM_MAX96752_LVDS) += max96752-lvds.o
 obj-$(CONFIG_DRM_MAX96789_DSI) += max96789-dsi.o
 obj-$(CONFIG_DRM_MEGACHIPS_STDPXXXX_GE_B850V3_FW) += megachips-stdpxxxx-ge-b850v3-fw.o
 obj-$(CONFIG_DRM_MICROCHIP_LVDS_SERIALIZER) += microchip-lvds.o

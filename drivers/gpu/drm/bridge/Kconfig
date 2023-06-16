@@ -187,6 +187,13 @@ config DRM_LVDS_CODEC
 	  Support for transparent LVDS encoders and decoders that don't
 	  require any configuration.
 
+config DRM_MAX96752_LVDS
+	tristate "Analog Devices MAX96752 deserializer LVDS bridge"
+	depends on DRM && OF && MFD_MAX96752
+	select DRM_KMS_HELPER
+	help
+	  This adds LVDS bridge support for the MAX96752 deserializer chip.
+
 config DRM_MAX96789_DSI
 	tristate "Analog Devices MAX96789 serializer DSI bridge"
 	depends on DRM && OF && MFD_MAX96789
