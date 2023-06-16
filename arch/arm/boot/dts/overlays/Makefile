@@ -261,6 +261,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-ltc6952.dtbo \
 	rpi-max14830-i2c.dtbo \
 	rpi-max14830-spi.dtbo \
+	rpi-max31335.dtbo \
 	rpi-poe.dtbo \
 	rpi-poe-plus.dtbo \
 	rpi-sense.dtbo \
