@@ -187,6 +187,14 @@ config DRM_LVDS_CODEC
 	  Support for transparent LVDS encoders and decoders that don't
 	  require any configuration.
 
+config DRM_MAX96789_DSI
+	tristate "Analog Devices MAX96789 serializer DSI bridge"
+	depends on DRM && OF && MFD_MAX96789
+	select DRM_KMS_HELPER
+	select DRM_MIPI_DSI
+	help
+	  This adds MIPI-DSI bridge support for the MAX96789 serializer chip.
+
 config DRM_MEGACHIPS_STDPXXXX_GE_B850V3_FW
 	tristate "MegaChips stdp4028-ge-b850v3-fw and stdp2690-ge-b850v3-fw"
 	depends on OF
