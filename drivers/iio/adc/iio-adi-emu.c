@@ -113,9 +113,23 @@ static int adi_emu_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+static int adi_emu_reg_access(struct iio_dev *indio_dev,
+			      unsigned int reg,
+			      unsigned int writeval,
+			      unsigned int *readval)
+{
+	struct adi_emu_state *st = iio_priv(indio_dev);
+
+	if (readval)
+		return adi_emu_spi_read(st, reg, (u8 *)readval);
+
+	return adi_emu_spi_write(st, reg, writeval);
+}
+
 static const struct iio_info adi_emu_info = {
 	.read_raw = &adi_emu_read_raw,
 	.write_raw = &adi_emu_write_raw,
+	.debugfs_reg_access = &adi_emu_reg_access,
 };
 
 static const struct iio_chan_spec adi_emu_channels[] = {
