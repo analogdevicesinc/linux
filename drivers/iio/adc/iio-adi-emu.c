@@ -10,7 +10,9 @@
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 
+#define ADI_EMU_REG_SCRATCH_PAD		0x01
 #define ADI_EMU_REG_DEVICE_CONFIG	0x02
 #define  ADI_EMU_MASK_POWER_DOWN	BIT(5)
 #define ADI_EMU_REG_CNVST		0x03
@@ -186,10 +188,76 @@ static int adi_emu_reg_access(struct iio_dev *indio_dev,
 	return adi_emu_spi_write(st, reg, writeval);
 }
 
+enum scratch_pad_iio_dev_attr {
+	SCRATCH_PAD,
+};
+
+static ssize_t adi_emu_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adi_emu_state *st = iio_priv(indio_dev);
+	u8 reg_val;
+	int ret;
+
+	switch (this_attr->address) {
+	case SCRATCH_PAD:
+		ret = adi_emu_spi_read(st, ADI_EMU_REG_SCRATCH_PAD, &reg_val);
+		if (ret)
+			return ret;
+
+		return sprintf(buf, "0x%x\n", reg_val);
+	default:
+		return -EINVAL;
+	}
+}
+
+static ssize_t adi_emu_store(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t len)
+{
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adi_emu_state *st = iio_priv(indio_dev);
+	unsigned int reg_val;
+	int ret;
+
+	switch (this_attr->address) {
+	case SCRATCH_PAD:
+		ret = kstrtou32(buf, 16, &reg_val);
+		if (ret)
+			break;
+
+		ret = adi_emu_spi_write(st, ADI_EMU_REG_SCRATCH_PAD, reg_val);
+		if (ret)
+			break;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+static IIO_DEVICE_ATTR(scratch_pad, S_IRUGO | S_IWUSR,
+		       adi_emu_show,
+		       adi_emu_store,
+		       SCRATCH_PAD);
+
+static struct attribute *adi_emu_attributes[] = {
+	&iio_dev_attr_scratch_pad.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group adi_emu_attribute_group = {
+	.attrs = adi_emu_attributes,
+};
+
 static const struct iio_info adi_emu_info = {
 	.read_raw = &adi_emu_read_raw,
 	.write_raw = &adi_emu_write_raw,
 	.debugfs_reg_access = &adi_emu_reg_access,
+	.attrs = &adi_emu_attribute_group,
 };
 
 static int adi_emu_test_mode_write(struct iio_dev *indio_dev,
