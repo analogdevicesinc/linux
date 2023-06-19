@@ -5,13 +5,73 @@
  * Copyright (C) 2022 Analog Devices, Inc.
  */
 
+#include <asm/unaligned.h>
+#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
 
+#define ADI_EMU_RD_MASK			BIT(7)
+#define ADI_EMU_ADDR_MASK		GENMASK(14, 8)
+#define ADI_EMU_VAL_MASK		GENMASK(7, 0)
+
 struct adi_emu_state {
+	struct spi_device *spi;
 	bool enable;
 };
+
+static int adi_emu_spi_write(struct adi_emu_state *st, u8 reg, u8 val)
+{
+	u16 msg = 0;
+	u16 tx = 0;
+	struct spi_transfer xfer = {
+		.tx_buf	= NULL,
+		.len	= 0,
+	};
+
+	msg |= FIELD_PREP(ADI_EMU_ADDR_MSK, reg);
+	msg |= FIELD_PREP(ADI_EMU_VAL_MSK, val);
+
+	put_unaligned_be16(msg, &tx);
+
+	xfer.tx_buf = &tx;
+	xfer.len = sizeof(tx);
+
+	return spi_sync_transfer(st->spi, &xfer, 1);
+}
+
+static int adi_emu_spi_read(struct adi_emu_state *st, u8 reg, u8 *val)
+{
+	u8 tx = 0;
+	u8 rx = 0;
+	int ret;
+	struct spi_transfer xfer[] = {
+		{
+			.tx_buf	= NULL,
+			.rx_buf	= NULL,
+			.len	= 1,
+		},
+		{
+			.tx_buf	= NULL,
+			.rx_buf	= NULL,
+			.len	= 1,
+		},
+	};
+
+	tx |= ADI_EMU_RD_MASK;
+	tx |= reg;
+
+	xfer[0].tx_buf = &tx;
+	xfer[1].rx_buf = &rx;
+
+	ret = spi_sync_transfer(st->spi, xfer, 2);
+	if (ret)
+		return ret;
+
+	*val = rx;
+
+	return 0;
+}
 
 static int adi_emu_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
@@ -88,6 +148,7 @@ static int adi_emu_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->enable = false;
+	st->spi = spi;
 
 	indio_dev->name = "iio-adi-emu";
 	indio_dev->channels = adi_emu_channels;
