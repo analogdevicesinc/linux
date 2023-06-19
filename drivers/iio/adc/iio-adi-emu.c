@@ -13,6 +13,12 @@
 
 #define ADI_EMU_REG_DEVICE_CONFIG	0x02
 #define  ADI_EMU_MASK_POWER_DOWN	BIT(5)
+#define ADI_EMU_REG_CNVST		0x03
+#define  ADI_EMU_MASK_CNVST		BIT(0)
+#define ADI_EMU_REG_CH0_DATA_HIGH	0x04
+#define ADI_EMU_REG_CH0_DATA_LOW	0x05
+#define ADI_EMU_REG_CH1_DATA_HIGH	0x06
+#define ADI_EMU_REG_CH1_DATA_LOW	0x07
 
 #define ADI_EMU_RD_MASK			BIT(7)
 #define ADI_EMU_ADDR_MASK		GENMASK(14, 8)
@@ -83,16 +89,41 @@ static int adi_emu_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct adi_emu_state *st = iio_priv(indio_dev);
+	u8 high, low;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
 		*val = st->enable;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
-		if (chan->channel)
-			*val = 1;
-		else
-			*val = 0;
+		ret = adi_emu_spi_write(st, ADI_EMU_REG_CNVST, ADI_EMU_MASK_CNVST);
+		if (ret)
+			return ret;
+
+		if (chan->channel) {
+			ret = adi_emu_spi_read(st, ADI_EMU_REG_CH1_DATA_HIGH,
+					       &high);
+			if (ret)
+				return ret;
+
+			ret = adi_emu_spi_read(st, ADI_EMU_REG_CH1_DATA_LOW,
+					       &low);
+			if (ret)
+				return ret;
+		} else {
+			ret = adi_emu_spi_read(st, ADI_EMU_REG_CH0_DATA_HIGH,
+					       &high);
+			if (ret)
+				return ret;
+
+			ret = adi_emu_spi_read(st, ADI_EMU_REG_CH0_DATA_LOW,
+					       &low);
+			if (ret)
+				return ret;
+		}
+
+		*val = (high << 8) | low;
 		return IIO_VAL_INT;
 	}
 
