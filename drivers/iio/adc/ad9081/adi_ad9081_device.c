@@ -854,7 +854,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 				       "api v%d.%d.%d commit %s for ad%x ",
 				       (AD9081_API_REV & 0xff0000) >> 16,
 				       (AD9081_API_REV & 0xff00) >> 8,
-				       (AD9081_API_REV & 0xff), "1c4c9fd",
+				       (AD9081_API_REV & 0xff), "4d11467",
 				       AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
@@ -1264,17 +1264,17 @@ int32_t adi_ad9081_device_get_temperature(adi_ad9081_device_t *device,
 		AD9081_ERROR_RETURN(err);
 		err = adi_ad9081_hal_reg_get(device, 0x2108, &temp[1]);
 		AD9081_ERROR_RETURN(err);
-		*max = (int16_t)(((temp[1] << 8) + temp[0]) >> 7);
+		*max = (int16_t)(((temp[1] << 8) + temp[0])) >> 7;
 
 		err = adi_ad9081_hal_reg_get(device, 0x210b, &temp[0]);
 		AD9081_ERROR_RETURN(err);
 		err = adi_ad9081_hal_reg_get(device, 0x210c, &temp[1]);
 		AD9081_ERROR_RETURN(err);
-		*min = (int16_t)(((temp[1] << 8) + temp[0]) >> 7);
+		*min = (int16_t)(((temp[1] << 8) + temp[0])) >> 7;
 	} else {
 		err = adi_ad9081_hal_log_write(
 			device, ADI_CMS_LOG_WARN,
-			"temperature measurement is not availabe on this silicon revision.");
+			"temperature measurement is not available on this silicon revision.");
 		AD9081_ERROR_RETURN(err);
 	}
 
@@ -1287,7 +1287,7 @@ int32_t adi_ad9081_device_startup_tx_or_nco_test(
 	adi_cms_jesd_param_t *jesd_param, uint8_t enable_nco_test)
 {
 	int32_t err;
-	uint8_t i, links;
+	uint8_t i, j, links, link, lanes = 0x0;
 	uint8_t used_dacs = 0;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
@@ -1338,7 +1338,19 @@ int32_t adi_ad9081_device_startup_tx_or_nco_test(
 		err = adi_ad9081_jesd_rx_link_config_set(device, links,
 							 jesd_param);
 		AD9081_ERROR_RETURN(err);
-		err = adi_ad9081_jesd_rx_bring_up(device, links, 0xff);
+		for (i = 0; i < 2; i++) {
+			link = (uint8_t)(links & (AD9081_LINK_0 << i));
+			if (link > 0) {
+				for (j = 0; j < 8; j++) {
+					if (device->serdes_info.des_settings
+						    .lane_mapping[i][j] <
+					    jesd_param->jesd_l) {
+						lanes += 1 << j;
+					}
+				}
+			}
+		}
+		err = adi_ad9081_jesd_rx_bring_up(device, links, lanes);
 		AD9081_ERROR_RETURN(err);
 	}
 
