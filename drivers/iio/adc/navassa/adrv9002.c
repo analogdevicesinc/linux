@@ -1193,7 +1193,7 @@ static const u32 rx_track_calls[] = {
 };
 
 static int adrv9002_phy_rx_do_write(const struct adrv9002_rf_phy *phy, struct adrv9002_rx_chan *rx,
-				    uintptr_t private, const char *buf)
+				    adi_common_Port_e port, uintptr_t private, const char *buf)
 {
 	struct adi_adrv9001_RxSettings *rx_settings = &phy->curr_profile->rx;
 	struct adi_adrv9001_RxChannelCfg *rx_cfg = &rx_settings->rxChannelCfg[rx->channel.idx];
@@ -1253,7 +1253,7 @@ static int adrv9002_phy_rx_do_write(const struct adrv9002_rf_phy *phy, struct ad
 		return adrv9002_channel_to_state(phy, &rx->channel, rx->channel.cached_state,
 						 false);
 	case RX_BBDC:
-		if (!rx->orx_en && rx->channel.port == ADI_ORX)
+		if (!rx->orx_en && port == ADI_ORX)
 			return -ENODEV;
 
 		ret = kstrtobool(buf, &enable);
@@ -1264,7 +1264,7 @@ static int adrv9002_phy_rx_do_write(const struct adrv9002_rf_phy *phy, struct ad
 		 * value to 0. The difference with the tracking cal is that disabling it, just
 		 * disables the algorithm but the last used correction value is still applied...
 		 */
-		return api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Set, rx->channel.port,
+		return api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Set, port,
 				rx->channel.number, enable);
 	case RX_BBDC_LOOP_GAIN:
 		ret = kstrtou32(buf, 10, &val);
@@ -1284,7 +1284,7 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
-	const int port = ADRV_ADDRESS_PORT(chan->address);
+	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	int ret = -ENODEV;
 
@@ -1292,7 +1292,7 @@ static ssize_t adrv9002_phy_rx_write(struct iio_dev *indio_dev,
 	if (!rx->channel.enabled && port == ADI_RX)
 		goto out_unlock;
 
-	ret = adrv9002_phy_rx_do_write(phy, rx, private, buf);
+	ret = adrv9002_phy_rx_do_write(phy, rx, port, private, buf);
 
 out_unlock:
 	mutex_unlock(&phy->lock);
@@ -1341,7 +1341,8 @@ static int adrv9002_intf_gain_avail(const struct adrv9002_rf_phy *phy,
 }
 
 static int adrv9002_phy_rx_do_read(const struct adrv9002_rf_phy *phy,
-				   const struct adrv9002_rx_chan *rx, uintptr_t private, char *buf)
+				   const struct adrv9002_rx_chan *rx, adi_common_Port_e port,
+				   uintptr_t private, char *buf)
 {
 	struct adi_adrv9001_RxSettings *rx_settings = &phy->curr_profile->rx;
 	struct adi_adrv9001_RxChannelCfg *rx_cfg = &rx_settings->rxChannelCfg[rx->channel.idx];
@@ -1400,11 +1401,11 @@ static int adrv9002_phy_rx_do_read(const struct adrv9002_rf_phy *phy,
 
 		return sysfs_emit(buf, "%d\n", enable);
 	case RX_BBDC:
-		if (!rx->orx_en && rx->channel.port == ADI_ORX)
+		if (!rx->orx_en && port == ADI_ORX)
 			return -ENODEV;
 
-		ret = api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Get,
-			       rx->channel.port, rx->channel.number, &bbdc);
+		ret = api_call(phy, adi_adrv9001_bbdc_RejectionEnable_Get, port,
+			       rx->channel.number, &bbdc);
 		if (ret)
 			return ret;
 
@@ -1429,7 +1430,7 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
-	const int port = ADRV_ADDRESS_PORT(chan->address);
+	const adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	int ret = -ENODEV;
 
@@ -1441,7 +1442,7 @@ static ssize_t adrv9002_phy_rx_read(struct iio_dev *indio_dev,
 	if (!rx->channel.enabled && port == ADI_RX && private != RX_INTERFACE_GAIN_AVAIL)
 		goto out_unlock;
 
-	ret = adrv9002_phy_rx_do_read(phy, rx, private, buf);
+	ret = adrv9002_phy_rx_do_read(phy, rx, port, private, buf);
 
 out_unlock:
 	mutex_unlock(&phy->lock);
@@ -1898,12 +1899,13 @@ static int adrv9002_phy_read_raw_no_rf_chan(const struct adrv9002_rf_phy *phy,
 }
 
 static int adrv9002_hardware_gain_get(const struct adrv9002_rf_phy *phy,
-				      const struct adrv9002_chan *c, int *val, int *val2)
+				      const struct adrv9002_chan *c, adi_common_Port_e port,
+				      int *val, int *val2)
 {
 	int temp, ret;
 	u8 index;
 
-	if (c->port == ADI_TX) {
+	if (port == ADI_TX) {
 		u16 atten_mdb;
 
 		ret = api_call(phy, adi_adrv9001_Tx_Attenuation_Get, c->number, &atten_mdb);
@@ -1918,14 +1920,14 @@ static int adrv9002_hardware_gain_get(const struct adrv9002_rf_phy *phy,
 		return IIO_VAL_INT_PLUS_MICRO_DB;
 	}
 
-	if (c->port == ADI_ORX)
+	if (port == ADI_ORX)
 		ret = api_call(phy, adi_adrv9001_ORx_Gain_Get, c->number, &index);
 	else
 		ret = api_call(phy, adi_adrv9001_Rx_Gain_Get, c->number, &index);
 	if (ret)
 		return ret;
 
-	temp = adrv9002_gainidx_to_gain(index, c->port);
+	temp = adrv9002_gainidx_to_gain(index, port);
 	*val = temp / 1000;
 	*val2 = temp % 1000 * 1000;
 
@@ -1933,17 +1935,17 @@ static int adrv9002_hardware_gain_get(const struct adrv9002_rf_phy *phy,
 }
 
 static int adrv9002_phy_read_raw_rf_chan(const struct adrv9002_rf_phy *phy,
-					 const struct adrv9002_chan *chann, int *val,
-					 int *val2, long m)
+					 const struct adrv9002_chan *chann, adi_common_Port_e port,
+					 int *val, int *val2, long m)
 {
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		return adrv9002_hardware_gain_get(phy, chann, val, val2);
+		return adrv9002_hardware_gain_get(phy, chann, port, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = clk_get_rate(chann->clk);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_ENABLE:
-		if (chann->port == ADI_ORX) {
+		if (port == ADI_ORX) {
 			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
 
 			if (!rx->orx_gpio)
@@ -1986,7 +1988,7 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 		goto out_unlock;
 	}
 
-	ret = adrv9002_phy_read_raw_rf_chan(phy, chann, val, val2, m);
+	ret = adrv9002_phy_read_raw_rf_chan(phy, chann, port, val, val2, m);
 
 out_unlock:
 	mutex_unlock(&phy->lock);
@@ -2052,13 +2054,14 @@ static bool adrv9002_orx_can_enable(const struct adrv9002_rf_phy *phy,
 }
 
 static int adrv9002_hardware_gain_set(const struct adrv9002_rf_phy *phy,
-				      const struct adrv9002_chan *c, int val, int val2)
+				      const struct adrv9002_chan *c, adi_common_Port_e port,
+				      int val, int val2)
 {
 	int gain;
 	u32 code;
 	u8 idx;
 
-	if (c->port == ADI_TX) {
+	if (port == ADI_TX) {
 		if (val > 0 || (val == 0 && val2 > 0))
 			return -EINVAL;
 
@@ -2067,22 +2070,23 @@ static int adrv9002_hardware_gain_set(const struct adrv9002_rf_phy *phy,
 	}
 
 	gain = val * 1000 + val2 / 1000;
-	idx = adrv9002_gain_to_gainidx(gain, c->port);
+	idx = adrv9002_gain_to_gainidx(gain, port);
 
-	if (c->port == ADI_RX)
+	if (port == ADI_RX)
 		return api_call(phy, adi_adrv9001_Rx_Gain_Set, c->number, idx);
 
 	return api_call(phy, adi_adrv9001_ORx_Gain_Set, c->number, idx);
 }
 
 static int adrv9002_phy_write_raw_rf_chan(const struct adrv9002_rf_phy *phy,
-					  struct adrv9002_chan *chann, int val, int val2, long mask)
+					  struct adrv9002_chan *chann, adi_common_Port_e port,
+					  int val, int val2, long mask)
 {
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		return adrv9002_hardware_gain_set(phy, chann, val, val2);
+		return adrv9002_hardware_gain_set(phy, chann, port, val, val2);
 	case IIO_CHAN_INFO_ENABLE:
-		if (chann->port == ADI_ORX) {
+		if (port == ADI_ORX) {
 			struct adrv9002_rx_chan *rx = chan_to_rx(chann);
 
 			if (!rx->orx_gpio)
@@ -2127,7 +2131,7 @@ static int adrv9002_phy_write_raw(struct iio_dev *indio_dev,
 		goto out_unlock;
 	}
 
-	ret = adrv9002_phy_write_raw_rf_chan(phy, chann, val, val2, mask);
+	ret = adrv9002_phy_write_raw_rf_chan(phy, chann, port, val, val2, mask);
 
 out_unlock:
 	mutex_unlock(&phy->lock);
