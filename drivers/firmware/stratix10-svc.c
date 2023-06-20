@@ -243,24 +243,21 @@ static void svc_thread_cmd_data_claim(struct stratix10_svc_controller *ctrl,
 				cb_data);
 				break;
 			}
-
-			if (buf_claim_count >= 4) {
-				/* Maximum buffer to reclaim */
-				pr_err("%s Buffer re-claim error", __func__);
-				break;
+			if (buf_claim_count < 4) {
+				buf_claim_addr[buf_claim_count]
+				= svc_pa_to_va(res.a1);
+				buf_claim_count++;
 			}
-
-			buf_claim_addr[buf_claim_count++]
-			= svc_pa_to_va(res.a1);
-			if (res.a2) {
-				buf_claim_addr[buf_claim_count++]
+			if ((res.a2) && (buf_claim_count < 4)) {
+				buf_claim_addr[buf_claim_count]
 				= svc_pa_to_va(res.a2);
+				buf_claim_count++;
 			}
-			if (res.a3) {
-				buf_claim_addr[buf_claim_count++]
+			if ((res.a3) && (buf_claim_count < 4)) {
+				buf_claim_addr[buf_claim_count]
 				= svc_pa_to_va(res.a3);
+				buf_claim_count++;
 			}
-
 		}
 	} while (res.a0 == INTEL_SIP_SMC_STATUS_OK ||
 		 res.a0 == INTEL_SIP_SMC_STATUS_BUSY ||
