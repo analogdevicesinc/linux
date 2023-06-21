@@ -1219,7 +1219,7 @@ static void axi_ad3552r_spi_write(struct cf_axi_dds_state *st, u32 reg, u32 val,
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
 				AXI_MSK_TRANSFER_DATA);
 	addr.st = st;
-	addr.reg = AXI_REG_UI_STATUS;
+	addr.reg = ADI_REG_UI_STATUS;
 	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
 			   check == AXI_MSK_BUSY, 10, 100);
 

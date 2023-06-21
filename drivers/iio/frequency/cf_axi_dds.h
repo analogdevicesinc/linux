@@ -199,7 +199,7 @@ enum dds_data_select {
 #define   AXI_MSK_DATA_WR_8			GENMASK(23, 16)
 #define   AXI_MSK_DATA_WR_16			GENMASK(23, 8)
 
-#define AXI_REG_UI_STATUS			0x88
+#define ADI_REG_UI_STATUS			0x88
 #define   AXI_MSK_BUSY				BIT(4)
 
 #define   AXI_EXT_SYNC_ARM             0x02
