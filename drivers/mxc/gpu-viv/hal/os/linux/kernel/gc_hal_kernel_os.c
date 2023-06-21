@@ -403,7 +403,11 @@ _QueryProcessPageTable(IN gctPOINTER Logical, OUT gctPHYS_ADDR_T *Address)
         /* vmalloc area. */
         *Address = page_to_phys(vmalloc_to_page(Logical)) | offset;
         return gcvSTATUS_OK;
-    } else if (virt_addr_valid(logical)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+    } else if (virt_addr_valid((void *)logical)) {
+#else
+	} else if (virt_addr_valid(logical)) {
+#endif
         /* Kernel logical address. */
         *Address = virt_to_phys(Logical);
         return gcvSTATUS_OK;
