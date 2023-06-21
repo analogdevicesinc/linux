@@ -195,7 +195,7 @@ enum dds_data_select {
 #define   AXI_MSK_DATA_RD_16			GENMASK(15, 0)
 #define   AXI_MSK_ADDRESS			GENMASK(31, 24)
 
-#define AXI_REG_CNTRL_DATA_WR			0x84
+#define ADI_REG_DAC_CUSTOM_WR			0x84
 #define   AXI_MSK_DATA_WR_8			GENMASK(23, 16)
 #define   AXI_MSK_DATA_WR_16			GENMASK(23, 8)
 

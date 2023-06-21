@@ -1208,9 +1208,9 @@ static void axi_ad3552r_spi_write(struct cf_axi_dds_state *st, u32 reg, u32 val,
 	u32 check;
 
 	if (transfer_params & AXI_MSK_SYMB_8B)
-		dds_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
+		dds_write(st, ADI_REG_DAC_CUSTOM_WR, CNTRL_DATA_WR_8(val));
 	else
-		dds_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_16(val));
+		dds_write(st, ADI_REG_DAC_CUSTOM_WR, CNTRL_DATA_WR_16(val));
 
 	dds_write(st, ADI_REG_CNTRL_2, transfer_params);
 
