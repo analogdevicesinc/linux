@@ -1285,8 +1285,8 @@ static int ad3552r_set_input_source(struct iio_dev *indio_dev,
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 
-	dds_write(st, AXI_REG_CHAN_CNTRL_7_CH0, mode);
-	dds_write(st, AXI_REG_CHAN_CNTRL_7_CH1, mode);
+	dds_write(st, ADI_REG_CHAN_CNTRL_7(0), mode);
+	dds_write(st, ADI_REG_CHAN_CNTRL_7(1), mode);
 
 	return 0;
 }
@@ -1296,7 +1296,7 @@ static int ad3552r_get_input_source(struct iio_dev *indio_dev,
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 
-	return dds_read(st, AXI_REG_CHAN_CNTRL_7_CH0);
+	return dds_read(st, ADI_REG_CHAN_CNTRL_7(0));
 }
 
 static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
