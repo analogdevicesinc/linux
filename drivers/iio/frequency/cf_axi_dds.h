@@ -204,7 +204,7 @@ enum dds_data_select {
 
 #define   AXI_EXT_SYNC_ARM             0x02
 
-#define AXI_REG_CNTRL_CSTM			0x8C
+#define ADI_REG_DAC_CUSTOM_CTRL			0x8C
 #define   AXI_MSK_TRANSFER_DATA			BIT(0)
 #define   AXI_MSK_STREAM			BIT(1)
 #define   AXI_MSK_SYNCED_TRANSFER		BIT(2)

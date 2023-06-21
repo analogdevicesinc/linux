@@ -1214,16 +1214,16 @@ static void axi_ad3552r_spi_write(struct cf_axi_dds_state *st, u32 reg, u32 val,
 
 	dds_write(st, ADI_REG_CNTRL_2, transfer_params);
 
-	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
+	axi_ad3552r_update_bits(st, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_ADDRESS,
 				CNTRL_CSTM_ADDR(reg));
-	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
+	axi_ad3552r_update_bits(st, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_TRANSFER_DATA,
 				AXI_MSK_TRANSFER_DATA);
 	addr.st = st;
 	addr.reg = ADI_REG_UI_STATUS;
 	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
 			   check == AXI_MSK_BUSY, 10, 100);
 
-	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
+	axi_ad3552r_update_bits(st, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_TRANSFER_DATA, 0);
 
 }
 
@@ -1310,19 +1310,19 @@ static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 		dds_write(st, ADI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
 		dds_write(st, ADI_REG_CNTRL_2, (u32)(AXI_MSK_USIGN_DATA |
 							     ~AXI_MSK_SDR_DDR_N));
-		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+		axi_ad3552r_update_bits(st, ADI_REG_DAC_CUSTOM_CTRL,
 					AD3552R_STREAM_SATRT,
 					AD3552R_STREAM_SATRT);
 	} else if (mode == 1) {
 		st->synced_transfer = false;
 		dds_write(st, ADI_REG_CNTRL_2, (u32)(AXI_MSK_USIGN_DATA |
 							     ~AXI_MSK_SDR_DDR_N));
-		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+		axi_ad3552r_update_bits(st, ADI_REG_DAC_CUSTOM_CTRL,
 					AD3552R_STREAM_SATRT,
 					AD3552R_STREAM_SATRT);
 	} else  {
 		st->synced_transfer = false;
-		axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM,
+		axi_ad3552r_update_bits(st, ADI_REG_DAC_CUSTOM_CTRL,
 					AD3552R_STREAM_SATRT, 0);
 	}
 
@@ -1335,7 +1335,7 @@ static int ad3552r_get_stream_state(struct iio_dev *indio_dev,
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	u32 val;
 
-	val = dds_read(st, AXI_REG_CNTRL_CSTM);
+	val = dds_read(st, ADI_REG_DAC_CUSTOM_CTRL);
 
 	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer)
 		return 2;
