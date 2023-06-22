@@ -648,7 +648,7 @@ axi_dmac_prep_slave_dma_vec(struct dma_chan *c, const struct dma_vec *vecs,
 	for (i = 0; i < nb; i++)
 		num_sgs += DIV_ROUND_UP(vecs[i].len, max_length);
 
-	desc = axi_dmac_alloc_desc(num_sgs);
+	desc = axi_dmac_alloc_desc(chan, num_sgs);
 	if (!desc)
 		return NULL;
 
