@@ -1,52 +1,93 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-# Copyright 2019 Analog Devices Inc.
+# Copyright 2019-2023 Analog Devices Inc.
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/bindings/iio/frequency/adi,ltc6952.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Analog Devices LTC6952 ultralow jitter, JESD204B/C clock generation IC.
+title: Analog Devices LTC6952/LTC6953 ultralow jitter, JESD204B/C clock generation IC.
 
 maintainers:
   - Mircea Caprioru <mircea.caprioru@analog.com>
 
 description: |
   Analog Devices LTC6952 ultralow jitter, JESD204B/C clock generation IC.
-  https://www.analog.com/media/en/technical-documentation/data-sheets/ltc6952.pdf 
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ltc6952.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ltc6953.pdf
 
 properties:
   compatible:
     enum:
       - adi,ltc6952
+      - adi,ltc6953
 
   reg:
+    maxItems: 1
+
+  clocks:
+    description:
+      Definition of the external clock (see clock/clock-bindings.txt)
+    maxItems: 1
+
+  clock-names:
+    description:
+      Must be "clkin"
     maxItems: 1
 
   clock-output-names:
     description: |
       Clock output signal names indexed by the first cell in the clock
       specifier (see clock/clock-bindings.txt)
-    maxItems: 1
+
 
   adi,vco-frequency-hz:
     description: |
       VCO input frequency. This is fed to the internal distribution path and
       feedback dividers.
-    allOf:
-      - $ref: /schemas/types.yaml#/definitions/uint32
-    maxItems: 1
 
   adi,ref-frequency-hz:
     description: |
       Reference input frequency. This is fed in the reference divider.
+
+  adi,pulse-generator-mode:
+    description: |
+      Select the pulse generator mode. Valid values are:
+      0: One Pulse
+      1: Two Pulses
+      2: Four Pulses
+      3: Eight Pulses
+      If this field is left empty, One Pulse is selected.
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint32
-    maxItems: 1
+      - enum: [0, 1, 2, 3]
+
+  adi,follower-mode-enable:
+    type: boolean
+    description:
+      If this property is present, LTC6952 will be in follower mode
+      similar to LTC6953.
+
+  adi,sync-via-ezs-srq-enable:
+    type: boolean
+    description:
+      If this property is present, the device will use EZS_SRQ Synchronization
+      or SYSREF Request Input.
+
+  adi,input-buffer-filt-enable:
+    type: boolean
+    description:
+      If this property is present, the reference input buffer’s low-pass filter
+      will be enabled. Enabling this LPF is recommended for
+      sine wave signals < 20 MHz.
+
+  '#clock-cells':
+    const: 1
 
 required:
   - compatible
   - reg
   - clock-output-names
+  - "#clock-cells"
 
 patternProperties:
   "^channel@[0-9]$":
@@ -61,11 +102,15 @@ patternProperties:
 
       adi,extended-name:
         description: Descriptive channel name.
-        maxItems: 1
+        $ref: /schemas/types.yaml#/definitions/string
 
       adi,divider:
         description: |
           Channel divider. This divides the incoming VCO frequency.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 1
+          - maximum: 4095
         maxItems: 1
 
       adi,digital-delay:
@@ -89,39 +134,64 @@ patternProperties:
           - maximum: 63
         maxItems: 1
 
+      adi,sysref-mode:
+        description: |
+          Select the sysref mode. Valid values are:
+          0: Free Run
+          1: Gated Pulses
+          2: Request Passthrough
+          3: Pulses (adi,pulse-generator-mode)
+          If this field is left empty, free run is selected.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [0, 1, 2, 3]
+
+      adi,sync-disable:
+        type: boolean
+        description:
+          If this property is present, SYNC and SYSREF on this channel will
+          be disabled, this means SYNC and SYSREF requests will be ignored,
+          and digital delays won't take affect.
+
     required:
       - reg
 
+additionalProperties: false
+
 examples:
-   - |
-     ltc6952@0 {
-       compatible = "adi,ltc6952";
-       reg = <0>;
+  - |
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
 
-       #address-cells = <1>;
-       #size-cells = <0>;
+      frequency@0 {
+        compatible = "adi,ltc6952";
+        reg = <0>;
 
-       spi-max-frequency = <10000000>;
+        #address-cells = <1>;
+        #size-cells = <0>;
 
-       clock-output-names = "ltc6952_out0", "ltc6952_out1", "ltc6952_out2",
-         "ltc6952_out3", "ltc6952_out4", "ltc6952_out5", "ltc6952_out6",
-         "ltc6952_out7", "ltc6952_out8", "ltc6952_out9", "ltc6952_out10";
-       #clock-cells = <1>;
+        spi-max-frequency = <10000000>;
 
-       adi,vco-frequency-hz = <4000000000>;
-       adi,ref-frequency-hz = <100000000>;
+        clock-output-names = "ltc6952_out0", "ltc6952_out1";
+        #clock-cells = <1>;
 
-       ltc6952_c0: channel@0 {
-         reg = <0>;
-         adi,extended-name = "REF_CLK";
-         adi,divider = <10>;
-         adi,digital-delay = <100>;
-         adi,analog-delay = <0>;
-       };
+        adi,vco-frequency-hz = <4000000000>;
+        adi,ref-frequency-hz = <100000000>;
 
-       ltc6952_c1: channel@1 {
-         reg = <1>;
-         adi,extended-name = "TEST_CLK";
-         adi,divider = <10>;
-       };
-     };
+        ltc6952_c0: channel@0 {
+          reg = <0>;
+          adi,extended-name = "REF_CLK";
+          adi,divider = <10>;
+          adi,digital-delay = <100>;
+          adi,analog-delay = <0>;
+        };
+
+        ltc6952_c1: channel@1 {
+          reg = <1>;
+          adi,extended-name = "TEST_CLK";
+          adi,divider = <10>;
+        };
+      };
+    };
+
