@@ -542,6 +542,7 @@ axi_dmac_prep_slave_dma_vec(struct dma_chan *c, const struct dma_vec *vecs,
 			    size_t nb, enum dma_transfer_direction direction,
 			    unsigned long flags)
 {
+	unsigned int max_length = dma_get_max_seg_size(&c->dev->device);
 	struct axi_dmac_chan *chan = to_axi_dmac_chan(c);
 	struct axi_dmac_desc *desc;
 	unsigned int num_sgs = 0;
@@ -552,7 +553,7 @@ axi_dmac_prep_slave_dma_vec(struct dma_chan *c, const struct dma_vec *vecs,
 		return NULL;
 
 	for (i = 0; i < nb; i++)
-		num_sgs += DIV_ROUND_UP(vecs[i].len, chan->max_length);
+		num_sgs += DIV_ROUND_UP(vecs[i].len, max_length);
 
 	desc = axi_dmac_alloc_desc(num_sgs);
 	if (!desc)
