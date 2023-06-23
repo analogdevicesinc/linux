@@ -499,7 +499,7 @@
 				phys = <&usbphy0>, <&usbphy0>;
 				phy-names = "usb2-phy", "usb3-phy";
 				dr_mode = "host";
-				maximum-speed = "super-speed";
+				maximum-speed = "super-speed-plus";
 				snps,dis_u2_sysphy-quirk;
 			};
 		};
