@@ -252,6 +252,11 @@
 	pinctrl-0 = <&pinctrl_lpuart1>;
 	resets = <&modem_reset>;
 	status = "okay";
+
+	bluetooth {
+		compatible = "nxp,88w8987-bt";
+		fw-init-baudrate = <3000000>;
+	};
 };
 
 &lpuart2 {
@@ -604,14 +609,17 @@
 	status = "disabled";
 };
 
+&phyx1 {
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	status = "okay";
+};
+
 &pcieb{
-	compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	clkreq-gpio = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
-	ext_osc = <0>;
-	epdev_on-supply = <&epdev_on>;
+	vpcie-supply = <&epdev_on>;
 	status = "okay";
 };
 
