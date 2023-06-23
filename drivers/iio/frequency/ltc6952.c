@@ -851,12 +851,12 @@ static int ltc6952_status_show(struct seq_file *file, void *offset)
 	int ret;
 	u32 status;
 
-	ret = ltc6952_read(indio_dev, 0x00, &status);
+	ret = ltc6952_read(indio_dev, LTC6952_REG(0x00), &status);
 	if (ret < 0)
 		return ret;
 
 	seq_printf(file,
-		   "SYSREF Status:\t%s\nVCO Status:\t%s\nLock Status:\t%s\n",
+		   "REF Status:\t%s\nVCO Status:\t%s\nLock Status:\t%s\n",
 		   status & LTC6952_REFOK_MSK ?
 		   "Valid" : "Invalid",
 		   status & LTC6952_VCOOK_MSK ?
