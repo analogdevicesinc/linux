@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for Analog Devices, Inc. Pluto NG
+ * dts file for Analog Devices, Inc. Jupiter SDR
  *
- * hdl_project: <pluto_ng>
+ * hdl_project: <jupiter_sdr>
  * board_revision: <>
  *
  * Copyright (C) 2021 Analog Devices Inc.
@@ -18,10 +18,10 @@
 #include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
 #include <dt-bindings/phy/phy.h>
 
-#undef PLUTO_NG_USB_ROLE_SW
+#undef JUPITER_SDR_USB_ROLE_SW
 
 / {
-	model = "Analog Devices, Inc. Pluto NG";
+	model = "Analog Devices, Inc. Jupiter SDR";
 	compatible = "xlnx,zynqmp";
 
 	aliases {
@@ -270,7 +270,7 @@
 		interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "irq";
 
-#ifdef PLUTO_NG_USB_ROLE_SW
+#ifdef JUPITER_SDR_USB_ROLE_SW
 		typec_con: connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
@@ -345,7 +345,7 @@
 	phy-names = "usb3-phy";
 	phys = <&psgtr 0 PHY_TYPE_USB3 0 0>;
 	maximum-speed = "super-speed";
-#ifdef PLUTO_NG_USB_ROLE_SW
+#ifdef JUPITER_SDR_USB_ROLE_SW
 	usb-role-switch;
 	role-switch-default-mode = "device";
 
