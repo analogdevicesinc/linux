@@ -445,7 +445,7 @@ static const struct i2c_device_id max31827_i2c_ids[] = {
 MODULE_DEVICE_TABLE(i2c, max31827_i2c_ids);
 
 static const struct of_device_id max31827_of_match[] = {
-	{ .compatible = "max31827" },
+	{ .compatible = "adi,max31827" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, max31827_of_match);
