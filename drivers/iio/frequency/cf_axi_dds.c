@@ -1182,8 +1182,10 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD3552R] = {
 		.name = "AD3552R",
 		.channel = {
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, ad3552r_ext_info, 'u'),
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, ad3552r_ext_info, 'u'),
+			//CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, ad3552r_ext_info, 'u'),
+			//CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, ad3552r_ext_info, 'u'),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, NULL, 'u'),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, NULL, 'u'),
 			CF_AXI_DDS_CHAN(0, 0, "1A"),
 			CF_AXI_DDS_CHAN(1, 0, "1B"),
 			CF_AXI_DDS_CHAN(2, 0, "2A"),
@@ -1977,9 +1979,10 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 	return 0;
 }
 
-//TODO set correct info
 static const struct axidds_core_info ad3552r_6_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
+	.standalone = false,
+	.rate_format_skip_en = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 	.issue_sync_en = 1,
@@ -2116,12 +2119,14 @@ static const struct axidds_core_info adrv9002_rx2tx2_9_01_b_info = {
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
-	{ .compatible = "adi,axi-ad3552r", .data = &ad3552r_6_00_a_info },
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
 	{ .compatible = "adi,axi-ad9136-1.0", .data = &ad9144_7_00_a_info },
 	{ .compatible = "adi,axi-ad9144-1.0", .data = &ad9144_7_00_a_info, },
 	{ .compatible = "adi,axi-ad9154-1.0", .data = &ad9144_7_00_a_info, },
 	{ .compatible = "adi,axi-ad9739a-8.00.b", .data = &ad9739a_8_00_b_info},
+	{
+	    .compatible = "adi,axi-ad3552r-dds-6.00.a",
+	    .data = &ad3552r_6_00_a_info },
 	{
 	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",
 	    .data = &ad9361x2_6_00_a_info,
@@ -2350,6 +2355,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 			st->chip_info = &st->chip_info_generated;
 		} else {
+			pr_info("search conv->id %d\n", conv->id);
 			st->chip_info = &cf_axi_dds_chip_info_tbl[conv->id];
 		}
 	}
