@@ -185,45 +185,6 @@ enum dds_data_select {
 #define ADI_USR_INTERPOLATION_N(x)	(((x) & 0xFFFF) << 0)
 #define ADI_TO_USR_INTERPOLATION_N(x)	(((x) >> 0) & 0xFFFF)
 
-
-#define   AXI_MSK_USIGN_DATA			BIT(4)
-#define   AXI_MSK_SYMB_8B			BIT(14)
-#define   AXI_MSK_SDR_DDR_N			BIT(16)
-
-#define AXI_REG_CNTRL_DATA_RD			0x80
-#define   AXI_MSK_DATA_RD_8			GENMASK(7, 0)
-#define   AXI_MSK_DATA_RD_16			GENMASK(15, 0)
-#define   AXI_MSK_ADDRESS			GENMASK(31, 24)
-
-#define ADI_REG_DAC_CUSTOM_WR			0x84
-#define   AXI_MSK_DATA_WR_8			GENMASK(23, 16)
-#define   AXI_MSK_DATA_WR_16			GENMASK(23, 8)
-
-#define ADI_REG_UI_STATUS			0x88
-#define   AXI_MSK_BUSY				BIT(4)
-
-#define   AXI_EXT_SYNC_ARM             0x02
-
-#define ADI_REG_DAC_CUSTOM_CTRL			0x8C
-#define   AXI_MSK_TRANSFER_DATA			BIT(0)
-#define   AXI_MSK_STREAM			BIT(1)
-#define   AXI_MSK_SYNCED_TRANSFER		BIT(2)
-
-#define   AXI_SEL_SRC_DMA			0x02
-#define   AXI_SEL_SRC_ADC			0x08
-#define   AXI_SEL_SRC_DDS			0x0b
-
-#define AD3552R_REG_OUTPUT_RANGE		0x19
-#define   AD3552R_MASK_OUT_RANGE        GENMASK(7, 0)
-#define   AD3552R_MASK_CH0_RANGE		GENMASK(2, 0)
-#define   AD3552R_MASK_CH1_RANGE		GENMASK(6, 4)
-
-#define AD3552R_TFER_8BIT_SDR			(AXI_MSK_SYMB_8B | \
-						AXI_MSK_SDR_DDR_N)
-
-#define AD3552R_STREAM_SATRT			(AXI_MSK_TRANSFER_DATA | \
-						AXI_MSK_STREAM)
-
 #define CNTRL_CSTM_ADDR(x)			FIELD_PREP(AXI_MSK_ADDRESS, x)
 #define CNTRL_DATA_WR_8(x)			FIELD_PREP(AXI_MSK_DATA_WR_8, x)
 #define CNTRL_DATA_WR_16(x)			FIELD_PREP(AXI_MSK_DATA_WR_16, x)
@@ -289,46 +250,6 @@ enum {
 
 enum cf_axi_dds_ext_info {
 	CHANNEL_XBAR,
-};
-
-enum ad35525_out_range {
-	AD3552R_0_2_5,
-	AD3552R_0_5,
-	AD3552R_0_10,
-	AD3552R_5_5,
-	AD3552R_10_10
-};
-
-enum ad35525_source {
-	AD3552R_ADC	= AXI_SEL_SRC_ADC,
-	AD3552R_DMA	= AXI_SEL_SRC_DMA,
-	AD3552R_RAMP	= AXI_SEL_SRC_DDS
-};
-
-enum ad35525_stream_status {
-	AD3552R_STOP_STREAM,
-	AD3552R_START_STREAM,
-	AD3552R_START_STREAM_SYNCED,
-};
-
-static const char *const stream_status[] = {
-	[AD3552R_STOP_STREAM] = "stop_stream",
-	[AD3552R_START_STREAM] = "start_stream",
-	[AD3552R_START_STREAM_SYNCED] = "start_stream_synced"
-};
-
-static const char * const input_source[] = {
-	[AD3552R_ADC]	= "adc_input",
-	[AD3552R_DMA]	= "dma_input",
-	[AD3552R_RAMP]	= "ramp_input"
-};
-
-static const char * const output_range[] = {
-	[AD3552R_0_2_5]	= "0/2.5V",
-	[AD3552R_0_5]	= "0/5V",
-	[AD3552R_0_10]	= "0/10V",
-	[AD3552R_5_5]	= "-5/+5V",
-	[AD3552R_10_10]	= "-10/+10V"
 };
 
 struct cf_axi_converter {

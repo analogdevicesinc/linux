@@ -22,6 +22,7 @@ obj-$(CONFIG_ADMV1014) += admv4420.o
 obj-$(CONFIG_ADRF6780) += adrf6780.o
 cf_axi_dds_drv-y := cf_axi_dds.o cf_axi_dds_buffer_stream.o
 obj-$(CONFIG_CF_AXI_DDS) += cf_axi_dds_drv.o
+obj-$(CONFIG_CF_AXI_DDS_AD3552R) += ad3552r_conv.o
 obj-$(CONFIG_CF_AXI_DDS_AD9122) += ad9122.o
 obj-$(CONFIG_CF_AXI_DDS_AD9144) += ad9144.o
 obj-$(CONFIG_CF_AXI_DDS_AD9739A) += ad9739a.o

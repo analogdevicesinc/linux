@@ -17,6 +17,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 
+#include "ad3552r.h"
+
 /* Register addresses */
 /* Primary address space */
 #define AD3552R_REG_ADDR_INTERFACE_CONFIG_A		0x00
@@ -120,7 +122,6 @@
 #define AD3552R_REG_ADDR_CH_INPUT_24B(ch)		(0x4B - (1 - ch) * 3)
 
 /* Useful defines */
-#define AD3552R_NUM_CH					2
 #define AD3552R_MASK_CH(ch)				BIT(ch)
 #define AD3552R_MASK_ALL_CH				GENMASK(1, 0)
 #define AD3552R_MAX_REG_SIZE				3
@@ -140,11 +141,6 @@ enum ad3552r_ch_vref_select {
 	AD3552R_INTERNAL_VREF_PIN_2P5V,
 	/* External source with Vref I/O as input */
 	AD3552R_EXTERNAL_VREF_PIN_INPUT
-};
-
-enum ad3542r_id {
-	AD3542R_ID = 0x4008,
-	AD3552R_ID = 0x4009,
 };
 
 enum ad3552r_ch_output_range {
@@ -251,32 +247,6 @@ enum ad3552r_ch_attributes {
 	AD3552R_CH_SELECT,
 };
 
-struct ad3552r_ch_data {
-	s32	scale_int;
-	s32	scale_dec;
-	s32	offset_int;
-	s32	offset_dec;
-	s16	gain_offset;
-	u16	rfb;
-	u8	n;
-	u8	p;
-	u8	range;
-	bool	range_override;
-};
-
-struct ad3552r_desc {
-	/* Used to look the spi bus for atomic operations where needed */
-	struct mutex		lock;
-	struct gpio_desc	*gpio_reset;
-	struct gpio_desc	*gpio_ldac;
-	struct spi_device	*spi;
-	struct ad3552r_ch_data	ch_data[AD3552R_NUM_CH];
-	struct iio_chan_spec	channels[AD3552R_NUM_CH + 1];
-	unsigned long		enabled_ch;
-	unsigned int		num_ch;
-	enum ad3542r_id		chip_id;
-};
-
 static const u16 addr_mask_map[][2] = {
 	[AD3552R_ADDR_ASCENSION] = {
 			AD3552R_REG_ADDR_INTERFACE_CONFIG_A,
@@ -354,7 +324,7 @@ static int ad3552r_transfer(struct ad3552r_desc *dac, u8 addr, u32 len,
 	return spi_write_then_read(dac->spi, buf, len + 1, NULL, 0);
 }
 
-static int ad3552r_write_reg(struct ad3552r_desc *dac, u8 addr, u16 val)
+int ad3552r_write_reg(struct ad3552r_desc *dac, u8 addr, u16 val)
 {
 	u8 reg_len;
 	u8 buf[AD3552R_MAX_REG_SIZE] = { 0 };
@@ -372,7 +342,7 @@ static int ad3552r_write_reg(struct ad3552r_desc *dac, u8 addr, u16 val)
 	return ad3552r_transfer(dac, addr, reg_len, buf, false);
 }
 
-static int ad3552r_read_reg(struct ad3552r_desc *dac, u8 addr, u16 *val)
+int ad3552r_read_reg(struct ad3552r_desc *dac, u8 addr, u16 *val)
 {
 	int err;
 	u8  reg_len, buf[AD3552R_MAX_REG_SIZE] = { 0 };
@@ -397,7 +367,7 @@ static u16 ad3552r_field_prep(u16 val, u16 mask)
 }
 
 /* Update field of a register, shift val if needed */
-static int ad3552r_update_reg_field(struct ad3552r_desc *dac, u8 addr, u16 mask,
+int ad3552r_update_reg_field(struct ad3552r_desc *dac, u8 addr, u16 mask,
 				    u16 val)
 {
 	int ret;
@@ -441,7 +411,7 @@ static int ad3552r_set_ch_value(struct ad3552r_desc *dac,
 				BIT(IIO_CHAN_INFO_OFFSET),	\
 })
 
-static int ad3552r_read_raw(struct iio_dev *indio_dev,
+int ad3552r_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val,
 			    int *val2,
@@ -485,7 +455,7 @@ static int ad3552r_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int ad3552r_write_raw(struct iio_dev *indio_dev,
+int ad3552r_write_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
 			     int val,
 			     int val2,
@@ -1116,7 +1086,15 @@ static int ad3552r_probe(struct spi_device *spi)
 	if (err)
 		return err;
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	err = devm_iio_device_register(&spi->dev, indio_dev);
+#if IS_ENABLED(CF_AXI_DDS_AD3552R)
+	if (err < 0)
+		return err;
+
+	err = ad3552r_register_axi_converter(dac);
+
+#endif /* CF_AXI_DDS_AD3552R */
+	return err;
 }
 
 static const struct spi_device_id ad3552r_id[] = {

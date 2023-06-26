@@ -149,6 +149,14 @@ config CF_AXI_DDS
 	  Say yes here to build support for Analog Devices DDS chip
 	  AD9122, provides direct access via sysfs.
 
+config CF_AXI_DDS_AD3552R
+	tristate "Analog Devices AD3552R DAC"
+	depends on CF_AXI_DDS
+	depends on AD3552R
+	help
+	  Say yes here to build support for Analog Devices AD3552R DAC chip
+	  ad3552r, provides direct access via sysfs.
+
 config CF_AXI_DDS_AD9122
 	tristate "Analog Devices AD9122 DAC"
 	depends on CF_AXI_DDS
