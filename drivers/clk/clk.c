@@ -3285,7 +3285,7 @@ static void clk_dump_one(struct seq_file *s, struct clk_core *c, int level)
 	phase = clk_core_get_phase(c);
 	if (phase >= 0)
 		seq_printf(s, "\"phase\": %d,", phase);
-	seq_printf(s, "\"duty_cycle\": %u",
+	seq_printf(s, "\"duty_cycle\": %u,",
 		   clk_core_get_scaled_duty_cycle(c, 100000));
 	seq_printf(s, "\"nshot\": %d", clk_core_get_nshot(c));
 }
