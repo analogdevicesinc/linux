@@ -1108,7 +1108,9 @@ static void dump_pxp_reg(struct pxps *pxp)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(regs); i++) {
-		if (pxp->devdata->version == PXP_V3_IMX93 && regs[i].opt)
+		if (pxp->devdata &&
+		    pxp->devdata->version == PXP_V3_IMX93 &&
+		    regs[i].opt)
 			continue;
 
 		val = __raw_readl(pxp->base + regs[i].offset);
