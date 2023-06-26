@@ -301,9 +301,9 @@ static int adrv9009_set_jesd_lanerate(struct adrv9009_rf_phy *phy,
 				      taliseJesd204bDeframerConfig_t *deframer,
 				      u32 *lmfc)
 {
-	bool clk_enable = __clk_is_enabled(link_clk);
 	unsigned long lane_rate_kHz;
 	u32 m, l, k, f, lmfc_tmp;
+	bool clk_enable;
 	int ret;
 
 	if (!lmfc)
@@ -311,6 +311,8 @@ static int adrv9009_set_jesd_lanerate(struct adrv9009_rf_phy *phy,
 
 	if (IS_ERR_OR_NULL(link_clk))
 		return 0;
+
+	clk_enable = __clk_is_enabled(link_clk);
 
 	if (framer) {
 		m = framer->M;
