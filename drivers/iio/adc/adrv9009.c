@@ -6535,17 +6535,26 @@ static int adrv9009_probe(struct spi_device *spi)
 					      GPIOD_OUT_HIGH);
 
 	if (!phy->jdev) {
-		if (has_tx(phy))
+		if (has_tx(phy)) {
 			phy->jesd_tx_clk =
-				devm_clk_get(&spi->dev, "jesd_tx_clk");
+				devm_clk_get_optional(&spi->dev, "jesd_tx_clk");
+			if (IS_ERR(phy->jesd_tx_clk))
+				return PTR_ERR(phy->jesd_tx_clk);
+		}
 
-		if (has_rx(phy))
+		if (has_rx(phy)) {
 			phy->jesd_rx_clk =
-				devm_clk_get(&spi->dev, "jesd_rx_clk");
+				devm_clk_get_optional(&spi->dev, "jesd_rx_clk");
+			if (IS_ERR(phy->jesd_rx_clk))
+				return PTR_ERR(phy->jesd_rx_clk);
+		}
 
-		if (has_obs(phy))
+		if (has_obs(phy)) {
 			phy->jesd_rx_os_clk =
-				devm_clk_get(&spi->dev, "jesd_rx_os_clk");
+				devm_clk_get_optional(&spi->dev, "jesd_rx_os_clk");
+			if (IS_ERR(phy->jesd_rx_os_clk))
+				return PTR_ERR(phy->jesd_rx_os_clk);
+		}
 
 		phy->dev_clk = devm_clk_get(&spi->dev, "dev_clk");
 		if (IS_ERR(phy->dev_clk))
