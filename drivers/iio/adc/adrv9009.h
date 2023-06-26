@@ -258,9 +258,14 @@ static inline bool has_tx_and_en(struct adrv9009_rf_phy *phy)
 		(!IS_ERR_OR_NULL(phy->jesd_tx_clk) || phy->jdev);
 }
 
+static inline bool has_obs(struct adrv9009_rf_phy *phy)
+{
+	return has_tx(phy);
+}
+
 static inline bool has_obs_and_en(struct adrv9009_rf_phy *phy)
 {
-	return has_tx(phy) &&
+	return has_obs(phy) &&
 		(phy->talInit.obsRx.obsRxChannelsEnable != TAL_ORXOFF) &&
 		!IS_ERR_OR_NULL(phy->jesd_rx_os_clk);
 }
