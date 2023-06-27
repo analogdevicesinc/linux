@@ -63,7 +63,7 @@
 		//adi,axi-dds-default-scale = <0x800>;
 		//adi,axi-dds-default-frequency = <1000000>;
 
-		spibus-connected = <&dac0_ad3552r>;
+		platformbus-connected = <&dac0_ad3552r>;
 	};
 
 	// /*
