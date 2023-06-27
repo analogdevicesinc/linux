@@ -1048,6 +1048,7 @@ static int ad3552r_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	int err;
 
+	dev_info(&spi->dev, "Start probing ad3552r ...");
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*dac));
 	if (!indio_dev)
 		return -ENOMEM;
@@ -1087,6 +1088,7 @@ static int ad3552r_probe(struct spi_device *spi)
 		return err;
 
 	err = devm_iio_device_register(&spi->dev, indio_dev);
+	dev_info(&spi->dev, "ad3552r iio device registered");
 #if IS_ENABLED(CF_AXI_DDS_AD3552R)
 	if (err < 0)
 		return err;

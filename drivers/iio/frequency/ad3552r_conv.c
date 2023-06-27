@@ -210,6 +210,7 @@ int ad3552r_register_axi_converter(struct ad3552r_desc *dac)
 	struct spi_device *spi = dac->spi;
 	int ret;
 
+	dev_info(&spi->dev, "Start ad3552r_conv registered converter ...");
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
@@ -239,6 +240,7 @@ int ad3552r_register_axi_converter(struct ad3552r_desc *dac)
 
 	spi_set_drvdata(spi, conv);
 
+	dev_info(&spi->dev, "Registered ad3552r_conv converter");
 	return 0;
 }
 EXPORT_SYMBOL(ad3552r_register_axi_converter);
