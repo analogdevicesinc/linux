@@ -50,9 +50,9 @@
 	};
 
 
-	cf_ad3552r_dac_core_0: cf-ad3552r-dds-core-lpc@79024000 {
+	cf_ad3552r_dac_core_0: cf-ad3552r-dds-core-lpc@44a74000 {
 		compatible = "adi,axi-ad3552r-dds-6.00.a";
-		reg = <0x79024000 0x1000>;
+		reg = <0x44a74000 0x1000>;
 
 		clocks = <&ref_clk>;
 		clock-names = "sampl_clk";
