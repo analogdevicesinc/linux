@@ -1646,21 +1646,37 @@ static int dds_converter_match(struct device *dev, const void *data)
 	return dev->driver && dev->of_node == data;
 }
 
-static struct device *dds_converter_find(struct device *dev)
+static struct device *dds_converter_bus_find(const struct device_node *np,
+					     struct bus_type *bus,
+					     const char *phandle_name)
 {
 	struct device_node *conv_of;
 	struct device *conv_dev;
 
-	conv_of = of_parse_phandle(dev->of_node, "spibus-connected", 0);
+	conv_of = of_parse_phandle(np, phandle_name, 0);
 	if (!conv_of)
 		return ERR_PTR(-ENODEV);
 
-	conv_dev = bus_find_device(&spi_bus_type, NULL,
+	conv_dev = bus_find_device(bus, NULL,
 				   conv_of, dds_converter_match);
 	of_node_put(conv_of);
 	if (!conv_dev)
 		return ERR_PTR(-EPROBE_DEFER);
 
+	return conv_dev;
+}
+
+static struct device *dds_converter_find(struct device *dev)
+{
+	struct device *conv_dev;
+
+	conv_dev = dds_converter_bus_find(dev->of_node, &spi_bus_type,
+					  "spibus-connected");
+
+	if (IS_ERR(conv_dev) && PTR_ERR(conv_dev) == -ENODEV)
+		conv_dev = dds_converter_bus_find(dev->of_node,
+						  &platform_bus_type,
+						  "platformbus-connected");
 	return conv_dev;
 }
 
