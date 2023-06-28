@@ -426,10 +426,8 @@ static int cdns_hdmi_bridge_attach(struct drm_bridge *bridge,
 					   config->hdr_output_metadata_property,
 					   0);
 
-		if (!drm_mode_create_hdmi_colorspace_property(connector))
-			drm_object_attach_property(&connector->base,
-						connector->colorspace_property,
-						0);
+		if (!drm_mode_create_hdmi_colorspace_property(connector, 0))
+			drm_connector_attach_colorspace_property(connector);
 	}
 
 	drm_connector_attach_encoder(connector, encoder);
