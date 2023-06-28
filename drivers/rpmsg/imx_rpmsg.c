@@ -135,7 +135,7 @@ static bool imx_rpmsg_notify(struct virtqueue *vq)
 		if (ret < 0)
 			return false;
 	} else {
-		rpdev->cl.tx_tout = 0;
+		rpdev->cl.tx_tout = 1000;
 		ret = mbox_send_message(rpdev->tx_ch, &rpvq->mmsg);
 		if (ret < 0)
 			return false;
