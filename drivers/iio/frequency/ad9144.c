@@ -108,8 +108,9 @@ static const char * const clk_names[] = {
 	[CLK_REF] = "dac_sysref"
 };
 
-static int ad9144_read(struct spi_device *spi, unsigned reg)
+static int ad9144_read(struct device *dev, unsigned reg)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9144_state *st = container_of(conv, struct ad9144_state, conv);
 	unsigned int val;
@@ -118,8 +119,9 @@ static int ad9144_read(struct spi_device *spi, unsigned reg)
 	return ret < 0 ? ret : val;
 }
 
-static int ad9144_write(struct spi_device *spi, unsigned reg, unsigned val)
+static int ad9144_write(struct device *dev, unsigned reg, unsigned val)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9144_state *st = container_of(conv, struct ad9144_state, conv);
 
@@ -446,7 +448,7 @@ static int ad9144_update_sysref(struct ad9144_state *st,
 	}
 
 	if (n == 0) {
-		dev_err(&st->conv.spi->dev,
+		dev_err(st->conv.dev,
 			"Could not find suitable SYSREF rate for samplerate of %u and LMFC of %u\n",
 			sample_rate, lmfc);
 		return -EINVAL;
@@ -454,7 +456,7 @@ static int ad9144_update_sysref(struct ad9144_state *st,
 
 	ret = clk_set_rate(st->conv.clk[CLK_REF], rate);
 	if (ret)
-		dev_err(&st->conv.spi->dev, "Failed to set SYSREF rate to %d kHz: %d\n",
+		dev_err(st->conv.dev, "Failed to set SYSREF rate to %d kHz: %d\n",
 			rate, ret);
 
 	return ret;
@@ -828,7 +830,7 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 	struct ad9144_state *st = container_of(conv, struct ad9144_state, conv);
 	int ret;
 
-	conv->clk[CLK_DAC] = devm_clk_get(&conv->spi->dev, clk_names[CLK_DAC]);
+	conv->clk[CLK_DAC] = devm_clk_get(conv->dev, clk_names[CLK_DAC]);
 	if (IS_ERR(conv->clk[CLK_DAC]))
 		return PTR_ERR(conv->clk[CLK_DAC]);
 
@@ -837,12 +839,13 @@ static int ad9144_get_clks(struct cf_axi_converter *conv)
 		return ret;
 
 	if (!st->jdev) {
-		conv->clk[CLK_DATA] = devm_clk_get(&conv->spi->dev, clk_names[CLK_DATA]);
+		conv->clk[CLK_DATA] = devm_clk_get(conv->dev,
+						   clk_names[CLK_DATA]);
 		if (IS_ERR(conv->clk[CLK_DATA]))
 			return PTR_ERR(conv->clk[CLK_DATA]);
 	}
 
-	conv->clk[CLK_REF] = devm_clk_get(&conv->spi->dev, clk_names[CLK_REF]);
+	conv->clk[CLK_REF] = devm_clk_get(conv->dev, clk_names[CLK_REF]);
 	if (IS_ERR(conv->clk[CLK_REF])) {
 		if (PTR_ERR(conv->clk[CLK_REF]) == -ENOENT) {
 			conv->clk[CLK_REF] = NULL;
@@ -948,7 +951,7 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 		if (!st->pll_enable) {
 			ret = clk_set_rate(conv->clk[CLK_DAC], sample_rate);
 			if (ret < 0) {
-				dev_err(&conv->spi->dev,
+				dev_err(conv->dev,
 					"Failed to set sample rate: %d\n", ret);
 				return ret;
 			}
@@ -975,34 +978,34 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 
 	ret = clk_set_rate(conv->clk[CLK_DATA], lane_rate_kHz);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
+		dev_err(conv->dev, "Failed to set lane rate to %ld kHz: %d\n",
 			lane_rate_kHz, ret);
 		return ret;
 	}
 
 	ret = clk_prepare_enable(conv->clk[CLK_REF]);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to enable SYSREF clock: %d\n", ret);
+		dev_err(conv->dev, "Failed to enable SYSREF clock: %d\n", ret);
 		return ret;
 	}
 
 	ret = clk_prepare_enable(conv->clk[CLK_DATA]);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
+		dev_err(conv->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
 	}
 
 	if (!st->pll_enable) {
 		ret = clk_set_rate(conv->clk[CLK_DAC], sample_rate);
 		if (ret < 0) {
-			dev_err(&conv->spi->dev,
+			dev_err(conv->dev,
 				"Failed to set sample rate: %d\n", ret);
 			return ret;
 		}
 
 		ret = clk_prepare_enable(conv->clk[CLK_DAC]);
 		if (ret < 0) {
-			dev_err(&conv->spi->dev,
+			dev_err(conv->dev,
 					"Failed to enable sample rate clock: %d\n",
 					ret);
 			return ret;
@@ -1410,7 +1413,7 @@ static int ad9144_probe(struct spi_device *spi)
 	conv->get_data_clk = ad9144_get_data_clk;
 	conv->write_raw = ad9144_write_raw;
 	conv->read_raw = ad9144_read_raw;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->id = ID_AUTO_SYNTH_PARAM; /* generate channel list automatically */
 
 	ret = ad9144_get_clks(conv);
@@ -1475,7 +1478,7 @@ static int ad9144_probe(struct spi_device *spi)
 	ad9144_link_status_get(st);
 
 done:
-	spi_set_drvdata(spi, conv);
+	dev_set_drvdata(&spi->dev, conv);
 	dev_dbg(&spi->dev, "Probed.\n");
 	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 out:

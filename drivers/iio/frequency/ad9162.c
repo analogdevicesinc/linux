@@ -100,8 +100,9 @@ static const struct ad9162_clk ad9162_clks[] = {
 	}
 };
 
-static int ad9162_read(struct spi_device *spi, unsigned int reg)
+static int ad9162_read(struct device *dev, unsigned int reg)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9162_state *st = to_ad916x_state(conv);
 	unsigned int val;
@@ -110,9 +111,10 @@ static int ad9162_read(struct spi_device *spi, unsigned int reg)
 	return ret < 0 ? ret : val;
 }
 
-static int ad9162_write(struct spi_device *spi, unsigned int reg,
+static int ad9162_write(struct device *dev, unsigned int reg,
 			unsigned int val)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9162_state *st = to_ad916x_state(conv);
 
@@ -168,7 +170,7 @@ static int ad916x_set_data_clk(struct ad9162_state *st, const u64 rate)
 
 static int ad916x_jesd_link_status(struct ad9162_state *st)
 {
-	struct device *dev = &st->conv.spi->dev;
+	struct device *dev = st->conv.dev;
 	ad916x_jesd_link_stat_t link_status;
 	unsigned int lane_mask, stat_mask;
 	int ret;
@@ -206,7 +208,7 @@ static int ad916x_jesd_link_status(struct ad9162_state *st)
 
 static int ad916x_jesd_pll_status(struct ad9162_state *st)
 {
-	struct device *dev = &st->conv.spi->dev;
+	struct device *dev = st->conv.dev;
 	uint8_t pll_lock_status;
 	bool locked;
 	int ret;
@@ -234,7 +236,7 @@ static int ad916x_jesd_pll_status(struct ad9162_state *st)
 
 static int ad916x_setup_jesd(struct ad9162_state *st)
 {
-	struct device *dev = &st->conv.spi->dev;
+	struct device *dev = st->conv.dev;
 	struct device_node *np = dev->of_node;
 	ad916x_handle_t *ad916x_h = &st->dac_h;
 	unsigned long lane_rate_kHz;
@@ -497,7 +499,7 @@ static const struct jesd204_dev_data jesd204_ad9162_init = {
 
 static int ad9162_setup(struct ad9162_state *st)
 {
-	struct device *dev = &st->conv.spi->dev;
+	struct device *dev = st->conv.dev;
 	uint8_t revision[3] = {0, 0, 0};
 	ad916x_chip_id_t dac_chip_id;
 	int ret = 0;
@@ -589,7 +591,7 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(ad9162_clks); i++) {
-		clk = devm_clk_get(&conv->spi->dev, ad9162_clks[i].name);
+		clk = devm_clk_get(conv->dev, ad9162_clks[i].name);
 		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
 			return PTR_ERR(clk);
 
@@ -607,7 +609,7 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 				return ret;
 		}
 
-		of_clk_get_scale(conv->spi->dev.of_node, ad9162_clks[i].name,
+		of_clk_get_scale(conv->dev->of_node, ad9162_clks[i].name,
 				 &conv->clkscale[i]);
 
 		conv->clk[i] = clk;
@@ -837,7 +839,7 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 		/* just use the current test word */
 		ret = ad916x_dc_test_get_mode(&st->dac_h, &test_word, &en);
 		if (ret) {
-			dev_warn(&conv->spi->dev, "Using max amplitude...\n");
+			dev_warn(conv->dev, "Using max amplitude...\n");
 			test_word = AD916X_TEST_WORD_MAX;
 		}
 
@@ -923,9 +925,9 @@ static int ad9162_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 
 	if (readval == NULL)
-		ad9162_write(conv->spi, reg, writeval);
+		ad9162_write(conv->dev, reg, writeval);
 	else
-		*readval = ad9162_read(conv->spi, reg);
+		*readval = ad9162_read(conv->dev, reg);
 
 	return 0;
 }
@@ -1013,10 +1015,10 @@ static void ad9162_clks_disable(void *data)
 static int ad916x_standalone_probe(struct ad9162_state *st)
 {
 	struct iio_dev *indio_dev = NULL;
-	struct device *dev = &st->conv.spi->dev;
+	struct device *dev = st->conv.dev;
 	struct device_node *np = dev->of_node;
 	int ret;
-	u8 _index = spi_get_device_id(st->conv.spi)->driver_data;
+	u8 _index = spi_get_device_id(to_spi_device(st->conv.dev))->driver_data;
 
 	indio_dev = devm_iio_device_alloc(dev, 0);
 	if (!indio_dev)
@@ -1026,7 +1028,7 @@ static int ad916x_standalone_probe(struct ad9162_state *st)
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = np ? np->name :
-		spi_get_device_id(st->conv.spi)->name;
+		spi_get_device_id(to_spi_device(st->conv.dev))->name;
 	indio_dev->num_channels = st->ad916x_info->num_channels;
 	indio_dev->channels = st->ad916x_info->channels;
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -1070,7 +1072,7 @@ static int ad9162_probe(struct spi_device *spi)
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
 
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->id = ID_AD9162;
 
 	st->jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_ad9162_init);
@@ -1120,7 +1122,7 @@ static int ad9162_probe(struct spi_device *spi)
 
 	mutex_init(&st->lock);
 
-	spi_set_drvdata(spi, conv);
+	dev_set_drvdata(&spi->dev, conv);
 
 	/* check for standalone probing... */
 	if (device_property_read_bool(&spi->dev, "adi,standalone-probe"))

@@ -758,10 +758,10 @@ static int ad9783_register_converter(struct ad9783_phy *phy)
 	conv->clk[CLK_DAC] = phy->sampl_clk;
 	conv->id = ID_DEV_AD9783;
 	conv->phy = phy;
-	conv->spi = phy->spi;
+	conv->dev = &phy->spi->dev;
 	conv->setup = ad9783_setup;
 	conv->get_data_clk = ad9783_get_data_clk;
-	spi_set_drvdata(phy->spi, conv);
+	dev_set_drvdata(&phy->spi->dev, conv);
 
 	return 0;
 }

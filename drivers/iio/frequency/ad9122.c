@@ -126,8 +126,9 @@ static struct ad9122_sed dac_sed_pattern[5] = {
 	}
 };
 
-static int ad9122_read(struct spi_device *spi, unsigned reg)
+static int ad9122_read(struct device *dev, unsigned reg)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	unsigned char buf[2];
 	int ret;
 
@@ -140,9 +141,10 @@ static int ad9122_read(struct spi_device *spi, unsigned reg)
 	return buf[1];
 }
 
-static int ad9122_write(struct spi_device *spi,
+static int ad9122_write(struct device *dev,
 			 unsigned reg, unsigned val)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	unsigned char buf[2];
 	int ret;
 
@@ -159,8 +161,8 @@ static int ad9122_get_temperature_code(struct cf_axi_converter *conv)
 {
 	unsigned tmp;
 
-	tmp = ad9122_read(conv->spi, AD9122_REG_DIE_TEMP_LSB) & 0xFF;
-	tmp |= (ad9122_read(conv->spi, AD9122_REG_DIE_TEMP_MSB) & 0xFF) << 8;
+	tmp = ad9122_read(conv->dev, AD9122_REG_DIE_TEMP_LSB) & 0xFF;
+	tmp |= (ad9122_read(conv->dev, AD9122_REG_DIE_TEMP_MSB) & 0xFF) << 8;
 	return tmp;
 }
 
@@ -219,52 +221,52 @@ static int ad9122_tune_dci(struct cf_axi_converter *conv)
 		return -ENODEV;
 
 	for (dci = 0; dci < 4; dci++) {
-		ad9122_write(conv->spi, AD9122_REG_DCI_DELAY, dci);
+		ad9122_write(conv->dev, AD9122_REG_DCI_DELAY, dci);
 		for (i = 0; i < ARRAY_SIZE(dac_sed_pattern); i++) {
 
-			ad9122_write(conv->spi, AD9122_REG_SED_CTRL, 0);
+			ad9122_write(conv->dev, AD9122_REG_SED_CTRL, 0);
 
 			conv->pcore_set_sed_pattern(conv->indio_dev, 0,
 				dac_sed_pattern[i].i0, dac_sed_pattern[i].i1);
 			conv->pcore_set_sed_pattern(conv->indio_dev, 1,
 				dac_sed_pattern[i].q0, dac_sed_pattern[i].q1);
 
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_I0_LSBS,
-				dac_sed_pattern[i].i0 & 0xFF);
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_I0_MSBS,
-				dac_sed_pattern[i].i0 >> 8);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_I0_LSBS,
+				     dac_sed_pattern[i].i0 & 0xFF);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_I0_MSBS,
+				     dac_sed_pattern[i].i0 >> 8);
 
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_Q0_LSBS,
-				dac_sed_pattern[i].q0 & 0xFF);
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_Q0_MSBS,
-				dac_sed_pattern[i].q0 >> 8);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_Q0_LSBS,
+				     dac_sed_pattern[i].q0 & 0xFF);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_Q0_MSBS,
+				     dac_sed_pattern[i].q0 >> 8);
 
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_I1_LSBS,
-				dac_sed_pattern[i].i1 & 0xFF);
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_I1_MSBS,
-				dac_sed_pattern[i].i1 >> 8);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_I1_LSBS,
+				     dac_sed_pattern[i].i1 & 0xFF);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_I1_MSBS,
+				     dac_sed_pattern[i].i1 >> 8);
 
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_Q1_LSBS,
-				dac_sed_pattern[i].q1 & 0xFF);
-			ad9122_write(conv->spi, AD9122_REG_COMPARE_Q1_MSBS,
-				dac_sed_pattern[i].q1 >> 8);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_Q1_LSBS,
+				     dac_sed_pattern[i].q1 & 0xFF);
+			ad9122_write(conv->dev, AD9122_REG_COMPARE_Q1_MSBS,
+				     dac_sed_pattern[i].q1 >> 8);
 
 
-			ad9122_write(conv->spi, AD9122_REG_SED_CTRL,
-				    AD9122_SED_CTRL_SED_COMPARE_EN);
+			ad9122_write(conv->dev, AD9122_REG_SED_CTRL,
+				     AD9122_SED_CTRL_SED_COMPARE_EN);
 
- 			ad9122_write(conv->spi, AD9122_REG_EVENT_FLAG_2,
- 				    AD9122_EVENT_FLAG_2_AED_COMPARE_PASS |
-				    AD9122_EVENT_FLAG_2_AED_COMPARE_FAIL |
-				    AD9122_EVENT_FLAG_2_SED_COMPARE_FAIL);
+ 			ad9122_write(conv->dev, AD9122_REG_EVENT_FLAG_2,
+				      AD9122_EVENT_FLAG_2_AED_COMPARE_PASS |
+				      AD9122_EVENT_FLAG_2_AED_COMPARE_FAIL |
+				      AD9122_EVENT_FLAG_2_SED_COMPARE_FAIL);
 
-			ad9122_write(conv->spi, AD9122_REG_SED_CTRL,
-				AD9122_SED_CTRL_SED_COMPARE_EN |
-				AD9122_SED_CTRL_AUTOCLEAR_EN);
+			ad9122_write(conv->dev, AD9122_REG_SED_CTRL,
+				     AD9122_SED_CTRL_SED_COMPARE_EN |
+				     AD9122_SED_CTRL_AUTOCLEAR_EN);
 
 			msleep(100);
 
-			reg = ad9122_read(conv->spi, AD9122_REG_SED_CTRL);
+			reg = ad9122_read(conv->dev, AD9122_REG_SED_CTRL);
 
 			if(!(reg & (AD9122_SED_CTRL_SAMPLE_ERR_DETECTED | AD9122_SED_CTRL_COMPARE_PASS)))
 			{
@@ -278,13 +280,13 @@ static int ad9122_tune_dci(struct cf_axi_converter *conv)
 
 	dci = ad9122_find_dci(&err_bfield, 4);
 	if (dci < 0) {
-		dev_err(&conv->spi->dev, "Failed DCI calibration");
-		ad9122_write(conv->spi, AD9122_REG_DCI_DELAY, 0);
+		dev_err(conv->dev, "Failed DCI calibration");
+		ad9122_write(conv->dev, AD9122_REG_DCI_DELAY, 0);
 	}  else {
-		ad9122_write(conv->spi, AD9122_REG_DCI_DELAY, dci);
+		ad9122_write(conv->dev, AD9122_REG_DCI_DELAY, dci);
 	}
 
-	ad9122_write(conv->spi, AD9122_REG_SED_CTRL, 0);
+	ad9122_write(conv->dev, AD9122_REG_SED_CTRL, 0);
 
 	return dci;
 }
@@ -293,11 +295,11 @@ static int ad9122_get_fifo_status(struct cf_axi_converter *conv)
 {
 	unsigned stat;
 
-	stat = ad9122_read(conv->spi, AD9122_REG_SYNC_STATUS_1);
+	stat = ad9122_read(conv->dev, AD9122_REG_SYNC_STATUS_1);
 	if (!(stat & AD9122_SYNC_STATUS_1_SYNC_LOCKED))
 		return -1;
 
-	stat = ad9122_read(conv->spi, AD9122_REG_FIFO_STATUS_1);
+	stat = ad9122_read(conv->dev, AD9122_REG_FIFO_STATUS_1);
 	if (stat & (AD9122_FIFO_STATUS_1_FIFO_WARNING_1 |
 		AD9122_FIFO_STATUS_1_FIFO_WARNING_2))
 		return -1;
@@ -307,20 +309,20 @@ static int ad9122_get_fifo_status(struct cf_axi_converter *conv)
 
 static int ad9122_sync(struct cf_axi_converter *conv)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret, timeout;
 
 	timeout = 255;
 	do {
 		mdelay(1);
-		ret = ad9122_read(spi, AD9122_REG_FIFO_STATUS_1);
+		ret = ad9122_read(&spi->dev, AD9122_REG_FIFO_STATUS_1);
 		if (ret < 0)
 			return ret;
 
 	} while (timeout-- && !(ret & AD9122_FIFO_STATUS_1_FIFO_SOFT_ALIGN_ACK));
 
-	ad9122_write(spi, AD9122_REG_FIFO_STATUS_1, 0x0);
-	ad9122_write(spi, AD9122_REG_SYNC_CTRL_1,
+	ad9122_write(&spi->dev, AD9122_REG_FIFO_STATUS_1, 0x0);
+	ad9122_write(&spi->dev, AD9122_REG_SYNC_CTRL_1,
 		     AD9122_SYNC_CTRL_1_SYNC_EN |
 		     AD9122_SYNC_CTRL_1_DATA_FIFO_RATE_TOGGLE |
 		     AD9122_SYNC_CTRL_1_RISING_EDGE_SYNC);
@@ -328,7 +330,7 @@ static int ad9122_sync(struct cf_axi_converter *conv)
 	timeout = 255;
 	do {
 		mdelay(1);
-		ret = ad9122_read(spi, AD9122_REG_SYNC_STATUS_1);
+		ret = ad9122_read(&spi->dev, AD9122_REG_SYNC_STATUS_1);
 		if (ret < 0)
 			return ret;
 
@@ -339,7 +341,7 @@ static int ad9122_sync(struct cf_axi_converter *conv)
 
 static int ad9122_setup(struct cf_axi_converter *conv, unsigned mode)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(ad9122_reg_defaults); i++) {
@@ -348,7 +350,7 @@ static int ad9122_setup(struct cf_axi_converter *conv, unsigned mode)
 
 		if (reg == AD9122_REG_COMM)
 			value |= mode;
-		ad9122_write(spi, reg, value);
+		ad9122_write(&spi->dev, reg, value);
 	}
 
 	return ad9122_sync(conv);
@@ -361,7 +363,7 @@ static int ad9122_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < CLK_NUM; i++) {
-		clk = clk_get(&conv->spi->dev, clk_names[i]);
+		clk = clk_get(conv->dev, clk_names[i]);
 		if (IS_ERR(clk)) {
 			return -EPROBE_DEFER;
 		}
@@ -428,7 +430,7 @@ static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq
 
 	dat_freq = clk_round_rate(conv->clk[CLK_DATA], freq);
 	if (dat_freq < 0 || dat_freq > AD9122_MAX_DAC_RATE) {
-		dev_err(&conv->spi->dev,
+		dev_err(conv->dev,
 			"CLK_DATA: Error or requested rate exceeds maximum %ld (%lu)",
 			dat_freq, AD9122_MAX_DAC_RATE);
 		return -EINVAL;
@@ -436,7 +438,7 @@ static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq
 
 	dac_freq = dat_freq * conv->interp_factor;
 	if (dac_freq > AD9122_MAX_DAC_RATE) {
-		dev_err(&conv->spi->dev,
+		dev_err(conv->dev,
 			"CLK_DAC: Requested Rate exceeds maximum %lu (%lu)",
 			dac_freq, AD9122_MAX_DAC_RATE);
 		return -EINVAL;
@@ -444,17 +446,17 @@ static int ad9122_set_data_clk(struct cf_axi_converter *conv, unsigned long freq
 
 	r_dac_freq = clk_round_rate(conv->clk[CLK_DAC], dac_freq);
 	if (r_dac_freq != dac_freq) {
-		dev_err(&conv->spi->dev,
+		dev_err(conv->dev,
 			"CLK_DAC: Requested Rate exceeds mismatch %ld (%lu)",
 			r_dac_freq, dac_freq);
 		return -EINVAL;
 	}
 
 	r_ref_freq = clk_round_rate(conv->clk[CLK_REF], dat_freq / 8);
-	dev_dbg(&conv->spi->dev, "CLK REF rate: %li\n", r_ref_freq);
+	dev_dbg(conv->dev, "CLK REF rate: %li\n", r_ref_freq);
 
 	if (r_ref_freq != (dat_freq / 8)) {
-		dev_err(&conv->spi->dev,
+		dev_err(conv->dev,
 			"CLK_REF: Requested Rate exceeds mismatch %ld (%lu)",
 			r_ref_freq, (dat_freq / 8));
 		return -EINVAL;
@@ -537,7 +539,7 @@ static int __ad9122_set_interpol(struct cf_axi_converter *conv, unsigned interp,
 		return ret;
 	}
 
-	tmp = ad9122_read(conv->spi, AD9122_REG_DATAPATH_CTRL);
+	tmp = ad9122_read(conv->dev, AD9122_REG_DATAPATH_CTRL);
 	switch (hb1) {
 		case AD9122_HB1_INTERP(1):
 		case AD9122_HB1_INTERP(3):
@@ -547,10 +549,10 @@ static int __ad9122_set_interpol(struct cf_axi_converter *conv, unsigned interp,
 			tmp |= AD9122_DATAPATH_CTRL_BYPASS_PREMOD;
 	}
 
-	ad9122_write(conv->spi, AD9122_REG_DATAPATH_CTRL, tmp);
-	ad9122_write(conv->spi, AD9122_REG_HB1_CTRL, hb1);
-	ad9122_write(conv->spi, AD9122_REG_HB2_CTRL, hb2);
-	ad9122_write(conv->spi, AD9122_REG_HB3_CTRL, hb3);
+	ad9122_write(conv->dev, AD9122_REG_DATAPATH_CTRL, tmp);
+	ad9122_write(conv->dev, AD9122_REG_HB1_CTRL, hb1);
+	ad9122_write(conv->dev, AD9122_REG_HB2_CTRL, hb2);
+	ad9122_write(conv->dev, AD9122_REG_HB3_CTRL, hb3);
 	conv->fcenter_shift = fcent_shift;
 
 	return 0;
@@ -628,11 +630,12 @@ static ssize_t ad9122_store(struct device *dev,
 		break;
 	}
 
-	ret = ad9122_write(conv->spi, (u32)this_attr->address, readin >> 8);
+	ret = ad9122_write(conv->dev, (u32)this_attr->address, readin >> 8);
 	if (ret < 0)
 		goto out;
 
-	ret = ad9122_write(conv->spi, (u32)this_attr->address - 1, readin & 0xFF);
+	ret = ad9122_write(conv->dev, (u32)this_attr->address - 1,
+			   readin & 0xFF);
 	if (ret < 0)
 		goto out;
 
@@ -653,12 +656,12 @@ static ssize_t ad9122_show(struct device *dev,
 	unsigned val;
 
 	mutex_lock(&indio_dev->mlock);
-	ret = ad9122_read(conv->spi, (u32)this_attr->address);
+	ret = ad9122_read(conv->dev, (u32)this_attr->address);
 	if (ret < 0)
 		goto out;
 	val = ret << 8;
 
-	ret = ad9122_read(conv->spi, (u32)this_attr->address - 1);
+	ret = ad9122_read(conv->dev, (u32)this_attr->address - 1);
 	if (ret < 0)
 		goto out;
 	val |= ret & 0xFF;
@@ -911,11 +914,12 @@ static int ad9122_probe(struct spi_device *spi)
 	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
 
 	conf = (spi->mode & SPI_3WIRE || spi3wire) ? AD9122_COMM_SDIO : 0;
-	ret = ad9122_write(spi, AD9122_REG_COMM, conf | AD9122_COMM_RESET);
+	ret = ad9122_write(&spi->dev, AD9122_REG_COMM,
+			   conf | AD9122_COMM_RESET);
 	if (ret < 0)
 		return ret;
 
-	id = ad9122_read(spi, AD9122_REG_CHIP_ID);
+	id = ad9122_read(&spi->dev, AD9122_REG_CHIP_ID);
 	if (id != CHIPID_AD9122) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
  		ret = -ENODEV;
@@ -930,7 +934,7 @@ static int ad9122_probe(struct spi_device *spi)
 	conv->write_raw = ad9122_write_raw;
 	conv->read_raw = ad9122_read_raw;
 	conv->attrs = &ad9122_attribute_group;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->id = ID_AD9122;
 
 	ret = ad9122_get_clks(conv);
@@ -955,7 +959,7 @@ static int ad9122_probe(struct spi_device *spi)
 	if (!of_property_read_bool(np, "dac-invsinc-en"))
 	    datapath_ctrl |= AD9122_DATAPATH_CTRL_BYPASS_INV_SINC;
 
-	ad9122_write(spi, AD9122_REG_DATAPATH_CTRL, datapath_ctrl);
+	ad9122_write(&spi->dev, AD9122_REG_DATAPATH_CTRL, datapath_ctrl);
 
 	ret = of_property_read_u32(np, "dac-data-rate", &rate);
 	if (ret)
@@ -970,7 +974,7 @@ static int ad9122_probe(struct spi_device *spi)
 	of_property_read_u32(np, "temp-sensor-calibration-temperature-mdeg", &tmp);
 	conv->temp_calib = tmp;
 
-	spi_set_drvdata(spi, conv);
+	dev_set_drvdata(&spi->dev, conv);
 
 	return 0;
 out:

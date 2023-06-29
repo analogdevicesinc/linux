@@ -84,8 +84,9 @@ static const char * const clk_names[] = {
 	[CLK_REF] = "dac_sysref"	/* Not required with jesd204-fsm */
 };
 
-static int ad9172_read(struct spi_device *spi, u32 reg)
+static int ad9172_read(struct device *dev, u32 reg)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
 	u32 val;
@@ -94,8 +95,9 @@ static int ad9172_read(struct spi_device *spi, u32 reg)
 	return ret < 0 ? ret : val;
 }
 
-static int ad9172_write(struct spi_device *spi, u32 reg, u32 val)
+static int ad9172_write(struct device *dev, u32 reg, u32 val)
 {
+	struct spi_device *spi = to_spi_device(dev);
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
 
@@ -382,7 +384,7 @@ static int ad9172_get_clks(struct cf_axi_converter *conv)
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(clk_names); i++) {
-		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
+		clk = devm_clk_get(conv->dev, clk_names[i]);
 		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
 			return PTR_ERR(clk);
 
@@ -397,12 +399,12 @@ static int ad9172_get_clks(struct cf_axi_converter *conv)
 			if (ret < 0)
 				return ret;
 
-			devm_add_action_or_reset(&conv->spi->dev,
-					(void(*)(void *))clk_disable_unprepare,
-					clk);
+			devm_add_action_or_reset(conv->dev,
+						 (void(*)(void *))clk_disable_unprepare,
+						 clk);
 		}
 
-		of_clk_get_scale(conv->spi->dev.of_node,
+		of_clk_get_scale(conv->dev->of_node,
 				 clk_names[i], &conv->clkscale[i]);
 		conv->clk[i] = clk;
 	}
@@ -1127,7 +1129,7 @@ static int ad9172_probe(struct spi_device *spi)
 	conv->get_data_clk = ad9172_get_data_clk;
 	conv->write_raw = ad9172_write_raw;
 	conv->read_raw = ad9172_read_raw;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->id = ID_AUTO_SYNTH_PARAM;
 
 	ret = ad9172_get_clks(conv);
@@ -1179,7 +1181,7 @@ static int ad9172_probe(struct spi_device *spi)
 		}
 	}
 
-	spi_set_drvdata(spi, conv);
+	dev_set_drvdata(&spi->dev, conv);
 
 	dev_info(&spi->dev, "Probed.\n");
 

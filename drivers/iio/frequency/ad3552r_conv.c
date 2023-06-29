@@ -231,14 +231,14 @@ int ad3552r_register_axi_converter(struct ad3552r_desc *dac)
 	// Product ID was checked previously at ad3552r_init().
 	conv->id = ID_AD3552R;
 	conv->phy = dac;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->write_raw = conv_ad3552r_write_raw;
 	conv->read_raw = conv_ad3552r_read_raw;
 	conv->setup = conv_ad3552r_setup;
 	conv->clk[CLK_DAC] = dac->ref_clk;
 	conv->get_data_clk = ad3552r_get_data_clk;
 
-	spi_set_drvdata(spi, conv);
+	dev_set_drvdata(&spi->dev, conv);
 
 	dev_info(&spi->dev, "Registered ad3552r_conv converter");
 	return 0;
