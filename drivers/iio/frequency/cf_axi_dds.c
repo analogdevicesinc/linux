@@ -983,7 +983,7 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 			else if (!conv->write)
 				ret = -ENODEV;
 			else
-				ret = conv->write(conv->spi,
+				ret = conv->write(conv->dev,
 						  reg, writeval & 0xFF);
 		}
 	} else {
@@ -996,7 +996,7 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 			else if (!conv->read)
 				ret = -ENODEV;
 			else
-				ret = conv->read(conv->spi, reg);
+				ret = conv->read(conv->dev, reg);
 			if (ret < 0)
 				goto out_unlock;
 		}

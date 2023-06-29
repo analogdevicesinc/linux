@@ -10,7 +10,6 @@
 #define ADI_AXI_DDS_H_
 
 #include <linux/bitfield.h>
-#include <linux/spi/spi.h>
 #include <linux/clk/clkscale.h>
 #include <linux/fpga/adi-axi-common.h>
 
@@ -253,7 +252,7 @@ enum cf_axi_dds_ext_info {
 };
 
 struct cf_axi_converter {
-	struct spi_device	*spi;
+	struct device	*dev;
 	struct clk		*clk[CLK_NUM];
 	struct clock_scale	clkscale[CLK_NUM];
 	void		*phy;
@@ -268,8 +267,8 @@ struct cf_axi_converter {
 	int		temp_calib;
 	unsigned	temp_calib_code;
 	int		temp_slope;
-	int		(*read)(struct spi_device *spi, unsigned reg);
-	int		(*write)(struct spi_device *spi,
+	int		(*read)(struct device *dev, unsigned reg);
+	int		(*write)(struct device *dev,
 				 unsigned reg, unsigned val);
 	int		(*setup)(struct cf_axi_converter *conv);
 	int		(*get_fifo_status)(struct cf_axi_converter *conv);
@@ -296,7 +295,7 @@ struct cf_axi_converter {
 
 static inline struct cf_axi_converter *to_converter(struct device *dev)
 {
-	struct cf_axi_converter *conv = spi_get_drvdata(to_spi_device(dev));
+	struct cf_axi_converter *conv = dev_get_drvdata(dev);
 
 	if (conv)
 		return conv;
