@@ -229,6 +229,8 @@ static void imx8mp_hsio_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 	default:
 		break;
 	}
+
+	imx8mp_qos_set(domain);
 }
 
 static void imx8mp_hsio_blk_ctrl_power_off(struct imx8mp_blk_ctrl *bc,
