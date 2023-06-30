@@ -16,6 +16,16 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pwm/pwm.h>
 
+/ {
+	axi_ad3552r: axi-ad3552r {
+		compatible = "adi,axi-ad3552r";
+
+		reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
+
+		clocks = <&ref_clk>;
+	};
+};
+
 &fpga_axi {
 
 	ref_clk: clk@44B00000 {
@@ -63,49 +73,6 @@
 		//adi,axi-dds-default-scale = <0x800>;
 		//adi,axi-dds-default-frequency = <1000000>;
 
-		platformbus-connected = <&dac0_ad3552r>;
-	};
-
-	// /*
-	//dac0_ad3552r: axi-ad3552r@44a74000 {
-	//	compatible = "adi,axi-ad3552r";
-	//	reg = <0x44a74000 0x1000>;
-
-	//	reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
-
-	//	clocks = <&ref_clk>;
-
-	//	dmas = <&dac_tx_dma 0>;
-	//	dma-names = "tx";
-
-	//};
-	// */
-};
-
-&spi0 {
-	status = "okay";
-
-	dac0_ad3552r: ad3552r-phy@0 {
-		compatible = "adi,ad3552r";
-		reg = <0>;
-		spi-max-frequency = <20000000>;
-		reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
-		clocks = <&ref_clk>;
-		clock-names = "dac_clk";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		channel@0 {
-			reg = <0>;
-			adi,output-range-microvolt = <0 10000000>;
-		};
-		channel@1 {
-			reg = <1>;
-			custom-output-range-config {
-				adi,gain-offset = <5>;
-				adi,gain-scaling-p-inv-log2 = <1>;
-				adi,gain-scaling-n-inv-log2 = <2>;
-				adi,rfb-ohms = <1>;
-			};
-		};
+		platformbus-connected = <&axi_ad3552r>;
 	};
 };

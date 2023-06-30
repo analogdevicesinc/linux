@@ -15,6 +15,8 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
+#include <linux/platform_device.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
 
@@ -29,22 +31,165 @@
 
 #include "cf_axi_dds.h"
 
-unsigned long long ad3552r_get_data_clk(struct cf_axi_converter *conv)
+static u32 axi_ad3552r_read_wrapper(struct reg_addr_poll *addr)
 {
-	return clk_get_rate(conv->clk[CLK_DAC]);
+	struct cf_axi_converter *conv = to_converter(addr->st->dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+
+	return dds_read(dds, addr->reg);
 }
 
-static void axi_ad3552r_update_bits(struct cf_axi_dds_state *st, u32 reg,
+static void axi_ad3552r_update_bits(struct cf_axi_dds_state *dds, u32 reg,
 				    u32 mask, u32 val)
 {
 	u32 tmp, orig;
 
-	orig = dds_read(st, reg);
+	orig = dds_read(dds, reg);
 	tmp = orig & ~mask;
 	tmp |= val & mask;
 
 	if (tmp != orig)
-		dds_write(st, reg, tmp);
+		dds_write(dds, reg, tmp);
+}
+
+static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val,
+				  u32 transfer_params)
+{
+	struct cf_axi_converter *conv = to_converter(st->dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+	struct reg_addr_poll addr;
+	u32 check;
+
+	if (!st->has_lock)
+		mutex_lock(&st->lock);
+
+	if (transfer_params & AXI_MSK_SYMB_8B)
+		dds_write(dds, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
+	else
+		dds_write(dds, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_16(val));
+
+	dds_write(dds, AXI_REG_CNTRL_2, transfer_params);
+
+	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
+				CNTRL_CSTM_ADDR(reg));
+	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
+				AXI_MSK_TRANSFER_DATA);
+	addr.st = st;
+	addr.reg = AXI_REG_UI_STATUS;
+	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
+			   check == AXI_MSK_BUSY, 10, 100);
+
+	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
+
+	if (!st->has_lock)
+		mutex_unlock(&st->lock);
+}
+
+static u32 axi_ad3552r_spi_read(struct axi_ad3552r_state *st, u32 reg,
+				u32 transfer_params)
+{
+	struct cf_axi_converter *conv = to_converter(st->dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+	u32 val;
+
+	mutex_lock(&st->lock);
+	st->has_lock = true;
+
+	axi_ad3552r_spi_write(st, RD_ADDR(reg), 0x00, transfer_params);
+	val = dds_read(dds, AXI_REG_CNTRL_DATA_RD);
+
+	st->has_lock = false;
+	mutex_unlock(&st->lock);
+
+	return val;
+}
+
+static void axi_ad3552r_spi_update_bits(struct axi_ad3552r_state *st, u32 reg,
+					u32 mask, u32 val, u32 transfer_params)
+{
+	u32 tmp, orig;
+
+	orig = axi_ad3552r_spi_read(st, reg, transfer_params);
+	tmp = orig & ~mask;
+	tmp |= val & mask;
+
+	if (tmp != orig)
+		axi_ad3552r_spi_write(st, reg, tmp, transfer_params);
+}
+
+static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
+				struct iio_chan_spec const *chan,
+				int *val,
+				int *val2,
+				long mask)
+{
+
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axi_ad3552r_state *st = conv->phy;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (st->single_channel)
+			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk), 4);
+		else
+			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk), 8);
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_RAW:
+		if (chan->channel) {
+			*val = axi_ad3552r_spi_read(st, AD3552R_REG_CH1_DAC_16B,
+						    AD3552R_TFER_16BIT_SDR);
+		} else {
+			*val = axi_ad3552r_spi_read(st, AD3552R_REG_CH0_DAC_16B,
+						    AD3552R_TFER_16BIT_SDR);
+		}
+		return IIO_VAL_INT;
+	}
+
+	return -EINVAL;
+}
+
+static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
+				 struct iio_chan_spec const *chan,
+				 int val,
+				 int val2,
+				 long mask)
+{
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axi_ad3552r_state *st = conv->phy;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		if (chan->channel)
+			axi_ad3552r_spi_write(st, AD3552R_REG_CH1_DAC_16B,
+					      (u32)val, AD3552R_TFER_16BIT_SDR);
+		else
+			axi_ad3552r_spi_write(st, AD3552R_REG_CH0_DAC_16B,
+					      (u32)val, AD3552R_TFER_16BIT_SDR);
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static int axi_ad3552r_write(struct device *dev, u32 reg, u32 val)
+{
+	struct cf_axi_converter *conv = to_converter(dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+
+	dds_write(dds, reg, val);
+	return 0;
+}
+
+static int axi_ad3552r_read(struct device *dev, u32 reg)
+{
+	struct cf_axi_converter *conv = to_converter(dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+
+	return dds_read(dds, reg);
+}
+
+unsigned long long ad3552r_get_data_clk(struct cf_axi_converter *conv)
+{
+	return clk_get_rate(conv->clk[CLK_DAC]);
 }
 
 static int ad3552r_set_output_range(struct iio_dev *indio_dev,
@@ -53,33 +198,35 @@ static int ad3552r_set_output_range(struct iio_dev *indio_dev,
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 
-	return ad3552r_update_reg_field(conv->phy, AD3552R_REG_OUTPUT_RANGE,
+	axi_ad3552r_spi_update_bits(conv->phy, AD3552R_REG_OUTPUT_RANGE,
 				    AD3552R_MASK_OUT_RANGE,
-				    SET_CH1_RANGE(mode) | SET_CH0_RANGE(mode));
+				    SET_CH1_RANGE(mode) | SET_CH0_RANGE(mode),
+				    AD3552R_TFER_8BIT_SDR);
+	mdelay(100);
+
+	return 0;
+
 }
 
 static int ad3552r_get_output_range(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan)
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-	u16 tmp_val;
-	int ret;
+	u32 val;
 
-	ret = ad3552r_read_reg(conv->phy, AD3552R_REG_OUTPUT_RANGE, &tmp_val);
-	if (ret < 0)
-		return ret;
-
-	return GET_CH0_RANGE(tmp_val);
+	val = axi_ad3552r_spi_read(conv->phy, AD3552R_REG_OUTPUT_RANGE,
+				   AD3552R_TFER_8BIT_SDR);
+	return GET_CH0_RANGE(val);
 }
 
 static int ad3552r_set_input_source(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan,
 				    unsigned int mode)
 {
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
 
-	dds_write(st, ADI_REG_CHAN_CNTRL_7(0), mode);
-	dds_write(st, ADI_REG_CHAN_CNTRL_7(1), mode);
+	dds_write(dds, ADI_REG_CHAN_CNTRL_7(0), mode);
+	dds_write(dds, ADI_REG_CHAN_CNTRL_7(1), mode);
 
 	return 0;
 }
@@ -87,25 +234,24 @@ static int ad3552r_set_input_source(struct iio_dev *indio_dev,
 static int ad3552r_get_input_source(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan)
 {
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
 
-	return dds_read(st, ADI_REG_CHAN_CNTRL_7(0));
+	return dds_read(dds, ADI_REG_CHAN_CNTRL_7(0));
 }
 
 static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan,
 				    unsigned int mode)
 {
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	int ret;
+	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
 
 	if (mode == 2) {
-		axi_ad3552r_update_bits(st, ADI_REG_CONFIG, ADI_DDS_DISABLE, 0);
-		cf_axi_dds_start_sync(st, true);
+		axi_ad3552r_update_bits(dds, ADI_REG_CONFIG, ADI_DDS_DISABLE, 0);
+		cf_axi_dds_start_sync(dds, true);
 	} else if (mode == 1) {
-		axi_ad3552r_update_bits(st, ADI_REG_CONFIG, ADI_DDS_DISABLE, 0);
+		axi_ad3552r_update_bits(dds, ADI_REG_CONFIG, ADI_DDS_DISABLE, 0);
 	} else {
-		axi_ad3552r_update_bits(st, ADI_REG_CONFIG, ADI_DDS_DISABLE, 1);
+		axi_ad3552r_update_bits(dds, ADI_REG_CONFIG, ADI_DDS_DISABLE, 1);
 	}
 
 	return 0;
@@ -152,45 +298,72 @@ static const struct iio_chan_spec_ext_info ad3552r_ext_info[] = {
 	{},
 };
 
-int conv_ad3552r_read_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *chan,
-			    int *val, int *val2, long mask)
+static int axi_ad3552r_reset(struct axi_ad3552r_state *st)
 {
-	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct ad3552r_desc *dac = conv->phy;
+	struct cf_axi_converter *conv = to_converter(st->dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
 
-	switch (mask) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (dac->single_channel)
-			*val = DIV_ROUND_UP(ad3552r_get_data_clk(conv), 4);
-		else
-			*val = DIV_ROUND_UP(ad3552r_get_data_clk(conv), 8);
-		return IIO_VAL_INT;
-	default:
-		return ad3552r_read_raw(indio_dev, chan, val, val2, mask);
+	axi_ad3552r_update_bits(dds, AXI_REG_RSTN, AXI_RST, 0x00);
+	axi_ad3552r_update_bits(dds, AXI_REG_RSTN, AXI_RST, AXI_RST);
+
+	st->reset_gpio = devm_gpiod_get_optional(st->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(st->reset_gpio))
+		return PTR_ERR(st->reset_gpio);
+
+	if (st->reset_gpio) {
+		gpiod_set_value_cansleep(st->reset_gpio, 1);
+		usleep_range(1, 10);
+		gpiod_set_value_cansleep(st->reset_gpio, 0);
+	} else {
+		axi_ad3552r_spi_update_bits(st, AD3552R_REG_INTERFACE_CONFIG_A,
+					    AD3552R_MASK_SW_RST,
+					    AD3552R_MASK_SW_RST,
+					    AD3552R_TFER_8BIT_SDR);
 	}
+	msleep_interruptible(100);
+
+	return 0;
 }
 
-
-
-static int conv_ad3552r_write_raw(struct iio_dev *indio_dev,
-				 struct iio_chan_spec const *chan,
-				 int val,
-				 int val2,
-				 long mask)
-{
-	return ad3552r_write_raw(indio_dev, chan, val, val2, mask);
-}
-
-static int conv_ad3552r_setup(struct cf_axi_converter *conv)
+static int axi_ad3552r_setup(struct cf_axi_converter *conv)
 {
 	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+	struct axi_ad3552r_state *st = conv->phy;
+	u8 val;
+	u16 id;
 	int ret;
 
-	ret = ad3552r_write_reg(conv->phy, AD3552R_REG_REF_CONFIG,
-				AD3552R_REF_INIT);
-	if (ret < 0)
+	ret = axi_ad3552r_reset(st);
+	if (ret)
 		return ret;
+
+	axi_ad3552r_spi_write(st, AD3552R_REG_SCRATCH_PAD,
+			      AD3552R_SCRATCH_PAD_TEST_VAL,
+			      AD3552R_TFER_8BIT_SDR);
+	val = axi_ad3552r_spi_read(st, AD3552R_REG_SCRATCH_PAD,
+				   AD3552R_TFER_8BIT_SDR);
+
+	if (val != AD3552R_SCRATCH_PAD_TEST_VAL)
+		return -EINVAL;
+
+	val = axi_ad3552r_spi_read(st, AD3552R_REG_PRODUCT_ID_L,
+				   AD3552R_TFER_8BIT_SDR);
+
+	id = val;
+	mdelay(100);
+	val = axi_ad3552r_spi_read(st, AD3552R_REG_PRODUCT_ID_H,
+				   AD3552R_TFER_8BIT_SDR);
+
+	id |= val << 8;
+	if (id != AD3552R_ID)
+		dev_warn(st->dev,
+			 "Chip ID mismatch. Expected 0x%x, Reported 0x%x\n",
+			 AD3552R_ID, id);
+
+	axi_ad3552r_spi_write(st, AD3552R_REG_REF_CONFIG, AD3552R_REF_INIT,
+			      AD3552R_TFER_8BIT_SDR);
+	axi_ad3552r_spi_write(st, AD3552R_REG_TRANSFER, AD3552R_TRANSFER_INIT,
+			      AD3552R_TFER_8BIT_SDR);
 
 	dds_write(dds, ADI_REG_CHAN_CNTRL_7(0), AXI_SEL_SRC_ADC);
 	dds_write(dds, ADI_REG_CHAN_CNTRL_7(1), AXI_SEL_SRC_ADC);
@@ -198,56 +371,74 @@ static int conv_ad3552r_setup(struct cf_axi_converter *conv)
 	return 0;
 }
 
-
 static void ad3552r_clk_disable(void *data)
 {
 	clk_disable_unprepare(data);
 }
 
-int ad3552r_register_axi_converter(struct ad3552r_desc *dac)
+static int axi_ad3552r_probe(struct platform_device *pdev)
 {
 	struct cf_axi_converter *conv;
-	struct spi_device *spi = dac->spi;
+	struct axi_ad3552r_state *st;
 	int ret;
 
-	dev_info(&spi->dev, "Start ad3552r_conv registered converter ...");
-	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
-	if (conv == NULL)
+	dev_info(&pdev->dev, "Start ad3552r_conv converter ...");
+	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
+	if (st == NULL)
 		return -ENOMEM;
 
-	dac->ref_clk = devm_clk_get(&spi->dev, "dac_clk");
-	if (IS_ERR(dac->ref_clk))
-		return PTR_ERR(dac->ref_clk);
+	st->dev = &pdev->dev;
 
-	ret = clk_prepare_enable(dac->ref_clk);
+	conv = devm_kzalloc(&pdev->dev, sizeof(*conv), GFP_KERNEL);
+	if (st == NULL)
+		return -ENOMEM;
+
+	st->ref_clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(st->ref_clk))
+		return PTR_ERR(st->ref_clk);
+
+	ret = clk_prepare_enable(st->ref_clk);
 	if (ret < 0)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, ad3552r_clk_disable,
-				       dac->ref_clk);
+	ret = devm_add_action_or_reset(conv->dev, ad3552r_clk_disable,
+				       st->ref_clk);
 	if (ret < 0)
 		return ret;
 
-	// Product ID was checked previously at ad3552r_init().
+	mutex_init(&st->lock);
+	st->has_lock = false;
+
 	conv->id = ID_AD3552R;
-	conv->phy = dac;
-	conv->dev = &spi->dev;
-	conv->write_raw = conv_ad3552r_write_raw;
-	conv->read_raw = conv_ad3552r_read_raw;
-	conv->setup = conv_ad3552r_setup;
-	conv->clk[CLK_DAC] = dac->ref_clk;
+	conv->dev = &pdev->dev;
+	conv->phy = st;
+	conv->write_raw = axi_ad3552r_write_raw;
+	conv->read_raw = axi_ad3552r_read_raw;
+	conv->write = axi_ad3552r_write;
+	conv->read = axi_ad3552r_read;
+	conv->setup = axi_ad3552r_setup;
+	conv->clk[CLK_DAC] = st->ref_clk;
 	conv->get_data_clk = ad3552r_get_data_clk;
 
-	dev_set_drvdata(&spi->dev, conv);
+	dev_set_drvdata(conv->dev, conv);
 
-	dev_info(&spi->dev, "Registered ad3552r_conv converter");
+	dev_info(conv->dev, "Probed ad3552r_conv converter");
+
 	return 0;
 }
-EXPORT_SYMBOL(ad3552r_register_axi_converter);
 
-struct ad3552r_desc* ad3552r_spi_to_phy(struct spi_device *spi)
-{
-	struct cf_axi_converter *conv = spi_get_drvdata(spi);
-	return conv->phy;
-}
-EXPORT_SYMBOL(ad3552r_spi_to_phy);
+static const struct of_device_id axi_ad3552r_of_id[] = {
+	{ .compatible = "adi,axi-ad3552r" },
+	{}
+};
+MODULE_DEVICE_TABLE(of, axi_ad3552r_of_id);
+
+static struct platform_driver axi_ad3552r_driver = {
+	.driver = {
+		.name = "axi-ad3552r",
+		.owner = THIS_MODULE,
+		.of_match_table = axi_ad3552r_of_id,
+	},
+	.probe = axi_ad3552r_probe,
+};
+module_platform_driver(axi_ad3552r_driver);

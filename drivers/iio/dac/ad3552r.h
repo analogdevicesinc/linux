@@ -144,7 +144,6 @@ static const char * const output_range[] = {
 
 struct axi_ad3552r_state {
 	struct gpio_desc *reset_gpio;
-	void __iomem *regs;
 	struct clk *ref_clk;
 	struct device *dev;
 	/* protect device accesses */
@@ -203,7 +202,7 @@ struct ad3552r_desc {
 
 // } from ad3552r.c
 
-int ad3552r_register_axi_converter(struct ad3552r_desc *dac);
+int ad3552r_register_axi_converter(struct axi_ad3552r_state *st);
 int ad3552r_read_reg(struct ad3552r_desc *dac, u8 addr, u16 *val);
 int ad3552r_write_reg(struct ad3552r_desc *dac, u8 addr, u16 val);
 int ad3552r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
