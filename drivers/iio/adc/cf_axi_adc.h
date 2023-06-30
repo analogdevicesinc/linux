@@ -123,6 +123,8 @@
 #define ADI_PN_OOS			(1 << 1)
 #define ADI_OVER_RANGE			(1 << 0)
 
+#define ADI_REG_CHAN_RAW_DATA(c)	(0x0408 + (c) * 0x40)
+
 #define ADI_REG_CHAN_CNTRL_1(c)		(0x0410 + (c) * 0x40)
 #define ADI_DCFILT_OFFSET(x)		(((x) & 0xFFFF) << 16)
 #define ADI_TO_DCFILT_OFFSET(x)		(((x) >> 16) & 0xFFFF)
@@ -140,6 +142,8 @@
 #define ADI_TO_ADC_PN_SEL(x)		(((x) >> 16) & 0xF)
 #define ADI_ADC_DATA_SEL(x)		(((x) & 0xF) << 0)
 #define ADI_TO_ADC_DATA_SEL(x)		(((x) >> 0) & 0xF)
+
+#define ADI_SOFTSPAN(c)			(0x0428 + (c) * 0x40)
 
 enum adc_pn_sel {
 	ADC_PN9 = 0,
@@ -198,6 +202,7 @@ struct axiadc_chip_info {
 	const unsigned long 	*scan_masks;
 	const int			(*scale_table)[2];
 	int				num_scales;
+	int				resolution;
 	int				max_testmode;
 	unsigned long			max_rate;
 	struct iio_chan_spec		channel[AXIADC_MAX_CHANNEL];
