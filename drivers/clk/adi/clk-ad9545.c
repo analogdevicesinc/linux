@@ -295,11 +295,11 @@
 #define AD9545_MAX_ZERO_DELAY_RATE	200000000
 
 static const unsigned int ad9545_apll_rate_ranges_hz[2][2] = {
-	{2400000000U, 3200000000U}, {3200000000U, 4000000000U}
+	{2424000000U, 3232000000U}, {3232000000U, 4040000000U}
 };
 
 static const unsigned int ad9545_apll_pfd_rate_ranges_hz[2] = {
-	162000000U, 300000000U
+	162000000U, 350000000U
 };
 
 static const unsigned short ad9545_vco_calibration_op[][2] = {
