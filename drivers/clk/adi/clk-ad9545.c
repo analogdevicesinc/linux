@@ -1266,7 +1266,9 @@ static void ad9545_pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
 static int ad9545_sys_clk_setup(struct ad9545_state *st)
 {
 	u64 ref_freq_milihz;
+	u32 sys_clk_stability_period;
 	__le64 regval64;
+	__le32 regval;
 	u8 div_ratio;
 	u32 fosc;
 	int ret;
@@ -1328,7 +1330,10 @@ static int ad9545_sys_clk_setup(struct ad9545_state *st)
 	if (ret < 0)
 		return ret;
 
-	return regmap_write(st->regmap, AD9545_SYS_STABILITY_T, AD9545_SYS_CLK_STABILITY_MS);
+	sys_clk_stability_period = AD9545_SYS_CLK_STABILITY_MS;
+	sys_clk_stability_period &= 0xfffff;
+	regval = cpu_to_le32(sys_clk_stability_period);
+	return regmap_bulk_write(st->regmap, AD9545_SYS_STABILITY_T, &regval, 3);
 }
 
 static int ad9545_get_q_div(struct ad9545_state *st, int addr, u32 *q_div)
