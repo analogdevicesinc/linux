@@ -1358,7 +1358,7 @@ static int ad9545_set_q_div(struct ad9545_state *st, int addr, u32 q_div)
 	return ad9545_io_update(st);
 }
 
-static unsigned long ad95452_out_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long ad9545_out_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct ad9545_out_clk *clk = to_out_clk(hw);
 	u32 qdiv;
@@ -1628,7 +1628,7 @@ static const struct clk_ops ad9545_out_clk_ops = {
 	.enable = ad9545_out_clk_enable,
 	.disable = ad9545_out_clk_disable,
 	.is_enabled = ad9545_out_clk_is_enabled,
-	.recalc_rate = ad95452_out_clk_recalc_rate,
+	.recalc_rate = ad9545_out_clk_recalc_rate,
 	.round_rate = ad9545_out_clk_round_rate,
 	.set_rate = ad9545_out_clk_set_rate,
 	.set_phase = ad9545_out_clk_set_phase,
@@ -1779,7 +1779,7 @@ static int ad9545_get_r_div(struct ad9545_state *st, int addr, u32 *r_div)
 	return 0;
 }
 
-static unsigned long ad95452_in_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long ad9545_in_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct ad9545_ref_in_clk *clk = to_ref_in_clk(hw);
 	u32 div;
@@ -1795,7 +1795,7 @@ static unsigned long ad95452_in_clk_recalc_rate(struct clk_hw *hw, unsigned long
 }
 
 static const struct clk_ops ad9545_in_clk_ops = {
-	.recalc_rate = ad95452_in_clk_recalc_rate,
+	.recalc_rate = ad9545_in_clk_recalc_rate,
 	.debug_init = ad9545_in_clk_debug_init,
 };
 
@@ -2633,7 +2633,7 @@ static int ad9545_set_nco_freq(struct ad9545_state *st, int addr, u32 freq)
 	return ad9545_io_update(st);
 }
 
-static unsigned long ad95452_nco_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long ad9545_nco_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct ad9545_aux_nco_clk *clk = to_nco_clk(hw);
 	u32 rate;
@@ -2662,7 +2662,7 @@ static int ad9545_nco_clk_set_rate(struct clk_hw *hw, unsigned long rate, unsign
 }
 
 static const struct clk_ops ad9545_nco_clk_ops = {
-	.recalc_rate = ad95452_nco_clk_recalc_rate,
+	.recalc_rate = ad9545_nco_clk_recalc_rate,
 	.round_rate = ad9545_nco_clk_round_rate,
 	.set_rate = ad9545_nco_clk_set_rate,
 };
