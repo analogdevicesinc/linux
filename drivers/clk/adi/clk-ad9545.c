@@ -30,7 +30,7 @@
 #define AD9545_SYS_CLK_FB_DIV		0x0200
 #define AD9545_SYS_CLK_INPUT		0x0201
 #define AD9545_SYS_CLK_REF_FREQ		0x0202
-#define AD9545_SYS_STABILITY_T		0x0207
+#define AD9545_STABILITY_TIMER		0x0207
 #define AD9545_COMPENSATE_TDCS		0x0280
 #define AD9545_COMPENSATE_NCOS		0x0281
 #define AD9545_COMPENSATE_DPLL		0x0282
@@ -103,6 +103,8 @@
 #define AD9545_REFA_STATUS		0x3005
 #define AD9545_PLL0_STATUS		0x3100
 #define AD9545_PLL0_OPERATION		0x3101
+
+#define AD9545_SYS_CLK_STABILITY_PERIOD_MASK	GENMASK(19, 0)
 
 #define AD9545_REF_CTRL_DIF_MSK			GENMASK(3, 2)
 #define AD9545_REF_CTRL_REFA_MSK		GENMASK(5, 4)
@@ -1266,7 +1268,9 @@ static void ad9545_pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
 static int ad9545_sys_clk_setup(struct ad9545_state *st)
 {
 	u64 ref_freq_milihz;
+	u32 stability_timer;
 	__le64 regval64;
+	__le32 regval;
 	u8 div_ratio;
 	u32 fosc;
 	int ret;
@@ -1328,7 +1332,11 @@ static int ad9545_sys_clk_setup(struct ad9545_state *st)
 	if (ret < 0)
 		return ret;
 
-	return regmap_write(st->regmap, AD9545_SYS_STABILITY_T, AD9545_SYS_CLK_STABILITY_MS);
+	stability_timer = FIELD_PREP(AD9545_SYS_CLK_STABILITY_PERIOD_MASK,
+				     AD9545_SYS_CLK_STABILITY_MS);
+	regval = cpu_to_le32(stability_timer);
+	return regmap_bulk_write(st->regmap, AD9545_STABILITY_TIMER,
+				 &regval, 3);
 }
 
 static int ad9545_get_q_div(struct ad9545_state *st, int addr, u32 *q_div)
