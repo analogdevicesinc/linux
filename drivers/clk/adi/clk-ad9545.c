@@ -774,7 +774,7 @@ static int ad9545_parse_dt_pll_profiles(struct ad9545_state *st, const struct fw
 
 		ret = fwnode_property_read_u32(profile_node, "adi,pll-source", &val);
 		if (ret < 0) {
-			dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
+			dev_err(st->dev, "Could not read Profile %d, pll-source.",
 				profile_addr);
 			goto out_fail;
 		}
