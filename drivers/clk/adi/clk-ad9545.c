@@ -2519,6 +2519,91 @@ static int ad9545_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	return ad9545_set_freerun_freq(clk, div_u64(rate * 2, m));
 }
 
+static int ad9545_pll_read_profile(struct ad9545_pll_clk *pll, int index,
+				   struct ad9545_dpll_profile *profile)
+{
+	struct ad9545_state *st = pll->st;
+	__le32 regval;
+	u32 val;
+	int i, j;
+	int ret;
+
+	i = pll->address;
+	j = index;
+
+	ret = ad9545_io_update(st);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->regmap, AD9545_DPLLX_EN(i, j), &val);
+	if (ret < 0)
+		return ret;
+	profile->en = (val & AD9545_EN_PROFILE_MSK) ? 1 : 0;
+	profile->priority = FIELD_GET(AD9545_SEL_PRIORITY_MSK, val);
+
+	ret = regmap_read(st->regmap, AD9545_DPLLX_SOURCE(i, j), &val);
+	if (ret < 0)
+		return ret;
+	profile->source = val;
+
+	ret = regmap_read(st->regmap, AD9545_DPLLX_FB_PATH(i, j), &val);
+	if (ret < 0)
+		return ret;
+	profile->internal_zero_delay_fb_path = val;
+
+	ret = regmap_read(st->regmap, AD9545_DPLLX_FB_MODE(i, j), &val);
+	if (ret < 0)
+		return ret;
+	profile->hitless = FIELD_GET(AD9545_EN_HITLESS_MSK, val);
+	profile->external_zero_delay = FIELD_GET(AD9545_EN_EXT_ZERO_DELAY_MSK,
+						 val);
+	profile->tag_mode = FIELD_GET(AD9545_TAG_MODE_MSK, val);
+	profile->loop_filter_base = FIELD_GET(AD9545_LOOP_FILTER_BASE_MSK, val);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_DPLLX_LOOP_BW(i, j),
+			       &regval, 4);
+	if (ret < 0)
+		return ret;
+	profile->loop_bw_uhz = le32_to_cpu(regval);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_DPLLX_HITLESS_N(i, j),
+			       &regval, 4);
+	if (ret < 0)
+		return ret;
+	profile->hitless_n_div = le32_to_cpu(regval);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_DPLLX_N_DIV(i, j),
+			       &regval, 4);
+	if (ret < 0)
+		return ret;
+	profile->buildout_n_div = le32_to_cpu(regval);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_DPLLX_FRAC_DIV(i, j),
+			       &regval, 3);
+	if (ret < 0)
+		return ret;
+	profile->buildout_frac = le32_to_cpu(regval);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_DPLLX_MOD_DIV(i, j),
+			       &regval, 3);
+	if (ret < 0)
+		return ret;
+	profile->buildout_mod = le32_to_cpu(regval);
+
+	ret = regmap_read(st->regmap, AD9545_DPLLX_FAST_L1(i, j), &val);
+	if (ret < 0)
+		return ret;
+	profile->fast_acq_excess_bw = val;
+
+	ret = regmap_read(st->regmap, AD9545_DPLLX_FAST_L2(i, j), &val);
+	if (ret < 0)
+		return ret;
+	profile->fast_acq_settle_ms = val;
+	profile->fast_acq_timeout_ms = val >> 4;
+
+	return 0;
+}
+
 static int ad9545_pll_write_profile(struct ad9545_pll_clk *pll, int index,
 				    const struct ad9545_dpll_profile *profile)
 {
@@ -2601,43 +2686,164 @@ static int ad9545_pll_write_profile(struct ad9545_pll_clk *pll, int index,
 	return ad9545_io_update(st);
 }
 
+static const char *ad9545_source_name(int source)
+{
+	const char *source_name;
+
+	switch (source) {
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+		source_name = ad9545_ref_clk_names[source];
+		break;
+	case AD9545_SOURCE_FEEDBACK_FROM_DPLL0:
+		source_name = "Feedback from DPLL0";
+		break;
+	case AD9545_SOURCE_FEEDBACK_FROM_DPLL1:
+		source_name = "Feedback from DPLL1";
+		break;
+	case AD9545_SOURCE_AUX_NCO0:
+		source_name = ad9545_aux_nco_clk_names[0];
+		break;
+	case AD9545_SOURCE_AUX_NCO1:
+		source_name = ad9545_aux_nco_clk_names[1];
+		break;
+	default:
+		source_name = "Unknown";
+		break;
+	}
+
+	return source_name;
+}
+
 #ifdef CONFIG_DEBUG_FS
+static void ad9545_pll_show_profile(struct seq_file *s, int pll, int index,
+				    struct ad9545_dpll_profile *profile)
+{
+	const char *ref_source_name;
+
+	seq_printf(s, "Profile %d:\n", index);
+
+	seq_printf(s, "  Enabled: %s\n", profile->en ? "Yes" : "No");
+	if (!profile->en)
+		return;
+
+	seq_printf(s, "  Priority: %d\n", profile->priority);
+
+	ref_source_name = ad9545_source_name(profile->source);
+	seq_printf(s, "  Ref source: %s\n", ref_source_name);
+
+	seq_printf(s, "  Feedback mode: %s\n",
+		   profile->hitless ? "Hitless" : "Buildout");
+
+	if (profile->hitless) {
+		const char *fb_path_name = "Unknown";
+		int fb_path;
+
+		seq_printf(s, "  Zero delay: %s\n",
+			   profile->external_zero_delay ?
+			   "External" : "Internal");
+		seq_printf(s, "  Tag mode: %u\n", profile->tag_mode);
+		seq_printf(s, "  Loop filter base: %s\n",
+			   profile->loop_filter_base ?
+			   "High phase margin" : "Nominal phase margin");
+
+		fb_path = profile->internal_zero_delay_fb_path;
+		if (profile->external_zero_delay) {
+			if (fb_path < ARRAY_SIZE(ad9545_ref_clk_names))
+				fb_path_name = ad9545_ref_clk_names[fb_path];
+		} else {
+			fb_path += 6 * pll;
+			if (fb_path < ARRAY_SIZE(ad9545_out_clk_names))
+				fb_path_name = ad9545_out_clk_names[fb_path];
+		}
+		seq_printf(s, "  Internal zero delay feedback path: %s\n",
+			   fb_path_name);
+	}
+
+	seq_printf(s, "  Loop bandwidth: %u uHz\n",
+		   profile->loop_bw_uhz);
+
+	seq_printf(s, "  Hitless N-divider: %llu\n",
+		   (u64)profile->hitless_n_div + 1);
+	seq_printf(s, "  Buildout N-divider: %llu\n",
+		   (u64)profile->buildout_n_div + 1);
+
+	if (!profile->hitless) {
+		seq_printf(s, "  Buildout fraction: %u\n",
+			   profile->buildout_frac);
+		seq_printf(s, "  Buildout modulus: %u\n",
+			   profile->buildout_mod);
+
+	}
+
+	seq_printf(s, "  Fast acquisition excess bandwidth: %u\n",
+		   ad9545_fast_acq_excess_bw_map[profile->fast_acq_excess_bw]);
+	seq_printf(s, "  Fast acquisition settle: %u msec\n",
+		   ad9545_fast_acq_time_map[profile->fast_acq_settle_ms]);
+	seq_printf(s, "  Fast acquisition timeout: %u msec\n",
+		   ad9545_fast_acq_time_map[profile->fast_acq_timeout_ms]);
+}
+
 static int ad9545_pll_clk_debugfs_show(struct seq_file *s, void *p)
 {
 	struct ad9545_pll_clk *pll = s->private;
-	__le16 reg;
-	u32 regval;
+	struct ad9545_state *st = pll->st;
+	__le16 regval16;
+	u32 val;
 	s16 temp;
-	int ret;
+	int i, j, ret;
 
-	ret = ad9545_io_update(pll->st);
+	ret = ad9545_io_update(st);
 	if (ret < 0)
 		return ret;
 
-	seq_printf(s, "PLL%d:\n", pll->address);
+	i = pll->address;
+	seq_printf(s, "PLL%d:\n", i);
 
-	ret = regmap_read(pll->st->regmap, AD9545_PLLX_STATUS(pll->address), &regval);
+	ret = regmap_read(st->regmap, AD9545_PLLX_STATUS(i), &val);
 	if (ret < 0)
 		return ret;
 
-	seq_printf(s, "PLL status: %s\n", (regval & AD9545_PLL_LOCKED) ? "Locked" : "Unlocked");
+	seq_printf(s, "PLL status: %s\n",
+		   (val & AD9545_PLL_LOCKED) ? "Locked" : "Unlocked");
 
-	ret = regmap_read(pll->st->regmap, AD9545_PLLX_OPERATION(pll->address), &regval);
+	ret = regmap_read(st->regmap, AD9545_PLLX_OPERATION(i), &val);
 	if (ret < 0)
 		return ret;
 
-	seq_printf(s, "Freerun Mode: %s\n", (regval & AD9545_PLL_FREERUN) ? "On" : "Off");
-	seq_printf(s, "Holdover Mode: %s\n", (regval & AD9545_PLL_HOLDOVER) ? "On" : "Off");
-	seq_printf(s, "PLL Profile: %s\n", (regval & AD9545_PLL_ACTIVE) ? "On" : "Off");
-	seq_printf(s, "Profile Number: %ld\n", FIELD_GET(AD9545_PLL_ACTIVE_PROFILE, regval));
+	seq_printf(s, "Freerun Mode: %s\n",
+		   (val & AD9545_PLL_FREERUN) ? "On" : "Off");
+	seq_printf(s, "Holdover Mode: %s\n",
+		   (val & AD9545_PLL_HOLDOVER) ? "On" : "Off");
+	seq_printf(s, "PLL: %s\n",
+		   (val & AD9545_PLL_ACTIVE) ? "Active" : "Inactive");
+	seq_printf(s, "Profile Number: %ld\n",
+		   FIELD_GET(AD9545_PLL_ACTIVE_PROFILE, val));
 
-	ret = regmap_bulk_read(pll->st->regmap, AD9545_TEMP0, &reg, 2);
+	ret = regmap_read(st->regmap, AD9545_APLLX_M_DIV(pll->address), &val);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "M-divider: %u\n", val);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_TEMP0, &regval16, 2);
 	if (ret < 0)
 		return ret;
 
-	temp = le16_to_cpu(reg);
+	temp = le16_to_cpu(regval16);
 	temp /= (1 << 7);
 	seq_printf(s, "Temperature: %d C\n", temp);
+
+	for (j = 0; j < AD9545_MAX_DPLL_PROFILES; j++) {
+		struct ad9545_dpll_profile profile;
+
+		ret = ad9545_pll_read_profile(pll, j, &profile);
+		if (ret < 0)
+			return ret;
+
+		ad9545_pll_show_profile(s, i, j, &profile);
+	}
 
 	return 0;
 }
