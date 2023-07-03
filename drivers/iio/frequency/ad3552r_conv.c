@@ -7,28 +7,18 @@
  * Licensed under the GPL-2.
  */
 
-#include <linux/module.h>
-#include <linux/device.h>
-#include <linux/kernel.h>
-#include <linux/slab.h>
-#include <linux/spi/spi.h>
-#include <linux/err.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/string.h>
-#include <linux/uaccess.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
-#include <linux/clk.h>
-#include <linux/clkdev.h>
-#include <linux/clk-provider.h>
-
 #include "../dac/ad3552r.h"
-
 #include "cf_axi_dds.h"
 
 static int axi_ad3552r_write(struct device *dev, u32 reg, u32 val)
