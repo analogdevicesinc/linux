@@ -522,6 +522,7 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	struct axi_ad3552r_state *st;
 	int ret;
 
+	dev_info(&pdev->dev, "Start ad3552r_conv converter ...");
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (st == NULL)
 		return -ENOMEM;
@@ -563,6 +564,8 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	chip_info->channel[1].ext_info = ad3552r_ext_info;
 
 	dev_set_drvdata(conv->dev, conv);
+
+	dev_info(conv->dev, "Probed ad3552r_conv converter");
 
 	return 0;
 }
