@@ -1030,54 +1030,6 @@ static int cf_axi_dds_update_scan_mode(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
-			struct iio_chan_spec *channels, unsigned int num)
-{
-	unsigned int i;
-
-	for (i = 0; i < num; i++) {
-		if (channels[i].type == IIO_ALTVOLTAGE)
-			channels[i].ext_info = NULL;
-	}
-}
-
-static const unsigned long ad9361_2x2_available_scan_masks[] = {
-	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, /* 1 & 2 chan */
-	0x10, 0x20, 0x40, 0x80, 0x30, 0xC0, /* 1 & 2 chan */
-	0x33, 0xCC, 0xC3, 0x3C, 0x0F, 0xF0, /* 4 chan */
-	0xFF,				   /* 8 chan */
-	0x00,
-};
-
-static const unsigned long ad9009_4x2_available_scan_masks[] = {
-	0x0001, 0x0002, 0x0004, 0x0008, 0x0003, 0x000C, /* 1 & 2 chan */
-	0x0010, 0x0020, 0x0040, 0x0080, 0x0030, 0x00C0, /* 1 & 2 chan */
-	0x0100, 0x0200, 0x0400, 0x0800, 0x0300, 0x0C00, /* 1 & 2 chan */
-	0x1000, 0x2000, 0x4000, 0x8000, 0x3000, 0xC000, /* 1 & 2 chan */
-	0x0033, 0x00CC, 0x00C3, 0x003C, 0x000F, 0x00F0, /* 4 chan */
-	0x3300, 0xCC00, 0xC300, 0x3C00, 0x0F00, 0xF000, /* 4 chan */
-	0x0330, 0x0CC0, 0x0C30, 0x03C0, 0x00F0, 0x0F00, /* 4 chan */
-	0x3300, 0xCC00, 0xC300, 0x3C00, 0x0F00, 0xF000, /* 4 chan */
-	0x00FF, 0xFF00, 0x0FF0,	0x3333, 0xCCCC, 0xF0F0, /* 8 chan */
-	0x0F0F,						/* 8 chan */
-	0xFFFF,						/* 16 chan */
-	0x00,
-};
-
-static const unsigned long ad9361_available_scan_masks[] = {
-	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
-	0x00,
-};
-
-static const unsigned long adrv9002_rx2tx2_available_scan_masks[] = {
-	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
-	0x00,
-};
-
-static const unsigned long adrv9002_available_scan_masks[] = {
-	0x01, 0x02, 0x03, 0x00
-};
-
 static const char * const cf_axi_dds_scale[] = {
 	"1.000000", "0.500000", "0.250000", "0.125000",
 	"0.062500", "0.031250", "0.015625", "0.007812",
@@ -1094,6 +1046,18 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 	IIO_ENUM_AVAILABLE("scale", &cf_axi_dds_scale_available),
 	{ },
 };
+
+static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
+			struct iio_chan_spec *channels, unsigned int num)
+{
+	unsigned int i;
+
+	for (i = 0; i < num; i++) {
+		if (channels[i].type == IIO_ALTVOLTAGE)
+			channels[i].ext_info = NULL;
+	}
+}
+
 
 #define CF_AXI_DDS_CHAN(_chan, _address, _extend_name) { \
 	.type = IIO_ALTVOLTAGE,	\
@@ -1175,6 +1139,43 @@ static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
 		.shift = 0, \
 	} \
 }
+
+static const unsigned long ad9361_2x2_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, /* 1 & 2 chan */
+	0x10, 0x20, 0x40, 0x80, 0x30, 0xC0, /* 1 & 2 chan */
+	0x33, 0xCC, 0xC3, 0x3C, 0x0F, 0xF0, /* 4 chan */
+	0xFF,				   /* 8 chan */
+	0x00,
+};
+
+static const unsigned long ad9009_4x2_available_scan_masks[] = {
+	0x0001, 0x0002, 0x0004, 0x0008, 0x0003, 0x000C, /* 1 & 2 chan */
+	0x0010, 0x0020, 0x0040, 0x0080, 0x0030, 0x00C0, /* 1 & 2 chan */
+	0x0100, 0x0200, 0x0400, 0x0800, 0x0300, 0x0C00, /* 1 & 2 chan */
+	0x1000, 0x2000, 0x4000, 0x8000, 0x3000, 0xC000, /* 1 & 2 chan */
+	0x0033, 0x00CC, 0x00C3, 0x003C, 0x000F, 0x00F0, /* 4 chan */
+	0x3300, 0xCC00, 0xC300, 0x3C00, 0x0F00, 0xF000, /* 4 chan */
+	0x0330, 0x0CC0, 0x0C30, 0x03C0, 0x00F0, 0x0F00, /* 4 chan */
+	0x3300, 0xCC00, 0xC300, 0x3C00, 0x0F00, 0xF000, /* 4 chan */
+	0x00FF, 0xFF00, 0x0FF0,	0x3333, 0xCCCC, 0xF0F0, /* 8 chan */
+	0x0F0F,						/* 8 chan */
+	0xFFFF,						/* 16 chan */
+	0x00,
+};
+
+static const unsigned long ad9361_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
+	0x00,
+};
+
+static const unsigned long adrv9002_rx2tx2_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
+	0x00,
+};
+
+static const unsigned long adrv9002_available_scan_masks[] = {
+	0x01, 0x02, 0x03, 0x00
+};
 
 struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD3552R] = {
