@@ -31,6 +31,23 @@
 
 #include "cf_axi_dds.h"
 
+static int axi_ad3552r_write(struct device *dev, u32 reg, u32 val)
+{
+	struct cf_axi_converter *conv = to_converter(dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+
+	dds_write(dds, reg, val);
+	return 0;
+}
+
+static int axi_ad3552r_read(struct device *dev, u32 reg)
+{
+	struct cf_axi_converter *conv = to_converter(dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+
+	return dds_read(dds, reg);
+}
+
 static u32 axi_ad3552r_read_wrapper(struct reg_addr_poll *addr)
 {
 	struct cf_axi_converter *conv = to_converter(addr->st->dev);
@@ -167,24 +184,8 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 					      (u32)val, AD3552R_TFER_16BIT_SDR);
 		return 0;
 	}
+
 	return -EINVAL;
-}
-
-static int axi_ad3552r_write(struct device *dev, u32 reg, u32 val)
-{
-	struct cf_axi_converter *conv = to_converter(dev);
-	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
-
-	dds_write(dds, reg, val);
-	return 0;
-}
-
-static int axi_ad3552r_read(struct device *dev, u32 reg)
-{
-	struct cf_axi_converter *conv = to_converter(dev);
-	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
-
-	return dds_read(dds, reg);
 }
 
 unsigned long long ad3552r_get_data_clk(struct cf_axi_converter *conv)
@@ -205,7 +206,6 @@ static int ad3552r_set_output_range(struct iio_dev *indio_dev,
 	mdelay(100);
 
 	return 0;
-
 }
 
 static int ad3552r_get_output_range(struct iio_dev *indio_dev,
