@@ -3358,6 +3358,31 @@ static void adrv9002_fill_profile_read(struct adrv9002_rf_phy *phy)
 				     ssi[phy->ssi_type]);
 }
 
+static void adrv9002_port_enable(const struct adrv9002_rf_phy *phy,
+				 const struct adrv9002_chan *c, bool enable)
+{
+	if (c->mux_ctl)
+		gpiod_set_value_cansleep(c->mux_ctl, enable);
+	if (c->mux_ctl_2)
+		gpiod_set_value_cansleep(c->mux_ctl_2, enable);
+	/*
+	 * Nothing to do for channel 2 in rx2tx2 mode. The check is useful to have
+	 * it in here if the outer loop is looping through all the channels.
+	 */
+	if (phy->rx2tx2 && c->idx > ADRV9002_CHANN_1)
+		return;
+	/*
+	 * We always disable but let's not enable a port that is not enable in the profile.
+	 * Same as above, the condition is needed if the outer loop is looping through all
+	 * channels to enable/disable them. Might be a redundant in some cases where the
+	 * caller already knows the state of the port.
+	 */
+	if (enable && !c->enabled)
+		return;
+
+	adrv9002_axi_interface_enable(phy, c->idx, c->port == ADI_TX, enable);
+}
+
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
 	int ret, c;
@@ -3375,17 +3400,7 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 		if (chan->port == ADI_TX && chan->idx >= phy->chip->n_tx)
 			break;
 
-		if (chan->mux_ctl)
-			gpiod_set_value_cansleep(chan->mux_ctl, 0);
-
-		if (chan->mux_ctl_2)
-			gpiod_set_value_cansleep(chan->mux_ctl_2, 0);
-
-		/* we still need to disable the muxes if the cores are set for rx2tx2 */
-		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
-			continue;
-
-		adrv9002_axi_interface_enable(phy, chan->idx, chan->port == ADI_TX, false);
+		adrv9002_port_enable(phy, chan, false);
 	}
 
 	phy->curr_profile = profile;
@@ -3407,20 +3422,7 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
 		chan = phy->channels[c];
 
-		if (chan->mux_ctl)
-			gpiod_set_value_cansleep(chan->mux_ctl, 1);
-
-		if (chan->mux_ctl_2)
-			gpiod_set_value_cansleep(chan->mux_ctl_2, 1);
-
-		/* We still need to go through the whole loop to potentially re-enable the muxes */
-		if (phy->rx2tx2 && chan->idx > ADRV9002_CHANN_1)
-			continue;
-
-		if (!chan->enabled)
-			continue;
-
-		adrv9002_axi_interface_enable(phy, chan->idx, chan->port == ADI_TX, true);
+		adrv9002_port_enable(phy, chan, true);
 	}
 
 	ret = adrv9002_intf_tuning(phy);
