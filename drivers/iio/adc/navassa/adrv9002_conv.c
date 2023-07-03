@@ -512,7 +512,7 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 	return max_cnt ? 0 : -EIO;
 }
 
-void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
+void adrv9002_axi_interface_enable(const struct adrv9002_rf_phy *phy, const int chan, const bool tx,
 				   const bool en)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
