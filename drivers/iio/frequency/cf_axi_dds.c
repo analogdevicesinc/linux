@@ -2357,6 +2357,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		if (IS_ERR(conv))
 			return PTR_ERR(conv);
 
+		dev_info(&pdev->dev, "Found dds converter frontend");
 		iio_device_set_drvdata(indio_dev, conv);
 		conv->indio_dev = indio_dev;
 		conv->pcore_sync = cf_axi_dds_sync_frame;
