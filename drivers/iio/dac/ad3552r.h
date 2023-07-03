@@ -202,13 +202,4 @@ struct ad3552r_desc {
 
 // } from ad3552r.c
 
-int ad3552r_register_axi_converter(struct axi_ad3552r_state *st);
-int ad3552r_read_reg(struct ad3552r_desc *dac, u8 addr, u16 *val);
-int ad3552r_write_reg(struct ad3552r_desc *dac, u8 addr, u16 val);
-int ad3552r_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
-		     int *val, int *val2, long mask);
-int ad3552r_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
-		      int val, int val2, long mask);
-int ad3552r_update_reg_field(struct ad3552r_desc *dac, u8 addr, u16 mask, u16 val);
-
 #endif /* __DRIVERS_IIO_ADC_AD3552R_BASE_H__ */
