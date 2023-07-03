@@ -481,18 +481,19 @@
 			status = "disabled";
 		};
 
-		usb31: usb3@11000000 {
+		usb31: usb1@11000000 {
 			compatible = "intel,agilex5-dwc3";
 			reg = <0x11000000 0x100000>;
+			ranges;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			clocks = <&clkmgr AGILEX5_USB31_SUSPEND_CLK>;
+			clocks = <&clkmgr AGILEX5_USB31_SUSPEND_CLK>,
+				 <&clkmgr AGILEX5_USB31_BUS_CLK_EARLY>;
 			resets = <&rst USB1_RESET>, <&rst USB1_OCP_RESET>;
 			reset-names = "dwc3", "dwc3-ecc";
-			ranges;
 			status = "disabled";
 
-			usb0@11000000{
+			usb@11000000{
 				compatible = "snps,dwc3";
 				reg = <0x11000000 0x100000>;
 				interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
