@@ -670,12 +670,81 @@ static int adrv9002_set_ext_lo(const struct adrv9002_chan *c, u64 freq)
 	return clk_set_rate_scaled(c->ext_lo->clk, freq, &c->ext_lo->scale);
 }
 
+static int adrv9002_phy_lo_set(struct adrv9002_rf_phy *phy, struct adrv9002_chan *c, u64 freq)
+{
+	struct adi_adrv9001_Carrier lo_freq;
+	int ret;
+
+	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Inspect, c->port, c->number, &lo_freq);
+	if (ret)
+		return ret;
+
+	ret = adrv9002_set_ext_lo(c, freq);
+	if (ret)
+		return ret;
+
+	lo_freq.carrierFrequency_Hz = freq;
+
+	return api_call(phy, adi_adrv9001_Radio_Carrier_Configure, c->port, c->number, &lo_freq);
+}
+
+static int adrv9002_phy_lo_set_ports(struct adrv9002_rf_phy *phy, struct adrv9002_chan *c, u64 freq)
+{
+	int ret;
+	int tx;
+
+	if (c->port == ADI_RX) {
+		int rx;
+
+		for (rx = 0; rx < ARRAY_SIZE(phy->rx_channels); rx++) {
+			if (c->lo != phy->rx_channels[rx].channel.lo)
+				continue;
+
+			ret = adrv9002_phy_lo_set(phy, &phy->rx_channels[rx].channel, freq);
+			if (ret)
+				return ret;
+		}
+
+		return 0;
+	}
+
+	for (tx = 0; tx < phy->chip->n_tx; tx++) {
+		if (c->lo != phy->tx_channels[tx].channel.lo)
+			continue;
+
+		ret = adrv9002_phy_lo_set(phy, &phy->tx_channels[tx].channel, freq);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/*
+ * Handling the carrier frequency is not really straight because it looks like we have 4
+ * independent controls when in reality they are not as the device only has 2 LOs. It
+ * all the depends on the LO mappings present in the current profile. First, the only way
+ * a carrier is actually applied (PLL re-tunes) is if all ports on the same LO, are moved
+ * into the calibrated state before changing it. Not doing so means that we may end up in
+ * an inconsistent state. For instance, consider the following steps in a FDD profile where
+ * RX1=RX2=LO1 (assuming both ports start at 2.4GHz):
+ *   1) Move RX1 carrier to 2.45GHz -> LO1 re-tunes
+ *   2) Move RX1 back to 2.4GHz -> LO1 does not re-tune and our carrier is at 2.45GHz
+ * With the above steps we are left with both ports, __apparently__, at 2.4GHz but in __reality__
+ * our carrier is at 2.45GHz.
+ *
+ * Secondly, when both ports of the same type are at the same LO, which happens on FDD and TTD
+ * (with diversity) profiles, we should move the carrier of these ports together, because it's
+ * just not possible to have both ports enabled with different carriers (they are on the same LO!).
+ * On TDD profiles, we never move TX/RX ports together even being on the same LO. The assumption
+ * is that we might have time to re-tune between RX and TX frames. If we don't, we need to manually
+ * set TX and RX carriers to the same value before starting operating...
+ */
 static ssize_t adrv9002_phy_lo_do_write(struct adrv9002_rf_phy *phy, struct adrv9002_chan *c,
 					const char *buf, size_t len)
 {
-	struct adi_adrv9001_Carrier lo_freq;
+	int ret, i;
 	u64 freq;
-	int ret;
 
 	ret = kstrtoull(buf, 10, &freq);
 	if (ret)
@@ -688,23 +757,48 @@ static ssize_t adrv9002_phy_lo_do_write(struct adrv9002_rf_phy *phy, struct adrv
 		goto out_unlock;
 	}
 
-	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Inspect, c->port, c->number, &lo_freq);
-	if (ret)
-		goto out_unlock;
+	/* move all channels on the same lo to the calibrated state */
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		if (phy->channels[i]->lo != c->lo)
+			continue;
 
-	ret = adrv9002_set_ext_lo(c, freq);
-	if (ret)
-		goto out_unlock;
+		ret = adrv9002_channel_to_state(phy, phy->channels[i],
+						ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+		if (ret)
+			goto out_unlock;
+	}
 
-	lo_freq.carrierFrequency_Hz = freq;
-	ret = adrv9002_channel_to_state(phy, c, ADI_ADRV9001_CHANNEL_CALIBRATED, true);
+	ret = adrv9002_phy_lo_set_ports(phy, c, freq);
 	if (ret)
-		goto out_unlock;
+		return ret;
 
-	ret = api_call(phy, adi_adrv9001_Radio_Carrier_Configure, c->port, c->number, &lo_freq);
-	if (ret)
-		goto out_unlock;
+	/* move all channels on the same lo to the cached state */
+	for (i = 0; i < ARRAY_SIZE(phy->channels); i++) {
+		/* If it's me... defer. See below */
+		if (phy->channels[i]->port == c->port && phy->channels[i]->idx == c->idx)
+			continue;
 
+		if (phy->channels[i]->lo != c->lo)
+			continue;
+
+		ret = adrv9002_channel_to_state(phy, phy->channels[i],
+						phy->channels[i]->cached_state, false);
+		if (ret)
+			goto out_unlock;
+	}
+
+	/*
+	 * This is needed so that we are sure that the port where we are changing the
+	 * carrier is the last one to transition state. This might matter in TDD profiles
+	 * because a transition from calibrated to prime also causes the PLL to re-lock
+	 * to the port carrier. So let's say that RX1 and TX1 are both on LO1 and start:
+	 *	1. TX1 carrier set to 2.45GHz and primed
+	 *	2. RX1 carrier set to 2.4GHz and primed
+	 *	3. Change RX1 to rf_enabled and set carrier to 2.5GHz
+	 * With the last steps we end up with 2.4GHz on LO1 which is not expected. The
+	 * reason is that we would move TX1 from calibrated to prime after changing RX1
+	 * which causes a re-lock.
+	 */
 	ret = adrv9002_channel_to_state(phy, c, c->cached_state, false);
 
 out_unlock:
@@ -2577,6 +2671,7 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 {
 	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
 	const struct adi_adrv9001_TxProfile *tx_cfg = phy->curr_profile->tx.txProfile;
+	struct adi_adrv9001_ClockSettings *clks = &phy->curr_profile->clocks;
 	unsigned long rx_mask = phy->curr_profile->rx.rxInitChannelMask;
 	unsigned long tx_mask = phy->curr_profile->tx.txInitChannelMask;
 	const u32 ports[ADRV9002_CHANN_MAX * 2 + ADI_ADRV9001_MAX_ORX_ONLY] = {
@@ -2636,6 +2731,7 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 		rx->channel.rate = rx_cfg[i].profile.rxOutputRate_Hz;
 		if (lo < ADI_ADRV9001_LOSEL_LO2)
 			rx->channel.ext_lo = &phy->ext_los[lo];
+		rx->channel.lo = i ? clks->rx2LoSelect : clks->rx1LoSelect;
 tx:
 		/* tx validations*/
 		if (!test_bit(ports[i * 2 + 1], &tx_mask))
@@ -2726,6 +2822,7 @@ tx:
 		tx->rate = tx_cfg[i].txInputRate_Hz;
 		if (lo < ADI_ADRV9001_LOSEL_LO2)
 			tx->ext_lo = &phy->ext_los[lo];
+		tx->lo = i ? clks->tx2LoSelect : clks->tx1LoSelect;
 	}
 
 	return 0;
@@ -3245,8 +3342,10 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 			gpiod_set_value_cansleep(phy->rx_channels[i].orx_gpio, 0);
 		phy->rx_channels[i].channel.enabled = 0;
 		phy->rx_channels[i].channel.ext_lo = NULL;
+		phy->rx_channels[i].channel.lo = 0;
 		phy->tx_channels[i].channel.enabled = 0;
 		phy->tx_channels[i].channel.ext_lo = NULL;
+		phy->tx_channels[i].channel.lo = 0;
 	}
 
 	phy->profile_len = scnprintf(phy->profile_buf, sizeof(phy->profile_buf),

@@ -158,6 +158,7 @@ struct adrv9002_chan {
 	unsigned long rate;
 	adi_adrv9001_ChannelState_e cached_state;
 	adi_common_ChannelNumber_e number;
+	adi_adrv9001_LoSel_e lo;
 	adi_common_Port_e port;
 	u32 power;
 	int nco_freq;
