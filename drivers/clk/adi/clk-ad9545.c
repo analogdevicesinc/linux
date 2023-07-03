@@ -1701,6 +1701,7 @@ static int ad9545_in_clk_debugfs_show(struct seq_file *s, void *p)
 {
 	struct ad9545_ref_in_clk *ref_clk = s->private;
 	u32 regval;
+	u32 div;
 	int ret;
 
 	ret = ad9545_io_update(ref_clk->st);
@@ -1722,6 +1723,13 @@ static int ad9545_in_clk_debugfs_show(struct seq_file *s, void *p)
 			   (regval & AD9545_REFX_JITTER_MSK) ? " Excess Jitter" : "",
 			   (regval & AD9545_REFX_FAST_MSK) ? " Too Fast" : "",
 			   (regval & AD9545_REFX_SLOW_MSK) ? " Too Slow" : "");
+
+	ret = ad9545_get_r_div(ref_clk->st, ref_clk->address, &div);
+	if (ret < 0) {
+		dev_err(ref_clk->st->dev, "Could not read r div value.");
+		return ret;
+	}
+	seq_printf(s, "R-divider: %u\n", div);
 
 	return 0;
 }
