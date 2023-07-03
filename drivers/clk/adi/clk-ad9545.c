@@ -1550,6 +1550,43 @@ static int ad9545_out_clk_get_nshot(struct clk_hw *hw)
 	return FIELD_GET(AD9545_NSHOT_NR_MSK, val);
 }
 
+#ifdef CONFIG_DEBUG_FS
+static int ad9545_out_clk_debugfs_show(struct seq_file *s, void *p)
+{
+	struct ad9545_out_clk *clk = s->private;
+	struct ad9545_state *st = clk->st;
+	u32 div;
+	int ret;
+
+	ret = ad9545_io_update(st);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(s, "%s:\n", ad9545_out_clk_names[clk->address]);
+
+	ret = ad9545_get_q_div(st, clk->address, &div);
+	if (ret < 0) {
+		dev_err(st->dev, "Could not read Q div value.");
+		return ret;
+	}
+	seq_printf(s, "Q-divider: %u\n", div);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(ad9545_out_clk_debugfs);
+
+static void ad9545_out_clk_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct ad9545_out_clk *clk = to_out_clk(hw);
+
+	if (clk->output_used)
+		debugfs_create_file(ad9545_out_clk_names[clk->address], 0444,
+				    dentry, clk, &ad9545_out_clk_debugfs_fops);
+}
+#else
+#define ad9545_out_clk_debug_init NULL
+#endif
+
 static const struct clk_ops ad9545_out_clk_ops = {
 	.enable = ad9545_out_clk_enable,
 	.disable = ad9545_out_clk_disable,
@@ -1561,6 +1598,7 @@ static const struct clk_ops ad9545_out_clk_ops = {
 	.get_phase = ad9545_out_clk_get_phase,
 	.set_nshot = ad9545_out_clk_set_nshot,
 	.get_nshot = ad9545_out_clk_get_nshot,
+	.debug_init = ad9545_out_clk_debug_init,
 };
 
 static int ad9545_outputs_setup(struct ad9545_state *st)
