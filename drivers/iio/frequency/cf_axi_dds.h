@@ -235,6 +235,7 @@ struct cf_axi_dds_chip_info {
 	unsigned int num_buf_channels;
 	unsigned num_shadow_slave_channels;
 	const unsigned long *scan_masks;
+	bool cust_chan;
 	struct iio_chan_spec channel[AXIDDS_MAX_NUM_CHANNELS];
 };
 
@@ -247,9 +248,108 @@ enum {
 	CLK_NUM,
 };
 
-enum cf_axi_dds_ext_info {
+enum cf_axi_dds_ext_info_priv {
 	CHANNEL_XBAR,
 };
+
+static const char * const cf_axi_dds_scale[] = {
+	"1.000000", "0.500000", "0.250000", "0.125000",
+	"0.062500", "0.031250", "0.015625", "0.007812",
+	"0.003906", "0.001953", "0.000976", "0.000488",
+	"0.000244", "0.000122", "0.000061", "0.000030"
+};
+
+static const struct iio_enum cf_axi_dds_scale_available = {
+	.items = cf_axi_dds_scale,
+	.num_items = ARRAY_SIZE(cf_axi_dds_scale),
+};
+
+static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
+	IIO_ENUM_AVAILABLE("scale", &cf_axi_dds_scale_available),
+	{ },
+};
+
+#define CF_AXI_DDS_CHAN(_chan, _address, _extend_name) { \
+	.type = IIO_ALTVOLTAGE,	\
+	.indexed = 1, \
+	.channel = _chan, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+		BIT(IIO_CHAN_INFO_SCALE) | \
+		BIT(IIO_CHAN_INFO_PHASE) | \
+		BIT(IIO_CHAN_INFO_FREQUENCY), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.address = _address, \
+	.output = 1, \
+	.extend_name = _extend_name, \
+	.ext_info = cf_axi_dds_ext_info, \
+	.scan_index = -1, \
+}
+
+#define CF_AXI_DDS_CHAN_BUF(_chan) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) | \
+		BIT(IIO_CHAN_INFO_CALIBPHASE), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.output = 1, \
+	.scan_index = _chan, \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
+#define CF_AXI_DDS_CHAN_BUF_MOD(_chan, _mod, _si) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.modified = 1, \
+	.channel = _chan, \
+	.channel2 = _mod, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.output = 1, \
+	.scan_index = _si, \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
+#define CF_AXI_DDS_CHAN_BUF_NO_CALIB(_chan, _ext_info, _sign) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.output = 1, \
+	.scan_index = _chan, \
+	.ext_info = _ext_info, \
+	.scan_type = { \
+		.sign = _sign, \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
+#define CF_AXI_DDS_CHAN_BUF_VIRT(_chan) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.output = 1, \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.scan_index = _chan, \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
 
 struct cf_axi_converter {
 	struct device	*dev;

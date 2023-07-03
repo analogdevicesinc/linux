@@ -1030,23 +1030,6 @@ static int cf_axi_dds_update_scan_mode(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static const char * const cf_axi_dds_scale[] = {
-	"1.000000", "0.500000", "0.250000", "0.125000",
-	"0.062500", "0.031250", "0.015625", "0.007812",
-	"0.003906", "0.001953", "0.000976", "0.000488",
-	"0.000244", "0.000122", "0.000061", "0.000030"
-};
-
-static const struct iio_enum cf_axi_dds_scale_available = {
-	.items = cf_axi_dds_scale,
-	.num_items = ARRAY_SIZE(cf_axi_dds_scale),
-};
-
-static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
-	IIO_ENUM_AVAILABLE("scale", &cf_axi_dds_scale_available),
-	{ },
-};
-
 static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 			struct iio_chan_spec *channels, unsigned int num)
 {
@@ -1056,89 +1039,6 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 		if (channels[i].type == IIO_ALTVOLTAGE)
 			channels[i].ext_info = NULL;
 	}
-}
-
-
-#define CF_AXI_DDS_CHAN(_chan, _address, _extend_name) { \
-	.type = IIO_ALTVOLTAGE,	\
-	.indexed = 1, \
-	.channel = _chan, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
-		BIT(IIO_CHAN_INFO_SCALE) | \
-		BIT(IIO_CHAN_INFO_PHASE) | \
-		BIT(IIO_CHAN_INFO_FREQUENCY), \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
-	.address = _address, \
-	.output = 1, \
-	.extend_name = _extend_name, \
-	.ext_info = cf_axi_dds_ext_info, \
-	.scan_index = -1, \
-}
-
-#define CF_AXI_DDS_CHAN_BUF(_chan) { \
-	.type = IIO_VOLTAGE, \
-	.indexed = 1, \
-	.channel = _chan, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) | \
-		BIT(IIO_CHAN_INFO_CALIBPHASE), \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
-	.output = 1, \
-	.scan_index = _chan, \
-	.scan_type = { \
-		.sign = 's', \
-		.storagebits = 16, \
-		.realbits = 16, \
-		.shift = 0, \
-	} \
-}
-
-#define CF_AXI_DDS_CHAN_BUF_MOD(_chan, _mod, _si) { \
-	.type = IIO_VOLTAGE, \
-	.indexed = 1, \
-	.modified = 1, \
-	.channel = _chan, \
-	.channel2 = _mod, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE), \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
-	.output = 1, \
-	.scan_index = _si, \
-	.scan_type = { \
-		.sign = 's', \
-		.storagebits = 16, \
-		.realbits = 16, \
-		.shift = 0, \
-	} \
-}
-
-#define CF_AXI_DDS_CHAN_BUF_NO_CALIB(_chan, _ext_info, _sign) { \
-	.type = IIO_VOLTAGE, \
-	.indexed = 1, \
-	.channel = _chan, \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
-	.output = 1, \
-	.scan_index = _chan, \
-	.ext_info = _ext_info, \
-	.scan_type = { \
-		.sign = _sign, \
-		.storagebits = 16, \
-		.realbits = 16, \
-		.shift = 0, \
-	} \
-}
-
-#define CF_AXI_DDS_CHAN_BUF_VIRT(_chan) { \
-	.type = IIO_VOLTAGE, \
-	.indexed = 1, \
-	.channel = _chan, \
-	.output = 1, \
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
-	.scan_index = _chan, \
-	.scan_type = { \
-		.sign = 's', \
-		.storagebits = 16, \
-		.realbits = 16, \
-		.shift = 0, \
-	} \
 }
 
 static const unsigned long ad9361_2x2_available_scan_masks[] = {
@@ -1181,16 +1081,7 @@ static const unsigned long adrv9002_available_scan_masks[] = {
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD3552R] = {
 		.name = "AD3552R",
-		.channel = {
-			//CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, ad3552r_ext_info, 'u'),
-			//CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, ad3552r_ext_info, 'u'),
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, NULL, 'u'),
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, NULL, 'u'),
-			CF_AXI_DDS_CHAN(0, 0, "1A"),
-			CF_AXI_DDS_CHAN(1, 0, "1B"),
-			CF_AXI_DDS_CHAN(2, 0, "2A"),
-			CF_AXI_DDS_CHAN(3, 0, "2B"),
-		},
+		.cust_chan = true,
 		.num_channels = 7,
 		.num_dp_disable_channels = 3,
 		.num_dds_channels = 4,
@@ -2412,7 +2303,8 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = np->name;
-	indio_dev->channels = st->chip_info->channel;
+	if (!st->chip_info->cust_chan)
+		indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->num_channels = (st->dp_disable ?
 		st->chip_info->num_dp_disable_channels :

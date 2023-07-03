@@ -325,13 +325,25 @@ static int axi_ad3552r_reset(struct axi_ad3552r_state *st)
 	return 0;
 }
 
+static const struct iio_chan_spec axi_ad3552r_chans[] = {
+	CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, ad3552r_ext_info, 'u'),
+	CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, ad3552r_ext_info, 'u'),
+	CF_AXI_DDS_CHAN(0, 0, "1A"),
+	CF_AXI_DDS_CHAN(1, 0, "1B"),
+	CF_AXI_DDS_CHAN(2, 0, "2A"),
+	CF_AXI_DDS_CHAN(3, 0, "2B"),
+};
+
 static int axi_ad3552r_setup(struct cf_axi_converter *conv)
 {
 	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+	struct iio_dev *indio_dev = conv->indio_dev;
 	struct axi_ad3552r_state *st = conv->phy;
 	u8 val;
 	u16 id;
 	int ret;
+
+	indio_dev->channels = axi_ad3552r_chans;
 
 	ret = axi_ad3552r_reset(st);
 	if (ret)
