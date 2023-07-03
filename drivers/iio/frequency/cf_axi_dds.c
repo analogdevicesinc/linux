@@ -1078,10 +1078,115 @@ static const unsigned long adrv9002_available_scan_masks[] = {
 	0x01, 0x02, 0x03, 0x00
 };
 
-static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
+static const char * const cf_axi_dds_scale[] = {
+	"1.000000", "0.500000", "0.250000", "0.125000",
+	"0.062500", "0.031250", "0.015625", "0.007812",
+	"0.003906", "0.001953", "0.000976", "0.000488",
+	"0.000244", "0.000122", "0.000061", "0.000030"
+};
+
+static const struct iio_enum cf_axi_dds_scale_available = {
+	.items = cf_axi_dds_scale,
+	.num_items = ARRAY_SIZE(cf_axi_dds_scale),
+};
+
+static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
+	IIO_ENUM_AVAILABLE("scale", &cf_axi_dds_scale_available),
+	{ },
+};
+
+#define CF_AXI_DDS_CHAN(_chan, _address, _extend_name) { \
+	.type = IIO_ALTVOLTAGE,	\
+	.indexed = 1, \
+	.channel = _chan, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+		BIT(IIO_CHAN_INFO_SCALE) | \
+		BIT(IIO_CHAN_INFO_PHASE) | \
+		BIT(IIO_CHAN_INFO_FREQUENCY), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.address = _address, \
+	.output = 1, \
+	.extend_name = _extend_name, \
+	.ext_info = cf_axi_dds_ext_info, \
+	.scan_index = -1, \
+}
+
+#define CF_AXI_DDS_CHAN_BUF(_chan) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) | \
+		BIT(IIO_CHAN_INFO_CALIBPHASE), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.output = 1, \
+	.scan_index = _chan, \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
+#define CF_AXI_DDS_CHAN_BUF_MOD(_chan, _mod, _si) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.modified = 1, \
+	.channel = _chan, \
+	.channel2 = _mod, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.output = 1, \
+	.scan_index = _si, \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
+#define CF_AXI_DDS_CHAN_BUF_NO_CALIB(_chan, _sign) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.output = 1, \
+	.scan_index = _chan, \
+	.scan_type = { \
+		.sign = _sign, \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
+#define CF_AXI_DDS_CHAN_BUF_VIRT(_chan) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.channel = _chan, \
+	.output = 1, \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.scan_index = _chan, \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
+struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD3552R] = {
 		.name = "AD3552R",
-		.cust_chan = true,
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, 'u'),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, 'u'),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+			CF_AXI_DDS_CHAN(2, 0, "2A"),
+			CF_AXI_DDS_CHAN(3, 0, "2B"),
+		},
 		.num_channels = 7,
 		.num_dp_disable_channels = 3,
 		.num_dds_channels = 4,
@@ -1099,8 +1204,8 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 					BIT(IIO_CHAN_INFO_PROCESSED) |
 					BIT(IIO_CHAN_INFO_CALIBBIAS),
 			},
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, NULL, 's'),
-			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, NULL, 's'),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, 's'),
+			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, 's'),
 			CF_AXI_DDS_CHAN(0, 0, "1A"),
 			CF_AXI_DDS_CHAN(1, 0, "1B"),
 			CF_AXI_DDS_CHAN(2, 0, "2A"),
@@ -1270,6 +1375,7 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_buf_channels = 2,
 	},
 };
+EXPORT_SYMBOL(cf_axi_dds_chip_info_tbl);
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
 	.name = "AD9361",
@@ -2303,8 +2409,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = np->name;
-	if (!st->chip_info->cust_chan)
-		indio_dev->channels = st->chip_info->channel;
+	indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->num_channels = (st->dp_disable ?
 		st->chip_info->num_dp_disable_channels :

@@ -325,25 +325,13 @@ static int axi_ad3552r_reset(struct axi_ad3552r_state *st)
 	return 0;
 }
 
-static const struct iio_chan_spec axi_ad3552r_chans[] = {
-	CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, ad3552r_ext_info, 'u'),
-	CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, ad3552r_ext_info, 'u'),
-	CF_AXI_DDS_CHAN(0, 0, "1A"),
-	CF_AXI_DDS_CHAN(1, 0, "1B"),
-	CF_AXI_DDS_CHAN(2, 0, "2A"),
-	CF_AXI_DDS_CHAN(3, 0, "2B"),
-};
-
 static int axi_ad3552r_setup(struct cf_axi_converter *conv)
 {
 	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
-	struct iio_dev *indio_dev = conv->indio_dev;
 	struct axi_ad3552r_state *st = conv->phy;
 	u8 val;
 	u16 id;
 	int ret;
-
-	indio_dev->channels = axi_ad3552r_chans;
 
 	ret = axi_ad3552r_reset(st);
 	if (ret)
@@ -390,6 +378,7 @@ static void ad3552r_clk_disable(void *data)
 
 static int axi_ad3552r_probe(struct platform_device *pdev)
 {
+	struct cf_axi_dds_chip_info *chip_info;
 	struct cf_axi_converter *conv;
 	struct axi_ad3552r_state *st;
 	int ret;
@@ -431,6 +420,9 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	conv->setup = axi_ad3552r_setup;
 	conv->clk[CLK_DAC] = st->ref_clk;
 	conv->get_data_clk = ad3552r_get_data_clk;
+	chip_info = &cf_axi_dds_chip_info_tbl[ID_AD3552R];
+	chip_info->channel[0].ext_info = ad3552r_ext_info;
+	chip_info->channel[1].ext_info = ad3552r_ext_info;
 
 	dev_set_drvdata(conv->dev, conv);
 
