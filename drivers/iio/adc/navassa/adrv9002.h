@@ -299,7 +299,7 @@ int adrv9002_axi_interface_set(const struct adrv9002_rf_phy *phy, const u8 n_lan
 			       const bool cmos_ddr, const int channel, const bool tx);
 int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   u8 *clk_delay, u8 *data_delay);
-void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool tx,
+void adrv9002_axi_interface_enable(const struct adrv9002_rf_phy *phy, const int chan, const bool tx,
 				   const bool en);
 int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 				     const adi_adrv9001_SsiTestModeData_e data);
