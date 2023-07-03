@@ -162,44 +162,9 @@ struct reg_addr_poll {
 // } axi-ad3552r "header"
 
 
-// from ad3552r.c {
-
-#define AD3552R_NUM_CH					2
-
 enum ad3542r_id {
 	AD3542R_ID = 0x4009,
 	AD3552R_ID = 0x4008,
 };
-
-struct ad3552r_ch_data {
-	s32	scale_int;
-	s32	scale_dec;
-	s32	offset_int;
-	s32	offset_dec;
-	s16	gain_offset;
-	u16	rfb;
-	u8	n;
-	u8	p;
-	u8	range;
-	bool	range_override;
-};
-
-//from ad3552r.c
-struct ad3552r_desc {
-	/* Used to look the spi bus for atomic operations where needed */
-	struct mutex		lock;
-	struct gpio_desc	*gpio_reset;
-	struct gpio_desc	*gpio_ldac;
-	struct clk		*ref_clk;
-	struct spi_device	*spi;
-	struct ad3552r_ch_data	ch_data[AD3552R_NUM_CH];
-	struct iio_chan_spec	channels[AD3552R_NUM_CH + 1];
-	unsigned long		enabled_ch;
-	unsigned int		num_ch;
-	enum ad3542r_id		chip_id;
-	bool single_channel; // from axi-ad3552r
-};
-
-// } from ad3552r.c
 
 #endif /* __DRIVERS_IIO_ADC_AD3552R_BASE_H__ */
