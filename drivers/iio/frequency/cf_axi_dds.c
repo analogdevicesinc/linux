@@ -15,7 +15,6 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/io.h>
-#include <linux/iopoll.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
@@ -107,7 +106,6 @@ struct cf_axi_dds_state {
 	struct cf_axi_dds_chip_info	*chip_info;
 	struct gpio_desc		*plddrbypass_gpio;
 	struct gpio_desc		*interpolation_gpio;
-	struct gpio_desc		*reset_gpio;
 	struct jesd204_dev 		*jdev;
 
 	bool				standalone;
@@ -118,7 +116,6 @@ struct cf_axi_dds_state {
 	bool				dma_fifo_ctrl_oneshot;
 	bool				issue_sync_en;
 	bool				ext_sync_avail;
-	bool				synced_transfer;
 
 	struct iio_info			iio_info;
 	struct iio_dev			*indio_dev;
