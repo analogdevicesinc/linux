@@ -3200,10 +3200,102 @@ static int ad9545_nco_clk_set_rate(struct clk_hw *hw, unsigned long rate, unsign
 	return ad9545_set_nco_freq_hz(clk->st, clk->address, rate);
 }
 
+#ifdef CONFIG_DEBUG_FS
+static int ad9545_nco_clk_debugfs_show(struct seq_file *s, void *p)
+{
+	struct ad9545_aux_nco_clk *clk = s->private;
+	struct ad9545_state *st = clk->st;
+	__le64 regval64;
+	__le32 regval;
+	u64 val64;
+	u32 val;
+	int cycle_type, delta_type;
+	int ret;
+
+	ret = ad9545_io_update(st);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(s, "%s:\n", ad9545_aux_nco_clk_names[clk->address]);
+
+	ret = ad9545_get_nco_center_freq(st, clk->address, &val64);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "Center frequency: %llu . %llu / 2^40 Hz\n",
+		   val64 >> 40, val64 & ((1ULL << 40) - 1));
+
+	ret = ad9545_get_nco_offset_freq(st, clk->address, &val);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "Offset frequency: %u . %u / 2^24 Hz\n",
+		   val >> 24, val & 0xffffff);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_TAG_RATIO(clk->address),
+			       &regval, 2);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "Tag ratio: %u\n", le32_to_cpu(regval) & 0xffff);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_TAG_DELTA(clk->address),
+			       &regval, 2);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "Tag delta: %u\n", le32_to_cpu(regval) & 0xffff);
+
+	ret = regmap_read(st->regmap, AD9545_NCOX_TYPE_ADJUST(clk->address),
+			  &val);
+	if (ret < 0)
+		return ret;
+	delta_type = FIELD_GET(AD9545_NCO_DELTA_TYPE_MSK, val);
+	cycle_type = FIELD_GET(AD9545_NCO_CYCLE_TYPE_MSK, val);
+	seq_printf(s, "Delta type: %s\n",
+		   delta_type ? "UI (fraction)" : "T (picoseconds)");
+	seq_printf(s, "Cycle type: %s\n",
+		   cycle_type ? "Relative change" : "Absolute value");
+
+	ret = regmap_bulk_read(st->regmap,
+			       AD9545_NCOX_DELTA_RATE_LIMIT(clk->address),
+			       &regval, 4);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "Delta rate limit: %u\n", le32_to_cpu(regval));
+
+	ret = regmap_bulk_read(st->regmap,
+			       AD9545_NCOX_DELTA_ADJUST(clk->address),
+			       &regval64, 5);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "Delta: %llu\n", le64_to_cpu(regval64) & 0xffffffffff);
+
+	ret = regmap_bulk_read(st->regmap,
+			       AD9545_NCOX_CYCLE_ADJUST(clk->address),
+			       &regval64, 5);
+	if (ret < 0)
+		return ret;
+	seq_printf(s, "Cycle: %llu\n", le64_to_cpu(regval64) & 0xffffffffff);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(ad9545_nco_clk_debugfs);
+
+static void ad9545_nco_clk_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct ad9545_aux_nco_clk *clk = to_nco_clk(hw);
+
+	if (clk->nco_used)
+		debugfs_create_file(ad9545_aux_nco_clk_names[clk->address],
+				    0444, dentry, clk,
+				    &ad9545_nco_clk_debugfs_fops);
+}
+#else
+#define ad9545_nco_clk_debug_init NULL
+#endif
+
 static const struct clk_ops ad9545_nco_clk_ops = {
 	.recalc_rate = ad9545_nco_clk_recalc_rate,
 	.round_rate = ad9545_nco_clk_round_rate,
 	.set_rate = ad9545_nco_clk_set_rate,
+	.debug_init = ad9545_nco_clk_debug_init,
 };
 
 static int ad9545_aux_ncos_setup(struct ad9545_state *st)
