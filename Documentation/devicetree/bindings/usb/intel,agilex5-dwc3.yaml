@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/usb/intel,agilex5-dwc3.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Intel Agilex5 DWC3 USB controller
+
+maintainers:
+  - Adrian Ng Ho Yin <adrian.ho.yin.ng@intel.com>
+
+properties:
+  compatible:
+    const: intel,agilex5-dwc3
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 2
+
+  ranges: true
+
+  resets:
+    maxItems: 2
+
+  reset-names:
+    items:
+      - const: dwc3
+      - const: dwc3-ecc
+
+  '#address-cells':
+    enum: [ 1, 2 ]
+
+  '#size-cells':
+    enum: [ 1, 2 ]
+
+# Required child node:
+
+patternProperties:
+  "^usb@[0-9a-f]+$":
+    $ref: snps,dwc3.yaml#
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - resets
+  - ranges
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/reset/altr,rst-mgr-agilex5.h>
+    #include <dt-bindings/clock/agilex5-clock.h>
+
+    usb1@11000000 {
+          compatible = "intel,agilex5-dwc3";
+          reg = <0x11000000 0x100000>;
+          ranges;
+          clocks = <&clkmgr AGILEX5_USB31_SUSPEND_CLK>,
+                   <&clkmgr AGILEX5_USB31_BUS_CLK_EARLY>;
+          resets = <&rst USB1_RESET>, <&rst USB1_OCP_RESET>;
+          reset-names = "dwc3", "dwc3-ecc";
+          #address-cells = <1>;
+          #size-cells = <1>;
+
+          usb@11000000 {
+                compatible = "snps,dwc3";
+                reg = <0x11000000 0x100000>;
+                interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
+                dr_mode = "host";
+          };
+    };
