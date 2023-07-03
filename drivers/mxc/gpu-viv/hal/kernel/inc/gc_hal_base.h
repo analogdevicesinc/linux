@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2022 Vivante Corporation
+*    Copyright (c) 2014 - 2023 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2022 Vivante Corporation
+*    Copyright (C) 2014 - 2023 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -1085,6 +1085,9 @@ gcoOS_DeviceControl(IN gcoOS Os,
 
 #define gcdMAX_PATH 512
 
+#define gcdMAX_ARGUMENT_SIZE 1024
+#define gcdMAX_ARGUMENT_COUNT 64
+
 /* Open a file. */
 gceSTATUS
 gcoOS_Open(IN gcoOS Os,
@@ -1317,6 +1320,12 @@ gcoOS_QueryVideoMemory(IN gcoOS Os,
 
 gceSTATUS
 gcoOS_QueryCurrentProcessName(OUT gctSTRING Name, IN gctSIZE_T Size);
+
+gceSTATUS
+gcoOS_QueryCurrentProcessArguments(OUT gctCHAR Argv[gcdMAX_ARGUMENT_COUNT][gcdMAX_ARGUMENT_SIZE],
+                                   OUT gctUINT32 *Argc,
+                                   IN  gctUINT32 MaxArgc,
+                                   IN  gctUINT32 MaxSizePerArg);
 
 /*----------------------------------------------------------------------------*/
 /*----- Atoms ----------------------------------------------------------------*/

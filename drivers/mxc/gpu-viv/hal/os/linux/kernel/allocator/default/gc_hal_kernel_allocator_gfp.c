@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2022 Vivante Corporation
+*    Copyright (c) 2014 - 2023 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2022 Vivante Corporation
+*    Copyright (C) 2014 - 2023 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -771,7 +771,7 @@ _GFPMmap(IN gckALLOCATOR           Allocator,
 
     gcmkHEADER_ARG("Allocator=%p Mdl=%p vma=%p", Allocator, Mdl, vma);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)) || ((LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 22)) && defined(CONFIG_ANDROID))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
     vm_flags_set(vma, gcdVM_FLAGS);
 #else
     vma->vm_flags |= gcdVM_FLAGS;
