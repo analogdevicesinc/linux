@@ -554,7 +554,7 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 	struct ad4630_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = pm_runtime_get_sync(&st->spi->dev);
+	ret = pm_runtime_resume_and_get(&st->spi->dev);
 	if (ret < 0)
 		return ret;
 
