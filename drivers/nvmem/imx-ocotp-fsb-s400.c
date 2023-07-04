@@ -52,7 +52,7 @@ static int read_words_via_s400_api(u32 *buf, unsigned int fuse_base, unsigned in
 	int err = 0;
 
 	for (i = 0; i < num; i++)
-		err = read_common_fuse(fuse_base + i, buf + i);
+		err = read_common_fuse(fuse_base + i, buf + i, false);
 
 	return err;
 }
@@ -129,12 +129,12 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 					goto ret;
 				break;
 			case UNIQ_ID:
-				err = read_common_fuse(OTP_UNIQ_ID, &buf[56]);
+				err = read_common_fuse(OTP_UNIQ_ID, &buf[56], true);
 				if (err)
 					goto ret;
 				break;
 			case OTFAD_CFG:
-				err = read_common_fuse(OTFAD_CONFIG, &buf[184]);
+				err = read_common_fuse(OTFAD_CONFIG, &buf[184], false);
 				if (err)
 					goto ret;
 				break;
