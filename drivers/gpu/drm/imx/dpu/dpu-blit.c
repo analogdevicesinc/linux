@@ -393,3 +393,4 @@ module_platform_driver(dpu_bliteng_driver);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("NXP Semiconductor");
 MODULE_DESCRIPTION("i.MX DRM DPU BLITENG");
+MODULE_IMPORT_NS(DMA_BUF);
