@@ -95,7 +95,9 @@ static ssize_t HDCPRX_enable_store(struct device *dev,
 		return -1;
 	}
 
-    sscanf(buf, "%d", &value);
+	if (sscanf(buf, "%d", &value) != 1)
+		return -EINVAL;
+
     /* HDCP start/stop and load/unload of modules will be handled
        in the tmdsmon function. We just setup the flags here.
     */
@@ -714,7 +716,11 @@ void imx8qm_hdmi_phy_reset(struct cdns_hdmirx_device *hdmirx, u8 reset)
 
 	dev_dbg(&hdmirx->pdev->dev, "%s\n", __func__);
 
-	imx_scu_get_handle(&handle);
+	ret = imx_scu_get_handle(&handle);
+	if (ret) {
+		DRM_ERROR("Failed to get scu ipc handle (%d)\n", ret);
+		return;
+	}
 	/* set the pixel link mode and pixel type */
 	ret = imx_sc_misc_set_control(handle, IMX_SC_R_HDMI_RX, IMX_SC_C_PHY_RESET, reset);
 	if (ret)
@@ -1255,8 +1261,13 @@ static int hdmirx_probe(struct platform_device *pdev)
 
 	hdmirx->is_cec = of_property_read_bool(pdev->dev.of_node, "fsl,cec");
 
-	of_property_read_string(pdev->dev.of_node, "firmware-name",
-					&hdmirx->firmware_name);
+	ret = of_property_read_string(pdev->dev.of_node, "firmware-name",
+				&hdmirx->firmware_name);
+	if (ret < 0) {
+		v4l2_async_unregister_subdev(&hdmirx->sd);
+		media_entity_cleanup(&hdmirx->sd.entity);
+		return ret;
+	}
 
 	hdmirx_clock_init(hdmirx);
 
