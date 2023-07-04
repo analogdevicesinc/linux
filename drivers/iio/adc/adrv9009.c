@@ -921,8 +921,6 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 
 	/*** < User Sends SYSREF Here > ***/
-
-
 	adrv9009_sysref_req(phy, SYSREF_CONT_ON);
 
 	if (has_rx_and_en(phy)) {
@@ -954,9 +952,8 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl);
 	}
 
-	adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
-
 	/*** < User Sends SYSREF Here > ***/
+	adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
 
 	/*** < Insert User JESD204B Sync Verification Code Here > ***/
 
