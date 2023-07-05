@@ -10,6 +10,8 @@
 
 #include <linux/clk.h>
 
+int ad9545_get_aux_nco_tuning_freq(struct clk *clk, u64 *freq);
+int ad9545_set_aux_nco_tuning_freq(struct clk *clk, u64 freq);
 int ad9545_select_source(struct clk *tuning_clk, struct clk *out_clk);
 
 #endif /* _AD9545_H_ */

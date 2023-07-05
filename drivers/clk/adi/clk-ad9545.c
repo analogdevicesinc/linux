@@ -3576,6 +3576,42 @@ static int ad9545_get_nco_freq(struct ad9545_state *st, int addr, u64 *freq)
 	return 0;
 }
 
+int ad9545_get_aux_nco_tuning_freq(struct clk *clk, u64 *freq)
+{
+	struct clk_hw *hw = __clk_get_hw(clk);
+	struct ad9545_aux_nco_clk *nco = to_nco_clk(hw);
+	int ret;
+
+	ret = ad9545_io_update(nco->st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_get_nco_freq(nco->st, nco->address, freq);
+
+	dev_info(nco->st->dev, "nco%d: get tuning frequency: %llu\n",
+		 nco->address, *freq);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(ad9545_get_aux_nco_tuning_freq);
+
+int ad9545_set_aux_nco_tuning_freq(struct clk *clk, u64 freq)
+{
+	struct clk_hw *hw = __clk_get_hw(clk);
+	struct ad9545_aux_nco_clk *nco = to_nco_clk(hw);
+	int ret;
+
+	ret = ad9545_set_nco_center_freq(nco->st, nco->address, freq);
+	if (ret < 0)
+		return ret;
+
+	dev_info(nco->st->dev, "nco%d: set tuning frequency: %llu\n",
+		 nco->address, freq);
+
+	return ad9545_io_update(nco->st);
+}
+EXPORT_SYMBOL_GPL(ad9545_set_aux_nco_tuning_freq);
+
 static int ad9545_nco_clk_setup(struct ad9545_state *st, int addr,
 				u64 center_freq, u32 offset_freq)
 {
