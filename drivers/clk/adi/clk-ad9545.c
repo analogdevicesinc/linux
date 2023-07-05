@@ -4633,6 +4633,27 @@ static int ad9545_pll_select_source(struct ad9545_pll_clk *pll)
 	return 0;
 }
 
+int ad9545_select_source(struct clk *tuning_clk, struct clk *out_clk)
+{
+	struct clk_hw *tuning_hw = __clk_get_hw(tuning_clk);
+	struct clk_hw *out_hw = __clk_get_hw(out_clk);
+	struct ad9545_aux_nco_clk *nco = to_nco_clk(tuning_hw);
+	struct ad9545_out_clk *out = to_out_clk(out_hw);
+	struct ad9545_pll_clk *pll;
+
+	/* TODO  How do we check the clock type? */
+
+	if (out->address > 5)
+		pll = &out->st->pll_clks[1];
+	else
+		pll = &out->st->pll_clks[0];
+
+	pll->select_source = AD9545_SOURCE_AUX_NCO0 + nco->address;
+
+	return ad9545_pll_select_source(pll);
+}
+EXPORT_SYMBOL_GPL(ad9545_select_source);
+
 static int ad9545_plls_post_setup(struct ad9545_state *st)
 {
 	struct ad9545_pll_clk *pll;
