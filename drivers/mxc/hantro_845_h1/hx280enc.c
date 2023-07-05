@@ -374,60 +374,52 @@ static long EncRefreshRegs(hx280enc_t *dev, unsigned int *regs)
 	return 0;
 }
 
-static int hx280enc_write_regs(unsigned long arg)
+static int hx280enc_write_regs(struct enc_regs_buffer *regs)
 {
-	struct enc_regs_buffer regs;
 	hx280enc_t *dev = &hx280enc_data;
 	u32 *reg_buf;
 	u32 i;
 	int ret;
 
-	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
-	if (ret)
-		return ret;
-	if ((regs.offset + regs.size) > sizeof(dev->mirror_regs)) {
+	if ((regs->offset + regs->size) > sizeof(dev->mirror_regs)) {
 		pr_err("%s invalid param, offset:%d, size:%d\n",
-			__func__, regs.offset, regs.size);
+			__func__, regs->offset, regs->size);
 		return -EINVAL;
 	}
 
-	reg_buf = &dev->mirror_regs[regs.offset / 4];
-	ret = copy_from_user((void *)reg_buf, (void *)regs.regs, regs.size);
+	reg_buf = &dev->mirror_regs[regs->offset / 4];
+	ret = copy_from_user((void *)reg_buf, (void *)regs->regs, regs->size);
 	if (ret)
 		return ret;
 
-	for (i = 0; i < regs.size / 4; i++) {
-		iowrite32(reg_buf[i], (dev->hwregs + regs.offset) + i * 4);
-		if ((regs.offset + i * 4) == 4)
+	for (i = 0; i < regs->size / 4; i++) {
+		iowrite32(reg_buf[i], (dev->hwregs + regs->offset) + i * 4);
+		if ((regs->offset + i * 4) == 4)
 			dev->statusShowReg = readl(dev->hwregs + 0x04);
 	}
 
 	return ret;
 }
 
-static int hx280enc_read_regs(unsigned long arg)
+static int hx280enc_read_regs(struct enc_regs_buffer *regs)
 {
-	struct enc_regs_buffer regs;
 	hx280enc_t *dev = &hx280enc_data;
 	u32 *reg_buf;
 	u32 i;
 	int ret;
 
-	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
-	if (ret)
-		return ret;
-	if ((regs.offset + regs.size) > sizeof(dev->mirror_regs)) {
+	if ((regs->offset + regs->size) > sizeof(dev->mirror_regs)) {
 		pr_err("%s invalid param, offset:%d, size:%d\n",
-			__func__, regs.offset, regs.size);
+			__func__, regs->offset, regs->size);
 		return -EINVAL;
 	}
 
-	reg_buf = &dev->mirror_regs[regs.offset / 4];
+	reg_buf = &dev->mirror_regs[regs->offset / 4];
 
-	for (i = 0; i < regs.size / 4; i++)
-		reg_buf[i] = ioread32((dev->hwregs + regs.offset) + i * 4);
+	for (i = 0; i < regs->size / 4; i++)
+		reg_buf[i] = ioread32((dev->hwregs + regs->offset) + i * 4);
 
-	ret = copy_to_user((void *)regs.regs, (void *)reg_buf, regs.size);
+	ret = copy_to_user((void *)regs->regs, (void *)reg_buf, regs->size);
 
 	return ret;
 }
@@ -490,13 +482,25 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 		break;
 	}
 	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
-		err = hx280enc_write_regs(arg);
+		struct enc_regs_buffer regs;
+
+		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		if (err)
+			return err;
+
+		err = hx280enc_write_regs(&regs);
 		if (err)
 			return err;
 		break;
 	}
 	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
-		err = hx280enc_read_regs(arg);
+		struct enc_regs_buffer regs;
+
+		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		if (err)
+			return err;
+
+		err = hx280enc_read_regs(&regs);
 		if (err)
 			return err;
 		break;
@@ -576,61 +580,74 @@ static int hx280enc_release(struct inode *inode, struct file *filp)
 }
 
 #ifdef CONFIG_COMPAT
-static long hx280enc_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
+struct enc_regs_buffer_32 {
+	__u32 core_id;
+	compat_caddr_t regs;
+	__u32 offset;
+	__u32 size;
+	compat_caddr_t reserved;
+};
+
+static int get_hantro_enc_regs_buffer32(struct enc_regs_buffer *kp,
+					struct enc_regs_buffer_32 __user *up)
 {
-    long err = 0;
-#define HX280ENC_IOCTL32(err, filp, cmd, arg) { \
-	err = hx280enc_ioctl(filp, cmd, arg); \
-	if (err) \
-	return err; \
+	u32 tmp1, tmp2;
+
+	if (!access_ok(up, sizeof(struct enc_regs_buffer_32)) ||
+	    get_user(kp->core_id, &up->core_id) ||
+	    get_user(kp->offset, &up->offset) ||
+	    get_user(kp->size, &up->size) ||
+	    get_user(tmp1, &up->regs) ||
+	    get_user(tmp2, &up->reserved)) {
+		return -EFAULT;
+	}
+	kp->regs = (__force u32 *)compat_ptr(tmp1);
+	kp->reserved = (__force u32 *)compat_ptr(tmp2);
+	return 0;
 }
 
-union {
-    unsigned long kux;
-    unsigned int kui;
-} karg;
-    void __user *up = compat_ptr(arg);
+static bool hantro_h1_is_compat_ptr_ioctl(unsigned int cmd)
+{
+	bool ret = true;
 
-    switch (_IOC_NR(cmd))    {
-    case _IOC_NR(HX280ENC_IOCGHWOFFSET):
-		err = get_user(karg.kux, (s32 __user *)up);
-		if (err)
-		    return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kux), (s32 __user *)up);
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(HX280ENC_IOC_WRITE_REGS):
+	case _IOC_NR(HX280ENC_IOC_READ_REGS):
+		ret = false;
 		break;
-    case _IOC_NR(HX280ENC_IOCGHWIOSIZE):
-		err = get_user(karg.kui, (s32 __user *)up);
-		if (err)
-		    return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kui), (s32 __user *)up);
-		break;
-    case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
-	    int ret;
-	    PDEBUG("Reserve ENC Cores\n");
-	    ret = ReserveEncoder(&hx280enc_data, filp);
-	    return ret;
-	}
-    case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE): {
-	    PDEBUG("Release ENC Core\n");
-	    ReleaseEncoder(&hx280enc_data, filp);
-	    break;
-	}
-	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
-		break;
-	}
 	default:
 		break;
+	}
+
+	return ret;
+}
+
+static long hx280enc_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
+	void __user *up = compat_ptr(arg);
+	struct enc_regs_buffer regs;
+
+	if (hantro_h1_is_compat_ptr_ioctl(cmd))
+		return compat_ptr_ioctl(filp, cmd, arg);
+
+	err = get_hantro_enc_regs_buffer32(&regs, up);
+	if (err)
+		return err;
+
+	switch (_IOC_NR(cmd)) {
+		case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
+			err = hx280enc_write_regs(&regs);
+			if (err)
+				return err;
+			break;
+		}
+		case _IOC_NR(HX280ENC_IOC_READ_REGS): {
+			err = hx280enc_read_regs(&regs);
+			if (err)
+				return err;
+			break;
+		}
 	}
 	return 0;
 }
