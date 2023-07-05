@@ -402,61 +402,53 @@ static void ReleaseEncoder(hantroenc_t *dev, u32 *core_info, struct file *filp)
 
 }
 
-static int hantroenc_write_regs(unsigned long arg)
+static int hantroenc_write_regs(struct enc_regs_buffer *regs)
 {
-	struct enc_regs_buffer regs;
 	hantroenc_t *dev;
 	u32 *reg_buf;
 	u32 i;
 	int ret;
 
-	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
-	if (ret)
-		return ret;
-	if (regs.core_id >= total_core_num ||
-	    (regs.offset + regs.size) > sizeof(hantroenc_data[regs.core_id].reg_buf)) {
+	if (regs->core_id >= total_core_num ||
+	    (regs->offset + regs->size) > sizeof(hantroenc_data[regs->core_id].reg_buf)) {
 		pr_err("%s invalid param, core_id:%d, offset:%d, size:%d\n",
-			__func__, regs.core_id, regs.offset, regs.size);
+			__func__, regs->core_id, regs->offset, regs->size);
 		return -EINVAL;
 	}
 
-	dev = &hantroenc_data[regs.core_id];
-	reg_buf = &dev->reg_buf[regs.offset / 4];
-	ret = copy_from_user(reg_buf, (void *)regs.regs, regs.size);
+	dev = &hantroenc_data[regs->core_id];
+	reg_buf = &dev->reg_buf[regs->offset / 4];
+	ret = copy_from_user(reg_buf, (void *)regs->regs, regs->size);
 	if (ret)
 		return ret;
 
-	for (i = 0; i < regs.size / 4; i++)
-		iowrite32(reg_buf[i], (dev->hwregs + regs.offset) + i * 4);
+	for (i = 0; i < regs->size / 4; i++)
+		iowrite32(reg_buf[i], (dev->hwregs + regs->offset) + i * 4);
 
 	return ret;
 }
 
-static int hantroenc_read_regs(unsigned long arg)
+static int hantroenc_read_regs(struct enc_regs_buffer *regs)
 {
-	struct enc_regs_buffer regs;
 	hantroenc_t *dev;
 	u32 *reg_buf;
 	u32 i;
 	int ret;
 
-	ret = copy_from_user(&regs, (void *)arg, sizeof(regs));
-	if (ret)
-		return ret;
-	if (regs.core_id >= total_core_num ||
-	    (regs.offset + regs.size) > sizeof(hantroenc_data[regs.core_id].reg_buf)) {
+	if (regs->core_id >= total_core_num ||
+	    (regs->offset + regs->size) > sizeof(hantroenc_data[regs->core_id].reg_buf)) {
 		pr_err("%s invalid param, core_id:%d, offset:%d, size:%d\n",
-			__func__, regs.core_id, regs.offset, regs.size);
+			__func__, regs->core_id, regs->offset, regs->size);
 		return -EINVAL;
 	}
 
-	dev = &hantroenc_data[regs.core_id];
-	reg_buf = &dev->reg_buf[regs.offset / 4];
+	dev = &hantroenc_data[regs->core_id];
+	reg_buf = &dev->reg_buf[regs->offset / 4];
 
-	for (i = 0; i < regs.size / 4; i++)
-		reg_buf[i] = ioread32((dev->hwregs + regs.offset) + i * 4);
+	for (i = 0; i < regs->size / 4; i++)
+		reg_buf[i] = ioread32((dev->hwregs + regs->offset) + i * 4);
 
-	ret = copy_to_user((void *)regs.regs, reg_buf, regs.size);
+	ret = copy_to_user((void *)regs->regs, reg_buf, regs->size);
 
 	return ret;
 }
@@ -617,13 +609,25 @@ static long hantroenc_ioctl(struct file *filp,
 		break;
 	}
 	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
-		err = hantroenc_write_regs(arg);
+		struct enc_regs_buffer regs;
+
+		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		if (err)
+			return err;
+
+		err = hantroenc_write_regs(&regs);
 		if (err)
 			return err;
 		break;
 	}
 	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
-		err = hantroenc_read_regs(arg);
+		struct enc_regs_buffer regs;
+
+		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		if (err)
+			return err;
+
+		err = hantroenc_read_regs(&regs);
 		if (err)
 			return err;
 		break;
@@ -694,105 +698,82 @@ static int hantroenc_release(struct inode *inode, struct file *filp)
 }
 
 #ifdef CONFIG_COMPAT
+
+struct enc_regs_buffer_32 {
+	__u32 core_id;
+	compat_caddr_t regs;
+	__u32 offset;
+	__u32 size;
+	compat_caddr_t reserved;
+};
+
+static int get_hantro_enc_regs_buffer32(struct enc_regs_buffer *kp,
+					struct enc_regs_buffer_32 __user *up)
+{
+	u32 tmp1, tmp2;
+
+	if (!access_ok(up, sizeof(struct enc_regs_buffer_32)) ||
+	    get_user(kp->core_id, &up->core_id) ||
+	    get_user(kp->offset, &up->offset) ||
+	    get_user(kp->size, &up->size) ||
+	    get_user(tmp1, &up->regs) ||
+	    get_user(tmp2, &up->reserved)) {
+		return -EFAULT;
+	}
+	kp->regs = (__force u32 *)compat_ptr(tmp1);
+	kp->reserved = (__force u32 *)compat_ptr(tmp2);
+	return 0;
+}
+
+static bool hantro_vc8000e_is_compat_ptr_ioctl(unsigned int cmd)
+{
+	bool ret = true;
+
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(HX280ENC_IOC_WRITE_REGS):
+	case _IOC_NR(HX280ENC_IOC_READ_REGS):
+		ret = false;
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
 static long hantroenc_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long err = 0;
-
-#define HX280ENC_IOCTL32(err, filp, cmd, arg) { \
-	err = hantroenc_ioctl(filp, cmd, arg); \
-	if (err) \
-		return err; \
-}
-#endif
-
-union {
-	unsigned long kux;
-	unsigned int kui;
-} karg;
 	void __user *up = compat_ptr(arg);
+	struct enc_regs_buffer regs;
+
+	if (hantro_vc8000e_is_compat_ptr_ioctl(cmd))
+		return compat_ptr_ioctl(filp, cmd, arg);
+
+	err = get_hantro_enc_regs_buffer32(&regs, up);
+	if (err)
+		return err;
+
+	if (regs.core_id >= total_core_num)
+		return -EFAULT;
 
 	switch (_IOC_NR(cmd)) {
-	case _IOC_NR(HX280ENC_IOCGHWOFFSET): {
-		err = get_user(karg.kux, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kux), (s32 __user *)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOCGHWIOSIZE): {
-		err = get_user(karg.kui, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kui), (s32 __user *)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOCGSRAMOFFSET): {
-		err = get_user(karg.kux, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kux), (s32 __user *)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOCGSRAMEIOSIZE):{
-		err = get_user(karg.kui, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kui), (s32 __user *)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOCG_CORE_NUM): {
-		err = get_user(karg.kui, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kui), (s32 __user *)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
-		err = get_user(karg.kui, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		err = put_user(((s32)karg.kui), (s32 __user *)up);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE): {
-		err = get_user(karg.kui, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		break;
-	}
-	case _IOC_NR(HX280ENC_IOCG_EN_CORE): {
-		err = get_user(karg.kui, (s32 __user *)up);
-		if (err)
-			return err;
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-		break;
-	}
-
-	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
-		break;
-	}
-
-	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
-		break;
-	}
-
-	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
-		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
-		break;
-	}
-
+		case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
+			err = hantroenc_write_regs(&regs);
+			if (err)
+				return err;
+			break;
+		}
+		case _IOC_NR(HX280ENC_IOC_READ_REGS): {
+			err = hantroenc_read_regs(&regs);
+			if (err)
+				return err;
+			break;
+		}
 	}
 	return 0;
 }
+#endif
 
 /* VFS methods */
 static struct file_operations hantroenc_fops = {
