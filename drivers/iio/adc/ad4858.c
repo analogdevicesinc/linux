@@ -710,6 +710,12 @@ static void ad4858_pwm_diasble(void *data)
 	pwm_disable(data);
 }
 
+static int ad4858_read_label(struct iio_dev *indio_dev,
+			     const struct iio_chan_spec *chan, char *label)
+{
+	return sprintf(label, "%d\n", chan->channel);
+}
+
 static const struct axiadc_chip_info adc_chip_info = {
 	.name = "ad4858",
 	.max_rate = 1000000UL,
@@ -802,6 +808,7 @@ static int ad4858_probe(struct spi_device *spi)
 	conv->reg_access = &ad4858_reg_access;
 	conv->write_raw = &ad4858_write_raw;
 	conv->read_raw = &ad4858_read_raw;
+	conv->read_label = &ad4858_read_label;
 	conv->phy = adc;
 
 	device_create_file(&spi->dev, &dev_attr_spi_status);
