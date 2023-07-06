@@ -3575,6 +3575,73 @@ static int ad9545_get_nco_freq(struct ad9545_state *st, int addr, u64 *freq)
 	return 0;
 }
 
+static int ad9545_nco_clk_setup(struct ad9545_state *st, int addr,
+				u64 center_freq, u32 offset_freq)
+{
+	struct ad9545_aux_nco_clk *clk;
+	__le64 regval64;
+	__le32 regval;
+	u32 val;
+	int ret;
+
+	if (addr >= ARRAY_SIZE(ad9545_aux_nco_clk_names))
+		return -EINVAL;
+	clk = &st->aux_nco_clks[addr];
+
+	ret = ad9545_set_nco_center_freq(st, addr, center_freq);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_set_nco_offset_freq(st, addr, offset_freq);
+	if (ret < 0)
+		return ret;
+
+	/* clear everything else */
+
+	regval = cpu_to_le32(0);
+	ret = regmap_bulk_write(st->regmap,
+				AD9545_NCOX_TAG_RATIO(clk->address),
+				&regval, 2);
+	if (ret < 0)
+		return ret;
+
+	regval = cpu_to_le32(0);
+	ret = regmap_bulk_write(st->regmap,
+				AD9545_NCOX_TAG_DELTA(clk->address),
+				&regval, 2);
+	if (ret < 0)
+		return ret;
+
+	val = 0;
+	ret = regmap_write(st->regmap,
+			   AD9545_NCOX_TYPE_ADJUST(clk->address), val);
+	if (ret < 0)
+		return ret;
+
+	regval = cpu_to_le32(0);
+	ret = regmap_bulk_write(st->regmap,
+				AD9545_NCOX_DELTA_RATE_LIMIT(clk->address),
+				&regval, 4);
+	if (ret < 0)
+		return ret;
+
+	regval64 = cpu_to_le64(0);
+	ret = regmap_bulk_read(st->regmap,
+			       AD9545_NCOX_DELTA_ADJUST(clk->address),
+			       &regval64, 5);
+	if (ret < 0)
+		return ret;
+
+	regval64 = cpu_to_le64(0);
+	ret = regmap_bulk_read(st->regmap,
+			       AD9545_NCOX_CYCLE_ADJUST(clk->address),
+			       &regval64, 5);
+	if (ret < 0)
+		return ret;
+
+	return ad9545_io_update(st);
+}
+
 static int ad9545_get_nco_freq_hz(struct ad9545_state *st, int addr, u32 *freq)
 {
 	u64 val64;
@@ -4491,6 +4558,23 @@ static int ad9545_pll_get_active_freq(struct ad9545_pll_clk *pll,
 	return 0;
 }
 
+static int ad9545_aux_ncos_post_setup(struct ad9545_state *st)
+{
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(ad9545_aux_nco_clk_names); i++) {
+		u64 freq = st->aux_nco_clks[i].rate_requested_hz;
+
+		if (freq != 0) {
+			ret = ad9545_nco_clk_setup(st, i, freq << 40, 0);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int ad9545_plls_post_setup(struct ad9545_state *st)
 {
 	struct ad9545_pll_clk *pll;
@@ -4576,6 +4660,108 @@ static int ad9545_plls_post_setup(struct ad9545_state *st)
 
 static int ad9545_post_setup(struct ad9545_state *st)
 {
+	struct fwnode_handle *fwnode;
+	int num;
+	int ret;
+
+	fwnode = dev_fwnode(st->dev);
+
+	num = fwnode_property_count_u32(fwnode, "adi,set-aux-nco-frequencies");
+	if (num > 0) {
+		u32 *frequencies;
+		int i;
+
+		if (num % 2 != 0)
+			return -EINVAL;
+
+		frequencies = devm_kcalloc(st->dev, num,
+					   sizeof(*frequencies),
+					   GFP_KERNEL);
+		if (!frequencies)
+			return -ENOMEM;
+
+		ret = fwnode_property_read_u32_array(fwnode,
+				"adi,set-aux-nco-frequencies",
+				frequencies, num);
+		if (ret < 0)
+			return ret;
+
+		for (i = 0; i < num; i += 2) {
+			u32 aux_nco, freq;
+
+			aux_nco = frequencies[i];
+			freq = frequencies[i + 1];
+
+			if (aux_nco >= ARRAY_SIZE(ad9545_aux_nco_clk_names))
+				return -EINVAL;
+
+			if (freq > 65535)
+				return -EINVAL;
+
+			st->aux_nco_clks[aux_nco].rate_requested_hz = freq;
+		}
+
+		devm_kfree(st->dev, frequencies);
+	}
+
+	num = fwnode_property_count_u32(fwnode,
+					"adi,add-dpll-aux-nco-profiles");
+	if (num > 0) {
+		u32 *profiles;
+		int i;
+
+		if (num % 2 != 0)
+			return -EINVAL;
+
+		profiles = devm_kcalloc(st->dev, num, sizeof(*profiles),
+					GFP_KERNEL);
+		if (!profiles)
+			return -ENOMEM;
+
+		ret = fwnode_property_read_u32_array(fwnode,
+				"adi,add-dpll-aux-nco-profiles",
+				profiles, num);
+		if (ret < 0)
+			return ret;
+
+		for (i = 0; i < num; i += 2) {
+			u32 pll, aux_nco;
+			int j;
+
+			pll = profiles[i];
+			aux_nco = profiles[i + 1];
+
+			if (pll >= ARRAY_SIZE(ad9545_pll_clk_names))
+				return -EINVAL;
+
+			if (aux_nco >= ARRAY_SIZE(ad9545_aux_nco_clk_names))
+				return -EINVAL;
+
+			/* find an unused profile */
+			for (j = 0; j < AD9545_MAX_DPLL_PROFILES; j++) {
+				struct ad9545_dpll_profile *p;
+
+				p = &st->pll_clks[pll].profiles[j];
+
+				if (!p->en &&
+				    p->source != AD9545_SOURCE_AUX_NCO0 &&
+				    p->source != AD9545_SOURCE_AUX_NCO1)
+					break;
+			}
+			if (j == AD9545_MAX_DPLL_PROFILES)
+				return -EINVAL;
+
+			st->pll_clks[pll].profiles[j].source =
+					AD9545_SOURCE_AUX_NCO0 + aux_nco;
+		}
+
+		devm_kfree(st->dev, profiles);
+	}
+
+	ret = ad9545_aux_ncos_post_setup(st);
+	if (ret < 0)
+		return ret;
+
 	return ad9545_plls_post_setup(st);
 }
 
