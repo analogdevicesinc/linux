@@ -24,8 +24,11 @@ static int imx9_soc_device_register(struct device *dev)
 	struct soc_device *sdev;
 	void __iomem *anaosc;
 	u32 device_id;
-	u64 v;
+	u32 v[4];
 	int err;
+	struct nvmem_cell *cell;
+	void *buf;
+	size_t len;
 
 	attr = kzalloc(sizeof(*attr), GFP_KERNEL);
 	if (!attr)
@@ -58,10 +61,22 @@ static int imx9_soc_device_register(struct device *dev)
 		attr->revision = kasprintf(GFP_KERNEL, "unknown" );
 	}
 
-	err = nvmem_cell_read_u64(dev, "soc_unique_id", &v);
-	if (err)
+	cell = nvmem_cell_get(dev, "soc_unique_id");
+	if (IS_ERR(cell)) {
+		err = PTR_ERR(cell);
 		goto revision;
-	attr->serial_number = kasprintf(GFP_KERNEL, "%016llX", v);
+	}
+
+	buf = nvmem_cell_read(cell, &len);
+	if (IS_ERR(buf)) {
+		nvmem_cell_put(cell);
+		err = PTR_ERR(buf);
+		goto revision;
+	}
+	nvmem_cell_put(cell);
+
+	memcpy(v, buf, min(len, sizeof(v)));
+	attr->serial_number = kasprintf(GFP_KERNEL, "%08x%08x%08x%08x", v[0], v[1], v[2], v[3]);
 
 	if (DIGPROG_MAJOR_UPPER(device_id) == 0x9 && DIGPROG_MAJOR_LOWER(device_id) == 0x2) {
 		attr->soc_id = kasprintf(GFP_KERNEL, "i.MX93");
