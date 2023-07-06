@@ -539,6 +539,7 @@ struct ad9545_pll_clk {
 	unsigned int			fast_acq_trigger_mode;
 	unsigned long			rate_requested_hz;
 	u32				slew_rate_limit_ps;
+	int				select_source;
 };
 
 struct ad9545_ref_in_clk {
@@ -4575,6 +4576,63 @@ static int ad9545_aux_ncos_post_setup(struct ad9545_state *st)
 	return 0;
 }
 
+static int ad9545_pll_select_source(struct ad9545_pll_clk *pll)
+{
+	struct ad9545_state *st = pll->st;
+	u32 val;
+	int profile, active_profile;
+	int i, count;
+	int ret;
+
+	if (pll->select_source < 0)
+		return 0;
+
+	for (i = 0; i < AD9545_MAX_DPLL_PROFILES; i++)
+		if (pll->profiles[i].source == pll->select_source)
+			break;
+	profile = i;
+	if (profile == AD9545_MAX_DPLL_PROFILES)
+		return -EINVAL;
+
+	/* switch to the profile */
+
+	dev_info(st->dev, "switching PLL%d active profile to %d (%s) ...\n",
+		 pll->address, profile, ad9545_source_name(pll->select_source));
+
+	val = AD9545_PROFILE_SEL_MODE_MANUAL_AUTO |
+	      FIELD_PREP(AD9545_ASSIGN_PROFILE_MSK, profile);
+	ret = regmap_write(st->regmap, AD9545_DPLLX_MODE(0), val);
+	if (ret < 0)
+		return ret;
+
+	/* make sure active profile is the new profile */
+	count = 0;
+	while (count < 100) {
+		ret = ad9545_io_update(pll->st);
+		if (ret < 0)
+			return ret;
+
+		ret = regmap_read(st->regmap, AD9545_PLLX_OPERATION(0), &val);
+		if (ret < 0)
+			return ret;
+		active_profile = FIELD_GET(AD9545_PLL_ACTIVE_PROFILE, val);
+
+		if (active_profile == profile)
+			break;
+
+		count++;
+	}
+
+	if (active_profile == profile)
+		dev_info(st->dev, "successfully switched to profile %d\n",
+			 profile);
+	else
+		dev_warn(st->dev, "switching failed (active profile is %d)\n",
+			 active_profile);
+
+	return 0;
+}
+
 static int ad9545_plls_post_setup(struct ad9545_state *st)
 {
 	struct ad9545_pll_clk *pll;
@@ -4653,6 +4711,10 @@ static int ad9545_plls_post_setup(struct ad9545_state *st)
 			if (ret < 0)
 				return ret;
 		}
+
+		ret = ad9545_pll_select_source(pll);
+		if (ret < 0)
+			return ret;
 	}
 
 	return 0;
@@ -4756,6 +4818,47 @@ static int ad9545_post_setup(struct ad9545_state *st)
 		}
 
 		devm_kfree(st->dev, profiles);
+	}
+
+	num = fwnode_property_count_u32(fwnode, "adi,select-dpll-sources");
+	if (num > 0) {
+		u32 *sources;
+		int i;
+
+		if (num % 2 != 0)
+			return -EINVAL;
+
+		sources = devm_kcalloc(st->dev, num,
+				       sizeof(*sources),
+				       GFP_KERNEL);
+		if (!sources)
+			return -ENOMEM;
+
+		ret = fwnode_property_read_u32_array(fwnode,
+				"adi,select-dpll-sources",
+				sources, num);
+		if (ret < 0)
+			return ret;
+
+		for (i = 0; i < ARRAY_SIZE(ad9545_pll_clk_names); i++)
+			st->pll_clks[i].select_source = -1;
+
+		for (i = 0; i < num; i += 2) {
+			u32 pll, source;
+
+			pll = sources[i];
+			source = sources[i + 1];
+
+			if (pll >= ARRAY_SIZE(ad9545_pll_clk_names))
+				return -EINVAL;
+
+			if (source > AD9545_SOURCE_AUX_NCO1)
+				return -EINVAL;
+
+			st->pll_clks[pll].select_source = source;
+		}
+
+		devm_kfree(st->dev, sources);
 	}
 
 	ret = ad9545_aux_ncos_post_setup(st);
