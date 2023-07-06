@@ -194,11 +194,17 @@
 #define AD9545_PLLX_STATUS(x)			(AD9545_PLL0_STATUS + ((x) * 0x100))
 #define AD9545_PLLX_OPERATION(x)		(AD9545_PLL0_OPERATION + ((x) * 0x100))
 #define AD9545_CTRL_CH(x)			(AD9545_CTRL_CH0 + ((x) * 0x100))
+#define AD9545_DPLLX_MODE(x)			(AD9545_DPLL0_MODE + ((x) * 0x100))
 #define AD9545_DPLLX_FAST_MODE(x)		(AD9545_DPLL0_FAST_MODE + ((x) * 0x100))
 #define AD9545_REFX_STATUS(x)			(AD9545_REFA_STATUS + (x))
 
+#define AD9545_ASSIGN_PROFILE_MSK		GENMASK(6, 4)
 #define AD9545_PROFILE_SEL_MODE_MSK		GENMASK(3, 2)
 #define AD9545_PROFILE_SEL_MODE(x)		FIELD_PREP(AD9545_PROFILE_SEL_MODE_MSK, x)
+#define AD9545_PROFILE_SEL_MODE_AUTO		AD9545_PROFILE_SEL_MODE(0)
+#define AD9545_PROFILE_SEL_MODE_MANUAL_AUTO	AD9545_PROFILE_SEL_MODE(1)
+#define AD9545_PROFILE_SEL_MODE_MANUAL_HOLDOVER AD9545_PROFILE_SEL_MODE(2)
+#define AD9545_PROFILE_SEL_MODE_MANUAL		AD9545_PROFILE_SEL_MODE(3)
 
 #define AD9545_NCOX_CENTER_FREQ(x)		(AD9545_NCO0_CENTER_FREQ + ((x) * 0x40))
 #define AD9545_NCOX_OFFSET_FREQ(x)		(AD9545_NCO0_OFFSET_FREQ + ((x) * 0x40))
@@ -252,6 +258,7 @@
 /* AD9545_DIV_OPS_QX bitfields */
 #define AD9545_DIV_OPS_MUTE_A_MSK		BIT(2)
 #define AD9545_DIV_OPS_MUTE_AA_MSK		BIT(3)
+#define AD9545_DIV_OPS_POWERDOWN_MSK		BIT(4)
 
 /* AD9545 Modulator bitfields */
 #define AD9545_MODULATOR_EN			BIT(0)
@@ -562,6 +569,7 @@ struct ad9545_aux_nco_clk {
 	bool				nco_used;
 	struct ad9545_state		*st;
 	unsigned int			address;
+	u32				rate_requested_hz;
 	unsigned int			freq_thresh_ps;
 	unsigned int			phase_thresh_ps;
 };
@@ -593,6 +601,7 @@ struct ad9545_sys_clk {
 struct ad9545_state {
 	struct device			*dev;
 	struct regmap			*regmap;
+	bool				auto_init;
 	struct ad9545_sys_clk		sys_clk;
 	struct ad9545_aux_dpll_clk	aux_dpll_clk;
 	struct ad9545_pll_clk		pll_clks[ARRAY_SIZE(ad9545_pll_clk_names)];
@@ -1119,6 +1128,12 @@ static int ad9545_parse_dt(struct ad9545_state *st)
 
 	fwnode = dev_fwnode(st->dev);
 
+	st->auto_init = fwnode_property_present(fwnode, "adi,auto-init");
+	if (st->auto_init) {
+		dev_info(st->dev, "autonomously initialized from EEPROM.\n");
+		return 0;
+	}
+
 	ret = fwnode_property_read_u32(fwnode, "adi,ref-frequency-hz", &st->sys_clk.ref_freq_hz);
 	if (ret < 0) {
 		dev_err(st->dev, "No ref-frequency-hz specified.");
@@ -1255,6 +1270,58 @@ static int ad9545_sys_clk_setup(struct ad9545_state *st)
 	sys_clk_stability_period &= 0xfffff;
 	regval = cpu_to_le32(sys_clk_stability_period);
 	return regmap_bulk_write(st->regmap, AD9545_SYS_STABILITY_T, &regval, 3);
+}
+
+static int ad9545_sys_clk_read_setup(struct ad9545_state *st)
+{
+	u64 ref_freq_milihz;
+	__le64 regval64;
+	__le32 regval;
+	u32 div_ratio;
+	int ret;
+	u32 val;
+
+	ret = regmap_read(st->regmap, AD9545_SYS_CLK_FB_DIV, &div_ratio);
+	if (ret < 0)
+		return ret;
+	dev_dbg(st->dev, "  div_ratio: %u", div_ratio);
+
+	ret = regmap_read(st->regmap, AD9545_SYS_CLK_INPUT, &val);
+	if (ret < 0)
+		return ret;
+
+	st->sys_clk.sys_clk_freq_doubler = (val & BIT(0)) != 0;
+	st->sys_clk.sys_clk_crystal = (val & BIT(3)) != 0;
+
+	dev_dbg(st->dev, "  sys_clk_freq_doubler: %s",
+		st->sys_clk.sys_clk_freq_doubler ? "enabled" : "disabled");
+	dev_dbg(st->dev, "  sys_clk_crystal: %s",
+		st->sys_clk.sys_clk_crystal ? "enabled" : "disabled");
+
+	/* read reference frequency provided at XOA, XOB in milliherz */
+	ret = regmap_bulk_read(st->regmap, AD9545_SYS_CLK_REF_FREQ,
+			       &regval64, 5);
+	if (ret < 0)
+		return ret;
+	ref_freq_milihz = le64_to_cpu(regval64) & 0xffffffffff;
+	st->sys_clk.ref_freq_hz = div_u64(ref_freq_milihz, 1000);
+	dev_dbg(st->dev, "  reference frequency: %u\n",
+		st->sys_clk.ref_freq_hz);
+
+	st->sys_clk.sys_freq_hz = st->sys_clk.ref_freq_hz * div_ratio;
+	if (st->sys_clk.sys_clk_freq_doubler)
+		st->sys_clk.sys_freq_hz *= 2;
+	dev_dbg(st->dev, "  sys clk frequency: %u\n",
+		st->sys_clk.sys_freq_hz);
+
+	ret = regmap_bulk_read(st->regmap, AD9545_SYS_STABILITY_T,
+			       &regval, 3);
+	if (ret < 0)
+		return ret;
+	val = le32_to_cpu(regval) & 0xfffff;
+	dev_dbg(st->dev, "  sys clk stability period(msec): %u\n", val);
+
+	return 0;
 }
 
 static int ad9545_get_q_div(struct ad9545_state *st, int addr, u32 *q_div)
@@ -1684,6 +1751,79 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 	return 0;
 }
 
+static int ad9545_outputs_read_setup(struct ad9545_state *st)
+{
+	struct clk_init_data init[ARRAY_SIZE(ad9545_out_clk_names)] = {0};
+	u16 addr;
+	int ret;
+	u32 val;
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(ad9545_out_clk_names) / 2; i++) {
+		ret = regmap_read(st->regmap, AD9545_DIV_OPS_QX(i * 2), &val);
+		if (ret < 0)
+			return ret;
+
+		st->out_clks[i * 2].output_used =
+		st->out_clks[i * 2 + 1].output_used =
+			(val & AD9545_DIV_OPS_POWERDOWN_MSK) == 0;
+
+		if (!st->out_clks[i * 2].output_used)
+			continue;
+
+		if (i < 3)
+			addr = AD9545_DRIVER_0A_CONF + i;
+		else
+			addr = AD9545_DRIVER_1A_CONF + (i - 3);
+
+		ret = regmap_read(st->regmap, addr, &val);
+		if (ret < 0)
+			return ret;
+
+		for (j = i * 2; j <= i * 2 + 1; j++) {
+			u32 v;
+
+			st->out_clks[j].st = st;
+			st->out_clks[j].address = j;
+			st->out_clks[j].source_current = ((val & 0x1) != 0);
+			v = FIELD_GET(GENMASK(2, 1), val);
+			st->out_clks[j].source_ua = ad9545_out_source_ua[v];
+			v = FIELD_GET(GENMASK(4, 3), val);
+			st->out_clks[j].output_mode = v;
+		}
+	}
+
+	st->clks[AD9545_CLK_OUT] =
+		devm_kzalloc(st->dev, ARRAY_SIZE(ad9545_out_clk_names) *
+				      sizeof(struct clk *), GFP_KERNEL);
+	if (!st->clks[AD9545_CLK_OUT])
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(ad9545_out_clk_names); i++) {
+		if (!st->out_clks[i].output_used)
+			continue;
+
+		init[i].name = ad9545_out_clk_names[i];
+		init[i].ops = &ad9545_out_clk_ops;
+
+		if (i > 5)
+			init[i].parent_names = &ad9545_pll_clk_names[1];
+		else
+			init[i].parent_names = &ad9545_pll_clk_names[0];
+
+		init[i].num_parents = 1;
+
+		st->out_clks[i].hw.init = &init[i];
+		ret = devm_clk_hw_register(st->dev, &st->out_clks[i].hw);
+		if (ret < 0)
+			return ret;
+
+		st->clks[AD9545_CLK_OUT][i] = &st->out_clks[i].hw;
+	}
+
+	return 0;
+}
+
 static int ad9545_set_r_div(struct ad9545_state *st, u32 div, int addr)
 {
 	__le32 regval;
@@ -1917,6 +2057,179 @@ static int ad9545_input_refs_setup(struct ad9545_state *st)
 	}
 
 	return regmap_write(st->regmap, AD9545_POWER_DOWN_REF, reg);
+}
+
+static int ad9545_input_refs_read_setup(struct ad9545_state *st)
+{
+	struct clk_init_data init[4] = {0};
+	__le32 regval;
+	__le64 regval64;
+	u64 period_es;
+	int ret;
+	u32 val;
+	int i;
+
+	/* decide which references are used */
+	ret = regmap_read(st->regmap, AD9545_POWER_DOWN_REF, &val);
+	if (ret < 0)
+		return ret;
+	for (i = 0; i < ARRAY_SIZE(st->ref_in_clks); i++) {
+		st->ref_in_clks[i].ref_used = ((val & (1 << i)) == 0);
+		dev_dbg(st->dev, "  %s input receiver is power %s\n",
+			ad9545_in_clk_names[i],
+			st->ref_in_clks[i].ref_used ? "up" : "down");
+	}
+
+	/* read configuration of input references */
+	for (i = 0; i < ARRAY_SIZE(st->ref_in_clks); i += 2) {
+		ret = regmap_read(st->regmap, AD9545_REF_A_CTRL + i * 2, &val);
+		if (ret < 0)
+			return ret;
+
+		if ((val & 0x1) != 0) {
+			st->ref_in_clks[i].mode = AD9545_DIFFERENTIAL;
+			st->ref_in_clks[i].d_conf =
+				FIELD_GET(AD9545_REF_CTRL_DIF_MSK, val);
+			st->ref_in_clks[i + 1].mode = AD9545_DIFFERENTIAL;
+		} else {
+			st->ref_in_clks[i].mode = AD9545_SINGLE_ENDED;
+			st->ref_in_clks[i].s_conf =
+				FIELD_GET(AD9545_REF_CTRL_REFA_MSK, val);
+			st->ref_in_clks[i + 1].mode = AD9545_SINGLE_ENDED;
+			st->ref_in_clks[i + 1].s_conf =
+				FIELD_GET(AD9545_REF_CTRL_REFAA_MSK, val);
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(st->ref_in_clks); i++) {
+		u32 r_div;
+
+		if (!st->ref_in_clks[i].ref_used)
+			continue;
+
+		ret = ad9545_get_r_div(st, i, &r_div);
+		if (ret < 0)
+			return ret;
+		st->ref_in_clks[i].r_div_ratio = r_div;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(st->ref_in_clks); i++) {
+		struct clk *clk;
+
+		if (!st->ref_in_clks[i].ref_used)
+			continue;
+
+		st->ref_in_clks[i].address = i;
+		st->ref_in_clks[i].st = st;
+
+		clk = devm_clk_get(st->dev, ad9545_ref_clk_names[i]);
+		if (IS_ERR(clk)) {
+			ret = PTR_ERR(clk);
+			return ret;
+		}
+		st->ref_in_clks[i].parent_clk = clk;
+
+		ret = regmap_bulk_read(st->regmap, AD9545_REF_X_OFFSET_LIMIT(i),
+				       &regval, 3);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].d_tol_ppb = le32_to_cpu(regval) & 0xffffff;
+
+		/* verify period */
+		/* write nominal period in attoseconds */
+		period_es = 1000000000000000000ULL;
+		val = clk_get_rate(st->ref_in_clks[i].parent_clk);
+		if (!val)
+			return -EINVAL;
+
+		period_es = div_u64(period_es, val);
+
+		ret = regmap_bulk_read(st->regmap, AD9545_REF_X_PERIOD(i),
+				       &regval64, 8);
+		if (ret < 0)
+			return ret;
+		if (period_es != le64_to_cpu(regval64)) {
+			dev_err(st->dev,
+				"%s has period %llu but found %llu in register.\n",
+				ad9545_ref_clk_names[i], period_es,
+				le64_to_cpu(regval64));
+			return -EINVAL;
+		}
+
+		ret = regmap_read(st->regmap, AD9545_REF_X_MONITOR_HYST(i),
+				  &val);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].monitor_hyst_scale = val;
+
+		ret = regmap_bulk_read(st->regmap, AD9545_REF_X_VALID_TIMER(i),
+				       &regval, 3);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].valid_t_ms = le32_to_cpu(regval) & 0xfffff;
+
+		/* profile phase lock threshold */
+		ret = regmap_bulk_read(st->regmap,
+				       AD9545_SOURCEX_PHASE_THRESH(i),
+				       &regval, 3);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].phase_thresh_ps = le32_to_cpu(regval);
+
+		/* profile phase lock fill rate */
+		ret = regmap_read(st->regmap, AD9545_REF_X_PHASE_LOCK_FILL(i),
+				  &val);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].phase_lock_fill_rate = val;
+
+		/* profile phase lock drain rate */
+		ret = regmap_read(st->regmap, AD9545_REF_X_PHASE_LOCK_DRAIN(i),
+				  &val);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].phase_lock_drain_rate = val;
+
+		/* profile freq lock threshold */
+		ret = regmap_bulk_read(st->regmap,
+				       AD9545_SOURCEX_FREQ_THRESH(i),
+				       &regval, 3);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].freq_thresh_ps =
+					le32_to_cpu(regval) & 0xffffff;
+
+		/* profile freq lock fill rate */
+		ret = regmap_read(st->regmap, AD9545_REF_X_FREQ_LOCK_FILL(i),
+				  &val);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].freq_lock_fill_rate = val;
+
+		/* profile freq lock drain rate */
+		ret = regmap_read(st->regmap, AD9545_REF_X_FREQ_LOCK_DRAIN(i),
+				  &val);
+		if (ret < 0)
+			return 0;
+		st->ref_in_clks[i].freq_lock_drain_rate = val;
+
+		/*
+		 * TODO  add profile phase step threshold, phase skew,
+		 *       phase skew refinement steps
+		 */
+
+		init[i].name = ad9545_in_clk_names[i];
+		init[i].ops = &ad9545_in_clk_ops;
+		init[i].parent_names = &ad9545_ref_clk_names[i];
+		init[i].num_parents = 1;
+
+		st->ref_in_clks[i].hw.init = &init[i];
+		ret = devm_clk_hw_register(st->dev, &st->ref_in_clks[i].hw);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
 }
 
 static int ad9545_calc_ftw(struct ad9545_pll_clk *clk, u32 freq, u64 *tuning_word)
@@ -3053,6 +3366,139 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 	return 0;
 }
 
+static int ad9545_pll_fast_acq_read_setup(struct ad9545_pll_clk *pll,
+					  int profile)
+{
+	struct ad9545_state *st = pll->st;
+	u32 val;
+	int ret;
+
+	ret = regmap_read(st->regmap,
+			  AD9545_DPLLX_FAST_L1(pll->address, profile), &val);
+	if (ret < 0)
+		return ret;
+	pll->profiles[profile].fast_acq_excess_bw =
+			ad9545_fast_acq_excess_bw_map[val];
+
+	ret = regmap_read(st->regmap,
+			  AD9545_DPLLX_FAST_L2(pll->address, profile), &val);
+	if (ret < 0)
+		return ret;
+
+	pll->profiles[profile].fast_acq_settle_ms = val & 0xf;
+	val >>= 4;
+	pll->profiles[profile].fast_acq_timeout_ms = val & 0xf;
+
+	ret = regmap_read(st->regmap,
+			  AD9545_DPLLX_FAST_MODE(pll->address), &val);
+	if (ret < 0)
+		return ret;
+	pll->fast_acq_trigger_mode = val;
+
+	return 0;
+}
+
+static int ad9545_plls_read_setup(struct ad9545_state *st)
+{
+	struct clk_init_data init[2] = {0};
+	struct ad9545_pll_clk *pll;
+	struct clk_hw *hw;
+	size_t size;
+	int source;
+	__le32 regval;
+	int ret;
+	u32 val;
+	int i, j, k;
+
+	size = ARRAY_SIZE(ad9545_pll_clk_names) * sizeof(struct clk *);
+	st->clks[AD9545_CLK_PLL] = devm_kzalloc(st->dev, size, GFP_KERNEL);
+	if (!st->clks[AD9545_CLK_PLL])
+		return -ENOMEM;
+
+	for (i = 0; i < 2; i++) {
+		pll = &st->pll_clks[i];
+
+		/* TODO  how can we tell if this PLL is being used or not */
+		pll->pll_used = true;
+
+		pll->st = st;
+		pll->address = i;
+
+		init[i].name = ad9545_pll_clk_names[i];
+		init[i].ops = &ad9545_pll_clk_ops;
+		init[i].num_parents = 0;
+		for (j = 0; j < AD9545_MAX_DPLL_PROFILES; j++) {
+			ret = regmap_read(st->regmap, AD9545_DPLLX_EN(i, j),
+					  &val);
+			if (ret < 0)
+				return ret;
+
+			pll->profiles[j].en =
+				(val & AD9545_EN_PROFILE_MSK) != 0;
+			if (pll->profiles[j].en) {
+				pll->profiles[j].priority =
+					FIELD_GET(AD9545_SEL_PRIORITY_MSK, val);
+				init[i].num_parents++;
+			}
+		}
+
+		size = init[i].num_parents * sizeof(*init[i].parent_hws);
+		init[i].parent_hws = devm_kzalloc(st->dev, size, GFP_KERNEL);
+		if (!init[i].parent_hws)
+			return -ENOMEM;
+
+		pll->num_parents = init[i].num_parents;
+		pll->parents = init[i].parent_hws;
+
+		ret = regmap_bulk_read(st->regmap, AD9545_DPLLX_SLEW_RATE(i),
+				       &regval, 4);
+		if (ret < 0)
+			return ret;
+		pll->slew_rate_limit_ps = le32_to_cpu(regval);
+
+		k = 0;
+		for (j = 0; j < AD9545_MAX_DPLL_PROFILES; j++) {
+			struct ad9545_dpll_profile *p;
+
+			p = &pll->profiles[j];
+
+			if (!p->en)
+				continue;
+
+			p->address = j;
+			p->parent_index = k;
+
+			ret = ad9545_pll_read_profile(pll, j, p);
+			if (ret < 0)
+				return ret;
+
+			if (p->source < AD9545_MAX_REFS)
+				hw = &st->ref_in_clks[source].hw;
+			else if (p->source == AD9545_SOURCE_AUX_NCO0)
+				hw = &st->aux_nco_clks[0].hw;
+			else if (p->source == AD9545_SOURCE_AUX_NCO1)
+				hw = &st->aux_nco_clks[1].hw;
+			else
+				return -EINVAL;
+
+			init[i].parent_hws[k++] = hw;
+
+			ret = ad9545_pll_fast_acq_read_setup(pll, j);
+			if (ret < 0)
+				return ret;
+		}
+
+		pll->hw.init = &init[i];
+		ret = devm_clk_hw_register(st->dev, &pll->hw);
+		if (ret < 0)
+			return ret;
+
+		st->clks[AD9545_CLK_PLL][i] = &pll->hw;
+	}
+
+	return 0;
+}
+
 static int ad9545_get_nco_center_freq(struct ad9545_state *st, int addr,
 				      u64 *freq)
 {
@@ -3340,6 +3786,55 @@ static int ad9545_aux_ncos_setup(struct ad9545_state *st)
 	return 0;
 }
 
+static int ad9545_aux_ncos_read_setup(struct ad9545_state *st)
+{
+	struct clk_init_data init[2] = {0};
+	struct ad9545_aux_nco_clk *nco;
+	size_t size;
+	__le32 regval;
+	int ret;
+	int i;
+
+	size = ARRAY_SIZE(ad9545_aux_nco_clk_names) * sizeof(struct clk *);
+	st->clks[AD9545_CLK_NCO] = devm_kzalloc(st->dev, size, GFP_KERNEL);
+	if (!st->clks[AD9545_CLK_NCO])
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(st->aux_nco_clks); i++) {
+		nco = &st->aux_nco_clks[i];
+
+		nco->st = st;
+		nco->address = i;
+
+		/* TODO  how can we tell if this NCO is used or not */
+		nco->nco_used = true;
+
+		ret = regmap_bulk_read(st->regmap, AD9545_NCOX_FREQ_THRESH(i),
+				       &regval, 3);
+		if (ret < 0)
+			return ret;
+		nco->freq_thresh_ps = le32_to_cpu(regval) & 0xffffff;
+
+		ret = regmap_bulk_read(st->regmap, AD9545_NCOX_PHASE_THRESH(i),
+				       &regval, 3);
+		if (ret < 0)
+			return ret;
+		nco->phase_thresh_ps = le32_to_cpu(regval) & 0xffffff;
+
+		init[i].name = ad9545_aux_nco_clk_names[i];
+		init[i].ops = &ad9545_nco_clk_ops;
+
+		nco->hw.init = &init[i];
+		ret = devm_clk_hw_register(st->dev, &nco->hw);
+		if (ret < 0)
+			return ret;
+
+		st->clks[AD9545_CLK_NCO][i] = &nco->hw;
+	}
+
+	return 0;
+}
+
 static int ad9545_set_tdc_div(struct ad9545_aux_tdc_clk *clk, u32 div)
 {
 	int ret;
@@ -3441,6 +3936,64 @@ static int ad9545_aux_tdcs_setup(struct ad9545_state *st)
 		init[i].ops = &ad9545_aux_tdc_clk_ops;
 		init[i].parent_names = &ad9545_ref_m_clk_names[tdc->pin_nr];
 		init[i].num_parents = 1;
+		tdc->hw.init = &init[i];
+		ret = devm_clk_hw_register(st->dev, &tdc->hw);
+		if (ret < 0)
+			return ret;
+
+		st->clks[AD9545_CLK_AUX_TDC][i] = &tdc->hw;
+	}
+
+	return 0;
+}
+
+static int ad9545_aux_tdcs_read_setup(struct ad9545_state *st)
+{
+	struct clk_init_data init[ARRAY_SIZE(ad9545_aux_tdc_clk_names)] = {0};
+	struct ad9545_aux_tdc_clk *tdc;
+	u32 val;
+	int ret;
+	int i;
+
+	st->clks[AD9545_CLK_AUX_TDC] =
+		devm_kcalloc(st->dev, ARRAY_SIZE(ad9545_aux_tdc_clk_names),
+			     sizeof(*st->clks[AD9545_CLK_AUX_TDC]), GFP_KERNEL);
+	if (!st->clks[AD9545_CLK_AUX_TDC])
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(st->aux_tdc_clks); i++) {
+		tdc = &st->aux_tdc_clks[i];
+		tdc->pin_nr = UINT_MAX;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ad9545_ref_m_clk_names); i++) {
+		ret = regmap_read(st->regmap, AD9545_MX_PIN(i), &val);
+		if (ret < 0)
+			return ret;
+		if ((val & 0x80) != 0) {
+			val &= 0x7f;
+			if (val >= 0x30 &&
+			    val <= 0x30 + ARRAY_SIZE(st->aux_tdc_clks))
+				st->aux_tdc_clks[val - 0x30].pin_nr = i;
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(st->aux_tdc_clks); i++) {
+		tdc = &st->aux_tdc_clks[i];
+
+		tdc->st = st;
+		tdc->address = i;
+
+		/* TODO  how can we tell if this TDC is used or not */
+		tdc->tdc_used = true;
+
+		init[i].name = ad9545_aux_tdc_clk_names[i];
+		init[i].ops = &ad9545_aux_tdc_clk_ops;
+		if (tdc->pin_nr != UINT_MAX) {
+			init[i].parent_names =
+				&ad9545_ref_m_clk_names[tdc->pin_nr];
+			init[i].num_parents = 1;
+		}
 		tdc->hw.init = &init[i];
 		ret = devm_clk_hw_register(st->dev, &tdc->hw);
 		if (ret < 0)
@@ -3559,6 +4112,55 @@ static int ad9545_aux_dpll_setup(struct ad9545_state *st)
 	ret = regmap_write(st->regmap, AD9545_COMPENSATE_TDCS, AD9545_COMPENSATE_TDCS_VIA_AUX_DPLL);
 	if (ret < 0)
 		return ret;
+
+	init.name = ad9545_aux_dpll_name;
+	init.ops = &ad9545_aux_dpll_clk_ops;
+	init.num_parents = 1;
+
+	clk->hw.init = &init;
+	return devm_clk_hw_register(st->dev, &clk->hw);
+}
+
+static int ad9545_aux_dpll_read_setup(struct ad9545_state *st)
+{
+	struct ad9545_aux_dpll_clk *clk;
+	struct clk_init_data init;
+	__le16 regval;
+	int ret;
+	u32 val;
+
+	clk = &st->aux_dpll_clk;
+	/* TODO  find a way to tell if this clock is used or not */
+	clk->dpll_used = true;
+
+	clk->st = st;
+
+	memset(&init, 0, sizeof(struct clk_init_data));
+
+	ret = regmap_read(st->regmap, AD9545_AUX_DPLL_SOURCE, &val);
+	if (ret < 0)
+		return ret;
+
+	if (val < 6) {
+		clk->source = val;
+		init.parent_names = &ad9545_in_clk_names[val];
+	} else {
+		val -= 6;
+		if (val > ARRAY_SIZE(ad9545_aux_tdc_clk_names))
+			return -EINVAL;
+		init.parent_names = &ad9545_aux_tdc_clk_names[val];
+		clk->source = val + ARRAY_SIZE(ad9545_in_clk_names);
+	}
+
+	ret = regmap_bulk_read(st->regmap, AD9545_AUX_DPLL_LOOP_BW, &regval, 2);
+	if (ret < 0)
+		return ret;
+	clk->loop_bw_mhz = le16_to_cpu(regval) * 100;
+
+	ret = regmap_read(st->regmap, AD9545_AUX_DPLL_CHANGE_LIMIT, &val);
+	if (ret < 0)
+		return ret;
+	clk->rate_change_limit = ad9545_rate_change_limit_map[val];
 
 	init.name = ad9545_aux_dpll_name;
 	init.ops = &ad9545_aux_dpll_clk_ops;
@@ -3691,11 +4293,36 @@ static struct clk_hw *ad9545_clk_hw_twocell_get(struct of_phandle_args *clkspec,
 	return clks[clk_type][clk_address];
 }
 
-static int ad9545_setup(struct ad9545_state *st)
+static int ad9545_check_locks(struct ad9545_state *st)
 {
 	int ret;
 	u32 val;
 	int i;
+
+	/* check locks */
+	ret = regmap_read(st->regmap, AD9545_PLL_STATUS, &val);
+	for (i = 0; i < ARRAY_SIZE(st->pll_clks); i++)
+		if (st->pll_clks[i].pll_used && !AD9545_PLLX_LOCK(i, val))
+			dev_warn(st->dev, "PLL%d unlocked.\n", i);
+
+	if (st->aux_dpll_clk.dpll_used) {
+		ret = regmap_read(st->regmap, AD9545_MISC, &val);
+		if (ret < 0)
+			return ret;
+
+		if (!(val & AD9545_AUX_DPLL_LOCK_MSK))
+			dev_warn(st->dev, "Aux DPLL unlocked.\n");
+
+		if (val & AD9545_AUX_DPLL_REF_FAULT)
+			dev_warn(st->dev, "Aux DPLL reference fault.\n");
+	}
+
+	return 0;
+}
+
+static int ad9545_setup(struct ad9545_state *st)
+{
+	int ret;
 
 	ret = regmap_update_bits(st->regmap, AD9545_CONFIG_0, AD9545_RESET_REGS, AD9545_RESET_REGS);
 	if (ret < 0)
@@ -3750,25 +4377,206 @@ static int ad9545_setup(struct ad9545_state *st)
 	if (ret < 0)
 		return ret;
 
-	/* check locks */
-	ret = regmap_read(st->regmap, AD9545_PLL_STATUS, &val);
-	for (i = 0; i < ARRAY_SIZE(st->pll_clks); i++)
-		if (st->pll_clks[i].pll_used && !AD9545_PLLX_LOCK(i, val))
-			dev_warn(st->dev, "PLL%d unlocked.\n", i);
+	return ad9545_check_locks(st);
+}
 
-	if (st->aux_dpll_clk.dpll_used) {
-		ret = regmap_read(st->regmap, AD9545_MISC, &val);
+static int ad9545_read_setup(struct ad9545_state *st)
+{
+	int ret;
+
+	ret = ad9545_io_update(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_sys_clk_read_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_input_refs_read_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_aux_ncos_read_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_aux_tdcs_read_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_aux_dpll_read_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_plls_read_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_outputs_read_setup(st);
+	if (ret < 0)
+		return ret;
+
+	ret = devm_of_clk_add_hw_provider(st->dev, ad9545_clk_hw_twocell_get,
+					  &st->clks[AD9545_CLK_OUT]);
+	if (ret < 0)
+		return ret;
+
+	return ad9545_check_locks(st);
+}
+
+/*
+ * For all frequency translation profiles, ref_rate / R * (N + frac / mod)
+ * should be same.
+ * This function returns ref_rate, N * mod + frac and R * mod of the active
+ * profile in the last three parameters.
+ */
+static int ad9545_pll_get_active_freq(struct ad9545_pll_clk *pll,
+				      int *active_profile,
+				      unsigned long *ref_rate, u64 *n,
+				      u64 *factor)
+{
+	struct ad9545_state *st = pll->st;
+	struct ad9545_dpll_profile profile;
+	bool freerun, holdover;
+	u32 r_div;
+	int ret;
+
+	/*
+	 * find the current active profile of PLL and read it,
+	 * get Ref_freq, R, N
+	 */
+	ret = ad9545_pll_get_operation_status(&pll->hw, active_profile,
+					      &freerun, &holdover);
+	if (ret < 0)
+		return ret;
+
+	if (freerun || holdover) {
+		dev_err(st->dev, "PLL0 has no valid active profile\n");
+		return -EINVAL;
+	}
+
+	ret = ad9545_pll_read_profile(pll, *active_profile, &profile);
+	if (ret < 0)
+		return ret;
+
+	/* for now we only support buildout mode */
+	if (profile.hitless)
+		return -EINVAL;
+
+	/* for now we only calculate from external reference clocks */
+	if (profile.source >= ARRAY_SIZE(ad9545_ref_clk_names))
+		return -EINVAL;
+
+	*ref_rate = clk_get_rate(st->ref_in_clks[profile.source].parent_clk);
+	if (*ref_rate == 0)
+		return -EINVAL;
+
+	ret = ad9545_get_r_div(st, profile.source, &r_div);
+	if (ret < 0)
+		return ret;
+
+	/* *n = N * mod + frac */
+	*n = profile.buildout_n_div;
+	*n += 1;
+	if (profile.buildout_mod != 0) {
+		*n *= profile.buildout_mod;
+		*n += profile.buildout_frac;
+	}
+
+	/* *factor = R * mod */
+	*factor = r_div;
+	if (profile.buildout_mod != 0)
+		*factor *= profile.buildout_mod;
+
+	return 0;
+}
+
+static int ad9545_plls_post_setup(struct ad9545_state *st)
+{
+	struct ad9545_pll_clk *pll;
+	int active_profile;
+	unsigned long ref_rate;
+	unsigned long frac, mod;
+	u64 num, den;
+	u32 freq_int;
+	u64 n, n_div, factor;
+	int i, j, k, count;
+	int ret;
+
+	for (i = 0; i < ARRAY_SIZE(ad9545_pll_clk_names); i++) {
+		pll = &st->pll_clks[i];
+
+		ret = ad9545_pll_get_active_freq(pll, &active_profile,
+						 &ref_rate, &n, &factor);
 		if (ret < 0)
-			return ret;
+			return 0;
 
-		if (!(val & AD9545_AUX_DPLL_LOCK_MSK))
-			dev_warn(st->dev, "Aux DPLL unlocked.\n");
+		for (j = 0; j < AD9545_MAX_DPLL_PROFILES; j++) {
+			struct ad9545_dpll_profile *p;
 
-		if (val & AD9545_AUX_DPLL_REF_FAULT)
-			dev_warn(st->dev, "Aux DPLL reference fault.\n");
+			p = &pll->profiles[j];
+
+			if (p->en ||
+			    (p->source != AD9545_SOURCE_AUX_NCO0 &&
+			     p->source != AD9545_SOURCE_AUX_NCO1))
+				continue;
+
+			k = p->source;
+			*p = pll->profiles[active_profile];
+			p->source = k;
+			k -= AD9545_SOURCE_AUX_NCO0;
+
+			freq_int = st->aux_nco_clks[k].rate_requested_hz;
+			if (freq_int == 0)
+				return -EINVAL;
+
+			/*
+			 * we need to find n_div, frac and mod, which have
+			 * freq_int* (n_div + frac/mod) = ref_rate * n / factor
+			 * i.e.
+			 * n_div + frac / mod = (ref_rate*n)/(factor*freq_int)
+			 */
+
+			n_div = div_u64(div64_u64(ref_rate * n, factor), freq_int);
+
+			num = ref_rate * n - factor * freq_int * n_div;
+			den = factor * freq_int;
+
+			rational_best_approximation(num, den,
+						    AD9545_DPLL_MAX_FRAC,
+						    AD9545_DPLL_MAX_MOD,
+						    &frac, &mod);
+			if (frac == 0)
+				mod = 0;
+
+			count = 0;
+			while (count < 100) {
+				ret = ad9545_source_valid(pll, p->source);
+				if (ret > 0)
+					break;
+				count++;
+			}
+			if (count == 100) {
+				dev_warn(st->dev, "AUX NCO%d is invalid\n", k);
+				return -EINVAL;
+			}
+
+			/* write the profile */
+			p->buildout_n_div = n_div - 1;
+			p->buildout_frac = frac;
+			p->buildout_mod = mod;
+			ret = ad9545_pll_write_profile(pll, j, p);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	return 0;
+}
+
+static int ad9545_post_setup(struct ad9545_state *st)
+{
+	return ad9545_plls_post_setup(st);
 }
 
 int ad9545_probe(struct device *dev, struct regmap *regmap)
@@ -3791,7 +4599,14 @@ int ad9545_probe(struct device *dev, struct regmap *regmap)
 	if (ret < 0)
 		return ret;
 
-	return ad9545_setup(st);
+	if (st->auto_init)
+		ret = ad9545_read_setup(st);
+	else
+		ret = ad9545_setup(st);
+	if (ret < 0)
+		return ret;
+
+	return ad9545_post_setup(st);
 }
 EXPORT_SYMBOL_GPL(ad9545_probe);
 
