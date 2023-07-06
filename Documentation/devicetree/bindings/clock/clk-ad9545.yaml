@@ -38,6 +38,11 @@ properties:
     description: |
       Phandle to the Avcc power supply.
 
+  adi,add-dpll-aux-nco-profiles:
+    description: |
+      Add DPLL translation profiles using AUX NCO clocks as sources using two cells
+      <dpll_num aux_nco_num>.
+
   adi,auto-init:
     description: |
       AD9545 has been autonomously initialized with an external EEPROM.
@@ -58,6 +63,10 @@ properties:
   adi,ref-frequency-hz:
     description: |
       Reference input frequency at XOA,XOB. This is used for the system clock.
+
+  adi,set-aux-nco-frequencies:
+    description: |
+      Set frequencies for AUX NCO clocks using two cells <aux_nco_num freq_hz>.
 
   clocks:
     items:
@@ -527,6 +536,10 @@ examples:
             #clock-cells = <2>;
 
             adi,auto-init;
+            /* AUX_NCO0 50000 AUX_NCO1 100 */
+            adi,set-aux-nco-frequencies = <0 50000 1 100>;
+            /* DPLL0 AUX_NCO0 DPLL0 AUX_NCO1 */
+            adi,add-dpll-aux-nco-profiles = <0 0 0 1>;
         };
     };
 
