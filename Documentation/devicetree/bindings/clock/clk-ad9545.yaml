@@ -64,6 +64,14 @@ properties:
     description: |
       Reference input frequency at XOA,XOB. This is used for the system clock.
 
+  adi,select-dpll-sources:
+    description: |
+      Manually select DPLL source using two cells <dpll_num source>.
+      Manual profile selection with fallback to auto profile selection mode is used.
+      Source is mapped as
+      [refa, refaa, refb, refbb, feedback from DPLL0, feedback from DPLL1, AUX NCO0, AUX NCO1]
+      -> [0, 1, 2, 3, 4, 5, 8, 9]
+
   adi,set-aux-nco-frequencies:
     description: |
       Set frequencies for AUX NCO clocks using two cells <aux_nco_num freq_hz>.
@@ -540,6 +548,8 @@ examples:
             adi,set-aux-nco-frequencies = <0 50000 1 100>;
             /* DPLL0 AUX_NCO0 DPLL0 AUX_NCO1 */
             adi,add-dpll-aux-nco-profiles = <0 0 0 1>;
+            /* DPLL0 AUX_NCO0 */
+            adi,select-dpll-sources = <0 9>;
         };
     };
 
