@@ -38,6 +38,12 @@ properties:
     description: |
       Phandle to the Avcc power supply.
 
+  adi,auto-init:
+    description: |
+      AD9545 has been autonomously initialized with an external EEPROM.
+      The driver reads setup from AD9545.
+    type: boolean
+
   adi,freq-doubler:
     description: |
       The system clock PLL provides the user with the option of doubling the reference frequency.
@@ -432,7 +438,14 @@ patternProperties:
 required:
   - compatible
   - reg
-  - adi,ref-frequency-hz
+
+oneOf:
+  - required:
+      - adi,ref-frequency-hz
+  - required:
+      - adi,auto-init
+
+
 
 "additionalProperties": false
 
@@ -494,4 +507,27 @@ examples:
                 };
             };
     };
+
+  - |
+    #include <dt-bindings/clock/ad9545.h>
+
+    i2c@0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        ad9545_clock: ad9545@4b {
+            compatible = "adi,ad9545";
+            reg = <0x4b>;
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            clocks = <&ref_a>, <&ref_aa>, <&ref_b>, <&ref_bb>;
+            clock-names = "Ref-A", "Ref-AA", "Ref-B", "Ref-BB";
+
+            #clock-cells = <2>;
+
+            adi,auto-init;
+        };
+    };
+
 ...
