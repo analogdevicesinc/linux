@@ -712,10 +712,6 @@ static int pxp_streamoff(struct file *file, void *priv,
 
 	ret = videobuf_streamoff(&pxp->s0_vbq);
 
-	pxp_show_buf(pxp, (unsigned long)pxp->fb.base);
-
-	if (pxp->fb_blank)
-		set_fb_blank(FB_BLANK_POWERDOWN);
 
 	return ret;
 }
@@ -1150,6 +1146,11 @@ static int pxp_close(struct file *file)
 	videobuf_stop(&pxp->s0_vbq);
 	videobuf_mmap_free(&pxp->s0_vbq);
 	pxp->active = NULL;
+
+	pxp_show_buf(pxp, (unsigned long)pxp->fb.base);
+
+	if (pxp->fb_blank)
+		set_fb_blank(FB_BLANK_POWERDOWN);
 
 	mutex_lock(&pxp->mutex);
 	pxp->users--;
