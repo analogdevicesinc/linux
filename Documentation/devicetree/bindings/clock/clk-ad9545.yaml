@@ -62,7 +62,6 @@ properties:
       - description: Ref M0 clock input
       - description: Ref M1 clock input
       - description: Ref M2 clock input
-    maxItems: 4
 
   assigned-clocks:
     description:
@@ -190,7 +189,6 @@ patternProperties:
         description: |
           Time required for a reference to remain in tolerance condition before being
           available to be used.
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 1
         maximum: 1048574
         default: 10
@@ -198,14 +196,12 @@ patternProperties:
       adi,freq-lock-threshold-ps:
         description: |
           Phase lock detector threshold (in picoseconds).
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 1
         maximum: 16777215
 
       adi,phase-lock-threshold-ps:
         description: |
           Profile 0 frequency lock threshold. Frequency lock detector threshold (in picoseconds).
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 1
         maximum: 16777215
 
@@ -262,15 +258,14 @@ patternProperties:
         maxItems: 1
 
       '#address-cells':
-         const: 1
+        const: 1
 
       '#size-cells':
-         const: 0
+        const: 0
 
       adi,pll-internal-zero-delay-feedback-hz:
         description: |
           Rate of the output that will be used as a feedback path for this PLL bloc.
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 1
         maximum: 200000000
 
@@ -286,7 +281,6 @@ patternProperties:
       adi,pll-slew-rate-limit-ps:
         description: |
           DPLL0 phase slew limit rate (in picoseconds/second).
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 1
         maximum: 4000000000
 
@@ -345,7 +339,6 @@ patternProperties:
             description: |
               Fast acquisition timeout controls the maximum amount of time that DPLL waits to
               achieve phase lock before reducing the loop bandwidth by a factor of two.
-            $ref: /schemas/types.yaml#/definitions/uint32
             enum: [1, 10, 50, 100, 500, 1000, 10000, 50000]
             default: 1
 
@@ -353,7 +346,6 @@ patternProperties:
             description: |
               Controls how long DPLL must wait after achieving phase lock before reducing
               the loop bandwidth by a factor of 2.
-            $ref: /schemas/types.yaml#/definitions/uint32
             enum: [1, 10, 50, 100, 500, 1000, 10000, 50000]
             default: 1
 
@@ -380,14 +372,12 @@ patternProperties:
       adi,freq-lock-threshold-ps:
         description: |
           Phase lock detector threshold (in picoseconds).
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 1
         maximum: 16777215
 
       adi,phase-lock-threshold-ps:
         description: |
           Profile 0 frequency lock threshold. Frequency lock detector threshold (in picoseconds).
-        $ref: /schemas/types.yaml#/definitions/uint32
         minimum: 1
         maximum: 16777215
 
@@ -417,7 +407,6 @@ patternProperties:
       adi,current-source-microamp:
         description: |
           The magnitude of the driver current.
-        $ref: /schemas/types.yaml#/definitions/uint32
         enum: [7500, 12500, 15000]
 
       adi,output-mode:
