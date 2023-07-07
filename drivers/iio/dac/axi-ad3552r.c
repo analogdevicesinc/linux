@@ -530,7 +530,7 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	st->dev = &pdev->dev;
 
 	conv = devm_kzalloc(&pdev->dev, sizeof(*conv), GFP_KERNEL);
-	if (st == NULL)
+	if (conv == NULL)
 		return -ENOMEM;
 
 	st->ref_clk = devm_clk_get(&pdev->dev, NULL);
@@ -541,7 +541,7 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	ret = devm_add_action_or_reset(conv->dev, ad3552r_clk_disable,
+	ret = devm_add_action_or_reset(&pdev->dev, ad3552r_clk_disable,
 				       st->ref_clk);
 	if (ret < 0)
 		return ret;
