@@ -381,6 +381,10 @@ static int hx280enc_write_regs(struct enc_regs_buffer *regs)
 	u32 i;
 	int ret;
 
+	if (regs->size > sizeof(dev->mirror_regs) || !regs->size)
+		return -EINVAL;
+	if (regs->offset >= sizeof(dev->mirror_regs))
+		return -EINVAL;
 	if ((regs->offset + regs->size) > sizeof(dev->mirror_regs)) {
 		pr_err("%s invalid param, offset:%d, size:%d\n",
 			__func__, regs->offset, regs->size);
@@ -408,6 +412,10 @@ static int hx280enc_read_regs(struct enc_regs_buffer *regs)
 	u32 i;
 	int ret;
 
+	if (regs->size > sizeof(dev->mirror_regs) || !regs->size)
+		return -EINVAL;
+	if (regs->offset >= sizeof(dev->mirror_regs))
+		return -EINVAL;
 	if ((regs->offset + regs->size) > sizeof(dev->mirror_regs)) {
 		pr_err("%s invalid param, offset:%d, size:%d\n",
 			__func__, regs->offset, regs->size);

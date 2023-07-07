@@ -409,6 +409,10 @@ static int hantroenc_write_regs(struct enc_regs_buffer *regs)
 	u32 i;
 	int ret;
 
+	if (regs->size > sizeof(hantroenc_data[regs->core_id].reg_buf) || !regs->size)
+		return -EINVAL;
+	if (regs->offset >= sizeof(hantroenc_data[regs->core_id].reg_buf))
+		return -EINVAL;
 	if (regs->core_id >= total_core_num ||
 	    (regs->offset + regs->size) > sizeof(hantroenc_data[regs->core_id].reg_buf)) {
 		pr_err("%s invalid param, core_id:%d, offset:%d, size:%d\n",
@@ -435,6 +439,10 @@ static int hantroenc_read_regs(struct enc_regs_buffer *regs)
 	u32 i;
 	int ret;
 
+	if (regs->size > sizeof(hantroenc_data[regs->core_id].reg_buf) || !regs->size)
+		return -EINVAL;
+	if (regs->offset >= sizeof(hantroenc_data[regs->core_id].reg_buf))
+		return -EINVAL;
 	if (regs->core_id >= total_core_num ||
 	    (regs->offset + regs->size) > sizeof(hantroenc_data[regs->core_id].reg_buf)) {
 		pr_err("%s invalid param, core_id:%d, offset:%d, size:%d\n",
