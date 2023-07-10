@@ -418,6 +418,47 @@
 			no-map;
 		};
 	};
+
+	/*
+	 * this dummy i2c mux.
+	 * gpio actually will not impact selection.
+	 * at actual boards, only 1 devices connectted.
+	 * I2C client driver will check ID when probe.
+	 * Only matched ID's driver probe successfully.
+	 */
+	i2cvmux: i2cmux {
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mux-gpios = <&lsio_gpio5 1 GPIO_ACTIVE_HIGH>; /* use an unused gpio */
+		i2c-parent = <&i2c0>;
+
+		i2c@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			fxos8700@1e {
+				compatible = "nxp,fxos8700";
+				reg = <0x1e>;
+				interrupt-open-drain;
+			};
+		};
+
+		i2c@0 { /* Rev D */
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			lsm303arg@1e {
+				compatible = "st,lsm303agr-magn";
+				reg = <0x1e>;
+				st,drdy-int-pin = <1>;
+				interrupt-parent = <&lsio_gpio4>;
+				interrupt-open-drain;
+				interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
+			};
+		};
+	};
+
 };
 
 &lsio_mu5 {
@@ -1135,19 +1176,11 @@
 	status = "okay";
 
 	isl29023@44 {
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_isl29023>;
 		compatible = "isil,isl29023";
 		reg = <0x44>;
 		rext = <499>;
 		interrupt-parent = <&lsio_gpio4>;
 		interrupts = <11 2>;
-	};
-
-	fxos8700@1e {
-		compatible = "nxp,fxos8700";
-		reg = <0x1e>;
-		interrupt-open-drain;
 	};
 
 	fxas21002c@20 {
@@ -1161,6 +1194,18 @@
 		reg = <0x68>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	/* RevD */
+	lsm303arg@19 {
+		compatible = "st,lsm303agr-accel";
+		reg = <0x19>;
+	};
+
+	/* RevD */
+	l3g4250@69 {
+		compatible = "st,l3g4200d-gyro";
+		reg = <0x69>;
 	};
 
 	mpl3115@60 {
@@ -1423,6 +1468,8 @@
 			 */
 			IMX8QM_ADC_IN2_LSIO_GPIO3_IO20				0x00000021
 			IMX8QM_USB_SS3_TC2_LSIO_GPIO4_IO05			0x00000021
+			/* sensor irq */
+			IMX8QM_USDHC2_WP_LSIO_GPIO4_IO11			0x00000021
 		>;
 	};
 
@@ -1532,12 +1579,6 @@
 			IMX8QM_FLEXCAN2_TX_DMA_FLEXCAN2_TX            0x21
 			IMX8QM_FLEXCAN2_RX_DMA_FLEXCAN2_RX            0x21
 			>;
-	};
-
-	pinctrl_isl29023: isl29023grp {
-		fsl,pins = <
-			IMX8QM_USDHC2_WP_LSIO_GPIO4_IO11		0x00000021
-		>;
 	};
 
 	pinctrl_i2c0: i2c0grp {
