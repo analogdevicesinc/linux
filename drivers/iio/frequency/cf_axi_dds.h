@@ -98,6 +98,12 @@ enum dds_data_select {
 #define ADI_DRP_RDATA(x)	(((x) & 0xFFFF) << 0)
 #define ADI_TO_DRP_RDATA(x)	(((x) >> 0) & 0xFFFF)
 
+#define ADI_REG_DAC_CUSTOM_WR	0x0084
+#define ADI_AXI_MSK_DATA_WR_8	GENMASK(23, 16)
+#define ADI_AXI_MSK_DATA_WR_16	GENMASK(23, 8)
+#define CNTRL_DATA_WR_8(x)	FIELD_PREP(ADI_AXI_MSK_DATA_WR_8, x)
+#define CNTRL_DATA_WR_16(x)	FIELD_PREP(ADI_AXI_MSK_DATA_WR_16, x)
+
 #define ADI_REG_VDMA_FRMCNT	0x0084
 #define ADI_VDMA_FRMCNT(x)	(((x) & 0xFFFFFFFF) << 0)
 #define ADI_TO_VDMA_FRMCNT(x)	(((x) >> 0) & 0xFFFFFFFF)

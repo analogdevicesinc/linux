@@ -28,9 +28,6 @@
 #define AXI_REG_CNTRL_DATA_RD			0x80
 #define   AXI_MSK_DATA_RD_8			GENMASK(7, 0)
 #define   AXI_MSK_DATA_RD_16			GENMASK(15, 0)
-#define AXI_REG_CNTRL_DATA_WR			0x84
-#define   AXI_MSK_DATA_WR_8			GENMASK(23, 16)
-#define   AXI_MSK_DATA_WR_16			GENMASK(23, 8)
 #define AXI_REG_UI_STATUS			0x88
 #define   AXI_MSK_BUSY				BIT(4)
 #define AXI_REG_CNTRL_CSTM			0x8C
@@ -97,8 +94,6 @@
 #define AXI_RST					(AXI_MSK_RSTN | AXI_MSK_MMCM_RSTN)
 
 #define CNTRL_CSTM_ADDR(x)			FIELD_PREP(AXI_MSK_ADDRESS, x)
-#define CNTRL_DATA_WR_8(x)			FIELD_PREP(AXI_MSK_DATA_WR_8, x)
-#define CNTRL_DATA_WR_16(x)			FIELD_PREP(AXI_MSK_DATA_WR_16, x)
 
 #define RD_ADDR(x)				(BIT(7) | (x))
 
@@ -218,9 +213,9 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 		mutex_lock(&st->lock);
 
 	if (transfer_params & AXI_MSK_SYMB_8B)
-		dds_write(dds, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
+		dds_write(dds, ADI_REG_DAC_CUSTOM_WR, CNTRL_DATA_WR_8(val));
 	else
-		dds_write(dds, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_16(val));
+		dds_write(dds, ADI_REG_DAC_CUSTOM_WR, CNTRL_DATA_WR_16(val));
 
 	dds_write(dds, ADI_REG_CNTRL_2, transfer_params);
 
