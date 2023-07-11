@@ -22,8 +22,6 @@
 #define AXI_REG_RSTN				0x40
 #define   AXI_MSK_RSTN				BIT(0)
 #define   AXI_MSK_MMCM_RSTN			BIT(1)
-#define AXI_REG_CNTRL_1             0x44
-#define AXI_REG_CNTRL_2				0x48
 #define   AXI_MSK_USIGN_DATA			BIT(4)
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
@@ -226,7 +224,7 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 	else
 		dds_write(dds, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_16(val));
 
-	dds_write(dds, AXI_REG_CNTRL_2, transfer_params);
+	dds_write(dds, ADI_REG_CNTRL_2, transfer_params);
 
 	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
 				CNTRL_CSTM_ADDR(reg));
@@ -392,9 +390,9 @@ static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 
 	if (mode == 2) {
 		st->synced_transfer = true;
-		axi_ad3552r_write(conv->dev, AXI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
+		axi_ad3552r_write(conv->dev, ADI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
 
-		axi_ad3552r_write(conv->dev, AXI_REG_CNTRL_2,
+		axi_ad3552r_write(conv->dev, ADI_REG_CNTRL_2,
 				  (u32)(AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N));
 
 		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
@@ -402,7 +400,7 @@ static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 					AD3552R_STREAM_SATRT);
 	} else if (mode == 1) {
 		st->synced_transfer = false;
-		axi_ad3552r_write(conv->dev, AXI_REG_CNTRL_2,
+		axi_ad3552r_write(conv->dev, ADI_REG_CNTRL_2,
 				  (u32)(AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N));
 		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
 					AD3552R_STREAM_SATRT,
