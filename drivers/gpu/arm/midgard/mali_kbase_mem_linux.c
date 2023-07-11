@@ -1690,7 +1690,7 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(
 #if KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
 	faulted_pages = get_user_pages(address, *va_pages,
 			write ? FOLL_WRITE : 0, pages, NULL);
-#else
+#elif KERNEL_VERSION(6, 4, 0) > LINUX_VERSION_CODE
 	/* pin_user_pages function cannot be called with pages param NULL.
 	 * get_user_pages function will be used instead because it is safe to be
 	 * used with NULL pages param as long as it doesn't have FOLL_GET flag.
@@ -1701,6 +1701,14 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(
 	} else {
 		faulted_pages =
 			get_user_pages(address, *va_pages, write ? FOLL_WRITE : 0, pages, NULL);
+	}
+#else
+	if (pages != NULL) {
+		faulted_pages =
+			pin_user_pages(address, *va_pages, write ? FOLL_WRITE : 0, pages);
+	} else {
+		faulted_pages =
+			get_user_pages(address, *va_pages, write ? FOLL_WRITE : 0, pages);
 	}
 #endif
 

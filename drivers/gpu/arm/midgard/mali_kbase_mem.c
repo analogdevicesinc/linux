@@ -4929,9 +4929,12 @@ int kbase_jd_user_buf_pin_pages(struct kbase_context *kctx,
 #elif KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
 	pinned_pages = get_user_pages_remote(NULL, mm, address, alloc->imported.user_buf.nr_pages,
 					     write ? FOLL_WRITE : 0, pages, NULL, NULL);
-#else
+#elif KERNEL_VERSION(6, 4, 0) > LINUX_VERSION_CODE
 	pinned_pages = pin_user_pages_remote(mm, address, alloc->imported.user_buf.nr_pages,
 					     write ? FOLL_WRITE : 0, pages, NULL, NULL);
+#else
+	pinned_pages = pin_user_pages_remote(mm, address, alloc->imported.user_buf.nr_pages,
+					     write ? FOLL_WRITE : 0, pages, NULL);
 #endif
 
 	if (pinned_pages <= 0)
