@@ -67,8 +67,8 @@
 #define ALL_RX_CHANNEL_MASK	(ADI_ADRV9001_RX1 | ADI_ADRV9001_RX2 | \
 				 ADI_ADRV9001_ORX1 | ADI_ADRV9001_ORX2)
 
-#define ADRV9002_RX_EN(nr)	BIT(((nr) * 2) & 0x3)
-#define ADRV9002_TX_EN(nr)	BIT(((nr) * 2 + 1) & 0x3)
+#define ADRV9002_PORT_BIT(c)	(((c)->idx * 2 + (c)->port) & 0x3)
+#define ADRV9002_PORT_MASK(c)	BIT(ADRV9002_PORT_BIT(c))
 
 #define ADRV9002_RX_MAX_GAIN_mdB	\
 	((ADI_ADRV9001_RX_GAIN_INDEX_MAX - ADI_ADRV9001_RX_GAIN_INDEX_MIN) *	\
@@ -2513,9 +2513,9 @@ static void adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 			continue;
 
 		if (c->port == ADI_RX)
-			pos |= ADRV9002_RX_EN(c->idx);
+			pos |= ADRV9002_PORT_MASK(c);
 		else
-			pos |= ADRV9002_TX_EN(c->idx);
+			pos |= ADRV9002_PORT_MASK(c);
 	}
 
 	phy->init_cals.chanInitCalMask[0] = adrv9002_init_cals_mask[pos][0];
