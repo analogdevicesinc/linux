@@ -266,13 +266,9 @@ static int sdhci_cdns_write_phy_reg_mask(struct sdhci_cdns_priv *priv,
 
 	/* get PHY address */
 	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS04);
-	pr_info("%s: register = 0x%x\n", __func__, readl(priv->hrs_addr +
-		SDHCI_CDNS_HRS04));
 
 	/* read current PHY register value, before write */
 	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
-	pr_info("%s: value = 0x%x\n", __func__, readl(priv->hrs_addr +
-		SDHCI_CDNS_HRS05));
 
 	tmp &= ~mask;
 	tmp |= data;
@@ -285,8 +281,6 @@ static int sdhci_cdns_write_phy_reg_mask(struct sdhci_cdns_priv *priv,
 
 	/* re-read current PHY register value, check */
 	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
-	pr_info("%s: check reg: 0x%08x, value: 0x%08x, mask: 0x%08x\n", __func__,
-		addr, tmp, mask);
 
 	return 0;
 }
@@ -304,7 +298,6 @@ static u32 sdhci_cdns_read_phy_reg(struct sdhci_cdns_priv *priv,
 	/* read current PHY register value, before write */
 	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
 
-	pr_info("%s: check reg: 0x%08x, value: 0x%8x\n", __func__, addr, tmp);
 	return tmp;
 }
 
@@ -318,10 +311,6 @@ static int sdhci_cdns_dfi_phy_val(struct sdhci_cdns_priv *priv, u32 reg)
 	for (i = 0; i < priv->nr_phy_params; i++) {
 		if (priv->phy_params[i].addr == reg)
 			tmp |= priv->phy_params[i].data << priv->phy_params[i].offset;
-
-		pr_info("%s: p->addr: %02x, p->data: %02x, p->offset: %02x\n", __func__,
-				priv->phy_params[i].addr, priv->phy_params[i].data,
-				priv->phy_params[i].offset);
 	}
 
 	return tmp;
@@ -430,9 +419,6 @@ static int sdhci_cdns_combophy_init_sd_gen(struct sdhci_cdns_priv *priv)
 	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DLL_SLAVE_CTRL_REG, tmp,
 	mask);
 
-	/* step 6, skip program PHONY_DQS_TIMING for clock switch */
-	pr_info("%s: skip PHONY_DQS_TIMING\n", __func__);
-
 	/* step 7, switch off DLL_RESET */
 	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) | 1;
 	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
@@ -449,31 +435,22 @@ static int sdhci_cdns_combophy_init_sd_gen(struct sdhci_cdns_priv *priv)
 
 	/* step 10, program HRS09, register 42 */
 	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) & 0xFFFE7FF3;
-	pr_info("%s: step 10 register HRS09 = 0x%08x\n", __func__, tmp);
 
 	tmp |= sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS09);
 	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
-	pr_info("%s: register HRS09 = 0x%x\n", __func__, readl(priv->hrs_addr +
-			SDHCI_CDNS_HRS09));
 
 	/* step 11, program HRS10, register 43 */
 	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS10) & 0xFFF0FFFF;
 	tmp |= sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS10);
 	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS10);
-	pr_info("%s: register HRS10 = 0x%x\n", __func__, readl(priv->hrs_addr +
-	SDHCI_CDNS_HRS10));
 
 	/* step 12, program HRS16, register 48 */
 	tmp = sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS16);
 	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS16);
-	pr_info("%s: register HRS16  = 0x%x\n", __func__, readl(priv->hrs_addr +
-		SDHCI_CDNS_HRS16));
 
 	/* step 13, program HRS07, register 40 */
 	tmp = sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS07);
 	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS07);
-	pr_info("%s: register HRS07 = 0x%x\n", __func__, readl(priv->hrs_addr +
-		SDHCI_CDNS_HRS07));
 	/* end of combophy init */
 
 	return ret;
@@ -508,8 +485,6 @@ static void sdhci_cdns_phy_param_parse(struct device_node *np,
 		p->addr = sdhci_cdns_phy_cfgs[i].addr;
 		p->data = val;
 		p->offset = sdhci_cdns_phy_cfgs[i].offset;
-		pr_info("%s: p->addr: %02x, p->data: %02x, p->offset: %02x\n",
-			__func__, p->addr, p->data, p->offset);
 		p++;
 	}
 }
@@ -524,8 +499,6 @@ static int sdhci_cdns_phy_init(struct sdhci_cdns_priv *priv)
 
 		ret = sdhci_cdns_write_phy_reg(priv, priv->phy_params[i].addr,
 					       priv->phy_params[i].data);
-		pr_info("%s: p->addr: %02x, p->data: %02x\n", __func__,
-			priv->phy_params[i].addr, priv->phy_params[i].data);
 		if (ret)
 			return ret;
 	}
