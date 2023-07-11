@@ -156,6 +156,7 @@ struct adrv9002_chan {
 	 */
 	struct adi_adrv9001_ChannelEnablementDelays en_delays_ns;
 	unsigned long rate;
+	adi_adrv9001_InitCalibrations_e lo_cals;
 	adi_adrv9001_ChannelState_e cached_state;
 	adi_common_ChannelNumber_e number;
 	adi_adrv9001_LoSel_e lo;
@@ -251,6 +252,7 @@ struct adrv9002_rf_phy {
 	struct adi_adrv9001_Init	*curr_profile;
 	struct adi_adrv9001_Init	profile;
 	struct adi_adrv9001_InitCals	init_cals;
+	bool				run_cals;
 	u32				n_clks;
 	int				ngpios;
 	u8				rx2tx2;
