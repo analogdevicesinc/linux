@@ -184,17 +184,6 @@ enum dds_data_select {
 #define ADI_USR_INTERPOLATION_N(x)	(((x) & 0xFFFF) << 0)
 #define ADI_TO_USR_INTERPOLATION_N(x)	(((x) >> 0) & 0xFFFF)
 
-#define CNTRL_CSTM_ADDR(x)			FIELD_PREP(AXI_MSK_ADDRESS, x)
-#define CNTRL_DATA_WR_8(x)			FIELD_PREP(AXI_MSK_DATA_WR_8, x)
-#define CNTRL_DATA_WR_16(x)			FIELD_PREP(AXI_MSK_DATA_WR_16, x)
-
-#define RD_ADDR(x)				(BIT(7) | (x))
-
-#define SET_CH0_RANGE(x)			FIELD_PREP(AD3552R_MASK_CH0_RANGE, x)
-#define SET_CH1_RANGE(x)			FIELD_PREP(AD3552R_MASK_CH1_RANGE, x)
-#define GET_CH0_RANGE(x)			FIELD_GET(AD3552R_MASK_CH0_RANGE, x)
-#define GET_CH1_RANGE(x)			FIELD_GET(AD3552R_MASK_CH1_RANGE, x)
-
 
 #define AXIDDS_MAX_DMA_SIZE		(6 * 1024 * 1024) /* Randomly picked */
 
