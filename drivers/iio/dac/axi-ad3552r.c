@@ -120,6 +120,7 @@ enum ad35525_out_range {
 };
 
 enum ad35525_source {
+	AD3552R_DDS	= AXI_SEL_SRC_DDS,
 	AD3552R_ADC	= AXI_SEL_SRC_ADC,
 	AD3552R_DMA	= AXI_SEL_SRC_DMA,
 	AD3552R_RAMP	= AXI_SEL_SRC_DDS
@@ -138,6 +139,7 @@ static const char *const stream_status[] = {
 };
 
 static const char * const input_source[] = {
+	[AD3552R_DDS]	= "dds_input",
 	[AD3552R_ADC]	= "adc_input",
 	[AD3552R_DMA]	= "dma_input",
 	[AD3552R_RAMP]	= "ramp_input"
