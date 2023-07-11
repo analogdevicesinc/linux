@@ -2612,7 +2612,11 @@ static int kbase_cpu_mmap(struct kbase_context *kctx,
 	 * See MIDBASE-1057
 	 */
 
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 	vma->vm_flags |= VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO;
+#else
+	vm_flags_set(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO);
+#endif
 	vma->vm_ops = &kbase_vm_ops;
 	vma->vm_private_data = map;
 
@@ -2641,11 +2645,19 @@ static int kbase_cpu_mmap(struct kbase_context *kctx,
 	}
 
 	if (!kaddr) {
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 		vma->vm_flags |= VM_PFNMAP;
+#else
+		vm_flags_set(vma, VM_PFNMAP);
+#endif
 	} else {
 		WARN_ON(aligned_offset);
 		/* MIXEDMAP so we can vfree the kaddr early and not track it after map time */
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 		vma->vm_flags |= VM_MIXEDMAP;
+#else
+		vm_flags_set(vma, VM_MIXEDMAP);
+#endif
 		/* vmalloc remaping is easy... */
 		err = remap_vmalloc_range(vma, kaddr, 0);
 		WARN_ON(err);
@@ -2858,10 +2870,20 @@ int kbase_context_mmap(struct kbase_context *const kctx,
 
 	dev_dbg(dev, "kbase_mmap\n");
 
-	if (!(vma->vm_flags & VM_READ))
+	if (!(vma->vm_flags & VM_READ)) {
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 		vma->vm_flags &= ~VM_MAYREAD;
-	if (!(vma->vm_flags & VM_WRITE))
+#else
+		vm_flags_clear(vma, VM_MAYREAD);
+#endif
+	}
+	if (!(vma->vm_flags & VM_WRITE)) {
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 		vma->vm_flags &= ~VM_MAYWRITE;
+#else
+		vm_flags_clear(vma, VM_MAYWRITE);
+#endif
+	}
 
 	if (nr_pages == 0) {
 		err = -EINVAL;
@@ -3434,8 +3456,13 @@ static int kbase_tracking_page_setup(struct kbase_context *kctx, struct vm_area_
 		return -EINVAL;
 
 	/* no real access */
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 	vma->vm_flags &= ~(VM_READ | VM_MAYREAD | VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
 	vma->vm_flags |= VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP | VM_IO;
+#else
+	vm_flags_clear(vma, VM_READ | VM_MAYREAD | VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
+	vm_flags_set(vma, VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP | VM_IO);
+#endif
 	vma->vm_ops = &kbase_vm_special_ops;
 	vma->vm_private_data = kctx;
 
@@ -3656,6 +3683,7 @@ static int kbase_csf_cpu_mmap_user_io_pages(struct kbase_context *kctx,
 	if (err)
 		goto map_failed;
 
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 	vma->vm_flags |= VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO;
 	/* TODO use VM_MIXEDMAP, since it is more appropriate as both types of
 	 * memory with and without "struct page" backing are being inserted here.
@@ -3663,6 +3691,10 @@ static int kbase_csf_cpu_mmap_user_io_pages(struct kbase_context *kctx,
 	 * not use "struct page" for them.
 	 */
 	vma->vm_flags |= VM_PFNMAP;
+#else
+	vm_flags_set(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO);
+	vm_flags_set(vma, VM_PFNMAP);
+#endif
 
 	vma->vm_ops = &kbase_csf_user_io_pages_vm_ops;
 	vma->vm_private_data = queue;
@@ -3843,12 +3875,17 @@ static int kbase_csf_cpu_mmap_user_reg_page(struct kbase_context *kctx,
 	/* Map uncached */
 	vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
 
+#if (KERNEL_VERSION(6, 2, 0) > LINUX_VERSION_CODE)
 	vma->vm_flags |= VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO;
 
 	/* User register page comes from the device register area so
 	 * "struct page" isn't available for it.
 	 */
 	vma->vm_flags |= VM_PFNMAP;
+#else
+	vm_flags_set(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO);
+	vm_flags_set(vma, VM_PFNMAP);
+#endif
 
 	kctx->csf.user_reg.vma = vma;
 
