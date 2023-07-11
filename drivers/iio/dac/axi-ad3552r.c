@@ -25,9 +25,6 @@
 #define   AXI_MSK_USIGN_DATA			BIT(4)
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
-#define AXI_REG_CNTRL_DATA_RD			0x80
-#define   AXI_MSK_DATA_RD_8			GENMASK(7, 0)
-#define   AXI_MSK_DATA_RD_16			GENMASK(15, 0)
 #define AXI_REG_UI_STATUS			0x88
 #define   AXI_MSK_BUSY				BIT(4)
 #define AXI_REG_CNTRL_CSTM			0x8C
@@ -245,7 +242,7 @@ static u32 axi_ad3552r_spi_read(struct axi_ad3552r_state *st, u32 reg,
 	st->has_lock = true;
 
 	axi_ad3552r_spi_write(st, RD_ADDR(reg), 0x00, transfer_params);
-	val = dds_read(dds, AXI_REG_CNTRL_DATA_RD);
+	val = dds_read(dds, ADI_REG_DAC_CUSTOM_RD);
 
 	st->has_lock = false;
 	mutex_unlock(&st->lock);
