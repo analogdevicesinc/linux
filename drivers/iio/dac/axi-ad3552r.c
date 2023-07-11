@@ -25,8 +25,6 @@
 #define   AXI_MSK_USIGN_DATA			BIT(4)
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
-#define AXI_REG_UI_STATUS			0x88
-#define   AXI_MSK_BUSY				BIT(4)
 #define AXI_REG_CNTRL_CSTM			0x8C
 #define   AXI_MSK_TRANSFER_DATA			BIT(0)
 #define   AXI_MSK_STREAM			BIT(1)
@@ -221,9 +219,9 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
 				AXI_MSK_TRANSFER_DATA);
 	addr.st = st;
-	addr.reg = AXI_REG_UI_STATUS;
+	addr.reg = ADI_REG_UI_STATUS;
 	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
-			   check == AXI_MSK_BUSY, 10, 100);
+			   check == ADI_AXI_MSK_BUSY, 10, 100);
 
 	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
 

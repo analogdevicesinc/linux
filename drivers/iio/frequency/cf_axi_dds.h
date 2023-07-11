@@ -108,6 +108,9 @@ enum dds_data_select {
 #define CNTRL_DATA_WR_8(x)	FIELD_PREP(ADI_AXI_MSK_DATA_WR_8, x)
 #define CNTRL_DATA_WR_16(x)	FIELD_PREP(ADI_AXI_MSK_DATA_WR_16, x)
 
+#define ADI_REG_UI_STATUS	0x0088
+#define ADI_AXI_MSK_BUSY	BIT(4)
+
 #define ADI_REG_VDMA_FRMCNT	0x0084
 #define ADI_VDMA_FRMCNT(x)	(((x) & 0xFFFFFFFF) << 0)
 #define ADI_TO_VDMA_FRMCNT(x)	(((x) >> 0) & 0xFFFFFFFF)
