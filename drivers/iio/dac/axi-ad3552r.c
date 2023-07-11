@@ -426,11 +426,11 @@ static int ad3552r_get_stream_state(struct iio_dev *indio_dev,
 	val = axi_ad3552r_read(conv->dev, AXI_REG_CNTRL_CSTM);
 
 	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer)
-		return 2;
+		return AD3552R_START_STREAM_SYNCED;
 	else if ((val & AXI_MSK_STREAM) == 2)
-		return 1;
+		return AD3552R_START_STREAM;
 	else
-		return 0;
+		return AD3552R_STOP_STREAM;
 }
 
 static const struct iio_enum ad35525_source_enum = {
