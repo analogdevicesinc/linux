@@ -38,8 +38,6 @@
 #define   AXI_MSK_STREAM			BIT(1)
 #define   AXI_MSK_SYNCED_TRANSFER		BIT(2)
 #define   AXI_MSK_ADDRESS			GENMASK(31, 24)
-#define AXI_REG_CHAN_CNTRL_7_CH0		0x418
-#define AXI_REG_CHAN_CNTRL_7_CH1		0x458
 #define   AXI_EXT_SYNC_ARM             0x02
 #define   AXI_SEL_SRC_DMA			0x02
 #define   AXI_SEL_SRC_ADC			0x08
