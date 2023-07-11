@@ -25,11 +25,13 @@
 #define   AXI_MSK_USIGN_DATA			BIT(4)
 #define   AXI_MSK_SYMB_8B			BIT(14)
 #define   AXI_MSK_SDR_DDR_N			BIT(16)
-#define AXI_REG_CNTRL_CSTM			0x8C
+
+/* Masks for accessing DAC Common REG_DAC_CUSTOM_CTRL register */
 #define   AXI_MSK_TRANSFER_DATA			BIT(0)
 #define   AXI_MSK_STREAM			BIT(1)
 #define   AXI_MSK_SYNCED_TRANSFER		BIT(2)
 #define   AXI_MSK_ADDRESS			GENMASK(31, 24)
+
 #define   AXI_EXT_SYNC_ARM             0x02
 #define   AXI_SEL_SRC_DMA			0x02
 #define   AXI_SEL_SRC_ADC			0x08
@@ -214,16 +216,16 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 
 	dds_write(dds, ADI_REG_CNTRL_2, transfer_params);
 
-	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
+	axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_ADDRESS,
 				CNTRL_CSTM_ADDR(reg));
-	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
+	axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_TRANSFER_DATA,
 				AXI_MSK_TRANSFER_DATA);
 	addr.st = st;
 	addr.reg = ADI_REG_UI_STATUS;
 	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
 			   check == ADI_AXI_MSK_BUSY, 10, 100);
 
-	axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
+	axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_TRANSFER_DATA, 0);
 
 	if (!st->has_lock)
 		mutex_unlock(&st->lock);
@@ -383,19 +385,19 @@ static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 		axi_ad3552r_write(conv->dev, ADI_REG_CNTRL_2,
 				  (u32)(AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N));
 
-		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
+		axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL,
 					AD3552R_STREAM_SATRT,
 					AD3552R_STREAM_SATRT);
 	} else if (mode == 1) {
 		st->synced_transfer = false;
 		axi_ad3552r_write(conv->dev, ADI_REG_CNTRL_2,
 				  (u32)(AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N));
-		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
+		axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL,
 					AD3552R_STREAM_SATRT,
 					AD3552R_STREAM_SATRT);
 	} else {
 		st->synced_transfer = false;
-		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
+		axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL,
 					AD3552R_STREAM_SATRT, 0);
 	}
 
@@ -409,7 +411,7 @@ static int ad3552r_get_stream_state(struct iio_dev *indio_dev,
 	struct axi_ad3552r_state *st = conv->phy;
 	u32 val;
 
-	val = axi_ad3552r_read(conv->dev, AXI_REG_CNTRL_CSTM);
+	val = axi_ad3552r_read(conv->dev, ADI_REG_DAC_CUSTOM_CTRL);
 
 	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer)
 		return AD3552R_START_STREAM_SYNCED;
