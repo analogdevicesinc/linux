@@ -707,6 +707,18 @@ static const struct iio_info ad9783_info = {
 	}
 
 static const struct iio_chan_spec ad9783_channels[][4] = {
+	[ID_DEV_AD9780] = {
+		AD9783_CHANNEL_DAC("TX_I", 0),
+		AD9783_CHANNEL_DAC("TX_Q", 1),
+		AD9783_CHANNEL_AUXDAC("AUX1", 2),
+		AD9783_CHANNEL_AUXDAC("AUX2", 3),
+	},
+	[ID_DEV_AD9781] = {
+		AD9783_CHANNEL_DAC("TX_I", 0),
+		AD9783_CHANNEL_DAC("TX_Q", 1),
+		AD9783_CHANNEL_AUXDAC("AUX1", 2),
+		AD9783_CHANNEL_AUXDAC("AUX2", 3),
+	},
 	[ID_DEV_AD9783] = {
 		AD9783_CHANNEL_DAC("TX_I", 0),
 		AD9783_CHANNEL_DAC("TX_Q", 1),
