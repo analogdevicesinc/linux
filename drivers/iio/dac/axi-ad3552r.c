@@ -378,19 +378,37 @@ static int ad3552r_get_input_source(struct iio_dev *indio_dev,
 	return dds_read(dds, ADI_REG_CHAN_CNTRL_7(0));
 }
 
+// TODO Prevent user from setting output range while ad3552r is streaming.
+
 static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan,
 				    unsigned int mode)
 {
 	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axi_ad3552r_state *st = conv->phy;
 
 	if (mode == 2) {
-		axi_ad3552r_update_bits(dds, ADI_REG_CONFIG, ADI_DDS_DISABLE, 0);
-		cf_axi_dds_start_sync(dds, true);
+		st->synced_transfer = true;
+		axi_ad3552r_write(conv->dev, AXI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
+
+		axi_ad3552r_write(conv->dev, AXI_REG_CNTRL_2,
+				  (u32)(AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N));
+
+		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT,
+					AD3552R_STREAM_SATRT);
 	} else if (mode == 1) {
-		axi_ad3552r_update_bits(dds, ADI_REG_CONFIG, ADI_DDS_DISABLE, 0);
+		st->synced_transfer = false;
+		axi_ad3552r_write(conv->dev, AXI_REG_CNTRL_2,
+				  (u32)(AXI_MSK_USIGN_DATA | ~AXI_MSK_SDR_DDR_N));
+		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT,
+					AD3552R_STREAM_SATRT);
 	} else {
-		axi_ad3552r_update_bits(dds, ADI_REG_CONFIG, ADI_DDS_DISABLE, 1);
+		st->synced_transfer = false;
+		axi_ad3552r_update_bits(dds, AXI_REG_CNTRL_CSTM,
+					AD3552R_STREAM_SATRT, 0);
 	}
 
 	return 0;
@@ -399,8 +417,18 @@ static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 static int ad3552r_get_stream_state(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan)
 {
-	struct cf_axi_dds_state *st = iio_priv(indio_dev);
-	return cf_axi_dds_dma_fifo_en(st);
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axi_ad3552r_state *st = conv->phy;
+	u32 val;
+
+	val = axi_ad3552r_read(conv->dev, AXI_REG_CNTRL_CSTM);
+
+	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer)
+		return 2;
+	else if ((val & AXI_MSK_STREAM) == 2)
+		return 1;
+	else
+		return 0;
 }
 
 static const struct iio_enum ad35525_source_enum = {
