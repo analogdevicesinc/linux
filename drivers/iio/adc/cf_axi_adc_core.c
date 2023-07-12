@@ -859,20 +859,43 @@ struct axiadc_dev {
 	struct module *owner;
 };
 
-static int axiadc_attach_spi_client(struct device *dev, void *data)
+static int adc_converter_match(struct device *dev, const void *data)
 {
-	struct axiadc_dev *axiadc_dev = data;
-	int ret = 0;
+	return dev->driver && dev->of_node == data;
+}
 
-	device_lock(dev);
-	if (axiadc_dev->of_ndev == dev->of_node && dev->driver) {
-		axiadc_dev->dev = dev;
-		axiadc_dev->owner = dev->driver->owner;
-		ret = 1;
-	}
-	device_unlock(dev);
+static struct device *adc_converter_bus_find(const struct device_node *np,
+					     struct bus_type *bus,
+					     const char *phandle_name)
+{
+	struct device_node *conv_of;
+	struct device *conv_dev;
 
-	return ret;
+	conv_of = of_parse_phandle(np, phandle_name, 0);
+	if (!conv_of)
+		return ERR_PTR(-ENODEV);
+
+	conv_dev = bus_find_device(bus, NULL,
+				   conv_of, adc_converter_match);
+	of_node_put(conv_of);
+	if (!conv_dev)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	return conv_dev;
+}
+
+static struct device *adc_converter_find(struct device *dev)
+{
+	struct device *conv_dev;
+
+	conv_dev = adc_converter_bus_find(dev->of_node, &spi_bus_type,
+					  "spibus-connected");
+
+	if (IS_ERR(conv_dev) && PTR_ERR(conv_dev) == -ENODEV)
+		conv_dev = adc_converter_bus_find(dev->of_node,
+						  &platform_bus_type,
+						  "platformbus-connected");
+	return conv_dev;
 }
 
 static int axiadc_jesd204_link_supported(struct jesd204_dev *jdev,
@@ -1101,28 +1124,22 @@ static int axiadc_probe(struct platform_device *pdev)
 	/* Defer driver probe until matching spi
 	 * converter driver is registered
 	 */
-	axiadc_dev->of_ndev = of_parse_phandle(pdev->dev.of_node,
-					       "spibus-connected", 0);
-	if (!axiadc_dev->of_ndev) {
-		dev_err(&pdev->dev, "could not find spi node\n");
-		return -ENODEV;
-	}
+	axiadc_dev->dev = adc_converter_find(&pdev->dev);
+	if (IS_ERR(axiadc_dev->dev))
+		return dev_err_probe(&pdev->dev, PTR_ERR(axiadc_dev->dev),
+				     "Failed to match axiadc converter.\n");
 
-	ret = bus_for_each_dev(&spi_bus_type, NULL, axiadc_dev,
-			       axiadc_attach_spi_client);
-	of_node_put(axiadc_dev->of_ndev);
-	if (ret == 0)
-		return -EPROBE_DEFER;
-
-	if (!try_module_get(axiadc_dev->dev->driver->owner))
-		return -ENODEV;
-
-	get_device(axiadc_dev->dev);
+	device_lock(axiadc_dev->dev);
+	axiadc_dev->owner = axiadc_dev->dev->driver->owner;
+	device_unlock(axiadc_dev->dev);
 
 	ret = devm_add_action_or_reset(&pdev->dev, axiadc_release_converter,
 				       axiadc_dev->dev);
 	if (ret)
 		return ret;
+
+	if (!try_module_get(axiadc_dev->dev->driver->owner))
+		return -ENODEV;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (!indio_dev)
