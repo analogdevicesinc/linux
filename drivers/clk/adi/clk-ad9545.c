@@ -278,6 +278,7 @@
 
 #define AD9545_SYS_CLK_STABILITY_MS	50
 
+#define AD9545_R_DIV_MSK		GENMASK(29, 0)
 #define AD9545_R_DIV_MAX		0x40000000
 #define AD9545_IN_MAX_TDC_FREQ_HZ	200000
 
@@ -1745,44 +1746,39 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 
 static int ad9545_set_r_div(struct ad9545_state *st, u32 div, int addr)
 {
+	__le32 regval;
+	u32 val;
 	int ret;
-	u8 reg;
-	int i;
 
 	if (div > AD9545_R_DIV_MAX || div == 0)
 		return -EINVAL;
 
 	/* r-div ratios are mapped from 0 onward */
 	div -= 1;
-	for (i = 0; i < 4; i++) {
-		reg = (div >> (i * 8)) & 0xFF;
 
-		ret = regmap_write(st->regmap, AD9545_REF_X_RDIV(addr) + i, reg);
-		if (ret < 0)
-			return ret;
-	}
+	val = FIELD_PREP(AD9545_R_DIV_MSK, div);
+	regval = cpu_to_le32(val);
+	ret = regmap_bulk_write(st->regmap, AD9545_REF_X_RDIV(addr), &regval, 4);
+	if (ret < 0)
+		return ret;
 
 	return ad9545_io_update(st);
 }
 
 static int ad9545_get_r_div(struct ad9545_state *st, int addr, u32 *r_div)
 {
+	__le32 regval;
+	u32 val, div;
 	int ret;
-	u32 div;
-	u32 reg;
-	int i;
 
-	div = 0;
-	for (i = 0; i < 4; i++) {
-		ret = regmap_read(st->regmap, AD9545_REF_X_RDIV(addr) + i, &reg);
-		if (ret < 0)
-			return ret;
-
-		div += (reg << (i * 8));
-	}
+	ret = regmap_bulk_read(st->regmap, AD9545_REF_X_RDIV(addr), &regval, 4);
+	if (ret < 0)
+		return ret;
+	val = le32_to_cpu(regval);
+	div = FIELD_GET(AD9545_R_DIV_MSK, val);
 
 	/* r-div ratios are mapped from 0 onward */
-	*r_div = ++div;
+	*r_div = div + 1;
 
 	return 0;
 }
