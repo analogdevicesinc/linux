@@ -1749,7 +1749,7 @@ static int ad9545_set_r_div(struct ad9545_state *st, u32 div, int addr)
 	u8 reg;
 	int i;
 
-	if (div > AD9545_R_DIV_MAX)
+	if (div > AD9545_R_DIV_MAX || div == 0)
 		return -EINVAL;
 
 	/* r-div ratios are mapped from 0 onward */
