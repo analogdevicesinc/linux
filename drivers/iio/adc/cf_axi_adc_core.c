@@ -856,7 +856,7 @@ struct axiadc_dev {
 	struct device *dev;
 };
 
-static int axiadc_attach_spi_client(struct device *dev, void *data)
+static int axiadc_attach_converter_client(struct device *dev, void *data)
 {
 	struct axiadc_dev *axiadc_dev = data;
 	int ret = 0;
@@ -1095,15 +1095,25 @@ static int axiadc_probe(struct platform_device *pdev)
 	 */
 	axiadc_dev.of_ndev = of_parse_phandle(pdev->dev.of_node,
 						 "spibus-connected", 0);
+	if (!axiadc_dev.of_ndev)
+		axiadc_dev.of_ndev = of_parse_phandle(pdev->dev.of_node,
+						      "platformbus-connected", 0);
+
 	if (!axiadc_dev.of_ndev) {
-		dev_err(&pdev->dev, "could not find spi node\n");
+		dev_err(&pdev->dev, "could not find device node\n");
 		return -ENODEV;
 	}
 
 	ret = bus_for_each_dev(&spi_bus_type, NULL, &axiadc_dev,
-			       axiadc_attach_spi_client);
-	if (ret == 0)
+			       axiadc_attach_converter_client);
+	if (ret == 0) {
 		return -EPROBE_DEFER;
+	} else {
+		ret = bus_for_each_dev(&platform_bus_type, NULL, &axiadc_dev,
+				       axiadc_attach_converter_client);
+		if (ret == 0)
+			return -EPROBE_DEFER;
+	}
 
 	if (!try_module_get(axiadc_dev.dev->driver->owner))
 		return -ENODEV;
