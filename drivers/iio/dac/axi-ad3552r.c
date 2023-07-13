@@ -32,10 +32,12 @@
 #define   AXI_MSK_SYNCED_TRANSFER		BIT(2)
 #define   AXI_MSK_ADDRESS			GENMASK(31, 24)
 
-#define   AXI_EXT_SYNC_ARM             0x02
+#define   AXI_EXT_SYNC_ARM		0x02
+
+#define   AXI_SEL_SRC_DDS			0x00
 #define   AXI_SEL_SRC_DMA			0x02
 #define   AXI_SEL_SRC_ADC			0x08
-#define   AXI_SEL_SRC_DDS			0x0b
+#define   AXI_SEL_SRC_16_B_RAMP			0x0b
 
 #define AD3552R_REG_INTERFACE_CONFIG_A		0x00
 #define   AD3552R_MASK_SW_RST			(BIT(7) | BIT(0))
@@ -111,7 +113,7 @@ enum ad35525_source {
 	AD3552R_DDS	= AXI_SEL_SRC_DDS,
 	AD3552R_ADC	= AXI_SEL_SRC_ADC,
 	AD3552R_DMA	= AXI_SEL_SRC_DMA,
-	AD3552R_RAMP	= AXI_SEL_SRC_DDS
+	AD3552R_RAMP	= AXI_SEL_SRC_16_B_RAMP
 };
 
 enum ad35525_stream_status {
