@@ -354,6 +354,7 @@ static int ad3552r_set_input_source(struct iio_dev *indio_dev,
 {
 	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
 
+	dev_info(&indio_dev->dev, "ad3552r set_input_source, mode: %u", mode);
 	dds_write(dds, ADI_REG_CHAN_CNTRL_7(0), mode);
 	dds_write(dds, ADI_REG_CHAN_CNTRL_7(1), mode);
 
