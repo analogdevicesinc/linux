@@ -70,8 +70,8 @@
 		dmas = <&dac_tx_dma 0>;
 		dma-names = "tx";
 
-		//adi,axi-dds-default-scale = <0x800>;
-		//adi,axi-dds-default-frequency = <1000000>;
+		adi,axi-dds-default-scale = <0x800>;
+		adi,axi-dds-default-frequency = <1000000>;
 
 		platformbus-connected = <&axi_ad3552r>;
 	};
