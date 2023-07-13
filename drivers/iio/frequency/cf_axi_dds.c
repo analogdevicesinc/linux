@@ -1988,7 +1988,6 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 static const struct axidds_core_info ad3552r_6_00_a_info = {
 	.version = ADI_AXI_PCORE_VER(9, 0, 'a'),
 	.standalone = false,
-	.rate_format_skip_en = true,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
 	.issue_sync_en = 1,
