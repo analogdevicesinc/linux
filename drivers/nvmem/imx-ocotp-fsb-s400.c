@@ -207,7 +207,7 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 		}
 	}
 
-	memcpy(val, (u8 *)(buf + offset), bytes);
+	memcpy(val, (u8 *)(buf) + offset, bytes);
 
 ret:
 	kfree(buf);
