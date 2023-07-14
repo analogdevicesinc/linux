@@ -979,10 +979,16 @@ config MFD_MAX8998
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
+config MFD_MAXIM_SERDES
+	tristate "Maxim SerDes glue layer"
+	help
+	  Allow some basic communication between serializer and deserializer drivers.
+
 config MFD_MAX96752
 	tristate "Analog Devices MAX96752 Deserializer core support"
 	select MFD_CORE
 	select REGMAP
+	select MFD_MAXIM_SERDES
 	help
 	  Support for Analog Devices MAX96752 GMSL deserializer. The
 	  deserializer converts a single or dual-link GMSL serial input to
@@ -1000,6 +1006,7 @@ config MFD_MAX96789
 	tristate "Analog Devices MAX96789 DSI Serializer core support"
 	select MFD_CORE
 	select REGMAP
+	select MFD_MAXIM_SERDES
 	help
 	  Support for Analog Devices MAX96789 MIPI-DSI serializer. This
 	  serializer converts dual MIPI DSI, four-lane input port data to dual
