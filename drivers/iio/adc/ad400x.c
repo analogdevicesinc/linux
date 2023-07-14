@@ -287,13 +287,15 @@ static int ad400x_set_samp_freq(struct ad400x_state *st, int freq)
 	struct pwm_state cnv_state;
 	int ret;
 
+	/* Sync up PWM state and prepare for pwm_apply_state(). */
+	pwm_init_state(st->cnv, &cnv_state);
+
 	freq = clamp(freq, 0, ADAQ4003_MAX_FREQ);
 	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
 	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
 						  st->ref_clk_rate);
 	cnv_state.period = ref_clk_period_ps * target;
 	cnv_state.duty_cycle = ref_clk_period_ps;
-	cnv_state.phase = ref_clk_period_ps;
 	cnv_state.time_unit = PWM_UNIT_PSEC;
 	cnv_state.enabled = true;
 	ret = pwm_apply_state(st->cnv, &cnv_state);
