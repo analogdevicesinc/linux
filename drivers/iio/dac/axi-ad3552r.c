@@ -330,6 +330,7 @@ static int ad3552r_set_output_range(struct iio_dev *indio_dev,
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 
+	dev_info(&indio_dev->dev, "ad3552r set_output_range, mode: %u", mode);
 	axi_ad3552r_spi_update_bits(conv->phy, AD3552R_REG_OUTPUT_RANGE,
 				    AD3552R_MASK_OUT_RANGE,
 				    SET_CH1_RANGE(mode) | SET_CH0_RANGE(mode),
@@ -347,6 +348,7 @@ static int ad3552r_get_output_range(struct iio_dev *indio_dev,
 
 	val = axi_ad3552r_spi_read(conv->phy, AD3552R_REG_OUTPUT_RANGE,
 				   AD3552R_TFER_8BIT_SDR);
+	dev_info(&indio_dev->dev, "ad3552r get_output_range, GET_CH0_RANGE(val): %lu", GET_CH0_RANGE(val));
 	return GET_CH0_RANGE(val);
 }
 
@@ -367,7 +369,11 @@ static int ad3552r_get_input_source(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan)
 {
 	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
+	int source;
 
+	source = dds_read(dds, ADI_REG_CHAN_CNTRL_7(0));
+
+	dev_info(&indio_dev->dev, "ad3552r get_input_source, source: %d", source);
 	return dds_read(dds, ADI_REG_CHAN_CNTRL_7(0));
 }
 
@@ -381,6 +387,7 @@ static int ad3552r_set_stream_state(struct iio_dev *indio_dev,
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct axi_ad3552r_state *st = conv->phy;
 
+	dev_info(&indio_dev->dev, "ad3552r set_stream_state, mode: %u", mode);
 	if (mode == 2) {
 		st->synced_transfer = true;
 		axi_ad3552r_write(conv->dev, ADI_REG_CNTRL_1, AXI_EXT_SYNC_ARM);
@@ -416,6 +423,9 @@ static int ad3552r_get_stream_state(struct iio_dev *indio_dev,
 
 	val = axi_ad3552r_read(conv->dev, ADI_REG_DAC_CUSTOM_CTRL);
 
+	dev_info(&indio_dev->dev, "ad3552r get_stream_state, val: %u", val);
+	dev_info(&indio_dev->dev, "ad3552r get_stream_state, (val & MSK): %lu",
+		val & AXI_MSK_STREAM);
 	if ((val & AXI_MSK_STREAM) == 2 && st->synced_transfer)
 		return AD3552R_START_STREAM_SYNCED;
 	else if ((val & AXI_MSK_STREAM) == 2)
