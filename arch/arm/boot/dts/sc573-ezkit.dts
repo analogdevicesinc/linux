@@ -470,7 +470,9 @@
 };
 
 &usb0 {
-	mode = <3>; /* OTG port */
+	/* mode = <2>; Place OTG port into Device Mode */
+	/* mode = <1>; Place OTG port into Host Mode */
+	mode = <1>;
 	status = "okay";
 };
 
