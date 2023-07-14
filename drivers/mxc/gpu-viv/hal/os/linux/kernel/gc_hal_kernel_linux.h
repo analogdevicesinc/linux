@@ -337,7 +337,7 @@ _ConvertLogical2Physical(IN gckOS           Os,
                          IN PLINUX_MDL      Mdl,
                          OUT gctPHYS_ADDR_T *Physical);
 
-gctBOOL
+gceSTATUS
 _QuerySignal(IN gckOS Os, IN gctSIGNAL Signal);
 
 static inline gctINT
