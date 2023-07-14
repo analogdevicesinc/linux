@@ -40,6 +40,7 @@ struct imx_fsb_s400_hw {
 	unsigned int fsb_otp_shadow;
 	const struct bank_2_reg fsb_bank_reg[MAPPING_SIZE];
 	bool oscca_fuse_read;
+	bool reverse_mac_address;
 };
 
 struct imx_fsb_s400_fuse {
@@ -216,6 +217,33 @@ ret:
 	return err;
 }
 
+static int fsb_s400_fuse_post_process(void *priv, const char *id, int index,
+				      unsigned int offset, void *data,
+				      size_t bytes)
+{
+	u8 *buf = data;
+	int i;
+
+	/* Deal with some post processing of nvmem cell data */
+	if (id && !strcmp(id, "mac-address")) {
+		for (i = 0; i < bytes / 2; i++)
+			swap(buf[i], buf[bytes - i - 1]);
+	}
+
+	return 0;
+}
+
+static void imx_fsb_s400_fuse_fixup_cell_info(struct nvmem_device *nvmem,
+					      struct nvmem_layout *layout,
+					      struct nvmem_cell_info *cell)
+{
+	cell->read_post_process = fsb_s400_fuse_post_process;
+}
+
+static struct nvmem_layout imx_fsb_s400_fuse_layout = {
+	.fixup_cell_info = imx_fsb_s400_fuse_fixup_cell_info,
+};
+
 static int imx_fsb_s400_fuse_probe(struct platform_device *pdev)
 {
 	struct imx_fsb_s400_fuse *fuse;
@@ -241,6 +269,9 @@ static int imx_fsb_s400_fuse_probe(struct platform_device *pdev)
 	fuse->config.priv = fuse;
 	mutex_init(&fuse->lock);
 	fuse->hw = of_device_get_match_data(&pdev->dev);
+
+	if (fuse->hw->reverse_mac_address)
+		fuse->config.layout = &imx_fsb_s400_fuse_layout;
 
 	if (fuse->hw->oscca_fuse_read) {
 		np = of_find_compatible_node(NULL, NULL, "fsl,imx93-aonmix-ns-syscfg");
@@ -299,12 +330,14 @@ static const struct imx_fsb_s400_hw imx8ulp_fsb_s400_hw = {
 		[21] = { 46, 200 },
 	},
 	.oscca_fuse_read = false,
+	.reverse_mac_address = false,
 };
 
 static const struct imx_fsb_s400_hw imx93_fsb_s400_hw = {
 	.soc = IMX93,
 	.fsb_otp_shadow = 0x8000,
 	.oscca_fuse_read = true,
+	.reverse_mac_address = true,
 };
 
 static const struct of_device_id imx_fsb_s400_fuse_match[] = {
