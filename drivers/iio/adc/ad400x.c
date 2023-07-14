@@ -299,9 +299,13 @@ static int ad400x_set_samp_freq(struct ad400x_state *st, int freq)
 	cnv_state.time_unit = PWM_UNIT_PSEC;
 	cnv_state.enabled = true;
 	ret = pwm_apply_state(st->cnv, &cnv_state);
-	if (ret)
+	if (ret) {
+		dev_info(&st->spi->dev, "Error on pwm_apply_state()");
 		return ret;
+	}
 
+	dev_info(&st->spi->dev, "pwm_state period %llu", pwm_get_period(st->cnv));
+	dev_info(&st->spi->dev, "pwm_state duty_cycle %llu", pwm_get_duty_cycle(st->cnv));
 	st->samp_freq = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, target);
 
 	return ret;
