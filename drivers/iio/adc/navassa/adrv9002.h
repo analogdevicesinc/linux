@@ -33,7 +33,6 @@ struct iio_chan_spec;
 #define ADRV_ADDRESS_CHAN(addr)		((addr) & 0xFF)
 #define ADRV9002_FH_HOP_SIGNALS_NR	2
 #define ADRV9002_FH_TABLES_NR		2
-#define ADRV9002_FH_BIN_ATTRS_CNT	(ADRV9002_FH_HOP_SIGNALS_NR * ADRV9002_FH_TABLES_NR)
 #define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
 
@@ -239,7 +238,7 @@ struct adrv9002_rf_phy {
 	char				*bin_attr_buf;
 	u8				*stream_buf;
 	u16				stream_size;
-	struct adrv9002_fh_bin_table	fh_table_bin_attr[ADRV9002_FH_BIN_ATTRS_CNT];
+	struct adrv9002_fh_bin_table	fh_table_bin_attr;
 	adi_adrv9001_FhCfg_t		fh;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];
