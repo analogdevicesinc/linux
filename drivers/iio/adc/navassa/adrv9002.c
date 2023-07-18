@@ -3513,10 +3513,8 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 					   size_t count, int hop, int table)
 {
 	struct adrv9002_fh_bin_table *tbl = &phy->fh_table_bin_attr[hop * 2 + table];
-	/* this is only static to avoid  -Wframe-larger-than on ARM */
-	static adi_adrv9001_FhHopFrame_t hop_tbl[ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE];
 	char *p, *line;
-	int entry = 0, ret, max_sz = ARRAY_SIZE(hop_tbl);
+	int entry = 0, ret, max_sz = ARRAY_SIZE(tbl->hop_tbl);
 
 	mutex_lock(&phy->lock);
 	if (!phy->curr_profile->sysConfig.fhModeOn) {
@@ -3572,19 +3570,19 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 			return -EINVAL;
 		}
 
-		hop_tbl[entry].hopFrequencyHz = lo;
-		hop_tbl[entry].rx1OffsetFrequencyHz = rx10_if;
-		hop_tbl[entry].rx2OffsetFrequencyHz = rx10_if;
-		hop_tbl[entry].rx1GainIndex = rx1_gain;
-		hop_tbl[entry].tx1Attenuation_fifthdB = tx1_atten;
-		hop_tbl[entry].rx2GainIndex = rx1_gain;
-		hop_tbl[entry].tx2Attenuation_fifthdB = tx2_atten;
+		tbl->hop_tbl[entry].hopFrequencyHz = lo;
+		tbl->hop_tbl[entry].rx1OffsetFrequencyHz = rx10_if;
+		tbl->hop_tbl[entry].rx2OffsetFrequencyHz = rx10_if;
+		tbl->hop_tbl[entry].rx1GainIndex = rx1_gain;
+		tbl->hop_tbl[entry].tx1Attenuation_fifthdB = tx1_atten;
+		tbl->hop_tbl[entry].rx2GainIndex = rx1_gain;
+		tbl->hop_tbl[entry].tx2Attenuation_fifthdB = tx2_atten;
 		entry++;
 	}
 
 	dev_dbg(&phy->spi->dev, "Load hop:%d table:%d with %d entries\n", hop, table, entry);
 	ret = api_call(phy, adi_adrv9001_fh_HopTable_Static_Configure,
-		       phy->fh.mode, hop, table, hop_tbl, entry);
+		       phy->fh.mode, hop, table, tbl->hop_tbl, entry);
 	mutex_unlock(&phy->lock);
 
 	return ret ? ret : count;

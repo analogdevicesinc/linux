@@ -199,6 +199,7 @@ struct adrv9002_fh_bin_table {
 	 * +1 so we the table can be properly NULL terminated.
 	 */
 	u8 bin_table[PAGE_SIZE + 1];
+	adi_adrv9001_FhHopFrame_t hop_tbl[ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE];
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct adrv9002_clock, hw)
