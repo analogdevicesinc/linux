@@ -194,8 +194,11 @@ struct adrv9002_gpio {
 };
 
 struct adrv9002_fh_bin_table {
-	/* page size should be more than enough for a max of 64 entries! */
-	u8 bin_table[PAGE_SIZE];
+	/*
+	 * page size should be more than enough for a max of 64 entries!
+	 * +1 so we the table can be properly NULL terminated.
+	 */
+	u8 bin_table[PAGE_SIZE + 1];
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct adrv9002_clock, hw)

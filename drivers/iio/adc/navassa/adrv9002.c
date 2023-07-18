@@ -3531,16 +3531,15 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 		return -ENOTSUPP;
 	}
 
-	if (!off)
-		memset(tbl->bin_table, 0, sizeof(tbl->bin_table));
-
 	memcpy(tbl->bin_table + off, buf, count);
+	/* The bellow is always safe as @bin_table is bigger (by 1 byte) than the bin attribute */
+	tbl->bin_table[off + count] = '\0';
 
 	if (phy->fh.mode == ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP)
 		max_sz /= 2;
 
 	p = tbl->bin_table;
-	while ((line = strsep(&p, "\n")) && p) {
+	while ((line = strsep(&p, "\n"))) {
 		u64 lo;
 		u32 rx10_if, rx20_if, rx1_gain, tx1_atten, rx2_gain, tx2_atten;
 
