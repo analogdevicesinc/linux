@@ -3512,9 +3512,15 @@ static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj
 static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *buf, loff_t off,
 					   size_t count, int hop, int table)
 {
-	struct adrv9002_fh_bin_table *tbl = &phy->fh_table_bin_attr[hop * 2 + table];
+	struct adrv9002_fh_bin_table *tbl = &phy->fh_table_bin_attr;
 	char *p, *line;
 	int entry = 0, ret, max_sz = ARRAY_SIZE(tbl->hop_tbl);
+
+	/* force a one write() call as it simplifies things a lot */
+	if (off) {
+		dev_err(&phy->spi->dev, "Hop table must be set in one write() call\n");
+		return -EINVAL;
+	}
 
 	mutex_lock(&phy->lock);
 	if (!phy->curr_profile->sysConfig.fhModeOn) {
@@ -3529,9 +3535,9 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 		return -ENOTSUPP;
 	}
 
-	memcpy(tbl->bin_table + off, buf, count);
+	memcpy(tbl->bin_table, buf, count);
 	/* The bellow is always safe as @bin_table is bigger (by 1 byte) than the bin attribute */
-	tbl->bin_table[off + count] = '\0';
+	tbl->bin_table[count] = '\0';
 
 	if (phy->fh.mode == ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP)
 		max_sz /= 2;
