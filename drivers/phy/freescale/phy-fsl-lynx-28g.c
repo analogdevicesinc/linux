@@ -13,18 +13,28 @@
 
 /* General registers per SerDes block */
 #define LYNX_28G_PCC8				0x10a0
-#define LYNX_28G_PCC8_SGMII			0x1
-#define LYNX_28G_PCC8_SGMII_DIS			0x0
+#define LYNX_28G_PCC8_SGMIInCFG(lane, x)	(((x) & GENMASK(2, 0)) << LYNX_28G_LNa_PCC_OFFSET(lane))
+#define LYNX_28G_PCC8_SGMIInCFG_EN(lane)	LYNX_28G_PCC8_SGMIInCFG(lane, 1)
+#define LYNX_28G_PCC8_SGMIInCFG_MSK(lane)	LYNX_28G_PCC8_SGMIInCFG(lane, GENMASK(2, 0))
+#define LYNX_28G_PCC8_SGMIIn_KX(lane, x)	((((x) << 3) & BIT(3)) << LYNX_28G_LNa_PCC_OFFSET(lane))
+#define LYNX_28G_PCC8_SGMIIn_KX_MSK(lane)	LYNX_28G_PCC8_SGMIIn_KX(lane, 1)
+#define LYNX_28G_PCC8_MSK(lane)			LYNX_28G_PCC8_SGMIInCFG_MSK(lane) | \
+						LYNX_28G_PCC8_SGMIIn_KX_MSK(lane)
 
 #define LYNX_28G_PCCC				0x10b0
-#define LYNX_28G_PCCC_10GBASER			0x9
-#define LYNX_28G_PCCC_USXGMII			0x1
-#define LYNX_28G_PCCC_SXGMII_DIS		0x0
+#define LYNX_28G_PCCC_SXGMIInCFG(lane, x)	(((x) & GENMASK(2, 0)) << LYNX_28G_LNa_PCC_OFFSET(lane))
+#define LYNX_28G_PCCC_SXGMIInCFG_EN(lane)	LYNX_28G_PCCC_SXGMIInCFG(lane, 1)
+#define LYNX_28G_PCCC_SXGMIInCFG_MSK(lane)	LYNX_28G_PCCC_SXGMIInCFG(lane, GENMASK(2, 0))
+#define LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, x)	((((x) << 3) & BIT(3)) << LYNX_28G_LNa_PCC_OFFSET(lane))
+#define LYNX_28G_PCCC_SXGMIInCFG_XFI_MSK(lane)	LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, 1)
+#define LYNX_28G_PCCC_MSK(lane)			LYNX_28G_PCCC_SXGMIInCFG_MSK(lane) | \
+						LYNX_28G_PCCC_SXGMIInCFG_XFI_MSK(lane)
 
 #define LYNX_28G_PCCD				0x10b4
-#define LYNX_28G_PCCD_25GBASER			0x1
-#define LYNX_28G_PCCD_25GBASER_DIS		0x0
-#define LYNX_28G_PCCD_MASK			GENMASK(2, 0)
+#define LYNX_28G_PCCD_E25GnCFG(lane, x)		(((x) & GENMASK(2, 0)) << LYNX_28G_LNa_PCCD_OFFSET(lane))
+#define LYNX_28G_PCCD_E25GnCFG_EN(lane)		LYNX_28G_PCCD_E25GnCFG(lane, 1)
+#define LYNX_28G_PCCD_E25GnCFG_MSK(lane)	LYNX_28G_PCCD_E25GnCFG(lane, GENMASK(2, 0))
+#define LYNX_28G_PCCD_MSK(lane)			LYNX_28G_PCCD_E25GnCFG_MSK(lane)
 
 #define LYNX_28G_LNa_PCC_OFFSET(lane)		(4 * (LYNX_28G_NUM_LANE - (lane->id) - 1))
 #define LYNX_28G_LNa_PCCD_OFFSET(lane)		(4 * (lane->id))
@@ -284,23 +294,18 @@ static void lynx_28g_lane_set_pll(struct lynx_28g_lane *lane,
 static void lynx_28g_cleanup_lane(struct lynx_28g_lane *lane)
 {
 	struct lynx_28g_priv *priv = lane->priv;
-	u32 lane_offset;
 
 	switch (lane->interface) {
 	case PHY_INTERFACE_MODE_10GBASER:
 		/* Cleanup the protocol configuration registers */
-		lane_offset = LYNX_28G_LNa_PCC_OFFSET(lane);
-		lynx_28g_rmw(priv, LYNX_28G_PCCC,
-			     LYNX_28G_PCCC_SXGMII_DIS << lane_offset,
-			     GENMASK(3, 0) << lane_offset);
+		lynx_28g_rmw(priv, LYNX_28G_PCCC, 0,
+			     LYNX_28G_PCCC_MSK(lane));
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_1000BASEX:
 		/* Cleanup the protocol configuration registers */
-		lane_offset = LYNX_28G_LNa_PCC_OFFSET(lane);
-		lynx_28g_rmw(priv, LYNX_28G_PCC8,
-			     LYNX_28G_PCC8_SGMII_DIS << lane_offset,
-			     GENMASK(3, 0) << lane_offset);
+		lynx_28g_rmw(priv, LYNX_28G_PCC8, 0,
+			     LYNX_28G_PCC8_MSK(lane));
 
 		/* Disable the SGMII PCS */
 		lynx_28g_lane_rmw(lane, SGMIIaCR1, LYNX_28G_SGMIIaCR1_SGPCS_DIS,
@@ -309,10 +314,8 @@ static void lynx_28g_cleanup_lane(struct lynx_28g_lane *lane)
 		break;
 	case PHY_INTERFACE_MODE_25GBASER:
 		/* Cleanup the protocol configuration registers */
-		lane_offset = LYNX_28G_LNa_PCCD_OFFSET(lane);
-		lynx_28g_rmw(priv, LYNX_28G_PCCD,
-			     LYNX_28G_PCCD_25GBASER_DIS << lane_offset,
-			     GENMASK(2, 0) << lane_offset);
+		lynx_28g_rmw(priv, LYNX_28G_PCCD, 0,
+			     LYNX_28G_PCCD_MSK(lane));
 		break;
 	default:
 		break;
@@ -321,16 +324,14 @@ static void lynx_28g_cleanup_lane(struct lynx_28g_lane *lane)
 
 static void lynx_28g_lane_set_sgmii(struct lynx_28g_lane *lane)
 {
-	u32 lane_offset = LYNX_28G_LNa_PCC_OFFSET(lane);
 	struct lynx_28g_priv *priv = lane->priv;
 	struct lynx_28g_pll *pll;
 
 	lynx_28g_cleanup_lane(lane);
 
 	/* Setup the lane to run in SGMII */
-	lynx_28g_rmw(priv, LYNX_28G_PCC8,
-		     LYNX_28G_PCC8_SGMII << lane_offset,
-		     GENMASK(3, 0) << lane_offset);
+	lynx_28g_rmw(priv, LYNX_28G_PCC8, LYNX_28G_PCC8_SGMIInCFG_EN(lane),
+		     LYNX_28G_PCC8_MSK(lane));
 
 	/* Setup the protocol select and SerDes parallel interface width */
 	lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_PROTO_SEL_SGMII,
@@ -360,7 +361,6 @@ static void lynx_28g_lane_set_sgmii(struct lynx_28g_lane *lane)
 
 static void lynx_28g_lane_set_10gbaser(struct lynx_28g_lane *lane)
 {
-	u32 lane_offset = LYNX_28G_LNa_PCC_OFFSET(lane);
 	struct lynx_28g_priv *priv = lane->priv;
 	struct lynx_28g_pll *pll;
 
@@ -368,8 +368,9 @@ static void lynx_28g_lane_set_10gbaser(struct lynx_28g_lane *lane)
 
 	/* Enable the SXGMII lane */
 	lynx_28g_rmw(priv, LYNX_28G_PCCC,
-		     LYNX_28G_PCCC_10GBASER << lane_offset,
-		     GENMASK(3, 0) << lane_offset);
+		     LYNX_28G_PCCC_SXGMIInCFG_EN(lane) |
+		     LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, 1),
+		     LYNX_28G_PCCC_MSK(lane));
 
 	/* Setup the protocol select and SerDes parallel interface width */
 	lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_PROTO_SEL_XFI,
@@ -397,16 +398,14 @@ static void lynx_28g_lane_set_10gbaser(struct lynx_28g_lane *lane)
 
 static void lynx_28g_lane_set_25gbaser(struct lynx_28g_lane *lane)
 {
-	u32 lane_offset = LYNX_28G_LNa_PCCD_OFFSET(lane);
 	struct lynx_28g_priv *priv = lane->priv;
 	struct lynx_28g_pll *pll;
 
 	lynx_28g_cleanup_lane(lane);
 
 	/* Enable the E25G lane */
-	lynx_28g_rmw(priv, LYNX_28G_PCCD,
-		     LYNX_28G_PCCD_25GBASER << lane_offset,
-		     LYNX_28G_PCCD_MASK << lane_offset);
+	lynx_28g_rmw(priv, LYNX_28G_PCCD, LYNX_28G_PCCD_E25GnCFG_EN(lane),
+		     LYNX_28G_PCCD_MSK(lane));
 
 	/* Setup the protocol select and SerDes parallel interface width */
 	lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_PROTO_SEL_25G,
