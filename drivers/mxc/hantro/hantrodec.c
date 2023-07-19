@@ -562,6 +562,9 @@ long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long format)
 	if (wait_event_interruptible(hw_queue, GetDecCoreAny(&Core, dev, filp, format) != 0))
 		return -ERESTARTSYS;
 
+	if (Core < 0 || Core >= HXDEC_MAX_CORES)
+		return -1;
+
 	if (IS_G1(dev->hw_id[Core])) {
 		if (0 == hantrodec_choose_core(1))
 			PDEBUG("G1 is reserved\n");
