@@ -92,6 +92,8 @@ adrv9009_drv-y := adrv9009.o adrv9009_conv.o \
 
 obj-$(CONFIG_ADRV9009) += adrv9009_drv.o
 
+obj-$(CONFIG_ADRV9025) += madura/
+
 obj-$(CONFIG_ADRV9001) += navassa/
 
 obj-$(CONFIG_AD9467) += ad9467.o
