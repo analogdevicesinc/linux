@@ -321,7 +321,7 @@ static u32 format_bufinfo_enc(struct vsi_v4l2_ctx *ctx, struct vsi_v4l2_msg *pms
 {
 	u32 planeno, size;
 	struct v4l2_daemon_enc_buffers *encbufinfo;
-	dma_addr_t  busaddr[4];
+	dma_addr_t  busaddr[4] = { 0 };
 
 	vsi_convertROI(ctx);
 	vsi_convertIPCM(ctx);
@@ -393,7 +393,7 @@ static u32 format_bufinfo_enc(struct vsi_v4l2_ctx *ctx, struct vsi_v4l2_msg *pms
 static void format_bufinfo_dec(struct vsi_v4l2_ctx *ctx, struct vsi_v4l2_msg *pmsg, struct vb2_buffer *buf)
 {
 	struct v4l2_daemon_dec_buffers *decbufinfo;
-	dma_addr_t  busaddr[4];
+	dma_addr_t  busaddr[4] = { 0 };
 
 	memcpy((void *)&pmsg->params.dec_params.io_buffer, (void *)&ctx->mediacfg.decparams.io_buffer, sizeof(struct v4l2_daemon_dec_buffers));
 	if (binputqueue(buf->type)) {
