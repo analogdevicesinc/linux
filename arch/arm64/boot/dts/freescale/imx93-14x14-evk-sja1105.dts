@@ -1,0 +1,173 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+#include "imx93-14x14-evk.dts"
+
+/ {
+	clock_sja1105: clock-sja1105 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+};
+
+&lpi2c2 {
+	max7322: gpio@68 {
+		compatible = "maxim,max7322";
+		reg = <0x68>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		reset-gpios = <&pcal6524 15 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&eqos {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_eqos_rgmii>;
+	phy-mode = "rgmii-rxid";
+	phy-handle = <&fixed0>;
+	pinctrl-assert-gpios = <&max7322 0 GPIO_ACTIVE_LOW>;
+	clk_csr = <5>;
+	status = "okay";
+
+	fixed0: fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+
+	mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-frequency = <2500000>;
+
+		phy0: ethernet-phy@8 {
+			reg = <0x8>;
+			max-speed = <100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy1: ethernet-phy@9 {
+				reg = <0x9>;
+				max-speed = <100>;
+			};
+		};
+
+		phy2: ethernet-phy@e {
+			reg = <0xe>;
+			max-speed = <100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy3: ethernet-phy@f {
+				reg = <0xf>;
+				max-speed = <100>;
+			};
+		};
+
+	};
+};
+
+&lpspi8 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi8>;
+	assigned-clocks = <&clk IMX93_CLK_LPSPI8>;
+	assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD0_DIV2>;
+	assigned-clock-rates = <100000000>;
+	cs-gpios = <&gpio2 12 GPIO_ACTIVE_LOW>;
+	/delete-property/ dma-names;
+	/delete-property/ dmas;
+	pinctrl-assert-gpios = <&pcal6524_2 3 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	sja1105@0 {
+		compatible = "nxp,sja1105q";
+		reg = <0x0>;
+		spi-max-frequency = <12500000>;
+		spi-cpha;
+		clocks = <&clock_sja1105>;
+		pinctrl-assert-gpios = <&max7322 0 GPIO_ACTIVE_LOW>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				label = "cpu";
+				ethernet = <&eqos>;
+				phy-mode = "rgmii";
+				rx-internal-delay-ps = <2000>;
+				tx-internal-delay-ps = <2000>;
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				label = "swp1";
+				phy-handle = <&phy0>;
+				phy-mode = "mii";
+			};
+
+			port@2 {
+				reg = <2>;
+				label = "swp2";
+				phy-handle = <&phy1>;
+				phy-mode = "mii";
+			};
+
+			port@3 {
+				reg = <3>;
+				label = "swp3";
+				phy-handle = <&phy2>;
+				phy-mode = "rmii";
+			};
+
+			port@4 {
+				reg = <4>;
+				label = "swp4";
+				phy-handle = <&phy3>;
+				phy-mode = "rmii";
+			};
+
+	       };
+	};
+};
+
+&iomuxc {
+	pinctrl_lpspi8: lpspi8grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO12__GPIO2_IO12          0x3fe
+			MX93_PAD_GPIO_IO13__LPSPI8_SIN          0x3fe
+			MX93_PAD_GPIO_IO14__LPSPI8_SOUT         0x3fe
+			MX93_PAD_GPIO_IO15__LPSPI8_SCK          0x3fe
+		>;
+	};
+
+	pinctrl_eqos_rgmii: eqosrgmiigrp {
+		fsl,pins = <
+			MX93_PAD_ENET1_MDC__ENET_QOS_MDC				0x57e
+			MX93_PAD_ENET1_MDIO__ENET_QOS_MDIO				0x57e
+			MX93_PAD_ENET1_RD0__ENET_QOS_RGMII_RD0				0x57e
+			MX93_PAD_ENET1_RD1__ENET_QOS_RGMII_RD1				0x57e
+			MX93_PAD_ENET1_RD2__ENET_QOS_RGMII_RD2				0x57e
+			MX93_PAD_ENET1_RD3__ENET_QOS_RGMII_RD3				0x57e
+			MX93_PAD_ENET1_RXC__CCM_ENET_QOS_CLOCK_GENERATE_RX_CLK		0x57e
+			MX93_PAD_ENET1_RX_CTL__ENET_QOS_RGMII_RX_CTL			0x57e
+			MX93_PAD_ENET1_TD0__ENET_QOS_RGMII_TD0				0x57e
+			MX93_PAD_ENET1_TD1__ENET_QOS_RGMII_TD1				0x57e
+			MX93_PAD_ENET1_TD2__ENET_QOS_RGMII_TD2				0x57e
+			MX93_PAD_ENET1_TD3__ENET_QOS_RGMII_TD3				0x57e
+			MX93_PAD_ENET1_TXC__CCM_ENET_QOS_CLOCK_GENERATE_TX_CLK		0x57e
+			MX93_PAD_ENET1_TX_CTL__ENET_QOS_RGMII_TX_CTL			0x57e
+		>;
+	};
+};
