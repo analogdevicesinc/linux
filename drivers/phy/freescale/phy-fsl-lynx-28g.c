@@ -699,6 +699,9 @@ static void lynx_28g_cdr_lock_check(struct work_struct *work)
 
 		rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
 		if (!(rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK)) {
+			dev_dbg(&lane->phy->dev,
+				"CDR unlocked, resetting lane receiver...\n");
+
 			lynx_28g_lane_rmw(lane, LNaRRSTCTL,
 					  LYNX_28G_LNaRRSTCTL_RST_REQ,
 					  LYNX_28G_LNaRRSTCTL_RST_REQ);
