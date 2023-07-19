@@ -133,7 +133,6 @@
 
 #define LYNX_28G_SGMIIaCR1(lane)		(0x1804 + (lane) * 0x10)
 #define LYNX_28G_SGMIIaCR1_SGPCS_EN		BIT(11)
-#define LYNX_28G_SGMIIaCR1_SGPCS_DIS		0x0
 #define LYNX_28G_SGMIIaCR1_SGPCS_MSK		BIT(11)
 
 struct lynx_28g_priv;
@@ -308,7 +307,7 @@ static void lynx_28g_cleanup_lane(struct lynx_28g_lane *lane)
 			     LYNX_28G_PCC8_MSK(lane));
 
 		/* Disable the SGMII PCS */
-		lynx_28g_lane_rmw(lane, SGMIIaCR1, LYNX_28G_SGMIIaCR1_SGPCS_DIS,
+		lynx_28g_lane_rmw(lane, SGMIIaCR1, 0,
 				  LYNX_28G_SGMIIaCR1_SGPCS_MSK);
 
 		break;
