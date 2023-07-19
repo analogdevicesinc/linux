@@ -1,0 +1,156 @@
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/burst_count
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the number of TDD frames per burst.
+                If set to 0x0 and the TDD module is enabled, then the controller
+                operates in TDD mode as long as the ENABLE property is set.
+                If set to a non-zero value, the controller
+                operates for the set number of frames and then stops.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/core_id
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Displays the value of the ID configuration parameter.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/enable
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to enable or disable the TDD module.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/frame_length_ms
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the length of the transmission frame,
+                defined in milliseconds.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/frame_length_raw
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the length of the transmission frame,
+                defined in clock cycles of the input clock.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/internal_sync_period_ms
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the period of the internal sync generator,
+                defined in milliseconds.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/internal_sync_period_raw
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the period of the internal sync generator,
+                defined in clock cycles of the input clock.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/magic
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Displays the code name of the TDD module for identification.
+                The value is 0x5444444E ('T', 'D', 'D', 'N').
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/out_channel<n>_enable
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to enable or disable the output channel CH<n>.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/out_channel<n>_off_ms
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the offset from the beginning of a new
+                frame when channel CH<n> is reset, defined in milliseconds.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/out_channel<n>_off_raw
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the offset from the beginning of a new
+                frame when channel CH<n> is reset, defined in clock cycles
+                of the input clock.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/out_channel<n>_on_ms
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the offset from the beginning of a new
+                frame when channel CH<n> is set, defined in milliseconds.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/out_channel<n>_on_raw
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the offset from the beginning of a new
+                frame when channel CH<n> is set, defined in clock cycles
+                of the input clock.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/out_channel<n>_polarity
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the polarity of the output channel CH<n>.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/scratch
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to write and read the scratch register.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/startup_delay_ms
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the initial delay before the first frame,
+                defined in milliseconds.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/startup_delay_raw
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to set the initial delay before the first frame,
+                defined in clock cycles of the input clock.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/state
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Displays the current state of the peripheral FSM.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/sync_external
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to enable or disable the external sync trigger.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/sync_internal
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to enable or disable the internal sync trigger.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/sync_reset
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to reset the internal counter when receiving a
+                sync event.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/sync_soft
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Allows the user to trigger one software sync pulse.
+
+What:           /sys/bus/platform/drivers/adi-axi-tdd/*/version
+Date:           November 2023
+KernelVersion:  6.7
+Contact:        Eliza Balas <eliza.balas@analog.com>
+Description:    Displays the version of the peripheral. Follows semantic
+                versioning. Current version is 2.00.61.
