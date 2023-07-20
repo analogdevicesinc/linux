@@ -638,7 +638,7 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	chip_info->channel[0].ext_info = ad3552r_ext_info;
 	chip_info->channel[1].ext_info = ad3552r_ext_info;
 
-	dev_set_drvdata(conv->dev, conv);
+	dev_set_drvdata(&pdev->dev, conv);
 
 	dev_info(conv->dev, "Probed ad3552r_conv converter");
 
