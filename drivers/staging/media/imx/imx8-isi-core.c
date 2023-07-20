@@ -97,25 +97,6 @@ static int disp_mix_sft_parse_resets(struct mxc_isi_dev *mxc_isi)
 	return pdata->rst_ops->parse(mxc_isi);
 }
 
-int disp_mix_sft_rstn(struct mxc_isi_dev *mxc_isi, bool enable)
-{
-	struct mxc_isi_plat_data const *pdata = mxc_isi->pdata;
-	int ret;
-
-	if (mxc_isi->no_dispmix)
-		return 0;
-
-	if (!pdata->rst_ops ||
-	    !pdata->rst_ops->assert ||
-	    !pdata->rst_ops->deassert)
-		return -EINVAL;
-
-	ret = enable ? pdata->rst_ops->assert(mxc_isi) :
-		       pdata->rst_ops->deassert(mxc_isi);
-	return ret;
-}
-EXPORT_SYMBOL_GPL(disp_mix_sft_rstn);
-
 static int disp_mix_clks_get(struct mxc_isi_dev *mxc_isi)
 {
 	struct mxc_isi_plat_data  const *pdata = mxc_isi->pdata;
@@ -128,25 +109,6 @@ static int disp_mix_clks_get(struct mxc_isi_dev *mxc_isi)
 
 	return pdata->gclk_ops->gclk_get(mxc_isi);
 }
-
-int disp_mix_clks_enable(struct mxc_isi_dev *mxc_isi, bool enable)
-{
-	struct mxc_isi_plat_data const *pdata = mxc_isi->pdata;
-	int ret;
-
-	if (mxc_isi->no_dispmix)
-		return 0;
-
-	if (!pdata->gclk_ops ||
-	    !pdata->gclk_ops->gclk_enable ||
-	    !pdata->gclk_ops->gclk_disable)
-		return -EINVAL;
-
-	ret = enable ? pdata->gclk_ops->gclk_enable(mxc_isi) :
-		       pdata->gclk_ops->gclk_disable(mxc_isi);
-	return ret;
-}
-EXPORT_SYMBOL_GPL(disp_mix_clks_enable);
 
 static int mxc_imx8_clk_get(struct mxc_isi_dev *mxc_isi)
 {
@@ -632,28 +594,6 @@ static int mxc_isi_clk_get(struct mxc_isi_dev *mxc_isi)
 
 	return ops->clk_get(mxc_isi);
 }
-
-int mxc_isi_clk_enable(struct mxc_isi_dev *mxc_isi)
-{
-	const struct mxc_isi_dev_ops *ops = mxc_isi->pdata->ops;
-
-	if (!ops || !ops->clk_enable)
-		return -EINVAL;
-
-	return ops->clk_enable(mxc_isi);
-}
-EXPORT_SYMBOL_GPL(mxc_isi_clk_enable);
-
-void mxc_isi_clk_disable(struct mxc_isi_dev *mxc_isi)
-{
-	const struct mxc_isi_dev_ops *ops = mxc_isi->pdata->ops;
-
-	if (!ops || !ops->clk_disable)
-		return;
-
-	ops->clk_disable(mxc_isi);
-}
-EXPORT_SYMBOL_GPL(mxc_isi_clk_disable);
 
 static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 			     const struct soc_device_attribute *data)

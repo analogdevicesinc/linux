@@ -445,4 +445,60 @@ static inline void bounds_adjust(struct mxc_isi_frame *f, struct v4l2_rect *r)
 	if (r->top + r->height >= f->o_height)
 		r->height = f->o_height - r->top;
 }
+
+static inline int disp_mix_sft_rstn(struct mxc_isi_dev *mxc_isi, bool enable)
+{
+	struct mxc_isi_plat_data const *pdata = mxc_isi->pdata;
+	int ret;
+
+	if (mxc_isi->no_dispmix)
+		return 0;
+
+	if (!pdata->rst_ops ||
+	    !pdata->rst_ops->assert ||
+	    !pdata->rst_ops->deassert)
+		return -EINVAL;
+
+	ret = enable ? pdata->rst_ops->assert(mxc_isi) :
+		       pdata->rst_ops->deassert(mxc_isi);
+	return ret;
+}
+
+static inline int disp_mix_clks_enable(struct mxc_isi_dev *mxc_isi, bool enable)
+{
+	struct mxc_isi_plat_data const *pdata = mxc_isi->pdata;
+	int ret;
+
+	if (mxc_isi->no_dispmix)
+		return 0;
+
+	if (!pdata->gclk_ops ||
+	    !pdata->gclk_ops->gclk_enable ||
+	    !pdata->gclk_ops->gclk_disable)
+		return -EINVAL;
+
+	ret = enable ? pdata->gclk_ops->gclk_enable(mxc_isi) :
+		       pdata->gclk_ops->gclk_disable(mxc_isi);
+	return ret;
+}
+
+static inline int mxc_isi_clk_enable(struct mxc_isi_dev *mxc_isi)
+{
+	const struct mxc_isi_dev_ops *ops = mxc_isi->pdata->ops;
+
+	if (!ops || !ops->clk_enable)
+		return -EINVAL;
+
+	return ops->clk_enable(mxc_isi);
+}
+
+static inline void mxc_isi_clk_disable(struct mxc_isi_dev *mxc_isi)
+{
+	const struct mxc_isi_dev_ops *ops = mxc_isi->pdata->ops;
+
+	if (!ops || !ops->clk_disable)
+		return;
+
+	ops->clk_disable(mxc_isi);
+}
 #endif /* __MXC_ISI_CORE_H__ */

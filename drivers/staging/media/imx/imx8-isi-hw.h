@@ -485,8 +485,4 @@ bool is_buf_active(struct mxc_isi_dev *mxc_isi, int buf_id);
 struct device *mxc_isi_dev_get_parent(struct platform_device *pdev);
 struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev);
 
-int mxc_isi_clk_enable(struct mxc_isi_dev *mxc_isi);
-int disp_mix_sft_rstn(struct mxc_isi_dev *mxc_isi, bool enable);
-int disp_mix_clks_enable(struct mxc_isi_dev *mxc_isi, bool enable);
-void mxc_isi_clk_disable(struct mxc_isi_dev *mxc_isi);
 #endif /* __MXC_ISI_HW_H__ */
