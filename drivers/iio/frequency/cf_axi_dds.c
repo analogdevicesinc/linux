@@ -1178,10 +1178,10 @@ struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD3552R] = {
 		.name = "AD3552R",
 		.channel = {
-			CF_AXI_DDS_CHAN(0, 0, "1A"),
-			CF_AXI_DDS_CHAN(1, 0, "1B"),
 			CF_AXI_DDS_CHAN_BUF_NO_CALIB(0, 'u'),
 			CF_AXI_DDS_CHAN_BUF_NO_CALIB(1, 'u'),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
 		},
 		.num_channels = 4,
 		.num_dds_channels = 2,
