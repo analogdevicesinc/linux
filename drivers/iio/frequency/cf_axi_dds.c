@@ -568,6 +568,7 @@ static ssize_t axidds_sync_start_store(struct device *dev,
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	int ret;
 
+	dev_info(dev, "dds axidds_sync_start_store");
 	ret = sysfs_match_string(axidds_sync_ctrls, buf);
 	if (ret < 0)
 		return ret;
@@ -2399,6 +2400,8 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	config = dds_read(st, ADI_REG_CONFIG);
 	st->ext_sync_avail = !!(config & ADI_EXT_SYNC);
+	dev_info(&pdev->dev, "ad3552r ADI_REG_CONFIG: %u, ext_sync_avail: %u",
+		 config, st->ext_sync_avail);
 	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
 
 	if (ADI_AXI_PCORE_VER_MAJOR(st->version) >
@@ -2559,6 +2562,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			of_property_read_bool(np, "adi,axi-pl-fifo-enable");
 
 		if (of_find_property(np, "dmas", NULL)) {
+			dev_info(&pdev->dev, "register dds dmas\n");
 			ret = cf_axi_dds_configure_buffer(indio_dev);
 			if (ret)
 				return ret;

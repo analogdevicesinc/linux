@@ -475,7 +475,7 @@ static int axi_ad3552r_update_scan_mode(struct iio_dev *indio_dev,
 	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
 	struct axi_ad3552r_state *st = conv->phy;
 
-	dev_info(conv->dev, "ad3552r update_scan_mode");
+	dev_info(conv->dev, "ad3552r update_scan_mode, mask: %lu", *active_scan_mask);
 	axi_ad3552r_spi_update_bits(st, AD3552R_REG_INTERFACE_CONFIG_D,
 				    AD3552R_MASK_SPI_CONFIG_DDR,
 				    AD3552R_MASK_SPI_CONFIG_DDR,
@@ -508,6 +508,7 @@ static int axi_ad3552r_update_scan_mode(struct iio_dev *indio_dev,
 		return 0;
 	}
 
+	dev_info(conv->dev, "ad3552r invalid active_scan_mask");
 	return -EINVAL;
 }
 
