@@ -1012,7 +1012,20 @@ static int cf_axi_dds_update_scan_mode(struct iio_dev *indio_dev,
 	const unsigned long *scan_mask)
 {
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	struct cf_axi_converter *conv;
 	unsigned int i, sel;
+	int ret;
+
+	dev_info(&indio_dev->dev, "dds update_scan_mode");
+	// Call converter specific update_scan_mode()
+	if (!st->standalone) {
+		conv = to_converter(st->conv_dev);
+		if (conv->update_scan_mode) {
+			ret = conv->update_scan_mode(indio_dev, scan_mask);
+			if (ret < 0)
+				return ret;
+		}
+	}
 
 	for (i = 0; i < indio_dev->masklength; i++) {
 

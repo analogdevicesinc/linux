@@ -468,6 +468,49 @@ static const struct iio_chan_spec_ext_info ad3552r_ext_info[] = {
 	{},
 };
 
+static int axi_ad3552r_update_scan_mode(struct iio_dev *indio_dev,
+					const unsigned long *active_scan_mask)
+{
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct cf_axi_dds_state *dds = iio_priv(conv->indio_dev);
+	struct axi_ad3552r_state *st = conv->phy;
+
+	dev_info(conv->dev, "ad3552r update_scan_mode");
+	axi_ad3552r_spi_update_bits(st, AD3552R_REG_INTERFACE_CONFIG_D,
+				    AD3552R_MASK_SPI_CONFIG_DDR,
+				    AD3552R_MASK_SPI_CONFIG_DDR,
+				    AD3552R_TFER_8BIT_SDR);
+
+	switch (*active_scan_mask) {
+	case AD3552R_CH0_ACTIVE:
+		st->single_channel = true;
+		axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE,
+				      AD3552R_STREAM_2BYTE_LOOP,
+				      AD3552R_TFER_8BIT_DDR);
+		axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_ADDRESS,
+					CNTRL_CSTM_ADDR(AD3552R_REG_CH0_DAC_16B));
+		return 0;
+	case AD3552R_CH1_ACTIVE:
+		st->single_channel = true;
+		axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE,
+				      AD3552R_STREAM_2BYTE_LOOP,
+				      AD3552R_TFER_8BIT_DDR);
+		axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_ADDRESS,
+					CNTRL_CSTM_ADDR(AD3552R_REG_CH1_DAC_16B));
+		return 0;
+	case AD3552R_CH0_CH1_ACTIVE:
+		st->single_channel = false;
+		axi_ad3552r_spi_write(st, AD3552R_REG_STREAM_MODE,
+				      AD3552R_STREAM_4BYTE_LOOP,
+				      AD3552R_TFER_8BIT_DDR);
+		axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_ADDRESS,
+					CNTRL_CSTM_ADDR(AD3552R_REG_CH1_DAC_16B));
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
 static int axi_ad3552r_reset(struct axi_ad3552r_state *st)
 {
 	struct cf_axi_converter *conv = to_converter(st->dev);
@@ -588,6 +631,7 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	conv->write = axi_ad3552r_write;
 	conv->read = axi_ad3552r_read;
 	conv->setup = axi_ad3552r_setup;
+	conv->update_scan_mode = axi_ad3552r_update_scan_mode;
 	conv->clk[CLK_DAC] = st->ref_clk;
 	conv->get_data_clk = ad3552r_get_data_clk;
 	chip_info = &cf_axi_dds_chip_info_tbl[ID_AD3552R];

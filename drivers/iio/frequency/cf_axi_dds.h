@@ -279,6 +279,8 @@ struct cf_axi_converter {
 	int		(*setup)(struct cf_axi_converter *conv);
 	int		(*get_fifo_status)(struct cf_axi_converter *conv);
 	unsigned long long	(*get_data_clk)(struct cf_axi_converter *conv);
+	int (*update_scan_mode)(struct iio_dev *indio_dev,
+				const unsigned long *active_scan_mask);
 
 	int (*read_raw)(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
