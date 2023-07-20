@@ -1992,7 +1992,6 @@ static const struct axidds_core_info ad3552r_6_00_a_info = {
 	.standalone = false,
 	.rate = 1,
 	.data_format = ADI_DATA_FORMAT,
-	.issue_sync_en = 1,
 };
 
 static const struct axidds_core_info ad9122_6_00_a_info = {
