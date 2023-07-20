@@ -59,8 +59,13 @@ static void imx8qm_pixel_link_mux(struct imx_mhdp_device *imx_mhdp)
 static void imx8qm_pixel_link_valid(u32 dual_mode)
 {
 	struct imx_sc_ipc *handle;
+	int ret = 0;
 
-	imx_scu_get_handle(&handle);
+	ret = imx_scu_get_handle(&handle);
+	if (ret) {
+		DRM_ERROR("Failed to get scu ipc handle (%d)\n", ret);
+		return;
+	}
 
 	imx_sc_misc_set_control(handle, IMX_SC_R_DC_0, IMX_SC_C_PXL_LINK_MST1_VLD, 1);
 	if (dual_mode)
@@ -70,8 +75,13 @@ static void imx8qm_pixel_link_valid(u32 dual_mode)
 static void imx8qm_pixel_link_invalid(u32 dual_mode)
 {
 	struct imx_sc_ipc *handle;
+	int ret = 0;
 
-	imx_scu_get_handle(&handle);
+	ret = imx_scu_get_handle(&handle);
+	if (ret) {
+		DRM_ERROR("Failed to get scu ipc handle (%d)\n", ret);
+		return;
+	}
 
 	imx_sc_misc_set_control(handle, IMX_SC_R_DC_0, IMX_SC_C_PXL_LINK_MST1_VLD, 0);
 	if (dual_mode)
@@ -81,8 +91,13 @@ static void imx8qm_pixel_link_invalid(u32 dual_mode)
 static void imx8qm_pixel_link_sync_enable(u32 dual_mode)
 {
 	struct imx_sc_ipc *handle;
+	int ret = 0;
 
-	imx_scu_get_handle(&handle);
+	ret = imx_scu_get_handle(&handle);
+	if (ret) {
+		DRM_ERROR("Failed to get scu ipc handle (%d)\n", ret);
+		return;
+	}
 
 	if (dual_mode)
 		imx_sc_misc_set_control(handle, IMX_SC_R_DC_0, IMX_SC_C_SYNC_CTRL, 3);
@@ -93,8 +108,13 @@ static void imx8qm_pixel_link_sync_enable(u32 dual_mode)
 static void imx8qm_pixel_link_sync_disable(u32 dual_mode)
 {
 	struct imx_sc_ipc *handle;
+	int ret = 0;
 
-	imx_scu_get_handle(&handle);
+	ret = imx_scu_get_handle(&handle);
+	if (ret) {
+		DRM_ERROR("Failed to get scu ipc handle (%d)\n", ret);
+		return;
+	}
 
 	if (dual_mode)
 		imx_sc_misc_set_control(handle, IMX_SC_R_DC_0, IMX_SC_C_SYNC_CTRL, 0);
