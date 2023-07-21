@@ -655,6 +655,11 @@ static int adi_axi_tdd_init_sysfs(struct platform_device *pdev,
 	return devm_device_add_group(&pdev->dev, attr_group);
 }
 
+static void adi_axi_tdd_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
 static int adi_axi_tdd_rate_change(struct notifier_block *nb,
 				   unsigned long flags, void *data)
 {
@@ -692,13 +697,29 @@ static int adi_axi_tdd_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, st);
 
-	aclk = devm_clk_get_enabled(&pdev->dev, "s_axi_aclk");
+	aclk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(aclk))
 		return PTR_ERR(aclk);
 
-	st->clk.clk = devm_clk_get_enabled(&pdev->dev, "intf_clk");
+	ret = clk_prepare_enable(aclk);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_clk_disable, aclk);
+	if (ret)
+		return ret;
+
+	st->clk.clk = devm_clk_get(&pdev->dev, "intf_clk");
 	if (IS_ERR(st->clk.clk))
 		return PTR_ERR(st->clk.clk);
+
+	ret = clk_prepare_enable(st->clk.clk);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev, adi_axi_tdd_clk_disable, st->clk.clk);
+	if (ret)
+		return ret;
 
 	st->clk.rate = clk_get_rate(st->clk.clk);
 	st->clk.nb.notifier_call = adi_axi_tdd_rate_change;
