@@ -9,6 +9,7 @@
  *   ADRF5730: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
  *   ADRF5731: 2 dB LSB, 4-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
  *   HMC271A: 1dB LSB 5-Bit Digital Attenuator SMT, 0.7 - 3.7 GHz
+ *   HMC792A: 0.25 dB LSB GaAs MMIC 6-BIT DIGITAL ATTENUATOR, DC - 6 GHz
  *   HMC1018A: 1.0 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
  *   HMC1019A: 0.5 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
  *   HMC1119: 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator, 0.1 GHz to 6.0 GHz
@@ -38,6 +39,7 @@ enum ad8366_type {
 	ID_ADRF5730,
 	ID_ADRF5731,
 	ID_HMC271,
+	ID_HMC792,
 	ID_HMC1018,
 	ID_HMC1019,
 	ID_HMC1119,
@@ -93,6 +95,10 @@ static struct ad8366_info ad8366_infos[] = {
 		.gain_min = -31000,
 		.gain_max = 0,
 	},
+	[ID_HMC792] = {
+		.gain_min = -15750,
+		.gain_max = 0,
+	},
 	[ID_HMC1018] = {
 		.gain_min = -31000,
 		.gain_max = 0,
@@ -133,6 +139,7 @@ static int ad8366_write(struct iio_dev *indio_dev,
 	case ID_HMC271:
 		st->data[0] = bitrev8(ch_a & 0x1F) >> 3;
 		break;
+	case ID_HMC792:
 	case ID_HMC1018:
 	case ID_HMC1019:
 	case ID_HMC1119:
@@ -180,6 +187,9 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 			gain = -1 * code * 500;
 			break;
 		case ID_HMC271:
+		case ID_HMC792:
+			gain = -1 * code * 500;
+			break;
 		case ID_HMC1018:
 			gain = -31000 + code * 1000;
 			break;
@@ -243,6 +253,9 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 		code = (abs(gain) / 500) & 0x3C;
 		break;
 	case ID_HMC271:
+	case ID_HMC792:
+		code = (abs(gain) / 500) & 0x3F;
+		break;
 	case ID_HMC1018:
 		code = ((gain - 1000) / 1000) & 0x1F;
 		break;
@@ -343,6 +356,7 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADA4961:
 	case ID_ADL5240:
 	case ID_HMC271:
+	case ID_HMC792:
 	case ID_HMC1119:
 	case ID_ADRF5720:
 	case ID_ADRF5730:
@@ -409,6 +423,7 @@ static const struct spi_device_id ad8366_id[] = {
 	{"adrf5731", ID_ADRF5731},
 	{"adl5240", ID_ADL5240},
 	{"hmc271", ID_HMC271},
+	{"hmc792a", ID_HMC792},
 	{"hmc1018a", ID_HMC1018},
 	{"hmc1019a", ID_HMC1019},
 	{"hmc1119", ID_HMC1119},
