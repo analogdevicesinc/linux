@@ -386,6 +386,7 @@ static int m2m_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	b = to_v4l2_m2m_buffer(dst_vbuf);
 	list_add_tail(&b->list, &isi_m2m->out_active);
 
+	isi_m2m->is_streaming[isi_m2m->id] = 1;
 	isi_m2m->frame_count = 1;
 	isi_m2m->aborting = 0;
 unlock:
@@ -417,7 +418,7 @@ static void m2m_vb2_stop_streaming(struct vb2_queue *q)
 	}
 
 	INIT_LIST_HEAD(&isi_m2m->out_active);
-
+	isi_m2m->is_streaming[isi_m2m->id] = 0;
 	spin_unlock_irqrestore(&isi_m2m->slock, flags);
 }
 
@@ -1308,6 +1309,7 @@ static int isi_m2m_probe(struct platform_device *pdev)
 	mxc_isi->isi_m2m = isi_m2m;
 	isi_m2m->id = mxc_isi->id;
 	isi_m2m->refcnt = 0;
+	isi_m2m->is_streaming[isi_m2m->id] = 0;
 	isi_m2m->colorspace = V4L2_COLORSPACE_SRGB;
 	isi_m2m->quant = V4L2_QUANTIZATION_FULL_RANGE;
 	isi_m2m->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(isi_m2m->colorspace);
@@ -1392,6 +1394,58 @@ static int isi_m2m_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int mxc_isi_m2m_pm_resume(struct device *dev)
+{
+	return pm_runtime_force_resume(dev);
+}
+
+static int mxc_isi_m2m_pm_suspend(struct device *dev)
+{
+	struct mxc_isi_m2m_dev *isi_m2m = dev_get_drvdata(dev);
+
+	if (isi_m2m->is_streaming[isi_m2m->id]) {
+		dev_warn(dev, "running, prevent entering suspend.\n");
+		return -EAGAIN;
+	}
+
+	return pm_runtime_force_suspend(dev);
+}
+
+static int mxc_isi_m2m_runtime_resume(struct device *dev)
+{
+	struct mxc_isi_m2m_dev *isi_m2m = dev_get_drvdata(dev);
+	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_m2m->pdev);
+	int ret;
+
+	ret = mxc_isi_clk_enable(mxc_isi);
+	if (ret) {
+		dev_err(dev, "%s clk enable fail\n", __func__);
+		return ret;
+	}
+	disp_mix_sft_rstn(mxc_isi, false);
+	disp_mix_clks_enable(mxc_isi, true);
+
+	return 0;
+}
+
+static int mxc_isi_m2m_runtime_suspend(struct device *dev)
+{
+	struct mxc_isi_m2m_dev *isi_m2m = dev_get_drvdata(dev);
+	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_m2m->pdev);
+
+	disp_mix_clks_enable(mxc_isi, false);
+	mxc_isi_clk_disable(mxc_isi);
+
+	return 0;
+}
+
+static const struct dev_pm_ops mxc_isi_m2m_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(mxc_isi_m2m_pm_suspend,
+				 mxc_isi_m2m_pm_resume)
+	SET_RUNTIME_PM_OPS(mxc_isi_m2m_runtime_suspend,
+			   mxc_isi_m2m_runtime_resume, NULL)
+};
+
 static const struct of_device_id isi_m2m_of_match[] = {
 	{.compatible = "imx-isi-m2m",},
 	{ /* sentinel */ },
@@ -1404,6 +1458,7 @@ static struct platform_driver isi_m2m_driver = {
 	.driver = {
 		.of_match_table = isi_m2m_of_match,
 		.name		= "isi-m2m",
+		.pm             = &mxc_isi_m2m_pm_ops,
 	},
 };
 

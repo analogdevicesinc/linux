@@ -204,6 +204,7 @@ struct mxc_isi_m2m_dev {
 	struct mutex lock;
 	spinlock_t   slock;
 
+	u32 is_streaming[MXC_ISI_MAX_DEVS];
 	unsigned int aborting;
 	unsigned int frame_count;
 
