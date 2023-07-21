@@ -16,7 +16,6 @@
 
 &mipi0_dsi_host {
 	status = "okay";
-	fsl,clock-drop-level = <2>;
 
 	panel@0 {
 		#address-cells = <1>;
@@ -58,7 +57,6 @@
 
 &mipi1_dsi_host {
 	status = "okay";
-	fsl,clock-drop-level = <2>;
 
 	panel@0 {
 		#address-cells = <1>;
