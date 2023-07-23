@@ -605,12 +605,37 @@ static int lynx_28g_init(struct phy *phy)
 	return 0;
 }
 
+static void lynx_28g_check_cdr_lock(struct phy *phy,
+				    struct phy_status_opts_cdr *cdr)
+{
+	struct lynx_28g_lane *lane = phy_get_drvdata(phy);
+	u32 rrstctl;
+
+	rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
+	cdr->cdr_locked = !!(rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK);
+}
+
+static int lynx_28g_get_status(struct phy *phy, enum phy_status_type type,
+			       union phy_status_opts *opts)
+{
+	switch (type) {
+	case PHY_STATUS_CDR_LOCK:
+		lynx_28g_check_cdr_lock(phy, &opts->cdr);
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
 static const struct phy_ops lynx_28g_ops = {
 	.init		= lynx_28g_init,
 	.power_on	= lynx_28g_power_on,
 	.power_off	= lynx_28g_power_off,
 	.set_mode	= lynx_28g_set_mode,
 	.validate	= lynx_28g_validate,
+	.get_status	= lynx_28g_get_status,
 	.owner		= THIS_MODULE,
 };
 
