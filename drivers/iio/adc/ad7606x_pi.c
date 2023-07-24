@@ -368,6 +368,7 @@ static int ad7606x_pi_probe(struct platform_device *pdev)
 	conv->reg_access = &ad7606x_pi_reg_access;
 	conv->write_raw = &ad7606x_pi_write_raw;
 	conv->read_raw = &ad7606x_pi_read_raw;
+	conv->update_scan_mode = &ad7606x_pi_update_scan_mode;
 	//conv->attrs = &ad7768_group;
 	conv->phy = st;
 	/* Without this, the axi_adc won't find the converter data */
