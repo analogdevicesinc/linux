@@ -399,7 +399,7 @@ static int adaq8092_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
-	conv->spi = st->spi;
+	conv->dev = &st->spi->dev;
 	conv->clk = st->clkin;
 	conv->chip_info = &conv_chip_info;
 	conv->adc_output_mode = ADAQ8092_TWOS_COMPLEMENT;
@@ -409,7 +409,7 @@ static int adaq8092_probe(struct spi_device *spi)
 	conv->phy = st;
 
 	/* Without this, the axi_adc won't find the converter data */
-	spi_set_drvdata(st->spi, conv);
+	dev_set_drvdata(&st->spi->dev, conv);
 
 	ret = regmap_write(st->regmap, ADAQ8092_REG_RESET,
 			   FIELD_PREP(ADAQ8092_RESET, 1));

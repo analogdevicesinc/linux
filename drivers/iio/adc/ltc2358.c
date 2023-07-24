@@ -385,14 +385,14 @@ static int ltc235x_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	conv->spi = st->spi;
+	conv->dev = &st->spi->dev;
 	conv->clk = st->clkin;
 	conv->read_raw = &ltc235x_read_raw;
 	conv->write_raw = &ltc235x_write_raw;
 	conv->reg_access = &ltc235x_reg_access;
 	conv->post_setup = &ltc235x_post_setup;
 	conv->phy = st;
-	spi_set_drvdata(st->spi, conv);
+	dev_set_drvdata(&st->spi->dev, conv);
 
 	return ret;
 }
