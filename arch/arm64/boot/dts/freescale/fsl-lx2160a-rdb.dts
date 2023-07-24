@@ -294,9 +294,9 @@
 &i2c4 {
 	status = "okay";
 
-	rtc@51 {
-		compatible = "nxp,pcf2129";
-		reg = <0x51>;
+	rtc@53 {
+		compatible = "nxp,pcf2131";
+		reg = <0x53>;
 		/* IRQ_RTC_B -> IRQ08, active low */
 		interrupts-extended = <&extirq 8 IRQ_TYPE_LEVEL_LOW>;
 	};
