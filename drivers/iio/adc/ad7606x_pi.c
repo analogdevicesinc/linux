@@ -373,7 +373,7 @@ static int ad7606x_pi_probe(struct platform_device *pdev)
 	conv->dev = &pdev->dev;
 	//conv->clk = st->mclk;
 	conv->clk = st->ref_clk;
-	conv->chip_info = &conv_chip_info[0]; //TODO will only support 16bit adc
+	conv->chip_info = st->device_info;
 	//conv->adc_output_mode = AD7768_OUTPUT_MODE_TWOS_COMPLEMENT; //TODO?
 	//conv->reg_access = &ad7768_reg_access;
 	//conv->write_raw = &ad7768_write_raw;
