@@ -383,8 +383,7 @@
 #define DPTX_I2C_READ              0x15
 #define DPTX_I2C_WRITE             0x16
 #define DPTX_GET_LAST_I2C_STATUS   0x17
-
-
+#define DPTX_SET_AUX_MAX_DEFER_TRIES 0x19
 
 /* HDMI TX opcode */
 #define HDMI_TX_READ				0x00
@@ -781,6 +780,7 @@ struct cdns_mhdp_device {
 	struct delayed_work hotplug_work;
 
 	u32 lane_mapping;
+	u32 i2c_over_aux_retries;
 	bool link_up;
 	bool force_disconnected_sts;
 	bool power_up;
@@ -850,6 +850,7 @@ int cdns_mhdp_train_link(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_set_video_status(struct cdns_mhdp_device *mhdp, int active);
 int cdns_mhdp_config_video(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_apb_conf(struct cdns_mhdp_device *mhdp, u8 sel);
+int cdns_mhdp_set_maximum_defer_retry(struct cdns_mhdp_device *mhdp, int msg);
 
 /* Audio */
 int cdns_mhdp_audio_stop(struct cdns_mhdp_device *mhdp,
