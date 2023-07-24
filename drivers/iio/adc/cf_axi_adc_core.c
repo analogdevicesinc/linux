@@ -771,7 +771,11 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 	const unsigned long *scan_mask)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	unsigned i, ctrl;
+
+	if (conv->update_scan_mode)
+		return conv->update_scan_mode(indio_dev, scan_mask);
 
 	for (i = 0; i < indio_dev->masklength; i++) {
 		if (i > (st->have_slave_channels - 1))
