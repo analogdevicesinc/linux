@@ -688,6 +688,17 @@ static void cdns_dp_parse_dt(struct cdns_mhdp_device *mhdp)
 		dev_warn(mhdp->dev, "Failed to get lane_mapping - using default 0xc6\n");
 	}
 	dev_info(mhdp->dev, "lane-mapping 0x%02x\n", mhdp->lane_mapping);
+
+	ret = of_property_read_u32(of_node, "i2c-over-aux-retries",
+				   &mhdp->i2c_over_aux_retries);
+	if (ret) {
+		mhdp->i2c_over_aux_retries = 5;
+		dev_warn(mhdp->dev,
+			 "Failed to get i2c-over-aux-retries - using default 5\n");
+	}
+
+	dev_info(mhdp->dev, "i2c-over-aux-retries 0x%02x\n",
+		 mhdp->i2c_over_aux_retries);
 }
 
 static int __cdns_dp_probe(struct platform_device *pdev,

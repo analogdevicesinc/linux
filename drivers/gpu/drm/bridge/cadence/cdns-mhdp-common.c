@@ -636,6 +636,29 @@ int cdns_mhdp_set_video_status(struct cdns_mhdp_device *mhdp, int active)
 }
 EXPORT_SYMBOL(cdns_mhdp_set_video_status);
 
+int cdns_mhdp_set_maximum_defer_retry(struct cdns_mhdp_device *mhdp,
+				      int number_of_retry)
+{
+	u8 msg;
+	int ret;
+
+	mutex_lock(&mhdp->api_lock);
+
+	msg = (u8)number_of_retry;
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_SET_AUX_MAX_DEFER_TRIES,
+				     sizeof(msg), &msg);
+	if (ret)
+		DRM_DEV_ERROR(mhdp->dev,
+			      "set aux maximum defer retries failed.\n");
+
+	mutex_unlock(&mhdp->api_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(cdns_mhdp_set_maximum_defer_retry);
+
 static int mhdp_get_msa_misc(struct video_info *video,
 				  struct drm_display_mode *mode)
 {
