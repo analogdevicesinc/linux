@@ -288,13 +288,6 @@ static void ad7606x_pi_clk_disable(void *data)
 	clk_disable_unprepare(data);
 }
 
-static const struct iio_info ad7606x_pi_iio_info = {
-	.debugfs_reg_access = &ad7606x_pi_reg_access,
-	.update_scan_mode = &ad7606x_pi_update_scan_mode,
-	.read_raw = ad7606x_pi_read_raw,
-	.write_raw = ad7606x_pi_write_raw,
-};
-
 static const struct of_device_id ad7606x_pi_of_match[] = {
 	{
 		.compatible = "ad7606x-pi-16",
@@ -310,7 +303,6 @@ MODULE_DEVICE_TABLE(of, ad7606x_pi_of_match);
 
 static int ad7606x_pi_probe(struct platform_device *pdev)
 {
-	struct iio_dev			*indio_dev;
 	struct axiadc_converter	*conv;
 	struct ad7606x_pi_state		*st;
 	int				ret;
@@ -355,14 +347,9 @@ static int ad7606x_pi_probe(struct platform_device *pdev)
 
 	ad7606x_pi_full_reset(pdev, st);
 
-	platform_set_drvdata(pdev, indio_dev);
-
 	st->device_info = device_get_match_data(&pdev->dev);
 	if (!st->device_info)
 		return -EINVAL;
-
-	st->iio_info = ad7606x_pi_iio_info;
-	indio_dev->info = &st->iio_info;
 
 	ret = ad7606x_pi_set_sampling_freq(st, 100 * KHZ);
 	if (ret) {
