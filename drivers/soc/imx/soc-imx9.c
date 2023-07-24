@@ -84,6 +84,9 @@ static int imx9_soc_device_register(struct device *dev)
 		attr->soc_id = kasprintf(GFP_KERNEL, "unknown");
 	}
 
+	if(of_machine_is_compatible("fsl,imx91p"))
+		attr->soc_id = kasprintf(GFP_KERNEL, "i.MX91P");
+
 	sdev = soc_device_register(attr);
 	if (IS_ERR(sdev)) {
 		err = -ENODEV;
