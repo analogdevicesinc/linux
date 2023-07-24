@@ -44,7 +44,7 @@ struct axiadc_core_info {
 };
 
 struct axiadc_state {
-	struct device 			*dev_spi;
+	struct device *conv_dev;
 	struct iio_info			iio_info;
 	struct clk 			*clk;
 	struct gpio_desc		*gpio_decimation;
@@ -67,7 +67,7 @@ struct axiadc_state {
 
 struct axiadc_converter *to_converter(struct device *dev)
 {
-	struct axiadc_converter *conv = spi_get_drvdata(to_spi_device(dev));
+	struct axiadc_converter *conv = dev_get_drvdata(dev);
 
 	if (conv)
 		return conv;
@@ -186,7 +186,7 @@ enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 
 static unsigned int axiadc_num_phys_channels(struct axiadc_state *st)
 {
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	return conv->chip_info->num_channels - st->have_slave_channels;
 }
 
@@ -220,7 +220,7 @@ static ssize_t axiadc_debugfs_pncheck_write(struct file *file,
 {
 	struct iio_dev *indio_dev = file->private_data;
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	enum adc_pn_sel mode;
 	unsigned int i;
 	char buf[80], *p = buf;
@@ -269,7 +269,7 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 			      unsigned *readval)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	int ret;
 
 	/* Check that the register is in range and aligned */
@@ -280,7 +280,7 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 	mutex_lock(&conv->lock);
 
 	if (!(reg & DEBUGFS_DRA_PCORE_REG_MAGIC)) {
-		struct axiadc_converter *conv = to_converter(st->dev_spi);
+		struct axiadc_converter *conv = to_converter(st->conv_dev);
 		if (IS_ERR(conv))
 			ret = PTR_ERR(conv);
 		else if (!conv->reg_access)
@@ -331,7 +331,7 @@ static int axiadc_decimation_set(struct axiadc_state *st,
 
 static int axiadc_get_parent_sampling_frequency(struct axiadc_state *st, unsigned long *freq)
 {
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	int ret = 0;
 
 	if (conv->clk)
@@ -371,7 +371,7 @@ static ssize_t axiadc_sampling_frequency_available(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	unsigned long freq;
 	int i, ret;
 
@@ -406,7 +406,7 @@ static ssize_t axiadc_sync_start_store(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	int ret;
 
 	ret = sysfs_match_string(axiadc_sync_ctrls, buf);
@@ -499,7 +499,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	int ret, sign;
 	unsigned tmp, phase = 0, channel;
 	unsigned long long llval;
@@ -604,7 +604,7 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 	unsigned fract, tmp, phase = 0, channel;
 	unsigned long long llval;
 
@@ -699,7 +699,7 @@ static int axiadc_read_label(struct iio_dev *indio_dev,
 			     const struct iio_chan_spec *chan, char *label)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 
 	if (conv && conv->read_label)
 		return conv->read_label(indio_dev, chan, label);
@@ -715,7 +715,7 @@ static int axiadc_read_event_value(struct iio_dev *indio_dev,
 	int *val2)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 
 	if (conv->read_event_value)
 		return conv->read_event_value(indio_dev, chan,
@@ -730,7 +730,7 @@ static int axiadc_write_event_value(struct iio_dev *indio_dev,
 	int val2)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 
 	if (conv->write_event_value)
 		return conv->write_event_value(indio_dev, chan,
@@ -745,7 +745,7 @@ static int axiadc_read_event_config(struct iio_dev *indio_dev,
 				    enum iio_event_direction dir)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 
 	if (conv->read_event_config)
 		return conv->read_event_config(indio_dev, chan, type, dir);
@@ -760,7 +760,7 @@ static int axiadc_write_event_config(struct iio_dev *indio_dev,
 				     int state)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
+	struct axiadc_converter *conv = to_converter(st->conv_dev);
 
 	if (conv->write_event_config)
 		return conv->write_event_config(indio_dev,
@@ -853,21 +853,21 @@ static const struct iio_info axiadc_info = {
 	.read_label = &axiadc_read_label,
 };
 
-struct axiadc_spidev {
-	struct device_node *of_nspi;
-	struct device *dev_spi;
+struct axiadc_dev {
+	struct device_node *of_ndev;
+	struct device *dev;
 	struct module *owner;
 };
 
 static int axiadc_attach_spi_client(struct device *dev, void *data)
 {
-	struct axiadc_spidev *axiadc_spidev = data;
+	struct axiadc_dev *axiadc_dev = data;
 	int ret = 0;
 
 	device_lock(dev);
-	if ((axiadc_spidev->of_nspi == dev->of_node) && dev->driver) {
-		axiadc_spidev->dev_spi = dev;
-		axiadc_spidev->owner = dev->driver->owner;
+	if (axiadc_dev->of_ndev == dev->of_node && dev->driver) {
+		axiadc_dev->dev = dev;
+		axiadc_dev->owner = dev->driver->owner;
 		ret = 1;
 	}
 	device_unlock(dev);
@@ -1057,10 +1057,10 @@ int axiadc_append_attrs(struct iio_dev *indio_dev,
 
 static void axiadc_release_converter(void *conv)
 {
-	struct axiadc_spidev *axiadc_spidev = conv;
+	struct axiadc_dev *axiadc_dev = conv;
 
-	put_device(axiadc_spidev->dev_spi);
-	module_put(axiadc_spidev->owner);
+	put_device(axiadc_dev->dev);
+	module_put(axiadc_dev->owner);
 }
 
 /**
@@ -1080,7 +1080,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct axiadc_state *st;
 	struct resource *mem;
-	struct axiadc_spidev *axiadc_spidev;
+	struct axiadc_dev *axiadc_dev;
 	struct axiadc_converter *conv;
 	unsigned int config, skip = 1;
 	int ret;
@@ -1094,32 +1094,33 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	info = id->data;
 
-	axiadc_spidev = devm_kzalloc(&pdev->dev, sizeof(*axiadc_spidev), GFP_KERNEL);
-	if (!axiadc_spidev)
+	axiadc_dev = devm_kzalloc(&pdev->dev, sizeof(*axiadc_dev), GFP_KERNEL);
+	if (!axiadc_dev)
 		return -ENOMEM;
 
 	/* Defer driver probe until matching spi
 	 * converter driver is registered
 	 */
-	axiadc_spidev->of_nspi = of_parse_phandle(pdev->dev.of_node,
-						  "spibus-connected", 0);
-	if (!axiadc_spidev->of_nspi) {
+	axiadc_dev->of_ndev = of_parse_phandle(pdev->dev.of_node,
+					       "spibus-connected", 0);
+	if (!axiadc_dev->of_ndev) {
 		dev_err(&pdev->dev, "could not find spi node\n");
 		return -ENODEV;
 	}
 
-	ret = bus_for_each_dev(&spi_bus_type, NULL, axiadc_spidev,
+	ret = bus_for_each_dev(&spi_bus_type, NULL, axiadc_dev,
 			       axiadc_attach_spi_client);
-	of_node_put(axiadc_spidev->of_nspi);
+	of_node_put(axiadc_dev->of_ndev);
 	if (ret == 0)
 		return -EPROBE_DEFER;
 
-	if (!try_module_get(axiadc_spidev->owner))
+	if (!try_module_get(axiadc_dev->dev->driver->owner))
 		return -ENODEV;
 
-	get_device(axiadc_spidev->dev_spi);
+	get_device(axiadc_dev->dev);
 
-	ret = devm_add_action_or_reset(&pdev->dev, axiadc_release_converter, axiadc_spidev);
+	ret = devm_add_action_or_reset(&pdev->dev, axiadc_release_converter,
+				       axiadc_dev->dev);
 	if (ret)
 		return ret;
 
@@ -1139,7 +1140,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (IS_ERR(st->regs))
 		return PTR_ERR(st->regs);
 
-	st->dev_spi = axiadc_spidev->dev_spi;
+	st->conv_dev = axiadc_dev->dev;
 
 	platform_set_drvdata(pdev, indio_dev);
 
@@ -1147,7 +1148,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	st->ext_sync_avail = !!(config & ADI_EXT_SYNC);
 	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
 
-	conv = to_converter(st->dev_spi);
+	conv = to_converter(st->conv_dev);
 	if (IS_ERR(conv)) {
 		dev_err(&pdev->dev, "Failed to get converter device: %d\n",
 				(int)PTR_ERR(conv));

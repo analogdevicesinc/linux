@@ -202,10 +202,10 @@ int adrv9009_register_axi_converter(struct adrv9009_rf_phy *phy)
 	if (conv == NULL)
 		return -ENOMEM;
 
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->phy = phy;
 
-	spi_set_drvdata(spi, conv); /* Take care here */
+	dev_set_drvdata(&spi->dev, conv); /* Take care here */
 
 	conv->chip_info = &axiadc_chip_info_tbl[phy->spi_device_id];
 	conv->write_raw = adrv9009_write_raw;
