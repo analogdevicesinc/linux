@@ -282,10 +282,12 @@ static int adi_rcu_probe(struct platform_device *pdev)
 	adi_rcu->dev = dev;
 	adi_rcu->reboot_notifier.priority = ADI_RCU_REBOOT_PRIORITY;
 	adi_rcu->reboot_notifier.notifier_call = adi_rcu_reboot;
-	ret = register_restart_handler(&adi_rcu->reboot_notifier);
-	if (ret) {
-		dev_err(dev, "Unable to register restart handler: %d\n", ret);
-		return ret;
+	if (of_property_read_bool(np, "adi,enable-reboot")) {
+		ret = register_restart_handler(&adi_rcu->reboot_notifier);
+		if (ret) {
+			dev_err(dev, "Unable to register restart handler: %d\n", ret);
+			return ret;
+		}
 	}
 
 	dev_set_drvdata(dev, adi_rcu);
