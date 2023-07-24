@@ -665,6 +665,14 @@ int cdns_mhdp_firmware_init_imx8qm(struct cdns_mhdp_device *mhdp)
 	/* turn on IP activity */
 	cdns_mhdp_set_firmware_active(&imx_mhdp->mhdp, 1);
 
+	if (mhdp->is_dp) {
+		ret = cdns_mhdp_set_maximum_defer_retry(mhdp,
+							mhdp->i2c_over_aux_retries);
+		if (!ret)
+			DRM_INFO("set maximum defer retry to %d",
+				 mhdp->i2c_over_aux_retries);
+	}
+
 	DRM_INFO("HDP FW Version - ver %d verlib %d\n",
 			cdns_mhdp_bus_read(mhdp, VER_L) + (cdns_mhdp_bus_read(mhdp, VER_H) << 8),
 			cdns_mhdp_bus_read(mhdp, VER_LIB_H_ADDR) + (cdns_mhdp_bus_read(mhdp, VER_LIB_H_ADDR) << 8));
