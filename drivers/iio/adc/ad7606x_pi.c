@@ -77,13 +77,6 @@ enum ad7606x_pi_id {
 	ID_AD7606X_18,
 };
 
-struct ad7606x_pi_info {
-	char				*name;
-	struct iio_chan_spec		channels[8];
-	unsigned int			num_channels;
-	unsigned int			resolution;
-};
-
 static const struct axiadc_chip_info conv_chip_info[] = {
 	[ID_AD7606X_16] = {
 		.name = "AD7606X-16",
@@ -111,41 +104,8 @@ static const struct axiadc_chip_info conv_chip_info[] = {
 	},
 };
 
-static const struct ad7606x_pi_info ad7606x_pi_infos[] = {
-	[ID_AD7606X_16] = {
-		.name = "AD7606X-16",
-		.resolution = 16,
-		.channels = {
-			AD7606X_MULTIPLE_CHAN(0, 16, 16),
-			AD7606X_MULTIPLE_CHAN(1, 16, 16),
-			AD7606X_MULTIPLE_CHAN(2, 16, 16),
-			AD7606X_MULTIPLE_CHAN(3, 16, 16),
-			AD7606X_MULTIPLE_CHAN(4, 16, 16),
-			AD7606X_MULTIPLE_CHAN(5, 16, 16),
-			AD7606X_MULTIPLE_CHAN(6, 16, 16),
-			AD7606X_MULTIPLE_CHAN(7, 16, 16),
-		},
-		.num_channels = 8,
-	},
-	[ID_AD7606X_18] = {
-		.name = "AD7606X-18",
-		.resolution = 18,
-		.channels = {
-			AD7606X_MULTIPLE_CHAN(0, 32, 18),
-			AD7606X_MULTIPLE_CHAN(1, 32, 18),
-			AD7606X_MULTIPLE_CHAN(2, 32, 18),
-			AD7606X_MULTIPLE_CHAN(3, 32, 18),
-			AD7606X_MULTIPLE_CHAN(4, 32, 18),
-			AD7606X_MULTIPLE_CHAN(5, 32, 18),
-			AD7606X_MULTIPLE_CHAN(6, 32, 18),
-			AD7606X_MULTIPLE_CHAN(7, 32, 18),
-		},
-		.num_channels = 8,
-	},
-};
-
 struct ad7606x_pi_state {
-	const	struct	ad7606x_pi_info			*device_info;
+	const	struct	axiadc_chip_info		*device_info;
 	struct	iio_info				iio_info;
 	struct	gpio_desc				*adc_serpar;
 	struct	gpio_desc				*adc_refsel;
@@ -338,11 +298,11 @@ static const struct iio_info ad7606x_pi_iio_info = {
 static const struct of_device_id ad7606x_pi_of_match[] = {
 	{
 		.compatible = "ad7606x-pi-16",
-		.data = &ad7606x_pi_infos[ID_AD7606X_16]
+		.data = &conv_chip_info[ID_AD7606X_16]
 	},
 	{
 		.compatible = "ad7606x-pi-18",
-		.data = &ad7606x_pi_infos[ID_AD7606X_18]
+		.data = &conv_chip_info[ID_AD7606X_18]
 	},
 	{}
 };
