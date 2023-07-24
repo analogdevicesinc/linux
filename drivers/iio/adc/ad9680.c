@@ -153,7 +153,7 @@ static int ad9680_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	unsigned int writeval, unsigned int *readval)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	if (readval == NULL)
@@ -181,10 +181,12 @@ static int ad9680_select_channel(struct axiadc_converter *conv,
 		pair = 0x3;
 	}
 
-	ret = ad9680_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, device);
+	ret = ad9680_spi_write(to_spi_device(conv->dev),
+			       AD9680_REG_DEVICE_INDEX, device);
 	if (ret < 0)
 		return ret;
-	return ad9680_spi_write(conv->spi, AD9680_REG_PAIR_INDEX, pair);
+	return ad9680_spi_write(to_spi_device(conv->dev),
+				AD9680_REG_PAIR_INDEX, pair);
 }
 
 static int ad9680_channel_write(struct axiadc_converter *conv,
@@ -193,7 +195,7 @@ static int ad9680_channel_write(struct axiadc_converter *conv,
 	int ret;
 
 	ret = ad9680_select_channel(conv, chan);
-	ret |= ad9680_spi_write(conv->spi, reg, val);
+	ret |= ad9680_spi_write(to_spi_device(conv->dev), reg, val);
 	ret |= ad9680_select_channel(conv, -1);
 
 	return ret;
@@ -205,7 +207,7 @@ static int ad9680_channel_read(struct axiadc_converter *conv,
 	int ret;
 
 	ad9680_select_channel(conv, chan);
-	ret = ad9680_spi_read(conv->spi, reg);
+	ret = ad9680_spi_read(to_spi_device(conv->dev), reg);
 	ad9680_select_channel(conv, -1);
 
 	return ret;
@@ -258,7 +260,8 @@ static int ad9680_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
 	if (mode != AD9680_TESTMODE_OFF)
 		output_mode &= ~AD9680_OUTPUT_MODE_TWOS_COMPLEMENT;
 
-	ret = ad9680_spi_write(conv->spi, AD9680_REG_OUTPUT_MODE, output_mode);
+	ret = ad9680_spi_write(to_spi_device(conv->dev),
+			       AD9680_REG_OUTPUT_MODE, output_mode);
 	if (ret < 0)
 		return ret;
 
@@ -294,7 +297,7 @@ static int ad9680_read_thresh(struct iio_dev *indio_dev,
 	int *val2)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	u16 low, high;
 
 	mutex_lock(&indio_dev->mlock);
@@ -323,7 +326,7 @@ static int ad9680_read_thresh_en(struct iio_dev *indio_dev,
 	enum iio_event_direction dir)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	ret = ad9680_spi_read(spi, AD9680_REG_CHIP_PIN_CTRL);
@@ -339,7 +342,7 @@ static int ad9680_write_thresh(struct iio_dev *indio_dev,
 	int val2)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret = 0;
 	int low, high;
 
@@ -392,7 +395,7 @@ static int ad9680_write_thresh_en(struct iio_dev *indio_dev,
 	enum iio_event_direction dir, int state)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	mutex_lock(&indio_dev->mlock);
@@ -469,7 +472,8 @@ static int ad9680_get_scale(struct axiadc_converter *conv,
 		vref_val = ad9680_channel_read(conv, chan->channel, 0x1910);
 		break;
 	default:
-		vref_val = ad9680_spi_read(conv->spi, AD9680_REG_INPUT_FS_RANGE);
+		vref_val = ad9680_spi_read(to_spi_device(conv->dev),
+					   AD9680_REG_INPUT_FS_RANGE);
 		break;
 	}
 	vref_val &= 0xf;
@@ -505,7 +509,8 @@ static int ad9680_set_scale(struct axiadc_converter *conv,
 					     scale_raw);
 			break;
 		default:
-			ad9680_spi_write(conv->spi, AD9680_REG_INPUT_FS_RANGE,
+			ad9680_spi_write(to_spi_device(conv->dev),
+					 AD9680_REG_INPUT_FS_RANGE,
 					 scale_raw);
 			break;
 		}
@@ -723,7 +728,7 @@ static int ad9680_update_sysref(struct axiadc_converter *conv,
 	}
 
 	if (n == 0) {
-		dev_err(&conv->spi->dev,
+		dev_err(conv->dev,
 			"Could not find suitable SYSREF rate for LMFC of %u\n",
 			lmfc);
 		return -EINVAL;
@@ -744,10 +749,10 @@ static ssize_t ad9680_status_read(struct device *dev,
 	switch (conv->id) {
 	case CHIPID_AD9694:
 	case CHIPID_AD9094:
-		val = ad9680_spi_read(conv->spi, 0x11b);
+		val = ad9680_spi_read(to_spi_device(conv->dev), 0x11b);
 		break;
 	default:
-		val = ad9680_spi_read(conv->spi, 0x11c);
+		val = ad9680_spi_read(to_spi_device(conv->dev), 0x11c);
 		break;
 	}
 
@@ -757,16 +762,16 @@ static ssize_t ad9680_status_read(struct device *dev,
 	if (conv->id == CHIPID_AD9684)
 		return ret;
 
-	val = ad9680_spi_read(conv->spi, 0x56f);
+	val = ad9680_spi_read(to_spi_device(conv->dev), 0x56f);
 	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 		"JESD204 PLL is %slocked\n",
 		(val & 0x80) ? "" : "not ");
 
-	val = ad9680_spi_read(conv->spi, 0x12a);
+	val = ad9680_spi_read(to_spi_device(conv->dev), 0x12a);
 	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 		"SYSREF counter: %d\n", val);
 
-	val = ad9680_spi_read(conv->spi, 0x128);
+	val = ad9680_spi_read(to_spi_device(conv->dev), 0x128);
 	hold = (val >> 4) & 0xf;
 	setup = val & 0xf;
 
@@ -803,26 +808,28 @@ static int ad9680_setup_jesd204_link(struct axiadc_converter *conv,
 	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
 
 	if (lane_rate_kHz < 3125000 || lane_rate_kHz > 12500000) {
-		dev_err(&conv->spi->dev, "Lane rate %lu Mbps out of bounds. Must be between 3125 and 12500 Mbps",
+		dev_err(conv->dev,
+			"Lane rate %lu Mbps out of bounds. Must be between 3125 and 12500 Mbps",
 			lane_rate_kHz / 1000);
 		return -EINVAL;
 	}
 
 	if (lane_rate_kHz < 6250000)
-		ad9680_spi_write(conv->spi, 0x56e, 0x10);	// low line rate mode must be enabled
+		ad9680_spi_write(to_spi_device(conv->dev), 0x56e, 0x10);	// low line rate mode must be enabled
 	else
-		ad9680_spi_write(conv->spi, 0x56e, 0x00);	// low line rate mode must be disabled
+		ad9680_spi_write(to_spi_device(conv->dev), 0x56e, 0x00);	// low line rate mode must be disabled
 
 	ret = ad9680_update_sysref(conv, sysref_rate);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to set SYSREF clock to %lu kHz: %d\n",
+		dev_err(conv->dev,
+			"Failed to set SYSREF clock to %lu kHz: %d\n",
 			sysref_rate / 1000, ret);
 		return ret;
 	}
 
 	ret = clk_set_rate(conv->lane_clk, lane_rate_kHz);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+		dev_err(conv->dev, "Failed to set lane rate to %lu kHz: %d\n",
 			lane_rate_kHz, ret);
 		return ret;
 	}
@@ -846,7 +853,7 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	sample_rate = clk_round_rate(conv->clk, sample_rate);
 
 	/* Disable link */
-	ad9680_spi_write(conv->spi, 0x571, 0x15);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x571, 0x15);
 
 	if (conv->running) {
 		clk_disable_unprepare(conv->lane_clk);
@@ -857,7 +864,8 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 
 	ret = clk_set_rate(conv->clk, sample_rate);
 	if (ret) {
-		dev_err(&conv->spi->dev, "Failed to set converter clock rate to %u kHz: %d\n",
+		dev_err(conv->dev,
+			"Failed to set converter clock rate to %u kHz: %d\n",
 			sample_rate / 1000, ret);
 		return ret;
 	}
@@ -868,30 +876,31 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 
 	ret = clk_prepare_enable(conv->clk);
 	if (ret) {
-		dev_err(&conv->spi->dev, "Failed to enable converter clock: %d\n", ret);
+		dev_err(conv->dev, "Failed to enable converter clock: %d\n",
+			ret);
 		return ret;
 	}
 	ret = clk_prepare_enable(conv->sysref_clk);
 	if (ret) {
 		clk_disable_unprepare(conv->clk);
-		dev_err(&conv->spi->dev, "Failed to enable SYSREF clock: %d\n", ret);
+		dev_err(conv->dev, "Failed to enable SYSREF clock: %d\n", ret);
 		return ret;
 	}
 
 	// Enable link
-	ad9680_spi_write(conv->spi, 0x571, 0x14);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x571, 0x14);
 
 	mdelay(20);
-	pll_stat = ad9680_spi_read(conv->spi, 0x56f);
+	pll_stat = ad9680_spi_read(to_spi_device(conv->dev), 0x56f);
 
-	dev_info(&conv->spi->dev, "PLL %s\n",
+	dev_info(conv->dev, "PLL %s\n",
 		 (pll_stat & 0x80) ? "LOCKED" : "UNLOCKED");
 
 	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret < 0) {
 		clk_disable_unprepare(conv->clk);
 		clk_disable_unprepare(conv->sysref_clk);
-		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
+		dev_err(conv->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
 	}
 
@@ -905,7 +914,7 @@ static int ad9680_request_clks(struct axiadc_converter *conv)
 {
 	int ret;
 
-	conv->sysref_clk = devm_clk_get(&conv->spi->dev, "adc_sysref");
+	conv->sysref_clk = devm_clk_get(conv->dev, "adc_sysref");
 	if (IS_ERR(conv->sysref_clk)) {
 		if (PTR_ERR(conv->sysref_clk) != -ENOENT)
 			return PTR_ERR(conv->sysref_clk);
@@ -916,7 +925,7 @@ static int ad9680_request_clks(struct axiadc_converter *conv)
 			return ret;
 	}
 
-	conv->clk = devm_clk_get(&conv->spi->dev, "adc_clk");
+	conv->clk = devm_clk_get(conv->dev, "adc_clk");
 	if (IS_ERR(conv->clk)) {
 		if (PTR_ERR(conv->clk) != -ENOENT) {
 			clk_disable_unprepare(conv->sysref_clk);
@@ -933,7 +942,7 @@ static int ad9680_request_clks(struct axiadc_converter *conv)
 		conv->adc_clk = clk_get_rate(conv->clk);
 	}
 
-	conv->lane_clk = devm_clk_get(&conv->spi->dev, "jesd_adc_clk");
+	conv->lane_clk = devm_clk_get(conv->dev, "jesd_adc_clk");
 	if (IS_ERR(conv->lane_clk)) {
 		if (PTR_ERR(conv->lane_clk) != -ENOENT) {
 			clk_disable_unprepare(conv->clk);
@@ -1079,9 +1088,9 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	if (ret < 0)
 		goto err;
 	mdelay(20);
-	pll_stat = ad9680_spi_read(conv->spi, 0x56f);
+	pll_stat = ad9680_spi_read(to_spi_device(conv->dev), 0x56f);
 
-	dev_info(&conv->spi->dev, "AD9680 PLL %s\n",
+	dev_info(conv->dev, "AD9680 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
 	ret = clk_prepare_enable(conv->lane_clk);
@@ -1139,7 +1148,8 @@ static int ad9694_setup_jesd204_link(struct axiadc_converter *conv,
 	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
 
 	if (lane_rate_kHz < 1687500 || lane_rate_kHz > 15000000) {
-		dev_err(&conv->spi->dev, "Lane rate %lu Mbps out of bounds. Must be between 1687.5 and 15000 Mbps",
+		dev_err(conv->dev,
+			"Lane rate %lu Mbps out of bounds. Must be between 1687.5 and 15000 Mbps",
 			lane_rate_kHz / 1000);
 		return -EINVAL;;
 	}
@@ -1153,26 +1163,27 @@ static int ad9694_setup_jesd204_link(struct axiadc_converter *conv,
 	else
 		val = 0x3;
 
-	ad9680_spi_write(conv->spi, 0x56e, val << 4);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x56e, val << 4);
 
 	/* Required sequence after link reset */
-	ad9680_spi_write(conv->spi, 0x1228, 0x4f);
-	ad9680_spi_write(conv->spi, 0x1228, 0x0f);
-	ad9680_spi_write(conv->spi, 0x1222, 0x04);
-	ad9680_spi_write(conv->spi, 0x1222, 0x00);
-	ad9680_spi_write(conv->spi, 0x1262, 0x08);
-	ad9680_spi_write(conv->spi, 0x1262, 0x00);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x1228, 0x4f);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x1228, 0x0f);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x1222, 0x04);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x1222, 0x00);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x1262, 0x08);
+	ad9680_spi_write(to_spi_device(conv->dev), 0x1262, 0x00);
 
 	ret = clk_set_rate(conv->sysref_clk, sysref_rate);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to set SYSREF clock to %lu kHz: %d\n",
+		dev_err(conv->dev,
+			"Failed to set SYSREF clock to %lu kHz: %d\n",
 			sysref_rate / 1000, ret);
 		return ret;
 	}
 
 	ret = clk_set_rate(conv->lane_clk, lane_rate_kHz);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+		dev_err(conv->dev, "Failed to set lane rate to %lu kHz: %d\n",
 			lane_rate_kHz, ret);
 		return ret;
 	}
@@ -1239,9 +1250,9 @@ static int ad9694_setup(struct spi_device *spi)
 	if (ret < 0)
 		goto err;
 	mdelay(20);
-	pll_stat = ad9680_spi_read(conv->spi, 0x56f);
+	pll_stat = ad9680_spi_read(to_spi_device(conv->dev), 0x56f);
 
-	dev_info(&conv->spi->dev, "%s PLL %s\n",
+	dev_info(conv->dev, "%s PLL %s\n",
 		 (conv->id == CHIPID_AD9094) ? "AD9094" : "AD9694",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
@@ -1300,12 +1311,12 @@ static void ad9694_serdes_pll_watchdog(struct work_struct *work)
 	unsigned int clock_detected, serdes_locked;
 	int ret;
 
-	clock_detected = ad9680_spi_read(conv->spi, 0x11b);
-	serdes_locked = ad9680_spi_read(conv->spi, 0x56f);
+	clock_detected = ad9680_spi_read(to_spi_device(conv->dev), 0x11b);
+	serdes_locked = ad9680_spi_read(to_spi_device(conv->dev), 0x56f);
 
 	/* Restart if clock is detected, but SERDES is not locked */
 	if ((clock_detected & 0x01) && !(serdes_locked & 0x80)) {
-		dev_err(&conv->spi->dev, "Lost SERDES PLL lock, re-initializing.");
+		dev_err(conv->dev, "Lost SERDES PLL lock, re-initializing.");
 
 		if (conv->running) {
 			clk_disable_unprepare(conv->lane_clk);
@@ -1313,21 +1324,22 @@ static void ad9694_serdes_pll_watchdog(struct work_struct *work)
 		}
 
 		 /* datapath soft reset */
-		ad9680_spi_write(conv->spi, 0x001, 0x02);
+		ad9680_spi_write(to_spi_device(conv->dev), 0x001, 0x02);
 		mdelay(1);
 
 		/* Required sequence after link reset */
-		ad9680_spi_write(conv->spi, 0x1228, 0x4f);
-		ad9680_spi_write(conv->spi, 0x1228, 0x0f);
-		ad9680_spi_write(conv->spi, 0x1222, 0x04);
-		ad9680_spi_write(conv->spi, 0x1222, 0x00);
-		ad9680_spi_write(conv->spi, 0x1262, 0x08);
-		ad9680_spi_write(conv->spi, 0x1262, 0x00);
+		ad9680_spi_write(to_spi_device(conv->dev), 0x1228, 0x4f);
+		ad9680_spi_write(to_spi_device(conv->dev), 0x1228, 0x0f);
+		ad9680_spi_write(to_spi_device(conv->dev), 0x1222, 0x04);
+		ad9680_spi_write(to_spi_device(conv->dev), 0x1222, 0x00);
+		ad9680_spi_write(to_spi_device(conv->dev), 0x1262, 0x08);
+		ad9680_spi_write(to_spi_device(conv->dev), 0x1262, 0x00);
 
 		mdelay(20);
-		serdes_locked = ad9680_spi_read(conv->spi, 0x56f);
+		serdes_locked = ad9680_spi_read(to_spi_device(conv->dev),
+						0x56f);
 
-		dev_info(&conv->spi->dev, "AD9694 PLL %s\n",
+		dev_info(conv->dev, "AD9694 PLL %s\n",
 			 (serdes_locked & 0x80) ? "LOCKED" : "UNLOCKED");
 
 		ret = clk_prepare_enable(conv->lane_clk);
@@ -1386,7 +1398,7 @@ static int ad9680_write_raw(struct iio_dev *indio_dev,
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
-			dev_warn(&conv->spi->dev,
+			dev_warn(conv->dev,
 				 "Error setting ADC sample rate %ld", r_clk);
 			return -EINVAL;
 		}
@@ -1404,7 +1416,7 @@ static int ad9680_write_raw(struct iio_dev *indio_dev,
 
 static int ad9680_request_fd_irqs(struct axiadc_converter *conv)
 {
-	struct device *dev = &conv->spi->dev;
+	struct device *dev = conv->dev;
 	struct gpio_desc *gpio;
 
 	gpio = devm_gpiod_get(dev, "fastdetect-a", GPIOD_IN);
@@ -1470,8 +1482,8 @@ static int ad9680_probe(struct spi_device *spi)
 
 	INIT_DELAYED_WORK(&conv->watchdog_work, ad9694_serdes_pll_watchdog);
 
-	spi_set_drvdata(spi, conv);
-	conv->spi = spi;
+	dev_set_drvdata(&spi->dev, conv);
+	conv->dev = &spi->dev;
 
 	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
 		GPIOD_OUT_LOW);

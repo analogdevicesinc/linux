@@ -140,7 +140,7 @@ static int ad6676_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	unsigned int writeval, unsigned int *readval)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	if (readval == NULL) {
@@ -186,14 +186,15 @@ static inline int ad6676_get_splitreg(struct spi_device *spi, u32 reg, u32 *val)
 
 static int ad6676_set_fadc(struct axiadc_converter *conv, u32 val)
 {
-	return ad6676_set_splitreg(conv->spi, AD6676_FADC_0,
-		clamp_t(u32, val, MIN_FADC, MAX_FADC) / MHz);
+	return ad6676_set_splitreg(to_spi_device(conv->dev), AD6676_FADC_0,
+				   clamp_t(u32, val, MIN_FADC, MAX_FADC) / MHz);
 }
 
 static inline u32 ad6676_get_fadc(struct axiadc_converter *conv)
 {
 	u32 val;
-	int ret = ad6676_get_splitreg(conv->spi, AD6676_FADC_0, &val);
+	int ret = ad6676_get_splitreg(to_spi_device(conv->dev), AD6676_FADC_0,
+				      &val);
 	if (ret < 0)
 		return 0;
 
@@ -205,9 +206,9 @@ static int ad6676_set_fif(struct axiadc_converter *conv, u32 val)
 	struct ad6676_phy *phy = conv_to_phy(conv);
 	struct ad6676_platform_data *pdata = phy->pdata;
 
-	return ad6676_set_splitreg(conv->spi, AD6676_FIF_0,
-		clamp_t(u32, val, pdata->base.f_if_min_hz,
-			pdata->base.f_if_max_hz) / MHz);
+	return ad6676_set_splitreg(to_spi_device(conv->dev), AD6676_FIF_0,
+				   clamp_t(u32, val, pdata->base.f_if_min_hz,
+					   pdata->base.f_if_max_hz) / MHz);
 }
 
 static u32 ad6676_get_fif(struct axiadc_converter *conv)
@@ -216,8 +217,9 @@ static u32 ad6676_get_fif(struct axiadc_converter *conv)
 	struct ad6676_platform_data *pdata = phy->pdata;
 	s64 mix1, mix2;
 
-	mix1 = ad6676_spi_read(conv->spi, AD6676_MIX1_TUNING);
-	mix2 = (s8)ad6676_spi_read(conv->spi, AD6676_MIX2_TUNING);
+	mix1 = ad6676_spi_read(to_spi_device(conv->dev), AD6676_MIX1_TUNING);
+	mix2 = (s8)ad6676_spi_read(to_spi_device(conv->dev),
+				   AD6676_MIX2_TUNING);
 
 	mix1 = mix1 * pdata->base.f_adc_hz;
 	mix2 = mix2 * pdata->base.f_adc_hz;
@@ -230,14 +232,15 @@ static u32 ad6676_get_fif(struct axiadc_converter *conv)
 
 static int ad6676_set_bw(struct axiadc_converter *conv, u32 val)
 {
-	return ad6676_set_splitreg(conv->spi, AD6676_BW_0,
-		clamp_t(u32, val, MIN_BW, MAX_BW) / MHz);
+	return ad6676_set_splitreg(to_spi_device(conv->dev), AD6676_BW_0,
+				   clamp_t(u32, val, MIN_BW, MAX_BW) / MHz);
 }
 
 static inline u32 ad6676_get_bw(struct axiadc_converter *conv)
 {
 	u32 val;
-	int ret = ad6676_get_splitreg(conv->spi, AD6676_BW_0, &val);
+	int ret = ad6676_get_splitreg(to_spi_device(conv->dev), AD6676_BW_0,
+				      &val);
 	if (ret < 0)
 		return 0;
 
@@ -269,12 +272,13 @@ static int ad6676_set_decimation(struct axiadc_converter *conv, u32 val)
 		return -EINVAL;
 	}
 
-	return ad6676_spi_write(conv->spi, AD6676_DEC_MODE, val);
+	return ad6676_spi_write(to_spi_device(conv->dev), AD6676_DEC_MODE,
+				val);
 }
 
 static int ad6676_set_clk_synth(struct axiadc_converter *conv, u32 refin_Hz, u32 freq)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	u32 f_pfd, reg_val, tout, div_val;
 	u64 val64;
 	int ret;
@@ -392,7 +396,7 @@ static int ad6676_set_clk_synth(struct axiadc_converter *conv, u32 refin_Hz, u32
 
 static int ad6676_set_extclk_cntl(struct axiadc_converter *conv, u32 freq)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	dev_dbg(&spi->dev, "%s: frequency %u\n",
@@ -413,7 +417,7 @@ static int ad6676_set_extclk_cntl(struct axiadc_converter *conv, u32 freq)
 
 static int ad6676_jesd_setup(struct axiadc_converter *conv, struct ad6676_jesd_conf *conf)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	ret = ad6676_spi_write(spi, AD6676_SYNCB_CTRL,
@@ -449,12 +453,13 @@ static int ad6676_shuffle_setup(struct axiadc_converter *conv, struct ad6676_shu
 		reg_val |= (val << (i * 4));
 	}
 
-	return ad6676_set_splitreg(conv->spi, AD6676_SHUFFLE_THREG0, reg_val);
+	return ad6676_set_splitreg(to_spi_device(conv->dev),
+				   AD6676_SHUFFLE_THREG0, reg_val);
 }
 
 static int ad6676_calibrate(struct axiadc_converter *conv, unsigned cal)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int tout_i, tout_o = 2;
 	u32 done;
 
@@ -484,7 +489,8 @@ static int ad6676_calibrate(struct axiadc_converter *conv, unsigned cal)
 
 static int ad6676_reset(struct axiadc_converter *conv, bool spi3wire)
 {
-	int ret = ad6676_spi_write(conv->spi, AD6676_SPI_CONFIG,
+	int ret = ad6676_spi_write(to_spi_device(conv->dev),
+				   AD6676_SPI_CONFIG,
 				   SPI_CONF_SW_RESET |
 				   (spi3wire ? 0 : SPI_CONF_SDIO_DIR));
 	mdelay(2);
@@ -494,7 +500,7 @@ static int ad6676_reset(struct axiadc_converter *conv, bool spi3wire)
 
 static int ad6676_setup(struct axiadc_converter *conv)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	struct ad6676_phy *phy = conv_to_phy(conv);
 	struct ad6676_platform_data *pdata = phy->pdata;
 	struct clk *clk;
@@ -565,7 +571,7 @@ static int ad6676_setup(struct axiadc_converter *conv)
 
 static int ad6676_update(struct axiadc_converter *conv, struct ad6676_platform_data *pdata)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	pdata->base.bw_hz = clamp_t(u32, pdata->base.bw_hz,
@@ -594,7 +600,7 @@ static int ad6676_update(struct axiadc_converter *conv, struct ad6676_platform_d
 
 static int ad6676_outputmode_set(struct axiadc_converter *conv, unsigned mode)
 {
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	ret = ad6676_spi_write(spi, AD6676_DP_CTRL, mode);
@@ -609,7 +615,7 @@ static int ad6676_testmode_set(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 
-	ad6676_spi_write(conv->spi, AD6676_TEST_GEN, mode);
+	ad6676_spi_write(to_spi_device(conv->dev), AD6676_TEST_GEN, mode);
 
 	conv->testmode[chan] = mode;
 	return 0;
@@ -635,10 +641,12 @@ static int ad6676_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
 	}
 
 	if (mode == TESTGENMODE_OFF)
-		ret = ad6676_spi_write(conv->spi, AD6676_DP_CTRL,
+		ret = ad6676_spi_write(to_spi_device(conv->dev),
+				       AD6676_DP_CTRL,
 				       conv->adc_output_mode);
 	else
-		ret = ad6676_spi_write(conv->spi, AD6676_DP_CTRL,
+		ret = ad6676_spi_write(to_spi_device(conv->dev),
+				       AD6676_DP_CTRL,
 				       DP_CTRL_OFFSET_BINARY);
 
 	if (ret < 0)
@@ -955,9 +963,11 @@ static int ad6676_write_raw(struct iio_dev *indio_dev,
 		return ad6676_update(conv, pdata);
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 			pdata->base.attenuation = clamp(-1 * val, 0, 27);
-			ad6676_spi_write(conv->spi, AD6676_ATTEN_VALUE_PIN0,
+			ad6676_spi_write(to_spi_device(conv->dev),
+					 AD6676_ATTEN_VALUE_PIN0,
 					 pdata->base.attenuation);
-			ad6676_spi_write(conv->spi, AD6676_ATTEN_VALUE_PIN1,
+			ad6676_spi_write(to_spi_device(conv->dev),
+					 AD6676_ATTEN_VALUE_PIN1,
 					 pdata->base.attenuation);
 			break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -1006,7 +1016,7 @@ struct gpio_board_cfg {
 static int ad6676_gpio_config(struct axiadc_converter *conv)
 {
 	struct ad6676_platform_data *pdata = conv_to_phy(conv)->pdata;
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	struct gpio_board_cfg board_cfg[5];
 	enum gpiod_flags flags;
 	struct gpio_desc *temp;
@@ -1146,10 +1156,10 @@ static int ad6676_probe(struct spi_device *spi)
 	if (conv == NULL)
 		return -ENOMEM;
 
-	spi_set_drvdata(spi, conv);
+	dev_set_drvdata(&spi->dev, conv);
 	conv->phy = phy;
 	conv->clk = clk;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 
 	if (spi->dev.of_node)
 		phy->pdata = ad6676_parse_dt(&spi->dev);

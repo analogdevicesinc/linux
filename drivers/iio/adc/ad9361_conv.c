@@ -313,8 +313,8 @@ static int ad9361_write_raw(struct iio_dev *indio_dev,
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
-			dev_warn(&conv->spi->dev,
-				"Error setting ADC sample rate %ld", r_clk);
+			dev_warn(conv->dev,
+				 "Error setting ADC sample rate %ld", r_clk);
 			return -EINVAL;
 		}
 
@@ -746,13 +746,13 @@ int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 	conv->write_raw = ad9361_write_raw;
 	conv->read_raw = ad9361_read_raw;
 	conv->post_setup = ad9361_post_setup;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->phy = phy;
 
 	conv->clk = phy->clks[RX_SAMPL_CLK];
 	conv->adc_clk = clk_get_rate(conv->clk);
 
-	spi_set_drvdata(spi, conv); /* Take care here */
+	dev_set_drvdata(&spi->dev, conv); /* Take care here */
 
 	return 0;
 out:

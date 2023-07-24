@@ -203,7 +203,7 @@ struct axiadc_chip_info {
 };
 
 struct axiadc_converter {
-	struct spi_device 	*spi;
+	struct device *dev;
 	struct clk 		*clk;
 	struct clock_scale		adc_clkscale;
 	struct clk		*lane_clk;

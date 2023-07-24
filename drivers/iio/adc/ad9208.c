@@ -124,9 +124,9 @@ static int ad9208_spi_xfer(void *user_data, uint8_t *wbuf,
 		.len = len,
 	};
 
-	ret = spi_sync_transfer(conv->spi, &t, 1);
+	ret = spi_sync_transfer(to_spi_device(conv->dev), &t, 1);
 
-	dev_dbg(&conv->spi->dev,"%s: reg=0x%X, val=0x%X",
+	dev_dbg(conv->dev,"%s: reg=0x%X, val=0x%X",
 		(wbuf[0] & 0x80) ? "rd" : "wr",
 		(wbuf[0] & 0x7F) << 8 | wbuf[1],
 		(wbuf[0] & 0x80) ? rbuf[2] : wbuf[2]);
@@ -736,18 +736,18 @@ static int ad9208_request_clks(struct axiadc_converter *conv)
 	struct ad9208_phy *phy = conv->phy;
 	int ret;
 
-	conv->clk = devm_clk_get(&conv->spi->dev, "adc_clk");
+	conv->clk = devm_clk_get(conv->dev, "adc_clk");
 	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
 		return PTR_ERR(conv->clk);
 
 	if (phy->jdev)
 		return 0;
 
-	conv->lane_clk = devm_clk_get(&conv->spi->dev, "jesd_adc_clk");
+	conv->lane_clk = devm_clk_get(conv->dev, "jesd_adc_clk");
 	if (IS_ERR(conv->lane_clk) && PTR_ERR(conv->lane_clk) != -ENOENT)
 		return PTR_ERR(conv->lane_clk);
 
-	conv->sysref_clk = devm_clk_get(&conv->spi->dev, "adc_sysref");
+	conv->sysref_clk = devm_clk_get(conv->dev, "adc_sysref");
 	if (IS_ERR(conv->sysref_clk)) {
 		if (PTR_ERR(conv->sysref_clk) != -ENOENT)
 			return PTR_ERR(conv->sysref_clk);
@@ -978,7 +978,7 @@ static int ad9208_setup(struct spi_device *spi)
 		}
 	} while (!(pll_stat & AD9208_JESD_PLL_LOCK_STAT) && timeout--);
 
-	dev_info(&conv->spi->dev, "%s PLL %s\n", spi_get_device_id(spi)->name,
+	dev_info(conv->dev, "%s PLL %s\n", spi_get_device_id(spi)->name,
 		 pll_stat & AD9208_JESD_PLL_LOCK_STAT ? "LOCKED" : "UNLOCKED");
 
 	if (!phy->jdev) {
@@ -1094,7 +1094,7 @@ static int ad9208_write_raw(struct iio_dev *indio_dev,
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
-			dev_warn(&conv->spi->dev,
+			dev_warn(conv->dev,
 				 "Error setting ADC sample rate %ld", r_clk);
 			return -EINVAL;
 		}
@@ -1112,7 +1112,7 @@ static int ad9208_write_raw(struct iio_dev *indio_dev,
 
 static int ad9208_request_fd_irqs(struct axiadc_converter *conv)
 {
-	struct device *dev = &conv->spi->dev;
+	struct device *dev = conv->dev;
 	struct gpio_desc *gpio;
 
 	gpio = devm_gpiod_get(dev, "fastdetect-a", GPIOD_IN);
@@ -1170,7 +1170,7 @@ static int ad9208_post_iio_register(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 
 	if (iio_get_debugfs_dentry(indio_dev)) {
-		debugfs_create_devm_seqfile(&conv->spi->dev, "status",
+		debugfs_create_devm_seqfile(conv->dev, "status",
 					    iio_get_debugfs_dentry(indio_dev),
 					    ad9208_status_show);
 	}
@@ -1493,8 +1493,8 @@ static int ad9208_probe(struct spi_device *spi)
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
 
-	spi_set_drvdata(spi, conv);
-	conv->spi = spi;
+	dev_set_drvdata(&spi->dev, conv);
+	conv->dev = &spi->dev;
 	conv->phy = phy;
 
 	if (jdev) {

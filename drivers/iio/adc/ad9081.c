@@ -407,18 +407,18 @@ int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
 	case ADI_CMS_LOG_NONE:
 		break;
 	case ADI_CMS_LOG_MSG:
-		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		dev_dbg(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_WARN:
-		dev_warn(&conv->spi->dev, "%s", logMessage);
+		dev_warn(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_ERR:
-		dev_err(&conv->spi->dev, "%s", logMessage);
+		dev_err(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_SPI:
 		break;
 	case ADI_CMS_LOG_API:
-		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		dev_dbg(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_ALL:
 		printk(logMessage);
@@ -444,7 +444,7 @@ static int ad9081_spi_xfer(void *user_data, uint8_t *wbuf, uint8_t *rbuf,
 		.len = len & 0xFFFF,
 	};
 
-	if (conv->spi->mode & SPI_LSB_FIRST) {
+	if (to_spi_device(conv->dev)->mode & SPI_LSB_FIRST) {
 		int ret, i;
 		u8 tx[64], rx[64];
 
@@ -465,7 +465,7 @@ static int ad9081_spi_xfer(void *user_data, uint8_t *wbuf, uint8_t *rbuf,
 		for (i = 2; i < len; i++)
 			tx[i] =  wbuf[len - i + 1];
 
-		ret = spi_sync_transfer(conv->spi, &t, 1);
+		ret = spi_sync_transfer(to_spi_device(conv->dev), &t, 1);
 
 		for (i = 2; i < len; i++)
 			rbuf[i] =  rx[len - i + 1];
@@ -473,7 +473,7 @@ static int ad9081_spi_xfer(void *user_data, uint8_t *wbuf, uint8_t *rbuf,
 		return ret;
 	}
 
-	return spi_sync_transfer(conv->spi, &t, 1);
+	return spi_sync_transfer(to_spi_device(conv->dev), &t, 1);
 }
 
 static int ad9081_reset_pin_ctrl(void *user_data, u8 enable)
@@ -1873,7 +1873,7 @@ static int ad9081_request_clks(struct axiadc_converter *conv)
 	struct ad9081_phy *phy = conv->phy;
 	int ret;
 
-	phy->dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
+	phy->dev_clk = devm_clk_get(conv->dev, "dev_clk");
 	if (IS_ERR(phy->dev_clk))
 		return PTR_ERR(phy->dev_clk);
 
@@ -2507,7 +2507,7 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
-			dev_warn(&conv->spi->dev,
+			dev_warn(conv->dev,
 				 "Error setting ADC sample rate %ld", r_clk);
 			return -EINVAL;
 		}
@@ -2955,7 +2955,7 @@ static const struct attribute_group ad9081_phy_attribute_group = {
 
 static int ad9081_request_fd_irqs(struct axiadc_converter *conv)
 {
-	struct device *dev = &conv->spi->dev;
+	struct device *dev = conv->dev;
 	struct gpio_desc *gpio;
 
 	gpio = devm_gpiod_get(dev, "fastdetect-a", GPIOD_IN);
@@ -3774,7 +3774,7 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 	int i;
 
 	if (iio_get_debugfs_dentry(indio_dev)) {
-		debugfs_create_devm_seqfile(&conv->spi->dev, "status",
+		debugfs_create_devm_seqfile(conv->dev, "status",
 					    iio_get_debugfs_dentry(indio_dev),
 					    ad9081_status_show);
 
@@ -4474,7 +4474,7 @@ static const struct iio_info ad9081_iio_info = {
 static int ad9081_register_iiodev(struct axiadc_converter *conv)
 {
 	struct iio_dev *indio_dev;
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	struct ad9081_phy *phy = conv->phy;
 	int ret;
 
@@ -4916,8 +4916,8 @@ static int ad9081_probe(struct spi_device *spi)
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
 
-	spi_set_drvdata(spi, conv);
-	conv->spi = spi;
+	dev_set_drvdata(&spi->dev, conv);
+	conv->dev = &spi->dev;
 	conv->phy = phy;
 	phy->spi = spi;
 	phy->jdev = jdev;

@@ -119,21 +119,21 @@ static int ad9083_log_write(void *user_data, s32 log_type, const char *message,
 	case ADI_CMS_LOG_NONE:
 		break;
 	case ADI_CMS_LOG_MSG:
-		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		dev_dbg(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_WARN:
-		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		dev_dbg(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_ERR:
-		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		dev_dbg(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_SPI:
 		break;
 	case ADI_CMS_LOG_API:
-		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		dev_dbg(conv->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_ALL:
-		dev_dbg(&conv->spi->dev, "%s", logMessage);
+		dev_dbg(conv->dev, "%s", logMessage);
 		break;
 	}
 
@@ -177,9 +177,9 @@ static int ad9083_spi_xfer(void *user_data, u8 *wbuf,
 		.len = len,
 	};
 
-	ret = spi_sync_transfer(conv->spi, &t, 1);
+	ret = spi_sync_transfer(to_spi_device(conv->dev), &t, 1);
 
-	dev_dbg(&conv->spi->dev, "%s: reg=0x%X, val=0x%X",
+	dev_dbg(conv->dev, "%s: reg=0x%X, val=0x%X",
 		(wbuf[0] & 0x80) ? "rd" : "wr",
 		(wbuf[0] & 0x7F) << 8 | wbuf[1],
 		(wbuf[0] & 0x80) ? rbuf[2] : wbuf[2]);
@@ -426,7 +426,7 @@ static int ad9083_request_clks(struct axiadc_converter *conv)
 {
 	int ret;
 
-	conv->clk = devm_clk_get(&conv->spi->dev, "adc_ref_clk");
+	conv->clk = devm_clk_get(conv->dev, "adc_ref_clk");
 	if (IS_ERR(conv->clk))
 		return PTR_ERR(conv->clk);
 
@@ -434,7 +434,8 @@ static int ad9083_request_clks(struct axiadc_converter *conv)
 	if (ret)
 		return ret;
 
-	return devm_add_action_or_reset(&conv->spi->dev, ad9083_clk_disable, conv->clk);
+	return devm_add_action_or_reset(conv->dev, ad9083_clk_disable,
+					conv->clk);
 }
 
 static ssize_t ad9083_phy_store(struct device *dev,
@@ -704,7 +705,7 @@ static int ad9083_write_raw(struct iio_dev *indio_dev,
 static int ad9083_setup(struct axiadc_converter *conv)
 {
 	struct ad9083_phy *phy = conv->phy;
-	struct device *dev = &conv->spi->dev;
+	struct device *dev = conv->dev;
 	adi_cms_chip_id_t chip_id;
 	u8 api_rev[3];
 	int ret;
@@ -1009,7 +1010,7 @@ static int ad9083_probe(struct spi_device *spi)
 
 	mutex_init(&phy->lock);
 
-	spi_set_drvdata(spi, conv);
+	dev_set_drvdata(&spi->dev, conv);
 
 	conv->reset_gpio =
 		devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
@@ -1018,7 +1019,7 @@ static int ad9083_probe(struct spi_device *spi)
 
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->phy = phy;
 	conv->chip_info = &phy->chip_info;
 	conv->reg_access = ad9083_reg_access;

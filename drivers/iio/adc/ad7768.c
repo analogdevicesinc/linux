@@ -568,7 +568,7 @@ static int ad7768_register_axi_adc(struct ad7768_state *st)
 	if (conv == NULL)
 		return -ENOMEM;
 
-	conv->spi = st->spi;
+	conv->dev = &st->spi->dev;
 	conv->clk = st->mclk;
 	conv->chip_info = &conv_chip_info;
 	conv->adc_output_mode = AD7768_OUTPUT_MODE_TWOS_COMPLEMENT;
@@ -578,7 +578,7 @@ static int ad7768_register_axi_adc(struct ad7768_state *st)
 	conv->attrs = &ad7768_group;
 	conv->phy = st;
 	/* Without this, the axi_adc won't find the converter data */
-	spi_set_drvdata(st->spi, conv);
+	dev_set_drvdata(&st->spi->dev, conv);
 
 	return 0;
 }

@@ -160,13 +160,13 @@ int ad9371_register_axi_converter(struct ad9371_rf_phy *phy)
 	conv->write_raw = ad9371_write_raw;
 	conv->read_raw = ad9371_read_raw;
 	conv->post_setup = ad9371_post_setup;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->phy = phy;
 
 	conv->clk = phy->clks[RX_SAMPL_CLK];
 	conv->adc_clk = clk_get_rate(conv->clk);
 
-	spi_set_drvdata(spi, conv); /* Take care here */
+	dev_set_drvdata(&spi->dev, conv); /* Take care here */
 
 	return 0;
 }

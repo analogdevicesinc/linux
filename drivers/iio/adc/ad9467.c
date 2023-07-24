@@ -218,7 +218,7 @@ static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 			     unsigned int writeval, unsigned int *readval)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct spi_device *spi = conv->spi;
+	struct spi_device *spi = to_spi_device(conv->dev);
 	int ret;
 
 	if (readval == NULL) {
@@ -254,10 +254,14 @@ static int ad9467_testmode_set(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 
-	ad9467_spi_write(conv->spi, AN877_ADC_REG_CHAN_INDEX, 1 << chan);
-	ad9467_spi_write(conv->spi, AN877_ADC_REG_TEST_IO, mode);
-	ad9467_spi_write(conv->spi, AN877_ADC_REG_CHAN_INDEX, 0x3);
-	ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
+	ad9467_spi_write(to_spi_device(conv->dev), AN877_ADC_REG_CHAN_INDEX,
+			 1 << chan);
+	ad9467_spi_write(to_spi_device(conv->dev), AN877_ADC_REG_TEST_IO,
+			 mode);
+	ad9467_spi_write(to_spi_device(conv->dev), AN877_ADC_REG_CHAN_INDEX,
+			 0x3);
+	ad9467_spi_write(to_spi_device(conv->dev), AN877_ADC_REG_TRANSFER,
+			 AN877_ADC_TRANSFER_SYNC);
 	conv->testmode[chan] = mode;
 	return 0;
 }
@@ -282,10 +286,12 @@ static int ad9467_set_pnsel(struct iio_dev *indio_dev, unsigned int chan,
 	int ret;
 
 	if (mode == AN877_ADC_TESTMODE_OFF)
-		ret = ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_MODE,
+		ret = ad9467_spi_write(to_spi_device(conv->dev),
+				       AN877_ADC_REG_OUTPUT_MODE,
 				       conv->adc_output_mode);
 	else
-		ret = ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_MODE,
+		ret = ad9467_spi_write(to_spi_device(conv->dev),
+				       AN877_ADC_REG_OUTPUT_MODE,
 				       conv->
 				       adc_output_mode &
 				       ~AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
@@ -306,8 +312,8 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		 chan_ctrl0, chan_ctrl1, max_val = dco ? 32 : 31;
 	unsigned char err_field[66];
 
-	ret = ad9467_outputmode_set(conv->spi,
-			conv->adc_output_mode & ~AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
+	ret = ad9467_outputmode_set(to_spi_device(conv->dev),
+				    conv->adc_output_mode & ~AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
 	if (ret < 0)
 		return ret;
 
@@ -316,9 +322,10 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 
 	do {
 		if (dco && conv->chip_info->id != CHIPID_AD9652) {
-			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
-					AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
-						AN877_ADC_INVERT_DCO_CLK : 0));
+			ad9467_spi_write(to_spi_device(conv->dev),
+					 AN877_ADC_REG_OUTPUT_PHASE,
+					 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
+									      AN877_ADC_INVERT_DCO_CLK : 0));
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 
@@ -343,11 +350,14 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 
 		for (val = 0; val <= max_val; val++) {
 			if (dco) {
-				ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_DELAY,
-						val > 0 ? ((val - 1) | dco_en) : 0);
-				ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER,
-						AN877_ADC_TRANSFER_SYNC);
-				ad9467_spi_read(conv->spi, AN877_ADC_REG_OUTPUT_DELAY);
+				ad9467_spi_write(to_spi_device(conv->dev),
+						 AN877_ADC_REG_OUTPUT_DELAY,
+						 val > 0 ? ((val - 1) | dco_en) : 0);
+				ad9467_spi_write(to_spi_device(conv->dev),
+						 AN877_ADC_REG_TRANSFER,
+						 AN877_ADC_TRANSFER_SYNC);
+				ad9467_spi_read(to_spi_device(conv->dev),
+						AN877_ADC_REG_OUTPUT_DELAY);
 			} else {
 				for (lane = 0; lane < nb_lanes; lane++) {
 					axiadc_idelay_set(st, lane, val);
@@ -413,8 +423,9 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	if (val > max_val) {
 		val -= max_val + 1;
 		if (dco && conv->chip_info->id != CHIPID_AD9652) {
-			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
-				 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | AN877_ADC_INVERT_DCO_CLK);
+			ad9467_spi_write(to_spi_device(conv->dev),
+					 AN877_ADC_REG_OUTPUT_PHASE,
+					 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | AN877_ADC_INVERT_DCO_CLK);
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 			reg_cntrl |= ADI_DDR_EDGESEL;
@@ -423,8 +434,9 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		cnt = 1;
 	} else {
 		if (dco && conv->chip_info->id != CHIPID_AD9652) {
-			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
-				 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN);
+			ad9467_spi_write(to_spi_device(conv->dev),
+					 AN877_ADC_REG_OUTPUT_PHASE,
+					 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN);
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 			reg_cntrl &= ~ADI_DDR_EDGESEL;
@@ -445,9 +457,12 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	ad9467_testmode_set(indio_dev, 0, AN877_ADC_TESTMODE_OFF);
 	ad9467_testmode_set(indio_dev, 1, AN877_ADC_TESTMODE_OFF);
 	if (dco) {
-		ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_DELAY,
-				val > 0 ? ((val - 1) | dco_en) : 0);
-		ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER, AN877_ADC_TRANSFER_SYNC);
+		ad9467_spi_write(to_spi_device(conv->dev),
+				 AN877_ADC_REG_OUTPUT_DELAY,
+				 val > 0 ? ((val - 1) | dco_en) : 0);
+		ad9467_spi_write(to_spi_device(conv->dev),
+				 AN877_ADC_REG_TRANSFER,
+				 AN877_ADC_TRANSFER_SYNC);
 	} else {
 		for (lane = 0; lane < nb_lanes; lane++) {
 			axiadc_idelay_set(st, lane, val);
@@ -457,7 +472,8 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	axiadc_write(st, ADI_REG_CHAN_CNTRL(0), chan_ctrl0);
 	axiadc_write(st, ADI_REG_CHAN_CNTRL(1), chan_ctrl1);
 
-	ret = ad9467_outputmode_set(conv->spi, conv->adc_output_mode);
+	ret = ad9467_outputmode_set(to_spi_device(conv->dev),
+				    conv->adc_output_mode);
 	if (ret < 0)
 		return ret;
 
@@ -887,7 +903,7 @@ static void ad9625_clk_del_provider(void *data)
 {
 	struct axiadc_converter *conv = data;
 
-	of_clk_del_provider(conv->spi->dev.of_node);
+	of_clk_del_provider(to_spi_device(conv->dev)->dev.of_node);
 	clk_unregister_fixed_factor(conv->out_clk);
 }
 
@@ -956,7 +972,7 @@ static int ad9625_setup(struct spi_device *spi)
 
 	ret = clk_set_rate(conv->lane_clk, lane_rate_kHz);
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+		dev_err(conv->dev, "Failed to set lane rate to %lu kHz: %d\n",
 			lane_rate_kHz, ret);
 		return ret;
 	}
@@ -966,7 +982,7 @@ static int ad9625_setup(struct spi_device *spi)
 		ret = 0;
 
 	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
+		dev_err(conv->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
 	}
 
@@ -1012,7 +1028,8 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 		break;
 	}
 
-	vref_val = ad9467_spi_read(conv->spi, AN877_ADC_REG_VREF);
+	vref_val = ad9467_spi_read(to_spi_device(conv->dev),
+				   AN877_ADC_REG_VREF);
 
 	vref_val &= vref_mask;
 
@@ -1048,9 +1065,10 @@ static int ad9467_set_scale(struct axiadc_converter *conv, int val, int val2)
 		if (scale_val[0] != val || scale_val[1] != val2)
 			continue;
 
-		ad9467_spi_write(conv->spi, AN877_ADC_REG_VREF,
+		ad9467_spi_write(to_spi_device(conv->dev), AN877_ADC_REG_VREF,
 				 conv->chip_info->scale_table[i][1]);
-		ad9467_spi_write(conv->spi, AN877_ADC_REG_TRANSFER,
+		ad9467_spi_write(to_spi_device(conv->dev),
+				 AN877_ADC_REG_TRANSFER,
 				 AN877_ADC_TRANSFER_SYNC);
 		return 0;
 	}
@@ -1102,7 +1120,7 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 
 		r_clk = clk_round_rate(conv->clk, val);
 		if (r_clk < 0 || r_clk > conv->chip_info->max_rate) {
-			dev_warn(&conv->spi->dev,
+			dev_warn(conv->dev,
 				 "Error setting ADC sample rate %ld", r_clk);
 			return -EINVAL;
 		}
@@ -1152,7 +1170,7 @@ static int ad9467_post_setup(struct iio_dev *indio_dev)
 
 static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
 {
-	struct spi_device *spi = st->spi;
+	struct spi_device *spi = to_spi_device(st->dev);
 	int ret;
 
 	st->adc_output_mode = AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
@@ -1233,7 +1251,7 @@ static int ad9467_probe(struct spi_device *spi)
 	/* FIXME: remove this asap; it's to make things easier to diff with upstream version */
 	st = conv;
 
-	st->spi = spi;
+	st->dev = &spi->dev;
 
 	st->clk = devm_clk_get(&spi->dev, NULL);
 	if (IS_ERR(st->clk))
@@ -1270,7 +1288,7 @@ static int ad9467_probe(struct spi_device *spi)
 		mdelay(10);
 	}
 
-	spi_set_drvdata(spi, st);
+	dev_set_drvdata(&spi->dev, st);
 
 	conv->chip_info = info;
 

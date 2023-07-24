@@ -547,10 +547,10 @@ int adrv9002_register_axi_converter(struct adrv9002_rf_phy *phy)
 	conv->read_raw = adrv9002_read_raw;
 	conv->post_setup = adrv9002_post_setup;
 	conv->reg_access = adrv9002_reg_access;
-	conv->spi = spi;
+	conv->dev = &spi->dev;
 	conv->phy = phy;
 
-	spi_set_drvdata(spi, conv); /* Take care here */
+	dev_set_drvdata(&spi->dev, conv); /* Take care here */
 
 	return 0;
 }
