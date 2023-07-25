@@ -564,10 +564,9 @@
 		ethphy1: ethernet-phy@1 {
 			compatible = "ethernet-phy-ieee802.3-c22";
 			interrupt-parent = <&pcal6524_i2c0_x23>;
-			interrupts = <6 2>;
+			interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
 			reg = <1>;
 			max-speed = <1000>;
-			eee-broken-1000t;
 		};
 	};
 };
