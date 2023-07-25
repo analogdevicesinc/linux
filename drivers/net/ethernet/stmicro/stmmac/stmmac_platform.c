@@ -722,7 +722,7 @@ int stmmac_get_platform_resources(struct platform_device *pdev,
 	/* For RX Channel */
 	for (i = 0; i < MTL_MAX_RX_QUEUES; i++) {
 		sprintf(irq_name, "%s%d", "macirq_rx", i);
-		stmmac_res->rx_irq[i] = platform_get_irq_byname(pdev, irq_name);
+		stmmac_res->rx_irq[i] = platform_get_irq_byname_optional(pdev, irq_name);
 		if (stmmac_res->rx_irq[i] < 0)
 			break;
 	}
@@ -730,7 +730,7 @@ int stmmac_get_platform_resources(struct platform_device *pdev,
 	/* For TX Channel */
 	for (i = 0; i < MTL_MAX_TX_QUEUES; i++) {
 		sprintf(irq_name, "%s%d", "macirq_tx", i);
-		stmmac_res->tx_irq[i] = platform_get_irq_byname(pdev, irq_name);
+		stmmac_res->tx_irq[i] = platform_get_irq_byname_optional(pdev, irq_name);
 			if (stmmac_res->tx_irq[i] < 0)
 				break;
 	}
