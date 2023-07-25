@@ -33,7 +33,6 @@
 #define VDD_SOC_ND_VOLTAGE		850000
 #define VDD_SOC_OD_VOLTAGE		900000
 
-
 enum SYS_PLL_CLKS {
 	SYS_PLL_PFD0,
 	SYS_PLL_PFD0_DIV2,
@@ -112,6 +111,7 @@ static struct clk_bulk_data clks[] = {
 };
 
 static bool ld_mode_enabled;
+static bool no_od_mode;
 static unsigned int num_fsp;
 static unsigned int fsp_table[3];
 static struct regulator *soc_reg;
@@ -140,14 +140,6 @@ static void sys_freq_scaling(enum mode_type new_mode)
 
 	if (new_mode == system_run_mode.current_mode) {
 		pr_debug("System already in target mode, do nothing\n");
-		mutex_unlock(&mode_mutex);
-		return;
-	} else if (system_run_mode.current_mode == ND_MODE && new_mode == SWFFC_MODE) {
-		pr_warn("DDR HWFFC enabled, please exit HWFFC first!\n");
-		mutex_unlock(&mode_mutex);
-		return;
-	} else if (system_run_mode.current_mode == SWFFC_MODE && new_mode == ND_MODE) {
-		pr_warn("DDR SWFFC enabled, please exit SWFFC first!\n");
 		mutex_unlock(&mode_mutex);
 		return;
 	}
@@ -196,7 +188,7 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		}
 
 		/* Scaling down the ddr frequency. */
-		scaling_dram_freq(0x1);
+		scaling_dram_freq(no_od_mode ? 0x0 : 0x1);
 
 		if (system_run_mode.current_mode != LD_MODE)
 			regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
@@ -248,7 +240,8 @@ static ssize_t lpm_enable_show(struct device *dev, struct device_attribute *attr
 	case OD_MODE:
 		return sprintf(buf, "System is in OD mode with DDR %d MTS!\n", fsp_table[0]);
 	case ND_MODE:
-		return sprintf(buf, "System is in ND mode with DDR %d MTS!\n", fsp_table[1]);
+		return sprintf(buf, "System is in ND mode with DDR %d MTS!\n",
+			       no_od_mode ? fsp_table[0] : fsp_table[1]);
 	case LD_MODE:
 		return sprintf(buf, "System is in LD mode with DDR %d MTS!\n", fsp_table[1]);
 	case SWFFC_MODE:
@@ -278,12 +271,15 @@ static ssize_t lpm_enable_store(struct device *dev,
 	if (!ld_mode_enabled && new_mode >= LD_MODE)
 		return -EINVAL;
 
+	if (new_mode == OD_MODE && no_od_mode)
+		return -EINVAL;
+
 	/* make sure auto clock gating is disabled before DDR frequency scaling */
 	regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
 
 	if ((system_run_mode.current_mode != OD_MODE && new_mode == SWFFC_MODE) ||
 	    (system_run_mode.current_mode == SWFFC_MODE && new_mode != OD_MODE)) 
-		sys_freq_scaling(OD_MODE);
+		sys_freq_scaling(no_od_mode ? ND_MODE : OD_MODE);
 
 	sys_freq_scaling(new_mode);
 
@@ -347,8 +343,7 @@ static int imx93_lpm_pm_notify(struct notifier_block *nb, unsigned long event,
 		system_run_mode.resume_mode = system_run_mode.current_mode;
 		/* make sure auto clock gating is disabled */
 		regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
-		sys_freq_scaling(OD_MODE);
-
+		sys_freq_scaling(no_od_mode ? ND_MODE : OD_MODE);
 		/* save the ssi idle strap */
 		regmap_read(regmap, AUTO_CG_CTRL, &system_run_mode.ssi_strap);
 	} else if (event == PM_POST_SUSPEND) {
@@ -404,6 +399,8 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 
 	/* ld mode can only be used when it is enabled explictly */
 	ld_mode_enabled = of_property_read_bool(pdev->dev.of_node, "ld-mode-enabled");
+	/* no OD mode for i.MX91/P */
+	no_od_mode = of_property_read_bool(pdev->dev.of_node, "no-od-mode");
 
 	regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "regmap");
 	if (IS_ERR(regmap)) {
@@ -443,6 +440,9 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get bulk clks\n");
 		return err;
 	}
+
+	/* Normally, we assuming the system in boot up in OD or ND(i.MX91/P) mode */
+	system_run_mode.current_mode = no_od_mode ? ND_MODE : OD_MODE;
 
 	/* create the sysfs file */
 	err = sysfs_create_files(&pdev->dev.kobj, imx93_lpm_attrs);
