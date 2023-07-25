@@ -278,13 +278,7 @@ cdns_hdmi_connector_detect(struct drm_connector *connector, bool force)
 		result = connector_status_unknown;
 	}
 
-	mutex_lock(&mhdp->lock);
-	if (result != mhdp->last_connector_result) {
-		handle_plugged_change(mhdp,
-				      result == connector_status_connected);
-		mhdp->last_connector_result = result;
-	}
-	mutex_unlock(&mhdp->lock);
+	mhdp->last_connector_result = result;
 
 	return result;
 }
@@ -329,6 +323,7 @@ static void cdns_hdmi_bridge_disable(struct drm_bridge *bridge)
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
 
 	cdns_hdcp_disable(mhdp);
+	handle_plugged_change(mhdp, false);
 }
 
 static void cdns_hdmi_bridge_enable(struct drm_bridge *bridge)
@@ -338,6 +333,7 @@ static void cdns_hdmi_bridge_enable(struct drm_bridge *bridge)
 
 	if (conn_state->content_protection == DRM_MODE_CONTENT_PROTECTION_DESIRED)
 		cdns_hdcp_enable(mhdp);
+	handle_plugged_change(mhdp, true);
 }
 
 static int cdns_hdmi_connector_atomic_check(struct drm_connector *connector,
