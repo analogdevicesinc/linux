@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
-// Fuel gauge driver for Maxim 17042 / 8966 / 8997
+// Fuel gauge driver for Maxim 17042 / 8966 / 8997 / 77658
 //  Note that Maxim 8966 and 8997 are mfd and this is its subdevice.
 //
 // Copyright (C) 2011 Samsung Electronics
@@ -791,7 +791,8 @@ static inline void max17042_override_por_values(struct max17042_chip *chip)
 
 	if ((chip->chip_type == MAXIM_DEVICE_TYPE_MAX17047) ||
 	    (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17050) ||
-	    (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055)) {
+	    (chip->chip_type == MAXIM_DEVICE_TYPE_MAX17055) ||
+	    (chip->chip_type == MAXIM_DEVICE_TYPE_MAX77658)) {
 		max17042_override_por(map, MAX17047_V_empty, config->vempty);
 	}
 }
@@ -1196,6 +1197,7 @@ static const struct of_device_id max17042_dt_match[] = {
 	{ .compatible = "maxim,max17050" },
 	{ .compatible = "maxim,max17055" },
 	{ .compatible = "maxim,max77849-battery" },
+	{ .compatible = "adi,max77658-battery" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, max17042_dt_match);
@@ -1207,6 +1209,7 @@ static const struct i2c_device_id max17042_id[] = {
 	{ "max17050", MAXIM_DEVICE_TYPE_MAX17050 },
 	{ "max17055", MAXIM_DEVICE_TYPE_MAX17055 },
 	{ "max77849-battery", MAXIM_DEVICE_TYPE_MAX17047 },
+	{ "max77658-battery", MAXIM_DEVICE_TYPE_MAX77658 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, max17042_id);
