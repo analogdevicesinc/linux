@@ -563,6 +563,14 @@ config REGULATOR_MAX77650
 	  Semiconductor. This device has a SIMO with three independent
 	  power rails and an LDO.
 
+config REGULATOR_MAX77658
+	tristate "Analog Devices MAX77643/54/58/59 Regulator"
+	depends on MFD_MAX77658
+	help
+	  Regulator driver for MAX77643/54/58/59 PMIC from Analog Devices.
+	  This driver supports LDO regulators.
+	  Say Y here to enable the regulator driver
+
 config REGULATOR_MAX8649
 	tristate "Maxim 8649 voltage regulator"
 	depends on I2C
