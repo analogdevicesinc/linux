@@ -1,0 +1,79 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+#ifndef __MFD_MAX77658_H__
+#define __MFD_MAX77658_H__
+
+#include <linux/bits.h>
+
+#define MAX77658_REG_INT_GLBL0		0x00
+#define MAX77658_REG_INT_CHG		0x01
+#define MAX77658_REG_INT_GLBL1		0x04
+#define MAX77658_REG_INTM_CHG		0x07
+#define MAX77658_REG_INTM_GLBL0		0x08
+#define MAX77658_REG_INTM_GLBL1		0x09
+
+#define MAX77654_REG_INTM_GLBL1		0x08
+#define MAX77654_REG_INTM_GLBL0		0x09
+
+#define MAX77643_REG_INT_GLBL1		0x01
+#define MAX77643_REG_INTM_GLBL0		0x04
+#define MAX77643_REG_INTM_GLBL1		0x05
+
+#define MAX77658_BIT_INT_GLBL0_GPIO0_F	BIT(0)
+#define MAX77658_BIT_INT_GLBL0_GPIO0_R	BIT(1)
+#define MAX77658_BIT_INT_GLBL0_EN_F	BIT(2)
+#define MAX77658_BIT_INT_GLBL0_EN_R	BIT(3)
+#define MAX77658_BIT_INT_GLBL0_TJAL1_R	BIT(4)
+#define MAX77658_BIT_INT_GLBL0_TJAL2_R	BIT(5)
+#define MAX77658_BIT_INT_GLBL0_DOD1_R	BIT(6)
+#define MAX77658_BIT_INT_GLBL0_DOD0_R	BIT(7)
+
+#define MAX77643_BIT_INT_GLBL0_DOD0_R	BIT(6)
+
+#define MAX77658_BIT_INT_GLBL1_GPI1_F	BIT(0)
+#define MAX77658_BIT_INT_GLBL1_GPI1_R	BIT(1)
+#define MAX77658_BIT_INT_GLBL1_SBB0_F	BIT(2)
+#define MAX77658_BIT_INT_GLBL1_SBB1_F	BIT(3)
+#define MAX77658_BIT_INT_GLBL1_SBB2_F	BIT(4)
+#define MAX77658_BIT_INT_GLBL1_LDO0_F	BIT(5)
+#define MAX77658_BIT_INT_GLBL1_LDO1_F	BIT(6)
+
+#define MAX77659_BIT_INT_GLBL1_SBB_TO	BIT(4)
+
+#define MAX77654_BIT_INT_GLBL1_GPI2_F	BIT(2)
+#define MAX77654_BIT_INT_GLBL1_GPI2_R	BIT(3)
+#define MAX77654_BIT_INT_GLBL1_SBB_TO	BIT(4)
+
+#define MAX77658_BIT_INT_THM		BIT(0)
+#define MAX77658_BIT_INT_CHG		BIT(1)
+#define MAX77658_BIT_INT_CHGIN		BIT(2)
+#define MAX77658_BIT_INT_TJ_REG		BIT(3)
+#define MAX77658_BIT_INT_CHGIN_CTRL	BIT(4)
+#define MAX77658_BIT_INT_SYS_CTRL	BIT(5)
+#define MAX77658_BIT_INT_SYS_CNFG	BIT(6)
+
+#define MAX77659_BIT_INT_SYS_CTRL	BIT(4)
+
+enum max77658_ids {
+	ID_MAX77643 = 1,
+	ID_MAX77654,
+	ID_MAX77658,
+	ID_MAX77659
+};
+
+struct device;
+struct regmap;
+struct regmap_irq_chip_data;
+
+struct max77658_dev {
+	enum max77658_ids id;
+
+	int irq;
+	struct regmap_irq_chip_data *irqc_glbl0;
+	struct regmap_irq_chip_data *irqc_glbl1;
+	struct regmap_irq_chip_data *irqc_chg;
+
+	struct regmap *regmap;
+};
+
+#endif /* __MFD_MAX77658_H__ */
