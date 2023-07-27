@@ -615,6 +615,21 @@ Description:
 		- 4 - 16 (hours), step by 2 (rounded down)
 		- 0: disabled.
 
+What:		/sys/class/power_supply/max77650-charger/device/fast_charge_timer
+Date:		August 2023
+KernelVersion:	5.15.0
+Contact:	Zeynep Arslanbenzer <Zeynep.Arslanbenzer@analog.com>
+Description:
+		This entry shows and sets the maximum time the max77650
+		charger operates in fast-charge mode. When the timer expires
+		the device will terminate fast-charge mode (charging current
+		will drop to 0 A) and will trigger interrupt.
+
+		Valid values:
+
+		- 3 - 7 (hours), step by 2 (rounded down)
+		- 0: disabled.
+
 What:		/sys/class/power_supply/max77693-charger/device/top_off_threshold_current
 Date:		January 2015
 KernelVersion:	3.19.0
@@ -644,6 +659,20 @@ Description:
 		Valid values:
 
 		- 0 - 70 (minutes), step by 10 (rounded down)
+
+What:		/sys/class/power_supply/max77650-charger/device/topoff_timer
+Date:		August 2023
+KernelVersion:	5.15.0
+Contact:	Zeynep Arslanbenzer <Zeynep.Arslanbenzer@analog.com>
+Description:
+		This entry shows and sets the maximum time the max77650
+		charger operates in top-off charge mode. When the timer expires
+		the device will terminate top-off charge mode (charging current
+		will drop to 0 A) and will trigger interrupt.
+
+		Valid values:
+
+		- 0 - 35 (minutes), step by 5 (rounded down)
 
 What:		/sys/class/power_supply/bq24257-charger/ovp_voltage
 Date:		October 2015

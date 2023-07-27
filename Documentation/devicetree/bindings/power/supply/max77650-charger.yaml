@@ -17,7 +17,11 @@ description: |
 
 properties:
   compatible:
-    const: maxim,max77650-charger
+    enum:
+      - maxim,max77650-charger
+      - adi,max77654-charger
+      - adi,max77658-charger
+      - adi,max77659-charger
 
   input-voltage-min-microvolt:
     description:
@@ -28,7 +32,37 @@ properties:
   input-current-limit-microamp:
     description:
       CHGIN input current limit (in microamps).
-    enum: [ 95000, 190000, 285000, 380000, 475000 ]
+
+allOf:
+  - $ref: power-supply.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,max77659-charger
+
+    then:
+      properties:
+        input-voltage-min-microvolt: false
+        input-current-limit-microamp: false
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,max77658-charger
+
+    then:
+      properties:
+        input-current-limit-microamp:
+          enum: [ 475000, 380000, 285000, 190000, 95000 ]
+
+    else:
+      properties:
+        input-current-limit-microamp:
+          enum: [ 95000, 190000, 285000, 380000, 475000 ]
 
 required:
   - compatible
