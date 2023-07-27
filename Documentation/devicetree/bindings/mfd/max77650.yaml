@@ -22,12 +22,18 @@ description: |
 
 properties:
   compatible:
-    const: maxim,max77650
+    enum:
+      - maxim,max77650
+      - adi,max77643
+      - adi,max77654
+      - adi,max77658
+      - adi,max77659
 
   reg:
     description:
       I2C device address.
-    maxItems: 1
+    items:
+      - enum: [0x40, 0x48]
 
   interrupts:
     maxItems: 1
@@ -64,14 +70,50 @@ properties:
   onkey:
     $ref: ../input/max77650-onkey.yaml
 
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - maxim,max77650
+              - adi,max77643
+              - adi,max77654
+              - adi,max77658
+
+    then:
+      properties:
+        reg:
+          items:
+            - const: 0x48
+
+    else:
+      properties:
+        reg:
+          items:
+            - const: 0x40
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,max77643
+              - adi,max77654
+              - adi,max77658
+              - adi,max77659
+
+    then:
+      properties:
+        gpio-controller: false
+        "#gpio-cells": false
+
 required:
   - compatible
   - reg
   - interrupts
   - interrupt-controller
   - "#interrupt-cells"
-  - gpio-controller
-  - "#gpio-cells"
 
 additionalProperties: false
 
