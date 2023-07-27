@@ -556,12 +556,12 @@ config REGULATOR_MAX77620
 	  enable the regulator driver.
 
 config REGULATOR_MAX77650
-	tristate "Maxim MAX77650/77651 regulator support"
+	tristate "Maxim MAX77650/51/43/54/58/59 regulator support"
 	depends on MFD_MAX77650 || COMPILE_TEST
 	help
-	  Regulator driver for MAX77650/77651 PMIC from Maxim
-	  Semiconductor. This device has a SIMO with three independent
-	  power rails and an LDO.
+	  Regulator driver for MAX77650/51/43/54/58/59 PMIC from Maxim
+	  Semiconductor. These devices have a SIMO with three independent
+	  power rails and LDO regulators.
 
 config REGULATOR_MAX8649
 	tristate "Maxim 8649 voltage regulator"
