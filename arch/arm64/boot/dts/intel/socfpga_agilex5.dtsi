@@ -478,6 +478,7 @@
 			reset-names = "dwc2", "dwc2-ecc";
 			clocks = <&clkmgr AGILEX5_USB2OTG_HCLK>;
 			clock-names = "otg";
+			otg-rev = <0x0200>;
 			status = "disabled";
 		};
 
