@@ -20,6 +20,7 @@ properties:
       - maxim,max17050
       - maxim,max17055
       - maxim,max77849-battery
+      - adi,max77658-battery
 
   reg:
     maxItems: 1
