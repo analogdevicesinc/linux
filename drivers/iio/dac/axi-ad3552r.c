@@ -265,6 +265,21 @@ static void axi_ad3552r_spi_update_bits(struct axi_ad3552r_state *st, u32 reg,
 		axi_ad3552r_spi_write(st, reg, tmp, transfer_params);
 }
 
+
+static int ad3552r_set_sample_rate(struct cf_axi_converter *conv, u64 sample_rate)
+{
+	int ret;
+
+	sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
+	clk_disable_unprepare(conv->clk[CLK_DAC]);
+	ret = clk_set_rate(conv->clk[CLK_DAC], sample_rate);
+	if (ret < 0)
+		return ret;
+
+	return clk_prepare_enable(conv->clk[CLK_REF]);
+}
+
+
 static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 				struct iio_chan_spec const *chan,
 				int *val,
@@ -304,8 +319,21 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct axi_ad3552r_state *st = conv->phy;
+	u64 sample_rate;
+	int ret = 0;
 
 	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		sample_rate = (u64)val2 << 32 | val;
+		if (st->single_channel)
+			sample_rate *= 4;
+		else
+			sample_rate *= 8;
+		ret = ad3552r_set_sample_rate(conv, sample_rate);
+		if (ret < 0)
+			dev_err(conv->dev, "Failed to set sample rate: %d\n", ret);
+		break;
+
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel)
 			axi_ad3552r_spi_write(st, AD3552R_REG_CH1_DAC_16B,
@@ -313,10 +341,12 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 		else
 			axi_ad3552r_spi_write(st, AD3552R_REG_CH0_DAC_16B,
 					      (u32)val, AD3552R_TFER_16BIT_SDR);
-		return 0;
+		break;
+	default:
+		return -EINVAL;
 	}
 
-	return -EINVAL;
+	return ret;
 }
 
 unsigned long long ad3552r_get_data_clk(struct cf_axi_converter *conv)
