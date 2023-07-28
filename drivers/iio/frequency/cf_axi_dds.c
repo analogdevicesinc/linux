@@ -288,6 +288,8 @@ static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st,
 						u64 *freq)
 {
 	struct cf_axi_converter *conv;
+	int *val, *val2;
+	int ret;
 
 	if (st->standalone) {
 		*freq = st->dac_clk = clk_get_rate_scaled(st->clk, &st->clkscale);
@@ -296,7 +298,13 @@ static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st,
 		if (!conv->get_data_clk)
 			return -ENODEV;
 
-		*freq = st->dac_clk = conv->get_data_clk(conv);
+		ret = conv->read_raw(conv->indio_dev, NULL, val, val2,
+				     IIO_CHAN_INFO_SAMP_FREQ);
+		if (ret < 0)
+			return ret;
+
+		*freq = (u64)(*val2) << 32 | *val;
+		st->dac_clk = conv->get_data_clk(conv);
 	}
 
 	return 0;

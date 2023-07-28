@@ -219,6 +219,17 @@ static int ad9739a_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val, int *val2, long m)
 {
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	unsigned long long freq;
+
+	switch(m) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		freq = ad9739a_get_data_clk(conv);
+		*val = lower_32_bits(freq);
+		*val2 = upper_32_bits(freq);
+		return IIO_VAL_INT_64;
+	}
+
 	return 0;
 }
 
