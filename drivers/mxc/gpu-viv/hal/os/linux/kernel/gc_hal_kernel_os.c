@@ -716,7 +716,12 @@ gckOS_Construct(IN gctPOINTER Context, OUT gckOS *Os)
         /* Out of memory. */
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
 
-    os->paddingPage = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | gcdNOWARN);
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
+    os->paddingPage = alloc_page(GFP_KERNEL | __GFP_DMA32 | gcdNOWARN);
+#else
+    os->paddingPage = alloc_page(GFP_KERNEL | __GFP_DMA | gcdNOWARN);
+#endif
+
     if (os->paddingPage == gcvNULL)
         /* Out of memory. */
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
