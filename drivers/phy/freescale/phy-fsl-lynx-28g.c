@@ -26,6 +26,7 @@
 #define LYNX_28G_PCCC_SXGMIInCFG_EN(lane)	LYNX_28G_PCCC_SXGMIInCFG(lane, 1)
 #define LYNX_28G_PCCC_SXGMIInCFG_MSK(lane)	LYNX_28G_PCCC_SXGMIInCFG(lane, GENMASK(2, 0))
 #define LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, x)	((((x) << 3) & BIT(3)) << LYNX_28G_LNa_PCC_OFFSET(lane))
+#define LYNX_28G_PCCC_SXGMIInCFG_XFI_X(lane, x)	((((x) >> LYNX_28G_LNa_PCC_OFFSET(lane)) & BIT(3)) >> 3)
 #define LYNX_28G_PCCC_SXGMIInCFG_XFI_MSK(lane)	LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, 1)
 #define LYNX_28G_PCCC_MSK(lane)			LYNX_28G_PCCC_SXGMIInCFG_MSK(lane) | \
 						LYNX_28G_PCCC_SXGMIInCFG_XFI_MSK(lane)
@@ -138,7 +139,8 @@
 enum lynx_28g_lane_mode {
 	LANE_MODE_UNKNOWN,
 	LANE_MODE_1000BASEX_SGMII,
-	LANE_MODE_10GBASER_USXGMII,
+	LANE_MODE_10GBASER,
+	LANE_MODE_USXGMII,
 	LANE_MODE_25GBASER,
 	LANE_MODE_MAX,
 };
@@ -186,6 +188,8 @@ static void lynx_28g_rmw(struct lynx_28g_priv *priv, unsigned long off,
 	iowrite32(tmp, reg);
 }
 
+#define lynx_28g_read(priv, off) \
+	ioread32((priv)->base + (off))
 #define lynx_28g_lane_rmw(lane, reg, val, mask)	\
 	lynx_28g_rmw((lane)->priv, LYNX_28G_##reg(lane->id), val, mask)
 #define lynx_28g_lane_read(lane, reg)			\
@@ -200,8 +204,9 @@ static enum lynx_28g_lane_mode phy_interface_to_lane_mode(phy_interface_t intf)
 	case PHY_INTERFACE_MODE_1000BASEX:
 		return LANE_MODE_1000BASEX_SGMII;
 	case PHY_INTERFACE_MODE_10GBASER:
+		return LANE_MODE_10GBASER;
 	case PHY_INTERFACE_MODE_USXGMII:
-		return LANE_MODE_10GBASER_USXGMII;
+		return LANE_MODE_USXGMII;
 	case PHY_INTERFACE_MODE_25GBASER:
 		return LANE_MODE_25GBASER;
 	default:
@@ -266,7 +271,8 @@ static void lynx_28g_lane_set_nrate(struct lynx_28g_lane *lane,
 		break;
 	case LYNX_28G_PLLnCR1_FRATE_10G_20GVCO:
 		switch (mode) {
-		case LANE_MODE_10GBASER_USXGMII:
+		case LANE_MODE_10GBASER:
+		case LANE_MODE_USXGMII:
 			lynx_28g_lane_rmw(lane, LNaTGCR0,
 					  LYNX_28G_LNaTGCR0_N_RATE_FULL,
 					  LYNX_28G_LNaTGCR0_N_RATE_MSK);
@@ -318,7 +324,8 @@ static void lynx_28g_cleanup_lane(struct lynx_28g_lane *lane)
 	struct lynx_28g_priv *priv = lane->priv;
 
 	switch (lane->mode) {
-	case LANE_MODE_10GBASER_USXGMII:
+	case LANE_MODE_10GBASER:
+	case LANE_MODE_USXGMII:
 		/* Cleanup the protocol configuration registers */
 		lynx_28g_rmw(priv, LYNX_28G_PCCC, 0,
 			     LYNX_28G_PCCC_MSK(lane));
@@ -380,8 +387,10 @@ static void lynx_28g_lane_set_sgmii(struct lynx_28g_lane *lane)
 	iowrite32(0x00000000, priv->base + LYNX_28G_LNaRSCCR0(lane->id));
 }
 
-static void lynx_28g_lane_set_10gbaser(struct lynx_28g_lane *lane)
+static void lynx_28g_lane_set_10g(struct lynx_28g_lane *lane,
+				  enum lynx_28g_lane_mode lane_mode)
 {
+	bool is_xfi = lane_mode != LANE_MODE_USXGMII;
 	struct lynx_28g_priv *priv = lane->priv;
 	struct lynx_28g_pll *pll;
 
@@ -390,7 +399,7 @@ static void lynx_28g_lane_set_10gbaser(struct lynx_28g_lane *lane)
 	/* Enable the SXGMII lane */
 	lynx_28g_rmw(priv, LYNX_28G_PCCC,
 		     LYNX_28G_PCCC_SXGMIInCFG_EN(lane) |
-		     LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, 1),
+		     LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, is_xfi),
 		     LYNX_28G_PCCC_MSK(lane));
 
 	/* Setup the protocol select and SerDes parallel interface width */
@@ -400,11 +409,11 @@ static void lynx_28g_lane_set_10gbaser(struct lynx_28g_lane *lane)
 			  LYNX_28G_LNaGCR0_IF_WIDTH_MSK);
 
 	/* Switch to the PLL that works with this interface type */
-	pll = lynx_28g_pll_get(priv, LANE_MODE_10GBASER_USXGMII);
+	pll = lynx_28g_pll_get(priv, lane_mode);
 	lynx_28g_lane_set_pll(lane, pll);
 
 	/* Choose the portion of clock net to be used on this lane */
-	lynx_28g_lane_set_nrate(lane, pll, LANE_MODE_10GBASER_USXGMII);
+	lynx_28g_lane_set_nrate(lane, pll, lane_mode);
 
 	/* Configure the appropriate equalization parameters for the protocol */
 	iowrite32(0x10808307, priv->base + LYNX_28G_LNaTECR0(lane->id));
@@ -572,8 +581,9 @@ static int lynx_28g_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 	case LANE_MODE_1000BASEX_SGMII:
 		lynx_28g_lane_set_sgmii(lane);
 		break;
-	case LANE_MODE_10GBASER_USXGMII:
-		lynx_28g_lane_set_10gbaser(lane);
+	case LANE_MODE_10GBASER:
+	case LANE_MODE_USXGMII:
+		lynx_28g_lane_set_10g(lane, lane_mode);
 		break;
 	case LANE_MODE_25GBASER:
 		lynx_28g_lane_set_25gbaser(lane);
@@ -687,7 +697,8 @@ static void lynx_28g_pll_read_configuration(struct lynx_28g_priv *priv)
 			break;
 		case LYNX_28G_PLLnCR1_FRATE_10G_20GVCO:
 			/* 10.3125GHz clock net */
-			__set_bit(LANE_MODE_10GBASER_USXGMII, pll->supported);
+			__set_bit(LANE_MODE_10GBASER, pll->supported);
+			__set_bit(LANE_MODE_USXGMII, pll->supported);
 			break;
 		case LYNX_28G_PLLnCR1_FRATE_12G_25GVCO:
 			/* 12.890625GHz clock net */
@@ -740,7 +751,8 @@ static void lynx_28g_cdr_lock_check(struct work_struct *work)
 
 static void lynx_28g_lane_read_configuration(struct lynx_28g_lane *lane)
 {
-	u32 pss, protocol;
+	struct lynx_28g_priv *priv = lane->priv;
+	u32 pccc, pss, protocol;
 
 	pss = lynx_28g_lane_read(lane, LNaPSS);
 	protocol = LYNX_28G_LNaPSS_TYPE(pss);
@@ -749,7 +761,11 @@ static void lynx_28g_lane_read_configuration(struct lynx_28g_lane *lane)
 		lane->mode = LANE_MODE_1000BASEX_SGMII;
 		break;
 	case LYNX_28G_LNaPSS_TYPE_XFI:
-		lane->mode = LANE_MODE_10GBASER_USXGMII;
+		pccc = lynx_28g_read(priv, LYNX_28G_PCCC);
+		if (LYNX_28G_PCCC_SXGMIInCFG_XFI_X(lane, pccc))
+			lane->mode = LANE_MODE_10GBASER;
+		else
+			lane->mode = LANE_MODE_USXGMII;
 		break;
 	case LYNX_28G_LNaPSS_TYPE_25G:
 		lane->mode = LANE_MODE_25GBASER;
