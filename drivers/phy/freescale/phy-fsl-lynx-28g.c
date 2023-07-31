@@ -754,6 +754,20 @@ static void lynx_28g_lane_set_25g(struct lynx_28g_lane *lane,
 	default:
 		break;
 	}
+	/* From AN12950:
+	 * write RGCR0, 0x03000330
+	 * write RGCR1, 0x10000000
+	 * write RECR0, 0x00000085
+	 * write RECR2, 0xA1000023
+	 * write RSCCR0, 0x00002020
+	 * write TGCR1, 0x00000000
+	 */
+	lynx_28g_lane_rmw(lane, LNaRGCR0,
+			  LYNX_28G_LNaRGCR0_INTACCPL_DIS |
+			  LYNX_28G_LNaRGCR0_CMADJ_DIS,
+			  LYNX_28G_LNaRGCR0_INTACCPL_DIS |
+			  LYNX_28G_LNaRGCR0_CMADJ_DIS);
+	lynx_28g_lane_write(lane, LNaTGCR1, 0);
 	lynx_28g_lane_write(lane, LNaRGCR1, LYNX_28G_LNaRGCR1_IDLE_CONFIG);
 	lynx_28g_lane_write(lane, LNaRECR0,
 			    LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_EN |
