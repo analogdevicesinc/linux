@@ -369,14 +369,16 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		goto free_adi_rcu;
 	}
 
-	ret = adi_rcu_is_core_idle(rpchan->rcu, rpchan->core_id);
-	if (ret < 0) {
-		dev_err(dev, "Invalid core-id\n");
-		goto free_adi_rcu;
-	} else if (ret > 0) {
-		dev_err(dev, "Error: Core%d idle\n", rpchan->core_id);
-		ret = -ENODEV;
-		goto free_adi_rcu;
+	if (of_property_read_bool(dev_node, "adi,check-idle")) {
+		ret = adi_rcu_is_core_idle(rpchan->rcu, rpchan->core_id);
+		if (ret < 0) {
+			dev_err(dev, "Invalid core-id\n");
+			goto free_adi_rcu;
+		} else if (ret > 0) {
+			dev_err(dev, "Error: Core%d idle\n", rpchan->core_id);
+			ret = -ENODEV;
+			goto free_adi_rcu;
+		}
 	}
 
 	/* Get ADI resource table address */

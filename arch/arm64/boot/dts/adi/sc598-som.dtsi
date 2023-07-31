@@ -104,6 +104,7 @@
 				compatible = "adi,rpmsg-SC598";
 				core-id = <1>;
 				adi,rcu = <&rcu>;
+				adi,check-idle;
 				adi,rsc-table = <&rsc_tbl0>;
 				interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
 				adi,tru = <&tru>;
@@ -117,6 +118,7 @@
 				compatible = "adi,rpmsg-SC598";
 				core-id = <2>;
 				adi,rcu = <&rcu>;
+				adi,check-idle;
 				adi,rsc-table = <&rsc_tbl1>;
 				interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
 				adi,tru = <&tru>;
