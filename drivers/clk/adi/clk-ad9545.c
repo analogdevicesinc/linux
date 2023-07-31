@@ -94,7 +94,14 @@
 #define AD9545_DPLL0_MODE		0x2105
 #define AD9545_DPLL0_FAST_MODE		0x2106
 #define AD9545_DIV_OPS_Q1A		0x2202
-#define AD9545_NCO0_FREQ		0x2805
+#define AD9545_NCO0_CENTER_FREQ		0x2800
+#define AD9545_NCO0_OFFSET_FREQ		0x2807
+#define AD9545_NCO0_TAG_RATIO		0x280B
+#define AD9545_NCO0_TAG_DELTA		0x280D
+#define AD9545_NCO0_TYPE_ADJUST		0x280F
+#define AD9545_NCO0_DELTA_RATE_LIMIT	0x2810
+#define AD9545_NCO0_DELTA_ADJUST	0x2814
+#define AD9545_NCO0_CYCLE_ADJUST	0x2819
 #define AD9545_TDC0_DIV			0x2A00
 #define AD9545_TDC0_PERIOD		0x2A01
 #define AD9545_PLL_STATUS		0x3001
@@ -190,7 +197,53 @@
 #define AD9545_PROFILE_SEL_MODE_MSK		GENMASK(3, 2)
 #define AD9545_PROFILE_SEL_MODE(x)		FIELD_PREP(AD9545_PROFILE_SEL_MODE_MSK, x)
 
-#define AD9545_NCOX_FREQ(x)			(AD9545_NCO0_FREQ + ((x) * 0x40))
+#define AD9545_NCOX_CENTER_FREQ(x)		(AD9545_NCO0_CENTER_FREQ + ((x) * 0x40))
+#define AD9545_NCOX_OFFSET_FREQ(x)		(AD9545_NCO0_OFFSET_FREQ + ((x) * 0x40))
+#define AD9545_NCOX_TAG_RATIO(x)		(AD9545_NCO0_TAG_RATIO + ((x) * 0x40))
+#define AD9545_NCOX_TAG_DELTA(x)		(AD9545_NCO0_TAG_DELTA + ((x) * 0x40))
+#define AD9545_NCOX_TYPE_ADJUST(x)		(AD9545_NCO0_TYPE_ADJUST + ((x) * 0x40))
+#define AD9545_NCOX_DELTA_RATE_LIMIT(x)		(AD9545_NCO0_DELTA_RATE_LIMIT + ((x) * 0x40))
+#define AD9545_NCOX_DELTA_ADJUST(x)		(AD9545_NCO0_DELTA_ADJUST + ((x) * 0x40))
+#define AD9545_NCOX_CYCLE_ADJUST(x)		(AD9545_NCO0_CYCLE_ADJUST + ((x) * 0x40))
+
+/*
+ * AD9545 AUX NCO center frequency register has 16-bit integer part and
+ * 40-bit fractional part.
+ */
+#define AD9545_NCO_CENTER_FREQ_INT_WIDTH	16
+#define AD9545_NCO_CENTER_FREQ_FRAC_WIDTH	40
+#define AD9545_NCO_CENTER_FREQ_WIDTH		(AD9545_NCO_CENTER_FREQ_INT_WIDTH + \
+						 AD9545_NCO_CENTER_FREQ_FRAC_WIDTH)
+
+#define AD9545_NCO_CENTER_FREQ_MSK		GENMASK_ULL(AD9545_NCO_CENTER_FREQ_WIDTH - 1, 0)
+#define AD9545_NCO_CENTER_FREQ_INT_MSK		GENMASK_ULL(AD9545_NCO_CENTER_FREQ_WIDTH - 1, \
+							    AD9545_NCO_CENTER_FREQ_FRAC_WIDTH)
+#define AD9545_NCO_CENTER_FREQ_FRAC_MSK		GENMASK_ULL(AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - 1, 0)
+
+#define AD9545_NCO_CENTER_FREQ_MAX		FIELD_MAX(AD9545_NCO_CENTER_FREQ_MSK)
+#define AD9545_NCO_CENTER_FREQ_INT_MAX		FIELD_MAX(AD9545_NCO_CENTER_FREQ_INT_MSK)
+#define AD9545_NCO_CENTER_FREQ_FRAC_MAX		FIELD_MAX(AD9545_NCO_CENTER_FREQ_FRAC_MSK)
+
+/*
+ * AD9545 AUX NCO offset frequency register has 8-bit integer part and
+ * 24-bit fractional part.
+ */
+#define AD9545_NCO_OFFSET_FREQ_INT_WIDTH	8
+#define AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH	24
+#define AD9545_NCO_OFFSET_FREQ_WIDTH		(AD9545_NCO_OFFSET_FREQ_INT_WIDTH + \
+						 AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH)
+
+#define AD9545_NCO_OFFSET_FREQ_MSK		GENMASK_ULL(AD9545_NCO_OFFSET_FREQ_WIDTH - 1, 0)
+#define AD9545_NCO_OFFSET_FREQ_INT_MSK		GENMASK_ULL(AD9545_NCO_OFFSET_FREQ_WIDTH - 1, \
+							    AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH)
+#define AD9545_NCO_OFFSET_FREQ_FRAC_MSK		GENMASK_ULL(AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH - 1, 0)
+
+#define AD9545_NCO_OFFSET_FREQ_MAX		FIELD_MAX(AD9545_NCO_OFFSET_FREQ_MSK)
+#define AD9545_NCO_OFFSET_FREQ_INT_MAX		FIELD_MAX(AD9545_NCO_OFFSET_FREQ_INT_MSK)
+#define AD9545_NCO_OFFSET_FREQ_FRAC_MAX		FIELD_MAX(AD9545_NCO_OFFSET_FREQ_FRAC_MSK)
+
+#define AD9545_NCO_FREQ_INT_MAX			(AD9545_NCO_CENTER_FREQ_INT_MAX + \
+						 AD9545_NCO_OFFSET_FREQ_INT_MAX)
 
 #define AD9545_TDCX_DIV(x)			(AD9545_TDC0_DIV + ((x) * 0x9))
 #define AD9545_TDCX_PERIOD(x)			(AD9545_TDC0_PERIOD + ((x) * 0x9))
@@ -294,7 +347,6 @@
 
 #define AD9545_MAX_NSHOT_PULSES		63
 
-#define AD9545_NCO_MAX_FREQ		65535
 #define AD9545_MAX_ZERO_DELAY_RATE	200000000
 
 static const unsigned int ad9545_apll_rate_ranges_hz[2][2] = {
@@ -2611,26 +2663,133 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 	return 0;
 }
 
-static int ad9545_get_nco_freq(struct ad9545_state *st, int addr, u32 *freq)
+static int ad9545_get_nco_center_freq(struct ad9545_state *st, int addr, u64 *freq)
 {
-	__le16 regval;
+	__le64 regval64;
 	int ret;
 
-	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_FREQ(addr), &regval, 2);
+	regval64 = 0;
+	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_CENTER_FREQ(addr), &regval64, 7);
 	if (ret < 0)
 		return ret;
 
-	*freq = le16_to_cpu(regval);
+	*freq = le64_to_cpu(regval64);
+
 	return 0;
 }
 
-static int ad9545_set_nco_freq(struct ad9545_state *st, int addr, u32 freq)
+static int ad9545_set_nco_center_freq(struct ad9545_state *st, int addr, u64 freq)
+{
+	__le64 regval64;
+
+	if (freq > AD9545_NCO_CENTER_FREQ_MAX)
+		return -EINVAL;
+
+	regval64 = cpu_to_le64(freq);
+
+	return regmap_bulk_write(st->regmap, AD9545_NCOX_CENTER_FREQ(addr), &regval64, 7);
+}
+
+static int ad9545_get_nco_offset_freq(struct ad9545_state *st, int addr, u32 *freq)
 {
 	__le32 regval;
 	int ret;
 
+	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_OFFSET_FREQ(addr), &regval, 4);
+	if (ret < 0)
+		return ret;
+
+	*freq = le32_to_cpu(regval);
+
+	return 0;
+}
+
+static int ad9545_set_nco_offset_freq(struct ad9545_state *st, int addr, u32 freq)
+{
+	__le32 regval;
+
 	regval = cpu_to_le32(freq);
-	ret = regmap_bulk_write(st->regmap, AD9545_NCOX_FREQ(addr), &regval, 2);
+
+	return regmap_bulk_write(st->regmap, AD9545_NCOX_OFFSET_FREQ(addr), &regval, 4);
+}
+
+static int ad9545_get_nco_freq(struct ad9545_state *st, int addr, u64 *freq)
+{
+	u64 center_freq;
+	u32 offset_freq;
+	int shift;
+	int ret;
+
+	ret = ad9545_get_nco_center_freq(st, addr, &center_freq);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_get_nco_offset_freq(st, addr, &offset_freq);
+	if (ret < 0)
+		return ret;
+
+	/* align center frequency and offset frequency, and then add */
+	shift = AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH;
+	*freq = center_freq + ((u64)offset_freq << shift);
+
+	return 0;
+}
+
+static int ad9545_get_nco_freq_hz(struct ad9545_state *st, int addr, u32 *freq)
+{
+	u64 val64;
+	u32 freq_int;
+	int ret;
+
+	ret = ad9545_get_nco_freq(st, addr, &val64);
+	if (ret < 0)
+		return ret;
+
+	freq_int = val64 >> AD9545_NCO_CENTER_FREQ_FRAC_WIDTH;
+
+	if (val64 & BIT_ULL(AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - 1))
+		freq_int++;
+
+	*freq = freq_int;
+
+	return 0;
+}
+
+static int ad9545_set_nco_freq_hz(struct ad9545_state *st, int addr, u32 freq)
+{
+	u64 center_freq;
+	u32 center_freq_int, offset_freq, offset_freq_int;
+	bool use_fractional;
+	int ret;
+
+	if (freq > AD9545_NCO_FREQ_INT_MAX + 1)
+		return -EINVAL;
+
+	use_fractional = (freq == AD9545_NCO_FREQ_INT_MAX + 1);
+	if (use_fractional)
+		freq--;
+
+	if (freq <= AD9545_NCO_CENTER_FREQ_INT_MAX) {
+		center_freq_int = freq;
+		offset_freq_int = 0;
+	} else {
+		center_freq_int = AD9545_NCO_CENTER_FREQ_INT_MAX;
+		offset_freq_int = freq - center_freq_int;
+	}
+
+	center_freq = FIELD_PREP(AD9545_NCO_CENTER_FREQ_INT_MSK, center_freq_int);
+	if (use_fractional)
+		center_freq |= BIT_ULL(AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - 1);
+
+	ret = ad9545_set_nco_center_freq(st, addr, center_freq);
+	if (ret < 0)
+		return ret;
+
+	offset_freq = FIELD_PREP(AD9545_NCO_OFFSET_FREQ_INT_MSK, offset_freq_int);
+	if (use_fractional)
+		offset_freq |= BIT(AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH - 1);
+
+	ret = ad9545_set_nco_offset_freq(st, addr, offset_freq);
 	if (ret < 0)
 		return ret;
 
@@ -2643,7 +2802,7 @@ static unsigned long ad9545_nco_clk_recalc_rate(struct clk_hw *hw, unsigned long
 	u32 rate;
 	int ret;
 
-	ret = ad9545_get_nco_freq(clk->st, clk->address, &rate);
+	ret = ad9545_get_nco_freq_hz(clk->st, clk->address, &rate);
 	if (ret < 0) {
 		dev_err(clk->st->dev, "Could not read NCO freq.");
 		return 0;
@@ -2655,14 +2814,14 @@ static unsigned long ad9545_nco_clk_recalc_rate(struct clk_hw *hw, unsigned long
 static long ad9545_nco_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 				      unsigned long *parent_rate)
 {
-	return clamp_t(u16, rate, 1, AD9545_NCO_MAX_FREQ);
+	return min(rate, (unsigned long)AD9545_NCO_FREQ_INT_MAX + 1);
 }
 
 static int ad9545_nco_clk_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
 {
 	struct ad9545_aux_nco_clk *clk = to_nco_clk(hw);
 
-	return ad9545_set_nco_freq(clk->st, clk->address, rate);
+	return ad9545_set_nco_freq_hz(clk->st, clk->address, rate);
 }
 
 static const struct clk_ops ad9545_nco_clk_ops = {
