@@ -184,16 +184,17 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		out-gpios	= <&gpio0 68 0>, <&gpio0 71 0>;
+		in-gpios	= <&gpio0 71 GPIO_ACTIVE_HIGH>;
+		out-gpios	= <&gpio0 68 GPIO_ACTIVE_HIGH>;
 
 		channel@0 {
 			reg = <0>;
-			label = "phaser_enable";
+			label = "muxout";
 		};
 
 		channel@1 {
 			reg = <1>;
-			label = "tdd_ext_sync";
+			label = "phaser_enable";
 		};
 	};
 };
