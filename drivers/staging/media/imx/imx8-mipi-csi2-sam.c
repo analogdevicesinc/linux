@@ -1785,9 +1785,9 @@ static int mipi_csis_imx8mp_gclk_get(struct csi_state *state)
 
 	state->csi_aclk = devm_clk_get_optional(dev, "media_blk_csi_aclk");
 	if (IS_ERR(state->csi_aclk)) {
-		if (PTR_ERR(state->csi_pclk) != -EPROBE_DEFER)
+		if (PTR_ERR(state->csi_aclk) != -EPROBE_DEFER)
 			dev_err(dev, "Failed to get media csi aclk\n");
-		return PTR_ERR(state->csi_pclk);
+		return PTR_ERR(state->csi_aclk);
 	}
 
 	return 0;
