@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013-2015 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2023 NXP
  */
 
 /*
@@ -83,7 +84,7 @@ struct clk *clk_register_mux_pix_clk(struct device *dev, const char *name,
 	struct clk *clk;
 	struct clk_init_data init;
 
-	mux = kzalloc(sizeof(struct clk_di_mux), GFP_KERNEL);
+	mux = devm_kzalloc(dev, sizeof(struct clk_di_mux), GFP_KERNEL);
 	if (!mux)
 		return ERR_PTR(-ENOMEM);
 
@@ -220,7 +221,7 @@ struct clk *clk_register_div_pix_clk(struct device *dev, const char *name,
 	struct clk *clk;
 	struct clk_init_data init;
 
-	di_div = kzalloc(sizeof(struct clk_di_div), GFP_KERNEL);
+	di_div = devm_kzalloc(dev, sizeof(struct clk_di_div), GFP_KERNEL);
 	if (!di_div)
 		return ERR_PTR(-ENOMEM);
 
@@ -294,7 +295,7 @@ struct clk *clk_register_gate_pix_clk(struct device *dev, const char *name,
 	struct clk *clk;
 	struct clk_init_data init;
 
-	gate = kzalloc(sizeof(struct clk_di_gate), GFP_KERNEL);
+	gate = devm_kzalloc(dev, sizeof(struct clk_di_gate), GFP_KERNEL);
 	if (!gate)
 		return ERR_PTR(-ENOMEM);
 
