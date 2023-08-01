@@ -12536,6 +12536,17 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/regulator/maxim,max20086.yaml
 F:	drivers/regulator/max20086-regulator.c
 
+MAXIM GMSL2 SERIALIZERS AND DESERIALIZERS
+M:	Cosmin Tanislav <cosmin.tanislav@analog.com>
+L:	linux-media@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/media/i2c/maxim,max9296a.yaml
+F:	Documentation/devicetree/bindings/media/i2c/maxim,max96717-pinctrl.yaml
+F:	Documentation/devicetree/bindings/media/i2c/maxim,max96717.yaml
+F:	Documentation/devicetree/bindings/media/i2c/maxim,max96724.yaml
+F:	Documentation/devicetree/bindings/media/i2c/maxim-deserializer.yaml
+F:	Documentation/devicetree/bindings/media/i2c/maxim-serializer.yaml
+
 MAXIM MAX77650 PMIC MFD DRIVER
 M:	Bartosz Golaszewski <brgl@bgdev.pl>
 L:	linux-kernel@vger.kernel.org

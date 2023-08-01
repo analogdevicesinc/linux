@@ -1,0 +1,185 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2023 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/maxim-deserializer.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim GMSL2 Deserializer
+
+maintainers:
+  - Cosmin Tanislav <cosmin.tanislav@analog.com>
+
+allOf:
+  - $ref: /schemas/pinctrl/i2c/i2c-atr.yaml#
+
+unevaluatedProperties: false
+
+required:
+  - '#address-cells':
+  - '#size-cells'
+  - reg
+  - i2c-atr
+  - i2c-alias-pool
+
+properties:
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  reg:
+    description: I2C device address
+    maxItems: 1
+
+  i2c-atr:
+    type: object
+    additionalProperties: false
+
+    properties:
+      '#address-cells':
+        const: 1
+
+      '#size-cells':
+        const: 0
+
+    patternProperties:
+      '^i2c@[0-9a-f]+$':
+        unevaluatedProperties: false
+
+        allOf:
+          - $ref: /schemas/i2c/i2c-controller.yaml
+
+patternProperties:
+  '^phy@[0-9a-f]+$':
+    type: object
+    additionalProperties: false
+    description: |
+      A PHY receives data from multiple pipes.
+
+    properties:
+      maxim,alt-mem-map8:
+        type: boolean
+        description: Alternative memory mapping for 8bit types.
+
+      maxim,alt-mem-map10:
+        type: boolean
+        description: Alternative memory mapping for 8bit types.
+
+      maxim,alt-mem-map12:
+        type: boolean
+        description: Alternative memory mapping for 10bit types.
+
+  '^pipe@[0-9a-f]+$':
+    type: object
+    additionalProperties: false
+    description: |
+      A pipe can carry multiple video streams with each stream having
+      different virtual channels and data types.
+
+      A pipe operates in one of the following modes:
+       - Mode 1: Streams with the same bpp of up to 24 bpp.
+       - Mode 2: Streams with 16, 14, 12, 10, 8 bpp, with streams less than
+                 16 bpp being zero-padded.
+       - Mode 3: Streams with two different bpp rates, one being double
+                 the other, with the highest possible bpp being 24.
+      Only modes 1 and 3 carry data at full bandwidth.
+
+      Each pipe receives data from one link.
+
+      Each pipe outputs data to a PHY, and multiple pipes can output data
+      to the same PHY.
+
+    properties:
+      reg:
+        description: The pipe id.
+        maxItems: 1
+
+      maxim,phy-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          The PHY id to which this pipe will output its data.
+          The default PHY id will be the same as the pipe id.
+
+      maxim,link-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          The link id from which the pipe will receive its data.
+          The default link id will be the same as the pipe id.
+          Some chips might not support using a different link than the default.
+
+      maxim,stream-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          The stream id which the pipe will use to receive its data.
+          The default stream id will be the same as the pipe id.
+        min: 0
+        max: 3
+
+  '^channel@[0-9a-f]+$':
+    type: object
+    additionalProperties: false
+    description: |
+      A channel can carry a single video stream with a specific virtual
+      channel and data type.
+      Each channel outputs data to a pipe, and multiple channels can output
+      data to the same pipe.
+
+    properties:
+      reg:
+        description: The channel id.
+        maxItems: 1
+
+      maxim,pipe-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+        The pipe id to output data to.
+        The default pipe id will be the same as the channel id.
+
+      maxim,phy-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          The PHY id to which this channel will output its data.
+          The default PHY id will be the same as the pipe's PHY id.
+
+      maxim,src-vc-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: The source virtual channel id.
+        default: 0
+        min: 0
+        max: 3
+
+      maxim,dst-vc-id:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          The destination virtual channel id.
+          The default destination virtual channel id will be the same as the
+          channel id.
+        min: 0
+        max: 3
+
+      ports:
+        $ref: /schemas/graph.yaml#/properties/ports
+        properties:
+          port@0:
+            $ref: /schemas/graph.yaml#/$defs/port-base
+            description: Output port
+
+            properties:
+              endpoint:
+                $ref: /schemas/media/video-interfaces.yaml#
+                unevaluatedProperties: false
+
+          port@1:
+            $ref: /schemas/graph.yaml#/$defs/port-base
+            description: Input port
+
+            properties:
+              endpoint:
+                $ref: /schemas/media/video-interfaces.yaml#
+                unevaluatedProperties: false
+
+        required:
+          - port@0
+          - port@1
