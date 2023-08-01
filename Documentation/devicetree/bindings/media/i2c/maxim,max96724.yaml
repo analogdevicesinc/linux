@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2023 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/maxim,max96724.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim MAX96724 GMSL2 Deserializer
+
+maintainers:
+  - Cosmin Tanislav <cosmin.tanislav@analog.com>
+
+description: |
+  The MAX96724 is a deserializer that receives four GMSL2 links and outputs
+  video data to 1, 2, or 4 MIPI D-PHY or C-PHY outputs.
+
+unevaluatedProperties: false
+
+properties:
+  compatible:
+    const: maxim,max96724
+
+  i2c-alias-pool:
+    maxItems: 4
+
+  i2c-atr:
+    patternProperties:
+      '^i2c@[0-9a-f]+$':
+        properties:
+          reg:
+            items:
+              min: 0
+              max: 3
+
+required:
+  - compatible
+
+patternProperties:
+  '^pipe@[0-9a-f]+$':
+    properties:
+      reg:
+        min: 0
+        max: 3
+
+      maxim,phy-id:
+        min: 0
+        max: 3
+
+      maxim,link-id:
+        min: 0
+        max: 3
+
+  '^channel@[0-9a-f]+$':
+      maxim,pipe-id:
+        min: 0
+        max: 3
+
+      maxim,phy-id:
+        min: 0
+        max: 3
+
+allOf:
+  - $ref: maxim-deserializer.yaml#
