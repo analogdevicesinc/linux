@@ -1878,35 +1878,37 @@ void dwxgmac3_est_irq_status(void __iomem *ioaddr, struct net_device *dev,
 	}
 }
 
-static void dwxgmac3_fpe_configure(void __iomem *ioaddr, struct stmmac_fpe_cfg *cfg,
-				   u32 num_txq, u32 num_rxq, u32 txqpec,
-				   bool enable)
+static void dwxgmac3_fpe_tx_configure(void __iomem *ioaddr, struct stmmac_fpe_cfg *cfg,
+				   u32 num_txq, u32 txqpec, bool enable)
 {
 	u32 value;
 	u32 txqmask = (1 << num_txq) - 1;
 
-	if (!enable) {
+	if (enable) {
+		value = readl(ioaddr + XGMAC_MTL_FPE_CTRL_STS);
+		value &= ~(txqmask << XGMAC_PEC_SHIFT);
+		value |= (txqpec << XGMAC_PEC_SHIFT);
+		writel(value, ioaddr + XGMAC_MTL_FPE_CTRL_STS);
+
 		value = readl(ioaddr + XGMAC_FPE_CTRL_STS);
-
-		value &= ~XGMAC_EFPE;
-
+		value |= XGMAC_EFPE;
 		writel(value, ioaddr + XGMAC_FPE_CTRL_STS);
-		return;
 	}
+	else {
+		value = readl(ioaddr + XGMAC_FPE_CTRL_STS);
+		value &= ~XGMAC_EFPE;
+		writel(value, ioaddr + XGMAC_FPE_CTRL_STS);
+	}
+}
+
+static void dwxgmac3_fpe_rx_configure(void __iomem *ioaddr, u32 num_rxq)
+{
+	u32 value;
 
 	value = readl(ioaddr + XGMAC_RXQ_CTRL1);
 	value &= ~XGMAC_RQ;
 	value |= (num_rxq - 1) << XGMAC_RQ_SHIFT;
 	writel(value, ioaddr + XGMAC_RXQ_CTRL1);
-
-	value = readl(ioaddr + XGMAC_MTL_FPE_CTRL_STS);
-	value &= ~(txqmask << XGMAC_PEC_SHIFT);
-	value |= (txqpec << XGMAC_PEC_SHIFT);
-	writel(value, ioaddr + XGMAC_MTL_FPE_CTRL_STS);
-
-	value = readl(ioaddr + XGMAC_FPE_CTRL_STS);
-	value |= XGMAC_EFPE;
-	writel(value, ioaddr + XGMAC_FPE_CTRL_STS);
 }
 
 static void dwxgmac3_fpe_send_mpacket(void __iomem *ioaddr,
@@ -2003,7 +2005,8 @@ const struct stmmac_ops dwxgmac210_ops = {
 	.set_arp_offload = dwxgmac2_set_arp_offload,
 	.est_configure = dwxgmac3_est_configure,
 	.est_irq_status = dwxgmac3_est_irq_status,
-	.fpe_configure = dwxgmac3_fpe_configure,
+	.fpe_tx_configure = dwxgmac3_fpe_tx_configure,
+	.fpe_rx_configure = dwxgmac3_fpe_rx_configure,
 	.fpe_send_mpacket = dwxgmac3_fpe_send_mpacket,
 	.fpe_irq_status = dwxgmac3_fpe_irq_status,
 	.rx_hw_vlan = dwxgmac2_rx_hw_vlan,
@@ -2068,7 +2071,8 @@ const struct stmmac_ops dwxlgmac2_ops = {
 	.config_l4_filter = dwxgmac2_config_l4_filter,
 	.set_arp_offload = dwxgmac2_set_arp_offload,
 	.est_configure = dwxgmac3_est_configure,
-	.fpe_configure = dwxgmac3_fpe_configure,
+	.fpe_tx_configure = dwxgmac3_fpe_tx_configure,
+	.fpe_rx_configure = dwxgmac3_fpe_rx_configure,
 	.rx_hw_vlan = dwxgmac2_rx_hw_vlan,
 	.set_hw_vlan_mode = dwxgmac2_set_hw_vlan_mode,
 };
