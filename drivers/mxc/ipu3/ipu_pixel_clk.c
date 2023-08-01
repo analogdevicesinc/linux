@@ -72,6 +72,7 @@ static u8 _ipu_pixel_clk_get_parent(struct clk_hw *hw)
 const struct clk_ops clk_mux_di_ops = {
 	.get_parent = _ipu_pixel_clk_get_parent,
 	.set_parent = _ipu_pixel_clk_set_parent,
+	.determine_rate = clk_hw_determine_rate_no_reparent,
 };
 
 struct clk *clk_register_mux_pix_clk(struct device *dev, const char *name,
