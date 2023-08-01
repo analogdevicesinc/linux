@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2023
+
+#include "imx8mp-evk.dts"
+
+/ {
+	reserved-memory {
+		/delete-node/ dsp_reserved;
+		/delete-node/ dsp_reserved_heap;
+		/delete-node/ dsp_vdev0vring0;
+		/delete-node/ dsp_vdev0vring1;
+		/delete-node/ dsp_vdev0buffer;
+
+		dsp_reserved: dsp@92400000 {
+			reg = <0 0x92400000 0 0x2000000>;
+			no-map;
+		};
+	};
+
+	sound-wm8960 {
+		status = "disabled";
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+
+	dmic: dmic {
+		#sound-dai-cells = <0>;
+		compatible = "dmic-codec";
+		wakeup-delay-ms = <250>;
+	};
+
+	sof-sound-micfil {
+		compatible = "simple-audio-card";
+		label = "micfil-audio";
+
+		simple-audio-card,dai-link {
+			format = "i2s";
+			capture-only;
+			cpu {
+				sound-dai = <&dsp 2>;
+			};
+			codec {
+				sound-dai = <&dmic>;
+			};
+		};
+	};
+};
+
+&dsp {
+	#sound-dai-cells = <1>;
+	compatible = "fsl,imx8mp-dsp";
+	reg = <0x0 0x3B6E8000 0x0 0x88000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pdm>;
+
+	power-domains = <&audiomix_pd>;
+
+	assigned-clocks = <&clk IMX8MP_CLK_PDM>;
+	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <196608000>;
+
+	clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_OCRAMA_IPG>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSP_ROOT>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSPDBG_ROOT>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_PDM_IPG>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_PDM_SEL>;
+	clock-names = "ipg", "ocram", "core", "pdm_ipg_clk", "pdm_ipg_clk_app";
+
+	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
+	mboxes = <&mu2 2 0>, <&mu2 2 1>,
+		 <&mu2 3 0>, <&mu2 3 1>;
+	memory-region = <&dsp_reserved>;
+	/delete-property/ firmware-name;
+
+	tplg-name = "sof-imx8mp-wm8960.tplg";
+	machine-drv-name = "asoc-simple-card";
+	status = "okay";
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
