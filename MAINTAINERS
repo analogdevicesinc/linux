@@ -12925,6 +12925,7 @@ F:	Documentation/devicetree/bindings/media/i2c/maxim,max96717.yaml
 F:	Documentation/devicetree/bindings/media/i2c/maxim,max96724.yaml
 F:	Documentation/devicetree/bindings/media/i2c/maxim-deserializer.yaml
 F:	Documentation/devicetree/bindings/media/i2c/maxim-serializer.yaml
+F:	drivers/media/i2c/maxim-serdes/
 
 MAXIM MAX11205 DRIVER
 M:	Ramona Bolboaca <ramona.bolboaca@analog.com>
