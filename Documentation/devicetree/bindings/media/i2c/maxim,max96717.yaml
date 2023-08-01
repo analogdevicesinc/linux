@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2023 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/maxim,max96717.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim MAX96717 and MAX9295A GMSL2 Serializer
+
+maintainers:
+  - Cosmin Tanislav <cosmin.tanislav@analog.com>
+
+description: |
+  The MAX96717 and MAX9295A are serializers that receive video on an
+  MIPI CSI-2 interface and outputs it on a GMSL2 link.
+
+unevaluatedProperties: false
+
+properties:
+  compatible:
+    const: maxim,max96717
+    const: maxim,max9295a
+
+  gpio-controller: true
+
+  '#gpio-cells':
+    const: 2
+
+  i2c-alias-pool:
+    maxItems: 1
+
+  i2c-atr:
+    patternProperties:
+      '^i2c@[0-9a-f]+$':
+        properties:
+          reg:
+            items:
+              max: 0
+
+required:
+  - compatible
+  - gpio-controller
+  - '#gpio-cells'
+
+additionalProperties:
+  anyOf:
+    - type: object
+      allOf:
+        - $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
+
+      unevaluatedProperties: false
+
+    - type: object
+      additionalProperties:
+        type: object
+        allOf:
+          - $ref: /schemas/media/i2c/maxim,max96717-pinctrl.yaml#
+
+        unevaluatedProperties: false
+
+allOf:
+  - $ref: maxim-serializer.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: maxim,max96717
+  - then:
+      patternProperties:
+        '^pipe@[0-9a-f]+$'::
+          properties:
+            reg:
+              items:
+                min: 0
+                max: 0
+            maxim,phy-id:
+              min: 0
+              max: 0
+        '^channel@[0-9a-f]+$':
+          properties:
+            maxim,pipe-id:
+              min: 0
+              max: 0
+            maxim,vc-id:
+              min: 0
+              max: 15
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: maxim,max9295a
+  - then:
+      patternProperties:
+        '^pipe@[0-9a-f]+$'::
+          properties:
+            reg:
+              items:
+                min: 0
+                max: 3
+            maxim,phy-id:
+              min: 0
+              max: 0
+        '^channel@[0-9a-f]+$':
+          properties:
+            maxim,pipe-id:
+              min: 0
+              max: 3
+            maxim,vc-id:
+              min: 0
+              max: 3
