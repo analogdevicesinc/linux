@@ -611,7 +611,6 @@ static int mxc_isi_m2m_open(struct file *file)
 	isi_m2m_fmt_init(&isi_m2m->dst_f, &mxc_isi_out_formats[0]);
 
 	pm_runtime_get_sync(dev);
-	mxc_isi_channel_init(mxc_isi);
 
 	/* lock host data */
 	mxc_isi->m2m_enabled = true;
@@ -751,7 +750,6 @@ static int mxc_isi_m2m_s_fmt_vid_out(struct file *file, void *priv,
 				 struct v4l2_format *f)
 {
 	struct mxc_isi_m2m_dev *isi_m2m = video_drvdata(file);
-	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_m2m->pdev);
 	struct v4l2_fh *fh = file->private_data;
 	struct mxc_isi_frame *frame = &isi_m2m->src_f;
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
@@ -812,7 +810,6 @@ static int mxc_isi_m2m_s_fmt_vid_out(struct file *file, void *priv,
 	frame->sizeimage[0] = frame->height * frame->bytesperline[0];
 
 	set_frame_bounds(frame, pix->width, pix->height);
-	mxc_isi_m2m_config_src(mxc_isi, frame);
 
 	isi_m2m->colorspace = pix->colorspace;
 	isi_m2m->xfer_func = pix->xfer_func;
@@ -826,7 +823,6 @@ static int mxc_isi_m2m_s_fmt_vid_cap(struct file *file, void *priv,
 				 struct v4l2_format *f)
 {
 	struct mxc_isi_m2m_dev *isi_m2m = video_drvdata(file);
-	struct mxc_isi_dev *mxc_isi = mxc_isi_get_hostdata(isi_m2m->pdev);
 	struct v4l2_fh *fh = file->private_data;
 	struct mxc_isi_frame *frame = &isi_m2m->dst_f;
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
@@ -924,7 +920,6 @@ static int mxc_isi_m2m_s_fmt_vid_cap(struct file *file, void *priv,
 	memcpy(&isi_m2m->pix, pix, sizeof(*pix));
 
 	set_frame_bounds(frame, pix->width, pix->height);
-	mxc_isi_m2m_config_dst(mxc_isi, frame);
 
 	return 0;
 }
@@ -1010,6 +1005,9 @@ static int mxc_isi_m2m_streamon(struct file *file, void *priv,
 
 	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		isi_m2m->frame_count = 0;
+		mxc_isi_channel_init(mxc_isi);
+		mxc_isi_m2m_config_src(mxc_isi, src_f);
+		mxc_isi_m2m_config_dst(mxc_isi, dst_f);
 		mxc_isi_channel_config(mxc_isi, src_f, dst_f);
 	}
 
