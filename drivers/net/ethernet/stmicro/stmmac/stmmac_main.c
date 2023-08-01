@@ -3438,6 +3438,8 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 	stmmac_start_all_dma(priv);
 
 	if (priv->dma_cap.fpesel) {
+		stmmac_fpe_rx_configure(priv, priv->ioaddr,
+				     priv->plat->rx_queues_to_use);
 		stmmac_fpe_start_wq(priv);
 
 		if (priv->plat->fpe_cfg->enable)
@@ -5839,20 +5841,21 @@ static void stmmac_fpe_event_status(struct stmmac_priv *priv, int status)
 	enum stmmac_fpe_state *lp_state = &fpe_cfg->lp_fpe_state;
 	bool *hs_enable = &fpe_cfg->hs_enable;
 
-	if (status == FPE_EVENT_UNKNOWN || !*hs_enable)
-		return;
-
 	/* If LP has sent verify mPacket, LP is FPE capable */
 	if ((status & FPE_EVENT_RVER) == FPE_EVENT_RVER) {
 		if (*lp_state < FPE_STATE_CAPABLE)
 			*lp_state = FPE_STATE_CAPABLE;
 
-		/* If user has requested FPE enable, quickly response */
-		if (*hs_enable)
-			stmmac_fpe_send_mpacket(priv, priv->ioaddr,
-						fpe_cfg,
-						MPACKET_RESPONSE);
+		/* If FPE is supported by default the rx side FPE is enabled.
+		 * And this callback will be called only if FPE is supported. So
+		 * quickly send response mPacket.
+		 */
+		stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
+					MPACKET_RESPONSE);
 	}
+
+	if (status == FPE_EVENT_UNKNOWN || !*hs_enable)
+		return;
 
 	/* If Local has sent verify mPacket, Local is FPE capable */
 	if ((status & FPE_EVENT_TVER) == FPE_EVENT_TVER) {
@@ -5863,10 +5866,6 @@ static void stmmac_fpe_event_status(struct stmmac_priv *priv, int status)
 	/* If LP has sent response mPacket, LP is entering FPE ON */
 	if ((status & FPE_EVENT_RRSP) == FPE_EVENT_RRSP)
 		*lp_state = FPE_STATE_ENTERING_ON;
-
-	/* If Local has sent response mPacket, Local is entering FPE ON */
-	if ((status & FPE_EVENT_TRSP) == FPE_EVENT_TRSP)
-		*lo_state = FPE_STATE_ENTERING_ON;
 
 	if (!test_bit(__FPE_REMOVING, &priv->fpe_task_state) &&
 	    !test_and_set_bit(__FPE_TASK_SCHED, &priv->fpe_task_state) &&
@@ -5896,8 +5895,8 @@ static void stmmac_common_interrupt(struct stmmac_priv *priv)
 	if (priv->dma_cap.fpesel) {
 		int status = stmmac_fpe_irq_status(priv, priv->ioaddr,
 						   priv->dev);
-
-		stmmac_fpe_event_status(priv, status);
+		if (status >= 0)
+			stmmac_fpe_event_status(priv, status);
 	}
 
 	/* To handle GMAC own interrupts */
@@ -7266,13 +7265,11 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 		if (*lo_state == FPE_STATE_OFF || !*hs_enable)
 			break;
 
-		if (*lo_state == FPE_STATE_ENTERING_ON &&
+		if (*lo_state == FPE_STATE_CAPABLE &&
 		    *lp_state == FPE_STATE_ENTERING_ON) {
-			stmmac_fpe_configure(priv, priv->ioaddr,
-					     fpe_cfg,
-					     priv->plat->tx_queues_to_use,
-					     priv->plat->rx_queues_to_use,
-					     *txqpec, *enable);
+			stmmac_fpe_tx_configure(priv, priv->ioaddr, fpe_cfg,
+						priv->plat->tx_queues_to_use,
+						*txqpec, *enable);
 
 			netdev_info(priv->dev, "configured FPE\n");
 
@@ -7775,10 +7772,10 @@ int stmmac_suspend(struct device *dev)
 
 	if (priv->dma_cap.fpesel) {
 		/* Disable FPE */
-		stmmac_fpe_configure(priv, priv->ioaddr,
-				     priv->plat->fpe_cfg,
-				     priv->plat->tx_queues_to_use,
-				     priv->plat->rx_queues_to_use, 0, false);
+		stmmac_fpe_tx_configure(priv, priv->ioaddr,
+					priv->plat->fpe_cfg,
+					priv->plat->tx_queues_to_use,
+					0, false);
 
 		stmmac_fpe_handshake(priv, false);
 		stmmac_fpe_stop_wq(priv);
