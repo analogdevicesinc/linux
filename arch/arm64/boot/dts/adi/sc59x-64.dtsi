@@ -77,22 +77,6 @@
 		      <0x31240000 0x40000>; /* GICR */
 	};
 
-	sram0: sram-icc@20025000 {
-		compatible = "mmio-sram";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		reg = <0x20025000 0x1B000>;
-		ranges = <0 0x20025000 0x1B000>; /*108KiB*/
-	};
-
-	sram1: sram-reserved@20040000 {
-		compatible = "mmio-sram";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		reg = <0x20040000 0x40000>;
-		ranges = <0 0x20040000 0x40000>; /*256KiB*/
-	};
-
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
@@ -211,11 +195,6 @@
 			no-map;
 		};
 
-		sram_B1_unused@20000800 {
-			reg = <0x20000800 0x4800>; /*18KiB*/
-			no-map;
-		};
-
 		sharc_internal_icc@20005000 {
 			reg = <0x20005000 0x20000>; /*128KiB*/
 			no-map;
@@ -243,14 +222,8 @@
 		sram-controller@31080000 {
 			compatible = "adi,sram-controller";
 			reg = <0x31080000 0x100>;
-			adi,sram = <&sram0>, <&sram1>;
+			/* adi,sram = <&sram0>, <&sram1>; */
 			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
-			status = "okay";
-		};
-
-		sram_mmap: sram-mmap@0 { /* mmap from sram1 pool*/
-			compatible = "adi,sram-mmap";
-			adi,sram = <&sram1>;
 			status = "disabled";
 		};
 

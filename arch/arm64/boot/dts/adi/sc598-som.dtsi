@@ -22,7 +22,17 @@
 		reg = <0x90000000 0x0e000000>;
 	};
 
+	memory@20040000 {
+		device_type = "memory";
+		reg = <0x20040000 0x40000>;
+	};
+
 	reserved-memory {
+		sram1_res: sram1-reserved@20040000 {
+			compatible = "adi,sram-access";
+			reg = <0x20040000 0x40000>;
+		};
+
 		vdev0vrings: vdev0vring0@20080000 {
 			reg = <0x20080000 0x4000>;
 			no-map;
@@ -46,12 +56,10 @@
 		};
 	};
 
-	sram2: sram-reserved@200C8000 {
-		compatible = "mmio-sram";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		reg = <0x200C8000 0x138000>;
-		ranges = <0 0x200C8000 0x138000>; /*1248KiB*/
+	sram1_mmap: sram-mmap@0 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&sram1_res>;
+		status = "okay";
 	};
 
 	scb {
@@ -319,10 +327,6 @@
 	dr_mode = "host";
 	pinctrl-names = "default";
 	pinctrl-0 = <&usbc0_default>;
-	status = "okay";
-};
-
-&sram_mmap {
 	status = "okay";
 };
 
