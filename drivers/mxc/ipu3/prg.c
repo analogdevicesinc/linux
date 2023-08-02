@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc.
+ * Copyright 2023 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -109,6 +110,7 @@ static int assign_prg_chan(struct ipu_prg_data *prg, unsigned int pre_num,
 			unsigned int pmux, psel;	/* primary */
 			unsigned int smux, ssel;	/* secondary */
 			struct regmap_field *pfield, *sfield;
+			int ret;
 
 			psel = pre_num - 1;
 			ssel = psel ? 0 : 1;
@@ -124,7 +126,12 @@ static int assign_prg_chan(struct ipu_prg_data *prg, unsigned int pre_num,
 			 * PRE1 and PRE2 cannot bind with a same channel of
 			 * one PRG even if one of the two PREs is disabled.
 			 */
-			regmap_field_read(sfield, &smux);
+			ret = regmap_field_read(sfield, &smux);
+			if (ret < 0) {
+				dev_err(prg->dev, "failed to read sfield: %d\n",
+					ret);
+				return ret;
+			}
 			if (smux == pmux) {
 				smux = pmux ^ 0x1;
 				regmap_field_write(sfield, smux);
