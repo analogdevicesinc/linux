@@ -88,11 +88,14 @@
 		};
 	};
 
-	reg_vddext_3v3: regulator-vddext {
+	reg_vddext_5v: regulator-vddext {
 		compatible = "regulator-fixed";
-		regulator-name = "VDDEXT_3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
+		regulator-name = "VDDEXT_5V";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&pcal6524 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
 	};
 
 	reg_audio_pwr: regulator-audio-pwr {
@@ -130,6 +133,10 @@
 		};
 	};
 
+};
+
+&reg_rpi_3v3 {
+	regulator-always-on;
 };
 
 &sai3 {
@@ -170,7 +177,7 @@
 		#interrupt-cells = <2>;
 		interrupt-parent = <&pcal6524>;
 		interrupts = <8 IRQ_TYPE_EDGE_BOTH>;
-		vcc-supply = <&reg_vddext_3v3>;
+		vcc-supply = <&reg_rpi_3v3>;
 		status = "okay";
 	};
 
@@ -180,8 +187,8 @@
 		reg = <0x48>;
 		clocks = <&clk IMX93_CLK_SAI3_GATE>;
 		clock-names = "mclk";
-		VA-supply = <&reg_audio_pwr>;
-		VD-supply = <&reg_audio_pwr>;
+		VA-supply = <&reg_rpi_3v3>;
+		VD-supply = <&reg_vddext_5v>;
 		VLS-supply = <&reg_audio_pwr>;
 		VLC-supply = <&reg_audio_pwr>;
 		reset-gpio = <&pcal6524 6 GPIO_ACTIVE_LOW>;
