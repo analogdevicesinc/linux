@@ -19450,6 +19450,7 @@ M:	Bogdan Togorean <bogdan.togorean@analog.com>
 L:	linux-media@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/media/i2c/sony,isx021.yaml
+F:	drivers/media/i2c/isx021.c
 
 SONY MEMORYSTICK SUBSYSTEM
 M:	Maxim Levitsky <maximlevitsky@gmail.com>
