@@ -290,10 +290,12 @@
 				queue6 {
 					snps,weight = <0x0F>;
 					snps,dcb-algorithm;
+					snps,tbs-enable;
 				};
 				queue7 {
 					snps,weight = <0x10>;
 					snps,dcb-algorithm;
+					snps,tbs-enable;
 				};
 			};
 		};
@@ -434,10 +436,12 @@
 				queue6 {
 					snps,weight = <0x0F>;
 					snps,dcb-algorithm;
+					snps,tbs-enable;
 				};
 				queue7 {
 					snps,weight = <0x10>;
 					snps,dcb-algorithm;
+					snps,tbs-enable;
 				};
 			};
 		};
@@ -578,10 +582,12 @@
 				queue6 {
 					snps,weight = <0x0F>;
 					snps,dcb-algorithm;
+					snps,tbs-enable;
 				};
 				queue7 {
 					snps,weight = <0x10>;
 					snps,dcb-algorithm;
+					snps,tbs-enable;
 				};
 			};
 		};
