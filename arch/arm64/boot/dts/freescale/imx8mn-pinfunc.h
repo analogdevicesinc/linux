@@ -474,7 +474,7 @@
 #define MX8MN_IOMUXC_SAI3_RXD_UART2_DCE_RTS_B                                  0x1D4 0x43C 0x4F8 0x4 0x3
 #define MX8MN_IOMUXC_SAI3_RXD_UART2_DTE_CTS_B                                  0x1D4 0x43C 0x000 0x4 0x0
 #define MX8MN_IOMUXC_SAI3_RXD_GPIO4_IO30                                       0x1D4 0x43C 0x000 0x5 0x0
-#define MX8MN_IOMUXC_SAI3_RXD_PDM_BIT_STREAM1                                  0x1D4 0x43C 0x538 0x6 0x10
+#define MX8MN_IOMUXC_SAI3_RXD_PDM_BIT_STREAM1                                  0x1D4 0x43C 0x538 0x6 0xA
 #define MX8MN_IOMUXC_SAI3_TXFS_SAI3_TX_SYNC                                    0x1D8 0x440 0x000 0x0 0x0
 #define MX8MN_IOMUXC_SAI3_TXFS_GPT1_CAPTURE2                                   0x1D8 0x440 0x5EC 0x1 0x0
 #define MX8MN_IOMUXC_SAI3_TXFS_SAI5_RX_DATA1                                   0x1D8 0x440 0x4D8 0x2 0x1
