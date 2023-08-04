@@ -3775,12 +3775,14 @@ stmmac_setup_dma_desc(struct stmmac_priv *priv, unsigned int mtu)
 		dma_conf->dma_rx_size = DMA_DEFAULT_RX_SIZE;
 
 	/* Earlier check for TBS */
-	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++) {
-		struct stmmac_tx_queue *tx_q = &dma_conf->tx_queue[chan];
-		int tbs_en = priv->plat->tx_queues_cfg[chan].tbs_en;
+	if (priv->dma_cap.tbssel) {
+		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++) {
+			struct stmmac_tx_queue *tx_q = &dma_conf->tx_queue[chan];
+			int tbs_en = priv->plat->tx_queues_cfg[chan].tbs_en;
 
-		/* Setup per-TXQ tbs flag before TX descriptor alloc */
-		tx_q->tbs |= tbs_en ? STMMAC_TBS_AVAIL : 0;
+			/* Setup per-TXQ tbs flag before TX descriptor alloc */
+			tx_q->tbs |= tbs_en ? STMMAC_TBS_AVAIL : 0;
+		}
 	}
 
 	ret = alloc_dma_desc_resources(priv, dma_conf);
