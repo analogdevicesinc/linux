@@ -124,7 +124,6 @@ static const struct pwm_ops bcm2835_pwm_ops = {
 	.request = bcm2835_pwm_request,
 	.free = bcm2835_pwm_free,
 	.apply = bcm2835_pwm_apply,
-	.owner = THIS_MODULE,
 };
 
 static void devm_clk_rate_exclusive_put(void *data)
