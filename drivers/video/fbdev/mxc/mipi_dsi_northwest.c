@@ -558,6 +558,12 @@ static int mipi_dsi_dphy_init(struct mipi_dsi_info *mipi_dsi)
 		WARN_ON(numerator < 16 || denominator > 32 * 8);
 	}
 
+	if (numerator < 16 || numerator > 255 || denominator < 1 || denominator > 32 * 8) {
+		dev_err(&mipi_dsi->pdev->dev,
+			"invalid numerator=%lld, denominator=%lld\n", numerator, denominator);
+		return -EINVAL;
+	}
+
 	div.cm = cm_map_table[numerator - 16];
 
 	/* split 'denominator' to 'CN' and 'CO' */
@@ -667,7 +673,7 @@ static int mipi_dsi_host_init(struct mipi_dsi_info *mipi_dsi)
 
 static int mipi_dsi_dpi_init(struct mipi_dsi_info *mipi_dsi)
 {
-	uint32_t bpp, color_coding, pixel_fmt;
+	uint32_t bpp, color_coding = 0, pixel_fmt = 0;
 	uint32_t pixel_fifo_level, hfp_period, hbp_period, hsa_period;
 	struct fb_videomode *mode = mipi_dsi->mode;
 	struct mipi_lcd_config *lcd_config = mipi_dsi->lcd_config;
