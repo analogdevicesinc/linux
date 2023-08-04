@@ -1949,6 +1949,47 @@ int32_t ipu_link_channels(struct ipu_soc *ipu, ipu_channel_t src_ch, ipu_channel
 		return dest_chan_id;
 	}
 
+	switch (dest_ch) {
+	case MEM_PP_MEM:
+		if (src_ch != MEM_VDOA_MEM) {
+			if (src_chan_id >= ARRAY_SIZE(proc_src_sel)) {
+				dev_err(ipu->dev,
+					"invalid source chan id %d for destination chan id %d\n",
+					src_chan_id, dest_chan_id);
+				return -EINVAL;
+			}
+		}
+		break;
+	case MEM_ROT_PP_MEM:
+	case MEM_PRP_ENC_MEM:
+	case MEM_ROT_ENC_MEM:
+	case MEM_PRP_VF_MEM:
+	case MEM_VDI_PRP_VF_MEM:
+	case MEM_ROT_VF_MEM:
+		if (src_chan_id >= ARRAY_SIZE(proc_src_sel)) {
+			dev_err(ipu->dev,
+				"invalid source chan id %d for destination chan id %d\n",
+				src_chan_id, dest_chan_id);
+			return -EINVAL;
+		}
+		break;
+	case MEM_DC_SYNC:
+	case MEM_BG_SYNC:
+	case MEM_FG_SYNC:
+	case MEM_DC_ASYNC:
+	case MEM_BG_ASYNC0:
+	case MEM_FG_ASYNC0:
+		if (src_chan_id >= ARRAY_SIZE(disp_src_sel)) {
+			dev_err(ipu->dev,
+				"invalid source chan id %d for destination chan id %d\n",
+				src_chan_id, dest_chan_id);
+			return -EINVAL;
+		}
+		break;
+	default:
+		break;
+	}
+
 	mutex_lock(&ipu->mutex_lock);
 
 	fs_proc_flow1 = ipu_cm_read(ipu, IPU_FS_PROC_FLOW1);
