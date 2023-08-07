@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -28,6 +28,7 @@
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #include "mali_kbase_csf_tl_reader.h"
+#include <linux/version_compat_defs.h>
 
 #define MAX_SCHED_STATE_STRING_LEN (16)
 static const char *scheduler_state_to_string(struct kbase_device *kbdev,
@@ -556,14 +557,11 @@ static int kbasep_csf_debugfs_scheduling_timer_kick_set(
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(kbasep_csf_debugfs_scheduling_timer_enabled_fops,
-		&kbasep_csf_debugfs_scheduling_timer_enabled_get,
-		&kbasep_csf_debugfs_scheduling_timer_enabled_set,
-		"%llu\n");
-DEFINE_SIMPLE_ATTRIBUTE(kbasep_csf_debugfs_scheduling_timer_kick_fops,
-		NULL,
-		&kbasep_csf_debugfs_scheduling_timer_kick_set,
-		"%llu\n");
+DEFINE_DEBUGFS_ATTRIBUTE(kbasep_csf_debugfs_scheduling_timer_enabled_fops,
+			 &kbasep_csf_debugfs_scheduling_timer_enabled_get,
+			 &kbasep_csf_debugfs_scheduling_timer_enabled_set, "%llu\n");
+DEFINE_DEBUGFS_ATTRIBUTE(kbasep_csf_debugfs_scheduling_timer_kick_fops, NULL,
+			 &kbasep_csf_debugfs_scheduling_timer_kick_set, "%llu\n");
 
 /**
  * kbase_csf_debugfs_scheduler_state_get() - Get the state of scheduler.
