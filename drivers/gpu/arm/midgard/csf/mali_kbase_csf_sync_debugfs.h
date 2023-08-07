@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2014, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -19,26 +19,19 @@
  *
  */
 
+#ifndef _KBASE_CSF_SYNC_DEBUGFS_H_
+#define _KBASE_CSF_SYNC_DEBUGFS_H_
+
+/* Forward declaration */
+struct kbase_context;
+
+#define MALI_CSF_SYNC_DEBUGFS_VERSION 0
+
 /**
- * DOC: Base kernel APIs, Linux implementation.
+ * kbase_csf_sync_debugfs_init() - Create a debugfs entry for CSF queue sync info
+ *
+ * @kctx: The kbase_context for which to create the debugfs entry
  */
+void kbase_csf_sync_debugfs_init(struct kbase_context *kctx);
 
-#ifndef _KBASE_LINUX_H_
-#define _KBASE_LINUX_H_
-
-/* All things that are needed for the Linux port. */
-#include <linux/platform_device.h>
-#include <linux/miscdevice.h>
-#include <linux/list.h>
-#include <linux/module.h>
-#include <linux/atomic.h>
-
-#if IS_ENABLED(MALI_KERNEL_TEST_API)
-	#define KBASE_EXPORT_TEST_API(func) EXPORT_SYMBOL(func)
-#else
-	#define KBASE_EXPORT_TEST_API(func)
-#endif
-
-#define KBASE_EXPORT_SYMBOL(func) EXPORT_SYMBOL(func)
-
-#endif /* _KBASE_LINUX_H_ */
+#endif /* _KBASE_CSF_SYNC_DEBUGFS_H_ */

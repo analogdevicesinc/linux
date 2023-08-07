@@ -60,6 +60,11 @@
 #define KBASE_DUMMY_MODEL_MAX_SAMPLE_SIZE                                                          \
 	(KBASE_DUMMY_MODEL_MAX_NUM_PERF_BLOCKS * KBASE_DUMMY_MODEL_BLOCK_SIZE)
 
+/*
+ * Bit mask - no. bits set is no. cores
+ * Values obtained from talking to HW team
+ * Example: tODx has 10 cores, 0b11 1111 1111 -> 0x3FF
+ */
 #define DUMMY_IMPLEMENTATION_SHADER_PRESENT (0xFull)
 #define DUMMY_IMPLEMENTATION_SHADER_PRESENT_TBEX (0x7FFFull)
 #define DUMMY_IMPLEMENTATION_SHADER_PRESENT_TODX (0x3FFull)

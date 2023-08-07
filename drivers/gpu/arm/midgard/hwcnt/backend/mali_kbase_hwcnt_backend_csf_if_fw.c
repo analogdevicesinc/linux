@@ -34,13 +34,11 @@
 #include "hwcnt/backend/mali_kbase_hwcnt_backend_csf_if_fw.h"
 #include "mali_kbase_hwaccess_time.h"
 #include "backend/gpu/mali_kbase_clk_rate_trace_mgr.h"
+#include <backend/gpu/mali_kbase_model_linux.h>
 
 #include <linux/log2.h>
 #include "mali_kbase_ccswe.h"
 
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
-#include <backend/gpu/mali_kbase_model_dummy.h>
-#endif /* CONFIG_MALI_NO_MALI */
 
 /* Ring buffer virtual address start at 4GB  */
 #define KBASE_HWC_CSF_RING_BUFFER_VA_START (1ull << 32)
@@ -103,6 +101,8 @@ kbasep_hwcnt_backend_csf_if_fw_assert_lock_held(struct kbase_hwcnt_backend_csf_i
 
 static void kbasep_hwcnt_backend_csf_if_fw_lock(struct kbase_hwcnt_backend_csf_if_ctx *ctx,
 						unsigned long *flags)
+	__acquires(&(struct kbase_hwcnt_backend_csf_if_fw_ctx)
+			    ctx->kbdev->csf.scheduler.interrupt_lock)
 {
 	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx;
 	struct kbase_device *kbdev;
@@ -117,6 +117,8 @@ static void kbasep_hwcnt_backend_csf_if_fw_lock(struct kbase_hwcnt_backend_csf_i
 
 static void kbasep_hwcnt_backend_csf_if_fw_unlock(struct kbase_hwcnt_backend_csf_if_ctx *ctx,
 						  unsigned long flags)
+	__releases(&(struct kbase_hwcnt_backend_csf_if_fw_ctx)
+			    ctx->kbdev->csf.scheduler.interrupt_lock)
 {
 	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx;
 	struct kbase_device *kbdev;

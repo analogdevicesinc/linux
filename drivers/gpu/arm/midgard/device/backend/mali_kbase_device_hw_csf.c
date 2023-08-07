@@ -24,6 +24,7 @@
 #include <backend/gpu/mali_kbase_instr_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <device/mali_kbase_device.h>
+#include <device/mali_kbase_device_internal.h>
 #include <mali_kbase_reset_gpu.h>
 #include <mmu/mali_kbase_mmu.h>
 #include <mali_kbase_ctx_sched.h>
@@ -186,7 +187,7 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 }
 
 #if !IS_ENABLED(CONFIG_MALI_NO_MALI)
-static bool kbase_is_register_accessible(u32 offset)
+bool kbase_is_register_accessible(u32 offset)
 {
 #ifdef CONFIG_MALI_DEBUG
 	if (((offset >= MCU_SUBSYSTEM_BASE) && (offset < IPA_CONTROL_BASE)) ||
@@ -198,7 +199,9 @@ static bool kbase_is_register_accessible(u32 offset)
 
 	return true;
 }
+#endif /* !IS_ENABLED(CONFIG_MALI_NO_MALI) */
 
+#if IS_ENABLED(CONFIG_MALI_REAL_HW)
 void kbase_reg_write(struct kbase_device *kbdev, u32 offset, u32 value)
 {
 	if (WARN_ON(!kbdev->pm.backend.gpu_powered))
@@ -246,4 +249,4 @@ u32 kbase_reg_read(struct kbase_device *kbdev, u32 offset)
 	return val;
 }
 KBASE_EXPORT_TEST_API(kbase_reg_read);
-#endif /* !IS_ENABLED(CONFIG_MALI_NO_MALI) */
+#endif /* IS_ENABLED(CONFIG_MALI_REAL_HW) */

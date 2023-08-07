@@ -277,8 +277,8 @@ struct kbase_kcpu_command {
  * @jit_blocked:		Used to keep track of command queues blocked
  *				by a pending JIT allocation command.
  * @fence_timeout:		Timer used to detect the fence wait timeout.
- * @metadata:      Metadata structure containing basic information about this
- *              queue for any fence objects associated with this queue.
+ * @metadata:                   Metadata structure containing basic information about
+ *                              this queue for any fence objects associated with this queue.
  */
 struct kbase_kcpu_command_queue {
 	struct mutex lock;

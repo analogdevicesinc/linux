@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -39,6 +39,9 @@
 /* Indicate invalid user doorbell number for a GPU command queue
  */
 #define KBASEP_USER_DB_NR_INVALID ((s8)-1)
+
+/* Number of pages used for GPU command queue's User input & output data */
+#define KBASEP_NUM_CS_USER_IO_PAGES (2)
 
 /* Indicates an invalid value for the scan out sequence number, used to
  * signify there is no group that has protected mode execution pending.

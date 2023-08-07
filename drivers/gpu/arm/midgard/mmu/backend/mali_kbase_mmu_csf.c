@@ -551,7 +551,7 @@ void kbase_mmu_gpu_fault_interrupt(struct kbase_device *kbdev, u32 status,
 }
 KBASE_EXPORT_TEST_API(kbase_mmu_gpu_fault_interrupt);
 
-int kbase_mmu_as_init(struct kbase_device *kbdev, int i)
+int kbase_mmu_as_init(struct kbase_device *kbdev, unsigned int i)
 {
 	kbdev->as[i].number = i;
 	kbdev->as[i].bf_data.addr = 0ULL;

@@ -39,7 +39,6 @@
 #include "backend/gpu/mali_kbase_clk_rate_trace_mgr.h"
 #include <csf/ipa_control/mali_kbase_csf_ipa_control.h>
 #include <csf/mali_kbase_csf_registers.h>
-
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/firmware.h>
@@ -286,6 +285,13 @@ static void wait_for_firmware_boot(struct kbase_device *kbdev)
 static void boot_csf_firmware(struct kbase_device *kbdev)
 {
 	kbase_csf_firmware_enable_mcu(kbdev);
+
+#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
+	kbase_debug_coresight_csf_state_request(kbdev, KBASE_DEBUG_CORESIGHT_CSF_ENABLED);
+
+	if (!kbase_debug_coresight_csf_state_wait(kbdev, KBASE_DEBUG_CORESIGHT_CSF_ENABLED))
+		dev_err(kbdev->dev, "Timeout waiting for CoreSight to be enabled");
+#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 
 	wait_for_firmware_boot(kbdev);
 }
@@ -1818,6 +1824,14 @@ static void global_init(struct kbase_device *const kbdev, u64 core_mask)
 	kbase_csf_firmware_global_input(global_iface,
 		GLB_ACK_IRQ_MASK, ack_irq_mask);
 
+#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
+	/* Enable FW MCU read/write debug interfaces */
+	kbase_csf_firmware_global_input_mask(
+		global_iface, GLB_DEBUG_ACK_IRQ_MASK,
+		GLB_DEBUG_REQ_FW_AS_READ_MASK | GLB_DEBUG_REQ_FW_AS_WRITE_MASK,
+		GLB_DEBUG_REQ_FW_AS_READ_MASK | GLB_DEBUG_REQ_FW_AS_WRITE_MASK);
+#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
+
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
@@ -2551,6 +2565,119 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 	/* Release the address space */
 	kbdev->as_free |= MCU_AS_BITMASK;
 }
+
+#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
+int kbase_csf_firmware_mcu_register_write(struct kbase_device *const kbdev, u32 const reg_addr,
+					  u32 const reg_val)
+{
+	struct kbase_csf_global_iface *global_iface = &kbdev->csf.global_iface;
+	unsigned long flags;
+	int err;
+	u32 glb_req;
+
+	mutex_lock(&kbdev->csf.reg_lock);
+	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+
+	/* Set the address and value to write */
+	kbase_csf_firmware_global_input(global_iface, GLB_DEBUG_ARG_IN0, reg_addr);
+	kbase_csf_firmware_global_input(global_iface, GLB_DEBUG_ARG_IN1, reg_val);
+
+	/* Set the Global Debug request for FW MCU write */
+	glb_req = kbase_csf_firmware_global_output(global_iface, GLB_DEBUG_ACK);
+	glb_req ^= GLB_DEBUG_REQ_FW_AS_WRITE_MASK;
+	kbase_csf_firmware_global_input_mask(global_iface, GLB_DEBUG_REQ, glb_req,
+					     GLB_DEBUG_REQ_FW_AS_WRITE_MASK);
+
+	set_global_request(global_iface, GLB_REQ_DEBUG_CSF_REQ_MASK);
+
+	/* Notify FW about the Global Debug request */
+	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
+
+	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+
+	err = wait_for_global_request(kbdev, GLB_REQ_DEBUG_CSF_REQ_MASK);
+
+	mutex_unlock(&kbdev->csf.reg_lock);
+
+	dev_dbg(kbdev->dev, "w: reg %08x val %08x", reg_addr, reg_val);
+
+	return err;
+}
+
+int kbase_csf_firmware_mcu_register_read(struct kbase_device *const kbdev, u32 const reg_addr,
+					 u32 *reg_val)
+{
+	struct kbase_csf_global_iface *global_iface = &kbdev->csf.global_iface;
+	unsigned long flags;
+	int err;
+	u32 glb_req;
+
+	if (WARN_ON(reg_val == NULL))
+		return -EINVAL;
+
+	mutex_lock(&kbdev->csf.reg_lock);
+	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+
+	/* Set the address to read */
+	kbase_csf_firmware_global_input(global_iface, GLB_DEBUG_ARG_IN0, reg_addr);
+
+	/* Set the Global Debug request for FW MCU read */
+	glb_req = kbase_csf_firmware_global_output(global_iface, GLB_DEBUG_ACK);
+	glb_req ^= GLB_DEBUG_REQ_FW_AS_READ_MASK;
+	kbase_csf_firmware_global_input_mask(global_iface, GLB_DEBUG_REQ, glb_req,
+					     GLB_DEBUG_REQ_FW_AS_READ_MASK);
+
+	set_global_request(global_iface, GLB_REQ_DEBUG_CSF_REQ_MASK);
+
+	/* Notify FW about the Global Debug request */
+	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
+
+	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+
+	err = wait_for_global_request(kbdev, GLB_REQ_DEBUG_CSF_REQ_MASK);
+
+	if (!err) {
+		kbase_csf_scheduler_spin_lock(kbdev, &flags);
+		*reg_val = kbase_csf_firmware_global_output(global_iface, GLB_DEBUG_ARG_OUT0);
+		kbase_csf_scheduler_spin_unlock(kbdev, flags);
+	}
+
+	mutex_unlock(&kbdev->csf.reg_lock);
+
+	dev_dbg(kbdev->dev, "r: reg %08x val %08x", reg_addr, *reg_val);
+
+	return err;
+}
+
+int kbase_csf_firmware_mcu_register_poll(struct kbase_device *const kbdev, u32 const reg_addr,
+					 u32 const val_mask, u32 const reg_val)
+{
+	unsigned long remaining = kbase_csf_timeout_in_jiffies(kbdev->csf.fw_timeout_ms) + jiffies;
+	u32 read_val;
+
+	dev_dbg(kbdev->dev, "p: reg %08x val %08x mask %08x", reg_addr, reg_val, val_mask);
+
+	while (time_before(jiffies, remaining)) {
+		int err = kbase_csf_firmware_mcu_register_read(kbdev, reg_addr, &read_val);
+
+		if (err) {
+			dev_err(kbdev->dev,
+				"Error reading MCU register value (read_val = %u, expect = %u)\n",
+				read_val, reg_val);
+			return err;
+		}
+
+		if ((read_val & val_mask) == reg_val)
+			return 0;
+	}
+
+	dev_err(kbdev->dev,
+		"Timeout waiting for MCU register value to be set (read_val = %u, expect = %u)\n",
+		read_val, reg_val);
+
+	return -ETIMEDOUT;
+}
+#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 
 void kbase_csf_firmware_enable_gpu_idle_timer(struct kbase_device *kbdev)
 {

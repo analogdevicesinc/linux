@@ -39,17 +39,10 @@ ifeq ($(CONFIG_MALI_MIDGARD),m)
     CONFIG_MALI_ARBITRATION ?= n
     CONFIG_MALI_PARTITION_MANAGER ?= n
 
-    ifeq ($(origin CONFIG_MALI_ABITER_MODULES), undefined)
-        CONFIG_MALI_ARBITER_MODULES := $(CONFIG_MALI_ARBITRATION)
-    endif
-
-    ifeq ($(origin CONFIG_MALI_GPU_POWER_MODULES), undefined)
-        CONFIG_MALI_GPU_POWER_MODULES := $(CONFIG_MALI_ARBITRATION)
-    endif
-
     ifneq ($(CONFIG_MALI_NO_MALI),y)
         # Prevent misuse when CONFIG_MALI_NO_MALI=y
         CONFIG_MALI_REAL_HW ?= y
+        CONFIG_MALI_CORESIGHT = n
     endif
 
     ifeq ($(CONFIG_MALI_MIDGARD_DVFS),y)
@@ -64,14 +57,9 @@ ifeq ($(CONFIG_MALI_MIDGARD),m)
         CONFIG_MALI_DMA_BUF_LEGACY_COMPAT = n
     endif
 
-    ifeq ($(CONFIG_XEN),y)
-        ifneq ($(CONFIG_MALI_ARBITER_SUPPORT), n)
-            CONFIG_MALI_XEN ?= m
-        endif
-    endif
-
     ifeq ($(CONFIG_MALI_CSF_SUPPORT), y)
         CONFIG_MALI_FW_CORE_DUMP ?= y
+        CONFIG_MALI_CORESIGHT ?= n
     else
         CONFIG_MALI_FW_CORE_DUMP ?= n
     endif
@@ -82,11 +70,13 @@ ifeq ($(CONFIG_MALI_MIDGARD),m)
     ifeq ($(CONFIG_MALI_EXPERT), y)
         ifeq ($(CONFIG_MALI_NO_MALI), y)
             CONFIG_MALI_REAL_HW = n
+
         else
             # Prevent misuse when CONFIG_MALI_NO_MALI=n
             CONFIG_MALI_REAL_HW = y
             CONFIG_MALI_ERROR_INJECT = n
         endif
+
 
         ifeq ($(CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED), y)
             # Prevent misuse when CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED=y
@@ -149,8 +139,6 @@ ifeq ($(CONFIG_MALI_MIDGARD),m)
 else
     # Prevent misuse when CONFIG_MALI_MIDGARD=n
     CONFIG_MALI_ARBITRATION = n
-    CONFIG_MALI_ARBITER_MODULES = n
-    CONFIG_MALI_GPU_POWER_MODULES = n
     CONFIG_MALI_KUTF = n
     CONFIG_MALI_KUTF_IRQ_TEST = n
     CONFIG_MALI_KUTF_CLK_RATE_TRACE = n
@@ -165,8 +153,6 @@ CONFIGS := \
     CONFIG_MALI_GATOR_SUPPORT \
     CONFIG_MALI_ARBITER_SUPPORT \
     CONFIG_MALI_ARBITRATION \
-    CONFIG_MALI_ARBITER_MODULES \
-    CONFIG_MALI_GPU_POWER_MODULES \
     CONFIG_MALI_PARTITION_MANAGER \
     CONFIG_MALI_REAL_HW \
     CONFIG_MALI_GEM5_BUILD \
@@ -197,10 +183,13 @@ CONFIGS := \
     CONFIG_MALI_KUTF_CLK_RATE_TRACE \
     CONFIG_MALI_KUTF_MGM_INTEGRATION_TEST \
     CONFIG_MALI_XEN \
-    CONFIG_MALI_FW_CORE_DUMP
+    CONFIG_MALI_FW_CORE_DUMP \
+    CONFIG_MALI_CORESIGHT
 
 
-#
+THIS_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+-include $(THIS_DIR)/../arbitration/Makefile
+
 # MAKE_ARGS to pass the custom CONFIGs on out-of-tree build
 #
 # Generate the list of CONFIGs and values.
@@ -262,7 +251,8 @@ KBUILD_CFLAGS += -Wdisabled-optimization
 # global variables.
 KBUILD_CFLAGS += $(call cc-option, -Wlogical-op)
 KBUILD_CFLAGS += -Wmissing-field-initializers
-KBUILD_CFLAGS += -Wtype-limits
+# -Wtype-limits must be disabled due to build failures on kernel 5.x
+KBUILD_CFLAGS += -Wno-type-limit
 KBUILD_CFLAGS += $(call cc-option, -Wmaybe-uninitialized)
 KBUILD_CFLAGS += $(call cc-option, -Wunused-macros)
 
@@ -270,6 +260,12 @@ KBUILD_CPPFLAGS += -DKBUILD_EXTRA_WARN2
 
 # This warning is disabled to avoid build failures in some kernel versions
 KBUILD_CFLAGS += -Wno-ignored-qualifiers
+
+ifeq ($(CONFIG_GCOV_KERNEL),y)
+    KBUILD_CFLAGS += $(call cc-option, -ftest-coverage)
+    KBUILD_CFLAGS += $(call cc-option, -fprofile-arcs)
+    EXTRA_CFLAGS += -DGCOV_PROFILE=1
+endif
 
 all:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) $(MAKE_ARGS) EXTRA_CFLAGS="$(EXTRA_CFLAGS)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules

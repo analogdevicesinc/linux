@@ -284,7 +284,14 @@ static void enqueue_free_pool_pages_work(struct kbase_mem_pool *pool)
 
 void kbase_mem_pool_free_page(struct kbase_mem_pool *pool, struct page *p)
 {
-	struct kbase_device *kbdev = pool->kbdev;
+	struct kbase_device *kbdev;
+
+	if (WARN_ON(!pool))
+		return;
+	if (WARN_ON(!p))
+		return;
+
+	kbdev = pool->kbdev;
 
 	if (!pool->order && kbase_page_migration_enabled) {
 		kbase_free_page_later(kbdev, p);
@@ -536,14 +543,16 @@ void kbase_mem_pool_term(struct kbase_mem_pool *pool)
 		/* Zero pages first without holding the next_pool lock */
 		for (i = 0; i < nr_to_spill; i++) {
 			p = kbase_mem_pool_remove_locked(pool, SPILL_IN_PROGRESS);
-			list_add(&p->lru, &spill_list);
+			if (p)
+				list_add(&p->lru, &spill_list);
 		}
 	}
 
 	while (!kbase_mem_pool_is_empty(pool)) {
 		/* Free remaining pages to kernel */
 		p = kbase_mem_pool_remove_locked(pool, FREE_IN_PROGRESS);
-		list_add(&p->lru, &free_list);
+		if (p)
+			list_add(&p->lru, &free_list);
 	}
 
 	kbase_mem_pool_unlock(pool);
@@ -595,17 +604,10 @@ struct page *kbase_mem_pool_alloc(struct kbase_mem_pool *pool)
 
 struct page *kbase_mem_pool_alloc_locked(struct kbase_mem_pool *pool)
 {
-	struct page *p;
-
 	lockdep_assert_held(&pool->pool_lock);
 
 	pool_dbg(pool, "alloc_locked()\n");
-	p = kbase_mem_pool_remove_locked(pool, ALLOCATE_IN_PROGRESS);
-
-	if (p)
-		return p;
-
-	return NULL;
+	return kbase_mem_pool_remove_locked(pool, ALLOCATE_IN_PROGRESS);
 }
 
 void kbase_mem_pool_free(struct kbase_mem_pool *pool, struct page *p,

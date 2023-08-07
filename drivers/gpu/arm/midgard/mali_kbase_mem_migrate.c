@@ -102,6 +102,7 @@ static void kbase_free_page_metadata(struct kbase_device *kbdev, struct page *p,
 	dma_unmap_page(dev, dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
 
 	kfree(page_md);
+	set_page_private(p, 0);
 	ClearPagePrivate(p);
 }
 
@@ -456,13 +457,20 @@ static int kbase_page_migrate(struct page *new_page, struct page *old_page, enum
 		kbase_free_page_later(kbdev, new_page);
 		queue_work(mem_migrate->free_pages_workq, &mem_migrate->free_pages_work);
 	} else if (status_not_movable) {
-		__ClearPageMovable(old_page);
 		err = -EINVAL;
 	} else if (status_mapped) {
 		err = kbasep_migrate_page_allocated_mapped(old_page, new_page);
 	} else if (status_pt_mapped) {
 		err = kbasep_migrate_page_pt_mapped(old_page, new_page);
 	}
+
+	/* While we want to preserve the movability of pages for which we return
+	 * EAGAIN, according to the kernel docs, movable pages for which a critical
+	 * error is returned are called putback on, which may not be what we
+	 * expect.
+	 */
+	if (err < 0 && err != -EAGAIN)
+		__ClearPageMovable(old_page);
 
 	return err;
 }
@@ -484,6 +492,12 @@ static void kbase_page_putback(struct page *p)
 	bool status_free_pt_isolated_in_progress = false;
 	struct kbase_page_metadata *page_md = kbase_page_private(p);
 	struct kbase_device *kbdev = NULL;
+
+	/* If we don't have page metadata, the page may not belong to the
+	 * driver or may already have been freed, and there's nothing we can do
+	 */
+	if (!page_md)
+		return;
 
 	spin_lock(&page_md->migrate_lock);
 

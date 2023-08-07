@@ -55,26 +55,6 @@ enum kbase_mmu_fault_type {
 };
 
 /**
- * enum kbase_mmu_op_type - enum for MMU operations
- * @KBASE_MMU_OP_NONE:        To help catch uninitialized struct
- * @KBASE_MMU_OP_FIRST:       The lower boundary of enum
- * @KBASE_MMU_OP_LOCK:        Lock memory region
- * @KBASE_MMU_OP_UNLOCK:      Unlock memory region
- * @KBASE_MMU_OP_FLUSH_PT:    Flush page table (CLN+INV L2 only)
- * @KBASE_MMU_OP_FLUSH_MEM:   Flush memory (CLN+INV L2+LSC)
- * @KBASE_MMU_OP_COUNT:       The upper boundary of enum
- */
-enum kbase_mmu_op_type {
-	KBASE_MMU_OP_NONE = 0, /* Must be zero */
-	KBASE_MMU_OP_FIRST, /* Must be the first non-zero op */
-	KBASE_MMU_OP_LOCK = KBASE_MMU_OP_FIRST,
-	KBASE_MMU_OP_UNLOCK,
-	KBASE_MMU_OP_FLUSH_PT,
-	KBASE_MMU_OP_FLUSH_MEM,
-	KBASE_MMU_OP_COUNT /* Must be the last in enum */
-};
-
-/**
  * struct kbase_mmu_hw_op_param  - parameters for kbase_mmu_hw_do_* functions
  * @vpfn:           MMU Virtual Page Frame Number to start the operation on.
  * @nr:             Number of pages to work on.

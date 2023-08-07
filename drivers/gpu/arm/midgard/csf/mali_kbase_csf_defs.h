@@ -33,6 +33,10 @@
 #include "mali_kbase_csf_event.h"
 #include <uapi/gpu/arm/midgard/csf/mali_kbase_csf_errors_dumpfault.h>
 
+#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
+#include <debug/backend/mali_kbase_debug_coresight_internal_csf.h>
+#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
+
 /* Maximum number of KCPU command queues to be created per GPU address space.
  */
 #define KBASEP_MAX_KCPU_QUEUES ((size_t)256)
@@ -298,9 +302,9 @@ struct kbase_csf_notification {
  *
  * @kctx:        Pointer to the base context with which this GPU command queue
  *               is associated.
- * @reg:         Pointer to the region allocated from the shared
- *               interface segment for mapping the User mode
- *               input/output pages in MCU firmware address space.
+ * @user_io_gpu_va: The start GPU VA address of this queue's userio pages. Only
+ *                  valid (i.e. not 0 ) when the queue is enabled and its owner
+ *                  group has a runtime bound csg_reg (group region).
  * @phys:        Pointer to the physical pages allocated for the
  *               pair or User mode input/output page
  * @user_io_addr: Pointer to the permanent kernel mapping of User mode
@@ -376,7 +380,7 @@ struct kbase_csf_notification {
  */
 struct kbase_queue {
 	struct kbase_context *kctx;
-	struct kbase_va_region *reg;
+	u64 user_io_gpu_va;
 	struct tagged_addr phys[2];
 	char *user_io_addr;
 	u64 handle;
@@ -421,19 +425,23 @@ struct kbase_queue {
 /**
  * struct kbase_normal_suspend_buffer - Object representing a normal
  *		suspend buffer for queue group.
- * @reg:	Memory region allocated for the normal-mode suspend buffer.
+ * @gpu_va:     The start GPU VA address of the bound suspend buffer. Note, this
+ *              field is only valid when the owner group has a region bound at
+ *              runtime.
  * @phy:	Array of physical memory pages allocated for the normal-
  *		mode suspend buffer.
  */
 struct kbase_normal_suspend_buffer {
-	struct kbase_va_region *reg;
+	u64 gpu_va;
 	struct tagged_addr *phy;
 };
 
 /**
  * struct kbase_protected_suspend_buffer - Object representing a protected
  *		suspend buffer for queue group.
- * @reg:	Memory region allocated for the protected-mode suspend buffer.
+ * @gpu_va:     The start GPU VA address of the bound protected mode suspend buffer.
+ *              Note, this field is only valid when the owner group has a region
+ *              bound at runtime.
  * @pma:	Array of pointer to protected mode allocations containing
  *		information about memory pages allocated for protected mode
  *		suspend	buffer.
@@ -441,7 +449,7 @@ struct kbase_normal_suspend_buffer {
  *			for protected suspend buffers.
  */
 struct kbase_protected_suspend_buffer {
-	struct kbase_va_region *reg;
+	u64 gpu_va;
 	struct protected_memory_allocation **pma;
 	u8 alloc_retries;
 };
@@ -515,6 +523,13 @@ struct kbase_protected_suspend_buffer {
  * @deschedule_deferred_cnt: Counter keeping a track of the number of threads
  *                           that tried to deschedule the group and had to defer
  *                           the descheduling due to the dump on fault.
+ * @csg_reg:     An opaque pointer to the runtime bound shared regions. It is
+ *               dynamically managed by the scheduler and can be NULL if the
+ *               group is off-slot.
+ * @csg_reg_bind_retries: Runtime MCU shared region map operation attempted counts.
+ *                  It is accumulated on consecutive mapping attempt failures. On
+ *                  reaching a preset limit, the group is regarded as suffered
+ *                  a fatal error and triggers a fatal error notification.
  */
 struct kbase_queue_group {
 	struct kbase_context *kctx;
@@ -565,6 +580,8 @@ struct kbase_queue_group {
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	u32 deschedule_deferred_cnt;
 #endif
+	void *csg_reg;
+	u8 csg_reg_bind_retries;
 };
 
 /**
@@ -626,6 +643,8 @@ struct kbase_csf_cpu_queue_context {
  * @lock:     Lock preventing concurrent access to the @in_use bitmap.
  * @in_use:   Bitmap that indicates which heap context structures are currently
  *            allocated (in @region).
+ * @heap_context_size_aligned: Size of a heap context structure, in bytes,
+ *                             aligned to GPU cacheline size.
  *
  * Heap context structures are allocated by the kernel for use by the firmware.
  * The current implementation subdivides a single GPU memory region for use as
@@ -637,6 +656,7 @@ struct kbase_csf_heap_context_allocator {
 	u64 gpu_va;
 	struct mutex lock;
 	DECLARE_BITMAP(in_use, MAX_TILER_HEAPS);
+	u32 heap_context_size_aligned;
 };
 
 /**
@@ -878,6 +898,33 @@ struct kbase_csf_sched_heap_reclaim_mgr {
 };
 
 /**
+ * struct kbase_csf_mcu_shared_regions - Control data for managing the MCU shared
+ *                                       interface segment regions for scheduler
+ *                                       operations
+ *
+ * @array_csg_regs:   Base pointer of an internally created array_csg_regs[].
+ * @unused_csg_regs:  List contains unused csg_regs items. When an item is bound to a
+ *                    group that is placed onto on-slot by the scheduler, it is dropped
+ *                    from the list (i.e busy active). The Scheduler will put an active
+ *                    item back when it's becoming off-slot (not in use).
+ * @dummy_phys:       An array of dummy phys[nr_susp_pages] pages for use with normal
+ *                    and pmode suspend buffers, as a default replacement of a CSG's pages
+ *                    for the MMU mapping when the csg_reg is not bound to a group.
+ * @pma_phys:         Pre-allocated array phy[nr_susp_pages] for transitional use with
+ *                    protected suspend buffer MMU map operations.
+ * @userio_mem_rd_flags: Userio input page's read access mapping configuration flags.
+ * @dummy_phys_allocated: Indicating the @p dummy_phy page is allocated when true.
+ */
+struct kbase_csf_mcu_shared_regions {
+	void *array_csg_regs;
+	struct list_head unused_csg_regs;
+	struct tagged_addr *dummy_phys;
+	struct tagged_addr *pma_phys;
+	unsigned long userio_mem_rd_flags;
+	bool dummy_phys_allocated;
+};
+
+/**
  * struct kbase_csf_scheduler - Object representing the scheduler used for
  *                              CSF for an instance of GPU platform device.
  * @lock:                  Lock to serialize the scheduler operations and
@@ -1011,6 +1058,9 @@ struct kbase_csf_sched_heap_reclaim_mgr {
  *                          @interrupt_lock is used to serialize the access.
  * @protm_enter_time:       GPU protected mode enter time.
  * @reclaim_mgr:            CSGs tiler heap manager object.
+ * @mcu_regs_data:          Scheduler MCU shared regions data for managing the
+ *                          shared interface mappings for on-slot queues and
+ *                          CSG suspend buffers.
  */
 struct kbase_csf_scheduler {
 	struct mutex lock;
@@ -1054,6 +1104,7 @@ struct kbase_csf_scheduler {
 	u32 tick_protm_pending_seq;
 	ktime_t protm_enter_time;
 	struct kbase_csf_sched_heap_reclaim_mgr reclaim_mgr;
+	struct kbase_csf_mcu_shared_regions mcu_regs_data;
 };
 
 /*
@@ -1540,6 +1591,12 @@ struct kbase_csf_device {
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct kbase_csf_dump_on_fault dof;
 #endif /* CONFIG_DEBUG_FS */
+#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
+	/**
+	 * @coresight: Coresight device structure.
+	 */
+	struct kbase_debug_coresight_device coresight;
+#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 };
 
 /**

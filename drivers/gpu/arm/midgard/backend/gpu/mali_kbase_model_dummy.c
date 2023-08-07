@@ -62,8 +62,9 @@
  *      document
  */
 #include <mali_kbase.h>
+#include <device/mali_kbase_device.h>
 #include <gpu/mali_kbase_gpu_regmap.h>
-#include <backend/gpu/mali_kbase_model_dummy.h>
+#include <backend/gpu/mali_kbase_model_linux.h>
 #include <mali_kbase_mem_linux.h>
 
 #if MALI_USE_CSF
@@ -325,21 +326,6 @@ static const struct control_reg_values_t all_control_reg_values[] = {
 	{
 		.name = "tBAx",
 		.gpu_id = GPU_ID2_MAKE(9, 14, 4, 5, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
-		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
-	},
-	{
-		.name = "tDUx",
-		.gpu_id = GPU_ID2_MAKE(10, 2, 0, 1, 0, 0, 0),
 		.as_present = 0xFF,
 		.thread_max_threads = 0x180,
 		.thread_max_workgroup_size = 0x180,
@@ -737,7 +723,7 @@ void gpu_model_glb_request_job_irq(void *model)
 	spin_lock_irqsave(&hw_error_status.access_lock, flags);
 	hw_error_status.job_irq_status |= JOB_IRQ_GLOBAL_IF;
 	spin_unlock_irqrestore(&hw_error_status.access_lock, flags);
-	gpu_device_raise_irq(model, GPU_DUMMY_JOB_IRQ);
+	gpu_device_raise_irq(model, MODEL_LINUX_JOB_IRQ);
 }
 #endif /* !MALI_USE_CSF */
 
@@ -769,7 +755,7 @@ static void init_register_statuses(struct dummy_model_t *dummy)
 	performance_counters.time = 0;
 }
 
-static void update_register_statuses(struct dummy_model_t *dummy, int job_slot)
+static void update_register_statuses(struct dummy_model_t *dummy, unsigned int job_slot)
 {
 	lockdep_assert_held(&hw_error_status.access_lock);
 
@@ -1102,7 +1088,7 @@ static const struct control_reg_values_t *find_control_reg_values(const char *gp
 	return ret;
 }
 
-void *midgard_model_create(const void *config)
+void *midgard_model_create(struct kbase_device *kbdev)
 {
 	struct dummy_model_t *dummy = NULL;
 
@@ -1119,7 +1105,12 @@ void *midgard_model_create(const void *config)
 			GPU_CONTROL_REG(L2_PRESENT_LO), dummy->control_reg_values);
 		performance_counters.shader_present = get_implementation_register(
 			GPU_CONTROL_REG(SHADER_PRESENT_LO), dummy->control_reg_values);
+
+		gpu_device_set_data(dummy, kbdev);
+
+		dev_info(kbdev->dev, "Using Dummy Model");
 	}
+
 	return dummy;
 }
 
@@ -1135,7 +1126,7 @@ static void midgard_model_get_outputs(void *h)
 	lockdep_assert_held(&hw_error_status.access_lock);
 
 	if (hw_error_status.job_irq_status)
-		gpu_device_raise_irq(dummy, GPU_DUMMY_JOB_IRQ);
+		gpu_device_raise_irq(dummy, MODEL_LINUX_JOB_IRQ);
 
 	if ((dummy->power_changed && dummy->power_changed_mask) ||
 	    (dummy->reset_completed & dummy->reset_completed_mask) ||
@@ -1146,10 +1137,10 @@ static void midgard_model_get_outputs(void *h)
 	    (dummy->flush_pa_range_completed && dummy->flush_pa_range_completed_irq_enabled) ||
 #endif
 	    (dummy->clean_caches_completed && dummy->clean_caches_completed_irq_enabled))
-		gpu_device_raise_irq(dummy, GPU_DUMMY_GPU_IRQ);
+		gpu_device_raise_irq(dummy, MODEL_LINUX_GPU_IRQ);
 
 	if (hw_error_status.mmu_irq_rawstat & hw_error_status.mmu_irq_mask)
-		gpu_device_raise_irq(dummy, GPU_DUMMY_MMU_IRQ);
+		gpu_device_raise_irq(dummy, MODEL_LINUX_MMU_IRQ);
 }
 
 static void midgard_model_update(void *h)
@@ -1216,7 +1207,7 @@ static void invalidate_active_jobs(struct dummy_model_t *dummy)
 	}
 }
 
-u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
+void midgard_model_write_reg(void *h, u32 addr, u32 value)
 {
 	unsigned long flags;
 	struct dummy_model_t *dummy = (struct dummy_model_t *)h;
@@ -1226,7 +1217,7 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 #if !MALI_USE_CSF
 	if ((addr >= JOB_CONTROL_REG(JOB_SLOT0)) &&
 			(addr < (JOB_CONTROL_REG(JOB_SLOT15) + 0x80))) {
-		int slot_idx = (addr >> 7) & 0xf;
+		unsigned int slot_idx = (addr >> 7) & 0xf;
 
 		KBASE_DEBUG_ASSERT(slot_idx < NUM_SLOTS);
 		if (addr == JOB_SLOT_REG(slot_idx, JS_HEAD_NEXT_LO)) {
@@ -1608,11 +1599,9 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 	midgard_model_update(dummy);
 	midgard_model_get_outputs(dummy);
 	spin_unlock_irqrestore(&hw_error_status.access_lock, flags);
-
-	return 1;
 }
 
-u8 midgard_model_read_reg(void *h, u32 addr, u32 * const value)
+void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 {
 	unsigned long flags;
 	struct dummy_model_t *dummy = (struct dummy_model_t *)h;
@@ -2052,8 +2041,6 @@ u8 midgard_model_read_reg(void *h, u32 addr, u32 * const value)
 
 	spin_unlock_irqrestore(&hw_error_status.access_lock, flags);
 	CSTD_UNUSED(dummy);
-
-	return 1;
 }
 
 static u32 set_user_sample_core_type(u64 *counters, u32 *usr_data_start, u32 usr_data_offset,
@@ -2228,4 +2215,17 @@ int gpu_model_control(void *model,
 	spin_unlock_irqrestore(&hw_error_status.access_lock, flags);
 
 	return 0;
+}
+
+/**
+ * kbase_is_gpu_removed - Has the GPU been removed.
+ * @kbdev:    Kbase device pointer
+ *
+ * This function would return true if the GPU has been removed.
+ * It is stubbed here
+ * Return: Always false
+ */
+bool kbase_is_gpu_removed(struct kbase_device *kbdev)
+{
+	return false;
 }

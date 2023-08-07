@@ -32,7 +32,7 @@
 #include "mali_kbase_csf_scheduler.h"
 #include "mmu/mali_kbase_mmu.h"
 #include "backend/gpu/mali_kbase_clk_rate_trace_mgr.h"
-#include <backend/gpu/mali_kbase_model_dummy.h>
+#include <backend/gpu/mali_kbase_model_linux.h>
 #include <csf/mali_kbase_csf_registers.h>
 
 #include <linux/list.h>
@@ -1230,8 +1230,6 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 
 	/* NO_MALI: Don't stop firmware or unload MMU tables */
 
-	kbase_mmu_term(kbdev, &kbdev->csf.mcu_mmu);
-
 	kbase_csf_scheduler_term(kbdev);
 
 	kbase_csf_free_dummy_user_reg_page(kbdev);
@@ -1261,6 +1259,8 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 	 * entry parsed from the firmware image.
 	 */
 	kbase_mcu_shared_interface_region_tracker_term(kbdev);
+
+	kbase_mmu_term(kbdev, &kbdev->csf.mcu_mmu);
 }
 
 void kbase_csf_firmware_enable_gpu_idle_timer(struct kbase_device *kbdev)

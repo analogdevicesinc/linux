@@ -1026,7 +1026,7 @@ struct kbase_device {
 	char devname[DEVNAME_SIZE];
 	u32  id;
 
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
+#if !IS_ENABLED(CONFIG_MALI_REAL_HW)
 	void *model;
 	struct kmem_cache *irq_slab;
 	struct workqueue_struct *irq_workq;
@@ -1034,7 +1034,7 @@ struct kbase_device {
 	atomic_t serving_gpu_irq;
 	atomic_t serving_mmu_irq;
 	spinlock_t reg_op_lock;
-#endif /* CONFIG_MALI_NO_MALI */
+#endif /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
 	struct kbase_pm_device_data pm;
 
 	struct kbase_mem_pool_group mem_pools;

@@ -449,6 +449,50 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev);
  */
 void kbase_csf_firmware_unload_term(struct kbase_device *kbdev);
 
+#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
+/**
+ * kbase_csf_firmware_mcu_register_write - Write to MCU register
+ *
+ * @kbdev:    Instance of a gpu platform device that implements a csf interface.
+ * @reg_addr: Register address to write into
+ * @reg_val:  Value to be written
+ *
+ * Write a desired value to a register in MCU address space.
+ *
+ * return: 0 on success, or negative on failure.
+ */
+int kbase_csf_firmware_mcu_register_write(struct kbase_device *const kbdev, u32 const reg_addr,
+					  u32 const reg_val);
+/**
+ * kbase_csf_firmware_mcu_register_read - Read from MCU register
+ *
+ * @kbdev:    Instance of a gpu platform device that implements a csf interface.
+ * @reg_addr: Register address to read from
+ * @reg_val:  Value as present in reg_addr register
+ *
+ * Read a value from MCU address space.
+ *
+ * return: 0 on success, or negative on failure.
+ */
+int kbase_csf_firmware_mcu_register_read(struct kbase_device *const kbdev, u32 const reg_addr,
+					 u32 *reg_val);
+
+/**
+ * kbase_csf_firmware_mcu_register_poll - Poll MCU register
+ *
+ * @kbdev:    Instance of a gpu platform device that implements a csf interface.
+ * @reg_addr: Register address to read from
+ * @val_mask: Value to mask the read value for comparison
+ * @reg_val:  Value to be compared against
+ *
+ * Continue to read a value from MCU address space until it matches given mask and value.
+ *
+ * return: 0 on success, or negative on failure.
+ */
+int kbase_csf_firmware_mcu_register_poll(struct kbase_device *const kbdev, u32 const reg_addr,
+					 u32 const val_mask, u32 const reg_val);
+#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
+
 /**
  * kbase_csf_firmware_ping - Send the ping request to firmware.
  *
