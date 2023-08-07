@@ -697,10 +697,10 @@ static void wait_mcu_as_inactive(struct kbase_device *kbdev)
  * @kbdev:  Pointer to the device
  * @enable: boolean indicating to enable interrupts or not
  *
- * The POWER_CHANGED_ALL and POWER_CHANGED_SINGLE interrupts can be disabled
- * after L2 has been turned on when FW is controlling the power for the shader
- * cores. Correspondingly, the interrupts can be re-enabled after the MCU has
- * been disabled before the power down of L2.
+ * The POWER_CHANGED_ALL interrupt can be disabled after L2 has been turned on
+ * when FW is controlling the power for the shader cores. Correspondingly, the
+ * interrupts can be re-enabled after the MCU has been disabled before the
+ * power down of L2.
  */
 static void kbasep_pm_toggle_power_interrupt(struct kbase_device *kbdev, bool enable)
 {
@@ -710,10 +710,12 @@ static void kbasep_pm_toggle_power_interrupt(struct kbase_device *kbdev, bool en
 
 	irq_mask = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK));
 
-	if (enable)
-		irq_mask |= POWER_CHANGED_ALL | POWER_CHANGED_SINGLE;
-	else
-		irq_mask &= ~(POWER_CHANGED_ALL | POWER_CHANGED_SINGLE);
+	if (enable) {
+		irq_mask |= POWER_CHANGED_ALL;
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), POWER_CHANGED_ALL);
+	} else {
+		irq_mask &= ~POWER_CHANGED_ALL;
+	}
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK), irq_mask);
 }
@@ -1182,6 +1184,12 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 		switch (backend->l2_state) {
 		case KBASE_L2_OFF:
 			if (kbase_pm_is_l2_desired(kbdev)) {
+#if MALI_USE_CSF && defined(KBASE_PM_RUNTIME)
+				/* Enable HW timer of IPA control before
+				 * L2 cache is powered-up.
+				 */
+				kbase_ipa_control_handle_gpu_sleep_exit(kbdev);
+#endif
 				/*
 				 * Set the desired config for L2 before
 				 * powering it on
@@ -1437,12 +1445,26 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 				/* We only need to check the L2 here - if the L2
 				 * is off then the tiler is definitely also off.
 				 */
-				if (!l2_trans && !l2_ready)
+				if (!l2_trans && !l2_ready) {
+#if MALI_USE_CSF && defined(KBASE_PM_RUNTIME)
+					/* Allow clock gating within the GPU and prevent it
+					 * from being seen as active during sleep.
+					 */
+					kbase_ipa_control_handle_gpu_sleep_enter(kbdev);
+#endif
 					/* L2 is now powered off */
 					backend->l2_state = KBASE_L2_OFF;
+				}
 			} else {
-				if (!kbdev->cache_clean_in_progress)
+				if (!kbdev->cache_clean_in_progress) {
+#if MALI_USE_CSF && defined(KBASE_PM_RUNTIME)
+					/* Allow clock gating within the GPU and prevent it
+					 * from being seen as active during sleep.
+					 */
+					kbase_ipa_control_handle_gpu_sleep_enter(kbdev);
+#endif
 					backend->l2_state = KBASE_L2_OFF;
+				}
 			}
 			break;
 
@@ -1925,7 +1947,7 @@ static bool kbase_pm_is_in_desired_state_nolock(struct kbase_device *kbdev)
 			kbdev->pm.backend.shaders_state != KBASE_SHADERS_OFF_CORESTACK_OFF)
 		in_desired_state = false;
 #else
-	in_desired_state = kbase_pm_mcu_is_in_desired_state(kbdev);
+	in_desired_state &= kbase_pm_mcu_is_in_desired_state(kbdev);
 #endif
 
 	return in_desired_state;
@@ -2328,6 +2350,66 @@ int kbase_pm_wait_for_desired_state(struct kbase_device *kbdev)
 }
 KBASE_EXPORT_TEST_API(kbase_pm_wait_for_desired_state);
 
+#if MALI_USE_CSF
+/**
+ * core_mask_update_done - Check if downscaling of shader cores is done
+ *
+ * @kbdev: The kbase device structure for the device.
+ *
+ * This function checks if the downscaling of cores is effectively complete.
+ *
+ * Return: true if the downscale is done.
+ */
+static bool core_mask_update_done(struct kbase_device *kbdev)
+{
+	bool update_done = false;
+	unsigned long flags;
+
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	/* If MCU is in stable ON state then it implies that the downscale
+	 * request had completed.
+	 * If MCU is not active then it implies all cores are off, so can
+	 * consider the downscale request as complete.
+	 */
+	if ((kbdev->pm.backend.mcu_state == KBASE_MCU_ON) ||
+	    kbase_pm_is_mcu_inactive(kbdev, kbdev->pm.backend.mcu_state))
+		update_done = true;
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
+	return update_done;
+}
+
+int kbase_pm_wait_for_cores_down_scale(struct kbase_device *kbdev)
+{
+	long timeout = kbase_csf_timeout_in_jiffies(kbase_get_timeout_ms(kbdev, CSF_PM_TIMEOUT));
+	long remaining;
+	int err = 0;
+
+	/* Wait for core mask update to complete  */
+#if KERNEL_VERSION(4, 13, 1) <= LINUX_VERSION_CODE
+	remaining = wait_event_killable_timeout(
+		kbdev->pm.backend.gpu_in_desired_state_wait,
+		core_mask_update_done(kbdev), timeout);
+#else
+	remaining = wait_event_timeout(
+		kbdev->pm.backend.gpu_in_desired_state_wait,
+		core_mask_update_done(kbdev), timeout);
+#endif
+
+	if (!remaining) {
+		kbase_pm_timed_out(kbdev);
+		err = -ETIMEDOUT;
+	} else if (remaining < 0) {
+		dev_info(
+			kbdev->dev,
+			"Wait for cores down scaling got interrupted");
+		err = (int)remaining;
+	}
+
+	return err;
+}
+#endif
+
 void kbase_pm_enable_interrupts(struct kbase_device *kbdev)
 {
 	unsigned long flags;
@@ -2391,14 +2473,21 @@ static void update_user_reg_page_mapping(struct kbase_device *kbdev)
 	lockdep_assert_held(&kbdev->pm.lock);
 
 	mutex_lock(&kbdev->csf.reg_lock);
-	if (kbdev->csf.mali_file_inode) {
-		/* This would zap the pte corresponding to the mapping of User
-		 * register page for all the Kbase contexts.
-		 */
-		unmap_mapping_range(kbdev->csf.mali_file_inode->i_mapping,
-				    BASEP_MEM_CSF_USER_REG_PAGE_HANDLE,
-				    PAGE_SIZE, 1);
+
+	/* Only if the mappings for USER page exist, update all PTEs associated to it */
+	if (kbdev->csf.nr_user_page_mapped > 0) {
+		if (likely(kbdev->csf.mali_file_inode)) {
+			/* This would zap the pte corresponding to the mapping of User
+			 * register page for all the Kbase contexts.
+			 */
+			unmap_mapping_range(kbdev->csf.mali_file_inode->i_mapping,
+					    BASEP_MEM_CSF_USER_REG_PAGE_HANDLE, PAGE_SIZE, 1);
+		} else {
+			dev_err(kbdev->dev,
+				"Device file inode not exist even if USER page previously mapped");
+		}
 	}
+
 	mutex_unlock(&kbdev->csf.reg_lock);
 }
 #endif

@@ -1046,16 +1046,6 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 	kbdev->csf.fw_timeout_ms =
 		kbase_get_timeout_ms(kbdev, CSF_FIRMWARE_TIMEOUT);
 
-	kbdev->csf.gpu_idle_hysteresis_ms = FIRMWARE_IDLE_HYSTERESIS_TIME_MS;
-#ifdef KBASE_PM_RUNTIME
-	if (kbase_pm_gpu_sleep_allowed(kbdev))
-		kbdev->csf.gpu_idle_hysteresis_ms /=
-			FIRMWARE_IDLE_HYSTERESIS_GPU_SLEEP_SCALER;
-#endif
-	WARN_ON(!kbdev->csf.gpu_idle_hysteresis_ms);
-	kbdev->csf.gpu_idle_dur_count = convert_dur_to_idle_count(
-		kbdev, kbdev->csf.gpu_idle_hysteresis_ms);
-
 	INIT_LIST_HEAD(&kbdev->csf.firmware_interfaces);
 	INIT_LIST_HEAD(&kbdev->csf.firmware_config);
 	INIT_LIST_HEAD(&kbdev->csf.firmware_trace_buffers.list);
@@ -1068,7 +1058,21 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 	return 0;
 }
 
-int kbase_csf_firmware_init(struct kbase_device *kbdev)
+int kbase_csf_firmware_late_init(struct kbase_device *kbdev)
+{
+	kbdev->csf.gpu_idle_hysteresis_ms = FIRMWARE_IDLE_HYSTERESIS_TIME_MS;
+#ifdef KBASE_PM_RUNTIME
+	if (kbase_pm_gpu_sleep_allowed(kbdev))
+		kbdev->csf.gpu_idle_hysteresis_ms /= FIRMWARE_IDLE_HYSTERESIS_GPU_SLEEP_SCALER;
+#endif
+	WARN_ON(!kbdev->csf.gpu_idle_hysteresis_ms);
+	kbdev->csf.gpu_idle_dur_count =
+		convert_dur_to_idle_count(kbdev, kbdev->csf.gpu_idle_hysteresis_ms);
+
+	return 0;
+}
+
+int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 {
 	int ret;
 
@@ -1134,11 +1138,11 @@ int kbase_csf_firmware_init(struct kbase_device *kbdev)
 	return 0;
 
 error:
-	kbase_csf_firmware_term(kbdev);
+	kbase_csf_firmware_unload_term(kbdev);
 	return ret;
 }
 
-void kbase_csf_firmware_term(struct kbase_device *kbdev)
+void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 {
 	cancel_work_sync(&kbdev->csf.fw_error_work);
 

@@ -56,6 +56,15 @@
 	((CHUNK_HDR_NEXT_ADDR_MASK >> CHUNK_HDR_NEXT_ADDR_POS) << \
 	 CHUNK_HDR_NEXT_ADDR_ENCODE_SHIFT)
 
+/* Tiler heap shrink stop limit for maintaining a minimum number of chunks */
+#define HEAP_SHRINK_STOP_LIMIT (1)
+
+/* Tiler heap shrinker seek value, needs to be higher than jit and memory pools */
+#define HEAP_SHRINKER_SEEKS (DEFAULT_SEEKS + 2)
+
+/* Tiler heap shrinker batch value */
+#define HEAP_SHRINKER_BATCH (512)
+
 /**
  * struct kbase_csf_tiler_heap_chunk - A tiler heap chunk managed by the kernel
  *
@@ -78,6 +87,8 @@ struct kbase_csf_tiler_heap_chunk {
 	u64 gpu_va;
 };
 
+#define HEAP_BUF_DESCRIPTOR_CHECKED (1 << 0)
+
 /**
  * struct kbase_csf_tiler_heap - A tiler heap managed by the kernel
  *
@@ -85,6 +96,16 @@ struct kbase_csf_tiler_heap_chunk {
  *                   associated.
  * @link:            Link to this heap in a list of tiler heaps belonging to
  *                   the @kbase_csf_tiler_heap_context.
+ * @chunks_list:     Linked list of allocated chunks.
+ * @gpu_va:          The GPU virtual address of the heap context structure that
+ *                   was allocated for the firmware. This is also used to
+ *                   uniquely identify the heap.
+ * @heap_id:         Unique id representing the heap, assigned during heap
+ *                   initialization.
+ * @buf_desc_va:     Buffer decsriptor GPU VA. Can be 0 for backward compatible
+ *                   to earlier version base interfaces.
+ * @buf_desc_reg:    Pointer to the VA region that covers the provided buffer
+ *                   descriptor memory object pointed to by buf_desc_va.
  * @chunk_size:      Size of each chunk, in bytes. Must be page-aligned.
  * @chunk_count:     The number of chunks currently allocated. Must not be
  *                   zero or greater than @max_chunks.
@@ -93,22 +114,56 @@ struct kbase_csf_tiler_heap_chunk {
  * @target_in_flight: Number of render-passes that the driver should attempt
  *                    to keep in flight for which allocation of new chunks is
  *                    allowed. Must not be zero.
- * @gpu_va:          The GPU virtual address of the heap context structure that
- *                   was allocated for the firmware. This is also used to
- *                   uniquely identify the heap.
- * @heap_id:         Unique id representing the heap, assigned during heap
- *                   initialization.
- * @chunks_list:     Linked list of allocated chunks.
+ * @desc_chk_flags:  Runtime sanity check flags on heap chunk reclaim.
+ * @desc_chk_cnt:    Counter for providing a deferral gap if runtime sanity check
+ *                   needs to be retried later.
  */
 struct kbase_csf_tiler_heap {
 	struct kbase_context *kctx;
 	struct list_head link;
+	struct list_head chunks_list;
+	u64 gpu_va;
+	u64 heap_id;
+	u64 buf_desc_va;
+	struct kbase_va_region *buf_desc_reg;
 	u32 chunk_size;
 	u32 chunk_count;
 	u32 max_chunks;
 	u16 target_in_flight;
-	u64 gpu_va;
-	u64 heap_id;
-	struct list_head chunks_list;
+	u8 desc_chk_flags;
+	u8 desc_chk_cnt;
 };
+
+/**
+ * struct kbase_csf_gpu_buffer_heap - A gpu buffer object specific to tiler heap
+ *
+ * @cdsbp_0:       Descriptor_type and buffer_type
+ * @size:          The size of the current heap chunk
+ * @pointer:       Pointer to the current heap chunk
+ * @low_pointer:   Pointer to low end of current heap chunk
+ * @high_pointer:  Pointer to high end of current heap chunk
+ */
+struct kbase_csf_gpu_buffer_heap {
+	u32 cdsbp_0;
+	u32 size;
+	u64 pointer;
+	u64 low_pointer;
+	u64 high_pointer;
+} __packed;
+
+/**
+ * struct kbase_csf_tiler_heap_shrink_control - Kbase wraper object that wraps around
+ *                                              kernel shrink_control
+ *
+ * @sc:          Pointer to shrinker control object in reclaim callback.
+ * @count_cb:    Functin pointer for counting tiler heap free list.
+ * @scan_cb:     Functin pointer for counting tiler heap free list.
+ */
+
+struct kbase_csf_tiler_heap_shrink_control {
+	struct shrink_control *sc;
+	u32 (*count_cb)(struct kbase_context *kctx);
+	u32 (*scan_cb)(struct kbase_context *kctx, u32 pages);
+};
+
 #endif /* !_KBASE_CSF_TILER_HEAP_DEF_H_ */

@@ -1649,8 +1649,6 @@ void kbase_free_alloced_region(struct kbase_va_region *reg)
 		 * on the list at termination time of the region tracker.
 		 */
 		if (!list_empty(&reg->gpu_alloc->evict_node)) {
-			mutex_unlock(&kctx->jit_evict_lock);
-
 			/*
 			 * Unlink the physical allocation before unmaking it
 			 * evictable so that the allocation isn't grown back to
@@ -1660,6 +1658,8 @@ void kbase_free_alloced_region(struct kbase_va_region *reg)
 			reg->cpu_alloc->reg = NULL;
 			if (reg->cpu_alloc != reg->gpu_alloc)
 				reg->gpu_alloc->reg = NULL;
+
+			mutex_unlock(&kctx->jit_evict_lock);
 
 			/*
 			 * If a region has been made evictable then we must
@@ -1812,8 +1812,8 @@ bad_insert:
 
 KBASE_EXPORT_TEST_API(kbase_gpu_mmap);
 
-static void kbase_jd_user_buf_unmap(struct kbase_context *kctx,
-		struct kbase_mem_phy_alloc *alloc, bool writeable);
+static void kbase_jd_user_buf_unmap(struct kbase_context *kctx, struct kbase_mem_phy_alloc *alloc,
+				    struct kbase_va_region *reg, bool writeable);
 
 int kbase_gpu_munmap(struct kbase_context *kctx, struct kbase_va_region *reg)
 {
@@ -1879,7 +1879,7 @@ int kbase_gpu_munmap(struct kbase_context *kctx, struct kbase_va_region *reg)
 
 			/* The allocation could still have active mappings. */
 			if (user_buf->current_mapping_usage_count == 0) {
-				kbase_jd_user_buf_unmap(kctx, alloc,
+				kbase_jd_user_buf_unmap(kctx, alloc, reg,
 							(reg->flags &
 							 (KBASE_REG_CPU_WR | KBASE_REG_GPU_WR)));
 			}
@@ -2186,27 +2186,6 @@ int kbase_mem_free_region(struct kbase_context *kctx, struct kbase_va_region *re
 	if (reg->flags & KBASE_REG_NO_USER_FREE) {
 		dev_warn(kctx->kbdev->dev, "Attempt to free GPU memory whose freeing by user space is forbidden!\n");
 		return -EINVAL;
-	}
-
-	/*
-	 * Unlink the physical allocation before unmaking it evictable so
-	 * that the allocation isn't grown back to its last backed size
-	 * as we're going to unmap it anyway.
-	 */
-	reg->cpu_alloc->reg = NULL;
-	if (reg->cpu_alloc != reg->gpu_alloc)
-		reg->gpu_alloc->reg = NULL;
-
-	/*
-	 * If a region has been made evictable then we must unmake it
-	 * before trying to free it.
-	 * If the memory hasn't been reclaimed it will be unmapped and freed
-	 * below, if it has been reclaimed then the operations below are no-ops.
-	 */
-	if (reg->flags & KBASE_REG_DONT_NEED) {
-		KBASE_DEBUG_ASSERT(reg->cpu_alloc->type ==
-				   KBASE_MEM_TYPE_NATIVE);
-		kbase_mem_evictable_unmake(reg->gpu_alloc);
 	}
 
 	err = kbase_gpu_munmap(kctx, reg);
@@ -3061,6 +3040,13 @@ KBASE_EXPORT_TEST_API(kbase_free_phy_pages_helper_locked);
 /**
  * kbase_jd_user_buf_unpin_pages - Release the pinned pages of a user buffer.
  * @alloc: The allocation for the imported user buffer.
+ *
+ * This must only be called when terminating an alloc, when its refcount
+ * (number of users) has become 0. This also ensures it is only called once all
+ * CPU mappings have been closed.
+ *
+ * Instead call kbase_jd_user_buf_unmap() if you need to unpin pages on active
+ * allocations
  */
 static void kbase_jd_user_buf_unpin_pages(struct kbase_mem_phy_alloc *alloc);
 #endif
@@ -3774,6 +3760,7 @@ int kbase_jit_init(struct kbase_context *kctx)
 	INIT_WORK(&kctx->jit_work, kbase_jit_destroy_worker);
 
 #if MALI_USE_CSF
+	spin_lock_init(&kctx->csf.kcpu_queues.jit_lock);
 	INIT_LIST_HEAD(&kctx->csf.kcpu_queues.jit_cmds_head);
 	INIT_LIST_HEAD(&kctx->csf.kcpu_queues.jit_blocked_queues);
 #else /* !MALI_USE_CSF */
@@ -4211,9 +4198,7 @@ static bool jit_allow_allocate(struct kbase_context *kctx,
 		const struct base_jit_alloc_info *info,
 		bool ignore_pressure_limit)
 {
-#if MALI_USE_CSF
-	lockdep_assert_held(&kctx->csf.kcpu_queues.lock);
-#else
+#if !MALI_USE_CSF
 	lockdep_assert_held(&kctx->jctx.lock);
 #endif
 
@@ -4306,9 +4291,7 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 	 */
 	const enum kbase_caller_mmu_sync_info mmu_sync_info = CALLER_MMU_SYNC;
 
-#if MALI_USE_CSF
-	lockdep_assert_held(&kctx->csf.kcpu_queues.lock);
-#else
+#if !MALI_USE_CSF
 	lockdep_assert_held(&kctx->jctx.lock);
 #endif
 
@@ -4611,7 +4594,6 @@ bool kbase_jit_evict(struct kbase_context *kctx)
 		reg = list_entry(kctx->jit_pool_head.prev,
 				struct kbase_va_region, jit_node);
 		list_del(&reg->jit_node);
-		list_del_init(&reg->gpu_alloc->evict_node);
 	}
 	mutex_unlock(&kctx->jit_evict_lock);
 
@@ -4636,10 +4618,12 @@ void kbase_jit_term(struct kbase_context *kctx)
 		walker = list_first_entry(&kctx->jit_pool_head,
 				struct kbase_va_region, jit_node);
 		list_del(&walker->jit_node);
-		list_del_init(&walker->gpu_alloc->evict_node);
 		mutex_unlock(&kctx->jit_evict_lock);
-		walker->flags &= ~KBASE_REG_NO_USER_FREE;
-		kbase_mem_free_region(kctx, walker);
+		/* As context is terminating, directly free the backing pages
+		 * without unmapping them from the GPU as done in
+		 * kbase_region_tracker_erase_rbtree().
+		 */
+		kbase_free_alloced_region(walker);
 		mutex_lock(&kctx->jit_evict_lock);
 	}
 
@@ -4648,10 +4632,8 @@ void kbase_jit_term(struct kbase_context *kctx)
 		walker = list_first_entry(&kctx->jit_active_head,
 				struct kbase_va_region, jit_node);
 		list_del(&walker->jit_node);
-		list_del_init(&walker->gpu_alloc->evict_node);
 		mutex_unlock(&kctx->jit_evict_lock);
-		walker->flags &= ~KBASE_REG_NO_USER_FREE;
-		kbase_mem_free_region(kctx, walker);
+		kbase_free_alloced_region(walker);
 		mutex_lock(&kctx->jit_evict_lock);
 	}
 #if MALI_JIT_PRESSURE_LIMIT_BASE
@@ -4764,7 +4746,23 @@ void kbase_unpin_user_buf_page(struct page *page)
 #if MALI_USE_CSF
 static void kbase_jd_user_buf_unpin_pages(struct kbase_mem_phy_alloc *alloc)
 {
-	if (alloc->nents) {
+	/* In CSF builds, we keep pages pinned until the last reference is
+	 * released on the alloc. A refcount of 0 also means we can be sure
+	 * that all CPU mappings have been closed on this alloc, and no more
+	 * mappings of it will be created.
+	 *
+	 * Further, the WARN() below captures the restriction that this
+	 * function will not handle anything other than the alloc termination
+	 * path, because the caller of kbase_mem_phy_alloc_put() is not
+	 * required to hold the kctx's reg_lock, and so we could not handle
+	 * removing an existing CPU mapping here.
+	 *
+	 * Refer to this function's kernel-doc comments for alternatives for
+	 * unpinning a User buffer.
+	 */
+
+	if (alloc->nents && !WARN(kref_read(&alloc->kref) != 0,
+				  "must only be called on terminating an allocation")) {
 		struct page **pages = alloc->imported.user_buf.pages;
 		long i;
 
@@ -4772,6 +4770,8 @@ static void kbase_jd_user_buf_unpin_pages(struct kbase_mem_phy_alloc *alloc)
 
 		for (i = 0; i < alloc->nents; i++)
 			kbase_unpin_user_buf_page(pages[i]);
+
+		alloc->nents = 0;
 	}
 }
 #endif
@@ -4786,6 +4786,8 @@ int kbase_jd_user_buf_pin_pages(struct kbase_context *kctx,
 	long pinned_pages;
 	long i;
 	int write;
+
+	lockdep_assert_held(&kctx->reg_lock);
 
 	if (WARN_ON(alloc->type != KBASE_MEM_TYPE_IMPORTED_USER_BUF))
 		return -EINVAL;
@@ -4817,6 +4819,9 @@ int kbase_jd_user_buf_pin_pages(struct kbase_context *kctx,
 		return pinned_pages;
 
 	if (pinned_pages != alloc->imported.user_buf.nr_pages) {
+		/* Above code already ensures there will not have been a CPU
+		 * mapping by ensuring alloc->nents is 0
+		 */
 		for (i = 0; i < pinned_pages; i++)
 			kbase_unpin_user_buf_page(pages[i]);
 		return -ENOMEM;
@@ -4830,22 +4835,25 @@ int kbase_jd_user_buf_pin_pages(struct kbase_context *kctx,
 static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 		struct kbase_va_region *reg)
 {
-	long pinned_pages;
+	int err;
+	long pinned_pages = 0;
 	struct kbase_mem_phy_alloc *alloc;
 	struct page **pages;
 	struct tagged_addr *pa;
-	long i;
+	long i, dma_mapped_pages;
 	unsigned long address;
 	struct device *dev;
-	unsigned long offset;
-	unsigned long local_size;
+	unsigned long offset_within_page;
+	unsigned long remaining_size;
 	unsigned long gwt_mask = ~0;
-	int err = kbase_jd_user_buf_pin_pages(kctx, reg);
-
 	/* Calls to this function are inherently asynchronous, with respect to
 	 * MMU operations.
 	 */
 	const enum kbase_caller_mmu_sync_info mmu_sync_info = CALLER_MMU_ASYNC;
+
+	lockdep_assert_held(&kctx->reg_lock);
+
+	err = kbase_jd_user_buf_pin_pages(kctx, reg);
 
 	if (err)
 		return err;
@@ -4856,17 +4864,16 @@ static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 	pinned_pages = alloc->nents;
 	pages = alloc->imported.user_buf.pages;
 	dev = kctx->kbdev->dev;
-	offset = address & ~PAGE_MASK;
-	local_size = alloc->imported.user_buf.size;
+	offset_within_page = address & ~PAGE_MASK;
+	remaining_size = alloc->imported.user_buf.size;
 
 	for (i = 0; i < pinned_pages; i++) {
-		dma_addr_t dma_addr;
-		unsigned long min;
-
-		min = MIN(PAGE_SIZE - offset, local_size);
-		dma_addr = dma_map_page(dev, pages[i],
-				offset, min,
+		unsigned long map_size =
+			MIN(PAGE_SIZE - offset_within_page, remaining_size);
+		dma_addr_t dma_addr = dma_map_page(dev, pages[i],
+				offset_within_page, map_size,
 				DMA_BIDIRECTIONAL);
+
 		err = dma_mapping_error(dev, dma_addr);
 		if (err)
 			goto unwind;
@@ -4874,8 +4881,8 @@ static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 		alloc->imported.user_buf.dma_addrs[i] = dma_addr;
 		pa[i] = as_tagged(page_to_phys(pages[i]));
 
-		local_size -= min;
-		offset = 0;
+		remaining_size -= map_size;
+		offset_within_page = 0;
 	}
 
 #ifdef CONFIG_MALI_CINSTR_GWT
@@ -4893,13 +4900,28 @@ static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 	/* fall down */
 unwind:
 	alloc->nents = 0;
-	while (i--) {
+	offset_within_page = address & ~PAGE_MASK;
+	remaining_size = alloc->imported.user_buf.size;
+	dma_mapped_pages = i;
+	/* Run the unmap loop in the same order as map loop */
+	for (i = 0; i < dma_mapped_pages; i++) {
+		unsigned long unmap_size =
+			MIN(PAGE_SIZE - offset_within_page, remaining_size);
+
 		dma_unmap_page(kctx->kbdev->dev,
 				alloc->imported.user_buf.dma_addrs[i],
-				PAGE_SIZE, DMA_BIDIRECTIONAL);
+				unmap_size, DMA_BIDIRECTIONAL);
+		remaining_size -= unmap_size;
+		offset_within_page = 0;
 	}
 
-	while (++i < pinned_pages) {
+	/* The user buffer could already have been previously pinned before
+	 * entering this function, and hence there could potentially be CPU
+	 * mappings of it
+	 */
+	kbase_mem_shrink_cpu_mapping(kctx, reg, 0, pinned_pages);
+
+	for (i = 0; i < pinned_pages; i++) {
 		kbase_unpin_user_buf_page(pages[i]);
 		pages[i] = NULL;
 	}
@@ -4911,21 +4933,31 @@ unwind:
  * GPUs, which implies that a call to kbase_jd_user_buf_pin_pages() will NOT
  * have a corresponding call to kbase_jd_user_buf_unpin_pages().
  */
-static void kbase_jd_user_buf_unmap(struct kbase_context *kctx,
-		struct kbase_mem_phy_alloc *alloc, bool writeable)
+static void kbase_jd_user_buf_unmap(struct kbase_context *kctx, struct kbase_mem_phy_alloc *alloc,
+				    struct kbase_va_region *reg, bool writeable)
 {
 	long i;
 	struct page **pages;
-	unsigned long size = alloc->imported.user_buf.size;
+	unsigned long offset_within_page = alloc->imported.user_buf.address & ~PAGE_MASK;
+	unsigned long remaining_size = alloc->imported.user_buf.size;
+
+	lockdep_assert_held(&kctx->reg_lock);
 
 	KBASE_DEBUG_ASSERT(alloc->type == KBASE_MEM_TYPE_IMPORTED_USER_BUF);
 	pages = alloc->imported.user_buf.pages;
+
+#if !MALI_USE_CSF
+	kbase_mem_shrink_cpu_mapping(kctx, reg, 0, alloc->nents);
+#else
+	CSTD_UNUSED(reg);
+#endif
+
 	for (i = 0; i < alloc->imported.user_buf.nr_pages; i++) {
-		unsigned long local_size;
+		unsigned long unmap_size =
+			MIN(remaining_size, PAGE_SIZE - offset_within_page);
 		dma_addr_t dma_addr = alloc->imported.user_buf.dma_addrs[i];
 
-		local_size = MIN(size, PAGE_SIZE - (dma_addr & ~PAGE_MASK));
-		dma_unmap_page(kctx->kbdev->dev, dma_addr, local_size,
+		dma_unmap_page(kctx->kbdev->dev, dma_addr, unmap_size,
 				DMA_BIDIRECTIONAL);
 		if (writeable)
 			set_page_dirty_lock(pages[i]);
@@ -4934,7 +4966,8 @@ static void kbase_jd_user_buf_unmap(struct kbase_context *kctx,
 		pages[i] = NULL;
 #endif
 
-		size -= local_size;
+		remaining_size -= unmap_size;
+		offset_within_page = 0;
 	}
 #if !MALI_USE_CSF
 	alloc->nents = 0;
@@ -4981,11 +5014,11 @@ int kbase_mem_copy_to_pinned_user_pages(struct page **dest_pages,
 	return 0;
 }
 
-struct kbase_mem_phy_alloc *kbase_map_external_resource(
-		struct kbase_context *kctx, struct kbase_va_region *reg,
-		struct mm_struct *locked_mm)
+int kbase_map_external_resource(struct kbase_context *kctx, struct kbase_va_region *reg,
+				struct mm_struct *locked_mm)
 {
-	int err;
+	int err = 0;
+	struct kbase_mem_phy_alloc *alloc = reg->gpu_alloc;
 
 	lockdep_assert_held(&kctx->reg_lock);
 
@@ -4994,7 +5027,7 @@ struct kbase_mem_phy_alloc *kbase_map_external_resource(
 	case KBASE_MEM_TYPE_IMPORTED_USER_BUF: {
 		if ((reg->gpu_alloc->imported.user_buf.mm != locked_mm) &&
 		    (!reg->gpu_alloc->nents))
-			goto exit;
+			return -EINVAL;
 
 		reg->gpu_alloc->imported.user_buf.current_mapping_usage_count++;
 		if (reg->gpu_alloc->imported.user_buf
@@ -5002,7 +5035,7 @@ struct kbase_mem_phy_alloc *kbase_map_external_resource(
 			err = kbase_jd_user_buf_map(kctx, reg);
 			if (err) {
 				reg->gpu_alloc->imported.user_buf.current_mapping_usage_count--;
-				goto exit;
+				return err;
 			}
 		}
 	}
@@ -5010,21 +5043,29 @@ struct kbase_mem_phy_alloc *kbase_map_external_resource(
 	case KBASE_MEM_TYPE_IMPORTED_UMM: {
 		err = kbase_mem_umm_map(kctx, reg);
 		if (err)
-			goto exit;
+			return err;
 		break;
 	}
 	default:
-		goto exit;
+		WARN(1, "Invalid external resource GPU allocation type (%x) on mapping",
+		     alloc->type);
+		return -EINVAL;
 	}
 
-	return kbase_mem_phy_alloc_get(reg->gpu_alloc);
-exit:
-	return NULL;
+	kbase_va_region_alloc_get(kctx, reg);
+	kbase_mem_phy_alloc_get(alloc);
+	return err;
 }
 
-void kbase_unmap_external_resource(struct kbase_context *kctx,
-		struct kbase_va_region *reg, struct kbase_mem_phy_alloc *alloc)
+void kbase_unmap_external_resource(struct kbase_context *kctx, struct kbase_va_region *reg)
 {
+	/* gpu_alloc was used in kbase_map_external_resources, so we need to use it for the
+	 * unmapping operation.
+	 */
+	struct kbase_mem_phy_alloc *alloc = reg->gpu_alloc;
+
+	lockdep_assert_held(&kctx->reg_lock);
+
 	switch (alloc->type) {
 	case KBASE_MEM_TYPE_IMPORTED_UMM: {
 		kbase_mem_umm_unmap(kctx, reg, alloc);
@@ -5036,24 +5077,32 @@ void kbase_unmap_external_resource(struct kbase_context *kctx,
 		if (alloc->imported.user_buf.current_mapping_usage_count == 0) {
 			bool writeable = true;
 
-			if (!kbase_is_region_invalid_or_free(reg) &&
-					reg->gpu_alloc == alloc)
+			if (!kbase_is_region_invalid_or_free(reg)) {
 				kbase_mmu_teardown_pages(kctx->kbdev, &kctx->mmu, reg->start_pfn,
 							 alloc->pages,
 							 kbase_reg_current_backed_size(reg),
 							 kctx->as_nr);
+			}
 
-			if (reg && ((reg->flags & (KBASE_REG_CPU_WR | KBASE_REG_GPU_WR)) == 0))
+			if ((reg->flags & (KBASE_REG_CPU_WR | KBASE_REG_GPU_WR)) == 0)
 				writeable = false;
 
-			kbase_jd_user_buf_unmap(kctx, alloc, writeable);
+			kbase_jd_user_buf_unmap(kctx, alloc, reg, writeable);
 		}
-	}
+		}
 	break;
 	default:
-	break;
+		WARN(1, "Invalid external resource GPU allocation type (%x) on unmapping",
+		     alloc->type);
+		return;
 	}
 	kbase_mem_phy_alloc_put(alloc);
+	kbase_va_region_alloc_put(kctx, reg);
+}
+
+static inline u64 kbasep_get_va_gpu_addr(struct kbase_va_region *reg)
+{
+	return reg->start_pfn << PAGE_SHIFT;
 }
 
 struct kbase_ctx_ext_res_meta *kbase_sticky_resource_acquire(
@@ -5069,7 +5118,7 @@ struct kbase_ctx_ext_res_meta *kbase_sticky_resource_acquire(
 	 * metadata which matches the region which is being acquired.
 	 */
 	list_for_each_entry(walker, &kctx->ext_res_meta_head, ext_res_node) {
-		if (walker->gpu_addr == gpu_addr) {
+		if (kbasep_get_va_gpu_addr(walker->reg) == gpu_addr) {
 			meta = walker;
 			meta->ref++;
 			break;
@@ -5081,8 +5130,7 @@ struct kbase_ctx_ext_res_meta *kbase_sticky_resource_acquire(
 		struct kbase_va_region *reg;
 
 		/* Find the region */
-		reg = kbase_region_tracker_find_region_enclosing_address(
-				kctx, gpu_addr);
+		reg = kbase_region_tracker_find_region_enclosing_address(kctx, gpu_addr);
 		if (kbase_is_region_invalid_or_free(reg))
 			goto failed;
 
@@ -5090,18 +5138,18 @@ struct kbase_ctx_ext_res_meta *kbase_sticky_resource_acquire(
 		meta = kzalloc(sizeof(*meta), GFP_KERNEL);
 		if (!meta)
 			goto failed;
-
 		/*
 		 * Fill in the metadata object and acquire a reference
 		 * for the physical resource.
 		 */
-		meta->alloc = kbase_map_external_resource(kctx, reg, NULL);
-		meta->ref = 1;
+		meta->reg = reg;
 
-		if (!meta->alloc)
+		/* Map the external resource to the GPU allocation of the region
+		 * and acquire the reference to the VA region
+		 */
+		if (kbase_map_external_resource(kctx, meta->reg, NULL))
 			goto fail_map;
-
-		meta->gpu_addr = reg->start_pfn << PAGE_SHIFT;
+		meta->ref = 1;
 
 		list_add(&meta->ext_res_node, &kctx->ext_res_meta_head);
 	}
@@ -5126,7 +5174,7 @@ find_sticky_resource_meta(struct kbase_context *kctx, u64 gpu_addr)
 	 * metadata which matches the region which is being released.
 	 */
 	list_for_each_entry(walker, &kctx->ext_res_meta_head, ext_res_node)
-		if (walker->gpu_addr == gpu_addr)
+		if (kbasep_get_va_gpu_addr(walker->reg) == gpu_addr)
 			return walker;
 
 	return NULL;
@@ -5135,14 +5183,7 @@ find_sticky_resource_meta(struct kbase_context *kctx, u64 gpu_addr)
 static void release_sticky_resource_meta(struct kbase_context *kctx,
 		struct kbase_ctx_ext_res_meta *meta)
 {
-	struct kbase_va_region *reg;
-
-	/* Drop the physical memory reference and free the metadata. */
-	reg = kbase_region_tracker_find_region_enclosing_address(
-			kctx,
-			meta->gpu_addr);
-
-	kbase_unmap_external_resource(kctx, reg, meta->alloc);
+	kbase_unmap_external_resource(kctx, meta->reg);
 	list_del(&meta->ext_res_node);
 	kfree(meta);
 }

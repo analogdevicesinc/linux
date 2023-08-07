@@ -364,7 +364,7 @@ void kbase_csf_update_firmware_memory(struct kbase_device *kbdev,
 	u32 gpu_addr, u32 value);
 
 /**
- * kbase_csf_firmware_early_init() - Early initializatin for the firmware.
+ * kbase_csf_firmware_early_init() - Early initialization for the firmware.
  * @kbdev: Kbase device
  *
  * Initialize resources related to the firmware. Must be called at kbase probe.
@@ -374,22 +374,33 @@ void kbase_csf_update_firmware_memory(struct kbase_device *kbdev,
 int kbase_csf_firmware_early_init(struct kbase_device *kbdev);
 
 /**
- * kbase_csf_firmware_init() - Load the firmware for the CSF MCU
+ * kbase_csf_firmware_late_init() - Late initialization for the firmware.
+ * @kbdev: Kbase device
+ *
+ * Initialize resources related to the firmware. But must be called after
+ * backend late init is done. Must be used at probe time only.
+ *
+ * Return: 0 if successful, negative error code on failure
+ */
+int kbase_csf_firmware_late_init(struct kbase_device *kbdev);
+
+/**
+ * kbase_csf_firmware_load_init() - Load the firmware for the CSF MCU
  * @kbdev: Kbase device
  *
  * Request the firmware from user space and load it into memory.
  *
  * Return: 0 if successful, negative error code on failure
  */
-int kbase_csf_firmware_init(struct kbase_device *kbdev);
+int kbase_csf_firmware_load_init(struct kbase_device *kbdev);
 
 /**
- * kbase_csf_firmware_term() - Unload the firmware
+ * kbase_csf_firmware_unload_term() - Unload the firmware
  * @kbdev: Kbase device
  *
- * Frees the memory allocated by kbase_csf_firmware_init()
+ * Frees the memory allocated by kbase_csf_firmware_load_init()
  */
-void kbase_csf_firmware_term(struct kbase_device *kbdev);
+void kbase_csf_firmware_unload_term(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_firmware_ping - Send the ping request to firmware.

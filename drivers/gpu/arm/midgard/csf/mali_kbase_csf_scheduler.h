@@ -24,6 +24,7 @@
 
 #include "mali_kbase_csf.h"
 #include "mali_kbase_csf_event.h"
+#include "mali_kbase_csf_tiler_heap_def.h"
 
 /**
  * kbase_csf_scheduler_queue_start() - Enable the running of GPU command queue
@@ -537,6 +538,22 @@ static inline void kbase_csf_scheduler_invoke_tick(struct kbase_device *kbdev)
 }
 
 /**
+ * kbase_csf_scheduler_invoke_tock() - Invoke the scheduling tock
+ *
+ * @kbdev: Pointer to the device
+ *
+ * This function will queue the scheduling tock work item for immediate
+ * execution.
+ */
+static inline void kbase_csf_scheduler_invoke_tock(struct kbase_device *kbdev)
+{
+	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
+
+	if (atomic_cmpxchg(&scheduler->pending_tock_work, false, true) == false)
+		mod_delayed_work(scheduler->wq, &scheduler->tock_work, 0);
+}
+
+/**
  * kbase_csf_scheduler_queue_has_trace() - report whether the queue has been
  *                                         configured to operate with the
  *                                         cs_trace feature.
@@ -657,5 +674,36 @@ void kbase_csf_scheduler_force_wakeup(struct kbase_device *kbdev);
  */
 void kbase_csf_scheduler_force_sleep(struct kbase_device *kbdev);
 #endif
+
+/* Forward declaration */
+struct kbase_csf_tiler_heap_shrink_control;
+
+/**
+ * kbase_csf_scheduler_count_free_heap_pages() - Undertake shrinker reclaim count action
+ *
+ * @kbdev:        Pointer to the device
+ * @shrink_ctrl:  Pointer to the kbase CSF schrink control object.
+ *
+ * This function is called from CSF tiler heap memory shrinker reclaim 'count_objects' operation.
+ *
+ * Return: number of potentially freeable tiler heap pages.
+ */
+unsigned long
+kbase_csf_scheduler_count_free_heap_pages(struct kbase_device *kbdev,
+					  struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl);
+
+/**
+ * kbase_csf_scheduler_scan_free_heap_pages() - Undertake shrinker reclaim scan action
+ *
+ * @kbdev:        Pointer to the device
+ * @shrink_ctrl:  Pointer to the kbase CSF schrink control object.
+ *
+ * This function is called from CSF tiler heap memory shrinker reclaim 'scan_objects' operation.
+ *
+ * Return: number of actually freed tiler heap pagess.
+ */
+unsigned long
+kbase_csf_scheduler_scan_free_heap_pages(struct kbase_device *kbdev,
+					 struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl);
 
 #endif /* _KBASE_CSF_SCHEDULER_H_ */

@@ -105,7 +105,7 @@ static int lock_region(struct kbase_gpu_props const *gpu_props, u64 *lockaddr,
 	 * therefore the highest bit that differs is bit #16
 	 * and the region size (as a logarithm) is 16 + 1 = 17, i.e. 128 kB.
 	 */
-	lockaddr_size_log2 = fls(lockaddr_base ^ lockaddr_end);
+	lockaddr_size_log2 = fls64(lockaddr_base ^ lockaddr_end);
 
 	/* Cap the size against minimum and maximum values allowed. */
 	if (lockaddr_size_log2 > KBASE_LOCK_REGION_MAX_SIZE_LOG2)

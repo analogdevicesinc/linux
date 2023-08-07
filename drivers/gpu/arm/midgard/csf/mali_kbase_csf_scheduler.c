@@ -31,6 +31,7 @@
 #include <csf/mali_kbase_csf_registers.h>
 #include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 #include <mali_kbase_hwaccess_time.h>
+#include "mali_kbase_csf_tiler_heap.h"
 
 /* Value to indicate that a queue group is not groups_to_schedule list */
 #define KBASEP_GROUP_PREPARED_SEQ_NUM_INVALID (U32_MAX)
@@ -79,6 +80,21 @@
 
 /* A GPU address space slot is reserved for MCU. */
 #define NUM_RESERVED_AS_SLOTS (1)
+
+/* Heap deferral time in ms from a CSG suspend to be included in reclaim scan list. The
+ * value corresponds to realtime priority CSGs. Other priorites are of derived time value
+ * from this, with the realtime case the highest delay.
+ */
+#define HEAP_RECLAIM_PRIO_DEFERRAL_MS (1000)
+
+/* Additional heap deferral time in ms if a CSG suspended is in state of WAIT_SYNC */
+#define HEAP_RECLAIM_WAIT_SYNC_DEFERRAL_MS (200)
+
+/* Tiler heap reclaim count size for limiting a count run length */
+#define HEAP_RECLAIM_COUNT_BATCH_SIZE (HEAP_SHRINKER_BATCH << 6)
+
+/* Tiler heap reclaim scan (free) method size for limiting a scan run length */
+#define HEAP_RECLAIM_SCAN_BATCH_SIZE (HEAP_SHRINKER_BATCH << 7)
 
 static int scheduler_group_schedule(struct kbase_queue_group *group);
 static void remove_group_from_idle_wait(struct kbase_queue_group *const group);
@@ -1884,12 +1900,10 @@ static void schedule_in_cycle(struct kbase_queue_group *group, bool force)
 	 * of work needs to be enforced in situation such as entering into
 	 * protected mode).
 	 */
-	if ((likely(scheduler_timer_is_enabled_nolock(kbdev)) || force) &&
-			!scheduler->tock_pending_request) {
-		scheduler->tock_pending_request = true;
+	if (likely(scheduler_timer_is_enabled_nolock(kbdev)) || force) {
 		dev_dbg(kbdev->dev, "Kicking async for group %d\n",
 			group->handle);
-		mod_delayed_work(scheduler->wq, &scheduler->tock_work, 0);
+		kbase_csf_scheduler_invoke_tock(kbdev);
 	}
 }
 
@@ -2200,6 +2214,145 @@ static bool confirm_cmd_buf_empty(struct kbase_queue const *queue)
 	return cs_idle;
 }
 
+static void detach_from_sched_reclaim_mgr(struct kbase_context *kctx)
+{
+	struct kbase_csf_scheduler *const scheduler = &kctx->kbdev->csf.scheduler;
+	struct kbase_kctx_heap_info *heap_info = &kctx->csf.sched.heap_info;
+
+	lockdep_assert_held(&scheduler->lock);
+
+	if (!list_empty(&heap_info->mgr_link)) {
+		WARN_ON(!heap_info->flags);
+		list_del_init(&heap_info->mgr_link);
+
+		if (heap_info->flags & CSF_CTX_RECLAIM_CANDI_FLAG)
+			WARN_ON(atomic_sub_return(heap_info->nr_est_pages,
+						  &scheduler->reclaim_mgr.est_cand_pages) < 0);
+		if (heap_info->flags & CSF_CTX_RECLAIM_SCAN_FLAG)
+			WARN_ON(atomic_sub_return(heap_info->nr_scan_pages,
+						  &scheduler->reclaim_mgr.mgr_scan_pages) < 0);
+
+		dev_dbg(kctx->kbdev->dev, "Reclaim_mgr_detach: ctx_%d_%d, flags = 0x%x\n",
+			kctx->tgid, kctx->id, heap_info->flags);
+		/* Clear on detaching */
+		heap_info->nr_est_pages = 0;
+		heap_info->nr_scan_pages = 0;
+		heap_info->flags = 0;
+	}
+}
+
+static void attach_to_sched_reclaim_mgr(struct kbase_context *kctx)
+{
+	struct kbase_kctx_heap_info *const heap_info = &kctx->csf.sched.heap_info;
+	struct kbase_csf_scheduler *const scheduler = &kctx->kbdev->csf.scheduler;
+
+	lockdep_assert_held(&scheduler->lock);
+
+	if (WARN_ON(!list_empty(&heap_info->mgr_link)))
+		list_del_init(&heap_info->mgr_link);
+
+	list_add_tail(&heap_info->mgr_link, &scheduler->reclaim_mgr.candidate_ctxs);
+
+	/* Read the kctx's tiler heap estimate of pages, this separates it away
+	 * from the kctx's tiler heap side updates/changes. The value remains static
+	 * for the duration of this kctx on the reclaim manager's candidate_ctxs list.
+	 */
+	heap_info->nr_est_pages = (u32)atomic_read(&kctx->csf.tiler_heaps.est_count_pages);
+	atomic_add(heap_info->nr_est_pages, &scheduler->reclaim_mgr.est_cand_pages);
+
+	heap_info->attach_jiffies = jiffies;
+	heap_info->flags = CSF_CTX_RECLAIM_CANDI_FLAG;
+
+	dev_dbg(kctx->kbdev->dev, "Reclaim_mgr_attach: ctx_%d_%d, est_count_pages = %u\n",
+		kctx->tgid, kctx->id, heap_info->nr_est_pages);
+}
+
+static void update_kctx_heap_info_on_grp_on_slot(struct kbase_queue_group *group)
+{
+	struct kbase_context *kctx = group->kctx;
+	struct kbase_kctx_heap_info *heap_info = &kctx->csf.sched.heap_info;
+
+	lockdep_assert_held(&kctx->kbdev->csf.scheduler.lock);
+
+	heap_info->on_slot_grps++;
+	/* If the kctx transitioned on-slot CSGs: 0 => 1, detach the kctx scheduler->reclaim_mgr */
+	if (heap_info->on_slot_grps == 1) {
+		dev_dbg(kctx->kbdev->dev,
+			"CSG_%d_%d_%d on-slot, remove kctx from reclaim manager\n",
+			group->kctx->tgid, group->kctx->id, group->handle);
+
+		detach_from_sched_reclaim_mgr(kctx);
+	}
+}
+
+static void update_kctx_heap_info_on_grp_evict(struct kbase_queue_group *group)
+{
+	struct kbase_context *kctx = group->kctx;
+	struct kbase_kctx_heap_info *const heap_info = &kctx->csf.sched.heap_info;
+	struct kbase_csf_scheduler *const scheduler = &kctx->kbdev->csf.scheduler;
+	const u32 num_groups = kctx->kbdev->csf.global_iface.group_num;
+	u32 on_slot_grps = 0;
+	u32 i;
+
+	lockdep_assert_held(&scheduler->lock);
+
+	/* Group eviction from the scheduler is a bit more complex, but fairly less
+	 * frequent in operations. Taking the opportunity to actually count the
+	 * on-slot CSGs from the given kctx, for robustness and clearer code logic.
+	 */
+	for_each_set_bit(i, scheduler->csg_inuse_bitmap, num_groups) {
+		struct kbase_csf_csg_slot *csg_slot = &scheduler->csg_slots[i];
+		struct kbase_queue_group *grp = csg_slot->resident_group;
+
+		if (unlikely(!grp))
+			continue;
+
+		if (grp->kctx == kctx)
+			on_slot_grps++;
+	}
+
+	heap_info->on_slot_grps = on_slot_grps;
+
+	/* If the kctx has no other CSGs on-slot, handle the heap reclaim related actions */
+	if (!heap_info->on_slot_grps) {
+		if (kctx->csf.sched.num_runnable_grps || kctx->csf.sched.num_idle_wait_grps) {
+			/* The kctx has other operational CSGs, attach it if not yet done */
+			if (list_empty(&heap_info->mgr_link)) {
+				dev_dbg(kctx->kbdev->dev,
+					"CSG_%d_%d_%d evict, add kctx to reclaim manager\n",
+					group->kctx->tgid, group->kctx->id, group->handle);
+
+				attach_to_sched_reclaim_mgr(kctx);
+			}
+		} else {
+			/* The kctx is a zombie after the group eviction, drop it out */
+			dev_dbg(kctx->kbdev->dev,
+				"CSG_%d_%d_%d evict leading to zombie kctx, dettach from reclaim manager\n",
+				group->kctx->tgid, group->kctx->id, group->handle);
+
+			detach_from_sched_reclaim_mgr(kctx);
+		}
+	}
+}
+
+static void update_kctx_heap_info_on_grp_suspend(struct kbase_queue_group *group)
+{
+	struct kbase_context *kctx = group->kctx;
+	struct kbase_kctx_heap_info *heap_info = &kctx->csf.sched.heap_info;
+
+	lockdep_assert_held(&kctx->kbdev->csf.scheduler.lock);
+
+	if (!WARN_ON(heap_info->on_slot_grps == 0))
+		heap_info->on_slot_grps--;
+	/* If the kctx has no CSGs on-slot, attach it to scheduler's reclaim manager */
+	if (heap_info->on_slot_grps == 0) {
+		dev_dbg(kctx->kbdev->dev, "CSG_%d_%d_%d off-slot, add kctx to reclaim manager\n",
+			group->kctx->tgid, group->kctx->id, group->handle);
+
+		attach_to_sched_reclaim_mgr(kctx);
+	}
+}
+
 static void save_csg_slot(struct kbase_queue_group *group)
 {
 	struct kbase_device *kbdev = group->kctx->kbdev;
@@ -2270,6 +2423,7 @@ static void save_csg_slot(struct kbase_queue_group *group)
 		}
 
 		update_offslot_non_idle_cnt_on_grp_suspend(group);
+		update_kctx_heap_info_on_grp_suspend(group);
 	}
 }
 
@@ -2555,6 +2709,9 @@ static void program_csg_slot(struct kbase_queue_group *group, s8 slot,
 
 	kbase_csf_ring_csg_doorbell(kbdev, slot);
 
+	/* Update the heap reclaim manager */
+	update_kctx_heap_info_on_grp_on_slot(group);
+
 	/* Programming a slot consumes a group from scanout */
 	update_offslot_non_idle_cnt_for_onslot_grp(group);
 }
@@ -2626,6 +2783,8 @@ static void sched_evict_group(struct kbase_queue_group *group, bool fault,
 		/* Notify a group has been evicted */
 		wake_up_all(&kbdev->csf.event_wait);
 	}
+
+	update_kctx_heap_info_on_grp_evict(group);
 }
 
 static int term_group_sync(struct kbase_queue_group *group)
@@ -2637,7 +2796,8 @@ static int term_group_sync(struct kbase_queue_group *group)
 	term_csg_slot(group);
 
 	remaining = wait_event_timeout(kbdev->csf.event_wait,
-		csg_slot_stopped_locked(kbdev, group->csg_nr), remaining);
+		group->cs_unrecoverable || csg_slot_stopped_locked(kbdev, group->csg_nr),
+		remaining);
 
 	if (!remaining) {
 		dev_warn(kbdev->dev, "[%llu] term request timeout (%d ms) for group %d of context %d_%d on slot %d",
@@ -2658,6 +2818,7 @@ void kbase_csf_scheduler_group_deschedule(struct kbase_queue_group *group)
 {
 	struct kbase_device *kbdev = group->kctx->kbdev;
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
+	bool wait_for_termination = true;
 	bool on_slot;
 
 	kbase_reset_gpu_assert_failed_or_prevented(kbdev);
@@ -2672,39 +2833,28 @@ void kbase_csf_scheduler_group_deschedule(struct kbase_queue_group *group)
 
 #ifdef KBASE_PM_RUNTIME
 	/* If the queue group is on slot and Scheduler is in SLEEPING state,
-	 * then we need to wait here for Scheduler to exit the sleep state
-	 * (i.e. wait for the runtime suspend or power down of GPU). This would
-	 * be better than aborting the power down. The group will be suspended
-	 * anyways on power down, so won't have to send the CSG termination
-	 * request to FW.
+	 * then we need to wake up the Scheduler to exit the sleep state rather
+	 * than waiting for the runtime suspend or power down of GPU.
+	 * The group termination is usually triggered in the context of Application
+	 * thread and it has been seen that certain Apps can destroy groups at
+	 * random points and not necessarily when the App is exiting.
 	 */
 	if (on_slot && (scheduler->state == SCHED_SLEEPING)) {
-		if (wait_for_scheduler_to_exit_sleep(kbdev)) {
+		scheduler_wakeup(kbdev, true);
+
+		/* Wait for MCU firmware to start running */
+		if (kbase_csf_scheduler_wait_mcu_active(kbdev)) {
 			dev_warn(
 				kbdev->dev,
-				"Wait for scheduler to exit sleep state timedout when terminating group %d of context %d_%d on slot %d",
+				"[%llu] Wait for MCU active failed when terminating group %d of context %d_%d on slot %d",
+				kbase_backend_get_cycle_cnt(kbdev),
 				group->handle, group->kctx->tgid,
 				group->kctx->id, group->csg_nr);
-
-			scheduler_wakeup(kbdev, true);
-
-			/* Wait for MCU firmware to start running */
-			if (kbase_csf_scheduler_wait_mcu_active(kbdev))
-				dev_warn(
-					kbdev->dev,
-					"[%llu] Wait for MCU active failed when terminating group %d of context %d_%d on slot %d",
-					kbase_backend_get_cycle_cnt(kbdev),
-					group->handle, group->kctx->tgid,
-					group->kctx->id, group->csg_nr);
+			/* No point in waiting for CSG termination if MCU didn't
+			 * become active.
+			 */
+			wait_for_termination = false;
 		}
-
-		/* Check the group state again as scheduler lock would have been
-		 * released when waiting for the exit from SLEEPING state.
-		 */
-		if (!queue_group_scheduled_locked(group))
-			goto unlock;
-
-		on_slot = kbasep_csf_scheduler_group_is_on_slot_locked(group);
 	}
 #endif
 	if (!on_slot) {
@@ -2712,7 +2862,11 @@ void kbase_csf_scheduler_group_deschedule(struct kbase_queue_group *group)
 	} else {
 		bool as_faulty;
 
-		term_group_sync(group);
+		if (likely(wait_for_termination))
+			term_group_sync(group);
+		else
+			term_csg_slot(group);
+
 		/* Treat the csg been terminated */
 		as_faulty = cleanup_csg_slot(group);
 		/* remove from the scheduler list */
@@ -4843,13 +4997,10 @@ static bool can_skip_scheduling(struct kbase_device *kbdev)
 
 static void schedule_on_tock(struct work_struct *work)
 {
-	struct kbase_device *kbdev = container_of(work, struct kbase_device,
-					csf.scheduler.tock_work.work);
+	struct kbase_device *kbdev =
+		container_of(work, struct kbase_device, csf.scheduler.tock_work.work);
 	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
 	int err;
-
-	/* Tock work item is serviced */
-	scheduler->tock_pending_request = false;
 
 	err = kbase_reset_gpu_try_prevent(kbdev);
 	/* Regardless of whether reset failed or is currently happening, exit
@@ -4867,7 +5018,8 @@ static void schedule_on_tock(struct work_struct *work)
 
 	/* Undertaking schedule action steps */
 	KBASE_KTRACE_ADD(kbdev, SCHEDULER_TOCK_START, NULL, 0u);
-	schedule_actions(kbdev, false);
+	while (atomic_cmpxchg(&scheduler->pending_tock_work, true, false) == true)
+		schedule_actions(kbdev, false);
 
 	/* Record time information on a non-skipped tock */
 	scheduler->last_schedule = jiffies;
@@ -4891,8 +5043,8 @@ exit_no_schedule_unlock:
 
 static void schedule_on_tick(struct work_struct *work)
 {
-	struct kbase_device *kbdev = container_of(work, struct kbase_device,
-					csf.scheduler.tick_work);
+	struct kbase_device *kbdev =
+		container_of(work, struct kbase_device, csf.scheduler.tick_work);
 	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
 
 	int err = kbase_reset_gpu_try_prevent(kbdev);
@@ -5180,10 +5332,15 @@ unlock:
 	return suspend_on_slot_groups;
 }
 
+static void cancel_tick_work(struct kbase_csf_scheduler *const scheduler)
+{
+	cancel_work_sync(&scheduler->tick_work);
+}
+
 static void cancel_tock_work(struct kbase_csf_scheduler *const scheduler)
 {
+	atomic_set(&scheduler->pending_tock_work, false);
 	cancel_delayed_work_sync(&scheduler->tock_work);
-	scheduler->tock_pending_request = false;
 }
 
 static void scheduler_inner_reset(struct kbase_device *kbdev)
@@ -5197,7 +5354,7 @@ static void scheduler_inner_reset(struct kbase_device *kbdev)
 	/* Cancel any potential queued delayed work(s) */
 	cancel_work_sync(&kbdev->csf.scheduler.gpu_idle_work);
 	cancel_tick_timer(kbdev);
-	cancel_work_sync(&scheduler->tick_work);
+	cancel_tick_work(scheduler);
 	cancel_tock_work(scheduler);
 	cancel_delayed_work_sync(&scheduler->ping_work);
 
@@ -5873,6 +6030,10 @@ int kbase_csf_scheduler_context_init(struct kbase_context *kctx)
 		destroy_workqueue(kctx->csf.sched.sync_update_wq);
 	}
 
+	/* Per-kctx heap_info object initialization */
+	memset(&kctx->csf.sched.heap_info, 0, sizeof(struct kbase_kctx_heap_info));
+	INIT_LIST_HEAD(&kctx->csf.sched.heap_info.mgr_link);
+
 	return err;
 }
 
@@ -5902,6 +6063,22 @@ int kbase_csf_scheduler_init(struct kbase_device *kbdev)
 	return 0;
 }
 
+static void scheduler_init_heap_reclaim_mgr(struct kbase_csf_scheduler *const scheduler)
+{
+	INIT_LIST_HEAD(&scheduler->reclaim_mgr.candidate_ctxs);
+	INIT_LIST_HEAD(&scheduler->reclaim_mgr.scan_list_ctxs);
+	atomic_set(&scheduler->reclaim_mgr.est_cand_pages, 0);
+	atomic_set(&scheduler->reclaim_mgr.mgr_scan_pages, 0);
+}
+
+static void scheduler_term_heap_reclaim_mgr(struct kbase_csf_scheduler *const scheduler)
+{
+	WARN_ON(!list_empty(&scheduler->reclaim_mgr.candidate_ctxs));
+	WARN_ON(!list_empty(&scheduler->reclaim_mgr.scan_list_ctxs));
+	WARN_ON(atomic_read(&scheduler->reclaim_mgr.est_cand_pages));
+	WARN_ON(atomic_read(&scheduler->reclaim_mgr.mgr_scan_pages));
+}
+
 int kbase_csf_scheduler_early_init(struct kbase_device *kbdev)
 {
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
@@ -5924,6 +6101,7 @@ int kbase_csf_scheduler_early_init(struct kbase_device *kbdev)
 
 	INIT_WORK(&scheduler->tick_work, schedule_on_tick);
 	INIT_DEFERRABLE_WORK(&scheduler->tock_work, schedule_on_tock);
+	atomic_set(&scheduler->pending_tock_work, false);
 
 	INIT_DEFERRABLE_WORK(&scheduler->ping_work, firmware_aliveness_monitor);
 
@@ -5945,7 +6123,6 @@ int kbase_csf_scheduler_early_init(struct kbase_device *kbdev)
 	scheduler->top_ctx = NULL;
 	scheduler->top_grp = NULL;
 	scheduler->last_schedule = 0;
-	scheduler->tock_pending_request = false;
 	scheduler->active_protm_grp = NULL;
 	scheduler->csg_scheduling_period_ms = CSF_SCHEDULER_TIME_TICK_MS;
 	scheduler_doorbell_init(kbdev);
@@ -5957,6 +6134,9 @@ int kbase_csf_scheduler_early_init(struct kbase_device *kbdev)
 	hrtimer_init(&scheduler->tick_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	scheduler->tick_timer.function = tick_timer_callback;
 	scheduler->tick_timer_active = false;
+
+	scheduler_init_heap_reclaim_mgr(scheduler);
+	kbase_csf_tiler_heap_register_shrinker(kbdev);
 
 	return 0;
 }
@@ -5985,7 +6165,7 @@ void kbase_csf_scheduler_term(struct kbase_device *kbdev)
 		mutex_unlock(&kbdev->csf.scheduler.lock);
 		cancel_delayed_work_sync(&kbdev->csf.scheduler.ping_work);
 		cancel_tick_timer(kbdev);
-		cancel_work_sync(&kbdev->csf.scheduler.tick_work);
+		cancel_tick_work(&kbdev->csf.scheduler);
 		cancel_tock_work(&kbdev->csf.scheduler);
 		mutex_destroy(&kbdev->csf.scheduler.lock);
 		kfree(kbdev->csf.scheduler.csg_slots);
@@ -5999,6 +6179,9 @@ void kbase_csf_scheduler_early_term(struct kbase_device *kbdev)
 		destroy_workqueue(kbdev->csf.scheduler.idle_wq);
 	if (kbdev->csf.scheduler.wq)
 		destroy_workqueue(kbdev->csf.scheduler.wq);
+
+	kbase_csf_tiler_heap_unregister_shrinker(kbdev);
+	scheduler_term_heap_reclaim_mgr(&kbdev->csf.scheduler);
 }
 
 /**
@@ -6063,13 +6246,12 @@ void kbase_csf_scheduler_timer_set_enabled(struct kbase_device *kbdev,
 	if (currently_enabled && !enable) {
 		scheduler->timer_enabled = false;
 		cancel_tick_timer(kbdev);
-		cancel_delayed_work(&scheduler->tock_work);
-		scheduler->tock_pending_request = false;
 		mutex_unlock(&scheduler->lock);
 		/* The non-sync version to cancel the normal work item is not
 		 * available, so need to drop the lock before cancellation.
 		 */
-		cancel_work_sync(&scheduler->tick_work);
+		cancel_tick_work(scheduler);
+		cancel_tock_work(scheduler);
 		return;
 	}
 
@@ -6141,7 +6323,7 @@ int kbase_csf_scheduler_pm_suspend(struct kbase_device *kbdev)
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
 
 	/* Cancel any potential queued delayed work(s) */
-	cancel_work_sync(&scheduler->tick_work);
+	cancel_tick_work(scheduler);
 	cancel_tock_work(scheduler);
 
 	result = kbase_reset_gpu_prevent_and_wait(kbdev);
@@ -6321,4 +6503,205 @@ void kbase_csf_scheduler_force_wakeup(struct kbase_device *kbdev)
 	mutex_lock(&scheduler->lock);
 	scheduler_wakeup(kbdev, true);
 	mutex_unlock(&scheduler->lock);
+}
+
+static bool defer_count_unused_heap_pages(struct kbase_context *kctx)
+{
+	struct kbase_kctx_heap_info *info = &kctx->csf.sched.heap_info;
+	u32 prio, shift;
+	unsigned long ms;
+
+	for (prio = KBASE_QUEUE_GROUP_PRIORITY_REALTIME; prio < KBASE_QUEUE_GROUP_PRIORITY_LOW;
+	     prio++) {
+		if (!list_empty(&kctx->csf.sched.runnable_groups[prio]))
+			break;
+	}
+
+	shift = (prio == KBASE_QUEUE_GROUP_PRIORITY_REALTIME) ? 0 : prio + 1;
+	/* Delay time from priority */
+	ms = HEAP_RECLAIM_PRIO_DEFERRAL_MS >> shift;
+
+	WARN_ON(!(info->flags & CSF_CTX_RECLAIM_CANDI_FLAG));
+
+	if (kctx->csf.sched.num_idle_wait_grps)
+		ms += HEAP_RECLAIM_WAIT_SYNC_DEFERRAL_MS;
+
+	return time_before(jiffies, info->attach_jiffies + msecs_to_jiffies(ms));
+}
+
+static unsigned long
+reclaim_count_candidates_heap_pages(struct kbase_device *kbdev, unsigned long freed_pages,
+				    struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl)
+{
+	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
+	struct kbase_csf_sched_heap_reclaim_mgr *const mgr = &scheduler->reclaim_mgr;
+	struct kbase_kctx_heap_info *info, *tmp;
+	unsigned long count = 0;
+	u32 cnt_ctxs = 0;
+
+	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+
+	list_for_each_entry_safe(info, tmp, &mgr->candidate_ctxs, mgr_link) {
+		struct kbase_context *kctx =
+			container_of(info, struct kbase_context, csf.sched.heap_info);
+
+		/* If the kctx not yet exhausted its deferral time, keep it as a candidate */
+		if (defer_count_unused_heap_pages(kctx))
+			continue;
+
+		/* Count the freeable pages of the kctx */
+		info->nr_scan_pages = shrink_ctrl->count_cb(kctx);
+
+		dev_dbg(kctx->kbdev->dev, "kctx_%d_%d heap pages count : %u\n", kctx->tgid,
+			kctx->id, info->nr_scan_pages);
+		cnt_ctxs++;
+
+		/* The kctx is either moved to the pages freeable kctx list, or removed
+		 * from the manager if no pages are available for reclaim.
+		 */
+		if (info->nr_scan_pages) {
+			/* Move the kctx to the scan_list inside the manager */
+			list_move_tail(&info->mgr_link, &mgr->scan_list_ctxs);
+			WARN_ON(atomic_sub_return(info->nr_est_pages, &mgr->est_cand_pages) < 0);
+			atomic_add(info->nr_scan_pages, &mgr->mgr_scan_pages);
+			info->flags = CSF_CTX_RECLAIM_SCAN_FLAG;
+			count += info->nr_scan_pages;
+		} else
+			detach_from_sched_reclaim_mgr(kctx);
+
+		/* Combine with the shrinker scan method freed pages to determine the count
+		 * has done enough to avoid holding the scheduler lock too long.
+		 */
+		if ((freed_pages + count) > HEAP_RECLAIM_COUNT_BATCH_SIZE)
+			break;
+	}
+
+	dev_dbg(kbdev->dev,
+		"Reclaim CSF count unused heap pages: %lu (processed kctxs: %u, from_scan: %lu)\n",
+		count, cnt_ctxs, freed_pages);
+
+	return count;
+}
+
+static unsigned long
+reclaim_free_counted_heap_pages(struct kbase_device *kbdev,
+				struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl)
+{
+	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
+	struct kbase_csf_sched_heap_reclaim_mgr *const mgr = &scheduler->reclaim_mgr;
+	unsigned long freed = 0;
+	u32 cnt_ctxs = 0;
+	struct kbase_kctx_heap_info *info, *tmp;
+
+	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+	if (WARN_ON(!shrink_ctrl->scan_cb))
+		return 0;
+
+	list_for_each_entry_safe(info, tmp, &mgr->scan_list_ctxs, mgr_link) {
+		struct kbase_context *kctx =
+			container_of(info, struct kbase_context, csf.sched.heap_info);
+		/* Attempt freeing all the counted heap pages from the kctx */
+		u32 n = shrink_ctrl->scan_cb(kctx, info->nr_scan_pages);
+
+		/* The free is attempted on all the counted heap pages. If the kctx has
+		 * all its counted heap pages freed, or, it can't offer anymore, drop
+		 * it from the reclaim manger, otherwise leave it remaining in. If the
+		 * kctx changes its state (i.e. some CSGs becoming on-slot), the
+		 * scheduler will pull it out.
+		 */
+		if (n >= info->nr_scan_pages || n == 0)
+			detach_from_sched_reclaim_mgr(kctx);
+		else
+			info->nr_scan_pages -= n;
+
+		freed += n;
+		cnt_ctxs++;
+
+		/* Enough has been freed, break for a gap to avoid holding the lock too long */
+		if (freed >= HEAP_RECLAIM_SCAN_BATCH_SIZE)
+			break;
+	}
+
+	dev_dbg(kbdev->dev, "Reclaim CSF heap free heap pages: %lu (processed kctxs: %u)\n", freed,
+		cnt_ctxs);
+
+	return freed;
+}
+
+unsigned long
+kbase_csf_scheduler_count_free_heap_pages(struct kbase_device *kbdev,
+					  struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl)
+{
+	struct kbase_csf_sched_heap_reclaim_mgr *mgr = &kbdev->csf.scheduler.reclaim_mgr;
+
+	unsigned long scan_count = atomic_read(&mgr->mgr_scan_pages);
+	unsigned long est_count = atomic_read(&mgr->est_cand_pages);
+	unsigned long total;
+	bool counted = false;
+
+	if (mutex_trylock(&kbdev->csf.scheduler.lock)) {
+		reclaim_count_candidates_heap_pages(kbdev, 0, shrink_ctrl);
+		mutex_unlock(&kbdev->csf.scheduler.lock);
+		counted = true;
+		scan_count = atomic_read(&mgr->mgr_scan_pages);
+		/* We've processed the candidates, so overwrites the estimated to 0 */
+		est_count = 0;
+	}
+
+	total = scan_count + est_count;
+	dev_dbg(kbdev->dev, "Reclaim count unused pages: %lu (scan: %lu, extra_est: %lu, %d/)\n",
+		total, scan_count, est_count, counted);
+
+	return total;
+}
+
+unsigned long
+kbase_csf_scheduler_scan_free_heap_pages(struct kbase_device *kbdev,
+					 struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl)
+{
+	struct kbase_csf_sched_heap_reclaim_mgr *mgr = &kbdev->csf.scheduler.reclaim_mgr;
+	struct shrink_control *sc = shrink_ctrl->sc;
+	unsigned long freed = 0;
+	unsigned long count = 0;
+	unsigned long avail = 0;
+
+	/* If Scheduler is busy in action, return 0 */
+	if (!mutex_trylock(&kbdev->csf.scheduler.lock)) {
+		struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
+
+		/* Wait for roughly 2-ms */
+		wait_event_timeout(kbdev->csf.event_wait, (scheduler->state != SCHED_BUSY),
+				   msecs_to_jiffies(2));
+		if (!mutex_trylock(&kbdev->csf.scheduler.lock)) {
+			dev_dbg(kbdev->dev,
+				"Reclaim scan see device busy (freed: 0, number to scan: %lu)\n",
+				sc->nr_to_scan);
+			return 0;
+		}
+	}
+
+	avail = atomic_read(&mgr->mgr_scan_pages);
+	if (avail) {
+		freed = reclaim_free_counted_heap_pages(kbdev, shrink_ctrl);
+		if (freed < sc->nr_to_scan && atomic_read(&mgr->est_cand_pages))
+			count = reclaim_count_candidates_heap_pages(kbdev, freed, shrink_ctrl);
+	} else {
+		count = reclaim_count_candidates_heap_pages(kbdev, freed, shrink_ctrl);
+	}
+
+	/* If having done count in this call, try reclaim free again */
+	if (count)
+		freed += reclaim_free_counted_heap_pages(kbdev, shrink_ctrl);
+
+	mutex_unlock(&kbdev->csf.scheduler.lock);
+
+	dev_info(kbdev->dev,
+		 "Reclaim scan freed pages: %lu (avail: %lu, extra: %lu, number to scan: %lu)\n",
+		 freed, avail, count, sc->nr_to_scan);
+
+	/* On no avilablity, and with no new extra count, return STOP */
+	if (!avail && !count)
+		return SHRINK_STOP;
+	else
+		return freed;
 }

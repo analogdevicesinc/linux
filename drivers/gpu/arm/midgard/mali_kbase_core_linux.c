@@ -172,6 +172,11 @@ static const struct mali_kbase_capability_def kbase_caps_table[MALI_KBASE_NUM_CA
 #endif
 };
 
+#if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
+/* Mutex to synchronize the probe of multiple kbase instances */
+static struct mutex kbase_probe_mutex;
+#endif
+
 /**
  * mali_kbase_supports_cap - Query whether a kbase capability is supported
  *
@@ -1493,9 +1498,22 @@ static int kbasep_cs_tiler_heap_init(struct kbase_context *kctx,
 	kctx->jit_group_id = heap_init->in.group_id;
 
 	return kbase_csf_tiler_heap_init(kctx, heap_init->in.chunk_size,
-		heap_init->in.initial_chunks, heap_init->in.max_chunks,
-		heap_init->in.target_in_flight,
-		&heap_init->out.gpu_heap_va, &heap_init->out.first_chunk_va);
+					 heap_init->in.initial_chunks, heap_init->in.max_chunks,
+					 heap_init->in.target_in_flight, heap_init->in.buf_desc_va,
+					 &heap_init->out.gpu_heap_va,
+					 &heap_init->out.first_chunk_va);
+}
+
+static int kbasep_cs_tiler_heap_init_1_13(struct kbase_context *kctx,
+					  union kbase_ioctl_cs_tiler_heap_init_1_13 *heap_init)
+{
+	kctx->jit_group_id = heap_init->in.group_id;
+
+	return kbase_csf_tiler_heap_init(kctx, heap_init->in.chunk_size,
+					 heap_init->in.initial_chunks, heap_init->in.max_chunks,
+					 heap_init->in.target_in_flight, 0,
+					 &heap_init->out.gpu_heap_va,
+					 &heap_init->out.first_chunk_va);
 }
 
 static int kbasep_cs_tiler_heap_term(struct kbase_context *kctx,
@@ -1577,6 +1595,31 @@ static int kbasep_ioctl_cs_cpu_queue_dump(struct kbase_context *kctx,
 					cpu_queue_info->size);
 }
 
+#define POWER_DOWN_LATEST_FLUSH_VALUE ((u32)1)
+static int kbase_ioctl_read_user_page(struct kbase_context *kctx,
+				      union kbase_ioctl_read_user_page *user_page)
+{
+	struct kbase_device *kbdev = kctx->kbdev;
+	unsigned long flags;
+
+	/* As of now, only LATEST_FLUSH is supported */
+	if (unlikely(user_page->in.offset != LATEST_FLUSH))
+		return -EINVAL;
+
+	/* Validating padding that must be zero */
+	if (unlikely(user_page->in.padding != 0))
+		return -EINVAL;
+
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	if (!kbdev->pm.backend.gpu_powered)
+		user_page->out.val_lo = POWER_DOWN_LATEST_FLUSH_VALUE;
+	else
+		user_page->out.val_lo = kbase_reg_read(kbdev, USER_REG(LATEST_FLUSH));
+	user_page->out.val_hi = 0;
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
+	return 0;
+}
 #endif /* MALI_USE_CSF */
 
 static int kbasep_ioctl_context_priority_check(struct kbase_context *kctx,
@@ -2027,6 +2070,11 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				union kbase_ioctl_cs_tiler_heap_init,
 				kctx);
 		break;
+	case KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13:
+		KBASE_HANDLE_IOCTL_INOUT(KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13,
+					 kbasep_cs_tiler_heap_init_1_13,
+					 union kbase_ioctl_cs_tiler_heap_init_1_13, kctx);
+		break;
 	case KBASE_IOCTL_CS_TILER_HEAP_TERM:
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_CS_TILER_HEAP_TERM,
 				kbasep_cs_tiler_heap_term,
@@ -2044,6 +2092,10 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				kbasep_ioctl_cs_cpu_queue_dump,
 				struct kbase_ioctl_cs_cpu_queue_info,
 				kctx);
+		break;
+	case KBASE_IOCTL_READ_USER_PAGE:
+		KBASE_HANDLE_IOCTL_INOUT(KBASE_IOCTL_READ_USER_PAGE, kbase_ioctl_read_user_page,
+					 union kbase_ioctl_read_user_page, kctx);
 		break;
 #endif /* MALI_USE_CSF */
 #if MALI_UNIT_TEST
@@ -2086,6 +2138,9 @@ static ssize_t kbase_read(struct file *filp, char __user *buf, size_t count, lof
 
 	if (unlikely(!kctx))
 		return -EPERM;
+
+	if (count < data_size)
+		return -ENOBUFS;
 
 	if (atomic_read(&kctx->event_count))
 		read_event = true;
@@ -3184,10 +3239,6 @@ static ssize_t gpuinfo_show(struct device *dev,
 		  .name = "Mali-G510" },
 		{ .id = GPU_ID2_PRODUCT_TVAX >> KBASE_GPU_ID_VERSION_PRODUCT_ID_SHIFT,
 		  .name = "Mali-G310" },
-		{ .id = GPU_ID2_PRODUCT_TTUX >> KBASE_GPU_ID_VERSION_PRODUCT_ID_SHIFT,
-		  .name = "Mali-TTUX" },
-		{ .id = GPU_ID2_PRODUCT_LTUX >> KBASE_GPU_ID_VERSION_PRODUCT_ID_SHIFT,
-		  .name = "Mali-LTUX" },
 	};
 	const char *product_name = "(Unknown Mali GPU)";
 	struct kbase_device *kbdev;
@@ -3222,19 +3273,19 @@ static ssize_t gpuinfo_show(struct device *dev,
 			GPU_FEATURES_RAY_TRACING_GET(gpu_props->props.raw_props.gpu_features);
 		const u8 nr_cores = gpu_props->num_cores;
 
-		/* Mali-TTUX_B(ig) if 10 < number of cores with ray tracing supproted.
-		 * Mali-TTUX if 10 < number of cores without ray tracing supported.
-		 * Mali-TTUX if 7 <= number of cores <= 10 regardless ray tracing.
-		 * Mali-LTUX if number of cores < 7.
+		/* Mali-G715-Immortalis if 10 < number of cores with ray tracing supproted.
+		 * Mali-G715 if 10 < number of cores without ray tracing supported.
+		 * Mali-G715 if 7 <= number of cores <= 10 regardless ray tracing.
+		 * Mali-G615 if number of cores < 7.
 		 */
 		if ((nr_cores > 10) && rt_supported)
-			product_name = "Mali-TTUX_B";
+			product_name = "Mali-G715-Immortalis";
 		else if (nr_cores >= 7)
-			product_name = "Mali-TTUX";
+			product_name = "Mali-G715";
 
 		if (nr_cores < 7) {
-			dev_warn(kbdev->dev, "nr_cores(%u) GPU ID must be LTUX", nr_cores);
-			product_name = "Mali-LTUX";
+			dev_warn(kbdev->dev, "nr_cores(%u) GPU ID must be G615", nr_cores);
+			product_name = "Mali-G615";
 		} else
 			dev_dbg(kbdev->dev, "GPU ID_Name: %s, nr_cores(%u)\n", product_name,
 				nr_cores);
@@ -4895,6 +4946,7 @@ int kbase_device_debugfs_init(struct kbase_device *kbdev)
 			kbdev->mali_debugfs_directory, kbdev,
 			&kbasep_serialize_jobs_debugfs_fops);
 
+	kbase_timeline_io_debugfs_init(kbdev);
 #endif
 	kbase_dvfs_status_debugfs_init(kbdev);
 
@@ -5425,7 +5477,9 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 
 	kbdev->dev = &pdev->dev;
 	dev_set_drvdata(kbdev->dev, kbdev);
-
+#if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
+	mutex_lock(&kbase_probe_mutex);
+#endif
 	err = kbase_device_init(kbdev);
 
 	if (err) {
@@ -5437,10 +5491,16 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 
 		dev_set_drvdata(kbdev->dev, NULL);
 		kbase_device_free(kbdev);
+#if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
+		mutex_unlock(&kbase_probe_mutex);
+#endif
 	} else {
 		dev_info(kbdev->dev,
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
 		kbase_increment_device_id();
+#if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
+		mutex_unlock(&kbase_probe_mutex);
+#endif
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
 		mutex_lock(&kbdev->pm.lock);
 		kbase_arbiter_pm_vm_event(kbdev, KBASE_VM_GPU_INITIALIZED_EVT);
@@ -5668,41 +5728,43 @@ static struct platform_driver kbase_platform_driver = {
 	},
 };
 
-/*
- * The driver will not provide a shortcut to create the Mali platform device
- * anymore when using Device Tree.
- */
-#if IS_ENABLED(CONFIG_OF)
+#if (KERNEL_VERSION(5, 3, 0) > LINUX_VERSION_CODE) && IS_ENABLED(CONFIG_OF)
 module_platform_driver(kbase_platform_driver);
 #else
-
 static int __init kbase_driver_init(void)
 {
 	int ret;
 
+#if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
+	mutex_init(&kbase_probe_mutex);
+#endif
+
+#ifndef CONFIG_OF
 	ret = kbase_platform_register();
 	if (ret)
 		return ret;
-
+#endif
 	ret = platform_driver_register(&kbase_platform_driver);
-
-	if (ret)
+#ifndef CONFIG_OF
+	if (ret) {
 		kbase_platform_unregister();
-
+		return ret;
+	}
+#endif
 	return ret;
 }
 
 static void __exit kbase_driver_exit(void)
 {
 	platform_driver_unregister(&kbase_platform_driver);
+#ifndef CONFIG_OF
 	kbase_platform_unregister();
+#endif
 }
 
 module_init(kbase_driver_init);
 module_exit(kbase_driver_exit);
-
-#endif /* CONFIG_OF */
-
+#endif
 MODULE_LICENSE("GPL");
 MODULE_VERSION(MALI_RELEASE_NAME " (UK version " \
 		__stringify(BASE_UK_VERSION_MAJOR) "." \

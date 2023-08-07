@@ -965,6 +965,43 @@ void kbase_ipa_control_handle_gpu_reset_post(struct kbase_device *kbdev)
 }
 KBASE_EXPORT_TEST_API(kbase_ipa_control_handle_gpu_reset_post);
 
+#ifdef KBASE_PM_RUNTIME
+void kbase_ipa_control_handle_gpu_sleep_enter(struct kbase_device *kbdev)
+{
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
+	if (kbdev->pm.backend.mcu_state == KBASE_MCU_IN_SLEEP) {
+		/* GPU Sleep is treated as a power down */
+		kbase_ipa_control_handle_gpu_power_off(kbdev);
+
+		/* SELECT_CSHW register needs to be cleared to prevent any
+		 * IPA control message to be sent to the top level GPU HWCNT.
+		 */
+		kbase_reg_write(kbdev, IPA_CONTROL_REG(SELECT_CSHW_LO), 0);
+		kbase_reg_write(kbdev, IPA_CONTROL_REG(SELECT_CSHW_HI), 0);
+
+		/* No need to issue the APPLY command here */
+	}
+}
+KBASE_EXPORT_TEST_API(kbase_ipa_control_handle_gpu_sleep_enter);
+
+void kbase_ipa_control_handle_gpu_sleep_exit(struct kbase_device *kbdev)
+{
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
+	if (kbdev->pm.backend.mcu_state == KBASE_MCU_IN_SLEEP) {
+		/* To keep things simple, currently exit from
+		 * GPU Sleep is treated as a power on event where
+		 * all 4 SELECT registers are reconfigured.
+		 * On exit from sleep, reconfiguration is needed
+		 * only for the SELECT_CSHW register.
+		 */
+		kbase_ipa_control_handle_gpu_power_on(kbdev);
+	}
+}
+KBASE_EXPORT_TEST_API(kbase_ipa_control_handle_gpu_sleep_exit);
+#endif
+
 #if MALI_UNIT_TEST
 void kbase_ipa_control_rate_change_notify_test(struct kbase_device *kbdev,
 					       u32 clk_index, u32 clk_rate_hz)
