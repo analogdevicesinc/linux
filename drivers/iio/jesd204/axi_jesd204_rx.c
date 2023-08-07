@@ -442,6 +442,14 @@ JESD_LANE(12);
 JESD_LANE(13);
 JESD_LANE(14);
 JESD_LANE(15);
+JESD_LANE(16);
+JESD_LANE(17);
+JESD_LANE(18);
+JESD_LANE(19);
+JESD_LANE(20);
+JESD_LANE(21);
+JESD_LANE(22);
+JESD_LANE(23);
 
 static const struct device_attribute *jesd204_rx_lane_devattrs[] = {
 	&dev_attr_lane0_info,
@@ -460,6 +468,14 @@ static const struct device_attribute *jesd204_rx_lane_devattrs[] = {
 	&dev_attr_lane13_info,
 	&dev_attr_lane14_info,
 	&dev_attr_lane15_info,
+	&dev_attr_lane16_info,
+	&dev_attr_lane17_info,
+	&dev_attr_lane18_info,
+	&dev_attr_lane19_info,
+	&dev_attr_lane20_info,
+	&dev_attr_lane21_info,
+	&dev_attr_lane22_info,
+	&dev_attr_lane23_info,
 };
 
 static irqreturn_t axi_jesd204_rx_irq(int irq, void *devid)
@@ -1095,7 +1111,7 @@ static void axi_jesd204_rx_create_remove_devattrs(struct device *dev,
 						  bool create)
 {
 	const struct device_attribute *dattr;
-	unsigned int i;
+	unsigned int i, lanes;
 
 	if (create) {
 		device_create_file(dev, &dev_attr_status);
@@ -1105,22 +1121,20 @@ static void axi_jesd204_rx_create_remove_devattrs(struct device *dev,
 		device_remove_file(dev, &dev_attr_encoder);
 	}
 
-	switch (jesd->num_lanes) {
-	case 16:
-	case 8:
-	case 4:
-	case 2:
-	case 1:
-		for (i = 0; i < jesd->num_lanes; i++) {
-			dattr = jesd204_rx_lane_devattrs[i];
-			if (create)
-				device_create_file(dev, dattr);
-			else
-				device_remove_file(dev, dattr);
-		}
-		break;
-	default:
-		break;
+	if (jesd->num_lanes > 24) {
+		dev_err(dev, "%s: Number of Lanes %u exceed max 24\n",
+			__func__, jesd->num_lanes);
+		lanes = 24;
+	} else {
+		lanes = jesd->num_lanes;
+	}
+
+	for (i = 0; i < lanes; i++) {
+		dattr = jesd204_rx_lane_devattrs[i];
+		if (create)
+			device_create_file(dev, dattr);
+		else
+			device_remove_file(dev, dattr);
 	}
 }
 
