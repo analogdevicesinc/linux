@@ -21,8 +21,8 @@
 
 #include "mali_kbase.h"
 #include "mali_kbase_kinstr_prfcnt.h"
-#include "mali_kbase_hwcnt_virtualizer.h"
-#include "mali_kbase_hwcnt_gpu.h"
+#include "hwcnt/mali_kbase_hwcnt_virtualizer.h"
+#include "hwcnt/mali_kbase_hwcnt_gpu.h"
 #include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
 #include "mali_malisw.h"
 #include "mali_kbase_debug.h"

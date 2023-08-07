@@ -82,65 +82,19 @@ static bool ipa_control_timer_enabled;
 #define LO_MASK(M) ((M) & 0xFFFFFFFF)
 #define HI_MASK(M) ((M) & 0xFFFFFFFF00000000)
 
-static u32 get_implementation_register(u32 reg)
-{
-	switch (reg) {
-	case GPU_CONTROL_REG(SHADER_PRESENT_LO):
-		return LO_MASK(DUMMY_IMPLEMENTATION_SHADER_PRESENT);
-	case GPU_CONTROL_REG(TILER_PRESENT_LO):
-		return LO_MASK(DUMMY_IMPLEMENTATION_TILER_PRESENT);
-	case GPU_CONTROL_REG(L2_PRESENT_LO):
-		return LO_MASK(DUMMY_IMPLEMENTATION_L2_PRESENT);
-	case GPU_CONTROL_REG(STACK_PRESENT_LO):
-		return LO_MASK(DUMMY_IMPLEMENTATION_STACK_PRESENT);
-
-	case GPU_CONTROL_REG(SHADER_PRESENT_HI):
-	case GPU_CONTROL_REG(TILER_PRESENT_HI):
-	case GPU_CONTROL_REG(L2_PRESENT_HI):
-	case GPU_CONTROL_REG(STACK_PRESENT_HI):
-	/* *** FALLTHROUGH *** */
-	default:
-		return 0;
-	}
-}
-
-struct {
-	spinlock_t access_lock;
-#if !MALI_USE_CSF
-	unsigned long prfcnt_base;
-#endif /* !MALI_USE_CSF */
-	u32 *prfcnt_base_cpu;
-
-	u32 time;
-
-	struct gpu_model_prfcnt_en prfcnt_en;
-
-	u64 l2_present;
-	u64 shader_present;
-
-#if !MALI_USE_CSF
-	u64 jm_counters[KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
+/* Construct a value for the THREAD_FEATURES register, *except* the two most
+ * significant bits, which are set to IMPLEMENTATION_MODEL in
+ * midgard_model_read_reg().
+ */
+#if MALI_USE_CSF
+#define THREAD_FEATURES_PARTIAL(MAX_REGISTERS, MAX_TASK_QUEUE, MAX_TG_SPLIT)                       \
+	((MAX_REGISTERS) | ((MAX_TASK_QUEUE) << 24))
 #else
-	u64 cshw_counters[KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
-#endif /* !MALI_USE_CSF */
-	u64 tiler_counters[KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
-	u64 l2_counters[KBASE_DUMMY_MODEL_MAX_MEMSYS_BLOCKS *
-			KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
-	u64 shader_counters[KBASE_DUMMY_MODEL_MAX_SHADER_CORES *
-			    KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
+#define THREAD_FEATURES_PARTIAL(MAX_REGISTERS, MAX_TASK_QUEUE, MAX_TG_SPLIT)                       \
+	((MAX_REGISTERS) | ((MAX_TASK_QUEUE) << 16) | ((MAX_TG_SPLIT) << 24))
+#endif
 
-} performance_counters = {
-	.l2_present = DUMMY_IMPLEMENTATION_L2_PRESENT,
-	.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
-};
-
-struct job_slot {
-	int job_active;
-	int job_queued;
-	int job_complete_irq_asserted;
-	int job_irq_mask;
-	int job_disabled;
-};
+struct error_status_t hw_error_status;
 
 /**
  * struct control_reg_values_t - control register values specific to the GPU being 'emulated'
@@ -158,6 +112,9 @@ struct job_slot {
  * @mmu_features:		MMU features
  * @gpu_features_lo:		GPU features (low)
  * @gpu_features_hi:		GPU features (high)
+ * @shader_present:		Available shader bitmap
+ * @stack_present:		Core stack present bitmap
+ *
  */
 struct control_reg_values_t {
 	const char *name;
@@ -172,6 +129,16 @@ struct control_reg_values_t {
 	u32 mmu_features;
 	u32 gpu_features_lo;
 	u32 gpu_features_hi;
+	u32 shader_present;
+	u32 stack_present;
+};
+
+struct job_slot {
+	int job_active;
+	int job_queued;
+	int job_complete_irq_asserted;
+	int job_irq_mask;
+	int job_disabled;
 };
 
 struct dummy_model_t {
@@ -193,6 +160,305 @@ struct dummy_model_t {
 	u32 l2_config;
 	void *data;
 };
+
+/* Array associating GPU names with control register values. The first
+ * one is used in the case of no match.
+ */
+static const struct control_reg_values_t all_control_reg_values[] = {
+	{
+		.name = "tMIx",
+		.gpu_id = GPU_ID2_MAKE(6, 0, 10, 0, 0, 1, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tHEx",
+		.gpu_id = GPU_ID2_MAKE(6, 2, 0, 1, 0, 3, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tSIx",
+		.gpu_id = GPU_ID2_MAKE(7, 0, 0, 0, 1, 1, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x300,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
+		.tiler_features = 0x209,
+		.mmu_features = 0x2821,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tDVx",
+		.gpu_id = GPU_ID2_MAKE(7, 0, 0, 3, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x300,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
+		.tiler_features = 0x209,
+		.mmu_features = 0x2821,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tNOx",
+		.gpu_id = GPU_ID2_MAKE(7, 2, 1, 1, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tGOx_r0p0",
+		.gpu_id = GPU_ID2_MAKE(7, 2, 2, 2, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tGOx_r1p0",
+		.gpu_id = GPU_ID2_MAKE(7, 4, 0, 2, 1, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
+		.core_features = 0x2,
+		.tiler_features = 0x209,
+		.mmu_features = 0x2823,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tTRx",
+		.gpu_id = GPU_ID2_MAKE(9, 0, 8, 0, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tNAx",
+		.gpu_id = GPU_ID2_MAKE(9, 0, 8, 1, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tBEx",
+		.gpu_id = GPU_ID2_MAKE(9, 2, 0, 2, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tBAx",
+		.gpu_id = GPU_ID2_MAKE(9, 14, 4, 5, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tDUx",
+		.gpu_id = GPU_ID2_MAKE(10, 2, 0, 1, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tODx",
+		.gpu_id = GPU_ID2_MAKE(10, 8, 0, 2, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tGRx",
+		.gpu_id = GPU_ID2_MAKE(10, 10, 0, 3, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.core_features = 0x0, /* core_1e16fma2tex */
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tVAx",
+		.gpu_id = GPU_ID2_MAKE(10, 12, 0, 4, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x180,
+		.thread_max_workgroup_size = 0x180,
+		.thread_max_barrier_size = 0x180,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
+		.core_features = 0x0, /* core_1e16fma2tex */
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0,
+		.gpu_features_hi = 0,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
+	},
+	{
+		.name = "tTUx",
+		.gpu_id = GPU_ID2_MAKE(11, 8, 5, 2, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x800,
+		.thread_max_workgroup_size = 0x400,
+		.thread_max_barrier_size = 0x400,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x10000, 4, 0),
+		.core_features = 0x0, /* core_1e32fma2tex */
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0xf,
+		.gpu_features_hi = 0,
+		.shader_present = 0xFF,
+		.stack_present = 0xF,
+	},
+};
+
+static struct {
+	spinlock_t access_lock;
+#if !MALI_USE_CSF
+	unsigned long prfcnt_base;
+#endif /* !MALI_USE_CSF */
+	u32 *prfcnt_base_cpu;
+
+	u32 time;
+
+	struct gpu_model_prfcnt_en prfcnt_en;
+
+	u64 l2_present;
+	u64 shader_present;
+
+#if !MALI_USE_CSF
+	u64 jm_counters[KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
+#else
+	u64 cshw_counters[KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
+#endif /* !MALI_USE_CSF */
+	u64 tiler_counters[KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
+	u64 l2_counters[KBASE_DUMMY_MODEL_MAX_MEMSYS_BLOCKS *
+					KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
+	u64 shader_counters[KBASE_DUMMY_MODEL_MAX_SHADER_CORES *
+						KBASE_DUMMY_MODEL_COUNTER_PER_CORE];
+} performance_counters;
+
+static u32 get_implementation_register(u32 reg,
+				       const struct control_reg_values_t *const control_reg_values)
+{
+	switch (reg) {
+	case GPU_CONTROL_REG(SHADER_PRESENT_LO):
+		return LO_MASK(control_reg_values->shader_present);
+	case GPU_CONTROL_REG(TILER_PRESENT_LO):
+		return LO_MASK(DUMMY_IMPLEMENTATION_TILER_PRESENT);
+	case GPU_CONTROL_REG(L2_PRESENT_LO):
+		return LO_MASK(DUMMY_IMPLEMENTATION_L2_PRESENT);
+	case GPU_CONTROL_REG(STACK_PRESENT_LO):
+		return LO_MASK(control_reg_values->stack_present);
+
+	case GPU_CONTROL_REG(SHADER_PRESENT_HI):
+	case GPU_CONTROL_REG(TILER_PRESENT_HI):
+	case GPU_CONTROL_REG(L2_PRESENT_HI):
+	case GPU_CONTROL_REG(STACK_PRESENT_HI):
+	/* *** FALLTHROUGH *** */
+	default:
+		return 0;
+	}
+}
 
 void gpu_device_set_data(void *model, void *data)
 {
@@ -220,238 +486,6 @@ void *gpu_device_get_data(void *model)
 static char *no_mali_gpu = CONFIG_MALI_NO_MALI_DEFAULT_GPU;
 module_param(no_mali_gpu, charp, 0000);
 MODULE_PARM_DESC(no_mali_gpu, "GPU to identify as");
-
-/* Construct a value for the THREAD_FEATURES register, *except* the two most
- * significant bits, which are set to IMPLEMENTATION_MODEL in
- * midgard_model_read_reg().
- */
-#if MALI_USE_CSF
-#define THREAD_FEATURES_PARTIAL(MAX_REGISTERS, MAX_TASK_QUEUE, MAX_TG_SPLIT) \
-	((MAX_REGISTERS) | ((MAX_TASK_QUEUE) << 24))
-#else
-#define THREAD_FEATURES_PARTIAL(MAX_REGISTERS, MAX_TASK_QUEUE, MAX_TG_SPLIT) \
-	((MAX_REGISTERS) | ((MAX_TASK_QUEUE) << 16) | ((MAX_TG_SPLIT) << 24))
-#endif
-
-/* Array associating GPU names with control register values. The first
- * one is used in the case of no match.
- */
-static const struct control_reg_values_t all_control_reg_values[] = {
-	{
-		.name = "tMIx",
-		.gpu_id = GPU_ID2_MAKE(6, 0, 10, 0, 0, 1, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tHEx",
-		.gpu_id = GPU_ID2_MAKE(6, 2, 0, 1, 0, 3, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tSIx",
-		.gpu_id = GPU_ID2_MAKE(7, 0, 0, 0, 1, 1, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x300,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
-		.tiler_features = 0x209,
-		.mmu_features = 0x2821,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tDVx",
-		.gpu_id = GPU_ID2_MAKE(7, 0, 0, 3, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x300,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
-		.tiler_features = 0x209,
-		.mmu_features = 0x2821,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tNOx",
-		.gpu_id = GPU_ID2_MAKE(7, 2, 1, 1, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tGOx_r0p0",
-		.gpu_id = GPU_ID2_MAKE(7, 2, 2, 2, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tGOx_r1p0",
-		.gpu_id = GPU_ID2_MAKE(7, 4, 0, 2, 1, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 10),
-		.core_features = 0x2,
-		.tiler_features = 0x209,
-		.mmu_features = 0x2823,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tTRx",
-		.gpu_id = GPU_ID2_MAKE(9, 0, 8, 0, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tNAx",
-		.gpu_id = GPU_ID2_MAKE(9, 0, 8, 1, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tBEx",
-		.gpu_id = GPU_ID2_MAKE(9, 2, 0, 2, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tBAx",
-		.gpu_id = GPU_ID2_MAKE(9, 14, 4, 5, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tDUx",
-		.gpu_id = GPU_ID2_MAKE(10, 2, 0, 1, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tODx",
-		.gpu_id = GPU_ID2_MAKE(10, 8, 0, 2, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tGRx",
-		.gpu_id = GPU_ID2_MAKE(10, 10, 0, 3, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.core_features = 0x0, /* core_1e16fma2tex */
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tVAx",
-		.gpu_id = GPU_ID2_MAKE(10, 12, 0, 4, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x180,
-		.thread_max_workgroup_size = 0x180,
-		.thread_max_barrier_size = 0x180,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x6000, 4, 0),
-		.core_features = 0x0, /* core_1e16fma2tex */
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0,
-		.gpu_features_hi = 0,
-	},
-	{
-		.name = "tTUx",
-		.gpu_id = GPU_ID2_MAKE(11, 8, 5, 2, 0, 0, 0),
-		.as_present = 0xFF,
-		.thread_max_threads = 0x800,
-		.thread_max_workgroup_size = 0x400,
-		.thread_max_barrier_size = 0x400,
-		.thread_features = THREAD_FEATURES_PARTIAL(0x10000, 4, 0),
-		.core_features = 0x0, /* core_1e32fma2tex */
-		.tiler_features = 0x809,
-		.mmu_features = 0x2830,
-		.gpu_features_lo = 0xf,
-		.gpu_features_hi = 0,
-	},
-};
-
-struct error_status_t hw_error_status;
 
 #if MALI_USE_CSF
 static u32 gpu_model_get_prfcnt_value(enum kbase_ipa_core_type core_type,
@@ -1043,6 +1077,10 @@ void *midgard_model_create(const void *config)
 		dummy->job_irq_js_state = 0;
 		init_register_statuses(dummy);
 		dummy->control_reg_values = find_control_reg_values(no_mali_gpu);
+		performance_counters.l2_present = get_implementation_register(
+			GPU_CONTROL_REG(L2_PRESENT_LO), dummy->control_reg_values);
+		performance_counters.shader_present = get_implementation_register(
+			GPU_CONTROL_REG(SHADER_PRESENT_LO), dummy->control_reg_values);
 	}
 	return dummy;
 }
@@ -1291,6 +1329,12 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 						(CSF_NUM_DOORBELL * CSF_HW_DOORBELL_PAGE_SIZE))) {
 		if (addr == GPU_CONTROL_REG(CSF_HW_DOORBELL_PAGE_OFFSET))
 			hw_error_status.job_irq_status = JOB_IRQ_GLOBAL_IF;
+	} else if ((addr >= GPU_CONTROL_REG(SYSC_ALLOC0)) &&
+		   (addr < GPU_CONTROL_REG(SYSC_ALLOC(SYSC_ALLOC_COUNT)))) {
+		/* Do nothing */
+	} else if ((addr >= GPU_CONTROL_REG(ASN_HASH_0)) &&
+		   (addr < GPU_CONTROL_REG(ASN_HASH(ASN_HASH_COUNT)))) {
+		/* Do nothing */
 	} else if (addr == IPA_CONTROL_REG(COMMAND)) {
 		pr_debug("Received IPA_CONTROL command");
 	} else if (addr == IPA_CONTROL_REG(TIMER)) {
@@ -1315,8 +1359,7 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 		hw_error_status.mmu_irq_mask = value;
 	} else if (addr == MMU_REG(MMU_IRQ_CLEAR)) {
 		hw_error_status.mmu_irq_rawstat &= (~value);
-	} else if ((addr >= MMU_AS_REG(0, AS_TRANSTAB_LO)) &&
-			(addr <= MMU_AS_REG(15, AS_STATUS))) {
+	} else if ((addr >= MMU_AS_REG(0, AS_TRANSTAB_LO)) && (addr <= MMU_AS_REG(15, AS_STATUS))) {
 		int mem_addr_space = (addr - MMU_AS_REG(0, AS_TRANSTAB_LO))
 									>> 6;
 
@@ -1443,7 +1486,8 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 			dummy->power_changed = 1;
 			break;
 		case SHADER_PWRON_LO:
-			dummy->power_on |= (value & 0xF) << 2;
+			dummy->power_on |=
+				(value & dummy->control_reg_values->shader_present) << 2;
 			dummy->power_changed = 1;
 			break;
 		case L2_PWRON_LO:
@@ -1459,7 +1503,8 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 			dummy->power_changed = 1;
 			break;
 		case SHADER_PWROFF_LO:
-			dummy->power_on &= ~((value & 0xF) << 2);
+			dummy->power_on &=
+				~((value & dummy->control_reg_values->shader_present) << 2);
 			dummy->power_changed = 1;
 			break;
 		case L2_PWROFF_LO:
@@ -1581,8 +1626,18 @@ u8 midgard_model_read_reg(void *h, u32 addr, u32 * const value)
 		*value = hw_error_status.gpu_fault_status;
 	} else if (addr == GPU_CONTROL_REG(L2_CONFIG)) {
 		*value = dummy->l2_config;
-	} else if ((addr >= GPU_CONTROL_REG(SHADER_PRESENT_LO)) &&
-				(addr <= GPU_CONTROL_REG(L2_MMU_CONFIG))) {
+	}
+#if MALI_USE_CSF
+	else if ((addr >= GPU_CONTROL_REG(SYSC_ALLOC0)) &&
+		 (addr < GPU_CONTROL_REG(SYSC_ALLOC(SYSC_ALLOC_COUNT)))) {
+		*value = 0;
+	} else if ((addr >= GPU_CONTROL_REG(ASN_HASH_0)) &&
+		   (addr < GPU_CONTROL_REG(ASN_HASH(ASN_HASH_COUNT)))) {
+		*value = 0;
+	}
+#endif
+	else if ((addr >= GPU_CONTROL_REG(SHADER_PRESENT_LO)) &&
+		 (addr <= GPU_CONTROL_REG(L2_MMU_CONFIG))) {
 		switch (addr) {
 		case GPU_CONTROL_REG(SHADER_PRESENT_LO):
 		case GPU_CONTROL_REG(SHADER_PRESENT_HI):
@@ -1592,27 +1647,27 @@ u8 midgard_model_read_reg(void *h, u32 addr, u32 * const value)
 		case GPU_CONTROL_REG(L2_PRESENT_HI):
 		case GPU_CONTROL_REG(STACK_PRESENT_LO):
 		case GPU_CONTROL_REG(STACK_PRESENT_HI):
-			*value = get_implementation_register(addr);
+			*value = get_implementation_register(addr, dummy->control_reg_values);
 			break;
 		case GPU_CONTROL_REG(SHADER_READY_LO):
 			*value = (dummy->power_on >> 0x02) &
-			get_implementation_register(
-				GPU_CONTROL_REG(SHADER_PRESENT_LO));
+				 get_implementation_register(GPU_CONTROL_REG(SHADER_PRESENT_LO),
+							     dummy->control_reg_values);
 			break;
 		case GPU_CONTROL_REG(TILER_READY_LO):
 			*value = (dummy->power_on >> 0x01) &
-				 get_implementation_register(
-				GPU_CONTROL_REG(TILER_PRESENT_LO));
+				 get_implementation_register(GPU_CONTROL_REG(TILER_PRESENT_LO),
+							     dummy->control_reg_values);
 			break;
 		case GPU_CONTROL_REG(L2_READY_LO):
 			*value = dummy->power_on &
-				 get_implementation_register(
-				GPU_CONTROL_REG(L2_PRESENT_LO));
+				 get_implementation_register(GPU_CONTROL_REG(L2_PRESENT_LO),
+							     dummy->control_reg_values);
 			break;
 		case GPU_CONTROL_REG(STACK_READY_LO):
 			*value = dummy->stack_power_on_lo &
-				 get_implementation_register(
-				GPU_CONTROL_REG(STACK_PRESENT_LO));
+				 get_implementation_register(GPU_CONTROL_REG(STACK_PRESENT_LO),
+							     dummy->control_reg_values);
 			break;
 
 		case GPU_CONTROL_REG(SHADER_READY_HI):

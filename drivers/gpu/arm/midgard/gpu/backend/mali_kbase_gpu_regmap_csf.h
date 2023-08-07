@@ -124,6 +124,7 @@
 
 #define MCU_STATUS_HALTED        (1 << 1)
 
+
 /* JOB IRQ flags */
 #define JOB_IRQ_GLOBAL_IF       (1 << 31)   /* Global interface interrupt received */
 

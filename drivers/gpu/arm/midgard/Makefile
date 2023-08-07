@@ -91,14 +91,10 @@ ifeq ($(CONFIG_MALI_MIDGARD),m)
             CONFIG_MALI_MIDGARD_ENABLE_TRACE ?= y
             CONFIG_MALI_SYSTEM_TRACE ?= y
 
-            ifeq ($(CONFIG_SYNC), y)
+            ifeq ($(CONFIG_SYNC_FILE), y)
                 CONFIG_MALI_FENCE_DEBUG ?= y
             else
-                ifeq ($(CONFIG_SYNC_FILE), y)
-                    CONFIG_MALI_FENCE_DEBUG ?= y
-                else
-                    CONFIG_MALI_FENCE_DEBUG = n
-                endif
+                CONFIG_MALI_FENCE_DEBUG = n
             endif
         else
             # Prevent misuse when CONFIG_MALI_DEBUG=n

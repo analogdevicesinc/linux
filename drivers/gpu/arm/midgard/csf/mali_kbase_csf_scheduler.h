@@ -24,7 +24,6 @@
 
 #include "mali_kbase_csf.h"
 #include "mali_kbase_csf_event.h"
-#include "mali_kbase_csf_tiler_heap_def.h"
 
 /**
  * kbase_csf_scheduler_queue_start() - Enable the running of GPU command queue
@@ -37,9 +36,7 @@
  * If the CSG is already scheduled and resident, the CSI will be started
  * right away, otherwise once the group is made resident.
  *
- * Return: 0 on success, or negative on failure. -EBUSY is returned to
- * indicate to the caller that queue could not be enabled due to Scheduler
- * state and the caller can try to enable the queue after sometime.
+ * Return: 0 on success, or negative on failure.
  */
 int kbase_csf_scheduler_queue_start(struct kbase_queue *queue);
 
@@ -676,36 +673,5 @@ void kbase_csf_scheduler_force_wakeup(struct kbase_device *kbdev);
  */
 void kbase_csf_scheduler_force_sleep(struct kbase_device *kbdev);
 #endif
-
-/* Forward declaration */
-struct kbase_csf_tiler_heap_shrink_control;
-
-/**
- * kbase_csf_scheduler_count_free_heap_pages() - Undertake shrinker reclaim count action
- *
- * @kbdev:        Pointer to the device
- * @shrink_ctrl:  Pointer to the kbase CSF schrink control object.
- *
- * This function is called from CSF tiler heap memory shrinker reclaim 'count_objects' operation.
- *
- * Return: number of potentially freeable tiler heap pages.
- */
-unsigned long
-kbase_csf_scheduler_count_free_heap_pages(struct kbase_device *kbdev,
-					  struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl);
-
-/**
- * kbase_csf_scheduler_scan_free_heap_pages() - Undertake shrinker reclaim scan action
- *
- * @kbdev:        Pointer to the device
- * @shrink_ctrl:  Pointer to the kbase CSF schrink control object.
- *
- * This function is called from CSF tiler heap memory shrinker reclaim 'scan_objects' operation.
- *
- * Return: number of actually freed tiler heap pagess.
- */
-unsigned long
-kbase_csf_scheduler_scan_free_heap_pages(struct kbase_device *kbdev,
-					 struct kbase_csf_tiler_heap_shrink_control *shrink_ctrl);
 
 #endif /* _KBASE_CSF_SCHEDULER_H_ */

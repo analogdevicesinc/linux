@@ -39,7 +39,7 @@
 
 #include <mali_kbase_reset_gpu.h>
 #include <mali_kbase_ctx_sched.h>
-#include <mali_kbase_hwcnt_context.h>
+#include <hwcnt/mali_kbase_hwcnt_context.h>
 #include <mali_kbase_pbha.h>
 #include <backend/gpu/mali_kbase_cache_policy_backend.h>
 #include <device/mali_kbase_device.h>
@@ -538,6 +538,7 @@ static void kbase_pm_l2_config_override(struct kbase_device *kbdev)
 	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_L2_CONFIG))
 		return;
 
+
 	/*
 	 * Skip if size and hash are not given explicitly,
 	 * which means default values are used.
@@ -697,10 +698,10 @@ static void wait_mcu_as_inactive(struct kbase_device *kbdev)
  * @kbdev:  Pointer to the device
  * @enable: boolean indicating to enable interrupts or not
  *
- * The POWER_CHANGED_ALL interrupt can be disabled after L2 has been turned on
- * when FW is controlling the power for the shader cores. Correspondingly, the
- * interrupts can be re-enabled after the MCU has been disabled before the
- * power down of L2.
+ * The POWER_CHANGED_ALL and POWER_CHANGED_SINGLE interrupts can be disabled
+ * after L2 has been turned on when FW is controlling the power for the shader
+ * cores. Correspondingly, the interrupts can be re-enabled after the MCU has
+ * been disabled before the power down of L2.
  */
 static void kbasep_pm_toggle_power_interrupt(struct kbase_device *kbdev, bool enable)
 {
@@ -710,12 +711,10 @@ static void kbasep_pm_toggle_power_interrupt(struct kbase_device *kbdev, bool en
 
 	irq_mask = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK));
 
-	if (enable) {
-		irq_mask |= POWER_CHANGED_ALL;
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), POWER_CHANGED_ALL);
-	} else {
-		irq_mask &= ~POWER_CHANGED_ALL;
-	}
+	if (enable)
+		irq_mask |= POWER_CHANGED_ALL | POWER_CHANGED_SINGLE;
+	else
+		irq_mask &= ~(POWER_CHANGED_ALL | POWER_CHANGED_SINGLE);
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK), irq_mask);
 }
@@ -1138,18 +1137,13 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 				KBASE_PM_CORE_L2);
 		u64 l2_ready = kbase_pm_get_ready_cores(kbdev,
 				KBASE_PM_CORE_L2);
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-		u64 tiler_trans = kbase_pm_get_trans_cores(
-				kbdev, KBASE_PM_CORE_TILER);
-		u64 tiler_ready = kbase_pm_get_ready_cores(
-				kbdev, KBASE_PM_CORE_TILER);
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
 		/*
 		 * kbase_pm_get_ready_cores and kbase_pm_get_trans_cores
 		 * are vulnerable to corruption if gpu is lost
 		 */
-		if (kbase_is_gpu_removed(kbdev)
-				|| kbase_pm_is_gpu_lost(kbdev)) {
+		if (kbase_is_gpu_removed(kbdev) || kbase_pm_is_gpu_lost(kbdev)) {
 			backend->shaders_state =
 				KBASE_SHADERS_OFF_CORESTACK_OFF;
 			backend->hwcnt_desired = false;
@@ -1172,7 +1166,7 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 			}
 			break;
 		}
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
+#endif
 
 		/* mask off ready from trans in case transitions finished
 		 * between the register reads
@@ -1229,14 +1223,12 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 			l2_power_up_done = false;
 			if (!l2_trans && l2_ready == l2_present) {
 				if (need_tiler_control(kbdev)) {
-#ifndef CONFIG_MALI_ARBITER_SUPPORT
 					u64 tiler_trans = kbase_pm_get_trans_cores(
 						kbdev, KBASE_PM_CORE_TILER);
 					u64 tiler_ready = kbase_pm_get_ready_cores(
 						kbdev, KBASE_PM_CORE_TILER);
-#endif
-
 					tiler_trans &= ~tiler_ready;
+
 					if (!tiler_trans && tiler_ready == tiler_present) {
 						KBASE_KTRACE_ADD(kbdev,
 								 PM_CORES_CHANGE_AVAILABLE_TILER,

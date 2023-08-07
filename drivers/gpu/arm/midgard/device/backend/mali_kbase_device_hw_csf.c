@@ -115,9 +115,6 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 									GPU_EXCEPTION_TYPE_SW_FAULT_0,
 							} } };
 
-			kbase_debug_csf_fault_notify(kbdev, scheduler->active_protm_grp->kctx,
-						     DF_GPU_PROTECTED_FAULT);
-
 			scheduler->active_protm_grp->faulted = true;
 			kbase_csf_add_group_fatal_error(
 				scheduler->active_protm_grp, &err_payload);

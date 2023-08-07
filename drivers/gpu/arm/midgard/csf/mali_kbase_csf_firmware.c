@@ -78,6 +78,7 @@ MODULE_PARM_DESC(fw_debug,
 	"Enables effective use of a debugger for debugging firmware code.");
 #endif
 
+
 #define FIRMWARE_HEADER_MAGIC    (0xC3F13A6Eul)
 #define FIRMWARE_HEADER_VERSION  (0ul)
 #define FIRMWARE_HEADER_LENGTH   (0x14ul)
@@ -526,6 +527,58 @@ static inline bool entry_find_large_page_to_reuse(
 	*pma = NULL;
 
 
+	/* If the section starts at 2MB aligned boundary,
+	 * then use 2MB page(s) for it.
+	 */
+	if (!(virtual_start & (SZ_2M - 1))) {
+		*num_pages_aligned =
+			round_up(*num_pages_aligned, NUM_4K_PAGES_IN_2MB_PAGE);
+		*is_small_page = false;
+		goto out;
+	}
+
+	/* If the section doesn't lie within the same 2MB aligned boundary,
+	 * then use 4KB pages as it would be complicated to use a 2MB page
+	 * for such section.
+	 */
+	if ((virtual_start & ~(SZ_2M - 1)) != (virtual_end & ~(SZ_2M - 1)))
+		goto out;
+
+	/* Find the nearest 2MB aligned section which comes before the current
+	 * section.
+	 */
+	list_for_each_entry(interface, &kbdev->csf.firmware_interfaces, node) {
+		const u32 virtual_diff = virtual_start - interface->virtual;
+
+		if (interface->virtual > virtual_end)
+			continue;
+
+		if (interface->virtual & (SZ_2M - 1))
+			continue;
+
+		if (virtual_diff < virtual_diff_min) {
+			target_interface = interface;
+			virtual_diff_min = virtual_diff;
+		}
+	}
+
+	if (target_interface) {
+		const u32 page_index = virtual_diff_min >> PAGE_SHIFT;
+
+		if (page_index >= target_interface->num_pages_aligned)
+			goto out;
+
+		if (target_interface->phys)
+			*phys = &target_interface->phys[page_index];
+
+		if (target_interface->pma)
+			*pma = &target_interface->pma[page_index / NUM_4K_PAGES_IN_2MB_PAGE];
+
+		*is_small_page = false;
+		reuse_large_page = true;
+	}
+
+out:
 	return reuse_large_page;
 }
 
@@ -1463,10 +1516,11 @@ static bool global_request_complete(struct kbase_device *const kbdev,
 	return complete;
 }
 
-static int wait_for_global_request_with_timeout(struct kbase_device *const kbdev,
-						u32 const req_mask, unsigned int timeout_ms)
+static int wait_for_global_request(struct kbase_device *const kbdev,
+				   u32 const req_mask)
 {
-	const long wait_timeout = kbase_csf_timeout_in_jiffies(timeout_ms);
+	const long wait_timeout =
+		kbase_csf_timeout_in_jiffies(kbdev->csf.fw_timeout_ms);
 	long remaining;
 	int err = 0;
 
@@ -1475,19 +1529,15 @@ static int wait_for_global_request_with_timeout(struct kbase_device *const kbdev
 				       wait_timeout);
 
 	if (!remaining) {
-		dev_warn(kbdev->dev,
-			 "[%llu] Timeout (%d ms) waiting for global request %x to complete",
-			 kbase_backend_get_cycle_cnt(kbdev), timeout_ms, req_mask);
+		dev_warn(kbdev->dev, "[%llu] Timeout (%d ms) waiting for global request %x to complete",
+			 kbase_backend_get_cycle_cnt(kbdev),
+			 kbdev->csf.fw_timeout_ms,
+			 req_mask);
 		err = -ETIMEDOUT;
 
 	}
 
 	return err;
-}
-
-static int wait_for_global_request(struct kbase_device *const kbdev, u32 const req_mask)
-{
-	return wait_for_global_request_with_timeout(kbdev, req_mask, kbdev->csf.fw_timeout_ms);
 }
 
 static void set_global_request(
@@ -2014,11 +2064,6 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 	return 0;
 }
 
-void kbase_csf_firmware_early_term(struct kbase_device *kbdev)
-{
-	mutex_destroy(&kbdev->csf.reg_lock);
-}
-
 int kbase_csf_firmware_late_init(struct kbase_device *kbdev)
 {
 	kbdev->csf.gpu_idle_hysteresis_ms = FIRMWARE_IDLE_HYSTERESIS_TIME_MS;
@@ -2318,6 +2363,8 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 	 */
 	kbase_mcu_shared_interface_region_tracker_term(kbdev);
 
+	mutex_destroy(&kbdev->csf.reg_lock);
+
 	kbase_mmu_term(kbdev, &kbdev->csf.mcu_mmu);
 
 	/* Release the address space */
@@ -2369,11 +2416,10 @@ void kbase_csf_firmware_ping(struct kbase_device *const kbdev)
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 }
 
-int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev, unsigned int wait_timeout_ms)
+int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev)
 {
 	kbase_csf_firmware_ping(kbdev);
-
-	return wait_for_global_request_with_timeout(kbdev, GLB_REQ_PING_MASK, wait_timeout_ms);
+	return wait_for_global_request(kbdev, GLB_REQ_PING_MASK);
 }
 
 int kbase_csf_firmware_set_timeout(struct kbase_device *const kbdev,
@@ -2412,7 +2458,7 @@ void kbase_csf_enter_protected_mode(struct kbase_device *kbdev)
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 }
 
-int kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
+void kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
 {
 	int err;
 
@@ -2452,14 +2498,12 @@ int kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
 		}
 	}
 
-	if (unlikely(err)) {
+	if (err) {
 		if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR))
 			kbase_reset_gpu(kbdev);
 	}
 
 	KBASE_TLSTREAM_AUX_PROTECTED_ENTER_END(kbdev, kbdev);
-
-	return err;
 }
 
 void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)

@@ -374,16 +374,6 @@ void kbase_csf_update_firmware_memory(struct kbase_device *kbdev,
 int kbase_csf_firmware_early_init(struct kbase_device *kbdev);
 
 /**
- * kbase_csf_firmware_early_term() - Terminate resources related to the firmware
- *                                   after the firmware unload has been done.
- *
- * @kbdev: Device pointer
- *
- * This should be called only when kbase probe fails or gets rmmoded.
- */
-void kbase_csf_firmware_early_term(struct kbase_device *kbdev);
-
-/**
  * kbase_csf_firmware_late_init() - Late initialization for the firmware.
  * @kbdev: Kbase device
  *
@@ -425,14 +415,13 @@ void kbase_csf_firmware_ping(struct kbase_device *kbdev);
  * kbase_csf_firmware_ping_wait - Send the ping request to firmware and waits.
  *
  * @kbdev: Instance of a GPU platform device that implements a CSF interface.
- * @wait_timeout_ms: Timeout to get the acknowledgment for PING request from FW.
  *
  * The function sends the ping request to firmware and waits to confirm it is
  * alive.
  *
  * Return: 0 on success, or negative on failure.
  */
-int kbase_csf_firmware_ping_wait(struct kbase_device *kbdev, unsigned int wait_timeout_ms);
+int kbase_csf_firmware_ping_wait(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_firmware_set_timeout - Set a hardware endpoint progress timeout.
@@ -469,10 +458,8 @@ void kbase_csf_enter_protected_mode(struct kbase_device *kbdev);
  * This function needs to be called after kbase_csf_enter_protected_mode() to
  * wait for the GPU to actually enter protected mode. GPU reset is triggered if
  * the wait is unsuccessful.
- *
- * Return: 0 on success, or negative on failure.
  */
-int kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev);
+void kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev);
 
 static inline bool kbase_csf_firmware_mcu_halted(struct kbase_device *kbdev)
 {

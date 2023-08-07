@@ -677,9 +677,11 @@ int kbase_gpuprops_update_l2_features(struct kbase_device *kbdev)
 			int idx;
 			const bool asn_he = regdump.l2_config &
 					    L2_CONFIG_ASN_HASH_ENABLE_MASK;
+#if !IS_ENABLED(CONFIG_MALI_NO_MALI)
 			if (!asn_he && kbdev->l2_hash_values_override)
 				dev_err(kbdev->dev,
 					"Failed to use requested ASN_HASH, fallback to default");
+#endif
 			for (idx = 0; idx < ASN_HASH_COUNT; idx++)
 				dev_info(kbdev->dev,
 					 "%s ASN_HASH[%d] is [0x%08x]\n",
@@ -820,7 +822,7 @@ int kbase_gpuprops_populate_user_buffer(struct kbase_device *kbdev)
 	}
 
 	kprops->prop_buffer_size = size;
-	kprops->prop_buffer = kmalloc(size, GFP_KERNEL);
+	kprops->prop_buffer = kzalloc(size, GFP_KERNEL);
 
 	if (!kprops->prop_buffer) {
 		kprops->prop_buffer_size = 0;

@@ -70,9 +70,7 @@
 #include "mali_kbase_jd_debugfs.h"
 #include "mali_kbase_jm.h"
 #include "mali_kbase_js.h"
-#else /* !MALI_USE_CSF */
-#include "csf/mali_kbase_debug_csf_fault.h"
-#endif /* MALI_USE_CSF */
+#endif /* !MALI_USE_CSF */
 
 #include "ipa/mali_kbase_ipa.h"
 
@@ -461,7 +459,7 @@ void kbase_finish_soft_job(struct kbase_jd_atom *katom);
 void kbase_cancel_soft_job(struct kbase_jd_atom *katom);
 void kbase_resume_suspended_soft_jobs(struct kbase_device *kbdev);
 void kbasep_remove_waiting_soft_job(struct kbase_jd_atom *katom);
-#if defined(CONFIG_SYNC) || defined(CONFIG_SYNC_FILE)
+#if IS_ENABLED(CONFIG_SYNC_FILE)
 void kbase_soft_event_wait_callback(struct kbase_jd_atom *katom);
 #endif
 int kbase_soft_event_update(struct kbase_context *kctx,

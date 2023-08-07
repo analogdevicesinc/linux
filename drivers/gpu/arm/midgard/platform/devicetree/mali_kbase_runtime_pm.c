@@ -82,7 +82,8 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	int error;
 	unsigned long flags;
 
-	dev_dbg(kbdev->dev, "%s %pK\n", __func__, (void *)kbdev->dev->pm_domain);
+	dev_dbg(kbdev->dev, "%s %p\n", __func__,
+			(void *)kbdev->dev->pm_domain);
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	WARN_ON(kbdev->pm.backend.gpu_powered);
@@ -297,3 +298,5 @@ struct kbase_pm_callback_conf pm_callbacks = {
 	.power_runtime_gpu_active_callback = NULL,
 #endif
 };
+
+

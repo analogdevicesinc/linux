@@ -20,12 +20,14 @@
  */
 
 #include "mali_kbase_pbha_debugfs.h"
-
 #include "mali_kbase_pbha.h"
-
 #include <device/mali_kbase_device.h>
 #include <mali_kbase_reset_gpu.h>
 #include <mali_kbase.h>
+
+#if MALI_USE_CSF
+#include "backend/gpu/mali_kbase_pm_internal.h"
+#endif
 
 static int int_id_overrides_show(struct seq_file *sfile, void *data)
 {
@@ -107,6 +109,7 @@ static int int_id_overrides_open(struct inode *in, struct file *file)
 {
 	return single_open(file, int_id_overrides_show, in->i_private);
 }
+
 
 static const struct file_operations pbha_int_id_overrides_fops = {
 	.owner = THIS_MODULE,

@@ -105,7 +105,7 @@ static int lock_region(struct kbase_gpu_props const *gpu_props, u64 *lockaddr,
 	 * therefore the highest bit that differs is bit #16
 	 * and the region size (as a logarithm) is 16 + 1 = 17, i.e. 128 kB.
 	 */
-	lockaddr_size_log2 = fls64(lockaddr_base ^ lockaddr_end);
+	lockaddr_size_log2 = fls(lockaddr_base ^ lockaddr_end);
 
 	/* Cap the size against minimum and maximum values allowed. */
 	if (lockaddr_size_log2 > KBASE_LOCK_REGION_MAX_SIZE_LOG2)
@@ -207,21 +207,18 @@ static int wait_cores_power_trans_complete(struct kbase_device *kbdev)
  *                     implicit unlock.
  * @as_nr:             Address space number for which MMU command needs to be
  *                     sent.
- * @hwaccess_locked:   Flag to indicate if hwaccess_lock is held by the caller.
  *
- * This functions ensures that the flush of LSC is not missed for the pages that
+ * This function ensures that the flush of LSC is not missed for the pages that
  * were unmapped from the GPU, due to the power down transition of shader cores.
  *
  * Return: 0 if the WA was successfully applied, non-zero otherwise.
  */
-static int apply_hw_issue_GPU2019_3901_wa(struct kbase_device *kbdev,
-			u32 *mmu_cmd, unsigned int as_nr, bool hwaccess_locked)
+static int apply_hw_issue_GPU2019_3901_wa(struct kbase_device *kbdev, u32 *mmu_cmd,
+					  unsigned int as_nr)
 {
-	unsigned long flags = 0;
 	int ret = 0;
 
-	if (!hwaccess_locked)
-		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	/* Check if L2 is OFF. The cores also must be OFF if L2 is not up, so
 	 * the workaround can be safely skipped.
@@ -230,33 +227,28 @@ static int apply_hw_issue_GPU2019_3901_wa(struct kbase_device *kbdev,
 		if (*mmu_cmd != AS_COMMAND_FLUSH_MEM) {
 			dev_warn(kbdev->dev,
 				 "Unexpected mmu command received");
-			ret = -EINVAL;
-			goto unlock;
+			return -EINVAL;
 		}
 
 		/* Wait for the LOCK MMU command to complete, issued by the caller */
 		ret = wait_ready(kbdev, as_nr);
 		if (ret)
-			goto unlock;
+			return ret;
 
 		ret = kbase_gpu_cache_flush_and_busy_wait(kbdev,
 				GPU_COMMAND_CACHE_CLN_INV_LSC);
 		if (ret)
-			goto unlock;
+			return ret;
 
 		ret = wait_cores_power_trans_complete(kbdev);
 		if (ret)
-			goto unlock;
+			return ret;
 
 		/* As LSC is guaranteed to have been flushed we can use FLUSH_PT
 		 * MMU command to only flush the L2.
 		 */
 		*mmu_cmd = AS_COMMAND_FLUSH_PT;
 	}
-
-unlock:
-	if (!hwaccess_locked)
-		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 	return ret;
 }
@@ -487,8 +479,16 @@ static int mmu_hw_do_flush(struct kbase_device *kbdev, struct kbase_as *as,
 	 * FLUSH_MEM/PT command is deprecated.
 	 */
 	if (mmu_cmd == AS_COMMAND_FLUSH_MEM) {
-		ret = apply_hw_issue_GPU2019_3901_wa(kbdev, &mmu_cmd,
-						as->number, hwaccess_locked);
+		if (!hwaccess_locked) {
+			unsigned long flags = 0;
+
+			spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+			ret = apply_hw_issue_GPU2019_3901_wa(kbdev, &mmu_cmd, as->number);
+			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+		} else {
+			ret = apply_hw_issue_GPU2019_3901_wa(kbdev, &mmu_cmd, as->number);
+		}
+
 		if (ret)
 			return ret;
 	}

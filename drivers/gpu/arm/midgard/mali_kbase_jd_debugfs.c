@@ -25,7 +25,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_jd_debugfs.h>
 #include <mali_kbase_dma_fence.h>
-#if defined(CONFIG_SYNC) || defined(CONFIG_SYNC_FILE)
+#if IS_ENABLED(CONFIG_SYNC_FILE)
 #include <mali_kbase_sync.h>
 #endif
 #include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
@@ -38,7 +38,7 @@ struct kbase_jd_debugfs_depinfo {
 static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
 					struct seq_file *sfile)
 {
-#if defined(CONFIG_SYNC) || defined(CONFIG_SYNC_FILE)
+#if IS_ENABLED(CONFIG_SYNC_FILE)
 	struct kbase_sync_fence_info info;
 	int res;
 
@@ -58,7 +58,7 @@ static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
 	default:
 		break;
 	}
-#endif /* CONFIG_SYNC || CONFIG_SYNC_FILE */
+#endif /* CONFIG_SYNC_FILE */
 
 #ifdef CONFIG_MALI_DMA_FENCE
 	if (atom->core_req & BASE_JD_REQ_EXTERNAL_RESOURCES) {

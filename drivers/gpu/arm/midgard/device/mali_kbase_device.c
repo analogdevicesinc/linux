@@ -42,8 +42,8 @@
 #include <tl/mali_kbase_timeline.h>
 #include "mali_kbase_kinstr_prfcnt.h"
 #include "mali_kbase_vinstr.h"
-#include "mali_kbase_hwcnt_context.h"
-#include "mali_kbase_hwcnt_virtualizer.h"
+#include "hwcnt/mali_kbase_hwcnt_context.h"
+#include "hwcnt/mali_kbase_hwcnt_virtualizer.h"
 
 #include "mali_kbase_device.h"
 #include "mali_kbase_device_internal.h"

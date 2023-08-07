@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2015-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015-2022 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -323,6 +323,9 @@ static unsigned long kbase_mem_pool_reclaim_count_objects(struct shrinker *s,
 	kbase_mem_pool_lock(pool);
 	if (pool->dont_reclaim && !pool->dying) {
 		kbase_mem_pool_unlock(pool);
+		/* Tell shrinker to skip reclaim
+		 * even though freeable pages are available
+		 */
 		return 0;
 	}
 	pool_size = kbase_mem_pool_size(pool);
@@ -342,7 +345,10 @@ static unsigned long kbase_mem_pool_reclaim_scan_objects(struct shrinker *s,
 	kbase_mem_pool_lock(pool);
 	if (pool->dont_reclaim && !pool->dying) {
 		kbase_mem_pool_unlock(pool);
-		return 0;
+		/* Tell shrinker that reclaim can't be made and
+		 * do not attempt again for this reclaim context.
+		 */
+		return SHRINK_STOP;
 	}
 
 	pool_dbg(pool, "reclaim scan %ld:\n", sc->nr_to_scan);

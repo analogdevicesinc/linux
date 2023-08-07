@@ -23,6 +23,7 @@
 #define _KBASE_CSF_TILER_HEAP_H_
 
 #include <mali_kbase.h>
+
 /**
  * kbase_csf_tiler_heap_context_init - Initialize the tiler heaps context for a
  *                                     GPU address space
@@ -57,12 +58,6 @@ void kbase_csf_tiler_heap_context_term(struct kbase_context *kctx);
  * @target_in_flight: Number of render-passes that the driver should attempt to
  *                    keep in flight for which allocation of new chunks is
  *                    allowed. Must not be zero.
- * @buf_desc_va: Buffer descriptor GPU virtual address. This is a hint for
- *               indicating that the caller is intending to perform tiler heap
- *               chunks reclaim for those that are hoarded with hardware while
- *               the associated shader activites are suspended and the CSGs are
- *               off slots. If the referred reclaiming is not desired, can
- *               set it to 0.
  * @gpu_heap_va: Where to store the GPU virtual address of the context that was
  *               set up for the tiler heap.
  * @first_chunk_va: Where to store the GPU virtual address of the first chunk
@@ -71,9 +66,10 @@ void kbase_csf_tiler_heap_context_term(struct kbase_context *kctx);
  *
  * Return: 0 if successful or a negative error code on failure.
  */
-int kbase_csf_tiler_heap_init(struct kbase_context *kctx, u32 chunk_size, u32 initial_chunks,
-			      u32 max_chunks, u16 target_in_flight, u64 const buf_desc_va,
-			      u64 *gpu_heap_va, u64 *first_chunk_va);
+int kbase_csf_tiler_heap_init(struct kbase_context *kctx,
+	u32 chunk_size, u32 initial_chunks, u32 max_chunks,
+	u16 target_in_flight, u64 *gpu_heap_va,
+	u64 *first_chunk_va);
 
 /**
  * kbase_csf_tiler_heap_term - Terminate a chunked tiler memory heap.
@@ -116,21 +112,4 @@ int kbase_csf_tiler_heap_term(struct kbase_context *kctx, u64 gpu_heap_va);
  */
 int kbase_csf_tiler_heap_alloc_new_chunk(struct kbase_context *kctx,
 	u64 gpu_heap_va, u32 nr_in_flight, u32 pending_frag_count, u64 *new_chunk_ptr);
-
-/**
- * kbase_csf_tiler_heap_register_shrinker - Register shrinker for tiler heap.
- *
- * @kbdev: Pointer to the device.
- *
- */
-void kbase_csf_tiler_heap_register_shrinker(struct kbase_device *kbdev);
-
-/**
- * kbase_csf_tiler_heap_unregister_shrinker - Unregister shrinker for tiler heap on device
- *                                            shut down.
- *
- * @kbdev: Pointer to the device.
- *
- */
-void kbase_csf_tiler_heap_unregister_shrinker(struct kbase_device *kbdev);
 #endif

@@ -35,7 +35,7 @@
 #include "backend/gpu/mali_kbase_model_linux.h"
 #include <backend/gpu/mali_kbase_model_dummy.h>
 #endif /* CONFIG_MALI_NO_MALI */
-#include "mali_kbase_mem_profile_debugfs_buf_size.h"
+#include "uapi/gpu/arm/midgard/mali_kbase_mem_profile_debugfs_buf_size.h"
 #include "mali_kbase_mem.h"
 #include "mali_kbase_mem_pool_debugfs.h"
 #include "mali_kbase_mem_pool_group.h"
@@ -54,8 +54,8 @@
 #if !MALI_USE_CSF
 #include "mali_kbase_kinstr_jm.h"
 #endif
-#include "mali_kbase_hwcnt_context.h"
-#include "mali_kbase_hwcnt_virtualizer.h"
+#include "hwcnt/mali_kbase_hwcnt_context.h"
+#include "hwcnt/mali_kbase_hwcnt_virtualizer.h"
 #include "mali_kbase_kinstr_prfcnt.h"
 #include "mali_kbase_vinstr.h"
 #if MALI_USE_CSF
@@ -101,9 +101,9 @@
 #include <linux/version.h>
 #include <linux/version_compat_defs.h>
 #include <mali_kbase_hw.h>
-#if defined(CONFIG_SYNC) || defined(CONFIG_SYNC_FILE)
+#if IS_ENABLED(CONFIG_SYNC_FILE)
 #include <mali_kbase_sync.h>
-#endif /* CONFIG_SYNC || CONFIG_SYNC_FILE */
+#endif /* CONFIG_SYNC_FILE */
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
@@ -1247,7 +1247,7 @@ static int kbase_api_mem_flags_change(struct kbase_context *kctx,
 static int kbase_api_stream_create(struct kbase_context *kctx,
 		struct kbase_ioctl_stream_create *stream)
 {
-#if defined(CONFIG_SYNC) || defined(CONFIG_SYNC_FILE)
+#if IS_ENABLED(CONFIG_SYNC_FILE)
 	int fd, ret;
 
 	/* Name must be NULL-terminated and padded with NULLs, so check last
@@ -1269,7 +1269,7 @@ static int kbase_api_stream_create(struct kbase_context *kctx,
 static int kbase_api_fence_validate(struct kbase_context *kctx,
 		struct kbase_ioctl_fence_validate *validate)
 {
-#if defined(CONFIG_SYNC) || defined(CONFIG_SYNC_FILE)
+#if IS_ENABLED(CONFIG_SYNC_FILE)
 	return kbase_sync_fence_validate(validate->fd);
 #else
 	return -ENOENT;
@@ -1283,12 +1283,18 @@ static int kbase_api_mem_profile_add(struct kbase_context *kctx,
 	int err;
 
 	if (data->len > KBASE_MEM_PROFILE_MAX_BUF_SIZE) {
-		dev_err(kctx->kbdev->dev, "mem_profile_add: buffer too big\n");
+		dev_err(kctx->kbdev->dev, "mem_profile_add: buffer too big");
 		return -EINVAL;
 	}
 
+	if (!data->len) {
+		dev_err(kctx->kbdev->dev, "mem_profile_add: buffer size is 0");
+		/* Should return -EINVAL, but returning -ENOMEM for backwards compat */
+		return -ENOMEM;
+	}
+
 	buf = kmalloc(data->len, GFP_KERNEL);
-	if (ZERO_OR_NULL_PTR(buf))
+	if (!buf)
 		return -ENOMEM;
 
 	err = copy_from_user(buf, u64_to_user_ptr(data->buffer),
@@ -1498,22 +1504,9 @@ static int kbasep_cs_tiler_heap_init(struct kbase_context *kctx,
 	kctx->jit_group_id = heap_init->in.group_id;
 
 	return kbase_csf_tiler_heap_init(kctx, heap_init->in.chunk_size,
-					 heap_init->in.initial_chunks, heap_init->in.max_chunks,
-					 heap_init->in.target_in_flight, heap_init->in.buf_desc_va,
-					 &heap_init->out.gpu_heap_va,
-					 &heap_init->out.first_chunk_va);
-}
-
-static int kbasep_cs_tiler_heap_init_1_13(struct kbase_context *kctx,
-					  union kbase_ioctl_cs_tiler_heap_init_1_13 *heap_init)
-{
-	kctx->jit_group_id = heap_init->in.group_id;
-
-	return kbase_csf_tiler_heap_init(kctx, heap_init->in.chunk_size,
-					 heap_init->in.initial_chunks, heap_init->in.max_chunks,
-					 heap_init->in.target_in_flight, 0,
-					 &heap_init->out.gpu_heap_va,
-					 &heap_init->out.first_chunk_va);
+		heap_init->in.initial_chunks, heap_init->in.max_chunks,
+		heap_init->in.target_in_flight,
+		&heap_init->out.gpu_heap_va, &heap_init->out.first_chunk_va);
 }
 
 static int kbasep_cs_tiler_heap_term(struct kbase_context *kctx,
@@ -2070,11 +2063,6 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				union kbase_ioctl_cs_tiler_heap_init,
 				kctx);
 		break;
-	case KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13:
-		KBASE_HANDLE_IOCTL_INOUT(KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13,
-					 kbasep_cs_tiler_heap_init_1_13,
-					 union kbase_ioctl_cs_tiler_heap_init_1_13, kctx);
-		break;
 	case KBASE_IOCTL_CS_TILER_HEAP_TERM:
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_CS_TILER_HEAP_TERM,
 				kbasep_cs_tiler_heap_term,
@@ -2138,9 +2126,6 @@ static ssize_t kbase_read(struct file *filp, char __user *buf, size_t count, lof
 
 	if (unlikely(!kctx))
 		return -EPERM;
-
-	if (count < data_size)
-		return -ENOBUFS;
 
 	if (atomic_read(&kctx->event_count))
 		read_event = true;
@@ -4562,7 +4547,7 @@ int power_control_init(struct kbase_device *kbdev)
 	for (i = 0; i < BASE_MAX_NR_CLOCKS_REGULATORS; i++) {
 		kbdev->regulators[i] = regulator_get_optional(kbdev->dev,
 			regulator_names[i]);
-		if (IS_ERR_OR_NULL(kbdev->regulators[i])) {
+		if (IS_ERR(kbdev->regulators[i])) {
 			err = PTR_ERR(kbdev->regulators[i]);
 			kbdev->regulators[i] = NULL;
 			break;
@@ -4590,7 +4575,7 @@ int power_control_init(struct kbase_device *kbdev)
 	 */
 	for (i = 0; i < BASE_MAX_NR_CLOCKS_REGULATORS; i++) {
 		kbdev->clocks[i] = of_clk_get(kbdev->dev->of_node, i);
-		if (IS_ERR_OR_NULL(kbdev->clocks[i])) {
+		if (IS_ERR(kbdev->clocks[i])) {
 			err = PTR_ERR(kbdev->clocks[i]);
 			kbdev->clocks[i] = NULL;
 			break;
@@ -4628,7 +4613,7 @@ int power_control_init(struct kbase_device *kbdev)
 		kbdev->opp_table = dev_pm_opp_set_regulators(kbdev->dev,
 			regulator_names, BASE_MAX_NR_CLOCKS_REGULATORS);
 
-		if (IS_ERR_OR_NULL(kbdev->opp_table)) {
+		if (IS_ERR(kbdev->opp_table)) {
 			err = PTR_ERR(kbdev->opp_table);
 			goto regulators_probe_defer;
 		}
@@ -4837,54 +4822,82 @@ static const struct file_operations
 	.release = single_release,
 };
 
-int kbase_device_debugfs_init(struct kbase_device *kbdev)
+/**
+ * debugfs_ctx_defaults_init - Create the default configuration of new contexts in debugfs
+ * @kbdev: An instance of the GPU platform device, allocated from the probe method of the driver.
+ * Return: A pointer to the last dentry that it tried to create, whether successful or not.
+ *         Could be NULL or encode another error value.
+ */
+static struct dentry *debugfs_ctx_defaults_init(struct kbase_device *const kbdev)
 {
-	struct dentry *debugfs_ctx_defaults_directory;
-	int err;
 	/* prevent unprivileged use of debug file system
 	 * in old kernel version
 	 */
 	const mode_t mode = 0644;
+	struct dentry *dentry = debugfs_create_dir("defaults", kbdev->debugfs_ctx_directory);
+	struct dentry *debugfs_ctx_defaults_directory = dentry;
 
-	kbdev->mali_debugfs_directory = debugfs_create_dir(kbdev->devname,
-			NULL);
-	if (IS_ERR_OR_NULL(kbdev->mali_debugfs_directory)) {
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Couldn't create mali debugfs ctx defaults directory\n");
+		return dentry;
+	}
+
+	debugfs_create_bool("infinite_cache", mode,
+			debugfs_ctx_defaults_directory,
+			&kbdev->infinite_cache_active_default);
+
+	dentry = debugfs_create_file("mem_pool_max_size", mode, debugfs_ctx_defaults_directory,
+				   &kbdev->mem_pool_defaults.small,
+				   &kbase_device_debugfs_mem_pool_max_size_fops);
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Unable to create mem_pool_max_size debugfs entry\n");
+		return dentry;
+	}
+
+	dentry = debugfs_create_file("lp_mem_pool_max_size", mode, debugfs_ctx_defaults_directory,
+				   &kbdev->mem_pool_defaults.large,
+				   &kbase_device_debugfs_mem_pool_max_size_fops);
+	if (IS_ERR_OR_NULL(dentry))
+		dev_err(kbdev->dev, "Unable to create lp_mem_pool_max_size debugfs entry\n");
+
+	return dentry;
+}
+
+/**
+ * init_debugfs - Create device-wide debugfs directories and files for the Mali driver
+ * @kbdev: An instance of the GPU platform device, allocated from the probe method of the driver.
+ * Return: A pointer to the last dentry that it tried to create, whether successful or not.
+ *         Could be NULL or encode another error value.
+ */
+static struct dentry *init_debugfs(struct kbase_device *kbdev)
+{
+	struct dentry *dentry = debugfs_create_dir(kbdev->devname, NULL);
+
+	kbdev->mali_debugfs_directory = dentry;
+	if (IS_ERR_OR_NULL(dentry)) {
 		dev_err(kbdev->dev,
 			"Couldn't create mali debugfs directory: %s\n",
 			kbdev->devname);
-		err = -ENOMEM;
-		goto out;
+		return dentry;
 	}
 
-	kbdev->debugfs_ctx_directory = debugfs_create_dir("ctx",
-			kbdev->mali_debugfs_directory);
-	if (IS_ERR_OR_NULL(kbdev->debugfs_ctx_directory)) {
+	dentry = debugfs_create_dir("ctx", kbdev->mali_debugfs_directory);
+	kbdev->debugfs_ctx_directory = dentry;
+	if (IS_ERR_OR_NULL(dentry)) {
 		dev_err(kbdev->dev, "Couldn't create mali debugfs ctx directory\n");
-		err = -ENOMEM;
-		goto out;
+		return dentry;
 	}
 
-	kbdev->debugfs_instr_directory = debugfs_create_dir("instrumentation",
-			kbdev->mali_debugfs_directory);
-	if (IS_ERR_OR_NULL(kbdev->debugfs_instr_directory)) {
+	dentry = debugfs_create_dir("instrumentation", kbdev->mali_debugfs_directory);
+	kbdev->debugfs_instr_directory = dentry;
+	if (IS_ERR_OR_NULL(dentry)) {
 		dev_err(kbdev->dev, "Couldn't create mali debugfs instrumentation directory\n");
-		err = -ENOMEM;
-		goto out;
-	}
-
-	debugfs_ctx_defaults_directory = debugfs_create_dir("defaults",
-			kbdev->debugfs_ctx_directory);
-	if (IS_ERR_OR_NULL(debugfs_ctx_defaults_directory)) {
-		dev_err(kbdev->dev, "Couldn't create mali debugfs ctx defaults directory\n");
-		err = -ENOMEM;
-		goto out;
+		return dentry;
 	}
 
 	kbasep_regs_history_debugfs_init(kbdev);
 
-#if MALI_USE_CSF
-	kbase_debug_csf_fault_debugfs_init(kbdev);
-#else /* MALI_USE_CSF */
+#if !MALI_USE_CSF
 	kbase_debug_job_fault_debugfs_init(kbdev);
 #endif /* !MALI_USE_CSF */
 
@@ -4898,41 +4911,58 @@ int kbase_device_debugfs_init(struct kbase_device *kbdev)
 	/* fops_* variables created by invocations of macro
 	 * MAKE_QUIRK_ACCESSORS() above.
 	 */
-	debugfs_create_file("quirks_sc", 0644,
+	dentry = debugfs_create_file("quirks_sc", 0644,
 			kbdev->mali_debugfs_directory, kbdev,
 			&fops_sc_quirks);
-	debugfs_create_file("quirks_tiler", 0644,
-			kbdev->mali_debugfs_directory, kbdev,
-			&fops_tiler_quirks);
-	debugfs_create_file("quirks_mmu", 0644,
-			kbdev->mali_debugfs_directory, kbdev,
-			&fops_mmu_quirks);
-	debugfs_create_file("quirks_gpu", 0644, kbdev->mali_debugfs_directory,
-			    kbdev, &fops_gpu_quirks);
-
-	debugfs_create_bool("infinite_cache", mode,
-			debugfs_ctx_defaults_directory,
-			&kbdev->infinite_cache_active_default);
-
-	debugfs_create_file("mem_pool_max_size", mode,
-			debugfs_ctx_defaults_directory,
-			&kbdev->mem_pool_defaults.small,
-			&kbase_device_debugfs_mem_pool_max_size_fops);
-
-	debugfs_create_file("lp_mem_pool_max_size", mode,
-			debugfs_ctx_defaults_directory,
-			&kbdev->mem_pool_defaults.large,
-			&kbase_device_debugfs_mem_pool_max_size_fops);
-
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE)) {
-		debugfs_create_file("protected_debug_mode", 0444,
-				kbdev->mali_debugfs_directory, kbdev,
-				&fops_protected_debug_mode);
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Unable to create quirks_sc debugfs entry\n");
+		return dentry;
 	}
 
-	debugfs_create_file("reset", 0644,
+	dentry = debugfs_create_file("quirks_tiler", 0644,
+			kbdev->mali_debugfs_directory, kbdev,
+			&fops_tiler_quirks);
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Unable to create quirks_tiler debugfs entry\n");
+		return dentry;
+	}
+
+	dentry = debugfs_create_file("quirks_mmu", 0644,
+			kbdev->mali_debugfs_directory, kbdev,
+			&fops_mmu_quirks);
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Unable to create quirks_mmu debugfs entry\n");
+		return dentry;
+	}
+
+	dentry = debugfs_create_file("quirks_gpu", 0644, kbdev->mali_debugfs_directory,
+			    kbdev, &fops_gpu_quirks);
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Unable to create quirks_gpu debugfs entry\n");
+		return dentry;
+	}
+
+	dentry = debugfs_ctx_defaults_init(kbdev);
+	if (IS_ERR_OR_NULL(dentry))
+		return dentry;
+
+	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE)) {
+		dentry = debugfs_create_file("protected_debug_mode", 0444,
+				kbdev->mali_debugfs_directory, kbdev,
+				&fops_protected_debug_mode);
+		if (IS_ERR_OR_NULL(dentry)) {
+			dev_err(kbdev->dev, "Unable to create protected_debug_mode debugfs entry\n");
+			return dentry;
+		}
+	}
+
+	dentry = debugfs_create_file("reset", 0644,
 			kbdev->mali_debugfs_directory, kbdev,
 			&fops_trigger_reset);
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Unable to create reset debugfs entry\n");
+		return dentry;
+	}
 
 	kbase_ktrace_debugfs_init(kbdev);
 
@@ -4944,20 +4974,30 @@ int kbase_device_debugfs_init(struct kbase_device *kbdev)
 #endif /* CONFIG_MALI_DEVFREQ */
 
 #if !MALI_USE_CSF
-	debugfs_create_file("serialize_jobs", 0644,
+	dentry = debugfs_create_file("serialize_jobs", 0644,
 			kbdev->mali_debugfs_directory, kbdev,
 			&kbasep_serialize_jobs_debugfs_fops);
-
+	if (IS_ERR_OR_NULL(dentry)) {
+		dev_err(kbdev->dev, "Unable to create serialize_jobs debugfs entry\n");
+		return dentry;
+	}
 	kbase_timeline_io_debugfs_init(kbdev);
 #endif
 	kbase_dvfs_status_debugfs_init(kbdev);
 
 
-	return 0;
+	return dentry;
+}
 
-out:
-	debugfs_remove_recursive(kbdev->mali_debugfs_directory);
-	return err;
+int kbase_device_debugfs_init(struct kbase_device *kbdev)
+{
+	struct dentry *dentry = init_debugfs(kbdev);
+
+	if (IS_ERR_OR_NULL(dentry)) {
+		debugfs_remove_recursive(kbdev->mali_debugfs_directory);
+		return IS_ERR(dentry) ? PTR_ERR(dentry) : -ENOMEM;
+	}
+	return 0;
 }
 
 void kbase_device_debugfs_term(struct kbase_device *kbdev)
@@ -5710,12 +5750,11 @@ static const struct dev_pm_ops kbase_pm_ops = {
 };
 
 #if IS_ENABLED(CONFIG_OF)
-static const struct of_device_id kbase_dt_ids[] = {
-	{ .compatible = "arm,malit6xx" },
-	{ .compatible = "arm,mali-midgard" },
-	{ .compatible = "arm,mali-bifrost" },
-	{ /* sentinel */ }
-};
+static const struct of_device_id kbase_dt_ids[] = { { .compatible = "arm,malit6xx" },
+						    { .compatible = "arm,mali-midgard" },
+						    { .compatible = "arm,mali-bifrost" },
+						    { .compatible = "arm,mali-valhall" },
+						    { /* sentinel */ } };
 MODULE_DEVICE_TABLE(of, kbase_dt_ids);
 #endif
 
@@ -5753,6 +5792,7 @@ static int __init kbase_driver_init(void)
 		return ret;
 	}
 #endif
+
 	return ret;
 }
 

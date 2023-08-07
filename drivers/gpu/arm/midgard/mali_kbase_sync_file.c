@@ -21,9 +21,6 @@
 
 /*
  * Code for supporting explicit Linux fences (CONFIG_SYNC_FILE)
- * Introduced in kernel 4.9.
- * Android explicit fences (CONFIG_SYNC) can be used for older kernels
- * (see mali_kbase_sync_android.c)
  */
 
 #include <linux/sched.h>
@@ -288,7 +285,7 @@ void kbase_sync_fence_info_get(struct dma_fence *fence,
 {
 	info->fence = fence;
 
-	/* translate into CONFIG_SYNC status:
+	/* Translate into the following status, with support for error handling:
 	 * < 0 : error
 	 * 0 : active
 	 * 1 : signaled

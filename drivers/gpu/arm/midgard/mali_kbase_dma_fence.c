@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2016, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2016, 2020-2022 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -225,6 +225,7 @@ kbase_dma_fence_cb(struct dma_fence *fence, struct dma_fence_cb *cb)
 		kbase_dma_fence_queue_work(katom);
 }
 
+#if (KERNEL_VERSION(5, 18, 0) > LINUX_VERSION_CODE)
 #if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
 static int
 kbase_dma_fence_add_reservation_callback(struct kbase_jd_atom *katom,
@@ -244,8 +245,8 @@ kbase_dma_fence_add_reservation_callback(struct kbase_jd_atom *katom,
 	struct dma_fence *excl_fence = NULL;
 	struct dma_fence **shared_fences = NULL;
 #endif
-	unsigned int shared_count = 0;
-	int err, i;
+	unsigned int shared_count = 0, i = 0;
+	int err;
 
 #if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
 	err = reservation_object_get_fences_rcu(
@@ -293,7 +294,7 @@ kbase_dma_fence_add_reservation_callback(struct kbase_jd_atom *katom,
 	 * signaling the fence before allowing it to disappear.
 	 */
 out:
-	for (i = 0; i < shared_count; i++)
+	while (i-- > 0)
 		dma_fence_put(shared_fences[i]);
 	kfree(shared_fences);
 
@@ -307,6 +308,43 @@ out:
 
 	return err;
 }
+
+#else
+
+static int kbase_dma_fence_add_reservation_callback(struct kbase_jd_atom *katom,
+						    struct dma_resv *resv, bool exclusive)
+{
+	struct dma_fence **fences = NULL;
+	unsigned int num_fences = 0, i = 0;
+	int err;
+
+	err = dma_resv_get_fences(resv, exclusive, &num_fences, &fences);
+	if (err)
+		return err;
+
+	for (i = 0; i < num_fences; i++) {
+		err = kbase_fence_add_callback(katom, fences[i], kbase_dma_fence_cb);
+		if (err)
+			goto out;
+	}
+
+out:
+	while (i-- > 0)
+		dma_fence_put(fences[i]);
+
+	kfree(fences);
+	if (err) {
+		/*
+		 * On error, cancel and clean up all callbacks that was set up
+		 * before the error.
+		 */
+		kbase_fence_free_callbacks(katom);
+	}
+
+	return err;
+}
+
+#endif
 
 #if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
 void kbase_dma_fence_add_reservation(struct reservation_object *resv,
