@@ -170,7 +170,7 @@ static int lock_region(struct kbase_gpu_props const *gpu_props, u64 *lockaddr,
 static int wait_ready(struct kbase_device *kbdev, unsigned int as_nr)
 {
 	const ktime_t wait_loop_start = ktime_get_raw();
-	const u32 mmu_as_inactive_wait_time_ms = kbdev->mmu_as_inactive_wait_time_ms;
+	const u32 mmu_as_inactive_wait_time_ms = kbdev->mmu_or_gpu_cache_op_wait_time_ms;
 	s64 diff;
 
 	if (unlikely(kbdev->as[as_nr].is_unresponsive))
@@ -181,7 +181,7 @@ static int wait_ready(struct kbase_device *kbdev, unsigned int as_nr)
 
 		for (i = 0; i < 1000; i++) {
 			/* Wait for the MMU status to indicate there is no active command */
-			if (!(kbase_reg_read(kbdev, MMU_AS_REG(as_nr, AS_STATUS)) &
+			if (!(kbase_reg_read(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_nr, AS_STATUS))) &
 			      AS_STATUS_AS_ACTIVE))
 				return 0;
 		}
@@ -205,7 +205,7 @@ static int write_cmd(struct kbase_device *kbdev, int as_nr, u32 cmd)
 	const int status = wait_ready(kbdev, as_nr);
 
 	if (likely(status == 0))
-		kbase_reg_write(kbdev, MMU_AS_REG(as_nr, AS_COMMAND), cmd);
+		kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_nr, AS_COMMAND)), cmd);
 	else if (status == -EBUSY) {
 		dev_dbg(kbdev->dev,
 			"Skipped the wait for AS_ACTIVE bit for as %u, before sending MMU command %u",
@@ -339,19 +339,18 @@ void kbase_mmu_hw_configure(struct kbase_device *kbdev, struct kbase_as *as)
 		transcfg = (transcfg | AS_TRANSCFG_PTW_SH_OS);
 	}
 
-	kbase_reg_write(kbdev, MMU_AS_REG(as->number, AS_TRANSCFG_LO),
-			transcfg);
-	kbase_reg_write(kbdev, MMU_AS_REG(as->number, AS_TRANSCFG_HI),
+	kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_TRANSCFG_LO)), transcfg);
+	kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_TRANSCFG_HI)),
 			(transcfg >> 32) & 0xFFFFFFFFUL);
 
-	kbase_reg_write(kbdev, MMU_AS_REG(as->number, AS_TRANSTAB_LO),
+	kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_TRANSTAB_LO)),
 			current_setup->transtab & 0xFFFFFFFFUL);
-	kbase_reg_write(kbdev, MMU_AS_REG(as->number, AS_TRANSTAB_HI),
+	kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_TRANSTAB_HI)),
 			(current_setup->transtab >> 32) & 0xFFFFFFFFUL);
 
-	kbase_reg_write(kbdev, MMU_AS_REG(as->number, AS_MEMATTR_LO),
+	kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_MEMATTR_LO)),
 			current_setup->memattr & 0xFFFFFFFFUL);
-	kbase_reg_write(kbdev, MMU_AS_REG(as->number, AS_MEMATTR_HI),
+	kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_MEMATTR_HI)),
 			(current_setup->memattr >> 32) & 0xFFFFFFFFUL);
 
 	KBASE_TLSTREAM_TL_ATTRIB_AS_CONFIG(kbdev, as,
@@ -399,9 +398,9 @@ static int mmu_hw_set_lock_addr(struct kbase_device *kbdev, int as_nr, u64 *lock
 
 	if (!ret) {
 		/* Set the region that needs to be updated */
-		kbase_reg_write(kbdev, MMU_AS_REG(as_nr, AS_LOCKADDR_LO),
+		kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_nr, AS_LOCKADDR_LO)),
 				*lock_addr & 0xFFFFFFFFUL);
-		kbase_reg_write(kbdev, MMU_AS_REG(as_nr, AS_LOCKADDR_HI),
+		kbase_reg_write(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_nr, AS_LOCKADDR_HI)),
 				(*lock_addr >> 32) & 0xFFFFFFFFUL);
 	}
 	return ret;
@@ -486,9 +485,11 @@ int kbase_mmu_hw_do_unlock_no_addr(struct kbase_device *kbdev, struct kbase_as *
 	if (likely(!ret)) {
 		u64 lock_addr = 0x0;
 		/* read MMU_AS_CONTROL.LOCKADDR register */
-		lock_addr |= (u64)kbase_reg_read(kbdev, MMU_AS_REG(as->number, AS_LOCKADDR_HI))
+		lock_addr |= (u64)kbase_reg_read(
+				     kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_LOCKADDR_HI)))
 			     << 32;
-		lock_addr |= (u64)kbase_reg_read(kbdev, MMU_AS_REG(as->number, AS_LOCKADDR_LO));
+		lock_addr |= (u64)kbase_reg_read(
+			kbdev, MMU_STAGE1_REG(MMU_AS_REG(as->number, AS_LOCKADDR_LO)));
 
 		mmu_command_instr(kbdev, op_param->kctx_id, AS_COMMAND_UNLOCK,
 				  lock_addr, op_param->mmu_sync_info);
@@ -660,7 +661,7 @@ void kbase_mmu_hw_clear_fault(struct kbase_device *kbdev, struct kbase_as *as,
 			type == KBASE_MMU_FAULT_TYPE_BUS_UNEXPECTED)
 		pf_bf_mask |= MMU_BUS_ERROR(as->number);
 #endif
-	kbase_reg_write(kbdev, MMU_REG(MMU_IRQ_CLEAR), pf_bf_mask);
+	kbase_reg_write(kbdev, MMU_CONTROL_REG(MMU_IRQ_CLEAR), pf_bf_mask);
 
 unlock:
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);
@@ -684,15 +685,15 @@ void kbase_mmu_hw_enable_fault(struct kbase_device *kbdev, struct kbase_as *as,
 	if (kbdev->irq_reset_flush)
 		goto unlock;
 
-	irq_mask = kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_MASK)) |
-			MMU_PAGE_FAULT(as->number);
+	irq_mask =
+		kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK)) | MMU_PAGE_FAULT(as->number);
 
 #if !MALI_USE_CSF
 	if (type == KBASE_MMU_FAULT_TYPE_BUS ||
 			type == KBASE_MMU_FAULT_TYPE_BUS_UNEXPECTED)
 		irq_mask |= MMU_BUS_ERROR(as->number);
 #endif
-	kbase_reg_write(kbdev, MMU_REG(MMU_IRQ_MASK), irq_mask);
+	kbase_reg_write(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK), irq_mask);
 
 unlock:
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);

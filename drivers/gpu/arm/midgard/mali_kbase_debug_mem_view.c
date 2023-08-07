@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2013-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -189,13 +189,13 @@ static const struct seq_operations ops = {
 	.show = debug_mem_show,
 };
 
-static int debug_mem_zone_open(struct rb_root *rbtree,
-						struct debug_mem_data *mem_data)
+static int debug_mem_zone_open(struct kbase_reg_zone *zone, struct debug_mem_data *mem_data)
 {
 	int ret = 0;
 	struct rb_node *p;
 	struct kbase_va_region *reg;
 	struct debug_mem_mapping *mapping;
+	struct rb_root *rbtree = &zone->reg_rbtree;
 
 	for (p = rb_first(rbtree); p; p = rb_next(p)) {
 		reg = rb_entry(p, struct kbase_va_region, rblink);
@@ -233,8 +233,9 @@ static int debug_mem_open(struct inode *i, struct file *file)
 	struct kbase_context *const kctx = i->i_private;
 	struct debug_mem_data *mem_data;
 	int ret;
+	enum kbase_memory_zone idx;
 
-	if (get_file_rcu(kctx->filp) == 0)
+	if (!kbase_file_inc_fops_count_unless_closed(kctx->kfile))
 		return -ENOENT;
 
 	/* Check if file was opened in write mode. GPU memory contents
@@ -263,37 +264,15 @@ static int debug_mem_open(struct inode *i, struct file *file)
 
 	mem_data->column_width = kctx->mem_view_column_width;
 
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_same, mem_data);
-	if (ret != 0) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
+	for (idx = 0; idx < CONTEXT_ZONE_MAX; idx++) {
+		struct kbase_reg_zone *zone = &kctx->reg_zone[idx];
 
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_custom, mem_data);
-	if (ret != 0) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
+		ret = debug_mem_zone_open(zone, mem_data);
+		if (ret != 0) {
+			kbase_gpu_vm_unlock(kctx);
+			goto out;
+		}
 	}
-
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_exec, mem_data);
-	if (ret != 0) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-
-#if MALI_USE_CSF
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_exec_fixed, mem_data);
-	if (ret != 0) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_fixed, mem_data);
-	if (ret != 0) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-#endif
 
 	kbase_gpu_vm_unlock(kctx);
 
@@ -316,7 +295,7 @@ out:
 	}
 	seq_release(i, file);
 open_fail:
-	fput(kctx->filp);
+	kbase_file_dec_fops_count(kctx->kfile);
 
 	return ret;
 }
@@ -346,7 +325,7 @@ static int debug_mem_release(struct inode *inode, struct file *file)
 		kfree(mem_data);
 	}
 
-	fput(kctx->filp);
+	kbase_file_dec_fops_count(kctx->kfile);
 
 	return 0;
 }

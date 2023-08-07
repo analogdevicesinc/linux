@@ -361,6 +361,22 @@ int kbase_csf_setup_dummy_user_reg_page(struct kbase_device *kbdev);
 void kbase_csf_free_dummy_user_reg_page(struct kbase_device *kbdev);
 
 /**
+ * kbase_csf_pending_gpuq_kicks_init - Initialize the data used for handling
+ *                                     GPU queue kicks.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ */
+void kbase_csf_pending_gpuq_kicks_init(struct kbase_device *kbdev);
+
+/**
+ * kbase_csf_pending_gpuq_kicks_init - De-initialize the data used for handling
+ *                                     GPU queue kicks.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ */
+void kbase_csf_pending_gpuq_kicks_term(struct kbase_device *kbdev);
+
+/**
  * kbase_csf_ring_csg_doorbell - ring the doorbell for a CSG interface.
  *
  * @kbdev: Instance of a GPU platform device that implements a CSF interface.
@@ -502,5 +518,18 @@ static inline u64 kbase_csf_ktrace_gpu_cycle_cnt(struct kbase_device *kbdev)
 	return 0;
 #endif
 }
+
+/**
+ * kbase_csf_process_queue_kick() - Process a pending kicked GPU command queue.
+ *
+ * @queue: Pointer to the queue to process.
+ *
+ * This function starts the pending queue, for which the work
+ * was previously submitted via ioctl call from application thread.
+ * If the queue is already scheduled and resident, it will be started
+ * right away, otherwise once the group is made resident.
+ */
+void kbase_csf_process_queue_kick(struct kbase_queue *queue);
+
 
 #endif /* _KBASE_CSF_H_ */

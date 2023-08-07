@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -19,8 +19,9 @@
  *
  */
 
+#include <linux/version_compat_defs.h>
+
 #include <mali_kbase.h>
-#include <mali_kbase_bits.h>
 #include <mali_kbase_config_defaults.h>
 #include <device/mali_kbase_device.h>
 #include "mali_kbase_l2_mmu_config.h"

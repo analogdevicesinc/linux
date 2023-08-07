@@ -34,8 +34,7 @@
 
 /**
  * debug_zone_mem_allocs_show - Show information from specific rbtree
- * @zone: Name of GPU virtual memory zone
- * @rbtree: Pointer to the root of the rbtree associated with @zone
+ * @zone: The memory zone to be displayed
  * @sfile: The debugfs entry
  *
  * This function is called to show information about all the GPU allocations of a
@@ -43,9 +42,10 @@
  * The information like the start virtual address and size (in bytes) is shown for
  * every GPU allocation mapped in the zone.
  */
-static void debug_zone_mem_allocs_show(char *zone, struct rb_root *rbtree, struct seq_file *sfile)
+static void debug_zone_mem_allocs_show(struct kbase_reg_zone *zone, struct seq_file *sfile)
 {
 	struct rb_node *p;
+	struct rb_root *rbtree = &zone->reg_rbtree;
 	struct kbase_va_region *reg;
 	const char *type_names[5] = {
 		"Native",
@@ -57,7 +57,7 @@ static void debug_zone_mem_allocs_show(char *zone, struct rb_root *rbtree, struc
 
 #define MEM_ALLOCS_HEADER \
 	"              VA,          VA size,      Commit size,    Flags,     Mem type\n"
-	seq_printf(sfile, "Zone name: %s\n:", zone);
+	seq_printf(sfile, "Zone name: %s\n:", kbase_reg_zone_get_name(zone->id));
 	seq_printf(sfile, MEM_ALLOCS_HEADER);
 	for (p = rb_first(rbtree); p; p = rb_next(p)) {
 		reg = rb_entry(p, struct kbase_va_region, rblink);
@@ -82,18 +82,15 @@ static void debug_zone_mem_allocs_show(char *zone, struct rb_root *rbtree, struc
 static int debug_ctx_mem_allocs_show(struct seq_file *sfile, void *data)
 {
 	struct kbase_context *const kctx = sfile->private;
+	enum kbase_memory_zone zone_idx;
 
 	kbase_gpu_vm_lock(kctx);
+	for (zone_idx = 0; zone_idx < CONTEXT_ZONE_MAX; zone_idx++) {
+		struct kbase_reg_zone *zone;
 
-	debug_zone_mem_allocs_show("SAME_VA:", &kctx->reg_rbtree_same, sfile);
-	debug_zone_mem_allocs_show("CUSTOM_VA:",  &kctx->reg_rbtree_custom, sfile);
-	debug_zone_mem_allocs_show("EXEC_VA:", &kctx->reg_rbtree_exec, sfile);
-
-#if MALI_USE_CSF
-	debug_zone_mem_allocs_show("EXEC_VA_FIXED:", &kctx->reg_rbtree_exec_fixed, sfile);
-	debug_zone_mem_allocs_show("FIXED_VA:", &kctx->reg_rbtree_fixed, sfile);
-#endif /* MALI_USE_CSF */
-
+		zone = &kctx->reg_zone[zone_idx];
+		debug_zone_mem_allocs_show(zone, sfile);
+	}
 	kbase_gpu_vm_unlock(kctx);
 	return 0;
 }

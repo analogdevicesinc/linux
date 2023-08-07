@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -25,6 +25,7 @@
 #include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_regmap.h>
 #include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_coherency.h>
 #include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_id.h>
+
 #if MALI_USE_CSF
 #include "backend/mali_kbase_gpu_regmap_csf.h"
 #else
@@ -42,19 +43,29 @@
 #define GPU_ULL(x) x##ull
 #endif /* __ASSEMBLER__ */
 
+
 /* Begin Register Offsets */
 /* GPU control registers */
 
+#define GPU_CONTROL_BASE        0x0000
+#define GPU_CONTROL_REG(r)      (GPU_CONTROL_BASE + (r))
+
+#define GPU_ID                  0x000   /* (RO) GPU and revision identifier */
 #define L2_FEATURES             0x004   /* (RO) Level 2 cache features */
 #define TILER_FEATURES          0x00C   /* (RO) Tiler Features */
 #define MEM_FEATURES            0x010   /* (RO) Memory system features */
 #define MMU_FEATURES            0x014   /* (RO) MMU features */
 #define AS_PRESENT              0x018   /* (RO) Address space slots present */
 #define GPU_IRQ_RAWSTAT         0x020   /* (RW) */
+#define GPU_IRQ_CLEAR           0x024   /* (WO) */
 #define GPU_IRQ_MASK            0x028   /* (RW) */
-
+#define GPU_IRQ_STATUS          0x02C   /* (RO) */
 #define GPU_COMMAND             0x030   /* (WO) */
+
 #define GPU_STATUS              0x034   /* (RO) */
+#define GPU_STATUS_PRFCNT_ACTIVE            (1 << 2)    /* Set if the performance counters are active. */
+#define GPU_STATUS_CYCLE_COUNT_ACTIVE       (1 << 6)    /* Set if the cycle counter is active. */
+#define GPU_STATUS_PROTECTED_MODE_ACTIVE    (1 << 7)    /* Set if protected mode is active */
 
 #define GPU_DBGEN               (1 << 8)    /* DBGEN wire status */
 
@@ -64,10 +75,9 @@
 
 #define L2_CONFIG               0x048   /* (RW) Level 2 cache configuration */
 
-#define GROUPS_L2_COHERENT      (1 << 0) /* Cores groups are l2 coherent */
-#define SUPER_L2_COHERENT       (1 << 1) /* Shader cores within a core
-					  * supergroup are l2 coherent
-					  */
+/* Cores groups are l2 coherent */
+#define MEM_FEATURES_COHERENT_CORE_GROUP_SHIFT GPU_U(0)
+#define MEM_FEATURES_COHERENT_CORE_GROUP_MASK (GPU_U(0x1) << MEM_FEATURES_COHERENT_CORE_GROUP_SHIFT)
 
 #define PWR_KEY                 0x050   /* (WO) Power manager key register */
 #define PWR_OVERRIDE0           0x054   /* (RW) Power manager override settings */
@@ -95,10 +105,10 @@
 
 #define TEXTURE_FEATURES_REG(n) GPU_CONTROL_REG(TEXTURE_FEATURES_0 + ((n) << 2))
 
-#define GPU_COMMAND_ARG0_LO 0x0D0 /* (RW) Additional parameter 0 for GPU commands, low word */
-#define GPU_COMMAND_ARG0_HI 0x0D4 /* (RW) Additional parameter 0 for GPU commands, high word */
-#define GPU_COMMAND_ARG1_LO 0x0D8 /* (RW) Additional parameter 1 for GPU commands, low word */
-#define GPU_COMMAND_ARG1_HI 0x0DC /* (RW) Additional parameter 1 for GPU commands, high word */
+#define GPU_COMMAND_ARG0_LO     0x0D0 /* (RW) Additional parameter 0 for GPU commands, low word */
+#define GPU_COMMAND_ARG0_HI     0x0D4 /* (RW) Additional parameter 0 for GPU commands, high word */
+#define GPU_COMMAND_ARG1_LO     0x0D8 /* (RW) Additional parameter 1 for GPU commands, low word */
+#define GPU_COMMAND_ARG1_HI     0x0DC /* (RW) Additional parameter 1 for GPU commands, high word */
 
 #define SHADER_PRESENT_LO       0x100   /* (RO) Shader core present bitmap, low word */
 #define SHADER_PRESENT_HI       0x104   /* (RO) Shader core present bitmap, high word */
@@ -109,13 +119,31 @@
 #define L2_PRESENT_LO           0x120   /* (RO) Level 2 cache present bitmap, low word */
 #define L2_PRESENT_HI           0x124   /* (RO) Level 2 cache present bitmap, high word */
 
+#define SHADER_READY_LO         0x140   /* (RO) Shader core ready bitmap, low word */
+#define SHADER_READY_HI         0x144   /* (RO) Shader core ready bitmap, high word */
+
+#define TILER_READY_LO          0x150   /* (RO) Tiler core ready bitmap, low word */
+#define TILER_READY_HI          0x154   /* (RO) Tiler core ready bitmap, high word */
+
+#define L2_READY_LO             0x160   /* (RO) Level 2 cache ready bitmap, low word */
+#define L2_READY_HI             0x164   /* (RO) Level 2 cache ready bitmap, high word */
+
+#define SHADER_PWRON_LO         0x180   /* (WO) Shader core power on bitmap, low word */
+#define SHADER_PWRON_HI         0x184   /* (WO) Shader core power on bitmap, high word */
+
+#define SHADER_PWRFEATURES      0x188   /* (RW) Shader core power features */
+
+#define TILER_PWRON_LO          0x190   /* (WO) Tiler core power on bitmap, low word */
+#define TILER_PWRON_HI          0x194   /* (WO) Tiler core power on bitmap, high word */
+
+#define L2_PWRON_LO             0x1A0   /* (WO) Level 2 cache power on bitmap, low word */
+#define L2_PWRON_HI             0x1A4   /* (WO) Level 2 cache power on bitmap, high word */
+
 #define STACK_PRESENT_LO        0xE00   /* (RO) Core stack present bitmap, low word */
 #define STACK_PRESENT_HI        0xE04   /* (RO) Core stack present bitmap, high word */
 
 #define STACK_READY_LO          0xE10   /* (RO) Core stack ready bitmap, low word */
 #define STACK_READY_HI          0xE14   /* (RO) Core stack ready bitmap, high word */
-
-#define SHADER_PWRFEATURES      0x188   /* (RW) Shader core power features */
 
 #define STACK_PWRON_LO          0xE20   /* (RO) Core stack power on bitmap, low word */
 #define STACK_PWRON_HI          0xE24   /* (RO) Core stack power on bitmap, high word */
@@ -173,10 +201,25 @@
 
 /* Job control registers */
 
+#define JOB_CONTROL_BASE        0x1000
+#define JOB_CONTROL_REG(r)      (JOB_CONTROL_BASE + (r))
+
 #define JOB_IRQ_RAWSTAT         0x000   /* Raw interrupt status register */
+#define JOB_IRQ_CLEAR           0x004   /* Interrupt clear register */
+#define JOB_IRQ_MASK            0x008   /* Interrupt mask register */
+#define JOB_IRQ_STATUS          0x00C   /* Interrupt status register */
 
 /* MMU control registers */
 
+#define MMU_CONTROL_BASE        0x2000
+#define MMU_CONTROL_REG(r)      (MMU_CONTROL_BASE + (r))
+
+#define MMU_IRQ_RAWSTAT         0x000   /* (RW) Raw interrupt status register */
+#define MMU_IRQ_CLEAR           0x004   /* (WO) Interrupt clear register */
+#define MMU_IRQ_MASK            0x008   /* (RW) Interrupt mask register */
+#define MMU_IRQ_STATUS          0x00C   /* (RO) Interrupt status register */
+
+#define MMU_AS0                 0x400   /* Configuration registers for address space 0 */
 #define MMU_AS1                 0x440   /* Configuration registers for address space 1 */
 #define MMU_AS2                 0x480   /* Configuration registers for address space 2 */
 #define MMU_AS3                 0x4C0   /* Configuration registers for address space 3 */
@@ -194,17 +237,27 @@
 #define MMU_AS15                0x7C0   /* Configuration registers for address space 15 */
 
 /* MMU address space control registers */
-#define AS_LOCKADDR_LO         0x10	/* (RW) Lock region address for address space n, low word */
-#define AS_LOCKADDR_HI         0x14	/* (RW) Lock region address for address space n, high word */
-#define AS_FAULTSTATUS         0x1C	/* (RO) MMU fault status register for address space n */
-#define AS_FAULTADDRESS_LO     0x20	/* (RO) Fault Address for address space n, low word */
-#define AS_FAULTADDRESS_HI     0x24	/* (RO) Fault Address for address space n, high word */
-#define AS_STATUS              0x28	/* (RO) Status flags for address space n */
 
-/* (RO) Secondary fault address for address space n, low word */
-#define AS_FAULTEXTRA_LO       0x38
-/* (RO) Secondary fault address for address space n, high word */
-#define AS_FAULTEXTRA_HI       0x3C
+#define MMU_STAGE1 0x2000 /* () MMU control registers */
+#define MMU_STAGE1_REG(r) (MMU_STAGE1 + (r))
+
+#define MMU_AS_REG(n, r)        (MMU_AS0 + ((n) << 6) + (r))
+
+#define AS_TRANSTAB_LO          0x00	/* (RW) Translation Table Base Address for address space n, low word */
+#define AS_TRANSTAB_HI          0x04	/* (RW) Translation Table Base Address for address space n, high word */
+#define AS_MEMATTR_LO           0x08	/* (RW) Memory attributes for address space n, low word. */
+#define AS_MEMATTR_HI           0x0C	/* (RW) Memory attributes for address space n, high word. */
+#define AS_LOCKADDR_LO          0x10    /* (RW) Lock region address for address space n, low word */
+#define AS_LOCKADDR_HI          0x14    /* (RW) Lock region address for address space n, high word */
+#define AS_COMMAND              0x18	/* (WO) MMU command register for address space n */
+#define AS_FAULTSTATUS          0x1C    /* (RO) MMU fault status register for address space n */
+#define AS_FAULTADDRESS_LO      0x20    /* (RO) Fault Address for address space n, low word */
+#define AS_FAULTADDRESS_HI      0x24    /* (RO) Fault Address for address space n, high word */
+#define AS_STATUS               0x28    /* (RO) Status flags for address space n */
+#define AS_TRANSCFG_LO          0x30    /* (RW) Translation table configuration for address space n, low word */
+#define AS_TRANSCFG_HI          0x34    /* (RW) Translation table configuration for address space n, high word */
+#define AS_FAULTEXTRA_LO        0x38    /* (RO) Secondary fault address for address space n, low word */
+#define AS_FAULTEXTRA_HI        0x3C    /* (RO) Secondary fault address for address space n, high word */
 
 /* End Register Offsets */
 
@@ -254,7 +307,7 @@
 	(((reg_val)&AS_FAULTSTATUS_ACCESS_TYPE_MASK) >> AS_FAULTSTATUS_ACCESS_TYPE_SHIFT)
 
 #define AS_FAULTSTATUS_ACCESS_TYPE_ATOMIC       (0x0)
-#define AS_FAULTSTATUS_ACCESS_TYPE_EX           (0x1)
+#define AS_FAULTSTATUS_ACCESS_TYPE_EXECUTE      (0x1)
 #define AS_FAULTSTATUS_ACCESS_TYPE_READ         (0x2)
 #define AS_FAULTSTATUS_ACCESS_TYPE_WRITE        (0x3)
 
@@ -335,11 +388,6 @@
 #define AS_LOCKADDR_FLUSH_SKIP_LEVELS_SET(reg_val, value)                                          \
 	(((reg_val) & ~AS_LOCKADDR_FLUSH_SKIP_LEVELS_MASK) |                                       \
 	 ((value << AS_LOCKADDR_FLUSH_SKIP_LEVELS_SHIFT) & AS_LOCKADDR_FLUSH_SKIP_LEVELS_MASK))
-
-/* GPU_STATUS values */
-#define GPU_STATUS_PRFCNT_ACTIVE            (1 << 2)    /* Set if the performance counters are active. */
-#define GPU_STATUS_CYCLE_COUNT_ACTIVE       (1 << 6)    /* Set if the cycle counter is active. */
-#define GPU_STATUS_PROTECTED_MODE_ACTIVE    (1 << 7)    /* Set if protected mode is active */
 
 /* PRFCNT_CONFIG register values */
 #define PRFCNT_CONFIG_MODE_SHIFT        0 /* Counter mode position. */
@@ -452,16 +500,6 @@
 	(((reg_val) & ~AMBA_FEATURES_MEMORY_CACHE_SUPPORT_MASK) |              \
 	 (((value) << AMBA_FEATURES_MEMORY_CACHE_SUPPORT_SHIFT) &              \
 	  AMBA_FEATURES_MEMORY_CACHE_SUPPORT_MASK))
-#define AMBA_FEATURES_INVALIDATE_HINT_SHIFT GPU_U(6)
-#define AMBA_FEATURES_INVALIDATE_HINT_MASK                                     \
-	(GPU_U(0x1) << AMBA_FEATURES_INVALIDATE_HINT_SHIFT)
-#define AMBA_FEATURES_INVALIDATE_HINT_GET(reg_val)                             \
-	(((reg_val)&AMBA_FEATURES_INVALIDATE_HINT_MASK) >>                     \
-	 AMBA_FEATURES_INVALIDATE_HINT_SHIFT)
-#define AMBA_FEATURES_INVALIDATE_HINT_SET(reg_val, value)                      \
-	(((reg_val) & ~AMBA_FEATURES_INVALIDATE_HINT_MASK) |                   \
-	 (((value) << AMBA_FEATURES_INVALIDATE_HINT_SHIFT) &                   \
-	  AMBA_FEATURES_INVALIDATE_HINT_MASK))
 
 /* AMBA_ENABLE register */
 #define AMBA_ENABLE_COHERENCY_PROTOCOL_SHIFT GPU_U(0)
@@ -489,16 +527,6 @@
 	(((reg_val) & ~AMBA_ENABLE_MEMORY_CACHE_SUPPORT_MASK) |                \
 	 (((value) << AMBA_ENABLE_MEMORY_CACHE_SUPPORT_SHIFT) &                \
 	  AMBA_ENABLE_MEMORY_CACHE_SUPPORT_MASK))
-#define AMBA_ENABLE_INVALIDATE_HINT_SHIFT GPU_U(6)
-#define AMBA_ENABLE_INVALIDATE_HINT_MASK                                       \
-	(GPU_U(0x1) << AMBA_ENABLE_INVALIDATE_HINT_SHIFT)
-#define AMBA_ENABLE_INVALIDATE_HINT_GET(reg_val)                               \
-	(((reg_val)&AMBA_ENABLE_INVALIDATE_HINT_MASK) >>                       \
-	 AMBA_ENABLE_INVALIDATE_HINT_SHIFT)
-#define AMBA_ENABLE_INVALIDATE_HINT_SET(reg_val, value)                        \
-	(((reg_val) & ~AMBA_ENABLE_INVALIDATE_HINT_MASK) |                     \
-	 (((value) << AMBA_ENABLE_INVALIDATE_HINT_SHIFT) &                     \
-	  AMBA_ENABLE_INVALIDATE_HINT_MASK))
 
 /* IDVS_GROUP register */
 #define IDVS_GROUP_SIZE_SHIFT (16)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2012-2015, 2018-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -59,7 +59,7 @@ static int job_slot_reg_snapshot[] = {
 	JS_CONFIG_NEXT
 };
 
-/*MMU_REG(r)*/
+/*MMU_CONTROL_REG(r)*/
 static int mmu_reg_snapshot[] = {
 	MMU_IRQ_MASK,
 	MMU_IRQ_STATUS
@@ -118,15 +118,14 @@ bool kbase_debug_job_fault_reg_snapshot_init(struct kbase_context *kctx,
 
 	/* get the MMU registers*/
 	for (i = 0; i < sizeof(mmu_reg_snapshot)/4; i++) {
-		kctx->reg_dump[offset] = MMU_REG(mmu_reg_snapshot[i]);
+		kctx->reg_dump[offset] = MMU_CONTROL_REG(mmu_reg_snapshot[i]);
 		offset += 2;
 	}
 
 	/* get the Address space registers*/
 	for (j = 0; j < as_number; j++) {
 		for (i = 0; i < sizeof(as_reg_snapshot)/4; i++) {
-			kctx->reg_dump[offset] =
-					MMU_AS_REG(j, as_reg_snapshot[i]);
+			kctx->reg_dump[offset] = MMU_STAGE1_REG(MMU_AS_REG(j, as_reg_snapshot[i]));
 			offset += 2;
 		}
 	}

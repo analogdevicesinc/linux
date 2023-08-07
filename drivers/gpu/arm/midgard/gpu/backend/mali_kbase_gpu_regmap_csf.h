@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -28,6 +28,17 @@
 #error "Cannot be compiled with JM"
 #endif
 
+/* GPU control registers */
+#define MCU_CONTROL 0x700
+
+#define L2_CONFIG_PBHA_HWU_SHIFT GPU_U(12)
+#define L2_CONFIG_PBHA_HWU_MASK (GPU_U(0xF) << L2_CONFIG_PBHA_HWU_SHIFT)
+#define L2_CONFIG_PBHA_HWU_GET(reg_val)                                                            \
+	(((reg_val)&L2_CONFIG_PBHA_HWU_MASK) >> L2_CONFIG_PBHA_HWU_SHIFT)
+#define L2_CONFIG_PBHA_HWU_SET(reg_val, value)                                                     \
+	(((reg_val) & ~L2_CONFIG_PBHA_HWU_MASK) |                                                  \
+	 (((value) << L2_CONFIG_PBHA_HWU_SHIFT) & L2_CONFIG_PBHA_HWU_MASK))
+
 /* GPU_CONTROL_MCU base address */
 #define GPU_CONTROL_MCU_BASE 0x3000
 
@@ -35,35 +46,39 @@
 #define MCU_SUBSYSTEM_BASE 0x20000
 
 /* IPA control registers */
-#define COMMAND                0x000 /* (WO) Command register */
-#define TIMER                  0x008 /* (RW) Timer control register */
+#define IPA_CONTROL_BASE        0x40000
+#define IPA_CONTROL_REG(r)      (IPA_CONTROL_BASE + (r))
 
-#define SELECT_CSHW_LO         0x010 /* (RW) Counter select for CS hardware, low word */
-#define SELECT_CSHW_HI         0x014 /* (RW) Counter select for CS hardware, high word */
-#define SELECT_MEMSYS_LO       0x018 /* (RW) Counter select for Memory system, low word */
-#define SELECT_MEMSYS_HI       0x01C /* (RW) Counter select for Memory system, high word */
-#define SELECT_TILER_LO        0x020 /* (RW) Counter select for Tiler cores, low word */
-#define SELECT_TILER_HI        0x024 /* (RW) Counter select for Tiler cores, high word */
-#define SELECT_SHADER_LO       0x028 /* (RW) Counter select for Shader cores, low word */
-#define SELECT_SHADER_HI       0x02C /* (RW) Counter select for Shader cores, high word */
+#define COMMAND                 0x000 /* (WO) Command register */
+#define STATUS                  0x004 /* (RO) Status register */
+#define TIMER                   0x008 /* (RW) Timer control register */
+
+#define SELECT_CSHW_LO          0x010 /* (RW) Counter select for CS hardware, low word */
+#define SELECT_CSHW_HI          0x014 /* (RW) Counter select for CS hardware, high word */
+#define SELECT_MEMSYS_LO        0x018 /* (RW) Counter select for Memory system, low word */
+#define SELECT_MEMSYS_HI        0x01C /* (RW) Counter select for Memory system, high word */
+#define SELECT_TILER_LO         0x020 /* (RW) Counter select for Tiler cores, low word */
+#define SELECT_TILER_HI         0x024 /* (RW) Counter select for Tiler cores, high word */
+#define SELECT_SHADER_LO        0x028 /* (RW) Counter select for Shader cores, low word */
+#define SELECT_SHADER_HI        0x02C /* (RW) Counter select for Shader cores, high word */
 
 /* Accumulated counter values for CS hardware */
-#define VALUE_CSHW_BASE        0x100
-#define VALUE_CSHW_REG_LO(n)   (VALUE_CSHW_BASE + ((n) << 3))       /* (RO) Counter value #n, low word */
-#define VALUE_CSHW_REG_HI(n)   (VALUE_CSHW_BASE + ((n) << 3) + 4)   /* (RO) Counter value #n, high word */
+#define VALUE_CSHW_BASE         0x100
+#define VALUE_CSHW_REG_LO(n)    (VALUE_CSHW_BASE + ((n) << 3))       /* (RO) Counter value #n, low word */
+#define VALUE_CSHW_REG_HI(n)    (VALUE_CSHW_BASE + ((n) << 3) + 4)   /* (RO) Counter value #n, high word */
 
 /* Accumulated counter values for memory system */
-#define VALUE_MEMSYS_BASE      0x140
-#define VALUE_MEMSYS_REG_LO(n) (VALUE_MEMSYS_BASE + ((n) << 3))     /* (RO) Counter value #n, low word */
-#define VALUE_MEMSYS_REG_HI(n) (VALUE_MEMSYS_BASE + ((n) << 3) + 4) /* (RO) Counter value #n, high word */
+#define VALUE_MEMSYS_BASE       0x140
+#define VALUE_MEMSYS_REG_LO(n)  (VALUE_MEMSYS_BASE + ((n) << 3))     /* (RO) Counter value #n, low word */
+#define VALUE_MEMSYS_REG_HI(n)  (VALUE_MEMSYS_BASE + ((n) << 3) + 4) /* (RO) Counter value #n, high word */
 
-#define VALUE_TILER_BASE       0x180
-#define VALUE_TILER_REG_LO(n)  (VALUE_TILER_BASE + ((n) << 3))      /* (RO) Counter value #n, low word */
-#define VALUE_TILER_REG_HI(n)  (VALUE_TILER_BASE + ((n) << 3) + 4)  /* (RO) Counter value #n, high word */
+#define VALUE_TILER_BASE        0x180
+#define VALUE_TILER_REG_LO(n)   (VALUE_TILER_BASE + ((n) << 3))      /* (RO) Counter value #n, low word */
+#define VALUE_TILER_REG_HI(n)   (VALUE_TILER_BASE + ((n) << 3) + 4)  /* (RO) Counter value #n, high word */
 
-#define VALUE_SHADER_BASE      0x1C0
-#define VALUE_SHADER_REG_LO(n) (VALUE_SHADER_BASE + ((n) << 3))     /* (RO) Counter value #n, low word */
-#define VALUE_SHADER_REG_HI(n) (VALUE_SHADER_BASE + ((n) << 3) + 4) /* (RO) Counter value #n, high word */
+#define VALUE_SHADER_BASE       0x1C0
+#define VALUE_SHADER_REG_LO(n)  (VALUE_SHADER_BASE + ((n) << 3))     /* (RO) Counter value #n, low word */
+#define VALUE_SHADER_REG_HI(n)  (VALUE_SHADER_BASE + ((n) << 3) + 4) /* (RO) Counter value #n, high word */
 
 #define AS_STATUS_AS_ACTIVE_INT 0x2
 
@@ -112,7 +127,6 @@
 
 /* GPU control registers */
 #define CORE_FEATURES           0x008   /* () Shader Core Features */
-#define MCU_CONTROL             0x700
 #define MCU_STATUS              0x704
 
 #define MCU_CNTRL_ENABLE        (1 << 0)
@@ -122,15 +136,7 @@
 #define MCU_CNTRL_DOORBELL_DISABLE_SHIFT (31)
 #define MCU_CNTRL_DOORBELL_DISABLE_MASK (1 << MCU_CNTRL_DOORBELL_DISABLE_SHIFT)
 
-#define MCU_STATUS_HALTED        (1 << 1)
-
-#define L2_CONFIG_PBHA_HWU_SHIFT GPU_U(12)
-#define L2_CONFIG_PBHA_HWU_MASK (GPU_U(0xF) << L2_CONFIG_PBHA_HWU_SHIFT)
-#define L2_CONFIG_PBHA_HWU_GET(reg_val)                                                            \
-	(((reg_val)&L2_CONFIG_PBHA_HWU_MASK) >> L2_CONFIG_PBHA_HWU_SHIFT)
-#define L2_CONFIG_PBHA_HWU_SET(reg_val, value)                                                     \
-	(((reg_val) & ~L2_CONFIG_PBHA_HWU_MASK) |                                                  \
-	 (((value) << L2_CONFIG_PBHA_HWU_SHIFT) & L2_CONFIG_PBHA_HWU_MASK))
+#define MCU_STATUS_HALTED       (1 << 1)
 
 /* JOB IRQ flags */
 #define JOB_IRQ_GLOBAL_IF (1u << 31) /* Global interface interrupt received */
@@ -292,13 +298,13 @@
 #define GPU_FAULTSTATUS_ACCESS_TYPE_MASK \
 	(0x3ul << GPU_FAULTSTATUS_ACCESS_TYPE_SHIFT)
 
-#define GPU_FAULTSTATUS_ADDR_VALID_SHIFT 10
-#define GPU_FAULTSTATUS_ADDR_VALID_FLAG \
-	(1ul << GPU_FAULTSTATUS_ADDR_VALID_SHIFT)
+#define GPU_FAULTSTATUS_ADDRESS_VALID_SHIFT GPU_U(10)
+#define GPU_FAULTSTATUS_ADDRESS_VALID_MASK \
+	(GPU_U(0x1) << GPU_FAULTSTATUS_ADDRESS_VALID_SHIFT)
 
-#define GPU_FAULTSTATUS_JASID_VALID_SHIFT 11
-#define GPU_FAULTSTATUS_JASID_VALID_FLAG \
-	(1ul << GPU_FAULTSTATUS_JASID_VALID_SHIFT)
+#define GPU_FAULTSTATUS_JASID_VALID_SHIFT GPU_U(11)
+#define GPU_FAULTSTATUS_JASID_VALID_MASK \
+	(GPU_U(0x1) << GPU_FAULTSTATUS_JASID_VALID_SHIFT)
 
 #define GPU_FAULTSTATUS_JASID_SHIFT 12
 #define GPU_FAULTSTATUS_JASID_MASK (0xF << GPU_FAULTSTATUS_JASID_SHIFT)

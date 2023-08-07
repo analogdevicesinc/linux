@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -47,30 +47,29 @@
 static int debug_mem_zones_show(struct seq_file *sfile, void *data)
 {
 	struct kbase_context *const kctx = sfile->private;
-	size_t i;
-
-	const char *zone_names[KBASE_REG_ZONE_MAX] = {
-		"SAME_VA",
-		"CUSTOM_VA",
-		"EXEC_VA"
-#if MALI_USE_CSF
-		,
-		"MCU_SHARED_VA",
-		"EXEC_FIXED_VA",
-		"FIXED_VA"
-#endif
-	};
+	struct kbase_reg_zone *reg_zone;
+	enum kbase_memory_zone zone_idx;
 
 	kbase_gpu_vm_lock(kctx);
 
-	for (i = 0; i < KBASE_REG_ZONE_MAX; i++) {
-		struct kbase_reg_zone *reg_zone = &kctx->reg_zone[i];
+	for (zone_idx = 0; zone_idx < CONTEXT_ZONE_MAX; zone_idx++) {
+		reg_zone = &kctx->reg_zone[zone_idx];
 
 		if (reg_zone->base_pfn) {
-			seq_printf(sfile, "%15s %zu 0x%.16llx 0x%.16llx\n", zone_names[i], i,
-				   reg_zone->base_pfn, reg_zone->va_size_pages);
+			seq_printf(sfile, "%15s %u 0x%.16llx 0x%.16llx\n",
+				   kbase_reg_zone_get_name(zone_idx), zone_idx, reg_zone->base_pfn,
+				   reg_zone->va_size_pages);
 		}
 	}
+#if MALI_USE_CSF
+	reg_zone = &kctx->kbdev->csf.mcu_shared_zone;
+
+	if (reg_zone && reg_zone->base_pfn) {
+		seq_printf(sfile, "%15s %u 0x%.16llx 0x%.16llx\n",
+			   kbase_reg_zone_get_name(MCU_SHARED_ZONE), MCU_SHARED_ZONE,
+			   reg_zone->base_pfn, reg_zone->va_size_pages);
+	}
+#endif
 
 	kbase_gpu_vm_unlock(kctx);
 	return 0;

@@ -100,10 +100,6 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 	if (err)
 		goto fail_update_l2_features;
 
-	err = kbase_backend_time_init(kbdev);
-	if (err)
-		goto fail_update_l2_features;
-
 	init_waitqueue_head(&kbdev->hwaccess.backend.reset_wait);
 
 	/* Idle the GPU and/or cores, if the policy wants it to */
@@ -226,8 +222,7 @@ static const struct kbase_device_init dev_init[] = {
 	  "Register access history initialization failed" },
 	{ kbase_device_pm_init, kbase_device_pm_term, "Power management initialization failed" },
 	{ kbase_device_early_init, kbase_device_early_term, "Early device initialization failed" },
-	{ kbase_device_populate_max_freq, NULL, "Populating max frequency failed" },
-	{ kbase_pm_lowest_gpu_freq_init, NULL, "Lowest freq initialization failed" },
+	{ kbase_backend_time_init, NULL, "Time backend initialization failed" },
 	{ kbase_device_misc_init, kbase_device_misc_term,
 	  "Miscellaneous device initialization failed" },
 	{ kbase_device_pcm_dev_init, kbase_device_pcm_dev_term,

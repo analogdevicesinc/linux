@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -183,9 +183,9 @@ int kbase_dummy_job_wa_execute(struct kbase_device *kbdev, u64 cores)
 
 	if (kbdev->dummy_job_wa.flags & KBASE_DUMMY_JOB_WA_FLAG_WAIT_POWERUP) {
 		/* wait for power-ups */
-		wait(kbdev, SHADER_READY_LO, (cores & U32_MAX), true);
+		wait(kbdev, GPU_CONTROL_REG(SHADER_READY_LO), (cores & U32_MAX), true);
 		if (cores >> 32)
-			wait(kbdev, SHADER_READY_HI, (cores >> 32), true);
+			wait(kbdev, GPU_CONTROL_REG(SHADER_READY_HI), (cores >> 32), true);
 	}
 
 	if (kbdev->dummy_job_wa.flags & KBASE_DUMMY_JOB_WA_FLAG_SERIALIZE) {
@@ -218,11 +218,11 @@ int kbase_dummy_job_wa_execute(struct kbase_device *kbdev, u64 cores)
 		kbase_reg_write(kbdev, SHADER_PWROFF_HI, (cores >> 32));
 
 		/* wait for power off complete */
-		wait(kbdev, SHADER_READY_LO, (cores & U32_MAX), false);
-		wait(kbdev, SHADER_PWRTRANS_LO, (cores & U32_MAX), false);
+		wait(kbdev, GPU_CONTROL_REG(SHADER_READY_LO), (cores & U32_MAX), false);
+		wait(kbdev, GPU_CONTROL_REG(SHADER_PWRTRANS_LO), (cores & U32_MAX), false);
 		if (cores >> 32) {
-			wait(kbdev, SHADER_READY_HI, (cores >> 32), false);
-			wait(kbdev, SHADER_PWRTRANS_HI, (cores >> 32), false);
+			wait(kbdev, GPU_CONTROL_REG(SHADER_READY_HI), (cores >> 32), false);
+			wait(kbdev, GPU_CONTROL_REG(SHADER_PWRTRANS_HI), (cores >> 32), false);
 		}
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), U32_MAX);
 	}

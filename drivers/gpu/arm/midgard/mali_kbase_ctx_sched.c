@@ -292,7 +292,7 @@ struct kbase_context *kbase_ctx_sched_as_to_ctx_refcount(
 
 	found_kctx = kbdev->as_to_kctx[as_nr];
 
-	if (!WARN_ON(found_kctx == NULL))
+	if (found_kctx)
 		kbase_ctx_sched_retain_ctx_refcount(found_kctx);
 
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);

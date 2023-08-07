@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -541,8 +541,10 @@ void kbase_vinstr_term(struct kbase_vinstr_context *vctx)
 
 void kbase_vinstr_suspend(struct kbase_vinstr_context *vctx)
 {
-	if (WARN_ON(!vctx))
+	if (!vctx) {
+		pr_warn("%s: vctx is NULL\n", __func__);
 		return;
+	}
 
 	mutex_lock(&vctx->lock);
 
@@ -571,8 +573,10 @@ void kbase_vinstr_suspend(struct kbase_vinstr_context *vctx)
 
 void kbase_vinstr_resume(struct kbase_vinstr_context *vctx)
 {
-	if (WARN_ON(!vctx))
+	if (!vctx) {
+		pr_warn("%s:vctx is NULL\n", __func__);
 		return;
+	}
 
 	mutex_lock(&vctx->lock);
 

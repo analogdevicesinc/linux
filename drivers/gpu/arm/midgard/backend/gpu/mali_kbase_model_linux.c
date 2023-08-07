@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010, 2012-2015, 2017-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -95,8 +95,7 @@ static void serve_mmu_irq(struct work_struct *work)
 	if (atomic_cmpxchg(&kbdev->serving_mmu_irq, 1, 0) == 1) {
 		u32 val;
 
-		while ((val = kbase_reg_read(kbdev,
-					MMU_REG(MMU_IRQ_STATUS)))) {
+		while ((val = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_STATUS)))) {
 			/* Handle the IRQ */
 			kbase_mmu_interrupt(kbdev, val);
 		}
@@ -156,7 +155,7 @@ KBASE_EXPORT_TEST_API(kbase_reg_write);
 u32 kbase_reg_read(struct kbase_device *kbdev, u32 offset)
 {
 	unsigned long flags;
-	u32 val;
+	u32 val = 0;
 
 	spin_lock_irqsave(&kbdev->reg_op_lock, flags);
 	midgard_model_read_reg(kbdev->model, offset, &val);

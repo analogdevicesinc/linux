@@ -362,7 +362,7 @@ static struct kbase_csf_tiler_heap_chunk *alloc_new_chunk(struct kbase_context *
 	/* If page migration is enabled, we don't want to migrate tiler heap pages.
 	 * This does not change if the constituent pages are already marked as isolated.
 	 */
-	if (kbase_page_migration_enabled)
+	if (kbase_is_page_migration_enabled())
 		kbase_set_phy_alloc_page_status(chunk->region->gpu_alloc, NOT_MOVABLE);
 
 	return chunk;
@@ -748,7 +748,7 @@ int kbase_csf_tiler_heap_init(struct kbase_context *const kctx, u32 const chunk_
 					  KBASE_REG_CPU_RD, &heap->buf_desc_map,
 					  KBASE_VMAP_FLAG_PERMANENT_MAP_ACCOUNTING);
 
-		if (kbase_page_migration_enabled)
+		if (kbase_is_page_migration_enabled())
 			kbase_set_phy_alloc_page_status(buf_desc_reg->gpu_alloc, NOT_MOVABLE);
 
 		kbase_gpu_vm_unlock(kctx);

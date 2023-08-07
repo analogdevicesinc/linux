@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -47,6 +47,7 @@
 
 #include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 #include <mali_kbase_linux.h>
+#include <linux/version_compat_defs.h>
 
 /*
  * Include mali_kbase_defs.h first as this provides types needed by other local
@@ -56,9 +57,7 @@
 
 #include "debug/mali_kbase_debug_ktrace.h"
 #include "context/mali_kbase_context.h"
-#include "mali_kbase_strings.h"
 #include "mali_kbase_mem_lowlevel.h"
-#include "mali_kbase_utility.h"
 #include "mali_kbase_mem.h"
 #include "mmu/mali_kbase_mmu.h"
 #include "mali_kbase_gpu_memory_debugfs.h"
@@ -81,6 +80,9 @@
 #endif
 
 #include "mali_linux_trace.h"
+
+#define KBASE_DRV_NAME "mali"
+#define KBASE_TIMELINE_NAME KBASE_DRV_NAME ".timeline"
 
 #if MALI_USE_CSF
 #include "csf/mali_kbase_csf.h"
@@ -454,9 +456,9 @@ void kbasep_as_do_poke(struct work_struct *work);
  *
  * @kbdev: The kbase device structure for the device
  *
- * The caller should ensure that either kbdev->pm.active_count_lock is held, or
- * a dmb was executed recently (to ensure the value is most
- * up-to-date). However, without a lock the value could change afterwards.
+ * The caller should ensure that either kbase_device::kbase_pm_device_data::lock is held,
+ * or a dmb was executed recently (to ensure the value is most up-to-date).
+ * However, without a lock the value could change afterwards.
  *
  * Return:
  * * false if a suspend is not in progress
@@ -465,6 +467,22 @@ void kbasep_as_do_poke(struct work_struct *work);
 static inline bool kbase_pm_is_suspending(struct kbase_device *kbdev)
 {
 	return kbdev->pm.suspending;
+}
+
+/**
+ * kbase_pm_is_resuming - Check whether System resume of GPU device is in progress.
+ *
+ * @kbdev: The kbase device structure for the device
+ *
+ * The caller should ensure that either kbase_device::kbase_pm_device_data::lock is held,
+ * or a dmb was executed recently (to ensure the value is most up-to-date).
+ * However, without a lock the value could change afterwards.
+ *
+ * Return: true if System resume is in progress, otherwise false.
+ */
+static inline bool kbase_pm_is_resuming(struct kbase_device *kbdev)
+{
+	return kbdev->pm.resuming;
 }
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
@@ -520,9 +538,11 @@ static inline bool kbase_pm_is_active(struct kbase_device *kbdev)
 }
 
 /**
- * kbase_pm_lowest_gpu_freq_init() - Find the lowest frequency that the GPU can
- *                                run as using the device tree, and save this
- *                                within kbdev.
+ * kbase_pm_gpu_freq_init() - Find the lowest frequency that the GPU can
+ *                            run as using the device tree, then query the
+ *                            GPU properties to find out the highest GPU
+ *                            frequency and store both of them within the
+ *                            @kbase_device.
  * @kbdev: Pointer to kbase device.
  *
  * This function could be called from kbase_clk_rate_trace_manager_init,
@@ -530,9 +550,9 @@ static inline bool kbase_pm_is_active(struct kbase_device *kbdev)
  * dev_pm_opp_of_add_table() has been called to initialize the OPP table,
  * which occurs in power_control_init().
  *
- * Return: 0 in any case.
+ * Return: 0 on success, negative error code on failure.
  */
-int kbase_pm_lowest_gpu_freq_init(struct kbase_device *kbdev);
+int kbase_pm_gpu_freq_init(struct kbase_device *kbdev);
 
 /**
  * kbase_pm_metrics_start - Start the utilization metrics timer
@@ -741,5 +761,109 @@ void kbase_device_pcm_dev_term(struct kbase_device *const kbdev);
 #if !defined(UINT64_MAX)
 	#define UINT64_MAX ((uint64_t)0xFFFFFFFFFFFFFFFFULL)
 #endif
+
+/**
+ * kbase_file_fops_count() - Get the kfile::fops_count value
+ *
+ * @kfile: Pointer to the object representing the mali device file.
+ *
+ * The value is read with kfile::lock held.
+ *
+ * Return: sampled value of kfile::fops_count.
+ */
+static inline u32 kbase_file_fops_count(struct kbase_file *kfile)
+{
+	u32 fops_count;
+
+	spin_lock(&kfile->lock);
+	fops_count = kfile->fops_count;
+	spin_unlock(&kfile->lock);
+
+	return fops_count;
+}
+
+/**
+ * kbase_file_inc_fops_count_unless_closed() - Increment the kfile::fops_count value if the
+ *                                             kfile::owner is still set.
+ *
+ * @kfile: Pointer to the object representing the /dev/malixx device file instance.
+ *
+ * Return: true if the increment was done otherwise false.
+ */
+static inline bool kbase_file_inc_fops_count_unless_closed(struct kbase_file *kfile)
+{
+	bool count_incremented = false;
+
+	spin_lock(&kfile->lock);
+	if (kfile->owner) {
+		kfile->fops_count++;
+		count_incremented = true;
+	}
+	spin_unlock(&kfile->lock);
+
+	return count_incremented;
+}
+
+/**
+ * kbase_file_dec_fops_count() - Decrement the kfile::fops_count value
+ *
+ * @kfile: Pointer to the object representing the /dev/malixx device file instance.
+ *
+ * This function shall only be called to decrement kfile::fops_count if a successful call
+ * to kbase_file_inc_fops_count_unless_closed() was made previously by the current thread.
+ *
+ * The function would enqueue the kfile::destroy_kctx_work if the process that originally
+ * created the file instance has closed its copy and no Kbase handled file operations are
+ * in progress and no memory mappings are present for the file instance.
+ */
+static inline void kbase_file_dec_fops_count(struct kbase_file *kfile)
+{
+	spin_lock(&kfile->lock);
+	WARN_ON_ONCE(kfile->fops_count <= 0);
+	kfile->fops_count--;
+	if (unlikely(!kfile->fops_count && !kfile->owner && !kfile->map_count)) {
+		queue_work(system_wq, &kfile->destroy_kctx_work);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+		wake_up(&kfile->zero_fops_count_wait);
+#endif
+	}
+	spin_unlock(&kfile->lock);
+}
+
+/**
+ * kbase_file_inc_cpu_mapping_count() - Increment the kfile::map_count value.
+ *
+ * @kfile: Pointer to the object representing the /dev/malixx device file instance.
+ *
+ * This function shall be called when the memory mapping on /dev/malixx device file
+ * instance is created. The kbase_file::setup_state shall be KBASE_FILE_COMPLETE.
+ */
+static inline void kbase_file_inc_cpu_mapping_count(struct kbase_file *kfile)
+{
+	spin_lock(&kfile->lock);
+	kfile->map_count++;
+	spin_unlock(&kfile->lock);
+}
+
+/**
+ * kbase_file_dec_cpu_mapping_count() - Decrement the kfile::map_count value
+ *
+ * @kfile: Pointer to the object representing the /dev/malixx device file instance.
+ *
+ * This function is called to decrement kfile::map_count value when the memory mapping
+ * on /dev/malixx device file is closed.
+ * The function would enqueue the kfile::destroy_kctx_work if the process that originally
+ * created the file instance has closed its copy and there are no mappings present and no
+ * Kbase handled file operations are in progress for the file instance.
+ */
+static inline void kbase_file_dec_cpu_mapping_count(struct kbase_file *kfile)
+{
+	spin_lock(&kfile->lock);
+	WARN_ON_ONCE(kfile->map_count <= 0);
+	kfile->map_count--;
+	if (unlikely(!kfile->map_count && !kfile->owner && !kfile->fops_count))
+		queue_work(system_wq, &kfile->destroy_kctx_work);
+	spin_unlock(&kfile->lock);
+}
 
 #endif

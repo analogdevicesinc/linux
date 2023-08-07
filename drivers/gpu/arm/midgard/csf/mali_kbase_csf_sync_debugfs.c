@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -23,49 +23,46 @@
 #include "mali_kbase_csf_csg_debugfs.h"
 #include <mali_kbase.h>
 #include <linux/seq_file.h>
+#include <linux/version_compat_defs.h>
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)
 #include "mali_kbase_sync.h"
 #endif
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-
 #define CQS_UNREADABLE_LIVE_VALUE "(unavailable)"
 
-/* GPU queue related values */
-#define GPU_CSF_MOVE_OPCODE ((u64)0x1)
-#define GPU_CSF_MOVE32_OPCODE ((u64)0x2)
-#define GPU_CSF_SYNC_ADD_OPCODE ((u64)0x25)
-#define GPU_CSF_SYNC_SET_OPCODE ((u64)0x26)
-#define GPU_CSF_SYNC_WAIT_OPCODE ((u64)0x27)
-#define GPU_CSF_SYNC_ADD64_OPCODE ((u64)0x33)
-#define GPU_CSF_SYNC_SET64_OPCODE ((u64)0x34)
-#define GPU_CSF_SYNC_WAIT64_OPCODE ((u64)0x35)
-#define GPU_CSF_CALL_OPCODE ((u64)0x20)
+#define CSF_SYNC_DUMP_SIZE 256
 
-#define MAX_NR_GPU_CALLS (5)
-#define INSTR_OPCODE_MASK ((u64)0xFF << 56)
-#define INSTR_OPCODE_GET(value) ((value & INSTR_OPCODE_MASK) >> 56)
-#define MOVE32_IMM_MASK ((u64)0xFFFFFFFFFUL)
-#define MOVE_DEST_MASK ((u64)0xFF << 48)
-#define MOVE_DEST_GET(value) ((value & MOVE_DEST_MASK) >> 48)
-#define MOVE_IMM_MASK ((u64)0xFFFFFFFFFFFFUL)
-#define SYNC_SRC0_MASK ((u64)0xFF << 40)
-#define SYNC_SRC1_MASK ((u64)0xFF << 32)
-#define SYNC_SRC0_GET(value) (u8)((value & SYNC_SRC0_MASK) >> 40)
-#define SYNC_SRC1_GET(value) (u8)((value & SYNC_SRC1_MASK) >> 32)
-#define SYNC_WAIT_CONDITION_MASK ((u64)0xF << 28)
-#define SYNC_WAIT_CONDITION_GET(value) (u8)((value & SYNC_WAIT_CONDITION_MASK) >> 28)
-
-/* Enumeration for types of GPU queue sync events for
- * the purpose of dumping them through debugfs.
+/**
+ * kbasep_print() - Helper function to print to either debugfs file or dmesg.
+ *
+ * @kctx: The kbase context
+ * @file: The seq_file for printing to. This is NULL if printing to dmesg.
+ * @fmt:  The message to print.
+ * @...:  Arguments to format the message.
  */
-enum debugfs_gpu_sync_type {
-	DEBUGFS_GPU_SYNC_WAIT,
-	DEBUGFS_GPU_SYNC_SET,
-	DEBUGFS_GPU_SYNC_ADD,
-	NUM_DEBUGFS_GPU_SYNC_TYPES
-};
+__attribute__((format(__printf__, 3, 4))) static void
+kbasep_print(struct kbase_context *kctx, struct seq_file *file, const char *fmt, ...)
+{
+	int len = 0;
+	char buffer[CSF_SYNC_DUMP_SIZE];
+	va_list arglist;
+
+	va_start(arglist, fmt);
+	len = vsnprintf(buffer, CSF_SYNC_DUMP_SIZE, fmt, arglist);
+	if (len <= 0) {
+		pr_err("message write to the buffer failed");
+		goto exit;
+	}
+
+	if (file)
+		seq_printf(file, buffer);
+	else
+		dev_warn(kctx->kbdev->dev, buffer);
+
+exit:
+	va_end(arglist);
+}
 
 /**
  * kbasep_csf_debugfs_get_cqs_live_u32() - Obtain live (u32) value for a CQS object.
@@ -120,11 +117,12 @@ static int kbasep_csf_debugfs_get_cqs_live_u64(struct kbase_context *kctx, u64 o
  *                                                     or Fence Signal command, contained in a
  *                                                     KCPU queue.
  *
- * @file:     The seq_file for printing to.
+ * @buffer:   The buffer to write to.
+ * @length:   The length of text in the buffer.
  * @cmd:      The KCPU Command to be printed.
  * @cmd_name: The name of the command: indicates either a fence SIGNAL or WAIT.
  */
-static void kbasep_csf_sync_print_kcpu_fence_wait_or_signal(struct seq_file *file,
+static void kbasep_csf_sync_print_kcpu_fence_wait_or_signal(char *buffer, int *length,
 							    struct kbase_kcpu_command *cmd,
 							    const char *cmd_name)
 {
@@ -133,38 +131,44 @@ static void kbasep_csf_sync_print_kcpu_fence_wait_or_signal(struct seq_file *fil
 #else
 	struct dma_fence *fence = NULL;
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) */
-
+	struct kbase_kcpu_command_fence_info *fence_info;
 	struct kbase_sync_fence_info info;
 	const char *timeline_name = NULL;
 	bool is_signaled = false;
 
-	fence = cmd->info.fence.fence;
+	fence_info = &cmd->info.fence;
+
+	fence = kbase_fence_get(fence_info);
 	if (WARN_ON(!fence))
 		return;
 
-	kbase_sync_fence_info_get(cmd->info.fence.fence, &info);
+	kbase_sync_fence_info_get(fence, &info);
 	timeline_name = fence->ops->get_timeline_name(fence);
 	is_signaled = info.status > 0;
 
-	seq_printf(file, "cmd:%s obj:0x%pK live_value:0x%.8x | ", cmd_name, cmd->info.fence.fence,
-		   is_signaled);
+	*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+			    "cmd:%s obj:0x%pK live_value:0x%.8x | ", cmd_name, fence, is_signaled);
 
 	/* Note: fence->seqno was u32 until 5.1 kernel, then u64 */
-	seq_printf(file, "timeline_name:%s timeline_context:0x%.16llx fence_seqno:0x%.16llx",
-		   timeline_name, fence->context, (u64)fence->seqno);
+	*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+			    "timeline_name:%s timeline_context:0x%.16llx fence_seqno:0x%.16llx",
+			    timeline_name, fence->context, (u64)fence->seqno);
+
+	kbase_fence_put(fence);
 }
 
 /**
  * kbasep_csf_sync_print_kcpu_cqs_wait() - Print details of a CSF SYNC CQS Wait command,
  *                                         contained in a KCPU queue.
  *
- * @file: The seq_file for printing to.
- * @cmd:  The KCPU Command to be printed.
+ * @kctx:   The kbase context.
+ * @buffer: The buffer to write to.
+ * @length: The length of text in the buffer.
+ * @cmd:    The KCPU Command to be printed.
  */
-static void kbasep_csf_sync_print_kcpu_cqs_wait(struct seq_file *file,
-						struct kbase_kcpu_command *cmd)
+static void kbasep_csf_sync_print_kcpu_cqs_wait(struct kbase_context *kctx, char *buffer,
+						int *length, struct kbase_kcpu_command *cmd)
 {
-	struct kbase_context *kctx = file->private;
 	size_t i;
 
 	for (i = 0; i < cmd->info.cqs_wait.nr_objs; i++) {
@@ -174,14 +178,19 @@ static void kbasep_csf_sync_print_kcpu_cqs_wait(struct seq_file *file,
 		int ret = kbasep_csf_debugfs_get_cqs_live_u32(kctx, cqs_obj->addr, &live_val);
 		bool live_val_valid = (ret >= 0);
 
-		seq_printf(file, "cmd:CQS_WAIT_OPERATION obj:0x%.16llx live_value:", cqs_obj->addr);
+		*length +=
+			snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				 "cmd:CQS_WAIT_OPERATION obj:0x%.16llx live_value:", cqs_obj->addr);
 
 		if (live_val_valid)
-			seq_printf(file, "0x%.16llx", (u64)live_val);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    "0x%.16llx", (u64)live_val);
 		else
-			seq_puts(file, CQS_UNREADABLE_LIVE_VALUE);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    CQS_UNREADABLE_LIVE_VALUE);
 
-		seq_printf(file, " | op:gt arg_value:0x%.8x", cqs_obj->val);
+		*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				    " | op:gt arg_value:0x%.8x", cqs_obj->val);
 	}
 }
 
@@ -189,13 +198,14 @@ static void kbasep_csf_sync_print_kcpu_cqs_wait(struct seq_file *file,
  * kbasep_csf_sync_print_kcpu_cqs_set() - Print details of a CSF SYNC CQS
  *                                        Set command, contained in a KCPU queue.
  *
- * @file: The seq_file for printing to.
- * @cmd:  The KCPU Command to be printed.
+ * @kctx:   The kbase context.
+ * @buffer: The buffer to write to.
+ * @length: The length of text in the buffer.
+ * @cmd:    The KCPU Command to be printed.
  */
-static void kbasep_csf_sync_print_kcpu_cqs_set(struct seq_file *file,
-					       struct kbase_kcpu_command *cmd)
+static void kbasep_csf_sync_print_kcpu_cqs_set(struct kbase_context *kctx, char *buffer,
+					       int *length, struct kbase_kcpu_command *cmd)
 {
-	struct kbase_context *kctx = file->private;
 	size_t i;
 
 	for (i = 0; i < cmd->info.cqs_set.nr_objs; i++) {
@@ -205,14 +215,19 @@ static void kbasep_csf_sync_print_kcpu_cqs_set(struct seq_file *file,
 		int ret = kbasep_csf_debugfs_get_cqs_live_u32(kctx, cqs_obj->addr, &live_val);
 		bool live_val_valid = (ret >= 0);
 
-		seq_printf(file, "cmd:CQS_SET_OPERATION obj:0x%.16llx live_value:", cqs_obj->addr);
+		*length +=
+			snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				 "cmd:CQS_SET_OPERATION obj:0x%.16llx live_value:", cqs_obj->addr);
 
 		if (live_val_valid)
-			seq_printf(file, "0x%.16llx", (u64)live_val);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    "0x%.16llx", (u64)live_val);
 		else
-			seq_puts(file, CQS_UNREADABLE_LIVE_VALUE);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    CQS_UNREADABLE_LIVE_VALUE);
 
-		seq_printf(file, " | op:add arg_value:0x%.8x", 1);
+		*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				    " | op:add arg_value:0x%.8x", 1);
 	}
 }
 
@@ -271,14 +286,15 @@ static const char *kbasep_csf_sync_get_set_op_name(basep_cqs_set_operation_op op
  *                                            Wait Operation command, contained
  *                                            in a KCPU queue.
  *
- * @file: The seq_file for printing to.
- * @cmd:  The KCPU Command to be printed.
+ * @kctx:   The kbase context.
+ * @buffer: The buffer to write to.
+ * @length: The length of text in the buffer.
+ * @cmd:    The KCPU Command to be printed.
  */
-static void kbasep_csf_sync_print_kcpu_cqs_wait_op(struct seq_file *file,
-						   struct kbase_kcpu_command *cmd)
+static void kbasep_csf_sync_print_kcpu_cqs_wait_op(struct kbase_context *kctx, char *buffer,
+						   int *length, struct kbase_kcpu_command *cmd)
 {
 	size_t i;
-	struct kbase_context *kctx = file->private;
 
 	for (i = 0; i < cmd->info.cqs_wait.nr_objs; i++) {
 		struct base_cqs_wait_operation_info *wait_op =
@@ -290,14 +306,19 @@ static void kbasep_csf_sync_print_kcpu_cqs_wait_op(struct seq_file *file,
 
 		bool live_val_valid = (ret >= 0);
 
-		seq_printf(file, "cmd:CQS_WAIT_OPERATION obj:0x%.16llx live_value:", wait_op->addr);
+		*length +=
+			snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				 "cmd:CQS_WAIT_OPERATION obj:0x%.16llx live_value:", wait_op->addr);
 
 		if (live_val_valid)
-			seq_printf(file, "0x%.16llx", live_val);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    "0x%.16llx", live_val);
 		else
-			seq_puts(file, CQS_UNREADABLE_LIVE_VALUE);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    CQS_UNREADABLE_LIVE_VALUE);
 
-		seq_printf(file, " | op:%s arg_value:0x%.16llx", op_name, wait_op->val);
+		*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				    " | op:%s arg_value:0x%.16llx", op_name, wait_op->val);
 	}
 }
 
@@ -306,14 +327,15 @@ static void kbasep_csf_sync_print_kcpu_cqs_wait_op(struct seq_file *file,
  *                                           Set Operation command, contained
  *                                           in a KCPU queue.
  *
- * @file: The seq_file for printing to.
- * @cmd:  The KCPU Command to be printed.
+ * @kctx:   The kbase context.
+ * @buffer: The buffer to write to.
+ * @length: The length of text in the buffer.
+ * @cmd:    The KCPU Command to be printed.
  */
-static void kbasep_csf_sync_print_kcpu_cqs_set_op(struct seq_file *file,
-						  struct kbase_kcpu_command *cmd)
+static void kbasep_csf_sync_print_kcpu_cqs_set_op(struct kbase_context *kctx, char *buffer,
+						  int *length, struct kbase_kcpu_command *cmd)
 {
 	size_t i;
-	struct kbase_context *kctx = file->private;
 
 	for (i = 0; i < cmd->info.cqs_set_operation.nr_objs; i++) {
 		struct base_cqs_set_operation_info *set_op = &cmd->info.cqs_set_operation.objs[i];
@@ -325,29 +347,35 @@ static void kbasep_csf_sync_print_kcpu_cqs_set_op(struct seq_file *file,
 
 		bool live_val_valid = (ret >= 0);
 
-		seq_printf(file, "cmd:CQS_SET_OPERATION obj:0x%.16llx live_value:", set_op->addr);
+		*length +=
+			snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				 "cmd:CQS_SET_OPERATION obj:0x%.16llx live_value:", set_op->addr);
 
 		if (live_val_valid)
-			seq_printf(file, "0x%.16llx", live_val);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    "0x%.16llx", live_val);
 		else
-			seq_puts(file, CQS_UNREADABLE_LIVE_VALUE);
+			*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+					    CQS_UNREADABLE_LIVE_VALUE);
 
-		seq_printf(file, " | op:%s arg_value:0x%.16llx", op_name, set_op->val);
+		*length += snprintf(buffer + *length, CSF_SYNC_DUMP_SIZE - *length,
+				    " | op:%s arg_value:0x%.16llx", op_name, set_op->val);
 	}
 }
 
 /**
  * kbasep_csf_kcpu_debugfs_print_queue() - Print debug data for a KCPU queue
  *
+ * @kctx:  The kbase context.
  * @file:  The seq_file to print to.
  * @queue: Pointer to the KCPU queue.
  */
-static void kbasep_csf_sync_kcpu_debugfs_print_queue(struct seq_file *file,
+static void kbasep_csf_sync_kcpu_debugfs_print_queue(struct kbase_context *kctx,
+						     struct seq_file *file,
 						     struct kbase_kcpu_command_queue *queue)
 {
 	char started_or_pending;
 	struct kbase_kcpu_command *cmd;
-	struct kbase_context *kctx = file->private;
 	size_t i;
 
 	if (WARN_ON(!queue))
@@ -357,71 +385,114 @@ static void kbasep_csf_sync_kcpu_debugfs_print_queue(struct seq_file *file,
 	mutex_lock(&queue->lock);
 
 	for (i = 0; i != queue->num_pending_cmds; ++i) {
+		char buffer[CSF_SYNC_DUMP_SIZE];
+		int length = 0;
 		started_or_pending = ((i == 0) && queue->command_started) ? 'S' : 'P';
-		seq_printf(file, "queue:KCPU-%u-%u exec:%c ", kctx->id, queue->id,
-			   started_or_pending);
+		length += snprintf(buffer, CSF_SYNC_DUMP_SIZE, "queue:KCPU-%d-%d exec:%c ",
+				   kctx->id, queue->id, started_or_pending);
 
-		cmd = &queue->commands[queue->start_offset + i];
+		cmd = &queue->commands[(u8)(queue->start_offset + i)];
 		switch (cmd->type) {
 #if IS_ENABLED(CONFIG_SYNC_FILE)
 		case BASE_KCPU_COMMAND_TYPE_FENCE_SIGNAL:
-			kbasep_csf_sync_print_kcpu_fence_wait_or_signal(file, cmd, "FENCE_SIGNAL");
+			kbasep_csf_sync_print_kcpu_fence_wait_or_signal(buffer, &length, cmd,
+									"FENCE_SIGNAL");
 			break;
 		case BASE_KCPU_COMMAND_TYPE_FENCE_WAIT:
-			kbasep_csf_sync_print_kcpu_fence_wait_or_signal(file, cmd, "FENCE_WAIT");
+			kbasep_csf_sync_print_kcpu_fence_wait_or_signal(buffer, &length, cmd,
+									"FENCE_WAIT");
 			break;
 #endif
 		case BASE_KCPU_COMMAND_TYPE_CQS_WAIT:
-			kbasep_csf_sync_print_kcpu_cqs_wait(file, cmd);
+			kbasep_csf_sync_print_kcpu_cqs_wait(kctx, buffer, &length, cmd);
 			break;
 		case BASE_KCPU_COMMAND_TYPE_CQS_SET:
-			kbasep_csf_sync_print_kcpu_cqs_set(file, cmd);
+			kbasep_csf_sync_print_kcpu_cqs_set(kctx, buffer, &length, cmd);
 			break;
 		case BASE_KCPU_COMMAND_TYPE_CQS_WAIT_OPERATION:
-			kbasep_csf_sync_print_kcpu_cqs_wait_op(file, cmd);
+			kbasep_csf_sync_print_kcpu_cqs_wait_op(kctx, buffer, &length, cmd);
 			break;
 		case BASE_KCPU_COMMAND_TYPE_CQS_SET_OPERATION:
-			kbasep_csf_sync_print_kcpu_cqs_set_op(file, cmd);
+			kbasep_csf_sync_print_kcpu_cqs_set_op(kctx, buffer, &length, cmd);
 			break;
 		default:
-			seq_puts(file, ", U, Unknown blocking command");
+			length += snprintf(buffer + length, CSF_SYNC_DUMP_SIZE - length,
+					   ", U, Unknown blocking command");
 			break;
 		}
 
-		seq_puts(file, "\n");
+		length += snprintf(buffer + length, CSF_SYNC_DUMP_SIZE - length, "\n");
+		kbasep_print(kctx, file, buffer);
 	}
 
 	mutex_unlock(&queue->lock);
 }
 
-/**
- * kbasep_csf_sync_kcpu_debugfs_show() - Print CSF KCPU queue sync info
- *
- * @file: The seq_file for printing to.
- *
- * Return: Negative error code or 0 on success.
- */
-static int kbasep_csf_sync_kcpu_debugfs_show(struct seq_file *file)
+int kbasep_csf_sync_kcpu_dump_locked(struct kbase_context *kctx, struct seq_file *file)
 {
-	struct kbase_context *kctx = file->private;
 	unsigned long queue_idx;
 
-	mutex_lock(&kctx->csf.kcpu_queues.lock);
-	seq_printf(file, "KCPU queues for ctx %u:\n", kctx->id);
+	lockdep_assert_held(&kctx->csf.kcpu_queues.lock);
+
+	kbasep_print(kctx, file, "KCPU queues for ctx %d:\n", kctx->id);
 
 	queue_idx = find_first_bit(kctx->csf.kcpu_queues.in_use, KBASEP_MAX_KCPU_QUEUES);
 
 	while (queue_idx < KBASEP_MAX_KCPU_QUEUES) {
-		kbasep_csf_sync_kcpu_debugfs_print_queue(file,
+		kbasep_csf_sync_kcpu_debugfs_print_queue(kctx, file,
 							 kctx->csf.kcpu_queues.array[queue_idx]);
 
 		queue_idx = find_next_bit(kctx->csf.kcpu_queues.in_use, KBASEP_MAX_KCPU_QUEUES,
 					  queue_idx + 1);
 	}
 
+	return 0;
+}
+
+int kbasep_csf_sync_kcpu_dump(struct kbase_context *kctx, struct seq_file *file)
+{
+	mutex_lock(&kctx->csf.kcpu_queues.lock);
+	kbasep_csf_sync_kcpu_dump_locked(kctx, file);
 	mutex_unlock(&kctx->csf.kcpu_queues.lock);
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+
+/* GPU queue related values */
+#define GPU_CSF_MOVE_OPCODE ((u64)0x1)
+#define GPU_CSF_MOVE32_OPCODE ((u64)0x2)
+#define GPU_CSF_SYNC_ADD_OPCODE ((u64)0x25)
+#define GPU_CSF_SYNC_SET_OPCODE ((u64)0x26)
+#define GPU_CSF_SYNC_WAIT_OPCODE ((u64)0x27)
+#define GPU_CSF_SYNC_ADD64_OPCODE ((u64)0x33)
+#define GPU_CSF_SYNC_SET64_OPCODE ((u64)0x34)
+#define GPU_CSF_SYNC_WAIT64_OPCODE ((u64)0x35)
+#define GPU_CSF_CALL_OPCODE ((u64)0x20)
+
+#define MAX_NR_GPU_CALLS (5)
+#define INSTR_OPCODE_MASK ((u64)0xFF << 56)
+#define INSTR_OPCODE_GET(value) ((value & INSTR_OPCODE_MASK) >> 56)
+#define MOVE32_IMM_MASK ((u64)0xFFFFFFFFFUL)
+#define MOVE_DEST_MASK ((u64)0xFF << 48)
+#define MOVE_DEST_GET(value) ((value & MOVE_DEST_MASK) >> 48)
+#define MOVE_IMM_MASK ((u64)0xFFFFFFFFFFFFUL)
+#define SYNC_SRC0_MASK ((u64)0xFF << 40)
+#define SYNC_SRC1_MASK ((u64)0xFF << 32)
+#define SYNC_SRC0_GET(value) (u8)((value & SYNC_SRC0_MASK) >> 40)
+#define SYNC_SRC1_GET(value) (u8)((value & SYNC_SRC1_MASK) >> 32)
+#define SYNC_WAIT_CONDITION_MASK ((u64)0xF << 28)
+#define SYNC_WAIT_CONDITION_GET(value) (u8)((value & SYNC_WAIT_CONDITION_MASK) >> 28)
+
+/* Enumeration for types of GPU queue sync events for
+ * the purpose of dumping them through debugfs.
+ */
+enum debugfs_gpu_sync_type {
+	DEBUGFS_GPU_SYNC_WAIT,
+	DEBUGFS_GPU_SYNC_SET,
+	DEBUGFS_GPU_SYNC_ADD,
+	NUM_DEBUGFS_GPU_SYNC_TYPES
+};
 
 /**
  * kbasep_csf_get_move_immediate_value() - Get the immediate values for sync operations
@@ -476,10 +547,21 @@ static u64 kbasep_csf_read_ringbuffer_value(struct kbase_queue *queue, u32 ringb
 	u64 page_off = ringbuff_offset >> PAGE_SHIFT;
 	u64 offset_within_page = ringbuff_offset & ~PAGE_MASK;
 	struct page *page = as_page(queue->queue_reg->gpu_alloc->pages[page_off]);
-	u64 *ringbuffer = kmap_atomic(page);
-	u64 value = ringbuffer[offset_within_page / sizeof(u64)];
+	u64 *ringbuffer = vmap(&page, 1, VM_MAP, pgprot_noncached(PAGE_KERNEL));
+	u64 value;
 
-	kunmap_atomic(ringbuffer);
+	if (!ringbuffer) {
+		struct kbase_context *kctx = queue->kctx;
+
+		dev_err(kctx->kbdev->dev, "%s failed to map the buffer page for read a command!",
+			__func__);
+		/* Return an alternative 0 for dumpping operation*/
+		value = 0;
+	} else {
+		value = ringbuffer[offset_within_page / sizeof(u64)];
+		vunmap(ringbuffer);
+	}
+
 	return value;
 }
 
@@ -559,24 +641,25 @@ static void kbasep_csf_print_gpu_sync_op(struct seq_file *file, struct kbase_con
 		return;
 
 	/* 5. Print info */
-	seq_printf(file, "queue:GPU-%u-%u-%u exec:%c cmd:%s ", kctx->id, queue->group->handle,
-		   queue->csi_index, queue->enabled && !follows_wait ? 'S' : 'P',
-		   gpu_sync_type_name[type]);
+	kbasep_print(kctx, file, "queue:GPU-%u-%u-%u exec:%c cmd:%s ", kctx->id,
+		     queue->group->handle, queue->csi_index,
+		     queue->enabled && !follows_wait ? 'S' : 'P', gpu_sync_type_name[type]);
 
 	if (queue->group->csg_nr == KBASEP_CSG_NR_INVALID)
-		seq_puts(file, "slot:-");
+		kbasep_print(kctx, file, "slot:-");
 	else
-		seq_printf(file, "slot:%d", (int)queue->group->csg_nr);
+		kbasep_print(kctx, file, "slot:%d", (int)queue->group->csg_nr);
 
-	seq_printf(file, " obj:0x%.16llx live_value:0x%.16llx | ", sync_addr, live_val);
+	kbasep_print(kctx, file, " obj:0x%.16llx live_value:0x%.16llx | ", sync_addr, live_val);
 
 	if (type == DEBUGFS_GPU_SYNC_WAIT) {
 		wait_condition = SYNC_WAIT_CONDITION_GET(sync_cmd);
-		seq_printf(file, "op:%s ", kbasep_csf_sync_get_wait_op_name(wait_condition));
+		kbasep_print(kctx, file, "op:%s ",
+			     kbasep_csf_sync_get_wait_op_name(wait_condition));
 	} else
-		seq_printf(file, "op:%s ", gpu_sync_type_op[type]);
+		kbasep_print(kctx, file, "op:%s ", gpu_sync_type_op[type]);
 
-	seq_printf(file, "arg_value:0x%.16llx\n", compare_val);
+	kbasep_print(kctx, file, "arg_value:0x%.16llx\n", compare_val);
 }
 
 /**
@@ -595,7 +678,7 @@ static void kbasep_csf_print_gpu_sync_op(struct seq_file *file, struct kbase_con
 static void kbasep_csf_dump_active_queue_sync_info(struct seq_file *file, struct kbase_queue *queue)
 {
 	struct kbase_context *kctx;
-	u32 *addr;
+	u64 *addr;
 	u64 cs_extract, cs_insert, instr, cursor;
 	bool follows_wait = false;
 	int nr_calls = 0;
@@ -605,11 +688,11 @@ static void kbasep_csf_dump_active_queue_sync_info(struct seq_file *file, struct
 
 	kctx = queue->kctx;
 
-	addr = (u32 *)queue->user_io_addr;
-	cs_insert = addr[CS_INSERT_LO / 4] | ((u64)addr[CS_INSERT_HI / 4] << 32);
+	addr = queue->user_io_addr;
+	cs_insert = addr[CS_INSERT_LO / sizeof(*addr)];
 
-	addr = (u32 *)(queue->user_io_addr + PAGE_SIZE);
-	cs_extract = addr[CS_EXTRACT_LO / 4] | ((u64)addr[CS_EXTRACT_HI / 4] << 32);
+	addr = queue->user_io_addr + PAGE_SIZE / sizeof(*addr);
+	cs_extract = addr[CS_EXTRACT_LO / sizeof(*addr)];
 
 	cursor = cs_extract;
 
@@ -637,6 +720,7 @@ static void kbasep_csf_dump_active_queue_sync_info(struct seq_file *file, struct
 		case GPU_CSF_SYNC_SET64_OPCODE:
 		case GPU_CSF_SYNC_WAIT64_OPCODE:
 			instr_is_64_bit = true;
+			break;
 		default:
 			break;
 		}
@@ -663,7 +747,7 @@ static void kbasep_csf_dump_active_queue_sync_info(struct seq_file *file, struct
 			break;
 		case GPU_CSF_CALL_OPCODE:
 			nr_calls++;
-			/* Fallthrough */
+			break;
 		default:
 			/* Unrecognized command, skip past it */
 			break;
@@ -677,36 +761,37 @@ static void kbasep_csf_dump_active_queue_sync_info(struct seq_file *file, struct
  * kbasep_csf_dump_active_group_sync_state() - Prints SYNC commands in all GPU queues of
  *                                             the provided queue group.
  *
+ * @kctx:  The kbase context
  * @file:  seq_file for printing to.
  * @group: Address of a GPU command group to iterate through.
  *
  * This function will iterate through each queue in the provided GPU queue group and
  * print its SYNC related commands.
  */
-static void kbasep_csf_dump_active_group_sync_state(struct seq_file *file,
+static void kbasep_csf_dump_active_group_sync_state(struct kbase_context *kctx,
+						    struct seq_file *file,
 						    struct kbase_queue_group *const group)
 {
-	struct kbase_context *kctx = file->private;
 	unsigned int i;
 
-	seq_printf(file, "GPU queues for group %u (slot %d) of ctx %d_%d\n", group->handle,
-		   group->csg_nr, kctx->tgid, kctx->id);
+	kbasep_print(kctx, file, "GPU queues for group %u (slot %d) of ctx %d_%d\n", group->handle,
+		     group->csg_nr, kctx->tgid, kctx->id);
 
 	for (i = 0; i < MAX_SUPPORTED_STREAMS_PER_GROUP; i++)
 		kbasep_csf_dump_active_queue_sync_info(file, group->bound_queues[i]);
 }
 
 /**
- * kbasep_csf_sync_gpu_debugfs_show() - Print CSF GPU queue sync info
+ * kbasep_csf_sync_gpu_dump() - Print CSF GPU queue sync info
  *
+ * @kctx: The kbase context
  * @file: The seq_file for printing to.
  *
  * Return: Negative error code or 0 on success.
  */
-static int kbasep_csf_sync_gpu_debugfs_show(struct seq_file *file)
+static int kbasep_csf_sync_gpu_dump(struct kbase_context *kctx, struct seq_file *file)
 {
 	u32 gr;
-	struct kbase_context *kctx = file->private;
 	struct kbase_device *kbdev;
 
 	if (WARN_ON(!kctx))
@@ -721,7 +806,7 @@ static int kbasep_csf_sync_gpu_debugfs_show(struct seq_file *file)
 			kbdev->csf.scheduler.csg_slots[gr].resident_group;
 		if (!group || group->kctx != kctx)
 			continue;
-		kbasep_csf_dump_active_group_sync_state(file, group);
+		kbasep_csf_dump_active_group_sync_state(kctx, file, group);
 	}
 
 	kbase_csf_scheduler_unlock(kbdev);
@@ -738,10 +823,13 @@ static int kbasep_csf_sync_gpu_debugfs_show(struct seq_file *file)
  */
 static int kbasep_csf_sync_debugfs_show(struct seq_file *file, void *data)
 {
-	seq_printf(file, "MALI_CSF_SYNC_DEBUGFS_VERSION: v%u\n", MALI_CSF_SYNC_DEBUGFS_VERSION);
+	struct kbase_context *kctx = file->private;
 
-	kbasep_csf_sync_kcpu_debugfs_show(file);
-	kbasep_csf_sync_gpu_debugfs_show(file);
+	kbasep_print(kctx, file, "MALI_CSF_SYNC_DEBUGFS_VERSION: v%u\n",
+		     MALI_CSF_SYNC_DEBUGFS_VERSION);
+
+	kbasep_csf_sync_kcpu_dump(kctx, file);
+	kbasep_csf_sync_gpu_dump(kctx, file);
 	return 0;
 }
 

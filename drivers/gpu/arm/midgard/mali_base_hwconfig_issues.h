@@ -21,7 +21,7 @@
 
 /* AUTOMATICALLY GENERATED FILE. If you want to amend the issues/features,
  * please update base/tools/hwconfig_generator/hwc_{issues,features}.py
- * For more information see base/tools/hwconfig_generator/README
+ * For more information see base/tools/docs/hwconfig_generator.md
  */
 
 #ifndef _BASE_HWCONFIG_ISSUES_H_

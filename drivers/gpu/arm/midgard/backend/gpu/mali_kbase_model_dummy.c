@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -483,13 +483,6 @@ void *gpu_device_get_data(void *model)
 }
 
 #define signal_int(m, s) m->slots[(s)].job_complete_irq_asserted = 1
-
-/* SCons should pass in a default GPU, but other ways of building (e.g.
- * in-tree) won't, so define one here in case.
- */
-#ifndef CONFIG_MALI_NO_MALI_DEFAULT_GPU
-#define CONFIG_MALI_NO_MALI_DEFAULT_GPU "tMIx"
-#endif
 
 static char *no_mali_gpu = CONFIG_MALI_NO_MALI_DEFAULT_GPU;
 module_param(no_mali_gpu, charp, 0000);
@@ -1378,10 +1371,10 @@ void midgard_model_write_reg(void *h, u32 addr, u32 value)
 		dummy->l2_config = value;
 	}
 #if MALI_USE_CSF
-	else if (addr >= GPU_CONTROL_REG(CSF_HW_DOORBELL_PAGE_OFFSET) &&
-			 addr < GPU_CONTROL_REG(CSF_HW_DOORBELL_PAGE_OFFSET +
-						(CSF_NUM_DOORBELL * CSF_HW_DOORBELL_PAGE_SIZE))) {
-		if (addr == GPU_CONTROL_REG(CSF_HW_DOORBELL_PAGE_OFFSET))
+	else if (addr >= CSF_HW_DOORBELL_PAGE_OFFSET &&
+		 addr < CSF_HW_DOORBELL_PAGE_OFFSET +
+				 (CSF_NUM_DOORBELL * CSF_HW_DOORBELL_PAGE_SIZE)) {
+		if (addr == CSF_HW_DOORBELL_PAGE_OFFSET)
 			hw_error_status.job_irq_status = JOB_IRQ_GLOBAL_IF;
 	} else if ((addr >= GPU_CONTROL_REG(SYSC_ALLOC0)) &&
 		   (addr < GPU_CONTROL_REG(SYSC_ALLOC(SYSC_ALLOC_COUNT)))) {
@@ -1409,13 +1402,13 @@ void midgard_model_write_reg(void *h, u32 addr, u32 value)
 		}
 	}
 #endif
-	else if (addr == MMU_REG(MMU_IRQ_MASK)) {
+	else if (addr == MMU_CONTROL_REG(MMU_IRQ_MASK)) {
 		hw_error_status.mmu_irq_mask = value;
-	} else if (addr == MMU_REG(MMU_IRQ_CLEAR)) {
+	} else if (addr == MMU_CONTROL_REG(MMU_IRQ_CLEAR)) {
 		hw_error_status.mmu_irq_rawstat &= (~value);
-	} else if ((addr >= MMU_AS_REG(0, AS_TRANSTAB_LO)) && (addr <= MMU_AS_REG(15, AS_STATUS))) {
-		int mem_addr_space = (addr - MMU_AS_REG(0, AS_TRANSTAB_LO))
-									>> 6;
+	} else if ((addr >= MMU_STAGE1_REG(MMU_AS_REG(0, AS_TRANSTAB_LO))) &&
+		   (addr <= MMU_STAGE1_REG(MMU_AS_REG(15, AS_STATUS)))) {
+		int mem_addr_space = (addr - MMU_STAGE1_REG(MMU_AS_REG(0, AS_TRANSTAB_LO))) >> 6;
 
 		switch (addr & 0x3F) {
 		case AS_COMMAND:
@@ -1926,10 +1919,9 @@ void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 	} else if (addr >= GPU_CONTROL_REG(CYCLE_COUNT_LO)
 				&& addr <= GPU_CONTROL_REG(TIMESTAMP_HI)) {
 		*value = 0;
-	} else if (addr >= MMU_AS_REG(0, AS_TRANSTAB_LO)
-				&& addr <= MMU_AS_REG(15, AS_STATUS)) {
-		int mem_addr_space = (addr - MMU_AS_REG(0, AS_TRANSTAB_LO))
-									>> 6;
+	} else if (addr >= MMU_STAGE1_REG(MMU_AS_REG(0, AS_TRANSTAB_LO)) &&
+		   addr <= MMU_STAGE1_REG(MMU_AS_REG(15, AS_STATUS))) {
+		int mem_addr_space = (addr - MMU_STAGE1_REG(MMU_AS_REG(0, AS_TRANSTAB_LO))) >> 6;
 
 		switch (addr & 0x3F) {
 		case AS_TRANSTAB_LO:
@@ -1973,11 +1965,11 @@ void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 			*value = 0;
 			break;
 		}
-	} else if (addr == MMU_REG(MMU_IRQ_MASK)) {
+	} else if (addr == MMU_CONTROL_REG(MMU_IRQ_MASK)) {
 		*value = hw_error_status.mmu_irq_mask;
-	} else if (addr == MMU_REG(MMU_IRQ_RAWSTAT)) {
+	} else if (addr == MMU_CONTROL_REG(MMU_IRQ_RAWSTAT)) {
 		*value = hw_error_status.mmu_irq_rawstat;
-	} else if (addr == MMU_REG(MMU_IRQ_STATUS)) {
+	} else if (addr == MMU_CONTROL_REG(MMU_IRQ_STATUS)) {
 		*value = hw_error_status.mmu_irq_mask &
 						hw_error_status.mmu_irq_rawstat;
 	}
@@ -1985,8 +1977,7 @@ void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 	else if (addr == IPA_CONTROL_REG(STATUS)) {
 		*value = (ipa_control_timer_enabled << 31);
 	} else if ((addr >= IPA_CONTROL_REG(VALUE_CSHW_REG_LO(0))) &&
-		   (addr <= IPA_CONTROL_REG(VALUE_CSHW_REG_HI(
-				    IPA_CTL_MAX_VAL_CNT_IDX)))) {
+		   (addr <= IPA_CONTROL_REG(VALUE_CSHW_REG_HI(IPA_CTL_MAX_VAL_CNT_IDX)))) {
 		u32 counter_index =
 			(addr - IPA_CONTROL_REG(VALUE_CSHW_REG_LO(0))) >> 3;
 		bool is_low_word =
@@ -1995,8 +1986,7 @@ void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 		*value = gpu_model_get_prfcnt_value(KBASE_IPA_CORE_TYPE_CSHW,
 						    counter_index, is_low_word);
 	} else if ((addr >= IPA_CONTROL_REG(VALUE_MEMSYS_REG_LO(0))) &&
-		   (addr <= IPA_CONTROL_REG(VALUE_MEMSYS_REG_HI(
-				    IPA_CTL_MAX_VAL_CNT_IDX)))) {
+		   (addr <= IPA_CONTROL_REG(VALUE_MEMSYS_REG_HI(IPA_CTL_MAX_VAL_CNT_IDX)))) {
 		u32 counter_index =
 			(addr - IPA_CONTROL_REG(VALUE_MEMSYS_REG_LO(0))) >> 3;
 		bool is_low_word =
@@ -2005,8 +1995,7 @@ void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 		*value = gpu_model_get_prfcnt_value(KBASE_IPA_CORE_TYPE_MEMSYS,
 						    counter_index, is_low_word);
 	} else if ((addr >= IPA_CONTROL_REG(VALUE_TILER_REG_LO(0))) &&
-		   (addr <= IPA_CONTROL_REG(VALUE_TILER_REG_HI(
-				    IPA_CTL_MAX_VAL_CNT_IDX)))) {
+		   (addr <= IPA_CONTROL_REG(VALUE_TILER_REG_HI(IPA_CTL_MAX_VAL_CNT_IDX)))) {
 		u32 counter_index =
 			(addr - IPA_CONTROL_REG(VALUE_TILER_REG_LO(0))) >> 3;
 		bool is_low_word =
@@ -2015,8 +2004,7 @@ void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 		*value = gpu_model_get_prfcnt_value(KBASE_IPA_CORE_TYPE_TILER,
 						    counter_index, is_low_word);
 	} else if ((addr >= IPA_CONTROL_REG(VALUE_SHADER_REG_LO(0))) &&
-		   (addr <= IPA_CONTROL_REG(VALUE_SHADER_REG_HI(
-				    IPA_CTL_MAX_VAL_CNT_IDX)))) {
+		   (addr <= IPA_CONTROL_REG(VALUE_SHADER_REG_HI(IPA_CTL_MAX_VAL_CNT_IDX)))) {
 		u32 counter_index =
 			(addr - IPA_CONTROL_REG(VALUE_SHADER_REG_LO(0))) >> 3;
 		bool is_low_word =
@@ -2213,17 +2201,4 @@ int gpu_model_control(void *model,
 	spin_unlock_irqrestore(&hw_error_status.access_lock, flags);
 
 	return 0;
-}
-
-/**
- * kbase_is_gpu_removed - Has the GPU been removed.
- * @kbdev:    Kbase device pointer
- *
- * This function would return true if the GPU has been removed.
- * It is stubbed here
- * Return: Always false
- */
-bool kbase_is_gpu_removed(struct kbase_device *kbdev)
-{
-	return false;
 }

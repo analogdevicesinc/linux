@@ -172,6 +172,7 @@ enum {
  *
  * This is also the default timeout to be used when an invalid timeout
  * selector is used to retrieve the timeout on CSF GPUs.
+ * This shouldn't be used as a timeout for the CSG suspend request.
  *
  * Based on 75000ms timeout at nominal 100MHz, as is required for Android - based
  * on scaling from a 50MHz GPU system.
@@ -185,17 +186,16 @@ enum {
  */
 #define CSF_PM_TIMEOUT_CYCLES (250000000)
 
-/* Waiting timeout in clock cycles for GPU reset to complete.
+/* Waiting timeout in clock cycles for a CSG to be suspended.
  *
- * Based on 2500ms timeout at 100MHz, scaled from a 50MHz GPU system
+ * Based on 30s timeout at 100MHz, scaled from 5s at 600Mhz GPU frequency.
+ * More cycles (1s @ 100Mhz = 100000000) are added up to ensure that
+ * host timeout is always bigger than FW timeout.
  */
-#define CSF_GPU_RESET_TIMEOUT_CYCLES (250000000)
+#define CSF_CSG_SUSPEND_TIMEOUT_CYCLES (3100000000ull)
 
-/* Waiting timeout in clock cycles for all active CSGs to be suspended.
- *
- * Based on 1500ms timeout at 100MHz, scaled from a 50MHz GPU system.
- */
-#define CSF_CSG_SUSPEND_TIMEOUT_CYCLES (150000000)
+/* Waiting timeout in clock cycles for GPU reset to complete. */
+#define CSF_GPU_RESET_TIMEOUT_CYCLES (CSF_CSG_SUSPEND_TIMEOUT_CYCLES * 2)
 
 /* Waiting timeout in clock cycles for GPU firmware to boot.
  *
@@ -208,6 +208,19 @@ enum {
  * Based on 6000ms timeout at 100MHz, scaled from a 50MHz GPU system.
  */
 #define CSF_FIRMWARE_PING_TIMEOUT_CYCLES (600000000ull)
+
+/* Waiting timeout for a KCPU queue's fence signal blocked to long, in clock cycles.
+ *
+ * Based on 10s timeout at 100MHz, scaled from a 50MHz GPU system.
+ */
+#define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES (1000000000ull)
+
+/* Waiting timeout for task execution on an endpoint. Based on the
+ * DEFAULT_PROGRESS_TIMEOUT.
+ *
+ * Based on 25s timeout at 100Mhz, scaled from a 500MHz GPU system.
+ */
+#define DEFAULT_PROGRESS_TIMEOUT_CYCLES (2500000000ull)
 
 #else /* MALI_USE_CSF */
 
@@ -231,7 +244,7 @@ enum {
  */
 #define JM_DEFAULT_JS_FREE_TIMEOUT_CYCLES (100000)
 
-#endif /* MALI_USE_CSF */
+#endif /* !MALI_USE_CSF */
 
 /* Default timeslice that a context is scheduled in for, in nanoseconds.
  *
@@ -275,4 +288,6 @@ enum {
  * It corresponds to 0.5s in GPU @ 100Mhz.
  */
 #define MMU_AS_INACTIVE_WAIT_TIMEOUT_CYCLES ((u64)50 * 1024 * 1024)
+
+
 #endif /* _KBASE_CONFIG_DEFAULTS_H_ */

@@ -322,9 +322,9 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 
 	/* remember current mask */
 	spin_lock_irqsave(&kbdev->mmu_mask_change, flags);
-	new_mask = kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_MASK));
+	new_mask = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK));
 	/* mask interrupts for now */
-	kbase_reg_write(kbdev, MMU_REG(MMU_IRQ_MASK), 0);
+	kbase_reg_write(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK), 0);
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);
 
 	while (bf_bits | pf_bits) {
@@ -355,11 +355,11 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		kctx = kbase_ctx_sched_as_to_ctx_refcount(kbdev, as_no);
 
 		/* find faulting address */
-		fault->addr = kbase_reg_read(kbdev, MMU_AS_REG(as_no,
-				AS_FAULTADDRESS_HI));
+		fault->addr = kbase_reg_read(kbdev,
+					     MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTADDRESS_HI)));
 		fault->addr <<= 32;
-		fault->addr |= kbase_reg_read(kbdev, MMU_AS_REG(as_no,
-				AS_FAULTADDRESS_LO));
+		fault->addr |= kbase_reg_read(
+			kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTADDRESS_LO)));
 		/* Mark the fault protected or not */
 		fault->protected_mode = kbdev->protected_mode;
 
@@ -372,13 +372,13 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		kbase_as_fault_debugfs_new(kbdev, as_no);
 
 		/* record the fault status */
-		fault->status = kbase_reg_read(kbdev, MMU_AS_REG(as_no,
-				AS_FAULTSTATUS));
-		fault->extra_addr = kbase_reg_read(kbdev,
-				MMU_AS_REG(as_no, AS_FAULTEXTRA_HI));
+		fault->status =
+			kbase_reg_read(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTSTATUS)));
+		fault->extra_addr =
+			kbase_reg_read(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTEXTRA_HI)));
 		fault->extra_addr <<= 32;
-		fault->extra_addr |= kbase_reg_read(kbdev,
-				MMU_AS_REG(as_no, AS_FAULTEXTRA_LO));
+		fault->extra_addr |=
+			kbase_reg_read(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTEXTRA_LO)));
 
 		if (kbase_as_has_bus_fault(as, fault)) {
 			/* Mark bus fault as handled.
@@ -406,9 +406,9 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 
 	/* reenable interrupts */
 	spin_lock_irqsave(&kbdev->mmu_mask_change, flags);
-	tmp = kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_MASK));
+	tmp = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK));
 	new_mask |= tmp;
-	kbase_reg_write(kbdev, MMU_REG(MMU_IRQ_MASK), new_mask);
+	kbase_reg_write(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK), new_mask);
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);
 
 	dev_dbg(kbdev->dev, "Leaving %s irq_stat %u\n",

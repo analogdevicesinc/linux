@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -179,7 +179,7 @@ struct kbase_context *kbase_create_context(struct kbase_device *kbdev,
 	bool is_compat,
 	base_context_create_flags const flags,
 	unsigned long const api_version,
-	struct file *const filp)
+	struct kbase_file *const kfile)
 {
 	struct kbase_context *kctx;
 	unsigned int i = 0;
@@ -198,7 +198,7 @@ struct kbase_context *kbase_create_context(struct kbase_device *kbdev,
 
 	kctx->kbdev = kbdev;
 	kctx->api_version = api_version;
-	kctx->filp = filp;
+	kctx->kfile = kfile;
 	kctx->create_flags = flags;
 
 	if (is_compat)
@@ -258,6 +258,17 @@ void kbase_destroy_context(struct kbase_context *kctx)
 		wait_event(kbdev->pm.resume_wait,
 			   !kbase_pm_is_suspending(kbdev));
 	}
+
+	/* Have synchronized against the System suspend and incremented the
+	 * pm.active_count. So any subsequent invocation of System suspend
+	 * callback would get blocked.
+	 * If System suspend callback was already in progress then the above loop
+	 * would have waited till the System resume callback has begun.
+	 * So wait for the System resume callback to also complete as we want to
+	 * avoid context termination during System resume also.
+	 */
+	wait_event(kbdev->pm.resume_wait, !kbase_pm_is_resuming(kbdev));
+
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
 	atomic_dec(&kbdev->pm.gpu_users_waiting);
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */

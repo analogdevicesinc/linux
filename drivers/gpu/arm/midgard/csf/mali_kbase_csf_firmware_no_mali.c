@@ -1006,11 +1006,19 @@ u32 kbase_csf_firmware_set_gpu_idle_hysteresis_time(struct kbase_device *kbdev, 
 	}
 	mutex_unlock(&kbdev->fw_load_lock);
 
+	if (kbase_reset_gpu_prevent_and_wait(kbdev)) {
+		dev_warn(kbdev->dev,
+			 "Failed to prevent GPU reset when updating idle_hysteresis_time");
+		return kbdev->csf.gpu_idle_dur_count;
+	}
+
 	kbase_csf_scheduler_pm_active(kbdev);
 	if (kbase_csf_scheduler_wait_mcu_active(kbdev)) {
 		dev_err(kbdev->dev,
 			"Unable to activate the MCU, the idle hysteresis value shall remain unchanged");
 		kbase_csf_scheduler_pm_idle(kbdev);
+		kbase_reset_gpu_allow(kbdev);
+
 		return kbdev->csf.gpu_idle_dur_count;
 	}
 
@@ -1037,7 +1045,7 @@ u32 kbase_csf_firmware_set_gpu_idle_hysteresis_time(struct kbase_device *kbdev, 
 	mutex_unlock(&kbdev->csf.reg_lock);
 
 	kbase_csf_scheduler_pm_idle(kbdev);
-
+	kbase_reset_gpu_allow(kbdev);
 end:
 	dev_dbg(kbdev->dev, "CSF set firmware idle hysteresis count-value: 0x%.8x",
 		hysteresis_val);
@@ -1204,6 +1212,8 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 	if (ret != 0)
 		goto error;
 
+	kbase_csf_pending_gpuq_kicks_init(kbdev);
+
 	ret = kbase_csf_scheduler_init(kbdev);
 	if (ret != 0)
 		goto error;
@@ -1231,9 +1241,11 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 
 	/* NO_MALI: Don't stop firmware or unload MMU tables */
 
+	kbase_csf_free_dummy_user_reg_page(kbdev);
+
 	kbase_csf_scheduler_term(kbdev);
 
-	kbase_csf_free_dummy_user_reg_page(kbdev);
+	kbase_csf_pending_gpuq_kicks_term(kbdev);
 
 	kbase_csf_doorbell_mapping_term(kbdev);
 
@@ -1581,8 +1593,7 @@ int kbase_csf_firmware_mcu_shared_mapping_init(
 	if (!cpu_addr)
 		goto vmap_error;
 
-	va_reg = kbase_alloc_free_region(kbdev, &kbdev->csf.shared_reg_rbtree, 0, num_pages,
-					 KBASE_REG_ZONE_MCU_SHARED);
+	va_reg = kbase_alloc_free_region(&kbdev->csf.mcu_shared_zone, 0, num_pages);
 	if (!va_reg)
 		goto va_region_alloc_error;
 
@@ -1598,7 +1609,7 @@ int kbase_csf_firmware_mcu_shared_mapping_init(
 
 	ret = kbase_mmu_insert_pages_no_flush(kbdev, &kbdev->csf.mcu_mmu, va_reg->start_pfn,
 					      &phys[0], num_pages, gpu_map_properties,
-					      KBASE_MEM_GROUP_CSF_FW, NULL, NULL, false);
+					      KBASE_MEM_GROUP_CSF_FW, NULL, NULL);
 	if (ret)
 		goto mmu_insert_pages_error;
 

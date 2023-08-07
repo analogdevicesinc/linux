@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -25,6 +25,7 @@
 #include <linux/file.h>
 #include <linux/elf.h>
 #include <linux/elfcore.h>
+#include <linux/version_compat_defs.h>
 
 #include "mali_kbase.h"
 #include "mali_kbase_csf_firmware_core_dump.h"
@@ -664,9 +665,9 @@ static int fw_core_dump_seq_show(struct seq_file *m, void *v)
 
 	/* Write the current page. */
 	page = as_page(data->interface->phys[data->page_num]);
-	p = kmap_atomic(page);
+	p = kbase_kmap_atomic(page);
 	seq_write(m, p, FW_PAGE_SIZE);
-	kunmap_atomic(p);
+	kbase_kunmap_atomic(p);
 
 	return 0;
 }

@@ -574,7 +574,7 @@ void kbase_job_done(struct kbase_device *kbdev, u32 done)
 			count += nr_done;
 
 			while (nr_done) {
-				if (nr_done == 1) {
+				if (likely(nr_done == 1)) {
 					kbase_gpu_complete_hw(kbdev, i,
 								completion_code,
 								job_tail,
@@ -1052,12 +1052,12 @@ static void kbase_debug_dump_registers(struct kbase_device *kbdev)
 			i, kbase_reg_read(kbdev, JOB_SLOT_REG(i, JS_HEAD_LO)));
 	}
 	dev_err(kbdev->dev, "  MMU_IRQ_RAWSTAT=0x%08x GPU_FAULTSTATUS=0x%08x",
-		kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_RAWSTAT)),
+		kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_RAWSTAT)),
 		kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_FAULTSTATUS)));
 	dev_err(kbdev->dev, "  GPU_IRQ_MASK=0x%08x    JOB_IRQ_MASK=0x%08x     MMU_IRQ_MASK=0x%08x",
 		kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK)),
 		kbase_reg_read(kbdev, JOB_CONTROL_REG(JOB_IRQ_MASK)),
-		kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_MASK)));
+		kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK)));
 	dev_err(kbdev->dev, "  PWR_OVERRIDE0=0x%08x   PWR_OVERRIDE1=0x%08x",
 		kbase_reg_read(kbdev, GPU_CONTROL_REG(PWR_OVERRIDE0)),
 		kbase_reg_read(kbdev, GPU_CONTROL_REG(PWR_OVERRIDE1)));

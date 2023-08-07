@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -22,6 +22,8 @@
 #ifndef _KBASE_CSF_SYNC_DEBUGFS_H_
 #define _KBASE_CSF_SYNC_DEBUGFS_H_
 
+#include <linux/seq_file.h>
+
 /* Forward declaration */
 struct kbase_context;
 
@@ -33,5 +35,28 @@ struct kbase_context;
  * @kctx: The kbase_context for which to create the debugfs entry
  */
 void kbase_csf_sync_debugfs_init(struct kbase_context *kctx);
+
+/**
+ * kbasep_csf_sync_kcpu_dump() - Print CSF KCPU queue sync info
+ *
+ * @kctx: The kbase context.
+ * @file: The seq_file for printing to.
+ *
+ * Return: Negative error code or 0 on success.
+ *
+ * Note: This function should not be used if kcpu_queues.lock is held. Use
+ * kbasep_csf_sync_kcpu_dump_locked() instead.
+ */
+int kbasep_csf_sync_kcpu_dump(struct kbase_context *kctx, struct seq_file *file);
+
+/**
+ * kbasep_csf_sync_kcpu_dump() - Print CSF KCPU queue sync info
+ *
+ * @kctx: The kbase context.
+ * @file: The seq_file for printing to.
+ *
+ * Return: Negative error code or 0 on success.
+ */
+int kbasep_csf_sync_kcpu_dump_locked(struct kbase_context *kctx, struct seq_file *file);
 
 #endif /* _KBASE_CSF_SYNC_DEBUGFS_H_ */

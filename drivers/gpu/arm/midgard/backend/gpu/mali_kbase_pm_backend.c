@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -154,6 +154,7 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 	kbdev->pm.backend.gpu_powered = false;
 	kbdev->pm.backend.gpu_ready = false;
 	kbdev->pm.suspending = false;
+	kbdev->pm.resuming = false;
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
 	kbase_pm_set_gpu_lost(kbdev, false);
 #endif
@@ -575,11 +576,13 @@ static int kbase_pm_do_poweroff_sync(struct kbase_device *kbdev)
 {
 	struct kbase_pm_backend_data *backend = &kbdev->pm.backend;
 	unsigned long flags;
-	int ret = 0;
+	int ret;
 
 	WARN_ON(kbdev->pm.active_count);
 
-	kbase_pm_wait_for_poweroff_work_complete(kbdev);
+	ret = kbase_pm_wait_for_poweroff_work_complete(kbdev);
+	if (ret)
+		return ret;
 
 	kbase_pm_lock(kbdev);
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -663,25 +666,6 @@ void kbase_pm_do_poweroff(struct kbase_device *kbdev)
 unlock_hwaccess:
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
-
-static bool is_poweroff_in_progress(struct kbase_device *kbdev)
-{
-	bool ret;
-	unsigned long flags;
-
-	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-	ret = (kbdev->pm.backend.poweroff_wait_in_progress == false);
-	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-
-	return ret;
-}
-
-void kbase_pm_wait_for_poweroff_work_complete(struct kbase_device *kbdev)
-{
-	wait_event_killable(kbdev->pm.backend.poweroff_wait,
-			is_poweroff_in_progress(kbdev));
-}
-KBASE_EXPORT_TEST_API(kbase_pm_wait_for_poweroff_work_complete);
 
 /**
  * is_gpu_powered_down - Check whether GPU is powered down
@@ -936,7 +920,13 @@ int kbase_hwaccess_pm_suspend(struct kbase_device *kbdev)
 
 	kbase_pm_unlock(kbdev);
 
-	kbase_pm_wait_for_poweroff_work_complete(kbdev);
+	ret = kbase_pm_wait_for_poweroff_work_complete(kbdev);
+	if (ret) {
+#if !MALI_USE_CSF
+		kbase_backend_timer_resume(kbdev);
+#endif /* !MALI_USE_CSF */
+		return ret;
+	}
 #endif
 
 	WARN_ON(kbdev->pm.backend.gpu_powered);
@@ -952,6 +942,8 @@ void kbase_hwaccess_pm_resume(struct kbase_device *kbdev)
 {
 	kbase_pm_lock(kbdev);
 
+	/* System resume callback has begun */
+	kbdev->pm.resuming = true;
 	kbdev->pm.suspending = false;
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
 	if (kbase_pm_is_gpu_lost(kbdev)) {
@@ -966,7 +958,6 @@ void kbase_hwaccess_pm_resume(struct kbase_device *kbdev)
 	kbase_backend_timer_resume(kbdev);
 #endif /* !MALI_USE_CSF */
 
-	wake_up_all(&kbdev->pm.resume_wait);
 	kbase_pm_unlock(kbdev);
 }
 

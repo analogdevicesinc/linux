@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,7 +36,6 @@
 #include <linux/mutex.h>
 #include <linux/poll.h>
 #include <linux/slab.h>
-#include <linux/overflow.h>
 #include <linux/version_compat_defs.h>
 #include <linux/workqueue.h>
 
@@ -1258,8 +1257,10 @@ void kbase_kinstr_prfcnt_term(struct kbase_kinstr_prfcnt_context *kinstr_ctx)
 
 void kbase_kinstr_prfcnt_suspend(struct kbase_kinstr_prfcnt_context *kinstr_ctx)
 {
-	if (WARN_ON(!kinstr_ctx))
+	if (!kinstr_ctx) {
+		pr_warn("%s: kinstr_ctx is NULL\n", __func__);
 		return;
+	}
 
 	mutex_lock(&kinstr_ctx->lock);
 
@@ -1288,8 +1289,10 @@ void kbase_kinstr_prfcnt_suspend(struct kbase_kinstr_prfcnt_context *kinstr_ctx)
 
 void kbase_kinstr_prfcnt_resume(struct kbase_kinstr_prfcnt_context *kinstr_ctx)
 {
-	if (WARN_ON(!kinstr_ctx))
+	if (!kinstr_ctx) {
+		pr_warn("%s: kinstr_ctx is NULL\n", __func__);
 		return;
+	}
 
 	mutex_lock(&kinstr_ctx->lock);
 

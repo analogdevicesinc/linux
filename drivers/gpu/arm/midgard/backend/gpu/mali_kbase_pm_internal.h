@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -467,8 +467,10 @@ void kbase_pm_release_gpu_cycle_counter_nolock(struct kbase_device *kbdev);
  * This function effectively just waits for the @gpu_poweroff_wait_work work
  * item to complete, if it was enqueued. GPU may not have been powered down
  * before this function returns.
+ *
+ * Return: 0 on success, error code on error
  */
-void kbase_pm_wait_for_poweroff_work_complete(struct kbase_device *kbdev);
+int kbase_pm_wait_for_poweroff_work_complete(struct kbase_device *kbdev);
 
 /**
  * kbase_pm_wait_for_gpu_power_down - Wait for the GPU power down to complete
@@ -856,6 +858,8 @@ static inline bool kbase_pm_no_mcu_core_pwroff(struct kbase_device *kbdev)
 static inline bool kbase_pm_mcu_is_in_desired_state(struct kbase_device *kbdev)
 {
 	bool in_desired_state = true;
+
+	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	if (kbase_pm_is_mcu_desired(kbdev) && kbdev->pm.backend.mcu_state != KBASE_MCU_ON)
 		in_desired_state = false;

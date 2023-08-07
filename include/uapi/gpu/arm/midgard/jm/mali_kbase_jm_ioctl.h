@@ -143,9 +143,14 @@
  * - Relax the requirement to create a mapping with BASE_MEM_MAP_TRACKING_HANDLE
  *   before allocating GPU memory for the context.
  * - CPU mappings of USER_BUFFER imported memory handles must be cached.
+ * 11.39:
+ * - Restrict child process from doing supported file operations (like mmap, ioctl,
+ *   read, poll) on the file descriptor of mali device file that was inherited
+ *   from the parent process.
  */
+
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 38
+#define BASE_UK_VERSION_MINOR 39
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between

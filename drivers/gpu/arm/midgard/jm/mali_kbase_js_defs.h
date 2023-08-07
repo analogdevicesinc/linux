@@ -342,6 +342,7 @@ struct kbasep_js_device_data {
 	 * * the kbasep_js_kctx_info::runpool substructure
 	 */
 	struct mutex runpool_mutex;
+
 };
 
 /**

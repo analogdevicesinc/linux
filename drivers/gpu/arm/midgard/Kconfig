@@ -65,6 +65,13 @@ config MALI_NO_MALI
 	  All calls to the simulated hardware will complete immediately as if the hardware
 	  completed the task.
 
+config MALI_NO_MALI_DEFAULT_GPU
+	string "Default GPU for No Mali"
+	depends on MALI_NO_MALI
+	default "tMIx"
+	help
+	  This option sets the default GPU to identify as for No Mali builds.
+
 
 endchoice
 
@@ -192,6 +199,22 @@ config LARGE_PAGE_ALLOC
 	  requirements can cause serious problem.
 
 	  If in doubt, say N
+
+config PAGE_MIGRATION_SUPPORT
+	bool "Enable support for page migration"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default y
+	default n if ANDROID
+	help
+	  Compile in support for page migration.
+	  If set to disabled ('n') then page migration cannot
+	  be enabled at all, and related symbols are not compiled in.
+	  If not set, page migration is compiled in by default, and
+	  if not explicitly enabled or disabled with the insmod parameter,
+	  page migration becomes automatically enabled with large pages.
+
+	  If in doubt, say Y. To strip out page migration symbols and support,
+	  say N.
 
 config MALI_MEMORY_FULLY_BACKED
 	bool "Enable memory fully physically-backed"

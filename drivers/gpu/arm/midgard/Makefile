@@ -67,6 +67,7 @@ ifeq ($(CONFIG_MALI_MIDGARD),m)
     ifeq ($(CONFIG_MALI_EXPERT), y)
         ifeq ($(CONFIG_MALI_NO_MALI), y)
             CONFIG_MALI_REAL_HW = n
+            CONFIG_MALI_NO_MALI_DEFAULT_GPU ?= "tMIx"
 
         else
             # Prevent misuse when CONFIG_MALI_NO_MALI=n
@@ -210,6 +211,7 @@ EXTRA_CFLAGS := $(foreach config,$(CONFIGS), \
                         -D$(value config)=1))
 
 EXTRA_CFLAGS += -DCONFIG_MALI_PLATFORM_NAME=$(CONFIG_MALI_PLATFORM_NAME)
+EXTRA_CFLAGS += -DCONFIG_MALI_NO_MALI_DEFAULT_GPU='\"$(CONFIG_MALI_NO_MALI_DEFAULT_GPU)\"'
 
 #
 # KBUILD_EXTRA_SYMBOLS to prevent warnings about unknown functions
@@ -248,7 +250,7 @@ KBUILD_CFLAGS += -Wdisabled-optimization
 KBUILD_CFLAGS += $(call cc-option, -Wlogical-op)
 KBUILD_CFLAGS += -Wmissing-field-initializers
 # -Wtype-limits must be disabled due to build failures on kernel 5.x
-KBUILD_CFLAGS += -Wno-type-limit
+KBUILD_CFLAGS += -Wno-type-limits
 KBUILD_CFLAGS += $(call cc-option, -Wmaybe-uninitialized)
 KBUILD_CFLAGS += $(call cc-option, -Wunused-macros)
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -49,7 +49,7 @@ static void kbase_gpuprops_construct_coherent_groups(
 	props->coherency_info.coherency = props->raw_props.mem_features;
 	props->coherency_info.num_core_groups = hweight64(props->raw_props.l2_present);
 
-	if (props->coherency_info.coherency & GROUPS_L2_COHERENT) {
+	if (props->coherency_info.coherency & MEM_FEATURES_COHERENT_CORE_GROUP_MASK) {
 		/* Group is l2 coherent */
 		group_present = props->raw_props.l2_present;
 	} else {

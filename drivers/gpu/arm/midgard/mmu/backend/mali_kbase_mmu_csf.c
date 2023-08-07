@@ -146,8 +146,7 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx,
 				GPU_FAULTSTATUS_ACCESS_TYPE_SHIFT;
 	int source_id = (status & GPU_FAULTSTATUS_SOURCE_ID_MASK) >>
 				GPU_FAULTSTATUS_SOURCE_ID_SHIFT;
-	const char *addr_valid = (status & GPU_FAULTSTATUS_ADDR_VALID_FLAG) ?
-					"true" : "false";
+	const char *addr_valid = (status & GPU_FAULTSTATUS_ADDRESS_VALID_MASK) ? "true" : "false";
 	int as_no = as->number;
 	unsigned long flags;
 	const uintptr_t fault_addr = fault->addr;
@@ -368,9 +367,9 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 
 	/* remember current mask */
 	spin_lock_irqsave(&kbdev->mmu_mask_change, flags);
-	new_mask = kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_MASK));
+	new_mask = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK));
 	/* mask interrupts for now */
-	kbase_reg_write(kbdev, MMU_REG(MMU_IRQ_MASK), 0);
+	kbase_reg_write(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK), 0);
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);
 
 	while (pf_bits) {
@@ -380,11 +379,11 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		struct kbase_fault *fault = &as->pf_data;
 
 		/* find faulting address */
-		fault->addr = kbase_reg_read(kbdev, MMU_AS_REG(as_no,
-				AS_FAULTADDRESS_HI));
+		fault->addr = kbase_reg_read(kbdev,
+					     MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTADDRESS_HI)));
 		fault->addr <<= 32;
-		fault->addr |= kbase_reg_read(kbdev, MMU_AS_REG(as_no,
-				AS_FAULTADDRESS_LO));
+		fault->addr |= kbase_reg_read(
+			kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTADDRESS_LO)));
 
 		/* Mark the fault protected or not */
 		fault->protected_mode = false;
@@ -393,14 +392,14 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		kbase_as_fault_debugfs_new(kbdev, as_no);
 
 		/* record the fault status */
-		fault->status = kbase_reg_read(kbdev, MMU_AS_REG(as_no,
-				AS_FAULTSTATUS));
+		fault->status =
+			kbase_reg_read(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTSTATUS)));
 
-		fault->extra_addr = kbase_reg_read(kbdev,
-					MMU_AS_REG(as_no, AS_FAULTEXTRA_HI));
+		fault->extra_addr =
+			kbase_reg_read(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTEXTRA_HI)));
 		fault->extra_addr <<= 32;
-		fault->extra_addr |= kbase_reg_read(kbdev,
-					MMU_AS_REG(as_no, AS_FAULTEXTRA_LO));
+		fault->extra_addr |=
+			kbase_reg_read(kbdev, MMU_STAGE1_REG(MMU_AS_REG(as_no, AS_FAULTEXTRA_LO)));
 
 		/* Mark page fault as handled */
 		pf_bits &= ~(1UL << as_no);
@@ -432,9 +431,9 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 
 	/* reenable interrupts */
 	spin_lock_irqsave(&kbdev->mmu_mask_change, flags);
-	tmp = kbase_reg_read(kbdev, MMU_REG(MMU_IRQ_MASK));
+	tmp = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK));
 	new_mask |= tmp;
-	kbase_reg_write(kbdev, MMU_REG(MMU_IRQ_MASK), new_mask);
+	kbase_reg_write(kbdev, MMU_CONTROL_REG(MMU_IRQ_MASK), new_mask);
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);
 }
 
@@ -470,19 +469,16 @@ static void kbase_mmu_gpu_fault_worker(struct work_struct *data)
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	fault = &faulting_as->gf_data;
 	status = fault->status;
-	as_valid = status & GPU_FAULTSTATUS_JASID_VALID_FLAG;
+	as_valid = status & GPU_FAULTSTATUS_JASID_VALID_MASK;
 	address = fault->addr;
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 	dev_warn(kbdev->dev,
 		 "GPU Fault 0x%08x (%s) in AS%u at 0x%016llx\n"
 		 "ASID_VALID: %s,  ADDRESS_VALID: %s\n",
-		 status,
-		 kbase_gpu_exception_name(
-			GPU_FAULTSTATUS_EXCEPTION_TYPE_GET(status)),
-		 as_nr, address,
-		 as_valid ? "true" : "false",
-		 status & GPU_FAULTSTATUS_ADDR_VALID_FLAG ? "true" : "false");
+		 status, kbase_gpu_exception_name(GPU_FAULTSTATUS_EXCEPTION_TYPE_GET(status)),
+		 as_nr, address, as_valid ? "true" : "false",
+		 status & GPU_FAULTSTATUS_ADDRESS_VALID_MASK ? "true" : "false");
 
 	kctx = kbase_ctx_sched_as_to_ctx(kbdev, as_nr);
 	kbase_csf_ctx_handle_fault(kctx, fault);

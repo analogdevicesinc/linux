@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2016, 2018-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -173,7 +173,7 @@ TRACE_EVENT(mali_total_alloc_pages_change,
 		((status) & AS_FAULTSTATUS_ACCESS_TYPE_MASK)
 #define KBASE_MMU_FAULT_ACCESS_SYMBOLIC_STRINGS _ENSURE_PARENTHESIS(\
 	{AS_FAULTSTATUS_ACCESS_TYPE_ATOMIC, "ATOMIC" }, \
-	{AS_FAULTSTATUS_ACCESS_TYPE_EX,     "EXECUTE"}, \
+	{AS_FAULTSTATUS_ACCESS_TYPE_EXECUTE,     "EXECUTE"}, \
 	{AS_FAULTSTATUS_ACCESS_TYPE_READ,   "READ"   }, \
 	{AS_FAULTSTATUS_ACCESS_TYPE_WRITE,  "WRITE"  })
 #define KBASE_MMU_FAULT_STATUS_ACCESS_PRINT(status) \

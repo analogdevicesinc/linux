@@ -274,6 +274,25 @@ int kbase_backend_slot_free(struct kbase_device *kbdev, unsigned int js)
 	return SLOT_RB_SIZE - kbase_backend_nr_atoms_on_slot(kbdev, js);
 }
 
+/**
+ * trace_atom_completion_for_gpu_metrics - Report the completion of atom for the
+ *                                         purpose of emitting power/gpu_work_period
+ *                                         tracepoint.
+ *
+ * @katom:         Pointer to the atom that completed execution on GPU.
+ * @end_timestamp: Pointer to the timestamp of atom completion. May be NULL, in
+ *                 which case current time will be used.
+ *
+ * The function would also report the start for an atom that was in the HEAD_NEXT
+ * register.
+ *
+ * Note: Caller must hold the HW access lock.
+ */
+static inline void trace_atom_completion_for_gpu_metrics(
+			struct kbase_jd_atom *const katom,
+			ktime_t *end_timestamp)
+{
+}
 
 static void kbase_gpu_release_atom(struct kbase_device *kbdev,
 					struct kbase_jd_atom *katom,
@@ -290,6 +309,7 @@ static void kbase_gpu_release_atom(struct kbase_device *kbdev,
 		break;
 
 	case KBASE_ATOM_GPU_RB_SUBMITTED:
+		trace_atom_completion_for_gpu_metrics(katom, end_timestamp);
 		kbase_kinstr_jm_atom_hw_release(katom);
 		/* Inform power management at start/finish of atom so it can
 		 * update its GPU utilisation metrics. Mark atom as not
@@ -976,12 +996,16 @@ void kbase_backend_slot_update(struct kbase_device *kbdev)
 			case KBASE_ATOM_GPU_RB_READY:
 
 				if (idx == 1) {
+					enum kbase_atom_gpu_rb_state atom_0_gpu_rb_state =
+						katom[0]->gpu_rb_state;
+
+
 					/* Only submit if head atom or previous
 					 * atom already submitted
 					 */
-					if ((katom[0]->gpu_rb_state !=
+					if ((atom_0_gpu_rb_state !=
 						KBASE_ATOM_GPU_RB_SUBMITTED &&
-						katom[0]->gpu_rb_state !=
+						atom_0_gpu_rb_state !=
 					KBASE_ATOM_GPU_RB_NOT_IN_SLOT_RB))
 						break;
 

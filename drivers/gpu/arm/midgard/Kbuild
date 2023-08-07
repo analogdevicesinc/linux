@@ -69,7 +69,7 @@ endif
 #
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= '"r43p0-01eac0"'
+MALI_RELEASE_NAME ?= '"r44p0-01eac0"'
 # Set up defaults if not defined by build system
 ifeq ($(CONFIG_MALI_DEBUG), y)
     MALI_UNIT_TEST = 1
@@ -174,7 +174,6 @@ mali_kbase-y := \
     mali_kbase_mem_pool.o \
     mali_kbase_mem_pool_debugfs.o \
     mali_kbase_debugfs_helper.o \
-    mali_kbase_strings.o \
     mali_kbase_as_fault_debugfs.o \
     mali_kbase_regs_history_debugfs.o \
     mali_kbase_dvfs_debugfs.o \

@@ -157,6 +157,7 @@ struct kbase_as;
 struct kbase_mmu_setup;
 struct kbase_kinstr_jm;
 
+
 /**
  * struct kbase_io_access - holds information about 1 register access
  *
@@ -291,7 +292,7 @@ struct kbase_mmu_table {
 			u64 levels[MIDGARD_MMU_BOTTOMLEVEL][PAGE_SIZE / sizeof(u64)];
 		} teardown_pages;
 		/**
-		 * @free_pgds: Scratch memory user for insertion, update and teardown
+		 * @free_pgds: Scratch memory used for insertion, update and teardown
 		 *             operations to store a temporary list of PGDs to be freed
 		 *             at the end of the operation.
 		 */
@@ -305,18 +306,69 @@ struct kbase_mmu_table {
 };
 
 /**
- * struct kbase_reg_zone - Information about GPU memory region zones
+ * enum kbase_memory_zone - Kbase memory zone identifier
+ * @SAME_VA_ZONE: Memory zone for allocations where the GPU and CPU VA coincide.
+ * @CUSTOM_VA_ZONE: When operating in compatibility mode, this zone is used to
+ *                  allow 32-bit userspace (either on a 32-bit device or a
+ *                  32-bit application on a 64-bit device) to address the entirety
+ *                  of the GPU address space. The @CUSTOM_VA_ZONE is also used
+ *                  for JIT allocations: on 64-bit systems, the zone is created
+ *                  by reducing the size of the SAME_VA zone by a user-controlled
+ *                  amount, whereas on 32-bit systems, it is created as part of
+ *                  the existing CUSTOM_VA_ZONE
+ * @EXEC_VA_ZONE: Memory zone used to track GPU-executable memory. The start
+ *                and end of this zone depend on the individual platform,
+ *                and it is initialized upon user process request.
+ * @EXEC_FIXED_VA_ZONE: Memory zone used to contain GPU-executable memory
+ *                      that also permits FIXED/FIXABLE allocations.
+ * @FIXED_VA_ZONE: Memory zone used to allocate memory at userspace-supplied
+ *                 addresses.
+ * @MCU_SHARED_ZONE: Memory zone created for mappings shared between the MCU
+ *                   and Kbase. Currently this is the only zone type that is
+ *                   created on a per-device, rather than a per-context
+ *                   basis.
+ * @MEMORY_ZONE_MAX: Sentinel value used for iterating over all the memory zone
+ *                   identifiers.
+ * @CONTEXT_ZONE_MAX: Sentinel value used to keep track of the last per-context
+ *                    zone for iteration.
+ */
+enum kbase_memory_zone {
+	SAME_VA_ZONE,
+	CUSTOM_VA_ZONE,
+	EXEC_VA_ZONE,
+#if IS_ENABLED(MALI_USE_CSF)
+	EXEC_FIXED_VA_ZONE,
+	FIXED_VA_ZONE,
+	MCU_SHARED_ZONE,
+#endif
+	MEMORY_ZONE_MAX,
+#if IS_ENABLED(MALI_USE_CSF)
+	CONTEXT_ZONE_MAX = FIXED_VA_ZONE + 1
+#else
+	CONTEXT_ZONE_MAX = EXEC_VA_ZONE + 1
+#endif
+};
+
+/**
+ * struct kbase_reg_zone - GPU memory zone information and region tracking
+ * @reg_rbtree: RB tree used to track kbase memory regions.
  * @base_pfn: Page Frame Number in GPU virtual address space for the start of
  *            the Zone
  * @va_size_pages: Size of the Zone in pages
+ * @id: Memory zone identifier
+ * @cache: Pointer to a per-device slab allocator to allow for quickly allocating
+ *         new regions
  *
  * Track information about a zone KBASE_REG_ZONE() and related macros.
  * In future, this could also store the &rb_root that are currently in
  * &kbase_context and &kbase_csf_device.
  */
 struct kbase_reg_zone {
+	struct rb_root reg_rbtree;
 	u64 base_pfn;
 	u64 va_size_pages;
+	enum kbase_memory_zone id;
+	struct kmem_cache *cache;
 };
 
 #if MALI_USE_CSF
@@ -413,7 +465,15 @@ struct kbase_clk_rate_trace_manager {
  *                Note that some code paths keep shaders/the tiler
  *                powered whilst this is 0.
  *                Use kbase_pm_is_active() instead to check for such cases.
- * @suspending: Flag indicating suspending/suspended
+ * @suspending: Flag set to true when System suspend of GPU device begins and
+ *              set to false only when System resume of GPU device starts.
+ *              So GPU device could be in suspended state while the flag is set.
+ *              The flag is updated with @lock held.
+ * @resuming:   Flag set to true when System resume of GPU device starts and is set
+ *              to false when resume ends. The flag is set to true at the same time
+ *              when @suspending is set to false with @lock held.
+ *              The flag is currently used only to prevent Kbase context termination
+ *              during System resume of GPU device.
  * @runtime_active: Flag to track if the GPU is in runtime suspended or active
  *                  state. This ensures that runtime_put and runtime_get
  *                  functions are called in pairs. For example if runtime_get
@@ -424,7 +484,7 @@ struct kbase_clk_rate_trace_manager {
  *            This structure contains data for the power management framework.
  *            There is one instance of this structure per device in the system.
  * @zero_active_count_wait: Wait queue set when active_count == 0
- * @resume_wait: system resume of GPU device.
+ * @resume_wait: Wait queue to wait for the System suspend/resume of GPU device.
  * @debug_core_mask: Bit masks identifying the available shader cores that are
  *                   specified via sysfs. One mask per job slot.
  * @debug_core_mask_all: Bit masks identifying the available shader cores that
@@ -445,6 +505,7 @@ struct kbase_pm_device_data {
 	struct mutex lock;
 	int active_count;
 	bool suspending;
+	bool resuming;
 #if MALI_USE_CSF
 	bool runtime_active;
 #endif
@@ -1037,9 +1098,11 @@ struct kbase_mem_migrate {
  *                          KCPU queue. These structures may outlive kbase module
  *                          itself. Therefore, in such a case, a warning should be
  *                          be produced.
- * @mmu_as_inactive_wait_time_ms: Maximum waiting time in ms for the completion of
- *                          a MMU operation
+ * @mmu_or_gpu_cache_op_wait_time_ms: Maximum waiting time in ms for the completion of
+ *                          a cache operation via MMU_AS_CONTROL or GPU_CONTROL.
  * @va_region_slab:         kmem_cache (slab) for allocated kbase_va_region structures.
+ * @fence_signal_timeout_enabled: Global flag for whether fence signal timeout tracking
+ *                                is enabled.
  */
 struct kbase_device {
 	u32 hw_quirks_sc;
@@ -1151,9 +1214,7 @@ struct kbase_device {
 
 	u64 lowest_gpu_freq_khz;
 
-#if MALI_USE_CSF
 	struct kbase_backend_time backend_time;
-#endif
 
 	bool cache_clean_in_progress;
 	u32 cache_clean_queued;
@@ -1336,8 +1397,12 @@ struct kbase_device {
 #if MALI_USE_CSF && IS_ENABLED(CONFIG_SYNC_FILE)
 	atomic_t live_fence_metadata;
 #endif
-	u32 mmu_as_inactive_wait_time_ms;
+	u32 mmu_or_gpu_cache_op_wait_time_ms;
 	struct kmem_cache *va_region_slab;
+
+#if MALI_USE_CSF
+	atomic_t fence_signal_timeout_enabled;
+#endif
 };
 
 /**
@@ -1354,6 +1419,9 @@ struct kbase_device {
  * @KBASE_FILE_COMPLETE:        Indicates if the setup for context has
  *                              completed, i.e. flags have been set for the
  *                              context.
+ * @KBASE_FILE_DESTROY_CTX:     Indicates that destroying of context has begun or
+ *                              is complete. This state can only be reached after
+ *                              @KBASE_FILE_COMPLETE.
  *
  * The driver allows only limited interaction with user-space until setup
  * is complete.
@@ -1363,7 +1431,8 @@ enum kbase_file_state {
 	KBASE_FILE_VSN_IN_PROGRESS,
 	KBASE_FILE_NEED_CTX,
 	KBASE_FILE_CTX_IN_PROGRESS,
-	KBASE_FILE_COMPLETE
+	KBASE_FILE_COMPLETE,
+	KBASE_FILE_DESTROY_CTX
 };
 
 /**
@@ -1373,6 +1442,12 @@ enum kbase_file_state {
  *                       allocated from the probe method of the Mali driver.
  * @filp:                Pointer to the struct file corresponding to device file
  *                       /dev/malixx instance, passed to the file's open method.
+ * @owner:               Pointer to the file table structure of a process that
+ *                       created the instance of /dev/malixx device file. Set to
+ *                       NULL when that process closes the file instance. No more
+ *                       file operations would be allowed once set to NULL.
+ *                       It would be updated only in the Userspace context, i.e.
+ *                       when @kbase_open or @kbase_flush is called.
  * @kctx:                Object representing an entity, among which GPU is
  *                       scheduled and which gets its own GPU address space.
  *                       Invalid until @setup_state is KBASE_FILE_COMPLETE.
@@ -1381,13 +1456,40 @@ enum kbase_file_state {
  *                       @setup_state is KBASE_FILE_NEED_CTX.
  * @setup_state:         Initialization state of the file. Values come from
  *                       the kbase_file_state enumeration.
+ * @destroy_kctx_work:   Work item for destroying the @kctx, enqueued only when
+ *                       @fops_count and @map_count becomes zero after /dev/malixx
+ *                       file was previously closed by the @owner.
+ * @lock:                Lock to serialize the access to members like @owner, @fops_count,
+ *                       @map_count.
+ * @fops_count:          Counter that is incremented at the beginning of a method
+ *                       defined for @kbase_fops and is decremented at the end.
+ *                       So the counter keeps a track of the file operations in progress
+ *                       for /dev/malixx file, that are being handled by the Kbase.
+ *                       The counter is needed to defer the context termination as
+ *                       Userspace can close the /dev/malixx file and flush() method
+ *                       can get called when some other file operation is in progress.
+ * @map_count:           Counter to keep a track of the memory mappings present on
+ *                       /dev/malixx file instance. The counter is needed to defer the
+ *                       context termination as Userspace can close the /dev/malixx
+ *                       file and flush() method can get called when mappings are still
+ *                       present.
+ * @zero_fops_count_wait: Waitqueue used to wait for the @fops_count to become 0.
+ *                        Currently needed only for the "mem_view" debugfs file.
  */
 struct kbase_file {
 	struct kbase_device  *kbdev;
 	struct file          *filp;
+	fl_owner_t            owner;
 	struct kbase_context *kctx;
 	unsigned long         api_version;
 	atomic_t              setup_state;
+	struct work_struct    destroy_kctx_work;
+	spinlock_t            lock;
+	int                   fops_count;
+	int                   map_count;
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	wait_queue_head_t     zero_fops_count_wait;
+#endif
 };
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 /**
@@ -1557,8 +1659,8 @@ struct kbase_sub_alloc {
 /**
  * struct kbase_context - Kernel base context
  *
- * @filp:                 Pointer to the struct file corresponding to device file
- *                        /dev/malixx instance, passed to the file's open method.
+ * @kfile:                Pointer to the object representing the /dev/malixx device
+ *                        file instance.
  * @kbdev:                Pointer to the Kbase device for which the context is created.
  * @kctx_list_link:       Node into Kbase device list of contexts.
  * @mmu:                  Structure holding details of the MMU tables for this
@@ -1595,22 +1697,6 @@ struct kbase_sub_alloc {
  *                        for the allocations >= 2 MB in size.
  * @reg_lock:             Lock used for GPU virtual address space management operations,
  *                        like adding/freeing a memory region in the address space.
- *                        Can be converted to a rwlock ?.
- * @reg_rbtree_same:      RB tree of the memory regions allocated from the SAME_VA
- *                        zone of the GPU virtual address space. Used for allocations
- *                        having the same value for GPU & CPU virtual address.
- * @reg_rbtree_custom:    RB tree of the memory regions allocated from the CUSTOM_VA
- *                        zone of the GPU virtual address space.
- * @reg_rbtree_exec:      RB tree of the memory regions allocated from the EXEC_VA
- *                        zone of the GPU virtual address space. Used for GPU-executable
- *                        allocations which don't need the SAME_VA property.
- * @reg_rbtree_exec_fixed: RB tree of the memory regions allocated from the
- *                         EXEC_FIXED_VA zone of the GPU virtual address space. Used for
- *                        GPU-executable allocations with FIXED/FIXABLE GPU virtual
- *                        addresses.
- * @reg_rbtree_fixed:     RB tree of the memory regions allocated from the FIXED_VA zone
- *                        of the GPU virtual address space. Used for allocations with
- *                        FIXED/FIXABLE GPU virtual addresses.
  * @num_fixable_allocs:   A count for the number of memory allocations with the
  *                        BASE_MEM_FIXABLE property.
  * @num_fixed_allocs:     A count for the number of memory allocations with the
@@ -1831,7 +1917,7 @@ struct kbase_sub_alloc {
  * is made on the device file.
  */
 struct kbase_context {
-	struct file *filp;
+	struct kbase_file *kfile;
 	struct kbase_device *kbdev;
 	struct list_head kctx_list_link;
 	struct kbase_mmu_table mmu;
@@ -1856,17 +1942,11 @@ struct kbase_context {
 	struct list_head        mem_partials;
 
 	struct mutex            reg_lock;
-
-	struct rb_root reg_rbtree_same;
-	struct rb_root reg_rbtree_custom;
-	struct rb_root reg_rbtree_exec;
 #if MALI_USE_CSF
-	struct rb_root reg_rbtree_exec_fixed;
-	struct rb_root reg_rbtree_fixed;
 	atomic64_t num_fixable_allocs;
 	atomic64_t num_fixed_allocs;
 #endif
-	struct kbase_reg_zone reg_zone[KBASE_REG_ZONE_MAX];
+	struct kbase_reg_zone reg_zone[CONTEXT_ZONE_MAX];
 
 #if MALI_USE_CSF
 	struct kbase_csf_context csf;
@@ -1975,6 +2055,7 @@ struct kbase_context {
 #endif
 
 	struct task_struct *task;
+
 };
 
 #ifdef CONFIG_MALI_CINSTR_GWT

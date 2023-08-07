@@ -47,7 +47,7 @@ void kbase_job_done_slot(struct kbase_device *kbdev, int s, u32 completion_code,
 #if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
 static inline char *kbasep_make_job_slot_string(unsigned int js, char *js_string, size_t js_size)
 {
-	snprintf(js_string, js_size, "job_slot_%u", js);
+	(void)scnprintf(js_string, js_size, "job_slot_%u", js);
 	return js_string;
 }
 #endif

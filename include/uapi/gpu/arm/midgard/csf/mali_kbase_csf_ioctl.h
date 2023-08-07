@@ -82,10 +82,18 @@
  * - Relax the requirement to create a mapping with BASE_MEM_MAP_TRACKING_HANDLE
  *   before allocating GPU memory for the context.
  * - CPU mappings of USER_BUFFER imported memory handles must be cached.
+ * 1.19:
+ *   - Add Neural Engine support in queue_group_create IOCTL fields
+ *   - Previous version retained as KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_18 for
+ *     backward compatibility.
+ * 1.20:
+ * - Restrict child process from doing supported file operations (like mmap, ioctl,
+ *   read, poll) on the file descriptor of mali device file that was inherited
+ *   from the parent process.
  */
 
 #define BASE_UK_VERSION_MAJOR 1
-#define BASE_UK_VERSION_MINOR 18
+#define BASE_UK_VERSION_MINOR 20
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between
@@ -258,6 +266,56 @@ union kbase_ioctl_cs_queue_group_create_1_6 {
 	_IOWR(KBASE_IOCTL_TYPE, 42, union kbase_ioctl_cs_queue_group_create_1_6)
 
 /**
+ * union kbase_ioctl_cs_queue_group_create_1_18 - Create a GPU command queue group
+ * @in:               Input parameters
+ * @in.tiler_mask:    Mask of tiler endpoints the group is allowed to use.
+ * @in.fragment_mask: Mask of fragment endpoints the group is allowed to use.
+ * @in.compute_mask:  Mask of compute endpoints the group is allowed to use.
+ * @in.cs_min:        Minimum number of CSs required.
+ * @in.priority:      Queue group's priority within a process.
+ * @in.tiler_max:     Maximum number of tiler endpoints the group is allowed
+ *                    to use.
+ * @in.fragment_max:  Maximum number of fragment endpoints the group is
+ *                    allowed to use.
+ * @in.compute_max:   Maximum number of compute endpoints the group is allowed
+ *                    to use.
+ * @in.csi_handlers:  Flags to signal that the application intends to use CSI
+ *                    exception handlers in some linear buffers to deal with
+ *                    the given exception types.
+ * @in.padding:       Currently unused, must be zero
+ * @out:              Output parameters
+ * @out.group_handle: Handle of a newly created queue group.
+ * @out.padding:      Currently unused, must be zero
+ * @out.group_uid:    UID of the queue group available to base.
+ */
+union kbase_ioctl_cs_queue_group_create_1_18 {
+	struct {
+		__u64 tiler_mask;
+		__u64 fragment_mask;
+		__u64 compute_mask;
+		__u8 cs_min;
+		__u8 priority;
+		__u8 tiler_max;
+		__u8 fragment_max;
+		__u8 compute_max;
+		__u8 csi_handlers;
+		__u8 padding[2];
+		/**
+		 * @in.dvs_buf: buffer for deferred vertex shader
+		 */
+		__u64 dvs_buf;
+	} in;
+	struct {
+		__u8 group_handle;
+		__u8 padding[3];
+		__u32 group_uid;
+	} out;
+};
+
+#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_18                                                     \
+	_IOWR(KBASE_IOCTL_TYPE, 58, union kbase_ioctl_cs_queue_group_create_1_18)
+
+/**
  * union kbase_ioctl_cs_queue_group_create - Create a GPU command queue group
  * @in:               Input parameters
  * @in.tiler_mask:    Mask of tiler endpoints the group is allowed to use.
@@ -291,11 +349,15 @@ union kbase_ioctl_cs_queue_group_create {
 		__u8 fragment_max;
 		__u8 compute_max;
 		__u8 csi_handlers;
-		__u8 padding[2];
+		/**
+		 * @in.reserved:   Reserved, currently unused, must be zero.
+		 */
+		__u16 reserved;
 		/**
 		 * @in.dvs_buf: buffer for deferred vertex shader
 		 */
 		__u64 dvs_buf;
+		__u64 padding[9];
 	} in;
 	struct {
 		__u8 group_handle;

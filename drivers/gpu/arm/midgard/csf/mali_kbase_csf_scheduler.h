@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -338,7 +338,10 @@ kbase_csf_scheduler_spin_lock_assert_held(struct kbase_device *kbdev)
  *
  * Return: true if the scheduler is configured to wake up periodically
  */
-bool kbase_csf_scheduler_timer_is_enabled(struct kbase_device *kbdev);
+static inline bool kbase_csf_scheduler_timer_is_enabled(struct kbase_device *kbdev)
+{
+	return atomic_read(&kbdev->csf.scheduler.timer_enabled);
+}
 
 /**
  * kbase_csf_scheduler_timer_set_enabled() - Enable/disable periodic
@@ -474,69 +477,24 @@ static inline bool kbase_csf_scheduler_all_csgs_idle(struct kbase_device *kbdev)
 }
 
 /**
- * kbase_csf_scheduler_tick_advance_nolock() - Advance the scheduling tick
- *
- * @kbdev: Pointer to the device
- *
- * This function advances the scheduling tick by enqueing the tick work item for
- * immediate execution, but only if the tick hrtimer is active. If the timer
- * is inactive then the tick work item is already in flight.
- * The caller must hold the interrupt lock.
- */
-static inline void
-kbase_csf_scheduler_tick_advance_nolock(struct kbase_device *kbdev)
-{
-	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
-
-	lockdep_assert_held(&scheduler->interrupt_lock);
-
-	if (scheduler->tick_timer_active) {
-		KBASE_KTRACE_ADD(kbdev, SCHEDULER_TICK_ADVANCE, NULL, 0u);
-		scheduler->tick_timer_active = false;
-		queue_work(scheduler->wq, &scheduler->tick_work);
-	} else {
-		KBASE_KTRACE_ADD(kbdev, SCHEDULER_TICK_NOADVANCE, NULL, 0u);
-	}
-}
-
-/**
- * kbase_csf_scheduler_tick_advance() - Advance the scheduling tick
- *
- * @kbdev: Pointer to the device
- *
- * This function advances the scheduling tick by enqueing the tick work item for
- * immediate execution, but only if the tick hrtimer is active. If the timer
- * is inactive then the tick work item is already in flight.
- */
-static inline void kbase_csf_scheduler_tick_advance(struct kbase_device *kbdev)
-{
-	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
-	unsigned long flags;
-
-	spin_lock_irqsave(&scheduler->interrupt_lock, flags);
-	kbase_csf_scheduler_tick_advance_nolock(kbdev);
-	spin_unlock_irqrestore(&scheduler->interrupt_lock, flags);
-}
-
-/**
  * kbase_csf_scheduler_invoke_tick() - Invoke the scheduling tick
  *
  * @kbdev: Pointer to the device
  *
- * This function will queue the scheduling tick work item for immediate
- * execution if tick timer is not active. This can be called from interrupt
- * context to resume the scheduling after GPU was put to sleep.
+ * This function wakes up kbase_csf_scheduler_kthread() to perform a scheduling
+ * tick regardless of whether the tick timer is enabled. This can be called
+ * from interrupt context to resume the scheduling after GPU was put to sleep.
+ *
+ * Caller is expected to check kbase_csf_scheduler.timer_enabled as required
+ * to see whether it is appropriate before calling this function.
  */
 static inline void kbase_csf_scheduler_invoke_tick(struct kbase_device *kbdev)
 {
 	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
-	unsigned long flags;
 
 	KBASE_KTRACE_ADD(kbdev, SCHEDULER_TICK_INVOKE, NULL, 0u);
-	spin_lock_irqsave(&scheduler->interrupt_lock, flags);
-	if (!scheduler->tick_timer_active)
-		queue_work(scheduler->wq, &scheduler->tick_work);
-	spin_unlock_irqrestore(&scheduler->interrupt_lock, flags);
+	if (atomic_cmpxchg(&scheduler->pending_tick_work, false, true) == false)
+		complete(&scheduler->kthread_signal);
 }
 
 /**
@@ -544,8 +502,11 @@ static inline void kbase_csf_scheduler_invoke_tick(struct kbase_device *kbdev)
  *
  * @kbdev: Pointer to the device
  *
- * This function will queue the scheduling tock work item for immediate
- * execution.
+ * This function wakes up kbase_csf_scheduler_kthread() to perform a scheduling
+ * tock.
+ *
+ * Caller is expected to check kbase_csf_scheduler.timer_enabled as required
+ * to see whether it is appropriate before calling this function.
  */
 static inline void kbase_csf_scheduler_invoke_tock(struct kbase_device *kbdev)
 {
@@ -553,7 +514,7 @@ static inline void kbase_csf_scheduler_invoke_tock(struct kbase_device *kbdev)
 
 	KBASE_KTRACE_ADD(kbdev, SCHEDULER_TOCK_INVOKE, NULL, 0u);
 	if (atomic_cmpxchg(&scheduler->pending_tock_work, false, true) == false)
-		mod_delayed_work(scheduler->wq, &scheduler->tock_work, 0);
+		complete(&scheduler->kthread_signal);
 }
 
 /**

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -56,7 +56,7 @@
 #define CSF_NUM_DOORBELL ((u8)24)
 
 /* Offset to the first HW doorbell page */
-#define CSF_HW_DOORBELL_PAGE_OFFSET ((u32)0x80000)
+#define CSF_HW_DOORBELL_PAGE_OFFSET ((u32)DOORBELLS_BASE)
 
 /* Size of HW Doorbell page, used to calculate the offset to subsequent pages */
 #define CSF_HW_DOORBELL_PAGE_SIZE ((u32)0x10000)

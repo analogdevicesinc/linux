@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -347,7 +347,7 @@ static int kbasep_hwcnt_backend_csf_if_fw_ring_buf_alloc(
 	/* Update MMU table */
 	ret = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, gpu_va_base >> PAGE_SHIFT, phys,
 				     num_pages, flags, MCU_AS_NR, KBASE_MEM_GROUP_CSF_FW,
-				     mmu_sync_info, NULL, false);
+				     mmu_sync_info, NULL);
 	if (ret)
 		goto mmu_insert_failed;
 
@@ -480,10 +480,10 @@ kbasep_hwcnt_backend_csf_if_fw_ring_buf_free(struct kbase_hwcnt_backend_csf_if_c
 	if (fw_ring_buf->phys) {
 		u64 gpu_va_base = KBASE_HWC_CSF_RING_BUFFER_VA_START;
 
-		WARN_ON(kbase_mmu_teardown_pages(fw_ctx->kbdev, &fw_ctx->kbdev->csf.mcu_mmu,
-						 gpu_va_base >> PAGE_SHIFT, fw_ring_buf->phys,
-						 fw_ring_buf->num_pages, fw_ring_buf->num_pages,
-						 MCU_AS_NR, true));
+		WARN_ON(kbase_mmu_teardown_firmware_pages(
+			fw_ctx->kbdev, &fw_ctx->kbdev->csf.mcu_mmu, gpu_va_base >> PAGE_SHIFT,
+			fw_ring_buf->phys, fw_ring_buf->num_pages, fw_ring_buf->num_pages,
+			MCU_AS_NR));
 
 		vunmap(fw_ring_buf->cpu_dump_base);
 

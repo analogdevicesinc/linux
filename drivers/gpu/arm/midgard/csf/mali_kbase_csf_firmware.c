@@ -52,11 +52,12 @@
 #include <mmu/mali_kbase_mmu.h>
 #include <asm/arch_timer.h>
 #include <linux/delay.h>
+#include <linux/version_compat_defs.h>
 
-#define MALI_MAX_FIRMWARE_NAME_LEN ((size_t)20)
+#define MALI_MAX_DEFAULT_FIRMWARE_NAME_LEN ((size_t)20)
 
-static char fw_name[MALI_MAX_FIRMWARE_NAME_LEN] = "mali_csffw.bin";
-module_param_string(fw_name, fw_name, sizeof(fw_name), 0644);
+static char default_fw_name[MALI_MAX_DEFAULT_FIRMWARE_NAME_LEN] = "mali_csffw.bin";
+module_param_string(fw_name, default_fw_name, sizeof(default_fw_name), 0644);
 MODULE_PARM_DESC(fw_name, "firmware image");
 
 /* The waiting time for firmware to boot */
@@ -77,7 +78,6 @@ module_param(fw_debug, bool, 0444);
 MODULE_PARM_DESC(fw_debug,
 	"Enables effective use of a debugger for debugging firmware code.");
 #endif
-
 
 #define FIRMWARE_HEADER_MAGIC		(0xC3F13A6Eul)
 #define FIRMWARE_HEADER_VERSION_MAJOR	(0ul)
@@ -188,7 +188,7 @@ struct firmware_timeline_metadata {
 /* The shared interface area, used for communicating with firmware, is managed
  * like a virtual memory zone. Reserve the virtual space from that zone
  * corresponding to shared interface entry parsed from the firmware image.
- * The shared_reg_rbtree should have been initialized before calling this
+ * The MCU_SHARED_ZONE should have been initialized before calling this
  * function.
  */
 static int setup_shared_iface_static_region(struct kbase_device *kbdev)
@@ -201,8 +201,7 @@ static int setup_shared_iface_static_region(struct kbase_device *kbdev)
 	if (!interface)
 		return -EINVAL;
 
-	reg = kbase_alloc_free_region(kbdev, &kbdev->csf.shared_reg_rbtree, 0,
-				      interface->num_pages_aligned, KBASE_REG_ZONE_MCU_SHARED);
+	reg = kbase_alloc_free_region(&kbdev->csf.mcu_shared_zone, 0, interface->num_pages_aligned);
 	if (reg) {
 		mutex_lock(&kbdev->csf.reg_lock);
 		ret = kbase_add_va_region_rbtree(kbdev, reg,
@@ -308,7 +307,7 @@ static void boot_csf_firmware(struct kbase_device *kbdev)
 static int wait_ready(struct kbase_device *kbdev)
 {
 	const ktime_t wait_loop_start = ktime_get_raw();
-	const u32 mmu_as_inactive_wait_time_ms = kbdev->mmu_as_inactive_wait_time_ms;
+	const u32 mmu_as_inactive_wait_time_ms = kbdev->mmu_or_gpu_cache_op_wait_time_ms;
 	s64 diff;
 
 	do {
@@ -316,7 +315,8 @@ static int wait_ready(struct kbase_device *kbdev)
 
 		for (i = 0; i < 1000; i++) {
 			/* Wait for the MMU status to indicate there is no active command */
-			if (!(kbase_reg_read(kbdev, MMU_AS_REG(MCU_AS_NR, AS_STATUS)) &
+			if (!(kbase_reg_read(kbdev,
+					     MMU_STAGE1_REG(MMU_AS_REG(MCU_AS_NR, AS_STATUS))) &
 			      AS_STATUS_AS_ACTIVE))
 				return 0;
 		}
@@ -448,7 +448,7 @@ static void load_fw_image_section(struct kbase_device *kbdev, const u8 *data,
 
 	for (page_num = 0; page_num < page_limit; ++page_num) {
 		struct page *const page = as_page(phys[page_num]);
-		char *const p = kmap_atomic(page);
+		char *const p = kbase_kmap_atomic(page);
 		u32 const copy_len = min_t(u32, PAGE_SIZE, data_len);
 
 		if (copy_len > 0) {
@@ -465,7 +465,7 @@ static void load_fw_image_section(struct kbase_device *kbdev, const u8 *data,
 
 		kbase_sync_single_for_device(kbdev, kbase_dma_addr_from_tagged(phys[page_num]),
 					     PAGE_SIZE, DMA_TO_DEVICE);
-		kunmap_atomic(p);
+		kbase_kunmap_atomic(p);
 	}
 }
 
@@ -532,6 +532,7 @@ out:
  *                     within the 2MB pages aligned allocation.
  * @is_small_page: This is an output flag used to select between the small and large page
  *                 to be used for the FW entry allocation.
+ * @force_small_page: Use 4kB pages to allocate memory needed for FW loading
  *
  * Go through all the already initialized interfaces and find if a previously
  * allocated large page can be used to store contents of new FW interface entry.
@@ -543,7 +544,7 @@ static inline bool entry_find_large_page_to_reuse(struct kbase_device *kbdev,
 						  const u32 flags, struct tagged_addr **phys,
 						  struct protected_memory_allocation ***pma,
 						  u32 num_pages, u32 *num_pages_aligned,
-						  bool *is_small_page)
+						  bool *is_small_page, bool force_small_page)
 {
 	struct kbase_csf_firmware_interface *interface = NULL;
 	struct kbase_csf_firmware_interface *target_interface = NULL;
@@ -559,6 +560,8 @@ static inline bool entry_find_large_page_to_reuse(struct kbase_device *kbdev,
 	*phys = NULL;
 	*pma = NULL;
 
+	if (force_small_page)
+		goto out;
 
 	/* If the section starts at 2MB aligned boundary,
 	 * then use 2MB page(s) for it.
@@ -652,7 +655,7 @@ static int parse_memory_setup_entry(struct kbase_device *kbdev,
 	struct protected_memory_allocation **pma = NULL;
 	bool reuse_pages = false;
 	bool is_small_page = true;
-	bool ignore_page_migration = true;
+	bool force_small_page = false;
 
 	if (data_end < data_start) {
 		dev_err(kbdev->dev, "Firmware corrupt, data_end < data_start (0x%x<0x%x)\n",
@@ -695,9 +698,10 @@ static int parse_memory_setup_entry(struct kbase_device *kbdev,
 	num_pages = (virtual_end - virtual_start)
 		>> PAGE_SHIFT;
 
-	reuse_pages =
-		entry_find_large_page_to_reuse(kbdev, virtual_start, virtual_end, flags, &phys,
-					       &pma, num_pages, &num_pages_aligned, &is_small_page);
+retry_alloc:
+	reuse_pages = entry_find_large_page_to_reuse(kbdev, virtual_start, virtual_end, flags,
+						     &phys, &pma, num_pages, &num_pages_aligned,
+						     &is_small_page, force_small_page);
 	if (!reuse_pages)
 		phys = kmalloc_array(num_pages_aligned, sizeof(*phys), GFP_KERNEL);
 
@@ -708,24 +712,34 @@ static int parse_memory_setup_entry(struct kbase_device *kbdev,
 		if (!reuse_pages) {
 			pma = kbase_csf_protected_memory_alloc(
 				kbdev, phys, num_pages_aligned, is_small_page);
+			if (!pma)
+				ret = -ENOMEM;
+		} else if (WARN_ON(!pma)) {
+			ret = -EINVAL;
+			goto out;
 		}
-
-		if (!pma)
-			ret = -ENOMEM;
 	} else {
 		if (!reuse_pages) {
 			ret = kbase_mem_pool_alloc_pages(
 				kbase_mem_pool_group_select(kbdev, KBASE_MEM_GROUP_CSF_FW,
 							    is_small_page),
 				num_pages_aligned, phys, false, NULL);
-			ignore_page_migration = false;
 		}
 	}
 
 	if (ret < 0) {
-		dev_err(kbdev->dev,
-			"Failed to allocate %u physical pages for the firmware interface entry at VA 0x%x\n",
-			num_pages_aligned, virtual_start);
+		dev_warn(
+			kbdev->dev,
+			"Failed to allocate %u physical pages for the firmware interface entry at VA 0x%x using %s ",
+			num_pages_aligned, virtual_start,
+			is_small_page ? "small pages" : "large page");
+		WARN_ON(reuse_pages);
+		if (!is_small_page) {
+			dev_warn(kbdev->dev, "Retrying by using small pages");
+			force_small_page = true;
+			kfree(phys);
+			goto retry_alloc;
+		}
 		goto out;
 	}
 
@@ -828,8 +842,7 @@ static int parse_memory_setup_entry(struct kbase_device *kbdev,
 		ret = kbase_mmu_insert_pages_no_flush(kbdev, &kbdev->csf.mcu_mmu,
 						      virtual_start >> PAGE_SHIFT, phys,
 						      num_pages_aligned, mem_flags,
-						      KBASE_MEM_GROUP_CSF_FW, NULL, NULL,
-						      ignore_page_migration);
+						      KBASE_MEM_GROUP_CSF_FW, NULL, NULL);
 
 		if (ret != 0) {
 			dev_err(kbdev->dev, "Failed to insert firmware pages\n");
@@ -1301,7 +1314,7 @@ static inline void access_firmware_memory_common(struct kbase_device *kbdev,
 	u32 page_num = offset_bytes >> PAGE_SHIFT;
 	u32 offset_in_page = offset_bytes & ~PAGE_MASK;
 	struct page *target_page = as_page(interface->phys[page_num]);
-	uintptr_t cpu_addr = (uintptr_t)kmap_atomic(target_page);
+	uintptr_t cpu_addr = (uintptr_t)kbase_kmap_atomic(target_page);
 	u32 *addr = (u32 *)(cpu_addr + offset_in_page);
 
 	if (read) {
@@ -1316,7 +1329,7 @@ static inline void access_firmware_memory_common(struct kbase_device *kbdev,
 			sizeof(u32), DMA_BIDIRECTIONAL);
 	}
 
-	kunmap_atomic((u32 *)cpu_addr);
+	kbase_kunmap_atomic((u32 *)cpu_addr);
 }
 
 static inline void access_firmware_memory(struct kbase_device *kbdev,
@@ -2077,11 +2090,19 @@ u32 kbase_csf_firmware_set_gpu_idle_hysteresis_time(struct kbase_device *kbdev, 
 	}
 	mutex_unlock(&kbdev->fw_load_lock);
 
+	if (kbase_reset_gpu_prevent_and_wait(kbdev)) {
+		dev_warn(kbdev->dev,
+			 "Failed to prevent GPU reset when updating idle_hysteresis_time");
+		return kbdev->csf.gpu_idle_dur_count;
+	}
+
 	kbase_csf_scheduler_pm_active(kbdev);
 	if (kbase_csf_scheduler_wait_mcu_active(kbdev)) {
 		dev_err(kbdev->dev,
 			"Unable to activate the MCU, the idle hysteresis value shall remain unchanged");
 		kbase_csf_scheduler_pm_idle(kbdev);
+		kbase_reset_gpu_allow(kbdev);
+
 		return kbdev->csf.gpu_idle_dur_count;
 	}
 
@@ -2108,7 +2129,7 @@ u32 kbase_csf_firmware_set_gpu_idle_hysteresis_time(struct kbase_device *kbdev, 
 	mutex_unlock(&kbdev->csf.reg_lock);
 
 	kbase_csf_scheduler_pm_idle(kbdev);
-
+	kbase_reset_gpu_allow(kbdev);
 end:
 	dev_dbg(kbdev->dev, "CSF set firmware idle hysteresis count-value: 0x%.8x",
 		hysteresis_val);
@@ -2303,6 +2324,7 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 	u32 entry_end_offset;
 	u32 entry_offset;
 	int ret;
+	const char *fw_name = default_fw_name;
 
 	lockdep_assert_held(&kbdev->fw_load_lock);
 
@@ -2325,6 +2347,33 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 			"Failed to setup the rb tree for managing shared interface segment\n");
 		goto err_out;
 	}
+
+#if IS_ENABLED(CONFIG_OF)
+	/* If we can't read CSF firmware name from DTB,
+	 * fw_name is not modified and remains the default.
+	 */
+	ret = of_property_read_string(kbdev->dev->of_node, "firmware-name", &fw_name);
+	if (ret == -EINVAL) {
+		/* Property doesn't exist in DTB, and fw_name already points to default FW name
+		 * so just reset return value and continue.
+		 */
+		ret = 0;
+	} else if (ret == -ENODATA) {
+		dev_warn(kbdev->dev,
+			 "\"firmware-name\" DTB property contains no data, using default FW name");
+		/* Reset return value so FW does not fail to load */
+		ret = 0;
+	} else if (ret == -EILSEQ) {
+		/* This is reached when the size of the fw_name buffer is too small for the string
+		 * stored in the DTB and the null terminator.
+		 */
+		dev_warn(kbdev->dev,
+			 "\"firmware-name\" DTB property value too long, using default FW name.");
+		/* Reset return value so FW does not fail to load */
+		ret = 0;
+	}
+
+#endif /* IS_ENABLED(CONFIG_OF) */
 
 	if (request_firmware(&firmware, fw_name, kbdev->dev) != 0) {
 		dev_err(kbdev->dev,
@@ -2440,6 +2489,8 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 	if (ret != 0)
 		goto err_out;
 
+	kbase_csf_pending_gpuq_kicks_init(kbdev);
+
 	ret = kbase_csf_scheduler_init(kbdev);
 	if (ret != 0)
 		goto err_out;
@@ -2456,6 +2507,12 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 	if (ret != 0)
 		goto err_out;
 
+	ret = kbase_csf_firmware_log_init(kbdev);
+	if (ret != 0) {
+		dev_err(kbdev->dev, "Failed to initialize FW trace (err %d)", ret);
+		goto err_out;
+	}
+
 	ret = kbase_csf_firmware_cfg_init(kbdev);
 	if (ret != 0)
 		goto err_out;
@@ -2463,12 +2520,6 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 	ret = kbase_device_csf_iterator_trace_init(kbdev);
 	if (ret != 0)
 		goto err_out;
-
-	ret = kbase_csf_firmware_log_init(kbdev);
-	if (ret != 0) {
-		dev_err(kbdev->dev, "Failed to initialize FW trace (err %d)", ret);
-		goto err_out;
-	}
 
 	if (kbdev->csf.fw_core_dump.available)
 		kbase_csf_firmware_core_dump_init(kbdev);
@@ -2495,15 +2546,17 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 
 	WARN(ret, "failed to wait for GPU reset");
 
-	kbase_csf_firmware_log_term(kbdev);
-
 	kbase_csf_firmware_cfg_term(kbdev);
+
+	kbase_csf_firmware_log_term(kbdev);
 
 	kbase_csf_timeout_term(kbdev);
 
 	kbase_csf_free_dummy_user_reg_page(kbdev);
 
 	kbase_csf_scheduler_term(kbdev);
+
+	kbase_csf_pending_gpuq_kicks_term(kbdev);
 
 	kbase_csf_doorbell_mapping_term(kbdev);
 
@@ -3064,8 +3117,7 @@ int kbase_csf_firmware_mcu_shared_mapping_init(
 	if (!cpu_addr)
 		goto vmap_error;
 
-	va_reg = kbase_alloc_free_region(kbdev, &kbdev->csf.shared_reg_rbtree, 0, num_pages,
-					 KBASE_REG_ZONE_MCU_SHARED);
+	va_reg = kbase_alloc_free_region(&kbdev->csf.mcu_shared_zone, 0, num_pages);
 	if (!va_reg)
 		goto va_region_alloc_error;
 
@@ -3081,7 +3133,7 @@ int kbase_csf_firmware_mcu_shared_mapping_init(
 
 	ret = kbase_mmu_insert_pages_no_flush(kbdev, &kbdev->csf.mcu_mmu, va_reg->start_pfn,
 					      &phys[0], num_pages, gpu_map_properties,
-					      KBASE_MEM_GROUP_CSF_FW, NULL, NULL, false);
+					      KBASE_MEM_GROUP_CSF_FW, NULL, NULL);
 	if (ret)
 		goto mmu_insert_pages_error;
 

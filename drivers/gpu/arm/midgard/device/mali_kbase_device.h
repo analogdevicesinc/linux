@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -191,6 +191,7 @@ void kbase_gpu_wait_cache_clean(struct kbase_device *kbdev);
  * called from paths (like GPU reset) where an indefinite wait for the
  * completion of cache clean operation can cause deadlock, as the operation may
  * never complete.
+ * If cache clean times out, reset GPU to recover.
  *
  * Return: 0 if successful or a negative error code on failure.
  */

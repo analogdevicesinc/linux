@@ -303,13 +303,13 @@ int kbase_device_misc_init(struct kbase_device * const kbdev)
 	kbdev->pm.dvfs_period = DEFAULT_PM_DVFS_PERIOD;
 
 #if MALI_USE_CSF
-	kbdev->reset_timeout_ms = kbase_get_timeout_ms(kbdev, CSF_CSG_SUSPEND_TIMEOUT);
-#else
+	kbdev->reset_timeout_ms = kbase_get_timeout_ms(kbdev, CSF_GPU_RESET_TIMEOUT);
+#else /* MALI_USE_CSF */
 	kbdev->reset_timeout_ms = JM_DEFAULT_RESET_TIMEOUT_MS;
-#endif /* MALI_USE_CSF */
+#endif /* !MALI_USE_CSF */
 
 	kbdev->mmu_mode = kbase_mmu_mode_get_aarch64();
-	kbdev->mmu_as_inactive_wait_time_ms =
+	kbdev->mmu_or_gpu_cache_op_wait_time_ms =
 		kbase_get_timeout_ms(kbdev, MMU_AS_INACTIVE_WAIT_TIMEOUT);
 	mutex_init(&kbdev->kctx_list_lock);
 	INIT_LIST_HEAD(&kbdev->kctx_list);
@@ -324,9 +324,13 @@ int kbase_device_misc_init(struct kbase_device * const kbdev)
 		kbdev->oom_notifier_block.notifier_call = NULL;
 	}
 
-#if MALI_USE_CSF && IS_ENABLED(CONFIG_SYNC_FILE)
+#if MALI_USE_CSF
+#if IS_ENABLED(CONFIG_SYNC_FILE)
 	atomic_set(&kbdev->live_fence_metadata, 0);
+#endif /* IS_ENABLED(CONFIG_SYNC_FILE) */
+	atomic_set(&kbdev->fence_signal_timeout_enabled, 1);
 #endif
+
 	return 0;
 
 term_as:
@@ -364,8 +368,7 @@ void kbase_device_free(struct kbase_device *kbdev)
 
 void kbase_device_id_init(struct kbase_device *kbdev)
 {
-	scnprintf(kbdev->devname, DEVNAME_SIZE, "%s%d", kbase_drv_name,
-			kbase_dev_nr);
+	scnprintf(kbdev->devname, DEVNAME_SIZE, "%s%d", KBASE_DRV_NAME, kbase_dev_nr);
 	kbdev->id = kbase_dev_nr;
 }
 

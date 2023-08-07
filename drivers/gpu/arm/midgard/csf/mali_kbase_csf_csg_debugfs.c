@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -287,7 +287,8 @@ static void kbasep_csf_scheduler_dump_active_cs_trace(struct seq_file *file,
 static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 		struct kbase_queue *queue)
 {
-	u32 *addr;
+	u64 *addr;
+	u32 *addr32;
 	u64 cs_extract;
 	u64 cs_insert;
 	u32 cs_active;
@@ -309,12 +310,14 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 		    !queue->group))
 		return;
 
-	addr = (u32 *)queue->user_io_addr;
-	cs_insert = addr[CS_INSERT_LO/4] | ((u64)addr[CS_INSERT_HI/4] << 32);
+	addr = queue->user_io_addr;
+	cs_insert = addr[CS_INSERT_LO / sizeof(*addr)];
 
-	addr = (u32 *)(queue->user_io_addr + PAGE_SIZE);
-	cs_extract = addr[CS_EXTRACT_LO/4] | ((u64)addr[CS_EXTRACT_HI/4] << 32);
-	cs_active = addr[CS_ACTIVE/4];
+	addr = queue->user_io_addr + PAGE_SIZE / sizeof(*addr);
+	cs_extract = addr[CS_EXTRACT_LO / sizeof(*addr)];
+
+	addr32 = (u32 *)(queue->user_io_addr + PAGE_SIZE / sizeof(*addr));
+	cs_active = addr32[CS_ACTIVE / sizeof(*addr32)];
 
 #define KBASEP_CSF_DEBUGFS_CS_HEADER_USER_IO \
 	"Bind Idx,     Ringbuf addr,     Size, Prio,    Insert offset,   Extract offset, Active, Doorbell\n"
@@ -446,22 +449,20 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 				group->csg_nr);
 			seq_puts(file, "*** The following group-record is likely stale\n");
 		}
+			seq_puts(
+				file,
+				"GroupID, CSG NR, CSG Prio, Run State, Priority, C_EP(Alloc/Req), F_EP(Alloc/Req), T_EP(Alloc/Req), Exclusive, Idle\n");
+			seq_printf(
+				file,
+				"%7d, %6d, %8d, %9d, %8d, %11d/%3d, %11d/%3d, %11d/%3d, %9c, %4c\n",
+				group->handle, group->csg_nr, slot_priority, group->run_state,
+				group->priority, CSG_STATUS_EP_CURRENT_COMPUTE_EP_GET(ep_c),
+				CSG_STATUS_EP_REQ_COMPUTE_EP_GET(ep_r),
+				CSG_STATUS_EP_CURRENT_FRAGMENT_EP_GET(ep_c),
+				CSG_STATUS_EP_REQ_FRAGMENT_EP_GET(ep_r),
+				CSG_STATUS_EP_CURRENT_TILER_EP_GET(ep_c),
+				CSG_STATUS_EP_REQ_TILER_EP_GET(ep_r), exclusive, idle);
 
-		seq_puts(file, "GroupID, CSG NR, CSG Prio, Run State, Priority, C_EP(Alloc/Req), F_EP(Alloc/Req), T_EP(Alloc/Req), Exclusive, Idle\n");
-		seq_printf(file, "%7d, %6d, %8d, %9d, %8d, %11d/%3d, %11d/%3d, %11d/%3d, %9c, %4c\n",
-			group->handle,
-			group->csg_nr,
-			slot_priority,
-			group->run_state,
-			group->priority,
-			CSG_STATUS_EP_CURRENT_COMPUTE_EP_GET(ep_c),
-			CSG_STATUS_EP_REQ_COMPUTE_EP_GET(ep_r),
-			CSG_STATUS_EP_CURRENT_FRAGMENT_EP_GET(ep_c),
-			CSG_STATUS_EP_REQ_FRAGMENT_EP_GET(ep_r),
-			CSG_STATUS_EP_CURRENT_TILER_EP_GET(ep_c),
-			CSG_STATUS_EP_REQ_TILER_EP_GET(ep_r),
-			exclusive,
-			idle);
 	} else {
 		seq_puts(file, "GroupID, CSG NR, Run State, Priority\n");
 		seq_printf(file, "%7d, %6d, %9d, %8d\n",

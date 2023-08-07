@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -126,30 +126,24 @@ void kbase_csf_cpu_queue_debugfs_init(struct kbase_context *kctx)
 int kbase_csf_cpu_queue_dump(struct kbase_context *kctx,
 		u64 buffer, size_t buf_size)
 {
-	int err = 0;
-
 	size_t alloc_size = buf_size;
 	char *dump_buffer;
 
 	if (!buffer || !alloc_size)
-		goto done;
+		return 0;
 
 	alloc_size = (alloc_size + PAGE_SIZE) & ~(PAGE_SIZE - 1);
 	dump_buffer = kzalloc(alloc_size, GFP_KERNEL);
-	if (ZERO_OR_NULL_PTR(dump_buffer)) {
-		err = -ENOMEM;
-		goto done;
-	}
+	if (ZERO_OR_NULL_PTR(dump_buffer))
+		return -ENOMEM;
 
 	WARN_ON(kctx->csf.cpu_queue.buffer != NULL);
 
-	err = copy_from_user(dump_buffer,
+	if (copy_from_user(dump_buffer,
 			u64_to_user_ptr(buffer),
-			buf_size);
-	if (err) {
+			buf_size)) {
 		kfree(dump_buffer);
-		err = -EFAULT;
-		goto done;
+		return -EFAULT;
 	}
 
 	mutex_lock(&kctx->csf.lock);
@@ -161,13 +155,12 @@ int kbase_csf_cpu_queue_dump(struct kbase_context *kctx,
 		kctx->csf.cpu_queue.buffer = dump_buffer;
 		kctx->csf.cpu_queue.buffer_size = buf_size;
 		complete_all(&kctx->csf.cpu_queue.dump_cmp);
-	} else {
+	} else
 		kfree(dump_buffer);
-	}
 
 	mutex_unlock(&kctx->csf.lock);
-done:
-	return err;
+
+	return 0;
 }
 #else
 /*

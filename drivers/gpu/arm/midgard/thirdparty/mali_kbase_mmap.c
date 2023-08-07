@@ -303,8 +303,7 @@ unsigned long kbase_context_get_unmapped_area(struct kbase_context *const kctx,
 	 * is no free region at the address found originally by too large a
 	 * same_va_end_addr here, and will fail the allocation gracefully.
 	 */
-	struct kbase_reg_zone *zone =
-		kbase_ctx_reg_zone_get_nolock(kctx, KBASE_REG_ZONE_SAME_VA);
+	struct kbase_reg_zone *zone = kbase_ctx_reg_zone_get_nolock(kctx, SAME_VA_ZONE);
 	u64 same_va_end_addr = kbase_reg_zone_end_pfn(zone) << PAGE_SHIFT;
 #if (KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE)
 	const unsigned long mmap_end = arch_get_mmap_end(addr, len, flags);
@@ -386,7 +385,7 @@ unsigned long kbase_context_get_unmapped_area(struct kbase_context *const kctx,
 #ifndef CONFIG_64BIT
 	} else {
 		return current->mm->get_unmapped_area(
-			kctx->filp, addr, len, pgoff, flags);
+			kctx->kfile->filp, addr, len, pgoff, flags);
 #endif
 	}
 

@@ -132,15 +132,17 @@
  * @JM_DEFAULT_JS_FREE_TIMEOUT: Maximum timeout to wait for JS_COMMAND_NEXT
  *                              to be updated on HW side so a Job Slot is
  *                              considered free.
- * @KBASE_TIMEOUT_SELECTOR_COUNT: Number of timeout selectors. Must be last in
- *                                the enum.
+ * @KBASE_TIMEOUT_SELECTOR_COUNT: Number of timeout selectors.
+ * @KBASE_DEFAULT_TIMEOUT: Fallthrough in case an invalid timeout is
+ *                         passed.
  */
 enum kbase_timeout_selector {
 	MMU_AS_INACTIVE_WAIT_TIMEOUT,
 	JM_DEFAULT_JS_FREE_TIMEOUT,
 
 	/* Must be the last in the enum */
-	KBASE_TIMEOUT_SELECTOR_COUNT
+	KBASE_TIMEOUT_SELECTOR_COUNT,
+	KBASE_DEFAULT_TIMEOUT = JM_DEFAULT_JS_FREE_TIMEOUT
 };
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
@@ -861,7 +863,7 @@ struct jsctx_queue {
  * @current_setup:     Stores the MMU configuration for this address space.
  * @is_unresponsive:   Flag to indicate MMU is not responding.
  *                     Set if a MMU command isn't completed within
- *                     &kbase_device:mmu_as_inactive_wait_time_ms.
+ *                     &kbase_device:mmu_or_gpu_cache_op_wait_time_ms.
  *                     Clear by kbase_ctx_sched_restore_all_as() after GPU reset completes.
  */
 struct kbase_as {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -39,6 +39,7 @@
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/cache.h>
+#include <linux/version_compat_defs.h>
 
 #if !MALI_USE_CSF
 /**
@@ -749,7 +750,7 @@ static void *dma_buf_kmap_page(struct kbase_mem_phy_alloc *gpu_alloc,
 		if (page_index == page_num) {
 			*page = sg_page_iter_page(&sg_iter);
 
-			return kmap(*page);
+			return kbase_kmap(*page);
 		}
 		page_index++;
 	}
@@ -795,14 +796,13 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 		for (i = 0; i < buf_data->nr_extres_pages &&
 				target_page_nr < buf_data->nr_pages; i++) {
 			struct page *pg = buf_data->extres_pages[i];
-			void *extres_page = kmap(pg);
-
+			void *extres_page = kbase_kmap(pg);
 			if (extres_page) {
 				ret = kbase_mem_copy_to_pinned_user_pages(
 						pages, extres_page, &to_copy,
 						buf_data->nr_pages,
 						&target_page_nr, offset);
-				kunmap(pg);
+				kbase_kunmap(pg, extres_page);
 				if (ret)
 					goto out_unlock;
 			}
@@ -837,7 +837,7 @@ static int kbase_mem_copy_from_extres(struct kbase_context *kctx,
 						&target_page_nr, offset);
 
 #if KERNEL_VERSION(5, 6, 0) <= LINUX_VERSION_CODE
-				kunmap(pg);
+				kbase_kunmap(pg, extres_page);
 #else
 				dma_buf_kunmap(dma_buf, i, extres_page);
 #endif

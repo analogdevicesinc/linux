@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -211,10 +211,28 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 		kbdev->pm.active_count == 0);
 	dev_dbg(kbdev->dev, ">wait_event - waiting done\n");
 
+#if MALI_USE_CSF
+	/* At this point, any kbase context termination should either have run to
+	 * completion and any further context termination can only begin after
+	 * the system resumes. Therefore, it is now safe to skip taking the context
+	 * list lock when traversing the context list.
+	 */
+	if (kbase_csf_kcpu_queue_halt_timers(kbdev)) {
+		mutex_lock(&kbdev->pm.lock);
+		kbdev->pm.suspending = false;
+		mutex_unlock(&kbdev->pm.lock);
+		return -1;
+	}
+#endif
+
 	/* NOTE: We synchronize with anything that was just finishing a
 	 * kbase_pm_context_idle() call by locking the pm.lock below
 	 */
 	if (kbase_hwaccess_pm_suspend(kbdev)) {
+#if MALI_USE_CSF
+		/* Resume the timers in case of suspend failure. */
+		kbase_csf_kcpu_queue_resume_timers(kbdev);
+#endif
 		mutex_lock(&kbdev->pm.lock);
 		kbdev->pm.suspending = false;
 		mutex_unlock(&kbdev->pm.lock);
@@ -262,6 +280,8 @@ void kbase_pm_driver_resume(struct kbase_device *kbdev, bool arb_gpu_start)
 	kbasep_js_resume(kbdev);
 #else
 	kbase_csf_scheduler_pm_resume(kbdev);
+
+	kbase_csf_kcpu_queue_resume_timers(kbdev);
 #endif
 
 	/* Matching idle call, to power off the GPU/cores if we didn't actually
@@ -283,6 +303,10 @@ void kbase_pm_driver_resume(struct kbase_device *kbdev, bool arb_gpu_start)
 	/* Resume HW counters intermediaries. */
 	kbase_vinstr_resume(kbdev->vinstr_ctx);
 	kbase_kinstr_prfcnt_resume(kbdev->kinstr_prfcnt_ctx);
+	/* System resume callback is complete */
+	kbdev->pm.resuming = false;
+	/* Unblock the threads waiting for the completion of System suspend/resume */
+	wake_up_all(&kbdev->pm.resume_wait);
 }
 
 int kbase_pm_suspend(struct kbase_device *kbdev)

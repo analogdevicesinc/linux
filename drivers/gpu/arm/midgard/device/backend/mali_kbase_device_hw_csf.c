@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -58,7 +58,7 @@ static void kbase_gpu_fault_interrupt(struct kbase_device *kbdev)
 {
 	const u32 status = kbase_reg_read(kbdev,
 			GPU_CONTROL_REG(GPU_FAULTSTATUS));
-	const bool as_valid = status & GPU_FAULTSTATUS_JASID_VALID_FLAG;
+	const bool as_valid = status & GPU_FAULTSTATUS_JASID_VALID_MASK;
 	const u32 as_nr = (status & GPU_FAULTSTATUS_JASID_MASK) >>
 			GPU_FAULTSTATUS_JASID_SHIFT;
 	bool bus_fault = (status & GPU_FAULTSTATUS_EXCEPTION_TYPE_MASK) ==

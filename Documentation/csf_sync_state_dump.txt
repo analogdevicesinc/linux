@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -109,3 +109,65 @@ surpass the arg value.
 ===============================================================================================================================
 queue:KCPU-0-1 exec:S cmd:CQS_WAIT_OPERATION obj:0x0000007fbf6f2ff8 live_value:0x0000000000000000 | op:gt arg_value: 0x00000000
 ===============================================================================================================================
+
+CSF Sync State Dump For Fence Signal Timeouts
+---------------------------------------------
+
+Summary
+-------
+A timer has been added to the KCPU queues which is checked to ensure
+the queues have not "timed out" between the enqueuing of a fence signal command
+and it's eventual execution. If this timeout happens then the CSF sync state
+of all KCPU queues of the offending context is dumped. This feature is enabled
+by default, but can be disabled/enabled later.
+
+Explanation
+------------
+This new timer is created and destroyed alongside the creation and destruction
+of each KCPU queue. It is started when a fence signal is enqueued, and cancelled
+when the fence signal command has been processed. The timer times out after
+10 seconds (at 100 MHz) if the execution of that fence signal event was never
+processed. If this timeout occurs then the timer callback function identifies
+the KCPU queue which the timer belongs to and invokes the CSF synchronisation
+state dump mechanism, writing the sync state for the context of the queue
+causing the timeout is dump to dmesg.
+
+Fence Timeouts Controls
+-----------------------
+Disable/Enable Feature
+----------------------
+This feature is enabled by default, but can be disabled/ re-enabled via DebugFS
+controls. The 'fence_signal_timeout_enable' debugfs entry is a global flag
+which is written to, to turn this feature on and off.
+
+Example:
+--------
+when writing to fence_signal_timeout_enable entry:
+echo 1 > /sys/kernel/debug/mali0/fence_signal_timeout_enable -> feature is enabled.
+echo 0 > /sys/kernel/debug/mali0/fence_signal_timeout_enable -> feature is disabled.
+
+It is also possible to read from this file to check if the feature is currently
+enabled or not checking the return value of fence_signal_timeout_enable.
+
+Example:
+--------
+when reading from fence_signal_timeout_enable entry, if:
+cat /sys/kernel/debug/mali0/fence_signal_timeout_enable returns 1 -> feature is enabled.
+cat /sys/kernel/debug/mali0/fence_signal_timeout_enable returns 0 -> feature is disabled.
+
+Update Timer Duration
+---------------------
+The timeout duration can be accessed through the 'fence_signal_timeout_ms'
+debugfs entry. This can be read from to retrieve the current time in
+milliseconds.
+
+Example:
+--------
+cat /sys/kernel/debug/mali0/fence_signal_timeout_ms
+
+The 'fence_signal_timeout_ms' debugfs entry can also be written to, to update
+the time in milliseconds.
+
+Example:
+--------
+echo 10000 > /sys/kernel/debug/mali0/fence_signal_timeout_ms

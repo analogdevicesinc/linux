@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -52,6 +52,7 @@ static int set_timeout(struct kbase_device *const kbdev, u64 const timeout)
 	dev_dbg(kbdev->dev, "New progress timeout: %llu cycles\n", timeout);
 
 	atomic64_set(&kbdev->csf.progress_timeout, timeout);
+	kbase_device_set_timeout(kbdev, CSF_SCHED_PROTM_PROGRESS_TIMEOUT, timeout, 1);
 
 	return 0;
 }

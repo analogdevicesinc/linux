@@ -34,9 +34,9 @@
 #include <mali_kbase.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
-#include <backend/gpu/mali_kbase_js_internal.h>
 #include <backend/gpu/mali_kbase_clk_rate_trace_mgr.h>
 #include <csf/mali_kbase_csf_csg_debugfs.h>
+#include <csf/mali_kbase_csf_kcpu_fence_debugfs.h>
 #include <hwcnt/mali_kbase_hwcnt_virtualizer.h>
 #include <mali_kbase_kinstr_prfcnt.h>
 #include <mali_kbase_vinstr.h>
@@ -84,10 +84,6 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 	if (err)
 		goto fail_pm_powerup;
 
-	err = kbase_backend_timer_init(kbdev);
-	if (err)
-		goto fail_timer;
-
 #ifdef CONFIG_MALI_DEBUG
 #if IS_ENABLED(CONFIG_MALI_REAL_HW)
 	if (kbasep_common_test_interrupt_handlers(kbdev) != 0) {
@@ -123,10 +119,6 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 	if (err)
 		goto fail_update_l2_features;
 
-	err = kbase_backend_time_init(kbdev);
-	if (err)
-		goto fail_update_l2_features;
-
 	init_waitqueue_head(&kbdev->hwaccess.backend.reset_wait);
 
 	kbase_pm_context_idle(kbdev);
@@ -148,8 +140,6 @@ fail_interrupt_test:
 #endif /* IS_ENABLED(CONFIG_MALI_REAL_HW) */
 #endif /* CONFIG_MALI_DEBUG */
 
-	kbase_backend_timer_term(kbdev);
-fail_timer:
 	kbase_pm_context_idle(kbdev);
 	kbase_hwaccess_pm_halt(kbdev);
 fail_pm_powerup:
@@ -285,8 +275,7 @@ static void kbase_device_hwcnt_backend_csf_term(struct kbase_device *kbdev)
 
 static const struct kbase_device_init dev_init[] = {
 #if !IS_ENABLED(CONFIG_MALI_REAL_HW)
-	{ kbase_gpu_device_create, kbase_gpu_device_destroy,
-	  "Dummy model initialization failed" },
+	{ kbase_gpu_device_create, kbase_gpu_device_destroy, "Dummy model initialization failed" },
 #else /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
 	{ assign_irqs, NULL, "IRQ search failed" },
 #endif /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
@@ -297,8 +286,7 @@ static const struct kbase_device_init dev_init[] = {
 	{ kbase_device_io_history_init, kbase_device_io_history_term,
 	  "Register access history initialization failed" },
 	{ kbase_device_early_init, kbase_device_early_term, "Early device initialization failed" },
-	{ kbase_device_populate_max_freq, NULL, "Populating max frequency failed" },
-	{ kbase_pm_lowest_gpu_freq_init, NULL, "Lowest freq initialization failed" },
+	{ kbase_backend_time_init, NULL, "Time backend initialization failed" },
 	{ kbase_device_misc_init, kbase_device_misc_term,
 	  "Miscellaneous device initialization failed" },
 	{ kbase_device_pcm_dev_init, kbase_device_pcm_dev_term,
@@ -330,6 +318,8 @@ static const struct kbase_device_init dev_init[] = {
 	{ kbase_debug_csf_fault_init, kbase_debug_csf_fault_term,
 	  "CSF fault debug initialization failed" },
 	{ kbase_device_debugfs_init, kbase_device_debugfs_term, "DebugFS initialization failed" },
+	{ kbase_csf_fence_timer_debugfs_init, kbase_csf_fence_timer_debugfs_term,
+	  "Fence timeout DebugFS initialization failed" },
 	/* Sysfs init needs to happen before registering the device with
 	 * misc_register(), otherwise it causes a race condition between
 	 * registering the device and a uevent event being generated for

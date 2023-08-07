@@ -101,6 +101,7 @@ static int kbase_ktrace_get_ctx_refcnt(struct kbase_context *kctx)
  * Private functions
  */
 
+
 /**
  * core_reqs_from_jsn_features - Convert JSn_FEATURES to core requirements
  * @features: JSn_FEATURE register value
@@ -602,6 +603,7 @@ int kbasep_js_devdata_init(struct kbase_device * const kbdev)
 		}
 	}
 
+
 	return 0;
 }
 
@@ -628,15 +630,19 @@ void kbasep_js_devdata_term(struct kbase_device *kbdev)
 				  zero_ctx_attr_ref_count,
 				  sizeof(zero_ctx_attr_ref_count)) == 0);
 	CSTD_UNUSED(zero_ctx_attr_ref_count);
+
 }
 
 int kbasep_js_kctx_init(struct kbase_context *const kctx)
 {
 	struct kbasep_js_kctx_info *js_kctx_info;
 	int i, j;
+	int ret;
 	CSTD_UNUSED(js_kctx_info);
 
 	KBASE_DEBUG_ASSERT(kctx != NULL);
+
+	CSTD_UNUSED(ret);
 
 	kbase_ctx_sched_init_ctx(kctx);
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2015, 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -58,7 +58,7 @@ enum kbase_mmu_fault_type {
  * struct kbase_mmu_hw_op_param  - parameters for kbase_mmu_hw_do_* functions
  * @vpfn:           MMU Virtual Page Frame Number to start the operation on.
  * @nr:             Number of pages to work on.
- * @op:             Operation type (written to ASn_COMMAND).
+ * @op:             Operation type (written to AS_COMMAND).
  * @kctx_id:        Kernel context ID for MMU command tracepoint.
  * @mmu_sync_info:  Indicates whether this call is synchronous wrt MMU ops.
  * @flush_skip_levels: Page table levels to skip flushing. (Only

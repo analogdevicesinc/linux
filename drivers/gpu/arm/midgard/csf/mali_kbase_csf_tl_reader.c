@@ -39,8 +39,6 @@
 #include <linux/version_compat_defs.h>
 #endif
 
-/* Name of the CSFFW timeline tracebuffer. */
-#define KBASE_CSFFW_TRACEBUFFER_NAME "timeline"
 /* Name of the timeline header metatadata */
 #define KBASE_CSFFW_TIMELINE_HEADER_NAME "timeline_header"
 
@@ -299,16 +297,13 @@ static int tl_reader_init_late(
 	if (self->kbdev)
 		return 0;
 
-	tb = kbase_csf_firmware_get_trace_buffer(
-		kbdev, KBASE_CSFFW_TRACEBUFFER_NAME);
+	tb = kbase_csf_firmware_get_trace_buffer(kbdev, KBASE_CSFFW_TIMELINE_BUF_NAME);
 	hdr = kbase_csf_firmware_get_timeline_metadata(
 		kbdev, KBASE_CSFFW_TIMELINE_HEADER_NAME, &hdr_size);
 
 	if (!tb) {
-		dev_warn(
-			kbdev->dev,
-			"'%s' tracebuffer is not present in the firmware image.",
-			KBASE_CSFFW_TRACEBUFFER_NAME);
+		dev_warn(kbdev->dev, "'%s' tracebuffer is not present in the firmware image.",
+			 KBASE_CSFFW_TIMELINE_BUF_NAME);
 		return -1;
 	}
 
