@@ -284,7 +284,7 @@ img_subsys: bus@58000000 {
 	gpio0_mipi_csi0: gpio@58222000 {
 		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
 		reg = <0x58222000 0x1000>;
-		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0>;
 		interrupt-parent = <&irqsteer_csi0>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -325,7 +325,7 @@ img_subsys: bus@58000000 {
 	gpio0_mipi_csi1: gpio@58242000 {
 		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
 		reg = <0x58242000 0x1000>;
-		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0>;
 		interrupt-parent = <&irqsteer_csi1>;
 		gpio-controller;
 		#gpio-cells = <2>;
