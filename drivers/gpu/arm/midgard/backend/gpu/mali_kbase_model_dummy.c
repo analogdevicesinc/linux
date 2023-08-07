@@ -80,7 +80,9 @@ static bool ipa_control_timer_enabled;
 #endif
 
 #define LO_MASK(M) ((M) & 0xFFFFFFFF)
+#if !MALI_USE_CSF
 #define HI_MASK(M) ((M) & 0xFFFFFFFF00000000)
+#endif
 
 /* Construct a value for the THREAD_FEATURES register, *except* the two most
  * significant bits, which are set to IMPLEMENTATION_MODEL in
@@ -151,6 +153,10 @@ struct dummy_model_t {
 	int power_changed;	/* 1bit */
 	bool clean_caches_completed;
 	bool clean_caches_completed_irq_enabled;
+#if MALI_USE_CSF
+	bool flush_pa_range_completed;
+	bool flush_pa_range_completed_irq_enabled;
+#endif
 	int power_on;		/* 6bits: SHADER[4],TILER,L2 */
 	u32 stack_power_on_lo;
 	u32 coherency_enable;
@@ -402,6 +408,22 @@ static const struct control_reg_values_t all_control_reg_values[] = {
 		.thread_max_barrier_size = 0x400,
 		.thread_features = THREAD_FEATURES_PARTIAL(0x10000, 4, 0),
 		.core_features = 0x0, /* core_1e32fma2tex */
+		.tiler_features = 0x809,
+		.mmu_features = 0x2830,
+		.gpu_features_lo = 0xf,
+		.gpu_features_hi = 0,
+		.shader_present = 0xFF,
+		.stack_present = 0xF,
+	},
+	{
+		.name = "tTIx",
+		.gpu_id = GPU_ID2_MAKE(12, 8, 1, 0, 0, 0, 0),
+		.as_present = 0xFF,
+		.thread_max_threads = 0x800,
+		.thread_max_workgroup_size = 0x400,
+		.thread_max_barrier_size = 0x400,
+		.thread_features = THREAD_FEATURES_PARTIAL(0x10000, 16, 0),
+		.core_features = 0x1, /* core_1e64fma4tex */
 		.tiler_features = 0x809,
 		.mmu_features = 0x2830,
 		.gpu_features_lo = 0xf,
@@ -1045,6 +1067,21 @@ static const struct control_reg_values_t *find_control_reg_values(const char *gp
 	size_t i;
 	const struct control_reg_values_t *ret = NULL;
 
+	/* Edge case for tGOx, as it has 2 entries in the table for its R0 and R1
+	 * revisions respectively. As none of them are named "tGOx" the name comparison
+	 * needs to be fixed in these cases. CONFIG_GPU_HWVER should be one of "r0p0"
+	 * or "r1p0" and is derived from the DDK's build configuration. In cases
+	 * where it is unavailable, it defaults to tGOx r1p0.
+	 */
+	if (!strcmp(gpu, "tGOx")) {
+#ifdef CONFIG_GPU_HWVER
+		if (!strcmp(CONFIG_GPU_HWVER, "r0p0"))
+			gpu = "tGOx_r0p0";
+		else if (!strcmp(CONFIG_GPU_HWVER, "r1p0"))
+#endif /* CONFIG_GPU_HWVER defined */
+			gpu = "tGOx_r1p0";
+	}
+
 	for (i = 0; i < ARRAY_SIZE(all_control_reg_values); ++i) {
 		const struct control_reg_values_t * const fcrv = &all_control_reg_values[i];
 
@@ -1104,6 +1141,8 @@ static void midgard_model_get_outputs(void *h)
 	    hw_error_status.gpu_error_irq ||
 #if !MALI_USE_CSF
 	    dummy->prfcnt_sample_completed ||
+#else
+	    (dummy->flush_pa_range_completed && dummy->flush_pa_range_completed_irq_enabled) ||
 #endif
 	    (dummy->clean_caches_completed && dummy->clean_caches_completed_irq_enabled))
 		gpu_device_raise_irq(dummy, GPU_DUMMY_GPU_IRQ);
@@ -1273,6 +1312,9 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 		dummy->reset_completed_mask = (value >> 8) & 0x01;
 		dummy->power_changed_mask = (value >> 9) & 0x03;
 		dummy->clean_caches_completed_irq_enabled = (value & (1u << 17)) != 0u;
+#if MALI_USE_CSF
+		dummy->flush_pa_range_completed_irq_enabled = (value & (1u << 20)) != 0u;
+#endif
 	} else if (addr == GPU_CONTROL_REG(COHERENCY_ENABLE)) {
 		dummy->coherency_enable = value;
 	} else if (addr == GPU_CONTROL_REG(GPU_IRQ_CLEAR)) {
@@ -1285,10 +1327,17 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 
 		if (value & (1 << 17))
 			dummy->clean_caches_completed = false;
-#if   !MALI_USE_CSF
-		if (value & PRFCNT_SAMPLE_COMPLETED)
+
+#if MALI_USE_CSF
+		if (value & (1u << 20))
+			dummy->flush_pa_range_completed = false;
+#endif /* MALI_USE_CSF */
+
+#if !MALI_USE_CSF
+		if (value & PRFCNT_SAMPLE_COMPLETED) /* (1 << 16) */
 			dummy->prfcnt_sample_completed = 0;
 #endif /* !MALI_USE_CSF */
+
 		/*update error status */
 		hw_error_status.gpu_error_irq &= ~(value);
 	} else if (addr == GPU_CONTROL_REG(GPU_COMMAND)) {
@@ -1312,7 +1361,15 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 			pr_debug("clean caches requested");
 			dummy->clean_caches_completed = true;
 			break;
-#if   !MALI_USE_CSF
+#if MALI_USE_CSF
+		case GPU_COMMAND_FLUSH_PA_RANGE_CLN_INV_L2:
+		case GPU_COMMAND_FLUSH_PA_RANGE_CLN_INV_L2_LSC:
+		case GPU_COMMAND_FLUSH_PA_RANGE_CLN_INV_FULL:
+			pr_debug("pa range flush requested");
+			dummy->flush_pa_range_completed = true;
+			break;
+#endif /* MALI_USE_CSF */
+#if !MALI_USE_CSF
 		case GPU_COMMAND_PRFCNT_SAMPLE:
 			midgard_model_dump_prfcnt();
 			dummy->prfcnt_sample_completed = 1;
@@ -1320,6 +1377,11 @@ u8 midgard_model_write_reg(void *h, u32 addr, u32 value)
 		default:
 			break;
 		}
+#if MALI_USE_CSF
+	} else if (addr >= GPU_CONTROL_REG(GPU_COMMAND_ARG0_LO) &&
+		   addr <= GPU_CONTROL_REG(GPU_COMMAND_ARG1_HI)) {
+		/* Writes ignored */
+#endif
 	} else if (addr == GPU_CONTROL_REG(L2_CONFIG)) {
 		dummy->l2_config = value;
 	}
@@ -1591,6 +1653,9 @@ u8 midgard_model_read_reg(void *h, u32 addr, u32 * const value)
 	else if (addr == GPU_CONTROL_REG(GPU_IRQ_MASK)) {
 		*value = (dummy->reset_completed_mask << 8) |
 			 ((dummy->clean_caches_completed_irq_enabled ? 1u : 0u) << 17) |
+#if MALI_USE_CSF
+			 ((dummy->flush_pa_range_completed_irq_enabled ? 1u : 0u) << 20) |
+#endif
 			 (dummy->power_changed_mask << 9) | (1 << 7) | 1;
 		pr_debug("GPU_IRQ_MASK read %x", *value);
 	} else if (addr == GPU_CONTROL_REG(GPU_IRQ_RAWSTAT)) {
@@ -1600,6 +1665,9 @@ u8 midgard_model_read_reg(void *h, u32 addr, u32 * const value)
 			 (dummy->prfcnt_sample_completed ? PRFCNT_SAMPLE_COMPLETED : 0) |
 #endif /* !MALI_USE_CSF */
 			 ((dummy->clean_caches_completed ? 1u : 0u) << 17) |
+#if MALI_USE_CSF
+			 ((dummy->flush_pa_range_completed ? 1u : 0u) << 20) |
+#endif
 			 hw_error_status.gpu_error_irq;
 		pr_debug("GPU_IRQ_RAWSTAT read %x", *value);
 	} else if (addr == GPU_CONTROL_REG(GPU_IRQ_STATUS)) {
@@ -1614,6 +1682,13 @@ u8 midgard_model_read_reg(void *h, u32 addr, u32 * const value)
 				   1u :
 				   0u)
 			  << 17) |
+#if MALI_USE_CSF
+			 (((dummy->flush_pa_range_completed &&
+			    dummy->flush_pa_range_completed_irq_enabled) ?
+				   1u :
+				   0u)
+			  << 20) |
+#endif
 			 hw_error_status.gpu_error_irq;
 		pr_debug("GPU_IRQ_STAT read %x", *value);
 	} else if (addr == GPU_CONTROL_REG(GPU_STATUS)) {

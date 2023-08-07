@@ -67,8 +67,8 @@ void kbase_debug_csf_fault_wait_completion(struct kbase_device *kbdev);
  * Return: true if a dump on fault was initiated or was is in progress and
  *         so caller can opt to wait for the dumping to complete.
  */
-bool kbase_debug_csf_fault_notify(struct kbase_device *kbdev, struct kbase_context *kctx,
-				  enum dumpfault_error_type error);
+bool kbase_debug_csf_fault_notify(struct kbase_device *kbdev,
+		struct kbase_context *kctx, enum dumpfault_error_type error);
 
 /**
  * kbase_debug_csf_fault_dump_enabled - Check if dump on fault is enabled.
@@ -118,8 +118,7 @@ static inline void kbase_debug_csf_fault_wait_completion(struct kbase_device *kb
 }
 
 static inline bool kbase_debug_csf_fault_notify(struct kbase_device *kbdev,
-						struct kbase_context *kctx,
-						enum dumpfault_error_type error)
+		struct kbase_context *kctx, enum dumpfault_error_type error)
 {
 	return false;
 }

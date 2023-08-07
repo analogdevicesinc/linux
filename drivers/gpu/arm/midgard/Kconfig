@@ -94,16 +94,6 @@ config MALI_MIDGARD_ENABLE_TRACE
 	  Enables tracing in kbase. Trace log available through
 	  the "mali_trace" debugfs file, when the CONFIG_DEBUG_FS is enabled
 
-config MALI_DMA_FENCE
-	bool "Enable DMA_BUF fence support for Mali"
-	depends on MALI_MIDGARD
-	default n
-	help
-	  Support DMA_BUF fences for Mali.
-
-	  This option should only be enabled if the Linux Kernel has built in
-	  support for DMA_BUF fences.
-
 config MALI_ARBITER_SUPPORT
 	bool "Enable arbiter support for Mali"
 	depends on MALI_MIDGARD && !MALI_CSF_SUPPORT
@@ -120,7 +110,7 @@ config MALI_DMA_BUF_MAP_ON_DEMAND
 	depends on MALI_MIDGARD
 	default n
 	help
-	  This option caused kbase to set up the GPU mapping of imported
+	  This option will cause kbase to set up the GPU mapping of imported
 	  dma-buf when needed to run atoms. This is the legacy behavior.
 
 	  This is intended for testing and the option will get removed in the
@@ -388,9 +378,6 @@ config MALI_ARBITRATION
 	  virtualization setup for Mali
 	  If unsure, say N.
 
-if MALI_ARBITRATION
-source "drivers/gpu/arm/midgard/arbitration/Kconfig"
-endif
 
 source "drivers/gpu/arm/midgard/tests/Kconfig"
 

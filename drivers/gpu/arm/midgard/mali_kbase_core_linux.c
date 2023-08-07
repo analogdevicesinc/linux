@@ -95,6 +95,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/mm.h>
 #include <linux/compat.h>	/* is_compat_task/in_compat_syscall */
 #include <linux/mman.h>
@@ -122,11 +123,6 @@
 
 #include <mali_kbase_caps.h>
 
-/* GPU IRQ Tags */
-#define	JOB_IRQ_TAG	0
-#define MMU_IRQ_TAG	1
-#define GPU_IRQ_TAG	2
-
 #define KERNEL_SIDE_DDK_VERSION_STRING "K:" MALI_RELEASE_NAME "(GPL)"
 
 /**
@@ -137,9 +133,6 @@
 #define KBASE_API_VERSION(major, minor) ((((major) & 0xFFF) << 20)  | \
 					 (((minor) & 0xFFF) << 8) | \
 					 ((0 & 0xFF) << 0))
-
-#define KBASE_API_MIN(api_version) ((api_version >> 8) & 0xFFF)
-#define KBASE_API_MAJ(api_version) ((api_version >> 20) & 0xFFF)
 
 /**
  * struct mali_kbase_capability_def - kbase capabilities table
@@ -436,6 +429,12 @@ static struct kbase_device *to_kbase_device(struct device *dev)
 
 int assign_irqs(struct kbase_device *kbdev)
 {
+	static const char *const irq_names_caps[] = { "JOB", "MMU", "GPU" };
+
+#if IS_ENABLED(CONFIG_OF)
+	static const char *const irq_names[] = { "job", "mmu", "gpu" };
+#endif
+
 	struct platform_device *pdev;
 	int i;
 
@@ -443,34 +442,31 @@ int assign_irqs(struct kbase_device *kbdev)
 		return -ENODEV;
 
 	pdev = to_platform_device(kbdev->dev);
-	/* 3 IRQ resources */
-	for (i = 0; i < 3; i++) {
-		struct resource *irq_res;
-		int irqtag;
 
-		irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
-		if (!irq_res) {
-			dev_err(kbdev->dev, "No IRQ resource at index %d\n", i);
-			return -ENOENT;
-		}
+	for (i = 0; i < ARRAY_SIZE(irq_names_caps); i++) {
+		int irq;
 
 #if IS_ENABLED(CONFIG_OF)
-		if (!strncasecmp(irq_res->name, "JOB", 4)) {
-			irqtag = JOB_IRQ_TAG;
-		} else if (!strncasecmp(irq_res->name, "MMU", 4)) {
-			irqtag = MMU_IRQ_TAG;
-		} else if (!strncasecmp(irq_res->name, "GPU", 4)) {
-			irqtag = GPU_IRQ_TAG;
-		} else {
-			dev_err(&pdev->dev, "Invalid irq res name: '%s'\n",
-				irq_res->name);
-			return -EINVAL;
-		}
+		/* We recommend using Upper case for the irq names in dts, but if
+		 * there are devices in the world using Lower case then we should
+		 * avoid breaking support for them. So try using names in Upper case
+		 * first then try using Lower case names. If both attempts fail then
+		 * we assume there is no IRQ resource specified for the GPU.
+		 */
+		irq = platform_get_irq_byname(pdev, irq_names_caps[i]);
+		if (irq < 0)
+			irq = platform_get_irq_byname(pdev, irq_names[i]);
 #else
-		irqtag = i;
+		irq = platform_get_irq(pdev, i);
 #endif /* CONFIG_OF */
-		kbdev->irqs[irqtag].irq = irq_res->start;
-		kbdev->irqs[irqtag].flags = irq_res->flags & IRQF_TRIGGER_MASK;
+
+		if (irq < 0) {
+			dev_err(kbdev->dev, "No IRQ resource '%s'\n", irq_names_caps[i]);
+			return irq;
+		}
+
+		kbdev->irqs[i].irq = irq;
+		kbdev->irqs[i].flags = irqd_get_trigger_type(irq_get_irq_data(irq));
 	}
 
 	return 0;
@@ -666,6 +662,9 @@ static int kbase_open(struct inode *inode, struct file *filp)
 
 	if (!kbdev)
 		return -ENODEV;
+
+	/* Set address space operation for page migration */
+	kbase_mem_migrate_set_address_space_ops(kbdev, filp);
 
 	/* Device-wide firmware load is moved here from probing to comply with
 	 * Android GKI vendor guideline.
@@ -1044,51 +1043,10 @@ static int kbase_api_get_ddk_version(struct kbase_context *kctx,
 	return len;
 }
 
-/* Defaults for legacy just-in-time memory allocator initialization
- * kernel calls
- */
-#define DEFAULT_MAX_JIT_ALLOCATIONS 255
-#define JIT_LEGACY_TRIM_LEVEL (0) /* No trimming */
-
-static int kbase_api_mem_jit_init_10_2(struct kbase_context *kctx,
-		struct kbase_ioctl_mem_jit_init_10_2 *jit_init)
-{
-	kctx->jit_version = 1;
-
-	/* since no phys_pages parameter, use the maximum: va_pages */
-	return kbase_region_tracker_init_jit(kctx, jit_init->va_pages,
-			DEFAULT_MAX_JIT_ALLOCATIONS,
-			JIT_LEGACY_TRIM_LEVEL, BASE_MEM_GROUP_DEFAULT,
-			jit_init->va_pages);
-}
-
-static int kbase_api_mem_jit_init_11_5(struct kbase_context *kctx,
-		struct kbase_ioctl_mem_jit_init_11_5 *jit_init)
-{
-	int i;
-
-	kctx->jit_version = 2;
-
-	for (i = 0; i < sizeof(jit_init->padding); i++) {
-		/* Ensure all padding bytes are 0 for potential future
-		 * extension
-		 */
-		if (jit_init->padding[i])
-			return -EINVAL;
-	}
-
-	/* since no phys_pages parameter, use the maximum: va_pages */
-	return kbase_region_tracker_init_jit(kctx, jit_init->va_pages,
-			jit_init->max_allocations, jit_init->trim_level,
-			jit_init->group_id, jit_init->va_pages);
-}
-
 static int kbase_api_mem_jit_init(struct kbase_context *kctx,
 		struct kbase_ioctl_mem_jit_init *jit_init)
 {
 	int i;
-
-	kctx->jit_version = 3;
 
 	for (i = 0; i < sizeof(jit_init->padding); i++) {
 		/* Ensure all padding bytes are 0 for potential future
@@ -1504,9 +1462,22 @@ static int kbasep_cs_tiler_heap_init(struct kbase_context *kctx,
 	kctx->jit_group_id = heap_init->in.group_id;
 
 	return kbase_csf_tiler_heap_init(kctx, heap_init->in.chunk_size,
-		heap_init->in.initial_chunks, heap_init->in.max_chunks,
-		heap_init->in.target_in_flight,
-		&heap_init->out.gpu_heap_va, &heap_init->out.first_chunk_va);
+					 heap_init->in.initial_chunks, heap_init->in.max_chunks,
+					 heap_init->in.target_in_flight, heap_init->in.buf_desc_va,
+					 &heap_init->out.gpu_heap_va,
+					 &heap_init->out.first_chunk_va);
+}
+
+static int kbasep_cs_tiler_heap_init_1_13(struct kbase_context *kctx,
+					  union kbase_ioctl_cs_tiler_heap_init_1_13 *heap_init)
+{
+	kctx->jit_group_id = heap_init->in.group_id;
+
+	return kbase_csf_tiler_heap_init(kctx, heap_init->in.chunk_size,
+					 heap_init->in.initial_chunks, heap_init->in.max_chunks,
+					 heap_init->in.target_in_flight, 0,
+					 &heap_init->out.gpu_heap_va,
+					 &heap_init->out.first_chunk_va);
 }
 
 static int kbasep_cs_tiler_heap_term(struct kbase_context *kctx,
@@ -1814,18 +1785,6 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				struct kbase_ioctl_get_ddk_version,
 				kctx);
 		break;
-	case KBASE_IOCTL_MEM_JIT_INIT_10_2:
-		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_MEM_JIT_INIT_10_2,
-				kbase_api_mem_jit_init_10_2,
-				struct kbase_ioctl_mem_jit_init_10_2,
-				kctx);
-		break;
-	case KBASE_IOCTL_MEM_JIT_INIT_11_5:
-		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_MEM_JIT_INIT_11_5,
-				kbase_api_mem_jit_init_11_5,
-				struct kbase_ioctl_mem_jit_init_11_5,
-				kctx);
-		break;
 	case KBASE_IOCTL_MEM_JIT_INIT:
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_MEM_JIT_INIT,
 				kbase_api_mem_jit_init,
@@ -2063,6 +2022,11 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				union kbase_ioctl_cs_tiler_heap_init,
 				kctx);
 		break;
+	case KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13:
+		KBASE_HANDLE_IOCTL_INOUT(KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13,
+					 kbasep_cs_tiler_heap_init_1_13,
+					 union kbase_ioctl_cs_tiler_heap_init_1_13, kctx);
+		break;
 	case KBASE_IOCTL_CS_TILER_HEAP_TERM:
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_CS_TILER_HEAP_TERM,
 				kbasep_cs_tiler_heap_term,
@@ -2126,6 +2090,9 @@ static ssize_t kbase_read(struct file *filp, char __user *buf, size_t count, lof
 
 	if (unlikely(!kctx))
 		return -EPERM;
+
+	if (count < data_size)
+		return -ENOBUFS;
 
 	if (atomic_read(&kctx->event_count))
 		read_event = true;
@@ -3224,6 +3191,10 @@ static ssize_t gpuinfo_show(struct device *dev,
 		  .name = "Mali-G510" },
 		{ .id = GPU_ID2_PRODUCT_TVAX >> KBASE_GPU_ID_VERSION_PRODUCT_ID_SHIFT,
 		  .name = "Mali-G310" },
+		{ .id = GPU_ID2_PRODUCT_TTIX >> KBASE_GPU_ID_VERSION_PRODUCT_ID_SHIFT,
+		  .name = "Mali-TTIX" },
+		{ .id = GPU_ID2_PRODUCT_LTIX >> KBASE_GPU_ID_VERSION_PRODUCT_ID_SHIFT,
+		  .name = "Mali-LTIX" },
 	};
 	const char *product_name = "(Unknown Mali GPU)";
 	struct kbase_device *kbdev;
@@ -4897,7 +4868,9 @@ static struct dentry *init_debugfs(struct kbase_device *kbdev)
 
 	kbasep_regs_history_debugfs_init(kbdev);
 
-#if !MALI_USE_CSF
+#if MALI_USE_CSF
+	kbase_debug_csf_fault_debugfs_init(kbdev);
+#else /* MALI_USE_CSF */
 	kbase_debug_job_fault_debugfs_init(kbdev);
 #endif /* !MALI_USE_CSF */
 

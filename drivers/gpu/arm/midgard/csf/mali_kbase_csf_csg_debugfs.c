@@ -29,6 +29,130 @@
 #include "mali_kbase_csf_tl_reader.h"
 #include <linux/version_compat_defs.h>
 
+/* Wait time to be used cumulatively for all the CSG slots.
+ * Since scheduler lock is held when STATUS_UPDATE request is sent, there won't be
+ * any other Host request pending on the FW side and usually FW would be responsive
+ * to the Doorbell IRQs as it won't do any polling for a long time and also it won't
+ * have to wait for any HW state transition to complete for publishing the status.
+ * So it is reasonable to expect that handling of STATUS_UPDATE request would be
+ * relatively very quick.
+ */
+#define STATUS_UPDATE_WAIT_TIMEOUT 500
+
+/* The bitmask of CSG slots for which the STATUS_UPDATE request completed.
+ * The access to it is serialized with scheduler lock, so at a time it would
+ * get used either for "active_groups" or per context "groups" debugfs file.
+ */
+static DECLARE_BITMAP(csg_slots_status_updated, MAX_SUPPORTED_CSGS);
+
+static
+bool csg_slot_status_update_finish(struct kbase_device *kbdev, u32 csg_nr)
+{
+	struct kbase_csf_cmd_stream_group_info const *const ginfo =
+		&kbdev->csf.global_iface.groups[csg_nr];
+
+	return !((kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ) ^
+		  kbase_csf_firmware_csg_output(ginfo, CSG_ACK)) &
+			     CSG_REQ_STATUS_UPDATE_MASK);
+}
+
+static
+bool csg_slots_status_update_finish(struct kbase_device *kbdev,
+		const unsigned long *slots_mask)
+{
+	const u32 max_csg_slots = kbdev->csf.global_iface.group_num;
+	bool changed = false;
+	u32 csg_nr;
+
+	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+
+	for_each_set_bit(csg_nr, slots_mask, max_csg_slots) {
+		if (csg_slot_status_update_finish(kbdev, csg_nr)) {
+			set_bit(csg_nr, csg_slots_status_updated);
+			changed = true;
+		}
+	}
+
+	return changed;
+}
+
+static void wait_csg_slots_status_update_finish(struct kbase_device *kbdev,
+		unsigned long *slots_mask)
+{
+	const u32 max_csg_slots = kbdev->csf.global_iface.group_num;
+	long remaining = kbase_csf_timeout_in_jiffies(STATUS_UPDATE_WAIT_TIMEOUT);
+
+	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+
+	bitmap_zero(csg_slots_status_updated, max_csg_slots);
+
+	while (!bitmap_empty(slots_mask, max_csg_slots) && remaining) {
+		remaining = wait_event_timeout(kbdev->csf.event_wait,
+				csg_slots_status_update_finish(kbdev, slots_mask),
+				remaining);
+		if (likely(remaining)) {
+			bitmap_andnot(slots_mask, slots_mask,
+				csg_slots_status_updated, max_csg_slots);
+		} else {
+			dev_warn(kbdev->dev,
+				 "STATUS_UPDATE request timed out for slots 0x%lx",
+				 slots_mask[0]);
+		}
+	}
+}
+
+static void update_active_groups_status(struct kbase_device *kbdev, struct seq_file *file)
+{
+	u32 max_csg_slots = kbdev->csf.global_iface.group_num;
+	DECLARE_BITMAP(used_csgs, MAX_SUPPORTED_CSGS) = { 0 };
+	u32 csg_nr;
+	unsigned long flags;
+
+	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+
+	/* Global doorbell ring for CSG STATUS_UPDATE request or User doorbell
+	 * ring for Extract offset update, shall not be made when MCU has been
+	 * put to sleep otherwise it will undesirably make MCU exit the sleep
+	 * state. Also it isn't really needed as FW will implicitly update the
+	 * status of all on-slot groups when MCU sleep request is sent to it.
+	 */
+	if (kbdev->csf.scheduler.state == SCHED_SLEEPING) {
+		bitmap_copy(csg_slots_status_updated,
+			    kbdev->csf.scheduler.csg_inuse_bitmap, max_csg_slots);
+		return;
+	}
+
+	for (csg_nr = 0; csg_nr < max_csg_slots; csg_nr++) {
+		struct kbase_queue_group *const group =
+			kbdev->csf.scheduler.csg_slots[csg_nr].resident_group;
+		if (!group)
+			continue;
+		/* Ring the User doorbell for FW to update the Extract offset */
+		kbase_csf_ring_doorbell(kbdev, group->doorbell_nr);
+		set_bit(csg_nr, used_csgs);
+	}
+
+	/* Return early if there are no on-slot groups */
+	if (bitmap_empty(used_csgs, max_csg_slots))
+		return;
+
+	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+	for_each_set_bit(csg_nr, used_csgs, max_csg_slots) {
+		struct kbase_csf_cmd_stream_group_info const *const ginfo =
+			&kbdev->csf.global_iface.groups[csg_nr];
+		kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ,
+						  ~kbase_csf_firmware_csg_output(ginfo, CSG_ACK),
+						  CSG_REQ_STATUS_UPDATE_MASK);
+	}
+
+	BUILD_BUG_ON(MAX_SUPPORTED_CSGS > (sizeof(used_csgs[0]) * BITS_PER_BYTE));
+	kbase_csf_ring_csg_slots_doorbell(kbdev, used_csgs[0]);
+	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+	wait_csg_slots_status_update_finish(kbdev, used_csgs);
+	/* Wait for the User doobell ring to take effect */
+	msleep(100);
+}
+
 #define MAX_SCHED_STATE_STRING_LEN (16)
 static const char *scheduler_state_to_string(struct kbase_device *kbdev,
 			enum kbase_csf_scheduler_state sched_state)
@@ -287,54 +411,6 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 	seq_puts(file, "\n");
 }
 
-static void update_active_group_status(struct seq_file *file,
-		struct kbase_queue_group *const group)
-{
-	struct kbase_device *const kbdev = group->kctx->kbdev;
-	struct kbase_csf_cmd_stream_group_info const *const ginfo =
-		&kbdev->csf.global_iface.groups[group->csg_nr];
-	long remaining = kbase_csf_timeout_in_jiffies(kbdev->csf.fw_timeout_ms);
-	unsigned long flags;
-
-	/* Global doorbell ring for CSG STATUS_UPDATE request or User doorbell
-	 * ring for Extract offset update, shall not be made when MCU has been
-	 * put to sleep otherwise it will undesirably make MCU exit the sleep
-	 * state. Also it isn't really needed as FW will implicitly update the
-	 * status of all on-slot groups when MCU sleep request is sent to it.
-	 */
-	if (kbdev->csf.scheduler.state == SCHED_SLEEPING)
-		return;
-
-	/* Ring the User doobell shared between the queues bound to this
-	 * group, to have FW update the CS_EXTRACT for all the queues
-	 * bound to the group. Ring early so that FW gets adequate time
-	 * for the handling.
-	 */
-	kbase_csf_ring_doorbell(kbdev, group->doorbell_nr);
-
-	kbase_csf_scheduler_spin_lock(kbdev, &flags);
-	kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ,
-			~kbase_csf_firmware_csg_output(ginfo, CSG_ACK),
-			CSG_REQ_STATUS_UPDATE_MASK);
-	kbase_csf_scheduler_spin_unlock(kbdev, flags);
-	kbase_csf_ring_csg_doorbell(kbdev, group->csg_nr);
-
-	remaining = wait_event_timeout(kbdev->csf.event_wait,
-		!((kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ) ^
-		kbase_csf_firmware_csg_output(ginfo, CSG_ACK)) &
-		CSG_REQ_STATUS_UPDATE_MASK), remaining);
-
-	if (!remaining) {
-		dev_err(kbdev->dev,
-			"Timed out for STATUS_UPDATE on group %d on slot %d",
-			group->handle, group->csg_nr);
-
-		seq_printf(file, "*** Warn: Timed out for STATUS_UPDATE on slot %d\n",
-			group->csg_nr);
-		seq_puts(file, "*** The following group-record is likely stale\n");
-	}
-}
-
 static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 		struct kbase_queue_group *const group)
 {
@@ -347,8 +423,6 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 			&kbdev->csf.global_iface.groups[group->csg_nr];
 		u8 slot_priority =
 			kbdev->csf.scheduler.csg_slots[group->csg_nr].priority;
-
-		update_active_group_status(file, group);
 
 		ep_c = kbase_csf_firmware_csg_output(ginfo,
 				CSG_STATUS_EP_CURRENT);
@@ -365,6 +439,12 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 				CSG_STATUS_STATE_IDLE_MASK)
 			idle = 'Y';
 
+		if (!test_bit(group->csg_nr, csg_slots_status_updated)) {
+			seq_printf(file, "*** Warn: Timed out for STATUS_UPDATE on slot %d\n",
+				group->csg_nr);
+			seq_puts(file, "*** The following group-record is likely stale\n");
+		}
+
 		seq_puts(file, "GroupID, CSG NR, CSG Prio, Run State, Priority, C_EP(Alloc/Req), F_EP(Alloc/Req), T_EP(Alloc/Req), Exclusive, Idle\n");
 		seq_printf(file, "%7d, %6d, %8d, %9d, %8d, %11d/%3d, %11d/%3d, %11d/%3d, %9c, %4c\n",
 			group->handle,
@@ -380,10 +460,6 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 			CSG_STATUS_EP_REQ_TILER_EP_GET(ep_r),
 			exclusive,
 			idle);
-
-		/* Wait for the User doobell ring to take effect */
-		if (kbdev->csf.scheduler.state != SCHED_SLEEPING)
-			msleep(100);
 	} else {
 		seq_puts(file, "GroupID, CSG NR, Run State, Priority\n");
 		seq_printf(file, "%7d, %6d, %9d, %8d\n",
@@ -433,10 +509,11 @@ static int kbasep_csf_queue_group_debugfs_show(struct seq_file *file,
 	kbase_csf_scheduler_lock(kbdev);
 	if (kbdev->csf.scheduler.state == SCHED_SLEEPING) {
 		/* Wait for the MCU sleep request to complete. Please refer the
-		 * update_active_group_status() function for the explanation.
+		 * update_active_groups_status() function for the explanation.
 		 */
 		kbase_pm_wait_for_desired_state(kbdev);
 	}
+	update_active_groups_status(kbdev, file);
 	for (gr = 0; gr < MAX_QUEUE_GROUP_NUM; gr++) {
 		struct kbase_queue_group *const group =
 			kctx->csf.queue_groups[gr];
@@ -472,10 +549,11 @@ static int kbasep_csf_scheduler_dump_active_groups(struct seq_file *file,
 	kbase_csf_scheduler_lock(kbdev);
 	if (kbdev->csf.scheduler.state == SCHED_SLEEPING) {
 		/* Wait for the MCU sleep request to complete. Please refer the
-		 * update_active_group_status() function for the explanation.
+		 * update_active_groups_status() function for the explanation.
 		 */
 		kbase_pm_wait_for_desired_state(kbdev);
 	}
+	update_active_groups_status(kbdev, file);
 	for (csg_nr = 0; csg_nr < num_groups; csg_nr++) {
 		struct kbase_queue_group *const group =
 			kbdev->csf.scheduler.csg_slots[csg_nr].resident_group;

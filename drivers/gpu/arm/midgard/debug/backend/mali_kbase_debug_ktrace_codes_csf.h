@@ -52,6 +52,8 @@ int dummy_array[] = {
 	 */
 	KBASE_KTRACE_CODE_MAKE_CODE(CSF_FIRMWARE_BOOT),
 	KBASE_KTRACE_CODE_MAKE_CODE(CSF_FIRMWARE_REBOOT),
+	KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_TOCK_INVOKE),
+	KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_TICK_INVOKE),
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_TOCK_START),
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_TOCK_END),
 	/* info_val == total number of runnable groups across all kctxs */
@@ -132,6 +134,8 @@ int dummy_array[] = {
 	 * group->csg_nr indicates which bit was set
 	 */
 	KBASE_KTRACE_CODE_MAKE_CODE(CSG_SLOT_IDLE_SET),
+	KBASE_KTRACE_CODE_MAKE_CODE(CSG_INTERRUPT_NO_NON_IDLE_GROUPS),
+	KBASE_KTRACE_CODE_MAKE_CODE(CSG_INTERRUPT_NON_IDLE_GROUPS),
 	/* info_val = scheduler's new csg_slots_idle_mask[0]
 	 * group->csg_nr indicates which bit was cleared
 	 *
@@ -209,6 +213,11 @@ int dummy_array[] = {
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_INACTIVE),
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SUSPENDED),
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SLEEPING),
+
+	/* info_val = mcu state */
+#define KBASEP_MCU_STATE(n) KBASE_KTRACE_CODE_MAKE_CODE(PM_MCU_ ## n),
+#include "backend/gpu/mali_kbase_pm_mcu_states.h"
+#undef KBASEP_MCU_STATE
 
 	/* info_val = number of runnable groups */
 	KBASE_KTRACE_CODE_MAKE_CODE(CSF_GROUP_INACTIVE),

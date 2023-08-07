@@ -53,4 +53,22 @@ void kbase_csf_firmware_log_term(struct kbase_device *kbdev);
  */
 void kbase_csf_firmware_log_dump_buffer(struct kbase_device *kbdev);
 
+/**
+ * kbase_csf_firmware_log_parse_logging_call_list_entry - Parse FW logging function call list entry.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ * @entry: Pointer to section.
+ */
+void kbase_csf_firmware_log_parse_logging_call_list_entry(struct kbase_device *kbdev,
+							  const uint32_t *entry);
+/**
+ * kbase_csf_firmware_log_toggle_logging_calls - Enables/Disables FW logging function calls.
+ *
+ * @kbdev:  Instance of a GPU platform device that implements a CSF interface.
+ * @val:    Configuration option value.
+ *
+ * Return: 0 if successful, negative error code on failure
+ */
+int kbase_csf_firmware_log_toggle_logging_calls(struct kbase_device *kbdev, u32 val);
+
 #endif /* _KBASE_CSF_FIRMWARE_LOG_H_ */

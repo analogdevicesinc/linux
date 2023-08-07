@@ -35,11 +35,14 @@ mali_kbase-y += \
     csf/mali_kbase_csf_tiler_heap_debugfs.o \
     csf/mali_kbase_csf_cpu_queue_debugfs.o \
     csf/mali_kbase_csf_event.o \
-    csf/mali_kbase_csf_firmware_log.o
+    csf/mali_kbase_csf_firmware_log.o \
+    csf/mali_kbase_csf_tiler_heap_reclaim.o
 
 mali_kbase-$(CONFIG_MALI_REAL_HW) += csf/mali_kbase_csf_firmware.o
 
 mali_kbase-$(CONFIG_MALI_NO_MALI) += csf/mali_kbase_csf_firmware_no_mali.o
+
+mali_kbase-$(CONFIG_DEBUG_FS) += csf/mali_kbase_debug_csf_fault.o
 
 
 ifeq ($(KBUILD_EXTMOD),)

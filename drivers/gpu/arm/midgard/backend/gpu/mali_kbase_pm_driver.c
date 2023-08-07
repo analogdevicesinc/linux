@@ -538,6 +538,13 @@ static void kbase_pm_l2_config_override(struct kbase_device *kbdev)
 	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_L2_CONFIG))
 		return;
 
+#if MALI_USE_CSF
+	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PBHA_HWU)) {
+		val = kbase_reg_read(kbdev, GPU_CONTROL_REG(L2_CONFIG));
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(L2_CONFIG),
+				L2_CONFIG_PBHA_HWU_SET(val, kbdev->pbha_propagate_bits));
+	}
+#endif /* MALI_USE_CSF */
 
 	/*
 	 * Skip if size and hash are not given explicitly,
@@ -598,6 +605,21 @@ static const char *kbase_mcu_state_to_string(enum kbase_mcu_state state)
 		return "Bad MCU state";
 	else
 		return strings[state];
+}
+
+static
+void kbase_ktrace_log_mcu_state(struct kbase_device *kbdev, enum kbase_mcu_state state)
+{
+#if KBASE_KTRACE_ENABLE
+	switch (state) {
+#define KBASEP_MCU_STATE(n) \
+	case KBASE_MCU_ ## n: \
+		KBASE_KTRACE_ADD(kbdev, PM_MCU_ ## n, NULL, state); \
+		break;
+#include "mali_kbase_pm_mcu_states.h"
+#undef KBASEP_MCU_STATE
+	}
+#endif
 }
 
 static inline bool kbase_pm_handle_mcu_core_attr_update(struct kbase_device *kbdev)
@@ -690,7 +712,6 @@ static void wait_mcu_as_inactive(struct kbase_device *kbdev)
 }
 #endif
 
-
 /**
  * kbasep_pm_toggle_power_interrupt - Toggles the IRQ mask for power interrupts
  *                                    from the firmware
@@ -698,10 +719,10 @@ static void wait_mcu_as_inactive(struct kbase_device *kbdev)
  * @kbdev:  Pointer to the device
  * @enable: boolean indicating to enable interrupts or not
  *
- * The POWER_CHANGED_ALL and POWER_CHANGED_SINGLE interrupts can be disabled
- * after L2 has been turned on when FW is controlling the power for the shader
- * cores. Correspondingly, the interrupts can be re-enabled after the MCU has
- * been disabled before the power down of L2.
+ * The POWER_CHANGED_ALL interrupt can be disabled after L2 has been turned on
+ * when FW is controlling the power for the shader cores. Correspondingly, the
+ * interrupts can be re-enabled after the MCU has been disabled before the
+ * power down of L2.
  */
 static void kbasep_pm_toggle_power_interrupt(struct kbase_device *kbdev, bool enable)
 {
@@ -711,10 +732,12 @@ static void kbasep_pm_toggle_power_interrupt(struct kbase_device *kbdev, bool en
 
 	irq_mask = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK));
 
-	if (enable)
-		irq_mask |= POWER_CHANGED_ALL | POWER_CHANGED_SINGLE;
-	else
-		irq_mask &= ~(POWER_CHANGED_ALL | POWER_CHANGED_SINGLE);
+	if (enable) {
+		irq_mask |= POWER_CHANGED_ALL;
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), POWER_CHANGED_ALL);
+	} else {
+		irq_mask &= ~POWER_CHANGED_ALL;
+	}
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK), irq_mask);
 }
@@ -1029,10 +1052,12 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 			     backend->mcu_state);
 		}
 
-		if (backend->mcu_state != prev_state)
+		if (backend->mcu_state != prev_state) {
 			dev_dbg(kbdev->dev, "MCU state transition: %s to %s\n",
 				kbase_mcu_state_to_string(prev_state),
 				kbase_mcu_state_to_string(backend->mcu_state));
+			kbase_ktrace_log_mcu_state(kbdev, backend->mcu_state);
+		}
 
 	} while (backend->mcu_state != prev_state);
 
@@ -1078,6 +1103,21 @@ static const char *kbase_l2_core_state_to_string(enum kbase_l2_core_state state)
 		return "Bad level 2 cache state";
 	else
 		return strings[state];
+}
+
+static
+void kbase_ktrace_log_l2_core_state(struct kbase_device *kbdev, enum kbase_l2_core_state state)
+{
+#if KBASE_KTRACE_ENABLE
+	switch (state) {
+#define KBASEP_L2_STATE(n) \
+	case KBASE_L2_ ## n: \
+		KBASE_KTRACE_ADD(kbdev, PM_L2_ ## n, NULL, state); \
+		break;
+#include "mali_kbase_pm_l2_states.h"
+#undef KBASEP_L2_STATE
+	}
+#endif
 }
 
 #if !MALI_USE_CSF
@@ -1157,11 +1197,14 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 				 */
 				backend->l2_state =
 					KBASE_L2_ON_HWCNT_DISABLE;
+				KBASE_KTRACE_ADD(kbdev, PM_L2_ON_HWCNT_DISABLE, NULL,
+							backend->l2_state);
 				kbase_pm_trigger_hwcnt_disable(kbdev);
 			}
 
 			if (backend->hwcnt_disabled) {
 				backend->l2_state = KBASE_L2_OFF;
+				KBASE_KTRACE_ADD(kbdev, PM_L2_OFF, NULL, backend->l2_state);
 				dev_dbg(kbdev->dev, "GPU lost has occurred - L2 off\n");
 			}
 			break;
@@ -1471,11 +1514,13 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 					backend->l2_state);
 		}
 
-		if (backend->l2_state != prev_state)
+		if (backend->l2_state != prev_state) {
 			dev_dbg(kbdev->dev, "L2 state transition: %s to %s\n",
 				kbase_l2_core_state_to_string(prev_state),
 				kbase_l2_core_state_to_string(
 					backend->l2_state));
+			kbase_ktrace_log_l2_core_state(kbdev, backend->l2_state);
+		}
 
 	} while (backend->l2_state != prev_state);
 
@@ -2136,6 +2181,7 @@ void kbase_pm_reset_start_locked(struct kbase_device *kbdev)
 
 	backend->in_reset = true;
 	backend->l2_state = KBASE_L2_RESET_WAIT;
+	KBASE_KTRACE_ADD(kbdev, PM_L2_RESET_WAIT, NULL, backend->l2_state);
 #if !MALI_USE_CSF
 	backend->shaders_state = KBASE_SHADERS_RESET_WAIT;
 #else
@@ -2144,6 +2190,7 @@ void kbase_pm_reset_start_locked(struct kbase_device *kbdev)
 	 */
 	if (likely(kbdev->csf.firmware_inited)) {
 		backend->mcu_state = KBASE_MCU_RESET_WAIT;
+		KBASE_KTRACE_ADD(kbdev, PM_MCU_RESET_WAIT, NULL, backend->mcu_state);
 #ifdef KBASE_PM_RUNTIME
 		backend->exit_gpu_sleep_mode = true;
 #endif
@@ -2484,7 +2531,6 @@ static void update_user_reg_page_mapping(struct kbase_device *kbdev)
 }
 #endif
 
-
 /*
  * pmu layout:
  * 0x0000: PMU TAG (RO) (0xCAFECAFE)
@@ -2622,7 +2668,6 @@ void kbase_pm_clock_on(struct kbase_device *kbdev, bool is_resume)
 		backend->gpu_idled = false;
 	}
 #endif
-
 }
 
 KBASE_EXPORT_TEST_API(kbase_pm_clock_on);

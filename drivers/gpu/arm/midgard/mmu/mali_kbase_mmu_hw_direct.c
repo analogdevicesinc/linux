@@ -28,6 +28,26 @@
 #include <tl/mali_kbase_tracepoints.h>
 #include <linux/delay.h>
 
+#if MALI_USE_CSF
+/**
+ * mmu_has_flush_skip_pgd_levels() - Check if the GPU has the feature
+ *                                   AS_LOCKADDR_FLUSH_SKIP_LEVELS
+ *
+ * @gpu_props:  GPU properties for the GPU instance.
+ *
+ * This function returns whether a cache flush can apply the skip flags of
+ * AS_LOCKADDR_FLUSH_SKIP_LEVELS.
+ *
+ * Return: True if cache flush has the said feature.
+ */
+static bool mmu_has_flush_skip_pgd_levels(struct kbase_gpu_props const *gpu_props)
+{
+	u32 const signature =
+		gpu_props->props.raw_props.gpu_id & (GPU_ID2_ARCH_MAJOR | GPU_ID2_ARCH_REV);
+
+	return signature >= (u32)GPU_ID2_PRODUCT_MAKE(12, 0, 4, 0);
+}
+#endif
 
 /**
  * lock_region() - Generate lockaddr to lock memory region in MMU
@@ -105,7 +125,7 @@ static int lock_region(struct kbase_gpu_props const *gpu_props, u64 *lockaddr,
 	 * therefore the highest bit that differs is bit #16
 	 * and the region size (as a logarithm) is 16 + 1 = 17, i.e. 128 kB.
 	 */
-	lockaddr_size_log2 = fls(lockaddr_base ^ lockaddr_end);
+	lockaddr_size_log2 = fls64(lockaddr_base ^ lockaddr_end);
 
 	/* Cap the size against minimum and maximum values allowed. */
 	if (lockaddr_size_log2 > KBASE_LOCK_REGION_MAX_SIZE_LOG2)
@@ -126,6 +146,13 @@ static int lock_region(struct kbase_gpu_props const *gpu_props, u64 *lockaddr,
 	 */
 	*lockaddr = lockaddr_base & ~((1ull << lockaddr_size_log2) - 1);
 	*lockaddr |= lockaddr_size_log2 - 1;
+
+#if MALI_USE_CSF
+	if (mmu_has_flush_skip_pgd_levels(gpu_props))
+		*lockaddr =
+			AS_LOCKADDR_FLUSH_SKIP_LEVELS_SET(*lockaddr, op_param->flush_skip_levels);
+#endif
+
 	return 0;
 }
 

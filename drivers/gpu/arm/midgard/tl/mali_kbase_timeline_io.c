@@ -283,7 +283,8 @@ static ssize_t kbasep_timeline_io_read(struct file *filp, char __user *buffer,
  * @filp: Pointer to file structure
  * @wait: Pointer to poll table
  *
- * Return: POLLIN if data can be read without blocking, otherwise zero
+ * Return: EPOLLIN | EPOLLRDNORM if data can be read without blocking,
+ *         otherwise zero, or EPOLLHUP | EPOLLERR on error.
  */
 static __poll_t kbasep_timeline_io_poll(struct file *filp, poll_table *wait)
 {
@@ -295,18 +296,19 @@ static __poll_t kbasep_timeline_io_poll(struct file *filp, poll_table *wait)
 	KBASE_DEBUG_ASSERT(wait);
 
 	if (WARN_ON(!filp->private_data))
-		return (__force __poll_t)-EFAULT;
+		return EPOLLHUP | EPOLLERR;
 
 	timeline = (struct kbase_timeline *)filp->private_data;
 
 	/* If there are header bytes to copy, read will not block */
 	if (kbasep_timeline_has_header_data(timeline))
-		return (__force __poll_t)POLLIN;
+		return EPOLLIN | EPOLLRDNORM;
 
 	poll_wait(filp, &timeline->event_queue, wait);
 	if (kbasep_timeline_io_packet_pending(timeline, &stream, &rb_idx))
-		return (__force __poll_t)POLLIN;
-	return 0;
+		return EPOLLIN | EPOLLRDNORM;
+
+	return (__poll_t)0;
 }
 
 int kbase_timeline_io_acquire(struct kbase_device *kbdev, u32 flags)

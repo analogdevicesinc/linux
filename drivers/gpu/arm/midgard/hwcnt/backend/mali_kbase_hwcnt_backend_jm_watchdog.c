@@ -25,6 +25,7 @@
 #include <hwcnt/mali_kbase_hwcnt_types.h>
 
 #include <hwcnt/backend/mali_kbase_hwcnt_backend.h>
+#include <hwcnt/backend/mali_kbase_hwcnt_backend_jm_watchdog.h>
 #include <hwcnt/mali_kbase_hwcnt_watchdog_if.h>
 
 #if IS_ENABLED(CONFIG_MALI_IS_FPGA) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
@@ -824,5 +825,5 @@ void kbase_hwcnt_backend_jm_watchdog_destroy(struct kbase_hwcnt_backend_interfac
 	kfree((struct kbase_hwcnt_backend_jm_watchdog_info *)iface->info);
 
 	/*blanking the watchdog backend interface*/
-	*iface = (struct kbase_hwcnt_backend_interface){ NULL };
+	memset(iface, 0, sizeof(*iface));
 }

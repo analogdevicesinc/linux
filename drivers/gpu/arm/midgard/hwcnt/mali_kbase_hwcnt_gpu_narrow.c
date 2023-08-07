@@ -149,7 +149,9 @@ void kbase_hwcnt_dump_buffer_narrow_free(struct kbase_hwcnt_dump_buffer_narrow *
 		return;
 
 	kfree(dump_buf_narrow->dump_buf);
-	*dump_buf_narrow = (struct kbase_hwcnt_dump_buffer_narrow){ NULL };
+	*dump_buf_narrow = (struct kbase_hwcnt_dump_buffer_narrow){ .md_narrow = NULL,
+								    .dump_buf = NULL,
+								    .clk_cnt_buf = NULL };
 }
 
 int kbase_hwcnt_dump_buffer_narrow_array_alloc(

@@ -42,9 +42,6 @@
 #include <backend/gpu/mali_kbase_model_dummy.h>
 #endif /* CONFIG_MALI_NO_MALI */
 
-/** The number of nanoseconds in a second. */
-#define NSECS_IN_SEC 1000000000ull /* ns */
-
 /* Ring buffer virtual address start at 4GB  */
 #define KBASE_HWC_CSF_RING_BUFFER_VA_START (1ull << 32)
 

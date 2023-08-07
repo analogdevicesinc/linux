@@ -69,7 +69,7 @@ endif
 #
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= '"r39p0-01eac0"'
+MALI_RELEASE_NAME ?= '"r40p0-01eac0"'
 # Set up defaults if not defined by build system
 ifeq ($(CONFIG_MALI_DEBUG), y)
     MALI_UNIT_TEST = 1
@@ -143,13 +143,14 @@ subdir-ccflags-y += $(ccflags-y)
 # Kernel Modules
 #
 obj-$(CONFIG_MALI_MIDGARD) += mali_kbase.o
-obj-$(CONFIG_MALI_ARBITRATION) += arbitration/
+obj-$(CONFIG_MALI_ARBITRATION) += ../arbitration/
 obj-$(CONFIG_MALI_KUTF)    += tests/
 
 mali_kbase-y := \
     mali_kbase_cache_policy.o \
     mali_kbase_ccswe.o \
     mali_kbase_mem.o \
+    mali_kbase_mem_migrate.o \
     mali_kbase_mem_pool_group.o \
     mali_kbase_native_mgm.o \
     mali_kbase_ctx_sched.o \
@@ -168,6 +169,7 @@ mali_kbase-y := \
     mali_kbase_disjoint_events.o \
     mali_kbase_debug_mem_view.o \
     mali_kbase_debug_mem_zones.o \
+    mali_kbase_debug_mem_allocs.o \
     mali_kbase_smc.o \
     mali_kbase_mem_pool.o \
     mali_kbase_mem_pool_debugfs.o \
@@ -200,11 +202,6 @@ ifneq ($(CONFIG_MALI_CSF_SUPPORT),y)
         mali_kbase_js.o \
         mali_kbase_js_ctx_attr.o \
         mali_kbase_kinstr_jm.o
-
-    mali_kbase-$(CONFIG_MALI_DMA_FENCE) += \
-        mali_kbase_fence_ops.o \
-        mali_kbase_dma_fence.o \
-        mali_kbase_fence.o
 
     mali_kbase-$(CONFIG_SYNC_FILE) += \
         mali_kbase_fence_ops.o \

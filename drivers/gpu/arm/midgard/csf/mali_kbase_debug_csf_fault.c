@@ -63,8 +63,8 @@ static void kbase_debug_csf_fault_wakeup(struct kbase_device *kbdev)
 	wake_up_interruptible(&kbdev->csf.dof.fault_wait_wq);
 }
 
-bool kbase_debug_csf_fault_notify(struct kbase_device *kbdev, struct kbase_context *kctx,
-				  enum dumpfault_error_type error)
+bool kbase_debug_csf_fault_notify(struct kbase_device *kbdev,
+	struct kbase_context *kctx, enum dumpfault_error_type error)
 {
 	unsigned long flags;
 
@@ -75,8 +75,8 @@ bool kbase_debug_csf_fault_notify(struct kbase_device *kbdev, struct kbase_conte
 		return false;
 
 	if (kctx && kbase_ctx_flag(kctx, KCTX_DYING)) {
-		dev_info(kbdev->dev, "kctx %d_%d is dying when error %d is reported", kctx->tgid,
-			 kctx->id, error);
+		dev_info(kbdev->dev, "kctx %d_%d is dying when error %d is reported",
+			kctx->tgid, kctx->id, error);
 		kctx = NULL;
 	}
 

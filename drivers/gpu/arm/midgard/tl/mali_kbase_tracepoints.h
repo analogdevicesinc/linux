@@ -77,7 +77,7 @@ extern const size_t  aux_desc_header_size;
 #define TL_JS_EVENT_STOP      GATOR_JOB_SLOT_STOP
 #define TL_JS_EVENT_SOFT_STOP GATOR_JOB_SLOT_SOFT_STOPPED
 
-#define TLSTREAM_ENABLED (1 << 31)
+#define TLSTREAM_ENABLED (1u << 31)
 
 void __kbase_tlstream_tl_new_ctx(
 	struct kbase_tlstream *stream,

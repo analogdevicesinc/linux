@@ -20,11 +20,34 @@
  */
 
 #include <mali_kbase.h>
+#include "backend/gpu/mali_kbase_pm_internal.h"
 #include <csf/mali_kbase_csf_firmware_log.h>
 #include <csf/mali_kbase_csf_trace_buffer.h>
 #include <linux/debugfs.h>
 #include <linux/string.h>
 #include <linux/workqueue.h>
+
+/*
+ * ARMv7 instruction: Branch with Link calls a subroutine at a PC-relative address.
+ */
+#define ARMV7_T1_BL_IMM_INSTR		0xd800f000
+
+/*
+ * ARMv7 instruction: Branch with Link calls a subroutine at a PC-relative address, maximum
+ * negative jump offset.
+ */
+#define ARMV7_T1_BL_IMM_RANGE_MIN	-16777216
+
+/*
+ * ARMv7 instruction: Branch with Link calls a subroutine at a PC-relative address, maximum
+ * positive jump offset.
+ */
+#define ARMV7_T1_BL_IMM_RANGE_MAX	16777214
+
+/*
+ * ARMv7 instruction: Double NOP instructions.
+ */
+#define ARMV7_DOUBLE_NOP_INSTR		0xbf00bf00
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -291,4 +314,135 @@ void kbase_csf_firmware_log_dump_buffer(struct kbase_device *kbdev)
 	}
 
 	atomic_set(&fw_log->busy, 0);
+}
+
+void kbase_csf_firmware_log_parse_logging_call_list_entry(struct kbase_device *kbdev,
+							  const uint32_t *entry)
+{
+	kbdev->csf.fw_log.func_call_list_va_start = entry[0];
+	kbdev->csf.fw_log.func_call_list_va_end = entry[1];
+}
+
+/**
+ * toggle_logging_calls_in_loaded_image - Toggles FW log func calls in loaded FW image.
+ *
+ * @kbdev:  Instance of a GPU platform device that implements a CSF interface.
+ * @enable: Whether to enable or disable the function calls.
+ */
+static void toggle_logging_calls_in_loaded_image(struct kbase_device *kbdev, bool enable)
+{
+	uint32_t bl_instruction, diff;
+	uint32_t imm11, imm10, i1, i2, j1, j2, sign;
+	uint32_t calling_address = 0, callee_address = 0;
+	uint32_t list_entry = kbdev->csf.fw_log.func_call_list_va_start;
+	const uint32_t list_va_end = kbdev->csf.fw_log.func_call_list_va_end;
+
+	if (list_entry == 0 || list_va_end == 0)
+		return;
+
+	if (enable) {
+		for (; list_entry < list_va_end; list_entry += 2 * sizeof(uint32_t)) {
+			/* Read calling address */
+			kbase_csf_read_firmware_memory(kbdev, list_entry, &calling_address);
+			/* Read callee address */
+			kbase_csf_read_firmware_memory(kbdev, list_entry + sizeof(uint32_t),
+					&callee_address);
+
+			diff = callee_address - calling_address - 4;
+			sign = !!(diff & 0x80000000);
+			if (ARMV7_T1_BL_IMM_RANGE_MIN > (int32_t)diff &&
+					ARMV7_T1_BL_IMM_RANGE_MAX < (int32_t)diff) {
+				dev_warn(kbdev->dev, "FW log patch 0x%x out of range, skipping",
+						calling_address);
+				continue;
+			}
+
+			i1 = (diff & 0x00800000) >> 23;
+			j1 = !i1 ^ sign;
+			i2 = (diff & 0x00400000) >> 22;
+			j2 = !i2 ^ sign;
+			imm11 = (diff & 0xffe) >> 1;
+			imm10 = (diff & 0x3ff000) >> 12;
+
+			/* Compose BL instruction */
+			bl_instruction = ARMV7_T1_BL_IMM_INSTR;
+			bl_instruction |= j1 << 29;
+			bl_instruction |= j2 << 27;
+			bl_instruction |= imm11 << 16;
+			bl_instruction |= sign << 10;
+			bl_instruction |= imm10;
+
+			/* Patch logging func calls in their load location */
+			dev_dbg(kbdev->dev, "FW log patch 0x%x: 0x%x\n", calling_address,
+					bl_instruction);
+			kbase_csf_update_firmware_memory_exe(kbdev, calling_address,
+					bl_instruction);
+		}
+	} else {
+		for (; list_entry < list_va_end; list_entry += 2 * sizeof(uint32_t)) {
+			/* Read calling address */
+			kbase_csf_read_firmware_memory(kbdev, list_entry, &calling_address);
+
+			/* Overwrite logging func calls with 2 NOP instructions */
+			kbase_csf_update_firmware_memory_exe(kbdev, calling_address,
+					ARMV7_DOUBLE_NOP_INSTR);
+		}
+	}
+}
+
+int kbase_csf_firmware_log_toggle_logging_calls(struct kbase_device *kbdev, u32 val)
+{
+	unsigned long flags;
+	struct kbase_csf_firmware_log *fw_log = &kbdev->csf.fw_log;
+	bool mcu_inactive;
+	bool resume_needed = false;
+	int ret = 0;
+	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
+
+	if (atomic_cmpxchg(&fw_log->busy, 0, 1) != 0)
+		return -EBUSY;
+
+	/* Suspend all the active CS groups */
+	dev_dbg(kbdev->dev, "Suspend all the active CS groups");
+
+	kbase_csf_scheduler_lock(kbdev);
+	while (scheduler->state != SCHED_SUSPENDED) {
+		kbase_csf_scheduler_unlock(kbdev);
+		kbase_csf_scheduler_pm_suspend(kbdev);
+		kbase_csf_scheduler_lock(kbdev);
+		resume_needed = true;
+	}
+
+	/* Wait for the MCU to get disabled */
+	dev_info(kbdev->dev, "Wait for the MCU to get disabled");
+	ret = kbase_pm_wait_for_desired_state(kbdev);
+	if (ret) {
+		dev_err(kbdev->dev,
+			"wait for PM state failed when toggling FW logging calls");
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	mcu_inactive =
+		kbase_pm_is_mcu_inactive(kbdev, kbdev->pm.backend.mcu_state);
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+	if (!mcu_inactive) {
+		dev_err(kbdev->dev,
+			"MCU not inactive after PM state wait when toggling FW logging calls");
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	/* Toggle FW logging call in the loaded FW image */
+	toggle_logging_calls_in_loaded_image(kbdev, val);
+	dev_dbg(kbdev->dev, "FW logging: %s", val ? "enabled" : "disabled");
+
+out:
+	kbase_csf_scheduler_unlock(kbdev);
+	if (resume_needed)
+		/* Resume queue groups and start mcu */
+		kbase_csf_scheduler_pm_resume(kbdev);
+	atomic_set(&fw_log->busy, 0);
+	return ret;
 }

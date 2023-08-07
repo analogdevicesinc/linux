@@ -322,13 +322,14 @@ static void kbasep_hwcnt_virtualizer_client_remove(struct kbase_hwcnt_virtualize
 							       &ts_start_ns, &ts_end_ns,
 							       &hvirt->scratch_buf);
 		/* Accumulate into remaining clients' accumulation bufs */
-		if (!errcode)
+		if (!errcode) {
 			list_for_each_entry (pos, &hvirt->clients, node)
 				kbasep_hwcnt_virtualizer_client_accumulate(pos,
 									   &hvirt->scratch_buf);
 
-		/* Store the most recent dump time for rate limiting */
-		hvirt->ts_last_dump_ns = ts_end_ns;
+			/* Store the most recent dump time for rate limiting */
+			hvirt->ts_last_dump_ns = ts_end_ns;
+		}
 	}
 	WARN_ON(errcode);
 }

@@ -250,6 +250,36 @@ static int kbase_pbha_read_int_id_override_property(struct kbase_device *kbdev,
 	return 0;
 }
 
+#if MALI_USE_CSF
+static int kbase_pbha_read_propagate_bits_property(struct kbase_device *kbdev,
+						   const struct device_node *pbha_node)
+{
+	u32 bits;
+	int err;
+
+	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PBHA_HWU))
+		return 0;
+
+	err = of_property_read_u32(pbha_node, "propagate_bits", &bits);
+
+	if (err < 0) {
+		if (err != -EINVAL) {
+			dev_err(kbdev->dev,
+				"DTB value for propagate_bits is improperly formed (err=%d)\n",
+				err);
+			return err;
+		}
+	}
+
+	if (bits > (L2_CONFIG_PBHA_HWU_MASK >> L2_CONFIG_PBHA_HWU_SHIFT)) {
+		dev_err(kbdev->dev, "Bad DTB value for propagate_bits: 0x%x\n", bits);
+		return -EINVAL;
+	}
+
+	kbdev->pbha_propagate_bits = bits;
+	return 0;
+}
+#endif
 
 int kbase_pbha_read_dtb(struct kbase_device *kbdev)
 {
@@ -265,6 +295,12 @@ int kbase_pbha_read_dtb(struct kbase_device *kbdev)
 
 	err = kbase_pbha_read_int_id_override_property(kbdev, pbha_node);
 
+#if MALI_USE_CSF
+	if (err < 0)
+		return err;
+
+	err = kbase_pbha_read_propagate_bits_property(kbdev, pbha_node);
+#endif
 
 	return err;
 }

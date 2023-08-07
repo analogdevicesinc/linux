@@ -28,8 +28,6 @@
  * Status flags from the STATUS register of the IPA Control interface.
  */
 #define STATUS_COMMAND_ACTIVE ((u32)1 << 0)
-#define STATUS_TIMER_ACTIVE ((u32)1 << 1)
-#define STATUS_AUTO_ACTIVE ((u32)1 << 2)
 #define STATUS_PROTECTED_MODE ((u32)1 << 8)
 #define STATUS_RESET ((u32)1 << 9)
 #define STATUS_TIMER_ENABLED ((u32)1 << 31)
@@ -37,9 +35,7 @@
 /*
  * Commands for the COMMAND register of the IPA Control interface.
  */
-#define COMMAND_NOP ((u32)0)
 #define COMMAND_APPLY ((u32)1)
-#define COMMAND_CLEAR ((u32)2)
 #define COMMAND_SAMPLE ((u32)3)
 #define COMMAND_PROTECTED_ACK ((u32)4)
 #define COMMAND_RESET_ACK ((u32)5)

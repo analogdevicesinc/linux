@@ -121,7 +121,9 @@ void kbase_hwcnt_watchdog_if_timer_destroy(struct kbase_hwcnt_watchdog_interface
 	destroy_workqueue(timer_info->workq);
 	kfree(timer_info);
 
-	*watchdog_if = (struct kbase_hwcnt_watchdog_interface){ NULL };
+	*watchdog_if = (struct kbase_hwcnt_watchdog_interface){
+		.timer = NULL, .enable = NULL, .disable = NULL, .modify = NULL
+	};
 }
 
 int kbase_hwcnt_watchdog_if_timer_create(struct kbase_hwcnt_watchdog_interface *const watchdog_if)

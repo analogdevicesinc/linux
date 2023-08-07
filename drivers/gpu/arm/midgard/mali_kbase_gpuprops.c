@@ -707,10 +707,6 @@ static struct {
 #define PROP(name, member) \
 	{KBASE_GPUPROP_ ## name, offsetof(struct base_gpu_props, member), \
 		sizeof(((struct base_gpu_props *)0)->member)}
-#define BACKWARDS_COMPAT_PROP(name, type)                                                          \
-	{                                                                                          \
-		KBASE_GPUPROP_##name, SIZE_MAX, sizeof(type)                                       \
-	}
 	PROP(PRODUCT_ID, core_props.product_id),
 	PROP(VERSION_STATUS, core_props.version_status),
 	PROP(MINOR_REVISION, core_props.minor_revision),
@@ -724,6 +720,10 @@ static struct {
 	PROP(GPU_AVAILABLE_MEMORY_SIZE, core_props.gpu_available_memory_size),
 
 #if MALI_USE_CSF
+#define BACKWARDS_COMPAT_PROP(name, type)                                                          \
+	{                                                                                          \
+		KBASE_GPUPROP_##name, SIZE_MAX, sizeof(type)                                       \
+	}
 	BACKWARDS_COMPAT_PROP(NUM_EXEC_ENGINES, u8),
 #else
 	PROP(NUM_EXEC_ENGINES, core_props.num_exec_engines),

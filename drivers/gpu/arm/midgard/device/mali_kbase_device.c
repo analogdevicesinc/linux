@@ -56,16 +56,14 @@
 #include "arbiter/mali_kbase_arbiter_pm.h"
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
-/* NOTE: Magic - 0x45435254 (TRCE in ASCII).
- * Supports tracing feature provided in the base module.
- * Please keep it in sync with the value of base module.
- */
-#define TRACE_BUFFER_HEADER_SPECIAL 0x45435254
+#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
 
 /* Number of register accesses for the buffer that we allocate during
  * initialization time. The buffer size can be changed later via debugfs.
  */
 #define KBASEP_DEFAULT_REGISTER_HISTORY_SIZE ((u16)512)
+
+#endif /* defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI) */
 
 static DEFINE_MUTEX(kbase_dev_list_lock);
 static LIST_HEAD(kbase_dev_list);

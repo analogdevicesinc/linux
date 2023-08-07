@@ -28,12 +28,12 @@
 #include <tl/mali_kbase_tracepoints.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
-#include "mali_kbase_arbiter_interface.h"
+#include "linux/mali_arbiter_interface.h"
 
 /* Arbiter interface version against which was implemented this module */
 #define MALI_REQUIRED_KBASE_ARBITER_INTERFACE_VERSION 5
 #if MALI_REQUIRED_KBASE_ARBITER_INTERFACE_VERSION != \
-			MALI_KBASE_ARBITER_INTERFACE_VERSION
+			MALI_ARBITER_INTERFACE_VERSION
 #error "Unsupported Mali Arbiter interface version."
 #endif
 
