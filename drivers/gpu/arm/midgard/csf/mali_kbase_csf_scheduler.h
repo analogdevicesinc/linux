@@ -37,7 +37,9 @@
  * If the CSG is already scheduled and resident, the CSI will be started
  * right away, otherwise once the group is made resident.
  *
- * Return: 0 on success, or negative on failure.
+ * Return: 0 on success, or negative on failure. -EBUSY is returned to
+ * indicate to the caller that queue could not be enabled due to Scheduler
+ * state and the caller can try to enable the queue after sometime.
  */
 int kbase_csf_scheduler_queue_start(struct kbase_queue *queue);
 

@@ -70,7 +70,9 @@
 #include "mali_kbase_jd_debugfs.h"
 #include "mali_kbase_jm.h"
 #include "mali_kbase_js.h"
-#endif /* !MALI_USE_CSF */
+#else /* !MALI_USE_CSF */
+#include "csf/mali_kbase_debug_csf_fault.h"
+#endif /* MALI_USE_CSF */
 
 #include "ipa/mali_kbase_ipa.h"
 

@@ -4882,7 +4882,9 @@ int kbase_device_debugfs_init(struct kbase_device *kbdev)
 
 	kbasep_regs_history_debugfs_init(kbdev);
 
-#if !MALI_USE_CSF
+#if MALI_USE_CSF
+	kbase_debug_csf_fault_debugfs_init(kbdev);
+#else /* MALI_USE_CSF */
 	kbase_debug_job_fault_debugfs_init(kbdev);
 #endif /* !MALI_USE_CSF */
 

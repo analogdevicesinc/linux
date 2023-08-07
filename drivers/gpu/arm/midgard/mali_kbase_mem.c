@@ -2188,6 +2188,25 @@ int kbase_mem_free_region(struct kbase_context *kctx, struct kbase_va_region *re
 		return -EINVAL;
 	}
 
+	/* If a region has been made evictable then we must unmake it
+	 * before trying to free it.
+	 * If the memory hasn't been reclaimed it will be unmapped and freed
+	 * below, if it has been reclaimed then the operations below are no-ops.
+	 */
+	if (reg->flags & KBASE_REG_DONT_NEED) {
+		WARN_ON(reg->cpu_alloc->type != KBASE_MEM_TYPE_NATIVE);
+		mutex_lock(&kctx->jit_evict_lock);
+		/* Unlink the physical allocation before unmaking it evictable so
+		 * that the allocation isn't grown back to its last backed size
+		 * as we're going to unmap it anyway.
+		 */
+		reg->cpu_alloc->reg = NULL;
+		if (reg->cpu_alloc != reg->gpu_alloc)
+			reg->gpu_alloc->reg = NULL;
+		mutex_unlock(&kctx->jit_evict_lock);
+		kbase_mem_evictable_unmake(reg->gpu_alloc);
+	}
+
 	err = kbase_gpu_munmap(kctx, reg);
 	if (err) {
 		dev_warn(kctx->kbdev->dev, "Could not unmap from the GPU...\n");
@@ -3760,7 +3779,7 @@ int kbase_jit_init(struct kbase_context *kctx)
 	INIT_WORK(&kctx->jit_work, kbase_jit_destroy_worker);
 
 #if MALI_USE_CSF
-	spin_lock_init(&kctx->csf.kcpu_queues.jit_lock);
+	mutex_init(&kctx->csf.kcpu_queues.jit_lock);
 	INIT_LIST_HEAD(&kctx->csf.kcpu_queues.jit_cmds_head);
 	INIT_LIST_HEAD(&kctx->csf.kcpu_queues.jit_blocked_queues);
 #else /* !MALI_USE_CSF */
@@ -4200,7 +4219,9 @@ static bool jit_allow_allocate(struct kbase_context *kctx,
 {
 #if !MALI_USE_CSF
 	lockdep_assert_held(&kctx->jctx.lock);
-#endif
+#else /* MALI_USE_CSF */
+	lockdep_assert_held(&kctx->csf.kcpu_queues.jit_lock);
+#endif /* !MALI_USE_CSF */
 
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (!ignore_pressure_limit &&
@@ -4293,7 +4314,9 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 
 #if !MALI_USE_CSF
 	lockdep_assert_held(&kctx->jctx.lock);
-#endif
+#else /* MALI_USE_CSF */
+	lockdep_assert_held(&kctx->csf.kcpu_queues.jit_lock);
+#endif /* !MALI_USE_CSF */
 
 	if (!jit_allow_allocate(kctx, info, ignore_pressure_limit))
 		return NULL;
@@ -4501,6 +4524,12 @@ void kbase_jit_free(struct kbase_context *kctx, struct kbase_va_region *reg)
 {
 	u64 old_pages;
 
+#if !MALI_USE_CSF
+	lockdep_assert_held(&kctx->jctx.lock);
+#else /* MALI_USE_CSF */
+	lockdep_assert_held(&kctx->csf.kcpu_queues.jit_lock);
+#endif /* !MALI_USE_CSF */
+
 	/* JIT id not immediately available here, so use 0u */
 	trace_mali_jit_free(reg, 0u);
 
@@ -4594,6 +4623,7 @@ bool kbase_jit_evict(struct kbase_context *kctx)
 		reg = list_entry(kctx->jit_pool_head.prev,
 				struct kbase_va_region, jit_node);
 		list_del(&reg->jit_node);
+		list_del_init(&reg->gpu_alloc->evict_node);
 	}
 	mutex_unlock(&kctx->jit_evict_lock);
 
@@ -4618,12 +4648,10 @@ void kbase_jit_term(struct kbase_context *kctx)
 		walker = list_first_entry(&kctx->jit_pool_head,
 				struct kbase_va_region, jit_node);
 		list_del(&walker->jit_node);
+		list_del_init(&walker->gpu_alloc->evict_node);
 		mutex_unlock(&kctx->jit_evict_lock);
-		/* As context is terminating, directly free the backing pages
-		 * without unmapping them from the GPU as done in
-		 * kbase_region_tracker_erase_rbtree().
-		 */
-		kbase_free_alloced_region(walker);
+		walker->flags &= ~KBASE_REG_NO_USER_FREE;
+		kbase_mem_free_region(kctx, walker);
 		mutex_lock(&kctx->jit_evict_lock);
 	}
 
@@ -4632,8 +4660,10 @@ void kbase_jit_term(struct kbase_context *kctx)
 		walker = list_first_entry(&kctx->jit_active_head,
 				struct kbase_va_region, jit_node);
 		list_del(&walker->jit_node);
+		list_del_init(&walker->gpu_alloc->evict_node);
 		mutex_unlock(&kctx->jit_evict_lock);
-		kbase_free_alloced_region(walker);
+		walker->flags &= ~KBASE_REG_NO_USER_FREE;
+		kbase_mem_free_region(kctx, walker);
 		mutex_lock(&kctx->jit_evict_lock);
 	}
 #if MALI_JIT_PRESSURE_LIMIT_BASE

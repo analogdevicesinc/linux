@@ -1463,11 +1463,10 @@ static bool global_request_complete(struct kbase_device *const kbdev,
 	return complete;
 }
 
-static int wait_for_global_request(struct kbase_device *const kbdev,
-				   u32 const req_mask)
+static int wait_for_global_request_with_timeout(struct kbase_device *const kbdev,
+						u32 const req_mask, unsigned int timeout_ms)
 {
-	const long wait_timeout =
-		kbase_csf_timeout_in_jiffies(kbdev->csf.fw_timeout_ms);
+	const long wait_timeout = kbase_csf_timeout_in_jiffies(timeout_ms);
 	long remaining;
 	int err = 0;
 
@@ -1476,15 +1475,19 @@ static int wait_for_global_request(struct kbase_device *const kbdev,
 				       wait_timeout);
 
 	if (!remaining) {
-		dev_warn(kbdev->dev, "[%llu] Timeout (%d ms) waiting for global request %x to complete",
-			 kbase_backend_get_cycle_cnt(kbdev),
-			 kbdev->csf.fw_timeout_ms,
-			 req_mask);
+		dev_warn(kbdev->dev,
+			 "[%llu] Timeout (%d ms) waiting for global request %x to complete",
+			 kbase_backend_get_cycle_cnt(kbdev), timeout_ms, req_mask);
 		err = -ETIMEDOUT;
 
 	}
 
 	return err;
+}
+
+static int wait_for_global_request(struct kbase_device *const kbdev, u32 const req_mask)
+{
+	return wait_for_global_request_with_timeout(kbdev, req_mask, kbdev->csf.fw_timeout_ms);
 }
 
 static void set_global_request(
@@ -2011,6 +2014,11 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 	return 0;
 }
 
+void kbase_csf_firmware_early_term(struct kbase_device *kbdev)
+{
+	mutex_destroy(&kbdev->csf.reg_lock);
+}
+
 int kbase_csf_firmware_late_init(struct kbase_device *kbdev)
 {
 	kbdev->csf.gpu_idle_hysteresis_ms = FIRMWARE_IDLE_HYSTERESIS_TIME_MS;
@@ -2310,8 +2318,6 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 	 */
 	kbase_mcu_shared_interface_region_tracker_term(kbdev);
 
-	mutex_destroy(&kbdev->csf.reg_lock);
-
 	kbase_mmu_term(kbdev, &kbdev->csf.mcu_mmu);
 
 	/* Release the address space */
@@ -2363,10 +2369,11 @@ void kbase_csf_firmware_ping(struct kbase_device *const kbdev)
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 }
 
-int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev)
+int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev, unsigned int wait_timeout_ms)
 {
 	kbase_csf_firmware_ping(kbdev);
-	return wait_for_global_request(kbdev, GLB_REQ_PING_MASK);
+
+	return wait_for_global_request_with_timeout(kbdev, GLB_REQ_PING_MASK, wait_timeout_ms);
 }
 
 int kbase_csf_firmware_set_timeout(struct kbase_device *const kbdev,
@@ -2405,7 +2412,7 @@ void kbase_csf_enter_protected_mode(struct kbase_device *kbdev)
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 }
 
-void kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
+int kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
 {
 	int err;
 
@@ -2445,12 +2452,14 @@ void kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
 		}
 	}
 
-	if (err) {
+	if (unlikely(err)) {
 		if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR))
 			kbase_reset_gpu(kbdev);
 	}
 
 	KBASE_TLSTREAM_AUX_PROTECTED_ENTER_END(kbdev, kbdev);
+
+	return err;
 }
 
 void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)

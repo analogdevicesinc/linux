@@ -244,6 +244,14 @@ bool kbase_csf_event_error_pending(struct kbase_context *kctx)
 	bool error_pending = false;
 	unsigned long flags;
 
+	/* Withhold the error event if the dump on fault is ongoing.
+	 * This would prevent the Userspace from taking error recovery actions
+	 * (which can potentially affect the state that is being dumped).
+	 * Event handling thread would eventually notice the error event.
+	 */
+	if (unlikely(!kbase_debug_csf_fault_dump_complete(kctx->kbdev)))
+		return false;
+
 	spin_lock_irqsave(&kctx->csf.event.lock, flags);
 	error_pending = !list_empty(&kctx->csf.event.error_list);
 

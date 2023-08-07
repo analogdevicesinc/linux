@@ -2672,7 +2672,7 @@ static void mmu_teardown_level(struct kbase_device *kbdev,
 	/* kmap_atomic should NEVER fail. */
 	if (WARN_ON(pgd_page == NULL))
 		return;
-	if (level != MIDGARD_MMU_BOTTOMLEVEL) {
+	if (level < MIDGARD_MMU_BOTTOMLEVEL) {
 		/* Copy the page to our preallocated buffer so that we can minimize
 		 * kmap_atomic usage
 		 */
@@ -2685,7 +2685,7 @@ static void mmu_teardown_level(struct kbase_device *kbdev,
 	kunmap_atomic(pgd_page);
 	pgd_page = pgd_page_buffer;
 
-	if (level != MIDGARD_MMU_BOTTOMLEVEL) {
+	if (level < MIDGARD_MMU_BOTTOMLEVEL) {
 		for (i = 0; i < KBASE_MMU_PAGE_ENTRIES; i++) {
 			if (mmu_mode->pte_is_valid(pgd_page[i], level)) {
 				phys_addr_t target_pgd = mmu_mode->pte_to_phy_addr(

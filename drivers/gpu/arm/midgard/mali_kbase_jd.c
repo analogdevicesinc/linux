@@ -1255,7 +1255,7 @@ int kbase_jd_submit(struct kbase_context *kctx,
 		if (unlikely(jd_atom_is_v2)) {
 			if (copy_from_user(&user_atom.jc, user_addr, sizeof(struct base_jd_atom_v2)) != 0) {
 				dev_dbg(kbdev->dev,
-					"Invalid atom address %p passed to job_submit\n",
+					"Invalid atom address %pK passed to job_submit\n",
 					user_addr);
 				err = -EFAULT;
 				break;
@@ -1266,7 +1266,7 @@ int kbase_jd_submit(struct kbase_context *kctx,
 		} else {
 			if (copy_from_user(&user_atom, user_addr, stride) != 0) {
 				dev_dbg(kbdev->dev,
-					"Invalid atom address %p passed to job_submit\n",
+					"Invalid atom address %pK passed to job_submit\n",
 					user_addr);
 				err = -EFAULT;
 				break;

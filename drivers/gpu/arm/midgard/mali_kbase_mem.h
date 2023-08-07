@@ -387,6 +387,13 @@ struct kbase_va_region {
 
 #define KBASE_REG_PROTECTED         (1ul << 19)
 
+/* Region belongs to a shrinker.
+ *
+ * This can either mean that it is part of the JIT/Ephemeral or tiler heap
+ * shrinker paths. Should be removed only after making sure that there are
+ * no references remaining to it in these paths, as it may cause the physical
+ * backing of the region to disappear during use.
+ */
 #define KBASE_REG_DONT_NEED         (1ul << 20)
 
 /* Imported buffer is padded? */

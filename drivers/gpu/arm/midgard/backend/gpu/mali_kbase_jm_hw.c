@@ -1435,6 +1435,11 @@ bool kbase_reset_gpu_is_active(struct kbase_device *kbdev)
 	return true;
 }
 
+bool kbase_reset_gpu_is_not_pending(struct kbase_device *kbdev)
+{
+	return atomic_read(&kbdev->hwaccess.backend.reset_gpu) == KBASE_RESET_GPU_NOT_PENDING;
+}
+
 int kbase_reset_gpu_wait(struct kbase_device *kbdev)
 {
 	wait_event(kbdev->hwaccess.backend.reset_wait,

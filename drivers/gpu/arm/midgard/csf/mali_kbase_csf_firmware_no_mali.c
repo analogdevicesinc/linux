@@ -1058,6 +1058,11 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 	return 0;
 }
 
+void kbase_csf_firmware_early_term(struct kbase_device *kbdev)
+{
+	mutex_destroy(&kbdev->csf.reg_lock);
+}
+
 int kbase_csf_firmware_late_init(struct kbase_device *kbdev)
 {
 	kbdev->csf.gpu_idle_hysteresis_ms = FIRMWARE_IDLE_HYSTERESIS_TIME_MS;
@@ -1177,8 +1182,6 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 
 	/* NO_MALI: No trace buffers to terminate */
 
-	mutex_destroy(&kbdev->csf.reg_lock);
-
 	/* This will also free up the region allocated for the shared interface
 	 * entry parsed from the firmware image.
 	 */
@@ -1231,8 +1234,9 @@ void kbase_csf_firmware_ping(struct kbase_device *const kbdev)
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 }
 
-int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev)
+int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev, unsigned int wait_timeout_ms)
 {
+	CSTD_UNUSED(wait_timeout_ms);
 	kbase_csf_firmware_ping(kbdev);
 	return wait_for_global_request(kbdev, GLB_REQ_PING_MASK);
 }
@@ -1271,7 +1275,7 @@ void kbase_csf_enter_protected_mode(struct kbase_device *kbdev)
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 }
 
-void kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
+int kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
 {
 	int err = wait_for_global_request(kbdev, GLB_REQ_PROTM_ENTER_MASK);
 
@@ -1279,6 +1283,8 @@ void kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
 		if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_NONE))
 			kbase_reset_gpu(kbdev);
 	}
+
+	return err;
 }
 
 void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)

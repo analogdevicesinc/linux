@@ -128,8 +128,7 @@
 /* Maximum number of pages of memory that require a permanent mapping, per
  * kbase_context
  */
-#define KBASE_PERMANENTLY_MAPPED_MEM_LIMIT_PAGES ((32 * 1024ul * 1024ul) >> \
-								PAGE_SHIFT)
+#define KBASE_PERMANENTLY_MAPPED_MEM_LIMIT_PAGES ((64 * 1024ul * 1024ul) >> PAGE_SHIFT)
 /* Minimum threshold period for hwcnt dumps between different hwcnt virtualizer
  * clients, to reduce undesired system load.
  * If a virtualizer client requests a dump within this threshold period after
@@ -1102,7 +1101,9 @@ struct kbase_device {
 #endif /* CONFIG_MALI_DEVFREQ */
 	unsigned long previous_frequency;
 
+#if !MALI_USE_CSF
 	atomic_t job_fault_debug;
+#endif /* !MALI_USE_CSF */
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *mali_debugfs_directory;
@@ -1113,11 +1114,13 @@ struct kbase_device {
 	u64 debugfs_as_read_bitmap;
 #endif /* CONFIG_MALI_DEBUG */
 
+#if !MALI_USE_CSF
 	wait_queue_head_t job_fault_wq;
 	wait_queue_head_t job_fault_resume_wq;
 	struct workqueue_struct *job_fault_resume_workq;
 	struct list_head job_fault_event_list;
 	spinlock_t job_fault_event_lock;
+#endif /* !MALI_USE_CSF */
 
 #if !MALI_CUSTOMER_RELEASE
 	struct {

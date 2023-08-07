@@ -198,6 +198,7 @@ static int kbase_csf_early_init(struct kbase_device *kbdev)
 static void kbase_csf_early_term(struct kbase_device *kbdev)
 {
 	kbase_csf_scheduler_early_term(kbdev);
+	kbase_csf_firmware_early_term(kbdev);
 }
 
 /**
@@ -322,6 +323,8 @@ static const struct kbase_device_init dev_init[] = {
 	{ kbase_backend_late_init, kbase_backend_late_term, "Late backend initialization failed" },
 	{ kbase_csf_late_init, NULL, "Late CSF initialization failed" },
 	{ NULL, kbase_device_firmware_hwcnt_term, NULL },
+	{ kbase_debug_csf_fault_init, kbase_debug_csf_fault_term,
+	  "CSF fault debug initialization failed" },
 	{ kbase_device_debugfs_init, kbase_device_debugfs_term, "DebugFS initialization failed" },
 	/* Sysfs init needs to happen before registering the device with
 	 * misc_register(), otherwise it causes a race condition between
