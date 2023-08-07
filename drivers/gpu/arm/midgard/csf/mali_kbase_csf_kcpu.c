@@ -674,9 +674,8 @@ static int kbase_csf_queue_group_suspend_prepare(
 		    (kbase_reg_current_backed_size(reg) < nr_pages) ||
 		    !(reg->flags & KBASE_REG_CPU_WR) ||
 		    (reg->gpu_alloc->type != KBASE_MEM_TYPE_NATIVE) ||
-		    (reg->flags & KBASE_REG_DONT_NEED) ||
-		    (reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC) ||
-		    (reg->flags & KBASE_REG_NO_USER_FREE)) {
+		    (kbase_is_region_shrinkable(reg)) ||
+		    (kbase_va_region_is_no_user_free(kctx, reg))) {
 			ret = -EINVAL;
 			goto out_clean_pages;
 		}
@@ -1234,9 +1233,8 @@ static void kbase_csf_fence_wait_callback(struct dma_fence *fence,
 	queue_work(kcpu_queue->wq, &kcpu_queue->work);
 }
 
-static void kbase_kcpu_fence_wait_cancel(
-		struct kbase_kcpu_command_queue *kcpu_queue,
-		struct kbase_kcpu_command_fence_info *fence_info)
+static void kbasep_kcpu_fence_wait_cancel(struct kbase_kcpu_command_queue *kcpu_queue,
+					  struct kbase_kcpu_command_fence_info *fence_info)
 {
 	struct kbase_context *const kctx = kcpu_queue->kctx;
 
@@ -1410,15 +1408,14 @@ static int kbase_kcpu_fence_wait_process(
 	 */
 
 	if (fence_status)
-		kbase_kcpu_fence_wait_cancel(kcpu_queue, fence_info);
+		kbasep_kcpu_fence_wait_cancel(kcpu_queue, fence_info);
 
 	return fence_status;
 }
 
-static int kbase_kcpu_fence_wait_prepare(
-		struct kbase_kcpu_command_queue *kcpu_queue,
-		struct base_kcpu_command_fence_info *fence_info,
-		struct kbase_kcpu_command *current_command)
+static int kbase_kcpu_fence_wait_prepare(struct kbase_kcpu_command_queue *kcpu_queue,
+					 struct base_kcpu_command_fence_info *fence_info,
+					 struct kbase_kcpu_command *current_command)
 {
 #if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
 	struct fence *fence_in;
@@ -1429,8 +1426,7 @@ static int kbase_kcpu_fence_wait_prepare(
 
 	lockdep_assert_held(&kcpu_queue->lock);
 
-	if (copy_from_user(&fence, u64_to_user_ptr(fence_info->fence),
-			sizeof(fence)))
+	if (copy_from_user(&fence, u64_to_user_ptr(fence_info->fence), sizeof(fence)))
 		return -ENOMEM;
 
 	fence_in = sync_file_get_fence(fence.basep.fd);
@@ -1444,9 +1440,8 @@ static int kbase_kcpu_fence_wait_prepare(
 	return 0;
 }
 
-static int kbase_kcpu_fence_signal_process(
-		struct kbase_kcpu_command_queue *kcpu_queue,
-		struct kbase_kcpu_command_fence_info *fence_info)
+static int kbasep_kcpu_fence_signal_process(struct kbase_kcpu_command_queue *kcpu_queue,
+					    struct kbase_kcpu_command_fence_info *fence_info)
 {
 	struct kbase_context *const kctx = kcpu_queue->kctx;
 	int ret;
@@ -1467,36 +1462,36 @@ static int kbase_kcpu_fence_signal_process(
 				  fence_info->fence->seqno);
 
 	/* dma_fence refcount needs to be decreased to release it. */
-	dma_fence_put(fence_info->fence);
+	kbase_fence_put(fence_info->fence);
 	fence_info->fence = NULL;
 
 	return ret;
 }
 
-static int kbase_kcpu_fence_signal_prepare(
-		struct kbase_kcpu_command_queue *kcpu_queue,
-		struct base_kcpu_command_fence_info *fence_info,
-		struct kbase_kcpu_command *current_command)
+static int kbasep_kcpu_fence_signal_init(struct kbase_kcpu_command_queue *kcpu_queue,
+					 struct kbase_kcpu_command *current_command,
+					 struct base_fence *fence, struct sync_file **sync_file,
+					 int *fd)
 {
 #if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
 	struct fence *fence_out;
 #else
 	struct dma_fence *fence_out;
 #endif
-	struct base_fence fence;
-	struct sync_file *sync_file;
+	struct kbase_kcpu_dma_fence *kcpu_fence;
 	int ret = 0;
-	int fd;
 
 	lockdep_assert_held(&kcpu_queue->lock);
 
-	if (copy_from_user(&fence, u64_to_user_ptr(fence_info->fence),
-			sizeof(fence)))
-		return -EFAULT;
-
-	fence_out = kzalloc(sizeof(*fence_out), GFP_KERNEL);
-	if (!fence_out)
+	kcpu_fence = kzalloc(sizeof(*kcpu_fence), GFP_KERNEL);
+	if (!kcpu_fence)
 		return -ENOMEM;
+
+#if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
+	fence_out = (struct fence *)kcpu_fence;
+#else
+	fence_out = (struct dma_fence *)kcpu_fence;
+#endif
 
 	dma_fence_init(fence_out,
 		       &kbase_fence_ops,
@@ -1513,28 +1508,70 @@ static int kbase_kcpu_fence_signal_prepare(
 	dma_fence_get(fence_out);
 #endif
 
+	/* Set reference to KCPU metadata and increment refcount */
+	kcpu_fence->metadata = kcpu_queue->metadata;
+#if (KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)
+	WARN_ON(!atomic_inc_not_zero(&kcpu_fence->metadata->refcount));
+#else
+	WARN_ON(!refcount_inc_not_zero(&kcpu_fence->metadata->refcount));
+#endif
+
 	/* create a sync_file fd representing the fence */
-	sync_file = sync_file_create(fence_out);
-	if (!sync_file) {
+	*sync_file = sync_file_create(fence_out);
+	if (!(*sync_file)) {
 		ret = -ENOMEM;
 		goto file_create_fail;
 	}
 
-	fd = get_unused_fd_flags(O_CLOEXEC);
-	if (fd < 0) {
-		ret = fd;
+	*fd = get_unused_fd_flags(O_CLOEXEC);
+	if (*fd < 0) {
+		ret = *fd;
 		goto fd_flags_fail;
 	}
 
-	fence.basep.fd = fd;
+	fence->basep.fd = *fd;
 
 	current_command->type = BASE_KCPU_COMMAND_TYPE_FENCE_SIGNAL;
 	current_command->info.fence.fence = fence_out;
 
+	return 0;
+
+fd_flags_fail:
+	fput((*sync_file)->file);
+file_create_fail:
+	/*
+	 * Upon failure, dma_fence refcount that was increased by
+	 * dma_fence_get() or sync_file_create() needs to be decreased
+	 * to release it.
+	 */
+	kbase_fence_put(fence_out);
+	current_command->info.fence.fence = NULL;
+
+	return ret;
+}
+
+static int kbase_kcpu_fence_signal_prepare(struct kbase_kcpu_command_queue *kcpu_queue,
+					   struct base_kcpu_command_fence_info *fence_info,
+					   struct kbase_kcpu_command *current_command)
+{
+	struct base_fence fence;
+	struct sync_file *sync_file = NULL;
+	int fd;
+	int ret = 0;
+
+	lockdep_assert_held(&kcpu_queue->lock);
+
+	if (copy_from_user(&fence, u64_to_user_ptr(fence_info->fence), sizeof(fence)))
+		return -EFAULT;
+
+	ret = kbasep_kcpu_fence_signal_init(kcpu_queue, current_command, &fence, &sync_file, &fd);
+	if (ret)
+		return ret;
+
 	if (copy_to_user(u64_to_user_ptr(fence_info->fence), &fence,
 			sizeof(fence))) {
 		ret = -EFAULT;
-		goto fd_flags_fail;
+		goto fail;
 	}
 
 	/* 'sync_file' pointer can't be safely dereferenced once 'fd' is
@@ -1544,21 +1581,34 @@ static int kbase_kcpu_fence_signal_prepare(
 	fd_install(fd, sync_file->file);
 	return 0;
 
-fd_flags_fail:
+fail:
 	fput(sync_file->file);
-file_create_fail:
-	/*
-	 * Upon failure, dma_fence refcount that was increased by
-	 * dma_fence_get() or sync_file_create() needs to be decreased
-	 * to release it.
-	 */
-	dma_fence_put(fence_out);
-
+	kbase_fence_put(current_command->info.fence.fence);
 	current_command->info.fence.fence = NULL;
-	kfree(fence_out);
 
 	return ret;
 }
+
+int kbase_kcpu_fence_signal_process(struct kbase_kcpu_command_queue *kcpu_queue,
+				    struct kbase_kcpu_command_fence_info *fence_info)
+{
+	if (!kcpu_queue || !fence_info)
+		return -EINVAL;
+
+	return kbasep_kcpu_fence_signal_process(kcpu_queue, fence_info);
+}
+KBASE_EXPORT_TEST_API(kbase_kcpu_fence_signal_process);
+
+int kbase_kcpu_fence_signal_init(struct kbase_kcpu_command_queue *kcpu_queue,
+				 struct kbase_kcpu_command *current_command,
+				 struct base_fence *fence, struct sync_file **sync_file, int *fd)
+{
+	if (!kcpu_queue || !current_command || !fence || !sync_file || !fd)
+		return -EINVAL;
+
+	return kbasep_kcpu_fence_signal_init(kcpu_queue, current_command, fence, sync_file, fd);
+}
+KBASE_EXPORT_TEST_API(kbase_kcpu_fence_signal_init);
 #endif /* CONFIG_SYNC_FILE */
 
 static void kcpu_queue_process_worker(struct work_struct *data)
@@ -1594,6 +1644,9 @@ static int delete_queue(struct kbase_context *kctx, u32 id)
 		mutex_unlock(&kctx->csf.kcpu_queues.lock);
 
 		mutex_lock(&queue->lock);
+
+		/* Metadata struct may outlive KCPU queue.  */
+		kbase_kcpu_dma_fence_meta_put(queue->metadata);
 
 		/* Drain the remaining work for this queue first and go past
 		 * all the waits.
@@ -1701,8 +1754,7 @@ static void kcpu_queue_process(struct kbase_kcpu_command_queue *queue,
 			status = 0;
 #if IS_ENABLED(CONFIG_SYNC_FILE)
 			if (drain_queue) {
-				kbase_kcpu_fence_wait_cancel(queue,
-					&cmd->info.fence);
+				kbasep_kcpu_fence_wait_cancel(queue, &cmd->info.fence);
 			} else {
 				status = kbase_kcpu_fence_wait_process(queue,
 					&cmd->info.fence);
@@ -1732,8 +1784,7 @@ static void kcpu_queue_process(struct kbase_kcpu_command_queue *queue,
 			status = 0;
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)
-			status = kbase_kcpu_fence_signal_process(
-				queue, &cmd->info.fence);
+			status = kbasep_kcpu_fence_signal_process(queue, &cmd->info.fence);
 
 			if (status < 0)
 				queue->has_error = true;
@@ -2275,6 +2326,7 @@ void kbase_csf_kcpu_queue_context_term(struct kbase_context *kctx)
 
 	mutex_destroy(&kctx->csf.kcpu_queues.lock);
 }
+KBASE_EXPORT_TEST_API(kbase_csf_kcpu_queue_context_term);
 
 int kbase_csf_kcpu_queue_delete(struct kbase_context *kctx,
 			struct kbase_ioctl_kcpu_queue_delete *del)
@@ -2288,7 +2340,9 @@ int kbase_csf_kcpu_queue_new(struct kbase_context *kctx,
 	struct kbase_kcpu_command_queue *queue;
 	int idx;
 	int ret = 0;
-
+#if IS_ENABLED(CONFIG_SYNC_FILE)
+	struct kbase_kcpu_dma_fence_meta *metadata;
+#endif
 	/* The queue id is of u8 type and we use the index of the kcpu_queues
 	 * array as an id, so the number of elements in the array can't be
 	 * more than 256.
@@ -2334,7 +2388,27 @@ int kbase_csf_kcpu_queue_new(struct kbase_context *kctx,
 	queue->fence_context = dma_fence_context_alloc(1);
 	queue->fence_seqno = 0;
 	queue->fence_wait_processed = false;
+
+	metadata = kzalloc(sizeof(*metadata), GFP_KERNEL);
+	if (!metadata) {
+		kfree(queue);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	metadata->kbdev = kctx->kbdev;
+	metadata->kctx_id = kctx->id;
+	snprintf(metadata->timeline_name, MAX_TIMELINE_NAME, "%d-%d_%d-%lld-kcpu", kctx->kbdev->id,
+		 kctx->tgid, kctx->id, queue->fence_context);
+
+#if (KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)
+	atomic_set(&metadata->refcount, 1);
+#else
+	refcount_set(&metadata->refcount, 1);
 #endif
+	queue->metadata = metadata;
+	atomic_inc(&kctx->kbdev->live_fence_metadata);
+#endif /* CONFIG_SYNC_FILE */
 	queue->enqueue_failed = false;
 	queue->command_started = false;
 	INIT_LIST_HEAD(&queue->jit_blocked);
@@ -2360,3 +2434,4 @@ out:
 
 	return ret;
 }
+KBASE_EXPORT_TEST_API(kbase_csf_kcpu_queue_new);

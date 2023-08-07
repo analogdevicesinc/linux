@@ -39,6 +39,11 @@
 #include <linux/version_compat_defs.h>
 #include <linux/workqueue.h>
 
+/* Explicitly include epoll header for old kernels. Not required from 4.16. */
+#if KERNEL_VERSION(4, 16, 0) > LINUX_VERSION_CODE
+#include <uapi/linux/eventpoll.h>
+#endif
+
 /* The minimum allowed interval between dumps, in nanoseconds
  * (equivalent to 10KHz)
  */
@@ -125,6 +130,34 @@ struct kbase_kinstr_prfcnt_async {
 	struct work_struct dump_work;
 	u64 user_data;
 	u64 ts_end_ns;
+};
+
+/**
+ * enum kbase_kinstr_prfcnt_client_init_state - A list of
+ *                                              initialisation states that the
+ *                                              kinstr_prfcnt client can be at
+ *                                              during initialisation. Useful
+ *                                              for terminating a partially
+ *                                              initialised client.
+ *
+ * @KINSTR_PRFCNT_UNINITIALISED : Client is uninitialised
+ * @KINSTR_PRFCNT_PARSE_SETUP : Parse the setup session
+ * @KINSTR_PRFCNT_ENABLE_MAP : Allocate memory for enable map
+ * @KINSTR_PRFCNT_DUMP_BUFFER : Allocate memory for dump buffer
+ * @KINSTR_PRFCNT_SAMPLE_ARRAY : Allocate memory for and initialise sample array
+ * @KINSTR_PRFCNT_VIRTUALIZER_CLIENT : Create virtualizer client
+ * @KINSTR_PRFCNT_WAITQ_MUTEX : Create and initialise mutex and waitqueue
+ * @KINSTR_PRFCNT_INITIALISED : Client is fully initialised
+ */
+enum kbase_kinstr_prfcnt_client_init_state {
+	KINSTR_PRFCNT_UNINITIALISED,
+	KINSTR_PRFCNT_PARSE_SETUP = KINSTR_PRFCNT_UNINITIALISED,
+	KINSTR_PRFCNT_ENABLE_MAP,
+	KINSTR_PRFCNT_DUMP_BUFFER,
+	KINSTR_PRFCNT_SAMPLE_ARRAY,
+	KINSTR_PRFCNT_VIRTUALIZER_CLIENT,
+	KINSTR_PRFCNT_WAITQ_MUTEX,
+	KINSTR_PRFCNT_INITIALISED
 };
 
 /**
@@ -1163,17 +1196,44 @@ static void kbasep_kinstr_prfcnt_sample_array_free(
 	memset(sample_arr, 0, sizeof(*sample_arr));
 }
 
-void kbasep_kinstr_prfcnt_client_destroy(struct kbase_kinstr_prfcnt_client *cli)
+static void
+kbasep_kinstr_prfcnt_client_destroy_partial(struct kbase_kinstr_prfcnt_client *cli,
+					    enum kbase_kinstr_prfcnt_client_init_state init_state)
 {
 	if (!cli)
 		return;
 
-	kbase_hwcnt_virtualizer_client_destroy(cli->hvcli);
-	kbasep_kinstr_prfcnt_sample_array_free(&cli->sample_arr);
-	kbase_hwcnt_dump_buffer_free(&cli->tmp_buf);
-	kbase_hwcnt_enable_map_free(&cli->enable_map);
-	mutex_destroy(&cli->cmd_sync_lock);
+	while (init_state-- > KINSTR_PRFCNT_UNINITIALISED) {
+		switch (init_state) {
+		case KINSTR_PRFCNT_INITIALISED:
+			/* This shouldn't be reached */
+			break;
+		case KINSTR_PRFCNT_WAITQ_MUTEX:
+			mutex_destroy(&cli->cmd_sync_lock);
+			break;
+		case KINSTR_PRFCNT_VIRTUALIZER_CLIENT:
+			kbase_hwcnt_virtualizer_client_destroy(cli->hvcli);
+			break;
+		case KINSTR_PRFCNT_SAMPLE_ARRAY:
+			kbasep_kinstr_prfcnt_sample_array_free(&cli->sample_arr);
+			break;
+		case KINSTR_PRFCNT_DUMP_BUFFER:
+			kbase_hwcnt_dump_buffer_free(&cli->tmp_buf);
+			break;
+		case KINSTR_PRFCNT_ENABLE_MAP:
+			kbase_hwcnt_enable_map_free(&cli->enable_map);
+			break;
+		case KINSTR_PRFCNT_PARSE_SETUP:
+			/* Nothing to do here */
+			break;
+		}
+	}
 	kfree(cli);
+}
+
+void kbasep_kinstr_prfcnt_client_destroy(struct kbase_kinstr_prfcnt_client *cli)
+{
+	kbasep_kinstr_prfcnt_client_destroy_partial(cli, KINSTR_PRFCNT_INITIALISED);
 }
 
 /**
@@ -1790,6 +1850,7 @@ int kbasep_kinstr_prfcnt_client_create(struct kbase_kinstr_prfcnt_context *kinst
 {
 	int err;
 	struct kbase_kinstr_prfcnt_client *cli;
+	enum kbase_kinstr_prfcnt_client_init_state init_state;
 
 	WARN_ON(!kinstr_ctx);
 	WARN_ON(!setup);
@@ -1800,73 +1861,86 @@ int kbasep_kinstr_prfcnt_client_create(struct kbase_kinstr_prfcnt_context *kinst
 	if (!cli)
 		return -ENOMEM;
 
-	cli->kinstr_ctx = kinstr_ctx;
-	err = kbasep_kinstr_prfcnt_parse_setup(kinstr_ctx, setup, &cli->config, req_arr);
+	for (init_state = KINSTR_PRFCNT_UNINITIALISED; init_state < KINSTR_PRFCNT_INITIALISED;
+	     init_state++) {
+		err = 0;
+		switch (init_state) {
+		case KINSTR_PRFCNT_PARSE_SETUP:
+			cli->kinstr_ctx = kinstr_ctx;
+			err = kbasep_kinstr_prfcnt_parse_setup(kinstr_ctx, setup, &cli->config,
+							       req_arr);
 
-	if (err < 0)
-		goto error;
+			break;
 
-	cli->config.buffer_count = MAX_BUFFER_COUNT;
-	cli->dump_interval_ns = cli->config.period_ns;
-	cli->next_dump_time_ns = 0;
-	cli->active = false;
-	atomic_set(&cli->write_idx, 0);
-	atomic_set(&cli->read_idx, 0);
-	atomic_set(&cli->fetch_idx, 0);
+		case KINSTR_PRFCNT_ENABLE_MAP:
+			cli->config.buffer_count = MAX_BUFFER_COUNT;
+			cli->dump_interval_ns = cli->config.period_ns;
+			cli->next_dump_time_ns = 0;
+			cli->active = false;
+			atomic_set(&cli->write_idx, 0);
+			atomic_set(&cli->read_idx, 0);
+			atomic_set(&cli->fetch_idx, 0);
 
-	err = kbase_hwcnt_enable_map_alloc(kinstr_ctx->metadata,
-					   &cli->enable_map);
+			err = kbase_hwcnt_enable_map_alloc(kinstr_ctx->metadata, &cli->enable_map);
+			break;
 
-	if (err < 0)
-		goto error;
+		case KINSTR_PRFCNT_DUMP_BUFFER:
+			kbase_hwcnt_gpu_enable_map_from_physical(&cli->enable_map,
+								 &cli->config.phys_em);
 
-	kbase_hwcnt_gpu_enable_map_from_physical(&cli->enable_map, &cli->config.phys_em);
+			cli->sample_count = cli->config.buffer_count;
+			atomic_set(&cli->sync_sample_count, cli->sample_count);
+			cli->sample_size =
+				kbasep_kinstr_prfcnt_get_sample_size(cli, kinstr_ctx->metadata);
 
-	cli->sample_count = cli->config.buffer_count;
-	atomic_set(&cli->sync_sample_count, cli->sample_count);
-	cli->sample_size = kbasep_kinstr_prfcnt_get_sample_size(cli, kinstr_ctx->metadata);
+			/* Use virtualizer's metadata to alloc tmp buffer which interacts with
+			 * the HWC virtualizer.
+			 */
+			err = kbase_hwcnt_dump_buffer_alloc(kinstr_ctx->metadata, &cli->tmp_buf);
+			break;
 
-	/* Use virtualizer's metadata to alloc tmp buffer which interacts with
-	 * the HWC virtualizer.
-	 */
-	err = kbase_hwcnt_dump_buffer_alloc(kinstr_ctx->metadata,
-					    &cli->tmp_buf);
+		case KINSTR_PRFCNT_SAMPLE_ARRAY:
+			/* Disable clock map in setup, and enable clock map when start */
+			cli->enable_map.clk_enable_map = 0;
 
-	if (err < 0)
-		goto error;
+			/* Use metadata from virtualizer to allocate dump buffers  if
+			 * kinstr_prfcnt doesn't have the truncated metadata.
+			 */
+			err = kbasep_kinstr_prfcnt_sample_array_alloc(cli, kinstr_ctx->metadata);
 
-	/* Disable clock map in setup, and enable clock map when start */
-	cli->enable_map.clk_enable_map = 0;
+			break;
 
-	/* Use metadata from virtualizer to allocate dump buffers  if
-	 * kinstr_prfcnt doesn't have the truncated metadata.
-	 */
-	err = kbasep_kinstr_prfcnt_sample_array_alloc(cli, kinstr_ctx->metadata);
+		case KINSTR_PRFCNT_VIRTUALIZER_CLIENT:
+			/* Set enable map to be 0 to prevent virtualizer to init and kick the
+			 * backend to count.
+			 */
+			kbase_hwcnt_gpu_enable_map_from_physical(
+				&cli->enable_map, &(struct kbase_hwcnt_physical_enable_map){ 0 });
 
-	if (err < 0)
-		goto error;
+			err = kbase_hwcnt_virtualizer_client_create(kinstr_ctx->hvirt,
+								    &cli->enable_map, &cli->hvcli);
+			break;
 
-	/* Set enable map to be 0 to prevent virtualizer to init and kick the backend to count */
-	kbase_hwcnt_gpu_enable_map_from_physical(&cli->enable_map,
-						 &(struct kbase_hwcnt_physical_enable_map){ 0 });
+		case KINSTR_PRFCNT_WAITQ_MUTEX:
+			init_waitqueue_head(&cli->waitq);
+			INIT_WORK(&cli->async.dump_work, kbasep_kinstr_prfcnt_async_dump_worker);
+			mutex_init(&cli->cmd_sync_lock);
+			break;
 
-	err = kbase_hwcnt_virtualizer_client_create(
-		kinstr_ctx->hvirt, &cli->enable_map, &cli->hvcli);
+		case KINSTR_PRFCNT_INITIALISED:
+			/* This shouldn't be reached */
+			break;
+		}
 
-	if (err < 0)
-		goto error;
-
-	init_waitqueue_head(&cli->waitq);
-	INIT_WORK(&cli->async.dump_work,
-		  kbasep_kinstr_prfcnt_async_dump_worker);
-	mutex_init(&cli->cmd_sync_lock);
+		if (err < 0) {
+			kbasep_kinstr_prfcnt_client_destroy_partial(cli, init_state);
+			return err;
+		}
+	}
 	*out_vcli = cli;
 
 	return 0;
 
-error:
-	kbasep_kinstr_prfcnt_client_destroy(cli);
-	return err;
 }
 
 static size_t kbasep_kinstr_prfcnt_get_block_info_count(

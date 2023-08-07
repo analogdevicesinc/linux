@@ -69,6 +69,12 @@ void kbase_ctx_sched_term(struct kbase_device *kbdev)
 	}
 }
 
+void kbase_ctx_sched_init_ctx(struct kbase_context *kctx)
+{
+	kctx->as_nr = KBASEP_AS_NR_INVALID;
+	atomic_set(&kctx->refcount, 0);
+}
+
 /* kbasep_ctx_sched_find_as_for_ctx - Find a free address space
  *
  * @kbdev: The context for which to find a free address space
@@ -201,9 +207,10 @@ void kbase_ctx_sched_release_ctx(struct kbase_context *kctx)
 void kbase_ctx_sched_remove_ctx(struct kbase_context *kctx)
 {
 	struct kbase_device *const kbdev = kctx->kbdev;
+	unsigned long flags;
 
-	lockdep_assert_held(&kbdev->mmu_hw_mutex);
-	lockdep_assert_held(&kbdev->hwaccess_lock);
+	mutex_lock(&kbdev->mmu_hw_mutex);
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
 	WARN_ON(atomic_read(&kctx->refcount) != 0);
 
@@ -215,6 +222,9 @@ void kbase_ctx_sched_remove_ctx(struct kbase_context *kctx)
 		kbdev->as_to_kctx[kctx->as_nr] = NULL;
 		kctx->as_nr = KBASEP_AS_NR_INVALID;
 	}
+
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+	mutex_unlock(&kbdev->mmu_hw_mutex);
 }
 
 void kbase_ctx_sched_restore_all_as(struct kbase_device *kbdev)

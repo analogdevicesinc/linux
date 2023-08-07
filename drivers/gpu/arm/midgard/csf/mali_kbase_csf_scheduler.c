@@ -553,7 +553,7 @@ void kbase_csf_scheduler_process_gpu_idle_event(struct kbase_device *kbdev)
 			 * updated whilst gpu_idle_worker() is executing.
 			 */
 			scheduler->fast_gpu_idle_handling =
-				(kbdev->csf.gpu_idle_hysteresis_ms == 0) ||
+				(kbdev->csf.gpu_idle_hysteresis_us == 0) ||
 				!kbase_csf_scheduler_all_csgs_idle(kbdev);
 
 			/* The GPU idle worker relies on update_on_slot_queues_offsets() to have
@@ -2297,7 +2297,7 @@ static void deschedule_idle_wait_group(struct kbase_csf_scheduler *scheduler,
 	insert_group_to_idle_wait(group);
 }
 
-static void update_offslot_non_idle_cnt_for_faulty_grp(struct kbase_queue_group *group)
+static void update_offslot_non_idle_cnt(struct kbase_queue_group *group)
 {
 	struct kbase_device *kbdev = group->kctx->kbdev;
 	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
@@ -2789,7 +2789,7 @@ static void remove_scheduled_group(struct kbase_device *kbdev,
 }
 
 static void sched_evict_group(struct kbase_queue_group *group, bool fault,
-			      bool update_non_idle_offslot_grps_cnt)
+			      bool update_non_idle_offslot_grps_cnt_from_run_state)
 {
 	struct kbase_context *kctx = group->kctx;
 	struct kbase_device *kbdev = kctx->kbdev;
@@ -2800,7 +2800,7 @@ static void sched_evict_group(struct kbase_queue_group *group, bool fault,
 	if (queue_group_scheduled_locked(group)) {
 		u32 i;
 
-		if (update_non_idle_offslot_grps_cnt &&
+		if (update_non_idle_offslot_grps_cnt_from_run_state &&
 		    (group->run_state == KBASE_CSF_GROUP_SUSPENDED ||
 		     group->run_state == KBASE_CSF_GROUP_RUNNABLE)) {
 			int new_val = atomic_dec_return(
@@ -2815,8 +2815,11 @@ static void sched_evict_group(struct kbase_queue_group *group, bool fault,
 		}
 
 		if (group->prepared_seq_num !=
-				KBASEP_GROUP_PREPARED_SEQ_NUM_INVALID)
+				KBASEP_GROUP_PREPARED_SEQ_NUM_INVALID) {
+			if (!update_non_idle_offslot_grps_cnt_from_run_state)
+				update_offslot_non_idle_cnt(group);
 			remove_scheduled_group(kbdev, group);
+		}
 
 		if (group->run_state == KBASE_CSF_GROUP_SUSPENDED_ON_WAIT_SYNC)
 			remove_group_from_idle_wait(group);
@@ -3222,8 +3225,7 @@ static void program_group_on_vacant_csg_slot(struct kbase_device *kbdev,
 					scheduler->remaining_tick_slots--;
 				}
 			} else {
-				update_offslot_non_idle_cnt_for_faulty_grp(
-					group);
+				update_offslot_non_idle_cnt(group);
 				remove_scheduled_group(kbdev, group);
 			}
 		}
@@ -3413,8 +3415,6 @@ static void program_suspending_csg_slots(struct kbase_device *kbdev)
 				 */
 				clear_bit(i, slot_mask);
 				set_bit(i, scheduler->csgs_events_enable_mask);
-				update_offslot_non_idle_cnt_for_onslot_grp(
-					group);
 			}
 
 			suspend_wait_failed = true;
@@ -3874,10 +3874,15 @@ static void scheduler_group_check_protm_enter(struct kbase_device *const kbdev,
 				struct kbase_queue_group *const input_grp)
 {
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
+	struct kbase_protected_suspend_buffer *sbuf = &input_grp->protected_suspend_buf;
 	unsigned long flags;
 	bool protm_in_use;
 
 	lockdep_assert_held(&scheduler->lock);
+
+	/* Return early if the physical pages have not been allocated yet */
+	if (unlikely(!sbuf->pma))
+		return;
 
 	/* This lock is taken to prevent the issuing of MMU command during the
 	 * transition to protected mode. This helps avoid the scenario where the
@@ -4049,8 +4054,7 @@ static void scheduler_apply(struct kbase_device *kbdev)
 
 			if (!kctx_as_enabled(group->kctx) || group->faulted) {
 				/* Drop the head group and continue */
-				update_offslot_non_idle_cnt_for_faulty_grp(
-					group);
+				update_offslot_non_idle_cnt(group);
 				remove_scheduled_group(kbdev, group);
 				continue;
 			}
@@ -4329,6 +4333,8 @@ static void scheduler_update_idle_slots_status(struct kbase_device *kbdev,
 			set_bit(i, csg_bitmap);
 		} else {
 			group->run_state = KBASE_CSF_GROUP_RUNNABLE;
+			KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSF_GROUP_RUNNABLE, group,
+						group->run_state);
 		}
 	}
 
@@ -5165,16 +5171,12 @@ redo_local_tock:
 	 * queue jobs.
 	 */
 	if (protm_grp && scheduler->top_grp == protm_grp) {
-		int new_val;
-
 		dev_dbg(kbdev->dev, "Scheduler keep protm exec: group-%d",
 			protm_grp->handle);
-		new_val = atomic_dec_return(&scheduler->non_idle_offslot_grps);
-		KBASE_KTRACE_ADD_CSF_GRP(kbdev, SCHEDULER_NONIDLE_OFFSLOT_GRP_DEC, protm_grp,
-					 new_val);
-
 		spin_unlock_irqrestore(&scheduler->interrupt_lock, flags);
 
+		update_offslot_non_idle_cnt_for_onslot_grp(protm_grp);
+		remove_scheduled_group(kbdev, protm_grp);
 		scheduler_check_pmode_progress(kbdev);
 	} else if (scheduler->top_grp) {
 		if (protm_grp)
@@ -5988,8 +5990,11 @@ void kbase_csf_scheduler_group_protm_enter(struct kbase_queue_group *group)
 
 	mutex_lock(&scheduler->lock);
 
-	if (group->run_state == KBASE_CSF_GROUP_IDLE)
+	if (group->run_state == KBASE_CSF_GROUP_IDLE) {
 		group->run_state = KBASE_CSF_GROUP_RUNNABLE;
+		KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSF_GROUP_RUNNABLE, group,
+					group->run_state);
+	}
 	/* Check if the group is now eligible for execution in protected mode. */
 	if (scheduler_get_protm_enter_async_group(kbdev, group))
 		scheduler_group_check_protm_enter(kbdev, group);
@@ -6257,6 +6262,8 @@ int kbase_csf_scheduler_context_init(struct kbase_context *kctx)
 	int priority;
 	int err;
 
+	kbase_ctx_sched_init_ctx(kctx);
+
 	for (priority = 0; priority < KBASE_QUEUE_GROUP_PRIORITY_COUNT;
 	     ++priority) {
 		INIT_LIST_HEAD(&kctx->csf.sched.runnable_groups[priority]);
@@ -6273,7 +6280,8 @@ int kbase_csf_scheduler_context_init(struct kbase_context *kctx)
 	if (!kctx->csf.sched.sync_update_wq) {
 		dev_err(kctx->kbdev->dev,
 			"Failed to initialize scheduler context workqueue");
-		return -ENOMEM;
+		err = -ENOMEM;
+		goto alloc_wq_failed;
 	}
 
 	INIT_WORK(&kctx->csf.sched.sync_update_work,
@@ -6286,9 +6294,15 @@ int kbase_csf_scheduler_context_init(struct kbase_context *kctx)
 	if (err) {
 		dev_err(kctx->kbdev->dev,
 			"Failed to register a sync update callback");
-		destroy_workqueue(kctx->csf.sched.sync_update_wq);
+		goto event_wait_add_failed;
 	}
 
+	return err;
+
+event_wait_add_failed:
+	destroy_workqueue(kctx->csf.sched.sync_update_wq);
+alloc_wq_failed:
+	kbase_ctx_sched_remove_ctx(kctx);
 	return err;
 }
 
@@ -6297,6 +6311,8 @@ void kbase_csf_scheduler_context_term(struct kbase_context *kctx)
 	kbase_csf_event_wait_remove(kctx, check_group_sync_update_cb, kctx);
 	cancel_work_sync(&kctx->csf.sched.sync_update_work);
 	destroy_workqueue(kctx->csf.sched.sync_update_wq);
+
+	kbase_ctx_sched_remove_ctx(kctx);
 }
 
 int kbase_csf_scheduler_init(struct kbase_device *kbdev)

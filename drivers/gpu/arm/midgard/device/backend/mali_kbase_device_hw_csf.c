@@ -149,9 +149,6 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 
 		dev_dbg(kbdev->dev, "Doorbell mirror interrupt received");
 		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-#ifdef CONFIG_MALI_DEBUG
-		WARN_ON(!kbase_csf_scheduler_get_nr_active_csgs(kbdev));
-#endif
 		kbase_pm_disable_db_mirror_interrupt(kbdev);
 		kbdev->pm.backend.exit_gpu_sleep_mode = true;
 		kbase_csf_scheduler_invoke_tick(kbdev);

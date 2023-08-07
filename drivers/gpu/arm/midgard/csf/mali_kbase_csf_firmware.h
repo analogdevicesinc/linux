@@ -246,7 +246,6 @@ void kbase_csf_firmware_csg_input_mask(
 u32 kbase_csf_firmware_csg_output(
 	const struct kbase_csf_cmd_stream_group_info *info, u32 offset);
 
-
 /**
  * struct kbase_csf_global_iface - Global CSF interface
  *                                 provided by the firmware.
@@ -858,5 +857,16 @@ static inline u32 kbase_csf_interface_version(u32 major, u32 minor, u32 patch)
  */
 int kbase_csf_trigger_firmware_config_update(struct kbase_device *kbdev);
 
+/**
+ * kbase_csf_firmware_req_core_dump - Request a firmware core dump
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ *
+ * Request a firmware core dump and wait for for firmware to acknowledge.
+ * Firmware will enter infinite loop after the firmware core dump is created.
+ *
+ * Return: 0 if success, or negative error code on failure.
+ */
+int kbase_csf_firmware_req_core_dump(struct kbase_device *const kbdev);
 
 #endif

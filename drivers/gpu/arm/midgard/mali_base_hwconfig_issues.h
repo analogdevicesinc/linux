@@ -596,7 +596,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tDU
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tODx_r0p0[] = {
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3212,
@@ -606,8 +605,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tODx_r0p0
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tODx[] = {
-	BASE_HW_ISSUE_5736,
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3212,
@@ -617,7 +614,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tOD
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tGRx_r0p0[] = {
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -626,8 +622,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tGRx_r0p0
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tGRx[] = {
-	BASE_HW_ISSUE_5736,
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -636,7 +630,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tGR
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tVAx_r0p0[] = {
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -645,8 +638,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tVAx_r0p0
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tVAx[] = {
-	BASE_HW_ISSUE_5736,
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -655,7 +646,17 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tVA
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r0p0[] = {
-	BASE_HW_ISSUE_9435,
+	BASE_HW_ISSUE_TSIX_2033,
+	BASE_HW_ISSUE_TTRX_1337,
+	BASE_HW_ISSUE_TURSEHW_1997,
+	BASE_HW_ISSUE_GPU2019_3878,
+	BASE_HW_ISSUE_TURSEHW_2716,
+	BASE_HW_ISSUE_GPU2019_3901,
+	BASE_HW_ISSUE_GPU2021PRO_290,
+	BASE_HW_ISSUE_END
+};
+
+__attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r0p1[] = {
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_TURSEHW_1997,
@@ -667,8 +668,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r0p0
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tTUx[] = {
-	BASE_HW_ISSUE_5736,
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -679,7 +678,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tTU
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r1p0[] = {
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -690,7 +688,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r1p0
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r1p1[] = {
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -701,7 +698,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r1p1
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r1p2[] = {
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_GPU2019_3878,
@@ -712,8 +708,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTUx_r1p2
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tTIx[] = {
-	BASE_HW_ISSUE_5736,
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_TURSEHW_2716,
@@ -722,7 +716,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tTI
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tTIx_r0p0[] = {
-	BASE_HW_ISSUE_9435,
 	BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,
 	BASE_HW_ISSUE_TURSEHW_2716,

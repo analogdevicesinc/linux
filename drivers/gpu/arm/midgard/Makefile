@@ -70,6 +70,12 @@ ifeq ($(CONFIG_MALI_MIDGARD),m)
         endif
     endif
 
+    ifeq ($(CONFIG_MALI_CSF_SUPPORT), y)
+        CONFIG_MALI_FW_CORE_DUMP ?= y
+    else
+        CONFIG_MALI_FW_CORE_DUMP ?= n
+    endif
+
     #
     # Expert/Debug/Test released configurations
     #
@@ -149,6 +155,7 @@ else
     CONFIG_MALI_KUTF_IRQ_TEST = n
     CONFIG_MALI_KUTF_CLK_RATE_TRACE = n
     CONFIG_MALI_KUTF_MGM_INTEGRATION_TEST = n
+    CONFIG_MALI_FW_CORE_DUMP = n
 endif
 
 # All Mali CONFIG should be listed here
@@ -189,7 +196,8 @@ CONFIGS := \
     CONFIG_MALI_KUTF_IRQ_TEST \
     CONFIG_MALI_KUTF_CLK_RATE_TRACE \
     CONFIG_MALI_KUTF_MGM_INTEGRATION_TEST \
-    CONFIG_MALI_XEN
+    CONFIG_MALI_XEN \
+    CONFIG_MALI_FW_CORE_DUMP
 
 
 #

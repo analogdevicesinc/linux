@@ -663,8 +663,10 @@ static int kbase_open(struct inode *inode, struct file *filp)
 	if (!kbdev)
 		return -ENODEV;
 
-	/* Set address space operation for page migration */
+#if (KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE)
+	/* Set address space operations for page migration */
 	kbase_mem_migrate_set_address_space_ops(kbdev, filp);
+#endif
 
 	/* Device-wide firmware load is moved here from probing to comply with
 	 * Android GKI vendor guideline.
@@ -4578,8 +4580,18 @@ int power_control_init(struct kbase_device *kbdev)
 	 * from completing its initialization.
 	 */
 #if defined(CONFIG_PM_OPP)
-#if ((KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE) && \
-	defined(CONFIG_REGULATOR))
+#if defined(CONFIG_REGULATOR)
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+	if (kbdev->nr_regulators > 0) {
+		kbdev->token = dev_pm_opp_set_regulators(kbdev->dev, regulator_names);
+
+		if (kbdev->token < 0) {
+			err = kbdev->token;
+			goto regulators_probe_defer;
+		}
+
+	}
+#elif (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
 	if (kbdev->nr_regulators > 0) {
 		kbdev->opp_table = dev_pm_opp_set_regulators(kbdev->dev,
 			regulator_names, BASE_MAX_NR_CLOCKS_REGULATORS);
@@ -4589,7 +4601,8 @@ int power_control_init(struct kbase_device *kbdev)
 			goto regulators_probe_defer;
 		}
 	}
-#endif /* (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE */
+#endif /* (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE) */
+#endif /* CONFIG_REGULATOR */
 	err = dev_pm_opp_of_add_table(kbdev->dev);
 	CSTD_UNUSED(err);
 #endif /* CONFIG_PM_OPP */
@@ -4624,11 +4637,15 @@ void power_control_term(struct kbase_device *kbdev)
 
 #if defined(CONFIG_PM_OPP)
 	dev_pm_opp_of_remove_table(kbdev->dev);
-#if ((KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE) && \
-	defined(CONFIG_REGULATOR))
+#if defined(CONFIG_REGULATOR)
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+	if (kbdev->token > -EPERM)
+		dev_pm_opp_put_regulators(kbdev->token);
+#elif (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
 	if (!IS_ERR_OR_NULL(kbdev->opp_table))
 		dev_pm_opp_put_regulators(kbdev->opp_table);
-#endif /* (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE */
+#endif /* (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE) */
+#endif /* CONFIG_REGULATOR */
 #endif /* CONFIG_PM_OPP */
 
 	for (i = 0; i < BASE_MAX_NR_CLOCKS_REGULATORS; i++) {
@@ -5491,6 +5508,11 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	}
 
 	kbdev->dev = &pdev->dev;
+
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+	kbdev->token = -EPERM;
+#endif /* (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE) */
+
 	dev_set_drvdata(kbdev->dev, kbdev);
 #if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
 	mutex_lock(&kbase_probe_mutex);

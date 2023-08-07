@@ -645,6 +645,8 @@ int kbasep_js_kctx_init(struct kbase_context *const kctx)
 
 	KBASE_DEBUG_ASSERT(kctx != NULL);
 
+	kbase_ctx_sched_init_ctx(kctx);
+
 	for (i = 0; i < BASE_JM_MAX_NR_SLOTS; ++i)
 		INIT_LIST_HEAD(&kctx->jctx.sched_info.ctx.ctx_list_entry[i]);
 
@@ -722,6 +724,8 @@ void kbasep_js_kctx_term(struct kbase_context *kctx)
 		kbase_backend_ctx_count_changed(kbdev);
 		mutex_unlock(&kbdev->js_data.runpool_mutex);
 	}
+
+	kbase_ctx_sched_remove_ctx(kctx);
 }
 
 /*
@@ -4030,4 +4034,3 @@ base_jd_prio kbase_js_priority_check(struct kbase_device *kbdev, base_jd_prio pr
 									    req_priority);
 	return kbasep_js_sched_prio_to_atom_prio(kbdev, out_priority);
 }
-

@@ -345,7 +345,7 @@ static int kbasep_hwcnt_backend_csf_if_fw_ring_buf_alloc(
 	/* Update MMU table */
 	ret = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, gpu_va_base >> PAGE_SHIFT, phys,
 				     num_pages, flags, MCU_AS_NR, KBASE_MEM_GROUP_CSF_FW,
-				     mmu_sync_info);
+				     mmu_sync_info, NULL, false);
 	if (ret)
 		goto mmu_insert_failed;
 
@@ -480,7 +480,7 @@ kbasep_hwcnt_backend_csf_if_fw_ring_buf_free(struct kbase_hwcnt_backend_csf_if_c
 
 		WARN_ON(kbase_mmu_teardown_pages(fw_ctx->kbdev, &fw_ctx->kbdev->csf.mcu_mmu,
 						 gpu_va_base >> PAGE_SHIFT, fw_ring_buf->phys,
-						 fw_ring_buf->num_pages, MCU_AS_NR));
+						 fw_ring_buf->num_pages, MCU_AS_NR, true));
 
 		vunmap(fw_ring_buf->cpu_dump_base);
 

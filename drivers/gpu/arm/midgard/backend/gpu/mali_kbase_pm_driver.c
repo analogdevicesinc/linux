@@ -1142,11 +1142,20 @@ static bool can_power_down_l2(struct kbase_device *kbdev)
 #if MALI_USE_CSF
 	/* Due to the HW issue GPU2019-3878, need to prevent L2 power off
 	 * whilst MMU command is in progress.
+	 * Also defer the power-down if MMU is in process of page migration.
 	 */
-	return !kbdev->mmu_hw_operation_in_progress;
+	return !kbdev->mmu_hw_operation_in_progress && !kbdev->mmu_page_migrate_in_progress;
 #else
-	return true;
+	return !kbdev->mmu_page_migrate_in_progress;
 #endif
+}
+
+static bool can_power_up_l2(struct kbase_device *kbdev)
+{
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
+	/* Avoiding l2 transition if MMU is undergoing page migration */
+	return !kbdev->mmu_page_migrate_in_progress;
 }
 
 static bool need_tiler_control(struct kbase_device *kbdev)
@@ -1220,7 +1229,7 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 
 		switch (backend->l2_state) {
 		case KBASE_L2_OFF:
-			if (kbase_pm_is_l2_desired(kbdev)) {
+			if (kbase_pm_is_l2_desired(kbdev) && can_power_up_l2(kbdev)) {
 #if MALI_USE_CSF && defined(KBASE_PM_RUNTIME)
 				/* Enable HW timer of IPA control before
 				 * L2 cache is powered-up.

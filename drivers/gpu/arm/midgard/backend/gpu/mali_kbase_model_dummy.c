@@ -319,7 +319,7 @@ static const struct control_reg_values_t all_control_reg_values[] = {
 		.mmu_features = 0x2830,
 		.gpu_features_lo = 0,
 		.gpu_features_hi = 0,
-		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT_TBEX,
 		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
 	},
 	{
@@ -364,7 +364,7 @@ static const struct control_reg_values_t all_control_reg_values[] = {
 		.mmu_features = 0x2830,
 		.gpu_features_lo = 0,
 		.gpu_features_hi = 0,
-		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT_TODX,
 		.stack_present = DUMMY_IMPLEMENTATION_STACK_PRESENT,
 	},
 	{
@@ -412,7 +412,7 @@ static const struct control_reg_values_t all_control_reg_values[] = {
 		.mmu_features = 0x2830,
 		.gpu_features_lo = 0xf,
 		.gpu_features_hi = 0,
-		.shader_present = 0xFF,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT_TTUX,
 		.stack_present = 0xF,
 	},
 	{
@@ -428,7 +428,7 @@ static const struct control_reg_values_t all_control_reg_values[] = {
 		.mmu_features = 0x2830,
 		.gpu_features_lo = 0xf,
 		.gpu_features_hi = 0,
-		.shader_present = 0xFF,
+		.shader_present = DUMMY_IMPLEMENTATION_SHADER_PRESENT_TTIX,
 		.stack_present = 0xF,
 	},
 };
@@ -530,17 +530,18 @@ static u32 gpu_model_get_prfcnt_value(enum kbase_ipa_core_type core_type,
 		(ipa_ctl_select_config[core_type] >> (cnt_idx * 8)) & 0xFF;
 
 	/* Currently only primary counter blocks are supported */
-	if (WARN_ON(event_index >= 64))
+	if (WARN_ON(event_index >=
+		    (KBASE_DUMMY_MODEL_COUNTER_HEADER_DWORDS + KBASE_DUMMY_MODEL_COUNTER_PER_CORE)))
 		return 0;
 
 	/* The actual events start index 4 onwards. Spec also says PRFCNT_EN,
 	 * TIMESTAMP_LO or TIMESTAMP_HI pseudo-counters do not make sense for
 	 * IPA counters. If selected, the value returned for them will be zero.
 	 */
-	if (WARN_ON(event_index <= 3))
+	if (WARN_ON(event_index < KBASE_DUMMY_MODEL_COUNTER_HEADER_DWORDS))
 		return 0;
 
-	event_index -= 4;
+	event_index -= KBASE_DUMMY_MODEL_COUNTER_HEADER_DWORDS;
 
 	spin_lock_irqsave(&performance_counters.access_lock, flags);
 

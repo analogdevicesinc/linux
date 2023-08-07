@@ -437,10 +437,13 @@ struct kbase_normal_suspend_buffer {
  * @pma:	Array of pointer to protected mode allocations containing
  *		information about memory pages allocated for protected mode
  *		suspend	buffer.
+ * @alloc_retries:	Number of times we retried allocing physical pages
+ *			for protected suspend buffers.
  */
 struct kbase_protected_suspend_buffer {
 	struct kbase_va_region *reg;
 	struct protected_memory_allocation **pma;
+	u8 alloc_retries;
 };
 
 /**
@@ -1328,6 +1331,24 @@ struct kbase_csf_firmware_log {
 	u32 func_call_list_va_end;
 };
 
+/**
+ * struct kbase_csf_firmware_core_dump - Object containing members for handling
+ *                                       firmware core dump.
+ *
+ * @mcu_regs_addr: GPU virtual address of the start of the MCU registers buffer
+ *                 in Firmware.
+ * @version:       Version of the FW image header core dump data format. Bits
+ *                 7:0 specify version minor and 15:8 specify version major.
+ * @available:     Flag to identify if the FW core dump buffer is available.
+ *                 True if entry is available in the FW image header and version
+ *                 is supported, False otherwise.
+ */
+struct kbase_csf_firmware_core_dump {
+	u32 mcu_regs_addr;
+	u16 version;
+	bool available;
+};
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 /**
  * struct kbase_csf_dump_on_fault - Faulty information to deliver to the daemon
@@ -1458,9 +1479,9 @@ struct kbase_csf_dump_on_fault {
  *                              the glb_pwoff register. This is separated from
  *                              the @p mcu_core_pwroff_dur_count as an update
  *                              to the latter is asynchronous.
- * @gpu_idle_hysteresis_ms: Sysfs attribute for the idle hysteresis time
- *                          window in unit of ms. The firmware does not use it
- *                          directly.
+ * @gpu_idle_hysteresis_us: Sysfs attribute for the idle hysteresis time
+ *                          window in unit of microseconds. The firmware does not 
+ *                          use it directly.
  * @gpu_idle_dur_count:     The counterpart of the hysteresis time window in
  *                          interface required format, ready to be used
  *                          directly in the firmware.
@@ -1470,6 +1491,8 @@ struct kbase_csf_dump_on_fault {
  *                          HW counters.
  * @fw:                     Copy of the loaded MCU firmware image.
  * @fw_log:                 Contain members required for handling firmware log.
+ * @fw_core_dump:           Contain members required for handling the firmware
+ *                          core dump.
  * @dof:                    Structure for dump on fault.
  */
 struct kbase_csf_device {
@@ -1507,12 +1530,13 @@ struct kbase_csf_device {
 	u32 mcu_core_pwroff_dur_us;
 	u32 mcu_core_pwroff_dur_count;
 	u32 mcu_core_pwroff_reg_shadow;
-	u32 gpu_idle_hysteresis_ms;
+	u32 gpu_idle_hysteresis_us;
 	u32 gpu_idle_dur_count;
 	unsigned int fw_timeout_ms;
 	struct kbase_csf_hwcnt hwcnt;
 	struct kbase_csf_mcu_fw fw;
 	struct kbase_csf_firmware_log fw_log;
+	struct kbase_csf_firmware_core_dump fw_core_dump;
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct kbase_csf_dump_on_fault dof;
 #endif /* CONFIG_DEBUG_FS */

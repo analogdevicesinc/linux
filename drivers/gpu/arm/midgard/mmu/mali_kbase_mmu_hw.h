@@ -105,6 +105,22 @@ void kbase_mmu_hw_configure(struct kbase_device *kbdev,
 		struct kbase_as *as);
 
 /**
+ * kbase_mmu_hw_do_lock - Issue LOCK command to the MMU and program
+ *                        the LOCKADDR register.
+ *
+ * @kbdev:     Kbase device to issue the MMU operation on.
+ * @as:        Address space to issue the MMU operation on.
+ * @op_param:  Pointer to struct containing information about the MMU
+ *             operation to perform.
+ *
+ * hwaccess_lock needs to be held when calling this function.
+ *
+ * Return: 0 if issuing the command was successful, otherwise an error code.
+ */
+int kbase_mmu_hw_do_lock(struct kbase_device *kbdev, struct kbase_as *as,
+			 const struct kbase_mmu_hw_op_param *op_param);
+
+/**
  * kbase_mmu_hw_do_unlock_no_addr - Issue UNLOCK command to the MMU without
  *                                  programming the LOCKADDR register and wait
  *                                  for it to complete before returning.
@@ -113,6 +129,9 @@ void kbase_mmu_hw_configure(struct kbase_device *kbdev,
  * @as:        Address space to issue the MMU operation on.
  * @op_param:  Pointer to struct containing information about the MMU
  *             operation to perform.
+ *
+ * This function should be called for GPU where GPU command is used to flush
+ * the cache(s) instead of MMU command.
  *
  * Return: 0 if issuing the command was successful, otherwise an error code.
  */
@@ -145,7 +164,7 @@ int kbase_mmu_hw_do_unlock(struct kbase_device *kbdev, struct kbase_as *as,
  * GPUs where MMU command to flush the cache(s) is deprecated.
  * mmu_hw_mutex needs to be held when calling this function.
  *
- * Return: Zero if the operation was successful, non-zero otherwise.
+ * Return: 0 if the operation was successful, non-zero otherwise.
  */
 int kbase_mmu_hw_do_flush(struct kbase_device *kbdev, struct kbase_as *as,
 			  const struct kbase_mmu_hw_op_param *op_param);
@@ -164,7 +183,7 @@ int kbase_mmu_hw_do_flush(struct kbase_device *kbdev, struct kbase_as *as,
  * Both mmu_hw_mutex and hwaccess_lock need to be held when calling this
  * function.
  *
- * Return: Zero if the operation was successful, non-zero otherwise.
+ * Return: 0 if the operation was successful, non-zero otherwise.
  */
 int kbase_mmu_hw_do_flush_locked(struct kbase_device *kbdev, struct kbase_as *as,
 				 const struct kbase_mmu_hw_op_param *op_param);
@@ -181,7 +200,7 @@ int kbase_mmu_hw_do_flush_locked(struct kbase_device *kbdev, struct kbase_as *as
  * specified inside @op_param. GPU command is used to flush the cache(s)
  * instead of the MMU command.
  *
- * Return: Zero if the operation was successful, non-zero otherwise.
+ * Return: 0 if the operation was successful, non-zero otherwise.
  */
 int kbase_mmu_hw_do_flush_on_gpu_ctrl(struct kbase_device *kbdev, struct kbase_as *as,
 				      const struct kbase_mmu_hw_op_param *op_param);

@@ -229,20 +229,32 @@
 #define GLB_PRFCNT_TILER_EN 0x0058 /* () Performance counter enable for tiler */
 #define GLB_PRFCNT_MMU_L2_EN 0x005C /* () Performance counter enable for MMU/L2 cache */
 
-#define GLB_DEBUG_FWUTF_DESTROY 0x0FE0 /* () Test fixture destroy function address */
-#define GLB_DEBUG_FWUTF_TEST 0x0FE4 /* () Test index */
-#define GLB_DEBUG_FWUTF_FIXTURE 0x0FE8 /* () Test fixture index */
-#define GLB_DEBUG_FWUTF_CREATE 0x0FEC /* () Test fixture create function address */
+#define GLB_DEBUG_ARG_IN0 0x0FE0 /* Firmware Debug argument array element 0 */
+#define GLB_DEBUG_ARG_IN1 0x0FE4 /* Firmware Debug argument array element 1 */
+#define GLB_DEBUG_ARG_IN2 0x0FE8 /* Firmware Debug argument array element 2 */
+#define GLB_DEBUG_ARG_IN3 0x0FEC /* Firmware Debug argument array element 3 */
+
+/* Mappings based on GLB_DEBUG_REQ.FWUTF_RUN bit being different from GLB_DEBUG_ACK.FWUTF_RUN */
+#define GLB_DEBUG_FWUTF_DESTROY GLB_DEBUG_ARG_IN0 /* () Test fixture destroy function address */
+#define GLB_DEBUG_FWUTF_TEST GLB_DEBUG_ARG_IN1 /* () Test index */
+#define GLB_DEBUG_FWUTF_FIXTURE GLB_DEBUG_ARG_IN2 /* () Test fixture index */
+#define GLB_DEBUG_FWUTF_CREATE GLB_DEBUG_ARG_IN3 /* () Test fixture create function address */
+
 #define GLB_DEBUG_ACK_IRQ_MASK 0x0FF8 /* () Global debug acknowledge interrupt mask */
 #define GLB_DEBUG_REQ 0x0FFC /* () Global debug request */
 
 /* GLB_OUTPUT_BLOCK register offsets */
+#define GLB_DEBUG_ARG_OUT0 0x0FE0 /* Firmware debug result element 0 */
+#define GLB_DEBUG_ARG_OUT1 0x0FE4 /* Firmware debug result element 1 */
+#define GLB_DEBUG_ARG_OUT2 0x0FE8 /* Firmware debug result element 2 */
+#define GLB_DEBUG_ARG_OUT3 0x0FEC /* Firmware debug result element 3 */
+
 #define GLB_ACK 0x0000 /* () Global acknowledge */
 #define GLB_DB_ACK 0x0008 /* () Global doorbell acknowledge */
 #define GLB_HALT_STATUS 0x0010 /* () Global halt status */
 #define GLB_PRFCNT_STATUS 0x0014 /* () Performance counter status */
 #define GLB_PRFCNT_INSERT 0x0018 /* () Performance counter buffer insert index */
-#define GLB_DEBUG_FWUTF_RESULT 0x0FE0 /* () Firmware debug test result */
+#define GLB_DEBUG_FWUTF_RESULT GLB_DEBUG_ARG_OUT0 /* () Firmware debug test result */
 #define GLB_DEBUG_ACK 0x0FFC /* () Global debug acknowledge */
 
 /* USER register offsets */
@@ -1589,5 +1601,44 @@
 	(((reg_val) & ~GLB_PRFCNT_SIZE_FIRMWARE_SIZE_MASK) |                                       \
 	 ((GLB_PRFCNT_SIZE_FIRMWARE_SIZE_SET_MOD(value) << GLB_PRFCNT_SIZE_FIRMWARE_SIZE_SHIFT) &  \
 	  GLB_PRFCNT_SIZE_FIRMWARE_SIZE_MASK))
+
+/* GLB_DEBUG_REQ register */
+#define GLB_DEBUG_REQ_DEBUG_RUN_SHIFT GPU_U(23)
+#define GLB_DEBUG_REQ_DEBUG_RUN_MASK (GPU_U(0x1) << GLB_DEBUG_REQ_DEBUG_RUN_SHIFT)
+#define GLB_DEBUG_REQ_DEBUG_RUN_GET(reg_val)                                                       \
+	(((reg_val)&GLB_DEBUG_REQ_DEBUG_RUN_MASK) >> GLB_DEBUG_REQ_DEBUG_RUN_SHIFT)
+#define GLB_DEBUG_REQ_DEBUG_RUN_SET(reg_val, value)                                                \
+	(((reg_val) & ~GLB_DEBUG_REQ_DEBUG_RUN_MASK) |                                             \
+	 (((value) << GLB_DEBUG_REQ_DEBUG_RUN_SHIFT) & GLB_DEBUG_REQ_DEBUG_RUN_MASK))
+
+#define GLB_DEBUG_REQ_RUN_MODE_SHIFT GPU_U(24)
+#define GLB_DEBUG_REQ_RUN_MODE_MASK (GPU_U(0xFF) << GLB_DEBUG_REQ_RUN_MODE_SHIFT)
+#define GLB_DEBUG_REQ_RUN_MODE_GET(reg_val)                                                        \
+	(((reg_val)&GLB_DEBUG_REQ_RUN_MODE_MASK) >> GLB_DEBUG_REQ_RUN_MODE_SHIFT)
+#define GLB_DEBUG_REQ_RUN_MODE_SET(reg_val, value)                                                 \
+	(((reg_val) & ~GLB_DEBUG_REQ_RUN_MODE_MASK) |                                              \
+	 (((value) << GLB_DEBUG_REQ_RUN_MODE_SHIFT) & GLB_DEBUG_REQ_RUN_MODE_MASK))
+
+/* GLB_DEBUG_ACK register */
+#define GLB_DEBUG_ACK_DEBUG_RUN_SHIFT GPU_U(23)
+#define GLB_DEBUG_ACK_DEBUG_RUN_MASK (GPU_U(0x1) << GLB_DEBUG_ACK_DEBUG_RUN_SHIFT)
+#define GLB_DEBUG_ACK_DEBUG_RUN_GET(reg_val)                                                       \
+	(((reg_val)&GLB_DEBUG_ACK_DEBUG_RUN_MASK) >> GLB_DEBUG_ACK_DEBUG_RUN_SHIFT)
+#define GLB_DEBUG_ACK_DEBUG_RUN_SET(reg_val, value)                                                \
+	(((reg_val) & ~GLB_DEBUG_ACK_DEBUG_RUN_MASK) |                                             \
+	 (((value) << GLB_DEBUG_ACK_DEBUG_RUN_SHIFT) & GLB_DEBUG_ACK_DEBUG_RUN_MASK))
+
+#define GLB_DEBUG_ACK_RUN_MODE_SHIFT GPU_U(24)
+#define GLB_DEBUG_ACK_RUN_MODE_MASK (GPU_U(0xFF) << GLB_DEBUG_ACK_RUN_MODE_SHIFT)
+#define GLB_DEBUG_ACK_RUN_MODE_GET(reg_val)                                                        \
+	(((reg_val)&GLB_DEBUG_ACK_RUN_MODE_MASK) >> GLB_DEBUG_ACK_RUN_MODE_SHIFT)
+#define GLB_DEBUG_ACK_RUN_MODE_SET(reg_val, value)                                                 \
+	(((reg_val) & ~GLB_DEBUG_ACK_RUN_MODE_MASK) |                                              \
+	 (((value) << GLB_DEBUG_ACK_RUN_MODE_SHIFT) & GLB_DEBUG_ACK_RUN_MODE_MASK))
+
+/* RUN_MODE values */
+#define GLB_DEBUG_RUN_MODE_TYPE_NOP 0x0
+#define GLB_DEBUG_RUN_MODE_TYPE_CORE_DUMP 0x1
+/* End of RUN_MODE values */
 
 #endif /* _KBASE_CSF_REGISTERS_H_ */

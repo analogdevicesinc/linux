@@ -29,6 +29,7 @@
 
 struct kbase_context;
 struct kbase_mmu_table;
+struct kbase_va_region;
 
 /**
  * enum kbase_caller_mmu_sync_info - MMU-synchronous caller info.
@@ -132,22 +133,54 @@ u64 kbase_mmu_create_ate(struct kbase_device *kbdev,
 
 int kbase_mmu_insert_pages_no_flush(struct kbase_device *kbdev, struct kbase_mmu_table *mmut,
 				    const u64 start_vpfn, struct tagged_addr *phys, size_t nr,
-				    unsigned long flags, int group_id, u64 *dirty_pgds);
-int kbase_mmu_insert_pages(struct kbase_device *kbdev,
-			   struct kbase_mmu_table *mmut, u64 vpfn,
-			   struct tagged_addr *phys, size_t nr,
-			   unsigned long flags, int as_nr, int group_id,
-			   enum kbase_caller_mmu_sync_info mmu_sync_info);
+				    unsigned long flags, int group_id, u64 *dirty_pgds,
+				    struct kbase_va_region *reg, bool ignore_page_migration);
+int kbase_mmu_insert_pages(struct kbase_device *kbdev, struct kbase_mmu_table *mmut, u64 vpfn,
+			   struct tagged_addr *phys, size_t nr, unsigned long flags, int as_nr,
+			   int group_id, enum kbase_caller_mmu_sync_info mmu_sync_info,
+			   struct kbase_va_region *reg, bool ignore_page_migration);
 int kbase_mmu_insert_single_page(struct kbase_context *kctx, u64 vpfn,
 				 struct tagged_addr phys, size_t nr,
 				 unsigned long flags, int group_id,
 				 enum kbase_caller_mmu_sync_info mmu_sync_info);
 
 int kbase_mmu_teardown_pages(struct kbase_device *kbdev, struct kbase_mmu_table *mmut, u64 vpfn,
-			     struct tagged_addr *phys, size_t nr, int as_nr);
+			     struct tagged_addr *phys, size_t nr, int as_nr,
+			     bool ignore_page_migration);
 int kbase_mmu_update_pages(struct kbase_context *kctx, u64 vpfn,
 			   struct tagged_addr *phys, size_t nr,
 			   unsigned long flags, int const group_id);
+
+/**
+ * kbase_mmu_migrate_page - Migrate GPU mappings and content between memory pages
+ *
+ * @old_phys:     Old physical page to be replaced.
+ * @new_phys:     New physical page used to replace old physical page.
+ * @old_dma_addr: DMA address of the old page.
+ * @new_dma_addr: DMA address of the new page.
+ * @level:        MMU page table level of the provided PGD.
+ *
+ * The page migration process is made of 2 big steps:
+ *
+ * 1) Copy the content of the old page to the new page.
+ * 2) Remap the virtual page, that is: replace either the ATE (if the old page
+ *    was a regular page) or the PTE (if the old page was used as a PGD) in the
+ *    MMU page table with the new page.
+ *
+ * During the process, the MMU region is locked to prevent GPU access to the
+ * virtual memory page that is being remapped.
+ *
+ * Before copying the content of the old page to the new page and while the
+ * MMU region is locked, a GPU cache flush is performed to make sure that
+ * pending GPU writes are finalized to the old page before copying.
+ * That is necessary because otherwise there's a risk that GPU writes might
+ * be finalized to the old page, and not new page, after migration.
+ * The MMU region is unlocked only at the end of the migration operation.
+ *
+ * Return: 0 on success, otherwise an error code.
+ */
+int kbase_mmu_migrate_page(struct tagged_addr old_phys, struct tagged_addr new_phys,
+			   dma_addr_t old_dma_addr, dma_addr_t new_dma_addr, int level);
 
 /**
  * kbase_mmu_bus_fault_interrupt - Process a bus fault interrupt.

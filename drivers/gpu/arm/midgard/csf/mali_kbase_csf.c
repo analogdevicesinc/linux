@@ -40,6 +40,8 @@
 #define CS_ACK_EXCEPTION_MASK (CS_ACK_FAULT_MASK | CS_ACK_FATAL_MASK)
 #define POWER_DOWN_LATEST_FLUSH_VALUE ((u32)1)
 
+#define PROTM_ALLOC_MAX_RETRIES ((u8)5)
+
 const u8 kbasep_csf_queue_group_priority_to_relative[BASE_QUEUE_GROUP_PRIORITY_COUNT] = {
 	KBASE_QUEUE_GROUP_PRIORITY_HIGH,
 	KBASE_QUEUE_GROUP_PRIORITY_MEDIUM,
@@ -136,7 +138,7 @@ static void gpu_munmap_user_io_pages(struct kbase_context *kctx, struct kbase_va
 	size_t num_pages = 2;
 
 	kbase_mmu_teardown_pages(kctx->kbdev, &kctx->kbdev->csf.mcu_mmu, reg->start_pfn, phys,
-				 num_pages, MCU_AS_NR);
+				 num_pages, MCU_AS_NR, true);
 
 	WARN_ON(reg->flags & KBASE_REG_FREE);
 
@@ -194,25 +196,25 @@ static int gpu_mmap_user_io_pages(struct kbase_device *kbdev,
 		return ret;
 
 	/* Map input page */
-	ret = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, reg->start_pfn,
-				     &phys[0], 1, mem_flags, MCU_AS_NR,
-				     KBASE_MEM_GROUP_CSF_IO, mmu_sync_info);
+	ret = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, reg->start_pfn, &phys[0], 1,
+				     mem_flags, MCU_AS_NR, KBASE_MEM_GROUP_CSF_IO, mmu_sync_info,
+				     NULL, false);
 	if (ret)
 		goto bad_insert;
 
 	/* Map output page, it needs rw access */
 	mem_flags |= KBASE_REG_GPU_WR;
-	ret = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu,
-				     reg->start_pfn + 1, &phys[1], 1, mem_flags,
-				     MCU_AS_NR, KBASE_MEM_GROUP_CSF_IO,
-				     mmu_sync_info);
+	ret = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, reg->start_pfn + 1, &phys[1], 1,
+				     mem_flags, MCU_AS_NR, KBASE_MEM_GROUP_CSF_IO, mmu_sync_info,
+				     NULL, false);
 	if (ret)
 		goto bad_insert_output_page;
 
 	return 0;
 
 bad_insert_output_page:
-	kbase_mmu_teardown_pages(kbdev, &kbdev->csf.mcu_mmu, reg->start_pfn, phys, 1, MCU_AS_NR);
+	kbase_mmu_teardown_pages(kbdev, &kbdev->csf.mcu_mmu, reg->start_pfn, phys, 1, MCU_AS_NR,
+				 true);
 bad_insert:
 	mutex_lock(&kbdev->csf.reg_lock);
 	kbase_remove_va_region(kbdev, reg);
@@ -307,8 +309,7 @@ static void release_queue(struct kbase_queue *queue);
  * If an explicit or implicit unbind was missed by the userspace then the
  * mapping will persist. On process exit kernel itself will remove the mapping.
  */
-static void kbase_csf_free_command_stream_user_pages(struct kbase_context *kctx,
-		struct kbase_queue *queue)
+void kbase_csf_free_command_stream_user_pages(struct kbase_context *kctx, struct kbase_queue *queue)
 {
 	const size_t num_pages = 2;
 
@@ -327,6 +328,7 @@ static void kbase_csf_free_command_stream_user_pages(struct kbase_context *kctx,
 	 */
 	release_queue(queue);
 }
+KBASE_EXPORT_TEST_API(kbase_csf_free_command_stream_user_pages);
 
 int kbase_csf_alloc_command_stream_user_pages(struct kbase_context *kctx,
 			struct kbase_queue *queue)
@@ -345,7 +347,6 @@ int kbase_csf_alloc_command_stream_user_pages(struct kbase_context *kctx,
 
 	ret = kbase_mem_pool_alloc_pages(&kctx->mem_pools.small[KBASE_MEM_GROUP_CSF_IO], num_pages,
 					 queue->phys, false);
-
 	if (ret != num_pages)
 		goto phys_alloc_failed;
 
@@ -396,6 +397,7 @@ phys_alloc_failed:
 
 	return -ENOMEM;
 }
+KBASE_EXPORT_TEST_API(kbase_csf_alloc_command_stream_user_pages);
 
 static struct kbase_queue_group *find_queue_group(struct kbase_context *kctx,
 	u8 group_handle)
@@ -412,6 +414,12 @@ static struct kbase_queue_group *find_queue_group(struct kbase_context *kctx,
 
 	return NULL;
 }
+
+struct kbase_queue_group *kbase_csf_find_queue_group(struct kbase_context *kctx, u8 group_handle)
+{
+	return find_queue_group(kctx, group_handle);
+}
+KBASE_EXPORT_TEST_API(kbase_csf_find_queue_group);
 
 int kbase_csf_queue_group_handle_is_valid(struct kbase_context *kctx,
 	u8 group_handle)
@@ -463,6 +471,17 @@ static void release_queue(struct kbase_queue *queue)
 			"Remove any pending command queue fatal from ctx %d_%d",
 			queue->kctx->tgid, queue->kctx->id);
 		kbase_csf_event_remove_error(queue->kctx, &queue->error);
+
+		/* After this the Userspace would be able to free the
+		 * memory for GPU queue. In case the Userspace missed
+		 * terminating the queue, the cleanup will happen on
+		 * context termination where tear down of region tracker
+		 * would free up the GPU queue memory.
+		 */
+		kbase_gpu_vm_lock(queue->kctx);
+		kbase_va_region_no_user_free_put(queue->kctx, queue->queue_reg);
+		kbase_gpu_vm_unlock(queue->kctx);
+
 		kfree(queue);
 	}
 }
@@ -516,7 +535,8 @@ static int csf_queue_register_internal(struct kbase_context *kctx,
 	region = kbase_region_tracker_find_region_enclosing_address(kctx,
 								    queue_addr);
 
-	if (kbase_is_region_invalid_or_free(region)) {
+	if (kbase_is_region_invalid_or_free(region) || kbase_is_region_shrinkable(region) ||
+	    region->gpu_alloc->type != KBASE_MEM_TYPE_NATIVE) {
 		ret = -ENOENT;
 		goto out_unlock_vm;
 	}
@@ -565,7 +585,7 @@ static int csf_queue_register_internal(struct kbase_context *kctx,
 
 	queue->kctx = kctx;
 	queue->base_addr = queue_addr;
-	queue->queue_reg = region;
+	queue->queue_reg = kbase_va_region_no_user_free_get(kctx, region);
 	queue->size = (queue_size << PAGE_SHIFT);
 	queue->csi_index = KBASEP_IF_NR_INVALID;
 	queue->enabled = false;
@@ -603,7 +623,6 @@ static int csf_queue_register_internal(struct kbase_context *kctx,
 
 	queue->extract_ofs = 0;
 
-	region->flags |= KBASE_REG_NO_USER_FREE;
 	region->user_data = queue;
 
 	/* Initialize the cs_trace configuration parameters, When buffer_size
@@ -697,16 +716,8 @@ void kbase_csf_queue_terminate(struct kbase_context *kctx,
 		unbind_queue(kctx, queue);
 
 		kbase_gpu_vm_lock(kctx);
-		if (!WARN_ON(!queue->queue_reg)) {
-			/* After this the Userspace would be able to free the
-			 * memory for GPU queue. In case the Userspace missed
-			 * terminating the queue, the cleanup will happen on
-			 * context termination where tear down of region tracker
-			 * would free up the GPU queue memory.
-			 */
-			queue->queue_reg->flags &= ~KBASE_REG_NO_USER_FREE;
+		if (!WARN_ON(!queue->queue_reg))
 			queue->queue_reg->user_data = NULL;
-		}
 		kbase_gpu_vm_unlock(kctx);
 
 		release_queue(queue);
@@ -869,6 +880,15 @@ void kbase_csf_ring_csg_slots_doorbell(struct kbase_device *kbdev,
 
 	if (WARN_ON(slot_bitmap > allowed_bitmap))
 		return;
+
+	/* The access to GLB_DB_REQ/ACK needs to be ordered with respect to CSG_REQ/ACK and
+	 * CSG_DB_REQ/ACK to avoid a scenario where a CSI request overlaps with a CSG request
+	 * or 2 CSI requests overlap and FW ends up missing the 2nd request.
+	 * Memory barrier is required, both on Host and FW side, to guarantee the ordering.
+	 *
+	 * 'osh' is used as CPU and GPU would be in the same Outer shareable domain.
+	 */
+	dmb(osh);
 
 	value = kbase_csf_firmware_global_output(global_iface, GLB_DB_ACK);
 	value ^= slot_bitmap;
@@ -1168,10 +1188,9 @@ static int create_normal_suspend_buffer(struct kbase_context *const kctx,
 		goto add_va_region_failed;
 
 	/* Update MMU table */
-	err = kbase_mmu_insert_pages(kctx->kbdev, &kctx->kbdev->csf.mcu_mmu,
-				     reg->start_pfn, &s_buf->phy[0], nr_pages,
-				     mem_flags, MCU_AS_NR,
-				     KBASE_MEM_GROUP_CSF_FW, mmu_sync_info);
+	err = kbase_mmu_insert_pages(kctx->kbdev, &kctx->kbdev->csf.mcu_mmu, reg->start_pfn,
+				     &s_buf->phy[0], nr_pages, mem_flags, MCU_AS_NR,
+				     KBASE_MEM_GROUP_CSF_FW, mmu_sync_info, NULL, false);
 	if (err)
 		goto mmu_insert_failed;
 
@@ -1198,83 +1217,47 @@ phy_alloc_failed:
 }
 
 /**
- * create_protected_suspend_buffer() - Create protected-mode suspend buffer
- *					per queue group
+ * init_protected_suspend_buffer() -  Reserve the VA range for the protected-mode
+ *                                    suspend buffer of a queue group.
+ *				      Allocation of physical pages will happen when
+ *                                    queue group enters protected mode.
  *
  * @kbdev: Instance of a GPU platform device that implements a CSF interface.
  * @s_buf: Pointer to suspend buffer that is attached to queue group
  *
- * Return: 0 if suspend buffer is successfully allocated and reflected to GPU
- *         MMU page table. Otherwise -ENOMEM.
+ * Return: 0 if suspend buffer init is successful, Otherwise Negative error value.
  */
-static int create_protected_suspend_buffer(struct kbase_device *const kbdev,
-		struct kbase_protected_suspend_buffer *s_buf)
+static int init_protected_suspend_buffer(struct kbase_device *const kbdev,
+					 struct kbase_protected_suspend_buffer *s_buf)
 {
 	struct kbase_va_region *reg = NULL;
-	struct tagged_addr *phys = NULL;
-	const unsigned long mem_flags = KBASE_REG_GPU_RD | KBASE_REG_GPU_WR;
 	const size_t nr_pages =
 		PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
 	int err = 0;
 
-	/* Calls to this function are inherently asynchronous, with respect to
-	 * MMU operations.
-	 */
-	const enum kbase_caller_mmu_sync_info mmu_sync_info = CALLER_MMU_ASYNC;
+	s_buf->reg = NULL;
+	s_buf->pma = NULL;
+	s_buf->alloc_retries = 0;
 
 	/* Allocate and initialize Region Object */
 	reg = kbase_alloc_free_region(&kbdev->csf.shared_reg_rbtree, 0,
 			nr_pages, KBASE_REG_ZONE_MCU_SHARED);
 
-	if (!reg)
+	if (unlikely(!reg))
 		return -ENOMEM;
 
-	phys = kcalloc(nr_pages, sizeof(*phys), GFP_KERNEL);
-	if (!phys) {
-		err = -ENOMEM;
-		goto phy_alloc_failed;
-	}
-
-	s_buf->pma = kbase_csf_protected_memory_alloc(kbdev, phys,
-			nr_pages, true);
-	if (s_buf->pma == NULL) {
-		err = -ENOMEM;
-		goto pma_alloc_failed;
-	}
-
 	/* Insert Region Object into rbtree and make virtual address available
-	 * to map it to physical page
+	 * to map it to physical page.
 	 */
 	mutex_lock(&kbdev->csf.reg_lock);
 	err = kbase_add_va_region_rbtree(kbdev, reg, 0, nr_pages, 1);
 	reg->flags &= ~KBASE_REG_FREE;
 	mutex_unlock(&kbdev->csf.reg_lock);
 
-	if (err)
-		goto add_va_region_failed;
-
-	/* Update MMU table */
-	err = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, reg->start_pfn,
-				     phys, nr_pages, mem_flags, MCU_AS_NR,
-				     KBASE_MEM_GROUP_CSF_FW, mmu_sync_info);
-	if (err)
-		goto mmu_insert_failed;
-
-	s_buf->reg = reg;
-	kfree(phys);
-	return 0;
-
-mmu_insert_failed:
-	mutex_lock(&kbdev->csf.reg_lock);
-	kbase_remove_va_region(kbdev, reg);
-	mutex_unlock(&kbdev->csf.reg_lock);
-
-add_va_region_failed:
-	kbase_csf_protected_memory_free(kbdev, s_buf->pma, nr_pages, true);
-pma_alloc_failed:
-	kfree(phys);
-phy_alloc_failed:
-	kfree(reg);
+	if (unlikely(err))
+		kbase_free_alloced_region(reg);
+	else
+		s_buf->reg = reg;
 
 	return err;
 }
@@ -1305,12 +1288,10 @@ static int create_suspend_buffers(struct kbase_context *const kctx,
 	}
 
 	if (kctx->kbdev->csf.pma_dev) {
-		err = create_protected_suspend_buffer(kctx->kbdev,
-				&group->protected_suspend_buf);
+		err = init_protected_suspend_buffer(kctx->kbdev, &group->protected_suspend_buf);
 		if (err) {
 			term_normal_suspend_buffer(kctx,
 					&group->normal_suspend_buf);
-			dev_err(kctx->kbdev->dev, "Failed to create protected suspend buffer\n");
 		}
 	} else {
 		group->protected_suspend_buf.reg = NULL;
@@ -1521,7 +1502,8 @@ static void term_normal_suspend_buffer(struct kbase_context *const kctx,
 	lockdep_assert_held(&kctx->csf.lock);
 
 	WARN_ON(kbase_mmu_teardown_pages(kctx->kbdev, &kctx->kbdev->csf.mcu_mmu,
-					 s_buf->reg->start_pfn, s_buf->phy, nr_pages, MCU_AS_NR));
+					 s_buf->reg->start_pfn, s_buf->phy, nr_pages, MCU_AS_NR,
+					 true));
 
 	WARN_ON(s_buf->reg->flags & KBASE_REG_FREE);
 
@@ -1540,38 +1522,41 @@ static void term_normal_suspend_buffer(struct kbase_context *const kctx,
 }
 
 /**
- * term_protected_suspend_buffer() - Free normal-mode suspend buffer of
+ * term_protected_suspend_buffer() - Free protected-mode suspend buffer of
  *					queue group
  *
  * @kbdev: Instance of a GPU platform device that implements a CSF interface.
- * @s_buf: Pointer to queue group suspend buffer to be freed
+ * @sbuf: Pointer to queue group suspend buffer to be freed
  */
 static void term_protected_suspend_buffer(struct kbase_device *const kbdev,
-		struct kbase_protected_suspend_buffer *s_buf)
+					  struct kbase_protected_suspend_buffer *sbuf)
 {
-	const size_t nr_pages =
-		PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
-	struct tagged_addr *phys = kmalloc(sizeof(*phys) * nr_pages, GFP_KERNEL);
-	size_t i = 0;
+	if (sbuf->pma) {
+		const size_t nr_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
+		size_t i = 0;
+		struct tagged_addr *phys = kmalloc(sizeof(*phys) * nr_pages, GFP_KERNEL);
 
-	for (i = 0; phys && i < nr_pages; i++)
-		phys[i] = as_tagged(s_buf->pma[i]->pa);
+		for (i = 0; phys && i < nr_pages; i++)
+			phys[i] = as_tagged(sbuf->pma[i]->pa);
 
-	WARN_ON(kbase_mmu_teardown_pages(kbdev, &kbdev->csf.mcu_mmu, s_buf->reg->start_pfn, phys,
-					 nr_pages, MCU_AS_NR));
+		WARN_ON(kbase_mmu_teardown_pages(kbdev, &kbdev->csf.mcu_mmu, sbuf->reg->start_pfn,
+						 phys, nr_pages, MCU_AS_NR, true));
 
-	kfree(phys);
+		kfree(phys);
+		kbase_csf_protected_memory_free(kbdev, sbuf->pma, nr_pages, true);
+		sbuf->pma = NULL;
+	}
 
-	WARN_ON(s_buf->reg->flags & KBASE_REG_FREE);
+	if (sbuf->reg) {
+		WARN_ON(sbuf->reg->flags & KBASE_REG_FREE);
 
-	mutex_lock(&kbdev->csf.reg_lock);
-	kbase_remove_va_region(kbdev, s_buf->reg);
-	mutex_unlock(&kbdev->csf.reg_lock);
+		mutex_lock(&kbdev->csf.reg_lock);
+		kbase_remove_va_region(kbdev, sbuf->reg);
+		mutex_unlock(&kbdev->csf.reg_lock);
 
-	kbase_csf_protected_memory_free(kbdev, s_buf->pma, nr_pages, true);
-	s_buf->pma = NULL;
-	kfree(s_buf->reg);
-	s_buf->reg = NULL;
+		kbase_free_alloced_region(sbuf->reg);
+		sbuf->reg = NULL;
+	}
 }
 
 void kbase_csf_term_descheduled_queue_group(struct kbase_queue_group *group)
@@ -1738,6 +1723,7 @@ void kbase_csf_queue_group_terminate(struct kbase_context *kctx,
 
 	kfree(group);
 }
+KBASE_EXPORT_TEST_API(kbase_csf_queue_group_terminate);
 
 int kbase_csf_queue_group_suspend(struct kbase_context *kctx,
 				  struct kbase_suspend_copy_buffer *sus_buf,
@@ -2017,12 +2003,10 @@ void kbase_csf_ctx_term(struct kbase_context *kctx)
 		 * registered.
 		 */
 #if (KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)
-		if (atomic_read(&queue->refcount) != 1)
+		WARN_ON(atomic_read(&queue->refcount) != 1);
 #else
-		if (refcount_read(&queue->refcount) != 1)
+		WARN_ON(refcount_read(&queue->refcount) != 1);
 #endif
-			dev_warn(kctx->kbdev->dev,
-				 "Releasing queue with incorrect refcounting!\n");
 		list_del_init(&queue->link);
 		release_queue(queue);
 	}
@@ -2369,6 +2353,85 @@ static void handle_progress_timer_event(struct kbase_queue_group *const group)
 }
 
 /**
+ * alloc_grp_protected_suspend_buffer_pages() -  Allocate physical pages from the protected
+ *                                               memory for the protected mode suspend buffer.
+ * @group: Pointer to the GPU queue group.
+ *
+ * Return: 0 if suspend buffer allocation is successful or if its already allocated, otherwise
+ * negative error value.
+ */
+static int alloc_grp_protected_suspend_buffer_pages(struct kbase_queue_group *const group)
+{
+	struct kbase_device *const kbdev = group->kctx->kbdev;
+	struct kbase_context *kctx = group->kctx;
+	struct tagged_addr *phys = NULL;
+	const unsigned long mem_flags = KBASE_REG_GPU_RD | KBASE_REG_GPU_WR;
+	struct protected_memory_allocation **pma = NULL;
+	struct kbase_protected_suspend_buffer *sbuf = &group->protected_suspend_buf;
+	size_t nr_pages;
+	int err = 0;
+
+	/* Calls to this function are inherently asynchronous, with respect to
+	 * MMU operations.
+	 */
+	const enum kbase_caller_mmu_sync_info mmu_sync_info = CALLER_MMU_ASYNC;
+
+	if (likely(sbuf->pma))
+		return 0;
+
+	nr_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
+	phys = kcalloc(nr_pages, sizeof(*phys), GFP_KERNEL);
+	if (unlikely(!phys)) {
+		err = -ENOMEM;
+		goto phys_free;
+	}
+
+	pma = kbase_csf_protected_memory_alloc(kbdev, phys, nr_pages, true);
+	if (pma == NULL) {
+		err = -ENOMEM;
+		goto phys_free;
+	}
+
+	mutex_lock(&kctx->csf.lock);
+
+	if (unlikely(!sbuf->reg)) {
+		dev_err(kbdev->dev,
+			"No VA region for the group %d of context %d_%d trying to enter protected mode",
+			group->handle, group->kctx->tgid, group->kctx->id);
+		err = -EINVAL;
+		kbase_csf_protected_memory_free(kbdev, pma, nr_pages, true);
+		goto unlock;
+	}
+
+	/* Update MMU table */
+	err = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, sbuf->reg->start_pfn, phys,
+				     nr_pages, mem_flags, MCU_AS_NR, KBASE_MEM_GROUP_CSF_FW,
+				     mmu_sync_info, NULL, true);
+	if (unlikely(err))
+		kbase_csf_protected_memory_free(kbdev, pma, nr_pages, true);
+	else
+		sbuf->pma = pma;
+
+unlock:
+	mutex_unlock(&kctx->csf.lock);
+phys_free:
+	kfree(phys);
+	return err;
+}
+
+static void report_group_fatal_error(struct kbase_queue_group *const group)
+{
+	struct base_gpu_queue_group_error const
+		err_payload = { .error_type = BASE_GPU_QUEUE_GROUP_ERROR_FATAL,
+				.payload = { .fatal_group = {
+						     .status = GPU_EXCEPTION_TYPE_SW_FAULT_0,
+					     } } };
+
+	kbase_csf_add_group_fatal_error(group, &err_payload);
+	kbase_event_wakeup(group->kctx);
+}
+
+/**
  * protm_event_worker - Protected mode switch request event handler
  *			called from a workqueue.
  *
@@ -2380,10 +2443,26 @@ static void protm_event_worker(struct work_struct *data)
 {
 	struct kbase_queue_group *const group =
 		container_of(data, struct kbase_queue_group, protm_event_work);
+	struct kbase_protected_suspend_buffer *sbuf = &group->protected_suspend_buf;
+	int err = 0;
 
 	KBASE_KTRACE_ADD_CSF_GRP(group->kctx->kbdev, PROTM_EVENT_WORKER_START,
 				 group, 0u);
-	kbase_csf_scheduler_group_protm_enter(group);
+
+	err = alloc_grp_protected_suspend_buffer_pages(group);
+	if (!err) {
+		kbase_csf_scheduler_group_protm_enter(group);
+	} else if (err == -ENOMEM && sbuf->alloc_retries <= PROTM_ALLOC_MAX_RETRIES) {
+		sbuf->alloc_retries++;
+		/* try again to allocate pages */
+		queue_work(group->kctx->csf.wq, &group->protm_event_work);
+	} else if (sbuf->alloc_retries >= PROTM_ALLOC_MAX_RETRIES || err != -ENOMEM) {
+		dev_err(group->kctx->kbdev->dev,
+			"Failed to allocate physical pages for Protected mode suspend buffer for the group %d of context %d_%d",
+			group->handle, group->kctx->tgid, group->kctx->id);
+		report_group_fatal_error(group);
+	}
+
 	KBASE_KTRACE_ADD_CSF_GRP(group->kctx->kbdev, PROTM_EVENT_WORKER_END,
 				 group, 0u);
 }
@@ -2750,6 +2829,9 @@ static void process_cs_interrupts(struct kbase_queue_group *const group,
 			track->protm_grp = group;
 		}
 
+		if (!group->protected_suspend_buf.pma)
+			queue_work(group->kctx->csf.wq, &group->protm_event_work);
+
 		if (test_bit(group->csg_nr, scheduler->csg_slots_idle_mask)) {
 			clear_bit(group->csg_nr,
 				  scheduler->csg_slots_idle_mask);
@@ -2791,8 +2873,6 @@ static void process_csg_interrupts(struct kbase_device *const kbdev, int const c
 	if (WARN_ON(csg_nr >= kbdev->csf.global_iface.group_num))
 		return;
 
-	KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_INTERRUPT_PROCESS_START, group, csg_nr);
-
 	ginfo = &kbdev->csf.global_iface.groups[csg_nr];
 	req = kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ);
 	ack = kbase_csf_firmware_csg_output(ginfo, CSG_ACK);
@@ -2801,7 +2881,7 @@ static void process_csg_interrupts(struct kbase_device *const kbdev, int const c
 
 	/* There may not be any pending CSG/CS interrupts to process */
 	if ((req == ack) && (irqreq == irqack))
-		goto out;
+		return;
 
 	/* Immediately set IRQ_ACK bits to be same as the IRQ_REQ bits before
 	 * examining the CS_ACK & CS_REQ bits. This would ensure that Host
@@ -2822,10 +2902,12 @@ static void process_csg_interrupts(struct kbase_device *const kbdev, int const c
 	 * slot scheduler spinlock is required.
 	 */
 	if (!group)
-		goto out;
+		return;
 
 	if (WARN_ON(kbase_csf_scheduler_group_get_slot_locked(group) != csg_nr))
-		goto out;
+		return;
+
+	KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_INTERRUPT_PROCESS_START, group, csg_nr);
 
 	if ((req ^ ack) & CSG_REQ_SYNC_UPDATE_MASK) {
 		kbase_csf_firmware_csg_input_mask(ginfo,
@@ -2887,8 +2969,6 @@ static void process_csg_interrupts(struct kbase_device *const kbdev, int const c
 
 	process_cs_interrupts(group, ginfo, irqreq, irqack, track);
 
-out:
-	/* group may still be NULL here */
 	KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_INTERRUPT_PROCESS_END, group,
 				 ((u64)req ^ ack) | (((u64)irqreq ^ irqack) << 32));
 }
