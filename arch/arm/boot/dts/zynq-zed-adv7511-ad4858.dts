@@ -10,8 +10,8 @@
 	refin: regulator-vref {
 		compatible = "regulator-fixed";
 		regulator-name = "fixed-supply";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
 		regulator-always-on;
 	};
 };
