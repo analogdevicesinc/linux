@@ -199,6 +199,8 @@ static const struct kbase_device_init dev_init[] = {
 	  "GPU hwcnt virtualizer initialization failed" },
 	{ kbase_device_vinstr_init, kbase_device_vinstr_term,
 	  "Virtual instrumentation initialization failed" },
+	{ kbase_device_kinstr_prfcnt_init, kbase_device_kinstr_prfcnt_term,
+	  "Performance counter instrumentation initialization failed" },
 	{ kbase_backend_late_init, kbase_backend_late_term,
 	  "Late backend initialization failed" },
 #ifdef MALI_KBASE_BUILD

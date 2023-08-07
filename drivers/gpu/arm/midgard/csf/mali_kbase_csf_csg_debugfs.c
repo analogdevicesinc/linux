@@ -24,6 +24,7 @@
 #include <linux/seq_file.h>
 #include <linux/delay.h>
 #include <csf/mali_kbase_csf_trace_buffer.h>
+#include <backend/gpu/mali_kbase_pm_internal.h>
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #include "mali_kbase_csf_tl_reader.h"
@@ -163,10 +164,6 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 		    !queue->group))
 		return;
 
-	/* Ring the doorbell to have firmware update CS_EXTRACT */
-	kbase_csf_ring_cs_user_doorbell(queue->kctx->kbdev, queue);
-	msleep(100);
-
 	addr = (u32 *)queue->user_io_addr;
 	cs_insert = addr[CS_INSERT_LO/4] | ((u64)addr[CS_INSERT_HI/4] << 32);
 
@@ -274,32 +271,68 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 /* Waiting timeout for STATUS_UPDATE acknowledgment, in milliseconds */
 #define CSF_STATUS_UPDATE_TO_MS (100)
 
+static void update_active_group_status(struct seq_file *file,
+		struct kbase_queue_group *const group)
+{
+	struct kbase_device *const kbdev = group->kctx->kbdev;
+	struct kbase_csf_cmd_stream_group_info const *const ginfo =
+		&kbdev->csf.global_iface.groups[group->csg_nr];
+	long remaining =
+		kbase_csf_timeout_in_jiffies(CSF_STATUS_UPDATE_TO_MS);
+	unsigned long flags;
+
+	/* Global doorbell ring for CSG STATUS_UPDATE request or User doorbell
+	 * ring for Extract offset update, shall not be made when MCU has been
+	 * put to sleep otherwise it will undesirably make MCU exit the sleep
+	 * state. Also it isn't really needed as FW will implicitly update the
+	 * status of all on-slot groups when MCU sleep request is sent to it.
+	 */
+	if (kbdev->csf.scheduler.state == SCHED_SLEEPING)
+		return;
+
+	/* Ring the User doobell shared between the queues bound to this
+	 * group, to have FW update the CS_EXTRACT for all the queues
+	 * bound to the group. Ring early so that FW gets adequate time
+	 * for the handling.
+	 */
+	kbase_csf_ring_doorbell(kbdev, group->doorbell_nr);
+
+	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+	kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ,
+			~kbase_csf_firmware_csg_output(ginfo, CSG_ACK),
+			CSG_REQ_STATUS_UPDATE_MASK);
+	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+	kbase_csf_ring_csg_doorbell(kbdev, group->csg_nr);
+
+	remaining = wait_event_timeout(kbdev->csf.event_wait,
+		!((kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ) ^
+		kbase_csf_firmware_csg_output(ginfo, CSG_ACK)) &
+		CSG_REQ_STATUS_UPDATE_MASK), remaining);
+
+	if (!remaining) {
+		dev_err(kbdev->dev,
+			"Timed out for STATUS_UPDATE on group %d on slot %d",
+			group->handle, group->csg_nr);
+
+		seq_printf(file, "*** Warn: Timed out for STATUS_UPDATE on slot %d\n",
+			group->csg_nr);
+		seq_puts(file, "*** The following group-record is likely stale\n");
+	}
+}
+
 static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 		struct kbase_queue_group *const group)
 {
 	if (kbase_csf_scheduler_group_get_slot(group) >= 0) {
 		struct kbase_device *const kbdev = group->kctx->kbdev;
-		unsigned long flags;
 		u32 ep_c, ep_r;
 		char exclusive;
 		struct kbase_csf_cmd_stream_group_info const *const ginfo =
 			&kbdev->csf.global_iface.groups[group->csg_nr];
-		long remaining =
-			kbase_csf_timeout_in_jiffies(CSF_STATUS_UPDATE_TO_MS);
 		u8 slot_priority =
 			kbdev->csf.scheduler.csg_slots[group->csg_nr].priority;
 
-		kbase_csf_scheduler_spin_lock(kbdev, &flags);
-		kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ,
-				~kbase_csf_firmware_csg_output(ginfo, CSG_ACK),
-				CSG_REQ_STATUS_UPDATE_MASK);
-		kbase_csf_scheduler_spin_unlock(kbdev, flags);
-		kbase_csf_ring_csg_doorbell(kbdev, group->csg_nr);
-
-		remaining = wait_event_timeout(kbdev->csf.event_wait,
-			!((kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ) ^
-			   kbase_csf_firmware_csg_output(ginfo, CSG_ACK)) &
-			   CSG_REQ_STATUS_UPDATE_MASK), remaining);
+		update_active_group_status(file, group);
 
 		ep_c = kbase_csf_firmware_csg_output(ginfo,
 				CSG_STATUS_EP_CURRENT);
@@ -311,16 +344,6 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 			exclusive = 'F';
 		else
 			exclusive = '0';
-
-		if (!remaining) {
-			dev_err(kbdev->dev,
-				"Timed out for STATUS_UPDATE on group %d on slot %d",
-				group->handle, group->csg_nr);
-
-			seq_printf(file, "*** Warn: Timed out for STATUS_UPDATE on slot %d\n",
-				group->csg_nr);
-			seq_printf(file, "*** The following group-record is likely stale\n");
-		}
 
 		seq_puts(file, "GroupID, CSG NR, CSG Prio, Run State, Priority, C_EP(Alloc/Req), F_EP(Alloc/Req), T_EP(Alloc/Req), Exclusive\n");
 		seq_printf(file, "%7d, %6d, %8d, %9d, %8d, %11d/%3d, %11d/%3d, %11d/%3d, %9c\n",
@@ -336,6 +359,10 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 			CSG_STATUS_EP_CURRENT_TILER_EP_GET(ep_c),
 			CSG_STATUS_EP_REQ_TILER_EP_GET(ep_r),
 			exclusive);
+
+		/* Wait for the User doobell ring to take effect */
+		if (kbdev->csf.scheduler.state != SCHED_SLEEPING)
+			msleep(100);
 	} else {
 		seq_puts(file, "GroupID, CSG NR, Run State, Priority\n");
 		seq_printf(file, "%7d, %6d, %9d, %8d\n",
@@ -383,6 +410,12 @@ static int kbasep_csf_queue_group_debugfs_show(struct seq_file *file,
 
 	mutex_lock(&kctx->csf.lock);
 	kbase_csf_scheduler_lock(kbdev);
+	if (kbdev->csf.scheduler.state == SCHED_SLEEPING) {
+		/* Wait for the MCU sleep request to complete. Please refer the
+		 * update_active_group_status() function for the explanation.
+		 */
+		kbase_pm_wait_for_desired_state(kbdev);
+	}
 	for (gr = 0; gr < MAX_QUEUE_GROUP_NUM; gr++) {
 		struct kbase_queue_group *const group =
 			kctx->csf.queue_groups[gr];
@@ -416,6 +449,12 @@ static int kbasep_csf_scheduler_dump_active_groups(struct seq_file *file,
 			MALI_CSF_CSG_DEBUGFS_VERSION);
 
 	kbase_csf_scheduler_lock(kbdev);
+	if (kbdev->csf.scheduler.state == SCHED_SLEEPING) {
+		/* Wait for the MCU sleep request to complete. Please refer the
+		 * update_active_group_status() function for the explanation.
+		 */
+		kbase_pm_wait_for_desired_state(kbdev);
+	}
 	for (csg_nr = 0; csg_nr < num_groups; csg_nr++) {
 		struct kbase_queue_group *const group =
 			kbdev->csf.scheduler.csg_slots[csg_nr].resident_group;

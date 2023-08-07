@@ -48,11 +48,13 @@ static u64 kbase_job_write_affinity(struct kbase_device *kbdev,
 				int js, const u64 limited_core_mask)
 {
 	u64 affinity;
+	bool skip_affinity_check = false;
 
 	if ((core_req & (BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T)) ==
 			BASE_JD_REQ_T) {
-		/* Tiler-only atom */
+		/* Tiler-only atom, affinity value can be programed as 0 */
 		affinity = 0;
+		skip_affinity_check = true;
 	} else if ((core_req & (BASE_JD_REQ_COHERENT_GROUP |
 			BASE_JD_REQ_SPECIFIC_COHERENT_GROUP))) {
 		unsigned int num_core_groups = kbdev->gpu_props.num_core_groups;
@@ -82,7 +84,7 @@ static u64 kbase_job_write_affinity(struct kbase_device *kbdev,
 		affinity = kbasep_apply_limited_core_mask(kbdev, affinity, limited_core_mask);
 	}
 
-	if (unlikely(!affinity)) {
+	if (unlikely(!affinity && !skip_affinity_check)) {
 #ifdef CONFIG_MALI_DEBUG
 		u64 shaders_ready =
 			kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
@@ -705,40 +707,11 @@ void kbase_backend_jm_kill_running_jobs_from_kctx(struct kbase_context *kctx)
 		kbase_job_slot_hardstop(kctx, i, NULL);
 }
 
-/**
- * kbase_is_existing_atom_submitted_later_than_ready
- * @ready: sequence number of the ready atom
- * @existing: sequence number of the existing atom
- *
- * Returns true if the existing atom has been submitted later than the
- * ready atom. It is used to understand if an atom that is ready has been
- * submitted earlier than the currently running atom, so that the currently
- * running atom should be preempted to allow the ready atom to run.
- */
-static inline bool kbase_is_existing_atom_submitted_later_than_ready(u64 ready, u64 existing)
-{
-	/* No seq_nr set? */
-	if (!ready || !existing)
-		return false;
-
-	/* Efficiently handle the unlikely case of wrapping.
-	 * The following code assumes that the delta between the sequence number
-	 * of the two atoms is less than INT64_MAX.
-	 * In the extremely unlikely case where the delta is higher, the comparison
-	 * defaults for no preemption.
-	 * The code also assumes that the conversion from unsigned to signed types
-	 * works because the signed integers are 2's complement.
-	 */
-	return (s64)(ready - existing) < 0;
-}
-
 void kbase_job_slot_ctx_priority_check_locked(struct kbase_context *kctx,
 				struct kbase_jd_atom *target_katom)
 {
 	struct kbase_device *kbdev;
-	int js = target_katom->slot_nr;
-	int priority = target_katom->sched_priority;
-	int seq_nr = target_katom->seq_nr;
+	int target_js = target_katom->slot_nr;
 	int i;
 	bool stop_sent = false;
 
@@ -748,26 +721,21 @@ void kbase_job_slot_ctx_priority_check_locked(struct kbase_context *kctx,
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	for (i = 0; i < kbase_backend_nr_atoms_on_slot(kbdev, js); i++) {
-		struct kbase_jd_atom *katom;
+	for (i = 0; i < kbase_backend_nr_atoms_on_slot(kbdev, target_js); i++) {
+		struct kbase_jd_atom *slot_katom;
 
-		katom = kbase_gpu_inspect(kbdev, js, i);
-		if (!katom)
+		slot_katom = kbase_gpu_inspect(kbdev, target_js, i);
+		if (!slot_katom)
 			continue;
 
-		if ((kbdev->js_ctx_scheduling_mode ==
-			KBASE_JS_PROCESS_LOCAL_PRIORITY_MODE) &&
-				(katom->kctx != kctx))
-			continue;
-
-		if ((katom->sched_priority > priority) ||
-		    (katom->kctx == kctx && kbase_is_existing_atom_submitted_later_than_ready(seq_nr, katom->seq_nr))) {
+		if (kbase_js_atom_runs_before(kbdev, target_katom, slot_katom,
+					      KBASE_ATOM_ORDERING_FLAG_SEQNR)) {
 			if (!stop_sent)
 				KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITIZED(
 						kbdev,
 						target_katom);
 
-			kbase_job_slot_softstop(kbdev, js, katom);
+			kbase_job_slot_softstop(kbdev, target_js, slot_katom);
 			stop_sent = true;
 		}
 	}

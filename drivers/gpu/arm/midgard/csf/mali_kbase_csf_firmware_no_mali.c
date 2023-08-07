@@ -1121,15 +1121,21 @@ int kbase_csf_firmware_set_timeout(struct kbase_device *const kbdev,
 void kbase_csf_enter_protected_mode(struct kbase_device *kbdev)
 {
 	struct kbase_csf_global_iface *global_iface = &kbdev->csf.global_iface;
-	unsigned long flags;
 
-	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
 	set_global_request(global_iface, GLB_REQ_PROTM_ENTER_MASK);
 	dev_dbg(kbdev->dev, "Sending request to enter protected mode");
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
-	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+}
 
-	wait_for_global_request(kbdev, GLB_REQ_PROTM_ENTER_MASK);
+void kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
+{
+	int err = wait_for_global_request(kbdev, GLB_REQ_PROTM_ENTER_MASK);
+
+	if (err) {
+		if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_NONE))
+			kbase_reset_gpu(kbdev);
+	}
 }
 
 void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)
@@ -1368,7 +1374,7 @@ int kbase_csf_firmware_mcu_shared_mapping_init(
 
 mmu_insert_pages_error:
 	mutex_lock(&kbdev->csf.reg_lock);
-	kbase_remove_va_region(va_reg);
+	kbase_remove_va_region(kbdev, va_reg);
 va_region_add_error:
 	kbase_free_alloced_region(va_reg);
 	mutex_unlock(&kbdev->csf.reg_lock);
@@ -1400,7 +1406,7 @@ void kbase_csf_firmware_mcu_shared_mapping_term(
 {
 	if (csf_mapping->va_reg) {
 		mutex_lock(&kbdev->csf.reg_lock);
-		kbase_remove_va_region(csf_mapping->va_reg);
+		kbase_remove_va_region(kbdev, csf_mapping->va_reg);
 		kbase_free_alloced_region(csf_mapping->va_reg);
 		mutex_unlock(&kbdev->csf.reg_lock);
 	}

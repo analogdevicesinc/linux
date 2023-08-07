@@ -32,18 +32,8 @@ void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
 {
 	u32 hi1, hi2;
 
-	if (cycle_counter) {
-		/* Read hi, lo, hi to ensure a coherent u64 */
-		do {
-			hi1 = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(CYCLE_COUNT_HI));
-			*cycle_counter = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(CYCLE_COUNT_LO));
-			hi2 = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(CYCLE_COUNT_HI));
-		} while (hi1 != hi2);
-		*cycle_counter |= (((u64) hi1) << 32);
-	}
+	if (cycle_counter)
+		*cycle_counter = kbase_backend_get_cycle_cnt(kbdev);
 
 	if (system_time) {
 		/* Read hi, lo, hi to ensure a coherent u64 */
@@ -133,7 +123,7 @@ unsigned int kbase_get_timeout_ms(struct kbase_device *kbdev,
 #else
 		WARN(1,
 		     "Invalid timeout selector used! Using CSF Firmware timeout");
-		/* fallthrough */
+		fallthrough;
 	case CSF_FIRMWARE_TIMEOUT:
 		nr_cycles = CSF_FIRMWARE_TIMEOUT_CYCLES;
 		timeout = div_u64(nr_cycles, freq_khz);
@@ -144,10 +134,30 @@ unsigned int kbase_get_timeout_ms(struct kbase_device *kbdev,
 		 * such as BUILD_BUG_ON can also be done once the firmware ping
 		 * interval in cycles becomes available as a macro.
 		 */
-		if (timeout > FIRMWARE_PING_INTERVAL_MS)
+		if (timeout > FIRMWARE_PING_INTERVAL_MS) {
+			dev_dbg(kbdev->dev, "Capped CSF_FIRMWARE_TIMEOUT %llu to %d",
+				timeout, FIRMWARE_PING_INTERVAL_MS);
 			timeout = FIRMWARE_PING_INTERVAL_MS;
+		}
 #endif
 		break;
 	}
 	return (unsigned int)timeout;
+}
+
+u64 kbase_backend_get_cycle_cnt(struct kbase_device *kbdev)
+{
+	u32 hi1, hi2, lo;
+
+	/* Read hi, lo, hi to ensure a coherent u64 */
+	do {
+		hi1 = kbase_reg_read(kbdev,
+					GPU_CONTROL_REG(CYCLE_COUNT_HI));
+		lo = kbase_reg_read(kbdev,
+					GPU_CONTROL_REG(CYCLE_COUNT_LO));
+		hi2 = kbase_reg_read(kbdev,
+					GPU_CONTROL_REG(CYCLE_COUNT_HI));
+	} while (hi1 != hi2);
+
+	return lo | (((u64) hi1) << 32);
 }

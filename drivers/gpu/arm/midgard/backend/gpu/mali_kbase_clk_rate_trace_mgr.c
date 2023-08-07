@@ -110,6 +110,8 @@ int kbase_lowest_gpu_freq_init(struct kbase_device *kbdev)
 #endif
 
 	kbdev->lowest_gpu_freq_khz = lowest_freq_khz;
+	dev_dbg(kbdev->dev, "Lowest frequency identified is %llu kHz",
+		kbdev->lowest_gpu_freq_khz);
 	return 0;
 }
 

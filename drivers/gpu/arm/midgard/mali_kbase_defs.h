@@ -107,12 +107,12 @@
 /**
  * Maximum size in bytes of a MMU lock region, as a logarithm
  */
-#define KBASE_LOCK_REGION_MAX_SIZE_LOG2 (64)
+#define KBASE_LOCK_REGION_MAX_SIZE_LOG2 (48) /*  256 TB */
 
 /**
  * Minimum size in bytes of a MMU lock region, as a logarithm
  */
-#define KBASE_LOCK_REGION_MIN_SIZE_LOG2 (15)
+#define KBASE_LOCK_REGION_MIN_SIZE_LOG2 (15) /* 32 kB */
 
 /**
  * Maximum number of GPU memory region zones
@@ -263,6 +263,21 @@ struct kbase_mmu_table {
 	phys_addr_t pgd;
 	u8 group_id;
 	struct kbase_context *kctx;
+};
+
+/**
+ * struct kbase_reg_zone - Information about GPU memory region zones
+ * @base_pfn: Page Frame Number in GPU virtual address space for the start of
+ *            the Zone
+ * @va_size_pages: Size of the Zone in pages
+ *
+ * Track information about a zone KBASE_REG_ZONE() and related macros.
+ * In future, this could also store the &rb_root that are currently in
+ * &kbase_context and &kbase_csf_device.
+ */
+struct kbase_reg_zone {
+	u64 base_pfn;
+	u64 va_size_pages;
 };
 
 #if MALI_USE_CSF
@@ -534,8 +549,11 @@ struct kbase_devfreq_opp {
  * @entry_set_ate:    program the pte to be a valid address translation entry to
  *                    encode the physical address of the actual page being mapped.
  * @entry_set_pte:    program the pte to be a valid entry to encode the physical
- *                    address of the next lower level page table.
+ *                    address of the next lower level page table and also update
+ *                    the number of valid entries.
  * @entry_invalidate: clear out or invalidate the pte.
+ * @get_num_valid_entries: returns the number of valid entries for a specific pgd.
+ * @set_num_valid_entries: sets the number of valid entries for a specific pgd
  * @flags:            bitmask of MMU mode flags. Refer to KBASE_MMU_MODE_ constants.
  */
 struct kbase_mmu_mode {
@@ -550,8 +568,11 @@ struct kbase_mmu_mode {
 	int (*pte_is_valid)(u64 pte, int level);
 	void (*entry_set_ate)(u64 *entry, struct tagged_addr phy,
 			unsigned long flags, int level);
-	void (*entry_set_pte)(u64 *entry, phys_addr_t phy);
+	void (*entry_set_pte)(u64 *pgd, u64 vpfn, phys_addr_t phy);
 	void (*entry_invalidate)(u64 *entry);
+	unsigned int (*get_num_valid_entries)(u64 *pgd);
+	void (*set_num_valid_entries)(u64 *pgd,
+				      unsigned int num_of_valid_entries);
 	unsigned long flags;
 };
 
@@ -727,6 +748,7 @@ struct kbase_process {
  *                         kbase_hwcnt_context_enable() with @hwcnt_gpu_ctx.
  * @hwcnt_gpu_virt:        Virtualizer for GPU hardware counters.
  * @vinstr_ctx:            vinstr context created per device.
+ * @kinstr_prfcnt_ctx:     kinstr_prfcnt context created per device.
  * @timeline_flags:        Bitmask defining which sets of timeline tracepoints
  *                         are enabled. If zero, there is no timeline client and
  *                         therefore timeline is disabled.
@@ -759,8 +781,6 @@ struct kbase_process {
  *                         including any contexts that might be created for
  *                         hardware counters.
  * @kctx_list_lock:        Lock protecting concurrent accesses to @kctx_list.
- * @group_max_uid_in_devices: Max value of any queue group UID in any kernel
- *                            context in the kbase device.
  * @devfreq_profile:       Describes devfreq profile for the Mali GPU device, passed
  *                         to devfreq_add_device() to add devfreq feature to Mali
  *                         GPU device.
@@ -1004,6 +1024,7 @@ struct kbase_device {
 	struct kbase_hwcnt_context *hwcnt_gpu_ctx;
 	struct kbase_hwcnt_virtualizer *hwcnt_gpu_virt;
 	struct kbase_vinstr_context *vinstr_ctx;
+	struct kbase_kinstr_prfcnt_context *kinstr_prfcnt_ctx;
 
 	atomic_t               timeline_flags;
 	struct kbase_timeline *timeline;
@@ -1023,7 +1044,6 @@ struct kbase_device {
 
 	struct list_head        kctx_list;
 	struct mutex            kctx_list_lock;
-	atomic_t                group_max_uid_in_devices;
 
 #ifdef CONFIG_MALI_DEVFREQ
 	struct devfreq_dev_profile devfreq_profile;
@@ -1411,21 +1431,6 @@ struct kbase_sub_alloc {
 };
 
 /**
- * struct kbase_reg_zone - Information about GPU memory region zones
- * @base_pfn: Page Frame Number in GPU virtual address space for the start of
- *            the Zone
- * @va_size_pages: Size of the Zone in pages
- *
- * Track information about a zone KBASE_REG_ZONE() and related macros.
- * In future, this could also store the &rb_root that are currently in
- * &kbase_context
- */
-struct kbase_reg_zone {
-	u64 base_pfn;
-	u64 va_size_pages;
-};
-
-/**
  * struct kbase_context - Kernel base context
  *
  * @filp:                 Pointer to the struct file corresponding to device file
@@ -1576,17 +1581,10 @@ struct kbase_reg_zone {
  *                        of RB-tree holding currently runnable atoms on the job slot
  *                        and the head item of the linked list of atoms blocked on
  *                        cross-slot dependencies.
- * @atoms_pulled:         Total number of atoms currently pulled from the context.
- * @atoms_pulled_slot:    Per slot count of the number of atoms currently pulled
- *                        from the context.
- * @atoms_pulled_slot_pri: Per slot & priority count of the number of atoms currently
- *                        pulled from the context. hwaccess_lock shall be held when
- *                        accessing it.
- * @blocked_js:           Indicates if the context is blocked from submitting atoms
- *                        on a slot at a given priority. This is set to true, when
- *                        the atom corresponding to context is soft/hard stopped or
- *                        removed from the HEAD_NEXT register in response to
- *                        soft/hard stop.
+ * @slot_tracking:        Tracking and control of this context's use of all job
+ *                        slots
+ * @atoms_pulled_all_slots: Total number of atoms currently pulled from the
+ *                        context, across all slots.
  * @slots_pullable:       Bitmask of slots, indicating the slots for which the
  *                        context has pullable atoms in the runnable tree.
  * @work:                 Work structure used for deferred ASID assignment.
@@ -1732,17 +1730,14 @@ struct kbase_context {
 	struct kbase_jd_context jctx;
 	struct jsctx_queue jsctx_queue
 		[KBASE_JS_ATOM_SCHED_PRIO_COUNT][BASE_JM_MAX_NR_SLOTS];
+	struct kbase_jsctx_slot_tracking slot_tracking[BASE_JM_MAX_NR_SLOTS];
+	atomic_t atoms_pulled_all_slots;
 
 	struct list_head completed_jobs;
 	atomic_t work_count;
 	struct timer_list soft_job_timeout;
 
-	atomic_t atoms_pulled;
-	atomic_t atoms_pulled_slot[BASE_JM_MAX_NR_SLOTS];
-	int atoms_pulled_slot_pri[BASE_JM_MAX_NR_SLOTS][
-			KBASE_JS_ATOM_SCHED_PRIO_COUNT];
 	int priority;
-	bool blocked_js[BASE_JM_MAX_NR_SLOTS][KBASE_JS_ATOM_SCHED_PRIO_COUNT];
 	s16 atoms_count[KBASE_JS_ATOM_SCHED_PRIO_COUNT];
 	u32 slots_pullable;
 	u32 age_count;

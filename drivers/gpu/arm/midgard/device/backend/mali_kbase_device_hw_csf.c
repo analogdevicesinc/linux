@@ -125,6 +125,9 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 		if (kbase_prepare_to_reset_gpu(
 			    kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR))
 			kbase_reset_gpu(kbdev);
+
+		/* Defer the clearing to the GPU reset sequence */
+		val &= ~GPU_PROTECTED_FAULT;
 	}
 
 	if (val & RESET_COMPLETED)
@@ -175,3 +178,60 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_DONE, NULL, val);
 }
+
+#if !IS_ENABLED(CONFIG_MALI_NO_MALI)
+static bool kbase_is_register_accessible(u32 offset)
+{
+#ifdef CONFIG_MALI_DEBUG
+	if (((offset >= MCU_SUBSYSTEM_BASE) && (offset < IPA_CONTROL_BASE)) ||
+	    ((offset >= GPU_CONTROL_MCU_BASE) && (offset < USER_BASE))) {
+		WARN(1, "Invalid register offset 0x%x", offset);
+		return false;
+	}
+#endif
+
+	return true;
+}
+
+void kbase_reg_write(struct kbase_device *kbdev, u32 offset, u32 value)
+{
+	KBASE_DEBUG_ASSERT(kbdev->pm.backend.gpu_powered);
+	KBASE_DEBUG_ASSERT(kbdev->dev != NULL);
+
+	if (!kbase_is_register_accessible(offset))
+		return;
+
+	writel(value, kbdev->reg + offset);
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	if (unlikely(kbdev->io_history.enabled))
+		kbase_io_history_add(&kbdev->io_history, kbdev->reg + offset,
+				     value, 1);
+#endif /* CONFIG_DEBUG_FS */
+	dev_dbg(kbdev->dev, "w: reg %08x val %08x", offset, value);
+}
+KBASE_EXPORT_TEST_API(kbase_reg_write);
+
+u32 kbase_reg_read(struct kbase_device *kbdev, u32 offset)
+{
+	u32 val;
+
+	KBASE_DEBUG_ASSERT(kbdev->pm.backend.gpu_powered);
+	KBASE_DEBUG_ASSERT(kbdev->dev != NULL);
+
+	if (!kbase_is_register_accessible(offset))
+		return 0;
+
+	val = readl(kbdev->reg + offset);
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+	if (unlikely(kbdev->io_history.enabled))
+		kbase_io_history_add(&kbdev->io_history, kbdev->reg + offset,
+				     val, 0);
+#endif /* CONFIG_DEBUG_FS */
+	dev_dbg(kbdev->dev, "r: reg %08x val %08x", offset, val);
+
+	return val;
+}
+KBASE_EXPORT_TEST_API(kbase_reg_read);
+#endif /* !IS_ENABLED(CONFIG_MALI_NO_MALI) */

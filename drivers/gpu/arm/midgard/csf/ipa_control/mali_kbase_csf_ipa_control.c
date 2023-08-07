@@ -253,7 +253,7 @@ static inline void calc_prfcnt_delta(struct kbase_device *kbdev,
 
 	if (!WARN_ON_ONCE(kbdev->csf.ipa_control.cur_gpu_rate == 0))
 		if (prfcnt->gpu_norm)
-			delta_value /= kbdev->csf.ipa_control.cur_gpu_rate;
+			delta_value = div_u64(delta_value, kbdev->csf.ipa_control.cur_gpu_rate);
 
 	prfcnt->latest_raw_value = raw_value;
 
@@ -300,17 +300,20 @@ kbase_ipa_control_rate_change_notify(struct kbase_clk_rate_listener *listener,
 		/* Interrupts are already disabled and interrupt state is also saved */
 		spin_lock(&ipa_ctrl->lock);
 
-		for (i = 0; i < ipa_ctrl->num_active_sessions; i++) {
-			size_t j;
+		for (i = 0; i < KBASE_IPA_CONTROL_MAX_SESSIONS; i++) {
 			struct kbase_ipa_control_session *session = &ipa_ctrl->sessions[i];
 
-			for (j = 0; j < session->num_prfcnts; j++) {
-				struct kbase_ipa_control_prfcnt *prfcnt =
-					&session->prfcnts[j];
+			if (session->active) {
+				size_t j;
 
-				if (prfcnt->gpu_norm)
-					calc_prfcnt_delta(kbdev, prfcnt, true);
-			 }
+				for (j = 0; j < session->num_prfcnts; j++) {
+					struct kbase_ipa_control_prfcnt *prfcnt =
+						&session->prfcnts[j];
+
+					if (prfcnt->gpu_norm)
+						calc_prfcnt_delta(kbdev, prfcnt, true);
+				}
+			}
 		}
 
 		ipa_ctrl->cur_gpu_rate = clk_rate_hz;
@@ -480,16 +483,21 @@ static int session_gpu_start(struct kbase_device *kbdev,
 	 */
 	if (!ret) {
 		if (session) {
+			/* On starting a session, value read is required for
+			 * IPA power model's calculation initialization.
+			 */
 			session_read_raw_values(kbdev, session);
 		} else {
 			size_t session_idx;
 
 			for (session_idx = 0;
-			     session_idx < ipa_ctrl->num_active_sessions;
-			     session_idx++)
-				session_read_raw_values(
-					kbdev,
-					&ipa_ctrl->sessions[session_idx]);
+			     session_idx < KBASE_IPA_CONTROL_MAX_SESSIONS;
+			     session_idx++) {
+				struct kbase_ipa_control_session *session_to_check = &ipa_ctrl->sessions[session_idx];
+
+				if (session_to_check->active)
+					session_read_raw_values(kbdev, session_to_check);
+			}
 		}
 	}
 
@@ -783,6 +791,12 @@ int kbase_ipa_control_query(struct kbase_device *kbdev, const void *client,
 	ipa_ctrl = &kbdev->csf.ipa_control;
 	session = (struct kbase_ipa_control_session *)client;
 
+	if (WARN_ON(!session->active)) {
+		dev_err(kbdev->dev,
+			"%s: attempt to query inactive session", __func__);
+		return -EINVAL;
+	}
+
 	if (WARN_ON(num_values < session->num_prfcnts)) {
 		dev_err(kbdev->dev,
 			"%s: not enough space (%zu) to return all counter values (%zu)",
@@ -860,20 +874,23 @@ void kbase_ipa_control_handle_gpu_power_off(struct kbase_device *kbdev)
 			ret);
 	}
 
-	for (session_idx = 0; session_idx < ipa_ctrl->num_active_sessions;
+	for (session_idx = 0; session_idx < KBASE_IPA_CONTROL_MAX_SESSIONS;
 	     session_idx++) {
+
 		struct kbase_ipa_control_session *session =
 			&ipa_ctrl->sessions[session_idx];
-		size_t i;
 
-		for (i = 0; i < session->num_prfcnts; i++) {
-			struct kbase_ipa_control_prfcnt *prfcnt =
-				&session->prfcnts[i];
+		if (session->active) {
+			size_t i;
 
-			calc_prfcnt_delta(kbdev, prfcnt, true);
+			for (i = 0; i < session->num_prfcnts; i++) {
+				struct kbase_ipa_control_prfcnt *prfcnt =
+					&session->prfcnts[i];
+
+				calc_prfcnt_delta(kbdev, prfcnt, true);
+			}
 		}
 	}
-
 	spin_unlock(&ipa_ctrl->lock);
 }
 
@@ -975,13 +992,17 @@ void kbase_ipa_control_protm_exited(struct kbase_device *kbdev)
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	for (i = 0; i < ipa_ctrl->num_active_sessions; i++) {
+	for (i = 0; i < KBASE_IPA_CONTROL_MAX_SESSIONS; i++) {
+
 		struct kbase_ipa_control_session *session =
 			&ipa_ctrl->sessions[i];
-		u64 protm_time = time_now - MAX(session->last_query_time,
-						ipa_ctrl->protm_start);
 
-		session->protm_time += protm_time;
+		if (session->active) {
+			u64 protm_time = time_now - MAX(session->last_query_time,
+							ipa_ctrl->protm_start);
+
+			session->protm_time += protm_time;
+		}
 	}
 
 	/* Acknowledge the protected_mode bit in the IPA_CONTROL STATUS

@@ -530,7 +530,7 @@ static bool kutf_clk_trace_process_portal_cmd(struct kutf_context *context,
 		errmsg = kutf_clk_trace_do_get_platform(context, cmd);
 		break;
 	case PORTAL_CMD_GET_CLK_RATE_MGR:
-		/* Fall through */
+		fallthrough;
 	case PORTAL_CMD_GET_CLK_RATE_TRACE:
 		errmsg = kutf_clk_trace_do_get_rate(context, cmd);
 		break;
@@ -538,7 +538,7 @@ static bool kutf_clk_trace_process_portal_cmd(struct kutf_context *context,
 		errmsg = kutf_clk_trace_do_get_snapshot(context, cmd);
 		break;
 	case PORTAL_CMD_INC_PM_CTX_CNT:
-		/* Fall through */
+		fallthrough;
 	case PORTAL_CMD_DEC_PM_CTX_CNT:
 		errmsg = kutf_clk_trace_do_change_pm_ctx(context, cmd);
 		break;

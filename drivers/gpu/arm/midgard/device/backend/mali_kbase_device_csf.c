@@ -37,6 +37,7 @@
 #include <backend/gpu/mali_kbase_clk_rate_trace_mgr.h>
 #include <csf/mali_kbase_csf_csg_debugfs.h>
 #include <mali_kbase_hwcnt_virtualizer.h>
+#include <mali_kbase_kinstr_prfcnt.h>
 #include <mali_kbase_vinstr.h>
 
 /**
@@ -51,6 +52,7 @@
 static void kbase_device_firmware_hwcnt_term(struct kbase_device *kbdev)
 {
 	if (kbdev->csf.firmware_inited) {
+		kbase_kinstr_prfcnt_term(kbdev->kinstr_prfcnt_ctx);
 		kbase_vinstr_term(kbdev->vinstr_ctx);
 		kbase_hwcnt_virtualizer_term(kbdev->hwcnt_gpu_virt);
 		kbase_hwcnt_backend_csf_metadata_term(&kbdev->hwcnt_gpu_iface);
@@ -392,7 +394,18 @@ static int kbase_device_hwcnt_csf_deferred_init(struct kbase_device *kbdev)
 		goto vinstr_fail;
 	}
 
+	ret = kbase_kinstr_prfcnt_init(kbdev->hwcnt_gpu_virt,
+				       &kbdev->kinstr_prfcnt_ctx);
+	if (ret) {
+		dev_err(kbdev->dev,
+			"Performance counter instrumentation initialization failed");
+		goto kinstr_prfcnt_fail;
+	}
+
 	return ret;
+
+kinstr_prfcnt_fail:
+	kbase_vinstr_term(kbdev->vinstr_ctx);
 
 vinstr_fail:
 	kbase_hwcnt_virtualizer_term(kbdev->hwcnt_gpu_virt);

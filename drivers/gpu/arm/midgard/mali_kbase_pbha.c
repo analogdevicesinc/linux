@@ -117,13 +117,10 @@ static bool settings_valid(unsigned int id, unsigned int read_setting,
 
 bool kbasep_pbha_supported(struct kbase_device *kbdev)
 {
-	const u32 arch_maj = (kbdev->gpu_props.props.raw_props.gpu_id &
-			      GPU_ID2_ARCH_MAJOR) >>
-			     GPU_ID2_ARCH_MAJOR_SHIFT;
-	const u32 arch_rev =
-		(kbdev->gpu_props.props.raw_props.gpu_id & GPU_ID2_ARCH_REV) >>
-		GPU_ID2_ARCH_REV_SHIFT;
-	return ((arch_maj >= 11) && (arch_rev >= 3));
+	const u32 arch_maj_rev =
+		ARCH_MAJOR_REV_REG(kbdev->gpu_props.props.raw_props.gpu_id);
+
+	return (arch_maj_rev >= GPU_ID2_ARCH_MAJOR_REV_MAKE(11, 3));
 }
 
 int kbase_pbha_record_settings(struct kbase_device *kbdev, bool runtime,

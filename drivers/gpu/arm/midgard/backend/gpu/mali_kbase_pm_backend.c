@@ -351,6 +351,8 @@ static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
 	struct kbase_pm_backend_data *backend = &pm->backend;
 	unsigned long flags;
 
+	KBASE_KTRACE_ADD(kbdev, PM_POWEROFF_WAIT_WQ, NULL, 0);
+
 #if !MALI_USE_CSF
 	/* Wait for power transitions to complete. We do this with no locks held
 	 * so that we don't deadlock with any pending workqueues.
@@ -1071,10 +1073,12 @@ static int pm_handle_mcu_sleep_on_runtime_suspend(struct kbase_device *kbdev)
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 	/* After re-acquiring the kbdev->pm.lock, check if the device
-	 * became active meanwhile.
+	 * became active (or active then idle) meanwhile.
 	 */
-	if (kbdev->pm.active_count) {
-		dev_dbg(kbdev->dev, "Device became active on runtime suspend after suspending Scheduler");
+	if (kbdev->pm.active_count ||
+	    kbdev->pm.backend.poweroff_wait_in_progress) {
+		dev_dbg(kbdev->dev,
+			"Device became active on runtime suspend after suspending Scheduler");
 		ret = -EBUSY;
 	}
 
@@ -1147,14 +1151,8 @@ int kbase_pm_handle_runtime_suspend(struct kbase_device *kbdev)
 	 * the fact that pm.lock is released before invoking Scheduler function
 	 * to suspend the CSGs.
 	 */
-	if (atomic_read(&kbdev->dev->power.usage_count)) {
-		dev_dbg(kbdev->dev, "Device became runtime active since last idle");
-		ret = -EBUSY;
-		goto unlock;
-	}
-
-	/* Device became active, so can't proceed with suspend */
-	if (kbdev->pm.active_count) {
+	if (kbdev->pm.active_count ||
+	    kbdev->pm.backend.poweroff_wait_in_progress) {
 		dev_dbg(kbdev->dev, "Device became active on runtime suspend");
 		ret = -EBUSY;
 		goto unlock;
@@ -1184,31 +1182,17 @@ int kbase_pm_handle_runtime_suspend(struct kbase_device *kbdev)
 		dev_warn(kbdev->dev, "Failed to turn off GPU clocks on runtime suspend, MMU faults pending");
 
 		WARN_ON(!kbdev->poweroff_pending);
-		/* Wait for the in-flight MMU fault work items to complete.
-		 * Previous call to kbase_pm_clock_off() would have disabled
+		/* Previous call to kbase_pm_clock_off() would have disabled
 		 * the interrupts and also synchronized with the interrupt
 		 * handlers, so more fault work items can't be enqueued.
 		 *
-		 * Need to release the kbdev->pm.lock to avoid lock ordering
-		 * issue with kctx->reg.lock, which is taken by the MMU fault
-		 * work items.
+		 * Can't wait for the completion of MMU fault work items as
+		 * there is a possibility of a deadlock since the fault work
+		 * items would do the group termination which requires the
+		 * Scheduler lock.
 		 */
-		kbase_pm_unlock(kbdev);
-		kbase_flush_mmu_wqs(kbdev);
-		kbase_pm_lock(kbdev);
-
-		/* After re-acquiring the kbdev->pm.lock, check if the device
-		 * became active meanwhile.
-		 */
-		if (kbdev->pm.active_count) {
-			dev_info(kbdev->dev, "Device became active during the flush of MMU faults work items");
-			WARN_ON(kbdev->poweroff_pending);
-			ret = -EBUSY;
-			goto unlock;
-		}
-
-		WARN_ON(atomic_read(&kbdev->faults_pending));
-		WARN_ON(!kbase_pm_clock_off(kbdev));
+		ret = -EBUSY;
+		goto unlock;
 	}
 
 	wake_up(&kbdev->pm.backend.poweroff_wait);

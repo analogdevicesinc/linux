@@ -175,6 +175,7 @@
 #define COHERENCY_FEATURES      0x300   /* (RO) Coherency features present */
 #define COHERENCY_ENABLE        0x304   /* (RW) Coherency enable */
 
+
 #define SHADER_CONFIG           0xF04   /* (RW) Shader core configuration (implementation-specific) */
 #define TILER_CONFIG            0xF08   /* (RW) Tiler core configuration (implementation-specific) */
 #define L2_MMU_CONFIG           0xF0C   /* (RW) L2 cache and MMU configuration (implementation-specific) */
@@ -338,10 +339,6 @@
 #define AS_COMMAND_UPDATE      0x01	/* Broadcasts the values in AS_TRANSTAB and ASn_MEMATTR to all MMUs */
 #define AS_COMMAND_LOCK        0x02	/* Issue a lock region command to all MMUs */
 #define AS_COMMAND_UNLOCK      0x03	/* Issue a flush region command to all MMUs */
-/* Flush all L2 caches then issue a flush region command to all MMUs
- * (deprecated - only for use with T60x)
- */
-#define AS_COMMAND_FLUSH 0x04
 /* Flush all L2 caches then issue a flush region command to all MMUs */
 #define AS_COMMAND_FLUSH_PT 0x04
 /* Wait for memory accesses to complete, flush all the L1s cache then flush all
@@ -459,6 +456,7 @@
 #define L2_CONFIG_ASN_HASH_ENABLE_SHIFT        24
 #define L2_CONFIG_ASN_HASH_ENABLE_MASK         (1ul << L2_CONFIG_ASN_HASH_ENABLE_SHIFT)
 /* End L2_CONFIG register */
+
 
 /* IDVS_GROUP register */
 #define IDVS_GROUP_SIZE_SHIFT (16)

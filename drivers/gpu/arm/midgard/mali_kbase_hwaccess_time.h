@@ -61,3 +61,12 @@ void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
  */
 unsigned int kbase_get_timeout_ms(struct kbase_device *kbdev,
 				  enum kbase_timeout_selector selector);
+
+/**
+ * kbase_backend_get_cycle_cnt - Reads the GPU cycle counter
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ *
+ * Return: Snapshot of the GPU cycle count register.
+ */
+u64 kbase_backend_get_cycle_cnt(struct kbase_device *kbdev);

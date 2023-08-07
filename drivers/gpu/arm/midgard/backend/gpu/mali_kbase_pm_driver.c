@@ -272,9 +272,8 @@ static void mali_cci_flush_l2(struct kbase_device *kbdev)
 	 * to be called from.
 	 */
 
-	kbase_reg_write(kbdev,
-			GPU_CONTROL_REG(GPU_COMMAND),
-			GPU_COMMAND_CLEAN_INV_CACHES);
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND),
+			GPU_COMMAND_CACHE_CLN_INV_L2);
 
 	raw = kbase_reg_read(kbdev,
 		GPU_CONTROL_REG(GPU_IRQ_RAWSTAT));
@@ -887,7 +886,7 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 			    backend->l2_state == KBASE_L2_ON) {
 				kbase_pm_enable_mcu_db_notification(kbdev);
 				kbase_pm_disable_db_mirror_interrupt(kbdev);
-				backend->mcu_state = KBASE_MCU_ON;
+				backend->mcu_state = KBASE_MCU_ON_HWCNT_ENABLE;
 			}
 			break;
 #endif
@@ -2325,6 +2324,7 @@ void kbase_pm_clock_on(struct kbase_device *kbdev, bool is_resume)
 		backend->gpu_idled = false;
 	}
 #endif
+
 }
 
 KBASE_EXPORT_TEST_API(kbase_pm_clock_on);
@@ -2368,19 +2368,22 @@ bool kbase_pm_clock_off(struct kbase_device *kbdev)
 	kbase_ipa_control_handle_gpu_power_off(kbdev);
 #endif
 
-	kbdev->pm.backend.gpu_ready = false;
-
-	/* The GPU power may be turned off from this point */
-	kbdev->pm.backend.gpu_powered = false;
-
+	if (kbase_is_gpu_removed(kbdev)
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
-	if (kbase_pm_is_gpu_lost(kbdev)) {
+			|| kbase_pm_is_gpu_lost(kbdev)) {
+#else
+			) {
+#endif
 		/* Ensure we unblock any threads that are stuck waiting
 		 * for the GPU
 		 */
 		kbase_gpu_cache_clean_wait_complete(kbdev);
 	}
-#endif
+
+	kbdev->pm.backend.gpu_ready = false;
+
+	/* The GPU power may be turned off from this point */
+	kbdev->pm.backend.gpu_powered = false;
 
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 

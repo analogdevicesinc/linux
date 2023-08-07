@@ -53,6 +53,20 @@
 								GPU_ID2_VERSION_MINOR | \
 								GPU_ID2_VERSION_STATUS)
 
+/* Helper macro to construct a value consisting of arch major and revision
+ * using the value of gpu_id.
+ */
+#define ARCH_MAJOR_REV_REG(gpu_id)                                             \
+	((((__u32)gpu_id) & GPU_ID2_ARCH_MAJOR) |                              \
+	 (((__u32)gpu_id) & GPU_ID2_ARCH_REV))
+
+/* Helper macro to create a partial GPU_ID (new format) that defines
+ * a arch major and revision.
+ */
+#define GPU_ID2_ARCH_MAJOR_REV_MAKE(arch_major, arch_rev)                      \
+	((((__u32)arch_major) << GPU_ID2_ARCH_MAJOR_SHIFT) |                   \
+	 (((__u32)arch_rev) << GPU_ID2_ARCH_REV_SHIFT))
+
 /* Helper macro to create a partial GPU_ID (new format) that defines
  * a product ignoring its version.
  */

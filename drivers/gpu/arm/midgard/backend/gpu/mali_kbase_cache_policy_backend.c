@@ -22,10 +22,22 @@
 #include "backend/gpu/mali_kbase_cache_policy_backend.h"
 #include <device/mali_kbase_device.h>
 
+
 void kbase_cache_set_coherency_mode(struct kbase_device *kbdev,
 		u32 mode)
 {
 	kbdev->current_gpu_coherency_mode = mode;
-	kbase_reg_write(kbdev, COHERENCY_ENABLE, mode);
+
+		kbase_reg_write(kbdev, COHERENCY_ENABLE, mode);
+}
+
+u32 kbase_cache_get_coherency_features(struct kbase_device *kbdev)
+{
+	u32 coherency_features;
+
+		coherency_features = kbase_reg_read(
+			kbdev, GPU_CONTROL_REG(COHERENCY_FEATURES));
+
+	return coherency_features;
 }
 

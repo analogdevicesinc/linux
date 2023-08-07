@@ -163,10 +163,6 @@ static int kbase_ts_converter_init(
 	return 0;
 }
 
-static void kbase_ts_converter_sync_cpu_gpu_ts(struct kbase_csf_tl_reader *self)
-{
-}
-
 /**
  * kbase_ts_converter_convert() - Convert GPU timestamp to CPU timestamp.
  *
@@ -175,9 +171,8 @@ static void kbase_ts_converter_sync_cpu_gpu_ts(struct kbase_csf_tl_reader *self)
  *
  * Return: The CPU timestamp.
  */
-static void kbase_ts_converter_convert(
-	const struct kbase_ts_converter *self,
-	u64 *gpu_ts)
+void kbase_ts_converter_convert(const struct kbase_ts_converter *self,
+				u64 *gpu_ts)
 {
 	u64 old_gpu_ts = *gpu_ts;
 	*gpu_ts = div64_u64(old_gpu_ts * self->multiplier, self->divisor) +
@@ -260,6 +255,7 @@ static void tl_reader_reset(struct kbase_csf_tl_reader *self)
 	self->tl_header.btc = 0;
 }
 
+
 int kbase_csf_tl_reader_flush_buffer(struct kbase_csf_tl_reader *self)
 {
 	int ret = 0;
@@ -284,7 +280,6 @@ int kbase_csf_tl_reader_flush_buffer(struct kbase_csf_tl_reader *self)
 		return -EBUSY;
 	}
 
-	kbase_ts_converter_sync_cpu_gpu_ts(self);
 
 	/* Copying the whole buffer in a single shot. We assume
 	 * that the buffer will not contain partially written messages.
@@ -336,9 +331,8 @@ int kbase_csf_tl_reader_flush_buffer(struct kbase_csf_tl_reader *self)
 		{
 			struct kbase_csffw_tl_message *msg =
 				(struct kbase_csffw_tl_message *) csffw_data_it;
-			kbase_ts_converter_convert(
-				&self->ts_converter,
-				&msg->timestamp);
+			kbase_ts_converter_convert(&self->ts_converter,
+						   &msg->timestamp);
 		}
 
 		/* Copy the message out to the tl_stream. */
@@ -420,7 +414,6 @@ static int tl_reader_init_late(
 	self->trace_buffer = tb;
 	self->tl_header.data = hdr;
 	self->tl_header.size = hdr_size;
-
 
 	return 0;
 }

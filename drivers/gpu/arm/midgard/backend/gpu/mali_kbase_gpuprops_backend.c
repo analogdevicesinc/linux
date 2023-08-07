@@ -26,6 +26,7 @@
 #include <mali_kbase.h>
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
+#include <backend/gpu/mali_kbase_cache_policy_backend.h>
 #include <mali_kbase_hwaccess_gpuprops.h>
 
 int kbase_backend_gpuprops_get(struct kbase_device *kbdev,
@@ -162,8 +163,7 @@ int kbase_backend_gpuprops_get_features(struct kbase_device *kbdev,
 	/* Ensure we can access the GPU registers */
 	kbase_pm_register_access_enable(kbdev);
 
-	coherency_features =
-		kbase_reg_read(kbdev, GPU_CONTROL_REG(COHERENCY_FEATURES));
+	coherency_features = kbase_cache_get_coherency_features(kbdev);
 
 	if (kbase_is_gpu_removed(kbdev))
 		error = -EIO;
