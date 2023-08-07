@@ -161,9 +161,9 @@ void kbase_device_pcm_dev_term(struct kbase_device *const kbdev)
 /**
  * mali_oom_notifier_handler - Mali driver out-of-memory handler
  *
- * @nb - notifier block - used to retrieve kbdev pointer
- * @action - action (unused)
- * @data - data pointer (unused)
+ * @nb: notifier block - used to retrieve kbdev pointer
+ * @action: action (unused)
+ * @data: data pointer (unused)
  * This function simply lists memory usage by the Mali driver, per GPU device,
  * for diagnostic purposes.
  */
@@ -270,6 +270,14 @@ int kbase_device_misc_init(struct kbase_device * const kbdev)
 
 	err = dma_set_coherent_mask(kbdev->dev,
 			DMA_BIT_MASK(kbdev->gpu_props.mmu.pa_bits));
+	if (err)
+		goto dma_set_mask_failed;
+
+	/* There is no limit for Mali, so set to max. We only do this if dma_parms
+	 * is already allocated by the platform.
+	 */
+	if (kbdev->dev->dma_parms)
+		err = dma_set_max_seg_size(kbdev->dev, UINT_MAX);
 	if (err)
 		goto dma_set_mask_failed;
 

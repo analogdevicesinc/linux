@@ -39,7 +39,7 @@
  */
 #define KBASEP_USER_DB_NR_INVALID ((s8)-1)
 
-#define FIRMWARE_PING_INTERVAL_MS (4000) /* 4 seconds */
+#define FIRMWARE_PING_INTERVAL_MS (8000) /* 8 seconds */
 
 #define FIRMWARE_IDLE_HYSTERESIS_TIME_MS (10) /* Default 10 milliseconds */
 
@@ -559,6 +559,5 @@ static inline u8 kbase_csf_priority_queue_group_priority_to_relative(u8 priority
 		priority = BASE_QUEUE_GROUP_PRIORITY_LOW;
 	return kbasep_csf_queue_group_priority_to_relative[priority];
 }
-
 
 #endif /* _KBASE_CSF_H_ */

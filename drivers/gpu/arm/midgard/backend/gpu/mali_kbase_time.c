@@ -31,18 +31,8 @@ void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
 {
 	u32 hi1, hi2;
 
-	if (cycle_counter) {
-		/* Read hi, lo, hi to ensure a coherent u64 */
-		do {
-			hi1 = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(CYCLE_COUNT_HI));
-			*cycle_counter = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(CYCLE_COUNT_LO));
-			hi2 = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(CYCLE_COUNT_HI));
-		} while (hi1 != hi2);
-		*cycle_counter |= (((u64) hi1) << 32);
-	}
+	if (cycle_counter)
+		*cycle_counter = kbase_backend_get_cycle_cnt(kbdev);
 
 	if (system_time) {
 		/* Read hi, lo, hi to ensure a coherent u64 */
@@ -106,4 +96,21 @@ void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter,
 #if !MALI_USE_CSF
 	kbase_pm_release_gpu_cycle_counter(kbdev);
 #endif
+}
+
+u64 kbase_backend_get_cycle_cnt(struct kbase_device *kbdev)
+{
+	u32 hi1, hi2, lo;
+
+	/* Read hi, lo, hi to ensure a coherent u64 */
+	do {
+		hi1 = kbase_reg_read(kbdev,
+					GPU_CONTROL_REG(CYCLE_COUNT_HI));
+		lo = kbase_reg_read(kbdev,
+					GPU_CONTROL_REG(CYCLE_COUNT_LO));
+		hi2 = kbase_reg_read(kbdev,
+					GPU_CONTROL_REG(CYCLE_COUNT_HI));
+	} while (hi1 != hi2);
+
+	return lo | (((u64) hi1) << 32);
 }

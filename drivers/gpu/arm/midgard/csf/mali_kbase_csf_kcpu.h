@@ -117,6 +117,8 @@ struct kbase_kcpu_command_cqs_set_operation_info {
  * @signaled:	Bit array used to report the status of the CQS wait objects.
  *              1 is signaled, 0 otherwise.
  * @nr_objs:	Number of CQS objects in the array.
+ * @inherit_err_flags: Bit-pattern for CQSs in the array who's error field is to
+ *                     be used as the source to import into the queue's error-state
  */
 struct kbase_kcpu_command_cqs_wait_operation_info {
 	struct base_cqs_wait_operation_info *objs;

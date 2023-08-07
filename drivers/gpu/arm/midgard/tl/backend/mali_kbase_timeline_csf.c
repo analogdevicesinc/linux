@@ -74,9 +74,10 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 			kbdev->csf.scheduler.csg_slots[slot_i].resident_group;
 
 		if (group)
-			__kbase_tlstream_tl_kbase_device_program_csg(summary,
+			__kbase_tlstream_tl_kbase_device_program_csg(
+				summary,
 				kbdev->gpu_props.props.raw_props.gpu_id,
-				group->handle, slot_i);
+				group->kctx->id, group->handle, slot_i);
 	}
 
 	/* Reset body stream buffers while holding the kctx lock.

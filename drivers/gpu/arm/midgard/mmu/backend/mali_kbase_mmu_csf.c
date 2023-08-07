@@ -483,6 +483,15 @@ static void kbase_mmu_gpu_fault_worker(struct work_struct *data)
 	kbase_ctx_sched_release_ctx_lock(kctx);
 
 	atomic_dec(&kbdev->faults_pending);
+
+	/* A work for GPU fault is complete.
+	 * Till reaching here, no further GPU fault will be reported.
+	 * Now clear the GPU fault to allow next GPU fault interrupt report.
+	 */
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND),
+			GPU_COMMAND_CLEAR_FAULT);
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
 
 /**

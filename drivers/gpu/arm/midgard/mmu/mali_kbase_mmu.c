@@ -1861,12 +1861,6 @@ KBASE_EXPORT_TEST_API(kbase_mmu_teardown_pages);
 /**
  * kbase_mmu_update_pages_no_flush() - Update page table entries on the GPU
  *
- * This will update page table entries that already exist on the GPU based on
- * the new flags that are passed. It is used as a response to the changes of
- * the memory attributes
- *
- * The caller is responsible for validating the memory attributes
- *
  * @kctx:  Kbase context
  * @vpfn:  Virtual PFN (Page Frame Number) of the first page to update
  * @phys:  Tagged physical addresses of the physical pages to replace the
@@ -1875,6 +1869,12 @@ KBASE_EXPORT_TEST_API(kbase_mmu_teardown_pages);
  * @flags: Flags
  * @group_id: The physical memory group in which the page was allocated.
  *            Valid range is 0..(MEMORY_GROUP_MANAGER_NR_GROUPS-1).
+ *
+ * This will update page table entries that already exist on the GPU based on
+ * the new flags that are passed. It is used as a response to the changes of
+ * the memory attributes
+ *
+ * The caller is responsible for validating the memory attributes
  */
 static int kbase_mmu_update_pages_no_flush(struct kbase_context *kctx, u64 vpfn,
 					struct tagged_addr *phys, size_t nr,

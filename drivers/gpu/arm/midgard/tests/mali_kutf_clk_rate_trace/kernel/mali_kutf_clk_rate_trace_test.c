@@ -613,7 +613,7 @@ static int kutf_clk_trace_do_nack_response(struct kutf_context *context,
  *     3). If the GPU active transition occurs following 2), there
  *         must be rate change event from tracing.
  */
-void kutf_clk_trace_barebone_check(struct kutf_context *context)
+static void kutf_clk_trace_barebone_check(struct kutf_context *context)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 	struct kbase_device *kbdev = data->kbdev;
@@ -691,7 +691,7 @@ static bool kutf_clk_trace_end_of_stream(struct clk_trace_portal_input *cmd)
 	return (cmd->named_val_err == -EBUSY);
 }
 
-void kutf_clk_trace_no_clks_dummy(struct kutf_context *context)
+static void kutf_clk_trace_no_clks_dummy(struct kutf_context *context)
 {
 	struct clk_trace_portal_input cmd;
 	unsigned long timeout = jiffies + HZ * 2;
@@ -897,7 +897,7 @@ static void mali_kutf_clk_rate_trace_remove_fixture(
 /**
  * mali_kutf_clk_rate_trace_test_module_init() - Entry point for test mdoule.
  */
-int mali_kutf_clk_rate_trace_test_module_init(void)
+static int __init mali_kutf_clk_rate_trace_test_module_init(void)
 {
 	struct kutf_suite *suite;
 	unsigned int filters;
@@ -943,7 +943,7 @@ int mali_kutf_clk_rate_trace_test_module_init(void)
  * mali_kutf_clk_rate_trace_test_module_exit() - Module exit point for this
  *                                               test.
  */
-void mali_kutf_clk_rate_trace_test_module_exit(void)
+static void __exit mali_kutf_clk_rate_trace_test_module_exit(void)
 {
 	pr_debug("Exit start\n");
 	kutf_destroy_application(kutf_app);

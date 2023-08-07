@@ -46,7 +46,7 @@
  * Return: Pointer to clk trace ops if supported or NULL.
  */
 static struct kbase_clk_rate_trace_op_conf *
-get_clk_rate_trace_callbacks(__maybe_unused struct kbase_device *kbdev)
+get_clk_rate_trace_callbacks(struct kbase_device *kbdev __maybe_unused)
 {
 	/* base case */
 	struct kbase_clk_rate_trace_op_conf *callbacks =

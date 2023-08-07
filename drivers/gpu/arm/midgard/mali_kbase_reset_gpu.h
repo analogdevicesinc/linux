@@ -168,7 +168,7 @@ bool kbase_prepare_to_reset_gpu_locked(struct kbase_device *kbdev,
  * kbase_prepare_to_reset_gpu - Prepare for resetting the GPU.
  * @kbdev: Device pointer
  * @flags: Bitfield indicating impact of reset (see flag defines)
-
+ *
  * Return: a boolean which should be interpreted as follows:
  * - true  - Prepared for reset, kbase_reset_gpu should be called.
  * - false - Another thread is performing a reset, kbase_reset_gpu should

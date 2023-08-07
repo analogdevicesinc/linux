@@ -566,7 +566,7 @@ struct kbase_pm_policy {
 	 */
 	bool (*get_core_active)(struct kbase_device *kbdev);
 
-	/**
+	/*
 	 * Function called when a power event occurs
 	 *
 	 * @kbdev: The kbase device structure for the device (must be a

@@ -32,6 +32,7 @@
 #include <mmu/mali_kbase_mmu.h>
 #include "mali_kbase_csf_timeout.h"
 #include <csf/ipa_control/mali_kbase_csf_ipa_control.h>
+#include <mali_kbase_hwaccess_time.h>
 
 #define CS_REQ_EXCEPTION_MASK (CS_REQ_FAULT_MASK | CS_REQ_FATAL_MASK)
 #define CS_ACK_EXCEPTION_MASK (CS_ACK_FAULT_MASK | CS_ACK_FATAL_MASK)
@@ -2757,9 +2758,14 @@ static void process_csg_interrupts(struct kbase_device *const kbdev,
 			 group->handle, csg_nr);
 
 		/* Check if the scheduling tick can be advanced */
-		if (kbase_csf_scheduler_all_csgs_idle(kbdev) &&
-		    !scheduler->gpu_idle_fw_timer_enabled) {
-			kbase_csf_scheduler_advance_tick_nolock(kbdev);
+		if (kbase_csf_scheduler_all_csgs_idle(kbdev)) {
+			if (!scheduler->gpu_idle_fw_timer_enabled)
+				kbase_csf_scheduler_advance_tick_nolock(kbdev);
+		} else if (atomic_read(&scheduler->non_idle_offslot_grps)) {
+			/* If there are non-idle CSGs waiting for a slot, fire
+			 * a tock for a replacement.
+			 */
+			mod_delayed_work(scheduler->wq, &scheduler->tock_work, 0);
 		}
 	}
 
@@ -2770,7 +2776,8 @@ static void process_csg_interrupts(struct kbase_device *const kbdev,
 		KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_PROGRESS_TIMER_INTERRUPT,
 					 group, req ^ ack);
 		dev_info(kbdev->dev,
-			"Timeout notification received for group %u of ctx %d_%d on slot %d\n",
+			"[%llu] Iterator PROGRESS_TIMER timeout notification received for group %u of ctx %d_%d on slot %d\n",
+			kbase_backend_get_cycle_cnt(kbdev),
 			group->handle, group->kctx->tgid, group->kctx->id, csg_nr);
 
 		handle_progress_timer_event(group);
@@ -3066,4 +3073,3 @@ u8 kbase_csf_priority_check(struct kbase_device *kbdev, u8 req_priority)
 
 	return out_priority;
 }
-

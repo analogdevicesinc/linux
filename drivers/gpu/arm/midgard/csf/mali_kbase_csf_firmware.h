@@ -79,7 +79,7 @@
 #define MAX_SUPPORTED_STREAMS_PER_GROUP 32
 
 /* Waiting timeout for status change acknowledgment, in milliseconds */
-#define CSF_FIRMWARE_TIMEOUT_MS (3000) /* Relaxed to 3000ms from 800ms due to Android */
+#define CSF_FIRMWARE_TIMEOUT_MS (6000) /* Relaxed to 6000ms from 800ms due to Android */
 
 struct kbase_device;
 

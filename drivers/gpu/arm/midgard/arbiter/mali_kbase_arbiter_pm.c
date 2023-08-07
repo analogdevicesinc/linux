@@ -319,7 +319,6 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 	if (kbdev->arb.arb_if) {
 		kbase_arbif_gpu_request(kbdev);
 		dev_dbg(kbdev->dev, "Waiting for initial GPU assignment...\n");
-
 		err = wait_event_timeout(arb_vm_state->vm_state_wait,
 			arb_vm_state->vm_state ==
 					KBASE_VM_STATE_INITIALIZING_WITH_GPU,
@@ -329,9 +328,8 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 			dev_dbg(kbdev->dev,
 			"Kbase probe Deferred after waiting %d ms to receive GPU_GRANT\n",
 			gpu_req_timeout);
-
-			err = -ENODEV;
-			goto arbif_timeout;
+			err = -EPROBE_DEFER;
+			goto arbif_eprobe_defer;
 		}
 
 		dev_dbg(kbdev->dev,
@@ -339,10 +337,9 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 	}
 	return 0;
 
-arbif_timeout:
+arbif_eprobe_defer:
 	kbase_arbiter_pm_early_term(kbdev);
 	return err;
-
 arbif_init_fail:
 	destroy_workqueue(arb_vm_state->vm_arb_wq);
 	kfree(arb_vm_state);

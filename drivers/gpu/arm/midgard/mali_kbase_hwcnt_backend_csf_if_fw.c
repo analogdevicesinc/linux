@@ -683,7 +683,7 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_gpu_cycle_count(
 }
 
 /**
- * kbasep_hwcnt_backedn_csf_if_fw_cts_destroy() - Destroy a CSF FW interface context.
+ * kbasep_hwcnt_backend_csf_if_fw_ctx_destroy() - Destroy a CSF FW interface context.
  *
  * @fw_ctx: Pointer to context to destroy.
  */

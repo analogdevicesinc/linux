@@ -317,7 +317,6 @@ typedef __u32 base_context_create_flags;
  * @BASE_KCPU_COMMAND_TYPE_JIT_FREE:           jit_free,
  * @BASE_KCPU_COMMAND_TYPE_GROUP_SUSPEND:      group_suspend,
  * @BASE_KCPU_COMMAND_TYPE_ERROR_BARRIER:      error_barrier,
- * @BASE_KCPU_COMMAND_TYPE_SAMPLE_TIME:        sample_time,
  */
 enum base_kcpu_command_type {
 	BASE_KCPU_COMMAND_TYPE_FENCE_SIGNAL,
@@ -426,7 +425,7 @@ struct base_kcpu_command_cqs_set_info {
 };
 
 /**
- * basep_cqs_data_type - Enumeration of CQS Data Types
+ * typedef basep_cqs_data_type - Enumeration of CQS Data Types
  *
  * @BASEP_CQS_DATA_TYPE_U32: The Data Type of a CQS Object's value
  *                           is an unsigned 32-bit integer
@@ -439,7 +438,7 @@ typedef enum PACKED {
 } basep_cqs_data_type;
 
 /**
- * basep_cqs_wait_operation_op - Enumeration of CQS Object Wait
+ * typedef basep_cqs_wait_operation_op - Enumeration of CQS Object Wait
  *                                Operation conditions
  *
  * @BASEP_CQS_WAIT_OPERATION_LE: CQS Wait Operation indicating that a
@@ -480,7 +479,7 @@ struct base_kcpu_command_cqs_wait_operation_info {
 };
 
 /**
- * basep_cqs_set_operation_op - Enumeration of CQS Set Operations
+ * typedef basep_cqs_set_operation_op - Enumeration of CQS Set Operations
  *
  * @BASEP_CQS_SET_OPERATION_ADD: CQS Set operation for adding a value
  *                                to a synchronization object
