@@ -744,7 +744,12 @@ static int _setup_disp_channel2(struct fb_info *fbi)
 		if (mxc_fbi->resolve)
 			pre.sec_buf_off = mxc_fbi->gpu_sec_buf_off;
 
-		ipu_pre_config(mxc_fbi->pre_num, &pre);
+		retval = ipu_pre_config(mxc_fbi->pre_num, &pre);
+		if (retval < 0) {
+			dev_err(fbi->device, "failed to configure PRE %d\n",
+				retval);
+			return retval;
+		}
 		ipu_stride = pre.store_pitch;
 		ipu_base = pre.store_addr;
 		mxc_fbi->store_addr = ipu_base;
