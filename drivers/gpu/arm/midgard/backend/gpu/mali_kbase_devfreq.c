@@ -43,7 +43,7 @@
  * This function will be called only when the opp table which is compatible with
  * "operating-points-v2-mali", is not present in the devicetree for GPU device.
  *
- * Return: Voltage value in milli volts, 0 in case of error.
+ * Return: Voltage value in micro volts, 0 in case of error.
  */
 static unsigned long get_voltage(struct kbase_device *kbdev, unsigned long freq)
 {
@@ -69,8 +69,8 @@ static unsigned long get_voltage(struct kbase_device *kbdev, unsigned long freq)
 	rcu_read_unlock();
 #endif
 
-	/* Return the voltage in milli volts */
-	return voltage / 1000;
+	/* Return the voltage in micro volts */
+	return voltage;
 }
 
 void kbase_devfreq_opp_translate(struct kbase_device *kbdev, unsigned long freq,
@@ -116,6 +116,9 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 	struct dev_pm_opp *opp;
 	unsigned long nominal_freq;
 	unsigned long freqs[BASE_MAX_NR_CLOCKS_REGULATORS] = {0};
+#if IS_ENABLED(CONFIG_REGULATOR)
+	unsigned long original_freqs[BASE_MAX_NR_CLOCKS_REGULATORS] = {0};
+#endif
 	unsigned long volts[BASE_MAX_NR_CLOCKS_REGULATORS] = {0};
 	unsigned int i;
 	u64 core_mask;
@@ -187,6 +190,9 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 
 			err = clk_set_rate(kbdev->clocks[i], freqs[i]);
 			if (!err) {
+#if IS_ENABLED(CONFIG_REGULATOR)
+				original_freqs[i] = kbdev->current_freqs[i];
+#endif
 				kbdev->current_freqs[i] = freqs[i];
 			} else {
 				dev_err(dev, "Failed to set clock %lu (target %lu)\n",
@@ -200,7 +206,7 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 	for (i = 0; i < kbdev->nr_clocks; i++) {
 		if (kbdev->regulators[i] &&
 				kbdev->current_voltages[i] != volts[i] &&
-				kbdev->current_freqs[i] > freqs[i]) {
+				original_freqs[i] > freqs[i]) {
 			int err;
 
 			err = regulator_set_voltage(kbdev->regulators[i],
