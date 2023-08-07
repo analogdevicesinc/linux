@@ -155,15 +155,16 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 	/* Regulators and clocks work in pairs: every clock has a regulator,
 	 * and we never expect to have more regulators than clocks.
 	 *
-	 * We always need to increase the voltage before increasing
-	 * the frequency of a regulator/clock pair, otherwise the clock
-	 * wouldn't have enough power to perform the transition.
+	 * We always need to increase the voltage before increasing the number
+	 * of shader cores and the frequency of a regulator/clock pair,
+	 * otherwise the clock wouldn't have enough power to perform
+	 * the transition.
 	 *
-	 * It's always safer to decrease the frequency before decreasing
-	 * voltage of a regulator/clock pair, otherwise the clock could have
-	 * problems operating if it is deprived of the necessary power
-	 * to sustain its current frequency (even if that happens for a short
-	 * transition interval).
+	 * It's always safer to decrease the number of shader cores and
+	 * the frequency before decreasing voltage of a regulator/clock pair,
+	 * otherwise the clock could have problematic operation if it is
+	 * deprived of the necessary power to sustain its current frequency
+	 * (even if that happens for a short transition interval).
 	 */
 	for (i = 0; i < kbdev->nr_clocks; i++) {
 		if (kbdev->regulators[i] &&
@@ -202,6 +203,8 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 		}
 	}
 
+	kbase_devfreq_set_core_mask(kbdev, core_mask);
+
 #if IS_ENABLED(CONFIG_REGULATOR)
 	for (i = 0; i < kbdev->nr_clocks; i++) {
 		if (kbdev->regulators[i] &&
@@ -221,8 +224,6 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 		}
 	}
 #endif
-
-	kbase_devfreq_set_core_mask(kbdev, core_mask);
 
 	*target_freq = nominal_freq;
 	kbdev->current_nominal_freq = nominal_freq;
