@@ -24,10 +24,8 @@
 
 #include <linux/version.h>
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-#if (KERNEL_VERSION(4, 7, 0) > LINUX_VERSION_CODE)
-#define DEFINE_DEBUGFS_ATTRIBUTE DEFINE_SIMPLE_ATTRIBUTE
+#if KERNEL_VERSION(4, 16, 0) >= LINUX_VERSION_CODE
+typedef unsigned int __poll_t;
 #endif
-#endif /* CONFIG_DEBUG_FS */
 
 #endif /* _VERSION_COMPAT_DEFS_H_ */
