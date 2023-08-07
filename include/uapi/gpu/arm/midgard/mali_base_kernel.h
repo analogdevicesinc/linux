@@ -635,7 +635,7 @@ struct mali_base_gpu_coherent_group_info {
  * @thread_max_barrier_size: Maximum number of threads per barrier
  * @thread_features: Thread features
  * @coherency_mode: Note: This is the _selected_ coherency mode rather than the
- * 	available modes as exposed in the coherency_features register
+ *                  available modes as exposed in the coherency_features register
  * @thread_tls_alloc: Number of threads per core that TLS must be allocated for
  * @gpu_features: GPU features
  *
@@ -699,7 +699,7 @@ struct gpu_raw_gpu_props {
  * values from which the value of the other members are derived. The derived
  * members exist to allow for efficient access and/or shielding the details
  * of the layout of the registers.
- * */
+ */
 struct base_gpu_props {
 	struct mali_base_gpu_core_props core_props;
 	struct mali_base_gpu_l2_cache_props l2_props;

@@ -185,6 +185,8 @@ static const struct kbase_device_init dev_init[] = {
 	  "Timeline stream initialization failed" },
 	{ kbase_clk_rate_trace_manager_init, kbase_clk_rate_trace_manager_term,
 	  "Clock rate trace manager initialization failed" },
+	{ kbase_lowest_gpu_freq_init, NULL,
+	  "Lowest freq initialization failed" },
 	{ kbase_instr_backend_init, kbase_instr_backend_term,
 	  "Instrumentation backend initialization failed" },
 	{ kbase_device_hwcnt_backend_jm_init,

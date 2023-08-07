@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2016, 2018, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -19,13 +19,16 @@
  *
  */
 
-#include "backend/gpu/mali_kbase_cache_policy_backend.h"
-#include <device/mali_kbase_device.h>
+#ifndef _KBASE_PBHA_DEBUGFS_H
+#define _KBASE_PBHA_DEBUGFS_H
 
-void kbase_cache_set_coherency_mode(struct kbase_device *kbdev,
-		u32 mode)
-{
-	kbdev->current_gpu_coherency_mode = mode;
-	kbase_reg_write(kbdev, COHERENCY_ENABLE, mode);
-}
+#include <mali_kbase.h>
 
+/**
+ * kbasep_pbha_debugfs_init - Initialize pbha debugfs directory
+ *
+ * @kbdev: Device pointer
+ */
+void kbase_pbha_debugfs_init(struct kbase_device *kbdev);
+
+#endif /* _KBASE_PBHA_DEBUGFS_H */

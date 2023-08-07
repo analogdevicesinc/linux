@@ -71,10 +71,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/memory_group_manager.h>
 
-#if defined(CONFIG_PM_RUNTIME) || defined(CONFIG_PM)
-#define KBASE_PM_RUNTIME 1
-#endif
-
 #include "debug/mali_kbase_debug_ktrace_defs.h"
 
 /** Number of milliseconds before we time out on a GPU soft/hard reset */
@@ -111,12 +107,12 @@
 /**
  * Maximum size in bytes of a MMU lock region, as a logarithm
  */
-#define KBASE_LOCK_REGION_MAX_SIZE_LOG2 (48) /*  256 TB */
+#define KBASE_LOCK_REGION_MAX_SIZE_LOG2 (64)
 
 /**
  * Minimum size in bytes of a MMU lock region, as a logarithm
  */
-#define KBASE_LOCK_REGION_MIN_SIZE_LOG2 (15) /* 32 kB */
+#define KBASE_LOCK_REGION_MIN_SIZE_LOG2 (15)
 
 /**
  * Maximum number of GPU memory region zones
@@ -363,6 +359,12 @@ struct kbase_clk_rate_trace_manager {
  * 	that some code paths keep shaders/the tiler powered whilst this is 0.
  * 	Use kbase_pm_is_active() instead to check for such cases.
  * @suspending: Flag indicating suspending/suspended
+ * @runtime_active: Flag to track if the GPU is in runtime suspended or active
+ *                  state. This ensures that runtime_put and runtime_get
+ *                  functions are called in pairs. For example if runtime_get
+ *                  has already been called from the power_on callback, then
+ *                  the call to it from runtime_gpu_active callback can be
+ *                  skipped.
  * @gpu_lost: Flag indicating gpu lost
  * 	This structure contains data for the power management framework. There
  * 	is one instance of this structure per device in the system.
@@ -388,6 +390,9 @@ struct kbase_pm_device_data {
 	struct mutex lock;
 	int active_count;
 	bool suspending;
+#if MALI_USE_CSF
+	bool runtime_active;
+#endif
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
 	atomic_t gpu_lost;
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
@@ -738,6 +743,8 @@ struct kbase_process {
  * @reset_timeout_ms:      Number of milliseconds to wait for the soft stop to
  *                         complete for the GPU jobs before proceeding with the
  *                         GPU reset.
+ * @lowest_gpu_freq_khz:   Lowest frequency in KHz that the GPU can run at. Used
+ *                         to calculate suitable timeouts for wait operations.
  * @cache_clean_in_progress: Set when a cache clean has been started, and
  *                         cleared when it has finished. This prevents multiple
  *                         cache cleans being done simultaneously.
@@ -891,6 +898,10 @@ struct kbase_process {
  * @l2_hash_override:       Used to set L2 cache hash via device tree blob
  * @l2_hash_values_override: true if @l2_hash_values is valid.
  * @l2_hash_values:         Used to set L2 asn_hash via device tree blob
+ * @sysc_alloc:             Array containing values to be programmed into
+ *                          SYSC_ALLOC[0..7] GPU registers on L2 cache
+ *                          power down. These come from either DTB or
+ *                          via DebugFS (if it is available in kernel).
  * @process_root:           rb_tree root node for maintaining a rb_tree of
  *                          kbase_process based on key tgid(thread group ID).
  * @dma_buf_root:           rb_tree root node for maintaining a rb_tree of
@@ -1001,6 +1012,8 @@ struct kbase_device {
 	struct kbase_ktrace ktrace;
 #endif
 	u32 reset_timeout_ms;
+
+	u64 lowest_gpu_freq_khz;
 
 	bool cache_clean_in_progress;
 	bool cache_clean_queued;
@@ -1128,6 +1141,8 @@ struct kbase_device {
 	u8 l2_hash_override;
 	bool l2_hash_values_override;
 	u32 l2_hash_values[ASN_HASH_COUNT];
+
+	u32 sysc_alloc[SYSC_ALLOC_COUNT];
 
 	struct mutex fw_load_lock;
 #if MALI_USE_CSF
@@ -1886,6 +1901,13 @@ enum kbase_share_attr_bits {
 	SHARE_BOTH_BITS = (2ULL << 8),	/* inner and outer shareable coherency */
 	SHARE_INNER_BITS = (3ULL << 8)	/* inner shareable coherency */
 };
+
+/**
+ * enum kbase_timeout_selector - The choice of which timeout to get scaled
+ *                               using current GPU frequency.
+ * @CSF_FIRMWARE_TIMEOUT: Response timeout from CSF firmware.
+ */
+enum kbase_timeout_selector { CSF_FIRMWARE_TIMEOUT };
 
 /**
  * kbase_device_is_cpu_coherent - Returns if the device is CPU coherent.

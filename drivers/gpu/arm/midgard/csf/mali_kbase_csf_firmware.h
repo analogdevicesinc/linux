@@ -78,9 +78,6 @@
 /* Maximum CSs per csg. */
 #define MAX_SUPPORTED_STREAMS_PER_GROUP 32
 
-/* Waiting timeout for status change acknowledgment, in milliseconds */
-#define CSF_FIRMWARE_TIMEOUT_MS (6000) /* Relaxed to 6000ms from 800ms due to Android */
-
 struct kbase_device;
 
 
@@ -496,6 +493,26 @@ static inline void kbase_csf_firmware_disable_mcu(struct kbase_device *kbdev)
  * @kbdev: Instance of a GPU platform device that implements a CSF interface.
  */
 void kbase_csf_firmware_disable_mcu_wait(struct kbase_device *kbdev);
+
+#ifdef KBASE_PM_RUNTIME
+/**
+ * kbase_csf_firmware_trigger_mcu_sleep - Send the command to put MCU in sleep
+ *                                        state.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ */
+void kbase_csf_firmware_trigger_mcu_sleep(struct kbase_device *kbdev);
+
+/**
+ * kbase_csf_firmware_is_mcu_in_sleep - Check if sleep request has completed
+ *                                      and MCU has halted.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ *
+ * Return: true if sleep request has completed, otherwise false.
+ */
+bool kbase_csf_firmware_is_mcu_in_sleep(struct kbase_device *kbdev);
+#endif
 
 /**
  * kbase_trigger_firmware_reload - Trigger the reboot of MCU firmware, for the

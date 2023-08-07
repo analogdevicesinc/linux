@@ -186,12 +186,15 @@ struct kbase_ioctl_hwcnt_enable {
 	__u32 mmu_l2_bm;
 };
 
+/* This IOCTL is deprecated as of R33, and will be removed in R35. */
 #define KBASE_IOCTL_HWCNT_ENABLE \
 	_IOW(KBASE_IOCTL_TYPE, 9, struct kbase_ioctl_hwcnt_enable)
 
+/* This IOCTL is deprecated as of R33, and will be removed in R35. */
 #define KBASE_IOCTL_HWCNT_DUMP \
 	_IO(KBASE_IOCTL_TYPE, 10)
 
+/* This IOCTL is deprecated as of R33, and will be removed in R35. */
 #define KBASE_IOCTL_HWCNT_CLEAR \
 	_IO(KBASE_IOCTL_TYPE, 11)
 

@@ -194,14 +194,14 @@ static size_t reg_grow_calc_extra_pages(struct kbase_device *kbdev,
 static void kbase_gpu_mmu_handle_write_faulting_as(
 				struct kbase_device *kbdev,
 				struct kbase_as *faulting_as,
-				u64 start_pfn, size_t nr, u32 op)
+				u64 start_pfn, size_t nr, u32 op, u32 kctx_id)
 {
 	mutex_lock(&kbdev->mmu_hw_mutex);
 
 	kbase_mmu_hw_clear_fault(kbdev, faulting_as,
 			KBASE_MMU_FAULT_TYPE_PAGE);
 	kbase_mmu_hw_do_operation(kbdev, faulting_as, start_pfn,
-			nr, op, 1);
+			nr, op, 1, kctx_id);
 
 	mutex_unlock(&kbdev->mmu_hw_mutex);
 
@@ -284,7 +284,7 @@ static void kbase_gpu_mmu_handle_write_fault(struct kbase_context *kctx,
 	op = AS_COMMAND_FLUSH_PT;
 
 	kbase_gpu_mmu_handle_write_faulting_as(kbdev, faulting_as,
-			fault_pfn, 1, op);
+			fault_pfn, 1, op, kctx->id);
 
 	kbase_gpu_vm_unlock(kctx);
 }
@@ -739,7 +739,7 @@ page_fault_retry:
 		 * raised again).
 		 */
 		kbase_mmu_hw_do_operation(kbdev, faulting_as, 0, 0,
-				AS_COMMAND_UNLOCK, 1);
+				AS_COMMAND_UNLOCK, 1, kctx->id);
 
 		mutex_unlock(&kbdev->mmu_hw_mutex);
 
@@ -765,7 +765,7 @@ page_fault_retry:
 				KBASE_MMU_FAULT_TYPE_PAGE);
 		/* See comment [1] about UNLOCK usage */
 		kbase_mmu_hw_do_operation(kbdev, faulting_as, 0, 0,
-				AS_COMMAND_UNLOCK, 1);
+				AS_COMMAND_UNLOCK, 1, kctx->id);
 
 		mutex_unlock(&kbdev->mmu_hw_mutex);
 
@@ -870,7 +870,7 @@ page_fault_retry:
 
 		kbase_mmu_hw_do_operation(kbdev, faulting_as,
 				fault->addr >> PAGE_SHIFT,
-				new_pages, op, 1);
+				new_pages, op, 1, kctx->id);
 
 		mutex_unlock(&kbdev->mmu_hw_mutex);
 		/* AS transaction end */
@@ -1562,7 +1562,7 @@ static void kbase_mmu_flush_invalidate_noretain(struct kbase_context *kctx,
 
 	err = kbase_mmu_hw_do_operation(kbdev,
 				&kbdev->as[kctx->as_nr],
-				vpfn, nr, op, 0);
+				vpfn, nr, op, 0, kctx->id);
 	if (err) {
 		/* Flush failed to complete, assume the
 		 * GPU has hung and perform a reset to recover
@@ -1578,7 +1578,7 @@ static void kbase_mmu_flush_invalidate_noretain(struct kbase_context *kctx,
  */
 static void kbase_mmu_flush_invalidate_as(struct kbase_device *kbdev,
 		struct kbase_as *as,
-		u64 vpfn, size_t nr, bool sync)
+		u64 vpfn, size_t nr, bool sync, u32 kctx_id)
 {
 	int err;
 	u32 op;
@@ -1617,7 +1617,7 @@ static void kbase_mmu_flush_invalidate_as(struct kbase_device *kbdev,
 		op = AS_COMMAND_FLUSH_PT;
 
 	err = kbase_mmu_hw_do_operation(kbdev,
-			as, vpfn, nr, op, 0);
+			as, vpfn, nr, op, 0, kctx_id);
 
 	if (err) {
 		/* Flush failed to complete, assume the GPU has hung and
@@ -1642,7 +1642,7 @@ static void kbase_mmu_flush_invalidate_no_ctx(struct kbase_device *kbdev,
 	/* Skip if there is nothing to do */
 	if (nr) {
 		kbase_mmu_flush_invalidate_as(kbdev, &kbdev->as[as_nr], vpfn,
-					nr, sync);
+					nr, sync, 0xFFFFFFFF);
 	}
 }
 
@@ -1669,7 +1669,7 @@ static void kbase_mmu_flush_invalidate(struct kbase_context *kctx,
 		KBASE_DEBUG_ASSERT(kctx->as_nr != KBASEP_AS_NR_INVALID);
 
 		kbase_mmu_flush_invalidate_as(kbdev, &kbdev->as[kctx->as_nr],
-				vpfn, nr, sync);
+				vpfn, nr, sync, kctx->id);
 
 		release_ctx(kbdev, kctx);
 	}
@@ -2293,6 +2293,13 @@ void kbase_mmu_bus_fault_worker(struct work_struct *data)
 
 	}
 
+#if MALI_USE_CSF
+	/* Before the GPU power off, wait is done for the completion of
+	 * in-flight MMU fault work items. So GPU is expected to remain
+	 * powered up whilst the bus fault handling is being done.
+	 */
+	kbase_gpu_report_bus_fault_and_kill(kctx, faulting_as, fault);
+#else
 	/* NOTE: If GPU already powered off for suspend,
 	 * we don't need to switch to unmapped
 	 */
@@ -2301,6 +2308,7 @@ void kbase_mmu_bus_fault_worker(struct work_struct *data)
 		kbase_gpu_report_bus_fault_and_kill(kctx, faulting_as, fault);
 		kbase_pm_context_idle(kbdev);
 	}
+#endif
 
 	release_ctx(kbdev, kctx);
 

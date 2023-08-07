@@ -80,6 +80,7 @@ static void kbase_gpu_fault_interrupt(struct kbase_device *kbdev)
 		}
 	} else
 		kbase_report_gpu_fault(kbdev, status, as_nr, as_valid);
+
 }
 
 void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
@@ -131,6 +132,20 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_CLEAR, NULL, val);
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), val);
+
+#ifdef KBASE_PM_RUNTIME
+	if (val & DOORBELL_MIRROR) {
+		unsigned long flags;
+
+		dev_dbg(kbdev->dev, "Doorbell mirror interrupt received");
+		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+		WARN_ON(!kbase_csf_scheduler_get_nr_active_csgs(kbdev));
+		kbase_pm_disable_db_mirror_interrupt(kbdev);
+		kbdev->pm.backend.exit_gpu_sleep_mode = true;
+		kbase_csf_scheduler_invoke_tick(kbdev);
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+	}
+#endif
 
 	/* kbase_pm_check_transitions (called by kbase_pm_power_changed) must
 	 * be called after the IRQ has been cleared. This is because it might

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT
 #
 # (C) COPYRIGHT 2012-2021 ARM Limited. All rights reserved.
 #
@@ -19,7 +19,7 @@
 #
 
 config MALI_XEN
-	bool "Enable Xen Interface reference code"
+	tristate "Enable Xen Interface reference code"
 	depends on MALI_ARBITRATION && XEN
 	default n
 	help
@@ -27,13 +27,5 @@ config MALI_XEN
 	  virtualization setup for Mali
 	  If unsure, say N.
 
-config MALI_KUTF_ARBITRATION_TEST
-	bool "Enable Arbitration Test reference code"
-	depends on MALI_KUTF && MALI_ARBITRATION
-	default n
-	help
-	  Enables the build of test modules used in the reference
-	  virtualization setup for Mali
-	  If unsure, say N.
 
 source "drivers/gpu/arm/midgard/arbitration/ptm/Kconfig"

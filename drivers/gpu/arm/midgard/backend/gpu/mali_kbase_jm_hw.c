@@ -52,14 +52,7 @@ static u64 kbase_job_write_affinity(struct kbase_device *kbdev,
 	if ((core_req & (BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T)) ==
 			BASE_JD_REQ_T) {
 		/* Tiler-only atom */
-		/* If the hardware supports XAFFINITY then we'll only enable
-		 * the tiler (which is the default so this is a no-op),
-		 * otherwise enable shader core 0.
-		 */
-		if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_XAFFINITY))
-			affinity = 1;
-		else
-			affinity = 0;
+		affinity = 0;
 	} else if ((core_req & (BASE_JD_REQ_COHERENT_GROUP |
 			BASE_JD_REQ_SPECIFIC_COHERENT_GROUP))) {
 		unsigned int num_core_groups = kbdev->gpu_props.num_core_groups;
@@ -251,18 +244,13 @@ void kbase_job_hw_submit(struct kbase_device *kbdev,
 	    (katom->core_req & BASE_JD_REQ_END_RENDERPASS))
 		cfg |= JS_CONFIG_DISABLE_DESCRIPTOR_WR_BK;
 
-	if (kbase_hw_has_feature(kbdev,
-				BASE_HW_FEATURE_JOBCHAIN_DISAMBIGUATION)) {
-		if (!kbdev->hwaccess.backend.slot_rb[js].job_chain_flag) {
-			cfg |= JS_CONFIG_JOB_CHAIN_FLAG;
-			katom->atom_flags |= KBASE_KATOM_FLAGS_JOBCHAIN;
-			kbdev->hwaccess.backend.slot_rb[js].job_chain_flag =
-								true;
-		} else {
-			katom->atom_flags &= ~KBASE_KATOM_FLAGS_JOBCHAIN;
-			kbdev->hwaccess.backend.slot_rb[js].job_chain_flag =
-								false;
-		}
+	if (!kbdev->hwaccess.backend.slot_rb[js].job_chain_flag) {
+		cfg |= JS_CONFIG_JOB_CHAIN_FLAG;
+		katom->atom_flags |= KBASE_KATOM_FLAGS_JOBCHAIN;
+		kbdev->hwaccess.backend.slot_rb[js].job_chain_flag = true;
+	} else {
+		katom->atom_flags &= ~KBASE_KATOM_FLAGS_JOBCHAIN;
+		kbdev->hwaccess.backend.slot_rb[js].job_chain_flag = false;
 	}
 
 	kbase_reg_write(kbdev, JOB_SLOT_REG(js, JS_CONFIG_NEXT), cfg);
@@ -621,25 +609,17 @@ void kbasep_job_slot_soft_or_hard_stop_do_action(struct kbase_device *kbdev,
 		/* Mark the point where we issue the soft-stop command */
 		KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTSTOP_ISSUE(kbdev, target_katom);
 
-		if (kbase_hw_has_feature(
-				kbdev,
-				BASE_HW_FEATURE_JOBCHAIN_DISAMBIGUATION)) {
-			action = (target_katom->atom_flags &
-					KBASE_KATOM_FLAGS_JOBCHAIN) ?
-				JS_COMMAND_SOFT_STOP_1 :
-				JS_COMMAND_SOFT_STOP_0;
-		}
+		action = (target_katom->atom_flags &
+			  KBASE_KATOM_FLAGS_JOBCHAIN) ?
+				 JS_COMMAND_SOFT_STOP_1 :
+				 JS_COMMAND_SOFT_STOP_0;
 	} else if (action == JS_COMMAND_HARD_STOP) {
 		target_katom->atom_flags |= KBASE_KATOM_FLAG_BEEN_HARD_STOPPED;
 
-		if (kbase_hw_has_feature(
-				kbdev,
-				BASE_HW_FEATURE_JOBCHAIN_DISAMBIGUATION)) {
-			action = (target_katom->atom_flags &
-					KBASE_KATOM_FLAGS_JOBCHAIN) ?
-				JS_COMMAND_HARD_STOP_1 :
-				JS_COMMAND_HARD_STOP_0;
-		}
+		action = (target_katom->atom_flags &
+			  KBASE_KATOM_FLAGS_JOBCHAIN) ?
+				 JS_COMMAND_HARD_STOP_1 :
+				 JS_COMMAND_HARD_STOP_0;
 	}
 
 	kbase_reg_write(kbdev, JOB_SLOT_REG(js, JS_COMMAND), action);

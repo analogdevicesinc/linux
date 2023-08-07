@@ -296,12 +296,21 @@ void __kbase_tlstream_aux_event_job_slot(
 	u32 slot_nr,
 	u32 atom_nr,
 	u32 event);
+void __kbase_tlstream_aux_mmu_command(
+	struct kbase_tlstream *stream,
+	u32 kernel_ctx_id,
+	u32 mmu_cmd_id,
+	u32 mmu_synchronicity,
+	u64 mmu_lock_addr,
+	u32 mmu_lock_page_num);
 void __kbase_tlstream_tl_kbase_new_device(
 	struct kbase_tlstream *stream,
 	u32 kbase_device_id,
 	u32 kbase_device_gpu_core_count,
 	u32 kbase_device_max_num_csgs,
-	u32 kbase_device_as_count);
+	u32 kbase_device_as_count,
+	u32 kbase_device_sb_entry_count,
+	u32 kbase_device_has_cross_stream_sync);
 void __kbase_tlstream_tl_kbase_device_program_csg(
 	struct kbase_tlstream *stream,
 	u32 kbase_device_id,
@@ -1594,6 +1603,37 @@ struct kbase_tlstream;
 	} while (0)
 
 /**
+ * KBASE_TLSTREAM_AUX_MMU_COMMAND -
+ *   mmu commands with synchronicity info
+ *
+ * @kbdev: Kbase device
+ * @kernel_ctx_id: Unique ID for the KBase Context
+ * @mmu_cmd_id: MMU Command ID (e.g AS_COMMAND_UPDATE)
+ * @mmu_synchronicity: Indicates whether the command is related to current running job
+ * that needs to be resolved to make it progress (synchronous, e.g.
+ * grow on page fault, JIT) or not (asynchronous, e.g. IOCTL calls
+ * from user-space). This param will be 0 if it is an asynchronous
+ * operation.
+ * @mmu_lock_addr: start address of regions to be locked/unlocked/invalidated
+ * @mmu_lock_page_num: number of pages to be locked/unlocked/invalidated
+ */
+#define KBASE_TLSTREAM_AUX_MMU_COMMAND(	\
+	kbdev,	\
+	kernel_ctx_id,	\
+	mmu_cmd_id,	\
+	mmu_synchronicity,	\
+	mmu_lock_addr,	\
+	mmu_lock_page_num	\
+	)	\
+	do {	\
+		int enabled = atomic_read(&kbdev->timeline_flags);	\
+		if (enabled & TLSTREAM_ENABLED)	\
+			__kbase_tlstream_aux_mmu_command(	\
+				__TL_DISPATCH_STREAM(kbdev, aux),	\
+				kernel_ctx_id, mmu_cmd_id, mmu_synchronicity, mmu_lock_addr, mmu_lock_page_num);	\
+	} while (0)
+
+/**
  * KBASE_TLSTREAM_TL_KBASE_NEW_DEVICE -
  *   New KBase Device
  *
@@ -1602,6 +1642,9 @@ struct kbase_tlstream;
  * @kbase_device_gpu_core_count: The number of gpu cores in the physical hardware
  * @kbase_device_max_num_csgs: The max number of CSGs the physical hardware supports
  * @kbase_device_as_count: The number of address spaces the physical hardware has available
+ * @kbase_device_sb_entry_count: The number of entries each scoreboard set in the
+ * physical hardware has available
+ * @kbase_device_has_cross_stream_sync: Whether cross-stream synchronization is supported
  */
 #if MALI_USE_CSF
 #define KBASE_TLSTREAM_TL_KBASE_NEW_DEVICE(	\
@@ -1609,14 +1652,16 @@ struct kbase_tlstream;
 	kbase_device_id,	\
 	kbase_device_gpu_core_count,	\
 	kbase_device_max_num_csgs,	\
-	kbase_device_as_count	\
+	kbase_device_as_count,	\
+	kbase_device_sb_entry_count,	\
+	kbase_device_has_cross_stream_sync	\
 	)	\
 	do {	\
 		int enabled = atomic_read(&kbdev->timeline_flags);	\
 		if (enabled & BASE_TLSTREAM_ENABLE_CSF_TRACEPOINTS)	\
 			__kbase_tlstream_tl_kbase_new_device(	\
 				__TL_DISPATCH_STREAM(kbdev, obj),	\
-				kbase_device_id, kbase_device_gpu_core_count, kbase_device_max_num_csgs, kbase_device_as_count);	\
+				kbase_device_id, kbase_device_gpu_core_count, kbase_device_max_num_csgs, kbase_device_as_count, kbase_device_sb_entry_count, kbase_device_has_cross_stream_sync);	\
 	} while (0)
 #else
 #define KBASE_TLSTREAM_TL_KBASE_NEW_DEVICE(	\
@@ -1624,7 +1669,9 @@ struct kbase_tlstream;
 	kbase_device_id,	\
 	kbase_device_gpu_core_count,	\
 	kbase_device_max_num_csgs,	\
-	kbase_device_as_count	\
+	kbase_device_as_count,	\
+	kbase_device_sb_entry_count,	\
+	kbase_device_has_cross_stream_sync	\
 	)	\
 	do { } while (0)
 #endif /* MALI_USE_CSF */
@@ -1939,7 +1986,7 @@ struct kbase_tlstream;
  * @cqs_obj_gpu_addr: CQS Object GPU pointer
  * @cqs_obj_compare_value: Semaphore value that should be exceeded
  * for the WAIT to pass
- * @cqs_obj_inherit_error: Indicates the error state should be inherited into the queue or not
+ * @cqs_obj_inherit_error: Flag which indicates if the CQS object error state should be inherited by the queue
  */
 #if MALI_USE_CSF
 #define KBASE_TLSTREAM_TL_KBASE_KCPUQUEUE_ENQUEUE_CQS_WAIT(	\

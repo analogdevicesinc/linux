@@ -219,11 +219,19 @@ enum kbase_csf_csg_slot_state {
  *                      management reference. This can happen if the GPU
  *                      becomes idle for a duration exceeding a threshold,
  *                      or due to a system triggered suspend action.
+ * @SCHED_SLEEPING:     The scheduler is in low-power mode with scheduling
+ *                      operations suspended and is not holding the power
+ *                      management reference. This state is set, only for the
+ *                      GPUs that supports the sleep feature, when GPU idle
+ *                      notification is received. The state is changed to
+ *                      @SCHED_SUSPENDED from the runtime suspend callback
+ *                      function after the suspend of CSGs.
  */
 enum kbase_csf_scheduler_state {
 	SCHED_BUSY,
 	SCHED_INACTIVE,
 	SCHED_SUSPENDED,
+	SCHED_SLEEPING,
 };
 
 /**

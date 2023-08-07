@@ -19,7 +19,7 @@
 #
 
 config MALI_PARTITION_MANAGER
-	bool "Enable compilation of partition manager modules"
+	tristate "Enable compilation of partition manager modules"
 	depends on MALI_ARBITRATION
 	default n
 	help

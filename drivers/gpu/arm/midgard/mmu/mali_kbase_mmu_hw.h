@@ -72,6 +72,7 @@ void kbase_mmu_hw_configure(struct kbase_device *kbdev,
  * @type:          Operation type (written to ASn_COMMAND).
  * @handling_irq:  Is this operation being called during the handling
  *                 of an interrupt?
+ * @kctx_id:       Kernel context ID for MMU command tracepoint
  *
  * Issue an operation (MMU invalidate, MMU flush, etc) on the address space that
  * is associated with the provided kbase_context over the specified range
@@ -80,7 +81,8 @@ void kbase_mmu_hw_configure(struct kbase_device *kbdev,
  */
 int kbase_mmu_hw_do_operation(struct kbase_device *kbdev, struct kbase_as *as,
 		u64 vpfn, u32 nr, u32 type,
-		unsigned int handling_irq);
+		unsigned int handling_irq,
+		u32 kctx_id);
 
 /**
  * kbase_mmu_hw_clear_fault - Clear a fault that has been previously reported by

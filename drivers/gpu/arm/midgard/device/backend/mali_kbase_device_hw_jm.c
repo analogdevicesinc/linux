@@ -51,6 +51,7 @@ static void kbase_report_gpu_fault(struct kbase_device *kbdev, int multiple)
 		address);
 	if (multiple)
 		dev_warn(kbdev->dev, "There were multiple GPU faults - some have not been reported\n");
+
 }
 
 void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)

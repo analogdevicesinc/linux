@@ -235,6 +235,16 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 	prfcnt_fw_size = (prfcnt_size >> 16) << 8;
 	fw_ctx->buf_bytes = prfcnt_hw_size + prfcnt_fw_size;
 
+	/* Read the block size if the GPU has the register PRFCNT_FEATURES
+	 * which was introduced in architecture version 11.x.7.
+	 */
+	if ((kbdev->gpu_props.props.raw_props.gpu_id & GPU_ID2_PRODUCT_MODEL) >=
+	    GPU_ID2_PRODUCT_TTUX) {
+		prfcnt_block_size =
+			PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_GET(kbase_reg_read(
+				kbdev, GPU_CONTROL_REG(PRFCNT_FEATURES)))
+			<< 8;
+	}
 
 	prfcnt_info->dump_bytes = fw_ctx->buf_bytes;
 	prfcnt_info->prfcnt_block_size = prfcnt_block_size;
@@ -683,7 +693,7 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_gpu_cycle_count(
 }
 
 /**
- * kbasep_hwcnt_backend_csf_if_fw_ctx_destroy() - Destroy a CSF FW interface context.
+ * kbasep_hwcnt_backedn_csf_if_fw_cts_destroy() - Destroy a CSF FW interface context.
  *
  * @fw_ctx: Pointer to context to destroy.
  */

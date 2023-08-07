@@ -930,8 +930,7 @@ static long kbasep_vinstr_hwcnt_reader_ioctl_get_hwver(
 }
 
 /**
- * kbasep_vinstr_hwcnt_reader_ioctl_get_api_version() - get API version ioctl
- *                                                      command.
+ * The hwcnt reader's ioctl command - get API version.
  * @cli:    The non-NULL pointer to the client
  * @arg:    Command's argument.
  * @size:   Size of arg.

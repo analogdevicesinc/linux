@@ -137,6 +137,7 @@ enum tl_msg_id_aux {
 	KBASE_AUX_JIT_STATS,
 	KBASE_AUX_TILER_HEAP_STATS,
 	KBASE_AUX_EVENT_JOB_SLOT,
+	KBASE_AUX_MMU_COMMAND,
 	KBASE_AUX_MSG_COUNT,
 };
 
@@ -299,8 +300,8 @@ enum tl_msg_id_aux {
 		"gpu") \
 	TRACEPOINT_DESC(KBASE_TL_KBASE_NEW_DEVICE, \
 		"New KBase Device", \
-		"@IIII", \
-		"kbase_device_id,kbase_device_gpu_core_count,kbase_device_max_num_csgs,kbase_device_as_count") \
+		"@IIIIII", \
+		"kbase_device_id,kbase_device_gpu_core_count,kbase_device_max_num_csgs,kbase_device_as_count,kbase_device_sb_entry_count,kbase_device_has_cross_stream_sync") \
 	TRACEPOINT_DESC(KBASE_TL_KBASE_DEVICE_PROGRAM_CSG, \
 		"CSG is programmed to a slot", \
 		"@IIII", \
@@ -554,6 +555,10 @@ const size_t  obj_desc_header_size = sizeof(__obj_desc_header);
 		"event on a given job slot", \
 		"@pIII", \
 		"ctx,slot_nr,atom_nr,event") \
+	TRACEPOINT_DESC(KBASE_AUX_MMU_COMMAND, \
+		"mmu commands with synchronicity info", \
+		"@IIILI", \
+		"kernel_ctx_id,mmu_cmd_id,mmu_synchronicity,mmu_lock_addr,mmu_lock_page_num") \
 
 #define MIPE_HEADER_BLOB_VAR_NAME		__aux_desc_header
 #define MIPE_HEADER_STREAM_ID        		TL_STREAM_ID_KERNEL
@@ -1936,12 +1941,52 @@ void __kbase_tlstream_aux_event_job_slot(
 	kbase_tlstream_msgbuf_release(stream, acq_flags);
 }
 
+void __kbase_tlstream_aux_mmu_command(
+	struct kbase_tlstream *stream,
+	u32 kernel_ctx_id,
+	u32 mmu_cmd_id,
+	u32 mmu_synchronicity,
+	u64 mmu_lock_addr,
+	u32 mmu_lock_page_num)
+{
+	const u32 msg_id = KBASE_AUX_MMU_COMMAND;
+	const size_t msg_size = sizeof(msg_id) + sizeof(u64)
+		+ sizeof(kernel_ctx_id)
+		+ sizeof(mmu_cmd_id)
+		+ sizeof(mmu_synchronicity)
+		+ sizeof(mmu_lock_addr)
+		+ sizeof(mmu_lock_page_num)
+		;
+	char *buffer;
+	unsigned long acq_flags;
+	size_t pos = 0;
+
+	buffer = kbase_tlstream_msgbuf_acquire(stream, msg_size, &acq_flags);
+
+	pos = kbasep_serialize_bytes(buffer, pos, &msg_id, sizeof(msg_id));
+	pos = kbasep_serialize_timestamp(buffer, pos);
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &kernel_ctx_id, sizeof(kernel_ctx_id));
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &mmu_cmd_id, sizeof(mmu_cmd_id));
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &mmu_synchronicity, sizeof(mmu_synchronicity));
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &mmu_lock_addr, sizeof(mmu_lock_addr));
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &mmu_lock_page_num, sizeof(mmu_lock_page_num));
+
+	kbase_tlstream_msgbuf_release(stream, acq_flags);
+}
+
 void __kbase_tlstream_tl_kbase_new_device(
 	struct kbase_tlstream *stream,
 	u32 kbase_device_id,
 	u32 kbase_device_gpu_core_count,
 	u32 kbase_device_max_num_csgs,
-	u32 kbase_device_as_count)
+	u32 kbase_device_as_count,
+	u32 kbase_device_sb_entry_count,
+	u32 kbase_device_has_cross_stream_sync)
 {
 	const u32 msg_id = KBASE_TL_KBASE_NEW_DEVICE;
 	const size_t msg_size = sizeof(msg_id) + sizeof(u64)
@@ -1949,6 +1994,8 @@ void __kbase_tlstream_tl_kbase_new_device(
 		+ sizeof(kbase_device_gpu_core_count)
 		+ sizeof(kbase_device_max_num_csgs)
 		+ sizeof(kbase_device_as_count)
+		+ sizeof(kbase_device_sb_entry_count)
+		+ sizeof(kbase_device_has_cross_stream_sync)
 		;
 	char *buffer;
 	unsigned long acq_flags;
@@ -1966,6 +2013,10 @@ void __kbase_tlstream_tl_kbase_new_device(
 		pos, &kbase_device_max_num_csgs, sizeof(kbase_device_max_num_csgs));
 	pos = kbasep_serialize_bytes(buffer,
 		pos, &kbase_device_as_count, sizeof(kbase_device_as_count));
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &kbase_device_sb_entry_count, sizeof(kbase_device_sb_entry_count));
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &kbase_device_has_cross_stream_sync, sizeof(kbase_device_has_cross_stream_sync));
 
 	kbase_tlstream_msgbuf_release(stream, acq_flags);
 }

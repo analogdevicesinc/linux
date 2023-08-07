@@ -117,6 +117,9 @@
 #define MCU_CNTRL_AUTO          (1 << 1)
 #define MCU_CNTRL_DISABLE       (0)
 
+#define MCU_CNTRL_DOORBELL_DISABLE_SHIFT (31)
+#define MCU_CNTRL_DOORBELL_DISABLE_MASK (1 << MCU_CNTRL_DOORBELL_DISABLE_SHIFT)
+
 #define MCU_STATUS_HALTED        (1 << 1)
 
 #define PRFCNT_BASE_LO   0x060  /* (RW) Performance counter memory

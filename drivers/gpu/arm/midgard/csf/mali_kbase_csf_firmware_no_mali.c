@@ -27,6 +27,7 @@
 #include "mali_kbase_reset_gpu.h"
 #include "mali_kbase_ctx_sched.h"
 #include "device/mali_kbase_device.h"
+#include <mali_kbase_hwaccess_time.h>
 #include "backend/gpu/mali_kbase_pm_internal.h"
 #include "mali_kbase_csf_scheduler.h"
 #include "mmu/mali_kbase_mmu.h"
@@ -551,6 +552,8 @@ static int wait_for_global_request(struct kbase_device *const kbdev,
 		dev_warn(kbdev->dev, "Timed out waiting for global request %x to complete",
 			 req_mask);
 		err = -ETIMEDOUT;
+
+
 	}
 
 	return err;
@@ -886,7 +889,9 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 {
 	init_waitqueue_head(&kbdev->csf.event_wait);
 	kbdev->csf.interrupt_received = false;
-	kbdev->csf.fw_timeout_ms = CSF_FIRMWARE_TIMEOUT_MS;
+
+	kbdev->csf.fw_timeout_ms =
+		kbase_get_timeout_ms(kbdev, CSF_FIRMWARE_TIMEOUT);
 
 	INIT_LIST_HEAD(&kbdev->csf.firmware_interfaces);
 	INIT_LIST_HEAD(&kbdev->csf.firmware_config);
@@ -920,8 +925,14 @@ int kbase_csf_firmware_init(struct kbase_device *kbdev)
 	}
 
 	kbdev->csf.gpu_idle_hysteresis_ms = FIRMWARE_IDLE_HYSTERESIS_TIME_MS;
+#ifdef KBASE_PM_RUNTIME
+	if (kbase_pm_gpu_sleep_allowed(kbdev))
+		kbdev->csf.gpu_idle_hysteresis_ms /=
+			FIRMWARE_IDLE_HYSTERESIS_GPU_SLEEP_SCALER;
+#endif
+	WARN_ON(!kbdev->csf.gpu_idle_hysteresis_ms);
 	kbdev->csf.gpu_idle_dur_count = convert_dur_to_idle_count(
-		kbdev, FIRMWARE_IDLE_HYSTERESIS_TIME_MS);
+		kbdev, kbdev->csf.gpu_idle_hysteresis_ms);
 
 	ret = kbase_mcu_shared_interface_region_tracker_init(kbdev);
 	if (ret != 0) {
@@ -1127,11 +1138,37 @@ void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)
 	unsigned long flags;
 
 	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+	/* Validate there are no on-slot groups when sending the
+	 * halt request to firmware.
+	 */
+	WARN_ON(kbase_csf_scheduler_get_nr_active_csgs_locked(kbdev));
 	set_global_request(global_iface, GLB_REQ_HALT_MASK);
 	dev_dbg(kbdev->dev, "Sending request to HALT MCU");
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 }
+
+#ifdef KBASE_PM_RUNTIME
+void kbase_csf_firmware_trigger_mcu_sleep(struct kbase_device *kbdev)
+{
+	struct kbase_csf_global_iface *global_iface = &kbdev->csf.global_iface;
+	unsigned long flags;
+
+	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+	set_global_request(global_iface, GLB_REQ_SLEEP_MASK);
+	dev_dbg(kbdev->dev, "Sending sleep request to MCU");
+	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
+	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+}
+
+bool kbase_csf_firmware_is_mcu_in_sleep(struct kbase_device *kbdev)
+{
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
+	return (global_request_complete(kbdev, GLB_REQ_SLEEP_MASK) &&
+		kbase_csf_firmware_mcu_halted(kbdev));
+}
+#endif
 
 int kbase_csf_trigger_firmware_config_update(struct kbase_device *kbdev)
 {
