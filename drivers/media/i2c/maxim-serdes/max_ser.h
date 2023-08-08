@@ -36,12 +36,6 @@ struct max_ser_subdev_priv {
 
 	struct max_ser_priv *priv;
 
-	struct v4l2_subdev *slave_sd;
-	struct fwnode_handle *slave_fwnode;
-	struct v4l2_subdev_state *slave_sd_state;
-	unsigned int slave_sd_pad_id;
-
-	struct v4l2_async_notifier notifier;
 	struct media_pad pads[MAX_SER_PAD_NUM];
 
 	bool active;
