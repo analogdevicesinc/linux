@@ -12,6 +12,7 @@
  *
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
@@ -30,11 +31,19 @@
 #define ADI_TRU_DEFAULT_MAX_MASTER_ID		180
 #define ADI_TRU_DEFAULT_MAX_SLAVE_ID		180
 
+#define ARM_SMCCC_OWNER_ADI 51
+#define ADI_SMC_FUNCID_TRU_TRIGGER 0
+
+#define ADI_TRU_SMC_TRIGGER \
+	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_32, \
+		ARM_SMCCC_OWNER_ADI, ADI_SMC_FUNCID_TRU_TRIGGER)
+
 struct adi_tru {
 	void __iomem *ioaddr;
 	struct device *dev;
 	u32 max_master_id;
 	u32 max_slave_id;
+	bool use_smc;
 };
 
 /**
@@ -89,12 +98,21 @@ int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
 }
 EXPORT_SYMBOL(adi_tru_trigger_device);
 
+static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master) {
+	struct arm_smccc_res res;
+	arm_smccc_smc(ADI_TRU_SMC_TRIGGER, master, 0, 0, 0, 0, 0, 0, &res);
+	return (res.a0 == 0) ? 0 : -EINVAL;
+}
+
 int adi_tru_trigger(struct adi_tru *tru, u32 master)
 {
 	if (master == 0 || master > tru->max_master_id) {
 		dev_err(tru->dev, "Invalid master ID to trigger %d\n", master);
 		return -ERANGE;
 	}
+
+	if (tru->use_smc)
+		return adi_tru_smc_trigger(tru, master);
 
 	writel(master, tru->ioaddr + ADI_TRU_REG_MTR);
 	return 0;
@@ -120,8 +138,14 @@ int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
 		return -ERANGE;
 	}
 
-	dev_info(tru->dev, "Connecting master %d to slave %d\n", master, slave);
-	writel(master, tru->ioaddr + (slave*4));
+	if (!tru->use_smc) {
+		dev_info(tru->dev, "Connecting master %d to slave %d\n", master, slave);
+		writel(master, tru->ioaddr + (slave*4));
+	}
+	else {
+		dev_err(tru->dev, "Cannot dynamically adjust TRU configuration when "
+			"TRU control from OPTEE is enabled\n");
+	}
 	return 0;
 }
 
@@ -177,19 +201,22 @@ int adi_tru_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	tru->dev = dev;
+	tru->use_smc = of_property_read_bool(np, "adi,use-smc");
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(dev, "Missing TRU base address (reg property in device tree)\n");
-		return -ENODEV;
-	}
+	if (!tru->use_smc) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res) {
+			dev_err(dev, "Missing TRU base address (reg property in device tree)\n");
+			return -ENODEV;
+		}
 
-	base = devm_ioremap(dev, res->start, resource_size(res));
-	if (IS_ERR(base)) {
-		dev_err(dev, "Cannot map TRU base address\n");
-		return -PTR_ERR(base);
+		base = devm_ioremap(dev, res->start, resource_size(res));
+		if (IS_ERR(base)) {
+			dev_err(dev, "Cannot map TRU base address\n");
+			return -PTR_ERR(base);
+		}
+		tru->ioaddr = base;
 	}
-	tru->ioaddr = base;
 
 	master = ADI_TRU_DEFAULT_MAX_MASTER_ID;
 	if (of_property_read_u32(np, "adi,max-master-id", &master)) {
@@ -205,31 +232,37 @@ int adi_tru_probe(struct platform_device *pdev)
 	}
 	tru->max_slave_id = slave;
 
-	/*
-	 * Initialize statically defined triggers from the device tree
-	 * as child nodes, for example something like this
-	 * tru: tru@xyz {
-	 *  a: channel@0 {
-	 *   adi,tru-master-id = <100>;
-	 *   adi,tru-slave-id = <101>;
-	 *  };
-	 *  b: channel@1 {
-	 *   adi,tru-master-id = <102>;
-	 *   adi,tru-slave-id = <103>;
-	 *  };
-	 * };
+	/* Do not try to configure the hardware if we need to use smcs to trigger
+	 * because all of the TRU is restricted from access in that case
 	 */
-	child = NULL;
-	while ((child = of_get_next_child(np, child))) {
-		ret = adi_tru_set_trigger(tru, child, child);
-		if (ret) {
-			of_node_put(child);
-			dev_err(dev, "Invalid static trigger map in TRU device tree entry\n");
-			return ret;
+	if (!tru->use_smc) {
+		/*
+		 * Initialize statically defined triggers from the device tree
+		 * as child nodes, for example something like this
+		 * tru: tru@xyz {
+		 *  a: channel@0 {
+		 *   adi,tru-master-id = <100>;
+		 *   adi,tru-slave-id = <101>;
+		 *  };
+		 *  b: channel@1 {
+		 *   adi,tru-master-id = <102>;
+		 *   adi,tru-slave-id = <103>;
+		 *  };
+		 * };
+		 */
+		child = NULL;
+		while ((child = of_get_next_child(np, child))) {
+			ret = adi_tru_set_trigger(tru, child, child);
+			if (ret) {
+				of_node_put(child);
+				dev_err(dev, "Invalid static trigger map in TRU device tree entry\n");
+				return ret;
+			}
 		}
+
+		writel(0x01, tru->ioaddr + ADI_TRU_REG_GCTL);
 	}
 
-	writel(0x01, tru->ioaddr + ADI_TRU_REG_GCTL);
 	dev_set_drvdata(dev, tru);
 	return 0;
 }
