@@ -75,7 +75,7 @@ struct max_des_pipe {
 
 struct max_des_phy {
 	unsigned int index;
-	struct v4l2_fwnode_bus_mipi_csi2 mipi;
+	struct v4l2_mbus_config_mipi_csi2 mipi;
 	bool alt_mem_map8;
 	bool alt_mem_map10;
 	bool alt_mem_map12;
