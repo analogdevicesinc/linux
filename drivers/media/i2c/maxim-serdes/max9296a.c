@@ -401,11 +401,11 @@ static int max9296a_probe(struct i2c_client *client)
 	return max_des_probe(&priv->des_priv);
 }
 
-static int max9296a_remove(struct i2c_client *client)
+static void max9296a_remove(struct i2c_client *client)
 {
 	struct max9296a_priv *priv = i2c_get_clientdata(client);
 
-	return max_des_remove(&priv->des_priv);
+	max_des_remove(&priv->des_priv);
 }
 
 static const struct of_device_id max9296a_of_table[] = {

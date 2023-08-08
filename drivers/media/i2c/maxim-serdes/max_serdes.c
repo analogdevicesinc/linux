@@ -73,3 +73,5 @@ const struct max_format *max_format_by_dt(u8 dt)
     return NULL;
 }
 EXPORT_SYMBOL_GPL(max_format_by_dt);
+MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(I2C_ATR);
