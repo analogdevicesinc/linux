@@ -337,151 +337,11 @@ err_add_adapters:
 	return ret;
 }
 
-static int max_des_notify_bound(struct v4l2_async_notifier *notifier,
-				struct v4l2_subdev *subdev,
-				struct v4l2_async_subdev *asd)
-{
-	struct max_des_subdev_priv *sd_priv = sd_to_max_des(notifier->sd);
-	struct max_des_priv *priv = sd_priv->priv;
-	int ret;
-
-	ret = media_entity_get_fwnode_pad(&subdev->entity,
-					  sd_priv->slave_fwnode,
-					  MEDIA_PAD_FL_SOURCE);
-	if (ret < 0) {
-		dev_err(priv->dev,
-			"Failed to find pad for %s: %d\n", subdev->name, ret);
-		return ret;
-	}
-
-	sd_priv->slave_sd = subdev;
-	sd_priv->slave_sd_pad_id = ret;
-
-	ret = media_create_pad_link(&sd_priv->slave_sd->entity,
-					sd_priv->slave_sd_pad_id,
-					&sd_priv->sd.entity,
-					MAX_DES_SINK_PAD,
-					MEDIA_LNK_FL_ENABLED |
-					MEDIA_LNK_FL_IMMUTABLE);
-	if (ret) {
-		dev_err(priv->dev,
-			"Unable to link %s:%u -> %s:%u\n",
-			sd_priv->slave_sd->name,
-			sd_priv->slave_sd_pad_id,
-			sd_priv->sd.name,
-			MAX_DES_SINK_PAD);
-		return ret;
-	}
-
-	dev_err(priv->dev, "Bound %s:%u on %s:%u\n",
-		sd_priv->slave_sd->name,
-		sd_priv->slave_sd_pad_id,
-		sd_priv->sd.name,
-		MAX_DES_SINK_PAD);
-
-	sd_priv->slave_sd_state = v4l2_subdev_alloc_state(subdev);
-	if (IS_ERR(sd_priv->slave_sd_state))
-		return PTR_ERR(sd_priv->slave_sd_state);
-
-	return 0;
-}
-
-static void max_des_notify_unbind(struct v4l2_async_notifier *notifier,
-				  struct v4l2_subdev *subdev,
-				  struct v4l2_async_subdev *asd)
-{
-	struct max_des_subdev_priv *sd_priv = sd_to_max_des(notifier->sd);
-
-	sd_priv->slave_sd = NULL;
-	v4l2_subdev_free_state(sd_priv->slave_sd_state);
-	sd_priv->slave_sd_state = NULL;
-}
-
-static const struct v4l2_async_notifier_operations max_des_notify_ops = {
-	.bound = max_des_notify_bound,
-	.unbind = max_des_notify_unbind,
-};
-
-static int max_des_v4l2_notifier_register(struct max_des_subdev_priv *sd_priv)
-{
-	struct max_des_priv *priv = sd_priv->priv;
-	struct max_des_asd *mas;
-	int ret;
-
-	v4l2_async_notifier_init(&sd_priv->notifier);
-
-	mas = v4l2_async_notifier_add_fwnode_subdev(&sd_priv->notifier,
-						    sd_priv->slave_fwnode,
-						    struct max_des_asd);
-	if (IS_ERR(mas)) {
-		ret = PTR_ERR(mas);
-		dev_err(priv->dev,
-			"Failed to add subdev notifier for subdev %s: %d\n",
-			sd_priv->sd.name, ret);
-		goto error_cleanup_notifier;
-	}
-
-	mas->sd_priv = sd_priv;
-
-	sd_priv->notifier.ops = &max_des_notify_ops;
-
-	ret = v4l2_async_subdev_notifier_register(&sd_priv->sd, &sd_priv->notifier);
-	if (ret) {
-		dev_err(priv->dev,
-			"Failed to register subdev notifier for subdev %s: %d\n",
-			sd_priv->sd.name, ret);
-		goto error_cleanup_notifier;
-	}
-
-	return 0;
-
-error_cleanup_notifier:
-	v4l2_async_notifier_cleanup(&sd_priv->notifier);
-
-	return ret;
-}
-
 static int max_des_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct max_des_subdev_priv *sd_priv = sd_to_max_des(sd);
-	struct max_des_priv *priv = sd_priv->priv;
-	int ret;
 
-	ret = max_des_ch_enable(sd_priv, enable);
-	if (ret)
-		return ret;
-
-	ret = v4l2_subdev_call(sd_priv->slave_sd, video, s_stream, enable);
-	if (ret) {
-		dev_err(priv->dev, "Failed to start stream for %s: %d\n",
-			sd_priv->slave_sd->name, ret);
-		return ret;
-	}
-
-	return 0;
-}
-
-static int max_des_get_selection(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_state *sd_state,
-				 struct v4l2_subdev_selection *sel)
-{
-	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
-	struct v4l2_subdev_selection sd_sel = *sel;
-	int ret;
-
-	if (sel->pad != MAX_DES_SOURCE_PAD)
-		return -EINVAL;
-
-	sd_sel.pad = sd_priv->slave_sd_pad_id;
-
-	ret = v4l2_subdev_call(sd_priv->slave_sd, pad, get_selection,
-			       sd_priv->slave_sd_state, &sd_sel);
-	if (ret)
-		return ret;
-
-	sel->r = sd_sel.r;
-
-	return 0;
+	return max_des_ch_enable(sd_priv, enable);
 }
 
 static int max_des_get_fmt(struct v4l2_subdev *sd,
@@ -489,20 +349,16 @@ static int max_des_get_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_format *format)
 {
 	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
-	struct v4l2_subdev_format sd_format = *format;
-	int ret;
+	const struct max_format *fmt;
 
 	if (format->pad != MAX_DES_SOURCE_PAD)
 		return -EINVAL;
 
-	sd_format.pad = sd_priv->slave_sd_pad_id;
+	fmt = max_format_by_dt(sd_priv->dt);
+	if (!fmt)
+		return -EINVAL;
 
-	ret = v4l2_subdev_call(sd_priv->slave_sd, pad, get_fmt,
-			       sd_priv->slave_sd_state, &sd_format);
-	if (ret)
-		return ret;
-
-	format->format = sd_format.format;
+	format->format.code = fmt->code;
 
 	return 0;
 }
@@ -514,21 +370,11 @@ static int max_des_set_fmt(struct v4l2_subdev *sd,
 	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
 	struct max_des_priv *priv = sd_priv->priv;
 	struct max_des_pipe *pipe = &priv->pipes[sd_priv->pipe_id];
-	struct v4l2_subdev_format sd_format = *format;
 	const struct max_format *fmt;
 	int ret;
 
 	if (format->pad != MAX_DES_SOURCE_PAD)
 		return -EINVAL;
-
-	sd_format.pad = sd_priv->slave_sd_pad_id;
-
-	ret = v4l2_subdev_call(sd_priv->slave_sd, pad, set_fmt,
-			       sd_priv->slave_sd_state, &sd_format);
-	if (ret)
-		return ret;
-
-	format->format = sd_format.format;
 
 	fmt = max_format_by_code(format->format.code);
 	if (!fmt)
@@ -549,74 +395,16 @@ static int max_des_enum_mbus_code(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_mbus_code_enum *code)
 {
-	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
-	struct v4l2_subdev_mbus_code_enum sd_code = *code;
-	int ret;
+	const struct max_format *fmt;
 
 	if (code->pad != MAX_DES_SOURCE_PAD)
 		return -EINVAL;
 
-	sd_code.pad = sd_priv->slave_sd_pad_id;
-
-	ret = v4l2_subdev_call(sd_priv->slave_sd, pad, enum_mbus_code,
-			       sd_priv->slave_sd_state, &sd_code);
-	if (ret)
-		return ret;
-
-	code->code = sd_code.code;
-
-	return 0;
-}
-
-static int max_des_enum_frame_size(struct v4l2_subdev *sd,
-				   struct v4l2_subdev_state *sd_state,
-				   struct v4l2_subdev_frame_size_enum *fse)
-{
-	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
-	struct v4l2_subdev_frame_size_enum sd_fse = *fse;
-	int ret;
-
-	if (fse->pad != MAX_DES_SOURCE_PAD)
+	fmt = max_format_by_index(code->index);
+	if (!fmt)
 		return -EINVAL;
 
-	sd_fse.pad = sd_priv->slave_sd_pad_id;
-
-	ret = v4l2_subdev_call(sd_priv->slave_sd, pad, enum_frame_size,
-			       sd_priv->slave_sd_state, &sd_fse);
-	if (ret)
-		return ret;
-
-	fse->code = sd_fse.code;
-	fse->min_width = sd_fse.min_width;
-	fse->max_width = sd_fse.max_width;
-	fse->min_height = sd_fse.min_height;
-	fse->max_height = sd_fse.max_height;
-
-	return 0;
-}
-
-static int max_des_enum_frame_interval(struct v4l2_subdev *sd,
-				       struct v4l2_subdev_state *sd_state,
-				       struct v4l2_subdev_frame_interval_enum *fie)
-{
-	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
-	struct v4l2_subdev_frame_interval_enum sd_fie = *fie;
-	int ret;
-
-	if (fie->pad != MAX_DES_SOURCE_PAD)
-		return -EINVAL;
-
-	sd_fie.pad = sd_priv->slave_sd_pad_id;
-
-	ret = v4l2_subdev_call(sd_priv->slave_sd, pad, enum_frame_interval,
-			       sd_priv->slave_sd_state, &sd_fie);
-	if (ret)
-		return ret;
-
-	fie->code = sd_fie.code;
-	fie->width = sd_fie.width;
-	fie->height = sd_fie.height;
-	fie->interval = sd_fie.interval;
+	code->code = fmt->code;
 
 	return 0;
 }
@@ -665,12 +453,9 @@ static const struct v4l2_subdev_video_ops max_des_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops max_des_pad_ops = {
-	.get_selection = max_des_get_selection,
 	.get_fmt = max_des_get_fmt,
 	.set_fmt = max_des_set_fmt,
 	.enum_mbus_code = max_des_enum_mbus_code,
-	.enum_frame_size = max_des_enum_frame_size,
-	.enum_frame_interval = max_des_enum_frame_interval,
 };
 
 static const struct v4l2_subdev_ops max_des_subdev_ops = {
@@ -685,10 +470,6 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 	unsigned int index = sd_priv->index;
 	char postfix[3];
 	int ret;
-
-	ret = max_des_v4l2_notifier_register(sd_priv);
-	if (ret)
-		return ret;
 
 	snprintf(postfix, sizeof(postfix), ":%d", index);
 
@@ -710,8 +491,6 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 	return v4l2_async_register_subdev(&sd_priv->sd);
 
 error:
-	v4l2_async_notifier_unregister(&sd_priv->notifier);
-	v4l2_async_notifier_cleanup(&sd_priv->notifier);
 	media_entity_cleanup(&sd_priv->sd.entity);
 	fwnode_handle_put(sd_priv->sd.fwnode);
 
@@ -720,8 +499,6 @@ error:
 
 static void max_des_v4l2_unregister_sd(struct max_des_subdev_priv *sd_priv)
 {
-	v4l2_async_notifier_unregister(&sd_priv->notifier);
-	v4l2_async_notifier_cleanup(&sd_priv->notifier);
 	v4l2_async_unregister_subdev(&sd_priv->sd);
 	media_entity_cleanup(&sd_priv->sd.entity);
 	fwnode_handle_put(sd_priv->sd.fwnode);
@@ -914,28 +691,6 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 	return 0;
 }
 
-static int max_des_parse_sink_dt_endpoint(struct max_des_subdev_priv *sd_priv,
-					  struct fwnode_handle *fwnode)
-{
-	struct max_des_priv *priv = sd_priv->priv;
-	struct fwnode_handle *ep;
-
-	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_DES_SINK_PAD, 0, 0);
-	if (!ep) {
-		dev_err(priv->dev, "Not connected to subdevice\n");
-		return -EINVAL;
-	}
-
-	sd_priv->slave_fwnode = fwnode_graph_get_remote_endpoint(ep);
-	if (!sd_priv->slave_fwnode) {
-		dev_err(priv->dev, "Not connected to remote endpoint\n");
-
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int max_des_parse_dt(struct max_des_priv *priv)
 {
 	const char *channel_node_name = "channel";
@@ -1060,10 +815,6 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 		sd_priv->pipe_id = index;
 
 		ret = max_des_parse_ch_dt(sd_priv, fwnode);
-		if (ret)
-			return ret;
-
-		ret = max_des_parse_sink_dt_endpoint(sd_priv, fwnode);
 		if (ret)
 			return ret;
 
