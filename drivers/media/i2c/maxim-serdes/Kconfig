@@ -13,6 +13,15 @@ config VIDEO_MAXIM_SERDES
 	  To compile this driver as a module, choose M here: the
 	  module will be called max_serdes.
 
+config VIDEO_MAXIM_AGGREGATOR
+	tristate "Maxim GMSL2 Aggregator support"
+	select VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim aggregator.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called maxim_aggregator.
+
 config VIDEO_MAX96717
 	tristate "Maxim MAX96717 GMSL2 Serializer support"
 	depends on I2C
