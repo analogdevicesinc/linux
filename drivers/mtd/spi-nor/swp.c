@@ -455,9 +455,14 @@ static int spi_nor_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 	if (!(nor->flags & SNOR_F_HAS_PARALLEL)) {
 		/* Determine the flash from which the operation need to start */
 		while ((cur_cs_num < SNOR_FLASH_CNT_MAX) && (ofs > sz - 1) && params) {
-			cur_cs_num++;
 			params = spi_nor_get_params(nor, cur_cs_num);
 			sz += params->size;
+			cur_cs_num++;
+		}
+
+		if (cur_cs_num == SNOR_FLASH_CNT_MAX) {
+			ret = -ENODEV;
+			goto err;
 		}
 	}
 	if (nor->flags & SNOR_F_HAS_PARALLEL) {
@@ -496,9 +501,14 @@ static int spi_nor_unlock(struct mtd_info *mtd, loff_t ofs, u64 len)
 	if (!(nor->flags & SNOR_F_HAS_PARALLEL)) {
 		/* Determine the flash from which the operation need to start */
 		while ((cur_cs_num < SNOR_FLASH_CNT_MAX) && (ofs > sz - 1) && params) {
-			cur_cs_num++;
 			params = spi_nor_get_params(nor, cur_cs_num);
 			sz += params->size;
+			cur_cs_num++;
+		}
+
+		if (cur_cs_num == SNOR_FLASH_CNT_MAX) {
+			ret = -ENODEV;
+			goto err;
 		}
 	}
 	if (nor->flags & SNOR_F_HAS_PARALLEL) {
