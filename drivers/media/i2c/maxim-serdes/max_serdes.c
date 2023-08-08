@@ -41,6 +41,15 @@ static const struct max_format max_formats[] = {
     MAX_FMT(MEDIA_BUS_FMT_SRGGB16_1X16, MAX_DT_RAW16, 16, 0),
 };
 
+const struct max_format *max_format_by_index(unsigned int index)
+{
+    if (index >= ARRAY_SIZE(max_formats))
+        return NULL;
+
+    return &max_formats[index];
+}
+EXPORT_SYMBOL_GPL(max_format_by_index);
+
 const struct max_format *max_format_by_code(u32 code)
 {
     unsigned int i;
