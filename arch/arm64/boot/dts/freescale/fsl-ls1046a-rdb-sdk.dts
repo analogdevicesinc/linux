@@ -98,6 +98,12 @@ pcie@3600000 {
 
 &fman0 {
 	compatible = "fsl,fman", "simple-bus";
+
+	ethernet@f2000 {
+		/delete-property/ managed;
+		fixed-link = <0 1 1000 0 0>;
+		phy-connection-type = "xgmii";
+	};
 };
 
 &clockgen {
