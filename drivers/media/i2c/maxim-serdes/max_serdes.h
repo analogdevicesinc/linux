@@ -73,6 +73,7 @@ struct max_format {
 #define MAX_DT_RAW16			0x2e
 #define MAX_DT_RAW20			0x2f
 
+const struct max_format *max_format_by_index(unsigned int index);
 const struct max_format *max_format_by_code(u32 code);
 const struct max_format *max_format_by_dt(u8 dt);
 
