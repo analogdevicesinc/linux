@@ -465,6 +465,10 @@ static const struct v4l2_subdev_ops max_des_subdev_ops = {
 	.pad = &max_des_pad_ops,
 };
 
+static const struct media_entity_operations max_des_media_ops = {
+	.link_validate = v4l2_subdev_link_validate,
+};
+
 static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 {
 	struct max_des_priv *priv = sd_priv->priv;
@@ -477,6 +481,7 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 	v4l2_i2c_subdev_init(&sd_priv->sd, priv->client, &max_des_subdev_ops);
 	v4l2_i2c_subdev_set_name(&sd_priv->sd, priv->client, NULL, postfix);
 	sd_priv->sd.entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
+	sd_priv->sd.entity.ops = &max_des_media_ops;
 	sd_priv->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sd_priv->sd.fwnode = sd_priv->fwnode;
 
