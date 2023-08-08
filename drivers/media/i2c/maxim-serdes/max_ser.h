@@ -46,7 +46,7 @@ struct max_ser_subdev_priv {
 
 struct max_ser_phy {
 	unsigned int index;
-	struct v4l2_fwnode_bus_mipi_csi2 mipi;
+	struct v4l2_mbus_config_mipi_csi2 mipi;
 	bool enabled;
 };
 

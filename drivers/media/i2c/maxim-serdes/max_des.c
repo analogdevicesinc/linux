@@ -19,6 +19,7 @@ const struct regmap_config max_des_i2c_regmap = {
 	.val_bits = 8,
 	.max_register = 0x1f00,
 };
+EXPORT_SYMBOL_GPL(max_des_i2c_regmap);
 
 static struct max_des_subdev_priv *next_subdev(struct max_des_priv *priv,
 					       struct max_des_subdev_priv *sd_priv)
