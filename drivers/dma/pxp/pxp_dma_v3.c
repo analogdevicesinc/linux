@@ -1907,7 +1907,7 @@ static int pxp_start(struct pxps *pxp)
 	val = (BM_PXP_CTRL_ENABLE | BM_PXP_CTRL_BLOCK_SIZE);
 
 	if (pxp->devdata &&
-	    pxp_is_v3p(pxp) &&
+	    pxp_is_v3(pxp) &&
 	    proc_data->lut_transform) {
 		val |= (BM_PXP_CTRL_ENABLE_CSC2 |
 		        BM_PXP_CTRL_ENABLE_ROTATE0 |
