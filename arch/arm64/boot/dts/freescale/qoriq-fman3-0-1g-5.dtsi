@@ -20,7 +20,7 @@ fman@1a00000 {
 		fsl,qman-channel-id = <0x807>;
 	};
 
-	ethernet@ea000 {
+	mac6: ethernet@ea000 {
 		cell-index = <5>;
 		compatible = "fsl,fman-memac";
 		reg = <0xea000 0x1000>;
