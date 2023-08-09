@@ -59,11 +59,11 @@ extern int32_t (*adi_hal_DevHalCfgFree)(void* devHalCfg);
  * BBIC SPI functions
  */
 extern int32_t (*adi_hal_SpiInit)(void* devHalCfg); /* TODO Remove */
-extern int32_t (*adi_hal_SpiWrite)(void*         devHalCfg,
+extern int32_t (*adrv9025_hal_SpiWrite)(void*         devHalCfg,
                                    const uint8_t txData[],
                                    uint32_t      numTxBytes);
 
-extern int32_t (*adi_hal_SpiRead)(void*         devHalCfg,
+extern int32_t (*adrv9025_hal_SpiRead)(void*         devHalCfg,
                                   const uint8_t txData[],
                                   uint8_t       rxData[],
                                   uint32_t      numRxBytes);

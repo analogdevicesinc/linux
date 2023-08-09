@@ -34,19 +34,19 @@ extern "C" {
 /**
 * \brief Macro to log API function entry
 *
-* This macro will call adi_common_LogWrite function with the __FUNCTION__ preprocessor
+* This macro will call adrv9025_LogWrite function with the __FUNCTION__ preprocessor
 * It will report any error discovered.
 *
 * \param commonDev pointer to adi_common_Device_t
 * \param logLevel of type adi_common_LogLevel_e
 */
 #define ADI_FUNCTION_ENTRY_LOG(commonDev, logLevel) \
-    adi_common_LogWrite(commonDev, logLevel, "%s(...)", __FUNCTION__)
+    adrv9025_LogWrite(commonDev, logLevel, "%s(...)", __FUNCTION__)
 
 /**
 * \brief Macro to log API function entry
 *
-* This macro will call adi_common_LogWrite function with the __FUNCTION__ preprocessor
+* This macro will call adrv9025_LogWrite function with the __FUNCTION__ preprocessor
 *
 * \param commonDev pointer to adi_common_Device_t
 * \param logLevel of type adi_common_LogLevel_e
@@ -54,39 +54,39 @@ extern "C" {
 * \param ... variable argument passed to adi_common_Logwrite
 */
 #define ADI_FUNCTION_ENTRY_VARIABLE_LOG(commonDev, logLevel, message, ...) \
-    adi_common_LogWrite(commonDev, logLevel, message, __FUNCTION__, ##__VA_ARGS__)
+    adrv9025_LogWrite(commonDev, logLevel, message, __FUNCTION__, ##__VA_ARGS__)
 
 /**
 * \brief Macro to log API function entry
 *
-* This macro will call adi_common_LogWrite function with the __FUNCTION__ preprocessor
+* This macro will call adrv9025_LogWrite function with the __FUNCTION__ preprocessor
 *
 * \param commonDev pointer to adi_common_Device_t
 * \param message const char pointer that represents the message to be logged
 */
 #define ADI_MESSAGE_LOG(commonDev, message) \
-    adi_common_LogWrite(commonDev, ADI_COMMON_LOG_MSG, message)
+    adrv9025_LogWrite(commonDev, ADI_COMMON_LOG_MSG, message)
 
 #else /*  ADI_COMMON_VERBOSE < 0 or not defined */
 #define ADI_FUNCTION_ENTRY_LOG(commonDev, logLevel) \
-    adi_common_LogWrite(commonDev, logLevel, "%s(...)", __FUNCTION__)
+    adrv9025_LogWrite(commonDev, logLevel, "%s(...)", __FUNCTION__)
 #define ADI_FUNCTION_ENTRY_VARIABLE_LOG(commonDev, logLevel, message, ...) \
-    adi_common_LogWrite(commonDev, logLevel, message, __FUNCTION__, ##__VA_ARGS__)
+    adrv9025_LogWrite(commonDev, logLevel, message, __FUNCTION__, ##__VA_ARGS__)
 #define ADI_MESSAGE_LOG(commonDev, message) \
-    adi_common_LogWrite(commonDev, ADI_COMMON_LOG_MSG, message)
+    adrv9025_LogWrite(commonDev, ADI_COMMON_LOG_MSG, message)
 #endif
 
 /**
 * \brief Macro to log error structure
 *
-* This macro will call adi_common_LogWrite function with the required string for logging the error.
+* This macro will call adrv9025_LogWrite function with the required string for logging the error.
 *
 * \param commonDev pointer to adi_common_Device_t
 * \param err pointer to the error structure
 */
 #define  ADI_ERROR_LOG(commonDev, err) \
 {\
-    adi_common_LogWrite(commonDev,\
+    adrv9025_LogWrite(commonDev,\
                         ADI_COMMON_LOG_ERR,\
                         "Error number % d (0x%08x), Recovery action % d.In file % s, in function % s, in line % d, variable name % s.Error message % s.\n",\
                         err.errCode,\
@@ -137,7 +137,7 @@ void adi_common_LogLevelGet(adi_common_Device_t* commonDev,
 * \param comment const char pointer that represents the message to be logged
 * \param ... variable argument passed to adi_common_Logwrite
 */
-void adi_common_LogWrite(adi_common_Device_t*  commonDev,
+void adrv9025_LogWrite(adi_common_Device_t*  commonDev,
                          adi_common_LogLevel_e logLevel,
                          const char*           comment,
                          ...);

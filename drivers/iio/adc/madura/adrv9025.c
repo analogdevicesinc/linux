@@ -79,7 +79,7 @@ static int __adrv9025_dev_err(struct adrv9025_rf_phy *phy, const char *function,
 		ret = -EFAULT;
 	}
 
-	adi_common_ErrorClear(&phy->madDevice->common);
+	adrv9025_ErrorClear(&phy->madDevice->common);
 
 	return ret;
 }

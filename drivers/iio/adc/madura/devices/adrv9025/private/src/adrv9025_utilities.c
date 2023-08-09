@@ -2669,7 +2669,7 @@ int32_t adrv9025_JsonParseInitAdcProfileSettings(adi_adrv9025_Device_t*      dev
         memset(adcProfiles->OrxChannel2Profile3, 0, ADC_PROFILE_MAX*sizeof(uint16_t));
         adcProfiles->OrxChannel1Index = 0;
         adcProfiles->OrxChannel2Index = 0;
-        recoveryAction = adi_common_ErrorClear(&device->common);
+        recoveryAction = adrv9025_ErrorClear(&device->common);
         return recoveryAction;
     }
     else

@@ -200,7 +200,7 @@ int32_t adi_adrv9025_CpuStartStatusCheck(
                     ADI_ERROR_RETURN(device->common.error.newAction);
                 }
 
-                halError = adi_common_hal_Wait_us(&device->common,
+                halError = adrv9025_hal_Wait_us(&device->common,
                                                     waitInterval_us);
                 ADI_ERROR_REPORT(&device->common,
                                     ADI_COMMON_ERRSRC_ADI_HAL,
@@ -213,7 +213,7 @@ int32_t adi_adrv9025_CpuStartStatusCheck(
             else if ((cpuDebugLoaded == 1) && (fwStatus == ADRV9025_CPU_FW_STATUS_CPU_DEBUG_READY))
             {
                 /* Wait for CPU to load from JTAG */
-                halError = adi_common_hal_Wait_us(&device->common,
+                halError = adrv9025_hal_Wait_us(&device->common,
                                                     waitInterval_us);
                 ADI_ERROR_REPORT(&device->common,
                                     ADI_COMMON_ERRSRC_ADI_HAL,
@@ -470,7 +470,7 @@ int32_t adi_adrv9025_CpuChecksumTableGet(
         if ((calculatedChecksum == 0) && (eventCheck < numEventChecks))
         {
             /* wait */
-            halError = adi_common_hal_Wait_us(&device->common,
+            halError = adrv9025_hal_Wait_us(&device->common,
                                               timeout_us);
 
             ADI_ERROR_REPORT(&device->common,
@@ -1061,7 +1061,7 @@ int32_t adi_adrv9025_CpuCmdStatusWait(
         if (((*cmdStatusByte & CPU_PENDING) > 0) &&
             (eventCheck < numEventChecks))
         {
-            halError = adi_common_hal_Wait_us(&device->common,
+            halError = adrv9025_hal_Wait_us(&device->common,
                                               waitInterval_us);
 
             ADI_ERROR_REPORT(&device->common,
@@ -1254,7 +1254,7 @@ int32_t adi_adrv9025_CpuCmdWrite(
 
         if (cpuCommandBusy == ADI_TRUE)
         {
-            halError = adi_common_hal_Wait_us(&device->common,
+            halError = adrv9025_hal_Wait_us(&device->common,
                                               waitInterval_us);
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_ADI_HAL,

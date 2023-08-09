@@ -35,11 +35,11 @@ int32_t(*adi_hal_DevHalCfgFree)(void *devHalCfg) = NULL;
 int32_t(*adi_hal_HwVerify)(void *devHalCfg) = NULL;
 
 /* SPI Interface */
-int32_t (*adi_hal_SpiWrite)(void*         devHalCfg,
+int32_t (*adrv9025_hal_SpiWrite)(void*         devHalCfg,
                             const uint8_t txData[],
                             uint32_t      numTxBytes) = NULL;
 
-int32_t (*adi_hal_SpiRead)(void*         devHalCfg,
+int32_t (*adrv9025_hal_SpiRead)(void*         devHalCfg,
                            const uint8_t txData[],
                            uint8_t       rxData[],
                            uint32_t      numRxBytes) = NULL;
@@ -126,8 +126,8 @@ int32_t adi_hal_PlatformSetup(void*               devHalInfo,
 	    adi_hal_HwVerify = ads9_HwVerify;
 
         adi_hal_SpiInit              = ads9_SpiInit;     /* TODO: remove?  called by HwOpen() */
-        adi_hal_SpiWrite             = ads9_SpiWrite_v2; //ads9_SpiWrite;
-        adi_hal_SpiRead              = ads9_SpiRead_v2;
+        adrv9025_hal_SpiWrite             = ads9_SpiWrite_v2; //ads9_SpiWrite;
+        adrv9025_hal_SpiRead              = ads9_SpiRead_v2;
         adi_hal_CustomSpiStreamWrite = NULL;
         adi_hal_CustomSpiStreamRead  = NULL;
 
@@ -157,8 +157,8 @@ int32_t adi_hal_PlatformSetup(void*               devHalInfo,
 	    adi_hal_HwVerify = ads8_HwVerify;
 
         adi_hal_SpiInit              = ads8_SpiInit; /* TODO: remove?  called by HwOpen() */
-        adi_hal_SpiWrite             = ads8_SpiWrite_v2;
-        adi_hal_SpiRead              = ads8_SpiRead_v2;
+        adrv9025_hal_SpiWrite             = ads8_SpiWrite_v2;
+        adrv9025_hal_SpiRead              = ads8_SpiRead_v2;
         adi_hal_CustomSpiStreamWrite = NULL;
         adi_hal_CustomSpiStreamRead  = NULL;
 

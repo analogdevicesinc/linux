@@ -538,10 +538,10 @@ int32_t (*adi_hal_DevHalCfgFree)(void *devHalCfg) = NULL;
 int32_t (*adi_hal_HwVerify)(void *devHalCfg) = NULL;
 
 /* SPI Interface */
-int32_t (*adi_hal_SpiWrite)(void *devHalCfg, const uint8_t txData[],
+int32_t (*adrv9025_hal_SpiWrite)(void *devHalCfg, const uint8_t txData[],
 			    uint32_t numTxBytes) = NULL;
 
-int32_t (*adi_hal_SpiRead)(void *devHalCfg, const uint8_t txData[],
+int32_t (*adrv9025_hal_SpiRead)(void *devHalCfg, const uint8_t txData[],
 			   uint8_t rxData[], uint32_t numRxBytes) = NULL;
 
 /* Custom SPI streaming interface*/
@@ -590,8 +590,8 @@ int32_t adi_hal_PlatformSetup(void *devHalInfo, adi_hal_Platforms_e platform)
 	adi_hal_HwClose = linux_HwClose;
 	adi_hal_HwReset = linux_HwReset;
 
-	adi_hal_SpiWrite = linux_SpiWrite;
-	adi_hal_SpiRead = linux_SpiRead;
+	adrv9025_hal_SpiWrite = linux_SpiWrite;
+	adrv9025_hal_SpiRead = linux_SpiRead;
 
 	adi_hal_LogFileOpen = linux_LogFileOpen;
 	adi_hal_LogLevelSet = linux_LogLevelSet;

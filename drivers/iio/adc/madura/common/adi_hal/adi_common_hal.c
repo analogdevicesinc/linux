@@ -100,7 +100,7 @@ int32_t adi_common_hal_HwReset(adi_common_Device_t *commonDev, uint8_t pinLevel)
     return commonDev->error.newAction;
 }
 
-int32_t adi_common_hal_Wait_us(adi_common_Device_t *commonDev, uint32_t time_us)
+int32_t adrv9025_hal_Wait_us(adi_common_Device_t *commonDev, uint32_t time_us)
 {
     int32_t halError = (int32_t)ADI_COMMON_HAL_OK;
 

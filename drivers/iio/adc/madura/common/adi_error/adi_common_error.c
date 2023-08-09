@@ -20,7 +20,7 @@
 #include "adi_platform.h"
 #include <linux/kernel.h>
 
-void adi_common_ErrorReport(adi_common_Device_t*    commonDev,
+void adrv9025_ErrorReport(adi_common_Device_t*    commonDev,
                             adi_common_ErrSources_e errSrc,
                             int32_t                 detErr,
                             int32_t                 actionToRecover,
@@ -92,7 +92,7 @@ void adi_common_ErrorReport(adi_common_Device_t*    commonDev,
                 if (commonDev->error.newAction != ADI_COMMON_ACT_NO_ACTION)
                 {
                     lastAction = commonDev->error.newAction;
-                    adi_common_ErrorClear(commonDev);
+                    adrv9025_ErrorClear(commonDev);
                     commonDev->error.lastAction = lastAction;
                 }
             }
@@ -100,7 +100,7 @@ void adi_common_ErrorReport(adi_common_Device_t*    commonDev,
     }
 }
 
-int32_t adi_common_ErrorClear(adi_common_Device_t* commonDev)
+int32_t adrv9025_ErrorClear(adi_common_Device_t* commonDev)
 {
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 

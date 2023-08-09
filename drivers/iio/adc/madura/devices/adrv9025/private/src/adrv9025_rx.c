@@ -379,7 +379,7 @@ int32_t adrv9025_RxGainCtrlPinReportError(adi_adrv9025_Device_t* device,
     if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        recAct = adi_common_ErrorClear(&device->common);
+        recAct = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         recAct = adrv9025_SharedResourcesRelease(device,
@@ -439,7 +439,7 @@ int32_t adrv9025_RxExtCtrlPinReportError(adi_adrv9025_Device_t* device,
     if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        recAct = adi_common_ErrorClear(&device->common);
+        recAct = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         recAct = adrv9025_SharedResourcesRelease(device,
@@ -499,7 +499,7 @@ int32_t adrv9025_RxDualbandLnaCtrlPinReportError(adi_adrv9025_Device_t* device,
     if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        recAct = adi_common_ErrorClear(&device->common);
+        recAct = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         recAct = adrv9025_SharedResourcesRelease(device,
@@ -4154,7 +4154,7 @@ int32_t adrv9025_RxInternalSlicerGpioEnable(adi_adrv9025_Device_t*           dev
                                                         gpioOutputDirMask)) != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        recoveryAction = adi_common_ErrorClear(&device->common);
+        recoveryAction = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         /*Release Shared GPIOs if setting of GPIO Input Dir is unsuccessful*/
@@ -4576,7 +4576,7 @@ int32_t adrv9025_RxInternalSlicerGpioDisable(adi_adrv9025_Device_t*           de
                                                        gpioInputDirMask)) != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        recoveryAction = adi_common_ErrorClear(&device->common);
+        recoveryAction = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         /* Re-Acquire Shared GPIOs if setting of GPIO Input Dir is unsuccessful*/
@@ -4994,7 +4994,7 @@ int32_t adrv9025_RxExternalSlicerGpioEnable(adi_adrv9025_Device_t*              
                                                        gpioInputDirMask)) != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        recoveryAction = adi_common_ErrorClear(&device->common);
+        recoveryAction = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         /*Release Shared GPIOs if setting of GPIO Input Dir is unsuccessful*/
@@ -5034,7 +5034,7 @@ int32_t adrv9025_RxExternalSlicerGpioEnable(adi_adrv9025_Device_t*              
                                                             &rxChannelBitfieldAddr)) != ADI_COMMON_ACT_NO_ACTION)
         {
             /*Clear the error so that clean up functions execute*/
-            recoveryAction = adi_common_ErrorClear(&device->common);
+            recoveryAction = adrv9025_ErrorClear(&device->common);
             ADI_ERROR_RETURN(device->common.error.newAction);
 
             /*Release Shared GPIOs if decoding of Rx bitfield address is unsuccessful*/
@@ -5072,7 +5072,7 @@ int32_t adrv9025_RxExternalSlicerGpioEnable(adi_adrv9025_Device_t*              
                                                                            (uint8_t)rxExtSlicerGpioSel)) != ADI_COMMON_ACT_NO_ACTION)
         {
             /*Clear the error so that clean up functions execute*/
-            recoveryAction = adi_common_ErrorClear(&device->common);
+            recoveryAction = adrv9025_ErrorClear(&device->common);
             ADI_ERROR_RETURN(device->common.error.newAction);
 
             /*Release Shared GPIOs if setting of Rx slicer pin ctrl GPIO bitfield is unsuccessful*/
@@ -5334,7 +5334,7 @@ int32_t adrv9025_RxExternalSlicerGpioDisable(adi_adrv9025_Device_t*    device,
                                                                            DEFAULT_GPIO_SELECT_VALUE)) != ADI_COMMON_ACT_NO_ACTION)
         {
             /*Clear the error so that clean up functions execute*/
-            recoveryAction = adi_common_ErrorClear(&device->common);
+            recoveryAction = adrv9025_ErrorClear(&device->common);
             ADI_ERROR_RETURN(device->common.error.newAction);
 
             /*Release Shared GPIOs if setting of Rx slicer pin ctrl GPIO bitfield is unsuccessful*/
@@ -5372,7 +5372,7 @@ int32_t adrv9025_RxExternalSlicerGpioDisable(adi_adrv9025_Device_t*    device,
         //     if ((recoveryAction = adrv9025_OrxRxdpSlicerPinCntrlGpioSelectBfSet(device, orxChannelBitfieldAddr, DEFAULT_GPIO_SELECT_VALUE)) != ADI_COMMON_ACT_NO_ACTION)
         //     {
         ///*Clear the error so that clean up functions execute*/
-        //recoveryAction = adi_common_ErrorClear(&device->common);
+        //recoveryAction = adrv9025_ErrorClear(&device->common);
         //ADI_ERROR_RETURN(device->common.error.newAction);
 
         //         /*Release Shared GPIOs if setting of ORx slicer pin ctrl GPIO bitfield is unsuccessful*/
@@ -5398,7 +5398,7 @@ int32_t adrv9025_RxExternalSlicerGpioDisable(adi_adrv9025_Device_t*    device,
                                                        gpioInputDirMask)) != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        recoveryAction = adi_common_ErrorClear(&device->common);
+        recoveryAction = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         /*Re-acquire Shared GPIOs if setting of GPIO Input Dir is unsuccessful*/

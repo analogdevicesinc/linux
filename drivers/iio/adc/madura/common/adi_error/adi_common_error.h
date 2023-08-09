@@ -99,7 +99,7 @@ if(ptr == NULL)\
 
 /**
 * \brief Macro to perform error reporting
-*        This macro will call adi_common_ErrorReport and extract the
+*        This macro will call adrv9025_ErrorReport and extract the
 *        necessary information from the API function using the preprocessors:
 * __FILE__ will represent the full path of the current API function file where the error happened,
 * __FUNCTION__ will expand to the name of the function in the API where the error was produced,
@@ -120,11 +120,11 @@ if(ptr == NULL)\
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM
 */
 #define ADI_ERROR_REPORT(commonDev, errorSource, error, action, variable, customError) \
-    adi_common_ErrorReport(commonDev, (adi_common_ErrSources_e)errorSource, (int32_t)error, (int32_t)action, __FILE__, __FUNCTION__, __LINE__, GET_VARIABLE_NAME(variable), customError)
+    adrv9025_ErrorReport(commonDev, (adi_common_ErrSources_e)errorSource, (int32_t)error, (int32_t)action, __FILE__, __FUNCTION__, __LINE__, GET_VARIABLE_NAME(variable), customError)
 
 #else
 #define ADI_ERROR_REPORT(commonDev, errorSource, error, action, variable, customError) \
-    adi_common_ErrorReport(commonDev, (adi_common_ErrSources_e)errorSource, (int32_t)error, (int32_t)action, "", "", __LINE__, "", "")
+    adrv9025_ErrorReport(commonDev, (adi_common_ErrSources_e)errorSource, (int32_t)error, (int32_t)action, "", "", __LINE__, "", "")
 #endif /* ADI_COMMON_VERBOSE */
 
 #ifdef __cplusplus
@@ -166,7 +166,7 @@ extern "C" {
  * \param varName variable name that had the error, this can be NULL and it will mean that there is an error not depending on a variable only
  * \param customError error message to be written to the struct
  */
-void adi_common_ErrorReport(adi_common_Device_t*    commonDev,
+void adrv9025_ErrorReport(adi_common_Device_t*    commonDev,
                             adi_common_ErrSources_e errSrc,
                             int32_t                 detErr,
                             int32_t                 actionToRecover,
@@ -183,7 +183,7 @@ void adi_common_ErrorReport(adi_common_Device_t*    commonDev,
  *
  * \retval ADI_COMMON_ACT_NO_ACTION Function completed successfully, no action required
  */
-int32_t adi_common_ErrorClear(adi_common_Device_t* commonDev);
+int32_t adrv9025_ErrorClear(adi_common_Device_t* commonDev);
 
 #ifdef __cplusplus
 }

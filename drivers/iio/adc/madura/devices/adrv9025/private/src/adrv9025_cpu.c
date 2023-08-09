@@ -1537,7 +1537,7 @@ const char* adrv9025_CpuErrMsgGet(
     if (cpuErrorFlag == ERR_FLAG_MAILBOX)
     {
         /*Clear the error so that CPU Mailbox functions execute*/
-        recoveryAction = adi_common_ErrorClear(&device->common);
+        recoveryAction = adrv9025_ErrorClear(&device->common);
         if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
         {
             return "Error clearing MailBox Error Code.\n";
@@ -2061,7 +2061,7 @@ int32_t adrv9025_CpuDmaMemWrite(
             /* Streaming with custom hal layer function(adi_hal_CustomSpiStreamWrite) */
             ADRV9025_SPIWRITEWORDDMASTREAMWITHCUSTOMHALFUNCTION("DMA_MEM_WRITE_STREAM", ADRV9025_CPU_ADDR_DMA_DATA3, data, byteCount);
 #else
-            /* Streaming with standard hal layer function(adi_hal_SpiWrite) */
+            /* Streaming with standard hal layer function(adrv9025_hal_SpiWrite) */
             ADRV9025_SPIWRITEWORDDMASTREAM("DMA_MEM_WRITE_STREAM",
                                            ADRV9025_CPU_ADDR_DMA_DATA3,
                                            data,
@@ -2273,7 +2273,7 @@ int32_t adrv9025_CpuDmaMemRead(
         /* Streaming with custom hal layer function(adi_hal_CustomSpiStreamRead) */
         ADRV9025_SPIREADWORDDMASTREAMWITHCUSTOMHALFUNCTION("DMA_MEM_READ_STREAM", ADRV9025_CPU_ADDR_DMA_DATA3, returnData, byteCount);
 #else
-        /* Streaming with standard hal layer function(adi_hal_SpiRead) */
+        /* Streaming with standard hal layer function(adrv9025_hal_SpiRead) */
         ADRV9025_SPIREADWORDDMASTREAM("DMA_MEM_READ_STREAM",
                                       ADRV9025_CPU_ADDR_DMA_DATA3,
                                       returnData,

@@ -53,7 +53,7 @@ int32_t adi_adrv9025_SpiByteWrite(adi_adrv9025_Device_t* device,
 
     for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
     {
-        halError = adi_hal_SpiWrite(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiWrite(device->common.devHalInfo,
                                     &txData[0],
                                     numTxBytes);
         if (halError == ADI_COMMON_HAL_OK)
@@ -112,7 +112,7 @@ int32_t adi_adrv9025_SpiCacheWrite(adi_adrv9025_Device_t* device,
 
     for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
     {
-        halError = adi_hal_SpiWrite(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiWrite(device->common.devHalInfo,
                                     &wrData[0],
                                     numWrBytes);
         if (halError == ADI_COMMON_HAL_OK)
@@ -172,7 +172,7 @@ int32_t adi_adrv9025_SpiBytesWrite(adi_adrv9025_Device_t* device,
 
     for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
     {
-        halError = adi_hal_SpiWrite(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiWrite(device->common.devHalInfo,
                                     &wrData[0],
                                     numWrBytes);
         if (halError == ADI_COMMON_HAL_OK)
@@ -229,7 +229,7 @@ int32_t adi_adrv9025_SpiDmaWordWrite(adi_adrv9025_Device_t* device,
     //TODO make macro
     for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
     {
-        halError = adi_hal_SpiWrite(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiWrite(device->common.devHalInfo,
                                     &wrData[0],
                                     numWrBytes);
         if (halError == ADI_COMMON_HAL_OK)
@@ -427,7 +427,7 @@ int32_t adi_adrv9025_SpiDmaWordWriteStream(adi_adrv9025_Device_t* device,
         dataToWrite[5] = data[j + 0];
         for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
         {
-            halError = adi_hal_SpiWrite(device->common.devHalInfo,
+            halError = adrv9025_hal_SpiWrite(device->common.devHalInfo,
                                         &dataToWrite[0],
                                         NUM_OF_BYTES_TO_WRITE);
             if (halError == ADI_COMMON_HAL_OK)
@@ -497,7 +497,7 @@ int32_t adi_adrv9025_SpiDmaWordReadStream(adi_adrv9025_Device_t* device,
     {
         for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
         {
-            halError = adi_hal_SpiRead(device->common.devHalInfo,
+            halError = adrv9025_hal_SpiRead(device->common.devHalInfo,
                                        &dataToWrite[0],
                                        &dataToRead[0],
                                        NUM_OF_BYTES_TO_READ);
@@ -564,7 +564,7 @@ int32_t adi_adrv9025_SpiByteRead(adi_adrv9025_Device_t* device,
 
     for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
     {
-        halError = (adi_common_hal_Err_e)adi_hal_SpiRead(device->common.devHalInfo,
+        halError = (adi_common_hal_Err_e)adrv9025_hal_SpiRead(device->common.devHalInfo,
                                                          &wrData[0],
                                                          &regData[0],
                                                          numWrBytes);
@@ -641,7 +641,7 @@ int32_t adi_adrv9025_SpiBytesRead(adi_adrv9025_Device_t* device,
 
     for (j = 0; j < ADI_ADRV9025_NUMBER_SPI_RETRY; j++)
     {
-        halError = adi_hal_SpiRead(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiRead(device->common.devHalInfo,
                                    &wrData[0],
                                    &rdData[0],
                                    numWrBytes);
@@ -711,7 +711,7 @@ int32_t adi_adrv9025_SpiDmaWordRead(adi_adrv9025_Device_t* device,
 
     for (j = 0; j < ADI_ADRV9025_NUMBER_SPI_RETRY; j++)
     {
-        halError = adi_hal_SpiRead(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiRead(device->common.devHalInfo,
                                    &wrData[0],
                                    &rdData[0],
                                    numWrBytes);
@@ -799,7 +799,7 @@ int32_t adi_adrv9025_SpiCacheRead(adi_adrv9025_Device_t* device,
 
     for (j = 0; j < ADI_ADRV9025_NUMBER_SPI_RETRY; j++)
     {
-        halError = adi_hal_SpiRead(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiRead(device->common.devHalInfo,
                                    &wrData[0],
                                    &readData[0],
                                    numWrBytes);
@@ -865,7 +865,7 @@ int32_t adi_adrv9025_SpiFieldWrite(adi_adrv9025_Device_t* device,
         ADI_ERROR_RETURN(device->common.error.newAction);
         for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
         {
-            halError = adi_hal_SpiWrite(device->common.devHalInfo,
+            halError = adrv9025_hal_SpiWrite(device->common.devHalInfo,
                                         &wrData[0],
                                         numWrBytes);
             if (halError == ADI_COMMON_HAL_OK)
@@ -898,7 +898,7 @@ int32_t adi_adrv9025_SpiFieldWrite(adi_adrv9025_Device_t* device,
         ADI_ERROR_RETURN(device->common.error.newAction);
         for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
         {
-            halError = adi_hal_SpiRead(device->common.devHalInfo,
+            halError = adrv9025_hal_SpiRead(device->common.devHalInfo,
                                        &wrData[0],
                                        &registerVal[0],
                                        numWrBytes);
@@ -929,7 +929,7 @@ int32_t adi_adrv9025_SpiFieldWrite(adi_adrv9025_Device_t* device,
 
         for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
         {
-            halError = adi_hal_SpiWrite(device->common.devHalInfo,
+            halError = adrv9025_hal_SpiWrite(device->common.devHalInfo,
                                         &wrData[0],
                                         numWrBytes);
             if (halError == ADI_COMMON_HAL_OK)
@@ -993,7 +993,7 @@ int32_t adi_adrv9025_SpiFieldRead(adi_adrv9025_Device_t* device,
 
     for (i = 0; i < ADI_ADRV9025_NUMBER_SPI_RETRY; i++)
     {
-        halError = adi_hal_SpiRead(device->common.devHalInfo,
+        halError = adrv9025_hal_SpiRead(device->common.devHalInfo,
                                    &wrData[0],
                                    &rdData[0],
                                    numWrBytes);

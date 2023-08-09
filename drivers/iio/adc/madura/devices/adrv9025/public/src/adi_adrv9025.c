@@ -43,7 +43,7 @@ int32_t adi_adrv9025_HwOpen(adi_adrv9025_Device_t*      device,
     /* TODO: move section to common layer (add new function) */
     if ((adi_hal_HwOpen == NULL) || (adi_hal_HwClose == NULL) ||
         (adi_hal_HwReset == NULL) || (adi_hal_SpiInit == NULL) ||
-        (adi_hal_SpiWrite == NULL) || (adi_hal_SpiRead == NULL) ||
+        (adrv9025_hal_SpiWrite == NULL) || (adrv9025_hal_SpiRead == NULL) ||
         (adi_hal_LogFileOpen == NULL) || (adi_hal_LogLevelSet == NULL) ||
         (adi_hal_LogLevelGet == NULL) || (adi_hal_LogWrite == NULL) ||
         (adi_hal_Wait_us == NULL) || (adi_hal_Wait_ms == NULL) ||

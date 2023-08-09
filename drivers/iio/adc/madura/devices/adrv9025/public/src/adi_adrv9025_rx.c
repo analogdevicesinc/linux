@@ -4598,7 +4598,7 @@ int32_t adi_adrv9025_RxAgcSyncGpioPinSet(adi_adrv9025_Device_t     *device,
     if ((retVal = adi_adrv9025_GpioInputDirSet(device, gpioInputDirMask)) != ADI_COMMON_ACT_NO_ACTION)
     {
         /*Clear the error so that clean up functions execute*/
-        retVal = adi_common_ErrorClear(&device->common);
+        retVal = adrv9025_ErrorClear(&device->common);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
         /* Re-Acquire Shared GPIOs if setting of GPIO Input Dir is unsuccessful*/

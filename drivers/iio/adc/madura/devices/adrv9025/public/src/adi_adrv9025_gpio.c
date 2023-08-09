@@ -1438,7 +1438,7 @@ int32_t adi_adrv9025_AuxDacCfgSet(adi_adrv9025_Device_t*   device,
                                                                     auxDacConfig[i].auxDacMask)) != ADI_COMMON_ACT_NO_ACTION)
                 {
                     /*Clear the error so that clean up functions execute */
-                    recoveryAction = adi_common_ErrorClear(&device->common);
+                    recoveryAction = adrv9025_ErrorClear(&device->common);
                     ADI_ERROR_REPORT(&device->common,
                                      ADI_COMMON_ERRSRC_API,
                                      device->common.error.errCode,

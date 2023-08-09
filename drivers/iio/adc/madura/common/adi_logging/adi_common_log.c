@@ -20,7 +20,7 @@
 #include "adi_common_error_types.h"
 #include <linux/kernel.h>
 
-void adi_common_LogWrite(adi_common_Device_t*  commonDev,
+void adrv9025_LogWrite(adi_common_Device_t*  commonDev,
                          adi_common_LogLevel_e logLevel,
                          const char*           comment,
                          ...)
@@ -46,7 +46,7 @@ void adi_common_LogWrite(adi_common_Device_t*  commonDev,
 
     if (halError != (int32_t)ADI_COMMON_HAL_OK)
     {
-        /* reentrant function call, ADI_ERROR_REPORT calls adi_common_LogWrite
+        /* reentrant function call, ADI_ERROR_REPORT calls adrv9025_LogWrite
          * At this point we should disable logging as it is not available, but keep reporting errors/warnings
          *
          * Todo:

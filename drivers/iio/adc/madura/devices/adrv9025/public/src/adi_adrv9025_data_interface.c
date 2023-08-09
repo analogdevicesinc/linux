@@ -4111,7 +4111,7 @@ int32_t adi_adrv9025_DesEyeSweep(adi_adrv9025_Device_t*             device,
                          device->common.error.errormessage);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
-        retVal = adi_common_hal_Wait_us(&device->common,
+        retVal = adrv9025_hal_Wait_us(&device->common,
                                         500);
         ADI_ERROR_REPORT(&device->common,
                          ADI_COMMON_ERRSRC_API,
@@ -4162,7 +4162,7 @@ int32_t adi_adrv9025_DesEyeSweep(adi_adrv9025_Device_t*             device,
                          device->common.error.errormessage);
         ADI_ERROR_RETURN(device->common.error.newAction);
 
-        retVal = adi_common_hal_Wait_us(&device->common,
+        retVal = adrv9025_hal_Wait_us(&device->common,
                                         500);
         ADI_ERROR_REPORT(&device->common,
                          ADI_COMMON_ERRSRC_API,

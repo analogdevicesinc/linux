@@ -1129,7 +1129,7 @@ int32_t adrv9025_TxAttenPinCtrlCfgSet(adi_adrv9025_Device_t*       device,
                                                            (incGpioPinMask | decGpioPinMask))) != ADI_COMMON_ACT_NO_ACTION)
         {
             /*Clear the error so that clean up functions execute */
-            recoveryAction = adi_common_ErrorClear(&device->common);
+            recoveryAction = adrv9025_ErrorClear(&device->common);
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_API,
                              device->common.error.errCode,
@@ -1360,7 +1360,7 @@ int32_t adrv9025_TxAttenUpdateGpioPinCtrlCfgSet(adi_adrv9025_Device_t*    device
                                                            updateGpioPinMask)) != ADI_COMMON_ACT_NO_ACTION)
         {
             /*Clear the error so that clean up functions execute */
-            recoveryAction = adi_common_ErrorClear(&device->common);
+            recoveryAction = adrv9025_ErrorClear(&device->common);
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_API,
                              device->common.error.errCode,
