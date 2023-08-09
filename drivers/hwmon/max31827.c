@@ -12,6 +12,18 @@
 #include <linux/i2c.h>
 #include <linux/mutex.h>
 #include <linux/regmap.h>
+#include <linux/debugfs.h>
+
+enum {
+	MAX31827_DEBUGFS_PEC_ENABLE = 0,
+	MAX31827_DEBUGFS_TIMEOUT,
+	MAX31827_DEBUGFS_RESOLUTION,
+	MAX31827_DEBUGFS_ALARM_POLARITY,
+	MAX31827_DEBUGFS_COMP_INT,
+	MAX31827_DEBUGFS_FAULT_QUEUE,
+	MAX31827_DEBUGFS_PEC_ERROR,
+	MAX31827_DEBUGFS_NUM_ENTRIES
+};
 
 #define MAX31827_T_REG	0x0
 #define MAX31827_CONFIGURATION_REG	0x2
@@ -22,6 +34,13 @@
 
 #define MAX31827_CONFIGURATION_1SHOT_MASK	BIT(0)
 #define MAX31827_CONFIGURATION_CNV_RATE_MASK	GENMASK(3, 1)
+#define MAX31827_CONFIGURATION_PEC_EN_MASK	BIT(4)
+#define MAX31827_CONFIGURATION_TIMEOUT_MASK	BIT(5)
+#define MAX31827_CONFIGURATION_RES_MASK		GENMASK(7, 6)
+#define MAX31827_CONFIGURATION_ALRM_POL_MASK	BIT(8)
+#define MAX31827_CONFIGURATION_COMP_INT_MASK	BIT(9)
+#define MAX31827_CONFIGURATION_FLT_Q_MASK	GENMASK(11, 10)
+#define MAX31827_CONFIGURATION_PEC_ERR_MASK	BIT(13)
 #define MAX31827_CONFIGURATION_U_TEMP_STAT_MASK BIT(14)
 #define MAX31827_CONFIGURATION_O_TEMP_STAT_MASK BIT(15)
 
@@ -39,6 +58,12 @@
 #define MAX31827_M_DGR_TO_16_BIT(x)	(((x) << 4) / 1000)
 #define MAX31827_DEVICE_ENABLE(x)	((x) ? 0xA : 0x0)
 
+#define DEBUG_FS_DATA_MAX	16
+
+struct max31827_debugfs_data {
+	int debugfs_entries[MAX31827_DEBUGFS_NUM_ENTRIES];
+};
+
 struct max31827_state {
 	/*
 	 * Prevent simultaneous access to the i2c client.
@@ -46,6 +71,8 @@ struct max31827_state {
 	struct mutex lock;
 	struct regmap *regmap;
 	bool enable;
+	struct max31827_debugfs_data psu;
+	unsigned int test;
 };
 
 static const struct regmap_config max31827_regmap = {
@@ -379,6 +406,7 @@ static int max31827_write(struct device *dev, enum hwmon_sensor_types type,
 static int max31827_init_client(struct max31827_state *st)
 {
 	st->enable = true;
+	st->test = 6;
 
 	return regmap_update_bits(st->regmap, MAX31827_CONFIGURATION_REG,
 				  MAX31827_CONFIGURATION_1SHOT_MASK |
@@ -405,6 +433,187 @@ static const struct hwmon_chip_info max31827_chip_info = {
 	.ops = &max31827_hwmon_ops,
 	.info = max31827_info,
 };
+
+#ifdef CONFIG_DEBUG_FS
+static ssize_t max31827_debugfs_read(struct file *file, char __user *buf,
+				     size_t count, loff_t *ppos)
+{
+	char tbuf[DEBUG_FS_DATA_MAX] = { 0 };
+	struct max31827_debugfs_data *psu;
+	struct max31827_state *st;
+	int *attrp = file_inode(file)->i_private;
+	int attr = *attrp;
+	unsigned int uval;
+	int ret, len;
+
+	psu = container_of(attrp, struct max31827_debugfs_data, debugfs_entries[attr]);
+	st = container_of(psu, struct max31827_state, psu);
+
+	ret = regmap_read(st->regmap, MAX31827_CONFIGURATION_REG, &uval);
+	if (ret)
+		return ret;
+
+	switch (attr) {
+	case MAX31827_DEBUGFS_PEC_ENABLE:
+		uval = FIELD_GET(MAX31827_CONFIGURATION_PEC_EN_MASK, uval);
+		len = scnprintf(tbuf, DEBUG_FS_DATA_MAX, "%d\n", uval);
+		break;
+	case MAX31827_DEBUGFS_TIMEOUT:
+		uval = FIELD_GET(MAX31827_CONFIGURATION_TIMEOUT_MASK, uval);
+		len = scnprintf(tbuf, DEBUG_FS_DATA_MAX, "%d\n", uval);
+		break;
+	case MAX31827_DEBUGFS_RESOLUTION:
+		uval = FIELD_GET(MAX31827_CONFIGURATION_RES_MASK, uval);
+		len = scnprintf(tbuf, DEBUG_FS_DATA_MAX, "%d\n", uval);
+		break;
+	case MAX31827_DEBUGFS_ALARM_POLARITY:
+		uval = FIELD_GET(MAX31827_CONFIGURATION_ALRM_POL_MASK, uval);
+		len = scnprintf(tbuf, DEBUG_FS_DATA_MAX, "%d\n", uval);
+		break;
+	case MAX31827_DEBUGFS_COMP_INT:
+		uval = FIELD_GET(MAX31827_CONFIGURATION_COMP_INT_MASK, uval);
+		len = scnprintf(tbuf, DEBUG_FS_DATA_MAX, "%d\n", uval);
+		break;
+	case MAX31827_DEBUGFS_FAULT_QUEUE:
+		uval = FIELD_GET(MAX31827_CONFIGURATION_FLT_Q_MASK, uval);
+		len = scnprintf(tbuf, DEBUG_FS_DATA_MAX, "%d\n", uval);
+		break;
+	case MAX31827_DEBUGFS_PEC_ERROR:
+		uval = FIELD_GET(MAX31827_CONFIGURATION_PEC_ERR_MASK, uval);
+		len = scnprintf(tbuf, DEBUG_FS_DATA_MAX, "%d\n", uval);
+		break;
+	default:
+		len = strscpy(tbuf, "Invalid\n", DEBUG_FS_DATA_MAX);
+	}
+
+	return simple_read_from_buffer(buf, count, ppos, tbuf, len);
+}
+
+static ssize_t max31827_debugfs_write(struct file *file, const char __user *buf,
+				      size_t count, loff_t *ppos)
+{
+	char tbuf[DEBUG_FS_DATA_MAX] = { 0 };
+	struct max31827_debugfs_data *psu;
+	struct max31827_state *st;
+	int *attrp = file_inode(file)->i_private;
+	int attr = *attrp;
+	u16 uval;
+	int ret;
+
+	pr_info("attr = %d\n", attr);
+	psu = container_of(attrp, struct max31827_debugfs_data, debugfs_entries[attr]);
+	pr_info("First container ok.\n");
+	st = container_of(psu, struct max31827_state, psu);
+	pr_info("st->test = %d\n", st->test);
+
+	ret = kstrtou16_from_user(buf, count, 0, &uval);
+	if (ret)
+		return ret;
+
+	pr_info("uval = %s\n", tbuf);
+
+	switch (attr) {
+	case MAX31827_DEBUGFS_PEC_ENABLE:
+		uval = FIELD_PREP(MAX31827_CONFIGURATION_PEC_EN_MASK, uval);
+		ret = regmap_update_bits(st->regmap,
+					 MAX31827_CONFIGURATION_REG,
+					 MAX31827_CONFIGURATION_PEC_EN_MASK,
+					 uval);
+		break;
+	case MAX31827_DEBUGFS_TIMEOUT:
+		uval = FIELD_PREP(MAX31827_CONFIGURATION_TIMEOUT_MASK, uval);
+		ret = regmap_update_bits(st->regmap,
+					 MAX31827_CONFIGURATION_REG,
+					 MAX31827_CONFIGURATION_TIMEOUT_MASK,
+					 uval);
+		break;
+	case MAX31827_DEBUGFS_RESOLUTION:
+		uval = FIELD_PREP(MAX31827_CONFIGURATION_RES_MASK, uval);
+		ret = regmap_update_bits(st->regmap,
+					 MAX31827_CONFIGURATION_REG,
+					 MAX31827_CONFIGURATION_RES_MASK,
+					 uval);
+		break;
+	case MAX31827_DEBUGFS_ALARM_POLARITY:
+		uval = FIELD_PREP(MAX31827_CONFIGURATION_ALRM_POL_MASK, uval);
+		ret = regmap_update_bits(st->regmap,
+					 MAX31827_CONFIGURATION_REG,
+					 MAX31827_CONFIGURATION_ALRM_POL_MASK,
+					 uval);
+		break;
+	case MAX31827_DEBUGFS_COMP_INT:
+		uval = FIELD_PREP(MAX31827_CONFIGURATION_COMP_INT_MASK, uval);
+		ret = regmap_update_bits(st->regmap,
+					 MAX31827_CONFIGURATION_REG,
+					 MAX31827_CONFIGURATION_COMP_INT_MASK,
+					 uval);
+		break;
+	case MAX31827_DEBUGFS_FAULT_QUEUE:
+		uval = FIELD_PREP(MAX31827_CONFIGURATION_FLT_Q_MASK, uval);
+		ret = regmap_update_bits(st->regmap,
+					 MAX31827_CONFIGURATION_REG,
+					 MAX31827_CONFIGURATION_FLT_Q_MASK,
+					 uval);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static const struct file_operations max31827_fops = {
+	.read = max31827_debugfs_read,
+	.write = max31827_debugfs_write,
+};
+
+static int max31827_init_debugfs(struct max31827_state *st,
+				 struct i2c_client *client)
+{
+	struct dentry *debugfs;
+	int i;
+
+	debugfs = debugfs_create_dir(client->name, NULL);
+	if (!debugfs)
+		return -ENOENT;
+
+	for (i = 0; i < MAX31827_DEBUGFS_NUM_ENTRIES; ++i)
+		st->psu.debugfs_entries[i] = i;
+
+	debugfs_create_file("pec_enable", 0644, debugfs,
+			    &st->psu.debugfs_entries[MAX31827_DEBUGFS_PEC_ENABLE],
+			    &max31827_fops);
+	debugfs_create_file("timeout", 0644, debugfs,
+			    &st->psu.debugfs_entries[MAX31827_DEBUGFS_TIMEOUT],
+			    &max31827_fops);
+	debugfs_create_file("resolution", 0644, debugfs,
+			    &st->psu.debugfs_entries[MAX31827_DEBUGFS_RESOLUTION],
+			    &max31827_fops);
+	debugfs_create_file("alarm_polarity", 0644, debugfs,
+			    &st->psu.debugfs_entries[MAX31827_DEBUGFS_ALARM_POLARITY],
+			    &max31827_fops);
+	debugfs_create_file("comp_int", 0644, debugfs,
+			    &st->psu.debugfs_entries[MAX31827_DEBUGFS_COMP_INT],
+			    &max31827_fops);
+	debugfs_create_file("fault_queue", 0644, debugfs,
+			    &st->psu.debugfs_entries[MAX31827_DEBUGFS_FAULT_QUEUE],
+			    &max31827_fops);
+	debugfs_create_file("pec_error", 0444, debugfs,
+			    &st->psu.debugfs_entries[MAX31827_DEBUGFS_PEC_ERROR],
+			    &max31827_fops);
+
+	return 0;
+}
+#else
+static int max31827_init_debugfs(struct max31827_state *st,
+				 struct i2c_client *client)
+{
+	return 0;
+}
+#endif /* CONFIG_DEBUG_FS */
 
 static int max31827_probe(struct i2c_client *client)
 {
@@ -434,8 +643,13 @@ static int max31827_probe(struct i2c_client *client)
 	hwmon_dev = devm_hwmon_device_register_with_info(dev, client->name, st,
 							 &max31827_chip_info,
 							 NULL);
+	if (IS_ERR(hwmon_dev))
+		return dev_err_probe(dev, PTR_ERR(hwmon_dev),
+				     "Failed to register device.\n");
 
-	return PTR_ERR_OR_ZERO(hwmon_dev);
+	max31827_init_debugfs(st, client);
+
+	return 0;
 }
 
 static const struct i2c_device_id max31827_i2c_ids[] = {
