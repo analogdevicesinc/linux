@@ -388,7 +388,22 @@ build_dtb_build_test() {
 		fi
 	done
 
+	if [ "$hdl_project_tag_err" = "1" ] ; then
+		echo
+		echo
+		echo_green "Some DTs have been found that do not contain an 'hdl_project:' tag"
+		echo_green "   Either:"
+		echo_green "     1. Create a 'hdl_project' tag for it"
+		echo_green "     OR"
+		echo_green "     1. add it in file '$exceptions_file'"
+		return 1
+	fi
+
 	for file in $DTS_FILES; do
+		if __exceptions_file "$exceptions_file" "$file"; then
+			continue
+		fi
+
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
 		arch=$(echo $file |  cut -d'/' -f2)
 		if [ "$last_arch" != "$arch" ] ; then
@@ -406,16 +421,6 @@ build_dtb_build_test() {
 	if [ "$err" = "0" ] ; then
 		echo_green "DTB build tests passed"
 		return 0
-	fi
-
-	if [ "$hdl_project_tag_err" = "1" ] ; then
-		echo
-		echo
-		echo_green "Some DTs have been found that do not contain an 'hdl_project:' tag"
-		echo_green "   Either:"
-		echo_green "     1. Create a 'hdl_project' tag for it"
-		echo_green "     OR"
-		echo_green "     1. add it in file '$exceptions_file'"
 	fi
 
 	return $err
