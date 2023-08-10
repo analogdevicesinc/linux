@@ -1575,7 +1575,7 @@ int32_t adrv9025_RxOverloadProtectionSet(adi_adrv9025_Device_t*    device,
     static const uint8_t  TIA_VALID_OVERRIDE_SHIFT                       = 0x01;
 
     uint32_t                             agcClkRate_kHz                   = (device->devStateInfo.hsDigClk_kHz >> device->devStateInfo.clkDivideRatios.agcClkDivideRatio);
-    uint64_t                             agcGainUpdateCounter             = ((AGC_GAIN_UPDATE_CNTR_uS * agcClkRate_kHz) / 1000);
+    uint64_t                             agcGainUpdateCounter             = DIV_ROUND_DOWN_ULL((AGC_GAIN_UPDATE_CNTR_uS * agcClkRate_kHz), 1000);
     uint8_t                              agcGainUpdateCntr1RegVal         = (uint8_t)(agcGainUpdateCounter & (uint32_t)0x000000FF);
     uint8_t                              agcGainUpdateCntr2RegVal         = (uint8_t)((uint32_t)(agcGainUpdateCounter & (uint32_t)0x0000FF00) >> 8);
     uint8_t                              agcGainUpdateCntr3RegVal         = (uint8_t)((uint32_t)(agcGainUpdateCounter & (uint32_t)0x00FF0000) >> 16);

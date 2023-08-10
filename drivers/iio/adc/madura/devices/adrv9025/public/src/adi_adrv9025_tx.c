@@ -1199,7 +1199,7 @@ int32_t adi_adrv9025_TxTestToneSet(adi_adrv9025_Device_t*       device,
                 ADI_ERROR_RETURN(device->common.error.newAction);
             }
 
-            tuneWord = (uint32_t)(((((int64_t)((0 - txNcoTestToneCfg[i].txToneFreq_Hz)) << 32) / txSampleRateDiv2_Hz) + 1) >> 1);
+            tuneWord = (uint32_t)((div_s64(((int64_t)((0 - txNcoTestToneCfg[i].txToneFreq_Hz)) << 32), txSampleRateDiv2_Hz) + 1) >> 1);
             /* +1 >>1 is round to nearest */
 
             /* Configure part */
