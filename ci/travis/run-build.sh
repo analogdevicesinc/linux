@@ -85,6 +85,11 @@ __get_all_c_files() {
 	git grep -i "$@" | cut -d: -f1 | sort | uniq  | grep "\.c"
 }
 
+__exceptions_file() {
+	[ ! -f "$1" ] && return 1
+	grep -q "$2" "$1" && return 0 || return 1
+}
+
 check_all_adi_files_have_been_built() {
 	# Collect all .c files that contain the 'Analog Devices' string/name
 	local c_files=$(__get_all_c_files "Analog Devices")
@@ -98,11 +103,10 @@ check_all_adi_files_have_been_built() {
 	# Convert them to .o files via sed, and extract only the filenames
 	for file in $c_files ; do
 		file1=$(echo $file | sed 's/\.c/\.o/g')
-		if [ -f "$exceptions_file" ] ; then
-			if grep -q "$file1" "$exceptions_file" ; then
-				continue
-			fi
+		if __exceptions_file "$exceptions_file" "$file1"; then
+			continue
 		fi
+
 		if [ ! -f "$file1" ] ; then
 			if [ "$ret" = "0" ] ; then
 				echo
@@ -372,11 +376,11 @@ build_dtb_build_test() {
 		if [ "$arch" != "arm" ] && [ "$arch" != "arm64" ] ; then
 			continue
 		fi
-		if [ -f "$exceptions_file" ] ; then
-			if grep -q "$file" "$exceptions_file" ; then
-				continue
-			fi
+
+		if __exceptions_file "$exceptions_file" "$file"; then
+			continue
 		fi
+
 		if ! grep -q "hdl_project:" $file ; then
 			echo_red "'$file' doesn't contain an 'hdl_project:' tag"
 			err=1
