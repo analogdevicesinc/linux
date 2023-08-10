@@ -593,10 +593,10 @@ static struct tls_edesc *tls_edesc_alloc(struct aead_request *req,
 	struct crypto_aead *tls = crypto_aead_reqtfm(req);
 	unsigned int blocksize = crypto_aead_blocksize(tls);
 	unsigned int padsize, authsize;
-	struct caam_request *req_ctx = aead_request_ctx(req);
+	struct caam_request *req_ctx = aead_request_ctx_dma(req);
 	struct dpaa2_fl_entry *in_fle = &req_ctx->fd_flt[1];
 	struct dpaa2_fl_entry *out_fle = &req_ctx->fd_flt[0];
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 	struct caam_aead_alg *alg = container_of(crypto_aead_alg(tls),
 						 typeof(*alg), aead);
 	struct device *dev = ctx->dev;
@@ -766,7 +766,7 @@ static struct tls_edesc *tls_edesc_alloc(struct aead_request *req,
 
 static int tls_set_sh_desc(struct crypto_aead *tls)
 {
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 	unsigned int ivsize = crypto_aead_ivsize(tls);
 	unsigned int blocksize = crypto_aead_blocksize(tls);
 	struct device *dev = ctx->dev;
@@ -882,7 +882,7 @@ static int chachapoly_setauthsize(struct crypto_aead *aead,
 static int tls_setkey(struct crypto_aead *tls, const u8 *key,
 		      unsigned int keylen)
 {
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 	struct device *dev = ctx->dev;
 	struct crypto_authenc_keys keys;
 
@@ -925,7 +925,7 @@ badkey:
 
 static int tls_setauthsize(struct crypto_aead *tls, unsigned int authsize)
 {
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 
 	ctx->authsize = authsize;
 	tls_set_sh_desc(tls);
@@ -1661,7 +1661,7 @@ static void tls_crypt_done(void *cbk_ctx, u32 status)
 	struct caam_request *req_ctx = to_caam_req(areq);
 	struct tls_edesc *edesc = req_ctx->edesc;
 	struct crypto_aead *tls = crypto_aead_reqtfm(req);
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 	int ecode = 0;
 
 #ifdef DEBUG
@@ -1680,8 +1680,8 @@ static int tls_crypt(struct aead_request *req, enum optype op)
 {
 	struct tls_edesc *edesc;
 	struct crypto_aead *tls = crypto_aead_reqtfm(req);
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
-	struct caam_request *caam_req = aead_request_ctx(req);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
+	struct caam_request *caam_req = aead_request_ctx_dma(req);
 	int ret;
 
 	/* allocate extended descriptor */

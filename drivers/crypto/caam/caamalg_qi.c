@@ -304,7 +304,7 @@ static int des3_aead_setkey(struct crypto_aead *aead, const u8 *key,
 
 static int tls_set_sh_desc(struct crypto_aead *tls)
 {
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 	unsigned int ivsize = crypto_aead_ivsize(tls);
 	unsigned int blocksize = crypto_aead_blocksize(tls);
 	unsigned int assoclen = 13; /* always 13 bytes for TLS */
@@ -361,7 +361,7 @@ static int tls_set_sh_desc(struct crypto_aead *tls)
 
 static int tls_setauthsize(struct crypto_aead *tls, unsigned int authsize)
 {
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 
 	ctx->authsize = authsize;
 	tls_set_sh_desc(tls);
@@ -372,7 +372,7 @@ static int tls_setauthsize(struct crypto_aead *tls, unsigned int authsize)
 static int tls_setkey(struct crypto_aead *tls, const u8 *key,
 		      unsigned int keylen)
 {
-	struct caam_ctx *ctx = crypto_aead_ctx(tls);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(tls);
 	struct device *jrdev = ctx->jrdev;
 	struct caam_drv_private *ctrlpriv = dev_get_drvdata(jrdev->parent);
 	struct crypto_authenc_keys keys;
@@ -1396,7 +1396,7 @@ static void tls_done(struct caam_drv_req *drv_req, u32 status)
 	struct tls_edesc *edesc;
 	struct aead_request *aead_req = drv_req->app_ctx;
 	struct crypto_aead *aead = crypto_aead_reqtfm(aead_req);
-	struct caam_ctx *caam_ctx = crypto_aead_ctx(aead);
+	struct caam_ctx *caam_ctx = crypto_aead_ctx_dma(aead);
 	int ecode = 0;
 
 	qidev = caam_ctx->qidev;
@@ -1417,7 +1417,7 @@ static void tls_done(struct caam_drv_req *drv_req, u32 status)
 static struct tls_edesc *tls_edesc_alloc(struct aead_request *req, bool encrypt)
 {
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
-	struct caam_ctx *ctx = crypto_aead_ctx(aead);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(aead);
 	unsigned int blocksize = crypto_aead_blocksize(aead);
 	unsigned int padsize, authsize;
 	struct caam_aead_alg *alg = container_of(crypto_aead_alg(aead),
@@ -1591,7 +1591,7 @@ static int tls_crypt(struct aead_request *req, bool encrypt)
 {
 	struct tls_edesc *edesc;
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
-	struct caam_ctx *ctx = crypto_aead_ctx(aead);
+	struct caam_ctx *ctx = crypto_aead_ctx_dma(aead);
 	int ret;
 
 	if (unlikely(caam_congested))
@@ -1862,7 +1862,7 @@ static inline int skcipher_crypt(struct skcipher_request *req, bool encrypt)
 
 	if (ctx->fallback && ((ctrlpriv->era <= 8 && xts_skcipher_ivsize(req)) ||
 			      ctx->xts_key_fallback)) {
-		struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+		struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 
 		skcipher_request_set_tfm(&rctx->fallback_req, ctx->fallback);
 		skcipher_request_set_callback(&rctx->fallback_req,
@@ -3016,7 +3016,7 @@ static int caam_cra_init(struct crypto_skcipher *tfm)
 		}
 
 		ctx->fallback = fallback;
-		crypto_skcipher_set_reqsize(tfm, sizeof(struct caam_skcipher_req_ctx) +
+		crypto_skcipher_set_reqsize_dma(tfm, sizeof(struct caam_skcipher_req_ctx) +
 					    crypto_skcipher_reqsize(fallback));
 	}
 

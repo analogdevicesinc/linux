@@ -842,7 +842,7 @@ static int ctr_skcipher_setkey(struct crypto_skcipher *skcipher,
 static int tk_skcipher_setkey(struct crypto_skcipher *skcipher,
 			      const u8 *key, unsigned int keylen)
 {
-	struct caam_ctx *ctx = crypto_skcipher_ctx(skcipher);
+	struct caam_ctx *ctx = crypto_skcipher_ctx_dma(skcipher);
 	struct device *jrdev = ctx->jrdev;
 	struct header_conf *header;
 	struct tagged_object *tag_obj;
@@ -1049,7 +1049,7 @@ static void aead_crypt_done(struct device *jrdev, u32 *desc, u32 err,
 			    void *context)
 {
 	struct aead_request *req = context;
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	struct caam_drv_private_jr *jrp = dev_get_drvdata(jrdev);
 	struct aead_edesc *edesc;
 	int ecode = 0;
@@ -1089,7 +1089,7 @@ static void skcipher_crypt_done(struct device *jrdev, u32 *desc, u32 err,
 {
 	struct skcipher_request *req = context;
 	struct skcipher_edesc *edesc;
-	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 	struct crypto_skcipher *skcipher = crypto_skcipher_reqtfm(req);
 	struct caam_drv_private_jr *jrp = dev_get_drvdata(jrdev);
 	int ivsize = crypto_skcipher_ivsize(skcipher);
@@ -1378,7 +1378,7 @@ static struct aead_edesc *aead_edesc_alloc(struct aead_request *req,
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	struct caam_ctx *ctx = crypto_aead_ctx_dma(aead);
 	struct device *jrdev = ctx->jrdev;
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	gfp_t flags = (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) ?
 		       GFP_KERNEL : GFP_ATOMIC;
 	int src_nents, mapped_src_nents, dst_nents = 0, mapped_dst_nents = 0;
@@ -1514,7 +1514,7 @@ static struct aead_edesc *aead_edesc_alloc(struct aead_request *req,
 static int aead_enqueue_req(struct device *jrdev, struct aead_request *req)
 {
 	struct caam_drv_private_jr *jrpriv = dev_get_drvdata(jrdev);
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	struct aead_edesc *edesc = rctx->edesc;
 	u32 *desc = edesc->hw_desc;
 	int ret;
@@ -1610,7 +1610,7 @@ static int aead_do_one_req(struct crypto_engine *engine, void *areq)
 {
 	struct aead_request *req = aead_request_cast(areq);
 	struct caam_ctx *ctx = crypto_aead_ctx_dma(crypto_aead_reqtfm(req));
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	u32 *desc = rctx->edesc->hw_desc;
 	int ret;
 
@@ -1683,7 +1683,7 @@ static struct skcipher_edesc *skcipher_edesc_alloc(struct skcipher_request *req,
 {
 	struct crypto_skcipher *skcipher = crypto_skcipher_reqtfm(req);
 	struct caam_ctx *ctx = crypto_skcipher_ctx_dma(skcipher);
-	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 	struct device *jrdev = ctx->jrdev;
 	gfp_t flags = (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) ?
 		       GFP_KERNEL : GFP_ATOMIC;
@@ -1847,7 +1847,7 @@ static int skcipher_do_one_req(struct crypto_engine *engine, void *areq)
 {
 	struct skcipher_request *req = skcipher_request_cast(areq);
 	struct caam_ctx *ctx = crypto_skcipher_ctx_dma(crypto_skcipher_reqtfm(req));
-	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 	u32 *desc = rctx->edesc->hw_desc;
 	int ret;
 
@@ -1897,7 +1897,7 @@ static inline int skcipher_crypt(struct skcipher_request *req, bool encrypt)
 
 	if (ctx->fallback && ((ctrlpriv->era <= 8 && xts_skcipher_ivsize(req)) ||
 			      ctx->xts_key_fallback)) {
-		struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+		struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 
 		skcipher_request_set_tfm(&rctx->fallback_req, ctx->fallback);
 		skcipher_request_set_callback(&rctx->fallback_req,
@@ -3745,10 +3745,10 @@ static int caam_cra_init(struct crypto_skcipher *tfm)
 		}
 
 		ctx->fallback = fallback;
-		crypto_skcipher_set_reqsize(tfm, sizeof(struct caam_skcipher_req_ctx) +
+		crypto_skcipher_set_reqsize_dma(tfm, sizeof(struct caam_skcipher_req_ctx) +
 					    crypto_skcipher_reqsize(fallback));
 	} else {
-		crypto_skcipher_set_reqsize(tfm, sizeof(struct caam_skcipher_req_ctx));
+		crypto_skcipher_set_reqsize_dma(tfm, sizeof(struct caam_skcipher_req_ctx));
 	}
 
 	ret = caam_init_common(ctx, &caam_alg->caam, false);
@@ -3765,7 +3765,7 @@ static int caam_aead_init(struct crypto_aead *tfm)
 		 container_of(alg, struct caam_aead_alg, aead.base);
 	struct caam_ctx *ctx = crypto_aead_ctx_dma(tfm);
 
-	crypto_aead_set_reqsize(tfm, sizeof(struct caam_aead_req_ctx));
+	crypto_aead_set_reqsize_dma(tfm, sizeof(struct caam_aead_req_ctx));
 
 	return caam_init_common(ctx, &caam_alg->caam, !caam_alg->caam.nodkp);
 }
