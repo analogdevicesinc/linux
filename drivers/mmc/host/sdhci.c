@@ -4071,14 +4071,22 @@ static int sdhci_set_dma_mask(struct sdhci_host *host)
 
 	/* Try 64-bit mask if hardware is capable  of it */
 	if (host->flags & SDHCI_USE_64_BIT_DMA) {
-		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
-		if (ret) {
-			pr_warn("%s: Failed to set 64-bit DMA mask.\n",
-				mmc_hostname(mmc));
-			host->flags &= ~SDHCI_USE_64_BIT_DMA;
+		if (host->quirks2 & SDHCI_QUIRK2_40_BIT_DMA_MASK) {
+			ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
+			if (ret) 
+				pr_warn("%s: Failed to set 40-bit DMA mask.\n",
+					mmc_hostname(mmc));
 		}
+		else {
+			ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+			if (ret) 
+				pr_warn("%s: Failed to set 64-bit DMA mask.\n",
+					mmc_hostname(mmc));
+		}
+		
+		if (ret) 
+			host->flags &= ~SDHCI_USE_64_BIT_DMA;
 	}
-
 	/* 32-bit mask as default & fallback */
 	if (ret) {
 		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
