@@ -225,7 +225,12 @@ static void axi_dma_hw_init(struct axi_dma_chip *chip)
 		axi_chan_irq_disable(&chip->dw->chan[i], DWAXIDMAC_IRQ_ALL);
 		axi_chan_disable(&chip->dw->chan[i]);
 	}
-	ret = dma_set_mask_and_coherent(chip->dev, DMA_BIT_MASK(64));
+
+	if (device_property_read_bool(chip->dev, "snps,dma-40-bit-mask"))
+		ret = dma_set_mask_and_coherent(chip->dev, DMA_BIT_MASK(40));
+	else
+		ret = dma_set_mask_and_coherent(chip->dev, DMA_BIT_MASK(64));
+
 	if (ret)
 		dev_warn(chip->dev, "Unable to set coherent mask\n");
 }
