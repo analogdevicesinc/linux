@@ -389,7 +389,7 @@
 		mmc: mmc0@10808000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "cdns,sd4hc";
+			compatible = "intel,agilex5-sd4hc", "cdns,sd4hc";
 			reg = <0x10808000 0x1000>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 			fifo-depth = <0x800>;
@@ -437,6 +437,8 @@
 			snps,block-size = <32767 32767 32767 32767>;
 			snps,priority = <0 1 2 3>;
 			snps,axi-max-burst-len = <8>;
+			snps,dma-40-bit-mask;
+			status = "okay";
 		};
 
 		dmac1: dma-controller@10dc0000 {
@@ -454,6 +456,8 @@
 			snps,block-size = <32767 32767 32767 32767>;
 			snps,priority = <0 1 2 3>;
 			snps,axi-max-burst-len = <8>;
+			snps,dma-40-bit-mask;
+			status = "okay";
 		};
 
 		rst: rstmgr@10d11000 {
@@ -599,6 +603,7 @@
 				dr_mode = "host";
 				maximum-speed = "super-speed-plus";
 				snps,dis_u2_sysphy-quirk;
+				snps,dma_set_40_bit_mask_quirk;
 			};
 		};
 
