@@ -566,7 +566,8 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val2 = 0;
 		ret = conv->read_raw(indio_dev, chan, val, val2, m);
-		llval = (u64)*val2 << 32 | *val;
+		llval = (((u64)*val2) << 32) | (u32)*val;
+
 		if (ret < 0 || !llval) {
 			tmp = ADI_TO_CLK_FREQ(axiadc_read(st, ADI_REG_CLK_FREQ));
 			llval = tmp * 100000000ULL /* FIXME */ * ADI_TO_CLK_RATIO(axiadc_read(st, ADI_REG_CLK_RATIO));
