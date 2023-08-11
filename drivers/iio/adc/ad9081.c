@@ -2456,7 +2456,7 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
-	u8 msb, lsb;
+	u8 msb, lsb, dir;
 	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
 	u64 freq;
 
@@ -2465,15 +2465,15 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!conv->clk)
+		dir = chan->output ? TX_SAMPL_CLK : RX_SAMPL_CLK;
+
+		if (!phy->clks[dir])
 			return -ENODEV;
 
-		freq = clk_get_rate_scaled(conv->clk,
-				&phy->clkscale[RX_SAMPL_CLK]);
+		freq = clk_get_rate_scaled(phy->clks[dir], &phy->clkscale[dir]);
 
-		*val = (u32)freq;
-		*val2 = (u32)(freq >> 32);
-
+		*val = lower_32_bits(freq);
+		*val2 = upper_32_bits(freq);
 		return IIO_VAL_INT_64;
 	case IIO_CHAN_INFO_ENABLE:
 		if (chan->output) {
