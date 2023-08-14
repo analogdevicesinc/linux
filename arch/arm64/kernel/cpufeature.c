@@ -1046,9 +1046,22 @@ init_cpucap_indirect_list_from_array(const struct arm64_cpu_capabilities *caps)
 	}
 }
 
+bool TKT340553_SW_WORKAROUND;
 static void __init init_cpucap_indirect_list(void)
 {
 	init_cpucap_indirect_list_from_array(arm64_features);
+#ifdef CONFIG_ARM64_WORKAROUND_CLEAN_CACHE
+#if	defined(CONFIG_ARM64_ERRATUM_826319) || \
+	defined(CONFIG_ARM64_ERRATUM_827319) || \
+	defined(CONFIG_ARM64_ERRATUM_824069)
+	if (TKT340553_SW_WORKAROUND) {
+		struct midr_range *midr_range_list =
+			(struct midr_range *)(arm64_errata[0].midr_range_list);
+
+		midr_range_list[0].rv_max = MIDR_CPU_VAR_REV(0, 4);
+	}
+#endif
+#endif
 	init_cpucap_indirect_list_from_array(arm64_errata);
 }
 
