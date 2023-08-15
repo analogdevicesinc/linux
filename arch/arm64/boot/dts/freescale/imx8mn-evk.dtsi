@@ -23,18 +23,6 @@
 		};
 	};
 
-	hdmi-connector {
-		compatible = "hdmi-connector";
-		label = "hdmi";
-		type = "a";
-
-		port {
-			hdmi_connector_in: endpoint {
-				remote-endpoint = <&adv7535_out>;
-			};
-		};
-	};
-
 	memory@40000000 {
 		device_type = "memory";
 		reg = <0x0 0x40000000 0 0x80000000>;
@@ -64,13 +52,6 @@
 		regulator-name = "VDD_1V8";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
-	};
-
-	reg_vddext_3v3: regulator-vddext-3v3 {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDEXT_3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
 	};
 
 	ir-receiver {
@@ -221,37 +202,6 @@
 	sda-gpios = <&gpio5 17 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 
-	hdmi@3d {
-		compatible = "adi,adv7535";
-		reg = <0x3d>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
-		adi,dsi-lanes = <4>;
-		v3p3-supply = <&reg_vddext_3v3>;
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-
-				adv7535_in: endpoint {
-					remote-endpoint = <&dsi_out>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-
-				adv7535_out: endpoint {
-					remote-endpoint = <&hdmi_connector_in>;
-				};
-			};
-
-		};
-	};
-
 	ptn5110: tcpc@50 {
 		compatible = "nxp,ptn5110", "tcpci";
 		pinctrl-names = "default";
@@ -345,26 +295,6 @@
 			imx8mn_mipi_csi_in: endpoint {
 				remote-endpoint = <&ov5640_to_mipi_csi2>;
 				data-lanes = <1 2>;
-			};
-		};
-	};
-};
-
-&lcdif {
-	status = "okay";
-};
-
-&mipi_dsi {
-	samsung,esc-clock-frequency = <10000000>;
-	status = "okay";
-
-	ports {
-		port@1 {
-			reg = <1>;
-
-			dsi_out: endpoint {
-				remote-endpoint = <&adv7535_in>;
-				data-lanes = <1 2 3 4>;
 			};
 		};
 	};
