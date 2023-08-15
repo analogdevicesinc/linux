@@ -125,8 +125,13 @@ static void imx8qm_pixel_link_sync_disable(u32 dual_mode)
 void imx8qm_phy_reset(u8 reset)
 {
 	struct imx_sc_ipc *handle;
+	int ret = 0;
 
-	imx_scu_get_handle(&handle);
+	ret = imx_scu_get_handle(&handle);
+	if (ret) {
+		DRM_ERROR("Failed to get scu ipc handle (%d)\n", ret);
+		return;
+	}
 
 	/* set the pixel link mode and pixel type */
 	imx_sc_misc_set_control(handle, IMX_SC_R_HDMI, IMX_SC_C_PHY_RESET, reset);
@@ -135,8 +140,13 @@ void imx8qm_phy_reset(u8 reset)
 static void imx8qm_clk_mux(u8 is_dp)
 {
 	struct imx_sc_ipc *handle;
+	int ret = 0;
 
-	imx_scu_get_handle(&handle);
+	ret = imx_scu_get_handle(&handle);
+	if (ret) {
+		DRM_ERROR("Failed to get scu ipc handle (%d)\n", ret);
+		return;
+	}
 
 	if (is_dp)
 		/* Enable the 24MHz for HDP PHY */
