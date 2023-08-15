@@ -233,6 +233,8 @@ ifeq ($(CONFIG_MALI_DEVFREQ),y)
     endif
 endif
 
+ldflags-y +=--strip-debug
+
 ifeq ($(KBUILD_EXTMOD),)
 # in-tree
     -include $(INCLUDE_SUBDIR)
