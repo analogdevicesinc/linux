@@ -101,11 +101,10 @@ stages:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
   - job: Push_to_Artifactory
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'))
     pool:
       name: Default
       demands:
-        - agent.name -equals lab2_b5
+        - agent.name -equals linux-rpi
     steps:
       - task: DownloadPipelineArtifact@2
         inputs:
