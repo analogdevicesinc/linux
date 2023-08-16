@@ -685,7 +685,12 @@ F: include/uapi/linux/dma-buf.h
 
 mxc/gpu
 M: Xianzhong Li <xianzhong.li@nxp.com>
+M: Jiyu Yang <jiyu.yang@nxp.com>
+L: gpusw-devel@nxp.com
 F: drivers/mxc/gpu-viv/
+F: drivers/gpu/arm/*
+F: include/uapi/gpu/*
+F: Documentation/devicetree/bindings/gpu/arm,mali-*
 
 mxc/hdmi
 M: Sandor Yu <Sandor.yu@nxp.com>
