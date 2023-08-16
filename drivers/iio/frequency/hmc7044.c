@@ -1046,7 +1046,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	}
 
 	/* Load the configuration updates (provided by Analog Devices) */
-	ret = hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_LOW_PW, 0x4d);
+	ret = hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_LOW_PW, 0x4c);
 	if (ret)
 		return ret;
 	ret = hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_HIGH_PW, 0xdf);
