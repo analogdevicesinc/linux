@@ -718,6 +718,119 @@ static void ad4858_pwm_diasble(void *data)
 	pwm_disable(data);
 }
 
+int find_opt(u8 *field, u32 size, u32 *ret_start)
+{
+       int i, cnt = 0, max_cnt = 0, start, max_start = 0;
+
+       for(i = 0, start = -1; i < size; i++) {
+               if (field[i] == 0) {
+                       if (start == -1)
+                               start = i;
+                       cnt++;
+               } else {
+                       if (cnt > max_cnt) {
+                               max_cnt = cnt;
+                               max_start = start;
+                       }
+                       start = -1;
+                       cnt = 0;
+               }
+       }
+
+       if (cnt > max_cnt) {
+               max_cnt = cnt;
+               max_start = start;
+       }
+
+       *ret_start = max_start;
+
+       return max_cnt;
+}
+
+static int ad4858_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	u8 pn_status[8][32];
+	int opt_delay, s, c;
+	unsigned int lane_num;
+	unsigned int delay;
+	unsigned int cmos;
+	unsigned int val;
+	unsigned int i;
+	unsigned int j;
+	int ret;
+
+	cmos = (axiadc_read(st, ADI_REG_CONFIG) & ADI_CMOS_OR_LVDS_N) ? 1 : 0;
+	if (cmos)
+		lane_num = 8;
+	else
+		lane_num = 1;
+
+	axiadc_write(st, AD4858_AXI_REG_CNTRL_3, 2);
+	ret = ad4858_spi_reg_write(adc, AD4858_REG_PACKET, 6);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < conv->chip_info->num_channels; i++) {
+		ad4858_spi_reg_write(adc, 0x38 + i * 0x12, 0x2A);
+		ad4858_spi_reg_write(adc, 0x39 + i * 0x12, 0x3C);
+		ad4858_spi_reg_write(adc, 0x3a + i * 0x12, 0xCE);
+		ad4858_spi_reg_write(adc, 0x3b + i * 0x12, 0x0A + (0x10 * i));
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), ADI_ENABLE);
+	}
+
+	for (i = 0; i < lane_num; i++) {
+		for (delay = 0; delay < 32; delay++) {
+			val = axiadc_read(st, ADI_REG_CHAN_STATUS(i));
+			axiadc_write(st, ADI_REG_CHAN_STATUS(i), val);
+			axiadc_write(st, 0x800 + (i * 4), delay);
+			mdelay(1);
+			if (axiadc_read(st, ADI_REG_CHAN_STATUS(i)) & ADI_PN_ERR)
+				pn_status[i][delay] = 1;
+			else
+				pn_status[i][delay] = 0;
+		}
+	}
+
+	dev_info(&conv->spi->dev, "ad4858 digital interface tuning:\n");
+
+	pr_cont("  ");
+	for (i = 0; i < 31; i++)
+		pr_cont("%02d:", i);
+	pr_cont("31\n");
+
+	for (i = 0; i < lane_num; i++) {
+		pr_info("%x:", i);
+		for (j = 0; j < 32; j++) {
+			if (pn_status[i][j])
+			    pr_cont(" # ");
+			else
+				pr_cont(" o ");
+		}
+		pr_cont("\n");
+	}
+
+	for (i = 0; i < lane_num; i++) {
+		c = find_opt(&pn_status[i][0], 32, &s);
+		opt_delay = s + c / 2;
+		axiadc_write(st, 0x800 + (i * 4), opt_delay);
+		dev_info(&conv->spi->dev, "lane %d: selected delay: %d\n",
+			i, opt_delay);
+	}
+
+	for (i = 0; i < conv->chip_info->num_channels; i++)
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(i), 0);
+
+	axiadc_write(st, AD4858_AXI_REG_CNTRL_3, 0);
+	ret = ad4858_spi_reg_write(adc, AD4858_REG_PACKET, 0);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int ad4858_read_label(struct iio_dev *indio_dev,
 			     const struct iio_chan_spec *chan, char *label)
 {
@@ -815,6 +928,7 @@ static int ad4858_probe(struct spi_device *spi)
 	conv->adc_output_mode = AD4858_AXI_ADC_TWOS_COMPLEMENT;
 	conv->reg_access = &ad4858_reg_access;
 	conv->write_raw = &ad4858_write_raw;
+	conv->post_setup = &ad4858_post_setup;
 	conv->read_raw = &ad4858_read_raw;
 	conv->read_label = &ad4858_read_label;
 	conv->phy = adc;
