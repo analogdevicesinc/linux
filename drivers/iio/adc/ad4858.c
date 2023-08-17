@@ -107,7 +107,8 @@
 #define AD4858_IIO_CHANNEL(index)				\
 {								\
 	.type = IIO_VOLTAGE,					\
-	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |	\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+		BIT(IIO_CHAN_INFO_HARDWAREGAIN) |		\
 		BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
 		BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
 		BIT(IIO_CHAN_INFO_SCALE),			\
@@ -619,11 +620,18 @@ static int ad4858_read_raw(struct iio_dev *indio_dev,
 			   int *val, int *val2, long info)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
 	struct ad4858_dev *adc = conv->phy;
 	unsigned int softspan;
 	int ret;
 
 	switch (info) {
+	case IIO_CHAN_INFO_RAW:
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), ADI_ENABLE);
+		//*val = axiadc_read(st, ADI_REG_CHAN_RAW_DATA(chan->channel));
+		*val = axiadc_read(st, (0x0408 + (chan->channel) * 0x40));
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(chan->channel), 0);
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = adc->sampling_freq;
 		return IIO_VAL_INT;
