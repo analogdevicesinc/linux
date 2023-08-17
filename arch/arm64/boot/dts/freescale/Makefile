@@ -306,7 +306,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8dxl-phantom-mek.dtb \
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-ov5640.dtb \
 			  imx8qxp-mek-enet2.dtb imx8qxp-mek-enet2-sja1105.dtb \
 			  imx8qxp-mek-enet2-tja1100.dtb \
-			  imx8qxp-mek-sof-cs42888.dtb imx8qxp-mek-sof-wm8960.dtb imx8qxp-mek-sof.dtb\
+			  imx8qxp-mek-sof-cs42888.dtb imx8qxp-mek-sof.dtb\
+			  imx8qxp-mek-sof-wm8960.dtb imx8qxp-mek-sof-wm8962.dtb\
 			  imx8qxp-mek-rpmsg.dtb imx8qxp-mek-a0.dtb \
 			  imx8qxp-mek-it6263-lvds0-dual-channel.dtb \
 			  imx8qxp-mek-it6263-lvds1-dual-channel.dtb \
