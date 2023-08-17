@@ -365,7 +365,7 @@ static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
 	IIO_ENUM_AVAILABLE_SHARED("packet_format", IIO_SHARED_BY_ALL,
 				  &ad4858_packet_fmt),
 	IIO_ENUM("softspan", IIO_SEPARATE, &ad4858_softspan_enum),
-	IIO_ENUM_AVAILABLE_SHARED("softspan", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE_SHARED("softspan", IIO_SHARED_BY_TYPE,
 				  &ad4858_softspan_enum),
 	{},
 };
