@@ -3680,6 +3680,10 @@ static int adrv9009_restart(struct adrv9009_rf_phy *phy)
 {
 	int ret;
 
+	phy->framer_b_m = phy->talInit.jesd204Settings.framerB.M;
+	phy->framer_b_f = phy->talInit.jesd204Settings.framerB.F;
+	phy->orx_channel_enabled = phy->talInit.obsRx.obsRxChannelsEnable;
+
 	if (phy->jdev) {
 		if(jesd204_dev_is_top(phy->jdev)) {
 			int retry = 1;
