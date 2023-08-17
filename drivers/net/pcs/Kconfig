@@ -5,6 +5,13 @@
 
 menu "PCS device drivers"
 
+config MTIP_BACKPLANE_PHY
+	tristate "MoreThanIP copper backplane PHYs"
+	help
+	  Enable support for the MoreThanIP copper backplane Auto-Negotiation
+	  and Link Training blocks, as implemented on the QorIQ and Layerscape
+	  SoCs.
+
 config PCS_XPCS
 	tristate "Synopsys DesignWare Ethernet XPCS"
 	select PHYLINK
