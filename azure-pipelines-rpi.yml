@@ -103,7 +103,7 @@ stages:
     pool:
       name: Default
       demands:
-        - agent.name -equals lab2_b5
+        - agent.name -equals linux-rpi
     steps:
       - task: DownloadPipelineArtifact@2
         inputs:
