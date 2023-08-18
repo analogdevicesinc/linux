@@ -68,6 +68,28 @@ static const struct iio_chan_spec ad4020_channel[] = {
 	AD400X_CHANNEL(20),
 };
 
+struct ad400x_chip_info {
+	struct iio_chan_spec chan_spec;
+};
+
+static const struct ad400x_chip_info ad400x_chips[] = {
+	[ID_AD4003] = {
+		.chan_spec = AD400X_CHANNEL(18),
+	},
+	[ID_AD4007] = {
+		.chan_spec = AD400X_CHANNEL(18),
+	},
+	[ID_AD4011] = {
+		.chan_spec = AD400X_CHANNEL(18),
+	},
+	[ID_AD4020] = {
+		.chan_spec = AD400X_CHANNEL(20),
+	},
+	[ID_ADAQ4003] = {
+		.chan_spec = AD400X_CHANNEL(18),
+	},
+};
+
 struct ad400x_state {
 	struct spi_device *spi;
 	struct regulator *vref;
@@ -491,10 +513,7 @@ static int ad400x_probe(struct spi_device *spi)
 	else
 		indio_dev->info = &ad400x_info;
 
-	if (dev_id == ID_AD4020)
-		indio_dev->channels = ad4020_channel;
-	else
-		indio_dev->channels = ad400x_channels;
+	indio_dev->channels = &ad400x_chips[dev_id].chan_spec;
 
 	indio_dev->num_channels = 1;
 	st->num_bits = indio_dev->channels->scan_type.realbits;
