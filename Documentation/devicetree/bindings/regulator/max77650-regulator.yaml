@@ -16,15 +16,20 @@ description: |
   The regulator controller is represented as a sub-node of the PMIC node
   on the device tree.
 
-  The device has a single LDO regulator and a SIMO buck-boost regulator with
+  The device have LDO regulators and a SIMO buck-boost regulator with
   three independent power rails.
 
 properties:
   compatible:
-    const: maxim,max77650-regulator
+    enum:
+      - maxim,max77650-regulator
+      - adi,max77643-regulator
+      - adi,max77654-regulator
+      - adi,max77658-regulator
+      - adi,max77659-regulator
 
 patternProperties:
-  "^regulator-(ldo|sbb[0-2])$":
+  "^regulator-(ldo[0-1]|sbb[0-2])$":
     $ref: "regulator.yaml#"
 
 required:
