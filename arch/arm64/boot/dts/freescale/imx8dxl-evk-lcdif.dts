@@ -31,6 +31,12 @@
 	};
 };
 
+/delete-node/ &m2_spi0_sel;
+
+&sai0 {
+	status = "disabled";
+};
+
 &sai1 {
 	status = "disabled";
 };
