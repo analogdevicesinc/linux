@@ -400,8 +400,7 @@ static int ad3552r_set_input_source(struct iio_dev *indio_dev,
 	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
 
 	dev_info(&indio_dev->dev, "ad3552r set_input_source, mode: %u", mode);
-	dds_write(dds, ADI_REG_CHAN_CNTRL_7(0), mode);
-	dds_write(dds, ADI_REG_CHAN_CNTRL_7(1), mode);
+	dds_write(dds, ADI_REG_CHAN_CNTRL_7(chan->channel), mode);
 
 	return 0;
 }
@@ -410,12 +409,10 @@ static int ad3552r_get_input_source(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan)
 {
 	struct cf_axi_dds_state *dds = iio_priv(indio_dev);
-	int source;
 
-	source = dds_read(dds, ADI_REG_CHAN_CNTRL_7(0));
-
-	dev_info(&indio_dev->dev, "ad3552r get_input_source, source: %d", source);
-	return dds_read(dds, ADI_REG_CHAN_CNTRL_7(0));
+	dev_info(&indio_dev->dev, "ad3552r get_input_source, source: %d",
+		 dds_read(dds, ADI_REG_CHAN_CNTRL_7(chan->channel)));
+	return dds_read(dds, ADI_REG_CHAN_CNTRL_7(chan->channel));
 }
 
 // TODO Prevent user from setting output range while ad3552r is streaming.
