@@ -37,12 +37,35 @@
 #define AD400X_TURBO_MODE(x)	FIELD_PREP(BIT_MASK(1), x)
 #define AD400X_HIGH_Z_MODE(x)	FIELD_PREP(BIT_MASK(2), x)
 
+#define AD400X_CHANNEL(real_bits)					\
+	{								\
+		.type = IIO_VOLTAGE,					\
+		.indexed = 1,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+			BIT(IIO_CHAN_INFO_SCALE) |			\
+			BIT(IIO_CHAN_INFO_OFFSET),			\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.scan_type = {						\
+			.sign = 's',					\
+			.realbits = real_bits,				\
+			.storagebits = 32,				\
+		},							\
+	}								\
+
 enum ad400x_ids {
 	ID_AD4003,
 	ID_AD4007,
 	ID_AD4011,
 	ID_AD4020,
 	ID_ADAQ4003,
+};
+
+static const struct iio_chan_spec ad400x_channels[] = {
+	AD400X_CHANNEL(18),
+};
+
+static const struct iio_chan_spec ad4020_channel[] = {
+	AD400X_CHANNEL(20),
 };
 
 struct ad400x_state {
@@ -169,29 +192,6 @@ static int ad400x_set_mode(struct ad400x_state *st)
 
 	return ret;
 }
-
-#define AD400X_CHANNEL(real_bits)					\
-	{								\
-		.type = IIO_VOLTAGE,					\
-		.indexed = 1,						\
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-			BIT(IIO_CHAN_INFO_SCALE) |			\
-			BIT(IIO_CHAN_INFO_OFFSET),			\
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
-		.scan_type = {						\
-			.sign = 's',					\
-			.realbits = real_bits,				\
-			.storagebits = 32,				\
-		},							\
-	}								\
-
-static const struct iio_chan_spec ad400x_channels[] = {
-	AD400X_CHANNEL(18),
-};
-
-static const struct iio_chan_spec ad4020_channel[] = {
-	AD400X_CHANNEL(20),
-};
 
 static int ad400x_single_conversion(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val)
