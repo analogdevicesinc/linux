@@ -49,10 +49,20 @@
 	}								\
 
 enum ad400x_ids {
+	ID_AD4000,
+	ID_AD4001,
+	ID_AD4002,
 	ID_AD4003,
+	ID_AD4004,
+	ID_AD4005,
+	ID_AD4006,
 	ID_AD4007,
+	ID_AD4008,
+	ID_AD4010,
 	ID_AD4011,
 	ID_AD4020,
+	ID_AD4021,
+	ID_AD4022,
 };
 
 struct ad400x_chip_info {
@@ -60,16 +70,46 @@ struct ad400x_chip_info {
 };
 
 static const struct ad400x_chip_info ad400x_chips[] = {
+	[ID_AD4000] = {
+		.chan_spec = AD400X_CHANNEL(16),
+	},
+	[ID_AD4001] = {
+		.chan_spec = AD400X_CHANNEL(16),
+	},
+	[ID_AD4002] = {
+		.chan_spec = AD400X_CHANNEL(18),
+	},
 	[ID_AD4003] = {
 		.chan_spec = AD400X_CHANNEL(18),
 	},
+	[ID_AD4004] = {
+		.chan_spec = AD400X_CHANNEL(16),
+	},
+	[ID_AD4005] = {
+		.chan_spec = AD400X_CHANNEL(16),
+	},
+	[ID_AD4006] = {
+		.chan_spec = AD400X_CHANNEL(18),
+	},
 	[ID_AD4007] = {
+		.chan_spec = AD400X_CHANNEL(18),
+	},
+	[ID_AD4008] = {
+		.chan_spec = AD400X_CHANNEL(16),
+	},
+	[ID_AD4010] = {
 		.chan_spec = AD400X_CHANNEL(18),
 	},
 	[ID_AD4011] = {
 		.chan_spec = AD400X_CHANNEL(18),
 	},
 	[ID_AD4020] = {
+		.chan_spec = AD400X_CHANNEL(20),
+	},
+	[ID_AD4021] = {
+		.chan_spec = AD400X_CHANNEL(20),
+	},
+	[ID_AD4022] = {
 		.chan_spec = AD400X_CHANNEL(20),
 	},
 };
@@ -284,10 +324,20 @@ static const struct iio_info ad400x_info = {
 };
 
 static const struct spi_device_id ad400x_id[] = {
+	{"ad4000", ID_AD4000},
+	{"ad4001", ID_AD4001},
+	{"ad4002", ID_AD4002},
 	{"ad4003", ID_AD4003},
+	{"ad4004", ID_AD4004},
+	{"ad4005", ID_AD4005},
+	{"ad4006", ID_AD4006},
 	{"ad4007", ID_AD4007},
+	{"ad4008", ID_AD4008},
+	{"ad4010", ID_AD4010},
 	{"ad4011", ID_AD4011},
 	{"ad4020", ID_AD4020},
+	{"ad4021", ID_AD4021},
+	{"ad4022", ID_AD4022},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad400x_id);
@@ -405,10 +455,19 @@ static int ad400x_probe(struct spi_device *spi)
 }
 
 static const struct of_device_id ad400x_of_match[] = {
+	{ .compatible = "adi,ad4000" },
+	{ .compatible = "adi,ad4001" },
+	{ .compatible = "adi,ad4002" },
 	{ .compatible = "adi,ad4003" },
+	{ .compatible = "adi,ad4004" },
+	{ .compatible = "adi,ad4005" },
+	{ .compatible = "adi,ad4006" },
 	{ .compatible = "adi,ad4007" },
+	{ .compatible = "adi,ad4008" },
 	{ .compatible = "adi,ad4011" },
 	{ .compatible = "adi,ad4020" },
+	{ .compatible = "adi,ad4021" },
+	{ .compatible = "adi,ad4022" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad400x_of_match);
