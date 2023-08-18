@@ -14,6 +14,8 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 
+#include <linux/clk/clkscale.h>
+
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
@@ -270,6 +272,7 @@ static int ad3552r_set_sample_rate(struct cf_axi_converter *conv, u64 sample_rat
 {
 	int ret;
 
+	sample_rate = to_ccf_scaled(sample_rate, &conv->clkscale[CLK_DAC]);
 	sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
 	clk_disable_unprepare(conv->clk[CLK_DAC]);
 	ret = clk_set_rate(conv->clk[CLK_DAC], sample_rate);
@@ -292,10 +295,8 @@ static int axi_ad3552r_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (st->single_channel)
-			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk), 4);
-		else
-			*val = DIV_ROUND_UP(clk_get_rate(st->ref_clk), 8);
+		*val = clk_get_rate_scaled(conv->clk[CLK_DAC],
+					   &conv->clkscale[CLK_DAC]);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
 		if (chan->channel) {
@@ -325,10 +326,20 @@ static int axi_ad3552r_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		sample_rate = (u64)val2 << 32 | val;
+		/*
+		 * Usually, converter frontend DACs present the DAC's reference
+		 * clock frequency as their sampling frequency.
+		 * That makes sense for them because those DACs have enough data
+		 * input lines to receive one sample each clock pulse.
+		 * But AD3552R doesn't have dedicated input lines and we can only
+		 * transfer 1/4 of a 16-bit sample each clock cycle with quad SPI.
+		 * Thus, the sampling frequency is 1/4 of ref_clk. With two
+		 * active channels, it takes twice as long to pass data through.
+		 */
 		if (st->single_channel)
-			sample_rate *= 4;
+			conv->clkscale[CLK_DAC].mult = 4;
 		else
-			sample_rate *= 8;
+			conv->clkscale[CLK_DAC].mult = 8;
 		ret = ad3552r_set_sample_rate(conv, sample_rate);
 		if (ret < 0)
 			dev_err(conv->dev, "Failed to set sample rate: %d\n", ret);
@@ -664,6 +675,9 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	conv->setup = axi_ad3552r_setup;
 	conv->update_scan_mode = axi_ad3552r_update_scan_mode;
 	conv->clk[CLK_DAC] = st->ref_clk;
+	/* Default to one active channel clkscale */
+	conv->clkscale[CLK_DAC].div = 1;
+	conv->clkscale[CLK_DAC].mult = 4;
 	conv->get_data_clk = ad3552r_get_data_clk;
 	chip_info = &cf_axi_dds_chip_info_tbl[ID_AD3552R];
 	chip_info->channel[0].ext_info = ad3552r_ext_info;
