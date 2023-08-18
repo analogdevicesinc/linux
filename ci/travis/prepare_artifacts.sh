@@ -31,6 +31,7 @@ artifacts_structure() {
 
 #upload artifacts to Artifactory
 artifacts_artifactory() {
+	artifacts_structure
 	cd ${SOURCE_DIRECTORY}
 	python ../ci/travis/upload_to_artifactory.py --base_path="${ARTIFACTORY_PATH}" \
 		--server_path="linux_rpi/${BUILD_SOURCEBRANCHNAME}" --local_path="${timestamp}" --token="${ARTIFACTORY_TOKEN}"
@@ -38,6 +39,7 @@ artifacts_artifactory() {
 
 #archive artifacts and upload to SWDownloads
 artifacts_swdownloads() {
+	artifacts_structure
 	cd ${SOURCE_DIRECTORY}/${timestamp} || exit 1
 	chmod 600 ${KEY_FILE}
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
