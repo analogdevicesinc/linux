@@ -21,6 +21,8 @@ Required properties for the AD400X:
 	- dmas: DMA specifier, consisting of a phandle to DMA controller node.
 	- dma-names: Must be "rx".
 	- vref-supply: phandle to the regulator for ADC reference voltage.
+	- pwms: phandle to pwm device used to drive the CNV input signal
+	- pwm-names: pwm named "cnv" used for the CNV input signal
 
 Example:
 
@@ -31,6 +33,8 @@ ad4020: adc@0 {
 
 	dmas = <&rx_dma 0>;
 	dma-names = "rx";
+	pwms = <&axi_pwm_gen 1 0>;
+	pwm-names = "cnv";
 
 	vref-supply = <&vref>;
 	#io-channel-cells = <1>;
