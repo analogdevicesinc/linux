@@ -64,9 +64,6 @@
 		compatible = "adi,axi-ad3552r-dds-6.00.a";
 		reg = <0x44a74000 0x1000>;
 
-		clocks = <&ref_clk>;
-		clock-names = "sampl_clk";
-
 		dmas = <&dac_tx_dma 0>;
 		dma-names = "tx";
 
