@@ -2273,6 +2273,31 @@ static void dds_clk_notifier_unreg(void *data)
 	clk_notifier_unregister(st->clk, &st->clk_nb);
 }
 
+static int cf_axi_dds_sampl_clk_setup(struct cf_axi_dds_state *st,
+				      struct device *dev)
+{
+	int ret;
+
+	st->clk = devm_clk_get(dev, "sampl_clk");
+	if (IS_ERR(st->clk))
+		return PTR_ERR(st->clk);
+
+	of_clk_get_scale(dev->of_node, "sampl_clk", &st->clkscale);
+
+	ret = clk_prepare_enable(st->clk);
+	if (ret < 0)
+		return ret;
+
+	ret = devm_add_action_or_reset(dev, dds_clk_disable, st->clk);
+	if (ret)
+		return ret;
+
+	st->clk_nb.notifier_call = cf_axi_dds_rate_change;
+	clk_notifier_register(st->clk, &st->clk_nb);
+
+	return devm_add_action_or_reset(dev, dds_clk_notifier_unreg, st);
+}
+
 static int cf_axi_dds_probe(struct platform_device *pdev)
 {
 
@@ -2322,28 +2347,9 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		return PTR_ERR(st->data_offload);
 
 	if (info->standalone) {
-		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
-		if (IS_ERR(st->clk))
-			return PTR_ERR(st->clk);
-
-		of_clk_get_scale(np, "sampl_clk", &st->clkscale);
-
-		ret = clk_prepare_enable(st->clk);
-		if (ret < 0)
-			return ret;
-
-		ret = devm_add_action_or_reset(&pdev->dev, dds_clk_disable, st->clk);
-		if (ret)
-			return ret;
+		cf_axi_dds_sampl_clk_setup(st, &pdev->dev);
 
 		st->dac_clk = clk_get_rate_scaled(st->clk, &st->clkscale);
-
-		st->clk_nb.notifier_call = cf_axi_dds_rate_change;
-		clk_notifier_register(st->clk, &st->clk_nb);
-
-		ret = devm_add_action_or_reset(&pdev->dev, dds_clk_notifier_unreg, st);
-		if (ret)
-			return ret;
 
 		if (info->chip_info) {
 			st->chip_info = info->chip_info;
@@ -2376,6 +2382,9 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		conv->indio_dev = indio_dev;
 		conv->pcore_sync = cf_axi_dds_sync_frame;
 		conv->pcore_set_sed_pattern = cf_axi_dds_set_sed_pattern;
+
+		if (of_property_read_bool(conv->dev->of_node, "adi,shared-clock"))
+			cf_axi_dds_sampl_clk_setup(st, conv->dev);
 
 		st->dac_clk = conv->get_data_clk(conv);
 

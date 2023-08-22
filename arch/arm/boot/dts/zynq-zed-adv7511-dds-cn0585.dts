@@ -29,12 +29,16 @@
 	axi_ad3552r_0: axi-ad3552r-0 {
 		compatible = "adi,axi-ad3552r";
 		reset-gpios = <&gpio0 90 GPIO_ACTIVE_LOW>;
+		adi,shared-clock;
 		clocks = <&ref_clk>;
+		clock-names = "sampl_clk";
 	};
 
 	axi_ad3552r_1: axi-ad3552r-1 {
 		compatible = "adi,axi-ad3552r";
+		adi,shared-clock;
 		clocks = <&ref_clk>;
+		clock-names = "sampl_clk";
 	};
 
 

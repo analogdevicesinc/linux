@@ -22,7 +22,9 @@
 
 		reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
 
+		adi,shared-clock;
 		clocks = <&ref_clk>;
+		clock-names = "sampl_clk";
 	};
 };
 
