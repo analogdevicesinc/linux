@@ -279,7 +279,7 @@ static int ad3552r_set_sample_rate(struct cf_axi_converter *conv, u64 sample_rat
 	if (ret < 0)
 		return ret;
 
-	return clk_prepare_enable(conv->clk[CLK_REF]);
+	return clk_prepare_enable(conv->clk[CLK_DAC]);
 }
 
 
