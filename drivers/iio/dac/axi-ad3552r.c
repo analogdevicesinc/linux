@@ -155,6 +155,7 @@ struct axi_ad3552r_state {
 	bool ddr;
 	bool single_channel;
 	bool synced_transfer;
+	unsigned long poll_delay;
 };
 
 struct reg_addr_poll {
@@ -227,7 +228,7 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 	addr.st = st;
 	addr.reg = ADI_REG_UI_STATUS;
 	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
-			   check == ADI_AXI_MSK_BUSY, 10, 100);
+			   check == ADI_AXI_MSK_BUSY, 10, st->poll_delay);
 
 	axi_ad3552r_update_bits(dds, ADI_REG_DAC_CUSTOM_CTRL, AXI_MSK_TRANSFER_DATA, 0);
 
@@ -267,6 +268,11 @@ static void axi_ad3552r_spi_update_bits(struct axi_ad3552r_state *st, u32 reg,
 		axi_ad3552r_spi_write(st, reg, tmp, transfer_params);
 }
 
+static void ad3552r_update_poll_delay(struct axi_ad3552r_state *st,
+				      unsigned long clk_freq)
+{
+	st->poll_delay = DIV_ROUND_CLOSEST_ULL(1000000000, clk_freq) * 10;
+}
 
 static int ad3552r_set_sample_rate(struct cf_axi_converter *conv, u64 sample_rate)
 {
@@ -279,7 +285,12 @@ static int ad3552r_set_sample_rate(struct cf_axi_converter *conv, u64 sample_rat
 	if (ret < 0)
 		return ret;
 
-	return clk_prepare_enable(conv->clk[CLK_DAC]);
+	ret = clk_prepare_enable(conv->clk[CLK_DAC]);
+	if (ret < 0)
+		return ret;
+
+	ad3552r_update_poll_delay(conv->phy, clk_get_rate(conv->clk[CLK_DAC]));
+	return ret;
 }
 
 
@@ -679,6 +690,8 @@ static int axi_ad3552r_probe(struct platform_device *pdev)
 	chip_info = &cf_axi_dds_chip_info_tbl[ID_AD3552R];
 	chip_info->channel[0].ext_info = ad3552r_ext_info;
 	chip_info->channel[1].ext_info = ad3552r_ext_info;
+
+	ad3552r_update_poll_delay(st, clk_get_rate(conv->clk[CLK_DAC]));
 
 	dev_set_drvdata(&pdev->dev, conv);
 
