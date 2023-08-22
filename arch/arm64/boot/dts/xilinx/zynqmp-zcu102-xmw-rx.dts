@@ -1,0 +1,527 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices 2-24 GHz XMW RX Platform
+ * https://wiki.analog.com/resources/eval/developer-kits/2to24ghz-mxfe-rf-front-end
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcxmwbr1-ebz/hardware
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ *
+ * hdl_project: <ad9082_fmca_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9081.dts"
+
+&axi_ad9081_adxcvr_rx {
+	/* Switch to QPLL */
+	adi,sys-clk-select = <XCVR_QPLL>;
+	adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+};
+
+/delete-node/ &ad9081_dac2;
+/delete-node/ &ad9081_dac3;
+
+&{/} {
+	clocks {
+		admv8818_rfin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>; /* 100MHz */
+			clock-output-names = "rf_in";
+		};
+
+		adf4371_clkin: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>; /* 100MHz */
+			clock-output-names = "clkin";
+		};
+	};
+
+	/* 2 x 1-bit switches controlled with GPIO pin 108 on the ZCU102
+	 *
+	 * gpio[0] from Pin Translation sheet corresponds to internal EMIO pin (gpio_i/gpio_o/gpio_t)[30],
+	 * (refer to zynqmp-zcu102-rev10-ad9081.dts and system_top.v)
+	 * which corresponds to actual IO pin 30+78 (78 MIO pins) = 108
+	 */
+	adrf5020_control_sw_1@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		label = "adrf5020_control_sw_1";
+		compatible = "adi,one-bit-adc-dac";
+
+		out-gpios = <&gpio  0x6c 0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "SW_12_CTL_IN";
+		};
+	};
+
+	/* 2 x 1-bit switches controlled with GPIO pin 109 on the ZCU102
+	 *
+	 * gpio[1] from Pin Translation sheet corresponds to internal EMIO pin (gpio_i/gpio_o/gpio_t)[31],
+	 * (refer to zynqmp-zcu102-rev10-ad9081.dts and system_top.v)
+	 * which corresponds to actual IO pin 31+78 (78 MIO pins) = 109
+	 */
+	adrf5020_control_sw_3@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		label = "adrf5020_control_sw_3";
+		compatible = "adi,one-bit-adc-dac";
+
+		out-gpios = <&gpio  0x6d 0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "SW_34_CTL_IN";
+		};
+	};
+
+	/* 6-bit DSA controlled with GPIO pins 116, 115, 114, 117, 118 and 119 on the ZCU102
+	 *
+	 * gpio[6:11] from Pin Translation sheet correspond to internal EMIO pins (gpio_i/gpio_o/gpio_t)[36:41],
+	 * (refer to zynqmp-zcu102-rev10-ad9081.dts and system_top.v)
+	 * which correspond to actual IO pins (add 78 MIO pins for each) = 114 - 119
+	 */
+	adrf5730_control@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		label = "adrf5730_control";
+		compatible = "adi,one-bit-adc-dac";
+
+		out-gpios = <&gpio  0x74 0>, <&gpio  0x73 0>, <&gpio 0x72 0>, <&gpio  0x75 0>, <&gpio  0x76 0>, <&gpio  0x77 0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "DSA2_D0";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "DSA2_D1";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "DSA2_D2";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "DSA2_D3";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "DSA2_D4";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "DSA2_D5";
+		};
+	};
+
+	/* 4-bit DSA controlled with GPIO pins 110, 111, 112 and 113 on the ZCU102
+	 *
+	 * gpio[2:5] from Pin Translation sheet correspond to internal EMIO pins (gpio_i/gpio_o/gpio_t)[32:35],
+	 * (refer to zynqmp-zcu102-rev10-ad9081.dts and system_top.v)
+	 * which correspond to actual IO pins (add 78 MIO pins for each) = 110 - 113
+	 */
+	adrf5740_control@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		label = "adrf5740_control";
+		compatible = "adi,one-bit-adc-dac";
+
+		out-gpios = <&gpio  0x6e 0>, <&gpio  0x6f 0>, <&gpio  0x70 0>, <&gpio  0x71 0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "DSA1_D2";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "DSA1_D3";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "DSA1_D4";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "DSA1_D5";
+		};
+	};
+};
+
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	is-decoded-cs = <0x0>;
+	num-cs = <0x3>;
+
+	hmc7044: hmc7044@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <0>;
+		spi-max-frequency = <5000000>; /* 5 MHz */
+		adi,spi-3wire-enable;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
+
+		/*
+		 * There are different versions of the AD9081-FMCA-EBZ & AD9082-FMCA-EBZ
+		 * VCXO = 122.880 MHz, XO = 122.880MHz (AD9081-FMC-EBZ & AD9082-FMC-EBZ)
+		 * VCXO = 100.000 MHz, XO = 100.000MHz (AD9081-FMC-EBZ-A2 & AD9082-FMC-EBZ-A2)
+		 * To determine which board is which, read the freqency printed on the VCXO
+		 * or use the fru-dump utility:
+		 * #fru-dump -b /sys/bus/i2c/devices/15-0050/eeprom
+		 */
+
+		//adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
+		//adi,vcxo-frequency = <122880000>;
+
+		adi,pll1-clkin-frequencies = <100000000 10000000 0 0>;
+		adi,vcxo-frequency = <100000000>;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+
+		adi,pll2-output-frequency = <3000000000>;
+
+		adi,sysref-timer-divider = <1024>;
+		adi,pulse-generator-mode = <0>;
+
+		adi,clkin0-buffer-mode  = <0x07>;
+		adi,clkin1-buffer-mode  = <0x07>;
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x37 0x33 0x00 0x00>;
+
+		clock-output-names =
+		"hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+		"hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+		"hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+		"hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+		"hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "CORE_CLK_RX";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "DEV_REFCLK";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,divider = <1536>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,jesd204-sysref-chan;
+		};
+
+		hmc7044_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "CORE_CLK_TX";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		hmc7044_c8: channel@8 {
+			reg = <8>;
+			adi,extended-name = "FPGA_REFCLK1";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "CORE_CLK_RX_ALT";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		hmc7044_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "FPGA_REFCLK2";
+			adi,divider = <4>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "FPGA_SYSREF";
+			adi,divider = <1536>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,jesd204-sysref-chan;
+		};
+	};
+
+	adf4371@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		label = "adf4371_tunable_PLL";
+		compatible = "adi,adf4371";
+		/* SPI */
+		reg = <1>; // CS1 on SPI2 aka spi1
+		adi,spi-3wire-enable;
+		spi-max-frequency = <300000>; /* 300 kHz */
+		/* Clocks */
+		#clock-cells = <1>;
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "tunable_pll-clk-rf8", "tunable_pll-clk-rfaux8", "tunable_pll-clk-rf16", "tunable_pll-clk-rf32";
+		clock-scales = <1 10>;
+
+		adi,muxout-select = <1>;
+
+		channel@0 {
+			reg = <0>;
+			//adi,output-enable;
+			//adi,power-up-frequency = /bits/ 64 <4500000000>; /* 4.5 GHz */
+		};
+		channel@1 {
+			reg = <1>;
+			//adi,output-enable;
+			//adi,power-up-frequency = /bits/ 64 <4500000000>; /* 4.5 GHz */
+		};
+		channel@2 {
+			reg = <2>;
+			//adi,output-enable;
+			//adi,power-up-frequency = /bits/ 64 <9000000000>; /* 9 GHz */
+		};
+		channel@3 {
+			reg = <3>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <18000000000>; /* 18 GHz */
+		};
+	};
+
+	adf4371@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		label = "adf4371_fixed_PLL";
+		compatible = "adi,adf4371";
+		/* SPI */
+		reg = <2>; // CS2 on SPI2 aka spi1
+		adi,spi-3wire-enable;
+		spi-max-frequency = <300000>;
+		/* Clocks */
+		#clock-cells = <1>;
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "fixed_pll-clk-rf8", "fixed_pll-clk-rfaux8", "fixed_pll-clk-rf16", "fixed_pll-clk-rf32";
+		clock-scales = <1 10>;
+
+		adi,muxout-select = <1>;
+
+		channel@0 {
+			reg = <0>;
+			//adi,output-enable;
+			//adi,power-up-frequency = /bits/ 64 <4500000000>; /* 4.5 GHz */
+		};
+		channel@1 {
+			reg = <1>;
+			//adi,output-enable;
+			//adi,power-up-frequency = /bits/ 64 <4500000000>; /* 4.5 GHz */
+		};
+		channel@2 {
+			reg = <2>;
+			//adi,output-enable;
+			//adi,power-up-frequency = /bits/ 64 <9000000000>; /* 9 GHz */
+		};
+		channel@3 {
+			reg = <3>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <18000000000>; /* 18 GHz */
+		};
+	};
+};
+
+&fmc_spi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	is-decoded-cs = <0x0>;
+	num-cs = <0x3>;
+
+	trx0_ad9081: ad9081@0 {
+		compatible = "adi,ad9082";
+		reg = <0>;
+		spi-max-frequency = <5000000>; /* 5 MHz */
+
+		/* Clocks */
+		clocks = <&hmc7044 2>;
+		clock-names = "dev_clk";
+
+		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-link-ids = <FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+		jesd204-inputs =
+			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
+			<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
+
+		adi,tx-dacs {
+			adi,dac-frequency-hz = /bits/ 64 <12000000000>; /* 12 GHz */
+
+			adi,main-data-paths {
+				adi,interpolation = <8>;
+
+				ad9081_dac0: dac@0 {
+					reg = <0>;
+					adi,crossbar-select = <&ad9081_tx_fddc_chan0>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1000 MHz */
+				};
+				ad9081_dac1: dac@1 {
+					reg = <1>;
+					adi,crossbar-select = <&ad9081_tx_fddc_chan1>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <1100000000>; /* 1100 MHz */
+				};
+			};
+
+			adi,channelizer-paths {
+				adi,interpolation = <1>;
+
+				ad9081_tx_fddc_chan0: channel@0 {
+					reg = <0>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+				};
+				ad9081_tx_fddc_chan1: channel@1 {
+					reg = <1>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+				};
+			};
+
+			adi,jesd-links {
+
+				ad9081_tx_jesd_l0: link@0 {
+					reg = <0>;
+					adi,logical-lane-mapping = /bits/ 8 <0 2 7 6 1 5 4 3>;
+
+					adi,link-mode = <17>; /* JESD Quick Configuration Mode */
+					adi,subclass = <1>; /* JESD SUBCLASS 0,1,2 */
+					adi,version = <1>; /* JESD VERSION 0=204A,1=204B,2=204C */
+					adi,dual-link = <0>; /* JESD Dual Link Mode */
+
+					adi,converters-per-device = <4>; /* JESD M */
+					adi,octets-per-frame = <1>; /* JESD F */
+
+					adi,frames-per-multiframe = <32>; /* JESD K */
+					adi,converter-resolution = <16>; /* JESD N */
+					adi,bits-per-sample = <16>; /* JESD NP' */
+					adi,control-bits-per-sample = <0>; /* JESD CS */
+					adi,lanes-per-device = <8>; /* JESD L */
+					adi,samples-per-converter-per-frame = <1>; /* JESD S */
+					adi,high-density = <1>; /* JESD HD */
+
+					adi,tpl-phase-adjust = <6>;
+				};
+			};
+		};
+
+		adi,rx-adcs {
+			adi,adc-frequency-hz = /bits/ 64 <6000000000>; /* 6 GHz */
+
+			adi,main-data-paths {
+
+				ad9081_adc0: adc@0 {
+					reg = <0>;
+					adi,decimation = <4>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 1 GHz */
+					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+					//adi,crossbar-select = <&ad9081_rx_fddc_chan0>, <&ad9081_rx_fddc_chan2>; /* Static for now */
+				};
+				ad9081_adc1: adc@1 {
+					reg = <1>;
+					adi,decimation = <4>;
+					adi,nco-frequency-shift-hz = /bits/ 64 <(1000000000)>; /* 1 GHz */
+					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
+					//adi,crossbar-select = <&ad9081_rx_fddc_chan1>, <&ad9081_rx_fddc_chan3>; /* Static for now */
+				};
+			};
+
+			adi,channelizer-paths {
+
+				ad9081_rx_fddc_chan0: channel@0 {
+					reg = <0>;
+					adi,decimation = <1>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+				};
+				ad9081_rx_fddc_chan1: channel@1 {
+					reg = <1>;
+					adi,decimation = <1>;
+					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+				};
+			};
+
+			adi,jesd-links {
+
+				ad9081_rx_jesd_l0: link@0 {
+					reg = <0>;
+					adi,converter-select =
+						<&ad9081_rx_fddc_chan0 FDDC_I>, <&ad9081_rx_fddc_chan0 FDDC_Q>,
+						<&ad9081_rx_fddc_chan1 FDDC_I>, <&ad9081_rx_fddc_chan1 FDDC_Q>;
+
+					adi,logical-lane-mapping = /bits/ 8 <2 0 7 6 5 4 3 1>;
+
+					adi,link-mode = <18>; /* JESD Quick Configuration Mode */
+					adi,subclass = <1>; /* JESD SUBCLASS 0,1,2 */
+					adi,version = <1>; /* JESD VERSION 0=204A,1=204B,2=204C */
+					adi,dual-link = <0>; /* JESD Dual Link Mode */
+
+					adi,converters-per-device = <4>; /* JESD M */
+					adi,octets-per-frame = <1>; /* JESD F */
+
+					adi,frames-per-multiframe = <32>; /* JESD K */
+					adi,converter-resolution = <16>; /* JESD N */
+					adi,bits-per-sample = <16>; /* JESD NP' */
+					adi,control-bits-per-sample = <0>; /* JESD CS */
+					adi,lanes-per-device = <8>; /* JESD L */
+					adi,samples-per-converter-per-frame = <1>; /* JESD S */
+					adi,high-density = <1>; /* JESD HD */
+				};
+			};
+		};
+	};
+
+	admv8818@1{
+		label = "admv8818_img_filter";
+		compatible = "adi,admv8818";
+		/* SPI */
+		reg = <1>; /* CS1 on SPI1 aka spi0 */
+		spi-max-frequency = <10000000>; /* 10 MHz */
+		clocks = <&admv8818_rfin>;
+		clock-scales = <1 50>;
+		clock-names = "rf_in";
+		adi,bw-hz = /bits/ 64 <600000000>; /* 600 MHz */
+	};
+
+	admv8818@2{
+		compatible = "adi,admv8818";
+		label = "admv8818_preselector";
+		/* SPI */
+		reg = <2>; // CS2 on SPI1 aka spi0
+		spi-max-frequency = <10000000>; /* 10 MHz */
+		clocks = <&admv8818_rfin>;
+		clock-scales = <1 50>;
+		clock-names = "rf_in";
+		adi,bw-hz = /bits/ 64 <600000000>; /* 600 MHz */
+	};
+};
