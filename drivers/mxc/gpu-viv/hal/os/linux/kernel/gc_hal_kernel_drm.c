@@ -808,8 +808,10 @@ static struct drm_driver viv_drm_driver = {
     .gem_free_object            = viv_gem_free_object,
 #        endif
 #    endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
     .prime_handle_to_fd = drm_gem_prime_handle_to_fd,
     .prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+#    endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
     .gem_prime_export   = viv_gem_prime_export,
 #    endif
