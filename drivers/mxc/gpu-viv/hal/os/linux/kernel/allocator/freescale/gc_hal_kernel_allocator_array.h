@@ -60,21 +60,21 @@ extern gceSTATUS
 _GFPAlloctorInit(
     IN gckOS Os,
     IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
+    OUT gckALLOCATOR  *Allocator
     );
 
 extern gceSTATUS
 _UserMemoryAlloctorInit(
     IN gckOS Os,
     IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
+    OUT gckALLOCATOR  *Allocator
     );
 
 extern gceSTATUS
 _ReservedMemoryAllocatorInit(
     IN gckOS Os,
     IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
+    OUT gckALLOCATOR  *Allocator
     );
 
 #if LINUX_CMA_FSL
@@ -82,7 +82,7 @@ extern gceSTATUS
 _CMAFSLAlloctorInit(
     IN gckOS Os,
     IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
+    OUT gckALLOCATOR  *Allocator
     );
 #endif
 
@@ -91,7 +91,7 @@ extern gceSTATUS
 _DmabufAlloctorInit(
     IN gckOS Os,
     IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
+    OUT gckALLOCATOR  *Allocator
     );
 #endif
 
@@ -100,12 +100,11 @@ extern gceSTATUS
 _DmaAlloctorInit(
     IN gckOS Os,
     IN gcsDEBUGFS_DIR *Parent,
-    OUT gckALLOCATOR * Allocator
+    OUT gckALLOCATOR  *Allocator
     );
 #endif
 
-gcsALLOCATOR_DESC allocatorArray[] =
-{
+gcsALLOCATOR_DESC allocatorArray[] = {
     /* GFP allocator. */
     gcmkDEFINE_ALLOCATOR_DESC("gfp", _GFPAlloctorInit),
 

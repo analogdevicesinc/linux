@@ -489,7 +489,7 @@ Alloc:
             } else if (gfp & __GFP_HIGHMEM) {
                 gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
             } else {
-#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
                 gfp &= ~__GFP_DMA32;
                 gfp |= __GFP_HIGHMEM;
 #else
@@ -537,7 +537,7 @@ Alloc:
             if (gcmIS_ERROR(status))
                 gcmkONERROR(_NonContiguousAlloc(mdlPriv, NumPages, gfp));
         }
-#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
         normal_gfp &= ~__GFP_DMA32;
 #endif
 #if gcdUSE_LINUX_SG_TABLE_API

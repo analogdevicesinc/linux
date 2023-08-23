@@ -2392,7 +2392,7 @@ gckGALDEVICE_Construct(IN gcsPLATFORM                *Platform,
                         gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
                     }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
                     device->registerBases[i] =
                         (gctPOINTER)ioremap(physical, device->requestedRegisterMemSizes[i]);
 #else
@@ -2415,7 +2415,7 @@ gckGALDEVICE_Construct(IN gcsPLATFORM                *Platform,
     }
 
     if (gal_device->devices[0]->irqLines[gcvCORE_MAJOR] != -1 ||
-        gcmBITTEST(isrPolling, gcvCORE_MAJOR)!= 0) {
+        gcmBITTEST(isrPolling, gcvCORE_MAJOR) != 0) {
         gcmkONERROR(gctaOS_ConstructOS(gal_device->os, &gal_device->taos));
     }
 
@@ -2582,7 +2582,7 @@ gckGALDEVICE_Construct(IN gcsPLATFORM                *Platform,
 
         for (i = gcvCORE_2D; i <= gcvCORE_2D_MAX; i++) {
 #if !gcdCAPTURE_ONLY_MODE
-            if (device->irqLines[i] != -1 || gcmBITTEST(isrPolling, i)!= 0) {
+            if (device->irqLines[i] != -1 || gcmBITTEST(isrPolling, i) != 0) {
                 gcmkONERROR(gckDEVICE_AddCore(device,
                                               (gceCORE)i,
                                               Args->chipIDs[i],
@@ -2607,7 +2607,7 @@ gckGALDEVICE_Construct(IN gcsPLATFORM                *Platform,
         }
 
 #if !gcdCAPTURE_ONLY_MODE
-        if (device->irqLines[gcvCORE_VG] != -1 || gcmBITTEST(isrPolling, gcvCORE_VG)!= 0) {
+        if (device->irqLines[gcvCORE_VG] != -1 || gcmBITTEST(isrPolling, gcvCORE_VG) != 0) {
 #if gcdENABLE_VG
              gcmkONERROR(gckDEVICE_AddCore(device,
                                            gcvCORE_VG,

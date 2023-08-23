@@ -460,7 +460,7 @@ gckOS_DumpParam(void)
     }
 
 #if USE_LINUX_PCIE
-    pr_warn("Bars configuration: \n");
+    pr_warn("Bars configuration:\n");
 
     for (i = 0; i < gcdGLOBAL_CORE_COUNT; i++) {
         if (bars[i] != -1) {
@@ -471,7 +471,7 @@ gckOS_DumpParam(void)
     }
 #endif
 
-    pr_warn("System reserve memory configuration: \n");
+    pr_warn("System reserve memory configuration:\n");
 
     for (i = 0; i < gcdSYSTEM_RESERVE_COUNT; i++) {
         if (contiguousSizes[i]) {
@@ -484,7 +484,7 @@ gckOS_DumpParam(void)
         }
     }
 
-    pr_warn("Registers configuration: \n");
+    pr_warn("Registers configuration:\n");
 
     for (i = 0; i < gcdGLOBAL_CORE_COUNT; i++) {
         if (registerSizes[i]) {

@@ -352,6 +352,7 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
     for (i = 0; i < pfn_count; i++) {
 #if gcdUSING_PFN_FOLLOW
         int ret = 0;
+
         ret = follow_pfn(vma, addr, &pfns[i]);
         if (ret < 0) {
             up_read(&current_mm_mmap_sem);

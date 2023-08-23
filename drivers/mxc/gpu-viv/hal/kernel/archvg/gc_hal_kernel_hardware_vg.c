@@ -267,7 +267,7 @@ _VGPowerTimerFunction(gctPOINTER Data)
  **          object.
  */
 gceSTATUS
-gckVGHARDWARE_Construct(IN gckOS Os, IN gckVGKERNEL Kernel,OUT gckVGHARDWARE *Hardware)
+gckVGHARDWARE_Construct(IN gckOS Os, IN gckVGKERNEL Kernel, OUT gckVGHARDWARE *Hardware)
 {
     gckVGHARDWARE        hardware = gcvNULL;
     gceSTATUS            status;
@@ -1004,11 +1004,10 @@ gckVGHARDWARE_ConvertLogical(IN gckVGHARDWARE Hardware,
 
     do {
         /* Convert logical address into a physical address. */
-        if (InUserSpace) {
+        if (InUserSpace)
             gcmkERR_BREAK(gckOS_UserLogicalToPhysical(Hardware->os, Logical, &physical));
-        } else {
+        else
             gcmkERR_BREAK(gckOS_GetPhysicalAddress(Hardware->os, Logical, &physical));
-        }
 
         gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Hardware->os, physical, &physical));
 

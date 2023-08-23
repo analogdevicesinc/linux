@@ -859,11 +859,9 @@ gckVIDMEM_AllocateLinear(IN gckKERNEL Kernel, IN gckVIDMEM Memory,
     acquired = gcvTRUE;
 
 #if defined(__QNXNTO__)
-    if (Flag & gcvALLOC_FLAG_CMA_LIMIT)
-    {
+    if (Flag & gcvALLOC_FLAG_CMA_LIMIT) {
         if ((Memory->physicalBase > UINT32_MAX) ||
-            ((Memory->physicalBase + Memory->bytes) > UINT32_MAX))
-        {
+            ((Memory->physicalBase + Memory->bytes) > UINT32_MAX)) {
             /* Pool is allocated above 4G limit */
             status = gcvSTATUS_OUT_OF_MEMORY;
             goto OnError;
@@ -880,21 +878,19 @@ gckVIDMEM_AllocateLinear(IN gckKERNEL Kernel, IN gckVIDMEM Memory,
         gcmkVERIFY_OK(gckOS_GetProcessID(&pid));
 
         if (Memory->freeBytes < lowwaterFPC) {
-            if (Memory->freeBytes < slogLowWaterFPC) {
+            if (Memory->freeBytes < slogLowWaterFPC)
                 do_slog_now = 1;
-            }
             lowwaterFPC = Memory->freeBytes;
         }
 
-        if (abs(this_slog_time - last_slog_time) > slogUsageInterval) {
+        if (abs(this_slog_time - last_slog_time) > slogUsageInterval)
             do_slog_now = 1;
-        }
 
         if (do_slog_now) {
             last_slog_time = this_slog_time;
             slogf(_SLOGC_GRAPHICS_GL, _SLOG_INFO, "%s: Memory->freeBytes = %u, lowest Memory->freeBytes = %u. "
                     "Handling message from pid: %u. Requested bytes: %zu",
-                    __FUNCTION__, (unsigned) Memory->freeBytes, (unsigned) lowwaterFPC, pid, Bytes);
+                    __FUNCTION__, (unsigned int)Memory->freeBytes, (unsigned int)lowwaterFPC, pid, Bytes);
         }
     }
 #endif

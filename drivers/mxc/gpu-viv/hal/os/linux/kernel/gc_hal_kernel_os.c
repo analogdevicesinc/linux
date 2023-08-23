@@ -1167,6 +1167,7 @@ gckOS_UnmapMemory(IN gckOS        Os,
                   IN gctPOINTER   Logical)
 {
     gceSTATUS status = gcvSTATUS_OK;
+
     gcmkHEADER_ARG("Os=%p Physical=0%p Bytes=0x%zx Logical=%p",
                    Os, Physical, Bytes, Logical);
 
@@ -3154,7 +3155,7 @@ gckOS_AllocatePagedMemory(IN gckOS          Os,
     if ((Flag & gcvALLOC_FLAG_4GB_ADDR) && !zoneDMA32)
         Flag &= ~gcvALLOC_FLAG_4GB_ADDR;
 
-#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37) \
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37) \
     || !defined(LINUX_CMA_FSL) || !LINUX_CMA_FSL
     /* redirect DMA32 pool for CMA LIMIT request */
     if (Flag & gcvALLOC_FLAG_CMA_LIMIT) {
