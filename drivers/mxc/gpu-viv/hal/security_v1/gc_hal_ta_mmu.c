@@ -184,8 +184,9 @@ _FillPageTable(
 {
     gctUINT i;
 
-    for (i = 0; i < PageCount; i++)
+    for (i = 0; i < PageCount; i++) {
         _WritePageEntry(PageTable + i, EntryValue);
+    }
 
     return gcvSTATUS_OK;
 }
@@ -333,8 +334,9 @@ OnError:
                 ));
         }
 
-        if (mmu->stlbs)
+        if (mmu->stlbs) {
             gcmkVERIFY_OK(gctaOS_Free((gctPOINTER)mmu->stlbs));
+        }
 
         gcmkVERIFY_OK(gctaOS_Free((gctPOINTER)mmu));
     }
@@ -375,8 +377,9 @@ gctaMMU_Destory(
             ));
     }
 
-    if (Mmu->stlbs)
+    if (Mmu->stlbs) {
         gcmkVERIFY_OK(gctaOS_Free((gctPOINTER)Mmu->stlbs));
+    }
 
     gcmkVERIFY_OK(gctaOS_Free(Mmu));
 

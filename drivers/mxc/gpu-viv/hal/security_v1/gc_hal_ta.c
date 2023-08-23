@@ -131,11 +131,13 @@ gcTA_Construct(
 
 OnError:
     if (ta) {
-        if (ta->mmu && ta->destoryMmu)
+        if (ta->mmu && ta->destoryMmu) {
             gcmkVERIFY_OK(gctaMMU_Destory(ta->mmu));
+        }
 
-        if (ta->hardware)
+        if (ta->hardware) {
             gcmkVERIFY_OK(gctaHARDWARE_Destroy(ta->hardware));
+        }
 
         gcmkVERIFY_OK(gctaOS_Free(ta));
     }
@@ -154,11 +156,13 @@ gcTA_Destroy(
     IN gcTA TA
     )
 {
-    if (TA->mmu && TA->destoryMmu)
+    if (TA->mmu && TA->destoryMmu) {
         gcmkVERIFY_OK(gctaMMU_Destory(TA->mmu));
+    }
 
-    if (TA->hardware)
+    if (TA->hardware) {
         gcmkVERIFY_OK(gctaHARDWARE_Destroy(TA->hardware));
+    }
 
     gcmkVERIFY_OK(gctaOS_Free(TA));
 
@@ -204,8 +208,9 @@ gcTA_MapMemory(
 
         status = gctaOS_IsPhysicalSecure(TA->os, physical, &physicalSecure);
 
-        if (gcmIS_SUCCESS(status) && physicalSecure != mtlbSecure)
+        if (gcmIS_SUCCESS(status) && physicalSecure != mtlbSecure) {
             gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
+        }
 
         gctaMMU_SetPage(mmu, physical, entry);
 
