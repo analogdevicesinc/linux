@@ -523,8 +523,9 @@ static ssize_t gpu3DMinClock_store(struct device_driver *dev, const char *buf, s
     if (fields < 1)
          return -EINVAL;
 
-    while (device->kernels[core] && core <= gcvCORE_3D_MAX)
+    while (device->kernels[core] && core <= gcvCORE_3D_MAX) {
          gckHARDWARE_SetMinFscaleValue(device->kernels[core++]->hardware, MinFscaleValue);
+    }
 
     return count;
 }
@@ -574,8 +575,9 @@ static ssize_t gpu3DClockScale_store(struct device_driver *dev, const char *buf,
     if (fields < 1)
          return -EINVAL;
 
-    while (device->kernels[core] && core <= gcvCORE_3D_MAX)
+    while (device->kernels[core] && core <= gcvCORE_3D_MAX) {
          gckHARDWARE_SetFscaleValue(device->kernels[core++]->hardware, FscaleValue, FscaleValue);
+    }
 
     return count;
 }
@@ -828,7 +830,7 @@ int init_gpu_opp_table(struct device *dev)
         ret = driver_create_file(dev->driver, &driver_attr_gpu_govern);
         if (ret) {
             dev_err(dev, "create gpu_govern attr failed (%d)\n", ret);
-        return ret;
+            return ret;
         }
     }
 
@@ -925,8 +927,9 @@ static int register_mxc_gpu_sub_driver(void)
 
 static void unregister_mxc_gpu_sub_driver(void)
 {
-    if (use_imx_gpu_subsystem)
+    if (use_imx_gpu_subsystem) {
         platform_driver_unregister(&mxc_gpu_sub_driver);
+    }
 }
 
 static int patch_param_imx8_subsystem(struct platform_device *pdev,
@@ -1276,13 +1279,15 @@ static int patch_param(struct platform_device *pdev,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
     node = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
 
-    if (node && !of_address_to_resource(node, 0, &res_mem))
+    if (node && !of_address_to_resource(node, 0, &res_mem)) {
         res = &res_mem;
-    else
+    } else {
         res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "contiguous_mem");
+    }
 
-    if (node)
+    if (node) {
         of_node_put(node);
+    }
 
     if (res) {
         if (args->contiguousBase == 0)
@@ -1916,8 +1921,9 @@ _AdjustParam(
         Platform->flagBits |= gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS;
     }
 
-    if (of_find_compatible_node(NULL, NULL, "fsl,imx8mm-gpu"))
+    if (of_find_compatible_node(NULL, NULL, "fsl,imx8mm-gpu")) {
         Platform->flagBits |= gcvPLATFORM_FLAG_IMX_MM;
+    }
 
     return gcvSTATUS_OK;
 }

@@ -282,8 +282,9 @@ _DmabufAttach(IN gckALLOCATOR       Allocator,
     return gcvSTATUS_OK;
 
 OnError:
-    if (pagearray)
+    if (pagearray) {
         gcmkOS_SAFE_FREE(os, pagearray);
+    }
 
     if (sgt)
         dma_buf_unmap_attachment(attachment, sgt, DMA_BIDIRECTIONAL);

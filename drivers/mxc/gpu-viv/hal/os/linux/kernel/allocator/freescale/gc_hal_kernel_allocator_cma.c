@@ -148,10 +148,11 @@ _CMAFSLAlloc(
     gcmkHEADER_ARG("Mdl=%p NumPages=0x%zx", Mdl, NumPages);
 
     if (os->allocatorLimitMarker && !(Flags & gcvALLOC_FLAG_CMA_PREEMPT)) {
-        if (Flags & gcvALLOC_FLAG_CMA_LIMIT)
+        if (Flags & gcvALLOC_FLAG_CMA_LIMIT) {
             priv->cmaLimitRequest = gcvTRUE;
-        else if (priv->cmaLimitRequest == gcvTRUE)
+        } else if (priv->cmaLimitRequest == gcvTRUE) {
             gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
+        }
     }
 
     gcmkONERROR(gckOS_Allocate(os, sizeof(struct mdl_cma_priv), (gctPOINTER *)&mdl_priv));
@@ -175,8 +176,9 @@ _CMAFSLAlloc(
             &mdl_priv->physical,
             gfp);
 
-    if (mdl_priv->kvaddr == gcvNULL)
+    if (mdl_priv->kvaddr == gcvNULL) {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+    }
 
     Mdl->priv = mdl_priv;
     Mdl->dmaHandle = mdl_priv->physical;
@@ -186,8 +188,9 @@ _CMAFSLAlloc(
     return gcvSTATUS_OK;
 
 OnError:
-    if (mdl_priv)
+    if (mdl_priv) {
         gckOS_Free(os, mdl_priv);
+    }
 
     gcmkFOOTER();
     return status;
@@ -218,12 +221,14 @@ _CMAFSLGetSGT(
     gcmkASSERT(Offset + Bytes <= Mdl->numPages << PAGE_SHIFT);
 
     sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL | gcdNOWARN);
-    if (!sgt)
+    if (!sgt) {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+    }
 
     pages = kmalloc(sizeof(struct page *) * numPages, GFP_KERNEL | gcdNOWARN);
-    if (!pages)
+    if (!pages) {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+    }
 
     if (Allocator->os->iommu) {
         phys_addr_t phys;
@@ -249,8 +254,9 @@ _CMAFSLGetSGT(
             pages[i] = nth_page(page, i + skipPages);
     }
 
-    if (sg_alloc_table_from_pages(sgt, pages, numPages, offset, Bytes, GFP_KERNEL) < 0)
+    if (sg_alloc_table_from_pages(sgt, pages, numPages, offset, Bytes, GFP_KERNEL) < 0) {
         gcmkONERROR(gcvSTATUS_GENERIC_IO);
+    }
 
     *SGT = (gctPOINTER)sgt;
 
@@ -451,8 +457,9 @@ _CMAFSLMapUser(
     up_write(&current_mm_mmap_sem);
 
 OnError:
-    if (gcmIS_ERROR(status) && userLogical && !IS_ERR(userLogical))
+    if (gcmIS_ERROR(status) && userLogical && !IS_ERR(userLogical)) {
         _CMAFSLUnmapUser(Allocator, Mdl, userLogical, Mdl->numPages * PAGE_SIZE);
+    }
 
     gcmkFOOTER();
     return status;
@@ -566,8 +573,9 @@ _CMAFSLAlloctorInit(
 
     priv = kzalloc(gcmSIZEOF(gcsCMA_PRIV), GFP_KERNEL | gcdNOWARN);
 
-    if (!priv)
+    if (!priv) {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+    }
 
     atomic_set(&priv->cmasize, 0);
 
