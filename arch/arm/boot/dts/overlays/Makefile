@@ -130,6 +130,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	iqaudio-digi-wm8804-audio.dtbo \
 	iqs550.dtbo \
 	irs1125.dtbo \
+	isx021.dtbo \
 	jedec-spi-nor.dtbo \
 	justboom-both.dtbo \
 	justboom-dac.dtbo \
