@@ -688,6 +688,20 @@ config VIDEO_OV9734
 	  To compile this driver as a module, choose M here: the
 	  module's name is ov9734.
 
+config VIDEO_OVX03A
+	tristate "OmniVision OX03A sensor support"
+	depends on OF_GPIO
+	depends on I2C && VIDEO_DEV
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	select V4L2_FWNODE
+	help
+		This is a Video4Linux2 sensor driver for the OmniVision
+		OVX03A camera sensor.
+
+		To compile this driver as a module, choose M here: the
+		module will be called ovx03a
+
 config VIDEO_RDACM20
 	tristate "IMI RDACM20 camera support"
 	depends on I2C
