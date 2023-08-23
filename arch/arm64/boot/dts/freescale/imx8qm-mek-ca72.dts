@@ -8,7 +8,7 @@
 #include "imx8qm-mek.dts"
 
 &thermal_zones {
-	/delete-node/ cpu-thermal0;
+	/delete-node/ cpu0-thermal;
 
 	pmic-thermal0 {
 		cooling-maps {

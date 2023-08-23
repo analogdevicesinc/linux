@@ -36,7 +36,7 @@
 };
 
 &thermal_zones {
-	cpu-thermal1 {
+	cpu1-thermal {
 		cooling-maps {
 			map0 {
 				cooling-device =
