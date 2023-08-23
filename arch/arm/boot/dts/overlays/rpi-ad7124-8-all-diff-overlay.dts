@@ -38,11 +38,11 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			ad7124@0 {
+			ad7124: ad7124@0 {
 				compatible = "adi,ad7124-8";
-				reg = <0>;
+				reg = <0>; //CS0 default
 				spi-max-frequency = <5000000>;
-				interrupts = <25 2>;
+				interrupts = <19 2>; // interrupt, Default to PMD-RPI-INTZ P1
 				interrupt-parent = <&gpio>;
 				refin1-supply = <&vref>;
 				clocks = <&ad7124_mclk>;
@@ -106,5 +106,10 @@
 		__overlay__ {
 			status = "disabled";
 		};
+	};
+
+	__overrides__ {
+			cs_pin	= <&ad7124>,"reg:0";
+			irq_gpio = <&ad7124>,"interrupts:0";
 	};
 };
