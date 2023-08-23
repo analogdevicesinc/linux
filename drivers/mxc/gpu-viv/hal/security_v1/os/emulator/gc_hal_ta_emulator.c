@@ -72,7 +72,7 @@ struct _gctaOS {
 gceSTATUS HALDECL
 TAEmulator(
     gceCORE Core,
-    void * Interface
+    void *Interface
     )
 {
     gckOS_AcquireMutex(globalTAos->os, globalTAos->dispatchMutex, gcvINFINITE);
@@ -209,7 +209,7 @@ gceSTATUS
 gctaOS_GetPhysicalAddress(
     IN gctaOS Os,
     IN gctPOINTER Logical,
-    OUT gctPHYS_ADDR_T * Physical
+    OUT gctPHYS_ADDR_T *Physical
     )
 {
     gctPHYS_ADDR_T physical;

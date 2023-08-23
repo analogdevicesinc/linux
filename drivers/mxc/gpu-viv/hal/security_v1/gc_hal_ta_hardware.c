@@ -94,14 +94,10 @@ _IdentifyHardwareByDatabase(
     if (((((gctUINT32) (chipIdentity)) >> (0 ? 31:24) & ((gctUINT32) ((((1 ? 31:24) - (0 ? 31:24) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 31:24) - (0 ? 31:24) + 1)))))) ==
  (0x01 & ((gctUINT32) ((((1 ? 31:24) - (0 ? 31:24) + 1) ==
- 32) ? ~0U : (~(~0U << ((1 ? 31:24) - (0 ? 31:24) + 1))))))))
-    {
+ 32) ? ~0U : (~(~0U << ((1 ? 31:24) - (0 ? 31:24) + 1)))))))) {
         Hardware->chipModel    = gcv500;
         Hardware->chipRevision = (((((gctUINT32) (chipIdentity)) >> (0 ? 15:12)) & ((gctUINT32) ((((1 ? 15:12) - (0 ? 15:12) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:12) - (0 ? 15:12) + 1)))))) );
-    }
-
-    else
-    {
+    } else {
         /* Read chip identity register. */
         gcmkONERROR(
             gctaOS_ReadRegister(os, Hardware->ta->core,
@@ -110,8 +106,7 @@ _IdentifyHardwareByDatabase(
 
         if (((Hardware->chipModel & 0xFF00) == 0x0400)
           && (Hardware->chipModel != 0x0420)
-          && (Hardware->chipModel != 0x0428))
-        {
+          && (Hardware->chipModel != 0x0428)) {
             Hardware->chipModel = (gceCHIPMODEL) (Hardware->chipModel & 0x0400);
         }
 
@@ -123,8 +118,7 @@ _IdentifyHardwareByDatabase(
 
         if ((Hardware->chipModel    == gcv300)
         &&  (Hardware->chipRevision == 0x2201)
-        )
-        {
+        ) {
             gctUINT32 chipDate;
             gctUINT32 chipTime;
 
@@ -139,8 +133,7 @@ _IdentifyHardwareByDatabase(
                                      0x0002C,
                                      &chipTime));
 
-            if ((chipDate == 0x20080814) && (chipTime == 0x12051100))
-            {
+            if ((chipDate == 0x20080814) && (chipTime == 0x12051100)) {
                 /* This IP has an ECO; put the correct revision in it. */
                 Hardware->chipRevision = 0x1051;
             }
@@ -180,8 +173,7 @@ _IdentifyHardwareByDatabase(
         Hardware->customerID
         );
 
-    if (database == gcvNULL)
-    {
+    if (database == gcvNULL) {
         gcmkPRINT("[galcore]: Feature database is not found,"
                   "chipModel=0x%0x, chipRevision=0x%x, productID=0x%x, ecoID=0x%x, customerID=0x%x",
                   Hardware->chipModel,
@@ -209,7 +201,7 @@ gctaHARDWARE_SetMMUStates(
     IN gceMMU_MODE Mode,
     IN gctPOINTER SafeAddress,
     IN gctPOINTER Logical,
-    IN OUT gctUINT32 * Bytes
+    IN OUT gctUINT32 *Bytes
     )
 {
     gceSTATUS status;
@@ -218,7 +210,7 @@ gctaHARDWARE_SetMMUStates(
     gctPHYS_ADDR_T physical;
     gctUINT32_PTR buffer;
     gctUINT32 reserveBytes = 2 * 4;
-    gcsMMU_TABLE_ARRAY_ENTRY * entry;
+    gcsMMU_TABLE_ARRAY_ENTRY *entry;
 
     gcmkHEADER_ARG("Hardware=%p", Hardware);
 
@@ -231,18 +223,14 @@ gctaHARDWARE_SetMMUStates(
     config  = (gctUINT32)(physical & 0xFFFFFFFF);
     extMtlb = (gctUINT32)(physical >> 32);
     /* more than 40bit physical address */
-    if (extMtlb & 0xFFFFFF00)
-    {
+    if (extMtlb & 0xFFFFFF00) {
         gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
     }
 
-    switch (Mode)
-    {
+    switch (Mode) {
     case gcvMMU_MODE_1K:
         if (config & 0x3FF)
-        {
             gcmkONERROR(gcvSTATUS_NOT_ALIGNED);
-        }
 
         config |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
@@ -252,9 +240,7 @@ gctaHARDWARE_SetMMUStates(
 
     case gcvMMU_MODE_4K:
         if (config & 0xFFF)
-        {
             gcmkONERROR(gcvSTATUS_NOT_ALIGNED);
-        }
 
         config |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) ==
@@ -266,8 +252,7 @@ gctaHARDWARE_SetMMUStates(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-    if (Logical != gcvNULL)
-    {
+    if (Logical != gcvNULL) {
         buffer = Logical;
 
         /* Setup page table array entry. */
@@ -295,9 +280,7 @@ gctaHARDWARE_SetMMUStates(
     }
 
     if (Bytes != gcvNULL)
-    {
         *Bytes = reserveBytes;
-    }
 
     /* Return the status. */
     gcmkFOOTER_NO();
@@ -313,7 +296,7 @@ gceSTATUS
 gctaHARDWARE_End(
     IN gcTA_HARDWARE Hardware,
     IN gctPOINTER Logical,
-    IN OUT gctUINT32 * Bytes
+    IN OUT gctUINT32 *Bytes
     )
 {
     gctUINT32_PTR logical = (gctUINT32_PTR) Logical;
@@ -325,10 +308,8 @@ gctaHARDWARE_End(
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT((Logical == gcvNULL) || (Bytes != gcvNULL));
 
-    if (Logical != gcvNULL)
-    {
-        if (*Bytes < 8)
-        {
+    if (Logical != gcvNULL) {
+        if (*Bytes < 8) {
             /* Command queue too small. */
             gcmkONERROR(gcvSTATUS_BUFFER_TOO_SMALL);
         }
@@ -346,8 +327,7 @@ gctaHARDWARE_End(
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "%p: END", Logical);
     }
 
-    if (Bytes != gcvNULL)
-    {
+    if (Bytes != gcvNULL) {
         /* Return number of bytes required by the END command. */
         *Bytes = 8;
     }
@@ -366,7 +346,7 @@ OnError:
 gceSTATUS
 gctaHARDWARE_Construct(
     IN gcTA TA,
-    OUT gcTA_HARDWARE * Hardware
+    OUT gcTA_HARDWARE *Hardware
     )
 {
     gceSTATUS status;
@@ -408,9 +388,7 @@ gctaHARDWARE_Construct(
 
 OnError:
     if (hardware)
-    {
         gctaOS_Free(hardware);
-    }
 
     return status;
 }
@@ -420,8 +398,7 @@ gctaHARDWARE_Destroy(
     IN gcTA_HARDWARE Hardware
     )
 {
-    if (Hardware->pagetableArray.logical)
-    {
+    if (Hardware->pagetableArray.logical) {
         gctaOS_FreeSecurityMemory(
             Hardware->ta->os,
             Hardware->pagetableArray.size,
@@ -430,8 +407,7 @@ gctaHARDWARE_Destroy(
             );
     }
 
-    if (Hardware->functionLogical)
-    {
+    if (Hardware->functionLogical) {
         gctaOS_FreeSecurityMemory(
             Hardware->ta->os,
             Hardware->functionBytes,
@@ -535,9 +511,7 @@ gctaHARDWARE_SetMMU(
     /* not support more than 40bit physical address */
     if ((secureSafeAddress & 0xFFFFFF0000000000ULL) ||
         (nonSecureSafeAddress & 0xFFFFFF0000000000ULL))
-    {
-        return (gcvSTATUS_NOT_SUPPORTED);
-    }
+        return gcvSTATUS_NOT_SUPPORTED;
 
     /* Fill entry 0 of page table array. */
     entry = (gcsMMU_TABLE_ARRAY_ENTRY *)Hardware->pagetableArray.logical;
@@ -607,8 +581,7 @@ gctaHARDWARE_SetMMU(
         );
 
     /* Wait until MMU configure finishes. */
-    do
-    {
+    do {
         gctaOS_Delay(Hardware->os, delay);
 
         gctaOS_ReadRegister(
@@ -618,8 +591,7 @@ gctaHARDWARE_SetMMU(
 
         timer += delay;
         delay *= 2;
-    }
-    while (!(((((gctUINT32) (idle)) >> (0 ? 0:0)) & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1)))))) ));
+    } while (!(((((gctUINT32) (idle)) >> (0 ? 0:0)) & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1)))))) ));
 
     /* Enable MMU. */
     gctaOS_WriteRegister(
@@ -639,7 +611,7 @@ gctaHARDWARE_PrepareFunctions(
     )
 {
     gceSTATUS status;
-    gcsHARDWARE_FUNCTION * function;
+    gcsHARDWARE_FUNCTION *function;
     gctUINT32 mmuBytes;
     gctUINT32 endBytes = 8;
     gctUINT8_PTR logical;
@@ -721,8 +693,7 @@ gctaHARDWARE_IsFeatureAvailable(
     gctBOOL available;
     gcsFEATURE_DATABASE *database = Hardware->featureDatabase;
 
-    switch (Feature)
-    {
+    switch (Feature) {
     case gcvFEATURE_SECURITY:
         available = database->SECURITY;
         break;
@@ -772,18 +743,14 @@ gctaHARDWARE_DumpMMUException(
 
     gcmkPRINT("  MMU status = 0x%08X\n", mmuStatus);
 
-    for (i = 0; i < 4; i += 1)
-    {
+    for (i = 0; i < 4; i += 1) {
         mmu = mmuStatus & 0xF;
         mmuStatus >>= 4;
 
         if (mmu == 0)
-        {
             continue;
-        }
 
-        switch (mmu)
-        {
+        switch (mmu){
         case 1:
               gcmkPRINT("  MMU%d: slave not present\n", i);
               break;
@@ -908,8 +875,7 @@ gctaHARDWARE_HandleMMUException(
         stlbEntry
         );
 
-    switch (mmu)
-    {
+    switch (mmu) {
     case 1:
         gcmkASSERT(mtlbEntry != 0);
         gctaOS_WriteRegister(

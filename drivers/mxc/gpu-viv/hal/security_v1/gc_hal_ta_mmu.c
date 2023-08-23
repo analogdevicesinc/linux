@@ -107,8 +107,7 @@
 
 #define gcdMMU_SECURE_AREA_START    ((gcdMMU_MTLB_ENTRY_NUM - gcdMMU_SECURE_AREA_SIZE) << gcdMMU_MTLB_SHIFT)
 
-typedef enum _gceMMU_TYPE
-{
+typedef enum _gceMMU_TYPE {
     gcvMMU_USED     = (0 << 4),
     gcvMMU_SINGLE   = (1 << 4),
     gcvMMU_FREE     = (2 << 4),
@@ -116,8 +115,7 @@ typedef enum _gceMMU_TYPE
 gceMMU_TYPE;
 
 typedef struct _gcsMMU_STLB *gcsMMU_STLB_PTR;
-typedef struct _gcsMMU_STLB
-{
+typedef struct _gcsMMU_STLB {
     gctPHYS_ADDR    physical;
     gctUINT32_PTR   logical;
     gctSIZE_T       size;
@@ -187,9 +185,7 @@ _FillPageTable(
     gctUINT i;
 
     for (i = 0; i < PageCount; i++)
-    {
         _WritePageEntry(PageTable + i, EntryValue);
-    }
 
     return gcvSTATUS_OK;
 }
@@ -309,10 +305,8 @@ gctaMMU_Construct(
     return gcvSTATUS_OK;
 
 OnError:
-    if (mmu)
-    {
-        if (mmu->safePageLogical)
-        {
+    if (mmu) {
+        if (mmu->safePageLogical) {
             gcmkVERIFY_OK(gctaOS_FreeSecurityMemory(
                 TA->os,
                 4096,
@@ -321,8 +315,7 @@ OnError:
                 ));
         }
 
-        if (mmu->nonSecureSafePageLogical)
-        {
+        if (mmu->nonSecureSafePageLogical) {
             gcmkVERIFY_OK(gctaOS_FreeSecurityMemory(
                 TA->os,
                 4096,
@@ -331,8 +324,7 @@ OnError:
                 ));
         }
 
-        if (mmu->mtlbLogical)
-        {
+        if (mmu->mtlbLogical) {
             gcmkVERIFY_OK(gctaOS_FreeSecurityMemory(
                 TA->os,
                 4096,
@@ -342,9 +334,7 @@ OnError:
         }
 
         if (mmu->stlbs)
-        {
             gcmkVERIFY_OK(gctaOS_Free((gctPOINTER)mmu->stlbs));
-        }
 
         gcmkVERIFY_OK(gctaOS_Free((gctPOINTER)mmu));
     }
@@ -358,8 +348,7 @@ gctaMMU_Destory(
 {
     gctaOS os = Mmu->os;
 
-    if (Mmu->safePageLogical)
-    {
+    if (Mmu->safePageLogical) {
         gcmkVERIFY_OK(gctaOS_FreeSecurityMemory(
             os,
             4096,
@@ -368,8 +357,7 @@ gctaMMU_Destory(
             ));
     }
 
-    if (Mmu->nonSecureSafePageLogical)
-    {
+    if (Mmu->nonSecureSafePageLogical) {
         gcmkVERIFY_OK(gctaOS_FreeSecurityMemory(
             os,
             4096,
@@ -378,8 +366,7 @@ gctaMMU_Destory(
             ));
     }
 
-    if (Mmu->mtlbLogical)
-    {
+    if (Mmu->mtlbLogical) {
         gcmkVERIFY_OK(gctaOS_FreeSecurityMemory(
             os,
             4096,
@@ -389,9 +376,7 @@ gctaMMU_Destory(
     }
 
     if (Mmu->stlbs)
-    {
         gcmkVERIFY_OK(gctaOS_Free((gctPOINTER)Mmu->stlbs));
-    }
 
     gcmkVERIFY_OK(gctaOS_Free(Mmu));
 
@@ -404,7 +389,7 @@ gctaMMU_GetPageEntry(
     IN gctUINT32 Address,
     OUT gctUINT32_PTR MtlbEntry,
     OUT gctUINT32_PTR *PageTable,
-    OUT gctBOOL * Secure
+    OUT gctBOOL *Secure
     )
 {
     gceSTATUS status;
@@ -421,8 +406,7 @@ gctaMMU_GetPageEntry(
 
     stlb = stlbs[offset];
 
-    if (stlb == gcvNULL)
-    {
+    if (stlb == gcvNULL) {
         gcmkONERROR(_AllocateStlb(Mmu->os, &stlb));
 
         mtlbEntry = (gctUINT32)(stlb->physBase & 0xFFFFFFFF)
@@ -430,8 +414,7 @@ gctaMMU_GetPageEntry(
                   | gcdMMU_MTLB_PRESENT
                   ;
 
-        if (secure)
-        {
+        if (secure) {
             /* Secure MTLB. */
             mtlbEntry |= (1 << 4);
         }
@@ -442,8 +425,7 @@ gctaMMU_GetPageEntry(
         /* Record stlb. */
         stlbs[offset] = stlb;
 
-        if (MtlbEntry)
-        {
+        if (MtlbEntry) {
             /* Return entry value of new mtlb entry. */
             *MtlbEntry = mtlbEntry;
         }
@@ -452,9 +434,7 @@ gctaMMU_GetPageEntry(
     *PageTable = &stlb->logical[_StlbOffset(Address)];
 
     if (Secure)
-    {
         *Secure = secure;
-    }
 
     /* Success. */
     gcmkFOOTER_NO();
@@ -500,8 +480,7 @@ gctaMMU_FreePages(
     gcmkHEADER_ARG("Mmu=%p", Mmu);
 
     /* Fill in page table. */
-    for (i = 0; i < PageCount; i++)
-    {
+    for (i = 0; i < PageCount; i++) {
         gcmkONERROR(gctaMMU_GetPageEntry(Mmu, Address, gcvNULL, &entry, gcvNULL));
 
 #if gcdUSE_MMU_EXCEPTION
@@ -567,15 +546,12 @@ gctaMMU_DumpPagetableEntry(
     gcmkPRINT("    Offset = 0x%08X (%d)\n", offsetInPage, offsetInPage);
 
 
-    if (stlb == gcvNULL)
-    {
+    if (stlb == gcvNULL) {
         /* Dmp mtlb entry. */
         entry = mtlbLogical[mtlb];
 
         gcmkPRINT("   mtlb entry [%d] = %x", mtlb, entry);
-    }
-    else
-    {
+    } else {
         stlbLogical = stlb->logical;
 
         gcmkPRINT("    stlb entry = 0x%08X", stlbLogical[stlbOffset]);

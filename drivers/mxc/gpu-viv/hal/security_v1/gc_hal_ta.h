@@ -63,11 +63,11 @@ extern "C" {
 #endif
 
 
-typedef struct _gctaOS          * gctaOS;
-typedef struct _gcTA            * gcTA;
+typedef struct _gctaOS          *gctaOS;
+typedef struct _gcTA            *gcTA;
 
-typedef struct _gcTA_HARDWARE   * gcTA_HARDWARE;
-typedef struct _gcTA_MMU        * gcTA_MMU;
+typedef struct _gcTA_HARDWARE   *gcTA_HARDWARE;
+typedef struct _gcTA_MMU        *gcTA_MMU;
 
 /*
     Trust Application is a object needed to be created as a context in trust zone.
@@ -109,7 +109,7 @@ gcsTA_MMU;
 gceSTATUS HALDECL
 TAEmulator(
     gceCORE Core,
-    void * Interface
+    void *Interface
     );
 
 int
@@ -127,7 +127,7 @@ gcTA_Destroy(
 int
 gcTA_Dispatch(
     IN gcTA TA,
-    IN OUT gcsTA_INTERFACE * Interface
+    IN OUT gcsTA_INTERFACE *Interface
 );
 
 /*************************************
@@ -194,7 +194,7 @@ gceSTATUS
 gctaOS_GetPhysicalAddress(
     IN gctaOS Os,
     IN gctPOINTER Logical,
-    OUT gctPHYS_ADDR_T * Physical
+    OUT gctPHYS_ADDR_T *Physical
     );
 
 gceSTATUS gctaOS_WriteRegister(
@@ -267,7 +267,7 @@ gctaOS_SetGPUPower(
 gceSTATUS
 gctaHARDWARE_Construct(
     IN gcTA TA,
-    OUT gcTA_HARDWARE * Hardware
+    OUT gcTA_HARDWARE *Hardware
     );
 
 gceSTATUS
@@ -286,7 +286,7 @@ gceSTATUS
 gctaHARDWARE_End(
     IN gcTA_HARDWARE Hardware,
     IN gctPOINTER Logical,
-    IN OUT gctUINT32 * Bytes
+    IN OUT gctUINT32 *Bytes
     );
 
 gceSTATUS
