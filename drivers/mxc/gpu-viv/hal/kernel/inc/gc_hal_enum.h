@@ -1263,6 +1263,7 @@ typedef enum _gcePLS_VALUE {
     gcePLS_VALUE_EGL_DISPLAY_INFO,
     gcePLS_VALUE_EGL_CONFIG_FORMAT_INFO,
     gcePLS_VALUE_EGL_DESTRUCTOR_INFO,
+    gcePLS_VALUE_OPENCL_DESTRUCTOR_INFO,
 } gcePLS_VALUE;
 
 #if gcdENABLE_3D
@@ -1331,6 +1332,8 @@ typedef enum _gceAPI {
     gcvAPI_OPENVG,
     gcvAPI_OPENCL,
     gcvAPI_OPENVK,
+    gcvAPI_EGL,
+    gcvAPI_COUNT,
 } gceAPI;
 
 typedef enum _gceWHERE {
