@@ -68,3 +68,7 @@ config FB_MXC_MIPI_DSI_SAMSUNG
 	tristate "MXC MIPI_DSI_SAMSUNG"
 	depends on FB_MXS
 	select BACKLIGHT_CLASS_DEVICE
+
+config FB_MXC_MIPI_DSI
+	tristate "MXC MIPI_DSI"
+	depends on FB_MXS
