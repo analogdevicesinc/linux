@@ -1800,8 +1800,9 @@ static int dwxgmac3_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
 	return 0;
 }
 
-void dwxgmac3_est_irq_status(void __iomem *ioaddr, struct net_device *dev,
-			     struct stmmac_extra_stats *x, u32 txqcnt)
+static void dwxgmac3_est_irq_status(void __iomem *ioaddr,
+				    struct net_device *dev,
+				    struct stmmac_extra_stats *x, u32 txqcnt)
 {
 	u32 status, value, feqn, hbfq, hbfs, btrl;
 	u32 txqcnt_mask = (1 << txqcnt) - 1;
@@ -1925,7 +1926,7 @@ static void dwxgmac3_fpe_send_mpacket(void __iomem *ioaddr,
 	writel(value, ioaddr + XGMAC_FPE_CTRL_STS);
 }
 
-int dwxgmac3_fpe_irq_status(void __iomem *ioaddr, struct net_device *dev)
+static int dwxgmac3_fpe_irq_status(void __iomem *ioaddr, struct net_device *dev)
 {
 	u32 value;
 	int status;
