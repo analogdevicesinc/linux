@@ -62,7 +62,7 @@ static int ad7091r_set_channel(struct ad7091r_state *st, unsigned int channel)
 	/* AD7091R_REG_CHANNEL specified which channels to be converted */
 	ret = regmap_write(st->map, AD7091R_REG_CHANNEL,
 			BIT(channel) | (BIT(channel) << 8));
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	/*
@@ -80,11 +80,11 @@ static int ad7091r_read_one(struct iio_dev *iio_dev,
 	int ret;
 
 	ret = ad7091r_set_channel(st, channel);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	ret = regmap_read(st->map, AD7091R_REG_RESULT, &val);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	if (AD7091R_REG_RESULT_CH_ID(val) != channel)
