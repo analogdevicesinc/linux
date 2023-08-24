@@ -3672,6 +3672,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		break;
 
 	default:
+		mutex_unlock(&priv->lock);
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
 		break;
 	}
