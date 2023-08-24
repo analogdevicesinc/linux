@@ -23,6 +23,20 @@ struct max_aggregator_device {
 	u32 nsources;
 };
 
+/* -----------------------------------------------------------------------------
+ * V4L2 Subdevice Video Operations
+ */
+
+static int max_aggregator_s_stream(struct v4l2_subdev *subdev, int enable)
+{
+	/* Nothing to be done */
+	return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ * V4L2 Subdevice Pad Operations
+ */
+
 static int max_aggregator_parse_of(struct max_aggregator_device *max_aggregator)
 {
 	struct device_node *node = max_aggregator->dev->of_node;
@@ -36,7 +50,16 @@ static int max_aggregator_parse_of(struct max_aggregator_device *max_aggregator)
 	return 0;
 }
 
-static struct v4l2_subdev_ops max_aggregator_ops = { };
+static struct v4l2_subdev_video_ops aggregator_video_ops = {
+	.s_stream = max_aggregator_s_stream,
+};
+
+static struct v4l2_subdev_pad_ops aggregator_pad_ops = { };
+
+static struct v4l2_subdev_ops max_aggregator_ops = {
+	.video = &aggregator_video_ops,
+	.pad = &aggregator_pad_ops,
+};
 
 static int max_aggregator_probe(struct platform_device *pdev)
 {
