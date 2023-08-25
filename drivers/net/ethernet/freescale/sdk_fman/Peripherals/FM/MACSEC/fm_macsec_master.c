@@ -126,7 +126,8 @@ static t_Error MacsecInit(t_Handle h_FmMacsec)
 {
     t_FmMacsec                  *p_FmMacsec = (t_FmMacsec*)h_FmMacsec;
     t_FmMacsecDriverParam       *p_FmMacsecDriverParam = NULL;
-    uint32_t                    tmpReg,i,macId;
+    uint32_t                    tmpReg,i,macId = 0;
+    t_Error                     err = E_OK;
 
     SANITY_CHECK_RETURN_ERROR(p_FmMacsec, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(p_FmMacsec->p_FmMacsecDriverParam, E_INVALID_HANDLE);
@@ -170,7 +171,10 @@ static t_Error MacsecInit(t_Handle h_FmMacsec)
     XX_Free(p_FmMacsecDriverParam);
     p_FmMacsec->p_FmMacsecDriverParam = NULL;
 
-    FM_MAC_GetId(p_FmMacsec->h_FmMac, &macId);
+    err = FM_MAC_GetId(p_FmMacsec->h_FmMac, &macId);
+    if (err != E_OK)
+        RETURN_ERROR(MINOR, err, ("Get MAC ID failed"));
+
     FmRegisterIntr(p_FmMacsec->h_Fm,
                    e_FM_MOD_MACSEC,
                    (uint8_t)macId,
@@ -191,12 +195,16 @@ static t_Error MacsecInit(t_Handle h_FmMacsec)
 static t_Error MacsecFree(t_Handle h_FmMacsec)
 {
     t_FmMacsec  *p_FmMacsec = (t_FmMacsec*)h_FmMacsec;
-    uint32_t    macId;
+    t_Error     err = E_OK;
+    uint32_t    macId = 0;
 
     SANITY_CHECK_RETURN_ERROR(p_FmMacsec, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(!p_FmMacsec->p_FmMacsecDriverParam, E_INVALID_HANDLE);
 
-    FM_MAC_GetId(p_FmMacsec->h_FmMac, &macId);
+    err = FM_MAC_GetId(p_FmMacsec->h_FmMac, &macId);
+    if (err != E_OK)
+        RETURN_ERROR(MINOR, err, ("Get MAC ID failed"));
+
     FmUnregisterIntr(p_FmMacsec->h_Fm,
                    e_FM_MOD_MACSEC,
                    (uint8_t)macId,
@@ -971,7 +979,8 @@ t_Error FmMacsecSetEvent(t_Handle h_FmMacsec, e_FmMacsecGlobalEvents event, uint
 t_Handle FM_MACSEC_MASTER_Config(t_FmMacsecParams *p_FmMacsecParam)
 {
     t_FmMacsec  *p_FmMacsec;
-    uint32_t    macId;
+    t_Error     err = E_OK;
+    uint32_t    macId = 0;
 
     /* Allocate FM MACSEC structure */
     p_FmMacsec = (t_FmMacsec *) XX_Malloc(sizeof(t_FmMacsec));
@@ -1018,7 +1027,14 @@ t_Handle FM_MACSEC_MASTER_Config(t_FmMacsecParams *p_FmMacsecParam)
     p_FmMacsec->p_FmMacsecDriverParam->mflSubtract                                   = DEFAULT_mflSubtract;
     /* build the FM MACSEC master IPC address */
     memset(p_FmMacsec->fmMacsecModuleName, 0, (sizeof(char))*MODULE_NAME_SIZE);
-    FM_MAC_GetId(p_FmMacsec->h_FmMac,&macId);
+    err = FM_MAC_GetId(p_FmMacsec->h_FmMac,&macId);
+    if (err != E_OK) {
+        XX_Free(p_FmMacsec->p_FmMacsecDriverParam);
+        XX_Free(p_FmMacsec);
+        REPORT_ERROR(MINOR, err, ("Get MAC ID failed"));
+        return NULL;
+    }
+
     if (Sprint (p_FmMacsec->fmMacsecModuleName, "FM-%d-MAC-%d-MACSEC-Master",
         FmGetId(p_FmMacsec->h_Fm),macId) != 24)
     {
