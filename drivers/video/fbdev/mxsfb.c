@@ -1431,7 +1431,7 @@ static int mxsfb_init_fbinfo(struct mxsfb_info *host)
 	struct fb_modelist *modelist;
 
 	fb_info->fbops = &mxsfb_ops;
-	fb_info->flags = FBINFO_FLAG_DEFAULT | FBINFO_READS_FAST;
+	fb_info->flags = FBINFO_READS_FAST;
 	fb_info->fix.type = FB_TYPE_PACKED_PIXELS;
 	fb_info->fix.ypanstep = 1;
 	fb_info->fix.ywrapstep = 1;
