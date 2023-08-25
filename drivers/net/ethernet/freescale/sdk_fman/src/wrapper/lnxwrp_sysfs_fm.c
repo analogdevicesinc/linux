@@ -255,7 +255,12 @@ static ssize_t show_fm_risc_load(struct device *dev,
 	FM_CtrlMonStop(p_wrp_fm_dev->h_Dev);
 
 	for (i = 0; i < FM_NUM_OF_CTRL; i++) {
-		err |= FM_CtrlMonGetCounters(p_wrp_fm_dev->h_Dev, i, &util);
+		err = FM_CtrlMonGetCounters(p_wrp_fm_dev->h_Dev, i, &util);
+		if (err) {
+			local_irq_restore(flags);
+			return -EINVAL;
+		}
+
 		m = snprintf(&buf[n],PAGE_SIZE,"\tRisc%u: util-%u%%, efficiency-%u%%\n",
 				i, util.percentCnt[0], util.percentCnt[1]);
 		n=m+n;
