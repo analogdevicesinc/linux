@@ -644,13 +644,13 @@ static int max96717_set_pipe_dt_en(struct max96717_priv *priv,
 	unsigned int reg, mask;
 
 	if (i < 2) {
-		reg = 0x315 + index * 2 + i;
+		reg = 0x314 + index * 2 + i;
 		mask = BIT(6);
 	} else if (i < 6) {
 		reg = 0x3d0 + index / 2;
-		mask = BIT(i);
+		mask = BIT((4 * (index % 2)) + (i - 2));
 	} else {
-		reg = 0x3dc + index * 2 + i;
+		reg = 0x3dc + index * 2 + (i - 6);
 		mask = BIT(6);
 	}
 
@@ -666,11 +666,11 @@ static int max96717_set_pipe_dt(struct max96717_priv *priv,
 	unsigned int reg;
 
 	if (i < 2)
-		reg = 0x315 + index * 2 + i;
+		reg = 0x314 + index * 2 + i;
 	else if (i < 6)
-		reg = 0x3c0 + index * 4 + i;
+		reg = 0x3c0 + index * 4 + (i - 2);
 	else
-		reg = 0x3dc + index * 2 + i;
+		reg = 0x3dc + index * 2 + (i - 6);
 
 	return max96717_update_bits(priv, reg, GENMASK(5, 0), dt);
 }
