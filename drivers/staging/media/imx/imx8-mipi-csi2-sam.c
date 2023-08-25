@@ -425,7 +425,7 @@ struct csi_state {
 	struct csis_pktbuf pkt_buf;
 	struct mipi_csis_event events[MIPI_CSIS_NUM_EVENTS];
 
-	struct v4l2_async_subdev    asd;
+	struct v4l2_async_connection asd;
 	struct v4l2_async_notifier  subdev_notifier;
 	struct v4l2_async_subdev    *async_subdevs[2];
 
