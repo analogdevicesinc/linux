@@ -5232,7 +5232,9 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
         ReleaseManipHandler(p_Manip, p_FmPcd);
         XX_Free(p_Manip);
         return NULL;
-    }INIT_LIST(&p_Manip->nodesLst);
+    }
+
+    INIT_LIST(&p_Manip->nodesLst);
 
     switch (p_Manip->opcode)
     {
@@ -5277,9 +5279,7 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
             if (err)
             {
                 REPORT_ERROR(MAJOR, E_INVALID_VALUE, ("UNSUPPORTED HEADER MANIPULATION TYPE"));
-                ReleaseManipHandler(p_Manip, p_FmPcd);
-                XX_Free(p_Manip);
-                return NULL;
+                goto err_out;
             }
             if (p_Manip->insrt)
             p_Manip->opcode = HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER;
@@ -5295,9 +5295,7 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
             if (err)
             {
                 REPORT_ERROR(MAJOR, E_INVALID_VALUE, ("UNSUPPORTED HEADER MANIPULATION TYPE"));
-                ReleaseManipHandler(p_Manip, p_FmPcd);
-                XX_Free(p_Manip);
-                return NULL;
+                goto err_out;
             }
             if (p_Manip->rmv)
             p_Manip->opcode = HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST;
@@ -5316,17 +5314,13 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
             break;
         default:
             REPORT_ERROR(MAJOR, E_INVALID_VALUE, ("UNSUPPORTED HEADER MANIPULATION TYPE"));
-            ReleaseManipHandler(p_Manip, p_FmPcd);
-            XX_Free(p_Manip);
-            return NULL;
+            goto err_out;
     }
 
     if (err)
     {
         REPORT_ERROR(MAJOR, err, NO_MSG);
-        ReleaseManipHandler(p_Manip, p_FmPcd);
-        XX_Free(p_Manip);
-        return NULL;
+        goto err_out;
     }
 
     if (p_ManipParams->h_NextManip)
@@ -5340,6 +5334,12 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
     }
 
     return p_Manip;
+
+err_out:
+    XX_FreeSpinlock(p_Manip->h_Spinlock);
+    ReleaseManipHandler(p_Manip, p_FmPcd);
+    XX_Free(p_Manip);
+    return NULL;
 }
 
 t_Error FM_PCD_ManipNodeReplace(t_Handle h_Manip,
