@@ -489,7 +489,7 @@ static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                         break;
                     case (e_FM_PCD_MANIP_RMV_BY_HDR_FROM_START):
                     {
-                        uint8_t prsArrayOffset;
+                        uint8_t prsArrayOffset = 0;
                         t_Error err = E_OK;
 
                         tmpReg = (uint32_t)(HMCD_OPCODE_RMV_TILL)
