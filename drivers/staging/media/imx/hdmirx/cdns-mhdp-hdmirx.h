@@ -309,7 +309,7 @@ struct cdns_hdmirx_device {
 
 	struct platform_device		*pdev;
 	struct v4l2_device			*v4l2_dev;
-	struct v4l2_async_subdev asd;
+	struct v4l2_async_connection asd;
 	struct v4l2_ctrl_handler ctrl_hdl;
 	struct v4l2_mbus_framefmt format;
 	struct v4l2_fract aspect_ratio;
