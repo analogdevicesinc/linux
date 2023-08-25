@@ -1,0 +1,75 @@
+#ifndef ISX021_HEX_REG
+#define ISX021_HEX_REG 0x1a
+#endif
+
+#ifdef ISX021_INDEX
+#define ISX021_SER_INDEX  ISX021_INDEX
+#define ISX021_SER_LABEL  CONCAT(serializer_, ISX021_SER_INDEX)
+#define ISX021_WP_LABEL CONCAT(ISX021_SER_LABEL, _mfp0_wp)
+#define ISX021_RCLK_LABEL CONCAT(ISX021_SER_LABEL, _mfp4_rclk)
+#define ISX021_OUT_LABEL CONCAT(isx021_out, ISX021_INDEX)
+#define ISX021_IN_LABEL CONCAT(ser_in, ISX021_INDEX)
+#define ISX021_LABEL CONCAT(camera, ISX021_INDEX)
+#endif
+
+#if !defined(ISX021_SER_LABEL)
+#error
+#endif
+
+#if !defined(ISX021_WP_LABEL)
+#error
+#endif
+
+#if !defined(ISX021_RCLK_LABEL)
+#error
+#endif
+
+#if !defined(ISX021_OUT_LABEL)
+#error
+#endif
+
+#if !defined(ISX021_IN_LABEL)
+#error
+#endif
+
+#if !defined(ISX021_LABEL)
+#error
+#endif
+
+// #define ISX021_USE_AD_GAIN
+
+ISX021_LABEL: isx021@ISX021_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "sony,isx021";
+	reg = <ISX021_HEX_REG>;
+	clocks = <&ov_clk_12M>;
+	clock-names = "xclk";
+	dvdd-supply = <&ov_1_5V>;
+	pinctrl-0 = <&ISX021_WP_LABEL &ISX021_RCLK_LABEL>;
+	pinctrl-names = "default";
+	reset-gpios = <&ISX021_SER_LABEL 8 GPIO_ACTIVE_LOW>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+
+			ISX021_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&ISX021_IN_LABEL>;
+			};
+		};
+	};
+};
+
+#undef ISX021_HEX_REG
+#undef ISX021_INDEX
+#undef Ox03A_SER_INDEX
+#undef ISX021_SER_LABEL
+#undef ISX021_PWDN_LABEL
+#undef ISX021_RCLK_LABEL
+#undef ISX021_LABEL
+#undef ISX021_OUT_LABEL
+#undef ISX021_IN_LABEL

@@ -1,0 +1,174 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Definitions for GMSL camera module on VC I2C bus
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+//GMSL defines
+#define GMSL_CAMERA_NUM	1
+#define GMSL_PHY	0x2
+
+#if (GMSL_CAMERA_NUM >= 1)
+#define GMSL_CAMERA_0
+#endif
+#if (GMSL_CAMERA_NUM >= 2)
+#error RPI does not support VC so only one camera can be used for now
+#endif
+
+#define GMSL_SER_0_HEX_ADDR	0x40
+
+#define GMSL_CAM_0_HEX_ADDR	0x10
+
+#define _CONCAT(a, b) a ## b
+#define CONCAT(a, b) _CONCAT(a, b)
+
+#define _STRINGIFY(a) # a
+#define STRINGIFY(a) _STRINGIFY(a)
+
+/{
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2c_csi_dsi>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			deserializer: gmsl-deserializer@27 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "maxim,max96724";
+				reg = <0x27>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&csi1>;
+		__overlay__ {
+			status = "okay";
+			brcm,media-controller;
+
+			port {
+				csi_in0: endpoint {
+					remote-endpoint = <&deser_out0>;
+					clock-lanes = <0>;
+					data-lanes = <1 2>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c0if>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target-path="/";
+		__overlay__ {
+			cam_vddio: fixedregulator@1 {
+				compatible = "regulator-fixed";
+				regulator-name = "cam_vddio";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
+			cam_vdig: fixedregulator@2 {
+				compatible = "regulator-fixed";
+				regulator-name = "cam_vdig";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+			};
+
+			cam_clk: camera-clk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <24000000>;
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&i2c0mux>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@5 {
+		target = <&cam1_reg>;
+		__overlay__ {
+			status = "okay";
+			regulator-name = "cam_vana";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+	};
+
+	fragment@6 {
+		target = <&deserializer>;
+		__overlay__ {
+			phy@GMSL_PHY {
+				reg = <GMSL_PHY>;
+				max,alt-mem-map12;
+			};
+#if defined(GMSL_CAMERA_0)
+			#define DESER_CH_INDEX 0
+			#include "gmsl-deserializer-channel.dtsi"
+#endif
+		};
+	};
+
+	fragment@7 {
+		target = <&deserializer>;
+		__overlay__ {
+			i2c-alias-pool = <
+				GMSL_SER_0_HEX_ADDR
+			>;
+
+			i2c-atr {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+#if defined(GMSL_CAMERA_0)
+				deserializer_i2c_0: i2c@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					reg = <0>;
+				};
+#endif
+			};
+		};
+	};
+
+	__overrides__ {
+	};
+};
+
+#if defined(GMSL_CAMERA_0)
+			serializer_0_i2c_bus: &deserializer_i2c_0 {};
+#endif
+
+#if defined(GMSL_CAMERA_0)
+			&serializer_0_i2c_bus {
+				#define SER_INDEX 0
+				#define SER_I2C_ADDR_POLL_0 GMSL_CAM_0_HEX_ADDR
+				#include "gmsl-serializer.dtsi"
+			};
+#endif
+
+#if defined(GMSL_CAMERA_0)
+			camera_0_i2c_bus: &serializer_0_i2c_0 {};
+#endif
+
+#if defined(GMSL_CAMERA_0)
+			&camera_0_i2c_bus {
+				#define IMX219_INDEX 0
+				#include "gmsl-imx219.dtsi"
+			};
+#endif
