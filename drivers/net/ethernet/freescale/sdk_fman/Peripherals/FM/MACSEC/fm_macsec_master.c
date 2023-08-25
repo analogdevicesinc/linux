@@ -1029,19 +1029,22 @@ t_Handle FM_MACSEC_MASTER_Config(t_FmMacsecParams *p_FmMacsecParam)
     memset(p_FmMacsec->fmMacsecModuleName, 0, (sizeof(char))*MODULE_NAME_SIZE);
     err = FM_MAC_GetId(p_FmMacsec->h_FmMac,&macId);
     if (err != E_OK) {
-        XX_Free(p_FmMacsec->p_FmMacsecDriverParam);
-        XX_Free(p_FmMacsec);
         REPORT_ERROR(MINOR, err, ("Get MAC ID failed"));
-        return NULL;
+        goto err_out;
     }
 
     if (Sprint (p_FmMacsec->fmMacsecModuleName, "FM-%d-MAC-%d-MACSEC-Master",
         FmGetId(p_FmMacsec->h_Fm),macId) != 24)
     {
-        XX_Free(p_FmMacsec->p_FmMacsecDriverParam);
-        XX_Free(p_FmMacsec);
         REPORT_ERROR(MAJOR, E_INVALID_STATE, ("Sprint failed"));
-        return NULL;
+        goto err_out;
     }
     return p_FmMacsec;
+
+err_out:
+    XX_FreeSpinlock(p_FmMacsec->rxScSpinLock);
+    XX_FreeSpinlock(p_FmMacsec->txScSpinLock);
+    XX_Free(p_FmMacsec->p_FmMacsecDriverParam);
+    XX_Free(p_FmMacsec);
+    return NULL;
 }
