@@ -29,5 +29,8 @@
 		compatible = "adi,max31827";
 		reg = <0x42>;
 		vref-supply = <&reg_vdd>;
+		adi,comp-int;
+		adi,alrm-pol;
+		adi,flt-q = <1>;
 	};
 };
