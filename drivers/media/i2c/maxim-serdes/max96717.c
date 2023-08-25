@@ -1079,6 +1079,7 @@ static const struct pinmux_ops max96717_mux_ops = {
 	.get_function_name = max96717_mux_get_function_name,
 	.get_function_groups = max96717_mux_get_groups,
 	.set_mux = max96717_mux_set,
+	.strict = true,
 };
 
 static const struct max_ser_ops max96717_ops = {
