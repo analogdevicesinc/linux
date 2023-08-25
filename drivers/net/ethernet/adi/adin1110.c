@@ -23,6 +23,8 @@
 #include <linux/phy.h>
 #include <linux/property.h>
 #include <linux/spi/spi.h>
+#include <linux/fs.h>
+#include <linux/debugfs.h>
 
 #include <net/switchdev.h>
 
@@ -1633,6 +1635,39 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 	return 0;
 }
 
+
+
+ssize_t adin1110_debugfs_read(struct file *filp, char *buffer, size_t length, loff_t *offset)
+{
+	struct adin1110_priv *priv = filp->private_data;
+	u32 reg_val;
+	int ret;
+
+	ret = adin1110_read_reg(priv, 0x6, &reg_val);
+	if (ret)
+		return ret;
+
+	return sysfs_emit(buffer, "%x", reg_val);
+}
+
+static struct file_operations adin1110_debugfs_fops = {
+	.owner	= THIS_MODULE,
+	.open = simple_open,
+	.read = adin1110_debugfs_read,
+};
+
+static int adin1110_register_debugfs(struct adin1110_priv *priv)
+{
+	struct dentry *d;
+
+	d = debugfs_create_dir("adin1110", NULL);
+
+	debugfs_create_file("CONFIG_REG", 0444, d, priv, &adin1110_debugfs_fops);
+	debugfs_create_file("CONFIG2_REG", 0444, d, priv, &adin1110_debugfs_fops);
+
+	return 0;
+}
+
 static int adin1110_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
@@ -1670,6 +1705,12 @@ static int adin1110_probe(struct spi_device *spi)
 	ret = adin1110_register_mdiobus(priv, dev);
 	if (ret < 0) {
 		dev_err(dev, "Could not register MDIO bus %d\n", ret);
+		return ret;
+	}
+
+	ret = adin1110_register_debugfs(priv);
+	if (ret) {
+		dev_err(dev, "Could not register debugfs %d\n", ret);
 		return ret;
 	}
 
