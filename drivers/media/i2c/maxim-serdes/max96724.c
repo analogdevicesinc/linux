@@ -165,8 +165,10 @@ static int max96724_init_lane_config(struct max96724_priv *priv)
 			break;
 	}
 
-	if (i == num_lane_configs) {
-		dev_err(priv->dev, "Invalid lane configuration\n");
+	if (i == num_lane_configs || i == 1) {
+		dev_err(priv->dev, "Invalid lane configuration. Num data lines: %d\n",
+				phy->mipi.num_data_lanes);
+
 		return -EINVAL;
 	}
 
