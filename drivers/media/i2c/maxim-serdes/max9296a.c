@@ -305,9 +305,10 @@ static int max9296a_init_pipe_remap(struct max9296a_priv *priv,
 	return 0;
 }
 
-static int max9296a_init_pipe_remaps(struct max9296a_priv *priv,
+static int max9296a_update_pipe_remaps(struct max_des_priv *des_priv,
 				     struct max_des_pipe *pipe)
 {
+	struct max9296a_priv *priv = des_to_priv(des_priv);
 	unsigned int i;
 	int ret;
 
@@ -342,7 +343,7 @@ static int max9296a_init_pipe(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
-	return max9296a_init_pipe_remaps(priv, pipe);
+	return 0;
 }
 
 static int max9296a_select_links(struct max_des_priv *des_priv,
@@ -369,6 +370,7 @@ static const struct max_des_ops max9296a_ops = {
 	.init = max9296a_init,
 	.init_phy = max9296a_init_phy,
 	.init_pipe = max9296a_init_pipe,
+	.update_pipe_remaps = max9296a_update_pipe_remaps,
 	.select_links = max9296a_select_links,
 };
 
