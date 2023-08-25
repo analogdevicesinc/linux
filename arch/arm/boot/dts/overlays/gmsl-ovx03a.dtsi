@@ -1,0 +1,72 @@
+#ifndef OVX03A_HEX_REG
+#define OVX03A_HEX_REG 0x36
+#endif
+
+#ifdef OVX03A_INDEX
+#define OVX03A_SER_INDEX  OVX03A_INDEX
+#define OVX03A_SER_LABEL  CONCAT(serializer_, OVX03A_SER_INDEX)
+#define OVX03A_RCLK_LABEL CONCAT(OVX03A_SER_LABEL, _mfp4_rclk)
+#define OVX03A_OUT_LABEL CONCAT(cam_out, OVX03A_INDEX)
+#define OVX03A_IN_LABEL CONCAT(ser_in, OVX03A_INDEX)
+#define OVX03A_LABEL CONCAT(camera, OVX03A_INDEX)
+#endif
+
+#if !defined(OVX03A_SER_LABEL)
+#error
+#endif
+
+#if !defined(OVX03A_RCLK_LABEL)
+#error
+#endif
+
+#if !defined(OVX03A_OUT_LABEL)
+#error
+#endif
+
+#if !defined(OVX03A_IN_LABEL)
+#error
+#endif
+
+#if !defined(OVX03A_LABEL)
+#error
+#endif
+
+// #define OVX03A_USE_AD_GAIN
+
+OVX03A_LABEL: ovx03a@OVX03A_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "ov,ox03a";
+	reg = <OVX03A_HEX_REG>;
+	clocks = <&cam_clk>;
+	clock-names = "xclk";
+	dvdd-supply = <&cam_vdig>;
+	avdd-supply = <&cam1_reg>;
+	iovdd-supply = <&cam_vddio>;
+	pinctrl-0 = <&OVX03A_RCLK_LABEL>;
+	pinctrl-names = "default";
+	reset-gpios = <&OVX03A_SER_LABEL 0 GPIO_ACTIVE_LOW>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+
+			OVX03A_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&OVX03A_IN_LABEL>;
+			};
+		};
+	};
+};
+
+#undef OVX03A_HEX_REG
+#undef OVX03A_INDEX
+#undef Ox03A_SER_INDEX
+#undef OVX03A_SER_LABEL
+#undef OVX03A_PWDN_LABEL
+#undef OVX03A_RCLK_LABEL
+#undef OVX03A_LABEL
+#undef OVX03A_OUT_LABEL
+#undef OVX03A_IN_LABEL
