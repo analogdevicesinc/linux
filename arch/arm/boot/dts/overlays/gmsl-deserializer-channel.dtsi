@@ -1,0 +1,61 @@
+#ifdef DESER_CH_INDEX
+#define DESER_CH_REG DESER_CH_INDEX
+#define DESER_CH_OUT_LABEL CONCAT(deser_out, DESER_CH_INDEX)
+#define DESER_CH_IN_LABEL CONCAT(deser_in, DESER_CH_INDEX)
+#define DESER_CH_OUT_REMOTE_LABEL CONCAT(csi_in, DESER_CH_INDEX)
+#define DESER_CH_IN_REMOTE_LABEL CONCAT(ser_out, DESER_CH_INDEX)
+#endif
+
+#if !defined(DESER_CH_REG)
+#error
+#endif
+
+#if !defined(DESER_CH_OUT_LABEL)
+#error
+#endif
+
+#if !defined(DESER_CH_IN_LABEL)
+#error
+#endif
+
+#if !defined(DESER_CH_OUT_REMOTE_LABEL)
+#error
+#endif
+
+#if !defined(DESER_CH_IN_REMOTE_LABEL)
+#error
+#endif
+
+channel@DESER_CH_REG {
+	reg = <DESER_CH_REG>;
+
+	max,phy-id = <GMSL_PHY>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			DESER_CH_OUT_LABEL: endpoint {
+				remote-endpoint = <&DESER_CH_OUT_REMOTE_LABEL>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			DESER_CH_IN_LABEL: endpoint {
+				remote-endpoint = <&DESER_CH_IN_REMOTE_LABEL>;
+			};
+		};
+	};
+};
+
+#undef DESER_CH_INDEX
+#undef DESER_CH_REG
+#undef DESER_CH_OUT_LABEL
+#undef DESER_CH_IN_LABEL
+#undef DESER_CH_OUT_REMOTE_LABEL
+#undef DESER_CH_IN_REMOTE_LABEL
