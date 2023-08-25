@@ -4722,7 +4722,6 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 	info->var.activate = FB_ACTIVATE_NOW;
 	info->pseudo_palette = fb_data->pseudo_palette;
 	info->screen_size = info->fix.smem_len;
-	info->flags = FBINFO_FLAG_DEFAULT;
 
 	mxc_epdc_fb_set_fix(info);
 
