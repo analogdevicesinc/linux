@@ -4379,8 +4379,11 @@ static t_Error MatchTableSet(t_Handle h_FmPcd, t_FmPcdCcNode *p_CcNode,
         p_CcNode->statisticsMode = e_FM_PCD_CC_STATS_MODE_FRAME;
 
     h_FmMuram = FmPcdGetMuramHandle(h_FmPcd);
-    if (!h_FmMuram)
+    if (!h_FmMuram) {
+        XX_Free(p_CcNode->p_GlblMask);
+        XX_Free(p_CcNode);
         RETURN_ERROR(MAJOR, E_INVALID_HANDLE, ("FM MURAM"));
+    }
 
     INIT_LIST(&p_CcNode->ccPrevNodesLst);
     INIT_LIST(&p_CcNode->ccTreeIdLst);
@@ -6430,8 +6433,8 @@ t_Handle FM_PCD_MatchTableSet(t_Handle h_FmPcd,
 
     err = MatchTableSet(h_FmPcd, p_CcNode, p_CcNodeParam);
 
-    switch(GET_ERROR_TYPE(err)
-)    {
+    switch(GET_ERROR_TYPE(err))
+    {
         case E_OK:
         break;
 
