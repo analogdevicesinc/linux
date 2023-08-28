@@ -194,10 +194,10 @@ static int ad400x_single_conversion(struct iio_dev *indio_dev,
 	st->bus_locked = true;
 
 	ret = ad400x_read_sample(st, &raw_sample);
-	iio_device_release_direct_mode(indio_dev);
 
 	st->bus_locked = false;
 	spi_bus_unlock(st->spi->master);
+	iio_device_release_direct_mode(indio_dev);
 
 	if (ret)
 		return ret;
