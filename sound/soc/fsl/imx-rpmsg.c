@@ -14,6 +14,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/simple_card_utils.h>
 #include "imx-pcm-rpmsg.h"
+#include "../codecs/wm8960.h"
 
 struct imx_rpmsg {
 	struct snd_soc_dai_link dai;
@@ -21,6 +22,7 @@ struct imx_rpmsg {
 	unsigned long sysclk;
 	bool lpa;
 	struct simple_util_jack hp_jack;
+	int sysclk_id;
 };
 
 static struct dev_pm_ops lpa_pm;
@@ -96,7 +98,7 @@ static int imx_rpmsg_late_probe(struct snd_soc_card *card)
 	if (!data->sysclk)
 		return 0;
 
-	ret = snd_soc_dai_set_sysclk(codec_dai, 0, data->sysclk, SND_SOC_CLOCK_IN);
+	ret = snd_soc_dai_set_sysclk(codec_dai, data->sysclk_id, data->sysclk, SND_SOC_CLOCK_IN);
 	if (ret && ret != -ENOTSUPP) {
 		dev_err(dev, "failed to set sysclk in %s\n", __func__);
 		return ret;
@@ -190,6 +192,9 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		clk = devm_get_clk_from_child(&pdev->dev, args.np, NULL);
 		if (!IS_ERR(clk))
 			data->sysclk = clk_get_rate(clk);
+
+		if (of_device_is_compatible(args.np, "wlf,wm8960,lpa"))
+			data->sysclk_id = WM8960_SYSCLK_MCLK;
 	}
 
 	if (!of_property_read_string(np, "fsl,rpmsg-channel-name", &platform_name))
