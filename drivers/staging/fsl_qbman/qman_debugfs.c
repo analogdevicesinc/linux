@@ -931,8 +931,12 @@ static int qman_ccsrmempeek(u32 *val, u32 offset)
 static int qman_ccsrmempeek_show(struct seq_file *file, void *offset)
 {
 	u32 b;
+	int err;
 
-	qman_ccsrmempeek(&b, qman_register_data.val);
+	err = qman_ccsrmempeek(&b, qman_register_data.val);
+	if (err)
+		return err;
+
 	seq_printf(file, "QMan register offset = 0x%x\n",
 		   qman_register_data.val);
 	seq_printf(file, "value = 0x%08x\n", b);
