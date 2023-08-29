@@ -1296,6 +1296,13 @@ static int /*__devinit*/ fm_probe(struct platform_device *of_dev)
    /* create sysfs entries for stats and regs */
     if ( fm_sysfs_create(p_LnxWrpFmDev->dev) !=0 )
     {
+		device_destroy(p_LnxWrpFmDev->fm_class,
+			       MKDEV(p_LnxWrpFmDev->major, DEV_FM_MINOR_BASE));
+		device_destroy(p_LnxWrpFmDev->fm_class,
+			       MKDEV(p_LnxWrpFmDev->major,
+				     DEV_FM_PCD_MINOR_BASE));
+		class_destroy(p_LnxWrpFmDev->fm_class);
+		unregister_chrdev(p_LnxWrpFmDev->major, p_LnxWrpFmDev->name);
         FreeFmDev(p_LnxWrpFmDev);
         REPORT_ERROR(MAJOR, E_INVALID_STATE, ("Unable to create sysfs entry - fm!!!"));
         return -EIO;
