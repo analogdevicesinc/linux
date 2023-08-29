@@ -118,9 +118,25 @@
 		regulator-max-microvolt = <3300000>;
 	};
 
+	reg_usdhc3_vmmc: regulator-usdhc3 {
+		compatible = "regulator-fixed";
+		regulator-name = "WLAN_EN";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6524 20 GPIO_ACTIVE_HIGH>;
+		/*
+		 * IW612 wifi chip needs more delay than other wifi chips to complete
+		 * the host interface initialization after power up, otherwise the
+		 * internal state of IW612 may be unstable, resulting in the failure of
+		 * the SDIO3.0 switch voltage.
+		 */
+		startup-delay-us = <20000>;
+		enable-active-high;
+	};
+
 	usdhc3_pwrseq: usdhc3_pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&pcal6524 20 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&pcal6524 12 GPIO_ACTIVE_LOW>;
 	};
 
 	reg_audio_pwr: regulator-audio-pwr {
@@ -515,6 +531,7 @@
 	pinctrl-1 = <&pinctrl_usdhc3>;
 	pinctrl-2 = <&pinctrl_usdhc3>;
 	mmc-pwrseq = <&usdhc3_pwrseq>;
+	vmmc-supply = <&reg_usdhc3_vmmc>;
 	pinctrl-assert-gpios = <&pcal6524 13 GPIO_ACTIVE_HIGH>;
 	bus-width = <4>;
 	keep-power-in-suspend;
