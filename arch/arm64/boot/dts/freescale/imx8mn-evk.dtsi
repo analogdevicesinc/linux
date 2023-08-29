@@ -36,11 +36,15 @@
 		linux,autosuspend-period = <125>;
 	};
 
-	usdhc1_pwrseq: usdhc1_pwrseq {
-		compatible = "mmc-pwrseq-simple";
+	reg_usdhc1_vmmc: regulator-usdhc1 {
+		compatible = "regulator-fixed";
+		regulator-name = "WLAN_EN";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_usdhc1_gpio>;
-		reset-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&pinctrl_reg_usdhc1_vmmc>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio2 10 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 	};
 
 	reg_usdhc2_vmmc: regulator-usdhc2 {
@@ -555,8 +559,7 @@
 	keep-power-in-suspend;
 	non-removable;
 	wakeup-source;
-	/delete-property/ vmmc-supply;
-	mmc-pwrseq = <&usdhc1_pwrseq>;
+	vmmc-supply = <&reg_usdhc1_vmmc>;
 	status = "okay";
 
 	wifi_wake_host {
@@ -814,9 +817,9 @@
 		>;
 	};
 
-	pinctrl_usdhc1_gpio: usdhc1grpgpio {
+	pinctrl_reg_usdhc1_vmmc: regusdhc1vmmcgrp {
 		fsl,pins = <
-			MX8MN_IOMUXC_SD1_RESET_B_GPIO2_IO10	0x41
+			MX8MN_IOMUXC_SD1_RESET_B_GPIO2_IO10	0x141
 		>;
 	};
 
