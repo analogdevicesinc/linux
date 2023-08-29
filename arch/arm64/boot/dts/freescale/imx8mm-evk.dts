@@ -16,11 +16,15 @@
 		spi0 = &flexspi;
 	};
 
-	usdhc1_pwrseq: usdhc1_pwrseq {
-		compatible = "mmc-pwrseq-simple";
+	reg_usdhc1_vmmc: regulator-usdhc1 {
+		compatible = "regulator-fixed";
+		regulator-name = "WLAN_EN";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_usdhc1_gpio>;
-		reset-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&pinctrl_reg_usdhc1_vmmc>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio2 10 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 	};
 };
 
@@ -49,7 +53,7 @@
 	keep-power-in-suspend;
 	non-removable;
 	wakeup-source;
-	mmc-pwrseq = <&usdhc1_pwrseq>;
+	vmmc-supply = <&reg_usdhc1_vmmc>;
 	fsl,sdio-async-interrupt-enabled;
 	status = "okay";
 
@@ -74,6 +78,12 @@
 };
 
 &iomuxc {
+	pinctrl_reg_usdhc1_vmmc: regusdhc1vmmcgrp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	0x141
+		>;
+	};
+
 	pinctrl_flexspi: flexspigrp {
 		fsl,pins = <
 			MX8MM_IOMUXC_NAND_ALE_QSPI_A_SCLK               0x1c2

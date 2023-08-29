@@ -1036,12 +1036,6 @@
 		>;
 	};
 
-	pinctrl_usdhc1_gpio: usdhc1grpgpio {
-		fsl,pins = <
-			MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	0x41
-		>;
-	};
-
 	pinctrl_usdhc1: usdhc1grp {
 		fsl,pins = <
 			MX8MM_IOMUXC_SD1_CLK_USDHC1_CLK		0x190
