@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/bridge/maxim,max96752-lvds-bridge.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim MAX96752 deserializer LVDS subdevice
+
+maintainers:
+  - Laurentiu Palcu <laurentiu.palcu@oss.nxp.com>
+
+description: |
+  The MAX96752/MAX96754 convert a single video stream received on a single- or dual-link GMSL2 input
+  to an LVDS(OLDI) output for driving display panels. Video data is mapped to OLDI output ports
+  A, B, or both. The output can drive with OLDI or VESA formats.
+
+properties:
+  compatible:
+    enum:
+      - maxim,max96752-lvds
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  maxim,dual-channel:
+    description: Indicates whether to activate dual-channel LVDS output or not.
+    type: boolean
+
+  port:
+    $ref: /schemas/graph.yaml#/$defs/port-base
+    unevaluatedProperties: false
+    description: LVDS output port
+
+    properties:
+      endpoint@0:
+        $ref: /schemas/graph.yaml#/properties/endpoint
+        description: Input video stream.
+
+      endpoint@1:
+        $ref: /schemas/graph.yaml#/properties/endpoint
+        description: Output video stream.
+
+required:
+  - compatible
+  - '#address-cells'
+  - '#size-cells'
+  - port
+
+additionalProperties: false

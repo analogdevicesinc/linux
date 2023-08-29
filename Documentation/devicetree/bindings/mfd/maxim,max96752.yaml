@@ -1,0 +1,195 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/maxim,max96752.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim MAX96752 deserializer chip
+
+maintainers:
+  - Laurentiu Palcu <laurentiu.palcu@oss.nxp.com>
+
+description: |
+  The MAX96752/MAX96754 deserializers convert a single or dual-link GMSL serial input to single or
+  dual OLDI. They also send and receive side-channel and peripheral control data, enabling
+  full-duplex, single-wire transmission of video and bidirectional data, like I2S stereo audio
+  channels.
+
+properties:
+  compatible:
+    enum:
+      - maxim,max96752
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  reg:
+    description: |
+      The deserializer default I2C address can be overwritten to avoid collisions when more of the
+      same deserializers are used.
+    minItems: 1
+    maxItems: 2
+
+  maxim,gmsl2-link-speed:
+    description: |
+      Specifies the link speed for the GMSL2 links:
+        3 - 3Gbps GMSL2 link speed
+        6 - 6Gbps GMSL2 link speed
+      If omitted, pin configuration will be used.
+    $ref: /schemas/types.yaml#/definitions/int32
+    enum: [3, 6]
+
+  maxim,gmsl2-dual-link:
+    description: |
+      Activate dual-link mode. This is useful if both GMSL connections go to the same remote device
+      and we want to benefit from the increased GMSL bandwidth for transmiting higher resolution
+      video streams.
+    type: boolean
+
+  gpio-config:
+    description: |
+      The MAX96752 can replicate the transitions on a local GPIO input pin to a remote GPIO output
+      pin on the serializer chip or a remote GPIO input pin to a local GPIO output pin. Hence,
+      each GPIO pin will be a port with a remote-endpoint that will point to the remote chip GPIO
+      pin.
+    type: object
+
+    properties:
+      "#address-cells":
+        const: 1
+
+      "#size-cells":
+        const: 0
+
+    patternProperties:
+      "^port@[0-9a-f]+$":
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        unevaluatedProperties: false
+        description: This is a GPIO tunnel.
+
+        properties:
+          "#address-cells":
+            const: 1
+
+          "#size-cells":
+            const: 0
+
+          reg:
+            maxItems: 1
+
+          maxim,pin_config:
+            $ref: /schemas/types.yaml#/definitions/uint32-array
+            description: GPIO pin configuration
+            items:
+              - description: Pin direction (0 - output, 1 - input)
+              - description: Pull resistor type (0 - no pull resistor, 1 - pull-up, 2 - pull-down)
+              - description: Pull strength (0 - 40Kohm, 1 - 1Mohm)
+
+          endpoint:
+            $ref: /schemas/graph.yaml#/properties/endpoint
+            description: |
+              Serializer GPIO pin that the local pin is linked to. If missing, the GPIO is just
+              a local driven GPIO.
+
+        additionalProperties: false
+
+        required:
+          - "#address-cells"
+          - "#size-cells"
+          - reg
+          - maxim,pin_config
+
+    required:
+      - "#address-cells"
+      - "#size-cells"
+
+    additionalProperties: false
+
+  i2c-gate:
+    description: |
+      The deserializer can cut-off the local I2C bus to avoid address collision in dual-display
+      configurations when a serializer connects to 2 deserializers which have the same peripherals
+      connected on the same I2C bus.
+    $ref: /schemas/i2c/i2c-gate.yaml#
+    unevaluatedProperties: false
+
+  max96752_lvds_bridge:
+    description: The LVDS video bridge.
+    type: object
+    $ref: /schemas/display/bridge/maxim,max96752-lvds-bridge.yaml
+    unevaluatedProperties: false
+
+required:
+  - compatible
+  - '#address-cells'
+  - '#size-cells'
+  - i2c-gate
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c-mux {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      i2c@0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        reg = <0>;
+
+        max96752: mipi_dsi_deserializer@48 {
+
+          #address-cells = <1>;
+          #size-cells = <0>;
+
+          compatible = "maxim,max96752";
+          reg = <0x48>, <0x49>;
+
+          maxim,gmsl2-link-speed = <6>;
+          maxim,gmsl2-dual-link;
+
+          max96752_lvds_bridge {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            compatible = "maxim,max96752-lvds";
+
+            port {
+              #address-cells = <1>;
+              #size-cells = <0>;
+
+              max96752_video_in: endpoint@0 {
+                reg = <0>;
+                remote-endpoint = <&max96789_video_out>;
+              };
+
+              max96752_lvds_a_out: endpoint@1 {
+                reg = <1>;
+                remote-endpoint = <&it6263_in>;
+              };
+            };
+          };
+
+          i2c-gate {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            lvds-to-hdmi-bridge@4c {
+              compatible = "ite,it6263";
+              reg = <0x4c>;
+
+              port {
+                it6263_in: endpoint {
+                  remote-endpoint = <&max96752_lvds_a_out>;
+                };
+              };
+            };
+          };
+        };
+      };
+    };
