@@ -156,9 +156,18 @@
 		regulator-always-on;
 	};
 
+	reg_usdhc2_vmmc: regulator-usdhc2 {
+		compatible = "regulator-fixed";
+		regulator-name = "WLAN_EN";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6408 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
 	usdhc2_pwrseq: usdhc2_pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&pcal6408 2 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&pcal6408 0 GPIO_ACTIVE_LOW>;
 	};
 
 	bt_sco_codec: bt_sco_codec {
@@ -471,6 +480,7 @@
 	pinctrl-2 = <&pinctrl_usdhc2_pte>;
 	pinctrl-3 = <&pinctrl_usdhc2_pte>;
 	mmc-pwrseq = <&usdhc2_pwrseq>;
+	vmmc-supply = <&reg_usdhc2_vmmc>;
 	max-frequency = <100000000>;
 	bus-width = <4>;
 	keep-power-in-suspend;
