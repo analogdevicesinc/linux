@@ -189,6 +189,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply IIO_GEN_MUX
 	imply AD74115
 	imply AD74413R
+	imply AD74416H
 	imply ADI_IIO_FAKEDEV
 	imply LTC2688
 	imply MAX11410
