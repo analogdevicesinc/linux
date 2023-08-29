@@ -815,6 +815,7 @@ t_Handle FM_PCD_Config(t_FmPcdParams *p_FmPcdParams)
         return NULL;
     }
     memset(p_FmPcd->p_FmPcdDriverParam, 0, sizeof(t_FmPcdDriverParam));
+	memset(&physicalMuramBase, 0, sizeof(physicalMuramBase));
 
     p_FmPcd->h_Fm = p_FmPcdParams->h_Fm;
     p_FmPcd->guestId = FmGetGuestId(p_FmPcd->h_Fm);
