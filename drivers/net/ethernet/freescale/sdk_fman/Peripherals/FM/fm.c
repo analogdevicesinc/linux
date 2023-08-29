@@ -3386,14 +3386,16 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
     p_Fm->independentMode                       = FALSE;
 
     p_Fm->h_Spinlock = XX_InitSpinlock();
-    if (!p_Fm->h_Spinlock)
-    {
-        XX_Free(p_Fm->p_FmDriverParam);
-        XX_Free(p_Fm->p_FmStateStruct);
-        XX_Free(p_Fm);
-        REPORT_ERROR(MAJOR, E_INVALID_STATE, ("can't allocate spinlock!"));
-        return NULL;
-    }
+	if (!p_Fm->h_Spinlock) {
+#if (DPAA_VERSION >= 11)
+		XX_Free(p_Fm->p_FmSp);
+#endif /* (DPAA_VERSION >= 11) */
+		XX_Free(p_Fm->p_FmDriverParam);
+		XX_Free(p_Fm->p_FmStateStruct);
+		XX_Free(p_Fm);
+		REPORT_ERROR(MAJOR, E_INVALID_STATE, ("can't allocate spinlock!"));
+		return NULL;
+	}
 
 #if (DPAA_VERSION >= 11)
     p_Fm->partVSPBase   = p_FmParam->partVSPBase;
@@ -3425,6 +3427,9 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
         if (!p_Fm->firmware.p_Code)
         {
             XX_FreeSpinlock(p_Fm->h_Spinlock);
+#if (DPAA_VERSION >= 11)
+			XX_Free(p_Fm->p_FmSp);
+#endif /* (DPAA_VERSION >= 11) */
             XX_Free(p_Fm->p_FmStateStruct);
             XX_Free(p_Fm->p_FmDriverParam);
             XX_Free(p_Fm);
