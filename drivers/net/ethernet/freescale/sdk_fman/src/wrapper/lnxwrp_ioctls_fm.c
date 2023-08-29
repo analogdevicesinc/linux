@@ -2068,8 +2068,7 @@ invalid_port_id:
             XX_Free(param);
             break;
         }
-        
-        
+
 #if defined(CONFIG_COMPAT)
         case FM_PCD_IOC_MATCH_TABLE_GET_KEY_STAT_COMPAT:
 #endif
@@ -2108,11 +2107,10 @@ invalid_port_id:
                     RETURN_ERROR(MINOR, E_WRITE_FAILED, NO_MSG);
             }
 
-  
             err = FM_PCD_MatchTableGetKeyStatistics((t_Handle) param.id,
                                                      param.key_index,
                                                      (t_FmPcdCcKeyStatistics *) &param.statistics);
-         
+
 #if defined(CONFIG_COMPAT)
             if (compat)
             {
@@ -2184,10 +2182,9 @@ invalid_port_id:
                     RETURN_ERROR(MINOR, E_WRITE_FAILED, NO_MSG);
             }
 
-  
             err = FM_PCD_MatchTableGetMissStatistics((t_Handle) param.id,
                                                      (t_FmPcdCcKeyStatistics *) &param.statistics);
-         
+
 #if defined(CONFIG_COMPAT)
             if (compat)
             {
@@ -2219,7 +2216,7 @@ invalid_port_id:
 
             break;
         }
-        
+
 
 #if defined(CONFIG_COMPAT)
         case FM_PCD_IOC_HASH_TABLE_GET_MISS_STAT_COMPAT:
@@ -2259,10 +2256,9 @@ invalid_port_id:
                     RETURN_ERROR(MINOR, E_WRITE_FAILED, NO_MSG);
             }
 
-  
             err = FM_PCD_HashTableGetMissStatistics((t_Handle) param.id,
                                                      (t_FmPcdCcKeyStatistics *) &param.statistics);
-         
+
 #if defined(CONFIG_COMPAT)
             if (compat)
             {
@@ -2294,7 +2290,7 @@ invalid_port_id:
 
             break;
         }
-      
+
 #if defined(CONFIG_COMPAT)
         case FM_PCD_IOC_HASH_TABLE_SET_COMPAT:
 #endif
@@ -2384,10 +2380,12 @@ invalid_port_id:
             else
 #endif
             {
-                if (copy_to_user((ioc_fm_pcd_hash_table_params_t *)arg,
-                            param,
-                            sizeof(ioc_fm_pcd_hash_table_params_t)))
-                    err = E_READ_FAILED;
+			if (copy_to_user((ioc_fm_pcd_hash_table_params_t *)arg,
+					 param,
+					 sizeof(ioc_fm_pcd_hash_table_params_t))) {
+				FM_PCD_HashTableDelete(param->id);
+				err = E_READ_FAILED;
+			}
             }
 
             XX_Free(param);
