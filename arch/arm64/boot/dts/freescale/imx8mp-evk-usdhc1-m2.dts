@@ -6,13 +6,38 @@
 #include "imx8mp-evk.dts"
 
 / {
+	reg_usdhc1_vmmc: regulator-usdhc1 {
+		compatible = "regulator-fixed";
+		regulator-name = "WLAN_EN";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_reg_usdhc1_vmmc>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio2 6 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
 	usdhc1_pwrseq: usdhc1_pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&gpio2 6 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_usdhc1_pwrseq>;
+		reset-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
 	};
 };
 
 &iomuxc {
+	pinctrl_reg_usdhc1_vmmc: regusdhc1vmmcgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SD1_DATA4__GPIO2_IO06	0x140
+		>;
+	};
+
+	pinctrl_usdhc1_pwrseq: usdhc1pwrseq {
+		fsl,pins = <
+			MX8MP_IOMUXC_SD1_RESET_B__GPIO2_IO10	0x140
+		>;
+	};
+
 	pinctrl_usdhc1: usdhc1grp {
 		fsl,pins = <
 			MX8MP_IOMUXC_SD1_CLK__USDHC1_CLK	0x190
@@ -21,7 +46,6 @@
 			MX8MP_IOMUXC_SD1_DATA1__USDHC1_DATA1	0x1d0
 			MX8MP_IOMUXC_SD1_DATA2__USDHC1_DATA2	0x1d0
 			MX8MP_IOMUXC_SD1_DATA3__USDHC1_DATA3	0x1d0
-			MX8MP_IOMUXC_SD1_DATA4__GPIO2_IO06	0x10
 		>;
 	};
 
@@ -33,7 +57,6 @@
 			MX8MP_IOMUXC_SD1_DATA1__USDHC1_DATA1	0x1d4
 			MX8MP_IOMUXC_SD1_DATA2__USDHC1_DATA2	0x1d4
 			MX8MP_IOMUXC_SD1_DATA3__USDHC1_DATA3	0x1d4
-			MX8MP_IOMUXC_SD1_DATA4__GPIO2_IO06	0x10
 		>;
 	};
 
@@ -45,7 +68,6 @@
 			MX8MP_IOMUXC_SD1_DATA1__USDHC1_DATA1	0x1d6
 			MX8MP_IOMUXC_SD1_DATA2__USDHC1_DATA2	0x1d6
 			MX8MP_IOMUXC_SD1_DATA3__USDHC1_DATA3	0x1d6
-			MX8MP_IOMUXC_SD1_DATA4__GPIO2_IO06	0x10
 		>;
 	};
 };
@@ -72,6 +94,7 @@
 	non-removable;
 	wakeup-source;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
+	vmmc-supply = <&reg_usdhc1_vmmc>;
 	fsl,sdio-async-interrupt-enabled;
 	status = "okay";
 
