@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#ifdef DESER_CH_INDEX
+#define DESER_CH_REG DESER_CH_INDEX
+#define DESER_CH_OUT_LABEL CONCAT(deser_out, DESER_CH_INDEX)
+#define DESER_CH_IN_LABEL CONCAT(deser_in, DESER_CH_INDEX)
+#define DESER_CH_OUT_REMOTE_LABEL CONCAT(csi_in, DESER_CH_INDEX)
+#define DESER_CH_IN_REMOTE_LABEL CONCAT(ser_out, DESER_CH_INDEX)
+#endif
+
+#if !defined(DESER_CH_PHY)
+#error
+#endif
+
+#if !defined(DESER_CH_PHY_NUM_LANES)
+#error
+#endif
+
+#if !defined(DESER_CH_REG)
+#error
+#endif
+
+#if !defined(DESER_CH_OUT_LABEL)
+#error
+#endif
+
+#if !defined(DESER_CH_IN_LABEL)
+#error
+#endif
+
+#if !defined(DESER_CH_OUT_REMOTE_LABEL)
+#error
+#endif
+
+#if !defined(DESER_CH_IN_REMOTE_LABEL)
+#error
+#endif
+
+#if !defined(DESER_CH_PHY_CLOCK_LANE)
+#if defined(GMSL_DESER_PHY_1_2_LANE_MODE_IN_4_LANES) && DESER_CH_PHY == 1
+#define DESER_CH_PHY_CLOCK_LANE 3
+#else
+#define DESER_CH_PHY_CLOCK_LANE 0
+#endif
+#endif
+
+channel@DESER_CH_REG {
+	reg = <DESER_CH_REG>;
+
+	maxim,phy-id = <DESER_CH_PHY>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			DESER_CH_OUT_LABEL: endpoint {
+				remote-endpoint = <&DESER_CH_OUT_REMOTE_LABEL>;
+				clock-lanes = <DESER_CH_PHY_CLOCK_LANE>;
+#if DESER_CH_PHY_NUM_LANES == 2
+				data-lanes = <1 2>;
+#elif DESER_CH_PHY_NUM_LANES == 4
+				data-lanes = <1 2 3 4>;
+#else
+#error
+#endif
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			DESER_CH_IN_LABEL: endpoint {
+				remote-endpoint = <&DESER_CH_IN_REMOTE_LABEL>;
+			};
+		};
+	};
+};
+
+#undef DESER_CH_INDEX
+#undef DESER_CH_PHY
+#undef DESER_CH_PHY_NUM_LANES
+#undef DESER_CH_PHY_CLOCK_LANE
+#undef DESER_CH_REG
+#undef DESER_CH_OUT_LABEL
+#undef DESER_CH_IN_LABEL
+#undef DESER_CH_OUT_REMOTE_LABEL
+#undef DESER_CH_IN_REMOTE_LABEL

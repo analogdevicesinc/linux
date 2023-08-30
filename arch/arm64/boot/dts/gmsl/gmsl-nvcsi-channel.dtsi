@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#ifdef NVCSI_CH_INDEX
+#define NVCSI_CH_REG NVCSI_CH_INDEX
+#define NVCSI_CH_VC_ID NVCSI_CH_INDEX
+#define NVCSI_CH_OUT_LABEL CONCAT(csi_out, NVCSI_CH_INDEX)
+#define NVCSI_CH_IN_LABEL CONCAT(csi_in, NVCSI_CH_INDEX)
+#define NVCSI_CH_OUT_REMOTE_LABEL CONCAT(vi_in, NVCSI_CH_INDEX)
+#define NVCSI_CH_IN_REMOTE_LABEL CONCAT(deser_out, NVCSI_CH_INDEX)
+#endif
+
+#if !defined(NVCSI_CH_REG)
+#error
+#endif
+
+#if !defined(NVCSI_CH_VC_ID)
+#error
+#endif
+
+#if !defined(NVCSI_CH_OUT_LABEL)
+#error
+#endif
+
+#if !defined(NVCSI_CH_IN_LABEL)
+#error
+#endif
+
+#if !defined(NVCSI_CH_OUT_REMOTE_LABEL)
+#error
+#endif
+
+#if !defined(NVCSI_CH_IN_REMOTE_LABEL)
+#error
+#endif
+
+
+channel@NVCSI_CH_REG {
+	reg = <NVCSI_CH_REG>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			NVCSI_CH_IN_LABEL: endpoint {
+				remote-endpoint = <&NVCSI_CH_IN_REMOTE_LABEL>;
+				port-index = <GMSL_TEGRA_PORT>;
+				bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			NVCSI_CH_OUT_LABEL: endpoint {
+				remote-endpoint = <&NVCSI_CH_OUT_REMOTE_LABEL>;
+			};
+		};
+	};
+};
+
+#undef NVCSI_CH_INDEX
+#undef NVCSI_CH_REG
+#undef NVCSI_CH_VC_ID
+#undef NVCSI_CH_OUT_LABEL
+#undef NVCSI_CH_IN_LABEL
+#undef NVCSI_CH_OUT_REMOTE_LABEL
+#undef NVCSI_CH_IN_REMOTE_LABEL

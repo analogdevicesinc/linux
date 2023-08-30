@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#if defined(SER_INDEX)
+#define SER_LABEL CONCAT(serializer_, SER_INDEX)
+#endif
+
+#if !defined(SER_LABEL)
+#error
+#endif
+
+#define SER_MFP0_PWDN_LABEL CONCAT(SER_LABEL, _mfp0_pwdn)
+#define SER_MFP4_RCLK_LABEL CONCAT(SER_LABEL, _mfp4_rclk)
+
+pins {
+	SER_MFP0_PWDN_LABEL: SER_MFP0_PWDN_LABEL {
+		pins = "mfp0";
+		function = "gpio";
+		bias-pull-up;
+	};
+
+	SER_MFP4_RCLK_LABEL: SER_MFP4_RCLK_LABEL {
+		pins = "mfp4";
+		function = "rclkout";
+		slew-rate = <0>;
+		maxim,rclkout-clock = <0>;
+	};
+};
+
+#undef SER_MFP0_PWDN_LABEL
+#undef SER_MFP4_RCLK_LABEL
+
+#undef SER_INDEX
+#undef SER_LABEL

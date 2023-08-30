@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#if defined(SER_INDEX)
+#define SER_LABEL CONCAT(serializer_, SER_INDEX)
+#define SER_I2C_LABEL CONCAT(SER_LABEL, _i2c_0)
+#define SER_OUT_LABEL CONCAT(ser_out, SER_INDEX)
+#define SER_IN_LABEL CONCAT(ser_in, SER_INDEX)
+#define SER_OUT_REMOTE_LABEL CONCAT(deser_in, SER_INDEX)
+#define SER_IN_REMOTE_LABEL CONCAT(cam_out, SER_INDEX)
+#endif
+
+#if !defined(SER_COMPAT)
+#error
+#endif
+
+#if !defined(SER_HEX_REG)
+#error
+#endif
+
+#if !defined(SER_NUM_LANES)
+#error
+#endif
+
+#if !defined(SER_LABEL)
+#error
+#endif
+
+#if !defined(SER_OUT_LABEL)
+#error
+#endif
+
+#if !defined(SER_IN_LABEL)
+#error
+#endif
+
+#if !defined(SER_OUT_REMOTE_LABEL)
+#error
+#endif
+
+#if !defined(SER_IN_REMOTE_LABEL)
+#error
+#endif
+
+#if !defined(SER_I2C_ADDR_POOL_0)
+#error
+#endif
+
+SER_LABEL: gmsl-serializer@SER_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	compatible = SER_COMPAT;
+	reg = <SER_HEX_REG>;
+
+	gpio-controller;
+	#gpio-cells = <2>;
+
+	i2c-alias-pool = <SER_I2C_ADDR_POOL_0>;
+
+	i2c-atr {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		SER_I2C_LABEL: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			reg = <0>;
+		};
+	};
+
+	pipe@0 {
+		reg = <0>;
+
+		maxim,stream-id = <SER_INDEX>;
+	};
+
+	channel@0 {
+		reg = <0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				SER_OUT_LABEL: endpoint {
+					remote-endpoint = <&SER_OUT_REMOTE_LABEL>;
+#if SER_NUM_LANES == 2
+				data-lanes = <1 2>;
+#elif SER_NUM_LANES == 4
+				data-lanes = <1 2 3 4>;
+#else
+#error
+#endif
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				SER_IN_LABEL: endpoint {
+					remote-endpoint = <&SER_IN_REMOTE_LABEL>;
+				};
+			};
+		};
+	};
+};
+
+#undef SER_COMPAT
+#undef SER_HEX_REG
+#undef SER_NUM_LANES
+#undef SER_INDEX
+#undef SER_LABEL
+#undef SER_OUT_LABEL
+#undef SER_IN_LABEL
+#undef SER_OUT_REMOTE_LABEL
+#undef SER_IN_REMOTE_LABEL
+#undef SER_I2C_ADDR_POOL_0
