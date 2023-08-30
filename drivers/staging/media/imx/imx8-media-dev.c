@@ -1141,8 +1141,8 @@ static int mxc_md_remove(struct platform_device *pdev)
 	if (!mxc_md)
 		return 0;
 
-	v4l2_async_nf_cleanup(&mxc_md->subdev_notifier);
 	v4l2_async_nf_unregister(&mxc_md->subdev_notifier);
+	v4l2_async_nf_cleanup(&mxc_md->subdev_notifier);
 
 	v4l2_device_unregister(&mxc_md->v4l2_dev);
 	mxc_md_unregister_entities(mxc_md);
