@@ -246,6 +246,7 @@
 			reg = <0x3108B000 0x1000>;
 			adi,sharc-min = <1>;
 			adi,sharc-max = <2>;
+			adi,enable-reboot;
 			status = "okay";
 		};
 
