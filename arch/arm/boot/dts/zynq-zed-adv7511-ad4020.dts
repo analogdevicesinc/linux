@@ -92,6 +92,8 @@
 
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
+			pwms = <&axi_pwm_gen 0 0>;
+			pwm-names = "cnv";
 
 			vref-supply = <&vref>;
 			#io-channel-cells = <1>;
