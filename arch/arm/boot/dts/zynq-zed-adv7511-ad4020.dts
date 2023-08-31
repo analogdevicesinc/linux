@@ -22,6 +22,16 @@
 		regulator-max-microvolt = <2500000>;
 		regulator-always-on;
 	};
+
+	clocks {
+		cnv_ext_clk: ext-clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "cnv_ext_clk";
+		};
+	};
+
 };
 
 &fpga_axi {
@@ -44,6 +54,14 @@
 				adi,destination-bus-type = <0>;
 			};
 		};
+	};
+
+	axi_pwm_gen: axi-pwm-gen@ {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44b00000 0x1000>;
+		label = "cnv";
+		#pwm-cells = <2>;
+		clocks = <&cnv_ext_clk>;
 	};
 
 	axi_spi_engine_0: spi@44a00000 {
