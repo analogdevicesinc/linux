@@ -1279,6 +1279,13 @@ enet_fec_probe(struct platform_device *pdev)
 	bool reset_again;
 	int ret = 0;
 
+	/* Checking UIO framework is initialized or not */
+	ret = uio_register_device(NULL, NULL);
+	if (ret == -EPROBE_DEFER) {
+		pr_info("UIO is not initialized, enetfec probe deferred");
+		return ret;
+	}
+
 	/* Init network device */
 	ndev = alloc_etherdev_mq(sizeof(struct fec_enet_private) +
 			FEC_PRIV_SIZE, FEC_MAX_Q);
@@ -1485,7 +1492,7 @@ fec_enet_uio_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "FEC port probe FAILED %d\n", ret);
 	}
 
-	return 0;
+	return ret;
 }
 
 
