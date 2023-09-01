@@ -51,12 +51,14 @@
 	pinctrl-0 = <&pinctrl_fec2_rmii>;
 	clocks = <&enet1_lpcg 4>,
 		 <&enet1_lpcg 2>,
-		 <&clk IMX_SC_R_ENET_0 IMX_SC_C_DISABLE_50>,
+		 <&clk IMX_SC_R_ENET_1 IMX_SC_C_DISABLE_50>,
 		 <&enet1_lpcg 0>,
 		 <&enet1_lpcg 1>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy2>;
 	/delete-property/ phy-supply;
+	/delete-property/ rx-internal-delay-ps;
+	/delete-property/ tx-internal-delay-ps;
 };
 
 &iomuxc {
