@@ -970,6 +970,114 @@
 			};
 		};
 
+		eccmgr {
+			compatible = "altr,socfpga-a10-ecc-manager";
+			altr,sysmgr-syscon = <&sysmgr>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 95 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 120 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "global_sbe", "io96b0" , "io96b1",
+					  "sdm_qspi_sbe", "sdm_qspi_dbe", "sdm_seu";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			ranges;
+
+			ocram-ecc@108cc000 {
+				compatible = "altr,socfpga-a10-ocram-ecc";
+				reg = <0x108cc000 0x100>;
+				interrupts = <1 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			usb0-ecc@108c4000 {
+				compatible = "altr,socfpga-usb-ecc";
+				reg = <0x108c4000 0x100>;
+				altr,ecc-parent = <&usb0>;
+				interrupts = <2 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			tsn0-rx-ecc@108c0000 {
+				compatible = "altr,socfpga-eth-mac-ecc";
+				reg = <0x108c0000 0x100>;
+				altr,ecc-parent = <&gmac0>;
+				interrupts = <4 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			tsn0-tx-ecc@108c0400 {
+				compatible = "altr,socfpga-eth-mac-ecc";
+				reg = <0x108c0400 0x100>;
+				altr,ecc-parent = <&gmac0>;
+				interrupts = <5 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			tsn1-rx-ecc@108c0800 {
+				compatible = "altr,socfpga-eth-mac-ecc";
+				reg = <0x108c0800 0x100>;
+				altr,ecc-parent = <&gmac1>;
+				interrupts = <6 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			tsn1-tx-ecc@108c0C00 {
+				compatible = "altr,socfpga-eth-mac-ecc";
+				reg = <0x108c0C00 0x100>;
+				altr,ecc-parent = <&gmac1>;
+				interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			tsn2-rx-ecc@108c1000 {
+				compatible = "altr,socfpga-eth-mac-ecc";
+				reg = <0x108c1000 0x100>;
+				altr,ecc-parent = <&gmac2>;
+				interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			tsn2-tx-ecc@108c1400 {
+				compatible = "altr,socfpga-eth-mac-ecc";
+				reg = <0x108c1400 0x100>;
+				altr,ecc-parent = <&gmac2>;
+				interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			usb31-ram0-ecc@108c4C00 {
+				compatible = "altr,socfpga-usb-ecc";
+				reg = <0x108c4C00 0x100>;
+				altr,ecc-parent = <&usb31>;
+				interrupts = <3 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			usb31-ram1-ecc@108c4800 {
+				compatible = "altr,socfpga-usb-ecc";
+				reg = <0x108c4800 0x100>;
+				altr,ecc-parent = <&usb31>;
+				interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			usb31-ram2-ecc@108c4400 {
+				compatible = "altr,socfpga-usb-ecc";
+				reg = <0x108c4400 0x100>;
+				altr,ecc-parent = <&usb31>;
+				interrupts = <12 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			io96b0-ecc {
+				compatible = "altr,socfpga-io96b-ecc";
+				reg = <0x18400000 0x1000>;
+				interrupts = <95 IRQ_TYPE_EDGE_RISING>;
+				status = "disabled";
+			};
+
+			io96b1-ecc {
+				compatible = "altr,socfpga-io96b-ecc";
+				reg = <0x18800000 0x1000>;
+				interrupts = <120 IRQ_TYPE_EDGE_RISING>;
+				status = "disabled";
+			};
+		};
+
 		watchdog0: watchdog@10d00200 {
 			compatible = "snps,dw-wdt";
 			reg = <0x10d00200 0x100>;
