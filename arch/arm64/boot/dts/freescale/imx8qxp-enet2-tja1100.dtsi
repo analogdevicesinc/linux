@@ -25,7 +25,12 @@
 		 <&enet1_lpcg 1>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy2>;
+	phy-reset-gpios = <&pca9557_a 3 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <20>;
+	phy-reset-post-delay = <100>;
 	/delete-property/ phy-supply;
+	/delete-property/ rx-internal-delay-ps;
+	/delete-property/ tx-internal-delay-ps;
 
 	mdio {
 		#address-cells = <1>;
