@@ -1105,26 +1105,30 @@ static int mxc_md_probe(struct platform_device *pdev)
 		ret = v4l2_async_nf_register(&mxc_md->subdev_notifier);
 		if (ret < 0) {
 			dev_warn(&mxc_md->pdev->dev, "Sensor register failed\n");
-			return ret;
+			goto clean_ents;
 		}
 
 		if (!mxc_md->link_status) {
 			if (mxc_md->valid_num_sensors > 0) {
 				ret = subdev_notifier_complete(&mxc_md->subdev_notifier);
 				if (ret < 0)
-					goto clean_ents;
+					goto err_register_nf;
 
 				mxc_md_clean_unlink_channels(mxc_md);
 			} else {
 				/* no sensors connected */
 				mxc_md_unregister_all(mxc_md);
 				v4l2_async_nf_unregister(&mxc_md->subdev_notifier);
+				v4l2_async_nf_cleanup(&mxc_md->subdev_notifier);
 			}
 		}
 	}
 
 	return 0;
 
+err_register_nf:
+	v4l2_async_nf_unregister(&mxc_md->subdev_notifier);
+	v4l2_async_nf_cleanup(&mxc_md->subdev_notifier);
 clean_ents:
 	mxc_md_unregister_entities(mxc_md);
 clean_v4l2:
